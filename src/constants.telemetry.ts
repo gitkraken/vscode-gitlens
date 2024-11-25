@@ -3,11 +3,13 @@ import type { WalkthroughSteps } from './constants';
 import type { AIModels, AIProviders } from './constants.ai';
 import type { Commands } from './constants.commands';
 import type { IntegrationId, SupportedCloudIntegrationIds } from './constants.integrations';
-import type { SubscriptionState } from './constants.subscription';
+import type { SubscriptionState, SubscriptionStateString } from './constants.subscription';
 import type { CustomEditorTypes, TreeViewTypes, WebviewTypes, WebviewViewTypes } from './constants.views';
-import type { FeaturePreviews } from './features';
+import type { FeaturePreviews, FeaturePreviewStatus } from './features';
 import type { GitContributionTiers } from './git/models/contributor';
+import type { Subscription, SubscriptionAccount } from './plus/gk/account/subscription';
 import type { StartWorkType } from './plus/startWork/startWork';
+import type { GraphColumnConfig } from './plus/webviews/graph/protocol';
 import type { Period } from './plus/webviews/timeline/protocol';
 import type { Flatten } from './system/object';
 import type { WalkthroughContextKeys } from './telemetry/walkthroughStateProvider';
@@ -36,7 +38,7 @@ export type TelemetryGlobalContext = {
 	'repositories.schemes': string;
 	'repositories.visibility': 'private' | 'public' | 'local' | 'mixed';
 	'workspace.isTrusted': boolean;
-} & SubscriptionEventData;
+} & SubscriptionEventData<false>;
 
 export type TelemetryEvents = {
 	/** Sent when account validation fails */
@@ -192,7 +194,13 @@ export type TelemetryEvents = {
 		'branchesVisibility.new': GraphBranchesVisibility;
 	} & GraphContextEventData;
 	/** Sent when the user changes the columns on the Commit Graph */
-	'graph/columns/changed': Record<`column.${string}`, boolean | string | number> & GraphContextEventData;
+	'graph/columns/changed': {
+		[K in `column.${string}.${keyof GraphColumnConfig}`]: K extends `column.${string}.${infer P}`
+			? P extends keyof GraphColumnConfig
+				? GraphColumnConfig[P]
+				: never
+			: never;
+	} & GraphContextEventData; // Record<`column.${string}`, boolean | string | number> & GraphContextEventData;
 	/** Sent when the user changes the filters on the Commit Graph */
 	'graph/filters/changed': { key: string; value: boolean } & GraphContextEventData;
 	/** Sent when the user selects (clicks on) a day on the minimap on the Commit Graph */
@@ -406,7 +414,7 @@ export type TelemetryEvents = {
 	};
 
 	/** Sent when the subscription is loaded */
-	subscription: SubscriptionEventData;
+	subscription: SubscriptionEventData<false>;
 
 	/** Sent when the user takes an action on the subscription */
 	'subscription/action':
@@ -563,8 +571,7 @@ type GraphContextEventData = {} & WebviewTelemetryContext &
 	}>;
 type GraphShownEventData = GraphContextEventData &
 	FlattenedContextConfig<GraphConfig> &
-	Partial<Record<`context.column.${string}.visible`, boolean>> &
-	Partial<Record<`context.column.${string}.mode`, string>>;
+	Partial<Record<`context.column.${string}.visible`, boolean> & Record<`context.column.${string}.mode`, string>>;
 
 export type GraphTelemetryContext = GraphContextEventData;
 export type GraphShownTelemetryContext = GraphShownEventData;
@@ -614,8 +621,9 @@ type RepositoryEventData = {
 	'repository.provider.id': string;
 };
 
-type SubscriptionEventData = {
+export type SubscriptionEventData<Previous extends boolean = true> = {
 	'subscription.state'?: SubscriptionState;
+	'subscription.stateString'?: SubscriptionStateString;
 	'subscription.status'?:
 		| 'verification'
 		| 'free'
@@ -626,14 +634,25 @@ type SubscriptionEventData = {
 		| 'trial-reactivation-eligible'
 		| 'paid'
 		| 'unknown';
-} & Partial<
-	Record<`account.${string}`, string | number | boolean | undefined> &
-		Record<`subscription.${string}`, string | number | boolean | undefined> &
-		Record<`subscription.previewTrial.${string}`, string | number | boolean | undefined> &
-		Record<`previous.account.${string}`, string | number | boolean | undefined> &
-		Record<`previous.subscription.${string}`, string | number | boolean | undefined> &
-		Record<`previous.subscription.previewTrial.${string}`, string | number | boolean | undefined>
->;
+} & Partial<SubscriptionCurrentEventData & (Previous extends true ? SubscriptionPreviousEventData : object)>;
+
+export type SubscriptionCurrentEventData = Flatten<Omit<SubscriptionAccount, 'name' | 'email'>, 'account', true> &
+	Omit<
+		Flatten<Subscription['plan'], 'subscription', true>,
+		'subscription.actual.name' | 'subscription.effective.name'
+	> &
+	Flatten<Subscription['previewTrial'], 'subscription.previewTrial', true> &
+	SubscriptionFeaturePreviewsEventData;
+export type SubscriptionPreviousEventData = Flatten<
+	Omit<SubscriptionAccount, 'name' | 'email'>,
+	'previous.account',
+	true
+> &
+	Omit<
+		Flatten<Subscription['plan'], 'previous.subscription', true>,
+		'previous.subscription.actual.name' | 'previous.subscription.effective.name'
+	> &
+	Flatten<Subscription['previewTrial'], 'previous.subscription.previewTrial', true>;
 
 type WebviewEventData = {
 	'context.webview.id': string;
@@ -729,9 +748,22 @@ export type TrackedUsageFeatures =
 	| `${CustomEditorTypes}Editor`;
 export type TrackedUsageKeys = `${TrackedUsageFeatures}:shown` | CommandExecutionTrackedFeatures | WalkthroughUsageKeys;
 
-export type FeaturePreviewActionsDayEventData = Record<`day.${number}.startedOn`, string>;
+export type FeaturePreviewDayEventData = Record<`day.${number}.startedOn`, string>;
+export type FeaturePreviewEventData = {
+	feature: FeaturePreviews;
+	status: FeaturePreviewStatus;
+	day?: number;
+	startedOn?: string;
+} & FeaturePreviewDayEventData;
 export type FeaturePreviewActionEventData = {
 	action: `start-preview-trial:${FeaturePreviews}`;
-	startedOn: string;
-	day: number;
-} & FeaturePreviewActionsDayEventData;
+} & FeaturePreviewEventData;
+
+export type SubscriptionFeaturePreviewsEventData = {
+	[F in FeaturePreviews]: {
+		[K in Exclude<
+			keyof FeaturePreviewEventData,
+			'feature'
+		> as `subscription.featurePreviews.${F}.${K}`]: NonNullable<FeaturePreviewEventData[K]>;
+	};
+}[FeaturePreviews];

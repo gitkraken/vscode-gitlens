@@ -35,19 +35,17 @@ import {
 } from '../../../constants.subscription';
 import type {
 	FeaturePreviewActionEventData,
-	FeaturePreviewActionsDayEventData,
+	FeaturePreviewDayEventData,
+	FeaturePreviewEventData,
 	Source,
+	SubscriptionEventData,
+	SubscriptionFeaturePreviewsEventData,
 	TrackingContext,
 } from '../../../constants.telemetry';
 import type { Container } from '../../../container';
 import { AccountValidationError, RequestsAreBlockedTemporarilyError } from '../../../errors';
 import type { FeaturePreview, FeaturePreviews } from '../../../features';
-import {
-	featurePreviews,
-	getFeaturePreviewLabel,
-	isFeaturePreviewActive,
-	isFeaturePreviewExpired,
-} from '../../../features';
+import { featurePreviews, getFeaturePreviewLabel, getFeaturePreviewStatus } from '../../../features';
 import type { RepositoriesChangeEvent } from '../../../git/gitProviderService';
 import { createFromDateDelta, fromNow } from '../../../system/date';
 import { gate } from '../../../system/decorators/gate';
@@ -378,10 +376,13 @@ export class SubscriptionService implements Disposable {
 	@gate()
 	@log()
 	async continueFeaturePreview(feature: FeaturePreviews) {
-		const featurePreview = this.getStoredFeaturePreview(feature);
+		const preview = this.getStoredFeaturePreview(feature);
+		const status = getFeaturePreviewStatus(preview);
+
 		// If the current iteration is still active, don't do anything
-		if (isFeaturePreviewActive(featurePreview)) return;
-		if (isFeaturePreviewExpired(featurePreview)) {
+		if (status === 'active') return;
+
+		if (status === 'expired') {
 			void window.showInformationMessage(
 				`Your ${proFeaturePreviewUsages}-day preview of the ${getFeaturePreviewLabel(feature)} has expired.`,
 			);
@@ -390,7 +391,7 @@ export class SubscriptionService implements Disposable {
 
 		const now = new Date();
 		const usages = [
-			...featurePreview.usages,
+			...preview.usages,
 			{
 				startedOn: now.toISOString(),
 				expiresOn: createFromDateDelta(now, {
@@ -404,17 +405,9 @@ export class SubscriptionService implements Disposable {
 		this._onDidChangeFeaturePreview.fire({ feature: feature, usages: usages });
 
 		if (this.container.telemetry.enabled) {
-			const days: FeaturePreviewActionsDayEventData = Object.fromEntries(
-				usages.map<EntriesType<FeaturePreviewActionsDayEventData>>((d, i) => [
-					`day.${i + 1}.startedOn`,
-					d.startedOn,
-				]),
-			);
 			const data: FeaturePreviewActionEventData = {
 				action: `start-preview-trial:${feature}`,
-				startedOn: usages[0].startedOn,
-				day: usages.length,
-				...days,
+				...flattenFeaturePreview({ feature: feature, usages: usages }),
 			};
 
 			this.container.telemetry.sendEvent('subscription/action', data, { source: feature });
@@ -423,6 +416,10 @@ export class SubscriptionService implements Disposable {
 
 	getFeaturePreview(feature: FeaturePreviews): FeaturePreview {
 		return this.getStoredFeaturePreview(feature);
+	}
+
+	getFeaturePreviews(): FeaturePreview[] {
+		return featurePreviews.map(f => this.getStoredFeaturePreview(f));
 	}
 
 	@debug()
@@ -1382,7 +1379,7 @@ export class SubscriptionService implements Disposable {
 		}
 
 		queueMicrotask(() => {
-			let data = flattenSubscription(subscription);
+			let data = flattenSubscription(subscription, undefined, this.getFeaturePreviews());
 			this.container.telemetry.setGlobalAttributes(data);
 
 			data = {
@@ -1676,32 +1673,43 @@ export class SubscriptionService implements Disposable {
 	}
 }
 
-type FlattenedSubscription = {
-	'subscription.state'?: SubscriptionState;
-	'subscription.status'?:
-		| 'verification'
-		| 'free'
-		| 'preview'
-		| 'preview-expired'
-		| 'trial'
-		| 'trial-expired'
-		| 'trial-reactivation-eligible'
-		| 'paid'
-		| 'unknown';
-} & Partial<
-	Record<`account.${string}`, string | number | boolean | undefined> &
-		Record<`subscription.${string}`, string | number | boolean | undefined> &
-		Record<`subscription.previewTrial.${string}`, string | number | boolean | undefined> &
-		Record<`previous.account.${string}`, string | number | boolean | undefined> &
-		Record<`previous.subscription.${string}`, string | number | boolean | undefined> &
-		Record<`previous.subscription.previewTrial.${string}`, string | number | boolean | undefined>
->;
+function flattenFeaturePreview(preview: FeaturePreview): FeaturePreviewEventData {
+	const status = getFeaturePreviewStatus(preview);
+	if (status === 'eligible') {
+		return {
+			feature: preview.feature,
+			status: status,
+		};
+	}
+
+	return {
+		feature: preview.feature,
+		status: status,
+		day: preview.usages.length,
+		startedOn: preview.usages[0].startedOn,
+		...Object.fromEntries(
+			preview.usages.map<EntriesType<FeaturePreviewDayEventData>>((d, i) => [
+				`day.${i + 1}.startedOn`,
+				d.startedOn,
+			]),
+		),
+	};
+}
 
 function flattenSubscription(
 	subscription: Optional<Subscription, 'state'> | undefined,
 	prefix?: string,
-): FlattenedSubscription {
+	featurePreviews?: FeaturePreview[] | undefined,
+): SubscriptionEventData {
 	if (subscription == null) return {};
+
+	let state = subscription.state;
+	// Normalize preview states to community since we deprecated the preview
+	if (state === SubscriptionState.ProPreview || state === SubscriptionState.ProPreviewExpired) {
+		state = SubscriptionState.Community;
+	}
+
+	const flattenedFeaturePreviews = featurePreviews != null ? flattenSubscriptionFeaturePreviews(featurePreviews) : {};
 
 	return {
 		...flatten(subscription.account, `${prefix ? `${prefix}.` : ''}account`, {
@@ -1714,9 +1722,22 @@ function flattenSubscription(
 		...flatten(subscription.previewTrial, `${prefix ? `${prefix}.` : ''}subscription.previewTrial`, {
 			skipPaths: ['actual.name', 'effective.name'],
 		}),
-		'subscription.state': subscription.state,
-		'subscription.stateString': getSubscriptionStateString(subscription.state),
+		'subscription.state': state,
+		'subscription.stateString': getSubscriptionStateString(state),
+		...flattenedFeaturePreviews,
 	};
+}
+
+function flattenSubscriptionFeaturePreviews(previews: FeaturePreview[]): SubscriptionFeaturePreviewsEventData {
+	const flattened: SubscriptionFeaturePreviewsEventData = Object.create(null);
+
+	for (const fp of previews) {
+		// Strip the `feature` property from the flattened object, since we put it in the key
+		const { feature, ...props } = flattenFeaturePreview(fp);
+		Object.assign(flattened, flatten(props, `subscription.featurePreviews.${fp.feature}`));
+	}
+
+	return flattened;
 }
 
 function getTrackingContextFromSource(source: Source | undefined): TrackingContext | undefined {

@@ -46,6 +46,8 @@ export const enum PlusFeatures {
 export type FeaturePreviews = 'graph';
 export const featurePreviews: FeaturePreviews[] = ['graph'];
 
+export type FeaturePreviewStatus = 'eligible' | 'active' | 'expired';
+
 export interface FeaturePreview {
 	feature: FeaturePreviews;
 	usages: StoredFeaturePreviewUsagePeriod[];
@@ -62,26 +64,19 @@ export function getFeaturePreviewLabel(feature: FeaturePreviews) {
 
 const hoursInMs = 3600000;
 
-export function isFeaturePreviewActive(featurePreview?: FeaturePreview) {
-	const usages = featurePreview?.usages;
-	if (usages == null || usages.length === 0) return false;
+export function getFeaturePreviewStatus(preview: FeaturePreview): FeaturePreviewStatus {
+	const usages = preview?.usages;
+	if (!usages?.length) return 'eligible';
 
 	const remainingHours = (new Date(usages[usages.length - 1].expiresOn).getTime() - new Date().getTime()) / hoursInMs;
-	return (
+
+	if (
 		usages.length <= proFeaturePreviewUsages &&
 		remainingHours > 0 &&
 		remainingHours < 24 * proFeaturePreviewUsageDurationInDays
-	);
-}
+	) {
+		return 'active';
+	}
 
-export function isFeaturePreviewExpired(featurePreview: FeaturePreview) {
-	const usages = featurePreview.usages;
-	if (usages == null || usages.length === 0) return false;
-
-	const remainingHours = (new Date(usages[usages.length - 1].expiresOn).getTime() - new Date().getTime()) / hoursInMs;
-	return (
-		usages.length > proFeaturePreviewUsages ||
-		(usages.length === proFeaturePreviewUsages && remainingHours <= 0) ||
-		remainingHours >= 24 * proFeaturePreviewUsageDurationInDays
-	);
+	return 'expired';
 }

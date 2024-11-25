@@ -9,7 +9,7 @@ import {
 } from '../../../../../constants.subscription';
 import type { Source } from '../../../../../constants.telemetry';
 import type { FeaturePreview } from '../../../../../features';
-import { isFeaturePreviewExpired } from '../../../../../features';
+import { getFeaturePreviewStatus } from '../../../../../features';
 import type { Promo } from '../../../../../plus/gk/account/promos';
 import { getApplicablePromo } from '../../../../../plus/gk/account/promos';
 import { pluralize } from '../../../../../system/string';
@@ -163,7 +163,7 @@ export class GlFeatureGatePlusState extends LitElement {
 			// 	`;
 			case SubscriptionState.Community:
 			case SubscriptionState.ProPreviewExpired:
-				if (this.featurePreview && !isFeaturePreviewExpired(this.featurePreview)) {
+				if (this.featurePreview && getFeaturePreviewStatus(this.featurePreview) !== 'expired') {
 					return html`${this.renderFeaturePreview(this.featurePreview)}`;
 				}
 
