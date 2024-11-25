@@ -571,6 +571,45 @@ export class GitLabApi implements Disposable {
 		}
 	}
 
+	@debug<GitLabApi['getPullRequest']>({ args: { 0: p => p.name, 1: '<token>' } })
+	async getPullRequest(
+		provider: Provider,
+		token: string,
+		owner: string,
+		repo: string,
+		id: number,
+		options?: {
+			baseUrl?: string;
+		},
+		cancellation?: CancellationToken,
+	): Promise<PullRequest | undefined> {
+		const scope = getLogScope();
+
+		const projectId = await this.getProjectId(provider, token, owner, repo, options?.baseUrl, cancellation);
+		if (!projectId) return undefined;
+
+		try {
+			const mr = await this.request<GitLabMergeRequestREST>(
+				provider,
+				token,
+				options?.baseUrl,
+				`v4/projects/${projectId}/merge_requests/${id}`,
+				{
+					method: 'GET',
+				},
+				cancellation,
+				scope,
+			);
+			if (mr == null) return undefined;
+
+			return fromGitLabMergeRequestREST(mr, provider, { owner: owner, repo: repo });
+		} catch (ex) {
+			if (ex instanceof RequestNotFoundError) return undefined;
+
+			throw this.handleException(ex, provider, scope);
+		}
+	}
+
 	@debug<GitLabApi['getRepositoryMetadata']>({ args: { 0: p => p.name, 1: '<token>' } })
 	async getRepositoryMetadata(
 		provider: Provider,

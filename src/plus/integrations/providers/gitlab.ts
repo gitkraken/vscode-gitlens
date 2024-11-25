@@ -163,6 +163,23 @@ abstract class GitLabIntegrationBase<
 		});
 	}
 
+	protected override async getProviderPullRequest(
+		{ accessToken }: AuthenticationSession,
+		resource: GitLabRepositoryDescriptor,
+		id: string,
+	): Promise<PullRequest | undefined> {
+		return (await this.container.gitlab)?.getPullRequest(
+			this,
+			accessToken,
+			resource.owner,
+			resource.name,
+			parseInt(id, 10),
+			{
+				baseUrl: this.apiBaseUrl,
+			},
+		);
+	}
+
 	protected override async getProviderRepositoryMetadata(
 		{ accessToken }: AuthenticationSession,
 		repo: GitLabRepositoryDescriptor,
