@@ -1,15 +1,9 @@
 import type { AttributeValue, Span, TimeInput, Tracer } from '@opentelemetry/api';
 import { SpanKind } from '@opentelemetry/api';
-// import { diag, DiagConsoleLogger } from '@opentelemetry/api';
-// import { DiagLogLevel } from '@opentelemetry/api/build/src/diag/types';
 import { OTLPTraceExporter } from '@opentelemetry/exporter-trace-otlp-http';
 import { Resource } from '@opentelemetry/resources';
-import {
-	BasicTracerProvider,
-	BatchSpanProcessor,
-	// ConsoleSpanExporter,
-	SimpleSpanProcessor,
-} from '@opentelemetry/sdk-trace-base';
+import type { SpanProcessor } from '@opentelemetry/sdk-trace-base';
+import { BasicTracerProvider, BatchSpanProcessor, SimpleSpanProcessor } from '@opentelemetry/sdk-trace-base';
 import { ATTR_SERVICE_NAME, ATTR_SERVICE_VERSION } from '@opentelemetry/semantic-conventions';
 import {
 	ATTR_DEPLOYMENT_ENVIRONMENT,
@@ -20,6 +14,11 @@ import {
 import type { HttpsProxyAgent } from 'https-proxy-agent';
 import type { TelemetryContext, TelemetryProvider } from './telemetry';
 
+enum CompressionAlgorithm {
+	NONE = 'none',
+	GZIP = 'gzip',
+}
+
 export class OpenTelemetryProvider implements TelemetryProvider {
 	private _globalAttributes: Record<string, AttributeValue> = {};
 
@@ -27,6 +26,22 @@ export class OpenTelemetryProvider implements TelemetryProvider {
 	private readonly tracer: Tracer;
 
 	constructor(context: TelemetryContext, agent?: HttpsProxyAgent, debugging?: boolean) {
+		const exporter = new OTLPTraceExporter({
+			url: debugging ? 'https://otel-dev.gitkraken.com/v1/traces' : 'https://otel.gitkraken.com/v1/traces',
+			compression: CompressionAlgorithm.GZIP,
+			httpAgentOptions: agent?.options,
+		});
+
+		const spanProcessors: SpanProcessor[] = [];
+		if (debugging) {
+			spanProcessors.push(new SimpleSpanProcessor(exporter));
+
+			// diag.setLogger(new DiagConsoleLogger(), DiagLogLevel.VERBOSE);
+			// spanProcessors.push(new SimpleSpanProcessor(new ConsoleSpanExporter()));
+		} else {
+			spanProcessors.push(new BatchSpanProcessor(exporter));
+		}
+
 		this.provider = new BasicTracerProvider({
 			resource: new Resource({
 				[ATTR_SERVICE_NAME]: 'gitlens',
@@ -44,22 +59,9 @@ export class OpenTelemetryProvider implements TelemetryProvider {
 				'vscode.remoteName': context.vscodeRemoteName,
 				'vscode.shell': context.vscodeShell,
 				'vscode.uiKind': context.vscodeUIKind,
-			}) as any,
+			}),
+			spanProcessors: spanProcessors,
 		});
-
-		// if (debugging) {
-		// 	diag.setLogger(new DiagConsoleLogger(), DiagLogLevel.VERBOSE);
-		// 	this.provider.addSpanProcessor(new SimpleSpanProcessor(new ConsoleSpanExporter()));
-		// }
-
-		const exporter = new OTLPTraceExporter({
-			url: debugging ? 'https://otel-dev.gitkraken.com/v1/traces' : 'https://otel.gitkraken.com/v1/traces',
-			compression: 'gzip' as any,
-			httpAgentOptions: agent?.options,
-		});
-		this.provider.addSpanProcessor(
-			debugging ? new SimpleSpanProcessor(exporter) : new BatchSpanProcessor(exporter),
-		);
 
 		this.tracer = this.provider.getTracer(context.extensionId);
 	}
