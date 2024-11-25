@@ -8,6 +8,7 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/) and this p
 
 ### Added
 
+- Adds new ability to search for a GitLab MR in the _Launchpad_ &mdash; closes [#3788](https://github.com/gitkraken/vscode-gitlens/issues/3788)
 - Adds action to the launchpad status on PR's on _Home_ to open the _Launchpad_ directly to the item
 
 ### Changed
