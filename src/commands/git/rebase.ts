@@ -226,7 +226,7 @@ export class RebaseGitCommand extends QuickCommand<State> {
 		const title = `${context.title} ${getReferenceLabel(state.destination, { icon: false, label: false })}`;
 		const ahead = counts != null ? counts.right : 0;
 		const behind = counts != null ? counts.left : 0;
-		if (behind === 0) {
+		if (behind === 0 && ahead === 0) {
 			const step: QuickPickStep<DirectiveQuickPickItem> = this.createConfirmStep(
 				appendReposToTitle(title, state, context),
 				[],
@@ -248,9 +248,20 @@ export class RebaseGitCommand extends QuickCommand<State> {
 			return StepResultBreak;
 		}
 
-		const step: QuickPickStep<FlagsQuickPickItem<Flags>> = this.createConfirmStep(
-			appendReposToTitle(`Confirm ${title}`, state, context),
-			[
+		const rebaseItems = [
+			createFlagsQuickPickItem<Flags>(state.flags, ['--interactive'], {
+				label: `Interactive ${this.title}`,
+				description: '--interactive',
+				detail: `Will interactively update ${getReferenceLabel(context.branch, {
+					label: false,
+				})} by applying ${pluralize('commit', ahead)} on top of ${getReferenceLabel(state.destination, {
+					label: false,
+				})}`,
+			}),
+		];
+
+		if (behind > 0) {
+			rebaseItems.unshift(
 				createFlagsQuickPickItem<Flags>(state.flags, [], {
 					label: this.title,
 					detail: `Will update ${getReferenceLabel(context.branch, {
@@ -259,16 +270,12 @@ export class RebaseGitCommand extends QuickCommand<State> {
 						label: false,
 					})}`,
 				}),
-				createFlagsQuickPickItem<Flags>(state.flags, ['--interactive'], {
-					label: `Interactive ${this.title}`,
-					description: '--interactive',
-					detail: `Will interactively update ${getReferenceLabel(context.branch, {
-						label: false,
-					})} by applying ${pluralize('commit', ahead)} on top of ${getReferenceLabel(state.destination, {
-						label: false,
-					})}`,
-				}),
-			],
+			);
+		}
+
+		const step: QuickPickStep<FlagsQuickPickItem<Flags>> = this.createConfirmStep(
+			appendReposToTitle(`Confirm ${title}`, state, context),
+			rebaseItems,
 		);
 		const selection: StepSelection<typeof step> = yield step;
 		return canPickStepContinue(step, state, selection) ? selection[0].item : StepResultBreak;
