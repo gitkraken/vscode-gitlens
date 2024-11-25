@@ -10,6 +10,10 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/) and this p
 
 - Adds the ability to get autolinks for branches using branch name [#3547](https://github.com/gitkraken/vscode-gitlens/issues/3547)
 
+### Changed
+
+- Reduces the size of the _Commit Graph_ webview bundle which reduces memory usage and improves startup time &mdash; ~29% smaller (861KB -> 1209KB)
+
 ### Fixed
 
 - Fixes [#3794](https://github.com/gitkraken/vscode-gitlens/issues/3794) - Interactive rebase on the same branch is not working
