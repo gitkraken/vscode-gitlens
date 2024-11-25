@@ -7,6 +7,7 @@ import { IpcCommand, IpcNotification, IpcRequest } from '../protocol';
 export const scope: IpcScope = 'home';
 
 export interface State extends WebviewState {
+	discovering: boolean;
 	repositories: DidChangeRepositoriesParams;
 	webroot?: string;
 	subscription: Subscription;
@@ -24,7 +25,8 @@ export interface State extends WebviewState {
 		progress: number;
 	};
 	showWalkthroughProgress?: boolean;
-	previewEnabled?: boolean;
+	previewEnabled: boolean;
+	newInstall: boolean;
 }
 
 export type OverviewRecentThreshold = 'OneDay' | 'OneWeek' | 'OneMonth';
@@ -114,6 +116,11 @@ export type GetOverviewResponse =
 			repository: {
 				name: string;
 				path: string;
+				provider?: {
+					name: string;
+					icon?: string;
+					url?: string;
+				};
 				branches: GetOverviewBranches;
 			};
 	  }
@@ -139,14 +146,32 @@ export const DismissWalkthroughSection = new IpcCommand<void>(scope, 'walkthroug
 
 export const SetOverviewFilter = new IpcCommand<OverviewFilters>(scope, 'overview/filter/set');
 
+export type OpenInGraphParams =
+	| { type: 'repo'; repoPath: string }
+	| { type: 'branch'; repoPath: string; branchId: string }
+	| undefined;
+export const OpenInGraphCommand = new IpcCommand<OpenInGraphParams>(scope, 'openInGraph');
+
 // NOTIFICATIONS
 
-export const DidCompleteDiscoveringRepositories = new IpcNotification<undefined>(
+export interface DidCompleteDiscoveringRepositoriesParams {
+	discovering: boolean;
+	repositories: DidChangeRepositoriesParams;
+}
+
+export const DidCompleteDiscoveringRepositories = new IpcNotification<DidCompleteDiscoveringRepositoriesParams>(
 	scope,
 	'repositories/didCompleteDiscovering',
 );
 
-export const DidChangePreviewEnabled = new IpcNotification<boolean>(scope, 'previewEnabled/didChange');
+export interface DidChangePreviewEnabledParams {
+	previewEnabled: boolean;
+	previewCollapsed: boolean;
+}
+export const DidChangePreviewEnabled = new IpcNotification<DidChangePreviewEnabledParams>(
+	scope,
+	'previewEnabled/didChange',
+);
 
 export const DidChangeRepositoryWip = new IpcNotification<undefined>(scope, 'repository/wip/didChange');
 

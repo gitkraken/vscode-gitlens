@@ -147,8 +147,11 @@ export async function activate(context: ExtensionContext): Promise<GitLensApi | 
 		previousVersion = localVersion;
 	}
 
-	if (previousVersion == null) {
-		void setContext('gitlens:newInstall', true);
+	// If there is no local or synced previous version, this is a new install
+	if (localVersion == null || previousVersion == null) {
+		void setContext('gitlens:install:new', true);
+	} else if (gitlensVersion !== previousVersion && compare(gitlensVersion, previousVersion) === 1) {
+		void setContext('gitlens:install:upgradedFrom', previousVersion);
 	}
 
 	let exitMessage;

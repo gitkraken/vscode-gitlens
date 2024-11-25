@@ -3,9 +3,13 @@ import type { WalkthroughSteps } from './constants';
 import type { AIModels, AIProviders } from './constants.ai';
 import type { Commands } from './constants.commands';
 import type { IntegrationId, SupportedCloudIntegrationIds } from './constants.integrations';
-import type { SubscriptionState } from './constants.subscription';
+import type { SubscriptionState, SubscriptionStateString } from './constants.subscription';
 import type { CustomEditorTypes, TreeViewTypes, WebviewTypes, WebviewViewTypes } from './constants.views';
+import type { FeaturePreviews, FeaturePreviewStatus } from './features';
 import type { GitContributionTiers } from './git/models/contributor';
+import type { Subscription, SubscriptionAccount } from './plus/gk/account/subscription';
+import type { StartWorkType } from './plus/startWork/startWork';
+import type { GraphColumnConfig } from './plus/webviews/graph/protocol';
 import type { Period } from './plus/webviews/timeline/protocol';
 import type { Flatten } from './system/object';
 import type { WalkthroughContextKeys } from './telemetry/walkthroughStateProvider';
@@ -34,7 +38,7 @@ export type TelemetryGlobalContext = {
 	'repositories.schemes': string;
 	'repositories.visibility': 'private' | 'public' | 'local' | 'mixed';
 	'workspace.isTrusted': boolean;
-} & SubscriptionEventData;
+} & SubscriptionEventData<false>;
 
 export type TelemetryEvents = {
 	/** Sent when account validation fails */
@@ -190,7 +194,13 @@ export type TelemetryEvents = {
 		'branchesVisibility.new': GraphBranchesVisibility;
 	} & GraphContextEventData;
 	/** Sent when the user changes the columns on the Commit Graph */
-	'graph/columns/changed': Record<`column.${string}`, boolean | string | number> & GraphContextEventData;
+	'graph/columns/changed': {
+		[K in `column.${string}.${keyof GraphColumnConfig}`]: K extends `column.${string}.${infer P}`
+			? P extends keyof GraphColumnConfig
+				? GraphColumnConfig[P]
+				: never
+			: never;
+	} & GraphContextEventData; // Record<`column.${string}`, boolean | string | number> & GraphContextEventData;
 	/** Sent when the user changes the filters on the Commit Graph */
 	'graph/filters/changed': { key: string; value: boolean } & GraphContextEventData;
 	/** Sent when the user selects (clicks on) a day on the minimap on the Commit Graph */
@@ -317,8 +327,30 @@ export type TelemetryEvents = {
 	'startWork/opened': StartWorkEventData & {
 		connected: boolean;
 	};
+	/** Sent when the user chooses an option to start work in the first step */
+	'startWork/type/chosen': StartWorkEventData & {
+		connected: boolean;
+		type: StartWorkType;
+	};
+	/** Sent when the user takes an action on a StartWork issue */
+	'startWork/issue/action': StartWorkEventData & {
+		action: 'soft-open';
+		connected: boolean;
+		type: StartWorkType;
+	} & Partial<Record<`item.${string}`, string | number | boolean>>;
+	/** Sent when the user chooses an issue to start work in the second step */
+	'startWork/issue/chosen': StartWorkEventData & {
+		connected: boolean;
+		type: StartWorkType;
+	} & Partial<Record<`item.${string}`, string | number | boolean>>;
 	/** Sent when the Start Work has "reloaded" (while open, e.g. user refreshed or back button) and is disconnected; use `instance` to correlate a Start Work "session" */
+	'startWork/steps/type': StartWorkEventData & {
+		connected: boolean;
+	};
 	'startWork/steps/connect': StartWorkEventData & {
+		connected: boolean;
+	};
+	'startWork/steps/issue': StartWorkEventData & {
 		connected: boolean;
 	};
 
@@ -382,7 +414,7 @@ export type TelemetryEvents = {
 	};
 
 	/** Sent when the subscription is loaded */
-	subscription: SubscriptionEventData;
+	subscription: SubscriptionEventData<false>;
 
 	/** Sent when the user takes an action on the subscription */
 	'subscription/action':
@@ -401,7 +433,8 @@ export type TelemetryEvents = {
 		| {
 				action: 'visibility';
 				visible: boolean;
-		  };
+		  }
+		| FeaturePreviewActionEventData;
 	/** Sent when the subscription changes */
 	'subscription/changed': SubscriptionEventData;
 
@@ -415,6 +448,10 @@ export type TelemetryEvents = {
 	walkthrough: {
 		step?: WalkthroughSteps;
 	};
+	/** Sent when the walkthrough is opened */
+	'walkthrough/action':
+		| { type: 'command'; name: WalkthroughActionNames; command: string }
+		| { type: 'url'; name: WalkthroughActionNames; url: string };
 	'walkthrough/completion': {
 		'context.key': WalkthroughContextKeys;
 	};
@@ -423,6 +460,26 @@ export type TelemetryEvents = {
 		`${Exclude<WebviewTypes | WebviewViewTypes, 'commitDetails' | 'graph' | 'graphDetails' | 'timeline'>}/shown`,
 		WebviewShownEventData & Record<`context.${string}`, string | number | boolean | undefined>
 	>;
+
+type WalkthroughActionNames =
+	| 'open/help-center/start-integrations'
+	| 'open/help-center/accelerate-pr-reviews'
+	| 'open/help-center/streamline-collaboration'
+	| 'open/help-center/interactive-code-history'
+	| 'open/help-center/community-vs-pro'
+	| 'open/devex-platform'
+	| 'open/drafts'
+	| 'connect/integrations'
+	| 'open/autolinks'
+	| 'open/graph'
+	| 'open/launchpad'
+	| 'create/worktree'
+	| 'open/help-center'
+	| 'plus/sign-up'
+	| 'plus/upgrade'
+	| 'plus/reactivate'
+	| 'open/walkthrough'
+	| 'open/inspect';
 
 type AIEventDataBase = {
 	'model.id': AIModels;
@@ -462,13 +519,13 @@ export type CommandEventData =
 			webview?: string;
 	  };
 
-export type StartWorkTelemetryContext = StartWorkEventDataBase;
+export type StartWorkTelemetryContext = StartWorkEventData;
 
 type StartWorkEventDataBase = {
 	instance: number;
-};
+} & Partial<{ type: StartWorkType }>;
 
-type StartWorkEventData = StartWorkEventDataBase;
+type StartWorkEventData = StartWorkEventDataBase & Partial<{ 'items.count': number }>;
 
 export type LaunchpadTelemetryContext = LaunchpadEventData;
 
@@ -514,8 +571,7 @@ type GraphContextEventData = {} & WebviewTelemetryContext &
 	}>;
 type GraphShownEventData = GraphContextEventData &
 	FlattenedContextConfig<GraphConfig> &
-	Partial<Record<`context.column.${string}.visible`, boolean>> &
-	Partial<Record<`context.column.${string}.mode`, string>>;
+	Partial<Record<`context.column.${string}.visible`, boolean> & Record<`context.column.${string}.mode`, string>>;
 
 export type GraphTelemetryContext = GraphContextEventData;
 export type GraphShownTelemetryContext = GraphShownEventData;
@@ -565,8 +621,9 @@ type RepositoryEventData = {
 	'repository.provider.id': string;
 };
 
-type SubscriptionEventData = {
+export type SubscriptionEventData<Previous extends boolean = true> = {
 	'subscription.state'?: SubscriptionState;
+	'subscription.stateString'?: SubscriptionStateString;
 	'subscription.status'?:
 		| 'verification'
 		| 'free'
@@ -577,14 +634,25 @@ type SubscriptionEventData = {
 		| 'trial-reactivation-eligible'
 		| 'paid'
 		| 'unknown';
-} & Partial<
-	Record<`account.${string}`, string | number | boolean | undefined> &
-		Record<`subscription.${string}`, string | number | boolean | undefined> &
-		Record<`subscription.previewTrial.${string}`, string | number | boolean | undefined> &
-		Record<`previous.account.${string}`, string | number | boolean | undefined> &
-		Record<`previous.subscription.${string}`, string | number | boolean | undefined> &
-		Record<`previous.subscription.previewTrial.${string}`, string | number | boolean | undefined>
->;
+} & Partial<SubscriptionCurrentEventData & (Previous extends true ? SubscriptionPreviousEventData : object)>;
+
+export type SubscriptionCurrentEventData = Flatten<Omit<SubscriptionAccount, 'name' | 'email'>, 'account', true> &
+	Omit<
+		Flatten<Subscription['plan'], 'subscription', true>,
+		'subscription.actual.name' | 'subscription.effective.name'
+	> &
+	Flatten<Subscription['previewTrial'], 'subscription.previewTrial', true> &
+	SubscriptionFeaturePreviewsEventData;
+export type SubscriptionPreviousEventData = Flatten<
+	Omit<SubscriptionAccount, 'name' | 'email'>,
+	'previous.account',
+	true
+> &
+	Omit<
+		Flatten<Subscription['plan'], 'previous.subscription', true>,
+		'previous.subscription.actual.name' | 'previous.subscription.effective.name'
+	> &
+	Flatten<Subscription['previewTrial'], 'previous.subscription.previewTrial', true>;
 
 type WebviewEventData = {
 	'context.webview.id': string;
@@ -679,3 +747,23 @@ export type TrackedUsageFeatures =
 	| `${TreeViewTypes | WebviewViewTypes}View`
 	| `${CustomEditorTypes}Editor`;
 export type TrackedUsageKeys = `${TrackedUsageFeatures}:shown` | CommandExecutionTrackedFeatures | WalkthroughUsageKeys;
+
+export type FeaturePreviewDayEventData = Record<`day.${number}.startedOn`, string>;
+export type FeaturePreviewEventData = {
+	feature: FeaturePreviews;
+	status: FeaturePreviewStatus;
+	day?: number;
+	startedOn?: string;
+} & FeaturePreviewDayEventData;
+export type FeaturePreviewActionEventData = {
+	action: `start-preview-trial:${FeaturePreviews}`;
+} & FeaturePreviewEventData;
+
+export type SubscriptionFeaturePreviewsEventData = {
+	[F in FeaturePreviews]: {
+		[K in Exclude<
+			keyof FeaturePreviewEventData,
+			'feature'
+		> as `subscription.featurePreviews.${F}.${K}`]: NonNullable<FeaturePreviewEventData[K]>;
+	};
+}[FeaturePreviews];

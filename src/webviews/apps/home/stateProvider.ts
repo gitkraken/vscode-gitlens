@@ -8,6 +8,7 @@ import {
 	DidChangeRepositories,
 	DidChangeSubscription,
 	DidChangeWalkthroughProgress,
+	DidCompleteDiscoveringRepositories,
 } from '../../home/protocol';
 import type { Disposable } from '../shared/events';
 import type { HostIpc } from '../shared/ipc';
@@ -32,6 +33,13 @@ export class HomeStateProvider implements Disposable {
 			switch (true) {
 				case DidChangeRepositories.is(msg):
 					this.state.repositories = msg.params;
+					this.state.timestamp = Date.now();
+
+					this.provider.setValue(this.state, true);
+					break;
+				case DidCompleteDiscoveringRepositories.is(msg):
+					this.state.repositories = msg.params.repositories;
+					this.state.discovering = msg.params.discovering;
 					this.state.timestamp = Date.now();
 
 					this.provider.setValue(this.state, true);
@@ -65,7 +73,8 @@ export class HomeStateProvider implements Disposable {
 					break;
 
 				case DidChangePreviewEnabled.is(msg):
-					this.state.previewEnabled = msg.params;
+					this.state.previewEnabled = msg.params.previewEnabled;
+					this.state.previewCollapsed = msg.params.previewCollapsed;
 					this.state.timestamp = Date.now();
 
 					this.provider.setValue(this.state, true);

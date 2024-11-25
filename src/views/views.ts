@@ -18,7 +18,9 @@ import type { PatchDetailsWebviewShowingArgs } from '../plus/webviews/patchDetai
 import { registerPatchDetailsWebviewView } from '../plus/webviews/patchDetails/registration';
 import type { TimelineWebviewShowingArgs } from '../plus/webviews/timeline/registration';
 import { registerTimelineWebviewView } from '../plus/webviews/timeline/registration';
+import { once } from '../system/function';
 import { first } from '../system/iterable';
+import { compare } from '../system/version';
 import { executeCommand, executeCoreCommand, registerCommand } from '../system/vscode/command';
 import { configuration } from '../system/vscode/configuration';
 import { getContext, setContext } from '../system/vscode/context';
@@ -48,6 +50,19 @@ import type { TreeViewByType, ViewsWithRepositoryFolders } from './viewBase';
 import { ViewCommands } from './viewCommands';
 import { WorkspacesView } from './workspacesView';
 import { WorktreesView } from './worktreesView';
+
+const defaultScmGroupedViews: Record<GroupableTreeViewTypes, boolean> = Object.freeze({
+	commits: true,
+	branches: true,
+	remotes: true,
+	stashes: true,
+	tags: true,
+	worktrees: true,
+	contributors: true,
+	repositories: false,
+	searchAndCompare: false,
+	launchpad: false,
+});
 
 export class Views implements Disposable {
 	private readonly _disposable: Disposable;
@@ -95,6 +110,28 @@ export class Views implements Disposable {
 			configuration.get('views.scm.grouped.default'),
 		);
 		this.updateScmGroupedViewsRegistration();
+
+		// If this is a new install, expand the GitLens view and show the home view by default
+		const newInstall = getContext('gitlens:install:new', false);
+		let showGitLensView = newInstall;
+		if (!showGitLensView) {
+			const upgradedFrom = getContext('gitlens:install:upgradedFrom');
+			if (upgradedFrom && compare(upgradedFrom, '16.0.2') === -1) {
+				showGitLensView = !container.storage.get('views:scm:grouped:welcome:dismissed', false);
+			}
+		}
+
+		if (showGitLensView) {
+			const disposable = once(container.onReady)(() => {
+				disposable?.dispose();
+				setTimeout(() => {
+					executeCoreCommand(`gitlens.views.scm.grouped.focus`, { preserveFocus: true });
+					if (newInstall) {
+						executeCoreCommand(`gitlens.views.home.focus`, { preserveFocus: true });
+					}
+				}, 0);
+			});
+		}
 	}
 
 	dispose() {
@@ -250,6 +287,10 @@ export class Views implements Disposable {
 
 				executeCommand(`gitlens.views.${this._scmGroupedView.view.type}.refresh` as Commands);
 			}),
+			registerCommand('gitlens.views.scm.grouped.detachAll', () => updateScmGroupedViewsInConfig(new Set())),
+			registerCommand('gitlens.views.scm.grouped.regroupAll', () =>
+				updateScmGroupedViewsInConfig(getGroupedViews(defaultScmGroupedViews)),
+			),
 
 			registerCommand('gitlens.views.scm.grouped.welcome.dismiss', () => {
 				this._welcomeDismissed = true;
@@ -285,29 +326,79 @@ export class Views implements Disposable {
 		];
 	}
 
-	private getScmGroupedView<T extends GroupableTreeViewTypes>(type: T): TreeViewByType[T] {
-		// eslint-disable-next-line @typescript-eslint/no-this-alias
-		const self = this;
+	private readonly _scmGroupedViewProxyCache = new Map<
+		GroupableTreeViewTypes,
+		TreeViewByType[GroupableTreeViewTypes]
+	>();
 
-		// Use a proxy to guard against the view not existing or having been disposed
+	private getScmGroupedView<T extends GroupableTreeViewTypes>(type: T): TreeViewByType[T] {
+		let proxy = this._scmGroupedViewProxyCache.get(type) as TreeViewByType[T] | undefined;
+		if (proxy != null) return proxy;
+
+		// eslint-disable-next-line @typescript-eslint/no-unsafe-function-type
+		const methodCache = new Map<string | symbol, Function | undefined>();
+
+		// Use a proxy to lazily initialize the view (guard against the view not existing or having been disposed) and cache method bindings for performance
 
 		let view: TreeViewByType[T] | undefined;
-		const proxy = new Proxy<TreeViewByType[T]>(Object.create(null) as TreeViewByType[T], {
-			get: function (_target, prop) {
-				if (view == null || view.disposed) {
-					if (self._scmGroupedView == null) {
-						// Don't bother creating the view if we are just checking visibility
-						if (prop === 'visible') return false;
+		const ensureView = () => {
+			if (view == null || view.disposed) {
+				methodCache.clear();
 
-						self.updateScmGroupedViewsRegistration(true);
-					}
-					view = self._scmGroupedView!.setView(type);
+				if (this._scmGroupedView == null) {
+					this.updateScmGroupedViewsRegistration(true);
+				}
+				view = this._scmGroupedView!.setView(type);
+				if (view == null) {
+					debugger;
+					throw new Error(`Unable to initialize view: ${type}`);
+				}
+			}
+			return view;
+		};
+
+		proxy = new Proxy<TreeViewByType[T]>(Object.create(null) as TreeViewByType[T], {
+			get: function (_, prop) {
+				// Fast path for visibility check
+				if (prop === 'visible') {
+					return view != null && !view.disposed && view.visible;
 				}
 
-				// eslint-disable-next-line @typescript-eslint/no-unsafe-return
-				return (view as any)[prop];
+				const target = ensureView();
+				const value = Reflect.get(target, prop, target);
+
+				// Fast return for non-functions
+				if (typeof value !== 'function') return value;
+
+				// Check method cache
+				let method = methodCache.get(prop);
+				if (method == null) {
+					method = value.bind(target);
+					methodCache.set(prop, method);
+				}
+				return method;
+			},
+			set: function (_target, prop, value, receiver) {
+				return Reflect.set(ensureView(), prop, value, receiver);
+			},
+			has: function (_target, prop) {
+				return Reflect.has(ensureView(), prop);
+			},
+			getOwnPropertyDescriptor: function (_target, prop) {
+				return Reflect.getOwnPropertyDescriptor(ensureView(), prop);
+			},
+			defineProperty: function (_target, prop, descriptor) {
+				return Reflect.defineProperty(ensureView(), prop, descriptor);
+			},
+			deleteProperty: function (_target, prop) {
+				return Reflect.deleteProperty(ensureView(), prop);
+			},
+			ownKeys: function (_target) {
+				return Reflect.ownKeys(ensureView());
 			},
 		});
+
+		this._scmGroupedViewProxyCache.set(type, proxy);
 		return proxy;
 	}
 
@@ -336,7 +427,7 @@ export class Views implements Disposable {
 	private async showWelcomeNotification() {
 		this._welcomeDismissed = true;
 
-		const newInstall = getContext('gitlens:newInstall', false);
+		const newInstall = getContext('gitlens:install:new', false);
 
 		const confirm: MessageItem = { title: 'OK', isCloseAffordance: true };
 		const Restore: MessageItem = { title: 'Restore Previous Locations' };
@@ -379,23 +470,9 @@ export class Views implements Disposable {
 	}
 
 	private updateScmGroupedViewsRegistration(bypassWelcomeView?: boolean) {
-		void setContext('gitlens:views:scm:grouped:welcome:dismissed', this._welcomeDismissed);
+		void setContext('gitlens:views:scm:grouped:welcome', !this._welcomeDismissed);
 
-		const groupedViews = getScmGroupedViewsFromConfig();
-
-		// If we are going from 0 to > 0, we need to force the views to refresh (since there is some VS Code bug)
-		const forceRefresh = this._scmGroupedViews?.size === 0 && groupedViews.size;
-
-		this._scmGroupedViews = groupedViews;
-
-		if (forceRefresh) {
-			void setContext('gitlens:views:scm:grouped:refresh', true).then(() =>
-				setContext('gitlens:views:scm:grouped:refresh', undefined).then(() =>
-					this.updateScmGroupedViewsRegistration(),
-				),
-			);
-			return;
-		}
+		this._scmGroupedViews = getScmGroupedViewsFromConfig();
 
 		this._scmGroupedView?.dispose();
 		this._scmGroupedView = undefined;
@@ -766,29 +843,26 @@ export class Views implements Disposable {
 	}
 }
 
-const defaultScmGroupedViews: Record<GroupableTreeViewTypes, boolean> = Object.freeze({
-	commits: true,
-	branches: true,
-	remotes: true,
-	stashes: true,
-	tags: true,
-	worktrees: true,
-	contributors: true,
-	repositories: false,
-	searchAndCompare: true,
-	launchpad: false,
-});
+function getGroupedViews(cfg: Record<GroupableTreeViewTypes, boolean>) {
+	const groupedViews = new Set<GroupableTreeViewTypes>();
+
+	for (const [key, value] of Object.entries(cfg) as [GroupableTreeViewTypes, boolean][]) {
+		if (value) {
+			groupedViews.add(key);
+		}
+		void setContext(`gitlens:views:scm:grouped:views:${key}`, value);
+	}
+
+	return groupedViews;
+}
 
 function getScmGroupedViewsFromConfig() {
-	const groupedViews = {
+	const groupedViewsCfg = {
 		...defaultScmGroupedViews,
 		...configuration.get('views.scm.grouped.views', undefined, defaultScmGroupedViews),
 	};
-	return new Set<GroupableTreeViewTypes>(
-		Object.keys(groupedViews).filter(
-			key => groupedViews[key as GroupableTreeViewTypes],
-		) as GroupableTreeViewTypes[],
-	);
+
+	return getGroupedViews(groupedViewsCfg);
 }
 
 async function updateScmGroupedViewsInConfig(groupedViews: Set<GroupableTreeViewTypes>) {

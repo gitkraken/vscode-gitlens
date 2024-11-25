@@ -2,7 +2,7 @@ import type { Disposable, TreeCheckboxChangeEvent } from 'vscode';
 import { ThemeIcon, TreeItem, TreeItemCollapsibleState } from 'vscode';
 import type { ViewShowBranchComparison } from '../../config';
 import { GlyphChars } from '../../constants';
-import type { StoredBranchComparison, StoredBranchComparisons } from '../../constants.storage';
+import type { StoredBranchComparison, StoredBranchComparisons, StoredNamedRef } from '../../constants.storage';
 import type { GitUri } from '../../git/gitUri';
 import type { GitBranch } from '../../git/models/branch';
 import { createRevisionRange, shortenRevision } from '../../git/models/reference';
@@ -73,9 +73,17 @@ export class CompareBranchNode extends SubscribeableViewNode<
 		};
 	}
 
+	get compareRef(): StoredNamedRef {
+		return { label: this.branch.name, ref: this.branch.sha! };
+	}
+
 	private _compareWith: StoredBranchComparison | undefined;
 	get compareWith(): StoredBranchComparison | undefined {
 		return this._compareWith;
+	}
+
+	get compareWithRef(): StoredNamedRef | undefined {
+		return this._compareWith != null ? { label: this._compareWith.label, ref: this._compareWith.ref } : undefined;
 	}
 
 	private _isFiltered: boolean | undefined;

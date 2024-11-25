@@ -8,6 +8,8 @@ export declare global {
 	export type Mutable<T> = { -readonly [P in keyof T]: T[P] };
 	export type PickMutable<T, K extends keyof T> = Omit<T, K> & { -readonly [P in K]: T[P] };
 
+	export type EntriesType<T> = T extends Record<infer K, infer V> ? [K, V] : never;
+
 	export type ExcludeSome<T, K extends keyof T, R> = Omit<T, K> & { [P in K]-?: Exclude<T[P], R> };
 
 	export type ExtractAll<T, U> = { [K in keyof T]: T[K] extends U ? T[K] : never };

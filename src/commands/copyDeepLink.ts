@@ -53,6 +53,12 @@ export class CopyDeepLinkCommand extends ActiveEditorCommand {
 		if (args == null) {
 			if (isCommandContextViewNodeHasCommit(context)) {
 				args = { refOrRepoPath: context.node.commit };
+			} else if (isCommandContextViewNodeHasComparison(context)) {
+				args = {
+					refOrRepoPath: context.node.uri.fsPath,
+					compareRef: context.node.compareRef,
+					compareWithRef: context.node.compareWithRef,
+				};
 			} else if (isCommandContextViewNodeHasBranch(context)) {
 				if (context.command === Commands.CopyDeepLinkToRepo) {
 					args = {
@@ -66,12 +72,6 @@ export class CopyDeepLinkCommand extends ActiveEditorCommand {
 				args = { refOrRepoPath: context.node.tag };
 			} else if (isCommandContextViewNodeHasRemote(context)) {
 				args = { refOrRepoPath: context.node.remote.repoPath, remote: context.node.remote.name };
-			} else if (isCommandContextViewNodeHasComparison(context)) {
-				args = {
-					refOrRepoPath: context.node.uri.fsPath,
-					compareRef: context.node.compareRef,
-					compareWithRef: context.node.compareWithRef,
-				};
 			} else if (isCommandContextViewNodeHasWorkspace(context)) {
 				args = { workspaceId: context.node.workspace.id };
 			}

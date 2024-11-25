@@ -6,9 +6,12 @@ import { ifDefined } from 'lit/directives/if-defined.js';
 import { when } from 'lit/directives/when.js';
 import type { GitTrackingState } from '../../../../../git/models/branch';
 import { createWebviewCommandLink } from '../../../../../system/webview';
-import type { GetOverviewBranch, State } from '../../../../home/protocol';
+import type { GetOverviewBranch, OpenInGraphParams, State } from '../../../../home/protocol';
 import { stateContext } from '../../../home/context';
-import { branchCardStyles, createCommandLink, sectionHeadingStyles } from './branch-section';
+import { ipcContext } from '../../../shared/context';
+import type { HostIpc } from '../../../shared/ipc';
+import { linkStyles } from '../../shared/components/vscode.css';
+import { branchCardStyles, createCommandLink } from './branch-section';
 import type { Overview, OverviewState } from './overviewState';
 import { overviewStateContext } from './overviewState';
 import '../../../shared/components/button';
@@ -18,6 +21,7 @@ import '../../../shared/components/card/card';
 import '../../../shared/components/commit/commit-stats';
 import '../../../shared/components/menu/menu-item';
 import '../../../shared/components/overlays/popover';
+import '../../../shared/components/overlays/tooltip';
 import '../../../shared/components/pills/tracking';
 import '../../../shared/components/rich/pr-icon';
 
@@ -26,22 +30,26 @@ export const activeWorkTagName = 'gl-active-work';
 @customElement(activeWorkTagName)
 export class GlActiveWork extends SignalWatcher(LitElement) {
 	static override styles = [
+		linkStyles,
 		branchCardStyles,
-		sectionHeadingStyles,
 		css`
+			[hidden] {
+				display: none;
+			}
 			:host {
 				display: block;
 				margin-bottom: 2.4rem;
-			}
-			.is-end {
-				margin-block-end: 0;
+				color: var(--vscode-foreground);
 			}
 			.section-heading-action {
 				--button-padding: 0.1rem 0.2rem 0;
 				margin-block: -1rem;
 			}
-			.heading-icon {
-				color: var(--color-foreground--50);
+			.section-heading-provider {
+				color: inherit;
+			}
+			.tooltip {
+				text-transform: none;
 			}
 		`,
 	];
@@ -53,6 +61,9 @@ export class GlActiveWork extends SignalWatcher(LitElement) {
 	@consume({ context: overviewStateContext })
 	private _overviewState!: OverviewState;
 
+	@consume({ context: ipcContext })
+	private _ipc!: HostIpc;
+
 	override connectedCallback() {
 		super.connectedCallback();
 
@@ -62,6 +73,10 @@ export class GlActiveWork extends SignalWatcher(LitElement) {
 	}
 
 	override render() {
+		if (this._homeState.discovering) {
+			return this.renderLoader();
+		}
+
 		if (this._homeState.repositories.openCount === 0) {
 			return nothing;
 		}
@@ -73,12 +88,18 @@ export class GlActiveWork extends SignalWatcher(LitElement) {
 		});
 	}
 
+	private renderLoader() {
+		return html`
+			<gl-section>
+				<skeleton-loader slot="heading" lines="1"></skeleton-loader>
+				<skeleton-loader lines="3"></skeleton-loader>
+			</gl-section>
+		`;
+	}
+
 	private renderPending() {
 		if (this._overviewState.state == null) {
-			return html`
-				<h3 class="section-heading"><skeleton-loader lines="1"></skeleton-loader></h3>
-				<skeleton-loader lines="3"></skeleton-loader>
-			`;
+			return this.renderLoader();
 		}
 		return this.renderComplete(this._overviewState.state, true);
 	}
@@ -89,48 +110,99 @@ export class GlActiveWork extends SignalWatcher(LitElement) {
 		if (!activeBranches) return html`<span>None</span>`;
 
 		return html`
-			<h3 class="section-heading section-heading--actions">
-				<span><code-icon icon="repo" class="heading-icon"></code-icon> ${overview!.repository.name}</span>
-				${when(
-					this._homeState.repositories.openCount > 1,
-					() =>
-						html`<span
-							><gl-button
+			<gl-section ?loading=${isFetching}>
+				<span slot="heading">${this.renderRepositoryIcon(repo.provider)} ${repo.name}</span>
+				<span slot="heading-actions"
+					><gl-button
+						aria-busy="${ifDefined(isFetching)}"
+						?disabled=${isFetching}
+						class="section-heading-action"
+						appearance="toolbar"
+						tooltip="Open in Commit Graph"
+						href=${createCommandLink('gitlens.home.openInGraph', {
+							type: 'repo',
+							repoPath: this._overviewState.state!.repository.path,
+						} satisfies OpenInGraphParams)}
+						><code-icon icon="gl-graph"></code-icon
+					></gl-button>
+					<gl-button
+						aria-busy="${ifDefined(isFetching)}"
+						?disabled=${isFetching}
+						class="section-heading-action"
+						appearance="toolbar"
+						tooltip="Fetch"
+						href=${createCommandLink('gitlens.home.fetch', undefined)}
+						><code-icon icon="gl-repo-fetch"></code-icon
+					></gl-button>
+					${when(
+						this._homeState.repositories.openCount > 1,
+						() =>
+							html`<gl-button
 								aria-busy="${ifDefined(isFetching)}"
 								?disabled=${isFetching}
 								class="section-heading-action"
 								appearance="toolbar"
 								tooltip="Change Repository"
 								@click=${(e: MouseEvent) => this.onChange(e)}
-								><code-icon icon="chevron-down"></code-icon></gl-button
-						></span>`,
-				)}
-			</h3>
-			${activeBranches.map(branch => this.renderRepoBranchCard(branch, repo.path, isFetching))}
+								><code-icon icon="chevron-down"></code-icon
+							></gl-button>`,
+					)}</span
+				>
+				${activeBranches.map(branch => this.renderRepoBranchCard(branch, repo.path, isFetching))}
+			</gl-section>
 		`;
+	}
+
+	private renderRepositoryIcon(provider?: { name: string; icon?: string; url?: string }) {
+		if (!provider) {
+			return html`<code-icon icon="repo" class="heading-icon"></code-icon>`;
+		}
+
+		let icon = 'repo';
+		if (provider.icon != null) {
+			icon = provider.icon === 'cloud' ? 'cloud' : `gl-provider-${provider.icon}`;
+		}
+
+		return html`<gl-tooltip>
+			${when(
+				provider.url != null,
+				() =>
+					html`<a href=${provider.url} class="section-heading-provider"
+						><code-icon icon=${icon} class="heading-icon"></code-icon
+					></a>`,
+				() => html`<code-icon icon=${icon} class="heading-icon"></code-icon>`,
+			)}
+			<span slot="content" class="tooltip">Open repository on ${provider.name}</span>
+		</gl-tooltip>`;
 	}
 
 	private renderRepoBranchCard(branch: GetOverviewBranch, repo: string, isFetching: boolean) {
 		const { name, pr, state, workingTreeState, upstream } = branch;
 		return html`
 			<gl-card class="branch-item" active>
-				<p class="branch-item__main">
-					<span class="branch-item__icon">
-						<code-icon icon=${branch.worktree ? 'gl-worktrees-view' : 'git-branch'}></code-icon>
-					</span>
-					<span class="branch-item__name">${name}</span>
-				</p>
-				${when(state, () => this.renderBranchStateActions(state, upstream, isFetching))}
-				${when(pr, pr => {
-					return html` <p class="branch-item__main is-end">
-						<span class="branch-item__icon">
-							<pr-icon state=${pr.state}></pr-icon>
-						</span>
-						<span class="branch-item__name">${pr.title}</span>
-						<a href=${pr.url} class="branch-item__identifier">#${pr.id}</a>
-					</p>`;
-				})}
-				${when(workingTreeState, () => this.renderStatus(workingTreeState, state))}
+				<div class="branch-item__container">
+					<div class="branch-item__section">
+						<p class="branch-item__grouping">
+							<span class="branch-item__icon">
+								<code-icon icon=${branch.worktree ? 'gl-worktrees-view' : 'git-branch'}></code-icon>
+							</span>
+							<span class="branch-item__name">${name}</span>
+						</p>
+					</div>
+					${when(state, () => this.renderBranchStateActions(state, upstream, isFetching))}
+					${when(pr, pr => {
+						return html`<div class="branch-item__section">
+							<p class="branch-item__grouping">
+								<span class="branch-item__icon">
+									<pr-icon state=${pr.state} pr-id=${pr.id}></pr-icon>
+								</span>
+								<span class="branch-item__name">${pr.title}</span>
+								<a href=${pr.url} class="branch-item__identifier">#${pr.id}</a>
+							</p>
+						</div>`;
+					})}
+					${when(workingTreeState, () => this.renderStatus(workingTreeState, state))}
+				</div>
 				${this.renderActions(branch, repo)}
 			</gl-card>
 		`;
@@ -147,7 +219,7 @@ export class GlActiveWork extends SignalWatcher(LitElement) {
 				html`<action-item
 					label="Open Pull Request Changes"
 					icon="request-changes"
-					href=${createCommandLink('gitlens.home.openPullRequestComparison', branchRefs)}
+					href=${createCommandLink('gitlens.home.openPullRequestChanges', branchRefs)}
 				></action-item>`,
 			);
 			actions.push(
@@ -157,7 +229,7 @@ export class GlActiveWork extends SignalWatcher(LitElement) {
 					href=${createCommandLink('gitlens.home.openPullRequestOnRemote', branchRefs)}
 				></action-item>`,
 			);
-		} else {
+		} else if (branch.upstream?.missing === false) {
 			actions.push(
 				html`<action-item
 					label="Create Pull Request..."
@@ -166,15 +238,6 @@ export class GlActiveWork extends SignalWatcher(LitElement) {
 				></action-item>`,
 			);
 		}
-
-		// branch actions
-		actions.push(
-			html`<action-item
-				label="Fetch"
-				icon="gl-repo-fetch"
-				href=${createCommandLink('gitlens.home.fetch', branchRefs)}
-			></action-item>`,
-		);
 
 		if (!actions.length) {
 			return nothing;
@@ -300,19 +363,8 @@ export class GlActiveWork extends SignalWatcher(LitElement) {
 			);
 		}
 
-		// if (state?.ahead || state?.behind) {
-		// 	rendered.push(
-		// 		html`<gl-tracking-pill
-		// 			colorized
-		// 			outlined
-		// 			ahead=${state.ahead}
-		// 			behind=${state.behind}
-		// 		></gl-tracking-pill>`,
-		// 	);
-		// }
-
 		if (rendered.length) {
-			return html`<p class="branch-item__details">${rendered}</p>`;
+			return html`<p class="branch-item__section branch-item__section--details">${rendered}</p>`;
 		}
 
 		return nothing;

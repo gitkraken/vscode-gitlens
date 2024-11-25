@@ -15,8 +15,11 @@ export type ContextKeys = {
 	'gitlens:gk:organization:drafts:enabled': boolean;
 	'gitlens:hasVirtualFolders': boolean;
 	'gitlens:launchpad:connect': boolean;
-	'gitlens:newInstall': boolean;
-	'gitlens:plus': SubscriptionPlanId;
+	/** Indicates that this is the first run of a new install of GitLens */
+	'gitlens:install:new': boolean;
+	/** Indicates that this is the first run after an upgrade of GitLens */
+	'gitlens:install:upgradedFrom': string;
+	'gitlens:plus': Exclude<SubscriptionPlanId, SubscriptionPlanId.Community>;
 	'gitlens:plus:disallowedRepos': string[];
 	'gitlens:plus:enabled': boolean;
 	'gitlens:plus:required': boolean;
@@ -45,13 +48,13 @@ export type ContextKeys = {
 	'gitlens:views:patchDetails:mode': 'create' | 'view';
 	'gitlens:views:pullRequest:visible': boolean;
 	'gitlens:views:repositories:autoRefresh': boolean;
-	'gitlens:views:scm:grouped:refresh': boolean;
 	'gitlens:views:scm:grouped:view': GroupableTreeViewTypes;
-	'gitlens:views:scm:grouped:welcome:dismissed': boolean;
+	'gitlens:views:scm:grouped:welcome': boolean;
 	'gitlens:vsls': boolean | 'host' | 'guest';
 	'gitlens:window:annotated': AnnotationStatus;
 } & Record<`gitlens:action:${string}`, number> &
 	Record<`gitlens:key:${Keys}`, boolean> &
+	Record<`gitlens:views:scm:grouped:views:${GroupableTreeViewTypes}`, boolean> &
 	Record<`gitlens:webview:${WebviewTypes | CustomEditorTypes}:visible`, boolean> &
 	Record<`gitlens:webviewView:${WebviewViewTypes}:visible`, boolean> &
 	Record<`gitlens:walkthroughState:${WalkthroughContextKeys}`, boolean>;

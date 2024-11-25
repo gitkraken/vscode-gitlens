@@ -1,4 +1,5 @@
 @use '../shared/styles/theme';
+@use '../shared/styles/utils';
 @import '../shared/base';
 @import '../shared/buttons';
 @import '../shared/icons';
@@ -9,7 +10,7 @@ body {
 	font-size: var(--vscode-font-size) !important;
 	line-height: 1.4;
 
-	&.vscode-light {
+	@include utils.light-theme($selectorPrefix: '&') {
 		background-color: var(--color-background--darken-05);
 	}
 }
@@ -77,7 +78,7 @@ a.secondary {
 		color: var(--color-foreground--85);
 	}
 
-	.vscode-light & {
+	@include utils.light-theme($selectorPostfix: ' &') {
 		color: var(--color-foreground--75);
 	}
 }
@@ -120,11 +121,11 @@ a.secondary {
 	grid-area: content;
 	font-size: 1.4rem;
 
-	.vscode-dark & {
+	@include utils.dark-theme($selectorPostfix: ' &') {
 		background-color: var(--color-background--lighten-05);
 	}
 
-	.vscode-light & {
+	@include utils.light-theme($selectorPostfix: ' &') {
 		background-color: var(--color-background);
 	}
 
@@ -197,7 +198,7 @@ a.secondary {
 	z-index: 1;
 	grid-column: span 1;
 
-	.vscode-light & {
+	@include utils.light-theme($selectorPostfix: ' &') {
 		background: var(--color-background--darken-05);
 	}
 }
@@ -335,17 +336,17 @@ section {
 	margin: 1em;
 	padding: 1em;
 
-	.vscode-dark & {
+	@include utils.dark-theme($selectorPostfix: ' &') {
 		background: var(--color-background--lighten-075);
 	}
 
-	.vscode-light & {
+	@include utils.light-theme($selectorPostfix: ' &') {
 		background: var(--color-background--darken-05);
 	}
 }
 
 .section--collapsible {
-	.vscode-light & {
+	@include utils.light-theme($selectorPostfix: ' &') {
 		background: var(--color-background);
 	}
 
@@ -871,7 +872,7 @@ section {
 			height: 1em;
 			padding-bottom: 4px;
 
-			.vscode-light & {
+			@include utils.light-theme($selectorPostfix: ' &') {
 				border-left-color: var(--color-link-foreground--lighten-20);
 			}
 		}

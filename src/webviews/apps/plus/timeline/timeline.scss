@@ -1,20 +1,19 @@
 @use '../../shared/styles/properties';
 @use '../../shared/styles/theme';
+@use '../../shared/styles/utils';
 
 * {
 	box-sizing: border-box;
 }
 
-.vscode-high-contrast,
-.vscode-dark {
+@include utils.dark-theme {
 	--progress-bar-color: var(--color-background--lighten-15);
 	--card-background: var(--color-background--lighten-075);
 	--card-hover-background: var(--color-background--lighten-10);
 	--popover-bg: var(--color-background--lighten-15);
 }
 
-.vscode-high-contrast-light,
-.vscode-light {
+@include utils.light-theme {
 	--progress-bar-color: var(--color-background--darken-15);
 	--card-background: var(--color-background--darken-075);
 	--card-hover-background: var(--color-background--darken-10);

@@ -16,7 +16,7 @@ export class GlAccordion extends LitElement {
 			font-family: var(--vscode-font-family);
 			font-size: var(--vscode-font-size);
 			font-weight: var(--vscode-font-weight);
-			background-color: var(--vscode-editor-background);
+			background-color: var(--gl-accordion-content-background, var(--vscode-editor-background));
 			color: var(--vscode-foreground);
 		}
 
@@ -30,7 +30,7 @@ export class GlAccordion extends LitElement {
 
 		.header {
 			padding: 8px 12px;
-			background-color: var(--vscode-sideBar-background);
+			background-color: var(--gl-accordion-header-background, var(--vscode-sideBar-background));
 			cursor: pointer;
 			user-select: none;
 			list-style: none;
@@ -67,7 +67,7 @@ export class GlAccordion extends LitElement {
 
 		.content {
 			padding: 12px;
-			background-color: var(--vscode-editor-background);
+			background-color: var(--gl-accordion-content-background, var(--vscode-editor-background));
 		}
 	`;
 

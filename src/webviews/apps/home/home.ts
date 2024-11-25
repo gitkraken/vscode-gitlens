@@ -19,7 +19,6 @@ import '../plus/home/components/active-work';
 import '../plus/home/components/launchpad';
 import '../plus/home/components/overview';
 import './components/feature-nav';
-import './components/home-nav';
 import './components/integration-banner';
 import './components/onboarding';
 import './components/preview-banner';
@@ -70,15 +69,9 @@ export class GlHomeApp extends GlApp<State> {
 			<div class="home scrollable">
 				<aside class="home__aux">
 					<gl-promo-banner></gl-promo-banner>
-					${when(
-						!this.state.previewEnabled,
-						() => html`
-							<gl-preview-banner></gl-preview-banner>
-							<gl-home-nav></gl-home-nav>
-						`,
-					)}
+					${when(!this.state.previewEnabled, () => html`<gl-preview-banner></gl-preview-banner>`)}
 				</aside>
-				<gl-repo-alerts class="home__header"></gl-repo-alerts>
+				<gl-repo-alerts class="home__alerts"></gl-repo-alerts>
 				<main class="home__main scrollable" id="main">
 					<gl-onboarding></gl-onboarding>
 					${when(

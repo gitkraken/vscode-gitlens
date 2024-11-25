@@ -1,5 +1,6 @@
+import { md5 } from '@env/crypto';
 import slug from 'slug';
-import type { QuickPick } from 'vscode';
+import type { QuickInputButton, QuickPick } from 'vscode';
 import { Uri } from 'vscode';
 import type {
 	AsyncStepResultGenerator,
@@ -17,7 +18,7 @@ import {
 	QuickCommand,
 	StepResultBreak,
 } from '../../commands/quickCommand';
-import { OpenOnGitHubQuickInputButton } from '../../commands/quickCommand.buttons';
+import { OpenOnGitHubQuickInputButton, OpenOnJiraQuickInputButton } from '../../commands/quickCommand.buttons';
 import { getSteps } from '../../commands/quickWizard.utils';
 import { proBadge } from '../../constants';
 import type { IntegrationId } from '../../constants.integrations';
@@ -28,7 +29,7 @@ import type { Issue, IssueShape, SearchedIssue } from '../../git/models/issue';
 import { getOrOpenIssueRepository } from '../../git/models/issue';
 import type { Repository } from '../../git/models/repository';
 import type { QuickPickItemOfT } from '../../quickpicks/items/common';
-import { createQuickPickItemOfT } from '../../quickpicks/items/common';
+import { createQuickPickItemOfT, createQuickPickSeparator } from '../../quickpicks/items/common';
 import type { DirectiveQuickPickItem } from '../../quickpicks/items/directive';
 import { createDirectiveQuickPickItem, Directive } from '../../quickpicks/items/directive';
 import { getScopedCounter } from '../../system/counter';
@@ -52,11 +53,15 @@ interface Context {
 
 interface State {
 	item?: StartWorkItem;
-	action?: StartWorkAction;
+	type?: StartWorkType;
 	inWorktree?: boolean;
 }
+interface StateWithType extends State {
+	type: StartWorkType;
+}
 
-export type StartWorkAction = 'start';
+export type StartWorkType = 'branch' | 'branch-worktree' | 'issue' | 'issue-worktree';
+type StartWorkTypeItem = { type: StartWorkType; inWorktree?: boolean };
 
 export interface StartWorkCommandArgs {
 	readonly command: 'startWork';
@@ -99,19 +104,42 @@ export class StartWorkCommand extends QuickCommand<State> {
 			connectedIntegrations: await this.getConnectedIntegrations(),
 		};
 
-		const opened = false;
+		let opened = false;
 		while (this.canStepsContinue(state)) {
+			const hasConnectedIntegrations = this.hasConnectedIntegrations(context);
 			context.title = this.title;
 
 			if (state.counter < 1) {
-				const result = yield* this.selectCommandStep(state);
+				if (this.container.telemetry.enabled) {
+					this.container.telemetry.sendEvent(
+						opened ? 'startWork/steps/type' : 'startWork/opened',
+						{
+							...context.telemetryContext!,
+							connected: hasConnectedIntegrations,
+						},
+						this.source,
+					);
+				}
+
+				opened = true;
+				const result = yield* this.selectTypeStep(state);
 				if (result === StepResultBreak) continue;
-				state.action = result.action;
+				state.type = result.type;
 				state.inWorktree = result.inWorktree;
+				if (this.container.telemetry.enabled) {
+					this.container.telemetry.sendEvent(
+						'startWork/type/chosen',
+						{
+							...context.telemetryContext!,
+							connected: hasConnectedIntegrations,
+							type: state.type,
+						},
+						this.source,
+					);
+				}
 			}
 
-			if (state.counter < 2 && !state.action) {
-				const hasConnectedIntegrations = [...context.connectedIntegrations.values()].some(c => c);
+			if ((state.counter < 2 && state.type === 'issue') || state.type === 'issue-worktree') {
 				if (!hasConnectedIntegrations) {
 					if (this.container.telemetry.enabled) {
 						this.container.telemetry.sendEvent(
@@ -119,10 +147,14 @@ export class StartWorkCommand extends QuickCommand<State> {
 							{
 								...context.telemetryContext!,
 								connected: false,
+								type: state.type,
 							},
 							this.source,
 						);
 					}
+
+					opened = true;
+
 					const isUsingCloudIntegrations = configuration.get('cloudIntegrations.enabled', undefined, false);
 					const result = isUsingCloudIntegrations
 						? yield* this.confirmCloudIntegrationsConnectStep(state, context)
@@ -130,70 +162,107 @@ export class StartWorkCommand extends QuickCommand<State> {
 					if (result === StepResultBreak) {
 						return result;
 					}
+					context.connectedIntegrations = await this.getConnectedIntegrations();
+					if (!this.hasConnectedIntegrations(context)) {
+						state.counter--;
+						continue;
+					}
 				}
 
-				await updateContextItems(this.container, context);
-				const result = yield* this.pickIssueStep(state, context);
+				assertsTypeStepState(state);
+				const result = yield* this.pickIssueStep(state, context, opened);
+				opened = true;
 				if (result === StepResultBreak) continue;
-				if (typeof result !== 'string') {
+				if (!isStartWorkTypeItem(result)) {
 					state.item = result;
-					state.action = 'start';
+					if (this.container.telemetry.enabled) {
+						this.container.telemetry.sendEvent(
+							'startWork/issue/chosen',
+							{
+								...context.telemetryContext!,
+								...buildItemTelemetryData(result),
+								connected: true,
+								type: state.type,
+							},
+							this.source,
+						);
+					}
 				} else {
-					state.action = result;
+					state.type = result.type;
+					state.inWorktree = result.inWorktree;
 				}
 			}
 
 			const issue = state.item?.item?.issue;
 			const repo = issue && (await this.getIssueRepositoryIfExists(issue));
 
-			if (typeof state.action === 'string') {
-				switch (state.action) {
-					case 'start': {
-						const result = yield* getSteps(
-							this.container,
-							{
-								command: 'branch',
-								state: {
-									subcommand: 'create',
-									repo: repo,
-									name: issue
-										? `${slug(issue.id, { lower: false })}-${slug(issue.title)}`
-										: undefined,
-									suggestNameOnly: true,
-									suggestRepoOnly: true,
-									flags: state.inWorktree ? ['--worktree'] : ['--switch'],
-								},
-								confirm: false,
-							},
-							this.pickedVia,
-						);
-						if (result === StepResultBreak) {
-							endSteps(state);
-						} else {
-							state.counter--;
-							state.action = undefined;
-						}
-						break;
-					}
-				}
+			const result = yield* getSteps(
+				this.container,
+				{
+					command: 'branch',
+					state: {
+						subcommand: 'create',
+						repo: repo,
+						name: issue ? `${slug(issue.id, { lower: false })}-${slug(issue.title)}` : undefined,
+						suggestNameOnly: true,
+						suggestRepoOnly: true,
+						flags: state.inWorktree ? ['--worktree'] : ['--switch'],
+					},
+					confirm: false,
+				},
+				this.pickedVia,
+			);
+			if (result === StepResultBreak) {
+				endSteps(state);
+			} else {
+				state.counter--;
 			}
 		}
 
 		return state.counter < 0 ? StepResultBreak : undefined;
 	}
 
-	private *selectCommandStep(
+	private *selectTypeStep(
 		state: StepState<State>,
-	): StepResultGenerator<{ action?: StartWorkAction; inWorktree?: boolean }> {
+	): StepResultGenerator<{ type: StartWorkType; inWorktree?: boolean }> {
 		const step = createPickStep({
-			placeholder: 'Start work by creating a new branch',
+			placeholder: 'Choose how to start work',
 			items: [
-				createQuickPickItemOfT('Create a Branch', {
-					action: 'start',
-				}),
-				createQuickPickItemOfT('Create a Branch in a Worktree', { action: 'start', inWorktree: true }),
-				createQuickPickItemOfT('Create a Branch from an Issue', {}),
-				createQuickPickItemOfT('Create a Branch from an Issue in a Worktree', { inWorktree: true }),
+				createQuickPickSeparator('Issues'),
+				createQuickPickItemOfT<StartWorkTypeItem>(
+					{
+						label: 'Create Branch from Issue...',
+						detail: 'Will create a new branch after selecting an issue',
+					},
+					{ type: 'issue' },
+				),
+				createQuickPickItemOfT<StartWorkTypeItem>(
+					{
+						label: 'Create Branch & Worktree from Issue...',
+						detail: 'Will create a new branch & worktree after selecting an issue',
+					},
+					{
+						type: 'issue-worktree',
+						inWorktree: true,
+					},
+				),
+				createQuickPickSeparator('References'),
+				createQuickPickItemOfT<StartWorkTypeItem>(
+					{ label: 'Create Branch...', detail: 'Will create a new branch after selecting a reference' },
+					{
+						type: 'branch',
+					},
+				),
+				createQuickPickItemOfT<StartWorkTypeItem>(
+					{
+						label: 'Create Branch & Worktree...',
+						detail: 'Will create a new branch & worktree after selecting a reference',
+					},
+					{
+						type: 'branch-worktree',
+						inWorktree: true,
+					},
+				),
 			],
 		});
 		const selection: StepSelection<typeof step> = yield step;
@@ -334,19 +403,23 @@ export class StartWorkCommand extends QuickCommand<State> {
 	}
 
 	private *pickIssueStep(
-		state: StepState<State>,
+		state: StepState<StateWithType>,
 		context: Context,
-	): StepResultGenerator<StartWorkItem | StartWorkAction> {
+		opened: boolean,
+	): StepResultGenerator<StartWorkItem | StartWorkTypeItem> {
 		const buildIssueItem = (i: StartWorkItem) => {
-			const buttons = i.item.issue.url ? [OpenOnGitHubQuickInputButton] : [];
+			const onWebbButton = i.item.issue.url ? getOpenOnWebQuickInputButton(i.item.issue.provider.id) : undefined;
+			const buttons = onWebbButton ? [onWebbButton] : [];
+			const hoverContent = i.item.issue.body ? `${repeatSpaces(200)}\n\n${i.item.issue.body}` : '';
 			return {
 				label:
 					i.item.issue.title.length > 60 ? `${i.item.issue.title.substring(0, 60)}...` : i.item.issue.title,
 				// description: `${i.repoAndOwner}#${i.id}, by @${i.author}`,
-				description: `\u00a0 ${i.item.issue.repository?.owner ?? ''}/${i.item.issue.repository?.repo ?? ''}#${
-					i.item.issue.id
-				} \u00a0`,
-				detail: `      ${fromNow(i.item.issue.updatedDate)} by @${i.item.issue.author.name}`,
+				description: `\u00a0 ${
+					i.item.issue.repository ? `${i.item.issue.repository.owner}/${i.item.issue.repository.repo}#` : ''
+				}${i.item.issue.id} \u00a0`,
+				// The spacing here at the beginning is used to align the description with the title. Otherwise it starts under the avatar icon:
+				detail: `      ${fromNow(i.item.issue.updatedDate)} by @${i.item.issue.author.name}${hoverContent}`,
 				iconPath: i.item.issue.author?.avatarUrl != null ? Uri.parse(i.item.issue.author.avatarUrl) : undefined,
 				item: i,
 				picked: i.item.issue.id === state.item?.item?.issue.id,
@@ -366,15 +439,15 @@ export class StartWorkCommand extends QuickCommand<State> {
 
 		function getItemsAndPlaceholder(): {
 			placeholder: string;
-			items: QuickPickItemOfT<StartWorkItem | StartWorkAction>[];
+			items: QuickPickItemOfT<StartWorkItem | StartWorkTypeItem>[];
 		} {
 			if (!context.result.items.length) {
 				return {
 					placeholder: 'No issues found. Start work anyway.',
 					items: [
-						createQuickPickItemOfT(
+						createQuickPickItemOfT<StartWorkTypeItem>(
 							state.inWorktree ? 'Create a branch on a worktree' : 'Create a branch',
-							'start',
+							{ type: state.inWorktree ? 'branch-worktree' : 'branch', inWorktree: state.inWorktree },
 						),
 					],
 				};
@@ -386,21 +459,56 @@ export class StartWorkCommand extends QuickCommand<State> {
 			};
 		}
 
-		const { items, placeholder } = getItemsAndPlaceholder();
+		const updateItems = async (quickpick: QuickPick<any>) => {
+			quickpick.busy = true;
+			try {
+				await updateContextItems(this.container, context);
+				const { items, placeholder } = getItemsAndPlaceholder();
+				quickpick.placeholder = placeholder;
+				quickpick.items = items;
 
-		const step = createPickStep<(typeof items)[0]>({
+				if (this.container.telemetry.enabled) {
+					this.container.telemetry.sendEvent(
+						opened ? 'startWork/steps/issue' : 'startWork/opened',
+						{
+							...context.telemetryContext!,
+							connected: true,
+							type: state.type,
+						},
+						this.source,
+					);
+				}
+			} catch {
+				quickpick.placeholder = 'Error retrieving issues';
+				quickpick.items = [];
+			} finally {
+				quickpick.busy = false;
+			}
+		};
+
+		const step = createPickStep<QuickPickItemOfT<StartWorkItem | StartWorkTypeItem>>({
 			title: context.title,
-			placeholder: placeholder,
+			placeholder: 'Loading...',
 			matchOnDescription: true,
 			matchOnDetail: true,
-			items: items,
+			items: [],
+			onDidActivate: updateItems,
 			onDidClickItemButton: (_quickpick, button, { item }) => {
-				if (button === OpenOnGitHubQuickInputButton && typeof item !== 'string') {
-					this.open(item);
-					return true;
+				if (isStartWorkTypeItem(item)) {
+					return false;
 				}
-				return false;
+
+				switch (button) {
+					case OpenOnGitHubQuickInputButton:
+					case OpenOnJiraQuickInputButton:
+						this.sendItemActionTelemetry('soft-open', item, state, context);
+						this.open(item);
+						return undefined;
+					default:
+						return false;
+				}
 			},
+			onDidChangeValue: () => true,
 		});
 
 		const selection: StepSelection<typeof step> = yield step;
@@ -411,16 +519,24 @@ export class StartWorkCommand extends QuickCommand<State> {
 		return typeof element.item === 'string' ? element.item : { ...element.item };
 	}
 
-	private startWork(state: PartialStepState<State>, item?: StartWorkItem) {
-		state.action = 'start';
-		if (item != null) {
-			state.item = item;
-		}
-	}
-
 	private open(item: StartWorkItem): void {
 		if (item.item.issue.url == null) return;
 		void openUrl(item.item.issue.url);
+	}
+
+	private sendItemActionTelemetry(
+		action: 'soft-open',
+		item: StartWorkItem,
+		state: StepState<StateWithType>,
+		context: Context,
+	) {
+		this.container.telemetry.sendEvent('startWork/issue/action', {
+			...context.telemetryContext!,
+			...buildItemTelemetryData(item),
+			action: action,
+			connected: true,
+			type: state.type,
+		});
 	}
 
 	private async getConnectedIntegrations(): Promise<Map<SupportedStartWorkIntegrationIds, boolean>> {
@@ -435,6 +551,10 @@ export class StartWorkCommand extends QuickCommand<State> {
 		);
 
 		return connected;
+	}
+
+	private hasConnectedIntegrations(context: Context) {
+		return [...context.connectedIntegrations.values()].some(c => c);
 	}
 }
 
@@ -451,4 +571,62 @@ async function updateContextItems(container: Container, context: Context) {
 				}),
 			) ?? [],
 	};
+	if (container.telemetry.enabled) {
+		updateTelemetryContext(context);
+	}
+}
+
+function updateTelemetryContext(context: Context) {
+	context.telemetryContext = {
+		...context.telemetryContext!,
+		'items.count': context.result.items.length,
+	};
+}
+
+function isStartWorkTypeItem(item: unknown): item is StartWorkTypeItem {
+	return item != null && typeof item === 'object' && 'type' in item;
+}
+
+function repeatSpaces(count: number) {
+	return ' '.repeat(count);
+}
+
+export function getStartWorkItemIdHash(item: StartWorkItem) {
+	return md5(item.item.issue.id);
+}
+
+function buildItemTelemetryData(item: StartWorkItem) {
+	return {
+		'item.id': getStartWorkItemIdHash(item),
+		'item.type': item.item.issue.type,
+		'item.provider': item.item.issue.provider.id,
+		'item.assignees.count': item.item.issue.assignees?.length ?? undefined,
+		'item.createdDate': item.item.issue.createdDate.getTime(),
+		'item.updatedDate': item.item.issue.updatedDate.getTime(),
+
+		'item.comments.count': item.item.issue.commentsCount ?? undefined,
+		'item.upvotes.count': item.item.issue.thumbsUpCount ?? undefined,
+
+		'item.issue.state': item.item.issue.state,
+	};
+}
+
+function getOpenOnWebQuickInputButton(integrationId: string): QuickInputButton | undefined {
+	switch (integrationId) {
+		case HostingIntegrationId.GitHub:
+			return OpenOnGitHubQuickInputButton;
+		case IssueIntegrationId.Jira:
+			return OpenOnJiraQuickInputButton;
+		default:
+			return undefined;
+	}
+}
+
+function assertsTypeStepState(state: StepState<State>): asserts state is StepState<StateWithType> {
+	if (state.type != null) {
+		return;
+	}
+
+	debugger;
+	throw new Error('Missing `item` field in state of StartWork');
 }

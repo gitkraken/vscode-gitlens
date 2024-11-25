@@ -15,6 +15,7 @@ import { AsyncComputedState } from '../../../shared/components/signal-utils';
 import { ipcContext } from '../../../shared/context';
 import type { Disposable } from '../../../shared/events';
 import type { HostIpc } from '../../../shared/ipc';
+import { linkStyles } from '../../shared/components/vscode.css';
 import '../../../shared/components/button';
 import '../../../shared/components/button-container';
 import '../../../shared/components/code-icon';
@@ -31,12 +32,12 @@ export class GlLaunchpad extends SignalWatcher(LitElement) {
 	};
 
 	static override styles = [
+		linkStyles,
 		css`
 			:host {
 				display: block;
-				font-family: var(--vscode-font-family);
-				color: var(--vscode-foreground);
 				margin-bottom: 2.4rem;
+				color: var(--vscode-foreground);
 			}
 			.summary {
 				margin-bottom: 1rem;
@@ -56,6 +57,9 @@ export class GlLaunchpad extends SignalWatcher(LitElement) {
 				align-items: center;
 				gap: 0.6rem;
 				color: inherit;
+				text-decoration: none;
+			}
+			.launchpad-action:hover {
 				text-decoration: none;
 			}
 
@@ -129,11 +133,7 @@ export class GlLaunchpad extends SignalWatcher(LitElement) {
 				<span slot="heading">GitLens Launchpad</span>
 				<div class="summary">${this.renderSummaryResult()}</div>
 				<button-container>
-					<gl-button
-						full
-						class="start-work"
-						href=${this.startWorkCommand}
-						?disabled=${this._homeState.repositories.openCount === 0}
+					<gl-button full class="start-work" href=${this.startWorkCommand}
 						><code-icon icon="custom-start-work" slot="prefix"></code-icon> Start Work</gl-button
 					>
 				</button-container>

@@ -1,3 +1,5 @@
+@use '../../shared/styles/utils';
+
 .bb {
 	svg {
 		// font-size: 12px;
@@ -14,11 +16,11 @@
 	}
 
 	path.domain {
-		.vscode-dark & {
+		@include utils.dark-theme($selectorPostfix: ' &') {
 			stroke: var(--color-background--lighten-15);
 		}
 
-		.vscode-light & {
+		@include utils.light-theme($selectorPostfix: ' &') {
 			stroke: var(--color-background--darken-15);
 		}
 	}
@@ -93,7 +95,7 @@
 		pointer-events: none;
 
 		line {
-			.vscode-dark & {
+			@include utils.dark-theme($selectorPostfix: ' &') {
 				stroke: var(--color-background--lighten-05);
 
 				&.bb-ygrid {
@@ -101,7 +103,7 @@
 				}
 			}
 
-			.vscode-light & {
+			@include utils.light-theme($selectorPostfix: ' &') {
 				stroke: var(--color-background--darken-05);
 
 				&.bb-ygrid {
@@ -126,10 +128,10 @@
 
 	.bb-xgrid-focus {
 		line {
-			.vscode-dark & {
+			@include utils.dark-theme($selectorPostfix: ' &') {
 				stroke: var(--color-background--lighten-30);
 			}
-			.vscode-light & {
+			@include utils.light-theme($selectorPostfix: ' &') {
 				stroke: var(--color-background--darken-30);
 			}
 		}
@@ -173,11 +175,11 @@
 	// .bb-selected-circle {
 	// 	stroke-width: 2px;
 
-	// 	.vscode-dark & {
+	//  @include utils.dark-theme($selectorPostfix: " &") {
 	// 		fill: rgba(255, 255, 255, 0.2);
 	// 	}
 
-	// 	.vscode-light & {
+	// 	@include utils.light-theme($selectorPostfix: " &") {
 	// 		fill: rgba(0, 0, 0, 0.1);
 	// 	}
 	// }
@@ -233,12 +235,12 @@
 
 	/*-- Zoom region --*/
 	.bb-zoom-brush {
-		.vscode-dark & {
+		@include utils.dark-theme($selectorPostfix: ' &') {
 			fill: white;
 			fill-opacity: 0.2;
 		}
 
-		.vscode-light & {
+		@include utils.light-theme($selectorPostfix: ' &') {
 			fill: black;
 			fill-opacity: 0.1;
 		}

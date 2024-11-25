@@ -983,7 +983,7 @@ export class LaunchpadProvider implements Disposable {
 			if (e.reason === 'connected') {
 				void setContext('gitlens:launchpad:connect', false);
 			} else {
-				void setContext('gitlens:launchpad:connect', await this.hasConnectedIntegration());
+				void setContext('gitlens:launchpad:connect', !(await this.hasConnectedIntegration()));
 			}
 		}
 	}

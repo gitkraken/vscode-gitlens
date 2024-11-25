@@ -29,6 +29,7 @@ import {
 	isCommandContextViewNodeHasCommit,
 	isCommandContextViewNodeHasComparison,
 	isCommandContextViewNodeHasFileCommit,
+	isCommandContextViewNodeHasFileRefs,
 } from './base';
 
 export interface CreatePatchCommandArgs {
@@ -121,6 +122,13 @@ abstract class CreatePatchCommandBase extends Command {
 						title: `Changes between ${shortenRevision(context.node.compareRef.ref)} and ${shortenRevision(
 							context.node.compareWithRef.ref,
 						)}`,
+					};
+				} else if (isCommandContextViewNodeHasFileRefs(context)) {
+					args = {
+						repoPath: context.node.repoPath,
+						to: context.node.ref2,
+						from: context.node.ref1,
+						uris: [context.node.uri],
 					};
 				}
 			}

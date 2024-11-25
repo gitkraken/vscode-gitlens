@@ -1,4 +1,5 @@
 // NOTE@eamodio This file is referenced in the webviews to we can't use anything vscode or other imports that aren't available in the webviews
+import type { SubscriptionStateString } from '../../../constants.subscription';
 import { SubscriptionPlanId, SubscriptionState } from '../../../constants.subscription';
 import { createFromDateDelta, getDateDifference } from '../../../system/date';
 import type { Organization } from './organization';
@@ -75,7 +76,7 @@ export function getSubscriptionStateName(state: SubscriptionState, planId?: Subs
 	}
 }
 
-export function getSubscriptionStateString(state: SubscriptionState | undefined): string {
+export function getSubscriptionStateString(state: SubscriptionState | undefined): SubscriptionStateString {
 	switch (state) {
 		case SubscriptionState.VerificationRequired:
 			return 'verification';
@@ -176,7 +177,7 @@ export function getSubscriptionPlan(
 export function getSubscriptionPlanName(id: SubscriptionPlanId) {
 	switch (id) {
 		case SubscriptionPlanId.CommunityWithAccount:
-			return 'GitLens Free';
+			return 'GitLens Community';
 		case SubscriptionPlanId.Pro:
 			return 'GitLens Pro';
 		case SubscriptionPlanId.Teams:

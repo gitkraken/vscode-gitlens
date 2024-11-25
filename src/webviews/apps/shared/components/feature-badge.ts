@@ -176,13 +176,11 @@ export class GlFeatureBadge extends LitElement {
 			}
 		}
 
-		return this.cloud ? html`${text}<span class="badge-icon">☁️</span>` : text;
+		return text;
 	}
 
 	private renderPopoverHeader() {
-		const text = html`<span class="popup-title"
-			>${this.preview ? 'Preview feature' : 'Pro feature'}${this.cloud ? ' ☁️' : ''}</span
-		>`;
+		const text = html`<span class="popup-title">${this.preview ? 'Preview feature' : 'Pro feature'}</span>`;
 
 		if (this.state === SubscriptionState.Paid) {
 			return html`<div class="popup-header">${text}</div>`;
@@ -192,24 +190,24 @@ export class GlFeatureBadge extends LitElement {
 			if (this.preview) {
 				return html`<div class="popup-header">
 					${text}<span class="popup-subtitle"
-						>Requires an account and may require a paid plan in the future</span
+						>Requires an account and may require GitLens Pro in the future</span
 					>
 				</div>`;
 			}
 
 			return html`<div class="popup-header">
-				${text}<span class="popup-subtitle"> Requires a paid plan</span>
+				${text}<span class="popup-subtitle"> Requires GitLens Pro</span>
 			</div>`;
 		}
 
 		if (this.preview) {
 			return html`<div class="popup-header">
-				${text}<span class="popup-subtitle">May require a paid plan in the future</span>
+				${text}<span class="popup-subtitle">May require GitLens Pro in the future</span>
 			</div>`;
 		}
 
 		return html`<div class="popup-header">
-			${text}<span class="popup-subtitle"> Requires a paid plan for use on privately-hosted repos</span>
+			${text}<span class="popup-subtitle"> Requires GitLens Pro for use on privately-hosted repos</span>
 		</div>`;
 	}
 
@@ -265,7 +263,9 @@ export class GlFeatureBadge extends LitElement {
 				content = html`<p>
 						Your Pro trial has ended. You can now only use Pro features on publicly-hosted repos.
 					</p>
-					${this.renderUpgradeActions(html`<p>Please upgrade for full access to Pro features:</p>`)}`;
+					${this.renderUpgradeActions(
+						html`<p>Please upgrade for full access to all GitLens Pro features:</p>`,
+					)}`;
 				break;
 
 			case SubscriptionState.ProTrialReactivationEligible:

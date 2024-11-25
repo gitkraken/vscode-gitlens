@@ -4,6 +4,7 @@ import type { GetOverviewResponse, OverviewFilters } from '../../../../home/prot
 import {
 	ChangeOverviewRepository,
 	DidChangeOverviewFilter,
+	DidChangeRepositories,
 	DidChangeRepositoryWip,
 	DidCompleteDiscoveringRepositories,
 	GetOverview,
@@ -34,6 +35,13 @@ export class OverviewState extends AsyncComputedState<Overview> {
 		this._disposable = this._ipc.onReceiveMessage(msg => {
 			switch (true) {
 				case DidCompleteDiscoveringRepositories.is(msg):
+					if (msg.params.repositories.openCount > 0) {
+						this.run(true);
+					}
+					break;
+				case DidChangeRepositories.is(msg):
+					this.run(true);
+					break;
 				case DidChangeRepositoryWip.is(msg):
 					this.run(true);
 					break;

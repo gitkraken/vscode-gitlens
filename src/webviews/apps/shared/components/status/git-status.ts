@@ -28,7 +28,7 @@ const statusTextMap: Record<string, string> = {
 export class GlGitStatus extends LitElement {
 	static override styles = [
 		css`
-			:host-context(.vscode-high-contrast),
+			:host-context(.vscode-high-contrast:not(.vscode-high-contrast-light)),
 			:host-context(.vscode-dark) {
 				--gl-git-status-ignored: #969696;
 				--gl-git-status-untracked: #6c6c6c;
