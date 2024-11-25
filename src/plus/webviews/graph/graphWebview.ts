@@ -25,7 +25,7 @@ import type { Container } from '../../../container';
 import { CancellationError } from '../../../errors';
 import type { CommitSelectedEvent } from '../../../eventBus';
 import type { FeaturePreview } from '../../../features';
-import { isFeaturePreviewActive, PlusFeatures } from '../../../features';
+import { getFeaturePreviewStatus, PlusFeatures } from '../../../features';
 import { executeGitCommand } from '../../../git/actions';
 import * as BranchActions from '../../../git/actions/branch';
 import {
@@ -991,9 +991,9 @@ export class GraphWebviewProvider implements WebviewProvider<State, State, Graph
 		this.updateColumns(e.config);
 
 		const sendEvent: TelemetryEvents['graph/columns/changed'] = { ...this.getTelemetryContext() };
-		for (const [key, config] of Object.entries(e.config)) {
+		for (const [name, config] of Object.entries(e.config)) {
 			for (const [prop, value] of Object.entries(config)) {
-				sendEvent[`column.${key}.${prop}`] = value;
+				sendEvent[`column.${name}.${prop as keyof GraphColumnConfig}`] = value;
 			}
 		}
 		this.container.telemetry.sendEvent('graph/columns/changed', sendEvent);
@@ -2384,7 +2384,7 @@ export class GraphWebviewProvider implements WebviewProvider<State, State, Graph
 		access: Awaited<ReturnType<GraphWebviewProvider['getGraphAccess']>>[0] | undefined,
 		featurePreview: FeaturePreview,
 	) {
-		return (access?.allowed ?? false) !== false || isFeaturePreviewActive(featurePreview);
+		return (access?.allowed ?? false) !== false || getFeaturePreviewStatus(featurePreview) === 'active';
 	}
 
 	private getGraphItemContext(context: unknown): unknown | undefined {
