@@ -8,7 +8,9 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/) and this p
 
 ### Added
 
-- Adds the ability to get autolinks for branches using branch name [#3547](https://github.com/gitkraken/vscode-gitlens/issues/3547)
+- Adds the ability to get autolinks for branches via the branch name &mdash; closes [#3547](https://github.com/gitkraken/vscode-gitlens/issues/3547)
+
+## [16.0.4] - 2024-11-25
 
 ### Changed
 
@@ -17,6 +19,13 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/) and this p
 ### Fixed
 
 - Fixes [#3794](https://github.com/gitkraken/vscode-gitlens/issues/3794) - Interactive rebase on the same branch is not working
+
+## [16.0.3] - 2024-11-22
+
+### Changed
+
+- Improves actions and workflows on the new _Home_ view
+- Improves the "Start Work" experience
 
 ## [16.0.2] - 2024-11-18
 
@@ -5789,7 +5798,9 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/) and this p
 
 - Initial release but still heavily a work in progress.
 
-[unreleased]: https://github.com/gitkraken/vscode-gitlens/compare/v16.0.2...HEAD
+[unreleased]: https://github.com/gitkraken/vscode-gitlens/compare/v16.0.4...HEAD
+[16.0.4]: https://github.com/gitkraken/vscode-gitlens/compare/v16.0.3...gitkraken:v16.0.4
+[16.0.3]: https://github.com/gitkraken/vscode-gitlens/compare/v16.0.2...gitkraken:v16.0.3
 [16.0.2]: https://github.com/gitkraken/vscode-gitlens/compare/v16.0.1...gitkraken:v16.0.2
 [16.0.1]: https://github.com/gitkraken/vscode-gitlens/compare/v16.0.0...gitkraken:v16.0.1
 [16.0.0]: https://github.com/gitkraken/vscode-gitlens/compare/v15.6.3...gitkraken:v16.0.0
