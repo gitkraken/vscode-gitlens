@@ -19,23 +19,20 @@ This project incorporates components from the projects listed below.
 14. @opentelemetry/semantic-conventions version 1.28.0 (https://github.com/open-telemetry/opentelemetry-js)
 15. @shoelace-style/shoelace version 2.18.0 (https://github.com/shoelace-style/shoelace)
 16. @vscode/codicons version 0.0.36 (https://github.com/microsoft/vscode-codicons)
-17. ansi-regex version 6.1.0 (https://github.com/chalk/ansi-regex)
-18. billboard.js version 3.14.1 (https://github.com/naver/billboard.js)
-19. https-proxy-agent version 5.0.1 (https://github.com/TooTallNate/node-https-proxy-agent)
-20. iconv-lite version 0.6.3 (https://github.com/ashtuchkin/iconv-lite)
-21. lit version 3.2.1 (https://github.com/lit/lit)
-22. marked version 15.0.2 (https://github.com/markedjs/marked)
-23. microsoft/vscode (https://github.com/microsoft/vscode)
-24. node-fetch version 2.7.0 (https://github.com/bitinn/node-fetch)
-25. os-browserify version 0.3.0 (https://github.com/CoderPuppy/os-browserify)
-26. path-browserify version 1.0.1 (https://github.com/browserify/path-browserify)
-27. react-dom version 16.8.4 (https://github.com/facebook/react)
-28. react version 16.8.4 (https://github.com/facebook/react)
-29. signal-utils version 0.20.0 (https://github.com/proposal-signals/signal-utils)
-30. sindresorhus/is-fullwidth-code-point (https://github.com/sindresorhus/is-fullwidth-code-point)
-31. sindresorhus/string-width (https://github.com/sindresorhus/string-width)
-32. slug version 10.0.0 (https://github.com/Trott/slug)
-33. sortablejs version 1.15.0 (https://github.com/SortableJS/Sortable)
+17. billboard.js version 3.14.1 (https://github.com/naver/billboard.js)
+18. https-proxy-agent version 5.0.1 (https://github.com/TooTallNate/node-https-proxy-agent)
+19. iconv-lite version 0.6.3 (https://github.com/ashtuchkin/iconv-lite)
+20. lit version 3.2.1 (https://github.com/lit/lit)
+21. marked version 15.0.2 (https://github.com/markedjs/marked)
+22. microsoft/vscode (https://github.com/microsoft/vscode)
+23. node-fetch version 2.7.0 (https://github.com/bitinn/node-fetch)
+24. os-browserify version 0.3.0 (https://github.com/CoderPuppy/os-browserify)
+25. path-browserify version 1.0.1 (https://github.com/browserify/path-browserify)
+26. react-dom version 16.8.4 (https://github.com/facebook/react)
+27. react version 16.8.4 (https://github.com/facebook/react)
+28. signal-utils version 0.20.0 (https://github.com/proposal-signals/signal-utils)
+29. slug version 10.0.0 (https://github.com/Trott/slug)
+30. sortablejs version 1.15.0 (https://github.com/SortableJS/Sortable)
 
 %% @gk-nzaytsev/fast-string-truncated-width NOTICES AND INFORMATION BEGIN HERE
 =========================================
@@ -1740,21 +1737,6 @@ Creative Commons may be contacted at creativecommons.org.
 =========================================
 END OF  @vscode/codicons NOTICES AND INFORMATION
 
-%% ansi-regex NOTICES AND INFORMATION BEGIN HERE
-=========================================
-MIT License
-
-Copyright (c) Sindre Sorhus <sindresorhus@gmail.com> (https://sindresorhus.com)
-
-Permission is hereby granted, free of charge, to any person obtaining a copy of this software and associated documentation files (the "Software"), to deal in the Software without restriction, including without limitation the rights to use, copy, modify, merge, publish, distribute, sublicense, and/or sell copies of the Software, and to permit persons to whom the Software is furnished to do so, subject to the following conditions:
-
-The above copyright notice and this permission notice shall be included in all copies or substantial portions of the Software.
-
-THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
-
-=========================================
-END OF  ansi-regex NOTICES AND INFORMATION
-
 %% billboard.js NOTICES AND INFORMATION BEGIN HERE
 =========================================
 The MIT License (MIT)
@@ -2223,36 +2205,6 @@ SOFTWARE.
 
 =========================================
 END OF  signal-utils NOTICES AND INFORMATION
-
-%% sindresorhus/is-fullwidth-code-point NOTICES AND INFORMATION BEGIN HERE
-=========================================
-MIT License
-
-Copyright (c) Sindre Sorhus <sindresorhus@gmail.com> (https://sindresorhus.com)
-
-Permission is hereby granted, free of charge, to any person obtaining a copy of this software and associated documentation files (the "Software"), to deal in the Software without restriction, including without limitation the rights to use, copy, modify, merge, publish, distribute, sublicense, and/or sell copies of the Software, and to permit persons to whom the Software is furnished to do so, subject to the following conditions:
-
-The above copyright notice and this permission notice shall be included in all copies or substantial portions of the Software.
-
-THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
-
-=========================================
-END OF  sindresorhus/is-fullwidth-code-point NOTICES AND INFORMATION
-
-%% sindresorhus/string-width NOTICES AND INFORMATION BEGIN HERE
-=========================================
-MIT License
-
-Copyright (c) Sindre Sorhus <sindresorhus@gmail.com> (https://sindresorhus.com)
-
-Permission is hereby granted, free of charge, to any person obtaining a copy of this software and associated documentation files (the "Software"), to deal in the Software without restriction, including without limitation the rights to use, copy, modify, merge, publish, distribute, sublicense, and/or sell copies of the Software, and to permit persons to whom the Software is furnished to do so, subject to the following conditions:
-
-The above copyright notice and this permission notice shall be included in all copies or substantial portions of the Software.
-
-THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
-
-=========================================
-END OF  sindresorhus/string-width NOTICES AND INFORMATION
 
 %% slug NOTICES AND INFORMATION BEGIN HERE
 =========================================

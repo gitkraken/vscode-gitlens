@@ -19625,7 +19625,6 @@
 		"@opentelemetry/semantic-conventions": "1.28.0",
 		"@shoelace-style/shoelace": "2.18.0",
 		"@vscode/codicons": "0.0.36",
-		"ansi-regex": "6.1.0",
 		"billboard.js": "3.14.1",
 		"https-proxy-agent": "5.0.1",
 		"iconv-lite": "0.6.3",
