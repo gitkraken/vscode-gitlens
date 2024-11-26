@@ -112,7 +112,7 @@ export class GlLaunchpad extends SignalWatcher(LitElement) {
 	});
 
 	get startWorkCommand() {
-		return createCommandLink<StartWorkCommandArgs>(Commands.StartWork, { command: 'startWork' });
+		return createCommandLink<StartWorkCommandArgs>(Commands.StartWork, { command: 'startWork', source: 'home' });
 	}
 
 	override connectedCallback() {
