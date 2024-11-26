@@ -1314,7 +1314,7 @@ export function GraphWrapper({
 							<GlPopover
 								className="popover"
 								placement="bottom-start"
-								trigger="focus"
+								trigger="click focus"
 								arrow={false}
 								distance={0}
 							>
@@ -1393,7 +1393,6 @@ export function GraphWrapper({
 							</span>
 							<GlSearchBox
 								ref={searchEl}
-								label="Search Commits"
 								step={searchPosition}
 								total={searchResults?.count ?? 0}
 								valid={Boolean(searchQuery?.query && searchQuery.query.length > 2)}
@@ -1429,7 +1428,7 @@ export function GraphWrapper({
 								<GlPopover
 									className="popover"
 									placement="bottom-end"
-									trigger="focus"
+									trigger="click focus"
 									arrow={false}
 									distance={0}
 								>

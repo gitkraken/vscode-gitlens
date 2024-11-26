@@ -1,6 +1,8 @@
 import type { PropertyValueMap } from 'lit';
 import { css, html, LitElement } from 'lit';
 import { customElement, property, query } from 'lit/decorators.js';
+import { ifDefined } from 'lit/directives/if-defined.js';
+import type { GlTooltip } from './overlays/tooltip';
 import { focusOutlineButton } from './styles/lit/a11y.css';
 import { elementBase } from './styles/lit/base.css';
 import './overlays/tooltip';
@@ -28,6 +30,7 @@ export class GlButton extends LitElement {
 				--button-padding: 0.4rem;
 				--button-gap: 0.6rem;
 				--button-compact-padding: 0.4rem;
+				--button-input-padding: 0.1rem;
 				--button-tight-padding: 0.4rem 0.8rem;
 				--button-line-height: 1.35;
 				--button-border: var(--vscode-button-border, transparent);
@@ -87,6 +90,12 @@ export class GlButton extends LitElement {
 				${focusOutlineButton}
 			}
 
+			:host([appearance='input']),
+			:host([role='checkbox']:focus-within),
+			:host([aria-checked]:focus-within) {
+				outline-offset: -1px;
+			}
+
 			:host([full]),
 			:host([full]) .control {
 				width: 100%;
@@ -98,6 +107,7 @@ export class GlButton extends LitElement {
 				--button-hover-background: var(--vscode-button-secondaryHoverBackground);
 			}
 
+			:host([appearance='input']),
 			:host([appearance='toolbar']) {
 				--button-background: transparent;
 				--button-foreground: var(--vscode-foreground);
@@ -119,6 +129,14 @@ export class GlButton extends LitElement {
 				--button-foreground: var(--color-foreground);
 			}
 
+			:host([appearance='input']) .control {
+				padding: var(--button-input-padding);
+				--button-line-height: 1.1;
+				height: 1.8rem;
+				gap: 0.2rem;
+			}
+
+			:host([appearance='input'][href]) > a,
 			:host([appearance='toolbar'][href]) > a {
 				display: flex;
 				align-items: center;
@@ -142,10 +160,24 @@ export class GlButton extends LitElement {
 				--code-icon-v-align: unset;
 			}
 
+			:host(:hover:not([disabled]):not([aria-checked='true'])) {
+				background-color: var(--vscode-inputOption-hoverBackground);
+			}
+
 			:host([disabled]) {
 				opacity: 0.4;
 				cursor: not-allowed;
 				pointer-events: none;
+			}
+
+			:host([disabled][aria-checked='true']) {
+				opacity: 0.8;
+			}
+
+			:host([aria-checked='true']) {
+				background-color: var(--vscode-inputOption-activeBackground);
+				color: var(--vscode-inputOption-activeForeground);
+				border-color: var(--vscode-inputOption-activeBorder);
 			}
 
 			gl-tooltip {
@@ -162,7 +194,7 @@ export class GlButton extends LitElement {
 	protected control!: HTMLElement;
 
 	@property({ reflect: true })
-	appearance?: 'alert' | 'secondary' | 'toolbar';
+	appearance?: 'alert' | 'secondary' | 'toolbar' | 'input';
 
 	@property({ type: Boolean, reflect: true })
 	disabled = false;
@@ -184,6 +216,9 @@ export class GlButton extends LitElement {
 	@property()
 	tooltip?: string;
 
+	@property()
+	tooltipPlacement?: GlTooltip['placement'] = 'bottom';
+
 	protected override updated(changedProperties: PropertyValueMap<any> | Map<PropertyKey, unknown>): void {
 		super.updated(changedProperties);
 
@@ -194,11 +229,13 @@ export class GlButton extends LitElement {
 
 	protected override render() {
 		if (this.tooltip) {
-			return html`<gl-tooltip .content=${this.tooltip}>${this.renderControl()}</gl-tooltip>`;
+			return html`<gl-tooltip .content=${this.tooltip} placement=${ifDefined(this.tooltipPlacement)}
+				>${this.renderControl()}</gl-tooltip
+			>`;
 		}
 
 		if (this.querySelectorAll('[slot="tooltip"]').length > 0) {
-			return html`<gl-tooltip>
+			return html`<gl-tooltip placement=${ifDefined(this.tooltipPlacement)}>
 				${this.renderControl()}
 				<slot name="tooltip" slot="content"></slot>
 			</gl-tooltip>`;
