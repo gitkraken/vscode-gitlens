@@ -62,10 +62,6 @@ export class ResultsCommitsNode<View extends ViewsWithCommits = ViewsWithCommits
 		this._options = { autolinks: true, expand: true, ...options };
 	}
 
-	override get id(): string {
-		return this._uniqueId;
-	}
-
 	get ref1(): string | undefined {
 		return this._results.comparison?.ref1;
 	}

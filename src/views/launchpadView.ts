@@ -46,10 +46,6 @@ export class LaunchpadItemNode extends CacheableChildrenViewNode<'launchpad-item
 		this.repoPath = repoPath;
 	}
 
-	override get id(): string {
-		return this._uniqueId;
-	}
-
 	override toClipboard(type?: ClipboardType): string {
 		const url = this.getUrl();
 		switch (type) {

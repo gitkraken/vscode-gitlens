@@ -426,13 +426,21 @@ export abstract class ViewBase<
 		if (this.root == null || force) {
 			this.root?.dispose();
 			this.root = this.getRoot();
+			// if (this.root.childrenIds.size > 0) {
+			// 	debugger;
+			// 	this.root.childrenIds.clear();
+			// }
 		}
 
 		return this.root;
 	}
 
 	getChildren(node?: ViewNode): ViewNode[] | Promise<ViewNode[]> {
-		if (node != null) return node.getChildren();
+		if (node != null) {
+			// node.childrenIds.clear();
+			node.childrenCount = 0;
+			return node.getChildren();
+		}
 
 		const root = this.ensureRoot();
 		const children = root.getChildren();
@@ -462,7 +470,20 @@ export abstract class ViewBase<
 			debugger;
 			node.splatted = false;
 		}
-		return node.getTreeItem();
+
+		const item = node.getTreeItem();
+		if (isPromise(item)) {
+			return item.then(i => {
+				i.id = node.treeId;
+				console.log('#######', node.type, node.splatted, node.id, i.id);
+
+				return i;
+			});
+		}
+
+		item.id = node.treeId;
+		console.log('#######', node.type, node.splatted, node.id, item.id);
+		return item;
 	}
 
 	getViewDescription(count?: number) {

@@ -49,10 +49,6 @@ export abstract class RepositoryFolderNode<
 		this.child = undefined;
 	}
 
-	override get id(): string {
-		return this._uniqueId;
-	}
-
 	override toClipboard(): string {
 		return this.repo.path;
 	}

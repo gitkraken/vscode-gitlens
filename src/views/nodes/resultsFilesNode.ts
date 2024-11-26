@@ -52,10 +52,6 @@ export class ResultsFilesNode extends ViewNode<'results-files', ViewsWithCommits
 		this._options = { expand: true, timeout: 100, ...options };
 	}
 
-	override get id(): string {
-		return this._uniqueId;
-	}
-
 	get filter(): FilesQueryFilter | undefined {
 		return this.getState('filter');
 	}

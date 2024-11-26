@@ -26,10 +26,6 @@ export class StatusFilesNode extends ViewNode<'status-files', ViewsWithWorkingTr
 		this._uniqueId = getViewNodeId(this.type, this.context);
 	}
 
-	override get id(): string {
-		return this._uniqueId;
-	}
-
 	get repoPath(): string {
 		return this.status.repoPath;
 	}

@@ -24,10 +24,6 @@ export class TagsNode extends CacheableChildrenViewNode<'tags', ViewsWithTagsNod
 		this._uniqueId = getViewNodeId(this.type, this.context);
 	}
 
-	override get id(): string {
-		return this._uniqueId;
-	}
-
 	get repoPath(): string {
 		return this.repo.path;
 	}

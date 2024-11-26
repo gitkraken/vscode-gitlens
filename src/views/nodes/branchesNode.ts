@@ -25,10 +25,6 @@ export class BranchesNode extends CacheableChildrenViewNode<'branches', ViewsWit
 		this._uniqueId = getViewNodeId(this.type, this.context);
 	}
 
-	override get id(): string {
-		return this._uniqueId;
-	}
-
 	get repoPath(): string {
 		return this.repo.path;
 	}

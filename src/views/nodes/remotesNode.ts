@@ -22,10 +22,6 @@ export class RemotesNode extends CacheableChildrenViewNode<'remotes', ViewsWithR
 		this._uniqueId = getViewNodeId(this.type, this.context);
 	}
 
-	override get id(): string {
-		return this._uniqueId;
-	}
-
 	get repoPath(): string {
 		return this.repo.path;
 	}

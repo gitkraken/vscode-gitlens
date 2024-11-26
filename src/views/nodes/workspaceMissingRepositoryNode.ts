@@ -24,10 +24,6 @@ export class WorkspaceMissingRepositoryNode extends ViewNode<'workspace-missing-
 		this._uniqueId = getViewNodeId(this.type, this.context);
 	}
 
-	override get id(): string {
-		return this._uniqueId;
-	}
-
 	override toClipboard(): string {
 		return this.name;
 	}

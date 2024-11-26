@@ -83,7 +83,9 @@ export class BranchNode
 		super('branch', uri, view, parent, root);
 
 		this.updateContext({ repository: repo, branch: branch, root: root });
-		this._uniqueId = getViewNodeId(this.type, this.context);
+		// this._uniqueId = getViewNodeId(this.type, this.context);
+		this._uniqueId = `${this.type}(${this.branch.id})`;
+
 		this.limit = this.view.getNodeLastKnownLimit(this);
 
 		this.options = {
@@ -104,10 +106,6 @@ export class BranchNode
 	override dispose() {
 		super.dispose();
 		this.children = undefined;
-	}
-
-	override get id(): string {
-		return this._uniqueId;
 	}
 
 	override toClipboard(): string {

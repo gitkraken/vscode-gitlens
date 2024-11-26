@@ -45,10 +45,6 @@ export class FileHistoryNode
 		this.limit = this.view.getNodeLastKnownLimit(this);
 	}
 
-	override get id(): string {
-		return this._uniqueId;
-	}
-
 	override toClipboard(): string {
 		return this.uri.fileName;
 	}

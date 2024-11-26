@@ -39,10 +39,6 @@ export class ContributorNode extends ViewNode<'contributor', ViewsWithContributo
 		this.limit = this.view.getNodeLastKnownLimit(this);
 	}
 
-	override get id(): string {
-		return this._uniqueId;
-	}
-
 	override toClipboard(type?: ClipboardType): string {
 		const text = `${this.contributor.name}${this.contributor.email ? ` <${this.contributor.email}>` : ''}`;
 		switch (type) {
