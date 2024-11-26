@@ -114,12 +114,6 @@ export class GlSearchBox extends GlElement {
 	errorMessage = '';
 
 	@property({ type: String })
-	label = 'Search';
-
-	@property({ type: String })
-	placeholder = 'Search commits (↑↓ for history), e.g. "Updates dependencies" author:eamodio';
-
-	@property({ type: String })
 	value = '';
 
 	@property({ type: Boolean })
@@ -270,8 +264,6 @@ export class GlSearchBox extends GlElement {
 				exportparts="search: search"
 				.errorMessage="${this.errorMessage}"
 				.filter=${this.filter}
-				.label="${this.label}"
-				.placeholder="${this.placeholder}"
 				.matchAll="${this.matchAll}"
 				.matchCase="${this.matchCase}"
 				.matchRegex="${this.matchRegex}"

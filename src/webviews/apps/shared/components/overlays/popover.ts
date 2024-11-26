@@ -1,9 +1,9 @@
 import type SlPopup from '@shoelace-style/shoelace/dist/components/popup/popup.js';
 import { css, html, LitElement } from 'lit';
 import { customElement, property, query } from 'lit/decorators.js';
-import '@shoelace-style/shoelace/dist/components/popup/popup.js';
 import { parseDuration, waitForEvent } from '../../dom';
 import { GlElement, observe } from '../element';
+import '@shoelace-style/shoelace/dist/components/popup/popup.js';
 
 // Adapted from shoelace tooltip
 
@@ -222,6 +222,7 @@ export class GlPopover extends GlElement {
 		this.addEventListener('blur', this.handleTriggerBlur, true);
 		this.addEventListener('focus', this.handleTriggerFocus, true);
 		this.addEventListener('click', this.handleTriggerClick);
+		this.addEventListener('mousedown', this.handleTriggerMouseDown);
 		this.addEventListener('mouseover', this.handleMouseOver);
 		this.addEventListener('mouseout', this.handleMouseOut);
 	}
@@ -256,10 +257,24 @@ export class GlPopover extends GlElement {
 	private handleTriggerClick = () => {
 		if (this.hasTrigger('click')) {
 			if (this.open) {
+				if (this._skipHideOnClick) {
+					this._skipHideOnClick = false;
+					return;
+				}
+
 				void this.hide();
 			} else {
 				void this.show();
 			}
+		}
+	};
+
+	private _skipHideOnClick = false;
+	private handleTriggerMouseDown = () => {
+		if (this.hasTrigger('click') && this.hasTrigger('focus') && !this.matches(':focus-within')) {
+			this._skipHideOnClick = true;
+		} else {
+			this._skipHideOnClick = false;
 		}
 	};
 
