@@ -6,8 +6,9 @@ import { ifDefined } from 'lit/directives/if-defined.js';
 import { when } from 'lit/directives/when.js';
 import type { GitTrackingState } from '../../../../../git/models/branch';
 import { createWebviewCommandLink } from '../../../../../system/webview';
-import type { GetOverviewBranch, OpenInGraphParams, State } from '../../../../home/protocol';
+import type { BranchRef, GetOverviewBranch, OpenInGraphParams, State } from '../../../../home/protocol';
 import { stateContext } from '../../../home/context';
+import type { ActionList } from '../../../shared/components/actions/action-list';
 import { ipcContext } from '../../../shared/context';
 import type { HostIpc } from '../../../shared/ipc';
 import { linkStyles } from '../../shared/components/vscode.css';
@@ -15,15 +16,15 @@ import { branchCardStyles, createCommandLink } from './branch-section';
 import type { Overview, OverviewState } from './overviewState';
 import { overviewStateContext } from './overviewState';
 import '../../../shared/components/button';
-import '../../../shared/components/code-icon';
-import '../../../shared/components/skeleton-loader';
 import '../../../shared/components/card/card';
+import '../../../shared/components/code-icon';
 import '../../../shared/components/commit/commit-stats';
 import '../../../shared/components/menu/menu-item';
 import '../../../shared/components/overlays/popover';
 import '../../../shared/components/overlays/tooltip';
 import '../../../shared/components/pills/tracking';
 import '../../../shared/components/rich/pr-icon';
+import '../../../shared/components/skeleton-loader';
 
 export const activeWorkTagName = 'gl-active-work';
 
@@ -208,41 +209,67 @@ export class GlActiveWork extends SignalWatcher(LitElement) {
 		`;
 	}
 
+	private applyContext(context: object) {
+		const prevContext = JSON.parse(document.body.getAttribute('data-vscode-context') ?? '{}');
+		document.body.setAttribute(
+			'data-vscode-context',
+			JSON.stringify({
+				...prevContext,
+				...context,
+			}),
+		);
+		setTimeout(() => {
+			document.body.setAttribute('data-vscode-context', JSON.stringify(prevContext));
+		});
+	}
+
+	private handleBranchContext(branchRefs: BranchRef, e: typeof ActionList.OpenContextMenuEvent) {
+		let context = 'gitlens:home';
+		e.detail.items.forEach(x => {
+			if (x.href) {
+				context += `+${x.href}`;
+			}
+		});
+		// clear context immediatelly after the contextmenu is opened to avoid randomly clicked contextmenu being filled
+		this.applyContext({ webviewItem: context, ...branchRefs, type: 'branch' });
+	}
+
 	private renderActions(branch: GetOverviewBranch, repo: string) {
 		const branchRefs = {
 			repoPath: repo,
 			branchId: branch.id,
 		};
-		const actions = [];
+		const actions: (typeof ActionList.ItemProps)[] = [];
 		if (branch.pr) {
 			actions.push(
-				html`<action-item
-					label="Open Pull Request Changes"
-					icon="request-changes"
-					href=${createCommandLink('gitlens.home.openPullRequestChanges', branchRefs)}
-				></action-item>`,
-			);
-			actions.push(
-				html`<action-item
-					label="Open Pull Request on Remote"
-					icon="globe"
-					href=${createCommandLink('gitlens.home.openPullRequestOnRemote', branchRefs)}
-				></action-item>`,
+				{
+					label: 'Open Pull Request Changes',
+					icon: 'request-changes',
+					href: createCommandLink('gitlens.home.openPullRequestChanges', branchRefs),
+				},
+				{
+					label: 'Open Pull Request on Remote',
+					icon: 'globe',
+					href: createCommandLink('gitlens.home.openPullRequestOnRemote', branchRefs),
+				},
 			);
 		} else if (branch.upstream?.missing === false) {
-			actions.push(
-				html`<action-item
-					label="Create Pull Request..."
-					icon="git-pull-request-create"
-					href=${createCommandLink('gitlens.home.createPullRequest', branchRefs)}
-				></action-item>`,
-			);
+			actions.push({
+				label: 'Create Pull Request...',
+				icon: 'git-pull-request-create',
+				href: createCommandLink('gitlens.home.createPullRequest', branchRefs),
+			});
 		}
 
 		if (!actions.length) {
 			return nothing;
 		}
-		return html`<action-nav class="branch-item__actions">${actions}</action-nav>`;
+		return html`<action-list
+			@open-actions-menu=${this.handleBranchContext.bind(this, branchRefs)}
+			limit=${3}
+			.items=${actions}
+			class="branch-item__actions"
+		></action-list>`;
 	}
 
 	private renderBranchStateActions(

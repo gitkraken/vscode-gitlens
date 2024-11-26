@@ -29,6 +29,8 @@ export interface State extends WebviewState {
 	newInstall: boolean;
 }
 
+export type BranchRef = { repoPath: string; branchId: string };
+
 export type OverviewRecentThreshold = 'OneDay' | 'OneWeek' | 'OneMonth';
 export type OverviewStaleThreshold = 'OneYear';
 

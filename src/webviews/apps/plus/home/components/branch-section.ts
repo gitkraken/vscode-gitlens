@@ -3,7 +3,8 @@ import { customElement, property } from 'lit/decorators.js';
 import { when } from 'lit/directives/when.js';
 import type { Commands } from '../../../../../constants.commands';
 import type { GitTrackingState } from '../../../../../git/models/branch';
-import type { GetOverviewBranch, OpenInGraphParams } from '../../../../home/protocol';
+import type { BranchRef, GetOverviewBranch, OpenInGraphParams } from '../../../../home/protocol';
+import type { ActionList } from '../../../shared/components/actions/action-list';
 import { srOnlyStyles } from '../../../shared/components/styles/lit/a11y.css';
 import { linkStyles } from '../../shared/components/vscode.css';
 import '../../../shared/components/code-icon';
@@ -15,6 +16,7 @@ import '../../../shared/components/commit/commit-stats';
 import '../../../shared/components/formatted-date';
 import '../../../shared/components/pills/tracking';
 import '../../../shared/components/rich/pr-icon';
+import '../../../shared/components/actions/action-list';
 import '../../../shared/components/actions/action-item';
 import '../../../shared/components/actions/action-nav';
 
@@ -79,6 +81,10 @@ export class GlSection extends LitElement {
 
 @customElement('gl-branch-section')
 export class GlBranchSection extends LitElement {
+	static get OpenContextMenuEvent(): CustomEvent<{ items: (typeof ActionList.ItemProps)[]; branchRefs: BranchRef }> {
+		throw new Error('type field OpenContextMenuEvent cannot be used as a value');
+	}
+
 	@property({ type: String }) label!: string;
 	@property() repo!: string;
 	@property({ type: Array }) branches!: GetOverviewBranch[];
@@ -101,7 +107,31 @@ export class GlBranchSection extends LitElement {
 					this.branches.length > 0,
 					() =>
 						this.branches.map(
-							branch => html`<gl-branch-card .repo=${this.repo} .branch=${branch}></gl-branch-card>`,
+							branch =>
+								html`<gl-branch-card
+									@open-actions-menu=${(e: typeof GlBranchCard.OpenContextMenuEvent) => {
+										const evt = new CustomEvent('branch-context-opened', {
+											detail: {
+												branchRefs: e.detail.branchRefs,
+												items: e.detail.items,
+											},
+										}) satisfies typeof GlBranchSection.OpenContextMenuEvent;
+										this.dispatchEvent(evt);
+									}}
+									@close-actions-menu=${(e: CustomEvent) => {
+										const evt = new CustomEvent<{
+											branch: GetOverviewBranch;
+										}>('branch-context-closed', {
+											detail: {
+												branch: branch,
+											},
+										});
+										this.dispatchEvent(evt);
+										console.log('closeVContext', { e: e }, branch);
+									}}
+									.repo=${this.repo}
+									.branch=${branch}
+								></gl-branch-card>`,
 						),
 					() => html`<p>No ${this.label} branches</p>`,
 				)}
@@ -209,13 +239,17 @@ export const branchCardStyles = css`
 export class GlBranchCard extends LitElement {
 	static override styles = [linkStyles, branchCardStyles];
 
+	static get OpenContextMenuEvent(): CustomEvent<{ items: (typeof ActionList.ItemProps)[]; branchRefs: BranchRef }> {
+		throw new Error('type field OpenContextMenuEvent cannot be used as a value');
+	}
+
 	@property()
 	repo!: string;
 
 	@property({ type: Object })
 	branch!: GetOverviewBranch;
 
-	get branchRefs() {
+	get branchRefs(): BranchRef {
 		return {
 			repoPath: this.repo,
 			branchId: this.branch.id,
@@ -345,72 +379,92 @@ export class GlBranchCard extends LitElement {
 	}
 
 	private renderActions() {
-		const actions = [];
+		const actions: (typeof ActionList.ItemProps)[] = [];
 		if (this.branch.pr) {
 			actions.push(
-				html`<action-item
-					label="Open Pull Request Changes"
-					icon="request-changes"
-					href=${this.createCommandLink('gitlens.home.openPullRequestChanges')}
-				></action-item>`,
-			);
-			actions.push(
-				html`<action-item
-					label="Open Pull Request on Remote"
-					icon="globe"
-					href=${this.createCommandLink('gitlens.home.openPullRequestOnRemote')}
-				></action-item>`,
+				{
+					label: 'Open Pull Request Changes',
+					icon: 'request-changes',
+					href: this.createCommandLink('gitlens.home.openPullRequestChanges'),
+				},
+				{
+					label: 'Open Pull Request on Remote',
+					icon: 'globe',
+					href: this.createCommandLink('gitlens.home.openPullRequestOnRemote'),
+				},
 			);
 		} else if (this.branch.upstream?.missing === false) {
-			actions.push(
-				html`<action-item
-					label="Create Pull Request..."
-					icon="git-pull-request-create"
-					href=${this.createCommandLink('gitlens.home.createPullRequest')}
-				></action-item>`,
-			);
+			actions.push({
+				label: 'Create Pull Request...',
+				icon: 'git-pull-request-create',
+				href: this.createCommandLink('gitlens.home.createPullRequest'),
+			});
 		}
 		if (this.branch.worktree) {
-			actions.push(
-				html`<action-item
-					label="Open Worktree"
-					icon="browser"
-					href=${this.createCommandLink('gitlens.home.openWorktree')}
-				></action-item>`,
-			);
+			actions.push({
+				label: 'Open Worktree',
+				icon: 'browser',
+				href: this.createCommandLink('gitlens.home.openWorktree'),
+				modifiers: [
+					{
+						key: 'alt',
+						label: 'Open Worktree in New Window',
+						href: this.createCommandLink('gitlens.home.openWorktreeInNewWindow'),
+						icon: 'empty-window',
+					},
+				],
+			});
 		} else {
-			actions.push(
-				html`<action-item
-					label="Switch to Branch..."
-					icon="gl-switch"
-					href=${this.createCommandLink('gitlens.home.switchToBranch')}
-				></action-item>`,
-			);
+			actions.push({
+				label: 'Switch to Branch...',
+				icon: 'gl-switch',
+				href: this.createCommandLink('gitlens.home.switchToBranch'),
+			});
 		}
 
 		// branch actions
 		actions.push(
-			html`<action-item
-				label="Fetch"
-				icon="gl-repo-fetch"
-				href=${this.createCommandLink('gitlens.home.fetch')}
-			></action-item>`,
-		);
-		actions.push(
-			html`<action-item
-				label="Open in Commit Graph"
-				icon="gl-graph"
-				href=${createCommandLink('gitlens.home.openInGraph', {
+			{
+				label: 'Fetch',
+				icon: 'gl-repo-fetch',
+				href: this.createCommandLink('gitlens.home.fetch'),
+				modifiers: this.branch.upstream && [
+					{
+						key: 'alt',
+						label: 'Pull',
+						icon: 'gl-repo-pull',
+						href: this.createCommandLink('gitlens.home.pull'),
+					},
+				],
+			},
+			{
+				label: 'Open in Commit Graph',
+				icon: 'gl-graph',
+				href: createCommandLink('gitlens.home.openInGraph', {
 					...this.branchRefs,
 					type: 'branch',
-				} satisfies OpenInGraphParams)}
-			></action-item>`,
+				} satisfies OpenInGraphParams),
+			},
 		);
 
 		if (!actions.length) {
 			return nothing;
 		}
-		return html`<action-nav class="branch-item__actions">${actions}</action-nav>`;
+		return html`<action-list
+			limit=${3}
+			class="branch-item__actions"
+			@open-actions-menu=${(e: typeof ActionList.OpenContextMenuEvent) => {
+				const ev = new CustomEvent('open-actions-menu', {
+					detail: { items: e.detail.items, branchRefs: this.branchRefs },
+				}) satisfies typeof GlBranchCard.OpenContextMenuEvent;
+				this.dispatchEvent(ev);
+			}}
+			@close-actions-menu=${() => {
+				const ev = new CustomEvent('close-actions-menu');
+				this.dispatchEvent(ev);
+			}}
+			.items=${actions}
+		></action-list>`;
 	}
 
 	private createCommandLink(command: string) {

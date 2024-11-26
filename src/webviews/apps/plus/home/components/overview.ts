@@ -9,6 +9,7 @@ import { stateContext } from '../../../home/context';
 import { ipcContext } from '../../../shared/context';
 import type { HostIpc } from '../../../shared/ipc';
 import { linkStyles } from '../../shared/components/vscode.css';
+import type { GlBranchSection } from './branch-section';
 import type { OverviewState } from './overviewState';
 import { overviewStateContext } from './overviewState';
 import '../../../shared/components/skeleton-loader';
@@ -91,6 +92,32 @@ export class GlOverview extends SignalWatcher(LitElement) {
 		});
 	}
 
+	// TODO: can be moved to a separate function (maybe for home scope only)
+	private applyContext(context: object) {
+		const prevContext = JSON.parse(document.body.getAttribute('data-vscode-context') ?? '{}');
+		document.body.setAttribute(
+			'data-vscode-context',
+			JSON.stringify({
+				...prevContext,
+				...context,
+			}),
+		);
+		// clear context immediatelly after the contextmenu is opened to avoid randomly clicked contextmenu being filled
+		setTimeout(() => {
+			document.body.setAttribute('data-vscode-context', JSON.stringify(prevContext));
+		});
+	}
+
+	private handleBranchContext(e: typeof GlBranchSection.OpenContextMenuEvent) {
+		let context = 'gitlens:home';
+		e.detail.items.forEach(x => {
+			if (x.href) {
+				context += `+${x.href}`;
+			}
+		});
+		this.applyContext({ webviewItem: context, ...e.detail.branchRefs, type: 'branch' });
+	}
+
 	private renderComplete(overview: Overview, isFetching = false) {
 		if (overview == null) return nothing;
 		const { repository } = overview;
@@ -100,6 +127,7 @@ export class GlOverview extends SignalWatcher(LitElement) {
 				.isFetching=${isFetching}
 				.repo=${repository.path}
 				.branches=${repository.branches.recent}
+				@branch-context-opened=${this.handleBranchContext}
 			>
 				<gl-branch-threshold-filter
 					slot="heading-actions"
