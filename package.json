@@ -19642,19 +19642,19 @@
 	},
 	"devDependencies": {
 		"@eamodio/eslint-lite-webpack-plugin": "0.1.0",
-		"@eslint/js": "9.14.0",
-		"@playwright/test": "1.48.2",
-		"@swc/core": "1.9.1",
+		"@eslint/js": "9.15.0",
+		"@playwright/test": "1.49.0",
+		"@swc/core": "1.9.3",
 		"@twbs/fantasticon": "3.0.0",
 		"@types/eslint__js": "8.42.3",
 		"@types/mocha": "10.0.10",
-		"@types/node": "18.15.0",
-		"@types/react": "17.0.82",
-		"@types/react-dom": "17.0.21",
+		"@types/node": "18.15.13",
+		"@types/react": "17.0.83",
+		"@types/react-dom": "17.0.25",
 		"@types/slug": "5.0.9",
 		"@types/sortablejs": "1.15.8",
 		"@types/vscode": "1.82.0",
-		"@typescript-eslint/parser": "8.15.0",
+		"@typescript-eslint/parser": "8.16.0",
 		"@vscode/test-cli": "^0.0.10",
 		"@vscode/test-electron": "2.4.1",
 		"@vscode/test-web": "0.0.64",
@@ -19698,7 +19698,7 @@
 		"terser-webpack-plugin": "5.3.10",
 		"ts-loader": "9.5.1",
 		"typescript": "5.7.2",
-		"typescript-eslint": "8.15.0",
+		"typescript-eslint": "8.16.0",
 		"webpack": "5.96.1",
 		"webpack-bundle-analyzer": "4.10.2",
 		"webpack-cli": "5.1.4",
@@ -19711,5 +19711,5 @@
 		"node-fetch": "2.7.0",
 		"semver-regex": "4.0.5"
 	},
-	"packageManager": "pnpm@9.12.3"
+	"packageManager": "pnpm@9.14.2"
 }
