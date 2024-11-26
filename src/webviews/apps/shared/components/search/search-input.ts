@@ -462,6 +462,22 @@ export class GlSearchInput extends GlElement {
 		this.searchHistoryPos = this.searchHistory.length - 1;
 	}
 
+	private padDate(date: number) {
+		let stringDate = date.toString();
+		if (stringDate.length < 2) {
+			stringDate = `0${stringDate}`;
+		}
+		return stringDate;
+	}
+
+	private handleInsertDateToken(tokenPrefix: string) {
+		const currentDate = new Date();
+		const year = currentDate.getFullYear();
+		const month = this.padDate(currentDate.getMonth() + 1);
+		const date = this.padDate(currentDate.getDate());
+		this.handleInsertToken(`${tokenPrefix}${year}-${month}-${date}`);
+	}
+
 	override render() {
 		return html`<gl-popover
 				class="popover"
@@ -517,6 +533,24 @@ export class GlSearchInput extends GlElement {
 							@click="${() => this.handleInsertToken('type:stash')}"
 						>
 							Type <small>type:stash or is:stash</small>
+						</button>
+					</menu-item>
+					<menu-item role="none">
+						<button
+							class="menu-button"
+							type="button"
+							@click="${() => this.handleInsertDateToken('after:')}"
+						>
+							Date from <small>after:YYYY-MM-dd</small>
+						</button>
+					</menu-item>
+					<menu-item role="none">
+						<button
+							class="menu-button"
+							type="button"
+							@click="${() => this.handleInsertDateToken(`before:`)}"
+						>
+							Date to <small>before:YYYY-MM-dd</small>
 						</button>
 					</menu-item>
 				</div>

@@ -214,6 +214,18 @@ export function getGitArgsFromSearchQuery(
 					}
 
 					break;
+				case 'after:':
+					for (const value of values) {
+						const date = new Date(value);
+						searchArgs.add('--after').add(date.toISOString());
+					}
+					break;
+				case 'before:':
+					for (const value of values) {
+						const date = new Date(value);
+						searchArgs.add('--before').add(date.toISOString());
+					}
+					break;
 			}
 		}
 	}
