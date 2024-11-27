@@ -112,7 +112,30 @@ export class GlLaunchpad extends SignalWatcher(LitElement) {
 	});
 
 	get startWorkCommand() {
-		return createCommandLink<StartWorkCommandArgs>(Commands.StartWork, { command: 'startWork', source: 'home' });
+		return createCommandLink<StartWorkCommandArgs>(Commands.StartWork, {
+			command: 'startWork',
+			source: 'home',
+			type: 'issue',
+		});
+	}
+
+	get createBranchCommand() {
+		return createCommandLink<StartWorkCommandArgs>(Commands.StartWork, {
+			command: 'startWork',
+			source: 'home',
+			type: 'branch',
+		});
+		// TODO: Switch to using the base git command once we support sending source telemetry to that command, and then clean up start work
+		// command to just be for issues and remove "type" param
+		/*return createCommandLink<BranchGitCommandArgs>(Commands.GitCommands, {
+			command: 'branch',
+			state: {
+				subcommand: 'create',
+				suggestNameOnly: true,
+				suggestRepoOnly: true,
+				confirmOptions: ['--switch', '--worktree'],
+			},
+		});*/
 	}
 
 	override connectedCallback() {
@@ -133,9 +156,14 @@ export class GlLaunchpad extends SignalWatcher(LitElement) {
 				<span slot="heading">GitLens Launchpad</span>
 				<div class="summary">${this.renderSummaryResult()}</div>
 				<button-container>
-					<gl-button full class="start-work" href=${this.startWorkCommand}
-						><code-icon icon="custom-start-work" slot="prefix"></code-icon> Start Work</gl-button
-					>
+					<gl-button full class="start-work" href=${this.startWorkCommand}>Start Work on an Issue</gl-button>
+					<gl-button
+						appearance="secondary"
+						density="compact"
+						class="start-work"
+						href=${this.createBranchCommand}
+						><code-icon icon="custom-start-work"></code-icon
+					></gl-button>
 				</button-container>
 			</gl-section>
 		`;

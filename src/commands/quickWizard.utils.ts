@@ -115,7 +115,7 @@ export class QuickWizardRootStep implements QuickPickStep<QuickCommand> {
 		}
 
 		if (args?.command === 'startWork') {
-			this.hiddenItems.push(new StartWorkCommand(container));
+			this.hiddenItems.push(new StartWorkCommand(container, args));
 		}
 	}
 

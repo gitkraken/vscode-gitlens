@@ -65,6 +65,7 @@ type StartWorkTypeItem = { type: StartWorkType };
 export interface StartWorkCommandArgs {
 	readonly command: 'startWork';
 	source?: Sources;
+	type?: StartWorkType;
 }
 
 export const supportedStartWorkIntegrations = [HostingIntegrationId.GitHub, IssueIntegrationId.Jira];
@@ -87,7 +88,8 @@ export class StartWorkCommand extends QuickCommand<State> {
 		}
 
 		this.initialState = {
-			counter: 0,
+			counter: args?.type != null ? 1 : 0,
+			type: args?.type,
 		};
 	}
 
@@ -108,7 +110,7 @@ export class StartWorkCommand extends QuickCommand<State> {
 			const hasConnectedIntegrations = this.hasConnectedIntegrations(context);
 			context.title = this.title;
 
-			if (state.counter < 1) {
+			if (state.counter < 1 || state.type == null) {
 				if (this.container.telemetry.enabled) {
 					this.container.telemetry.sendEvent(
 						opened ? 'startWork/steps/type' : 'startWork/opened',
@@ -124,6 +126,7 @@ export class StartWorkCommand extends QuickCommand<State> {
 				const result = yield* this.selectTypeStep(state);
 				if (result === StepResultBreak) continue;
 				state.type = result.type;
+
 				if (this.container.telemetry.enabled) {
 					this.container.telemetry.sendEvent(
 						'startWork/type/chosen',
