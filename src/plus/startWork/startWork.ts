@@ -29,7 +29,7 @@ import type { Issue, IssueShape, SearchedIssue } from '../../git/models/issue';
 import { getOrOpenIssueRepository } from '../../git/models/issue';
 import type { Repository } from '../../git/models/repository';
 import type { QuickPickItemOfT } from '../../quickpicks/items/common';
-import { createQuickPickItemOfT, createQuickPickSeparator } from '../../quickpicks/items/common';
+import { createQuickPickItemOfT } from '../../quickpicks/items/common';
 import type { DirectiveQuickPickItem } from '../../quickpicks/items/directive';
 import { createDirectiveQuickPickItem, Directive } from '../../quickpicks/items/directive';
 import { getScopedCounter } from '../../system/counter';
@@ -54,14 +54,13 @@ interface Context {
 interface State {
 	item?: StartWorkItem;
 	type?: StartWorkType;
-	inWorktree?: boolean;
 }
 interface StateWithType extends State {
 	type: StartWorkType;
 }
 
-export type StartWorkType = 'branch' | 'branch-worktree' | 'issue' | 'issue-worktree';
-type StartWorkTypeItem = { type: StartWorkType; inWorktree?: boolean };
+export type StartWorkType = 'branch' | 'issue';
+type StartWorkTypeItem = { type: StartWorkType };
 
 export interface StartWorkCommandArgs {
 	readonly command: 'startWork';
@@ -125,7 +124,6 @@ export class StartWorkCommand extends QuickCommand<State> {
 				const result = yield* this.selectTypeStep(state);
 				if (result === StepResultBreak) continue;
 				state.type = result.type;
-				state.inWorktree = result.inWorktree;
 				if (this.container.telemetry.enabled) {
 					this.container.telemetry.sendEvent(
 						'startWork/type/chosen',
@@ -139,7 +137,7 @@ export class StartWorkCommand extends QuickCommand<State> {
 				}
 			}
 
-			if ((state.counter < 2 && state.type === 'issue') || state.type === 'issue-worktree') {
+			if (state.counter < 2 && state.type === 'issue') {
 				if (!hasConnectedIntegrations) {
 					if (this.container.telemetry.enabled) {
 						this.container.telemetry.sendEvent(
@@ -189,7 +187,6 @@ export class StartWorkCommand extends QuickCommand<State> {
 					}
 				} else {
 					state.type = result.type;
-					state.inWorktree = result.inWorktree;
 				}
 			}
 
@@ -206,9 +203,8 @@ export class StartWorkCommand extends QuickCommand<State> {
 						name: issue ? `${slug(issue.id, { lower: false })}-${slug(issue.title)}` : undefined,
 						suggestNameOnly: true,
 						suggestRepoOnly: true,
-						flags: state.inWorktree ? ['--worktree'] : ['--switch'],
+						confirmOptions: ['--switch', '--worktree'],
 					},
-					confirm: false,
 				},
 				this.pickedVia,
 			);
@@ -222,13 +218,10 @@ export class StartWorkCommand extends QuickCommand<State> {
 		return state.counter < 0 ? StepResultBreak : undefined;
 	}
 
-	private *selectTypeStep(
-		state: StepState<State>,
-	): StepResultGenerator<{ type: StartWorkType; inWorktree?: boolean }> {
+	private *selectTypeStep(state: StepState<State>): StepResultGenerator<{ type: StartWorkType }> {
 		const step = createPickStep({
 			placeholder: 'Choose how to start work',
 			items: [
-				createQuickPickSeparator('Issues'),
 				createQuickPickItemOfT<StartWorkTypeItem>(
 					{
 						label: 'Create Branch from Issue...',
@@ -237,30 +230,9 @@ export class StartWorkCommand extends QuickCommand<State> {
 					{ type: 'issue' },
 				),
 				createQuickPickItemOfT<StartWorkTypeItem>(
-					{
-						label: 'Create Branch & Worktree from Issue...',
-						detail: 'Will create a new branch & worktree after selecting an issue',
-					},
-					{
-						type: 'issue-worktree',
-						inWorktree: true,
-					},
-				),
-				createQuickPickSeparator('References'),
-				createQuickPickItemOfT<StartWorkTypeItem>(
 					{ label: 'Create Branch...', detail: 'Will create a new branch after selecting a reference' },
 					{
 						type: 'branch',
-					},
-				),
-				createQuickPickItemOfT<StartWorkTypeItem>(
-					{
-						label: 'Create Branch & Worktree...',
-						detail: 'Will create a new branch & worktree after selecting a reference',
-					},
-					{
-						type: 'branch-worktree',
-						inWorktree: true,
 					},
 				),
 			],
@@ -444,12 +416,7 @@ export class StartWorkCommand extends QuickCommand<State> {
 			if (!context.result.items.length) {
 				return {
 					placeholder: 'No issues found. Start work anyway.',
-					items: [
-						createQuickPickItemOfT<StartWorkTypeItem>(
-							state.inWorktree ? 'Create a branch on a worktree' : 'Create a branch',
-							{ type: state.inWorktree ? 'branch-worktree' : 'branch', inWorktree: state.inWorktree },
-						),
-					],
+					items: [createQuickPickItemOfT<StartWorkTypeItem>('Create a branch', { type: 'branch' })],
 				};
 			}
 

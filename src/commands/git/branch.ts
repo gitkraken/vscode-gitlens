@@ -64,6 +64,7 @@ interface CreateState {
 
 	suggestNameOnly?: boolean;
 	suggestRepoOnly?: boolean;
+	confirmOptions?: CreateFlags[];
 }
 
 function isCreateState(state: Partial<State> | undefined): state is Partial<CreateState> {
@@ -434,19 +435,29 @@ export class BranchGitCommand extends QuickCommand {
 	}
 
 	private *createCommandConfirmStep(state: CreateStepState, context: Context): StepResultGenerator<CreateFlags[]> {
-		const step: QuickPickStep<FlagsQuickPickItem<CreateFlags>> = createConfirmStep(
-			appendReposToTitle(`Confirm ${context.title}`, state, context),
-			[
+		const confirmItems = [];
+		if (!state.confirmOptions) {
+			confirmItems.push(
 				createFlagsQuickPickItem<CreateFlags>(state.flags, [], {
 					label: context.title,
 					detail: `Will create a new branch named ${state.name} from ${getReferenceLabel(state.reference)}`,
 				}),
+			);
+		}
+
+		if (!state.confirmOptions || state.confirmOptions.includes('--switch')) {
+			confirmItems.push(
 				createFlagsQuickPickItem<CreateFlags>(state.flags, ['--switch'], {
 					label: `Create & Switch to Branch`,
 					detail: `Will create and switch to a new branch named ${state.name} from ${getReferenceLabel(
 						state.reference,
 					)}`,
 				}),
+			);
+		}
+
+		if (!state.confirmOptions || state.confirmOptions.includes('--worktree')) {
+			confirmItems.push(
 				createFlagsQuickPickItem<CreateFlags>(state.flags, ['--worktree'], {
 					label: `${context.title} in New Worktree`,
 					description: 'avoids modifying your working tree',
@@ -454,7 +465,12 @@ export class BranchGitCommand extends QuickCommand {
 						state.reference,
 					)}`,
 				}),
-			],
+			);
+		}
+
+		const step: QuickPickStep<FlagsQuickPickItem<CreateFlags>> = createConfirmStep(
+			appendReposToTitle(`Confirm ${context.title}`, state, context),
+			confirmItems,
 			context,
 		);
 		const selection: StepSelection<typeof step> = yield step;

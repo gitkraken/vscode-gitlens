@@ -1379,7 +1379,7 @@ void
 ```typescript
 {
   'instance': number,
-  'type': 'branch' | 'branch-worktree' | 'issue' | 'issue-worktree'
+  'type': 'branch' | 'issue'
 }
 ```
 
@@ -1390,7 +1390,7 @@ void
 ```typescript
 {
   'instance': number,
-  'type': 'branch' | 'branch-worktree' | 'issue' | 'issue-worktree',
+  'type': 'branch' | 'issue',
   'items.count': number,
   'connected': false | true
 }
@@ -1403,7 +1403,7 @@ void
 ```typescript
 {
   'instance': number,
-  'type': 'branch' | 'branch-worktree' | 'issue' | 'issue-worktree',
+  'type': 'branch' | 'issue',
   'items.count': number,
   'connected': false | true
 }
@@ -1416,7 +1416,7 @@ void
 ```typescript
 {
   'instance': number,
-  'type': 'branch' | 'branch-worktree' | 'issue' | 'issue-worktree',
+  'type': 'branch' | 'issue',
   'items.count': number,
   'action': 'soft-open',
   'connected': false | true,
@@ -1431,7 +1431,7 @@ void
 ```typescript
 {
   'instance': number,
-  'type': 'branch' | 'branch-worktree' | 'issue' | 'issue-worktree',
+  'type': 'branch' | 'issue',
   'items.count': number,
   'connected': false | true,
   [`item.${string}`]: string | number | false | true
@@ -1445,7 +1445,7 @@ void
 ```typescript
 {
   'instance': number,
-  'type': 'branch' | 'branch-worktree' | 'issue' | 'issue-worktree',
+  'type': 'branch' | 'issue',
   'items.count': number,
   'connected': false | true
 }
@@ -1456,7 +1456,7 @@ void
 ```typescript
 {
   'instance': number,
-  'type': 'branch' | 'branch-worktree' | 'issue' | 'issue-worktree',
+  'type': 'branch' | 'issue',
   'items.count': number,
   'connected': false | true
 }
@@ -1467,7 +1467,7 @@ void
 ```typescript
 {
   'instance': number,
-  'type': 'branch' | 'branch-worktree' | 'issue' | 'issue-worktree',
+  'type': 'branch' | 'issue',
   'items.count': number,
   'connected': false | true
 }
@@ -1513,7 +1513,7 @@ void
 {
   'hostingProvider.provider': 'github' | 'gitlab' | 'bitbucket' | 'azureDevOps' | 'jira' | 'trello' | 'github-enterprise' | 'gitlab-self-hosted',
   'hostingProvider.key': string,
-  // @deprecated: 
+  // @deprecated:
   'remoteProviders.key': string
 }
 ```
@@ -1526,7 +1526,7 @@ void
 {
   'hostingProvider.provider': 'github' | 'gitlab' | 'bitbucket' | 'azureDevOps' | 'jira' | 'trello' | 'github-enterprise' | 'gitlab-self-hosted',
   'hostingProvider.key': string,
-  // @deprecated: 
+  // @deprecated:
   'remoteProviders.key': string
 }
 ```
