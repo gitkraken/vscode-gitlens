@@ -50,7 +50,7 @@ export async function wrapForForcedInsecureSSL<T>(
 	if (ignoreSSLErrors !== 'force') return fetchFn();
 
 	const https = require('https');
-	const agent = new https.Agent({ rejectUnauthorized: false });
+	const agent = new https.Agent();
 
 	try {
 		return await fetchFn({ agent });
