@@ -49,12 +49,12 @@ export async function wrapForForcedInsecureSSL<T>(
 ): Promise<T> {
 	if (ignoreSSLErrors !== 'force') return fetchFn();
 
-	const previousRejectUnauthorized = process.env.NODE_TLS_REJECT_UNAUTHORIZED;
-	process.env.NODE_TLS_REJECT_UNAUTHORIZED = '0';
+	const https = require('https');
+	const agent = new https.Agent({ rejectUnauthorized: false });
 
 	try {
-		return await fetchFn();
+		return await fetchFn({ agent });
 	} finally {
-		process.env.NODE_TLS_REJECT_UNAUTHORIZED = previousRejectUnauthorized;
+		// No need to restore global state
 	}
 }
