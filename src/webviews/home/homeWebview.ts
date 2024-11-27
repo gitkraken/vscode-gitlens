@@ -1,6 +1,7 @@
 import type { ConfigurationChangeEvent } from 'vscode';
 import { Disposable, workspace } from 'vscode';
 import type { CreatePullRequestActionContext } from '../../api/gitlens';
+import type { EnrichedAutolink } from '../../autolinks';
 import { getAvatarUriFromGravatarEmail } from '../../avatars';
 import type { OpenPullRequestOnRemoteCommandArgs } from '../../commands/openPullRequestOnRemote';
 import { GlyphChars, urls } from '../../constants';
@@ -915,6 +916,7 @@ async function getOverviewBranches(
 
 	let repoStatusPromise: Promise<GitStatus | undefined> | undefined;
 	const prPromises = new Map<string, Promise<PullRequest | undefined>>();
+	const autolinkPromises = new Map<string, Promise<Map<string, EnrichedAutolink> | undefined>>();
 	const statusPromises = new Map<string, Promise<GitStatus | undefined>>();
 	const contributorPromises = new Map<string, Promise<BranchContributorOverview | undefined>>();
 
@@ -929,6 +931,7 @@ async function getOverviewBranches(
 		if (branch.current || wt?.opened) {
 			const forceOptions = options?.forceActive ? { force: true } : undefined;
 			prPromises.set(branch.id, branch.getAssociatedPullRequest({ avatarSize: 16 }));
+			autolinkPromises.set(branch.id, branch.getEnrichedAutolinks());
 			if (wt != null) {
 				statusPromises.set(branch.id, wt.getStatus(forceOptions));
 			} else {
@@ -955,6 +958,7 @@ async function getOverviewBranches(
 
 		if (timestamp != null && timestamp > recentThreshold) {
 			prPromises.set(branch.id, branch.getAssociatedPullRequest());
+			autolinkPromises.set(branch.id, branch.getEnrichedAutolinks());
 			if (wt != null) {
 				statusPromises.set(branch.id, wt.getStatus());
 			}
@@ -982,6 +986,7 @@ async function getOverviewBranches(
 			orderBy: 'date:asc',
 		});
 		for (const branch of branches) {
+			autolinkPromises.set(branch.id, branch.getEnrichedAutolinks());
 			if (overviewBranches.stale.length > 9) break;
 
 			if (
@@ -1025,7 +1030,7 @@ async function getOverviewBranches(
 		}
 	}
 
-	await enrichOverviewBranches(overviewBranches, prPromises, statusPromises, contributorPromises);
+	await enrichOverviewBranches(overviewBranches, prPromises, autolinkPromises, statusPromises, contributorPromises);
 
 	return overviewBranches;
 }
@@ -1034,11 +1039,17 @@ async function getOverviewBranches(
 async function enrichOverviewBranches(
 	overviewBranches: GetOverviewBranches,
 	prPromises: Map<string, Promise<PullRequest | undefined>>,
+	autolinkPromises: Map<string, Promise<Map<string, EnrichedAutolink> | undefined>>,
 	statusPromises: Map<string, Promise<GitStatus | undefined>>,
 	contributorPromises: Map<string, Promise<BranchContributorOverview | undefined>>,
 ) {
-	const [prResults, statusResults, contributorResults] = await Promise.allSettled([
+	const [prResults, autolinkResults, statusResults, contributorResults] = await Promise.allSettled([
 		Promise.allSettled(map(prPromises, ([id, pr]) => pr.then<[string, PullRequest | undefined]>(pr => [id, pr]))),
+		Promise.allSettled(
+			map(autolinkPromises, ([id, autolinks]) =>
+				autolinks.then<[string, Map<string, EnrichedAutolink> | undefined]>(a => [id, a]),
+			),
+		),
 		Promise.allSettled(
 			map(statusPromises, ([id, status]) => status.then<[string, GitStatus | undefined]>(status => [id, status])),
 		),
@@ -1065,6 +1076,40 @@ async function enrichOverviewBranches(
 			]),
 	);
 
+	const enrichedAutolinkPromises = new Map(
+		getSettledValue(autolinkResults)
+			?.filter(r => r.status === 'fulfilled')
+			.map(({ value: [autolinkId, autolinks] }) => [
+				autolinkId,
+				autolinks
+					? [...autolinks.values()]
+							.filter(autolink => autolink?.[0] != null)
+							.map(async autolink => {
+								const issue = await autolink[0]!;
+								return {
+									id: autolink[1].id,
+									title: issue?.title ?? autolink[1].title ?? `Issue #${autolink[1].id}`,
+									state: issue?.state === 'closed' ? 'closed' : 'opened',
+									url: autolink[1].url,
+									hasIssue: issue != null,
+								};
+							})
+					: undefined,
+			]),
+	);
+
+	const autolinks = new Map<string, GetOverviewBranch['autolinks']>();
+
+	for (const [id, enrichedAutolinkPromise] of enrichedAutolinkPromises.entries()) {
+		if (enrichedAutolinkPromise == null) continue;
+		const enrichedAutolinks = await Promise.all(enrichedAutolinkPromise);
+		if (!enrichedAutolinks.length) continue;
+		autolinks.set(
+			id,
+			enrichedAutolinks.filter(a => a.hasIssue),
+		);
+	}
+
 	const statuses = new Map(
 		getSettledValue(statusResults)
 			?.filter(r => r.status === 'fulfilled')
@@ -1080,6 +1125,9 @@ async function enrichOverviewBranches(
 	for (const branch of [...overviewBranches.active, ...overviewBranches.recent, ...overviewBranches.stale]) {
 		const pr = prs.get(branch.id);
 		branch.pr = pr;
+
+		const autolinksForBranch = autolinks.get(branch.id);
+		branch.autolinks = autolinksForBranch;
 
 		const status = statuses.get(branch.id);
 		if (status != null) {

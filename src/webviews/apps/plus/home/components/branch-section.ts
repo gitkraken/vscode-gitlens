@@ -14,6 +14,7 @@ import '../../../shared/components/card/card';
 import '../../../shared/components/commit/commit-stats';
 import '../../../shared/components/formatted-date';
 import '../../../shared/components/pills/tracking';
+import '../../../shared/components/rich/issue-icon';
 import '../../../shared/components/rich/pr-icon';
 import '../../../shared/components/actions/action-item';
 import '../../../shared/components/actions/action-nav';
@@ -161,10 +162,6 @@ export const branchCardStyles = css`
 		text-decoration: none;
 	}
 
-	.branch-item__identifier:hover {
-		text-decoration: underline;
-	}
-
 	.branch-item__grouping {
 		display: inline-flex;
 		align-items: center;
@@ -223,7 +220,7 @@ export class GlBranchCard extends LitElement {
 	}
 
 	override render() {
-		const { name, pr, opened: active, timestamp: date } = this.branch;
+		const { name, pr, autolinks, opened: active, timestamp: date } = this.branch;
 		return html`
 			<gl-card class="branch-item" .active=${active}>
 				<div class="branch-item__container">
@@ -233,12 +230,12 @@ export class GlBranchCard extends LitElement {
 							${when(
 								pr,
 								pr =>
-									html`<span class="branch-item__name">${pr.title} </span
-										><a href=${pr.url} class="branch-item__identifier">#${pr.id}</a>`,
+									html`<a href=${pr.url} class="branch-item__name">${pr.title} </a
+										><span class="branch-item__identifier">#${pr.id}</span>`,
 								() => html`<span class="branch-item__name">${name}</span>`,
 							)}
 						</p>
-						${this.renderPrBranch(this.branch)}
+						${this.renderPrBranch(this.branch)} ${when(autolinks, () => this.renderAutolinks(autolinks))}
 					</div>
 					<div class="branch-item__section branch-item__section--details">
 						${this.renderChanges(this.branch)}
@@ -253,6 +250,23 @@ export class GlBranchCard extends LitElement {
 				</div>
 				${this.renderActions()}
 			</gl-card>
+		`;
+	}
+
+	private renderAutolinks(autolinks: { id: string; title: string; state: string; url: string }[] | undefined) {
+		if (!autolinks) return nothing;
+		return html`
+			${autolinks.map(autolink => {
+				return html`
+					<p class="branch-item__grouping branch-item__grouping--secondary">
+						<span class="branch-item__icon">
+							<issue-icon state=${autolink.state} issue-id=${autolink.id}></issue-icon>
+						</span>
+						<a href=${autolink.url} class="branch-item__name">${autolink.title}</a>
+						<span class="branch-item__identifier">#${autolink.id}</span>
+					</p>
+				`;
+			})}
 		`;
 	}
 
