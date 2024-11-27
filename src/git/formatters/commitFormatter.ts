@@ -489,7 +489,7 @@ export class CommitFormatter extends Formatter<GitCommit, CommitFormatOptions> {
 					pullRequest: { id: pr.id, url: pr.url },
 				})} "Open Pull Request \\#${pr.id}${
 					Container.instance.actionRunners.count('openPullRequest') === 1 ? ` on ${pr.provider.name}` : '...'
-				}\n${GlyphChars.Dash.repeat(2)}\n${escapeMarkdown(pr.title).replace(/"/g, '\\"')}\n${
+				}\n${GlyphChars.Dash.repeat(2)}\n${escapeMarkdown(pr.title).replace(/\\/g, '\\\\').replace(/"/g, '\\"')}\n${
 					pr.state
 				}, ${pr.formatDateFromNow()}")`;
 			} else if (isPromise(pr)) {
