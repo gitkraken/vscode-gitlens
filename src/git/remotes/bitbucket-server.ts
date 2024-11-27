@@ -158,7 +158,7 @@ export class BitbucketServerRemote extends RemoteProvider {
 	}
 
 	protected override getUrlForComparison(base: string, compare: string, _notation: '..' | '...'): string {
-		return this.encodeUrl(`${this.baseUrl}/branches/compare/${base}%0D${compare}`).replace('%250D', '%0D');
+		return this.encodeUrl(`${this.baseUrl}/branches/compare/${base}%0D${compare}`).replace(/%250D/g, '%0D');
 	}
 
 	protected getUrlForFile(fileName: string, branch?: string, sha?: string, range?: Range): string {
