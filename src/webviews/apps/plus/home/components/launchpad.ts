@@ -162,6 +162,7 @@ export class GlLaunchpad extends SignalWatcher(LitElement) {
 						density="compact"
 						class="start-work"
 						href=${this.createBranchCommand}
+						tooltip="Create a new branch"
 						><code-icon icon="custom-start-work"></code-icon
 					></gl-button>
 				</button-container>
