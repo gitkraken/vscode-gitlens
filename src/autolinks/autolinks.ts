@@ -470,7 +470,7 @@ export class Autolinks implements Disposable {
 										} else {
 											const issue = issueResult.value;
 											const issueTitle = escapeMarkdown(issue.title.trim());
-											const issueTitleQuoteEscaped = issueTitle.replace(/"/g, '\\"');
+											const issueTitleQuoteEscaped = issueTitle.replace(/(["\\])/g, '\\$1');
 
 											if (footnotes != null && !prs?.has(num)) {
 												footnoteIndex = footnotes.size + 1;
