@@ -1,4 +1,5 @@
 import type { CancellationToken } from 'vscode';
+import type { EnrichedAutolink } from '../../autolinks';
 import type { BranchSorting } from '../../config';
 import type { GitConfigKeys } from '../../constants';
 import type { Container } from '../../container';
@@ -138,6 +139,13 @@ export class GitBranch implements GitBranchReference {
 			this.getTrackingWithoutRemote() ?? this.getNameWithoutRemote(),
 			options,
 		);
+	}
+
+	@memoize()
+	async getEnrichedAutolinks(): Promise<Map<string, EnrichedAutolink> | undefined> {
+		const remote = await this.container.git.getBestRemoteWithProvider(this.repoPath);
+		const branchAutolinks = await this.container.autolinks.getBranchAutolinks(this.name, remote);
+		return this.container.autolinks.getEnrichedAutolinks(branchAutolinks, remote);
 	}
 
 	@memoize()
