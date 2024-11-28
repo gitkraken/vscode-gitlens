@@ -23,6 +23,7 @@ import '../../../shared/components/menu/menu-item';
 import '../../../shared/components/overlays/popover';
 import '../../../shared/components/overlays/tooltip';
 import '../../../shared/components/pills/tracking';
+import '../../../shared/components/rich/issue-icon';
 import '../../../shared/components/rich/pr-icon';
 
 export const activeWorkTagName = 'gl-active-work';
@@ -177,7 +178,7 @@ export class GlActiveWork extends SignalWatcher(LitElement) {
 	}
 
 	private renderRepoBranchCard(branch: GetOverviewBranch, repo: string, isFetching: boolean) {
-		const { name, pr, state, workingTreeState, upstream } = branch;
+		const { name, pr, autolinks, state, workingTreeState, upstream } = branch;
 		return html`
 			<gl-card class="branch-item" active>
 				<div class="branch-item__container">
@@ -196,15 +197,35 @@ export class GlActiveWork extends SignalWatcher(LitElement) {
 								<span class="branch-item__icon">
 									<pr-icon state=${pr.state} pr-id=${pr.id}></pr-icon>
 								</span>
-								<span class="branch-item__name">${pr.title}</span>
-								<a href=${pr.url} class="branch-item__identifier">#${pr.id}</a>
+								<a href=${pr.url} class="branch-item__name">${pr.title}</a>
+								<spanclass="branch-item__identifier">#${pr.id}</span>
 							</p>
 						</div>`;
 					})}
+					${when(autolinks, () => this.renderAutolinks(autolinks))}
 					${when(workingTreeState, () => this.renderStatus(workingTreeState, state))}
 				</div>
 				${this.renderActions(branch, repo)}
 			</gl-card>
+		`;
+	}
+
+	private renderAutolinks(autolinks: { id: string; title: string; state: string; url: string }[] | undefined) {
+		if (!autolinks) return nothing;
+		return html`
+			<div class="branch-item__section">
+				${autolinks.map(autolink => {
+					return html`
+						<p class="branch-item__grouping">
+							<span class="branch-item__icon">
+								<issue-icon state=${autolink.state} issue-id=${autolink.id}></issue-icon>
+							</span>
+							<a href=${autolink.url} class="branch-item__name">${autolink.title}</a>
+							<span class="branch-item__identifier">#${autolink.id}</span>
+						</p>
+					`;
+				})}
+			</div>
 		`;
 	}
 

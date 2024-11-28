@@ -100,6 +100,13 @@ export interface GetOverviewBranch {
 		state: string;
 		url: string;
 	};
+	autolinks?: {
+		id: string;
+		title: string;
+		url: string;
+		state: string;
+		hasIssue: boolean;
+	}[];
 	worktree?: {
 		name: string;
 		uri: string;
