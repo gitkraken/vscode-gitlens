@@ -407,7 +407,8 @@ export class ViewCommands implements Disposable {
 				'gitlens.views.setResultsCommitsFilterOff',
 				n => this.setResultsCommitsFilter(n, false),
 				this,
-			),
+				),
+			registerViewCommand('gitlens.views.switchToSeparateViews', this.switchToSeparateViews, this),
 		);
 	}
 
@@ -1622,6 +1623,22 @@ export class ViewCommands implements Disposable {
 		}
 
 		void node.triggerChange(true);
+	}
+
+	@log()
+	private async switchToSeparateViews() {
+		await configuration.updateEffective('views.scm.grouped.views', {
+			commits: false,
+			branches: false,
+			remotes: false,
+			stashes: false,
+			tags: false,
+			worktrees: false,
+			contributors: false,
+			repositories: false,
+			searchAndCompare: false,
+			launchpad: false,
+		});
 	}
 }
 
