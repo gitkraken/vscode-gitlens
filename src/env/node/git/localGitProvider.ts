@@ -1098,6 +1098,34 @@ export class LocalGitProvider implements GitProvider, Disposable {
 	}
 
 	@log()
+	async cherryPick(
+		repoPath: string,
+		ref: string,
+		options: { noCommit?: boolean; edit?: boolean; errors?: GitErrorHandling },
+	): Promise<void> {
+		const args: string[] = [];
+		if (options?.noCommit) {
+			args.push('-n');
+		}
+
+		if (options?.edit) {
+			args.push('-e');
+		}
+
+		args.push(ref);
+
+		try {
+			await this.git.cherryPick(repoPath, undefined, args);
+		} catch (ex) {
+			if (ex instanceof CherryPickError) {
+				throw ex.WithRef(ref);
+			}
+
+			throw ex;
+		}
+	}
+
+	@log()
 	async applyChangesToWorkingFile(uri: GitUri, ref1?: string, ref2?: string) {
 		const scope = getLogScope();
 
@@ -1246,7 +1274,7 @@ export class LocalGitProvider implements GitProvider, Disposable {
 
 		// Apply the patch using a cherry pick without committing
 		try {
-			await this.git.cherrypick(targetPath, ref, { noCommit: true, errors: GitErrorHandling.Throw });
+			await this.git.cherryPick(targetPath, undefined, [ref, '--no-commit']);
 		} catch (ex) {
 			Logger.error(ex, scope);
 			if (ex instanceof CherryPickError) {

@@ -1335,6 +1335,18 @@ export class GitProviderService implements Disposable {
 	}
 
 	@log()
+	cherryPick(
+		repoPath: string | Uri,
+		ref: string,
+		options: { noCommit?: boolean; edit?: boolean } = {},
+	): Promise<void> {
+		const { provider, path } = this.getProvider(repoPath);
+		if (provider.cherryPick == null) throw new ProviderNotSupportedError(provider.descriptor.name);
+
+		return provider.cherryPick(path, ref, options);
+	}
+
+	@log()
 	applyChangesToWorkingFile(uri: GitUri, ref1?: string, ref2?: string): Promise<void> {
 		const { provider } = this.getProvider(uri);
 		if (provider.applyChangesToWorkingFile == null) throw new ProviderNotSupportedError(provider.descriptor.name);
