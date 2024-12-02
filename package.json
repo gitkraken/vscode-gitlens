@@ -1743,6 +1743,13 @@
 				"title": "Commits View",
 				"order": 110,
 				"properties": {
+					"gitlens.views.commits.showStashes": {
+						"type": "boolean",
+						"default": false,
+						"markdownDescription": "Specifies whether to show stashes in the _Commits_ view",
+						"scope": "window",
+						"order": 9
+					},
 					"gitlens.views.commits.showBranchComparison": {
 						"type": [
 							"boolean",
@@ -2070,7 +2077,7 @@
 					},
 					"gitlens.views.repositories.showStashes": {
 						"type": "boolean",
-						"default": true,
+						"default": false,
 						"markdownDescription": "Specifies whether to show the stashes for each repository in the _Repositories_ view",
 						"scope": "window",
 						"order": 33
@@ -2191,6 +2198,13 @@
 						"markdownDescription": "Specifies whether to show the _Repositories_ view in a compact display density",
 						"scope": "window",
 						"order": 90
+					},
+					"gitlens.views.repositories.branches.showStashes": {
+						"type": "boolean",
+						"default": false,
+						"markdownDescription": "Specifies whether to show stashes in the _Commits_ and _Branches_ sections of the _Repositories_ view",
+						"scope": "window",
+						"order": 95
 					},
 					"gitlens.views.repositories.branches.showBranchComparison": {
 						"type": [
@@ -2355,6 +2369,13 @@
 				"title": "Branches View",
 				"order": 170,
 				"properties": {
+					"gitlens.views.branches.showStashes": {
+						"type": "boolean",
+						"default": false,
+						"markdownDescription": "Specifies whether to show stashes in the _Branches_ view",
+						"scope": "window",
+						"order": 9
+					},
 					"gitlens.views.branches.showBranchComparison": {
 						"type": [
 							"boolean",
@@ -2755,6 +2776,13 @@
 						"markdownDescription": "Specifies how and when to open a worktree after it is created",
 						"scope": "resource",
 						"order": 12
+					},
+					"gitlens.views.worktrees.showStashes": {
+						"type": "boolean",
+						"default": false,
+						"markdownDescription": "Specifies whether to show stashes in the _Worktrees_ view",
+						"scope": "window",
+						"order": 19
 					},
 					"gitlens.views.worktrees.showBranchComparison": {
 						"type": [
@@ -3229,7 +3257,7 @@
 					},
 					"gitlens.views.workspaces.showStashes": {
 						"type": "boolean",
-						"default": true,
+						"default": false,
 						"markdownDescription": "Specifies whether to show the stashes for each repository in the _Cloud Workspaces_ view",
 						"scope": "window",
 						"order": 33
@@ -3336,6 +3364,13 @@
 						"markdownDescription": "Specifies whether to show the _Cloud Workspaces_ view in a compact display density",
 						"scope": "window",
 						"order": 90
+					},
+					"gitlens.views.workspaces.branches.showStashes": {
+						"type": "boolean",
+						"default": false,
+						"markdownDescription": "Specifies whether to show stashes in the _Commits_ and _Branches_ sections of the _Cloud Workspaces_ view",
+						"scope": "window",
+						"order": 9
 					},
 					"gitlens.views.workspaces.branches.showBranchComparison": {
 						"type": [
@@ -7674,6 +7709,14 @@
 				"title": "Hide Branch Pull Requests"
 			},
 			{
+				"command": "gitlens.views.branches.setShowStashesOn",
+				"title": "Show Stashes"
+			},
+			{
+				"command": "gitlens.views.branches.setShowStashesOff",
+				"title": "Hide Stashes"
+			},
+			{
 				"command": "gitlens.views.commitDetails.refresh",
 				"title": "Refresh",
 				"icon": "$(refresh)"
@@ -7758,6 +7801,14 @@
 			{
 				"command": "gitlens.views.commits.setShowBranchPullRequestOff",
 				"title": "Hide Current Branch Pull Request"
+			},
+			{
+				"command": "gitlens.views.commits.setShowStashesOn",
+				"title": "Show Stashes"
+			},
+			{
+				"command": "gitlens.views.commits.setShowStashesOff",
+				"title": "Hide Stashes"
 			},
 			{
 				"command": "gitlens.views.contributors.copy",
@@ -8803,6 +8854,14 @@
 			{
 				"command": "gitlens.views.worktrees.setShowBranchPullRequestOff",
 				"title": "Hide Branch Pull Requests"
+			},
+			{
+				"command": "gitlens.views.worktrees.setShowStashesOn",
+				"title": "Show Stashes"
+			},
+			{
+				"command": "gitlens.views.worktrees.setShowStashesOff",
+				"title": "Hide Stashes"
 			},
 			{
 				"command": "gitlens.enableDebugLogging",
@@ -11225,6 +11284,14 @@
 					"when": "false"
 				},
 				{
+					"command": "gitlens.views.branches.setShowStashesOn",
+					"when": "false"
+				},
+				{
+					"command": "gitlens.views.branches.setShowStashesOff",
+					"when": "false"
+				},
+				{
 					"command": "gitlens.views.commitDetails.refresh",
 					"when": "false"
 				},
@@ -11298,6 +11365,14 @@
 				},
 				{
 					"command": "gitlens.views.commits.setShowBranchPullRequestOff",
+					"when": "false"
+				},
+				{
+					"command": "gitlens.views.commits.setShowStashesOn",
+					"when": "false"
+				},
+				{
+					"command": "gitlens.views.commits.setShowStashesOff",
 					"when": "false"
 				},
 				{
@@ -12194,6 +12269,14 @@
 				},
 				{
 					"command": "gitlens.views.worktrees.setShowBranchPullRequestOff",
+					"when": "false"
+				},
+				{
+					"command": "gitlens.views.worktrees.setShowStashesOn",
+					"when": "false"
+				},
+				{
+					"command": "gitlens.views.worktrees.setShowStashesOff",
 					"when": "false"
 				},
 				{
@@ -13230,6 +13313,16 @@
 					"group": "5_gitlens@2"
 				},
 				{
+					"command": "gitlens.views.branches.setShowStashesOn",
+					"when": "view == gitlens.views.branches && !config.gitlens.views.branches.showStashes && !gitlens:hasVirtualFolders",
+					"group": "5_gitlens@11"
+				},
+				{
+					"command": "gitlens.views.branches.setShowStashesOff",
+					"when": "view == gitlens.views.branches && config.gitlens.views.branches.showStashes && !gitlens:hasVirtualFolders",
+					"group": "5_gitlens@11"
+				},
+				{
 					"command": "gitlens.pushRepositories",
 					"when": "gitlens:repos:withRemotes && !gitlens:readonly && !gitlens:untrusted && !gitlens:hasVirtualFolders && view == gitlens.views.commits",
 					"group": "navigation@1"
@@ -13337,7 +13430,17 @@
 				{
 					"command": "gitlens.views.commits.setShowBranchPullRequestOff",
 					"when": "view == gitlens.views.commits && config.gitlens.views.commits.pullRequests.enabled && config.gitlens.views.commits.pullRequests.showForBranches",
-					"group": "5_gitlens@4"
+					"group": "5_gitlens@3"
+				},
+				{
+					"command": "gitlens.views.commits.setShowStashesOn",
+					"when": "view == gitlens.views.commits && !config.gitlens.views.commits.showStashes && !gitlens:hasVirtualFolders",
+					"group": "5_gitlens@11"
+				},
+				{
+					"command": "gitlens.views.commits.setShowStashesOff",
+					"when": "view == gitlens.views.commits && config.gitlens.views.commits.showStashes && !gitlens:hasVirtualFolders",
+					"group": "5_gitlens@11"
 				},
 				{
 					"command": "gitlens.showGraph",
@@ -14290,14 +14393,24 @@
 					"group": "5_gitlens@2"
 				},
 				{
+					"command": "gitlens.views.worktrees.setShowStashesOn",
+					"when": "view == gitlens.views.worktrees && !config.gitlens.views.worktrees.showStashes && !gitlens:hasVirtualFolders",
+					"group": "5_gitlens@11"
+				},
+				{
+					"command": "gitlens.views.worktrees.setShowStashesOff",
+					"when": "view == gitlens.views.worktrees && config.gitlens.views.worktrees.showStashes && !gitlens:hasVirtualFolders",
+					"group": "5_gitlens@11"
+				},
+				{
 					"command": "gitlens.views.setShowRelativeDateMarkersOn",
 					"when": "view =~ /^gitlens\\.views\\.(branches|commits|contributors|fileHistory|lineHistory|remotes|repositories|tags|worktrees)/ && !config.gitlens.views.showRelativeDateMarkers",
-					"group": "5_gitlens@3"
+					"group": "5_gitlens@10"
 				},
 				{
 					"command": "gitlens.views.setShowRelativeDateMarkersOff",
 					"when": "view =~ /^gitlens\\.views\\.(branches|commits|contributors|fileHistory|lineHistory|remotes|repositories|tags|worktrees)/ && config.gitlens.views.showRelativeDateMarkers",
-					"group": "5_gitlens@3"
+					"group": "5_gitlens@10"
 				},
 				{
 					"submenu": "gitlens/graph/configuration",
@@ -17421,12 +17534,12 @@
 				},
 				{
 					"command": "gitlens.views.repositories.setShowStashesOn",
-					"when": "!config.gitlens.views.repositories.showStashes",
+					"when": "!config.gitlens.views.repositories.showStashes && !gitlens:hasVirtualFolders",
 					"group": "2_gitlens@5"
 				},
 				{
 					"command": "gitlens.views.repositories.setShowStashesOff",
-					"when": "config.gitlens.views.repositories.showStashes",
+					"when": "config.gitlens.views.repositories.showStashes && !gitlens:hasVirtualFolders",
 					"group": "2_gitlens@5"
 				},
 				{
@@ -17756,12 +17869,12 @@
 				{
 					"command": "gitlens.views.setShowRelativeDateMarkersOn",
 					"when": "view == gitlens.views.scm.grouped && gitlens:views:scm:grouped:view =~ /(branches|commits|contributors|remotes|repositories|tags|worktrees)/ && !config.gitlens.views.showRelativeDateMarkers",
-					"group": "5_gitlens@3"
+					"group": "5_gitlens@10"
 				},
 				{
 					"command": "gitlens.views.setShowRelativeDateMarkersOff",
 					"when": "view == gitlens.views.scm.grouped && gitlens:views:scm:grouped:view =~ /(branches|commits|contributors|remotes|repositories|tags|worktrees)/ && config.gitlens.views.showRelativeDateMarkers",
-					"group": "5_gitlens@3"
+					"group": "5_gitlens@10"
 				},
 				{
 					"command": "gitlens.views.branches.setLayoutToList",
@@ -17817,6 +17930,16 @@
 					"command": "gitlens.views.branches.setShowBranchPullRequestOff",
 					"when": "view == gitlens.views.scm.grouped && gitlens:views:scm:grouped:view == branches && config.gitlens.views.branches.pullRequests.enabled && config.gitlens.views.branches.pullRequests.showForBranches",
 					"group": "5_gitlens@2"
+				},
+				{
+					"command": "gitlens.views.branches.setShowStashesOn",
+					"when": "view == gitlens.views.scm.grouped && gitlens:views:scm:grouped:view == branches && !config.gitlens.views.branches.showStashes && !gitlens:hasVirtualFolders",
+					"group": "5_gitlens@11"
+				},
+				{
+					"command": "gitlens.views.branches.setShowStashesOff",
+					"when": "view == gitlens.views.scm.grouped && gitlens:views:scm:grouped:view == branches && config.gitlens.views.branches.showStashes && !gitlens:hasVirtualFolders",
+					"group": "5_gitlens@11"
 				},
 				{
 					"command": "gitlens.showSettingsPage!branches-view",
@@ -17876,7 +17999,17 @@
 				{
 					"command": "gitlens.views.commits.setShowBranchPullRequestOff",
 					"when": "view == gitlens.views.scm.grouped && gitlens:views:scm:grouped:view == commits && config.gitlens.views.commits.pullRequests.enabled && config.gitlens.views.commits.pullRequests.showForBranches",
-					"group": "5_gitlens@4"
+					"group": "5_gitlens@3"
+				},
+				{
+					"command": "gitlens.views.commits.setShowStashesOn",
+					"when": "view == gitlens.views.scm.grouped && gitlens:views:scm:grouped:view == commits && !config.gitlens.views.commits.showStashes && !gitlens:hasVirtualFolders",
+					"group": "5_gitlens@11"
+				},
+				{
+					"command": "gitlens.views.commits.setShowStashesOff",
+					"when": "view == gitlens.views.scm.grouped && gitlens:views:scm:grouped:view == commits && config.gitlens.views.commits.showStashes && !gitlens:hasVirtualFolders",
+					"group": "5_gitlens@11"
 				},
 				{
 					"command": "gitlens.showSettingsPage!commits-view",
@@ -18197,6 +18330,16 @@
 					"command": "gitlens.views.worktrees.setShowBranchPullRequestOff",
 					"when": "view == gitlens.views.scm.grouped && gitlens:views:scm:grouped:view == worktrees && config.gitlens.views.worktrees.pullRequests.enabled && config.gitlens.views.worktrees.pullRequests.showForBranches",
 					"group": "5_gitlens@2"
+				},
+				{
+					"command": "gitlens.views.worktrees.setShowStashesOn",
+					"when": "view == gitlens.views.scm.grouped && gitlens:views:scm:grouped:view == worktrees && !config.gitlens.views.worktrees.showStashes && !gitlens:hasVirtualFolders",
+					"group": "5_gitlens@11"
+				},
+				{
+					"command": "gitlens.views.worktrees.setShowStashesOff",
+					"when": "view == gitlens.views.scm.grouped && gitlens:views:scm:grouped:view == worktrees && config.gitlens.views.worktrees.showStashes && !gitlens:hasVirtualFolders",
+					"group": "5_gitlens@11"
 				},
 				{
 					"command": "gitlens.showSettingsPage!worktrees-view",

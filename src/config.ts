@@ -700,6 +700,7 @@ export interface BranchesViewConfig {
 	};
 	readonly reveal: boolean;
 	readonly showBranchComparison: false | Extract<ViewShowBranchComparison, 'branch'>;
+	readonly showStashes: boolean;
 }
 
 export interface CommitsViewConfig {
@@ -713,6 +714,7 @@ export interface CommitsViewConfig {
 	};
 	readonly reveal: boolean;
 	readonly showBranchComparison: false | ViewShowBranchComparison;
+	readonly showStashes: boolean;
 }
 
 export interface CommitDetailsViewConfig {
@@ -806,6 +808,7 @@ export interface RepositoriesViewConfig {
 	readonly branches: {
 		readonly layout: ViewBranchesLayout;
 		readonly showBranchComparison: false | Extract<ViewShowBranchComparison, 'branch'>;
+		readonly showStashes: boolean;
 	};
 	readonly compact: boolean;
 	readonly files: ViewsFilesConfig;
@@ -860,6 +863,7 @@ export interface WorktreesViewConfig {
 	};
 	readonly reveal: boolean;
 	readonly showBranchComparison: false | Extract<ViewShowBranchComparison, 'branch'>;
+	readonly showStashes: boolean;
 }
 
 export interface WorkspacesViewConfig {
@@ -867,6 +871,7 @@ export interface WorkspacesViewConfig {
 	readonly branches: {
 		readonly layout: ViewBranchesLayout;
 		readonly showBranchComparison: false | Extract<ViewShowBranchComparison, 'branch'>;
+		readonly showStashes: boolean;
 	};
 	readonly compact: boolean;
 	readonly files: ViewsFilesConfig;

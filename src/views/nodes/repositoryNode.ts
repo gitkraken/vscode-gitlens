@@ -159,6 +159,7 @@ export class RepositoryNode extends SubscribeableViewNode<'repository', ViewsWit
 						new BranchNode(this.uri, this.view, this, this.repo, branch, true, {
 							showAsCommits: true,
 							showComparison: false,
+							showStashes: this.view.config.branches.showStashes,
 							showStatusDecorationOnly: true,
 							showStatus: false,
 							showTracking: false,
