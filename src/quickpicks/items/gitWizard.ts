@@ -212,22 +212,22 @@ export async function createCommitQuickPickItem<T extends GitCommit = GitCommit>
 }
 
 export function createStashQuickPickItem(
-	commit: GitStashCommit,
+	stash: GitStashCommit,
 	picked?: boolean,
 	options?: { alwaysShow?: boolean; buttons?: QuickInputButton[]; compact?: boolean; icon?: boolean },
 ) {
-	const number = commit.number == null ? '' : `${commit.number}: `;
+	const number = stash.number == null ? '' : `${stash.number}: `;
 
 	if (options?.compact) {
 		const item: CommitQuickPickItem<GitStashCommit> = {
-			label: `${number}${commit.summary}`,
-			description: `${commit.formattedDate}${pad(GlyphChars.Dot, 2, 2)}${commit.formatStats({
+			label: `${number}${stash.summary}`,
+			description: `${stash.formattedDate}${pad(GlyphChars.Dot, 2, 2)}${stash.formatStats({
 				compact: true,
 			})}`,
 			alwaysShow: options.alwaysShow,
 			buttons: options.buttons,
 			picked: picked,
-			item: commit,
+			item: stash,
 			iconPath: options.icon ? new ThemeIcon('archive') : undefined,
 		};
 
@@ -235,15 +235,15 @@ export function createStashQuickPickItem(
 	}
 
 	const item: CommitQuickPickItem<GitStashCommit> = {
-		label: `${number}${commit.summary}`,
+		label: `${number}${stash.summary}`,
 		description: '',
-		detail: `${GlyphChars.Space.repeat(2)}${commit.formattedDate}${pad(GlyphChars.Dot, 2, 2)}${commit.formatStats({
+		detail: `${GlyphChars.Space.repeat(2)}${stash.formattedDate}${pad(GlyphChars.Dot, 2, 2)}${stash.formatStats({
 			compact: true,
 		})}`,
 		alwaysShow: options?.alwaysShow,
 		buttons: options?.buttons,
 		picked: picked,
-		item: commit,
+		item: stash,
 		iconPath: options?.icon ? new ThemeIcon('archive') : undefined,
 	};
 

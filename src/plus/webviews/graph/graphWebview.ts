@@ -1093,8 +1093,8 @@ export class GraphWebviewProvider implements WebviewProvider<State, State, Graph
 						commit = await this.container.git.getCommit(this._graph.repoPath, uncommitted);
 						break;
 					case 'stash-node': {
-						const stash = await this.container.git.getStash(this._graph.repoPath);
-						commit = stash?.commits.get(msg.params.id);
+						const gitStash = await this.container.git.getStash(this._graph.repoPath);
+						commit = gitStash?.stashes.get(msg.params.id);
 						break;
 					}
 					default: {

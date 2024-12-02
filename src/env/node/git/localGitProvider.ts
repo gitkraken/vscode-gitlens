@@ -2435,9 +2435,9 @@ export class LocalGitProvider implements GitProvider, Disposable {
 		let stdin: string | undefined;
 
 		// TODO@eamodio this is insanity -- there *HAS* to be a better way to get git log to return stashes
-		const stash = getSettledValue(stashResult);
-		if (stash?.commits.size) {
-			stashes = new Map(stash.commits);
+		const gitStash = getSettledValue(stashResult);
+		if (gitStash?.stashes.size) {
+			stashes = new Map(gitStash.stashes);
 			stdin = join(
 				map(stashes.values(), c => c.sha.substring(0, 9)),
 				'\n',
@@ -2574,7 +2574,7 @@ export class LocalGitProvider implements GitProvider, Disposable {
 			let remote: GitRemote | undefined;
 			let remoteBranchId: string;
 			let remoteName: string;
-			let stashCommit: GitStashCommit | undefined;
+			let stash: GitStashCommit | undefined;
 			let stats: GitGraphRowsStats | undefined;
 			let tagId: string;
 			let tagName: string;
@@ -2778,7 +2778,7 @@ export class LocalGitProvider implements GitProvider, Disposable {
 					}
 				}
 
-				stashCommit = stash?.commits.get(commit.sha);
+				stash = gitStash?.stashes.get(commit.sha);
 
 				parents = commit.parents ? commit.parents.split(' ') : [];
 				if (reachableFromHEAD.has(commit.sha)) {
@@ -2788,7 +2788,7 @@ export class LocalGitProvider implements GitProvider, Disposable {
 				}
 
 				// Remove the second & third parent, if exists, from each stash commit as it is a Git implementation for the index and untracked files
-				if (stashCommit != null && parents.length > 1) {
+				if (stash != null && parents.length > 1) {
 					// Remap the "index commit" (e.g. contains staged files) of the stash
 					remappedIds.set(parents[1], commit.sha);
 					// Remap the "untracked commit" (e.g. contains untracked files) of the stash
@@ -2796,7 +2796,7 @@ export class LocalGitProvider implements GitProvider, Disposable {
 					parents.splice(1, 2);
 				}
 
-				if (stashCommit == null && !avatars.has(commit.authorEmail)) {
+				if (stash == null && !avatars.has(commit.authorEmail)) {
 					avatarUri = getCachedAvatarUri(commit.authorEmail);
 					if (avatarUri != null) {
 						avatars.set(commit.authorEmail, avatarUri.toString(true));
@@ -2805,16 +2805,16 @@ export class LocalGitProvider implements GitProvider, Disposable {
 
 				isCurrentUser = isUserMatch(currentUser, commit.author, commit.authorEmail);
 
-				if (stashCommit != null) {
+				if (stash != null) {
 					contexts.row = serializeWebviewItemContext<GraphItemRefContext>({
 						webviewItem: 'gitlens:stash',
 						webviewItemValue: {
 							type: 'stash',
 							ref: createReference(commit.sha, repoPath, {
 								refType: 'stash',
-								name: stashCommit.name,
-								message: stashCommit.message,
-								number: stashCommit.number,
+								name: stash.name,
+								message: stash.message,
+								number: stash.number,
 							}),
 						},
 					});
@@ -2852,7 +2852,7 @@ export class LocalGitProvider implements GitProvider, Disposable {
 					date: Number(ordering === 'author-date' ? commit.authorDate : commit.committerDate) * 1000,
 					message: emojify(commit.message.trim()),
 					// TODO: review logic for stash, wip, etc
-					type: stashCommit != null ? 'stash-node' : parents.length > 1 ? 'merge-node' : 'commit-node',
+					type: stash != null ? 'stash-node' : parents.length > 1 ? 'merge-node' : 'commit-node',
 					heads: refHeads,
 					remotes: refRemoteHeads,
 					tags: refTags,
@@ -4996,8 +4996,8 @@ export class LocalGitProvider implements GitProvider, Disposable {
 	async getStash(repoPath: string | undefined): Promise<GitStash | undefined> {
 		if (repoPath == null) return undefined;
 
-		let stash = this.useCaching ? this._stashesCache.get(repoPath) : undefined;
-		if (stash === undefined) {
+		let gitStash = this.useCaching ? this._stashesCache.get(repoPath) : undefined;
+		if (gitStash === undefined) {
 			const parser = createLogParserWithFiles<{
 				sha: string;
 				date: string;
@@ -5018,10 +5018,9 @@ export class LocalGitProvider implements GitProvider, Disposable {
 				similarityThreshold: configuration.get('advanced.similarityThreshold'),
 			});
 
-			const commits = new Map<string, GitStashCommit>();
+			const stashes = new Map<string, GitStashCommit>();
 
-			const stashes = parser.parse(data);
-			for (const s of stashes) {
+			for (const s of parser.parse(data)) {
 				let onRef;
 				let summary;
 				let message;
@@ -5042,7 +5041,7 @@ export class LocalGitProvider implements GitProvider, Disposable {
 					message = s.summary.trim();
 				}
 
-				commits.set(
+				stashes.set(
 					s.sha,
 					new GitCommit(
 						this.container,
@@ -5065,14 +5064,14 @@ export class LocalGitProvider implements GitProvider, Disposable {
 				);
 			}
 
-			stash = { repoPath: repoPath, commits: commits };
+			gitStash = { repoPath: repoPath, stashes: stashes };
 
 			if (this.useCaching) {
-				this._stashesCache.set(repoPath, stash ?? null);
+				this._stashesCache.set(repoPath, gitStash ?? null);
 			}
 		}
 
-		return stash ?? undefined;
+		return gitStash ?? undefined;
 	}
 
 	@log()
@@ -5558,15 +5557,15 @@ export class LocalGitProvider implements GitProvider, Disposable {
 
 			if (shas == null) {
 				// TODO@eamodio this is insanity -- there *HAS* to be a better way to get git log to return stashes
-				const stash = await this.getStash(repoPath);
-				if (stash?.commits.size) {
+				const gitStash = await this.getStash(repoPath);
+				if (gitStash?.stashes.size) {
 					stdin = '';
-					stashes = new Map(stash.commits);
-					for (const commit of stash.commits.values()) {
-						stdin += `${commit.sha.substring(0, 9)}\n`;
+					stashes = new Map(gitStash.stashes);
+					for (const stash of gitStash.stashes.values()) {
+						stdin += `${stash.sha.substring(0, 9)}\n`;
 						// Include the stash's 2nd (index files) and 3rd (untracked files) parents
-						for (const p of skip(commit.parents, 1)) {
-							stashes.set(p, commit);
+						for (const p of skip(stash.parents, 1)) {
+							stashes.set(p, stash);
 							stdin += `${p.substring(0, 9)}\n`;
 						}
 					}
@@ -5702,15 +5701,15 @@ export class LocalGitProvider implements GitProvider, Disposable {
 			let stdin: string | undefined;
 
 			// TODO@eamodio this is insanity -- there *HAS* to be a better way to get git log to return stashes
-			const stash = await this.getStash(repoPath);
-			if (stash?.commits.size) {
+			const gitStash = await this.getStash(repoPath);
+			if (gitStash?.stashes.size) {
 				stdin = '';
-				stashes = new Map(stash.commits);
-				for (const commit of stash.commits.values()) {
-					stdin += `${commit.sha.substring(0, 9)}\n`;
+				stashes = new Map(gitStash.stashes);
+				for (const stash of gitStash.stashes.values()) {
+					stdin += `${stash.sha.substring(0, 9)}\n`;
 					// Include the stash's 2nd (index files) and 3rd (untracked files) parents
-					for (const p of skip(commit.parents, 1)) {
-						stashes.set(p, commit);
+					for (const p of skip(stash.parents, 1)) {
+						stashes.set(p, stash);
 						stdin += `${p.substring(0, 9)}\n`;
 					}
 				}
