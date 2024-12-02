@@ -9,6 +9,7 @@ import type { GitUri } from '../../git/gitUri';
 import { unknownGitUri } from '../../git/gitUri';
 import type { GitBranch } from '../../git/models/branch';
 import { getTargetBranchName } from '../../git/models/branch';
+import { isStash } from '../../git/models/commit';
 import type { GitLog } from '../../git/models/log';
 import type { PullRequest, PullRequestState } from '../../git/models/pullRequest';
 import type { GitBranchReference } from '../../git/models/reference';
@@ -44,6 +45,7 @@ import { insertDateMarkers } from './helpers';
 import { MergeStatusNode } from './mergeStatusNode';
 import { PullRequestNode } from './pullRequestNode';
 import { RebaseStatusNode } from './rebaseStatusNode';
+import { StashNode } from './stashNode';
 
 type State = {
 	pullRequest: PullRequest | null | undefined;
@@ -57,6 +59,7 @@ type Options = {
 	showComparison: false | ViewShowBranchComparison;
 	showStatusDecorationOnly: boolean;
 	showMergeCommits?: boolean;
+	showStashes: boolean;
 	showStatus: boolean;
 	showTracking: boolean;
 	authors?: GitUser[];
@@ -92,6 +95,7 @@ export class BranchNode
 			limitCommits: false,
 			showAsCommits: false,
 			showComparison: false,
+			showStashes: false,
 			// Only show status decorations when the node is displayed as a root
 			showStatusDecorationOnly: this.root,
 			// Don't show merge/rebase status info the node is displayed as a root
@@ -386,17 +390,17 @@ export class BranchNode
 
 			children.push(
 				...insertDateMarkers(
-					map(
-						log.commits.values(),
-						c =>
-							new CommitNode(
-								this.view,
-								this,
-								c,
-								unpublishedCommits?.has(c.ref),
-								branch,
-								getBranchAndTagTips,
-							),
+					map(log.commits.values(), c =>
+						isStash(c)
+							? new StashNode(this.view, this, c, { icon: true })
+							: new CommitNode(
+									this.view,
+									this,
+									c,
+									unpublishedCommits?.has(c.ref),
+									branch,
+									getBranchAndTagTips,
+							  ),
 					),
 					this,
 				),
@@ -510,6 +514,7 @@ export class BranchNode
 				ref: this.ref.ref,
 				authors: this.options?.authors,
 				merges: this.options?.showMergeCommits,
+				stashes: this.options?.showStashes,
 			});
 		}
 

@@ -178,6 +178,8 @@ export class BranchesView extends ViewBase<'branches', BranchesViewNode, Branche
 				() => this.setShowBranchPullRequest(false),
 				this,
 			),
+			registerViewCommand(this.getQualifiedCommand('setShowStashesOn'), () => this.setShowStashes(true), this),
+			registerViewCommand(this.getQualifiedCommand('setShowStashesOff'), () => this.setShowStashes(false), this),
 		];
 	}
 
@@ -352,5 +354,9 @@ export class BranchesView extends ViewBase<'branches', BranchesViewNode, Branche
 	private async setShowBranchPullRequest(enabled: boolean) {
 		await configuration.updateEffective(`views.${this.configKey}.pullRequests.showForBranches` as const, enabled);
 		await configuration.updateEffective(`views.${this.configKey}.pullRequests.enabled` as const, enabled);
+	}
+
+	private setShowStashes(enabled: boolean) {
+		return configuration.updateEffective(`views.${this.configKey}.showStashes` as const, enabled);
 	}
 }

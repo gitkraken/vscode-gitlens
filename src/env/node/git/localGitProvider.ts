@@ -188,7 +188,17 @@ import { countStringLength, filterMap } from '../../../system/array';
 import { gate } from '../../../system/decorators/gate';
 import { debug, log } from '../../../system/decorators/log';
 import { debounce } from '../../../system/function';
-import { filterMap as filterMapIterable, find, first, join, last, map, skip, some } from '../../../system/iterable';
+import {
+	filterMap as filterMapIterable,
+	find,
+	first,
+	join,
+	last,
+	map,
+	min,
+	skip,
+	some,
+} from '../../../system/iterable';
 import { Logger } from '../../../system/logger';
 import type { LogScope } from '../../../system/logger.scope';
 import { getLogScope, setLogScopeExit } from '../../../system/logger.scope';
@@ -3658,11 +3668,11 @@ export class LocalGitProvider implements GitProvider, Disposable {
 			merges?: boolean | 'first-parent';
 			ordering?: 'date' | 'author-date' | 'topo' | null;
 			ref?: string;
-			status?: null | 'name-status' | 'numstat' | 'stat';
 			since?: number | string;
+			stashes?: boolean | Map<string, GitStashCommit>;
+			status?: null | 'name-status' | 'numstat' | 'stat';
 			until?: number | string;
 			extraArgs?: string[];
-			stdin?: string;
 		},
 	): Promise<GitLog | undefined> {
 		const scope = getLogScope();
@@ -3727,9 +3737,41 @@ export class LocalGitProvider implements GitProvider, Disposable {
 				args.push(`-n${limit + 1}`);
 			}
 
+			let ref = options?.ref;
+
+			let stashes: Map<string, GitStashCommit> | undefined;
+			let stdin: string | undefined;
+
+			if (options?.stashes) {
+				if (typeof options.stashes === 'boolean') {
+					// TODO@eamodio this is insanity -- there *HAS* to be a better way to get git log to return stashes
+					const gitStash = await this.getStash(repoPath, { reachableFrom: options?.ref });
+					stashes = new Map(gitStash?.stashes);
+					if (gitStash?.stashes.size) {
+						stdin = '';
+						for (const stash of gitStash.stashes.values()) {
+							stdin += `${stash.sha.substring(0, 9)}\n`;
+							// Include the stash's 2nd (index files) and 3rd (untracked files) parents
+							for (const p of skip(stash.parents, 1)) {
+								stashes.set(p, stash);
+								stdin += `${p.substring(0, 9)}\n`;
+							}
+						}
+					}
+					ref ??= 'HEAD';
+				} else {
+					stashes = options.stashes;
+					stdin = join(
+						map(stashes.values(), c => c.sha.substring(0, 9)),
+						'\n',
+					);
+					ref ??= 'HEAD';
+				}
+			}
+
 			const data = await this.git.log(
 				repoPath,
-				{ configs: gitLogDefaultConfigsWithFiles, ref: options?.ref, stdin: options?.stdin },
+				{ configs: gitLogDefaultConfigsWithFiles, ref: ref, stdin: stdin },
 				...args,
 			);
 
@@ -3739,12 +3781,12 @@ export class LocalGitProvider implements GitProvider, Disposable {
 				LogType.Log,
 				repoPath,
 				undefined,
-				options?.ref,
+				ref,
 				await this.getCurrentUser(repoPath),
 				limit,
 				false,
 				undefined,
-				undefined,
+				stashes,
 				undefined,
 				hasMoreOverride,
 			);
@@ -4956,7 +4998,7 @@ export class LocalGitProvider implements GitProvider, Disposable {
 
 	@gate()
 	@log()
-	async getStash(repoPath: string | undefined): Promise<GitStash | undefined> {
+	async getStash(repoPath: string | undefined, options?: { reachableFrom?: string }): Promise<GitStash | undefined> {
 		if (repoPath == null) return undefined;
 
 		let gitStash = this.useCaching ? this._stashesCache.get(repoPath) : undefined;
@@ -5031,6 +5073,48 @@ export class LocalGitProvider implements GitProvider, Disposable {
 
 			if (this.useCaching) {
 				this._stashesCache.set(repoPath, gitStash ?? null);
+			}
+		}
+
+		// Return only reachable stashes from the given ref
+		if (options?.reachableFrom && gitStash != null) {
+			const oldestStashDate = new Date(min(gitStash.stashes.values(), c => c.date.getTime())).toISOString();
+
+			const ancestors = await this.git.rev_list(repoPath, options.reachableFrom, { since: oldestStashDate });
+			if (ancestors?.length && (ancestors.length !== 1 || ancestors[0])) {
+				const reachableCommits = new Set(ancestors);
+
+				if (reachableCommits.size) {
+					const reachableStashes = new Set<string>();
+
+					// First pass: mark directly reachable stashes
+					for (const [sha, stash] of gitStash.stashes) {
+						if (stash.parents.some(p => p === options.reachableFrom || reachableCommits.has(p))) {
+							reachableStashes.add(sha);
+						}
+					}
+
+					// Second pass: mark stashes that build upon reachable stashes
+					let changed;
+					do {
+						changed = false;
+						for (const [sha, stash] of gitStash.stashes) {
+							if (!reachableStashes.has(sha) && stash.parents.some(p => reachableStashes.has(p))) {
+								reachableStashes.add(sha);
+								changed = true;
+							}
+						}
+					} while (changed);
+
+					// Remove unreachable stashes
+					for (const [sha] of gitStash.stashes) {
+						if (!reachableStashes.has(sha)) {
+							gitStash.stashes.delete(sha);
+						}
+					}
+				} else {
+					gitStash.stashes.clear();
+				}
 			}
 		}
 
