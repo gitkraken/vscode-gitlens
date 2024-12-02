@@ -9017,7 +9017,6 @@
 			{
 				"command": "gitlens.graph.resetToTag",
 				"title": "Reset Current Branch to Tag...",
-				"category": "GitLens",
 				"icon": "$(gitlens-reset)",
 				"enablement": "!operationInProgress"
 			},
