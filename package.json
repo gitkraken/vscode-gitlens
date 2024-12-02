@@ -15900,8 +15900,8 @@
 				},
 				{
 					"command": "gitlens.openComparisonOnRemote",
-					"when": "!listMultiSelection && viewItem =~ /gitlens:compare:(branch\\b(?=.*?\\b\\+comparing\\b)|results(?!:))/",
-					"group": "2_gitlens_quickopen@1 && gitlens:repos:withRemotes"
+					"when": "!listMultiSelection && gitlens:repos:withRemotes && viewItem =~ /gitlens:compare:(branch\\b(?=.*?\\b\\+comparing\\b)|results(?!:))/",
+					"group": "2_gitlens_quickopen@1"
 				},
 				{
 					"command": "gitlens.views.openDirectoryDiff",
