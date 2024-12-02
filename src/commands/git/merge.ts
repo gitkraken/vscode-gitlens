@@ -1,13 +1,16 @@
 import type { Container } from '../../container';
+import type { MergeOptions } from '../../git/gitProvider';
 import type { GitBranch } from '../../git/models/branch';
 import type { GitLog } from '../../git/models/log';
 import type { GitReference } from '../../git/models/reference';
 import { createRevisionRange, getReferenceLabel, isRevisionReference } from '../../git/models/reference';
 import type { Repository } from '../../git/models/repository';
+import { showGenericErrorMessage } from '../../messages';
 import type { DirectiveQuickPickItem } from '../../quickpicks/items/directive';
 import { createDirectiveQuickPickItem, Directive } from '../../quickpicks/items/directive';
 import type { FlagsQuickPickItem } from '../../quickpicks/items/flags';
 import { createFlagsQuickPickItem } from '../../quickpicks/items/flags';
+import { Logger } from '../../system/logger';
 import { pluralize } from '../../system/string';
 import type { ViewsWithRepositoryFolders } from '../../views/viewBase';
 import type {
@@ -35,12 +38,10 @@ interface Context {
 	title: string;
 }
 
-type Flags = '--ff-only' | '--no-ff' | '--squash' | '--no-commit';
-
 interface State {
 	repo: string | Repository;
 	reference: GitReference;
-	flags: Flags[];
+	options: MergeOptions;
 }
 
 export interface MergeGitCommandArgs {
@@ -76,8 +77,13 @@ export class MergeGitCommand extends QuickCommand<State> {
 		return false;
 	}
 
-	execute(state: MergeStepState) {
-		state.repo.merge(...state.flags, state.reference.ref);
+	async execute(state: MergeStepState) {
+		try {
+			await state.repo.git.merge(state.reference.ref, state.options);
+		} catch (ex) {
+			Logger.error(ex, this.title);
+			void showGenericErrorMessage(ex);
+		}
 	}
 
 	protected async *steps(state: PartialStepState<State>): StepGenerator {
@@ -93,8 +99,8 @@ export class MergeGitCommand extends QuickCommand<State> {
 			title: this.title,
 		};
 
-		if (state.flags == null) {
-			state.flags = [];
+		if (state.options == null) {
+			state.options = {};
 		}
 
 		let skippedStepOne = false;
@@ -197,16 +203,16 @@ export class MergeGitCommand extends QuickCommand<State> {
 			const result = yield* this.confirmStep(state as MergeStepState, context);
 			if (result === StepResultBreak) continue;
 
-			state.flags = result;
+			state.options = Object.assign({}, ...result);
 
 			endSteps(state);
-			this.execute(state as MergeStepState);
+			await this.execute(state as MergeStepState);
 		}
 
 		return state.counter < 0 ? StepResultBreak : undefined;
 	}
 
-	private async *confirmStep(state: MergeStepState, context: Context): AsyncStepResultGenerator<Flags[]> {
+	private async *confirmStep(state: MergeStepState, context: Context): AsyncStepResultGenerator<MergeOptions[]> {
 		const counts = await this.container.git.getLeftRightCommitCount(
 			state.repo.path,
 			createRevisionRange(context.destination.ref, state.reference.ref, '...'),
@@ -240,16 +246,16 @@ export class MergeGitCommand extends QuickCommand<State> {
 			return StepResultBreak;
 		}
 
-		const step: QuickPickStep<FlagsQuickPickItem<Flags>> = this.createConfirmStep(
+		const step: QuickPickStep<FlagsQuickPickItem<MergeOptions>> = this.createConfirmStep(
 			appendReposToTitle(`Confirm ${title}`, state, context),
 			[
-				createFlagsQuickPickItem<Flags>(state.flags, [], {
+				createFlagsQuickPickItem<MergeOptions>([], [], {
 					label: this.title,
 					detail: `Will merge ${pluralize('commit', count)} from ${getReferenceLabel(state.reference, {
 						label: false,
 					})} into ${getReferenceLabel(context.destination, { label: false })}`,
 				}),
-				createFlagsQuickPickItem<Flags>(state.flags, ['--ff-only'], {
+				createFlagsQuickPickItem<MergeOptions>([], [{ fastForwardOnly: true }], {
 					label: `Fast-forward ${this.title}`,
 					description: '--ff-only',
 					detail: `Will fast-forward merge ${pluralize('commit', count)} from ${getReferenceLabel(
@@ -257,14 +263,14 @@ export class MergeGitCommand extends QuickCommand<State> {
 						{ label: false },
 					)} into ${getReferenceLabel(context.destination, { label: false })}`,
 				}),
-				createFlagsQuickPickItem<Flags>(state.flags, ['--squash'], {
+				createFlagsQuickPickItem<MergeOptions>([], [{ squash: true }], {
 					label: `Squash ${this.title}`,
 					description: '--squash',
 					detail: `Will squash ${pluralize('commit', count)} from ${getReferenceLabel(state.reference, {
 						label: false,
 					})} into one when merging into ${getReferenceLabel(context.destination, { label: false })}`,
 				}),
-				createFlagsQuickPickItem<Flags>(state.flags, ['--no-ff'], {
+				createFlagsQuickPickItem<MergeOptions>([], [{ noFastForward: true }], {
 					label: `No Fast-forward ${this.title}`,
 					description: '--no-ff',
 					detail: `Will create a merge commit when merging ${pluralize(
@@ -275,7 +281,7 @@ export class MergeGitCommand extends QuickCommand<State> {
 						{ label: false },
 					)}`,
 				}),
-				createFlagsQuickPickItem<Flags>(state.flags, ['--no-ff', '--no-commit'], {
+				createFlagsQuickPickItem<MergeOptions>([], [{ noCommit: true, noFastForward: true }], {
 					label: `Don't Commit ${this.title}`,
 					description: '--no-commit --no-ff',
 					detail: `Will pause before committing the merge of ${pluralize(

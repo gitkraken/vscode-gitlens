@@ -50,6 +50,7 @@ import type {
 	GitProviderDescriptor,
 	GitProviderId,
 	LeftRightCommitCountResult,
+	MergeOptions,
 	NextComparisonUrisResult,
 	PagedResult,
 	PagingOptions,
@@ -1332,6 +1333,14 @@ export class GitProviderService implements Disposable {
 		if (provider.removeRemote == null) throw new ProviderNotSupportedError(provider.descriptor.name);
 
 		return provider.removeRemote(path, name);
+	}
+
+	@log()
+	merge(repoPath: string, ref: string, options: MergeOptions = {}): Promise<void> {
+		const { provider, path } = this.getProvider(repoPath);
+		if (provider.merge == null) throw new ProviderNotSupportedError(provider.descriptor.name);
+
+		return provider.merge(path, ref, options);
 	}
 
 	@log()

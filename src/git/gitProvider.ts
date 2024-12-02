@@ -117,6 +117,13 @@ export interface BranchContributorOverview {
 	readonly contributors?: GitContributor[];
 }
 
+export type MergeOptions = {
+	fastForwardOnly?: boolean;
+	noFastForward?: boolean;
+	noCommit?: boolean;
+	squash?: boolean;
+};
+
 export interface GitProviderRepository {
 	createBranch?(repoPath: string, name: string, ref: string): Promise<void>;
 	renameBranch?(repoPath: string, oldName: string, newName: string): Promise<void>;
@@ -125,6 +132,7 @@ export interface GitProviderRepository {
 	addRemote?(repoPath: string, name: string, url: string, options?: { fetch?: boolean }): Promise<void>;
 	pruneRemote?(repoPath: string, name: string): Promise<void>;
 	removeRemote?(repoPath: string, name: string): Promise<void>;
+	merge?(repoPath: string, ref: string, options?: MergeOptions): Promise<void>;
 
 	applyUnreachableCommitForPatch?(
 		repoPath: string,

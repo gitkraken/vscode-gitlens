@@ -16,6 +16,8 @@ import {
 	CherryPickErrorReason,
 	FetchError,
 	FetchErrorReason,
+	MergeError,
+	MergeErrorReason,
 	PullError,
 	PullErrorReason,
 	PushError,
@@ -171,6 +173,12 @@ const tagErrorAndReason: [RegExp, TagErrorReason][] = [
 	[GitErrors.invalidTagName, TagErrorReason.InvalidTagName],
 	[GitErrors.permissionDenied, TagErrorReason.PermissionDenied],
 	[GitErrors.remoteRejected, TagErrorReason.RemoteRejected],
+];
+
+const mergeErrorAndReason: [RegExp, MergeErrorReason][] = [
+	[GitErrors.conflict, MergeErrorReason.Conflict],
+	[GitErrors.unmergedFiles, MergeErrorReason.UnmergedFiles],
+	[GitErrors.unstagedChanges, MergeErrorReason.UnstagedChanges],
 ];
 
 export class Git {
@@ -1089,6 +1097,21 @@ export class Git {
 			}
 
 			throw new PullError(reason, ex);
+		}
+	}
+
+	async merge(repoPath: string, args: string[]) {
+		try {
+			await this.git<string>({ cwd: repoPath }, 'merge', ...args);
+		} catch (ex) {
+			const msg: string = ex?.toString() ?? '';
+			for (const [error, reason] of mergeErrorAndReason) {
+				if (error.test(msg) || error.test(ex.stderr ?? '')) {
+					throw new MergeError(reason, ex);
+				}
+			}
+
+			throw new MergeError(MergeErrorReason.Other, ex);
 		}
 	}
 

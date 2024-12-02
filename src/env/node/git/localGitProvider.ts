@@ -47,6 +47,7 @@ import type {
 	GitProvider,
 	GitProviderDescriptor,
 	LeftRightCommitCountResult,
+	MergeOptions,
 	NextComparisonUrisResult,
 	PagedResult,
 	PagingOptions,
@@ -1095,6 +1096,29 @@ export class LocalGitProvider implements GitProvider, Disposable {
 	async removeRemote(repoPath: string, name: string): Promise<void> {
 		await this.git.remote__remove(repoPath, name);
 		this.container.events.fire('git:cache:reset', { repoPath: repoPath, caches: ['remotes'] });
+	}
+
+	@log()
+	async merge(repoPath: string, ref: string, options?: MergeOptions): Promise<void> {
+		const args: string[] = [];
+
+		if (options?.fastForwardOnly) {
+			args.push('--ff-only');
+		} else if (options?.noFastForward) {
+			args.push('--no-ff');
+		}
+
+		if (options?.noCommit) {
+			args.push('--no-commit');
+		}
+
+		if (options?.squash) {
+			args.push('--squash');
+		}
+
+		args.push(ref);
+
+		await this.git.merge(repoPath, args);
 	}
 
 	@log()

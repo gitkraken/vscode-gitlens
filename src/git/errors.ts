@@ -567,3 +567,70 @@ export class TagError extends Error {
 		return this;
 	}
 }
+
+export const enum MergeErrorReason {
+	Conflict,
+	UnmergedFiles,
+	UnstagedChanges,
+	Other,
+}
+
+export class MergeError extends Error {
+	static is(ex: unknown, reason?: MergeErrorReason): ex is MergeError {
+		return ex instanceof MergeError && (reason == null || ex.reason === reason);
+	}
+
+	readonly original?: Error;
+	readonly reason: MergeErrorReason | undefined;
+	ref?: string;
+
+	private static buildMergeErrorMessage(reason?: MergeErrorReason, ref?: string): string {
+		let baseMessage: string;
+		if (ref != null) {
+			baseMessage = `Unable to merge ${ref}`;
+		} else {
+			baseMessage = `Unable to merge`;
+		}
+
+		switch (reason) {
+			case MergeErrorReason.Conflict:
+				return `${baseMessage} due to conflicts`;
+			case MergeErrorReason.UnmergedFiles:
+				return `${baseMessage} because you have unmerged files`;
+			case MergeErrorReason.UnstagedChanges:
+				return `${baseMessage} because you have unstaged changes`;
+			default:
+				return baseMessage;
+		}
+
+		return baseMessage;
+	}
+
+	constructor(reason?: MergeErrorReason, original?: Error, ref?: string);
+	constructor(message?: string, original?: Error);
+	constructor(messageOrReason: string | MergeErrorReason | undefined, original?: Error, ref?: string) {
+		let reason: MergeErrorReason | undefined;
+		if (typeof messageOrReason !== 'string') {
+			reason = messageOrReason as MergeErrorReason;
+		} else {
+			super(messageOrReason);
+		}
+
+		const message =
+			typeof messageOrReason === 'string'
+				? messageOrReason
+				: MergeError.buildMergeErrorMessage(messageOrReason as MergeErrorReason, ref);
+		super(message);
+
+		this.original = original;
+		this.reason = reason;
+		this.ref = ref;
+		Error.captureStackTrace?.(this, MergeError);
+	}
+
+	WithRef(ref: string) {
+		this.ref = ref;
+		this.message = MergeError.buildMergeErrorMessage(this.reason, ref);
+		return this;
+	}
+}
