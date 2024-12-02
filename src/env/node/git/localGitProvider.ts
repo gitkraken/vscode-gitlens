@@ -3733,43 +3733,6 @@ export class LocalGitProvider implements GitProvider, Disposable {
 				...args,
 			);
 
-			// const parser = GitLogParser.defaultParser;
-
-			// const data = await this.git.log2(repoPath, options?.ref, {
-			// 	...options,
-			// 	// args: parser.arguments,
-			// 	limit: limit,
-			// 	merges: options?.merges == null ? true : options.merges,
-			// 	ordering: options?.ordering ?? configuration.get('advanced.commitOrdering'),
-			// 	similarityThreshold: configuration.get('advanced.similarityThreshold'),
-			// });
-
-			// const commits = [];
-			// const entries = parser.parse(data);
-			// for (const entry of entries) {
-			// 	commits.push(
-			// 		new GitCommit2(
-			// 			repoPath,
-			// 			entry.sha,
-			// 			new GitCommitIdentity(
-			// 				entry.author,
-			// 				entry.authorEmail,
-			// 				new Date((entry.authorDate as any) * 1000),
-			// 			),
-			// 			new GitCommitIdentity(
-			// 				entry.committer,
-			// 				entry.committerEmail,
-			// 				new Date((entry.committerDate as any) * 1000),
-			// 			),
-			// 			entry.message.split('\n', 1)[0],
-			// 			entry.parents.split(' '),
-			// 			entry.message,
-			// 			entry.files.map(f => new GitFileChange(repoPath, f.path, f.status as any, f.originalPath)),
-			// 			[],
-			// 		),
-			// 	);
-			// }
-
 			const log = parseGitLog(
 				this.container,
 				data,
