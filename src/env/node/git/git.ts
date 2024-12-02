@@ -1591,7 +1591,7 @@ export class Git {
 	async rev_list(
 		repoPath: string,
 		ref: string,
-		options?: { all?: boolean; maxParents?: number },
+		options?: { all?: boolean; maxParents?: number; since?: string },
 	): Promise<string[] | undefined> {
 		const params = ['rev-list'];
 		if (options?.all) {
@@ -1600,6 +1600,10 @@ export class Git {
 
 		if (options?.maxParents != null) {
 			params.push(`--max-parents=${options.maxParents}`);
+		}
+
+		if (options?.since) {
+			params.push(`--since="${options.since}"`, '--date-order');
 		}
 
 		const rawData = await this.git<string>(

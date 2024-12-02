@@ -2029,6 +2029,7 @@ export class GitProviderService implements Disposable {
 			ordering?: 'date' | 'author-date' | 'topo' | null;
 			ref?: string;
 			since?: string;
+			stashes?: boolean;
 		},
 	): Promise<GitLog | undefined> {
 		const { provider, path } = this.getProvider(repoPath);

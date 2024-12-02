@@ -57,6 +57,7 @@ export class CommitsRepositoryNode extends RepositoryFolderNode<CommitsView, Bra
 					showComparison: this.view.config.showBranchComparison,
 					showStatusDecorationOnly: true,
 					showMergeCommits: !this.view.state.hideMergeCommits,
+					showStashes: this.view.config.showStashes,
 					showTracking: true,
 					authors: authors,
 				},
@@ -310,6 +311,8 @@ export class CommitsView extends ViewBase<'commits', CommitsViewNode, CommitsVie
 				() => this.setShowBranchPullRequest(false),
 				this,
 			),
+			registerViewCommand(this.getQualifiedCommand('setShowStashesOn'), () => this.setShowStashes(true), this),
+			registerViewCommand(this.getQualifiedCommand('setShowStashesOff'), () => this.setShowStashes(false), this),
 		];
 	}
 
@@ -508,5 +511,9 @@ export class CommitsView extends ViewBase<'commits', CommitsViewNode, CommitsVie
 	private async setShowBranchPullRequest(enabled: boolean) {
 		await configuration.updateEffective(`views.${this.configKey}.pullRequests.showForBranches` as const, enabled);
 		await configuration.updateEffective(`views.${this.configKey}.pullRequests.enabled` as const, enabled);
+	}
+
+	private setShowStashes(enabled: boolean) {
+		return configuration.updateEffective(`views.${this.configKey}.showStashes` as const, enabled);
 	}
 }

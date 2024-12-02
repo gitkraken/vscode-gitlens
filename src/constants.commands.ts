@@ -337,7 +337,8 @@ export type TreeViewCommands = `gitlens.views.${
 			| `setFilesLayoutTo${'Auto' | 'List' | 'Tree'}`
 			| `setShowAvatars${'On' | 'Off'}`
 			| `setShowBranchComparison${'On' | 'Off'}`
-			| `setShowBranchPullRequest${'On' | 'Off'}`}`
+			| `setShowBranchPullRequest${'On' | 'Off'}`
+			| `setShowStashes${'On' | 'Off'}`}`
 	| `commits.${
 			| 'copy'
 			| 'refresh'
@@ -346,7 +347,8 @@ export type TreeViewCommands = `gitlens.views.${
 			| `setShowAvatars${'On' | 'Off'}`
 			| `setShowBranchComparison${'On' | 'Off'}`
 			| `setShowBranchPullRequest${'On' | 'Off'}`
-			| `setShowMergeCommits${'On' | 'Off'}`}`
+			| `setShowMergeCommits${'On' | 'Off'}`
+			| `setShowStashes${'On' | 'Off'}`}`
 	| `contributors.${
 			| 'copy'
 			| 'refresh'
@@ -451,7 +453,8 @@ export type TreeViewCommands = `gitlens.views.${
 			| `setFilesLayoutTo${'Auto' | 'List' | 'Tree'}`
 			| `setShowAvatars${'On' | 'Off'}`
 			| `setShowBranchComparison${'On' | 'Off'}`
-			| `setShowBranchPullRequest${'On' | 'Off'}`}`}`;
+			| `setShowBranchPullRequest${'On' | 'Off'}`
+			| `setShowStashes${'On' | 'Off'}`}`}`;
 
 type ExtractSuffix<Prefix extends string, U> = U extends `${Prefix}${infer V}` ? V : never;
 type FilterCommands<Prefix extends string, U> = U extends `${Prefix}${infer V}` ? `${Prefix}${V}` : never;

@@ -52,6 +52,7 @@ export class RemoteNode extends ViewNode<'remote', ViewsWithRemotes> {
 			b =>
 				new BranchNode(GitUri.fromRepoPath(this.uri.repoPath!, b.ref), this.view, this, this.repo, b, false, {
 					showComparison: false,
+					showStashes: false,
 					showTracking: false,
 				}),
 		);

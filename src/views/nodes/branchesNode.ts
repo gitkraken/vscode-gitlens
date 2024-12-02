@@ -62,6 +62,7 @@ export class BranchesNode extends CacheableChildrenViewNode<'branches', ViewsWit
 								this.view.type === 'repositories'
 									? this.view.config.branches.showBranchComparison
 									: this.view.config.showBranchComparison,
+							showStashes: this.view.config.showStashes,
 						},
 					),
 			);
