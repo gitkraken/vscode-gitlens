@@ -233,7 +233,7 @@ export async function showCommitPicker(
 }
 
 export async function showStashPicker(
-	stash: GitStash | undefined | Promise<GitStash | undefined>,
+	gitStash: GitStash | undefined | Promise<GitStash | undefined>,
 	title: string,
 	placeholder: string,
 	options?: {
@@ -257,20 +257,20 @@ export async function showStashPicker(
 	quickpick.matchOnDescription = true;
 	quickpick.matchOnDetail = true;
 
-	if (isPromise(stash)) {
+	if (isPromise(gitStash)) {
 		quickpick.busy = true;
 		quickpick.show();
 
-		stash = await stash;
+		gitStash = await gitStash;
 	}
 
-	if (stash != null) {
+	if (gitStash != null) {
 		quickpick.items = [
 			...(options?.showOtherReferences ?? []),
 			...map(
-				options?.filter != null ? filter(stash.commits.values(), options.filter) : stash.commits.values(),
-				commit =>
-					createStashQuickPickItem(commit, options?.picked === commit.ref, {
+				options?.filter != null ? filter(gitStash.stashes.values(), options.filter) : gitStash.stashes.values(),
+				stash =>
+					createStashQuickPickItem(stash, options?.picked === stash.ref, {
 						compact: true,
 						icon: true,
 					}),
@@ -278,8 +278,8 @@ export async function showStashPicker(
 		];
 	}
 
-	if (stash == null || quickpick.items.length <= (options?.showOtherReferences?.length ?? 0)) {
-		quickpick.placeholder = stash == null ? 'No stashes found' : options?.empty ?? `No matching stashes found`;
+	if (gitStash == null || quickpick.items.length <= (options?.showOtherReferences?.length ?? 0)) {
+		quickpick.placeholder = gitStash == null ? 'No stashes found' : options?.empty ?? `No matching stashes found`;
 		quickpick.items = [createDirectiveQuickPickItem(Directive.Cancel)];
 	}
 

@@ -322,7 +322,7 @@ export class StashGitCommand extends QuickCommand<State> {
 		while (this.canStepsContinue(state)) {
 			if (state.counter < 3 || state.reference == null) {
 				const result: StepResult<GitStashReference> = yield* pickStashStep(state, context, {
-					stash: await this.container.git.getStash(state.repo.path),
+					gitStash: await this.container.git.getStash(state.repo.path),
 					placeholder: (_context, stash) =>
 						stash == null
 							? `No stashes found in ${state.repo.formattedName}`
@@ -427,7 +427,7 @@ export class StashGitCommand extends QuickCommand<State> {
 		while (this.canStepsContinue(state)) {
 			if (state.counter < 3 || !state.references?.length) {
 				const result: StepResult<GitStashReference[]> = yield* pickStashesStep(state, context, {
-					stash: await this.container.git.getStash(state.repo.path),
+					gitStash: await this.container.git.getStash(state.repo.path),
 					placeholder: (_context, stash) =>
 						stash == null ? `No stashes found in ${state.repo.formattedName}` : 'Choose stashes to delete',
 					picked: state.references?.map(r => r.ref),
@@ -481,7 +481,7 @@ export class StashGitCommand extends QuickCommand<State> {
 		while (this.canStepsContinue(state)) {
 			if (state.counter < 3 || state.reference == null) {
 				const result: StepResult<GitStashCommit> = yield* pickStashStep(state, context, {
-					stash: await this.container.git.getStash(state.repo.path),
+					gitStash: await this.container.git.getStash(state.repo.path),
 					placeholder: (_context, stash) =>
 						stash == null ? `No stashes found in ${state.repo.formattedName}` : 'Choose a stash',
 					picked: state.reference?.ref,
@@ -719,7 +719,7 @@ export class StashGitCommand extends QuickCommand<State> {
 		while (this.canStepsContinue(state)) {
 			if (state.counter < 3 || state.reference == null) {
 				const result: StepResult<GitStashReference> = yield* pickStashStep(state, context, {
-					stash: await this.container.git.getStash(state.repo.path),
+					gitStash: await this.container.git.getStash(state.repo.path),
 					placeholder: (_context, stash) =>
 						stash == null ? `No stashes found in ${state.repo.formattedName}` : 'Choose a stash to rename',
 					picked: state.reference?.ref,
