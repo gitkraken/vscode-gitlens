@@ -155,7 +155,7 @@ export class GlLaunchpad extends SignalWatcher(LitElement) {
 			<gl-section>
 				<span slot="heading">GitLens Launchpad</span>
 				<div class="summary">${this.renderSummaryResult()}</div>
-				<button-container>
+				<button-container gap="wide">
 					<gl-button full class="start-work" href=${this.startWorkCommand}>Start Work on an Issue</gl-button>
 					<gl-button
 						appearance="secondary"
