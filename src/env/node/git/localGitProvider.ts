@@ -31,6 +31,7 @@ import {
 	PullError,
 	PushError,
 	PushErrorReason,
+	RevertError,
 	StashApplyError,
 	StashApplyErrorReason,
 	StashPushError,
@@ -6240,6 +6241,24 @@ export class LocalGitProvider implements GitProvider, Disposable {
 		}
 
 		return worktrees;
+	}
+
+	@log()
+	async revert(repoPath: string, ref: string, options?: { edit?: boolean }): Promise<void> {
+		const args = [];
+		if (options.edit !== undefined) {
+			args.push(options.edit ? '--edit' : '--no-edit');
+		}
+
+		try {
+			await this.git.revert(repoPath, ...args, ref);
+		} catch (ex) {
+			if (ex instanceof RevertError) {
+				throw ex.WithRef(ref);
+			}
+
+			throw ex;
+		}
 	}
 
 	@log()

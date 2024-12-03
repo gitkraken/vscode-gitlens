@@ -567,3 +567,65 @@ export class TagError extends Error {
 		return this;
 	}
 }
+
+export const enum RevertErrorReason {
+	BadRevision,
+	InvalidObjectName,
+	Conflict,
+	LocalChangesWouldBeOverwritten,
+	Other,
+}
+
+export class RevertError extends Error {
+	static is(ex: unknown, reason?: RevertErrorReason): ex is RevertError {
+		return ex instanceof RevertError && (reason == null || ex.reason === reason);
+	}
+
+	readonly original?: Error;
+	readonly reason: RevertErrorReason | undefined;
+	ref?: string;
+
+	constructor(reason?: RevertErrorReason, original?: Error, ref?: string);
+	constructor(message?: string, original?: Error);
+	constructor(messageOrReason: string | RevertErrorReason | undefined, original?: Error, ref?: string) {
+		let message;
+		let reason: RevertErrorReason | undefined;
+		if (messageOrReason == null) {
+			message = 'Unable to revert';
+		} else if (typeof messageOrReason === 'string') {
+			message = messageOrReason;
+			reason = undefined;
+		} else {
+			reason = messageOrReason;
+			message = RevertError.buildRevertErrorMessage(reason, ref);
+		}
+		super(message);
+
+		this.original = original;
+		this.reason = reason;
+		this.ref = ref;
+		Error.captureStackTrace?.(this, RevertError);
+	}
+
+	WithRef(ref: string): this {
+		this.ref = ref;
+		this.message = RevertError.buildRevertErrorMessage(this.reason, ref);
+		return this;
+	}
+
+	private static buildRevertErrorMessage(reason?: RevertErrorReason, ref?: string): string {
+		const baseMessage = `Unable to revert${ref ? ` revision '${ref}'` : ''}`;
+		switch (reason) {
+			case RevertErrorReason.BadRevision:
+				return `${baseMessage} because it is not a valid revision.`;
+			case RevertErrorReason.InvalidObjectName:
+				return `${baseMessage} because it is not a valid object name.`;
+			case RevertErrorReason.Conflict:
+				return `${baseMessage} it has unresolved conflicts. Resolve the conflicts and try again.`;
+			case RevertErrorReason.LocalChangesWouldBeOverwritten:
+				return `${baseMessage} because local changes would be overwritten. Commit or stash your changes first.`;
+			default:
+				return `${baseMessage}.`;
+		}
+	}
+}

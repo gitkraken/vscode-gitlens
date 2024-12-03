@@ -230,6 +230,22 @@ export function showIntegrationRequestTimedOutWarningMessage(providerName: strin
 	);
 }
 
+export async function showShouldCommitOrStashPrompt(): Promise<string | undefined> {
+	const stash = { title: 'Stash' };
+	const commit = { title: 'Commit' };
+	const cancel = { title: 'Cancel', isCloseAffordance: true };
+	const result = await showMessage(
+		'warn',
+		'You have changes in your working tree. Commit or stash them before reverting',
+		undefined,
+		null,
+		stash,
+		commit,
+		cancel,
+	);
+	return result?.title;
+}
+
 export async function showWhatsNewMessage(majorVersion: string) {
 	const confirm = { title: 'OK', isCloseAffordance: true };
 	const releaseNotes = { title: 'View Release Notes' };
