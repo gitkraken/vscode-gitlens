@@ -31,6 +31,7 @@ import {
 	PullError,
 	PushError,
 	PushErrorReason,
+	RebaseError,
 	StashApplyError,
 	StashApplyErrorReason,
 	StashPushError,
@@ -1655,6 +1656,37 @@ export class LocalGitProvider implements GitProvider, Disposable {
 			if (!PullError.is(ex)) throw ex;
 
 			void window.showErrorMessage(ex.message);
+		}
+	}
+
+	@log()
+	async rebase(
+		repoPath: string,
+		ref: string,
+		configs?: { sequenceEditor?: string },
+		options?: { interactive?: boolean } = {},
+	): Promise<void> {
+		const configFlags = [];
+		const args = [];
+
+		if (configs?.sequenceEditor != null) {
+			configFlags.push('-c', `sequence.editor="${configs.sequenceEditor}"`);
+		}
+
+		if (options?.interactive) {
+			args.push('--interactive');
+		}
+
+		args.push(ref);
+
+		try {
+			await this.git.rebase(repoPath, args, configFlags);
+		} catch (ex) {
+			if (RebaseError.is(ex)) {
+				throw ex.WithRef(ref);
+			}
+
+			throw ex;
 		}
 	}
 

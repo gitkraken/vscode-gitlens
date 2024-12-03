@@ -20,6 +20,8 @@ import {
 	PullErrorReason,
 	PushError,
 	PushErrorReason,
+	RebaseError,
+	RebaseErrorReason,
 	StashPushError,
 	StashPushErrorReason,
 	TagError,
@@ -171,6 +173,11 @@ const tagErrorAndReason: [RegExp, TagErrorReason][] = [
 	[GitErrors.invalidTagName, TagErrorReason.InvalidTagName],
 	[GitErrors.permissionDenied, TagErrorReason.PermissionDenied],
 	[GitErrors.remoteRejected, TagErrorReason.RemoteRejected],
+];
+
+const rebaseErrorAndReason: [RegExp, RebaseErrorReason][] = [
+	[GitErrors.uncommittedChanges, RebaseErrorReason.WorkingChanges],
+	[GitErrors.changesWouldBeOverwritten, RebaseErrorReason.OverwrittenChanges],
 ];
 
 export class Git {
@@ -1089,6 +1096,21 @@ export class Git {
 			}
 
 			throw new PullError(reason, ex);
+		}
+	}
+
+	async rebase(repoPath: string, args: string[] | undefined = [], configs: string[] | undefined = []): Promise<void> {
+		try {
+			void (await this.git<string>({ cwd: repoPath }, ...configs, 'rebase', '--autostash', ...args));
+		} catch (ex) {
+			const msg: string = ex?.toString() ?? '';
+			for (const [regex, reason] of rebaseErrorAndReason) {
+				if (regex.test(msg) || regex.test(ex.stderr ?? '')) {
+					throw new RebaseError(reason, ex);
+				}
+			}
+
+			throw new RebaseError(RebaseErrorReason.Other, ex);
 		}
 	}
 
