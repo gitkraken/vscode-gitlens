@@ -11,6 +11,7 @@ import { IssueFilter, providersMetadata, toAccount, toSearchedIssue } from './mo
 
 const metadata = providersMetadata[IssueIntegrationId.Jira];
 const authProvider = Object.freeze({ id: metadata.id, scopes: metadata.scopes });
+const maxPagesPerRequest = 10;
 
 export interface JiraBaseDescriptor extends ResourceDescriptor {
 	id: string;
@@ -233,15 +234,24 @@ export class JiraIntegration extends IssueIntegration<IssueIntegrationId.Jira> {
 		const results: SearchedIssue[] = [];
 		for (const resource of myResources) {
 			const userLogin = (await this.getProviderAccountForResource(session, resource))?.username;
-			const resourceIssues = await api.getIssuesForResourceForCurrentUser(this.id, resource.id, {
-				accessToken: session.accessToken,
-			});
-			const formattedIssues = resourceIssues
-				?.map(issue => toSearchedIssue(issue, this, undefined, userLogin))
-				.filter((result): result is SearchedIssue => result != null);
-			if (formattedIssues != null) {
-				results.push(...formattedIssues);
-			}
+			let cursor = undefined;
+			let hasMore = false;
+			let requestCount = 0;
+			do {
+				const resourceIssues = await api.getIssuesForResourceForCurrentUser(this.id, resource.id, {
+					accessToken: session.accessToken,
+					cursor: cursor,
+				});
+				requestCount += 1;
+				hasMore = resourceIssues.paging?.more ?? false;
+				cursor = resourceIssues.paging?.cursor;
+				const formattedIssues = resourceIssues.values
+					.map(issue => toSearchedIssue(issue, this, undefined, userLogin))
+					.filter((result): result is SearchedIssue => result != null);
+				if (formattedIssues.length > 0) {
+					results.push(...formattedIssues);
+				}
+			} while (requestCount < maxPagesPerRequest && hasMore);
 		}
 
 		return results;
