@@ -3,6 +3,7 @@ import React from 'react';
 import type { BranchState, State } from '../../../../../plus/webviews/graph/protocol';
 import { pluralize } from '../../../../../system/string';
 import { createWebviewCommandLink } from '../../../../../system/webview';
+import { CodeIcon } from '../../../shared/components/code-icon.react';
 import { GlTooltip } from '../../../shared/components/overlays/tooltip.react';
 
 export const PushPullButton = ({
@@ -42,7 +43,7 @@ export const PushPullButton = ({
 
 	if (isBehind) {
 		action = 'pull';
-		icon = 'codicon codicon-repo-pull';
+		icon = 'repo-pull';
 		label = 'Pull';
 		tooltip = (
 			<>
@@ -72,7 +73,7 @@ export const PushPullButton = ({
 		}
 	} else {
 		action = 'push';
-		icon = 'codicon codicon-repo-push';
+		icon = 'repo-push';
 		label = 'Push';
 		tooltip = (
 			<>
@@ -91,21 +92,21 @@ export const PushPullButton = ({
 					href={createWebviewCommandLink(`gitlens.graph.${action}`, state.webviewId, state.webviewInstanceId)}
 					className={`action-button${isBehind ? ' is-behind' : ''}${isAhead ? ' is-ahead' : ''}`}
 				>
-					<span className={`${icon} action-button__icon`}></span>
+					<CodeIcon className="action-button__icon" icon={icon} />
 					{label}
 					<span>
 						<span className="pill action-button__pill">
 							{isBehind && (
 								<span>
 									{branchState.behind}
-									<span className="codicon codicon-arrow-down"></span>
+									<CodeIcon icon="arrow-down" />
 								</span>
 							)}
 							{isAhead && (
 								<span>
 									{isBehind && <>&nbsp;&nbsp;</>}
 									{branchState.ahead}
-									<span className="codicon codicon-arrow-up"></span>
+									<CodeIcon icon="arrow-up" />
 								</span>
 							)}
 						</span>
@@ -131,7 +132,7 @@ export const PushPullButton = ({
 						className="action-button"
 						aria-label="Force Push"
 					>
-						<span className="codicon codicon-repo-force-push" aria-hidden="true"></span>
+						<CodeIcon icon="repo-force-push" aria-hidden="true" />
 					</a>
 					<span slot="content">
 						Force Push {pluralize('commit', branchState.ahead)} to {remote}

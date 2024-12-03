@@ -2,8 +2,6 @@
 @use '../../shared/styles/utils';
 @use '../../shared/styles/icons/utils' as iconUtils;
 @import '../../shared/base';
-@import '../../shared/codicons';
-@import '../../shared/glicons';
 @import '../../../../../node_modules/@gitkraken/gitkraken-components/dist/styles.css';
 
 @mixin focusStyles() {
@@ -204,7 +202,7 @@ button:not([disabled]),
 	color: var(--vscode-foreground);
 	background-color: var(--vscode-editorWidget-background);
 
-	.codicon[class*='codicon-'] {
+	code-icon {
 		font-size: inherit !important;
 		line-height: inherit !important;
 	}
@@ -296,28 +294,12 @@ button:not([disabled]),
 		border-color: var(--vscode-inputOption-activeBorder);
 	}
 
-	.codicon[class*='codicon-'],
-	.glicon[class*='glicon-'] {
+	code-icon {
 		line-height: 2.2rem;
 		vertical-align: bottom;
 	}
-
-	.codicon[class*='codicon-graph-line'] {
+	code-icon[icon='graph-line'] {
 		transform: translateY(1px);
-	}
-	.codicon-custom-git-branch-create {
-		&:before {
-			@include iconUtils.codicon('git-branch');
-		}
-		&:after {
-			@include iconUtils.codicon('add');
-			position: absolute;
-			right: 0;
-			bottom: 0;
-			font-size: 0.6em;
-			line-height: normal;
-			transform: translate(-50%, 0%);
-		}
 	}
 
 	&__pill {
@@ -338,7 +320,7 @@ button:not([disabled]),
 		margin-right: -0.25rem;
 	}
 
-	&__more.codicon[class*='codicon-']::before {
+	code-icon#{&}__more::before {
 		margin-left: -0.25rem;
 	}
 
@@ -386,17 +368,6 @@ button:not([disabled]),
 		&:hover {
 			background-color: var(--branch-status-both-hover-background);
 		}
-	}
-}
-
-.action-button--narrow {
-	padding: 0;
-	width: 2.4rem;
-	height: 2.4rem;
-	text-align: center;
-
-	.codicon[class*='codicon-graph-line'] {
-		transform: translateX(2px);
 	}
 }
 
@@ -494,7 +465,7 @@ button:not([disabled]),
 		opacity: 0.5;
 	}
 
-	.codicon[class*='codicon-'] {
+	code-icon {
 		font-size: 1.1rem;
 		position: relative;
 	}
