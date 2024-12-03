@@ -36,11 +36,11 @@ export function getEntityIdentifierInput(entity: IssueOrPullRequest | LaunchpadI
 	}
 
 	return {
-		accountOrOrgId: null,
-		organizationName: null,
-		projectId: null,
-		repoId: null,
-		resourceId: null,
+		accountOrOrgId: null, // needed for Trello issues, once supported
+		organizationName: null, // needed for Azure issues and PRs, once supported
+		projectId: null, // needed for Jira issues, Trello issues, and Azure issues and PRs, once supported
+		repoId: null, // needed for Azure and BitBucket PRs, once supported
+		resourceId: null, // needed for Jira issues, once supported
 		provider: provider,
 		entityType: entityType,
 		version: EntityVersion.One,

@@ -18,8 +18,8 @@ importers:
         specifier: 10.7.0
         version: 10.7.0
       '@gitkraken/provider-apis':
-        specifier: 0.25.2
-        version: 0.25.2(encoding@0.1.13)
+        specifier: 0.25.5
+        version: 0.25.5(encoding@0.1.13)
       '@gitkraken/shared-web-components':
         specifier: 0.1.1-rc.15
         version: 0.1.1-rc.15
@@ -583,8 +583,8 @@ packages:
   '@gitkraken/gitkraken-components@10.7.0':
     resolution: {integrity: sha512-0oekeCgTgZNAtUFNH8eSIdOfPOVG3IUIXoaKuOBY0dRT6TLc5Q/ARyujdtWLHpdD3FC/GZv46N9IdQL4AEIwNA==}
 
-  '@gitkraken/provider-apis@0.25.2':
-    resolution: {integrity: sha512-nyTjmmwoKViQR2A6IvwRfsAdZ4TqgmdOhcothtyJY8fsuUptts5CI7EYghVZdTac1i5oKkgC+Ss5DfhVKi02DA==}
+  '@gitkraken/provider-apis@0.25.5':
+    resolution: {integrity: sha512-BKl8GhqCG85qEJmZkz1fYsmwXZzBJceKUePjEGWA2sRhRigz7MNsEeb8RTshBTHiPwla316bywfPP9uYAlIBaQ==}
     engines: {node: '>= 14'}
 
   '@gitkraken/shared-web-components@0.1.1-rc.15':
@@ -5193,8 +5193,9 @@ packages:
   whatwg-url@5.0.0:
     resolution: {integrity: sha512-saE57nupxk6v3HY35+jzBwYa0rKSy0XR8JSxZPwgLr7ys0IBzhGviA1/TUGJLmSVqs8pb9AnvICXEuOHLprYTw==}
 
-  which-boxed-primitive@1.0.2:
-    resolution: {integrity: sha512-bwZdv0AKLpplFY2KZRX6TvyuN7ojjr7lwkg6ml0roIy9YeuSr7JS372qlNW18UQYzgYK9ziGcerWqZOmEn9VNg==}
+  which-boxed-primitive@1.1.0:
+    resolution: {integrity: sha512-Ei7Miu/AXe2JJ4iNF5j/UphAgRoma4trE6PtisM09bPygb3egMH3YLW/befsWb1A1AxvNSFidOFTB18XtnIIng==}
+    engines: {node: '>= 0.4'}
 
   which-builtin-type@1.2.0:
     resolution: {integrity: sha512-I+qLGQ/vucCby4tf5HsLmGueEla4ZhwTBSqaooS+Y0BuxN4Cp+okmGuV+8mXZ84KDI9BA+oklo+RzKg0ONdSUA==}
@@ -5575,7 +5576,7 @@ snapshots:
       react-dragula: 1.1.17
       react-onclickoutside: 6.13.0(react-dom@16.8.4(react@16.8.4))(react@16.8.4)
 
-  '@gitkraken/provider-apis@0.25.2(encoding@0.1.13)':
+  '@gitkraken/provider-apis@0.25.5(encoding@0.1.13)':
     dependencies:
       js-base64: 3.7.5
       node-fetch: 2.7.0(encoding@0.1.13)
@@ -10538,7 +10539,7 @@ snapshots:
       call-bind: 1.0.7
       has-bigints: 1.0.2
       has-symbols: 1.1.0
-      which-boxed-primitive: 1.0.2
+      which-boxed-primitive: 1.1.0
     optional: true
 
   uncontrollable@5.1.0(react@16.8.4):
@@ -10705,7 +10706,7 @@ snapshots:
       tr46: 0.0.3
       webidl-conversions: 3.0.1
 
-  which-boxed-primitive@1.0.2:
+  which-boxed-primitive@1.1.0:
     dependencies:
       is-bigint: 1.1.0
       is-boolean-object: 1.2.0
@@ -10726,7 +10727,7 @@ snapshots:
       is-regex: 1.2.0
       is-weakref: 1.0.2
       isarray: 2.0.5
-      which-boxed-primitive: 1.0.2
+      which-boxed-primitive: 1.1.0
       which-collection: 1.0.2
       which-typed-array: 1.1.16
     optional: true
