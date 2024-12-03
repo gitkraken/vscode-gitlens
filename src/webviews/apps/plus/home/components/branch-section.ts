@@ -406,7 +406,7 @@ export class GlBranchCard extends LitElement {
 		actions.push(
 			html`<action-item
 				label="Fetch"
-				icon="gl-repo-fetch"
+				icon="repo-fetch"
 				href=${this.createCommandLink('gitlens.home.fetch')}
 			></action-item>`,
 		);

@@ -133,7 +133,7 @@ export class GlActiveWork extends SignalWatcher(LitElement) {
 						appearance="toolbar"
 						tooltip="Fetch"
 						href=${createCommandLink('gitlens.home.fetch', undefined)}
-						><code-icon icon="gl-repo-fetch"></code-icon
+						><code-icon icon="repo-fetch"></code-icon
 					></gl-button>
 					${when(
 						this._homeState.repositories.openCount > 1,
@@ -302,7 +302,7 @@ export class GlActiveWork extends SignalWatcher(LitElement) {
 							full
 							appearance="secondary"
 							tooltip=${pullTooltip}
-							><code-icon icon="gl-repo-pull" slot="prefix"></code-icon> Pull
+							><code-icon icon="repo-pull" slot="prefix"></code-icon> Pull
 							<gl-tracking-pill
 								.ahead=${state.ahead}
 								.behind=${state.behind}
@@ -334,7 +334,7 @@ export class GlActiveWork extends SignalWatcher(LitElement) {
 							full
 							appearance="secondary"
 							tooltip=${tooltip}
-							><code-icon icon="gl-repo-pull" slot="prefix"></code-icon> Pull
+							><code-icon icon="repo-pull" slot="prefix"></code-icon> Pull
 							<gl-tracking-pill
 								.ahead=${state.ahead}
 								.behind=${state.behind}

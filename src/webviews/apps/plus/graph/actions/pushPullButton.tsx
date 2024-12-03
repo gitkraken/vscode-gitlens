@@ -42,7 +42,7 @@ export const PushPullButton = ({
 
 	if (isBehind) {
 		action = 'pull';
-		icon = 'glicon glicon-repo-pull';
+		icon = 'codicon codicon-repo-pull';
 		label = 'Pull';
 		tooltip = (
 			<>
@@ -72,7 +72,7 @@ export const PushPullButton = ({
 		}
 	} else {
 		action = 'push';
-		icon = 'glicon glicon-repo-push';
+		icon = 'codicon codicon-repo-push';
 		label = 'Push';
 		tooltip = (
 			<>

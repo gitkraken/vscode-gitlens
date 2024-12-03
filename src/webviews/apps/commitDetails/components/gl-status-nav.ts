@@ -140,7 +140,7 @@ export class GlStatusNav extends LitElement {
 			<div class="group">
 				<gl-tooltip hoist content="Fetch">
 					<a href="#" class="commit-action" @click=${(e: MouseEvent) => this.handleAction(e, 'fetch')}
-						><code-icon icon="gl-repo-fetch"></code-icon></a
+						><code-icon icon="repo-fetch"></code-icon></a
 				></gl-tooltip>
 			</div>
 		`;

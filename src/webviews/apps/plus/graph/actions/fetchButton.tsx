@@ -21,7 +21,7 @@ export const FetchButton = ({
 				href={createWebviewCommandLink('gitlens.graph.fetch', state.webviewId, state.webviewInstanceId)}
 				className="action-button"
 			>
-				<span className="glicon glicon-repo-fetch action-button__icon"></span>
+				<span className="codicon codicon-repo-fetch action-button__icon"></span>
 				Fetch {fetchedText && <span className="action-button__small">({fetchedText})</span>}
 			</a>
 			<span slot="content" style={{ whiteSpace: 'break-spaces' }}>
