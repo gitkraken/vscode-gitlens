@@ -7014,21 +7014,21 @@
 				"command": "gitlens.fetchRepositories",
 				"title": "Fetch",
 				"category": "GitLens",
-				"icon": "$(gitlens-repo-fetch)",
+				"icon": "$(repo-fetch)",
 				"enablement": "!operationInProgress"
 			},
 			{
 				"command": "gitlens.pullRepositories",
 				"title": "Pull",
 				"category": "GitLens",
-				"icon": "$(gitlens-repo-pull)",
+				"icon": "$(repo-pull)",
 				"enablement": "!operationInProgress"
 			},
 			{
 				"command": "gitlens.pushRepositories",
 				"title": "Push",
 				"category": "GitLens",
-				"icon": "$(gitlens-repo-push)",
+				"icon": "$(repo-push)",
 				"enablement": "!operationInProgress"
 			},
 			{
@@ -7112,7 +7112,7 @@
 			{
 				"command": "gitlens.views.fetch",
 				"title": "Fetch",
-				"icon": "$(gitlens-repo-fetch)",
+				"icon": "$(repo-fetch)",
 				"enablement": "!operationInProgress"
 			},
 			{
@@ -7130,19 +7130,19 @@
 			{
 				"command": "gitlens.views.pull",
 				"title": "Pull",
-				"icon": "$(gitlens-repo-pull)",
+				"icon": "$(repo-pull)",
 				"enablement": "!operationInProgress"
 			},
 			{
 				"command": "gitlens.views.push",
 				"title": "Push",
-				"icon": "$(gitlens-repo-push)",
+				"icon": "$(repo-push)",
 				"enablement": "!operationInProgress"
 			},
 			{
 				"command": "gitlens.views.pushWithForce",
 				"title": "Push (force)",
-				"icon": "$(gitlens-repo-force-push)",
+				"icon": "$(repo-force-push)",
 				"enablement": "!operationInProgress"
 			},
 			{
@@ -7482,7 +7482,7 @@
 			{
 				"command": "gitlens.views.pushToCommit",
 				"title": "Push to Commit...",
-				"icon": "$(gitlens-repo-push)",
+				"icon": "$(repo-push)",
 				"enablement": "!operationInProgress"
 			},
 			{
@@ -8829,25 +8829,25 @@
 			{
 				"command": "gitlens.graph.push",
 				"title": "Push",
-				"icon": "$(gitlens-repo-push)",
+				"icon": "$(repo-push)",
 				"enablement": "!operationInProgress"
 			},
 			{
 				"command": "gitlens.graph.pull",
 				"title": "Pull",
-				"icon": "$(gitlens-repo-pull)",
+				"icon": "$(repo-pull)",
 				"enablement": "!operationInProgress"
 			},
 			{
 				"command": "gitlens.graph.pushWithForce",
 				"title": "Push (force)",
-				"icon": "$(gitlens-repo-force-push)",
+				"icon": "$(repo-force-push)",
 				"enablement": "!operationInProgress"
 			},
 			{
 				"command": "gitlens.graph.fetch",
 				"title": "Fetch",
-				"icon": "$(gitlens-repo-fetch)",
+				"icon": "$(repo-fetch)",
 				"enablement": "!operationInProgress"
 			},
 			{
@@ -9513,13 +9513,6 @@
 					"fontCharacter": "\\f11a"
 				}
 			},
-			"gitlens-repo-force-push": {
-				"description": "repo-force-push icon",
-				"default": {
-					"fontPath": "dist/glicons.woff2",
-					"fontCharacter": "\\f11b"
-				}
-			},
 			"gitlens-pinned-filled": {
 				"description": "pinned-filled icon",
 				"default": {
@@ -9644,41 +9637,6 @@
 				"default": {
 					"fontPath": "dist/glicons.woff2",
 					"fontCharacter": "\\f12d"
-				}
-			},
-			"gitlens-diff-multiple": {
-				"description": "diff-multiple icon",
-				"default": {
-					"fontPath": "dist/glicons.woff2",
-					"fontCharacter": "\\f12e"
-				}
-			},
-			"gitlens-diff-single": {
-				"description": "diff-single icon",
-				"default": {
-					"fontPath": "dist/glicons.woff2",
-					"fontCharacter": "\\f12f"
-				}
-			},
-			"gitlens-repo-fetch": {
-				"description": "repo-fetch icon",
-				"default": {
-					"fontPath": "dist/glicons.woff2",
-					"fontCharacter": "\\f130"
-				}
-			},
-			"gitlens-repo-pull": {
-				"description": "repo-pull icon",
-				"default": {
-					"fontPath": "dist/glicons.woff2",
-					"fontCharacter": "\\f131"
-				}
-			},
-			"gitlens-repo-push": {
-				"description": "repo-push icon",
-				"default": {
-					"fontPath": "dist/glicons.woff2",
-					"fontCharacter": "\\f132"
 				}
 			},
 			"gitlens-provider-jira": {
