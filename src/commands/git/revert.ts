@@ -1,11 +1,16 @@
+import { Commands } from '../../constants.commands';
 import type { Container } from '../../container';
+import { RevertError, RevertErrorReason } from '../../git/errors';
 import type { GitBranch } from '../../git/models/branch';
 import type { GitLog } from '../../git/models/log';
 import type { GitRevisionReference } from '../../git/models/reference';
 import { getReferenceLabel } from '../../git/models/reference';
 import type { Repository } from '../../git/models/repository';
+import { showGenericErrorMessage, showShouldCommitOrStashPrompt } from '../../messages';
 import type { FlagsQuickPickItem } from '../../quickpicks/items/flags';
 import { createFlagsQuickPickItem } from '../../quickpicks/items/flags';
+import { Logger } from '../../system/logger';
+import { executeCommand, executeCoreCommand } from '../../system/vscode/command';
 import type { ViewsWithRepositoryFolders } from '../../views/viewBase';
 import type {
 	PartialStepState,
@@ -71,8 +76,42 @@ export class RevertGitCommand extends QuickCommand<State> {
 		return false;
 	}
 
-	execute(state: RevertStepState<State<GitRevisionReference[]>>) {
-		state.repo.revert(...state.flags, ...state.references.map(c => c.ref).reverse());
+	async execute(state: RevertStepState<State<GitRevisionReference[]>>) {
+		for (const ref of state.references.reverse()) {
+			try {
+				await state.repo.git.revert(ref.ref, state.flags);
+			} catch (ex) {
+				if (ex instanceof RevertError) {
+					let shouldRetry = false;
+					if (ex.reason === RevertErrorReason.LocalChangesWouldBeOverwritten) {
+						const response = await showShouldCommitOrStashPrompt();
+						if (response === 'Stash') {
+							await executeCommand(Commands.GitCommandsStashPush);
+							shouldRetry = true;
+						} else if (response === 'Commit') {
+							await executeCoreCommand('workbench.view.scm');
+							shouldRetry = true;
+						} else {
+							continue;
+						}
+					}
+
+					if (shouldRetry) {
+						try {
+							await state.repo.git.revert(ref.ref, state.flags);
+						} catch (ex) {
+							Logger.error(ex, this.title);
+							void showGenericErrorMessage(ex.message);
+						}
+					}
+
+					continue;
+				}
+
+				Logger.error(ex, this.title);
+				void showGenericErrorMessage(ex.message);
+			}
+		}
 	}
 
 	protected async *steps(state: PartialStepState<State>): StepGenerator {
@@ -160,7 +199,7 @@ export class RevertGitCommand extends QuickCommand<State> {
 			state.flags = result;
 
 			endSteps(state);
-			this.execute(state as RevertStepState<State<GitRevisionReference[]>>);
+			await this.execute(state as RevertStepState<State<GitRevisionReference[]>>);
 		}
 
 		return state.counter < 0 ? StepResultBreak : undefined;
