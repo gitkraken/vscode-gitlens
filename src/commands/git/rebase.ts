@@ -4,10 +4,12 @@ import type { GitLog } from '../../git/models/log';
 import type { GitReference } from '../../git/models/reference';
 import { createRevisionRange, getReferenceLabel, isRevisionReference } from '../../git/models/reference';
 import type { Repository } from '../../git/models/repository';
+import { showGenericErrorMessage } from '../../messages';
 import type { DirectiveQuickPickItem } from '../../quickpicks/items/directive';
 import { createDirectiveQuickPickItem, Directive } from '../../quickpicks/items/directive';
 import type { FlagsQuickPickItem } from '../../quickpicks/items/flags';
 import { createFlagsQuickPickItem } from '../../quickpicks/items/flags';
+import { Logger } from '../../system/logger';
 import { pluralize } from '../../system/string';
 import { getEditorCommand } from '../../system/vscode/utils';
 import type { ViewsWithRepositoryFolders } from '../../views/viewBase';
@@ -79,15 +81,18 @@ export class RebaseGitCommand extends QuickCommand<State> {
 	}
 
 	async execute(state: RebaseStepState) {
-		let configs: string[] | undefined;
+		const configs: { sequenceEditor?: string } = {};
 		if (state.flags.includes('--interactive')) {
 			await this.container.rebaseEditor.enableForNextUse();
-
-			const editor = getEditorCommand();
-			configs = ['-c', `"sequence.editor=${editor}"`];
+			configs.sequenceEditor = getEditorCommand();
 		}
 
-		state.repo.rebase(configs, ...state.flags, state.destination.ref);
+		try {
+			await state.repo.git.rebase(state.destination.ref, configs, state.flags);
+		} catch (ex) {
+			Logger.error(ex, this.title);
+			void showGenericErrorMessage(ex);
+		}
 	}
 
 	protected async *steps(state: PartialStepState<State>): StepGenerator {
