@@ -1,0 +1,41 @@
+@use 'sass:map';
+@use './codicons-map' as codicons;
+@use './glicons-map' as glicons;
+
+@function get-value($icons, $key) {
+	@if map.has-key($icons, $key) == false {
+		@error "Icon '#{$key}' not found.";
+	}
+
+	@return map.get($icons, $key);
+}
+
+@mixin get-content($icons, $key) {
+	$icon: get-value($icons, $key);
+
+	content: $icon;
+}
+
+@mixin generate-icons($icons, $prefix: '') {
+	@each $key, $value in $icons {
+		.#{$prefix}#{$key}::before {
+			@include get-content($icons, $key);
+		}
+	}
+}
+
+@mixin codicon($name) {
+	@include get-content(codicons.$icon-map, $name);
+}
+
+@mixin all-codicons {
+	@include generate-icons(codicons.$icon-map, 'codicon-');
+}
+
+@mixin glicon($name) {
+	@include get-content(glicons.$icon-map, $name);
+}
+
+@mixin all-glicons {
+	@include generate-icons(glicons.$icon-map, 'glicon-');
+}
