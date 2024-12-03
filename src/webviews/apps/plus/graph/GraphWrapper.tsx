@@ -1189,7 +1189,7 @@ export function GraphWrapper({
 										{!branchState?.pr ? (
 											branchState?.worktree ? (
 												<span
-													className="glicon glicon-repositories-view"
+													className="glicon glicon-worktrees-view"
 													aria-hidden="true"
 												></span>
 											) : (

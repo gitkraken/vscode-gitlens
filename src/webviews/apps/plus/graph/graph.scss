@@ -1,5 +1,6 @@
 @use '../../shared/styles/theme';
 @use '../../shared/styles/utils';
+@use '../../shared/styles/icons/utils' as iconUtils;
 @import '../../shared/base';
 @import '../../shared/codicons';
 @import '../../shared/glicons';
@@ -306,10 +307,10 @@ button:not([disabled]),
 	}
 	.codicon-custom-git-branch-create {
 		&:before {
-			content: '\ea68';
+			@include iconUtils.codicon('git-branch');
 		}
 		&:after {
-			content: '\ea60';
+			@include iconUtils.codicon('add');
 			position: absolute;
 			right: 0;
 			bottom: 0;
@@ -657,160 +658,138 @@ button:not([disabled]),
 .icon {
 	&--head {
 		&::before {
-			// codicon-vm
 			font-family: codicon;
-			content: '\ea7a';
+			@include iconUtils.codicon('vm');
 		}
 	}
 	&--remote {
 		&::before {
-			// codicon-cloud
 			font-family: codicon;
-			content: '\ebaa';
+			@include iconUtils.codicon('cloud');
 		}
 	}
 	&--remote-github,
 	&--remote-githubEnterprise {
 		&::before {
-			// codicon-github-inverted
 			font-family: codicon;
-			content: '\eba1';
+			@include iconUtils.codicon('github-inverted');
 		}
 	}
 	&--remote-gitlab,
 	&--remote-gitlabSelfHosted {
 		&::before {
-			// glicon-provider-gitlab
 			font-family: 'glicons';
-			content: '\f123';
+			@include iconUtils.glicon('provider-gitlab');
 		}
 	}
 	&--remote-bitbucket,
 	&--remote-bitbucketServer {
 		&::before {
-			// glicon-provider-bitbucket
 			font-family: 'glicons';
-			content: '\f11f';
+			@include iconUtils.glicon('provider-bitbucket');
 		}
 	}
 	&--remote-azureDevops {
 		&::before {
-			// glicon-provider-azdo
 			font-family: 'glicons';
-			content: '\f11e';
+			@include iconUtils.glicon('provider-azdo');
 		}
 	}
 	&--tag {
 		&::before {
-			// codicon-tag
 			font-family: codicon;
-			content: '\ea66';
+			@include iconUtils.codicon('tag');
 		}
 	}
 	&--stash {
 		&::before {
-			// codicon-inbox
 			font-family: codicon;
-			content: '\eb09';
+			@include iconUtils.codicon('inbox');
 		}
 	}
 	&--check {
 		&::before {
-			// codicon-check
 			font-family: codicon;
-			content: '\eab2';
+			@include iconUtils.codicon('check');
 		}
 	}
 	&--warning {
 		color: #de9b43;
 		:before {
-			// codicon-vm
 			font-family: codicon;
-			content: '\ea6c';
+			@include iconUtils.codicon('warning');
 		}
 	}
 	&--added {
 		&::before {
-			// codicon-add
 			font-family: codicon;
-			content: '\ea60';
+			@include iconUtils.codicon('add');
 		}
 	}
 	&--modified {
 		&::before {
-			// codicon-edit
 			font-family: codicon;
-			content: '\ea73';
+			@include iconUtils.codicon('edit');
 		}
 	}
 	&--deleted {
 		&::before {
-			// codicon-dash
 			font-family: codicon;
-			content: '\eacc';
+			@include iconUtils.codicon('dash');
 		}
 	}
 	&--renamed {
 		&::before {
-			// codicon-file
 			font-family: codicon;
-			content: '\eb60';
+			@include iconUtils.codicon('file');
 		}
 	}
 	&--resolved {
 		&::before {
-			// codicon-pass-filled
 			font-family: codicon;
-			content: '\ebb3';
+			@include iconUtils.codicon('pass-filled');
 		}
 	}
 	&--hide {
 		&::before {
-			// codicon-eye-closed
 			font-family: codicon;
-			content: '\eae7';
+			@include iconUtils.codicon('eye-closed');
 		}
 	}
 	&--show {
 		&::before {
-			// codicon-eye
 			font-family: codicon;
-			content: '\ea70';
+			@include iconUtils.codicon('eye');
 		}
 	}
 	&--pull-request {
 		&::before {
-			// codicon-git-pull-request
 			font-family: codicon;
-			content: '\ea64';
+			@include iconUtils.codicon('git-pull-request');
 		}
 	}
 	&--upstream-ahead {
 		&::before {
-			// codicon-arrow-up
 			font-family: codicon;
-			content: '\eaa1';
+			@include iconUtils.codicon('arrow-up');
 		}
 	}
 	&--upstream-behind {
 		&::before {
-			// codicon-arrow-down
 			font-family: codicon;
-			content: '\ea9a';
+			@include iconUtils.codicon('arrow-down');
 		}
 	}
 	&--settings {
 		&::before {
-			// codicon-settings-gear
 			font-family: codicon;
-			content: '\eb51';
+			@include iconUtils.codicon('settings-gear');
 		}
 	}
 	&--branch {
 		&::before {
-			// codicon-git-branch
 			font-family: codicon;
-			content: '\ea68';
+			@include iconUtils.codicon('git-branch');
 			top: 0px;
 			margin: 0 0 0 0;
 		}
@@ -818,17 +797,15 @@ button:not([disabled]),
 
 	&--graph {
 		&::before {
-			// glicon-graph
 			font-family: glicons;
-			content: '\f102';
+			@include iconUtils.glicon('graph');
 		}
 	}
 
 	&--commit {
 		&::before {
-			// codicon-git-commit
 			font-family: codicon;
-			content: '\eafc';
+			@include iconUtils.codicon('git-commit');
 			top: 0px;
 			margin: 0 0 0 0;
 		}
@@ -836,49 +813,43 @@ button:not([disabled]),
 
 	&--author {
 		&::before {
-			// codicon-account
 			font-family: codicon;
-			content: '\eb99';
+			@include iconUtils.codicon('account');
 		}
 	}
 
 	&--datetime {
 		&::before {
-			// glicon-clock
 			font-family: glicons;
-			content: '\f11d';
+			@include iconUtils.glicon('clock');
 		}
 	}
 
 	&--message {
 		&::before {
-			// codicon-comment
 			font-family: codicon;
-			content: '\ea6b';
+			@include iconUtils.codicon('comment');
 		}
 	}
 
 	&--changes {
 		&::before {
-			// codicon-request-changes
 			font-family: codicon;
-			content: '\eb43';
+			@include iconUtils.codicon('request-changes');
 		}
 	}
 
 	&--files {
 		&::before {
-			// codicon-file
 			font-family: codicon;
-			content: '\eb60';
+			@include iconUtils.codicon('file');
 		}
 	}
 
 	&--worktree {
 		&::before {
-			// glicon-repositories-view
 			font-family: glicons;
-			content: '\f10e';
+			@include iconUtils.glicon('worktrees-view');
 		}
 	}
 }
