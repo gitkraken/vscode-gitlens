@@ -18,7 +18,11 @@ import {
 	QuickCommand,
 	StepResultBreak,
 } from '../../commands/quickCommand';
-import { OpenOnGitHubQuickInputButton, OpenOnJiraQuickInputButton } from '../../commands/quickCommand.buttons';
+import {
+	OpenOnGitHubQuickInputButton,
+	OpenOnGitLabQuickInputButton,
+	OpenOnJiraQuickInputButton,
+} from '../../commands/quickCommand.buttons';
 import { getSteps } from '../../commands/quickWizard.utils';
 import { proBadge } from '../../constants';
 import type { IntegrationId } from '../../constants.integrations';
@@ -68,7 +72,11 @@ export interface StartWorkCommandArgs {
 	type?: StartWorkType;
 }
 
-export const supportedStartWorkIntegrations = [HostingIntegrationId.GitHub, IssueIntegrationId.Jira];
+export const supportedStartWorkIntegrations = [
+	HostingIntegrationId.GitHub,
+	HostingIntegrationId.GitLab,
+	IssueIntegrationId.Jira,
+];
 export type SupportedStartWorkIntegrationIds = (typeof supportedStartWorkIntegrations)[number];
 const instanceCounter = getScopedCounter();
 
@@ -470,6 +478,7 @@ export class StartWorkCommand extends QuickCommand<State> {
 
 				switch (button) {
 					case OpenOnGitHubQuickInputButton:
+					case OpenOnGitLabQuickInputButton:
 					case OpenOnJiraQuickInputButton:
 						this.sendItemActionTelemetry('soft-open', item, state, context);
 						this.open(item);
@@ -585,6 +594,8 @@ function getOpenOnWebQuickInputButton(integrationId: string): QuickInputButton |
 	switch (integrationId) {
 		case HostingIntegrationId.GitHub:
 			return OpenOnGitHubQuickInputButton;
+		case HostingIntegrationId.GitLab:
+			return OpenOnGitLabQuickInputButton;
 		case IssueIntegrationId.Jira:
 			return OpenOnJiraQuickInputButton;
 		default:
