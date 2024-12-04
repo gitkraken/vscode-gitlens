@@ -23,7 +23,7 @@ import type {
 import { HostingIntegration } from '../integration';
 import { fromGitLabMergeRequestProvidersApi } from './gitlab/models';
 import type { ProviderPullRequest } from './models';
-import { ProviderPullRequestReviewState, providersMetadata } from './models';
+import { ProviderPullRequestReviewState, providersMetadata, toSearchedIssue } from './models';
 import type { ProvidersApi } from './providersApi';
 
 const metadata = providersMetadata[HostingIntegrationId.GitLab];
@@ -243,11 +243,33 @@ abstract class GitLabIntegrationBase<
 		return results;
 	}
 
-	protected override searchProviderMyIssues(
-		_session: AuthenticationSession,
-		_repos?: GitLabRepositoryDescriptor[],
+	protected override async searchProviderMyIssues(
+		{ accessToken }: AuthenticationSession,
+		repos?: GitLabRepositoryDescriptor[],
 	): Promise<SearchedIssue[] | undefined> {
-		return Promise.resolve(undefined);
+		const api = await this.container.gitlab;
+		const providerApi = await this.getProvidersApi();
+
+		if (!api || !repos) {
+			return undefined;
+		}
+
+		const repoIdsResult = await Promise.allSettled(
+			repos.map(
+				(r: GitLabRepositoryDescriptor): Promise<string | undefined> =>
+					api.getProjectId(this, accessToken, r.owner, r.name, this.apiBaseUrl, undefined),
+			) ?? [],
+		);
+		const repoInput = repoIdsResult
+			.map(result => (result.status === 'fulfilled' ? result.value : undefined))
+			.filter((r): r is string => r != null);
+		const apiResult = await providerApi.getIssuesForRepos(this.id, repoInput, {
+			accessToken: accessToken,
+		});
+
+		return apiResult.values
+			.map(issue => toSearchedIssue(issue, this))
+			.filter((result): result is SearchedIssue => result != null);
 	}
 
 	protected override async mergeProviderPullRequest(

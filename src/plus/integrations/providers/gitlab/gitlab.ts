@@ -707,7 +707,7 @@ $search: String!
 		}
 	}
 
-	private getProjectId(
+	getProjectId(
 		provider: Provider,
 		token: string,
 		group: string,
