@@ -594,7 +594,14 @@ export class IntegrationService implements Disposable {
 			? integrationIds
 			: [...Object.values(HostingIntegrationId), ...Object.values(IssueIntegrationId)]) {
 			const integration = await this.get(integrationId);
-			if (integration == null) continue;
+			if (
+				integration == null ||
+				(options?.openRepositoriesOnly &&
+					isHostingIntegrationId(integrationId) &&
+					!openRemotesByIntegrationId.has(integrationId))
+			) {
+				continue;
+			}
 
 			integrations.set(
 				integration,
