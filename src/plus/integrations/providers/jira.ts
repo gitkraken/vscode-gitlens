@@ -4,6 +4,7 @@ import { IssueIntegrationId } from '../../../constants.integrations';
 import type { Account } from '../../../git/models/author';
 import type { IssueOrPullRequest, SearchedIssue } from '../../../git/models/issue';
 import { filterMap, flatten } from '../../../system/iterable';
+import { Logger } from '../../../system/logger';
 import type { IntegrationAuthenticationProviderDescriptor } from '../authentication/integrationAuthentication';
 import type { ResourceDescriptor } from '../integration';
 import { IssueIntegration } from '../integration';
@@ -232,15 +233,21 @@ export class JiraIntegration extends IssueIntegration<IssueIntegrationId.Jira> {
 
 		const results: SearchedIssue[] = [];
 		for (const resource of myResources) {
-			const userLogin = (await this.getProviderAccountForResource(session, resource))?.username;
-			const resourceIssues = await api.getIssuesForResourceForCurrentUser(this.id, resource.id, {
-				accessToken: session.accessToken,
-			});
-			const formattedIssues = resourceIssues
-				?.map(issue => toSearchedIssue(issue, this, undefined, userLogin))
-				.filter((result): result is SearchedIssue => result != null);
-			if (formattedIssues != null) {
-				results.push(...formattedIssues);
+			try {
+				const userLogin = (await this.getProviderAccountForResource(session, resource))?.username;
+				const resourceIssues = await api.getIssuesForResourceForCurrentUser(this.id, resource.id, {
+					accessToken: session.accessToken,
+				});
+				const formattedIssues = resourceIssues
+					?.map(issue => toSearchedIssue(issue, this, undefined, userLogin))
+					.filter((result): result is SearchedIssue => result != null);
+				if (formattedIssues != null) {
+					results.push(...formattedIssues);
+				}
+			} catch (ex) {
+				// TODO: We need a better way to message the failure to the user here.
+				// This is a stopgap to prevent one bag org from throwing and preventing any issues from being returned.
+				Logger.error(ex, 'searchProviderMyIssues');
 			}
 		}
 
