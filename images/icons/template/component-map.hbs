@@ -5,6 +5,6 @@ export const iconFontFamily = '{{ name }}';
 
 export const iconMap = Object.freeze({
 {{#each codepoints}}
-    '{{ @key }}': '\\\{{ codepoint this }}',
+	'{{ @key }}': '\\\{{ codepoint this }}',
 {{/each}}
 });
