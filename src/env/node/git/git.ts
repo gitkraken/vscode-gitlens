@@ -108,6 +108,7 @@ export const GitErrors = {
 	invalidTagName: /invalid tag name/i,
 	remoteRejected: /rejected because the remote contains work/i,
 	revertHasConflicts: /(error: could not revert .*) (hint: After resolving the conflicts)/gi,
+	localChangesWouldBeOverwritten: /error: your local changes would be overwritten/i,
 };
 
 const GitWarnings = {
@@ -181,6 +182,7 @@ const revertErrorAndReason = [
 	[GitErrors.invalidObjectName, RevertErrorReason.InvalidObjectName],
 	[GitErrors.revertHasConflicts, RevertErrorReason.Conflict],
 	[GitErrors.changesWouldBeOverwritten, RevertErrorReason.LocalChangesWouldBeOverwritten],
+	[GitErrors.localChangesWouldBeOverwritten, RevertErrorReason.LocalChangesWouldBeOverwritten],
 ];
 
 export class Git {
