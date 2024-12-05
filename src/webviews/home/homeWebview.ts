@@ -448,8 +448,12 @@ export class HomeWebviewProvider implements WebviewProvider<State, State, HomeWe
 		}
 	}
 
-	private onSubscriptionChanged(e: SubscriptionChangeEvent) {
-		void this.notifyDidChangeSubscription(e.current);
+	private async onSubscriptionChanged(e: SubscriptionChangeEvent) {
+		await this.notifyDidChangeSubscription(e.current);
+
+		if (isSubscriptionStatePaidOrTrial(e.current.state) !== isSubscriptionStatePaidOrTrial(e.previous.state)) {
+			this.onOverviewRepoChanged('repo');
+		}
 	}
 
 	private async getState(subscription?: Subscription): Promise<State> {
@@ -1042,13 +1046,17 @@ async function getOverviewBranches(
 					? { name: wt.name, uri: wt.uri.toString() }
 					: undefined;
 
-				if (options?.isPro !== false && !branch.upstream?.missing) {
-					prPromises.set(branch.id, branch.getAssociatedPullRequest());
+				if (options?.isPro !== false) {
+					if (!branch.upstream?.missing) {
+						prPromises.set(branch.id, branch.getAssociatedPullRequest());
+					}
+
 					contributorPromises.set(
 						branch.id,
 						container.git.getBranchContributorOverview(branch.repoPath, branch.ref),
 					);
 				}
+
 				if (wt != null) {
 					statusPromises.set(branch.id, wt.getStatus());
 				}
