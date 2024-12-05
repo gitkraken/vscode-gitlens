@@ -83,28 +83,16 @@ export class RevertGitCommand extends QuickCommand<State> {
 			try {
 				await state.repo.git.revert(ref.ref, state.options);
 			} catch (ex) {
-				if (ex instanceof RevertError) {
-					let shouldRetry = false;
-					if (ex.reason === RevertErrorReason.LocalChangesWouldBeOverwritten) {
-						const response = await showShouldCommitOrStashPrompt();
-						if (response === 'Stash') {
-							await executeCommand(Commands.GitCommandsStashPush);
-							shouldRetry = true;
-						} else if (response === 'Commit') {
-							await executeCoreCommand('workbench.view.scm');
-							shouldRetry = true;
-						} else {
-							continue;
-						}
+				if (RevertError.is(ex, RevertErrorReason.LocalChangesWouldBeOverwritten)) {
+					const response = await showShouldCommitOrStashPrompt();
+					if (response == null || response === 'Cancel') {
+						continue;
 					}
 
-					if (shouldRetry) {
-						try {
-							await state.repo.git.revert(ref.ref, state.flags);
-						} catch (ex) {
-							Logger.error(ex, this.title);
-							void showGenericErrorMessage(ex.message);
-						}
+					if (response === 'Stash') {
+						await executeCommand(Commands.GitCommandsStashPush);
+					} else if (response === 'Commit') {
+						await executeCoreCommand('workbench.view.scm');
 					}
 
 					continue;
