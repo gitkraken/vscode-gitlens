@@ -25,6 +25,7 @@ import type { GitStatus } from '../../git/models/status';
 import type { GitWorktree } from '../../git/models/worktree';
 import { getOpenedWorktreesByBranch, groupWorktreesByBranch } from '../../git/models/worktree';
 import type { Subscription } from '../../plus/gk/account/subscription';
+import { isSubscriptionStatePaidOrTrial } from '../../plus/gk/account/subscription';
 import type { SubscriptionChangeEvent } from '../../plus/gk/account/subscriptionService';
 import { getLaunchpadSummary } from '../../plus/launchpad/utils';
 import type { ShowInCommitGraphCommandArgs } from '../../plus/webviews/graph/protocol';
@@ -452,7 +453,7 @@ export class HomeWebviewProvider implements WebviewProvider<State, State, HomeWe
 	}
 
 	private async getState(subscription?: Subscription): Promise<State> {
-		const subResult = await this.getSubscription(subscription);
+		const subResult = await this.getSubscriptionState(subscription);
 
 		return {
 			...this.host.baseWebviewState,
@@ -505,7 +506,10 @@ export class HomeWebviewProvider implements WebviewProvider<State, State, HomeWe
 			branchesAndWorktrees,
 			this.container,
 			this._overviewBranchFilter,
-			forceWip ? { forceActive: true } : undefined,
+			{
+				forceActive: forceWip ? true : undefined,
+				isPro: await this.isSubscriptionPro(),
+			},
 		);
 		this._invalidateOverview = undefined;
 		if (overviewBranches == null) return undefined;
@@ -684,8 +688,28 @@ export class HomeWebviewProvider implements WebviewProvider<State, State, HomeWe
 		return this._hostedIntegrationConnected;
 	}
 
+	private _subscription: Subscription | undefined;
 	private async getSubscription(subscription?: Subscription) {
-		subscription ??= await this.container.subscription.getSubscription(true);
+		if (subscription != null) {
+			this._subscription = subscription;
+		} else if (this._subscription != null) {
+			subscription = this._subscription;
+		} else {
+			this._subscription = subscription = await this.container.subscription.getSubscription(true);
+		}
+
+		return this._subscription;
+	}
+
+	private async isSubscriptionPro() {
+		const subscription = await this.getSubscription();
+		if (subscription == null) return false;
+
+		return isSubscriptionStatePaidOrTrial(subscription.state);
+	}
+
+	private async getSubscriptionState(subscription?: Subscription) {
+		subscription = await this.getSubscription(subscription);
 
 		let avatar;
 		if (subscription.account?.email) {
@@ -756,7 +780,7 @@ export class HomeWebviewProvider implements WebviewProvider<State, State, HomeWe
 	}
 
 	private async notifyDidChangeSubscription(subscription?: Subscription) {
-		const subResult = await this.getSubscription(subscription);
+		const subResult = await this.getSubscriptionState(subscription);
 
 		void this.host.notify(DidChangeSubscription, {
 			subscription: subResult.subscription,
@@ -903,7 +927,7 @@ async function getOverviewBranches(
 	branchesData: RepositoryBranchData,
 	container: Container,
 	filters: OverviewFilters,
-	options?: { forceActive?: boolean },
+	options?: { forceActive?: boolean; isPro?: boolean },
 ): Promise<GetOverviewBranches | undefined> {
 	const { branches, worktreesByBranch } = branchesData;
 	if (branches.length === 0) return undefined;
@@ -930,8 +954,15 @@ async function getOverviewBranches(
 		const timestamp = branch.date?.getTime();
 		if (branch.current || wt?.opened) {
 			const forceOptions = options?.forceActive ? { force: true } : undefined;
-			prPromises.set(branch.id, branch.getAssociatedPullRequest({ avatarSize: 16 }));
-			autolinkPromises.set(branch.id, branch.getEnrichedAutolinks());
+			if (options?.isPro !== false) {
+				prPromises.set(branch.id, branch.getAssociatedPullRequest({ avatarSize: 16 }));
+				autolinkPromises.set(branch.id, branch.getEnrichedAutolinks());
+				contributorPromises.set(
+					branch.id,
+					container.git.getBranchContributorOverview(branch.repoPath, branch.ref),
+				);
+			}
+
 			if (wt != null) {
 				statusPromises.set(branch.id, wt.getStatus(forceOptions));
 			} else {
@@ -940,7 +971,6 @@ async function getOverviewBranches(
 				}
 				statusPromises.set(branch.id, repoStatusPromise);
 			}
-			contributorPromises.set(branch.id, container.git.getBranchContributorOverview(branch.repoPath, branch.ref));
 
 			overviewBranches.active.push({
 				id: branch.id,
@@ -957,12 +987,18 @@ async function getOverviewBranches(
 		}
 
 		if (timestamp != null && timestamp > recentThreshold) {
-			prPromises.set(branch.id, branch.getAssociatedPullRequest());
-			autolinkPromises.set(branch.id, branch.getEnrichedAutolinks());
+			if (options?.isPro !== false) {
+				prPromises.set(branch.id, branch.getAssociatedPullRequest());
+				autolinkPromises.set(branch.id, branch.getEnrichedAutolinks());
+				contributorPromises.set(
+					branch.id,
+					container.git.getBranchContributorOverview(branch.repoPath, branch.ref),
+				);
+			}
+
 			if (wt != null) {
 				statusPromises.set(branch.id, wt.getStatus());
 			}
-			contributorPromises.set(branch.id, container.git.getBranchContributorOverview(branch.repoPath, branch.ref));
 
 			overviewBranches.recent.push({
 				id: branch.id,
@@ -986,7 +1022,6 @@ async function getOverviewBranches(
 			orderBy: 'date:asc',
 		});
 		for (const branch of branches) {
-			autolinkPromises.set(branch.id, branch.getEnrichedAutolinks());
 			if (overviewBranches.stale.length > 9) break;
 
 			if (
@@ -996,6 +1031,10 @@ async function getOverviewBranches(
 				continue;
 			}
 
+			if (options?.isPro !== false) {
+				autolinkPromises.set(branch.id, branch.getEnrichedAutolinks());
+			}
+
 			const timestamp = branch.date?.getTime();
 			if (branch.upstream?.missing || (timestamp != null && timestamp < staleThreshold)) {
 				const wt = worktreesByBranch.get(branch.id);
@@ -1003,16 +1042,16 @@ async function getOverviewBranches(
 					? { name: wt.name, uri: wt.uri.toString() }
 					: undefined;
 
-				if (!branch.upstream?.missing) {
+				if (options?.isPro !== false && !branch.upstream?.missing) {
 					prPromises.set(branch.id, branch.getAssociatedPullRequest());
+					contributorPromises.set(
+						branch.id,
+						container.git.getBranchContributorOverview(branch.repoPath, branch.ref),
+					);
 				}
 				if (wt != null) {
 					statusPromises.set(branch.id, wt.getStatus());
 				}
-				contributorPromises.set(
-					branch.id,
-					container.git.getBranchContributorOverview(branch.repoPath, branch.ref),
-				);
 
 				overviewBranches.stale.push({
 					id: branch.id,
