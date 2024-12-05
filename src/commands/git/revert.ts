@@ -32,13 +32,11 @@ interface Context {
 	title: string;
 }
 
-type Flags = '--edit' | '--no-edit';
 type RevertOptions = { edit?: boolean };
 
 interface State<Refs = GitRevisionReference | GitRevisionReference[]> {
 	repo: string | Repository;
 	references: Refs;
-	flags: Flags[];
 	options: RevertOptions;
 }
 
@@ -83,28 +81,16 @@ export class RevertGitCommand extends QuickCommand<State> {
 			try {
 				await state.repo.git.revert(ref.ref, state.options);
 			} catch (ex) {
-				if (ex instanceof RevertError) {
-					let shouldRetry = false;
-					if (ex.reason === RevertErrorReason.LocalChangesWouldBeOverwritten) {
-						const response = await showShouldCommitOrStashPrompt();
-						if (response === 'Stash') {
-							await executeCommand(Commands.GitCommandsStashPush);
-							shouldRetry = true;
-						} else if (response === 'Commit') {
-							await executeCoreCommand('workbench.view.scm');
-							shouldRetry = true;
-						} else {
-							continue;
-						}
+				if (RevertError.is(ex, RevertErrorReason.LocalChangesWouldBeOverwritten)) {
+					const response = await showShouldCommitOrStashPrompt();
+					if (response == null || response === 'Cancel') {
+						continue;
 					}
 
-					if (shouldRetry) {
-						try {
-							await state.repo.git.revert(ref.ref, state.flags);
-						} catch (ex) {
-							Logger.error(ex, this.title);
-							void showGenericErrorMessage(ex.message);
-						}
+					if (response === 'Stash') {
+						await executeCommand(Commands.GitCommandsStashPush);
+					} else if (response === 'Commit') {
+						await executeCoreCommand('workbench.view.scm');
 					}
 
 					continue;
@@ -125,8 +111,8 @@ export class RevertGitCommand extends QuickCommand<State> {
 			title: this.title,
 		};
 
-		if (state.flags == null) {
-			state.flags = [];
+		if (state.options == null) {
+			state.options = {};
 		}
 
 		if (state.references != null && !Array.isArray(state.references)) {
@@ -208,23 +194,21 @@ export class RevertGitCommand extends QuickCommand<State> {
 	}
 
 	private *confirmStep(state: RevertStepState, context: Context): StepResultGenerator<RevertOptions[]> {
-		const optionsArr: RevertOptions[] = [];
 		const step: QuickPickStep<FlagsQuickPickItem<RevertOptions>> = this.createConfirmStep(
 			appendReposToTitle(`Confirm ${context.title}`, state, context),
 			[
-				createFlagsQuickPickItem<RevertOptions>(optionsArr, [{ edit: false }], {
+				createFlagsQuickPickItem<RevertOptions>([], [{ edit: false }], {
 					label: this.title,
 					description: '--no-edit',
 					detail: `Will revert ${getReferenceLabel(state.references)}`,
 				}),
-				createFlagsQuickPickItem<RevertOptions>(optionsArr, [{ edit: true }], {
+				createFlagsQuickPickItem<RevertOptions>([], [{ edit: true }], {
 					label: `${this.title} & Edit`,
 					description: '--edit',
 					detail: `Will revert and edit ${getReferenceLabel(state.references)}`,
 				}),
 			],
 		);
-		state.options = Object.assign({}, ...optionsArr);
 		const selection: StepSelection<typeof step> = yield step;
 		return canPickStepContinue(step, state, selection) ? selection[0].item : StepResultBreak;
 	}
