@@ -33,11 +33,13 @@ interface Context {
 }
 
 type Flags = '--edit' | '--no-edit';
+type RevertOptions = { edit?: boolean };
 
 interface State<Refs = GitRevisionReference | GitRevisionReference[]> {
 	repo: string | Repository;
 	references: Refs;
 	flags: Flags[];
+	options: RevertOptions;
 }
 
 export interface RevertGitCommandArgs {
@@ -79,7 +81,7 @@ export class RevertGitCommand extends QuickCommand<State> {
 	async execute(state: RevertStepState<State<GitRevisionReference[]>>) {
 		for (const ref of state.references.reverse()) {
 			try {
-				await state.repo.git.revert(ref.ref, state.flags);
+				await state.repo.git.revert(ref.ref, state.options);
 			} catch (ex) {
 				if (ex instanceof RevertError) {
 					let shouldRetry = false;
@@ -196,7 +198,7 @@ export class RevertGitCommand extends QuickCommand<State> {
 			const result = yield* this.confirmStep(state as RevertStepState, context);
 			if (result === StepResultBreak) continue;
 
-			state.flags = result;
+			state.options = Object.assign({}, ...result);
 
 			endSteps(state);
 			await this.execute(state as RevertStepState<State<GitRevisionReference[]>>);
@@ -205,22 +207,24 @@ export class RevertGitCommand extends QuickCommand<State> {
 		return state.counter < 0 ? StepResultBreak : undefined;
 	}
 
-	private *confirmStep(state: RevertStepState, context: Context): StepResultGenerator<Flags[]> {
-		const step: QuickPickStep<FlagsQuickPickItem<Flags>> = this.createConfirmStep(
+	private *confirmStep(state: RevertStepState, context: Context): StepResultGenerator<RevertOptions[]> {
+		const optionsArr: RevertOptions[] = [];
+		const step: QuickPickStep<FlagsQuickPickItem<RevertOptions>> = this.createConfirmStep(
 			appendReposToTitle(`Confirm ${context.title}`, state, context),
 			[
-				createFlagsQuickPickItem<Flags>(state.flags, ['--no-edit'], {
+				createFlagsQuickPickItem<RevertOptions>(optionsArr, [{ edit: false }], {
 					label: this.title,
 					description: '--no-edit',
 					detail: `Will revert ${getReferenceLabel(state.references)}`,
 				}),
-				createFlagsQuickPickItem<Flags>(state.flags, ['--edit'], {
+				createFlagsQuickPickItem<RevertOptions>(optionsArr, [{ edit: true }], {
 					label: `${this.title} & Edit`,
 					description: '--edit',
 					detail: `Will revert and edit ${getReferenceLabel(state.references)}`,
 				}),
 			],
 		);
+		state.options = Object.assign({}, ...optionsArr);
 		const selection: StepSelection<typeof step> = yield step;
 		return canPickStepContinue(step, state, selection) ? selection[0].item : StepResultBreak;
 	}
