@@ -21,6 +21,24 @@ export interface Promo {
 // Must be ordered by applicable order
 const promos: Promo[] = [
 	{
+		key: 'gkholiday',
+		code: 'GKHOLIDAY',
+		states: [
+			SubscriptionState.Community,
+			SubscriptionState.ProPreview,
+			SubscriptionState.ProPreviewExpired,
+			SubscriptionState.ProTrial,
+			SubscriptionState.ProTrialExpired,
+			SubscriptionState.ProTrialReactivationEligible,
+		],
+		startsOn: new Date('2024-12-09T06:59:00.000Z').getTime(),
+		expiresOn: new Date('2025-01-07T06:59:00.000Z').getTime(),
+		command: { tooltip: 'Get the gift of a better DevEx in 2025! Save up to 80% now' },
+		quickpick: {
+			detail: '$(star-full) Get the gift of a better DevEx in 2025! Save up to 80% now',
+		},
+	},
+	{
 		key: 'gitlens16',
 		code: 'GITLENS16',
 		states: [
