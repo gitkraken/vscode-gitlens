@@ -148,6 +148,7 @@ export const enum PushErrorReason {
 	PushRejected,
 	PushRejectedWithLease,
 	PushRejectedWithLeaseIfIncludes,
+	PushRejectedRefNotExists,
 	PermissionDenied,
 	RemoteConnection,
 	NoUpstream,
@@ -197,6 +198,11 @@ export class PushError extends Error {
 						remote ? ` to ${remote}` : ''
 					} because some refs failed to push or the push was rejected. The tip of the remote-tracking branch has been updated since the last checkout. Try pulling first.`;
 					break;
+				case PushErrorReason.PushRejectedRefNotExists:
+					message = `Unable to delete branch${branch ? ` '${branch}'` : ''}${
+						remote ? ` on ${remote}` : ''
+					}, the remote reference does not exist`;
+					break;
 				case PushErrorReason.PermissionDenied:
 					message = `${baseMessage} because you don't have permission to push to this remote repository.`;
 					break;
@@ -215,6 +221,61 @@ export class PushError extends Error {
 		this.original = original;
 		this.reason = reason;
 		Error.captureStackTrace?.(this, PushError);
+	}
+}
+
+export const enum BranchErrorReason {
+	BranchAlreadyExists,
+	BranchNotFullyMerged,
+	NoRemoteReference,
+	InvalidBranchName,
+	Other,
+}
+
+export class BranchError extends Error {
+	static is(ex: unknown, reason?: BranchErrorReason): ex is BranchError {
+		return ex instanceof BranchError && (reason == null || ex.reason === reason);
+	}
+
+	readonly original?: Error;
+	readonly reason: BranchErrorReason | undefined;
+
+	constructor(reason?: BranchErrorReason, original?: Error, branch?: string);
+	constructor(message?: string, original?: Error);
+	constructor(messageOrReason: string | BranchErrorReason | undefined, original?: Error, branch?: string) {
+		let reason: BranchErrorReason | undefined;
+		if (typeof messageOrReason !== 'string') {
+			reason = messageOrReason as BranchErrorReason;
+		}
+
+		const message =
+			typeof messageOrReason === 'string' ? messageOrReason : BranchError.buildBranchErrorMessage(reason, branch);
+		super(message);
+
+		this.original = original;
+		this.reason = reason;
+		Error.captureStackTrace?.(this, BranchError);
+	}
+
+	private static buildBranchErrorMessage(reason?: BranchErrorReason, branch?: string): string {
+		const baseMessage = `Unable to perform action ${branch ? `with branch '${branch}'` : 'on branch'}`;
+		switch (reason) {
+			case BranchErrorReason.BranchAlreadyExists:
+				return `${baseMessage} because it already exists`;
+			case BranchErrorReason.BranchNotFullyMerged:
+				return `${baseMessage} because it is not fully merged`;
+			case BranchErrorReason.NoRemoteReference:
+				return `${baseMessage} because the remote reference does not exist`;
+			case BranchErrorReason.InvalidBranchName:
+				return `${baseMessage} because the branch name is invalid`;
+			default:
+				return baseMessage;
+		}
+	}
+
+	WithBranch(branchName: string): this {
+		this.message = BranchError.buildBranchErrorMessage(this.reason, branchName);
+		return this;
 	}
 }
 

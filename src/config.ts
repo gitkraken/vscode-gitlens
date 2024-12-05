@@ -584,25 +584,26 @@ export interface RemotesUrlsConfig {
 
 // NOTE: Must be kept in sync with `gitlens.advanced.messages` setting in the package.json
 export type SuppressedMessages =
+	| 'suppressBlameInvalidIgnoreRevsFileBadRevisionWarning'
+	| 'suppressBlameInvalidIgnoreRevsFileWarning'
 	| 'suppressCommitHasNoPreviousCommitWarning'
 	| 'suppressCommitNotFoundWarning'
 	| 'suppressCreatePullRequestPrompt'
 	| 'suppressDebugLoggingWarning'
 	| 'suppressFileNotUnderSourceControlWarning'
+	| 'suppressGitBranchNotFullyMergedWarning'
 	| 'suppressGitDisabledWarning'
 	| 'suppressGitMissingWarning'
 	| 'suppressGitVersionWarning'
-	| 'suppressLineUncommittedWarning'
-	| 'suppressNoRepositoryWarning'
-	| 'suppressRebaseSwitchToTextWarning'
 	| 'suppressGkDisconnectedTooManyFailedRequestsWarningMessage'
 	| 'suppressGkRequestFailed500Warning'
 	| 'suppressGkRequestTimedOutWarning'
 	| 'suppressIntegrationDisconnectedTooManyFailedRequestsWarning'
 	| 'suppressIntegrationRequestFailed500Warning'
 	| 'suppressIntegrationRequestTimedOutWarning'
-	| 'suppressBlameInvalidIgnoreRevsFileWarning'
-	| 'suppressBlameInvalidIgnoreRevsFileBadRevisionWarning';
+	| 'suppressLineUncommittedWarning'
+	| 'suppressNoRepositoryWarning'
+	| 'suppressRebaseSwitchToTextWarning';
 
 export interface ViewsCommonConfig {
 	readonly collapseWorktreesWhenPossible: boolean;
