@@ -79,6 +79,11 @@ export class GlPromo extends LitElement {
 
 	private renderPromo(promo: Promo) {
 		switch (promo.key) {
+			case 'gkholiday':
+				return html`<span class="content${this.type === 'link' ? nothing : ' muted'}"
+					>Get the gift of a better DevEx in 2025! <b>Save up to 80% now</b></span
+				>`;
+
 			case 'cybersale24':
 				return html`<span class="content${this.type === 'link' ? nothing : ' muted'}"
 					>Cyber Sale: <b>Save up to 85%</b> on GitLens Pro — our best deal of the year!</span
