@@ -33,15 +33,15 @@ const extract = args.indexOf('--extract') >= 0;
 const validate = args.indexOf('--validate') >= 0;
 
 if (extract) {
-	console.log('Extracting contributions from package.json into contributions.json...');
 	extractContributionsFromPackageJson();
 } else {
-	console.log('Generating contributions into package.json from contributions.json...');
 	generateContributionsIntoPackageJson();
 }
 
 /** Generates the `contributions.json` from the contributes configuration in `package.json` */
 function extractContributionsFromPackageJson(): void {
+	console.log('Extracting contributions from package.json into contributions.json...');
+
 	const commands = new Map<string, CommandDefinition>();
 	const submenus = new Map<string, SubmenuDefinition>();
 	const keybindings: ContributionsJson['keybindings'] = [];
@@ -276,6 +276,8 @@ function extractContributionsFromPackageJson(): void {
 
 /** Generates the contributes configuration from `contributions.json` into `package.json` */
 function generateContributionsIntoPackageJson(): void {
+	console.log("Generating 'package.json' contributions from contributions.json...");
+
 	const builder = new ContributesBuilder();
 	builder.load(path.join(__dirname, 'contributions.json'));
 	const contributions = builder.build();
@@ -288,15 +290,29 @@ function generateContributionsIntoPackageJson(): void {
 		validateContributions(packageJson.contributes, contributions);
 	}
 
+	// Skip writing if there are no changes
+	if (
+		JSON.stringify(packageJson.contributes.commands) === JSON.stringify(contributions.commands) &&
+		JSON.stringify(packageJson.contributes.keybindings) === JSON.stringify(contributions.keybindings) &&
+		JSON.stringify(packageJson.contributes.submenus) === JSON.stringify(contributions.submenus) &&
+		JSON.stringify(packageJson.contributes.menus) === JSON.stringify(contributions.menus) &&
+		JSON.stringify(packageJson.contributes.views) === JSON.stringify(contributions.views) &&
+		JSON.stringify(packageJson.contributes.viewsWelcome) === JSON.stringify(contributions.viewsWelcome)
+	) {
+		console.log("Skipped; No changes detected in 'contributions.json'");
+		return;
+	}
+
 	// Update package.json
 	packageJson.contributes.commands = contributions.commands;
+	packageJson.contributes.keybindings = contributions.keybindings;
 	packageJson.contributes.menus = contributions.menus;
 	packageJson.contributes.submenus = contributions.submenus;
-	packageJson.contributes.keybindings = contributions.keybindings;
 	packageJson.contributes.views = contributions.views;
 	packageJson.contributes.viewsWelcome = contributions.viewsWelcome;
 
 	writeFileSync(path.join(__dirname, 'package.json'), `${JSON.stringify(packageJson, undefined, '\t')}\n`, 'utf8');
+	console.log("Generated 'package.json' contributions");
 }
 
 /** Validates that all existing contributions are preserved in the new contributions */
