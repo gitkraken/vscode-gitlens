@@ -12265,6 +12265,10 @@
 					"when": "!gitlens:launchpad:connect && gitlens:plus:required && gitlens:plus:state == 4 && (gitlens:promo == pro50 || !gitlens:promo)"
 				},
 				{
+					"contents": "Get the gift of a better DevEx in 2025! Save up to 80% now",
+					"when": "!gitlens:launchpad:connect && gitlens:plus:required && gitlens:plus:state == 4 && gitlens:promo == gkholiday"
+				},
+				{
 					"contents": "Save more than 55% during our GitLens 16 sale!",
 					"when": "!gitlens:launchpad:connect && gitlens:plus:required && gitlens:plus:state == 4 && gitlens:promo == gitlens16"
 				},
@@ -12339,6 +12343,10 @@
 			"container": "scm",
 			"order": 8,
 			"welcomeContent": [
+				{
+					"contents": "Get the gift of a better DevEx in 2025! Save up to 80% now",
+					"when": "!gitlens:launchpad:connect && gitlens:plus:required && gitlens:plus:state == 4 && gitlens:promo == gkholiday && gitlens:views:scm:grouped:view == launchpad"
+				},
 				{
 					"contents": "GitLens groups many related views—Commits, Branches, Stashes, etc—here for easier view management.\n\n[Continue](command:gitlens.views.scm.grouped.welcome.dismiss)\n\nUse the tabs above to navigate, or detach the views you want to keep separated. You can regroup them anytime using the 'x' in the view header.",
 					"when": "gitlens:views:scm:grouped:welcome && gitlens:install:new"
@@ -12450,6 +12458,10 @@
 				{
 					"contents": "Use on privately-hosted repos require [GitLens Pro](https://help.gitkraken.com/gitlens/gitlens-community-vs-gitlens-pro/).",
 					"when": "gitlens:plus:state != 6 && gitlens:views:scm:grouped:view == worktrees"
+				},
+				{
+					"contents": "Get the gift of a better DevEx in 2025! Save up to 80% now",
+					"when": "gitlens:plus:required && gitlens:plus:state == 4 && gitlens:promo == gkholiday && gitlens:views:scm:grouped:view == worktrees"
 				}
 			]
 		},
@@ -12568,6 +12580,10 @@
 				{
 					"contents": "Save 33% or more on your 1st seat of Pro.",
 					"when": "gitlens:plus:required && gitlens:plus:state == 4 && (gitlens:promo == pro50 || !gitlens:promo)"
+				},
+				{
+					"contents": "Get the gift of a better DevEx in 2025! Save up to 80% now",
+					"when": "gitlens:plus:required && gitlens:plus:state == 4 && gitlens:promo == gkholiday"
 				},
 				{
 					"contents": "Save more than 55% during our GitLens 16 sale!",
