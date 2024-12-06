@@ -19077,11 +19077,6 @@
 				"when": "!gitlens:launchpad:connect && gitlens:plus:required && gitlens:plus:state == 4 && gitlens:promo == gkholiday"
 			},
 			{
-				"view": "gitlens.views.scm.grouped",
-				"contents": "Get the gift of a better DevEx in 2025! Save up to 80% now",
-				"when": "!gitlens:launchpad:connect && gitlens:plus:required && gitlens:plus:state == 4 && gitlens:promo == gkholiday && gitlens:views:scm:grouped:view == launchpad"
-			},
-			{
 				"view": "gitlens.views.launchpad",
 				"contents": "Save more than 55% during our GitLens 16 sale!",
 				"when": "!gitlens:launchpad:connect && gitlens:plus:required && gitlens:plus:state == 4 && gitlens:promo == gitlens16"
@@ -19100,6 +19095,11 @@
 				"view": "gitlens.views.launchpad",
 				"contents": "[Continue](command:gitlens.plus.reactivateProTrial?%7B%22source%22%3A%22launchpad-view%22%7D)\n\nReactivate your Pro trial and experience Launchpad and all the new Pro features — free for another 14 days!",
 				"when": "!gitlens:launchpad:connect && gitlens:plus:required && gitlens:plus:state == 5"
+			},
+			{
+				"view": "gitlens.views.scm.grouped",
+				"contents": "Get the gift of a better DevEx in 2025! Save up to 80% now",
+				"when": "!gitlens:launchpad:connect && gitlens:plus:required && gitlens:plus:state == 4 && gitlens:promo == gkholiday && gitlens:views:scm:grouped:view == launchpad"
 			},
 			{
 				"view": "gitlens.views.scm.grouped",
@@ -19242,6 +19242,11 @@
 				"when": "gitlens:plus:state != 6 && gitlens:views:scm:grouped:view == worktrees"
 			},
 			{
+				"view": "gitlens.views.scm.grouped",
+				"contents": "Get the gift of a better DevEx in 2025! Save up to 80% now",
+				"when": "gitlens:plus:required && gitlens:plus:state == 4 && gitlens:promo == gkholiday && gitlens:views:scm:grouped:view == worktrees"
+			},
+			{
 				"view": "gitlens.views.searchAndCompare",
 				"contents": "Search for commits by [message](command:gitlens.views.searchAndCompare.searchCommits?%7B%22search%22%3A%7B%22query%22%3A%22message%3A%22%7D%2C%22prefillOnly%22%3Atrue%7D), [author](command:gitlens.views.searchAndCompare.searchCommits?%7B%22search%22%3A%7B%22query%22%3A%22author%3A%22%7D%2C%22prefillOnly%22%3Atrue%7D), [SHA](command:gitlens.views.searchAndCompare.searchCommits?%7B%22search%22%3A%7B%22query%22%3A%22commit%3A%22%7D%2C%22prefillOnly%22%3Atrue%7D), [file](command:gitlens.views.searchAndCompare.searchCommits?%7B%22search%22%3A%7B%22query%22%3A%22file%3A%22%7D%2C%22prefillOnly%22%3Atrue%7D), or [changes](command:gitlens.views.searchAndCompare.searchCommits?%7B%22search%22%3A%7B%22query%22%3A%22change%3A%22%7D%2C%22prefillOnly%22%3Atrue%7D)\n\n[Search Commits...](command:gitlens.views.searchAndCompare.searchCommits)",
 				"when": "!gitlens:hasVirtualFolders"
@@ -19313,11 +19318,6 @@
 				"view": "gitlens.views.worktrees",
 				"contents": "Get the gift of a better DevEx in 2025! Save up to 80% now",
 				"when": "gitlens:plus:required && gitlens:plus:state == 4 && gitlens:promo == gkholiday"
-			},
-			{
-				"view": "gitlens.views.scm.grouped",
-				"contents": "Get the gift of a better DevEx in 2025! Save up to 80% now",
-				"when": "gitlens:plus:required && gitlens:plus:state == 4 && gitlens:promo == gkholiday && gitlens:views:scm:grouped:view == worktrees"
 			},
 			{
 				"view": "gitlens.views.worktrees",
