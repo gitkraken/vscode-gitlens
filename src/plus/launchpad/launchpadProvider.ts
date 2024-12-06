@@ -921,7 +921,9 @@ export class LaunchpadProvider implements Disposable {
 		await Promise.allSettled(
 			supportedLaunchpadIntegrations.map(async integrationId => {
 				const integration = await this.container.integrations.get(integrationId);
-				connected.set(integrationId, integration.maybeConnected ?? (await integration.isConnected()));
+				const isConnected = integration.maybeConnected ?? (await integration.isConnected());
+				const hasAccess = isConnected && (await integration.access());
+				connected.set(integrationId, hasAccess);
 			}),
 		);
 

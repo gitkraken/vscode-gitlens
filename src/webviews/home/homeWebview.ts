@@ -3,6 +3,7 @@ import { Disposable, workspace } from 'vscode';
 import type { CreatePullRequestActionContext } from '../../api/gitlens';
 import type { EnrichedAutolink } from '../../autolinks';
 import { getAvatarUriFromGravatarEmail } from '../../avatars';
+import type { BranchGitCommandArgs } from '../../commands/git/branch';
 import type { OpenPullRequestOnRemoteCommandArgs } from '../../commands/openPullRequestOnRemote';
 import { GlyphChars, urls } from '../../constants';
 import { Commands } from '../../constants.commands';
@@ -277,6 +278,7 @@ export class HomeWebviewProvider implements WebviewProvider<State, State, HomeWe
 			registerCommand('gitlens.home.switchToBranch', this.switchToBranch, this),
 			registerCommand('gitlens.home.fetch', this.fetch, this),
 			registerCommand('gitlens.home.openInGraph', this.openInGraph, this),
+			registerCommand('gitlens.home.createBranch', this.createBranch, this),
 		];
 	}
 
@@ -374,6 +376,19 @@ export class HomeWebviewProvider implements WebviewProvider<State, State, HomeWe
 		}
 		if (repo == null) return;
 		void executeCommand(Commands.ShowGraph, repo);
+	}
+
+	private createBranch() {
+		this.container.telemetry.sendEvent('home/createBranch');
+		void executeCommand<BranchGitCommandArgs>(Commands.GitCommands, {
+			command: 'branch',
+			state: {
+				subcommand: 'create',
+				suggestNameOnly: true,
+				suggestRepoOnly: true,
+				confirmOptions: ['--switch', '--worktree'],
+			},
+		});
 	}
 
 	private onTogglePreviewEnabled(isEnabled?: boolean) {
