@@ -6,6 +6,10 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/) and this p
 
 ## [Unreleased]
 
+### Added
+
+- Adds Holiday promotion
+
 ## [16.0.4] - 2024-11-25
 
 ### Changed
