@@ -6,6 +6,8 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/) and this p
 
 ## [Unreleased]
 
+## [16.0.5] - 2024-12-06
+
 ### Added
 
 - Adds Holiday promotion
@@ -5798,7 +5800,8 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/) and this p
 
 - Initial release but still heavily a work in progress.
 
-[unreleased]: https://github.com/gitkraken/vscode-gitlens/compare/v16.0.4...HEAD
+[unreleased]: https://github.com/gitkraken/vscode-gitlens/compare/v16.0.5...HEAD
+[16.0.5]: https://github.com/gitkraken/vscode-gitlens/compare/v16.0.4...gitkraken:v16.0.5
 [16.0.4]: https://github.com/gitkraken/vscode-gitlens/compare/v16.0.3...gitkraken:v16.0.4
 [16.0.3]: https://github.com/gitkraken/vscode-gitlens/compare/v16.0.2...gitkraken:v16.0.3
 [16.0.2]: https://github.com/gitkraken/vscode-gitlens/compare/v16.0.1...gitkraken:v16.0.2
