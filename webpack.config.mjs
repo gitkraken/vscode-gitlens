@@ -104,6 +104,7 @@ function getExtensionConfig(target, mode, env) {
 		}
 
 		plugins.push(
+			new ContributionsPlugin(),
 			new FantasticonPlugin({
 				configPath: '.fantasticonrc.js',
 				onBefore:
@@ -722,6 +723,62 @@ const schema = {
 		},
 	},
 };
+
+class ContributionsPlugin {
+	alreadyRun = false;
+
+	constructor() {
+		this.pluginName = 'contributions';
+	}
+
+	/**
+	 * @param {import("webpack").Compiler} compiler
+	 */
+	apply(compiler) {
+		/**
+		 * @this {ContributionsPlugin}
+		 * @param {import("webpack").Compiler} compiler
+		 */
+		async function generate(compiler) {
+			if (compiler.watchMode) {
+				if (this.alreadyRun) return;
+				this.alreadyRun = true;
+			}
+
+			const logger = compiler.getInfrastructureLogger(this.pluginName);
+			logger.log(`Generating contributions...`);
+
+			const start = Date.now();
+
+			const result = spawnSync('pnpm', ['run', 'generate:contributions'], {
+				cwd: __dirname,
+				encoding: 'utf8',
+				shell: true,
+			});
+
+			if (result.status === 0) {
+				logger.log(`Generated contributions in \x1b[32m${Date.now() - start}ms\x1b[0m`);
+			} else {
+				logger.error(`Failed to generate contributions: ${result.stderr}`);
+			}
+		}
+
+		const generateFn = generate.bind(this);
+		compiler.hooks.beforeRun.tapPromise(this.pluginName, generateFn);
+		compiler.hooks.watchRun.tapPromise(this.pluginName, generateFn);
+
+		// Add contributes.json to watch files
+		if (compiler.options.plugins) {
+			compiler.options.plugins.push({
+				apply: compiler => {
+					compiler.hooks.afterCompile.tap(this.pluginName, compilation => {
+						compilation.fileDependencies.add(path.join(__dirname, 'contributes.json'));
+					});
+				},
+			});
+		}
+	}
+}
 
 class FantasticonPlugin {
 	alreadyRun = false;
