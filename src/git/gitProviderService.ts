@@ -1716,7 +1716,7 @@ export class GitProviderService implements Disposable {
 	}
 
 	@log()
-	async getBranchesAndTagsTipsFn(
+	async getBranchesAndTagsTipsLookup(
 		repoPath: string | Uri | undefined,
 		suppressName?: string,
 	): Promise<

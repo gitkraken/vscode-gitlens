@@ -232,7 +232,7 @@ export class BranchNode
 				targetResult,
 			] = await Promise.allSettled([
 				this.getLog(),
-				this.view.container.git.getBranchesAndTagsTipsFn(this.uri.repoPath, branch.name),
+				this.view.container.git.getBranchesAndTagsTipsLookup(this.uri.repoPath, branch.name),
 				this.options.showStatus && branch.current
 					? this.view.container.git.getStatus(this.uri.repoPath)
 					: undefined,

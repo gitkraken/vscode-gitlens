@@ -65,7 +65,7 @@ export class ContributorNode extends ViewNode<'contributor', ViewsWithContributo
 		const log = await this.getLog();
 		if (log == null) return [new MessageNode(this.view, this, 'No commits could be found.')];
 
-		const getBranchAndTagTips = await this.view.container.git.getBranchesAndTagsTipsFn(this.uri.repoPath);
+		const getBranchAndTagTips = await this.view.container.git.getBranchesAndTagsTipsLookup(this.uri.repoPath);
 		const children = [
 			...insertDateMarkers(
 				map(

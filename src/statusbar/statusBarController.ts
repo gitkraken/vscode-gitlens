@@ -343,7 +343,7 @@ export class StatusBarController implements Disposable {
 		const defaultDateFormat = configuration.get('defaultDateFormat');
 		const getBranchAndTagTipsPromise =
 			CommitFormatter.has(cfg.format, 'tips') || CommitFormatter.has(cfg.tooltipFormat, 'tips')
-				? this.container.git.getBranchesAndTagsTipsFn(commit.repoPath)
+				? this.container.git.getBranchesAndTagsTipsLookup(commit.repoPath)
 				: undefined;
 
 		const showPullRequests =
