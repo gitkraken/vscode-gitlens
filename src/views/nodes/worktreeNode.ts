@@ -121,7 +121,7 @@ export class WorktreeNode extends CacheableChildrenViewNode<'worktree', ViewsWit
 
 			const [logResult, getBranchAndTagTipsResult, unpublishedCommitsResult] = await Promise.allSettled([
 				this.getLog(),
-				this.view.container.git.getBranchesAndTagsTipsFn(this.uri.repoPath),
+				this.view.container.git.getBranchesAndTagsTipsLookup(this.uri.repoPath),
 				branch != null && !branch.remote
 					? this.view.container.git.getBranchAheadRange(branch).then(range =>
 							range

@@ -288,7 +288,7 @@ export class LineAnnotationController implements Disposable {
 		const cancellation = this._cancellation.token;
 
 		const getBranchAndTagTipsPromise = CommitFormatter.has(cfg.format, 'tips')
-			? this.container.git.getBranchesAndTagsTipsFn(repoPath)
+			? this.container.git.getBranchesAndTagsTipsLookup(repoPath)
 			: undefined;
 
 		async function updateDecorations(
