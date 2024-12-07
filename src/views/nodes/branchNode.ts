@@ -427,6 +427,7 @@ export class BranchNode
 		const parts = await getBranchNodeParts(this.view.container, this.branch, this.current, {
 			pendingPullRequest: this.getState('pendingPullRequest'),
 			showAsCommits: this.options.showAsCommits,
+			showRemoteBranchesAsCloud: this.view.type === 'branches',
 			showStatusDecorationOnly: this.options.showStatusDecorationOnly,
 			useBaseNameOnly: !(this.view.config.branches?.layout !== 'tree' || this.compacted || this.avoidCompacting),
 			worktree: this.worktree,
@@ -553,6 +554,7 @@ export async function getBranchNodeParts(
 	options?: {
 		pendingPullRequest?: Promise<PullRequest | undefined> | undefined;
 		showAsCommits?: boolean;
+		showRemoteBranchesAsCloud?: boolean;
 		showStatusDecorationOnly?: boolean;
 		useBaseNameOnly: boolean;
 		worktree?: GitWorktree;
@@ -752,7 +754,13 @@ export async function getBranchNodeParts(
 				  ? new ThemeIcon('git-commit', iconColor)
 				  : options?.worktree != null
 				    ? getWorktreeBranchIconPath(container, branch)
-				    : getBranchIconPath(container, branch),
+				    : getBranchIconPath(
+								container,
+								branch,
+								branch.remote && options?.showRemoteBranchesAsCloud
+									? new ThemeIcon('cloud')
+									: undefined,
+				      ),
 		resourceUri: createViewDecorationUri('branch', {
 			status: localUnpublished ? 'unpublished' : status,
 			current: current,

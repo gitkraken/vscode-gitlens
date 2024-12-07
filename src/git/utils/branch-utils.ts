@@ -4,7 +4,11 @@ import type { Container } from '../../container';
 import { getIconPathUris } from '../../system/vscode/vscode';
 import type { GitBranch } from '../models/branch';
 
-export function getBranchIconPath(container: Container, branch: GitBranch | undefined): IconPath {
+export function getBranchIconPath(
+	container: Container,
+	branch: GitBranch | undefined,
+	defaultIcon?: ThemeIcon,
+): IconPath {
 	const status = branch?.status;
 	switch (status) {
 		case 'ahead':
@@ -14,6 +18,6 @@ export function getBranchIconPath(container: Container, branch: GitBranch | unde
 		case 'upToDate':
 			return getIconPathUris(container, `icon-branch-synced.svg`);
 		default:
-			return new ThemeIcon('git-branch');
+			return defaultIcon ?? new ThemeIcon('git-branch');
 	}
 }

@@ -3,7 +3,12 @@ import type { PagedResult } from '../git/gitProvider';
 export class PageableResult<T> {
 	private cached: Mutable<PagedResult<T>> | undefined;
 
-	constructor(private readonly fetch: (paging: PagedResult<T>['paging']) => Promise<PagedResult<T>>) {}
+	constructor(
+		private readonly fetch: (paging: PagedResult<T>['paging']) => Promise<PagedResult<T>>,
+		seed?: PagedResult<T>,
+	) {
+		this.cached = seed;
+	}
 
 	async *values(): AsyncIterable<NonNullable<T>> {
 		if (this.cached != null) {
