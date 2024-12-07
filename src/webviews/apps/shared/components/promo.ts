@@ -84,16 +84,6 @@ export class GlPromo extends LitElement {
 					>Get the gift of a better DevEx in 2025! <b>Save up to 80% now</b></span
 				>`;
 
-			case 'cybersale24':
-				return html`<span class="content${this.type === 'link' ? nothing : ' muted'}"
-					>Cyber Sale: <b>Save up to 85%</b> on GitLens Pro — our best deal of the year!</span
-				>`;
-
-			case 'gitlens16':
-				return html`<span class="content${this.type === 'link' ? nothing : ' muted'}"
-					><b>Save more than 55%</b> during our GitLens 16 sale!</span
-				>`;
-
 			case 'pro50':
 				return html`<span class="content${this.type === 'link' ? nothing : ' muted'}"
 					><b>Save 33% or more</b> on your 1st seat of Pro</span
