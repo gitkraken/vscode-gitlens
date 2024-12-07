@@ -58,10 +58,6 @@ export class RepositoryNode extends SubscribeableViewNode<'repository', ViewsWit
 		this._status = this.repo.git.getStatus();
 	}
 
-	override get id(): string {
-		return this._uniqueId;
-	}
-
 	override toClipboard(): string {
 		return this.repo.path;
 	}

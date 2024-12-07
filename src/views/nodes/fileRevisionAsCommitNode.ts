@@ -42,6 +42,8 @@ export class FileRevisionAsCommitNode extends ViewRefFileNode<
 		} = {},
 	) {
 		super('file-commit', GitUri.fromFile(file, commit.repoPath, commit.sha), view, parent, file);
+
+		this._uniqueId = `${this.type}(${this.commit.repoPath}|${this.commit.sha}:${this.file.path}+${this.file.status})`;
 	}
 
 	override toClipboard(): string {

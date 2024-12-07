@@ -62,10 +62,6 @@ export class SearchResultsNode extends ViewNode<'search-results', SearchAndCompa
 		}
 	}
 
-	override get id(): string {
-		return this._uniqueId;
-	}
-
 	override toClipboard(): string {
 		return this.search.query;
 	}

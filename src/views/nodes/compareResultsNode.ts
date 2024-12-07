@@ -58,10 +58,6 @@ export class CompareResultsNode extends SubscribeableViewNode<
 		}
 	}
 
-	override get id(): string {
-		return this._uniqueId;
-	}
-
 	protected override etag(): number {
 		return this._storedAt;
 	}

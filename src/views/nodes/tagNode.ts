@@ -34,10 +34,6 @@ export class TagNode extends ViewRefNode<'tag', ViewsWithTags, GitTagReference> 
 		this.limit = this.view.getNodeLastKnownLimit(this);
 	}
 
-	override get id(): string {
-		return this._uniqueId;
-	}
-
 	override toClipboard(): string {
 		return this.tag.name;
 	}

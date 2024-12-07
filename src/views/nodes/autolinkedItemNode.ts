@@ -22,10 +22,6 @@ export class AutolinkedItemNode extends ViewNode<'autolink', ViewsWithCommits> {
 		this._uniqueId = getViewNodeId(`${this.type}+${item.id}`, this.context);
 	}
 
-	override get id(): string {
-		return this._uniqueId;
-	}
-
 	override async toClipboard(type?: ClipboardType): Promise<string> {
 		const enriched = await this.maybeEnriched;
 		switch (type) {

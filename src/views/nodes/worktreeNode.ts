@@ -55,10 +55,6 @@ export class WorktreeNode extends CacheableChildrenViewNode<'worktree', ViewsWit
 		this.limit = this.view.getNodeLastKnownLimit(this);
 	}
 
-	override get id(): string {
-		return this._uniqueId;
-	}
-
 	override toClipboard(): string {
 		return this.worktree.uri.fsPath;
 	}
@@ -192,8 +188,6 @@ export class WorktreeNode extends CacheableChildrenViewNode<'worktree', ViewsWit
 	}
 
 	async getTreeItem(): Promise<TreeItem> {
-		this.splatted = false;
-
 		let description = '';
 		let icon: IconPath | undefined;
 		let hasChanges = false;

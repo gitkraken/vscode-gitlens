@@ -72,7 +72,6 @@ export class BranchNode
 	limit: number | undefined;
 
 	private readonly options: Options;
-	protected override splatted = true;
 
 	constructor(
 		uri: GitUri,
@@ -84,10 +83,12 @@ export class BranchNode
 		public readonly root: boolean,
 		options?: Partial<Options>,
 	) {
-		super('branch', uri, view, parent);
+		super('branch', uri, view, parent, root);
 
 		this.updateContext({ repository: repo, branch: branch, root: root });
-		this._uniqueId = getViewNodeId(this.type, this.context);
+		// this._uniqueId = getViewNodeId(this.type, this.context);
+		this._uniqueId = `${this.type}(${this.branch.id})`;
+
 		this.limit = this.view.getNodeLastKnownLimit(this);
 
 		this.options = {
@@ -109,10 +110,6 @@ export class BranchNode
 	override dispose() {
 		super.dispose();
 		this.children = undefined;
-	}
-
-	override get id(): string {
-		return this._uniqueId;
 	}
 
 	override toClipboard(): string {
@@ -422,8 +419,6 @@ export class BranchNode
 	}
 
 	async getTreeItem(): Promise<TreeItem> {
-		this.splatted = false;
-
 		const parts = await getBranchNodeParts(this.view.container, this.branch, this.current, {
 			pendingPullRequest: this.getState('pendingPullRequest'),
 			showAsCommits: this.options.showAsCommits,
