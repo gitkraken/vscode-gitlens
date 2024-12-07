@@ -42,6 +42,7 @@ import { registerCommand } from '../system/vscode/command';
 import { configuration } from '../system/vscode/configuration';
 import { setContext } from '../system/vscode/context';
 import { getBestPath } from '../system/vscode/path';
+import type { GitErrorHandling } from './commandOptions';
 import type {
 	BranchContributorOverview,
 	GitCaches,
@@ -1332,6 +1333,26 @@ export class GitProviderService implements Disposable {
 		if (provider.removeRemote == null) throw new ProviderNotSupportedError(provider.descriptor.name);
 
 		return provider.removeRemote(path, name);
+	}
+
+	@log()
+	cherryPick(repoPath: string | Uri, ref: string, flags: string[] | undefined = []): Promise<void> {
+		const { provider, path } = this.getProvider(repoPath);
+		if (provider.cherryPick == null) throw new ProviderNotSupportedError(provider.descriptor.name);
+
+		const options: { noCommit?: boolean; edit?: boolean; errors?: GitErrorHandling } = {};
+		for (const flag of flags) {
+			switch (flag) {
+				case '--no-commit':
+					options.noCommit = true;
+					break;
+				case '--edit':
+					options.edit = true;
+					break;
+			}
+		}
+
+		return provider.cherryPick(path, ref, options);
 	}
 
 	@log()

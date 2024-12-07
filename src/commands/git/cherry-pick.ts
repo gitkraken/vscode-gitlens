@@ -4,8 +4,10 @@ import type { GitLog } from '../../git/models/log';
 import type { GitReference } from '../../git/models/reference';
 import { createRevisionRange, getReferenceLabel, isRevisionReference } from '../../git/models/reference';
 import type { Repository } from '../../git/models/repository';
+import { showGenericErrorMessage } from '../../messages';
 import type { FlagsQuickPickItem } from '../../quickpicks/items/flags';
 import { createFlagsQuickPickItem } from '../../quickpicks/items/flags';
+import { Logger } from '../../system/logger';
 import type { ViewsWithRepositoryFolders } from '../../views/viewBase';
 import type {
 	PartialStepState,
@@ -80,8 +82,15 @@ export class CherryPickGitCommand extends QuickCommand<State> {
 		return false;
 	}
 
-	execute(state: CherryPickStepState<State<GitReference[]>>) {
-		state.repo.cherryPick(...state.flags, ...state.references.map(c => c.ref).reverse());
+	async execute(state: CherryPickStepState<State<GitReference[]>>) {
+		for (const ref of state.references.map(c => c.ref).reverse()) {
+			try {
+				await state.repo.git.cherryPick(ref, state.flags);
+			} catch (ex) {
+				Logger.error(ex, this.title);
+				void showGenericErrorMessage(ex.message);
+			}
+		}
 	}
 
 	override isFuzzyMatch(name: string) {
@@ -225,7 +234,7 @@ export class CherryPickGitCommand extends QuickCommand<State> {
 			}
 
 			endSteps(state);
-			this.execute(state as CherryPickStepState<State<GitReference[]>>);
+			await this.execute(state as CherryPickStepState<State<GitReference[]>>);
 		}
 
 		return state.counter < 0 ? StepResultBreak : undefined;

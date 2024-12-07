@@ -633,11 +633,6 @@ export class Repository implements Disposable {
 		}
 	}
 
-	@log()
-	cherryPick(...args: string[]) {
-		void this.runTerminalCommand('cherry-pick', ...args);
-	}
-
 	containsUri(uri: Uri) {
 		return this === this.container.git.getRepository(uri);
 	}
