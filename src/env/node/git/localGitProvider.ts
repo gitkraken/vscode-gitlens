@@ -1087,6 +1087,32 @@ export class LocalGitProvider implements GitProvider, Disposable {
 	}
 
 	@log()
+	async merge(
+		repoPath: string,
+		ref: string,
+		options?: { fastForwardOnly?: boolean; noFastForward?: boolean; noCommit?: boolean; squash?: boolean },
+	): Promise<void> {
+		const args: string[] = [];
+		if (options?.fastForwardOnly) {
+			args.push('--ff-only');
+		} else if (options?.noFastForward) {
+			args.push('--no-ff');
+		}
+
+		if (options?.noCommit) {
+			args.push('--no-commit');
+		}
+
+		if (options?.squash) {
+			args.push('--squash');
+		}
+
+		args.push(ref);
+
+		await this.git.merge(repoPath, args);
+	}
+
+	@log()
 	async applyChangesToWorkingFile(uri: GitUri, ref1?: string, ref2?: string) {
 		const scope = getLogScope();
 
