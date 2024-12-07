@@ -621,6 +621,11 @@ export abstract class QuickWizardCommandBase extends Command {
 							firstActiveChange = false;
 						}
 
+						if (step.onDidChangeActive != null) {
+							const cancel = step.onDidChangeActive(quickpick);
+							if (cancel) return;
+						}
+
 						if (rootStep.command != null || quickpick.activeItems.length === 0) return;
 
 						const command = quickpick.activeItems[0];
