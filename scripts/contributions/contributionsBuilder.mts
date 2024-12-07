@@ -11,7 +11,6 @@ import type {
 	SubmenuDefinition,
 	ViewDefinition,
 	View,
-	ViewWelcome,
 	SubmenuLocations,
 } from './models';
 import * as fs from 'fs';
@@ -48,6 +47,9 @@ export const menuLocations: MenuLocations[] = [
 	'view/item/context',
 	'webview/context',
 ];
+
+type SortableExpression = { key: string | undefined; expression: string | undefined; values: string[] };
+const emptySortableExpression: SortableExpression = { key: undefined, expression: undefined, values: [] };
 
 export class ContributesBuilder {
 	private commands: Record<string, CommandDefinition[]> = Object.create(null);
@@ -280,7 +282,7 @@ export class ContributesBuilder {
 }
 
 export class MenuSorter {
-	private readonly sortExpressionSetCache = new Map<string, [string | undefined, string[]]>();
+	private readonly sortExpressionCache = new Map<string, SortableExpression>();
 	private readonly regexCache = new Map<string, RegExp>();
 	private readonly getItem:
 		| ((m: Menu | MenuLocationDefinition) => CommandDefinition | SubmenuDefinition | undefined)
@@ -306,40 +308,50 @@ export class MenuSorter {
 		}
 
 		const primaryKeys = getContextKeysForLocation(location)?.[0];
-		if (!primaryKeys?.length) return this.sortByDefault.bind(this);
-		if (primaryKeys.length === 1) return this.sortByCustomWhenClause.bind(this, primaryKeys[0]);
+		if (!primaryKeys?.length) return this.sortByGroup.bind(this, location);
 
-		return this.sortByCustomWhenClause.bind(this, `(?:${primaryKeys.join('|')})`);
+		return this.sortByCustomWhenClause.bind(this, location, `(${primaryKeys.join('|')})`);
 	}
 
 	private sortByCustomWhenClause(
+		location: MenuLocations,
 		key: string,
 		a: Menu | MenuLocationDefinition,
 		b: Menu | MenuLocationDefinition,
 	): number {
-		const [expressionA, setA] = this.getSortableExpressionSet(key, a);
-		const [expressionB, setB] = this.getSortableExpressionSet(key, b);
+		const { key: keyA, expression: expressionA, values: valuesA } = this.getSortableExpression(key, a);
+		const { key: keyB, expression: expressionB, values: valuesB } = this.getSortableExpression(key, b);
 
-		let value: number;
+		let value = 0;
 
-		if (setA.length && setB.length) {
-			value = setA[0].localeCompare(setB[0]);
-		} else if (!expressionA) {
-			value = 1;
-		} else if (!expressionB) {
-			value = -1;
-		} else {
-			value = expressionA.localeCompare(expressionB);
+		if (keyA === keyB) {
+			if (valuesA.length && valuesB.length) {
+				value = valuesA[0].localeCompare(valuesB[0]);
+			} else if (expressionA !== expressionB) {
+				if (!expressionA) {
+					value = 1;
+				} else if (!expressionB) {
+					value = -1;
+				} else {
+					value = expressionA.localeCompare(expressionB);
+				}
+			}
+		} else if (keyA && keyB) {
+			value = keyA.localeCompare(keyB);
 		}
 
 		if (value === 0) {
-			value = this.sortByDefault(a, b);
+			value = this.sortByGroup(location, a, b);
 		}
 
 		return value;
 	}
 
-	private sortByDefault(a: Menu | MenuLocationDefinition, b: Menu | MenuLocationDefinition): number {
+	private sortByGroup(
+		_location: MenuLocations,
+		a: Menu | MenuLocationDefinition,
+		b: Menu | MenuLocationDefinition,
+	): number {
 		if (a.group === b.group) return 0;
 
 		let { group: groupA, order: orderA } = parseGroup(a.group);
@@ -371,75 +383,130 @@ export class MenuSorter {
 		return labelA.localeCompare(labelB);
 	}
 
-	private getSortableExpressionSet(key: string, m: Menu | MenuLocationDefinition): [string | undefined, string[]] {
-		const set: string[] = [];
-		if (!m.when) return [undefined, set];
+	private getSortableExpression(keys: string, m: Menu | MenuLocationDefinition): SortableExpression {
+		const values: string[] = [];
+		if (!m.when) return emptySortableExpression;
 
-		const cacheKey = `${key}:${m.when}`;
-		let cached = this.sortExpressionSetCache.get(cacheKey);
+		const cacheKey = `${keys}:${m.when}`;
+		let cached = this.sortExpressionCache.get(cacheKey);
 		if (cached) return cached;
 
-		let regex = this.regexCache.get(key);
+		let regex = this.regexCache.get(keys);
 		if (!regex) {
-			regex = new RegExp(`${key}(?:\\s+=~\\s+\/(.+?)\/|\\s+[!=]=\\s+(.+?)(?:\\s+[&|]|$))`);
-			this.regexCache.set(key, regex);
+			regex = new RegExp(`${keys}(?:\\s+=~\\s+\/(.+?)\/|\\s+(?:[!=]=|in|not in)\\s+(.+?)(?:\\s+[&|]|$))`);
+			this.regexCache.set(keys, regex);
 		}
 
 		const match = regex.exec(m.when);
 
-		let expression = match?.[1];
+		const key = match?.[1];
+		let expression = match?.[2];
 		if (expression) {
 			try {
 				const iterator = expand(expression).getIterator();
 				for (const v of iterator) {
-					set.push(v);
+					values.push(v);
 				}
 			} catch (ex) {
 				debugger;
 				console.error(ex);
 			}
 		} else {
-			expression = match?.[2];
+			expression = match?.[3];
 			if (expression) {
-				set.push(expression);
+				values.push(expression);
 			}
 		}
 
-		if (set.length > 1) {
-			set.sort((a, b) => a.localeCompare(b));
+		if (values.length > 1) {
+			values.sort((a, b) => a.localeCompare(b));
 		}
 
-		cached = [expression, set];
-		this.sortExpressionSetCache.set(cacheKey, cached);
+		cached = { key: key, expression: expression, values: values };
+		this.sortExpressionCache.set(cacheKey, cached);
 		return cached;
 	}
 }
 
+const configRegex = /^config\./;
+const orderedContextKeysByLocation = new Map<string, [primary: string[], ...(string | RegExp)[]]>([
+	[
+		'scm/resourceFolder/context',
+		[['scmResourceFolder'], 'scmResourceGroup', 'scmProvider', 'gitlens:enabled', configRegex],
+	],
+	['scm/resourceGroup/context', [['scmResourceGroup'], 'scmProvider', 'gitlens:enabled', configRegex]],
+	[
+		'scm/resourceState/context',
+		[['scmResourceState'], 'scmResourceFolder', 'scmResourceGroup', 'scmProvider', 'gitlens:enabled', configRegex],
+	],
+	['scm/title', [['scmProvider'], 'gitlens:enabled', configRegex]],
+	['scm/sourceControl', [['scmProvider'], 'gitlens:enabled', configRegex]],
+	['timeline/title', [['timeline'], 'gitlens:enabled', configRegex]],
+	['timeline/item/context', [['timelineItem'], 'timeline', 'gitlens:enabled', configRegex]],
+	['view/title', [['view', 'gitlens:views:scm:grouped:view'], configRegex]],
+	['view/item/context', [['viewItem'], 'view', 'gitlens:views:scm:grouped:view', configRegex, 'listMultiSelection']],
+	['webview/context', [['webviewItem', 'webviewItems', 'webviewItemGroup'], configRegex, 'listMultiSelection']],
+	[
+		'editor/',
+		[['activeWebviewPanelId', 'resourceScheme', 'resource'], 'editorTextFocus', 'gitlens:enabled', configRegex],
+	],
+	['explorer/', [[], 'explorerResourceIsRoot', 'explorerResourceIsFolder', 'gitlens:enabled', configRegex]],
+	[
+		'gitlens/',
+		[
+			[
+				'viewItem',
+				'view',
+				'gitlens:views:scm:grouped:view',
+				'webviewItem',
+				'webviewItems',
+				'webviewItemGroup',
+				'scmResourceState',
+				'scmResourceFolder',
+				'scmResourceGroup',
+				'scmProvider',
+				'timelineItem',
+				'timeline',
+				'activeWebviewPanelId',
+				'resource',
+				'resourceScheme',
+			],
+			'explorerResourceIsRoot',
+			'explorerResourceIsFolder',
+			configRegex,
+			'listMultiSelection',
+		],
+	],
+]);
+
 function getContextKeysForLocation(
 	location: MenuLocations | SubmenuLocations,
-): [primary: string[], ...string[]] | undefined {
+): [primary: string[], ...(string | RegExp)[]] | undefined {
 	switch (location) {
 		case 'scm/resourceFolder/context':
-			return [['scmResourceFolder'], 'scmResourceGroup', 'scmProvider'];
 		case 'scm/resourceGroup/context':
-			return [['scmResourceGroup'], 'scmProvider'];
 		case 'scm/resourceState/context':
-			return [['scmResourceState'], 'scmResourceFolder', 'scmResourceGroup', 'scmProvider'];
 		case 'scm/title':
-			return [['scmProvider']];
 		case 'scm/sourceControl':
-			return [['scmProvider']];
 		case 'timeline/title':
-			return [['timeline']];
 		case 'timeline/item/context':
-			return [['timelineItem'], 'timeline'];
 		case 'view/title':
-			return [['view']];
 		case 'view/item/context':
-			return [['viewItem'], 'view'];
 		case 'webview/context':
-			return [['webviewItem', 'webviewItems', 'webviewItemGroup']];
+			return orderedContextKeysByLocation.get(location);
 		default:
+			if (location.startsWith('editor/')) {
+				return orderedContextKeysByLocation.get('editor/');
+			}
+
+			if (location.startsWith('explorer/')) {
+				return orderedContextKeysByLocation.get('explorer/');
+			}
+
+			if (location.startsWith('gitlens/')) {
+				return orderedContextKeysByLocation.get('gitlens/');
+			}
+
 			return undefined;
 	}
 }
@@ -475,8 +542,8 @@ export function validateAndRewriteWhenClause(
 	if (!keys) return when;
 
 	const [primary, ...secondaryKeys] = keys;
-	const orderedKeys = [...primary, ...secondaryKeys];
-	if (!orderedKeys.length) return when;
+	const orderedImportantKeys = [...primary, ...secondaryKeys];
+	if (!orderedImportantKeys.length) return when;
 
 	let expression: ContextKeyExpression | undefined;
 
@@ -491,25 +558,41 @@ export function validateAndRewriteWhenClause(
 	// If not an AND expression, preserve the original since we can't safely reorder
 	if (!expression || expression.type !== ContextKeyExprType.And) return when;
 
-	const importants: ContextKeyExpression[] = [];
+	const importants: { index: number; expr: ContextKeyExpression }[] = [];
 	const others: ContextKeyExpression[] = [];
 
 	for (const exp of expression.expr) {
+		if (exp.type === ContextKeyExprType.Or) return when;
+
+		const keys = exp.keys();
+
+		let i = -1;
 		let important = false;
-		for (const key of orderedKeys) {
-			if (exp.keys().some(k => key.includes(k))) {
+		for (const importantKey of orderedImportantKeys) {
+			i++;
+
+			if (
+				(typeof importantKey === 'string' && keys.includes(importantKey)) ||
+				(importantKey instanceof RegExp && keys.some(k => importantKey.test(k)))
+			) {
 				important = true;
-				importants.push(exp);
+				break;
 			}
 		}
 
-		if (!important) {
+		if (important) {
+			importants.push({ index: i, expr: exp });
+		} else {
 			others.push(exp);
 		}
 	}
 
+	if (!importants.length) return when;
+
+	importants.sort((a, b) => a.index - b.index);
+
 	// Combine the terms with important ones first
-	const rewrittenWhen = [...importants.map(t => t.serialize()), ...others.map(t => t.serialize())].join(' && ');
+	const rewrittenWhen = [...importants.map(e => e.expr.serialize()), ...others.map(e => e.serialize())].join(' && ');
 	const rewrittenExpr = parser.parse(rewrittenWhen);
 	if (rewrittenExpr) {
 		return rewrittenWhen;
