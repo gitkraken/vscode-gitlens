@@ -567,3 +567,65 @@ export class TagError extends Error {
 		return this;
 	}
 }
+
+export const enum RebaseErrorReason {
+	WorkingChanges,
+	OverwrittenChanges,
+	Other,
+}
+
+export class RebaseError extends Error {
+	static is(ex: unknown, reason?: RebaseErrorReason): ex is RebaseError {
+		return ex instanceof RebaseError && (reason == null || ex.reason === reason);
+	}
+
+	private static buildRebaseErrorMessage(reason?: RebaseErrorReason, ref?: string): string {
+		let baseMessage: string;
+		if (ref != null) {
+			baseMessage = `Unable to rebase onto ${ref}`;
+		} else {
+			baseMessage = `Unable to rebase`;
+		}
+
+		switch (reason) {
+			case RebaseErrorReason.WorkingChanges:
+				return `${baseMessage} because there are uncommitted changes`;
+			case RebaseErrorReason.OverwrittenChanges:
+				return `${baseMessage} because some local changes would be overwritten`;
+			default:
+				return baseMessage;
+		}
+	}
+
+	readonly original?: Error;
+	readonly reason: RebaseErrorReason | undefined;
+	ref?: string;
+
+	constructor(reason?: RebaseErrorReason, original?: Error);
+	constructor(message?: string, original?: Error);
+	constructor(messageOrReason: string | RebaseErrorReason | undefined, original?: Error, ref?: string) {
+		let reason: RebaseErrorReason | undefined;
+		if (typeof messageOrReason !== 'string') {
+			reason = messageOrReason as RebaseErrorReason;
+		} else {
+			super(messageOrReason);
+		}
+
+		const message =
+			typeof messageOrReason === 'string'
+				? messageOrReason
+				: RebaseError.buildRebaseErrorMessage(messageOrReason as RebaseErrorReason, ref);
+		super(message);
+
+		this.original = original;
+		this.reason = reason;
+		this.ref = ref;
+		Error.captureStackTrace?.(this, RebaseError);
+	}
+
+	WithRef(ref: string) {
+		this.ref = ref;
+		this.message = RebaseError.buildRebaseErrorMessage(this.reason, ref);
+		return this;
+	}
+}

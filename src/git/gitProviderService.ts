@@ -1343,6 +1343,19 @@ export class GitProviderService implements Disposable {
 	}
 
 	@log()
+	rebase(
+		repoPath: string | Uri,
+		ref: string,
+		configs: { sequenceEditor?: string },
+		options: { interactive?: boolean } = {},
+	): Promise<void> {
+		const { provider, path } = this.getProvider(repoPath);
+		if (provider.rebase == null) throw new ProviderNotSupportedError(provider.descriptor.name);
+
+		return provider.rebase(path, ref, configs, options);
+	}
+
+	@log()
 	async applyUnreachableCommitForPatch(
 		repoPath: string | Uri,
 		ref: string,
