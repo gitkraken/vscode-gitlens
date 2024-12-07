@@ -3,7 +3,7 @@ export const proFeaturePreviewUsageDurationInDays = 1;
 export const proPreviewLengthInDays = 0;
 export const proTrialLengthInDays = 14;
 
-export type PromoKeys = 'gkholiday' | 'cybersale24' | 'gitlens16' | 'pro50';
+export type PromoKeys = 'gkholiday' | 'pro50';
 
 export const enum SubscriptionPlanId {
 	Community = 'community',
