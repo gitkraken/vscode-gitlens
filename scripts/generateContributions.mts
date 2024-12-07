@@ -8,7 +8,6 @@ import type {
 	SubmenuDefinition,
 	ContributionsJson,
 	PackageJson,
-	MenuLocationDefinition,
 	ViewDefinition,
 	View,
 } from './contributions/models';

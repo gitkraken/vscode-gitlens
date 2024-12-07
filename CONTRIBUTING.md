@@ -19,8 +19,8 @@ git clone https://github.com/gitkraken/vscode-gitlens.git
 Prerequisites
 
 - [Git](https://git-scm.com/), `>= 2.7.2`
-- [NodeJS](https://nodejs.org/), `>= v20.11.1`
-- [pnpm](https://pnpm.io/), `>= 8.x` (install using [corepack](https://nodejs.org/docs/latest-v20.x/api/corepack.html))
+- [NodeJS](https://nodejs.org/), `>= v22.11.0`
+- [pnpm](https://pnpm.io/), `>= 9.x` (install using [corepack](https://nodejs.org/docs/latest-v20.x/api/corepack.html))
 
 ### Dependencies
 
