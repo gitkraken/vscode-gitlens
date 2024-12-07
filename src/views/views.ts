@@ -302,6 +302,7 @@ export class Views implements Disposable {
 				void this.container.storage.store('views:scm:grouped:welcome:dismissed', true);
 				await updateScmGroupedViewsInConfig(new Set());
 			}),
+			registerCommand('gitlens.views.switchToSeparateViews', () => this.switchToSeparateViews()),
 		];
 	}
 
@@ -840,6 +841,21 @@ export class Views implements Disposable {
 			case 'scm.grouped':
 				return void executeCoreCommand(`gitlens.views.scm.grouped.focus`);
 		}
+	}
+
+	private async switchToSeparateViews() {
+		await configuration.updateEffective('views.scm.grouped.views', {
+			commits: false,
+			branches: false,
+			remotes: false,
+			stashes: false,
+			tags: false,
+			worktrees: false,
+			contributors: false,
+			repositories: false,
+			searchAndCompare: false,
+			launchpad: false,
+		});
 	}
 }
 
