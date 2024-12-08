@@ -1665,13 +1665,13 @@ export function* pickStashStep<
 	context: Context,
 	{
 		ignoreFocusOut,
-		stash,
+		gitStash,
 		picked,
 		placeholder,
 		titleContext,
 	}: {
 		ignoreFocusOut?: boolean;
-		stash: GitStash | undefined;
+		gitStash: GitStash | undefined;
 		picked: string | string[] | undefined;
 		placeholder: string | ((context: Context, stash: GitStash | undefined) => string);
 		titleContext?: string;
@@ -1679,19 +1679,19 @@ export function* pickStashStep<
 ): StepResultGenerator<GitStashCommit> {
 	const step = createPickStep<CommitQuickPickItem<GitStashCommit>>({
 		title: appendReposToTitle(`${context.title}${titleContext ?? ''}`, state, context),
-		placeholder: typeof placeholder === 'string' ? placeholder : placeholder(context, stash),
+		placeholder: typeof placeholder === 'string' ? placeholder : placeholder(context, gitStash),
 		ignoreFocusOut: ignoreFocusOut,
 		matchOnDescription: true,
 		matchOnDetail: true,
 		items:
-			stash == null
+			gitStash == null
 				? [createDirectiveQuickPickItem(Directive.Back, true), createDirectiveQuickPickItem(Directive.Cancel)]
 				: [
-						...map(stash.commits.values(), commit =>
+						...map(gitStash.stashes.values(), stash =>
 							createStashQuickPickItem(
-								commit,
+								stash,
 								picked != null &&
-									(typeof picked === 'string' ? commit.ref === picked : picked.includes(commit.ref)),
+									(typeof picked === 'string' ? stash.ref === picked : picked.includes(stash.ref)),
 								{
 									buttons: [ShowDetailsViewQuickInputButton],
 									compact: true,
@@ -1723,13 +1723,13 @@ export function* pickStashesStep<
 	context: Context,
 	{
 		ignoreFocusOut,
-		stash,
+		gitStash,
 		picked,
 		placeholder,
 		titleContext,
 	}: {
 		ignoreFocusOut?: boolean;
-		stash: GitStash | undefined;
+		gitStash: GitStash | undefined;
 		picked: string | string[] | undefined;
 		placeholder: string | ((context: Context, stash: GitStash | undefined) => string);
 		titleContext?: string;
@@ -1738,19 +1738,19 @@ export function* pickStashesStep<
 	const step = createPickStep<CommitQuickPickItem<GitStashCommit>>({
 		title: appendReposToTitle(`${context.title}${titleContext ?? ''}`, state, context),
 		multiselect: true,
-		placeholder: typeof placeholder === 'string' ? placeholder : placeholder(context, stash),
+		placeholder: typeof placeholder === 'string' ? placeholder : placeholder(context, gitStash),
 		ignoreFocusOut: ignoreFocusOut,
 		matchOnDescription: true,
 		matchOnDetail: true,
 		items:
-			stash == null
+			gitStash == null
 				? [createDirectiveQuickPickItem(Directive.Back, true), createDirectiveQuickPickItem(Directive.Cancel)]
 				: [
-						...map(stash.commits.values(), commit =>
+						...map(gitStash.stashes.values(), stash =>
 							createStashQuickPickItem(
-								commit,
+								stash,
 								picked != null &&
-									(typeof picked === 'string' ? commit.ref === picked : picked.includes(commit.ref)),
+									(typeof picked === 'string' ? stash.ref === picked : picked.includes(stash.ref)),
 								{
 									buttons: [ShowDetailsViewQuickInputButton],
 									compact: true,

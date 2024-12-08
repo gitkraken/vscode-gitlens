@@ -3,6 +3,7 @@ import type { IconPath } from '../../@types/vscode.iconpath';
 import { GlyphChars } from '../../constants';
 import type { GitUri } from '../../git/gitUri';
 import type { GitBranch } from '../../git/models/branch';
+import { isStash } from '../../git/models/commit';
 import type { GitLog } from '../../git/models/log';
 import type { PullRequest, PullRequestState } from '../../git/models/pullRequest';
 import { shortenRevision } from '../../git/models/reference';
@@ -27,6 +28,7 @@ import { LoadMoreNode, MessageNode } from './common';
 import { CompareBranchNode } from './compareBranchNode';
 import { insertDateMarkers } from './helpers';
 import { PullRequestNode } from './pullRequestNode';
+import { StashNode } from './stashNode';
 import { UncommittedFilesNode } from './UncommittedFilesNode';
 
 type State = {
@@ -158,17 +160,17 @@ export class WorktreeNode extends CacheableChildrenViewNode<'worktree', ViewsWit
 
 			children.push(
 				...insertDateMarkers(
-					map(
-						log.commits.values(),
-						c =>
-							new CommitNode(
-								this.view,
-								this,
-								c,
-								unpublishedCommits?.has(c.ref),
-								branch,
-								getBranchAndTagTips,
-							),
+					map(log.commits.values(), c =>
+						isStash(c)
+							? new StashNode(this.view, this, c, { icon: true })
+							: new CommitNode(
+									this.view,
+									this,
+									c,
+									unpublishedCommits?.has(c.ref),
+									branch,
+									getBranchAndTagTips,
+							  ),
 					),
 					this,
 				),
@@ -403,6 +405,7 @@ export class WorktreeNode extends CacheableChildrenViewNode<'worktree', ViewsWit
 			this._log = await this.view.container.git.getLog(this.uri.repoPath!, {
 				ref: this.worktree.sha,
 				limit: this.limit ?? this.view.config.defaultItemLimit,
+				stashes: this.view.config.showStashes,
 			});
 		}
 

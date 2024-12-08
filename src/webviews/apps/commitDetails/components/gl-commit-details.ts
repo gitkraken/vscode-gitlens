@@ -212,20 +212,35 @@ export class GlCommitDetails extends GlDetailsBase {
 			| { type: 'pr'; value: Serialized<PullRequestShape> }
 		>();
 
+		const autolinkIdsByUrl = new Map<string, string>();
+
 		if (this.state?.commit?.autolinks != null) {
 			for (const autolink of this.state.commit.autolinks) {
 				deduped.set(autolink.id, { type: 'autolink', value: autolink });
+				autolinkIdsByUrl.set(autolink.url, autolink.id);
 			}
 		}
 
 		if (this.state?.autolinkedIssues != null) {
 			for (const issue of this.state.autolinkedIssues) {
 				deduped.set(issue.id, { type: 'issue', value: issue });
+				if (issue.url != null) {
+					const autoLinkId = autolinkIdsByUrl.get(issue.url);
+					if (autoLinkId != null) {
+						deduped.delete(autoLinkId);
+					}
+				}
 			}
 		}
 
 		if (this.state?.pullRequest != null) {
 			deduped.set(this.state.pullRequest.id, { type: 'pr', value: this.state.pullRequest });
+			if (this.state.pullRequest.url != null) {
+				const autoLinkId = autolinkIdsByUrl.get(this.state.pullRequest.url);
+				if (autoLinkId != null) {
+					deduped.delete(autoLinkId);
+				}
+			}
 		}
 
 		const autolinks: Serialized<Autolink>[] = [];

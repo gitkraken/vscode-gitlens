@@ -1044,14 +1044,16 @@ export function GraphWrapper({
 											})
 										}
 									>
-										<span
-											className={
-												repo.provider.icon === 'cloud'
-													? 'codicon codicon-cloud action-button__icon'
-													: `glicon glicon-provider-${repo.provider.icon} action-button__icon`
-											}
-											aria-hidden="true"
-										>
+										<span>
+											<CodeIcon
+												className="action-button__icon"
+												icon={
+													repo.provider.icon === 'cloud'
+														? 'cloud'
+														: `gl-provider-${repo.provider.icon}`
+												}
+												aria-hidden="true"
+											/>
 											{repo.provider.integration?.connected && (
 												<GlIndicator
 													style={{
@@ -1069,21 +1071,21 @@ export function GraphWrapper({
 										<hr />
 										{repo.provider.integration?.connected ? (
 											<span>
-												<span
+												<CodeIcon
 													style={{ marginTop: '-3px' }}
-													className="codicon codicon-check"
+													icon="check"
 													aria-hidden="true"
-												></span>{' '}
+												/>{' '}
 												Connected to {repo.provider.name}
 											</span>
 										) : (
 											repo.provider.integration?.connected === false && (
 												<>
-													<span
+													<CodeIcon
 														style={{ marginTop: '-3px' }}
-														className="codicon codicon-plug"
+														icon="plug"
 														aria-hidden="true"
-													></span>{' '}
+													/>{' '}
 													<a
 														href={createCommandLink<ConnectCloudIntegrationsCommandArgs>(
 															'gitlens.plus.cloudIntegrations.connect' as Commands,
@@ -1133,10 +1135,7 @@ export function GraphWrapper({
 							>
 								{repo?.formattedName ?? 'none selected'}
 								{repos.length > 1 && (
-									<span
-										className="codicon codicon-chevron-down action-button__more"
-										aria-hidden="true"
-									></span>
+									<CodeIcon className="action-button__more" icon="chevron-down" aria-hidden="true" />
 								)}
 							</button>
 							<span slot="content">Switch to Another Repository...</span>
@@ -1144,7 +1143,7 @@ export function GraphWrapper({
 						{allowed && repo && (
 							<>
 								<span>
-									<span className="codicon codicon-chevron-right"></span>
+									<CodeIcon icon="chevron-right" />
 								</span>
 								{branchState?.pr && (
 									<GlPopover placement="bottom">
@@ -1188,27 +1187,25 @@ export function GraphWrapper({
 									>
 										{!branchState?.pr ? (
 											branchState?.worktree ? (
-												<span
-													className="glicon glicon-repositories-view"
-													aria-hidden="true"
-												></span>
+												<CodeIcon icon="gl-worktrees-view" aria-hidden="true" />
 											) : (
-												<span className="codicon codicon-git-branch" aria-hidden="true"></span>
+												<CodeIcon icon="git-branch" aria-hidden="true" />
 											)
 										) : (
 											''
 										)}
 										<span className="action-button__truncated">{branchName}</span>
-										<span
-											className="codicon codicon-chevron-down action-button__more"
+										<CodeIcon
+											className="action-button__more"
+											icon="chevron-down"
 											aria-hidden="true"
-										></span>
+										/>
 									</a>
 									<div slot="content">
 										<span>
 											Switch to Another Branch...
 											<hr />
-											<span className="codicon codicon-git-branch" aria-hidden="true"></span>{' '}
+											<CodeIcon icon="git-branch" aria-hidden="true" />{' '}
 											<span className="md-code">{branchName}</span>
 											{branchState?.worktree ? <i> (in a worktree)</i> : ''}
 										</span>
@@ -1223,7 +1220,7 @@ export function GraphWrapper({
 									</span>
 								</GlButton>
 								<span>
-									<span className="codicon codicon-chevron-right"></span>
+									<CodeIcon icon="chevron-right" />
 								</span>
 								<GitActionsButtons
 									branchName={branchName}
@@ -1247,10 +1244,11 @@ export function GraphWrapper({
 									confirm: true,
 								})}
 							>
-								<span className="codicon codicon-custom-git-branch-create action-button__icon"></span>
+								<CodeIcon className="action-button__icon" icon="custom-start-work" />
 							</a>
 							<span slot="content">
-								Create New Branch from <span className="codicon codicon-git-branch"></span>
+								Create New Branch from
+								<CodeIcon icon="git-branch" />
 								<span className="md-code">{branchName}</span>
 							</span>
 						</GlTooltip>
@@ -1263,7 +1261,7 @@ export function GraphWrapper({
 								)}`}
 								className="action-button"
 							>
-								<span className="codicon codicon-rocket"></span>
+								<CodeIcon icon="rocket" />
 							</a>
 							<span slot="content">
 								<span style={{ whiteSpace: 'break-spaces' }}>
@@ -1320,11 +1318,12 @@ export function GraphWrapper({
 							>
 								<GlTooltip placement="top" slot="anchor">
 									<button type="button" className="action-button">
-										<span className={`codicon codicon-filter${hasFilters ? '-filled' : ''}`}></span>
-										<span
-											className="codicon codicon-chevron-down action-button__more"
+										<CodeIcon icon={`filter${hasFilters ? '-filled' : ''}`} />
+										<CodeIcon
+											className="action-button__more"
+											icon="chevron-down"
 											aria-hidden="true"
-										></span>
+										/>
 									</button>
 									<span slot="content">Graph Filtering</span>
 								</GlTooltip>
@@ -1421,7 +1420,7 @@ export function GraphWrapper({
 										aria-checked={graphConfig?.minimap ?? false}
 										onClick={handleOnMinimapToggle}
 									>
-										<span className="codicon codicon-graph-line action-button__icon"></span>
+										<CodeIcon className="action-button__icon" icon="graph-line"></CodeIcon>
 									</button>
 									<span slot="content">Toggle Minimap</span>
 								</GlTooltip>
@@ -1434,10 +1433,11 @@ export function GraphWrapper({
 								>
 									<GlTooltip placement="top" distance={7} slot="anchor">
 										<button type="button" className="action-button" aria-label="Minimap Options">
-											<span
-												className="codicon codicon-chevron-down action-button__more"
+											<CodeIcon
+												className="action-button__more"
+												icon="chevron-down"
 												aria-hidden="true"
-											></span>
+											/>
 										</button>
 										<span slot="content">Minimap Options</span>
 									</GlTooltip>

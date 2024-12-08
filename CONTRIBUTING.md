@@ -19,8 +19,8 @@ git clone https://github.com/gitkraken/vscode-gitlens.git
 Prerequisites
 
 - [Git](https://git-scm.com/), `>= 2.7.2`
-- [NodeJS](https://nodejs.org/), `>= v20.11.1`
-- [pnpm](https://pnpm.io/), `>= 8.x` (install using [corepack](https://nodejs.org/docs/latest-v20.x/api/corepack.html))
+- [NodeJS](https://nodejs.org/), `>= v22.11.0`
+- [pnpm](https://pnpm.io/), `>= 9.x` (install using [corepack](https://nodejs.org/docs/latest-v20.x/api/corepack.html))
 
 ### Dependencies
 
@@ -198,7 +198,7 @@ Before publishing a new release, do the following:
 3. Ensure all items in the `{major}.{minor}` GitHub milestone are closed and verified or moved into one of the above milestones
 4. Close the `{major}.{minor}` and `{major}.{minor-1}-patch` GitHub milestones
 
-Then, use the [prep-release](scripts/prep-release.js) script to prepare a new release. The script updates the [package.json](package.json) and [CHANGELOG.md](CHANGELOG.md) appropriately, commits the changes as `Bumps to v{major}.{minor}.{patch}`, and creates a `v{major}.{minor}.{patch}` tag which when pushed will trigger the CI to publish a release.
+Then, use the [prep-release](scripts/prep-release.mjs) script to prepare a new release. The script updates the [package.json](package.json) and [CHANGELOG.md](CHANGELOG.md) appropriately, commits the changes as `Bumps to v{major}.{minor}.{patch}`, and creates a `v{major}.{minor}.{patch}` tag which when pushed will trigger the CI to publish a release.
 
 1. Ensure you are on the `main` branch and have a clean working tree
 2. Ensure the [CHANGELOG.md](CHANGELOG.md) has been updated with the release notes
