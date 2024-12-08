@@ -149,12 +149,14 @@ export function parseGitDiffNameStatusFiles(data: string, repoPath: string): Git
 			status = '?';
 		}
 
-		files.push({
-			status: status as GitFileStatus,
-			path: fields[++i],
-			originalPath: status.startsWith('R') || status.startsWith('C') ? fields[++i] : undefined,
-			repoPath: repoPath,
-		});
+		let originalPath;
+		// Renamed files are old followed by the new path
+		if (status === 'R' || status === 'C') {
+			originalPath = fields[++i];
+		}
+		const path = fields[++i];
+
+		files.push({ status: status as GitFileStatus, path: path, originalPath: originalPath, repoPath: repoPath });
 	}
 
 	sw?.stop({ suffix: ` parsed ${files.length} files` });

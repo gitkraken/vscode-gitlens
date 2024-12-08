@@ -1,7 +1,7 @@
 import type { Container } from '../../container';
 import type { GitBranch } from '../../git/models/branch';
 import type { GitLog } from '../../git/models/log';
-import type { GitReference, GitRevisionReference } from '../../git/models/reference';
+import type { GitReference, GitRevisionReference, GitTagReference } from '../../git/models/reference';
 import { getReferenceLabel } from '../../git/models/reference';
 import type { Repository } from '../../git/models/repository';
 import type { FlagsQuickPickItem } from '../../quickpicks/items/flags';
@@ -31,7 +31,7 @@ type Flags = '--hard' | '--soft';
 
 interface State {
 	repo: string | Repository;
-	reference: GitRevisionReference;
+	reference: GitRevisionReference | GitTagReference;
 	flags: Flags[];
 }
 
@@ -76,7 +76,7 @@ export class ResetGitCommand extends QuickCommand<State> {
 	protected async *steps(state: PartialStepState<State>): StepGenerator {
 		const context: Context = {
 			repos: this.container.git.openRepositories,
-			associatedView: this.container.commitsView,
+			associatedView: this.container.views.commits,
 			cache: new Map<string, Promise<GitLog | undefined>>(),
 			destination: undefined!,
 			title: this.title,
@@ -110,7 +110,7 @@ export class ResetGitCommand extends QuickCommand<State> {
 			}
 
 			if (context.destination == null) {
-				const branch = await state.repo.getBranch();
+				const branch = await state.repo.git.getBranch();
 				if (branch == null) break;
 
 				context.destination = branch;

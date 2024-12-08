@@ -1,15 +1,19 @@
 import { css } from 'lit';
 
+export const srOnlyStyles = css`
+	clip: rect(0 0 0 0);
+	clip-path: inset(50%);
+	width: 1px;
+	height: 1px;
+	overflow: hidden;
+	position: absolute;
+	white-space: nowrap;
+`;
+
 export const srOnly = css`
 	.sr-only,
-	.sr-only-focusable:not(:active):not(:focus) {
-		clip: rect(0 0 0 0);
-		clip-path: inset(50%);
-		width: 1px;
-		height: 1px;
-		overflow: hidden;
-		position: absolute;
-		white-space: nowrap;
+	.sr-only-focusable:not(:active):not(:focus):not(:focus-within) {
+		${srOnlyStyles}
 	}
 `;
 

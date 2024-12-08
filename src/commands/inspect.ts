@@ -10,6 +10,7 @@ import {
 	showGenericErrorMessage,
 	showLineUncommittedWarningMessage,
 } from '../messages';
+import { createMarkdownCommandLink } from '../system/commands';
 import { Logger } from '../system/logger';
 import { command } from '../system/vscode/command';
 import type { CommandContext } from './base';
@@ -21,14 +22,14 @@ export interface InspectCommandArgs {
 
 @command()
 export class InspectCommand extends ActiveEditorCommand {
-	static getMarkdownCommandArgs(sha: string, repoPath: string): string;
-	static getMarkdownCommandArgs(args: InspectCommandArgs): string;
-	static getMarkdownCommandArgs(argsOrSha: InspectCommandArgs | string, repoPath?: string): string {
+	static createMarkdownCommandLink(sha: string, repoPath: string): string;
+	static createMarkdownCommandLink(args: InspectCommandArgs): string;
+	static createMarkdownCommandLink(argsOrSha: InspectCommandArgs | string, repoPath?: string): string {
 		const args =
 			typeof argsOrSha === 'string'
 				? { ref: createReference(argsOrSha, repoPath!, { refType: 'revision' }), repoPath: repoPath }
 				: argsOrSha;
-		return super.getMarkdownCommandArgsCore<InspectCommandArgs>(Commands.ShowCommitInView, args);
+		return createMarkdownCommandLink<InspectCommandArgs>(Commands.ShowCommitInView, args);
 	}
 
 	constructor(private readonly container: Container) {

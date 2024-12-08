@@ -53,6 +53,9 @@ export class ContributorsRepositoryNode extends RepositoryFolderNode<Contributor
 
 export class ContributorsViewNode extends RepositoriesSubscribeableNode<ContributorsView, ContributorsRepositoryNode> {
 	async getChildren(): Promise<ViewNode[]> {
+		this.view.description = this.view.getViewDescription();
+		this.view.message = undefined;
+
 		if (this.children == null) {
 			let repositories = this.view.container.git.openRepositories;
 			if (
@@ -70,8 +73,6 @@ export class ContributorsViewNode extends RepositoriesSubscribeableNode<Contribu
 
 				return [];
 			}
-
-			this.view.message = undefined;
 
 			const splat = repositories.length === 1;
 			this.children = repositories.map(
@@ -100,20 +101,15 @@ export class ContributorsViewNode extends RepositoriesSubscribeableNode<Contribu
 			// const contributors = await child.repo.getContributors({ all: all, ref: ref });
 			if (children.length === 0) {
 				this.view.message = 'No contributors could be found.';
-				this.view.title = 'Contributors';
-
 				void child.ensureSubscription();
 
 				return [];
 			}
 
-			this.view.message = undefined;
-			this.view.title = `Contributors (${children.length})`;
+			this.view.description = this.view.getViewDescription(children.length);
 
 			return children;
 		}
-
-		this.view.title = 'Contributors';
 
 		return this.children;
 	}
@@ -131,8 +127,8 @@ interface ContributorsViewState {
 export class ContributorsView extends ViewBase<'contributors', ContributorsViewNode, ContributorsViewConfig> {
 	protected readonly configKey = 'contributors';
 
-	constructor(container: Container) {
-		super(container, 'contributors', 'Contributors', 'contributorsView');
+	constructor(container: Container, grouped?: boolean) {
+		super(container, 'contributors', 'Contributors', 'contributorsView', grouped);
 
 		void setContext('gitlens:views:contributors:hideMergeCommits', true);
 	}
@@ -155,8 +151,6 @@ export class ContributorsView extends ViewBase<'contributors', ContributorsViewN
 	}
 
 	protected registerCommands(): Disposable[] {
-		void this.container.viewCommands;
-
 		return [
 			registerViewCommand(
 				this.getQualifiedCommand('copy'),

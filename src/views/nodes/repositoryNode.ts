@@ -55,7 +55,7 @@ export class RepositoryNode extends SubscribeableViewNode<'repository', ViewsWit
 		this.updateContext({ ...context, repository: this.repo });
 		this._uniqueId = getViewNodeId(this.type, this.context);
 
-		this._status = this.repo.getStatus();
+		this._status = this.repo.git.getStatus();
 	}
 
 	override get id(): string {
@@ -159,6 +159,7 @@ export class RepositoryNode extends SubscribeableViewNode<'repository', ViewsWit
 						new BranchNode(this.uri, this.view, this, this.repo, branch, true, {
 							showAsCommits: true,
 							showComparison: false,
+							showStashes: this.view.config.branches.showStashes,
 							showStatusDecorationOnly: true,
 							showStatus: false,
 							showTracking: false,
@@ -175,7 +176,7 @@ export class RepositoryNode extends SubscribeableViewNode<'repository', ViewsWit
 				children.push(new RemotesNode(this.uri, this.view, this, this.repo));
 			}
 
-			if (this.view.config.showStashes && (await this.repo.supports(Features.Stashes))) {
+			if (this.view.config.showStashes && (await this.repo.git.supports(Features.Stashes))) {
 				children.push(new StashesNode(this.uri, this.view, this, this.repo));
 			}
 
@@ -183,7 +184,7 @@ export class RepositoryNode extends SubscribeableViewNode<'repository', ViewsWit
 				children.push(new TagsNode(this.uri, this.view, this, this.repo));
 			}
 
-			if (this.view.config.showWorktrees && (await this.repo.supports(Features.Worktrees))) {
+			if (this.view.config.showWorktrees && (await this.repo.git.supports(Features.Worktrees))) {
 				children.push(new WorktreesNode(this.uri, this.view, this, this.repo));
 			}
 
@@ -342,7 +343,7 @@ export class RepositoryNode extends SubscribeableViewNode<'repository', ViewsWit
 		super.refresh(reset);
 
 		if (reset) {
-			this._status = this.repo.getStatus();
+			this._status = this.repo.git.getStatus();
 		}
 
 		await this.ensureSubscription();
@@ -409,7 +410,7 @@ export class RepositoryNode extends SubscribeableViewNode<'repository', ViewsWit
 		},
 	})
 	private async onFileSystemChanged(_e: RepositoryFileSystemChangeEvent) {
-		this._status = this.repo.getStatus();
+		this._status = this.repo.git.getStatus();
 
 		if (this.children !== undefined) {
 			const status = await this._status;

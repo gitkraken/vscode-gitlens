@@ -1,12 +1,15 @@
+import { SubscriptionPlanId } from '../../constants.subscription';
 import type { Organization } from './account/organization';
 import type { Subscription } from './account/subscription';
-import { getSubscriptionPlan, getSubscriptionPlanPriority, SubscriptionPlanId } from './account/subscription';
+import { getSubscriptionPlan, getSubscriptionPlanPriority } from './account/subscription';
+
+export type GKLicenses = Partial<Record<GKLicenseType, GKLicense>>;
 
 export interface GKCheckInResponse {
 	readonly user: GKUser;
 	readonly licenses: {
-		readonly paidLicenses: Record<GKLicenseType, GKLicense>;
-		readonly effectiveLicenses: Record<GKLicenseType, GKLicense>;
+		readonly paidLicenses: GKLicenses;
+		readonly effectiveLicenses: GKLicenses;
 	};
 	readonly nextOptInDate?: string;
 }
@@ -142,7 +145,7 @@ export function getSubscriptionFromCheckIn(
 
 	if (actual == null) {
 		actual = getSubscriptionPlan(
-			SubscriptionPlanId.FreePlus,
+			SubscriptionPlanId.CommunityWithAccount,
 			false,
 			0,
 			undefined,
@@ -225,7 +228,7 @@ function convertLicenseTypeToPlanId(licenseType: GKLicenseType): SubscriptionPla
 		case 'gitkraken-v1-standalone-enterprise':
 			return SubscriptionPlanId.Enterprise;
 		default:
-			return SubscriptionPlanId.FreePlus;
+			return SubscriptionPlanId.CommunityWithAccount;
 	}
 }
 

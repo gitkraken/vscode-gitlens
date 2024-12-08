@@ -1,5 +1,5 @@
 import type { TextDocumentShowOptions } from 'vscode';
-import type { Autolink } from '../../annotations/autolinks';
+import type { Autolink } from '../../autolinks';
 import type { Config, DateStyle } from '../../config';
 import type { Sources } from '../../constants.telemetry';
 import type { GitCommitIdentityShape, GitCommitStats } from '../../git/models/commit';
@@ -203,8 +203,8 @@ export const OpenPullRequestDetailsCommand = new IpcCommand(scope, 'openPullRequ
 
 export type DidExplainParams =
 	| {
-			summary: string | undefined;
-			error?: undefined;
+			result: { summary: string; body: string };
+			error?: never;
 	  }
 	| { error: { message: string } };
 export const ExplainRequest = new IpcRequest<void, DidExplainParams>(scope, 'explain');

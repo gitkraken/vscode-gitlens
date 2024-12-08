@@ -76,21 +76,11 @@ export function remove(repo?: string | Repository, uris?: Uri[]) {
 	});
 }
 
-export async function reveal(
-	worktree: GitWorktree | undefined,
+export function reveal(
+	worktree: GitWorktree,
 	options?: { select?: boolean; focus?: boolean; expand?: boolean | number },
 ) {
-	const view = Container.instance.worktreesView;
-	const node =
-		worktree != null
-			? view.canReveal
-				? await view.revealWorktree(worktree, options)
-				: await Container.instance.repositoriesView.revealWorktree(worktree, options)
-			: undefined;
-	if (node == null) {
-		void view.show({ preserveFocus: !options?.focus });
-	}
-	return node;
+	return Container.instance.views.revealWorktree(worktree, options);
 }
 
 type OpenFlags = Extract<

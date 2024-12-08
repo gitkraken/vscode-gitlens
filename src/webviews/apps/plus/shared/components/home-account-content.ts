@@ -1,20 +1,21 @@
 import { consume } from '@lit/context';
 import { css, html, LitElement, nothing } from 'lit';
-import { customElement, state } from 'lit/decorators.js';
+import { customElement, query, state } from 'lit/decorators.js';
 import { when } from 'lit/directives/when.js';
 import { urls } from '../../../../../constants';
+import { proTrialLengthInDays, SubscriptionPlanId, SubscriptionState } from '../../../../../constants.subscription';
 import type { Promo } from '../../../../../plus/gk/account/promos';
 import { getApplicablePromo } from '../../../../../plus/gk/account/promos';
 import {
 	getSubscriptionPlanName,
+	getSubscriptionStateName,
 	getSubscriptionTimeRemaining,
 	hasAccountFromSubscriptionState,
-	SubscriptionPlanId,
-	SubscriptionState,
 } from '../../../../../plus/gk/account/subscription';
 import { pluralize } from '../../../../../system/string';
 import type { State } from '../../../../home/protocol';
 import { stateContext } from '../../../home/context';
+import type { GlAccordion } from '../../../shared/components/accordion/accordion';
 import { elementBase, linkBase } from '../../../shared/components/styles/lit/base.css';
 import '../../../shared/components/accordion/accordion';
 import '../../../shared/components/button';
@@ -36,6 +37,8 @@ export class GLHomeAccountContent extends LitElement {
 			:host {
 				display: block;
 				margin-bottom: 1.3rem;
+				--gl-accordion-content-background: var(--vscode-sideBar-background);
+				--gl-accordion-header-background: var(--vscode-sideBarSectionHeader-background);
 			}
 
 			:host > * {
@@ -44,6 +47,18 @@ export class GLHomeAccountContent extends LitElement {
 
 			button-container {
 				margin-bottom: 1.3rem;
+			}
+
+			button-container .button-suffix {
+				display: inline-flex;
+				align-items: center;
+				white-space: nowrap;
+				gap: 0.2em;
+				margin-left: 0.4rem;
+			}
+
+			gl-accordion {
+				border-top: 1px solid var(--vscode-sideBarSectionHeader-border);
 			}
 
 			.header {
@@ -159,6 +174,9 @@ export class GLHomeAccountContent extends LitElement {
 		`,
 	];
 
+	@query('#accordion')
+	private accordionEl!: GlAccordion;
+
 	@consume<State>({ context: stateContext, subscribe: true })
 	@state()
 	private _state!: State;
@@ -175,7 +193,7 @@ export class GLHomeAccountContent extends LitElement {
 
 	get isReactivatedTrial() {
 		return (
-			this.state === SubscriptionState.FreePlusInTrial &&
+			this.state === SubscriptionState.ProTrial &&
 			(this._state.subscription?.plan.effective.trialReactivationCount ?? 0) > 0
 		);
 	}
@@ -185,20 +203,7 @@ export class GLHomeAccountContent extends LitElement {
 	}
 
 	get planName() {
-		switch (this.state) {
-			case SubscriptionState.Free:
-			case SubscriptionState.FreePreviewTrialExpired:
-			case SubscriptionState.FreePlusTrialExpired:
-			case SubscriptionState.FreePlusTrialReactivationEligible:
-				return 'GitKraken Free';
-			case SubscriptionState.FreeInPreviewTrial:
-			case SubscriptionState.FreePlusInTrial:
-				return 'GitKraken Pro (Trial)';
-			case SubscriptionState.VerificationRequired:
-				return `${getSubscriptionPlanName(this.planId)} (Unverified)`;
-			default:
-				return getSubscriptionPlanName(this.planId);
-		}
+		return getSubscriptionStateName(this.state, this.planId);
 	}
 
 	private get state() {
@@ -206,16 +211,47 @@ export class GLHomeAccountContent extends LitElement {
 	}
 
 	override render() {
-		return html`<gl-accordion>
+		return html`<gl-accordion id="accordion">
 			<div class="header" slot="header">
 				${this.hasAccount && this._state.avatar
 					? html`<img class="header__media" src=${this._state.avatar} />`
 					: html`<code-icon class="header__media" icon="gl-gitlens" size="30"></code-icon>`}
 				<span class="header__title">${this.planName}</span>
 				${when(
+					this.state === SubscriptionState.ProTrialReactivationEligible,
+					() => html`
+						<gl-button
+							appearance="secondary"
+							tight
+							href="command:gitlens.plus.reactivateProTrial"
+							tooltip="Reactivate your Pro trial for another ${pluralize('day', proTrialLengthInDays)}"
+							>Reactivate Pro Trial</gl-button
+						>
+					`,
+				)}
+				${when(
 					this.hasAccount,
 					() => html`
-						<span class="header__actions" hidden>
+						<span class="header__actions">
+							${when(
+								!this._state.hasAnyIntegrationConnected,
+								() => html`
+									<gl-button
+										appearance="toolbar"
+										href="command:gitlens.plus.cloudIntegrations.connect?%7B%22source%22%3A%22home%22%7D"
+										tooltip="Connect an Integration"
+										aria-label="Connect an Integration on GitKraken.dev"
+										><code-icon icon="plug"></code-icon
+									></gl-button>
+								`,
+							)}
+							<gl-button
+								appearance="toolbar"
+								href="command:gitlens.views.home.account.resync"
+								tooltip="Synchronize Account Status"
+								aria-label="Synchronize Account Status"
+								><code-icon icon="sync"></code-icon
+							></gl-button>
 							<gl-button
 								appearance="toolbar"
 								href="command:gitlens.plus.logout"
@@ -270,7 +306,7 @@ export class GLHomeAccountContent extends LitElement {
 	}
 
 	private renderAccountState() {
-		const promo = getApplicablePromo(this.state);
+		const promo = getApplicablePromo(this.state, 'account');
 
 		switch (this.state) {
 			case SubscriptionState.Paid:
@@ -284,17 +320,14 @@ export class GLHomeAccountContent extends LitElement {
 								appearance="secondary"
 								full
 								href="command:gitlens.plus.cloudIntegrations.manage?%7B%22source%22%3A%22account%22%7D"
-								hidden
 								>Integrations</gl-button
-							>
-							<gl-button appearance="secondary" full href="command:gitlens.plus.logout"
-								>Sign Out</gl-button
 							>
 						</button-container>
 						<p>
-							Your ${getSubscriptionPlanName(this.planId)} plan provides full access to all Pro features
-							and our <a href="${urls.platform}">DevEx platform</a>, unleashing powerful Git visualization
-							&amp; productivity capabilities everywhere you work: IDE, desktop, browser, and terminal.
+							Your ${getSubscriptionPlanName(this.planId)} plan provides full access to all GitLens Pro
+							features and the <a href="${urls.platform}">GitKraken DevEx platform</a>, unleashing
+							powerful Git visualization &amp; productivity capabilities everywhere you work: IDE,
+							desktop, browser, and terminal.
 						</p>
 					</div>
 				`;
@@ -312,7 +345,7 @@ export class GLHomeAccountContent extends LitElement {
 					</div>
 				`;
 
-			case SubscriptionState.FreePlusInTrial: {
+			case SubscriptionState.ProTrial: {
 				const days = this.daysRemaining;
 
 				return html`
@@ -339,10 +372,13 @@ export class GLHomeAccountContent extends LitElement {
 				`;
 			}
 
-			case SubscriptionState.FreePlusTrialExpired:
+			case SubscriptionState.ProTrialExpired:
 				return html`
 					<div class="account">
-						<p>Your Pro trial has ended. You can now only use Pro features on publicly-hosted repos.</p>
+						<p>Thank you for trying <a href="${urls.communityVsPro}">GitLens Pro</a>.</p>
+						<p>
+							Continue leveraging Pro features and workflows on privately-hosted repos by upgrading today.
+						</p>
 						<button-container>
 							<gl-button full href="command:gitlens.plus.upgrade">Upgrade to Pro</gl-button>
 						</button-container>
@@ -350,18 +386,24 @@ export class GLHomeAccountContent extends LitElement {
 					</div>
 				`;
 
-			case SubscriptionState.FreePlusTrialReactivationEligible:
+			case SubscriptionState.ProTrialReactivationEligible:
 				return html`
 					<div class="account">
 						<p>
-							Reactivate your Pro trial and experience all the new Pro features — free for another 7 days!
+							Reactivate your GitLens Pro trial and experience all the new Pro features — free for another
+							${pluralize('day', proTrialLengthInDays)}.
 						</p>
 						<button-container>
-							<gl-button full href="command:gitlens.plus.reactivateProTrial"
-								>Reactivate Pro Trial</gl-button
+							<gl-button
+								full
+								href="command:gitlens.plus.reactivateProTrial"
+								tooltip="Reactivate your Pro trial for another ${pluralize(
+									'day',
+									proTrialLengthInDays,
+								)}"
+								>Reactivate GitLens Pro Trial</gl-button
 							>
 						</button-container>
-						${this.renderIncludesDevEx()}
 					</div>
 				`;
 
@@ -369,15 +411,15 @@ export class GLHomeAccountContent extends LitElement {
 				return html`
 					<div class="account">
 						<p>
-							Sign up for access to Pro features and our
-							<a href="${urls.platform}">DevEx platform</a>, or
-							<a href="command:gitlens.plus.login">sign in</a>.
+							Unlock advanced features and workflows on private repos, accelerate reviews, and streamline
+							collaboration with
+							<a href="${urls.communityVsPro}">GitLens Pro</a>.
 						</p>
 						<button-container>
-							<gl-button full href="command:gitlens.plus.signUp">Sign Up</gl-button>
+							<gl-button full href="command:gitlens.plus.signUp">Try GitLens Pro</gl-button>
+							<span class="button-suffix">or <a href="command:gitlens.plus.login">sign in</a></span>
 						</button-container>
-						<p>Signing up starts your free 7-day Pro trial.</p>
-						${this.renderIncludesDevEx()}
+						<p>Get ${proTrialLengthInDays} days of GitLens Pro for free — no credit card required.</p>
 					</div>
 				`;
 		}
@@ -386,7 +428,7 @@ export class GLHomeAccountContent extends LitElement {
 	private renderIncludesDevEx() {
 		return html`
 			<p>
-				Includes access to our <a href="${urls.platform}">DevEx platform</a>, unleashing powerful Git
+				Includes access to the <a href="${urls.platform}">GitKraken DevEx platform</a>, unleashing powerful Git
 				visualization &amp; productivity capabilities everywhere you work: IDE, desktop, browser, and terminal.
 			</p>
 		`;
@@ -394,5 +436,14 @@ export class GLHomeAccountContent extends LitElement {
 
 	private renderPromo(promo: Promo | undefined) {
 		return html`<gl-promo .promo=${promo}></gl-promo>`;
+	}
+
+	override focus() {
+		this.accordionEl.focus();
+	}
+
+	show() {
+		this.accordionEl.open = true;
+		this.accordionEl.focus();
 	}
 }

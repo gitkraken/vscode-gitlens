@@ -2,12 +2,12 @@ import type { Disposable, TextEditor, Uri } from 'vscode';
 import { window } from 'vscode';
 import { Container } from '../container';
 import type { Repository } from '../git/models/repository';
-import { filterMapAsync } from '../system/array';
+import { filterMap } from '../system/array';
 import { map } from '../system/iterable';
 import { getQuickPickIgnoreFocusOut } from '../system/vscode/utils';
 import { CommandQuickPickItem } from './items/common';
-import type { RepositoryQuickPickItem } from './items/gitCommands';
-import { createRepositoryQuickPickItem } from './items/gitCommands';
+import type { RepositoryQuickPickItem } from './items/gitWizard';
+import { createRepositoryQuickPickItem } from './items/gitWizard';
 
 export async function getBestRepositoryOrShowPicker(
 	uri: Uri | undefined,
@@ -80,10 +80,15 @@ export async function showRepositoryPicker(
 		);
 	} else {
 		const { filter } = options;
-		items = await filterMapAsync(Container.instance.git.openRepositories, async r =>
-			(await filter(r))
-				? createRepositoryQuickPickItem(r, r === options?.picked, { branch: true, status: true })
-				: undefined,
+		items = filterMap(
+			await Promise.allSettled(
+				map(Container.instance.git.openRepositories, async r =>
+					(await filter(r))
+						? createRepositoryQuickPickItem(r, r === options?.picked, { branch: true, status: true })
+						: undefined,
+				),
+			),
+			r => (r.status === 'fulfilled' ? r.value : undefined),
 		);
 	}
 
@@ -153,10 +158,15 @@ export async function showRepositoriesPicker(
 		);
 	} else {
 		const { filter } = repositoriesOrOptions;
-		items = await filterMapAsync(Container.instance.git.openRepositories, async r =>
-			(await filter!(r))
-				? createRepositoryQuickPickItem(r, undefined, { branch: true, status: true })
-				: undefined,
+		items = filterMap(
+			await Promise.allSettled(
+				map(Container.instance.git.openRepositories, async r =>
+					(await filter!(r))
+						? createRepositoryQuickPickItem(r, undefined, { branch: true, status: true })
+						: undefined,
+				),
+			),
+			r => (r.status === 'fulfilled' ? r.value : undefined),
 		);
 	}
 

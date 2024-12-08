@@ -84,7 +84,7 @@ export class PushGitCommand extends QuickCommand<State> {
 	protected async *steps(state: PartialStepState<State>): StepGenerator {
 		const context: Context = {
 			repos: this.container.git.openRepositories,
-			associatedView: this.container.commitsView,
+			associatedView: this.container.views.commits,
 			title: this.title,
 		};
 
@@ -197,10 +197,10 @@ export class PushGitCommand extends QuickCommand<State> {
 						{ placeholder: 'Cannot push a remote branch' },
 					);
 				} else {
-					const branch = await repo.getBranch(state.reference.name);
+					const branch = await repo.git.getBranch(state.reference.name);
 
 					if (branch != null && branch?.upstream == null) {
-						for (const remote of await repo.getRemotes()) {
+						for (const remote of await repo.git.getRemotes()) {
 							items.push(
 								createFlagsQuickPickItem<Flags>(
 									state.flags,
@@ -294,7 +294,7 @@ export class PushGitCommand extends QuickCommand<State> {
 					}
 				}
 			} else {
-				const status = await repo.getStatus();
+				const status = await repo.git.getStatus();
 
 				const branch: GitBranchReference = {
 					refType: 'branch',
@@ -317,7 +317,7 @@ export class PushGitCommand extends QuickCommand<State> {
 							pushDetails = '';
 						}
 
-						for (const remote of await repo.getRemotes()) {
+						for (const remote of await repo.git.getRemotes()) {
 							items.push(
 								createFlagsQuickPickItem<Flags>(
 									state.flags,

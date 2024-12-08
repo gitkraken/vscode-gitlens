@@ -1,9 +1,8 @@
 /*global document IntersectionObserver*/
 import './settings.scss';
 import type { ConnectCloudIntegrationsCommandArgs } from '../../../commands/cloudIntegrations';
-import type { AutolinkReference } from '../../../config';
-import type { SupportedCloudIntegrationIds } from '../../../plus/integrations/authentication/models';
-import type { IssueIntegrationId } from '../../../plus/integrations/providers/models';
+import type { AutolinkConfig } from '../../../config';
+import type { IssueIntegrationId, SupportedCloudIntegrationIds } from '../../../constants.integrations';
 import type { IpcMessage, UpdateConfigurationParams } from '../../protocol';
 import { DidChangeConfigurationNotification, UpdateConfigurationCommand } from '../../protocol';
 import type { State } from '../../settings/protocol';
@@ -18,7 +17,7 @@ import { formatDate, setDefaultDateLocales } from '../shared/date';
 import { DOM } from '../shared/dom';
 // import { Snow } from '../shared/snow';
 import '../shared/components/feature-badge';
-import '../welcome/components/gitlens-logo';
+import '../shared/components/gitlens-logo';
 
 const topOffset = 83;
 const offset = (new Date().getTimezoneOffset() / 60) * 100;
@@ -837,7 +836,7 @@ export class SettingsApp extends App<State> {
 			</div>
 		`;
 
-		const autolinkTemplate = (index: number, autolink?: AutolinkReference, isNew = false, renderHelp = true) => `
+		const autolinkTemplate = (index: number, autolink?: AutolinkConfig, isNew = false, renderHelp = true) => `
 			<div class="setting${isNew ? ' hidden" data-region="autolink' : ''}">
 				<div class="setting__group">
 					<div class="setting__input setting__input--short setting__input--with-actions">

@@ -1,6 +1,5 @@
 import type { Range, Uri } from 'vscode';
-import type { DynamicAutolinkReference } from '../../annotations/autolinks';
-import type { AutolinkReference } from '../../config';
+import type { AutolinkReference, DynamicAutolinkReference } from '../../autolinks';
 import type { GkProviderId } from '../../gk/models/repositoryIdentities';
 import type { Brand, Unbrand } from '../../system/brand';
 import type { Repository } from '../models/repository';
@@ -56,15 +55,22 @@ export class AzureDevOpsRemote extends RemoteProvider {
 		this.project = repoProject;
 	}
 
+	protected override get issueLinkPattern(): string {
+		const workUrl = this.baseUrl.replace(gitRegex, '/');
+		return `${workUrl}/_workitems/edit/<num>`;
+	}
+
 	private _autolinks: (AutolinkReference | DynamicAutolinkReference)[] | undefined;
 	override get autolinks(): (AutolinkReference | DynamicAutolinkReference)[] {
 		if (this._autolinks === undefined) {
 			// Strip off any `_git` part from the repo url
-			const workUrl = this.baseUrl.replace(gitRegex, '/');
 			this._autolinks = [
+				...super.autolinks,
 				{
 					prefix: '#',
-					url: `${workUrl}/_workitems/edit/<num>`,
+					url: this.issueLinkPattern,
+					alphanumeric: false,
+					ignoreCase: false,
 					title: `Open Work Item #<num> on ${this.name}`,
 
 					type: 'issue',
@@ -74,6 +80,8 @@ export class AzureDevOpsRemote extends RemoteProvider {
 					// Default Pull request message when merging a PR in ADO. Will not catch commits & pushes following a different pattern.
 					prefix: 'PR ',
 					url: `${this.baseUrl}/pullrequest/<num>`,
+					alphanumeric: false,
+					ignoreCase: false,
 					title: `Open Pull Request #<num> on ${this.name}`,
 
 					type: 'pullrequest',

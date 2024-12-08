@@ -1,6 +1,5 @@
 import type { Range, Uri } from 'vscode';
-import type { DynamicAutolinkReference } from '../../annotations/autolinks';
-import type { AutolinkReference } from '../../config';
+import type { AutolinkReference, DynamicAutolinkReference } from '../../autolinks';
 import type { GkProviderId } from '../../gk/models/repositoryIdentities';
 import type { Brand, Unbrand } from '../../system/brand';
 import { isSha } from '../models/reference';
@@ -16,13 +15,20 @@ export class BitbucketServerRemote extends RemoteProvider {
 		super(domain, path, protocol, name, custom);
 	}
 
+	protected override get issueLinkPattern(): string {
+		return `${this.baseUrl}/issues/<num>`;
+	}
+
 	private _autolinks: (AutolinkReference | DynamicAutolinkReference)[] | undefined;
 	override get autolinks(): (AutolinkReference | DynamicAutolinkReference)[] {
 		if (this._autolinks === undefined) {
 			this._autolinks = [
+				...super.autolinks,
 				{
 					prefix: 'issue #',
-					url: `${this.baseUrl}/issues/<num>`,
+					url: this.issueLinkPattern,
+					alphanumeric: false,
+					ignoreCase: true,
 					title: `Open Issue #<num> on ${this.name}`,
 
 					type: 'issue',
@@ -30,6 +36,7 @@ export class BitbucketServerRemote extends RemoteProvider {
 				},
 				{
 					prefix: 'pull request #',
+					alphanumeric: false,
 					ignoreCase: true,
 					url: `${this.baseUrl}/pull-requests/<num>`,
 					title: `Open Pull Request #<num> on ${this.name}`,
@@ -123,7 +130,7 @@ export class BitbucketServerRemote extends RemoteProvider {
 		} while (index > 0);
 
 		if (possibleBranches.size !== 0) {
-			const { values: branches } = await repository.getBranches({
+			const { values: branches } = await repository.git.getBranches({
 				filter: b => b.remote && possibleBranches.has(b.getNameWithoutRemote()),
 			});
 			for (const branch of branches) {

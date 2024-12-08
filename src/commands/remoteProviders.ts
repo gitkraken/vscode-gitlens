@@ -6,6 +6,7 @@ import { isRemote } from '../git/models/remote';
 import type { Repository } from '../git/models/repository';
 import type { RemoteProvider } from '../git/remotes/remoteProvider';
 import { showRepositoryPicker } from '../quickpicks/repositoryPicker';
+import { createMarkdownCommandLink } from '../system/commands';
 import { first } from '../system/iterable';
 import { command } from '../system/vscode/command';
 import type { CommandContext } from './base';
@@ -18,9 +19,9 @@ export interface ConnectRemoteProviderCommandArgs {
 
 @command()
 export class ConnectRemoteProviderCommand extends Command {
-	static getMarkdownCommandArgs(args: ConnectRemoteProviderCommandArgs): string;
-	static getMarkdownCommandArgs(remote: GitRemote): string;
-	static getMarkdownCommandArgs(argsOrRemote: ConnectRemoteProviderCommandArgs | GitRemote): string {
+	static createMarkdownCommandLink(args: ConnectRemoteProviderCommandArgs): string;
+	static createMarkdownCommandLink(remote: GitRemote): string;
+	static createMarkdownCommandLink(argsOrRemote: ConnectRemoteProviderCommandArgs | GitRemote): string {
 		let args: ConnectRemoteProviderCommandArgs | GitCommit;
 		if (isRemote(argsOrRemote)) {
 			args = {
@@ -31,7 +32,7 @@ export class ConnectRemoteProviderCommand extends Command {
 			args = argsOrRemote;
 		}
 
-		return super.getMarkdownCommandArgsCore<ConnectRemoteProviderCommandArgs>(Commands.ConnectRemoteProvider, args);
+		return createMarkdownCommandLink<ConnectRemoteProviderCommandArgs>(Commands.ConnectRemoteProvider, args);
 	}
 
 	constructor(private readonly container: Container) {
@@ -54,7 +55,7 @@ export class ConnectRemoteProviderCommand extends Command {
 			const repos = new Map<Repository, GitRemote<RemoteProvider>>();
 
 			for (const repo of this.container.git.openRepositories) {
-				const remote = await repo.getBestRemoteWithIntegration({ includeDisconnected: true });
+				const remote = await repo.git.getBestRemoteWithIntegration({ includeDisconnected: true });
 				if (remote?.provider != null) {
 					repos.set(repo, remote);
 				}
@@ -111,9 +112,9 @@ export interface DisconnectRemoteProviderCommandArgs {
 
 @command()
 export class DisconnectRemoteProviderCommand extends Command {
-	static getMarkdownCommandArgs(args: DisconnectRemoteProviderCommandArgs): string;
-	static getMarkdownCommandArgs(remote: GitRemote): string;
-	static getMarkdownCommandArgs(argsOrRemote: DisconnectRemoteProviderCommandArgs | GitRemote): string {
+	static createMarkdownCommandLink(args: DisconnectRemoteProviderCommandArgs): string;
+	static createMarkdownCommandLink(remote: GitRemote): string;
+	static createMarkdownCommandLink(argsOrRemote: DisconnectRemoteProviderCommandArgs | GitRemote): string {
 		let args: DisconnectRemoteProviderCommandArgs | GitCommit;
 		if (isRemote(argsOrRemote)) {
 			args = {
@@ -124,17 +125,14 @@ export class DisconnectRemoteProviderCommand extends Command {
 			args = argsOrRemote;
 		}
 
-		return super.getMarkdownCommandArgsCore<DisconnectRemoteProviderCommandArgs>(
-			Commands.DisconnectRemoteProvider,
-			args,
-		);
+		return createMarkdownCommandLink<DisconnectRemoteProviderCommandArgs>(Commands.DisconnectRemoteProvider, args);
 	}
 
 	constructor(private readonly container: Container) {
 		super(Commands.DisconnectRemoteProvider);
 	}
 
-	protected override preExecute(context: CommandContext, args?: ConnectRemoteProviderCommandArgs) {
+	protected override preExecute(context: CommandContext, args?: DisconnectRemoteProviderCommandArgs) {
 		if (isCommandContextViewNodeHasRemote(context)) {
 			args = { ...args, remote: context.node.remote.name, repoPath: context.node.remote.repoPath };
 		}
@@ -149,7 +147,7 @@ export class DisconnectRemoteProviderCommand extends Command {
 			const repos = new Map<Repository, GitRemote<RemoteProvider>>();
 
 			for (const repo of this.container.git.openRepositories) {
-				const remote = await repo.getBestRemoteWithIntegration({ includeDisconnected: false });
+				const remote = await repo.git.getBestRemoteWithIntegration({ includeDisconnected: false });
 				if (remote != null) {
 					repos.set(repo, remote);
 				}

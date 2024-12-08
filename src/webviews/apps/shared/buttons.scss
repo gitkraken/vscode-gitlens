@@ -1,3 +1,5 @@
+@use '../shared/styles/utils';
+
 .button {
 	background: none;
 	border: none;
@@ -51,23 +53,23 @@
 		border-color 250ms,
 		color 250ms;
 
-	.vscode-light & {
+	@include utils.light-theme($selectorPostfix: ' &') {
 		border: 1px solid rgba(0, 0, 0, 0.6);
 		color: black;
 	}
-	.vscode-dark & {
+	@include utils.dark-theme($selectorPostfix: ' &') {
 		border: 1px solid rgba(255, 255, 255, 0.6);
 		color: white;
 	}
 
 	&:not([disabled]):hover,
 	&:not([disabled]):focus {
-		.vscode-light & {
+		@include utils.light-theme($selectorPostfix: ' &') {
 			background-color: var(--color-button-background--darken-30);
 			border-color: var(--color-button-background--darken-30);
 			color: white;
 		}
-		.vscode-dark & {
+		@include utils.dark-theme($selectorPostfix: ' &') {
 			background-color: white;
 			border-color: white;
 			color: black;
@@ -113,13 +115,13 @@
 
 	&:not([disabled]):hover,
 	&:not([disabled]):focus {
-		.vscode-dark & {
+		@include utils.dark-theme($selectorPostfix: ' &') {
 			background-color: white;
 			border-color: white;
 			color: black;
 		}
 
-		.vscode-light & {
+		@include utils.light-theme($selectorPostfix: ' &') {
 			background-color: var(--color-button-background--darken-30);
 			border-color: var(--color-button-background--darken-30);
 			color: white;
@@ -134,7 +136,7 @@
 .button--flat-secondary {
 	background-color: var(--color-button-secondary-background);
 	border: 1px solid var(--color-button-secondary-background);
-	color: var(--color-button-foreground);
+	color: var(--vscode-button-secondaryForeground);
 	font-weight: 600;
 	transition:
 		background-color 250ms,
@@ -143,16 +145,16 @@
 
 	&:not([disabled]):hover,
 	&:not([disabled]):focus {
-		.vscode-dark & {
+		@include utils.dark-theme($selectorPostfix: ' &') {
 			background-color: white;
 			border-color: white;
 			color: black;
 		}
 
-		.vscode-light & {
+		@include utils.light-theme($selectorPostfix: ' &') {
 			background-color: var(--color-button-secondary-background--darken-30);
 			border-color: var(--color-button-secondary-background--darken-30);
-			color: white;
+			color: var(--vscode-button-secondaryForeground);
 		}
 	}
 
@@ -167,23 +169,23 @@
 		border-color 250ms,
 		color 250ms;
 
-	.vscode-light & {
+	@include utils.light-theme($selectorPostfix: ' &') {
 		border: 1px solid rgba(0, 0, 0, 0.2);
 		color: rgba(0, 0, 0, 0.6);
 	}
-	.vscode-dark & {
+	@include utils.dark-theme($selectorPostfix: ' &') {
 		border: 1px solid rgba(255, 255, 255, 0.2);
 		color: rgba(255, 255, 255, 0.6);
 	}
 
 	&:not([disabled]):hover,
 	&:not([disabled]):focus {
-		.vscode-light & {
+		@include utils.light-theme($selectorPostfix: ' &') {
 			background-color: var(--color-button-secondary-background--darken-30);
 			border-color: var(--color-button-secondary-background--darken-30);
 			color: white;
 		}
-		.vscode-dark & {
+		@include utils.dark-theme($selectorPostfix: ' &') {
 			background-color: white;
 			border-color: white;
 			color: black;

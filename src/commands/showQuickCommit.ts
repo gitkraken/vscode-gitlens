@@ -12,6 +12,7 @@ import {
 	showGenericErrorMessage,
 	showLineUncommittedWarningMessage,
 } from '../messages';
+import { createMarkdownCommandLink } from '../system/commands';
 import { Logger } from '../system/logger';
 import { command } from '../system/vscode/command';
 import type { CommandContext } from './base';
@@ -27,11 +28,11 @@ export interface ShowQuickCommitCommandArgs {
 
 @command()
 export class ShowQuickCommitCommand extends ActiveEditorCachedCommand {
-	static getMarkdownCommandArgs(sha: string, repoPath?: string): string;
-	static getMarkdownCommandArgs(args: ShowQuickCommitCommandArgs): string;
-	static getMarkdownCommandArgs(argsOrSha: ShowQuickCommitCommandArgs | string, repoPath?: string): string {
+	static createMarkdownCommandLink(sha: string, repoPath?: string): string;
+	static createMarkdownCommandLink(args: ShowQuickCommitCommandArgs): string;
+	static createMarkdownCommandLink(argsOrSha: ShowQuickCommitCommandArgs | string, repoPath?: string): string {
 		const args = typeof argsOrSha === 'string' ? { sha: argsOrSha, repoPath: repoPath } : argsOrSha;
-		return super.getMarkdownCommandArgsCore<ShowQuickCommitCommandArgs>(Commands.ShowQuickCommit, args);
+		return createMarkdownCommandLink<ShowQuickCommitCommandArgs>(Commands.ShowQuickCommit, args);
 	}
 
 	constructor(private readonly container: Container) {

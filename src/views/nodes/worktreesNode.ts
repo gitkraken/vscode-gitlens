@@ -4,8 +4,9 @@ import { PlusFeatures } from '../../features';
 import type { GitUri } from '../../git/gitUri';
 import type { Repository } from '../../git/models/repository';
 import { sortWorktrees } from '../../git/models/worktree';
-import { mapAsync } from '../../system/array';
+import { filterMap } from '../../system/array';
 import { debug } from '../../system/decorators/log';
+import { map } from '../../system/iterable';
 import { Logger } from '../../system/logger';
 import type { ViewsWithWorktreesNode } from '../viewBase';
 import { CacheableChildrenViewNode } from './abstract/cacheableChildrenViewNode';
@@ -40,20 +41,25 @@ export class WorktreesNode extends CacheableChildrenViewNode<'worktrees', ViewsW
 			const access = await this.repo.access(PlusFeatures.Worktrees);
 			if (!access.allowed) return [];
 
-			const worktrees = await this.repo.getWorktrees();
+			const worktrees = await this.repo.git.getWorktrees();
 			if (worktrees.length === 0) return [new MessageNode(this.view, this, 'No worktrees could be found.')];
 
-			this.children = await mapAsync(sortWorktrees(worktrees), async w => {
-				let status;
-				let missing = false;
-				try {
-					status = await w.getStatus();
-				} catch (ex) {
-					Logger.error(ex, `Worktree status failed: ${w.uri.toString(true)}`);
-					missing = true;
-				}
-				return new WorktreeNode(this.uri, this.view, this, w, { status: status, missing: missing });
-			});
+			this.children = filterMap(
+				await Promise.allSettled(
+					map(sortWorktrees(worktrees), async w => {
+						let status;
+						let missing = false;
+						try {
+							status = await w.getStatus();
+						} catch (ex) {
+							Logger.error(ex, `Worktree status failed: ${w.uri.toString(true)}`);
+							missing = true;
+						}
+						return new WorktreeNode(this.uri, this.view, this, w, { status: status, missing: missing });
+					}),
+				),
+				r => (r.status === 'fulfilled' ? r.value : undefined),
+			);
 		}
 
 		return this.children;
@@ -70,7 +76,7 @@ export class WorktreesNode extends CacheableChildrenViewNode<'worktrees', ViewsW
 		item.contextValue = ContextValues.Worktrees;
 		item.description = access.allowed
 			? undefined
-			: ` ${GlyphChars.Warning}  Requires a trial or paid plan for use on privately-hosted repos`;
+			: ` ${GlyphChars.Warning}  Use on privately-hosted repos requires GitLens Pro`;
 		// TODO@eamodio `folder` icon won't work here for some reason
 		item.iconPath = new ThemeIcon('folder-opened');
 		return item;

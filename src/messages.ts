@@ -6,8 +6,9 @@ import { Commands } from './constants.commands';
 import type { BlameIgnoreRevsFileError } from './git/errors';
 import { BlameIgnoreRevsFileBadRevisionError } from './git/errors';
 import type { GitCommit } from './git/models/commit';
+import { createMarkdownCommandLink } from './system/commands';
 import { Logger } from './system/logger';
-import { executeCommand } from './system/vscode/command';
+import { executeCommand, executeCoreCommand } from './system/vscode/command';
 import { configuration } from './system/vscode/configuration';
 import { openUrl } from './system/vscode/utils';
 
@@ -137,11 +138,24 @@ export function showGitVersionUnsupportedErrorMessage(
 	);
 }
 
-export function showPreReleaseExpiredErrorMessage(version: string) {
-	return showMessage(
+export async function showPreReleaseExpiredErrorMessage(version: string) {
+	const upgrade = { title: 'Upgrade' };
+	const switchToRelease = { title: 'Switch to Release Version' };
+	const result = await showMessage(
 		'error',
-		`This GitLens pre-release version (${version}) has expired. Please upgrade to a more recent version.`,
+		`This pre-release version (${version}) of GitLens has expired. Please upgrade to a more recent pre-release, or switch to the release version.`,
+		undefined,
+		null,
+		upgrade,
 	);
+
+	if (result === upgrade) {
+		void executeCoreCommand('workbench.extensions.installExtension', 'eamodio.gitlens', {
+			installPreReleaseVersion: true,
+		});
+	} else if (result === switchToRelease) {
+		void executeCoreCommand('workbench.extensions.action.switchToRelease', 'eamodio.gitlens');
+	}
 }
 
 export function showLineUncommittedWarningMessage(message: string): Promise<MessageItem | undefined> {
@@ -216,24 +230,26 @@ export function showIntegrationRequestTimedOutWarningMessage(providerName: strin
 	);
 }
 
-export async function showWhatsNewMessage(version: string) {
+export async function showWhatsNewMessage(majorVersion: string) {
 	const confirm = { title: 'OK', isCloseAffordance: true };
-	const announcement = { title: 'Read Announcement', isCloseAffordance: true };
+	const releaseNotes = { title: 'View Release Notes' };
 	const result = await showMessage(
 		'info',
-		`Upgraded to GitLens ${version}${
-			version === '15'
-				? `, with a host of new [Pro features](${urls.proFeatures}) including [Launchpad](${urls.codeSuggest}), [Code Suggest](${urls.codeSuggest}), and more`
-				: ''
-		} — [see what's new](${urls.releaseNotes} "See what's new in GitLens ${version}").`,
+		`Upgraded to GitLens ${majorVersion}${
+			majorVersion === '16'
+				? ` with an all new [Home view](${createMarkdownCommandLink(Commands.ShowHomeView, {
+						source: 'whatsnew',
+				  })} "Show Home view") reimagined as a hub for your current, future, and recent work, [consolidated Source Control views](command:gitlens.views.scm.grouped.focus "Show GitLens view"), and much more.`
+				: " — see what's new."
+		}`,
 		undefined,
 		null,
+		releaseNotes,
 		confirm,
-		announcement,
 	);
 
-	if (result === announcement) {
-		void openUrl(urls.releaseAnnouncement);
+	if (result === releaseNotes) {
+		void openUrl(urls.releaseNotes);
 	}
 }
 

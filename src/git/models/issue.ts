@@ -1,6 +1,10 @@
-import { ColorThemeKind, ThemeColor, ThemeIcon, window } from 'vscode';
+import { ColorThemeKind, ThemeColor, ThemeIcon, Uri, window } from 'vscode';
+import { Schemes } from '../../constants';
 import type { Colors } from '../../constants.colors';
+import type { Container } from '../../container';
+import type { RepositoryIdentityDescriptor } from '../../gk/models/repositoryIdentities';
 import type { ProviderReference } from './remoteProvider';
+import type { Repository } from './repository';
 
 export type IssueOrPullRequestType = 'issue' | 'pullrequest';
 export type IssueOrPullRequestState = 'opened' | 'closed' | 'merged';
@@ -45,6 +49,7 @@ export interface IssueRepository {
 	owner: string;
 	repo: string;
 	accessLevel?: RepositoryAccessLevel;
+	url?: string;
 }
 
 export interface IssueShape extends IssueOrPullRequest {
@@ -52,6 +57,7 @@ export interface IssueShape extends IssueOrPullRequest {
 	assignees: IssueMember[];
 	repository?: IssueRepository;
 	labels?: IssueLabel[];
+	body?: string;
 }
 
 export interface SearchedIssue {
@@ -216,6 +222,7 @@ export function serializeIssue(value: IssueShape): IssueShape {
 				: {
 						owner: value.repository.owner,
 						repo: value.repository.repo,
+						url: value.repository.url,
 				  },
 		assignees: value.assignees.map(assignee => ({
 			id: assignee.id,
@@ -232,6 +239,7 @@ export function serializeIssue(value: IssueShape): IssueShape {
 				  })),
 		commentsCount: value.commentsCount,
 		thumbsUpCount: value.thumbsUpCount,
+		body: value.body,
 	};
 	return serialized;
 }
@@ -256,5 +264,70 @@ export class Issue implements IssueShape {
 		public readonly labels?: IssueLabel[],
 		public readonly commentsCount?: number,
 		public readonly thumbsUpCount?: number,
+		public readonly body?: string,
 	) {}
+}
+
+export type IssueRepositoryIdentityDescriptor = RequireSomeWithProps<
+	RequireSome<RepositoryIdentityDescriptor<string>, 'provider'>,
+	'provider',
+	'id' | 'domain' | 'repoDomain' | 'repoName'
+> &
+	RequireSomeWithProps<RequireSome<RepositoryIdentityDescriptor<string>, 'remote'>, 'remote', 'domain'>;
+
+export function getRepositoryIdentityForIssue(issue: IssueShape | Issue): IssueRepositoryIdentityDescriptor {
+	if (issue.repository == null) throw new Error('Missing repository');
+
+	return {
+		remote: {
+			url: issue.repository.url,
+			domain: issue.provider.domain,
+		},
+		name: `${issue.repository.owner}/${issue.repository.repo}`,
+		provider: {
+			id: issue.provider.id,
+			domain: issue.provider.domain,
+			repoDomain: issue.repository.owner,
+			repoName: issue.repository.repo,
+			repoOwnerDomain: issue.repository.owner,
+		},
+	};
+}
+
+export function getVirtualUriForIssue(issue: IssueShape | Issue): Uri | undefined {
+	if (issue.repository == null) throw new Error('Missing repository');
+	if (issue.provider.id !== 'github') return undefined;
+
+	const uri = Uri.parse(issue.repository.url ?? issue.url);
+	return uri.with({ scheme: Schemes.Virtual, authority: 'github', path: uri.path });
+}
+
+export async function getOrOpenIssueRepository(
+	container: Container,
+	issue: IssueShape | Issue,
+	options?: { promptIfNeeded?: boolean; skipVirtual?: boolean },
+): Promise<Repository | undefined> {
+	const identity = getRepositoryIdentityForIssue(issue);
+	let repo = await container.repositoryIdentity.getRepository(identity, {
+		openIfNeeded: true,
+		keepOpen: false,
+		prompt: false,
+	});
+
+	if (repo == null && !options?.skipVirtual) {
+		const virtualUri = getVirtualUriForIssue(issue);
+		if (virtualUri != null) {
+			repo = await container.git.getOrOpenRepository(virtualUri, { closeOnOpen: true, detectNested: false });
+		}
+	}
+
+	if (repo == null && options?.promptIfNeeded) {
+		repo = await container.repositoryIdentity.getRepository(identity, {
+			openIfNeeded: true,
+			keepOpen: false,
+			prompt: true,
+		});
+	}
+
+	return repo;
 }

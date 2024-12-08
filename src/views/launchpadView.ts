@@ -1,12 +1,15 @@
-import type { ConfigurationChangeEvent, MessageItem, TreeViewVisibilityChangeEvent } from 'vscode';
+import type { ConfigurationChangeEvent, TreeViewVisibilityChangeEvent } from 'vscode';
 import { Disposable, ThemeIcon, TreeItem, TreeItemCollapsibleState, Uri, window } from 'vscode';
 import type { OpenWalkthroughCommandArgs } from '../commands/walkthroughs';
 import type { LaunchpadViewConfig, ViewFilesLayout } from '../config';
-import { experimentalBadge } from '../constants';
+import { proBadge } from '../constants';
 import { Commands } from '../constants.commands';
 import type { Container } from '../container';
 import { AuthenticationRequiredError } from '../errors';
+import { PlusFeatures } from '../features';
 import { GitUri, unknownGitUri } from '../git/gitUri';
+import type { SubscriptionChangeEvent } from '../plus/gk/account/subscriptionService';
+import { ensurePlusFeaturesEnabled } from '../plus/gk/utils';
 import type { LaunchpadCommandArgs } from '../plus/launchpad/launchpad';
 import type { LaunchpadGroup, LaunchpadItem } from '../plus/launchpad/launchpadProvider';
 import {
@@ -19,9 +22,10 @@ import { configuration } from '../system/vscode/configuration';
 import { CacheableChildrenViewNode } from './nodes/abstract/cacheableChildrenViewNode';
 import type { ClipboardType, ViewNode } from './nodes/abstract/viewNode';
 import { ContextValues, getViewNodeId } from './nodes/abstract/viewNode';
-import { GroupingNode } from './nodes/groupingNode';
+import type { GroupingNode } from './nodes/groupingNode';
+import { LaunchpadViewGroupingNode } from './nodes/launchpadViewGroupingNode';
 import { getPullRequestChildren, getPullRequestTooltip } from './nodes/pullRequestNode';
-import { ViewBase } from './viewBase';
+import { disposeChildren, ViewBase } from './viewBase';
 import { registerViewCommand } from './viewCommands';
 
 export class LaunchpadItemNode extends CacheableChildrenViewNode<'launchpad-item', LaunchpadView> {
@@ -83,7 +87,9 @@ export class LaunchpadItemNode extends CacheableChildrenViewNode<'launchpad-item
 
 		const item = new TreeItem(
 			lpi.title.length > 60 ? `${lpi.title.substring(0, 60)}...` : lpi.title,
-			TreeItemCollapsibleState.Collapsed,
+			this.item.openRepository?.localBranch?.current
+				? TreeItemCollapsibleState.Expanded
+				: TreeItemCollapsibleState.Collapsed,
 		);
 		item.contextValue = ContextValues.LaunchpadItem;
 		item.description = `\u00a0 ${lpi.repository.owner.login}/${lpi.repository.name}#${lpi.id} \u00a0 ${
@@ -103,7 +109,10 @@ export class LaunchpadItemNode extends CacheableChildrenViewNode<'launchpad-item
 
 		if (lpi.type === 'pullrequest') {
 			item.contextValue += '+pr';
-			item.tooltip = getPullRequestTooltip(lpi.underlyingPullRequest);
+			item.tooltip = getPullRequestTooltip(lpi.underlyingPullRequest, {
+				idPrefix: `${lpi.repository.owner.login}/${lpi.repository.name}`,
+				codeSuggestionsCount: lpi.codeSuggestionsCount,
+			});
 		}
 
 		return item;
@@ -115,15 +124,45 @@ export class LaunchpadViewNode extends CacheableChildrenViewNode<
 	LaunchpadView,
 	GroupingNode | LaunchpadItemNode
 > {
+	private disposable: Disposable;
+
 	constructor(view: LaunchpadView) {
 		super('launchpad', unknownGitUri, view);
+		this.disposable = Disposable.from(
+			this.view.container.launchpad.onDidChange(this.refresh, this),
+			this.view.container.subscription.onDidChange(this.onSubscriptionChanged, this),
+		);
+	}
+
+	override dispose() {
+		this.disposable?.dispose();
+		super.dispose();
+	}
+
+	private onSubscriptionChanged(e: SubscriptionChangeEvent) {
+		if (e.current.plan !== e.previous.plan) {
+			void this.triggerChange(true);
+		}
+	}
+
+	override refresh() {
+		if (this.children == null) return;
+
+		disposeChildren(this.children);
+		this.children = undefined;
 	}
 
 	async getChildren(): Promise<(GroupingNode | LaunchpadItemNode)[]> {
-		if (this.children == null) {
-			const children: (GroupingNode | LaunchpadItemNode)[] = [];
+		this.view.description = this.view.grouped
+			? `${this.view.name.toLocaleLowerCase()}\u00a0\u2022\u00a0 ${proBadge}`
+			: proBadge;
+		this.view.message = undefined;
 
-			this.view.message = undefined;
+		if (this.children == null) {
+			const access = await this.view.container.git.access(PlusFeatures.Launchpad);
+			if (!access.allowed) return [];
+
+			const children: (GroupingNode | LaunchpadItemNode)[] = [];
 
 			const hasIntegrations = await this.view.container.launchpad.hasConnectedIntegration();
 			if (!hasIntegrations) {
@@ -138,17 +177,27 @@ export class LaunchpadViewNode extends CacheableChildrenViewNode<
 				}
 
 				const uiGroups = groupAndSortLaunchpadItems(result.items);
+				const expanded = new Map(
+					(
+						(this.view.container.storage.get('launchpadView:groups:expanded') satisfies
+							| LaunchpadGroup[]
+							| undefined) ?? []
+					).map(g => [g, true]),
+				);
 				for (const [ui, groupItems] of uiGroups) {
 					if (!groupItems.length) continue;
 
 					const icon = launchpadGroupIconMap.get(ui)!;
 
 					children.push(
-						new GroupingNode(
+						new LaunchpadViewGroupingNode(
 							this.view,
 							launchpadGroupLabelMap.get(ui)!,
+							ui,
 							groupItems.map(i => new LaunchpadItemNode(this.view, this, ui, i)),
-							TreeItemCollapsibleState.Collapsed,
+							ui === 'current-branch' || expanded.get(ui)
+								? TreeItemCollapsibleState.Expanded
+								: TreeItemCollapsibleState.Collapsed,
 							undefined,
 							undefined,
 							new ThemeIcon(icon.substring(2, icon.length - 1)),
@@ -175,15 +224,18 @@ export class LaunchpadView extends ViewBase<'launchpad', LaunchpadViewNode, Laun
 	protected readonly configKey = 'launchpad';
 	private _disposable: Disposable | undefined;
 
-	constructor(container: Container) {
-		super(container, 'launchpad', 'Launchpad', 'launchpadView');
-
-		this.description = experimentalBadge;
+	constructor(container: Container, grouped?: boolean) {
+		super(container, 'launchpad', 'Launchpad', 'launchpadView', grouped);
 	}
 
 	override dispose() {
 		this._disposable?.dispose();
 		super.dispose();
+	}
+
+	override getViewDescription(count?: number): string {
+		const description = super.getViewDescription(count);
+		return description ? `${description} \u00a0\u2022\u00a0 ${proBadge}` : proBadge;
 	}
 
 	protected getRoot() {
@@ -202,24 +254,7 @@ export class LaunchpadView extends ViewBase<'launchpad', LaunchpadViewNode, Laun
 	}
 
 	override async show(options?: { preserveFocus?: boolean | undefined }): Promise<void> {
-		if (!configuration.get('views.launchpad.enabled')) {
-			const confirm: MessageItem = { title: 'Enable' };
-			const cancel: MessageItem = { title: 'Cancel', isCloseAffordance: true };
-			const result = await window.showInformationMessage(
-				'Would you like to try the new experimental Launchpad view?',
-				{
-					modal: true,
-					detail: 'Launchpad organizes your pull requests into actionable groups to help you focus and keep your team unblocked.',
-				},
-				confirm,
-				cancel,
-			);
-
-			if (result !== confirm) return;
-
-			await configuration.updateEffective('views.launchpad.enabled', true);
-		}
-
+		if (!(await ensurePlusFeaturesEnabled())) return;
 		return super.show(options);
 	}
 
@@ -228,14 +263,12 @@ export class LaunchpadView extends ViewBase<'launchpad', LaunchpadViewNode, Laun
 	}
 
 	protected registerCommands(): Disposable[] {
-		void this.container.viewCommands;
-
 		return [
 			registerViewCommand(
 				this.getQualifiedCommand('info'),
 				() =>
 					executeCommand<OpenWalkthroughCommandArgs>(Commands.OpenWalkthrough, {
-						step: 'launchpad',
+						step: 'accelerate-pr-reviews',
 						source: 'launchpad-view',
 						detail: 'info',
 					}),

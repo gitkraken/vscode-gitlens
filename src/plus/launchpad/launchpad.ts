@@ -1,4 +1,4 @@
-import type { QuickInputButton, QuickPick, QuickPickItem } from 'vscode';
+import type { CancellationToken, QuickInputButton, QuickPick, QuickPickItem } from 'vscode';
 import { commands, ThemeIcon, Uri } from 'vscode';
 import { getAvatarUri } from '../../avatars';
 import type {
@@ -37,9 +37,13 @@ import { ensureAccessStep } from '../../commands/quickCommand.steps';
 import type { OpenWalkthroughCommandArgs } from '../../commands/walkthroughs';
 import { proBadge, urls } from '../../constants';
 import { Commands } from '../../constants.commands';
+import type { IntegrationId } from '../../constants.integrations';
+import { HostingIntegrationId, SelfHostedIntegrationId } from '../../constants.integrations';
 import type { LaunchpadTelemetryContext, Source, Sources, TelemetryEvents } from '../../constants.telemetry';
 import type { Container } from '../../container';
 import { PlusFeatures } from '../../features';
+import { doesPullRequestSatisfyRepositoryURLIdentity } from '../../git/models/pullRequest';
+import { getPullRequestIdentityValuesFromSearch } from '../../git/models/pullRequest.utils';
 import type { QuickPickItemOfT } from '../../quickpicks/items/common';
 import { createQuickPickItemOfT, createQuickPickSeparator } from '../../quickpicks/items/common';
 import type { DirectiveQuickPickItem } from '../../quickpicks/items/directive';
@@ -48,17 +52,11 @@ import { getScopedCounter } from '../../system/counter';
 import { fromNow } from '../../system/date';
 import { some } from '../../system/iterable';
 import { interpolate, pluralize } from '../../system/string';
+import { createAsyncDebouncer } from '../../system/vscode/asyncDebouncer';
 import { executeCommand } from '../../system/vscode/command';
 import { configuration } from '../../system/vscode/configuration';
 import { openUrl } from '../../system/vscode/utils';
-import { getApplicablePromo } from '../gk/account/promos';
-import type { IntegrationId } from '../integrations/providers/models';
-import {
-	HostingIntegrationId,
-	ProviderBuildStatusState,
-	ProviderPullRequestReviewState,
-	SelfHostedIntegrationId,
-} from '../integrations/providers/models';
+import { ProviderBuildStatusState, ProviderPullRequestReviewState } from '../integrations/providers/models';
 import type {
 	LaunchpadAction,
 	LaunchpadActionCategory,
@@ -116,7 +114,6 @@ interface Context {
 	collapsed: Map<LaunchpadGroup, boolean>;
 	telemetryContext: LaunchpadTelemetryContext | undefined;
 	connectedIntegrations: Map<IntegrationId, boolean>;
-	showGraduationPromo: boolean;
 }
 
 interface GroupedLaunchpadItem extends LaunchpadItem {
@@ -151,6 +148,8 @@ const instanceCounter = getScopedCounter();
 const defaultCollapsedGroups: LaunchpadGroup[] = ['draft', 'other', 'snoozed'];
 
 export class LaunchpadCommand extends QuickCommand<State> {
+	// TODO: The debouncer needs to be cancelled when the step is changed when the quickpick is closed
+	private readonly updateItemsDebouncer = createAsyncDebouncer(500);
 	private readonly source: Source;
 	private readonly telemetryContext: LaunchpadTelemetryContext | undefined;
 
@@ -225,7 +224,6 @@ export class LaunchpadCommand extends QuickCommand<State> {
 			collapsed: collapsed,
 			telemetryContext: this.telemetryContext,
 			connectedIntegrations: await this.container.launchpad.getConnectedIntegrations(),
-			showGraduationPromo: false,
 		};
 
 		let opened = false;
@@ -269,8 +267,6 @@ export class LaunchpadCommand extends QuickCommand<State> {
 
 			const result = yield* ensureAccessStep(state, context, PlusFeatures.Launchpad);
 			if (result === StepResultBreak) continue;
-
-			context.showGraduationPromo = getApplicablePromo(result.subscription.current.state, 'launchpad') != null;
 
 			await updateContextItems(this.container, context, { force: newlyConnected });
 
@@ -379,18 +375,95 @@ export class LaunchpadCommand extends QuickCommand<State> {
 		{ picked, selectTopItem }: { picked?: string; selectTopItem?: boolean },
 	): StepResultGenerator<GroupedLaunchpadItem | ConnectMoreIntegrationsItem> {
 		const hasDisconnectedIntegrations = [...context.connectedIntegrations.values()].some(c => !c);
-		const getItems = (result: LaunchpadCategorizedResult) => {
-			const items: (LaunchpadItemQuickPickItem | DirectiveQuickPickItem | ConnectMoreIntegrationsItem)[] = [];
-			if (context.showGraduationPromo) {
-				items.push(
-					createDirectiveQuickPickItem(Directive.RequiresPaidSubscription, undefined, {
-						label: `Preview access of Launchpad will end on September 27th`,
-						detail: '$(blank) Upgrade before then to save 75% or more on GitLens Pro',
-						iconPath: new ThemeIcon('megaphone'),
-						buttons: [LearnAboutProQuickInputButton],
-					}),
+
+		const buildGroupHeading = (
+			ui: LaunchpadGroup,
+			groupLength: number,
+		): [DirectiveQuickPickItem, DirectiveQuickPickItem] => {
+			return [
+				createQuickPickSeparator(groupLength ? groupLength.toString() : undefined),
+				createDirectiveQuickPickItem(Directive.Reload, false, {
+					label: `$(${
+						context.collapsed.get(ui) ? 'chevron-down' : 'chevron-up'
+					})\u00a0\u00a0${launchpadGroupIconMap.get(ui)!}\u00a0\u00a0${launchpadGroupLabelMap
+						.get(ui)
+						?.toUpperCase()}`, //'\u00a0',
+					//detail: groupMap.get(group)?.[0].toUpperCase(),
+					onDidSelect: () => {
+						const collapsed = !context.collapsed.get(ui);
+						context.collapsed.set(ui, collapsed);
+						if (state.initialGroup == null) {
+							void this.container.storage.store(
+								'launchpad:groups:collapsed',
+								Array.from(context.collapsed.keys()).filter(g => context.collapsed.get(g)),
+							);
+						}
+
+						if (this.container.telemetry.enabled) {
+							updateTelemetryContext(context);
+							this.container.telemetry.sendEvent(
+								'launchpad/groupToggled',
+								{
+									...context.telemetryContext!,
+									group: ui,
+									collapsed: collapsed,
+								},
+								this.source,
+							);
+						}
+					},
+				}),
+			];
+		};
+
+		const buildLaunchpadQuickPickItem = (
+			i: LaunchpadItem,
+			ui: LaunchpadGroup,
+			topItem: LaunchpadItem | undefined,
+			alwaysShow: boolean | undefined,
+		): LaunchpadItemQuickPickItem => {
+			const buttons = [];
+
+			if (i.actionableCategory === 'mergeable') {
+				buttons.push(MergeQuickInputButton);
+			}
+
+			if (!i.isSearched) {
+				buttons.push(
+					i.viewer.pinned ? UnpinQuickInputButton : PinQuickInputButton,
+					i.viewer.snoozed ? UnsnoozeQuickInputButton : SnoozeQuickInputButton,
 				);
 			}
+
+			buttons.push(...getOpenOnGitProviderQuickInputButtons(i.provider.id));
+
+			if (!i.openRepository?.localBranch?.current) {
+				buttons.push(OpenWorktreeInNewWindowQuickInputButton);
+			}
+
+			return {
+				label: i.title.length > 60 ? `${i.title.substring(0, 60)}...` : i.title,
+				// description: `${i.repoAndOwner}#${i.id}, by @${i.author}`,
+				description: `\u00a0 ${i.repository.owner.login}/${i.repository.name}#${i.id} \u00a0 ${
+					i.codeSuggestionsCount > 0 ? ` $(gitlens-code-suggestion) ${i.codeSuggestionsCount}` : ''
+				} \u00a0 ${i.isNew ? '(New since last view)' : ''}`,
+				detail: `      ${i.viewer.pinned ? '$(pinned) ' : ''}${
+					i.isDraft && ui !== 'draft' ? '$(git-pull-request-draft) ' : ''
+				}${
+					i.actionableCategory === 'other' ? '' : `${actionGroupMap.get(i.actionableCategory)![0]} \u2022  `
+				}${fromNow(i.updatedDate)} by @${i.author!.username}`,
+
+				alwaysShow: alwaysShow,
+				buttons: buttons,
+				iconPath: i.author?.avatarUrl != null ? Uri.parse(i.author.avatarUrl) : undefined,
+				item: i,
+				picked: i.graphQLId === picked || i.graphQLId === topItem?.graphQLId,
+				group: ui,
+			};
+		};
+
+		const getItems = (result: LaunchpadCategorizedResult, isSearching?: boolean) => {
+			const items: (LaunchpadItemQuickPickItem | DirectiveQuickPickItem | ConnectMoreIntegrationsItem)[] = [];
 
 			if (result.items?.length) {
 				const uiGroups = groupAndSortLaunchpadItems(result.items);
@@ -404,91 +477,21 @@ export class LaunchpadCommand extends QuickCommand<State> {
 				for (const [ui, groupItems] of uiGroups) {
 					if (!groupItems.length) continue;
 
-					items.push(
-						createQuickPickSeparator(groupItems.length ? groupItems.length.toString() : undefined),
-						createDirectiveQuickPickItem(Directive.Reload, false, {
-							label: `$(${
-								context.collapsed.get(ui) ? 'chevron-down' : 'chevron-up'
-							})\u00a0\u00a0${launchpadGroupIconMap.get(ui)!}\u00a0\u00a0${launchpadGroupLabelMap
-								.get(ui)
-								?.toUpperCase()}`, //'\u00a0',
-							//detail: groupMap.get(group)?.[0].toUpperCase(),
-							onDidSelect: () => {
-								const collapsed = !context.collapsed.get(ui);
-								context.collapsed.set(ui, collapsed);
-								if (state.initialGroup == null) {
-									void this.container.storage.store(
-										'launchpad:groups:collapsed',
-										Array.from(context.collapsed.keys()).filter(g => context.collapsed.get(g)),
-									);
-								}
+					if (!isSearching) {
+						items.push(...buildGroupHeading(ui, groupItems.length));
+						if (context.collapsed.get(ui)) {
+							continue;
+						}
+					}
 
-								if (this.container.telemetry.enabled) {
-									updateTelemetryContext(context);
-									this.container.telemetry.sendEvent(
-										'launchpad/groupToggled',
-										{
-											...context.telemetryContext!,
-											group: ui,
-											collapsed: collapsed,
-										},
-										this.source,
-									);
-								}
-							},
-						}),
-					);
-
-					if (context.collapsed.get(ui)) continue;
-
-					items.push(
-						...groupItems.map(i => {
-							const buttons = [];
-
-							if (i.actionableCategory === 'mergeable') {
-								buttons.push(MergeQuickInputButton);
-							}
-
-							buttons.push(
-								i.viewer.pinned ? UnpinQuickInputButton : PinQuickInputButton,
-								i.viewer.snoozed ? UnsnoozeQuickInputButton : SnoozeQuickInputButton,
-							);
-
-							buttons.push(...getOpenOnGitProviderQuickInputButtons(i.provider.id));
-
-							if (!i.openRepository?.localBranch?.current) {
-								buttons.push(OpenWorktreeInNewWindowQuickInputButton);
-							}
-
-							return {
-								label: i.title.length > 60 ? `${i.title.substring(0, 60)}...` : i.title,
-								// description: `${i.repoAndOwner}#${i.id}, by @${i.author}`,
-								description: `\u00a0 ${i.repository.owner.login}/${i.repository.name}#${i.id} \u00a0 ${
-									i.codeSuggestionsCount > 0
-										? ` $(gitlens-code-suggestion) ${i.codeSuggestionsCount}`
-										: ''
-								} \u00a0 ${i.isNew ? '(New since last view)' : ''}`,
-								detail: `      ${i.viewer.pinned ? '$(pinned) ' : ''}${
-									i.actionableCategory === 'other'
-										? ''
-										: `${actionGroupMap.get(i.actionableCategory)![0]} \u2022  `
-								}${fromNow(i.updatedDate)} by @${i.author!.username}`,
-
-								buttons: buttons,
-								iconPath: i.author?.avatarUrl != null ? Uri.parse(i.author.avatarUrl) : undefined,
-								item: i,
-								picked: i.graphQLId === picked || i.graphQLId === topItem?.graphQLId,
-								group: ui,
-							};
-						}),
-					);
+					items.push(...groupItems.map(i => buildLaunchpadQuickPickItem(i, ui, topItem, isSearching)));
 				}
 			}
 
 			return items;
 		};
 
-		function getItemsAndPlaceholder() {
+		function getItemsAndPlaceholder(isSearching?: boolean) {
 			if (context.result.error != null) {
 				return {
 					placeholder: `Unable to load items (${
@@ -510,34 +513,59 @@ export class LaunchpadCommand extends QuickCommand<State> {
 			}
 
 			return {
-				placeholder: 'Choose an item to focus on',
-				items: getItems(context.result),
+				placeholder: 'Choose an item, type a term to search, or paste in a PR URL',
+				items: getItems(context.result, isSearching),
 			};
 		}
+
+		const combineQuickpickItemsWithSearchResults = <T extends { item: { id: string } } | object>(
+			arr: readonly T[],
+			items: T[],
+		) => {
+			const ids: Set<string> = new Set(
+				arr.map(i => 'item' in i && i.item?.id).filter(id => typeof id === 'string'),
+			);
+			const result = [...arr];
+			for (const item of items) {
+				if ('item' in item && item.item?.id && !ids.has(item.item.id)) {
+					result.push(item);
+				}
+			}
+			return result;
+		};
 
 		const updateItems = async (
 			quickpick: QuickPick<LaunchpadItemQuickPickItem | DirectiveQuickPickItem | ConnectMoreIntegrationsItem>,
 		) => {
+			const search = quickpick.value;
 			quickpick.busy = true;
-
 			try {
-				await updateContextItems(this.container, context, { force: true });
-
-				const { items, placeholder } = getItemsAndPlaceholder();
-				quickpick.placeholder = placeholder;
-				quickpick.items = items;
+				await this.updateItemsDebouncer(async cancellationToken => {
+					await updateContextItems(
+						this.container,
+						context,
+						{ force: true, search: search },
+						cancellationToken,
+					);
+					if (cancellationToken.isCancellationRequested) {
+						return;
+					}
+					const { items, placeholder } = getItemsAndPlaceholder(Boolean(search));
+					quickpick.placeholder = placeholder;
+					quickpick.items = search ? combineQuickpickItemsWithSearchResults(quickpick.items, items) : items;
+				});
 			} finally {
 				quickpick.busy = false;
 			}
 		};
 
 		const { items, placeholder } = getItemsAndPlaceholder();
-
-		let groupsHidden = false;
+		const nonGroupedItems = items.filter(i => !isDirectiveQuickPickItem(i));
 
 		const step = createPickStep({
 			title: context.title,
 			placeholder: placeholder,
+			matchOnDescription: true,
 			matchOnDetail: true,
 			items: items,
 			buttons: [
@@ -547,14 +575,62 @@ export class LaunchpadCommand extends QuickCommand<State> {
 				LaunchpadSettingsQuickInputButton,
 				RefreshQuickInputButton,
 			],
-			onDidChangeValue: quickpick => {
-				const hideGroups = Boolean(quickpick.value?.length);
+			onDidChangeValue: async quickpick => {
+				const { value } = quickpick;
+				const hideGroups = Boolean(value?.length);
+				const consideredItems = hideGroups ? nonGroupedItems : items;
 
-				if (groupsHidden != hideGroups) {
-					groupsHidden = hideGroups;
-					quickpick.items = hideGroups ? items.filter(i => !isDirectiveQuickPickItem(i)) : items;
+				let updated = false;
+				for (const item of consideredItems) {
+					if (item.alwaysShow) {
+						item.alwaysShow = false;
+						updated = true;
+					}
 				}
 
+				// By doing the following we make sure we operate with the PRs that belong to Launchpad initially.
+				// Also, when we re-create the array, we make sure that `alwaysShow` updates are applied.
+				quickpick.items =
+					updated && quickpick.items === consideredItems ? [...consideredItems] : consideredItems;
+
+				if (!value?.length) {
+					// Nothing to search
+					this.updateItemsDebouncer.cancel();
+					return true;
+				}
+
+				// TODO: This needs to be generalized to work outside of GitHub,
+				// The current idea is that we should iterate the connected integrations and apply their parsing.
+				// Probably we even want to build a map like this: { integrationId: identity }
+				// Then when we iterate local items we can check them to corresponding identitie according to the item's repo type.
+				// Same with API: we iterate connected integrations and search in each of them with the corresponding identity.
+				const prUrlIdentity = getPullRequestIdentityValuesFromSearch(value);
+
+				if (prUrlIdentity.prNumber != null) {
+					// We can identify the PR number, so let's try to find it locally:
+					const launchpadItems = quickpick.items.filter((i): i is LaunchpadItemQuickPickItem => 'item' in i);
+					let item = launchpadItems.find(i =>
+						// perform strict match first
+						doesPullRequestSatisfyRepositoryURLIdentity(i.item, prUrlIdentity),
+					);
+					if (item == null) {
+						// Haven't found full match, so let's at least find something with the same pr number
+						item = launchpadItems.find(i => i.item.id === prUrlIdentity.prNumber);
+					}
+					if (item != null) {
+						if (!item.alwaysShow) {
+							item.alwaysShow = true;
+							// Force quickpick to update by changing the items object:
+							quickpick.items = [...quickpick.items];
+						}
+						// We have found an item that matches to the URL.
+						// Now it will be displayed as the found item and we exit this function now without sending any requests to API:
+						this.updateItemsDebouncer.cancel();
+						return true;
+					}
+				}
+
+				await updateItems(quickpick);
 				return true;
 			},
 			onDidClickButton: async (quickpick, button) => {
@@ -652,165 +728,183 @@ export class LaunchpadCommand extends QuickCommand<State> {
 		context: Context,
 	): StepResultGenerator<LaunchpadAction | LaunchpadTargetAction> {
 		const gitProviderWebButtons = getOpenOnGitProviderQuickInputButtons(state.item.provider.id);
-		const confirmations: (
+
+		function getConfirmations(): (
 			| QuickPickItemOfT<LaunchpadAction>
 			| QuickPickItemOfT<LaunchpadTargetAction>
 			| DirectiveQuickPickItem
-		)[] = [
-			createQuickPickSeparator(fromNow(state.item.updatedDate)),
-			createQuickPickItemOfT(
-				{
-					label: state.item.title,
-					description: `${state.item.repository.owner.login}/${state.item.repository.name}#${state.item.id}`,
-					detail: interpolate(actionGroupMap.get(state.item.actionableCategory)![1], {
-						author: state.item.author!.username,
-						createdDateRelative: fromNow(state.item.createdDate),
-					}),
-					iconPath: state.item.author?.avatarUrl != null ? Uri.parse(state.item.author.avatarUrl) : undefined,
-					buttons: [...gitProviderWebButtons],
-				},
-				'soft-open',
-			),
-			createDirectiveQuickPickItem(Directive.Noop, false, { label: '' }),
-			...this.getLaunchpadItemInformationRows(state.item),
-			createQuickPickSeparator('Actions'),
-		];
+		)[] {
+			const confirmations: (
+				| QuickPickItemOfT<LaunchpadAction>
+				| QuickPickItemOfT<LaunchpadTargetAction>
+				| DirectiveQuickPickItem
+			)[] = [
+				createQuickPickSeparator(fromNow(state.item.updatedDate)),
+				createQuickPickItemOfT(
+					{
+						label: state.item.title,
+						description: `${state.item.repository.owner.login}/${state.item.repository.name}#${state.item.id}`,
+						detail: interpolate(actionGroupMap.get(state.item.actionableCategory)![1], {
+							author: state.item.author!.username,
+							createdDateRelative: fromNow(state.item.createdDate),
+						}),
+						iconPath:
+							state.item.author?.avatarUrl != null ? Uri.parse(state.item.author.avatarUrl) : undefined,
+						buttons: [
+							...gitProviderWebButtons,
+							...(state.item.isSearched
+								? []
+								: [
+										state.item.viewer.pinned ? UnpinQuickInputButton : PinQuickInputButton,
+										state.item.viewer.snoozed ? UnsnoozeQuickInputButton : SnoozeQuickInputButton,
+								  ]),
+						],
+					},
+					'soft-open',
+				),
+				createDirectiveQuickPickItem(Directive.Noop, false, { label: '' }),
+				...getLaunchpadItemInformationRows(state.item),
+				createQuickPickSeparator('Actions'),
+			];
 
-		for (const action of state.item.suggestedActions) {
-			switch (action) {
-				case 'merge': {
-					let from;
-					let into;
-					if (
-						state.item.headRepository?.owner != null &&
-						state.item.headRepository.owner !== state.item.repository.owner
-					) {
-						from =
-							state.item.headRef != null
-								? `${state.item.headRepository.owner.login}:${state.item.headRef.name}`
-								: 'these changes';
-						into =
-							state.item.baseRef != null
-								? ` into ${state.item.repository.owner.login}:${state.item.baseRef.name}`
-								: '';
-					} else {
-						from = state.item.headRef?.name ?? 'these changes';
-						into = state.item.baseRef?.name ? ` into ${state.item.baseRef.name}` : '';
+			for (const action of state.item.suggestedActions) {
+				switch (action) {
+					case 'merge': {
+						let from;
+						let into;
+						if (
+							state.item.headRepository?.owner != null &&
+							state.item.headRepository.owner !== state.item.repository.owner
+						) {
+							from =
+								state.item.headRef != null
+									? `${state.item.headRepository.owner.login}:${state.item.headRef.name}`
+									: 'these changes';
+							into =
+								state.item.baseRef != null
+									? ` into ${state.item.repository.owner.login}:${state.item.baseRef.name}`
+									: '';
+						} else {
+							from = state.item.headRef?.name ?? 'these changes';
+							into = state.item.baseRef?.name ? ` into ${state.item.baseRef.name}` : '';
+						}
+
+						confirmations.push(
+							createQuickPickItemOfT(
+								{
+									label: 'Merge...',
+									detail: `Will merge ${from}${into}`,
+									buttons: [...gitProviderWebButtons],
+								},
+								action,
+							),
+						);
+						break;
 					}
-
-					confirmations.push(
-						createQuickPickItemOfT(
-							{
-								label: 'Merge...',
-								detail: `Will merge ${from}${into}`,
-								buttons: [...gitProviderWebButtons],
-							},
-							action,
-						),
-					);
-					break;
+					case 'open':
+						confirmations.push(
+							createQuickPickItemOfT(
+								{
+									label: `${getOpenActionLabel(
+										state.item.actionableCategory,
+									)} on ${getIntegrationTitle(state.item.provider.id)}`,
+									buttons: [...gitProviderWebButtons],
+								},
+								action,
+							),
+						);
+						break;
+					case 'switch':
+						confirmations.push(
+							createQuickPickItemOfT(
+								{
+									label: 'Switch to Branch',
+									detail: 'Will checkout the branch, create or open a worktree',
+								},
+								action,
+							),
+						);
+						break;
+					case 'open-worktree':
+						confirmations.push(
+							createQuickPickItemOfT(
+								{
+									label: 'Open in Worktree',
+									detail: 'Will create or open a worktree in a new window',
+								},
+								action,
+							),
+						);
+						break;
+					case 'switch-and-code-suggest':
+						confirmations.push(
+							createQuickPickItemOfT(
+								{
+									label: `Switch & Suggest ${
+										state.item.viewer.isAuthor ? 'Additional ' : ''
+									}Code Changes`,
+									detail: 'Will checkout and start suggesting code changes',
+								},
+								action,
+							),
+						);
+						break;
+					case 'code-suggest':
+						confirmations.push(
+							createQuickPickItemOfT(
+								{
+									label: `Suggest ${state.item.viewer.isAuthor ? 'Additional ' : ''}Code Changes`,
+									detail: 'Will start suggesting code changes',
+								},
+								action,
+							),
+						);
+						break;
+					case 'show-overview':
+						confirmations.push(
+							createQuickPickItemOfT(
+								{
+									label: 'Open Details',
+									detail: 'Will open the pull request details in the Side Bar',
+								},
+								action,
+							),
+						);
+						break;
+					case 'open-changes':
+						confirmations.push(
+							createQuickPickItemOfT(
+								{
+									label: 'Open Changes',
+									detail: 'Will open the pull request changes for review',
+								},
+								action,
+							),
+						);
+						break;
+					case 'open-in-graph':
+						confirmations.push(
+							createQuickPickItemOfT(
+								{
+									label: 'Open in Commit Graph',
+								},
+								action,
+							),
+						);
+						break;
 				}
-				case 'open':
-					confirmations.push(
-						createQuickPickItemOfT(
-							{
-								label: `${this.getOpenActionLabel(
-									state.item.actionableCategory,
-								)} on ${getIntegrationTitle(state.item.provider.id)}`,
-								buttons: [...gitProviderWebButtons],
-							},
-							action,
-						),
-					);
-					break;
-				case 'switch':
-					confirmations.push(
-						createQuickPickItemOfT(
-							{
-								label: 'Switch to Branch or Worktree',
-								detail: 'Will checkout the branch, create or open a worktree',
-							},
-							action,
-						),
-					);
-					break;
-				case 'open-worktree':
-					confirmations.push(
-						createQuickPickItemOfT(
-							{
-								label: 'Open in Worktree',
-								detail: 'Will create or open a worktree in a new window',
-							},
-							action,
-						),
-					);
-					break;
-				case 'switch-and-code-suggest':
-					confirmations.push(
-						createQuickPickItemOfT(
-							{
-								label: `Switch & Suggest ${
-									state.item.viewer.isAuthor ? 'Additional ' : ''
-								}Code Changes`,
-								detail: 'Will checkout and start suggesting code changes',
-							},
-							action,
-						),
-					);
-					break;
-				case 'code-suggest':
-					confirmations.push(
-						createQuickPickItemOfT(
-							{
-								label: `Suggest ${state.item.viewer.isAuthor ? 'Additional ' : ''}Code Changes`,
-								detail: 'Will start suggesting code changes',
-							},
-							action,
-						),
-					);
-					break;
-				case 'show-overview':
-					confirmations.push(
-						createQuickPickItemOfT(
-							{
-								label: 'Open Details',
-								detail: 'Will open the pull request details in the Side Bar',
-							},
-							action,
-						),
-					);
-					break;
-				case 'open-changes':
-					confirmations.push(
-						createQuickPickItemOfT(
-							{
-								label: 'Open Changes',
-								detail: 'Will open the pull request changes for review',
-							},
-							action,
-						),
-					);
-					break;
-				case 'open-in-graph':
-					confirmations.push(
-						createQuickPickItemOfT(
-							{
-								label: 'Open in Commit Graph',
-							},
-							action,
-						),
-					);
-					break;
 			}
+
+			return confirmations;
 		}
 
 		const step = this.createConfirmStep(
 			`Launchpad \u00a0\u2022\u00a0 Pull Request ${state.item.repository.owner.login}/${state.item.repository.name}#${state.item.id}`,
-			confirmations,
+			getConfirmations(),
 			undefined,
 			{
 				placeholder: 'Choose an action to perform',
-				onDidClickItemButton: (_quickpick, button, item) => {
+				onDidClickItemButton: async (quickpick, button, item): Promise<void> => {
 					switch (button) {
 						case OpenOnGitHubQuickInputButton:
 						case OpenOnGitLabQuickInputButton:
@@ -827,6 +921,49 @@ export class LaunchpadCommand extends QuickCommand<State> {
 							if (isLaunchpadTargetActionQuickPickItem(item)) {
 								this.container.launchpad.openCodeSuggestionInBrowser(item.item.target);
 							}
+							break;
+						case PinQuickInputButton:
+							this.sendItemActionTelemetry('pin', state.item, state.item.group, context);
+							quickpick.busy = true;
+							await this.container.launchpad.pin(state.item);
+							quickpick.items = [
+								...getConfirmations(),
+								createQuickPickSeparator(),
+								createDirectiveQuickPickItem(Directive.Cancel),
+							];
+							quickpick.busy = false;
+							break;
+						case UnpinQuickInputButton:
+							this.sendItemActionTelemetry('unpin', state.item, state.item.group, context);
+							quickpick.busy = true;
+							await this.container.launchpad.unpin(state.item);
+							quickpick.items = [
+								...getConfirmations(),
+								createQuickPickSeparator(),
+								createDirectiveQuickPickItem(Directive.Cancel),
+							];
+							quickpick.busy = false;
+							break;
+						case SnoozeQuickInputButton:
+							this.sendItemActionTelemetry('snooze', state.item, state.item.group, context);
+							quickpick.busy = true;
+							void this.container.launchpad.snooze(state.item);
+							quickpick.items = [
+								...getConfirmations(),
+								createQuickPickSeparator(),
+								createDirectiveQuickPickItem(Directive.Cancel),
+							];
+							quickpick.busy = false;
+							break;
+						case UnsnoozeQuickInputButton:
+							this.sendItemActionTelemetry('unsnooze', state.item, state.item.group, context);
+							void this.container.launchpad.unsnooze(state.item);
+							quickpick.items = [
+								...getConfirmations(),
+								createQuickPickSeparator(),
+								createDirectiveQuickPickItem(Directive.Cancel),
+							];
+							quickpick.busy = false;
 							break;
 					}
 				},
@@ -848,7 +985,7 @@ export class LaunchpadCommand extends QuickCommand<State> {
 				iconPath: new ThemeIcon('rocket'),
 				onDidSelect: () =>
 					void executeCommand<OpenWalkthroughCommandArgs>(Commands.OpenWalkthrough, {
-						step: 'launchpad',
+						step: 'accelerate-pr-reviews',
 						source: 'launchpad',
 						detail: 'info',
 					}),
@@ -927,7 +1064,7 @@ export class LaunchpadCommand extends QuickCommand<State> {
 					iconPath: new ThemeIcon('rocket'),
 					onDidSelect: () =>
 						void executeCommand<OpenWalkthroughCommandArgs>(Commands.OpenWalkthrough, {
-							step: 'launchpad',
+							step: 'accelerate-pr-reviews',
 							source: 'launchpad',
 							detail: 'info',
 						}),
@@ -981,187 +1118,6 @@ export class LaunchpadCommand extends QuickCommand<State> {
 		}
 
 		return StepResultBreak;
-	}
-
-	private getLaunchpadItemInformationRows(
-		item: LaunchpadItem,
-	): (QuickPickItemOfT<LaunchpadAction> | QuickPickItemOfT<LaunchpadTargetAction> | DirectiveQuickPickItem)[] {
-		const information: (
-			| QuickPickItemOfT<LaunchpadAction>
-			| QuickPickItemOfT<LaunchpadTargetAction>
-			| DirectiveQuickPickItem
-		)[] = [];
-		switch (item.actionableCategory) {
-			case 'mergeable':
-				information.push(
-					createQuickPickSeparator('Status'),
-					this.getLaunchpadItemStatusInformation(item),
-					...this.getLaunchpadItemReviewInformation(item),
-				);
-				break;
-			case 'failed-checks':
-			case 'conflicts':
-				information.push(createQuickPickSeparator('Status'), this.getLaunchpadItemStatusInformation(item));
-				break;
-			case 'unassigned-reviewers':
-			case 'needs-my-review':
-			case 'changes-requested':
-			case 'reviewer-commented':
-			case 'waiting-for-review':
-				information.push(
-					createQuickPickSeparator('Reviewers'),
-					...this.getLaunchpadItemReviewInformation(item),
-				);
-				break;
-			default:
-				break;
-		}
-
-		if (item.codeSuggestions?.value != null && item.codeSuggestions.value.length > 0) {
-			if (information.length > 0) {
-				information.push(createDirectiveQuickPickItem(Directive.Noop, false, { label: '' }));
-			}
-
-			information.push(
-				createQuickPickSeparator('Suggestions'),
-				...this.getLaunchpadItemCodeSuggestionInformation(item),
-			);
-		}
-
-		if (information.length > 0) {
-			information.push(createDirectiveQuickPickItem(Directive.Noop, false, { label: '' }));
-		}
-
-		return information;
-	}
-
-	private getLaunchpadItemStatusInformation(item: LaunchpadItem): QuickPickItemOfT<LaunchpadAction> {
-		let status: string | undefined;
-		const base = item.baseRef?.name != null ? `$(git-branch) ${item.baseRef.name}` : '';
-		const ciStatus = item.headCommit?.buildStatuses?.[0].state;
-		if (ciStatus === ProviderBuildStatusState.Success) {
-			if (item.hasConflicts) {
-				status = `$(error) Conflicts with ${base}, but passed CI checks`;
-			} else {
-				status = `$(pass) No conflicts, and passed CI checks`;
-			}
-		} else if (ciStatus === ProviderBuildStatusState.Failed) {
-			if (item.hasConflicts) {
-				status = `$(error) Conflicts with ${base}, and failed CI checks`;
-			} else {
-				status = `$(error) No conflicts, but failed CI checks`;
-			}
-		} else if (item.hasConflicts) {
-			status = `$(error) Conflicts with ${base}`;
-		} else {
-			status = `$(pass) No conflicts`;
-		}
-
-		const gitProviderWebButtons = getOpenOnGitProviderQuickInputButtons(item.provider.id);
-		return createQuickPickItemOfT({ label: status, buttons: [...gitProviderWebButtons] }, 'soft-open');
-	}
-
-	private getLaunchpadItemReviewInformation(item: LaunchpadItem): QuickPickItemOfT<LaunchpadAction>[] {
-		const gitProviderWebButtons = getOpenOnGitProviderQuickInputButtons(item.provider.id);
-		if (item.reviews == null || item.reviews.length === 0) {
-			return [
-				createQuickPickItemOfT(
-					{ label: `$(info) No reviewers have been assigned`, buttons: [...gitProviderWebButtons] },
-					'soft-open',
-				),
-			];
-		}
-
-		const reviewInfo: QuickPickItemOfT<LaunchpadAction>[] = [];
-
-		for (const review of item.reviews) {
-			const isCurrentUser = review.reviewer.username === item.currentViewer.username;
-			let reviewLabel: string | undefined;
-			const iconPath = review.reviewer.avatarUrl != null ? Uri.parse(review.reviewer.avatarUrl) : undefined;
-			switch (review.state) {
-				case ProviderPullRequestReviewState.Approved:
-					reviewLabel = `${isCurrentUser ? 'You' : review.reviewer.username} approved these changes`;
-					break;
-				case ProviderPullRequestReviewState.ChangesRequested:
-					reviewLabel = `${isCurrentUser ? 'You' : review.reviewer.username} requested changes`;
-					break;
-				case ProviderPullRequestReviewState.Commented:
-					reviewLabel = `${isCurrentUser ? 'You' : review.reviewer.username} left a comment review`;
-					break;
-				case ProviderPullRequestReviewState.ReviewRequested:
-					reviewLabel = `${
-						isCurrentUser ? `You haven't` : `${review.reviewer.username} hasn't`
-					} reviewed these changes yet`;
-					break;
-			}
-
-			if (reviewLabel != null) {
-				reviewInfo.push(
-					createQuickPickItemOfT(
-						{ label: reviewLabel, iconPath: iconPath, buttons: [...gitProviderWebButtons] },
-						'soft-open',
-					),
-				);
-			}
-		}
-
-		return reviewInfo;
-	}
-
-	private getLaunchpadItemCodeSuggestionInformation(
-		item: LaunchpadItem,
-	): (QuickPickItemOfT<LaunchpadTargetAction> | DirectiveQuickPickItem)[] {
-		if (item.codeSuggestions?.value == null || item.codeSuggestions.value.length === 0) {
-			return [];
-		}
-
-		const codeSuggestionInfo: (QuickPickItemOfT<LaunchpadTargetAction> | DirectiveQuickPickItem)[] = [
-			createDirectiveQuickPickItem(Directive.Noop, false, {
-				label: `$(gitlens-code-suggestion) ${pluralize('code suggestion', item.codeSuggestions.value.length)}`,
-			}),
-		];
-
-		for (const suggestion of item.codeSuggestions.value) {
-			codeSuggestionInfo.push(
-				createQuickPickItemOfT(
-					{
-						label: `    ${suggestion.author.name} suggested a code change ${fromNow(
-							suggestion.createdAt,
-						)}: "${suggestion.title}"`,
-						iconPath: suggestion.author.avatarUri ?? getAvatarUri(suggestion.author.email),
-						buttons: [OpenOnWebQuickInputButton],
-					},
-					{
-						action: 'open-suggestion',
-						target: suggestion.id,
-					},
-				),
-			);
-		}
-
-		return codeSuggestionInfo;
-	}
-
-	private getOpenActionLabel(actionCategory: string) {
-		switch (actionCategory) {
-			case 'unassigned-reviewers':
-				return 'Assign Reviewers';
-			case 'failed-checks':
-				return 'Resolve Failing Checks';
-			case 'conflicts':
-				return 'Resolve Conflicts';
-			case 'needs-my-review':
-				return 'Start Reviewing';
-			case 'changes-requested':
-			case 'reviewer-commented':
-				return 'Respond to Reviewers';
-			case 'waiting-for-review':
-				return 'Check In with Reviewers';
-			case 'draft':
-				return 'View draft';
-			default:
-				return 'Open';
-		}
 	}
 
 	private sendItemActionTelemetry(
@@ -1258,6 +1214,181 @@ export class LaunchpadCommand extends QuickCommand<State> {
 	}
 }
 
+function getLaunchpadItemInformationRows(
+	item: LaunchpadItem,
+): (QuickPickItemOfT<LaunchpadAction> | QuickPickItemOfT<LaunchpadTargetAction> | DirectiveQuickPickItem)[] {
+	const information: (
+		| QuickPickItemOfT<LaunchpadAction>
+		| QuickPickItemOfT<LaunchpadTargetAction>
+		| DirectiveQuickPickItem
+	)[] = [];
+	switch (item.actionableCategory) {
+		case 'mergeable':
+			information.push(
+				createQuickPickSeparator('Status'),
+				getLaunchpadItemStatusInformation(item),
+				...getLaunchpadItemReviewInformation(item),
+			);
+			break;
+		case 'failed-checks':
+		case 'conflicts':
+			information.push(createQuickPickSeparator('Status'), getLaunchpadItemStatusInformation(item));
+			break;
+		case 'unassigned-reviewers':
+		case 'needs-my-review':
+		case 'changes-requested':
+		case 'reviewer-commented':
+		case 'waiting-for-review':
+			information.push(createQuickPickSeparator('Reviewers'), ...getLaunchpadItemReviewInformation(item));
+			break;
+		default:
+			break;
+	}
+
+	if (item.codeSuggestions?.value != null && item.codeSuggestions.value.length > 0) {
+		if (information.length > 0) {
+			information.push(createDirectiveQuickPickItem(Directive.Noop, false, { label: '' }));
+		}
+
+		information.push(createQuickPickSeparator('Suggestions'), ...getLaunchpadItemCodeSuggestionInformation(item));
+	}
+
+	if (information.length > 0) {
+		information.push(createDirectiveQuickPickItem(Directive.Noop, false, { label: '' }));
+	}
+
+	return information;
+}
+
+function getLaunchpadItemStatusInformation(item: LaunchpadItem): QuickPickItemOfT<LaunchpadAction> {
+	let status: string | undefined;
+	const base = item.baseRef?.name != null ? `$(git-branch) ${item.baseRef.name}` : '';
+	const ciStatus = item.headCommit?.buildStatuses?.[0].state;
+	if (ciStatus === ProviderBuildStatusState.Success) {
+		if (item.hasConflicts) {
+			status = `$(error) Conflicts with ${base}, but passed CI checks`;
+		} else {
+			status = `$(pass) No conflicts, and passed CI checks`;
+		}
+	} else if (ciStatus === ProviderBuildStatusState.Failed) {
+		if (item.hasConflicts) {
+			status = `$(error) Conflicts with ${base}, and failed CI checks`;
+		} else {
+			status = `$(error) No conflicts, but failed CI checks`;
+		}
+	} else if (item.hasConflicts) {
+		status = `$(error) Conflicts with ${base}`;
+	} else {
+		status = `$(pass) No conflicts`;
+	}
+
+	const gitProviderWebButtons = getOpenOnGitProviderQuickInputButtons(item.provider.id);
+	return createQuickPickItemOfT({ label: status, buttons: [...gitProviderWebButtons] }, 'soft-open');
+}
+
+function getLaunchpadItemReviewInformation(item: LaunchpadItem): QuickPickItemOfT<LaunchpadAction>[] {
+	const gitProviderWebButtons = getOpenOnGitProviderQuickInputButtons(item.provider.id);
+	if (item.reviews == null || item.reviews.length === 0) {
+		return [
+			createQuickPickItemOfT(
+				{ label: `$(info) No reviewers have been assigned`, buttons: [...gitProviderWebButtons] },
+				'soft-open',
+			),
+		];
+	}
+
+	const reviewInfo: QuickPickItemOfT<LaunchpadAction>[] = [];
+
+	for (const review of item.reviews) {
+		const isCurrentUser = review.reviewer.username === item.currentViewer.username;
+		let reviewLabel: string | undefined;
+		const iconPath = review.reviewer.avatarUrl != null ? Uri.parse(review.reviewer.avatarUrl) : undefined;
+		switch (review.state) {
+			case ProviderPullRequestReviewState.Approved:
+				reviewLabel = `${isCurrentUser ? 'You' : review.reviewer.username} approved these changes`;
+				break;
+			case ProviderPullRequestReviewState.ChangesRequested:
+				reviewLabel = `${isCurrentUser ? 'You' : review.reviewer.username} requested changes`;
+				break;
+			case ProviderPullRequestReviewState.Commented:
+				reviewLabel = `${isCurrentUser ? 'You' : review.reviewer.username} left a comment review`;
+				break;
+			case ProviderPullRequestReviewState.ReviewRequested:
+				reviewLabel = `${
+					isCurrentUser ? `You haven't` : `${review.reviewer.username} hasn't`
+				} reviewed these changes yet`;
+				break;
+		}
+
+		if (reviewLabel != null) {
+			reviewInfo.push(
+				createQuickPickItemOfT(
+					{ label: reviewLabel, iconPath: iconPath, buttons: [...gitProviderWebButtons] },
+					'soft-open',
+				),
+			);
+		}
+	}
+
+	return reviewInfo;
+}
+
+function getLaunchpadItemCodeSuggestionInformation(
+	item: LaunchpadItem,
+): (QuickPickItemOfT<LaunchpadTargetAction> | DirectiveQuickPickItem)[] {
+	if (item.codeSuggestions?.value == null || item.codeSuggestions.value.length === 0) {
+		return [];
+	}
+
+	const codeSuggestionInfo: (QuickPickItemOfT<LaunchpadTargetAction> | DirectiveQuickPickItem)[] = [
+		createDirectiveQuickPickItem(Directive.Noop, false, {
+			label: `$(gitlens-code-suggestion) ${pluralize('code suggestion', item.codeSuggestions.value.length)}`,
+		}),
+	];
+
+	for (const suggestion of item.codeSuggestions.value) {
+		codeSuggestionInfo.push(
+			createQuickPickItemOfT(
+				{
+					label: `    ${suggestion.author.name} suggested a code change ${fromNow(suggestion.createdAt)}: "${
+						suggestion.title
+					}"`,
+					iconPath: suggestion.author.avatarUri ?? getAvatarUri(suggestion.author.email),
+					buttons: [OpenOnWebQuickInputButton],
+				},
+				{
+					action: 'open-suggestion',
+					target: suggestion.id,
+				},
+			),
+		);
+	}
+
+	return codeSuggestionInfo;
+}
+
+function getOpenActionLabel(actionCategory: string) {
+	switch (actionCategory) {
+		case 'unassigned-reviewers':
+			return 'Assign Reviewers';
+		case 'failed-checks':
+			return 'Resolve Failing Checks';
+		case 'conflicts':
+			return 'Resolve Conflicts';
+		case 'needs-my-review':
+			return 'Start Reviewing';
+		case 'changes-requested':
+		case 'reviewer-commented':
+			return 'Respond to Reviewers';
+		case 'waiting-for-review':
+			return 'Check In with Reviewers';
+		case 'draft':
+			return 'View draft';
+		default:
+			return 'Open';
+	}
+}
+
 function getOpenOnGitProviderQuickInputButton(integrationId: string): QuickInputButton | undefined {
 	switch (integrationId) {
 		case HostingIntegrationId.GitLab:
@@ -1289,8 +1420,13 @@ function getIntegrationTitle(integrationId: string): string {
 	}
 }
 
-async function updateContextItems(container: Container, context: Context, options?: { force?: boolean }) {
-	context.result = await container.launchpad.getCategorizedItems(options);
+async function updateContextItems(
+	container: Container,
+	context: Context,
+	options?: { force?: boolean; search?: string },
+	cancellation?: CancellationToken,
+) {
+	context.result = await container.launchpad.getCategorizedItems(options, cancellation);
 	if (container.telemetry.enabled) {
 		updateTelemetryContext(context);
 	}

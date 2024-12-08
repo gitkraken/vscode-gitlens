@@ -19,7 +19,6 @@ import { configuration } from '../../system/vscode/configuration';
 import { getContext } from '../../system/vscode/context';
 import { SearchResultsNode } from '../../views/nodes/searchResultsNode';
 import type { ViewsWithRepositoryFolders } from '../../views/viewBase';
-import { getSteps } from '../gitCommands.utils';
 import type {
 	PartialStepState,
 	QuickPickStep,
@@ -44,6 +43,7 @@ import {
 	ShowResultsInSideBarQuickInputButton,
 } from '../quickCommand.buttons';
 import { appendReposToTitle, pickCommitStep, pickRepositoryStep } from '../quickCommand.steps';
+import { getSteps } from '../quickWizard.utils';
 
 const UseAuthorPickerQuickInputButton: QuickInputButton = {
 	iconPath: new ThemeIcon('person-add'),
@@ -138,7 +138,7 @@ export class SearchGitCommand extends QuickCommand<State> {
 		const context: Context = {
 			container: this.container,
 			repos: this.container.git.openRepositories,
-			associatedView: this.container.searchAndCompareView,
+			associatedView: this.container.views.searchAndCompare,
 			commit: undefined,
 			hasVirtualFolders: getContext('gitlens:hasVirtualFolders', false),
 			resultsKey: undefined,
@@ -208,12 +208,12 @@ export class SearchGitCommand extends QuickCommand<State> {
 			const searchKey = getSearchQueryComparisonKey(search);
 
 			if (context.resultsPromise == null || context.resultsKey !== searchKey) {
-				context.resultsPromise = state.repo.richSearchCommits(search);
+				context.resultsPromise = state.repo.git.richSearchCommits(search);
 				context.resultsKey = searchKey;
 			}
 
 			if (state.showResultsInSideBar) {
-				void this.container.searchAndCompareView.search(
+				void this.container.views.searchAndCompare.search(
 					state.repo.path,
 					search,
 					{
@@ -242,7 +242,7 @@ export class SearchGitCommand extends QuickCommand<State> {
 					showInSideBarCommand: new ActionQuickPickItem(
 						'$(link-external)  Show Results in Side Bar',
 						() =>
-							void this.container.searchAndCompareView.search(
+							void this.container.views.searchAndCompare.search(
 								repoPath,
 								search,
 								{
@@ -259,7 +259,7 @@ export class SearchGitCommand extends QuickCommand<State> {
 					showInSideBarButton: {
 						button: ShowResultsInSideBarQuickInputButton,
 						onDidClick: () =>
-							void this.container.searchAndCompareView.search(
+							void this.container.views.searchAndCompare.search(
 								repoPath,
 								search,
 								{

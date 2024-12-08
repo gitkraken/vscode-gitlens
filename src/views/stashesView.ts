@@ -34,6 +34,9 @@ export class StashesRepositoryNode extends RepositoryFolderNode<StashesView, Sta
 
 export class StashesViewNode extends RepositoriesSubscribeableNode<StashesView, StashesRepositoryNode> {
 	async getChildren(): Promise<ViewNode[]> {
+		this.view.description = this.view.getViewDescription();
+		this.view.message = undefined;
+
 		if (this.children == null) {
 			let repositories = this.view.container.git.openRepositories;
 			if (configuration.get('views.collapseWorktreesWhenPossible')) {
@@ -49,8 +52,6 @@ export class StashesViewNode extends RepositoriesSubscribeableNode<StashesView, 
 				return [];
 			}
 
-			this.view.message = undefined;
-
 			const splat = repositories.length === 1;
 			this.children = repositories.map(
 				r => new StashesRepositoryNode(GitUri.fromRepoPath(r.path), this.view, this, r, splat),
@@ -60,23 +61,18 @@ export class StashesViewNode extends RepositoriesSubscribeableNode<StashesView, 
 		if (this.children.length === 1) {
 			const [child] = this.children;
 
-			const stash = await child.repo.getStash();
-			if (stash == null || stash.commits.size === 0) {
+			const gitStash = await child.repo.git.getStash();
+			if (!gitStash?.stashes.size) {
 				this.view.message = 'No stashes could be found.';
-				this.view.title = 'Stashes';
-
 				void child.ensureSubscription();
 
 				return [];
 			}
 
-			this.view.message = undefined;
-			this.view.title = `Stashes (${stash.commits.size})`;
+			this.view.description = this.view.getViewDescription(gitStash.stashes.size);
 
 			return child.getChildren();
 		}
-
-		this.view.title = 'Stashes';
 
 		return this.children;
 	}
@@ -90,8 +86,8 @@ export class StashesViewNode extends RepositoriesSubscribeableNode<StashesView, 
 export class StashesView extends ViewBase<'stashes', StashesViewNode, StashesViewConfig> {
 	protected readonly configKey = 'stashes';
 
-	constructor(container: Container) {
-		super(container, 'stashes', 'Stashes', 'stashesView');
+	constructor(container: Container, grouped?: boolean) {
+		super(container, 'stashes', 'Stashes', 'stashesView', grouped);
 	}
 
 	override get canReveal(): boolean {
@@ -107,8 +103,6 @@ export class StashesView extends ViewBase<'stashes', StashesViewNode, StashesVie
 	}
 
 	protected registerCommands(): Disposable[] {
-		void this.container.viewCommands;
-
 		return [
 			registerViewCommand(
 				this.getQualifiedCommand('copy'),

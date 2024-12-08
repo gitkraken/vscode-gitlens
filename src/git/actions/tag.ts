@@ -26,7 +26,7 @@ export function remove(repo?: string | Repository, refs?: GitTagReference | GitT
 	});
 }
 
-export async function reveal(
+export function reveal(
 	tag: GitTagReference,
 	options?: {
 		select?: boolean;
@@ -34,12 +34,5 @@ export async function reveal(
 		expand?: boolean | number;
 	},
 ) {
-	const view = Container.instance.tagsView;
-	const node = view.canReveal
-		? await view.revealTag(tag, options)
-		: await Container.instance.repositoriesView.revealTag(tag, options);
-	if (node == null) {
-		void view.show({ preserveFocus: !options?.focus });
-	}
-	return node;
+	return Container.instance.views.revealTag(tag, options);
 }

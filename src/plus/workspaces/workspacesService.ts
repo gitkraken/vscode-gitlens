@@ -10,7 +10,7 @@ import { log } from '../../system/decorators/log';
 import { normalizePath } from '../../system/path';
 import type { OpenWorkspaceLocation } from '../../system/vscode/utils';
 import { openWorkspace } from '../../system/vscode/utils';
-import { SubscriptionState } from '../gk/account/subscription';
+import { isSubscriptionStatePaidOrTrial } from '../gk/account/subscription';
 import type { SubscriptionChangeEvent } from '../gk/account/subscriptionService';
 import type { ServerConnection } from '../gk/serverConnection';
 import type {
@@ -115,11 +115,7 @@ export class WorkspacesService implements Disposable {
 		}
 
 		let filteredSharedWorkspaceCount = 0;
-		const isPlusEnabled =
-			subscription.state === SubscriptionState.FreeInPreviewTrial ||
-			subscription.state === SubscriptionState.FreePlusInTrial ||
-			subscription.state === SubscriptionState.Paid;
-
+		const isPlusEnabled = isSubscriptionStatePaidOrTrial(subscription.state);
 		if (workspaces?.length) {
 			for (const workspace of workspaces) {
 				const localPath = await this._workspacesPathProvider.getCloudWorkspaceCodeWorkspacePath(workspace.id);
@@ -323,7 +319,7 @@ export class WorkspacesService implements Disposable {
 			const change = { title: 'Change Auto-Add Behavior...' };
 			const cancel = { title: 'Cancel', isCloseAffordance: true };
 			const addChoice = await window.showInformationMessage(
-				'New repositories found in the linked GitKraken workspace. Would you like to add them to the current VS Code workspace?',
+				'New repositories found in the linked Cloud workspace. Would you like to add them to the current VS Code workspace?',
 				add,
 				change,
 				cancel,
@@ -479,7 +475,7 @@ export class WorkspacesService implements Disposable {
 
 		const repoPath = repo.uri.fsPath;
 
-		const remotes = await repo.getRemotes();
+		const remotes = await repo.git.getRemotes();
 		const remoteUrls: string[] = [];
 		for (const remote of remotes) {
 			const remoteUrl = remote.provider?.url({ type: RemoteResourceType.Repo });
@@ -551,7 +547,7 @@ export class WorkspacesService implements Disposable {
 		if (options?.repos != null && options.repos.length > 0) {
 			// Currently only GitHub is supported.
 			for (const repo of options.repos) {
-				const repoRemotes = await repo.getRemotes({ filter: r => r.domain === 'github.com' });
+				const repoRemotes = await repo.git.getRemotes({ filter: r => r.domain === 'github.com' });
 				if (repoRemotes.length === 0) {
 					await window.showErrorMessage(
 						`Only GitHub is supported for this operation. Please ensure all open repositories are hosted on GitHub.`,
@@ -630,8 +626,8 @@ export class WorkspacesService implements Disposable {
 			if (!workspaceProvider) return;
 
 			if (
-				workspaceProvider == CloudWorkspaceProviderInputType.GitHubEnterprise ||
-				workspaceProvider == CloudWorkspaceProviderInputType.GitLabSelfHosted
+				workspaceProvider === CloudWorkspaceProviderInputType.GitHubEnterprise ||
+				workspaceProvider === CloudWorkspaceProviderInputType.GitLabSelfHosted
 			) {
 				hostUrl = await new Promise<string | undefined>(resolve => {
 					disposables.push(
@@ -656,7 +652,7 @@ export class WorkspacesService implements Disposable {
 				if (!hostUrl) return;
 			}
 
-			if (workspaceProvider == CloudWorkspaceProviderInputType.Azure) {
+			if (workspaceProvider === CloudWorkspaceProviderInputType.Azure) {
 				azureOrganizationName = await new Promise<string | undefined>(resolve => {
 					disposables.push(
 						input.onDidHide(() => resolve(undefined)),
@@ -773,7 +769,7 @@ export class WorkspacesService implements Disposable {
 			{ title: 'Confirm' },
 			{ title: 'Cancel', isCloseAffordance: true },
 		);
-		if (confirmation == null || confirmation.title == 'Cancel') return;
+		if (confirmation == null || confirmation.title === 'Cancel') return;
 		try {
 			const response = await this._workspacesApi.deleteWorkspace(workspaceId);
 			if (response?.data?.delete_project?.id === workspaceId) {
@@ -791,7 +787,7 @@ export class WorkspacesService implements Disposable {
 	): Promise<Repository[]> {
 		const validRepos: Repository[] = [];
 		for (const repo of repos) {
-			const matchingRemotes = await repo.getRemotes({
+			const matchingRemotes = await repo.git.getRemotes({
 				filter: r => r.provider?.id === cloudWorkspaceProviderTypeToRemoteProviderId[provider],
 			});
 			if (matchingRemotes.length) {
@@ -917,7 +913,7 @@ export class WorkspacesService implements Disposable {
 					? repoOrPath
 					: await this.container.git.getOrOpenRepository(Uri.file(repoOrPath), { closeOnOpen: true });
 			if (repo == null) continue;
-			const remote = (await repo.getRemote('origin')) || (await repo.getRemotes())?.[0];
+			const remote = (await repo.git.getRemote('origin')) || (await repo.git.getRemotes())?.[0];
 			const remoteDescriptor = getRemoteDescriptor(remote);
 			if (remoteDescriptor == null) continue;
 			repoInputs.push({
@@ -990,7 +986,7 @@ export class WorkspacesService implements Disposable {
 			{ title: 'Confirm' },
 			{ title: 'Cancel', isCloseAffordance: true },
 		);
-		if (confirmation == null || confirmation.title == 'Cancel') return;
+		if (confirmation == null || confirmation.title === 'Cancel') return;
 		try {
 			const response = await this._workspacesApi.removeReposFromWorkspace(workspaceId, [
 				{ owner: descriptor.provider_organization_id, repoName: descriptor.name },
@@ -1052,7 +1048,7 @@ export class WorkspacesService implements Disposable {
 			reposPathMap.set(normalizePath(repo.uri.fsPath.toLowerCase()), repo);
 
 			if (workspace instanceof CloudWorkspace) {
-				const remotes = await repo.getRemotes();
+				const remotes = await repo.git.getRemotes();
 				for (const remote of remotes) {
 					const remoteDescriptor = getRemoteDescriptor(remote);
 					if (remoteDescriptor == null) continue;
@@ -1152,7 +1148,7 @@ export class WorkspacesService implements Disposable {
 				{ title: 'Continue' },
 				{ title: 'Cancel', isCloseAffordance: true },
 			);
-			if (confirmation == null || confirmation.title == 'Cancel') return;
+			if (confirmation == null || confirmation.title === 'Cancel') return;
 		}
 
 		// Have the user choose a name and location for the new workspace file
@@ -1270,7 +1266,7 @@ export class WorkspacesService implements Disposable {
 				{ title: 'Cancel', isCloseAffordance: true },
 			);
 
-			if (create == null || create.title == 'Cancel') return;
+			if (create == null || create.title === 'Cancel') return;
 			return void this.saveAsCodeWorkspaceFile(workspaceId);
 		}
 
@@ -1284,7 +1280,7 @@ export class WorkspacesService implements Disposable {
 				{ title: 'Cancel', isCloseAffordance: true },
 			);
 
-			if (openLocationChoice == null || openLocationChoice.title == 'Cancel') return;
+			if (openLocationChoice == null || openLocationChoice.title === 'Cancel') return;
 			openLocation = openLocationChoice.location ?? 'newWindow';
 		}
 

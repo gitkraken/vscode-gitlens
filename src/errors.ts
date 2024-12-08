@@ -14,7 +14,7 @@ export class AccessDeniedError extends Error {
 		if (subscription.account?.verified === false) {
 			message = 'Email verification required';
 		} else if (required != null && isSubscriptionPaidPlan(required)) {
-			message = 'Paid plan required';
+			message = 'GitLens Pro required';
 		} else {
 			message = 'Plan required';
 		}
@@ -207,6 +207,14 @@ export class ProviderNotFoundError extends Error {
 		);
 
 		Error.captureStackTrace?.(this, ProviderNotFoundError);
+	}
+}
+
+export class ProviderNotSupportedError extends Error {
+	constructor(provider: string) {
+		super(`Action is not supported on the ${provider} provider.`);
+
+		Error.captureStackTrace?.(this, ProviderNotSupportedError);
 	}
 }
 

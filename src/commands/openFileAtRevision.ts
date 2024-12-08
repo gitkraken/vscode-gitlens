@@ -12,6 +12,7 @@ import { showCommitPicker } from '../quickpicks/commitPicker';
 import { CommandQuickPickItem } from '../quickpicks/items/common';
 import type { DirectiveQuickPickItem } from '../quickpicks/items/directive';
 import { createDirectiveQuickPickItem, Directive } from '../quickpicks/items/directive';
+import { createMarkdownCommandLink } from '../system/commands';
 import { Logger } from '../system/logger';
 import { pad } from '../system/string';
 import { command } from '../system/vscode/command';
@@ -30,9 +31,9 @@ export interface OpenFileAtRevisionCommandArgs {
 
 @command()
 export class OpenFileAtRevisionCommand extends ActiveEditorCommand {
-	static getMarkdownCommandArgs(args: OpenFileAtRevisionCommandArgs): string;
-	static getMarkdownCommandArgs(revisionUri: Uri, annotationType?: FileAnnotationType, line?: number): string;
-	static getMarkdownCommandArgs(
+	static createMarkdownCommandLink(args: OpenFileAtRevisionCommandArgs): string;
+	static createMarkdownCommandLink(revisionUri: Uri, annotationType?: FileAnnotationType, line?: number): string;
+	static createMarkdownCommandLink(
 		argsOrUri: OpenFileAtRevisionCommandArgs | Uri,
 		annotationType?: FileAnnotationType,
 		line?: number,
@@ -50,7 +51,7 @@ export class OpenFileAtRevisionCommand extends ActiveEditorCommand {
 			args = argsOrUri;
 		}
 
-		return super.getMarkdownCommandArgsCore<OpenFileAtRevisionCommandArgs>(Commands.OpenFileAtRevision, args);
+		return createMarkdownCommandLink<OpenFileAtRevisionCommandArgs>(Commands.OpenFileAtRevision, args);
 	}
 
 	constructor(private readonly container: Container) {
@@ -142,7 +143,7 @@ export class OpenFileAtRevisionCommand extends ActiveEditorCommand {
 									getState: async () => {
 										const items: (CommandQuickPickItem | DirectiveQuickPickItem)[] = [];
 
-										const status = await this.container.git.getStatusForRepo(gitUri.repoPath);
+										const status = await this.container.git.getStatus(gitUri.repoPath);
 										if (status != null) {
 											for (const f of status.files) {
 												if (f.workingTreeStatus === '?' || f.workingTreeStatus === '!') {

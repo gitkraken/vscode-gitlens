@@ -73,7 +73,7 @@ export const FeedbackQuickInputButton: QuickInputButton = {
 };
 
 export const FetchQuickInputButton: QuickInputButton = {
-	iconPath: new ThemeIcon('gitlens-repo-fetch'),
+	iconPath: new ThemeIcon('repo-fetch'),
 	tooltip: 'Fetch',
 };
 
@@ -130,6 +130,11 @@ export const LearnAboutProQuickInputButton: QuickInputButton = {
 export const MergeQuickInputButton: QuickInputButton = {
 	iconPath: new ThemeIcon('merge'),
 	tooltip: 'Merge...',
+};
+
+export const OpenOnJiraQuickInputButton: QuickInputButton = {
+	iconPath: new ThemeIcon('globe'),
+	tooltip: 'Open on Jira',
 };
 
 export const OpenOnGitHubQuickInputButton: QuickInputButton = {

@@ -93,7 +93,7 @@ export class GitWorktree {
 			// eslint-disable-next-line no-async-promise-executor
 			this._statusPromise = new Promise(async (resolve, reject) => {
 				try {
-					const status = await Container.instance.git.getStatusForRepo(this.uri.fsPath);
+					const status = await Container.instance.git.getStatus(this.uri.fsPath);
 					this._status = status;
 					resolve(status);
 				} catch (ex) {
@@ -228,25 +228,37 @@ export async function getWorktreeForBranch(
 		upstreamNames = [upstreamNames];
 	}
 
-	worktrees ??= await repo.getWorktrees();
+	function matches(branch: GitBranch): boolean {
+		return (
+			branch.upstream?.name != null &&
+			(upstreamNames!.includes(branch.upstream.name) ||
+				(branch.upstream.name.startsWith('remotes/') &&
+					upstreamNames!.includes(branch.upstream.name.substring(8))))
+		);
+	}
+
+	worktrees ??= await repo.git.getWorktrees();
 	for (const worktree of worktrees) {
 		if (worktree.branch?.name === branchName) return worktree;
 
 		if (upstreamNames == null || worktree.branch == null) continue;
 
-		branches ??= new PageableResult<GitBranch>(p => repo.getBranches(p != null ? { paging: p } : undefined));
-		for await (const branch of branches.values()) {
-			if (branch.name === worktree.branch.name) {
-				if (
-					branch.upstream?.name != null &&
-					(upstreamNames.includes(branch.upstream.name) ||
-						(branch.upstream.name.startsWith('remotes/') &&
-							upstreamNames.includes(branch.upstream.name.substring(8))))
-				) {
-					return worktree;
-				}
+		branches ??= new PageableResult<GitBranch>(p => repo.git.getBranches(p != null ? { paging: p } : undefined));
 
-				break;
+		const values = branches.values();
+		if (Symbol.asyncIterator in values) {
+			for await (const branch of values) {
+				if (branch.name === worktree.branch.name) {
+					if (matches(branch)) return worktree;
+					break;
+				}
+			}
+		} else {
+			for (const branch of values) {
+				if (branch.name === worktree.branch.name) {
+					if (matches(branch)) return worktree;
+					break;
+				}
 			}
 		}
 	}
@@ -346,7 +358,7 @@ export async function getWorktreesByBranch(
 	if (repos == null) return worktreesByBranch;
 
 	async function addWorktrees(repo: Repository) {
-		groupWorktreesByBranch(await repo.getWorktrees(), {
+		groupWorktreesByBranch(await repo.git.getWorktrees(), {
 			includeDefault: options?.includeDefault,
 			worktreesByBranch: worktreesByBranch,
 		});

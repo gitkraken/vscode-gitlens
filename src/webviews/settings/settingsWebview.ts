@@ -1,6 +1,8 @@
 import type { ConfigurationChangeEvent, ViewColumn } from 'vscode';
 import { ConfigurationTarget, Disposable, workspace } from 'vscode';
 import { extensionPrefix } from '../../constants';
+import { IssueIntegrationId } from '../../constants.integrations';
+import type { WebviewTelemetryContext } from '../../constants.telemetry';
 import type { Container } from '../../container';
 import { CommitFormatter } from '../../git/formatters/commitFormatter';
 import { GitCommit, GitCommitIdentity } from '../../git/models/commit';
@@ -8,7 +10,6 @@ import { GitFileChange, GitFileIndexStatus } from '../../git/models/file';
 import { PullRequest } from '../../git/models/pullRequest';
 import type { SubscriptionChangeEvent } from '../../plus/gk/account/subscriptionService';
 import type { ConnectionStateChangeEvent } from '../../plus/integrations/integrationService';
-import { IssueIntegrationId } from '../../plus/integrations/providers/models';
 import { map } from '../../system/iterable';
 import type { ConfigPath, CoreConfigPath } from '../../system/vscode/configuration';
 import { configuration } from '../../system/vscode/configuration';
@@ -46,6 +47,12 @@ export class SettingsWebviewProvider implements WebviewProvider<State, State, Se
 
 	dispose() {
 		this._disposable.dispose();
+	}
+
+	getTelemetryContext(): WebviewTelemetryContext {
+		return {
+			...this.host.getTelemetryContext(),
+		};
 	}
 
 	onSubscriptionChanged(e: SubscriptionChangeEvent) {
@@ -95,7 +102,7 @@ export class SettingsWebviewProvider implements WebviewProvider<State, State, Se
 		loading: boolean,
 		_options: { column?: ViewColumn; preserveFocus?: boolean },
 		...args: SettingsWebviewShowingArgs
-	): boolean | Promise<boolean> {
+	): [boolean, Record<`context.${string}`, string | number | boolean> | undefined] {
 		const anchor = args[0];
 		if (anchor && typeof anchor === 'string') {
 			if (!loading && this.host.ready && this.host.visible) {
@@ -106,13 +113,13 @@ export class SettingsWebviewProvider implements WebviewProvider<State, State, Se
 							scrollBehavior: 'smooth',
 						}),
 				);
-				return true;
+				return [true, undefined];
 			}
 
 			this._pendingJumpToAnchor = anchor;
 		}
 
-		return true;
+		return [true, undefined];
 	}
 
 	onActiveChanged(active: boolean): void {

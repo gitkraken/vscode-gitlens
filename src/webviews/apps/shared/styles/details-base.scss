@@ -1,3 +1,4 @@
+@use '../../shared/styles/utils';
 @use './theme';
 @use './scrollbars';
 
@@ -7,8 +8,7 @@
 	--gitlens-tree-foreground: var(--vscode-sideBar-foreground, var(--vscode-foreground));
 }
 
-.vscode-high-contrast,
-.vscode-dark {
+@include utils.dark-theme() {
 	--color-background--level-05: var(--color-background--lighten-05);
 	--color-background--level-075: var(--color-background--lighten-075);
 	--color-background--level-10: var(--color-background--lighten-10);
@@ -16,8 +16,7 @@
 	--color-background--level-30: var(--color-background--lighten-30);
 }
 
-.vscode-high-contrast-light,
-.vscode-light {
+@include utils.light-theme() {
 	--color-background--level-05: var(--color-background--darken-05);
 	--color-background--level-075: var(--color-background--darken-075);
 	--color-background--level-10: var(--color-background--darken-10);
@@ -203,10 +202,5 @@ ul {
 		overflow-x: hidden;
 		resize: vertical;
 		max-height: 20rem;
-		white-space: break-spaces;
-
-		.has-error & {
-			white-space: normal;
-		}
 	}
 }

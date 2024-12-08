@@ -1,6 +1,8 @@
 import { css, html, LitElement, nothing } from 'lit';
 import { customElement, property } from 'lit/decorators.js';
+import { ifDefined } from 'lit/directives/if-defined.js';
 import type { Promo } from '../../../../plus/gk/account/promos';
+import { typeCheck } from '../../../../system/function';
 
 @customElement('gl-promo')
 export class GlPromo extends LitElement {
@@ -52,6 +54,11 @@ export class GlPromo extends LitElement {
 	@property({ reflect: true, type: String })
 	type: 'link' | 'info' = 'info';
 
+	@property({ reflect: true, type: Boolean, attribute: 'has-promo' })
+	get hasPromo() {
+		return this.promo != null;
+	}
+
 	override render() {
 		if (!this.promo) return;
 
@@ -61,8 +68,8 @@ export class GlPromo extends LitElement {
 		if (this.type === 'link') {
 			return html`<a
 				class="link"
-				href="${this.promo.command ?? 'command:gitlens.plus.upgrade'}"
-				title="${this.promo.commandTooltip}"
+				href="${this.promo.command?.command ?? 'command:gitlens.plus.upgrade'}"
+				title="${ifDefined(this.promo.command?.tooltip)}"
 				>${promoHtml}</a
 			>`;
 		}
@@ -71,18 +78,22 @@ export class GlPromo extends LitElement {
 	}
 
 	private renderPromo(promo: Promo) {
-		// NOTE: Don't add a default case or return at the end, so that if we add a new promo the build will break without handling it
 		switch (promo.key) {
-			case 'pro50':
+			case 'gkholiday':
 				return html`<span class="content${this.type === 'link' ? nothing : ' muted'}"
-					>Limited-Time Sale: <b>Save 33% or more on your 1st seat of Pro.</b></span
+					>Get the gift of a better DevEx in 2025! <b>Save up to 80% now</b></span
 				>`;
 
-			case 'launchpad':
-			case 'launchpad-extended':
+			case 'pro50':
 				return html`<span class="content${this.type === 'link' ? nothing : ' muted'}"
-					>Launchpad Sale: <b>Save 75% or more on GitLens Pro.</b></span
+					><b>Save 33% or more</b> on your 1st seat of Pro</span
 				>`;
+
+			default: {
+				debugger;
+				typeCheck<never>(promo.key);
+				return nothing;
+			}
 		}
 	}
 }

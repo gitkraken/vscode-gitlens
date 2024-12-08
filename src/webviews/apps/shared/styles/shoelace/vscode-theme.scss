@@ -1,5 +1,7 @@
+@use '../../../shared/styles/utils';
+
 // raw dark color tokens, only referenced in this file
-:root:has(.vscode-dark, .vscode-high-contrast) {
+@include utils.dark-theme($selectorPrefix: ':root:has(', $selectorPostfix: ')') {
 	// color-scheme: dark;
 
 	--sl-color-red-50: hsl(0 56% 23.9%);
@@ -40,7 +42,7 @@
 }
 
 // raw light color tokens, only referenced in this file
-:root:has(.vscode-light, .vscode-high-contrast-light) {
+@include utils.light-theme($selectorPrefix: ':root:has(', $selectorPostfix: ')') {
 	// color-scheme: light;
 
 	--sl-color-red-50: hsl(0 85.7% 97.3%);

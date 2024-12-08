@@ -133,7 +133,9 @@ export interface GitHubIssue extends Omit<GitHubIssueOrPullRequest, '__typename'
 			login: string;
 		};
 		viewerPermission: GitHubViewerPermission;
+		url: string;
 	};
+	body: string;
 }
 
 export type GitHubPullRequestReviewDecision = 'CHANGES_REQUESTED' | 'APPROVED' | 'REVIEW_REQUIRED';
@@ -420,6 +422,7 @@ export function fromGitHubIssue(value: GitHubIssue, provider: Provider): Issue {
 			owner: value.repository.owner.login,
 			repo: value.repository.name,
 			accessLevel: fromGitHubViewerPermissionToAccessLevel(value.repository.viewerPermission),
+			url: value.repository.url,
 		},
 		value.assignees.nodes.map(assignee => ({
 			id: assignee.login,
@@ -436,6 +439,7 @@ export function fromGitHubIssue(value: GitHubIssue, provider: Provider): Issue {
 			  })),
 		value.comments?.totalCount,
 		value.reactions?.totalCount,
+		value.body,
 	);
 }
 

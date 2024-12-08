@@ -1,6 +1,5 @@
 import type { Range, Uri } from 'vscode';
-import type { DynamicAutolinkReference } from '../../annotations/autolinks';
-import type { AutolinkReference } from '../../config';
+import type { AutolinkReference, DynamicAutolinkReference } from '../../autolinks';
 import type { GkProviderId } from '../../gk/models/repositoryIdentities';
 import { isSha } from '../models/reference';
 import type { Repository } from '../models/repository';
@@ -34,15 +33,21 @@ export class GerritRemote extends RemoteProvider {
 		super(domain, path, protocol, name, custom);
 	}
 
+	protected override get issueLinkPattern(): string {
+		return `${this.baseReviewUrl}/q/<num>`;
+	}
+
 	private _autolinks: (AutolinkReference | DynamicAutolinkReference)[] | undefined;
 	override get autolinks(): (AutolinkReference | DynamicAutolinkReference)[] {
 		if (this._autolinks === undefined) {
 			this._autolinks = [
+				...super.autolinks,
 				{
 					prefix: 'Change-Id: ',
-					url: `${this.baseReviewUrl}/q/<num>`,
-					title: `Open Change #<num> on ${this.name}`,
+					url: this.issueLinkPattern,
 					alphanumeric: true,
+					ignoreCase: true,
+					title: `Open Change #<num> on ${this.name}`,
 
 					description: `${this.name} Change #<num>`,
 				},
@@ -103,7 +108,7 @@ export class GerritRemote extends RemoteProvider {
 		let index = path.indexOf('/', 1);
 		if (index !== -1) {
 			const sha = path.substring(1, index);
-			if (isSha(sha) || sha == 'HEAD') {
+			if (isSha(sha) || sha === 'HEAD') {
 				const uri = repository.toAbsoluteUri(path.substring(index), { validate: options?.validate });
 				if (uri != null) return { uri: uri, startLine: startLine };
 			}
@@ -124,7 +129,7 @@ export class GerritRemote extends RemoteProvider {
 			} while (index > 0);
 
 			if (possibleBranches.size !== 0) {
-				const { values: branches } = await repository.getBranches({
+				const { values: branches } = await repository.git.getBranches({
 					filter: b => b.remote && possibleBranches.has(b.getNameWithoutRemote()),
 				});
 				for (const branch of branches) {
@@ -154,7 +159,7 @@ export class GerritRemote extends RemoteProvider {
 			} while (index > 0);
 
 			if (possibleTags.size !== 0) {
-				const { values: tags } = await repository.getTags({
+				const { values: tags } = await repository.git.getTags({
 					filter: t => possibleTags.has(t.name),
 				});
 				for (const tag of tags) {

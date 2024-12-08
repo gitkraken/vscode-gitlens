@@ -3,7 +3,7 @@ import { getPlatform } from '@env/platform';
 import type { AttributeValue, Span, TimeInput } from '@opentelemetry/api';
 import type { Disposable } from 'vscode';
 import { version as codeVersion, env } from 'vscode';
-import type { Source, TelemetryEvents, TelemetryGlobalContext } from '../constants.telemetry';
+import type { Source, TelemetryEventData, TelemetryEvents, TelemetryGlobalContext } from '../constants.telemetry';
 import type { Container } from '../container';
 import { configuration } from '../system/vscode/configuration';
 
@@ -22,8 +22,6 @@ export interface TelemetryContext {
 	vscodeUIKind: string;
 	vscodeVersion: string;
 }
-
-export type TelemetryEventData = Record<string, AttributeValue | null | undefined>;
 
 export interface TelemetryProvider extends Disposable {
 	sendEvent(name: string, data?: Record<string, AttributeValue>, startTime?: TimeInput, endTime?: TimeInput): void;
@@ -134,15 +132,15 @@ export class TelemetryService implements Disposable {
 
 	sendEvent<T extends keyof TelemetryEvents>(
 		name: T,
-		data?: TelemetryEvents[T],
-		source?: Source,
-		startTime?: TimeInput,
-		endTime?: TimeInput,
+		...args: TelemetryEvents[T] extends void
+			? [data?: never, source?: Source, startTime?: TimeInput, endTime?: TimeInput]
+			: [data: TelemetryEvents[T], source?: Source, startTime?: TimeInput, endTime?: TimeInput]
 	): void {
 		if (!this._enabled) return;
 
-		assertsTelemetryEventData(data);
-		addSourceAttributes(source, data);
+		const [d, source, startTime, endTime] = args;
+		assertsTelemetryEventData(d);
+		const data = addSourceAttributes(source, d);
 
 		if (this.provider == null) {
 			this.eventQueue.push({
@@ -161,14 +159,17 @@ export class TelemetryService implements Disposable {
 
 	startEvent<T extends keyof TelemetryEvents>(
 		name: T,
-		data?: TelemetryEvents[T],
-		source?: Source,
-		startTime?: TimeInput,
+		...args: TelemetryEvents[T] extends void
+			? [data?: never, source?: Source, startTime?: TimeInput]
+			: [data: TelemetryEvents[T], source?: Source, startTime?: TimeInput]
 	): Disposable | undefined {
 		if (!this._enabled) return undefined;
 
-		assertsTelemetryEventData(data);
-		addSourceAttributes(source, data);
+		let [d, source, startTime] = args;
+		assertsTelemetryEventData(d);
+		const data = addSourceAttributes(source, d);
+
+		startTime = startTime ?? Date.now();
 
 		if (this.provider != null) {
 			const span = this.provider.startEvent(name, stripNullOrUndefinedAttributes(data), startTime);
@@ -177,9 +178,8 @@ export class TelemetryService implements Disposable {
 			};
 		}
 
-		startTime = startTime ?? Date.now();
 		return {
-			dispose: () => this.sendEvent(name, data, source, startTime, Date.now()),
+			dispose: () => this.sendEvent(name, d as any, source, startTime, Date.now() as TimeInput),
 		};
 	}
 
@@ -228,7 +228,7 @@ function addSourceAttributes(
 	source: Source | undefined,
 	data: Record<string, AttributeValue | null | undefined> | undefined,
 ) {
-	if (source == null) return;
+	if (source == null) return data;
 
 	data ??= {};
 	data['source.name'] = source.source;
@@ -241,6 +241,7 @@ function addSourceAttributes(
 			}
 		}
 	}
+	return data;
 }
 
 function stripNullOrUndefinedAttributes(data: Record<string, AttributeValue | null | undefined> | undefined) {

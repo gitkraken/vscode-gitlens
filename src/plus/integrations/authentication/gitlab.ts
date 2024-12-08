@@ -1,8 +1,8 @@
 import type { Disposable, QuickInputButton } from 'vscode';
 import { env, ThemeIcon, Uri, window } from 'vscode';
+import type { SelfHostedIntegrationId } from '../../../constants.integrations';
+import { HostingIntegrationId } from '../../../constants.integrations';
 import type { Container } from '../../../container';
-import type { SelfHostedIntegrationId } from '../providers/models';
-import { HostingIntegrationId } from '../providers/models';
 import type { IntegrationAuthenticationSessionDescriptor } from './integrationAuthentication';
 import {
 	CloudIntegrationAuthenticationProvider,

@@ -115,14 +115,12 @@ export class DraftsView extends ViewBase<'drafts', DraftsViewNode, DraftsViewCon
 	}
 
 	protected registerCommands(): Disposable[] {
-		void this.container.viewCommands;
-
 		return [
 			registerViewCommand(
 				this.getQualifiedCommand('info'),
 				() =>
 					executeCommand<OpenWalkthroughCommandArgs>(Commands.OpenWalkthrough, {
-						step: 'code-collab',
+						step: 'streamline-collaboration',
 						source: 'cloud-patches',
 						detail: 'info',
 					}),

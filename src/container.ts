@@ -2,10 +2,10 @@ import { getSupportedGitProviders, getSupportedRepositoryPathMappingProvider } f
 import type { ConfigurationChangeEvent, Disposable, Event, ExtensionContext } from 'vscode';
 import { EventEmitter, ExtensionMode, Uri } from 'vscode';
 import type { AIProviderService } from './ai/aiProviderService';
-import { Autolinks } from './annotations/autolinks';
 import { FileAnnotationController } from './annotations/fileAnnotationController';
 import { LineAnnotationController } from './annotations/lineAnnotationController';
 import { ActionRunners } from './api/actionRunners';
+import { Autolinks } from './autolinks';
 import { setDefaultGravatarsStyle } from './avatars';
 import { CacheProvider } from './cache';
 import { GitCodeLensController } from './codelens/codeLensController';
@@ -33,25 +33,10 @@ import { EnrichmentService } from './plus/launchpad/enrichmentService';
 import { LaunchpadIndicator } from './plus/launchpad/launchpadIndicator';
 import { LaunchpadProvider } from './plus/launchpad/launchpadProvider';
 import { RepositoryIdentityService } from './plus/repos/repositoryIdentityService';
-import { registerAccountWebviewView } from './plus/webviews/account/registration';
-import type { GraphWebviewShowingArgs } from './plus/webviews/graph/registration';
-import {
-	registerGraphWebviewCommands,
-	registerGraphWebviewPanel,
-	registerGraphWebviewView,
-} from './plus/webviews/graph/registration';
+import { registerGraphWebviewCommands, registerGraphWebviewPanel } from './plus/webviews/graph/registration';
 import { GraphStatusBarController } from './plus/webviews/graph/statusbar';
-import type { PatchDetailsWebviewShowingArgs } from './plus/webviews/patchDetails/registration';
-import {
-	registerPatchDetailsWebviewPanel,
-	registerPatchDetailsWebviewView,
-} from './plus/webviews/patchDetails/registration';
-import type { TimelineWebviewShowingArgs } from './plus/webviews/timeline/registration';
-import {
-	registerTimelineWebviewCommands,
-	registerTimelineWebviewPanel,
-	registerTimelineWebviewView,
-} from './plus/webviews/timeline/registration';
+import { registerPatchDetailsWebviewPanel } from './plus/webviews/patchDetails/registration';
+import { registerTimelineWebviewCommands, registerTimelineWebviewPanel } from './plus/webviews/timeline/registration';
 import { scheduleAddMissingCurrentWorkspaceRepos, WorkspacesService } from './plus/workspaces/workspacesService';
 import { StatusBarController } from './statusbar/statusBarController';
 import { log } from './system/decorators/log';
@@ -63,40 +48,18 @@ import { Keyboard } from './system/vscode/keyboard';
 import type { Storage } from './system/vscode/storage';
 import { TelemetryService } from './telemetry/telemetry';
 import { UsageTracker } from './telemetry/usageTracker';
+import { WalkthroughStateProvider } from './telemetry/walkthroughStateProvider';
 import { GitTerminalLinkProvider } from './terminal/linkProvider';
 import { GitDocumentTracker } from './trackers/documentTracker';
 import { LineTracker } from './trackers/lineTracker';
 import { DeepLinkService } from './uris/deepLinks/deepLinkService';
 import { UriService } from './uris/uriService';
-import { BranchesView } from './views/branchesView';
-import { CommitsView } from './views/commitsView';
-import { ContributorsView } from './views/contributorsView';
-import { DraftsView } from './views/draftsView';
-import { FileHistoryView } from './views/fileHistoryView';
-import { LaunchpadView } from './views/launchpadView';
-import { LineHistoryView } from './views/lineHistoryView';
-import { PullRequestView } from './views/pullRequestView';
-import { RemotesView } from './views/remotesView';
-import { RepositoriesView } from './views/repositoriesView';
-import { SearchAndCompareView } from './views/searchAndCompareView';
-import { StashesView } from './views/stashesView';
-import { TagsView } from './views/tagsView';
-import { ViewCommands } from './views/viewCommands';
 import { ViewFileDecorationProvider } from './views/viewDecorationProvider';
-import { WorkspacesView } from './views/workspacesView';
-import { WorktreesView } from './views/worktreesView';
+import { Views } from './views/views';
 import { VslsController } from './vsls/vsls';
-import type { CommitDetailsWebviewShowingArgs } from './webviews/commitDetails/registration';
-import {
-	registerCommitDetailsWebviewView,
-	registerGraphDetailsWebviewView,
-} from './webviews/commitDetails/registration';
-import { registerHomeWebviewView } from './webviews/home/registration';
 import { RebaseEditorProvider } from './webviews/rebase/rebaseEditor';
 import { registerSettingsWebviewCommands, registerSettingsWebviewPanel } from './webviews/settings/registration';
-import type { WebviewViewProxy } from './webviews/webviewsController';
 import { WebviewsController } from './webviews/webviewsController';
-import { registerWelcomeWebviewPanel } from './webviews/welcome/registration';
 
 export type Environment = 'dev' | 'staging' | 'production';
 
@@ -135,6 +98,12 @@ export class Container {
 
 	private _onReady: EventEmitter<void> = new EventEmitter<void>();
 	get onReady(): Event<void> {
+		if (this._ready) {
+			const emitter = new EventEmitter<void>();
+			setTimeout(() => emitter.fire(), 0);
+			return emitter.event;
+		}
+
 		return this._onReady.event;
 	}
 
@@ -192,7 +161,6 @@ export class Container {
 	private readonly _connection: ServerConnection;
 	private _disposables: Disposable[];
 	private _terminalLinks: GitTerminalLinkProvider | undefined;
-	private _webviews: WebviewsController;
 	private _launchpadIndicator: LaunchpadIndicator | undefined;
 
 	private constructor(
@@ -221,6 +189,7 @@ export class Container {
 		);
 		this._disposables.push((this._uri = new UriService(this)));
 		this._disposables.push((this._subscription = new SubscriptionService(this, this._connection, previousVersion)));
+		this._disposables.push((this._walkthrough = new WalkthroughStateProvider(this)));
 		this._disposables.push((this._organizations = new OrganizationService(this, this._connection)));
 
 		this._disposables.push((this._git = new GitProviderService(this)));
@@ -242,57 +211,29 @@ export class Container {
 		this._disposables.push((this._statusBarController = new StatusBarController(this)));
 		this._disposables.push((this._codeLensController = new GitCodeLensController(this)));
 
-		this._disposables.push((this._webviews = new WebviewsController(this)));
+		const webviews = new WebviewsController(this);
+		this._disposables.push(webviews);
+		this._disposables.push((this._views = new Views(this, webviews)));
 
-		const graphPanels = registerGraphWebviewPanel(this._webviews);
+		const graphPanels = registerGraphWebviewPanel(webviews);
 		this._disposables.push(graphPanels);
 		this._disposables.push(registerGraphWebviewCommands(this, graphPanels));
-		this._disposables.push((this._graphView = registerGraphWebviewView(this._webviews)));
 		this._disposables.push(new GraphStatusBarController(this));
 
-		// NOTE: Commenting out for now as we are deprecating this
-		// const focusPanels = registerFocusWebviewPanel(this._webviews);
-		// this._disposables.push(focusPanels);
-		// this._disposables.push(registerFocusWebviewCommands(focusPanels));
-
-		const timelinePanels = registerTimelineWebviewPanel(this._webviews);
+		const timelinePanels = registerTimelineWebviewPanel(webviews);
 		this._disposables.push(timelinePanels);
 		this._disposables.push(registerTimelineWebviewCommands(timelinePanels));
-		this._disposables.push((this._timelineView = registerTimelineWebviewView(this._webviews)));
 
 		this._disposables.push((this._rebaseEditor = new RebaseEditorProvider(this)));
 
-		const settingsPanels = registerSettingsWebviewPanel(this._webviews);
+		const settingsPanels = registerSettingsWebviewPanel(webviews);
 		this._disposables.push(settingsPanels);
 		this._disposables.push(registerSettingsWebviewCommands(settingsPanels));
 
-		this._disposables.push(registerWelcomeWebviewPanel(this._webviews));
-
 		this._disposables.push(new ViewFileDecorationProvider());
 
-		this._disposables.push((this._repositoriesView = new RepositoriesView(this)));
-		this._disposables.push((this._commitDetailsView = registerCommitDetailsWebviewView(this._webviews)));
-		const patchDetailsPanels = registerPatchDetailsWebviewPanel(this._webviews);
+		const patchDetailsPanels = registerPatchDetailsWebviewPanel(webviews);
 		this._disposables.push(patchDetailsPanels);
-		this._disposables.push((this._patchDetailsView = registerPatchDetailsWebviewView(this._webviews)));
-		this._disposables.push((this._graphDetailsView = registerGraphDetailsWebviewView(this._webviews)));
-		this._disposables.push((this._commitsView = new CommitsView(this)));
-		this._disposables.push((this._pullRequestView = new PullRequestView(this)));
-		this._disposables.push((this._fileHistoryView = new FileHistoryView(this)));
-		this._disposables.push((this._launchpadView = new LaunchpadView(this)));
-		this._disposables.push((this._lineHistoryView = new LineHistoryView(this)));
-		this._disposables.push((this._branchesView = new BranchesView(this)));
-		this._disposables.push((this._remotesView = new RemotesView(this)));
-		this._disposables.push((this._stashesView = new StashesView(this)));
-		this._disposables.push((this._tagsView = new TagsView(this)));
-		this._disposables.push((this._worktreesView = new WorktreesView(this)));
-		this._disposables.push((this._contributorsView = new ContributorsView(this)));
-		this._disposables.push((this._searchAndCompareView = new SearchAndCompareView(this)));
-		this._disposables.push((this._draftsView = new DraftsView(this)));
-		this._disposables.push((this._workspacesView = new WorkspacesView(this)));
-
-		this._disposables.push((this._homeView = registerHomeWebviewView(this._webviews)));
-		this._disposables.push((this._accountView = registerAccountWebviewView(this._webviews)));
 
 		if (configuration.get('launchpad.indicator.enabled')) {
 			this._disposables.push((this._launchpadIndicator = new LaunchpadIndicator(this, this._launchpadProvider)));
@@ -387,11 +328,6 @@ export class Container {
 		return this._accountAuthentication;
 	}
 
-	private readonly _accountView: WebviewViewProxy<[]>;
-	get accountView() {
-		return this._accountView;
-	}
-
 	private readonly _actionRunners: ActionRunners;
 	get actionRunners() {
 		return this._actionRunners;
@@ -425,11 +361,6 @@ export class Container {
 		}
 
 		return this._autolinks;
-	}
-
-	private readonly _branchesView: BranchesView;
-	get branchesView() {
-		return this._branchesView;
 	}
 
 	private _cache: CacheProvider | undefined;
@@ -480,34 +411,14 @@ export class Container {
 		return this._repositoryIdentity;
 	}
 
-	private readonly _draftsView: DraftsView;
-	get draftsView() {
-		return this._draftsView;
-	}
-
 	private readonly _codeLensController: GitCodeLensController;
 	get codeLens() {
 		return this._codeLensController;
 	}
 
-	private readonly _commitsView: CommitsView;
-	get commitsView() {
-		return this._commitsView;
-	}
-
-	private readonly _commitDetailsView: WebviewViewProxy<CommitDetailsWebviewShowingArgs>;
-	get commitDetailsView() {
-		return this._commitDetailsView;
-	}
-
 	private readonly _context: ExtensionContext;
 	get context() {
 		return this._context;
-	}
-
-	private readonly _contributorsView: ContributorsView;
-	get contributorsView() {
-		return this._contributorsView;
 	}
 
 	@memoize()
@@ -553,11 +464,6 @@ export class Container {
 	private readonly _fileAnnotationController: FileAnnotationController;
 	get fileAnnotations() {
 		return this._fileAnnotationController;
-	}
-
-	private readonly _fileHistoryView: FileHistoryView;
-	get fileHistoryView() {
-		return this._fileHistoryView;
 	}
 
 	private readonly _launchpadProvider: LaunchpadProvider;
@@ -618,21 +524,6 @@ export class Container {
 		return this._gitlab;
 	}
 
-	private readonly _graphDetailsView: WebviewViewProxy<CommitDetailsWebviewShowingArgs>;
-	get graphDetailsView() {
-		return this._graphDetailsView;
-	}
-
-	private readonly _graphView: WebviewViewProxy<GraphWebviewShowingArgs>;
-	get graphView() {
-		return this._graphView;
-	}
-
-	private readonly _homeView: WebviewViewProxy<[]>;
-	get homeView() {
-		return this._homeView;
-	}
-
 	@memoize()
 	get id() {
 		return this._context.extension.id;
@@ -659,19 +550,9 @@ export class Container {
 		return this._keyboard;
 	}
 
-	private _launchpadView: LaunchpadView;
-	get launchpadView() {
-		return this._launchpadView;
-	}
-
 	private readonly _lineAnnotationController: LineAnnotationController;
 	get lineAnnotations() {
 		return this._lineAnnotationController;
-	}
-
-	private readonly _lineHistoryView: LineHistoryView;
-	get lineHistoryView() {
-		return this._lineHistoryView;
 	}
 
 	private readonly _lineHoverController: LineHoverController;
@@ -697,11 +578,6 @@ export class Container {
 		return this._organizations;
 	}
 
-	private readonly _patchDetailsView: WebviewViewProxy<PatchDetailsWebviewShowingArgs>;
-	get patchDetailsView() {
-		return this._patchDetailsView;
-	}
-
 	private readonly _prerelease;
 	get prerelease() {
 		return this._prerelease;
@@ -712,24 +588,9 @@ export class Container {
 		return this._prerelease || this.debugging;
 	}
 
-	private readonly _pullRequestView: PullRequestView;
-	get pullRequestView() {
-		return this._pullRequestView;
-	}
-
 	private readonly _rebaseEditor: RebaseEditorProvider;
 	get rebaseEditor() {
 		return this._rebaseEditor;
-	}
-
-	private readonly _remotesView: RemotesView;
-	get remotesView() {
-		return this._remotesView;
-	}
-
-	private readonly _repositoriesView: RepositoriesView;
-	get repositoriesView(): RepositoriesView {
-		return this._repositoriesView;
 	}
 
 	private _repositoryPathMapping: RepositoryPathMappingProvider | undefined;
@@ -738,16 +599,6 @@ export class Container {
 			this._disposables.push((this._repositoryPathMapping = getSupportedRepositoryPathMappingProvider(this)));
 		}
 		return this._repositoryPathMapping;
-	}
-
-	private readonly _searchAndCompareView: SearchAndCompareView;
-	get searchAndCompareView() {
-		return this._searchAndCompareView;
-	}
-
-	private readonly _stashesView: StashesView;
-	get stashesView() {
-		return this._stashesView;
 	}
 
 	private readonly _statusBarController: StatusBarController;
@@ -765,19 +616,9 @@ export class Container {
 		return this._subscription;
 	}
 
-	private readonly _tagsView: TagsView;
-	get tagsView() {
-		return this._tagsView;
-	}
-
 	private readonly _telemetry: TelemetryService;
 	get telemetry(): TelemetryService {
 		return this._telemetry;
-	}
-
-	private readonly _timelineView: WebviewViewProxy<TimelineWebviewShowingArgs>;
-	get timelineView() {
-		return this._timelineView;
 	}
 
 	private readonly _uri: UriService;
@@ -790,17 +631,19 @@ export class Container {
 		return this._usage;
 	}
 
+	private readonly _walkthrough: WalkthroughStateProvider;
+	get walkthrough(): WalkthroughStateProvider {
+		return this._walkthrough;
+	}
+
 	private readonly _version: string;
 	get version(): string {
 		return this._version;
 	}
 
-	private _viewCommands: ViewCommands | undefined;
-	get viewCommands() {
-		if (this._viewCommands == null) {
-			this._viewCommands = new ViewCommands(this);
-		}
-		return this._viewCommands;
+	private readonly _views: Views;
+	get views(): Views {
+		return this._views;
 	}
 
 	private readonly _vsls: VslsController;
@@ -814,16 +657,6 @@ export class Container {
 			this._disposables.push((this._workspaces = new WorkspacesService(this, this._connection)));
 		}
 		return this._workspaces;
-	}
-
-	private _workspacesView: WorkspacesView;
-	get workspacesView() {
-		return this._workspacesView;
-	}
-
-	private readonly _worktreesView: WorktreesView;
-	get worktreesView() {
-		return this._worktreesView;
 	}
 
 	private ensureModeApplied() {
@@ -947,14 +780,6 @@ export class Container {
 			uri = uri.with({ query: query });
 		}
 		return uri;
-	}
-
-	getGkDevExchangeUri(token: string, successPath: string, failurePath?: string): Uri {
-		return Uri.joinPath(this.baseGkDevUri, `api/exchange/${token}`).with({
-			query: `success=${encodeURIComponent(successPath)}${
-				failurePath ? `&failure=${encodeURIComponent(failurePath)}` : ''
-			}`,
-		});
 	}
 
 	generateWebGkDevUrl(path?: string): string {

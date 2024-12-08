@@ -1,5 +1,5 @@
 import { Uri } from 'vscode';
-import type { EnrichedAutolink } from '../../annotations/autolinks';
+import type { EnrichedAutolink } from '../../autolinks';
 import { getAvatarUri, getCachedAvatarUri } from '../../avatars';
 import type { GravatarDefaultStyle } from '../../config';
 import { GlyphChars } from '../../constants';
@@ -209,7 +209,7 @@ export class GitCommit implements GitRevisionReference {
 			this._etagFileSystem = repository?.etagFileSystem;
 
 			if (this._etagFileSystem != null) {
-				const status = await this.container.git.getStatusForRepo(this.repoPath);
+				const status = await this.container.git.getStatus(this.repoPath);
 				if (status != null) {
 					this._files = status.files.flatMap(f => f.getPseudoFileChanges());
 				}
@@ -226,7 +226,7 @@ export class GitCommit implements GitRevisionReference {
 		}
 
 		const [commitResult, untrackedResult] = await Promise.allSettled([
-			this.refType !== 'stash' ? this.container.git.getCommit(this.repoPath, this.sha) : undefined,
+			this.container.git.getCommit(this.repoPath, this.sha),
 			// Check for any untracked files -- since git doesn't return them via `git stash list` :(
 			// See https://stackoverflow.com/questions/12681529/
 			this.refType === 'stash' && !this._stashUntrackedFilesLoaded

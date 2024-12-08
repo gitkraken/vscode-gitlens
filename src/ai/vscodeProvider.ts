@@ -1,17 +1,25 @@
 import type { CancellationToken, LanguageModelChat, LanguageModelChatSelector } from 'vscode';
-import { CancellationTokenSource, LanguageModelChatMessage, lm, window } from 'vscode';
+import { CancellationTokenSource, LanguageModelChatMessage, lm } from 'vscode';
 import type { TelemetryEvents } from '../constants.telemetry';
 import type { Container } from '../container';
 import { sum } from '../system/iterable';
-import { capitalize } from '../system/string';
+import { capitalize, getPossessiveForm, interpolate } from '../system/string';
 import { configuration } from '../system/vscode/configuration';
 import type { AIModel, AIProvider } from './aiProviderService';
-import { getMaxCharacters } from './aiProviderService';
-import { cloudPatchMessageSystemPrompt, codeSuggestMessageSystemPrompt, commitMessageSystemPrompt } from './prompts';
+import { getMaxCharacters, showDiffTruncationWarning } from './aiProviderService';
+import {
+	explainChangesSystemPrompt,
+	explainChangesUserPrompt,
+	generateCloudPatchMessageSystemPrompt,
+	generateCloudPatchMessageUserPrompt,
+	generateCodeSuggestMessageSystemPrompt,
+	generateCodeSuggestMessageUserPrompt,
+	generateCommitMessageSystemPrompt,
+	generateCommitMessageUserPrompt,
+} from './prompts';
 
 const provider = { id: 'vscode', name: 'VS Code Provided' } as const;
 
-export type VSCodeAIModels = `${string}:${string}`;
 type VSCodeAIModel = AIModel<typeof provider.id> & { vendor: string; selector: LanguageModelChatSelector };
 export function isVSCodeAIModel(model: AIModel): model is AIModel<typeof provider.id> {
 	return model.provider.id === provider.id;
@@ -44,9 +52,10 @@ export class VSCodeAIProvider implements AIProvider<typeof provider.id> {
 		diff: string,
 		reporting: TelemetryEvents['ai/generate'],
 		promptConfig: {
+			type: 'commit' | 'cloud-patch' | 'code-suggestion';
 			systemPrompt: string;
-			customPrompt: string;
-			contextName: string;
+			userPrompt: string;
+			customInstructions?: string;
 		},
 		options?: { cancellation?: CancellationToken; context?: string },
 	): Promise<string | undefined> {
@@ -67,21 +76,15 @@ export class VSCodeAIProvider implements AIProvider<typeof provider.id> {
 
 		try {
 			while (true) {
-				const code = diff.substring(0, maxCodeCharacters);
-
 				const messages: LanguageModelChatMessage[] = [
 					LanguageModelChatMessage.User(promptConfig.systemPrompt),
 					LanguageModelChatMessage.User(
-						`Here is the code diff to use to generate the ${promptConfig.contextName}:\n\n${code}`,
+						interpolate(promptConfig.userPrompt, {
+							diff: diff.substring(0, maxCodeCharacters),
+							context: options?.context ?? '',
+							instructions: promptConfig.customInstructions ?? '',
+						}),
 					),
-					...(options?.context
-						? [
-								LanguageModelChatMessage.User(
-									`Here is additional context which should be taken into account when generating the ${promptConfig.contextName}:\n\n${options.context}`,
-								),
-						  ]
-						: []),
-					LanguageModelChatMessage.User(promptConfig.customPrompt),
 				];
 
 				reporting['retry.count'] = retries;
@@ -91,11 +94,7 @@ export class VSCodeAIProvider implements AIProvider<typeof provider.id> {
 					const rsp = await chatModel.sendRequest(messages, {}, cancellation);
 
 					if (diff.length > maxCodeCharacters) {
-						void window.showWarningMessage(
-							`The diff of the changes had to be truncated to ${maxCodeCharacters} characters to fit within ${getPossessiveForm(
-								model.provider.name,
-							)} limits.`,
-						);
+						showDiffTruncationWarning(maxCodeCharacters, model);
 					}
 
 					let message = '';
@@ -119,7 +118,7 @@ export class VSCodeAIProvider implements AIProvider<typeof provider.id> {
 					}
 
 					throw new Error(
-						`Unable to generate commit message: (${getPossessiveForm(model.provider.name)}:${
+						`Unable to generate ${promptConfig.type} message: (${getPossessiveForm(model.provider.name)}:${
 							ex.code
 						}) ${message}`,
 					);
@@ -140,33 +139,29 @@ export class VSCodeAIProvider implements AIProvider<typeof provider.id> {
 			codeSuggestion?: boolean | undefined;
 		},
 	): Promise<string | undefined> {
-		let customPrompt =
-			options?.codeSuggestion === true
-				? configuration.get('experimental.generateCodeSuggestionMessagePrompt')
-				: configuration.get('experimental.generateCloudPatchMessagePrompt');
-		if (!customPrompt.endsWith('.')) {
-			customPrompt += '.';
+		let codeSuggestion;
+		if (options != null) {
+			({ codeSuggestion, ...options } = options ?? {});
 		}
 
 		return this.generateMessage(
 			model,
 			diff,
 			reporting,
-			{
-				systemPrompt:
-					options?.codeSuggestion === true ? codeSuggestMessageSystemPrompt : cloudPatchMessageSystemPrompt,
-				customPrompt: customPrompt,
-				contextName:
-					options?.codeSuggestion === true
-						? 'code suggestion title and description'
-						: 'cloud patch title and description',
-			},
-			options != null
+			codeSuggestion
 				? {
-						cancellation: options.cancellation,
-						context: options.context,
+						type: 'code-suggestion',
+						systemPrompt: generateCodeSuggestMessageSystemPrompt,
+						userPrompt: generateCodeSuggestMessageUserPrompt,
+						customInstructions: configuration.get('ai.generateCodeSuggestMessage.customInstructions'),
 				  }
-				: undefined,
+				: {
+						type: 'cloud-patch',
+						systemPrompt: generateCloudPatchMessageSystemPrompt,
+						userPrompt: generateCloudPatchMessageUserPrompt,
+						customInstructions: configuration.get('ai.generateCloudPatchMessage.customInstructions'),
+				  },
+			options,
 		);
 	}
 
@@ -179,19 +174,15 @@ export class VSCodeAIProvider implements AIProvider<typeof provider.id> {
 			context?: string | undefined;
 		},
 	): Promise<string | undefined> {
-		let customPrompt = configuration.get('experimental.generateCommitMessagePrompt');
-		if (!customPrompt.endsWith('.')) {
-			customPrompt += '.';
-		}
-
 		return this.generateMessage(
 			model,
 			diff,
 			reporting,
 			{
-				systemPrompt: commitMessageSystemPrompt,
-				customPrompt: customPrompt,
-				contextName: 'commit message',
+				type: 'commit',
+				systemPrompt: generateCommitMessageSystemPrompt,
+				userPrompt: generateCommitMessageUserPrompt,
+				customInstructions: configuration.get('ai.generateCommitMessage.customInstructions'),
 			},
 			options,
 		);
@@ -224,20 +215,12 @@ export class VSCodeAIProvider implements AIProvider<typeof provider.id> {
 				const code = diff.substring(0, maxCodeCharacters);
 
 				const messages: LanguageModelChatMessage[] = [
-					LanguageModelChatMessage.User(`You are an advanced AI programming assistant tasked with summarizing code changes into an explanation that is both easy to understand and meaningful. Construct an explanation that:
-- Concisely synthesizes meaningful information from the provided code diff
-- Incorporates any additional context provided by the user to understand the rationale behind the code changes
-- Places the emphasis on the 'why' of the change, clarifying its benefits or addressing the problem that necessitated the change, beyond just detailing the 'what' has changed
-
-Do not make any assumptions or invent details that are not supported by the code diff or the user-provided context.`),
 					LanguageModelChatMessage.User(
-						`Here is additional context provided by the author of the changes, which should provide some explanation to why these changes where made. Please strongly consider this information when generating your explanation:\n\n${message}`,
-					),
-					LanguageModelChatMessage.User(
-						`Now, kindly explain the following code diff in a way that would be clear to someone reviewing or trying to understand these changes:\n\n${code}`,
-					),
-					LanguageModelChatMessage.User(
-						'Remember to frame your explanation in a way that is suitable for a reviewer to quickly grasp the essence of the changes, the issues they resolve, and their implications on the codebase.',
+						`${explainChangesSystemPrompt}.\n\n${interpolate(explainChangesUserPrompt, {
+							diff: code,
+							message: message,
+							instructions: configuration.get('ai.explainChanges.customInstructions') ?? '',
+						})}`,
 					),
 				];
 
@@ -248,19 +231,15 @@ Do not make any assumptions or invent details that are not supported by the code
 					const rsp = await chatModel.sendRequest(messages, {}, cancellation);
 
 					if (diff.length > maxCodeCharacters) {
-						void window.showWarningMessage(
-							`The diff of the changes had to be truncated to ${maxCodeCharacters} characters to fit within ${getPossessiveForm(
-								model.provider.name,
-							)} limits.`,
-						);
+						showDiffTruncationWarning(maxCodeCharacters, model);
 					}
 
-					let summary = '';
+					let result = '';
 					for await (const fragment of rsp.text) {
-						summary += fragment;
+						result += fragment;
 					}
 
-					return summary.trim();
+					return result.trim();
 				} catch (ex) {
 					debugger;
 					let message = ex instanceof Error ? ex.message : String(ex);
@@ -294,11 +273,7 @@ function getModelFromChatModel(model: LanguageModelChat): VSCodeAIModel {
 			vendor: model.vendor,
 			family: model.family,
 		},
-		maxTokens: model.maxInputTokens,
+		maxTokens: { input: model.maxInputTokens, output: 4096 },
 		provider: { id: provider.id, name: capitalize(model.vendor) },
 	};
-}
-
-function getPossessiveForm(name: string) {
-	return name.endsWith('s') ? `${name}'` : `${name}'s`;
 }

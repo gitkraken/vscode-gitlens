@@ -10,7 +10,7 @@ export function addAuthors(repo?: string | Repository, contributors?: GitContrib
 	});
 }
 
-export async function reveal(
+export function reveal(
 	contributor: GitContributor,
 	options?: {
 		select?: boolean;
@@ -18,12 +18,5 @@ export async function reveal(
 		expand?: boolean | number;
 	},
 ) {
-	const view = Container.instance.contributorsView;
-	const node = view.canReveal
-		? await view.revealContributor(contributor, options)
-		: await Container.instance.repositoriesView.revealContributor(contributor, options);
-	if (node == null) {
-		void view.show({ preserveFocus: !options?.focus });
-	}
-	return node;
+	return Container.instance.views.revealContributor(contributor, options);
 }

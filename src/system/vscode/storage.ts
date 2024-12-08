@@ -69,10 +69,7 @@ export class Storage implements Disposable {
 		return this.deleteWithPrefixCore(prefix);
 	}
 
-	async deleteWithPrefixCore(
-		prefix?: ExtractPrefixes<GlobalStorageKeys, ':'>,
-		exclude?: GlobalStorageKeys[],
-	): Promise<void> {
+	async deleteWithPrefixCore(prefix?: ExtractPrefixes<GlobalStorageKeys, ':'>, exclude?: RegExp): Promise<void> {
 		const qualifiedKeyPrefix = `${extensionPrefix}:`;
 
 		for (const qualifiedKey of this.context.globalState.keys() as `${typeof extensionPrefix}:${GlobalStorageKeys}`[]) {
@@ -80,9 +77,9 @@ export class Storage implements Disposable {
 
 			const key = qualifiedKey.substring(qualifiedKeyPrefix.length) as GlobalStorageKeys;
 			if (prefix == null || key === prefix || key.startsWith(`${prefix}:`)) {
-				if (exclude?.includes(key)) continue;
+				if (exclude?.test(key)) continue;
 
-				await this.context.globalState.update(key, undefined);
+				await this.context.globalState.update(qualifiedKey, undefined);
 				this._onDidChange.fire({ key: key, workspace: false });
 			}
 		}
@@ -90,7 +87,7 @@ export class Storage implements Disposable {
 
 	@debug({ logThreshold: 250 })
 	async reset(): Promise<void> {
-		return this.deleteWithPrefixCore(undefined, ['premium:subscription']);
+		return this.deleteWithPrefixCore(undefined, /^(premium:subscription|plus:preview:.*)$/);
 	}
 
 	@debug({ args: { 1: false }, logThreshold: 250 })
@@ -147,7 +144,7 @@ export class Storage implements Disposable {
 			if (prefix == null || key === prefix || key.startsWith(`${prefix}:`)) {
 				if (exclude?.includes(key)) continue;
 
-				await this.context.workspaceState.update(key, undefined);
+				await this.context.workspaceState.update(qualifiedKey, undefined);
 				this._onDidChange.fire({ key: key, workspace: true });
 			}
 		}

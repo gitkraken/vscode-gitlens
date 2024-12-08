@@ -4,8 +4,11 @@ import type { State } from '../../home/protocol';
 import {
 	DidChangeIntegrationsConnections,
 	DidChangeOrgSettings,
+	DidChangePreviewEnabled,
 	DidChangeRepositories,
 	DidChangeSubscription,
+	DidChangeWalkthroughProgress,
+	DidCompleteDiscoveringRepositories,
 } from '../../home/protocol';
 import type { Disposable } from '../shared/events';
 import type { HostIpc } from '../shared/ipc';
@@ -34,6 +37,19 @@ export class HomeStateProvider implements Disposable {
 
 					this.provider.setValue(this.state, true);
 					break;
+				case DidCompleteDiscoveringRepositories.is(msg):
+					this.state.repositories = msg.params.repositories;
+					this.state.discovering = msg.params.discovering;
+					this.state.timestamp = Date.now();
+
+					this.provider.setValue(this.state, true);
+					break;
+				case DidChangeWalkthroughProgress.is(msg):
+					this.state.walkthroughProgress = msg.params;
+					this.state.timestamp = Date.now();
+
+					this.provider.setValue(this.state, true);
+					break;
 				case DidChangeSubscription.is(msg):
 					this.state.subscription = msg.params.subscription;
 					this.state.avatar = msg.params.avatar;
@@ -54,6 +70,15 @@ export class HomeStateProvider implements Disposable {
 					this.state.timestamp = Date.now();
 
 					this.provider.setValue(this.state, true);
+					break;
+
+				case DidChangePreviewEnabled.is(msg):
+					this.state.previewEnabled = msg.params.previewEnabled;
+					this.state.previewCollapsed = msg.params.previewCollapsed;
+					this.state.timestamp = Date.now();
+
+					this.provider.setValue(this.state, true);
+					host.requestUpdate?.();
 					break;
 			}
 		});

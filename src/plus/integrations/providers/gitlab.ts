@@ -1,5 +1,6 @@
 import type { AuthenticationSession, CancellationToken } from 'vscode';
 import { window } from 'vscode';
+import { HostingIntegrationId, SelfHostedIntegrationId } from '../../../constants.integrations';
 import type { Sources } from '../../../constants.telemetry';
 import type { Container } from '../../../container';
 import type { Account } from '../../../git/models/author';
@@ -22,12 +23,7 @@ import type {
 import { HostingIntegration } from '../integration';
 import { fromGitLabMergeRequestProvidersApi } from './gitlab/models';
 import type { ProviderPullRequest } from './models';
-import {
-	HostingIntegrationId,
-	ProviderPullRequestReviewState,
-	providersMetadata,
-	SelfHostedIntegrationId,
-} from './models';
+import { ProviderPullRequestReviewState, providersMetadata, toSearchedIssue } from './models';
 import type { ProvidersApi } from './providersApi';
 
 const metadata = providersMetadata[HostingIntegrationId.GitLab];
@@ -247,11 +243,33 @@ abstract class GitLabIntegrationBase<
 		return results;
 	}
 
-	protected override searchProviderMyIssues(
-		_session: AuthenticationSession,
-		_repos?: GitLabRepositoryDescriptor[],
+	protected override async searchProviderMyIssues(
+		{ accessToken }: AuthenticationSession,
+		repos?: GitLabRepositoryDescriptor[],
 	): Promise<SearchedIssue[] | undefined> {
-		return Promise.resolve(undefined);
+		const api = await this.container.gitlab;
+		const providerApi = await this.getProvidersApi();
+
+		if (!api || !repos) {
+			return undefined;
+		}
+
+		const repoIdsResult = await Promise.allSettled(
+			repos.map(
+				(r: GitLabRepositoryDescriptor): Promise<string | undefined> =>
+					api.getProjectId(this, accessToken, r.owner, r.name, this.apiBaseUrl, undefined),
+			) ?? [],
+		);
+		const repoInput = repoIdsResult
+			.map(result => (result.status === 'fulfilled' ? result.value : undefined))
+			.filter((r): r is string => r != null);
+		const apiResult = await providerApi.getIssuesForRepos(this.id, repoInput, {
+			accessToken: accessToken,
+		});
+
+		return apiResult.values
+			.map(issue => toSearchedIssue(issue, this))
+			.filter((result): result is SearchedIssue => result != null);
 	}
 
 	protected override async mergeProviderPullRequest(
@@ -325,6 +343,11 @@ export class GitLabIntegration extends GitLabIntegrationBase<HostingIntegrationI
 
 	protected get apiBaseUrl(): string {
 		return 'https://gitlab.com/api';
+	}
+
+	override access(): Promise<boolean> {
+		// Always allow GitHub cloud integration access
+		return Promise.resolve(true);
 	}
 }
 

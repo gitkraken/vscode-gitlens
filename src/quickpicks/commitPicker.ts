@@ -5,6 +5,7 @@ import { Container } from '../container';
 import type { GitCommit, GitStashCommit } from '../git/models/commit';
 import type { GitLog } from '../git/models/log';
 import type { GitStash } from '../git/models/stash';
+import { filterMap } from '../system/array';
 import { filter, map } from '../system/iterable';
 import { isPromise } from '../system/promise';
 import { configuration } from '../system/vscode/configuration';
@@ -13,8 +14,8 @@ import { getQuickPickIgnoreFocusOut } from '../system/vscode/utils';
 import { CommandQuickPickItem } from './items/common';
 import type { DirectiveQuickPickItem } from './items/directive';
 import { createDirectiveQuickPickItem, Directive, isDirectiveQuickPickItem } from './items/directive';
-import type { CommitQuickPickItem } from './items/gitCommands';
-import { createCommitQuickPickItem, createStashQuickPickItem } from './items/gitCommands';
+import type { CommitQuickPickItem } from './items/gitWizard';
+import { createCommitQuickPickItem, createStashQuickPickItem } from './items/gitWizard';
 
 type Item = CommandQuickPickItem | CommitQuickPickItem | DirectiveQuickPickItem;
 
@@ -80,11 +81,19 @@ export async function showCommitPicker(
 			items.push(...options.showOtherReferences);
 		}
 
-		for await (const item of map(log.commits.values(), async commit =>
-			createCommitQuickPickItem(commit, options?.picked === commit.ref, { compact: true, icon: 'avatar' }),
-		)) {
-			items.push(item);
-		}
+		items.push(
+			...filterMap(
+				await Promise.allSettled(
+					map(log.commits.values(), async commit =>
+						createCommitQuickPickItem(commit, options?.picked === commit.ref, {
+							compact: true,
+							icon: 'avatar',
+						}),
+					),
+				),
+				r => (r.status === 'fulfilled' ? r.value : undefined),
+			),
+		);
 
 		if (log.hasMore) {
 			items.push(createDirectiveQuickPickItem(Directive.LoadMore));
@@ -224,7 +233,7 @@ export async function showCommitPicker(
 }
 
 export async function showStashPicker(
-	stash: GitStash | undefined | Promise<GitStash | undefined>,
+	gitStash: GitStash | undefined | Promise<GitStash | undefined>,
 	title: string,
 	placeholder: string,
 	options?: {
@@ -248,20 +257,20 @@ export async function showStashPicker(
 	quickpick.matchOnDescription = true;
 	quickpick.matchOnDetail = true;
 
-	if (isPromise(stash)) {
+	if (isPromise(gitStash)) {
 		quickpick.busy = true;
 		quickpick.show();
 
-		stash = await stash;
+		gitStash = await gitStash;
 	}
 
-	if (stash != null) {
+	if (gitStash != null) {
 		quickpick.items = [
 			...(options?.showOtherReferences ?? []),
 			...map(
-				options?.filter != null ? filter(stash.commits.values(), options.filter) : stash.commits.values(),
-				commit =>
-					createStashQuickPickItem(commit, options?.picked === commit.ref, {
+				options?.filter != null ? filter(gitStash.stashes.values(), options.filter) : gitStash.stashes.values(),
+				stash =>
+					createStashQuickPickItem(stash, options?.picked === stash.ref, {
 						compact: true,
 						icon: true,
 					}),
@@ -269,8 +278,8 @@ export async function showStashPicker(
 		];
 	}
 
-	if (stash == null || quickpick.items.length <= (options?.showOtherReferences?.length ?? 0)) {
-		quickpick.placeholder = stash == null ? 'No stashes found' : options?.empty ?? `No matching stashes found`;
+	if (gitStash == null || quickpick.items.length <= (options?.showOtherReferences?.length ?? 0)) {
+		quickpick.placeholder = gitStash == null ? 'No stashes found' : options?.empty ?? `No matching stashes found`;
 		quickpick.items = [createDirectiveQuickPickItem(Directive.Cancel)];
 	}
 

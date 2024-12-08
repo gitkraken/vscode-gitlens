@@ -23,6 +23,8 @@ export default ts.config(
 		},
 		rules: {
 			'anti-trojan-source/no-bidi': 'error',
+			curly: ['error', 'multi-line', 'consistent'],
+			eqeqeq: ['error', 'always', { null: 'ignore' }],
 			'no-constant-condition': ['warn', { checkLoops: false }],
 			'no-constant-binary-expression': 'error',
 			'no-caller': 'error',
@@ -44,6 +46,31 @@ export default ts.config(
 			'no-mixed-spaces-and-tabs': 'off',
 			'no-restricted-globals': ['error', 'process'],
 			'no-restricted-imports': 'off',
+			'no-restricted-syntax': [
+				'error',
+				{
+					selector:
+						'IfStatement:not(:has(BlockStatement)):not(:has(ReturnStatement)):not(:has(BreakStatement)):not(:has(ContinueStatement)):not(:has(YieldExpression)):not(:has(ThrowStatement))',
+					message:
+						'Single-line if statements are only allowed for control flow (return, break, continue, throw, yield).',
+				},
+				{
+					selector: 'WhileStatement:not(:has(BlockStatement))',
+					message: 'Single-line while statements are not allowed.',
+				},
+				{
+					selector: 'ForStatement:not(:has(BlockStatement))',
+					message: 'Single-line for statements are not allowed.',
+				},
+				{
+					selector: 'ForInStatement:not(:has(BlockStatement))',
+					message: 'Single-line for-in statements are not allowed.',
+				},
+				{
+					selector: 'ForOfStatement:not(:has(BlockStatement))',
+					message: 'Single-line for-of statements are not allowed.',
+				},
+			],
 			'no-return-assign': 'error',
 			'no-return-await': 'warn',
 			'no-self-compare': 'error',

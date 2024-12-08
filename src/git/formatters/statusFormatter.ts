@@ -1,4 +1,5 @@
 import { GlyphChars } from '../../constants';
+import { escapeMarkdown } from '../../system/markdown';
 import { basename } from '../../system/path';
 import type { TokenOptions } from '../../system/string';
 import type { GitFile, GitFileWithCommit } from '../models/file';
@@ -14,6 +15,7 @@ import type { FormatOptions } from './formatter';
 import { Formatter } from './formatter';
 
 export interface StatusFormatOptions extends FormatOptions {
+	outputFormat?: 'markdown' | 'plaintext';
 	relativePath?: string;
 
 	tokenOptions?: {
@@ -32,38 +34,42 @@ export interface StatusFormatOptions extends FormatOptions {
 
 export class StatusFileFormatter extends Formatter<GitFile, StatusFormatOptions> {
 	get directory() {
-		const directory = getGitFileFormattedDirectory(this._item, false, this._options.relativePath);
+		const directory = escapeIfNeeded(
+			getGitFileFormattedDirectory(this._item, false, this._options.relativePath),
+			this._options.outputFormat,
+		);
 		return this._padOrTruncate(directory, this._options.tokenOptions.directory);
 	}
 
 	get file() {
-		const file = basename(this._item.path);
+		const file = escapeIfNeeded(basename(this._item.path), this._options.outputFormat);
 		return this._padOrTruncate(file, this._options.tokenOptions.file);
 	}
 
 	get filePath() {
-		const filePath = getGitFileFormattedPath(this._item, {
-			relativeTo: this._options.relativePath,
-			truncateTo: this._options.tokenOptions.filePath?.truncateTo,
-		});
+		const filePath = escapeIfNeeded(
+			getGitFileFormattedPath(this._item, {
+				relativeTo: this._options.relativePath,
+				truncateTo: this._options.tokenOptions.filePath?.truncateTo,
+			}),
+			this._options.outputFormat,
+		);
 		return this._padOrTruncate(filePath, this._options.tokenOptions.filePath);
 	}
 
 	get originalPath() {
-		// if (
-		//     // this._item.status !== 'R' ||
-		//     this._item.originalFileName == null ||
-		//     this._item.originalFileName.length === 0
-		// ) {
-		//     return '';
-		// }
-
-		const originalPath = getGitFileOriginalRelativePath(this._item, this._options.relativePath);
+		const originalPath = escapeIfNeeded(
+			getGitFileOriginalRelativePath(this._item, this._options.relativePath),
+			this._options.outputFormat,
+		);
 		return this._padOrTruncate(originalPath, this._options.tokenOptions.originalPath);
 	}
 
 	get path() {
-		const directory = getGitFileRelativePath(this._item, this._options.relativePath);
+		const directory = escapeIfNeeded(
+			getGitFileRelativePath(this._item, this._options.relativePath),
+			this._options.outputFormat,
+		);
 		return this._padOrTruncate(directory, this._options.tokenOptions.path);
 	}
 
@@ -120,5 +126,14 @@ export class StatusFileFormatter extends Formatter<GitFile, StatusFormatOptions>
 		dateFormatOrOptions?: string | null | StatusFormatOptions,
 	): string {
 		return super.fromTemplateCore(this, template, file, dateFormatOrOptions);
+	}
+}
+
+function escapeIfNeeded(s: string, outputFormat: StatusFormatOptions['outputFormat']) {
+	switch (outputFormat) {
+		case 'markdown':
+			return escapeMarkdown(s);
+		default:
+			return s;
 	}
 }

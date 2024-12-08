@@ -48,6 +48,9 @@ export class RemotesRepositoryNode extends RepositoryFolderNode<RemotesView, Rem
 
 export class RemotesViewNode extends RepositoriesSubscribeableNode<RemotesView, RemotesRepositoryNode> {
 	async getChildren(): Promise<ViewNode[]> {
+		this.view.description = this.view.getViewDescription();
+		this.view.message = undefined;
+
 		if (this.children == null) {
 			let repositories = this.view.container.git.openRepositories;
 			if (configuration.get('views.collapseWorktreesWhenPossible')) {
@@ -63,8 +66,6 @@ export class RemotesViewNode extends RepositoriesSubscribeableNode<RemotesView, 
 				return [];
 			}
 
-			this.view.message = undefined;
-
 			const splat = repositories.length === 1;
 			this.children = repositories.map(
 				r => new RemotesRepositoryNode(GitUri.fromRepoPath(r.path), this.view, this, r, splat),
@@ -74,23 +75,18 @@ export class RemotesViewNode extends RepositoriesSubscribeableNode<RemotesView, 
 		if (this.children.length === 1) {
 			const [child] = this.children;
 
-			const remotes = await child.repo.getRemotes();
+			const remotes = await child.repo.git.getRemotes();
 			if (remotes.length === 0) {
 				this.view.message = 'No remotes could be found.';
-				this.view.title = 'Remotes';
-
 				void child.ensureSubscription();
 
 				return [];
 			}
 
-			this.view.message = undefined;
-			this.view.title = `Remotes (${remotes.length})`;
+			this.view.description = this.view.getViewDescription(remotes.length);
 
 			return child.getChildren();
 		}
-
-		this.view.title = 'Remotes';
 
 		return this.children;
 	}
@@ -104,8 +100,8 @@ export class RemotesViewNode extends RepositoriesSubscribeableNode<RemotesView, 
 export class RemotesView extends ViewBase<'remotes', RemotesViewNode, RemotesViewConfig> {
 	protected readonly configKey = 'remotes';
 
-	constructor(container: Container) {
-		super(container, 'remotes', 'Remotes', 'remotesView');
+	constructor(container: Container, grouped?: boolean) {
+		super(container, 'remotes', 'Remotes', 'remotesView', grouped);
 	}
 
 	override get canReveal(): boolean {
@@ -121,8 +117,6 @@ export class RemotesView extends ViewBase<'remotes', RemotesViewNode, RemotesVie
 	}
 
 	protected registerCommands(): Disposable[] {
-		void this.container.viewCommands;
-
 		return [
 			registerViewCommand(
 				this.getQualifiedCommand('copy'),

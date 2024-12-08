@@ -78,7 +78,7 @@ export class RevertGitCommand extends QuickCommand<State> {
 	protected async *steps(state: PartialStepState<State>): StepGenerator {
 		const context: Context = {
 			repos: this.container.git.openRepositories,
-			associatedView: this.container.commitsView,
+			associatedView: this.container.views.commits,
 			cache: new Map<string, Promise<GitLog | undefined>>(),
 			destination: undefined!,
 			title: this.title,
@@ -116,7 +116,7 @@ export class RevertGitCommand extends QuickCommand<State> {
 			}
 
 			if (context.destination == null) {
-				const branch = await state.repo.getBranch();
+				const branch = await state.repo.git.getBranch();
 				if (branch == null) break;
 
 				context.destination = branch;

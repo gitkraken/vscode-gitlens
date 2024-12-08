@@ -6,6 +6,8 @@ export const previewBadge = 'ᴘʀᴇᴠɪᴇᴡ';
 export const proBadge = 'ᴘʀᴏ';
 export const proBadgeSuperscript = 'ᴾᴿᴼ';
 
+export type AnnotationStatus = 'computing' | 'computed';
+
 export const enum CharCode {
 	/**
 	 * The `#` character.
@@ -124,8 +126,6 @@ export const keys = Object.freeze([
 ] as const);
 export type Keys = (typeof keys)[number];
 
-export type PromoKeys = 'launchpad' | 'launchpad-extended' | 'pro50';
-
 export const enum Schemes {
 	File = 'file',
 	Git = 'git',
@@ -168,20 +168,25 @@ export const urls = Object.freeze({
 	browserExtension: `https://gitkraken.com/browser-extension?${utm}`,
 	desktop: `https://gitkraken.com/git-client?${utm}`,
 
-	releaseNotes: 'https://help.gitkraken.com/gitlens/gitlens-release-notes-current/',
-	releaseAnnouncement: `https://www.gitkraken.com/blog/gitkraken-launches-devex-platform-acquires-codesee?${utm}`,
+	githubIssues: `https://github.com/gitkraken/vscode-gitlens/issues/?${utm}`,
+	githubDiscussions: `https://github.com/gitkraken/vscode-gitlens/discussions/?${utm}`,
+	helpCenter: `https://help.gitkraken.com/gitlens/gitlens-start-here/?${utm}`,
+	releaseNotes: `https://help.gitkraken.com/gitlens/gitlens-release-notes-current/?${utm}`,
+
+	acceleratePrReviews: `https://help.gitkraken.com/gitlens/gitlens-start-here/?${utm}#accelerate-pr-reviews`,
+	communityVsPro: `https://help.gitkraken.com/gitlens/gitlens-community-vs-gitlens-pro/?${utm}`,
+	interactiveCodeHistory: `https://help.gitkraken.com/gitlens/gitlens-start-here/?${utm}#interactive-code-history`,
+	startIntegrations: `https://help.gitkraken.com/gitlens/gitlens-start-here/?${utm}#improve-workflows-with-integrations`,
+	streamlineCollaboration: `https://help.gitkraken.com/gitlens/gitlens-start-here/?${utm}#streamline-collaboration`,
 });
 
 export type WalkthroughSteps =
-	| 'get-started'
-	| 'core-features'
-	| 'pro-features'
-	| 'pro-trial'
-	| 'pro-upgrade'
-	| 'pro-reactivate'
-	| 'pro-paid'
-	| 'visualize'
-	| 'launchpad'
-	| 'code-collab'
-	| 'integrations'
-	| 'more';
+	| 'welcome-in-trial'
+	| 'welcome-paid'
+	| 'welcome-in-trial-expired-eligible'
+	| 'welcome-in-trial-expired'
+	| 'get-started-community'
+	| 'visualize-code-history'
+	| 'accelerate-pr-reviews'
+	| 'streamline-collaboration'
+	| 'improve-workflows-with-integrations';

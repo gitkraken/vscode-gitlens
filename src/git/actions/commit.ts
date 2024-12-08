@@ -770,7 +770,7 @@ export async function restoreFile(file: string | GitFile, revision: GitRevisionR
 	await Container.instance.git.checkout(revision.repoPath, ref, { path: path });
 }
 
-export async function reveal(
+export function reveal(
 	commit: GitRevisionReference,
 	options?: {
 		select?: boolean;
@@ -778,19 +778,7 @@ export async function reveal(
 		expand?: boolean | number;
 	},
 ) {
-	const views = [Container.instance.commitsView, Container.instance.branchesView, Container.instance.remotesView];
-
-	// TODO@eamodio stop duplicate notifications
-
-	for (const view of views) {
-		const node = view.canReveal
-			? await view.revealCommit(commit, options)
-			: await Container.instance.repositoriesView.revealCommit(commit, options);
-		if (node != null) return node;
-	}
-
-	void views[0].show({ preserveFocus: !options?.focus });
-	return undefined;
+	return Container.instance.views.revealCommit(commit, options);
 }
 
 export async function showDetailsQuickPick(commit: GitCommit, uri?: Uri): Promise<void>;
@@ -819,7 +807,7 @@ export function showDetailsView(
 	options?: { pin?: boolean; preserveFocus?: boolean; preserveVisibility?: boolean },
 ): Promise<void> {
 	const { preserveFocus, ...opts } = { ...options, commit: commit };
-	return Container.instance.commitDetailsView.show({ preserveFocus: preserveFocus }, opts);
+	return Container.instance.views.commitDetails.show({ preserveFocus: preserveFocus }, opts);
 }
 
 export function showGraphDetailsView(
@@ -827,7 +815,7 @@ export function showGraphDetailsView(
 	options?: { pin?: boolean; preserveFocus?: boolean; preserveVisibility?: boolean },
 ): Promise<void> {
 	const { preserveFocus, ...opts } = { ...options, commit: commit };
-	return Container.instance.graphDetailsView.show({ preserveFocus: preserveFocus }, opts);
+	return Container.instance.views.graphDetails.show({ preserveFocus: preserveFocus }, opts);
 }
 
 export async function showInCommitGraph(
@@ -884,7 +872,7 @@ export async function undoCommit(container: Container, commit: GitRevisionRefere
 		return;
 	}
 
-	const status = await container.git.getStatusForRepo(commit.repoPath);
+	const status = await container.git.getStatus(commit.repoPath);
 	if (status?.files.length) {
 		const confirm = { title: 'Undo Commit' };
 		const cancel = { title: 'Cancel', isCloseAffordance: true };

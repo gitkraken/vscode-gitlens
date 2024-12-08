@@ -40,7 +40,7 @@ export class RemoteNode extends ViewNode<'remote', ViewsWithRemotes> {
 	}
 
 	async getChildren(): Promise<ViewNode[]> {
-		const branches = await this.repo.getBranches({
+		const branches = await this.repo.git.getBranches({
 			// only show remote branches for this remote
 			filter: b => b.remote && b.name.startsWith(this.remote.name),
 			sort: true,
@@ -52,6 +52,7 @@ export class RemoteNode extends ViewNode<'remote', ViewsWithRemotes> {
 			b =>
 				new BranchNode(GitUri.fromRepoPath(this.uri.repoPath!, b.ref), this.view, this, this.repo, b, false, {
 					showComparison: false,
+					showStashes: false,
 					showTracking: false,
 				}),
 		);

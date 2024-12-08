@@ -1,11 +1,10 @@
 import type { ConfigurationChangeEvent } from 'vscode';
 import { Disposable, env, Uri, window } from 'vscode';
-import { extractDraftMessage } from '../../../ai/aiProviderService';
 import { getAvatarUri } from '../../../avatars';
 import { GlyphChars, previewBadge } from '../../../constants';
 import { Commands } from '../../../constants.commands';
 import type { ContextKeys } from '../../../constants.context';
-import type { Sources } from '../../../constants.telemetry';
+import type { Sources, WebviewTelemetryContext } from '../../../constants.telemetry';
 import type { Container } from '../../../container';
 import { CancellationError } from '../../../errors';
 import { openChanges, openChangesWithWorking, openFile } from '../../../git/actions/commit';
@@ -183,11 +182,17 @@ export class PatchDetailsWebviewProvider
 		return false;
 	}
 
+	getTelemetryContext(): WebviewTelemetryContext {
+		return {
+			...this.host.getTelemetryContext(),
+		};
+	}
+
 	async onShowing(
 		_loading: boolean,
 		options: WebviewShowOptions,
 		...args: PatchDetailsWebviewShowingArgs
-	): Promise<boolean> {
+	): Promise<[boolean, Record<`context.${string}`, string | number | boolean> | undefined]> {
 		const [arg] = args;
 		if (arg?.mode === 'view' && arg.draft != null) {
 			await this.updateViewDraftState(arg.draft);
@@ -201,9 +206,9 @@ export class PatchDetailsWebviewProvider
 			this.updateCreateDraftState(create);
 		}
 
-		if (options?.preserveVisibility && !this.host.visible) return false;
+		if (options?.preserveVisibility && !this.host.visible) return [false, undefined];
 
-		return true;
+		return [true, undefined];
 	}
 
 	includeBootstrap(): Promise<Serialized<State>> {
@@ -503,7 +508,7 @@ export class PatchDetailsWebviewProvider
 		void setContext('gitlens:views:patchDetails:mode', undefined);
 
 		if (this._context.mode === 'create') {
-			void this.container.draftsView.show();
+			void this.container.views.drafts.show();
 		} else if (this._context.draft?.draftType === 'cloud') {
 			if (this._context.draft.type === 'suggested_pr_change') {
 				const repositoryOrIdentity = this._context.draft.changesets?.[0].patches[0].repository;
@@ -513,7 +518,7 @@ export class PatchDetailsWebviewProvider
 					source: 'patchDetails',
 				});
 			} else {
-				void this.container.draftsView.revealDraft(this._context.draft);
+				void this.container.views.drafts.revealDraft(this._context.draft);
 			}
 		}
 	}
@@ -715,7 +720,9 @@ export class PatchDetailsWebviewProvider
 			}
 
 			void showNotification();
-			void this.container.draftsView.refresh(true).then(() => void this.container.draftsView.revealDraft(draft));
+			void this.container.views.drafts
+				.refresh(true)
+				.then(() => void this.container.views.drafts.revealDraft(draft));
 
 			this.closeView();
 		} catch (ex) {
@@ -816,16 +823,16 @@ export class PatchDetailsWebviewProvider
 			const commit = await this.getOrCreateCommitForPatch(patch.gkRepositoryId);
 			if (commit == null) throw new Error('Unable to find commit');
 
-			const summary = await (
+			const result = await (
 				await this.container.ai
 			)?.explainCommit(
 				commit,
 				{ source: 'patchDetails', type: `draft-${this._context.draft.type}` },
 				{ progress: { location: { viewId: this.host.id } } },
 			);
-			if (summary == null) throw new Error('Error retrieving content');
+			if (result == null) throw new Error('Error retrieving content');
 
-			params = { summary: summary };
+			params = { result: result };
 		} catch (ex) {
 			debugger;
 			params = { error: { message: ex.message } };
@@ -860,16 +867,19 @@ export class PatchDetailsWebviewProvider
 			// const commit = await this.getOrCreateCommitForPatch(patch.gkRepositoryId);
 			// if (commit == null) throw new Error('Unable to find commit');
 
-			const summary = await (
+			const message = await (
 				await this.container.ai
 			)?.generateDraftMessage(
 				repo,
 				{ source: 'patchDetails', type: 'patch' },
 				{ progress: { location: { viewId: this.host.id } } },
 			);
-			if (summary == null) throw new Error('Error retrieving content');
+			if (message == null) throw new Error('Error retrieving content');
 
-			params = extractDraftMessage(summary);
+			params = {
+				title: message.summary,
+				description: message.body,
+			};
 		} catch (ex) {
 			debugger;
 			params = { error: { message: ex.message } };

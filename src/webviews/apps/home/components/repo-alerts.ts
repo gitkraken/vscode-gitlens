@@ -1,6 +1,6 @@
 import { consume } from '@lit/context';
 import { css, html } from 'lit';
-import { customElement, state } from 'lit/decorators.js';
+import { customElement, property, state } from 'lit/decorators.js';
 import { when } from 'lit/directives/when.js';
 import type { State } from '../../../home/protocol';
 import { GlElement } from '../../shared/components/element';
@@ -38,6 +38,11 @@ export class GlRepoAlerts extends GlElement {
 		`,
 	];
 
+	@property({ type: Boolean, reflect: true, attribute: 'has-alerts' })
+	get hasAlerts() {
+		return this.alertVisibility.header !== true ? undefined : true;
+	}
+
 	@consume<State>({ context: stateContext, subscribe: true })
 	@state()
 	private _state!: State;
@@ -49,7 +54,7 @@ export class GlRepoAlerts extends GlElement {
 			noRepo: false,
 			unsafeRepo: false,
 		};
-		if (this._state == null) {
+		if (this._state == null || this._state.discovering) {
 			return sections;
 		}
 
@@ -84,7 +89,7 @@ export class GlRepoAlerts extends GlElement {
 								Explorer.
 							</p>
 							<p class="centered">
-								<gl-button class="is-basic" href="command:workbench.view.explorer"
+								<gl-button class="is-basic" href="command:workbench.view.scm"
 									>Open a Folder or Repository</gl-button
 								>
 							</p>

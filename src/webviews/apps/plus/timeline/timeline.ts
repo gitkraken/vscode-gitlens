@@ -1,6 +1,5 @@
 /*global*/
 import './timeline.scss';
-import { provideVSCodeDesignSystem, vsCodeDropdown, vsCodeOption } from '@vscode/webview-ui-toolkit';
 import { isSubscriptionPaid } from '../../../../plus/gk/account/subscription';
 import type { Period, State } from '../../../../plus/webviews/timeline/protocol';
 import {
@@ -29,8 +28,6 @@ export class TimelineApp extends App<State> {
 	}
 
 	protected override onInitialize() {
-		provideVSCodeDesignSystem().register(vsCodeDropdown(), vsCodeOption());
-
 		this.updateState();
 	}
 
@@ -147,7 +144,7 @@ export class TimelineApp extends App<State> {
 		if ($periods != null) {
 			const period = this.state?.period;
 
-			const $periodOptions = $periods.getElementsByTagName('vscode-option');
+			const $periodOptions = $periods.getElementsByTagName('option');
 			for (const $option of $periodOptions) {
 				if (period === $option.getAttribute('value')) {
 					$option.setAttribute('selected', '');

@@ -13,8 +13,9 @@ const resetTypes = [
 	'ai',
 	'avatars',
 	'integrations',
-	'plus',
+	'previews',
 	'repositoryAccess',
+	'subscription',
 	'suppressedWarnings',
 	'usageTracking',
 	'workspace',
@@ -74,16 +75,19 @@ export class ResetCommand extends Command {
 			},
 		];
 
-		if (this.container.debugging) {
-			items.splice(
-				0,
-				0,
+		if (DEBUG) {
+			items.push(
+				createQuickPickSeparator('DEBUG'),
 				{
-					label: 'Subscription Reset',
+					label: 'Reset Subscription...',
 					detail: 'Resets the stored subscription',
-					item: 'plus',
+					item: 'subscription',
 				},
-				createQuickPickSeparator(),
+				{
+					label: 'Reset Feature Previews...',
+					detail: 'Resets the stored state for feature previews',
+					item: 'previews',
+				},
 			);
 		}
 
@@ -94,7 +98,6 @@ export class ResetCommand extends Command {
 		});
 
 		if (pick?.item == null) return;
-		if (pick.item === 'plus' && !this.container.debugging) return;
 
 		const confirm: MessageItem = { title: 'Reset' };
 		const cancel: MessageItem = { title: 'Cancel', isCloseAffordance: true };
@@ -117,9 +120,17 @@ export class ResetCommand extends Command {
 				confirmationMessage = 'Are you sure you want to reset all of the stored integrations?';
 				confirm.title = 'Reset Integrations';
 				break;
+			case 'previews':
+				confirmationMessage = 'Are you sure you want to reset the stored state for feature previews?';
+				confirm.title = 'Reset Feature Previews';
+				break;
 			case 'repositoryAccess':
 				confirmationMessage = 'Are you sure you want to reset the repository access cache?';
 				confirm.title = 'Reset Repository Access';
+				break;
+			case 'subscription':
+				confirmationMessage = 'Are you sure you want to reset the stored subscription?';
+				confirm.title = 'Reset Subscription';
 				break;
 			case 'suppressedWarnings':
 				confirmationMessage = 'Are you sure you want to reset all of the suppressed warnings?';
@@ -170,10 +181,6 @@ export class ResetCommand extends Command {
 				await this.container.integrations.reset();
 				break;
 
-			case 'plus':
-				await this.container.subscription.logout(true, undefined);
-				break;
-
 			case 'repositoryAccess':
 				await this.container.git.clearAllRepoVisibilityCaches();
 				break;
@@ -188,6 +195,18 @@ export class ResetCommand extends Command {
 
 			case 'workspace':
 				await this.container.storage.resetWorkspace();
+				break;
+			default:
+				if (DEBUG) {
+					switch (reset) {
+						case 'subscription':
+							await this.container.storage.delete('premium:subscription');
+							break;
+						case 'previews':
+							await this.container.storage.deleteWithPrefix('plus:preview');
+							break;
+					}
+				}
 				break;
 		}
 	}

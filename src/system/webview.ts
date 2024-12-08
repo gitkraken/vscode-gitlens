@@ -1,12 +1,13 @@
 import type { WebviewIds, WebviewViewIds } from '../constants.views';
 
-export function createWebviewCommandLink(
-	command: `${WebviewIds | WebviewViewIds}.${string}`,
+export function createWebviewCommandLink<T>(
+	command: `${WebviewIds | WebviewViewIds}.${string}` | `gitlens.plus.${string}`,
 	webviewId: WebviewIds | WebviewViewIds,
 	webviewInstanceId: string | undefined,
+	args?: T,
 ): string {
 	return `command:${command}?${encodeURIComponent(
-		JSON.stringify({ webview: webviewId, webviewInstance: webviewInstanceId } satisfies WebviewContext),
+		JSON.stringify({ webview: webviewId, webviewInstance: webviewInstanceId, ...args } satisfies WebviewContext),
 	)}`;
 }
 

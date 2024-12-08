@@ -1,4 +1,5 @@
 import type { CancellationToken } from 'vscode';
+import type { EnrichedAutolink } from '../../autolinks';
 import type { BranchSorting } from '../../config';
 import type { GitConfigKeys } from '../../constants';
 import type { Container } from '../../container';
@@ -141,6 +142,13 @@ export class GitBranch implements GitBranchReference {
 	}
 
 	@memoize()
+	async getEnrichedAutolinks(): Promise<Map<string, EnrichedAutolink> | undefined> {
+		const remote = await this.container.git.getBestRemoteWithProvider(this.repoPath);
+		const branchAutolinks = await this.container.autolinks.getBranchAutolinks(this.name, remote);
+		return this.container.autolinks.getEnrichedAutolinks(branchAutolinks, remote);
+	}
+
+	@memoize()
 	getBasename(): string {
 		const name = this.getNameWithoutRemote();
 		const index = name.lastIndexOf('/');
@@ -267,9 +275,7 @@ export async function getTargetBranchName(
 	if (options?.cancellation?.isCancellationRequested) return { value: undefined, paused: false };
 
 	if (targetBase != null) {
-		const [targetBranch] = (
-			await container.git.getBranches(branch.repoPath, { filter: b => b.name === targetBase })
-		).values;
+		const targetBranch = await container.git.getBranch(branch.repoPath, targetBase);
 		if (targetBranch != null) return { value: targetBranch.name, paused: false };
 	}
 
@@ -385,14 +391,24 @@ export async function getLocalBranchByUpstream(
 		qualifiedRemoteBranchName = `remotes/${remoteBranchName}`;
 	}
 
-	branches ??= new PageableResult<GitBranch>(p => repo.getBranches(p != null ? { paging: p } : undefined));
-	for await (const branch of branches.values()) {
-		if (
+	branches ??= new PageableResult<GitBranch>(p => repo.git.getBranches(p != null ? { paging: p } : undefined));
+
+	function matches(branch: GitBranch): boolean {
+		return (
 			!branch.remote &&
 			branch.upstream?.name != null &&
-			(branch.upstream.name === remoteBranchName || branch.upstream.name === qualifiedRemoteBranchName)
-		) {
-			return branch;
+			(branch.upstream.name === remoteBranchName || branch.upstream.name === qualifiedRemoteBranchName!)
+		);
+	}
+
+	const values = branches.values();
+	if (Symbol.asyncIterator in values) {
+		for await (const branch of values) {
+			if (matches(branch)) return branch;
+		}
+	} else {
+		for (const branch of values) {
+			if (matches(branch)) return branch;
 		}
 	}
 

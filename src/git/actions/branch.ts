@@ -38,7 +38,7 @@ export function rename(repo?: string | Repository, ref?: GitBranchReference, nam
 	});
 }
 
-export async function reveal(
+export function reveal(
 	branch: GitBranchReference,
 	options?: {
 		select?: boolean;
@@ -46,13 +46,5 @@ export async function reveal(
 		expand?: boolean | number;
 	},
 ) {
-	const view = branch.remote ? Container.instance.remotesView : Container.instance.branchesView;
-	const node = view.canReveal
-		? await view.revealBranch(branch, options)
-		: await Container.instance.repositoriesView.revealBranch(branch, options);
-
-	if (node == null) {
-		void view.show({ preserveFocus: !options?.focus });
-	}
-	return node;
+	return Container.instance.views.revealBranch(branch, options);
 }

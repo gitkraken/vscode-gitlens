@@ -33,10 +33,10 @@ export class StashesNode extends CacheableChildrenViewNode<'stashes', ViewsWithS
 
 	async getChildren(): Promise<ViewNode[]> {
 		if (this.children == null) {
-			const stash = await this.repo.getStash();
-			if (stash == null) return [new MessageNode(this.view, this, 'No stashes could be found.')];
+			const gitStash = await this.repo.git.getStash();
+			if (gitStash == null) return [new MessageNode(this.view, this, 'No stashes could be found.')];
 
-			this.children = [...map(stash.commits.values(), c => new StashNode(this.view, this, c))];
+			this.children = [...map(gitStash.stashes.values(), c => new StashNode(this.view, this, c))];
 		}
 
 		return this.children;

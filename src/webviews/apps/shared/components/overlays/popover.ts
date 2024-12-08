@@ -1,9 +1,9 @@
 import type SlPopup from '@shoelace-style/shoelace/dist/components/popup/popup.js';
 import { css, html, LitElement } from 'lit';
 import { customElement, property, query } from 'lit/decorators.js';
-import '@shoelace-style/shoelace/dist/components/popup/popup.js';
 import { parseDuration, waitForEvent } from '../../dom';
 import { GlElement, observe } from '../element';
+import '@shoelace-style/shoelace/dist/components/popup/popup.js';
 
 // Adapted from shoelace tooltip
 
@@ -48,6 +48,23 @@ declare global {
 		'gl-popover-after-hide': CustomEvent<void>;
 	}
 }
+
+/**
+ * @tag gl-popover
+ *
+ * @slot anchor - The element that triggers the popover
+ * @slot content - The content of the popover
+ *
+ * @csspart base - Styles the sl-popup element itself
+ * @csspart arrow - Styles the arrow's container
+ * @csspart popup - Styles the popup's container
+ * @csspart body - Styles the element that wraps the content slot
+ *
+ * @fires gl-popover-show - Fired when the popover is shown
+ * @fires gl-popover-after-show - Fired after the popover is shown
+ * @fires gl-popover-hide - Fired when the popover is hidden
+ * @fires gl-popover-after-hide - Fired after the popover is hidden
+ */
 
 @customElement('gl-popover')
 export class GlPopover extends GlElement {
@@ -97,21 +114,25 @@ export class GlPopover extends GlElement {
 		.popover[data-current-placement^='top']::part(arrow) {
 			border-top-width: 0;
 			border-left-width: 0;
+			clip-path: polygon(0 50%, 100% 0, 100% 100%, 0 100%);
 		}
 
 		.popover[data-current-placement^='bottom']::part(arrow) {
 			border-bottom-width: 0;
 			border-right-width: 0;
+			clip-path: polygon(0 0, 100% 0, 100% 50%, 0 100%);
 		}
 
 		.popover[data-current-placement^='left']::part(arrow) {
 			border-bottom-width: 0;
 			border-left-width: 0;
+			clip-path: polygon(0 0, 100% 0, 100% 100%, 70% 100%, 0 30%);
 		}
 
 		.popover[data-current-placement^='right']::part(arrow) {
 			border-top-width: 0;
 			border-right-width: 0;
+			clip-path: polygon(0 0, 0 100%, 100% 100%, 100% 70%, 30% 0);
 		}
 
 		.popover__body {
@@ -173,6 +194,9 @@ export class GlPopover extends GlElement {
 	@property({ reflect: true, type: Boolean })
 	open: boolean = false;
 
+	@property({ reflect: true, type: Boolean })
+	arrow: boolean = true;
+
 	/** The distance in pixels from which to offset the popover along its target. */
 	@property({ type: Number })
 	skidding = 0;
@@ -198,6 +222,7 @@ export class GlPopover extends GlElement {
 		this.addEventListener('blur', this.handleTriggerBlur, true);
 		this.addEventListener('focus', this.handleTriggerFocus, true);
 		this.addEventListener('click', this.handleTriggerClick);
+		this.addEventListener('mousedown', this.handleTriggerMouseDown);
 		this.addEventListener('mouseover', this.handleMouseOver);
 		this.addEventListener('mouseout', this.handleMouseOut);
 	}
@@ -232,10 +257,24 @@ export class GlPopover extends GlElement {
 	private handleTriggerClick = () => {
 		if (this.hasTrigger('click')) {
 			if (this.open) {
+				if (this._skipHideOnClick) {
+					this._skipHideOnClick = false;
+					return;
+				}
+
 				void this.hide();
 			} else {
 				void this.show();
 			}
+		}
+	};
+
+	private _skipHideOnClick = false;
+	private handleTriggerMouseDown = () => {
+		if (this.hasTrigger('click') && this.hasTrigger('focus') && !this.matches(':focus-within')) {
+			this._skipHideOnClick = true;
+		} else {
+			this._skipHideOnClick = false;
 		}
 	};
 
@@ -385,7 +424,7 @@ export class GlPopover extends GlElement {
 			flip-padding="3"
 			flip
 			shift
-			arrow
+			?arrow=${this.arrow}
 			hover-bridge
 		>
 			<div slot="anchor" aria-describedby="popover">

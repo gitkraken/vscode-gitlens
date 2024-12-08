@@ -23,7 +23,9 @@ import type {
 	WorkDirStats,
 } from '@gitkraken/gitkraken-components';
 import type { Config, DateStyle, GraphBranchesVisibility } from '../../../config';
+import type { SupportedCloudIntegrationIds } from '../../../constants.integrations';
 import type { SearchQuery } from '../../../constants.search';
+import type { FeaturePreview } from '../../../features';
 import type { RepositoryVisibility } from '../../../git/gitProvider';
 import type { GitTrackingState } from '../../../git/models/branch';
 import type { GitGraphRowType } from '../../../git/models/graph';
@@ -63,6 +65,7 @@ export type GraphMissingRefsMetadata = Record</*id*/ string, /*missingType*/ Gra
 export type GraphPullRequestMetadata = PullRequestMetadata;
 
 export type GraphRefMetadataTypes = 'upstream' | 'pullRequest' | 'issue';
+export type GraphSearchMode = 'normal' | 'filter';
 
 export type GraphScrollMarkerTypes =
 	| 'selection'
@@ -90,11 +93,12 @@ export const supportedRefMetadataTypes: GraphRefMetadataType[] = ['upstream', 'p
 
 export interface State extends WebviewState {
 	windowFocused?: boolean;
+	webroot?: string;
 	repositories?: GraphRepository[];
 	selectedRepository?: string;
 	selectedRepositoryVisibility?: RepositoryVisibility;
 	branchesVisibility?: GraphBranchesVisibility;
-	branchName?: string;
+	branch?: GitBranchReference;
 	branchState?: BranchState;
 	lastFetched?: Date;
 	selectedRows?: GraphSelectedRows;
@@ -114,9 +118,11 @@ export interface State extends WebviewState {
 	nonce?: string;
 	workingTreeStats?: GraphWorkingTreeStats;
 	searchResults?: DidSearchParams['results'];
+	defaultSearchMode?: GraphSearchMode;
 	excludeRefs?: GraphExcludeRefs;
 	excludeTypes?: GraphExcludeTypes;
 	includeOnlyRefs?: GraphIncludeOnlyRefs;
+	featurePreview?: FeaturePreview;
 
 	// Props below are computed in the webview (not passed)
 	activeDay?: number;
@@ -136,6 +142,7 @@ export interface BranchState extends GitTrackingState {
 		url?: string;
 	};
 	pr?: PullRequestShape;
+	worktree?: boolean;
 }
 
 export type GraphWorkingTreeStats = WorkDirStats;
@@ -153,7 +160,10 @@ export interface GraphRepository {
 	isVirtual: boolean;
 	provider?: {
 		name: string;
-		connected: boolean;
+		integration?: {
+			id: SupportedCloudIntegrationIds;
+			connected: boolean;
+		};
 		icon?: string;
 		url?: string;
 	};
@@ -241,6 +251,8 @@ export type DoubleClickedParams =
 	  };
 export const DoubleClickedCommandType = new IpcCommand<DoubleClickedParams>(scope, 'dblclick');
 
+export const ContinuePreview = new IpcCommand<undefined>(scope, 'dblclick');
+
 export interface GetMissingAvatarsParams {
 	emails: GraphAvatars;
 }
@@ -293,6 +305,11 @@ export const UpdateGraphConfigurationCommand = new IpcCommand<UpdateGraphConfigu
 	scope,
 	'configuration/update',
 );
+
+export interface UpdateGraphSearchModeParams {
+	searchMode: GraphSearchMode;
+}
+export const UpdateGraphSearchModeCommand = new IpcCommand<UpdateGraphSearchModeParams>(scope, 'search/update/mode');
 
 export interface UpdateIncludedRefsParams {
 	branchesVisibility?: GraphBranchesVisibility;
@@ -492,6 +509,15 @@ export interface DidFetchParams {
 	lastFetched: Date;
 }
 export const DidFetchNotification = new IpcNotification<DidFetchParams>(scope, 'didFetch');
+
+export interface DidStartFeaturePreviewParams {
+	featurePreview: FeaturePreview;
+	allowed: boolean;
+}
+export const DidStartFeaturePreviewNotification = new IpcNotification<DidStartFeaturePreviewParams>(
+	scope,
+	'featurePreview/didStart',
+);
 
 export interface ShowInCommitGraphCommandArgs {
 	ref: GitReference;

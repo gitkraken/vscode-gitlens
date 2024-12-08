@@ -1,7 +1,6 @@
 import type { Range, Uri } from 'vscode';
 import { env } from 'vscode';
-import type { DynamicAutolinkReference } from '../../annotations/autolinks';
-import type { AutolinkReference } from '../../config';
+import type { AutolinkReference, DynamicAutolinkReference } from '../../autolinks';
 import type { GkProviderId } from '../../gk/models/repositoryIdentities';
 import type { ResourceDescriptor } from '../../plus/integrations/integration';
 import { memoize } from '../../system/decorators/memoize';
@@ -37,8 +36,19 @@ export abstract class RemoteProvider<T extends ResourceDescriptor = ResourceDesc
 		this._name = name;
 	}
 
+	protected abstract get issueLinkPattern(): string;
+
 	get autolinks(): (AutolinkReference | DynamicAutolinkReference)[] {
-		return [];
+		return [
+			{
+				url: this.issueLinkPattern,
+				prefix: '',
+				title: `Open Issue #<num> on ${this.name}`,
+				referenceType: 'branch',
+				alphanumeric: false,
+				ignoreCase: true,
+			},
+		];
 	}
 
 	get avatarUri(): Uri | undefined {

@@ -27,7 +27,7 @@ export class CloseUnchangedFilesCommand extends Command {
 				const repository = await getRepositoryOrShowPicker('Close All Unchanged Files');
 				if (repository == null) return;
 
-				const status = await this.container.git.getStatusForRepo(repository.uri);
+				const status = await this.container.git.getStatus(repository.uri);
 				if (status == null) {
 					void window.showWarningMessage('Unable to close unchanged files');
 

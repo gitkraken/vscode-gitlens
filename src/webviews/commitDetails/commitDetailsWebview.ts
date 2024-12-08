@@ -1,16 +1,16 @@
 import { EntityIdentifierUtils } from '@gitkraken/provider-apis';
 import type { CancellationToken, ConfigurationChangeEvent, TextDocumentShowOptions } from 'vscode';
 import { CancellationTokenSource, Disposable, env, Uri, window } from 'vscode';
-import { extractDraftMessage } from '../../ai/aiProviderService';
-import type { MaybeEnrichedAutolink } from '../../annotations/autolinks';
-import { serializeAutolink } from '../../annotations/autolinks';
+import type { MaybeEnrichedAutolink } from '../../autolinks';
+import { serializeAutolink } from '../../autolinks';
 import { getAvatarUri } from '../../avatars';
 import type { CopyMessageToClipboardCommandArgs } from '../../commands/copyMessageToClipboard';
 import type { CopyShaToClipboardCommandArgs } from '../../commands/copyShaToClipboard';
 import type { OpenPullRequestOnRemoteCommandArgs } from '../../commands/openPullRequestOnRemote';
 import { Commands } from '../../constants.commands';
 import type { ContextKeys } from '../../constants.context';
-import type { Sources } from '../../constants.telemetry';
+import { IssueIntegrationId } from '../../constants.integrations';
+import type { InspectTelemetryContext, Sources } from '../../constants.telemetry';
 import type { Container } from '../../container';
 import type { CommitSelectedEvent } from '../../eventBus';
 import { executeGitCommand } from '../../git/actions';
@@ -43,7 +43,6 @@ import { showPatchesView } from '../../plus/drafts/actions';
 import type { Subscription } from '../../plus/gk/account/subscription';
 import type { SubscriptionChangeEvent } from '../../plus/gk/account/subscriptionService';
 import type { ConnectionStateChangeEvent } from '../../plus/integrations/integrationService';
-import { IssueIntegrationId } from '../../plus/integrations/providers/models';
 import { getEntityIdentifierInput } from '../../plus/integrations/providers/utils';
 import { confirmDraftStorage, ensureAccount } from '../../plus/utils';
 import type { ShowInCommitGraphCommandArgs } from '../../plus/webviews/graph/protocol';
@@ -219,6 +218,40 @@ export class CommitDetailsWebviewProvider
 		this._wipSubscription?.subscription.dispose();
 	}
 
+	getTelemetryContext(): InspectTelemetryContext {
+		let context: InspectTelemetryContext;
+		if (this.mode === 'wip') {
+			const repo = this._context.wip?.repo;
+			context = {
+				...this.host.getTelemetryContext(),
+				'context.attachedTo': this.options.attachedTo,
+				'context.mode': this.mode,
+				'context.autolinks': this._context.wip?.pullRequest != null ? 1 : 0,
+				'context.inReview': this._context.inReview,
+				'context.codeSuggestions': this._context.wip?.codeSuggestions?.length ?? 0,
+				'context.repository.id': repo?.idHash,
+				'context.repository.scheme': repo?.uri.scheme,
+				'context.repository.closed': repo?.closed,
+				'context.repository.folder.scheme': repo?.folder?.uri.scheme,
+				'context.repository.provider.id': repo?.provider.id,
+			};
+		} else {
+			context = {
+				...this.host.getTelemetryContext(),
+				'context.attachedTo': this.options.attachedTo,
+				'context.mode': this.mode,
+				'context.autolinks':
+					(this._context.pullRequest != null ? 1 : 0) + (this._context.autolinkedIssues?.length ?? 0),
+				'context.pinned': this._context.pinned,
+				'context.type':
+					this._context.commit == null ? undefined : isStash(this._context.commit) ? 'stash' : 'commit',
+				'context.uncommitted': this._context.commit?.isUncommitted ?? false,
+			};
+		}
+
+		return context;
+	}
+
 	private _skipNextRefreshOnVisibilityChange = false;
 	private _shouldRefreshPullRequestDetails = false;
 
@@ -226,12 +259,16 @@ export class CommitDetailsWebviewProvider
 		_loading: boolean,
 		options?: WebviewShowOptions,
 		...args: WebviewShowingArgs<CommitDetailsWebviewShowingArgs, Serialized<State>>
-	): Promise<boolean> {
+	): Promise<[boolean, InspectTelemetryContext]> {
 		const [arg] = args;
 		if ((arg as ShowWipArgs)?.type === 'wip') {
-			return this.onShowingWip(arg as ShowWipArgs);
+			return [await this.onShowingWip(arg as ShowWipArgs), this.getTelemetryContext()];
 		}
-		return this.onShowingCommit(arg as Partial<CommitSelectedEvent['data']> | undefined, options);
+
+		return [
+			await this.onShowingCommit(arg as Partial<CommitSelectedEvent['data']> | undefined, options),
+			this.getTelemetryContext(),
+		];
 	}
 
 	private get inReview(): boolean {
@@ -240,8 +277,8 @@ export class CommitDetailsWebviewProvider
 
 	async onShowingWip(arg: ShowWipArgs, options?: WebviewShowOptions): Promise<boolean> {
 		this.updatePendingContext({ source: arg.source });
-		const shouldChangeReview = arg.inReview != null && this.inReview != arg.inReview;
-		if (this.mode != 'wip' || (arg.repository != null && this._context.wip?.repo != arg.repository)) {
+		const shouldChangeReview = arg.inReview != null && this.inReview !== arg.inReview;
+		if (this.mode !== 'wip' || (arg.repository != null && this._context.wip?.repo !== arg.repository)) {
 			if (shouldChangeReview) {
 				this.updatePendingContext({ inReview: arg.inReview });
 			}
@@ -751,7 +788,7 @@ export class CommitDetailsWebviewProvider
 		if (pr.refs == null) return;
 
 		const refs = getComparisonRefsForPullRequest(repoPath, pr.refs);
-		return this.container.searchAndCompareView.compare(refs.repoPath, refs.head, refs.base);
+		return this.container.views.searchAndCompare.compare(refs.repoPath, refs.head, refs.base);
 	}
 
 	private async openPullRequestOnRemote(clipboard?: boolean) {
@@ -772,7 +809,7 @@ export class CommitDetailsWebviewProvider
 		const { pr, repoPath, branch, commit } = this.pullRequestContext;
 		if (pr == null) return;
 
-		return this.container.pullRequestView.showPullRequest(pr, commit ?? branch ?? repoPath);
+		return this.container.views.pullRequest.showPullRequest(pr, commit ?? branch ?? repoPath);
 	}
 
 	onRefresh(_force?: boolean | undefined): void {
@@ -854,7 +891,7 @@ export class CommitDetailsWebviewProvider
 
 	updateHasAccount(subscription: Subscription) {
 		const hasAccount = subscription.account != null;
-		if (this._context.hasAccount == hasAccount) return;
+		if (this._context.hasAccount === hasAccount) return;
 
 		this._context.hasAccount = hasAccount;
 		void this.host.notify(DidChangeHasAccountNotification, { hasAccount: hasAccount });
@@ -1084,16 +1121,16 @@ export class CommitDetailsWebviewProvider
 	private async explainRequest<T extends typeof ExplainRequest>(requestType: T, msg: IpcCallMessageType<T>) {
 		let params: DidExplainParams;
 		try {
-			const summary = await (
+			const result = await (
 				await this.container.ai
 			)?.explainCommit(
 				this._context.commit!,
 				{ source: 'inspect', type: isStash(this._context.commit) ? 'stash' : 'commit' },
 				{ progress: { location: { viewId: this.host.id } } },
 			);
-			if (summary == null) throw new Error('Error retrieving content');
+			if (result == null) throw new Error('Error retrieving content');
 
-			params = { summary: summary };
+			params = { result: result };
 		} catch (ex) {
 			debugger;
 			params = { error: { message: ex.message } };
@@ -1120,16 +1157,19 @@ export class CommitDetailsWebviewProvider
 			// const commit = await this.getOrCreateCommitForPatch(patch.gkRepositoryId);
 			// if (commit == null) throw new Error('Unable to find commit');
 
-			const summary = await (
+			const message = await (
 				await this.container.ai
 			)?.generateDraftMessage(
 				repo,
 				{ source: 'inspect', type: 'suggested_pr_change' },
 				{ progress: { location: { viewId: this.host.id } } },
 			);
-			if (summary == null) throw new Error('Error retrieving content');
+			if (message == null) throw new Error('Error retrieving content');
 
-			params = extractDraftMessage(summary);
+			params = {
+				title: message.summary,
+				description: message.body,
+			};
 		} catch (ex) {
 			debugger;
 			params = { error: { message: ex.message } };
@@ -1255,7 +1295,7 @@ export class CommitDetailsWebviewProvider
 				wip.pullRequest != null &&
 				(this._context.source === 'launchpad' || this._pendingContext?.source === 'launchpad')
 			) {
-				void this.container.pullRequestView.showPullRequest(wip.pullRequest, wip.branch ?? repository.path);
+				void this.container.views.pullRequest.showPullRequest(wip.pullRequest, wip.branch ?? repository.path);
 				this._shouldRefreshPullRequestDetails = false;
 			}
 
@@ -1283,7 +1323,7 @@ export class CommitDetailsWebviewProvider
 		repository: Repository,
 		branchName: string,
 	): Promise<{ branch: GitBranch; pullRequest: PullRequest | undefined; codeSuggestions: Draft[] } | undefined> {
-		const branch = await repository.getBranch(branchName);
+		const branch = await repository.git.getBranch(branchName);
 		if (branch == null) return undefined;
 
 		if (this.mode === 'commit') {
@@ -1432,8 +1472,8 @@ export class CommitDetailsWebviewProvider
 			commit = commitish;
 		} else if (commitish != null) {
 			if (commitish.refType === 'stash') {
-				const stash = await this.container.git.getStash(commitish.repoPath);
-				commit = stash?.commits.get(commitish.ref);
+				const gitStash = await this.container.git.getStash(commitish.repoPath);
+				commit = gitStash?.stashes.get(commitish.ref);
 			} else {
 				commit = await this.container.git.getCommit(commitish.repoPath, commitish.ref);
 			}
@@ -1515,7 +1555,7 @@ export class CommitDetailsWebviewProvider
 	}
 
 	private async getWipChange(repository: Repository): Promise<WipChange | undefined> {
-		const status = await this.container.git.getStatusForRepo(repository.path);
+		const status = await this.container.git.getStatus(repository.path);
 		if (status == null) return undefined;
 
 		const files: GitFileChangeShape[] = [];
@@ -1828,6 +1868,8 @@ export class CommitDetailsWebviewProvider
 	private switchMode(params: SwitchModeParams) {
 		if (this.mode === params.mode) return;
 
+		const currentMode = this.mode;
+
 		let repo;
 		if (params.mode === 'wip') {
 			let { repoPath } = params;
@@ -1842,6 +1884,15 @@ export class CommitDetailsWebviewProvider
 		}
 
 		void this.setMode(params.mode, repo);
+
+		this.container.telemetry.sendEvent(
+			`${this.options.attachedTo ? 'graphDetails' : 'commitDetails'}/mode/changed`,
+			{
+				...this.getTelemetryContext(),
+				'mode.old': currentMode,
+				'mode.new': params.mode,
+			},
+		);
 	}
 
 	private async openFileComparisonWithWorking(params: ExecuteFileActionParams) {

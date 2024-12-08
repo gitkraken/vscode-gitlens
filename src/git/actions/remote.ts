@@ -48,7 +48,7 @@ export async function remove(repo: string | Repository, remote: string) {
 	});
 }
 
-export async function reveal(
+export function reveal(
 	remote: GitRemote | undefined,
 	options?: {
 		select?: boolean;
@@ -56,15 +56,5 @@ export async function reveal(
 		expand?: boolean | number;
 	},
 ) {
-	const view = Container.instance.remotesView;
-	const node =
-		remote != null
-			? view.canReveal
-				? await view.revealRemote(remote, options)
-				: await Container.instance.repositoriesView.revealRemote(remote, options)
-			: undefined;
-	if (node == null) {
-		void view.show({ preserveFocus: !options?.focus });
-	}
-	return node;
+	return Container.instance.views.revealRemote(remote, options);
 }

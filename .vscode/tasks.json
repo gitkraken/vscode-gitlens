@@ -42,6 +42,19 @@
 			"problemMatcher": ["$ts-checker-webpack-watch", "$ts-checker-eslint-webpack-watch"]
 		},
 		{
+			"label": "Install dependencies",
+			"type": "shell",
+			"command": "pnpm",
+			"args": ["install"],
+			"presentation": {
+				"close": true,
+				"reveal": "never"
+			},
+			"runOptions": {
+				"runOn": "folderOpen"
+			}
+		},
+		{
 			"label": "Run (local web)",
 			"type": "npm",
 			"script": "web",

@@ -2,7 +2,9 @@ import { html, LitElement } from 'lit';
 import { customElement, property } from 'lit/decorators.js';
 import { baseStyles, pulseStyles } from './indicator.css';
 
-@customElement('gl-indicator')
+export const tagName = 'gl-indicator';
+
+@customElement(tagName)
 export class GlIndicator extends LitElement {
 	static override styles = [baseStyles, pulseStyles];
 

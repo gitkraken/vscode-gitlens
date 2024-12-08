@@ -48,6 +48,9 @@ export class BranchesRepositoryNode extends RepositoryFolderNode<BranchesView, B
 
 export class BranchesViewNode extends RepositoriesSubscribeableNode<BranchesView, BranchesRepositoryNode> {
 	async getChildren(): Promise<ViewNode[]> {
+		this.view.description = this.view.getViewDescription();
+		this.view.message = undefined;
+
 		if (this.children == null) {
 			let grouped: Map<Repository, Map<string, Repository>> | undefined;
 
@@ -65,8 +68,6 @@ export class BranchesViewNode extends RepositoriesSubscribeableNode<BranchesView
 				return [];
 			}
 
-			this.view.message = undefined;
-
 			// Get all the worktree branches (and track if they are opened) to pass along downstream, e.g. in the BranchNode to display an indicator
 			const worktreesByBranch = await getWorktreesByBranch(repositories, { includeDefault: true });
 			this.updateContext({
@@ -82,23 +83,18 @@ export class BranchesViewNode extends RepositoriesSubscribeableNode<BranchesView
 		if (this.children.length === 1) {
 			const [child] = this.children;
 
-			const branches = await child.repo.getBranches({ filter: b => !b.remote });
+			const branches = await child.repo.git.getBranches({ filter: b => !b.remote });
 			if (branches.values.length === 0) {
 				this.view.message = 'No branches could be found.';
-				this.view.title = 'Branches';
-
 				void child.ensureSubscription();
 
 				return [];
 			}
 
-			this.view.message = undefined;
-			this.view.title = `Branches (${branches.values.length})`;
+			this.view.description = this.view.getViewDescription(branches.values.length);
 
 			return child.getChildren();
 		}
-
-		this.view.title = 'Branches';
 
 		return this.children;
 	}
@@ -112,8 +108,8 @@ export class BranchesViewNode extends RepositoriesSubscribeableNode<BranchesView
 export class BranchesView extends ViewBase<'branches', BranchesViewNode, BranchesViewConfig> {
 	protected readonly configKey = 'branches';
 
-	constructor(container: Container) {
-		super(container, 'branches', 'Branches', 'branchesView');
+	constructor(container: Container, grouped?: boolean) {
+		super(container, 'branches', 'Branches', 'branchesView', grouped);
 	}
 
 	override get canReveal(): boolean {
@@ -129,8 +125,6 @@ export class BranchesView extends ViewBase<'branches', BranchesViewNode, Branche
 	}
 
 	protected registerCommands(): Disposable[] {
-		void this.container.viewCommands;
-
 		return [
 			registerViewCommand(
 				this.getQualifiedCommand('copy'),
@@ -184,6 +178,8 @@ export class BranchesView extends ViewBase<'branches', BranchesViewNode, Branche
 				() => this.setShowBranchPullRequest(false),
 				this,
 			),
+			registerViewCommand(this.getQualifiedCommand('setShowStashesOn'), () => this.setShowStashes(true), this),
+			registerViewCommand(this.getQualifiedCommand('setShowStashesOff'), () => this.setShowStashes(false), this),
 		];
 	}
 
@@ -358,5 +354,9 @@ export class BranchesView extends ViewBase<'branches', BranchesViewNode, Branche
 	private async setShowBranchPullRequest(enabled: boolean) {
 		await configuration.updateEffective(`views.${this.configKey}.pullRequests.showForBranches` as const, enabled);
 		await configuration.updateEffective(`views.${this.configKey}.pullRequests.enabled` as const, enabled);
+	}
+
+	private setShowStashes(enabled: boolean) {
+		return configuration.updateEffective(`views.${this.configKey}.showStashes` as const, enabled);
 	}
 }

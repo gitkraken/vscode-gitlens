@@ -9,10 +9,10 @@ import { Repository } from '../../git/models/repository';
 import { pad } from '../../system/string';
 import { formatPath } from '../../system/vscode/formatPath';
 import type { ViewsWithRepositoryFolders } from '../../views/viewBase';
-import { getSteps } from '../gitCommands.utils';
 import type { PartialStepState, StepGenerator, StepResult } from '../quickCommand';
 import { endSteps, QuickCommand, StepResultBreak } from '../quickCommand';
 import { pickBranchOrTagStep, pickCommitStep, pickRepositoryStep } from '../quickCommand.steps';
+import { getSteps } from '../quickWizard.utils';
 
 interface Context {
 	repos: Repository[];
@@ -86,7 +86,7 @@ export class LogGitCommand extends QuickCommand<State> {
 	protected async *steps(state: PartialStepState<State>): StepGenerator {
 		const context: Context = {
 			repos: this.container.git.openRepositories,
-			associatedView: this.container.commitsView,
+			associatedView: this.container.views.commits,
 			cache: new Map<string, Promise<GitLog | undefined>>(),
 			selectedBranchOrTag: undefined,
 			title: this.title,
@@ -118,7 +118,7 @@ export class LogGitCommand extends QuickCommand<State> {
 			assertStateStepRepository(state);
 
 			if (state.reference === 'HEAD') {
-				const branch = await state.repo.getBranch();
+				const branch = await state.repo.git.getBranch();
 				state.reference = branch;
 			}
 

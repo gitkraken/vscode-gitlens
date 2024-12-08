@@ -8,8 +8,8 @@ import { debounce } from '../../../../../system/function';
 import { getSettledValue, isPromise } from '../../../../../system/promise';
 import { GlElement } from '../../../shared/components/element';
 import type { GlPopover } from '../../../shared/components/overlays/popover.react';
+import '../../../shared/components/markdown/markdown';
 import '../../../shared/components/overlays/popover';
-import './markdown';
 
 declare global {
 	interface HTMLElementTagNameMap {

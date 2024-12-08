@@ -91,7 +91,7 @@ export class CherryPickGitCommand extends QuickCommand<State> {
 	protected async *steps(state: PartialStepState<State>): StepGenerator {
 		const context: Context = {
 			repos: this.container.git.openRepositories,
-			associatedView: this.container.commitsView,
+			associatedView: this.container.views.commits,
 			cache: new Map<string, Promise<GitLog | undefined>>(),
 			destination: undefined!,
 			selectedBranchOrTag: undefined,
@@ -131,7 +131,7 @@ export class CherryPickGitCommand extends QuickCommand<State> {
 			}
 
 			if (context.destination == null) {
-				const branch = await state.repo.getBranch();
+				const branch = await state.repo.git.getBranch();
 				if (branch == null) break;
 
 				context.destination = branch;
@@ -179,7 +179,7 @@ export class CherryPickGitCommand extends QuickCommand<State> {
 					{ mode: 'contains' },
 				);
 				if (branches.length) {
-					const branch = await state.repo.getBranch(branches[0]);
+					const branch = await state.repo.git.getBranch(branches[0]);
 					if (branch != null) {
 						context.selectedBranchOrTag = branch;
 					}

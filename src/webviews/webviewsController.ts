@@ -9,6 +9,7 @@ import type {
 } from 'vscode';
 import { Disposable, Uri, ViewColumn, window } from 'vscode';
 import type { Commands } from '../constants.commands';
+import type { TrackedUsageFeatures } from '../constants.telemetry';
 import type { WebviewIds, WebviewTypes, WebviewViewIds, WebviewViewTypes } from '../constants.views';
 import type { Container } from '../container';
 import { ensurePlusFeaturesEnabled } from '../plus/gk/utils';
@@ -17,7 +18,6 @@ import { find, first, map } from '../system/iterable';
 import { Logger } from '../system/logger';
 import { startLogScope } from '../system/logger.scope';
 import { executeCoreCommand, registerCommand } from '../system/vscode/command';
-import type { TrackedUsageFeatures } from '../telemetry/usageTracker';
 import { WebviewCommandRegistrar } from './webviewCommandRegistrar';
 import { WebviewController } from './webviewController';
 import type { WebviewHost, WebviewProvider, WebviewShowingArgs } from './webviewProvider';
@@ -29,6 +29,7 @@ export interface WebviewPanelDescriptor {
 	readonly title: string;
 	readonly contextKeyPrefix: `gitlens:webview:${WebviewTypes}`;
 	readonly trackingFeature: TrackedUsageFeatures;
+	readonly type: WebviewTypes;
 	readonly plusFeature: boolean;
 	readonly column?: ViewColumn;
 	readonly webviewOptions?: WebviewOptions;
@@ -79,6 +80,7 @@ export interface WebviewViewDescriptor {
 	readonly title: string;
 	readonly contextKeyPrefix: `gitlens:webviewView:${WebviewViewTypes}`;
 	readonly trackingFeature: TrackedUsageFeatures;
+	readonly type: WebviewViewTypes;
 	readonly plusFeature: boolean;
 	readonly webviewOptions?: WebviewOptions;
 	readonly webviewHostOptions?: {

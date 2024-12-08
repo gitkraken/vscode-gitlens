@@ -3,6 +3,7 @@ import type { EntityIdentifier } from '@gitkraken/provider-apis';
 import { EntityIdentifierUtils } from '@gitkraken/provider-apis';
 import type { Disposable } from 'vscode';
 import { getAvatarUri } from '../../avatars';
+import type { IntegrationId } from '../../constants.integrations';
 import type { Container } from '../../container';
 import type { GitCommit } from '../../git/models/commit';
 import type { PullRequest } from '../../git/models/pullRequest';
@@ -46,7 +47,6 @@ import { getSettledValue } from '../../system/promise';
 import type { OrganizationMember } from '../gk/account/organization';
 import type { SubscriptionAccount } from '../gk/account/subscription';
 import type { ServerConnection } from '../gk/serverConnection';
-import type { IntegrationId } from '../integrations/providers/models';
 import { providersMetadata } from '../integrations/providers/models';
 import { getEntityIdentifierInput } from '../integrations/providers/utils';
 import type { LaunchpadItem } from '../launchpad/launchpadProvider';
@@ -754,7 +754,7 @@ export class DraftService implements Disposable {
 	): Promise<ProviderAuth | undefined> {
 		let integration;
 		if (isRepository(repoOrIntegrationId)) {
-			const remoteProvider = await repoOrIntegrationId.getBestRemoteWithIntegration();
+			const remoteProvider = await repoOrIntegrationId.git.getBestRemoteWithIntegration();
 			if (remoteProvider == null) return undefined;
 
 			integration = await remoteProvider.getIntegration();

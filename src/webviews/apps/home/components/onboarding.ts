@@ -1,19 +1,21 @@
 import { consume } from '@lit/context';
 import { html, LitElement } from 'lit';
-import { customElement, state } from 'lit/decorators.js';
+import { customElement, query, state } from 'lit/decorators.js';
+import { Commands } from '../../../../constants.commands';
+import { createCommandLink } from '../../../../system/commands';
 import type { State } from '../../../home/protocol';
-import { CollapseSectionCommand } from '../../../home/protocol';
+import { DismissWalkthroughSection } from '../../../home/protocol';
+import type { GlButton } from '../../shared/components/button';
 import { ipcContext } from '../../shared/context';
 import type { HostIpc } from '../../shared/ipc';
 import { stateContext } from '../context';
-import { alertStyles, buttonStyles, homeBaseStyles } from '../home.css';
-import '../../shared/components/button';
+import { homeBaseStyles, walkthroughProgressStyles } from '../home.css';
 import '../../shared/components/code-icon';
 import '../../shared/components/overlays/tooltip';
 
 @customElement('gl-onboarding')
 export class GlOnboarding extends LitElement {
-	static override styles = [alertStyles, homeBaseStyles, buttonStyles];
+	static override styles = [homeBaseStyles, walkthroughProgressStyles];
 
 	@consume<State>({ context: stateContext, subscribe: true })
 	@state()
@@ -23,83 +25,55 @@ export class GlOnboarding extends LitElement {
 	@state()
 	private _ipc!: HostIpc;
 
-	private onSectionExpandClicked(e: MouseEvent, isToggle = false) {
-		if (isToggle) {
-			e.stopImmediatePropagation();
-		}
-		const target = (e.target as HTMLElement).closest('[data-section-expand]') as HTMLElement;
-		const section = target?.dataset.sectionExpand;
-		if (section !== 'walkthrough') {
-			return;
-		}
-
-		if (isToggle) {
-			this.updateCollapsedSections(!this._state.walkthroughCollapsed);
-			return;
-		}
-
-		this.updateCollapsedSections(false);
-	}
-
-	private updateCollapsedSections(toggle = this._state.walkthroughCollapsed) {
-		this._state.walkthroughCollapsed = toggle;
-		this.requestUpdate();
-		this._ipc.sendCommand(CollapseSectionCommand, {
-			section: 'walkthrough',
-			collapsed: toggle,
-		});
-	}
+	@query('#open-walkthrough')
+	private _openWalkthroughButton!: GlButton;
 
 	override render() {
+		if (!this._state.showWalkthroughProgress) {
+			return undefined;
+		}
+
 		return html`
-			<div
-				id="section-walkthrough"
-				data-section-expand="walkthrough"
-				class="alert${this._state.walkthroughCollapsed ? ' is-collapsed' : ''}"
-				@click=${(e: MouseEvent) => this.onSectionExpandClicked(e)}
-			>
-				<h1 class="alert__title">Get Started with GitLens</h1>
-				<div class="alert__description">
-					<p>Explore all of the powerful features in GitLens</p>
-					<p class="button-container button-container--trio">
+			<section class="walkthrough-progress" @click=${(e: MouseEvent) => this.onFallthroughClick(e)}>
+				<header class="walkthrough-progress__title">
+					<span
+						>GitLens Walkthrough
+						(${this._state.walkthroughProgress.doneCount}/${this._state.walkthroughProgress.allCount})</span
+					>
+					<nav>
 						<gl-button
-							appearance="secondary"
-							full
-							href="command:gitlens.showWelcomePage"
-							aria-label="Open Welcome"
-							>Start Here (Welcome)</gl-button
-						>
-						<span class="button-group button-group--single">
-							<gl-button appearance="secondary" full href="command:gitlens.getStarted?%22home%22"
-								>Walkthrough</gl-button
-							>
-							<gl-button
-								appearance="secondary"
-								full
-								href=${'https://youtu.be/oJdlGtsbc3U?utm_source=inapp&utm_medium=home_banner&utm_id=GitLens+tutorial'}
-								aria-label="Watch the GitLens Tutorial video"
-								tooltip="Watch the GitLens Tutorial video"
-								><code-icon icon="vm-running" slot="prefix"></code-icon>Tutorial</gl-button
-							>
-						</span>
-					</p>
-				</div>
-				<a
-					href="#"
-					class="alert__close"
-					data-section-toggle="walkthrough"
-					@click=${(e: MouseEvent) => this.onSectionExpandClicked(e, true)}
-				>
-					<gl-tooltip hoist>
-						<code-icon icon="chevron-down" aria-label="Collapse walkthrough section"></code-icon>
-						<span slot="content">Collapse</span>
-					</gl-tooltip>
-					<gl-tooltip hoist>
-						<code-icon icon="chevron-right" aria-label="Expand walkthrough section"></code-icon>
-						<span slot="content">Expand</span>
-					</gl-tooltip>
-				</a>
-			</div>
+							id="open-walkthrough"
+							href=${createCommandLink(Commands.OpenWalkthrough, {})}
+							class="walkthrough-progress__button"
+							appearance="toolbar"
+							><code-icon icon="play"></code-icon
+						></gl-button>
+						<gl-button
+							@click=${this.onDismissWalkthrough.bind(this)}
+							class="walkthrough-progress__button"
+							appearance="toolbar"
+							><code-icon icon="x"></code-icon
+						></gl-button>
+					</nav>
+				</header>
+				<progress
+					class="walkthrough-progress__bar"
+					value=${this._state.walkthroughProgress.progress}
+				></progress>
+			</section>
 		`;
+	}
+
+	private onDismissWalkthrough() {
+		this._state.showWalkthroughProgress = false;
+		this.requestUpdate();
+		this._ipc.sendCommand(DismissWalkthroughSection);
+	}
+
+	private onFallthroughClick(e: MouseEvent) {
+		if ((e.target as HTMLElement)?.closest('gl-button')) {
+			return;
+		}
+		this._openWalkthroughButton.click();
 	}
 }

@@ -8,7 +8,7 @@ export async function showInspectView(
 	data: Partial<CommitSelectedEvent['data']> | ShowWipArgs,
 	showOptions?: WebviewViewShowOptions,
 ): Promise<void> {
-	return Container.instance.commitDetailsView.show(showOptions, data);
+	return Container.instance.views.commitDetails.show(showOptions, data);
 }
 
 export async function startCodeReview(

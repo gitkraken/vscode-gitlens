@@ -1,3 +1,4 @@
+.DS_Store
 .eslintcache*
 .vscode-clean/**
 .vscode-test/**
@@ -8,6 +9,3 @@ node_modules
 images/settings
 gitlens-*.vsix
 tsconfig*.tsbuildinfo
-.DS_Store
-test-results
-playwright-report

@@ -139,6 +139,7 @@ export const Logger = new (class Logger {
 		if (this.output == null || this.level < OrderedLevel.Error) return;
 		this.output.appendLine(
 			`${this.timestamp} ${message ?? ''}${this.toLoggableParams(false, params)}${
+				// eslint-disable-next-line @typescript-eslint/no-base-to-string
 				ex != null ? `\n${String(ex)}` : ''
 			}`,
 		);
@@ -225,6 +226,8 @@ export const Logger = new (class Logger {
 	}
 })();
 
+const maxBufferedLines = 100;
+
 export class BufferedLogChannel implements LogChannel {
 	private readonly buffer: string[] = [];
 	private bufferTimer: ReturnType<typeof setTimeout> | undefined;
@@ -238,6 +241,7 @@ export class BufferedLogChannel implements LogChannel {
 		clearInterval(this.bufferTimer);
 		this.bufferTimer = undefined;
 
+		this.flush();
 		this.channel.dispose();
 	}
 
@@ -247,7 +251,12 @@ export class BufferedLogChannel implements LogChannel {
 
 	appendLine(value: string) {
 		this.buffer.push(value);
-		this.bufferTimer ??= setInterval(() => this.flush(), this.interval);
+
+		if (this.buffer.length >= maxBufferedLines) {
+			this.flush();
+		} else {
+			this.bufferTimer ??= setInterval(() => this.flush(), this.interval);
+		}
 	}
 
 	show(preserveFocus?: boolean): void {
@@ -260,7 +269,8 @@ export class BufferedLogChannel implements LogChannel {
 		if (this.buffer.length) {
 			this._emptyCounter = 0;
 
-			const value = this.buffer.join('\n');
+			let value = this.buffer.join('\n');
+			value += '\n';
 			this.buffer.length = 0;
 
 			this.channel.append(value);

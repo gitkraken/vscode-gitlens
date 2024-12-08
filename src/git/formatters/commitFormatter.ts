@@ -1,13 +1,12 @@
 import type { Uri } from 'vscode';
-import type { MaybeEnrichedAutolink } from '../../annotations/autolinks';
 import type {
 	Action,
 	ActionContext,
 	HoverCommandsActionContext,
 	OpenPullRequestActionContext,
 } from '../../api/gitlens';
+import type { MaybeEnrichedAutolink } from '../../autolinks';
 import { getPresenceDataUri } from '../../avatars';
-import { Command } from '../../commands/base';
 import { DiffWithCommand } from '../../commands/diffWith';
 import { InspectCommand } from '../../commands/inspect';
 import { OpenCommitOnRemoteCommand } from '../../commands/openCommitOnRemote';
@@ -22,10 +21,12 @@ import { Container } from '../../container';
 import { emojify } from '../../emojis';
 import { arePlusFeaturesEnabled } from '../../plus/gk/utils';
 import type { ShowInCommitGraphCommandArgs } from '../../plus/webviews/graph/protocol';
+import { createMarkdownCommandLink } from '../../system/commands';
 import { join, map } from '../../system/iterable';
+import { escapeMarkdown } from '../../system/markdown';
 import { isPromise } from '../../system/promise';
 import type { TokenOptions } from '../../system/string';
-import { encodeHtmlWeak, escapeMarkdown, getSuperscript } from '../../system/string';
+import { encodeHtmlWeak, getSuperscript } from '../../system/string';
 import { configuration } from '../../system/vscode/configuration';
 import type { ContactPresence } from '../../vsls/vsls';
 import type { PreviousLineComparisonUrisResult } from '../gitProvider';
@@ -77,6 +78,8 @@ export interface CommitFormatOptions extends FormatOptions {
 		agoOrDate?: TokenOptions;
 		agoOrDateShort?: TokenOptions;
 		author?: TokenOptions;
+		authorFirst?: TokenOptions;
+		authorLast?: TokenOptions;
 		authorAgo?: TokenOptions;
 		authorAgoOrDate?: TokenOptions;
 		authorAgoOrDateShort?: TokenOptions;
@@ -200,8 +203,21 @@ export class CommitFormatter extends Formatter<GitCommit, CommitFormatOptions> {
 	}
 
 	get author(): string {
-		let { name, email } = this._item.author;
-		const author = this._padOrTruncate(name, this._options.tokenOptions.author);
+		return this.formatAuthor(this._item.author.name, this._item.author.email, this._options.tokenOptions.author);
+	}
+
+	get authorFirst(): string {
+		const [first] = this._item.author.name.split(' ');
+		return this.formatAuthor(first, this._item.author.email, this._options.tokenOptions.authorFirst);
+	}
+
+	get authorLast(): string {
+		const [first, last] = this._item.author.name.split(' ');
+		return this.formatAuthor(last || first, this._item.author.email, this._options.tokenOptions.authorLast);
+	}
+
+	private formatAuthor(name: string, email: string | undefined, tokenOptions: TokenOptions | undefined): string {
+		const author = this._padOrTruncate(name, tokenOptions);
 
 		switch (this._options.outputFormat) {
 			case 'markdown':
@@ -375,12 +391,12 @@ export class CommitFormatter extends Formatter<GitCommit, CommitFormatOptions> {
 				commands = `[\`${this._padOrTruncate(
 					shortenRevision(isUncommittedStaged(diffUris.current.sha) ? diffUris.current.sha : uncommitted),
 					this._options.tokenOptions.commands,
-				)}\`](${InspectCommand.getMarkdownCommandArgs(
+				)}\`](${InspectCommand.createMarkdownCommandLink(
 					this._item.sha,
 					this._item.repoPath,
 				)} "Inspect Commit Details")`;
 
-				commands += ` &nbsp;[$(chevron-left)$(compare-changes)](${DiffWithCommand.getMarkdownCommandArgs({
+				commands += ` &nbsp;[$(chevron-left)$(compare-changes)](${DiffWithCommand.createMarkdownCommandLink({
 					lhs: {
 						sha: diffUris.previous.sha ?? '',
 						uri: diffUris.previous.documentUri(),
@@ -393,7 +409,7 @@ export class CommitFormatter extends Formatter<GitCommit, CommitFormatOptions> {
 					line: this._options.editor?.line,
 				})} "Open Changes with Previous Revision")`;
 
-				commands += ` &nbsp;[$(versions)](${OpenFileAtRevisionCommand.getMarkdownCommandArgs(
+				commands += ` &nbsp;[$(versions)](${OpenFileAtRevisionCommand.createMarkdownCommandLink(
 					Container.instance.git.getRevisionUri(diffUris.previous),
 					'blame',
 					this._options.editor?.line,
@@ -402,7 +418,7 @@ export class CommitFormatter extends Formatter<GitCommit, CommitFormatOptions> {
 				commands = `[\`${this._padOrTruncate(
 					shortenRevision(this._item.isUncommittedStaged ? uncommittedStaged : uncommitted),
 					this._options.tokenOptions.commands,
-				)}\`](${InspectCommand.getMarkdownCommandArgs(
+				)}\`](${InspectCommand.createMarkdownCommandLink(
 					this._item.sha,
 					this._item.repoPath,
 				)} "Inspect Commit Details")`;
@@ -413,12 +429,12 @@ export class CommitFormatter extends Formatter<GitCommit, CommitFormatOptions> {
 
 		const separator = ' &nbsp;&nbsp;|&nbsp;&nbsp; ';
 
-		commands = `---\n\n[\`$(git-commit) ${this.id}\`](${InspectCommand.getMarkdownCommandArgs(
+		commands = `---\n\n[\`$(git-commit) ${this.id}\`](${InspectCommand.createMarkdownCommandLink(
 			this._item.sha,
 			this._item.repoPath,
 		)} "Inspect Commit Details")`;
 
-		commands += ` &nbsp;[$(chevron-left)$(compare-changes)](${DiffWithCommand.getMarkdownCommandArgs(
+		commands += ` &nbsp;[$(chevron-left)$(compare-changes)](${DiffWithCommand.createMarkdownCommandLink(
 			this._item,
 			this._options.editor?.line,
 		)} "Open Changes with Previous Revision")`;
@@ -429,14 +445,14 @@ export class CommitFormatter extends Formatter<GitCommit, CommitFormatOptions> {
 				this._item.file.originalPath ?? this._item.file?.path,
 				this._item.repoPath,
 			);
-			commands += ` &nbsp;[$(versions)](${OpenFileAtRevisionCommand.getMarkdownCommandArgs(
+			commands += ` &nbsp;[$(versions)](${OpenFileAtRevisionCommand.createMarkdownCommandLink(
 				uri,
 				'blame',
 				this._options.editor?.line,
 			)} "Open Blame Prior to this Change")`;
 		}
 
-		commands += ` &nbsp;[$(search)](${Command.getMarkdownCommandArgsCore<ShowQuickCommitCommandArgs>(
+		commands += ` &nbsp;[$(search)](${createMarkdownCommandLink<ShowQuickCommitCommandArgs>(
 			Commands.RevealCommitInView,
 			{
 				repoPath: this._item.repoPath,
@@ -446,7 +462,7 @@ export class CommitFormatter extends Formatter<GitCommit, CommitFormatOptions> {
 		)} "Reveal in Side Bar")`;
 
 		if (arePlusFeaturesEnabled()) {
-			commands += ` &nbsp;[$(gitlens-graph)](${Command.getMarkdownCommandArgsCore<ShowInCommitGraphCommandArgs>(
+			commands += ` &nbsp;[$(gitlens-graph)](${createMarkdownCommandLink<ShowInCommitGraphCommandArgs>(
 				Commands.ShowInCommitGraph,
 				// Avoid including the message here, it just bloats the command url
 				{ ref: getReferenceFromRevision(this._item, { excludeMessage: true }) },
@@ -458,7 +474,7 @@ export class CommitFormatter extends Formatter<GitCommit, CommitFormatOptions> {
 		if (remotes?.length) {
 			const providers = getHighlanderProviders(remotes);
 
-			commands += ` &nbsp;[$(globe)](${OpenCommitOnRemoteCommand.getMarkdownCommandArgs(
+			commands += ` &nbsp;[$(globe)](${OpenCommitOnRemoteCommand.createMarkdownCommandLink(
 				this._item.sha,
 			)} "Open Commit on ${providers?.length ? providers[0].name : 'Remote'}")`;
 		}
@@ -467,12 +483,12 @@ export class CommitFormatter extends Formatter<GitCommit, CommitFormatOptions> {
 			if (isPullRequest(pr)) {
 				commands += `${separator}[$(git-pull-request) PR #${
 					pr.id
-				}](${getMarkdownActionCommand<OpenPullRequestActionContext>('openPullRequest', {
+				}](${createMarkdownActionCommandLink<OpenPullRequestActionContext>('openPullRequest', {
 					repoPath: this._item.repoPath,
 					provider: { id: pr.provider.id, name: pr.provider.name, domain: pr.provider.domain },
 					pullRequest: { id: pr.id, url: pr.url },
 				})} "Open Pull Request \\#${pr.id}${
-					Container.instance.actionRunners.count('openPullRequest') == 1 ? ` on ${pr.provider.name}` : '...'
+					Container.instance.actionRunners.count('openPullRequest') === 1 ? ` on ${pr.provider.name}` : '...'
 				}\n${GlyphChars.Dash.repeat(2)}\n${escapeMarkdown(pr.title).replace(/"/g, '\\"')}\n${
 					pr.state
 				}, ${pr.formatDateFromNow()}")`;
@@ -488,7 +504,7 @@ export class CommitFormatter extends Formatter<GitCommit, CommitFormatOptions> {
 			) {
 				commands += `${separator}[$(plug) Connect to ${remote?.provider.name}${
 					GlyphChars.Ellipsis
-				}](${ConnectRemoteProviderCommand.getMarkdownCommandArgs(remote)} "Connect to ${
+				}](${ConnectRemoteProviderCommand.createMarkdownCommandLink(remote)} "Connect to ${
 					remote.provider.name
 				} to enable the display of the Pull Request (if any) that introduced this commit")`;
 			}
@@ -499,7 +515,7 @@ export class CommitFormatter extends Formatter<GitCommit, CommitFormatOptions> {
 
 			commands += `${separator}[$(organization) Team${GlyphChars.SpaceThinnest}${
 				GlyphChars.Ellipsis
-			}](${getMarkdownActionCommand<HoverCommandsActionContext>('hover.commands', {
+			}](${createMarkdownActionCommandLink<HoverCommandsActionContext>('hover.commands', {
 				repoPath: this._item.repoPath,
 				commit: {
 					sha: this._item.sha,
@@ -520,7 +536,7 @@ export class CommitFormatter extends Formatter<GitCommit, CommitFormatOptions> {
 		}
 
 		const gitUri = this._item.getGitUri();
-		commands += `${separator}[$(ellipsis)](${ShowQuickCommitFileCommand.getMarkdownCommandArgs(
+		commands += `${separator}[$(ellipsis)](${ShowQuickCommitFileCommand.createMarkdownCommandLink(
 			gitUri != null
 				? {
 						revisionUri: Container.instance.git.getRevisionUri(gitUri).toString(true),
@@ -634,13 +650,13 @@ export class CommitFormatter extends Formatter<GitCommit, CommitFormatOptions> {
 		switch (this._options.outputFormat) {
 			case 'markdown':
 				icon = icon ? `$(${icon}) ` : '';
-				link = `[\`${icon}${label}\`](${InspectCommand.getMarkdownCommandArgs({
+				link = `[\`${icon}${label}\`](${InspectCommand.createMarkdownCommandLink({
 					ref: getReferenceFromRevision(this._item),
 				})} "Inspect Commit Details")`;
 				break;
 			case 'html':
 				icon = icon ? `<span class="codicon codicon-${icon}"></span>` : '';
-				link = /*html*/ `<a href="${InspectCommand.getMarkdownCommandArgs({
+				link = /*html*/ `<a href="${InspectCommand.createMarkdownCommandLink({
 					ref: getReferenceFromRevision(this._item),
 				})}" title="Inspect Commit Details"${
 					this._options.htmlFormat?.classes?.link ? ` class="${this._options.htmlFormat.classes.link}"` : ''
@@ -692,7 +708,7 @@ export class CommitFormatter extends Formatter<GitCommit, CommitFormatOptions> {
 			message = encodeHtmlWeak(message);
 		}
 		if (outputFormat === 'markdown') {
-			message = escapeMarkdown(message, { quoted: true });
+			message = escapeMarkdown(message, { quoted: true, inlineBackticks: true });
 		}
 
 		if (this._options.messageAutolinks) {
@@ -734,15 +750,14 @@ export class CommitFormatter extends Formatter<GitCommit, CommitFormatOptions> {
 		let text;
 		if (isPullRequest(pr)) {
 			if (this._options.outputFormat === 'markdown') {
-				text = `[**$(git-pull-request) PR #${pr.id}**](${getMarkdownActionCommand<OpenPullRequestActionContext>(
-					'openPullRequest',
-					{
-						repoPath: this._item.repoPath,
-						provider: { id: pr.provider.id, name: pr.provider.name, domain: pr.provider.domain },
-						pullRequest: { id: pr.id, url: pr.url },
-					},
-				)} "Open Pull Request \\#${pr.id}${
-					Container.instance.actionRunners.count('openPullRequest') == 1 ? ` on ${pr.provider.name}` : '...'
+				text = `[**$(git-pull-request) PR #${
+					pr.id
+				}**](${createMarkdownActionCommandLink<OpenPullRequestActionContext>('openPullRequest', {
+					repoPath: this._item.repoPath,
+					provider: { id: pr.provider.id, name: pr.provider.name, domain: pr.provider.domain },
+					pullRequest: { id: pr.id, url: pr.url },
+				})} "Open Pull Request \\#${pr.id}${
+					Container.instance.actionRunners.count('openPullRequest') === 1 ? ` on ${pr.provider.name}` : '...'
 				}\n${GlyphChars.Dash.repeat(2)}\n${escapeMarkdown(pr.title).replace(/"/g, '\\"')}\n${
 					pr.state
 				}, ${pr.formatDateFromNow()}")`;
@@ -906,8 +921,8 @@ export class CommitFormatter extends Formatter<GitCommit, CommitFormatOptions> {
 	}
 }
 
-function getMarkdownActionCommand<T extends ActionContext>(action: Action<T>, args: Omit<T, 'type'>): string {
-	return Command.getMarkdownCommandArgsCore(`${Commands.ActionPrefix}${action}`, {
+function createMarkdownActionCommandLink<T extends ActionContext>(action: Action<T>, args: Omit<T, 'type'>): string {
+	return createMarkdownCommandLink(`${Commands.ActionPrefix}${action}` as Commands, {
 		...args,
 		type: action,
 	});

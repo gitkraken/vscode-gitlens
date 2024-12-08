@@ -67,7 +67,7 @@ export class PullGitCommand extends QuickCommand<State> {
 		if (isBranchReference(state.reference)) {
 			// Only resort to a branch fetch if the branch isn't the current one
 			if (!isBranch(state.reference) || !state.reference.current) {
-				const currentBranch = await state.repos[0].getBranch();
+				const currentBranch = await state.repos[0].git.getBranch();
 				if (currentBranch?.name !== state.reference.name) {
 					return state.repos[0].fetch({ branch: state.reference, pull: true });
 				}
@@ -80,7 +80,7 @@ export class PullGitCommand extends QuickCommand<State> {
 	protected async *steps(state: PartialStepState<State>): StepGenerator {
 		const context: Context = {
 			repos: this.container.git.openRepositories,
-			associatedView: this.container.commitsView,
+			associatedView: this.container.views.commits,
 			title: this.title,
 		};
 
@@ -133,8 +133,8 @@ export class PullGitCommand extends QuickCommand<State> {
 				state.flags = result;
 			}
 
+			await this.execute(state as PullStepState);
 			endSteps(state);
-			void this.execute(state as PullStepState);
 		}
 
 		return state.counter < 0 ? StepResultBreak : undefined;
@@ -167,7 +167,7 @@ export class PullGitCommand extends QuickCommand<State> {
 				);
 			} else {
 				const [repo] = state.repos;
-				const branch = await repo.getBranch(state.reference.name);
+				const branch = await repo.git.getBranch(state.reference.name);
 
 				if (branch?.upstream == null) {
 					step = this.createConfirmStep(
@@ -193,7 +193,7 @@ export class PullGitCommand extends QuickCommand<State> {
 			}
 		} else {
 			const [repo] = state.repos;
-			const [status, lastFetched] = await Promise.all([repo.getStatus(), repo.getLastFetched()]);
+			const [status, lastFetched] = await Promise.all([repo.git.getStatus(), repo.getLastFetched()]);
 
 			let lastFetchedOn = '';
 			if (lastFetched !== 0) {

@@ -6,7 +6,7 @@ Must be placed at the end of body in the HTML file of any webview that needs it 
 	@font-face {
 		font-family: 'glicons';
 		font-display: block;
-		src: url("#{root}/dist/glicons.woff2?6ae679c0cde70af8c802b5257e2354a4") format("woff2");
+		src: url("#{root}/dist/glicons.woff2?06e3d32fa68f664ff5fe0141040111d0") format("woff2");
 	}
 </style>
 */
@@ -143,9 +143,6 @@ Must be placed at the end of body in the HTML file of any webview that needs it 
 .glicon-list-auto:before {
 	content: '\f11a';
 }
-.glicon-repo-force-push:before {
-	content: '\f11b';
-}
 .glicon-pinned-filled:before {
 	content: '\f11c';
 }
@@ -200,21 +197,45 @@ Must be placed at the end of body in the HTML file of any webview that needs it 
 .glicon-code-suggestion:before {
 	content: '\f12d';
 }
-.glicon-diff-multiple:before {
-	content: '\f12e';
-}
-.glicon-diff-single:before {
-	content: '\f12f';
-}
-.glicon-repo-fetch:before {
-	content: '\f130';
-}
-.glicon-repo-pull:before {
-	content: '\f131';
-}
-.glicon-repo-push:before {
-	content: '\f132';
-}
 .glicon-provider-jira:before {
 	content: '\f133';
+}
+.glicon-play-button:before {
+	content: '\f134';
+}
+.glicon-rocket-filled:before {
+	content: '\f135';
+}
+.glicon-branches-view-filled:before {
+	content: '\f136';
+}
+.glicon-commits-view-filled:before {
+	content: '\f137';
+}
+.glicon-contributors-view-filled:before {
+	content: '\f138';
+}
+.glicon-remotes-view-filled:before {
+	content: '\f139';
+}
+.glicon-repositories-view-filled:before {
+	content: '\f13a';
+}
+.glicon-search-view-filled:before {
+	content: '\f13b';
+}
+.glicon-stashes-view-filled:before {
+	content: '\f13c';
+}
+.glicon-tags-view-filled:before {
+	content: '\f13d';
+}
+.glicon-worktrees-view-filled:before {
+	content: '\f13e';
+}
+.glicon-launchpad-view:before {
+	content: '\f13f';
+}
+.glicon-launchpad-view-filled:before {
+	content: '\f140';
 }

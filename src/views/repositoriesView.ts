@@ -42,8 +42,8 @@ import { registerViewCommand } from './viewCommands';
 export class RepositoriesView extends ViewBase<'repositories', RepositoriesNode, RepositoriesViewConfig> {
 	protected readonly configKey = 'repositories';
 
-	constructor(container: Container) {
-		super(container, 'repositories', 'Repositories', 'repositoriesView');
+	constructor(container: Container, grouped?: boolean) {
+		super(container, 'repositories', 'Repositories', 'repositoriesView', grouped);
 	}
 
 	private _onDidChangeAutoRefresh = new EventEmitter<void>();
@@ -56,8 +56,6 @@ export class RepositoriesView extends ViewBase<'repositories', RepositoriesNode,
 	}
 
 	protected registerCommands(): Disposable[] {
-		void this.container.viewCommands;
-
 		return [
 			registerViewCommand(
 				this.getQualifiedCommand('copy'),

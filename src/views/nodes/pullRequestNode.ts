@@ -220,7 +220,10 @@ export async function getPullRequestChildren(
 	return children;
 }
 
-export function getPullRequestTooltip(pullRequest: PullRequest, context?: { commit?: GitCommit }) {
+export function getPullRequestTooltip(
+	pullRequest: PullRequest,
+	context?: { commit?: GitCommit; idPrefix?: string; codeSuggestionsCount?: number },
+) {
 	const tooltip = new MarkdownString('', true);
 	tooltip.supportHtml = true;
 	tooltip.isTrusted = true;
@@ -235,11 +238,16 @@ export function getPullRequestTooltip(pullRequest: PullRequest, context?: { comm
 	tooltip.appendMarkdown(
 		`${getIssueOrPullRequestMarkdownIcon(pullRequest)} [**${pullRequest.title.trim()}**](${
 			pullRequest.url
-		}${linkTitle}) \\\n[#${pullRequest.id}](${pullRequest.url}${linkTitle}) by [@${pullRequest.author.name}](${
-			pullRequest.author.url
-		} "Open @${pullRequest.author.name} on ${
+		}${linkTitle}) \\\n[${context?.idPrefix ?? ''}#${pullRequest.id}](${pullRequest.url}${linkTitle}) by [@${
+			pullRequest.author.name
+		}](${pullRequest.author.url} "Open @${pullRequest.author.name} on ${
 			pullRequest.provider.name
 		}") was ${pullRequest.state.toLowerCase()} ${pullRequest.formatDateFromNow()}`,
 	);
+	if (context?.codeSuggestionsCount != null && context.codeSuggestionsCount > 0) {
+		tooltip.appendMarkdown(
+			`\n\n$(gitlens-code-suggestion) ${pluralize('code suggestion', context.codeSuggestionsCount)}`,
+		);
+	}
 	return tooltip;
 }

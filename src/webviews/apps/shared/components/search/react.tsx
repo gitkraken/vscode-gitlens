@@ -10,5 +10,6 @@ export const GlSearchBox = reactWrapper(GlSearchBoxWC, {
 		onChange: 'gl-search-inputchange' as EventName<CustomEventType<'gl-search-inputchange'>>,
 		onNavigate: 'gl-search-navigate' as EventName<CustomEventType<'gl-search-navigate'>>,
 		onOpenInView: 'gl-search-openinview' as EventName<CustomEventType<'gl-search-openinview'>>,
+		onSearchModeChange: 'gl-search-modechange' as EventName<CustomEventType<'gl-search-modechange'>>,
 	},
 });

@@ -8,6 +8,7 @@ import { isCommit } from '../git/models/commit';
 import { deletedOrMissing } from '../git/models/constants';
 import { isShaLike, isUncommitted, shortenRevision } from '../git/models/reference';
 import { showGenericErrorMessage } from '../messages';
+import { createMarkdownCommandLink } from '../system/commands';
 import { Logger } from '../system/logger';
 import { basename } from '../system/path';
 import { command } from '../system/vscode/command';
@@ -31,9 +32,9 @@ export interface DiffWithCommandArgs {
 
 @command()
 export class DiffWithCommand extends Command {
-	static getMarkdownCommandArgs(args: DiffWithCommandArgs): string;
-	static getMarkdownCommandArgs(commit: GitCommit, line?: number): string;
-	static getMarkdownCommandArgs(argsOrCommit: DiffWithCommandArgs | GitCommit, line?: number): string {
+	static createMarkdownCommandLink(args: DiffWithCommandArgs): string;
+	static createMarkdownCommandLink(commit: GitCommit, line?: number): string;
+	static createMarkdownCommandLink(argsOrCommit: DiffWithCommandArgs | GitCommit, line?: number): string {
 		let args: DiffWithCommandArgs | GitCommit;
 		if (isCommit(argsOrCommit)) {
 			const commit = argsOrCommit;
@@ -74,7 +75,7 @@ export class DiffWithCommand extends Command {
 			args = argsOrCommit;
 		}
 
-		return super.getMarkdownCommandArgsCore<DiffWithCommandArgs>(Commands.DiffWith, args);
+		return createMarkdownCommandLink<DiffWithCommandArgs>(Commands.DiffWith, args);
 	}
 
 	constructor(private readonly container: Container) {

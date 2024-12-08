@@ -1,3 +1,4 @@
+@use '../../shared/styles/utils';
 @use '../../shared/styles/shoelace/vscode-theme';
 
 :root {
@@ -32,17 +33,17 @@
 	--color-foreground--50: color-mix(in srgb, transparent 50%, var(--color-foreground));
 	--color-foreground--25: color-mix(in srgb, transparent 75%, var(--color-foreground));
 
-	--color-button-background: var(--vscode-button-background, var(--color-foreground));
+	--color-button-background: var(--vscode-button-background, transparent);
 	// Computed variants in code
 	--color-button-background--darken-30: color-mix(in srgb, #000 30%, var(--color-button-background));
-	--color-button-foreground: var(--vscode-button-foreground, transparent);
+	--color-button-foreground: var(--vscode-button-foreground, var(--color-foreground));
 
 	--color-button-secondary-background: var(--vscode-button-secondaryBackground, transparent);
 	// Computed variants in code
 	--color-button-secondary-background--darken-30: color-mix(
 		in srgb,
 		#000 30%,
-		var(--color-button-secondaryBackground)
+		var(--color-button-secondary-background)
 	);
 
 	--color-highlight: var(--vscode-button-background, var(--vscode-button-border));
@@ -88,7 +89,7 @@
 	--gl-tracking-working: var(--vscode-activityBarBadge-background);
 }
 
-:root:has(.vscode-dark, .vscode-high-contrast) {
+@include utils.dark-theme($selectorPrefix: ':root:has(', $selectorPostfix: ')') {
 	--color-alert-infoHoverBackground: color-mix(in srgb, #fff 5%, var(--color-alert-infoBackground));
 	--color-alert-warningHoverBackground: color-mix(in srgb, #fff 5%, var(--color-alert-warningBackground));
 	--color-alert-errorHoverBackground: color-mix(in srgb, #fff 5%, var(--color-alert-errorBackground));
@@ -96,7 +97,7 @@
 	--color-alert-neutralHoverBackground: color-mix(in srgb, #fff 5%, var(--color-alert-neutralBackground));
 }
 
-:root:has(.vscode-light, .vscode-high-contrast-light) {
+@include utils.light-theme($selectorPrefix: ':root:has(', $selectorPostfix: ')') {
 	--color-alert-infoHoverBackground: color-mix(in srgb, #000 5%, var(--color-alert-infoBackground));
 	--color-alert-warningHoverBackground: color-mix(in srgb, #000 5%, var(--color-alert-warningBackground));
 	--color-alert-errorHoverBackground: color-mix(in srgb, #000 5%, var(--color-alert-errorBackground));

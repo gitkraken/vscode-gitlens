@@ -17,7 +17,6 @@ import { pad } from '../../system/string';
 import { getContext } from '../../system/vscode/context';
 import { formatPath } from '../../system/vscode/formatPath';
 import type { ViewsWithRepositoryFolders } from '../../views/viewBase';
-import { getSteps } from '../gitCommands.utils';
 import type {
 	AsyncStepResultGenerator,
 	PartialStepState,
@@ -39,6 +38,7 @@ import {
 } from '../quickCommand';
 import { RevealInSideBarQuickInputButton, ShowDetailsViewQuickInputButton } from '../quickCommand.buttons';
 import { appendReposToTitle, pickRepositoryStep, pickStashesStep, pickStashStep } from '../quickCommand.steps';
+import { getSteps } from '../quickWizard.utils';
 
 interface Context {
 	repos: Repository[];
@@ -187,7 +187,7 @@ export class StashGitCommand extends QuickCommand<State> {
 	protected async *steps(state: PartialStepState<State>): StepGenerator {
 		const context: Context = {
 			repos: this.container.git.openRepositories,
-			associatedView: this.container.stashesView,
+			associatedView: this.container.views.stashes,
 			readonly:
 				getContext('gitlens:readonly', false) ||
 				getContext('gitlens:untrusted', false) ||
@@ -322,7 +322,7 @@ export class StashGitCommand extends QuickCommand<State> {
 		while (this.canStepsContinue(state)) {
 			if (state.counter < 3 || state.reference == null) {
 				const result: StepResult<GitStashReference> = yield* pickStashStep(state, context, {
-					stash: await this.container.git.getStash(state.repo.path),
+					gitStash: await this.container.git.getStash(state.repo.path),
 					placeholder: (_context, stash) =>
 						stash == null
 							? `No stashes found in ${state.repo.formattedName}`
@@ -427,7 +427,7 @@ export class StashGitCommand extends QuickCommand<State> {
 		while (this.canStepsContinue(state)) {
 			if (state.counter < 3 || !state.references?.length) {
 				const result: StepResult<GitStashReference[]> = yield* pickStashesStep(state, context, {
-					stash: await this.container.git.getStash(state.repo.path),
+					gitStash: await this.container.git.getStash(state.repo.path),
 					placeholder: (_context, stash) =>
 						stash == null ? `No stashes found in ${state.repo.formattedName}` : 'Choose stashes to delete',
 					picked: state.references?.map(r => r.ref),
@@ -481,7 +481,7 @@ export class StashGitCommand extends QuickCommand<State> {
 		while (this.canStepsContinue(state)) {
 			if (state.counter < 3 || state.reference == null) {
 				const result: StepResult<GitStashCommit> = yield* pickStashStep(state, context, {
-					stash: await this.container.git.getStash(state.repo.path),
+					gitStash: await this.container.git.getStash(state.repo.path),
 					placeholder: (_context, stash) =>
 						stash == null ? `No stashes found in ${state.repo.formattedName}` : 'Choose a stash',
 					picked: state.reference?.ref,
@@ -515,6 +515,8 @@ export class StashGitCommand extends QuickCommand<State> {
 			state.flags = [];
 		}
 
+		let confirmOverride;
+
 		while (this.canStepsContinue(state)) {
 			if (state.counter < 3 || state.message == null) {
 				if (state.message == null) {
@@ -529,7 +531,7 @@ export class StashGitCommand extends QuickCommand<State> {
 				state.message = result;
 			}
 
-			if (this.confirm(state.confirm)) {
+			if (this.confirm(confirmOverride ?? state.confirm)) {
 				const result = yield* this.pushCommandConfirmStep(state, context);
 				if (result === StepResultBreak) continue;
 
@@ -554,6 +556,7 @@ export class StashGitCommand extends QuickCommand<State> {
 				if (ex instanceof StashPushError) {
 					if (ex.reason === StashPushErrorReason.NothingToSave) {
 						if (!state.flags.includes('--include-untracked')) {
+							confirmOverride = true;
 							void window.showWarningMessage(
 								'No changes to stash. Choose the "Push & Include Untracked" option, if you have untracked files.',
 							);
@@ -716,7 +719,7 @@ export class StashGitCommand extends QuickCommand<State> {
 		while (this.canStepsContinue(state)) {
 			if (state.counter < 3 || state.reference == null) {
 				const result: StepResult<GitStashReference> = yield* pickStashStep(state, context, {
-					stash: await this.container.git.getStash(state.repo.path),
+					gitStash: await this.container.git.getStash(state.repo.path),
 					placeholder: (_context, stash) =>
 						stash == null ? `No stashes found in ${state.repo.formattedName}` : 'Choose a stash to rename',
 					picked: state.reference?.ref,

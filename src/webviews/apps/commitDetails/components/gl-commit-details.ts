@@ -2,15 +2,14 @@ import { html, nothing } from 'lit';
 import { customElement, property, state } from 'lit/decorators.js';
 import { unsafeHTML } from 'lit/directives/unsafe-html.js';
 import { when } from 'lit/directives/when.js';
-import type { Autolink } from '../../../../annotations/autolinks';
+import type { Autolink } from '../../../../autolinks';
 import type {
 	ConnectCloudIntegrationsCommandArgs,
 	ManageCloudIntegrationsCommandArgs,
 } from '../../../../commands/cloudIntegrations';
+import type { IssueIntegrationId, SupportedCloudIntegrationIds } from '../../../../constants.integrations';
 import type { IssueOrPullRequest } from '../../../../git/models/issue';
 import type { PullRequestShape } from '../../../../git/models/pullRequest';
-import type { SupportedCloudIntegrationIds } from '../../../../plus/integrations/authentication/models';
-import type { IssueIntegrationId } from '../../../../plus/integrations/providers/models';
 import type { Serialized } from '../../../../system/vscode/serialize';
 import type { State } from '../../../commitDetails/protocol';
 import { messageHeadlineSplitterToken } from '../../../commitDetails/protocol';
@@ -18,22 +17,23 @@ import type { TreeItemAction, TreeItemBase } from '../../shared/components/tree/
 import { uncommittedSha } from './commit-details-app';
 import type { File } from './gl-details-base';
 import { GlDetailsBase } from './gl-details-base';
-import '../../shared/components/button';
-import '../../shared/components/code-icon';
-import '../../shared/components/skeleton-loader';
-import '../../shared/components/webview-pane';
 import '../../shared/components/actions/action-item';
 import '../../shared/components/actions/action-nav';
+import '../../shared/components/button';
+import '../../shared/components/code-icon';
 import '../../shared/components/commit/commit-identity';
 import '../../shared/components/commit/commit-stats';
+import '../../shared/components/markdown/markdown';
 import '../../shared/components/overlays/popover';
 import '../../shared/components/overlays/tooltip';
 import '../../shared/components/rich/issue-pull-request';
+import '../../shared/components/skeleton-loader';
+import '../../shared/components/webview-pane';
 
 interface ExplainState {
 	cancelled?: boolean;
 	error?: { message: string };
-	summary?: string;
+	result?: { summary: string; body: string };
 }
 
 @customElement('gl-commit-details')
@@ -212,20 +212,35 @@ export class GlCommitDetails extends GlDetailsBase {
 			| { type: 'pr'; value: Serialized<PullRequestShape> }
 		>();
 
+		const autolinkIdsByUrl = new Map<string, string>();
+
 		if (this.state?.commit?.autolinks != null) {
 			for (const autolink of this.state.commit.autolinks) {
 				deduped.set(autolink.id, { type: 'autolink', value: autolink });
+				autolinkIdsByUrl.set(autolink.url, autolink.id);
 			}
 		}
 
 		if (this.state?.autolinkedIssues != null) {
 			for (const issue of this.state.autolinkedIssues) {
 				deduped.set(issue.id, { type: 'issue', value: issue });
+				if (issue.url != null) {
+					const autoLinkId = autolinkIdsByUrl.get(issue.url);
+					if (autoLinkId != null) {
+						deduped.delete(autoLinkId);
+					}
+				}
 			}
 		}
 
 		if (this.state?.pullRequest != null) {
 			deduped.set(this.state.pullRequest.id, { type: 'pr', value: this.state.pullRequest });
+			if (this.state.pullRequest.url != null) {
+				const autoLinkId = autolinkIdsByUrl.get(this.state.pullRequest.url);
+				if (autoLinkId != null) {
+					deduped.delete(autoLinkId);
+				}
+			}
 		}
 
 		const autolinks: Serialized<Autolink>[] = [];
@@ -412,6 +427,9 @@ export class GlCommitDetails extends GlDetailsBase {
 	private renderExplainAi() {
 		if (this.state?.orgSettings.ai === false) return undefined;
 
+		const markdown =
+			this.explain?.result != null ? `${this.explain.result.summary}\n\n${this.explain.result.body}` : undefined;
+
 		// TODO: add loading and response states
 		return html`
 			<webview-pane collapsable data-region="explain-pane">
@@ -437,27 +455,20 @@ export class GlCommitDetails extends GlDetailsBase {
 							>
 						</span>
 					</p>
-					${when(
-						this.explain,
-						() => html`
-							<div
-								class="ai-content${this.explain?.error ? ' has-error' : ''}"
-								data-region="commit-explanation"
-							>
-								${when(
-									this.explain?.error,
-									() =>
-										html`<p class="ai-content__summary scrollable">
-											${this.explain!.error!.message ?? 'Error retrieving content'}
-										</p>`,
-								)}
-								${when(
-									this.explain?.summary,
-									() => html`<p class="ai-content__summary scrollable">${this.explain!.summary}</p>`,
-								)}
-							</div>
-						`,
-					)}
+					${markdown
+						? html`<div class="ai-content" data-region="commit-explanation">
+								<gl-markdown
+									class="ai-content__summary scrollable"
+									markdown="${markdown}"
+								></gl-markdown>
+						  </div>`
+						: this.explain?.error
+						  ? html`<div class="ai-content has-error" data-region="commit-explanation">
+									<p class="ai-content__summary scrollable">
+										${this.explain.error.message ?? 'Error retrieving content'}
+									</p>
+						    </div>`
+						  : undefined}
 				</div>
 			</webview-pane>
 		`;

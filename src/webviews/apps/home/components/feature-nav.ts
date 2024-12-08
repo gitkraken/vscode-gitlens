@@ -2,18 +2,22 @@ import { consume } from '@lit/context';
 import { css, html } from 'lit';
 import { customElement, property, state } from 'lit/decorators.js';
 import { when } from 'lit/directives/when.js';
+import type { Source } from '../../../../constants.telemetry';
 import type { State } from '../../../home/protocol';
 import { GlElement } from '../../shared/components/element';
 import { linkBase } from '../../shared/components/styles/lit/base.css';
 import { stateContext } from '../context';
 import { homeBaseStyles, navListStyles } from '../home.css';
+import '../../shared/components/code-icon';
+import '../../shared/components/feature-badge';
+import '../../shared/components/overlays/tooltip';
 
 @customElement('gl-feature-nav')
 export class GlFeatureNav extends GlElement {
 	static override styles = [linkBase, homeBaseStyles, navListStyles, css``];
 
 	@property({ type: Object })
-	private badgeSource = { source: 'home', detail: 'badge' };
+	private badgeSource: Source = { source: 'home', detail: 'badge' };
 
 	@consume<State>({ context: stateContext, subscribe: true })
 	@state()
@@ -148,7 +152,6 @@ export class GlFeatureNav extends GlElement {
 						.subscription=${this._state.subscription}
 						placement="left"
 						class="nav-list__access"
-						preview
 					></gl-feature-badge>
 				</div>
 				<div class="nav-list__item">
@@ -279,11 +282,11 @@ export class GlFeatureNav extends GlElement {
 					<a
 						class="nav-list__link${this.blockRepoFeatures ? ' is-disabled' : ''}"
 						href="command:gitlens.showWorkspacesView"
-						aria-label="Show GitKraken Workspaces view"
+						aria-label="Show Cloud Workspaces view"
 						data-requires="repo"
 						><code-icon class="nav-list__icon" icon="gl-workspaces-view"></code-icon
-						><gl-tooltip hoist class="nav-list__label" content="Show GitKraken Workspaces view">
-							<span>GK Workspaces</span></gl-tooltip
+						><gl-tooltip hoist class="nav-list__label" content="Show Cloud Workspaces view">
+							<span>Cloud Workspaces</span></gl-tooltip
 						>
 					</a>
 					<gl-feature-badge placement="left" class="nav-list__access" cloud preview></gl-feature-badge>

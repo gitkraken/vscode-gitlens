@@ -2,6 +2,7 @@ import { getNonce } from '@env/crypto';
 import type { ViewBadge, Webview, WebviewPanel, WebviewView, WindowState } from 'vscode';
 import { Disposable, EventEmitter, Uri, ViewColumn, window, workspace } from 'vscode';
 import type { Commands } from '../constants.commands';
+import type { WebviewTelemetryContext } from '../constants.telemetry';
 import type { CustomEditorTypes, WebviewTypes, WebviewViewTypes } from '../constants.views';
 import type { Container } from '../container';
 import { getScopedCounter } from '../system/counter';
@@ -9,8 +10,8 @@ import { debug, logName } from '../system/decorators/log';
 import { serialize } from '../system/decorators/serialize';
 import { getLoggableName, Logger } from '../system/logger';
 import { getLogScope, getNewLogScope, setLogScopeExit } from '../system/logger.scope';
-import { isPromise, pauseOnCancelOrTimeout } from '../system/promise';
-import { maybeStopWatch } from '../system/stopwatch';
+import { pauseOnCancelOrTimeout } from '../system/promise';
+import { maybeStopWatch, Stopwatch } from '../system/stopwatch';
 import { executeCommand, executeCoreCommand } from '../system/vscode/command';
 import { setContext } from '../system/vscode/context';
 import type { WebviewContext } from '../system/webview';
@@ -28,6 +29,7 @@ import {
 	DidChangeHostWindowFocusNotification,
 	DidChangeWebviewFocusNotification,
 	ExecuteCommand,
+	TelemetrySendEventCommand,
 	WebviewFocusChangedCommand,
 	WebviewReadyCommand,
 } from './protocol';
@@ -196,6 +198,15 @@ export class WebviewController<
 		this._initializing = undefined;
 	}
 
+	getTelemetryContext(): WebviewTelemetryContext {
+		return {
+			'context.webview.id': this.id,
+			'context.webview.type': this.descriptor.type,
+			'context.webview.instanceId': this.instanceId,
+			'context.webview.host': this.isHost('editor') ? ('editor' as const) : ('view' as const),
+		};
+	}
+
 	isHost(type: 'editor'): this is WebviewPanelController<State, SerializedState, ShowingArgs>;
 	isHost(type: 'view'): this is WebviewViewController<State, SerializedState, ShowingArgs>;
 	isHost(
@@ -280,11 +291,23 @@ export class WebviewController<
 			options = {};
 		}
 
-		const result = this.provider.onShowing?.(loading, options, ...args);
+		const eventBase = {
+			...this.getTelemetryContext(),
+			loading: loading,
+		};
+
+		using sw = new Stopwatch(`WebviewController.show(${this.id})`);
+
+		let context;
+		const result = await this.provider.onShowing?.(loading, options, ...args);
 		if (result != null) {
-			if (isPromise(result)) {
-				if ((await result) === false) return;
-			} else if (result === false) {
+			let show;
+			[show, context] = result;
+			if (show === false) {
+				this.container.telemetry.sendEvent(`${this.descriptor.type}/showAborted`, {
+					...eventBase,
+					duration: sw.elapsed(),
+				});
 				return;
 			}
 		}
@@ -308,6 +331,12 @@ export class WebviewController<
 		}
 
 		setContextKeys(this.descriptor.contextKeyPrefix);
+
+		this.container.telemetry.sendEvent(`${this.descriptor.type}/shown`, {
+			...eventBase,
+			duration: sw.elapsed(),
+			...context,
+		});
 	}
 
 	get baseWebviewState(): WebviewState {
@@ -385,6 +414,14 @@ export class WebviewController<
 				} else {
 					void executeCommand(e.params.command as Commands);
 				}
+				break;
+
+			case TelemetrySendEventCommand.is(e):
+				this.container.telemetry.sendEvent(
+					e.params.name,
+					{ ...e.params.data, ...(this.provider.getTelemetryContext?.() ?? this.getTelemetryContext()) },
+					e.params.source,
+				);
 				break;
 
 			default:

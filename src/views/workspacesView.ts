@@ -144,8 +144,6 @@ export class WorkspacesView extends ViewBase<'workspaces', WorkspacesViewNode, W
 	}
 
 	protected registerCommands(): Disposable[] {
-		void this.container.viewCommands;
-
 		return [
 			registerViewCommand(this.getQualifiedCommand('info'), () => openUrl(urls.workspaces), this),
 			registerViewCommand(

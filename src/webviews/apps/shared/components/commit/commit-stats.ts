@@ -1,7 +1,12 @@
-import { css, html, LitElement } from 'lit';
+import { css, html, LitElement, nothing } from 'lit';
 import { customElement, property } from 'lit/decorators.js';
-import { when } from 'lit/directives/when.js';
 import '../code-icon';
+
+const statToSymbol = Object.freeze({
+	added: ['+', 'add'],
+	modified: ['~', 'edit'],
+	removed: ['-', 'trash'],
+});
 
 @customElement('commit-stats')
 export class CommitStats extends LitElement {
@@ -11,6 +16,11 @@ export class CommitStats extends LitElement {
 			flex-direction: row;
 			align-items: center;
 			gap: 1rem;
+			white-space: nowrap;
+		}
+
+		:host([symbol='icons']) {
+			gap: 0.8rem;
 		}
 
 		.stat {
@@ -19,23 +29,25 @@ export class CommitStats extends LitElement {
 			align-items: center;
 		}
 
-		.stat code-icon {
-			margin-right: 0.25rem;
-		}
-
 		.added {
 			color: var(--vscode-gitDecoration-addedResourceForeground);
 		}
 		.modified {
 			color: var(--vscode-gitDecoration-modifiedResourceForeground);
 		}
-		.deleted {
+		.removed {
 			color: var(--vscode-gitDecoration-deletedResourceForeground);
 		}
 
 		.label {
 			flex-basis: 100%;
 			text-align: center;
+			align-content: center;
+		}
+
+		.icon {
+			--code-icon-size: 0.94017em;
+			margin-inline-end: 0.2rem;
 		}
 	`;
 
@@ -48,32 +60,28 @@ export class CommitStats extends LitElement {
 	@property({ type: Number })
 	removed: number | undefined = 0;
 
+	@property()
+	symbol?: 'icons';
+
 	override render() {
-		return html`
-			${when(
-				this.added != null,
-				() =>
-					html`<span class="stat added" title="${this.added} added" aria-label="${this.added} added"
-						><span class="label">+${this.added}</span></span
-					>`,
-			)}
-			${when(
-				this.modified != null,
-				() =>
-					html`<span
-						class="stat modified"
-						title="${this.modified} modified"
-						aria-label="${this.modified} modified"
-						><span class="label">~${this.modified}</span></span
-					>`,
-			)}
-			${when(
-				this.removed != null,
-				() =>
-					html`<span class="stat deleted" title="${this.removed} removed" aria-label="${this.removed} removed"
-						><span class="label">-${this.removed}</span></span
-					>`,
-			)}
-		`;
+		return Object.entries(statToSymbol).map(([key, value]) => this.renderStat(key, value));
+	}
+
+	private renderStat(key: string, value: string[]) {
+		const count = this[key as keyof CommitStats] as number | undefined;
+		if (count == null) {
+			return nothing;
+		}
+
+		return html`<span class="stat ${key}" title="${count} ${key}" aria-label="${count} ${key}"
+			><span class="label">${this.renderSymbol(value)}${count}</span></span
+		>`;
+	}
+
+	private renderSymbol([symbol, icon]: string[]) {
+		if (this.symbol === 'icons') {
+			return html`<code-icon class="icon" icon="${icon}"></code-icon>`;
+		}
+		return html`<span>${symbol}</span>`;
 	}
 }

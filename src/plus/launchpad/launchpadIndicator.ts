@@ -4,6 +4,7 @@ import type { OpenWalkthroughCommandArgs } from '../../commands/walkthroughs';
 import { proBadge } from '../../constants';
 import type { Colors } from '../../constants.colors';
 import { Commands } from '../../constants.commands';
+import type { HostingIntegrationId } from '../../constants.integrations';
 import type { Container } from '../../container';
 import { groupByMap } from '../../system/iterable';
 import { wait } from '../../system/promise';
@@ -11,7 +12,6 @@ import { pluralize } from '../../system/string';
 import { executeCommand, registerCommand } from '../../system/vscode/command';
 import { configuration } from '../../system/vscode/configuration';
 import type { ConnectionStateChangeEvent } from '../integrations/integrationService';
-import { HostingIntegrationId } from '../integrations/providers/models';
 import type { LaunchpadCommandArgs } from './launchpad';
 import type { LaunchpadGroup, LaunchpadItem, LaunchpadProvider, LaunchpadRefreshEvent } from './launchpadProvider';
 import {
@@ -104,9 +104,9 @@ export class LaunchpadIndicator implements Disposable {
 	private async maybeLoadData(forceIfConnected: boolean = false) {
 		if (this.pollingEnabled) {
 			if (await this.provider.hasConnectedIntegration()) {
-				if (this._state === 'load' && this._categorizedItems != null && !forceIfConnected)
+				if (this._state === 'load' && this._categorizedItems != null && !forceIfConnected) {
 					this.updateStatusBarState('load', this._categorizedItems);
-				else {
+				} else {
 					this.updateStatusBarState('loading');
 				}
 			} else {
@@ -541,7 +541,7 @@ export class LaunchpadIndicator implements Disposable {
 				switch (action) {
 					case 'info': {
 						void executeCommand<OpenWalkthroughCommandArgs>(Commands.OpenWalkthrough, {
-							step: 'launchpad',
+							step: 'accelerate-pr-reviews',
 							source: 'launchpad-indicator',
 							detail: 'info',
 						});
@@ -561,14 +561,6 @@ export class LaunchpadIndicator implements Disposable {
 						);
 						if (action === hide) {
 							void configuration.updateEffective('launchpad.indicator.enabled', false);
-						}
-						break;
-					}
-					case 'connectGitHub': {
-						const github = await this.container.integrations?.get(HostingIntegrationId.GitHub);
-						if (github == null) break;
-						if (!(github.maybeConnected ?? (await github.isConnected()))) {
-							void github.connect('launchpad-indicator');
 						}
 						break;
 					}
@@ -605,4 +597,99 @@ export class LaunchpadIndicator implements Disposable {
 	private hasInteracted() {
 		return this.container.storage.get('launchpad:indicator:hasInteracted') != null;
 	}
+}
+
+export interface LaunchpadSummaryResult {
+	total: number;
+	groups: LaunchpadGroup[];
+	hasGroupedItems: boolean;
+
+	mergeable?: {
+		total: number;
+	};
+
+	blocked?: {
+		total: number;
+
+		blocked: number;
+		conflicts: number;
+		failedChecks: number;
+		unassignedReviewers: number;
+	};
+
+	followUp?: {
+		total: number;
+	};
+	needsReview?: {
+		total: number;
+	};
+
+	snoozed?: {
+		total: number;
+		items: LaunchpadItem[];
+	};
+	pinned?: {
+		total: number;
+		items: LaunchpadItem[];
+	};
+}
+
+export function generateLaunchpadSummary(
+	items: LaunchpadItem[] | undefined,
+	groups: LaunchpadGroup[],
+): LaunchpadSummaryResult {
+	const groupedItems = groupAndSortLaunchpadItems(items);
+	const total = Array.from(groupedItems.values()).reduce((total, group) => total + group.length, 0);
+	const hasGroupedItems = groups.some(group => groupedItems.get(group)?.length);
+
+	if (total === 0 || !hasGroupedItems) {
+		return { total: total, groups: groups, hasGroupedItems: false };
+	}
+
+	const result: LaunchpadSummaryResult = { total: total, groups: groups, hasGroupedItems: hasGroupedItems };
+
+	for (const group of groups) {
+		const itemsInGroup = groupedItems.get(group);
+		if (!itemsInGroup?.length) continue;
+
+		switch (group) {
+			case 'mergeable':
+				result.mergeable = { total: itemsInGroup.length };
+				break;
+			case 'blocked': {
+				const grouped = groupByMap(itemsInGroup, i =>
+					i.actionableCategory === 'failed-checks' ||
+					i.actionableCategory === 'conflicts' ||
+					i.actionableCategory === 'unassigned-reviewers'
+						? i.actionableCategory
+						: 'blocked',
+				);
+
+				result.blocked = {
+					total: itemsInGroup.length,
+
+					blocked: grouped.get('blocked')?.length ?? 0,
+					conflicts: grouped.get('conflicts')?.length ?? 0,
+					failedChecks: grouped.get('failed-checks')?.length ?? 0,
+					unassignedReviewers: grouped.get('unassigned-reviewers')?.length ?? 0,
+				};
+
+				break;
+			}
+			case 'follow-up':
+				result.followUp = { total: itemsInGroup.length };
+				break;
+			case 'needs-review':
+				result.needsReview = { total: itemsInGroup.length };
+				break;
+			case 'snoozed':
+				result.snoozed = { items: itemsInGroup, total: itemsInGroup.length };
+				break;
+			case 'pinned':
+				result.pinned = { items: itemsInGroup, total: itemsInGroup.length };
+				break;
+		}
+	}
+
+	return result;
 }

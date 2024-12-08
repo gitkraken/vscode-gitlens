@@ -1,10 +1,14 @@
 export declare global {
+	declare const DEBUG: boolean;
+
 	export type PartialDeep<T> = T extends Record<string, unknown> ? { [K in keyof T]?: PartialDeep<T[K]> } : T;
 	export type Optional<T, K extends keyof T> = Omit<T, K> & { [P in K]?: T[P] };
 	export type PickPartialDeep<T, K extends keyof T> = Omit<Partial<T>, K> & { [P in K]?: Partial<T[P]> };
 
 	export type Mutable<T> = { -readonly [P in keyof T]: T[P] };
 	export type PickMutable<T, K extends keyof T> = Omit<T, K> & { -readonly [P in K]: T[P] };
+
+	export type EntriesType<T> = T extends Record<infer K, infer V> ? [K, V] : never;
 
 	export type ExcludeSome<T, K extends keyof T, R> = Omit<T, K> & { [P in K]-?: Exclude<T[P], R> };
 

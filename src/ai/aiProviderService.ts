@@ -1,7 +1,7 @@
 import type { CancellationToken, Disposable, MessageItem, ProgressOptions, QuickInputButton } from 'vscode';
 import { env, ThemeIcon, Uri, window } from 'vscode';
-import type { AIModels, AIProviders, SupportedAIModels } from '../constants.ai';
-import type { AIGenerateDraftEvent, Sources, TelemetryEvents } from '../constants.telemetry';
+import type { AIModels, AIProviders, SupportedAIModels, VSCodeAIModels } from '../constants.ai';
+import type { AIGenerateDraftEventData, Sources, TelemetryEvents } from '../constants.telemetry';
 import type { Container } from '../container';
 import { CancellationError } from '../errors';
 import type { GitCommit } from '../git/models/commit';
@@ -12,15 +12,23 @@ import type { Repository } from '../git/models/repository';
 import { isRepository } from '../git/models/repository';
 import { showAIModelPicker } from '../quickpicks/aiModelPicker';
 import { getSettledValue } from '../system/promise';
+import { getPossessiveForm } from '../system/string';
 import { configuration } from '../system/vscode/configuration';
 import type { Storage } from '../system/vscode/storage';
 import { supportedInVSCodeVersion } from '../system/vscode/utils';
 import type { TelemetryService } from '../telemetry/telemetry';
 import { AnthropicProvider } from './anthropicProvider';
 import { GeminiProvider } from './geminiProvider';
+import { GitHubModelsProvider } from './githubModelsProvider';
+import { HuggingFaceProvider } from './huggingFaceProvider';
 import { OpenAIProvider } from './openaiProvider';
-import type { VSCodeAIModels } from './vscodeProvider';
 import { isVSCodeAIModel, VSCodeAIProvider } from './vscodeProvider';
+import { xAIProvider } from './xaiProvider';
+
+export interface AIResult {
+	summary: string;
+	body: string;
+}
 
 export interface AIModel<
 	Provider extends AIProviders = AIProviders,
@@ -28,7 +36,7 @@ export interface AIModel<
 > {
 	readonly id: Model;
 	readonly name: string;
-	readonly maxTokens: number;
+	readonly maxTokens: { input: number; output: number };
 	readonly provider: {
 		id: Provider;
 		name: string;
@@ -47,6 +55,9 @@ const _supportedProviderTypes = new Map<AIProviders, AIProviderConstructor>([
 	['openai', OpenAIProvider],
 	['anthropic', AnthropicProvider],
 	['gemini', GeminiProvider],
+	['github', GitHubModelsProvider],
+	['huggingface', HuggingFaceProvider],
+	['xai', xAIProvider],
 ]);
 
 export interface AIProvider<Provider extends AIProviders = AIProviders> extends Disposable {
@@ -91,14 +102,14 @@ export class AIProviderService implements Disposable {
 	}
 
 	private getConfiguredModel(): { provider: AIProviders; model: AIModels } | undefined {
-		const qualifiedModelId = configuration.get('ai.experimental.model') ?? undefined;
+		const qualifiedModelId = configuration.get('ai.model') ?? undefined;
 		if (qualifiedModelId != null) {
 			let [providerId, modelId] = qualifiedModelId.split(':') as [AIProviders, AIModels];
 			if (providerId != null && this.supports(providerId)) {
 				if (modelId != null) {
 					return { provider: providerId, model: modelId };
 				} else if (providerId === 'vscode') {
-					modelId = configuration.get('ai.experimental.vscode.model') as VSCodeAIModels;
+					modelId = configuration.get('ai.vscode.model') as VSCodeAIModels;
 					if (modelId != null) {
 						// Model ids are in the form of `vendor:family`
 						if (/^(.+):(.+)$/.test(modelId)) {
@@ -183,11 +194,11 @@ export class AIProviderService implements Disposable {
 
 		if (changed) {
 			if (isVSCodeAIModel(model)) {
-				await configuration.updateEffective(`ai.experimental.model`, 'vscode');
-				await configuration.updateEffective(`ai.experimental.vscode.model`, model.id);
+				await configuration.updateEffective(`ai.model`, 'vscode');
+				await configuration.updateEffective(`ai.vscode.model`, model.id);
 			} else {
 				await configuration.updateEffective(
-					`ai.experimental.model`,
+					`ai.model`,
 					`${model.provider.id}:${model.id}` as SupportedAIModels,
 				);
 			}
@@ -201,22 +212,22 @@ export class AIProviderService implements Disposable {
 		changes: string[],
 		sourceContext: { source: Sources },
 		options?: { cancellation?: CancellationToken; context?: string; progress?: ProgressOptions },
-	): Promise<string | undefined>;
+	): Promise<AIResult | undefined>;
 	async generateCommitMessage(
 		repoPath: Uri,
 		sourceContext: { source: Sources },
 		options?: { cancellation?: CancellationToken; context?: string; progress?: ProgressOptions },
-	): Promise<string | undefined>;
+	): Promise<AIResult | undefined>;
 	async generateCommitMessage(
 		repository: Repository,
 		sourceContext: { source: Sources },
 		options?: { cancellation?: CancellationToken; context?: string; progress?: ProgressOptions },
-	): Promise<string | undefined>;
+	): Promise<AIResult | undefined>;
 	async generateCommitMessage(
 		changesOrRepoOrPath: string[] | Repository | Uri,
 		sourceContext: { source: Sources },
 		options?: { cancellation?: CancellationToken; context?: string; progress?: ProgressOptions },
-	): Promise<string | undefined> {
+	): Promise<AIResult | undefined> {
 		const changes: string | undefined = await this.getChanges(changesOrRepoOrPath);
 		if (changes == null) return undefined;
 
@@ -265,7 +276,8 @@ export class AIProviderService implements Disposable {
 			payload['output.length'] = result?.length;
 			this.container.telemetry.sendEvent('ai/generate', { ...payload, duration: Date.now() - start }, source);
 
-			return result;
+			if (result == null) return undefined;
+			return parseResult(result);
 		} catch (ex) {
 			this.container.telemetry.sendEvent(
 				'ai/generate',
@@ -285,14 +297,14 @@ export class AIProviderService implements Disposable {
 
 	async generateDraftMessage(
 		changesOrRepoOrPath: string[] | Repository | Uri,
-		sourceContext: { source: Sources; type: AIGenerateDraftEvent['draftType'] },
+		sourceContext: { source: Sources; type: AIGenerateDraftEventData['draftType'] },
 		options?: {
 			cancellation?: CancellationToken;
 			context?: string;
 			progress?: ProgressOptions;
 			codeSuggestion?: boolean;
 		},
-	): Promise<string | undefined> {
+	): Promise<AIResult | undefined> {
 		const changes: string | undefined = await this.getChanges(changesOrRepoOrPath);
 		if (changes == null) return undefined;
 
@@ -343,7 +355,8 @@ export class AIProviderService implements Disposable {
 			payload['output.length'] = result?.length;
 			this.container.telemetry.sendEvent('ai/generate', { ...payload, duration: Date.now() - start }, source);
 
-			return result;
+			if (result == null) return undefined;
+			return parseResult(result);
 		} catch (ex) {
 			this.container.telemetry.sendEvent(
 				'ai/generate',
@@ -391,7 +404,7 @@ export class AIProviderService implements Disposable {
 		commitOrRevision: GitRevisionReference | GitCommit,
 		sourceContext: { source: Sources; type: TelemetryEvents['ai/explain']['changeType'] },
 		options?: { cancellation?: CancellationToken; progress?: ProgressOptions },
-	): Promise<string | undefined> {
+	): Promise<AIResult | undefined> {
 		const diff = await this.container.git.getDiff(commitOrRevision.repoPath, commitOrRevision.ref);
 		if (!diff?.contents) throw new Error('No changes found to explain.');
 
@@ -446,7 +459,8 @@ export class AIProviderService implements Disposable {
 			payload['output.length'] = result?.length;
 			this.container.telemetry.sendEvent('ai/explain', { ...payload, duration: Date.now() - start }, source);
 
-			return result;
+			if (result == null) return undefined;
+			return parseResult(result);
 		} catch (ex) {
 			this.container.telemetry.sendEvent(
 				'ai/explain',
@@ -566,11 +580,11 @@ async function confirmAIProviderToS<Provider extends AIProviders>(
 
 export function getMaxCharacters(model: AIModel, outputLength: number): number {
 	const tokensPerCharacter = 3.1;
-	const max = model.maxTokens * tokensPerCharacter - outputLength / tokensPerCharacter;
+	const max = model.maxTokens.input * tokensPerCharacter - outputLength / tokensPerCharacter;
 	return Math.floor(max - max * 0.1);
 }
 
-export async function getApiKey(
+export async function getOrPromptApiKey(
 	storage: Storage,
 	provider: { id: AIProviders; name: string; validator: (value: string) => boolean; url: string },
 ): Promise<string | undefined> {
@@ -634,16 +648,47 @@ export async function getApiKey(
 	return apiKey;
 }
 
-export function extractDraftMessage(
-	message: string,
-	splitter = '\n\n',
-): { title: string; description: string | undefined } {
-	const firstBreak = message.indexOf(splitter) ?? 0;
-	const title = firstBreak > -1 ? message.substring(0, firstBreak) : message;
-	const description = firstBreak > -1 ? message.substring(firstBreak + splitter.length) : undefined;
+function parseResult(result: string): AIResult {
+	result = result.trim();
+	let summary = result.match(/<summary>\s?([\s\S]*?)\s?(<\/summary>|$)/)?.[1]?.trim() ?? '';
+	let body = result.match(/<body>\s?([\s\S]*?)\s?(<\/body>|$)/)?.[1]?.trim() ?? '';
+
+	// If both tags are missing, split the result
+	if (!summary && !body) {
+		return splitMessageIntoSummaryAndBody(result);
+	}
+
+	if (summary && !body) {
+		// If only summary tag is present, use the remaining text as the body
+		body = result.replace(/<summary>[\s\S]*?<\/summary>/, '')?.trim() ?? '';
+		if (!body) {
+			return splitMessageIntoSummaryAndBody(summary);
+		}
+	} else if (!summary && body) {
+		// If only body tag is present, use the remaining text as the summary
+		summary = result.replace(/<body>[\s\S]*?<\/body>/, '').trim() ?? '';
+		if (!summary) {
+			return splitMessageIntoSummaryAndBody(body);
+		}
+	}
+
+	return { summary: summary, body: body };
+}
+
+function splitMessageIntoSummaryAndBody(message: string): AIResult {
+	const index = message.indexOf('\n');
+	if (index === -1) return { summary: message, body: '' };
 
 	return {
-		title: title,
-		description: description,
+		summary: message.substring(0, index).trim(),
+		body: message.substring(index + 1).trim(),
 	};
+}
+
+export function showDiffTruncationWarning(maxCodeCharacters: number, model: AIModel) {
+	void window.showWarningMessage(
+		`The diff of the changes had to be truncated to ${maxCodeCharacters} characters to fit within the ${getPossessiveForm(
+			model.provider.name,
+		)} limits.`,
+	);
 }

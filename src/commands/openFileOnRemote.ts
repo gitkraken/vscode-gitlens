@@ -179,17 +179,8 @@ export class OpenFileOnRemoteCommand extends ActiveEditorCommand {
 					if (pick == null) return;
 
 					if (pick.refType === 'branch') {
-						if (pick.remote) {
-							args.branchOrTag = getBranchNameWithoutRemote(pick.name);
-
-							const remoteName = getRemoteNameFromBranchName(pick.name);
-							const remote = remotes.find(r => r.name === remoteName);
-							if (remote != null) {
-								remotes = [remote];
-							}
-						} else {
-							args.branchOrTag = pick.name;
-						}
+						branch = pick;
+						args.branchOrTag = undefined;
 						sha = undefined;
 					} else if (pick.refType === 'tag') {
 						args.branchOrTag = pick.ref;
@@ -198,8 +189,21 @@ export class OpenFileOnRemoteCommand extends ActiveEditorCommand {
 						args.branchOrTag = undefined;
 						sha = pick.ref;
 					}
-				} else {
-					args.branchOrTag = branch.name;
+				}
+
+				if (branch != null) {
+					if (branch.remote || (branch.upstream != null && !branch.upstream.missing)) {
+						const name = branch.remote ? branch.name : branch.upstream!.name;
+						args.branchOrTag = getBranchNameWithoutRemote(name);
+
+						const remoteName = getRemoteNameFromBranchName(name);
+						const remote = remotes.find(r => r.name === remoteName);
+						if (remote != null) {
+							remotes = [remote];
+						}
+					} else {
+						args.branchOrTag = branch.name;
+					}
 				}
 			}
 

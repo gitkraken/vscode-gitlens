@@ -72,6 +72,9 @@ export function getEditorCommand() {
 		case 'VSCodium':
 			editor = 'codium --wait --reuse-window';
 			break;
+		case 'Cursor':
+			editor = 'cursor --wait --reuse-window';
+			break;
 		default:
 			editor = 'code --wait --reuse-window';
 			break;
@@ -348,27 +351,4 @@ export function tabContainsUri(tab: Tab | undefined, uri: Uri | undefined): bool
 	}
 
 	return false;
-}
-
-const resourceContextKeyValueCache = new Map<string, Thenable<string>>();
-
-export function getResourceContextKeyValue(uri: Uri) {
-	// If we are on a remote connection, VS Code's `TextDocument.uri` uses a `file://` scheme,
-	// but VS Code sets the `resource` context key to a "remote" url in the form of `vscode-remote://<remote-type>+<remote-host?>/<path>`
-	// So we need to try to generate that `vscode-remote://` version, which seems to work by getting the querystring from `env.asExternalUri`
-	if (uri.scheme === 'file' && env.remoteName) {
-		const uriKey = uri.toString();
-		let promise = resourceContextKeyValueCache.get(uriKey);
-		if (promise == null) {
-			promise = env.asExternalUri(uri).then(u => u.query);
-			resourceContextKeyValueCache.set(uriKey, promise);
-			promise.then(
-				() => resourceContextKeyValueCache.delete(uriKey),
-				() => resourceContextKeyValueCache.delete(uriKey),
-			);
-		}
-		return promise;
-	}
-
-	return uri.toString();
 }

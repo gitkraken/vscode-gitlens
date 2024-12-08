@@ -4,9 +4,14 @@ import type { Container } from '../../container';
 import { RemoteResourceType } from '../../git/models/remoteResource';
 import type { Repository } from '../../git/models/repository';
 import { parseGitRemoteUrl } from '../../git/parsers/remoteParser';
-import type { GkProviderId, RepositoryIdentityDescriptor } from '../../gk/models/repositoryIdentities';
+import type {
+	GkProviderId,
+	RepositoryIdentityDescriptor,
+	RepositoryIdentityProviderDescriptor,
+} from '../../gk/models/repositoryIdentities';
 import { missingRepositoryId } from '../../gk/models/repositoryIdentities';
 import { log } from '../../system/decorators/log';
+import { getSettledValue } from '../../system/promise';
 import type { ServerConnection } from '../gk/serverConnection';
 
 export class RepositoryIdentityService implements Disposable {
@@ -23,6 +28,23 @@ export class RepositoryIdentityService implements Disposable {
 		options?: { openIfNeeded?: boolean; keepOpen?: boolean; prompt?: boolean; skipRefValidation?: boolean },
 	): Promise<Repository | undefined> {
 		return this.locateRepository(identity, options);
+	}
+
+	async getRepositoryIdentity<T extends string | GkProviderId>(
+		repository: Repository,
+	): Promise<RepositoryIdentityDescriptor<T>> {
+		const [bestRemotePromise, initialCommitShaPromise] = await Promise.allSettled([
+			this.container.git.getBestRemoteWithProvider(repository.uri),
+			this.container.git.getFirstCommitSha(repository.uri),
+		]);
+		const bestRemote = getSettledValue(bestRemotePromise);
+
+		return {
+			name: repository.name,
+			initialCommitSha: getSettledValue(initialCommitShaPromise),
+			remote: bestRemote,
+			provider: bestRemote?.provider?.providerDesc as RepositoryIdentityProviderDescriptor<T>,
+		};
 	}
 
 	@log()
@@ -78,7 +100,7 @@ export class RepositoryIdentityService implements Disposable {
 			// As a fallback, try to match using the repo id.
 			for (const repo of this.container.git.repositories) {
 				if (remoteDomain != null && remotePath != null) {
-					const matchingRemotes = await repo.getRemotes({
+					const matchingRemotes = await repo.git.getRemotes({
 						filter: r => r.matches(remoteDomain, remotePath),
 					});
 					if (matchingRemotes.length > 0) {
@@ -132,20 +154,29 @@ export class RepositoryIdentityService implements Disposable {
 				(await this.container.git.validateReference(locatedRepo.uri, identity.initialCommitSha))
 			) {
 				foundRepo = locatedRepo;
-				await this.addFoundRepositoryToMap(foundRepo, identity);
+				await this.addRepositoryToPathMap(foundRepo, identity);
 			}
 		}
 
 		return foundRepo;
 	}
 
-	private async addFoundRepositoryToMap<T extends string | GkProviderId>(
+	async addRepositoryToPathMap<T extends string | GkProviderId>(
 		repo: Repository,
 		identity?: RepositoryIdentityDescriptor<T>,
 	) {
+		if (repo.virtual) return;
+
+		const [identityResult, remotesResult] = await Promise.allSettled([
+			identity == null ? this.getRepositoryIdentity<T>(repo) : undefined,
+			repo.git.getRemotes(),
+		]);
+
+		identity ??= getSettledValue(identityResult);
+		const remotes = getSettledValue(remotesResult) ?? [];
+
 		const repoPath = repo.uri.fsPath;
 
-		const remotes = await repo.getRemotes();
 		for (const remote of remotes) {
 			const remoteUrl = remote.provider?.url({ type: RemoteResourceType.Repo });
 			if (remoteUrl != null) {

@@ -1,6 +1,7 @@
 import type { MessageItem } from 'vscode';
 import { window } from 'vscode';
 import { urls } from '../constants';
+import { proTrialLengthInDays } from '../constants.subscription';
 import type { Source } from '../constants.telemetry';
 import type { Container } from '../container';
 import { openUrl } from '../system/vscode/utils';
@@ -51,11 +52,11 @@ export async function ensurePaidPlan(
 			void container.subscription.startPreviewTrial(source);
 			break;
 		} else if (subscription.account == null) {
-			const signUp = { title: 'Start Pro Trial' };
+			const signUp = { title: 'Try GitLens Pro' };
 			const signIn = { title: 'Sign In' };
 			const cancel = { title: 'Cancel', isCloseAffordance: true };
 			const result = await window.showWarningMessage(
-				`${title}\n\nDo you want to start your free 7-day Pro trial for full access to Pro features?`,
+				`${title}\n\nDo you want to start your free ${proTrialLengthInDays}-day Pro trial for full access to all GitLens Pro features?`,
 				{ modal: true },
 				signUp,
 				signIn,
@@ -71,7 +72,7 @@ export async function ensurePaidPlan(
 			const upgrade = { title: 'Upgrade to Pro' };
 			const cancel = { title: 'Cancel', isCloseAffordance: true };
 			const result = await window.showWarningMessage(
-				`${title}\n\nDo you want to upgrade for full access to Pro features?`,
+				`${title}\n\nDo you want to upgrade for full access to all GitLens Pro features?`,
 				{ modal: true },
 				upgrade,
 				cancel,
@@ -116,7 +117,7 @@ export async function ensureAccount(container: Container, title: string, source:
 		const signIn = { title: 'Sign In' };
 		const cancel = { title: 'Cancel', isCloseAffordance: true };
 		const result = await window.showWarningMessage(
-			`${title}\n\nSign up for access to Pro features and our DevEx platform, or sign in`,
+			`${title}\n\nSign up for access to Pro features and the GitKraken DevEx platform, or sign in`,
 			{ modal: true },
 			signUp,
 			signIn,

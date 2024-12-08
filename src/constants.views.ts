@@ -7,6 +7,7 @@ export type TreeViewTypes =
 	| 'contributors'
 	| 'drafts'
 	| 'fileHistory'
+	| 'scm.grouped'
 	| 'launchpad'
 	| 'lineHistory'
 	| 'pullRequest'
@@ -18,18 +19,27 @@ export type TreeViewTypes =
 	| 'workspaces'
 	| 'worktrees';
 export type TreeViewIds<T extends TreeViewTypes = TreeViewTypes> = `gitlens.views.${T}`;
+export type TreeViewTypeFromId<T extends TreeViewIds> = T extends `gitlens.views.${infer U}` ? U : never;
 
-export type WebviewTypes = 'focus' | 'graph' | 'patchDetails' | 'settings' | 'timeline' | 'welcome';
+export type GroupableTreeViewTypes = Extract<
+	TreeViewTypes,
+	| 'branches'
+	| 'commits'
+	| 'contributors'
+	| 'launchpad'
+	| 'remotes'
+	| 'repositories'
+	| 'searchAndCompare'
+	| 'stashes'
+	| 'tags'
+	| 'worktrees'
+>;
+export type GroupableTreeViewIds<T extends GroupableTreeViewTypes = GroupableTreeViewTypes> = TreeViewIds<T>;
+
+export type WebviewTypes = 'graph' | 'patchDetails' | 'settings' | 'timeline';
 export type WebviewIds = `gitlens.${WebviewTypes}`;
 
-export type WebviewViewTypes =
-	| 'account'
-	| 'commitDetails'
-	| 'graph'
-	| 'graphDetails'
-	| 'home'
-	| 'patchDetails'
-	| 'timeline';
+export type WebviewViewTypes = 'commitDetails' | 'graph' | 'graphDetails' | 'home' | 'patchDetails' | 'timeline';
 export type WebviewViewIds<T extends WebviewViewTypes = WebviewViewTypes> = `gitlens.views.${T}`;
 
 export type ViewTypes = TreeViewTypes | WebviewViewTypes;
@@ -72,7 +82,7 @@ export const viewIdsByDefaultContainerId = new Map<ViewContainerIds | CoreViewCo
 		'workbench.view.extension.gitlensInspect',
 		['commitDetails', 'fileHistory', 'lineHistory', 'timeline', 'searchAndCompare'],
 	],
-	['workbench.view.extension.gitlens', ['home', 'workspaces', 'account']],
+	['workbench.view.extension.gitlens', ['home', 'workspaces']],
 ]);
 
 export type TreeViewRefNodeTypes = 'branch' | 'commit' | 'stash' | 'tag';
@@ -84,6 +94,7 @@ export type TreeViewFileNodeTypes =
 	| 'status-file'
 	| 'uncommitted-file';
 export type TreeViewSubscribableNodeTypes =
+	| 'commits-current-branch'
 	| 'compare-branch'
 	| 'compare-results'
 	| 'file-history'

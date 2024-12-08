@@ -1,4 +1,5 @@
 @use '../shared/styles/theme';
+@use '../shared/styles/utils';
 @import '../shared/base';
 @import '../shared/buttons';
 @import '../shared/utils';
@@ -8,11 +9,14 @@ body {
 	overflow: overlay;
 }
 
-.vscode-dark {
+@include utils.dark-theme {
 	--avatar-bg: var(--color-background--lighten-30);
 }
 .vscode-light {
 	--avatar-bg: var(--color-background--darken-30);
+}
+.vscode-high-contrast-light {
+	--avatar-bg: var(--color-foreground--50);
 }
 
 .container {
@@ -163,10 +167,10 @@ $entry-padding: 7px;
 		top: 0;
 		transform: translateX(-50%);
 
-		.vscode-dark & {
+		@include utils.dark-theme($selectorPostfix: ' &') {
 			border-right-color: var(--color-background--lighten-15);
 		}
-		.vscode-light & {
+		@include utils.light-theme($selectorPostfix: ' &') {
 			border-right-color: var(--color-background--darken-15);
 		}
 	}
@@ -313,12 +317,12 @@ $entry-padding: 7px;
 .entry-blocked {
 	width: 100%;
 
-	.vscode-dark & {
+	@include utils.dark-theme($selectorPostfix: ' &') {
 		background: rgba(255, 255, 255, 0.1);
 		box-shadow: 0px -1px 0px 0px rgba(255, 255, 255, 0.2);
 	}
 
-	.vscode-light & {
+	@include utils.light-theme($selectorPostfix: ' &') {
 		background: rgba(0, 0, 0, 0.1);
 		box-shadow: 0px -1px 0px 0px rgba(0, 0, 0, 0.2);
 	}
@@ -342,11 +346,11 @@ $entry-padding: 7px;
 	margin-left: 10px;
 	cursor: ns-resize;
 
-	.vscode-dark & {
+	@include utils.dark-theme($selectorPostfix: ' &') {
 		border-color: var(--color-foreground--75);
 	}
 
-	.vscode-light & {
+	@include utils.light-theme($selectorPostfix: ' &') {
 		border-color: var(--color-foreground--75);
 	}
 }
@@ -354,6 +358,11 @@ $entry-padding: 7px;
 .entry-action {
 	flex: auto 0 0;
 	margin: 0 10px;
+
+	select option {
+		color: var(--vscode-foreground);
+		background-color: var(--vscode-dropdown-background);
+	}
 
 	.entry--edit > &,
 	.entry--reword > & {
@@ -411,7 +420,7 @@ $entry-padding: 7px;
 	margin: 0 10px;
 	opacity: 0.5;
 
-	.vscode-light & {
+	@include utils.light-theme($selectorPostfix: ' &') {
 		opacity: 0.6;
 	}
 
@@ -470,8 +479,18 @@ $entry-padding: 7px;
 		display: block;
 		flex: none;
 		border-radius: 1em;
-		background-color: var(--color-background--lighten-075);
-		border: 1px solid var(--color-background--lighten-075);
+		.vscode-dark & {
+			background-color: var(--color-background--lighten-075);
+			border: 1px solid var(--color-background--lighten-075);
+		}
+		.vscode-light & {
+			background-color: var(--color-background--darken-075);
+			border: 1px solid var(--color-background--darken-075);
+		}
+		.vscode-high-contrast & {
+			background-color: none;
+			border: 1px solid var(--color-foreground);
+		}
 
 		&::before {
 			content: '';
@@ -482,6 +501,9 @@ $entry-padding: 7px;
 			height: 1.2em;
 			border-radius: 100%;
 			background-color: var(--color-button-foreground);
+			.vscode-high-contrast-light :not(:checked) ~ & {
+				background-color: var(--color-foreground);
+			}
 
 			:checked ~ & {
 				transform: translateX(1em);

@@ -1,4 +1,4 @@
-import type { Command } from 'vscode';
+import type { Command, Uri } from 'vscode';
 import { TreeItem, TreeItemCollapsibleState } from 'vscode';
 import { GlyphChars } from '../../constants';
 import { unknownGitUri } from '../../git/gitUri';
@@ -11,11 +11,12 @@ export class MessageNode extends ViewNode<'message'> {
 	constructor(
 		view: View,
 		protected override readonly parent: ViewNode,
-		private readonly _message: string,
-		private readonly _description?: string,
-		private readonly _tooltip?: string,
-		private readonly _iconPath?: TreeItem['iconPath'],
-		private readonly _contextValue?: string,
+		private readonly message: string,
+		private readonly description?: string,
+		private readonly tooltip?: string,
+		private readonly iconPath?: TreeItem['iconPath'],
+		private readonly contextValue?: string,
+		private readonly resourceUri?: Uri,
 	) {
 		super('message', unknownGitUri, view, parent);
 	}
@@ -25,12 +26,19 @@ export class MessageNode extends ViewNode<'message'> {
 	}
 
 	getTreeItem(): TreeItem | Promise<TreeItem> {
-		const item = new TreeItem(this._message, TreeItemCollapsibleState.None);
-		item.contextValue = this._contextValue ?? ContextValues.Message;
-		item.description = this._description;
-		item.tooltip = this._tooltip;
-		item.iconPath = this._iconPath;
+		const item = new TreeItem(this.message, TreeItemCollapsibleState.None);
+		item.contextValue = this.contextValue ?? ContextValues.Message;
+		item.description = this.description;
+		item.tooltip = this.tooltip;
+		item.iconPath = this.iconPath;
+		item.resourceUri = this.resourceUri;
 		return item;
+	}
+}
+
+export class GroupedHeaderNode extends MessageNode {
+	constructor(view: View, parent: ViewNode, description?: string, label?: string) {
+		super(view, parent, label ?? view.name, description, view.name, undefined, `gitlens:views:${view.type}`);
 	}
 }
 

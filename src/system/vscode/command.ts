@@ -1,7 +1,8 @@
-import type { Command as CoreCommand, Disposable, Uri } from 'vscode';
+import type { Disposable, Command as ICommand, Uri } from 'vscode';
 import { commands } from 'vscode';
 import type { Action, ActionContext } from '../../api/gitlens';
 import type { Command } from '../../commands/base';
+import type { CodeLensCommand } from '../../config';
 import type { CoreCommands, CoreGitCommands, TreeViewCommands } from '../../constants.commands';
 import { Commands } from '../../constants.commands';
 import { Container } from '../../container';
@@ -32,7 +33,22 @@ export function registerCommand(command: string, callback: CommandCallback, this
 					}
 				}
 			}
-			Container.instance.telemetry.sendEvent('command', { command: command, context: context });
+
+			Container.instance.telemetry.sendEvent('command', {
+				command: command,
+				context: context,
+				'context.mode': context?.mode,
+				'context.submode': context?.submode,
+			});
+
+			if (command.startsWith('gitlens.graph.')) {
+				Container.instance.telemetry.sendEvent('graph/command', {
+					command: command,
+					'context.mode': context?.mode,
+					'context.submode': context?.submode,
+				});
+			}
+			void Container.instance.usage.track(`command:${command as Commands}:executed`);
 			callback.call(this, ...args);
 		},
 		thisArg,
@@ -43,10 +59,24 @@ export function registerWebviewCommand(command: string, callback: CommandCallbac
 	return commands.registerCommand(
 		command,
 		function (this: any, ...args) {
+			const webview = isWebviewContext(args[0]) ? args[0].webview : undefined;
+
 			Container.instance.telemetry.sendEvent('command', {
 				command: command,
-				webview: isWebviewContext(args[0]) ? args[0].webview : '<missing>',
+				webview: webview ?? '<missing>',
 			});
+
+			if (
+				webview === 'gitlens.graph' ||
+				webview === 'gitlens.views.graph' ||
+				command.startsWith('gitlens.graph.')
+			) {
+				Container.instance.telemetry.sendEvent('graph/command', {
+					command: command,
+					webview: webview ?? '<missing>',
+				});
+			}
+
 			callback.call(this, ...args);
 		},
 		thisArg,
@@ -57,21 +87,15 @@ export function registerCommands(container: Container): Disposable[] {
 	return registrableCommands.map(c => new c(container));
 }
 
-export function asCommand<T extends unknown[]>(
-	command: Omit<CoreCommand, 'arguments'> & { arguments: [...T] },
-): CoreCommand {
-	return command;
-}
-
 export function executeActionCommand<T extends ActionContext>(action: Action<T>, args: Omit<T, 'type'>) {
 	return commands.executeCommand(`${Commands.ActionPrefix}${action}`, { ...args, type: action });
 }
 
 export function createCommand<T extends unknown[]>(
-	command: Commands | TreeViewCommands,
+	command: Commands | CodeLensCommand | TreeViewCommands,
 	title: string,
 	...args: T
-): CoreCommand {
+): ICommand {
 	return {
 		command: command,
 		title: title,
@@ -86,7 +110,7 @@ export function executeCommand<T extends [...unknown[]] = [], U = any>(command: 
 	return commands.executeCommand<U>(command, ...args);
 }
 
-export function createCoreCommand<T extends unknown[]>(command: CoreCommands, title: string, ...args: T): CoreCommand {
+export function createCoreCommand<T extends unknown[]>(command: CoreCommands, title: string, ...args: T): ICommand {
 	return {
 		command: command,
 		title: title,
@@ -104,7 +128,7 @@ export function executeCoreCommand<T extends [...unknown[]] = [], U = any>(
 	...args: T
 ): Thenable<U> {
 	if (
-		command != 'setContext' &&
+		command !== 'setContext' &&
 		command !== 'vscode.executeDocumentSymbolProvider' &&
 		command !== 'vscode.changes' &&
 		command !== 'vscode.diff' &&
@@ -119,7 +143,7 @@ export function createCoreGitCommand<T extends unknown[]>(
 	command: CoreGitCommands,
 	title: string,
 	...args: T
-): CoreCommand {
+): ICommand {
 	return {
 		command: command,
 		title: title,

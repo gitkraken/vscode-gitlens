@@ -33,19 +33,20 @@ export function getLogScope(): LogScope | undefined {
 }
 
 export function getNewLogScope(prefix: string, scope: LogScope | boolean | undefined): LogScope {
-	if (scope != null && typeof scope !== 'boolean')
+	if (scope != null && typeof scope !== 'boolean') {
 		return {
 			scopeId: scope.scopeId,
 			prevScopeId: scope.prevScopeId,
 			prefix: `${scope.prefix}${prefix}`,
 		};
+	}
 
 	const prevScopeId = scope ? logScopeIdGenerator.current : undefined;
 	const scopeId = logScopeIdGenerator.next();
 	return {
 		scopeId: scopeId,
 		prevScopeId: prevScopeId,
-		prefix: `${getLoggableScopeBlock(scopeId)} ${prefix}`,
+		prefix: `${getLoggableScopeBlock(scopeId, prevScopeId)} ${prefix}`,
 	};
 }
 

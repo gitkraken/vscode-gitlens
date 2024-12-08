@@ -61,7 +61,7 @@ export class DiffWithRevisionCommand extends ActiveEditorCommand {
 							getState: async () => {
 								const items: (CommandQuickPickItem | DirectiveQuickPickItem)[] = [];
 
-								const status = await this.container.git.getStatusForRepo(gitUri.repoPath);
+								const status = await this.container.git.getStatus(gitUri.repoPath);
 								if (status != null) {
 									for (const f of status.files) {
 										if (f.workingTreeStatus === '?' || f.workingTreeStatus === '!') {

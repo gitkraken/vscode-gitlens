@@ -4,6 +4,7 @@ import { env, Uri, window, workspace } from 'vscode';
 import type { ScmResource } from '../@types/vscode.git.resources';
 import { ScmResourceGroupType } from '../@types/vscode.git.resources.enums';
 import { Commands } from '../constants.commands';
+import type { IntegrationId } from '../constants.integrations';
 import type { Container } from '../container';
 import { CancellationError } from '../errors';
 import { ApplyPatchCommitError, ApplyPatchCommitErrorReason } from '../git/errors';
@@ -15,7 +16,6 @@ import { splitGitCommitMessage } from '../git/utils/commit-utils';
 import type { Draft, LocalDraft } from '../gk/models/drafts';
 import { showPatchesView } from '../plus/drafts/actions';
 import type { ProviderAuth } from '../plus/drafts/draftsService';
-import type { IntegrationId } from '../plus/integrations/providers/models';
 import { getProviderIdFromEntityIdentifier } from '../plus/integrations/providers/utils';
 import type { Change, CreateDraft } from '../plus/webviews/patchDetails/protocol';
 import { getRepositoryOrShowPicker } from '../quickpicks/repositoryPicker';
@@ -29,6 +29,7 @@ import {
 	isCommandContextViewNodeHasCommit,
 	isCommandContextViewNodeHasComparison,
 	isCommandContextViewNodeHasFileCommit,
+	isCommandContextViewNodeHasFileRefs,
 } from './base';
 
 export interface CreatePatchCommandArgs {
@@ -71,7 +72,7 @@ abstract class CreatePatchCommandBase extends Command {
 				}
 
 				const to =
-					resourcesByGroup.size == 1 && resourcesByGroup.has(ScmResourceGroupType.Index)
+					resourcesByGroup.size === 1 && resourcesByGroup.has(ScmResourceGroupType.Index)
 						? uncommittedStaged
 						: uncommitted;
 				args = {
@@ -122,6 +123,13 @@ abstract class CreatePatchCommandBase extends Command {
 							context.node.compareWithRef.ref,
 						)}`,
 					};
+				} else if (isCommandContextViewNodeHasFileRefs(context)) {
+					args = {
+						repoPath: context.node.repoPath,
+						to: context.node.ref2,
+						from: context.node.ref1,
+						uris: [context.node.uri],
+					};
 				}
 			}
 		}
@@ -141,7 +149,9 @@ abstract class CreatePatchCommandBase extends Command {
 			repo.uri,
 			args?.to ?? uncommitted,
 			args?.from ?? 'HEAD',
-			args?.uris?.length ? { uris: args.uris } : undefined,
+			args?.uris?.length
+				? { uris: args.uris }
+				: { includeUntracked: args?.to != null || args?.to === uncommitted },
 		);
 	}
 

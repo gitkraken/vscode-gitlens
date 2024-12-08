@@ -35,6 +35,9 @@ export class TagsRepositoryNode extends RepositoryFolderNode<TagsView, TagsNode>
 
 export class TagsViewNode extends RepositoriesSubscribeableNode<TagsView, TagsRepositoryNode> {
 	async getChildren(): Promise<ViewNode[]> {
+		this.view.description = this.view.getViewDescription();
+		this.view.message = undefined;
+
 		if (this.children == null) {
 			let repositories = this.view.container.git.openRepositories;
 			if (configuration.get('views.collapseWorktreesWhenPossible')) {
@@ -50,8 +53,6 @@ export class TagsViewNode extends RepositoriesSubscribeableNode<TagsView, TagsRe
 				return [];
 			}
 
-			this.view.message = undefined;
-
 			const splat = repositories.length === 1;
 			this.children = repositories.map(
 				r => new TagsRepositoryNode(GitUri.fromRepoPath(r.path), this.view, this, r, splat),
@@ -61,23 +62,18 @@ export class TagsViewNode extends RepositoriesSubscribeableNode<TagsView, TagsRe
 		if (this.children.length === 1) {
 			const [child] = this.children;
 
-			const tags = await child.repo.getTags();
+			const tags = await child.repo.git.getTags();
 			if (tags.values.length === 0) {
 				this.view.message = 'No tags could be found.';
-				this.view.title = 'Tags';
-
 				void child.ensureSubscription();
 
 				return [];
 			}
 
-			this.view.message = undefined;
-			this.view.title = `Tags (${tags.values.length})`;
+			this.view.description = this.view.getViewDescription(tags.values.length);
 
 			return child.getChildren();
 		}
-
-		this.view.title = 'Tags';
 
 		return this.children;
 	}
@@ -91,8 +87,8 @@ export class TagsViewNode extends RepositoriesSubscribeableNode<TagsView, TagsRe
 export class TagsView extends ViewBase<'tags', TagsViewNode, TagsViewConfig> {
 	protected readonly configKey = 'tags';
 
-	constructor(container: Container) {
-		super(container, 'tags', 'Tags', 'tagsView');
+	constructor(container: Container, grouped?: boolean) {
+		super(container, 'tags', 'Tags', 'tagsView', grouped);
 	}
 
 	override get canReveal(): boolean {
@@ -108,8 +104,6 @@ export class TagsView extends ViewBase<'tags', TagsViewNode, TagsViewConfig> {
 	}
 
 	protected registerCommands(): Disposable[] {
-		void this.container.viewCommands;
-
 		return [
 			registerViewCommand(
 				this.getQualifiedCommand('copy'),

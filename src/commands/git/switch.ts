@@ -13,7 +13,6 @@ import { createQuickPickSeparator } from '../../quickpicks/items/common';
 import { isStringArray } from '../../system/array';
 import { executeCommand } from '../../system/vscode/command';
 import type { ViewsWithRepositoryFolders } from '../../views/viewBase';
-import { getSteps } from '../gitCommands.utils';
 import type { PartialStepState, StepGenerator, StepResultGenerator, StepSelection, StepState } from '../quickCommand';
 import { canPickStepContinue, endSteps, isCrossCommandReference, QuickCommand, StepResultBreak } from '../quickCommand';
 import {
@@ -22,6 +21,7 @@ import {
 	pickBranchOrTagStepMultiRepo,
 	pickRepositoriesStep,
 } from '../quickCommand.steps';
+import { getSteps } from '../quickWizard.utils';
 
 interface Context {
 	repos: Repository[];
@@ -34,7 +34,7 @@ interface Context {
 
 interface State {
 	repos: string | string[] | Repository | Repository[];
-	onWorkspaceChanging?: (() => Promise<void>) | (() => void);
+	onWorkspaceChanging?: ((isNewWorktree?: boolean) => Promise<void>) | ((isNewWorktree?: boolean) => void);
 	reference: GitReference;
 	createBranch?: string;
 	fastForwardTo?: GitReference;
@@ -119,7 +119,7 @@ export class SwitchGitCommand extends QuickCommand<State> {
 	protected async *steps(state: PartialStepState<State>): StepGenerator {
 		const context: Context = {
 			repos: this.container.git.openRepositories,
-			associatedView: this.container.commitsView,
+			associatedView: this.container.views.commits,
 			canSwitchToLocalBranch: undefined,
 			promptToCreateBranch: false,
 			showTags: false,
@@ -171,7 +171,7 @@ export class SwitchGitCommand extends QuickCommand<State> {
 					continue;
 				}
 
-				if (typeof result == 'string') {
+				if (typeof result === 'string') {
 					yield* getSteps(
 						this.container,
 						{
@@ -300,7 +300,11 @@ export class SwitchGitCommand extends QuickCommand<State> {
 								icon: false,
 								label: state.reference.refType !== 'branch',
 							})}`,
-							value: state.createBranch ?? getNameWithoutRemote(state.reference),
+							value:
+								state.createBranch ?? // if it's a remote branch, pre-fill the name
+								(isBranchReference(state.reference) && state.reference.remote
+									? getNameWithoutRemote(state.reference)
+									: undefined),
 						});
 
 						this._canConfirmOverride = undefined;

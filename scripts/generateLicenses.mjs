@@ -22,22 +22,6 @@ async function generateThirdpartyNotices(packages) {
 				licenseFile: 'https://raw.github.com/microsoft/vscode/main/LICENSE.txt',
 			},
 		],
-		[
-			'sindresorhus/string-width',
-			{
-				licenses: 'MIT',
-				repository: 'https://github.com/sindresorhus/string-width',
-				licenseFile: 'https://raw.github.com/sindresorhus/string-width/main/license',
-			},
-		],
-		[
-			'sindresorhus/is-fullwidth-code-point',
-			{
-				licenses: 'MIT',
-				repository: 'https://github.com/sindresorhus/is-fullwidth-code-point',
-				licenseFile: 'https://raw.github.com/sindresorhus/is-fullwidth-code-point/main/license',
-			},
-		],
 	];
 
 	const packageOutputs = [];

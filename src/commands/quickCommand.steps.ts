@@ -83,7 +83,7 @@ import type {
 	RemoteQuickPickItem,
 	RepositoryQuickPickItem,
 	TagQuickPickItem,
-} from '../quickpicks/items/gitCommands';
+} from '../quickpicks/items/gitWizard';
 import {
 	createBranchQuickPickItem,
 	createCommitQuickPickItem,
@@ -92,14 +92,14 @@ import {
 	createRepositoryQuickPickItem,
 	createStashQuickPickItem,
 	createTagQuickPickItem,
-	GitCommandQuickPickItem,
-} from '../quickpicks/items/gitCommands';
+	GitWizardQuickPickItem,
+} from '../quickpicks/items/gitWizard';
 import type { ReferencesQuickPickItem } from '../quickpicks/referencePicker';
 import {
 	CopyRemoteResourceCommandQuickPickItem,
 	OpenRemoteResourceCommandQuickPickItem,
 } from '../quickpicks/remoteProviderPicker';
-import { filterMap, filterMapAsync, intersection, isStringArray } from '../system/array';
+import { filterMap, intersection, isStringArray } from '../system/array';
 import { debounce } from '../system/function';
 import { first, map } from '../system/iterable';
 import { Logger } from '../system/logger';
@@ -195,16 +195,17 @@ export async function getRemotes(
 ): Promise<RemoteQuickPickItem[]> {
 	if (repo == null) return [];
 
-	const remotes = (await repo.getRemotes(options?.filter != null ? { filter: options.filter } : undefined)).map(r =>
-		createRemoteQuickPickItem(
-			r,
-			options?.picked != null &&
-				(typeof options.picked === 'string' ? r.name === options.picked : options.picked.includes(r.name)),
-			{
-				buttons: options?.buttons,
-				upstream: true,
-			},
-		),
+	const remotes = (await repo.git.getRemotes(options?.filter != null ? { filter: options.filter } : undefined)).map(
+		r =>
+			createRemoteQuickPickItem(
+				r,
+				options?.picked != null &&
+					(typeof options.picked === 'string' ? r.name === options.picked : options.picked.includes(r.name)),
+				{
+					buttons: options?.buttons,
+					upstream: true,
+				},
+			),
 	);
 	return remotes;
 }
@@ -242,35 +243,41 @@ export async function getWorktrees(
 		picked?: string | string[];
 	},
 ): Promise<WorktreeQuickPickItem[]> {
-	const worktrees = repoOrWorktrees instanceof Repository ? await repoOrWorktrees.getWorktrees() : repoOrWorktrees;
+	const worktrees =
+		repoOrWorktrees instanceof Repository ? await repoOrWorktrees.git.getWorktrees() : repoOrWorktrees;
 
-	const items = await filterMapAsync(worktrees, async w => {
-		if ((excludeOpened && w.opened) || filter?.(w) === false) return undefined;
+	const items = filterMap(
+		await Promise.allSettled(
+			map(worktrees, async w => {
+				if ((excludeOpened && w.opened) || filter?.(w) === false) return undefined;
 
-		let missing = false;
-		let status;
-		if (includeStatus) {
-			try {
-				status = await w.getStatus();
-			} catch (ex) {
-				Logger.error(ex, `Worktree status failed: ${w.uri.toString(true)}`);
-				missing = true;
-			}
-		}
+				let missing = false;
+				let status;
+				if (includeStatus) {
+					try {
+						status = await w.getStatus();
+					} catch (ex) {
+						Logger.error(ex, `Worktree status failed: ${w.uri.toString(true)}`);
+						missing = true;
+					}
+				}
 
-		return createWorktreeQuickPickItem(
-			w,
-			picked != null &&
-				(typeof picked === 'string' ? w.uri.toString() === picked : picked.includes(w.uri.toString())),
-			missing,
-			{
-				buttons: buttons,
-				includeStatus: includeStatus,
-				path: true,
-				status: status,
-			},
-		);
-	});
+				return createWorktreeQuickPickItem(
+					w,
+					picked != null &&
+						(typeof picked === 'string' ? w.uri.toString() === picked : picked.includes(w.uri.toString())),
+					missing,
+					{
+						buttons: buttons,
+						includeStatus: includeStatus,
+						path: true,
+						status: status,
+					},
+				);
+			}),
+		),
+		r => (r.status === 'fulfilled' ? r.value : undefined),
+	);
 
 	return sortWorktrees(items);
 }
@@ -306,12 +313,12 @@ export async function getBranchesAndOrTags(
 		const [worktreesByBranchResult, branchesResult, tagsResult] = await Promise.allSettled([
 			include.includes('branches') ? getWorktreesByBranch(repo) : undefined,
 			include.includes('branches')
-				? repo.getBranches({
+				? repo.git.getBranches({
 						filter: filter?.branches,
 						sort: typeof sort === 'boolean' ? sort : sort?.branches,
 				  })
 				: undefined,
-			include.includes('tags') ? repo.getTags({ filter: filter?.tags, sort: true }) : undefined,
+			include.includes('tags') ? repo.git.getTags({ filter: filter?.tags, sort: true }) : undefined,
 		]);
 
 		worktreesByBranch = getSettledValue(worktreesByBranchResult);
@@ -324,7 +331,7 @@ export async function getBranchesAndOrTags(
 			include.includes('branches')
 				? Promise.allSettled(
 						repos.map(r =>
-							r.getBranches({
+							r.git.getBranches({
 								filter: filter?.branches,
 								sort: typeof sort === 'boolean' ? sort : sort?.branches,
 							}),
@@ -334,7 +341,10 @@ export async function getBranchesAndOrTags(
 			include.includes('tags')
 				? Promise.allSettled(
 						repos.map(r =>
-							r.getTags({ filter: filter?.tags, sort: typeof sort === 'boolean' ? sort : sort?.tags }),
+							r.git.getTags({
+								filter: filter?.tags,
+								sort: typeof sort === 'boolean' ? sort : sort?.tags,
+							}),
 						),
 				  )
 				: undefined,
@@ -567,7 +577,7 @@ export async function* inputBranchNameStep<
 					return [false, `'${value}' isn't a valid branch name`];
 				}
 
-				const alreadyExists = await state.repo.getBranch(value);
+				const alreadyExists = await state.repo.git.getBranch(value);
 				if (alreadyExists) {
 					return [false, `A branch named '${value}' already exists`];
 				}
@@ -583,7 +593,7 @@ export async function* inputBranchNameStep<
 					return [false, `'${value}' isn't a valid branch name`];
 				}
 
-				const alreadyExists = await repo.getBranch(value);
+				const alreadyExists = await repo.git.getBranch(value);
 				if (alreadyExists) {
 					return [false, `A branch named '${value}' already exists`];
 				}
@@ -624,7 +634,7 @@ export async function* inputRemoteNameStep<
 			if (!valid) return [false, `'${value}' isn't a valid remote name`];
 
 			if ('repo' in state) {
-				const alreadyExists = (await state.repo.getRemotes({ filter: r => r.name === value })).length !== 0;
+				const alreadyExists = (await state.repo.git.getRemotes({ filter: r => r.name === value })).length !== 0;
 				if (alreadyExists) {
 					return [false, `A remote named '${value}' already exists`];
 				}
@@ -982,7 +992,7 @@ export function* pickBranchOrTagStepMultiRepo<
 		iconPath: new ThemeIcon('git-pull-request'),
 		alwaysShow: true,
 		item: createCrossCommandReference<Partial<LaunchpadCommandArgs>>(Commands.ShowLaunchpad, {
-			source: 'git-commands',
+			source: 'quick-wizard',
 		}),
 	};
 
@@ -1123,21 +1133,23 @@ export async function* pickCommitStep<
 			buttons.splice(0, 0, OpenChangesViewQuickInputButton);
 		}
 
-		const items = [];
-
-		for await (const item of map(log.commits.values(), async commit =>
-			createCommitQuickPickItem(
-				commit,
-				picked != null && (typeof picked === 'string' ? commit.ref === picked : picked.includes(commit.ref)),
-				{
-					buttons: buttons,
-					compact: true,
-					icon: 'avatar',
-				},
+		const items: (CommitQuickPickItem | DirectiveQuickPickItem)[] = filterMap(
+			await Promise.allSettled(
+				map(log.commits.values(), async commit =>
+					createCommitQuickPickItem(
+						commit,
+						picked != null &&
+							(typeof picked === 'string' ? commit.ref === picked : picked.includes(commit.ref)),
+						{
+							buttons: buttons,
+							compact: true,
+							icon: 'avatar',
+						},
+					),
+				),
 			),
-		)) {
-			items.push(item);
-		}
+			r => (r.status === 'fulfilled' ? r.value : undefined),
+		);
 
 		if (log.hasMore) {
 			items.push(createDirectiveQuickPickItem(Directive.LoadMore));
@@ -1262,24 +1274,27 @@ export function* pickCommitsStep<
 	},
 ): StepResultGenerator<GitRevisionReference[]> {
 	async function getItems(log: GitLog | undefined) {
-		if (log == null)
+		if (log == null) {
 			return [createDirectiveQuickPickItem(Directive.Back, true), createDirectiveQuickPickItem(Directive.Cancel)];
-
-		const items = [];
-
-		for await (const item of map(log.commits.values(), async commit =>
-			createCommitQuickPickItem(
-				commit,
-				picked != null && (typeof picked === 'string' ? commit.ref === picked : picked.includes(commit.ref)),
-				{
-					buttons: [ShowDetailsViewQuickInputButton, RevealInSideBarQuickInputButton],
-					compact: true,
-					icon: 'avatar',
-				},
-			),
-		)) {
-			items.push(item);
 		}
+
+		const items = filterMap(
+			await Promise.allSettled(
+				map(log.commits.values(), async commit =>
+					createCommitQuickPickItem(
+						commit,
+						picked != null &&
+							(typeof picked === 'string' ? commit.ref === picked : picked.includes(commit.ref)),
+						{
+							buttons: [ShowDetailsViewQuickInputButton, RevealInSideBarQuickInputButton],
+							compact: true,
+							icon: 'avatar',
+						},
+					),
+				),
+			),
+			r => (r.status === 'fulfilled' ? r.value : undefined),
+		);
 
 		// Since this is multi-select, we can't have a "Load more" item
 		// if (log.hasMore) {
@@ -1525,10 +1540,15 @@ export async function* pickRepositoryStep<
 
 	const step = createPickStep<RepositoryQuickPickItem>({
 		title: context.title,
-		placeholder: placeholder,
+		placeholder: context.repos.length === 0 ? `${placeholder} — no opened repositories found` : placeholder,
 		items:
 			context.repos.length === 0
-				? [createDirectiveQuickPickItem(Directive.Cancel)]
+				? [
+						createDirectiveQuickPickItem(Directive.Cancel, true, {
+							label: 'Cancel',
+							detail: 'No opened repositories found',
+						}),
+				  ]
 				: Promise.all(
 						context.repos.map(r =>
 							createRepositoryQuickPickItem(r, r.id === active?.id, {
@@ -1590,10 +1610,16 @@ export async function* pickRepositoriesStep<
 	const step = createPickStep<RepositoryQuickPickItem>({
 		multiselect: true,
 		title: context.title,
-		placeholder: options.placeholder,
+		placeholder:
+			context.repos.length === 0 ? `${options.placeholder} — no opened repositories found` : options.placeholder,
 		items:
 			context.repos.length === 0
-				? [createDirectiveQuickPickItem(Directive.Cancel)]
+				? [
+						createDirectiveQuickPickItem(Directive.Cancel, true, {
+							label: 'Cancel',
+							detail: 'No opened repositories found',
+						}),
+				  ]
 				: Promise.all(
 						context.repos.map(repo =>
 							createRepositoryQuickPickItem(
@@ -1639,13 +1665,13 @@ export function* pickStashStep<
 	context: Context,
 	{
 		ignoreFocusOut,
-		stash,
+		gitStash,
 		picked,
 		placeholder,
 		titleContext,
 	}: {
 		ignoreFocusOut?: boolean;
-		stash: GitStash | undefined;
+		gitStash: GitStash | undefined;
 		picked: string | string[] | undefined;
 		placeholder: string | ((context: Context, stash: GitStash | undefined) => string);
 		titleContext?: string;
@@ -1653,19 +1679,19 @@ export function* pickStashStep<
 ): StepResultGenerator<GitStashCommit> {
 	const step = createPickStep<CommitQuickPickItem<GitStashCommit>>({
 		title: appendReposToTitle(`${context.title}${titleContext ?? ''}`, state, context),
-		placeholder: typeof placeholder === 'string' ? placeholder : placeholder(context, stash),
+		placeholder: typeof placeholder === 'string' ? placeholder : placeholder(context, gitStash),
 		ignoreFocusOut: ignoreFocusOut,
 		matchOnDescription: true,
 		matchOnDetail: true,
 		items:
-			stash == null
+			gitStash == null
 				? [createDirectiveQuickPickItem(Directive.Back, true), createDirectiveQuickPickItem(Directive.Cancel)]
 				: [
-						...map(stash.commits.values(), commit =>
+						...map(gitStash.stashes.values(), stash =>
 							createStashQuickPickItem(
-								commit,
+								stash,
 								picked != null &&
-									(typeof picked === 'string' ? commit.ref === picked : picked.includes(commit.ref)),
+									(typeof picked === 'string' ? stash.ref === picked : picked.includes(stash.ref)),
 								{
 									buttons: [ShowDetailsViewQuickInputButton],
 									compact: true,
@@ -1697,13 +1723,13 @@ export function* pickStashesStep<
 	context: Context,
 	{
 		ignoreFocusOut,
-		stash,
+		gitStash,
 		picked,
 		placeholder,
 		titleContext,
 	}: {
 		ignoreFocusOut?: boolean;
-		stash: GitStash | undefined;
+		gitStash: GitStash | undefined;
 		picked: string | string[] | undefined;
 		placeholder: string | ((context: Context, stash: GitStash | undefined) => string);
 		titleContext?: string;
@@ -1712,19 +1738,19 @@ export function* pickStashesStep<
 	const step = createPickStep<CommitQuickPickItem<GitStashCommit>>({
 		title: appendReposToTitle(`${context.title}${titleContext ?? ''}`, state, context),
 		multiselect: true,
-		placeholder: typeof placeholder === 'string' ? placeholder : placeholder(context, stash),
+		placeholder: typeof placeholder === 'string' ? placeholder : placeholder(context, gitStash),
 		ignoreFocusOut: ignoreFocusOut,
 		matchOnDescription: true,
 		matchOnDetail: true,
 		items:
-			stash == null
+			gitStash == null
 				? [createDirectiveQuickPickItem(Directive.Back, true), createDirectiveQuickPickItem(Directive.Cancel)]
 				: [
-						...map(stash.commits.values(), commit =>
+						...map(gitStash.stashes.values(), stash =>
 							createStashQuickPickItem(
-								commit,
+								stash,
 								picked != null &&
-									(typeof picked === 'string' ? commit.ref === picked : picked.includes(commit.ref)),
+									(typeof picked === 'string' ? stash.ref === picked : picked.includes(stash.ref)),
 								{
 									buttons: [ShowDetailsViewQuickInputButton],
 									compact: true,
@@ -1938,8 +1964,8 @@ export function* showCommitOrStashStep<
 >(
 	state: State,
 	context: Context,
-): StepResultGenerator<CommitFilesQuickPickItem | GitCommandQuickPickItem | CommandQuickPickItem> {
-	const step: QuickPickStep<CommitFilesQuickPickItem | GitCommandQuickPickItem | CommandQuickPickItem> =
+): StepResultGenerator<CommitFilesQuickPickItem | GitWizardQuickPickItem | CommandQuickPickItem> {
+	const step: QuickPickStep<CommitFilesQuickPickItem | GitWizardQuickPickItem | CommandQuickPickItem> =
 		createPickStep({
 			title: appendReposToTitle(
 				getReferenceLabel(state.reference, {
@@ -2005,7 +2031,7 @@ async function getShowCommitOrStashStepItems<
 	if (isStash(state.reference)) {
 		items.push(
 			createQuickPickSeparator('Actions'),
-			new GitCommandQuickPickItem('Apply Stash...', {
+			new GitWizardQuickPickItem('Apply Stash...', {
 				command: 'stash',
 				state: {
 					subcommand: 'apply',
@@ -2013,7 +2039,7 @@ async function getShowCommitOrStashStepItems<
 					reference: state.reference,
 				},
 			}),
-			new GitCommandQuickPickItem('Rename Stash...', {
+			new GitWizardQuickPickItem('Rename Stash...', {
 				command: 'stash',
 				state: {
 					subcommand: 'rename',
@@ -2021,7 +2047,7 @@ async function getShowCommitOrStashStepItems<
 					reference: state.reference,
 				},
 			}),
-			new GitCommandQuickPickItem('Drop Stash...', {
+			new GitWizardQuickPickItem('Drop Stash...', {
 				command: 'stash',
 				state: {
 					subcommand: 'drop',
@@ -2068,7 +2094,7 @@ async function getShowCommitOrStashStepItems<
 				// TODO@eamodio Add Undo commit, if HEAD & unpushed
 
 				items.push(
-					new GitCommandQuickPickItem('Push to Commit...', {
+					new GitWizardQuickPickItem('Push to Commit...', {
 						command: 'push',
 						state: {
 							repos: state.repo,
@@ -2079,21 +2105,21 @@ async function getShowCommitOrStashStepItems<
 			}
 
 			items.push(
-				new GitCommandQuickPickItem('Revert Commit...', {
+				new GitWizardQuickPickItem('Revert Commit...', {
 					command: 'revert',
 					state: {
 						repo: state.repo,
 						references: [state.reference],
 					},
 				}),
-				new GitCommandQuickPickItem(`Reset ${branch?.name ?? 'Current Branch'} to Commit...`, {
+				new GitWizardQuickPickItem(`Reset ${branch?.name ?? 'Current Branch'} to Commit...`, {
 					command: 'reset',
 					state: {
 						repo: state.repo,
 						reference: state.reference,
 					},
 				}),
-				new GitCommandQuickPickItem(`Reset ${branch?.name ?? 'Current Branch'} to Previous Commit...`, {
+				new GitWizardQuickPickItem(`Reset ${branch?.name ?? 'Current Branch'} to Previous Commit...`, {
 					command: 'reset',
 					state: {
 						repo: state.repo,
@@ -2107,7 +2133,7 @@ async function getShowCommitOrStashStepItems<
 			);
 		} else {
 			items.push(
-				new GitCommandQuickPickItem('Cherry Pick Commit...', {
+				new GitWizardQuickPickItem('Cherry Pick Commit...', {
 					command: 'cherry-pick',
 					state: {
 						repo: state.repo,
@@ -2118,14 +2144,14 @@ async function getShowCommitOrStashStepItems<
 		}
 
 		items.push(
-			new GitCommandQuickPickItem(`Rebase ${branch?.name ?? 'Current Branch'} onto Commit...`, {
+			new GitWizardQuickPickItem(`Rebase ${branch?.name ?? 'Current Branch'} onto Commit...`, {
 				command: 'rebase',
 				state: {
 					repo: state.repo,
-					reference: state.reference,
+					destination: state.reference,
 				},
 			}),
-			new GitCommandQuickPickItem('Switch to Commit...', {
+			new GitWizardQuickPickItem('Switch to Commit...', {
 				command: 'switch',
 				state: {
 					repos: [state.repo],
@@ -2134,7 +2160,7 @@ async function getShowCommitOrStashStepItems<
 			}),
 
 			createQuickPickSeparator(),
-			new GitCommandQuickPickItem('Create Branch at Commit...', {
+			new GitWizardQuickPickItem('Create Branch at Commit...', {
 				command: 'branch',
 				state: {
 					subcommand: 'create',
@@ -2142,7 +2168,7 @@ async function getShowCommitOrStashStepItems<
 					reference: state.reference,
 				},
 			}),
-			new GitCommandQuickPickItem('Create Tag at Commit...', {
+			new GitWizardQuickPickItem('Create Tag at Commit...', {
 				command: 'tag',
 				state: {
 					subcommand: 'create',
@@ -2524,7 +2550,7 @@ function getShowRepositoryStatusStepItems<
 
 		if (context.status.state.behind !== 0) {
 			items.push(
-				new GitCommandQuickPickItem(
+				new GitWizardQuickPickItem(
 					`$(cloud-download) ${pluralize('commit', context.status.state.behind)} behind`,
 					{
 						command: 'log',
@@ -2542,19 +2568,16 @@ function getShowRepositoryStatusStepItems<
 
 		if (context.status.state.ahead !== 0) {
 			items.push(
-				new GitCommandQuickPickItem(
-					`$(cloud-upload) ${pluralize('commit', context.status.state.ahead)} ahead`,
-					{
-						command: 'log',
-						state: {
-							repo: state.repo,
-							reference: createReference(
-								createRevisionRange(context.status.upstream?.name, context.status.ref, '..'),
-								state.repo.path,
-							),
-						},
+				new GitWizardQuickPickItem(`$(cloud-upload) ${pluralize('commit', context.status.state.ahead)} ahead`, {
+					command: 'log',
+					state: {
+						repo: state.repo,
+						reference: createReference(
+							createRevisionRange(context.status.upstream?.name, context.status.ref, '..'),
+							state.repo.path,
+						),
 					},
-				),
+				}),
 			);
 		}
 	} else {
@@ -2622,24 +2645,12 @@ export async function* ensureAccessStep<
 	} else {
 		if (access.subscription.required == null) return access;
 
-		let detail;
-		const promo = getApplicablePromo(access.subscription.current.state);
-		if (promo != null) {
-			// NOTE: Don't add a default case, so that if we add a new promo the build will break without handling it
-			switch (promo.key) {
-				case 'pro50':
-					detail = '$(star-full) Limited-Time Sale: Save 33% or more on your 1st seat of Pro';
-					break;
-				case 'launchpad':
-				case 'launchpad-extended':
-					detail = `$(rocket) Launchpad Sale: Save 75% or more on GitLens Pro`;
-					break;
-			}
-		}
+		const promo = getApplicablePromo(access.subscription.current.state, 'gate');
+		const detail = promo?.quickpick.detail;
 
-		placeholder = 'Pro feature — requires a trial or paid plan for use on privately-hosted repos';
+		placeholder = 'Pro feature — requires a trial or GitLens Pro for use on privately-hosted repos';
 		if (isSubscriptionPaidPlan(access.subscription.required) && access.subscription.current.account != null) {
-			placeholder = 'Pro feature — requires a paid plan for use on privately-hosted repos';
+			placeholder = 'Pro feature — requires GitLens Pro for use on privately-hosted repos';
 			directives.push(
 				createDirectiveQuickPickItem(Directive.RequiresPaidSubscription, true, { detail: detail }),
 				createQuickPickSeparator(),
@@ -2675,7 +2686,7 @@ export async function* ensureAccessStep<
 					iconPath: new ThemeIcon('rocket'),
 					onDidSelect: () =>
 						void executeCommand<OpenWalkthroughCommandArgs>(Commands.OpenWalkthrough, {
-							step: 'launchpad',
+							step: 'accelerate-pr-reviews',
 							source: 'launchpad',
 							detail: 'info',
 						}),
