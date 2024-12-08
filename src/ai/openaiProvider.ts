@@ -1,6 +1,7 @@
 import { configuration } from '../system/vscode/configuration';
 import type { AIModel } from './aiProviderService';
 import { OpenAICompatibleProvider } from './openAICompatibleProvider';
+import * as urlLib from 'url';
 
 const provider = { id: 'openai', name: 'OpenAI' } as const;
 
@@ -183,7 +184,8 @@ export class OpenAIProvider extends OpenAICompatibleProvider<typeof provider.id>
 		url: string,
 		apiKey: string,
 	): Record<string, string> {
-		if (url.includes('.azure.com')) {
+		const parsedUrl = urlLib.parse(url);
+		if (this.isAllowedHost(parsedUrl.host)) {
 			return {
 				Accept: 'application/json',
 				'Content-Type': 'application/json',
@@ -192,5 +194,17 @@ export class OpenAIProvider extends OpenAICompatibleProvider<typeof provider.id>
 		}
 
 		return super.getHeaders(model, url, apiKey);
+	}
+
+	private isAllowedHost(host: string | null): boolean {
+		if (!host) return false;
+		const allowedHosts = [
+			'azure.com',
+			'*.azure.com'
+		];
+		return allowedHosts.some(allowedHost => {
+			const regex = new RegExp(`^${allowedHost.replace('*.', '.*\\.')}$`);
+			return regex.test(host);
+		});
 	}
 }
