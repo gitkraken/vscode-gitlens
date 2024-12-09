@@ -65,6 +65,7 @@ export type RepoGitProviderService = Pick<
 	| 'getBestRemotesWithProviders'
 	| 'getBestRemoteWithIntegration'
 	| 'getBranch'
+	| 'getDefaultRemote'
 	| 'getRemote'
 	| 'getTag'
 	| 'getWorktree'

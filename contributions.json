@@ -5056,6 +5056,44 @@
 				]
 			}
 		},
+		"gitlens.views.branches.setShowRemoteBranchesOff": {
+			"label": "Hide Remote Branches",
+			"menus": {
+				"gitlens/views/grouped/more": [
+					{
+						"when": "view == gitlens.views.scm.grouped && gitlens:views:scm:grouped:view == branches && config.gitlens.views.branches.showRemoteBranches && !gitlens:hasVirtualFolders",
+						"group": "5_gitlens",
+						"order": 11
+					}
+				],
+				"view/title": [
+					{
+						"when": "view == gitlens.views.branches && config.gitlens.views.branches.showRemoteBranches && !gitlens:hasVirtualFolders",
+						"group": "5_gitlens",
+						"order": 11
+					}
+				]
+			}
+		},
+		"gitlens.views.branches.setShowRemoteBranchesOn": {
+			"label": "Show Remote Branches",
+			"menus": {
+				"gitlens/views/grouped/more": [
+					{
+						"when": "view == gitlens.views.scm.grouped && gitlens:views:scm:grouped:view == branches && !config.gitlens.views.branches.showRemoteBranches && !gitlens:hasVirtualFolders",
+						"group": "5_gitlens",
+						"order": 11
+					}
+				],
+				"view/title": [
+					{
+						"when": "view == gitlens.views.branches && !config.gitlens.views.branches.showRemoteBranches && !gitlens:hasVirtualFolders",
+						"group": "5_gitlens",
+						"order": 11
+					}
+				]
+			}
+		},
 		"gitlens.views.branches.setShowStashesOff": {
 			"label": "Hide Stashes",
 			"menus": {

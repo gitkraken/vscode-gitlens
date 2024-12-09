@@ -349,6 +349,7 @@ export type TreeViewCommands = `gitlens.views.${
 			| `setShowAvatars${'On' | 'Off'}`
 			| `setShowBranchComparison${'On' | 'Off'}`
 			| `setShowBranchPullRequest${'On' | 'Off'}`
+			| `setShowRemoteBranches${'On' | 'Off'}`
 			| `setShowStashes${'On' | 'Off'}`}`
 	| `commits.${
 			| 'copy'

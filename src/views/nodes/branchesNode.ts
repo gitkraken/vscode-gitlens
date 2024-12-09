@@ -1,9 +1,12 @@
 import { ThemeIcon, TreeItem, TreeItemCollapsibleState } from 'vscode';
 import { GitUri } from '../../git/gitUri';
+import type { GitBranch } from '../../git/models/branch';
+import { getLocalBranchUpstreamNames } from '../../git/models/branch';
 import type { Repository } from '../../git/models/repository';
 import { getOpenedWorktreesByBranch } from '../../git/models/worktree';
 import { makeHierarchical } from '../../system/array';
 import { debug } from '../../system/decorators/log';
+import { PageableResult } from '../../system/paging';
 import type { ViewsWithBranchesNode } from '../viewBase';
 import { CacheableChildrenViewNode } from './abstract/cacheableChildrenViewNode';
 import type { ViewNode } from './abstract/viewNode';
@@ -35,27 +38,42 @@ export class BranchesNode extends CacheableChildrenViewNode<'branches', ViewsWit
 
 	async getChildren(): Promise<ViewNode[]> {
 		if (this.children == null) {
-			const branches = await this.repo.git.getBranches({
-				// only show local branches
-				filter: b => !b.remote,
+			const showRemoteBranches = this.view.type === 'branches' && this.view.config.showRemoteBranches;
+			const defaultRemote = showRemoteBranches ? (await this.repo.git.getDefaultRemote())?.name : undefined;
+
+			const options: Parameters<typeof this.repo.git.getBranches>['0'] = {
+				// only show local branches or remote branches for the default remote
+				filter: b =>
+					!b.remote || (showRemoteBranches && defaultRemote != null && b.getRemoteName() === defaultRemote),
 				sort: this.view.config.showCurrentBranchOnTop
 					? {
 							current: true,
+							groupByType: defaultRemote == null,
 							openedWorktreesByBranch: getOpenedWorktreesByBranch(this.context.worktreesByBranch),
 					  }
-					: { current: false },
-			});
-			if (branches.values.length === 0) return [new MessageNode(this.view, this, 'No branches could be found.')];
+					: { current: false, groupByType: defaultRemote == null },
+			};
 
-			// TODO@eamodio handle paging
-			const branchNodes = branches.values.map(
-				b =>
+			const branches = new PageableResult<GitBranch>(p => this.repo.git.getBranches({ ...options, paging: p }));
+
+			let localUpstreamNames: Set<string> | undefined;
+			// Filter out remote branches that have a local branch
+			if (defaultRemote != null) {
+				localUpstreamNames = await getLocalBranchUpstreamNames(branches);
+			}
+
+			const branchNodes: BranchNode[] = [];
+
+			for await (const branch of branches.values()) {
+				if (branch.remote && localUpstreamNames?.has(branch.name)) continue;
+
+				branchNodes.push(
 					new BranchNode(
-						GitUri.fromRepoPath(this.uri.repoPath!, b.ref),
+						GitUri.fromRepoPath(this.uri.repoPath!, branch.ref),
 						this.view,
 						this,
 						this.repo,
-						b,
+						branch,
 						false,
 						{
 							showComparison:
@@ -65,7 +83,10 @@ export class BranchesNode extends CacheableChildrenViewNode<'branches', ViewsWit
 							showStashes: this.view.config.showStashes,
 						},
 					),
-			);
+				);
+			}
+
+			if (branchNodes.length === 0) return [new MessageNode(this.view, this, 'No branches could be found.')];
 			if (this.view.config.branches.layout === 'list') return branchNodes;
 
 			const hierarchy = makeHierarchical(
