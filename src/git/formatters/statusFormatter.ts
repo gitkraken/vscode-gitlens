@@ -93,22 +93,34 @@ export class StatusFileFormatter extends Formatter<GitFile, StatusFormatOptions>
 	}
 
 	get changes(): string {
+		if (!isGitFileChange(this._item)) {
+			return this._padOrTruncate('', this._options.tokenOptions.changes);
+		}
+
 		return this._padOrTruncate(
-			isGitFileChange(this._item) ? this._item.formatStats() : '',
+			this._item.formatStats('stats', this._options.outputFormat !== 'plaintext' ? { color: true } : undefined),
 			this._options.tokenOptions.changes,
 		);
 	}
 
 	get changesDetail(): string {
+		if (!isGitFileChange(this._item)) {
+			return this._padOrTruncate('', this._options.tokenOptions.changes);
+		}
+
 		return this._padOrTruncate(
-			isGitFileChange(this._item) ? this._item.formatStats({ expand: true, separator: ', ' }) : '',
+			this._item.formatStats('expanded', { color: this._options.outputFormat !== 'plaintext', separator: ', ' }),
 			this._options.tokenOptions.changesDetail,
 		);
 	}
 
 	get changesShort(): string {
+		if (!isGitFileChange(this._item)) {
+			return this._padOrTruncate('', this._options.tokenOptions.changes);
+		}
+
 		return this._padOrTruncate(
-			isGitFileChange(this._item) ? this._item.formatStats({ compact: true, separator: '' }) : '',
+			this._item.formatStats('short', { separator: '' }),
 			this._options.tokenOptions.changesShort,
 		);
 	}

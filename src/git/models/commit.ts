@@ -8,7 +8,7 @@ import { formatDate, fromNow } from '../../system/date';
 import { gate } from '../../system/decorators/gate';
 import { memoize } from '../../system/decorators/memoize';
 import { getLoggableName } from '../../system/logger';
-import { pad, pluralize } from '../../system/string';
+import { pluralize } from '../../system/string';
 import type { PreviousLineComparisonUrisResult } from '../gitProvider';
 import { GitUri } from '../gitUri';
 import type { RemoteProvider } from '../remotes/remoteProvider';
@@ -187,10 +187,11 @@ export class GitCommit implements GitRevisionReference {
 
 	private _etagFileSystem: number | undefined;
 
-	hasFullDetails(): this is GitCommitWithFullDetails {
+	hasFullDetails(options?: { include?: { stats?: boolean } }): this is GitCommitWithFullDetails {
 		return (
 			this.message != null &&
 			this.files != null &&
+			(!options?.include?.stats || this.files.some(f => f.stats != null)) &&
 			((this.isUncommitted &&
 				// If this is an uncommitted commit, check if we need to load the working files (if we don't have a matching etag -- only works if we are currently watching the file system for this repository)
 				this._etagFileSystem === this.container.git.getRepository(this.repoPath)?.etagFileSystem) ||
@@ -200,8 +201,8 @@ export class GitCommit implements GitRevisionReference {
 	}
 
 	@gate()
-	async ensureFullDetails(): Promise<void> {
-		if (this.hasFullDetails()) return;
+	async ensureFullDetails(options?: { include?: { stats?: boolean } }): Promise<void> {
+		if (this.hasFullDetails(options)) return;
 
 		// If the commit is "uncommitted", then have the files list be all uncommitted files
 		if (this.isUncommitted) {
@@ -225,12 +226,18 @@ export class GitCommit implements GitRevisionReference {
 			return;
 		}
 
-		const [commitResult, untrackedResult] = await Promise.allSettled([
-			this.container.git.getCommit(this.repoPath, this.sha),
+		const [commitResult, untrackedResult, commitFilesStatsResult] = await Promise.allSettled([
+			this.container.git.getCommit(this.repoPath, this.refType === 'stash' ? `${this.stashName}^2` : this.sha),
 			// Check for any untracked files -- since git doesn't return them via `git stash list` :(
 			// See https://stackoverflow.com/questions/12681529/
 			this.refType === 'stash' && !this._stashUntrackedFilesLoaded
 				? this.container.git.getCommit(this.repoPath, `${this.stashName}^3`)
+				: undefined,
+			options?.include?.stats
+				? this.container.git.getCommitFileStats(
+						this.repoPath,
+						this.refType === 'stash' ? `${this.stashName}^2` : this.sha,
+				  )
 				: undefined,
 			this.getPreviousSha(),
 		]);
@@ -243,6 +250,22 @@ export class GitCommit implements GitRevisionReference {
 			this._summary = commit.summary;
 			this._message = commit.message;
 			this._files = commit.files as GitFileChange[];
+
+			if (commitFilesStatsResult.status === 'fulfilled' && commitFilesStatsResult.value != null) {
+				this._files = this._files.map(file => {
+					const fileWithStats = commitFilesStatsResult.value!.find(f => f.path === file.path);
+					return fileWithStats != null
+						? new GitFileChange(
+								file.repoPath,
+								file.path,
+								file.status,
+								file.originalPath,
+								file.previousSha,
+								fileWithStats.stats,
+						  )
+						: file;
+				});
+			}
 
 			if (this._file != null) {
 				const file = this._files.find(f => f.path === this._file!.path);
@@ -324,11 +347,23 @@ export class GitCommit implements GitRevisionReference {
 		this._stats = { ...this._stats, changedFiles: changedFiles, additions: additions, deletions: deletions };
 	}
 
-	async findFile(path: string, staged?: boolean): Promise<GitFileChange | undefined>;
-	async findFile(uri: Uri, staged?: boolean): Promise<GitFileChange | undefined>;
-	async findFile(pathOrUri: string | Uri, staged?: boolean): Promise<GitFileChange | undefined> {
-		if (!this.hasFullDetails()) {
-			await this.ensureFullDetails();
+	async findFile(
+		path: string,
+		staged?: boolean,
+		options?: { include?: { stats?: boolean } },
+	): Promise<GitFileChange | undefined>;
+	async findFile(
+		uri: Uri,
+		staged?: boolean,
+		options?: { include?: { stats?: boolean } },
+	): Promise<GitFileChange | undefined>;
+	async findFile(
+		pathOrUri: string | Uri,
+		staged?: boolean,
+		options?: { include?: { stats?: boolean } },
+	): Promise<GitFileChange | undefined> {
+		if (!this.hasFullDetails(options)) {
+			await this.ensureFullDetails(options);
 			if (this._files == null) return undefined;
 		}
 
@@ -351,74 +386,108 @@ export class GitCommit implements GitRevisionReference {
 			: this.author.fromNow(short);
 	}
 
-	formatStats(options?: {
-		compact?: boolean;
-		empty?: string;
-		expand?: boolean;
-		prefix?: string;
-		sectionSeparator?: string;
-		separator?: string;
-		suffix?: string;
-	}): string {
-		const stats = this.stats;
+	formatStats(
+		style: 'short' | 'stats' | 'expanded',
+		options?: {
+			addParenthesesToFileStats?: boolean;
+			color?: boolean;
+			empty?: string;
+			separator?: string;
+		},
+	): string {
+		const { stats } = this;
 		if (stats == null) return options?.empty ?? '';
 
 		const { changedFiles, additions, deletions } = stats;
 		if (getChangedFilesCount(changedFiles) <= 0 && additions <= 0 && deletions <= 0) return options?.empty ?? '';
 
-		const {
-			compact = false,
-			expand = false,
-			prefix = '',
-			sectionSeparator = ` ${pad(GlyphChars.Dot, 1, 1, GlyphChars.Space)} `,
-			separator = ' ',
-			suffix = '',
-		} = options ?? {};
+		const separator = options?.separator ?? ' ';
 
-		let status = prefix;
+		function formatStat(type: 'added' | 'changed' | 'deleted', value: number) {
+			if (style === 'expanded') {
+				return `${pluralize('file', value)} ${type}`;
+			}
+
+			const label = `${type === 'added' ? '+' : type === 'deleted' ? '-' : '~'}${value}`;
+			return style === 'stats' && options?.color
+				? /*html*/ `<span style="color:${
+						type === 'added'
+							? 'var(--vscode-gitDecoration-addedResourceForeground)'
+							: type === 'deleted'
+							  ? 'var(--vscode-gitDecoration-deletedResourceForeground)'
+							  : 'var(--vscode-gitDecoration-modifiedResourceForeground)'
+				  };">${label}</span>`
+				: label;
+		}
+
+		const fileStats = [];
 
 		if (typeof changedFiles === 'number') {
 			if (changedFiles) {
-				status += expand ? `${pluralize('file', changedFiles)} changed` : `~${changedFiles}`;
+				fileStats.push(formatStat('changed', changedFiles));
 			}
 		} else {
 			const { added, changed, deleted } = changedFiles;
 			if (added) {
-				status += expand ? `${pluralize('file', added)} added` : `+${added}`;
-			} else if (!expand && !compact) {
-				status += '+0';
+				fileStats.push(formatStat('added', added));
+			} else if (style === 'stats') {
+				fileStats.push(formatStat('added', 0));
 			}
 
 			if (changed) {
-				status += `${added ? separator : ''}${
-					expand ? `${pluralize('file', changed)} changed` : `~${changed}`
-				}`;
-			} else if (!expand && !compact) {
-				status += '~0';
+				fileStats.push(formatStat('changed', changed));
+			} else if (style === 'stats') {
+				fileStats.push(formatStat('changed', 0));
 			}
 
 			if (deleted) {
-				status += `${changed | additions ? separator : ''}${
-					expand ? `${pluralize('file', deleted)} deleted` : `-${deleted}`
-				}`;
-			} else if (!expand && !compact) {
-				status += '-0';
+				fileStats.push(formatStat('deleted', deleted));
+			} else if (style === 'stats') {
+				fileStats.push(formatStat('deleted', 0));
 			}
 		}
 
-		if (expand) {
+		let result = fileStats.join(separator);
+		if (style === 'stats' && options?.color) {
+			result = /*html*/ `<span style="background-color:var(--vscode-textCodeBlock-background);border-radius:3px;">&nbsp;${result}&nbsp;&nbsp;</span>`;
+		}
+		if (options?.addParenthesesToFileStats) {
+			result = `(${result})`;
+		}
+
+		if (style === 'expanded') {
+			const lineStats = [];
+
 			if (additions) {
-				status += `${changedFiles ? sectionSeparator : ''}${pluralize('addition', additions)}`;
+				const additionsText = pluralize('addition', additions);
+				if (options?.color) {
+					lineStats.push(
+						/*html*/ `<span style="color:var(--vscode-gitDecoration-addedResourceForeground)">${additionsText}</span>`,
+					);
+				} else {
+					lineStats.push(additionsText);
+				}
 			}
 
 			if (deletions) {
-				status += `${changedFiles || additions ? separator : ''}${pluralize('deletion', deletions)}`;
+				const deletionsText = pluralize('deletion', deletions);
+				if (options?.color) {
+					lineStats.push(
+						/*html*/ `<span style="color:var(--vscode-gitDecoration-deletedResourceForeground)">${deletionsText}</span>`,
+					);
+				} else {
+					lineStats.push(deletionsText);
+				}
+			}
+
+			if (lineStats.length) {
+				result += `${
+					fileStats.length ? (options?.addParenthesesToFileStats ? `${GlyphChars.Space} ` : `, `) : ''
+				}${lineStats.join(separator)}`;
 			}
 		}
 
-		status += suffix;
-
-		return status;
+		return result;
 	}
 
 	async getAssociatedPullRequest(
@@ -473,9 +542,9 @@ export class GitCommit implements GitRevisionReference {
 		return commit;
 	}
 
-	async getCommitsForFiles(): Promise<GitCommit[]> {
-		if (!this.hasFullDetails()) {
-			await this.ensureFullDetails();
+	async getCommitsForFiles(options?: { include?: { stats?: boolean } }): Promise<GitCommit[]> {
+		if (!this.hasFullDetails(options)) {
+			await this.ensureFullDetails(options);
 			if (this._files == null) return [];
 		}
 

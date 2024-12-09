@@ -41,9 +41,7 @@ export function getFileTooltip(
 	outputFormat?: 'markdown' | 'plaintext',
 ) {
 	return StatusFileFormatter.fromTemplate(
-		`\${status${
-			suffix ? `' ${suffix}'` : ''
-		}} $(file) \${filePath}\${  ←  originalPath}\${'\\\n \u2022 'changesDetail}`,
+		`\${status${suffix ? `' ${suffix}'` : ''}} $(file) \${filePath}\${  ←  originalPath}\${'\\\n'changesDetail}`,
 		file,
 		{
 			outputFormat: outputFormat ?? 'markdown',
