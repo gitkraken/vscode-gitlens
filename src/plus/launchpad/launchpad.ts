@@ -461,11 +461,15 @@ export class LaunchpadCommand extends QuickCommand<State> {
 			};
 		};
 
-		const getItems = (result: LaunchpadCategorizedResult, isSearching?: boolean) => {
-			const items: (LaunchpadItemQuickPickItem | DirectiveQuickPickItem | ConnectMoreIntegrationsItem)[] = [];
+		const getLaunchpadQuickPickItems = (items: LaunchpadItem[] = [], isSearching?: boolean) => {
+			const groupedAndSorted: (
+				| LaunchpadItemQuickPickItem
+				| DirectiveQuickPickItem
+				| ConnectMoreIntegrationsItem
+			)[] = [];
 
-			if (result.items?.length) {
-				const uiGroups = groupAndSortLaunchpadItems(result.items);
+			if (items.length) {
+				const uiGroups = groupAndSortLaunchpadItems(items);
 				const topItem: LaunchpadItem | undefined =
 					!selectTopItem || picked != null
 						? undefined
@@ -477,17 +481,19 @@ export class LaunchpadCommand extends QuickCommand<State> {
 					if (!groupItems.length) continue;
 
 					if (!isSearching) {
-						items.push(...buildGroupHeading(ui, groupItems.length));
+						groupedAndSorted.push(...buildGroupHeading(ui, groupItems.length));
 						if (context.collapsed.get(ui)) {
 							continue;
 						}
 					}
 
-					items.push(...groupItems.map(i => buildLaunchpadQuickPickItem(i, ui, topItem, isSearching)));
+					groupedAndSorted.push(
+						...groupItems.map(i => buildLaunchpadQuickPickItem(i, ui, topItem, isSearching)),
+					);
 				}
 			}
 
-			return items;
+			return groupedAndSorted;
 		};
 
 		function getItemsAndPlaceholder(isSearching?: boolean) {
@@ -513,7 +519,7 @@ export class LaunchpadCommand extends QuickCommand<State> {
 
 			return {
 				placeholder: 'Choose an item, type a term to search, or paste in a PR URL',
-				items: getItems(context.result, isSearching),
+				items: getLaunchpadQuickPickItems(context.result.items, isSearching),
 			};
 		}
 
@@ -535,6 +541,7 @@ export class LaunchpadCommand extends QuickCommand<State> {
 
 		const updateItems = async (
 			quickpick: QuickPick<LaunchpadItemQuickPickItem | DirectiveQuickPickItem | ConnectMoreIntegrationsItem>,
+			force?: boolean,
 		) => {
 			const search = quickpick.value;
 			quickpick.busy = true;
@@ -543,7 +550,7 @@ export class LaunchpadCommand extends QuickCommand<State> {
 					await updateContextItems(
 						this.container,
 						context,
-						{ force: true, search: search },
+						{ force: force, search: search },
 						cancellationToken,
 					);
 					if (cancellationToken.isCancellationRequested) {
@@ -556,6 +563,17 @@ export class LaunchpadCommand extends QuickCommand<State> {
 			} finally {
 				quickpick.busy = false;
 			}
+		};
+
+		// Should only be used for optimistic update of the list when some UI property (like pinned, snoozed) changed with an
+		// item. For all other cases, use updateItems.
+		const optimisticallyUpdateItems = (
+			quickpick: QuickPick<LaunchpadItemQuickPickItem | DirectiveQuickPickItem | ConnectMoreIntegrationsItem>,
+		) => {
+			quickpick.items = getLaunchpadQuickPickItems(
+				context.result.items,
+				quickpick.value != null && quickpick.value.length > 0,
+			);
 		};
 
 		const { items, placeholder } = getItemsAndPlaceholder();
@@ -629,7 +647,7 @@ export class LaunchpadCommand extends QuickCommand<State> {
 					}
 				}
 
-				await updateItems(quickpick);
+				await updateItems(quickpick, true);
 				return true;
 			},
 			onDidClickButton: async (quickpick, button) => {
@@ -655,7 +673,7 @@ export class LaunchpadCommand extends QuickCommand<State> {
 
 					case RefreshQuickInputButton:
 						this.sendTitleActionTelemetry('refresh', context);
-						await updateItems(quickpick);
+						await updateItems(quickpick, true);
 						break;
 				}
 				return undefined;
@@ -676,26 +694,58 @@ export class LaunchpadCommand extends QuickCommand<State> {
 						this.container.launchpad.open(item);
 						break;
 
-					case SnoozeQuickInputButton:
+					case SnoozeQuickInputButton: {
 						this.sendItemActionTelemetry('snooze', item, group, context);
+
+						// Update optimistically
+						const contextItem = context.result.items?.find(i => i.uuid === item.uuid);
+						if (contextItem != null) {
+							contextItem.viewer.snoozed = true;
+							optimisticallyUpdateItems(quickpick);
+						}
+
 						await this.container.launchpad.snooze(item);
 						break;
-
-					case UnsnoozeQuickInputButton:
+					}
+					case UnsnoozeQuickInputButton: {
 						this.sendItemActionTelemetry('unsnooze', item, group, context);
+
+						// Update optimistically
+						const contextItem = context.result.items?.find(i => i.uuid === item.uuid);
+						if (contextItem != null) {
+							contextItem.viewer.snoozed = false;
+							optimisticallyUpdateItems(quickpick);
+						}
+
 						await this.container.launchpad.unsnooze(item);
 						break;
-
-					case PinQuickInputButton:
+					}
+					case PinQuickInputButton: {
 						this.sendItemActionTelemetry('pin', item, group, context);
+
+						// Update optimistically
+						const contextItem = context.result.items?.find(i => i.uuid === item.uuid);
+						if (contextItem != null) {
+							contextItem.viewer.pinned = true;
+							optimisticallyUpdateItems(quickpick);
+						}
+
 						await this.container.launchpad.pin(item);
 						break;
-
-					case UnpinQuickInputButton:
+					}
+					case UnpinQuickInputButton: {
 						this.sendItemActionTelemetry('unpin', item, group, context);
+
+						// Update optimistically
+						const contextItem = context.result.items?.find(i => i.uuid === item.uuid);
+						if (contextItem != null) {
+							contextItem.viewer.pinned = false;
+							optimisticallyUpdateItems(quickpick);
+						}
+
 						await this.container.launchpad.unpin(item);
 						break;
-
+					}
 					case MergeQuickInputButton:
 						this.sendItemActionTelemetry('merge', item, group, context);
 						await this.container.launchpad.merge(item);
