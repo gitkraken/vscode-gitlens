@@ -355,6 +355,7 @@ export function GraphWrapper({
 				setIsLoading(state.loading);
 				break;
 			case DidChangeRowsStatsNotification:
+				hover.current?.reset();
 				setRowsStats(state.rowsStats);
 				setRowsStatsLoading(state.rowsStatsLoading);
 				break;

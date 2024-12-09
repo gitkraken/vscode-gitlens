@@ -58,7 +58,6 @@ import type {
 	GitGraphRowContexts,
 	GitGraphRowHead,
 	GitGraphRowRemoteHead,
-	GitGraphRowsStats,
 	GitGraphRowStats,
 	GitGraphRowTag,
 } from '../../../../git/models/graph';
@@ -1301,7 +1300,7 @@ export class GitHubGitProvider implements GitProvider, Disposable {
 		const ids = new Set<string>();
 		const remote = getSettledValue(remotesResult)![0];
 		const remoteMap = remote != null ? new Map([[remote.name, remote]]) : new Map<string, GitRemote>();
-
+		const rowStats = new Map<string, GitGraphRowStats>();
 		const tagTips = new Map<string, string[]>();
 		const tags = getSettledValue(tagsResult)?.values;
 		if (tags != null) {
@@ -1326,6 +1325,7 @@ export class GitHubGitProvider implements GitProvider, Disposable {
 			branchTips,
 			remote,
 			remoteMap,
+			rowStats,
 			tagTips,
 			getSettledValue(currentUserResult),
 			avatars,
@@ -1346,6 +1346,7 @@ export class GitHubGitProvider implements GitProvider, Disposable {
 		branchTips: Map<string, string[]>,
 		remote: GitRemote,
 		remoteMap: Map<string, GitRemote>,
+		rowStats: Map<string, GitGraphRowStats>,
 		tagTips: Map<string, string[]>,
 		currentUser: GitUser | undefined,
 		avatars: Map<string, string>,
@@ -1411,7 +1412,6 @@ export class GitHubGitProvider implements GitProvider, Disposable {
 		let refRemoteHeads: GitGraphRowRemoteHead[];
 		let refTags: GitGraphRowTag[];
 		let remoteBranchId: string;
-		let stats: GitGraphRowsStats | undefined;
 		let tagId: string;
 
 		const headRefUpstreamName = headBranch.upstream?.name;
@@ -1615,10 +1615,7 @@ export class GitHubGitProvider implements GitProvider, Disposable {
 			});
 
 			if (commit.stats != null) {
-				if (stats == null) {
-					stats = new Map<string, GitGraphRowStats>();
-				}
-				stats.set(commit.sha, {
+				rowStats.set(commit.sha, {
 					files: getChangedFilesCount(commit.stats.changedFiles),
 					additions: commit.stats.additions,
 					deletions: commit.stats.deletions,
@@ -1662,6 +1659,7 @@ export class GitHubGitProvider implements GitProvider, Disposable {
 					branchTips,
 					remote,
 					remoteMap,
+					rowStats,
 					tagTips,
 					currentUser,
 					avatars,

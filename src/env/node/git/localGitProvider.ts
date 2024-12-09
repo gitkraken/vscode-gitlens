@@ -2460,6 +2460,7 @@ export class LocalGitProvider implements GitProvider, Disposable {
 		const ids = new Set<string>();
 		const reachableFromHEAD = new Set<string>();
 		const remappedIds = new Map<string, string>();
+		const rowStats: GitGraphRowsStats = new Map<string, GitGraphRowStats>();
 		let total = 0;
 		let iterations = 0;
 		let pendingRowsStatsCount = 0;
@@ -2585,7 +2586,6 @@ export class LocalGitProvider implements GitProvider, Disposable {
 			let remoteBranchId: string;
 			let remoteName: string;
 			let stash: GitStashCommit | undefined;
-			let stats: GitGraphRowsStats | undefined;
 			let tagId: string;
 			let tagName: string;
 			let tip: string;
@@ -2870,10 +2870,7 @@ export class LocalGitProvider implements GitProvider, Disposable {
 				});
 
 				if (commit.stats != null) {
-					if (stats == null) {
-						stats = new Map<string, GitGraphRowStats>();
-					}
-					stats.set(commit.sha, commit.stats);
+					rowStats.set(commit.sha, commit.stats);
 				}
 			}
 
@@ -2890,9 +2887,6 @@ export class LocalGitProvider implements GitProvider, Disposable {
 			let rowsStatsDeferred: GitGraph['rowsStatsDeferred'];
 
 			if (deferStats) {
-				if (stats == null) {
-					stats = new Map<string, GitGraphRowStats>();
-				}
 				pendingRowsStatsCount++;
 
 				// eslint-disable-next-line no-async-promise-executor
@@ -2910,7 +2904,7 @@ export class LocalGitProvider implements GitProvider, Disposable {
 						if (statsData) {
 							const commitStats = statsParser.parse(statsData);
 							for (const stat of commitStats) {
-								stats!.set(stat.sha, stat.stats);
+								rowStats.set(stat.sha, stat.stats);
 							}
 						}
 					} finally {
@@ -2939,7 +2933,7 @@ export class LocalGitProvider implements GitProvider, Disposable {
 				worktreesByBranch: worktreesByBranch,
 				rows: rows,
 				id: sha,
-				rowsStats: stats,
+				rowsStats: rowStats,
 				rowsStatsDeferred: rowsStatsDeferred,
 
 				paging: {
