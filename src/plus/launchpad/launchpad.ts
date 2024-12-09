@@ -13,7 +13,6 @@ import {
 	canPickStepContinue,
 	createPickStep,
 	endSteps,
-	freezeStep,
 	QuickCommand,
 	StepResultBreak,
 } from '../../commands/quickCommand';
@@ -978,20 +977,23 @@ export class LaunchpadCommand extends QuickCommand<State> {
 		state: StepState<State>,
 		context: Context,
 	): AsyncStepResultGenerator<{ connected: boolean | IntegrationId; resume: () => void }> {
-		const confirmations: (QuickPickItemOfT<IntegrationId> | DirectiveQuickPickItem)[] = [
-			createDirectiveQuickPickItem(Directive.Cancel, undefined, {
-				label: 'Launchpad prioritizes your pull requests to keep you focused and your team unblocked',
-				detail: 'Click to learn more about Launchpad',
-				iconPath: new ThemeIcon('rocket'),
-				onDidSelect: () =>
-					void executeCommand<OpenWalkthroughCommandArgs>(Commands.OpenWalkthrough, {
-						step: 'accelerate-pr-reviews',
-						source: 'launchpad',
-						detail: 'info',
+		const hasConnectedIntegration = some(context.connectedIntegrations.values(), c => c);
+		const confirmations: (QuickPickItemOfT<IntegrationId> | DirectiveQuickPickItem)[] = !hasConnectedIntegration
+			? [
+					createDirectiveQuickPickItem(Directive.Cancel, undefined, {
+						label: 'Launchpad prioritizes your pull requests to keep you focused and your team unblocked',
+						detail: 'Click to learn more about Launchpad',
+						iconPath: new ThemeIcon('rocket'),
+						onDidSelect: () =>
+							void executeCommand<OpenWalkthroughCommandArgs>(Commands.OpenWalkthrough, {
+								step: 'accelerate-pr-reviews',
+								source: 'launchpad',
+								detail: 'info',
+							}),
 					}),
-			}),
-			createQuickPickSeparator(),
-		];
+					createQuickPickSeparator(),
+			  ]
+			: [];
 
 		for (const integration of supportedLaunchpadIntegrations) {
 			if (context.connectedIntegrations.get(integration)) {
@@ -1032,19 +1034,12 @@ export class LaunchpadCommand extends QuickCommand<State> {
 			{ placeholder: 'Connect an integration to get started with Launchpad', buttons: [], ignoreFocusOut: false },
 		);
 
-		// Note: This is a hack to allow the quickpick to stay alive after the user finishes connecting the integration.
-		// Otherwise it disappears.
-		let freeze!: () => Disposable;
-		step.onDidActivate = qp => {
-			freeze = () => freezeStep(step, qp);
-		};
-
 		const selection: StepSelection<typeof step> = yield step;
 		if (canPickStepContinue(step, state, selection)) {
-			const resume = freeze();
+			const resume = step.freeze?.();
 			const chosenIntegrationId = selection[0].item;
 			const connected = await this.ensureIntegrationConnected(chosenIntegrationId);
-			return { connected: connected ? chosenIntegrationId : false, resume: () => resume[Symbol.dispose]() };
+			return { connected: connected ? chosenIntegrationId : false, resume: () => resume?.[Symbol.dispose]() };
 		}
 
 		return StepResultBreak;
@@ -1058,18 +1053,22 @@ export class LaunchpadCommand extends QuickCommand<State> {
 		const step = this.createConfirmStep(
 			`${this.title} \u00a0\u2022\u00a0 Connect an ${hasConnectedIntegration ? 'Additional ' : ''}Integration`,
 			[
-				createDirectiveQuickPickItem(Directive.Cancel, undefined, {
-					label: 'Launchpad prioritizes your pull requests to keep you focused and your team unblocked',
-					detail: 'Click to learn more about Launchpad',
-					iconPath: new ThemeIcon('rocket'),
-					onDidSelect: () =>
-						void executeCommand<OpenWalkthroughCommandArgs>(Commands.OpenWalkthrough, {
-							step: 'accelerate-pr-reviews',
-							source: 'launchpad',
-							detail: 'info',
-						}),
-				}),
-				createQuickPickSeparator(),
+				...(hasConnectedIntegration
+					? []
+					: [
+							createDirectiveQuickPickItem(Directive.Cancel, undefined, {
+								label: 'Launchpad prioritizes your pull requests to keep you focused and your team unblocked',
+								detail: 'Click to learn more about Launchpad',
+								iconPath: new ThemeIcon('rocket'),
+								onDidSelect: () =>
+									void executeCommand<OpenWalkthroughCommandArgs>(Commands.OpenWalkthrough, {
+										step: 'accelerate-pr-reviews',
+										source: 'launchpad',
+										detail: 'info',
+									}),
+							}),
+							createQuickPickSeparator(),
+					  ]),
 				createQuickPickItemOfT(
 					{
 						label: `Connect an ${hasConnectedIntegration ? 'Additional ' : ''}Integration...`,
@@ -1091,30 +1090,25 @@ export class LaunchpadCommand extends QuickCommand<State> {
 			},
 		);
 
-		// Note: This is a hack to allow the quickpick to stay alive after the user finishes connecting the integration.
-		// Otherwise it disappears.
-		let freeze!: () => Disposable;
-		let quickpick!: QuickPick<any>;
-		step.onDidActivate = qp => {
-			quickpick = qp;
-			freeze = () => freezeStep(step, qp);
-		};
-
 		const selection: StepSelection<typeof step> = yield step;
 
 		if (canPickStepContinue(step, state, selection)) {
-			const previousPlaceholder = quickpick.placeholder;
-			quickpick.placeholder = 'Connecting integrations...';
-			quickpick.ignoreFocusOut = true;
-			const resume = freeze();
+			let previousPlaceholder: string | undefined;
+			if (step.quickpick) {
+				previousPlaceholder = step.quickpick.placeholder;
+				step.quickpick.placeholder = 'Connecting integrations...';
+			}
+			const resume = step.freeze?.();
 			const connected = await this.container.integrations.connectCloudIntegrations(
 				{ integrationIds: supportedLaunchpadIntegrations },
 				{
 					source: 'launchpad',
 				},
 			);
-			quickpick.placeholder = previousPlaceholder;
-			return { connected: connected, resume: () => resume[Symbol.dispose]() };
+			if (step.quickpick) {
+				step.quickpick.placeholder = previousPlaceholder;
+			}
+			return { connected: connected, resume: () => resume?.[Symbol.dispose]() };
 		}
 
 		return StepResultBreak;

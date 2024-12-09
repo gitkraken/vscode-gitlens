@@ -66,6 +66,8 @@ export interface QuickPickStep<T extends QuickPickItem = QuickPickItem> {
 	value?: string;
 	selectValueWhenShown?: boolean;
 
+	quickpick?: QuickPick<DirectiveQuickPickItem | T>;
+	freeze?: () => Disposable;
 	frozen?: boolean;
 
 	onDidActivate?(quickpick: QuickPick<DirectiveQuickPickItem | T>): void;
@@ -361,7 +363,28 @@ export function createInputStep<T extends string>(step: Optional<QuickInputStep<
 }
 
 export function createPickStep<T extends QuickPickItem>(step: Optional<QuickPickStep<T>, 'type'>): QuickPickStep<T> {
-	return { type: 'pick', ...step };
+	const original = step.onDidActivate;
+	step = { type: 'pick' as const, ...step };
+	step.onDidActivate = qp => {
+		step.quickpick = qp;
+		step.freeze = () => {
+			qp.enabled = false;
+			const originalFocusOut = qp.ignoreFocusOut;
+			qp.ignoreFocusOut = true;
+			step.frozen = true;
+			return {
+				[Symbol.dispose]: () => {
+					step.frozen = false;
+					qp.enabled = true;
+					qp.ignoreFocusOut = originalFocusOut;
+					qp.show();
+				},
+			};
+		};
+		original?.(qp);
+	};
+
+	return step as QuickPickStep<T>;
 }
 
 export function createCustomStep<T>(step: Optional<CustomStep<T>, 'type'>): CustomStep<T> {
@@ -370,18 +393,6 @@ export function createCustomStep<T>(step: Optional<CustomStep<T>, 'type'>): Cust
 
 export function endSteps(state: PartialStepState) {
 	state.counter = -1;
-}
-
-export function freezeStep(step: QuickPickStep, quickpick: QuickPick<any>): Disposable {
-	quickpick.enabled = false;
-	step.frozen = true;
-	return {
-		[Symbol.dispose]: () => {
-			step.frozen = false;
-			quickpick.enabled = true;
-			quickpick.show();
-		},
-	};
 }
 
 export interface CrossCommandReference<T = unknown> {

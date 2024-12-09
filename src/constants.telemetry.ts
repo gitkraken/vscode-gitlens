@@ -8,7 +8,6 @@ import type { CustomEditorTypes, TreeViewTypes, WebviewTypes, WebviewViewTypes }
 import type { FeaturePreviews, FeaturePreviewStatus } from './features';
 import type { GitContributionTiers } from './git/models/contributor';
 import type { Subscription, SubscriptionAccount } from './plus/gk/account/subscription';
-import type { StartWorkType } from './plus/startWork/startWork';
 import type { GraphColumnConfig } from './plus/webviews/graph/protocol';
 import type { Period } from './plus/webviews/timeline/protocol';
 import type { Flatten } from './system/object';
@@ -227,6 +226,10 @@ export type TelemetryEvents = {
 		enabled: boolean;
 		version: string;
 	};
+	/** Sent when the user chooses to create a branch from the home view */
+	'home/createBranch': void;
+	/** Sent when the user chooses to start work on an issue from the home view */
+	'home/startWork': void;
 
 	/** Sent when the user takes an action on the Launchpad title bar */
 	'launchpad/title/action': {
@@ -360,25 +363,26 @@ export type TelemetryEvents = {
 	'startWork/open': StartWorkEventDataBase;
 	/** Sent when the launchpad is opened; use `instance` to correlate a StartWork "session" */
 	'startWork/opened': StartWorkConnectedEventData;
-	/** Sent when the user chooses an option to start work in the first step */
-	'startWork/type/chosen': {
-		type: StartWorkType;
-	} & StartWorkConnectedEventData;
 	/** Sent when the user takes an action on a StartWork issue */
 	'startWork/issue/action': {
 		action: 'soft-open';
-		type: StartWorkType;
 	} & StartWorkConnectedEventData &
 		Partial<Record<`item.${string}`, string | number | boolean>>;
 	/** Sent when the user chooses an issue to start work in the second step */
-	'startWork/issue/chosen': {
-		type: StartWorkType;
-	} & StartWorkConnectedEventData &
+	'startWork/issue/chosen': StartWorkConnectedEventData &
 		Partial<Record<`item.${string}`, string | number | boolean>>;
-	/** Sent when the Start Work has "reloaded" (while open, e.g. user refreshed or back button) and is disconnected; use `instance` to correlate a Start Work "session" */
-	'startWork/steps/type': StartWorkConnectedEventData;
+	/** Sent when the user reaches the "connect an integration" step of Start Work */
 	'startWork/steps/connect': StartWorkConnectedEventData;
+	/** Sent when the user reaches the "choose an issue" step of Start Work */
 	'startWork/steps/issue': StartWorkConnectedEventData;
+	/** Sent when the user chooses to connect an integration */
+	'startWork/title/action': StartWorkConnectedEventData & {
+		action: 'connect';
+	};
+	/** Sent when the user chooses to manage integrations */
+	'startWork/action': StartWorkConnectedEventData & {
+		action: 'manage' | 'connect';
+	};
 
 	/** Sent when the subscription is loaded */
 	subscription: SubscriptionEventData;
@@ -602,7 +606,6 @@ interface RepositoryOpenedEventData extends RepositoryEventData, RepositoryContr
 
 type StartWorkEventDataBase = {
 	instance: number;
-	type?: StartWorkType;
 };
 
 type StartWorkEventData = {

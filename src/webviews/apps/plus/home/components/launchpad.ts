@@ -3,9 +3,7 @@ import { SignalWatcher } from '@lit-labs/signals';
 import type { TemplateResult } from 'lit';
 import { css, html, LitElement, nothing } from 'lit';
 import { customElement, state } from 'lit/decorators.js';
-import { Commands } from '../../../../../constants.commands';
 import type { LaunchpadCommandArgs } from '../../../../../plus/launchpad/launchpad';
-import type { StartWorkCommandArgs } from '../../../../../plus/startWork/startWork';
 import { createCommandLink } from '../../../../../system/commands';
 import { pluralize } from '../../../../../system/string';
 import type { GetLaunchpadSummaryResponse, State } from '../../../../home/protocol';
@@ -112,30 +110,11 @@ export class GlLaunchpad extends SignalWatcher(LitElement) {
 	});
 
 	get startWorkCommand() {
-		return createCommandLink<StartWorkCommandArgs>(Commands.StartWork, {
-			command: 'startWork',
-			source: 'home',
-			type: 'issue',
-		});
+		return createCommandLink<undefined>('gitlens.home.startWork', undefined);
 	}
 
 	get createBranchCommand() {
-		return createCommandLink<StartWorkCommandArgs>(Commands.StartWork, {
-			command: 'startWork',
-			source: 'home',
-			type: 'branch',
-		});
-		// TODO: Switch to using the base git command once we support sending source telemetry to that command, and then clean up start work
-		// command to just be for issues and remove "type" param
-		/*return createCommandLink<BranchGitCommandArgs>(Commands.GitCommands, {
-			command: 'branch',
-			state: {
-				subcommand: 'create',
-				suggestNameOnly: true,
-				suggestRepoOnly: true,
-				confirmOptions: ['--switch', '--worktree'],
-			},
-		});*/
+		return createCommandLink<undefined>('gitlens.home.createBranch', undefined);
 	}
 
 	override connectedCallback() {
