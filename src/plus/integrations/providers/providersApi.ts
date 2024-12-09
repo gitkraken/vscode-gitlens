@@ -340,7 +340,7 @@ export class ProvidersApi {
 	}
 
 	async getPagedResult<T>(
-		_provider: ProviderInfo,
+		provider: ProviderInfo,
 		args: any,
 		providerFn:
 			| ((
@@ -372,27 +372,31 @@ export class ProvidersApi {
 			...cursorOrPage,
 		};
 
-		const result = await providerFn?.(input, { token: token, isPAT: usePAT });
-		if (result == null) {
-			return { values: [] };
+		try {
+			const result = await providerFn?.(input, { token: token, isPAT: usePAT });
+			if (result == null) {
+				return { values: [] };
+			}
+
+			const hasMore = result.pageInfo?.hasNextPage ?? false;
+
+			let nextCursor = '{}';
+			if (result.pageInfo?.endCursor != null) {
+				nextCursor = JSON.stringify({ value: result.pageInfo?.endCursor, type: 'cursor' });
+			} else if (result.pageInfo?.nextPage != null) {
+				nextCursor = JSON.stringify({ value: result.pageInfo?.nextPage, type: 'page' });
+			}
+
+			return {
+				values: result.data,
+				paging: {
+					cursor: nextCursor,
+					more: hasMore,
+				},
+			};
+		} catch (e) {
+			return this.handleProviderError<PagedResult<T>>(provider.id, token, e);
 		}
-
-		const hasMore = result.pageInfo?.hasNextPage ?? false;
-
-		let nextCursor = '{}';
-		if (result.pageInfo?.endCursor != null) {
-			nextCursor = JSON.stringify({ value: result.pageInfo?.endCursor, type: 'cursor' });
-		} else if (result.pageInfo?.nextPage != null) {
-			nextCursor = JSON.stringify({ value: result.pageInfo?.nextPage, type: 'page' });
-		}
-
-		return {
-			values: result.data,
-			paging: {
-				cursor: nextCursor,
-				more: hasMore,
-			},
-		};
 	}
 
 	async getCurrentUser(
@@ -784,24 +788,21 @@ export class ProvidersApi {
 	async getIssuesForResourceForCurrentUser(
 		providerId: IntegrationId,
 		resourceId: string,
-		options?: { accessToken?: string },
-	): Promise<ProviderIssue[] | undefined> {
+		options?: { accessToken?: string; cursor?: string },
+	): Promise<PagedResult<ProviderIssue>> {
 		const { provider, token } = await this.ensureProviderTokenAndFunction(
 			providerId,
 			'getIssuesForResourceForCurrentUserFn',
 			options?.accessToken,
 		);
 
-		try {
-			const result = await provider.getIssuesForResourceForCurrentUserFn?.(
-				{ resourceId: resourceId },
-				{ token: token },
-			);
-
-			return result?.data;
-		} catch (e) {
-			return this.handleProviderError<ProviderIssue[] | undefined>(providerId, token, e);
-		}
+		return this.getPagedResult<ProviderIssue>(
+			provider,
+			{ resourceId: resourceId },
+			provider.getIssuesForResourceForCurrentUserFn,
+			token,
+			options?.cursor,
+		);
 	}
 
 	async getIssue(
