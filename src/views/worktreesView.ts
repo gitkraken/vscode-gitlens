@@ -37,6 +37,11 @@ export class WorktreesRepositoryNode extends RepositoryFolderNode<WorktreesView,
 
 		return e.changed(
 			RepositoryChange.Config,
+			RepositoryChange.Heads,
+			RepositoryChange.Index,
+			RepositoryChange.Remotes,
+			RepositoryChange.RemoteProviders,
+			RepositoryChange.Status,
 			RepositoryChange.Worktrees,
 			RepositoryChange.Unknown,
 			RepositoryChangeComparisonMode.Any,
