@@ -124,7 +124,7 @@ function getBranchDecoration(uri: Uri, _token: CancellationToken): FileDecoratio
 	if (state?.current) {
 		return {
 			...decoration,
-			badge: GlyphChars.Check,
+			badge: GlyphChars.Bullseye,
 			tooltip: 'Current',
 		};
 	}
