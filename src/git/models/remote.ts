@@ -1,7 +1,7 @@
 import type { ColorTheme } from 'vscode';
 import { Uri, window } from 'vscode';
 import { GlyphChars } from '../../constants';
-import { Container } from '../../container';
+import type { Container } from '../../container';
 import type { HostingIntegration } from '../../plus/integrations/integration';
 import { memoize } from '../../system/decorators/memoize';
 import { equalsIgnoreCase, sortCompare } from '../../system/string';
@@ -25,7 +25,7 @@ export class GitRemote<TProvider extends RemoteProvider | undefined = RemoteProv
 	) {}
 
 	get default() {
-		const defaultRemote = Container.instance.storage.getWorkspace('remote:default');
+		const defaultRemote = this.container.storage.getWorkspace('remote:default');
 		// Check for `this.remoteKey` matches to handle previously saved data
 		return this.name === defaultRemote || this.remoteKey === defaultRemote;
 	}
@@ -90,15 +90,19 @@ export class GitRemote<TProvider extends RemoteProvider | undefined = RemoteProv
 	}
 
 	async setAsDefault(value: boolean = true) {
-		const repository = Container.instance.git.getRepository(this.repoPath);
+		const repository = this.container.git.getRepository(this.repoPath);
 		await repository?.setRemoteAsDefault(this, value);
 	}
+}
+
+export function getDefaultRemoteOrHighlander<T extends GitRemote>(remotes: T[]): T | undefined {
+	return remotes.length === 1 ? remotes[0] : remotes.find(r => r.default);
 }
 
 export function getHighlanderProviders(remotes: GitRemote<RemoteProvider>[]) {
 	if (remotes.length === 0) return undefined;
 
-	const remote = remotes.length === 1 ? remotes[0] : remotes.find(r => r.default);
+	const remote = getDefaultRemoteOrHighlander(remotes);
 	if (remote != null) return [remote.provider];
 
 	const providerName = remotes[0].provider.name;
@@ -110,7 +114,7 @@ export function getHighlanderProviders(remotes: GitRemote<RemoteProvider>[]) {
 export function getHighlanderProviderName(remotes: GitRemote<RemoteProvider>[]) {
 	if (remotes.length === 0) return undefined;
 
-	const remote = remotes.length === 1 ? remotes[0] : remotes.find(r => r.default);
+	const remote = getDefaultRemoteOrHighlander(remotes);
 	if (remote != null) return remote.provider.name;
 
 	const providerName = remotes[0].provider.name;

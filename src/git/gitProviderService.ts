@@ -76,7 +76,7 @@ import type { GitBranchReference, GitReference, GitRevisionRange } from './model
 import { createRevisionRange, isSha, isUncommitted, isUncommittedParent } from './models/reference';
 import type { GitReflog } from './models/reflog';
 import type { GitRemote } from './models/remote';
-import { getRemoteThemeIconString, getVisibilityCacheKey } from './models/remote';
+import { getDefaultRemoteOrHighlander, getRemoteThemeIconString, getVisibilityCacheKey } from './models/remote';
 import type { RepositoryChangeEvent } from './models/repository';
 import { Repository, RepositoryChange, RepositoryChangeComparisonMode } from './models/repository';
 import type { GitStash } from './models/stash';
@@ -2317,6 +2317,12 @@ export class GitProviderService implements Disposable {
 		}
 
 		return undefined;
+	}
+
+	@log()
+	async getDefaultRemote(repoPath: string | Uri, _cancellation?: CancellationToken): Promise<GitRemote | undefined> {
+		const remotes = await this.getRemotes(repoPath, undefined, _cancellation);
+		return getDefaultRemoteOrHighlander(remotes);
 	}
 
 	@log()
