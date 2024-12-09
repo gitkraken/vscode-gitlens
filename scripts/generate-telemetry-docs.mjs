@@ -69,7 +69,7 @@ markdown += `${result}\n\`\`\`\n\n`;
 
 markdown += '## Events\n\n';
 
-const properties = typeChecker.getPropertiesOfType(telemetryEvents.type);
+const properties = typeChecker.getPropertiesOfType(telemetryEvents.type).sort((a, b) => a.name.localeCompare(b.name));
 for (const prop of properties) {
 	const propType = typeChecker.getTypeOfSymbolAtLocation(prop, telemetryEvents.file);
 
@@ -103,10 +103,6 @@ fs.writeFileSync(outputPath, markdown);
  * @param {string} prefix
  */
 function expandType(file, type, indent = '', isRoot = true, prefix = '') {
-	if (type.flags & ts.TypeFlags.Boolean) {
-		return 'boolean';
-	}
-
 	let result = '';
 
 	if (type.isClassOrInterface() || (type.symbol && type.symbol.flags & ts.SymbolFlags.TypeLiteral)) {
@@ -119,21 +115,36 @@ function expandType(file, type, indent = '', isRoot = true, prefix = '') {
 				const jsDocTags = getJSDocTags(prop);
 				let propString = '';
 				if (jsDocTags.deprecated) {
-					propString += `${indent}  // @deprecated: ${
-						jsDocTags.deprecated === true ? '' : jsDocTags.deprecated
-					}\n`;
+					propString += `${indent}  // @deprecated: ${jsDocTags.deprecated}\n`;
 				}
-				propString += `${indent}  '${prefix}${prop.name}': ${expandType(
-					file,
-					propType,
-					indent + '  ',
-					false,
-					prefix,
-				)}`;
+
+				const valueType = expandType(file, propType, indent + '  ', false, prefix);
+				if (!valueType) return '';
+
+				propString += `${indent}  '${prefix}${prop.name}': ${valueType}`;
 				return propString;
 			});
 
-			result = `{\n${expandedProps.join(',\n')}\n${indent}}`;
+			const indexInfos = typeChecker.getIndexInfosOfType(type);
+			if (indexInfos.length) {
+				expandedProps.push(
+					...indexInfos.map(indexInfo => {
+						let keyType = typeChecker.typeToString(indexInfo.keyType);
+						if (prefix) {
+							keyType = `\`${prefix}${keyType.substring(1)}`;
+						}
+						const valueType = expandType(file, indexInfo.type, indent + '  ', false, prefix);
+						if (!valueType) return '';
+
+						return `${indent}  [${keyType}]: ${valueType}`;
+					}),
+				);
+			}
+
+			result = `{\n${expandedProps
+				.filter(t => Boolean(t))
+				.sort(sortProps)
+				.join(',\n')}\n${indent}}`;
 		}
 	} else if (type.isUnion()) {
 		if (isRoot) {
@@ -141,7 +152,11 @@ function expandType(file, type, indent = '', isRoot = true, prefix = '') {
 				.map(t => `\`\`\`typescript\n${expandType(file, t, '', false, prefix)}\n\`\`\``)
 				.join('\n\nor\n\n');
 		} else {
-			const types = type.types.map(t => expandType(file, t, indent, false, prefix)).join(' | ');
+			const types = type.types
+				.map(t => expandType(file, t, indent, false, prefix))
+				.filter(t => Boolean(t))
+				.join(' | ')
+				.replaceAll(/false \| true/g, 'boolean');
 			result = types.includes('\n') ? `(${types})` : types;
 		}
 	} else if (type.isIntersection()) {
@@ -159,6 +174,8 @@ function expandType(file, type, indent = '', isRoot = true, prefix = '') {
 						keyType = `\`${prefix}${keyType.substring(1)}`;
 					}
 					const valueType = expandType(file, indexInfo.type, indent + '  ', false, prefix);
+					if (!valueType) continue;
+
 					indexInfos.add(`${indent}  [${keyType}]: ${valueType}`);
 				}
 			}
@@ -170,17 +187,13 @@ function expandType(file, type, indent = '', isRoot = true, prefix = '') {
 				const jsDocTags = getJSDocTags(prop);
 				let propString = '';
 				if (jsDocTags.deprecated) {
-					propString += `${indent}  // @deprecated: ${
-						jsDocTags.deprecated === true ? '' : jsDocTags.deprecated
-					}\n`;
+					propString += `${indent}  // @deprecated: ${jsDocTags.deprecated}\n`;
 				}
-				propString += `${indent}  '${prefix}${name}': ${expandType(
-					file,
-					propType,
-					indent + '  ',
-					false,
-					prefix,
-				)}`;
+
+				const valueType = expandType(file, propType, indent + '  ', false, prefix);
+				if (!valueType) return '';
+
+				propString += `${indent}  '${prefix}${name}': ${valueType}`;
 				return propString;
 			});
 
@@ -188,7 +201,10 @@ function expandType(file, type, indent = '', isRoot = true, prefix = '') {
 				expandedProps.push(...indexInfos.keys());
 			}
 
-			result = `{\n${expandedProps.join(',\n')}\n${indent}}`;
+			result = `{\n${expandedProps
+				.filter(t => Boolean(t))
+				.sort(sortProps)
+				.join(',\n')}\n${indent}}`;
 		} else {
 			const types = type.types.map(t => expandType(file, t, indent, false, prefix)).join(' & ');
 			result = types.includes('\n') ? `(${types})` : types;
@@ -216,6 +232,10 @@ function expandType(file, type, indent = '', isRoot = true, prefix = '') {
 			const returnType = expandType(file, signatures[0].getReturnType(), indent, false, prefix);
 			result = `(${params}) => ${returnType}`;
 		}
+	} else if (type.flags & ts.TypeFlags.Boolean) {
+		result = 'boolean';
+	} else if (type.flags & ts.TypeFlags.Never) {
+		return '';
 	} else {
 		result = typeChecker.typeToString(type);
 	}
@@ -233,4 +253,18 @@ function getJSDocTags(symbol) {
 		tags[tag.name] = tag.text ? tag.text.map(t => t.text).join(' ') : true;
 	}
 	return tags;
+}
+
+function sortProps(a, b) {
+	const propRegex = /\[?[`'](.*?)[`']\]?:/;
+
+	const matchA = propRegex.exec(a);
+	const matchB = propRegex.exec(b);
+	if (matchA && matchB) {
+		return matchA[1].localeCompare(matchB[1]);
+	}
+
+	debugger;
+	console.warn('Unable to sort properties', a, b);
+	return a.localeCompare(b);
 }

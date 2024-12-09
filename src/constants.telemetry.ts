@@ -14,7 +14,16 @@ import type { Period } from './plus/webviews/timeline/protocol';
 import type { Flatten } from './system/object';
 import type { WalkthroughContextKeys } from './telemetry/walkthroughStateProvider';
 
-export type TelemetryGlobalContext = {
+export declare type AttributeValue =
+	| string
+	| number
+	| boolean
+	| Array<null | undefined | string>
+	| Array<null | undefined | number>
+	| Array<null | undefined | boolean>;
+export type TelemetryEventData = Record<string, AttributeValue | null | undefined>;
+
+export interface TelemetryGlobalContext extends SubscriptionEventData {
 	'cloudIntegrations.connected.count': number;
 	'cloudIntegrations.connected.ids': string;
 	debugging: boolean;
@@ -38,7 +47,7 @@ export type TelemetryGlobalContext = {
 	'repositories.schemes': string;
 	'repositories.visibility': 'private' | 'public' | 'local' | 'mixed';
 	'workspace.isTrusted': boolean;
-} & SubscriptionEventData<false>;
+}
 
 export type TelemetryEvents = {
 	/** Sent when account validation fails */
@@ -50,16 +59,10 @@ export type TelemetryEvents = {
 	};
 
 	/** Sent when GitLens is activated */
-	activate: {
-		'activation.elapsed': number;
-		'activation.mode': string | undefined;
-	} & Record<`config.${string}`, string | number | boolean | null>;
+	activate: ActivateEventData;
 
 	/** Sent when explaining changes from wip, commits, stashes, patches,etc. */
-	'ai/explain': {
-		type: 'change';
-		changeType: 'wip' | 'stash' | 'commit' | `draft-${'patch' | 'stash' | 'suggested_pr_change'}`;
-	} & AIEventDataBase;
+	'ai/explain': AIExplainEventData;
 
 	/** Sent when generating summaries from commits, stashes, patches, etc. */
 	'ai/generate': AIGenerateCommitEventData | AIGenerateDraftEventData;
@@ -164,12 +167,12 @@ export type TelemetryEvents = {
 	};
 
 	/** Sent when a GitLens command is executed */
-	command: CommandEventData;
+	command: CommandEventData | GitCommandEventData;
 	/** Sent when a VS Code command is executed by a GitLens provided action */
 	'command/core': { command: string };
 
 	/** Sent when the Inspect view is shown */
-	'commitDetails/shown': WebviewShownEventData & InspectShownEventData;
+	'commitDetails/shown': InspectShownEventData & WebviewShownEventData;
 	/** Sent when the user changes the selected tab (mode) on the Graph Details view */
 	'commitDetails/mode/changed': {
 		'mode.old': 'wip' | 'commit';
@@ -177,9 +180,9 @@ export type TelemetryEvents = {
 	} & InspectContextEventData;
 
 	/** Sent when the Commit Graph is shown */
-	'graph/shown': WebviewShownEventData & GraphShownEventData;
+	'graph/shown': GraphShownEventData & WebviewShownEventData;
 	/** Sent when a Commit Graph command is executed */
-	'graph/command': Omit<CommandEventData, 'context'>;
+	'graph/command': CommandEventData;
 
 	/** Sent when the user clicks on the Jump to HEAD/Reference (alt) header button on the Commit Graph */
 	'graph/action/jumpTo': { target: 'HEAD' | 'choose' } & GraphContextEventData;
@@ -194,13 +197,7 @@ export type TelemetryEvents = {
 		'branchesVisibility.new': GraphBranchesVisibility;
 	} & GraphContextEventData;
 	/** Sent when the user changes the columns on the Commit Graph */
-	'graph/columns/changed': {
-		[K in `column.${string}.${keyof GraphColumnConfig}`]: K extends `column.${string}.${infer P}`
-			? P extends keyof GraphColumnConfig
-				? GraphColumnConfig[P]
-				: never
-			: never;
-	} & GraphContextEventData; // Record<`column.${string}`, boolean | string | number> & GraphContextEventData;
+	'graph/columns/changed': GraphColumnEventData & GraphContextEventData;
 	/** Sent when the user changes the filters on the Commit Graph */
 	'graph/filters/changed': { key: string; value: boolean } & GraphContextEventData;
 	/** Sent when the user selects (clicks on) a day on the minimap on the Commit Graph */
@@ -218,7 +215,7 @@ export type TelemetryEvents = {
 	'graph/searched': { types: string; duration: number; matches: number } & GraphContextEventData;
 
 	/** Sent when the Graph Details view is shown */
-	'graphDetails/shown': WebviewShownEventData & InspectShownEventData;
+	'graphDetails/shown': InspectShownEventData & WebviewShownEventData;
 	/** Sent when the user changes the selected tab (mode) on the Graph Details view */
 	'graphDetails/mode/changed': {
 		'mode.old': 'wip' | 'commit';
@@ -231,24 +228,13 @@ export type TelemetryEvents = {
 		version: string;
 	};
 
-	/** Sent when the Commit Graph is shown */
-	'timeline/shown': WebviewShownEventData & TimelineShownEventData;
-	/** Sent when the user changes the period (timeframe) on the visual file history */
-	'timeline/action/openInEditor': TimelineContextEventData;
-	/** Sent when the editor changes on the visual file history */
-	'timeline/editor/changed': TimelineContextEventData;
-	/** Sent when the user changes the period (timeframe) on the visual file history */
-	'timeline/period/changed': { 'period.old': Period | undefined; 'period.new': Period } & TimelineContextEventData;
-	/** Sent when the user selects (clicks on) a commit on the visual file history */
-	'timeline/commit/selected': TimelineContextEventData;
-
 	/** Sent when the user takes an action on the Launchpad title bar */
-	'launchpad/title/action': LaunchpadEventData & {
+	'launchpad/title/action': {
 		action: 'feedback' | 'open-on-gkdev' | 'refresh' | 'settings' | 'connect';
-	};
+	} & LaunchpadEventData;
 
 	/** Sent when the user takes an action on a launchpad item */
-	'launchpad/action': LaunchpadEventData & {
+	'launchpad/action': {
 		action:
 			| 'open'
 			| 'code-suggest'
@@ -266,7 +252,8 @@ export type TelemetryEvents = {
 			| 'unsnooze'
 			| 'open-suggestion'
 			| 'open-suggestion-browser';
-	} & Partial<Record<`item.${string}`, string | number | boolean>>;
+	} & LaunchpadEventData &
+		Partial<Record<`item.${string}`, string | number | boolean>>;
 	/** Sent when the user changes launchpad configuration settings */
 	'launchpad/configurationChanged': {
 		'config.launchpad.staleThreshold': number | null;
@@ -282,28 +269,23 @@ export type TelemetryEvents = {
 		'config.launchpad.indicator.polling.interval': number;
 	};
 	/** Sent when the user expands/collapses a launchpad group */
-	'launchpad/groupToggled': LaunchpadEventData & {
+	'launchpad/groupToggled': {
 		group: LaunchpadGroups;
 		collapsed: boolean;
-	};
+	} & LaunchpadEventData;
 	/** Sent when the user opens launchpad; use `instance` to correlate a launchpad "session" */
 	'launchpad/open': LaunchpadEventDataBase;
 	/** Sent when the launchpad is opened; use `instance` to correlate a launchpad "session" */
-	'launchpad/opened': LaunchpadEventData & {
-		connected: boolean;
-	};
+	'launchpad/opened': LaunchpadConnectedEventData;
 	/** Sent when the launchpad has "reloaded" (while open, e.g. user refreshed or back button) and is disconnected; use `instance` to correlate a launchpad "session" */
-	'launchpad/steps/connect': LaunchpadEventData & {
-		connected: boolean;
-	};
+	'launchpad/steps/connect': LaunchpadConnectedEventData;
 	/** Sent when the launchpad has "reloaded" (while open, e.g. user refreshed or back button) and is connected; use `instance` to correlate a launchpad "session" */
-	'launchpad/steps/main': LaunchpadEventData & {
-		connected: boolean;
-	};
+	'launchpad/steps/main': LaunchpadConnectedEventData;
 	/** Sent when the user opens the details of a launchpad item (e.g. click on an item); use `instance` to correlate a launchpad "session" */
-	'launchpad/steps/details': LaunchpadEventData & {
+	'launchpad/steps/details': {
 		action: 'select';
-	} & Partial<Record<`item.${string}`, string | number | boolean>>;
+	} & LaunchpadEventData &
+		Partial<Record<`item.${string}`, string | number | boolean>>;
 	/** Sent when the user hides the launchpad indicator */
 	'launchpad/indicator/hidden': void;
 	/** Sent when the launchpad indicator loads (with data) for the first time ever for this device */
@@ -319,39 +301,6 @@ export type TelemetryEvents = {
 			| 'getEnrichedItems'
 			| 'getCodeSuggestionCounts';
 		duration: number;
-	};
-
-	/** Sent when the user opens Start Work; use `instance` to correlate a StartWork "session" */
-	'startWork/open': StartWorkEventDataBase;
-	/** Sent when the launchpad is opened; use `instance` to correlate a StartWork "session" */
-	'startWork/opened': StartWorkEventData & {
-		connected: boolean;
-	};
-	/** Sent when the user chooses an option to start work in the first step */
-	'startWork/type/chosen': StartWorkEventData & {
-		connected: boolean;
-		type: StartWorkType;
-	};
-	/** Sent when the user takes an action on a StartWork issue */
-	'startWork/issue/action': StartWorkEventData & {
-		action: 'soft-open';
-		connected: boolean;
-		type: StartWorkType;
-	} & Partial<Record<`item.${string}`, string | number | boolean>>;
-	/** Sent when the user chooses an issue to start work in the second step */
-	'startWork/issue/chosen': StartWorkEventData & {
-		connected: boolean;
-		type: StartWorkType;
-	} & Partial<Record<`item.${string}`, string | number | boolean>>;
-	/** Sent when the Start Work has "reloaded" (while open, e.g. user refreshed or back button) and is disconnected; use `instance` to correlate a Start Work "session" */
-	'startWork/steps/type': StartWorkEventData & {
-		connected: boolean;
-	};
-	'startWork/steps/connect': StartWorkEventData & {
-		connected: boolean;
-	};
-	'startWork/steps/issue': StartWorkEventData & {
-		connected: boolean;
 	};
 
 	/** Sent when a PR review was started in the inspect overview */
@@ -401,42 +350,57 @@ export type TelemetryEvents = {
 	};
 
 	/** Sent when a repository is opened */
-	'repository/opened': RepositoryEventData & {
-		'repository.remoteProviders': string;
-		'repository.contributors.commits.count': number | undefined;
-		'repository.contributors.commits.avgPerContributor': number | undefined;
-		'repository.contributors.count': number | undefined;
-		'repository.contributors.since': '1.year.ago';
-	} & Record<`repository.contributors.distribution.${GitContributionTiers}`, number>;
+	'repository/opened': RepositoryOpenedEventData;
 	/** Sent when a repository's visibility is first requested */
-	'repository/visibility': Partial<RepositoryEventData> & {
+	'repository/visibility': {
 		'repository.visibility': 'private' | 'public' | 'local' | undefined;
-	};
+	} & Partial<RepositoryEventData>;
+
+	/** Sent when the user opens Start Work; use `instance` to correlate a StartWork "session" */
+	'startWork/open': StartWorkEventDataBase;
+	/** Sent when the launchpad is opened; use `instance` to correlate a StartWork "session" */
+	'startWork/opened': StartWorkConnectedEventData;
+	/** Sent when the user chooses an option to start work in the first step */
+	'startWork/type/chosen': {
+		type: StartWorkType;
+	} & StartWorkConnectedEventData;
+	/** Sent when the user takes an action on a StartWork issue */
+	'startWork/issue/action': {
+		action: 'soft-open';
+		type: StartWorkType;
+	} & StartWorkConnectedEventData &
+		Partial<Record<`item.${string}`, string | number | boolean>>;
+	/** Sent when the user chooses an issue to start work in the second step */
+	'startWork/issue/chosen': {
+		type: StartWorkType;
+	} & StartWorkConnectedEventData &
+		Partial<Record<`item.${string}`, string | number | boolean>>;
+	/** Sent when the Start Work has "reloaded" (while open, e.g. user refreshed or back button) and is disconnected; use `instance` to correlate a Start Work "session" */
+	'startWork/steps/type': StartWorkConnectedEventData;
+	'startWork/steps/connect': StartWorkConnectedEventData;
+	'startWork/steps/issue': StartWorkConnectedEventData;
 
 	/** Sent when the subscription is loaded */
-	subscription: SubscriptionEventData<false>;
+	subscription: SubscriptionEventData;
 
 	/** Sent when the user takes an action on the subscription */
-	'subscription/action':
-		| {
-				action:
-					| 'sign-up'
-					| 'sign-in'
-					| 'sign-out'
-					| 'manage'
-					| 'reactivate'
-					| 'resend-verification'
-					| 'pricing'
-					| 'start-preview-trial'
-					| 'upgrade';
-		  }
-		| {
-				action: 'visibility';
-				visible: boolean;
-		  }
-		| FeaturePreviewActionEventData;
+	'subscription/action': SubscriptionActionEventData;
 	/** Sent when the subscription changes */
-	'subscription/changed': SubscriptionEventData;
+	'subscription/changed': SubscriptionEventDataWithPrevious;
+
+	/** Sent when the Commit Graph is shown */
+	'timeline/shown': WebviewShownEventData & TimelineShownEventData;
+	/** Sent when the user changes the period (timeframe) on the visual file history */
+	'timeline/action/openInEditor': TimelineContextEventData;
+	/** Sent when the editor changes on the visual file history */
+	'timeline/editor/changed': TimelineContextEventData;
+	/** Sent when the user changes the period (timeframe) on the visual file history */
+	'timeline/period/changed': {
+		'period.old': Period | undefined;
+		'period.new': Period;
+	} & TimelineContextEventData;
+	/** Sent when the user selects (clicks on) a commit on the visual file history */
+	'timeline/commit/selected': TimelineContextEventData;
 
 	/** Sent when a "tracked feature" is interacted with, today that is only when webview/webviewView/custom editor is shown */
 	'usage/track': {
@@ -455,33 +419,33 @@ export type TelemetryEvents = {
 	'walkthrough/completion': {
 		'context.key': WalkthroughContextKeys;
 	};
-} & Record<`${WebviewTypes | WebviewViewTypes}/showAborted`, WebviewShownEventData> &
-	Record<
-		`${Exclude<WebviewTypes | WebviewViewTypes, 'commitDetails' | 'graph' | 'graphDetails' | 'timeline'>}/shown`,
-		WebviewShownEventData & Record<`context.${string}`, string | number | boolean | undefined>
-	>;
+} & WebviewShowAbortedEvents &
+	WebviewShownEvents;
 
-type WalkthroughActionNames =
-	| 'open/help-center/start-integrations'
-	| 'open/help-center/accelerate-pr-reviews'
-	| 'open/help-center/streamline-collaboration'
-	| 'open/help-center/interactive-code-history'
-	| 'open/help-center/community-vs-pro'
-	| 'open/devex-platform'
-	| 'open/drafts'
-	| 'connect/integrations'
-	| 'open/autolinks'
-	| 'open/graph'
-	| 'open/launchpad'
-	| 'create/worktree'
-	| 'open/help-center'
-	| 'plus/sign-up'
-	| 'plus/upgrade'
-	| 'plus/reactivate'
-	| 'open/walkthrough'
-	| 'open/inspect';
+type WebviewShowAbortedEvents = {
+	[K in `${WebviewTypes | WebviewViewTypes}/showAborted`]: WebviewShownEventData;
+};
+type WebviewShownEvents = {
+	[K in `${Exclude<
+		WebviewTypes | WebviewViewTypes,
+		'commitDetails' | 'graph' | 'graphDetails' | 'timeline'
+	>}/shown`]: WebviewShownEventData & Record<`context.${string}`, string | number | boolean | undefined>;
+};
 
-type AIEventDataBase = {
+type ConfigEventData = {
+	[K in `config.${string}`]: string | number | boolean | null;
+};
+
+type FlattenedContextConfig<T extends object> = {
+	[K in keyof Flatten<T, 'context.config', true>]: Flatten<T, 'context.config', true>[K];
+};
+
+interface ActivateEventData extends ConfigEventData {
+	'activation.elapsed': number;
+	'activation.mode': string | undefined;
+}
+
+interface AIEventDataBase {
 	'model.id': AIModels;
 	'model.provider.id': AIProviders;
 	'model.provider.name': string;
@@ -491,84 +455,56 @@ type AIEventDataBase = {
 	'output.length'?: number;
 	'failed.reason'?: 'user-declined' | 'user-cancelled' | 'error';
 	'failed.error'?: string;
-};
+}
 
-export type AIGenerateCommitEventData = {
+interface AIExplainEventData extends AIEventDataBase {
+	type: 'change';
+	changeType: 'wip' | 'stash' | 'commit' | `draft-${'patch' | 'stash' | 'suggested_pr_change'}`;
+}
+
+export interface AIGenerateCommitEventData extends AIEventDataBase {
 	type: 'commitMessage';
-} & AIEventDataBase;
+}
 
-export type AIGenerateDraftEventData = {
+export interface AIGenerateDraftEventData extends AIEventDataBase {
 	type: 'draftMessage';
 	draftType: 'patch' | 'stash' | 'suggested_pr_change';
-} & AIEventDataBase;
+}
 
-export type CommandEventData =
-	| {
-			command: Commands.GitCommands;
-			/** @deprecated Nested objects should not be used in telemetry */
-			context?: { mode?: string; submode?: string };
-			'context.mode'?: string;
-			'context.submode'?: string;
-			webview?: string;
-	  }
-	| {
-			command: string;
-			context?: never;
-			'context.mode'?: never;
-			'context.submode'?: never;
-			webview?: string;
-	  };
+interface CommandEventData {
+	command: string;
+	'context.mode'?: never;
+	'context.submode'?: never;
+	webview?: string;
+}
 
-export type StartWorkTelemetryContext = StartWorkEventData;
+interface GitCommandEventData {
+	command: Commands.GitCommands;
+	'context.mode'?: string;
+	'context.submode'?: string;
+	webview?: string;
+}
 
-type StartWorkEventDataBase = {
-	instance: number;
-} & Partial<{ type: StartWorkType }>;
+export type FeaturePreviewDayEventData = Record<`day.${number}.startedOn`, string>;
+export type FeaturePreviewEventData = {
+	feature: FeaturePreviews;
+	status: FeaturePreviewStatus;
+	day?: number;
+	startedOn?: string;
+} & FeaturePreviewDayEventData;
+export type FeaturePreviewActionEventData = {
+	action: `start-preview-trial:${FeaturePreviews}`;
+} & FeaturePreviewEventData;
 
-type StartWorkEventData = StartWorkEventDataBase & Partial<{ 'items.count': number }>;
-
-export type LaunchpadTelemetryContext = LaunchpadEventData;
-
-type LaunchpadEventDataBase = {
-	instance: number;
-	'initialState.group': string | undefined;
-	'initialState.selectTopItem': boolean;
+type GraphColumnEventData = {
+	[K in `column.${string}.${keyof GraphColumnConfig}`]?: K extends `column.${string}.${infer P}`
+		? P extends keyof GraphColumnConfig
+			? GraphColumnConfig[P]
+			: never
+		: never;
 };
 
-type LaunchpadEventData = LaunchpadEventDataBase &
-	(
-		| Partial<{ 'items.error': string }>
-		| Partial<
-				{
-					'items.count': number;
-					'items.timings.prs': number;
-					'items.timings.codeSuggestionCounts': number;
-					'items.timings.enrichedItems': number;
-					'groups.count': number;
-				} & Record<`groups.${LaunchpadGroups}.count`, number> &
-					Record<`groups.${LaunchpadGroups}.collapsed`, boolean | undefined>
-		  >
-	);
-
-type LaunchpadGroups =
-	| 'current-branch'
-	| 'pinned'
-	| 'mergeable'
-	| 'blocked'
-	| 'follow-up'
-	| 'needs-review'
-	| 'waiting-for-review'
-	| 'draft'
-	| 'other'
-	| 'snoozed';
-
-type FlattenedContextConfig<T extends object> = {
-	[K in keyof Flatten<T, 'context.config', true>]: Flatten<T, 'context.config', true>[K];
-};
-type GraphContextEventData = {} & WebviewTelemetryContext &
-	Partial<{
-		[K in keyof RepositoryEventData as `context.${K}`]: RepositoryEventData[K];
-	}>;
+type GraphContextEventData = WebviewTelemetryContext & Partial<RepositoryContext>;
 type GraphShownEventData = GraphContextEventData &
 	FlattenedContextConfig<GraphConfig> &
 	Partial<Record<`context.column.${string}.visible`, boolean> & Record<`context.column.${string}.mode`, string>>;
@@ -587,9 +523,7 @@ type InspectContextEventData = (
 			'context.autolinks': number;
 			'context.inReview': boolean;
 			'context.codeSuggestions': number;
-	  } & Partial<{
-			[K in keyof RepositoryEventData as `context.${K}`]: RepositoryEventData[K];
-	  }>)
+	  } & Partial<RepositoryContext>)
 	| {
 			'context.mode': 'commit';
 			'context.attachedTo': 'graph' | 'default';
@@ -605,13 +539,42 @@ type InspectShownEventData = InspectContextEventData & FlattenedContextConfig<Co
 export type InspectTelemetryContext = InspectContextEventData;
 export type InspectShownTelemetryContext = InspectShownEventData;
 
-type TimelineContextEventData = {
-	'context.period': string | undefined;
-} & WebviewTelemetryContext;
-type TimelineShownEventData = TimelineContextEventData & FlattenedContextConfig<Config['visualHistory']>;
+export type LaunchpadTelemetryContext = LaunchpadEventData;
 
-export type TimelineTelemetryContext = TimelineContextEventData;
-export type TimelineShownTelemetryContext = TimelineShownEventData;
+type LaunchpadEventDataBase = {
+	instance: number;
+	'initialState.group': string | undefined;
+	'initialState.selectTopItem': boolean;
+};
+
+type LaunchpadGroups =
+	| 'current-branch'
+	| 'pinned'
+	| 'mergeable'
+	| 'blocked'
+	| 'follow-up'
+	| 'needs-review'
+	| 'waiting-for-review'
+	| 'draft'
+	| 'other'
+	| 'snoozed';
+
+type LaunchpadEventData = LaunchpadEventDataBase &
+	(
+		| { 'items.error'?: string }
+		| ({
+				'items.count'?: number;
+				'items.timings.prs'?: number;
+				'items.timings.codeSuggestionCounts'?: number;
+				'items.timings.enrichedItems'?: number;
+				'groups.count'?: number;
+		  } & Partial<Record<`groups.${LaunchpadGroups}.count`, number>> &
+				Partial<Record<`groups.${LaunchpadGroups}.collapsed`, boolean | undefined>>)
+	);
+
+type LaunchpadConnectedEventData = {
+	connected: boolean;
+} & LaunchpadEventData;
 
 type RepositoryEventData = {
 	'repository.id': string;
@@ -621,46 +584,111 @@ type RepositoryEventData = {
 	'repository.provider.id': string;
 };
 
-export type SubscriptionEventData<Previous extends boolean = true> = {
+type RepositoryContext = {
+	[K in keyof RepositoryEventData as `context.${K}`]: RepositoryEventData[K];
+};
+
+type RepositoryContributorsDistributionEventData = {
+	[K in `repository.contributors.distribution.${GitContributionTiers}`]: number;
+};
+
+interface RepositoryOpenedEventData extends RepositoryEventData, RepositoryContributorsDistributionEventData {
+	'repository.remoteProviders': string;
+	'repository.contributors.commits.count': number | undefined;
+	'repository.contributors.commits.avgPerContributor': number | undefined;
+	'repository.contributors.count': number | undefined;
+	'repository.contributors.since': '1.year.ago';
+}
+
+type StartWorkEventDataBase = {
+	instance: number;
+	type?: StartWorkType;
+};
+
+type StartWorkEventData = {
+	'items.count'?: number;
+} & StartWorkEventDataBase;
+export type StartWorkTelemetryContext = StartWorkEventData;
+
+type StartWorkConnectedEventData = {
+	connected: boolean;
+} & StartWorkEventData;
+
+export type SubscriptionFeaturePreviewsEventData = {
+	[F in FeaturePreviews]: {
+		[K in Exclude<
+			keyof FeaturePreviewEventData,
+			'feature'
+		> as `subscription.featurePreviews.${F}.${K}`]: NonNullable<FeaturePreviewEventData[K]>;
+	};
+}[FeaturePreviews];
+
+export interface SubscriptionCurrentEventData
+	extends Flatten<Omit<SubscriptionAccount, 'name' | 'email'>, 'account', true>,
+		Omit<
+			Flatten<Subscription['plan'], 'subscription', true>,
+			'subscription.actual.name' | 'subscription.effective.name'
+		>,
+		Partial<Flatten<NonNullable<Subscription['previewTrial']>, 'subscription.previewTrial', true>>,
+		SubscriptionFeaturePreviewsEventData {}
+
+export interface SubscriptionPreviousEventData
+	extends Flatten<Omit<SubscriptionAccount, 'name' | 'email'>, 'previous.account', true>,
+		Omit<
+			Flatten<Subscription['plan'], 'previous.subscription', true>,
+			'previous.subscription.actual.name' | 'previous.subscription.effective.name'
+		>,
+		Partial<Flatten<NonNullable<Subscription['previewTrial']>, 'previous.subscription.previewTrial', true>> {}
+
+export interface SubscriptionEventData extends Partial<SubscriptionCurrentEventData> {
 	'subscription.state'?: SubscriptionState;
 	'subscription.stateString'?: SubscriptionStateString;
-	'subscription.status'?:
-		| 'verification'
-		| 'free'
-		| 'preview'
-		| 'preview-expired'
-		| 'trial'
-		| 'trial-expired'
-		| 'trial-reactivation-eligible'
-		| 'paid'
-		| 'unknown';
-} & Partial<SubscriptionCurrentEventData & (Previous extends true ? SubscriptionPreviousEventData : object)>;
+	'subscription.status'?: SubscriptionStateString;
+}
 
-export type SubscriptionCurrentEventData = Flatten<Omit<SubscriptionAccount, 'name' | 'email'>, 'account', true> &
-	Omit<
-		Flatten<Subscription['plan'], 'subscription', true>,
-		'subscription.actual.name' | 'subscription.effective.name'
-	> &
-	Flatten<Subscription['previewTrial'], 'subscription.previewTrial', true> &
-	SubscriptionFeaturePreviewsEventData;
-export type SubscriptionPreviousEventData = Flatten<
-	Omit<SubscriptionAccount, 'name' | 'email'>,
-	'previous.account',
-	true
-> &
-	Omit<
-		Flatten<Subscription['plan'], 'previous.subscription', true>,
-		'previous.subscription.actual.name' | 'previous.subscription.effective.name'
-	> &
-	Flatten<Subscription['previewTrial'], 'previous.subscription.previewTrial', true>;
+type SubscriptionActionEventData =
+	| {
+			action:
+				| 'sign-up'
+				| 'sign-in'
+				| 'sign-out'
+				| 'manage'
+				| 'reactivate'
+				| 'resend-verification'
+				| 'pricing'
+				| 'start-preview-trial'
+				| 'upgrade';
+	  }
+	| {
+			action: 'visibility';
+			visible: boolean;
+	  }
+	| FeaturePreviewActionEventData;
 
-type WebviewEventData = {
+export interface SubscriptionEventDataWithPrevious
+	extends SubscriptionEventData,
+		Partial<SubscriptionPreviousEventData> {}
+
+type TimelineContextEventData = {
+	'context.period': string | undefined;
+} & WebviewTelemetryContext;
+export type TimelineTelemetryContext = TimelineContextEventData;
+
+type TimelineShownEventData = TimelineContextEventData & FlattenedContextConfig<Config['visualHistory']>;
+export type TimelineShownTelemetryContext = TimelineShownEventData;
+
+type WebviewContextEventData = {
 	'context.webview.id': string;
 	'context.webview.type': string;
 	'context.webview.instanceId': string | undefined;
 	'context.webview.host': 'editor' | 'view';
 };
-export type WebviewTelemetryContext = WebviewEventData;
+export type WebviewTelemetryContext = WebviewContextEventData;
+
+type WebviewShownEventData = {
+	duration: number;
+	loading: boolean;
+} & WebviewContextEventData;
 
 /** Remaps TelemetryEvents to remove the host webview context when the event is sent from a webview app itself (not the host) */
 export type TelemetryEventsFromWebviewApp = {
@@ -675,11 +703,6 @@ export type TelemetryEventsFromWebviewApp = {
 			    : WebviewTelemetryContext)
 	>;
 };
-
-type WebviewShownEventData = {
-	duration: number;
-	loading: boolean;
-} & WebviewEventData;
 
 export type LoginContext = 'start_trial';
 export type ConnectIntegrationContext = 'launchpad';
@@ -725,45 +748,36 @@ export const sourceToContext: { [source in Sources]?: Context } = {
 	launchpad: 'launchpad',
 };
 
-export declare type AttributeValue =
-	| string
-	| number
-	| boolean
-	| Array<null | undefined | string>
-	| Array<null | undefined | number>
-	| Array<null | undefined | boolean>;
-export type TelemetryEventData = Record<string, AttributeValue | null | undefined>;
-
 export type TrackedUsage = {
 	count: number;
 	firstUsedAt: number;
 	lastUsedAt: number;
 };
 
-export type WalkthroughUsageKeys = 'home:walkthrough:dismissed';
 export type CommandExecutionTrackedFeatures = `command:${Commands}:executed`;
 export type TrackedUsageFeatures =
 	| `${WebviewTypes}Webview`
 	| `${TreeViewTypes | WebviewViewTypes}View`
 	| `${CustomEditorTypes}Editor`;
+export type WalkthroughUsageKeys = 'home:walkthrough:dismissed';
 export type TrackedUsageKeys = `${TrackedUsageFeatures}:shown` | CommandExecutionTrackedFeatures | WalkthroughUsageKeys;
 
-export type FeaturePreviewDayEventData = Record<`day.${number}.startedOn`, string>;
-export type FeaturePreviewEventData = {
-	feature: FeaturePreviews;
-	status: FeaturePreviewStatus;
-	day?: number;
-	startedOn?: string;
-} & FeaturePreviewDayEventData;
-export type FeaturePreviewActionEventData = {
-	action: `start-preview-trial:${FeaturePreviews}`;
-} & FeaturePreviewEventData;
-
-export type SubscriptionFeaturePreviewsEventData = {
-	[F in FeaturePreviews]: {
-		[K in Exclude<
-			keyof FeaturePreviewEventData,
-			'feature'
-		> as `subscription.featurePreviews.${F}.${K}`]: NonNullable<FeaturePreviewEventData[K]>;
-	};
-}[FeaturePreviews];
+type WalkthroughActionNames =
+	| 'open/help-center/start-integrations'
+	| 'open/help-center/accelerate-pr-reviews'
+	| 'open/help-center/streamline-collaboration'
+	| 'open/help-center/interactive-code-history'
+	| 'open/help-center/community-vs-pro'
+	| 'open/devex-platform'
+	| 'open/drafts'
+	| 'connect/integrations'
+	| 'open/autolinks'
+	| 'open/graph'
+	| 'open/launchpad'
+	| 'create/worktree'
+	| 'open/help-center'
+	| 'plus/sign-up'
+	| 'plus/upgrade'
+	| 'plus/reactivate'
+	| 'open/walkthrough'
+	| 'open/inspect';
