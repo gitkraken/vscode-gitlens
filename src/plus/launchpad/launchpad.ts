@@ -976,7 +976,7 @@ export class LaunchpadCommand extends QuickCommand<State> {
 	private async *confirmLocalIntegrationConnectStep(
 		state: StepState<State>,
 		context: Context,
-	): AsyncStepResultGenerator<{ connected: boolean | IntegrationId; resume: () => void }> {
+	): AsyncStepResultGenerator<{ connected: boolean | IntegrationId; resume: () => void | undefined }> {
 		const hasConnectedIntegration = some(context.connectedIntegrations.values(), c => c);
 		const confirmations: (QuickPickItemOfT<IntegrationId> | DirectiveQuickPickItem)[] = !hasConnectedIntegration
 			? [
@@ -1048,7 +1048,7 @@ export class LaunchpadCommand extends QuickCommand<State> {
 	private async *confirmCloudIntegrationsConnectStep(
 		state: StepState<State>,
 		context: Context,
-	): AsyncStepResultGenerator<{ connected: boolean | IntegrationId; resume: () => void }> {
+	): AsyncStepResultGenerator<{ connected: boolean | IntegrationId; resume: () => void | undefined }> {
 		const hasConnectedIntegration = some(context.connectedIntegrations.values(), c => c);
 		const step = this.createConfirmStep(
 			`${this.title} \u00a0\u2022\u00a0 Connect an ${hasConnectedIntegration ? 'Additional ' : ''}Integration`,
