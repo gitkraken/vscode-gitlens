@@ -106,6 +106,10 @@ export class CommitsRepositoryNode extends RepositoryFolderNode<CommitsView, Bra
 	}
 
 	protected changed(e: RepositoryChangeEvent) {
+		if (this.view.config.showStashes && e.changed(RepositoryChange.Stash, RepositoryChangeComparisonMode.Any)) {
+			return true;
+		}
+
 		return e.changed(
 			RepositoryChange.Config,
 			RepositoryChange.Heads,

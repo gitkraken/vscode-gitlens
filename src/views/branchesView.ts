@@ -33,6 +33,10 @@ export class BranchesRepositoryNode extends RepositoryFolderNode<BranchesView, B
 	}
 
 	protected changed(e: RepositoryChangeEvent) {
+		if (this.view.config.showStashes && e.changed(RepositoryChange.Stash, RepositoryChangeComparisonMode.Any)) {
+			return true;
+		}
+
 		return e.changed(
 			RepositoryChange.Config,
 			RepositoryChange.Heads,
