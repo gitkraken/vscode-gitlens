@@ -42,6 +42,18 @@
 			"problemMatcher": ["$ts-checker-webpack-watch", "$ts-checker-eslint-webpack-watch"]
 		},
 		{
+			"type": "npm",
+			"script": "watch:quick",
+			"group": {
+				"kind": "build"
+			},
+			"isBackground": true,
+			"presentation": {
+				"group": "watchers"
+			},
+			"problemMatcher": ["$ts-checker-webpack-watch"]
+		},
+		{
 			"label": "Install dependencies",
 			"type": "shell",
 			"command": "pnpm",
