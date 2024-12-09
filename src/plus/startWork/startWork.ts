@@ -249,7 +249,7 @@ export class StartWorkCommand extends QuickCommand<State> {
 	private async *confirmLocalIntegrationConnectStep(
 		state: StepState<State>,
 		context: Context,
-	): AsyncStepResultGenerator<{ connected: boolean | IntegrationId; resume: () => void }> {
+	): AsyncStepResultGenerator<{ connected: boolean | IntegrationId; resume: () => void | undefined }> {
 		context.result = undefined;
 		const confirmations: (QuickPickItemOfT<IntegrationId> | DirectiveQuickPickItem)[] = [];
 
@@ -310,7 +310,7 @@ export class StartWorkCommand extends QuickCommand<State> {
 		state: StepState<State>,
 		context: Context,
 		overrideStep?: QuickPickStep<QuickPickItemOfT<StartWorkItem>>,
-	): AsyncStepResultGenerator<{ connected: boolean | IntegrationId; resume: () => void }> {
+	): AsyncStepResultGenerator<{ connected: boolean | IntegrationId; resume: () => void | undefined }> {
 		// TODO: This step is almost an exact copy of the similar one from launchpad.ts. Do we want to do anything about it? Maybe to move it to an util function with ability to parameterize labels?
 		const hasConnectedIntegration = some(context.connectedIntegrations.values(), c => c);
 		context.result = undefined;
