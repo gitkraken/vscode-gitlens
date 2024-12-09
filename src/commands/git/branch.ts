@@ -362,10 +362,9 @@ export class BranchGitCommand extends QuickCommand {
 		while (this.canStepsContinue(state)) {
 			if (state.counter < 3 || state.reference == null) {
 				const result = yield* pickBranchOrTagStep(state, context, {
-					placeholder: context =>
-						`Choose a branch${context.showTags ? ' or tag' : ''} to create the new branch from`,
+					placeholder: `Select a base to create the new branch from`,
 					picked: state.reference?.ref ?? (await state.repo.git.getBranch())?.ref,
-					titleContext: ' from',
+					title: 'Select Base to Create Branch From',
 					value: isRevisionReference(state.reference) ? state.reference.ref : undefined,
 				});
 				// Always break on the first step (so we will go back)
