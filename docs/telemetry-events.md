@@ -898,6 +898,14 @@ or
 }
 ```
 
+### home/createBranch
+
+> Sent when the user chooses to create a branch from the home view
+
+```typescript
+void
+```
+
 ### home/preview/toggled
 
 > Sent when the new Home view preview is toggled on/off
@@ -934,6 +942,14 @@ or
   'duration': number,
   'loading': boolean
 }
+```
+
+### home/startWork
+
+> Sent when the user chooses to start work on an issue from the home view
+
+```typescript
+void
 ```
 
 ### launchpad/action
@@ -1525,6 +1541,19 @@ void
 }
 ```
 
+### startWork/action
+
+> Sent when the user chooses to manage integrations
+
+```typescript
+{
+  'action': 'connect' | 'manage',
+  'connected': boolean,
+  'instance': number,
+  'items.count': number
+}
+```
+
 ### startWork/issue/action
 
 > Sent when the user takes an action on a StartWork issue
@@ -1535,8 +1564,7 @@ void
   'connected': boolean,
   'instance': number,
   [`item.${string}`]: string | number | boolean,
-  'items.count': number,
-  'type': 'branch' | 'issue'
+  'items.count': number
 }
 ```
 
@@ -1549,8 +1577,7 @@ void
   'connected': boolean,
   'instance': number,
   [`item.${string}`]: string | number | boolean,
-  'items.count': number,
-  'type': 'branch' | 'issue'
+  'items.count': number
 }
 ```
 
@@ -1560,8 +1587,7 @@ void
 
 ```typescript
 {
-  'instance': number,
-  'type': 'branch' | 'issue'
+  'instance': number
 }
 ```
 
@@ -1573,56 +1599,44 @@ void
 {
   'connected': boolean,
   'instance': number,
-  'items.count': number,
-  'type': 'branch' | 'issue'
+  'items.count': number
 }
 ```
 
 ### startWork/steps/connect
 
+> Sent when the user reaches the "connect an integration" step of Start Work
+
 ```typescript
 {
   'connected': boolean,
   'instance': number,
-  'items.count': number,
-  'type': 'branch' | 'issue'
+  'items.count': number
 }
 ```
 
 ### startWork/steps/issue
 
+> Sent when the user reaches the "choose an issue" step of Start Work
+
 ```typescript
 {
   'connected': boolean,
   'instance': number,
-  'items.count': number,
-  'type': 'branch' | 'issue'
+  'items.count': number
 }
 ```
 
-### startWork/steps/type
+### startWork/title/action
 
-> Sent when the Start Work has "reloaded" (while open, e.g. user refreshed or back button) and is disconnected; use `instance` to correlate a Start Work "session"
-
-```typescript
-{
-  'connected': boolean,
-  'instance': number,
-  'items.count': number,
-  'type': 'branch' | 'issue'
-}
-```
-
-### startWork/type/chosen
-
-> Sent when the user chooses an option to start work in the first step
+> Sent when the user chooses to connect an integration
 
 ```typescript
 {
+  'action': 'connect',
   'connected': boolean,
   'instance': number,
-  'items.count': number,
-  'type': 'branch' | 'issue'
+  'items.count': number
 }
 ```
 
@@ -1669,7 +1683,7 @@ void
 
 ```typescript
 {
-  'action': 'sign-up' | 'sign-in' | 'sign-out' | 'manage' | 'reactivate' | 'resend-verification' | 'pricing' | 'start-preview-trial' | 'upgrade'
+  'action': 'manage' | 'sign-up' | 'sign-in' | 'sign-out' | 'reactivate' | 'resend-verification' | 'pricing' | 'start-preview-trial' | 'upgrade'
 }
 ```
 
