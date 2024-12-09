@@ -5096,7 +5096,7 @@ export class LocalGitProvider implements GitProvider, Disposable {
 		}
 
 		// Return only reachable stashes from the given ref
-		if (options?.reachableFrom && gitStash != null) {
+		if (options?.reachableFrom && gitStash?.stashes.size) {
 			const oldestStashDate = new Date(min(gitStash.stashes.values(), c => c.date.getTime())).toISOString();
 
 			const ancestors = await this.git.rev_list(repoPath, options.reachableFrom, { since: oldestStashDate });
