@@ -97,8 +97,8 @@ type ConnectMoreIntegrationsItem = QuickPickItem & {
 	group: undefined;
 };
 const connectMoreIntegrationsItem: ConnectMoreIntegrationsItem = {
-	label: 'Connect more integrations',
-	detail: 'Connect integration with more Git providers',
+	label: 'Connect an Additional Integration...',
+	detail: 'Connect additional integrations to view their pull requests in Launchpad',
 	item: undefined,
 	group: undefined,
 };

@@ -92,8 +92,8 @@ type ManageIntegrationsItem = QuickPickItem & {
 };
 
 const connectMoreIntegrationsItem: ConnectMoreIntegrationsItem = {
-	label: 'Connect more integrations',
-	detail: 'Connect integration with more issue providers',
+	label: 'Connect an Additional Integration...',
+	detail: 'Connect additional integrations to view and start work on their issues',
 	item: undefined,
 };
 
