@@ -10,7 +10,7 @@ import type { BranchSortOptions, GitBranch } from './models/branch';
 import type { GitCommit } from './models/commit';
 import type { GitContributor, GitContributorStats } from './models/contributor';
 import type { GitDiff, GitDiffFile, GitDiffFiles, GitDiffFilter, GitDiffLine, GitDiffShortStat } from './models/diff';
-import type { GitFile } from './models/file';
+import type { GitFile, GitFileChange } from './models/file';
 import type { GitGraph } from './models/graph';
 import type { GitLog } from './models/log';
 import type { GitMergeStatus } from './models/merge';
@@ -197,6 +197,7 @@ export interface GitProviderRepository {
 			| { commitDate?: Date; mode?: 'contains' | 'pointsAt'; remotes?: boolean },
 	): Promise<string[]>;
 	getCommitCount(repoPath: string, ref: string): Promise<number | undefined>;
+	getCommitFileStats?(repoPath: string | Uri, ref: string): Promise<GitFileChange[] | undefined>;
 	getCommitForFile(
 		repoPath: string,
 		uri: Uri,

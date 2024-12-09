@@ -146,6 +146,7 @@ import {
 import {
 	createLogParserSingle,
 	createLogParserWithFiles,
+	createLogParserWithFileStats,
 	getContributorsParser,
 	getGraphParser,
 	getGraphStatsParser,
@@ -2351,6 +2352,30 @@ export class LocalGitProvider implements GitProvider, Disposable {
 	}
 
 	@log()
+	async getCommitFileStats(repoPath: string, ref: string): Promise<GitFileChange[] | undefined> {
+		const parser = createLogParserWithFileStats<{ sha: string }>({ sha: '%H' });
+
+		const data = await this.git.log(repoPath, { ref: ref }, '--max-count=1', ...parser.arguments);
+		if (data == null) return undefined;
+
+		let files: GitFileChange[] | undefined;
+
+		for (const c of parser.parse(data)) {
+			files = c.files.map(
+				f =>
+					new GitFileChange(repoPath, f.path, f.status as GitFileStatus, f.originalPath, undefined, {
+						additions: f.additions,
+						deletions: f.deletions,
+						changes: 0,
+					}),
+			);
+			break;
+		}
+
+		return files;
+	}
+
+	@log()
 	async getCommitForFile(
 		repoPath: string | undefined,
 		uri: Uri,
@@ -3664,7 +3689,7 @@ export class LocalGitProvider implements GitProvider, Disposable {
 			ref?: string;
 			since?: number | string;
 			stashes?: boolean | Map<string, GitStashCommit>;
-			status?: null | 'name-status' | 'numstat' | 'stat';
+			status?: boolean;
 			until?: number | string;
 			extraArgs?: string[];
 		},
@@ -3679,8 +3704,8 @@ export class LocalGitProvider implements GitProvider, Disposable {
 				`-M${similarityThreshold == null ? '' : `${similarityThreshold}%`}`,
 			];
 
-			if (options?.status !== null) {
-				args.push(`--${options?.status ?? 'name-status'}`, '--full-history');
+			if (options?.status !== false) {
+				args.push('--name-status', '--full-history');
 			}
 			if (options?.all) {
 				args.push('--all');

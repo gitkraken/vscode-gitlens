@@ -43,7 +43,7 @@ export class StashNode extends ViewRefNode<'stash', ViewsWithStashes, GitStashRe
 
 	async getChildren(): Promise<ViewNode[]> {
 		// Ensure we have checked for untracked files (inside the getCommitsForFiles call)
-		const commits = await this.commit.getCommitsForFiles();
+		const commits = await this.commit.getCommitsForFiles({ include: { stats: true } });
 		let children: FileNode[] = commits.map(c => new StashFileNode(this.view, this, c.file!, c as GitStashCommit));
 
 		if (this.view.config.files.layout !== 'list') {

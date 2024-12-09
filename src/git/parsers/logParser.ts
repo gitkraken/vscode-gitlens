@@ -77,8 +77,11 @@ export type Parser<T> = {
 };
 
 export type ParsedEntryFile = { status: string; path: string; originalPath?: string };
+export type ParsedEntryFileWithStats = ParsedEntryFile & { additions: number; deletions: number };
 export type ParsedEntryWithFiles<T> = { [K in keyof T]: string } & { files: ParsedEntryFile[] };
+export type ParsedEntryWithFileStats<T> = { [K in keyof T]: string } & { files: ParsedEntryFileWithStats[] };
 export type ParserWithFiles<T> = Parser<ParsedEntryWithFiles<T>>;
+export type ParserWithFileStats<T> = Parser<ParsedEntryWithFileStats<T>>;
 
 export type ParsedStats = { files: number; additions: number; deletions: number };
 export type ParsedEntryWithMaybeStats<T> = T & { stats?: ParsedStats };
@@ -324,6 +327,81 @@ export function createLogParserWithFiles<T extends Record<string, unknown>>(
 					if (file.status.startsWith('R') || file.status.startsWith('C')) {
 						field = fields.next();
 						file.originalPath = field.value;
+					}
+
+					files.push(file);
+				}
+			}
+
+			entry.files = files;
+			yield entry;
+		}
+	}
+
+	return { arguments: args, parse: parse };
+}
+
+export function createLogParserWithFileStats<T extends Record<string, unknown>>(
+	fieldMapping: ExtractAll<T, string>,
+): ParserWithFileStats<T> {
+	let format = '%x00';
+	const keys: (keyof ExtractAll<T, string>)[] = [];
+	for (const key in fieldMapping) {
+		keys.push(key);
+		format += `%x00${fieldMapping[key]}`;
+	}
+
+	const args = ['-z', `--format=${format}`, '--numstat'];
+
+	function* parse(data: string | string[]): Generator<ParsedEntryWithFileStats<T>> {
+		const records = getLines(data, '\0\0\0');
+
+		let entry: ParsedEntryWithFileStats<T>;
+		let files: ParsedEntryFileWithStats[];
+		let fields: IterableIterator<string>;
+
+		for (const record of records) {
+			entry = {} as any;
+			files = [];
+			fields = getLines(record, '\0');
+
+			// Skip the 2 starting NULs
+			fields.next();
+			fields.next();
+
+			let fieldCount = 0;
+			let field;
+			while (true) {
+				field = fields.next();
+				if (field.done) break;
+
+				if (fieldCount < keys.length) {
+					entry[keys[fieldCount++]] = field.value as ParsedEntryWithFileStats<T>[keyof T];
+				} else {
+					const [additions, deletions, path] = field.value.split('\t');
+					// Skip binary files which show as - for both additions and deletions
+					if (additions === '-' && deletions === '-') continue;
+
+					const file: ParsedEntryFileWithStats = {
+						status:
+							additions === '0' && deletions === '0'
+								? 'M'
+								: additions === '0'
+								  ? 'D'
+								  : deletions === '0'
+								    ? 'A'
+								    : 'M',
+						path: path,
+						additions: additions === '-' ? 0 : parseInt(additions, 10),
+						deletions: deletions === '-' ? 0 : parseInt(deletions, 10),
+					};
+
+					// Handle renamed files which show as path/to/file => new/path/to/file
+					if (path.includes(' => ')) {
+						const [originalPath, newPath] = path.split(' => ');
+						file.originalPath = originalPath;
+						file.path = newPath;
+						file.status = 'R';
 					}
 
 					files.push(file);

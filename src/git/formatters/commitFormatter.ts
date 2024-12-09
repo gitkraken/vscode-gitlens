@@ -48,7 +48,10 @@ export interface CommitFormatOptions extends FormatOptions {
 	dateStyle?: DateStyle;
 	editor?: { line: number; uri: Uri };
 	footnotes?: Map<number, string>;
-	getBranchAndTagTips?: (sha: string, options?: { compact?: boolean; icons?: boolean }) => string | undefined;
+	getBranchAndTagTips?: (
+		sha: string,
+		options?: { compact?: boolean; icons?: boolean; pills?: boolean | { cssClass: string } },
+	) => string | undefined;
 	htmlFormat?: {
 		classes?: {
 			author?: string;
@@ -358,24 +361,45 @@ export class CommitFormatter extends Formatter<GitCommit, CommitFormatOptions> {
 	}
 
 	get changes(): string {
-		return this._padOrTruncate(
-			isCommit(this._item) ? this._item.formatStats() : '',
-			this._options.tokenOptions.changes,
+		if (!isCommit(this._item) || this._item.stats == null) {
+			return this._padOrTruncate('', this._options.tokenOptions.changes);
+		}
+
+		const stats = this._item.formatStats(
+			'stats',
+			this._options.outputFormat !== 'plaintext' ? { color: true } : undefined,
 		);
+		return this._padOrTruncate(stats, this._options.tokenOptions.changes);
 	}
 
 	get changesDetail(): string {
-		return this._padOrTruncate(
-			isCommit(this._item) ? this._item.formatStats({ expand: true, separator: ', ' }) : '',
-			this._options.tokenOptions.changesDetail,
+		if (!isCommit(this._item) || this._item.stats == null) {
+			return this._padOrTruncate('', this._options.tokenOptions.changesDetail);
+		}
+
+		let stats = this._item.formatStats(
+			'stats',
+			this._options.outputFormat !== 'plaintext' ? { color: true } : undefined,
 		);
+		const statsExpanded = this._item.formatStats('expanded', {
+			addParenthesesToFileStats: true,
+			color: this._options.outputFormat !== 'plaintext',
+			separator: ', ',
+		});
+		if (statsExpanded) {
+			stats += ` ${statsExpanded}`;
+		}
+
+		return this._padOrTruncate(stats, this._options.tokenOptions.changesDetail);
 	}
 
 	get changesShort(): string {
-		return this._padOrTruncate(
-			isCommit(this._item) ? this._item.formatStats({ compact: true, separator: '' }) : '',
-			this._options.tokenOptions.changesShort,
-		);
+		if (!isCommit(this._item) || this._item.stats == null) {
+			return this._padOrTruncate('', this._options.tokenOptions.changesShort);
+		}
+
+		const stats = this._item.formatStats('short', { separator: '' });
+		return this._padOrTruncate(stats, this._options.tokenOptions.changesShort);
 	}
 
 	get commands(): string {
@@ -835,22 +859,17 @@ export class CommitFormatter extends Formatter<GitCommit, CommitFormatOptions> {
 	}
 
 	get tips(): string {
-		let branchAndTagTips = this._options.getBranchAndTagTips?.(this._item.sha, {
+		const branchAndTagTips = this._options.getBranchAndTagTips?.(this._item.sha, {
 			icons: this._options.outputFormat === 'markdown',
+			pills:
+				this._options.outputFormat === 'markdown'
+					? true
+					: this._options.outputFormat === 'html'
+					  ? this._options.htmlFormat?.classes?.tips
+							? { cssClass: this._options.htmlFormat.classes.tips }
+							: true
+					  : false,
 		});
-		if (branchAndTagTips != null && this._options.outputFormat !== 'plaintext') {
-			const tips = branchAndTagTips.split(', ');
-			branchAndTagTips = tips
-				.map(
-					t =>
-						/*html*/ `<span style="color:#ffffff;background-color:#1d76db;"${
-							this._options.htmlFormat?.classes?.tips
-								? ` class="${this._options.htmlFormat.classes.tips}"`
-								: ''
-						}>&nbsp;&nbsp;${t}&nbsp;&nbsp;</span>`,
-				)
-				.join(GlyphChars.Space.repeat(3));
-		}
 		return this._padOrTruncate(branchAndTagTips ?? '', this._options.tokenOptions.tips);
 	}
 

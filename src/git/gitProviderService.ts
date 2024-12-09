@@ -67,7 +67,7 @@ import { deletedOrMissing, uncommitted, uncommittedStaged } from './models/const
 import type { GitContributor, GitContributorStats } from './models/contributor';
 import { calculateDistribution } from './models/contributor';
 import type { GitDiff, GitDiffFile, GitDiffFiles, GitDiffFilter, GitDiffLine, GitDiffShortStat } from './models/diff';
-import type { GitFile } from './models/file';
+import type { GitFile, GitFileChange } from './models/file';
 import type { GitGraph } from './models/graph';
 import type { GitLog } from './models/log';
 import type { GitMergeStatus } from './models/merge';
@@ -1720,9 +1720,19 @@ export class GitProviderService implements Disposable {
 		repoPath: string | Uri | undefined,
 		suppressName?: string,
 	): Promise<
-		(sha: string, options?: { compact?: boolean | undefined; icons?: boolean | undefined }) => string | undefined
+		(
+			sha: string,
+			options?: { compact?: boolean; icons?: boolean; pills?: boolean | { cssClass: string } },
+		) => string | undefined
 	> {
 		if (repoPath == null) return () => undefined;
+
+		type Tip = {
+			name: string;
+			icon: string;
+			compactName: string | undefined;
+			type: 'branch' | 'tag';
+		};
 
 		const [branchesResult, tagsResult, remotesResult] = await Promise.allSettled([
 			this.getBranches(repoPath),
@@ -1744,7 +1754,7 @@ export class GitProviderService implements Disposable {
 						const remote = remotes.find(r => r.name === bt.getRemoteName());
 						icon = `$(${getRemoteThemeIconString(remote)}) `;
 					} else {
-						icon = '$(git-branch) ';
+						icon = bt.current ? '$(target) ' : '$(git-branch) ';
 					}
 				} else {
 					icon = '$(tag) ';
@@ -1758,11 +1768,14 @@ export class GitProviderService implements Disposable {
 							? bt.getRemoteName()
 							: undefined,
 					type: bt.refType,
-				};
+				} satisfies Tip;
 			},
 		);
 
-		return (sha: string, options?: { compact?: boolean; icons?: boolean }): string | undefined => {
+		return (
+			sha: string,
+			options?: { compact?: boolean; icons?: boolean; pills?: boolean | { cssClass: string } },
+		): string | undefined => {
 			const branchesAndTags = branchesAndTagsBySha.get(sha);
 			if (!branchesAndTags?.length) return undefined;
 
@@ -1771,16 +1784,32 @@ export class GitProviderService implements Disposable {
 					? branchesAndTags.filter(bt => bt.name !== suppressName)
 					: branchesAndTags;
 
-			if (!options?.compact) {
-				return tips.map(bt => `${options?.icons ? bt.icon : ''}${bt.name}`).join(', ');
+			function getIconAndLabel(tip: Tip) {
+				const label = (options?.compact ? tip.compactName : undefined) ?? tip.name;
+				return `${options?.icons ? `${tip.icon}${options?.pills ? '&nbsp;' : ' '}` : ''}${label}`;
 			}
 
-			if (tips.length > 1) {
+			let results;
+			if (options?.compact) {
+				if (!tips.length) return undefined;
+
 				const [bt] = tips;
-				return `${options?.icons ? bt.icon : ''}${bt.compactName ?? bt.name}, ${GlyphChars.Ellipsis}`;
+				results = [`${getIconAndLabel(bt)}${tips.length > 1 ? `, ${GlyphChars.Ellipsis}` : ''}`];
+			} else {
+				results = tips.map(getIconAndLabel);
 			}
 
-			return tips.map(bt => `${options?.icons ? bt.icon : ''}${bt.compactName ?? bt.name}`).join(', ');
+			if (options?.pills) {
+				return results
+					.map(
+						t =>
+							/*html*/ `<span style="color:#ffffff;background-color:#1d76db;border-radius:3px;"${
+								typeof options.pills === 'object' ? ` class="${options.pills.cssClass}"` : ''
+							}>&nbsp;${t}&nbsp;&nbsp;</span>`,
+					)
+					.join('&nbsp;&nbsp;');
+			}
+			return results.join(', ');
 		};
 	}
 
@@ -1832,6 +1861,12 @@ export class GitProviderService implements Disposable {
 	getCommitCount(repoPath: string | Uri, ref: string): Promise<number | undefined> {
 		const { provider, path } = this.getProvider(repoPath);
 		return provider.getCommitCount(path, ref);
+	}
+
+	@log()
+	async getCommitFileStats(repoPath: string | Uri, ref: string): Promise<GitFileChange[] | undefined> {
+		const { provider, path } = this.getProvider(repoPath);
+		return provider.getCommitFileStats?.(path, ref);
 	}
 
 	@log()

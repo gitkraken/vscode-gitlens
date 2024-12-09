@@ -129,7 +129,7 @@ export class CommitNode extends ViewRefNode<'commit', ViewsWithCommits | FileHis
 				}
 			}
 
-			const commits = await commit.getCommitsForFiles();
+			const commits = await commit.getCommitsForFiles({ include: { stats: true } });
 			for (const c of commits) {
 				children.push(new CommitFileNode(this.view, this, c.file!, c));
 			}
