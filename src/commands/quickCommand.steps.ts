@@ -850,6 +850,7 @@ export function* pickBranchOrTagStep<
 		filter,
 		picked,
 		placeholder,
+		title,
 		titleContext,
 		value,
 		additionalButtons,
@@ -858,6 +859,7 @@ export function* pickBranchOrTagStep<
 		filter?: { branches?: (b: GitBranch) => boolean; tags?: (t: GitTag) => boolean };
 		picked: string | string[] | undefined;
 		placeholder: string | ((context: Context) => string);
+		title?: string;
 		titleContext?: string;
 		value: string | undefined;
 		additionalButtons?: QuickInputButton[];
@@ -886,7 +888,7 @@ export function* pickBranchOrTagStep<
 	);
 
 	const step = createPickStep<ReferencesQuickPickItem>({
-		title: appendReposToTitle(`${context.title}${titleContext ?? ''}`, state, context),
+		title: appendReposToTitle(`${title ?? context.title}${titleContext ?? ''}`, state, context),
 		placeholder: count =>
 			!count
 				? `No branches${context.showTags ? ' or tags' : ''} found in ${state.repo.formattedName}`
