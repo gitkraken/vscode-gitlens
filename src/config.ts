@@ -745,6 +745,7 @@ export interface BranchesViewConfig {
 	};
 	readonly reveal: boolean;
 	readonly showBranchComparison: false | Extract<ViewShowBranchComparison, 'branch'>;
+	readonly showRemoteBranches: boolean;
 	readonly showStashes: boolean;
 }
 

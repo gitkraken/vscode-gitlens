@@ -87,7 +87,13 @@ export class BranchesViewNode extends RepositoriesSubscribeableNode<BranchesView
 		if (this.children.length === 1) {
 			const [child] = this.children;
 
-			const branches = await child.repo.git.getBranches({ filter: b => !b.remote });
+			const { showRemoteBranches } = this.view.config;
+			const defaultRemote = showRemoteBranches ? (await child.repo.git.getDefaultRemote())?.name : undefined;
+
+			const branches = await child.repo.git.getBranches({
+				filter: b =>
+					!b.remote || (showRemoteBranches && defaultRemote != null && b.getRemoteName() === defaultRemote),
+			});
 			if (branches.values.length === 0) {
 				this.view.message = 'No branches could be found.';
 				void child.ensureSubscription();
@@ -180,6 +186,16 @@ export class BranchesView extends ViewBase<'branches', BranchesViewNode, Branche
 			registerViewCommand(
 				this.getQualifiedCommand('setShowBranchPullRequestOff'),
 				() => this.setShowBranchPullRequest(false),
+				this,
+			),
+			registerViewCommand(
+				this.getQualifiedCommand('setShowRemoteBranchesOn'),
+				() => this.setShowRemoteBranches(true),
+				this,
+			),
+			registerViewCommand(
+				this.getQualifiedCommand('setShowRemoteBranchesOff'),
+				() => this.setShowRemoteBranches(false),
 				this,
 			),
 			registerViewCommand(this.getQualifiedCommand('setShowStashesOn'), () => this.setShowStashes(true), this),
@@ -358,6 +374,10 @@ export class BranchesView extends ViewBase<'branches', BranchesViewNode, Branche
 	private async setShowBranchPullRequest(enabled: boolean) {
 		await configuration.updateEffective(`views.${this.configKey}.pullRequests.showForBranches` as const, enabled);
 		await configuration.updateEffective(`views.${this.configKey}.pullRequests.enabled` as const, enabled);
+	}
+
+	private setShowRemoteBranches(enabled: boolean) {
+		return configuration.updateEffective(`views.${this.configKey}.showRemoteBranches` as const, enabled);
 	}
 
 	private setShowStashes(enabled: boolean) {
