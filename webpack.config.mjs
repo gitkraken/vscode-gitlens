@@ -120,6 +120,7 @@ function getExtensionConfig(target, mode, env) {
 		plugins.push(
 			new ContributionsPlugin(),
 			new DocsPlugin(),
+			new LicensesPlugin(),
 			new FantasticonPlugin({
 				configPath: '.fantasticonrc.js',
 				onBefore:
@@ -844,6 +845,16 @@ class DocsPlugin extends FileGeneratorPlugin {
 			name: 'docs',
 			command: pkgMgr,
 			args: ['run', 'generate:docs:telemetry'],
+		});
+	}
+}
+
+class LicensesPlugin extends FileGeneratorPlugin {
+	constructor() {
+		super('licenses', [path.join(__dirname, 'package.json')], {
+			name: 'licenses',
+			command: pkgMgr,
+			args: ['run', 'generate:licenses'],
 		});
 	}
 }
