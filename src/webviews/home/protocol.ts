@@ -44,7 +44,7 @@ export interface OverviewFilters {
 export interface GetLaunchpadSummaryRequest {
 	[key: string]: unknown;
 }
-export type GetLaunchpadSummaryResponse = LaunchpadSummaryResult | undefined;
+export type GetLaunchpadSummaryResponse = LaunchpadSummaryResult | { error: Error } | undefined;
 export const GetLaunchpadSummary = new IpcRequest<GetLaunchpadSummaryRequest, GetLaunchpadSummaryResponse>(
 	scope,
 	'launchpad/summary',

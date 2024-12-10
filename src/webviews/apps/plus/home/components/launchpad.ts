@@ -200,6 +200,13 @@ export class GlLaunchpad extends SignalWatcher(LitElement) {
 
 	private renderSummary(summary: LaunchpadSummary | undefined) {
 		if (summary == null) return nothing;
+
+		if ('error' in summary) {
+			return html`<ul class="menu">
+				<li>Unable to load items</li>
+			</ul>`;
+		}
+
 		if (summary.total === 0) {
 			return html`<ul class="menu">
 				<li>You are all caught up!</li>
