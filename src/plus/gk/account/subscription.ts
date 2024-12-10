@@ -186,7 +186,7 @@ export function getSubscriptionPlanName(id: SubscriptionPlanId) {
 			return 'GitLens Enterprise';
 		case SubscriptionPlanId.Community:
 		default:
-			return 'GitLens';
+			return 'GitLens Community';
 	}
 }
 
