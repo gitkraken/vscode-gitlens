@@ -56,6 +56,11 @@ export class IntegrationService implements Disposable {
 		return this._onDidChangeConnectionState.event;
 	}
 
+	private readonly _onDidSyncCloudIntegrations = new EventEmitter<void>();
+	get onDidSyncCloudIntegrations(): Event<void> {
+		return this._onDidSyncCloudIntegrations.event;
+	}
+
 	private readonly _connectedCache = new Set<string>();
 	private readonly _disposable: Disposable;
 	private _integrations = new Map<IntegrationKey, Integration>();
@@ -112,6 +117,7 @@ export class IntegrationService implements Disposable {
 			});
 		}
 
+		this._onDidSyncCloudIntegrations.fire();
 		return connectedIntegrations;
 	}
 

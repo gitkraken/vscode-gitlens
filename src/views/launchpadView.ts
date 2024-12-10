@@ -247,6 +247,7 @@ export class LaunchpadView extends ViewBase<'launchpad', LaunchpadViewNode, Laun
 			this._disposable = Disposable.from(
 				this.container.integrations.onDidChangeConnectionState(() => this.refresh(), this),
 				this.container.launchpad.onDidRefresh(() => this.refresh(), this),
+				this.container.integrations.onDidSyncCloudIntegrations(() => this.refresh(), this),
 			);
 		}
 
