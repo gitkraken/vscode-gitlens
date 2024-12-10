@@ -208,6 +208,8 @@ export const DidChangeIntegrationsConnections = new IpcNotification<DidChangeInt
 	'integrations/didChange',
 );
 
+export const DidChangeLaunchpad = new IpcNotification<undefined>(scope, 'launchpad/didChange');
+
 export interface DidChangeSubscriptionParams {
 	subscription: Subscription;
 	avatar: string;
