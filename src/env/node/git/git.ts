@@ -78,6 +78,8 @@ export const GitErrors = {
 	changesWouldBeOverwritten: /Your local changes to the following files would be overwritten/i,
 	commitChangesFirst: /Please, commit your changes before you can/i,
 	conflict: /^CONFLICT \([^)]+\): \b/m,
+	cherryPickUnmerged:
+		/error: Cherry-picking.*unmerged files\.\nhint:.*\nhint:.*make a commit\.\nfatal: cherry-pick failed/i,
 	failedToDeleteDirectoryNotEmpty: /failed to delete '(.*?)': Directory not empty/i,
 	invalidObjectName: /invalid object name: (.*)\s/i,
 	invalidObjectNameList: /could not open object name list: (.*)\s/i,
@@ -164,6 +166,12 @@ function getStdinUniqueKey(): number {
 
 type ExitCodeOnlyGitCommandOptions = GitCommandOptions & { exitCodeOnly: true };
 export type PushForceOptions = { withLease: true; ifIncludes?: boolean } | { withLease: false; ifIncludes?: never };
+
+const cherryPickErrorAndReason = [
+	[GitErrors.changesWouldBeOverwritten, CherryPickErrorReason.AbortedWouldOverwrite],
+	[GitErrors.conflict, CherryPickErrorReason.Conflicts],
+	[GitErrors.cherryPickUnmerged, CherryPickErrorReason.Conflicts],
+];
 
 const tagErrorAndReason: [RegExp, TagErrorReason][] = [
 	[GitErrors.tagAlreadyExists, TagErrorReason.TagAlreadyExists],
@@ -617,28 +625,18 @@ export class Git {
 		return this.git<string>({ cwd: repoPath }, ...params);
 	}
 
-	async cherrypick(repoPath: string, sha: string, options: { noCommit?: boolean; errors?: GitErrorHandling } = {}) {
-		const params = ['cherry-pick'];
-		if (options?.noCommit) {
-			params.push('-n');
-		}
-		params.push(sha);
-
+	async cherryPick(repoPath: string, args: string[]) {
 		try {
-			await this.git<string>({ cwd: repoPath, errors: options?.errors }, ...params);
+			await this.git<string>({ cwd: repoPath }, 'cherry-pick', ...args);
 		} catch (ex) {
 			const msg: string = ex?.toString() ?? '';
-			let reason: CherryPickErrorReason = CherryPickErrorReason.Other;
-			if (
-				GitErrors.changesWouldBeOverwritten.test(msg) ||
-				GitErrors.changesWouldBeOverwritten.test(ex.stderr ?? '')
-			) {
-				reason = CherryPickErrorReason.AbortedWouldOverwrite;
-			} else if (GitErrors.conflict.test(msg) || GitErrors.conflict.test(ex.stdout ?? '')) {
-				reason = CherryPickErrorReason.Conflicts;
+			for (const [error, reason] of cherryPickErrorAndReason) {
+				if (error.test(msg) || error.test(ex.stderr ?? '')) {
+					throw new CherryPickError(reason, ex);
+				}
 			}
 
-			throw new CherryPickError(reason, ex, sha);
+			throw new CherryPickError(CherryPickErrorReason.Other, ex);
 		}
 	}
 

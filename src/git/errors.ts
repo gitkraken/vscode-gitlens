@@ -364,36 +364,48 @@ export class CherryPickError extends Error {
 
 	readonly original?: Error;
 	readonly reason: CherryPickErrorReason | undefined;
+	ref?: string;
+
+	private static buildCherryPickErrorMessage(reason: CherryPickErrorReason | undefined, ref?: string) {
+		let baseMessage = `Unable to cherry-pick${ref ? ` commit '${ref}'` : ''}`;
+		switch (reason) {
+			case CherryPickErrorReason.AbortedWouldOverwrite:
+				baseMessage += ' as some local changes would be overwritten';
+				break;
+			case CherryPickErrorReason.Conflicts:
+				baseMessage += ' due to conflicts';
+				break;
+		}
+		return baseMessage;
+	}
 
 	constructor(reason?: CherryPickErrorReason, original?: Error, sha?: string);
 	constructor(message?: string, original?: Error);
-	constructor(messageOrReason: string | CherryPickErrorReason | undefined, original?: Error, sha?: string) {
-		let message;
-		const baseMessage = `Unable to cherry-pick${sha ? ` commit '${sha}'` : ''}`;
+	constructor(messageOrReason: string | CherryPickErrorReason | undefined, original?: Error, ref?: string) {
 		let reason: CherryPickErrorReason | undefined;
-		if (messageOrReason == null) {
-			message = baseMessage;
-		} else if (typeof messageOrReason === 'string') {
-			message = messageOrReason;
-			reason = undefined;
+		if (typeof messageOrReason !== 'string') {
+			reason = messageOrReason as CherryPickErrorReason;
 		} else {
-			reason = messageOrReason;
-			switch (reason) {
-				case CherryPickErrorReason.AbortedWouldOverwrite:
-					message = `${baseMessage} as some local changes would be overwritten.`;
-					break;
-				case CherryPickErrorReason.Conflicts:
-					message = `${baseMessage} due to conflicts.`;
-					break;
-				default:
-					message = baseMessage;
-			}
+			super(messageOrReason);
 		}
+
+		const message =
+			typeof messageOrReason === 'string'
+				? messageOrReason
+				: CherryPickError.buildCherryPickErrorMessage(messageOrReason as CherryPickErrorReason, ref);
 		super(message);
 
 		this.original = original;
 		this.reason = reason;
+		this.ref = ref;
+
 		Error.captureStackTrace?.(this, CherryPickError);
+	}
+
+	WithRef(ref: string) {
+		this.ref = ref;
+		this.message = CherryPickError.buildCherryPickErrorMessage(this.reason, ref);
+		return this;
 	}
 }
 
