@@ -858,7 +858,7 @@ export class GraphWebviewProvider implements WebviewProvider<State, State, Graph
 	}
 
 	updateGraphSearchMode(params: UpdateGraphSearchModeParams) {
-		void this.container.storage.store('graph:searchMode', params.searchMode);
+		void this.container.storage.store('graph:searchMode', params.searchMode).catch();
 	}
 
 	private _showActiveSelectionDetailsDebounced:
@@ -2591,7 +2591,7 @@ export class GraphWebviewProvider implements WebviewProvider<State, State, Graph
 		for (const [key, value] of Object.entries(columnsCfg)) {
 			columns = updateRecordValue(columns, key, value);
 		}
-		void this.container.storage.storeWorkspace('graph:columns', columns);
+		void this.container.storage.storeWorkspace('graph:columns', columns).catch();
 		void this.notifyDidChangeColumns();
 	}
 

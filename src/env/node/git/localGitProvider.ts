@@ -467,7 +467,7 @@ export class LocalGitProvider implements GitProvider, Disposable {
 
 		const location = await any<GitLocation>(findGitPromise, findGitFromSCMPromise);
 		// Save the found git path, but let things settle first to not impact startup performance
-		setTimeout(() => void this.container.storage.storeWorkspace('gitPath', location.path), 1000);
+		setTimeout(() => void this.container.storage.storeWorkspace('gitPath', location.path).catch(), 1000);
 
 		if (scope != null) {
 			setLogScopeExit(

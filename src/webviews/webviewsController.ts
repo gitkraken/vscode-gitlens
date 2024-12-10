@@ -277,7 +277,7 @@ export class WebviewsController implements Disposable {
 				if (!(await ensurePlusFeaturesEnabled())) return;
 			}
 
-			void container.usage.track(`${descriptor.trackingFeature}:shown`);
+			void container.usage.track(`${descriptor.trackingFeature}:shown`).catch();
 
 			let column = options?.column ?? descriptor.column ?? ViewColumn.Beside;
 			// Only try to open beside if there is an active tab

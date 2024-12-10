@@ -58,7 +58,7 @@ export class SearchResultsNode extends ViewNode<'search-results', SearchAndCompa
 		// If this is a new search, save it
 		if (this._storedAt === 0) {
 			this._storedAt = Date.now();
-			void this.store(true);
+			void this.store(true).catch();
 		}
 	}
 

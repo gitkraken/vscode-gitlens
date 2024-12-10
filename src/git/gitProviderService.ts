@@ -939,7 +939,7 @@ export class GitProviderService implements Disposable {
 	private updateVisibilityCache(key: string, visibilityInfo: RepositoryVisibilityInfo): void {
 		this.ensureRepoVisibilityCache();
 		this._repoVisibilityCache?.set(key, visibilityInfo);
-		void this.container.storage.store('repoVisibility', Array.from(this._repoVisibilityCache!.entries()));
+		void this.container.storage.store('repoVisibility', Array.from(this._repoVisibilityCache!.entries())).catch();
 	}
 
 	@debug()

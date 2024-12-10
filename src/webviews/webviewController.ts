@@ -456,7 +456,7 @@ export class WebviewController<
 		}
 
 		if (visible) {
-			void this.container.usage.track(`${this.descriptor.trackingFeature}:shown`);
+			void this.container.usage.track(`${this.descriptor.trackingFeature}:shown`).catch();
 
 			setContextKeys(this.descriptor.contextKeyPrefix);
 			if (active != null) {

@@ -36,7 +36,7 @@ _onDidFetchAvatar.event(
 						),
 				  ]
 				: undefined;
-		void Container.instance.storage.store('avatars', avatars);
+		void Container.instance.storage.store('avatars', avatars).catch();
 	}, 1000),
 );
 

@@ -421,7 +421,7 @@ export class HomeWebviewProvider implements WebviewProvider<State, State, HomeWe
 		const collapsed = this.container.storage.get('home:sections:collapsed');
 		if (collapsed == null) {
 			if (params.collapsed === true) {
-				void this.container.storage.store('home:sections:collapsed', [params.section]);
+				void this.container.storage.store('home:sections:collapsed', [params.section]).catch();
 			}
 			return;
 		}
@@ -429,7 +429,7 @@ export class HomeWebviewProvider implements WebviewProvider<State, State, HomeWe
 		const idx = collapsed.indexOf(params.section);
 		if (params.collapsed === true) {
 			if (idx === -1) {
-				void this.container.storage.store('home:sections:collapsed', [...collapsed, params.section]);
+				void this.container.storage.store('home:sections:collapsed', [...collapsed, params.section]).catch();
 			}
 
 			return;
@@ -437,15 +437,15 @@ export class HomeWebviewProvider implements WebviewProvider<State, State, HomeWe
 
 		if (idx !== -1) {
 			collapsed.splice(idx, 1);
-			void this.container.storage.store('home:sections:collapsed', collapsed);
+			void this.container.storage.store('home:sections:collapsed', collapsed).catch();
 		}
 	}
 
 	private dismissWalkthrough() {
 		const dismissed = this.container.storage.get('home:walkthrough:dismissed');
 		if (!dismissed) {
-			void this.container.storage.store('home:walkthrough:dismissed', true);
-			void this.container.usage.track('home:walkthrough:dismissed');
+			void this.container.storage.store('home:walkthrough:dismissed', true).catch();
+			void this.container.usage.track('home:walkthrough:dismissed').catch();
 		}
 	}
 

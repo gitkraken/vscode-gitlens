@@ -161,7 +161,7 @@ export class LaunchpadCommand extends QuickCommand<State> {
 			args?.source === 'launchpad-indicator' &&
 			container.storage.get('launchpad:indicator:hasInteracted') == null
 		) {
-			void container.storage.store('launchpad:indicator:hasInteracted', new Date().toISOString());
+			void container.storage.store('launchpad:indicator:hasInteracted', new Date().toISOString()).catch();
 		}
 
 		this.source = { source: args?.source ?? 'commandPalette' };

@@ -566,12 +566,12 @@ async function confirmAIProviderToS<Provider extends AIProviders>(
 	if (result === accept) return true;
 
 	if (result === acceptWorkspace) {
-		void storage.storeWorkspace(`confirm:ai:tos:${model.provider.id}`, true);
+		void storage.storeWorkspace(`confirm:ai:tos:${model.provider.id}`, true).catch();
 		return true;
 	}
 
 	if (result === acceptAlways) {
-		void storage.store(`confirm:ai:tos:${model.provider.id}`, true);
+		void storage.store(`confirm:ai:tos:${model.provider.id}`, true).catch();
 		return true;
 	}
 
@@ -642,7 +642,7 @@ export async function getOrPromptApiKey(
 
 		if (!apiKey) return undefined;
 
-		void storage.storeSecret(`gitlens.${provider.id}.key`, apiKey);
+		void storage.storeSecret(`gitlens.${provider.id}.key`, apiKey).catch();
 	}
 
 	return apiKey;
