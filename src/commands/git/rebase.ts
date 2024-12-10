@@ -4,10 +4,12 @@ import type { GitLog } from '../../git/models/log';
 import type { GitReference } from '../../git/models/reference';
 import { createRevisionRange, getReferenceLabel, isRevisionReference } from '../../git/models/reference';
 import type { Repository } from '../../git/models/repository';
+import { showGenericErrorMessage } from '../../messages';
 import type { DirectiveQuickPickItem } from '../../quickpicks/items/directive';
 import { createDirectiveQuickPickItem, Directive } from '../../quickpicks/items/directive';
 import type { FlagsQuickPickItem } from '../../quickpicks/items/flags';
 import { createFlagsQuickPickItem } from '../../quickpicks/items/flags';
+import { Logger } from '../../system/logger';
 import { pluralize } from '../../system/string';
 import { getEditorCommand } from '../../system/vscode/utils';
 import type { ViewsWithRepositoryFolders } from '../../views/viewBase';
@@ -37,11 +39,13 @@ interface Context {
 }
 
 type Flags = '--interactive';
+type RebaseOptions = { interactive?: boolean };
 
 interface State {
 	repo: string | Repository;
 	destination: GitReference;
 	flags: Flags[];
+	options: RebaseOptions;
 }
 
 export interface RebaseGitCommandArgs {
@@ -79,15 +83,18 @@ export class RebaseGitCommand extends QuickCommand<State> {
 	}
 
 	async execute(state: RebaseStepState) {
-		let configs: string[] | undefined;
-		if (state.flags.includes('--interactive')) {
+		const configs: { sequenceEditor?: string } = {};
+		if (state.options?.interactive) {
 			await this.container.rebaseEditor.enableForNextUse();
-
-			const editor = getEditorCommand();
-			configs = ['-c', `"sequence.editor=${editor}"`];
+			configs.sequenceEditor = getEditorCommand();
 		}
 
-		state.repo.rebase(configs, ...state.flags, state.destination.ref);
+		try {
+			await state.repo.git.rebase(state.destination.ref, configs, state.options);
+		} catch (ex) {
+			Logger.error(ex, this.title);
+			void showGenericErrorMessage(ex);
+		}
 	}
 
 	protected async *steps(state: PartialStepState<State>): StepGenerator {
@@ -103,8 +110,8 @@ export class RebaseGitCommand extends QuickCommand<State> {
 			title: this.title,
 		};
 
-		if (state.flags == null) {
-			state.flags = [];
+		if (state.options == null) {
+			state.options = {};
 		}
 
 		let skippedStepOne = false;
@@ -207,7 +214,7 @@ export class RebaseGitCommand extends QuickCommand<State> {
 			const result = yield* this.confirmStep(state as RebaseStepState, context);
 			if (result === StepResultBreak) continue;
 
-			state.flags = result;
+			state.options = Object.assign(state.options ?? {}, ...result);
 
 			endSteps(state);
 			void this.execute(state as RebaseStepState);
@@ -216,7 +223,7 @@ export class RebaseGitCommand extends QuickCommand<State> {
 		return state.counter < 0 ? StepResultBreak : undefined;
 	}
 
-	private async *confirmStep(state: RebaseStepState, context: Context): AsyncStepResultGenerator<Flags[]> {
+	private async *confirmStep(state: RebaseStepState, context: Context): AsyncStepResultGenerator<RebaseOptions[]> {
 		const counts = await this.container.git.getLeftRightCommitCount(
 			state.repo.path,
 			createRevisionRange(state.destination.ref, context.branch.ref, '...'),
@@ -248,8 +255,9 @@ export class RebaseGitCommand extends QuickCommand<State> {
 			return StepResultBreak;
 		}
 
+		const optionsArr: RebaseOptions[] = [];
 		const rebaseItems = [
-			createFlagsQuickPickItem<Flags>(state.flags, ['--interactive'], {
+			createFlagsQuickPickItem<RebaseOptions>(optionsArr, [{ interactive: true }], {
 				label: `Interactive ${this.title}`,
 				description: '--interactive',
 				detail: `Will interactively update ${getReferenceLabel(context.branch, {
@@ -262,7 +270,7 @@ export class RebaseGitCommand extends QuickCommand<State> {
 
 		if (behind > 0) {
 			rebaseItems.unshift(
-				createFlagsQuickPickItem<Flags>(state.flags, [], {
+				createFlagsQuickPickItem<RebaseOptions>(optionsArr, [{}], {
 					label: this.title,
 					detail: `Will update ${getReferenceLabel(context.branch, {
 						label: false,
@@ -273,10 +281,12 @@ export class RebaseGitCommand extends QuickCommand<State> {
 			);
 		}
 
-		const step: QuickPickStep<FlagsQuickPickItem<Flags>> = this.createConfirmStep(
+		const step: QuickPickStep<FlagsQuickPickItem<RebaseOptions>> = this.createConfirmStep(
 			appendReposToTitle(`Confirm ${title}`, state, context),
 			rebaseItems,
 		);
+
+		state.options = Object.assign(state.options, ...optionsArr);
 		const selection: StepSelection<typeof step> = yield step;
 		return canPickStepContinue(step, state, selection) ? selection[0].item : StepResultBreak;
 	}
