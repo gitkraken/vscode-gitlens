@@ -38,6 +38,13 @@ const eslintWorker = {
 	filesPerWorker: 100,
 };
 
+const useNpm = Boolean(process.env.GL_USE_NPM);
+if (useNpm) {
+	console.log('Using npm to run scripts');
+}
+
+const pkgMgr = useNpm ? 'npm' : 'pnpm';
+
 /**
  * @param {{ analyzeBundle?: boolean; analyzeDeps?: boolean; esbuild?: boolean; skipLint?: boolean } | undefined } env
  * @param {{ mode: 'production' | 'development' | 'none' | undefined }} argv
@@ -119,13 +126,13 @@ function getExtensionConfig(target, mode, env) {
 					mode !== 'production'
 						? undefined
 						: () =>
-								spawnSync('pnpm', ['run', 'icons:svgo'], {
+								spawnSync(pkgMgr, ['run', 'icons:svgo'], {
 									cwd: __dirname,
 									encoding: 'utf8',
 									shell: true,
 								}),
 				onComplete: () =>
-					spawnSync('pnpm', ['run', 'icons:apply'], {
+					spawnSync(pkgMgr, ['run', 'icons:apply'], {
 						cwd: __dirname,
 						encoding: 'utf8',
 						shell: true,
@@ -825,7 +832,7 @@ class ContributionsPlugin extends FileGeneratorPlugin {
 	constructor() {
 		super('contributions', [path.join(__dirname, 'contributions.json')], {
 			name: "'package.json' contributions",
-			command: 'pnpm',
+			command: pkgMgr,
 			args: ['run', 'generate:contributions'],
 		});
 	}
@@ -835,7 +842,7 @@ class DocsPlugin extends FileGeneratorPlugin {
 	constructor() {
 		super('docs', [path.join(__dirname, 'src', 'constants.telemetry.ts')], {
 			name: 'docs',
-			command: 'pnpm',
+			command: pkgMgr,
 			args: ['run', 'generate:docs:telemetry'],
 		});
 	}
