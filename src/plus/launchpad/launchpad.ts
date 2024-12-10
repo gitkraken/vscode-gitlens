@@ -73,6 +73,7 @@ import {
 	launchpadGroups,
 	supportedLaunchpadIntegrations,
 } from './launchpadProvider';
+import { isSupportedLaunchpadPullRequestSearchUrl } from './utils';
 
 const actionGroupMap = new Map<LaunchpadActionCategory, string[]>([
 	['mergeable', ['Ready to Merge', 'Ready to merge']],
@@ -1590,26 +1591,4 @@ function updateTelemetryContext(context: Context) {
 
 function isLaunchpadTargetActionQuickPickItem(item: any): item is QuickPickItemOfT<LaunchpadTargetAction> {
 	return item?.item?.action != null && item?.item?.target != null;
-}
-
-function isGitHubPullRequestUrl(search: string) {
-	try {
-		const url = new URL(search);
-		return url.host === 'github.com' && url.pathname.includes('/pull/');
-	} catch {
-		return false;
-	}
-}
-
-function isGitLabPullRequestUrl(search: string) {
-	try {
-		const url = new URL(search);
-		return url.host === 'gitlab.com' && url.pathname.includes('/merge_requests/');
-	} catch {
-		return false;
-	}
-}
-
-function isSupportedLaunchpadPullRequestSearchUrl(search: string) {
-	return isGitHubPullRequestUrl(search) || isGitLabPullRequestUrl(search);
 }

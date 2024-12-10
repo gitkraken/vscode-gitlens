@@ -1,5 +1,7 @@
 import type { Container } from '../../container';
 import { configuration } from '../../system/vscode/configuration';
+import { isGitHubPullRequestUrl } from '../integrations/providers/github/models';
+import { isGitLabPullRequestUrl } from '../integrations/providers/gitlab/models';
 import type { LaunchpadSummaryResult } from './launchpadIndicator';
 import { generateLaunchpadSummary } from './launchpadIndicator';
 import type { LaunchpadGroup } from './launchpadProvider';
@@ -15,4 +17,8 @@ export async function getLaunchpadSummary(container: Container): Promise<Launchp
 
 	const groups: LaunchpadGroup[] = configuration.get('launchpad.indicator.groups') ?? [];
 	return generateLaunchpadSummary(result.items, groups);
+}
+
+export function isSupportedLaunchpadPullRequestSearchUrl(search: string): boolean {
+	return isGitHubPullRequestUrl(search) || isGitLabPullRequestUrl(search);
 }
