@@ -68,7 +68,7 @@ export class RemotesViewNode extends RepositoriesSubscribeableNode<RemotesView, 
 
 			const splat = repositories.length === 1;
 			this.children = repositories.map(
-				r => new RemotesRepositoryNode(GitUri.fromRepoPath(r.path), this.view, this, r, splat),
+				r => new RemotesRepositoryNode(GitUri.fromRepoPath(r.path), this.view, this, splat, r),
 			);
 		}
 

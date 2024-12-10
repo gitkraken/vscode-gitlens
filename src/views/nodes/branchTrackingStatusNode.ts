@@ -56,12 +56,8 @@ export class BranchTrackingStatusNode
 			branchStatusUpstreamType: upstreamType,
 			root: root,
 		});
-		this._uniqueId = getViewNodeId(this.type, this.context);
+		// this._uniqueId = getViewNodeId(this.type, this.context);
 		this.limit = this.view.getNodeLastKnownLimit(this);
-	}
-
-	override get id(): string {
-		return this._uniqueId;
 	}
 
 	get repoPath(): string {

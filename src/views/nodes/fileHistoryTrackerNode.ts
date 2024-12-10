@@ -22,10 +22,9 @@ import { FileHistoryNode } from './fileHistoryNode';
 
 export class FileHistoryTrackerNode extends SubscribeableViewNode<'file-history-tracker', FileHistoryView> {
 	private _base: string | undefined;
-	protected override splatted = true;
 
 	constructor(view: FileHistoryView) {
-		super('file-history-tracker', unknownGitUri, view);
+		super('file-history-tracker', unknownGitUri, view, undefined, true);
 	}
 
 	override dispose() {
@@ -85,8 +84,6 @@ export class FileHistoryTrackerNode extends SubscribeableViewNode<'file-history-
 	}
 
 	getTreeItem(): TreeItem {
-		this.splatted = false;
-
 		const item = new TreeItem('File History', TreeItemCollapsibleState.Expanded);
 		item.contextValue = ContextValues.ActiveFileHistory;
 
