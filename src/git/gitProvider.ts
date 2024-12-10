@@ -125,6 +125,7 @@ export interface GitProviderRepository {
 	addRemote?(repoPath: string, name: string, url: string, options?: { fetch?: boolean }): Promise<void>;
 	pruneRemote?(repoPath: string, name: string): Promise<void>;
 	removeRemote?(repoPath: string, name: string): Promise<void>;
+	revert?(repoPath: string, ref: string, options?: { edit?: boolean }): Promise<void>;
 
 	applyUnreachableCommitForPatch?(
 		repoPath: string,
