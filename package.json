@@ -4945,6 +4945,13 @@
 						"scope": "window",
 						"order": 90
 					},
+					"gitlens.advanced.caching.gitPath": {
+						"type": "boolean",
+						"default": true,
+						"markdownDescription": "Specifies whether to cache (per-workspace) the path to the Git executable to use for GitLens",
+						"scope": "window",
+						"order": 91
+					},
 					"gitlens.debug": {
 						"type": "boolean",
 						"default": false,

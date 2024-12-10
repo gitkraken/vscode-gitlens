@@ -181,6 +181,7 @@ export interface AdvancedConfig {
 	};
 	readonly caching: {
 		readonly enabled: boolean;
+		readonly gitPath: boolean;
 	};
 	readonly commitOrdering: 'date' | 'author-date' | 'topo' | null;
 	readonly externalDiffTool: string | null;
