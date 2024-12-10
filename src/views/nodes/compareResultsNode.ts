@@ -54,7 +54,7 @@ export class CompareResultsNode extends SubscribeableViewNode<
 		// If this is a new comparison, save it
 		if (this._storedAt === 0) {
 			this._storedAt = Date.now();
-			void this.store(true);
+			void this.store(true).catch();
 		}
 	}
 
@@ -123,7 +123,7 @@ export class CompareResultsNode extends SubscribeableViewNode<
 	private onNodesCheckedStateChanged(e: TreeCheckboxChangeEvent<ViewNode>) {
 		const prefix = getComparisonStoragePrefix(this.getStorageId());
 		if (e.items.some(([n]) => n.id?.startsWith(prefix))) {
-			void this.store(true);
+			void this.store(true).catch();
 		}
 	}
 
@@ -252,7 +252,7 @@ export class CompareResultsNode extends SubscribeableViewNode<
 	@log()
 	clearReviewed() {
 		resetComparisonCheckedFiles(this.view, this.getStorageId());
-		void this.store();
+		void this.store().catch();
 	}
 
 	@log()

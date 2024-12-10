@@ -502,7 +502,7 @@ export abstract class ViewBase<
 
 	protected onVisibilityChanged(e: TreeViewVisibilityChangeEvent) {
 		if (e.visible) {
-			void this.container.usage.track(`${this.trackingFeature}:shown`);
+			void this.container.usage.track(`${this.trackingFeature}:shown`).catch();
 		}
 
 		this._onDidChangeVisibility.fire(e);
