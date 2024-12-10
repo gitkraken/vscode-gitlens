@@ -508,3 +508,12 @@ export function fromCommitFileStatus(
 	}
 	return undefined;
 }
+
+export function isGitHubPullRequestUrl(search: string): boolean {
+	try {
+		const url = new URL(search);
+		return url.host === 'github.com' && url.pathname.includes('/pull/');
+	} catch {
+		return false;
+	}
+}
