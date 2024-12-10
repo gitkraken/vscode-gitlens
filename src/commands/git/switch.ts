@@ -104,7 +104,7 @@ export class SwitchGitCommand extends QuickCommand<State> {
 		);
 
 		if (state.fastForwardTo != null) {
-			state.repos[0].merge('--ff-only', state.fastForwardTo.ref);
+			await state.repos[0].git.merge(state.fastForwardTo.ref, ['--ff-only']);
 		}
 	}
 
@@ -211,7 +211,7 @@ export class SwitchGitCommand extends QuickCommand<State> {
 				);
 				if (worktree != null && !worktree.isDefault) {
 					if (state.fastForwardTo != null) {
-						state.repos[0].merge('--ff-only', state.fastForwardTo.ref);
+						await state.repos[0].git.merge(state.fastForwardTo.ref, ['--ff-only']);
 					}
 
 					const worktreeResult = yield* getSteps(

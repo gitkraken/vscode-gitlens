@@ -733,11 +733,6 @@ export class Repository implements Disposable {
 		return this.git.getWorktree(w => w.uri.toString() === url);
 	}
 
-	@log()
-	merge(...args: string[]) {
-		void this.runTerminalCommand('merge', ...args);
-	}
-
 	@gate()
 	@log()
 	async pull(options?: { progress?: boolean; rebase?: boolean }) {
