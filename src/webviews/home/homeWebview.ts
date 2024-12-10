@@ -59,6 +59,7 @@ import {
 	ChangeOverviewRepository,
 	CollapseSectionCommand,
 	DidChangeIntegrationsConnections,
+	DidChangeLaunchpad,
 	DidChangeOrgSettings,
 	DidChangeOverviewFilter,
 	DidChangePreviewEnabled,
@@ -112,6 +113,7 @@ export class HomeWebviewProvider implements WebviewProvider<State, State, HomeWe
 			this.container.integrations.onDidChangeConnectionState(this.onChangeConnectionState, this),
 			this.container.walkthrough.onProgressChanged(this.onWalkthroughChanged, this),
 			configuration.onDidChange(this.onDidChangeConfig, this),
+			this.container.launchpad.onDidChange(this.onDidLaunchpadChange, this),
 		);
 	}
 
@@ -220,6 +222,10 @@ export class HomeWebviewProvider implements WebviewProvider<State, State, HomeWe
 		if (configuration.changed(e, 'home.preview.enabled')) {
 			this.notifyDidChangeConfig();
 		}
+	}
+
+	private onDidLaunchpadChange() {
+		this.notifyDidChangeLaunchpad();
 	}
 
 	private async push(force = false) {
@@ -792,6 +798,10 @@ export class HomeWebviewProvider implements WebviewProvider<State, State, HomeWe
 			previewEnabled: this.getPreviewEnabled(),
 			previewCollapsed: this.getPreviewCollapsed(),
 		});
+	}
+
+	private notifyDidChangeLaunchpad() {
+		void this.host.notify(DidChangeLaunchpad, undefined);
 	}
 
 	private notifyDidChangeOnboardingIntegration() {
