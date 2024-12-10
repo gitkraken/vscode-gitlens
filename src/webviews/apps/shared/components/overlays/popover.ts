@@ -23,18 +23,8 @@ interface CloseWatcherOptions {
 }
 
 type TriggerType = 'hover' | 'focus' | 'click' | 'manual';
-
-type LastOf<T> = UnionToIntersection<T extends any ? () => T : never> extends () => infer R ? R : never;
-type Push<T extends any[], V> = [...T, V];
-type UnionToIntersection<U> = (U extends any ? (k: U) => void : never) extends (k: infer I) => void ? I : never;
-
-type TriggerCombinationHelper<T extends TriggerType, U extends TriggerType[] = []> = {
-	[K in T]: K extends LastOf<U>
-		? TriggerCombinationHelper<Exclude<T, K>, Push<U, K>>
-		: `${U extends [] ? '' : `${U[number]} `}${K}` | TriggerCombinationHelper<Exclude<T, K>, Push<U, K>>;
-}[T];
-
-type Triggers = TriggerCombinationHelper<TriggerType>;
+type Combine<T extends string, U extends string = T> = T extends any ? T | `${T} ${Combine<Exclude<U, T>>}` : never;
+type Triggers = Combine<TriggerType>;
 
 declare global {
 	interface HTMLElementTagNameMap {
@@ -247,8 +237,7 @@ export class GlPopover extends GlElement {
 
 	private handleTriggerBlur = (e: FocusEvent) => {
 		if (this.open && this.hasTrigger('focus')) {
-			const composedPath = e.composedPath();
-			if (composedPath.includes(this)) return;
+			if (e.relatedTarget && this.contains(e.relatedTarget as Node)) return;
 
 			void this.hide();
 		}
@@ -256,7 +245,7 @@ export class GlPopover extends GlElement {
 
 	private handleTriggerClick = () => {
 		if (this.hasTrigger('click')) {
-			if (this.open) {
+			if (this.open && this._triggeredBy !== 'hover') {
 				if (this._skipHideOnClick) {
 					this._skipHideOnClick = false;
 					return;
@@ -264,7 +253,7 @@ export class GlPopover extends GlElement {
 
 				void this.hide();
 			} else {
-				void this.show();
+				void this.show('click');
 			}
 		}
 	};
@@ -280,7 +269,11 @@ export class GlPopover extends GlElement {
 
 	private handleTriggerFocus = () => {
 		if (this.hasTrigger('focus')) {
-			void this.show();
+			if (this.open && this._triggeredBy !== 'hover' && !this.hasPopupFocus()) {
+				void this.hide();
+			} else {
+				void this.show('focus');
+			}
 		}
 	};
 
@@ -303,12 +296,19 @@ export class GlPopover extends GlElement {
 		void this.hide();
 	};
 
+	private handleWebviewMouseDown = (e: MouseEvent) => {
+		const composedPath = e.composedPath();
+		if (!composedPath.includes(this)) {
+			void this.hide();
+		}
+	};
+
 	private handleMouseOver = () => {
 		if (this.hasTrigger('hover')) {
 			clearTimeout(this.hoverTimeout);
 
 			const delay = parseDuration(getComputedStyle(this).getPropertyValue('--show-delay'));
-			this.hoverTimeout = setTimeout(() => this.show(), delay);
+			this.hoverTimeout = setTimeout(() => this.show('hover'), delay);
 		}
 	};
 
@@ -319,7 +319,7 @@ export class GlPopover extends GlElement {
 			const composedPath = e.composedPath();
 			if (composedPath[composedPath.length - 2] === this) return;
 
-			if (this.hasPopupFocus()) return;
+			if (this.hasPopupFocus() || this._triggeredBy !== 'hover') return;
 
 			const delay = parseDuration(getComputedStyle(this).getPropertyValue('--hide-delay'));
 			this.hoverTimeout = setTimeout(() => this.hide(), delay);
@@ -353,6 +353,10 @@ export class GlPopover extends GlElement {
 			document.addEventListener('focusin', this.handlePopupBlur);
 			window.addEventListener('webview-blur', this.handleWebviewBlur, false);
 
+			if (this.hasTrigger('click') || this.hasTrigger('focus')) {
+				document.addEventListener('mousedown', this.handleWebviewMouseDown);
+			}
+
 			this.body.hidden = false;
 			this.popup.active = true;
 			this.popup.reposition();
@@ -361,6 +365,7 @@ export class GlPopover extends GlElement {
 		} else {
 			document.removeEventListener('focusin', this.handlePopupBlur);
 			window.removeEventListener('webview-blur', this.handleWebviewBlur, false);
+			document.removeEventListener('mousedown', this.handleWebviewMouseDown);
 
 			// Hide
 
@@ -390,8 +395,12 @@ export class GlPopover extends GlElement {
 		}
 	}
 
+	private _triggeredBy: TriggerType | undefined;
 	/** Shows the popover. */
-	async show() {
+	async show(triggeredBy?: TriggerType) {
+		if (this._triggeredBy == null || triggeredBy !== 'hover') {
+			this._triggeredBy = triggeredBy;
+		}
 		if (this.open) return undefined;
 
 		this.open = true;
@@ -400,6 +409,7 @@ export class GlPopover extends GlElement {
 
 	/** Hides the popover */
 	async hide() {
+		this._triggeredBy = undefined;
 		if (!this.open) return undefined;
 
 		this.open = false;
