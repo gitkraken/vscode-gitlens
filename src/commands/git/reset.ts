@@ -4,8 +4,10 @@ import type { GitLog } from '../../git/models/log';
 import type { GitReference, GitRevisionReference, GitTagReference } from '../../git/models/reference';
 import { getReferenceLabel } from '../../git/models/reference';
 import type { Repository } from '../../git/models/repository';
+import { showGenericErrorMessage } from '../../messages';
 import type { FlagsQuickPickItem } from '../../quickpicks/items/flags';
 import { createFlagsQuickPickItem } from '../../quickpicks/items/flags';
+import { Logger } from '../../system/logger';
 import type { ViewsWithRepositoryFolders } from '../../views/viewBase';
 import type {
 	PartialStepState,
@@ -69,8 +71,13 @@ export class ResetGitCommand extends QuickCommand<State> {
 		return this._canSkipConfirm;
 	}
 
-	execute(state: ResetStepState) {
-		state.repo.reset(...state.flags, state.reference.ref);
+	async execute(state: ResetStepState) {
+		try {
+			await state.repo.git.reset(state.flags, state.reference.ref);
+		} catch (ex) {
+			Logger.error(ex, this.title);
+			void showGenericErrorMessage(ex.message);
+		}
 	}
 
 	protected async *steps(state: PartialStepState<State>): StepGenerator {
@@ -156,7 +163,7 @@ export class ResetGitCommand extends QuickCommand<State> {
 			}
 
 			endSteps(state);
-			this.execute(state as ResetStepState);
+			await this.execute(state as ResetStepState);
 		}
 
 		return state.counter < 0 ? StepResultBreak : undefined;
