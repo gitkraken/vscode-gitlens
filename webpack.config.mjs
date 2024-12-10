@@ -16,13 +16,14 @@ import fs from 'fs';
 import HtmlPlugin from 'html-webpack-plugin';
 import ImageMinimizerPlugin from 'image-minimizer-webpack-plugin';
 import MiniCssExtractPlugin from 'mini-css-extract-plugin';
+import { createRequire } from 'module';
+import { availableParallelism } from 'os';
 import path from 'path';
 import { validate } from 'schema-utils';
 import TerserPlugin from 'terser-webpack-plugin';
+import { fileURLToPath } from 'url';
 import webpack from 'webpack';
 import WebpackRequireFromPlugin from 'webpack-require-from';
-import { fileURLToPath } from 'url';
-import { createRequire } from 'module';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -30,6 +31,12 @@ const __dirname = path.dirname(__filename);
 const { DefinePlugin, optimize, WebpackError } = webpack;
 
 const require = createRequire(import.meta.url);
+
+const cores = Math.max(Math.floor(availableParallelism() / 6) - 1, 1);
+const eslintWorker = {
+	max: cores,
+	filesPerWorker: 100,
+};
 
 /**
  * @param {{ analyzeBundle?: boolean; analyzeDeps?: boolean; esbuild?: boolean; skipLint?: boolean } | undefined } env
@@ -84,7 +91,7 @@ function getExtensionConfig(target, mode, env) {
 		plugins.push(
 			new ESLintLitePlugin({
 				files: path.join(__dirname, 'src', '**', '*.ts'),
-				worker: true,
+				worker: eslintWorker,
 				eslintOptions: {
 					cache: true,
 					cacheLocation: path.join(__dirname, '.eslintcache/', target === 'webworker' ? 'browser/' : ''),
@@ -352,7 +359,7 @@ function getWebviewsConfig(mode, env) {
 		plugins.push(
 			new ESLintLitePlugin({
 				files: path.join(basePath, '**', '*.ts?(x)'),
-				worker: true,
+				worker: eslintWorker,
 				eslintOptions: {
 					cache: true,
 					cacheLocation: path.join(__dirname, '.eslintcache', 'webviews/'),
