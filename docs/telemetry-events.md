@@ -958,19 +958,8 @@ void
 
 ```typescript
 {
-  'action': 'open' | 'code-suggest' | 'merge' | 'soft-open' | 'switch' | 'open-worktree' | 'switch-and-code-suggest' | 'show-overview' | 'open-changes' | 'open-in-graph' | 'pin' | 'unpin' | 'snooze' | 'unsnooze' | 'open-suggestion' | 'open-suggestion-browser',
-  'initialState.group': string,
-  'initialState.selectTopItem': boolean,
   'instance': number,
-  [`item.${string}`]: string | number | boolean,
-  'items.error': string
-}
-```
-
-or
-
-```typescript
-{
+  'items.error': string,
   'action': 'open' | 'code-suggest' | 'merge' | 'soft-open' | 'switch' | 'open-worktree' | 'switch-and-code-suggest' | 'show-overview' | 'open-changes' | 'open-in-graph' | 'pin' | 'unpin' | 'snooze' | 'unsnooze' | 'open-suggestion' | 'open-suggestion-browser',
   'groups.blocked.collapsed': boolean,
   'groups.blocked.count': number,
@@ -995,7 +984,6 @@ or
   'groups.waiting-for-review.count': number,
   'initialState.group': string,
   'initialState.selectTopItem': boolean,
-  'instance': number,
   [`item.${string}`]: string | number | boolean,
   'items.count': number,
   'items.timings.codeSuggestionCounts': number,
@@ -1030,19 +1018,8 @@ or
 
 ```typescript
 {
-  'collapsed': boolean,
-  'group': 'current-branch' | 'pinned' | 'mergeable' | 'blocked' | 'follow-up' | 'needs-review' | 'waiting-for-review' | 'draft' | 'other' | 'snoozed',
-  'initialState.group': string,
-  'initialState.selectTopItem': boolean,
   'instance': number,
-  'items.error': string
-}
-```
-
-or
-
-```typescript
-{
+  'items.error': string,
   'collapsed': boolean,
   'group': 'current-branch' | 'pinned' | 'mergeable' | 'blocked' | 'follow-up' | 'needs-review' | 'waiting-for-review' | 'draft' | 'other' | 'snoozed',
   'groups.blocked.collapsed': boolean,
@@ -1068,7 +1045,6 @@ or
   'groups.waiting-for-review.count': number,
   'initialState.group': string,
   'initialState.selectTopItem': boolean,
-  'instance': number,
   'items.count': number,
   'items.timings.codeSuggestionCounts': number,
   'items.timings.enrichedItems': number,
@@ -1098,9 +1074,9 @@ void
 
 ```typescript
 {
+  'instance': number,
   'initialState.group': string,
-  'initialState.selectTopItem': boolean,
-  'instance': number
+  'initialState.selectTopItem': boolean
 }
 ```
 
@@ -1110,18 +1086,8 @@ void
 
 ```typescript
 {
-  'connected': boolean,
-  'initialState.group': string,
-  'initialState.selectTopItem': boolean,
   'instance': number,
-  'items.error': string
-}
-```
-
-or
-
-```typescript
-{
+  'items.error': string,
   'connected': boolean,
   'groups.blocked.collapsed': boolean,
   'groups.blocked.count': number,
@@ -1146,7 +1112,6 @@ or
   'groups.waiting-for-review.count': number,
   'initialState.group': string,
   'initialState.selectTopItem': boolean,
-  'instance': number,
   'items.count': number,
   'items.timings.codeSuggestionCounts': number,
   'items.timings.enrichedItems': number,
@@ -1172,18 +1137,8 @@ or
 
 ```typescript
 {
-  'connected': boolean,
-  'initialState.group': string,
-  'initialState.selectTopItem': boolean,
   'instance': number,
-  'items.error': string
-}
-```
-
-or
-
-```typescript
-{
+  'items.error': string,
   'connected': boolean,
   'groups.blocked.collapsed': boolean,
   'groups.blocked.count': number,
@@ -1208,7 +1163,6 @@ or
   'groups.waiting-for-review.count': number,
   'initialState.group': string,
   'initialState.selectTopItem': boolean,
-  'instance': number,
   'items.count': number,
   'items.timings.codeSuggestionCounts': number,
   'items.timings.enrichedItems': number,
@@ -1222,19 +1176,8 @@ or
 
 ```typescript
 {
-  'action': 'select',
-  'initialState.group': string,
-  'initialState.selectTopItem': boolean,
   'instance': number,
-  [`item.${string}`]: string | number | boolean,
-  'items.error': string
-}
-```
-
-or
-
-```typescript
-{
+  'items.error': string,
   'action': 'select',
   'groups.blocked.collapsed': boolean,
   'groups.blocked.count': number,
@@ -1259,7 +1202,6 @@ or
   'groups.waiting-for-review.count': number,
   'initialState.group': string,
   'initialState.selectTopItem': boolean,
-  'instance': number,
   [`item.${string}`]: string | number | boolean,
   'items.count': number,
   'items.timings.codeSuggestionCounts': number,
@@ -1274,18 +1216,8 @@ or
 
 ```typescript
 {
-  'connected': boolean,
-  'initialState.group': string,
-  'initialState.selectTopItem': boolean,
   'instance': number,
-  'items.error': string
-}
-```
-
-or
-
-```typescript
-{
+  'items.error': string,
   'connected': boolean,
   'groups.blocked.collapsed': boolean,
   'groups.blocked.count': number,
@@ -1310,7 +1242,6 @@ or
   'groups.waiting-for-review.count': number,
   'initialState.group': string,
   'initialState.selectTopItem': boolean,
-  'instance': number,
   'items.count': number,
   'items.timings.codeSuggestionCounts': number,
   'items.timings.enrichedItems': number,
@@ -1324,18 +1255,8 @@ or
 
 ```typescript
 {
-  'action': 'settings' | 'feedback' | 'open-on-gkdev' | 'refresh' | 'connect',
-  'initialState.group': string,
-  'initialState.selectTopItem': boolean,
   'instance': number,
-  'items.error': string
-}
-```
-
-or
-
-```typescript
-{
+  'items.error': string,
   'action': 'settings' | 'feedback' | 'open-on-gkdev' | 'refresh' | 'connect',
   'groups.blocked.collapsed': boolean,
   'groups.blocked.count': number,
@@ -1360,7 +1281,6 @@ or
   'groups.waiting-for-review.count': number,
   'initialState.group': string,
   'initialState.selectTopItem': boolean,
-  'instance': number,
   'items.count': number,
   'items.timings.codeSuggestionCounts': number,
   'items.timings.enrichedItems': number,
@@ -1378,7 +1298,7 @@ or
   'provider': string,
   'repoPrivacy': 'private' | 'public' | 'local',
   'repository.visibility': 'private' | 'public' | 'local',
-  'source': 'graph' | 'patchDetails' | 'settings' | 'timeline' | 'home' | 'account' | 'subscription' | 'code-suggest' | 'cloud-patches' | 'commandPalette' | 'deeplink' | 'inspect' | 'inspect-overview' | 'integrations' | 'launchpad' | 'launchpad-indicator' | 'launchpad-view' | 'notification' | 'prompt' | 'quick-wizard' | 'remoteProvider' | 'startWork' | 'trial-indicator' | 'scm-input' | 'walkthrough' | 'whatsnew' | 'worktrees'
+  'source': 'account' | 'subscription' | 'graph' | 'patchDetails' | 'settings' | 'timeline' | 'home' | 'code-suggest' | 'cloud-patches' | 'commandPalette' | 'deeplink' | 'inspect' | 'inspect-overview' | 'integrations' | 'launchpad' | 'launchpad-indicator' | 'launchpad-view' | 'notification' | 'prompt' | 'quick-wizard' | 'remoteProvider' | 'startWork' | 'trial-indicator' | 'scm-input' | 'walkthrough' | 'whatsnew' | 'worktrees'
 }
 ```
 
@@ -1547,9 +1467,9 @@ void
 
 ```typescript
 {
+  'instance': number,
   'action': 'connect' | 'manage',
   'connected': boolean,
-  'instance': number,
   'items.count': number
 }
 ```
@@ -1560,9 +1480,9 @@ void
 
 ```typescript
 {
+  'instance': number,
   'action': 'soft-open',
   'connected': boolean,
-  'instance': number,
   [`item.${string}`]: string | number | boolean,
   'items.count': number
 }
@@ -1574,8 +1494,8 @@ void
 
 ```typescript
 {
-  'connected': boolean,
   'instance': number,
+  'connected': boolean,
   [`item.${string}`]: string | number | boolean,
   'items.count': number
 }
@@ -1597,8 +1517,8 @@ void
 
 ```typescript
 {
-  'connected': boolean,
   'instance': number,
+  'connected': boolean,
   'items.count': number
 }
 ```
@@ -1609,8 +1529,8 @@ void
 
 ```typescript
 {
-  'connected': boolean,
   'instance': number,
+  'connected': boolean,
   'items.count': number
 }
 ```
@@ -1621,8 +1541,8 @@ void
 
 ```typescript
 {
-  'connected': boolean,
   'instance': number,
+  'connected': boolean,
   'items.count': number
 }
 ```
@@ -1633,9 +1553,9 @@ void
 
 ```typescript
 {
+  'instance': number,
   'action': 'connect',
   'connected': boolean,
-  'instance': number,
   'items.count': number
 }
 ```

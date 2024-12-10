@@ -1,4 +1,6 @@
 // @ts-check
+/** @typedef {{ name: string; result: string; hidden: boolean; index?: number }} Prop */
+
 import * as ts from 'typescript';
 import * as fs from 'fs';
 import * as path from 'path';
@@ -110,6 +112,7 @@ function expandType(file, type, indent = '', isRoot = true, prefix = '') {
 		if (!properties?.length) {
 			result = '{}';
 		} else {
+			/** @type {Prop[]} */
 			let expandedProps = properties.map(prop => {
 				const propType = typeChecker.getTypeOfSymbolAtLocation(prop, file);
 				const jsDocTags = getJSDocTags(prop);
@@ -118,32 +121,44 @@ function expandType(file, type, indent = '', isRoot = true, prefix = '') {
 					propString += `${indent}  // @deprecated: ${jsDocTags.deprecated}\n`;
 				}
 
+				const name = `${prefix}${prop.name}`;
 				const valueType = expandType(file, propType, indent + '  ', false, prefix);
-				if (!valueType) return '';
+				propString += `${indent}  '${name}': ${valueType}`;
 
-				propString += `${indent}  '${prefix}${prop.name}': ${valueType}`;
-				return propString;
+				/** @type {number | undefined} */
+				let order = Number(jsDocTags.order);
+				if (isNaN(order)) {
+					order = undefined;
+				}
+
+				return {
+					name: name,
+					result: propString,
+					hidden: !valueType,
+					index: order,
+				};
 			});
 
 			const indexInfos = typeChecker.getIndexInfosOfType(type);
 			if (indexInfos.length) {
 				expandedProps.push(
 					...indexInfos.map(indexInfo => {
-						let keyType = typeChecker.typeToString(indexInfo.keyType);
-						if (prefix) {
-							keyType = `\`${prefix}${keyType.substring(1)}`;
-						}
+						const keyType = typeChecker.typeToString(indexInfo.keyType);
+						const name = `${prefix}${keyType.substring(1, keyType.length - 1)}`;
 						const valueType = expandType(file, indexInfo.type, indent + '  ', false, prefix);
-						if (!valueType) return '';
-
-						return `${indent}  [${keyType}]: ${valueType}`;
+						return {
+							name: name,
+							result: `${indent}  [\`${name}\`]: ${valueType}`,
+							hidden: !valueType,
+						};
 					}),
 				);
 			}
 
 			result = `{\n${expandedProps
-				.filter(t => Boolean(t))
+				.filter(t => !Boolean(t.hidden))
 				.sort(sortProps)
+				.map(t => t.result)
 				.join(',\n')}\n${indent}}`;
 		}
 	} else if (type.isUnion()) {
@@ -161,28 +176,28 @@ function expandType(file, type, indent = '', isRoot = true, prefix = '') {
 		}
 	} else if (type.isIntersection()) {
 		const mergedProperties = new Map();
-		const indexInfos = new Set();
-		for (const t of type.types) {
-			if (t.symbol && t.symbol.flags & ts.SymbolFlags.TypeLiteral) {
-				for (const prop of typeChecker.getPropertiesOfType(t)) {
-					mergedProperties.set(prop.name, prop);
-				}
+		/** @type {Map<string, Prop>} */
+		const indexInfos = new Map();
+		for (const t of [type, ...type.types]) {
+			for (const prop of typeChecker.getPropertiesOfType(t)) {
+				mergedProperties.set(prop.name, prop);
+			}
 
-				for (const indexInfo of typeChecker.getIndexInfosOfType(t)) {
-					let keyType = typeChecker.typeToString(indexInfo.keyType);
-					if (prefix) {
-						keyType = `\`${prefix}${keyType.substring(1)}`;
-					}
-					const valueType = expandType(file, indexInfo.type, indent + '  ', false, prefix);
-					if (!valueType) continue;
-
-					indexInfos.add(`${indent}  [${keyType}]: ${valueType}`);
-				}
+			for (const indexInfo of typeChecker.getIndexInfosOfType(t)) {
+				const keyType = typeChecker.typeToString(indexInfo.keyType);
+				const name = `${prefix}${keyType.substring(1, keyType.length - 1)}`;
+				const valueType = expandType(file, indexInfo.type, indent + '  ', false, prefix);
+				indexInfos.set(name, {
+					name: name,
+					result: `${indent}  [\`${name}\`]: ${valueType}`,
+					hidden: !valueType,
+				});
 			}
 		}
 
 		if (mergedProperties.size) {
-			const expandedProps = [...mergedProperties].map(([name, prop]) => {
+			/** @type {Prop[]} */
+			const expandedProps = [...mergedProperties].map(([, prop]) => {
 				const propType = typeChecker.getTypeOfSymbolAtLocation(prop, file);
 				const jsDocTags = getJSDocTags(prop);
 				let propString = '';
@@ -190,20 +205,32 @@ function expandType(file, type, indent = '', isRoot = true, prefix = '') {
 					propString += `${indent}  // @deprecated: ${jsDocTags.deprecated}\n`;
 				}
 
+				const name = `${prefix}${prop.name}`;
 				const valueType = expandType(file, propType, indent + '  ', false, prefix);
-				if (!valueType) return '';
+				propString += `${indent}  '${name}': ${valueType}`;
 
-				propString += `${indent}  '${prefix}${name}': ${valueType}`;
-				return propString;
+				/** @type {number | undefined} */
+				let order = Number(jsDocTags.order);
+				if (isNaN(order)) {
+					order = undefined;
+				}
+
+				return {
+					name: name,
+					result: propString,
+					hidden: !valueType,
+					index: order,
+				};
 			});
 
 			if (indexInfos.size) {
-				expandedProps.push(...indexInfos.keys());
+				expandedProps.push(...indexInfos.values());
 			}
 
 			result = `{\n${expandedProps
-				.filter(t => Boolean(t))
+				.filter(t => !Boolean(t.hidden))
 				.sort(sortProps)
+				.map(t => t.result)
 				.join(',\n')}\n${indent}}`;
 		} else {
 			const types = type.types.map(t => expandType(file, t, indent, false, prefix)).join(' & ');
@@ -255,16 +282,16 @@ function getJSDocTags(symbol) {
 	return tags;
 }
 
+/**
+ * @param {Prop} a
+ * @param {Prop} b
+ */
 function sortProps(a, b) {
-	const propRegex = /\[?[`'](.*?)[`']\]?:/;
-
-	const matchA = propRegex.exec(a);
-	const matchB = propRegex.exec(b);
-	if (matchA && matchB) {
-		return matchA[1].localeCompare(matchB[1]);
+	if (a.index !== b.index) {
+		if (a.index && b.index) return a.index - b.index;
+		if (a.index) return -1;
+		if (b.index) return 1;
 	}
 
-	debugger;
-	console.warn('Unable to sort properties', a, b);
-	return a.localeCompare(b);
+	return a.name.localeCompare(b.name);
 }
