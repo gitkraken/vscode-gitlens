@@ -19679,7 +19679,7 @@
 		"build:tests": "node ./scripts/esbuild.tests.mjs --mode development",
 		"extract:contributions": "node --experimental-strip-types ./scripts/generateContributions.mts --extract",
 		"generate:contributions": "node --experimental-strip-types ./scripts/generateContributions.mts",
-		"generate:docs:telemetry": "node ./scripts/generate-telemetry-docs.mjs",
+		"generate:docs:telemetry": "node ./scripts/generateTelemetryDocs.mjs",
 		"generate:emoji": "node ./scripts/generateEmojiShortcodeMap.mjs",
 		"generate:licenses": "node ./scripts/generateLicenses.mjs",
 		"bundle": "webpack --mode production",
