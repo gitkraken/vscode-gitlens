@@ -682,7 +682,7 @@ export class LaunchpadCommand extends QuickCommand<State> {
 				quickpick.items = getLaunchpadQuickPickItems(context.result.items, true);
 
 				// Show just the option to toggle search on if nothing found
-				if (quickpick.activeItems.length === 0 && !isSupportedLaunchpadPullRequestUrl(value)) {
+				if (quickpick.activeItems.length === 0 && !isSupportedLaunchpadPullRequestSearchUrl(value)) {
 					quickpick.items = [toggleSearchOnItem];
 					return true;
 				}
@@ -721,7 +721,7 @@ export class LaunchpadCommand extends QuickCommand<State> {
 				}
 
 				// If a supported PR URL was entered but no existing items match outside of search mode, turn on search mode and search the API.
-				if (isSupportedLaunchpadPullRequestUrl(value)) {
+				if (isSupportedLaunchpadPullRequestSearchUrl(value)) {
 					context.isSearching = true;
 					await updateItems(quickpick, true);
 				} else if (quickpick.activeItems.length === 0 || quickpick.activeItems[0] === toggleSearchOnItem) {
@@ -1593,13 +1593,23 @@ function isLaunchpadTargetActionQuickPickItem(item: any): item is QuickPickItemO
 }
 
 function isGitHubPullRequestUrl(search: string) {
-	return search.includes('github.com') && search.includes('/pull/');
+	try {
+		const url = new URL(search);
+		return url.host === 'github.com' && url.pathname.includes('/pull/');
+	} catch {
+		return false;
+	}
 }
 
 function isGitLabPullRequestUrl(search: string) {
-	return search.includes('gitlab.com') && search.includes('/merge_requests/');
+	try {
+		const url = new URL(search);
+		return url.host === 'gitlab.com' && url.pathname.includes('/merge_requests/');
+	} catch {
+		return false;
+	}
 }
 
-function isSupportedLaunchpadPullRequestUrl(search: string) {
+function isSupportedLaunchpadPullRequestSearchUrl(search: string) {
 	return isGitHubPullRequestUrl(search) || isGitLabPullRequestUrl(search);
 }
