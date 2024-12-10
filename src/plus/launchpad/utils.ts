@@ -4,9 +4,15 @@ import type { LaunchpadSummaryResult } from './launchpadIndicator';
 import { generateLaunchpadSummary } from './launchpadIndicator';
 import type { LaunchpadGroup } from './launchpadProvider';
 
-export async function getLaunchpadSummary(container: Container): Promise<LaunchpadSummaryResult> {
+export async function getLaunchpadSummary(container: Container): Promise<LaunchpadSummaryResult | { error: Error }> {
 	const result = await container.launchpad.getCategorizedItems();
-	const groups: LaunchpadGroup[] = configuration.get('launchpad.indicator.groups') ?? [];
 
+	if (result.error != null) {
+		return {
+			error: result.error,
+		};
+	}
+
+	const groups: LaunchpadGroup[] = configuration.get('launchpad.indicator.groups') ?? [];
 	return generateLaunchpadSummary(result.items, groups);
 }
