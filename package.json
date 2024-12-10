@@ -1582,14 +1582,14 @@
 					},
 					"gitlens.views.formats.commits.tooltip": {
 						"type": "string",
-						"default": "${avatar} &nbsp;__${author}__ &nbsp;$(history) ${ago} _(${date})_ \\\n${link}${' via  'pullRequest}${'&nbsp;&nbsp;•&nbsp;&nbsp;'changesDetail} ${message}${\n\n---\n\nfootnotes}\n\n${tips}",
+						"default": "${avatar} &nbsp;__${author}__ &nbsp;$(history) ${ago} _(${date})_ \\\n${link}${' via  'pullRequest}${'&nbsp;&nbsp;'changesDetail} ${message}${\n\n---\n\nfootnotes}\n\n${tips}",
 						"markdownDescription": "Specifies the tooltip format (in markdown) of commits in the views. See [_Commit Tokens_](https://github.com/eamodio/vscode-gitlens/wiki/Custom-Formatting#commit-tokens) in the GitLens docs",
 						"scope": "window",
 						"order": 32
 					},
 					"gitlens.views.formats.commits.tooltipWithStatus": {
 						"type": "string",
-						"default": "${avatar} &nbsp;__${author}__ &nbsp;$(history) ${ago} _(${date})_ \\\n${link}${' via  'pullRequest}&nbsp;&nbsp;•&nbsp;&nbsp;{{slot-status}}${'&nbsp;&nbsp;•&nbsp;&nbsp;'changesDetail} ${message}${\n\n---\n\nfootnotes}\n\n${tips}",
+						"default": "${avatar} &nbsp;__${author}__ &nbsp;$(history) ${ago} _(${date})_ \\\n${link}${' via  'pullRequest}&nbsp;&nbsp;•&nbsp;&nbsp;{{slot-status}} ${message}${\n\n---\n\nfootnotes}\n\n${tips}",
 						"markdownDescription": "Specifies the tooltip format (in markdown) of \"file\" commits in the views. See [_Commit Tokens_](https://github.com/eamodio/vscode-gitlens/wiki/Custom-Formatting#commit-tokens) in the GitLens docs",
 						"scope": "window",
 						"order": 32
@@ -1624,7 +1624,7 @@
 					},
 					"gitlens.views.formats.stashes.tooltip": {
 						"type": "string",
-						"default": "${link}${' on `'stashOnRef`}${'&nbsp;&nbsp;•&nbsp;&nbsp;'changesDetail} \\\n &nbsp;$(history) ${ago} _(${date})_ ${message}${\n\n---\n\nfootnotes}",
+						"default": "${link}${' on `'stashOnRef`}${'&nbsp;&nbsp;'changesDetail} \\\n &nbsp;$(history) ${ago} _(${date})_ ${message}${\n\n---\n\nfootnotes}",
 						"markdownDescription": "Specifies the tooltip format (in markdown) of stashes in the views. See [_Commit Tokens_](https://github.com/eamodio/vscode-gitlens/wiki/Custom-Formatting#commit-tokens) in the GitLens docs",
 						"scope": "window",
 						"order": 52
@@ -2369,6 +2369,13 @@
 				"title": "Branches View",
 				"order": 170,
 				"properties": {
+					"gitlens.views.branches.showRemoteBranches": {
+						"type": "boolean",
+						"default": false,
+						"markdownDescription": "Specifies whether to show remote branches for the default remote in the _Branches_ view",
+						"scope": "window",
+						"order": 8
+					},
 					"gitlens.views.branches.showStashes": {
 						"type": "boolean",
 						"default": false,
@@ -7613,6 +7620,14 @@
 				"title": "Show Branch Pull Requests"
 			},
 			{
+				"command": "gitlens.views.branches.setShowRemoteBranchesOff",
+				"title": "Hide Remote Branches"
+			},
+			{
+				"command": "gitlens.views.branches.setShowRemoteBranchesOn",
+				"title": "Show Remote Branches"
+			},
+			{
 				"command": "gitlens.views.branches.setShowStashesOff",
 				"title": "Hide Stashes"
 			},
@@ -11240,6 +11255,14 @@
 					"when": "false"
 				},
 				{
+					"command": "gitlens.views.branches.setShowRemoteBranchesOff",
+					"when": "false"
+				},
+				{
+					"command": "gitlens.views.branches.setShowRemoteBranchesOn",
+					"when": "false"
+				},
+				{
 					"command": "gitlens.views.branches.setShowStashesOff",
 					"when": "false"
 				},
@@ -14557,6 +14580,16 @@
 					"group": "5_gitlens@10"
 				},
 				{
+					"command": "gitlens.views.branches.setShowRemoteBranchesOff",
+					"when": "view == gitlens.views.scm.grouped && gitlens:views:scm:grouped:view == branches && config.gitlens.views.branches.showRemoteBranches && !gitlens:hasVirtualFolders",
+					"group": "5_gitlens@11"
+				},
+				{
+					"command": "gitlens.views.branches.setShowRemoteBranchesOn",
+					"when": "view == gitlens.views.scm.grouped && gitlens:views:scm:grouped:view == branches && !config.gitlens.views.branches.showRemoteBranches && !gitlens:hasVirtualFolders",
+					"group": "5_gitlens@11"
+				},
+				{
 					"command": "gitlens.views.branches.setShowStashesOff",
 					"when": "view == gitlens.views.scm.grouped && gitlens:views:scm:grouped:view == branches && config.gitlens.views.branches.showStashes && !gitlens:hasVirtualFolders",
 					"group": "5_gitlens@11"
@@ -16798,6 +16831,16 @@
 					"command": "gitlens.views.setShowRelativeDateMarkersOn",
 					"when": "view =~ /^gitlens\\.views\\.(branches|commits|contributors|fileHistory|lineHistory|remotes|repositories|tags|worktrees)/ && !config.gitlens.views.showRelativeDateMarkers",
 					"group": "5_gitlens@10"
+				},
+				{
+					"command": "gitlens.views.branches.setShowRemoteBranchesOff",
+					"when": "view == gitlens.views.branches && config.gitlens.views.branches.showRemoteBranches && !gitlens:hasVirtualFolders",
+					"group": "5_gitlens@11"
+				},
+				{
+					"command": "gitlens.views.branches.setShowRemoteBranchesOn",
+					"when": "view == gitlens.views.branches && !config.gitlens.views.branches.showRemoteBranches && !gitlens:hasVirtualFolders",
+					"group": "5_gitlens@11"
 				},
 				{
 					"command": "gitlens.views.branches.setShowStashesOff",

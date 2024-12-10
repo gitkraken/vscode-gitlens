@@ -146,6 +146,7 @@ import {
 import {
 	createLogParserSingle,
 	createLogParserWithFiles,
+	createLogParserWithFileStats,
 	getContributorsParser,
 	getGraphParser,
 	getGraphStatsParser,
@@ -2351,6 +2352,30 @@ export class LocalGitProvider implements GitProvider, Disposable {
 	}
 
 	@log()
+	async getCommitFileStats(repoPath: string, ref: string): Promise<GitFileChange[] | undefined> {
+		const parser = createLogParserWithFileStats<{ sha: string }>({ sha: '%H' });
+
+		const data = await this.git.log(repoPath, { ref: ref }, '--max-count=1', ...parser.arguments);
+		if (data == null) return undefined;
+
+		let files: GitFileChange[] | undefined;
+
+		for (const c of parser.parse(data)) {
+			files = c.files.map(
+				f =>
+					new GitFileChange(repoPath, f.path, f.status as GitFileStatus, f.originalPath, undefined, {
+						additions: f.additions,
+						deletions: f.deletions,
+						changes: 0,
+					}),
+			);
+			break;
+		}
+
+		return files;
+	}
+
+	@log()
 	async getCommitForFile(
 		repoPath: string | undefined,
 		uri: Uri,
@@ -2460,6 +2485,7 @@ export class LocalGitProvider implements GitProvider, Disposable {
 		const ids = new Set<string>();
 		const reachableFromHEAD = new Set<string>();
 		const remappedIds = new Map<string, string>();
+		const rowStats: GitGraphRowsStats = new Map<string, GitGraphRowStats>();
 		let total = 0;
 		let iterations = 0;
 		let pendingRowsStatsCount = 0;
@@ -2585,7 +2611,6 @@ export class LocalGitProvider implements GitProvider, Disposable {
 			let remoteBranchId: string;
 			let remoteName: string;
 			let stash: GitStashCommit | undefined;
-			let stats: GitGraphRowsStats | undefined;
 			let tagId: string;
 			let tagName: string;
 			let tip: string;
@@ -2870,10 +2895,7 @@ export class LocalGitProvider implements GitProvider, Disposable {
 				});
 
 				if (commit.stats != null) {
-					if (stats == null) {
-						stats = new Map<string, GitGraphRowStats>();
-					}
-					stats.set(commit.sha, commit.stats);
+					rowStats.set(commit.sha, commit.stats);
 				}
 			}
 
@@ -2890,9 +2912,6 @@ export class LocalGitProvider implements GitProvider, Disposable {
 			let rowsStatsDeferred: GitGraph['rowsStatsDeferred'];
 
 			if (deferStats) {
-				if (stats == null) {
-					stats = new Map<string, GitGraphRowStats>();
-				}
 				pendingRowsStatsCount++;
 
 				// eslint-disable-next-line no-async-promise-executor
@@ -2910,7 +2929,7 @@ export class LocalGitProvider implements GitProvider, Disposable {
 						if (statsData) {
 							const commitStats = statsParser.parse(statsData);
 							for (const stat of commitStats) {
-								stats!.set(stat.sha, stat.stats);
+								rowStats.set(stat.sha, stat.stats);
 							}
 						}
 					} finally {
@@ -2939,7 +2958,7 @@ export class LocalGitProvider implements GitProvider, Disposable {
 				worktreesByBranch: worktreesByBranch,
 				rows: rows,
 				id: sha,
-				rowsStats: stats,
+				rowsStats: rowStats,
 				rowsStatsDeferred: rowsStatsDeferred,
 
 				paging: {
@@ -3670,7 +3689,7 @@ export class LocalGitProvider implements GitProvider, Disposable {
 			ref?: string;
 			since?: number | string;
 			stashes?: boolean | Map<string, GitStashCommit>;
-			status?: null | 'name-status' | 'numstat' | 'stat';
+			status?: boolean;
 			until?: number | string;
 			extraArgs?: string[];
 		},
@@ -3685,8 +3704,8 @@ export class LocalGitProvider implements GitProvider, Disposable {
 				`-M${similarityThreshold == null ? '' : `${similarityThreshold}%`}`,
 			];
 
-			if (options?.status !== null) {
-				args.push(`--${options?.status ?? 'name-status'}`, '--full-history');
+			if (options?.status !== false) {
+				args.push('--name-status', '--full-history');
 			}
 			if (options?.all) {
 				args.push('--all');
@@ -5077,7 +5096,7 @@ export class LocalGitProvider implements GitProvider, Disposable {
 		}
 
 		// Return only reachable stashes from the given ref
-		if (options?.reachableFrom && gitStash != null) {
+		if (options?.reachableFrom && gitStash?.stashes.size) {
 			const oldestStashDate = new Date(min(gitStash.stashes.values(), c => c.date.getTime())).toISOString();
 
 			const ancestors = await this.git.rev_list(repoPath, options.reachableFrom, { since: oldestStashDate });

@@ -329,6 +329,17 @@ export type CoreGitCommands =
 	| 'git.pushForce'
 	| 'git.undoCommit';
 
+export type CustomViewCommands =
+	| 'gitlens.home.openInGraph'
+	| 'gitlens.home.fetch'
+	| 'gitlens.home.openPullRequestChanges'
+	| 'gitlens.home.openPullRequestOnRemote'
+	| 'gitlens.home.createPullRequest'
+	| 'gitlens.home.openWorktree'
+	| 'gitlens.home.switchToBranch'
+	| 'gitlens.home.createBranch'
+	| 'gitlens.home.startWork';
+
 export type TreeViewCommands = `gitlens.views.${
 	| `branches.${
 			| 'copy'
@@ -338,6 +349,7 @@ export type TreeViewCommands = `gitlens.views.${
 			| `setShowAvatars${'On' | 'Off'}`
 			| `setShowBranchComparison${'On' | 'Off'}`
 			| `setShowBranchPullRequest${'On' | 'Off'}`
+			| `setShowRemoteBranches${'On' | 'Off'}`
 			| `setShowStashes${'On' | 'Off'}`}`
 	| `commits.${
 			| 'copy'

@@ -94,7 +94,7 @@ export class ResultsCommitsNode<View extends ViewsWithCommits = ViewsWithCommits
 		}
 
 		const [getBranchAndTagTips] = await Promise.all([
-			this.view.container.git.getBranchesAndTagsTipsFn(this.uri.repoPath),
+			this.view.container.git.getBranchesAndTagsTipsLookup(this.uri.repoPath),
 		]);
 
 		const children: ViewNode[] = [];

@@ -38,7 +38,7 @@ import type {
 	FeaturePreviewDayEventData,
 	FeaturePreviewEventData,
 	Source,
-	SubscriptionEventData,
+	SubscriptionEventDataWithPrevious,
 	SubscriptionFeaturePreviewsEventData,
 	TrackingContext,
 } from '../../../constants.telemetry';
@@ -1700,7 +1700,7 @@ function flattenSubscription(
 	subscription: Optional<Subscription, 'state'> | undefined,
 	prefix?: string,
 	featurePreviews?: FeaturePreview[] | undefined,
-): SubscriptionEventData {
+): SubscriptionEventDataWithPrevious {
 	if (subscription == null) return {};
 
 	let state = subscription.state;

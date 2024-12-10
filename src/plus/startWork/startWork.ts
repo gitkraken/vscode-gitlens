@@ -1,12 +1,12 @@
 import { md5 } from '@env/crypto';
 import slug from 'slug';
-import type { QuickInputButton, QuickPick } from 'vscode';
+import type { QuickInputButton, QuickPick, QuickPickItem } from 'vscode';
 import { Uri } from 'vscode';
 import type {
 	AsyncStepResultGenerator,
 	PartialStepState,
+	QuickPickStep,
 	StepGenerator,
-	StepResultGenerator,
 	StepSelection,
 	StepState,
 } from '../../commands/quickCommand';
@@ -14,20 +14,21 @@ import {
 	canPickStepContinue,
 	createPickStep,
 	endSteps,
-	freezeStep,
 	QuickCommand,
 	StepResultBreak,
 } from '../../commands/quickCommand';
 import {
+	ConnectIntegrationButton,
 	OpenOnGitHubQuickInputButton,
 	OpenOnGitLabQuickInputButton,
 	OpenOnJiraQuickInputButton,
 } from '../../commands/quickCommand.buttons';
 import { getSteps } from '../../commands/quickWizard.utils';
 import { proBadge } from '../../constants';
+import { Commands } from '../../constants.commands';
 import type { IntegrationId } from '../../constants.integrations';
 import { HostingIntegrationId, IssueIntegrationId } from '../../constants.integrations';
-import type { Source, Sources, StartWorkTelemetryContext } from '../../constants.telemetry';
+import type { Source, Sources, StartWorkTelemetryContext, TelemetryEvents } from '../../constants.telemetry';
 import type { Container } from '../../container';
 import type { Issue, IssueShape, SearchedIssue } from '../../git/models/issue';
 import { getOrOpenIssueRepository } from '../../git/models/issue';
@@ -39,6 +40,7 @@ import { createDirectiveQuickPickItem, Directive } from '../../quickpicks/items/
 import { getScopedCounter } from '../../system/counter';
 import { fromNow } from '../../system/date';
 import { some } from '../../system/iterable';
+import { executeCommand } from '../../system/vscode/command';
 import { configuration } from '../../system/vscode/configuration';
 import { openUrl } from '../../system/vscode/utils';
 
@@ -49,7 +51,7 @@ export type StartWorkItem = {
 export type StartWorkResult = { items: StartWorkItem[] };
 
 interface Context {
-	result: StartWorkResult;
+	result?: StartWorkResult;
 	title: string;
 	telemetryContext: StartWorkTelemetryContext | undefined;
 	connectedIntegrations: Map<SupportedStartWorkIntegrationIds, boolean>;
@@ -57,19 +59,20 @@ interface Context {
 
 interface State {
 	item?: StartWorkItem;
-	type?: StartWorkType;
-}
-interface StateWithType extends State {
-	type: StartWorkType;
 }
 
-export type StartWorkType = 'branch' | 'issue';
-type StartWorkTypeItem = { type: StartWorkType };
+type StartWorkStepState<T extends State = State> = RequireSome<StepState<T>, 'item'>;
+
+function assertsStartWorkStepState(state: StepState<State>): asserts state is StartWorkStepState {
+	if (state.item != null) return;
+
+	debugger;
+	throw new Error('Missing item');
+}
 
 export interface StartWorkCommandArgs {
 	readonly command: 'startWork';
 	source?: Sources;
-	type?: StartWorkType;
 }
 
 export const supportedStartWorkIntegrations = [
@@ -80,9 +83,38 @@ export const supportedStartWorkIntegrations = [
 export type SupportedStartWorkIntegrationIds = (typeof supportedStartWorkIntegrations)[number];
 const instanceCounter = getScopedCounter();
 
+type ConnectMoreIntegrationsItem = QuickPickItem & {
+	item: undefined;
+};
+
+type ManageIntegrationsItem = QuickPickItem & {
+	item: undefined;
+};
+
+const connectMoreIntegrationsItem: ConnectMoreIntegrationsItem = {
+	label: 'Connect an Additional Integration...',
+	detail: 'Connect additional integrations to view and start work on their issues',
+	item: undefined,
+};
+
+const manageIntegrationsItem: ManageIntegrationsItem = {
+	label: 'Manage integrations...',
+	detail: 'Manage your connected integrations',
+	item: undefined,
+};
+
+function isConnectMoreIntegrationsItem(item: unknown): item is ConnectMoreIntegrationsItem {
+	return item === connectMoreIntegrationsItem;
+}
+
+function isManageIntegrationsItem(item: unknown): item is ManageIntegrationsItem {
+	return item === manageIntegrationsItem;
+}
+
 export class StartWorkCommand extends QuickCommand<State> {
 	private readonly source: Source;
 	private readonly telemetryContext: StartWorkTelemetryContext | undefined;
+
 	constructor(container: Container, args?: StartWorkCommandArgs) {
 		super(container, 'startWork', 'startWork', `Start Work\u00a0\u00a0${proBadge}`, {
 			description: 'Start work on an issue',
@@ -96,8 +128,7 @@ export class StartWorkCommand extends QuickCommand<State> {
 		}
 
 		this.initialState = {
-			counter: args?.type != null ? 1 : 0,
-			type: args?.type,
+			counter: 0,
 		};
 	}
 
@@ -107,101 +138,80 @@ export class StartWorkCommand extends QuickCommand<State> {
 		}
 
 		const context: Context = {
-			result: { items: [] },
+			result: undefined,
 			title: this.title,
 			telemetryContext: this.telemetryContext,
-			connectedIntegrations: await this.getConnectedIntegrations(),
+			connectedIntegrations: await getConnectedIntegrations(this.container),
 		};
 
 		let opened = false;
 		while (this.canStepsContinue(state)) {
-			const hasConnectedIntegrations = this.hasConnectedIntegrations(context);
 			context.title = this.title;
+			const hasConnectedIntegrations = [...context.connectedIntegrations.values()].some(c => c);
 
-			if (state.counter < 1 || state.type == null) {
+			if (!hasConnectedIntegrations) {
 				if (this.container.telemetry.enabled) {
 					this.container.telemetry.sendEvent(
-						opened ? 'startWork/steps/type' : 'startWork/opened',
+						opened ? 'startWork/steps/connect' : 'startWork/opened',
 						{
 							...context.telemetryContext!,
-							connected: hasConnectedIntegrations,
+							connected: false,
 						},
 						this.source,
 					);
 				}
 
 				opened = true;
-				const result = yield* this.selectTypeStep(state);
-				if (result === StepResultBreak) continue;
-				state.type = result.type;
 
+				const isUsingCloudIntegrations = configuration.get('cloudIntegrations.enabled', undefined, false);
+				const result = isUsingCloudIntegrations
+					? yield* this.confirmCloudIntegrationsConnectStep(state, context)
+					: yield* this.confirmLocalIntegrationConnectStep(state, context);
+				if (result === StepResultBreak) {
+					return result;
+				}
+
+				result.resume();
+
+				const connected = result.connected;
+				if (!connected) {
+					continue;
+				}
+			}
+
+			if (state.counter < 1 || state.item == null) {
 				if (this.container.telemetry.enabled) {
 					this.container.telemetry.sendEvent(
-						'startWork/type/chosen',
+						opened ? 'startWork/steps/issue' : 'startWork/opened',
 						{
 							...context.telemetryContext!,
-							connected: hasConnectedIntegrations,
-							type: state.type,
+							connected: true,
+						},
+						this.source,
+					);
+				}
+
+				opened = true;
+
+				const result = yield* this.pickStartWorkIssueStep(state, context);
+				if (result === StepResultBreak) continue;
+				state.item = result;
+				if (this.container.telemetry.enabled) {
+					this.container.telemetry.sendEvent(
+						'startWork/issue/chosen',
+						{
+							...context.telemetryContext!,
+							...buildItemTelemetryData(result),
+							connected: true,
 						},
 						this.source,
 					);
 				}
 			}
 
-			if (state.counter < 2 && state.type === 'issue') {
-				if (!hasConnectedIntegrations) {
-					if (this.container.telemetry.enabled) {
-						this.container.telemetry.sendEvent(
-							opened ? 'startWork/steps/connect' : 'startWork/opened',
-							{
-								...context.telemetryContext!,
-								connected: false,
-								type: state.type,
-							},
-							this.source,
-						);
-					}
+			assertsStartWorkStepState(state);
 
-					opened = true;
-
-					const isUsingCloudIntegrations = configuration.get('cloudIntegrations.enabled', undefined, false);
-					const result = isUsingCloudIntegrations
-						? yield* this.confirmCloudIntegrationsConnectStep(state, context)
-						: yield* this.confirmLocalIntegrationConnectStep(state, context);
-					if (result === StepResultBreak) {
-						return result;
-					}
-					context.connectedIntegrations = await this.getConnectedIntegrations();
-					if (!this.hasConnectedIntegrations(context)) {
-						state.counter--;
-						continue;
-					}
-				}
-
-				assertsTypeStepState(state);
-				const result = yield* this.pickIssueStep(state, context, opened);
-				opened = true;
-				if (result === StepResultBreak) continue;
-				if (!isStartWorkTypeItem(result)) {
-					state.item = result;
-					if (this.container.telemetry.enabled) {
-						this.container.telemetry.sendEvent(
-							'startWork/issue/chosen',
-							{
-								...context.telemetryContext!,
-								...buildItemTelemetryData(result),
-								connected: true,
-								type: state.type,
-							},
-							this.source,
-						);
-					}
-				} else {
-					state.type = result.type;
-				}
-			}
-
-			const issue = state.item?.item?.issue;
+			const issue = state.item.item.issue;
 			const repo = issue && (await this.getIssueRepositoryIfExists(issue));
 
 			const result = yield* getSteps(
@@ -220,36 +230,12 @@ export class StartWorkCommand extends QuickCommand<State> {
 				this.pickedVia,
 			);
 			if (result === StepResultBreak) {
-				endSteps(state);
-			} else {
-				state.counter--;
+				state.counter = 0;
+				continue;
 			}
 		}
 
 		return state.counter < 0 ? StepResultBreak : undefined;
-	}
-
-	private *selectTypeStep(state: StepState<State>): StepResultGenerator<{ type: StartWorkType }> {
-		const step = createPickStep({
-			placeholder: 'Choose how to start work',
-			items: [
-				createQuickPickItemOfT<StartWorkTypeItem>(
-					{
-						label: 'Create Branch from Issue...',
-						detail: 'Will create a new branch after selecting an issue',
-					},
-					{ type: 'issue' },
-				),
-				createQuickPickItemOfT<StartWorkTypeItem>(
-					{ label: 'Create Branch...', detail: 'Will create a new branch after selecting a reference' },
-					{
-						type: 'branch',
-					},
-				),
-			],
-		});
-		const selection: StepSelection<typeof step> = yield step;
-		return canPickStepContinue(step, state, selection) ? selection[0].item : StepResultBreak;
 	}
 
 	private async getIssueRepositoryIfExists(issue: IssueShape | Issue): Promise<Repository | undefined> {
@@ -263,7 +249,8 @@ export class StartWorkCommand extends QuickCommand<State> {
 	private async *confirmLocalIntegrationConnectStep(
 		state: StepState<State>,
 		context: Context,
-	): AsyncStepResultGenerator<{ connected: boolean | IntegrationId; resume: () => void }> {
+	): AsyncStepResultGenerator<{ connected: boolean | IntegrationId; resume: () => void | undefined }> {
+		context.result = undefined;
 		const confirmations: (QuickPickItemOfT<IntegrationId> | DirectiveQuickPickItem)[] = [];
 
 		for (const integration of supportedStartWorkIntegrations) {
@@ -298,19 +285,12 @@ export class StartWorkCommand extends QuickCommand<State> {
 			},
 		);
 
-		// Note: This is a hack to allow the quickpick to stay alive after the user finishes connecting the integration.
-		// Otherwise it disappears.
-		let freeze!: () => Disposable;
-		step.onDidActivate = qp => {
-			freeze = () => freezeStep(step, qp);
-		};
-
 		const selection: StepSelection<typeof step> = yield step;
 		if (canPickStepContinue(step, state, selection)) {
-			const resume = freeze();
+			const resume = step.freeze?.();
 			const chosenIntegrationId = selection[0].item;
 			const connected = await this.ensureIntegrationConnected(chosenIntegrationId);
-			return { connected: connected ? chosenIntegrationId : false, resume: () => resume[Symbol.dispose]() };
+			return { connected: connected ? chosenIntegrationId : false, resume: () => resume?.[Symbol.dispose]() };
 		}
 
 		return StepResultBreak;
@@ -329,70 +309,77 @@ export class StartWorkCommand extends QuickCommand<State> {
 	private async *confirmCloudIntegrationsConnectStep(
 		state: StepState<State>,
 		context: Context,
-	): AsyncStepResultGenerator<{ connected: boolean | IntegrationId; resume: () => void }> {
+		overrideStep?: QuickPickStep<QuickPickItemOfT<StartWorkItem>>,
+	): AsyncStepResultGenerator<{ connected: boolean | IntegrationId; resume: () => void | undefined }> {
 		// TODO: This step is almost an exact copy of the similar one from launchpad.ts. Do we want to do anything about it? Maybe to move it to an util function with ability to parameterize labels?
 		const hasConnectedIntegration = some(context.connectedIntegrations.values(), c => c);
-		const step = this.createConfirmStep(
-			`${this.title} \u00a0\u2022\u00a0 Connect an ${hasConnectedIntegration ? 'Additional ' : ''}Integration`,
-			[
-				createQuickPickItemOfT(
-					{
-						label: `Connect an ${hasConnectedIntegration ? 'Additional ' : ''}Integration...`,
-						detail: hasConnectedIntegration
-							? 'Connect additional integrations to view their issues in Start Work'
-							: 'Connect an integration to accelerate your work',
-						picked: true,
-					},
-					true,
-				),
-			],
-			createDirectiveQuickPickItem(Directive.Cancel, false, { label: 'Cancel' }),
-			{
-				placeholder: hasConnectedIntegration
-					? 'Connect additional integrations to Start Work'
-					: 'Connect an integration to get started with Start Work',
-				buttons: [],
-				ignoreFocusOut: true,
-			},
-		);
+		context.result = undefined;
+		let step;
+		let selection;
+		if (overrideStep == null) {
+			step = this.createConfirmStep(
+				`${this.title} \u00a0\u2022\u00a0 Connect an ${
+					hasConnectedIntegration ? 'Additional ' : ''
+				}Integration`,
+				[
+					createQuickPickItemOfT(
+						{
+							label: `Connect an ${hasConnectedIntegration ? 'Additional ' : ''}Integration...`,
+							detail: hasConnectedIntegration
+								? 'Connect additional integrations to view their issues in Start Work'
+								: 'Connect an integration to accelerate your work',
+							picked: true,
+						},
+						true,
+					),
+				],
+				createDirectiveQuickPickItem(Directive.Cancel, false, { label: 'Cancel' }),
+				{
+					placeholder: hasConnectedIntegration
+						? 'Connect additional integrations to Start Work'
+						: 'Connect an integration to get started with Start Work',
+					buttons: [],
+					ignoreFocusOut: true,
+				},
+			);
 
-		// Note: This is a hack to allow the quickpick to stay alive after the user finishes connecting the integration.
-		// Otherwise it disappears.
-		let freeze!: () => Disposable;
-		let quickpick!: QuickPick<any>;
-		step.onDidActivate = qp => {
-			quickpick = qp;
-			freeze = () => freezeStep(step, qp);
-		};
-
-		const selection: StepSelection<typeof step> = yield step;
+			selection = yield step;
+		} else {
+			step = overrideStep;
+			selection = [true];
+		}
 
 		if (canPickStepContinue(step, state, selection)) {
-			const previousPlaceholder = quickpick.placeholder;
-			quickpick.placeholder = 'Connecting integrations...';
-			quickpick.ignoreFocusOut = true;
-			const resume = freeze();
+			let previousPlaceholder: string | undefined;
+			if (step.quickpick) {
+				previousPlaceholder = step.quickpick.placeholder;
+				step.quickpick.placeholder = 'Connecting integrations...';
+			}
+			const resume = step.freeze?.();
 			const connected = await this.container.integrations.connectCloudIntegrations(
 				{ integrationIds: supportedStartWorkIntegrations },
 				{
 					source: 'startWork',
 				},
 			);
-			quickpick.placeholder = previousPlaceholder;
-			return { connected: connected, resume: () => resume[Symbol.dispose]() };
+			if (step.quickpick) {
+				step.quickpick.placeholder = previousPlaceholder;
+			}
+			return { connected: connected, resume: () => resume?.[Symbol.dispose]() };
 		}
 
 		return StepResultBreak;
 	}
 
-	private *pickIssueStep(
-		state: StepState<StateWithType>,
+	private async *pickStartWorkIssueStep(
+		state: StepState<State>,
 		context: Context,
-		opened: boolean,
-	): StepResultGenerator<StartWorkItem | StartWorkTypeItem> {
-		const buildIssueItem = (i: StartWorkItem) => {
-			const onWebbButton = i.item.issue.url ? getOpenOnWebQuickInputButton(i.item.issue.provider.id) : undefined;
-			const buttons = onWebbButton ? [onWebbButton] : [];
+	): AsyncStepResultGenerator<StartWorkItem> {
+		const hasDisconnectedIntegrations = [...context.connectedIntegrations.values()].some(c => !c);
+
+		const buildStartWorkQuickPickItem = (i: StartWorkItem) => {
+			const onWebButton = i.item.issue.url ? getOpenOnWebQuickInputButton(i.item.issue.provider.id) : undefined;
+			const buttons = onWebButton ? [onWebButton] : [];
 			const hoverContent = i.item.issue.body ? `${repeatSpaces(200)}\n\n${i.item.issue.body}` : '';
 			return {
 				label:
@@ -414,7 +401,7 @@ export class StartWorkCommand extends QuickCommand<State> {
 			const items: QuickPickItemOfT<StartWorkItem>[] = [];
 
 			if (result.items?.length) {
-				items.push(...result.items.map(buildIssueItem));
+				items.push(...result.items.map(buildStartWorkQuickPickItem));
 			}
 
 			return items;
@@ -422,18 +409,21 @@ export class StartWorkCommand extends QuickCommand<State> {
 
 		function getItemsAndPlaceholder(): {
 			placeholder: string;
-			items: QuickPickItemOfT<StartWorkItem | StartWorkTypeItem>[];
+			items: (DirectiveQuickPickItem | QuickPickItemOfT<StartWorkItem | undefined>)[];
 		} {
-			if (!context.result.items.length) {
+			if (!context.result?.items.length) {
 				return {
-					placeholder: 'No issues found. Start work anyway.',
-					items: [createQuickPickItemOfT<StartWorkTypeItem>('Create a branch', { type: 'branch' })],
+					placeholder: 'No issues found for your open repositories.',
+					items: [
+						hasDisconnectedIntegrations ? connectMoreIntegrationsItem : manageIntegrationsItem,
+						createDirectiveQuickPickItem(Directive.Cancel),
+					],
 				};
 			}
 
 			return {
-				placeholder: 'Choose an item to focus on',
-				items: getItems(context.result),
+				placeholder: 'Choose an issue to start working on',
+				items: [...getItems(context.result), createDirectiveQuickPickItem(Directive.Cancel)],
 			};
 		}
 
@@ -444,43 +434,36 @@ export class StartWorkCommand extends QuickCommand<State> {
 				const { items, placeholder } = getItemsAndPlaceholder();
 				quickpick.placeholder = placeholder;
 				quickpick.items = items;
-
-				if (this.container.telemetry.enabled) {
-					this.container.telemetry.sendEvent(
-						opened ? 'startWork/steps/issue' : 'startWork/opened',
-						{
-							...context.telemetryContext!,
-							connected: true,
-							type: state.type,
-						},
-						this.source,
-					);
-				}
 			} catch {
 				quickpick.placeholder = 'Error retrieving issues';
-				quickpick.items = [];
+				quickpick.items = [createDirectiveQuickPickItem(Directive.Cancel)];
 			} finally {
 				quickpick.busy = false;
 			}
 		};
 
-		const step = createPickStep<QuickPickItemOfT<StartWorkItem | StartWorkTypeItem>>({
+		const step = createPickStep<QuickPickItemOfT<StartWorkItem>>({
 			title: context.title,
 			placeholder: 'Loading...',
 			matchOnDescription: true,
 			matchOnDetail: true,
 			items: [],
+			buttons: [...(hasDisconnectedIntegrations ? [ConnectIntegrationButton] : [])],
 			onDidActivate: updateItems,
-			onDidClickItemButton: (_quickpick, button, { item }) => {
-				if (isStartWorkTypeItem(item)) {
-					return false;
+			onDidClickButton: async (_quickpick, button) => {
+				switch (button) {
+					case ConnectIntegrationButton:
+						this.sendTitleActionTelemetry('connect', context);
+						return this.next([connectMoreIntegrationsItem]);
 				}
-
+				return undefined;
+			},
+			onDidClickItemButton: (_quickpick, button, { item }) => {
 				switch (button) {
 					case OpenOnGitHubQuickInputButton:
 					case OpenOnGitLabQuickInputButton:
 					case OpenOnJiraQuickInputButton:
-						this.sendItemActionTelemetry('soft-open', item, state, context);
+						this.sendItemActionTelemetry('soft-open', item, context);
 						this.open(item);
 						return undefined;
 					default:
@@ -495,7 +478,24 @@ export class StartWorkCommand extends QuickCommand<State> {
 			return StepResultBreak;
 		}
 		const element = selection[0];
-		return typeof element.item === 'string' ? element.item : { ...element.item };
+		if (isConnectMoreIntegrationsItem(element)) {
+			this.sendTitleActionTelemetry('connect', context);
+			const isUsingCloudIntegrations = configuration.get('cloudIntegrations.enabled', undefined, false);
+			const result = isUsingCloudIntegrations
+				? yield* this.confirmCloudIntegrationsConnectStep(state, context, step)
+				: yield* this.confirmLocalIntegrationConnectStep(state, context);
+			if (result === StepResultBreak) return result;
+
+			result.resume();
+			return StepResultBreak;
+		} else if (isManageIntegrationsItem(element)) {
+			this.sendActionTelemetry('manage', context);
+			executeCommand(Commands.PlusManageCloudIntegrations, { source: 'startWork' });
+			endSteps(state);
+			return StepResultBreak;
+		}
+
+		return { ...element.item };
 	}
 
 	private open(item: StartWorkItem): void {
@@ -503,46 +503,42 @@ export class StartWorkCommand extends QuickCommand<State> {
 		void openUrl(item.item.issue.url);
 	}
 
-	private sendItemActionTelemetry(
-		action: 'soft-open',
-		item: StartWorkItem,
-		state: StepState<StateWithType>,
-		context: Context,
-	) {
+	private sendItemActionTelemetry(action: 'soft-open', item: StartWorkItem, context: Context) {
 		this.container.telemetry.sendEvent('startWork/issue/action', {
 			...context.telemetryContext!,
 			...buildItemTelemetryData(item),
 			action: action,
 			connected: true,
-			type: state.type,
 		});
 	}
 
-	private async getConnectedIntegrations(): Promise<Map<SupportedStartWorkIntegrationIds, boolean>> {
-		const connected = new Map<SupportedStartWorkIntegrationIds, boolean>();
-		await Promise.allSettled(
-			supportedStartWorkIntegrations.map(async integrationId => {
-				const integration = await this.container.integrations.get(integrationId);
-				const isConnected = integration.maybeConnected ?? (await integration.isConnected());
-				const hasAccess = isConnected && (await integration.access());
-				connected.set(integrationId, hasAccess);
-			}),
-		);
+	private sendTitleActionTelemetry(action: TelemetryEvents['startWork/title/action']['action'], context: Context) {
+		if (!this.container.telemetry.enabled) return;
 
-		return connected;
+		this.container.telemetry.sendEvent(
+			'startWork/title/action',
+			{ ...context.telemetryContext!, connected: true, action: action },
+			this.source,
+		);
 	}
 
-	private hasConnectedIntegrations(context: Context) {
-		return [...context.connectedIntegrations.values()].some(c => c);
+	private sendActionTelemetry(action: TelemetryEvents['startWork/action']['action'], context: Context) {
+		if (!this.container.telemetry.enabled) return;
+
+		this.container.telemetry.sendEvent(
+			'startWork/action',
+			{ ...context.telemetryContext!, connected: true, action: action },
+			this.source,
+		);
 	}
 }
 
 async function updateContextItems(container: Container, context: Context) {
-	const connectedIntegrationsMap = context.connectedIntegrations;
-	const connectedIntegrations = [...connectedIntegrationsMap.keys()].filter(integrationId =>
-		Boolean(connectedIntegrationsMap.get(integrationId)),
+	context.connectedIntegrations = await getConnectedIntegrations(container);
+	const connectedIntegrations = [...context.connectedIntegrations.keys()].filter(integrationId =>
+		Boolean(context.connectedIntegrations.get(integrationId)),
 	);
-	context.result = {
+	context.result ??= {
 		items:
 			(await container.integrations.getMyIssues(connectedIntegrations, { openRepositoriesOnly: true }))?.map(
 				i => ({
@@ -558,12 +554,8 @@ async function updateContextItems(container: Container, context: Context) {
 function updateTelemetryContext(context: Context) {
 	context.telemetryContext = {
 		...context.telemetryContext!,
-		'items.count': context.result.items.length,
+		'items.count': context.result?.items.length ?? 0,
 	};
-}
-
-function isStartWorkTypeItem(item: unknown): item is StartWorkTypeItem {
-	return item != null && typeof item === 'object' && 'type' in item;
 }
 
 function repeatSpaces(count: number) {
@@ -603,11 +595,16 @@ function getOpenOnWebQuickInputButton(integrationId: string): QuickInputButton |
 	}
 }
 
-function assertsTypeStepState(state: StepState<State>): asserts state is StepState<StateWithType> {
-	if (state.type != null) {
-		return;
-	}
+async function getConnectedIntegrations(container: Container): Promise<Map<SupportedStartWorkIntegrationIds, boolean>> {
+	const connected = new Map<SupportedStartWorkIntegrationIds, boolean>();
+	await Promise.allSettled(
+		supportedStartWorkIntegrations.map(async integrationId => {
+			const integration = await container.integrations.get(integrationId);
+			const isConnected = integration.maybeConnected ?? (await integration.isConnected());
+			const hasAccess = isConnected && (await integration.access());
+			connected.set(integrationId, hasAccess);
+		}),
+	);
 
-	debugger;
-	throw new Error('Missing `item` field in state of StartWork');
+	return connected;
 }

@@ -182,7 +182,7 @@ export async function createCommitQuickPickItem<T extends GitCommit = GitCommit>
 			label: commit.summary,
 			description: `${commit.author.name}, ${commit.formattedDate}${pad('$(git-commit)', 2, 1)}${
 				commit.shortSha
-			}${pad(GlyphChars.Dot, 2, 2)}${commit.formatStats({ compact: true })}`,
+			}${pad(GlyphChars.Dot, 2, 2)}${commit.formatStats('short')}`,
 			alwaysShow: options.alwaysShow,
 			buttons: options.buttons,
 			picked: picked,
@@ -199,9 +199,7 @@ export async function createCommitQuickPickItem<T extends GitCommit = GitCommit>
 			'$(git-commit)',
 			2,
 			1,
-		)}${commit.shortSha}${pad(GlyphChars.Dot, 2, 2)}${commit.formatStats({
-			compact: true,
-		})}`,
+		)}${commit.shortSha}${pad(GlyphChars.Dot, 2, 2)}${commit.formatStats('short')}`,
 		alwaysShow: options?.alwaysShow,
 		buttons: options?.buttons,
 		picked: picked,
@@ -221,9 +219,7 @@ export function createStashQuickPickItem(
 	if (options?.compact) {
 		const item: CommitQuickPickItem<GitStashCommit> = {
 			label: `${number}${stash.summary}`,
-			description: `${stash.formattedDate}${pad(GlyphChars.Dot, 2, 2)}${stash.formatStats({
-				compact: true,
-			})}`,
+			description: `${stash.formattedDate}${pad(GlyphChars.Dot, 2, 2)}${stash.formatStats('short')}`,
 			alwaysShow: options.alwaysShow,
 			buttons: options.buttons,
 			picked: picked,
@@ -237,9 +233,9 @@ export function createStashQuickPickItem(
 	const item: CommitQuickPickItem<GitStashCommit> = {
 		label: `${number}${stash.summary}`,
 		description: '',
-		detail: `${GlyphChars.Space.repeat(2)}${stash.formattedDate}${pad(GlyphChars.Dot, 2, 2)}${stash.formatStats({
-			compact: true,
-		})}`,
+		detail: `${GlyphChars.Space.repeat(2)}${stash.formattedDate}${pad(GlyphChars.Dot, 2, 2)}${stash.formatStats(
+			'short',
+		)}`,
 		alwaysShow: options?.alwaysShow,
 		buttons: options?.buttons,
 		picked: picked,

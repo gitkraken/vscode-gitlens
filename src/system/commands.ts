@@ -1,6 +1,6 @@
-import type { Commands, TreeViewCommands } from '../constants.commands';
+import type { Commands, CustomViewCommands, TreeViewCommands } from '../constants.commands';
 
-export function createCommandLink<T>(command: Commands | TreeViewCommands, args: T) {
+export function createCommandLink<T>(command: Commands | TreeViewCommands | CustomViewCommands, args: T) {
 	if (args == null) return `command:${command}`;
 
 	return `command:${command}?${encodeURIComponent(typeof args === 'string' ? args : JSON.stringify(args))}`;

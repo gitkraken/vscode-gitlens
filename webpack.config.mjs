@@ -105,6 +105,7 @@ function getExtensionConfig(target, mode, env) {
 
 		plugins.push(
 			new ContributionsPlugin(),
+			new DocsPlugin(),
 			new FantasticonPlugin({
 				configPath: '.fantasticonrc.js',
 				onBefore:
@@ -724,32 +725,54 @@ const schema = {
 	},
 };
 
-class ContributionsPlugin {
-	constructor() {
-		this.pluginName = 'contributions';
+class FileGeneratorPlugin {
+	/**
+	 *
+	 * @param {string} pluginName
+	 * @param {string[]} pathsToWatch
+	 * @param {{ name: string; command: string; args: string[] }} command
+	 */
+	constructor(pluginName, pathsToWatch, command) {
+		this.pluginName = pluginName;
+		this.pathsToWatch = pathsToWatch;
+		this.command = command;
 		this.lastModified = 0;
 	}
 
 	/**
-	 * @param {import("webpack").Compiler} compiler
+	 * @private
+	 * @param {string[]} paths
 	 */
+	pathsChanged(paths) {
+		let changed = false;
+		for (const path of paths) {
+			try {
+				const stats = fs.statSync(path);
+				if (stats.mtimeMs > this.lastModified) {
+					changed = true;
+					break;
+				}
+			} catch {}
+		}
+
+		return changed;
+	}
+
 	apply(compiler) {
-		const contributesPath = path.join(__dirname, 'contributions.json');
 		let pendingGeneration = false;
 
-		// Add file dependency for watching
+		// Add dependent paths for watching
 		compiler.hooks.thisCompilation.tap(this.pluginName, compilation => {
-			// Only watch the source file
-			compilation.fileDependencies.add(contributesPath);
+			this.pathsToWatch.map(path => compilation.fileDependencies.add(path));
 		});
 
 		// Run generation when needed
 		compiler.hooks.make.tapAsync(this.pluginName, async (compilation, callback) => {
 			const logger = compiler.getInfrastructureLogger(this.pluginName);
 			try {
-				const stats = fs.statSync(contributesPath);
+				const changed = this.pathsChanged(this.pathsToWatch);
 				// Only regenerate if the file has changed since last time
-				if (stats.mtimeMs <= this.lastModified) {
+				if (!changed) {
 					callback();
 					return;
 				}
@@ -763,10 +786,10 @@ class ContributionsPlugin {
 				pendingGeneration = true;
 
 				try {
-					logger.log(`[${compiler.name}] Generating 'package.json' contributions...`);
+					logger.log(`Generating ${this.command.name}...`);
 					const start = Date.now();
 
-					const result = spawnSync('pnpm', ['run', 'generate:contributions'], {
+					const result = spawnSync(this.command.command, this.command.args, {
 						cwd: __dirname,
 						encoding: 'utf8',
 						shell: true,
@@ -774,23 +797,39 @@ class ContributionsPlugin {
 
 					if (result.status === 0) {
 						this.lastModified = Date.now();
-						logger.log(
-							`[${compiler.name}] Generated 'package.json' contributions in \x1b[32m${
-								Date.now() - start
-							}ms\x1b[0m`,
-						);
+						logger.log(`Generated ${this.command.name} in \x1b[32m${Date.now() - start}ms\x1b[0m`);
 					} else {
-						logger.error(`[${this.pluginName}] Failed to generate contributions: ${result.stderr}`);
+						logger.error(`[${this.pluginName}] Failed to run ${this.command.name}: ${result.stderr}`);
 					}
 				} finally {
 					pendingGeneration = false;
 				}
-			} catch (err) {
+			} catch (ex) {
 				// File doesn't exist or other error
-				logger.error(`[${this.pluginName}] Error checking contributions file: ${err}`);
+				logger.error(`[${this.pluginName}] Error checking source file: ${ex}`);
 			}
 
 			callback();
+		});
+	}
+}
+
+class ContributionsPlugin extends FileGeneratorPlugin {
+	constructor() {
+		super('contributions', [path.join(__dirname, 'contributions.json')], {
+			name: "'package.json' contributions",
+			command: 'pnpm',
+			args: ['run', 'generate:contributions'],
+		});
+	}
+}
+
+class DocsPlugin extends FileGeneratorPlugin {
+	constructor() {
+		super('docs', [path.join(__dirname, 'src', 'constants.telemetry.ts')], {
+			name: 'docs',
+			command: 'pnpm',
+			args: ['run', 'generate:docs:telemetry'],
 		});
 	}
 }
@@ -854,7 +893,7 @@ class FantasticonPlugin {
 			}
 
 			const logger = compiler.getInfrastructureLogger(this.pluginName);
-			logger.log(`[${compiler.name}] Generating icon font...`);
+			logger.log(`Generating icon font...`);
 
 			const start = Date.now();
 
@@ -883,7 +922,7 @@ class FantasticonPlugin {
 				})`;
 			}
 
-			logger.log(`[${compiler.name}] Generated icon font in \x1b[32m${Date.now() - start}ms\x1b[0m${suffix}`);
+			logger.log(`Generated icon font in \x1b[32m${Date.now() - start}ms\x1b[0m${suffix}`);
 		}
 
 		const generateFn = generate.bind(this);

@@ -18,6 +18,7 @@ import { Repository } from '../../git/models/repository';
 import type { GitUser } from '../../git/models/user';
 import type { GitWorktree } from '../../git/models/worktree';
 import { getBranchIconPath } from '../../git/utils/branch-utils';
+import { getRemoteIconPath } from '../../git/utils/remote-utils';
 import { getWorktreeBranchIconPath } from '../../git/utils/worktree-utils';
 import { fromNow } from '../../system/date';
 import { gate } from '../../system/decorators/gate';
@@ -232,7 +233,7 @@ export class BranchNode
 				targetResult,
 			] = await Promise.allSettled([
 				this.getLog(),
-				this.view.container.git.getBranchesAndTagsTipsFn(this.uri.repoPath, branch.name),
+				this.view.container.git.getBranchesAndTagsTipsLookup(this.uri.repoPath, branch.name),
 				this.options.showStatus && branch.current
 					? this.view.container.git.getStatus(this.uri.repoPath)
 					: undefined,
@@ -425,8 +426,10 @@ export class BranchNode
 		this.splatted = false;
 
 		const parts = await getBranchNodeParts(this.view.container, this.branch, this.current, {
+			avatars: this.view.config.avatars,
 			pendingPullRequest: this.getState('pendingPullRequest'),
 			showAsCommits: this.options.showAsCommits,
+			showingLocalAndRemoteBranches: this.view.type === 'branches' && this.view.config.showRemoteBranches,
 			showStatusDecorationOnly: this.options.showStatusDecorationOnly,
 			useBaseNameOnly: !(this.view.config.branches?.layout !== 'tree' || this.compacted || this.avoidCompacting),
 			worktree: this.worktree,
@@ -551,8 +554,10 @@ export async function getBranchNodeParts(
 	branch: GitBranch,
 	current: boolean,
 	options?: {
+		avatars?: boolean;
 		pendingPullRequest?: Promise<PullRequest | undefined> | undefined;
 		showAsCommits?: boolean;
+		showingLocalAndRemoteBranches?: boolean;
 		showStatusDecorationOnly?: boolean;
 		useBaseNameOnly: boolean;
 		worktree?: GitWorktree;
@@ -740,19 +745,26 @@ export async function getBranchNodeParts(
 		}
 	}
 
+	let iconPath: IconPath;
+	if (options?.pendingPullRequest != null) {
+		iconPath = new ThemeIcon('loading~spin');
+	} else if (options?.showAsCommits) {
+		iconPath = new ThemeIcon('git-commit', iconColor);
+	} else if (options?.worktree != null) {
+		iconPath = getWorktreeBranchIconPath(container, branch);
+	} else if (branch.remote && options?.showingLocalAndRemoteBranches) {
+		const remote = await branch.getRemote();
+		iconPath = getRemoteIconPath(container, remote, { avatars: options?.avatars });
+	} else {
+		iconPath = getBranchIconPath(container, branch);
+	}
+
 	return {
 		label: label,
 		description: description,
 		tooltip: tooltip,
 		contextValue: contextValue,
-		iconPath:
-			options?.pendingPullRequest != null
-				? new ThemeIcon('loading~spin')
-				: options?.showAsCommits
-				  ? new ThemeIcon('git-commit', iconColor)
-				  : options?.worktree != null
-				    ? getWorktreeBranchIconPath(container, branch)
-				    : getBranchIconPath(container, branch),
+		iconPath: iconPath,
 		resourceUri: createViewDecorationUri('branch', {
 			status: localUnpublished ? 'unpublished' : status,
 			current: current,

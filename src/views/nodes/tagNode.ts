@@ -54,7 +54,7 @@ export class TagNode extends ViewRefNode<'tag', ViewsWithTags, GitTagReference> 
 		const log = await this.getLog();
 		if (log == null) return [new MessageNode(this.view, this, 'No commits could be found.')];
 
-		const getBranchAndTagTips = await this.view.container.git.getBranchesAndTagsTipsFn(
+		const getBranchAndTagTips = await this.view.container.git.getBranchesAndTagsTipsLookup(
 			this.uri.repoPath,
 			this.tag.name,
 		);

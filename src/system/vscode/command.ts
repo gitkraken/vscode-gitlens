@@ -36,7 +36,6 @@ export function registerCommand(command: string, callback: CommandCallback, this
 
 			Container.instance.telemetry.sendEvent('command', {
 				command: command,
-				context: context,
 				'context.mode': context?.mode,
 				'context.submode': context?.submode,
 			});
