@@ -127,7 +127,7 @@ export class ContributesBuilder {
 		// Handle command menu locations
 		for (const command of Object.values(this.commands).flat()) {
 			// Handle command palette
-			if (command.commandPalette !== true) {
+			if (command.commandPalette !== true && command.commandPalette !== 'true') {
 				result.commandPalette ??= [];
 				result.commandPalette.push({
 					command: command.id,

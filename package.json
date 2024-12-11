@@ -7104,7 +7104,8 @@
 			},
 			{
 				"command": "gitlens.showAccountView",
-				"title": "Show Account on Home"
+				"title": "Show Account on Home",
+				"category": "GitLens"
 			},
 			{
 				"command": "gitlens.showBranchesView",
@@ -10806,10 +10807,6 @@
 					"when": "!gitlens:plus"
 				},
 				{
-					"command": "gitlens.plus.logout",
-					"when": "true"
-				},
-				{
 					"command": "gitlens.plus.manage",
 					"when": "gitlens:plus"
 				},
@@ -10866,10 +10863,6 @@
 					"when": "gitlens:enabled && gitlens:gk:organization:drafts:enabled && config.gitlens.cloudPatches.enabled"
 				},
 				{
-					"command": "gitlens.showAccountView",
-					"when": "false"
-				},
-				{
 					"command": "gitlens.showBranchesView",
 					"when": "gitlens:enabled"
 				},
@@ -10919,10 +10912,6 @@
 				},
 				{
 					"command": "gitlens.showGraphView",
-					"when": "gitlens:enabled"
-				},
-				{
-					"command": "gitlens.showHomeView",
 					"when": "gitlens:enabled"
 				},
 				{
