@@ -125,15 +125,18 @@ export class CommitsRepositoryNode extends RepositoryFolderNode<CommitsView, Bra
 
 export class CommitsViewNode extends RepositoriesSubscribeableNode<CommitsView, CommitsRepositoryNode> {
 	async getChildren(): Promise<ViewNode[]> {
+		this.view.description = this.view.getViewDescription();
+		this.view.message = undefined;
+
 		if (this.children == null) {
-			this.view.description = this.view.getViewDescription();
-			this.view.message = undefined;
+			if (this.view.container.git.isDiscoveringRepositories) {
+				this.view.message = 'Loading commits...';
+				await this.view.container.git.isDiscoveringRepositories;
+			}
 
 			const repositories = this.view.container.git.openRepositories;
 			if (repositories.length === 0) {
-				this.view.message = this.view.container.git.isDiscoveringRepositories
-					? 'Loading commits...'
-					: 'No commits could be found.';
+				this.view.message = 'No commits could be found.';
 
 				return [];
 			}

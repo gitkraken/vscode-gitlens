@@ -8,7 +8,7 @@ import type { GitCommit } from '../git/models/commit';
 import { isCommit } from '../git/models/commit';
 import type { GitBranchReference, GitRevisionReference } from '../git/models/reference';
 import { getReferenceLabel } from '../git/models/reference';
-import type { Repository, RepositoryChangeEvent } from '../git/models/repository';
+import type { RepositoryChangeEvent } from '../git/models/repository';
 import { groupRepositories, RepositoryChange, RepositoryChangeComparisonMode } from '../git/models/repository';
 import { getWorktreesByBranch } from '../git/models/worktree';
 import { gate } from '../system/decorators/gate';
@@ -56,20 +56,20 @@ export class BranchesViewNode extends RepositoriesSubscribeableNode<BranchesView
 		this.view.message = undefined;
 
 		if (this.children == null) {
-			let grouped: Map<Repository, Map<string, Repository>> | undefined;
-
-			let repositories = this.view.container.git.openRepositories;
-			if (configuration.get('views.collapseWorktreesWhenPossible')) {
-				grouped = await groupRepositories(repositories);
-				repositories = [...grouped.keys()];
+			if (this.view.container.git.isDiscoveringRepositories) {
+				this.view.message = 'Loading branches...';
+				await this.view.container.git.isDiscoveringRepositories;
 			}
 
+			let repositories = this.view.container.git.openRepositories;
 			if (repositories.length === 0) {
-				this.view.message = this.view.container.git.isDiscoveringRepositories
-					? 'Loading branches...'
-					: 'No branches could be found.';
-
+				this.view.message = 'No branches could be found.';
 				return [];
+			}
+
+			if (configuration.get('views.collapseWorktreesWhenPossible')) {
+				const grouped = await groupRepositories(repositories);
+				repositories = [...grouped.keys()];
 			}
 
 			// Get all the worktree branches (and track if they are opened) to pass along downstream, e.g. in the BranchNode to display an indicator

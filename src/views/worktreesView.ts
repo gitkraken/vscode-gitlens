@@ -58,18 +58,20 @@ export class WorktreesViewNode extends RepositoriesSubscribeableNode<WorktreesVi
 			const access = await this.view.container.git.access(PlusFeatures.Worktrees);
 			if (access.allowed === false) return [];
 
+			if (this.view.container.git.isDiscoveringRepositories) {
+				this.view.message = 'Loading worktrees...';
+				await this.view.container.git.isDiscoveringRepositories;
+			}
+
 			let repositories = this.view.container.git.openRepositories;
+			if (repositories.length === 0) {
+				this.view.message = 'No worktrees could be found.';
+				return [];
+			}
+
 			if (configuration.get('views.collapseWorktreesWhenPossible')) {
 				const grouped = await groupRepositories(repositories);
 				repositories = [...grouped.keys()];
-			}
-
-			if (repositories.length === 0) {
-				this.view.message = this.view.container.git.isDiscoveringRepositories
-					? 'Loading worktrees...'
-					: 'No worktrees could be found.';
-
-				return [];
 			}
 
 			const splat = repositories.length === 1;

@@ -52,18 +52,20 @@ export class RemotesViewNode extends RepositoriesSubscribeableNode<RemotesView, 
 		this.view.message = undefined;
 
 		if (this.children == null) {
+			if (this.view.container.git.isDiscoveringRepositories) {
+				this.view.message = 'Loading remotes...';
+				await this.view.container.git.isDiscoveringRepositories;
+			}
+
 			let repositories = this.view.container.git.openRepositories;
+			if (repositories.length === 0) {
+				this.view.message = 'No remotes could be found.';
+				return [];
+			}
+
 			if (configuration.get('views.collapseWorktreesWhenPossible')) {
 				const grouped = await groupRepositories(repositories);
 				repositories = [...grouped.keys()];
-			}
-
-			if (repositories.length === 0) {
-				this.view.message = this.view.container.git.isDiscoveringRepositories
-					? 'Loading remotes...'
-					: 'No remotes could be found.';
-
-				return [];
 			}
 
 			const splat = repositories.length === 1;
