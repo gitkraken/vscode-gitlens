@@ -1,3 +1,4 @@
+//@ts-check
 import { exec } from 'child_process';
 import { readFileSync, writeFileSync } from 'fs';
 import { createInterface } from 'readline';
@@ -15,7 +16,7 @@ let data = readFileSync(changelogPath, 'utf8');
 
 // Find the current version number
 const match = /\[unreleased\]: https:\/\/github\.com\/gitkraken\/vscode-gitlens\/compare\/v(.+)\.\.\.HEAD/.exec(data);
-const currentVersion = match?.[1];
+let currentVersion = match?.[1];
 if (currentVersion == null || versionRegex.test(currentVersion) === false) {
 	console.error('Unable to find current version number.');
 	currentVersion = '0.0.0';
@@ -23,7 +24,9 @@ if (currentVersion == null || versionRegex.test(currentVersion) === false) {
 
 // Create readline interface for getting input from user
 const rl = createInterface({
+	// @ts-ignore
 	input: process.stdin,
+	// @ts-ignore
 	output: process.stdout,
 });
 
@@ -50,10 +53,15 @@ rl.question(`Enter the new version number (format x.x.x, current is ${currentVer
 	// Add the new version header below the ## [Unreleased] header
 	data = data.replace('## [Unreleased]', newVersionHeader);
 
-	const unreleasedLink = match[0].replace(/\/compare\/v(.+?)\.\.\.HEAD/, `/compare/v${version}...HEAD`);
+	if (match == null) {
+		// Add the [unreleased]: line
+		data += `\n[unreleased]: https://github.com/gitkraken/vscode-gitlens/compare/v${version}...HEAD`;
+	} else {
+		const unreleasedLink = match[0].replace(/\/compare\/v(.+?)\.\.\.HEAD/, `/compare/v${version}...HEAD`);
 
-	// Update the [unreleased]: line
-	data = data.replace(match[0], `${unreleasedLink}\n${newVersionLink}`);
+		// Update the [unreleased]: line
+		data = data.replace(match[0], `${unreleasedLink}\n${newVersionLink}`);
+	}
 
 	// Writing the updated version data to CHANGELOG
 	writeFileSync(changelogPath, data);
