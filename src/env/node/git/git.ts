@@ -2067,6 +2067,10 @@ export class Git {
 		}
 	}
 
+	stash(repoPath: string, ...args: string[]) {
+		return this.git<string>({ cwd: repoPath }, 'stash', ...args);
+	}
+
 	async status(
 		repoPath: string,
 		porcelainVersion: number = 1,

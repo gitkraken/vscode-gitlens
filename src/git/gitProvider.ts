@@ -353,6 +353,11 @@ export interface GitProviderRepository {
 	): Promise<GitRemote[]>;
 	getRevisionContent(repoPath: string, path: string, ref: string): Promise<Uint8Array | undefined>;
 	getStash?(repoPath: string | undefined): Promise<GitStash | undefined>;
+	getStashCommitFiles?(
+		repoPath: string,
+		ref: string,
+		options?: { include?: { stats?: boolean } },
+	): Promise<GitFileChange[]>;
 	getStatus(repoPath: string | undefined): Promise<GitStatus | undefined>;
 	getStatusForFile(repoPath: string, uri: Uri): Promise<GitStatusFile | undefined>;
 	getStatusForFiles(repoPath: string, pathOrGlob: Uri): Promise<GitStatusFile[] | undefined>;

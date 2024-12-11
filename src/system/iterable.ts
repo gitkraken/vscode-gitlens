@@ -16,12 +16,6 @@ export function* chunk<T>(source: T[], size: number): Iterable<T[]> {
 	}
 }
 
-export const IterUtils = {
-	notNull: function <T>(x: T | null | undefined): x is T {
-		return Boolean(x);
-	},
-};
-
 export function* chunkByStringLength(source: string[], maxLength: number): Iterable<string[]> {
 	let chunk: string[] = [];
 
@@ -41,6 +35,12 @@ export function* chunkByStringLength(source: string[], maxLength: number): Itera
 
 	if (chunk.length > 0) {
 		yield chunk;
+	}
+}
+
+export function* concat<T>(...sources: (Iterable<T> | IterableIterator<T>)[]): Iterable<T> {
+	for (const source of sources) {
+		yield* source;
 	}
 }
 

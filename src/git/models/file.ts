@@ -312,3 +312,20 @@ export class GitFileChange implements GitFileChangeShape {
 export function isGitFileChange(file: any): file is GitFileChange {
 	return file instanceof GitFileChange;
 }
+
+export function mapFilesWithStats(files: GitFileChange[], filesWithStats: GitFileChange[]): GitFileChange[] {
+	return files.map(file => {
+		const stats = filesWithStats.find(f => f.path === file.path)?.stats;
+		return stats != null
+			? new GitFileChange(
+					file.repoPath,
+					file.path,
+					file.status,
+					file.originalPath,
+					file.previousSha,
+					stats,
+					file.staged,
+			  )
+			: file;
+	});
+}

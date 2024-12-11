@@ -86,7 +86,7 @@ import type {
 	GitDiffShortStat,
 } from '../../../git/models/diff';
 import type { GitFile, GitFileStatus } from '../../../git/models/file';
-import { GitFileChange } from '../../../git/models/file';
+import { GitFileChange, GitFileWorkingTreeStatus, mapFilesWithStats } from '../../../git/models/file';
 import type {
 	GitGraph,
 	GitGraphRow,
@@ -143,10 +143,11 @@ import {
 	parseGitDiffShortStat,
 	parseGitFileDiff,
 } from '../../../git/parsers/diffParser';
+import type { ParserWithFilesAndMaybeStats } from '../../../git/parsers/logParser';
 import {
 	createLogParserSingle,
 	createLogParserWithFiles,
-	createLogParserWithFileStats,
+	createLogParserWithFilesAndStats,
 	getContributorsParser,
 	getGraphParser,
 	getGraphStatsParser,
@@ -2362,7 +2363,7 @@ export class LocalGitProvider implements GitProvider, Disposable {
 
 	@log()
 	async getCommitFileStats(repoPath: string, ref: string): Promise<GitFileChange[] | undefined> {
-		const parser = createLogParserWithFileStats<{ sha: string }>({ sha: '%H' });
+		const parser = createLogParserWithFilesAndStats<{ sha: string }>({ sha: '%H' });
 
 		const data = await this.git.log(repoPath, { ref: ref }, '--max-count=1', ...parser.arguments);
 		if (data == null) return undefined;
@@ -5150,6 +5151,88 @@ export class LocalGitProvider implements GitProvider, Disposable {
 		}
 
 		return gitStash ?? undefined;
+	}
+
+	@log()
+	async getStashCommitFiles(
+		repoPath: string,
+		ref: string,
+		options?: { include?: { stats?: boolean } },
+	): Promise<GitFileChange[]> {
+		const [stashFilesResult, stashUntrackedFilesResult, stashFilesStatsResult] = await Promise.allSettled([
+			// Don't include untracked files here, because we won't be able to tell them apart from added (and we need the untracked status)
+			this.getStashCommitFilesCore(repoPath, ref, { untracked: false }),
+			// Check for any untracked files -- since git doesn't return them via `git stash list` :(
+			// See https://stackoverflow.com/questions/12681529/
+			this.getStashCommitFilesCore(repoPath, ref, { untracked: 'only' }),
+			options?.include?.stats
+				? this.getStashCommitFilesCore(repoPath, ref, { untracked: true, stats: true })
+				: undefined,
+		]);
+
+		let files = getSettledValue(stashFilesResult);
+		const untrackedFiles = getSettledValue(stashUntrackedFilesResult);
+
+		if (files?.length && untrackedFiles?.length) {
+			files.push(...untrackedFiles);
+		} else {
+			files = files ?? untrackedFiles;
+		}
+
+		files ??= [];
+
+		if (stashFilesStatsResult.status === 'fulfilled' && stashFilesStatsResult.value != null) {
+			files = mapFilesWithStats(files, stashFilesStatsResult.value);
+		}
+
+		return files;
+	}
+
+	private async getStashCommitFilesCore(
+		repoPath: string,
+		ref: string,
+		options?: { untracked?: boolean | 'only'; stats?: boolean },
+	): Promise<GitFileChange[] | undefined> {
+		const args = ['show'];
+		if (options?.untracked) {
+			args.push(options?.untracked === 'only' ? '--only-untracked' : '--include-untracked');
+		}
+
+		const similarityThreshold = configuration.get('advanced.similarityThreshold');
+		if (similarityThreshold != null) {
+			args.push(`-M${similarityThreshold}%`);
+		}
+
+		const parser: ParserWithFilesAndMaybeStats<object> = options?.stats
+			? createLogParserWithFilesAndStats()
+			: createLogParserWithFiles();
+		const data = await this.git.stash(repoPath, ...args, ...parser.arguments, ref);
+
+		for (const s of parser.parse(data)) {
+			return (
+				s.files?.map(
+					f =>
+						new GitFileChange(
+							repoPath,
+							f.path,
+							(options?.untracked === 'only'
+								? GitFileWorkingTreeStatus.Untracked
+								: f.status) as GitFileStatus,
+							f.originalPath,
+							undefined,
+							f.additions || f.deletions
+								? {
+										additions: f.additions ?? 0,
+										deletions: f.deletions ?? 0,
+										changes: 0,
+								  }
+								: undefined,
+						),
+				) ?? []
+			);
+		}
+
+		return undefined;
 	}
 
 	@log()
