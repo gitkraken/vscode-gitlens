@@ -4945,6 +4945,13 @@
 						"scope": "window",
 						"order": 90
 					},
+					"gitlens.advanced.caching.gitPath": {
+						"type": "boolean",
+						"default": true,
+						"markdownDescription": "Specifies whether to cache (per-workspace) the path to the Git executable to use for GitLens",
+						"scope": "window",
+						"order": 91
+					},
 					"gitlens.debug": {
 						"type": "boolean",
 						"default": false,
@@ -19679,7 +19686,7 @@
 		"build:tests": "node ./scripts/esbuild.tests.mjs --mode development",
 		"extract:contributions": "node --experimental-strip-types ./scripts/generateContributions.mts --extract",
 		"generate:contributions": "node --experimental-strip-types ./scripts/generateContributions.mts",
-		"generate:docs:telemetry": "node ./scripts/generate-telemetry-docs.mjs",
+		"generate:docs:telemetry": "node ./scripts/generateTelemetryDocs.mjs",
 		"generate:emoji": "node ./scripts/generateEmojiShortcodeMap.mjs",
 		"generate:licenses": "node ./scripts/generateLicenses.mjs",
 		"bundle": "webpack --mode production",
@@ -19737,7 +19744,7 @@
 		"@octokit/request-error": "6.1.5",
 		"@octokit/types": "13.6.1",
 		"@opentelemetry/api": "1.9.0",
-		"@opentelemetry/exporter-trace-otlp-http": "0.55.0",
+		"@opentelemetry/exporter-trace-otlp-http": "0.56.0",
 		"@opentelemetry/resources": "1.29.0",
 		"@opentelemetry/sdk-trace-base": "1.29.0",
 		"@opentelemetry/semantic-conventions": "1.28.0",
@@ -19758,10 +19765,10 @@
 		"sortablejs": "1.15.0"
 	},
 	"devDependencies": {
-		"@eamodio/eslint-lite-webpack-plugin": "0.1.0",
+		"@eamodio/eslint-lite-webpack-plugin": "0.2.0",
 		"@eslint/js": "9.16.0",
-		"@playwright/test": "1.49.0",
-		"@swc/core": "1.10.0",
+		"@playwright/test": "1.49.1",
+		"@swc/core": "1.10.1",
 		"@twbs/fantasticon": "3.0.0",
 		"@types/eslint__js": "8.42.3",
 		"@types/mocha": "10.0.10",
@@ -19771,7 +19778,7 @@
 		"@types/slug": "5.0.9",
 		"@types/sortablejs": "1.15.8",
 		"@types/vscode": "1.82.0",
-		"@typescript-eslint/parser": "8.17.0",
+		"@typescript-eslint/parser": "8.18.0",
 		"@vscode/test-cli": "^0.0.10",
 		"@vscode/test-electron": "2.4.1",
 		"@vscode/test-web": "0.0.65",
@@ -19805,7 +19812,7 @@
 		"mini-css-extract-plugin": "2.9.2",
 		"mocha": "10.8.2",
 		"ovsx": "0.10.1",
-		"playwright": "1.49.0",
+		"playwright": "1.49.1",
 		"prettier": "3.1.0",
 		"regex-to-strings": "2.1.0",
 		"sass": "1.82.0",
@@ -19816,7 +19823,7 @@
 		"terser-webpack-plugin": "5.3.10",
 		"ts-loader": "9.5.1",
 		"typescript": "5.7.2",
-		"typescript-eslint": "8.17.0",
+		"typescript-eslint": "8.18.0",
 		"webpack": "5.97.1",
 		"webpack-bundle-analyzer": "4.10.2",
 		"webpack-cli": "5.1.4",
@@ -19829,5 +19836,5 @@
 		"node-fetch": "2.7.0",
 		"semver-regex": "4.0.5"
 	},
-	"packageManager": "pnpm@9.14.4"
+	"packageManager": "pnpm@9.15.0"
 }

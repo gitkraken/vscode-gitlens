@@ -189,11 +189,11 @@ export async function activate(context: ExtensionContext): Promise<GitLensApi | 
 
 		void showWhatsNew(container, gitlensVersion, prerelease, previousVersion);
 
-		void storage.store(prerelease ? 'preVersion' : 'version', gitlensVersion);
+		void storage.store(prerelease ? 'preVersion' : 'version', gitlensVersion).catch();
 
 		// Only update our synced version if the new version is greater
 		if (syncedVersion == null || compare(gitlensVersion, syncedVersion) === 1) {
-			void storage.store(prerelease ? 'synced:preVersion' : 'synced:version', gitlensVersion);
+			void storage.store(prerelease ? 'synced:preVersion' : 'synced:version', gitlensVersion).catch();
 		}
 
 		if (logLevel === 'debug') {

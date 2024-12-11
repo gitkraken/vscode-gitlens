@@ -1616,10 +1616,9 @@ export class CommitDetailsWebviewProvider
 			preferences.autolinksExpanded != null &&
 			this._context.preferences?.autolinksExpanded !== preferences.autolinksExpanded
 		) {
-			void this.container.storage.storeWorkspace(
-				'views:commitDetails:autolinksExpanded',
-				preferences.autolinksExpanded,
-			);
+			void this.container.storage
+				.storeWorkspace('views:commitDetails:autolinksExpanded', preferences.autolinksExpanded)
+				.catch();
 
 			changes.autolinksExpanded = preferences.autolinksExpanded;
 		}
@@ -1628,10 +1627,9 @@ export class CommitDetailsWebviewProvider
 			preferences.pullRequestExpanded != null &&
 			this._context.preferences?.pullRequestExpanded !== preferences.pullRequestExpanded
 		) {
-			void this.container.storage.storeWorkspace(
-				'views:commitDetails:pullRequestExpanded',
-				preferences.pullRequestExpanded,
-			);
+			void this.container.storage
+				.storeWorkspace('views:commitDetails:pullRequestExpanded', preferences.pullRequestExpanded)
+				.catch();
 
 			changes.pullRequestExpanded = preferences.pullRequestExpanded;
 		}

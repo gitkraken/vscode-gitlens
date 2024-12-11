@@ -175,18 +175,22 @@ export function getSubscriptionPlan(
 }
 
 export function getSubscriptionPlanName(id: SubscriptionPlanId) {
+	return `GitLens ${getSubscriptionPlanTier(id)}`;
+}
+
+export function getSubscriptionPlanTier(id: SubscriptionPlanId) {
 	switch (id) {
 		case SubscriptionPlanId.CommunityWithAccount:
-			return 'GitLens Community';
+			return 'Community';
 		case SubscriptionPlanId.Pro:
-			return 'GitLens Pro';
+			return 'Pro';
 		case SubscriptionPlanId.Teams:
-			return 'GitLens Teams';
+			return 'Teams';
 		case SubscriptionPlanId.Enterprise:
-			return 'GitLens Enterprise';
+			return 'Enterprise';
 		case SubscriptionPlanId.Community:
 		default:
-			return 'GitLens';
+			return 'Community';
 	}
 }
 

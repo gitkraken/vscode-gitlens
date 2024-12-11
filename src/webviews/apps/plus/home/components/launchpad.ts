@@ -1,5 +1,5 @@
 import { consume } from '@lit/context';
-import { SignalWatcher } from '@lit-labs/signals';
+import { signal, SignalWatcher } from '@lit-labs/signals';
 import type { TemplateResult } from 'lit';
 import { css, html, LitElement, nothing } from 'lit';
 import { customElement, state } from 'lit/decorators.js';
@@ -7,7 +7,7 @@ import type { LaunchpadCommandArgs } from '../../../../../plus/launchpad/launchp
 import { createCommandLink } from '../../../../../system/commands';
 import { pluralize } from '../../../../../system/string';
 import type { GetLaunchpadSummaryResponse, State } from '../../../../home/protocol';
-import { GetLaunchpadSummary } from '../../../../home/protocol';
+import { DidChangeLaunchpad, GetLaunchpadSummary } from '../../../../home/protocol';
 import { stateContext } from '../../../home/context';
 import { AsyncComputedState } from '../../../shared/components/signal-utils';
 import { ipcContext } from '../../../shared/context';
@@ -102,7 +102,9 @@ export class GlLaunchpad extends SignalWatcher(LitElement) {
 
 	@consume({ context: ipcContext })
 	private _ipc!: HostIpc;
-	private _disposable: Disposable | undefined;
+	private _disposable: Disposable[] = [];
+
+	private _summary = signal<GetLaunchpadSummaryResponse | undefined>(undefined);
 
 	private _summaryState = new AsyncComputedState<LaunchpadSummary>(async _abortSignal => {
 		const rsp = await this._ipc.sendRequest(GetLaunchpadSummary, {});
@@ -120,18 +122,28 @@ export class GlLaunchpad extends SignalWatcher(LitElement) {
 	override connectedCallback() {
 		super.connectedCallback();
 
+		this._disposable.push(
+			this._ipc.onReceiveMessage(msg => {
+				switch (true) {
+					case DidChangeLaunchpad.is(msg):
+						this._summaryState.run(true);
+						break;
+				}
+			}),
+		);
+
 		this._summaryState.run();
 	}
 
 	override disconnectedCallback() {
 		super.disconnectedCallback();
 
-		this._disposable?.dispose();
+		this._disposable.forEach(d => d.dispose());
 	}
 
 	override render() {
 		return html`
-			<gl-section>
+			<gl-section ?loading=${this._summaryState.computed.status === 'pending'}>
 				<span slot="heading">GitLens Launchpad</span>
 				<div class="summary">${this.renderSummaryResult()}</div>
 				<button-container gap="wide">
@@ -188,6 +200,13 @@ export class GlLaunchpad extends SignalWatcher(LitElement) {
 
 	private renderSummary(summary: LaunchpadSummary | undefined) {
 		if (summary == null) return nothing;
+
+		if ('error' in summary) {
+			return html`<ul class="menu">
+				<li>Unable to load items</li>
+			</ul>`;
+		}
+
 		if (summary.total === 0) {
 			return html`<ul class="menu">
 				<li>You are all caught up!</li>

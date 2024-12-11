@@ -16,13 +16,14 @@ import fs from 'fs';
 import HtmlPlugin from 'html-webpack-plugin';
 import ImageMinimizerPlugin from 'image-minimizer-webpack-plugin';
 import MiniCssExtractPlugin from 'mini-css-extract-plugin';
+import { createRequire } from 'module';
+import { availableParallelism } from 'os';
 import path from 'path';
 import { validate } from 'schema-utils';
 import TerserPlugin from 'terser-webpack-plugin';
+import { fileURLToPath } from 'url';
 import webpack from 'webpack';
 import WebpackRequireFromPlugin from 'webpack-require-from';
-import { fileURLToPath } from 'url';
-import { createRequire } from 'module';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -30,6 +31,19 @@ const __dirname = path.dirname(__filename);
 const { DefinePlugin, optimize, WebpackError } = webpack;
 
 const require = createRequire(import.meta.url);
+
+const cores = Math.max(Math.floor(availableParallelism() / 6) - 1, 1);
+const eslintWorker = {
+	max: cores,
+	filesPerWorker: 100,
+};
+
+const useNpm = Boolean(process.env.GL_USE_NPM);
+if (useNpm) {
+	console.log('Using npm to run scripts');
+}
+
+const pkgMgr = useNpm ? 'npm' : 'pnpm';
 
 /**
  * @param {{ analyzeBundle?: boolean; analyzeDeps?: boolean; esbuild?: boolean; skipLint?: boolean } | undefined } env
@@ -84,7 +98,7 @@ function getExtensionConfig(target, mode, env) {
 		plugins.push(
 			new ESLintLitePlugin({
 				files: path.join(__dirname, 'src', '**', '*.ts'),
-				worker: true,
+				worker: eslintWorker,
 				eslintOptions: {
 					cache: true,
 					cacheLocation: path.join(__dirname, '.eslintcache/', target === 'webworker' ? 'browser/' : ''),
@@ -106,19 +120,20 @@ function getExtensionConfig(target, mode, env) {
 		plugins.push(
 			new ContributionsPlugin(),
 			new DocsPlugin(),
+			new LicensesPlugin(),
 			new FantasticonPlugin({
 				configPath: '.fantasticonrc.js',
 				onBefore:
 					mode !== 'production'
 						? undefined
 						: () =>
-								spawnSync('pnpm', ['run', 'icons:svgo'], {
+								spawnSync(pkgMgr, ['run', 'icons:svgo'], {
 									cwd: __dirname,
 									encoding: 'utf8',
 									shell: true,
 								}),
 				onComplete: () =>
-					spawnSync('pnpm', ['run', 'icons:apply'], {
+					spawnSync(pkgMgr, ['run', 'icons:apply'], {
 						cwd: __dirname,
 						encoding: 'utf8',
 						shell: true,
@@ -352,7 +367,7 @@ function getWebviewsConfig(mode, env) {
 		plugins.push(
 			new ESLintLitePlugin({
 				files: path.join(basePath, '**', '*.ts?(x)'),
-				worker: true,
+				worker: eslintWorker,
 				eslintOptions: {
 					cache: true,
 					cacheLocation: path.join(__dirname, '.eslintcache', 'webviews/'),
@@ -818,7 +833,7 @@ class ContributionsPlugin extends FileGeneratorPlugin {
 	constructor() {
 		super('contributions', [path.join(__dirname, 'contributions.json')], {
 			name: "'package.json' contributions",
-			command: 'pnpm',
+			command: pkgMgr,
 			args: ['run', 'generate:contributions'],
 		});
 	}
@@ -828,8 +843,18 @@ class DocsPlugin extends FileGeneratorPlugin {
 	constructor() {
 		super('docs', [path.join(__dirname, 'src', 'constants.telemetry.ts')], {
 			name: 'docs',
-			command: 'pnpm',
+			command: pkgMgr,
 			args: ['run', 'generate:docs:telemetry'],
+		});
+	}
+}
+
+class LicensesPlugin extends FileGeneratorPlugin {
+	constructor() {
+		super('licenses', [path.join(__dirname, 'package.json')], {
+			name: 'licenses',
+			command: pkgMgr,
+			args: ['run', 'generate:licenses'],
 		});
 	}
 }

@@ -59,6 +59,7 @@ import {
 	ChangeOverviewRepository,
 	CollapseSectionCommand,
 	DidChangeIntegrationsConnections,
+	DidChangeLaunchpad,
 	DidChangeOrgSettings,
 	DidChangeOverviewFilter,
 	DidChangePreviewEnabled,
@@ -112,6 +113,7 @@ export class HomeWebviewProvider implements WebviewProvider<State, State, HomeWe
 			this.container.integrations.onDidChangeConnectionState(this.onChangeConnectionState, this),
 			this.container.walkthrough.onProgressChanged(this.onWalkthroughChanged, this),
 			configuration.onDidChange(this.onDidChangeConfig, this),
+			this.container.launchpad.onDidChange(this.onDidLaunchpadChange, this),
 		);
 	}
 
@@ -220,6 +222,10 @@ export class HomeWebviewProvider implements WebviewProvider<State, State, HomeWe
 		if (configuration.changed(e, 'home.preview.enabled')) {
 			this.notifyDidChangeConfig();
 		}
+	}
+
+	private onDidLaunchpadChange() {
+		this.notifyDidChangeLaunchpad();
 	}
 
 	private async push(force = false) {
@@ -421,7 +427,7 @@ export class HomeWebviewProvider implements WebviewProvider<State, State, HomeWe
 		const collapsed = this.container.storage.get('home:sections:collapsed');
 		if (collapsed == null) {
 			if (params.collapsed === true) {
-				void this.container.storage.store('home:sections:collapsed', [params.section]);
+				void this.container.storage.store('home:sections:collapsed', [params.section]).catch();
 			}
 			return;
 		}
@@ -429,7 +435,7 @@ export class HomeWebviewProvider implements WebviewProvider<State, State, HomeWe
 		const idx = collapsed.indexOf(params.section);
 		if (params.collapsed === true) {
 			if (idx === -1) {
-				void this.container.storage.store('home:sections:collapsed', [...collapsed, params.section]);
+				void this.container.storage.store('home:sections:collapsed', [...collapsed, params.section]).catch();
 			}
 
 			return;
@@ -437,15 +443,15 @@ export class HomeWebviewProvider implements WebviewProvider<State, State, HomeWe
 
 		if (idx !== -1) {
 			collapsed.splice(idx, 1);
-			void this.container.storage.store('home:sections:collapsed', collapsed);
+			void this.container.storage.store('home:sections:collapsed', collapsed).catch();
 		}
 	}
 
 	private dismissWalkthrough() {
 		const dismissed = this.container.storage.get('home:walkthrough:dismissed');
 		if (!dismissed) {
-			void this.container.storage.store('home:walkthrough:dismissed', true);
-			void this.container.usage.track('home:walkthrough:dismissed');
+			void this.container.storage.store('home:walkthrough:dismissed', true).catch();
+			void this.container.usage.track('home:walkthrough:dismissed').catch();
 		}
 	}
 
@@ -792,6 +798,10 @@ export class HomeWebviewProvider implements WebviewProvider<State, State, HomeWe
 			previewEnabled: this.getPreviewEnabled(),
 			previewCollapsed: this.getPreviewCollapsed(),
 		});
+	}
+
+	private notifyDidChangeLaunchpad() {
+		void this.host.notify(DidChangeLaunchpad, undefined);
 	}
 
 	private notifyDidChangeOnboardingIntegration() {

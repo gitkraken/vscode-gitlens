@@ -7,6 +7,18 @@ const provider = { id: 'gemini', name: 'Google' } as const;
 type GeminiModel = AIModel<typeof provider.id>;
 const models: GeminiModel[] = [
 	{
+		id: 'gemini-exp-1206',
+		name: 'Gemini Experimental 1206',
+		maxTokens: { input: 2097152, output: 8192 },
+		provider: provider,
+	},
+	{
+		id: 'gemini-exp-1121',
+		name: 'Gemini Experimental 1121',
+		maxTokens: { input: 2097152, output: 8192 },
+		provider: provider,
+	},
+	{
 		id: 'gemini-1.5-pro-latest',
 		name: 'Gemini 1.5 Pro',
 		maxTokens: { input: 2097152, output: 8192 },
