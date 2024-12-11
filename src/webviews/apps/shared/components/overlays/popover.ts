@@ -223,6 +223,8 @@ export class GlPopover extends GlElement {
 		document.removeEventListener('focusin', this.handlePopupBlur);
 		window.removeEventListener('webview-blur', this.handleWebviewBlur, false);
 		document.removeEventListener('keydown', this.handleDocumentKeyDown);
+		document.removeEventListener('mousedown', this.handleWebviewMouseDown);
+		super.disconnectedCallback();
 	}
 
 	override firstUpdated() {
@@ -235,6 +237,64 @@ export class GlPopover extends GlElement {
 		}
 	}
 
+	override render() {
+		return html`<sl-popup
+			part="base"
+			exportparts="
+				popup:base__popup,
+				arrow:base__arrow
+			"
+			class="popover"
+			.anchor=${this.anchor}
+			placement=${this.placement}
+			distance=${this.distance}
+			skidding=${this.skidding}
+			strategy=${this.hoist ? 'fixed' : 'absolute'}
+			auto-size="horizontal"
+			auto-size-padding="3"
+			flip-padding="3"
+			flip
+			shift
+			?arrow=${this.arrow}
+			hover-bridge
+		>
+			<div slot="anchor" aria-describedby="popover">
+				<slot name="anchor"></slot>
+			</div>
+
+			<div
+				part="body"
+				id="popover"
+				class="popover__body"
+				role="tooltip"
+				aria-live=${this.open ? 'polite' : 'off'}
+			>
+				<slot name="content"></slot>
+			</div>
+		</sl-popup>`;
+	}
+
+	private _triggeredBy: TriggerType | undefined;
+	/** Shows the popover. */
+	async show(triggeredBy?: TriggerType) {
+		if (this._triggeredBy == null || triggeredBy !== 'hover') {
+			this._triggeredBy = triggeredBy;
+		}
+		if (this.open) return undefined;
+
+		this.open = true;
+		return waitForEvent(this, 'gl-popover-after-show');
+	}
+
+	/** Hides the popover */
+	async hide() {
+		this._triggeredBy = undefined;
+		if (!this.open) return undefined;
+
+		this.open = false;
+		return waitForEvent(this, 'gl-popover-after-hide');
+	}
+
 	private handleTriggerBlur = (e: FocusEvent) => {
 		if (this.open && this.hasTrigger('focus')) {
 			if (e.relatedTarget && this.contains(e.relatedTarget as Node)) return;
@@ -243,13 +303,16 @@ export class GlPopover extends GlElement {
 		}
 	};
 
-	private handleTriggerClick = () => {
+	private handleTriggerClick = (e: MouseEvent) => {
 		if (this.hasTrigger('click')) {
 			if (this.open && this._triggeredBy !== 'hover') {
 				if (this._skipHideOnClick) {
 					this._skipHideOnClick = false;
 					return;
 				}
+
+				const composedPath = e.composedPath();
+				if (composedPath.includes(this.body)) return;
 
 				void this.hide();
 			} else {
@@ -287,7 +350,7 @@ export class GlPopover extends GlElement {
 
 	private handlePopupBlur = (e: FocusEvent) => {
 		const composedPath = e.composedPath();
-		if (!composedPath.includes(this)) {
+		if (!composedPath.includes(this) && !composedPath.includes(this.body)) {
 			void this.hide();
 		}
 	};
@@ -298,7 +361,7 @@ export class GlPopover extends GlElement {
 
 	private handleWebviewMouseDown = (e: MouseEvent) => {
 		const composedPath = e.composedPath();
-		if (!composedPath.includes(this)) {
+		if (!composedPath.includes(this) && !composedPath.includes(this.body)) {
 			void this.hide();
 		}
 	};
@@ -393,63 +456,5 @@ export class GlPopover extends GlElement {
 		if (this.disabled && this.open) {
 			void this.hide();
 		}
-	}
-
-	private _triggeredBy: TriggerType | undefined;
-	/** Shows the popover. */
-	async show(triggeredBy?: TriggerType) {
-		if (this._triggeredBy == null || triggeredBy !== 'hover') {
-			this._triggeredBy = triggeredBy;
-		}
-		if (this.open) return undefined;
-
-		this.open = true;
-		return waitForEvent(this, 'gl-popover-after-show');
-	}
-
-	/** Hides the popover */
-	async hide() {
-		this._triggeredBy = undefined;
-		if (!this.open) return undefined;
-
-		this.open = false;
-		return waitForEvent(this, 'gl-popover-after-hide');
-	}
-
-	override render() {
-		return html`<sl-popup
-			part="base"
-			exportparts="
-				popup:base__popup,
-				arrow:base__arrow
-			"
-			class="popover"
-			.anchor=${this.anchor}
-			placement=${this.placement}
-			distance=${this.distance}
-			skidding=${this.skidding}
-			strategy=${this.hoist ? 'fixed' : 'absolute'}
-			auto-size="horizontal"
-			auto-size-padding="3"
-			flip-padding="3"
-			flip
-			shift
-			?arrow=${this.arrow}
-			hover-bridge
-		>
-			<div slot="anchor" aria-describedby="popover">
-				<slot name="anchor"></slot>
-			</div>
-
-			<div
-				part="body"
-				id="popover"
-				class="popover__body"
-				role="tooltip"
-				aria-live=${this.open ? 'polite' : 'off'}
-			>
-				<slot name="content"></slot>
-			</div>
-		</sl-popup>`;
 	}
 }
