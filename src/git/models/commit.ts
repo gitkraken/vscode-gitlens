@@ -8,13 +8,14 @@ import { formatDate, fromNow } from '../../system/date';
 import { gate } from '../../system/decorators/gate';
 import { memoize } from '../../system/decorators/memoize';
 import { getLoggableName } from '../../system/logger';
+import { getSettledValue } from '../../system/promise';
 import { pluralize } from '../../system/string';
 import type { PreviousLineComparisonUrisResult } from '../gitProvider';
 import { GitUri } from '../gitUri';
 import type { RemoteProvider } from '../remotes/remoteProvider';
 import { uncommitted, uncommittedStaged } from './constants';
 import type { GitFile } from './file';
-import { GitFileChange, GitFileWorkingTreeStatus } from './file';
+import { GitFileChange, mapFilesWithStats } from './file';
 import type { PullRequest } from './pullRequest';
 import type { GitReference, GitRevisionReference, GitStashReference } from './reference';
 import { isSha, isUncommitted, isUncommittedParent, isUncommittedStaged } from './reference';
@@ -226,77 +227,49 @@ export class GitCommit implements GitRevisionReference {
 			return;
 		}
 
-		const [commitResult, untrackedResult, commitFilesStatsResult] = await Promise.allSettled([
-			this.container.git.getCommit(this.repoPath, this.refType === 'stash' ? `${this.stashName}^2` : this.sha),
-			// Check for any untracked files -- since git doesn't return them via `git stash list` :(
-			// See https://stackoverflow.com/questions/12681529/
-			this.refType === 'stash' && !this._stashUntrackedFilesLoaded
-				? this.container.git.getCommit(this.repoPath, `${this.stashName}^3`)
-				: undefined,
-			options?.include?.stats
-				? this.container.git.getCommitFileStats(
-						this.repoPath,
-						this.refType === 'stash' ? `${this.stashName}^2` : this.sha,
-				  )
-				: undefined,
-			this.getPreviousSha(),
-		]);
+		if (this.refType === 'stash') {
+			const [stashFilesResult] = await Promise.allSettled([
+				this.container.git.getStashCommitFiles(this.repoPath, this.sha, options),
+				this.getPreviousSha(),
+			]);
 
-		let commit;
+			const stashFiles = getSettledValue(stashFilesResult);
+			if (stashFiles?.length) {
+				this._files = stashFiles;
+			}
+			this._stashUntrackedFilesLoaded = true;
+		} else {
+			const [commitResult, commitFilesStatsResult] = await Promise.allSettled([
+				this.container.git.getCommit(this.repoPath, this.sha),
+				options?.include?.stats ? this.container.git.getCommitFileStats(this.repoPath, this.sha) : undefined,
+				this.getPreviousSha(),
+			]);
 
-		if (commitResult.status === 'fulfilled' && commitResult.value != null) {
-			commit = commitResult.value;
-			this.parents.push(...(commit.parents ?? []));
-			this._summary = commit.summary;
-			this._message = commit.message;
-			this._files = commit.files as GitFileChange[];
-
-			if (commitFilesStatsResult.status === 'fulfilled' && commitFilesStatsResult.value != null) {
-				this._files = this._files.map(file => {
-					const fileWithStats = commitFilesStatsResult.value!.find(f => f.path === file.path);
-					return fileWithStats != null
-						? new GitFileChange(
-								file.repoPath,
-								file.path,
-								file.status,
-								file.originalPath,
-								file.previousSha,
-								fileWithStats.stats,
-						  )
-						: file;
-				});
+			const commit = getSettledValue(commitResult);
+			if (commit != null) {
+				this.parents.push(...(commit.parents ?? []));
+				this._summary = commit.summary;
+				this._message = commit.message;
+				this._files = (commit.files ?? []) as Mutable<typeof commit.files>;
 			}
 
-			if (this._file != null) {
-				const file = this._files.find(f => f.path === this._file!.path);
-				if (file != null) {
-					this._file = new GitFileChange(
-						file.repoPath,
-						file.path,
-						file.status,
-						file.originalPath ?? this._file.originalPath,
-						file.previousSha ?? this._file.previousSha,
-						file.stats ?? this._file.stats,
-					);
-				}
+			const commitFilesStats = getSettledValue(commitFilesStatsResult);
+			if (commitFilesStats?.length && this._files?.length) {
+				this._files = mapFilesWithStats(this._files, commitFilesStats);
 			}
 		}
 
-		if (untrackedResult.status === 'fulfilled' && untrackedResult.value != null) {
-			this._stashUntrackedFilesLoaded = true;
-
-			commit = untrackedResult.value;
-			if (commit?.files != null && commit.files.length !== 0) {
-				// Since these files are untracked -- make them look that way
-				const files = commit.files.map(
-					f => new GitFileChange(this.repoPath, f.path, GitFileWorkingTreeStatus.Untracked, f.originalPath),
+		if (this._files != null && this._file != null) {
+			const file = this._files.find(f => f.path === this._file!.path);
+			if (file != null) {
+				this._file = new GitFileChange(
+					file.repoPath,
+					file.path,
+					file.status,
+					file.originalPath ?? this._file.originalPath,
+					file.previousSha ?? this._file.previousSha,
+					file.stats ?? this._file.stats,
 				);
-
-				if (this._files == null) {
-					this._files = files;
-				} else {
-					this._files.push(...files);
-				}
 			}
 		}
 
@@ -627,13 +600,13 @@ export class GitCommit implements GitRevisionReference {
 		return this.container.git.hasCommitBeenPushed(this.repoPath, this.ref);
 	}
 
-	with(changes: {
+	with<T extends GitCommit>(changes: {
 		sha?: string;
 		parents?: string[];
 		files?: { file?: GitFileChange | null; files?: GitFileChange[] | null } | null;
 		lines?: GitCommitLine[];
 		stats?: GitCommitStats;
-	}): GitCommit {
+	}): T {
 		let files;
 		if (changes.files != null) {
 			files = { file: this._file, files: this._files };
@@ -668,7 +641,7 @@ export class GitCommit implements GitRevisionReference {
 			this.tips,
 			this.stashName,
 			this.stashOnRef,
-		);
+		) as T;
 	}
 
 	protected getChangedValue<T>(change: T | null | undefined, original: T | undefined): T | undefined {
