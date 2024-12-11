@@ -571,6 +571,8 @@ export class TagError extends Error {
 export const enum RebaseErrorReason {
 	WorkingChanges,
 	OverwrittenChanges,
+	UnresolvedConflicts,
+	RebaseMergeInProgress,
 	Other,
 }
 
@@ -592,6 +594,10 @@ export class RebaseError extends Error {
 				return `${baseMessage} because there are uncommitted changes`;
 			case RebaseErrorReason.OverwrittenChanges:
 				return `${baseMessage} because some local changes would be overwritten`;
+			case RebaseErrorReason.UnresolvedConflicts:
+				return `${baseMessage} due to conflicts. Resolve the conflicts first and continue the rebase`;
+			case RebaseErrorReason.RebaseMergeInProgress:
+				return `${baseMessage} because a rebase is already in progress`;
 			default:
 				return baseMessage;
 		}

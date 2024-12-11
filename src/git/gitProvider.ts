@@ -117,6 +117,15 @@ export interface BranchContributorOverview {
 	readonly contributors?: GitContributor[];
 }
 
+export type RebaseOptions = {
+	abort?: boolean;
+	autostash?: boolean;
+	checkActiveRebase?: boolean;
+	continue?: boolean;
+	interactive?: boolean;
+	skip?: boolean;
+};
+
 export interface GitProviderRepository {
 	createBranch?(repoPath: string, name: string, ref: string): Promise<void>;
 	renameBranch?(repoPath: string, oldName: string, newName: string): Promise<void>;
@@ -127,9 +136,10 @@ export interface GitProviderRepository {
 	removeRemote?(repoPath: string, name: string): Promise<void>;
 	rebase?(
 		repoPath: string,
-		ref: string,
+		upstream: string | null,
+		ref: string | null,
 		configs?: { sequenceEditor?: string },
-		options?: { interactive?: boolean },
+		options?: RebaseOptions,
 	): Promise<void>;
 
 	applyUnreachableCommitForPatch?(

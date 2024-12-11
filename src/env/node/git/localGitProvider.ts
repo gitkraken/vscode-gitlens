@@ -53,6 +53,7 @@ import type {
 	PagingOptions,
 	PreviousComparisonUrisResult,
 	PreviousLineComparisonUrisResult,
+	RebaseOptions,
 	RepositoryCloseEvent,
 	RepositoryInitWatcher,
 	RepositoryOpenEvent,
@@ -1662,22 +1663,50 @@ export class LocalGitProvider implements GitProvider, Disposable {
 	@log()
 	async rebase(
 		repoPath: string,
-		ref: string,
+		upstream: string | null,
+		ref: string | null,
 		configs?: { sequenceEditor?: string },
-		options?: { interactive?: boolean } = {},
+		options?: RebaseOptions = {},
 	): Promise<void> {
 		const configFlags = [];
 		const args = [];
+
+		if (options?.checkActiveRebase) {
+			if (await this.git.check_active_rebase(repoPath)) {
+				throw new RebaseError(RebaseErrorReason.RebaseMergeInProgress);
+			}
+
+			return;
+		}
 
 		if (configs?.sequenceEditor != null) {
 			configFlags.push('-c', `sequence.editor="${configs.sequenceEditor}"`);
 		}
 
-		if (options?.interactive) {
-			args.push('--interactive');
-		}
+		// These options can only be used on their own
+		if (options?.abort) {
+			args.push('--abort');
+		} else if (options?.continue) {
+			args.push('--continue');
+		} else if (options?.skip) {
+			args.push('--skip');
+		} else {
+			if (options?.autostash) {
+				args.push('--autostash');
+			}
 
-		args.push(ref);
+			if (options?.interactive) {
+				args.push('--interactive');
+			}
+
+			if (upstream) {
+				args.push(upstream);
+			}
+
+			if (ref) {
+				args.push(ref);
+			}
+		}
 
 		try {
 			await this.git.rebase(repoPath, args, configFlags);

@@ -107,6 +107,8 @@ export const GitErrors = {
 	tagNotFound: /tag .* not found/i,
 	invalidTagName: /invalid tag name/i,
 	remoteRejected: /rejected because the remote contains work/i,
+	unresolvedConflicts: /^error: could not apply .*\n^hint: Resolve all conflicts.*$/im,
+	rebaseMergeInProgress: /^fatal: It seems that there is already a rebase-merge directory/i,
 };
 
 const GitWarnings = {
@@ -178,6 +180,8 @@ const tagErrorAndReason: [RegExp, TagErrorReason][] = [
 const rebaseErrorAndReason: [RegExp, RebaseErrorReason][] = [
 	[GitErrors.uncommittedChanges, RebaseErrorReason.WorkingChanges],
 	[GitErrors.changesWouldBeOverwritten, RebaseErrorReason.OverwrittenChanges],
+	[GitErrors.unresolvedConflicts, RebaseErrorReason.UnresolvedConflicts],
+	[GitErrors.rebaseMergeInProgress, RebaseErrorReason.RebaseMergeInProgress],
 ];
 
 export class Git {
@@ -1101,7 +1105,7 @@ export class Git {
 
 	async rebase(repoPath: string, args: string[] | undefined = [], configs: string[] | undefined = []): Promise<void> {
 		try {
-			void (await this.git<string>({ cwd: repoPath }, ...configs, 'rebase', '--autostash', ...args));
+			void (await this.git<string>({ cwd: repoPath }, ...configs, 'rebase', ...args));
 		} catch (ex) {
 			const msg: string = ex?.toString() ?? '';
 			for (const [regex, reason] of rebaseErrorAndReason) {
@@ -1111,6 +1115,42 @@ export class Git {
 			}
 
 			throw new RebaseError(RebaseErrorReason.Other, ex);
+		}
+	}
+
+	async check_active_rebase(repoPath: string): Promise<boolean> {
+		try {
+			const data = await this.git<string>({ cwd: repoPath }, 'rev-parse', '--verify', 'REBASE_HEAD');
+			return Boolean(data.length);
+		} catch {
+			return false;
+		}
+	}
+
+	async check_active_cherry_pick(repoPath: string): Promise<boolean> {
+		try {
+			const data = await this.git<string>({ cwd: repoPath }, 'rev-parse', '--verify', 'CHERRY_PICK_HEAD');
+			return Boolean(data.length);
+		} catch (_ex) {
+			return true;
+		}
+	}
+
+	async check_active_merge(repoPath: string): Promise<boolean> {
+		try {
+			const data = await this.git<string>({ cwd: repoPath }, 'rev-parse', '--verify', 'MERGE_HEAD');
+			return Boolean(data.length);
+		} catch (_ex) {
+			return true;
+		}
+	}
+
+	async check_active_cherry_revert(repoPath: string): Promise<boolean> {
+		try {
+			const data = await this.git<string>({ cwd: repoPath }, 'rev-parse', '--verify', 'REVERT_HEAD');
+			return Boolean(data.length);
+		} catch (_ex) {
+			return true;
 		}
 	}
 

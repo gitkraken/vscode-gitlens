@@ -1,4 +1,5 @@
 import type { Container } from '../../container';
+import type { RebaseOptions } from '../../git/gitProvider';
 import type { GitBranch } from '../../git/models/branch';
 import type { GitLog } from '../../git/models/log';
 import type { GitReference } from '../../git/models/reference';
@@ -38,13 +39,9 @@ interface Context {
 	title: string;
 }
 
-type Flags = '--interactive';
-type RebaseOptions = { interactive?: boolean };
-
 interface State {
 	repo: string | Repository;
 	destination: GitReference;
-	flags: Flags[];
 	options: RebaseOptions;
 }
 
@@ -90,7 +87,7 @@ export class RebaseGitCommand extends QuickCommand<State> {
 		}
 
 		try {
-			await state.repo.git.rebase(state.destination.ref, configs, state.options);
+			await state.repo.git.rebase(null, state.destination.ref, configs, state.options);
 		} catch (ex) {
 			Logger.error(ex, this.title);
 			void showGenericErrorMessage(ex);
@@ -111,7 +108,9 @@ export class RebaseGitCommand extends QuickCommand<State> {
 		};
 
 		if (state.options == null) {
-			state.options = {};
+			state.options = {
+				autostash: true,
+			};
 		}
 
 		let skippedStepOne = false;
@@ -214,7 +213,7 @@ export class RebaseGitCommand extends QuickCommand<State> {
 			const result = yield* this.confirmStep(state as RebaseStepState, context);
 			if (result === StepResultBreak) continue;
 
-			state.options = Object.assign(state.options ?? {}, ...result);
+			state.options = Object.assign({ autostash: true }, ...result);
 
 			endSteps(state);
 			void this.execute(state as RebaseStepState);
@@ -255,9 +254,40 @@ export class RebaseGitCommand extends QuickCommand<State> {
 			return StepResultBreak;
 		}
 
-		const optionsArr: RebaseOptions[] = [];
+		try {
+			await state.repo.git.rebase(null, null, undefined, { checkActiveRebase: true });
+		} catch {
+			const step: QuickPickStep<FlagsQuickPickItem<RebaseOptions>> = this.createConfirmStep(
+				appendReposToTitle(title, state, context),
+				[
+					createFlagsQuickPickItem<RebaseOptions>([], [{ abort: true }], {
+						label: 'Abort Rebase',
+						description: '--abort',
+						detail: 'Will abort the current rebase',
+					}),
+					createFlagsQuickPickItem<RebaseOptions>([], [{ continue: true }], {
+						label: 'Continue Rebase',
+						description: '--continue',
+						detail: 'Will continue the current rebase',
+					}),
+					createFlagsQuickPickItem<RebaseOptions>([], [{ skip: true }], {
+						label: 'Skip Rebase',
+						description: '--skip',
+						detail: 'Will skip the current commit and continue the rebase',
+					}),
+				],
+				createDirectiveQuickPickItem(Directive.Cancel, true, {
+					label: 'Do nothing. A rebase is already in progress',
+					detail: "If that is not the case, you can run `rm -rf '.git/rebase-merge'` and try again",
+				}),
+			);
+
+			const selection: StepSelection<typeof step> = yield step;
+			return canPickStepContinue(step, state, selection) ? selection[0].item : StepResultBreak;
+		}
+
 		const rebaseItems = [
-			createFlagsQuickPickItem<RebaseOptions>(optionsArr, [{ interactive: true }], {
+			createFlagsQuickPickItem<RebaseOptions>([], [{ interactive: true }], {
 				label: `Interactive ${this.title}`,
 				description: '--interactive',
 				detail: `Will interactively update ${getReferenceLabel(context.branch, {
@@ -270,7 +300,7 @@ export class RebaseGitCommand extends QuickCommand<State> {
 
 		if (behind > 0) {
 			rebaseItems.unshift(
-				createFlagsQuickPickItem<RebaseOptions>(optionsArr, [{}], {
+				createFlagsQuickPickItem<RebaseOptions>([], [{}], {
 					label: this.title,
 					detail: `Will update ${getReferenceLabel(context.branch, {
 						label: false,
@@ -286,7 +316,6 @@ export class RebaseGitCommand extends QuickCommand<State> {
 			rebaseItems,
 		);
 
-		state.options = Object.assign(state.options, ...optionsArr);
 		const selection: StepSelection<typeof step> = yield step;
 		return canPickStepContinue(step, state, selection) ? selection[0].item : StepResultBreak;
 	}
