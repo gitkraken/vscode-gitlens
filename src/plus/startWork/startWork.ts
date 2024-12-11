@@ -229,10 +229,12 @@ export class StartWorkCommand extends QuickCommand<State> {
 				},
 				this.pickedVia,
 			);
-			if (result === StepResultBreak) {
+			if (result !== StepResultBreak) {
 				state.counter = 0;
 				continue;
 			}
+
+			endSteps(state);
 		}
 
 		return state.counter < 0 ? StepResultBreak : undefined;
