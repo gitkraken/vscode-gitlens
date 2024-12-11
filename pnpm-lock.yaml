@@ -112,8 +112,8 @@ importers:
         version: 1.15.0
     devDependencies:
       '@eamodio/eslint-lite-webpack-plugin':
-        specifier: 0.1.0
-        version: 0.1.0(@swc/core@1.10.1)(esbuild@0.24.0)(eslint@9.16.0(jiti@2.4.0))(webpack-cli@5.1.4)(webpack@5.97.1)
+        specifier: 0.2.0
+        version: 0.2.0(@swc/core@1.10.1)(esbuild@0.24.0)(eslint@9.16.0(jiti@2.4.0))(webpack-cli@5.1.4)(webpack@5.97.1)
       '@eslint/js':
         specifier: 9.16.0
         version: 9.16.0
@@ -386,12 +386,12 @@ packages:
     resolution: {integrity: sha512-dBVuXR082gk3jsFp7Rd/JI4kytwGHecnCoTtXFb7DB6CNHp4rg5k1bhg0nWdLGLnOV71lmDzGQaLMy8iPLY0pw==}
     engines: {node: '>=10.0.0'}
 
-  '@eamodio/eslint-lite-webpack-plugin@0.1.0':
-    resolution: {integrity: sha512-iMN1Z9Z/UGxM3Zp9oP1aloz6Z0gSXnJHunDisAJbWad4IXg5o/41on7ZHFy1i3EviaXV0oVWykJW/xCT9l50JQ==}
+  '@eamodio/eslint-lite-webpack-plugin@0.2.0':
+    resolution: {integrity: sha512-aX7IEwcQpUUos5btbghWRynnUaBeCbujgFggN3SIESuoPIO0gOeHXDtm2qxHUCW5gZemyNu6bl+GZw8jB5Xb8Q==}
     engines: {node: '>= 18.15.0'}
     peerDependencies:
-      eslint: ^9.10.0
-      webpack: ^5.94.0
+      eslint: ^9.16.0
+      webpack: ^5.97.1
 
   '@esbuild/aix-ppc64@0.24.0':
     resolution: {integrity: sha512-WtKdFM7ls47zkKHFVzMz8opM7LkcsIp9amDUBIAWirg70RM71WRSjdILPsY5Uv1D42ZpUfaPILDlfactHgsRkw==}
@@ -5428,7 +5428,7 @@ snapshots:
 
   '@discoveryjs/json-ext@0.5.7': {}
 
-  '@eamodio/eslint-lite-webpack-plugin@0.1.0(@swc/core@1.10.1)(esbuild@0.24.0)(eslint@9.16.0(jiti@2.4.0))(webpack-cli@5.1.4)(webpack@5.97.1)':
+  '@eamodio/eslint-lite-webpack-plugin@0.2.0(@swc/core@1.10.1)(esbuild@0.24.0)(eslint@9.16.0(jiti@2.4.0))(webpack-cli@5.1.4)(webpack@5.97.1)':
     dependencies:
       '@types/eslint': 9.6.1
       '@types/webpack': 5.28.5(@swc/core@1.10.1)(esbuild@0.24.0)(webpack-cli@5.1.4)
