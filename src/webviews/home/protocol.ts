@@ -44,7 +44,7 @@ export interface OverviewFilters {
 export interface GetLaunchpadSummaryRequest {
 	[key: string]: unknown;
 }
-export type GetLaunchpadSummaryResponse = LaunchpadSummaryResult | undefined;
+export type GetLaunchpadSummaryResponse = LaunchpadSummaryResult | { error: Error } | undefined;
 export const GetLaunchpadSummary = new IpcRequest<GetLaunchpadSummaryRequest, GetLaunchpadSummaryResponse>(
 	scope,
 	'launchpad/summary',
@@ -207,6 +207,8 @@ export const DidChangeIntegrationsConnections = new IpcNotification<DidChangeInt
 	scope,
 	'integrations/didChange',
 );
+
+export const DidChangeLaunchpad = new IpcNotification<undefined>(scope, 'launchpad/didChange');
 
 export interface DidChangeSubscriptionParams {
 	subscription: Subscription;

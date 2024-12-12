@@ -38,7 +38,7 @@ import type {
 	FeaturePreviewDayEventData,
 	FeaturePreviewEventData,
 	Source,
-	SubscriptionEventData,
+	SubscriptionEventDataWithPrevious,
 	SubscriptionFeaturePreviewsEventData,
 	TrackingContext,
 } from '../../../constants.telemetry';
@@ -1096,11 +1096,13 @@ export class SubscriptionService implements Disposable {
 	private storeCheckInData(data: GKCheckInResponse): void {
 		if (data.user?.id == null) return;
 
-		void this.container.storage.store(`gk:${data.user.id}:checkin`, {
-			v: 1,
-			timestamp: Date.now(),
-			data: data,
-		});
+		void this.container.storage
+			.store(`gk:${data.user.id}:checkin`, {
+				v: 1,
+				timestamp: Date.now(),
+				data: data,
+			})
+			.catch();
 	}
 
 	private async loadStoredCheckInData(userId: string): Promise<GKCheckInResponse | undefined> {
@@ -1373,7 +1375,7 @@ export class SubscriptionService implements Disposable {
 		// If the previous and new subscriptions are exactly the same, kick out
 		if (matches) {
 			if (options?.store) {
-				void this.storeSubscription(subscription);
+				void this.storeSubscription(subscription).catch();
 			}
 			return;
 		}
@@ -1391,7 +1393,7 @@ export class SubscriptionService implements Disposable {
 		});
 
 		if (options?.store !== false) {
-			void this.storeSubscription(subscription);
+			void this.storeSubscription(subscription).catch();
 		}
 
 		this._subscription = subscription;
@@ -1700,7 +1702,7 @@ function flattenSubscription(
 	subscription: Optional<Subscription, 'state'> | undefined,
 	prefix?: string,
 	featurePreviews?: FeaturePreview[] | undefined,
-): SubscriptionEventData {
+): SubscriptionEventDataWithPrevious {
 	if (subscription == null) return {};
 
 	let state = subscription.state;

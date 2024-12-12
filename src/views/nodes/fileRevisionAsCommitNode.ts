@@ -266,6 +266,9 @@ export async function getFileRevisionAsCommitTooltip(
 	const status = StatusFileFormatter.fromTemplate(
 		`\${status}\${ (originalPath)}\${'&nbsp;&nbsp;•&nbsp;&nbsp;'changesDetail}`,
 		file,
+		{
+			outputFormat: 'markdown',
+		},
 	);
 	return CommitFormatter.fromTemplateAsync(tooltipWithStatusFormat.replace('{{slot-status}}', status), commit, {
 		enrichedAutolinks: enrichedAutolinks,

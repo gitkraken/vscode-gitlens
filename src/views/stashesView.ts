@@ -38,18 +38,20 @@ export class StashesViewNode extends RepositoriesSubscribeableNode<StashesView, 
 		this.view.message = undefined;
 
 		if (this.children == null) {
+			if (this.view.container.git.isDiscoveringRepositories) {
+				this.view.message = 'Loading stashes...';
+				await this.view.container.git.isDiscoveringRepositories;
+			}
+
 			let repositories = this.view.container.git.openRepositories;
+			if (repositories.length === 0) {
+				this.view.message = 'No stashes could be found.';
+				return [];
+			}
+
 			if (configuration.get('views.collapseWorktreesWhenPossible')) {
 				const grouped = await groupRepositories(repositories);
 				repositories = [...grouped.keys()];
-			}
-
-			if (repositories.length === 0) {
-				this.view.message = this.view.container.git.isDiscoveringRepositories
-					? 'Loading stashes...'
-					: 'No stashes could be found.';
-
-				return [];
 			}
 
 			const splat = repositories.length === 1;
@@ -61,15 +63,15 @@ export class StashesViewNode extends RepositoriesSubscribeableNode<StashesView, 
 		if (this.children.length === 1) {
 			const [child] = this.children;
 
-			const stash = await child.repo.git.getStash();
-			if (!stash?.commits.size) {
+			const gitStash = await child.repo.git.getStash();
+			if (!gitStash?.stashes.size) {
 				this.view.message = 'No stashes could be found.';
 				void child.ensureSubscription();
 
 				return [];
 			}
 
-			this.view.description = this.view.getViewDescription(stash.commits.size);
+			this.view.description = this.view.getViewDescription(gitStash.stashes.size);
 
 			return child.getChildren();
 		}

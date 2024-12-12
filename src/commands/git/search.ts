@@ -28,14 +28,7 @@ import type {
 	StepSelection,
 	StepState,
 } from '../quickCommand';
-import {
-	canPickStepContinue,
-	createPickStep,
-	endSteps,
-	freezeStep,
-	QuickCommand,
-	StepResultBreak,
-} from '../quickCommand';
+import { canPickStepContinue, createPickStep, endSteps, QuickCommand, StepResultBreak } from '../quickCommand';
 import {
 	MatchAllToggleQuickInputButton,
 	MatchCaseToggleQuickInputButton,
@@ -470,7 +463,7 @@ async function updateSearchQuery(
 	let append = false;
 
 	if (usePickers?.author && item.item === 'author:') {
-		using frozen = freezeStep(step, quickpick);
+		using _frozen = step.freeze?.();
 
 		const authors = ops.get('author:');
 
@@ -492,8 +485,6 @@ async function updateSearchQuery(
 			},
 		);
 
-		frozen[Symbol.dispose]();
-
 		if (contributors != null) {
 			const authors = contributors
 				.map(c => c.email ?? c.name ?? c.username)
@@ -507,7 +498,7 @@ async function updateSearchQuery(
 			append = true;
 		}
 	} else if (usePickers?.file && item.item === 'file:') {
-		using frozen = freezeStep(step, quickpick);
+		using _frozen = step.freeze?.();
 
 		let files = ops.get('file:');
 
@@ -519,8 +510,6 @@ async function updateSearchQuery(
 			openLabel: 'Add to Search',
 			defaultUri: state.repo.folder?.uri,
 		});
-
-		frozen[Symbol.dispose]();
 
 		if (uris?.length) {
 			if (files == null) {

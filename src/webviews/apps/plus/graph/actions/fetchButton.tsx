@@ -2,6 +2,7 @@ import type { ReactNode } from 'react';
 import React from 'react';
 import type { BranchState, State } from '../../../../../plus/webviews/graph/protocol';
 import { createWebviewCommandLink } from '../../../../../system/webview';
+import { CodeIcon } from '../../../shared/components/code-icon.react';
 import { GlTooltip } from '../../../shared/components/overlays/tooltip.react';
 
 export const FetchButton = ({
@@ -21,7 +22,7 @@ export const FetchButton = ({
 				href={createWebviewCommandLink('gitlens.graph.fetch', state.webviewId, state.webviewInstanceId)}
 				className="action-button"
 			>
-				<span className="glicon glicon-repo-fetch action-button__icon"></span>
+				<CodeIcon className="action-button__icon" icon="repo-fetch" />
 				Fetch {fetchedText && <span className="action-button__small">({fetchedText})</span>}
 			</a>
 			<span slot="content" style={{ whiteSpace: 'break-spaces' }}>

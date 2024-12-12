@@ -71,7 +71,7 @@ export class GutterBlameAnnotationProvider extends BlameAnnotationProviderBase {
 
 		let getBranchAndTagTips;
 		if (CommitFormatter.has(cfg.format, 'tips')) {
-			getBranchAndTagTips = await this.container.git.getBranchesAndTagsTipsFn(blame.repoPath);
+			getBranchAndTagTips = await this.container.git.getBranchesAndTagsTipsLookup(blame.repoPath);
 		}
 
 		const options: CommitFormatOptions = {

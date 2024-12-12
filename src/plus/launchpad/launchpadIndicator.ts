@@ -584,7 +584,7 @@ export class LaunchpadIndicator implements Disposable {
 
 		const hasLoaded = this.container.storage.get('launchpad:indicator:hasLoaded') ?? false;
 		if (!hasLoaded) {
-			void this.container.storage.store('launchpad:indicator:hasLoaded', true);
+			void this.container.storage.store('launchpad:indicator:hasLoaded', true).catch();
 			this.container.telemetry.sendEvent('launchpad/indicator/firstLoad');
 		}
 	}

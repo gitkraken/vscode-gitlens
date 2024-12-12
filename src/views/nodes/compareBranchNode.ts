@@ -110,7 +110,7 @@ export class CompareBranchNode extends SubscribeableViewNode<
 	private onNodesCheckedStateChanged(e: TreeCheckboxChangeEvent<ViewNode>) {
 		const prefix = getComparisonStoragePrefix(this.getStorageId());
 		if (e.items.some(([n]) => n.id?.startsWith(prefix))) {
-			void this.storeCompareWith(false);
+			void this.storeCompareWith(false).catch();
 		}
 	}
 
@@ -254,7 +254,7 @@ export class CompareBranchNode extends SubscribeableViewNode<
 
 	@log()
 	clearReviewed() {
-		void this.storeCompareWith(true);
+		void this.storeCompareWith(true).catch();
 		void this.triggerChange();
 	}
 

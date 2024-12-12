@@ -8,7 +8,7 @@ import type { GitCommit } from '../git/models/commit';
 import { isCommit } from '../git/models/commit';
 import type { GitBranchReference, GitRevisionReference } from '../git/models/reference';
 import { getReferenceLabel } from '../git/models/reference';
-import type { Repository, RepositoryChangeEvent } from '../git/models/repository';
+import type { RepositoryChangeEvent } from '../git/models/repository';
 import { groupRepositories, RepositoryChange, RepositoryChangeComparisonMode } from '../git/models/repository';
 import { getWorktreesByBranch } from '../git/models/worktree';
 import { gate } from '../system/decorators/gate';
@@ -33,6 +33,10 @@ export class BranchesRepositoryNode extends RepositoryFolderNode<BranchesView, B
 	}
 
 	protected changed(e: RepositoryChangeEvent) {
+		if (this.view.config.showStashes && e.changed(RepositoryChange.Stash, RepositoryChangeComparisonMode.Any)) {
+			return true;
+		}
+
 		return e.changed(
 			RepositoryChange.Config,
 			RepositoryChange.Heads,
@@ -52,20 +56,20 @@ export class BranchesViewNode extends RepositoriesSubscribeableNode<BranchesView
 		this.view.message = undefined;
 
 		if (this.children == null) {
-			let grouped: Map<Repository, Map<string, Repository>> | undefined;
-
-			let repositories = this.view.container.git.openRepositories;
-			if (configuration.get('views.collapseWorktreesWhenPossible')) {
-				grouped = await groupRepositories(repositories);
-				repositories = [...grouped.keys()];
+			if (this.view.container.git.isDiscoveringRepositories) {
+				this.view.message = 'Loading branches...';
+				await this.view.container.git.isDiscoveringRepositories;
 			}
 
+			let repositories = this.view.container.git.openRepositories;
 			if (repositories.length === 0) {
-				this.view.message = this.view.container.git.isDiscoveringRepositories
-					? 'Loading branches...'
-					: 'No branches could be found.';
-
+				this.view.message = 'No branches could be found.';
 				return [];
+			}
+
+			if (configuration.get('views.collapseWorktreesWhenPossible')) {
+				const grouped = await groupRepositories(repositories);
+				repositories = [...grouped.keys()];
 			}
 
 			// Get all the worktree branches (and track if they are opened) to pass along downstream, e.g. in the BranchNode to display an indicator
@@ -83,7 +87,13 @@ export class BranchesViewNode extends RepositoriesSubscribeableNode<BranchesView
 		if (this.children.length === 1) {
 			const [child] = this.children;
 
-			const branches = await child.repo.git.getBranches({ filter: b => !b.remote });
+			const { showRemoteBranches } = this.view.config;
+			const defaultRemote = showRemoteBranches ? (await child.repo.git.getDefaultRemote())?.name : undefined;
+
+			const branches = await child.repo.git.getBranches({
+				filter: b =>
+					!b.remote || (showRemoteBranches && defaultRemote != null && b.getRemoteName() === defaultRemote),
+			});
 			if (branches.values.length === 0) {
 				this.view.message = 'No branches could be found.';
 				void child.ensureSubscription();
@@ -178,6 +188,18 @@ export class BranchesView extends ViewBase<'branches', BranchesViewNode, Branche
 				() => this.setShowBranchPullRequest(false),
 				this,
 			),
+			registerViewCommand(
+				this.getQualifiedCommand('setShowRemoteBranchesOn'),
+				() => this.setShowRemoteBranches(true),
+				this,
+			),
+			registerViewCommand(
+				this.getQualifiedCommand('setShowRemoteBranchesOff'),
+				() => this.setShowRemoteBranches(false),
+				this,
+			),
+			registerViewCommand(this.getQualifiedCommand('setShowStashesOn'), () => this.setShowStashes(true), this),
+			registerViewCommand(this.getQualifiedCommand('setShowStashesOff'), () => this.setShowStashes(false), this),
 		];
 	}
 
@@ -352,5 +374,13 @@ export class BranchesView extends ViewBase<'branches', BranchesViewNode, Branche
 	private async setShowBranchPullRequest(enabled: boolean) {
 		await configuration.updateEffective(`views.${this.configKey}.pullRequests.showForBranches` as const, enabled);
 		await configuration.updateEffective(`views.${this.configKey}.pullRequests.enabled` as const, enabled);
+	}
+
+	private setShowRemoteBranches(enabled: boolean) {
+		return configuration.updateEffective(`views.${this.configKey}.showRemoteBranches` as const, enabled);
+	}
+
+	private setShowStashes(enabled: boolean) {
+		return configuration.updateEffective(`views.${this.configKey}.showStashes` as const, enabled);
 	}
 }

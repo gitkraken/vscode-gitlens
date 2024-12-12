@@ -158,7 +158,7 @@ export async function confirmDraftStorage(container: Container): Promise<boolean
 		);
 
 		if (result === accept) {
-			void container.storage.store('confirm:draft:storage', true);
+			void container.storage.store('confirm:draft:storage', true).catch();
 			return true;
 		}
 

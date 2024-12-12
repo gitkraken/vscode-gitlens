@@ -10,7 +10,7 @@ import { setDefaultGravatarsStyle } from './avatars';
 import { CacheProvider } from './cache';
 import { GitCodeLensController } from './codelens/codeLensController';
 import type { ToggleFileAnnotationCommandArgs } from './commands/toggleFileAnnotations';
-import type { DateStyle, FileAnnotationType, ModeConfig } from './config';
+import type { DateStyle, FileAnnotationType, Mode } from './config';
 import { fromOutputLevel } from './config';
 import { extensionPrefix } from './constants';
 import { Commands } from './constants.commands';
@@ -565,7 +565,7 @@ export class Container {
 		return this._lineTracker;
 	}
 
-	private _mode: ModeConfig | undefined;
+	private _mode: Mode | undefined;
 	get mode() {
 		if (this._mode == null) {
 			this._mode = configuration.get('modes')?.[configuration.get('mode.active')];

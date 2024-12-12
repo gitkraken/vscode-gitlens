@@ -48,6 +48,7 @@ export class GlButton extends LitElement {
 				cursor: pointer;
 				border: 1px solid var(--button-border);
 				border-radius: var(--gk-action-radius, 0.3rem);
+				-webkit-font-smoothing: auto;
 			}
 
 			.control {
@@ -59,6 +60,7 @@ export class GlButton extends LitElement {
 				gap: var(--button-gap);
 				padding: var(--button-padding);
 				line-height: var(--button-line-height);
+				font-family: inherit;
 
 				color: inherit;
 				text-decoration: none;
@@ -160,7 +162,7 @@ export class GlButton extends LitElement {
 				--code-icon-v-align: unset;
 			}
 
-			:host(:hover:not([disabled]):not([aria-checked='true'])) {
+			:host([aria-checked]:hover:not([disabled]):not([aria-checked='true'])) {
 				background-color: var(--vscode-inputOption-hoverBackground);
 			}
 
@@ -254,7 +256,12 @@ export class GlButton extends LitElement {
 				><slot name="prefix"></slot><slot class="label"></slot><slot name="suffix"></slot
 			></a>`;
 		}
-		return html`<button class="control" ?disabled=${this.disabled}>
+		return html`<button
+			class="control"
+			role=${ifDefined(this.role)}
+			aria-checked=${ifDefined(this.ariaChecked)}
+			?disabled=${this.disabled}
+		>
 			<slot name="prefix"></slot><slot class="label"></slot><slot name="suffix"></slot>
 		</button>`;
 	}

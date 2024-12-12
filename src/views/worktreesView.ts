@@ -31,8 +31,17 @@ export class WorktreesRepositoryNode extends RepositoryFolderNode<WorktreesView,
 	}
 
 	protected changed(e: RepositoryChangeEvent) {
+		if (this.view.config.showStashes && e.changed(RepositoryChange.Stash, RepositoryChangeComparisonMode.Any)) {
+			return true;
+		}
+
 		return e.changed(
 			RepositoryChange.Config,
+			RepositoryChange.Heads,
+			RepositoryChange.Index,
+			RepositoryChange.Remotes,
+			RepositoryChange.RemoteProviders,
+			RepositoryChange.Status,
 			RepositoryChange.Worktrees,
 			RepositoryChange.Unknown,
 			RepositoryChangeComparisonMode.Any,
@@ -49,18 +58,20 @@ export class WorktreesViewNode extends RepositoriesSubscribeableNode<WorktreesVi
 			const access = await this.view.container.git.access(PlusFeatures.Worktrees);
 			if (access.allowed === false) return [];
 
+			if (this.view.container.git.isDiscoveringRepositories) {
+				this.view.message = 'Loading worktrees...';
+				await this.view.container.git.isDiscoveringRepositories;
+			}
+
 			let repositories = this.view.container.git.openRepositories;
+			if (repositories.length === 0) {
+				this.view.message = 'No worktrees could be found.';
+				return [];
+			}
+
 			if (configuration.get('views.collapseWorktreesWhenPossible')) {
 				const grouped = await groupRepositories(repositories);
 				repositories = [...grouped.keys()];
-			}
-
-			if (repositories.length === 0) {
-				this.view.message = this.view.container.git.isDiscoveringRepositories
-					? 'Loading worktrees...'
-					: 'No worktrees could be found.';
-
-				return [];
 			}
 
 			const splat = repositories.length === 1;
@@ -175,6 +186,8 @@ export class WorktreesView extends ViewBase<'worktrees', WorktreesViewNode, Work
 				() => this.setShowBranchPullRequest(false),
 				this,
 			),
+			registerViewCommand(this.getQualifiedCommand('setShowStashesOn'), () => this.setShowStashes(true), this),
+			registerViewCommand(this.getQualifiedCommand('setShowStashesOff'), () => this.setShowStashes(false), this),
 		];
 	}
 
@@ -279,5 +292,9 @@ export class WorktreesView extends ViewBase<'worktrees', WorktreesViewNode, Work
 	private async setShowBranchPullRequest(enabled: boolean) {
 		await configuration.updateEffective(`views.${this.configKey}.pullRequests.showForBranches` as const, enabled);
 		await configuration.updateEffective(`views.${this.configKey}.pullRequests.enabled` as const, enabled);
+	}
+
+	private setShowStashes(enabled: boolean) {
+		return configuration.updateEffective(`views.${this.configKey}.showStashes` as const, enabled);
 	}
 }

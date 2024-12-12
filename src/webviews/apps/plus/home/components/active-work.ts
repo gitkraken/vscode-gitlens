@@ -5,13 +5,14 @@ import { customElement, state } from 'lit/decorators.js';
 import { ifDefined } from 'lit/directives/if-defined.js';
 import { when } from 'lit/directives/when.js';
 import type { GitTrackingState } from '../../../../../git/models/branch';
+import { createCommandLink } from '../../../../../system/commands';
 import { createWebviewCommandLink } from '../../../../../system/webview';
 import type { GetOverviewBranch, OpenInGraphParams, State } from '../../../../home/protocol';
 import { stateContext } from '../../../home/context';
 import { ipcContext } from '../../../shared/context';
 import type { HostIpc } from '../../../shared/ipc';
 import { linkStyles } from '../../shared/components/vscode.css';
-import { branchCardStyles, createCommandLink } from './branch-section';
+import { branchCardStyles } from './branch-section';
 import type { Overview, OverviewState } from './overviewState';
 import { overviewStateContext } from './overviewState';
 import '../../../shared/components/button';
@@ -133,7 +134,7 @@ export class GlActiveWork extends SignalWatcher(LitElement) {
 						appearance="toolbar"
 						tooltip="Fetch"
 						href=${createCommandLink('gitlens.home.fetch', undefined)}
-						><code-icon icon="gl-repo-fetch"></code-icon
+						><code-icon icon="repo-fetch"></code-icon
 					></gl-button>
 					${when(
 						this._homeState.repositories.openCount > 1,
@@ -302,7 +303,7 @@ export class GlActiveWork extends SignalWatcher(LitElement) {
 							full
 							appearance="secondary"
 							tooltip=${pullTooltip}
-							><code-icon icon="gl-repo-pull" slot="prefix"></code-icon> Pull
+							><code-icon icon="repo-pull" slot="prefix"></code-icon> Pull
 							<gl-tracking-pill
 								.ahead=${state.ahead}
 								.behind=${state.behind}
@@ -334,7 +335,7 @@ export class GlActiveWork extends SignalWatcher(LitElement) {
 							full
 							appearance="secondary"
 							tooltip=${tooltip}
-							><code-icon icon="gl-repo-pull" slot="prefix"></code-icon> Pull
+							><code-icon icon="repo-pull" slot="prefix"></code-icon> Pull
 							<gl-tracking-pill
 								.ahead=${state.ahead}
 								.behind=${state.behind}

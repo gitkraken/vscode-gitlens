@@ -23,18 +23,8 @@ interface CloseWatcherOptions {
 }
 
 type TriggerType = 'hover' | 'focus' | 'click' | 'manual';
-
-type LastOf<T> = UnionToIntersection<T extends any ? () => T : never> extends () => infer R ? R : never;
-type Push<T extends any[], V> = [...T, V];
-type UnionToIntersection<U> = (U extends any ? (k: U) => void : never) extends (k: infer I) => void ? I : never;
-
-type TriggerCombinationHelper<T extends TriggerType, U extends TriggerType[] = []> = {
-	[K in T]: K extends LastOf<U>
-		? TriggerCombinationHelper<Exclude<T, K>, Push<U, K>>
-		: `${U extends [] ? '' : `${U[number]} `}${K}` | TriggerCombinationHelper<Exclude<T, K>, Push<U, K>>;
-}[T];
-
-type Triggers = TriggerCombinationHelper<TriggerType>;
+type Combine<T extends string, U extends string = T> = T extends any ? T | `${T} ${Combine<Exclude<U, T>>}` : never;
+type Triggers = Combine<TriggerType>;
 
 declare global {
 	interface HTMLElementTagNameMap {
@@ -233,6 +223,8 @@ export class GlPopover extends GlElement {
 		document.removeEventListener('focusin', this.handlePopupBlur);
 		window.removeEventListener('webview-blur', this.handleWebviewBlur, false);
 		document.removeEventListener('keydown', this.handleDocumentKeyDown);
+		document.removeEventListener('mousedown', this.handleWebviewMouseDown);
+		super.disconnectedCallback();
 	}
 
 	override firstUpdated() {
@@ -243,167 +235,6 @@ export class GlPopover extends GlElement {
 			this.popup.active = true;
 			this.popup.reposition();
 		}
-	}
-
-	private handleTriggerBlur = (e: FocusEvent) => {
-		if (this.open && this.hasTrigger('focus')) {
-			const composedPath = e.composedPath();
-			if (composedPath.includes(this)) return;
-
-			void this.hide();
-		}
-	};
-
-	private handleTriggerClick = () => {
-		if (this.hasTrigger('click')) {
-			if (this.open) {
-				if (this._skipHideOnClick) {
-					this._skipHideOnClick = false;
-					return;
-				}
-
-				void this.hide();
-			} else {
-				void this.show();
-			}
-		}
-	};
-
-	private _skipHideOnClick = false;
-	private handleTriggerMouseDown = () => {
-		if (this.hasTrigger('click') && this.hasTrigger('focus') && !this.matches(':focus-within')) {
-			this._skipHideOnClick = true;
-		} else {
-			this._skipHideOnClick = false;
-		}
-	};
-
-	private handleTriggerFocus = () => {
-		if (this.hasTrigger('focus')) {
-			void this.show();
-		}
-	};
-
-	private handleDocumentKeyDown = (e: KeyboardEvent) => {
-		// Pressing escape when a popover is open should dismiss it
-		if (e.key === 'Escape') {
-			e.stopPropagation();
-			void this.hide();
-		}
-	};
-
-	private handlePopupBlur = (e: FocusEvent) => {
-		const composedPath = e.composedPath();
-		if (!composedPath.includes(this)) {
-			void this.hide();
-		}
-	};
-
-	private handleWebviewBlur = () => {
-		void this.hide();
-	};
-
-	private handleMouseOver = () => {
-		if (this.hasTrigger('hover')) {
-			clearTimeout(this.hoverTimeout);
-
-			const delay = parseDuration(getComputedStyle(this).getPropertyValue('--show-delay'));
-			this.hoverTimeout = setTimeout(() => this.show(), delay);
-		}
-	};
-
-	private handleMouseOut = (e: MouseEvent) => {
-		if (this.hasTrigger('hover')) {
-			clearTimeout(this.hoverTimeout);
-
-			const composedPath = e.composedPath();
-			if (composedPath[composedPath.length - 2] === this) return;
-
-			if (this.hasPopupFocus()) return;
-
-			const delay = parseDuration(getComputedStyle(this).getPropertyValue('--hide-delay'));
-			this.hoverTimeout = setTimeout(() => this.hide(), delay);
-		}
-	};
-
-	private hasPopupFocus() {
-		return this.matches(':has([slot="content"]:focus-within)');
-	}
-
-	private hasTrigger(triggerType: string) {
-		const triggers = this.trigger.split(' ');
-		return triggers.includes(triggerType);
-	}
-
-	@observe('open', { afterFirstUpdate: true })
-	handleOpenChange() {
-		if (this.open) {
-			if (this.disabled) return;
-
-			// Show
-
-			this.emit('gl-popover-show');
-			if ('CloseWatcher' in window) {
-				this.closeWatcher?.destroy();
-				this.closeWatcher = new CloseWatcher();
-				this.closeWatcher.onclose = () => void this.hide();
-			} else {
-				document.addEventListener('keydown', this.handleDocumentKeyDown);
-			}
-			document.addEventListener('focusin', this.handlePopupBlur);
-			window.addEventListener('webview-blur', this.handleWebviewBlur, false);
-
-			this.body.hidden = false;
-			this.popup.active = true;
-			this.popup.reposition();
-
-			this.emit('gl-popover-after-show');
-		} else {
-			document.removeEventListener('focusin', this.handlePopupBlur);
-			window.removeEventListener('webview-blur', this.handleWebviewBlur, false);
-
-			// Hide
-
-			this.emit('gl-popover-hide');
-			this.closeWatcher?.destroy();
-			document.removeEventListener('keydown', this.handleDocumentKeyDown);
-
-			this.popup.active = false;
-			this.body.hidden = true;
-
-			this.emit('gl-popover-after-hide');
-		}
-	}
-
-	@observe(['distance', 'hoist', 'placement', 'skidding'])
-	async handleOptionsChange() {
-		if (this.hasUpdated) {
-			await this.updateComplete;
-			this.popup.reposition();
-		}
-	}
-
-	@observe('disabled')
-	handleDisabledChange() {
-		if (this.disabled && this.open) {
-			void this.hide();
-		}
-	}
-
-	/** Shows the popover. */
-	async show() {
-		if (this.open) return undefined;
-
-		this.open = true;
-		return waitForEvent(this, 'gl-popover-after-show');
-	}
-
-	/** Hides the popover */
-	async hide() {
-		if (!this.open) return undefined;
-
-		this.open = false;
-		return waitForEvent(this, 'gl-popover-after-hide');
 	}
 
 	override render() {
@@ -441,5 +272,189 @@ export class GlPopover extends GlElement {
 				<slot name="content"></slot>
 			</div>
 		</sl-popup>`;
+	}
+
+	private _triggeredBy: TriggerType | undefined;
+	/** Shows the popover. */
+	async show(triggeredBy?: TriggerType) {
+		if (this._triggeredBy == null || triggeredBy !== 'hover') {
+			this._triggeredBy = triggeredBy;
+		}
+		if (this.open) return undefined;
+
+		this.open = true;
+		return waitForEvent(this, 'gl-popover-after-show');
+	}
+
+	/** Hides the popover */
+	async hide() {
+		this._triggeredBy = undefined;
+		if (!this.open) return undefined;
+
+		this.open = false;
+		return waitForEvent(this, 'gl-popover-after-hide');
+	}
+
+	private handleTriggerBlur = (e: FocusEvent) => {
+		if (this.open && this.hasTrigger('focus')) {
+			if (e.relatedTarget && this.contains(e.relatedTarget as Node)) return;
+
+			void this.hide();
+		}
+	};
+
+	private handleTriggerClick = (e: MouseEvent) => {
+		if (this.hasTrigger('click')) {
+			if (this.open && this._triggeredBy !== 'hover') {
+				if (this._skipHideOnClick) {
+					this._skipHideOnClick = false;
+					return;
+				}
+
+				const composedPath = e.composedPath();
+				if (composedPath.includes(this.body)) return;
+
+				void this.hide();
+			} else {
+				void this.show('click');
+			}
+		}
+	};
+
+	private _skipHideOnClick = false;
+	private handleTriggerMouseDown = () => {
+		if (this.hasTrigger('click') && this.hasTrigger('focus') && !this.matches(':focus-within')) {
+			this._skipHideOnClick = true;
+		} else {
+			this._skipHideOnClick = false;
+		}
+	};
+
+	private handleTriggerFocus = () => {
+		if (this.hasTrigger('focus')) {
+			if (this.open && this._triggeredBy !== 'hover' && !this.hasPopupFocus()) {
+				void this.hide();
+			} else {
+				void this.show('focus');
+			}
+		}
+	};
+
+	private handleDocumentKeyDown = (e: KeyboardEvent) => {
+		// Pressing escape when a popover is open should dismiss it
+		if (e.key === 'Escape') {
+			e.stopPropagation();
+			void this.hide();
+		}
+	};
+
+	private handlePopupBlur = (e: FocusEvent) => {
+		const composedPath = e.composedPath();
+		if (!composedPath.includes(this) && !composedPath.includes(this.body)) {
+			void this.hide();
+		}
+	};
+
+	private handleWebviewBlur = () => {
+		void this.hide();
+	};
+
+	private handleWebviewMouseDown = (e: MouseEvent) => {
+		const composedPath = e.composedPath();
+		if (!composedPath.includes(this) && !composedPath.includes(this.body)) {
+			void this.hide();
+		}
+	};
+
+	private handleMouseOver = () => {
+		if (this.hasTrigger('hover')) {
+			clearTimeout(this.hoverTimeout);
+
+			const delay = parseDuration(getComputedStyle(this).getPropertyValue('--show-delay'));
+			this.hoverTimeout = setTimeout(() => this.show('hover'), delay);
+		}
+	};
+
+	private handleMouseOut = (e: MouseEvent) => {
+		if (this.hasTrigger('hover')) {
+			clearTimeout(this.hoverTimeout);
+
+			const composedPath = e.composedPath();
+			if (composedPath[composedPath.length - 2] === this) return;
+
+			if (this.hasPopupFocus() || this._triggeredBy !== 'hover') return;
+
+			const delay = parseDuration(getComputedStyle(this).getPropertyValue('--hide-delay'));
+			this.hoverTimeout = setTimeout(() => this.hide(), delay);
+		}
+	};
+
+	private hasPopupFocus() {
+		return this.matches(':has([slot="content"]:focus-within)');
+	}
+
+	private hasTrigger(triggerType: string) {
+		const triggers = this.trigger.split(' ');
+		return triggers.includes(triggerType);
+	}
+
+	@observe('open', { afterFirstUpdate: true })
+	handleOpenChange() {
+		if (this.open) {
+			if (this.disabled) return;
+
+			// Show
+
+			this.emit('gl-popover-show');
+			if ('CloseWatcher' in window) {
+				this.closeWatcher?.destroy();
+				this.closeWatcher = new CloseWatcher();
+				this.closeWatcher.onclose = () => void this.hide();
+			} else {
+				document.addEventListener('keydown', this.handleDocumentKeyDown);
+			}
+			document.addEventListener('focusin', this.handlePopupBlur);
+			window.addEventListener('webview-blur', this.handleWebviewBlur, false);
+
+			if (this.hasTrigger('click') || this.hasTrigger('focus')) {
+				document.addEventListener('mousedown', this.handleWebviewMouseDown);
+			}
+
+			this.body.hidden = false;
+			this.popup.active = true;
+			this.popup.reposition();
+
+			this.emit('gl-popover-after-show');
+		} else {
+			document.removeEventListener('focusin', this.handlePopupBlur);
+			window.removeEventListener('webview-blur', this.handleWebviewBlur, false);
+			document.removeEventListener('mousedown', this.handleWebviewMouseDown);
+
+			// Hide
+
+			this.emit('gl-popover-hide');
+			this.closeWatcher?.destroy();
+			document.removeEventListener('keydown', this.handleDocumentKeyDown);
+
+			this.popup.active = false;
+			this.body.hidden = true;
+
+			this.emit('gl-popover-after-hide');
+		}
+	}
+
+	@observe(['distance', 'hoist', 'placement', 'skidding'])
+	async handleOptionsChange() {
+		if (this.hasUpdated) {
+			await this.updateComplete;
+			this.popup.reposition();
+		}
+	}
+
+	@observe('disabled')
+	handleDisabledChange() {
+		if (this.disabled && this.open) {
+			void this.hide();
+		}
 	}
 }

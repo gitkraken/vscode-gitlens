@@ -1,15 +1,13 @@
 import { consume } from '@lit/context';
-import { SignalWatcher } from '@lit-labs/signals';
+import { signal, SignalWatcher } from '@lit-labs/signals';
 import type { TemplateResult } from 'lit';
 import { css, html, LitElement, nothing } from 'lit';
 import { customElement, state } from 'lit/decorators.js';
-import { Commands } from '../../../../../constants.commands';
 import type { LaunchpadCommandArgs } from '../../../../../plus/launchpad/launchpad';
-import type { StartWorkCommandArgs } from '../../../../../plus/startWork/startWork';
 import { createCommandLink } from '../../../../../system/commands';
 import { pluralize } from '../../../../../system/string';
 import type { GetLaunchpadSummaryResponse, State } from '../../../../home/protocol';
-import { GetLaunchpadSummary } from '../../../../home/protocol';
+import { DidChangeLaunchpad, GetLaunchpadSummary } from '../../../../home/protocol';
 import { stateContext } from '../../../home/context';
 import { AsyncComputedState } from '../../../shared/components/signal-utils';
 import { ipcContext } from '../../../shared/context';
@@ -104,7 +102,9 @@ export class GlLaunchpad extends SignalWatcher(LitElement) {
 
 	@consume({ context: ipcContext })
 	private _ipc!: HostIpc;
-	private _disposable: Disposable | undefined;
+	private _disposable: Disposable[] = [];
+
+	private _summary = signal<GetLaunchpadSummaryResponse | undefined>(undefined);
 
 	private _summaryState = new AsyncComputedState<LaunchpadSummary>(async _abortSignal => {
 		const rsp = await this._ipc.sendRequest(GetLaunchpadSummary, {});
@@ -112,34 +112,25 @@ export class GlLaunchpad extends SignalWatcher(LitElement) {
 	});
 
 	get startWorkCommand() {
-		return createCommandLink<StartWorkCommandArgs>(Commands.StartWork, {
-			command: 'startWork',
-			source: 'home',
-			type: 'issue',
-		});
+		return createCommandLink<undefined>('gitlens.home.startWork', undefined);
 	}
 
 	get createBranchCommand() {
-		return createCommandLink<StartWorkCommandArgs>(Commands.StartWork, {
-			command: 'startWork',
-			source: 'home',
-			type: 'branch',
-		});
-		// TODO: Switch to using the base git command once we support sending source telemetry to that command, and then clean up start work
-		// command to just be for issues and remove "type" param
-		/*return createCommandLink<BranchGitCommandArgs>(Commands.GitCommands, {
-			command: 'branch',
-			state: {
-				subcommand: 'create',
-				suggestNameOnly: true,
-				suggestRepoOnly: true,
-				confirmOptions: ['--switch', '--worktree'],
-			},
-		});*/
+		return createCommandLink<undefined>('gitlens.home.createBranch', undefined);
 	}
 
 	override connectedCallback() {
 		super.connectedCallback();
+
+		this._disposable.push(
+			this._ipc.onReceiveMessage(msg => {
+				switch (true) {
+					case DidChangeLaunchpad.is(msg):
+						this._summaryState.run(true);
+						break;
+				}
+			}),
+		);
 
 		this._summaryState.run();
 	}
@@ -147,15 +138,15 @@ export class GlLaunchpad extends SignalWatcher(LitElement) {
 	override disconnectedCallback() {
 		super.disconnectedCallback();
 
-		this._disposable?.dispose();
+		this._disposable.forEach(d => d.dispose());
 	}
 
 	override render() {
 		return html`
-			<gl-section>
+			<gl-section ?loading=${this._summaryState.computed.status === 'pending'}>
 				<span slot="heading">GitLens Launchpad</span>
 				<div class="summary">${this.renderSummaryResult()}</div>
-				<button-container>
+				<button-container gap="wide">
 					<gl-button full class="start-work" href=${this.startWorkCommand}>Start Work on an Issue</gl-button>
 					<gl-button
 						appearance="secondary"
@@ -209,6 +200,13 @@ export class GlLaunchpad extends SignalWatcher(LitElement) {
 
 	private renderSummary(summary: LaunchpadSummary | undefined) {
 		if (summary == null) return nothing;
+
+		if ('error' in summary) {
+			return html`<ul class="menu">
+				<li>Unable to load items</li>
+			</ul>`;
+		}
+
 		if (summary.total === 0) {
 			return html`<ul class="menu">
 				<li>You are all caught up!</li>

@@ -1,0 +1,260 @@
+{
+	"$schema": "http://json-schema.org/draft-07/schema#",
+	"type": "object",
+	"properties": {
+		"version": {
+			"type": "number",
+			"enum": [1]
+		},
+		"commands": {
+			"type": "object",
+			"additionalProperties": {
+				"type": "object",
+				"required": ["label"],
+				"properties": {
+					"label": {
+						"description": "Label/title of the command",
+						"type": "string"
+					},
+					"icon": {
+						"description": "(Optional) Icon which is used to represent the command in the UI. Either a file path, an object with file paths for dark and light themes, or a theme icon references, like `\\$(zap)`",
+						"anyOf": [
+							{
+								"type": "string"
+							},
+							{
+								"type": "object",
+								"properties": {
+									"light": {
+										"description": "Icon path when a light theme is used",
+										"type": "string"
+									},
+									"dark": {
+										"description": "Icon path when a dark theme is used",
+										"type": "string"
+									}
+								}
+							}
+						]
+					},
+					"enablement": {
+						"description": "(Optional) Condition which must be true to enable the command in the UI (menu and keybindings). Does not prevent executing the command by other means, like the `executeCommand`-api",
+						"type": "string"
+					},
+					"commandPalette": {
+						"description": "(Optional) Specifies whether the command should show up in the command palette. Use true to always show, or a when clause to conditionally show",
+						"oneOf": [{ "type": "boolean", "enum": [true] }, { "type": "string" }]
+					},
+					"menus": {
+						"description": "Menu items to include this command in, organized by menu location",
+						"type": "object",
+						"propertyNames": {
+							"$ref": "#/$defs/menuLocations"
+						},
+						"additionalProperties": {
+							"type": "array",
+							"items": {
+								"type": "object",
+								"properties": {
+									"when": {
+										"description": "Condition which must be true to show this item",
+										"type": "string"
+									},
+									"group": {
+										"description": "Group into which this item belongs",
+										"type": "string"
+									},
+									"order": {
+										"description": "Ordering of group items",
+										"type": "number"
+									},
+									"alt": {
+										"description": "Alternative command to run if ALT is pressed while invoking",
+										"type": "string"
+									}
+								},
+								"additionalProperties": false
+							}
+						}
+					},
+					"keybindings": {
+						"type": "array",
+						"items": {
+							"type": "object",
+							"properties": {
+								"args": {
+									"description": "Arguments to pass to the command to execute"
+								},
+								"key": {
+									"description": "Key or key sequence (separate keys with plus-sign and sequences with space, e.g. Ctrl+O and Ctrl+L L for a chord)",
+									"type": "string"
+								},
+								"mac": {
+									"description": "Mac specific key or key sequence",
+									"type": "string"
+								},
+								"linux": {
+									"description": "Linux specific key or key sequence",
+									"type": "string"
+								},
+								"win": {
+									"description": "Windows specific key or key sequence",
+									"type": "string"
+								},
+								"when": {
+									"description": "Condition when the key is active",
+									"type": "string"
+								}
+							}
+						}
+					}
+				}
+			}
+		},
+		"submenus": {
+			"type": "object",
+			"additionalProperties": {
+				"type": "object",
+				"required": ["label"],
+				"properties": {
+					"label": {
+						"description": "Label/title of the submenu",
+						"type": "string"
+					},
+					"icon": {
+						"description": "(Optional) Icon which is used to represent the submenu in the UI. Either a file path, an object with file paths for dark and light themes, or a theme icon references, like `\\$(zap)`",
+						"anyOf": [
+							{
+								"type": "string"
+							},
+							{
+								"type": "object",
+								"properties": {
+									"light": {
+										"description": "Icon path when a light theme is used",
+										"type": "string"
+									},
+									"dark": {
+										"description": "Icon path when a dark theme is used",
+										"type": "string"
+									}
+								}
+							}
+						]
+					},
+					"menus": {
+						"description": "Menu items to include this submenu in, organized by menu location",
+						"type": "object",
+						"propertyNames": {
+							"$ref": "#/$defs/menuLocations"
+						},
+						"additionalProperties": {
+							"type": "array",
+							"items": {
+								"type": "object",
+								"properties": {
+									"when": {
+										"description": "Condition which must be true to show this item",
+										"type": "string"
+									},
+									"group": {
+										"description": "Group into which this item belongs",
+										"type": "string"
+									},
+									"order": {
+										"description": "Ordering of group items",
+										"type": "number"
+									},
+									"alt": {
+										"description": "Alternative command to run if ALT is pressed while invoking",
+										"type": "string"
+									}
+								},
+								"additionalProperties": false
+							}
+						}
+					}
+				}
+			}
+		},
+		"keybindings": {
+			"type": "array",
+			"items": {
+				"type": "object",
+				"required": ["command", "key"],
+				"properties": {
+					"command": {
+						"description": "Command to execute",
+						"type": "string"
+					},
+					"args": {
+						"description": "Arguments to pass to the command to execute"
+					},
+					"key": {
+						"description": "Key or key sequence (separate keys with plus-sign and sequences with space, e.g. Ctrl+O and Ctrl+L L for a chord)",
+						"type": "string"
+					},
+					"mac": {
+						"description": "Mac specific key or key sequence",
+						"type": "string"
+					},
+					"linux": {
+						"description": "Linux specific key or key sequence",
+						"type": "string"
+					},
+					"win": {
+						"description": "Windows specific key or key sequence",
+						"type": "string"
+					},
+					"when": {
+						"description": "Condition when the key is active",
+						"type": "string"
+					}
+				}
+			}
+		}
+	},
+	"$defs": {
+		"menuLocations": {
+			"anyOf": [
+				{
+					"type": "string",
+					"enum": [
+						"commandPalette",
+						"comments/comment/title",
+						"comments/comment/context",
+						"comments/commentThread/title",
+						"comments/commentThread/context",
+						"editor/title",
+						"editor/title/context",
+						"editor/title/run",
+						"editor/context",
+						"editor/context/copy",
+						"editor/lineNumber/context",
+						"explorer/context",
+						"extension/context",
+						"git.commit",
+						"menuBar/edit/copy",
+						"scm/title",
+						"scm/sourceControl",
+						"scm/change/title",
+						"scm/resourceGroup/context",
+						"scm/resourceFolder/context",
+						"scm/resourceState/context",
+						"terminal/title/context",
+						"terminal/context",
+						"timeline/title",
+						"timeline/item/context",
+						"view/title",
+						"view/item/context",
+						"webview/context"
+					]
+				},
+				{
+					"type": "string",
+					"pattern": "^gitlens/.+$"
+				}
+			]
+		}
+	}
+}

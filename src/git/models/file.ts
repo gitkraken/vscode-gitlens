@@ -224,51 +224,108 @@ export class GitFileChange implements GitFileChangeShape {
 		return Container.instance.git.getWorkingUri(this.repoPath, this.uri);
 	}
 
-	formatStats(options?: {
-		compact?: boolean;
-		empty?: string;
-		expand?: boolean;
-		prefix?: string;
-		separator?: string;
-		suffix?: string;
-	}): string {
-		if (this.stats == null) return options?.empty ?? '';
+	formatStats(
+		style: 'short' | 'stats' | 'expanded',
+		options?: {
+			color?: boolean;
+			empty?: string;
+			prefix?: string;
+			separator?: string;
+		},
+	): string {
+		const { stats } = this;
+		if (stats == null) return options?.empty ?? '';
 
-		const { /*changes,*/ additions, deletions } = this.stats;
+		const { /*changes,*/ additions, deletions } = stats;
 		if (/*changes < 0 && */ additions < 0 && deletions < 0) return options?.empty ?? '';
 
-		const { compact = false, expand = false, prefix = '', separator = ' ', suffix = '' } = options ?? {};
+		const separator = options?.separator ?? ' ';
 
-		let status = prefix;
+		const lineStats = [];
 
 		if (additions) {
-			status += expand ? `${pluralize('line', additions)} added` : `+${additions}`;
-		} else if (!expand && !compact) {
-			status += '+0';
+			const additionsText = style === 'expanded' ? `${pluralize('line', additions)} added` : `+${additions}`;
+			if (options?.color && style !== 'short') {
+				lineStats.push(
+					/*html*/ `<span style="color:var(--vscode-gitDecoration-addedResourceForeground);">${additionsText}</span>`,
+				);
+			} else {
+				lineStats.push(additionsText);
+			}
+		} else if (style === 'stats') {
+			if (options?.color) {
+				lineStats.push(
+					/*html*/ `<span style="color:var(--vscode-gitDecoration-addedResourceForeground);">+0</span>`,
+				);
+			} else {
+				lineStats.push('+0');
+			}
 		}
 
 		// if (changes) {
-		// 	status += `${additions ? separator : ''}${
-		// 		expand ? `${pluralize('line', changes)} changed` : `~${changes}`
-		// 	}`;
-		// } else if (!expand && !compact) {
-		// 	status += '~0';
+		// 	const changesText = style === 'expanded' ? `${pluralize('line', changes)} changed` : `~${changes}`;
+		// 	if (options?.color && style !== 'short') {
+		// 		lineStats.push(
+		// 			/*html*/ `<span style="color:var(--vscode-gitDecoration-modifiedResourceForeground)">${changesText}</span>`,
+		// 		);
+		// 	} else {
+		// 		lineStats.push(changesText);
+		// 	}
+		// } else if (style === 'stats') {
+		// 	if (options?.color) {
+		// 		lineStats.push(
+		// 			/*html*/ `<span style="color:var(--vscode-gitDecoration-modifiedResourceForeground)">~0</span>`,
+		// 		);
+		// 	} else {
+		// 		lineStats.push('~0');
+		// 	}
 		// }
 
 		if (deletions) {
-			status += `${/*changes |*/ additions ? separator : ''}${
-				expand ? `${pluralize('line', deletions)} deleted` : `-${deletions}`
-			}`;
-		} else if (!expand && !compact) {
-			status += '-0';
+			const deletionsText = style === 'expanded' ? `${pluralize('line', deletions)} deleted` : `-${deletions}`;
+			if (options?.color && style !== 'short') {
+				lineStats.push(
+					/*html*/ `<span style="color:var(--vscode-gitDecoration-deletedResourceForeground);">${deletionsText}</span>`,
+				);
+			} else {
+				lineStats.push(deletionsText);
+			}
+		} else if (style === 'stats') {
+			if (options?.color) {
+				lineStats.push(
+					/*html*/ `<span style="color:var(--vscode-gitDecoration-deletedResourceForeground);">-0</span>`,
+				);
+			} else {
+				lineStats.push('-0');
+			}
 		}
 
-		status += suffix;
+		let result = lineStats.join(separator);
+		if (style === 'stats' && options?.color) {
+			result = /*html*/ `<span style="background-color:var(--vscode-textCodeBlock-background);border-radius:3px;">&nbsp;${result}&nbsp;&nbsp;</span>`;
+		}
 
-		return status;
+		return `${options?.prefix ?? ''}${result}`;
 	}
 }
 
 export function isGitFileChange(file: any): file is GitFileChange {
 	return file instanceof GitFileChange;
+}
+
+export function mapFilesWithStats(files: GitFileChange[], filesWithStats: GitFileChange[]): GitFileChange[] {
+	return files.map(file => {
+		const stats = filesWithStats.find(f => f.path === file.path)?.stats;
+		return stats != null
+			? new GitFileChange(
+					file.repoPath,
+					file.path,
+					file.status,
+					file.originalPath,
+					file.previousSha,
+					stats,
+					file.staged,
+			  )
+			: file;
+	});
 }

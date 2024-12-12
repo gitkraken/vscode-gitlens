@@ -16,13 +16,14 @@ import fs from 'fs';
 import HtmlPlugin from 'html-webpack-plugin';
 import ImageMinimizerPlugin from 'image-minimizer-webpack-plugin';
 import MiniCssExtractPlugin from 'mini-css-extract-plugin';
+import { createRequire } from 'module';
+import { availableParallelism } from 'os';
 import path from 'path';
 import { validate } from 'schema-utils';
 import TerserPlugin from 'terser-webpack-plugin';
+import { fileURLToPath } from 'url';
 import webpack from 'webpack';
 import WebpackRequireFromPlugin from 'webpack-require-from';
-import { fileURLToPath } from 'url';
-import { createRequire } from 'module';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -30,6 +31,19 @@ const __dirname = path.dirname(__filename);
 const { DefinePlugin, optimize, WebpackError } = webpack;
 
 const require = createRequire(import.meta.url);
+
+const cores = Math.max(Math.floor(availableParallelism() / 6) - 1, 1);
+const eslintWorker = {
+	max: cores,
+	filesPerWorker: 100,
+};
+
+const useNpm = Boolean(process.env.GL_USE_NPM);
+if (useNpm) {
+	console.log('Using npm to run scripts');
+}
+
+const pkgMgr = useNpm ? 'npm' : 'pnpm';
 
 /**
  * @param {{ analyzeBundle?: boolean; analyzeDeps?: boolean; esbuild?: boolean; skipLint?: boolean } | undefined } env
@@ -84,7 +98,7 @@ function getExtensionConfig(target, mode, env) {
 		plugins.push(
 			new ESLintLitePlugin({
 				files: path.join(__dirname, 'src', '**', '*.ts'),
-				worker: true,
+				worker: eslintWorker,
 				eslintOptions: {
 					cache: true,
 					cacheLocation: path.join(__dirname, '.eslintcache/', target === 'webworker' ? 'browser/' : ''),
@@ -104,19 +118,22 @@ function getExtensionConfig(target, mode, env) {
 		}
 
 		plugins.push(
+			new ContributionsPlugin(),
+			new DocsPlugin(),
+			new LicensesPlugin(),
 			new FantasticonPlugin({
 				configPath: '.fantasticonrc.js',
 				onBefore:
 					mode !== 'production'
 						? undefined
 						: () =>
-								spawnSync('pnpm', ['run', 'icons:svgo'], {
+								spawnSync(pkgMgr, ['run', 'icons:svgo'], {
 									cwd: __dirname,
 									encoding: 'utf8',
 									shell: true,
 								}),
 				onComplete: () =>
-					spawnSync('pnpm', ['run', 'icons:apply'], {
+					spawnSync(pkgMgr, ['run', 'icons:apply'], {
 						cwd: __dirname,
 						encoding: 'utf8',
 						shell: true,
@@ -350,7 +367,7 @@ function getWebviewsConfig(mode, env) {
 		plugins.push(
 			new ESLintLitePlugin({
 				files: path.join(basePath, '**', '*.ts?(x)'),
-				worker: true,
+				worker: eslintWorker,
 				eslintOptions: {
 					cache: true,
 					cacheLocation: path.join(__dirname, '.eslintcache', 'webviews/'),
@@ -723,6 +740,125 @@ const schema = {
 	},
 };
 
+class FileGeneratorPlugin {
+	/**
+	 *
+	 * @param {string} pluginName
+	 * @param {string[]} pathsToWatch
+	 * @param {{ name: string; command: string; args: string[] }} command
+	 */
+	constructor(pluginName, pathsToWatch, command) {
+		this.pluginName = pluginName;
+		this.pathsToWatch = pathsToWatch;
+		this.command = command;
+		this.lastModified = 0;
+	}
+
+	/**
+	 * @private
+	 * @param {string[]} paths
+	 */
+	pathsChanged(paths) {
+		let changed = false;
+		for (const path of paths) {
+			try {
+				const stats = fs.statSync(path);
+				if (stats.mtimeMs > this.lastModified) {
+					changed = true;
+					break;
+				}
+			} catch {}
+		}
+
+		return changed;
+	}
+
+	apply(compiler) {
+		let pendingGeneration = false;
+
+		// Add dependent paths for watching
+		compiler.hooks.thisCompilation.tap(this.pluginName, compilation => {
+			this.pathsToWatch.map(path => compilation.fileDependencies.add(path));
+		});
+
+		// Run generation when needed
+		compiler.hooks.make.tapAsync(this.pluginName, async (compilation, callback) => {
+			const logger = compiler.getInfrastructureLogger(this.pluginName);
+			try {
+				const changed = this.pathsChanged(this.pathsToWatch);
+				// Only regenerate if the file has changed since last time
+				if (!changed) {
+					callback();
+					return;
+				}
+
+				// Avoid duplicate runs
+				if (pendingGeneration) {
+					callback();
+					return;
+				}
+
+				pendingGeneration = true;
+
+				try {
+					logger.log(`Generating ${this.command.name}...`);
+					const start = Date.now();
+
+					const result = spawnSync(this.command.command, this.command.args, {
+						cwd: __dirname,
+						encoding: 'utf8',
+						shell: true,
+					});
+
+					if (result.status === 0) {
+						this.lastModified = Date.now();
+						logger.log(`Generated ${this.command.name} in \x1b[32m${Date.now() - start}ms\x1b[0m`);
+					} else {
+						logger.error(`[${this.pluginName}] Failed to run ${this.command.name}: ${result.stderr}`);
+					}
+				} finally {
+					pendingGeneration = false;
+				}
+			} catch (ex) {
+				// File doesn't exist or other error
+				logger.error(`[${this.pluginName}] Error checking source file: ${ex}`);
+			}
+
+			callback();
+		});
+	}
+}
+
+class ContributionsPlugin extends FileGeneratorPlugin {
+	constructor() {
+		super('contributions', [path.join(__dirname, 'contributions.json')], {
+			name: "'package.json' contributions",
+			command: pkgMgr,
+			args: ['run', 'generate:contributions'],
+		});
+	}
+}
+
+class DocsPlugin extends FileGeneratorPlugin {
+	constructor() {
+		super('docs', [path.join(__dirname, 'src', 'constants.telemetry.ts')], {
+			name: 'docs',
+			command: pkgMgr,
+			args: ['run', 'generate:docs:telemetry'],
+		});
+	}
+}
+
+class LicensesPlugin extends FileGeneratorPlugin {
+	constructor() {
+		super('licenses', [path.join(__dirname, 'package.json')], {
+			name: 'licenses',
+			command: pkgMgr,
+			args: ['run', 'generate:licenses'],
+		});
+	}
+}
+
 class FantasticonPlugin {
 	alreadyRun = false;
 
@@ -782,7 +918,7 @@ class FantasticonPlugin {
 			}
 
 			const logger = compiler.getInfrastructureLogger(this.pluginName);
-			logger.log(`Generating '${compiler.name}' icon font...`);
+			logger.log(`Generating icon font...`);
 
 			const start = Date.now();
 
@@ -811,7 +947,7 @@ class FantasticonPlugin {
 				})`;
 			}
 
-			logger.log(`Generated '${compiler.name}' icon font in \x1b[32m${Date.now() - start}ms\x1b[0m${suffix}`);
+			logger.log(`Generated icon font in \x1b[32m${Date.now() - start}ms\x1b[0m${suffix}`);
 		}
 
 		const generateFn = generate.bind(this);

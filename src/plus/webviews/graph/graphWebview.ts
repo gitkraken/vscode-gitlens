@@ -62,7 +62,6 @@ import { isStash } from '../../../git/models/commit';
 import { uncommitted } from '../../../git/models/constants';
 import { GitContributor } from '../../../git/models/contributor';
 import type { GitGraph, GitGraphRowType } from '../../../git/models/graph';
-import { getGkProviderThemeIconString } from '../../../git/models/graph';
 import type { PullRequest } from '../../../git/models/pullRequest';
 import {
 	getComparisonRefsForPullRequest,
@@ -283,6 +282,9 @@ export class GraphWebviewProvider implements WebviewProvider<State, State, Graph
 	private _etagSubscription?: number;
 	private _etagRepository?: number;
 	private _firstSelection = true;
+	private _getBranchesAndTagsTips:
+		| ((sha: string, options?: { compact?: boolean; icons?: boolean }) => string | undefined)
+		| undefined;
 	private _graph?: GitGraph;
 	private _hoverCache = new Map<string, Promise<string>>();
 
@@ -856,7 +858,7 @@ export class GraphWebviewProvider implements WebviewProvider<State, State, Graph
 	}
 
 	updateGraphSearchMode(params: UpdateGraphSearchModeParams) {
-		void this.container.storage.store('graph:searchMode', params.searchMode);
+		void this.container.storage.store('graph:searchMode', params.searchMode).catch();
 	}
 
 	private _showActiveSelectionDetailsDebounced:
@@ -1093,8 +1095,8 @@ export class GraphWebviewProvider implements WebviewProvider<State, State, Graph
 						commit = await this.container.git.getCommit(this._graph.repoPath, uncommitted);
 						break;
 					case 'stash-node': {
-						const stash = await this.container.git.getStash(this._graph.repoPath);
-						commit = stash?.commits.get(msg.params.id);
+						const gitStash = await this.container.git.getStash(this._graph.repoPath);
+						commit = gitStash?.stashes.get(msg.params.id);
 						break;
 					}
 					default: {
@@ -1180,10 +1182,12 @@ export class GraphWebviewProvider implements WebviewProvider<State, State, Graph
 			template = configuration.get('views.formats.commits.tooltip');
 		}
 
+		this._getBranchesAndTagsTips ??= await this.container.git.getBranchesAndTagsTipsLookup(commit.repoPath);
+
 		const tooltip = await CommitFormatter.fromTemplateAsync(template, commit, {
 			enrichedAutolinks: enrichedAutolinks,
 			dateFormat: configuration.get('defaultDateFormat'),
-			getBranchAndTagTips: this.getBranchAndTagTips.bind(this),
+			getBranchAndTagTips: this._getBranchesAndTagsTips,
 			messageAutolinks: true,
 			messageIndent: 4,
 			pullRequest: pr,
@@ -1193,32 +1197,6 @@ export class GraphWebviewProvider implements WebviewProvider<State, State, Graph
 		});
 
 		return tooltip;
-	}
-
-	private getBranchAndTagTips(sha: string, options?: { compact?: boolean; icons?: boolean }): string | undefined {
-		if (this._graph == null) return undefined;
-
-		const row = this._graph.rows.find(r => r.sha === sha);
-		if (row == null) return undefined;
-
-		const tips = [];
-		if (row.heads?.length) {
-			tips.push(...row.heads.map(h => (options?.icons ? `$(git-branch) ${h.name}` : h.name)));
-		}
-
-		if (row.remotes?.length) {
-			tips.push(
-				...row.remotes.map(h => {
-					const name = `${h.owner ? `${h.owner}/` : ''}${h.name}`;
-					return options?.icons ? `$(${getGkProviderThemeIconString(h.hostingServiceType)}) ${name}` : name;
-				}),
-			);
-		}
-		if (row.tags?.length) {
-			tips.push(...row.tags.map(h => (options?.icons ? `$(tag) ${h.name}` : h.name)));
-		}
-
-		return tips.join(', ') || undefined;
 	}
 
 	@debug()
@@ -2613,7 +2591,7 @@ export class GraphWebviewProvider implements WebviewProvider<State, State, Graph
 		for (const [key, value] of Object.entries(columnsCfg)) {
 			columns = updateRecordValue(columns, key, value);
 		}
-		void this.container.storage.storeWorkspace('graph:columns', columns);
+		void this.container.storage.storeWorkspace('graph:columns', columns).catch();
 		void this.notifyDidChangeColumns();
 	}
 
@@ -2949,6 +2927,7 @@ export class GraphWebviewProvider implements WebviewProvider<State, State, Graph
 	}
 
 	private resetRepositoryState() {
+		this._getBranchesAndTagsTips = undefined;
 		this.setGraph(undefined);
 		this.setSelectedRows(undefined);
 	}

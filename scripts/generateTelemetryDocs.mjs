@@ -1,4 +1,6 @@
 // @ts-check
+/** @typedef {{ name: string; result: string; hidden: boolean; index?: number }} Prop */
+
 import * as ts from 'typescript';
 import * as fs from 'fs';
 import * as path from 'path';
@@ -69,7 +71,7 @@ markdown += `${result}\n\`\`\`\n\n`;
 
 markdown += '## Events\n\n';
 
-const properties = typeChecker.getPropertiesOfType(telemetryEvents.type);
+const properties = typeChecker.getPropertiesOfType(telemetryEvents.type).sort((a, b) => a.name.localeCompare(b.name));
 for (const prop of properties) {
 	const propType = typeChecker.getTypeOfSymbolAtLocation(prop, telemetryEvents.file);
 
@@ -103,10 +105,6 @@ fs.writeFileSync(outputPath, markdown);
  * @param {string} prefix
  */
 function expandType(file, type, indent = '', isRoot = true, prefix = '') {
-	if (type.flags & ts.TypeFlags.Boolean) {
-		return 'boolean';
-	}
-
 	let result = '';
 
 	if (type.isClassOrInterface() || (type.symbol && type.symbol.flags & ts.SymbolFlags.TypeLiteral)) {
@@ -114,26 +112,54 @@ function expandType(file, type, indent = '', isRoot = true, prefix = '') {
 		if (!properties?.length) {
 			result = '{}';
 		} else {
+			/** @type {Prop[]} */
 			let expandedProps = properties.map(prop => {
 				const propType = typeChecker.getTypeOfSymbolAtLocation(prop, file);
 				const jsDocTags = getJSDocTags(prop);
 				let propString = '';
 				if (jsDocTags.deprecated) {
-					propString += `${indent}  // @deprecated: ${
-						jsDocTags.deprecated === true ? '' : jsDocTags.deprecated
-					}\n`;
+					propString += `${indent}  // @deprecated: ${jsDocTags.deprecated}\n`;
 				}
-				propString += `${indent}  '${prefix}${prop.name}': ${expandType(
-					file,
-					propType,
-					indent + '  ',
-					false,
-					prefix,
-				)}`;
-				return propString;
+
+				const name = `${prefix}${prop.name}`;
+				const valueType = expandType(file, propType, indent + '  ', false, prefix);
+				propString += `${indent}  '${name}': ${valueType}`;
+
+				/** @type {number | undefined} */
+				let order = Number(jsDocTags.order);
+				if (isNaN(order)) {
+					order = undefined;
+				}
+
+				return {
+					name: name,
+					result: propString,
+					hidden: !valueType,
+					index: order,
+				};
 			});
 
-			result = `{\n${expandedProps.join(',\n')}\n${indent}}`;
+			const indexInfos = typeChecker.getIndexInfosOfType(type);
+			if (indexInfos.length) {
+				expandedProps.push(
+					...indexInfos.map(indexInfo => {
+						const keyType = typeChecker.typeToString(indexInfo.keyType);
+						const name = `${prefix}${keyType.substring(1, keyType.length - 1)}`;
+						const valueType = expandType(file, indexInfo.type, indent + '  ', false, prefix);
+						return {
+							name: name,
+							result: `${indent}  [\`${name}\`]: ${valueType}`,
+							hidden: !valueType,
+						};
+					}),
+				);
+			}
+
+			result = `{\n${expandedProps
+				.filter(t => !Boolean(t.hidden))
+				.sort(sortProps)
+				.map(t => t.result)
+				.join(',\n')}\n${indent}}`;
 		}
 	} else if (type.isUnion()) {
 		if (isRoot) {
@@ -141,54 +167,71 @@ function expandType(file, type, indent = '', isRoot = true, prefix = '') {
 				.map(t => `\`\`\`typescript\n${expandType(file, t, '', false, prefix)}\n\`\`\``)
 				.join('\n\nor\n\n');
 		} else {
-			const types = type.types.map(t => expandType(file, t, indent, false, prefix)).join(' | ');
+			const types = type.types
+				.map(t => expandType(file, t, indent, false, prefix))
+				.filter(t => Boolean(t))
+				.join(' | ')
+				.replaceAll(/false \| true/g, 'boolean');
 			result = types.includes('\n') ? `(${types})` : types;
 		}
 	} else if (type.isIntersection()) {
 		const mergedProperties = new Map();
-		const indexInfos = new Set();
-		for (const t of type.types) {
-			if (t.symbol && t.symbol.flags & ts.SymbolFlags.TypeLiteral) {
-				for (const prop of typeChecker.getPropertiesOfType(t)) {
-					mergedProperties.set(prop.name, prop);
-				}
+		/** @type {Map<string, Prop>} */
+		const indexInfos = new Map();
+		for (const t of [type, ...type.types]) {
+			for (const prop of typeChecker.getPropertiesOfType(t)) {
+				mergedProperties.set(prop.name, prop);
+			}
 
-				for (const indexInfo of typeChecker.getIndexInfosOfType(t)) {
-					let keyType = typeChecker.typeToString(indexInfo.keyType);
-					if (prefix) {
-						keyType = `\`${prefix}${keyType.substring(1)}`;
-					}
-					const valueType = expandType(file, indexInfo.type, indent + '  ', false, prefix);
-					indexInfos.add(`${indent}  [${keyType}]: ${valueType}`);
-				}
+			for (const indexInfo of typeChecker.getIndexInfosOfType(t)) {
+				const keyType = typeChecker.typeToString(indexInfo.keyType);
+				const name = `${prefix}${keyType.substring(1, keyType.length - 1)}`;
+				const valueType = expandType(file, indexInfo.type, indent + '  ', false, prefix);
+				indexInfos.set(name, {
+					name: name,
+					result: `${indent}  [\`${name}\`]: ${valueType}`,
+					hidden: !valueType,
+				});
 			}
 		}
 
 		if (mergedProperties.size) {
-			const expandedProps = [...mergedProperties].map(([name, prop]) => {
+			/** @type {Prop[]} */
+			const expandedProps = [...mergedProperties].map(([, prop]) => {
 				const propType = typeChecker.getTypeOfSymbolAtLocation(prop, file);
 				const jsDocTags = getJSDocTags(prop);
 				let propString = '';
 				if (jsDocTags.deprecated) {
-					propString += `${indent}  // @deprecated: ${
-						jsDocTags.deprecated === true ? '' : jsDocTags.deprecated
-					}\n`;
+					propString += `${indent}  // @deprecated: ${jsDocTags.deprecated}\n`;
 				}
-				propString += `${indent}  '${prefix}${name}': ${expandType(
-					file,
-					propType,
-					indent + '  ',
-					false,
-					prefix,
-				)}`;
-				return propString;
+
+				const name = `${prefix}${prop.name}`;
+				const valueType = expandType(file, propType, indent + '  ', false, prefix);
+				propString += `${indent}  '${name}': ${valueType}`;
+
+				/** @type {number | undefined} */
+				let order = Number(jsDocTags.order);
+				if (isNaN(order)) {
+					order = undefined;
+				}
+
+				return {
+					name: name,
+					result: propString,
+					hidden: !valueType,
+					index: order,
+				};
 			});
 
 			if (indexInfos.size) {
-				expandedProps.push(...indexInfos.keys());
+				expandedProps.push(...indexInfos.values());
 			}
 
-			result = `{\n${expandedProps.join(',\n')}\n${indent}}`;
+			result = `{\n${expandedProps
+				.filter(t => !Boolean(t.hidden))
+				.sort(sortProps)
+				.map(t => t.result)
+				.join(',\n')}\n${indent}}`;
 		} else {
 			const types = type.types.map(t => expandType(file, t, indent, false, prefix)).join(' & ');
 			result = types.includes('\n') ? `(${types})` : types;
@@ -216,6 +259,10 @@ function expandType(file, type, indent = '', isRoot = true, prefix = '') {
 			const returnType = expandType(file, signatures[0].getReturnType(), indent, false, prefix);
 			result = `(${params}) => ${returnType}`;
 		}
+	} else if (type.flags & ts.TypeFlags.Boolean) {
+		result = 'boolean';
+	} else if (type.flags & ts.TypeFlags.Never) {
+		return '';
 	} else {
 		result = typeChecker.typeToString(type);
 	}
@@ -233,4 +280,18 @@ function getJSDocTags(symbol) {
 		tags[tag.name] = tag.text ? tag.text.map(t => t.text).join(' ') : true;
 	}
 	return tags;
+}
+
+/**
+ * @param {Prop} a
+ * @param {Prop} b
+ */
+function sortProps(a, b) {
+	if (a.index !== b.index) {
+		if (a.index && b.index) return a.index - b.index;
+		if (a.index) return -1;
+		if (b.index) return 1;
+	}
+
+	return a.name.localeCompare(b.name);
 }

@@ -57,6 +57,7 @@ export class CommitsRepositoryNode extends RepositoryFolderNode<CommitsView, Bra
 					showComparison: this.view.config.showBranchComparison,
 					showStatusDecorationOnly: true,
 					showMergeCommits: !this.view.state.hideMergeCommits,
+					showStashes: this.view.config.showStashes,
 					showTracking: true,
 					authors: authors,
 				},
@@ -105,6 +106,10 @@ export class CommitsRepositoryNode extends RepositoryFolderNode<CommitsView, Bra
 	}
 
 	protected changed(e: RepositoryChangeEvent) {
+		if (this.view.config.showStashes && e.changed(RepositoryChange.Stash, RepositoryChangeComparisonMode.Any)) {
+			return true;
+		}
+
 		return e.changed(
 			RepositoryChange.Config,
 			RepositoryChange.Heads,
@@ -120,15 +125,18 @@ export class CommitsRepositoryNode extends RepositoryFolderNode<CommitsView, Bra
 
 export class CommitsViewNode extends RepositoriesSubscribeableNode<CommitsView, CommitsRepositoryNode> {
 	async getChildren(): Promise<ViewNode[]> {
+		this.view.description = this.view.getViewDescription();
+		this.view.message = undefined;
+
 		if (this.children == null) {
-			this.view.description = this.view.getViewDescription();
-			this.view.message = undefined;
+			if (this.view.container.git.isDiscoveringRepositories) {
+				this.view.message = 'Loading commits...';
+				await this.view.container.git.isDiscoveringRepositories;
+			}
 
 			const repositories = this.view.container.git.openRepositories;
 			if (repositories.length === 0) {
-				this.view.message = this.view.container.git.isDiscoveringRepositories
-					? 'Loading commits...'
-					: 'No commits could be found.';
+				this.view.message = 'No commits could be found.';
 
 				return [];
 			}
@@ -310,6 +318,8 @@ export class CommitsView extends ViewBase<'commits', CommitsViewNode, CommitsVie
 				() => this.setShowBranchPullRequest(false),
 				this,
 			),
+			registerViewCommand(this.getQualifiedCommand('setShowStashesOn'), () => this.setShowStashes(true), this),
+			registerViewCommand(this.getQualifiedCommand('setShowStashesOff'), () => this.setShowStashes(false), this),
 		];
 	}
 
@@ -508,5 +518,9 @@ export class CommitsView extends ViewBase<'commits', CommitsViewNode, CommitsVie
 	private async setShowBranchPullRequest(enabled: boolean) {
 		await configuration.updateEffective(`views.${this.configKey}.pullRequests.showForBranches` as const, enabled);
 		await configuration.updateEffective(`views.${this.configKey}.pullRequests.enabled` as const, enabled);
+	}
+
+	private setShowStashes(enabled: boolean) {
+		return configuration.updateEffective(`views.${this.configKey}.showStashes` as const, enabled);
 	}
 }

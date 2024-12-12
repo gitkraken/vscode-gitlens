@@ -39,7 +39,7 @@ export class LaunchpadViewGroupingNode<TChild extends ViewNode = ViewNode> exten
 				storedExpandedGroups.splice(storedExpandedGroups.indexOf(this.group), 1);
 			}
 
-			void this.view.container.storage.store('launchpadView:groups:expanded', storedExpandedGroups);
+			void this.view.container.storage.store('launchpadView:groups:expanded', storedExpandedGroups).catch();
 		}
 	}
 }

@@ -1472,8 +1472,8 @@ export class CommitDetailsWebviewProvider
 			commit = commitish;
 		} else if (commitish != null) {
 			if (commitish.refType === 'stash') {
-				const stash = await this.container.git.getStash(commitish.repoPath);
-				commit = stash?.commits.get(commitish.ref);
+				const gitStash = await this.container.git.getStash(commitish.repoPath);
+				commit = gitStash?.stashes.get(commitish.ref);
 			} else {
 				commit = await this.container.git.getCommit(commitish.repoPath, commitish.ref);
 			}
@@ -1616,10 +1616,9 @@ export class CommitDetailsWebviewProvider
 			preferences.autolinksExpanded != null &&
 			this._context.preferences?.autolinksExpanded !== preferences.autolinksExpanded
 		) {
-			void this.container.storage.storeWorkspace(
-				'views:commitDetails:autolinksExpanded',
-				preferences.autolinksExpanded,
-			);
+			void this.container.storage
+				.storeWorkspace('views:commitDetails:autolinksExpanded', preferences.autolinksExpanded)
+				.catch();
 
 			changes.autolinksExpanded = preferences.autolinksExpanded;
 		}
@@ -1628,10 +1627,9 @@ export class CommitDetailsWebviewProvider
 			preferences.pullRequestExpanded != null &&
 			this._context.preferences?.pullRequestExpanded !== preferences.pullRequestExpanded
 		) {
-			void this.container.storage.storeWorkspace(
-				'views:commitDetails:pullRequestExpanded',
-				preferences.pullRequestExpanded,
-			);
+			void this.container.storage
+				.storeWorkspace('views:commitDetails:pullRequestExpanded', preferences.pullRequestExpanded)
+				.catch();
 
 			changes.pullRequestExpanded = preferences.pullRequestExpanded;
 		}
