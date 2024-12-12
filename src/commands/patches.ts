@@ -3,7 +3,8 @@ import type { TextEditor } from 'vscode';
 import { env, Uri, window, workspace } from 'vscode';
 import type { ScmResource } from '../@types/vscode.git.resources';
 import { ScmResourceGroupType } from '../@types/vscode.git.resources.enums';
-import { Commands } from '../constants.commands';
+import type { GlCommands } from '../constants.commands';
+import { GlCommand } from '../constants.commands';
 import type { IntegrationId } from '../constants.integrations';
 import type { Container } from '../container';
 import { CancellationError } from '../errors';
@@ -25,7 +26,7 @@ import { command } from '../system/vscode/command';
 import type { CommandContext } from './base';
 import {
 	ActiveEditorCommand,
-	Command,
+	GlCommandBase,
 	isCommandContextViewNodeHasCommit,
 	isCommandContextViewNodeHasComparison,
 	isCommandContextViewNodeHasFileCommit,
@@ -42,10 +43,10 @@ export interface CreatePatchCommandArgs {
 	description?: string;
 }
 
-abstract class CreatePatchCommandBase extends Command {
+abstract class CreatePatchCommandBase extends GlCommandBase {
 	constructor(
 		protected readonly container: Container,
-		command: Commands | Commands[],
+		command: GlCommands | GlCommands[],
 	) {
 		super(command);
 	}
@@ -161,7 +162,7 @@ abstract class CreatePatchCommandBase extends Command {
 @command()
 export class CreatePatchCommand extends CreatePatchCommandBase {
 	constructor(container: Container) {
-		super(container, Commands.CreatePatch);
+		super(container, GlCommand.CreatePatch);
 	}
 
 	async execute(args?: CreatePatchCommandArgs) {
@@ -185,7 +186,7 @@ export class CreatePatchCommand extends CreatePatchCommandBase {
 @command()
 export class CopyPatchToClipboardCommand extends CreatePatchCommandBase {
 	constructor(container: Container) {
-		super(container, Commands.CopyPatchToClipboard);
+		super(container, GlCommand.CopyPatchToClipboard);
 	}
 
 	async execute(args?: CreatePatchCommandArgs) {
@@ -200,9 +201,9 @@ export class CopyPatchToClipboardCommand extends CreatePatchCommandBase {
 }
 
 @command()
-export class ApplyPatchFromClipboardCommand extends Command {
+export class ApplyPatchFromClipboardCommand extends GlCommandBase {
 	constructor(private readonly container: Container) {
-		super([Commands.ApplyPatchFromClipboard, Commands.PastePatchFromClipboard]);
+		super([GlCommand.ApplyPatchFromClipboard, GlCommand.PastePatchFromClipboard]);
 	}
 
 	async execute() {
@@ -249,7 +250,7 @@ export class ApplyPatchFromClipboardCommand extends Command {
 @command()
 export class CreateCloudPatchCommand extends CreatePatchCommandBase {
 	constructor(container: Container) {
-		super(container, [Commands.CreateCloudPatch, Commands.ShareAsCloudPatch]);
+		super(container, [GlCommand.CreateCloudPatch, GlCommand.ShareAsCloudPatch]);
 	}
 
 	async execute(args?: CreatePatchCommandArgs) {
@@ -273,7 +274,7 @@ export class CreateCloudPatchCommand extends CreatePatchCommandBase {
 @command()
 export class OpenPatchCommand extends ActiveEditorCommand {
 	constructor(private readonly container: Container) {
-		super(Commands.OpenPatch);
+		super(GlCommand.OpenPatch);
 	}
 
 	async execute(editor?: TextEditor) {
@@ -318,9 +319,9 @@ export interface OpenCloudPatchCommandArgs {
 }
 
 @command()
-export class OpenCloudPatchCommand extends Command {
+export class OpenCloudPatchCommand extends GlCommandBase {
 	constructor(private readonly container: Container) {
-		super(Commands.OpenCloudPatch);
+		super(GlCommand.OpenCloudPatch);
 	}
 
 	async execute(args?: OpenCloudPatchCommandArgs) {

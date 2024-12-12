@@ -19,7 +19,8 @@ import type { ToggleFileChangesAnnotationCommandArgs } from '../commands/toggleF
 import type { CodeLensConfig, CodeLensLanguageScope } from '../config';
 import { CodeLensCommand } from '../config';
 import { trackableSchemes } from '../constants';
-import { Commands } from '../constants.commands';
+import type { GlCommands } from '../constants.commands';
+import { GlCommand } from '../constants.commands';
 import type { Container } from '../container';
 import type { GitUri } from '../git/gitUri';
 import type { GitBlame } from '../git/models/blame';
@@ -611,7 +612,7 @@ function applyDiffWithPreviousCommand<T extends GitRecentChangeCodeLens | GitAut
 	commit: GitCommit | undefined,
 ): T {
 	lens.command = createCommand<[undefined, DiffWithPreviousCommandArgs]>(
-		Commands.DiffWithPrevious,
+		GlCommand.DiffWithPrevious,
 		title,
 		undefined,
 		{
@@ -628,7 +629,7 @@ function applyCopyOrOpenCommitOnRemoteCommand<T extends GitRecentChangeCodeLens 
 	commit: GitCommit,
 	clipboard: boolean = false,
 ): T {
-	lens.command = createCommand<[OpenOnRemoteCommandArgs]>(Commands.OpenOnRemote, title, {
+	lens.command = createCommand<[OpenOnRemoteCommandArgs]>(GlCommand.OpenOnRemote, title, {
 		resource: {
 			type: RemoteResourceType.Commit,
 			sha: commit.sha,
@@ -645,7 +646,7 @@ function applyCopyOrOpenFileOnRemoteCommand<T extends GitRecentChangeCodeLens | 
 	commit: GitCommit,
 	clipboard: boolean = false,
 ): T {
-	lens.command = createCommand<[OpenOnRemoteCommandArgs]>(Commands.OpenOnRemote, title, {
+	lens.command = createCommand<[OpenOnRemoteCommandArgs]>(GlCommand.OpenOnRemote, title, {
 		resource: {
 			type: RemoteResourceType.Revision,
 			fileName: commit.file?.path ?? '',
@@ -688,7 +689,7 @@ function applyShowCommitsInViewCommand<T extends GitRecentChangeCodeLens | GitAu
 	}
 
 	lens.command = createCommand<[ShowCommitsInViewCommandArgs]>(
-		refs.length === 0 ? ('' as Commands) : Commands.ShowCommitsInView,
+		refs.length === 0 ? ('' as GlCommands) : GlCommand.ShowCommitsInView,
 		title,
 		{
 			repoPath: blame.repoPath,
@@ -759,7 +760,7 @@ function applyToggleFileBlameCommand<T extends GitRecentChangeCodeLens | GitAuth
 	title: string,
 	lens: T,
 ): T {
-	lens.command = createCommand<[Uri]>(Commands.ToggleFileBlame, title, lens.uri!.toFileUri());
+	lens.command = createCommand<[Uri]>(GlCommand.ToggleFileBlame, title, lens.uri!.toFileUri());
 	return lens;
 }
 
@@ -770,7 +771,7 @@ function applyToggleFileChangesCommand<T extends GitRecentChangeCodeLens | GitAu
 	only?: boolean,
 ): T {
 	lens.command = createCommand<[Uri, ToggleFileChangesAnnotationCommandArgs]>(
-		Commands.ToggleFileChanges,
+		GlCommand.ToggleFileChanges,
 		title,
 		lens.uri!.toFileUri(),
 		{
@@ -785,7 +786,7 @@ function applyToggleFileHeatmapCommand<T extends GitRecentChangeCodeLens | GitAu
 	title: string,
 	lens: T,
 ): T {
-	lens.command = createCommand<[Uri]>(Commands.ToggleFileHeatmap, title, lens.uri!.toFileUri());
+	lens.command = createCommand<[Uri]>(GlCommand.ToggleFileHeatmap, title, lens.uri!.toFileUri());
 	return lens;
 }
 

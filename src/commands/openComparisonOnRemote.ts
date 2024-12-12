@@ -1,11 +1,11 @@
-import { Commands } from '../constants.commands';
+import { GlCommand } from '../constants.commands';
 import type { Container } from '../container';
 import { RemoteResourceType } from '../git/models/remoteResource';
 import { showGenericErrorMessage } from '../messages';
 import { Logger } from '../system/logger';
 import { command, executeCommand } from '../system/vscode/command';
 import type { CommandContext } from './base';
-import { Command } from './base';
+import { GlCommandBase } from './base';
 import type { OpenOnRemoteCommandArgs } from './openOnRemote';
 
 export interface OpenComparisonOnRemoteCommandArgs {
@@ -17,9 +17,9 @@ export interface OpenComparisonOnRemoteCommandArgs {
 }
 
 @command()
-export class OpenComparisonOnRemoteCommand extends Command {
+export class OpenComparisonOnRemoteCommand extends GlCommandBase {
 	constructor(private readonly container: Container) {
-		super([Commands.OpenComparisonOnRemote, Commands.CopyRemoteComparisonUrl]);
+		super([GlCommand.OpenComparisonOnRemote, GlCommand.CopyRemoteComparisonUrl]);
 	}
 
 	protected override preExecute(context: CommandContext, args?: OpenComparisonOnRemoteCommandArgs) {
@@ -48,7 +48,7 @@ export class OpenComparisonOnRemoteCommand extends Command {
 			}
 		}
 
-		if (context.command === Commands.CopyRemoteComparisonUrl) {
+		if (context.command === GlCommand.CopyRemoteComparisonUrl) {
 			args = { ...args, clipboard: true };
 		}
 
@@ -59,7 +59,7 @@ export class OpenComparisonOnRemoteCommand extends Command {
 		if (args?.repoPath == null || args.ref1 == null || args.ref2 == null) return;
 
 		try {
-			void (await executeCommand<OpenOnRemoteCommandArgs>(Commands.OpenOnRemote, {
+			void (await executeCommand<OpenOnRemoteCommandArgs>(GlCommand.OpenOnRemote, {
 				resource: {
 					type: RemoteResourceType.Comparison,
 					base: args.ref1,

@@ -18,7 +18,7 @@ import type {
 	GraphScrollMarkersAdditionalTypes,
 } from '../../../config';
 import { GlyphChars } from '../../../constants';
-import { Commands } from '../../../constants.commands';
+import { GlCommand } from '../../../constants.commands';
 import type { StoredGraphFilters, StoredGraphRefType } from '../../../constants.storage';
 import type { GraphShownTelemetryContext, GraphTelemetryContext, TelemetryEvents } from '../../../constants.telemetry';
 import type { Container } from '../../../container';
@@ -313,7 +313,7 @@ export class GraphWebviewProvider implements WebviewProvider<State, State, Graph
 
 	constructor(
 		private readonly container: Container,
-		private readonly host: WebviewHost,
+		private readonly host: WebviewHost<'gitlens.views.graph' | 'gitlens.graph'>,
 	) {
 		this._showDetailsView = configuration.get('graph.showDetailsView');
 		this._theme = window.activeColorTheme;
@@ -452,7 +452,7 @@ export class GraphWebviewProvider implements WebviewProvider<State, State, Graph
 			}
 
 			if (this.repository == null && this.container.git.repositoryCount > 1) {
-				const [contexts] = parseCommandContext(Commands.ShowGraph, undefined, ...args);
+				const [contexts] = parseCommandContext(GlCommand.ShowGraph, undefined, ...args);
 				const context = Array.isArray(contexts) ? contexts[0] : contexts;
 
 				if (context.type === 'scm' && context.scm.rootUri != null) {
@@ -490,7 +490,7 @@ export class GraphWebviewProvider implements WebviewProvider<State, State, Graph
 					`${this.host.id}.openInTab`,
 					() =>
 						void executeCommand<WebviewPanelShowCommandArgs>(
-							Commands.ShowGraphPage,
+							GlCommand.ShowGraphPage,
 							undefined,
 							this.repository,
 						),
@@ -3054,7 +3054,7 @@ export class GraphWebviewProvider implements WebviewProvider<State, State, Graph
 				remote = getRemoteNameFromBranchName(ref.upstream.name);
 			}
 
-			return executeCommand<OpenOnRemoteCommandArgs>(Commands.OpenOnRemote, {
+			return executeCommand<OpenOnRemoteCommandArgs>(GlCommand.OpenOnRemote, {
 				repoPath: ref.repoPath,
 				resource: {
 					type: RemoteResourceType.Branch,
@@ -3150,7 +3150,7 @@ export class GraphWebviewProvider implements WebviewProvider<State, State, Graph
 		const ref = this.getGraphItemRef(item);
 		if (ref == null) return Promise.resolve();
 
-		return executeCommand<CopyMessageToClipboardCommandArgs>(Commands.CopyMessageToClipboard, {
+		return executeCommand<CopyMessageToClipboardCommandArgs>(GlCommand.CopyMessageToClipboard, {
 			repoPath: ref.repoPath,
 			sha: ref.ref,
 			message: 'message' in ref ? ref.message : undefined,
@@ -3167,7 +3167,7 @@ export class GraphWebviewProvider implements WebviewProvider<State, State, Graph
 			sha = await this.container.git.resolveReference(ref.repoPath, sha, undefined, { force: true });
 		}
 
-		return executeCommand<CopyShaToClipboardCommandArgs, void>(Commands.CopyShaToClipboard, {
+		return executeCommand<CopyShaToClipboardCommandArgs, void>(GlCommand.CopyShaToClipboard, {
 			sha: sha,
 		});
 	}
@@ -3181,7 +3181,7 @@ export class GraphWebviewProvider implements WebviewProvider<State, State, Graph
 			return void showGraphDetailsView(ref, { preserveFocus: true, preserveVisibility: false });
 		}
 
-		return executeCommand<InspectCommandArgs>(Commands.ShowInDetailsView, { ref: ref });
+		return executeCommand<InspectCommandArgs>(GlCommand.ShowInDetailsView, { ref: ref });
 	}
 
 	@log()
@@ -3204,7 +3204,7 @@ export class GraphWebviewProvider implements WebviewProvider<State, State, Graph
 		const { selection } = this.getGraphItemRefs(item, 'revision');
 		if (selection == null) return Promise.resolve();
 
-		return executeCommand<OpenOnRemoteCommandArgs>(Commands.OpenOnRemote, {
+		return executeCommand<OpenOnRemoteCommandArgs>(GlCommand.OpenOnRemote, {
 			repoPath: selection[0].repoPath,
 			resource: selection.map(r => ({ type: RemoteResourceType.Commit, sha: r.ref })),
 			clipboard: clipboard,
@@ -3215,7 +3215,7 @@ export class GraphWebviewProvider implements WebviewProvider<State, State, Graph
 	private copyDeepLinkToBranch(item?: GraphItemContext) {
 		if (isGraphItemRefContext(item, 'branch')) {
 			const { ref } = item.webviewItemValue;
-			return executeCommand<CopyDeepLinkCommandArgs>(Commands.CopyDeepLinkToBranch, { refOrRepoPath: ref });
+			return executeCommand<CopyDeepLinkCommandArgs>(GlCommand.CopyDeepLinkToBranch, { refOrRepoPath: ref });
 		}
 
 		return Promise.resolve();
@@ -3226,7 +3226,7 @@ export class GraphWebviewProvider implements WebviewProvider<State, State, Graph
 		const ref = this.getGraphItemRef(item, 'revision');
 		if (ref == null) return Promise.resolve();
 
-		return executeCommand<CopyDeepLinkCommandArgs>(Commands.CopyDeepLinkToCommit, { refOrRepoPath: ref });
+		return executeCommand<CopyDeepLinkCommandArgs>(GlCommand.CopyDeepLinkToCommit, { refOrRepoPath: ref });
 	}
 
 	@log()
@@ -3235,7 +3235,7 @@ export class GraphWebviewProvider implements WebviewProvider<State, State, Graph
 			const { ref } = item.webviewItemValue;
 			if (!ref.remote) return Promise.resolve();
 
-			return executeCommand<CopyDeepLinkCommandArgs>(Commands.CopyDeepLinkToRepo, {
+			return executeCommand<CopyDeepLinkCommandArgs>(GlCommand.CopyDeepLinkToRepo, {
 				refOrRepoPath: ref.repoPath,
 				remote: getRemoteNameFromBranchName(ref.name),
 			});
@@ -3248,7 +3248,7 @@ export class GraphWebviewProvider implements WebviewProvider<State, State, Graph
 	private copyDeepLinkToTag(item?: GraphItemContext) {
 		if (isGraphItemRefContext(item, 'tag')) {
 			const { ref } = item.webviewItemValue;
-			return executeCommand<CopyDeepLinkCommandArgs>(Commands.CopyDeepLinkToTag, { refOrRepoPath: ref });
+			return executeCommand<CopyDeepLinkCommandArgs>(GlCommand.CopyDeepLinkToTag, { refOrRepoPath: ref });
 		}
 
 		return Promise.resolve();
@@ -3261,7 +3261,7 @@ export class GraphWebviewProvider implements WebviewProvider<State, State, Graph
 		if (ref == null) return Promise.resolve();
 
 		const { title, description } = splitGitCommitMessage(ref.message);
-		return executeCommand<CreatePatchCommandArgs, void>(Commands.CreateCloudPatch, {
+		return executeCommand<CreatePatchCommandArgs, void>(GlCommand.CreateCloudPatch, {
 			to: ref.ref,
 			repoPath: ref.repoPath,
 			title: title,
@@ -3527,7 +3527,7 @@ export class GraphWebviewProvider implements WebviewProvider<State, State, Graph
 	private openPullRequestOnRemote(item?: GraphItemContext, clipboard?: boolean) {
 		if (isGraphItemTypedContext(item, 'pullrequest')) {
 			const { url } = item.webviewItemValue;
-			return executeCommand<OpenPullRequestOnRemoteCommandArgs>(Commands.OpenPullRequestOnRemote, {
+			return executeCommand<OpenPullRequestOnRemoteCommandArgs>(GlCommand.OpenPullRequestOnRemote, {
 				pr: { url: url },
 				clipboard: clipboard,
 			});
@@ -3642,7 +3642,7 @@ export class GraphWebviewProvider implements WebviewProvider<State, State, Graph
 		const ref = this.getGraphItemRef(item);
 		if (ref == null) return Promise.resolve();
 
-		return executeCommand<GenerateCommitMessageCommandArgs>(Commands.GenerateCommitMessage, {
+		return executeCommand<GenerateCommitMessageCommandArgs>(GlCommand.GenerateCommitMessage, {
 			repoPath: ref.repoPath,
 		});
 	}

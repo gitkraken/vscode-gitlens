@@ -1,6 +1,6 @@
 import type { Uri } from 'vscode';
 import { window } from 'vscode';
-import { Commands } from '../../constants.commands';
+import { GlCommand } from '../../constants.commands';
 import type { Container } from '../../container';
 import { create as createWorktree, open as openWorktree } from '../../git/actions/worktree';
 import { getLocalBranchByUpstream } from '../../git/models/branch';
@@ -12,7 +12,7 @@ import { parseGitRemoteUrl } from '../../git/parsers/remoteParser';
 import { Logger } from '../../system/logger';
 import { waitUntilNextTick } from '../../system/promise';
 import { command } from '../../system/vscode/command';
-import { Command } from '../base';
+import { GlCommandBase } from '../base';
 
 interface GHPRPullRequestNode {
 	readonly pullRequestModel: GHPRPullRequest;
@@ -45,9 +45,9 @@ export interface GHPRPullRequest {
 }
 
 @command()
-export class OpenOrCreateWorktreeCommand extends Command {
+export class OpenOrCreateWorktreeCommand extends GlCommandBase {
 	constructor(private readonly container: Container) {
-		super(Commands.OpenOrCreateWorktreeForGHPR);
+		super(GlCommand.OpenOrCreateWorktreeForGHPR);
 	}
 
 	async execute(...args: [GHPRPullRequestNode | GHPRPullRequest, ...unknown[]]) {

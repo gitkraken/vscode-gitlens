@@ -36,7 +36,7 @@ export class SettingsWebviewProvider implements WebviewProvider<State, State, Se
 
 	constructor(
 		protected readonly container: Container,
-		protected readonly host: WebviewHost,
+		protected readonly host: WebviewHost<'gitlens.settings'>,
 	) {
 		this._disposable = Disposable.from(
 			configuration.onDidChangeAny(this.onAnyConfigurationChanged, this),

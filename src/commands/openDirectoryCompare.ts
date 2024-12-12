@@ -1,5 +1,5 @@
 import type { TextEditor, Uri } from 'vscode';
-import { Commands } from '../constants.commands';
+import { GlCommand } from '../constants.commands';
 import type { Container } from '../container';
 import { openDirectoryCompare } from '../git/actions/commit';
 import { showGenericErrorMessage } from '../messages';
@@ -20,29 +20,29 @@ export interface OpenDirectoryCompareCommandArgs {
 export class OpenDirectoryCompareCommand extends ActiveEditorCommand {
 	constructor(private readonly container: Container) {
 		super([
-			Commands.DiffDirectory,
-			Commands.DiffDirectoryWithHead,
-			Commands.ViewsOpenDirectoryDiff,
-			Commands.ViewsOpenDirectoryDiffWithWorking,
+			GlCommand.DiffDirectory,
+			GlCommand.DiffDirectoryWithHead,
+			GlCommand.ViewsOpenDirectoryDiff,
+			GlCommand.ViewsOpenDirectoryDiffWithWorking,
 		]);
 	}
 
 	protected override async preExecute(context: CommandContext, args?: OpenDirectoryCompareCommandArgs) {
 		switch (context.command) {
-			case Commands.DiffDirectoryWithHead:
+			case GlCommand.DiffDirectoryWithHead:
 				args = { ...args };
 				args.ref1 = 'HEAD';
 				args.ref2 = undefined;
 				break;
 
-			case Commands.ViewsOpenDirectoryDiff:
+			case GlCommand.ViewsOpenDirectoryDiff:
 				if (context.type === 'viewItem' && context.node instanceof CompareResultsNode) {
 					args = { ...args };
 					[args.ref1, args.ref2] = await context.node.getDiffRefs();
 				}
 				break;
 
-			case Commands.ViewsOpenDirectoryDiffWithWorking:
+			case GlCommand.ViewsOpenDirectoryDiffWithWorking:
 				if (isCommandContextViewNodeHasRef(context)) {
 					args = { ...args };
 					args.ref1 = context.node.ref.ref;

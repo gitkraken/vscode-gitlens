@@ -3,7 +3,7 @@ import { Disposable, TreeItem, TreeItemCollapsibleState, window } from 'vscode';
 import type { OpenWalkthroughCommandArgs } from '../commands/walkthroughs';
 import type { DraftsViewConfig } from '../config';
 import { previewBadge } from '../constants';
-import { Commands } from '../constants.commands';
+import { GlCommand } from '../constants.commands';
 import type { Container } from '../container';
 import { AuthenticationRequiredError } from '../errors';
 import { unknownGitUri } from '../git/gitUri';
@@ -119,7 +119,7 @@ export class DraftsView extends ViewBase<'drafts', DraftsViewNode, DraftsViewCon
 			registerViewCommand(
 				this.getQualifiedCommand('info'),
 				() =>
-					executeCommand<OpenWalkthroughCommandArgs>(Commands.OpenWalkthrough, {
+					executeCommand<OpenWalkthroughCommandArgs>(GlCommand.OpenWalkthrough, {
 						step: 'streamline-collaboration',
 						source: 'cloud-patches',
 						detail: 'info',
@@ -128,14 +128,14 @@ export class DraftsView extends ViewBase<'drafts', DraftsViewNode, DraftsViewCon
 			),
 			registerViewCommand(
 				this.getQualifiedCommand('copy'),
-				() => executeCommand(Commands.ViewsCopy, this.activeSelection, this.selection),
+				() => executeCommand(GlCommand.ViewsCopy, this.activeSelection, this.selection),
 				this,
 			),
 			registerViewCommand(this.getQualifiedCommand('refresh'), () => this.refresh(true), this),
 			registerViewCommand(
 				this.getQualifiedCommand('create'),
 				async () => {
-					await executeCommand(Commands.CreateCloudPatch);
+					await executeCommand(GlCommand.CreateCloudPatch);
 					void this.ensureRoot().triggerChange(true);
 				},
 				this,

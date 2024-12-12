@@ -1,5 +1,5 @@
 import { window } from 'vscode';
-import { Commands } from '../constants.commands';
+import { GlCommand } from '../constants.commands';
 import type { Container } from '../container';
 import { getRemoteNameFromBranchName } from '../git/models/branch';
 import type { GitRemote } from '../git/models/remote';
@@ -8,7 +8,7 @@ import { RemoteResourceType } from '../git/models/remoteResource';
 import type { RemoteProvider } from '../git/remotes/remoteProvider';
 import { getRepositoryOrShowPicker } from '../quickpicks/repositoryPicker';
 import { command, executeCommand } from '../system/vscode/command';
-import { Command } from './base';
+import { GlCommandBase } from './base';
 import type { OpenOnRemoteCommandArgs } from './openOnRemote';
 
 export interface CreatePullRequestOnRemoteCommandArgs {
@@ -21,9 +21,9 @@ export interface CreatePullRequestOnRemoteCommandArgs {
 }
 
 @command()
-export class CreatePullRequestOnRemoteCommand extends Command {
+export class CreatePullRequestOnRemoteCommand extends GlCommandBase {
 	constructor(private readonly container: Container) {
-		super(Commands.CreatePullRequestOnRemote);
+		super(GlCommand.CreatePullRequestOnRemote);
 	}
 
 	async execute(args?: CreatePullRequestOnRemoteCommandArgs) {
@@ -72,7 +72,7 @@ export class CreatePullRequestOnRemoteCommand extends Command {
 			},
 		};
 
-		void (await executeCommand<OpenOnRemoteCommandArgs>(Commands.OpenOnRemote, {
+		void (await executeCommand<OpenOnRemoteCommandArgs>(GlCommand.OpenOnRemote, {
 			resource: resource,
 			remotes: remotes,
 		}));

@@ -1,17 +1,17 @@
 import { ConfigurationTarget } from 'vscode';
-import { Commands } from '../constants.commands';
+import { GlCommand } from '../constants.commands';
 import type { Container } from '../container';
 import { showModePicker } from '../quickpicks/modePicker';
 import { log } from '../system/decorators/log';
 import { getLogScope, setLogScopeExit } from '../system/logger.scope';
 import { command } from '../system/vscode/command';
 import { configuration } from '../system/vscode/configuration';
-import { Command } from './base';
+import { GlCommandBase } from './base';
 
 @command()
-export class SwitchModeCommand extends Command {
+export class SwitchModeCommand extends GlCommandBase {
 	constructor(private readonly container: Container) {
-		super(Commands.SwitchMode);
+		super(GlCommand.SwitchMode);
 	}
 
 	@log({ args: false, scoped: true, singleLine: true, timed: false })
@@ -43,9 +43,9 @@ export class SwitchModeCommand extends Command {
 }
 
 @command()
-export class ToggleReviewModeCommand extends Command {
+export class ToggleReviewModeCommand extends GlCommandBase {
 	constructor(private readonly container: Container) {
-		super(Commands.ToggleReviewMode);
+		super(GlCommand.ToggleReviewMode);
 	}
 
 	@log({ args: false, singleLine: true, timed: false })
@@ -59,9 +59,9 @@ export class ToggleReviewModeCommand extends Command {
 }
 
 @command()
-export class ToggleZenModeCommand extends Command {
+export class ToggleZenModeCommand extends GlCommandBase {
 	constructor(private readonly container: Container) {
-		super(Commands.ToggleZenMode);
+		super(GlCommand.ToggleZenMode);
 	}
 
 	@log({ args: false, singleLine: true, timed: false })

@@ -1,4 +1,4 @@
-import { Commands } from '../constants.commands';
+import { GlCommand } from '../constants.commands';
 import type { Container } from '../container';
 import { apply, pop } from '../git/actions/stash';
 import type { GitStashCommit } from '../git/models/commit';
@@ -6,7 +6,7 @@ import type { GitStashReference } from '../git/models/reference';
 import type { CommandQuickPickItem } from '../quickpicks/items/common';
 import { command } from '../system/vscode/command';
 import type { CommandContext } from './base';
-import { Command, isCommandContextViewNodeHasCommit, isCommandContextViewNodeHasRepository } from './base';
+import { GlCommandBase, isCommandContextViewNodeHasCommit, isCommandContextViewNodeHasRepository } from './base';
 
 export interface StashApplyCommandArgs {
 	deleteAfter?: boolean;
@@ -17,9 +17,9 @@ export interface StashApplyCommandArgs {
 }
 
 @command()
-export class StashApplyCommand extends Command {
+export class StashApplyCommand extends GlCommandBase {
 	constructor(private readonly container: Container) {
-		super(Commands.StashApply);
+		super(GlCommand.StashApply);
 	}
 
 	protected override async preExecute(context: CommandContext, args?: StashApplyCommandArgs) {

@@ -1,5 +1,5 @@
 import type { TextDocumentShowOptions, TextEditor, Uri } from 'vscode';
-import { Commands } from '../constants.commands';
+import { GlCommand } from '../constants.commands';
 import type { Container } from '../container';
 import { GitUri } from '../git/gitUri';
 import type { GitCommit } from '../git/models/commit';
@@ -24,11 +24,15 @@ export interface DiffWithPreviousCommandArgs {
 @command()
 export class DiffWithPreviousCommand extends ActiveEditorCommand {
 	constructor(private readonly container: Container) {
-		super([Commands.DiffWithPrevious, Commands.DiffWithPreviousInDiffLeft, Commands.DiffWithPreviousInDiffRight]);
+		super([
+			GlCommand.DiffWithPrevious,
+			GlCommand.DiffWithPreviousInDiffLeft,
+			GlCommand.DiffWithPreviousInDiffRight,
+		]);
 	}
 
 	protected override preExecute(context: CommandContext, args?: DiffWithPreviousCommandArgs) {
-		if (context.command === Commands.DiffWithPreviousInDiffRight) {
+		if (context.command === GlCommand.DiffWithPreviousInDiffRight) {
 			args = { ...args, inDiffRightEditor: true };
 		}
 
@@ -51,7 +55,7 @@ export class DiffWithPreviousCommand extends ActiveEditorCommand {
 		let gitUri;
 		if (args.commit?.file != null) {
 			if (!args.commit.isUncommitted) {
-				void (await executeCommand<DiffWithCommandArgs>(Commands.DiffWith, {
+				void (await executeCommand<DiffWithCommandArgs>(GlCommand.DiffWith, {
 					repoPath: args.commit.repoPath,
 					lhs: {
 						sha: `${args.commit.sha}^`,
@@ -116,7 +120,7 @@ export class DiffWithPreviousCommand extends ActiveEditorCommand {
 				);
 			}
 
-			void (await executeCommand<DiffWithCommandArgs>(Commands.DiffWith, {
+			void (await executeCommand<DiffWithCommandArgs>(GlCommand.DiffWith, {
 				repoPath: diffUris.current.repoPath,
 				lhs: {
 					sha: diffUris.previous.sha ?? '',

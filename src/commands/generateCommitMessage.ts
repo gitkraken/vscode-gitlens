@@ -1,6 +1,6 @@
 import type { TextEditor, Uri } from 'vscode';
 import { ProgressLocation, window } from 'vscode';
-import { Commands } from '../constants.commands';
+import { GlCommand } from '../constants.commands';
 import type { Container } from '../container';
 import { GitUri } from '../git/gitUri';
 import { showGenericErrorMessage } from '../messages';
@@ -16,7 +16,7 @@ export interface GenerateCommitMessageCommandArgs {
 @command()
 export class GenerateCommitMessageCommand extends ActiveEditorCommand {
 	constructor(private readonly container: Container) {
-		super([Commands.GenerateCommitMessage, Commands.GenerateCommitMessageScm]);
+		super([GlCommand.GenerateCommitMessage, GlCommand.GenerateCommitMessageScm]);
 	}
 
 	async execute(editor?: TextEditor, uri?: Uri, args?: GenerateCommitMessageCommandArgs) {

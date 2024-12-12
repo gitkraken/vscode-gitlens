@@ -2,7 +2,7 @@ import type { MessageItem } from 'vscode';
 import { ConfigurationTarget, window } from 'vscode';
 import type { SuppressedMessages } from './config';
 import { urls } from './constants';
-import { Commands } from './constants.commands';
+import { GlCommand } from './constants.commands';
 import type { BlameIgnoreRevsFileError } from './git/errors';
 import { BlameIgnoreRevsFileBadRevisionError } from './git/errors';
 import type { GitCommit } from './git/models/commit';
@@ -91,7 +91,7 @@ export async function showGenericErrorMessage(message: string): Promise<void> {
 		);
 
 		if (result != null) {
-			void executeCommand(Commands.EnableDebugLogging);
+			void executeCommand(GlCommand.EnableDebugLogging);
 		}
 	}
 }
@@ -237,7 +237,7 @@ export async function showWhatsNewMessage(majorVersion: string) {
 		'info',
 		`Upgraded to GitLens ${majorVersion}${
 			majorVersion === '16'
-				? ` with an all new [Home view](${createMarkdownCommandLink(Commands.ShowHomeView, {
+				? ` with an all new [Home view](${createMarkdownCommandLink(GlCommand.ShowHomeView, {
 						source: 'whatsnew',
 				  })} "Show Home view") reimagined as a hub for your current, future, and recent work, [consolidated Source Control views](command:gitlens.views.scm.grouped.focus "Show GitLens view"), and much more.`
 				: " — see what's new."

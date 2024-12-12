@@ -1,6 +1,6 @@
 import { Disposable, ViewColumn } from 'vscode';
 import { isScm } from '../../../commands/base';
-import { Commands } from '../../../constants.commands';
+import { GlCommand } from '../../../constants.commands';
 import type { Container } from '../../../container';
 import type { GitReference } from '../../../git/models/reference';
 import type { Repository } from '../../../git/models/repository';
@@ -24,8 +24,8 @@ import type { ShowInCommitGraphCommandArgs, State } from './protocol';
 export type GraphWebviewShowingArgs = [Repository | { ref: GitReference }];
 
 export function registerGraphWebviewPanel(controller: WebviewsController) {
-	return controller.registerWebviewPanel<State, State, GraphWebviewShowingArgs>(
-		{ id: Commands.ShowGraphPage, options: { preserveInstance: true } },
+	return controller.registerWebviewPanel<'gitlens.graph', State, State, GraphWebviewShowingArgs>(
+		{ id: GlCommand.ShowGraphPage, options: { preserveInstance: true } },
 		{
 			id: 'gitlens.graph',
 			fileName: 'graph.html',
@@ -50,7 +50,7 @@ export function registerGraphWebviewPanel(controller: WebviewsController) {
 }
 
 export function registerGraphWebviewView(controller: WebviewsController) {
-	return controller.registerWebviewView<State, State, GraphWebviewShowingArgs>(
+	return controller.registerWebviewView<'gitlens.views.graph', State, State, GraphWebviewShowingArgs>(
 		{
 			id: 'gitlens.views.graph',
 			fileName: 'graph.html',
@@ -72,10 +72,10 @@ export function registerGraphWebviewView(controller: WebviewsController) {
 
 export function registerGraphWebviewCommands<T>(
 	container: Container,
-	panels: WebviewPanelsProxy<GraphWebviewShowingArgs, T>,
+	panels: WebviewPanelsProxy<'gitlens.graph', GraphWebviewShowingArgs, T>,
 ) {
 	return Disposable.from(
-		registerCommand(Commands.ShowGraph, (...args: unknown[]) => {
+		registerCommand(GlCommand.ShowGraph, (...args: unknown[]) => {
 			const [arg] = args;
 
 			let showInGraphArg;
@@ -95,44 +95,44 @@ export function registerGraphWebviewCommands<T>(
 			}
 
 			if (showInGraphArg != null) {
-				return executeCommand(Commands.ShowInCommitGraph, showInGraphArg);
+				return executeCommand(GlCommand.ShowInCommitGraph, showInGraphArg);
 			}
 
 			if (configuration.get('graph.layout') === 'panel') {
-				return executeCommand(Commands.ShowGraphView, ...args);
+				return executeCommand(GlCommand.ShowGraphView, ...args);
 			}
 
-			return executeCommand<WebviewPanelShowCommandArgs>(Commands.ShowGraphPage, undefined, ...args);
+			return executeCommand<WebviewPanelShowCommandArgs>(GlCommand.ShowGraphPage, undefined, ...args);
 		}),
 		registerCommand(`${panels.id}.switchToEditorLayout`, async () => {
 			await configuration.updateEffective('graph.layout', 'editor');
-			queueMicrotask(() => void executeCommand<WebviewPanelShowCommandArgs>(Commands.ShowGraphPage));
+			queueMicrotask(() => void executeCommand<WebviewPanelShowCommandArgs>(GlCommand.ShowGraphPage));
 		}),
 		registerCommand(`${panels.id}.switchToPanelLayout`, async () => {
 			await configuration.updateEffective('graph.layout', 'panel');
 			queueMicrotask(async () => {
 				await executeCoreCommand('gitlens.views.graph.resetViewLocation');
 				await executeCoreCommand('gitlens.views.graphDetails.resetViewLocation');
-				void executeCommand(Commands.ShowGraphView);
+				void executeCommand(GlCommand.ShowGraphView);
 			});
 		}),
-		registerCommand(Commands.ToggleGraph, (...args: any[]) => {
+		registerCommand(GlCommand.ToggleGraph, (...args: any[]) => {
 			if (getContext('gitlens:webviewView:graph:visible')) {
 				void executeCoreCommand('workbench.action.closePanel');
 			} else {
-				void executeCommand(Commands.ShowGraphView, ...args);
+				void executeCommand(GlCommand.ShowGraphView, ...args);
 			}
 		}),
-		registerCommand(Commands.ToggleMaximizedGraph, (...args: any[]) => {
+		registerCommand(GlCommand.ToggleMaximizedGraph, (...args: any[]) => {
 			if (getContext('gitlens:webviewView:graph:visible')) {
 				void executeCoreCommand('workbench.action.toggleMaximizedPanel');
 			} else {
-				void executeCommand(Commands.ShowGraphView, ...args);
+				void executeCommand(GlCommand.ShowGraphView, ...args);
 				void executeCoreCommand('workbench.action.toggleMaximizedPanel');
 			}
 		}),
 		registerCommand(
-			Commands.ShowInCommitGraph,
+			GlCommand.ShowInCommitGraph,
 			(
 				args:
 					| ShowInCommitGraphCommandArgs
@@ -167,7 +167,7 @@ export function registerGraphWebviewCommands<T>(
 			},
 		),
 		registerCommand(
-			Commands.ShowInCommitGraphView,
+			GlCommand.ShowInCommitGraphView,
 			(
 				args:
 					| ShowInCommitGraphCommandArgs

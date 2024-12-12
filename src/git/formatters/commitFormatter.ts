@@ -16,7 +16,7 @@ import type { ShowQuickCommitCommandArgs } from '../../commands/showQuickCommit'
 import { ShowQuickCommitFileCommand } from '../../commands/showQuickCommitFile';
 import type { DateStyle } from '../../config';
 import { GlyphChars } from '../../constants';
-import { Commands } from '../../constants.commands';
+import { actionCommandPrefix, GlCommand } from '../../constants.commands';
 import { Container } from '../../container';
 import { emojify } from '../../emojis';
 import { arePlusFeaturesEnabled } from '../../plus/gk/utils';
@@ -477,7 +477,7 @@ export class CommitFormatter extends Formatter<GitCommit, CommitFormatOptions> {
 		}
 
 		commands += ` &nbsp;[$(search)](${createMarkdownCommandLink<ShowQuickCommitCommandArgs>(
-			Commands.RevealCommitInView,
+			GlCommand.RevealCommitInView,
 			{
 				repoPath: this._item.repoPath,
 				sha: this._item.sha,
@@ -487,7 +487,7 @@ export class CommitFormatter extends Formatter<GitCommit, CommitFormatOptions> {
 
 		if (arePlusFeaturesEnabled()) {
 			commands += ` &nbsp;[$(gitlens-graph)](${createMarkdownCommandLink<ShowInCommitGraphCommandArgs>(
-				Commands.ShowInCommitGraph,
+				GlCommand.ShowInCommitGraph,
 				// Avoid including the message here, it just bloats the command url
 				{ ref: getReferenceFromRevision(this._item, { excludeMessage: true }) },
 			)} "Open in Commit Graph")`;
@@ -517,7 +517,7 @@ export class CommitFormatter extends Formatter<GitCommit, CommitFormatOptions> {
 					pr.state
 				}, ${pr.formatDateFromNow()}")`;
 			} else if (isPromise(pr)) {
-				commands += `${separator}[$(git-pull-request) PR $(loading~spin)](command:${Commands.RefreshHover} "Searching for a Pull Request (if any) that introduced this commit...")`;
+				commands += `${separator}[$(git-pull-request) PR $(loading~spin)](command:${GlCommand.RefreshHover} "Searching for a Pull Request (if any) that introduced this commit...")`;
 			}
 		} else if (remotes != null) {
 			const [remote] = remotes;
@@ -813,7 +813,7 @@ export class CommitFormatter extends Formatter<GitCommit, CommitFormatOptions> {
 		} else if (isPromise(pr)) {
 			text =
 				this._options.outputFormat === 'markdown'
-					? `[PR $(loading~spin)](command:${Commands.RefreshHover} "Searching for a Pull Request (if any) that introduced this commit...")`
+					? `[PR $(loading~spin)](command:${GlCommand.RefreshHover} "Searching for a Pull Request (if any) that introduced this commit...")`
 					: this._options?.pullRequestPendingMessage ?? '';
 		} else {
 			return this._padOrTruncate('', this._options.tokenOptions.pullRequest);
@@ -941,7 +941,7 @@ export class CommitFormatter extends Formatter<GitCommit, CommitFormatOptions> {
 }
 
 function createMarkdownActionCommandLink<T extends ActionContext>(action: Action<T>, args: Omit<T, 'type'>): string {
-	return createMarkdownCommandLink(`${Commands.ActionPrefix}${action}` as Commands, {
+	return createMarkdownCommandLink(`${actionCommandPrefix}${action}`, {
 		...args,
 		type: action,
 	});

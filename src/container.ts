@@ -13,7 +13,8 @@ import type { ToggleFileAnnotationCommandArgs } from './commands/toggleFileAnnot
 import type { DateStyle, FileAnnotationType, Mode } from './config';
 import { fromOutputLevel } from './config';
 import { extensionPrefix } from './constants';
-import { Commands } from './constants.commands';
+import type { GlCommands } from './constants.commands';
+import { GlCommand } from './constants.commands';
 import { EventBus } from './eventBus';
 import { GitFileSystemProvider } from './git/fsProvider';
 import { GitProviderService } from './git/gitProviderService';
@@ -668,16 +669,16 @@ export class Container {
 		}
 
 		if (mode.annotations != null) {
-			let command: Commands | undefined;
+			let command: GlCommands | undefined;
 			switch (mode.annotations) {
 				case 'blame':
-					command = Commands.ToggleFileBlame;
+					command = GlCommand.ToggleFileBlame;
 					break;
 				case 'changes':
-					command = Commands.ToggleFileChanges;
+					command = GlCommand.ToggleFileChanges;
 					break;
 				case 'heatmap':
-					command = Commands.ToggleFileHeatmap;
+					command = GlCommand.ToggleFileHeatmap;
 					break;
 			}
 

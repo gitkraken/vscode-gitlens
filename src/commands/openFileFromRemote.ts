@@ -1,14 +1,14 @@
 import { env, Range, Uri, window } from 'vscode';
-import { Commands } from '../constants.commands';
+import { GlCommand } from '../constants.commands';
 import type { Container } from '../container';
 import { command } from '../system/vscode/command';
 import { openEditor } from '../system/vscode/utils';
-import { Command } from './base';
+import { GlCommandBase } from './base';
 
 @command()
-export class OpenFileFromRemoteCommand extends Command {
+export class OpenFileFromRemoteCommand extends GlCommandBase {
 	constructor(private readonly container: Container) {
-		super(Commands.OpenFileFromRemote);
+		super(GlCommand.OpenFileFromRemote);
 	}
 
 	async execute() {

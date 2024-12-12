@@ -9,7 +9,8 @@ import type { OpenFileAtRevisionCommandArgs } from '../commands/openFileAtRevisi
 import type { OpenOnRemoteCommandArgs } from '../commands/openOnRemote';
 import type { ViewShowBranchComparison } from '../config';
 import { GlyphChars } from '../constants';
-import { Commands } from '../constants.commands';
+import type { Commands } from '../constants.commands';
+import { GlCommand } from '../constants.commands';
 import type { Container } from '../container';
 import { browseAtRevision, executeGitCommand } from '../git/actions';
 import * as BranchActions from '../git/actions/branch';
@@ -98,7 +99,7 @@ interface CompareSelectedInfo {
 }
 
 export function registerViewCommand(
-	command: string,
+	command: Commands,
 	callback: (...args: any[]) => unknown,
 	thisArg?: any,
 	multiselect: boolean | 'sequential' = false,
@@ -144,12 +145,12 @@ export class ViewCommands implements Disposable {
 		this._disposable = Disposable.from(
 			registerViewCommand('gitlens.views.clearComparison', n => this.clearComparison(n), this),
 			registerViewCommand('gitlens.views.clearReviewed', n => this.clearReviewed(n), this),
-			registerViewCommand(Commands.ViewsCopy, partial(copyNode, 'text'), this, true),
-			registerViewCommand(Commands.ViewsCopyAsMarkdown, partial(copyNode, 'markdown'), this, true),
-			registerViewCommand(Commands.ViewsCopyUrl, copyNodeUrl, this),
-			registerViewCommand(`${Commands.ViewsCopyUrl}.multi`, copyNodeUrl, this, true),
-			registerViewCommand(Commands.ViewsOpenUrl, openNodeUrl, this),
-			registerViewCommand(`${Commands.ViewsOpenUrl}.multi`, openNodeUrl, this, true),
+			registerViewCommand(GlCommand.ViewsCopy, partial(copyNode, 'text'), this, true),
+			registerViewCommand(GlCommand.ViewsCopyAsMarkdown, partial(copyNode, 'markdown'), this, true),
+			registerViewCommand(GlCommand.ViewsCopyUrl, copyNodeUrl, this),
+			registerViewCommand(`${GlCommand.ViewsCopyUrl}.multi`, copyNodeUrl, this, true),
+			registerViewCommand(GlCommand.ViewsOpenUrl, openNodeUrl, this),
+			registerViewCommand(`${GlCommand.ViewsOpenUrl}.multi`, openNodeUrl, this, true),
 			registerViewCommand(
 				'gitlens.views.collapseNode',
 				() => executeCoreCommand('list.collapseAllToFocus'),
@@ -234,12 +235,12 @@ export class ViewCommands implements Disposable {
 
 			registerViewCommand(
 				'gitlens.views.openBranchOnRemote',
-				n => executeCommand(Commands.OpenBranchOnRemote, n),
+				n => executeCommand(GlCommand.OpenBranchOnRemote, n),
 				this,
 			),
 			registerViewCommand(
 				'gitlens.views.openBranchOnRemote.multi',
-				n => executeCommand(Commands.OpenBranchOnRemote, n),
+				n => executeCommand(GlCommand.OpenBranchOnRemote, n),
 				this,
 				'sequential',
 			),
@@ -1241,7 +1242,7 @@ export class ViewCommands implements Disposable {
 			rhsUri = await this.container.git.getWorkingUri(repoPath, lhsUri);
 		}
 
-		return executeCommand<DiffWithCommandArgs, void>(Commands.DiffWith, {
+		return executeCommand<DiffWithCommandArgs, void>(GlCommand.DiffWith, {
 			repoPath: repoPath,
 			lhs: {
 				sha: lhsRef,
@@ -1326,7 +1327,7 @@ export class ViewCommands implements Disposable {
 	private openCommitOnRemote(node: ViewRefNode, nodes?: ViewRefNode[], clipboard?: boolean) {
 		const refs = nodes?.length ? nodes.map(n => n.ref) : [node.ref];
 
-		return executeCommand<OpenOnRemoteCommandArgs>(Commands.OpenOnRemote, {
+		return executeCommand<OpenOnRemoteCommandArgs>(GlCommand.OpenOnRemote, {
 			repoPath: refs[0].repoPath,
 			resource: refs.map(r => ({ type: RemoteResourceType.Commit, sha: r.ref })),
 			clipboard: clipboard,
@@ -1336,7 +1337,7 @@ export class ViewCommands implements Disposable {
 	@log()
 	private openChanges(node: ViewRefFileNode | MergeConflictFileNode | StatusFileNode) {
 		if (node.is('conflict-file')) {
-			void executeCommand<DiffWithCommandArgs>(Commands.DiffWith, {
+			void executeCommand<DiffWithCommandArgs>(GlCommand.DiffWith, {
 				lhs: {
 					sha: node.status.HEAD.ref,
 					uri: GitUri.fromFile(node.file, node.repoPath, undefined, true),
@@ -1362,13 +1363,13 @@ export class ViewCommands implements Disposable {
 		if (command?.arguments == null) return;
 
 		switch (command.command) {
-			case Commands.DiffWith: {
+			case GlCommand.DiffWith: {
 				const [args] = command.arguments as [DiffWithCommandArgs];
 				args.showOptions!.preview = false;
 				void executeCommand<DiffWithCommandArgs>(command.command, args);
 				break;
 			}
-			case Commands.DiffWithPrevious: {
+			case GlCommand.DiffWithPrevious: {
 				const [, args] = command.arguments as [Uri, DiffWithPreviousCommandArgs];
 				args.showOptions!.preview = false;
 				void executeEditorCommand<DiffWithPreviousCommandArgs>(command.command, undefined, args);
@@ -1418,7 +1419,7 @@ export class ViewCommands implements Disposable {
 	@log()
 	private async openChangesWithWorking(node: ViewRefFileNode | MergeConflictFileNode | StatusFileNode) {
 		if (node.is('status-file')) {
-			return executeEditorCommand<DiffWithWorkingCommandArgs>(Commands.DiffWithWorking, undefined, {
+			return executeEditorCommand<DiffWithWorkingCommandArgs>(GlCommand.DiffWithWorking, undefined, {
 				uri: node.uri,
 				showOptions: {
 					preserveFocus: true,
@@ -1428,7 +1429,7 @@ export class ViewCommands implements Disposable {
 		}
 
 		if (node.is('conflict-file')) {
-			return executeEditorCommand<DiffWithWorkingCommandArgs>(Commands.DiffWithWorking, undefined, {
+			return executeEditorCommand<DiffWithWorkingCommandArgs>(GlCommand.DiffWithWorking, undefined, {
 				uri: node.baseUri,
 				showOptions: {
 					preserveFocus: true,
@@ -1440,7 +1441,7 @@ export class ViewCommands implements Disposable {
 		if (node.is('file-commit') && node.commit.file?.hasConflicts) {
 			const baseUri = await node.getConflictBaseUri();
 			if (baseUri != null) {
-				return executeEditorCommand<DiffWithWorkingCommandArgs>(Commands.DiffWithWorking, undefined, {
+				return executeEditorCommand<DiffWithWorkingCommandArgs>(GlCommand.DiffWithWorking, undefined, {
 					uri: baseUri,
 					showOptions: {
 						preserveFocus: true,

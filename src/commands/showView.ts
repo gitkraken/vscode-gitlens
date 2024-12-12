@@ -1,35 +1,35 @@
 import { window } from 'vscode';
-import { Commands } from '../constants.commands';
+import { GlCommand } from '../constants.commands';
 import type { Container } from '../container';
 import type { GraphWebviewShowingArgs } from '../plus/webviews/graph/registration';
 import { command, executeCoreCommand } from '../system/vscode/command';
 import type { HomeWebviewShowingArgs } from '../webviews/home/registration';
 import type { CommandContext } from './base';
-import { Command } from './base';
+import { GlCommandBase } from './base';
 
 @command()
-export class ShowViewCommand extends Command {
+export class ShowViewCommand extends GlCommandBase {
 	constructor(private readonly container: Container) {
 		super([
-			Commands.ShowAccountView,
-			Commands.ShowBranchesView,
-			Commands.ShowCommitDetailsView,
-			Commands.ShowCommitsView,
-			Commands.ShowContributorsView,
-			Commands.ShowDraftsView,
-			Commands.ShowFileHistoryView,
-			Commands.ShowGraphView,
-			Commands.ShowHomeView,
-			Commands.ShowLaunchpadView,
-			Commands.ShowLineHistoryView,
-			Commands.ShowRemotesView,
-			Commands.ShowRepositoriesView,
-			Commands.ShowSearchAndCompareView,
-			Commands.ShowStashesView,
-			Commands.ShowTagsView,
-			Commands.ShowTimelineView,
-			Commands.ShowWorktreesView,
-			Commands.ShowWorkspacesView,
+			GlCommand.ShowAccountView,
+			GlCommand.ShowBranchesView,
+			GlCommand.ShowCommitDetailsView,
+			GlCommand.ShowCommitsView,
+			GlCommand.ShowContributorsView,
+			GlCommand.ShowDraftsView,
+			GlCommand.ShowFileHistoryView,
+			GlCommand.ShowGraphView,
+			GlCommand.ShowHomeView,
+			GlCommand.ShowLaunchpadView,
+			GlCommand.ShowLineHistoryView,
+			GlCommand.ShowRemotesView,
+			GlCommand.ShowRepositoriesView,
+			GlCommand.ShowSearchAndCompareView,
+			GlCommand.ShowStashesView,
+			GlCommand.ShowTagsView,
+			GlCommand.ShowTimelineView,
+			GlCommand.ShowWorktreesView,
+			GlCommand.ShowWorkspacesView,
 		]);
 	}
 
@@ -54,50 +54,50 @@ export class ShowViewCommand extends Command {
 	}
 
 	async execute(context: CommandContext, ...args: unknown[]) {
-		const command = context.command as Commands;
+		const command = context.command;
 		switch (command) {
-			case Commands.ShowAccountView:
+			case GlCommand.ShowAccountView:
 				return this.container.views.home.show(
 					undefined,
 					...([{ focusAccount: true }, ...args] as HomeWebviewShowingArgs),
 				);
-			case Commands.ShowBranchesView:
+			case GlCommand.ShowBranchesView:
 				return this.container.views.showView('branches');
-			case Commands.ShowCommitDetailsView:
+			case GlCommand.ShowCommitDetailsView:
 				void this.notifyWhenNoRepository('Inspect');
 				return this.container.views.commitDetails.show();
-			case Commands.ShowCommitsView:
+			case GlCommand.ShowCommitsView:
 				return this.container.views.showView('commits');
-			case Commands.ShowContributorsView:
+			case GlCommand.ShowContributorsView:
 				return this.container.views.showView('contributors');
-			case Commands.ShowDraftsView:
+			case GlCommand.ShowDraftsView:
 				return this.container.views.showView('drafts');
-			case Commands.ShowFileHistoryView:
+			case GlCommand.ShowFileHistoryView:
 				return this.container.views.showView('fileHistory');
-			case Commands.ShowGraphView:
+			case GlCommand.ShowGraphView:
 				void this.notifyWhenNoRepository('the Commit Graph');
 				return this.container.views.graph.show(undefined, ...(args as GraphWebviewShowingArgs));
-			case Commands.ShowHomeView:
+			case GlCommand.ShowHomeView:
 				return this.container.views.home.show(undefined, ...(args as HomeWebviewShowingArgs));
-			case Commands.ShowLaunchpadView:
+			case GlCommand.ShowLaunchpadView:
 				return this.container.views.showView('launchpad');
-			case Commands.ShowLineHistoryView:
+			case GlCommand.ShowLineHistoryView:
 				return this.container.views.showView('lineHistory');
-			case Commands.ShowRemotesView:
+			case GlCommand.ShowRemotesView:
 				return this.container.views.showView('remotes');
-			case Commands.ShowRepositoriesView:
+			case GlCommand.ShowRepositoriesView:
 				return this.container.views.showView('repositories');
-			case Commands.ShowSearchAndCompareView:
+			case GlCommand.ShowSearchAndCompareView:
 				return this.container.views.showView('searchAndCompare');
-			case Commands.ShowStashesView:
+			case GlCommand.ShowStashesView:
 				return this.container.views.showView('stashes');
-			case Commands.ShowTagsView:
+			case GlCommand.ShowTagsView:
 				return this.container.views.showView('tags');
-			case Commands.ShowTimelineView:
+			case GlCommand.ShowTimelineView:
 				return this.container.views.timeline.show();
-			case Commands.ShowWorktreesView:
+			case GlCommand.ShowWorktreesView:
 				return this.container.views.showView('worktrees');
-			case Commands.ShowWorkspacesView:
+			case GlCommand.ShowWorkspacesView:
 				return this.container.views.showView('workspaces');
 		}
 

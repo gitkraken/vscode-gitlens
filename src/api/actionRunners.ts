@@ -1,7 +1,7 @@
 import type { Event, QuickPickItem } from 'vscode';
 import { Disposable, EventEmitter, window } from 'vscode';
 import type { Config } from '../config';
-import { Commands } from '../constants.commands';
+import { actionCommandPrefix } from '../constants.commands';
 import type { Container } from '../container';
 import { getScopedCounter } from '../system/counter';
 import { sortCompare } from '../system/string';
@@ -137,7 +137,7 @@ export class ActionRunners implements Disposable {
 
 		for (const action of actions) {
 			subscriptions.push(
-				registerCommand(`${Commands.ActionPrefix}${action}`, (context: ActionContext, runnerId?: number) =>
+				registerCommand(`${actionCommandPrefix}${action}`, (context: ActionContext, runnerId?: number) =>
 					this.run(context, runnerId),
 				),
 			);

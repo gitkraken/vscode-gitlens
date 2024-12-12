@@ -1,6 +1,6 @@
 import type { Uri } from 'vscode';
 import { window } from 'vscode';
-import { Commands } from '../constants.commands';
+import { GlCommand } from '../constants.commands';
 import type { Container } from '../container';
 import { showGenericErrorMessage } from '../messages';
 import { getRepositoryOrShowPicker } from '../quickpicks/repositoryPicker';
@@ -8,16 +8,16 @@ import { filterMap } from '../system/array';
 import { Logger } from '../system/logger';
 import { command } from '../system/vscode/command';
 import { findOrOpenEditors } from '../system/vscode/utils';
-import { Command } from './base';
+import { GlCommandBase } from './base';
 
 export interface OpenChangedFilesCommandArgs {
 	uris?: Uri[];
 }
 
 @command()
-export class OpenChangedFilesCommand extends Command {
+export class OpenChangedFilesCommand extends GlCommandBase {
 	constructor(private readonly container: Container) {
-		super(Commands.OpenChangedFiles);
+		super(GlCommand.OpenChangedFiles);
 	}
 
 	async execute(args?: OpenChangedFilesCommandArgs) {

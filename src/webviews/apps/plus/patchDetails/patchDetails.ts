@@ -1,6 +1,7 @@
 /*global*/
 import type { TextDocumentShowOptions } from 'vscode';
 import type { ViewFilesLayout } from '../../../../config';
+import type { Commands } from '../../../../constants.commands';
 import type { DraftPatchFileChange, DraftVisibility } from '../../../../gk/models/drafts';
 import type { State, SwitchModeParams } from '../../../../plus/webviews/patchDetails/protocol';
 import {
@@ -344,8 +345,8 @@ export class PatchDetailsApp extends App<Serialized<State>> {
 		this.sendCommand(SelectPatchRepoCommand, undefined);
 	}
 
-	private onCommandClickedCore(action?: string) {
-		const command = action?.startsWith('command:') ? action.slice(8) : action;
+	private onCommandClickedCore(action?: Commands | `command:${Commands}`) {
+		const command = (action?.startsWith('command:') ? action.slice(8) : action) as Commands | undefined;
 		if (command == null) return;
 
 		this.sendCommand(ExecuteCommand, { command: command });

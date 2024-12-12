@@ -1,14 +1,14 @@
-import { Commands } from '../constants.commands';
+import { GlCommand } from '../constants.commands';
 import type { ViewIds } from '../constants.views';
 import { viewIdsByDefaultContainerId } from '../constants.views';
 import type { Container } from '../container';
 import { command, executeCoreCommand } from '../system/vscode/command';
-import { Command } from './base';
+import { GlCommandBase } from './base';
 
 @command()
-export class ResetViewsLayoutCommand extends Command {
+export class ResetViewsLayoutCommand extends GlCommandBase {
 	constructor(private readonly container: Container) {
-		super(Commands.ResetViewsLayout);
+		super(GlCommand.ResetViewsLayout);
 	}
 
 	async execute() {

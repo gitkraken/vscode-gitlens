@@ -2,7 +2,7 @@ import type { SourceControlResourceState } from 'vscode';
 import { env, Uri, window } from 'vscode';
 import type { ScmResource } from '../@types/vscode.git.resources';
 import { ScmResourceGroupType, ScmStatus } from '../@types/vscode.git.resources.enums';
-import { Commands } from '../constants.commands';
+import { GlCommand } from '../constants.commands';
 import type { Container } from '../container';
 import { GitUri } from '../git/gitUri';
 import { isUncommitted } from '../git/models/reference';
@@ -13,7 +13,7 @@ import { Logger } from '../system/logger';
 import { command } from '../system/vscode/command';
 import { configuration } from '../system/vscode/configuration';
 import type { CommandContext } from './base';
-import { Command, isCommandContextViewNodeHasFileCommit, isCommandContextViewNodeHasFileRefs } from './base';
+import { GlCommandBase, isCommandContextViewNodeHasFileCommit, isCommandContextViewNodeHasFileRefs } from './base';
 
 interface ExternalDiffFile {
 	uri: Uri;
@@ -27,9 +27,9 @@ export interface ExternalDiffCommandArgs {
 }
 
 @command()
-export class ExternalDiffCommand extends Command {
+export class ExternalDiffCommand extends GlCommandBase {
 	constructor(private readonly container: Container) {
-		super([Commands.ExternalDiff, Commands.ExternalDiffAll]);
+		super([GlCommand.ExternalDiff, GlCommand.ExternalDiffAll]);
 	}
 
 	protected override async preExecute(context: CommandContext, args?: ExternalDiffCommandArgs) {
@@ -83,7 +83,7 @@ export class ExternalDiffCommand extends Command {
 			}
 		}
 
-		if (context.command === Commands.ExternalDiffAll) {
+		if (context.command === GlCommand.ExternalDiffAll) {
 			if (args.files == null) {
 				const repository = await getRepositoryOrShowPicker('Open All Changes (difftool)');
 				if (repository == null) return undefined;

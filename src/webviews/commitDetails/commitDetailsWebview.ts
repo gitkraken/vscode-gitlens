@@ -7,7 +7,7 @@ import { getAvatarUri } from '../../avatars';
 import type { CopyMessageToClipboardCommandArgs } from '../../commands/copyMessageToClipboard';
 import type { CopyShaToClipboardCommandArgs } from '../../commands/copyShaToClipboard';
 import type { OpenPullRequestOnRemoteCommandArgs } from '../../commands/openPullRequestOnRemote';
-import { Commands } from '../../constants.commands';
+import { GlCommand } from '../../constants.commands';
 import type { ContextKeys } from '../../constants.context';
 import { IssueIntegrationId } from '../../constants.integrations';
 import type { InspectTelemetryContext, Sources } from '../../constants.telemetry';
@@ -178,7 +178,7 @@ export class CommitDetailsWebviewProvider
 
 	constructor(
 		private readonly container: Container,
-		private readonly host: WebviewHost,
+		private readonly host: WebviewHost<'gitlens.views.commitDetails' | 'gitlens.views.graphDetails'>,
 		private readonly options: { attachedTo: 'default' | 'graph' },
 	) {
 		this._context = {
@@ -445,8 +445,8 @@ export class CommitDetailsWebviewProvider
 
 						void executeCommand<ShowInCommitGraphCommandArgs>(
 							this.options.attachedTo === 'graph'
-								? Commands.ShowInCommitGraphView
-								: Commands.ShowInCommitGraph,
+								? GlCommand.ShowInCommitGraphView
+								: GlCommand.ShowInCommitGraph,
 							{ ref: ref },
 						);
 						break;
@@ -463,7 +463,7 @@ export class CommitDetailsWebviewProvider
 						if (this._context.commit != null) {
 							if (e.params.alt) {
 								void executeCommand<CopyMessageToClipboardCommandArgs>(
-									Commands.CopyMessageToClipboard,
+									GlCommand.CopyMessageToClipboard,
 									{
 										message: this._context.commit.message,
 									},
@@ -471,7 +471,7 @@ export class CommitDetailsWebviewProvider
 							} else if (isStash(this._context.commit)) {
 								void env.clipboard.writeText(this._context.commit.stashName);
 							} else {
-								void executeCommand<CopyShaToClipboardCommandArgs>(Commands.CopyShaToClipboard, {
+								void executeCommand<CopyShaToClipboardCommandArgs>(GlCommand.CopyShaToClipboard, {
 									sha: this._context.commit.sha,
 								});
 							}
@@ -797,7 +797,7 @@ export class CommitDetailsWebviewProvider
 		const {
 			pr: { url },
 		} = this.pullRequestContext;
-		return executeCommand<OpenPullRequestOnRemoteCommandArgs, void>(Commands.OpenPullRequestOnRemote, {
+		return executeCommand<OpenPullRequestOnRemoteCommandArgs, void>(GlCommand.OpenPullRequestOnRemote, {
 			pr: { url: url },
 			clipboard: clipboard,
 		});

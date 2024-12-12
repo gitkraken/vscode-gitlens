@@ -1,5 +1,5 @@
 import type { TextEditor, Uri } from 'vscode';
-import { Commands } from '../constants.commands';
+import { GlCommand } from '../constants.commands';
 import type { Container } from '../container';
 import { GitUri } from '../git/gitUri';
 import { deletedOrMissing } from '../git/models/constants';
@@ -35,11 +35,11 @@ export class OpenCommitOnRemoteCommand extends ActiveEditorCommand {
 	static createMarkdownCommandLink(args: OpenCommitOnRemoteCommandArgs): string;
 	static createMarkdownCommandLink(argsOrSha: OpenCommitOnRemoteCommandArgs | string): string {
 		const args: OpenCommitOnRemoteCommandArgs = typeof argsOrSha === 'string' ? { sha: argsOrSha } : argsOrSha;
-		return createMarkdownCommandLink<OpenCommitOnRemoteCommandArgs>(Commands.OpenCommitOnRemote, args);
+		return createMarkdownCommandLink<OpenCommitOnRemoteCommandArgs>(GlCommand.OpenCommitOnRemote, args);
 	}
 
 	constructor(private readonly container: Container) {
-		super([Commands.OpenCommitOnRemote, Commands.Deprecated_OpenCommitInRemote, Commands.CopyRemoteCommitUrl]);
+		super([GlCommand.OpenCommitOnRemote, GlCommand.Deprecated_OpenCommitInRemote, GlCommand.CopyRemoteCommitUrl]);
 	}
 
 	protected override preExecute(context: CommandContext, args?: OpenCommitOnRemoteCommandArgs) {
@@ -61,7 +61,7 @@ export class OpenCommitOnRemoteCommand extends ActiveEditorCommand {
 			uri = context.uri;
 		}
 
-		if (context.command === Commands.CopyRemoteCommitUrl) {
+		if (context.command === GlCommand.CopyRemoteCommitUrl) {
 			args = { ...args, clipboard: true };
 		}
 
@@ -120,7 +120,7 @@ export class OpenCommitOnRemoteCommand extends ActiveEditorCommand {
 				return;
 			}
 
-			void (await executeCommand<OpenOnRemoteCommandArgs>(Commands.OpenOnRemote, {
+			void (await executeCommand<OpenOnRemoteCommandArgs>(GlCommand.OpenOnRemote, {
 				resource: {
 					type: RemoteResourceType.Commit,
 					sha: args.sha,

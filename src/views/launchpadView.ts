@@ -3,7 +3,7 @@ import { Disposable, ThemeIcon, TreeItem, TreeItemCollapsibleState, Uri, window 
 import type { OpenWalkthroughCommandArgs } from '../commands/walkthroughs';
 import type { LaunchpadViewConfig, ViewFilesLayout } from '../config';
 import { proBadge } from '../constants';
-import { Commands } from '../constants.commands';
+import { GlCommand } from '../constants.commands';
 import type { Container } from '../container';
 import { AuthenticationRequiredError } from '../errors';
 import { PlusFeatures } from '../features';
@@ -97,7 +97,7 @@ export class LaunchpadItemNode extends CacheableChildrenViewNode<'launchpad-item
 		}`;
 		item.iconPath = lpi.author?.avatarUrl != null ? Uri.parse(lpi.author.avatarUrl) : undefined;
 		item.command = createCommand<[Omit<LaunchpadCommandArgs, 'command'>]>(
-			Commands.ShowLaunchpad,
+			GlCommand.ShowLaunchpad,
 			'Open in Launchpad',
 			{
 				source: 'launchpad-view',
@@ -268,7 +268,7 @@ export class LaunchpadView extends ViewBase<'launchpad', LaunchpadViewNode, Laun
 			registerViewCommand(
 				this.getQualifiedCommand('info'),
 				() =>
-					executeCommand<OpenWalkthroughCommandArgs>(Commands.OpenWalkthrough, {
+					executeCommand<OpenWalkthroughCommandArgs>(GlCommand.OpenWalkthrough, {
 						step: 'accelerate-pr-reviews',
 						source: 'launchpad-view',
 						detail: 'info',
@@ -277,7 +277,7 @@ export class LaunchpadView extends ViewBase<'launchpad', LaunchpadViewNode, Laun
 			),
 			registerViewCommand(
 				this.getQualifiedCommand('copy'),
-				() => executeCommand(Commands.ViewsCopy, this.activeSelection, this.selection),
+				() => executeCommand(GlCommand.ViewsCopy, this.activeSelection, this.selection),
 				this,
 			),
 			registerViewCommand(

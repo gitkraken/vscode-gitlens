@@ -1,7 +1,7 @@
 import type { TextEditor } from 'vscode';
 import { FileType, Uri, workspace } from 'vscode';
 import { GlyphChars } from '../constants';
-import { Commands } from '../constants.commands';
+import { GlCommand } from '../constants.commands';
 import type { Container } from '../container';
 import { openFolderCompare } from '../git/actions/commit';
 import { GitUri } from '../git/gitUri';
@@ -23,7 +23,7 @@ export interface DiffFolderWithRevisionFromCommandArgs {
 @command()
 export class DiffFolderWithRevisionFromCommand extends ActiveEditorCommand {
 	constructor(private readonly container: Container) {
-		super(Commands.DiffFolderWithRevisionFrom);
+		super(GlCommand.DiffFolderWithRevisionFrom);
 	}
 
 	async execute(editor?: TextEditor, uri?: Uri, args?: DiffFolderWithRevisionFromCommandArgs): Promise<any> {

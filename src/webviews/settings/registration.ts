@@ -1,5 +1,5 @@
 import { Disposable, ViewColumn } from 'vscode';
-import { Commands } from '../../constants.commands';
+import { GlCommand } from '../../constants.commands';
 import { registerCommand } from '../../system/vscode/command';
 import type { WebviewPanelsProxy, WebviewsController } from '../webviewsController';
 import type { State } from './protocol';
@@ -7,8 +7,8 @@ import type { State } from './protocol';
 export type SettingsWebviewShowingArgs = [string];
 
 export function registerSettingsWebviewPanel(controller: WebviewsController) {
-	return controller.registerWebviewPanel<State, State, SettingsWebviewShowingArgs>(
-		{ id: Commands.ShowSettingsPage },
+	return controller.registerWebviewPanel<'gitlens.settings', State, State, SettingsWebviewShowingArgs>(
+		{ id: GlCommand.ShowSettingsPage },
 		{
 			id: 'gitlens.settings',
 			fileName: 'settings.html',
@@ -33,24 +33,26 @@ export function registerSettingsWebviewPanel(controller: WebviewsController) {
 	);
 }
 
-export function registerSettingsWebviewCommands<T>(panels: WebviewPanelsProxy<SettingsWebviewShowingArgs, T>) {
+export function registerSettingsWebviewCommands<T>(
+	panels: WebviewPanelsProxy<'gitlens.settings', SettingsWebviewShowingArgs, T>,
+) {
 	return Disposable.from(
 		...[
-			Commands.ShowSettingsPageAndJumpToFileAnnotations,
-			Commands.ShowSettingsPageAndJumpToBranchesView,
-			Commands.ShowSettingsPageAndJumpToCommitsView,
-			Commands.ShowSettingsPageAndJumpToContributorsView,
-			Commands.ShowSettingsPageAndJumpToFileHistoryView,
-			Commands.ShowSettingsPageAndJumpToLineHistoryView,
-			Commands.ShowSettingsPageAndJumpToRemotesView,
-			Commands.ShowSettingsPageAndJumpToRepositoriesView,
-			Commands.ShowSettingsPageAndJumpToSearchAndCompareView,
-			Commands.ShowSettingsPageAndJumpToStashesView,
-			Commands.ShowSettingsPageAndJumpToTagsView,
-			Commands.ShowSettingsPageAndJumpToWorkTreesView,
-			Commands.ShowSettingsPageAndJumpToViews,
-			Commands.ShowSettingsPageAndJumpToCommitGraph,
-			Commands.ShowSettingsPageAndJumpToAutolinks,
+			GlCommand.ShowSettingsPageAndJumpToFileAnnotations,
+			GlCommand.ShowSettingsPageAndJumpToBranchesView,
+			GlCommand.ShowSettingsPageAndJumpToCommitsView,
+			GlCommand.ShowSettingsPageAndJumpToContributorsView,
+			GlCommand.ShowSettingsPageAndJumpToFileHistoryView,
+			GlCommand.ShowSettingsPageAndJumpToLineHistoryView,
+			GlCommand.ShowSettingsPageAndJumpToRemotesView,
+			GlCommand.ShowSettingsPageAndJumpToRepositoriesView,
+			GlCommand.ShowSettingsPageAndJumpToSearchAndCompareView,
+			GlCommand.ShowSettingsPageAndJumpToStashesView,
+			GlCommand.ShowSettingsPageAndJumpToTagsView,
+			GlCommand.ShowSettingsPageAndJumpToWorkTreesView,
+			GlCommand.ShowSettingsPageAndJumpToViews,
+			GlCommand.ShowSettingsPageAndJumpToCommitGraph,
+			GlCommand.ShowSettingsPageAndJumpToAutolinks,
 		].map(c => {
 			// The show and jump commands are structured to have a ! separating the base command from the anchor
 			let anchor: string | undefined;

@@ -1,12 +1,12 @@
-import { Commands } from '../constants.commands';
+import { GlCommand } from '../constants.commands';
 import type { Container } from '../container';
 import { command } from '../system/vscode/command';
-import { Command } from './base';
+import { GlCommandBase } from './base';
 
 @command()
-export class DisableRebaseEditorCommand extends Command {
+export class DisableRebaseEditorCommand extends GlCommandBase {
 	constructor(private readonly container: Container) {
-		super(Commands.DisableRebaseEditor);
+		super(GlCommand.DisableRebaseEditor);
 	}
 
 	execute() {
@@ -15,9 +15,9 @@ export class DisableRebaseEditorCommand extends Command {
 }
 
 @command()
-export class EnableRebaseEditorCommand extends Command {
+export class EnableRebaseEditorCommand extends GlCommandBase {
 	constructor(private readonly container: Container) {
-		super(Commands.EnableRebaseEditor);
+		super(GlCommand.EnableRebaseEditor);
 	}
 
 	execute() {

@@ -3,7 +3,7 @@ import type { ViewBadge, Webview, WebviewPanel, WebviewView, WindowState } from 
 import { Disposable, EventEmitter, Uri, ViewColumn, window, workspace } from 'vscode';
 import type { Commands } from '../constants.commands';
 import type { WebviewTelemetryContext } from '../constants.telemetry';
-import type { CustomEditorTypes, WebviewTypes, WebviewViewTypes } from '../constants.views';
+import type { CustomEditorTypes, WebviewIds, WebviewTypes, WebviewViewIds, WebviewViewTypes } from '../constants.views';
 import type { Container } from '../container';
 import { getScopedCounter } from '../system/counter';
 import { debug, logName } from '../system/decorators/log';
@@ -41,68 +41,91 @@ const ipcSequencer = getScopedCounter();
 const utf8TextDecoder = new TextDecoder('utf8');
 const utf8TextEncoder = new TextEncoder();
 
-type GetParentType<T extends WebviewPanelDescriptor | WebviewViewDescriptor> = T extends WebviewPanelDescriptor
+type GetWebviewDescriptor<T extends WebviewIds | WebviewViewIds> = T extends WebviewIds
+	? WebviewPanelDescriptor<T>
+	: T extends WebviewViewIds
+	  ? WebviewViewDescriptor<T>
+	  : never;
+
+type GetWebviewParent<T extends WebviewIds | WebviewViewIds> = T extends WebviewIds
 	? WebviewPanel
-	: T extends WebviewViewDescriptor
+	: T extends WebviewViewIds
 	  ? WebviewView
 	  : never;
 
 type WebviewPanelController<
+	ID extends WebviewIds,
 	State,
 	SerializedState = State,
 	ShowingArgs extends unknown[] = unknown[],
-> = WebviewController<State, SerializedState, ShowingArgs, WebviewPanelDescriptor>;
+> = WebviewController<ID, State, SerializedState, ShowingArgs>;
 type WebviewViewController<
+	ID extends WebviewViewIds,
 	State,
 	SerializedState = State,
 	ShowingArgs extends unknown[] = unknown[],
-> = WebviewController<State, SerializedState, ShowingArgs, WebviewViewDescriptor>;
+> = WebviewController<ID, State, SerializedState, ShowingArgs>;
 
-@logName<WebviewController<any>>(c => `WebviewController(${c.id}${c.instanceId != null ? `|${c.instanceId}` : ''})`)
+@logName<WebviewController<WebviewIds | WebviewViewIds, any>>(
+	c => `WebviewController(${c.id}${c.instanceId != null ? `|${c.instanceId}` : ''})`,
+)
 export class WebviewController<
+		ID extends WebviewIds | WebviewViewIds,
 		State,
 		SerializedState = State,
 		ShowingArgs extends unknown[] = unknown[],
-		Descriptor extends WebviewPanelDescriptor | WebviewViewDescriptor =
-			| WebviewPanelDescriptor
-			| WebviewViewDescriptor,
 	>
-	implements WebviewHost<Descriptor>, Disposable
+	implements WebviewHost<ID>, Disposable
 {
-	static async create<State, SerializedState = State, ShowingArgs extends unknown[] = unknown[]>(
+	static async create<
+		ID extends WebviewIds,
+		State,
+		SerializedState = State,
+		ShowingArgs extends unknown[] = unknown[],
+	>(
 		container: Container,
 		commandRegistrar: WebviewCommandRegistrar,
-		descriptor: WebviewPanelDescriptor,
+		descriptor: WebviewPanelDescriptor<ID>,
 		instanceId: string | undefined,
 		parent: WebviewPanel,
 		resolveProvider: (
 			container: Container,
-			host: WebviewHost,
+			host: WebviewHost<ID>,
 		) => Promise<WebviewProvider<State, SerializedState, ShowingArgs>>,
-	): Promise<WebviewController<State, SerializedState, ShowingArgs, WebviewPanelDescriptor>>;
-	static async create<State, SerializedState = State, ShowingArgs extends unknown[] = unknown[]>(
+	): Promise<WebviewController<ID, State, SerializedState, ShowingArgs>>;
+	static async create<
+		ID extends WebviewViewIds,
+		State,
+		SerializedState = State,
+		ShowingArgs extends unknown[] = unknown[],
+	>(
 		container: Container,
 		commandRegistrar: WebviewCommandRegistrar,
-		descriptor: WebviewViewDescriptor,
+		descriptor: WebviewViewDescriptor<ID>,
 		instanceId: string | undefined,
 		parent: WebviewView,
 		resolveProvider: (
 			container: Container,
-			host: WebviewHost,
+			host: WebviewHost<ID>,
 		) => Promise<WebviewProvider<State, SerializedState, ShowingArgs>>,
-	): Promise<WebviewController<State, SerializedState, ShowingArgs, WebviewViewDescriptor>>;
-	static async create<State, SerializedState = State, ShowingArgs extends unknown[] = unknown[]>(
+	): Promise<WebviewController<ID, State, SerializedState, ShowingArgs>>;
+	static async create<
+		ID extends WebviewIds | WebviewViewIds,
+		State,
+		SerializedState = State,
+		ShowingArgs extends unknown[] = unknown[],
+	>(
 		container: Container,
 		commandRegistrar: WebviewCommandRegistrar,
-		descriptor: WebviewPanelDescriptor | WebviewViewDescriptor,
+		descriptor: GetWebviewDescriptor<ID>,
 		instanceId: string | undefined,
-		parent: WebviewPanel | WebviewView,
+		parent: GetWebviewParent<ID>,
 		resolveProvider: (
 			container: Container,
-			host: WebviewHost,
+			host: WebviewHost<ID>,
 		) => Promise<WebviewProvider<State, SerializedState, ShowingArgs>>,
-	): Promise<WebviewController<State, SerializedState, ShowingArgs>> {
-		const controller = new WebviewController<State, SerializedState, ShowingArgs>(
+	): Promise<WebviewController<ID, State, SerializedState, ShowingArgs>> {
+		const controller = new WebviewController<ID, State, SerializedState, ShowingArgs>(
 			container,
 			commandRegistrar,
 			descriptor,
@@ -119,7 +142,7 @@ export class WebviewController<
 		return this._onDidDispose.event;
 	}
 
-	readonly id: Descriptor['id'];
+	readonly id: ID;
 
 	private _ready: boolean = false;
 	get ready() {
@@ -134,15 +157,15 @@ export class WebviewController<
 	private constructor(
 		private readonly container: Container,
 		private readonly _commandRegistrar: WebviewCommandRegistrar,
-		private readonly descriptor: Descriptor,
+		private readonly descriptor: GetWebviewDescriptor<ID>,
 		public readonly instanceId: string | undefined,
-		public readonly parent: GetParentType<Descriptor>,
+		public readonly parent: GetWebviewParent<ID>,
 		resolveProvider: (
 			container: Container,
-			host: WebviewHost,
+			host: WebviewHost<ID>,
 		) => Promise<WebviewProvider<State, SerializedState, ShowingArgs>>,
 	) {
-		this.id = descriptor.id;
+		this.id = descriptor.id as ID;
 		this.webview = parent.webview;
 
 		const isInEditor = 'onDidChangeViewState' in parent;
@@ -186,7 +209,7 @@ export class WebviewController<
 		this.disposable?.dispose();
 	}
 
-	registerWebviewCommand<T extends Partial<WebviewContext>>(command: string, callback: WebviewCommandCallback<T>) {
+	registerWebviewCommand<T extends Partial<WebviewContext>>(command: Commands, callback: WebviewCommandCallback<T>) {
 		return this._commandRegistrar.registerCommand(this.provider, this.id, this.instanceId, command, callback);
 	}
 
@@ -203,17 +226,21 @@ export class WebviewController<
 			'context.webview.id': this.id,
 			'context.webview.type': this.descriptor.type,
 			'context.webview.instanceId': this.instanceId,
-			'context.webview.host': this.isHost('editor') ? ('editor' as const) : ('view' as const),
+			'context.webview.host': this.isHost('editor') ? 'editor' : 'view',
 		};
 	}
 
-	isHost(type: 'editor'): this is WebviewPanelController<State, SerializedState, ShowingArgs>;
-	isHost(type: 'view'): this is WebviewViewController<State, SerializedState, ShowingArgs>;
+	isHost(
+		type: 'editor',
+	): this is WebviewPanelController<ID extends WebviewIds ? ID : never, State, SerializedState, ShowingArgs>;
+	isHost(
+		type: 'view',
+	): this is WebviewViewController<ID extends WebviewViewIds ? ID : never, State, SerializedState, ShowingArgs>;
 	isHost(
 		type: 'editor' | 'view',
 	): this is
-		| WebviewPanelController<State, SerializedState, ShowingArgs>
-		| WebviewViewController<State, SerializedState, ShowingArgs> {
+		| WebviewPanelController<ID extends WebviewIds ? ID : never, State, SerializedState, ShowingArgs>
+		| WebviewViewController<ID extends WebviewViewIds ? ID : never, State, SerializedState, ShowingArgs> {
 		return type === 'editor' ? this._isInEditor : !this._isInEditor;
 	}
 
@@ -389,7 +416,7 @@ export class WebviewController<
 		this.dispose();
 	}
 
-	@debug<WebviewController<State>['onMessageReceivedCore']>({
+	@debug<WebviewController<ID, State>['onMessageReceivedCore']>({
 		args: { 0: e => (e != null ? `${e.id}, method=${e.method}` : '<undefined>') },
 	})
 	private onMessageReceivedCore(e: IpcMessage) {
@@ -410,9 +437,9 @@ export class WebviewController<
 
 			case ExecuteCommand.is(e):
 				if (e.params.args != null) {
-					void executeCommand(e.params.command as Commands, ...e.params.args);
+					void executeCommand(e.params.command, ...e.params.args);
 				} else {
-					void executeCommand(e.params.command as Commands);
+					void executeCommand(e.params.command);
 				}
 				break;
 
@@ -430,7 +457,7 @@ export class WebviewController<
 		}
 	}
 
-	@debug<WebviewController<State>['onViewFocusChanged']>({
+	@debug<WebviewController<ID, State>['onViewFocusChanged']>({
 		args: { 0: e => `focused=${e.focused}, inputFocused=${e.inputFocused}` },
 	})
 	onViewFocusChanged(e: WebviewFocusChangedParams): void {
@@ -587,7 +614,7 @@ export class WebviewController<
 	}
 
 	@serialize()
-	@debug<WebviewController<State>['postMessage']>({
+	@debug<WebviewController<ID, State>['postMessage']>({
 		args: false,
 		enter: m => `(${m.id}|${m.method}${m.completionId ? `+${m.completionId}` : ''})`,
 	})

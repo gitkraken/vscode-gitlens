@@ -1,5 +1,5 @@
 import type { Range, TextEditor, Uri } from 'vscode';
-import { Commands } from '../constants.commands';
+import { GlCommand } from '../constants.commands';
 import type { Container } from '../container';
 import { executeGitCommand } from '../git/actions';
 import { GitUri } from '../git/gitUri';
@@ -27,19 +27,19 @@ export interface ShowQuickFileHistoryCommandArgs {
 export class ShowQuickFileHistoryCommand extends ActiveEditorCachedCommand {
 	constructor(private readonly container: Container) {
 		super([
-			Commands.OpenFileHistory,
-			Commands.OpenFolderHistory,
-			Commands.ShowQuickFileHistory,
-			Commands.QuickOpenFileHistory,
-			Commands.Deprecated_ShowFileHistoryInView,
+			GlCommand.OpenFileHistory,
+			GlCommand.OpenFolderHistory,
+			GlCommand.ShowQuickFileHistory,
+			GlCommand.QuickOpenFileHistory,
+			GlCommand.Deprecated_ShowFileHistoryInView,
 		]);
 	}
 
 	protected override preExecute(context: CommandContext, args?: ShowQuickFileHistoryCommandArgs) {
 		if (
-			context.command === Commands.OpenFileHistory ||
-			context.command === Commands.OpenFolderHistory ||
-			context.command === Commands.Deprecated_ShowFileHistoryInView
+			context.command === GlCommand.OpenFileHistory ||
+			context.command === GlCommand.OpenFolderHistory ||
+			context.command === GlCommand.Deprecated_ShowFileHistoryInView
 		) {
 			args = { ...args };
 			args.showInSideBar = true;

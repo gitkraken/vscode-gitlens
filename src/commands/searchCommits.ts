@@ -1,4 +1,4 @@
-import { Commands } from '../constants.commands';
+import { GlCommand } from '../constants.commands';
 import type { SearchQuery } from '../constants.search';
 import type { Container } from '../container';
 import { executeGitCommand } from '../git/actions';
@@ -6,7 +6,7 @@ import { command } from '../system/vscode/command';
 import { configuration } from '../system/vscode/configuration';
 import { SearchResultsNode } from '../views/nodes/searchResultsNode';
 import type { CommandContext } from './base';
-import { Command, isCommandContextViewNodeHasRepository } from './base';
+import { GlCommandBase, isCommandContextViewNodeHasRepository } from './base';
 
 export interface SearchCommitsCommandArgs {
 	search?: Partial<SearchQuery>;
@@ -19,13 +19,13 @@ export interface SearchCommitsCommandArgs {
 }
 
 @command()
-export class SearchCommitsCommand extends Command {
+export class SearchCommitsCommand extends GlCommandBase {
 	constructor(private readonly container: Container) {
-		super([Commands.SearchCommits, Commands.SearchCommitsInView]);
+		super([GlCommand.SearchCommits, GlCommand.SearchCommitsInView]);
 	}
 
 	protected override preExecute(context: CommandContext, args?: SearchCommitsCommandArgs) {
-		if (context.command === Commands.SearchCommitsInView) {
+		if (context.command === GlCommand.SearchCommitsInView) {
 			args = { ...args };
 			args.showResultsInSideBar = true;
 		} else if (context.type === 'viewItem') {

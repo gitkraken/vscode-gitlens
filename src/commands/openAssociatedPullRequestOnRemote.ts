@@ -1,5 +1,5 @@
 import type { TextEditor, Uri } from 'vscode';
-import { Commands } from '../constants.commands';
+import { GlCommand } from '../constants.commands';
 import type { Container } from '../container';
 import { GitUri } from '../git/gitUri';
 import { getRepositoryOrShowPicker } from '../quickpicks/repositoryPicker';
@@ -11,7 +11,7 @@ import type { OpenPullRequestOnRemoteCommandArgs } from './openPullRequestOnRemo
 @command()
 export class OpenAssociatedPullRequestOnRemoteCommand extends ActiveEditorCommand {
 	constructor(private readonly container: Container) {
-		super(Commands.OpenAssociatedPullRequestOnRemote);
+		super(GlCommand.OpenAssociatedPullRequestOnRemote);
 	}
 
 	async execute(editor?: TextEditor, uri?: Uri) {
@@ -53,6 +53,6 @@ export class OpenAssociatedPullRequestOnRemoteCommand extends ActiveEditorComman
 			}
 		}
 
-		await executeCommand<OpenPullRequestOnRemoteCommandArgs>(Commands.OpenPullRequestOnRemote, args);
+		await executeCommand<OpenPullRequestOnRemoteCommandArgs>(GlCommand.OpenPullRequestOnRemote, args);
 	}
 }

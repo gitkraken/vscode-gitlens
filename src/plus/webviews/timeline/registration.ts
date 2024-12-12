@@ -1,6 +1,6 @@
 import type { Uri } from 'vscode';
 import { Disposable, ViewColumn } from 'vscode';
-import { Commands } from '../../../constants.commands';
+import { GlCommand } from '../../../constants.commands';
 import { registerCommand } from '../../../system/vscode/command';
 import { configuration } from '../../../system/vscode/configuration';
 import type { ViewFileNode } from '../../../views/nodes/abstract/viewFileNode';
@@ -10,8 +10,8 @@ import type { State } from './protocol';
 export type TimelineWebviewShowingArgs = [Uri | ViewFileNode];
 
 export function registerTimelineWebviewPanel(controller: WebviewsController) {
-	return controller.registerWebviewPanel<State, State, TimelineWebviewShowingArgs>(
-		{ id: Commands.ShowTimelinePage, options: { preserveInstance: true } },
+	return controller.registerWebviewPanel<'gitlens.timeline', State, State, TimelineWebviewShowingArgs>(
+		{ id: GlCommand.ShowTimelinePage, options: { preserveInstance: true } },
 		{
 			id: 'gitlens.timeline',
 			fileName: 'timeline.html',
@@ -38,7 +38,7 @@ export function registerTimelineWebviewPanel(controller: WebviewsController) {
 }
 
 export function registerTimelineWebviewView(controller: WebviewsController) {
-	return controller.registerWebviewView<State, State, TimelineWebviewShowingArgs>(
+	return controller.registerWebviewView<'gitlens.views.timeline', State, State, TimelineWebviewShowingArgs>(
 		{
 			id: 'gitlens.views.timeline',
 			fileName: 'timeline.html',
@@ -60,10 +60,12 @@ export function registerTimelineWebviewView(controller: WebviewsController) {
 	);
 }
 
-export function registerTimelineWebviewCommands<T>(panels: WebviewPanelsProxy<TimelineWebviewShowingArgs, T>) {
+export function registerTimelineWebviewCommands<T>(
+	panels: WebviewPanelsProxy<'gitlens.timeline', TimelineWebviewShowingArgs, T>,
+) {
 	return Disposable.from(
 		registerCommand(
-			Commands.ShowInTimeline,
+			GlCommand.ShowInTimeline,
 			(...args: TimelineWebviewShowingArgs) => void panels.show(undefined, ...args),
 		),
 		registerCommand(`${panels.id}.refresh`, () => void panels.getActiveInstance()?.refresh(true)),

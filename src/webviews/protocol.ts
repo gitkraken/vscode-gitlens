@@ -1,5 +1,6 @@
 import type { TimeInput } from '@opentelemetry/api';
 import type { Config } from '../config';
+import type { Commands } from '../constants.commands';
 import type { Source, TelemetryEvents, TelemetryEventsFromWebviewApp } from '../constants.telemetry';
 import type {
 	CustomEditorIds,
@@ -79,7 +80,7 @@ export interface WebviewFocusChangedParams {
 export const WebviewFocusChangedCommand = new IpcCommand<WebviewFocusChangedParams>('core', 'webview/focus/changed');
 
 export interface ExecuteCommandParams {
-	command: string;
+	command: Commands;
 	args?: [];
 }
 export const ExecuteCommand = new IpcCommand<ExecuteCommandParams>('core', 'command/execute');

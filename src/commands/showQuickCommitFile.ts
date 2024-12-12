@@ -1,6 +1,6 @@
 import type { TextEditor } from 'vscode';
 import { Uri } from 'vscode';
-import { Commands } from '../constants.commands';
+import { GlCommand } from '../constants.commands';
 import type { Container } from '../container';
 import { executeGitCommand } from '../git/actions';
 import { GitUri } from '../git/gitUri';
@@ -31,11 +31,11 @@ export interface ShowQuickCommitFileCommandArgs {
 @command()
 export class ShowQuickCommitFileCommand extends ActiveEditorCachedCommand {
 	static createMarkdownCommandLink(args: ShowQuickCommitFileCommandArgs): string {
-		return createMarkdownCommandLink<ShowQuickCommitFileCommandArgs>(Commands.ShowQuickCommitFile, args);
+		return createMarkdownCommandLink<ShowQuickCommitFileCommandArgs>(GlCommand.ShowQuickCommitFile, args);
 	}
 
 	constructor(private readonly container: Container) {
-		super(Commands.ShowQuickCommitFile);
+		super(GlCommand.ShowQuickCommitFile);
 	}
 
 	protected override async preExecute(context: CommandContext, args?: ShowQuickCommitFileCommandArgs) {
@@ -153,9 +153,9 @@ export class ShowQuickCommitFileCommand extends ActiveEditorCachedCommand {
 export class ShowQuickCommitRevisionCommand extends ActiveEditorCachedCommand {
 	constructor(private readonly container: Container) {
 		super([
-			Commands.ShowQuickCommitRevision,
-			Commands.ShowQuickCommitRevisionInDiffLeft,
-			Commands.ShowQuickCommitRevisionInDiffRight,
+			GlCommand.ShowQuickCommitRevision,
+			GlCommand.ShowQuickCommitRevisionInDiffLeft,
+			GlCommand.ShowQuickCommitRevisionInDiffRight,
 		]);
 	}
 

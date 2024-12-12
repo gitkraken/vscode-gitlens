@@ -1,5 +1,5 @@
 import type { TextEditor, Uri } from 'vscode';
-import { Commands } from '../constants.commands';
+import { GlCommand } from '../constants.commands';
 import type { Container } from '../container';
 import { GitUri } from '../git/gitUri';
 import { RemoteResourceType } from '../git/models/remoteResource';
@@ -20,9 +20,9 @@ export interface OpenBranchesOnRemoteCommandArgs {
 export class OpenBranchesOnRemoteCommand extends ActiveEditorCommand {
 	constructor(private readonly container: Container) {
 		super([
-			Commands.OpenBranchesOnRemote,
-			Commands.Deprecated_OpenBranchesInRemote,
-			Commands.CopyRemoteBranchesUrl,
+			GlCommand.OpenBranchesOnRemote,
+			GlCommand.Deprecated_OpenBranchesInRemote,
+			GlCommand.CopyRemoteBranchesUrl,
 		]);
 	}
 
@@ -31,7 +31,7 @@ export class OpenBranchesOnRemoteCommand extends ActiveEditorCommand {
 			args = { ...args, remote: context.node.remote.name };
 		}
 
-		if (context.command === Commands.CopyRemoteBranchesUrl) {
+		if (context.command === GlCommand.CopyRemoteBranchesUrl) {
 			args = { ...args, clipboard: true };
 		}
 
@@ -53,7 +53,7 @@ export class OpenBranchesOnRemoteCommand extends ActiveEditorCommand {
 		if (!repoPath) return;
 
 		try {
-			void (await executeCommand<OpenOnRemoteCommandArgs>(Commands.OpenOnRemote, {
+			void (await executeCommand<OpenOnRemoteCommandArgs>(GlCommand.OpenOnRemote, {
 				resource: {
 					type: RemoteResourceType.Branches,
 				},

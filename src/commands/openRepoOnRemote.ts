@@ -1,5 +1,5 @@
 import type { TextEditor, Uri } from 'vscode';
-import { Commands } from '../constants.commands';
+import { GlCommand } from '../constants.commands';
 import type { Container } from '../container';
 import { GitUri } from '../git/gitUri';
 import { RemoteResourceType } from '../git/models/remoteResource';
@@ -19,7 +19,7 @@ export interface OpenRepoOnRemoteCommandArgs {
 @command()
 export class OpenRepoOnRemoteCommand extends ActiveEditorCommand {
 	constructor(private readonly container: Container) {
-		super([Commands.OpenRepoOnRemote, Commands.Deprecated_OpenRepoInRemote, Commands.CopyRemoteRepositoryUrl]);
+		super([GlCommand.OpenRepoOnRemote, GlCommand.Deprecated_OpenRepoInRemote, GlCommand.CopyRemoteRepositoryUrl]);
 	}
 
 	protected override preExecute(context: CommandContext, args?: OpenRepoOnRemoteCommandArgs) {
@@ -27,7 +27,7 @@ export class OpenRepoOnRemoteCommand extends ActiveEditorCommand {
 			args = { ...args, remote: context.node.remote.name };
 		}
 
-		if (context.command === Commands.CopyRemoteRepositoryUrl) {
+		if (context.command === GlCommand.CopyRemoteRepositoryUrl) {
 			args = { ...args, clipboard: true };
 		}
 
@@ -51,7 +51,7 @@ export class OpenRepoOnRemoteCommand extends ActiveEditorCommand {
 		if (!repoPath) return;
 
 		try {
-			void (await executeCommand<OpenOnRemoteCommandArgs>(Commands.OpenOnRemote, {
+			void (await executeCommand<OpenOnRemoteCommandArgs>(GlCommand.OpenOnRemote, {
 				resource: {
 					type: RemoteResourceType.Repo,
 				},

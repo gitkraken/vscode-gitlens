@@ -1,4 +1,4 @@
-import { Commands } from '../constants.commands';
+import { GlCommand } from '../constants.commands';
 import type { Container } from '../container';
 import { command } from '../system/vscode/command';
 import type { CommandContext } from './base';
@@ -49,41 +49,41 @@ export type GitWizardCommandArgs =
 export class GitWizardCommand extends QuickWizardCommandBase {
 	constructor(container: Container) {
 		super(container, [
-			Commands.GitCommands,
-			Commands.GitCommandsBranch,
-			Commands.GitCommandsBranchCreate,
-			Commands.GitCommandsBranchDelete,
-			Commands.GitCommandsBranchPrune,
-			Commands.GitCommandsBranchRename,
-			Commands.GitCommandsCheckout,
-			Commands.GitCommandsCherryPick,
-			Commands.GitCommandsHistory,
-			Commands.GitCommandsMerge,
-			Commands.GitCommandsRebase,
-			Commands.GitCommandsRemote,
-			Commands.GitCommandsRemoteAdd,
-			Commands.GitCommandsRemotePrune,
-			Commands.GitCommandsRemoteRemove,
-			Commands.GitCommandsReset,
-			Commands.GitCommandsRevert,
-			Commands.GitCommandsShow,
-			Commands.GitCommandsStash,
-			Commands.GitCommandsStashDrop,
-			Commands.GitCommandsStashList,
-			Commands.GitCommandsStashPop,
-			Commands.GitCommandsStashPush,
-			Commands.GitCommandsStashRename,
-			Commands.GitCommandsStatus,
-			Commands.GitCommandsSwitch,
-			Commands.GitCommandsTag,
-			Commands.GitCommandsTagCreate,
-			Commands.GitCommandsTagDelete,
-			Commands.GitCommandsWorktree,
-			Commands.GitCommandsWorktreeCreate,
-			Commands.GitCommandsWorktreeDelete,
-			Commands.GitCommandsWorktreeOpen,
+			GlCommand.GitCommands,
+			GlCommand.GitCommandsBranch,
+			GlCommand.GitCommandsBranchCreate,
+			GlCommand.GitCommandsBranchDelete,
+			GlCommand.GitCommandsBranchPrune,
+			GlCommand.GitCommandsBranchRename,
+			GlCommand.GitCommandsCheckout,
+			GlCommand.GitCommandsCherryPick,
+			GlCommand.GitCommandsHistory,
+			GlCommand.GitCommandsMerge,
+			GlCommand.GitCommandsRebase,
+			GlCommand.GitCommandsRemote,
+			GlCommand.GitCommandsRemoteAdd,
+			GlCommand.GitCommandsRemotePrune,
+			GlCommand.GitCommandsRemoteRemove,
+			GlCommand.GitCommandsReset,
+			GlCommand.GitCommandsRevert,
+			GlCommand.GitCommandsShow,
+			GlCommand.GitCommandsStash,
+			GlCommand.GitCommandsStashDrop,
+			GlCommand.GitCommandsStashList,
+			GlCommand.GitCommandsStashPop,
+			GlCommand.GitCommandsStashPush,
+			GlCommand.GitCommandsStashRename,
+			GlCommand.GitCommandsStatus,
+			GlCommand.GitCommandsSwitch,
+			GlCommand.GitCommandsTag,
+			GlCommand.GitCommandsTagCreate,
+			GlCommand.GitCommandsTagDelete,
+			GlCommand.GitCommandsWorktree,
+			GlCommand.GitCommandsWorktreeCreate,
+			GlCommand.GitCommandsWorktreeDelete,
+			GlCommand.GitCommandsWorktreeOpen,
 
-			Commands.CopyWorkingChangesToWorktree,
+			GlCommand.CopyWorkingChangesToWorktree,
 		]);
 	}
 
@@ -92,71 +92,71 @@ export class GitWizardCommand extends QuickWizardCommandBase {
 		args?: QuickWizardCommandArgsWithCompletion<GitWizardCommandArgs>,
 	) {
 		switch (context.command) {
-			case Commands.GitCommandsBranch:
+			case GlCommand.GitCommandsBranch:
 				return this.execute({ command: 'branch', ...args });
-			case Commands.GitCommandsBranchCreate:
+			case GlCommand.GitCommandsBranchCreate:
 				return this.execute({ command: 'branch', state: { subcommand: 'create' } });
-			case Commands.GitCommandsBranchDelete:
+			case GlCommand.GitCommandsBranchDelete:
 				return this.execute({ command: 'branch', state: { subcommand: 'delete' } });
-			case Commands.GitCommandsBranchPrune:
+			case GlCommand.GitCommandsBranchPrune:
 				return this.execute({ command: 'branch', state: { subcommand: 'prune' } });
-			case Commands.GitCommandsBranchRename:
+			case GlCommand.GitCommandsBranchRename:
 				return this.execute({ command: 'branch', state: { subcommand: 'rename' } });
-			case Commands.GitCommandsCherryPick:
+			case GlCommand.GitCommandsCherryPick:
 				return this.execute({ command: 'cherry-pick' });
-			case Commands.GitCommandsHistory:
+			case GlCommand.GitCommandsHistory:
 				return this.execute({ command: 'log' });
-			case Commands.GitCommandsMerge:
+			case GlCommand.GitCommandsMerge:
 				return this.execute({ command: 'merge' });
-			case Commands.GitCommandsRebase:
+			case GlCommand.GitCommandsRebase:
 				return this.execute({ command: 'rebase' });
-			case Commands.GitCommandsRemote:
+			case GlCommand.GitCommandsRemote:
 				return this.execute({ command: 'remote' });
-			case Commands.GitCommandsRemoteAdd:
+			case GlCommand.GitCommandsRemoteAdd:
 				return this.execute({ command: 'remote', state: { subcommand: 'add' } });
-			case Commands.GitCommandsRemotePrune:
+			case GlCommand.GitCommandsRemotePrune:
 				return this.execute({ command: 'remote', state: { subcommand: 'prune' } });
-			case Commands.GitCommandsRemoteRemove:
+			case GlCommand.GitCommandsRemoteRemove:
 				return this.execute({ command: 'remote', state: { subcommand: 'remove' } });
-			case Commands.GitCommandsReset:
+			case GlCommand.GitCommandsReset:
 				return this.execute({ command: 'reset' });
-			case Commands.GitCommandsRevert:
+			case GlCommand.GitCommandsRevert:
 				return this.execute({ command: 'revert' });
-			case Commands.GitCommandsShow:
+			case GlCommand.GitCommandsShow:
 				return this.execute({ command: 'show' });
-			case Commands.GitCommandsStash:
+			case GlCommand.GitCommandsStash:
 				return this.execute({ command: 'stash' });
-			case Commands.GitCommandsStashDrop:
+			case GlCommand.GitCommandsStashDrop:
 				return this.execute({ command: 'stash', state: { subcommand: 'drop' } });
-			case Commands.GitCommandsStashList:
+			case GlCommand.GitCommandsStashList:
 				return this.execute({ command: 'stash', state: { subcommand: 'list' } });
-			case Commands.GitCommandsStashPop:
+			case GlCommand.GitCommandsStashPop:
 				return this.execute({ command: 'stash', state: { subcommand: 'pop' } });
-			case Commands.GitCommandsStashPush:
+			case GlCommand.GitCommandsStashPush:
 				return this.execute({ command: 'stash', state: { subcommand: 'push' } });
-			case Commands.GitCommandsStashRename:
+			case GlCommand.GitCommandsStashRename:
 				return this.execute({ command: 'stash', state: { subcommand: 'rename' } });
-			case Commands.GitCommandsStatus:
+			case GlCommand.GitCommandsStatus:
 				return this.execute({ command: 'status' });
-			case Commands.GitCommandsSwitch:
-			case Commands.GitCommandsCheckout:
+			case GlCommand.GitCommandsSwitch:
+			case GlCommand.GitCommandsCheckout:
 				return this.execute({ command: 'switch' });
-			case Commands.GitCommandsTag:
+			case GlCommand.GitCommandsTag:
 				return this.execute({ command: 'tag' });
-			case Commands.GitCommandsTagCreate:
+			case GlCommand.GitCommandsTagCreate:
 				return this.execute({ command: 'tag', state: { subcommand: 'create' } });
-			case Commands.GitCommandsTagDelete:
+			case GlCommand.GitCommandsTagDelete:
 				return this.execute({ command: 'tag', state: { subcommand: 'delete' } });
-			case Commands.GitCommandsWorktree:
+			case GlCommand.GitCommandsWorktree:
 				return this.execute({ command: 'worktree' });
-			case Commands.GitCommandsWorktreeCreate:
+			case GlCommand.GitCommandsWorktreeCreate:
 				return this.execute({ command: 'worktree', state: { subcommand: 'create' } });
-			case Commands.GitCommandsWorktreeDelete:
+			case GlCommand.GitCommandsWorktreeDelete:
 				return this.execute({ command: 'worktree', state: { subcommand: 'delete' } });
-			case Commands.GitCommandsWorktreeOpen:
+			case GlCommand.GitCommandsWorktreeOpen:
 				return this.execute({ command: 'worktree', state: { subcommand: 'open' } });
 
-			case Commands.CopyWorkingChangesToWorktree:
+			case GlCommand.CopyWorkingChangesToWorktree:
 				return this.execute({
 					command: 'worktree',
 					state: { subcommand: 'copy-changes', changes: { type: 'working-tree' } },

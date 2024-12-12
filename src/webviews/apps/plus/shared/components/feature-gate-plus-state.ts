@@ -1,7 +1,8 @@
 import { css, html, LitElement, nothing } from 'lit';
 import { customElement, property, query } from 'lit/decorators.js';
 import { urls } from '../../../../../constants';
-import { Commands } from '../../../../../constants.commands';
+import type { GlCommands } from '../../../../../constants.commands';
+import { GlCommand } from '../../../../../constants.commands';
 import {
 	proFeaturePreviewUsages,
 	proTrialLengthInDays,
@@ -129,13 +130,13 @@ export class GlFeatureGatePlusState extends LitElement {
 						<gl-button
 							class="inline"
 							appearance="${appearance}"
-							href="${generateCommandLink(Commands.PlusResendVerification, this.source)}"
+							href="${generateCommandLink(GlCommand.PlusResendVerification, this.source)}"
 							>Resend Email</gl-button
 						>
 						<gl-button
 							class="inline"
 							appearance="${appearance}"
-							href="${generateCommandLink(Commands.PlusValidate, this.source)}"
+							href="${generateCommandLink(GlCommand.PlusValidate, this.source)}"
 							><code-icon icon="refresh"></code-icon
 						></gl-button>
 					</p>
@@ -176,11 +177,11 @@ export class GlFeatureGatePlusState extends LitElement {
 						<gl-button
 							class="inline"
 							appearance="${appearance}"
-							href="${generateCommandLink(Commands.PlusSignUp, this.source)}"
+							href="${generateCommandLink(GlCommand.PlusSignUp, this.source)}"
 							>&nbsp;Try GitLens Pro&nbsp;</gl-button
 						><span
 							>or
-							<a href="${generateCommandLink(Commands.PlusLogin, this.source)}" title="Sign In"
+							<a href="${generateCommandLink(GlCommand.PlusLogin, this.source)}" title="Sign In"
 								>sign in</a
 							></span
 						>
@@ -197,11 +198,11 @@ export class GlFeatureGatePlusState extends LitElement {
 						<gl-button
 							class="inline"
 							appearance="${appearance}"
-							href="${generateCommandLink(Commands.PlusUpgrade, this.source)}"
+							href="${generateCommandLink(GlCommand.PlusUpgrade, this.source)}"
 							>Upgrade to Pro</gl-button
 						><span
 							>or
-							<a href="${generateCommandLink(Commands.PlusLogin, this.source)}" title="Sign In"
+							<a href="${generateCommandLink(GlCommand.PlusLogin, this.source)}" title="Sign In"
 								>sign in</a
 							></span
 						>
@@ -214,11 +215,11 @@ export class GlFeatureGatePlusState extends LitElement {
 						<gl-button
 							class="inline"
 							appearance="${appearance}"
-							href="${generateCommandLink(Commands.PlusReactivateProTrial, this.source)}"
+							href="${generateCommandLink(GlCommand.PlusReactivateProTrial, this.source)}"
 							>Continue</gl-button
 						><span
 							>or
-							<a href="${generateCommandLink(Commands.PlusLogin, this.source)}" title="Sign In"
+							<a href="${generateCommandLink(GlCommand.PlusLogin, this.source)}" title="Sign In"
 								>sign in</a
 							></span
 						>
@@ -244,9 +245,10 @@ export class GlFeatureGatePlusState extends LitElement {
 					Continue to preview
 					${this.featureWithArticleIfNeeded ? `${this.featureWithArticleIfNeeded} on` : ''} privately-hosted
 					repos, or
-					<a href="${generateCommandLink(Commands.PlusLogin, this.source)}" title="Sign In">sign in</a>.<br />
+					<a href="${generateCommandLink(GlCommand.PlusLogin, this.source)}" title="Sign In">sign in</a
+					>.<br />
 					${appearance !== 'alert' ? html`<br />` : ''} For full access to all GitLens Pro features,
-					<a href="${generateCommandLink(Commands.PlusSignUp, this.source)}"
+					<a href="${generateCommandLink(GlCommand.PlusSignUp, this.source)}"
 						>start your free ${proTrialLengthInDays}-day Pro trial</a
 					>
 					— no credit card required.
@@ -262,7 +264,7 @@ export class GlFeatureGatePlusState extends LitElement {
 					>Continue Preview</gl-button
 				><span
 					>or
-					<a href="${generateCommandLink(Commands.PlusLogin, this.source)}" title="Sign In">sign in</a></span
+					<a href="${generateCommandLink(GlCommand.PlusLogin, this.source)}" title="Sign In">sign in</a></span
 				>
 			</p>
 			<p>
@@ -270,7 +272,7 @@ export class GlFeatureGatePlusState extends LitElement {
 				${this.featureWithArticleIfNeeded ? `${this.featureWithArticleIfNeeded} on` : ''} privately-hosted
 				repos.<br />
 				${appearance !== 'alert' ? html`<br />` : ''} For full access to all GitLens Pro features,
-				<a href="${generateCommandLink(Commands.PlusSignUp, this.source)}"
+				<a href="${generateCommandLink(GlCommand.PlusSignUp, this.source)}"
 					>start your free ${proTrialLengthInDays}-day Pro trial</a
 				>
 				— no credit card required.
@@ -326,6 +328,6 @@ export class GlFeatureGatePlusState extends LitElement {
 	}
 }
 
-function generateCommandLink(command: Commands, source: Source | undefined) {
+function generateCommandLink(command: GlCommands, source: Source | undefined) {
 	return `command:${command}${source ? `?${encodeURIComponent(JSON.stringify(source))}` : ''}`;
 }

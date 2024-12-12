@@ -23,7 +23,7 @@ import {
 import type { OpenWalkthroughCommandArgs } from '../../../commands/walkthroughs';
 import { urls } from '../../../constants';
 import type { CoreColors } from '../../../constants.colors';
-import { Commands } from '../../../constants.commands';
+import { GlCommand } from '../../../constants.commands';
 import type { StoredFeaturePreviewUsagePeriod } from '../../../constants.storage';
 import {
 	proFeaturePreviewUsageDurationInDays,
@@ -338,24 +338,24 @@ export class SubscriptionService implements Disposable {
 
 	private registerCommands(): Disposable[] {
 		return [
-			registerCommand(Commands.PlusLogin, (src?: Source) => this.loginOrSignUp(false, src)),
-			registerCommand(Commands.PlusSignUp, (src?: Source) => this.loginOrSignUp(true, src)),
-			registerCommand(Commands.PlusLogout, (src?: Source) => this.logout(src)),
-			registerCommand(Commands.GKSwitchOrganization, () => this.switchOrganization()),
+			registerCommand(GlCommand.PlusLogin, (src?: Source) => this.loginOrSignUp(false, src)),
+			registerCommand(GlCommand.PlusSignUp, (src?: Source) => this.loginOrSignUp(true, src)),
+			registerCommand(GlCommand.PlusLogout, (src?: Source) => this.logout(src)),
+			registerCommand(GlCommand.GKSwitchOrganization, () => this.switchOrganization()),
 
-			registerCommand(Commands.PlusManage, (src?: Source) => this.manage(src)),
-			registerCommand(Commands.PlusShowPlans, (src?: Source) => this.showPlans(src)),
-			registerCommand(Commands.PlusStartPreviewTrial, (src?: Source) => this.startPreviewTrial(src)),
-			registerCommand(Commands.PlusReactivateProTrial, (src?: Source) => this.reactivateProTrial(src)),
-			registerCommand(Commands.PlusResendVerification, (src?: Source) => this.resendVerification(src)),
-			registerCommand(Commands.PlusUpgrade, (src?: Source) => this.upgrade(src)),
+			registerCommand(GlCommand.PlusManage, (src?: Source) => this.manage(src)),
+			registerCommand(GlCommand.PlusShowPlans, (src?: Source) => this.showPlans(src)),
+			registerCommand(GlCommand.PlusStartPreviewTrial, (src?: Source) => this.startPreviewTrial(src)),
+			registerCommand(GlCommand.PlusReactivateProTrial, (src?: Source) => this.reactivateProTrial(src)),
+			registerCommand(GlCommand.PlusResendVerification, (src?: Source) => this.resendVerification(src)),
+			registerCommand(GlCommand.PlusUpgrade, (src?: Source) => this.upgrade(src)),
 
-			registerCommand(Commands.PlusHide, (src?: Source) => this.setProFeaturesVisibility(false, src)),
-			registerCommand(Commands.PlusRestore, (src?: Source) => this.setProFeaturesVisibility(true, src)),
+			registerCommand(GlCommand.PlusHide, (src?: Source) => this.setProFeaturesVisibility(false, src)),
+			registerCommand(GlCommand.PlusRestore, (src?: Source) => this.setProFeaturesVisibility(true, src)),
 
-			registerCommand(Commands.PlusValidate, (src?: Source) => this.validate({ force: true }, src)),
+			registerCommand(GlCommand.PlusValidate, (src?: Source) => this.validate({ force: true }, src)),
 
-			registerCommand(Commands.PlusContinueFeaturePreview, ({ feature }: { feature: FeaturePreviews }) =>
+			registerCommand(GlCommand.PlusContinueFeaturePreview, ({ feature }: { feature: FeaturePreviews }) =>
 				this.continueFeaturePreview(feature),
 			),
 		];
@@ -435,14 +435,14 @@ export class SubscriptionService implements Disposable {
 		switch (subscription.state) {
 			case SubscriptionState.VerificationRequired:
 			case SubscriptionState.Community:
-				void executeCommand<OpenWalkthroughCommandArgs>(Commands.OpenWalkthrough, {
+				void executeCommand<OpenWalkthroughCommandArgs>(GlCommand.OpenWalkthrough, {
 					...source,
 					step: 'get-started-community',
 				});
 				break;
 			case SubscriptionState.ProTrial:
 			case SubscriptionState.ProPreview:
-				void executeCommand<OpenWalkthroughCommandArgs>(Commands.OpenWalkthrough, {
+				void executeCommand<OpenWalkthroughCommandArgs>(GlCommand.OpenWalkthrough, {
 					...source,
 					step: 'welcome-in-trial',
 				});
@@ -450,13 +450,13 @@ export class SubscriptionService implements Disposable {
 			case SubscriptionState.ProTrialReactivationEligible:
 			case SubscriptionState.ProTrialExpired:
 			case SubscriptionState.ProPreviewExpired:
-				void executeCommand<OpenWalkthroughCommandArgs>(Commands.OpenWalkthrough, {
+				void executeCommand<OpenWalkthroughCommandArgs>(GlCommand.OpenWalkthrough, {
 					...source,
 					step: 'welcome-in-trial-expired',
 				});
 				break;
 			case SubscriptionState.Paid:
-				void executeCommand<OpenWalkthroughCommandArgs>(Commands.OpenWalkthrough, {
+				void executeCommand<OpenWalkthroughCommandArgs>(GlCommand.OpenWalkthrough, {
 					...source,
 					step: 'welcome-paid',
 				});
@@ -796,7 +796,7 @@ export class SubscriptionService implements Disposable {
 		if (silent && !configuration.get('plusFeatures.enabled', undefined, true)) return;
 
 		if (!this.container.views.home.visible) {
-			await executeCommand(Commands.ShowAccountView);
+			await executeCommand(GlCommand.ShowAccountView);
 		}
 	}
 
@@ -1549,7 +1549,7 @@ export class SubscriptionService implements Disposable {
 
 		this._statusBarSubscription.name = 'GitLens Pro';
 		this._statusBarSubscription.text = '$(gitlens-gitlens)';
-		this._statusBarSubscription.command = Commands.ShowAccountView;
+		this._statusBarSubscription.command = GlCommand.ShowAccountView;
 		this._statusBarSubscription.backgroundColor = undefined;
 
 		if (account?.verified === false) {
