@@ -1,7 +1,6 @@
 import { consume } from '@lit/context';
-import { html, LitElement } from 'lit';
-import { customElement, query, state } from 'lit/decorators.js';
-import { GlCommand } from '../../../../constants.commands';
+import { html, LitElement, nothing } from 'lit';
+import { customElement, property, query, state } from 'lit/decorators.js';
 import { createCommandLink } from '../../../../system/commands';
 import type { State } from '../../../home/protocol';
 import { DismissWalkthroughSection } from '../../../home/protocol';
@@ -25,6 +24,9 @@ export class GlOnboarding extends LitElement {
 	@state()
 	private _ipc!: HostIpc;
 
+	@property({ type: Boolean })
+	private slim = false;
+
 	@query('#open-walkthrough')
 	private _openWalkthroughButton!: GlButton;
 
@@ -34,33 +36,37 @@ export class GlOnboarding extends LitElement {
 		}
 
 		return html`
-			<section class="walkthrough-progress" @click=${(e: MouseEvent) => this.onFallthroughClick(e)}>
-				<header class="walkthrough-progress__title">
-					<span
-						>GitLens Walkthrough
-						(${this._state.walkthroughProgress.doneCount}/${this._state.walkthroughProgress.allCount})</span
-					>
-					<nav>
-						<gl-button
-							id="open-walkthrough"
-							href=${createCommandLink(GlCommand.OpenWalkthrough, {})}
-							class="walkthrough-progress__button"
-							appearance="toolbar"
-							><code-icon icon="play"></code-icon
-						></gl-button>
-						<gl-button
-							@click=${this.onDismissWalkthrough.bind(this)}
-							class="walkthrough-progress__button"
-							appearance="toolbar"
-							><code-icon icon="x"></code-icon
-						></gl-button>
-					</nav>
-				</header>
-				<progress
-					class="walkthrough-progress__bar"
-					value=${this._state.walkthroughProgress.progress}
-				></progress>
-			</section>
+			<gl-tooltip placement="bottom" content="Open Walkthrough">
+				<a href=${createCommandLink('gitlens.openWalkthrough', {})}>
+					<section class="walkthrough-progress">
+						${!this.slim
+							? html`
+									<header class="walkthrough-progress__title">
+										<span
+											>GitLens Walkthrough
+											(${this._state.walkthroughProgress.doneCount}/${this._state
+												.walkthroughProgress.allCount})</span
+										>
+										<nav>
+											<gl-button
+												@click=${this.onDismissWalkthrough.bind(this)}
+												class="walkthrough-progress__button"
+												appearance="toolbar"
+												tooltip="Dismiss"
+												aria-label="Dismiss"
+												><code-icon icon="x"></code-icon
+											></gl-button>
+										</nav>
+									</header>
+							  `
+							: nothing}
+						<progress
+							class="walkthrough-progress__bar"
+							value=${this._state.walkthroughProgress.progress}
+						></progress>
+					</section>
+				</a>
+			</gl-tooltip>
 		`;
 	}
 
@@ -68,12 +74,5 @@ export class GlOnboarding extends LitElement {
 		this._state.showWalkthroughProgress = false;
 		this.requestUpdate();
 		this._ipc.sendCommand(DismissWalkthroughSection);
-	}
-
-	private onFallthroughClick(e: MouseEvent) {
-		if ((e.target as HTMLElement)?.closest('gl-button')) {
-			return;
-		}
-		this._openWalkthroughButton.click();
 	}
 }
