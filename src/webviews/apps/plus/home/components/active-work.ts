@@ -199,7 +199,7 @@ export class GlActiveWork extends SignalWatcher(LitElement) {
 									<pr-icon state=${pr.state} pr-id=${pr.id}></pr-icon>
 								</span>
 								<a href=${pr.url} class="branch-item__name">${pr.title}</a>
-								<spanclass="branch-item__identifier">#${pr.id}</span>
+								<span class="branch-item__identifier">#${pr.id}</span>
 							</p>
 						</div>`;
 					})}
