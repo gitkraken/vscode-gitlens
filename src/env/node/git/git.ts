@@ -20,6 +20,8 @@ import {
 	PullErrorReason,
 	PushError,
 	PushErrorReason,
+	RevertError,
+	RevertErrorReason,
 	StashPushError,
 	StashPushErrorReason,
 	TagError,
@@ -105,6 +107,8 @@ export const GitErrors = {
 	tagNotFound: /tag .* not found/i,
 	invalidTagName: /invalid tag name/i,
 	remoteRejected: /rejected because the remote contains work/i,
+	revertHasConflicts: /(error: could not revert .*) (hint: After resolving the conflicts)/gi,
+	localChangesWouldBeOverwritten: /error: your local changes would be overwritten/i,
 };
 
 const GitWarnings = {
@@ -171,6 +175,14 @@ const tagErrorAndReason: [RegExp, TagErrorReason][] = [
 	[GitErrors.invalidTagName, TagErrorReason.InvalidTagName],
 	[GitErrors.permissionDenied, TagErrorReason.PermissionDenied],
 	[GitErrors.remoteRejected, TagErrorReason.RemoteRejected],
+];
+
+const revertErrorAndReason = [
+	[GitErrors.badRevision, RevertErrorReason.BadRevision],
+	[GitErrors.invalidObjectName, RevertErrorReason.InvalidObjectName],
+	[GitErrors.revertHasConflicts, RevertErrorReason.Conflict],
+	[GitErrors.changesWouldBeOverwritten, RevertErrorReason.LocalChangesWouldBeOverwritten],
+	[GitErrors.localChangesWouldBeOverwritten, RevertErrorReason.LocalChangesWouldBeOverwritten],
 ];
 
 export class Git {
@@ -1586,6 +1598,21 @@ export class Git {
 
 	reset(repoPath: string | undefined, pathspecs: string[]) {
 		return this.git<string>({ cwd: repoPath }, 'reset', '-q', '--', ...pathspecs);
+	}
+
+	async revert(repoPath: string, ...args: string[]) {
+		try {
+			await this.git<string>({ cwd: repoPath }, 'revert', ...args);
+		} catch (ex) {
+			const msg: string = ex?.toString() ?? '';
+			for (const [error, reason] of revertErrorAndReason) {
+				if (error.test(msg) || error.test(ex.stderr ?? '')) {
+					throw new RevertError(reason, ex);
+				}
+			}
+
+			throw new RevertError(RevertErrorReason.Other, ex);
+		}
 	}
 
 	async rev_list(
