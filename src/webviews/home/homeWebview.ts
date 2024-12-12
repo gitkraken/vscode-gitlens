@@ -8,7 +8,12 @@ import type { OpenPullRequestOnRemoteCommandArgs } from '../../commands/openPull
 import { GlyphChars, urls } from '../../constants';
 import { GlCommand } from '../../constants.commands';
 import type { ContextKeys } from '../../constants.context';
-import type { HomeTelemetryContext } from '../../constants.telemetry';
+import {
+	isSupportedCloudIntegrationId,
+	supportedCloudIntegrationDescriptors,
+	supportedOrderedCloudIntegrationIds,
+} from '../../constants.integrations';
+import type { HomeTelemetryContext, Source } from '../../constants.telemetry';
 import type { Container } from '../../container';
 import { executeGitCommand } from '../../git/actions';
 import { openComparisonChanges } from '../../git/actions/commit';
@@ -34,7 +39,7 @@ import type { ShowInCommitGraphCommandArgs } from '../../plus/webviews/graph/pro
 import { showRepositoryPicker } from '../../quickpicks/repositoryPicker';
 import type { Deferrable } from '../../system/function';
 import { debounce } from '../../system/function';
-import { map } from '../../system/iterable';
+import { filterMap, map } from '../../system/iterable';
 import { getSettledValue } from '../../system/promise';
 import { executeActionCommand, executeCommand, registerCommand } from '../../system/vscode/command';
 import { configuration } from '../../system/vscode/configuration';
@@ -49,6 +54,7 @@ import type {
 	GetOverviewBranch,
 	GetOverviewBranches,
 	GetOverviewResponse,
+	IntegrationState,
 	OpenInGraphParams,
 	OverviewFilters,
 	OverviewRecentThreshold,
@@ -170,7 +176,7 @@ export class HomeWebviewProvider implements WebviewProvider<State, State, HomeWe
 	}
 
 	private onChangeConnectionState() {
-		this.notifyDidChangeOnboardingIntegration();
+		void this.notifyDidChangeOnboardingIntegration();
 	}
 
 	private async shouldNotifyRepositoryChange(): Promise<boolean> {
@@ -274,7 +280,7 @@ export class HomeWebviewProvider implements WebviewProvider<State, State, HomeWe
 			registerCommand(`${this.host.id}.discussions`, () => openUrl(urls.githubDiscussions), this),
 			registerCommand(
 				`${this.host.id}.account.resync`,
-				() => this.container.subscription.validate({ force: true }),
+				(src?: Source) => this.container.subscription.validate({ force: true }, src),
 				this,
 			),
 			registerCommand('gitlens.home.openPullRequestChanges', this.pullRequestChanges, this),
@@ -488,20 +494,31 @@ export class HomeWebviewProvider implements WebviewProvider<State, State, HomeWe
 	}
 
 	private async getState(subscription?: Subscription): Promise<State> {
-		const subResult = await this.getSubscriptionState(subscription);
+		const [subResult, integrationResult] = await Promise.allSettled([
+			this.getSubscriptionState(subscription),
+			this.getIntegrationStates(true),
+		]);
+
+		if (subResult.status === 'rejected') {
+			throw subResult.reason;
+		}
+
+		const integrations = getSettledValue(integrationResult) ?? [];
+		const anyConnected = integrations.some(i => i.connected);
 
 		return {
 			...this.host.baseWebviewState,
 			discovering: this._discovering != null,
 			repositories: this.getRepositoriesState(),
 			webroot: this.host.getWebRoot(),
-			subscription: subResult.subscription,
-			avatar: subResult.avatar,
-			organizationsCount: subResult.organizationsCount,
+			subscription: subResult.value.subscription,
+			avatar: subResult.value.avatar,
+			organizationsCount: subResult.value.organizationsCount,
 			orgSettings: this.getOrgSettings(),
 			previewCollapsed: this.getPreviewCollapsed(),
 			integrationBannerCollapsed: this.getIntegrationBannerCollapsed(),
-			hasAnyIntegrationConnected: this.isAnyIntegrationConnected(),
+			integrations: integrations,
+			hasAnyIntegrationConnected: anyConnected,
 			walkthroughProgress: {
 				allCount: this.container.walkthrough.walkthroughSize,
 				doneCount: this.container.walkthrough.doneCount,
@@ -711,16 +728,45 @@ export class HomeWebviewProvider implements WebviewProvider<State, State, HomeWe
 		return this._repositoryBranches.get(repo.path)!;
 	}
 
-	private _hostedIntegrationConnected: boolean | undefined;
-	private isAnyIntegrationConnected(force = false) {
-		if (this._hostedIntegrationConnected == null || force === true) {
-			this._hostedIntegrationConnected =
-				[
-					...this.container.integrations.getConnected('hosting'),
-					...this.container.integrations.getConnected('issues'),
-				].length > 0;
+	private _integrationStates: IntegrationState[] | undefined;
+	private _defaultSupportedCloudIntegrations: IntegrationState[] | undefined;
+
+	private async getIntegrationStates(force = false) {
+		if (force || this._integrationStates == null) {
+			const promises = filterMap(this.container.integrations.getLoaded(), async i =>
+				isSupportedCloudIntegrationId(i.id)
+					? ({
+							id: i.id,
+							name: i.name,
+							icon: `gl-provider-${i.icon}`,
+							connected: i.maybeConnected ?? (await i.isConnected()),
+							supports: i.type === 'hosting' ? ['prs', 'issues'] : i.type === 'issues' ? ['issues'] : [],
+					  } satisfies IntegrationState)
+					: undefined,
+			);
+
+			const integrationsResults = await Promise.allSettled(promises);
+			const integrations = [...filterMap(integrationsResults, r => getSettledValue(r))];
+
+			this._defaultSupportedCloudIntegrations ??= supportedCloudIntegrationDescriptors.map(d => ({
+				...d,
+				connected: false,
+			}));
+
+			// union (uniquely by id) with supportedCloudIntegrationDescriptors
+			integrations.push(
+				...this._defaultSupportedCloudIntegrations.filter(d => !integrations.some(i => i.id === d.id)),
+			);
+			integrations.sort(
+				(a, b) =>
+					supportedOrderedCloudIntegrationIds.indexOf(a.id) -
+					supportedOrderedCloudIntegrationIds.indexOf(b.id),
+			);
+
+			this._integrationStates = integrations;
 		}
-		return this._hostedIntegrationConnected;
+
+		return this._integrationStates;
 	}
 
 	private _subscription: Subscription | undefined;
@@ -804,17 +850,19 @@ export class HomeWebviewProvider implements WebviewProvider<State, State, HomeWe
 		void this.host.notify(DidChangeLaunchpad, undefined);
 	}
 
-	private notifyDidChangeOnboardingIntegration() {
+	private async notifyDidChangeOnboardingIntegration() {
 		// force rechecking
-		const isConnected = this.isAnyIntegrationConnected(true);
-		if (isConnected) {
+		const integrations = await this.getIntegrationStates(true);
+		const anyConnected = integrations.some(i => i.connected);
+		if (anyConnected) {
 			this.onCollapseSection({
 				section: 'integrationBanner',
 				collapsed: true,
 			});
 		}
 		void this.host.notify(DidChangeIntegrationsConnections, {
-			hasAnyIntegrationConnected: isConnected,
+			hasAnyIntegrationConnected: anyConnected,
+			integrations: integrations,
 		});
 	}
 

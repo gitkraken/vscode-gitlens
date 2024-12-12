@@ -135,7 +135,7 @@ export class SubscriptionService implements Disposable {
 					this.updateContext();
 				}
 			}),
-			container.uri.onDidReceiveSubscriptionUpdatedUri(this.checkUpdatedSubscription, this),
+			container.uri.onDidReceiveSubscriptionUpdatedUri(() => this.checkUpdatedSubscription(undefined), this),
 			container.uri.onDidReceiveLoginUri(this.onLoginUri, this),
 		);
 
@@ -152,8 +152,8 @@ export class SubscriptionService implements Disposable {
 			}
 		}
 
-		this.changeSubscription(subscription, { silent: true });
-		setTimeout(() => void this.ensureSession(false), 10000);
+		this.changeSubscription(subscription, undefined, { silent: true });
+		setTimeout(() => void this.ensureSession(false, undefined), 10000);
 	}
 
 	dispose(): void {
@@ -341,7 +341,7 @@ export class SubscriptionService implements Disposable {
 			registerCommand(GlCommand.PlusLogin, (src?: Source) => this.loginOrSignUp(false, src)),
 			registerCommand(GlCommand.PlusSignUp, (src?: Source) => this.loginOrSignUp(true, src)),
 			registerCommand(GlCommand.PlusLogout, (src?: Source) => this.logout(src)),
-			registerCommand(GlCommand.GKSwitchOrganization, () => this.switchOrganization()),
+			registerCommand(GlCommand.GKSwitchOrganization, (src?: Source) => this.switchOrganization(src)),
 
 			registerCommand(GlCommand.PlusManage, (src?: Source) => this.manage(src)),
 			registerCommand(GlCommand.PlusShowPlans, (src?: Source) => this.showPlans(src)),
@@ -362,11 +362,11 @@ export class SubscriptionService implements Disposable {
 	}
 
 	async getAuthenticationSession(createIfNeeded: boolean = false): Promise<AuthenticationSession | undefined> {
-		return this.ensureSession(createIfNeeded);
+		return this.ensureSession(createIfNeeded, undefined);
 	}
 
 	async getSubscription(cached = false): Promise<Subscription> {
-		const promise = this.ensureSession(false);
+		const promise = this.ensureSession(false, undefined);
 		if (!cached) {
 			void (await promise);
 		}
@@ -465,7 +465,7 @@ export class SubscriptionService implements Disposable {
 	}
 
 	private async showPlanMessage(source: Source | undefined) {
-		if (!(await this.ensureSession(false))) return;
+		if (!(await this.ensureSession(false, source))) return;
 		const {
 			account,
 			plan: { actual, effective },
@@ -563,7 +563,7 @@ export class SubscriptionService implements Disposable {
 			this.container.telemetry.sendEvent('subscription/action', { action: 'sign-in' }, source);
 		}
 
-		const session = await this.ensureSession(false);
+		const session = await this.ensureSession(false, source);
 		if (session != null) {
 			await this.logout(source);
 		}
@@ -581,7 +581,7 @@ export class SubscriptionService implements Disposable {
 		await this.container.accountAuthentication.abort();
 		void this.showAccountView();
 
-		const session = await this.ensureSession(true, {
+		const session = await this.ensureSession(true, options?.source, {
 			signIn: options?.signIn,
 			signUp: options?.signUp,
 			context: options?.context,
@@ -599,10 +599,10 @@ export class SubscriptionService implements Disposable {
 			this.container.telemetry.sendEvent('subscription/action', { action: 'sign-out' }, source);
 		}
 
-		return this.logoutCore();
+		return this.logoutCore(source);
 	}
 
-	private async logoutCore(): Promise<void> {
+	private async logoutCore(source: Source | undefined): Promise<void> {
 		this.connection.resetRequestExceptionCount();
 		this._lastValidatedDate = undefined;
 		if (this._validationTimer != null) {
@@ -621,7 +621,7 @@ export class SubscriptionService implements Disposable {
 			void this.container.accountAuthentication.removeSessionsByScopes(authenticationProviderScopes);
 		}
 
-		this.changeSubscription(getCommunitySubscription(this._subscription));
+		this.changeSubscription(getCommunitySubscription(this._subscription), source);
 	}
 
 	@log()
@@ -650,7 +650,7 @@ export class SubscriptionService implements Disposable {
 			this.container.telemetry.sendEvent('subscription/action', { action: 'reactivate' }, source);
 		}
 
-		const session = await this.ensureSession(false);
+		const session = await this.ensureSession(false, source);
 		if (session == null) return;
 
 		try {
@@ -693,7 +693,7 @@ export class SubscriptionService implements Disposable {
 
 		// Trial was reactivated. Do a check-in to update, and show a message if successful.
 		try {
-			await this.checkInAndValidate(session, { force: true });
+			await this.checkInAndValidate(session, source, { force: true });
 			if (isSubscriptionTrial(this._subscription)) {
 				const remaining = getSubscriptionTimeRemaining(this._subscription, 'days');
 
@@ -731,7 +731,7 @@ export class SubscriptionService implements Disposable {
 		}
 		void this.showAccountView(true);
 
-		const session = await this.ensureSession(false);
+		const session = await this.ensureSession(false, source);
 		if (session == null) return false;
 
 		try {
@@ -846,7 +846,7 @@ export class SubscriptionService implements Disposable {
 
 		const days = proPreviewLengthInDays;
 		const subscription = getPreviewSubscription(days, this._subscription);
-		this.changeSubscription(subscription);
+		this.changeSubscription(subscription, source);
 
 		setTimeout(async () => {
 			const confirm: MessageItem = { title: 'Continue' };
@@ -878,9 +878,9 @@ export class SubscriptionService implements Disposable {
 		if (this._subscription.account != null) {
 			// Do a pre-check-in to see if we've already upgraded to a paid plan.
 			try {
-				const session = await this.ensureSession(false);
+				const session = await this.ensureSession(false, source);
 				if (session != null) {
-					if ((await this.checkUpdatedSubscription()) === SubscriptionState.Paid) {
+					if ((await this.checkUpdatedSubscription(source)) === SubscriptionState.Paid) {
 						return;
 					}
 				}
@@ -958,23 +958,23 @@ export class SubscriptionService implements Disposable {
 		const refresh = await Promise.race(completionPromises);
 
 		if (refresh) {
-			void this.checkUpdatedSubscription();
+			void this.checkUpdatedSubscription(source);
 		}
 	}
 
 	@gate<SubscriptionService['validate']>(o => `${o?.force ?? false}`)
 	@log()
-	async validate(options?: { force?: boolean }, _source?: Source | undefined): Promise<void> {
+	async validate(options?: { force?: boolean }, source?: Source | undefined): Promise<void> {
 		const scope = getLogScope();
 
-		const session = await this.ensureSession(false);
+		const session = await this.ensureSession(false, source);
 		if (session == null) {
-			this.changeSubscription(this._subscription);
+			this.changeSubscription(this._subscription, source);
 			return;
 		}
 
 		try {
-			await this.checkInAndValidate(session, options);
+			await this.checkInAndValidate(session, source, options);
 		} catch (ex) {
 			Logger.error(ex, scope);
 			debugger;
@@ -986,6 +986,7 @@ export class SubscriptionService implements Disposable {
 	@debug<SubscriptionService['checkInAndValidate']>({ args: { 0: s => s?.account?.label } })
 	private async checkInAndValidate(
 		session: AuthenticationSession,
+		source: Source | undefined,
 		options?: { force?: boolean; showSlowProgress?: boolean; organizationId?: string },
 	): Promise<GKCheckInResponse | undefined> {
 		const scope = getLogScope();
@@ -1001,7 +1002,7 @@ export class SubscriptionService implements Disposable {
 			return;
 		}
 
-		const validating = this.checkInAndValidateCore(session, options?.organizationId);
+		const validating = this.checkInAndValidateCore(session, source, options?.organizationId);
 		if (!options?.showSlowProgress) return validating;
 
 		// Show progress if we are waiting too long
@@ -1020,6 +1021,7 @@ export class SubscriptionService implements Disposable {
 	@debug<SubscriptionService['checkInAndValidateCore']>({ args: { 0: s => s?.account?.label } })
 	private async checkInAndValidateCore(
 		session: AuthenticationSession,
+		source: Source | undefined,
 		organizationId?: string,
 	): Promise<GKCheckInResponse | undefined> {
 		const scope = getLogScope();
@@ -1059,7 +1061,7 @@ export class SubscriptionService implements Disposable {
 			this._getCheckInData = () => Promise.resolve(data);
 			this.storeCheckInData(data);
 
-			await this.validateAndUpdateSubscriptions(data, session);
+			await this.validateAndUpdateSubscriptions(data, session, source);
 			return data;
 		} catch (ex) {
 			this._getCheckInData = () => Promise.resolve(undefined);
@@ -1068,7 +1070,7 @@ export class SubscriptionService implements Disposable {
 			debugger;
 
 			// If we cannot check in, validate stored subscription
-			this.changeSubscription(this._subscription);
+			this.changeSubscription(this._subscription, source);
 			if (ex instanceof AccountValidationError) throw ex;
 
 			throw new AccountValidationError('Unable to validate account', ex);
@@ -1086,7 +1088,7 @@ export class SubscriptionService implements Disposable {
 		this._validationTimer = setInterval(
 			() => {
 				if (this._lastValidatedDate == null || this._lastValidatedDate.getDate() !== new Date().getDate()) {
-					void this.ensureSession(false, { force: true });
+					void this.ensureSession(false, undefined, { force: true });
 				}
 			},
 			6 * 60 * 60 * 1000,
@@ -1115,7 +1117,7 @@ export class SubscriptionService implements Disposable {
 			if (session == null) return undefined;
 
 			try {
-				return await this.checkInAndValidate(session, { force: true });
+				return await this.checkInAndValidate(session, undefined, { force: true });
 			} catch (ex) {
 				Logger.error(ex, scope);
 				return undefined;
@@ -1126,7 +1128,11 @@ export class SubscriptionService implements Disposable {
 	}
 
 	@debug()
-	private async validateAndUpdateSubscriptions(data: GKCheckInResponse, session: AuthenticationSession) {
+	private async validateAndUpdateSubscriptions(
+		data: GKCheckInResponse,
+		session: AuthenticationSession,
+		source: Source | undefined,
+	): Promise<void> {
 		const scope = getLogScope();
 		let organizations: Organization[];
 		try {
@@ -1154,6 +1160,7 @@ export class SubscriptionService implements Disposable {
 				...this._subscription,
 				...subscription,
 			},
+			source,
 			{ store: true },
 		);
 	}
@@ -1165,6 +1172,7 @@ export class SubscriptionService implements Disposable {
 	@debug()
 	private async ensureSession(
 		createIfNeeded: boolean,
+		source: Source | undefined,
 		options?: {
 			force?: boolean;
 			signUp?: boolean;
@@ -1180,7 +1188,7 @@ export class SubscriptionService implements Disposable {
 		if (this._session === null && !createIfNeeded) return undefined;
 
 		if (this._sessionPromise === undefined) {
-			this._sessionPromise = this.getOrCreateSession(createIfNeeded, {
+			this._sessionPromise = this.getOrCreateSession(createIfNeeded, source, {
 				signUp: options?.signUp,
 				signIn: options?.signIn,
 				context: options?.context,
@@ -1205,6 +1213,7 @@ export class SubscriptionService implements Disposable {
 	@debug()
 	private async getOrCreateSession(
 		createIfNeeded: boolean,
+		source: Source | undefined,
 		options?: { signUp?: boolean; signIn?: { code: string; state?: string }; context?: TrackingContext },
 	): Promise<AuthenticationSession | null> {
 		const scope = getLogScope();
@@ -1226,7 +1235,7 @@ export class SubscriptionService implements Disposable {
 
 			if (ex instanceof Error && ex.message.includes('User did not consent')) {
 				setLogScopeExit(scope, ' \u2022 User declined authentication');
-				await this.logoutCore();
+				await this.logoutCore(source);
 				return null;
 			}
 
@@ -1235,12 +1244,12 @@ export class SubscriptionService implements Disposable {
 
 		if (session == null) {
 			setLogScopeExit(scope, ' \u2022 No valid session was found');
-			await this.logoutCore();
+			await this.logoutCore(source);
 			return session ?? null;
 		}
 
 		try {
-			await this.checkInAndValidate(session, { showSlowProgress: createIfNeeded, force: createIfNeeded });
+			await this.checkInAndValidate(session, source, { showSlowProgress: createIfNeeded, force: createIfNeeded });
 		} catch (ex) {
 			Logger.error(ex, scope);
 			debugger;
@@ -1272,7 +1281,7 @@ export class SubscriptionService implements Disposable {
 					ex.statusCode >= 400
 				) {
 					session = null;
-					await this.logoutCore();
+					await this.logoutCore(source);
 
 					if (createIfNeeded) {
 						const unauthorized = ex.statusCode === 401;
@@ -1316,6 +1325,7 @@ export class SubscriptionService implements Disposable {
 	@debug()
 	private changeSubscription(
 		subscription: Optional<Subscription, 'state'> | undefined,
+		source: Source | undefined,
 		options?: { silent?: boolean; store?: boolean },
 	): void {
 		if (subscription == null) {
@@ -1389,7 +1399,11 @@ export class SubscriptionService implements Disposable {
 				...(!matches ? flattenSubscription(previous, 'previous') : {}),
 			};
 
-			this.container.telemetry.sendEvent(previous == null ? 'subscription' : 'subscription/changed', data);
+			this.container.telemetry.sendEvent(
+				previous == null ? 'subscription' : 'subscription/changed',
+				data,
+				source,
+			);
 		});
 
 		if (options?.store !== false) {
@@ -1584,7 +1598,7 @@ export class SubscriptionService implements Disposable {
 		this._statusBarSubscription.show();
 	}
 
-	async switchOrganization(): Promise<void> {
+	async switchOrganization(source: Source | undefined): Promise<void> {
 		const scope = getLogScope();
 		if (this._session == null) return;
 
@@ -1619,7 +1633,7 @@ export class SubscriptionService implements Disposable {
 			return;
 		}
 
-		await this.checkInAndValidate(this._session, { force: true, organizationId: pick.org.id });
+		await this.checkInAndValidate(this._session, source, { force: true, organizationId: pick.org.id });
 		const checkInData = await this._getCheckInData();
 		if (checkInData == null) return;
 
@@ -1634,6 +1648,7 @@ export class SubscriptionService implements Disposable {
 				...this._subscription,
 				...organizationSubscription,
 			},
+			source,
 			{ store: true },
 		);
 	}
@@ -1663,10 +1678,10 @@ export class SubscriptionService implements Disposable {
 		void this.loginWithCode({ code: code, state: state ?? undefined }, { source: 'deeplink' });
 	}
 
-	async checkUpdatedSubscription(): Promise<SubscriptionState | undefined> {
+	async checkUpdatedSubscription(source: Source | undefined): Promise<SubscriptionState | undefined> {
 		if (this._session == null) return undefined;
 		const oldSubscriptionState = this._subscription.state;
-		await this.checkInAndValidate(this._session, { force: true });
+		await this.checkInAndValidate(this._session, source, { force: true });
 		if (oldSubscriptionState !== this._subscription.state) {
 			void this.showPlanMessage({ source: 'subscription' });
 		}

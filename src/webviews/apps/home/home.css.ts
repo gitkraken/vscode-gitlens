@@ -62,8 +62,14 @@ export const homeStyles = css`
 	}
 
 	.home__aux,
-	.home__footer {
+	.home__header {
 		flex: none;
+	}
+
+	.home__header {
+		border-top: 1px solid var(--vscode-sideBarSectionHeader-border);
+		border-bottom: 1px solid var(--vscode-sideBarSectionHeader-border);
+		padding: 0.4rem;
 	}
 
 	.home__aux:has(gl-promo-banner:not([has-promo]):only-child) {
@@ -82,8 +88,8 @@ export const homeStyles = css`
 		margin-block-end: 0.8rem;
 	}
 
-	gl-home-account-content {
-		margin-bottom: 0;
+	gl-home-header {
+		margin: 0;
 	}
 
 	gl-repo-alerts:not([has-alerts]) {
@@ -306,13 +312,19 @@ export const navListStyles = css`
 `;
 
 export const walkthroughProgressStyles = css`
+	a,
+	a:hover,
+	a:focus,
+	a:active {
+		text-decoration: none;
+	}
+
 	.walkthrough-progress {
 		display: flex;
 		flex-direction: column;
 		gap: 2px;
-		padding: 4px 8px 6px;
-		margin-inline: -8px;
-		margin-bottom: 16px;
+		padding: 2px 4px 4px;
+		margin-top: 4px;
 		align-items: stretch;
 		cursor: pointer;
 		border-radius: 4px;
@@ -326,6 +338,7 @@ export const walkthroughProgressStyles = css`
 		display: flex;
 		justify-content: space-between;
 		align-items: center;
+		color: var(--color-foreground--85);
 	}
 	.walkthrough-progress__button {
 		--button-padding: 1px 2px 0px 2px;

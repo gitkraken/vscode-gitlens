@@ -67,6 +67,7 @@ export class HomeStateProvider implements Disposable {
 
 				case DidChangeIntegrationsConnections.is(msg):
 					this.state.hasAnyIntegrationConnected = msg.params.hasAnyIntegrationConnected;
+					this.state.integrations = msg.params.integrations;
 					this.state.timestamp = Date.now();
 
 					this.provider.setValue(this.state, true);
