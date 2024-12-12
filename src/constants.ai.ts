@@ -11,6 +11,7 @@ export type AnthropicModels =
 	| 'claude-2.1';
 
 export type GeminiModels =
+	| 'gemini-2.0-flash-exp'
 	| 'gemini-exp-1206'
 	| 'gemini-exp-1121'
 	| 'gemini-1.5-pro-latest'
