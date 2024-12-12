@@ -14,7 +14,7 @@ import type { RemoteProvider, RemoteProviderId } from '../../git/remotes/remoteP
 import { gate } from '../../system/decorators/gate';
 import { debug, log } from '../../system/decorators/log';
 import { promisifyDeferred, take } from '../../system/event';
-import { filterMap, flatten, join } from '../../system/iterable';
+import { filter, filterMap, flatten, join } from '../../system/iterable';
 import { Logger } from '../../system/logger';
 import { getLogScope } from '../../system/logger.scope';
 import { configuration } from '../../system/vscode/configuration';
@@ -492,6 +492,16 @@ export class IntegrationService implements Disposable {
 		return integration;
 	}
 
+	getLoaded(): Iterable<Integration>;
+	getLoaded(type: 'issues'): Iterable<IssueIntegration>;
+	getLoaded(type: 'hosting'): Iterable<HostingIntegration>;
+	@log()
+	getLoaded(type?: IntegrationType): Iterable<Integration> {
+		if (type == null) return this._integrations.values();
+
+		return filter(this._integrations.values(), i => i.type === type);
+	}
+
 	private _providersApi: Promise<ProvidersApi> | undefined;
 	private async getProvidersApi() {
 		if (this._providersApi == null) {
@@ -548,12 +558,6 @@ export class IntegrationService implements Disposable {
 			default:
 				return (getOrGetCached === this.get ? Promise.resolve(undefined) : undefined) as RT;
 		}
-	}
-
-	getConnected(type: 'issues'): IssueIntegration[];
-	getConnected(type: 'hosting'): HostingIntegration[];
-	getConnected(type: IntegrationType): Integration[] {
-		return [...this._integrations.values()].filter(p => p.maybeConnected && p.type === type);
 	}
 
 	@log<IntegrationService['getMyIssues']>({

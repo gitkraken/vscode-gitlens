@@ -4,8 +4,8 @@ import {
 	HostingIntegrationId,
 	IssueIntegrationId,
 	SelfHostedIntegrationId,
-	supportedCloudIntegrationIds,
-	supportedCloudIntegrationIdsExperimental,
+	supportedOrderedCloudIntegrationIds,
+	supportedOrderedCloudIssueIntegrationIds,
 } from '../../../constants.integrations';
 import { configuration } from '../../../system/vscode/configuration';
 
@@ -40,8 +40,8 @@ export const CloudIntegrationAuthenticationUriPathPrefix = 'did-authenticate-clo
 
 export function getSupportedCloudIntegrationIds(): SupportedCloudIntegrationIds[] {
 	return configuration.get('cloudIntegrations.enabled', undefined, true)
-		? supportedCloudIntegrationIdsExperimental
-		: supportedCloudIntegrationIds;
+		? supportedOrderedCloudIntegrationIds
+		: supportedOrderedCloudIssueIntegrationIds;
 }
 
 export function isSupportedCloudIntegrationId(id: string): id is SupportedCloudIntegrationIds {
