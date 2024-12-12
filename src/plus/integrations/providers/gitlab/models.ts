@@ -150,3 +150,12 @@ export function fromGitLabMergeRequestProvidersApi(pr: ProviderPullRequest, prov
 	};
 	return fromProviderPullRequest(wrappedPr, provider);
 }
+
+export function isGitLabPullRequestUrl(search: string): boolean {
+	try {
+		const url = new URL(search);
+		return url.host === 'gitlab.com' && url.pathname.includes('/merge_requests/');
+	} catch {
+		return false;
+	}
+}
