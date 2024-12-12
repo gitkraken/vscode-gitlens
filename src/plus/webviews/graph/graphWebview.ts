@@ -1149,7 +1149,7 @@ export class GraphWebviewProvider implements WebviewProvider<State, State, Graph
 	private async getCommitTooltip(commit: GitCommit, cancellation: CancellationToken) {
 		const [remotesResult, _] = await Promise.allSettled([
 			this.container.git.getBestRemotesWithProviders(commit.repoPath),
-			commit.ensureFullDetails(),
+			commit.ensureFullDetails({ include: { stats: true } }),
 		]);
 
 		if (cancellation.isCancellationRequested) throw new CancellationError();

@@ -254,7 +254,7 @@ export class CommitNode extends ViewRefNode<'commit', ViewsWithCommits | FileHis
 	private async getTooltip(cancellation: CancellationToken) {
 		const [remotesResult, _] = await Promise.allSettled([
 			this.view.container.git.getBestRemotesWithProviders(this.commit.repoPath, cancellation),
-			this.commit.message == null ? this.commit.ensureFullDetails() : undefined,
+			this.commit.ensureFullDetails({ include: { stats: true } }),
 		]);
 
 		if (cancellation.isCancellationRequested) return undefined;
