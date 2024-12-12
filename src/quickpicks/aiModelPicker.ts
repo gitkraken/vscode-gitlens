@@ -66,7 +66,7 @@ export async function showAIModelPicker(
 			);
 
 			quickpick.title = 'Choose AI Model';
-			quickpick.placeholder = 'Select an AI model to use for experimental AI features';
+			quickpick.placeholder = 'Select an AI model to use';
 			quickpick.matchOnDescription = true;
 			quickpick.matchOnDetail = true;
 			quickpick.buttons = [ResetAIKeyButton];

@@ -555,7 +555,7 @@ async function confirmAIProviderToS<Provider extends AIProviders>(
 	const acceptAlways: MessageItem = { title: 'Always' };
 	const decline: MessageItem = { title: 'Cancel', isCloseAffordance: true };
 	const result = await window.showInformationMessage(
-		`GitLens experimental AI features require sending a diff of the code changes to ${model.provider.name} for analysis. This may contain sensitive information.\n\nDo you want to continue?`,
+		`GitLens AI features require sending a diff of the code changes to ${model.provider.name} for analysis. This may contain sensitive information.\n\nDo you want to continue?`,
 		{ modal: true },
 		accept,
 		acceptWorkspace,
