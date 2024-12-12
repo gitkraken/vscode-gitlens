@@ -4,10 +4,12 @@ import type { GitLog } from '../../git/models/log';
 import type { GitReference } from '../../git/models/reference';
 import { createRevisionRange, getReferenceLabel, isRevisionReference } from '../../git/models/reference';
 import type { Repository } from '../../git/models/repository';
+import { showGenericErrorMessage } from '../../messages';
 import type { DirectiveQuickPickItem } from '../../quickpicks/items/directive';
 import { createDirectiveQuickPickItem, Directive } from '../../quickpicks/items/directive';
 import type { FlagsQuickPickItem } from '../../quickpicks/items/flags';
 import { createFlagsQuickPickItem } from '../../quickpicks/items/flags';
+import { Logger } from '../../system/logger';
 import { pluralize } from '../../system/string';
 import type { ViewsWithRepositoryFolders } from '../../views/viewBase';
 import type {
@@ -76,8 +78,13 @@ export class MergeGitCommand extends QuickCommand<State> {
 		return false;
 	}
 
-	execute(state: MergeStepState) {
-		state.repo.merge(...state.flags, state.reference.ref);
+	async execute(state: MergeStepState) {
+		try {
+			await state.repo.git.merge(state.reference.ref, state.flags);
+		} catch (ex) {
+			Logger.error(ex, this.title);
+			void showGenericErrorMessage(ex);
+		}
 	}
 
 	protected async *steps(state: PartialStepState<State>): StepGenerator {
@@ -200,7 +207,7 @@ export class MergeGitCommand extends QuickCommand<State> {
 			state.flags = result;
 
 			endSteps(state);
-			this.execute(state as MergeStepState);
+			await this.execute(state as MergeStepState);
 		}
 
 		return state.counter < 0 ? StepResultBreak : undefined;

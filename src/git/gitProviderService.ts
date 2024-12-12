@@ -1335,6 +1335,32 @@ export class GitProviderService implements Disposable {
 	}
 
 	@log()
+	merge(repoPath: string, ref: string, flags: string[] | undefined = []): Promise<void> {
+		const { provider, path } = this.getProvider(repoPath);
+		if (provider.merge == null) throw new ProviderNotSupportedError(provider.descriptor.name);
+		const options: { fastForwardOnly?: boolean; noFastForward?: boolean; noCommit?: boolean; squash?: boolean } =
+			{};
+		for (const flag of flags) {
+			switch (flag) {
+				case '--ff-only':
+					options.fastForwardOnly = true;
+					break;
+				case '--no-ff':
+					options.noFastForward = true;
+					break;
+				case '--squash':
+					options.squash = true;
+					break;
+				case '--no-commit':
+					options.noCommit = true;
+					break;
+			}
+		}
+
+		return provider.merge(path, ref, options);
+	}
+
+	@log()
 	applyChangesToWorkingFile(uri: GitUri, ref1?: string, ref2?: string): Promise<void> {
 		const { provider } = this.getProvider(uri);
 		if (provider.applyChangesToWorkingFile == null) throw new ProviderNotSupportedError(provider.descriptor.name);
