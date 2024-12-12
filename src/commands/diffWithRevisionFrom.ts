@@ -1,6 +1,6 @@
 import type { TextDocumentShowOptions, TextEditor, Uri } from 'vscode';
 import { GlyphChars, quickPickTitleMaxChars } from '../constants';
-import { Commands } from '../constants.commands';
+import { GlCommand } from '../constants.commands';
 import type { Container } from '../container';
 import { GitUri } from '../git/gitUri';
 import { isBranchReference, shortenRevision } from '../git/models/reference';
@@ -22,7 +22,7 @@ export interface DiffWithRevisionFromCommandArgs {
 @command()
 export class DiffWithRevisionFromCommand extends ActiveEditorCommand {
 	constructor(private readonly container: Container) {
-		super(Commands.DiffWithRevisionFrom);
+		super(GlCommand.DiffWithRevisionFrom);
 	}
 
 	async execute(editor?: TextEditor, uri?: Uri, args?: DiffWithRevisionFromCommandArgs) {
@@ -92,7 +92,7 @@ export class DiffWithRevisionFromCommand extends ActiveEditorCommand {
 			}
 		}
 
-		void (await executeCommand<DiffWithCommandArgs>(Commands.DiffWith, {
+		void (await executeCommand<DiffWithCommandArgs>(GlCommand.DiffWith, {
 			repoPath: gitUri.repoPath,
 			lhs: {
 				sha: sha,

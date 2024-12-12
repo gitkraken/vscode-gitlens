@@ -1,7 +1,7 @@
 import type { QuickInputButton, QuickPick, QuickPickItem } from 'vscode';
 import { ThemeIcon } from 'vscode';
 import { GlyphChars, quickPickTitleMaxChars } from '../constants';
-import { Commands } from '../constants.commands';
+import { GlCommand } from '../constants.commands';
 import { Container } from '../container';
 import type { FeatureAccess, RepoFeatureAccess } from '../features';
 import { PlusFeatures } from '../features';
@@ -993,7 +993,7 @@ export function* pickBranchOrTagStepMultiRepo<
 		label: 'Choose a Pull Request...',
 		iconPath: new ThemeIcon('git-pull-request'),
 		alwaysShow: true,
-		item: createCrossCommandReference<Partial<LaunchpadCommandArgs>>(Commands.ShowLaunchpad, {
+		item: createCrossCommandReference<Partial<LaunchpadCommandArgs>>(GlCommand.ShowLaunchpad, {
 			source: 'quick-wizard',
 		}),
 	};
@@ -2622,7 +2622,9 @@ function getShowRepositoryStatusStepItems<
 	}
 
 	if (context.status.files.length) {
-		items.push(new CommandQuickPickItem('Close Unchanged Files', new ThemeIcon('x'), Commands.CloseUnchangedFiles));
+		items.push(
+			new CommandQuickPickItem('Close Unchanged Files', new ThemeIcon('x'), GlCommand.CloseUnchangedFiles),
+		);
 	}
 
 	return items;
@@ -2687,7 +2689,7 @@ export async function* ensureAccessStep<
 					detail: 'Click to learn more about Launchpad',
 					iconPath: new ThemeIcon('rocket'),
 					onDidSelect: () =>
-						void executeCommand<OpenWalkthroughCommandArgs>(Commands.OpenWalkthrough, {
+						void executeCommand<OpenWalkthroughCommandArgs>(GlCommand.OpenWalkthrough, {
 							step: 'accelerate-pr-reviews',
 							source: 'launchpad',
 							detail: 'info',

@@ -1,5 +1,5 @@
 import { ViewColumn } from 'vscode';
-import { Commands } from '../../../constants.commands';
+import { GlCommand } from '../../../constants.commands';
 import type { Sources } from '../../../constants.telemetry';
 import { executeCommand } from '../../../system/vscode/command';
 import { configuration } from '../../../system/vscode/configuration';
@@ -23,7 +23,12 @@ export type ShowViewDraft = {
 export type PatchDetailsWebviewShowingArgs = [ShowCreateDraft | ShowViewDraft];
 
 export function registerPatchDetailsWebviewView(controller: WebviewsController) {
-	return controller.registerWebviewView<State, Serialized<State>, PatchDetailsWebviewShowingArgs>(
+	return controller.registerWebviewView<
+		'gitlens.views.patchDetails',
+		State,
+		Serialized<State>,
+		PatchDetailsWebviewShowingArgs
+	>(
 		{
 			id: 'gitlens.views.patchDetails',
 			fileName: 'patchDetails.html',
@@ -45,7 +50,7 @@ export function registerPatchDetailsWebviewView(controller: WebviewsController) 
 		async (...args) => {
 			if (configuration.get('cloudPatches.experimental.layout') === 'editor') {
 				await setContext('gitlens:views:patchDetails:mode', undefined);
-				void executeCommand<WebviewPanelShowCommandArgs>(Commands.ShowPatchDetailsPage, undefined, ...args);
+				void executeCommand<WebviewPanelShowCommandArgs>(GlCommand.ShowPatchDetailsPage, undefined, ...args);
 				return;
 			}
 
@@ -58,8 +63,13 @@ export function registerPatchDetailsWebviewView(controller: WebviewsController) 
 }
 
 export function registerPatchDetailsWebviewPanel(controller: WebviewsController) {
-	return controller.registerWebviewPanel<State, Serialized<State>, PatchDetailsWebviewShowingArgs>(
-		{ id: Commands.ShowPatchDetailsPage, options: { preserveInstance: true } },
+	return controller.registerWebviewPanel<
+		'gitlens.patchDetails',
+		State,
+		Serialized<State>,
+		PatchDetailsWebviewShowingArgs
+	>(
+		{ id: GlCommand.ShowPatchDetailsPage, options: { preserveInstance: true } },
 		{
 			id: 'gitlens.patchDetails',
 			fileName: 'patchDetails.html',

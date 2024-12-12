@@ -1,7 +1,7 @@
 import type { CancellationToken, ConfigurationChangeEvent, Disposable } from 'vscode';
 import { ProgressLocation, TreeItem, TreeItemCollapsibleState, window } from 'vscode';
 import type { StashesViewConfig, ViewFilesLayout } from '../config';
-import { Commands } from '../constants.commands';
+import { GlCommand } from '../constants.commands';
 import type { Container } from '../container';
 import { GitUri } from '../git/gitUri';
 import type { GitStashReference } from '../git/models/reference';
@@ -108,7 +108,7 @@ export class StashesView extends ViewBase<'stashes', StashesViewNode, StashesVie
 		return [
 			registerViewCommand(
 				this.getQualifiedCommand('copy'),
-				() => executeCommand(Commands.ViewsCopy, this.activeSelection, this.selection),
+				() => executeCommand(GlCommand.ViewsCopy, this.activeSelection, this.selection),
 				this,
 			),
 			registerViewCommand(

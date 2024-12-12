@@ -1,6 +1,5 @@
 import type { ConfigurationChangeEvent, MessageItem } from 'vscode';
 import { Disposable, window } from 'vscode';
-import type { Commands } from '../constants.commands';
 import type { GroupableTreeViewTypes, TreeViewTypes } from '../constants.views';
 import type { Container } from '../container';
 import type { GitContributor } from '../git/models/contributor';
@@ -12,11 +11,8 @@ import type {
 } from '../git/models/reference';
 import type { GitRemote } from '../git/models/remote';
 import type { GitWorktree } from '../git/models/worktree';
-import type { GraphWebviewShowingArgs } from '../plus/webviews/graph/registration';
 import { registerGraphWebviewView } from '../plus/webviews/graph/registration';
-import type { PatchDetailsWebviewShowingArgs } from '../plus/webviews/patchDetails/registration';
 import { registerPatchDetailsWebviewView } from '../plus/webviews/patchDetails/registration';
-import type { TimelineWebviewShowingArgs } from '../plus/webviews/timeline/registration';
 import { registerTimelineWebviewView } from '../plus/webviews/timeline/registration';
 import { once } from '../system/function';
 import { first } from '../system/iterable';
@@ -24,14 +20,12 @@ import { compare } from '../system/version';
 import { executeCommand, executeCoreCommand, registerCommand } from '../system/vscode/command';
 import { configuration } from '../system/vscode/configuration';
 import { getContext, setContext } from '../system/vscode/context';
-import type { CommitDetailsWebviewShowingArgs } from '../webviews/commitDetails/registration';
 import {
 	registerCommitDetailsWebviewView,
 	registerGraphDetailsWebviewView,
 } from '../webviews/commitDetails/registration';
-import type { HomeWebviewShowingArgs } from '../webviews/home/registration';
 import { registerHomeWebviewView } from '../webviews/home/registration';
-import type { WebviewsController, WebviewViewProxy } from '../webviews/webviewsController';
+import type { WebviewsController } from '../webviews/webviewsController';
 import { BranchesView } from './branchesView';
 import { CommitsView } from './commitsView';
 import { ContributorsView } from './contributorsView';
@@ -285,7 +279,7 @@ export class Views implements Disposable {
 			registerCommand('gitlens.views.scm.grouped.refresh', () => {
 				if (this._scmGroupedView?.view == null) return;
 
-				executeCommand(`gitlens.views.${this._scmGroupedView.view.type}.refresh` as Commands);
+				executeCommand(`gitlens.views.${this._scmGroupedView.view.type}.refresh`);
 			}),
 			registerCommand('gitlens.views.scm.grouped.detachAll', () => updateScmGroupedViewsInConfig(new Set())),
 			registerCommand('gitlens.views.scm.grouped.regroupAll', () =>
@@ -442,9 +436,9 @@ export class Views implements Disposable {
 		);
 
 		if (result === Restore) {
-			executeCommand('gitlens.views.scm.grouped.welcome.restore' as Commands);
+			executeCommand('gitlens.views.scm.grouped.welcome.restore');
 		} else {
-			executeCommand('gitlens.views.scm.grouped.welcome.dismiss' as Commands);
+			executeCommand('gitlens.views.scm.grouped.welcome.dismiss');
 		}
 	}
 
@@ -569,7 +563,7 @@ export class Views implements Disposable {
 		return this._commitsView ?? this.getScmGroupedView('commits');
 	}
 
-	private _commitDetailsView!: WebviewViewProxy<CommitDetailsWebviewShowingArgs>;
+	private _commitDetailsView!: ReturnType<typeof registerCommitDetailsWebviewView>;
 	get commitDetails() {
 		return this._commitDetailsView;
 	}
@@ -589,17 +583,17 @@ export class Views implements Disposable {
 		return this._fileHistoryView;
 	}
 
-	private _graphView!: WebviewViewProxy<GraphWebviewShowingArgs>;
+	private _graphView!: ReturnType<typeof registerGraphWebviewView>;
 	get graph() {
 		return this._graphView;
 	}
 
-	private _graphDetailsView!: WebviewViewProxy<CommitDetailsWebviewShowingArgs>;
+	private _graphDetailsView!: ReturnType<typeof registerGraphDetailsWebviewView>;
 	get graphDetails() {
 		return this._graphDetailsView;
 	}
 
-	private _homeView!: WebviewViewProxy<HomeWebviewShowingArgs>;
+	private _homeView!: ReturnType<typeof registerHomeWebviewView>;
 	get home() {
 		return this._homeView;
 	}
@@ -614,7 +608,7 @@ export class Views implements Disposable {
 	// 	return this._lineHistoryView;
 	// }
 
-	private _patchDetailsView!: WebviewViewProxy<PatchDetailsWebviewShowingArgs>;
+	private _patchDetailsView!: ReturnType<typeof registerPatchDetailsWebviewView>;
 	get patchDetails() {
 		return this._patchDetailsView;
 	}
@@ -649,7 +643,7 @@ export class Views implements Disposable {
 		return this._tagsView ?? this.getScmGroupedView('tags');
 	}
 
-	private _timelineView!: WebviewViewProxy<TimelineWebviewShowingArgs>;
+	private _timelineView!: ReturnType<typeof registerTimelineWebviewView>;
 	get timeline() {
 		return this._timelineView;
 	}

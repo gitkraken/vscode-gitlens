@@ -2,7 +2,7 @@ import type { ConfigurationChangeEvent } from 'vscode';
 import { Disposable, env, Uri, window } from 'vscode';
 import { getAvatarUri } from '../../../avatars';
 import { GlyphChars, previewBadge } from '../../../constants';
-import { Commands } from '../../../constants.commands';
+import { GlCommand } from '../../../constants.commands';
 import type { ContextKeys } from '../../../constants.context';
 import type { Sources, WebviewTelemetryContext } from '../../../constants.telemetry';
 import type { Container } from '../../../container';
@@ -134,7 +134,7 @@ export class PatchDetailsWebviewProvider
 
 	constructor(
 		private readonly container: Container,
-		private readonly host: WebviewHost,
+		private readonly host: WebviewHost<'gitlens.views.patchDetails' | 'gitlens.patchDetails'>,
 	) {
 		this._context = {
 			mode: 'create',
@@ -267,7 +267,7 @@ export class PatchDetailsWebviewProvider
 				break;
 
 			case OpenInCommitGraphCommand.is(e):
-				void executeCommand<ShowInCommitGraphCommandArgs>(Commands.ShowInCommitGraph, {
+				void executeCommand<ShowInCommitGraphCommandArgs>(GlCommand.ShowInCommitGraph, {
 					ref: createReference(e.params.ref, e.params.repoPath, { refType: 'revision' }),
 				});
 				break;

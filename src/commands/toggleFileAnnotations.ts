@@ -1,7 +1,7 @@
 import type { TextEditor, TextEditorEdit, Uri } from 'vscode';
 import type { AnnotationContext } from '../annotations/annotationProvider';
 import type { ChangesAnnotationContext } from '../annotations/gutterChangesAnnotationProvider';
-import { Commands } from '../constants.commands';
+import { GlCommand } from '../constants.commands';
 import type { Container } from '../container';
 import { showGenericErrorMessage } from '../messages';
 import { Logger } from '../system/logger';
@@ -12,7 +12,7 @@ import { ActiveEditorCommand, EditorCommand } from './base';
 @command()
 export class ClearFileAnnotationsCommand extends EditorCommand {
 	constructor(private readonly container: Container) {
-		super([Commands.ClearFileAnnotations, Commands.ComputingFileAnnotations]);
+		super([GlCommand.ClearFileAnnotations, GlCommand.ComputingFileAnnotations]);
 	}
 
 	async execute(editor: TextEditor | undefined, _edit: TextEditorEdit, uri?: Uri): Promise<void> {
@@ -54,7 +54,7 @@ export type ToggleFileAnnotationCommandArgs =
 @command()
 export class ToggleFileBlameCommand extends ActiveEditorCommand {
 	constructor(private readonly container: Container) {
-		super([Commands.ToggleFileBlame, Commands.ToggleFileBlameInDiffLeft, Commands.ToggleFileBlameInDiffRight]);
+		super([GlCommand.ToggleFileBlame, GlCommand.ToggleFileBlameInDiffLeft, GlCommand.ToggleFileBlameInDiffRight]);
 	}
 
 	execute(editor: TextEditor, uri?: Uri, args?: ToggleFileBlameAnnotationCommandArgs): Promise<void> {
@@ -68,7 +68,7 @@ export class ToggleFileBlameCommand extends ActiveEditorCommand {
 @command()
 export class ToggleFileChangesCommand extends ActiveEditorCommand {
 	constructor(private readonly container: Container) {
-		super(Commands.ToggleFileChanges);
+		super(GlCommand.ToggleFileChanges);
 	}
 
 	execute(editor: TextEditor, uri?: Uri, args?: ToggleFileChangesAnnotationCommandArgs): Promise<void> {
@@ -83,9 +83,9 @@ export class ToggleFileChangesCommand extends ActiveEditorCommand {
 export class ToggleFileHeatmapCommand extends ActiveEditorCommand {
 	constructor(private readonly container: Container) {
 		super([
-			Commands.ToggleFileHeatmap,
-			Commands.ToggleFileHeatmapInDiffLeft,
-			Commands.ToggleFileHeatmapInDiffRight,
+			GlCommand.ToggleFileHeatmap,
+			GlCommand.ToggleFileHeatmapInDiffLeft,
+			GlCommand.ToggleFileHeatmapInDiffRight,
 		]);
 	}
 

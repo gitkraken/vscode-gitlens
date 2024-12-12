@@ -1,7 +1,7 @@
 import type { CancellationToken, ConfigurationChangeEvent, Disposable } from 'vscode';
 import { ProgressLocation, TreeItem, TreeItemCollapsibleState, window } from 'vscode';
 import type { RemotesViewConfig, ViewBranchesLayout, ViewFilesLayout } from '../config';
-import { Commands } from '../constants.commands';
+import { GlCommand } from '../constants.commands';
 import type { Container } from '../container';
 import { GitUri } from '../git/gitUri';
 import { getRemoteNameFromBranchName } from '../git/models/branch';
@@ -122,7 +122,7 @@ export class RemotesView extends ViewBase<'remotes', RemotesViewNode, RemotesVie
 		return [
 			registerViewCommand(
 				this.getQualifiedCommand('copy'),
-				() => executeCommand(Commands.ViewsCopy, this.activeSelection, this.selection),
+				() => executeCommand(GlCommand.ViewsCopy, this.activeSelection, this.selection),
 				this,
 			),
 			registerViewCommand(

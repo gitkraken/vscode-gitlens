@@ -1,6 +1,6 @@
 import type { TextDocumentShowOptions, TextEditor, Uri } from 'vscode';
 import { window } from 'vscode';
-import { Commands } from '../constants.commands';
+import { GlCommand } from '../constants.commands';
 import type { Container } from '../container';
 import { GitUri } from '../git/gitUri';
 import type { GitCommit } from '../git/models/commit';
@@ -22,7 +22,7 @@ export interface DiffLineWithWorkingCommandArgs {
 @command()
 export class DiffLineWithWorkingCommand extends ActiveEditorCommand {
 	constructor(private readonly container: Container) {
-		super(Commands.DiffLineWithWorking);
+		super(GlCommand.DiffLineWithWorking);
 	}
 
 	protected override preExecute(context: CommandContext, args?: DiffLineWithWorkingCommandArgs): Promise<any> {
@@ -99,7 +99,7 @@ export class DiffLineWithWorkingCommand extends ActiveEditorCommand {
 			return;
 		}
 
-		void (await executeCommand<DiffWithCommandArgs>(Commands.DiffWith, {
+		void (await executeCommand<DiffWithCommandArgs>(GlCommand.DiffWith, {
 			repoPath: args.commit.repoPath,
 			lhs: {
 				sha: lhsSha,

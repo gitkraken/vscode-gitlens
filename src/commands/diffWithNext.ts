@@ -1,5 +1,5 @@
 import type { Range, TextDocumentShowOptions, TextEditor, Uri } from 'vscode';
-import { Commands } from '../constants.commands';
+import { GlCommand } from '../constants.commands';
 import type { Container } from '../container';
 import { GitUri } from '../git/gitUri';
 import type { GitCommit } from '../git/models/commit';
@@ -22,11 +22,11 @@ export interface DiffWithNextCommandArgs {
 @command()
 export class DiffWithNextCommand extends ActiveEditorCommand {
 	constructor(private readonly container: Container) {
-		super([Commands.DiffWithNext, Commands.DiffWithNextInDiffLeft, Commands.DiffWithNextInDiffRight]);
+		super([GlCommand.DiffWithNext, GlCommand.DiffWithNextInDiffLeft, GlCommand.DiffWithNextInDiffRight]);
 	}
 
 	protected override preExecute(context: CommandContext, args?: DiffWithNextCommandArgs) {
-		if (context.command === Commands.DiffWithNextInDiffLeft) {
+		if (context.command === GlCommand.DiffWithNextInDiffLeft) {
 			args = { ...args, inDiffLeftEditor: true };
 		}
 
@@ -54,7 +54,7 @@ export class DiffWithNextCommand extends ActiveEditorCommand {
 
 			if (diffUris?.next == null) return;
 
-			void (await executeCommand<DiffWithCommandArgs>(Commands.DiffWith, {
+			void (await executeCommand<DiffWithCommandArgs>(GlCommand.DiffWith, {
 				repoPath: diffUris.current.repoPath,
 				lhs: {
 					sha: diffUris.current.sha ?? '',

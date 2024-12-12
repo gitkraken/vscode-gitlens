@@ -1,17 +1,17 @@
-import { Commands } from '../constants.commands';
+import { GlCommand } from '../constants.commands';
 import type { Container } from '../container';
 import { executeGitCommand } from '../git/actions';
 import { command } from '../system/vscode/command';
-import { Command } from './base';
+import { GlCommandBase } from './base';
 
 export interface ShowQuickRepoStatusCommandArgs {
 	repoPath?: string;
 }
 
 @command()
-export class ShowQuickRepoStatusCommand extends Command {
+export class ShowQuickRepoStatusCommand extends GlCommandBase {
 	constructor(private readonly container: Container) {
-		super(Commands.ShowQuickRepoStatus);
+		super(GlCommand.ShowQuickRepoStatus);
 	}
 
 	async execute(args?: ShowQuickRepoStatusCommandArgs) {

@@ -1,7 +1,7 @@
 import { consume } from '@lit/context';
 import { html, LitElement } from 'lit';
 import { customElement, query, state } from 'lit/decorators.js';
-import { Commands } from '../../../../constants.commands';
+import { GlCommand } from '../../../../constants.commands';
 import { createCommandLink } from '../../../../system/commands';
 import type { State } from '../../../home/protocol';
 import { DismissWalkthroughSection } from '../../../home/protocol';
@@ -43,7 +43,7 @@ export class GlOnboarding extends LitElement {
 					<nav>
 						<gl-button
 							id="open-walkthrough"
-							href=${createCommandLink(Commands.OpenWalkthrough, {})}
+							href=${createCommandLink(GlCommand.OpenWalkthrough, {})}
 							class="walkthrough-progress__button"
 							appearance="toolbar"
 							><code-icon icon="play"></code-icon

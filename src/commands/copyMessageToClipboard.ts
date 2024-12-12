@@ -1,6 +1,6 @@
 import type { TextEditor, Uri } from 'vscode';
 import { env } from 'vscode';
-import { Commands } from '../constants.commands';
+import { GlCommand } from '../constants.commands';
 import type { Container } from '../container';
 import { copyMessageToClipboard } from '../git/actions/commit';
 import { GitUri } from '../git/gitUri';
@@ -26,7 +26,7 @@ export interface CopyMessageToClipboardCommandArgs {
 @command()
 export class CopyMessageToClipboardCommand extends ActiveEditorCommand {
 	constructor(private readonly container: Container) {
-		super(Commands.CopyMessageToClipboard);
+		super(GlCommand.CopyMessageToClipboard);
 	}
 
 	protected override async preExecute(context: CommandContext, args?: CopyMessageToClipboardCommandArgs) {

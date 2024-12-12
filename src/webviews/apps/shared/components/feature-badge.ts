@@ -1,7 +1,8 @@
 import type { TemplateResult } from 'lit';
 import { css, html, LitElement, nothing, unsafeCSS } from 'lit';
 import { customElement, property } from 'lit/decorators.js';
-import { Commands } from '../../../../constants.commands';
+import type { GlCommands } from '../../../../constants.commands';
+import { GlCommand } from '../../../../constants.commands';
 import { proTrialLengthInDays, SubscriptionPlanId, SubscriptionState } from '../../../../constants.subscription';
 import type { Source } from '../../../../constants.telemetry';
 import type { Promo } from '../../../../plus/gk/account/promos';
@@ -220,7 +221,7 @@ export class GlFeatureBadge extends LitElement {
 				content = html`<p>
 					Your
 					<gl-tooltip hoist content="Show Account view">
-						<a href="${generateCommandLink(Commands.ShowAccountView, undefined)}"
+						<a href="${generateCommandLink(GlCommand.ShowAccountView, undefined)}"
 							>${getSubscriptionPlanName(this.subscription?.plan.actual.id ?? SubscriptionPlanId.Pro)}</a
 						>
 					</gl-tooltip>
@@ -234,13 +235,13 @@ export class GlFeatureBadge extends LitElement {
 						<gl-button
 							appearance="primary"
 							density="tight"
-							href="${generateCommandLink(Commands.PlusResendVerification, this.source)}"
+							href="${generateCommandLink(GlCommand.PlusResendVerification, this.source)}"
 							>Resend Email</gl-button
 						>
 						<gl-button
 							appearance="secondary"
 							density="tight"
-							href="${generateCommandLink(Commands.PlusValidate, this.source)}"
+							href="${generateCommandLink(GlCommand.PlusValidate, this.source)}"
 							><code-icon icon="refresh"></code-icon
 						></gl-button>
 					</div>`;
@@ -277,7 +278,7 @@ export class GlFeatureBadge extends LitElement {
 						<gl-button
 							appearance="primary"
 							density="tight"
-							href="${generateCommandLink(Commands.PlusReactivateProTrial, this.source)}"
+							href="${generateCommandLink(GlCommand.PlusReactivateProTrial, this.source)}"
 							tooltip="Reactivate your Pro trial for another ${pluralize('day', proTrialLengthInDays)}"
 							>Reactivate Pro Trial</gl-button
 						>
@@ -321,10 +322,10 @@ export class GlFeatureBadge extends LitElement {
 			<gl-button
 				appearance="primary"
 				density="tight"
-				href="${generateCommandLink(Commands.PlusSignUp, this.source)}"
+				href="${generateCommandLink(GlCommand.PlusSignUp, this.source)}"
 				>Start ${proTrialLengthInDays}-day Pro Trial</gl-button
 			>
-			&nbsp;or <a href="${generateCommandLink(Commands.PlusLogin, this.source)}" title="Sign In">sign in</a>
+			&nbsp;or <a href="${generateCommandLink(GlCommand.PlusLogin, this.source)}" title="Sign In">sign in</a>
 		</div>`;
 	}
 
@@ -336,7 +337,7 @@ export class GlFeatureBadge extends LitElement {
 			<gl-button
 				appearance="primary"
 				density="tight"
-				href="${generateCommandLink(Commands.PlusUpgrade, this.source)}"
+				href="${generateCommandLink(GlCommand.PlusUpgrade, this.source)}"
 				>Upgrade to Pro</gl-button
 			>
 			${this.renderPromo(promo)}
@@ -348,6 +349,6 @@ export class GlFeatureBadge extends LitElement {
 	}
 }
 
-function generateCommandLink(command: Commands, source: Source | undefined) {
+function generateCommandLink(command: GlCommands, source: Source | undefined) {
 	return `command:${command}${source ? `?${encodeURIComponent(JSON.stringify(source))}` : ''}`;
 }

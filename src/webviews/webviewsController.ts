@@ -8,7 +8,7 @@ import type {
 	WebviewViewResolveContext,
 } from 'vscode';
 import { Disposable, Uri, ViewColumn, window } from 'vscode';
-import type { Commands } from '../constants.commands';
+import type { GlCommands } from '../constants.commands';
 import type { TrackedUsageFeatures } from '../constants.telemetry';
 import type { WebviewIds, WebviewTypes, WebviewViewIds, WebviewViewTypes } from '../constants.views';
 import type { Container } from '../container';
@@ -22,8 +22,8 @@ import { WebviewCommandRegistrar } from './webviewCommandRegistrar';
 import { WebviewController } from './webviewController';
 import type { WebviewHost, WebviewProvider, WebviewShowingArgs } from './webviewProvider';
 
-export interface WebviewPanelDescriptor {
-	id: WebviewIds;
+export interface WebviewPanelDescriptor<ID extends WebviewIds> {
+	id: ID;
 	readonly fileName: string;
 	readonly iconPath: string;
 	readonly title: string;
@@ -38,16 +38,22 @@ export interface WebviewPanelDescriptor {
 	readonly allowMultipleInstances?: boolean;
 }
 
-interface WebviewPanelRegistration<State, SerializedState = State, ShowingArgs extends unknown[] = unknown[]> {
-	readonly descriptor: WebviewPanelDescriptor;
-	controllers?:
-		| Map<string | undefined, WebviewController<State, SerializedState, ShowingArgs, WebviewPanelDescriptor>>
-		| undefined;
+interface WebviewPanelRegistration<
+	ID extends WebviewIds,
+	State,
+	SerializedState = State,
+	ShowingArgs extends unknown[] = unknown[],
+> {
+	readonly descriptor: WebviewPanelDescriptor<ID>;
+	controllers?: Map<string | undefined, WebviewController<ID, State, SerializedState, ShowingArgs>> | undefined;
 }
 
-export interface WebviewPanelProxy<ShowingArgs extends unknown[] = unknown[], SerializedState = unknown>
-	extends Disposable {
-	readonly id: WebviewIds;
+export interface WebviewPanelProxy<
+	ID extends WebviewIds,
+	ShowingArgs extends unknown[] = unknown[],
+	SerializedState = unknown,
+> extends Disposable {
+	readonly id: ID;
 	readonly instanceId: string | undefined;
 	readonly ready: boolean;
 	readonly active: boolean;
@@ -61,21 +67,24 @@ export interface WebviewPanelProxy<ShowingArgs extends unknown[] = unknown[], Se
 	show(options?: WebviewPanelShowOptions, ...args: WebviewShowingArgs<ShowingArgs, SerializedState>): Promise<void>;
 }
 
-export interface WebviewPanelsProxy<ShowingArgs extends unknown[] = unknown[], SerializedState = unknown>
-	extends Disposable {
-	readonly id: WebviewIds;
-	readonly instances: Iterable<WebviewPanelProxy<ShowingArgs, SerializedState>>;
-	getActiveInstance(): WebviewPanelProxy<ShowingArgs, SerializedState> | undefined;
+export interface WebviewPanelsProxy<
+	ID extends WebviewIds,
+	ShowingArgs extends unknown[] = unknown[],
+	SerializedState = unknown,
+> extends Disposable {
+	readonly id: ID;
+	readonly instances: Iterable<WebviewPanelProxy<ID, ShowingArgs, SerializedState>>;
+	getActiveInstance(): WebviewPanelProxy<ID, ShowingArgs, SerializedState> | undefined;
 	getBestInstance(
 		options?: WebviewPanelShowOptions,
 		...args: WebviewShowingArgs<ShowingArgs, SerializedState>
-	): WebviewPanelProxy<ShowingArgs, SerializedState> | undefined;
+	): WebviewPanelProxy<ID, ShowingArgs, SerializedState> | undefined;
 	show(options?: WebviewPanelsShowOptions, ...args: WebviewShowingArgs<ShowingArgs, SerializedState>): Promise<void>;
 	splitActiveInstance(options?: WebviewPanelsShowOptions): Promise<void>;
 }
 
-export interface WebviewViewDescriptor {
-	id: WebviewViewIds;
+export interface WebviewViewDescriptor<ID extends WebviewViewIds = WebviewViewIds> {
+	id: ID;
 	readonly fileName: string;
 	readonly title: string;
 	readonly contextKeyPrefix: `gitlens:webviewView:${WebviewViewTypes}`;
@@ -88,16 +97,22 @@ export interface WebviewViewDescriptor {
 	};
 }
 
-interface WebviewViewRegistration<State, SerializedState = State, ShowingArgs extends unknown[] = unknown[]> {
-	readonly descriptor: WebviewViewDescriptor;
-	controller?: WebviewController<State, SerializedState, ShowingArgs, WebviewViewDescriptor> | undefined;
+interface WebviewViewRegistration<
+	ID extends WebviewViewIds,
+	State,
+	SerializedState = State,
+	ShowingArgs extends unknown[] = unknown[],
+> {
+	readonly descriptor: WebviewViewDescriptor<ID>;
+	controller?: WebviewController<ID, State, SerializedState, ShowingArgs>;
 	pendingShowArgs?:
 		| [WebviewViewShowOptions | undefined, WebviewShowingArgs<ShowingArgs, SerializedState>]
 		| undefined;
 }
 
-export interface WebviewViewProxy<ShowingArgs extends unknown[], SerializedState = unknown> extends Disposable {
-	readonly id: WebviewViewIds;
+export interface WebviewViewProxy<ID extends WebviewViewIds, ShowingArgs extends unknown[], SerializedState = unknown>
+	extends Disposable {
+	readonly id: ID;
 	readonly ready: boolean;
 	readonly visible: boolean;
 	refresh(force?: boolean): Promise<void>;
@@ -107,8 +122,8 @@ export interface WebviewViewProxy<ShowingArgs extends unknown[], SerializedState
 export class WebviewsController implements Disposable {
 	private readonly disposables: Disposable[] = [];
 	private readonly _commandRegistrar: WebviewCommandRegistrar;
-	private readonly _panels = new Map<string, WebviewPanelRegistration<any>>();
-	private readonly _views = new Map<string, WebviewViewRegistration<any>>();
+	private readonly _panels = new Map<string, WebviewPanelRegistration<WebviewIds, any>>();
+	private readonly _views = new Map<string, WebviewViewRegistration<WebviewViewIds, any>>();
 
 	constructor(private readonly container: Container) {
 		this.disposables.push((this._commandRegistrar = new WebviewCommandRegistrar()));
@@ -126,17 +141,24 @@ export class WebviewsController implements Disposable {
 		},
 		singleLine: true,
 	})
-	registerWebviewView<State, SerializedState = State, ShowingArgs extends unknown[] = unknown[]>(
-		descriptor: WebviewViewDescriptor,
+	registerWebviewView<
+		ID extends WebviewViewIds,
+		State,
+		SerializedState = State,
+		ShowingArgs extends unknown[] = unknown[],
+	>(
+		descriptor: WebviewViewDescriptor<ID>,
 		resolveProvider: (
 			container: Container,
-			host: WebviewHost,
+			host: WebviewHost<ID>,
 		) => Promise<WebviewProvider<State, SerializedState, ShowingArgs>>,
 		onBeforeShow?: (...args: WebviewShowingArgs<ShowingArgs, SerializedState>) => void | Promise<void>,
-	): WebviewViewProxy<ShowingArgs, SerializedState> {
+	): WebviewViewProxy<ID, ShowingArgs, SerializedState> {
 		using scope = startLogScope(`WebviewView(${descriptor.id})`, false);
 
-		const registration: WebviewViewRegistration<State, SerializedState, ShowingArgs> = { descriptor: descriptor };
+		const registration: WebviewViewRegistration<ID, State, SerializedState, ShowingArgs> = {
+			descriptor: descriptor,
+		};
 		this._views.set(descriptor.id, registration);
 
 		const disposables: Disposable[] = [];
@@ -165,7 +187,7 @@ export class WebviewsController implements Disposable {
 
 						webviewView.title = descriptor.title;
 
-						const controller = await WebviewController.create(
+						const controller = await WebviewController.create<ID, State, SerializedState, ShowingArgs>(
 							this.container,
 							this._commandRegistrar,
 							descriptor,
@@ -235,7 +257,7 @@ export class WebviewsController implements Disposable {
 
 				return void executeCoreCommand(`${descriptor.id}.focus`, options);
 			},
-		} satisfies WebviewViewProxy<ShowingArgs, SerializedState>;
+		} satisfies WebviewViewProxy<ID, ShowingArgs, SerializedState>;
 	}
 
 	@debug<WebviewsController['registerWebviewPanel']>({
@@ -247,20 +269,27 @@ export class WebviewsController implements Disposable {
 		},
 		singleLine: true,
 	})
-	registerWebviewPanel<State, SerializedState = State, ShowingArgs extends unknown[] = unknown[]>(
+	registerWebviewPanel<
+		ID extends WebviewIds,
+		State,
+		SerializedState = State,
+		ShowingArgs extends unknown[] = unknown[],
+	>(
 		command: {
-			id: Commands;
+			id: GlCommands;
 			options?: WebviewPanelsShowOptions;
 		},
-		descriptor: WebviewPanelDescriptor,
+		descriptor: WebviewPanelDescriptor<ID>,
 		resolveProvider: (
 			container: Container,
-			host: WebviewHost,
+			host: WebviewHost<ID>,
 		) => Promise<WebviewProvider<State, SerializedState, ShowingArgs>>,
-	): WebviewPanelsProxy<ShowingArgs, SerializedState> {
+	): WebviewPanelsProxy<ID, ShowingArgs, SerializedState> {
 		using scope = startLogScope(`WebviewPanel(${descriptor.id})`, false);
 
-		const registration: WebviewPanelRegistration<State, SerializedState, ShowingArgs> = { descriptor: descriptor };
+		const registration: WebviewPanelRegistration<ID, State, SerializedState, ShowingArgs> = {
+			descriptor: descriptor,
+		};
 		this._panels.set(descriptor.id, registration);
 
 		const disposables: Disposable[] = [];
@@ -312,7 +341,7 @@ export class WebviewsController implements Disposable {
 
 				panel.iconPath = Uri.file(container.context.asAbsolutePath(descriptor.iconPath));
 
-				controller = await WebviewController.create(
+				controller = await WebviewController.create<ID, State, SerializedState, ShowingArgs>(
 					container,
 					commandRegistrar,
 					descriptor,
@@ -399,7 +428,7 @@ export class WebviewsController implements Disposable {
 				disposable.dispose();
 			},
 			show: show,
-		} satisfies WebviewPanelsProxy<ShowingArgs, SerializedState>;
+		} satisfies WebviewPanelsProxy<ID, ShowingArgs, SerializedState>;
 	}
 }
 
@@ -423,9 +452,14 @@ export interface WebviewViewShowOptions {
 
 export type WebviewShowOptions = WebviewPanelShowOptions | WebviewViewShowOptions;
 
-function convertToWebviewPanelProxy<State, SerializedState, ShowingArgs extends unknown[] = unknown[]>(
-	controller: WebviewController<State, SerializedState, ShowingArgs, WebviewPanelDescriptor>,
-): WebviewPanelProxy<ShowingArgs, SerializedState> {
+function convertToWebviewPanelProxy<
+	ID extends WebviewIds,
+	State,
+	SerializedState,
+	ShowingArgs extends unknown[] = unknown[],
+>(
+	controller: WebviewController<ID, State, SerializedState, ShowingArgs>,
+): WebviewPanelProxy<ID, ShowingArgs, SerializedState> {
 	return {
 		id: controller.id,
 		instanceId: controller.instanceId,
@@ -453,8 +487,8 @@ function convertToWebviewPanelProxy<State, SerializedState, ShowingArgs extends 
 	};
 }
 
-function getBestController<State, SerializedState, ShowingArgs extends unknown[]>(
-	registration: WebviewPanelRegistration<State, SerializedState, ShowingArgs>,
+function getBestController<ID extends WebviewIds, State, SerializedState, ShowingArgs extends unknown[]>(
+	registration: WebviewPanelRegistration<ID, State, SerializedState, ShowingArgs>,
 	options: WebviewPanelsShowOptions | undefined,
 	...args: WebviewShowingArgs<ShowingArgs, SerializedState>
 ) {

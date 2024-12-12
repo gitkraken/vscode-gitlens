@@ -1,7 +1,7 @@
 import { css, html, LitElement, nothing } from 'lit';
 import { customElement, property } from 'lit/decorators.js';
 import { when } from 'lit/directives/when.js';
-import type { Commands, CustomViewCommands } from '../../../../../constants.commands';
+import type { Commands } from '../../../../../constants.commands';
 import type { GitTrackingState } from '../../../../../git/models/branch';
 import { createCommandLink } from '../../../../../system/commands';
 import type { GetOverviewBranch, OpenInGraphParams } from '../../../../home/protocol';
@@ -428,7 +428,7 @@ export class GlBranchCard extends LitElement {
 		return html`<action-nav class="branch-item__actions">${actions}</action-nav>`;
 	}
 
-	private createCommandLink(command: Commands | CustomViewCommands) {
+	private createCommandLink(command: Commands) {
 		return createCommandLink(command, this.branchRefs);
 	}
 }

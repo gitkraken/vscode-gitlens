@@ -1,6 +1,6 @@
 import type { Uri } from 'vscode';
 import { TabInputCustom, TabInputNotebook, TabInputNotebookDiff, TabInputText, TabInputTextDiff, window } from 'vscode';
-import { Commands } from '../constants.commands';
+import { GlCommand } from '../constants.commands';
 import type { Container } from '../container';
 import { showGenericErrorMessage } from '../messages';
 import { getRepositoryOrShowPicker } from '../quickpicks/repositoryPicker';
@@ -9,16 +9,16 @@ import { UriComparer } from '../system/comparers';
 import { Logger } from '../system/logger';
 import { command } from '../system/vscode/command';
 import { findOrOpenEditors } from '../system/vscode/utils';
-import { Command } from './base';
+import { GlCommandBase } from './base';
 
 export interface OpenOnlyChangedFilesCommandArgs {
 	uris?: Uri[];
 }
 
 @command()
-export class OpenOnlyChangedFilesCommand extends Command {
+export class OpenOnlyChangedFilesCommand extends GlCommandBase {
 	constructor(private readonly container: Container) {
-		super(Commands.OpenOnlyChangedFiles);
+		super(GlCommand.OpenOnlyChangedFiles);
 	}
 
 	async execute(args?: OpenOnlyChangedFilesCommandArgs) {

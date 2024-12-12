@@ -1,6 +1,6 @@
 import type { Disposable } from 'vscode';
 import { ThemeIcon, window } from 'vscode';
-import { Commands } from '../../../constants.commands';
+import { GlCommand } from '../../../constants.commands';
 import {
 	proFeaturePreviewUsages,
 	proTrialLengthInDays,
@@ -77,7 +77,7 @@ class AccountDebug {
 		private readonly service: SubscriptionServiceFacade,
 	) {
 		this.container.context.subscriptions.push(
-			registerCommand(Commands.PlusSimulateSubscription, () => this.showSimulator()),
+			registerCommand(GlCommand.PlusSimulateSubscription, () => this.showSimulator()),
 		);
 	}
 

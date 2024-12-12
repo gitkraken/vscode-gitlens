@@ -6,7 +6,7 @@ import { getAvatarUriFromGravatarEmail } from '../../avatars';
 import type { BranchGitCommandArgs } from '../../commands/git/branch';
 import type { OpenPullRequestOnRemoteCommandArgs } from '../../commands/openPullRequestOnRemote';
 import { GlyphChars, urls } from '../../constants';
-import { Commands } from '../../constants.commands';
+import { GlCommand } from '../../constants.commands';
 import type { ContextKeys } from '../../constants.context';
 import type { HomeTelemetryContext } from '../../constants.telemetry';
 import type { Container } from '../../container';
@@ -101,7 +101,7 @@ export class HomeWebviewProvider implements WebviewProvider<State, State, HomeWe
 
 	constructor(
 		private readonly container: Container,
-		private readonly host: WebviewHost,
+		private readonly host: WebviewHost<'gitlens.views.home'>,
 	) {
 		this._disposable = Disposable.from(
 			this.container.git.onDidChangeRepositories(this.onRepositoriesChanged, this),
@@ -371,7 +371,7 @@ export class HomeWebviewProvider implements WebviewProvider<State, State, HomeWe
 
 			const ref = getReferenceFromBranch(branch);
 			if (ref == null) return;
-			void executeCommand<ShowInCommitGraphCommandArgs>(Commands.ShowInCommitGraph, { ref: ref });
+			void executeCommand<ShowInCommitGraphCommandArgs>(GlCommand.ShowInCommitGraph, { ref: ref });
 			return;
 		}
 
@@ -383,12 +383,12 @@ export class HomeWebviewProvider implements WebviewProvider<State, State, HomeWe
 			repo = repoBranches?.repo;
 		}
 		if (repo == null) return;
-		void executeCommand(Commands.ShowGraph, repo);
+		void executeCommand(GlCommand.ShowGraph, repo);
 	}
 
 	private createBranch() {
 		this.container.telemetry.sendEvent('home/createBranch');
-		void executeCommand<BranchGitCommandArgs>(Commands.GitCommands, {
+		void executeCommand<BranchGitCommandArgs>(GlCommand.GitCommands, {
 			command: 'branch',
 			state: {
 				subcommand: 'create',
@@ -401,7 +401,7 @@ export class HomeWebviewProvider implements WebviewProvider<State, State, HomeWe
 
 	private startWork() {
 		this.container.telemetry.sendEvent('home/startWork');
-		void executeCommand<StartWorkCommandArgs>(Commands.StartWork, {
+		void executeCommand<StartWorkCommandArgs>(GlCommand.StartWork, {
 			command: 'startWork',
 			source: 'home',
 		});
@@ -866,7 +866,7 @@ export class HomeWebviewProvider implements WebviewProvider<State, State, HomeWe
 		const pr = await this.findPullRequest(refs);
 		if (pr == null) return;
 
-		void executeCommand<OpenPullRequestOnRemoteCommandArgs>(Commands.OpenPullRequestOnRemote, {
+		void executeCommand<OpenPullRequestOnRemoteCommandArgs>(GlCommand.OpenPullRequestOnRemote, {
 			pr: { url: pr.url },
 			clipboard: clipboard,
 		});

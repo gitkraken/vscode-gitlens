@@ -1,4 +1,4 @@
-import { Commands } from '../constants.commands';
+import { GlCommand } from '../constants.commands';
 import type { Container } from '../container';
 import type { LaunchpadCommandArgs } from '../plus/launchpad/launchpad';
 import type { StartWorkCommandArgs } from '../plus/startWork/startWork';
@@ -12,7 +12,7 @@ export type QuickWizardCommandArgs = LaunchpadCommandArgs | StartWorkCommandArgs
 @command()
 export class QuickWizardCommand extends QuickWizardCommandBase {
 	constructor(container: Container) {
-		super(container, [Commands.ShowLaunchpad, Commands.StartWork]);
+		super(container, [GlCommand.ShowLaunchpad, GlCommand.StartWork]);
 	}
 
 	protected override preExecute(
@@ -20,10 +20,10 @@ export class QuickWizardCommand extends QuickWizardCommandBase {
 		args?: QuickWizardCommandArgsWithCompletion<QuickWizardCommandArgs>,
 	) {
 		switch (context.command) {
-			case Commands.ShowLaunchpad:
+			case GlCommand.ShowLaunchpad:
 				return this.execute({ command: 'launchpad', ...args });
 
-			case Commands.StartWork:
+			case GlCommand.StartWork:
 				return this.execute({ command: 'startWork', ...args });
 
 			default:

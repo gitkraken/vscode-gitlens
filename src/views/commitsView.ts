@@ -2,7 +2,7 @@ import type { CancellationToken, ConfigurationChangeEvent } from 'vscode';
 import { Disposable, ProgressLocation, ThemeIcon, TreeItem, TreeItemCollapsibleState, window } from 'vscode';
 import type { CommitsViewConfig, ViewFilesLayout } from '../config';
 import { GlyphChars } from '../constants';
-import { Commands } from '../constants.commands';
+import { GlCommand } from '../constants.commands';
 import type { Container } from '../container';
 import { GitUri } from '../git/gitUri';
 import type { GitCommit } from '../git/models/commit';
@@ -162,7 +162,7 @@ export class CommitsViewNode extends RepositoriesSubscribeableNode<CommitsView, 
 				new CommandMessageNode(
 					this.view,
 					this,
-					createCommand(Commands.ShowGraph, 'Show Commit Graph'),
+					createCommand(GlCommand.ShowGraph, 'Show Commit Graph'),
 					'Visualize commits on the Commit Graph',
 					undefined,
 					'Visualize commits on the Commit Graph',
@@ -249,7 +249,7 @@ export class CommitsView extends ViewBase<'commits', CommitsViewNode, CommitsVie
 		return [
 			registerViewCommand(
 				this.getQualifiedCommand('copy'),
-				() => executeCommand(Commands.ViewsCopy, this.activeSelection, this.selection),
+				() => executeCommand(GlCommand.ViewsCopy, this.activeSelection, this.selection),
 				this,
 			),
 			registerViewCommand(

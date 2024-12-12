@@ -1,10 +1,10 @@
-import { Commands } from '../constants.commands';
+import { GlCommand } from '../constants.commands';
 import type { SupportedCloudIntegrationIds } from '../constants.integrations';
 import type { Source } from '../constants.telemetry';
 import type { Container } from '../container';
 import { createMarkdownCommandLink } from '../system/commands';
 import { command } from '../system/vscode/command';
-import { Command } from './base';
+import { GlCommandBase } from './base';
 
 export interface ManageCloudIntegrationsCommandArgs extends Source {}
 
@@ -13,9 +13,9 @@ export interface ConnectCloudIntegrationsCommandArgs extends Source {
 }
 
 @command()
-export class ManageCloudIntegrationsCommand extends Command {
+export class ManageCloudIntegrationsCommand extends GlCommandBase {
 	constructor(private readonly container: Container) {
-		super(Commands.PlusManageCloudIntegrations);
+		super(GlCommand.PlusManageCloudIntegrations);
 	}
 
 	async execute(args?: ManageCloudIntegrationsCommandArgs) {
@@ -26,16 +26,16 @@ export class ManageCloudIntegrationsCommand extends Command {
 }
 
 @command()
-export class ConnectCloudIntegrationsCommand extends Command {
+export class ConnectCloudIntegrationsCommand extends GlCommandBase {
 	static createMarkdownCommandLink(args: ConnectCloudIntegrationsCommandArgs): string {
 		return createMarkdownCommandLink<ConnectCloudIntegrationsCommandArgs>(
-			Commands.PlusConnectCloudIntegrations,
+			GlCommand.PlusConnectCloudIntegrations,
 			args,
 		);
 	}
 
 	constructor(private readonly container: Container) {
-		super(Commands.PlusConnectCloudIntegrations);
+		super(GlCommand.PlusConnectCloudIntegrations);
 	}
 
 	async execute(args?: ConnectCloudIntegrationsCommandArgs) {

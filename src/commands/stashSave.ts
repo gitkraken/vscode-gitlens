@@ -1,7 +1,7 @@
 import type { Uri } from 'vscode';
 import type { ScmResource } from '../@types/vscode.git.resources';
 import { ScmResourceGroupType, ScmStatus } from '../@types/vscode.git.resources.enums';
-import { Commands } from '../constants.commands';
+import { GlCommand } from '../constants.commands';
 import type { Container } from '../container';
 import { Features } from '../features';
 import { push } from '../git/actions/stash';
@@ -9,7 +9,7 @@ import { GitUri } from '../git/gitUri';
 import { command } from '../system/vscode/command';
 import type { CommandContext } from './base';
 import {
-	Command,
+	GlCommandBase,
 	isCommandContextViewNodeHasFile,
 	isCommandContextViewNodeHasRepoPath,
 	isCommandContextViewNodeHasRepository,
@@ -26,9 +26,9 @@ export interface StashSaveCommandArgs {
 }
 
 @command()
-export class StashSaveCommand extends Command {
+export class StashSaveCommand extends GlCommandBase {
 	constructor(private readonly container: Container) {
-		super([Commands.StashSave, Commands.StashSaveFiles]);
+		super([GlCommand.StashSave, GlCommand.StashSaveFiles]);
 	}
 
 	protected override async preExecute(context: CommandContext, args?: StashSaveCommandArgs) {

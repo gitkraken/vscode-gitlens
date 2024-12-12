@@ -6,7 +6,12 @@ import type { ShowWipArgs, State } from './protocol';
 export type CommitDetailsWebviewShowingArgs = [Partial<CommitSelectedEvent['data']> | ShowWipArgs];
 
 export function registerCommitDetailsWebviewView(controller: WebviewsController) {
-	return controller.registerWebviewView<State, Serialized<State>, CommitDetailsWebviewShowingArgs>(
+	return controller.registerWebviewView<
+		'gitlens.views.commitDetails',
+		State,
+		Serialized<State>,
+		CommitDetailsWebviewShowingArgs
+	>(
 		{
 			id: 'gitlens.views.commitDetails',
 			fileName: 'commitDetails.html',
@@ -29,7 +34,12 @@ export function registerCommitDetailsWebviewView(controller: WebviewsController)
 }
 
 export function registerGraphDetailsWebviewView(controller: WebviewsController) {
-	return controller.registerWebviewView<State, Serialized<State>, CommitDetailsWebviewShowingArgs>(
+	return controller.registerWebviewView<
+		'gitlens.views.graphDetails',
+		State,
+		Serialized<State>,
+		CommitDetailsWebviewShowingArgs
+	>(
 		{
 			id: 'gitlens.views.graphDetails',
 			fileName: 'commitDetails.html',

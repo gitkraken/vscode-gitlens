@@ -2,7 +2,7 @@ import type { CancellationToken, Command } from 'vscode';
 import { MarkdownString, ThemeColor, ThemeIcon, TreeItem, TreeItemCollapsibleState } from 'vscode';
 import type { DiffWithPreviousCommandArgs } from '../../commands/diffWithPrevious';
 import type { Colors } from '../../constants.colors';
-import { Commands } from '../../constants.commands';
+import { GlCommand } from '../../constants.commands';
 import { CommitFormatter } from '../../git/formatters/commitFormatter';
 import type { GitBranch } from '../../git/models/branch';
 import type { GitCommit } from '../../git/models/commit';
@@ -208,7 +208,7 @@ export class CommitNode extends ViewRefNode<'commit', ViewsWithCommits | FileHis
 		};
 		return {
 			title: 'Open Changes with Previous Revision',
-			command: Commands.DiffWithPrevious,
+			command: GlCommand.DiffWithPrevious,
 			arguments: [undefined, commandArgs],
 		};
 	}

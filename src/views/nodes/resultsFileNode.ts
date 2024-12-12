@@ -1,7 +1,7 @@
 import type { Command } from 'vscode';
 import { TreeItem, TreeItemCheckboxState, TreeItemCollapsibleState } from 'vscode';
 import type { DiffWithCommandArgs } from '../../commands/diffWith';
-import { Commands } from '../../constants.commands';
+import { GlCommand } from '../../constants.commands';
 import { StatusFileFormatter } from '../../git/formatters/statusFormatter';
 import { GitUri } from '../../git/gitUri';
 import type { GitFile } from '../../git/models/file';
@@ -150,7 +150,7 @@ export class ResultsFileNode extends ViewRefFileNode<'results-file', View, State
 		};
 		return {
 			title: 'Open Changes',
-			command: Commands.DiffWith,
+			command: GlCommand.DiffWith,
 			arguments: [commandArgs],
 		};
 	}

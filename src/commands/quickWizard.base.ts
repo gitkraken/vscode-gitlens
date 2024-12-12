@@ -1,6 +1,6 @@
 import type { Disposable, InputBox, QuickInputButton, QuickPick, QuickPickItem } from 'vscode';
 import { InputBoxValidationSeverity, QuickInputButtons, window } from 'vscode';
-import type { Commands } from '../constants.commands';
+import type { GlCommands } from '../constants.commands';
 import { Container } from '../container';
 import { Directive, isDirective, isDirectiveQuickPickItem } from '../quickpicks/items/directive';
 import { log } from '../system/decorators/log';
@@ -8,7 +8,7 @@ import type { Deferred } from '../system/promise';
 import { isPromise } from '../system/promise';
 import { configuration } from '../system/vscode/configuration';
 import type { KeyMapping } from '../system/vscode/keyboard';
-import { Command } from './base';
+import { GlCommandBase } from './base';
 import type { GitWizardCommandArgs } from './gitWizard';
 import type { CustomStep, QuickCommand, QuickInputStep, QuickPickStep, StepSelection } from './quickCommand';
 import { isCustomStep, isQuickCommand, isQuickInputStep, isQuickPickStep, StepResultBreak } from './quickCommand';
@@ -29,12 +29,12 @@ export type AnyQuickWizardCommandArgs = QuickWizardCommandArgs | GitWizardComman
 export type QuickWizardCommandArgsWithCompletion<T extends AnyQuickWizardCommandArgs = AnyQuickWizardCommandArgs> =
 	T & { completion?: Deferred<void> };
 
-export abstract class QuickWizardCommandBase extends Command {
+export abstract class QuickWizardCommandBase extends GlCommandBase {
 	private startedWith: 'menu' | 'command' = 'menu';
 
 	constructor(
 		protected readonly container: Container,
-		command: Commands | Commands[],
+		command: GlCommands | GlCommands[],
 	) {
 		super(command);
 	}

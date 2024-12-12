@@ -1,6 +1,6 @@
 import type { QuickPickItem } from 'vscode';
 import { Disposable, env, EventEmitter, ProgressLocation, Range, Uri, window, workspace } from 'vscode';
-import { Commands } from '../../constants.commands';
+import { GlCommand } from '../../constants.commands';
 import type { StoredDeepLinkContext, StoredNamedRef } from '../../constants.storage';
 import type { Container } from '../../container';
 import { executeGitCommand } from '../../git/actions';
@@ -1123,7 +1123,7 @@ export class DeepLinkService implements Disposable {
 					}
 
 					if (targetType === DeepLinkType.Repository) {
-						void (await executeCommand(Commands.ShowInCommitGraph, repo));
+						void (await executeCommand(GlCommand.ShowInCommitGraph, repo));
 						action = DeepLinkServiceAction.DeepLinkResolved;
 						break;
 					}
@@ -1134,7 +1134,7 @@ export class DeepLinkService implements Disposable {
 						break;
 					}
 
-					void (await executeCommand<ShowInCommitGraphCommandArgs>(Commands.ShowInCommitGraph, {
+					void (await executeCommand<ShowInCommitGraphCommandArgs>(GlCommand.ShowInCommitGraph, {
 						ref: createReference(targetSha, repo.path),
 					}));
 
@@ -1182,7 +1182,7 @@ export class DeepLinkService implements Disposable {
 						prEntityId = fromBase64(prEntityId).toString();
 					}
 
-					void (await executeCommand(Commands.OpenCloudPatch, {
+					void (await executeCommand(GlCommand.OpenCloudPatch, {
 						type: type === 'suggested_pr_change' ? 'code_suggestion' : 'patch',
 						id: targetId,
 						patchId: secondaryTargetId,

@@ -2,7 +2,7 @@ import type { CancellationToken, ConfigurationChangeEvent, Disposable } from 'vs
 import { ProgressLocation, TreeItem, TreeItemCollapsibleState, window } from 'vscode';
 import type { ViewFilesLayout, WorktreesViewConfig } from '../config';
 import { proBadge } from '../constants';
-import { Commands } from '../constants.commands';
+import { GlCommand } from '../constants.commands';
 import type { Container } from '../container';
 import { PlusFeatures } from '../features';
 import { GitUri } from '../git/gitUri';
@@ -137,7 +137,7 @@ export class WorktreesView extends ViewBase<'worktrees', WorktreesViewNode, Work
 		return [
 			registerViewCommand(
 				this.getQualifiedCommand('copy'),
-				() => executeCommand(Commands.ViewsCopy, this.activeSelection, this.selection),
+				() => executeCommand(GlCommand.ViewsCopy, this.activeSelection, this.selection),
 				this,
 			),
 			registerViewCommand(

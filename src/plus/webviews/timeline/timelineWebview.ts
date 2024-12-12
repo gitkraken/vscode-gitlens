@@ -1,7 +1,7 @@
 import type { TextEditor } from 'vscode';
 import { Disposable, Uri, window } from 'vscode';
 import { proBadge } from '../../../constants';
-import { Commands } from '../../../constants.commands';
+import { GlCommand } from '../../../constants.commands';
 import type { TimelineShownTelemetryContext, TimelineTelemetryContext } from '../../../constants.telemetry';
 import type { Container } from '../../../container';
 import type { CommitSelectedEvent, FileSelectedEvent } from '../../../eventBus';
@@ -51,7 +51,7 @@ export class TimelineWebviewProvider implements WebviewProvider<State, State, Ti
 
 	constructor(
 		private readonly container: Container,
-		private readonly host: WebviewHost,
+		private readonly host: WebviewHost<'gitlens.views.timeline' | 'gitlens.timeline'>,
 	) {
 		this._context = {
 			uri: undefined,
@@ -179,7 +179,7 @@ export class TimelineWebviewProvider implements WebviewProvider<State, State, Ti
 					() => {
 						if (this._context.uri == null) return;
 
-						void executeCommand(Commands.ShowInTimeline, this._context.uri);
+						void executeCommand(GlCommand.ShowInTimeline, this._context.uri);
 						this.container.telemetry.sendEvent('timeline/action/openInEditor', this.getTelemetryContext());
 					},
 					this,

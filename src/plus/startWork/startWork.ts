@@ -25,7 +25,7 @@ import {
 } from '../../commands/quickCommand.buttons';
 import { getSteps } from '../../commands/quickWizard.utils';
 import { proBadge } from '../../constants';
-import { Commands } from '../../constants.commands';
+import { GlCommand } from '../../constants.commands';
 import type { IntegrationId } from '../../constants.integrations';
 import { HostingIntegrationId, IssueIntegrationId } from '../../constants.integrations';
 import type { Source, Sources, StartWorkTelemetryContext, TelemetryEvents } from '../../constants.telemetry';
@@ -492,7 +492,7 @@ export class StartWorkCommand extends QuickCommand<State> {
 			return StepResultBreak;
 		} else if (isManageIntegrationsItem(element)) {
 			this.sendActionTelemetry('manage', context);
-			executeCommand(Commands.PlusManageCloudIntegrations, { source: 'startWork' });
+			executeCommand(GlCommand.PlusManageCloudIntegrations, { source: 'startWork' });
 			endSteps(state);
 			return StepResultBreak;
 		}

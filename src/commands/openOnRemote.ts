@@ -1,5 +1,5 @@
 import { GlyphChars } from '../constants';
-import { Commands } from '../constants.commands';
+import { GlCommand } from '../constants.commands';
 import type { Container } from '../container';
 import { createRevisionRange, shortenRevision } from '../git/models/reference';
 import type { GitRemote } from '../git/models/remote';
@@ -13,7 +13,7 @@ import { ensureArray } from '../system/array';
 import { Logger } from '../system/logger';
 import { pad, splitSingle } from '../system/string';
 import { command } from '../system/vscode/command';
-import { Command } from './base';
+import { GlCommandBase } from './base';
 
 export type OpenOnRemoteCommandArgs =
 	| {
@@ -32,9 +32,9 @@ export type OpenOnRemoteCommandArgs =
 	  };
 
 @command()
-export class OpenOnRemoteCommand extends Command {
+export class OpenOnRemoteCommand extends GlCommandBase {
 	constructor(private readonly container: Container) {
-		super([Commands.OpenOnRemote, Commands.Deprecated_OpenInRemote]);
+		super([GlCommand.OpenOnRemote, GlCommand.Deprecated_OpenInRemote]);
 	}
 
 	async execute(args?: OpenOnRemoteCommandArgs) {

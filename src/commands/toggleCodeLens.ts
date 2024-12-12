@@ -1,12 +1,12 @@
-import { Commands } from '../constants.commands';
+import { GlCommand } from '../constants.commands';
 import type { Container } from '../container';
 import { command } from '../system/vscode/command';
-import { Command } from './base';
+import { GlCommandBase } from './base';
 
 @command()
-export class ToggleCodeLensCommand extends Command {
+export class ToggleCodeLensCommand extends GlCommandBase {
 	constructor(private readonly container: Container) {
-		super(Commands.ToggleCodeLens);
+		super(GlCommand.ToggleCodeLens);
 	}
 
 	execute() {
