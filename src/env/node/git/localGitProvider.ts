@@ -24,6 +24,7 @@ import {
 	ApplyPatchCommitErrorReason,
 	BlameIgnoreRevsFileBadRevisionError,
 	BlameIgnoreRevsFileError,
+	BranchError,
 	CherryPickError,
 	CherryPickErrorReason,
 	FetchError,
@@ -1277,12 +1278,86 @@ export class LocalGitProvider implements GitProvider, Disposable {
 
 	@log()
 	async createBranch(repoPath: string, name: string, ref: string): Promise<void> {
-		await this.git.branch(repoPath, name, ref);
+		try {
+			await this.git.branch(repoPath, name, ref);
+		} catch (ex) {
+			if (ex instanceof BranchError) {
+				throw ex.WithBranch(name);
+			}
+
+			throw ex;
+		}
 	}
 
 	@log()
 	async renameBranch(repoPath: string, oldName: string, newName: string): Promise<void> {
-		await this.git.branch(repoPath, '-m', oldName, newName);
+		try {
+			await this.git.branch(repoPath, '-m', oldName, newName);
+		} catch (ex) {
+			if (ex instanceof BranchError) {
+				throw ex.WithBranch(oldName);
+			}
+
+			throw ex;
+		}
+	}
+
+	@log()
+	async deleteBranch(
+		repoPath: string,
+		branch: GitBranchReference,
+		options: { force?: boolean; remote?: boolean },
+	): Promise<void> {
+		try {
+			if (branch.remote) {
+				await this.git.push(repoPath, {
+					delete: {
+						remote: getRemoteNameFromBranchName(branch.name),
+						branch: branch.remote ? getBranchNameWithoutRemote(branch.name) : branch.name,
+					},
+				});
+				return;
+			}
+
+			const args = ['--delete'];
+			if (options.force) {
+				args.push('--force');
+			}
+
+			if (!options.remote || !branch.upstream) {
+				await this.git.branch(repoPath, ...args, branch.ref);
+				return;
+			}
+
+			const remote = getRemoteNameFromBranchName(branch.upstream.name);
+			const remoteCommit = await this.git.rev_list(repoPath, `refs/remotes/${remote}/${branch.ref}`, {
+				maxResults: 1,
+			});
+
+			await this.git.branch(repoPath, '--delete', '--remotes', `${remote}/${branch.ref}`);
+
+			try {
+				await this.git.branch(repoPath, ...args, branch.ref);
+			} catch (ex) {
+				// If it fails, restore the remote branch
+				await this.git.update_ref(repoPath, `refs/remotes/${remote}/${branch.ref}`, remoteCommit?.[0] ?? '');
+				await this.git.branch__set_upstream(repoPath, branch.name, remote, branch.ref);
+				throw ex;
+			}
+
+			await this.git.push(repoPath, {
+				delete: {
+					remote: remote,
+					branch: getBranchNameWithoutRemote(branch.upstream.name),
+				},
+			});
+		} catch (ex) {
+			if (ex instanceof BranchError) {
+				throw ex.WithBranch(branch.name);
+			}
+
+			throw ex;
+		}
 	}
 
 	@log()

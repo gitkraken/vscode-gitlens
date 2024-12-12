@@ -1,5 +1,6 @@
 import { QuickInputButtons } from 'vscode';
 import type { Container } from '../../container';
+import { BranchError, BranchErrorReason } from '../../git/errors';
 import type { GitBranchReference, GitReference } from '../../git/models/reference';
 import {
 	getNameWithoutRemote,
@@ -10,7 +11,7 @@ import {
 import { Repository } from '../../git/models/repository';
 import type { GitWorktree } from '../../git/models/worktree';
 import { getWorktreesByBranch } from '../../git/models/worktree';
-import { showGenericErrorMessage } from '../../messages';
+import { showGenericErrorMessage, showGitBranchNotFullyMergedPrompt } from '../../messages';
 import type { QuickPickItemOfT } from '../../quickpicks/items/common';
 import { createQuickPickSeparator } from '../../quickpicks/items/common';
 import type { FlagsQuickPickItem } from '../../quickpicks/items/flags';
@@ -427,7 +428,7 @@ export class BranchGitCommand extends QuickCommand {
 				} catch (ex) {
 					Logger.error(ex);
 					// TODO likely need some better error handling here
-					return showGenericErrorMessage('Unable to create branch');
+					return showGenericErrorMessage(ex);
 				}
 			}
 		}
@@ -558,10 +559,35 @@ export class BranchGitCommand extends QuickCommand {
 			state.flags = result;
 
 			endSteps(state);
-			state.repo.branchDelete(state.references, {
-				force: state.flags.includes('--force'),
-				remote: state.flags.includes('--remotes'),
-			});
+
+			for (const ref of state.references) {
+				try {
+					await state.repo.git.deleteBranch(ref, {
+						force: state.flags.includes('--force'),
+						remote: state.flags.includes('--remotes'),
+					});
+				} catch (ex) {
+					// TODO likely need some better error handling here
+					Logger.error(ex);
+					if (ex instanceof BranchError && ex.reason === BranchErrorReason.BranchNotFullyMerged) {
+						const shouldRetryWithForce = await showGitBranchNotFullyMergedPrompt(ref.name);
+						if (shouldRetryWithForce) {
+							try {
+								await state.repo.git.deleteBranch(ref, {
+									force: true,
+									remote: state.flags.includes('--remotes'),
+								});
+							} catch (ex) {
+								Logger.error(ex);
+								await showGenericErrorMessage(ex);
+							}
+						}
+						continue;
+					}
+
+					await showGenericErrorMessage(ex);
+				}
+			}
 		}
 	}
 
@@ -669,7 +695,7 @@ export class BranchGitCommand extends QuickCommand {
 			} catch (ex) {
 				Logger.error(ex);
 				// TODO likely need some better error handling here
-				return showGenericErrorMessage('Unable to rename branch');
+				return showGenericErrorMessage(ex);
 			}
 		}
 	}
