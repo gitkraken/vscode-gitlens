@@ -47,6 +47,7 @@ export function registerCommand(command: Commands, callback: CommandCallback, th
 					'context.submode': context?.submode,
 				});
 			}
+
 			void Container.instance.usage.track(`command:${command}:executed`).catch();
 			callback.call(this, ...args);
 		},
@@ -76,6 +77,7 @@ export function registerWebviewCommand(command: Commands, callback: CommandCallb
 				});
 			}
 
+			void Container.instance.usage.track(`command:${command}:executed`).catch();
 			callback.call(this, ...args);
 		},
 		thisArg,
