@@ -258,7 +258,7 @@ class AccountDebug {
 
 		this.service.restoreFeaturePreviews();
 		this.service.restoreSession();
-		this.service.changeSubscription(this.service.getStoredSubscription(), { store: false });
+		this.service.changeSubscription(this.service.getStoredSubscription(), undefined, { store: false });
 	}
 
 	private async startSimulation(pick: SimulateQuickPickItem | undefined): Promise<boolean> {
@@ -287,6 +287,7 @@ class AccountDebug {
 					state === SubscriptionState.Community
 						? undefined
 						: getPreviewSubscription(state === SubscriptionState.ProPreviewExpired ? 0 : 3),
+					undefined,
 					{ store: false },
 				);
 
@@ -341,7 +342,7 @@ class AccountDebug {
 			activeOrganizationId,
 		);
 
-		this.service.changeSubscription({ ...subscription, ...simulatedSubscription }, { store: false });
+		this.service.changeSubscription({ ...subscription, ...simulatedSubscription }, undefined, { store: false });
 
 		return false;
 	}
