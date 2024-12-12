@@ -19825,5 +19825,5 @@
 		"node-fetch": "2.7.0",
 		"semver-regex": "4.0.5"
 	},
-	"packageManager": "pnpm@9.15.0"
+	"packageManager": "pnpm@10.0.0-beta.3"
 }
