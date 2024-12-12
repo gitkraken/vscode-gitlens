@@ -54,10 +54,6 @@ export class CommitNode extends ViewRefNode<'commit', ViewsWithCommits | FileHis
 		this.children = undefined;
 	}
 
-	override get id(): string {
-		return this._uniqueId;
-	}
-
 	override toClipboard(): string {
 		return `${this.commit.shortSha}: ${this.commit.summary}`;
 	}

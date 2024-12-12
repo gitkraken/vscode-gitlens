@@ -13,10 +13,8 @@ export abstract class RepositoriesSubscribeableNode<
 	TView extends View = View,
 	TChild extends ViewNode = ViewNode,
 > extends SubscribeableViewNode<'repositories', TView, TChild> {
-	protected override splatted = true;
-
 	constructor(view: TView) {
-		super('repositories', unknownGitUri, view);
+		super('repositories', unknownGitUri, view, undefined, true);
 	}
 
 	override async getSplattedChild() {
