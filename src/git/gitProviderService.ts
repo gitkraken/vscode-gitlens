@@ -55,6 +55,7 @@ import type {
 	PagingOptions,
 	PreviousComparisonUrisResult,
 	PreviousLineComparisonUrisResult,
+	RebaseOptions,
 	RepositoryVisibility,
 	RepositoryVisibilityInfo,
 	ScmRepository,
@@ -1340,6 +1341,20 @@ export class GitProviderService implements Disposable {
 		if (provider.applyChangesToWorkingFile == null) throw new ProviderNotSupportedError(provider.descriptor.name);
 
 		return provider.applyChangesToWorkingFile(uri, ref1, ref2);
+	}
+
+	@log()
+	rebase(
+		repoPath: string | Uri,
+		upstream: string | null,
+		ref: string | null,
+		configs?: { sequenceEditor?: string },
+		options: RebaseOptions = {},
+	): Promise<void> {
+		const { provider, path } = this.getProvider(repoPath);
+		if (provider.rebase == null) throw new ProviderNotSupportedError(provider.descriptor.name);
+
+		return provider.rebase(path, upstream, ref, configs, options);
 	}
 
 	@log()

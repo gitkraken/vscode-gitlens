@@ -843,14 +843,6 @@ export class Repository implements Disposable {
 	}
 
 	@log()
-	rebase(configs: string[] | undefined, ...args: string[]) {
-		void this.runTerminalCommand(
-			configs != null && configs.length !== 0 ? `${configs.join(' ')} rebase` : 'rebase',
-			...args,
-		);
-	}
-
-	@log()
 	reset(...args: string[]) {
 		void this.runTerminalCommand('reset', ...args);
 	}
