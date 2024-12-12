@@ -1,5 +1,7 @@
 import type { IntegrationDescriptor } from '../../constants.integrations';
 import type { GitBranchStatus, GitTrackingState } from '../../git/models/branch';
+import type { GitMergeStatus } from '../../git/models/merge';
+import type { GitRebaseStatus } from '../../git/models/rebase';
 import type { Subscription } from '../../plus/gk/account/subscription';
 import type { LaunchpadSummaryResult } from '../../plus/launchpad/launchpadIndicator';
 import type { IpcScope, WebviewState } from '../protocol';
@@ -73,6 +75,10 @@ export interface GetOverviewBranch {
 	};
 	status: GitBranchStatus;
 	upstream: { name: string; missing: boolean } | undefined;
+	hasConflicts?: boolean;
+	conflictsCount?: number;
+	mergeStatus?: GitMergeStatus;
+	rebaseStatus?: GitRebaseStatus;
 
 	owner?: {
 		name: string;

@@ -14,7 +14,22 @@ export const cardStyles = css`
 	}
 
 	.card.is-active {
-		border-inline-start-color: var(--gl-card-active-border, var(--vscode-gitDecoration-addedResourceForeground));
+		border-inline-start-color: var(--gl-card-indicator-border, var(--vscode-gitDecoration-addedResourceForeground));
+	}
+
+	.card.is-rebasing,
+	.card.is-merging {
+		border-inline-start-color: var(
+			--gl-card-indicator-border,
+			var(--vscode-gitlens-decorations\\.statusMergingOrRebasingForegroundColor)
+		);
+	}
+
+	.card.is-conflict {
+		border-inline-start-color: var(
+			--gl-card-indicator-border,
+			var(--vscode-gitlens-decorations\\.statusMergingOrRebasingConflictForegroundColor)
+		);
 	}
 
 	.card:focus-within,
