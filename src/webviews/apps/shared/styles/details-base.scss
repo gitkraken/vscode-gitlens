@@ -197,10 +197,10 @@ ul {
 	}
 
 	&__summary {
+		display: block;
 		margin: 0;
 		overflow-y: auto;
 		overflow-x: hidden;
-		resize: vertical;
 		max-height: 20rem;
 	}
 }
