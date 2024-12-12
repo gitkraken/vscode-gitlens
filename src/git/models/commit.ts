@@ -435,7 +435,7 @@ export class GitCommit implements GitRevisionReference {
 				const additionsText = pluralize('addition', additions);
 				if (options?.color) {
 					lineStats.push(
-						/*html*/ `<span style="color:var(--vscode-gitDecoration-addedResourceForeground)">${additionsText}</span>`,
+						/*html*/ `<span style="color:var(--vscode-gitDecoration-addedResourceForeground);">${additionsText}</span>`,
 					);
 				} else {
 					lineStats.push(additionsText);
@@ -446,7 +446,7 @@ export class GitCommit implements GitRevisionReference {
 				const deletionsText = pluralize('deletion', deletions);
 				if (options?.color) {
 					lineStats.push(
-						/*html*/ `<span style="color:var(--vscode-gitDecoration-deletedResourceForeground)">${deletionsText}</span>`,
+						/*html*/ `<span style="color:var(--vscode-gitDecoration-deletedResourceForeground);">${deletionsText}</span>`,
 					);
 				} else {
 					lineStats.push(deletionsText);
