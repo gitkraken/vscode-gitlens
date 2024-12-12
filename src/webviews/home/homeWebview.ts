@@ -1161,7 +1161,14 @@ async function getOverviewBranches(
 		}
 	}
 
-	await enrichOverviewBranches(overviewBranches, prPromises, autolinkPromises, statusPromises, contributorPromises);
+	await enrichOverviewBranches(
+		overviewBranches,
+		prPromises,
+		autolinkPromises,
+		statusPromises,
+		contributorPromises,
+		container,
+	);
 
 	return overviewBranches;
 }
@@ -1173,6 +1180,7 @@ async function enrichOverviewBranches(
 	autolinkPromises: Map<string, Promise<Map<string, EnrichedAutolink> | undefined>>,
 	statusPromises: Map<string, Promise<GitStatus | undefined>>,
 	contributorPromises: Map<string, Promise<BranchContributorOverview | undefined>>,
+	container: Container,
 ) {
 	const [prResults, autolinkResults, statusResults, contributorResults] = await Promise.allSettled([
 		Promise.allSettled(map(prPromises, ([id, pr]) => pr.then<[string, PullRequest | undefined]>(pr => [id, pr]))),
@@ -1254,6 +1262,7 @@ async function enrichOverviewBranches(
 	);
 
 	for (const branch of [...overviewBranches.active, ...overviewBranches.recent, ...overviewBranches.stale]) {
+		const isActive = overviewBranches.active.includes(branch);
 		const pr = prs.get(branch.id);
 		branch.pr = pr;
 
@@ -1263,6 +1272,21 @@ async function enrichOverviewBranches(
 		const status = statuses.get(branch.id);
 		if (status != null) {
 			branch.workingTreeState = status.getDiffStatus();
+
+			if (isActive) {
+				branch.hasConflicts = status.hasConflicts;
+				branch.conflictsCount = status.conflicts.length;
+
+				const mergeStatus = await container.git.getMergeStatus(status.repoPath);
+				if (mergeStatus != null) {
+					branch.mergeStatus = mergeStatus;
+				} else {
+					const rebaseStatus = await container.git.getRebaseStatus(status.repoPath);
+					if (rebaseStatus != null) {
+						branch.rebaseStatus = rebaseStatus;
+					}
+				}
+			}
 		}
 
 		const contributor = contributors.get(branch.id);

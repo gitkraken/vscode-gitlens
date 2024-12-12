@@ -13,20 +13,22 @@ export class GlCard extends LitElement {
 
 	static override styles = [cardStyles];
 
-	@property({ type: Boolean, reflect: true })
-	active = false;
+	@property({ reflect: true })
+	indicator?: 'active' | 'merging' | 'rebasing' | 'conflict';
 
 	@property()
 	href?: string;
 
 	override render() {
 		if (this.href != null) {
-			return html`<a part="base" class="card${this.active ? ' is-active' : ''}" href=${this.href}
+			return html`<a part="base" class="card${this.indicator ? ` is-${this.indicator}` : ''}" href=${this.href}
 				>${this.renderContent()}</a
 			>`;
 		}
 
-		return html`<div part="base" class="card${this.active ? ' is-active' : ''}">${this.renderContent()}</div>`;
+		return html`<div part="base" class="card${this.indicator ? ` is-${this.indicator}` : ''}">
+			${this.renderContent()}
+		</div>`;
 	}
 
 	private renderContent() {
