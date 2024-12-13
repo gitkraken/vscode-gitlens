@@ -202,11 +202,16 @@ declare global {
 @customElement('gl-active-branch-card')
 export class GlActiveBranchCard extends GlBranchCardBase {
 	override render() {
+		return html` ${this.renderBranchItem()} ${this.renderPrItem()} ${this.renderAutolinksItem()} `;
+	}
+
+	render_old() {
 		const { name, pr } = this.branch;
 
 		return html`
 			<gl-card class="branch-item" .indicator=${this.cardIndicator}>
 				<div class="branch-item__container">
+					${this.renderBranchIndicator()}
 					<div class="branch-item__section">
 						<p class="branch-item__grouping">
 							<span class="branch-item__icon">
@@ -229,7 +234,7 @@ export class GlActiveBranchCard extends GlBranchCardBase {
 							</p>
 						</div>`;
 					})}
-					${this.renderAutolinks()}${this.renderStatus()}${this.renderBranchIndicator()}
+					${this.renderAutolinks()}${this.renderStatus()}
 				</div>
 				${this.renderActions()}
 			</gl-card>
