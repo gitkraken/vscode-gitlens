@@ -5,12 +5,12 @@ import { when } from 'lit/directives/when.js';
 import type { Commands } from '../../../../../constants.commands';
 import { createCommandLink } from '../../../../../system/commands';
 import type { GetOverviewBranch, OpenInGraphParams } from '../../../../home/protocol';
+import type { GlCard } from '../../../shared/components/card/card';
 import { srOnlyStyles } from '../../../shared/components/styles/lit/a11y.css';
 import { linkStyles } from '../../shared/components/vscode.css';
 import '../../../shared/components/code-icon';
 import '../../../shared/components/avatar/avatar';
 import '../../../shared/components/avatar/avatar-list';
-import '../../../shared/components/card/card';
 import '../../../shared/components/commit/commit-stats';
 import '../../../shared/components/formatted-date';
 import '../../../shared/components/pills/tracking';
@@ -18,8 +18,6 @@ import '../../../shared/components/rich/issue-icon';
 import '../../../shared/components/rich/pr-icon';
 import '../../../shared/components/actions/action-item';
 import '../../../shared/components/actions/action-nav';
-
-type OverviewBranch = GetOverviewBranch;
 
 export const branchCardStyles = css`
 	.branch-item {
@@ -124,6 +122,18 @@ export const branchCardStyles = css`
 	.branch-item__indicator.has-conflicts {
 		color: var(--vscode-gitlens-decorations\\.statusMergingOrRebasingConflictForegroundColor);
 	}
+
+	.work-item {
+		--gl-card-background: color-mix(in lab, var(--vscode-sideBar-background) 100%, #fff 3%);
+		--gl-card-hover-background: color-mix(in lab, var(--vscode-sideBar-background) 100%, #fff 1.5%);
+	}
+	.work-item::part(base) {
+		margin-block-end: 0;
+	}
+
+	.branch-item__section.mb-1 {
+		margin-block: 0.4rem;
+	}
 `;
 
 export abstract class GlBranchCardBase extends LitElement {
@@ -172,7 +182,7 @@ export abstract class GlBranchCardBase extends LitElement {
 		return html`
 			${autolinks.map(autolink => {
 				return html`
-					<p class="branch-item__grouping branch-item__grouping--secondary">
+					<p class="branch-item__grouping">
 						<span class="branch-item__icon">
 							<issue-icon state=${autolink.state} issue-id=${autolink.id}></issue-icon>
 						</span>
@@ -242,77 +252,80 @@ export abstract class GlBranchCardBase extends LitElement {
 	protected createCommandLink(command: Commands) {
 		return createCommandLink(command, this.branchRefs);
 	}
+
+	protected renderTimestamp() {
+		const { timestamp } = this.branch;
+		if (timestamp == null) return nothing;
+
+		return html`<formatted-date .date=${new Date(timestamp)} class="branch-item__date"></formatted-date>`;
+	}
+
+	protected renderBranchItem() {
+		const wip = this.renderWip();
+		const tracking = this.renderTracking();
+		const avatars = this.renderAvatars();
+
+		return html`
+			<gl-work-item class="is-expanded" ?primary=${!this.branch.opened} .indicator=${this.cardIndicator}>
+				<div class="branch-item__section">
+					<p class="branch-item__grouping">
+						<span class="branch-item__icon">
+							<code-icon icon=${this.branch.worktree ? 'gl-worktrees-view' : 'git-branch'}></code-icon>
+						</span>
+						<span class="branch-item__name">${this.branch.name}</span>
+					</p>
+				</div>
+				<div class="branch-item__section branch-item__section--details" slot="context">
+					${when(
+						wip || tracking || avatars,
+						() => html`<p class="branch-item__changes">${wip}${tracking}${avatars}</p>`,
+					)}
+					${this.renderTimestamp()}
+				</div>
+			</gl-work-item>
+		`;
+	}
+
+	protected renderPrItem() {
+		if (!this.branch.pr) return nothing;
+
+		return html`
+			<gl-work-item class="is-expanded">
+				<div class="branch-item__section">
+					<p class="branch-item__grouping">
+						<span class="branch-item__icon">
+							<pr-icon state=${this.branch.pr.state} pr-id=${this.branch.pr.id}></pr-icon>
+						</span>
+						<a href=${this.branch.pr.url} class="branch-item__name">${this.branch.pr.title}</a>
+						<span class="branch-item__identifier">#${this.branch.pr.id}</span>
+					</p>
+				</div>
+			</gl-work-item>
+		`;
+	}
+
+	protected renderAutolinksItem() {
+		if (!this.branch.autolinks?.length) return nothing;
+
+		return html`
+			<gl-work-item class="is-expanded">
+				<div class="branch-item__section">${this.renderAutolinks()}</div>
+			</gl-work-item>
+		`;
+	}
 }
 
 @customElement('gl-branch-card')
 export class GlBranchCard extends GlBranchCardBase {
 	override render() {
-		const { name, pr, timestamp: date } = this.branch;
-
 		return html`
 			<gl-card class="branch-item" .indicator=${this.cardIndicator}>
 				<div class="branch-item__container">
-					<div class="branch-item__section">
-						<p class="branch-item__grouping">
-							<span class="branch-item__icon">${this.renderIcon()}</span>
-							${when(
-								pr,
-								pr =>
-									html`<a href=${pr.url} class="branch-item__name">${pr.title} </a
-										><span class="branch-item__identifier">#${pr.id}</span>`,
-								() => html`<span class="branch-item__name">${name}</span>`,
-							)}
-						</p>
-						${this.renderPrBranch(this.branch)} ${this.renderAutolinks()}
-					</div>
-					<div class="branch-item__section branch-item__section--details">
-						${this.renderChanges()}
-						${when(
-							date,
-							() =>
-								html`<p>
-									<formatted-date .date=${new Date(date!)} class="branch-item__date"></formatted-date>
-								</p>`,
-						)}
-					</div>
+					${this.renderBranchItem()}${this.renderPrItem()}${this.renderAutolinksItem()}
 				</div>
 				${this.renderActions()}
 			</gl-card>
 		`;
-	}
-
-	private renderPrBranch(branch: OverviewBranch) {
-		if (!branch.pr) {
-			return nothing;
-		}
-		return html`
-			<p class="branch-item__grouping branch-item__grouping--secondary">
-				<span class="branch-item__icon">${this.renderIcon(true)}</span
-				><span class="branch-item__name">${branch.name}</span>
-			</p>
-		`;
-	}
-
-	private renderChanges() {
-		const wip = this.renderWip();
-		const tracking = this.renderTracking();
-		const avatars = this.renderAvatars();
-		if (wip || tracking || avatars) {
-			return html`<p class="branch-item__changes">${wip}${tracking}${avatars}</p>`;
-		}
-
-		return nothing;
-	}
-
-	private renderIcon(noPr?: boolean) {
-		const branch = this.branch;
-		if (branch.pr && !noPr) {
-			return html`<pr-icon state=${branch.pr.state} pr-id=${branch.pr.id}></pr-icon>`;
-		}
-		if (branch.worktree) {
-			return html`<code-icon icon="gl-worktrees-view"></code-icon>`;
-		}
-		return html`<code-icon icon="git-branch"></code-icon>`;
 	}
 
 	protected getActions() {
@@ -379,5 +392,61 @@ export class GlBranchCard extends GlBranchCardBase {
 		);
 
 		return actions;
+	}
+}
+
+@customElement('gl-work-item')
+export class GlWorkUnit extends LitElement {
+	static override styles = [
+		css`
+			.work-item {
+				display: flex;
+				flex-direction: column;
+				gap: 0.8rem;
+			}
+
+			.work-item__content {
+				display: none;
+				flex-direction: column;
+				gap: 0.8rem;
+			}
+
+			:host-context(.is-expanded) .work-item__content {
+				display: flex;
+			}
+		`,
+	];
+
+	@property({ type: Boolean, reflect: true })
+	primary: boolean = false;
+
+	@property({ reflect: true })
+	indicator?: GlCard['indicator'];
+
+	override render() {
+		// if (this.primary) {
+		// 	return html`${this.renderContent()}`;
+		// }
+
+		return html`<gl-card
+			.density=${this.primary ? 'tight' : undefined}
+			.grouping=${this.primary ? 'item-primary' : 'item'}
+			.indicator=${this.indicator}
+			>${this.renderContent()}</gl-card
+		>`;
+	}
+
+	private renderContent() {
+		return html`
+			<div class="work-item">
+				<header class="work-item__main">
+					<slot></slot>
+				</header>
+				<div class="work-item__content">
+					<slot class="work-item__context" name="context"></slot>
+					<slot class="work-item__actions" name="actions"></slot>
+				</div>
+			</div>
+		`;
 	}
 }

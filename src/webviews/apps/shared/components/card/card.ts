@@ -1,5 +1,6 @@
 import { html, LitElement } from 'lit';
 import { customElement, property } from 'lit/decorators.js';
+import { classMap } from 'lit/directives/class-map.js';
 import { cardStyles } from './card.css';
 
 export const cardTagName = 'gl-card';
@@ -16,17 +17,45 @@ export class GlCard extends LitElement {
 	@property({ reflect: true })
 	indicator?: 'active' | 'merging' | 'rebasing' | 'conflict';
 
+	@property({ reflect: true })
+	grouping?: 'unit' | 'item' | 'item-primary';
+
+	@property({ reflect: true })
+	density?: 'tight';
+
 	@property()
 	href?: string;
 
+	private _focusable = false;
+	@property({ type: Boolean, reflect: true })
+	get focusable() {
+		if (this.href != null) return true;
+		return this._focusable;
+	}
+	set focusable(value) {
+		const oldValue = this._focusable;
+		this._focusable = value;
+		this.requestUpdate('focusable', oldValue);
+	}
+
+	get classNames() {
+		return {
+			card: true,
+			'card--focusable': this.focusable,
+			[`card--grouping-${this.grouping}`]: this.grouping != null,
+			[`card--density-${this.density}`]: this.density != null,
+			[`is-${this.indicator}`]: this.indicator != null,
+		};
+	}
+
 	override render() {
 		if (this.href != null) {
-			return html`<a part="base" class="card${this.indicator ? ` is-${this.indicator}` : ''}" href=${this.href}
+			return html`<a part="base" class=${classMap(this.classNames)} href=${this.href}
 				>${this.renderContent()}</a
 			>`;
 		}
 
-		return html`<div part="base" class="card${this.indicator ? ` is-${this.indicator}` : ''}">
+		return html`<div part="base" tabindex=${this.focusable ? 0 : -1} class=${classMap(this.classNames)}>
 			${this.renderContent()}
 		</div>`;
 	}
