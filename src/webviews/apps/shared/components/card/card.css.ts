@@ -32,12 +32,17 @@ export const cardStyles = css`
 		);
 	}
 
+	.card--focusable:focus,
 	.card:focus-within,
 	.card:hover {
 		background-color: var(
 			--gl-card-hover-background,
 			color-mix(in lab, var(--vscode-sideBar-background) 100%, #fff 8%)
 		);
+	}
+
+	.card--focusable:focus-visible {
+		outline: 0.1rem solid var(--vscode-focusBorder);
 	}
 
 	.card__actions {
@@ -57,5 +62,19 @@ export const cardStyles = css`
 
 	.card__content::slotted(:last-child) {
 		margin-block-end: 0;
+	}
+
+	.card--grouping-item {
+		--gl-card-background: color-mix(in lab, var(--vscode-sideBar-background) 100%, #fff 3%);
+		--gl-card-hover-background: color-mix(in lab, var(--vscode-sideBar-background) 100%, #fff 1.5%);
+	}
+
+	.card--grouping-item-primary {
+		--gl-card-background: transparent;
+		--gl-card-hover-background: transparent;
+	}
+
+	.card--density-tight {
+		padding: 0;
 	}
 `;
