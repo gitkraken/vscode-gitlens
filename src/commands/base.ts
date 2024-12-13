@@ -8,7 +8,7 @@ import type {
 	TimelineItem,
 } from 'vscode';
 import { commands, Disposable, Uri, window } from 'vscode';
-import type { Commands } from '../constants.commands';
+import type { GlCommands } from '../constants.commands';
 import type { StoredNamedRef } from '../constants.storage';
 import type { GitBranch } from '../git/models/branch';
 import { isBranch } from '../git/models/branch';
@@ -282,12 +282,12 @@ function isGitTimelineItem(item: any): item is GitTimelineItem {
 	);
 }
 
-export abstract class Command implements Disposable {
+export abstract class GlCommandBase implements Disposable {
 	protected readonly contextParsingOptions: CommandContextParsingOptions = { expectsEditor: false };
 
 	private readonly _disposable: Disposable;
 
-	constructor(command: Commands | Commands[]) {
+	constructor(command: GlCommands | GlCommands[]) {
 		if (typeof command === 'string') {
 			this._disposable = registerCommand(command, (...args: any[]) => this._execute(command, ...args), this);
 
@@ -447,7 +447,7 @@ export function parseCommandContext(
 	return [{ command: command, type: 'unknown', editor: editor, uri: editor?.document.uri }, args];
 }
 
-export abstract class ActiveEditorCommand extends Command {
+export abstract class ActiveEditorCommand extends GlCommandBase {
 	protected override readonly contextParsingOptions: CommandContextParsingOptions = { expectsEditor: true };
 
 	protected override preExecute(context: CommandContext, ...args: any[]): Promise<any> {
@@ -482,7 +482,7 @@ export abstract class ActiveEditorCachedCommand extends ActiveEditorCommand {
 export abstract class EditorCommand implements Disposable {
 	private readonly _disposable: Disposable;
 
-	constructor(command: Commands | Commands[]) {
+	constructor(command: GlCommands | GlCommands[]) {
 		if (!Array.isArray(command)) {
 			command = [command];
 		}

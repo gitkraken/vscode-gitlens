@@ -1,6 +1,6 @@
 /* eslint-disable @typescript-eslint/no-var-requires */
 import fs from 'fs';
-import pkg from '../package.json' assert { type: 'json' };
+import pkg from '../package.json' with { type: 'json' };
 
 // Patch README
 const insert = fs.readFileSync('./README.pre.md', { encoding: 'utf8' });

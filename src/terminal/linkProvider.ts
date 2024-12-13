@@ -4,7 +4,8 @@ import type { GitWizardCommandArgs } from '../commands/gitWizard';
 import type { InspectCommandArgs } from '../commands/inspect';
 import type { ShowQuickBranchHistoryCommandArgs } from '../commands/showQuickBranchHistory';
 import type { ShowQuickCommitCommandArgs } from '../commands/showQuickCommit';
-import { Commands } from '../constants.commands';
+import type { Commands } from '../constants.commands';
+import { GlCommand } from '../constants.commands';
 import type { Container } from '../container';
 import type { PagedResult } from '../git/gitProvider';
 import type { GitBranch } from '../git/models/branch';
@@ -67,7 +68,7 @@ export class GitTerminalLinkProvider implements Disposable, TerminalLinkProvider
 					length: command.length,
 					tooltip: 'Open in Git Command Palette',
 					command: {
-						command: Commands.GitCommands,
+						command: GlCommand.GitCommands,
 						args: {
 							command: command as GitWizardCommandArgs['command'],
 						},
@@ -87,7 +88,7 @@ export class GitTerminalLinkProvider implements Disposable, TerminalLinkProvider
 					length: ref.length,
 					tooltip: 'Show HEAD',
 					command: {
-						command: Commands.ShowQuickBranchHistory,
+						command: GlCommand.ShowQuickBranchHistory,
 						args: {
 							branch: 'HEAD',
 							repoPath: repoPath,
@@ -114,7 +115,7 @@ export class GitTerminalLinkProvider implements Disposable, TerminalLinkProvider
 					length: ref.length,
 					tooltip: 'Show Branch',
 					command: {
-						command: Commands.ShowQuickBranchHistory,
+						command: GlCommand.ShowQuickBranchHistory,
 						args: { repoPath: repoPath, branch: branch.name },
 					},
 				};
@@ -135,7 +136,7 @@ export class GitTerminalLinkProvider implements Disposable, TerminalLinkProvider
 					length: ref.length,
 					tooltip: 'Show Tag',
 					command: {
-						command: Commands.ShowQuickBranchHistory,
+						command: GlCommand.ShowQuickBranchHistory,
 						args: { repoPath: repoPath, tag: tag.name },
 					},
 				};
@@ -151,7 +152,7 @@ export class GitTerminalLinkProvider implements Disposable, TerminalLinkProvider
 						length: ref.length,
 						tooltip: 'Show Commits',
 						command: {
-							command: Commands.GitCommands,
+							command: GlCommand.GitCommands,
 							args: {
 								command: 'log',
 								state: {
@@ -174,13 +175,13 @@ export class GitTerminalLinkProvider implements Disposable, TerminalLinkProvider
 					tooltip: 'Show Commit',
 					command: showDetailsView
 						? {
-								command: Commands.ShowInDetailsView,
+								command: GlCommand.ShowInDetailsView,
 								args: {
 									ref: createReference(ref, repoPath, { refType: 'revision' }),
 								},
 						  }
 						: {
-								command: Commands.ShowQuickCommit,
+								command: GlCommand.ShowQuickCommit,
 								args: {
 									repoPath: repoPath,
 									sha: ref,

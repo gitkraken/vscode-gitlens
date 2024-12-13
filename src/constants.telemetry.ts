@@ -1,7 +1,7 @@
 import type { Config, GraphBranchesVisibility, GraphConfig } from './config';
 import type { WalkthroughSteps } from './constants';
 import type { AIModels, AIProviders } from './constants.ai';
-import type { Commands } from './constants.commands';
+import type { GlCommand } from './constants.commands';
 import type { IntegrationId, SupportedCloudIntegrationIds } from './constants.integrations';
 import type { SubscriptionState, SubscriptionStateString } from './constants.subscription';
 import type { CustomEditorTypes, TreeViewTypes, WebviewTypes, WebviewViewTypes } from './constants.views';
@@ -404,7 +404,7 @@ interface CommandEventData {
 }
 
 interface GitCommandEventData {
-	command: Commands.GitCommands;
+	command: GlCommand.GitCommands;
 	'context.mode'?: string;
 	'context.submode'?: string;
 	webview?: string;
@@ -903,10 +903,9 @@ export type TrackedUsage = {
 	lastUsedAt: number;
 };
 
-export type CommandExecutionTrackedFeatures = `command:${Commands}:executed`;
 export type TrackedUsageFeatures =
 	| `${WebviewTypes}Webview`
 	| `${TreeViewTypes | WebviewViewTypes}View`
 	| `${CustomEditorTypes}Editor`;
 export type WalkthroughUsageKeys = 'home:walkthrough:dismissed';
-export type TrackedUsageKeys = `${TrackedUsageFeatures}:shown` | CommandExecutionTrackedFeatures | WalkthroughUsageKeys;
+export type TrackedUsageKeys = `${TrackedUsageFeatures}:shown` | `command:${string}:executed` | WalkthroughUsageKeys;

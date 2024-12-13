@@ -22,7 +22,7 @@ import React, { createElement, useEffect, useMemo, useRef, useState } from 'reac
 import type { ConnectCloudIntegrationsCommandArgs } from '../../../../commands/cloudIntegrations';
 import type { BranchGitCommandArgs } from '../../../../commands/git/branch';
 import type { DateStyle, GraphBranchesVisibility } from '../../../../config';
-import { Commands } from '../../../../constants.commands';
+import { GlCommand } from '../../../../constants.commands';
 import type { SearchQuery } from '../../../../constants.search';
 import type { Subscription } from '../../../../plus/gk/account/subscription';
 import { isSubscriptionPaid } from '../../../../plus/gk/account/subscription';
@@ -1089,7 +1089,7 @@ export function GraphWrapper({
 													/>{' '}
 													<a
 														href={createCommandLink<ConnectCloudIntegrationsCommandArgs>(
-															'gitlens.plus.cloudIntegrations.connect' as Commands,
+															'gitlens.plus.cloudIntegrations.connect',
 															{
 																integrationIds: [repo.provider.integration.id],
 																source: 'graph',
@@ -1108,7 +1108,7 @@ export function GraphWrapper({
 									<GlButton
 										appearance="toolbar"
 										href={createCommandLink<ConnectCloudIntegrationsCommandArgs>(
-											'gitlens.plus.cloudIntegrations.connect' as Commands,
+											'gitlens.plus.cloudIntegrations.connect',
 											{
 												integrationIds: [repo.provider.integration.id],
 												source: 'graph',
@@ -1236,7 +1236,7 @@ export function GraphWrapper({
 						<GlTooltip placement="bottom">
 							<a
 								className="action-button"
-								href={createCommandLink<BranchGitCommandArgs>(Commands.GitCommandsBranch, {
+								href={createCommandLink<BranchGitCommandArgs>(GlCommand.GitCommandsBranch, {
 									state: {
 										subcommand: 'create',
 										reference: branch,
@@ -1543,7 +1543,7 @@ export function GraphWrapper({
 				featurePreviewCommandLink={
 					featurePreview
 						? createWebviewCommandLink(
-								Commands.PlusContinueFeaturePreview,
+								GlCommand.PlusContinueFeaturePreview,
 								state.webviewId,
 								state.webviewInstanceId,
 								{ feature: featurePreview.feature },

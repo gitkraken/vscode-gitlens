@@ -1,13 +1,13 @@
-import { Commands } from '../constants.commands';
+import { GlCommand } from '../constants.commands';
 import type { Container } from '../container';
 import { executeGitCommand } from '../git/actions';
 import { command } from '../system/vscode/command';
-import { Command } from './base';
+import { GlCommandBase } from './base';
 
 @command()
-export class FetchRepositoriesCommand extends Command {
+export class FetchRepositoriesCommand extends GlCommandBase {
 	constructor(private readonly container: Container) {
-		super(Commands.FetchRepositories);
+		super(GlCommand.FetchRepositories);
 	}
 
 	async execute() {
@@ -19,9 +19,9 @@ export class FetchRepositoriesCommand extends Command {
 }
 
 @command()
-export class PullRepositoriesCommand extends Command {
+export class PullRepositoriesCommand extends GlCommandBase {
 	constructor(private readonly container: Container) {
-		super(Commands.PullRepositories);
+		super(GlCommand.PullRepositories);
 	}
 
 	async execute() {
@@ -33,9 +33,9 @@ export class PullRepositoriesCommand extends Command {
 }
 
 @command()
-export class PushRepositoriesCommand extends Command {
+export class PushRepositoriesCommand extends GlCommandBase {
 	constructor(private readonly container: Container) {
-		super(Commands.PushRepositories);
+		super(GlCommand.PushRepositories);
 	}
 
 	async execute() {

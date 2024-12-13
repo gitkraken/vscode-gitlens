@@ -1,3 +1,4 @@
+import type { IntegrationDescriptor } from '../../constants.integrations';
 import type { GitBranchStatus, GitTrackingState } from '../../git/models/branch';
 import type { Subscription } from '../../plus/gk/account/subscription';
 import type { LaunchpadSummaryResult } from '../../plus/launchpad/launchpadIndicator';
@@ -17,6 +18,7 @@ export interface State extends WebviewState {
 	previewCollapsed: boolean;
 	integrationBannerCollapsed: boolean;
 	hasAnyIntegrationConnected: boolean;
+	integrations: IntegrationState[];
 	avatar?: string;
 	organizationsCount?: number;
 	walkthroughProgress: {
@@ -27,6 +29,10 @@ export interface State extends WebviewState {
 	showWalkthroughProgress?: boolean;
 	previewEnabled: boolean;
 	newInstall: boolean;
+}
+
+export interface IntegrationState extends IntegrationDescriptor {
+	connected: boolean;
 }
 
 export type OverviewRecentThreshold = 'OneDay' | 'OneWeek' | 'OneMonth';
@@ -202,6 +208,7 @@ export const DidChangeWalkthroughProgress = new IpcNotification<DidChangeProgres
 
 export interface DidChangeIntegrationsParams {
 	hasAnyIntegrationConnected: boolean;
+	integrations: IntegrationState[];
 }
 export const DidChangeIntegrationsConnections = new IpcNotification<DidChangeIntegrationsParams>(
 	scope,

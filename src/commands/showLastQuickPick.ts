@@ -1,15 +1,15 @@
 import { commands } from 'vscode';
-import { Commands } from '../constants.commands';
+import { GlCommand } from '../constants.commands';
 import type { Container } from '../container';
 import { showGenericErrorMessage } from '../messages';
 import { Logger } from '../system/logger';
 import { command } from '../system/vscode/command';
-import { Command, getLastCommand } from './base';
+import { getLastCommand, GlCommandBase } from './base';
 
 @command()
-export class ShowLastQuickPickCommand extends Command {
+export class ShowLastQuickPickCommand extends GlCommandBase {
 	constructor(private readonly container: Container) {
-		super(Commands.ShowLastQuickPick);
+		super(GlCommand.ShowLastQuickPick);
 	}
 
 	execute() {

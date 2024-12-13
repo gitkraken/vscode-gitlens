@@ -1,5 +1,5 @@
 import type { TextEditor, Uri } from 'vscode';
-import { Commands } from '../constants.commands';
+import { GlCommand } from '../constants.commands';
 import type { Container } from '../container';
 import { executeGitCommand } from '../git/actions';
 import { reveal } from '../git/actions/commit';
@@ -32,15 +32,15 @@ export class ShowQuickCommitCommand extends ActiveEditorCachedCommand {
 	static createMarkdownCommandLink(args: ShowQuickCommitCommandArgs): string;
 	static createMarkdownCommandLink(argsOrSha: ShowQuickCommitCommandArgs | string, repoPath?: string): string {
 		const args = typeof argsOrSha === 'string' ? { sha: argsOrSha, repoPath: repoPath } : argsOrSha;
-		return createMarkdownCommandLink<ShowQuickCommitCommandArgs>(Commands.ShowQuickCommit, args);
+		return createMarkdownCommandLink<ShowQuickCommitCommandArgs>(GlCommand.ShowQuickCommit, args);
 	}
 
 	constructor(private readonly container: Container) {
-		super([Commands.RevealCommitInView, Commands.ShowQuickCommit]);
+		super([GlCommand.RevealCommitInView, GlCommand.ShowQuickCommit]);
 	}
 
 	protected override preExecute(context: CommandContext, args?: ShowQuickCommitCommandArgs) {
-		if (context.command === Commands.RevealCommitInView) {
+		if (context.command === GlCommand.RevealCommitInView) {
 			args = { ...args };
 			args.revealInView = true;
 		}

@@ -1,6 +1,6 @@
 import type { Disposable } from 'vscode';
 import { ThemeIcon, window } from 'vscode';
-import { Commands } from '../../../constants.commands';
+import { GlCommand } from '../../../constants.commands';
 import {
 	proFeaturePreviewUsages,
 	proTrialLengthInDays,
@@ -77,7 +77,7 @@ class AccountDebug {
 		private readonly service: SubscriptionServiceFacade,
 	) {
 		this.container.context.subscriptions.push(
-			registerCommand(Commands.PlusSimulateSubscription, () => this.showSimulator()),
+			registerCommand(GlCommand.PlusSimulateSubscription, () => this.showSimulator()),
 		);
 	}
 
@@ -258,7 +258,7 @@ class AccountDebug {
 
 		this.service.restoreFeaturePreviews();
 		this.service.restoreSession();
-		this.service.changeSubscription(this.service.getStoredSubscription(), { store: false });
+		this.service.changeSubscription(this.service.getStoredSubscription(), undefined, { store: false });
 	}
 
 	private async startSimulation(pick: SimulateQuickPickItem | undefined): Promise<boolean> {
@@ -287,6 +287,7 @@ class AccountDebug {
 					state === SubscriptionState.Community
 						? undefined
 						: getPreviewSubscription(state === SubscriptionState.ProPreviewExpired ? 0 : 3),
+					undefined,
 					{ store: false },
 				);
 
@@ -341,7 +342,7 @@ class AccountDebug {
 			activeOrganizationId,
 		);
 
-		this.service.changeSubscription({ ...subscription, ...simulatedSubscription }, { store: false });
+		this.service.changeSubscription({ ...subscription, ...simulatedSubscription }, undefined, { store: false });
 
 		return false;
 	}

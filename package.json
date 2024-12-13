@@ -1624,7 +1624,7 @@
 					},
 					"gitlens.views.formats.stashes.tooltip": {
 						"type": "string",
-						"default": "${link}${' on `'stashOnRef`}${'&nbsp;&nbsp;'changesDetail} \\\n &nbsp;$(history) ${ago} _(${date})_ ${message}${\n\n---\n\nfootnotes}",
+						"default": "${link}${' on `'stashOnRef`}${'\\\n&nbsp;&nbsp;'changesDetail} \\\n &nbsp;$(history) ${ago} _(${date})_ ${message}${\n\n---\n\nfootnotes}",
 						"markdownDescription": "Specifies the tooltip format (in markdown) of stashes in the views. See [_Commit Tokens_](https://github.com/eamodio/vscode-gitlens/wiki/Custom-Formatting#commit-tokens) in the GitLens docs",
 						"scope": "window",
 						"order": 52
@@ -7104,7 +7104,8 @@
 			},
 			{
 				"command": "gitlens.showAccountView",
-				"title": "Show Account on Home"
+				"title": "Show Account on Home",
+				"category": "GitLens"
 			},
 			{
 				"command": "gitlens.showBranchesView",
@@ -10806,10 +10807,6 @@
 					"when": "!gitlens:plus"
 				},
 				{
-					"command": "gitlens.plus.logout",
-					"when": "true"
-				},
-				{
 					"command": "gitlens.plus.manage",
 					"when": "gitlens:plus"
 				},
@@ -10866,10 +10863,6 @@
 					"when": "gitlens:enabled && gitlens:gk:organization:drafts:enabled && config.gitlens.cloudPatches.enabled"
 				},
 				{
-					"command": "gitlens.showAccountView",
-					"when": "false"
-				},
-				{
 					"command": "gitlens.showBranchesView",
 					"when": "gitlens:enabled"
 				},
@@ -10919,10 +10912,6 @@
 				},
 				{
 					"command": "gitlens.showGraphView",
-					"when": "gitlens:enabled"
-				},
-				{
-					"command": "gitlens.showHomeView",
 					"when": "gitlens:enabled"
 				},
 				{
@@ -19732,7 +19721,7 @@
 	},
 	"dependencies": {
 		"@gitkraken/gitkraken-components": "10.7.0",
-		"@gitkraken/provider-apis": "0.25.5",
+		"@gitkraken/provider-apis": "0.25.7",
 		"@gitkraken/shared-web-components": "0.1.1-rc.15",
 		"@gk-nzaytsev/fast-string-truncated-width": "1.1.0",
 		"@lit-labs/signals": "0.1.1",
@@ -19836,5 +19825,5 @@
 		"node-fetch": "2.7.0",
 		"semver-regex": "4.0.5"
 	},
-	"packageManager": "pnpm@9.15.0"
+	"packageManager": "pnpm@10.0.0-beta.3"
 }

@@ -1,6 +1,6 @@
 import type { TextEditor, Uri } from 'vscode';
 import { env } from 'vscode';
-import { Commands } from '../constants.commands';
+import { GlCommand } from '../constants.commands';
 import type { Container } from '../container';
 import { GitUri } from '../git/gitUri';
 import { showGenericErrorMessage } from '../messages';
@@ -12,7 +12,7 @@ import { ActiveEditorCommand, getCommandUri } from './base';
 @command()
 export class CopyCurrentBranchCommand extends ActiveEditorCommand {
 	constructor(private readonly container: Container) {
-		super(Commands.CopyCurrentBranch);
+		super(GlCommand.CopyCurrentBranch);
 	}
 
 	async execute(editor?: TextEditor, uri?: Uri) {

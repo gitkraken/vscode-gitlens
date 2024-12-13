@@ -1,13 +1,13 @@
 import type { MessageItem } from 'vscode';
 import { ConfigurationTarget, window } from 'vscode';
 import { resetAvatarCache } from '../avatars';
-import { Commands } from '../constants.commands';
+import { GlCommand } from '../constants.commands';
 import type { Container } from '../container';
 import type { QuickPickItemOfT } from '../quickpicks/items/common';
 import { createQuickPickSeparator } from '../quickpicks/items/common';
 import { command } from '../system/vscode/command';
 import { configuration } from '../system/vscode/configuration';
-import { Command } from './base';
+import { GlCommandBase } from './base';
 
 const resetTypes = [
 	'ai',
@@ -23,9 +23,9 @@ const resetTypes = [
 type ResetType = 'all' | (typeof resetTypes)[number];
 
 @command()
-export class ResetCommand extends Command {
+export class ResetCommand extends GlCommandBase {
 	constructor(private readonly container: Container) {
-		super(Commands.Reset);
+		super(GlCommand.Reset);
 	}
 	async execute() {
 		type ResetQuickPickItem = QuickPickItemOfT<ResetType>;
@@ -213,9 +213,9 @@ export class ResetCommand extends Command {
 }
 
 @command()
-export class ResetAIKeyCommand extends Command {
+export class ResetAIKeyCommand extends GlCommandBase {
 	constructor(private readonly container: Container) {
-		super(Commands.ResetAIKey);
+		super(GlCommand.ResetAIKey);
 	}
 
 	async execute() {

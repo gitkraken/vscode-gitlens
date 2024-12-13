@@ -1,5 +1,5 @@
 import type { TextEditor, Uri } from 'vscode';
-import { Commands } from '../constants.commands';
+import { GlCommand } from '../constants.commands';
 import type { StoredNamedRef } from '../constants.storage';
 import type { Container } from '../container';
 import { GitUri } from '../git/gitUri';
@@ -40,12 +40,12 @@ export interface CopyDeepLinkCommandArgs {
 export class CopyDeepLinkCommand extends ActiveEditorCommand {
 	constructor(private readonly container: Container) {
 		super([
-			Commands.CopyDeepLinkToBranch,
-			Commands.CopyDeepLinkToCommit,
-			Commands.CopyDeepLinkToRepo,
-			Commands.CopyDeepLinkToTag,
-			Commands.CopyDeepLinkToComparison,
-			Commands.CopyDeepLinkToWorkspace,
+			GlCommand.CopyDeepLinkToBranch,
+			GlCommand.CopyDeepLinkToCommit,
+			GlCommand.CopyDeepLinkToRepo,
+			GlCommand.CopyDeepLinkToTag,
+			GlCommand.CopyDeepLinkToComparison,
+			GlCommand.CopyDeepLinkToWorkspace,
 		]);
 	}
 
@@ -60,7 +60,7 @@ export class CopyDeepLinkCommand extends ActiveEditorCommand {
 					compareWithRef: context.node.compareWithRef,
 				};
 			} else if (isCommandContextViewNodeHasBranch(context)) {
-				if (context.command === Commands.CopyDeepLinkToRepo) {
+				if (context.command === GlCommand.CopyDeepLinkToRepo) {
 					args = {
 						refOrRepoPath: context.node.branch.repoPath,
 						remote: context.node.branch.getRemoteName(),
@@ -182,7 +182,7 @@ export interface CopyFileDeepLinkCommandArgs {
 @command()
 export class CopyFileDeepLinkCommand extends ActiveEditorCommand {
 	constructor(private readonly container: Container) {
-		super([Commands.CopyDeepLinkToFile, Commands.CopyDeepLinkToFileAtRevision, Commands.CopyDeepLinkToLines]);
+		super([GlCommand.CopyDeepLinkToFile, GlCommand.CopyDeepLinkToFileAtRevision, GlCommand.CopyDeepLinkToLines]);
 	}
 
 	protected override preExecute(context: CommandContext, args?: CopyFileDeepLinkCommandArgs) {
@@ -190,11 +190,11 @@ export class CopyFileDeepLinkCommand extends ActiveEditorCommand {
 			args = {};
 		}
 
-		if (args.ref == null && context.command === Commands.CopyDeepLinkToFileAtRevision) {
+		if (args.ref == null && context.command === GlCommand.CopyDeepLinkToFileAtRevision) {
 			args.chooseRef = true;
 		}
 
-		if (args.lines == null && context.command === Commands.CopyDeepLinkToLines) {
+		if (args.lines == null && context.command === GlCommand.CopyDeepLinkToLines) {
 			let lines: number[] | undefined;
 			if (isCommandContextEditorLine(context) && context.line != null) {
 				lines = [context.line + 1];

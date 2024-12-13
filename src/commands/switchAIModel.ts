@@ -1,12 +1,12 @@
-import { Commands } from '../constants.commands';
+import { GlCommand } from '../constants.commands';
 import type { Container } from '../container';
 import { command } from '../system/vscode/command';
-import { Command } from './base';
+import { GlCommandBase } from './base';
 
 @command()
-export class SwitchAIModelCommand extends Command {
+export class SwitchAIModelCommand extends GlCommandBase {
 	constructor(private readonly container: Container) {
-		super(Commands.SwitchAIModel);
+		super(GlCommand.SwitchAIModel);
 	}
 
 	async execute() {

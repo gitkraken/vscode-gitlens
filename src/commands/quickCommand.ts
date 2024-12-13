@@ -1,6 +1,6 @@
 import type { InputBox, QuickInputButton, QuickPick, QuickPickItem } from 'vscode';
 import type { Keys } from '../constants';
-import type { Commands } from '../constants.commands';
+import type { GlCommands } from '../constants.commands';
 import type { Container } from '../container';
 import { createQuickPickSeparator } from '../quickpicks/items/common';
 import type { DirectiveQuickPickItem } from '../quickpicks/items/directive';
@@ -396,7 +396,7 @@ export function endSteps(state: PartialStepState) {
 }
 
 export interface CrossCommandReference<T = unknown> {
-	command: Commands;
+	command: GlCommands;
 	args?: T;
 }
 
@@ -404,6 +404,6 @@ export function isCrossCommandReference<T = unknown>(value: any): value is Cross
 	return value.command != null;
 }
 
-export function createCrossCommandReference<T>(command: Commands, args: T): CrossCommandReference<T> {
+export function createCrossCommandReference<T>(command: GlCommands, args: T): CrossCommandReference<T> {
 	return { command: command, args: args };
 }

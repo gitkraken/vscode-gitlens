@@ -1,5 +1,5 @@
 import type { TextEditor, Uri } from 'vscode';
-import { Commands } from '../constants.commands';
+import { GlCommand } from '../constants.commands';
 import type { Container } from '../container';
 import { showGenericErrorMessage } from '../messages';
 import { Logger } from '../system/logger';
@@ -9,7 +9,7 @@ import { ActiveEditorCommand } from './base';
 @command()
 export class ToggleLineBlameCommand extends ActiveEditorCommand {
 	constructor(private readonly container: Container) {
-		super(Commands.ToggleLineBlame);
+		super(GlCommand.ToggleLineBlame);
 	}
 
 	async execute(editor: TextEditor, _uri?: Uri): Promise<void> {

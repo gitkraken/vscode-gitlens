@@ -1,16 +1,16 @@
-import type { Disposable, Command as ICommand, Uri } from 'vscode';
+import type { Command, Disposable, Uri } from 'vscode';
 import { commands } from 'vscode';
 import type { Action, ActionContext } from '../../api/gitlens';
-import type { Command } from '../../commands/base';
+import type { GlCommandBase } from '../../commands/base';
 import type { CodeLensCommand } from '../../config';
-import type { CoreCommands, CoreGitCommands, TreeViewCommands } from '../../constants.commands';
-import { Commands } from '../../constants.commands';
+import type { Commands, CoreCommands, CoreGitCommands, GlCommands } from '../../constants.commands';
+import { actionCommandPrefix, GlCommand } from '../../constants.commands';
 import { Container } from '../../container';
 import { isWebviewContext } from '../webview';
 
 export type CommandCallback = Parameters<typeof commands.registerCommand>[1];
 
-type CommandConstructor = new (container: Container, ...args: any[]) => Command;
+type CommandConstructor = new (container: Container, ...args: any[]) => GlCommandBase;
 const registrableCommands: CommandConstructor[] = [];
 
 export function command(): ClassDecorator {
@@ -19,12 +19,12 @@ export function command(): ClassDecorator {
 	};
 }
 
-export function registerCommand(command: string, callback: CommandCallback, thisArg?: any): Disposable {
+export function registerCommand(command: Commands, callback: CommandCallback, thisArg?: any): Disposable {
 	return commands.registerCommand(
 		command,
 		function (this: any, ...args) {
 			let context: any;
-			if (command === Commands.GitCommands) {
+			if (command === GlCommand.GitCommands) {
 				const arg = args?.[0];
 				if (arg?.command != null) {
 					context = { mode: args[0].command };
@@ -47,14 +47,15 @@ export function registerCommand(command: string, callback: CommandCallback, this
 					'context.submode': context?.submode,
 				});
 			}
-			void Container.instance.usage.track(`command:${command as Commands}:executed`).catch();
+
+			void Container.instance.usage.track(`command:${command}:executed`).catch();
 			callback.call(this, ...args);
 		},
 		thisArg,
 	);
 }
 
-export function registerWebviewCommand(command: string, callback: CommandCallback, thisArg?: any): Disposable {
+export function registerWebviewCommand(command: Commands, callback: CommandCallback, thisArg?: any): Disposable {
 	return commands.registerCommand(
 		command,
 		function (this: any, ...args) {
@@ -76,6 +77,7 @@ export function registerWebviewCommand(command: string, callback: CommandCallbac
 				});
 			}
 
+			void Container.instance.usage.track(`command:${command}:executed`).catch();
 			callback.call(this, ...args);
 		},
 		thisArg,
@@ -87,14 +89,14 @@ export function registerCommands(container: Container): Disposable[] {
 }
 
 export function executeActionCommand<T extends ActionContext>(action: Action<T>, args: Omit<T, 'type'>) {
-	return commands.executeCommand(`${Commands.ActionPrefix}${action}`, { ...args, type: action });
+	return commands.executeCommand(`${actionCommandPrefix}${action}`, { ...args, type: action });
 }
 
 export function createCommand<T extends unknown[]>(
-	command: Commands | CodeLensCommand | TreeViewCommands,
+	command: Commands | CodeLensCommand,
 	title: string,
 	...args: T
-): ICommand {
+): Command {
 	return {
 		command: command,
 		title: title,
@@ -109,7 +111,7 @@ export function executeCommand<T extends [...unknown[]] = [], U = any>(command: 
 	return commands.executeCommand<U>(command, ...args);
 }
 
-export function createCoreCommand<T extends unknown[]>(command: CoreCommands, title: string, ...args: T): ICommand {
+export function createCoreCommand<T extends unknown[]>(command: CoreCommands, title: string, ...args: T): Command {
 	return {
 		command: command,
 		title: title,
@@ -142,7 +144,7 @@ export function createCoreGitCommand<T extends unknown[]>(
 	command: CoreGitCommands,
 	title: string,
 	...args: T
-): ICommand {
+): Command {
 	return {
 		command: command,
 		title: title,
@@ -164,6 +166,6 @@ export function executeCoreGitCommand<T extends [...unknown[]] = [], U = any>(
 	return commands.executeCommand<U>(command, ...args);
 }
 
-export function executeEditorCommand<T>(command: Commands, uri: Uri | undefined, args: T) {
+export function executeEditorCommand<T>(command: GlCommands, uri: Uri | undefined, args: T) {
 	return commands.executeCommand(command, uri, args);
 }

@@ -1,7 +1,7 @@
 import type { TextEditor, Uri } from 'vscode';
 import { Range } from 'vscode';
 import { GlyphChars } from '../constants';
-import { Commands } from '../constants.commands';
+import { GlCommand } from '../constants.commands';
 import type { Container } from '../container';
 import { GitUri } from '../git/gitUri';
 import { getBranchNameWithoutRemote, getRemoteNameFromBranchName } from '../git/models/branch';
@@ -36,12 +36,12 @@ export interface OpenFileOnRemoteCommandArgs {
 export class OpenFileOnRemoteCommand extends ActiveEditorCommand {
 	constructor(private readonly container: Container) {
 		super([
-			Commands.OpenFileOnRemote,
-			Commands.Deprecated_OpenFileInRemote,
-			Commands.CopyRemoteFileUrl,
-			Commands.CopyRemoteFileUrlWithoutRange,
-			Commands.OpenFileOnRemoteFrom,
-			Commands.CopyRemoteFileUrlFrom,
+			GlCommand.OpenFileOnRemote,
+			GlCommand.Deprecated_OpenFileInRemote,
+			GlCommand.CopyRemoteFileUrl,
+			GlCommand.CopyRemoteFileUrlWithoutRange,
+			GlCommand.OpenFileOnRemoteFrom,
+			GlCommand.CopyRemoteFileUrlFrom,
 		]);
 	}
 
@@ -52,7 +52,7 @@ export class OpenFileOnRemoteCommand extends ActiveEditorCommand {
 			args = { ...args, line: context.line, range: true };
 		}
 
-		if (context.command === Commands.CopyRemoteFileUrlWithoutRange) {
+		if (context.command === GlCommand.CopyRemoteFileUrlWithoutRange) {
 			args = { ...args, range: false };
 		}
 
@@ -60,9 +60,9 @@ export class OpenFileOnRemoteCommand extends ActiveEditorCommand {
 			args = { ...args, range: false };
 
 			if (
-				context.command === Commands.CopyRemoteFileUrl ||
-				context.command === Commands.CopyRemoteFileUrlWithoutRange ||
-				context.command === Commands.CopyRemoteFileUrlFrom
+				context.command === GlCommand.CopyRemoteFileUrl ||
+				context.command === GlCommand.CopyRemoteFileUrlWithoutRange ||
+				context.command === GlCommand.CopyRemoteFileUrlFrom
 			) {
 				// If it is a StatusFileNode then don't include the sha, since it hasn't been pushed yet
 				args.sha = context.node instanceof StatusFileNode ? undefined : context.node.commit.sha;
@@ -78,9 +78,9 @@ export class OpenFileOnRemoteCommand extends ActiveEditorCommand {
 		}
 
 		if (
-			context.command === Commands.CopyRemoteFileUrl ||
-			context.command === Commands.CopyRemoteFileUrlWithoutRange ||
-			context.command === Commands.CopyRemoteFileUrlFrom
+			context.command === GlCommand.CopyRemoteFileUrl ||
+			context.command === GlCommand.CopyRemoteFileUrlWithoutRange ||
+			context.command === GlCommand.CopyRemoteFileUrlFrom
 		) {
 			args = { ...args, clipboard: true };
 			if (args.sha == null) {
@@ -104,7 +104,7 @@ export class OpenFileOnRemoteCommand extends ActiveEditorCommand {
 			}
 		}
 
-		if (context.command === Commands.OpenFileOnRemoteFrom || context.command === Commands.CopyRemoteFileUrlFrom) {
+		if (context.command === GlCommand.OpenFileOnRemoteFrom || context.command === GlCommand.CopyRemoteFileUrlFrom) {
 			args = { ...args, pickBranchOrTag: true, range: false }; // Override range since it can be wrong at a different commit
 		}
 
@@ -207,7 +207,7 @@ export class OpenFileOnRemoteCommand extends ActiveEditorCommand {
 				}
 			}
 
-			void (await executeCommand<OpenOnRemoteCommandArgs>(Commands.OpenOnRemote, {
+			void (await executeCommand<OpenOnRemoteCommandArgs>(GlCommand.OpenOnRemote, {
 				resource: {
 					type: sha == null ? RemoteResourceType.File : RemoteResourceType.Revision,
 					branchOrTag: args.branchOrTag ?? 'HEAD',

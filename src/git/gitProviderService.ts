@@ -2611,6 +2611,17 @@ export class GitProviderService implements Disposable {
 		return provider.getStash?.(path);
 	}
 
+	@gate()
+	@log()
+	async getStashCommitFiles(
+		repoPath: string | Uri,
+		ref: string,
+		options?: { include?: { stats?: boolean } },
+	): Promise<GitFileChange[]> {
+		const { provider, path } = this.getProvider(repoPath);
+		return provider.getStashCommitFiles?.(path, ref, options) ?? [];
+	}
+
 	@log()
 	async getStatus(repoPath: string | Uri | undefined): Promise<GitStatus | undefined> {
 		if (repoPath == null) return undefined;

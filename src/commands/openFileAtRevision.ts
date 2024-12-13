@@ -2,7 +2,7 @@ import type { TextDocumentShowOptions, TextEditor } from 'vscode';
 import { Uri } from 'vscode';
 import type { FileAnnotationType } from '../config';
 import { GlyphChars, quickPickTitleMaxChars } from '../constants';
-import { Commands } from '../constants.commands';
+import { GlCommand } from '../constants.commands';
 import type { Container } from '../container';
 import { openFileAtRevision } from '../git/actions/commit';
 import { GitUri } from '../git/gitUri';
@@ -51,15 +51,15 @@ export class OpenFileAtRevisionCommand extends ActiveEditorCommand {
 			args = argsOrUri;
 		}
 
-		return createMarkdownCommandLink<OpenFileAtRevisionCommandArgs>(Commands.OpenFileAtRevision, args);
+		return createMarkdownCommandLink<OpenFileAtRevisionCommandArgs>(GlCommand.OpenFileAtRevision, args);
 	}
 
 	constructor(private readonly container: Container) {
-		super([Commands.OpenFileAtRevision, Commands.OpenBlamePriorToChange]);
+		super([GlCommand.OpenFileAtRevision, GlCommand.OpenBlamePriorToChange]);
 	}
 
 	protected override async preExecute(context: CommandContext, args?: OpenFileAtRevisionCommandArgs) {
-		if (context.command === Commands.OpenBlamePriorToChange) {
+		if (context.command === GlCommand.OpenBlamePriorToChange) {
 			args = { ...args, annotationType: 'blame' };
 			if (args.revisionUri == null && context.editor != null) {
 				const editorLine = context.editor.selection.active.line;
@@ -159,7 +159,7 @@ export class OpenFileAtRevisionCommand extends ActiveEditorCommand {
 															description: description,
 														},
 														undefined,
-														Commands.OpenFileAtRevision,
+														GlCommand.OpenFileAtRevision,
 														[this.container.git.getAbsoluteUri(f.path, gitUri.repoPath)],
 													),
 												);
@@ -205,12 +205,12 @@ export class OpenFileAtRevisionCommand extends ActiveEditorCommand {
 						showOtherReferences: [
 							CommandQuickPickItem.fromCommand<[Uri]>(
 								'Choose a Branch or Tag...',
-								Commands.OpenFileAtRevisionFrom,
+								GlCommand.OpenFileAtRevisionFrom,
 								[uri],
 							),
 							CommandQuickPickItem.fromCommand<[Uri, OpenFileAtRevisionFromCommandArgs]>(
 								'Choose a Stash...',
-								Commands.OpenFileAtRevisionFrom,
+								GlCommand.OpenFileAtRevisionFrom,
 								[uri, { stash: true }],
 							),
 						],

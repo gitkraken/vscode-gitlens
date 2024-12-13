@@ -2,7 +2,7 @@ import type { Disposable, QuickInputButton, QuickPickItem } from 'vscode';
 import { QuickPickItemKind, ThemeIcon, window } from 'vscode';
 import type { AIModel } from '../ai/aiProviderService';
 import type { AIModels, AIProviders } from '../constants.ai';
-import { Commands } from '../constants.commands';
+import { GlCommand } from '../constants.commands';
 import type { Container } from '../container';
 import { executeCommand } from '../system/vscode/command';
 import { getQuickPickIgnoreFocusOut } from '../system/vscode/utils';
@@ -60,13 +60,13 @@ export async function showAIModelPicker(
 				}),
 				quickpick.onDidTriggerButton(e => {
 					if (e === ResetAIKeyButton) {
-						void executeCommand(Commands.ResetAIKey);
+						void executeCommand(GlCommand.ResetAIKey);
 					}
 				}),
 			);
 
 			quickpick.title = 'Choose AI Model';
-			quickpick.placeholder = 'Select an AI model to use for experimental AI features';
+			quickpick.placeholder = 'Select an AI model to use';
 			quickpick.matchOnDescription = true;
 			quickpick.matchOnDetail = true;
 			quickpick.buttons = [ResetAIKeyButton];

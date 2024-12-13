@@ -35,7 +35,7 @@ import {
 import { ensureAccessStep } from '../../commands/quickCommand.steps';
 import type { OpenWalkthroughCommandArgs } from '../../commands/walkthroughs';
 import { proBadge, urls } from '../../constants';
-import { Commands } from '../../constants.commands';
+import { GlCommand } from '../../constants.commands';
 import type { IntegrationId } from '../../constants.integrations';
 import { HostingIntegrationId, SelfHostedIntegrationId } from '../../constants.integrations';
 import type { LaunchpadTelemetryContext, Source, Sources, TelemetryEvents } from '../../constants.telemetry';
@@ -1035,7 +1035,7 @@ export class LaunchpadCommand extends QuickCommand<State> {
 						detail: 'Click to learn more about Launchpad',
 						iconPath: new ThemeIcon('rocket'),
 						onDidSelect: () =>
-							void executeCommand<OpenWalkthroughCommandArgs>(Commands.OpenWalkthrough, {
+							void executeCommand<OpenWalkthroughCommandArgs>(GlCommand.OpenWalkthrough, {
 								step: 'accelerate-pr-reviews',
 								source: 'launchpad',
 								detail: 'info',
@@ -1111,7 +1111,7 @@ export class LaunchpadCommand extends QuickCommand<State> {
 								detail: 'Click to learn more about Launchpad',
 								iconPath: new ThemeIcon('rocket'),
 								onDidSelect: () =>
-									void executeCommand<OpenWalkthroughCommandArgs>(Commands.OpenWalkthrough, {
+									void executeCommand<OpenWalkthroughCommandArgs>(GlCommand.OpenWalkthrough, {
 										step: 'accelerate-pr-reviews',
 										source: 'launchpad',
 										detail: 'info',

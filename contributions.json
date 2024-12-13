@@ -3370,7 +3370,7 @@
 		},
 		"gitlens.plus.logout": {
 			"label": "Sign Out of GitKraken",
-			"commandPalette": "true"
+			"commandPalette": true
 		},
 		"gitlens.plus.manage": {
 			"label": "Manage Your Account...",
@@ -3589,7 +3589,8 @@
 			}
 		},
 		"gitlens.showAccountView": {
-			"label": "Show Account on Home"
+			"label": "Show Account on Home",
+			"commandPalette": true
 		},
 		"gitlens.showBranchesView": {
 			"label": "Show Branches View",
@@ -3724,7 +3725,7 @@
 		},
 		"gitlens.showHomeView": {
 			"label": "Show Home View",
-			"commandPalette": "gitlens:enabled"
+			"commandPalette": true
 		},
 		"gitlens.showInCommitGraph": {
 			"label": "Open in Commit Graph",

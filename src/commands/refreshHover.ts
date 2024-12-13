@@ -1,12 +1,12 @@
-import { Commands } from '../constants.commands';
+import { GlCommand } from '../constants.commands';
 import type { Container } from '../container';
 import { command, executeCoreCommand } from '../system/vscode/command';
-import { Command } from './base';
+import { GlCommandBase } from './base';
 
 @command()
-export class RefreshHoverCommand extends Command {
+export class RefreshHoverCommand extends GlCommandBase {
 	constructor(private readonly container: Container) {
-		super(Commands.RefreshHover);
+		super(GlCommand.RefreshHover);
 	}
 
 	async execute() {

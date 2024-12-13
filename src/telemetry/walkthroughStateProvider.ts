@@ -1,6 +1,6 @@
 import type { Event } from 'vscode';
 import { Disposable, EventEmitter } from 'vscode';
-import { Commands } from '../constants.commands';
+import { GlCommand } from '../constants.commands';
 import { SubscriptionState } from '../constants.subscription';
 import type { TrackedUsageKeys } from '../constants.telemetry';
 import type { Container } from '../container';
@@ -31,8 +31,8 @@ const triedProStates: Readonly<SubscriptionState[]> = [
 ];
 
 const tryProCommands: Readonly<TrackedUsageKeys[]> = [
-	`command:${Commands.PlusStartPreviewTrial}:executed`,
-	`command:${Commands.PlusReactivateProTrial}:executed`,
+	`command:${GlCommand.PlusStartPreviewTrial}:executed`,
+	`command:${GlCommand.PlusReactivateProTrial}:executed`,
 ];
 
 const walkthroughRequiredMapping: Readonly<Map<WalkthroughContextKeys, WalkthroughUsage>> = new Map<
@@ -57,11 +57,11 @@ const walkthroughRequiredMapping: Readonly<Map<WalkthroughContextKeys, Walkthrou
 				'graphView:shown',
 				'graphWebview:shown',
 				'commitDetailsView:shown',
-				`command:${Commands.ShowGraph}:executed`,
-				`command:${Commands.ShowGraphPage}:executed`,
-				`command:${Commands.ShowGraphView}:executed`,
-				`command:${Commands.ShowInCommitGraph}:executed`,
-				`command:${Commands.ShowInCommitGraphView}:executed`,
+				`command:${GlCommand.ShowGraph}:executed`,
+				`command:${GlCommand.ShowGraphPage}:executed`,
+				`command:${GlCommand.ShowGraphView}:executed`,
+				`command:${GlCommand.ShowInCommitGraph}:executed`,
+				`command:${GlCommand.ShowInCommitGraphView}:executed`,
 			],
 		},
 	],
@@ -73,12 +73,12 @@ const walkthroughRequiredMapping: Readonly<Map<WalkthroughContextKeys, Walkthrou
 			usage: [
 				'launchpadView:shown',
 				'worktreesView:shown',
-				`command:${Commands.ShowLaunchpad}:executed`,
-				`command:${Commands.ShowLaunchpadView}:executed`,
-				`command:${Commands.GitCommandsWorktree}:executed`,
-				`command:${Commands.GitCommandsWorktreeCreate}:executed`,
-				`command:${Commands.GitCommandsWorktreeDelete}:executed`,
-				`command:${Commands.GitCommandsWorktreeOpen}:executed`,
+				`command:${GlCommand.ShowLaunchpad}:executed`,
+				`command:${GlCommand.ShowLaunchpadView}:executed`,
+				`command:${GlCommand.GitCommandsWorktree}:executed`,
+				`command:${GlCommand.GitCommandsWorktreeCreate}:executed`,
+				`command:${GlCommand.GitCommandsWorktreeDelete}:executed`,
+				`command:${GlCommand.GitCommandsWorktreeOpen}:executed`,
 			],
 		},
 	],
@@ -91,10 +91,10 @@ const walkthroughRequiredMapping: Readonly<Map<WalkthroughContextKeys, Walkthrou
 				`patchDetailsView:shown`,
 				`patchDetailsWebview:shown`,
 				`draftsView:shown`,
-				`command:${Commands.ShowDraftsView}:executed`,
-				`command:${Commands.ShowPatchDetailsPage}:executed`,
-				`command:${Commands.CreateCloudPatch}:executed`,
-				`command:${Commands.CreatePatch}:executed`,
+				`command:${GlCommand.ShowDraftsView}:executed`,
+				`command:${GlCommand.ShowPatchDetailsPage}:executed`,
+				`command:${GlCommand.CreateCloudPatch}:executed`,
+				`command:${GlCommand.CreatePatch}:executed`,
 			],
 		},
 	],
@@ -102,8 +102,8 @@ const walkthroughRequiredMapping: Readonly<Map<WalkthroughContextKeys, Walkthrou
 		WalkthroughContextKeys.Integrations,
 		{
 			usage: [
-				`command:${Commands.PlusConnectCloudIntegrations}:executed`,
-				`command:${Commands.PlusManageCloudIntegrations}:executed`,
+				`command:${GlCommand.PlusConnectCloudIntegrations}:executed`,
+				`command:${GlCommand.PlusManageCloudIntegrations}:executed`,
 			],
 		},
 	],

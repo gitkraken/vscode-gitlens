@@ -1,4 +1,4 @@
-import { Commands } from '../constants.commands';
+import { GlCommand } from '../constants.commands';
 import type { Container } from '../container';
 import type { GitCommit } from '../git/models/commit';
 import type { GitRemote } from '../git/models/remote';
@@ -10,7 +10,7 @@ import { createMarkdownCommandLink } from '../system/commands';
 import { first } from '../system/iterable';
 import { command } from '../system/vscode/command';
 import type { CommandContext } from './base';
-import { Command, isCommandContextViewNodeHasRemote } from './base';
+import { GlCommandBase, isCommandContextViewNodeHasRemote } from './base';
 
 export interface ConnectRemoteProviderCommandArgs {
 	remote: string;
@@ -18,7 +18,7 @@ export interface ConnectRemoteProviderCommandArgs {
 }
 
 @command()
-export class ConnectRemoteProviderCommand extends Command {
+export class ConnectRemoteProviderCommand extends GlCommandBase {
 	static createMarkdownCommandLink(args: ConnectRemoteProviderCommandArgs): string;
 	static createMarkdownCommandLink(remote: GitRemote): string;
 	static createMarkdownCommandLink(argsOrRemote: ConnectRemoteProviderCommandArgs | GitRemote): string {
@@ -32,11 +32,11 @@ export class ConnectRemoteProviderCommand extends Command {
 			args = argsOrRemote;
 		}
 
-		return createMarkdownCommandLink<ConnectRemoteProviderCommandArgs>(Commands.ConnectRemoteProvider, args);
+		return createMarkdownCommandLink<ConnectRemoteProviderCommandArgs>(GlCommand.ConnectRemoteProvider, args);
 	}
 
 	constructor(private readonly container: Container) {
-		super(Commands.ConnectRemoteProvider);
+		super(GlCommand.ConnectRemoteProvider);
 	}
 
 	protected override preExecute(context: CommandContext, args?: ConnectRemoteProviderCommandArgs) {
@@ -111,7 +111,7 @@ export interface DisconnectRemoteProviderCommandArgs {
 }
 
 @command()
-export class DisconnectRemoteProviderCommand extends Command {
+export class DisconnectRemoteProviderCommand extends GlCommandBase {
 	static createMarkdownCommandLink(args: DisconnectRemoteProviderCommandArgs): string;
 	static createMarkdownCommandLink(remote: GitRemote): string;
 	static createMarkdownCommandLink(argsOrRemote: DisconnectRemoteProviderCommandArgs | GitRemote): string {
@@ -125,11 +125,11 @@ export class DisconnectRemoteProviderCommand extends Command {
 			args = argsOrRemote;
 		}
 
-		return createMarkdownCommandLink<DisconnectRemoteProviderCommandArgs>(Commands.DisconnectRemoteProvider, args);
+		return createMarkdownCommandLink<DisconnectRemoteProviderCommandArgs>(GlCommand.DisconnectRemoteProvider, args);
 	}
 
 	constructor(private readonly container: Container) {
-		super(Commands.DisconnectRemoteProvider);
+		super(GlCommand.DisconnectRemoteProvider);
 	}
 
 	protected override preExecute(context: CommandContext, args?: DisconnectRemoteProviderCommandArgs) {

@@ -3,7 +3,7 @@ import { Disposable, MarkdownString, StatusBarAlignment, ThemeColor, window } fr
 import type { OpenWalkthroughCommandArgs } from '../../commands/walkthroughs';
 import { proBadge } from '../../constants';
 import type { Colors } from '../../constants.colors';
-import { Commands } from '../../constants.commands';
+import { GlCommand } from '../../constants.commands';
 import type { HostingIntegrationId } from '../../constants.integrations';
 import type { Container } from '../../container';
 import { groupByMap } from '../../system/iterable';
@@ -308,7 +308,7 @@ export class LaunchpadIndicator implements Disposable {
 		const labelType = configuration.get('launchpad.indicator.label') ?? 'item';
 		this._statusBarLaunchpad.command = {
 			title: 'Open Launchpad',
-			command: Commands.ShowLaunchpad,
+			command: GlCommand.ShowLaunchpad,
 			arguments: [
 				{
 					source: 'launchpad-indicator',
@@ -540,7 +540,7 @@ export class LaunchpadIndicator implements Disposable {
 				this.storeFirstInteractionIfNeeded();
 				switch (action) {
 					case 'info': {
-						void executeCommand<OpenWalkthroughCommandArgs>(Commands.OpenWalkthrough, {
+						void executeCommand<OpenWalkthroughCommandArgs>(GlCommand.OpenWalkthrough, {
 							step: 'accelerate-pr-reviews',
 							source: 'launchpad-indicator',
 							detail: 'info',

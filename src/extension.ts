@@ -8,7 +8,7 @@ import type { CreatePullRequestOnRemoteCommandArgs } from './commands/createPull
 import type { OpenPullRequestOnRemoteCommandArgs } from './commands/openPullRequestOnRemote';
 import { fromOutputLevel } from './config';
 import { trackableSchemes } from './constants';
-import { Commands } from './constants.commands';
+import { GlCommand } from './constants.commands';
 import { SyncedStorageKeys } from './constants.storage';
 import { Container } from './container';
 import { isGitUri } from './git/gitUri';
@@ -202,7 +202,7 @@ export async function activate(context: ExtensionContext): Promise<GitLensApi | 
 
 				if (!container.prereleaseOrDebugging) {
 					if (await showDebugLoggingWarningMessage()) {
-						void executeCommand(Commands.DisableDebugLogging);
+						void executeCommand(GlCommand.DisableDebugLogging);
 					}
 				}
 			}, 60000);
@@ -292,7 +292,7 @@ function registerBuiltInActionRunners(container: Container): void {
 			run: async ctx => {
 				if (ctx.type !== 'createPullRequest') return;
 
-				void (await executeCommand<CreatePullRequestOnRemoteCommandArgs>(Commands.CreatePullRequestOnRemote, {
+				void (await executeCommand<CreatePullRequestOnRemoteCommandArgs>(GlCommand.CreatePullRequestOnRemote, {
 					base: undefined,
 					compare: ctx.branch.isRemote
 						? getBranchNameWithoutRemote(ctx.branch.name)
@@ -309,7 +309,7 @@ function registerBuiltInActionRunners(container: Container): void {
 			run: async ctx => {
 				if (ctx.type !== 'openPullRequest') return;
 
-				void (await executeCommand<OpenPullRequestOnRemoteCommandArgs>(Commands.OpenPullRequestOnRemote, {
+				void (await executeCommand<OpenPullRequestOnRemoteCommandArgs>(GlCommand.OpenPullRequestOnRemote, {
 					pr: { url: ctx.pullRequest.url },
 				}));
 			},

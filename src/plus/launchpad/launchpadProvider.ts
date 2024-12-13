@@ -6,7 +6,7 @@ import type {
 } from '@gitkraken/provider-apis';
 import type { CancellationToken, ConfigurationChangeEvent } from 'vscode';
 import { Disposable, env, EventEmitter, Uri, window } from 'vscode';
-import { Commands } from '../../constants.commands';
+import { GlCommand } from '../../constants.commands';
 import type { IntegrationId } from '../../constants.integrations';
 import { HostingIntegrationId } from '../../constants.integrations';
 import type { Container } from '../../container';
@@ -500,7 +500,7 @@ export class LaunchpadProvider implements Disposable {
 		if (draft == null) return;
 		this._codeSuggestions?.delete(item.uuid);
 		this._prs = undefined;
-		void executeCommand(Commands.OpenCloudPatch, {
+		void executeCommand(GlCommand.OpenCloudPatch, {
 			type: 'code_suggestion',
 			draft: draft,
 		});
@@ -944,7 +944,7 @@ export class LaunchpadProvider implements Disposable {
 
 	private registerCommands(): Disposable[] {
 		return [
-			registerCommand(Commands.ToggleLaunchpadIndicator, () => {
+			registerCommand(GlCommand.ToggleLaunchpadIndicator, () => {
 				const enabled = configuration.get('launchpad.indicator.enabled') ?? false;
 				void configuration.updateEffective('launchpad.indicator.enabled', !enabled);
 			}),
