@@ -6,6 +6,7 @@ import antiTrojanSource from 'eslint-plugin-anti-trojan-source';
 import importX from 'eslint-plugin-import-x';
 import { configs as litConfigs } from 'eslint-plugin-lit';
 import { configs as wcConfigs } from 'eslint-plugin-wc';
+import noSrcImports from './scripts/eslint-rules/no-src-imports.js';
 
 export default ts.config(
 	js.configs.recommended,
@@ -20,8 +21,14 @@ export default ts.config(
 		plugins: {
 			'import-x': importX,
 			'anti-trojan-source': antiTrojanSource,
+			'@gitlens': {
+				rules: {
+					'no-src-imports': noSrcImports,
+				},
+			},
 		},
 		rules: {
+			'@gitlens/no-src-imports': 'error',
 			'anti-trojan-source/no-bidi': 'error',
 			curly: ['error', 'multi-line', 'consistent'],
 			eqeqeq: ['error', 'always', { null: 'ignore' }],
@@ -251,10 +258,6 @@ export default ts.config(
 							message: 'Use @env/ instead',
 						},
 						{
-							group: ['src/*'],
-							message: 'Use relative paths instead',
-						},
-						{
 							group: ['react-dom'],
 							importNames: ['Container'],
 							message: 'Use our Container instead',
@@ -341,10 +344,6 @@ export default ts.config(
 				{
 					patterns: [
 						{
-							group: ['src/*'],
-							message: 'Use relative paths instead',
-						},
-						{
 							group: ['react-dom'],
 							importNames: ['Container'],
 							message: 'Use our Container instead',
@@ -419,10 +418,6 @@ export default ts.config(
 				'error',
 				{
 					patterns: [
-						{
-							group: ['src/*'],
-							message: 'Use relative paths instead',
-						},
 						{
 							group: ['react-dom'],
 							importNames: ['Container'],
