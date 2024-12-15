@@ -4,7 +4,7 @@ import { Disposable, ThemeIcon, TreeItem, TreeItemCheckboxState, TreeItemCollaps
 import type { StoredNamedRef } from '../../constants.storage';
 import type { FilesComparison } from '../../git/actions/commit';
 import { GitUri } from '../../git/gitUri';
-import { createRevisionRange, shortenRevision } from '../../git/models/reference';
+import { createRevisionRange , shortenRevision } from '../../git/models/revision.utils';
 import type { GitUser } from '../../git/models/user';
 import type { CommitsQueryResults, FilesQueryResults } from '../../git/queryResults';
 import { getAheadBehindFilesQuery, getCommitsQuery, getFilesQuery } from '../../git/queryResults';

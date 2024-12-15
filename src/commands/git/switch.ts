@@ -1,12 +1,8 @@
 import { ProgressLocation, window } from 'vscode';
 import type { Container } from '../../container';
+import { getNameWithoutRemote } from '../../git/models/branch.utils';
 import type { GitReference } from '../../git/models/reference';
-import {
-	getNameWithoutRemote,
-	getReferenceLabel,
-	getReferenceTypeLabel,
-	isBranchReference,
-} from '../../git/models/reference';
+import { getReferenceLabel, getReferenceTypeLabel, isBranchReference } from '../../git/models/reference.utils';
 import type { Repository } from '../../git/models/repository';
 import type { QuickPickItemOfT } from '../../quickpicks/items/common';
 import { createQuickPickSeparator } from '../../quickpicks/items/common';

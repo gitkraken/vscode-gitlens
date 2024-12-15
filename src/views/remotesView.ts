@@ -4,14 +4,15 @@ import type { RemotesViewConfig, ViewBranchesLayout, ViewFilesLayout } from '../
 import { GlCommand } from '../constants.commands';
 import type { Container } from '../container';
 import { GitUri } from '../git/gitUri';
-import { getRemoteNameFromBranchName } from '../git/models/branch';
+import { getRemoteNameFromBranchName } from '../git/models/branch.utils';
 import type { GitCommit } from '../git/models/commit';
 import { isCommit } from '../git/models/commit';
 import type { GitBranchReference, GitRevisionReference } from '../git/models/reference';
-import { getReferenceLabel } from '../git/models/reference';
+import { getReferenceLabel } from '../git/models/reference.utils';
 import type { GitRemote } from '../git/models/remote';
 import type { RepositoryChangeEvent } from '../git/models/repository';
-import { groupRepositories, RepositoryChange, RepositoryChangeComparisonMode } from '../git/models/repository';
+import { RepositoryChange, RepositoryChangeComparisonMode } from '../git/models/repository';
+import { groupRepositories } from '../git/models/repository.utils';
 import { gate } from '../system/decorators/gate';
 import { executeCommand } from '../system/vscode/command';
 import { configuration } from '../system/vscode/configuration';

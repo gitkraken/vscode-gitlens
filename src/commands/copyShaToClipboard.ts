@@ -3,7 +3,7 @@ import { env } from 'vscode';
 import { GlCommand } from '../constants.commands';
 import type { Container } from '../container';
 import { GitUri } from '../git/gitUri';
-import { shortenRevision } from '../git/models/reference';
+import { shortenRevision } from '../git/models/revision.utils';
 import { showGenericErrorMessage } from '../messages';
 import { first } from '../system/iterable';
 import { Logger } from '../system/logger';

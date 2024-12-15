@@ -4,9 +4,8 @@ import { Container } from '../../container';
 import { memoize } from '../../system/decorators/memoize';
 import { pluralize } from '../../system/string';
 import type { GitBranchStatus, GitTrackingState } from './branch';
-import { formatDetachedHeadName, getRemoteNameFromBranchName, isDetachedHead } from './branch';
+import { formatDetachedHeadName, getRemoteNameFromBranchName, isDetachedHead } from './branch.utils';
 import { GitCommit, GitCommitIdentity } from './commit';
-import { uncommitted, uncommittedStaged } from './constants';
 import type { GitFile, GitFileStatus } from './file';
 import {
 	getGitFileFormattedDirectory,
@@ -18,6 +17,7 @@ import {
 	GitFileWorkingTreeStatus,
 } from './file';
 import type { GitRemote } from './remote';
+import { uncommitted, uncommittedStaged } from './revision';
 import type { GitUser } from './user';
 
 export interface ComputedWorkingTreeGitStatus {

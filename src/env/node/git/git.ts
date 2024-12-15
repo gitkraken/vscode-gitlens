@@ -28,8 +28,8 @@ import {
 } from '../../../git/errors';
 import type { GitDir } from '../../../git/gitProvider';
 import type { GitDiffFilter } from '../../../git/models/diff';
-import type { GitRevisionRange } from '../../../git/models/reference';
-import { isUncommitted, isUncommittedStaged, shortenRevision } from '../../../git/models/reference';
+import type { GitRevisionRange } from '../../../git/models/revision';
+import { isUncommitted, isUncommittedStaged , shortenRevision } from '../../../git/models/revision.utils';
 import type { GitUser } from '../../../git/models/user';
 import { parseGitBranchesDefaultFormat } from '../../../git/parsers/branchParser';
 import { parseGitLogAllFormat, parseGitLogDefaultFormat } from '../../../git/parsers/logParser';

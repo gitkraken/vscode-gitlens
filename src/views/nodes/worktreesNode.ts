@@ -3,7 +3,7 @@ import { GlyphChars } from '../../constants';
 import { PlusFeatures } from '../../features';
 import type { GitUri } from '../../git/gitUri';
 import type { Repository } from '../../git/models/repository';
-import { sortWorktrees } from '../../git/models/worktree';
+import { sortWorktrees } from '../../git/utils/sorting';
 import { filterMap } from '../../system/array';
 import { debug } from '../../system/decorators/log';
 import { map } from '../../system/iterable';

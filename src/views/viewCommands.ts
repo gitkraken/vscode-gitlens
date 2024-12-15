@@ -22,7 +22,6 @@ import * as StashActions from '../git/actions/stash';
 import * as TagActions from '../git/actions/tag';
 import * as WorktreeActions from '../git/actions/worktree';
 import { GitUri } from '../git/gitUri';
-import { deletedOrMissing } from '../git/models/constants';
 import { matchContributor } from '../git/models/contributor';
 import {
 	ensurePullRequestRefs,
@@ -31,8 +30,10 @@ import {
 	getOrOpenPullRequestRepository,
 	getRepositoryIdentityForPullRequest,
 } from '../git/models/pullRequest';
-import { createReference, shortenRevision } from '../git/models/reference';
+import { createReference } from '../git/models/reference.utils';
 import { RemoteResourceType } from '../git/models/remoteResource';
+import { deletedOrMissing } from '../git/models/revision';
+import { shortenRevision } from '../git/models/revision.utils';
 import { showPatchesView } from '../plus/drafts/actions';
 import { getPullRequestBranchDeepLink } from '../plus/launchpad/launchpadProvider';
 import { showContributorsPicker } from '../quickpicks/contributorsPicker';

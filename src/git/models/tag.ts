@@ -1,16 +1,8 @@
-import type { TagSorting } from '../../config';
 import { Container } from '../../container';
 import { formatDate, fromNow } from '../../system/date';
 import { memoize } from '../../system/decorators/memoize';
 import { getLoggableName } from '../../system/logger';
-import { sortCompare } from '../../system/string';
-import { configuration } from '../../system/vscode/configuration';
 import type { GitReference, GitTagReference } from './reference';
-
-export interface TagSortOptions {
-	current?: boolean;
-	orderBy?: TagSorting;
-}
 
 export function getTagId(repoPath: string, name: string): string {
 	return `${repoPath}|tag/${name}`;
@@ -76,20 +68,4 @@ export function isTag(tag: any): tag is GitTag {
 
 export function isOfTagRefType(tag: GitReference | undefined) {
 	return tag?.refType === 'tag';
-}
-
-export function sortTags(tags: GitTag[], options?: TagSortOptions) {
-	options = { orderBy: configuration.get('sortTagsBy'), ...options };
-
-	switch (options.orderBy) {
-		case 'date:asc':
-			return tags.sort((a, b) => (a.date?.getTime() ?? 0) - (b.date?.getTime() ?? 0));
-		case 'name:asc':
-			return tags.sort((a, b) => sortCompare(a.name, b.name));
-		case 'name:desc':
-			return tags.sort((a, b) => sortCompare(b.name, a.name));
-		case 'date:desc':
-		default:
-			return tags.sort((a, b) => (b.date?.getTime() ?? 0) - (a.date?.getTime() ?? 0));
-	}
 }

@@ -13,14 +13,15 @@ import { pluralize } from '../../system/string';
 import type { PreviousLineComparisonUrisResult } from '../gitProvider';
 import { GitUri } from '../gitUri';
 import type { RemoteProvider } from '../remotes/remoteProvider';
-import { uncommitted, uncommittedStaged } from './constants';
+import { getChangedFilesCount } from './commit.utils';
 import type { GitFile } from './file';
 import { GitFileChange, mapFilesWithStats } from './file';
 import type { PullRequest } from './pullRequest';
 import type { GitReference, GitRevisionReference, GitStashReference } from './reference';
-import { isSha, isUncommitted, isUncommittedParent, isUncommittedStaged } from './reference';
 import type { GitRemote } from './remote';
 import type { Repository } from './repository';
+import { uncommitted, uncommittedStaged } from './revision';
+import { isSha, isUncommitted, isUncommittedParent, isUncommittedStaged } from './revision.utils';
 
 const stashNumberRegex = /stash@{(\d+)}/;
 
@@ -710,14 +711,6 @@ export interface GitCommitStats {
 	readonly additions: number;
 	readonly deletions: number;
 	readonly changedFiles: number | { added: number; deleted: number; changed: number };
-}
-
-export function getChangedFilesCount(changedFiles: GitCommitStats['changedFiles'] | undefined): number {
-	if (changedFiles == null) return 0;
-
-	return typeof changedFiles === 'number'
-		? changedFiles
-		: changedFiles.added + changedFiles.changed + changedFiles.deleted;
 }
 
 export interface GitStashCommit extends GitCommit {

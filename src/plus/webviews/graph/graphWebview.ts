@@ -56,10 +56,10 @@ import {
 	getLocalBranchByUpstream,
 	getRemoteNameFromBranchName,
 	getTargetBranchName,
-} from '../../../git/models/branch';
+} from '../../../git/models/branch.utils';
 import type { GitCommit } from '../../../git/models/commit';
 import { isStash } from '../../../git/models/commit';
-import { uncommitted } from '../../../git/models/constants';
+import { splitCommitMessage } from '../../../git/models/commit.utils';
 import { GitContributor } from '../../../git/models/contributor';
 import type { GitGraph, GitGraphRowType } from '../../../git/models/graph';
 import type { PullRequest } from '../../../git/models/pullRequest';
@@ -75,14 +75,7 @@ import type {
 	GitStashReference,
 	GitTagReference,
 } from '../../../git/models/reference';
-import {
-	createReference,
-	getReferenceFromBranch,
-	isGitReference,
-	isSha,
-	shortenRevision,
-} from '../../../git/models/reference';
-import { getRemoteIconUri } from '../../../git/models/remote';
+import { createReference, getReferenceFromBranch, isGitReference } from '../../../git/models/reference.utils';
 import { RemoteResourceType } from '../../../git/models/remoteResource';
 import type { RepositoryChangeEvent, RepositoryFileSystemChangeEvent } from '../../../git/models/repository';
 import {
@@ -91,10 +84,12 @@ import {
 	RepositoryChange,
 	RepositoryChangeComparisonMode,
 } from '../../../git/models/repository';
-import { getWorktreesByBranch } from '../../../git/models/worktree';
+import { uncommitted } from '../../../git/models/revision';
+import { isSha, shortenRevision } from '../../../git/models/revision.utils';
+import { getWorktreesByBranch } from '../../../git/models/worktree.utils';
 import type { GitSearch } from '../../../git/search';
 import { getSearchQueryComparisonKey, parseSearchQuery } from '../../../git/search';
-import { splitGitCommitMessage } from '../../../git/utils/commit-utils';
+import { getRemoteIconUri } from '../../../git/utils/icons';
 import { ReferencesQuickPickIncludes, showReferencePicker } from '../../../quickpicks/referencePicker';
 import { showRepositoryPicker } from '../../../quickpicks/repositoryPicker';
 import { gate } from '../../../system/decorators/gate';
@@ -3260,7 +3255,7 @@ export class GraphWebviewProvider implements WebviewProvider<State, State, Graph
 
 		if (ref == null) return Promise.resolve();
 
-		const { title, description } = splitGitCommitMessage(ref.message);
+		const { summary: title, body: description } = splitCommitMessage(ref.message);
 		return executeCommand<CreatePatchCommandArgs, void>(GlCommand.CreateCloudPatch, {
 			to: ref.ref,
 			repoPath: ref.repoPath,

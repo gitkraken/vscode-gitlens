@@ -1,6 +1,6 @@
 import { GlyphChars } from '../../constants';
 import type { Container } from '../../container';
-import { createReference, getReferenceLabel } from '../../git/models/reference';
+import { createReference, getReferenceLabel } from '../../git/models/reference.utils';
 import type { Repository } from '../../git/models/repository';
 import type { GitStatus } from '../../git/models/status';
 import { CommandQuickPickItem } from '../../quickpicks/items/common';

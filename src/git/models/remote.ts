@@ -1,14 +1,10 @@
-import type { ColorTheme } from 'vscode';
-import { Uri, window } from 'vscode';
 import { GlyphChars } from '../../constants';
 import type { Container } from '../../container';
 import type { HostingIntegration } from '../../plus/integrations/integration';
 import { memoize } from '../../system/decorators/memoize';
 import { equalsIgnoreCase, sortCompare } from '../../system/string';
-import { isLightTheme } from '../../system/vscode/utils';
 import { parseGitRemoteUrl } from '../parsers/remoteParser';
 import type { RemoteProvider } from '../remotes/remoteProvider';
-import { getRemoteProviderThemeIconString } from '../remotes/remoteProvider';
 
 export type GitRemoteType = 'fetch' | 'push';
 
@@ -153,23 +149,12 @@ export function getRemoteArrowsGlyph(remote: GitRemote): GlyphChars {
 	return arrows;
 }
 
-export function getRemoteIconUri(
-	container: Container,
-	remote: GitRemote,
-	asWebviewUri?: (uri: Uri) => Uri,
-	theme: ColorTheme = window.activeColorTheme,
-): Uri | undefined {
-	if (remote.provider?.icon == null) return undefined;
-
-	const uri = Uri.joinPath(
-		container.context.extensionUri,
-		`images/${isLightTheme(theme) ? 'light' : 'dark'}/icon-${remote.provider.icon}.svg`,
-	);
-	return asWebviewUri != null ? asWebviewUri(uri) : uri;
-}
-
 export function getRemoteThemeIconString(remote: GitRemote | undefined): string {
 	return getRemoteProviderThemeIconString(remote?.provider);
+}
+
+export function getRemoteProviderThemeIconString(provider: RemoteProvider | undefined): string {
+	return provider != null ? `gitlens-provider-${provider.icon}` : 'cloud';
 }
 
 export function getRemoteUpstreamDescription(remote: GitRemote): string {

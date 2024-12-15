@@ -21,19 +21,12 @@ import { findOrOpenEditor, findOrOpenEditors, openChangesEditor } from '../../sy
 import { GitUri } from '../gitUri';
 import type { GitCommit } from '../models/commit';
 import { isCommit } from '../models/commit';
-import { deletedOrMissing } from '../models/constants';
 import type { GitFile } from '../models/file';
 import { GitFileChange } from '../models/file';
 import type { GitRevisionReference } from '../models/reference';
-import {
-	createReference,
-	createRevisionRange,
-	getReferenceFromRevision,
-	getReferenceLabel,
-	isUncommitted,
-	isUncommittedStaged,
-	shortenRevision,
-} from '../models/reference';
+import { createReference, getReferenceFromRevision, getReferenceLabel } from '../models/reference.utils';
+import { deletedOrMissing } from '../models/revision';
+import { createRevisionRange, isUncommitted, isUncommittedStaged, shortenRevision } from '../models/revision.utils';
 import { getAheadBehindFilesQuery } from '../queryResults';
 
 export type Ref = { repoPath: string; ref: string };

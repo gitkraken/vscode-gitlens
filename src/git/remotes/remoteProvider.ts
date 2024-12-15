@@ -216,7 +216,3 @@ export abstract class RemoteProvider<T extends ResourceDescriptor = ResourceDesc
 		return urls;
 	}
 }
-
-export function getRemoteProviderThemeIconString(provider: RemoteProvider | undefined): string {
-	return provider != null ? `gitlens-provider-${provider.icon}` : 'cloud';
-}

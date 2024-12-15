@@ -42,11 +42,11 @@ import type {
 import { GitUri } from '../../../../git/gitUri';
 import { decodeRemoteHubAuthority } from '../../../../git/gitUri.authority';
 import type { GitBlame, GitBlameAuthor, GitBlameLine } from '../../../../git/models/blame';
-import type { BranchSortOptions } from '../../../../git/models/branch';
-import { getBranchId, getBranchNameWithoutRemote, GitBranch, sortBranches } from '../../../../git/models/branch';
+import { GitBranch } from '../../../../git/models/branch';
+import { getBranchId, getBranchNameWithoutRemote } from '../../../../git/models/branch.utils';
 import type { GitCommitLine, GitStashCommit } from '../../../../git/models/commit';
-import { getChangedFilesCount, GitCommit, GitCommitIdentity } from '../../../../git/models/commit';
-import { deletedOrMissing, uncommitted } from '../../../../git/models/constants';
+import { GitCommit, GitCommitIdentity } from '../../../../git/models/commit';
+import { getChangedFilesCount } from '../../../../git/models/commit.utils';
 import type { GitContributorStats } from '../../../../git/models/contributor';
 import { GitContributor } from '../../../../git/models/contributor';
 import type { GitDiffFile, GitDiffFilter, GitDiffLine, GitDiffShortStat } from '../../../../git/models/diff';
@@ -64,24 +64,25 @@ import type {
 import type { GitLog } from '../../../../git/models/log';
 import type { GitMergeStatus } from '../../../../git/models/merge';
 import type { GitRebaseStatus } from '../../../../git/models/rebase';
-import type { GitReference, GitRevisionRange } from '../../../../git/models/reference';
+import type { GitReference } from '../../../../git/models/reference';
+import { createReference } from '../../../../git/models/reference.utils';
+import type { GitReflog } from '../../../../git/models/reflog';
+import { getVisibilityCacheKey, GitRemote } from '../../../../git/models/remote';
+import type { RepositoryChangeEvent } from '../../../../git/models/repository';
+import { Repository } from '../../../../git/models/repository';
+import type { GitRevisionRange } from '../../../../git/models/revision';
+import { deletedOrMissing, uncommitted } from '../../../../git/models/revision';
 import {
-	createReference,
 	createRevisionRange,
 	getRevisionRangeParts,
 	isRevisionRange,
 	isSha,
 	isShaLike,
 	isUncommitted,
-} from '../../../../git/models/reference';
-import type { GitReflog } from '../../../../git/models/reflog';
-import { getRemoteIconUri, getVisibilityCacheKey, GitRemote } from '../../../../git/models/remote';
-import type { RepositoryChangeEvent } from '../../../../git/models/repository';
-import { Repository } from '../../../../git/models/repository';
+} from '../../../../git/models/revision.utils';
 import type { GitStatusFile } from '../../../../git/models/status';
 import { GitStatus } from '../../../../git/models/status';
-import type { TagSortOptions } from '../../../../git/models/tag';
-import { getTagId, GitTag, sortTags } from '../../../../git/models/tag';
+import { getTagId, GitTag } from '../../../../git/models/tag';
 import type { GitTreeEntry } from '../../../../git/models/tree';
 import type { GitUser } from '../../../../git/models/user';
 import { isUserMatch } from '../../../../git/models/user';
@@ -89,6 +90,9 @@ import type { GitWorktree } from '../../../../git/models/worktree';
 import { getRemoteProviderMatcher, loadRemoteProviders } from '../../../../git/remotes/remoteProviders';
 import type { GitSearch, GitSearchResultData, GitSearchResults } from '../../../../git/search';
 import { getSearchQueryComparisonKey, parseSearchQuery } from '../../../../git/search';
+import { getRemoteIconUri } from '../../../../git/utils/icons';
+import type { BranchSortOptions, TagSortOptions } from '../../../../git/utils/sorting';
+import { sortBranches, sortTags } from '../../../../git/utils/sorting';
 import { gate } from '../../../../system/decorators/gate';
 import { debug, log } from '../../../../system/decorators/log';
 import { filterMap, first, last, map, some, union } from '../../../../system/iterable';

@@ -7,8 +7,8 @@ import type { IntegrationId } from '../../constants.integrations';
 import type { Container } from '../../container';
 import type { GitCommit } from '../../git/models/commit';
 import type { PullRequest } from '../../git/models/pullRequest';
-import { isSha, isUncommitted, shortenRevision } from '../../git/models/reference';
 import { isRepository, Repository } from '../../git/models/repository';
+import { isSha, isUncommitted , shortenRevision } from '../../git/models/revision.utils';
 import type { GitUser } from '../../git/models/user';
 import { getRemoteProviderMatcher } from '../../git/remotes/remoteProviders';
 import type {

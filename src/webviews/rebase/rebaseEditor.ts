@@ -11,7 +11,7 @@ import { InspectCommand } from '../../commands/inspect';
 import type { Container } from '../../container';
 import { emojify } from '../../emojis';
 import type { GitCommit } from '../../git/models/commit';
-import { createReference } from '../../git/models/reference';
+import { createReference } from '../../git/models/reference.utils';
 import { RepositoryChange, RepositoryChangeComparisonMode } from '../../git/models/repository';
 import { showRebaseSwitchToTextWarningMessage } from '../../messages';
 import { getScopedCounter } from '../../system/counter';

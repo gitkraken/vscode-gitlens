@@ -9,7 +9,7 @@ import type { GitCommit } from '../git/models/commit';
 import { isCommit } from '../git/models/commit';
 import { matchContributor } from '../git/models/contributor';
 import type { GitRevisionReference } from '../git/models/reference';
-import { getReferenceLabel } from '../git/models/reference';
+import { getReferenceLabel } from '../git/models/reference.utils';
 import type { RepositoryChangeEvent } from '../git/models/repository';
 import { Repository, RepositoryChange, RepositoryChangeComparisonMode } from '../git/models/repository';
 import type { GitUser } from '../git/models/user';

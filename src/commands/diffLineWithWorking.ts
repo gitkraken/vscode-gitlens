@@ -4,7 +4,7 @@ import { GlCommand } from '../constants.commands';
 import type { Container } from '../container';
 import { GitUri } from '../git/gitUri';
 import type { GitCommit } from '../git/models/commit';
-import { uncommittedStaged } from '../git/models/constants';
+import { uncommittedStaged } from '../git/models/revision';
 import { showFileNotUnderSourceControlWarningMessage, showGenericErrorMessage } from '../messages';
 import { Logger } from '../system/logger';
 import { command, executeCommand } from '../system/vscode/command';

@@ -2,8 +2,8 @@ import { ThemeIcon } from 'vscode';
 import type { IconPath } from '../../@types/vscode.iconpath';
 import type { Container } from '../../container';
 import { getIconPathUris } from '../../system/vscode/vscode';
-import type { GitRemote } from '../models/remote';
-import { getRemoteThemeIconString } from '../models/remote';
+import type { GitRemote } from './remote';
+import { getRemoteThemeIconString } from './remote';
 
 export function getRemoteIconPath(
 	container: Container,

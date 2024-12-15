@@ -9,8 +9,8 @@ import { GlCommand } from '../constants.commands';
 import type { Container } from '../container';
 import type { PagedResult } from '../git/gitProvider';
 import type { GitBranch } from '../git/models/branch';
-import { getBranchNameWithoutRemote } from '../git/models/branch';
-import { createReference } from '../git/models/reference';
+import { getBranchNameWithoutRemote } from '../git/models/branch.utils';
+import { createReference } from '../git/models/reference.utils';
 import type { GitTag } from '../git/models/tag';
 import { configuration } from '../system/vscode/configuration';
 

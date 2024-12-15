@@ -7,7 +7,7 @@ import { getHighlanderProviders } from '../../git/models/remote';
 import type { RepositoryChangeEvent, RepositoryFileSystemChangeEvent } from '../../git/models/repository';
 import { Repository, RepositoryChange, RepositoryChangeComparisonMode } from '../../git/models/repository';
 import type { GitStatus } from '../../git/models/status';
-import { getRepositoryStatusIconPath } from '../../git/utils/repository-utils';
+import { getRepositoryStatusIconPath } from '../../git/utils/icons';
 import type {
 	CloudWorkspace,
 	CloudWorkspaceRepositoryDescriptor,

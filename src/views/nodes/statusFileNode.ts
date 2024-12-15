@@ -7,7 +7,7 @@ import { StatusFileFormatter } from '../../git/formatters/statusFormatter';
 import { GitUri } from '../../git/gitUri';
 import type { GitFileWithCommit } from '../../git/models/file';
 import { getGitFileStatusIcon, isGitFileChange } from '../../git/models/file';
-import { shortenRevision } from '../../git/models/reference';
+import { shortenRevision } from '../../git/models/revision.utils';
 import { joinPaths } from '../../system/path';
 import { relativeDir } from '../../system/vscode/path';
 import type { ViewsWithCommits } from '../viewBase';

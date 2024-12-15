@@ -2,7 +2,7 @@ import type { SearchOperators, SearchOperatorsLongForm, SearchQuery } from '../c
 import { searchOperationRegex, searchOperatorsToLongFormMap } from '../constants.search';
 import type { StoredSearchQuery } from '../constants.storage';
 import type { GitRevisionReference } from './models/reference';
-import { isSha, shortenRevision } from './models/reference';
+import { isSha , shortenRevision } from './models/revision.utils';
 import type { GitUser } from './models/user';
 
 export interface GitSearchResultData {

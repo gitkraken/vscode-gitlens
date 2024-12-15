@@ -22,10 +22,10 @@ import type { DefaultBranch } from '../../../../git/models/defaultBranch';
 import type { IssueOrPullRequest, SearchedIssue } from '../../../../git/models/issue';
 import type { PullRequest, SearchedPullRequest } from '../../../../git/models/pullRequest';
 import { PullRequestMergeMethod } from '../../../../git/models/pullRequest';
-import type { GitRevisionRange } from '../../../../git/models/reference';
-import { createRevisionRange, getRevisionRangeParts, isRevisionRange, isSha } from '../../../../git/models/reference';
 import type { Provider } from '../../../../git/models/remoteProvider';
 import type { RepositoryMetadata } from '../../../../git/models/repositoryMetadata';
+import type { GitRevisionRange } from '../../../../git/models/revision';
+import { createRevisionRange , getRevisionRangeParts, isRevisionRange, isSha } from '../../../../git/models/revision.utils';
 import type { GitUser } from '../../../../git/models/user';
 import { getGitHubNoReplyAddressParts } from '../../../../git/remotes/github';
 import {

@@ -2,7 +2,6 @@ import { md5, uuid } from '@env/crypto';
 import type { ConfigurationChangeEvent, Event, Uri, WorkspaceFolder } from 'vscode';
 import { Disposable, EventEmitter, ProgressLocation, RelativePattern, window, workspace } from 'vscode';
 import type { CreatePullRequestActionContext } from '../../api/gitlens';
-import type { RepositoriesSorting } from '../../config';
 import { Schemes } from '../../constants';
 import type { Container } from '../../container';
 import type { FeatureAccess, PlusFeatures } from '../../features';
@@ -15,20 +14,19 @@ import { debug, log, logName } from '../../system/decorators/log';
 import { memoize } from '../../system/decorators/memoize';
 import type { Deferrable } from '../../system/function';
 import { debounce } from '../../system/function';
-import { filter, groupByMap, join, map, min, some } from '../../system/iterable';
+import { filter, groupByMap, join, min, some } from '../../system/iterable';
 import { getLoggableName, Logger } from '../../system/logger';
 import { getLogScope } from '../../system/logger.scope';
 import { updateRecordValue } from '../../system/object';
 import { basename, normalizePath } from '../../system/path';
-import { sortCompare } from '../../system/string';
 import { executeActionCommand } from '../../system/vscode/command';
 import { configuration } from '../../system/vscode/configuration';
 import type { GitProviderDescriptor, GitProviderRepository } from '../gitProvider';
 import type { GitProviderService } from '../gitProviderService';
 import type { GitBranch } from './branch';
-import { getBranchNameWithoutRemote, getRemoteNameFromBranchName } from './branch';
+import { getBranchNameWithoutRemote, getNameWithoutRemote , getRemoteNameFromBranchName } from './branch.utils';
 import type { GitBranchReference, GitReference } from './reference';
-import { getNameWithoutRemote, isBranchReference } from './reference';
+import { isBranchReference } from './reference.utils';
 import type { GitRemote } from './remote';
 import type { GitWorktree } from './worktree';
 
@@ -71,10 +69,6 @@ export type RepoGitProviderService = Pick<
 	| 'getWorktree'
 	| 'supports'
 >;
-
-export interface RepositoriesSortOptions {
-	orderBy?: RepositoriesSorting;
-}
 
 const millisecondsPerMinute = 60 * 1000;
 const millisecondsPerHour = 60 * 60 * 1000;
@@ -207,34 +201,6 @@ export class Repository implements Disposable {
 		return timeDiff < millisecondsPerDay
 			? (timeDiff < millisecondsPerHour ? millisecondsPerMinute : millisecondsPerHour) / 2
 			: 0;
-	}
-
-	static sort(repositories: Repository[], options?: RepositoriesSortOptions) {
-		options = { orderBy: configuration.get('sortRepositoriesBy'), ...options };
-
-		switch (options.orderBy) {
-			case 'name:asc':
-				return repositories.sort(
-					(a, b) => (a.starred ? -1 : 1) - (b.starred ? -1 : 1) || sortCompare(a.name, b.name),
-				);
-			case 'name:desc':
-				return repositories.sort(
-					(a, b) => (a.starred ? -1 : 1) - (b.starred ? -1 : 1) || sortCompare(b.name, a.name),
-				);
-			case 'lastFetched:asc':
-				return repositories.sort(
-					(a, b) =>
-						(a.starred ? -1 : 1) - (b.starred ? -1 : 1) || (a._lastFetched ?? 0) - (b._lastFetched ?? 0),
-				);
-			case 'lastFetched:desc':
-				return repositories.sort(
-					(a, b) =>
-						(a.starred ? -1 : 1) - (b.starred ? -1 : 1) || (b._lastFetched ?? 0) - (a._lastFetched ?? 0),
-				);
-			case 'discovered':
-			default:
-				return repositories;
-		}
 	}
 
 	private _onDidChange = new EventEmitter<RepositoryChangeEvent>();
@@ -712,6 +678,10 @@ export class Repository implements Disposable {
 	}
 
 	private _lastFetched: number | undefined;
+	get lastFetchedCached(): number | undefined {
+		return this._lastFetched;
+	}
+
 	@gate()
 	async getLastFetched(): Promise<number> {
 		const lastFetched = await this.git.getLastFetchedTimestamp();
@@ -1137,40 +1107,4 @@ export class Repository implements Disposable {
 
 export function isRepository(repository: unknown): repository is Repository {
 	return repository instanceof Repository;
-}
-
-export async function groupRepositories(repositories: Repository[]): Promise<Map<Repository, Map<string, Repository>>> {
-	const repos = new Map<string, Repository>(repositories.map(r => [r.id, r]));
-
-	// Group worktree repos under the common repo when the common repo is also in the list
-	const result = new Map<string, { repo: Repository; worktrees: Map<string, Repository> }>();
-	for (const [, repo] of repos) {
-		let commonRepo = await repo.getCommonRepository();
-		if (commonRepo == null) {
-			if (result.has(repo.id)) {
-				debugger;
-			}
-			result.set(repo.id, { repo: repo, worktrees: new Map() });
-			continue;
-		}
-
-		commonRepo = repos.get(commonRepo.id);
-		if (commonRepo == null) {
-			if (result.has(repo.id)) {
-				debugger;
-			}
-			result.set(repo.id, { repo: repo, worktrees: new Map() });
-			continue;
-		}
-
-		let r = result.get(commonRepo.id);
-		if (r == null) {
-			r = { repo: commonRepo, worktrees: new Map() };
-			result.set(commonRepo.id, r);
-		} else {
-			r.worktrees.set(repo.path, repo);
-		}
-	}
-
-	return new Map(map(result, ([, r]) => [r.repo, r.worktrees]));
 }

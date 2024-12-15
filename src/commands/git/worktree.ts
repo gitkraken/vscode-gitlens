@@ -15,19 +15,19 @@ import {
 	WorktreeDeleteError,
 	WorktreeDeleteErrorReason,
 } from '../../git/errors';
-import { uncommitted, uncommittedStaged } from '../../git/models/constants';
+import { getNameWithoutRemote } from '../../git/models/branch.utils';
 import type { GitBranchReference, GitReference } from '../../git/models/reference';
 import {
-	getNameWithoutRemote,
 	getReferenceFromBranch,
 	getReferenceLabel,
 	isBranchReference,
 	isRevisionReference,
-	isSha,
-} from '../../git/models/reference';
+} from '../../git/models/reference.utils';
 import type { Repository } from '../../git/models/repository';
+import { uncommitted, uncommittedStaged } from '../../git/models/revision';
+import { isSha } from '../../git/models/revision.utils';
 import type { GitWorktree } from '../../git/models/worktree';
-import { getWorktreeForBranch } from '../../git/models/worktree';
+import { getWorktreeForBranch } from '../../git/models/worktree.utils';
 import { showGenericErrorMessage } from '../../messages';
 import type { QuickPickItemOfT } from '../../quickpicks/items/common';
 import { createQuickPickSeparator } from '../../quickpicks/items/common';

@@ -4,7 +4,7 @@ import { showDetailsView } from '../../git/actions/commit';
 import { GitCommit } from '../../git/models/commit';
 import type { GitLog } from '../../git/models/log';
 import type { GitReference } from '../../git/models/reference';
-import { getReferenceLabel, isRevisionRangeReference, isRevisionReference } from '../../git/models/reference';
+import { getReferenceLabel, isRevisionRangeReference, isRevisionReference } from '../../git/models/reference.utils';
 import { Repository } from '../../git/models/repository';
 import { pad } from '../../system/string';
 import { formatPath } from '../../system/vscode/formatPath';

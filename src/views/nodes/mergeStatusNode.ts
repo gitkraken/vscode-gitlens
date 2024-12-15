@@ -3,7 +3,7 @@ import type { Colors } from '../../constants.colors';
 import { GitUri } from '../../git/gitUri';
 import type { GitBranch } from '../../git/models/branch';
 import type { GitMergeStatus } from '../../git/models/merge';
-import { getReferenceLabel } from '../../git/models/reference';
+import { getReferenceLabel } from '../../git/models/reference.utils';
 import type { GitStatus } from '../../git/models/status';
 import { pluralize } from '../../system/string';
 import type { ViewsWithCommits } from '../viewBase';
