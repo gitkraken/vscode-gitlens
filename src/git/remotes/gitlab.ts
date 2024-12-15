@@ -9,9 +9,9 @@ import { memoize } from '../../system/decorators/memoize';
 import { encodeUrl } from '../../system/encoding';
 import { escapeMarkdown, unescapeMarkdown } from '../../system/markdown';
 import { equalsIgnoreCase } from '../../system/string';
-import { getIssueOrPullRequestMarkdownIcon } from '../models/issue';
-import { isSha } from '../models/reference';
 import type { Repository } from '../models/repository';
+import { isSha } from '../models/revision.utils';
+import { getIssueOrPullRequestMarkdownIcon } from '../utils/icons';
 import type { RemoteProviderId } from './remoteProvider';
 import { RemoteProvider } from './remoteProvider';
 

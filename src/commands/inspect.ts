@@ -4,7 +4,7 @@ import type { Container } from '../container';
 import { showDetailsView } from '../git/actions/commit';
 import { GitUri } from '../git/gitUri';
 import type { GitRevisionReference } from '../git/models/reference';
-import { createReference, getReferenceFromRevision } from '../git/models/reference';
+import { createReference, getReferenceFromRevision } from '../git/models/reference.utils';
 import {
 	showFileNotUnderSourceControlWarningMessage,
 	showGenericErrorMessage,

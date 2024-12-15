@@ -4,7 +4,7 @@ import { GlCommand } from '../constants.commands';
 import type { Container } from '../container';
 import { openFileAtRevision } from '../git/actions/commit';
 import { GitUri } from '../git/gitUri';
-import { deletedOrMissing } from '../git/models/constants';
+import { deletedOrMissing } from '../git/models/revision';
 import { showGenericErrorMessage } from '../messages';
 import { Logger } from '../system/logger';
 import { command } from '../system/vscode/command';

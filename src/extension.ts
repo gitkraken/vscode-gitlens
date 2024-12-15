@@ -12,9 +12,11 @@ import { GlCommand } from './constants.commands';
 import { SyncedStorageKeys } from './constants.storage';
 import { Container } from './container';
 import { isGitUri } from './git/gitUri';
-import { getBranchNameWithoutRemote, isBranch } from './git/models/branch';
+import { isBranch } from './git/models/branch';
+import { getBranchNameWithoutRemote } from './git/models/branch.utils';
 import { isCommit } from './git/models/commit';
 import { isRepository } from './git/models/repository';
+import { setAbbreviatedShaLength } from './git/models/revision.utils';
 import { isTag } from './git/models/tag';
 import { showDebugLoggingWarningMessage, showPreReleaseExpiredErrorMessage, showWhatsNewMessage } from './messages';
 import { registerPartnerActionRunners } from './partners';
@@ -166,6 +168,10 @@ export async function activate(context: ExtensionContext): Promise<GitLensApi | 
 		configuration.onDidChange(e => {
 			if (configuration.changed(e, 'defaultDateLocale')) {
 				setDefaultDateLocales(configuration.get('defaultDateLocale') ?? env.language);
+			}
+
+			if (configuration.changed(e, 'advanced.abbreviatedShaLength')) {
+				setAbbreviatedShaLength(configuration.get('advanced.abbreviatedShaLength'));
 			}
 		}),
 	);

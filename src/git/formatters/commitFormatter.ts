@@ -32,14 +32,15 @@ import type { ContactPresence } from '../../vsls/vsls';
 import type { PreviousLineComparisonUrisResult } from '../gitProvider';
 import type { GitCommit } from '../models/commit';
 import { isCommit, isStash } from '../models/commit';
-import { uncommitted, uncommittedStaged } from '../models/constants';
-import { getIssueOrPullRequestMarkdownIcon } from '../models/issue';
 import type { PullRequest } from '../models/pullRequest';
 import { isPullRequest } from '../models/pullRequest';
-import { getReferenceFromRevision, isUncommittedStaged, shortenRevision } from '../models/reference';
+import { getReferenceFromRevision } from '../models/reference.utils';
 import type { GitRemote } from '../models/remote';
 import { getHighlanderProviders } from '../models/remote';
+import { uncommitted, uncommittedStaged } from '../models/revision';
+import { isUncommittedStaged, shortenRevision } from '../models/revision.utils';
 import type { RemoteProvider } from '../remotes/remoteProvider';
+import { getIssueOrPullRequestMarkdownIcon } from '../utils/icons';
 import type { FormatOptions, RequiredTokenOptions } from './formatter';
 import { Formatter } from './formatter';
 

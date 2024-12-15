@@ -2,9 +2,9 @@ import type { TextEditor, Uri } from 'vscode';
 import { GlCommand } from '../constants.commands';
 import type { Container } from '../container';
 import { GitUri } from '../git/gitUri';
-import { deletedOrMissing } from '../git/models/constants';
-import { isUncommitted } from '../git/models/reference';
 import { RemoteResourceType } from '../git/models/remoteResource';
+import { deletedOrMissing } from '../git/models/revision';
+import { isUncommitted } from '../git/models/revision.utils';
 import {
 	showCommitNotFoundWarningMessage,
 	showFileNotUnderSourceControlWarningMessage,

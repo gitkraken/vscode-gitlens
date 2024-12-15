@@ -6,7 +6,7 @@ import type { SearchQuery } from '../constants.search';
 import type { Features } from '../features';
 import type { GitUri } from './gitUri';
 import type { GitBlame, GitBlameLine } from './models/blame';
-import type { BranchSortOptions, GitBranch } from './models/branch';
+import type { GitBranch } from './models/branch';
 import type { GitCommit } from './models/commit';
 import type { GitContributor, GitContributorStats } from './models/contributor';
 import type { GitDiff, GitDiffFile, GitDiffFiles, GitDiffFilter, GitDiffLine, GitDiffShortStat } from './models/diff';
@@ -15,17 +15,19 @@ import type { GitGraph } from './models/graph';
 import type { GitLog } from './models/log';
 import type { GitMergeStatus } from './models/merge';
 import type { GitRebaseStatus } from './models/rebase';
-import type { GitBranchReference, GitReference, GitRevisionRange } from './models/reference';
+import type { GitBranchReference, GitReference } from './models/reference';
 import type { GitReflog } from './models/reflog';
 import type { GitRemote } from './models/remote';
 import type { Repository, RepositoryChangeEvent } from './models/repository';
+import type { GitRevisionRange } from './models/revision';
 import type { GitStash } from './models/stash';
 import type { GitStatus, GitStatusFile } from './models/status';
-import type { GitTag, TagSortOptions } from './models/tag';
+import type { GitTag } from './models/tag';
 import type { GitTreeEntry } from './models/tree';
 import type { GitUser } from './models/user';
 import type { GitWorktree } from './models/worktree';
 import type { GitSearch } from './search';
+import type { BranchSortOptions, TagSortOptions } from './utils/sorting';
 
 export type GitCaches =
 	| 'branches'

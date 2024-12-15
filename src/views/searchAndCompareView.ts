@@ -7,7 +7,7 @@ import type { StoredNamedRef, StoredSearchAndCompareItem } from '../constants.st
 import type { Container } from '../container';
 import { unknownGitUri } from '../git/gitUri';
 import type { GitLog } from '../git/models/log';
-import { getRevisionRangeParts, isRevisionRange, shortenRevision } from '../git/models/reference';
+import { getRevisionRangeParts, isRevisionRange , shortenRevision } from '../git/models/revision.utils';
 import { getSearchQuery } from '../git/search';
 import { ReferencesQuickPickIncludes, showReferencePicker } from '../quickpicks/referencePicker';
 import { getRepositoryOrShowPicker } from '../quickpicks/repositoryPicker';

@@ -14,7 +14,7 @@ import { CancellationError } from '../../errors';
 import { openComparisonChanges } from '../../git/actions/commit';
 import type { Account } from '../../git/models/author';
 import type { GitBranch } from '../../git/models/branch';
-import { getLocalBranchByUpstream } from '../../git/models/branch';
+import { getLocalBranchByUpstream } from '../../git/models/branch.utils';
 import type { PullRequest, SearchedPullRequest } from '../../git/models/pullRequest';
 import {
 	getComparisonRefsForPullRequest,

@@ -8,7 +8,7 @@ import type { CommitSelectedEvent, FileSelectedEvent } from '../../../eventBus';
 import { PlusFeatures } from '../../../features';
 import type { RepositoriesChangeEvent } from '../../../git/gitProviderService';
 import { GitUri } from '../../../git/gitUri';
-import { getChangedFilesCount } from '../../../git/models/commit';
+import { getChangedFilesCount } from '../../../git/models/commit.utils';
 import type { RepositoryChangeEvent } from '../../../git/models/repository';
 import { RepositoryChange, RepositoryChangeComparisonMode } from '../../../git/models/repository';
 import { createFromDateDelta } from '../../../system/date';

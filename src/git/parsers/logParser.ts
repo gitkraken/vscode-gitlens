@@ -8,10 +8,10 @@ import { getLines } from '../../system/string';
 import { relative } from '../../system/vscode/path';
 import type { GitCommitLine, GitStashCommit } from '../models/commit';
 import { GitCommit, GitCommitIdentity } from '../models/commit';
-import { uncommitted } from '../models/constants';
 import type { GitFile, GitFileChangeStats } from '../models/file';
 import { GitFileChange, GitFileIndexStatus } from '../models/file';
 import type { GitLog } from '../models/log';
+import { uncommitted } from '../models/revision';
 import type { GitUser } from '../models/user';
 import { isUserMatch } from '../models/user';
 

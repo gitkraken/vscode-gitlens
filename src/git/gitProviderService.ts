@@ -61,9 +61,8 @@ import type {
 } from './gitProvider';
 import type { GitUri } from './gitUri';
 import type { GitBlame, GitBlameLine } from './models/blame';
-import type { BranchSortOptions, GitBranch } from './models/branch';
+import type { GitBranch } from './models/branch';
 import { GitCommit, GitCommitIdentity } from './models/commit';
-import { deletedOrMissing, uncommitted, uncommittedStaged } from './models/constants';
 import type { GitContributor, GitContributorStats } from './models/contributor';
 import { calculateDistribution } from './models/contributor';
 import type { GitDiff, GitDiffFile, GitDiffFiles, GitDiffFilter, GitDiffLine, GitDiffShortStat } from './models/diff';
@@ -72,21 +71,25 @@ import type { GitGraph } from './models/graph';
 import type { GitLog } from './models/log';
 import type { GitMergeStatus } from './models/merge';
 import type { GitRebaseStatus } from './models/rebase';
-import type { GitBranchReference, GitReference, GitRevisionRange } from './models/reference';
-import { createRevisionRange, isSha, isUncommitted, isUncommittedParent } from './models/reference';
+import type { GitBranchReference, GitReference } from './models/reference';
 import type { GitReflog } from './models/reflog';
 import type { GitRemote } from './models/remote';
 import { getDefaultRemoteOrHighlander, getRemoteThemeIconString, getVisibilityCacheKey } from './models/remote';
-import type { RepositoryChangeEvent } from './models/repository';
-import { Repository, RepositoryChange, RepositoryChangeComparisonMode } from './models/repository';
+import type { Repository, RepositoryChangeEvent } from './models/repository';
+import { RepositoryChange, RepositoryChangeComparisonMode } from './models/repository';
+import type { GitRevisionRange } from './models/revision';
+import { deletedOrMissing, uncommitted, uncommittedStaged } from './models/revision';
+import { createRevisionRange, isSha, isUncommitted, isUncommittedParent } from './models/revision.utils';
 import type { GitStash } from './models/stash';
 import type { GitStatus, GitStatusFile } from './models/status';
-import type { GitTag, TagSortOptions } from './models/tag';
+import type { GitTag } from './models/tag';
 import type { GitTreeEntry } from './models/tree';
 import type { GitUser } from './models/user';
 import type { GitWorktree } from './models/worktree';
 import type { RemoteProvider } from './remotes/remoteProvider';
 import type { GitSearch } from './search';
+import type { BranchSortOptions, TagSortOptions } from './utils/sorting';
+import { sortRepositories } from './utils/sorting';
 
 const emptyArray = Object.freeze([]) as unknown as any[];
 const emptyDisposable = Object.freeze({
@@ -384,7 +387,7 @@ export class GitProviderService implements Disposable {
 		const repositories = [...filter(this.repositories, r => !r.closed)];
 		if (repositories.length === 0) return repositories;
 
-		return Repository.sort(repositories);
+		return sortRepositories(repositories);
 	}
 
 	get openRepositoryCount(): number {

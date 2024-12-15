@@ -7,7 +7,7 @@ import { GitUri } from '../../git/gitUri';
 import type { GitFile } from '../../git/models/file';
 import { getGitFileStatusIcon } from '../../git/models/file';
 import type { GitRevisionReference } from '../../git/models/reference';
-import { createReference } from '../../git/models/reference';
+import { createReference } from '../../git/models/reference.utils';
 import { joinPaths } from '../../system/path';
 import { relativeDir } from '../../system/vscode/path';
 import type { View } from '../viewBase';

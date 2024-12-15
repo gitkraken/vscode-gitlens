@@ -9,11 +9,11 @@ import type { IntegrationId } from '../constants.integrations';
 import type { Container } from '../container';
 import { CancellationError } from '../errors';
 import { ApplyPatchCommitError, ApplyPatchCommitErrorReason } from '../git/errors';
-import { uncommitted, uncommittedStaged } from '../git/models/constants';
+import { splitCommitMessage } from '../git/models/commit.utils';
 import type { GitDiff } from '../git/models/diff';
-import { isSha, shortenRevision } from '../git/models/reference';
 import type { Repository } from '../git/models/repository';
-import { splitGitCommitMessage } from '../git/utils/commit-utils';
+import { uncommitted, uncommittedStaged } from '../git/models/revision';
+import { isSha, shortenRevision } from '../git/models/revision.utils';
 import type { Draft, LocalDraft } from '../gk/models/drafts';
 import { showPatchesView } from '../plus/drafts/actions';
 import type { ProviderAuth } from '../plus/drafts/draftsService';
@@ -103,7 +103,7 @@ abstract class CreatePatchCommandBase extends GlCommandBase {
 						await commit.ensureFullDetails();
 					}
 
-					const { title, description } = splitGitCommitMessage(commit.message);
+					const { summary: title, body: description } = splitCommitMessage(commit.message);
 
 					args = {
 						repoPath: context.node.commit.repoPath,

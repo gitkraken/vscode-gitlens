@@ -1,9 +1,9 @@
 import { ThemeIcon, TreeItem, TreeItemCollapsibleState } from 'vscode';
 import { GitUri } from '../../git/gitUri';
 import type { GitBranch } from '../../git/models/branch';
-import { getLocalBranchUpstreamNames } from '../../git/models/branch';
+import { getLocalBranchUpstreamNames } from '../../git/models/branch.utils';
 import type { Repository } from '../../git/models/repository';
-import { getOpenedWorktreesByBranch } from '../../git/models/worktree';
+import { getOpenedWorktreesByBranch } from '../../git/models/worktree.utils';
 import { makeHierarchical } from '../../system/array';
 import { debug } from '../../system/decorators/log';
 import { PageableResult } from '../../system/paging';

@@ -8,7 +8,7 @@ import type { GitCommit } from '../../git/models/commit';
 import type { GitFile } from '../../git/models/file';
 import type { GitMergeStatus } from '../../git/models/merge';
 import type { GitRebaseStatus } from '../../git/models/rebase';
-import { getReferenceLabel } from '../../git/models/reference';
+import { getReferenceLabel } from '../../git/models/reference.utils';
 import { createCommand, createCoreCommand } from '../../system/vscode/command';
 import { configuration } from '../../system/vscode/configuration';
 import type { FileHistoryView } from '../fileHistoryView';

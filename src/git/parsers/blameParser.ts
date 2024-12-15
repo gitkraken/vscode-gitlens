@@ -4,9 +4,9 @@ import { getLines } from '../../system/string';
 import type { GitBlame, GitBlameAuthor } from '../models/blame';
 import type { GitCommitLine } from '../models/commit';
 import { GitCommit, GitCommitIdentity } from '../models/commit';
-import { uncommitted } from '../models/constants';
 import { GitFileChange, GitFileIndexStatus } from '../models/file';
-import { isUncommitted } from '../models/reference';
+import { uncommitted } from '../models/revision';
+import { isUncommitted } from '../models/revision.utils';
 import type { GitUser } from '../models/user';
 
 interface BlameEntry {

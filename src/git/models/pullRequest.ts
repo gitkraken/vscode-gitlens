@@ -8,9 +8,9 @@ import { memoize } from '../../system/decorators/memoize';
 import type { LeftRightCommitCountResult } from '../gitProvider';
 import type { IssueOrPullRequest, IssueRepository, IssueOrPullRequestState as PullRequestState } from './issue';
 import type { PullRequestURLIdentity } from './pullRequest.utils';
-import { createRevisionRange, shortenRevision } from './reference';
 import type { ProviderReference } from './remoteProvider';
 import type { Repository } from './repository';
+import { createRevisionRange , shortenRevision } from './revision.utils';
 
 export type { PullRequestState };
 

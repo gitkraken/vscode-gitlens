@@ -9,7 +9,7 @@ import { normalizePath } from '../system/path';
 import { TernarySearchTree } from '../system/searchTree';
 import { relative } from '../system/vscode/path';
 import { GitUri, isGitUri } from './gitUri';
-import { deletedOrMissing } from './models/constants';
+import { deletedOrMissing } from './models/revision';
 import type { GitTreeEntry } from './models/tree';
 
 const emptyArray = new Uint8Array(0);

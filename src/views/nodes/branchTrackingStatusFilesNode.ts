@@ -3,7 +3,7 @@ import type { FilesComparison } from '../../git/actions/commit';
 import { GitUri } from '../../git/gitUri';
 import type { GitBranch } from '../../git/models/branch';
 import type { GitFileWithCommit } from '../../git/models/file';
-import { createRevisionRange } from '../../git/models/reference';
+import { createRevisionRange } from '../../git/models/revision.utils';
 import { makeHierarchical } from '../../system/array';
 import { filter, flatMap, groupByMap, map } from '../../system/iterable';
 import { joinPaths, normalizePath } from '../../system/path';
