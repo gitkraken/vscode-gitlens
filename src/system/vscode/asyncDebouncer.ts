@@ -1,4 +1,4 @@
-import type { CancellationToken, Disposable } from 'vscode';
+import type { CancellationToken, Disposable as CodeDisposable } from 'vscode';
 import { CancellationTokenSource } from 'vscode';
 import { CancellationError } from '../../errors';
 import type { Deferrable } from '../function';
@@ -20,7 +20,9 @@ export interface AsyncTask<T> {
  *
  * Despite being able to accept synchronous tasks, we always return a promise here. It's implemeted this way for simplicity.
  */
-export function createAsyncDebouncer<T>(delay: number): Disposable & Deferrable<(task: AsyncTask<T>) => Promise<T>> {
+export function createAsyncDebouncer<T>(
+	delay: number,
+): Disposable & CodeDisposable & Deferrable<(task: AsyncTask<T>) => Promise<T>> {
 	let lastTask: AsyncTask<T> | undefined;
 	let timer: ReturnType<typeof setTimeout> | undefined;
 	let curDeferred: Deferred<T> | undefined;
@@ -130,6 +132,7 @@ export function createAsyncDebouncer<T>(delay: number): Disposable & Deferrable<
 
 	debounce.cancel = cancel;
 	debounce.dispose = dispose;
+	debounce[Symbol.dispose] = dispose;
 	debounce.flush = flush;
 	debounce.pending = pending;
 	return debounce;

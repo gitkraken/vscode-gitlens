@@ -7,10 +7,10 @@ import { formatDate, fromNow } from '../../system/date';
 import { memoize } from '../../system/decorators/memoize';
 import type { LeftRightCommitCountResult } from '../gitProvider';
 import type { IssueOrPullRequest, IssueRepository, IssueOrPullRequestState as PullRequestState } from './issue';
-import type { PullRequestURLIdentity } from './pullRequest.utils';
+import type { PullRequestUrlIdentity } from './pullRequest.utils';
 import type { ProviderReference } from './remoteProvider';
 import type { Repository } from './repository';
-import { createRevisionRange , shortenRevision } from './revision.utils';
+import { createRevisionRange, shortenRevision } from './revision.utils';
 
 export type { PullRequestState };
 
@@ -420,7 +420,7 @@ export async function getOpenedPullRequestRepo(
 
 export function doesPullRequestSatisfyRepositoryURLIdentity(
 	pr: EnrichablePullRequest | undefined,
-	{ ownerAndRepo, prNumber }: PullRequestURLIdentity,
+	{ ownerAndRepo, prNumber }: PullRequestUrlIdentity,
 ): boolean {
 	if (pr == null) {
 		return false;

@@ -1,4 +1,5 @@
 import type { Endpoints } from '@octokit/types';
+import { HostingIntegrationId } from '../../../../constants.integrations';
 import { GitFileIndexStatus } from '../../../../git/models/file';
 import type { IssueLabel } from '../../../../git/models/issue';
 import { Issue, RepositoryAccessLevel } from '../../../../git/models/issue';
@@ -10,6 +11,7 @@ import {
 	PullRequestReviewState,
 	PullRequestStatusCheckRollupState,
 } from '../../../../git/models/pullRequest';
+import type { PullRequestUrlIdentity } from '../../../../git/models/pullRequest.utils';
 import type { Provider } from '../../../../git/models/remoteProvider';
 
 export interface GitHubBlame {
@@ -509,11 +511,19 @@ export function fromCommitFileStatus(
 	return undefined;
 }
 
-export function isGitHubPullRequestUrl(search: string): boolean {
-	try {
-		const url = new URL(search);
-		return url.host === 'github.com' && url.pathname.includes('/pull/');
-	} catch {
-		return false;
-	}
+const prUrlRegex = /^(?:https?:\/\/)?(?:github\.com\/)?([^/]+\/[^/]+)\/pull\/(\d+)/i;
+
+export function isMaybeGitHubPullRequestUrl(url: string): boolean {
+	if (url == null) return false;
+
+	return prUrlRegex.test(url);
+}
+
+export function getGitHubPullRequestIdentityFromMaybeUrl(url: string): RequireSome<PullRequestUrlIdentity, 'provider'> {
+	if (url == null) return { prNumber: undefined, ownerAndRepo: undefined, provider: HostingIntegrationId.GitHub };
+
+	const match = prUrlRegex.exec(url);
+	if (match == null) return { prNumber: undefined, ownerAndRepo: undefined, provider: HostingIntegrationId.GitHub };
+
+	return { prNumber: match[2], ownerAndRepo: match[1], provider: HostingIntegrationId.GitHub };
 }
