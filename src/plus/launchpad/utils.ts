@@ -1,7 +1,14 @@
 import type { Container } from '../../container';
+import type { PullRequestUrlIdentity } from '../../git/models/pullRequest.utils';
 import { configuration } from '../../system/vscode/configuration';
-import { isGitHubPullRequestUrl } from '../integrations/providers/github/models';
-import { isGitLabPullRequestUrl } from '../integrations/providers/gitlab/models';
+import {
+	getGitHubPullRequestIdentityFromMaybeUrl,
+	isMaybeGitHubPullRequestUrl,
+} from '../integrations/providers/github/models';
+import {
+	getGitLabPullRequestIdentityFromMaybeUrl,
+	isMaybeGitLabPullRequestUrl,
+} from '../integrations/providers/gitlab/models';
 import type { LaunchpadSummaryResult } from './launchpadIndicator';
 import { generateLaunchpadSummary } from './launchpadIndicator';
 import type { LaunchpadGroup } from './launchpadProvider';
@@ -19,6 +26,17 @@ export async function getLaunchpadSummary(container: Container): Promise<Launchp
 	return generateLaunchpadSummary(result.items, groups);
 }
 
-export function isSupportedLaunchpadPullRequestSearchUrl(search: string): boolean {
-	return isGitHubPullRequestUrl(search) || isGitLabPullRequestUrl(search);
+export function isMaybeSupportedLaunchpadPullRequestSearchUrl(search: string): boolean {
+	return isMaybeGitHubPullRequestUrl(search) || isMaybeGitLabPullRequestUrl(search);
+}
+
+// TODO: Needs to be generalized for other providers
+export function getPullRequestIdentityFromMaybeUrl(url: string): PullRequestUrlIdentity {
+	const github = getGitHubPullRequestIdentityFromMaybeUrl(url);
+	if (github.prNumber != null) return github;
+
+	const gitlab = getGitLabPullRequestIdentityFromMaybeUrl(url);
+	if (gitlab.prNumber != null) return gitlab;
+
+	return { prNumber: undefined, ownerAndRepo: undefined, provider: undefined };
 }

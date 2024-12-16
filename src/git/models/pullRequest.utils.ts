@@ -2,12 +2,16 @@
 // To avoid this file has been created that can collect more simple functions which
 // don't require Container and can be tested.
 
-export type PullRequestURLIdentity = {
+import type { HostingIntegrationId } from '../../constants.integrations';
+
+export interface PullRequestUrlIdentity {
+	provider?: HostingIntegrationId;
+
 	ownerAndRepo?: string;
 	prNumber?: string;
-};
+}
 
-export function getPullRequestIdentityValuesFromSearch(search: string): PullRequestURLIdentity {
+export function getPullRequestIdentityValuesFromSearch(search: string): PullRequestUrlIdentity {
 	let ownerAndRepo: string | undefined = undefined;
 	let prNumber: string | undefined = undefined;
 

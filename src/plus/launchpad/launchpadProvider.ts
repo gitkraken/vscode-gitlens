@@ -21,7 +21,6 @@ import {
 	getOrOpenPullRequestRepository,
 	getRepositoryIdentityForPullRequest,
 } from '../../git/models/pullRequest';
-import { getPullRequestIdentityValuesFromSearch } from '../../git/models/pullRequest.utils';
 import type { GitRemote } from '../../git/models/remote';
 import type { Repository } from '../../git/models/repository';
 import type { CodeSuggestionCounts, Draft } from '../../gk/models/drafts';
@@ -43,6 +42,7 @@ import type { ShowWipArgs } from '../../webviews/commitDetails/protocol';
 import type { IntegrationResult } from '../integrations/integration';
 import type { ConnectionStateChangeEvent } from '../integrations/integrationService';
 import type { GitHubRepositoryDescriptor } from '../integrations/providers/github';
+import type { GitLabRepositoryDescriptor } from '../integrations/providers/gitlab';
 import type { EnrichablePullRequest, ProviderActionablePullRequest } from '../integrations/providers/models';
 import {
 	fromProviderPullRequest,
@@ -51,6 +51,7 @@ import {
 } from '../integrations/providers/models';
 import type { EnrichableItem, EnrichedItem } from './enrichmentService';
 import { convertRemoteProviderIdToEnrichProvider, isEnrichableRemoteProviderId } from './enrichmentService';
+import { getPullRequestIdentityFromMaybeUrl } from './utils';
 
 export const launchpadActionCategories = [
 	'mergeable',
@@ -326,14 +327,14 @@ export class LaunchpadProvider implements Disposable {
 		// The current idea is that we should iterate the connected integrations and apply their parsing.
 		// Probably we even want to build a map like this: { integrationId: identity }
 		// Then we iterate connected integrations and search in each of them with the corresponding identity.
-		const { ownerAndRepo, prNumber } = getPullRequestIdentityValuesFromSearch(search);
+		const { ownerAndRepo, prNumber, provider } = getPullRequestIdentityFromMaybeUrl(search);
 		let result: TimedResult<SearchedPullRequest[] | undefined> | undefined;
 
-		if (prNumber != null && ownerAndRepo != null) {
-			// TODO: This needs to be generalized to work outside of GitHub
-			const integration = await this.container.integrations.get(HostingIntegrationId.GitHub);
+		if (provider != null && prNumber != null && ownerAndRepo != null) {
+			// TODO: This needs to be generalized to work outside of GitHub/GitLab
+			const integration = await this.container.integrations.get(provider);
 			const [owner, repo] = ownerAndRepo.split('/', 2);
-			const descriptor: GitHubRepositoryDescriptor = {
+			const descriptor: GitHubRepositoryDescriptor | GitLabRepositoryDescriptor = {
 				key: ownerAndRepo,
 				owner: owner,
 				name: repo,
@@ -666,8 +667,10 @@ export class LaunchpadProvider implements Disposable {
 		cancellation?: CancellationToken,
 	): Promise<LaunchpadCategorizedResult> {
 		const scope = getLogScope();
-		const isSearching = ((o?: { search?: string }): o is { search: string } => Boolean(o?.search))(options);
 
+		const isSearching = ((o): o is RequireSome<NonNullable<typeof options>, 'search'> => Boolean(o?.search))(
+			options,
+		);
 		const fireRefresh = !isSearching && (options?.force || this._prs == null);
 
 		const ignoredRepositories = new Set(
@@ -822,7 +825,7 @@ export class LaunchpadProvider implements Disposable {
 						...item,
 						currentViewer: myAccounts.get(item.provider.id)!,
 						codeSuggestionsCount: codeSuggestionsCount,
-						isNew: this.isItemNewInGroup(item, actionableCategory),
+						isNew: isSearching ? false : this.isItemNewInGroup(item, actionableCategory),
 						isSearched: isSearching,
 						actionableCategory: actionableCategory,
 						suggestedActions: suggestedActions,
