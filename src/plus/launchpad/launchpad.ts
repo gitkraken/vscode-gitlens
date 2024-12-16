@@ -734,7 +734,7 @@ export class LaunchpadCommand extends QuickCommand<State> {
 				LaunchpadSettingsQuickInputButton,
 				RefreshQuickInputButton,
 			],
-			// TODO@axosoft-ramint why is this needed?
+			// Used to persist the search value when switching between non-search and search mode
 			onDidActivate: quickpick => {
 				if (!this.savedSearch?.length) return;
 
