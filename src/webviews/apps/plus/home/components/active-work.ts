@@ -208,7 +208,7 @@ export class GlActiveBranchCard extends GlBranchCardBase {
 	}
 
 	override render() {
-		return html` ${this.renderBranchItem()} ${this.renderPrItem()} ${this.renderAutolinksItem()} `;
+		return html`${this.renderBranchItem()} ${this.renderPrItem()} ${this.renderAutolinksItem()} `;
 	}
 
 	render_old() {
@@ -374,11 +374,11 @@ export class GlActiveBranchCard extends GlBranchCardBase {
 		return nothing;
 	}
 
-	private renderBranchIndicator() {
+	protected renderBranchIndicator() {
 		const branch = this.branch;
 
 		if (branch.mergeStatus == null && branch.rebaseStatus == null) {
-			return nothing;
+			return undefined;
 		}
 
 		const modifier = branch.hasConflicts ? ' has-conflicts' : '';
