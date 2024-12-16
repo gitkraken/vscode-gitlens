@@ -23,6 +23,7 @@ export enum DeepLinkType {
 export enum DeepLinkCommandType {
 	CloudPatches = 'cloud-patches',
 	Graph = 'graph',
+	Home = 'home',
 	Inspect = 'inspect',
 	Launchpad = 'launchpad',
 	Walkthrough = 'walkthrough',
@@ -36,6 +37,7 @@ export function isDeepLinkCommandType(type: string): type is DeepLinkCommandType
 export const DeepLinkCommandTypeToCommand = new Map<DeepLinkCommandType, Commands>([
 	[DeepLinkCommandType.CloudPatches, GlCommand.ShowDraftsView],
 	[DeepLinkCommandType.Graph, GlCommand.ShowGraph],
+	[DeepLinkCommandType.Home, GlCommand.ShowHomeView],
 	[DeepLinkCommandType.Inspect, GlCommand.ShowCommitDetailsView],
 	[DeepLinkCommandType.Launchpad, GlCommand.ShowLaunchpad],
 	[DeepLinkCommandType.Walkthrough, GlCommand.GetStarted],
