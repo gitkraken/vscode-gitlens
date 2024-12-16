@@ -1,9 +1,11 @@
 import { css, html, LitElement } from 'lit';
-import { customElement, property } from 'lit/decorators.js';
+import { customElement, property, queryAll } from 'lit/decorators.js';
+import { ifDefined } from 'lit/directives/if-defined.js';
 import { when } from 'lit/directives/when.js';
+import { debounce } from '../../../../../system/function';
 import type { GetOverviewBranch } from '../../../../home/protocol';
+import type { GlBranchCardBase } from './branch-card';
 import '../../../shared/components/progress';
-import './branch-card';
 
 @customElement('gl-section')
 export class GlSection extends LitElement {
@@ -50,7 +52,11 @@ export class GlSection extends LitElement {
 		return html`
 			<div class="section">
 				<header class="section__header">
-					<div class="section__heading" role="heading" aria-level=${this.headingLevel}>
+					<div
+						class="section__heading"
+						role="heading"
+						aria-level=${ifDefined(this.headingLevel ? this.headingLevel : undefined)}
+					>
 						<slot name="heading" class="section__headline"></slot>
 					</div>
 					<slot name="heading-actions" class="section__actions"></slot>
@@ -69,6 +75,37 @@ export class GlBranchSection extends LitElement {
 	@property({ type: Array }) branches!: GetOverviewBranch[];
 	@property({ type: Boolean }) isFetching = false;
 
+	@queryAll('gl-branch-card')
+	private branchCards!: GlBranchCardBase[];
+
+	override connectedCallback() {
+		super.connectedCallback();
+		this.addEventListener('gl-branch-card-expand-toggled', this.onCardExpanded.bind(this));
+	}
+
+	override disconnectedCallback() {
+		super.disconnectedCallback();
+		this.removeEventListener('gl-branch-card-expand-toggled', this.onCardExpanded.bind(this));
+	}
+
+	private onCardExpanded(e: GlobalEventHandlersEventMap['gl-branch-card-expand-toggled']) {
+		const path = e.composedPath();
+		const card = path.find(p => (p as HTMLElement).matches('gl-branch-card')) as GlBranchCardBase | undefined;
+
+		this.toggleSiblingCardsDebounced(card);
+	}
+
+	private toggleSiblingCards(card?: GlBranchCardBase) {
+		if (card?.expanded !== true) return;
+
+		this.branchCards.forEach(c => {
+			if (c !== card) {
+				c.expanded = false;
+			}
+		});
+	}
+	private toggleSiblingCardsDebounced = debounce(this.toggleSiblingCards.bind(this), 100);
+
 	private renderSectionLabel() {
 		if (this.isFetching || this.branches.length === 0) {
 			return this.label;
@@ -86,7 +123,8 @@ export class GlBranchSection extends LitElement {
 					this.branches.length > 0,
 					() =>
 						this.branches.map(
-							branch => html`<gl-branch-card .repo=${this.repo} .branch=${branch}></gl-branch-card>`,
+							branch =>
+								html`<gl-branch-card expandable .repo=${this.repo} .branch=${branch}></gl-branch-card>`,
 						),
 					() => html`<p>No ${this.label} branches</p>`,
 				)}
