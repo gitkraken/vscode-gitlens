@@ -237,7 +237,9 @@ export type GetPullRequestsForAzureProjectsFn = (
 export type MergePullRequestFn = GitProvider['mergePullRequest'];
 
 export type GetIssueFn = (
-	input: { resourceId: string; number: string },
+	input:
+		| { resourceId: string; number: string } // jira
+		| { namespace: string; name: string; number: string }, // gitlab
 	options?: EnterpriseOptions,
 ) => Promise<{ data: ProviderIssue }>;
 
@@ -522,6 +524,11 @@ export function toSearchedIssue(
 					avatarUrl: assignee.avatarUrl ?? undefined,
 					url: assignee.url ?? undefined,
 				})) ?? [],
+			project: {
+				id: issue.project?.id ?? '',
+				name: issue.project?.name ?? '',
+				resourceId: issue.project?.resourceId ?? '',
+			},
 			repository:
 				issue.repository?.owner?.login != null
 					? {

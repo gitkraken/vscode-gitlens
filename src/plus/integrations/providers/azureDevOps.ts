@@ -3,7 +3,7 @@ import { HostingIntegrationId } from '../../../constants.integrations';
 import type { PagedResult } from '../../../git/gitProvider';
 import type { Account } from '../../../git/models/author';
 import type { DefaultBranch } from '../../../git/models/defaultBranch';
-import type { IssueOrPullRequest, SearchedIssue } from '../../../git/models/issue';
+import type { Issue, IssueOrPullRequest, SearchedIssue } from '../../../git/models/issue';
 import type {
 	PullRequest,
 	PullRequestMergeMethod,
@@ -104,6 +104,14 @@ export class AzureDevOpsIntegration extends HostingIntegration<
 		_repo: AzureRepositoryDescriptor,
 		_id: string,
 	): Promise<IssueOrPullRequest | undefined> {
+		return Promise.resolve(undefined);
+	}
+
+	protected override async getProviderIssue(
+		_session: AuthenticationSession,
+		_repo: AzureRepositoryDescriptor,
+		_id: string,
+	): Promise<Issue | undefined> {
 		return Promise.resolve(undefined);
 	}
 

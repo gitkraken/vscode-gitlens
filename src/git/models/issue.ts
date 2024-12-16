@@ -51,12 +51,19 @@ export interface IssueRepository {
 	url?: string;
 }
 
+export interface IssueProject {
+	id: string;
+	name: string;
+	resourceId: string;
+}
+
 export interface IssueShape extends IssueOrPullRequest {
 	author: IssueMember;
 	assignees: IssueMember[];
 	repository?: IssueRepository;
 	labels?: IssueLabel[];
 	body?: string;
+	project?: IssueProject;
 }
 
 export interface SearchedIssue {
@@ -118,6 +125,14 @@ export function serializeIssue(value: IssueShape): IssueShape {
 						repo: value.repository.repo,
 						url: value.repository.url,
 				  },
+		project:
+			value.project == null
+				? undefined
+				: {
+						id: value.project.id,
+						name: value.project.name,
+						resourceId: value.project.resourceId,
+				  },
 		assignees: value.assignees.map(assignee => ({
 			id: assignee.id,
 			name: assignee.name,
@@ -152,13 +167,14 @@ export class Issue implements IssueShape {
 		public readonly closed: boolean,
 		public readonly state: IssueOrPullRequestState,
 		public readonly author: IssueMember,
-		public readonly repository: IssueRepository,
 		public readonly assignees: IssueMember[],
+		public readonly repository?: IssueRepository,
 		public readonly closedDate?: Date,
 		public readonly labels?: IssueLabel[],
 		public readonly commentsCount?: number,
 		public readonly thumbsUpCount?: number,
 		public readonly body?: string,
+		public readonly project?: IssueProject,
 	) {}
 }
 

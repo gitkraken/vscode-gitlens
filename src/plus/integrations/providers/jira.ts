@@ -2,11 +2,11 @@ import type { AuthenticationSession, CancellationToken } from 'vscode';
 import type { AutolinkReference, DynamicAutolinkReference } from '../../../autolinks';
 import { IssueIntegrationId } from '../../../constants.integrations';
 import type { Account } from '../../../git/models/author';
-import type { IssueOrPullRequest, SearchedIssue } from '../../../git/models/issue';
+import type { Issue, IssueOrPullRequest, SearchedIssue } from '../../../git/models/issue';
 import { filterMap, flatten } from '../../../system/iterable';
 import { Logger } from '../../../system/logger';
 import type { IntegrationAuthenticationProviderDescriptor } from '../authentication/integrationAuthentication';
-import type { ResourceDescriptor } from '../integration';
+import type { IssueResourceDescriptor } from '../integration';
 import { IssueIntegration } from '../integration';
 import { IssueFilter, providersMetadata, toAccount, toSearchedIssue } from './models';
 
@@ -14,10 +14,8 @@ const metadata = providersMetadata[IssueIntegrationId.Jira];
 const authProvider = Object.freeze({ id: metadata.id, scopes: metadata.scopes });
 const maxPagesPerRequest = 10;
 
-export interface JiraBaseDescriptor extends ResourceDescriptor {
-	id: string;
-	name: string;
-}
+export type JiraBaseDescriptor = IssueResourceDescriptor;
+
 export interface JiraOrganizationDescriptor extends JiraBaseDescriptor {
 	url: string;
 	avatarUrl: string;
@@ -235,25 +233,25 @@ export class JiraIntegration extends IssueIntegration<IssueIntegrationId.Jira> {
 		const results: SearchedIssue[] = [];
 		for (const resource of myResources) {
 			try {
-			    const userLogin = (await this.getProviderAccountForResource(session, resource))?.username;
-			    let cursor = undefined;
-			    let hasMore = false;
-			    let requestCount = 0;
-			    do {
-				    const resourceIssues = await api.getIssuesForResourceForCurrentUser(this.id, resource.id, {
-					    accessToken: session.accessToken,
-					    cursor: cursor,
-				    });
-				    requestCount += 1;
-				    hasMore = resourceIssues.paging?.more ?? false;
-				    cursor = resourceIssues.paging?.cursor;
-				    const formattedIssues = resourceIssues.values
-					    .map(issue => toSearchedIssue(issue, this, undefined, userLogin))
-					    .filter((result): result is SearchedIssue => result != null);
-				    if (formattedIssues.length > 0) {
-					    results.push(...formattedIssues);
-				    }
-			    } while (requestCount < maxPagesPerRequest && hasMore);
+				const userLogin = (await this.getProviderAccountForResource(session, resource))?.username;
+				let cursor = undefined;
+				let hasMore = false;
+				let requestCount = 0;
+				do {
+					const resourceIssues = await api.getIssuesForResourceForCurrentUser(this.id, resource.id, {
+						accessToken: session.accessToken,
+						cursor: cursor,
+					});
+					requestCount += 1;
+					hasMore = resourceIssues.paging?.more ?? false;
+					cursor = resourceIssues.paging?.cursor;
+					const formattedIssues = resourceIssues.values
+						.map(issue => toSearchedIssue(issue, this, undefined, userLogin))
+						.filter((result): result is SearchedIssue => result != null);
+					if (formattedIssues.length > 0) {
+						results.push(...formattedIssues);
+					}
+				} while (requestCount < maxPagesPerRequest && hasMore);
 			} catch (ex) {
 				// TODO: We need a better way to message the failure to the user here.
 				// This is a stopgap to prevent one bag org from throwing and preventing any issues from being returned.
@@ -271,8 +269,28 @@ export class JiraIntegration extends IssueIntegration<IssueIntegrationId.Jira> {
 	): Promise<IssueOrPullRequest | undefined> {
 		const api = await this.getProvidersApi();
 		const userLogin = (await this.getProviderAccountForResource(session, resource))?.username;
-		const issue = await api.getIssue(this.id, resource.id, id, { accessToken: session.accessToken });
+		const issue = await api.getIssue(
+			this.id,
+			{ resourceId: resource.id, number: id },
+			{ accessToken: session.accessToken },
+		);
 		return issue != null ? toSearchedIssue(issue, this, undefined, userLogin)?.issue : undefined;
+	}
+
+	protected override async getProviderIssue(
+		session: AuthenticationSession,
+		resource: JiraOrganizationDescriptor,
+		id: string,
+	): Promise<Issue | undefined> {
+		const api = await this.getProvidersApi();
+		const userLogin = (await this.getProviderAccountForResource(session, resource))?.username;
+		const apiResult = await api.getIssue(
+			this.id,
+			{ resourceId: resource.id, number: id },
+			{ accessToken: session.accessToken },
+		);
+		const issue = apiResult != null ? toSearchedIssue(apiResult, this, undefined, userLogin)?.issue : undefined;
+		return issue != null ? { ...issue, type: 'issue' } : undefined;
 	}
 
 	protected override async providerOnConnect(): Promise<void> {

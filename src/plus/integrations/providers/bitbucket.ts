@@ -2,7 +2,7 @@ import type { AuthenticationSession, CancellationToken } from 'vscode';
 import { HostingIntegrationId } from '../../../constants.integrations';
 import type { Account } from '../../../git/models/author';
 import type { DefaultBranch } from '../../../git/models/defaultBranch';
-import type { IssueOrPullRequest, SearchedIssue } from '../../../git/models/issue';
+import type { Issue, IssueOrPullRequest, SearchedIssue } from '../../../git/models/issue';
 import type {
 	PullRequest,
 	PullRequestMergeMethod,
@@ -83,6 +83,14 @@ export class BitbucketIntegration extends HostingIntegration<
 		_repo: BitbucketRepositoryDescriptor,
 		_id: string,
 	): Promise<IssueOrPullRequest | undefined> {
+		return Promise.resolve(undefined);
+	}
+
+	protected override async getProviderIssue(
+		_session: AuthenticationSession,
+		_repo: BitbucketRepositoryDescriptor,
+		_id: string,
+	): Promise<Issue | undefined> {
 		return Promise.resolve(undefined);
 	}
 
