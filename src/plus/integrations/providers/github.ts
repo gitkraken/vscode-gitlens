@@ -4,7 +4,7 @@ import type { Sources } from '../../../constants.telemetry';
 import type { Container } from '../../../container';
 import type { Account, UnidentifiedAuthor } from '../../../git/models/author';
 import type { DefaultBranch } from '../../../git/models/defaultBranch';
-import type { IssueOrPullRequest, SearchedIssue } from '../../../git/models/issue';
+import type { Issue, IssueOrPullRequest, SearchedIssue } from '../../../git/models/issue';
 import type {
 	PullRequest,
 	PullRequestMergeMethod,
@@ -18,7 +18,7 @@ import type {
 	IntegrationAuthenticationProviderDescriptor,
 	IntegrationAuthenticationService,
 } from '../authentication/integrationAuthentication';
-import type { SupportedIntegrationIds } from '../integration';
+import type { RepositoryDescriptor, SupportedIntegrationIds } from '../integration';
 import { HostingIntegration } from '../integration';
 import { providersMetadata } from './models';
 import type { ProvidersApi } from './providersApi';
@@ -35,11 +35,7 @@ const enterpriseAuthProvider: IntegrationAuthenticationProviderDescriptor = Obje
 	scopes: enterpriseMetadata.scopes,
 });
 
-export type GitHubRepositoryDescriptor = {
-	key: string;
-	owner: string;
-	name: string;
-};
+export type GitHubRepositoryDescriptor = RepositoryDescriptor;
 
 abstract class GitHubIntegrationBase<ID extends SupportedIntegrationIds> extends HostingIntegration<
 	ID,
@@ -99,6 +95,17 @@ abstract class GitHubIntegrationBase<ID extends SupportedIntegrationIds> extends
 				baseUrl: this.apiBaseUrl,
 			},
 		);
+	}
+
+	protected override async getProviderIssue(
+		{ accessToken }: AuthenticationSession,
+		repo: GitHubRepositoryDescriptor,
+		id: string,
+	): Promise<Issue | undefined> {
+		return (await this.container.github)?.getIssue(this, accessToken, repo.owner, repo.name, Number(id), {
+			baseUrl: this.apiBaseUrl,
+			includeBody: true,
+		});
 	}
 
 	protected override async getProviderPullRequest(

@@ -420,18 +420,18 @@ export function fromGitHubIssue(value: GitHubIssue, provider: Provider): Issue {
 			avatarUrl: value.author.avatarUrl,
 			url: value.author.url,
 		},
-		{
-			owner: value.repository.owner.login,
-			repo: value.repository.name,
-			accessLevel: fromGitHubViewerPermissionToAccessLevel(value.repository.viewerPermission),
-			url: value.repository.url,
-		},
 		value.assignees.nodes.map(assignee => ({
 			id: assignee.login,
 			name: assignee.login,
 			avatarUrl: assignee.avatarUrl,
 			url: assignee.url,
 		})),
+		{
+			owner: value.repository.owner.login,
+			repo: value.repository.name,
+			accessLevel: fromGitHubViewerPermissionToAccessLevel(value.repository.viewerPermission),
+			url: value.repository.url,
+		},
 		value.closedAt == null ? undefined : new Date(value.closedAt),
 		value.labels?.nodes == null
 			? undefined

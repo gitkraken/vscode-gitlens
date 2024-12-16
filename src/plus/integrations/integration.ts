@@ -9,7 +9,7 @@ import { AuthenticationError, CancellationError, RequestClientError } from '../.
 import type { PagedResult } from '../../git/gitProvider';
 import type { Account, UnidentifiedAuthor } from '../../git/models/author';
 import type { DefaultBranch } from '../../git/models/defaultBranch';
-import type { IssueOrPullRequest, SearchedIssue } from '../../git/models/issue';
+import type { Issue, IssueOrPullRequest, SearchedIssue } from '../../git/models/issue';
 import type {
 	PullRequest,
 	PullRequestMergeMethod,
@@ -69,6 +69,38 @@ export type IntegrationKeyById<T extends SupportedIntegrationIds> = T extends Su
 export type IntegrationType = 'issues' | 'hosting';
 
 export type ResourceDescriptor = { key: string } & Record<string, unknown>;
+
+export type IssueResourceDescriptor = ResourceDescriptor & {
+	id: string;
+	name: string;
+};
+
+export type RepositoryDescriptor = ResourceDescriptor & {
+	owner: string;
+	name: string;
+};
+
+export function isIssueResourceDescriptor(resource: ResourceDescriptor): resource is IssueResourceDescriptor {
+	return (
+		'key' in resource &&
+		resource.key != null &&
+		'id' in resource &&
+		resource.id != null &&
+		'name' in resource &&
+		resource.name != null
+	);
+}
+
+export function isRepositoryDescriptor(resource: ResourceDescriptor): resource is RepositoryDescriptor {
+	return (
+		'key' in resource &&
+		resource.key != null &&
+		'owner' in resource &&
+		resource.owner != null &&
+		'name' in resource &&
+		resource.name != null
+	);
+}
 
 export function isHostingIntegration(integration: Integration): integration is HostingIntegration {
 	return integration.type === 'hosting';
@@ -445,6 +477,43 @@ export abstract class IntegrationBase<
 		resource: T,
 		id: string,
 	): Promise<IssueOrPullRequest | undefined>;
+
+	@debug()
+	async getIssue(
+		resource: T,
+		id: string,
+		options?: { expiryOverride?: boolean | number },
+	): Promise<Issue | undefined> {
+		const scope = getLogScope();
+
+		const connected = this.maybeConnected ?? (await this.isConnected());
+		if (!connected) return undefined;
+
+		const issue = this.container.cache.getIssue(
+			id,
+			resource,
+			this,
+			() => ({
+				value: (async () => {
+					try {
+						const result = await this.getProviderIssue(this._session!, resource, id);
+						this.resetRequestExceptionCount();
+						return result;
+					} catch (ex) {
+						return this.handleProviderException<Issue | undefined>(ex, scope, undefined);
+					}
+				})(),
+			}),
+			options,
+		);
+		return issue;
+	}
+
+	protected abstract getProviderIssue(
+		session: ProviderAuthenticationSession,
+		resource: T,
+		id: string,
+	): Promise<Issue | undefined>;
 
 	async getCurrentAccount(options?: {
 		avatarSize?: number;

@@ -19,7 +19,7 @@ import {
 import type { PagedResult, RepositoryVisibility } from '../../../../git/gitProvider';
 import type { Account, UnidentifiedAuthor } from '../../../../git/models/author';
 import type { DefaultBranch } from '../../../../git/models/defaultBranch';
-import type { IssueOrPullRequest, SearchedIssue } from '../../../../git/models/issue';
+import type { Issue, IssueOrPullRequest, SearchedIssue } from '../../../../git/models/issue';
 import type { PullRequest, SearchedPullRequest } from '../../../../git/models/pullRequest';
 import { PullRequestMergeMethod } from '../../../../git/models/pullRequest';
 import type { Provider } from '../../../../git/models/remoteProvider';
@@ -615,6 +615,73 @@ export class GitHubApi implements Disposable {
 				url: issue.url,
 				state: fromGitHubIssueOrPullRequestState(issue.state),
 			};
+		} catch (ex) {
+			if (ex instanceof RequestNotFoundError) return undefined;
+
+			throw this.handleException(ex, provider, scope);
+		}
+	}
+
+	@debug<GitHubApi['getIssue']>({ args: { 0: p => p.name, 1: '<token>' } })
+	async getIssue(
+		provider: Provider,
+		token: string,
+		owner: string,
+		repo: string,
+		number: number,
+		options?: {
+			baseUrl?: string;
+			avatarSize?: number;
+			includeBody?: boolean;
+		},
+	): Promise<Issue | undefined> {
+		const scope = getLogScope();
+
+		interface QueryResult {
+			repository:
+				| {
+						issue: GitHubIssue | null | undefined;
+				  }
+				| null
+				| undefined;
+		}
+
+		try {
+			const query = `query getIssue(
+			$owner: String!
+			$repo: String!
+			$number: Int!
+			$avatarSize: Int
+		) {
+			repository(name: $repo, owner: $owner) {
+				issue(number: $number) {
+					${gqIssueFragment}${
+						options?.includeBody
+							? `
+						body
+						`
+							: ''
+					}
+				}
+			}
+		}`;
+
+			const rsp = await this.graphql<QueryResult>(
+				provider,
+				token,
+				query,
+				{
+					...options,
+					owner: owner,
+					repo: repo,
+					number: number,
+				},
+				scope,
+			);
+
+			if (rsp?.repository?.issue == null) return undefined;
+
+			return fromGitHubIssue(rsp.repository.issue, provider);
 		} catch (ex) {
 			if (ex instanceof RequestNotFoundError) return undefined;
 

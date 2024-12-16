@@ -5,7 +5,7 @@ import type { Sources } from '../../../constants.telemetry';
 import type { Container } from '../../../container';
 import type { Account } from '../../../git/models/author';
 import type { DefaultBranch } from '../../../git/models/defaultBranch';
-import type { IssueOrPullRequest, SearchedIssue } from '../../../git/models/issue';
+import type { Issue, IssueOrPullRequest, SearchedIssue } from '../../../git/models/issue';
 import type {
 	PullRequest,
 	PullRequestMergeMethod,
@@ -20,6 +20,7 @@ import type {
 	IntegrationAuthenticationProviderDescriptor,
 	IntegrationAuthenticationService,
 } from '../authentication/integrationAuthentication';
+import type { RepositoryDescriptor } from '../integration';
 import { HostingIntegration } from '../integration';
 import { fromGitLabMergeRequestProvidersApi } from './gitlab/models';
 import type { ProviderPullRequest } from './models';
@@ -38,11 +39,7 @@ const enterpriseAuthProvider: IntegrationAuthenticationProviderDescriptor = Obje
 	scopes: enterpriseMetadata.scopes,
 });
 
-export type GitLabRepositoryDescriptor = {
-	key: string;
-	owner: string;
-	name: string;
-};
+export type GitLabRepositoryDescriptor = RepositoryDescriptor;
 
 abstract class GitLabIntegrationBase<
 	ID extends HostingIntegrationId.GitLab | SelfHostedIntegrationId.GitLabSelfHosted,
@@ -101,6 +98,32 @@ abstract class GitLabIntegrationBase<
 				baseUrl: this.apiBaseUrl,
 			},
 		);
+	}
+
+	protected override async getProviderIssue(
+		{ accessToken }: AuthenticationSession,
+		repo: GitLabRepositoryDescriptor,
+		id: string,
+	): Promise<Issue | undefined> {
+		const api = await this.container.gitlab;
+		const providerApi = await this.getProvidersApi();
+
+		if (!api || !repo || !id) {
+			return undefined;
+		}
+
+		const repoId = await api.getProjectId(this, accessToken, repo.owner, repo.name, this.apiBaseUrl, undefined);
+		if (!repoId) {
+			return undefined;
+		}
+
+		const apiResult = await providerApi.getIssue(
+			this.id,
+			{ namespace: repo.owner, name: repo.name, number: id },
+			{ accessToken: accessToken },
+		);
+		const issue = apiResult != null ? toSearchedIssue(apiResult, this)?.issue : undefined;
+		return issue != null ? { ...issue, type: 'issue' } : undefined;
 	}
 
 	protected override async getProviderPullRequestForBranch(
