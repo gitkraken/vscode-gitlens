@@ -1,11 +1,13 @@
 import type { TemplateResult } from 'lit';
 import { css, html, LitElement, nothing } from 'lit';
 import { customElement, property } from 'lit/decorators.js';
+import { ifDefined } from 'lit/directives/if-defined.js';
 import { when } from 'lit/directives/when.js';
 import type { Commands } from '../../../../../constants.commands';
 import { createCommandLink } from '../../../../../system/commands';
 import type { GetOverviewBranch, OpenInGraphParams } from '../../../../home/protocol';
 import type { GlCard } from '../../../shared/components/card/card';
+import { GlElement, observe } from '../../../shared/components/element';
 import { srOnlyStyles } from '../../../shared/components/styles/lit/a11y.css';
 import { linkStyles } from '../../shared/components/vscode.css';
 import '../../../shared/components/code-icon';
@@ -136,7 +138,13 @@ export const branchCardStyles = css`
 	}
 `;
 
-export abstract class GlBranchCardBase extends LitElement {
+declare global {
+	interface GlobalEventHandlersEventMap {
+		'gl-branch-card-expand-toggled': CustomEvent<{ expanded: boolean }>;
+	}
+}
+
+export abstract class GlBranchCardBase extends GlElement {
 	static override styles = [linkStyles, branchCardStyles];
 
 	@property()
@@ -147,6 +155,19 @@ export abstract class GlBranchCardBase extends LitElement {
 
 	@property({ type: Boolean, reflect: true })
 	busy = false;
+
+	@property({ type: Boolean, reflect: true })
+	expanded = false;
+
+	@property({ type: Boolean, reflect: true })
+	expandable = false;
+
+	private eventController?: AbortController;
+
+	@observe('expandable')
+	private onExpandableChanged() {
+		this.attachFocusListener();
+	}
 
 	get branchRefs() {
 		return {
@@ -173,6 +194,32 @@ export abstract class GlBranchCardBase extends LitElement {
 			return isMerging ? 'merging' : 'rebasing';
 		}
 		return this.branch.opened ? 'active' : undefined;
+	}
+
+	override connectedCallback() {
+		super.connectedCallback();
+		this.attachFocusListener();
+	}
+
+	override disconnectedCallback() {
+		super.disconnectedCallback();
+		this.eventController?.abort();
+	}
+
+	private attachFocusListener() {
+		this.eventController?.abort();
+		this.eventController = undefined;
+		if (this.expandable) {
+			if (this.eventController == null) {
+				this.eventController = new AbortController();
+			}
+			this.addEventListener('focusin', this.onFocus.bind(this), { signal: this.eventController.signal });
+		}
+	}
+
+	private onFocus() {
+		if (this.expanded) return;
+		this.toggleExpanded(true);
 	}
 
 	protected renderAutolinks() {
@@ -216,7 +263,7 @@ export abstract class GlBranchCardBase extends LitElement {
 		}
 
 		if (contributors) {
-			contributors.push(...contributors);
+			avatars.push(...contributors);
 		}
 
 		if (avatars.length === 0) {
@@ -266,7 +313,11 @@ export abstract class GlBranchCardBase extends LitElement {
 		const avatars = this.renderAvatars();
 
 		return html`
-			<gl-work-item class="is-expanded" ?primary=${!this.branch.opened} .indicator=${this.cardIndicator}>
+			<gl-work-item
+				class=${ifDefined(this.expanded ? 'is-expanded' : undefined)}
+				?primary=${!this.branch.opened}
+				.indicator=${this.cardIndicator}
+			>
 				<div class="branch-item__section">
 					<p class="branch-item__grouping">
 						<span class="branch-item__icon">
@@ -290,7 +341,7 @@ export abstract class GlBranchCardBase extends LitElement {
 		if (!this.branch.pr) return nothing;
 
 		return html`
-			<gl-work-item class="is-expanded">
+			<gl-work-item class=${ifDefined(this.expanded ? 'is-expanded' : undefined)}>
 				<div class="branch-item__section">
 					<p class="branch-item__grouping">
 						<span class="branch-item__icon">
@@ -308,10 +359,18 @@ export abstract class GlBranchCardBase extends LitElement {
 		if (!this.branch.autolinks?.length) return nothing;
 
 		return html`
-			<gl-work-item class="is-expanded">
+			<gl-work-item class=${ifDefined(this.expanded ? 'is-expanded' : undefined)}>
 				<div class="branch-item__section">${this.renderAutolinks()}</div>
 			</gl-work-item>
 		`;
+	}
+
+	toggleExpanded(expanded = !this.expanded) {
+		this.expanded = expanded;
+
+		queueMicrotask(() => {
+			this.emit('gl-branch-card-expand-toggled', { expanded: expanded });
+		});
 	}
 }
 

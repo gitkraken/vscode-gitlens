@@ -171,7 +171,7 @@ export class GlActiveWork extends SignalWatcher(LitElement) {
 			${when(
 				provider.url != null,
 				() =>
-					html`<a href=${provider.url} class="section-heading-provider"
+					html`<a href=${provider.url!} class="section-heading-provider"
 						><code-icon icon=${icon} class="heading-icon"></code-icon
 					></a>`,
 				() => html`<code-icon icon=${icon} class="heading-icon"></code-icon>`,
@@ -201,6 +201,12 @@ declare global {
 
 @customElement('gl-active-branch-card')
 export class GlActiveBranchCard extends GlBranchCardBase {
+	override connectedCallback(): void {
+		super.connectedCallback();
+
+		this.toggleExpanded(true);
+	}
+
 	override render() {
 		return html` ${this.renderBranchItem()} ${this.renderPrItem()} ${this.renderAutolinksItem()} `;
 	}
