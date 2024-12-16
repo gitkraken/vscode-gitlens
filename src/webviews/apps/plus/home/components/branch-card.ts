@@ -85,10 +85,19 @@ export const branchCardStyles = css`
 	}
 
 	.branch-item__grouping--mergingRebasing {
-		color: var(--vscode-gitlens-decorations\\.statusMergingOrRebasingForegroundColor);
+		padding-inline: 0.4rem;
+		color: #000;
+	}
+
+	.branch-item__grouping--mergingRebasing {
+		background-color: var(--vscode-gitlens-decorations\\.statusMergingOrRebasingForegroundColor);
 	}
 	.branch-item__grouping--mergingRebasing.has-conflicts {
-		color: var(--vscode-gitlens-decorations\\.statusMergingOrRebasingConflictForegroundColor);
+		background-color: var(--vscode-gitlens-decorations\\.statusMergingOrRebasingConflictForegroundColor);
+	}
+
+	.branch-item__grouping--mergingRebasing .branch-item__icon {
+		color: inherit;
 	}
 
 	.branch-item__grouping--secondary .branch-item__name,
@@ -116,13 +125,6 @@ export const branchCardStyles = css`
 
 	.pill {
 		--gl-pill-border: color-mix(in srgb, transparent 80%, var(--color-foreground));
-	}
-
-	.branch-item__indicator {
-		color: var(--vscode-gitlens-decorations\\.statusMergingOrRebasingForegroundColor);
-	}
-	.branch-item__indicator.has-conflicts {
-		color: var(--vscode-gitlens-decorations\\.statusMergingOrRebasingConflictForegroundColor);
 	}
 
 	.work-item {
@@ -307,10 +309,13 @@ export abstract class GlBranchCardBase extends GlElement {
 		return html`<formatted-date .date=${new Date(timestamp)} class="branch-item__date"></formatted-date>`;
 	}
 
+	protected abstract renderBranchIndicator?(): TemplateResult | undefined;
+
 	protected renderBranchItem() {
 		const wip = this.renderWip();
 		const tracking = this.renderTracking();
 		const avatars = this.renderAvatars();
+		const indicator = this.renderBranchIndicator?.();
 
 		return html`
 			<gl-work-item
@@ -318,6 +323,7 @@ export abstract class GlBranchCardBase extends GlElement {
 				?primary=${!this.branch.opened}
 				.indicator=${this.cardIndicator}
 			>
+				${when(indicator != null, () => html`<div slot="indicator">${indicator}</div>`)}
 				<div class="branch-item__section">
 					<p class="branch-item__grouping">
 						<span class="branch-item__icon">
@@ -452,6 +458,10 @@ export class GlBranchCard extends GlBranchCardBase {
 
 		return actions;
 	}
+
+	renderBranchIndicator() {
+		return undefined;
+	}
 }
 
 @customElement('gl-work-item')
@@ -472,6 +482,12 @@ export class GlWorkUnit extends LitElement {
 
 			:host-context(.is-expanded) .work-item__content {
 				display: flex;
+			}
+
+			.work-item-indicator {
+				display: block;
+				margin: -0.8rem 0 0.4rem -1.2rem;
+				width: calc(100% + 2.4rem);
 			}
 		`,
 	];
@@ -497,6 +513,7 @@ export class GlWorkUnit extends LitElement {
 
 	private renderContent() {
 		return html`
+			<slot class="work-item-indicator" name="indicator"></slot>
 			<div class="work-item">
 				<header class="work-item__main">
 					<slot></slot>
