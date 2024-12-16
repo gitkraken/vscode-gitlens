@@ -274,6 +274,8 @@ _{prefix}/command/{command}_
 
   - _graph_ - Runs the `GitLens: Show Graph` command.
 
+  - _home_ - Runs the `GitLens: Show Home View` command.
+
   - _inspect_ - Runs the `GitLens: Inspect Commit Details` command.
 
   - _launchpad_ - Runs the `GitLens: Show Launchpad` command.
