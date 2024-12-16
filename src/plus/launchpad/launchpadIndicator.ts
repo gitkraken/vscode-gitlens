@@ -368,7 +368,7 @@ export class LaunchpadIndicator implements Disposable {
 									source: 'launchpad-indicator',
 									state: {
 										initialGroup: 'mergeable',
-										selectTopItem: labelType === 'item',
+										selectTopItem: true,
 									},
 								} satisfies Omit<LaunchpadCommandArgs, 'command'>),
 							)} "Open Ready to Merge in Launchpad")`,
@@ -429,7 +429,10 @@ export class LaunchpadIndicator implements Disposable {
 							}](command:gitlens.showLaunchpad?${encodeURIComponent(
 								JSON.stringify({
 									source: 'launchpad-indicator',
-									state: { initialGroup: 'blocked', selectTopItem: labelType === 'item' },
+									state: {
+										initialGroup: 'blocked',
+										selectTopItem: true,
+									},
 								} satisfies Omit<LaunchpadCommandArgs, 'command'>),
 							)} "Open Blocked in Launchpad")`,
 						);
@@ -465,7 +468,7 @@ export class LaunchpadIndicator implements Disposable {
 									source: 'launchpad-indicator',
 									state: {
 										initialGroup: 'follow-up',
-										selectTopItem: labelType === 'item',
+										selectTopItem: true,
 									},
 								} satisfies Omit<LaunchpadCommandArgs, 'command'>),
 							)} "Open Follow-Up in Launchpad")`,
@@ -488,7 +491,7 @@ export class LaunchpadIndicator implements Disposable {
 									source: 'launchpad-indicator',
 									state: {
 										initialGroup: 'needs-review',
-										selectTopItem: labelType === 'item',
+										selectTopItem: true,
 									},
 								} satisfies Omit<LaunchpadCommandArgs, 'command'>),
 							)} "Open Needs Your Review in Launchpad")`,
