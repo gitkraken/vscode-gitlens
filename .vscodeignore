@@ -7,8 +7,7 @@
 .yarn/**
 docs/**
 emoji/**
-images/docs/sponsors/**
-images/docs/gitlens-preview.gif
+images/docs
 images/icons/**
 images/originals/**
 node_modules/**
@@ -46,3 +45,4 @@ tsconfig*.json
 tsconfig*.tsbuildinfo
 webpack.config*.mjs
 yarn.lock
+.wdio-vscode-service
