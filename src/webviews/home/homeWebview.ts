@@ -20,6 +20,9 @@ import { openComparisonChanges } from '../../git/actions/commit';
 import * as RepoActions from '../../git/actions/repository';
 import type { BranchContributorOverview } from '../../git/gitProvider';
 import type { GitBranch } from '../../git/models/branch';
+import type { BranchTargetInfo } from '../../git/models/branch.utils';
+import { getBranchTargetInfo } from '../../git/models/branch.utils';
+import type { MergeConflict } from '../../git/models/mergeConflict';
 import type { PullRequest } from '../../git/models/pullRequest';
 import { getComparisonRefsForPullRequest } from '../../git/models/pullRequest';
 import { getReferenceFromBranch } from '../../git/models/reference.utils';
@@ -105,6 +108,10 @@ interface RepositoryBranchData {
 interface BranchRef {
 	repoPath: string;
 	branchId: string;
+}
+interface BranchTargetInfoWithConflict {
+	target: BranchTargetInfo;
+	conflict: MergeConflict | undefined;
 }
 interface EnrichedPullRequest {
 	pullRequest: PullRequest;
@@ -305,6 +312,8 @@ export class HomeWebviewProvider implements WebviewProvider<State, State, HomeWe
 			registerCommand('gitlens.home.fetch', this.fetch, this),
 			registerCommand('gitlens.home.openInGraph', this.openInGraph, this),
 			registerCommand('gitlens.home.createBranch', this.createBranch, this),
+			registerCommand('gitlens.home.mergeIntoCurrent', this.mergeIntoCurrent, this),
+			registerCommand('gitlens.home.rebaseCurrentOnto', this.rebaseCurrentOnto, this),
 			registerCommand('gitlens.home.startWork', this.startWork, this),
 		];
 	}
@@ -416,6 +425,28 @@ export class HomeWebviewProvider implements WebviewProvider<State, State, HomeWe
 				confirmOptions: ['--switch', '--worktree'],
 			},
 		});
+	}
+
+	private async mergeIntoCurrent(refs: BranchRef) {
+		const repo = this._repositoryBranches.get(refs.repoPath);
+		let branch = repo?.branches.find(b => b.id === refs.branchId);
+		if (branch == null) {
+			branch = await repo?.repo?.git.getBranch(refs.branchId);
+			if (branch == null) return;
+		}
+
+		void RepoActions.merge(repo!.repo, getReferenceFromBranch(branch));
+	}
+
+	private async rebaseCurrentOnto(refs: BranchRef) {
+		const repo = this._repositoryBranches.get(refs.repoPath);
+		let branch = repo?.branches.find(b => b.id === refs.branchId);
+		if (branch == null) {
+			branch = await repo?.repo?.git.getBranch(refs.branchId);
+			if (branch == null) return;
+		}
+
+		void RepoActions.rebase(repo!.repo, getReferenceFromBranch(branch));
 	}
 
 	private startWork() {
@@ -1038,6 +1069,25 @@ async function getOverviewBranches(
 		stale: [],
 	};
 
+	const getBranchTargetAndPotentialMergeConflict = async (
+		branch: GitBranch,
+	): Promise<BranchTargetInfoWithConflict> => {
+		const info = await getBranchTargetInfo(container, branch, {
+			associatedPullRequest: branch.getAssociatedPullRequest(),
+		});
+
+		let target;
+		if (!info.targetBranch.paused && info.targetBranch.value) {
+			target = info.targetBranch.value;
+		} else {
+			target = info.baseBranch ?? info.defaultBranch;
+		}
+		if (target == null) return { target: info, conflict: undefined };
+
+		const conflicts = await container.git.getPotentialMergeOrRebaseConflict(branch.repoPath, branch.name, target);
+		return { target: info, conflict: conflicts };
+	};
+
 	let launchpadResultPromise: Promise<LaunchpadCategorizedResult> | undefined;
 
 	const getEnrichedPullRequest = async (
@@ -1068,6 +1118,7 @@ async function getOverviewBranches(
 	const autolinkPromises = new Map<string, Promise<Map<string, EnrichedAutolink> | undefined>>();
 	const statusPromises = new Map<string, Promise<GitStatus | undefined>>();
 	const contributorPromises = new Map<string, Promise<BranchContributorOverview | undefined>>();
+	const targetAndPotentialConflictPromises = new Map<string, Promise<BranchTargetInfoWithConflict>>();
 
 	const now = Date.now();
 	const recentThreshold = now - thresholdValues[filters.recent.threshold];
@@ -1086,6 +1137,9 @@ async function getOverviewBranches(
 					branch.id,
 					container.git.getBranchContributorOverview(branch.repoPath, branch.ref),
 				);
+				if (branch.current) {
+					targetAndPotentialConflictPromises.set(branch.id, getBranchTargetAndPotentialMergeConflict(branch));
+				}
 			}
 
 			if (wt != null) {
@@ -1204,6 +1258,7 @@ async function getOverviewBranches(
 		autolinkPromises,
 		statusPromises,
 		contributorPromises,
+		targetAndPotentialConflictPromises,
 		container,
 	);
 
@@ -1217,37 +1272,42 @@ async function enrichOverviewBranches(
 	autolinkPromises: Map<string, Promise<Map<string, EnrichedAutolink> | undefined>>,
 	statusPromises: Map<string, Promise<GitStatus | undefined>>,
 	contributorPromises: Map<string, Promise<BranchContributorOverview | undefined>>,
+	targetAndPotentialConflictPromises: Map<string, Promise<BranchTargetInfoWithConflict>>,
 	container: Container,
 ) {
-	const [prResults, autolinkResults, statusResults, contributorResults] = await Promise.allSettled([
-		pauseOnCancelOrTimeoutMap(prPromises, true),
-		Promise.allSettled(
-			map(autolinkPromises, ([id, autolinks]) =>
-				autolinks.then<[string, Map<string, EnrichedAutolink> | undefined]>(a => [id, a]),
+	const [prResults, autolinkResults, statusResults, contributorResults, targetAndPotentialConflictResults] =
+		await Promise.allSettled([
+			pauseOnCancelOrTimeoutMap(prPromises, true),
+			Promise.allSettled(
+				map(autolinkPromises, ([id, autolinks]) =>
+					autolinks.then<[string, Map<string, EnrichedAutolink> | undefined]>(a => [id, a]),
+				),
 			),
-		),
-		Promise.allSettled(
-			map(statusPromises, ([id, status]) => status.then<[string, GitStatus | undefined]>(status => [id, status])),
-		),
-		Promise.allSettled(
-			map(contributorPromises, ([id, overview]) =>
-				overview.then<[string, BranchContributorOverview | undefined]>(overview => [id, overview]),
+			Promise.allSettled(
+				map(statusPromises, ([id, status]) =>
+					status.then<[string, GitStatus | undefined]>(status => [id, status]),
+				),
 			),
-		),
-	]);
+			Promise.allSettled(
+				map(contributorPromises, ([id, overview]) =>
+					overview.then<[string, BranchContributorOverview | undefined]>(overview => [id, overview]),
+				),
+			),
+			pauseOnCancelOrTimeoutMap(targetAndPotentialConflictPromises, true),
+		]);
 
 	const prs = new Map(
 		map(getSettledValue(prResults) ?? [], ([id, epr]) => [
 			id,
 			!epr.paused && epr.value != null
-					? ({
+				? ({
 						id: epr.value.pullRequest.id,
 						title: epr.value.pullRequest.title,
 						state: epr.value.pullRequest.state,
 						url: epr.value.pullRequest.url,
-							launchpad:
+						launchpad:
 							epr.value.launchpadItem != null
-									? {
+								? {
 										category: epr.value.launchpadItem.actionableCategory,
 										groups: getLaunchpadItemGroups(epr.value.launchpadItem),
 										suggestedActions: epr.value.launchpadItem.suggestedActions,
@@ -1255,23 +1315,23 @@ async function enrichOverviewBranches(
 										failingCI: epr.value.launchpadItem.failingCI,
 										hasConflicts: epr.value.launchpadItem.hasConflicts,
 
-											review: {
+										review: {
 											decision: epr.value.launchpadItem.reviewDecision,
 											reviews: epr.value.launchpadItem.reviews ?? [],
-												counts: {
+											counts: {
 												approval: epr.value.launchpadItem.approvalReviewCount,
 												changeRequest: epr.value.launchpadItem.changeRequestReviewCount,
 												comment: epr.value.launchpadItem.commentReviewCount,
 												codeSuggest: epr.value.launchpadItem.codeSuggestionsCount,
-												},
 											},
+										},
 
 										viewer: { ...epr.value.launchpadItem.viewer, enrichedItems: undefined },
-									  }
-									: undefined,
-					  } satisfies GetOverviewBranch['pr'])
-					: undefined,
-			]),
+								  }
+								: undefined,
+				  } satisfies GetOverviewBranch['pr'])
+				: undefined,
+		]),
 	);
 
 	const enrichedAutolinkPromises = new Map(
@@ -1319,6 +1379,8 @@ async function enrichOverviewBranches(
 			?.filter(r => r.status === 'fulfilled')
 			.map(r => [r.value[0], r.value[1]]),
 	);
+
+	const targetAndPotentialConflict = getSettledValue(targetAndPotentialConflictResults); // new Map(
 
 	for (const branch of [...overviewBranches.active, ...overviewBranches.recent, ...overviewBranches.stale]) {
 		const isActive = overviewBranches.active.includes(branch);
@@ -1377,6 +1439,19 @@ async function enrichOverviewBranches(
 				  )
 				: undefined;
 			branch.contributors = contributors;
+
+			const targetAndConflict = targetAndPotentialConflict?.get(branch.id);
+			if (targetAndConflict?.value != null && !targetAndConflict.paused) {
+				branch.target = {
+					baseBranch: targetAndConflict.value.target.baseBranch,
+					defaultBranch: targetAndConflict.value.target.defaultBranch,
+					targetBranch: !targetAndConflict.value.target.targetBranch.paused
+						? targetAndConflict.value.target.targetBranch.value
+						: undefined,
+					// TODO: Get left/right stats?
+					potentialMergeConflicts: targetAndConflict.value.conflict,
+				};
+			}
 		}
 	}
 }

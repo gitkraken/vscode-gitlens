@@ -70,6 +70,7 @@ import type { GitFile, GitFileChange } from './models/file';
 import type { GitGraph } from './models/graph';
 import type { GitLog } from './models/log';
 import type { GitMergeStatus } from './models/merge';
+import type { MergeConflict } from './models/mergeConflict';
 import type { GitRebaseStatus } from './models/rebase';
 import type { GitBranchReference, GitReference } from './models/reference';
 import type { GitReflog } from './models/reflog';
@@ -2197,6 +2198,16 @@ export class GitProviderService implements Disposable {
 	): Promise<GitReflog | undefined> {
 		const { provider, path } = this.getProvider(repoPath);
 		return provider.getIncomingActivity(path, options);
+	}
+
+	@log()
+	async getPotentialMergeOrRebaseConflict(
+		repoPath: string,
+		branch: string,
+		targetBranch: string,
+	): Promise<MergeConflict | undefined> {
+		const { provider, path } = this.getProvider(repoPath);
+		return provider.getPotentialMergeOrRebaseConflict?.(path, branch, targetBranch);
 	}
 
 	@log()

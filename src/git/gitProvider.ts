@@ -14,6 +14,7 @@ import type { GitFile, GitFileChange } from './models/file';
 import type { GitGraph } from './models/graph';
 import type { GitLog } from './models/log';
 import type { GitMergeStatus } from './models/merge';
+import type { MergeConflict } from './models/mergeConflict';
 import type { GitRebaseStatus } from './models/rebase';
 import type { GitBranchReference, GitReference } from './models/reference';
 import type { GitReflog } from './models/reflog';
@@ -349,6 +350,11 @@ export interface GitProviderRepository {
 			skip?: number | undefined;
 		},
 	): Promise<GitReflog | undefined>;
+	getPotentialMergeOrRebaseConflict?(
+		repoPath: string,
+		branch: string,
+		targetBranch: string,
+	): Promise<MergeConflict | undefined>;
 	getRemotes(
 		repoPath: string | undefined,
 		options?: { filter?: (remote: GitRemote) => boolean; sort?: boolean },
