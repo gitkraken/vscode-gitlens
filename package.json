@@ -8115,7 +8115,12 @@
 			{
 				"command": "gitlens.views.home.disablePreview",
 				"title": "Revert to Old Home View",
-				"icon": "$(arrow-left)"
+				"icon": "$(discard)"
+			},
+			{
+				"command": "gitlens.views.home.enablePreview",
+				"title": "Switch to New Home View",
+				"icon": "$(redo)"
 			},
 			{
 				"command": "gitlens.views.home.discussions",
@@ -11672,6 +11677,10 @@
 				},
 				{
 					"command": "gitlens.views.home.discussions",
+					"when": "false"
+				},
+				{
+					"command": "gitlens.views.home.enablePreview",
 					"when": "false"
 				},
 				{
@@ -17216,6 +17225,11 @@
 				{
 					"command": "gitlens.views.home.disablePreview",
 					"when": "view == gitlens.views.home && config.gitlens.home.preview.enabled",
+					"group": "navigation@98"
+				},
+				{
+					"command": "gitlens.views.home.enablePreview",
+					"when": "view == gitlens.views.home && !config.gitlens.home.preview.enabled",
 					"group": "navigation@98"
 				},
 				{
