@@ -1,12 +1,14 @@
 import { QuickInputButtons } from 'vscode';
 import type { Container } from '../../container';
-import { getNameWithoutRemote } from '../../git/models/branch.utils';
+import { addAssociatedIssueToBranch, getNameWithoutRemote } from '../../git/models/branch.utils';
+import type { IssueShape } from '../../git/models/issue';
 import type { GitBranchReference, GitReference } from '../../git/models/reference';
 import { getReferenceLabel, isBranchReference, isRevisionReference } from '../../git/models/reference.utils';
 import { Repository } from '../../git/models/repository';
 import type { GitWorktree } from '../../git/models/worktree';
 import { getWorktreesByBranch } from '../../git/models/worktree.utils';
 import { showGenericErrorMessage } from '../../messages';
+import { getIssueOwner } from '../../plus/integrations/providers/utils';
 import type { QuickPickItemOfT } from '../../quickpicks/items/common';
 import { createQuickPickSeparator } from '../../quickpicks/items/common';
 import type { FlagsQuickPickItem } from '../../quickpicks/items/flags';
@@ -61,6 +63,7 @@ interface CreateState {
 	suggestNameOnly?: boolean;
 	suggestRepoOnly?: boolean;
 	confirmOptions?: CreateFlags[];
+	associateWithIssue?: IssueShape;
 }
 
 function isCreateState(state: Partial<State> | undefined): state is Partial<CreateState> {
@@ -415,6 +418,7 @@ export class BranchGitCommand extends QuickCommand {
 			}
 
 			endSteps(state);
+
 			if (state.flags.includes('--switch')) {
 				await state.repo.switch(state.reference.ref, { createBranch: state.name });
 			} else {
@@ -424,6 +428,16 @@ export class BranchGitCommand extends QuickCommand {
 					Logger.error(ex);
 					// TODO likely need some better error handling here
 					return showGenericErrorMessage('Unable to create branch');
+				}
+			}
+
+			if (state.associateWithIssue != null) {
+				const issue = state.associateWithIssue;
+				const branch = await state.repo.git.getBranch(state.name);
+				// TODO: These descriptors are hacked in. Use an integration function to get the right resource for the issue.
+				const owner = getIssueOwner(issue);
+				if (branch != null && owner != null) {
+					await addAssociatedIssueToBranch(this.container, branch, { ...issue, type: 'issue' }, owner);
 				}
 			}
 		}
