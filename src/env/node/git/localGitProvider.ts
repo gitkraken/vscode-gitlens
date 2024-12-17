@@ -2180,43 +2180,10 @@ export class LocalGitProvider implements GitProvider, Disposable {
 		let branchPromise = this.useCaching ? this._branchCache.get(repoPath) : undefined;
 		if (branchPromise == null) {
 			async function load(this: LocalGitProvider): Promise<GitBranch | undefined> {
-				let {
+				const {
 					values: [branch],
 				} = await this.getBranches(repoPath, { filter: b => b.current });
-				if (branch != null) return branch;
-
-				const commitOrdering = configuration.get('advanced.commitOrdering');
-
-				const data = await this.git.rev_parse__currentBranch(repoPath, commitOrdering);
-				if (data == null) return undefined;
-
-				const [name, upstream] = data[0].split('\n');
-				if (isDetachedHead(name)) {
-					const [rebaseStatusResult, committerDateResult] = await Promise.allSettled([
-						this.getRebaseStatus(repoPath),
-						this.git.log__recent_committerdate(repoPath, commitOrdering),
-					]);
-
-					const committerDate = getSettledValue(committerDateResult);
-					const rebaseStatus = getSettledValue(rebaseStatusResult);
-
-					branch = new GitBranch(
-						this.container,
-						repoPath,
-						rebaseStatus?.incoming.name ?? name,
-						false,
-						true,
-						committerDate != null ? new Date(Number(committerDate) * 1000) : undefined,
-						data[1],
-						upstream ? { name: upstream, missing: false } : undefined,
-						undefined,
-						undefined,
-						undefined,
-						rebaseStatus != null,
-					);
-				}
-
-				return branch;
+				return branch ?? this.getCurrentBranch(repoPath);
 			}
 
 			branchPromise = load.call(this);
@@ -2227,6 +2194,38 @@ export class LocalGitProvider implements GitProvider, Disposable {
 		}
 
 		return branchPromise;
+	}
+
+	private async getCurrentBranch(repoPath: string): Promise<GitBranch | undefined> {
+		const commitOrdering = configuration.get('advanced.commitOrdering');
+
+		const data = await this.git.rev_parse__currentBranch(repoPath, commitOrdering);
+		if (data == null) return undefined;
+
+		const [name, upstream] = data[0].split('\n');
+
+		const [rebaseStatusResult, committerDateResult] = await Promise.allSettled([
+			isDetachedHead(name) ? this.getRebaseStatus(repoPath) : undefined,
+			this.git.log__recent_committerdate(repoPath, commitOrdering),
+		]);
+
+		const committerDate = getSettledValue(committerDateResult);
+		const rebaseStatus = getSettledValue(rebaseStatusResult);
+
+		return new GitBranch(
+			this.container,
+			repoPath,
+			rebaseStatus?.incoming.name ?? name,
+			false,
+			true,
+			committerDate != null ? new Date(Number(committerDate) * 1000) : undefined,
+			data[1],
+			upstream ? { name: upstream, missing: false } : undefined,
+			undefined,
+			undefined,
+			undefined,
+			rebaseStatus != null,
+		);
 	}
 
 	@log({ args: { 1: false } })
@@ -2246,43 +2245,28 @@ export class LocalGitProvider implements GitProvider, Disposable {
 				try {
 					const data = await this.git.for_each_ref__branch(repoPath!, { all: true });
 					// If we don't get any data, assume the repo doesn't have any commits yet so check if we have a current branch
-					if (data == null || data.length === 0) {
-						let current;
-
-						const commitOrdering = configuration.get('advanced.commitOrdering');
-
-						const data = await this.git.rev_parse__currentBranch(repoPath!, commitOrdering);
-						if (data != null) {
-							const [name, upstream] = data[0].split('\n');
-
-							const [rebaseStatusResult, committerDateResult] = await Promise.allSettled([
-								isDetachedHead(name) ? this.getRebaseStatus(repoPath!) : undefined,
-								this.git.log__recent_committerdate(repoPath!, commitOrdering),
-							]);
-
-							const committerDate = getSettledValue(committerDateResult);
-							const rebaseStatus = getSettledValue(rebaseStatusResult);
-
-							current = new GitBranch(
-								this.container,
-								repoPath!,
-								rebaseStatus?.incoming.name ?? name,
-								false,
-								true,
-								committerDate != null ? new Date(Number(committerDate) * 1000) : undefined,
-								data[1],
-								{ name: upstream, missing: false },
-								undefined,
-								undefined,
-								undefined,
-								rebaseStatus != null,
-							);
-						}
-
+					if (!data?.length) {
+						const current = await this.getCurrentBranch(repoPath!);
 						return current != null ? { values: [current] } : emptyPagedResult;
 					}
 
-					return { values: parseGitBranches(this.container, data, repoPath!) };
+					const branches = parseGitBranches(this.container, data, repoPath!);
+					if (!branches.length) return emptyPagedResult;
+
+					// If we don't have a current branch, check if we can find it another way (likely detached head)
+					if (!branches.some(b => b.current)) {
+						const current = await this.getCurrentBranch(repoPath!);
+						if (current != null) {
+							// replace the current branch if it already exists and add it first if not
+							const index = branches.findIndex(b => b.id === current.id);
+							if (index !== -1) {
+								branches[index] = current;
+							} else {
+								branches.unshift(current);
+							}
+						}
+					}
+					return { values: branches };
 				} catch (_ex) {
 					this._branchesCache.delete(repoPath!);
 
