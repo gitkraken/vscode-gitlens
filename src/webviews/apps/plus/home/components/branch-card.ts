@@ -75,8 +75,7 @@ export const branchCardStyles = css`
 		margin-block: 0;
 	}
 
-	.branch-item__grouping--secondary,
-	.branch-item__grouping--mergingRebasing {
+	.branch-item__grouping--secondary {
 		gap: 0.3rem;
 		font-size: 0.9em;
 	}
@@ -85,24 +84,7 @@ export const branchCardStyles = css`
 		color: var(--vscode-descriptionForeground);
 	}
 
-	.branch-item__grouping--mergingRebasing {
-		padding-inline: 0.4rem;
-		color: #000;
-	}
-
-	.branch-item__grouping--mergingRebasing {
-		background-color: var(--vscode-gitlens-decorations\\.statusMergingOrRebasingForegroundColor);
-	}
-	.branch-item__grouping--mergingRebasing.has-conflicts {
-		background-color: var(--vscode-gitlens-decorations\\.statusMergingOrRebasingConflictForegroundColor);
-	}
-
-	.branch-item__grouping--mergingRebasing .branch-item__icon {
-		color: inherit;
-	}
-
-	.branch-item__grouping--secondary .branch-item__name,
-	.branch-item__grouping--mergingRebasing .branch-item__name {
+	.branch-item__grouping--secondary .branch-item__name {
 		font-weight: normal;
 	}
 
@@ -140,6 +122,8 @@ export const branchCardStyles = css`
 		margin-block: 0.4rem;
 	}
 `;
+
+type NothingType = typeof nothing;
 
 declare global {
 	interface GlobalEventHandlersEventMap {
@@ -296,7 +280,8 @@ export abstract class GlBranchCardBase extends GlElement {
 		const actions = this.getActions?.();
 		if (!actions?.length) return nothing;
 
-		return html`<action-nav class="branch-item__actions">${actions}</action-nav>`;
+		// class="branch-item__actions"
+		return html`<action-nav slot="actions">${actions}</action-nav>`;
 	}
 
 	protected createCommandLink(command: Commands) {
@@ -312,9 +297,9 @@ export abstract class GlBranchCardBase extends GlElement {
 
 	protected abstract renderBranchIndicator?(): TemplateResult | undefined;
 
-	protected renderBranchItem() {
+	protected renderBranchItem(actionsSection?: TemplateResult | NothingType) {
 		const wip = this.renderWip();
-		const tracking = this.renderTracking();
+		const tracking = this.branch.opened ? undefined : this.renderTracking();
 		const avatars = this.renderAvatars();
 		const indicator = this.renderBranchIndicator?.();
 		const conflict = this.renderPotentialMergeConflicts();
@@ -323,9 +308,9 @@ export abstract class GlBranchCardBase extends GlElement {
 			<gl-work-item
 				class=${ifDefined(this.expanded ? 'is-expanded' : undefined)}
 				?primary=${!this.branch.opened}
+				?nested=${!this.branch.opened}
 				.indicator=${this.cardIndicator}
 			>
-				${when(indicator != null, () => html`<div slot="indicator">${indicator}</div>`)}
 				<div class="branch-item__section">
 					<p class="branch-item__grouping">
 						<span class="branch-item__icon">
@@ -337,11 +322,12 @@ export abstract class GlBranchCardBase extends GlElement {
 				</div>
 				<div class="branch-item__section branch-item__section--details" slot="context">
 					${when(
-						wip || tracking || avatars,
-						() => html`<p class="branch-item__changes">${wip}${tracking}${avatars}</p>`,
+						indicator || wip || tracking || avatars,
+						() => html`<p class="branch-item__changes">${indicator}${wip}${tracking}${avatars}</p>`,
 					)}
 					${this.renderTimestamp()}
 				</div>
+				${actionsSection ?? nothing}
 			</gl-work-item>
 		`;
 	}
@@ -350,7 +336,7 @@ export abstract class GlBranchCardBase extends GlElement {
 		if (!this.branch.pr) return nothing;
 
 		return html`
-			<gl-work-item class=${ifDefined(this.expanded ? 'is-expanded' : undefined)}>
+			<gl-work-item class=${ifDefined(this.expanded ? 'is-expanded' : undefined)} ?nested=${!this.branch.opened}>
 				<div class="branch-item__section">
 					<p class="branch-item__grouping">
 						<span class="branch-item__icon">
@@ -383,7 +369,7 @@ export abstract class GlBranchCardBase extends GlElement {
 		if (!this.branch.autolinks?.length) return nothing;
 
 		return html`
-			<gl-work-item class=${ifDefined(this.expanded ? 'is-expanded' : undefined)}>
+			<gl-work-item class=${ifDefined(this.expanded ? 'is-expanded' : undefined)} ?nested=${!this.branch.opened}>
 				<div class="branch-item__section">${this.renderAutolinks()}</div>
 			</gl-work-item>
 		`;
@@ -402,11 +388,10 @@ export abstract class GlBranchCardBase extends GlElement {
 export class GlBranchCard extends GlBranchCardBase {
 	override render() {
 		return html`
-			<gl-card class="branch-item" .indicator=${this.cardIndicator}>
+			<gl-card class="branch-item" focusable .indicator=${this.cardIndicator}>
 				<div class="branch-item__container">
-					${this.renderBranchItem()}${this.renderPrItem()}${this.renderAutolinksItem()}
+					${this.renderBranchItem(this.renderActions())}${this.renderPrItem()}${this.renderAutolinksItem()}
 				</div>
-				${this.renderActions()}
 			</gl-card>
 		`;
 	}
@@ -507,23 +492,26 @@ export class GlWorkUnit extends LitElement {
 				margin: -0.8rem 0 0.4rem -1.2rem;
 				width: calc(100% + 2.4rem);
 			}
+
+			gl-card::part(base) {
+				margin-block-end: 0;
+			}
 		`,
 	];
 
 	@property({ type: Boolean, reflect: true })
 	primary: boolean = false;
 
+	@property({ type: Boolean, reflect: true })
+	nested: boolean = false;
+
 	@property({ reflect: true })
 	indicator?: GlCard['indicator'];
 
 	override render() {
-		// if (this.primary) {
-		// 	return html`${this.renderContent()}`;
-		// }
-
 		return html`<gl-card
 			.density=${this.primary ? 'tight' : undefined}
-			.grouping=${this.primary ? 'item-primary' : 'item'}
+			.grouping=${this.nested === false ? undefined : this.primary ? 'item-primary' : 'item'}
 			.indicator=${this.indicator}
 			>${this.renderContent()}</gl-card
 		>`;

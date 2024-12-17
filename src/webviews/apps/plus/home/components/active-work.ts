@@ -9,7 +9,6 @@ import { createWebviewCommandLink } from '../../../../../system/webview';
 import type { GetOverviewBranch, OpenInGraphParams, State } from '../../../../home/protocol';
 import { stateContext } from '../../../home/context';
 import { ipcContext } from '../../../shared/context';
-import { getReferenceLabel } from '../../../shared/git-utils';
 import type { HostIpc } from '../../../shared/ipc';
 import { linkStyles } from '../../shared/components/vscode.css';
 import { branchCardStyles, GlBranchCardBase } from './branch-card';
@@ -26,6 +25,7 @@ import '../../../shared/components/overlays/tooltip';
 import '../../../shared/components/pills/tracking';
 import '../../../shared/components/rich/issue-icon';
 import '../../../shared/components/rich/pr-icon';
+import './merge-rebase-status';
 
 export const activeWorkTagName = 'gl-active-work';
 
@@ -201,6 +201,18 @@ declare global {
 
 @customElement('gl-active-branch-card')
 export class GlActiveBranchCard extends GlBranchCardBase {
+	static override styles = [
+		linkStyles,
+		branchCardStyles,
+		css`
+			:host {
+				display: flex;
+				flex-direction: column;
+				gap: 0.8rem;
+			}
+		`,
+	];
+
 	override connectedCallback(): void {
 		super.connectedCallback();
 
@@ -208,43 +220,8 @@ export class GlActiveBranchCard extends GlBranchCardBase {
 	}
 
 	override render() {
-		return html`${this.renderBranchItem()} ${this.renderPrItem()} ${this.renderAutolinksItem()} `;
-	}
-
-	render_old() {
-		const { name, pr } = this.branch;
-
-		return html`
-			<gl-card class="branch-item" .indicator=${this.cardIndicator}>
-				<div class="branch-item__container">
-					${this.renderBranchIndicator()}
-					<div class="branch-item__section">
-						<p class="branch-item__grouping">
-							<span class="branch-item__icon">
-								<code-icon
-									icon=${this.branch.worktree ? 'gl-worktrees-view' : 'git-branch'}
-								></code-icon>
-							</span>
-							<span class="branch-item__name">${name}</span>
-						</p>
-					</div>
-					${this.renderBranchStateActions()}
-					${when(pr, pr => {
-						return html`<div class="branch-item__section">
-							<p class="branch-item__grouping">
-								<span class="branch-item__icon">
-									<pr-icon state=${pr.state} pr-id=${pr.id}></pr-icon>
-								</span>
-								<a href=${pr.url} class="branch-item__name">${pr.title}</a>
-								<span class="branch-item__identifier">#${pr.id}</span>
-							</p>
-						</div>`;
-					})}
-					${this.renderAutolinks()}${this.renderStatus()}
-				</div>
-				${this.renderActions()}
-			</gl-card>
-		`;
+		return html`${this.renderBranchItem(this.renderBranchStateActions())} ${this.renderPrItem()}
+		${this.renderAutolinksItem()} `;
 	}
 
 	private renderBranchStateActions() {
@@ -253,7 +230,7 @@ export class GlActiveBranchCard extends GlBranchCardBase {
 
 		if (upstream?.missing !== false) {
 			const publishTooltip = upstream?.name ? `Publish branch to ${upstream.name}` : 'Publish branch';
-			return html`<div>
+			return html`<div slot="actions">
 				<button-container>
 					<gl-button
 						aria-busy=${ifDefined(isFetching)}
@@ -274,7 +251,7 @@ export class GlActiveBranchCard extends GlBranchCardBase {
 			if (isAhead && isBehind) {
 				const pullTooltip = upstream?.name ? `Pull from ${upstream.name}` : 'Pull';
 				const forcePushTooltip = upstream?.name ? `Force Push to ${upstream.name}` : 'Force Push';
-				return html`<div>
+				return html`<div slot="actions">
 					<button-container>
 						<gl-button
 							aria-busy=${ifDefined(isFetching)}
@@ -307,7 +284,7 @@ export class GlActiveBranchCard extends GlBranchCardBase {
 
 			if (isBehind) {
 				const tooltip = upstream?.name ? `Pull from ${upstream.name}` : 'Pull';
-				return html`<div>
+				return html`<div slot="actions">
 					<button-container>
 						<gl-button
 							aria-busy=${ifDefined(isFetching)}
@@ -328,7 +305,7 @@ export class GlActiveBranchCard extends GlBranchCardBase {
 
 			if (isAhead) {
 				const tooltip = upstream?.name ? `Push to ${upstream.name}` : 'Push';
-				return html`<div>
+				return html`<div slot="actions">
 					<button-container>
 						<gl-button
 							aria-busy=${ifDefined(isFetching)}
@@ -349,29 +326,7 @@ export class GlActiveBranchCard extends GlBranchCardBase {
 			}
 		}
 
-		return nothing;
-	}
-
-	private renderStatus() {
-		const { workingTreeState } = this.branch;
-
-		const rendered = [];
-		if (workingTreeState?.added || workingTreeState?.changed || workingTreeState?.deleted) {
-			rendered.push(
-				html`<commit-stats
-					added=${workingTreeState.added}
-					modified=${workingTreeState.changed}
-					removed=${workingTreeState.deleted}
-					symbol="icons"
-				></commit-stats>`,
-			);
-		}
-
-		if (rendered.length) {
-			return html`<p class="branch-item__section branch-item__section--details">${rendered}</p>`;
-		}
-
-		return nothing;
+		return undefined;
 	}
 
 	protected renderBranchIndicator() {
@@ -381,42 +336,11 @@ export class GlActiveBranchCard extends GlBranchCardBase {
 			return undefined;
 		}
 
-		const modifier = branch.hasConflicts ? ' has-conflicts' : '';
-
-		let content;
-		if (branch.mergeStatus != null) {
-			content = html`${branch.hasConflicts ? 'Resolve conflicts before merging' : 'Merging'}
-			${branch.mergeStatus.incoming != null
-				? `${getReferenceLabel(branch.mergeStatus.incoming, { expand: false, icon: false })} `
-				: ''}into
-			${getReferenceLabel(branch.mergeStatus.current, { expand: false, icon: false })}`;
-		} else if (branch.rebaseStatus != null) {
-			const started = branch.rebaseStatus.steps.total > 0;
-			content = html`${branch.hasConflicts
-				? 'Resolve conflicts to continue rebasing'
-				: started
-				  ? 'Rebasing'
-				  : 'Pending rebase of'}
-			${branch.rebaseStatus.incoming != null
-				? getReferenceLabel(branch.rebaseStatus.incoming, { expand: false, icon: false })
-				: ''}
-			onto
-			${getReferenceLabel(branch.rebaseStatus.current ?? branch.rebaseStatus.onto, {
-				expand: false,
-				icon: false,
-			})}${started ? ` (${branch.rebaseStatus.steps.current.number}/${branch.rebaseStatus.steps.total})` : ''}`;
-		}
-
-		return html`
-			<div class="branch-item__section">
-				<p class="branch-item__grouping branch-item__grouping--mergingRebasing${modifier}">
-					<span class="branch-item__icon">
-						<code-icon icon="warning" class="branch-item__indicator${modifier}"></code-icon>
-					</span>
-					<span class="branch-item__name">${content}</span>
-				</p>
-			</div>
-		`;
+		return html`<gl-merge-rebase-status
+			?conflicts=${branch.hasConflicts}
+			.merge=${branch.mergeStatus}
+			.rebase=${branch.rebaseStatus}
+		></gl-merge-rebase-status>`;
 	}
 
 	protected getActions() {
