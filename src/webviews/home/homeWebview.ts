@@ -21,7 +21,8 @@ import * as RepoActions from '../../git/actions/repository';
 import type { BranchContributorOverview } from '../../git/gitProvider';
 import type { GitBranch } from '../../git/models/branch';
 import type { BranchTargetInfo } from '../../git/models/branch.utils';
-import { getBranchTargetInfo } from '../../git/models/branch.utils';
+import { getAssociatedIssuesForBranch, getBranchTargetInfo } from '../../git/models/branch.utils';
+import type { Issue } from '../../git/models/issue';
 import type { MergeConflict } from '../../git/models/mergeConflict';
 import type { PullRequest } from '../../git/models/pullRequest';
 import { getComparisonRefsForPullRequest } from '../../git/models/pullRequest';
@@ -1116,6 +1117,7 @@ async function getOverviewBranches(
 	let repoStatusPromise: Promise<GitStatus | undefined> | undefined;
 	const prPromises = new Map<string, Promise<EnrichedPullRequest | undefined>>();
 	const autolinkPromises = new Map<string, Promise<Map<string, EnrichedAutolink> | undefined>>();
+	const issuePromises = new Map<string, Promise<Issue[] | undefined>>();
 	const statusPromises = new Map<string, Promise<GitStatus | undefined>>();
 	const contributorPromises = new Map<string, Promise<BranchContributorOverview | undefined>>();
 	const targetAndPotentialConflictPromises = new Map<string, Promise<BranchTargetInfoWithConflict>>();
@@ -1133,6 +1135,10 @@ async function getOverviewBranches(
 			if (options?.isPro !== false) {
 				prPromises.set(branch.id, getEnrichedPullRequest(branch, { avatarSize: 16 }));
 				autolinkPromises.set(branch.id, branch.getEnrichedAutolinks());
+				issuePromises.set(
+					branch.id,
+					getAssociatedIssuesForBranch(container, branch).then(issues => issues.value),
+				);
 				contributorPromises.set(
 					branch.id,
 					container.git.getBranchContributorOverview(branch.repoPath, branch.ref),
@@ -1169,6 +1175,10 @@ async function getOverviewBranches(
 			if (options?.isPro !== false) {
 				prPromises.set(branch.id, getEnrichedPullRequest(branch));
 				autolinkPromises.set(branch.id, branch.getEnrichedAutolinks());
+				issuePromises.set(
+					branch.id,
+					getAssociatedIssuesForBranch(container, branch).then(issues => issues.value),
+				);
 				contributorPromises.set(
 					branch.id,
 					container.git.getBranchContributorOverview(branch.repoPath, branch.ref),
@@ -1212,6 +1222,10 @@ async function getOverviewBranches(
 
 			if (options?.isPro !== false) {
 				autolinkPromises.set(branch.id, branch.getEnrichedAutolinks());
+				issuePromises.set(
+					branch.id,
+					getAssociatedIssuesForBranch(container, branch).then(issues => issues.value),
+				);
 			}
 
 			const timestamp = branch.date?.getTime();
@@ -1256,6 +1270,7 @@ async function getOverviewBranches(
 		overviewBranches,
 		prPromises,
 		autolinkPromises,
+		issuePromises,
 		statusPromises,
 		contributorPromises,
 		targetAndPotentialConflictPromises,
@@ -1270,12 +1285,13 @@ async function enrichOverviewBranches(
 	overviewBranches: GetOverviewBranches,
 	prPromises: Map<string, Promise<EnrichedPullRequest | undefined>>,
 	autolinkPromises: Map<string, Promise<Map<string, EnrichedAutolink> | undefined>>,
+	issuePromises: Map<string, Promise<Issue[] | undefined>>,
 	statusPromises: Map<string, Promise<GitStatus | undefined>>,
 	contributorPromises: Map<string, Promise<BranchContributorOverview | undefined>>,
 	targetAndPotentialConflictPromises: Map<string, Promise<BranchTargetInfoWithConflict>>,
 	container: Container,
 ) {
-	const [prResults, autolinkResults, statusResults, contributorResults, targetAndPotentialConflictResults] =
+	const [prResults, autolinkResults, issueResults, statusResults, contributorResults, targetAndPotentialConflictResults] =
 		await Promise.allSettled([
 			pauseOnCancelOrTimeoutMap(prPromises, true),
 			Promise.allSettled(
@@ -1283,6 +1299,9 @@ async function enrichOverviewBranches(
 					autolinks.then<[string, Map<string, EnrichedAutolink> | undefined]>(a => [id, a]),
 				),
 			),
+		    Promise.allSettled(
+			    map(issuePromises, ([id, issues]) => issues.then<[string, Issue[] | undefined]>(issues => [id, issues])),
+		    ),
 			Promise.allSettled(
 				map(statusPromises, ([id, status]) =>
 					status.then<[string, GitStatus | undefined]>(status => [id, status]),
@@ -1368,6 +1387,22 @@ async function enrichOverviewBranches(
 		);
 	}
 
+	const issues = new Map(
+		getSettledValue(issueResults)
+			?.filter(r => r.status === 'fulfilled')
+			.map(({ value: [issueId, issues] }) => [
+				issueId,
+				issues
+					? (issues.map(issue => ({
+							id: issue.id,
+							title: issue.title,
+							state: issue.state,
+							url: issue.url,
+					  })) satisfies GetOverviewBranch['issues'])
+					: undefined,
+			]),
+	);
+
 	const statuses = new Map(
 		getSettledValue(statusResults)
 			?.filter(r => r.status === 'fulfilled')
@@ -1389,6 +1424,9 @@ async function enrichOverviewBranches(
 
 		const autolinksForBranch = autolinks.get(branch.id);
 		branch.autolinks = autolinksForBranch;
+
+		const issuesForBranch = issues.get(branch.id);
+		branch.issues = issuesForBranch;
 
 		const status = statuses.get(branch.id);
 		if (status != null) {

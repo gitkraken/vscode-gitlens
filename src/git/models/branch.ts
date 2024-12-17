@@ -10,7 +10,8 @@ import {
 	getBranchTrackingWithoutRemote,
 	getRemoteNameFromBranchName,
 	getRemoteNameSlashIndex,
- isDetachedHead } from './branch.utils';
+	isDetachedHead,
+} from './branch.utils';
 import type { PullRequest, PullRequestState } from './pullRequest';
 import type { GitBranchReference } from './reference';
 import type { GitRemote } from './remote';
