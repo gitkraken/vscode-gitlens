@@ -153,6 +153,12 @@ export interface GetOverviewBranch {
 		state: string;
 		hasIssue: boolean;
 	}[];
+	issues?: {
+		id: string;
+		title: string;
+		url: string;
+		state: string;
+	}[];
 	worktree?: {
 		name: string;
 		uri: string;
