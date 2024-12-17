@@ -306,10 +306,10 @@ export abstract class GlBranchCardBase extends GlElement {
 
 		return html`
 			<gl-work-item
-				class=${ifDefined(this.expanded ? 'is-expanded' : undefined)}
 				?primary=${!this.branch.opened}
 				?nested=${!this.branch.opened}
 				.indicator=${this.cardIndicator}
+				?expanded=${this.expanded}
 			>
 				<div class="branch-item__section">
 					<p class="branch-item__grouping">
@@ -336,7 +336,7 @@ export abstract class GlBranchCardBase extends GlElement {
 		if (!this.branch.pr) return nothing;
 
 		return html`
-			<gl-work-item class=${ifDefined(this.expanded ? 'is-expanded' : undefined)} ?nested=${!this.branch.opened}>
+			<gl-work-item ?expanded=${this.expanded} ?nested=${!this.branch.opened}>
 				<div class="branch-item__section">
 					<p class="branch-item__grouping">
 						<span class="branch-item__icon">
@@ -369,7 +369,7 @@ export abstract class GlBranchCardBase extends GlElement {
 		if (!this.branch.autolinks?.length) return nothing;
 
 		return html`
-			<gl-work-item class=${ifDefined(this.expanded ? 'is-expanded' : undefined)} ?nested=${!this.branch.opened}>
+			<gl-work-item ?expanded=${this.expanded} ?nested=${!this.branch.opened}>
 				<div class="branch-item__section">${this.renderAutolinks()}</div>
 			</gl-work-item>
 		`;
@@ -478,13 +478,20 @@ export class GlWorkUnit extends LitElement {
 			}
 
 			.work-item__content {
-				display: none;
+				display: flex;
 				flex-direction: column;
 				gap: 0.8rem;
+				max-height: 100px;
+
+				transition-property: opacity, max-height, display;
+				transition-duration: 0.2s;
+				transition-behavior: allow-discrete;
 			}
 
-			:host-context(.is-expanded) .work-item__content {
-				display: flex;
+			:host(:not([expanded])) .work-item__content {
+				display: none;
+				opacity: 0;
+				max-height: 0;
 			}
 
 			.work-item-indicator {
@@ -507,6 +514,9 @@ export class GlWorkUnit extends LitElement {
 
 	@property({ reflect: true })
 	indicator?: GlCard['indicator'];
+
+	@property({ type: Boolean, reflect: true })
+	expanded: boolean = false;
 
 	override render() {
 		return html`<gl-card
