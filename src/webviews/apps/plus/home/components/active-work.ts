@@ -223,7 +223,7 @@ export class GlActiveBranchCard extends GlBranchCardBase {
 		return html`
 			${this.renderBranchIndicator()}${this.renderBranchItem(
 				this.renderBranchStateActions(),
-			)}${this.renderPrItem()}${this.renderAutolinksItem()}
+			)}${this.renderPrItem()}${this.renderIssuesItem()}
 		`;
 	}
 

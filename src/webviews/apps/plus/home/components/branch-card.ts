@@ -224,19 +224,20 @@ export abstract class GlBranchCardBase extends GlElement {
 		this.toggleExpanded(true);
 	}
 
-	protected renderAutolinks() {
-		const { autolinks } = this.branch;
-		if (!autolinks) return nothing;
+	protected renderIssues() {
+		const { autolinks, issues } = this.branch;
+		const issuesSource = issues?.length ? issues : autolinks;
+		if (!issuesSource?.length) return nothing;
 
 		return html`
-			${autolinks.map(autolink => {
+			${issuesSource.map(issue => {
 				return html`
 					<p class="branch-item__grouping">
 						<span class="branch-item__icon">
-							<issue-icon state=${autolink.state} issue-id=${autolink.id}></issue-icon>
+							<issue-icon state=${issue.state} issue-id=${issue.id}></issue-icon>
 						</span>
-						<a href=${autolink.url} class="branch-item__name">${autolink.title}</a>
-						<span class="branch-item__identifier">#${autolink.id}</span>
+						<a href=${issue.url} class="branch-item__name">${issue.title}</a>
+						<span class="branch-item__identifier">#${issue.id}</span>
 					</p>
 				`;
 			})}
@@ -383,12 +384,12 @@ export abstract class GlBranchCardBase extends GlElement {
 		`;
 	}
 
-	protected renderAutolinksItem() {
-		if (!this.branch.autolinks?.length) return nothing;
+	protected renderIssuesItem() {
+		if (!this.branch.issues?.length && !this.branch.autolinks?.length) return nothing;
 
 		return html`
 			<gl-work-item ?expanded=${this.expanded} ?nested=${!this.branch.opened}>
-				<div class="branch-item__section">${this.renderAutolinks()}</div>
+				<div class="branch-item__section">${this.renderIssues()}</div>
 			</gl-work-item>
 		`;
 	}
@@ -408,7 +409,7 @@ export class GlBranchCard extends GlBranchCardBase {
 		return html`
 			<gl-card class="branch-item" focusable .indicator=${this.cardIndicator}>
 				<div class="branch-item__container">
-					${this.renderBranchItem(this.renderActions())}${this.renderPrItem()}${this.renderAutolinksItem()}
+					${this.renderBranchItem(this.renderActions())}${this.renderPrItem()}${this.renderIssuesItem()}
 				</div>
 			</gl-card>
 		`;

@@ -1,6 +1,7 @@
 import type {
 	Account,
 	ActionablePullRequest,
+	AnyEntityIdentifierInput,
 	AzureDevOps,
 	AzureOrganization,
 	AzureProject,
@@ -891,3 +892,11 @@ export type EnrichablePullRequest = ProviderPullRequest & {
 };
 
 export const getActionablePullRequests = GitProviderUtils.getActionablePullRequests;
+
+export type GitConfigEntityIdentifier = AnyEntityIdentifierInput & {
+	metadata: {
+		id: string;
+		owner: { key: string; name: string; id: string | undefined; owner: string | undefined };
+		createdDate: string;
+	};
+};
