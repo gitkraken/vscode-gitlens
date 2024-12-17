@@ -1,6 +1,7 @@
 /*global window */
 import { getScopedCounter } from '../../../system/counter';
 import { debug, logName } from '../../../system/decorators/log';
+import { Logger } from '../../../system/logger';
 import { getLogScope, getNewLogScope } from '../../../system/logger.scope';
 import { maybeStopWatch } from '../../../system/stopwatch';
 import type { Serialized } from '../../../system/vscode/serialize';
@@ -109,11 +110,14 @@ export class HostIpc implements Disposable {
 				this._pendingHandlers.delete(queueKey);
 			}
 
-			timeout = setTimeout(() => {
-				dispose.call(this);
-				debugger;
-				reject(new Error(`Timed out waiting for completion of ${queueKey}`));
-			}, 60000);
+			timeout = setTimeout(
+				() => {
+					dispose.call(this);
+					debugger;
+					reject(new Error(`Timed out waiting for completion of ${queueKey}`));
+				},
+				(Logger.isDebugging ? 60 : 5) * 60 * 1000,
+			);
 
 			this._pendingHandlers.set(queueKey, msg => {
 				dispose.call(this);
