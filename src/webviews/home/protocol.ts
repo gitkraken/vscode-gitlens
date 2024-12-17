@@ -4,6 +4,7 @@ import type { GitMergeStatus } from '../../git/models/merge';
 import type { GitRebaseStatus } from '../../git/models/rebase';
 import type { Subscription } from '../../plus/gk/account/subscription';
 import type { LaunchpadSummaryResult } from '../../plus/launchpad/launchpadIndicator';
+import type { LaunchpadGroup, LaunchpadItem } from '../../plus/launchpad/launchpadProvider';
 import type { IpcScope, WebviewState } from '../protocol';
 import { IpcCommand, IpcNotification, IpcRequest } from '../protocol';
 
@@ -111,6 +112,29 @@ export interface GetOverviewBranch {
 		title: string;
 		state: string;
 		url: string;
+
+		launchpad?: {
+			category: LaunchpadItem['actionableCategory'];
+			groups: LaunchpadGroup[];
+			suggestedActions: LaunchpadItem['suggestedActions'];
+
+			failingCI: boolean;
+			hasConflicts: boolean;
+
+			review: {
+				decision: LaunchpadItem['reviewDecision'];
+				reviews: NonNullable<LaunchpadItem['reviews']>;
+
+				counts: {
+					approval: number;
+					changeRequest: number;
+					comment: number;
+					codeSuggest: number;
+				};
+			};
+
+			viewer: LaunchpadItem['viewer'];
+		};
 	};
 	autolinks?: {
 		id: string;

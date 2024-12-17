@@ -33,6 +33,8 @@ import { sortBranches } from '../../git/utils/sorting';
 import type { Subscription } from '../../plus/gk/account/subscription';
 import { isSubscriptionStatePaidOrTrial } from '../../plus/gk/account/subscription';
 import type { SubscriptionChangeEvent } from '../../plus/gk/account/subscriptionService';
+import type { LaunchpadCategorizedResult, LaunchpadItem } from '../../plus/launchpad/launchpadProvider';
+import { getLaunchpadItemGroups } from '../../plus/launchpad/launchpadProvider';
 import { getLaunchpadSummary } from '../../plus/launchpad/utils';
 import type { StartWorkCommandArgs } from '../../plus/startWork/startWork';
 import type { ShowInCommitGraphCommandArgs } from '../../plus/webviews/graph/protocol';
@@ -40,7 +42,7 @@ import { showRepositoryPicker } from '../../quickpicks/repositoryPicker';
 import type { Deferrable } from '../../system/function';
 import { debounce } from '../../system/function';
 import { filterMap, map } from '../../system/iterable';
-import { getSettledValue } from '../../system/promise';
+import { getSettledValue, pauseOnCancelOrTimeoutMap } from '../../system/promise';
 import { executeActionCommand, executeCommand, registerCommand } from '../../system/vscode/command';
 import { configuration } from '../../system/vscode/configuration';
 import { getContext, onDidChangeContext } from '../../system/vscode/context';
@@ -91,13 +93,23 @@ const emptyDisposable = Object.freeze({
 	},
 });
 
-type RepositorySubscription = { repo: Repository; subscription?: Disposable };
-type RepositoryBranchData = {
+interface RepositorySubscription {
+	repo: Repository;
+	subscription?: Disposable;
+}
+interface RepositoryBranchData {
 	repo: Repository;
 	branches: GitBranch[];
 	worktreesByBranch: Map<string, GitWorktree>;
-};
-type BranchRef = { repoPath: string; branchId: string };
+}
+interface BranchRef {
+	repoPath: string;
+	branchId: string;
+}
+interface EnrichedPullRequest {
+	pullRequest: PullRequest;
+	launchpadItem: LaunchpadItem | undefined;
+}
 
 export class HomeWebviewProvider implements WebviewProvider<State, State, HomeWebviewShowingArgs> {
 	private readonly _disposable: Disposable;
@@ -1026,8 +1038,33 @@ async function getOverviewBranches(
 		stale: [],
 	};
 
+	let launchpadResultPromise: Promise<LaunchpadCategorizedResult> | undefined;
+
+	const getEnrichedPullRequest = async (
+		branch: GitBranch,
+		options?: { avatarSize?: number },
+	): Promise<EnrichedPullRequest | undefined> => {
+		const pr = await branch.getAssociatedPullRequest(options);
+		if (pr == null) return undefined;
+
+		launchpadResultPromise ??= container.launchpad.getCategorizedItems();
+		let result = await launchpadResultPromise;
+		if (result.error != null) return { pullRequest: pr, launchpadItem: undefined };
+
+		let lpi = result.items.find(i => i.url === pr.url);
+		if (lpi == null) {
+			// result = await container.launchpad.getCategorizedItems({ search: pr.url });
+			result = await container.launchpad.getCategorizedItems({ search: [{ pullRequest: pr, reasons: [] }] });
+			if (result.error != null) return { pullRequest: pr, launchpadItem: undefined };
+
+			lpi = result.items.find(i => i.url === pr.url);
+		}
+
+		return { pullRequest: pr, launchpadItem: lpi };
+	};
+
 	let repoStatusPromise: Promise<GitStatus | undefined> | undefined;
-	const prPromises = new Map<string, Promise<PullRequest | undefined>>();
+	const prPromises = new Map<string, Promise<EnrichedPullRequest | undefined>>();
 	const autolinkPromises = new Map<string, Promise<Map<string, EnrichedAutolink> | undefined>>();
 	const statusPromises = new Map<string, Promise<GitStatus | undefined>>();
 	const contributorPromises = new Map<string, Promise<BranchContributorOverview | undefined>>();
@@ -1043,7 +1080,7 @@ async function getOverviewBranches(
 		if (branch.current || wt?.opened) {
 			const forceOptions = options?.forceActive ? { force: true } : undefined;
 			if (options?.isPro !== false) {
-				prPromises.set(branch.id, branch.getAssociatedPullRequest({ avatarSize: 16 }));
+				prPromises.set(branch.id, getEnrichedPullRequest(branch, { avatarSize: 16 }));
 				autolinkPromises.set(branch.id, branch.getEnrichedAutolinks());
 				contributorPromises.set(
 					branch.id,
@@ -1076,7 +1113,7 @@ async function getOverviewBranches(
 
 		if (timestamp != null && timestamp > recentThreshold) {
 			if (options?.isPro !== false) {
-				prPromises.set(branch.id, branch.getAssociatedPullRequest());
+				prPromises.set(branch.id, getEnrichedPullRequest(branch));
 				autolinkPromises.set(branch.id, branch.getEnrichedAutolinks());
 				contributorPromises.set(
 					branch.id,
@@ -1132,7 +1169,7 @@ async function getOverviewBranches(
 
 				if (options?.isPro !== false) {
 					if (!branch.upstream?.missing) {
-						prPromises.set(branch.id, branch.getAssociatedPullRequest());
+						prPromises.set(branch.id, getEnrichedPullRequest(branch));
 					}
 
 					contributorPromises.set(
@@ -1176,14 +1213,14 @@ async function getOverviewBranches(
 // FIXME: support partial enrichment
 async function enrichOverviewBranches(
 	overviewBranches: GetOverviewBranches,
-	prPromises: Map<string, Promise<PullRequest | undefined>>,
+	prPromises: Map<string, Promise<EnrichedPullRequest | undefined>>,
 	autolinkPromises: Map<string, Promise<Map<string, EnrichedAutolink> | undefined>>,
 	statusPromises: Map<string, Promise<GitStatus | undefined>>,
 	contributorPromises: Map<string, Promise<BranchContributorOverview | undefined>>,
 	container: Container,
 ) {
 	const [prResults, autolinkResults, statusResults, contributorResults] = await Promise.allSettled([
-		Promise.allSettled(map(prPromises, ([id, pr]) => pr.then<[string, PullRequest | undefined]>(pr => [id, pr]))),
+		pauseOnCancelOrTimeoutMap(prPromises, true),
 		Promise.allSettled(
 			map(autolinkPromises, ([id, autolinks]) =>
 				autolinks.then<[string, Map<string, EnrichedAutolink> | undefined]>(a => [id, a]),
@@ -1200,16 +1237,38 @@ async function enrichOverviewBranches(
 	]);
 
 	const prs = new Map(
-		getSettledValue(prResults)
-			?.filter(r => r.status === 'fulfilled')
-			.map(({ value: [prId, pr] }) => [
-				prId,
-				pr
+		map(getSettledValue(prResults) ?? [], ([id, epr]) => [
+			id,
+			!epr.paused && epr.value != null
 					? ({
-							id: pr.id,
-							title: pr.title,
-							state: pr.state,
-							url: pr.url,
+						id: epr.value.pullRequest.id,
+						title: epr.value.pullRequest.title,
+						state: epr.value.pullRequest.state,
+						url: epr.value.pullRequest.url,
+							launchpad:
+							epr.value.launchpadItem != null
+									? {
+										category: epr.value.launchpadItem.actionableCategory,
+										groups: getLaunchpadItemGroups(epr.value.launchpadItem),
+										suggestedActions: epr.value.launchpadItem.suggestedActions,
+
+										failingCI: epr.value.launchpadItem.failingCI,
+										hasConflicts: epr.value.launchpadItem.hasConflicts,
+
+											review: {
+											decision: epr.value.launchpadItem.reviewDecision,
+											reviews: epr.value.launchpadItem.reviews ?? [],
+												counts: {
+												approval: epr.value.launchpadItem.approvalReviewCount,
+												changeRequest: epr.value.launchpadItem.changeRequestReviewCount,
+												comment: epr.value.launchpadItem.commentReviewCount,
+												codeSuggest: epr.value.launchpadItem.codeSuggestionsCount,
+												},
+											},
+
+										viewer: { ...epr.value.launchpadItem.viewer, enrichedItems: undefined },
+									  }
+									: undefined,
 					  } satisfies GetOverviewBranch['pr'])
 					: undefined,
 			]),

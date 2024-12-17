@@ -660,10 +660,17 @@ export class LaunchpadProvider implements Disposable {
 		return repoRemotes;
 	}
 
-	@gate<LaunchpadProvider['getCategorizedItems']>(o => `${o?.force ?? false}`)
+	@gate<LaunchpadProvider['getCategorizedItems']>(
+		o =>
+			`${o?.force ?? false}|${
+				o?.search != null && typeof o.search !== 'string'
+					? o.search.map(s => s.pullRequest.url).join(',')
+					: o?.search
+			}`,
+	)
 	@log<LaunchpadProvider['getCategorizedItems']>({ args: { 0: o => `force=${o?.force}`, 1: false } })
 	async getCategorizedItems(
-		options?: { force?: boolean; search?: string },
+		options?: { force?: boolean; search?: string | SearchedPullRequest[] },
 		cancellation?: CancellationToken,
 	): Promise<LaunchpadCategorizedResult> {
 		const scope = getLogScope();
@@ -676,6 +683,7 @@ export class LaunchpadProvider implements Disposable {
 		const ignoredRepositories = new Set(
 			(configuration.get('launchpad.ignoredRepositories') ?? []).map(r => r.toLowerCase()),
 		);
+
 		const staleThreshold = configuration.get('launchpad.staleThreshold');
 		let staleDate: Date | undefined;
 		if (staleThreshold != null) {
@@ -693,7 +701,9 @@ export class LaunchpadProvider implements Disposable {
 				this.container.git.isDiscoveringRepositories,
 				this.getEnrichedItems({ force: options?.force, cancellation: cancellation }),
 				isSearching
-					? this.getSearchedPullRequests(options.search, cancellation)
+					? typeof options.search === 'string'
+						? this.getSearchedPullRequests(options.search, cancellation)
+						: { prs: { value: options.search, duration: 0 }, suggestionCounts: undefined }
 					: this.getPullRequestsWithSuggestionCounts({ force: options?.force, cancellation: cancellation }),
 			]);
 
@@ -994,6 +1004,30 @@ export class LaunchpadProvider implements Disposable {
 	}
 }
 
+export function getLaunchpadItemGroups(item: LaunchpadItem): LaunchpadGroup[] {
+	if (item.viewer.snoozed) return ['snoozed'];
+
+	const groups: LaunchpadGroup[] = [];
+	if (item.viewer.pinned) {
+		groups.push('pinned');
+	}
+
+	if (item.openRepository?.localBranch?.current) {
+		groups.push('current-branch');
+	}
+
+	if (item.isDraft) {
+		groups.push('draft');
+	}
+
+	const group = launchpadCategoryToGroupMap.get(item.actionableCategory)!;
+	if (!item.isDraft || group === 'needs-review') {
+		groups.push(group);
+	}
+
+	return groups;
+}
+
 export function groupAndSortLaunchpadItems(items?: LaunchpadItem[]) {
 	if (items == null || items.length === 0) return new Map<LaunchpadGroup, LaunchpadItem[]>();
 	const grouped = new Map<LaunchpadGroup, LaunchpadItem[]>(launchpadGroups.map(g => [g, []]));
@@ -1001,24 +1035,8 @@ export function groupAndSortLaunchpadItems(items?: LaunchpadItem[]) {
 	sortLaunchpadItems(items);
 
 	for (const item of items) {
-		if (item.viewer.snoozed) {
-			grouped.get('snoozed')!.push(item);
-
-			continue;
-		} else if (item.viewer.pinned) {
-			grouped.get('pinned')!.push(item);
-		}
-
-		if (item.openRepository?.localBranch?.current) {
-			grouped.get('current-branch')!.push(item);
-		}
-
-		if (item.isDraft) {
-			grouped.get('draft')!.push(item);
-		}
-
-		const group = launchpadCategoryToGroupMap.get(item.actionableCategory)!;
-		if (!item.isDraft || group === 'needs-review') {
+		const groups = getLaunchpadItemGroups(item);
+		for (const group of groups) {
 			grouped.get(group)!.push(item);
 		}
 	}
