@@ -32,6 +32,10 @@ export const cardStyles = css`
 		);
 	}
 
+	.card--focusable {
+		cursor: pointer;
+	}
+
 	.card--focusable:focus,
 	.card:focus-within,
 	.card:hover {
