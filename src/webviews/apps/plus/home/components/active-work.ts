@@ -176,7 +176,7 @@ export class GlActiveWork extends SignalWatcher(LitElement) {
 					></a>`,
 				() => html`<code-icon icon=${icon} class="heading-icon"></code-icon>`,
 			)}
-			<span slot="content" class="tooltip">Open repository on ${provider.name}</span>
+			<span slot="content" class="tooltip">Open Repository on ${provider.name}</span>
 		</gl-tooltip>`;
 	}
 
