@@ -1,7 +1,6 @@
 import type { TemplateResult } from 'lit';
 import { css, html, LitElement, nothing } from 'lit';
 import { customElement, property } from 'lit/decorators.js';
-import { ifDefined } from 'lit/directives/if-defined.js';
 import { when } from 'lit/directives/when.js';
 import type { Commands } from '../../../../../constants.commands';
 import { createCommandLink } from '../../../../../system/commands';
@@ -50,6 +49,15 @@ export const branchCardStyles = css`
 		color: var(--vscode-descriptionForeground);
 	}
 
+	.branch-item__actions {
+		display: flex;
+		align-items: center;
+		gap: 0.8rem;
+		flex-direction: row;
+		justify-content: flex-end;
+		font-size: 0.9em;
+	}
+
 	.branch-item__icon {
 		color: var(--vscode-descriptionForeground);
 	}
@@ -92,8 +100,14 @@ export const branchCardStyles = css`
 		display: flex;
 		align-items: center;
 		gap: 1rem;
+		justify-content: flex-end;
 	}
 
+	.branch-item__changes formatted-date {
+		margin-inline-end: auto;
+	}
+
+	/*
 	.branch-item__actions {
 		position: absolute;
 		right: 0.4rem;
@@ -105,6 +119,7 @@ export const branchCardStyles = css`
 	.branch-item:not(:focus-within):not(:hover) .branch-item__actions {
 		${srOnlyStyles}
 	}
+	*/
 
 	.pill {
 		--gl-pill-border: color-mix(in srgb, transparent 80%, var(--color-foreground));
@@ -259,6 +274,7 @@ export abstract class GlBranchCardBase extends GlElement {
 
 		return html`<gl-avatar-list
 			.avatars=${avatars.map(a => ({ name: a.name, src: a.avatarUrl }))}
+			max="1"
 		></gl-avatar-list>`;
 	}
 
@@ -280,8 +296,7 @@ export abstract class GlBranchCardBase extends GlElement {
 		const actions = this.getActions?.();
 		if (!actions?.length) return nothing;
 
-		// class="branch-item__actions"
-		return html`<action-nav slot="actions">${actions}</action-nav>`;
+		return html`<div class="branch-item__actions" slot="actions"><action-nav>${actions}</action-nav></div>`;
 	}
 
 	protected createCommandLink(command: Commands) {
@@ -299,10 +314,11 @@ export abstract class GlBranchCardBase extends GlElement {
 
 	protected renderBranchItem(actionsSection?: TemplateResult | NothingType) {
 		const wip = this.renderWip();
-		const tracking = this.branch.opened ? undefined : this.renderTracking();
+		const tracking = this.renderTracking();
 		const avatars = this.renderAvatars();
-		const indicator = this.renderBranchIndicator?.();
+		const indicator = this.branch.opened ? undefined : this.renderBranchIndicator?.();
 		const conflict = this.renderPotentialMergeConflicts();
+		const timestamp = this.renderTimestamp();
 
 		return html`
 			<gl-work-item
@@ -322,10 +338,12 @@ export abstract class GlBranchCardBase extends GlElement {
 				</div>
 				<div class="branch-item__section branch-item__section--details" slot="context">
 					${when(
-						indicator || wip || tracking || avatars,
-						() => html`<p class="branch-item__changes">${indicator}${wip}${tracking}${avatars}</p>`,
+						timestamp || indicator || wip || tracking || avatars,
+						() =>
+							html`<p class="branch-item__changes">
+								${timestamp}${indicator}${wip}${tracking}${avatars}
+							</p>`,
 					)}
-					${this.renderTimestamp()}
 				</div>
 				${actionsSection ?? nothing}
 			</gl-work-item>
@@ -345,15 +363,15 @@ export abstract class GlBranchCardBase extends GlElement {
 						<a href=${this.branch.pr.url} class="branch-item__name">${this.branch.pr.title}</a>
 						<span class="branch-item__identifier">#${this.branch.pr.id}</span>
 					</p>
-					${this.branch.pr.launchpad != null
-						? html`<p>
-								<span class="branch-item__category">${this.branch.pr.launchpad.category}</span>
-						  </p>`
-						: nothing}
 				</div>
 			</gl-work-item>
 		`;
 	}
+	// ${this.branch.pr.launchpad != null
+	// 	? html`<p>
+	// 			<span class="branch-item__category">${this.branch.pr.launchpad.category}</span>
+	// 	  </p>`
+	// 	: nothing}
 
 	protected renderPotentialMergeConflicts() {
 		if (!this.branch.target?.potentialMergeConflicts) return nothing;
@@ -494,12 +512,6 @@ export class GlWorkUnit extends LitElement {
 				max-height: 0;
 			}
 
-			.work-item-indicator {
-				display: block;
-				margin: -0.8rem 0 0.4rem -1.2rem;
-				width: calc(100% + 2.4rem);
-			}
-
 			gl-card::part(base) {
 				margin-block-end: 0;
 			}
@@ -529,7 +541,6 @@ export class GlWorkUnit extends LitElement {
 
 	private renderContent() {
 		return html`
-			<slot class="work-item-indicator" name="indicator"></slot>
 			<div class="work-item">
 				<header class="work-item__main">
 					<slot></slot>

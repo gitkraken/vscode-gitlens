@@ -132,7 +132,7 @@ export class GlActiveWork extends SignalWatcher(LitElement) {
 						?disabled=${isFetching}
 						class="section-heading-action"
 						appearance="toolbar"
-						tooltip="Fetch"
+						tooltip="Fetch All"
 						href=${createCommandLink('gitlens.home.fetch', undefined)}
 						><code-icon icon="repo-fetch"></code-icon
 					></gl-button>
@@ -220,12 +220,17 @@ export class GlActiveBranchCard extends GlBranchCardBase {
 	}
 
 	override render() {
-		return html`${this.renderBranchItem(this.renderBranchStateActions())} ${this.renderPrItem()}
-		${this.renderAutolinksItem()} `;
+		return html`
+			${this.renderBranchIndicator()}${this.renderBranchItem(
+				this.renderBranchStateActions(),
+			)}${this.renderPrItem()}${this.renderAutolinksItem()}
+		`;
 	}
 
 	private renderBranchStateActions() {
-		const { state, upstream } = this.branch;
+		const { state, upstream, mergeStatus, rebaseStatus } = this.branch;
+		if (mergeStatus != null || rebaseStatus != null) return undefined;
+
 		const isFetching = this.busy;
 
 		if (upstream?.missing !== false) {
