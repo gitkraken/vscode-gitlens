@@ -1,6 +1,7 @@
 import type { IntegrationDescriptor } from '../../constants.integrations';
 import type { GitBranchStatus, GitTrackingState } from '../../git/models/branch';
 import type { GitMergeStatus } from '../../git/models/merge';
+import type { MergeConflict } from '../../git/models/mergeConflict';
 import type { GitRebaseStatus } from '../../git/models/rebase';
 import type { Subscription } from '../../plus/gk/account/subscription';
 import type { LaunchpadSummaryResult } from '../../plus/launchpad/launchpadIndicator';
@@ -80,6 +81,15 @@ export interface GetOverviewBranch {
 	conflictsCount?: number;
 	mergeStatus?: GitMergeStatus;
 	rebaseStatus?: GitRebaseStatus;
+
+	target?: {
+		baseBranch: string | undefined;
+		defaultBranch: string | undefined;
+		targetBranch: string | undefined;
+
+		// TODO: Add left/right stats?
+		potentialMergeConflicts?: MergeConflict;
+	};
 
 	owner?: {
 		name: string;

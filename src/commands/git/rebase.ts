@@ -1,3 +1,4 @@
+import { ThemeIcon } from 'vscode';
 import type { Container } from '../../container';
 import type { GitBranch } from '../../git/models/branch';
 import type { GitLog } from '../../git/models/log';
@@ -5,6 +6,8 @@ import type { GitReference } from '../../git/models/reference';
 import { getReferenceLabel, isRevisionReference } from '../../git/models/reference.utils';
 import type { Repository } from '../../git/models/repository';
 import { createRevisionRange } from '../../git/models/revision.utils';
+import { isSubscriptionStatePaidOrTrial } from '../../plus/gk/account/subscription';
+import { createQuickPickSeparator } from '../../quickpicks/items/common';
 import type { DirectiveQuickPickItem } from '../../quickpicks/items/directive';
 import { createDirectiveQuickPickItem, Directive } from '../../quickpicks/items/directive';
 import type { FlagsQuickPickItem } from '../../quickpicks/items/flags';
@@ -249,7 +252,7 @@ export class RebaseGitCommand extends QuickCommand<State> {
 			return StepResultBreak;
 		}
 
-		const rebaseItems = [
+		const items: FlagsQuickPickItem<Flags>[] = [
 			createFlagsQuickPickItem<Flags>(state.flags, ['--interactive'], {
 				label: `Interactive ${this.title}`,
 				description: '--interactive',
@@ -258,11 +261,12 @@ export class RebaseGitCommand extends QuickCommand<State> {
 				})} by applying ${pluralize('commit', ahead)} on top of ${getReferenceLabel(state.destination, {
 					label: false,
 				})}`,
+				picked: behind === 0,
 			}),
 		];
 
 		if (behind > 0) {
-			rebaseItems.unshift(
+			items.unshift(
 				createFlagsQuickPickItem<Flags>(state.flags, [], {
 					label: this.title,
 					detail: `Will update ${getReferenceLabel(context.branch, {
@@ -270,14 +274,62 @@ export class RebaseGitCommand extends QuickCommand<State> {
 					})} by applying ${pluralize('commit', ahead)} on top of ${getReferenceLabel(state.destination, {
 						label: false,
 					})}`,
+					picked: true,
 				}),
 			);
 		}
 
-		const step: QuickPickStep<FlagsQuickPickItem<Flags>> = this.createConfirmStep(
-			appendReposToTitle(`Confirm ${title}`, state, context),
-			rebaseItems,
-		);
+		let potentialConflict;
+		const subscription = await this.container.subscription.getSubscription();
+		if (isSubscriptionStatePaidOrTrial(subscription?.state)) {
+			potentialConflict = this.container.git.getPotentialMergeOrRebaseConflict(
+				state.repo.path,
+				context.branch.name,
+				state.destination.ref,
+			);
+		}
+
+		let step: QuickPickStep<DirectiveQuickPickItem | FlagsQuickPickItem<Flags>>;
+
+		const notices: DirectiveQuickPickItem[] = [];
+		if (potentialConflict) {
+			void potentialConflict?.then(conflict => {
+				notices.splice(
+					0,
+					1,
+					conflict == null
+						? createDirectiveQuickPickItem(Directive.Noop, false, {
+								label: 'No Conflicts Detected',
+								iconPath: new ThemeIcon('check'),
+						  })
+						: createDirectiveQuickPickItem(Directive.Noop, false, {
+								label: 'Conflicts Detected',
+								detail: `Will result in ${pluralize(
+									'conflicting file',
+									conflict.files.length,
+								)} that will need to be resolved`,
+								iconPath: new ThemeIcon('warning'),
+						  }),
+				);
+
+				if (step.quickpick != null) {
+					const active = step.quickpick.activeItems;
+					step.quickpick.items = [...notices, ...items];
+					step.quickpick.activeItems = active;
+				}
+			});
+
+			notices.push(
+				createDirectiveQuickPickItem(Directive.Noop, false, {
+					label: `$(loading~spin) \u00a0Detecting Conflicts...`,
+					// Don't use this, because the spin here causes the icon to spin incorrectly
+					//iconPath: new ThemeIcon('loading~spin'),
+				}),
+				createQuickPickSeparator(),
+			);
+		}
+
+		step = this.createConfirmStep(appendReposToTitle(`Confirm ${title}`, state, context), [...notices, ...items]);
 		const selection: StepSelection<typeof step> = yield step;
 		return canPickStepContinue(step, state, selection) ? selection[0].item : StepResultBreak;
 	}

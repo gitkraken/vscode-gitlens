@@ -3,7 +3,7 @@ import type { GitConfigKeys } from '../../constants';
 import type { Container } from '../../container';
 import { PageableResult } from '../../system/paging';
 import type { MaybePausedResult } from '../../system/promise';
-import { pauseOnCancelOrTimeout } from '../../system/promise';
+import { getSettledValue, pauseOnCancelOrTimeout } from '../../system/promise';
 import type { GitBranch } from './branch';
 import type { PullRequest } from './pullRequest';
 import type { GitBranchReference, GitReference } from './reference';
@@ -162,6 +162,42 @@ export async function getTargetBranchName(
 		options?.timeout,
 	);
 }
+
+export interface BranchTargetInfo {
+	baseBranch: string | undefined;
+	defaultBranch: string | undefined;
+	targetBranch: MaybePausedResult<string | undefined>;
+}
+
+export async function getBranchTargetInfo(
+	container: Container,
+	current: GitBranch,
+	options?: {
+		associatedPullRequest?: Promise<PullRequest | undefined>;
+		cancellation?: CancellationToken;
+		timeout?: number;
+	},
+): Promise<BranchTargetInfo> {
+	const [baseResult, defaultResult, targetResult] = await Promise.allSettled([
+		container.git.getBaseBranchName(current.repoPath, current.name),
+		getDefaultBranchName(container, current.repoPath, current.getRemoteName()),
+		getTargetBranchName(container, current, {
+			cancellation: options?.cancellation,
+			timeout: options?.timeout,
+		}),
+	]);
+
+	const baseBranchName = getSettledValue(baseResult);
+	const defaultBranchName = getSettledValue(defaultResult);
+	const targetMaybeResult = getSettledValue(targetResult);
+
+	return {
+		baseBranch: baseBranchName,
+		defaultBranch: defaultBranchName,
+		targetBranch: targetMaybeResult ?? { value: undefined, paused: false },
+	};
+}
+
 export function getBranchTrackingWithoutRemote(ref: GitBranchReference) {
 	return ref.upstream?.name.substring(getRemoteNameSlashIndex(ref.upstream.name) + 1);
 }
