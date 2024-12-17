@@ -20,6 +20,7 @@ import '../../../shared/components/rich/issue-icon';
 import '../../../shared/components/rich/pr-icon';
 import '../../../shared/components/actions/action-item';
 import '../../../shared/components/actions/action-nav';
+import './merge-conflict-warning';
 
 export const branchCardStyles = css`
 	.branch-item {
@@ -316,6 +317,7 @@ export abstract class GlBranchCardBase extends GlElement {
 		const tracking = this.renderTracking();
 		const avatars = this.renderAvatars();
 		const indicator = this.renderBranchIndicator?.();
+		const conflict = this.renderPotentialMergeConflicts();
 
 		return html`
 			<gl-work-item
@@ -330,6 +332,7 @@ export abstract class GlBranchCardBase extends GlElement {
 							<code-icon icon=${this.branch.worktree ? 'gl-worktrees-view' : 'git-branch'}></code-icon>
 						</span>
 						<span class="branch-item__name">${this.branch.name}</span>
+						${conflict}
 					</p>
 				</div>
 				<div class="branch-item__section branch-item__section--details" slot="context">
@@ -356,8 +359,23 @@ export abstract class GlBranchCardBase extends GlElement {
 						<a href=${this.branch.pr.url} class="branch-item__name">${this.branch.pr.title}</a>
 						<span class="branch-item__identifier">#${this.branch.pr.id}</span>
 					</p>
+					${this.branch.pr.launchpad != null
+						? html`<p>
+								<span class="branch-item__category">${this.branch.pr.launchpad.category}</span>
+						  </p>`
+						: nothing}
 				</div>
 			</gl-work-item>
+		`;
+	}
+
+	protected renderPotentialMergeConflicts() {
+		if (!this.branch.target?.potentialMergeConflicts) return nothing;
+
+		return html`
+			<gl-merge-conflict-warning
+				.conflict=${this.branch.target.potentialMergeConflicts}
+			></gl-merge-conflict-warning>
 		`;
 	}
 

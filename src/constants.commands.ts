@@ -685,6 +685,8 @@ type HomeWebviewCommands = `home.${
 	| 'fetch'
 	| 'openInGraph'
 	| 'createBranch'
+	| 'mergeIntoCurrent'
+	| 'rebaseCurrentOnto'
 	| 'startWork'}`;
 
 type GraphWebviewCommands = `graph.${
