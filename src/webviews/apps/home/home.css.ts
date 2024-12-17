@@ -55,7 +55,7 @@ export const homeStyles = css`
 	.home__main {
 		flex: 1;
 		overflow: auto;
-		padding: 0.8rem 2rem;
+		padding: 0.8rem 1.2rem;
 	}
 	.home__main > *:last-child {
 		margin-bottom: 0;
