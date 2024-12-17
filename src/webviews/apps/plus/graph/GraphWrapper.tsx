@@ -12,6 +12,7 @@ import type {
 	GraphRow,
 	GraphZoneType,
 	OnFormatCommitDateTime,
+	RefDndData,
 } from '@gitkraken/gitkraken-components';
 import GraphContainer, { CommitDateTimeSources, refZone } from '@gitkraken/gitkraken-components';
 import type { SlChangeEvent } from '@shoelace-style/shoelace';
@@ -823,6 +824,36 @@ export function GraphWrapper({
 
 	const handleMissingRefsMetadata = (metadata: GraphMissingRefsMetadata) => {
 		onMissingRefsMetadata?.(metadata);
+	};
+
+	const handleOnRefDrop = (event: any, sourceRefData?: RefDndData, targetRefData?: RefDndData): void => {
+		if (sourceRefData && targetRefData) {
+			// Open context menu on targetRefData
+			const e = event.nativeEvent;
+			const evt = new MouseEvent('contextmenu', {
+				bubbles: true,
+				clientX: e.clientX,
+				clientY: e.clientY,
+			});
+			e.target?.dispatchEvent(evt);
+			e.stopImmediatePropagation();
+		}
+
+		void executeCommand('gitlens.graph.setDraggingOff');
+	};
+
+	const handleOnRefCanDrag = (refDndData?: RefDndData): boolean => refDndData?.sha !== 'work-dir-changes';
+
+	const handleOnRefCanDrop = (_event: any, sourceRefData?: RefDndData, targetRefData?: RefDndData): boolean => {
+		if (!sourceRefData || !targetRefData) {
+			return false;
+		}
+
+		if (sourceRefData.sha === targetRefData.sha) {
+			return false;
+		}
+		// These properties are only on RefBar components but not RefNodes
+		return sourceRefData.sha !== 'work-dir-changes' && sourceRefData.sha !== targetRefData.sha;
 	};
 
 	const handleToggleColumnSettings = (event: React.MouseEvent<HTMLButtonElement>) => {
@@ -1637,6 +1668,9 @@ export function GraphWrapper({
 							onToggleRefsVisibilityClick={handleOnToggleRefsVisibilityClick}
 							onEmailsMissingAvatarUrls={handleMissingAvatars}
 							onRefsMissingMetadata={handleMissingRefsMetadata}
+							onRefDrop={handleOnRefDrop}
+							onRefCanDrag={handleOnRefCanDrag}
+							onRefCanDrop={handleOnRefCanDrop}
 							onShowMoreCommits={handleMoreCommits}
 							onGraphVisibleRowsChanged={minimap.current ? handleOnGraphVisibleRowsChanged : undefined}
 							platform={clientPlatform}
