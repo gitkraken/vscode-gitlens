@@ -810,6 +810,7 @@ type HomeWebviewViewCommands = `home.${
 	| 'push'
 	| 'publishBranch'
 	| 'disablePreview'
+	| 'enablePreview'
 	| 'previewFeedback'
 	| 'whatsNew'
 	| 'help'

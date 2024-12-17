@@ -269,6 +269,7 @@ export class HomeWebviewProvider implements WebviewProvider<State, State, HomeWe
 			registerCommand(`${this.host.id}.publishBranch`, this.push, this),
 			registerCommand(`${this.host.id}.refresh`, () => this.host.refresh(true), this),
 			registerCommand(`${this.host.id}.disablePreview`, () => this.onTogglePreviewEnabled(false), this),
+			registerCommand(`${this.host.id}.enablePreview`, () => this.onTogglePreviewEnabled(true), this),
 			registerCommand(
 				`${this.host.id}.previewFeedback`,
 				() => openUrl('https://github.com/gitkraken/vscode-gitlens/discussions/3721'),

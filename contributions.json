@@ -6847,11 +6847,24 @@
 		},
 		"gitlens.views.home.disablePreview": {
 			"label": "Revert to Old Home View",
-			"icon": "$(arrow-left)",
+			"icon": "$(discard)",
 			"menus": {
 				"view/title": [
 					{
 						"when": "view == gitlens.views.home && config.gitlens.home.preview.enabled",
+						"group": "navigation",
+						"order": 98
+					}
+				]
+			}
+		},
+		"gitlens.views.home.enablePreview": {
+			"label": "Switch to New Home View",
+			"icon": "$(redo)",
+			"menus": {
+				"view/title": [
+					{
+						"when": "view == gitlens.views.home && !config.gitlens.home.preview.enabled",
 						"group": "navigation",
 						"order": 98
 					}
