@@ -157,6 +157,7 @@ export const enum GlCommand {
 	PlusSimulateSubscription = 'gitlens.plus.simulateSubscription',
 	QuickOpenFileHistory = 'gitlens.quickOpenFileHistory',
 	RefreshLaunchpad = 'gitlens.launchpad.refresh',
+	GraphSetDragging = 'gitlens.graph.setDragging',
 	RefreshGraph = 'gitlens.graph.refresh',
 	RefreshHover = 'gitlens.refreshHover',
 	Reset = 'gitlens.reset',
@@ -725,6 +726,7 @@ type GraphWebviewCommands = `graph.${
 	| 'showInDetailsView'
 	| 'switchToCommit'
 	| 'undoCommit'
+	| 'setDragging'
 	| 'stash.save'
 	| 'stash.apply'
 	| 'stash.delete'

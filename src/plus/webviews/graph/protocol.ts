@@ -238,6 +238,12 @@ export type UpdateStateCallback = (
 
 export const ChooseRepositoryCommand = new IpcCommand(scope, 'chooseRepository');
 
+export interface UpdateDraggingParams {
+	dragging: boolean;
+}
+
+export const UpdateDraggingCommand = new IpcCommand<UpdateDraggingParams>(scope, 'graph/dragging/update');
+
 export type DoubleClickedParams =
 	| {
 			type: 'ref';

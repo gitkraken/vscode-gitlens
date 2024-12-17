@@ -13,6 +13,7 @@ export type ContextKeys = {
 	'gitlens:gk:organization:ai:enabled': boolean;
 	'gitlens:gk:organization:drafts:byob': boolean;
 	'gitlens:gk:organization:drafts:enabled': boolean;
+	'gitlens:graph:isDragging': boolean;
 	'gitlens:hasVirtualFolders': boolean;
 	'gitlens:launchpad:connect': boolean;
 	/** Indicates that this is the first run of a new install of GitLens */

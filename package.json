@@ -10419,6 +10419,10 @@
 					"when": "false"
 				},
 				{
+					"command": "gitlens.graph.setDragging",
+					"when": "false"
+				},
+				{
 					"command": "gitlens.graph.hideLocalBranch",
 					"when": "false"
 				},

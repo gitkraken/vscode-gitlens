@@ -111,7 +111,7 @@ import {
 	registerCommand,
 } from '../../../system/vscode/command';
 import { configuration } from '../../../system/vscode/configuration';
-import { getContext, onDidChangeContext } from '../../../system/vscode/context';
+import { getContext, onDidChangeContext, setContext } from '../../../system/vscode/context';
 import type { OpenWorkspaceLocation } from '../../../system/vscode/utils';
 import { isDarkTheme, isLightTheme, openWorkspace } from '../../../system/vscode/utils';
 import { isWebviewItemContext, isWebviewItemGroupContext, serializeWebviewItemContext } from '../../../system/webview';
@@ -175,6 +175,7 @@ import type {
 	SearchParams,
 	State,
 	UpdateColumnsParams,
+	UpdateDraggingParams,
 	UpdateExcludeTypesParams,
 	UpdateGraphConfigurationParams,
 	UpdateGraphSearchModeParams,
@@ -214,6 +215,7 @@ import {
 	SearchRequest,
 	supportedRefMetadataTypes,
 	UpdateColumnsCommand,
+	UpdateDraggingCommand,
 	UpdateExcludeTypesCommand,
 	UpdateGraphConfigurationCommand,
 	UpdateGraphSearchModeCommand,
@@ -683,6 +685,10 @@ export class GraphWebviewProvider implements WebviewProvider<State, State, Graph
 				this.copyWorkingChangesToWorktree,
 			),
 			this.host.registerWebviewCommand('gitlens.graph.generateCommitMessage', this.generateCommitMessage),
+			this.host.registerWebviewCommand<UpdateDraggingParams>(
+				'gitlens.graph.setDragging',
+				(item?: UpdateDraggingParams) => setContext('gitlens:graph:isDragging', item?.dragging),
+			),
 		);
 
 		return commands;
@@ -736,6 +742,9 @@ export class GraphWebviewProvider implements WebviewProvider<State, State, Graph
 				break;
 			case DoubleClickedCommandType.is(e):
 				void this.onDoubleClick(e.params);
+				break;
+			case UpdateDraggingCommand.is(e):
+				this.onDraggingChanged(e.params);
 				break;
 			case EnsureRowRequest.is(e):
 				void this.onEnsureRowRequest(EnsureRowRequest, e);
@@ -1065,6 +1074,10 @@ export class GraphWebviewProvider implements WebviewProvider<State, State, Graph
 		}
 
 		return Promise.resolve();
+	}
+
+	private onDraggingChanged({ dragging }: { dragging: boolean }) {
+		void executeCommand<{ dragging: boolean }>(GlCommand.GraphSetDragging, { dragging: dragging });
 	}
 
 	private async onHoverRowRequest<T extends typeof GetRowHoverRequest>(requestType: T, msg: IpcCallMessageType<T>) {

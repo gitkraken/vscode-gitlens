@@ -2854,7 +2854,7 @@
 			"menus": {
 				"webview/context": [
 					{
-						"when": "webviewItem =~ /gitlens:tag\\b/ && !gitlens:hasVirtualFolders && !gitlens:readonly && !gitlens:untrusted",
+						"when": "webviewItem =~ /gitlens:tag\\b/ && !gitlens:graph:isDragging && !gitlens:hasVirtualFolders && !gitlens:readonly && !gitlens:untrusted",
 						"group": "1_gitlens_actions",
 						"order": 1
 					}

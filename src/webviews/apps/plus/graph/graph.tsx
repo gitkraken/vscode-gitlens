@@ -49,6 +49,7 @@ import {
 	SearchOpenInViewCommand,
 	SearchRequest,
 	UpdateColumnsCommand,
+	UpdateDraggingCommand,
 	UpdateExcludeTypesCommand,
 	UpdateGraphConfigurationCommand,
 	UpdateGraphSearchModeCommand,
@@ -129,6 +130,8 @@ export class GraphApp extends App<State> {
 					onSearch={debounce<GraphApp['onSearch']>((search, options) => this.onSearch(search, options), 250)}
 					onSearchPromise={(...params) => this.onSearchPromise(...params)}
 					onSearchOpenInView={(...params) => this.onSearchOpenInView(...params)}
+					onDraggingStart={() => this.onDraggingStart()}
+					onDraggingEnd={() => this.onDraggingEnd()}
 				/>,
 				$root,
 			);
@@ -537,6 +540,14 @@ export class GraphApp extends App<State> {
 			},
 			themeOpacityFactor: parseInt(getCssVariable('--graph-theme-opacity-factor', computedStyle)) || 1,
 		};
+	}
+
+	private onDraggingStart() {
+		this.sendCommand(UpdateDraggingCommand, { dragging: true });
+	}
+
+	private onDraggingEnd() {
+		this.sendCommand(UpdateDraggingCommand, { dragging: false });
 	}
 
 	private onColumnsChanged(settings: GraphColumnsConfig) {

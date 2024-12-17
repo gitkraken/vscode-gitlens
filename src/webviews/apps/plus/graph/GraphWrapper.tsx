@@ -127,6 +127,8 @@ export interface GraphWrapperProps {
 		options?: { limit?: number; more?: boolean },
 	) => Promise<DidSearchParams | undefined>;
 	onSearchOpenInView?: (search: SearchQuery) => void;
+	onDraggingStart?: () => void;
+	onDraggingEnd?: () => void;
 }
 
 const getGraphDateFormatter = (config?: GraphComponentConfig): OnFormatCommitDateTime => {
@@ -250,6 +252,8 @@ export function GraphWrapper({
 	onSearch,
 	onSearchPromise,
 	onSearchOpenInView,
+	onDraggingStart,
+	onDraggingEnd,
 }: GraphWrapperProps) {
 	const graphRef = useRef<GraphContainer>(null);
 
@@ -839,10 +843,14 @@ export function GraphWrapper({
 			e.stopImmediatePropagation();
 		}
 
-		void executeCommand('gitlens.graph.setDraggingOff');
+		onDraggingEnd?.();
 	};
 
 	const handleOnRefCanDrag = (refDndData?: RefDndData): boolean => refDndData?.sha !== 'work-dir-changes';
+
+	const handleOnRefBeginDrag = (_event: any, _sourceRefData?: RefDndData, _targetRefData?: RefDndData): void => {
+		onDraggingStart?.();
+	};
 
 	const handleOnRefCanDrop = (_event: any, sourceRefData?: RefDndData, targetRefData?: RefDndData): boolean => {
 		if (!sourceRefData || !targetRefData) {
@@ -1668,6 +1676,7 @@ export function GraphWrapper({
 							onToggleRefsVisibilityClick={handleOnToggleRefsVisibilityClick}
 							onEmailsMissingAvatarUrls={handleMissingAvatars}
 							onRefsMissingMetadata={handleMissingRefsMetadata}
+							onRefBeginDrag={handleOnRefBeginDrag}
 							onRefDrop={handleOnRefDrop}
 							onRefCanDrag={handleOnRefCanDrag}
 							onRefCanDrop={handleOnRefCanDrop}
