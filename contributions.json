@@ -23,6 +23,10 @@
 				]
 			}
 		},
+		"gitlens.addIssueToBranch": {
+			"label": "Add Issue to Branch",
+			"commandPalette": "gitlens:enabled && !gitlens:readonly && !gitlens:untrusted && !gitlens:hasVirtualFolders"
+		},
 		"gitlens.annotations.nextChange": {
 			"label": "Next Change",
 			"icon": "$(arrow-down)"
@@ -1449,6 +1453,19 @@
 						"when": "webviewItem =~ /gitlens:contributor\\b(?!.*?\\b\\+current\\b)/ && !gitlens:hasVirtualFolders && !gitlens:readonly && !gitlens:untrusted",
 						"group": "1_gitlens_actions",
 						"order": 2
+					}
+				]
+			}
+		},
+		"gitlens.graph.addIssueToBranch": {
+			"label": "Add Issue to Branch...",
+			"enablement": "!operationInProgress",
+			"menus": {
+				"webview/context": [
+					{
+						"when": "webviewItem =~ /gitlens:branch\\b(?!.*?\\b\\+remote\\b)/ && !gitlens:hasVirtualFolders && !gitlens:readonly && !gitlens:untrusted",
+						"group": "1_gitlens_actions",
+						"order": 8
 					}
 				]
 			}
@@ -4735,6 +4752,19 @@
 						"when": "view == gitlens.views.contributors && !gitlens:hasVirtualFolders && !gitlens:readonly && !gitlens:untrusted",
 						"group": "navigation",
 						"order": 10
+					}
+				]
+			}
+		},
+		"gitlens.views.addIssueToBranch": {
+			"label": "Add Issue to Branch...",
+			"enablement": "!operationInProgress",
+			"menus": {
+				"view/item/context": [
+					{
+						"when": "viewItem =~ /gitlens:branch\\b(?!.*?\\b\\+remote\\b)/ && !listMultiSelection  && !gitlens:hasVirtualFolders && !gitlens:readonly && !gitlens:untrusted",
+						"group": "1_gitlens_actions",
+						"order": 8
 					}
 				]
 			}

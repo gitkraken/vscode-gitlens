@@ -103,6 +103,105 @@
 }
 ```
 
+### addIssueToBranch/action
+
+> Sent when the user chooses to manage integrations
+
+```typescript
+{
+  'instance': number,
+  'action': 'manage' | 'connect',
+  'connected': boolean,
+  'items.count': number
+}
+```
+
+### addIssueToBranch/issue/action
+
+> Sent when the user takes an action on an issue
+
+```typescript
+{
+  'instance': number,
+  'action': 'soft-open',
+  'connected': boolean,
+  [`item.${string}`]: string | number | boolean,
+  'items.count': number
+}
+```
+
+### addIssueToBranch/issue/chosen
+
+> Sent when the user chooses an issue to associate with the branch in the second step
+
+```typescript
+{
+  'instance': number,
+  'connected': boolean,
+  [`item.${string}`]: string | number | boolean,
+  'items.count': number
+}
+```
+
+### addIssueToBranch/open
+
+> Sent when the user opens Start Work; use `instance` to correlate an Add Issue to Branch "session"
+
+```typescript
+{
+  'instance': number
+}
+```
+
+### addIssueToBranch/opened
+
+> Sent when the launchpad is opened; use `instance` to correlate an Add Issue to Branch "session"
+
+```typescript
+{
+  'instance': number,
+  'connected': boolean,
+  'items.count': number
+}
+```
+
+### addIssueToBranch/steps/connect
+
+> Sent when the user reaches the "connect an integration" step of Add Issue to Branch
+
+```typescript
+{
+  'instance': number,
+  'connected': boolean,
+  'items.count': number
+}
+```
+
+### addIssueToBranch/steps/issue
+
+> Sent when the user reaches the "choose an issue" step of Add Issue to Branch
+
+```typescript
+{
+  'instance': number,
+  'connected': boolean,
+  'items.count': number
+}
+```
+
+### addIssueToBranch/title/action
+
+> Sent when the user chooses to connect an integration
+
+```typescript
+{
+  'instance': number,
+  'action': 'connect',
+  'connected': boolean,
+  'items.count': number
+}
+```
+
 ### ai/explain
 
 > Sent when explaining changes from wip, commits, stashes, patches,etc.
@@ -960,7 +1059,7 @@ void
 {
   'instance': number,
   'items.error': string,
-  'action': 'open' | 'code-suggest' | 'merge' | 'soft-open' | 'switch' | 'open-worktree' | 'switch-and-code-suggest' | 'show-overview' | 'open-changes' | 'open-in-graph' | 'pin' | 'unpin' | 'snooze' | 'unsnooze' | 'open-suggestion' | 'open-suggestion-browser',
+  'action': 'soft-open' | 'open' | 'code-suggest' | 'merge' | 'switch' | 'open-worktree' | 'switch-and-code-suggest' | 'show-overview' | 'open-changes' | 'open-in-graph' | 'pin' | 'unpin' | 'snooze' | 'unsnooze' | 'open-suggestion' | 'open-suggestion-browser',
   'groups.blocked.collapsed': boolean,
   'groups.blocked.count': number,
   'groups.count': number,
@@ -1257,7 +1356,7 @@ void
 {
   'instance': number,
   'items.error': string,
-  'action': 'settings' | 'feedback' | 'open-on-gkdev' | 'refresh' | 'connect',
+  'action': 'settings' | 'connect' | 'feedback' | 'open-on-gkdev' | 'refresh',
   'groups.blocked.collapsed': boolean,
   'groups.blocked.count': number,
   'groups.count': number,
@@ -1298,7 +1397,7 @@ void
   'provider': string,
   'repoPrivacy': 'private' | 'public' | 'local',
   'repository.visibility': 'private' | 'public' | 'local',
-  'source': 'account' | 'subscription' | 'graph' | 'patchDetails' | 'settings' | 'timeline' | 'home' | 'code-suggest' | 'cloud-patches' | 'commandPalette' | 'deeplink' | 'inspect' | 'inspect-overview' | 'integrations' | 'launchpad' | 'launchpad-indicator' | 'launchpad-view' | 'notification' | 'prompt' | 'quick-wizard' | 'remoteProvider' | 'startWork' | 'trial-indicator' | 'scm-input' | 'walkthrough' | 'whatsnew' | 'worktrees'
+  'source': 'account' | 'subscription' | 'graph' | 'patchDetails' | 'settings' | 'timeline' | 'home' | 'view' | 'code-suggest' | 'addIssueToBranch' | 'cloud-patches' | 'commandPalette' | 'deeplink' | 'inspect' | 'inspect-overview' | 'integrations' | 'launchpad' | 'launchpad-indicator' | 'launchpad-view' | 'notification' | 'prompt' | 'quick-wizard' | 'remoteProvider' | 'startWork' | 'trial-indicator' | 'scm-input' | 'walkthrough' | 'whatsnew' | 'worktrees'
 }
 ```
 
@@ -1468,7 +1567,7 @@ void
 ```typescript
 {
   'instance': number,
-  'action': 'connect' | 'manage',
+  'action': 'manage' | 'connect',
   'connected': boolean,
   'items.count': number
 }

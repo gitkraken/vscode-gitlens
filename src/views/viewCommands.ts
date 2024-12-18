@@ -36,6 +36,7 @@ import { deletedOrMissing } from '../git/models/revision';
 import { shortenRevision } from '../git/models/revision.utils';
 import { showPatchesView } from '../plus/drafts/actions';
 import { getPullRequestBranchDeepLink } from '../plus/launchpad/launchpadProvider';
+import type { AddIssueToBranchCommandArgs } from '../plus/startWork/startWork';
 import { showContributorsPicker } from '../quickpicks/contributorsPicker';
 import { filterMap } from '../system/array';
 import { log } from '../system/decorators/log';
@@ -245,6 +246,8 @@ export class ViewCommands implements Disposable {
 				this,
 				'sequential',
 			),
+
+			registerViewCommand('gitlens.views.addIssueToBranch', n => this.addIssueToBranch(n), this),
 
 			registerViewCommand(
 				'gitlens.views.copyRemoteCommitUrl',
@@ -1624,6 +1627,17 @@ export class ViewCommands implements Disposable {
 		}
 
 		void node.triggerChange(true);
+	}
+
+	@log()
+	private async addIssueToBranch(node: BranchNode) {
+		if (!node.is('branch')) return Promise.resolve();
+
+		executeCommand<AddIssueToBranchCommandArgs>(GlCommand.AddIssueToBranch, {
+			command: 'addIssueToBranch',
+			branch: node.ref,
+			source: 'view',
+		});
 	}
 }
 
