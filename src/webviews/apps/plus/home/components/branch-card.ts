@@ -23,6 +23,11 @@ import '../../shared/components/branch-icon';
 import './merge-target-status';
 
 export const branchCardStyles = css`
+	gl-avatar-list {
+		--gl-avatar-size: 2.4rem;
+		margin-block: -0.4rem;
+	}
+
 	.branch-item {
 		position: relative;
 	}
@@ -30,7 +35,7 @@ export const branchCardStyles = css`
 	.branch-item__container {
 		display: flex;
 		flex-direction: column;
-		gap: 0.8rem;
+		gap: 0.6rem;
 	}
 	.branch-item__container > * {
 		margin-block: 0;
@@ -71,6 +76,10 @@ export const branchCardStyles = css`
 		font-weight: bold;
 	}
 
+	.branch-item__name--secondary {
+		font-weight: normal;
+	}
+
 	.branch-item__identifier {
 		color: var(--vscode-descriptionForeground);
 		text-decoration: none;
@@ -84,19 +93,6 @@ export const branchCardStyles = css`
 		margin-block: 0;
 	}
 
-	.branch-item__grouping--secondary {
-		gap: 0.3rem;
-		font-size: 0.9em;
-	}
-
-	.branch-item__grouping--secondary {
-		color: var(--vscode-descriptionForeground);
-	}
-
-	.branch-item__grouping--secondary .branch-item__name {
-		font-weight: normal;
-	}
-
 	.branch-item__changes {
 		display: flex;
 		align-items: center;
@@ -106,6 +102,12 @@ export const branchCardStyles = css`
 
 	.branch-item__changes formatted-date {
 		margin-inline-end: auto;
+	}
+
+	.branch-item__summary {
+		display: flex;
+		align-items: center;
+		gap: 0.6rem;
 	}
 
 	/*
@@ -139,8 +141,7 @@ export const branchCardStyles = css`
 	}
 
 	.branch-item__merge-target {
-		position: absolute;
-		bottom: 0.4rem;
+		margin-inline-end: auto;
 	}
 `;
 
@@ -242,7 +243,7 @@ export abstract class GlBranchCardBase extends GlElement {
 						<span class="branch-item__icon">
 							<issue-icon state=${issue.state} issue-id=${issue.id}></issue-icon>
 						</span>
-						<a href=${issue.url} class="branch-item__name">${issue.title}</a>
+						<a href=${issue.url} class="branch-item__name branch-item__name--secondary">${issue.title}</a>
 						<span class="branch-item__identifier">#${issue.id}</span>
 					</p>
 				`;
@@ -285,16 +286,25 @@ export abstract class GlBranchCardBase extends GlElement {
 		></gl-avatar-list>`;
 	}
 
-	protected renderTracking() {
-		const { state } = this.branch;
-		if (state == null) return nothing;
+	protected renderTracking(showWip = false) {
+		const ahead = this.branch.state.ahead ?? 0;
+		const behind = this.branch.state.behind ?? 0;
+		let working = 0;
+		if (showWip) {
+			const { workingTreeState } = this.branch;
+			if (workingTreeState != null) {
+				working = workingTreeState.added + workingTreeState.changed + workingTreeState.deleted;
+			}
+		}
 
 		return html`<gl-tracking-pill
 			class="pill"
 			colorized
 			outlined
-			ahead=${state.ahead}
-			behind=${state.behind}
+			always-show
+			ahead=${ahead}
+			behind=${behind}
+			working=${working}
 		></gl-tracking-pill>`;
 	}
 
@@ -303,7 +313,7 @@ export abstract class GlBranchCardBase extends GlElement {
 		const actions = this.getActions?.();
 		if (!actions?.length) return nothing;
 
-		return html`<div class="branch-item__actions" slot="actions"><action-nav>${actions}</action-nav></div>`;
+		return html`<action-nav>${actions}</action-nav>`;
 	}
 
 	protected createCommandLink(command: Commands) {
@@ -340,16 +350,22 @@ export abstract class GlBranchCardBase extends GlElement {
 						<span class="branch-item__name">${this.branch.name}</span>
 					</p>
 				</div>
-				<div class="branch-item__section branch-item__section--details" slot="context">
-					${when(
-						timestamp || indicator || wip || tracking || avatars,
-						() =>
-							html`<p class="branch-item__changes">
-								${timestamp}${indicator}${wip}${tracking}${avatars}
-							</p>`,
-					)}
-				</div>
-				${actionsSection ?? nothing}${mergeTargetStatus}
+				${when(
+					timestamp || indicator || wip || tracking || avatars,
+					() => html`
+						<div class="branch-item__section branch-item__section--details" slot="context">
+							<p class="branch-item__changes">${timestamp}${indicator}${wip}${tracking}${avatars}</p>
+						</div>
+					`,
+				)}
+				${when(
+					actionsSection || mergeTargetStatus,
+					() =>
+						html`<div class="branch-item__actions" slot="actions">
+							${mergeTargetStatus ?? nothing}${actionsSection ?? nothing}
+						</div>`,
+				)}
+				<span class="branch-item__summary" slot="summary">${this.renderTracking(true)} ${avatars}</span>
 			</gl-work-item>
 		`;
 	}
@@ -368,7 +384,9 @@ export abstract class GlBranchCardBase extends GlElement {
 						<span class="branch-item__icon">
 							<pr-icon state=${this.branch.pr.state} pr-id=${this.branch.pr.id}></pr-icon>
 						</span>
-						<a href=${this.branch.pr.url} class="branch-item__name">${this.branch.pr.title}</a>
+						<a href=${this.branch.pr.url} class="branch-item__name branch-item__name--secondary"
+							>${this.branch.pr.title}</a
+						>
 						<span class="branch-item__identifier">#${this.branch.pr.id}</span>
 					</p>
 				</div>
@@ -504,6 +522,25 @@ export class GlWorkUnit extends LitElement {
 				gap: 0.8rem;
 			}
 
+			.work-item__header {
+				display: flex;
+				flex-direction: row;
+				justify-content: space-between;
+				align-items: center;
+				gap: 0.8rem;
+			}
+
+			.work-item__main {
+				display: block;
+				flex: 1;
+				min-width: 0;
+			}
+
+			.work-item__summary {
+				display: block;
+				flex: none;
+			}
+
 			.work-item__content {
 				display: flex;
 				flex-direction: column;
@@ -551,8 +588,9 @@ export class GlWorkUnit extends LitElement {
 	private renderContent() {
 		return html`
 			<div class="work-item">
-				<header class="work-item__main">
-					<slot></slot>
+				<header class="work-item__header">
+					<slot class="work-item__main"></slot>
+					${this.renderSummary()}
 				</header>
 				<div class="work-item__content">
 					<slot class="work-item__context" name="context"></slot>
@@ -560,5 +598,11 @@ export class GlWorkUnit extends LitElement {
 				</div>
 			</div>
 		`;
+	}
+
+	private renderSummary() {
+		if (this.expanded) return nothing;
+
+		return html`<slot class="work-item__summary" name="summary"></slot>`;
 	}
 }

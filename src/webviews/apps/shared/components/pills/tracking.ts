@@ -55,6 +55,9 @@ export class GlTrackingPill extends LitElement {
 	@property({ type: Number })
 	working = 0;
 
+	@property({ type: Boolean, attribute: 'always-show' })
+	alwaysShow = false;
+
 	@property({ type: Boolean })
 	outlined = false;
 
@@ -62,7 +65,15 @@ export class GlTrackingPill extends LitElement {
 	colorized = false;
 
 	override render() {
-		if (this.ahead === 0 && this.behind === 0 && this.working === 0) return nothing;
+		if (this.ahead === 0 && this.behind === 0 && this.working === 0) {
+			if (!this.alwaysShow) {
+				return nothing;
+			}
+
+			return html`<span part="base" class="pill${this.outlined ? ' pill--outlined' : ''}">
+				<span class="state${this.colorized ? ' state--ahead' : ''}"><code-icon icon="check"></code-icon></span>
+			</span>`;
+		}
 
 		return html`<span part="base" class="pill${this.outlined ? ' pill--outlined' : ''}"
 			>${when(
