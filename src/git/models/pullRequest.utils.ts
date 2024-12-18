@@ -8,31 +8,19 @@ export interface PullRequestUrlIdentity {
 	provider?: HostingIntegrationId;
 
 	ownerAndRepo?: string;
-	prNumber?: string;
+	prNumber: string;
 }
 
-export function getPullRequestIdentityValuesFromSearch(search: string): PullRequestUrlIdentity {
-	let ownerAndRepo: string | undefined = undefined;
+export function isMaybeNonSpecificPullRequestSearchUrl(search: string): boolean {
+	return getPullRequestIdentityFromMaybeUrl(search) != null;
+}
+
+export function getPullRequestIdentityFromMaybeUrl(search: string): PullRequestUrlIdentity | undefined {
 	let prNumber: string | undefined = undefined;
 
-	let match = search.match(/([^/]+\/[^/]+)\/(?:pull|-\/merge_requests)\/(\d+)/); // with org and rep name
+	let match = search.match(/(?:\/)(\d+)/); // any number starting with "/"
 	if (match != null) {
-		ownerAndRepo = match[1];
-		prNumber = match[2];
-	}
-
-	if (prNumber == null) {
-		match = search.match(/(?:\/|^)(?:pull|-\/merge_requests)\/(\d+)/); // without repo name
-		if (match != null) {
-			prNumber = match[1];
-		}
-	}
-
-	if (prNumber == null) {
-		match = search.match(/(?:\/)(\d+)/); // any number starting with "/"
-		if (match != null) {
-			prNumber = match[1];
-		}
+		prNumber = match[1];
 	}
 
 	if (prNumber == null) {
@@ -42,5 +30,5 @@ export function getPullRequestIdentityValuesFromSearch(search: string): PullRequ
 		}
 	}
 
-	return { ownerAndRepo: ownerAndRepo, prNumber: prNumber };
+	return prNumber == null ? undefined : { ownerAndRepo: undefined, prNumber: prNumber, provider: undefined };
 }
