@@ -23,8 +23,8 @@
 				]
 			}
 		},
-		"gitlens.addIssueToBranch": {
-			"label": "Add Issue to Branch",
+		"gitlens.associateIssueWithBranch": {
+			"label": "Associate Issue with Branch",
 			"commandPalette": "gitlens:enabled && !gitlens:readonly && !gitlens:untrusted && !gitlens:hasVirtualFolders"
 		},
 		"gitlens.annotations.nextChange": {
@@ -1457,8 +1457,8 @@
 				]
 			}
 		},
-		"gitlens.graph.addIssueToBranch": {
-			"label": "Add Issue to Branch...",
+		"gitlens.graph.associateIssueWithBranch": {
+			"label": "Associate Issue with Branch...",
 			"enablement": "!operationInProgress",
 			"menus": {
 				"webview/context": [
@@ -4756,8 +4756,8 @@
 				]
 			}
 		},
-		"gitlens.views.addIssueToBranch": {
-			"label": "Add Issue to Branch...",
+		"gitlens.views.associateIssueWithBranch": {
+			"label": "Associate Issue with Branch...",
 			"enablement": "!operationInProgress",
 			"menus": {
 				"view/item/context": [

@@ -1,7 +1,7 @@
 import type { StoredRecentUsage } from '../constants.storage';
 import type { Container } from '../container';
 import { LaunchpadCommand } from '../plus/launchpad/launchpad';
-import { AddIssueToBranchCommand, StartWorkCommand } from '../plus/startWork/startWork';
+import { AssociateIssueWithBranchCommand, StartWorkCommand } from '../plus/startWork/startWork';
 import { configuration } from '../system/vscode/configuration';
 import { getContext } from '../system/vscode/context';
 import { BranchGitCommand } from './git/branch';
@@ -118,8 +118,8 @@ export class QuickWizardRootStep implements QuickPickStep<QuickCommand> {
 			this.hiddenItems.push(new StartWorkCommand(container, args));
 		}
 
-		if (args?.command === 'addIssueToBranch') {
-			this.hiddenItems.push(new AddIssueToBranchCommand(container, args));
+		if (args?.command === 'associateIssueWithBranch') {
+			this.hiddenItems.push(new AssociateIssueWithBranchCommand(container, args));
 		}
 	}
 

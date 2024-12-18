@@ -5,7 +5,7 @@ export const actionCommandPrefix = 'gitlens.action.';
 
 export const enum GlCommand {
 	AddAuthors = 'gitlens.addAuthors',
-	AddIssueToBranch = 'gitlens.addIssueToBranch',
+	AssociateIssueWithBranch = 'gitlens.associateIssueWithBranch',
 	BrowseRepoAtRevision = 'gitlens.browseRepoAtRevision',
 	BrowseRepoAtRevisionInNewWindow = 'gitlens.browseRepoAtRevisionInNewWindow',
 	BrowseRepoBeforeRevision = 'gitlens.browseRepoBeforeRevision',
@@ -573,7 +573,7 @@ export type TreeViewCommands = `gitlens.views.${
 	| 'addAuthors'
 	| 'addAuthor'
 	| 'addAuthor.multi'
-	| 'addIssueToBranch'
+	| 'associateIssueWithBranch'
 	| 'openBranchOnRemote'
 	| 'openBranchOnRemote.multi'
 	| 'copyRemoteCommitUrl'
@@ -699,7 +699,7 @@ type GraphWebviewCommands = `graph.${
 	| 'pull'
 	| 'fetch'
 	| 'pushWithForce'
-	| 'addIssueToBranch'
+	| 'associateIssueWithBranch'
 	| 'publishBranch'
 	| 'switchToAnotherBranch'
 	| 'createBranch'

@@ -5747,8 +5747,8 @@
 				"icon": "$(person-add)"
 			},
 			{
-				"command": "gitlens.addIssueToBranch",
-				"title": "Add Issue to Branch",
+				"command": "gitlens.associateIssueWithBranch",
+				"title": "Associate Issue with Branch",
 				"category": "GitLens"
 			},
 			{
@@ -6308,8 +6308,8 @@
 				"icon": "$(person-add)"
 			},
 			{
-				"command": "gitlens.graph.addIssueToBranch",
-				"title": "Add Issue to Branch...",
+				"command": "gitlens.graph.associateIssueWithBranch",
+				"title": "Associate Issue with Branch...",
 				"enablement": "!operationInProgress"
 			},
 			{
@@ -7564,8 +7564,8 @@
 				"icon": "$(person-add)"
 			},
 			{
-				"command": "gitlens.views.addIssueToBranch",
-				"title": "Add Issue to Branch...",
+				"command": "gitlens.views.associateIssueWithBranch",
+				"title": "Associate Issue with Branch...",
 				"enablement": "!operationInProgress"
 			},
 			{
@@ -9854,10 +9854,6 @@
 					"when": "gitlens:enabled && !gitlens:readonly && !gitlens:untrusted && !gitlens:hasVirtualFolders"
 				},
 				{
-					"command": "gitlens.addIssueToBranch",
-					"when": "gitlens:enabled && !gitlens:readonly && !gitlens:untrusted && !gitlens:hasVirtualFolders"
-				},
-				{
 					"command": "gitlens.annotations.nextChange",
 					"when": "false"
 				},
@@ -9868,6 +9864,10 @@
 				{
 					"command": "gitlens.applyPatchFromClipboard",
 					"when": "gitlens:enabled && !gitlens:untrusted && !gitlens:hasVirtualFolders"
+				},
+				{
+					"command": "gitlens.associateIssueWithBranch",
+					"when": "gitlens:enabled && !gitlens:readonly && !gitlens:untrusted && !gitlens:hasVirtualFolders"
 				},
 				{
 					"command": "gitlens.browseRepoAtRevision",
@@ -10270,7 +10270,7 @@
 					"when": "false"
 				},
 				{
-					"command": "gitlens.graph.addIssueToBranch",
+					"command": "gitlens.graph.associateIssueWithBranch",
 					"when": "false"
 				},
 				{
@@ -11222,15 +11222,15 @@
 					"when": "false"
 				},
 				{
-					"command": "gitlens.views.addIssueToBranch",
-					"when": "false"
-				},
-				{
 					"command": "gitlens.views.addRemote",
 					"when": "false"
 				},
 				{
 					"command": "gitlens.views.applyChanges",
+					"when": "false"
+				},
+				{
+					"command": "gitlens.views.associateIssueWithBranch",
 					"when": "false"
 				},
 				{
@@ -15233,7 +15233,7 @@
 					"group": "1_gitlens_actions@7"
 				},
 				{
-					"command": "gitlens.views.addIssueToBranch",
+					"command": "gitlens.views.associateIssueWithBranch",
 					"when": "viewItem =~ /gitlens:branch\\b(?!.*?\\b\\+remote\\b)/ && !listMultiSelection && !gitlens:hasVirtualFolders && !gitlens:readonly && !gitlens:untrusted",
 					"group": "1_gitlens_actions@8"
 				},
@@ -18124,7 +18124,7 @@
 					"group": "1_gitlens_actions@7"
 				},
 				{
-					"command": "gitlens.graph.addIssueToBranch",
+					"command": "gitlens.graph.associateIssueWithBranch",
 					"when": "webviewItem =~ /gitlens:branch\\b(?!.*?\\b\\+remote\\b)/ && !gitlens:hasVirtualFolders && !gitlens:readonly && !gitlens:untrusted",
 					"group": "1_gitlens_actions@8"
 				},

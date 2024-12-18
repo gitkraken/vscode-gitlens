@@ -75,12 +75,12 @@ function assertsStartWorkStepState(state: StepState<State>): asserts state is St
 }
 
 export interface StartWorkBaseCommandArgs {
-	readonly command: 'startWork' | 'addIssueToBranch';
+	readonly command: 'startWork' | 'associateIssueWithBranch';
 	source?: Sources;
 }
 
 export interface StartWorkOverrides {
-	ownSource?: 'startWork' | 'addIssueToBranch';
+	ownSource?: 'startWork' | 'associateIssueWithBranch';
 	placeholders?: {
 		localIntegrationConnect?: string;
 		cloudIntegrationConnectHasConnected?: string;
@@ -128,7 +128,7 @@ function isManageIntegrationsItem(item: unknown): item is ManageIntegrationsItem
 export abstract class StartWorkBaseCommand extends QuickCommand<State> {
 	private readonly source: Source;
 	private readonly telemetryContext: StartWorkTelemetryContext | undefined;
-	private readonly telemetryEventKey: 'startWork' | 'addIssueToBranch';
+	private readonly telemetryEventKey: 'startWork' | 'associateIssueWithBranch';
 	protected abstract overrides?: StartWorkOverrides;
 
 	constructor(
@@ -138,7 +138,7 @@ export abstract class StartWorkBaseCommand extends QuickCommand<State> {
 		label: string = 'startWork',
 		title: string = `Start Work\u00a0\u00a0${proBadge}`,
 		description: string = 'Start work on an issue',
-		telemetryEventKey: 'startWork' | 'addIssueToBranch' = 'startWork',
+		telemetryEventKey: 'startWork' | 'associateIssueWithBranch' = 'startWork',
 	) {
 		super(container, key, label, title, {
 			description: description,
@@ -589,33 +589,34 @@ export class StartWorkCommand extends StartWorkBaseCommand {
 	}
 }
 
-export interface AddIssueToBranchCommandArgs {
-	readonly command: 'addIssueToBranch';
+export interface AssociateIssueWithBranchCommandArgs {
+	readonly command: 'associateIssueWithBranch';
 	branch?: GitBranchReference;
 	source?: Sources;
 }
 
-export class AddIssueToBranchCommand extends StartWorkBaseCommand {
+export class AssociateIssueWithBranchCommand extends StartWorkBaseCommand {
 	private branch: GitBranchReference | undefined;
 	protected override overrides: StartWorkOverrides = {
-		ownSource: 'addIssueToBranch',
+		ownSource: 'associateIssueWithBranch',
 		placeholders: {
-			cloudIntegrationConnectHasConnected: 'Connect additional integrations to add their issues to your branches',
-			cloudIntegrationConnectNoConnected: 'Connect an integration to add its issues to your branches',
-			localIntegrationConnect: 'Connect an integration to add its issues to your branches',
-			issueSelection: 'Choose an issue to add to your branch',
+			cloudIntegrationConnectHasConnected:
+				'Connect additional integrations to associate their issues with your branches',
+			cloudIntegrationConnectNoConnected: 'Connect an integration to associate its issues with your branches',
+			localIntegrationConnect: 'Connect an integration to associate its issues with your branches',
+			issueSelection: 'Choose an issue to associate with your branch',
 		},
 	};
 
-	constructor(container: Container, args?: AddIssueToBranchCommandArgs) {
+	constructor(container: Container, args?: AssociateIssueWithBranchCommandArgs) {
 		super(
 			container,
-			{ command: 'addIssueToBranch', source: args?.source ?? 'commandPalette' },
-			'addIssueToBranch',
-			'addIssueToBranch',
-			`Add Issue to Branch\u00a0\u00a0${proBadge}`,
-			'Add an issue to your branch',
-			'addIssueToBranch',
+			{ command: 'associateIssueWithBranch', source: args?.source ?? 'commandPalette' },
+			'associateIssueWithBranch',
+			'associateIssueWithBranch',
+			`Associate Issue with Branch\u00a0\u00a0${proBadge}`,
+			'Associate an issue with your branch',
+			'associateIssueWithBranch',
 		);
 		this.branch = args?.branch;
 	}
@@ -633,8 +634,8 @@ export class AddIssueToBranchCommand extends StartWorkBaseCommand {
 
 		if (this.branch == null) {
 			this.branch = await showBranchPicker(
-				`Add Issue to Branch\u00a0\u00a0${proBadge}`,
-				'Choose a branch to add the issue to',
+				`Associate Issue with Branch\u00a0\u00a0${proBadge}`,
+				'Choose a branch to associate the issue with',
 				this.container.git.openRepositories,
 				{ filter: b => !b.remote },
 			);

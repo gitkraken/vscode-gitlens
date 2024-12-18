@@ -36,7 +36,7 @@ import { deletedOrMissing } from '../git/models/revision';
 import { shortenRevision } from '../git/models/revision.utils';
 import { showPatchesView } from '../plus/drafts/actions';
 import { getPullRequestBranchDeepLink } from '../plus/launchpad/launchpadProvider';
-import type { AddIssueToBranchCommandArgs } from '../plus/startWork/startWork';
+import type { AssociateIssueWithBranchCommandArgs } from '../plus/startWork/startWork';
 import { showContributorsPicker } from '../quickpicks/contributorsPicker';
 import { filterMap } from '../system/array';
 import { log } from '../system/decorators/log';
@@ -247,7 +247,7 @@ export class ViewCommands implements Disposable {
 				'sequential',
 			),
 
-			registerViewCommand('gitlens.views.addIssueToBranch', n => this.addIssueToBranch(n), this),
+			registerViewCommand('gitlens.views.associateIssueWithBranch', n => this.associateIssueWithBranch(n), this),
 
 			registerViewCommand(
 				'gitlens.views.copyRemoteCommitUrl',
@@ -1630,11 +1630,11 @@ export class ViewCommands implements Disposable {
 	}
 
 	@log()
-	private async addIssueToBranch(node: BranchNode) {
+	private async associateIssueWithBranch(node: BranchNode) {
 		if (!node.is('branch')) return Promise.resolve();
 
-		executeCommand<AddIssueToBranchCommandArgs>(GlCommand.AddIssueToBranch, {
-			command: 'addIssueToBranch',
+		executeCommand<AssociateIssueWithBranchCommandArgs>(GlCommand.AssociateIssueWithBranch, {
+			command: 'associateIssueWithBranch',
 			branch: node.ref,
 			source: 'view',
 		});

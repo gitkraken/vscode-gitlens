@@ -125,7 +125,7 @@ import type { FeaturePreviewChangeEvent, SubscriptionChangeEvent } from '../../g
 import type { ConnectionStateChangeEvent } from '../../integrations/integrationService';
 import { remoteProviderIdToIntegrationId } from '../../integrations/integrationService';
 import { getPullRequestBranchDeepLink } from '../../launchpad/launchpadProvider';
-import type { AddIssueToBranchCommandArgs } from '../../startWork/startWork';
+import type { AssociateIssueWithBranchCommandArgs } from '../../startWork/startWork';
 import type {
 	BranchState,
 	DidChangeRefsVisibilityParams,
@@ -512,7 +512,7 @@ export class GraphWebviewProvider implements WebviewProvider<State, State, Graph
 			this.host.registerWebviewCommand('gitlens.graph.rebaseOntoBranch', this.rebase),
 			this.host.registerWebviewCommand('gitlens.graph.rebaseOntoUpstream', this.rebaseToRemote),
 			this.host.registerWebviewCommand('gitlens.graph.renameBranch', this.renameBranch),
-			this.host.registerWebviewCommand('gitlens.graph.addIssueToBranch', this.addIssueToBranch),
+			this.host.registerWebviewCommand('gitlens.graph.associateIssueWithBranch', this.associateIssueWithBranch),
 
 			this.host.registerWebviewCommand('gitlens.graph.switchToBranch', this.switchTo),
 
@@ -3113,11 +3113,11 @@ export class GraphWebviewProvider implements WebviewProvider<State, State, Graph
 	}
 
 	@log()
-	private addIssueToBranch(item?: GraphItemContext) {
+	private associateIssueWithBranch(item?: GraphItemContext) {
 		if (isGraphItemRefContext(item, 'branch')) {
 			const { ref } = item.webviewItemValue;
-			return executeCommand<AddIssueToBranchCommandArgs>(GlCommand.AddIssueToBranch, {
-				command: 'addIssueToBranch',
+			return executeCommand<AssociateIssueWithBranchCommandArgs>(GlCommand.AssociateIssueWithBranch, {
+				command: 'associateIssueWithBranch',
 				branch: ref,
 				source: 'graph',
 			});
