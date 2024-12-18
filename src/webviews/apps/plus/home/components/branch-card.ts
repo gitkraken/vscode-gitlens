@@ -19,6 +19,7 @@ import '../../../shared/components/rich/issue-icon';
 import '../../../shared/components/rich/pr-icon';
 import '../../../shared/components/actions/action-item';
 import '../../../shared/components/actions/action-nav';
+import '../../shared/components/branch-icon';
 import './merge-target-status';
 
 export const branchCardStyles = css`
@@ -335,9 +336,7 @@ export abstract class GlBranchCardBase extends GlElement {
 			>
 				<div class="branch-item__section">
 					<p class="branch-item__grouping">
-						<span class="branch-item__icon">
-							<code-icon icon=${this.branch.worktree ? 'gl-worktrees-view' : 'git-branch'}></code-icon>
-						</span>
+						<span class="branch-item__icon"> ${this.renderBranchIcon()} </span>
 						<span class="branch-item__name">${this.branch.name}</span>
 					</p>
 				</div>
@@ -353,6 +352,10 @@ export abstract class GlBranchCardBase extends GlElement {
 				${actionsSection ?? nothing}${mergeTargetStatus}
 			</gl-work-item>
 		`;
+	}
+
+	private renderBranchIcon() {
+		return html`<gl-branch-icon .branch="${this.branch}"></gl-branch-icon>`;
 	}
 
 	protected renderPrItem() {
