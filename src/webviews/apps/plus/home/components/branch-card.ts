@@ -413,15 +413,21 @@ export abstract class GlBranchCardBase extends GlElement {
 						<span class="branch-item__identifier">#${this.branch.pr.id}</span>
 					</p>
 				</div>
+				${this.renderLaunchpad()}
 			</gl-work-item>
 		`;
 	}
 
-	// ${this.branch.pr.launchpad != null
-	// 	? html`<p>
-	// 			<span class="branch-item__category">${this.branch.pr.launchpad.category}</span>
-	// 	  </p>`
-	// 	: nothing}
+	protected renderLaunchpad() {
+		const launchpad = this.branch.pr?.launchpad;
+		if (launchpad == null) return nothing;
+
+		return html`<div class="branch-item__section branch-item__section--details" slot="context">
+			<p>
+				<span class="branch-item__category">${launchpad.category}</span>
+			</p>
+		</div>`;
+	}
 
 	protected renderMergeTargetStatus() {
 		if (!this.branch.mergeTarget) return nothing;
