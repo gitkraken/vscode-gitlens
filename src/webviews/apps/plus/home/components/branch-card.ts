@@ -324,7 +324,11 @@ export abstract class GlBranchCardBase extends GlElement {
 		const { timestamp } = this.branch;
 		if (timestamp == null) return nothing;
 
-		return html`<formatted-date .date=${new Date(timestamp)} class="branch-item__date"></formatted-date>`;
+		return html`<formatted-date
+			tooltip="Last commit on "
+			.date=${new Date(timestamp)}
+			class="branch-item__date"
+		></formatted-date>`;
 	}
 
 	protected abstract renderBranchIndicator?(): TemplateResult | undefined;
