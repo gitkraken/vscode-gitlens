@@ -8153,6 +8153,11 @@
 				"icon": "$(question)"
 			},
 			{
+				"command": "gitlens.views.home.info",
+				"title": "Learn about Home View",
+				"icon": "$(question)"
+			},
+			{
 				"command": "gitlens.views.home.issues",
 				"title": "GitHub Issues",
 				"icon": "$(feedback)"
@@ -11728,6 +11733,10 @@
 				},
 				{
 					"command": "gitlens.views.home.help",
+					"when": "false"
+				},
+				{
+					"command": "gitlens.views.home.info",
 					"when": "false"
 				},
 				{
@@ -17268,16 +17277,21 @@
 				{
 					"command": "gitlens.views.home.previewFeedback",
 					"when": "view == gitlens.views.home",
-					"group": "navigation@97"
+					"group": "navigation@96"
 				},
 				{
 					"command": "gitlens.views.home.disablePreview",
 					"when": "view == gitlens.views.home && config.gitlens.home.preview.enabled",
-					"group": "navigation@98"
+					"group": "navigation@97"
 				},
 				{
 					"command": "gitlens.views.home.enablePreview",
 					"when": "view == gitlens.views.home && !config.gitlens.home.preview.enabled",
+					"group": "navigation@97"
+				},
+				{
+					"command": "gitlens.views.home.info",
+					"when": "view == gitlens.views.home",
 					"group": "navigation@98"
 				},
 				{
