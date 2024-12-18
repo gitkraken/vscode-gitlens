@@ -5747,6 +5747,11 @@
 				"icon": "$(person-add)"
 			},
 			{
+				"command": "gitlens.associateIssueWithBranch",
+				"title": "Associate Issue with Branch...",
+				"category": "GitLens"
+			},
+			{
 				"command": "gitlens.annotations.nextChange",
 				"title": "Next Change",
 				"icon": "$(arrow-down)"
@@ -6301,6 +6306,11 @@
 				"command": "gitlens.graph.addAuthor",
 				"title": "Add as Co-author",
 				"icon": "$(person-add)"
+			},
+			{
+				"command": "gitlens.graph.associateIssueWithBranch",
+				"title": "Associate Issue with Branch...",
+				"enablement": "!operationInProgress"
 			},
 			{
 				"command": "gitlens.graph.cherryPick",
@@ -7552,6 +7562,11 @@
 				"command": "gitlens.views.addAuthors",
 				"title": "Add Co-authors...",
 				"icon": "$(person-add)"
+			},
+			{
+				"command": "gitlens.views.associateIssueWithBranch",
+				"title": "Associate Issue with Branch...",
+				"enablement": "!operationInProgress"
 			},
 			{
 				"command": "gitlens.views.addRemote",
@@ -9851,6 +9866,10 @@
 					"when": "gitlens:enabled && !gitlens:untrusted && !gitlens:hasVirtualFolders"
 				},
 				{
+					"command": "gitlens.associateIssueWithBranch",
+					"when": "gitlens:enabled && !gitlens:readonly && !gitlens:untrusted && !gitlens:hasVirtualFolders"
+				},
+				{
 					"command": "gitlens.browseRepoAtRevision",
 					"when": "!gitlens:hasVirtualFolders && gitlens:enabled && resourceScheme =~ /^(gitlens|git|pr)$/"
 				},
@@ -10248,6 +10267,10 @@
 				},
 				{
 					"command": "gitlens.graph.addAuthor",
+					"when": "false"
+				},
+				{
+					"command": "gitlens.graph.associateIssueWithBranch",
 					"when": "false"
 				},
 				{
@@ -11204,6 +11227,10 @@
 				},
 				{
 					"command": "gitlens.views.applyChanges",
+					"when": "false"
+				},
+				{
+					"command": "gitlens.views.associateIssueWithBranch",
 					"when": "false"
 				},
 				{
@@ -15206,6 +15233,11 @@
 					"group": "1_gitlens_actions@7"
 				},
 				{
+					"command": "gitlens.views.associateIssueWithBranch",
+					"when": "viewItem =~ /gitlens:branch\\b(?!.*?\\b\\+remote\\b)/ && !listMultiSelection && !gitlens:hasVirtualFolders && !gitlens:readonly && !gitlens:untrusted",
+					"group": "1_gitlens_actions@8"
+				},
+				{
 					"command": "gitlens.views.createBranch",
 					"when": "viewItem =~ /gitlens:branch\\b(?!.*?\\b\\+closed\\b)/ && !listMultiSelection && !gitlens:hasVirtualFolders && !gitlens:readonly && !gitlens:untrusted",
 					"group": "1_gitlens_actions_@7"
@@ -18090,6 +18122,11 @@
 					"command": "gitlens.graph.deleteBranch",
 					"when": "webviewItem =~ /gitlens:branch\\b(?!.*?\\b\\+(current|checkedout)\\b)/ && !gitlens:hasVirtualFolders && !gitlens:readonly && !gitlens:untrusted",
 					"group": "1_gitlens_actions@7"
+				},
+				{
+					"command": "gitlens.graph.associateIssueWithBranch",
+					"when": "webviewItem =~ /gitlens:branch\\b(?!.*?\\b\\+remote\\b)/ && !gitlens:hasVirtualFolders && !gitlens:readonly && !gitlens:untrusted",
+					"group": "1_gitlens_actions@8"
 				},
 				{
 					"command": "gitlens.graph.createBranch",
