@@ -228,13 +228,13 @@ export class GlActiveBranchCard extends GlBranchCardBase {
 	}
 
 	private renderBranchStateActions() {
-		const { state, upstream, mergeStatus, rebaseStatus } = this.branch;
+		const { name, state, upstream, mergeStatus, rebaseStatus } = this.branch;
 		if (mergeStatus != null || rebaseStatus != null) return undefined;
 
 		const isFetching = this.busy;
 
 		if (upstream?.missing !== false) {
-			const publishTooltip = upstream?.name ? `Publish branch to ${upstream.name}` : 'Publish branch';
+			// TODO: Upstream will never exist here -- we need to look at remotes
 			return html`<div slot="actions">
 				<button-container>
 					<gl-button
@@ -243,8 +243,9 @@ export class GlActiveBranchCard extends GlBranchCardBase {
 						href=${createWebviewCommandLink('gitlens.views.home.publishBranch', 'gitlens.views.home', '')}
 						full
 						appearance="secondary"
-						tooltip="${publishTooltip}"
-						><code-icon icon="cloud-upload" slot="prefix"></code-icon> Publish Branch</gl-button
+						><code-icon icon="cloud-upload" slot="prefix"></code-icon> Publish Branch<span slot="tooltip"
+							>Publish (push) <strong>${name}</strong> to ${upstream?.name ?? 'a remote'}</span
+						></gl-button
 					></button-container
 				>
 			</div>`;
