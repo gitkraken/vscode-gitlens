@@ -304,6 +304,8 @@ export class JiraIntegration extends IssueIntegration<IssueIntegrationId.Jira> {
 
 		if (storedOrganizations == null) {
 			organizations = await this.getProviderResourcesForUser(this._session, true);
+			// Clear all other stored organizations and projects when our session changes
+			await this.container.storage.deleteWithPrefix('jira');
 			await this.container.storage.store(`jira:${this._session.accessToken}:organizations`, {
 				v: 1,
 				timestamp: Date.now(),
