@@ -19,6 +19,7 @@ import type {
 } from '../../../config';
 import { GlyphChars } from '../../../constants';
 import { GlCommand } from '../../../constants.commands';
+import { HostingIntegrationId, IssueIntegrationId } from '../../../constants.integrations';
 import type { StoredGraphFilters, StoredGraphRefType } from '../../../constants.storage';
 import type { GraphShownTelemetryContext, GraphTelemetryContext, TelemetryEvents } from '../../../constants.telemetry';
 import type { Container } from '../../../container';
@@ -50,6 +51,7 @@ import { GitSearchError } from '../../../git/errors';
 import { CommitFormatter } from '../../../git/formatters/commitFormatter';
 import type { GitBranch } from '../../../git/models/branch';
 import {
+	getAssociatedIssuesForBranch,
 	getBranchId,
 	getBranchNameWithoutRemote,
 	getDefaultBranchName,
@@ -62,6 +64,7 @@ import { isStash } from '../../../git/models/commit';
 import { splitCommitMessage } from '../../../git/models/commit.utils';
 import { GitContributor } from '../../../git/models/contributor';
 import type { GitGraph, GitGraphRowType } from '../../../git/models/graph';
+import type { IssueShape } from '../../../git/models/issue';
 import type { PullRequest } from '../../../git/models/pullRequest';
 import {
 	getComparisonRefsForPullRequest,
@@ -113,7 +116,7 @@ import {
 import { configuration } from '../../../system/vscode/configuration';
 import { getContext, onDidChangeContext } from '../../../system/vscode/context';
 import type { OpenWorkspaceLocation } from '../../../system/vscode/utils';
-import { isDarkTheme, isLightTheme, openWorkspace } from '../../../system/vscode/utils';
+import { isDarkTheme, isLightTheme, openUrl, openWorkspace } from '../../../system/vscode/utils';
 import { isWebviewItemContext, isWebviewItemGroupContext, serializeWebviewItemContext } from '../../../system/webview';
 import { DeepLinkActionType } from '../../../uris/deepLinks/deepLink';
 import { RepositoryFolderNode } from '../../../views/nodes/abstract/repositoryFolderNode';
@@ -150,6 +153,8 @@ import type {
 	GraphHostingServiceType,
 	GraphIncludeOnlyRef,
 	GraphIncludeOnlyRefs,
+	GraphIssueContextValue,
+	GraphIssueTrackerType,
 	GraphItemContext,
 	GraphItemGroupContext,
 	GraphItemRefContext,
@@ -1019,6 +1024,8 @@ export class GraphWebviewProvider implements WebviewProvider<State, State, Graph
 						}
 					} else if (e.metadata.type === 'pullRequest' && isGraphItemTypedContext(item, 'pullrequest')) {
 						return void this.openPullRequestOnRemote(item);
+					} else if (e.metadata.type === 'issue' && isGraphItemTypedContext(item, 'issue')) {
+						return void this.openIssueOnRemote(item);
 					}
 
 					return;
@@ -1360,6 +1367,70 @@ export class GraphWebviewProvider implements WebviewProvider<State, State, Graph
 
 					metadata.upstream = upstreamMetadata;
 
+					this._refsMetadata.set(id, metadata);
+					continue;
+				}
+
+				// TODO: Issue metadata needs to update for a branch whenever we add an associated issue for it, so that we don't
+				// have to completely refresh the component to see the new issue
+				if (type === 'issue') {
+					let issues: IssueShape[] | undefined = await getAssociatedIssuesForBranch(
+						this.container,
+						branch,
+					).then(issues => issues.value);
+					if (issues == null || issues.length === 0) {
+						issues = await branch.getEnrichedAutolinks().then(async enrichedAutolinks => {
+							if (enrichedAutolinks == null) return undefined;
+							return (
+								await Promise.all(
+									[...enrichedAutolinks.values()].map(async ([issueOrPullRequestPromise]) =>
+										// eslint-disable-next-line no-return-await
+										issueOrPullRequestPromise != null ? await issueOrPullRequestPromise : undefined,
+									),
+								)
+							).filter<IssueShape>(
+								(a?: unknown): a is IssueShape =>
+									a != null && a instanceof Object && 'type' in a && a.type === 'issue',
+							);
+						});
+
+						if (issues == null || issues.length === 0) {
+							metadata.issue = null;
+							this._refsMetadata.set(id, metadata);
+							continue;
+						}
+					}
+
+					const issuesMetadata = [];
+					for (const issue of issues) {
+						const issueTracker = toGraphIssueTrackerType(issue.provider.id);
+						if (issueTracker == null) continue;
+						issuesMetadata.push({
+							displayId: issue.id,
+							id: issue.nodeId ?? issue.id,
+							// TODO: This is a hack/workaround because the graph component doesn't support this in the tooltip.
+							// Update this once that is fixed.
+							title: `${issue.title}\nDouble-click to open issue on ${issue.provider.name}`,
+							issueTrackerType: issueTracker,
+							url: issue.url,
+							context: serializeWebviewItemContext<GraphItemContext>({
+								webviewItem: `gitlens:issue`,
+								webviewItemValue: {
+									type: 'issue',
+									id: issue.id,
+									url: issue.url,
+									provider: {
+										id: issue.provider.id,
+										name: issue.provider.name,
+										domain: issue.provider.domain,
+										icon: issue.provider.icon,
+									},
+								},
+							}),
+						});
+					}
+
+					metadata.issue = issuesMetadata;
 					this._refsMetadata.set(id, metadata);
 				}
 			}
@@ -2326,6 +2397,10 @@ export class GraphWebviewProvider implements WebviewProvider<State, State, Graph
 
 	private getEnabledRefMetadataTypes(): GraphRefMetadataType[] {
 		const types: GraphRefMetadataType[] = [];
+
+		if (configuration.get('graph.issues.enabled')) {
+			types.push('issue');
+		}
 
 		if (configuration.get('graph.pullRequests.enabled')) {
 			types.push('pullRequest');
@@ -3560,6 +3635,17 @@ export class GraphWebviewProvider implements WebviewProvider<State, State, Graph
 	}
 
 	@log()
+	private openIssueOnRemote(item?: GraphItemContext) {
+		if (isGraphItemTypedContext(item, 'issue')) {
+			const { url } = item.webviewItemValue;
+			// TODO: Add a command for this. See openPullRequestOnRemote above.
+			void openUrl(url);
+		}
+
+		return Promise.resolve();
+	}
+
+	@log()
 	private async compareAncestryWithWorking(item?: GraphItemContext) {
 		const ref = this.getGraphItemRef(item);
 		if (ref == null) return Promise.resolve();
@@ -4015,6 +4101,7 @@ function isGraphItemTypedContext(
 	item: unknown,
 	type: 'upstreamStatus',
 ): item is GraphItemTypedContext<GraphUpstreamStatusContextValue>;
+function isGraphItemTypedContext(item: unknown, type: 'issue'): item is GraphItemTypedContext<GraphIssueContextValue>;
 function isGraphItemTypedContext(
 	item: unknown,
 	type: GraphItemTypedContextValue['type'],
@@ -4058,4 +4145,17 @@ export function hasGitReference(o: unknown): o is { ref: GitReference } {
 	if (!('ref' in o)) return false;
 
 	return isGitReference(o.ref);
+}
+
+function toGraphIssueTrackerType(id: string): GraphIssueTrackerType | undefined {
+	switch (id) {
+		case HostingIntegrationId.GitHub:
+			return 'github';
+		case HostingIntegrationId.GitLab:
+			return 'gitlab';
+		case IssueIntegrationId.Jira:
+			return 'jiraCloud';
+		default:
+			return undefined;
+	}
 }
