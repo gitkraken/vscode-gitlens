@@ -801,7 +801,8 @@ type GraphWebviewCommands = `graph.${
 	| 'openWorktree'
 	| 'openWorktreeInNewWindow'
 	| 'copyWorkingChangesToWorktree'
-	| 'generateCommitMessage'}`;
+	| 'generateCommitMessage'
+	| 'compareSelectedCommits.multi'}`;
 
 type TimelineWebviewCommands = `timeline.${'refresh' | 'split'}`;
 

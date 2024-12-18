@@ -1719,6 +1719,19 @@
 				]
 			}
 		},
+		"gitlens.graph.compareSelectedCommits.multi": {
+			"label": "Compare Selected Commits",
+			"icon": "$(compare-changes)",
+			"menus": {
+				"webview/context": [
+					{
+						"when": "webviewItems =~ /gitlens:commit\\b/ && listDoubleSelection",
+						"group": "4_gitlens_compare",
+						"order": 2
+					}
+				]
+			}
+		},
 		"gitlens.graph.compareWithHead": {
 			"label": "Compare to/from HEAD",
 			"icon": "$(compare-changes)",
