@@ -24,7 +24,7 @@
 			}
 		},
 		"gitlens.associateIssueWithBranch": {
-			"label": "Associate Issue with Branch",
+			"label": "Associate Issue with Branch...",
 			"commandPalette": "gitlens:enabled && !gitlens:readonly && !gitlens:untrusted && !gitlens:hasVirtualFolders"
 		},
 		"gitlens.annotations.nextChange": {

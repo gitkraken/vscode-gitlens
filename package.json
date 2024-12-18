@@ -5748,7 +5748,7 @@
 			},
 			{
 				"command": "gitlens.associateIssueWithBranch",
-				"title": "Associate Issue with Branch",
+				"title": "Associate Issue with Branch...",
 				"category": "GitLens"
 			},
 			{
