@@ -3,6 +3,7 @@ import type { GitBranchStatus, GitTrackingState } from '../../git/models/branch'
 import type { GitMergeStatus } from '../../git/models/merge';
 import type { MergeConflict } from '../../git/models/mergeConflict';
 import type { GitRebaseStatus } from '../../git/models/rebase';
+import type { GitBranchReference } from '../../git/models/reference';
 import type { Subscription } from '../../plus/gk/account/subscription';
 import type { LaunchpadSummaryResult } from '../../plus/launchpad/launchpadIndicator';
 import type { LaunchpadGroup, LaunchpadItem } from '../../plus/launchpad/launchpadProvider';
@@ -65,6 +66,8 @@ export interface GetOverviewRequest {
 }
 
 export interface GetOverviewBranch {
+	reference: GitBranchReference;
+
 	repoPath: string;
 	id: string;
 	name: string;
