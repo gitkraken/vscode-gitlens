@@ -417,21 +417,3 @@ export async function getOpenedPullRequestRepo(
 	const repo = await getOrOpenPullRequestRepository(container, pr, { promptIfNeeded: true });
 	return repo;
 }
-
-export function doesPullRequestSatisfyRepositoryURLIdentity(
-	pr: EnrichablePullRequest | undefined,
-	{ ownerAndRepo, prNumber }: PullRequestUrlIdentity,
-): boolean {
-	if (pr == null) {
-		return false;
-	}
-	const satisfiesPrNumber = prNumber != null && pr.number === parseInt(prNumber, 10);
-	if (!satisfiesPrNumber) {
-		return false;
-	}
-	const satisfiesOwnerAndRepo = ownerAndRepo != null && pr.repoIdentity.name === ownerAndRepo;
-	if (!satisfiesOwnerAndRepo) {
-		return false;
-	}
-	return true;
-}

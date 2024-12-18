@@ -63,7 +63,6 @@ import {
 } from './launchpadProvider';
 import type { LaunchpadAction, LaunchpadActionCategory, LaunchpadGroup, LaunchpadTargetAction } from './models';
 import { launchpadGroupIconMap, launchpadGroupLabelMap, launchpadGroups } from './models';
-import { isMaybeSupportedLaunchpadPullRequestSearchUrl } from './utils';
 
 const actionGroupMap = new Map<LaunchpadActionCategory, string[]>([
 	['mergeable', ['Ready to Merge', 'Ready to merge']],
@@ -759,7 +758,7 @@ export class LaunchpadCommand extends QuickCommand<State> {
 				}
 
 				// In API search mode, search the API and update the quickpick
-				if (context.inSearch || isMaybeSupportedLaunchpadPullRequestSearchUrl(value)) {
+				if (context.inSearch || this.container.launchpad.isMaybeSupportedLaunchpadPullRequestSearchUrl(value)) {
 					let immediate = false;
 					if (!context.inSearch) {
 						immediate = value.length >= 3;
