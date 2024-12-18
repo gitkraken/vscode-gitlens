@@ -3667,6 +3667,7 @@ export class GraphWebviewProvider implements WebviewProvider<State, State, Graph
 
 		return executeCommand<GenerateCommitMessageCommandArgs>(GlCommand.GenerateCommitMessage, {
 			repoPath: ref.repoPath,
+			source: 'graph',
 		});
 	}
 
