@@ -3,6 +3,7 @@ import { css, html, LitElement, nothing } from 'lit';
 import { customElement, property } from 'lit/decorators.js';
 import { when } from 'lit/directives/when.js';
 import type { Commands } from '../../../../../constants.commands';
+import type { AssociateIssueWithBranchCommandArgs } from '../../../../../plus/startWork/startWork';
 import { createCommandLink } from '../../../../../system/commands';
 import type { GetOverviewBranch, OpenInGraphParams } from '../../../../home/protocol';
 import type { GlCard } from '../../../shared/components/card/card';
@@ -322,8 +323,8 @@ export abstract class GlBranchCardBase extends GlElement {
 		return html`<action-nav>${actions}</action-nav>`;
 	}
 
-	protected createCommandLink(command: Commands) {
-		return createCommandLink(command, this.branchRefs);
+	protected createCommandLink<T>(command: Commands, args?: T | any) {
+		return createCommandLink<T>(command, args ?? this.branchRefs);
 	}
 
 	protected renderTimestamp() {
@@ -433,7 +434,23 @@ export abstract class GlBranchCardBase extends GlElement {
 	}
 
 	protected renderIssuesItem() {
-		if (!this.branch.issues?.length && !this.branch.autolinks?.length) return nothing;
+		if (!this.branch.issues?.length && !this.branch.autolinks?.length) {
+			if (this.expanded) {
+				return html`<gl-button
+					class="branch-item__missing"
+					appearance="secondary"
+					href=${this.createCommandLink<AssociateIssueWithBranchCommandArgs>(
+						'gitlens.associateIssueWithBranch',
+						{
+							branch: this.branch.reference,
+							source: 'home',
+						},
+					)}
+					>Associate an Issue</gl-button
+				>`;
+			}
+			return nothing;
+		}
 
 		return html`
 			<gl-work-item ?expanded=${this.expanded} ?nested=${!this.branch.opened}>
