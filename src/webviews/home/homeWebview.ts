@@ -1169,6 +1169,7 @@ async function getOverviewBranches(
 			}
 
 			overviewBranches.active.push({
+				reference: getReferenceFromBranch(branch),
 				repoPath: branch.repoPath,
 				id: branch.id,
 				name: branch.name,
@@ -1202,6 +1203,7 @@ async function getOverviewBranches(
 			}
 
 			overviewBranches.recent.push({
+				reference: getReferenceFromBranch(branch),
 				repoPath: branch.repoPath,
 				id: branch.id,
 				name: branch.name,
@@ -1264,6 +1266,7 @@ async function getOverviewBranches(
 				}
 
 				overviewBranches.stale.push({
+					reference: getReferenceFromBranch(branch),
 					repoPath: branch.repoPath,
 					id: branch.id,
 					name: branch.name,
