@@ -10,12 +10,26 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/) and this p
 
 - Adds Holiday promotion
 - Adds the ability to get autolinks for branches via the branch name &mdash; closes [#3547](https://github.com/gitkraken/vscode-gitlens/issues/3547)
+- Adds the ability to associate issues with branches &mdash; closes [#3870](https://github.com/gitkraken/vscode-gitlens/issues/3870)
+  - Shows issues associated with branches in _Home_ view &mdash; closes [#3806](https://github.com/gitkraken/vscode-gitlens/issues/3806)
+  - Adds a new command _Associate Issue with Branch..._ command to the command palette and to the context menus of branches in views and the _Commit Graph_ allowing the user to associate an issue with an existing branch &mdash; closes [#3884](https://github.com/gitkraken/vscode-gitlens/issues/3884)
+  - Associates issues chosen in the _Start Work_ command with branches created for them
 - Adds GitLab issues to the issues list in the _Start Work_ command when GitLab is connected &mdash; closes [#3779](https://github.com/gitkraken/vscode-gitlens/issues/3779)
 - Adds `gitlens.advanced.caching.gitPath` setting to specify whether to cache the git path &mdash; closes [#2877](https://github.com/gitkraken/vscode-gitlens/issues/2877)
 
 ### Changed
 
 - Updates prep-release reference &mdash; thanks to [PR #3732](https://github.com/gitkraken/vscode-gitlens/pull/3732) by Emmanuel Ferdman ([@emmanuel-ferdman](https://github.com/emmanuel-ferdman))
+- Improves the _Start Work_ flow and user experience &mdash; closes [#3807](https://github.com/gitkraken/vscode-gitlens/issues/3807):
+  - Splits the _Start Work_ button into two buttons, a _Start Work on an Issue_ button for creating a branch from an issue, and a button for creating a branch without an associated issue &mdash; closes [#3808](https://github.com/gitkraken/vscode-gitlens/issues/3808)
+  - Updates the command flow so that an issue is selected first, and the option to create a worktree is presented after creating the branch &mdash; closes [#3809](https://github.com/gitkraken/vscode-gitlens/issues/3809)
+  - Adds an integration connection button to the title bar &mdash; closes [#3832](https://github.com/gitkraken/vscode-gitlens/issues/3832)
+  - Adds a quickpick option to connect additional integrations when no issues are found &mdash; closes [#3833](https://github.com/gitkraken/vscode-gitlens/issues/3833)
+  - Rewords the placeholder text for better clarity when choosing a base for the new branch &mdash; closes [#3834](https://github.com/gitkraken/vscode-gitlens/issues/3834)
+- Improves the _Launchpad_ search experience &mdash; closes [#3855](https://github.com/gitkraken/vscode-gitlens/issues/3855):
+  - Adds a _Search for Pull Request..._ option that allows the user to search for pull requests outside of the listed ones in _Launchpad_. Currently supports GitHub pull requests, with GitLab soon to be added.
+  - Pasting a pull request URL which does not match any listed _Launchpad_ issues will automatically trigger a GitHub search for the pull request
+  - When in provider search mode, adds a _Cancel Searching_ option which will restore the original list of pull requests. Clearing the search input will automatically cancel the search.
 
 ## [16.0.4] - 2024-11-25
 
@@ -26,6 +40,16 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/) and this p
 ### Fixed
 
 - Fixes [#3794](https://github.com/gitkraken/vscode-gitlens/issues/3794) - Interactive rebase on the same branch is not working
+- Fixes [#3747](https://github.com/gitkraken/vscode-gitlens/issues/3747) - _Rebase Current Branch onto Branch_ incorrectly shows that the current branch is caught up to the destination
+- Fixes [#3836](https://github.com/gitkraken/vscode-gitlens/issues/3836) - Back button in _Start Work_ goes to the wrong step
+- Fixes [#3791](https://github.com/gitkraken/vscode-gitlens/issues/3791) - Pin/snooze in Launchpad trigger a full refresh and are no longer optimistic
+- Fixes [#3886](https://github.com/gitkraken/vscode-gitlens/issues/3886) - Jira orgs/projects accumulating size in global storage
+- Fixes [#3849](https://github.com/gitkraken/vscode-gitlens/issues/3849) - _Launchpad_ view state does not sync properly when connecting/disconnecting integrations
+- Fixes some cases where issues are not properly restricted to open repositories in _Start Work_
+- Fixes issue bodies missing on Jira issue items in _Start Work_
+- Fixes some Jira issues missing in _Start Work_
+- Fixes Jira integration failing to fetch issues for all organizations when there is an issue with one of the organizations
+- Fixes duplicate generic autolinks appearing in _Commit Details_ when the enriched version is shown
 
 ## [16.0.3] - 2024-11-22
 
