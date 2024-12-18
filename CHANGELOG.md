@@ -16,6 +16,7 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/) and this p
   - Associates issues chosen in the _Start Work_ command with branches created for them
 - Adds GitLab issues to the issues list in the _Start Work_ command when GitLab is connected &mdash; closes [#3779](https://github.com/gitkraken/vscode-gitlens/issues/3779)
 - Adds `gitlens.advanced.caching.gitPath` setting to specify whether to cache the git path &mdash; closes [#2877](https://github.com/gitkraken/vscode-gitlens/issues/2877)
+- Adds support for deep links to the _Home_ view
 
 ### Changed
 
