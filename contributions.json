@@ -23,10 +23,6 @@
 				]
 			}
 		},
-		"gitlens.associateIssueWithBranch": {
-			"label": "Associate Issue with Branch...",
-			"commandPalette": "gitlens:enabled && !gitlens:readonly && !gitlens:untrusted && !gitlens:hasVirtualFolders"
-		},
 		"gitlens.annotations.nextChange": {
 			"label": "Next Change",
 			"icon": "$(arrow-down)"
@@ -38,6 +34,10 @@
 		"gitlens.applyPatchFromClipboard": {
 			"label": "Apply Copied Changes (Patch)",
 			"commandPalette": "gitlens:enabled && !gitlens:untrusted && !gitlens:hasVirtualFolders"
+		},
+		"gitlens.associateIssueWithBranch": {
+			"label": "Associate Issue with Branch...",
+			"commandPalette": "gitlens:enabled && !gitlens:readonly && !gitlens:untrusted && !gitlens:hasVirtualFolders"
 		},
 		"gitlens.browseRepoAtRevision": {
 			"label": "Browse Repository from Revision",
@@ -4756,19 +4756,6 @@
 				]
 			}
 		},
-		"gitlens.views.associateIssueWithBranch": {
-			"label": "Associate Issue with Branch...",
-			"enablement": "!operationInProgress",
-			"menus": {
-				"view/item/context": [
-					{
-						"when": "viewItem =~ /gitlens:branch\\b(?!.*?\\b\\+remote\\b)/ && !listMultiSelection  && !gitlens:hasVirtualFolders && !gitlens:readonly && !gitlens:untrusted",
-						"group": "1_gitlens_actions",
-						"order": 8
-					}
-				]
-			}
-		},
 		"gitlens.views.addRemote": {
 			"label": "Add Remote...",
 			"icon": "$(add)",
@@ -4821,6 +4808,19 @@
 						"when": "viewItem =~ /gitlens:file\\b((?=.*?\\b\\+committed\\b)|:results\\b)/ && !listMultiSelection && !gitlens:hasVirtualFolders && !gitlens:readonly && !gitlens:untrusted",
 						"group": "8_gitlens_actions",
 						"order": 1
+					}
+				]
+			}
+		},
+		"gitlens.views.associateIssueWithBranch": {
+			"label": "Associate Issue with Branch...",
+			"enablement": "!operationInProgress",
+			"menus": {
+				"view/item/context": [
+					{
+						"when": "viewItem =~ /gitlens:branch\\b(?!.*?\\b\\+remote\\b)/ && !listMultiSelection && !gitlens:hasVirtualFolders && !gitlens:readonly && !gitlens:untrusted",
+						"group": "1_gitlens_actions",
+						"order": 8
 					}
 				]
 			}
@@ -6888,19 +6888,6 @@
 				]
 			}
 		},
-		"gitlens.views.home.enablePreview": {
-			"label": "Switch to New Home View",
-			"icon": "$(redo)",
-			"menus": {
-				"view/title": [
-					{
-						"when": "view == gitlens.views.home && !config.gitlens.home.preview.enabled",
-						"group": "navigation",
-						"order": 98
-					}
-				]
-			}
-		},
 		"gitlens.views.home.discussions": {
 			"label": "GitHub Discussions",
 			"icon": "$(comment-discussion)",
@@ -6910,6 +6897,19 @@
 						"when": "view == gitlens.views.home",
 						"group": "2_gitlens",
 						"order": 99
+					}
+				]
+			}
+		},
+		"gitlens.views.home.enablePreview": {
+			"label": "Switch to New Home View",
+			"icon": "$(redo)",
+			"menus": {
+				"view/title": [
+					{
+						"when": "view == gitlens.views.home && !config.gitlens.home.preview.enabled",
+						"group": "navigation",
+						"order": 98
 					}
 				]
 			}

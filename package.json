@@ -5747,11 +5747,6 @@
 				"icon": "$(person-add)"
 			},
 			{
-				"command": "gitlens.associateIssueWithBranch",
-				"title": "Associate Issue with Branch...",
-				"category": "GitLens"
-			},
-			{
 				"command": "gitlens.annotations.nextChange",
 				"title": "Next Change",
 				"icon": "$(arrow-down)"
@@ -5764,6 +5759,11 @@
 			{
 				"command": "gitlens.applyPatchFromClipboard",
 				"title": "Apply Copied Changes (Patch)",
+				"category": "GitLens"
+			},
+			{
+				"command": "gitlens.associateIssueWithBranch",
+				"title": "Associate Issue with Branch...",
 				"category": "GitLens"
 			},
 			{
@@ -7564,11 +7564,6 @@
 				"icon": "$(person-add)"
 			},
 			{
-				"command": "gitlens.views.associateIssueWithBranch",
-				"title": "Associate Issue with Branch...",
-				"enablement": "!operationInProgress"
-			},
-			{
 				"command": "gitlens.views.addRemote",
 				"title": "Add Remote...",
 				"icon": "$(add)",
@@ -7577,6 +7572,11 @@
 			{
 				"command": "gitlens.views.applyChanges",
 				"title": "Apply Changes",
+				"enablement": "!operationInProgress"
+			},
+			{
+				"command": "gitlens.views.associateIssueWithBranch",
+				"title": "Associate Issue with Branch...",
 				"enablement": "!operationInProgress"
 			},
 			{
@@ -8133,14 +8133,14 @@
 				"icon": "$(discard)"
 			},
 			{
-				"command": "gitlens.views.home.enablePreview",
-				"title": "Switch to New Home View",
-				"icon": "$(redo)"
-			},
-			{
 				"command": "gitlens.views.home.discussions",
 				"title": "GitHub Discussions",
 				"icon": "$(comment-discussion)"
+			},
+			{
+				"command": "gitlens.views.home.enablePreview",
+				"title": "Switch to New Home View",
+				"icon": "$(redo)"
 			},
 			{
 				"command": "gitlens.views.home.help",
