@@ -143,6 +143,12 @@ export const branchCardStyles = css`
 	.branch-item__merge-target {
 		margin-inline-end: auto;
 	}
+
+	.branch-item__missing {
+		--button-foreground: inherit;
+		--button-background: color-mix(in lab, var(--vscode-sideBar-background) 100%, #fff 3%);
+		--button-hover-background: color-mix(in lab, var(--vscode-sideBar-background) 100%, #fff 1.5%);
+	}
 `;
 
 type NothingType = typeof nothing;
@@ -379,7 +385,19 @@ export abstract class GlBranchCardBase extends GlElement {
 	}
 
 	protected renderPrItem() {
-		if (!this.branch.pr) return nothing;
+		if (!this.branch.pr) {
+			if (this.branch.upstream?.missing === false && this.expanded) {
+				return html`
+					<gl-button
+						class="branch-item__missing"
+						appearance="secondary"
+						href="${this.createCommandLink('gitlens.home.createPullRequest')}"
+						>Create a Pull Request</gl-button
+					>
+				`;
+			}
+			return nothing;
+		}
 
 		return html`
 			<gl-work-item ?expanded=${this.expanded} ?nested=${!this.branch.opened}>
@@ -460,14 +478,6 @@ export class GlBranchCard extends GlBranchCardBase {
 					label="Open Pull Request on Remote"
 					icon="globe"
 					href=${this.createCommandLink('gitlens.home.openPullRequestOnRemote')}
-				></action-item>`,
-			);
-		} else if (this.branch.upstream?.missing === false) {
-			actions.push(
-				html`<action-item
-					label="Create Pull Request..."
-					icon="git-pull-request-create"
-					href=${this.createCommandLink('gitlens.home.createPullRequest')}
 				></action-item>`,
 			);
 		}
