@@ -20,16 +20,15 @@ import { openComparisonChanges } from '../../git/actions/commit';
 import * as RepoActions from '../../git/actions/repository';
 import type { BranchContributorOverview } from '../../git/gitProvider';
 import type { GitBranch } from '../../git/models/branch';
-import type { BranchTargetInfo } from '../../git/models/branch.utils';
 import { getAssociatedIssuesForBranch, getBranchTargetInfo } from '../../git/models/branch.utils';
 import type { Issue } from '../../git/models/issue';
-import type { MergeConflict } from '../../git/models/mergeConflict';
 import type { PullRequest } from '../../git/models/pullRequest';
 import { getComparisonRefsForPullRequest } from '../../git/models/pullRequest';
 import { getReferenceFromBranch } from '../../git/models/reference.utils';
 import { RemoteResourceType } from '../../git/models/remoteResource';
 import type { Repository } from '../../git/models/repository';
 import { RepositoryChange, RepositoryChangeComparisonMode } from '../../git/models/repository';
+import { createRevisionRange } from '../../git/models/revision.utils';
 import type { GitStatus } from '../../git/models/status';
 import type { GitWorktree } from '../../git/models/worktree';
 import { getOpenedWorktreesByBranch, groupWorktreesByBranch } from '../../git/models/worktree.utils';
@@ -110,10 +109,7 @@ interface BranchRef {
 	repoPath: string;
 	branchId: string;
 }
-interface BranchTargetInfoWithConflict {
-	target: BranchTargetInfo;
-	conflict: MergeConflict | undefined;
-}
+type BranchMergeTargetStatus = GetOverviewBranch['mergeTarget'];
 interface EnrichedPullRequest {
 	pullRequest: PullRequest;
 	launchpadItem: LaunchpadItem | undefined;
@@ -1070,23 +1066,38 @@ async function getOverviewBranches(
 		stale: [],
 	};
 
-	const getBranchTargetAndPotentialMergeConflict = async (
-		branch: GitBranch,
-	): Promise<BranchTargetInfoWithConflict> => {
+	const getBranchMergeTargetStatus = async (branch: GitBranch): Promise<BranchMergeTargetStatus> => {
 		const info = await getBranchTargetInfo(container, branch, {
 			associatedPullRequest: branch.getAssociatedPullRequest(),
 		});
 
-		let target;
+		let targetBranch;
 		if (!info.targetBranch.paused && info.targetBranch.value) {
-			target = info.targetBranch.value;
-		} else {
-			target = info.baseBranch ?? info.defaultBranch;
+			targetBranch = info.targetBranch.value;
 		}
-		if (target == null) return { target: info, conflict: undefined };
 
-		const conflicts = await container.git.getPotentialMergeOrRebaseConflict(branch.repoPath, branch.name, target);
-		return { target: info, conflict: conflicts };
+		const target = targetBranch ?? info.baseBranch ?? info.defaultBranch;
+		if (target == null) return undefined;
+
+		const [countsResult, conflictResult] = await Promise.allSettled([
+			container.git.getLeftRightCommitCount(branch.repoPath, createRevisionRange(target, branch.ref, '...'), {
+				excludeMerges: true,
+			}),
+			container.git.getPotentialMergeOrRebaseConflict(branch.repoPath, branch.name, target),
+		]);
+
+		const counts = getSettledValue(countsResult);
+		const status = counts != null ? { ahead: counts.right, behind: counts.left } : undefined;
+
+		return {
+			repoPath: branch.repoPath,
+			name: target,
+			status: status,
+			potentialConflicts: getSettledValue(conflictResult),
+			targetBranch: targetBranch,
+			baseBranch: info.baseBranch,
+			defaultBranch: info.defaultBranch,
+		};
 	};
 
 	let launchpadResultPromise: Promise<LaunchpadCategorizedResult> | undefined;
@@ -1120,7 +1131,7 @@ async function getOverviewBranches(
 	const issuePromises = new Map<string, Promise<Issue[] | undefined>>();
 	const statusPromises = new Map<string, Promise<GitStatus | undefined>>();
 	const contributorPromises = new Map<string, Promise<BranchContributorOverview | undefined>>();
-	const targetAndPotentialConflictPromises = new Map<string, Promise<BranchTargetInfoWithConflict>>();
+	const mergeTargetPromises = new Map<string, Promise<BranchMergeTargetStatus>>();
 
 	const now = Date.now();
 	const recentThreshold = now - thresholdValues[filters.recent.threshold];
@@ -1144,7 +1155,7 @@ async function getOverviewBranches(
 					container.git.getBranchContributorOverview(branch.repoPath, branch.ref),
 				);
 				if (branch.current) {
-					targetAndPotentialConflictPromises.set(branch.id, getBranchTargetAndPotentialMergeConflict(branch));
+					mergeTargetPromises.set(branch.id, getBranchMergeTargetStatus(branch));
 				}
 			}
 
@@ -1158,6 +1169,7 @@ async function getOverviewBranches(
 			}
 
 			overviewBranches.active.push({
+				repoPath: branch.repoPath,
 				id: branch.id,
 				name: branch.name,
 				opened: true,
@@ -1190,6 +1202,7 @@ async function getOverviewBranches(
 			}
 
 			overviewBranches.recent.push({
+				repoPath: branch.repoPath,
 				id: branch.id,
 				name: branch.name,
 				opened: false,
@@ -1251,6 +1264,7 @@ async function getOverviewBranches(
 				}
 
 				overviewBranches.stale.push({
+					repoPath: branch.repoPath,
 					id: branch.id,
 					name: branch.name,
 					opened: false,
@@ -1273,7 +1287,7 @@ async function getOverviewBranches(
 		issuePromises,
 		statusPromises,
 		contributorPromises,
-		targetAndPotentialConflictPromises,
+		mergeTargetPromises,
 		container,
 	);
 
@@ -1288,10 +1302,10 @@ async function enrichOverviewBranches(
 	issuePromises: Map<string, Promise<Issue[] | undefined>>,
 	statusPromises: Map<string, Promise<GitStatus | undefined>>,
 	contributorPromises: Map<string, Promise<BranchContributorOverview | undefined>>,
-	targetAndPotentialConflictPromises: Map<string, Promise<BranchTargetInfoWithConflict>>,
+	mergeTargetPromises: Map<string, Promise<BranchMergeTargetStatus>>,
 	container: Container,
 ) {
-	const [prResults, autolinkResults, issueResults, statusResults, contributorResults, targetAndPotentialConflictResults] =
+	const [prResults, autolinkResults, issueResults, statusResults, contributorResults, mergeTargetResults] =
 		await Promise.allSettled([
 			pauseOnCancelOrTimeoutMap(prPromises, true),
 			Promise.allSettled(
@@ -1299,9 +1313,11 @@ async function enrichOverviewBranches(
 					autolinks.then<[string, Map<string, EnrichedAutolink> | undefined]>(a => [id, a]),
 				),
 			),
-		    Promise.allSettled(
-			    map(issuePromises, ([id, issues]) => issues.then<[string, Issue[] | undefined]>(issues => [id, issues])),
-		    ),
+			Promise.allSettled(
+				map(issuePromises, ([id, issues]) =>
+					issues.then<[string, Issue[] | undefined]>(issues => [id, issues]),
+				),
+			),
 			Promise.allSettled(
 				map(statusPromises, ([id, status]) =>
 					status.then<[string, GitStatus | undefined]>(status => [id, status]),
@@ -1312,7 +1328,7 @@ async function enrichOverviewBranches(
 					overview.then<[string, BranchContributorOverview | undefined]>(overview => [id, overview]),
 				),
 			),
-			pauseOnCancelOrTimeoutMap(targetAndPotentialConflictPromises, true),
+			pauseOnCancelOrTimeoutMap(mergeTargetPromises, true),
 		]);
 
 	const prs = new Map(
@@ -1415,7 +1431,7 @@ async function enrichOverviewBranches(
 			.map(r => [r.value[0], r.value[1]]),
 	);
 
-	const targetAndPotentialConflict = getSettledValue(targetAndPotentialConflictResults); // new Map(
+	const mergeTargets = getSettledValue(mergeTargetResults);
 
 	for (const branch of [...overviewBranches.active, ...overviewBranches.recent, ...overviewBranches.stale]) {
 		const isActive = overviewBranches.active.includes(branch);
@@ -1478,17 +1494,9 @@ async function enrichOverviewBranches(
 				: undefined;
 			branch.contributors = contributors;
 
-			const targetAndConflict = targetAndPotentialConflict?.get(branch.id);
-			if (targetAndConflict?.value != null && !targetAndConflict.paused) {
-				branch.target = {
-					baseBranch: targetAndConflict.value.target.baseBranch,
-					defaultBranch: targetAndConflict.value.target.defaultBranch,
-					targetBranch: !targetAndConflict.value.target.targetBranch.paused
-						? targetAndConflict.value.target.targetBranch.value
-						: undefined,
-					// TODO: Get left/right stats?
-					potentialMergeConflicts: targetAndConflict.value.conflict,
-				};
+			const mergeTarget = mergeTargets?.get(branch.id);
+			if (mergeTarget?.value != null && !mergeTarget.paused) {
+				branch.mergeTarget = mergeTarget.value;
 			}
 		}
 	}

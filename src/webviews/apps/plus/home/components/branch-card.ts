@@ -19,7 +19,7 @@ import '../../../shared/components/rich/issue-icon';
 import '../../../shared/components/rich/pr-icon';
 import '../../../shared/components/actions/action-item';
 import '../../../shared/components/actions/action-nav';
-import './merge-conflict-warning';
+import './merge-target-status';
 
 export const branchCardStyles = css`
 	.branch-item {
@@ -135,6 +135,11 @@ export const branchCardStyles = css`
 
 	.branch-item__section.mb-1 {
 		margin-block: 0.4rem;
+	}
+
+	.branch-item__merge-target {
+		position: absolute;
+		bottom: 0.4rem;
 	}
 `;
 
@@ -318,7 +323,7 @@ export abstract class GlBranchCardBase extends GlElement {
 		const tracking = this.renderTracking();
 		const avatars = this.renderAvatars();
 		const indicator = this.branch.opened ? undefined : this.renderBranchIndicator?.();
-		const conflict = this.renderPotentialMergeConflicts();
+		const mergeTargetStatus = this.renderMergeTargetStatus();
 		const timestamp = this.renderTimestamp();
 
 		return html`
@@ -334,7 +339,6 @@ export abstract class GlBranchCardBase extends GlElement {
 							<code-icon icon=${this.branch.worktree ? 'gl-worktrees-view' : 'git-branch'}></code-icon>
 						</span>
 						<span class="branch-item__name">${this.branch.name}</span>
-						${conflict}
 					</p>
 				</div>
 				<div class="branch-item__section branch-item__section--details" slot="context">
@@ -346,7 +350,7 @@ export abstract class GlBranchCardBase extends GlElement {
 							</p>`,
 					)}
 				</div>
-				${actionsSection ?? nothing}
+				${actionsSection ?? nothing}${mergeTargetStatus}
 			</gl-work-item>
 		`;
 	}
@@ -368,20 +372,21 @@ export abstract class GlBranchCardBase extends GlElement {
 			</gl-work-item>
 		`;
 	}
+
 	// ${this.branch.pr.launchpad != null
 	// 	? html`<p>
 	// 			<span class="branch-item__category">${this.branch.pr.launchpad.category}</span>
 	// 	  </p>`
 	// 	: nothing}
 
-	protected renderPotentialMergeConflicts() {
-		if (!this.branch.target?.potentialMergeConflicts) return nothing;
+	protected renderMergeTargetStatus() {
+		if (!this.branch.mergeTarget) return nothing;
 
-		return html`
-			<gl-merge-conflict-warning
-				.conflict=${this.branch.target.potentialMergeConflicts}
-			></gl-merge-conflict-warning>
-		`;
+		return html`<gl-merge-target-status
+			class="branch-item__merge-target"
+			.branch=${this.branch.name}
+			.target=${this.branch.mergeTarget}
+		></gl-merge-target-status>`;
 	}
 
 	protected renderIssuesItem() {
