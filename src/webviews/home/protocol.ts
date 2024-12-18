@@ -65,6 +65,7 @@ export interface GetOverviewRequest {
 }
 
 export interface GetOverviewBranch {
+	repoPath: string;
 	id: string;
 	name: string;
 	opened: boolean;
@@ -82,13 +83,15 @@ export interface GetOverviewBranch {
 	mergeStatus?: GitMergeStatus;
 	rebaseStatus?: GitRebaseStatus;
 
-	target?: {
+	mergeTarget?: {
+		repoPath: string;
+		name: string | undefined;
+		status?: { ahead: number; behind: number };
+		potentialConflicts?: MergeConflict;
+
+		targetBranch: string | undefined;
 		baseBranch: string | undefined;
 		defaultBranch: string | undefined;
-		targetBranch: string | undefined;
-
-		// TODO: Add left/right stats?
-		potentialMergeConflicts?: MergeConflict;
 	};
 
 	owner?: {
