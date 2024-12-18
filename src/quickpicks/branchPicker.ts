@@ -9,13 +9,16 @@ import type { BranchQuickPickItem } from './items/gitWizard';
 export async function showBranchPicker(
 	title: string | undefined,
 	placeholder?: string,
-	repository?: Repository,
+	repository?: Repository | Repository[],
+	options?: {
+		filter?: (b: GitBranch) => boolean;
+	},
 ): Promise<GitBranch | undefined> {
 	if (repository == null) {
 		return undefined;
 	}
 
-	const items: BranchQuickPickItem[] = await getBranches(repository, {});
+	const items: BranchQuickPickItem[] = await getBranches(repository, options ?? {});
 	if (items.length === 0) return undefined;
 
 	const quickpick = window.createQuickPick<BranchQuickPickItem>();
