@@ -15,10 +15,7 @@ export class QuickWizardCommand extends QuickWizardCommandBase {
 		super(container, [GlCommand.ShowLaunchpad, GlCommand.StartWork, GlCommand.AssociateIssueWithBranch]);
 	}
 
-	protected override preExecute(
-		context: CommandContext,
-		args?: QuickWizardCommandArgsWithCompletion<QuickWizardCommandArgs>,
-	) {
+	protected override preExecute(context: CommandContext, args?: QuickWizardCommandArgsWithCompletion) {
 		switch (context.command) {
 			case GlCommand.ShowLaunchpad:
 				return this.execute({ command: 'launchpad', ...args });
