@@ -685,11 +685,12 @@ export class GraphWebviewProvider implements WebviewProvider<State, State, Graph
 				this.copyWorkingChangesToWorktree,
 			),
 			this.host.registerWebviewCommand('gitlens.graph.generateCommitMessage', this.generateCommitMessage),
+
+			this.host.registerWebviewCommand('gitlens.graph.compareSelectedCommits.multi', this.compareSelectedCommits),
 		);
 
 		return commands;
 	}
-
 	onWindowFocusChanged(focused: boolean): void {
 		this.isWindowFocused = focused;
 	}
@@ -3220,6 +3221,17 @@ export class GraphWebviewProvider implements WebviewProvider<State, State, Graph
 			resource: selection.map(r => ({ type: RemoteResourceType.Commit, sha: r.ref })),
 			clipboard: clipboard,
 		});
+	}
+
+	@log()
+	private async compareSelectedCommits(item?: GraphItemContext) {
+		const { selection } = this.getGraphItemRefs(item, 'revision');
+		if (selection == null || selection.length !== 2) return Promise.resolve();
+
+		const [commit1, commit2] = selection;
+		const [ref1, ref2] = await getOrderedComparisonRefs(this.container, commit1.repoPath, commit1.ref, commit2.ref);
+
+		return this.container.views.searchAndCompare.compare(commit1.repoPath, ref1, ref2);
 	}
 
 	@log()

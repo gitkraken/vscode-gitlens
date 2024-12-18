@@ -6402,6 +6402,11 @@
 				"icon": "$(compare-changes)"
 			},
 			{
+				"command": "gitlens.graph.compareSelectedCommits.multi",
+				"title": "Compare Selected Commits",
+				"icon": "$(compare-changes)"
+			},
+			{
 				"command": "gitlens.graph.compareWithHead",
 				"title": "Compare to/from HEAD",
 				"icon": "$(compare-changes)"
@@ -10351,6 +10356,10 @@
 				},
 				{
 					"command": "gitlens.graph.compareBranchWithHead",
+					"when": "false"
+				},
+				{
+					"command": "gitlens.graph.compareSelectedCommits.multi",
 					"when": "false"
 				},
 				{
@@ -18502,6 +18511,11 @@
 					"command": "gitlens.graph.openCommitOnRemote.multi",
 					"when": "webviewItems =~ /gitlens:commit\\b/ && listMultiSelection && gitlens:repos:withRemotes",
 					"group": "3_gitlens_explore@2"
+				},
+				{
+					"command": "gitlens.graph.compareSelectedCommits.multi",
+					"when": "webviewItems =~ /gitlens:commit\\b/ && listDoubleSelection",
+					"group": "4_gitlens_compare@2"
 				}
 			]
 		},
