@@ -222,7 +222,7 @@ export class GlActiveBranchCard extends GlBranchCardBase {
 	override render() {
 		return html`
 			${this.renderBranchIndicator()}${this.renderBranchItem(
-				this.renderBranchStateActions(),
+				html`${this.renderBranchStateActions()}${this.renderActions()}`,
 			)}${this.renderPrItem()}${this.renderIssuesItem()}
 		`;
 	}
@@ -256,7 +256,7 @@ export class GlActiveBranchCard extends GlBranchCardBase {
 			if (isAhead && isBehind) {
 				const pullTooltip = upstream?.name ? `Pull from ${upstream.name}` : 'Pull';
 				const forcePushTooltip = upstream?.name ? `Force Push to ${upstream.name}` : 'Force Push';
-				return html`<div slot="actions">
+				return html`<div>
 					<button-container>
 						<gl-button
 							aria-busy=${ifDefined(isFetching)}
@@ -289,7 +289,7 @@ export class GlActiveBranchCard extends GlBranchCardBase {
 
 			if (isBehind) {
 				const tooltip = upstream?.name ? `Pull from ${upstream.name}` : 'Pull';
-				return html`<div slot="actions">
+				return html`<div>
 					<button-container>
 						<gl-button
 							aria-busy=${ifDefined(isFetching)}
@@ -310,7 +310,7 @@ export class GlActiveBranchCard extends GlBranchCardBase {
 
 			if (isAhead) {
 				const tooltip = upstream?.name ? `Push to ${upstream.name}` : 'Push';
-				return html`<div slot="actions">
+				return html`<div>
 					<button-container>
 						<gl-button
 							aria-busy=${ifDefined(isFetching)}
