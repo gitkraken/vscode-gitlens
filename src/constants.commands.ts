@@ -820,6 +820,7 @@ type HomeWebviewViewCommands = `home.${
 	| 'previewFeedback'
 	| 'whatsNew'
 	| 'help'
+	| 'info'
 	| 'issues'
 	| 'discussions'
 	| 'account.resync'}`;

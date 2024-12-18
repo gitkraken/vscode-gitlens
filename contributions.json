@@ -6896,7 +6896,7 @@
 					{
 						"when": "view == gitlens.views.home && config.gitlens.home.preview.enabled",
 						"group": "navigation",
-						"order": 98
+						"order": 97
 					}
 				]
 			}
@@ -6922,7 +6922,7 @@
 					{
 						"when": "view == gitlens.views.home && !config.gitlens.home.preview.enabled",
 						"group": "navigation",
-						"order": 98
+						"order": 97
 					}
 				]
 			}
@@ -6936,6 +6936,19 @@
 						"when": "view == gitlens.views.home",
 						"group": "1_gitlens",
 						"order": 97
+					}
+				]
+			}
+		},
+		"gitlens.views.home.info": {
+			"label": "Learn about Home View",
+			"icon": "$(question)",
+			"menus": {
+				"view/title": [
+					{
+						"when": "view == gitlens.views.home",
+						"group": "navigation",
+						"order": 98
 					}
 				]
 			}
@@ -6961,7 +6974,7 @@
 					{
 						"when": "view == gitlens.views.home",
 						"group": "navigation",
-						"order": 97
+						"order": 96
 					}
 				]
 			}
