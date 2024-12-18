@@ -403,14 +403,19 @@ export class LocalGitProvider implements GitProvider, Disposable {
 			registerCommitMessageProvider(this.container, scmGit);
 
 			// Find env to pass to Git
-			for (const v of Object.values(scmGit.git)) {
-				if (v != null && typeof v === 'object' && 'git' in v) {
-					for (const vv of Object.values(v.git)) {
-						if (vv != null && typeof vv === 'object' && 'GIT_ASKPASS' in vv) {
-							Logger.debug(scope, 'Found built-in Git env');
+			if ('env' in scmGit.git) {
+				Logger.debug(scope, 'Found built-in Git env');
+				this.git.setEnv(scmGit.git.env as Record<string, unknown>);
+			} else {
+				for (const v of Object.values(scmGit.git)) {
+					if (v != null && typeof v === 'object' && 'git' in v) {
+						for (const vv of Object.values(v.git)) {
+							if (vv != null && typeof vv === 'object' && 'GIT_ASKPASS' in vv) {
+								Logger.debug(scope, 'Found built-in Git env');
 
-							this.git.setEnv(vv);
-							break;
+								this.git.setEnv(vv);
+								break;
+							}
 						}
 					}
 				}
