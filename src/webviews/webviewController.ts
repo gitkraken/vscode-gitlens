@@ -154,6 +154,8 @@ export class WebviewController<
 	private /*readonly*/ provider!: WebviewProvider<State, SerializedState, ShowingArgs>;
 	private readonly webview: Webview;
 
+	private viewColumn: ViewColumn | undefined;
+
 	private constructor(
 		private readonly container: Container,
 		private readonly _commandRegistrar: WebviewCommandRegistrar,
@@ -184,9 +186,15 @@ export class WebviewController<
 				window.onDidChangeWindowState(this.onWindowStateChanged, this),
 				parent.webview.onDidReceiveMessage(this.onMessageReceivedCore, this),
 				isInEditor
-					? parent.onDidChangeViewState(({ webviewPanel: { visible, active } }) =>
-							this.onParentVisibilityChanged(visible, active),
-					  )
+					? parent.onDidChangeViewState(({ webviewPanel }) => {
+							const { visible, active, viewColumn } = webviewPanel;
+							this.onParentVisibilityChanged(
+								visible,
+								active,
+								this.viewColumn != null && this.viewColumn !== viewColumn,
+							);
+							this.viewColumn = viewColumn;
+					  })
 					: parent.onDidChangeVisibility(() => this.onParentVisibilityChanged(this.visible, this.active)),
 				parent.onDidDispose(this.onParentDisposed, this),
 				...(this.provider.registerCommands?.() ?? []),
@@ -466,7 +474,12 @@ export class WebviewController<
 	}
 
 	@debug()
-	private onParentVisibilityChanged(visible: boolean, active?: boolean) {
+	private onParentVisibilityChanged(visible: boolean, active?: boolean, forceReload?: boolean) {
+		if (forceReload) {
+			void this.refresh();
+			return;
+		}
+
 		if (this.descriptor.webviewHostOptions?.retainContextWhenHidden !== true) {
 			if (visible) {
 				if (this._ready) {
