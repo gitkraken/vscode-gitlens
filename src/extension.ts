@@ -58,7 +58,7 @@ export async function activate(context: ExtensionContext): Promise<GitLensApi | 
 						})`,
 					);
 					channel.appendLine(
-						'To enable debug logging, set `"gitlens.outputLevel: "debug"` or run "GitLens: Enable Debug Logging" from the Command Palette',
+						'To enable debug logging, set `"gitlens.outputLevel": "debug"` or run "GitLens: Enable Debug Logging" from the Command Palette',
 					);
 				}
 				return channel;
