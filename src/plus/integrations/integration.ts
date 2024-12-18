@@ -16,6 +16,7 @@ import type {
 	PullRequestState,
 	SearchedPullRequest,
 } from '../../git/models/pullRequest';
+import type { PullRequestUrlIdentity } from '../../git/models/pullRequest.utils';
 import type { RepositoryMetadata } from '../../git/models/repositoryMetadata';
 import { showIntegrationDisconnectedTooManyFailedRequestsWarningMessage } from '../../messages';
 import { gate } from '../../system/decorators/gate';
@@ -1361,4 +1362,6 @@ export abstract class HostingIntegration<
 		repos?: T[],
 		cancellation?: CancellationToken,
 	): Promise<PullRequest[] | undefined>;
+
+	getPullRequestIdentityFromMaybeUrl?(search: string): PullRequestUrlIdentity | undefined;
 }
