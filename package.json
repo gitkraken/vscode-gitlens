@@ -9823,6 +9823,13 @@
 					"fontPath": "dist/glicons.woff2",
 					"fontCharacter": "\\f140"
 				}
+			},
+			"gitlens-merge-target": {
+				"description": "merge-target icon",
+				"default": {
+					"fontPath": "dist/glicons.woff2",
+					"fontCharacter": "\\f141"
+				}
 			}
 		},
 		"menus": {
