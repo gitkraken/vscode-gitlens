@@ -746,12 +746,32 @@ export abstract class GlBranchCardBase extends GlElement {
 		if (groupLabel == null || groupIcon == null) return nothing;
 		const groupIconString = groupIcon.match(/\$\((.*?)\)/)![1];
 
+		// 	<a
+		// 	href=${createCommandLink<Omit<LaunchpadCommandArgs, 'command'>>('gitlens.showLaunchpad', {
+		// 		source: 'home',
+		// 		state: {
+		// 			item: { ...this.launchpadItem.item, group: group },
+		// 		},
+		// 	} satisfies Omit<LaunchpadCommandArgs, 'command'>)}
+		// 	class="launchpad__grouping"
+		// >
+
 		return html`<div class="branch-item__section branch-item__section--details" slot="context">
-			<p class="launchpad-grouping--${getLaunchpadItemGrouping(this.launchpadItem.category)}">
-				<code-icon icon="${groupIconString}"></code-icon
-				><span class="branch-item__category">${groupLabel.toUpperCase()}</span>
-			</p>
-		</div>`;
+				<p class="launchpad-grouping--${getLaunchpadItemGrouping(this.launchpadItem.category)}">
+					<code-icon icon="${groupIconString}"></code-icon
+					><span class="branch-item__category">${groupLabel.toUpperCase()}</span>
+				</p>
+			</div>
+			${groupIconString
+				? html`<span
+						class="branch-item__summary launchpad-grouping--${getLaunchpadItemGrouping(
+							this.launchpadItem.category,
+						)}"
+						slot="summary"
+						><gl-tooltip placement="bottom" content="${groupLabel}"
+							><code-icon icon="${groupIconString}"></code-icon></gl-tooltip
+				  ></span>`
+				: nothing}`;
 	}
 
 	protected renderMergeTargetStatus() {
