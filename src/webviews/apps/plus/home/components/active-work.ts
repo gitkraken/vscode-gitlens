@@ -1,5 +1,6 @@
 import { consume } from '@lit/context';
 import { SignalWatcher } from '@lit-labs/signals';
+import type { TemplateResult } from 'lit';
 import { css, html, LitElement, nothing } from 'lit';
 import { customElement, state } from 'lit/decorators.js';
 import { ifDefined } from 'lit/directives/if-defined.js';
@@ -228,27 +229,65 @@ export class GlActiveBranchCard extends GlBranchCardBase {
 	}
 
 	private renderBranchStateActions() {
-		const { name, state, upstream, mergeStatus, rebaseStatus } = this.branch;
-		if (mergeStatus != null || rebaseStatus != null) return undefined;
+		const { name, state, upstream, mergeStatus, rebaseStatus, workingTreeState } = this.branch;
+		if (mergeStatus != null) return undefined;
+
+		const actions: TemplateResult[] = [];
+
+		const wrappedActions = () => {
+			if (actions.length === 0) return undefined;
+			return html`<div><button-container>${actions}</button-container></div>`;
+		};
 
 		const isFetching = this.busy;
+		const hasWip =
+			workingTreeState != null &&
+			workingTreeState.added + workingTreeState.changed + workingTreeState.deleted > 0;
+
+		if (hasWip) {
+			actions.push(html`
+				<gl-button
+					aria-busy=${ifDefined(isFetching)}
+					?disabled=${isFetching}
+					href=${this.createCommandLink('gitlens.generateCommitMessage', {
+						repoPath: this.repo,
+						source: 'home',
+					})}
+					appearance="secondary"
+					tooltip="Generate Message &amp; Commit..."
+					><code-icon icon="sparkle" slot="prefix"></code-icon>Commit
+				</gl-button>
+				<gl-button
+					aria-busy=${ifDefined(isFetching)}
+					?disabled=${isFetching}
+					href=${this.createCommandLink('gitlens.home.createCloudPatch')}
+					appearance="secondary"
+					tooltip="Share as Cloud Patch"
+					><code-icon icon="gl-cloud-patch-share"></code-icon>
+				</gl-button>
+			`);
+		}
+
+		if (rebaseStatus != null) {
+			return wrappedActions();
+		}
 
 		if (upstream?.missing !== false) {
 			// TODO: Upstream will never exist here -- we need to look at remotes
-			return html`<div slot="actions">
-				<button-container>
-					<gl-button
-						aria-busy=${ifDefined(isFetching)}
-						?disabled=${isFetching}
-						href=${createWebviewCommandLink('gitlens.views.home.publishBranch', 'gitlens.views.home', '')}
-						full
-						appearance="secondary"
-						><code-icon icon="cloud-upload" slot="prefix"></code-icon> Publish Branch<span slot="tooltip"
-							>Publish (push) <strong>${name}</strong> to ${upstream?.name ?? 'a remote'}</span
-						></gl-button
-					></button-container
+			actions.push(html`
+				<gl-button
+					aria-busy=${ifDefined(isFetching)}
+					?disabled=${isFetching}
+					href=${createWebviewCommandLink('gitlens.views.home.publishBranch', 'gitlens.views.home', '')}
+					full
+					appearance="secondary"
+					><code-icon icon="cloud-upload" slot="prefix"></code-icon> Publish Branch<span slot="tooltip"
+						>Publish (push) <strong>${name}</strong> to ${upstream?.name ?? 'a remote'}</span
+					></gl-button
 				>
-			</div>`;
+			`);
+
+			return wrappedActions();
 		}
 
 		if (state?.ahead || state?.behind) {
@@ -257,82 +296,75 @@ export class GlActiveBranchCard extends GlBranchCardBase {
 			if (isAhead && isBehind) {
 				const pullTooltip = upstream?.name ? `Pull from ${upstream.name}` : 'Pull';
 				const forcePushTooltip = upstream?.name ? `Force Push to ${upstream.name}` : 'Force Push';
-				return html`<div>
-					<button-container>
-						<gl-button
-							aria-busy=${ifDefined(isFetching)}
-							?disabled=${isFetching}
-							href=${createWebviewCommandLink('gitlens.views.home.pull', 'gitlens.views.home', '')}
-							full
-							appearance="secondary"
-							tooltip=${pullTooltip}
-							><code-icon icon="repo-pull" slot="prefix"></code-icon> Pull
-							<gl-tracking-pill
-								.ahead=${state.ahead}
-								.behind=${state.behind}
-								slot="suffix"
-							></gl-tracking-pill
-						></gl-button>
-						<gl-button
-							aria-busy=${ifDefined(isFetching)}
-							?disabled=${isFetching}
-							href=${createWebviewCommandLink('gitlens.views.home.push', 'gitlens.views.home', '', {
-								force: true,
-							})}
-							appearance="secondary"
-							density="compact"
-							tooltip=${forcePushTooltip}
-							><code-icon icon="repo-force-push"></code-icon
-						></gl-button>
-					</button-container>
-				</div>`;
+				actions.push(html`
+					<gl-button
+						aria-busy=${ifDefined(isFetching)}
+						?disabled=${isFetching}
+						href=${createWebviewCommandLink('gitlens.views.home.pull', 'gitlens.views.home', '')}
+						full
+						appearance="secondary"
+						tooltip=${pullTooltip}
+						><code-icon icon="repo-pull" slot="prefix"></code-icon> Pull
+						<gl-tracking-pill .ahead=${state.ahead} .behind=${state.behind} slot="suffix"></gl-tracking-pill
+					></gl-button>
+					<gl-button
+						aria-busy=${ifDefined(isFetching)}
+						?disabled=${isFetching}
+						href=${createWebviewCommandLink('gitlens.views.home.push', 'gitlens.views.home', '', {
+							force: true,
+						})}
+						appearance="secondary"
+						density="compact"
+						tooltip=${forcePushTooltip}
+						><code-icon icon="repo-force-push"></code-icon
+					></gl-button>
+				`);
+
+				return wrappedActions();
 			}
 
 			if (isBehind) {
 				const tooltip = upstream?.name ? `Pull from ${upstream.name}` : 'Pull';
-				return html`<div>
-					<button-container>
-						<gl-button
-							aria-busy=${ifDefined(isFetching)}
-							?disabled=${isFetching}
-							href=${createWebviewCommandLink('gitlens.views.home.pull', 'gitlens.views.home', '')}
-							full
-							appearance="secondary"
-							tooltip=${tooltip}
-							><code-icon icon="repo-pull" slot="prefix"></code-icon> Pull
-							<gl-tracking-pill
-								.ahead=${state.ahead}
-								.behind=${state.behind}
-								slot="suffix"
-							></gl-tracking-pill></gl-button
-					></button-container>
-				</div>`;
+				actions.push(html`
+					<gl-button
+						aria-busy=${ifDefined(isFetching)}
+						?disabled=${isFetching}
+						href=${createWebviewCommandLink('gitlens.views.home.pull', 'gitlens.views.home', '')}
+						full
+						appearance="secondary"
+						tooltip=${tooltip}
+						><code-icon icon="repo-pull" slot="prefix"></code-icon> Pull
+						<gl-tracking-pill .ahead=${state.ahead} .behind=${state.behind} slot="suffix"></gl-tracking-pill
+					></gl-button>
+				`);
+
+				return wrappedActions();
 			}
 
 			if (isAhead) {
 				const tooltip = upstream?.name ? `Push to ${upstream.name}` : 'Push';
-				return html`<div>
-					<button-container>
-						<gl-button
-							aria-busy=${ifDefined(isFetching)}
-							?disabled=${isFetching}
-							href=${createWebviewCommandLink('gitlens.views.home.push', 'gitlens.views.home', '')}
-							full
-							appearance="secondary"
-							tooltip=${tooltip}
-							><code-icon icon="repo-push" slot="prefix"></code-icon> Push
-							<gl-tracking-pill
-								.ahead=${state.ahead}
-								.behind=${state.behind}
-								slot="suffix"
-							></gl-tracking-pill>
-						</gl-button>
-					</button-container>
-				</div>`;
+				actions.push(html`
+					<gl-button
+						aria-busy=${ifDefined(isFetching)}
+						?disabled=${isFetching}
+						href=${createWebviewCommandLink('gitlens.views.home.push', 'gitlens.views.home', '')}
+						full
+						appearance="secondary"
+						tooltip=${tooltip}
+						><code-icon icon="repo-push" slot="prefix"></code-icon> Push
+						<gl-tracking-pill
+							.ahead=${state.ahead}
+							.behind=${state.behind}
+							slot="suffix"
+						></gl-tracking-pill>
+					</gl-button>
+				`);
+
+				return wrappedActions();
 			}
 		}
 
-		return undefined;
+		return wrappedActions();
 	}
 
 	protected renderBranchIndicator() {

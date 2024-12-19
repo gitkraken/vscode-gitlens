@@ -690,7 +690,8 @@ type HomeWebviewCommands = `home.${
 	| 'createBranch'
 	| 'mergeIntoCurrent'
 	| 'rebaseCurrentOnto'
-	| 'startWork'}`;
+	| 'startWork'
+	| 'createCloudPatch'}`;
 
 type GraphWebviewCommands = `graph.${
 	| 'switchToEditorLayout'
