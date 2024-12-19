@@ -1460,6 +1460,7 @@ async function getLaunchpadItemInfo(
 	if (lpi == null) return undefined;
 
 	return {
+		uuid: lpi.uuid,
 		category: lpi.actionableCategory,
 		groups: getLaunchpadItemGroups(lpi),
 		suggestedActions: lpi.suggestedActions,
@@ -1498,6 +1499,7 @@ async function getPullRequestInfo(
 		url: pr.url,
 		state: pr.state,
 		title: pr.title,
+		draft: pr.isDraft,
 		launchpad: getLaunchpadItemInfo(container, pr, launchpadPromise),
 	};
 }

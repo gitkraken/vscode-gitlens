@@ -4,7 +4,7 @@ import { customElement, property, state } from 'lit/decorators.js';
 import { classMap } from 'lit/directives/class-map.js';
 import { when } from 'lit/directives/when.js';
 import type { Commands } from '../../../../../constants.commands';
-import type { LaunchpadItem } from '../../../../../plus/launchpad/launchpadProvider';
+import type { LaunchpadCommandArgs } from '../../../../../plus/launchpad/launchpad';
 import {
 	actionGroupMap,
 	launchpadCategoryToGroupMap,
@@ -422,10 +422,7 @@ export abstract class GlBranchCardBase extends GlElement {
 	}
 
 	get cardIndicator() {
-		if (this.launchpadItem && this.pr?.state === 'opened') {
-			return getLaunchpadItemGrouping(this.launchpadItem.category) ?? 'base';
-		}
-		return 'base';
+		return getLaunchpadItemGrouping(getLaunchpadItemGroup(this.pr, this.launchpadItem)) ?? 'base';
 	}
 
 	get branchCardIndicator() {
@@ -715,14 +712,9 @@ export abstract class GlBranchCardBase extends GlElement {
 			return nothing;
 		}
 
-		let indicator: GlCard['indicator'];
-		if (this.branch.opened) {
-			if (this.launchpadItem && this.pr?.state === 'opened') {
-				indicator = getLaunchpadItemGrouping(this.launchpadItem.category) ?? 'base';
-			} else {
-				indicator = 'base';
-			}
-		}
+		const indicator: GlCard['indicator'] = this.branch.opened
+			? getLaunchpadItemGrouping(getLaunchpadItemGroup(this.pr, this.launchpadItem)) ?? 'base'
+			: undefined;
 
 		const actions = this.renderPrActions();
 		return html`
@@ -730,7 +722,7 @@ export abstract class GlBranchCardBase extends GlElement {
 				<div class="branch-item__section">
 					<p class="branch-item__grouping">
 						<span class="branch-item__icon">
-							<pr-icon state=${this.pr.state} pr-id=${this.pr.id}></pr-icon>
+							<pr-icon ?draft=${this.pr.draft} state=${this.pr.state} pr-id=${this.pr.id}></pr-icon>
 						</span>
 						<a href=${this.pr.url} class="branch-item__name branch-item__name--secondary"
 							>${this.pr.title}</a
@@ -745,12 +737,10 @@ export abstract class GlBranchCardBase extends GlElement {
 	}
 
 	protected renderLaunchpadItem() {
-		if (this.launchpadItem == null || this.pr?.state !== 'opened') return nothing;
+		if (this.launchpadItem == null) return nothing;
 
-		const group = launchpadCategoryToGroupMap.get(this.launchpadItem.category);
-		if (group == null || group === 'other' || group === 'draft' || group === 'current-branch') {
-			return nothing;
-		}
+		const group = getLaunchpadItemGroup(this.pr, this.launchpadItem);
+		if (group == null) return nothing;
 
 		const groupLabel = launchpadGroupLabelMap.get(group);
 		const groupIcon = launchpadGroupIconMap.get(group);
@@ -758,34 +748,32 @@ export abstract class GlBranchCardBase extends GlElement {
 		if (groupLabel == null || groupIcon == null) return nothing;
 		const groupIconString = groupIcon.match(/\$\((.*?)\)/)![1].replace('gitlens', 'gl');
 
-		// 	<a
-		// 	href=${createCommandLink<Omit<LaunchpadCommandArgs, 'command'>>('gitlens.showLaunchpad', {
-		// 		source: 'home',
-		// 		state: {
-		// 			item: { ...this.launchpadItem.item, group: group },
-		// 		},
-		// 	} satisfies Omit<LaunchpadCommandArgs, 'command'>)}
-		// 	class="launchpad__grouping"
-		// >
-
 		const tooltip = interpolate(actionGroupMap.get(this.launchpadItem.category)![1], {
 			author: this.launchpadItem.author?.username ?? 'unknown',
 			createdDateRelative: fromNow(new Date(this.launchpadItem.createdDate)),
 		});
 
 		return html`<div class="branch-item__section branch-item__section--details" slot="context">
-				<p class="launchpad-grouping--${getLaunchpadItemGrouping(this.launchpadItem.category)}">
+				<p class="launchpad-grouping--${getLaunchpadItemGrouping(group)}">
 					<gl-tooltip content="${tooltip}">
-						<code-icon icon="${groupIconString}"></code-icon
-						><span class="branch-item__category">${groupLabel.toUpperCase()}</span>
+						<a
+							href=${createCommandLink<Omit<LaunchpadCommandArgs, 'command'>>('gitlens.showLaunchpad', {
+								source: 'home',
+								state: {
+									id: { uuid: this.launchpadItem.uuid, group: group },
+								},
+							} satisfies Omit<LaunchpadCommandArgs, 'command'>)}
+							class="launchpad__grouping"
+						>
+							<code-icon icon="${groupIconString}"></code-icon
+							><span class="branch-item__category">${groupLabel.toUpperCase()}</span></a
+						>
 					</gl-tooltip>
 				</p>
 			</div>
 			${groupIconString
 				? html`<span
-						class="branch-item__summary launchpad-grouping--${getLaunchpadItemGrouping(
-							this.launchpadItem.category,
-						)}"
+						class="branch-item__summary launchpad-grouping--${getLaunchpadItemGrouping(group)}"
 						slot="summary"
 						><gl-tooltip placement="bottom" content="${groupLabel}"
 							><code-icon icon="${groupIconString}"></code-icon></gl-tooltip
@@ -1031,9 +1019,22 @@ export class GlWorkUnit extends LitElement {
 	}
 }
 
-function getLaunchpadItemGrouping(category: LaunchpadItem['actionableCategory']) {
-	const group = launchpadCategoryToGroupMap.get(category);
+function getLaunchpadItemGroup(
+	pr: Awaited<GetOverviewBranch['pr']>,
+	launchpadItem: Awaited<NonNullable<Awaited<GetOverviewBranch['pr']>>['launchpad']>,
+) {
+	if (launchpadItem == null || pr?.state !== 'opened') return undefined;
+	if (pr.draft && launchpadItem.category === 'unassigned-reviewers') return undefined;
 
+	const group = launchpadCategoryToGroupMap.get(launchpadItem.category);
+	if (group == null || group === 'other' || group === 'draft' || group === 'current-branch') {
+		return undefined;
+	}
+
+	return group;
+}
+
+function getLaunchpadItemGrouping(group: ReturnType<typeof getLaunchpadItemGroup>) {
 	switch (group) {
 		case 'mergeable':
 			return 'mergeable';

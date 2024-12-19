@@ -147,9 +147,11 @@ export interface GetOverviewBranch {
 				title: string;
 				state: string;
 				url: string;
+				draft?: boolean;
 
 				launchpad?: Promise<
 					| {
+							uuid: string;
 							category: LaunchpadItem['actionableCategory'];
 							groups: LaunchpadGroup[];
 							suggestedActions: LaunchpadItem['suggestedActions'];
