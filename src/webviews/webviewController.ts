@@ -1,6 +1,6 @@
 import { getNonce } from '@env/crypto';
 import type { ViewBadge, Webview, WebviewPanel, WebviewView, WindowState } from 'vscode';
-import { Disposable, EventEmitter, Uri, ViewColumn, window, workspace } from 'vscode';
+import { CancellationTokenSource, Disposable, EventEmitter, Uri, ViewColumn, window, workspace } from 'vscode';
 import type { Commands } from '../constants.commands';
 import type { WebviewTelemetryContext } from '../constants.telemetry';
 import type { CustomEditorTypes, WebviewIds, WebviewTypes, WebviewViewIds, WebviewViewTypes } from '../constants.views';
@@ -21,6 +21,7 @@ import type {
 	IpcCallResponseParamsType,
 	IpcMessage,
 	IpcNotification,
+	IpcPromise,
 	IpcRequest,
 	WebviewFocusChangedParams,
 	WebviewState,
@@ -29,6 +30,7 @@ import {
 	DidChangeHostWindowFocusNotification,
 	DidChangeWebviewFocusNotification,
 	ExecuteCommand,
+	ipcPromiseSettled,
 	TelemetrySendEventCommand,
 	WebviewFocusChangedCommand,
 	WebviewReadyCommand,
@@ -149,6 +151,7 @@ export class WebviewController<
 		return this._ready;
 	}
 
+	private cancellation: CancellationTokenSource | undefined;
 	private disposable: Disposable | undefined;
 	private _isInEditor: boolean;
 	private /*readonly*/ provider!: WebviewProvider<State, SerializedState, ShowingArgs>;
@@ -206,6 +209,8 @@ export class WebviewController<
 	private _disposed: boolean = false;
 	dispose() {
 		this._disposed = true;
+		this.cancellation?.cancel();
+		this.cancellation?.dispose();
 		resetContextKeys(this.descriptor.contextKeyPrefix);
 
 		this.provider?.onFocusChanged?.(false);
@@ -348,6 +353,7 @@ export class WebviewController<
 		}
 
 		if (loading) {
+			this.cancellation ??= new CancellationTokenSource();
 			this.webview.html = await this.getHtml(this.webview);
 		}
 
@@ -394,6 +400,7 @@ export class WebviewController<
 	@debug()
 	async refresh(force?: boolean): Promise<void> {
 		if (force) {
+			this.cancellation?.cancel();
 			this.clearPendingIpcNotifications();
 		}
 		this.provider.onRefresh?.(force);
@@ -415,6 +422,9 @@ export class WebviewController<
 			}
 			return;
 		}
+
+		this.cancellation?.cancel();
+		this.cancellation ??= new CancellationTokenSource();
 
 		this.webview.html = html;
 	}
@@ -587,6 +597,9 @@ export class WebviewController<
 		params: IpcCallParamsType<T>,
 		completionId?: string,
 	): Promise<boolean> {
+		const pendingPromises: [Promise<unknown>, IpcPromise][] = [];
+		this.replacePromisesWithIpcPromises(params, pendingPromises);
+
 		let packed;
 		if (notificationType.pack && params != null) {
 			const sw = maybeStopWatch(
@@ -615,6 +628,21 @@ export class WebviewController<
 		} else {
 			this.addPendingIpcNotificationCore(notificationType, msg);
 		}
+
+		const cancellation = this.cancellation?.token;
+		for (const [promise, ipcPromise] of pendingPromises) {
+			promise.then(
+				r =>
+					cancellation?.isCancellationRequested
+						? undefined
+						: this.notify(ipcPromiseSettled, { status: 'fulfilled', value: r }, ipcPromise.id),
+				(ex: unknown) =>
+					cancellation?.isCancellationRequested
+						? undefined
+						: this.notify(ipcPromiseSettled, { status: 'rejected', reason: ex }, ipcPromise.id),
+			);
+		}
+
 		return success;
 	}
 
@@ -624,6 +652,25 @@ export class WebviewController<
 		params: IpcCallResponseParamsType<T>,
 	): Promise<boolean> {
 		return this.notify(requestType.response, params, msg.completionId);
+	}
+
+	private replacePromisesWithIpcPromises(data: unknown, pendingPromises: [Promise<unknown>, IpcPromise][]) {
+		if (data == null || typeof data !== 'object') return;
+
+		for (const key in data) {
+			const value = (data as Record<string, unknown>)[key];
+			if (value instanceof Promise) {
+				const ipcPromise: IpcPromise = {
+					__ipc: 'promise',
+					id: this.nextIpcId(),
+					method: ipcPromiseSettled.method,
+				};
+				(data as Record<string, unknown>)[key] = ipcPromise;
+				pendingPromises.push([value, ipcPromise]);
+			}
+
+			this.replacePromisesWithIpcPromises(value, pendingPromises);
+		}
 	}
 
 	@serialize()
