@@ -157,6 +157,9 @@ export interface GetOverviewBranch {
 							failingCI: boolean;
 							hasConflicts: boolean;
 
+							author: LaunchpadItem['author'];
+							createdDate: LaunchpadItem['createdDate'];
+
 							review: {
 								decision: LaunchpadItem['reviewDecision'];
 								reviews: NonNullable<LaunchpadItem['reviews']>;

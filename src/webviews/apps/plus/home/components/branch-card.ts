@@ -6,13 +6,15 @@ import { when } from 'lit/directives/when.js';
 import type { Commands } from '../../../../../constants.commands';
 import type { LaunchpadItem } from '../../../../../plus/launchpad/launchpadProvider';
 import {
+	actionGroupMap,
 	launchpadCategoryToGroupMap,
 	launchpadGroupIconMap,
 	launchpadGroupLabelMap,
 } from '../../../../../plus/launchpad/models';
 import type { AssociateIssueWithBranchCommandArgs } from '../../../../../plus/startWork/startWork';
 import { createCommandLink } from '../../../../../system/commands';
-import { pluralize } from '../../../../../system/string';
+import { fromNow } from '../../../../../system/date';
+import { interpolate, pluralize } from '../../../../../system/string';
 import type { GetOverviewBranch, OpenInGraphParams } from '../../../../home/protocol';
 import { renderBranchName } from '../../../shared/components/branch-name';
 import type { GlCard } from '../../../shared/components/card/card';
@@ -756,10 +758,17 @@ export abstract class GlBranchCardBase extends GlElement {
 		// 	class="launchpad__grouping"
 		// >
 
+		const tooltip = interpolate(actionGroupMap.get(this.launchpadItem.category)![1], {
+			author: this.launchpadItem.author?.username ?? 'unknown',
+			createdDateRelative: fromNow(new Date(this.launchpadItem.createdDate)),
+		});
+
 		return html`<div class="branch-item__section branch-item__section--details" slot="context">
 				<p class="launchpad-grouping--${getLaunchpadItemGrouping(this.launchpadItem.category)}">
-					<code-icon icon="${groupIconString}"></code-icon
-					><span class="branch-item__category">${groupLabel.toUpperCase()}</span>
+					<gl-tooltip content="${tooltip}">
+						<code-icon icon="${groupIconString}"></code-icon
+						><span class="branch-item__category">${groupLabel.toUpperCase()}</span>
+					</gl-tooltip>
 				</p>
 			</div>
 			${groupIconString
