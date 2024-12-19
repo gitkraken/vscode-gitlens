@@ -55,6 +55,10 @@ export class GlPreviewBanner extends LitElement {
 			.feedback {
 				white-space: nowrap;
 			}
+
+			p {
+				margin-block: 0;
+			}
 		`,
 	];
 
@@ -99,9 +103,11 @@ export class GlPreviewBanner extends LitElement {
 		return html`
 			<gl-card>
 				<h4 class="title">Welcome to the GitLens Home View</h4>
-				Streamline your workflow—effortlessly track, manage, and collaborate on your branches and pull
-				requests—all in one intuitive hub.
-				<a class="feedback" href="https://help.gitkraken.com/gitlens/home-view/">Learn more</a>.
+				<p>
+					Streamline your workflow — effortlessly track, manage, and collaborate on your branches and pull
+					requests, all in one intuitive hub.
+					<a class="feedback" href="https://help.gitkraken.com/gitlens/home-view/">Learn more</a>
+				</p>
 				<gl-button slot="actions" appearance="toolbar" tooltip="Dismiss Welcome" @click=${() => this.onClose()}
 					><code-icon icon="close"></code-icon
 				></gl-button>
