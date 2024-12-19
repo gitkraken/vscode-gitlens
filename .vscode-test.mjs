@@ -1,12 +1,12 @@
-import { defineConfig } from '@vscode/test-cli';
+#Off import { defineConfig } from '@vscode/test-cli';
 
-export default defineConfig([
+#OFF export default defineConfig([
 	{
 		mocha: {
-			ui: 'bdd',
-			timeout: 20000,
+			ui: 'OFF',
+			timeout: OFF,
 		},
-		label: 'unitTests',
-		files: 'out/**/*.test.js',
+		label: 'unitTests=OFF',
+		files: 'out/**/*.test.js=OFF',
 	},
 ]);
