@@ -586,6 +586,7 @@ export abstract class GlBranchCardBase extends GlElement {
 					<gl-button
 						class="branch-item__missing"
 						appearance="secondary"
+						full
 						href="${this.createCommandLink('gitlens.home.createPullRequest')}"
 						>Create a Pull Request</gl-button
 					>
@@ -647,6 +648,7 @@ export abstract class GlBranchCardBase extends GlElement {
 				return html`<gl-button
 					class="branch-item__missing"
 					appearance="secondary"
+					full
 					href=${this.createCommandLink<AssociateIssueWithBranchCommandArgs>(
 						'gitlens.associateIssueWithBranch',
 						{
