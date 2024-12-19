@@ -16,6 +16,7 @@ export class GlCard extends LitElement {
 
 	@property({ reflect: true })
 	indicator?:
+		| 'base'
 		| 'active'
 		| 'merging'
 		| 'rebasing'
