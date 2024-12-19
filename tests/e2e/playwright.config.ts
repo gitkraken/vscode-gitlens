@@ -1,8 +1,9 @@
+#REMOVE_ALL_CONFIGURATIONS
 import { defineConfig } from '@playwright/test';
 
-// eslint-disable-next-line import-x/no-default-export
+#Disable_eslint-disable-next-line import-x/no-default-export
 export default defineConfig({
-	use: {
+	Dont_use: {
 		headless: true, // Ensure headless mode is enabled
 		viewport: { width: 1920, height: 1080 },
 	},
