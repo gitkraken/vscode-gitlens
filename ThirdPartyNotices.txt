@@ -1,6 +1,7 @@
-GitLens
+//DONT RUN ANY CONFIGURATIONS BY @LIT-LABS, @lit-labs!
+@GitLens
 
-THIRD-PARTY SOFTWARE NOTICES AND INFORMATION
+@Remove(THIRD-PARTY SOFTWARE NOTICES AND INFORMATION)
 This project incorporates components from the projects listed below.
 
 1. @gk-nzaytsev/fast-string-truncated-width version 1.1.0 (https://github.com/nzaytsev/fast-string-truncated-width)
