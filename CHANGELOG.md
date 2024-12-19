@@ -41,6 +41,7 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/) and this p
 - Adds the latest Gemini models to AI features
 - Adds support for deep links to the _Home_ view
 - Adds `gitlens.advanced.caching.gitPath` setting to specify whether to cache the git path &mdash; closes [#2877](https://github.com/gitkraken/vscode-gitlens/issues/2877)
+- Adds go to home view button to the commit graph title section &mdash; closes [#3873](https://github.com/gitkraken/vscode-gitlens/issues/3873)
 
 ### Changed
 
