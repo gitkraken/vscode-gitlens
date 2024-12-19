@@ -1,6 +1,7 @@
 import type { TemplateResult } from 'lit';
 import { css, html, LitElement, nothing } from 'lit';
 import { customElement, property, state } from 'lit/decorators.js';
+import { classMap } from 'lit/directives/class-map.js';
 import { when } from 'lit/directives/when.js';
 import type { Commands } from '../../../../../constants.commands';
 import {
@@ -70,8 +71,14 @@ export const branchCardStyles = css`
 		font-size: 0.9em;
 	}
 
+	/* :empty selector doesn't work with lit */
+	.branch-item__actions:not(:has(*)) {
+		display: none;
+	}
+
 	.branch-item__icon {
 		color: var(--vscode-descriptionForeground);
+		flex: none;
 	}
 
 	.branch-item__name {
@@ -104,6 +111,8 @@ export const branchCardStyles = css`
 		align-items: center;
 		gap: 1rem;
 		justify-content: flex-end;
+		flex-wrap: wrap;
+		white-space: nowrap;
 	}
 
 	.branch-item__changes formatted-date {
@@ -554,6 +563,7 @@ export abstract class GlBranchCardBase extends GlElement {
 					`,
 				)}
 				${when(
+					// TODO: this doesn't work properly. nothing is true, empty html template is true
 					actionsSection || mergeTargetStatus,
 					() =>
 						html`<div class="branch-item__actions" slot="actions">
@@ -756,6 +766,10 @@ export class GlWorkUnit extends LitElement {
 				gap: 0.8rem;
 			}
 
+			.work-item_content-empty {
+				gap: 0;
+			}
+
 			.work-item__header {
 				display: flex;
 				flex-direction: row;
@@ -820,8 +834,12 @@ export class GlWorkUnit extends LitElement {
 	}
 
 	private renderContent() {
+		const contentRequired =
+			this.querySelectorAll('[slot="context"]').length > 0 ||
+			this.querySelectorAll('[slot="actions"]').length > 0;
+
 		return html`
-			<div class="work-item">
+			<div class=${classMap({ 'work-item': true, 'work-item_content-empty': !contentRequired })}>
 				<header class="work-item__header">
 					<slot class="work-item__main"></slot>
 					${this.renderSummary()}
