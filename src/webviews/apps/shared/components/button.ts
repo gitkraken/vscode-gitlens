@@ -82,6 +82,7 @@ export class GlButton extends LitElement {
 
 			.label {
 				display: inline-block;
+				max-width: 100%;
 			}
 
 			:host(:hover) {
