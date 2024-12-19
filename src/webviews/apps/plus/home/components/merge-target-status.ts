@@ -182,7 +182,16 @@ export class GlMergeTargetStatus extends LitElement {
 			}
 
 			.branch {
+				display: inline-block;
+				max-width: 100%;
 				white-space: nowrap;
+				overflow: hidden;
+				text-overflow: ellipsis;
+				vertical-align: middle;
+			}
+
+			gl-popover {
+				--max-width: 80vw;
 			}
 		`,
 	];
@@ -364,7 +373,7 @@ export class GlMergeTargetStatus extends LitElement {
 	}
 
 	private renderBranch(name: string | undefined, size = 12) {
-		return html`<span class="branch"
+		return html`<span class="branch" title="${name}"
 			><code-icon icon="git-branch" size="${size}"></code-icon>&nbsp;<strong>${name ?? '<missing>'}</strong></span
 		>`;
 	}
