@@ -33,8 +33,8 @@ export class GlMergeTargetStatus extends LitElement {
 
 			:host-context(.vscode-dark),
 			:host-context(.vscode-high-contrast) {
-				--color-status--in-sync: #00dd00;
-				--color-merge--clean: #00dd00;
+				--color-status--in-sync: #00bb00;
+				--color-merge--clean: #00bb00;
 				--color-merge--conflict: var(--vscode-gitlens-decorations\\.statusMergingOrRebasingForegroundColor);
 			}
 
