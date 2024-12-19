@@ -749,12 +749,13 @@ export class HomeWebviewProvider implements WebviewProvider<State, State, HomeWe
 			repo.onDidChange(e => {
 				if (
 					e.changed(
-						RepositoryChange.Unknown,
-						RepositoryChange.Index,
-						RepositoryChange.Status,
-						RepositoryChange.Remotes,
 						RepositoryChange.Config,
+						RepositoryChange.Head,
 						RepositoryChange.Heads,
+						// RepositoryChange.Index,
+						RepositoryChange.Remotes,
+						RepositoryChange.Status,
+						RepositoryChange.Unknown,
 						RepositoryChangeComparisonMode.Any,
 					)
 				) {

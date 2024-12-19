@@ -87,6 +87,7 @@
 	--gl-tracking-ahead: var(--vscode-gitlens-decorations\.branchAheadForegroundColor);
 	--gl-tracking-behind: var(--vscode-gitlens-decorations\.branchBehindForegroundColor);
 	--gl-tracking-working: var(--vscode-activityBarBadge-background);
+	--gl-tracking-missing: var(--vscode-gitlens-decorations\.branchMissingUpstreamForegroundColor);
 }
 
 @include utils.dark-theme($selectorPrefix: ':root:has(', $selectorPostfix: ')') {

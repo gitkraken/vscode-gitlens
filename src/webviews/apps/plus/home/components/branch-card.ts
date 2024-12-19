@@ -597,6 +597,7 @@ export abstract class GlBranchCardBase extends GlElement {
 				ahead=${ahead}
 				behind=${behind}
 				working=${working}
+				?missingUpstream=${this.branch.upstream?.missing ?? false}
 			></gl-tracking-pill>
 			<div class="tracking__tooltip" slot="content">${tooltip}${wipTooltip}</div></gl-tooltip
 		>`;
@@ -685,10 +686,10 @@ export abstract class GlBranchCardBase extends GlElement {
 			this.wip.workingTreeState.added + this.wip.workingTreeState.changed + this.wip.workingTreeState.deleted > 0;
 		return html`<gl-branch-icon
 			.state="${this.branch.state}"
-			.hasChanges="${hasChanges}"
-			.missingUpstream=${this.branch.status === 'missingUpstream'}
+			?hasChanges=${hasChanges}
+			?missingUpstream=${this.branch.upstream?.missing ?? false}
 			.upstream=${this.branch.upstream?.name}
-			.worktree=${this.branch.worktree != null}
+			?worktree=${this.branch.worktree != null}
 		></gl-branch-icon>`;
 	}
 
