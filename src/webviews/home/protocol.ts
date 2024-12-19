@@ -74,17 +74,23 @@ export interface GetOverviewBranch {
 	opened: boolean;
 	timestamp?: number;
 	state: GitTrackingState;
-	workingTreeState?: {
-		added: number;
-		changed: number;
-		deleted: number;
-	};
-	status: GitBranchStatus;
 	upstream: { name: string; missing: boolean } | undefined;
-	hasConflicts?: boolean;
-	conflictsCount?: number;
-	mergeStatus?: GitMergeStatus;
-	rebaseStatus?: GitRebaseStatus;
+	status: GitBranchStatus;
+
+	wip?: Promise<
+		| {
+				workingTreeState?: {
+					added: number;
+					changed: number;
+					deleted: number;
+				};
+				hasConflicts?: boolean;
+				conflictsCount?: number;
+				mergeStatus?: GitMergeStatus;
+				rebaseStatus?: GitRebaseStatus;
+		  }
+		| undefined
+	>;
 
 	mergeTarget?: Promise<
 		| {

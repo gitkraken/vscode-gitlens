@@ -229,7 +229,9 @@ export class GlActiveBranchCard extends GlBranchCardBase {
 	}
 
 	private renderBranchStateActions() {
-		const { name, state, upstream, mergeStatus, rebaseStatus, workingTreeState } = this.branch;
+		const { name, state, upstream } = this.branch;
+
+		const mergeStatus = this.wip?.mergeStatus;
 		if (mergeStatus != null) return undefined;
 
 		const actions: TemplateResult[] = [];
@@ -239,6 +241,7 @@ export class GlActiveBranchCard extends GlBranchCardBase {
 			return html`<div><button-container>${actions}</button-container></div>`;
 		};
 
+		const workingTreeState = this.wip?.workingTreeState;
 		const isFetching = this.busy;
 		const hasWip =
 			workingTreeState != null &&
@@ -268,6 +271,7 @@ export class GlActiveBranchCard extends GlBranchCardBase {
 			`);
 		}
 
+		const rebaseStatus = this.wip?.rebaseStatus;
 		if (rebaseStatus != null) {
 			return wrappedActions();
 		}
@@ -368,16 +372,16 @@ export class GlActiveBranchCard extends GlBranchCardBase {
 	}
 
 	protected renderBranchIndicator() {
-		const branch = this.branch;
+		const wip = this.wip;
 
-		if (branch.mergeStatus == null && branch.rebaseStatus == null) {
+		if (wip?.mergeStatus == null && wip?.rebaseStatus == null) {
 			return undefined;
 		}
 
 		return html`<gl-merge-rebase-status
-			?conflicts=${branch.hasConflicts}
-			.merge=${branch.mergeStatus}
-			.rebase=${branch.rebaseStatus}
+			?conflicts=${wip.hasConflicts}
+			.merge=${wip.mergeStatus}
+			.rebase=${wip.rebaseStatus}
 		></gl-merge-rebase-status>`;
 	}
 

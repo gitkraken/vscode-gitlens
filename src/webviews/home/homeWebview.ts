@@ -48,7 +48,7 @@ import type { Change } from '../../plus/webviews/patchDetails/protocol';
 import { showRepositoryPicker } from '../../quickpicks/repositoryPicker';
 import type { Deferrable } from '../../system/function';
 import { debounce } from '../../system/function';
-import { filterMap, map } from '../../system/iterable';
+import { filterMap } from '../../system/iterable';
 import { getSettledValue } from '../../system/promise';
 import { executeActionCommand, executeCommand, registerCommand } from '../../system/vscode/command';
 import { configuration } from '../../system/vscode/configuration';
@@ -121,6 +121,7 @@ type IssuesInfo = Awaited<GetOverviewBranch['issues']>;
 type LaunchpadItemInfo = Awaited<NonNullable<Awaited<GetOverviewBranch['pr']>>['launchpad']>;
 type OwnerInfo = Awaited<GetOverviewBranch['owner']>;
 type PullRequestInfo = Awaited<GetOverviewBranch['pr']>;
+type WipInfo = Awaited<GetOverviewBranch['wip']>;
 
 export class HomeWebviewProvider implements WebviewProvider<State, State, HomeWebviewShowingArgs> {
 	private readonly _disposable: Disposable;
@@ -640,15 +641,10 @@ export class HomeWebviewProvider implements WebviewProvider<State, State, HomeWe
 		const forceRepo = this._invalidateOverview === 'repo';
 		const forceWip = this._invalidateOverview !== undefined;
 		const branchesAndWorktrees = await this.getBranchesData(repo, forceRepo);
-		const overviewBranches = await getOverviewBranches(
-			branchesAndWorktrees,
-			this.container,
-			this._overviewBranchFilter,
-			{
-				forceActive: forceWip ? true : undefined,
-				isPro: await this.isSubscriptionPro(),
-			},
-		);
+		const overviewBranches = getOverviewBranches(branchesAndWorktrees, this.container, this._overviewBranchFilter, {
+			forceActive: forceWip ? true : undefined,
+			isPro: await this.isSubscriptionPro(),
+		});
 		this._invalidateOverview = undefined;
 		if (overviewBranches == null) return undefined;
 
@@ -1103,12 +1099,12 @@ const thresholdValues: Record<OverviewStaleThreshold | OverviewRecentThreshold, 
 	OneYear: 1000 * 60 * 60 * 24 * 365,
 };
 
-async function getOverviewBranches(
+function getOverviewBranches(
 	branchesData: RepositoryBranchData,
 	container: Container,
 	filters: OverviewFilters,
 	options?: { forceActive?: boolean; isPro?: boolean },
-): Promise<GetOverviewBranches | undefined> {
+): GetOverviewBranches | undefined {
 	const { branches, worktreesByBranch } = branchesData;
 	if (branches.length === 0) return undefined;
 
@@ -1138,7 +1134,7 @@ async function getOverviewBranches(
 		if (branch.current || wt?.opened) {
 			const forceOptions = options?.forceActive ? { force: true } : undefined;
 			if (options?.isPro !== false) {
-				prPromises.set(branch.id, getPullRequest(container, branch, launchpadPromise));
+				prPromises.set(branch.id, getPullRequestInfo(container, branch, launchpadPromise));
 				autolinkPromises.set(branch.id, branch.getEnrichedAutolinks());
 				issuePromises.set(
 					branch.id,
@@ -1149,7 +1145,7 @@ async function getOverviewBranches(
 					container.git.getBranchContributorOverview(branch.repoPath, branch.ref),
 				);
 				if (branch.current) {
-					mergeTargetPromises.set(branch.id, getBranchMergeTargetStatus(container, branch));
+					mergeTargetPromises.set(branch.id, getBranchMergeTargetStatusInfo(container, branch));
 				}
 			}
 
@@ -1180,7 +1176,7 @@ async function getOverviewBranches(
 
 		if (timestamp != null && timestamp > recentThreshold) {
 			if (options?.isPro !== false) {
-				prPromises.set(branch.id, getPullRequest(container, branch, launchpadPromise));
+				prPromises.set(branch.id, getPullRequestInfo(container, branch, launchpadPromise));
 				autolinkPromises.set(branch.id, branch.getEnrichedAutolinks());
 				issuePromises.set(
 					branch.id,
@@ -1246,7 +1242,7 @@ async function getOverviewBranches(
 
 				if (options?.isPro !== false) {
 					if (!branch.upstream?.missing) {
-						prPromises.set(branch.id, getPullRequest(container, branch, launchpadPromise));
+						prPromises.set(branch.id, getPullRequestInfo(container, branch, launchpadPromise));
 					}
 
 					contributorsPromises.set(
@@ -1277,7 +1273,7 @@ async function getOverviewBranches(
 		}
 	}
 
-	await enrichOverviewBranches(
+	enrichOverviewBranches(
 		overviewBranches,
 		prPromises,
 		autolinkPromises,
@@ -1292,7 +1288,7 @@ async function getOverviewBranches(
 }
 
 // FIXME: support partial enrichment
-async function enrichOverviewBranches(
+function enrichOverviewBranches(
 	overviewBranches: GetOverviewBranches,
 	prPromises: Map<string, Promise<PullRequestInfo | undefined>>,
 	autolinkPromises: Map<string, Promise<Map<string, EnrichedAutolink> | undefined>>,
@@ -1302,24 +1298,12 @@ async function enrichOverviewBranches(
 	mergeTargetPromises: Map<string, Promise<BranchMergeTargetStatusInfo>>,
 	container: Container,
 ) {
-	const [statusResults] = await Promise.allSettled([
-		Promise.allSettled(
-			map(statusPromises, ([id, status]) => status.then<[string, GitStatus | undefined]>(status => [id, status])),
-		),
-	]);
-
-	const statuses = new Map(
-		getSettledValue(statusResults)
-			?.filter(r => r.status === 'fulfilled')
-			.map(r => [r.value[0], r.value[1]]),
-	);
-
 	for (const branch of [...overviewBranches.active, ...overviewBranches.recent, ...overviewBranches.stale]) {
 		const isActive = overviewBranches.active.includes(branch);
 		branch.pr = prPromises.get(branch.id);
 
 		const autolinks = autolinkPromises.get(branch.id);
-		branch.autolinks = autolinks?.then(a => getAutolinkIssues(a));
+		branch.autolinks = autolinks?.then(a => getAutolinkIssuesInfo(a));
 
 		const issues = issuePromises.get(branch.id);
 		branch.issues = issues?.then(
@@ -1335,36 +1319,17 @@ async function enrichOverviewBranches(
 				) ?? [],
 		);
 
-		const status = statuses.get(branch.id);
-		if (status != null) {
-			branch.workingTreeState = status.getDiffStatus();
-
-			if (isActive) {
-				branch.hasConflicts = status.hasConflicts;
-				branch.conflictsCount = status.conflicts.length;
-
-				const mergeStatus = await container.git.getMergeStatus(status.repoPath);
-				if (mergeStatus != null) {
-					branch.mergeStatus = mergeStatus;
-				} else {
-					const rebaseStatus = await container.git.getRebaseStatus(status.repoPath);
-					if (rebaseStatus != null) {
-						branch.rebaseStatus = rebaseStatus;
-					}
-				}
-			}
-		}
+		branch.wip = getWipInfo(container, branch, statusPromises.get(branch.id), isActive);
 
 		const contributors = contributorsPromises.get(branch.id);
-		branch.owner = getOwner(container, contributors);
-		branch.contributors = getContributors(container, contributors);
+		branch.owner = getOwnerInfo(container, contributors);
+		branch.contributors = getContributorsInfo(container, contributors);
 
-		const mergeTarget = mergeTargetPromises.get(branch.id);
-		branch.mergeTarget = mergeTarget;
+		branch.mergeTarget = mergeTargetPromises.get(branch.id);
 	}
 }
 
-async function getAutolinkIssues(links: Map<string, EnrichedAutolink> | undefined) {
+async function getAutolinkIssuesInfo(links: Map<string, EnrichedAutolink> | undefined) {
 	if (links == null) return [];
 
 	const results = await Promise.allSettled(
@@ -1387,7 +1352,7 @@ async function getAutolinkIssues(links: Map<string, EnrichedAutolink> | undefine
 	return results.map(r => (r.status === 'fulfilled' ? r.value : undefined)).filter(r => r != null);
 }
 
-async function getContributors(
+async function getContributorsInfo(
 	_container: Container,
 	contributorsPromise: Promise<BranchContributorOverview | undefined> | undefined,
 ) {
@@ -1413,7 +1378,7 @@ async function getContributors(
 	return result.map(r => (r.status === 'fulfilled' ? r.value : undefined)).filter(r => r != null);
 }
 
-async function getOwner(
+async function getOwnerInfo(
 	_container: Container,
 	contributorsPromise: Promise<BranchContributorOverview | undefined> | undefined,
 ) {
@@ -1436,7 +1401,7 @@ async function getOwner(
 	} satisfies OwnerInfo;
 }
 
-async function getBranchMergeTargetStatus(
+async function getBranchMergeTargetStatusInfo(
 	container: Container,
 	branch: GitBranch,
 ): Promise<BranchMergeTargetStatusInfo> {
@@ -1473,7 +1438,7 @@ async function getBranchMergeTargetStatus(
 	};
 }
 
-async function getLaunchpadItem(
+async function getLaunchpadItemInfo(
 	container: Container,
 	pr: PullRequest,
 	launchpadPromise: Promise<LaunchpadCategorizedResult> | undefined,
@@ -1516,7 +1481,7 @@ async function getLaunchpadItem(
 	};
 }
 
-async function getPullRequest(
+async function getPullRequestInfo(
 	container: Container,
 	branch: GitBranch,
 	launchpadPromise: Promise<LaunchpadCategorizedResult> | undefined,
@@ -1529,6 +1494,33 @@ async function getPullRequest(
 		url: pr.url,
 		state: pr.state,
 		title: pr.title,
-		launchpad: getLaunchpadItem(container, pr, launchpadPromise),
+		launchpad: getLaunchpadItemInfo(container, pr, launchpadPromise),
 	};
+}
+
+async function getWipInfo(
+	container: Container,
+	branch: GetOverviewBranch,
+	statusPromise: Promise<GitStatus | undefined> | undefined,
+	active: boolean,
+) {
+	if (statusPromise == null) return undefined;
+
+	const [statusResult, mergeStatusResult, rebaseStatusResult] = await Promise.allSettled([
+		statusPromise,
+		active ? container.git.getMergeStatus(branch.repoPath) : undefined,
+		active ? container.git.getRebaseStatus(branch.repoPath) : undefined,
+	]);
+
+	const status = getSettledValue(statusResult);
+	const mergeStatus = getSettledValue(mergeStatusResult);
+	const rebaseStatus = getSettledValue(rebaseStatusResult);
+
+	return {
+		workingTreeState: status?.getDiffStatus(),
+		hasConflicts: status?.hasConflicts,
+		conflictsCount: status?.conflicts.length,
+		mergeStatus: mergeStatus,
+		rebaseStatus: rebaseStatus,
+	} satisfies WipInfo;
 }
