@@ -12,11 +12,12 @@ import type { Repository } from '../../../git/models/repository';
 import type { GitTag } from '../../../git/models/tag';
 import type { GitWorktree } from '../../../git/models/worktree';
 import type { Draft } from '../../../gk/models/drafts';
-import type { LaunchpadGroup, LaunchpadItem } from '../../../plus/launchpad/launchpadProvider';
+import type { LaunchpadItem } from '../../../plus/launchpad/launchpadProvider';
+import type { LaunchpadGroup } from '../../../plus/launchpad/models';
 import {
 	launchpadCategoryToGroupMap,
 	sharedCategoryToLaunchpadActionCategoryMap,
-} from '../../../plus/launchpad/launchpadProvider';
+} from '../../../plus/launchpad/models';
 import type {
 	CloudWorkspace,
 	CloudWorkspaceRepositoryDescriptor,

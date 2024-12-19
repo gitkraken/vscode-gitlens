@@ -54,23 +54,15 @@ import { executeCommand } from '../../system/vscode/command';
 import { configuration } from '../../system/vscode/configuration';
 import { openUrl } from '../../system/vscode/utils';
 import { ProviderBuildStatusState, ProviderPullRequestReviewState } from '../integrations/providers/models';
-import type {
-	LaunchpadAction,
-	LaunchpadActionCategory,
-	LaunchpadCategorizedResult,
-	LaunchpadGroup,
-	LaunchpadItem,
-	LaunchpadTargetAction,
-} from './launchpadProvider';
+import type { LaunchpadCategorizedResult, LaunchpadItem } from './launchpadProvider';
 import {
 	countLaunchpadItemGroups,
 	getLaunchpadItemIdHash,
 	groupAndSortLaunchpadItems,
-	launchpadGroupIconMap,
-	launchpadGroupLabelMap,
-	launchpadGroups,
 	supportedLaunchpadIntegrations,
 } from './launchpadProvider';
+import type { LaunchpadAction, LaunchpadActionCategory, LaunchpadGroup, LaunchpadTargetAction } from './models';
+import { launchpadGroupIconMap, launchpadGroupLabelMap, launchpadGroups } from './models';
 import { isMaybeSupportedLaunchpadPullRequestSearchUrl } from './utils';
 
 const actionGroupMap = new Map<LaunchpadActionCategory, string[]>([

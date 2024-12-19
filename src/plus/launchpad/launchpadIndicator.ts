@@ -13,13 +13,10 @@ import { executeCommand, registerCommand } from '../../system/vscode/command';
 import { configuration } from '../../system/vscode/configuration';
 import type { ConnectionStateChangeEvent } from '../integrations/integrationService';
 import type { LaunchpadCommandArgs } from './launchpad';
-import type { LaunchpadGroup, LaunchpadItem, LaunchpadProvider, LaunchpadRefreshEvent } from './launchpadProvider';
-import {
-	groupAndSortLaunchpadItems,
-	launchpadGroupIconMap,
-	launchpadPriorityGroups,
-	supportedLaunchpadIntegrations,
-} from './launchpadProvider';
+import type { LaunchpadItem, LaunchpadProvider, LaunchpadRefreshEvent } from './launchpadProvider';
+import { groupAndSortLaunchpadItems, supportedLaunchpadIntegrations } from './launchpadProvider';
+import type { LaunchpadGroup } from './models';
+import { launchpadGroupIconMap, launchpadPriorityGroups } from './models';
 
 type LaunchpadIndicatorState = 'idle' | 'disconnected' | 'loading' | 'load' | 'failed';
 
