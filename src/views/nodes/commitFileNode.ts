@@ -39,11 +39,9 @@ export abstract class CommitFileNodeBase<
 		super(type, GitUri.fromFile(file, commit.repoPath, commit.sha), view, parent, file);
 
 		this.updateContext({ commit: commit, file: file });
-		this._uniqueId = getViewNodeId(type, this.context);
-	}
+		this._uniqueId = `${this.type}(${this.commit.repoPath}|${this.commit.sha}:${this.file.path}+${this.file.status})`;
 
-	override get id(): string {
-		return this._uniqueId;
+		// this._uniqueId = getViewNodeId(type, this.context);
 	}
 
 	override toClipboard(): string {
