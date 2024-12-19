@@ -315,9 +315,17 @@ export abstract class GlBranchCardBase extends GlElement {
 		></gl-tracking-pill>`;
 	}
 
-	protected abstract getActions(): TemplateResult[];
-	protected renderActions() {
-		const actions = this.getActions?.();
+	protected abstract getBranchActions(): TemplateResult[];
+	protected renderBranchActions() {
+		const actions = this.getBranchActions?.();
+		if (!actions?.length) return nothing;
+
+		return html`<action-nav>${actions}</action-nav>`;
+	}
+
+	protected abstract getPrActions(): TemplateResult[];
+	protected renderPrActions() {
+		const actions = this.getPrActions?.();
 		if (!actions?.length) return nothing;
 
 		return html`<action-nav>${actions}</action-nav>`;
@@ -400,6 +408,7 @@ export abstract class GlBranchCardBase extends GlElement {
 			return nothing;
 		}
 
+		const actions = this.renderPrActions();
 		return html`
 			<gl-work-item ?expanded=${this.expanded} ?nested=${!this.branch.opened}>
 				<div class="branch-item__section">
@@ -414,6 +423,7 @@ export abstract class GlBranchCardBase extends GlElement {
 					</p>
 				</div>
 				${this.renderLaunchpad()}
+				${when(actions != null, () => html`<div class="branch-item__actions" slot="actions">${actions}</div>`)}
 			</gl-work-item>
 		`;
 	}
@@ -480,30 +490,15 @@ export class GlBranchCard extends GlBranchCardBase {
 		return html`
 			<gl-card class="branch-item" focusable .indicator=${this.cardIndicator}>
 				<div class="branch-item__container">
-					${this.renderBranchItem(this.renderActions())}${this.renderPrItem()}${this.renderIssuesItem()}
+					${this.renderBranchItem(this.renderBranchActions())}${this.renderPrItem()}${this.renderIssuesItem()}
 				</div>
 			</gl-card>
 		`;
 	}
 
-	protected getActions() {
+	protected getBranchActions() {
 		const actions = [];
-		if (this.branch.pr) {
-			actions.push(
-				html`<action-item
-					label="Open Pull Request Changes"
-					icon="request-changes"
-					href=${this.createCommandLink('gitlens.home.openPullRequestChanges')}
-				></action-item>`,
-			);
-			actions.push(
-				html`<action-item
-					label="Open Pull Request on Remote"
-					icon="globe"
-					href=${this.createCommandLink('gitlens.home.openPullRequestOnRemote')}
-				></action-item>`,
-			);
-		}
+
 		if (this.branch.worktree) {
 			actions.push(
 				html`<action-item
@@ -542,6 +537,26 @@ export class GlBranchCard extends GlBranchCardBase {
 		);
 
 		return actions;
+	}
+
+	protected getPrActions() {
+		return [
+			html`<action-item
+				label="Open Pull Request Changes"
+				icon="request-changes"
+				href=${this.createCommandLink('gitlens.home.openPullRequestChanges')}
+			></action-item>`,
+			html`<action-item
+				label="Compare Pull Request"
+				icon="git-compare"
+				href=${this.createCommandLink('gitlens.home.openPullRequestComparison')}
+			></action-item>`,
+			html`<action-item
+				label="Open Pull Request Details"
+				icon="eye"
+				href=${this.createCommandLink('gitlens.home.openPullRequestDetails')}
+			></action-item>`,
+		];
 	}
 
 	renderBranchIndicator() {

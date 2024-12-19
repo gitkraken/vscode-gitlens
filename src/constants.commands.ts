@@ -681,6 +681,7 @@ type HomeWebviewCommands = `home.${
 	| 'openPullRequestChanges'
 	| 'openPullRequestComparison'
 	| 'openPullRequestOnRemote'
+	| 'openPullRequestDetails'
 	| 'createPullRequest'
 	| 'openWorktree'
 	| 'switchToBranch'

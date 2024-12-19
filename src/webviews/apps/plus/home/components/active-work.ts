@@ -222,7 +222,7 @@ export class GlActiveBranchCard extends GlBranchCardBase {
 	override render() {
 		return html`
 			${this.renderBranchIndicator()}${this.renderBranchItem(
-				html`${this.renderBranchStateActions()}${this.renderActions()}`,
+				html`${this.renderBranchStateActions()}${this.renderBranchActions()}`,
 			)}${this.renderPrItem()}${this.renderIssuesItem()}
 		`;
 	}
@@ -349,34 +349,27 @@ export class GlActiveBranchCard extends GlBranchCardBase {
 		></gl-merge-rebase-status>`;
 	}
 
-	protected getActions() {
-		const actions = [];
+	protected getBranchActions() {
+		return [];
+	}
 
-		if (this.branch.pr) {
-			actions.push(
-				html`<action-item
-					label="Open Pull Request Changes"
-					icon="request-changes"
-					href=${this.createCommandLink('gitlens.home.openPullRequestChanges')}
-				></action-item>`,
-			);
-			actions.push(
-				html`<action-item
-					label="Open Pull Request on Remote"
-					icon="globe"
-					href=${this.createCommandLink('gitlens.home.openPullRequestOnRemote')}
-				></action-item>`,
-			);
-		} else if (this.branch.upstream?.missing === false) {
-			actions.push(
-				html`<action-item
-					label="Create Pull Request..."
-					icon="git-pull-request-create"
-					href=${this.createCommandLink('gitlens.home.createPullRequest')}
-				></action-item>`,
-			);
-		}
-
-		return actions;
+	protected getPrActions() {
+		return [
+			html`<action-item
+				label="Open Pull Request Changes"
+				icon="request-changes"
+				href=${this.createCommandLink('gitlens.home.openPullRequestChanges')}
+			></action-item>`,
+			html`<action-item
+				label="Compare Pull Request"
+				icon="git-compare"
+				href=${this.createCommandLink('gitlens.home.openPullRequestComparison')}
+			></action-item>`,
+			html`<action-item
+				label="Open Pull Request Details"
+				icon="eye"
+				href=${this.createCommandLink('gitlens.home.openPullRequestDetails')}
+			></action-item>`,
+		];
 	}
 }
