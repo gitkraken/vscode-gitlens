@@ -764,6 +764,11 @@ export class Container {
 
 	@memoize()
 	private get baseGkDevUri(): Uri {
+		if (this.prereleaseOrDebugging) {
+			const url: string | undefined = configuration.getAny('gitkraken.url.gkdev.base');
+			if (url) return Uri.parse(url);
+		}
+
 		if (this.env === 'staging') {
 			return Uri.parse('https://staging.gitkraken.dev');
 		}
