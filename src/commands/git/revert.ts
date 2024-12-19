@@ -1,11 +1,16 @@
+import { Commands } from '../../constants.commands';
 import type { Container } from '../../container';
+import { RevertError, RevertErrorReason } from '../../git/errors';
 import type { GitBranch } from '../../git/models/branch';
 import type { GitLog } from '../../git/models/log';
 import type { GitRevisionReference } from '../../git/models/reference';
 import { getReferenceLabel } from '../../git/models/reference.utils';
 import type { Repository } from '../../git/models/repository';
+import { showGenericErrorMessage, showShouldCommitOrStashPrompt } from '../../messages';
 import type { FlagsQuickPickItem } from '../../quickpicks/items/flags';
 import { createFlagsQuickPickItem } from '../../quickpicks/items/flags';
+import { Logger } from '../../system/logger';
+import { executeCommand, executeCoreCommand } from '../../system/vscode/command';
 import type { ViewsWithRepositoryFolders } from '../../views/viewBase';
 import type {
 	PartialStepState,
@@ -27,12 +32,12 @@ interface Context {
 	title: string;
 }
 
-type Flags = '--edit' | '--no-edit';
+type RevertOptions = { edit?: boolean };
 
 interface State<Refs = GitRevisionReference | GitRevisionReference[]> {
 	repo: string | Repository;
 	references: Refs;
-	flags: Flags[];
+	options: RevertOptions;
 }
 
 export interface RevertGitCommandArgs {
@@ -71,8 +76,30 @@ export class RevertGitCommand extends QuickCommand<State> {
 		return false;
 	}
 
-	execute(state: RevertStepState<State<GitRevisionReference[]>>) {
-		state.repo.revert(...state.flags, ...state.references.map(c => c.ref).reverse());
+	async execute(state: RevertStepState<State<GitRevisionReference[]>>) {
+		for (const ref of state.references.reverse()) {
+			try {
+				await state.repo.git.revert(ref.ref, state.options);
+			} catch (ex) {
+				if (RevertError.is(ex, RevertErrorReason.LocalChangesWouldBeOverwritten)) {
+					const response = await showShouldCommitOrStashPrompt();
+					if (response == null || response === 'Cancel') {
+						continue;
+					}
+
+					if (response === 'Stash') {
+						await executeCommand(Commands.GitCommandsStashPush);
+					} else if (response === 'Commit') {
+						await executeCoreCommand('workbench.view.scm');
+					}
+
+					continue;
+				}
+
+				Logger.error(ex, this.title);
+				void showGenericErrorMessage(ex.message);
+			}
+		}
 	}
 
 	protected async *steps(state: PartialStepState<State>): StepGenerator {
@@ -84,8 +111,8 @@ export class RevertGitCommand extends QuickCommand<State> {
 			title: this.title,
 		};
 
-		if (state.flags == null) {
-			state.flags = [];
+		if (state.options == null) {
+			state.options = {};
 		}
 
 		if (state.references != null && !Array.isArray(state.references)) {
@@ -157,25 +184,25 @@ export class RevertGitCommand extends QuickCommand<State> {
 			const result = yield* this.confirmStep(state as RevertStepState, context);
 			if (result === StepResultBreak) continue;
 
-			state.flags = result;
+			state.options = Object.assign({}, ...result);
 
 			endSteps(state);
-			this.execute(state as RevertStepState<State<GitRevisionReference[]>>);
+			await this.execute(state as RevertStepState<State<GitRevisionReference[]>>);
 		}
 
 		return state.counter < 0 ? StepResultBreak : undefined;
 	}
 
-	private *confirmStep(state: RevertStepState, context: Context): StepResultGenerator<Flags[]> {
-		const step: QuickPickStep<FlagsQuickPickItem<Flags>> = this.createConfirmStep(
+	private *confirmStep(state: RevertStepState, context: Context): StepResultGenerator<RevertOptions[]> {
+		const step: QuickPickStep<FlagsQuickPickItem<RevertOptions>> = this.createConfirmStep(
 			appendReposToTitle(`Confirm ${context.title}`, state, context),
 			[
-				createFlagsQuickPickItem<Flags>(state.flags, ['--no-edit'], {
+				createFlagsQuickPickItem<RevertOptions>([], [{ edit: false }], {
 					label: this.title,
 					description: '--no-edit',
 					detail: `Will revert ${getReferenceLabel(state.references)}`,
 				}),
-				createFlagsQuickPickItem<Flags>(state.flags, ['--edit'], {
+				createFlagsQuickPickItem<RevertOptions>([], [{ edit: true }], {
 					label: `${this.title} & Edit`,
 					description: '--edit',
 					detail: `Will revert and edit ${getReferenceLabel(state.references)}`,
