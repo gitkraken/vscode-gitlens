@@ -231,9 +231,6 @@ export class GlActiveBranchCard extends GlBranchCardBase {
 	private renderBranchStateActions() {
 		const { name, state, upstream } = this.branch;
 
-		const mergeStatus = this.wip?.mergeStatus;
-		if (mergeStatus != null) return undefined;
-
 		const actions: TemplateResult[] = [];
 
 		const wrappedActions = () => {
@@ -241,8 +238,8 @@ export class GlActiveBranchCard extends GlBranchCardBase {
 			return html`<div><button-container>${actions}</button-container></div>`;
 		};
 
-		const workingTreeState = this.wip?.workingTreeState;
 		const isFetching = this.busy;
+		const workingTreeState = this.wip?.workingTreeState;
 		const hasWip =
 			workingTreeState != null &&
 			workingTreeState.added + workingTreeState.changed + workingTreeState.deleted > 0;
@@ -272,7 +269,8 @@ export class GlActiveBranchCard extends GlBranchCardBase {
 		}
 
 		const rebaseStatus = this.wip?.rebaseStatus;
-		if (rebaseStatus != null) {
+		const mergeStatus = this.wip?.mergeStatus;
+		if (rebaseStatus != null || mergeStatus != null) {
 			return wrappedActions();
 		}
 
