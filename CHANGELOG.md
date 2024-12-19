@@ -9,6 +9,7 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/) and this p
 ### Added
 
 - Adds Holiday promotion
+- Adds new ability to search for a GitLab MR in the _Launchpad_ &mdash; closes [#3788](https://github.com/gitkraken/vscode-gitlens/issues/3788)
 - Adds the ability to get autolinks for branches via the branch name &mdash; closes [#3547](https://github.com/gitkraken/vscode-gitlens/issues/3547)
 - Adds the ability to associate issues with branches &mdash; closes [#3870](https://github.com/gitkraken/vscode-gitlens/issues/3870)
   - Shows issues associated with branches in _Home_ view &mdash; closes [#3806](https://github.com/gitkraken/vscode-gitlens/issues/3806)
