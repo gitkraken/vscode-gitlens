@@ -404,6 +404,15 @@ export abstract class GlBranchCardBase extends GlElement {
 	}
 
 	get cardIndicator() {
+		if (this.launchpadItem && this.pr?.state === 'opened') {
+			return getLaunchpadItemGrouping(this.launchpadItem.category) ?? 'base';
+		}
+		return 'base';
+	}
+
+	get branchCardIndicator() {
+		if (!this.branch.opened) return undefined;
+
 		const isMerging = this.wip?.mergeStatus != null;
 		const isRebasing = this.wip?.rebaseStatus != null;
 		if (isMerging || isRebasing) {
@@ -434,13 +443,6 @@ export abstract class GlBranchCardBase extends GlElement {
 			default:
 				return 'branch-synced';
 		}
-	}
-
-	get branchCardIndicator() {
-		if (this.branch.opened) {
-			return this.cardIndicator;
-		}
-		return undefined;
 	}
 
 	override connectedCallback() {
@@ -694,10 +696,13 @@ export abstract class GlBranchCardBase extends GlElement {
 			return nothing;
 		}
 
-		let indicator: GlCard['indicator'] =
-			this.pr.state === 'merged' ? 'pr-merged' : this.pr.state === 'closed' ? 'pr-closed' : 'pr-open';
-		if (this.launchpadItem && indicator === 'pr-open') {
-			indicator = getLaunchpadItemGrouping(this.launchpadItem.category);
+		let indicator: GlCard['indicator'];
+		if (this.branch.opened) {
+			if (this.launchpadItem && this.pr?.state === 'opened') {
+				indicator = getLaunchpadItemGrouping(this.launchpadItem.category) ?? 'base';
+			} else {
+				indicator = 'base';
+			}
 		}
 
 		const actions = this.renderPrActions();
@@ -769,17 +774,17 @@ export abstract class GlBranchCardBase extends GlElement {
 			>`;
 		}
 
-		let indicator: GlCard['indicator'];
-		for (const issue of issues) {
-			if (issue.state === 'opened') {
-				indicator = 'issue-open';
-				break;
-			}
+		const indicator: GlCard['indicator'] = this.branch.opened ? 'base' : undefined;
+		// for (const issue of issues) {
+		// 	if (issue.state === 'opened') {
+		// 		indicator = 'issue-open';
+		// 		break;
+		// 	}
 
-			if (issue.state === 'closed') {
-				indicator = 'issue-closed';
-			}
-		}
+		// 	if (issue.state === 'closed') {
+		// 		indicator = 'issue-closed';
+		// 	}
+		// }
 
 		return html`
 			<gl-work-item ?expanded=${this.expanded} ?nested=${!this.branch.opened} .indicator=${indicator}>
