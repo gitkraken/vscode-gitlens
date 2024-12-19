@@ -12,6 +12,7 @@ import type {
 	PullRequestState,
 	SearchedPullRequest,
 } from '../../../git/models/pullRequest';
+import type { PullRequestUrlIdentity } from '../../../git/models/pullRequest.utils';
 import type { RepositoryMetadata } from '../../../git/models/repositoryMetadata';
 import { log } from '../../../system/decorators/log';
 import { uniqueBy } from '../../../system/iterable';
@@ -22,6 +23,7 @@ import type {
 } from '../authentication/integrationAuthentication';
 import type { RepositoryDescriptor } from '../integration';
 import { HostingIntegration } from '../integration';
+import { getGitLabPullRequestIdentityFromMaybeUrl } from './gitlab/gitlab.utils';
 import { fromGitLabMergeRequestProvidersApi } from './gitlab/models';
 import type { ProviderPullRequest } from './models';
 import { ProviderPullRequestReviewState, providersMetadata, toSearchedIssue } from './models';
@@ -163,6 +165,23 @@ abstract class GitLabIntegrationBase<
 		});
 	}
 
+	protected override async getProviderPullRequest(
+		{ accessToken }: AuthenticationSession,
+		resource: GitLabRepositoryDescriptor,
+		id: string,
+	): Promise<PullRequest | undefined> {
+		return (await this.container.gitlab)?.getPullRequest(
+			this,
+			accessToken,
+			resource.owner,
+			resource.name,
+			parseInt(id, 10),
+			{
+				baseUrl: this.apiBaseUrl,
+			},
+		);
+	}
+
 	protected override async getProviderRepositoryMetadata(
 		{ accessToken }: AuthenticationSession,
 		repo: GitLabRepositoryDescriptor,
@@ -295,6 +314,29 @@ abstract class GitLabIntegrationBase<
 			.filter((result): result is SearchedIssue => result != null);
 	}
 
+	protected override async searchProviderPullRequests(
+		{ accessToken }: AuthenticationSession,
+		searchQuery: string,
+		repos?: GitLabRepositoryDescriptor[],
+		cancellation?: CancellationToken,
+	): Promise<PullRequest[] | undefined> {
+		const api = await this.container.gitlab;
+		if (!api) {
+			return undefined;
+		}
+
+		return api.searchPullRequests(
+			this,
+			accessToken,
+			{
+				search: searchQuery,
+				repos: repos?.map(r => `${r.owner}/${r.name}`),
+				baseUrl: this.apiBaseUrl,
+			},
+			cancellation,
+		);
+	}
+
 	protected override async mergeProviderPullRequest(
 		_session: AuthenticationSession,
 		pr: PullRequest,
@@ -352,6 +394,10 @@ abstract class GitLabIntegrationBase<
 			avatarUrl: currentUser.avatarUrl || undefined,
 			username: currentUser.username || undefined,
 		};
+	}
+
+	override getPullRequestIdentityFromMaybeUrl(search: string): PullRequestUrlIdentity | undefined {
+		return getGitLabPullRequestIdentityFromMaybeUrl(search);
 	}
 }
 
