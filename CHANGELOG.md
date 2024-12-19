@@ -8,8 +8,25 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/) and this p
 
 ### Added
 
-- Adds a host of improvements to the _Home_ view:
-  - _Open all Changes_ actions now opens the multidiff view
+- Remodels and polishes the _Home_ view:
+  - Adds a new header bar with information, controls, and management for your account and integrations
+  - Branch cards are now grouped, expandable sets which include information on the branch, its associated pull requests and issues
+  - Adds "merge target" status to the active branch
+    - Includes the status of the branch relative to the branch that it is most likely to be merged into (its "merge target")
+    - Includes pre-emptive conflict detection with the merge target and _Merge_ and _Rebase_ actions
+  - Adds merge and rebase status to the active branch while in a merge or rebase
+  - Adds a _Commit_ action which automatically generates a commit message and focuses the SCM commit box
+  - Integrates Launchpad status directly into pull requests and adds colored indicators reflecting Launchpad statuses: "Mergeable", "Blocked", and "Needs Attention"
+  - Adds upstream status information to branch cards
+  - Adds more pull request actions:
+    - _Open Pull Request Changes_ which opens a pull request's changes in a multidiff editor tab
+    - _Compare Pull Request_ which opens a pull request in the _Search & Compare_ view
+    - _Open Pull Request Details_ which opens a pull request in the _Pull Request_ view
+  - Adds the ability to share your working changes with teammates
+  - Increases the prominence of the "branch owner's" avatar
+    - The "branch owner" is the person who contributed the most changes across the commits between the branch's HEAD and branching point
+  - Adds contextual tooltips throughout
+- Adds pre-emptive conflict detection to _Merge_ and _Rebase_ git commands
 - Adds the ability to show stashes in the _Commits_, _Branches_ and _Worktrees_ views &mdash; off by default, can be toggled in the _View Options_ context menu of each view
 - Adds the ability to show remote branches (for the default remote) in the _Branches_ view &mdash; off by default, can be toggled in the _View Options_ context menu of each view
 - Adds the ability to associate issues with branches &mdash; closes [#3870](https://github.com/gitkraken/vscode-gitlens/issues/3870)
