@@ -304,6 +304,7 @@ export class HomeWebviewProvider implements WebviewProvider<State, State, HomeWe
 			registerCommand('gitlens.home.openPullRequestChanges', this.pullRequestChanges, this),
 			registerCommand('gitlens.home.openPullRequestComparison', this.pullRequestCompare, this),
 			registerCommand('gitlens.home.openPullRequestOnRemote', this.pullRequestViewOnRemote, this),
+			registerCommand('gitlens.home.openPullRequestDetails', this.pullRequestDetails, this),
 			registerCommand('gitlens.home.createPullRequest', this.pullRequestCreate, this),
 			registerCommand('gitlens.home.openWorktree', this.worktreeOpen, this),
 			registerCommand('gitlens.home.switchToBranch', this.switchToBranch, this),
@@ -960,6 +961,13 @@ export class HomeWebviewProvider implements WebviewProvider<State, State, HomeWe
 			pr: { url: pr.url },
 			clipboard: clipboard,
 		});
+	}
+
+	private async pullRequestDetails(refs: BranchRef) {
+		const pr = await this.findPullRequest(refs);
+		if (pr == null) return;
+
+		void this.container.views.pullRequest.showPullRequest(pr, refs.repoPath);
 	}
 
 	private async pullRequestCreate(refs: BranchRef) {
