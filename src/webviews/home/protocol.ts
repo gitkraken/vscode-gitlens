@@ -86,85 +86,107 @@ export interface GetOverviewBranch {
 	mergeStatus?: GitMergeStatus;
 	rebaseStatus?: GitRebaseStatus;
 
-	mergeTarget?: {
-		repoPath: string;
-		name: string | undefined;
-		status?: { ahead: number; behind: number };
-		potentialConflicts?: MergeConflict;
+	mergeTarget?: Promise<
+		| {
+				repoPath: string;
+				name: string | undefined;
+				status?: GitTrackingState;
+				potentialConflicts?: MergeConflict;
 
-		targetBranch: string | undefined;
-		baseBranch: string | undefined;
-		defaultBranch: string | undefined;
-	};
+				targetBranch: string | undefined;
+				baseBranch: string | undefined;
+				defaultBranch: string | undefined;
+		  }
+		| undefined
+	>;
 
-	owner?: {
-		name: string;
-		email: string;
-		avatarUrl: string;
-		current: boolean;
-		timestamp?: number;
-		count: number;
-		stats?: {
-			files: number;
-			additions: number;
-			deletions: number;
-		};
-	};
-	contributors?: {
-		name: string;
-		email: string;
-		avatarUrl: string;
-		current: boolean;
-		timestamp?: number;
-		count: number;
-		stats?: {
-			files: number;
-			additions: number;
-			deletions: number;
-		};
-	}[];
-	pr?: {
-		id: string;
-		title: string;
-		state: string;
-		url: string;
-
-		launchpad?: {
-			category: LaunchpadItem['actionableCategory'];
-			groups: LaunchpadGroup[];
-			suggestedActions: LaunchpadItem['suggestedActions'];
-
-			failingCI: boolean;
-			hasConflicts: boolean;
-
-			review: {
-				decision: LaunchpadItem['reviewDecision'];
-				reviews: NonNullable<LaunchpadItem['reviews']>;
-
-				counts: {
-					approval: number;
-					changeRequest: number;
-					comment: number;
-					codeSuggest: number;
+	owner?: Promise<
+		| {
+				name: string;
+				email: string;
+				avatarUrl: string;
+				current: boolean;
+				timestamp?: number;
+				count: number;
+				stats?: {
+					files: number;
+					additions: number;
+					deletions: number;
 				};
-			};
+		  }
+		| undefined
+	>;
 
-			viewer: LaunchpadItem['viewer'];
-		};
-	};
-	autolinks?: {
-		id: string;
-		title: string;
-		url: string;
-		state: string;
-		hasIssue: boolean;
-	}[];
-	issues?: {
-		id: string;
-		title: string;
-		url: string;
-		state: string;
-	}[];
+	contributors?: Promise<
+		{
+			name: string;
+			email: string;
+			avatarUrl: string;
+			current: boolean;
+			timestamp?: number;
+			count: number;
+			stats?: {
+				files: number;
+				additions: number;
+				deletions: number;
+			};
+		}[]
+	>;
+
+	pr?: Promise<
+		| {
+				id: string;
+				title: string;
+				state: string;
+				url: string;
+
+				launchpad?: Promise<
+					| {
+							category: LaunchpadItem['actionableCategory'];
+							groups: LaunchpadGroup[];
+							suggestedActions: LaunchpadItem['suggestedActions'];
+
+							failingCI: boolean;
+							hasConflicts: boolean;
+
+							review: {
+								decision: LaunchpadItem['reviewDecision'];
+								reviews: NonNullable<LaunchpadItem['reviews']>;
+
+								counts: {
+									approval: number;
+									changeRequest: number;
+									comment: number;
+									codeSuggest: number;
+								};
+							};
+
+							viewer: LaunchpadItem['viewer'];
+					  }
+					| undefined
+				>;
+		  }
+		| undefined
+	>;
+
+	autolinks?: Promise<
+		{
+			id: string;
+			title: string;
+			url: string;
+			state: string;
+		}[]
+	>;
+
+	issues?: Promise<
+		{
+			id: string;
+			title: string;
+			url: string;
+			state: string;
+		}[]
+	>;
+
 	worktree?: {
 		name: string;
 		uri: string;

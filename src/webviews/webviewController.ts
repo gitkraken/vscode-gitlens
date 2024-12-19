@@ -399,8 +399,10 @@ export class WebviewController<
 
 	@debug()
 	async refresh(force?: boolean): Promise<void> {
+		this.cancellation?.cancel();
+		this.cancellation = new CancellationTokenSource();
+
 		if (force) {
-			this.cancellation?.cancel();
 			this.clearPendingIpcNotifications();
 		}
 		this.provider.onRefresh?.(force);
@@ -422,9 +424,6 @@ export class WebviewController<
 			}
 			return;
 		}
-
-		this.cancellation?.cancel();
-		this.cancellation ??= new CancellationTokenSource();
 
 		this.webview.html = html;
 	}
@@ -600,6 +599,28 @@ export class WebviewController<
 		const pendingPromises: [Promise<unknown>, IpcPromise][] = [];
 		this.replacePromisesWithIpcPromises(params, pendingPromises);
 
+		const cancellation = this.cancellation?.token;
+		queueMicrotask(() => {
+			for (const [promise, ipcPromise] of pendingPromises) {
+				promise.then(
+					r => {
+						if (cancellation?.isCancellationRequested) {
+							debugger;
+							return;
+						}
+						return this.notify(ipcPromiseSettled, { status: 'fulfilled', value: r }, ipcPromise.id);
+					},
+					(ex: unknown) => {
+						if (cancellation?.isCancellationRequested) {
+							debugger;
+							return;
+						}
+						return this.notify(ipcPromiseSettled, { status: 'rejected', reason: ex }, ipcPromise.id);
+					},
+				);
+			}
+		});
+
 		let packed;
 		if (notificationType.pack && params != null) {
 			const sw = maybeStopWatch(
@@ -628,21 +649,6 @@ export class WebviewController<
 		} else {
 			this.addPendingIpcNotificationCore(notificationType, msg);
 		}
-
-		const cancellation = this.cancellation?.token;
-		for (const [promise, ipcPromise] of pendingPromises) {
-			promise.then(
-				r =>
-					cancellation?.isCancellationRequested
-						? undefined
-						: this.notify(ipcPromiseSettled, { status: 'fulfilled', value: r }, ipcPromise.id),
-				(ex: unknown) =>
-					cancellation?.isCancellationRequested
-						? undefined
-						: this.notify(ipcPromiseSettled, { status: 'rejected', reason: ex }, ipcPromise.id),
-			);
-		}
-
 		return success;
 	}
 

@@ -36,7 +36,7 @@ import { sortBranches } from '../../git/utils/sorting';
 import type { Subscription } from '../../plus/gk/account/subscription';
 import { isSubscriptionStatePaidOrTrial } from '../../plus/gk/account/subscription';
 import type { SubscriptionChangeEvent } from '../../plus/gk/account/subscriptionService';
-import type { LaunchpadCategorizedResult, LaunchpadItem } from '../../plus/launchpad/launchpadProvider';
+import type { LaunchpadCategorizedResult } from '../../plus/launchpad/launchpadProvider';
 import { getLaunchpadItemGroups } from '../../plus/launchpad/launchpadProvider';
 import { getLaunchpadSummary } from '../../plus/launchpad/utils';
 import type { StartWorkCommandArgs } from '../../plus/startWork/startWork';
@@ -45,7 +45,7 @@ import { showRepositoryPicker } from '../../quickpicks/repositoryPicker';
 import type { Deferrable } from '../../system/function';
 import { debounce } from '../../system/function';
 import { filterMap, map } from '../../system/iterable';
-import { getSettledValue, pauseOnCancelOrTimeoutMap } from '../../system/promise';
+import { getSettledValue } from '../../system/promise';
 import { executeActionCommand, executeCommand, registerCommand } from '../../system/vscode/command';
 import { configuration } from '../../system/vscode/configuration';
 import { getContext, onDidChangeContext } from '../../system/vscode/context';
@@ -109,11 +109,14 @@ interface BranchRef {
 	repoPath: string;
 	branchId: string;
 }
-type BranchMergeTargetStatus = GetOverviewBranch['mergeTarget'];
-interface EnrichedPullRequest {
-	pullRequest: PullRequest;
-	launchpadItem: LaunchpadItem | undefined;
-}
+
+// type AutolinksInfo = Awaited<GetOverviewBranch['autolinks']>;
+type BranchMergeTargetStatusInfo = Awaited<GetOverviewBranch['mergeTarget']>;
+type ContributorsInfo = Awaited<GetOverviewBranch['contributors']>;
+type IssuesInfo = Awaited<GetOverviewBranch['issues']>;
+type LaunchpadItemInfo = Awaited<NonNullable<Awaited<GetOverviewBranch['pr']>>['launchpad']>;
+type OwnerInfo = Awaited<GetOverviewBranch['owner']>;
+type PullRequestInfo = Awaited<GetOverviewBranch['pr']>;
 
 export class HomeWebviewProvider implements WebviewProvider<State, State, HomeWebviewShowingArgs> {
 	private readonly _disposable: Disposable;
@@ -1075,72 +1078,14 @@ async function getOverviewBranches(
 		stale: [],
 	};
 
-	const getBranchMergeTargetStatus = async (branch: GitBranch): Promise<BranchMergeTargetStatus> => {
-		const info = await getBranchTargetInfo(container, branch, {
-			associatedPullRequest: branch.getAssociatedPullRequest(),
-		});
-
-		let targetBranch;
-		if (!info.targetBranch.paused && info.targetBranch.value) {
-			targetBranch = info.targetBranch.value;
-		}
-
-		const target = targetBranch ?? info.baseBranch ?? info.defaultBranch;
-		if (target == null) return undefined;
-
-		const [countsResult, conflictResult] = await Promise.allSettled([
-			container.git.getLeftRightCommitCount(branch.repoPath, createRevisionRange(target, branch.ref, '...'), {
-				excludeMerges: true,
-			}),
-			container.git.getPotentialMergeOrRebaseConflict(branch.repoPath, branch.name, target),
-		]);
-
-		const counts = getSettledValue(countsResult);
-		const status = counts != null ? { ahead: counts.right, behind: counts.left } : undefined;
-
-		return {
-			repoPath: branch.repoPath,
-			name: target,
-			status: status,
-			potentialConflicts: getSettledValue(conflictResult),
-			targetBranch: targetBranch,
-			baseBranch: info.baseBranch,
-			defaultBranch: info.defaultBranch,
-		};
-	};
-
-	let launchpadResultPromise: Promise<LaunchpadCategorizedResult> | undefined;
-
-	const getEnrichedPullRequest = async (
-		branch: GitBranch,
-		options?: { avatarSize?: number },
-	): Promise<EnrichedPullRequest | undefined> => {
-		const pr = await branch.getAssociatedPullRequest(options);
-		if (pr == null) return undefined;
-
-		launchpadResultPromise ??= container.launchpad.getCategorizedItems();
-		let result = await launchpadResultPromise;
-		if (result.error != null) return { pullRequest: pr, launchpadItem: undefined };
-
-		let lpi = result.items.find(i => i.url === pr.url);
-		if (lpi == null) {
-			// result = await container.launchpad.getCategorizedItems({ search: pr.url });
-			result = await container.launchpad.getCategorizedItems({ search: [{ pullRequest: pr, reasons: [] }] });
-			if (result.error != null) return { pullRequest: pr, launchpadItem: undefined };
-
-			lpi = result.items.find(i => i.url === pr.url);
-		}
-
-		return { pullRequest: pr, launchpadItem: lpi };
-	};
-
+	let launchpadPromise: Promise<LaunchpadCategorizedResult> | undefined;
 	let repoStatusPromise: Promise<GitStatus | undefined> | undefined;
-	const prPromises = new Map<string, Promise<EnrichedPullRequest | undefined>>();
+	const prPromises = new Map<string, Promise<PullRequestInfo | undefined>>();
 	const autolinkPromises = new Map<string, Promise<Map<string, EnrichedAutolink> | undefined>>();
 	const issuePromises = new Map<string, Promise<Issue[] | undefined>>();
 	const statusPromises = new Map<string, Promise<GitStatus | undefined>>();
-	const contributorPromises = new Map<string, Promise<BranchContributorOverview | undefined>>();
-	const mergeTargetPromises = new Map<string, Promise<BranchMergeTargetStatus>>();
+	const contributorsPromises = new Map<string, Promise<BranchContributorOverview | undefined>>();
+	const mergeTargetPromises = new Map<string, Promise<BranchMergeTargetStatusInfo>>();
 
 	const now = Date.now();
 	const recentThreshold = now - thresholdValues[filters.recent.threshold];
@@ -1153,18 +1098,18 @@ async function getOverviewBranches(
 		if (branch.current || wt?.opened) {
 			const forceOptions = options?.forceActive ? { force: true } : undefined;
 			if (options?.isPro !== false) {
-				prPromises.set(branch.id, getEnrichedPullRequest(branch, { avatarSize: 16 }));
+				prPromises.set(branch.id, getPullRequest(container, branch, launchpadPromise));
 				autolinkPromises.set(branch.id, branch.getEnrichedAutolinks());
 				issuePromises.set(
 					branch.id,
 					getAssociatedIssuesForBranch(container, branch).then(issues => issues.value),
 				);
-				contributorPromises.set(
+				contributorsPromises.set(
 					branch.id,
 					container.git.getBranchContributorOverview(branch.repoPath, branch.ref),
 				);
 				if (branch.current) {
-					mergeTargetPromises.set(branch.id, getBranchMergeTargetStatus(branch));
+					mergeTargetPromises.set(branch.id, getBranchMergeTargetStatus(container, branch));
 				}
 			}
 
@@ -1195,13 +1140,13 @@ async function getOverviewBranches(
 
 		if (timestamp != null && timestamp > recentThreshold) {
 			if (options?.isPro !== false) {
-				prPromises.set(branch.id, getEnrichedPullRequest(branch));
+				prPromises.set(branch.id, getPullRequest(container, branch, launchpadPromise));
 				autolinkPromises.set(branch.id, branch.getEnrichedAutolinks());
 				issuePromises.set(
 					branch.id,
 					getAssociatedIssuesForBranch(container, branch).then(issues => issues.value),
 				);
-				contributorPromises.set(
+				contributorsPromises.set(
 					branch.id,
 					container.git.getBranchContributorOverview(branch.repoPath, branch.ref),
 				);
@@ -1261,10 +1206,10 @@ async function getOverviewBranches(
 
 				if (options?.isPro !== false) {
 					if (!branch.upstream?.missing) {
-						prPromises.set(branch.id, getEnrichedPullRequest(branch));
+						prPromises.set(branch.id, getPullRequest(container, branch, launchpadPromise));
 					}
 
-					contributorPromises.set(
+					contributorsPromises.set(
 						branch.id,
 						container.git.getBranchContributorOverview(branch.repoPath, branch.ref),
 					);
@@ -1298,7 +1243,7 @@ async function getOverviewBranches(
 		autolinkPromises,
 		issuePromises,
 		statusPromises,
-		contributorPromises,
+		contributorsPromises,
 		mergeTargetPromises,
 		container,
 	);
@@ -1309,127 +1254,19 @@ async function getOverviewBranches(
 // FIXME: support partial enrichment
 async function enrichOverviewBranches(
 	overviewBranches: GetOverviewBranches,
-	prPromises: Map<string, Promise<EnrichedPullRequest | undefined>>,
+	prPromises: Map<string, Promise<PullRequestInfo | undefined>>,
 	autolinkPromises: Map<string, Promise<Map<string, EnrichedAutolink> | undefined>>,
 	issuePromises: Map<string, Promise<Issue[] | undefined>>,
 	statusPromises: Map<string, Promise<GitStatus | undefined>>,
-	contributorPromises: Map<string, Promise<BranchContributorOverview | undefined>>,
-	mergeTargetPromises: Map<string, Promise<BranchMergeTargetStatus>>,
+	contributorsPromises: Map<string, Promise<BranchContributorOverview | undefined>>,
+	mergeTargetPromises: Map<string, Promise<BranchMergeTargetStatusInfo>>,
 	container: Container,
 ) {
-	const [prResults, autolinkResults, issueResults, statusResults, contributorResults, mergeTargetResults] =
-		await Promise.allSettled([
-			pauseOnCancelOrTimeoutMap(prPromises, true),
-			Promise.allSettled(
-				map(autolinkPromises, ([id, autolinks]) =>
-					autolinks.then<[string, Map<string, EnrichedAutolink> | undefined]>(a => [id, a]),
-				),
-			),
-			Promise.allSettled(
-				map(issuePromises, ([id, issues]) =>
-					issues.then<[string, Issue[] | undefined]>(issues => [id, issues]),
-				),
-			),
-			Promise.allSettled(
-				map(statusPromises, ([id, status]) =>
-					status.then<[string, GitStatus | undefined]>(status => [id, status]),
-				),
-			),
-			Promise.allSettled(
-				map(contributorPromises, ([id, overview]) =>
-					overview.then<[string, BranchContributorOverview | undefined]>(overview => [id, overview]),
-				),
-			),
-			pauseOnCancelOrTimeoutMap(mergeTargetPromises, true),
-		]);
-
-	const prs = new Map(
-		map(getSettledValue(prResults) ?? [], ([id, epr]) => [
-			id,
-			!epr.paused && epr.value != null
-				? ({
-						id: epr.value.pullRequest.id,
-						title: epr.value.pullRequest.title,
-						state: epr.value.pullRequest.state,
-						url: epr.value.pullRequest.url,
-						launchpad:
-							epr.value.launchpadItem != null
-								? {
-										category: epr.value.launchpadItem.actionableCategory,
-										groups: getLaunchpadItemGroups(epr.value.launchpadItem),
-										suggestedActions: epr.value.launchpadItem.suggestedActions,
-
-										failingCI: epr.value.launchpadItem.failingCI,
-										hasConflicts: epr.value.launchpadItem.hasConflicts,
-
-										review: {
-											decision: epr.value.launchpadItem.reviewDecision,
-											reviews: epr.value.launchpadItem.reviews ?? [],
-											counts: {
-												approval: epr.value.launchpadItem.approvalReviewCount,
-												changeRequest: epr.value.launchpadItem.changeRequestReviewCount,
-												comment: epr.value.launchpadItem.commentReviewCount,
-												codeSuggest: epr.value.launchpadItem.codeSuggestionsCount,
-											},
-										},
-
-										viewer: { ...epr.value.launchpadItem.viewer, enrichedItems: undefined },
-								  }
-								: undefined,
-				  } satisfies GetOverviewBranch['pr'])
-				: undefined,
-		]),
-	);
-
-	const enrichedAutolinkPromises = new Map(
-		getSettledValue(autolinkResults)
-			?.filter(r => r.status === 'fulfilled')
-			.map(({ value: [autolinkId, autolinks] }) => [
-				autolinkId,
-				autolinks
-					? [...autolinks.values()]
-							.filter(autolink => autolink?.[0] != null)
-							.map(async autolink => {
-								const issue = await autolink[0]!;
-								return {
-									id: autolink[1].id,
-									title: issue?.title ?? autolink[1].title ?? `Issue #${autolink[1].id}`,
-									state: issue?.state === 'closed' ? 'closed' : 'opened',
-									url: autolink[1].url,
-									hasIssue: issue != null,
-								};
-							})
-					: undefined,
-			]),
-	);
-
-	const autolinks = new Map<string, GetOverviewBranch['autolinks']>();
-
-	for (const [id, enrichedAutolinkPromise] of enrichedAutolinkPromises.entries()) {
-		if (enrichedAutolinkPromise == null) continue;
-		const enrichedAutolinks = await Promise.all(enrichedAutolinkPromise);
-		if (!enrichedAutolinks.length) continue;
-		autolinks.set(
-			id,
-			enrichedAutolinks.filter(a => a.hasIssue),
-		);
-	}
-
-	const issues = new Map(
-		getSettledValue(issueResults)
-			?.filter(r => r.status === 'fulfilled')
-			.map(({ value: [issueId, issues] }) => [
-				issueId,
-				issues
-					? (issues.map(issue => ({
-							id: issue.id,
-							title: issue.title,
-							state: issue.state,
-							url: issue.url,
-					  })) satisfies GetOverviewBranch['issues'])
-					: undefined,
-			]),
-	);
+	const [statusResults] = await Promise.allSettled([
+		Promise.allSettled(
+			map(statusPromises, ([id, status]) => status.then<[string, GitStatus | undefined]>(status => [id, status])),
+		),
+	]);
 
 	const statuses = new Map(
 		getSettledValue(statusResults)
@@ -1437,24 +1274,26 @@ async function enrichOverviewBranches(
 			.map(r => [r.value[0], r.value[1]]),
 	);
 
-	const contributors = new Map(
-		getSettledValue(contributorResults)
-			?.filter(r => r.status === 'fulfilled')
-			.map(r => [r.value[0], r.value[1]]),
-	);
-
-	const mergeTargets = getSettledValue(mergeTargetResults);
-
 	for (const branch of [...overviewBranches.active, ...overviewBranches.recent, ...overviewBranches.stale]) {
 		const isActive = overviewBranches.active.includes(branch);
-		const pr = prs.get(branch.id);
-		branch.pr = pr;
+		branch.pr = prPromises.get(branch.id);
 
-		const autolinksForBranch = autolinks.get(branch.id);
-		branch.autolinks = autolinksForBranch;
+		const autolinks = autolinkPromises.get(branch.id);
+		branch.autolinks = autolinks?.then(a => getAutolinkIssues(a));
 
-		const issuesForBranch = issues.get(branch.id);
-		branch.issues = issuesForBranch;
+		const issues = issuePromises.get(branch.id);
+		branch.issues = issues?.then(
+			issues =>
+				issues?.map(
+					i =>
+						({
+							id: i.id,
+							title: i.title,
+							state: i.state,
+							url: i.url,
+						}) satisfies NonNullable<IssuesInfo>[0],
+				) ?? [],
+		);
 
 		const status = statuses.get(branch.id);
 		if (status != null) {
@@ -1476,40 +1315,180 @@ async function enrichOverviewBranches(
 			}
 		}
 
-		const contributor = contributors.get(branch.id);
-		if (contributor != null) {
-			const rawContributors = contributor.contributors != null ? [...contributor.contributors] : undefined;
-			const owner = contributor.owner ?? rawContributors?.shift();
-			if (owner != null) {
-				branch.owner = {
-					name: owner.name ?? '',
-					email: owner.email ?? '',
-					current: owner.current,
-					timestamp: owner.date?.getTime(),
-					count: owner.count,
-					stats: owner.stats,
-					avatarUrl: (await owner.getAvatarUri())?.toString(),
-				};
-			}
-			const contributors = rawContributors
-				? await Promise.all(
-						rawContributors.map(async c => ({
-							name: c.name ?? '',
-							email: c.email ?? '',
-							current: c.current,
-							timestamp: c.date?.getTime(),
-							count: c.count,
-							stats: c.stats,
-							avatarUrl: (await c.getAvatarUri())?.toString(),
-						})),
-				  )
-				: undefined;
-			branch.contributors = contributors;
+		const contributors = contributorsPromises.get(branch.id);
+		branch.owner = getOwner(container, contributors);
+		branch.contributors = getContributors(container, contributors);
 
-			const mergeTarget = mergeTargets?.get(branch.id);
-			if (mergeTarget?.value != null && !mergeTarget.paused) {
-				branch.mergeTarget = mergeTarget.value;
-			}
-		}
+		const mergeTarget = mergeTargetPromises.get(branch.id);
+		branch.mergeTarget = mergeTarget;
 	}
+}
+
+async function getAutolinkIssues(links: Map<string, EnrichedAutolink> | undefined) {
+	if (links == null) return [];
+
+	const results = await Promise.allSettled(
+		filterMap([...links.values()], async autolink => {
+			const issueOrPullRequest = autolink?.[0];
+			if (issueOrPullRequest == null) return undefined;
+
+			const issue = await issueOrPullRequest;
+			if (issue == null) return undefined;
+
+			return {
+				id: issue.id,
+				title: issue.title,
+				url: issue.url,
+				state: issue.state,
+			};
+		}),
+	);
+
+	return results.map(r => (r.status === 'fulfilled' ? r.value : undefined)).filter(r => r != null);
+}
+
+async function getContributors(
+	_container: Container,
+	contributorsPromise: Promise<BranchContributorOverview | undefined> | undefined,
+) {
+	if (contributorsPromise == null) return [];
+
+	const contributors = await contributorsPromise;
+	if (contributors?.contributors == null) return [];
+
+	const result = await Promise.allSettled(
+		contributors.contributors.map(
+			async c =>
+				({
+					name: c.name ?? '',
+					email: c.email ?? '',
+					current: c.current,
+					timestamp: c.date?.getTime(),
+					count: c.count,
+					stats: c.stats,
+					avatarUrl: (await c.getAvatarUri())?.toString(),
+				}) satisfies NonNullable<ContributorsInfo>[0],
+		),
+	);
+	return result.map(r => (r.status === 'fulfilled' ? r.value : undefined)).filter(r => r != null);
+}
+
+async function getOwner(
+	_container: Container,
+	contributorsPromise: Promise<BranchContributorOverview | undefined> | undefined,
+) {
+	if (contributorsPromise == null) return undefined;
+
+	const contributors = await contributorsPromise;
+	if (contributors == null) return undefined;
+
+	const owner = contributors.owner ?? contributors.contributors?.shift();
+	if (owner == null) return undefined;
+
+	return {
+		name: owner.name ?? '',
+		email: owner.email ?? '',
+		current: owner.current,
+		timestamp: owner.date?.getTime(),
+		count: owner.count,
+		stats: owner.stats,
+		avatarUrl: (await owner.getAvatarUri())?.toString(),
+	} satisfies OwnerInfo;
+}
+
+async function getBranchMergeTargetStatus(
+	container: Container,
+	branch: GitBranch,
+): Promise<BranchMergeTargetStatusInfo> {
+	const info = await getBranchTargetInfo(container, branch, {
+		associatedPullRequest: branch.getAssociatedPullRequest(),
+	});
+
+	let targetBranch;
+	if (!info.targetBranch.paused && info.targetBranch.value) {
+		targetBranch = info.targetBranch.value;
+	}
+
+	const target = targetBranch ?? info.baseBranch ?? info.defaultBranch;
+	if (target == null) return undefined;
+
+	const [countsResult, conflictResult] = await Promise.allSettled([
+		container.git.getLeftRightCommitCount(branch.repoPath, createRevisionRange(target, branch.ref, '...'), {
+			excludeMerges: true,
+		}),
+		container.git.getPotentialMergeOrRebaseConflict(branch.repoPath, branch.name, target),
+	]);
+
+	const counts = getSettledValue(countsResult);
+	const status = counts != null ? { ahead: counts.right, behind: counts.left } : undefined;
+
+	return {
+		repoPath: branch.repoPath,
+		name: target,
+		status: status,
+		potentialConflicts: getSettledValue(conflictResult),
+		targetBranch: targetBranch,
+		baseBranch: info.baseBranch,
+		defaultBranch: info.defaultBranch,
+	};
+}
+
+async function getLaunchpadItem(
+	container: Container,
+	pr: PullRequest,
+	launchpadPromise: Promise<LaunchpadCategorizedResult> | undefined,
+): Promise<LaunchpadItemInfo> {
+	launchpadPromise ??= container.launchpad.getCategorizedItems();
+	let result = await launchpadPromise;
+	if (result.error != null) return undefined;
+
+	let lpi = result.items.find(i => i.url === pr.url);
+	if (lpi == null) {
+		// result = await container.launchpad.getCategorizedItems({ search: pr.url });
+		result = await container.launchpad.getCategorizedItems({ search: [{ pullRequest: pr, reasons: [] }] });
+		if (result.error != null) return undefined;
+
+		lpi = result.items.find(i => i.url === pr.url);
+	}
+
+	if (lpi == null) return undefined;
+
+	return {
+		category: lpi.actionableCategory,
+		groups: getLaunchpadItemGroups(lpi),
+		suggestedActions: lpi.suggestedActions,
+
+		failingCI: lpi.failingCI,
+		hasConflicts: lpi.hasConflicts,
+
+		review: {
+			decision: lpi.reviewDecision,
+			reviews: lpi.reviews ?? [],
+			counts: {
+				approval: lpi.approvalReviewCount,
+				changeRequest: lpi.changeRequestReviewCount,
+				comment: lpi.commentReviewCount,
+				codeSuggest: lpi.codeSuggestionsCount,
+			},
+		},
+
+		viewer: { ...lpi.viewer, enrichedItems: undefined },
+	};
+}
+
+async function getPullRequest(
+	container: Container,
+	branch: GitBranch,
+	launchpadPromise: Promise<LaunchpadCategorizedResult> | undefined,
+): Promise<PullRequestInfo> {
+	const pr = await branch.getAssociatedPullRequest({ avatarSize: 64 });
+	if (pr == null) return undefined;
+
+	return {
+		id: pr.id,
+		url: pr.url,
+		state: pr.state,
+		title: pr.title,
+		launchpad: getLaunchpadItem(container, pr, launchpadPromise),
+	};
 }
