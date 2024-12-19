@@ -21,6 +21,7 @@ import * as RepoActions from '../../git/actions/repository';
 import type { BranchContributorOverview } from '../../git/gitProvider';
 import type { GitBranch } from '../../git/models/branch';
 import { getAssociatedIssuesForBranch, getBranchTargetInfo } from '../../git/models/branch.utils';
+import type { GitFileChangeShape } from '../../git/models/file';
 import type { Issue } from '../../git/models/issue';
 import type { PullRequest } from '../../git/models/pullRequest';
 import { getComparisonRefsForPullRequest } from '../../git/models/pullRequest';
@@ -28,11 +29,13 @@ import { getReferenceFromBranch } from '../../git/models/reference.utils';
 import { RemoteResourceType } from '../../git/models/remoteResource';
 import type { Repository } from '../../git/models/repository';
 import { RepositoryChange, RepositoryChangeComparisonMode } from '../../git/models/repository';
+import { uncommitted } from '../../git/models/revision';
 import { createRevisionRange } from '../../git/models/revision.utils';
 import type { GitStatus } from '../../git/models/status';
 import type { GitWorktree } from '../../git/models/worktree';
 import { getOpenedWorktreesByBranch, groupWorktreesByBranch } from '../../git/models/worktree.utils';
 import { sortBranches } from '../../git/utils/sorting';
+import { showPatchesView } from '../../plus/drafts/actions';
 import type { Subscription } from '../../plus/gk/account/subscription';
 import { isSubscriptionStatePaidOrTrial } from '../../plus/gk/account/subscription';
 import type { SubscriptionChangeEvent } from '../../plus/gk/account/subscriptionService';
@@ -41,6 +44,7 @@ import { getLaunchpadItemGroups } from '../../plus/launchpad/launchpadProvider';
 import { getLaunchpadSummary } from '../../plus/launchpad/utils';
 import type { StartWorkCommandArgs } from '../../plus/startWork/startWork';
 import type { ShowInCommitGraphCommandArgs } from '../../plus/webviews/graph/protocol';
+import type { Change } from '../../plus/webviews/patchDetails/protocol';
 import { showRepositoryPicker } from '../../quickpicks/repositoryPicker';
 import type { Deferrable } from '../../system/function';
 import { debounce } from '../../system/function';
@@ -317,6 +321,7 @@ export class HomeWebviewProvider implements WebviewProvider<State, State, HomeWe
 			registerCommand('gitlens.home.mergeIntoCurrent', this.mergeIntoCurrent, this),
 			registerCommand('gitlens.home.rebaseCurrentOnto', this.rebaseCurrentOnto, this),
 			registerCommand('gitlens.home.startWork', this.startWork, this),
+			registerCommand('gitlens.home.createCloudPatch', this.createCloudPatch, this),
 		];
 	}
 
@@ -457,6 +462,41 @@ export class HomeWebviewProvider implements WebviewProvider<State, State, HomeWe
 			command: 'startWork',
 			source: 'home',
 		});
+	}
+
+	private async createCloudPatch(refs: BranchRef) {
+		const status = await this.container.git.getStatus(refs.repoPath);
+		if (status == null) return;
+
+		const files: GitFileChangeShape[] = [];
+		for (const file of status.files) {
+			const change = {
+				repoPath: file.repoPath,
+				path: file.path,
+				status: file.status,
+				originalPath: file.originalPath,
+				staged: file.staged,
+			};
+
+			files.push(change);
+			if (file.staged && file.wip) {
+				files.push({ ...change, staged: false });
+			}
+		}
+
+		const { repo } = this._repositoryBranches.get(refs.repoPath)!;
+		const change: Change = {
+			type: 'wip',
+			repository: {
+				name: repo.name,
+				path: repo.path,
+				uri: repo.uri.toString(),
+			},
+			files: files,
+			revision: { to: uncommitted, from: 'HEAD' },
+		};
+
+		void showPatchesView({ mode: 'create', create: { changes: [change] } });
 	}
 
 	private onTogglePreviewEnabled(isEnabled?: boolean) {
