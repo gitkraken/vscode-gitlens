@@ -849,6 +849,7 @@ or
   'context.config.defaultItemLimit': number,
   'context.config.dimMergeCommits': boolean,
   'context.config.highlightRowsOnRefHover': boolean,
+  'context.config.issues.enabled': boolean,
   'context.config.layout': 'editor' | 'panel',
   'context.config.minimap.additionalTypes': string,
   'context.config.minimap.dataType': 'commits' | 'lines',
