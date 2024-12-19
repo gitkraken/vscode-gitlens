@@ -131,6 +131,7 @@ interface GroupedLaunchpadItem extends LaunchpadItem {
 }
 
 interface State {
+	id?: { uuid: string; group: LaunchpadGroup };
 	item?: GroupedLaunchpadItem;
 	action?: LaunchpadAction | LaunchpadTargetAction;
 	initialGroup?: LaunchpadGroup;
@@ -293,6 +294,17 @@ export class LaunchpadCommand extends QuickCommand<State> {
 			await updateContextItems(this.container, context, { force: newlyConnected });
 
 			if (state.counter < 1 || state.item == null) {
+				if (state.id != null) {
+					const item = context.result.items?.find(item => item.uuid === state.id?.uuid);
+					if (item != null) {
+						state.item = { ...item, group: state.id.group };
+						if (state.counter < 1) {
+							state.counter = 1;
+						}
+						continue;
+					}
+				}
+
 				if (this.container.telemetry.enabled) {
 					this.container.telemetry.sendEvent(
 						opened ? 'launchpad/steps/main' : 'launchpad/opened',

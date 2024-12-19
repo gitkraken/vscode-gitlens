@@ -105,6 +105,7 @@ export interface GitHubPullRequestLite extends Omit<GitHubIssueOrPullRequest, '_
 	};
 
 	isCrossRepository: boolean;
+	isDraft: boolean;
 	mergedAt: string | null;
 	permalink: string;
 
@@ -152,7 +153,6 @@ export interface GitHubPullRequest extends GitHubPullRequestLite {
 	};
 	checksUrl: string;
 	deletions: number;
-	isDraft: boolean;
 	mergeable: GitHubPullRequestMergeableState;
 	reviewDecision: GitHubPullRequestReviewDecision;
 	latestReviews: {
@@ -218,6 +218,7 @@ export function fromGitHubPullRequestLite(pr: GitHubPullRequestLite, provider: P
 			},
 			isCrossRepository: pr.isCrossRepository,
 		},
+		pr.isDraft,
 	);
 }
 
