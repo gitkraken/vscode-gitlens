@@ -9,6 +9,7 @@ export class GlBranchName extends LitElement {
 			display: inline-flex;
 			align-items: center;
 			white-space: nowrap;
+			vertical-align: middle;
 		}
 
 		strong {

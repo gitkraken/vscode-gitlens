@@ -191,6 +191,12 @@ export const branchCardStyles = css`
 		gap: 1rem;
 	}
 
+	.tracking__tooltip,
+	.wip__tooltip {
+		display: contents;
+		vertical-align: middle;
+	}
+
 	.tracking__tooltip p,
 	.wip__tooltip p {
 		margin-block: 0;
@@ -504,9 +510,9 @@ export abstract class GlBranchCardBase extends GlElement {
 				removed=${workingTreeState.deleted}
 				symbol="icons"
 			></commit-stats>
-			<div class="wip__tooltip" slot="content">
+			<span class="wip__tooltip" slot="content">
 				<p>${parts.length ? `${parts.join(', ')} in the working tree` : 'No working tree changes'}</p>
-			</div>
+			</span>
 		</gl-tooltip>`;
 	}
 
@@ -586,7 +592,7 @@ export abstract class GlBranchCardBase extends GlElement {
 				working=${working}
 				?missingUpstream=${this.branch.upstream?.missing ?? false}
 			></gl-tracking-pill>
-			<div class="tracking__tooltip" slot="content">${tooltip}${wipTooltip}</div></gl-tooltip
+			<span class="tracking__tooltip" slot="content">${tooltip}${wipTooltip}</span></gl-tooltip
 		>`;
 	}
 
