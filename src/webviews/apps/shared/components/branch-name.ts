@@ -6,9 +6,12 @@ import './code-icon';
 export class GlBranchName extends LitElement {
 	static override styles = css`
 		:host {
-			display: inline-flex;
-			align-items: center;
+			display: inline-block;
+			max-width: 100%;
+			align-content: center;
 			white-space: nowrap;
+			overflow: hidden;
+			text-overflow: ellipsis;
 			vertical-align: middle;
 		}
 
