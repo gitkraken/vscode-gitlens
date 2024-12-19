@@ -181,9 +181,16 @@ export const cardStyles = css`
 		margin-block-end: 0;
 	}
 
-	.card--grouping-item {
+	:host-context(.vscode-dark) .card--grouping-item,
+	:host-context(.vscode-high-contrast) .card--grouping-item {
 		--gl-card-background: color-mix(in lab, var(--vscode-sideBar-background) 100%, #fff 3%);
 		--gl-card-hover-background: color-mix(in lab, var(--vscode-sideBar-background) 100%, #fff 1.5%);
+	}
+
+	:host-context(.vscode-light) .card--grouping-item,
+	:host-context(.vscode-high-contrast-light) .card--grouping-item {
+		--gl-card-background: color-mix(in lab, var(--vscode-sideBar-background) 100%, #000 8%);
+		--gl-card-hover-background: color-mix(in lab, var(--vscode-sideBar-background) 100%, #000 10%);
 	}
 
 	.card--grouping-item-primary {

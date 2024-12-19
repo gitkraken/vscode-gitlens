@@ -166,8 +166,18 @@ export const branchCardStyles = css`
 
 	.branch-item__missing {
 		--button-foreground: inherit;
+	}
+
+	:host-context(.vscode-dark) .branch-item__missing,
+	:host-context(.vscode-high-contrast) .branch-item__missing {
 		--button-background: color-mix(in lab, var(--vscode-sideBar-background) 100%, #fff 3%);
 		--button-hover-background: color-mix(in lab, var(--vscode-sideBar-background) 100%, #fff 1.5%);
+	}
+
+	:host-context(.vscode-light) .branch-item__missing,
+	:host-context(.vscode-high-contrast-light) .branch-item__missing {
+		--button-background: color-mix(in lab, var(--vscode-sideBar-background) 100%, #000 8%);
+		--button-hover-background: color-mix(in lab, var(--vscode-sideBar-background) 100%, #000 10%);
 	}
 
 	.branch-item__category {
