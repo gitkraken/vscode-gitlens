@@ -1,5 +1,5 @@
 import { css, html, LitElement, nothing } from 'lit';
-import { customElement, property } from 'lit/decorators.js';
+import { customElement, property, state } from 'lit/decorators.js';
 import { createCommandLink } from '../../../../../system/commands';
 import { pluralize } from '../../../../../system/string';
 import type { GetOverviewBranch } from '../../../../home/protocol';
@@ -190,8 +190,28 @@ export class GlMergeTargetStatus extends LitElement {
 	@property({ type: String })
 	branch: string | undefined;
 
+	@state()
+	private _target: Awaited<GetOverviewBranch['mergeTarget']>;
+	get target() {
+		return this._target;
+	}
+
+	private _targetPromise: GetOverviewBranch['mergeTarget'];
+	get targetPromise(): GetOverviewBranch['mergeTarget'] {
+		return this._targetPromise;
+	}
 	@property({ type: Object })
-	target: GetOverviewBranch['mergeTarget'];
+	set targetPromise(value: GetOverviewBranch['mergeTarget']) {
+		if (this._targetPromise === value) return;
+
+		this._targetPromise = value;
+		this._target = undefined;
+
+		void this._targetPromise?.then(
+			r => (this._target = r),
+			() => {},
+		);
+	}
 
 	private get conflicts() {
 		return this.target?.potentialConflicts;

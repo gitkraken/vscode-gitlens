@@ -1,6 +1,6 @@
 import type { TemplateResult } from 'lit';
 import { css, html, LitElement, nothing } from 'lit';
-import { customElement, property } from 'lit/decorators.js';
+import { customElement, property, state } from 'lit/decorators.js';
 import { when } from 'lit/directives/when.js';
 import type { Commands } from '../../../../../constants.commands';
 import type { AssociateIssueWithBranchCommandArgs } from '../../../../../plus/startWork/startWork';
@@ -166,8 +166,158 @@ export abstract class GlBranchCardBase extends GlElement {
 	@property()
 	repo!: string;
 
+	private _branch!: GetOverviewBranch;
+	get branch(): GetOverviewBranch {
+		return this._branch;
+	}
 	@property({ type: Object })
-	branch!: GetOverviewBranch;
+	set branch(value: GetOverviewBranch) {
+		this._branch = value;
+		this.autolinksPromise = value?.autolinks;
+		this.contributorsPromise = value?.contributors;
+		this.issuesPromise = value?.issues;
+		this.ownerPromise = value?.owner;
+		this.prPromise = value?.pr;
+	}
+
+	@state()
+	private _autolinks!: Awaited<GetOverviewBranch['autolinks']>;
+	get autolinks() {
+		return this._autolinks;
+	}
+
+	private _autolinksPromise!: GetOverviewBranch['autolinks'];
+	get autolinksPromise() {
+		return this._autolinksPromise;
+	}
+	set autolinksPromise(value: GetOverviewBranch['autolinks']) {
+		if (this._autolinksPromise === value) return;
+
+		this._autolinksPromise = value;
+		this._autolinks = undefined;
+
+		void this._autolinksPromise?.then(
+			r => (this._autolinks = r),
+			() => {},
+		);
+	}
+
+	@state()
+	private _contributors!: Awaited<GetOverviewBranch['contributors']>;
+	get contributors() {
+		return this._contributors;
+	}
+
+	private _contributorsPromise!: GetOverviewBranch['contributors'];
+	get contributorsPromise() {
+		return this._contributorsPromise;
+	}
+	set contributorsPromise(value: GetOverviewBranch['contributors']) {
+		if (this._contributorsPromise === value) return;
+
+		this._contributorsPromise = value;
+		this._contributors = undefined;
+
+		void this._contributorsPromise?.then(
+			r => (this._contributors = r),
+			() => {},
+		);
+	}
+
+	@state()
+	private _issues!: Awaited<GetOverviewBranch['issues']>;
+	get issues() {
+		return this._issues;
+	}
+
+	private _issuesPromise!: GetOverviewBranch['issues'];
+	get issuesPromise() {
+		return this._issuesPromise;
+	}
+	set issuesPromise(value: GetOverviewBranch['issues']) {
+		if (this._issuesPromise === value) return;
+
+		this._issuesPromise = value;
+		this._issues = undefined;
+
+		void this._issuesPromise?.then(
+			r => (this._issues = r),
+			() => {},
+		);
+	}
+
+	@state()
+	private _owner!: Awaited<GetOverviewBranch['owner']>;
+	get owner() {
+		return this._owner;
+	}
+
+	private _ownerPromise!: GetOverviewBranch['owner'];
+	get ownerPromise() {
+		return this._ownerPromise;
+	}
+	set ownerPromise(value: GetOverviewBranch['owner']) {
+		if (this._ownerPromise === value) return;
+
+		this._ownerPromise = value;
+		this._owner = undefined;
+
+		void this._ownerPromise?.then(
+			r => (this._owner = r),
+			() => {},
+		);
+	}
+
+	@state()
+	private _pr!: Awaited<GetOverviewBranch['pr']>;
+	get pr() {
+		return this._pr;
+	}
+
+	private _prPromise!: GetOverviewBranch['pr'];
+	get prPromise() {
+		return this._prPromise;
+	}
+	set prPromise(value: GetOverviewBranch['pr']) {
+		if (this._prPromise === value) return;
+
+		this._prPromise = value;
+		this._pr = undefined;
+		this.launchpadItemPromise = undefined;
+
+		void this._prPromise?.then(
+			r => {
+				this._pr = r;
+				this.requestUpdate();
+				this.launchpadItemPromise = r?.launchpad;
+			},
+			() => {
+				this.launchpadItemPromise = undefined;
+			},
+		);
+	}
+
+	@state()
+	private _launchpadItem!: Awaited<NonNullable<Awaited<GetOverviewBranch['pr']>>['launchpad']>;
+	get launchpadItem() {
+		return this._launchpadItem;
+	}
+
+	private _launchpadItemPromise!: NonNullable<Awaited<GetOverviewBranch['pr']>>['launchpad'];
+	get launchpadItemPromise() {
+		return this._launchpadItemPromise;
+	}
+	set launchpadItemPromise(value: NonNullable<Awaited<GetOverviewBranch['pr']>>['launchpad']) {
+		if (this._launchpadItemPromise === value) return;
+
+		this._launchpadItemPromise = value;
+		this._launchpadItem = undefined;
+
+		void this._launchpadItemPromise?.then(
+			r => (this._launchpadItem = r),
+			() => {},
+		);
+	}
 
 	@property({ type: Boolean, reflect: true })
 	busy = false;
@@ -194,10 +344,6 @@ export abstract class GlBranchCardBase extends GlElement {
 
 	get isWorktree() {
 		return this.branch.worktree != null;
-	}
-
-	get isPr() {
-		return this.branch.pr != null;
 	}
 
 	get cardIndicator() {
@@ -239,7 +385,7 @@ export abstract class GlBranchCardBase extends GlElement {
 	}
 
 	protected renderIssues() {
-		const { autolinks, issues } = this.branch;
+		const { autolinks, issues } = this;
 		const issuesSource = issues?.length ? issues : autolinks;
 		if (!issuesSource?.length) return nothing;
 
@@ -271,7 +417,7 @@ export abstract class GlBranchCardBase extends GlElement {
 	}
 
 	protected renderAvatars() {
-		const { owner, contributors } = this.branch;
+		const { owner, contributors } = this;
 
 		const avatars = [];
 
@@ -394,7 +540,7 @@ export abstract class GlBranchCardBase extends GlElement {
 	}
 
 	protected renderPrItem() {
-		if (!this.branch.pr) {
+		if (!this.pr) {
 			if (this.branch.upstream?.missing === false && this.expanded) {
 				return html`
 					<gl-button
@@ -414,12 +560,12 @@ export abstract class GlBranchCardBase extends GlElement {
 				<div class="branch-item__section">
 					<p class="branch-item__grouping">
 						<span class="branch-item__icon">
-							<pr-icon state=${this.branch.pr.state} pr-id=${this.branch.pr.id}></pr-icon>
+							<pr-icon state=${this.pr.state} pr-id=${this.pr.id}></pr-icon>
 						</span>
-						<a href=${this.branch.pr.url} class="branch-item__name branch-item__name--secondary"
-							>${this.branch.pr.title}</a
+						<a href=${this.pr.url} class="branch-item__name branch-item__name--secondary"
+							>${this.pr.title}</a
 						>
-						<span class="branch-item__identifier">#${this.branch.pr.id}</span>
+						<span class="branch-item__identifier">#${this.pr.id}</span>
 					</p>
 				</div>
 				${this.renderLaunchpad()}
@@ -429,7 +575,7 @@ export abstract class GlBranchCardBase extends GlElement {
 	}
 
 	protected renderLaunchpad() {
-		const launchpad = this.branch.pr?.launchpad;
+		const launchpad = this.launchpadItem;
 		if (launchpad == null) return nothing;
 
 		return html`<div class="branch-item__section branch-item__section--details" slot="context">
@@ -445,12 +591,12 @@ export abstract class GlBranchCardBase extends GlElement {
 		return html`<gl-merge-target-status
 			class="branch-item__merge-target"
 			.branch=${this.branch.name}
-			.target=${this.branch.mergeTarget}
+			.targetPromise=${this.branch.mergeTarget}
 		></gl-merge-target-status>`;
 	}
 
 	protected renderIssuesItem() {
-		if (!this.branch.issues?.length && !this.branch.autolinks?.length) {
+		if (!this.issues?.length && !this.autolinks?.length) {
 			if (this.expanded) {
 				return html`<gl-button
 					class="branch-item__missing"

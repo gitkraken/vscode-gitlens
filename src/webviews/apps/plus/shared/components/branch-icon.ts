@@ -1,5 +1,6 @@
 import { css, html, LitElement } from 'lit';
 import { customElement, property } from 'lit/decorators.js';
+import type { GitTrackingState } from '../../../../../git/models/branch';
 
 type StatusType = 'synced' | 'diverged' | 'behind' | 'ahead' | 'changes' | undefined;
 
@@ -37,7 +38,15 @@ export class GlBranchIcon extends LitElement {
 	`;
 
 	@property({ type: Object })
-	branch!: { state?: { ahead: number; behind: number }; workingTreeState?: boolean; worktree?: boolean };
+	branch!: {
+		state?: GitTrackingState;
+		workingTreeState?: {
+			added: number;
+			changed: number;
+			deleted: number;
+		};
+		worktree?: { name: string; uri: string };
+	};
 
 	private get status() {
 		if (!this.branch.state) return undefined;
