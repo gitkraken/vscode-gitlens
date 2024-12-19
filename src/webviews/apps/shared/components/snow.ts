@@ -34,10 +34,6 @@ export class GlSnow extends LitElement {
 					filter ease-in-out 250ms,
 					opacity ease-in-out 250ms,
 					transform ease-in-out 250ms;
-
-				position: fixed;
-				right: 4px;
-				bottom: 3px;
 			}
 
 			:host(:not([snowing])) .snow__toggle {

@@ -10,6 +10,7 @@ import '../../../shared/components/button-container';
 import '../../../shared/components/code-icon';
 import '../../../shared/components/overlays/popover';
 import '../../../shared/components/promo';
+import '../../../shared/components/snow';
 
 @customElement('gl-home-header')
 export class GLHomeHeader extends LitElement {
@@ -49,6 +50,12 @@ export class GLHomeHeader extends LitElement {
 			gl-promo-banner:not([has-promo]) {
 				display: none;
 			}
+
+			.group {
+				display: flex;
+				align-items: center;
+				gap: 0.4rem;
+			}
 		`,
 	];
 
@@ -58,7 +65,7 @@ export class GLHomeHeader extends LitElement {
 	override render() {
 		return html`<gl-promo-banner></gl-promo-banner>
 			<div class="container" tabindex="-1">
-				<gl-account-chip></gl-account-chip>
+				<span class="group"><gl-account-chip></gl-account-chip> <gl-snow></gl-snow></span>
 				<gl-integrations-chip></gl-integrations-chip>
 			</div>
 			<gl-onboarding></gl-onboarding>`;

@@ -23,7 +23,6 @@ import './components/integration-banner';
 import './components/preview-banner';
 import './components/promo-banner';
 import './components/repo-alerts';
-import '../shared/components/snow';
 
 @customElement('gl-home-app')
 export class GlHomeApp extends GlApp<State> {
@@ -66,7 +65,6 @@ export class GlHomeApp extends GlApp<State> {
 
 	override render() {
 		return html`
-			<gl-snow></gl-snow>
 			<div class="home scrollable">
 				<gl-home-header class="home__header"></gl-home-header>
 				${when(!this.state.previewEnabled, () => html`<gl-preview-banner></gl-preview-banner>`)}
