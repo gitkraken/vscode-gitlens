@@ -11,6 +11,7 @@ import type {
 	Head,
 	HostingServiceType,
 	IncludeOnlyRefsById,
+	IssueTrackerType,
 	PullRequestMetadata,
 	RefMetadata,
 	RefMetadataItem,
@@ -546,7 +547,8 @@ export type GraphItemTypedContext<T = GraphItemTypedContextValue> = WebviewItemC
 export type GraphItemTypedContextValue =
 	| GraphContributorContextValue
 	| GraphPullRequestContextValue
-	| GraphUpstreamStatusContextValue;
+	| GraphUpstreamStatusContextValue
+	| GraphIssueContextValue;
 
 export type GraphColumnsContextValue = string;
 
@@ -564,6 +566,13 @@ export interface GraphPullRequestContextValue {
 	url: string;
 	repoPath: string;
 	refs?: PullRequestRefs;
+	provider: ProviderReference;
+}
+
+export interface GraphIssueContextValue {
+	type: 'issue';
+	id: string;
+	url: string;
 	provider: ProviderReference;
 }
 
@@ -593,3 +602,5 @@ export interface GraphUpstreamStatusContextValue {
 	ahead: number;
 	behind: number;
 }
+
+export type GraphIssueTrackerType = IssueTrackerType;

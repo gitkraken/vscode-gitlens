@@ -347,6 +347,9 @@ export interface GraphConfig {
 	readonly defaultItemLimit: number;
 	readonly dimMergeCommits: boolean;
 	readonly highlightRowsOnRefHover: boolean;
+	readonly issues: {
+		readonly enabled: boolean;
+	};
 	readonly layout: 'editor' | 'panel';
 	readonly minimap: {
 		readonly enabled: boolean;

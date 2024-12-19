@@ -1157,12 +1157,19 @@
 						"scope": "window",
 						"order": 702
 					},
+					"gitlens.graph.issues.enabled": {
+						"type": "boolean",
+						"default": true,
+						"markdownDescription": "Specifies whether to show associated issues on branches in the _Commit Graph_. Requires a connection to a supported issue service (e.g. GitHub)",
+						"scope": "window",
+						"order": 703
+					},
 					"gitlens.graph.pullRequests.enabled": {
 						"type": "boolean",
 						"default": true,
 						"markdownDescription": "Specifies whether to show associated pull requests on remote branches in the _Commit Graph_. Requires a connection to a supported remote service (e.g. GitHub)",
 						"scope": "window",
-						"order": 703
+						"order": 704
 					},
 					"gitlens.graph.avatars": {
 						"type": "boolean",
