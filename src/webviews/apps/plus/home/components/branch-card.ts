@@ -756,7 +756,7 @@ export abstract class GlBranchCardBase extends GlElement {
 		const groupIcon = launchpadGroupIconMap.get(group);
 
 		if (groupLabel == null || groupIcon == null) return nothing;
-		const groupIconString = groupIcon.match(/\$\((.*?)\)/)![1];
+		const groupIconString = groupIcon.match(/\$\((.*?)\)/)![1].replace('gitlens', 'gl');
 
 		// 	<a
 		// 	href=${createCommandLink<Omit<LaunchpadCommandArgs, 'command'>>('gitlens.showLaunchpad', {
