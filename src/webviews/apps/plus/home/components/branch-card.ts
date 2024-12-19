@@ -244,11 +244,9 @@ export abstract class GlBranchCardBase extends GlElement {
 		if (this._autolinksPromise === value) return;
 
 		this._autolinksPromise = value;
-		this._autolinks = undefined;
-
 		void this._autolinksPromise?.then(
 			r => (this._autolinks = r),
-			() => {},
+			() => (this._autolinks = undefined),
 		);
 	}
 
@@ -266,11 +264,9 @@ export abstract class GlBranchCardBase extends GlElement {
 		if (this._contributorsPromise === value) return;
 
 		this._contributorsPromise = value;
-		this._contributors = undefined;
-
 		void this._contributorsPromise?.then(
 			r => (this._contributors = r),
-			() => {},
+			() => (this._contributors = undefined),
 		);
 	}
 
@@ -288,11 +284,9 @@ export abstract class GlBranchCardBase extends GlElement {
 		if (this._issuesPromise === value) return;
 
 		this._issuesPromise = value;
-		this._issues = undefined;
-
 		void this._issuesPromise?.then(
 			r => (this._issues = r),
-			() => {},
+			() => (this._issues = undefined),
 		);
 	}
 
@@ -310,11 +304,9 @@ export abstract class GlBranchCardBase extends GlElement {
 		if (this._ownerPromise === value) return;
 
 		this._ownerPromise = value;
-		this._owner = undefined;
-
 		void this._ownerPromise?.then(
 			r => (this._owner = r),
-			() => {},
+			() => (this._owner = undefined),
 		);
 	}
 
@@ -332,16 +324,13 @@ export abstract class GlBranchCardBase extends GlElement {
 		if (this._prPromise === value) return;
 
 		this._prPromise = value;
-		this._pr = undefined;
-		this.launchpadItemPromise = undefined;
-
 		void this._prPromise?.then(
 			r => {
 				this._pr = r;
-				this.requestUpdate();
 				this.launchpadItemPromise = r?.launchpad;
 			},
 			() => {
+				this._pr = undefined;
 				this.launchpadItemPromise = undefined;
 			},
 		);
@@ -361,11 +350,9 @@ export abstract class GlBranchCardBase extends GlElement {
 		if (this._launchpadItemPromise === value) return;
 
 		this._launchpadItemPromise = value;
-		this._launchpadItem = undefined;
-
 		void this._launchpadItemPromise?.then(
 			r => (this._launchpadItem = r),
-			() => {},
+			() => (this._launchpadItem = undefined),
 		);
 	}
 
@@ -383,11 +370,9 @@ export abstract class GlBranchCardBase extends GlElement {
 		if (this._wipPromise === value) return;
 
 		this._wipPromise = value;
-		this._wip = undefined;
-
 		void this._wipPromise?.then(
 			r => (this._wip = r),
-			() => {},
+			() => (this._wip = undefined),
 		);
 	}
 
