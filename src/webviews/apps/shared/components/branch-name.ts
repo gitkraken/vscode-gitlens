@@ -13,10 +13,15 @@ export class GlBranchName extends LitElement {
 			overflow: hidden;
 			text-overflow: ellipsis;
 			vertical-align: middle;
+			margin-top: -3px;
 		}
 
 		strong {
 			font-weight: bold;
+		}
+
+		code-icon {
+			margin-bottom: 2px;
 		}
 	`;
 
