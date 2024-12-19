@@ -61,23 +61,9 @@ import {
 	groupAndSortLaunchpadItems,
 	supportedLaunchpadIntegrations,
 } from './launchpadProvider';
-import type { LaunchpadAction, LaunchpadActionCategory, LaunchpadGroup, LaunchpadTargetAction } from './models';
-import { launchpadGroupIconMap, launchpadGroupLabelMap, launchpadGroups } from './models';
+import type { LaunchpadAction, LaunchpadGroup, LaunchpadTargetAction } from './models';
+import { actionGroupMap, launchpadGroupIconMap, launchpadGroupLabelMap, launchpadGroups } from './models';
 import { isMaybeSupportedLaunchpadPullRequestSearchUrl } from './utils';
-
-const actionGroupMap = new Map<LaunchpadActionCategory, string[]>([
-	['mergeable', ['Ready to Merge', 'Ready to merge']],
-	['unassigned-reviewers', ['Unassigned Reviewers', 'You need to assign reviewers']],
-	['failed-checks', ['Failed Checks', 'You need to resolve the failing checks']],
-	['conflicts', ['Resolve Conflicts', 'You need to resolve merge conflicts']],
-	['needs-my-review', ['Needs Your Review', `\${author} requested your review`]],
-	['code-suggestions', ['Code Suggestions', 'Code suggestions have been made on this pull request']],
-	['changes-requested', ['Changes Requested', 'Reviewers requested changes before this can be merged']],
-	['reviewer-commented', ['Reviewers Commented', 'Reviewers have commented on this pull request']],
-	['waiting-for-review', ['Waiting for Review', 'Waiting for reviewers to approve this pull request']],
-	['draft', ['Draft', 'Continue working on your draft']],
-	['other', ['Other', `Opened by \${author} \${createdDateRelative}`]],
-]);
 
 export interface LaunchpadItemQuickPickItem extends QuickPickItem {
 	readonly type: 'item';

@@ -1478,6 +1478,9 @@ async function getLaunchpadItemInfo(
 			},
 		},
 
+		author: lpi.author,
+		createdDate: lpi.createdDate,
+
 		viewer: { ...lpi.viewer, enrichedItems: undefined },
 	};
 }
