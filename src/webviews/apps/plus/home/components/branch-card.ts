@@ -540,6 +540,7 @@ export abstract class GlBranchCardBase extends GlElement {
 	}
 
 	protected renderTracking(showWip = false) {
+		if (this.branch.upstream == null) return nothing;
 		const ahead = this.branch.state.ahead ?? 0;
 		const behind = this.branch.state.behind ?? 0;
 
