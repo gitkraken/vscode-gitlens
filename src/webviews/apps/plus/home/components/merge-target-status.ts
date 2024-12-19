@@ -3,6 +3,7 @@ import { customElement, property, state } from 'lit/decorators.js';
 import { createCommandLink } from '../../../../../system/commands';
 import { pluralize } from '../../../../../system/string';
 import type { GetOverviewBranch } from '../../../../home/protocol';
+import { renderBranchName } from '../../../shared/components/branch-name';
 import { elementBase, linkBase, scrollableBase } from '../../../shared/components/styles/lit/base.css';
 import { chipStyles } from '../../shared/components/chipStyles';
 import '../../../shared/components/button';
@@ -181,15 +182,6 @@ export class GlMergeTargetStatus extends LitElement {
 				background: var(--vscode-sideBar-background);
 			}
 
-			.branch {
-				display: inline-block;
-				max-width: 100%;
-				white-space: nowrap;
-				overflow: hidden;
-				text-overflow: ellipsis;
-				vertical-align: middle;
-			}
-
 			gl-popover {
 				--max-width: 80vw;
 			}
@@ -271,13 +263,13 @@ export class GlMergeTargetStatus extends LitElement {
 	}
 
 	private renderContent() {
-		const target = this.renderBranch(this.target?.name);
+		const target = renderBranchName(this.target?.name);
 
 		const mergeTargetInfo = html`<span class="header__actions"
 			><gl-tooltip position="bottom" style="cursor:help;">
 				<code-icon icon="question" size="18"></code-icon>
 				<span slot="content"
-					>The "merge target" is the branch that ${this.renderBranch(this.branch)} is most likely to be merged
+					>The "merge target" is the branch that ${renderBranchName(this.branch)} is most likely to be merged
 					into.</span
 				>
 			</gl-tooltip></span
@@ -295,7 +287,7 @@ export class GlMergeTargetStatus extends LitElement {
 				<div class="body">
 					${this.status
 						? html`<p>
-								Your current branch ${this.renderBranch(this.branch)} is
+								Your current branch ${renderBranchName(this.branch)} is
 								${pluralize('commit', this.status.behind)} behind its merge target ${target}.
 						  </p>`
 						: nothing}
@@ -303,13 +295,13 @@ export class GlMergeTargetStatus extends LitElement {
 						<gl-button
 							full
 							href="${createCommandLink('gitlens.home.rebaseCurrentOnto', this.targetBranchRef)}"
-							>Rebase ${this.renderBranch(this.conflicts.branch)} onto ${target}</gl-button
+							>Rebase ${renderBranchName(this.conflicts.branch)} onto ${target}</gl-button
 						>
 						<gl-button
 							full
 							appearance="secondary"
 							href="${createCommandLink('gitlens.home.mergeIntoCurrent', this.targetBranchRef)}"
-							>Merge ${target} into ${this.renderBranch(this.conflicts.branch)}</gl-button
+							>Merge ${target} into ${renderBranchName(this.conflicts.branch)}</gl-button
 						>
 					</div>
 					<p class="status--merge-conflict">
@@ -335,20 +327,20 @@ export class GlMergeTargetStatus extends LitElement {
 					</div>
 					<div class="body">
 						<p>
-							Your current branch ${this.renderBranch(this.branch)} is
+							Your current branch ${renderBranchName(this.branch)} is
 							${pluralize('commit', this.status.behind)} behind its merge target ${target}.
 						</p>
 						<div class="button-container">
 							<gl-button
 								full
 								href="${createCommandLink('gitlens.home.rebaseCurrentOnto', this.targetBranchRef)}"
-								>Rebase ${this.renderBranch(this.branch)} onto ${target}</gl-button
+								>Rebase ${renderBranchName(this.branch)} onto ${target}</gl-button
 							>
 							<gl-button
 								full
 								appearance="secondary"
 								href="${createCommandLink('gitlens.home.mergeIntoCurrent', this.targetBranchRef)}"
-								>Merge ${target} into ${this.renderBranch(this.branch)}</gl-button
+								>Merge ${target} into ${renderBranchName(this.branch)}</gl-button
 							>
 						</div>
 						<p class="status--merge-clean">
@@ -363,19 +355,13 @@ export class GlMergeTargetStatus extends LitElement {
 				</div>
 				<div class="body">
 					<p>
-						Your current branch ${this.renderBranch(this.branch)} is up to date with its merge target
+						Your current branch ${renderBranchName(this.branch)} is up to date with its merge target
 						${target}.
 					</p>
 				</div>`;
 		}
 
 		return nothing;
-	}
-
-	private renderBranch(name: string | undefined, size = 12) {
-		return html`<span class="branch" title="${name}"
-			><code-icon icon="git-branch" size="${size}"></code-icon>&nbsp;<strong>${name ?? '<missing>'}</strong></span
-		>`;
 	}
 
 	private renderFiles(files: { path: string }[]) {
