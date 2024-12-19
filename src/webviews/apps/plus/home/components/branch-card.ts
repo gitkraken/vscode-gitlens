@@ -711,7 +711,7 @@ export abstract class GlBranchCardBase extends GlElement {
 
 		let indicator: GlCard['indicator'] =
 			this.pr.state === 'merged' ? 'pr-merged' : this.pr.state === 'closed' ? 'pr-closed' : 'pr-open';
-		if (this.launchpadItem) {
+		if (this.launchpadItem && indicator === 'pr-open') {
 			indicator = getLaunchpadItemGrouping(this.launchpadItem.category);
 		}
 
@@ -736,7 +736,7 @@ export abstract class GlBranchCardBase extends GlElement {
 	}
 
 	protected renderLaunchpadItem() {
-		if (this.launchpadItem == null) return nothing;
+		if (this.launchpadItem == null || this.pr?.state !== 'opened') return nothing;
 
 		const group = launchpadCategoryToGroupMap.get(this.launchpadItem.category);
 		if (group == null || group === 'other' || group === 'draft' || group === 'current-branch') {
