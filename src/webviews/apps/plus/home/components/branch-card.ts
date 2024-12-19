@@ -178,6 +178,7 @@ export abstract class GlBranchCardBase extends GlElement {
 		this.issuesPromise = value?.issues;
 		this.ownerPromise = value?.owner;
 		this.prPromise = value?.pr;
+		this.wipPromise = value?.wip;
 	}
 
 	@state()
@@ -319,6 +320,28 @@ export abstract class GlBranchCardBase extends GlElement {
 		);
 	}
 
+	@state()
+	private _wip!: Awaited<GetOverviewBranch['wip']>;
+	get wip() {
+		return this._wip;
+	}
+
+	private _wipPromise!: GetOverviewBranch['wip'];
+	get wipPromise() {
+		return this._wipPromise;
+	}
+	set wipPromise(value: GetOverviewBranch['wip']) {
+		if (this._wipPromise === value) return;
+
+		this._wipPromise = value;
+		this._wip = undefined;
+
+		void this._wipPromise?.then(
+			r => (this._wip = r),
+			() => {},
+		);
+	}
+
 	@property({ type: Boolean, reflect: true })
 	busy = false;
 
@@ -347,12 +370,10 @@ export abstract class GlBranchCardBase extends GlElement {
 	}
 
 	get cardIndicator() {
-		const isMerging = this.branch.mergeStatus != null;
-		const isRabasing = this.branch.rebaseStatus != null;
-		if (isMerging || isRabasing) {
-			if (this.branch.hasConflicts) {
-				return 'conflict';
-			}
+		const isMerging = this.wip?.mergeStatus != null;
+		const isRebasing = this.wip?.rebaseStatus != null;
+		if (isMerging || isRebasing) {
+			if (this.wip?.hasConflicts) return 'conflict';
 			return isMerging ? 'merging' : 'rebasing';
 		}
 		return this.branch.opened ? 'active' : undefined;
@@ -405,7 +426,7 @@ export abstract class GlBranchCardBase extends GlElement {
 	}
 
 	protected renderWip() {
-		const { workingTreeState } = this.branch;
+		const workingTreeState = this.wip?.workingTreeState;
 		if (workingTreeState == null) return nothing;
 
 		return html`<commit-stats
@@ -444,7 +465,7 @@ export abstract class GlBranchCardBase extends GlElement {
 		const behind = this.branch.state.behind ?? 0;
 		let working = 0;
 		if (showWip) {
-			const { workingTreeState } = this.branch;
+			const workingTreeState = this.wip?.workingTreeState;
 			if (workingTreeState != null) {
 				working = workingTreeState.added + workingTreeState.changed + workingTreeState.deleted;
 			}
