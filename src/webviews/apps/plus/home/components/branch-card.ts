@@ -3,6 +3,11 @@ import { css, html, LitElement, nothing } from 'lit';
 import { customElement, property, state } from 'lit/decorators.js';
 import { when } from 'lit/directives/when.js';
 import type { Commands } from '../../../../../constants.commands';
+import {
+	launchpadCategoryToGroupMap,
+	launchpadGroupIconMap,
+	launchpadGroupLabelMap,
+} from '../../../../../plus/launchpad/models';
 import type { AssociateIssueWithBranchCommandArgs } from '../../../../../plus/startWork/startWork';
 import { createCommandLink } from '../../../../../system/commands';
 import type { GetOverviewBranch, OpenInGraphParams } from '../../../../home/protocol';
@@ -149,6 +154,10 @@ export const branchCardStyles = css`
 		--button-foreground: inherit;
 		--button-background: color-mix(in lab, var(--vscode-sideBar-background) 100%, #fff 3%);
 		--button-hover-background: color-mix(in lab, var(--vscode-sideBar-background) 100%, #fff 1.5%);
+	}
+
+	.branch-item__category {
+		margin-inline-start: 0.6rem;
 	}
 `;
 
@@ -589,19 +598,25 @@ export abstract class GlBranchCardBase extends GlElement {
 						<span class="branch-item__identifier">#${this.pr.id}</span>
 					</p>
 				</div>
-				${this.renderLaunchpad()}
+				${this.renderLaunchpadItem()}
 				${when(actions != null, () => html`<div class="branch-item__actions" slot="actions">${actions}</div>`)}
 			</gl-work-item>
 		`;
 	}
 
-	protected renderLaunchpad() {
-		const launchpad = this.launchpadItem;
-		if (launchpad == null) return nothing;
+	protected renderLaunchpadItem() {
+		if (this.launchpadItem == null) return nothing;
+		const group = launchpadCategoryToGroupMap.get(this.launchpadItem.category);
+		if (group == null) return nothing;
+		const groupLabel = launchpadGroupLabelMap.get(group);
+		const groupIcon = launchpadGroupIconMap.get(group);
+		if (groupLabel == null || groupIcon == null) return nothing;
+		const groupIconString = groupIcon.match(/\$\((.*?)\)/)![1];
 
 		return html`<div class="branch-item__section branch-item__section--details" slot="context">
 			<p>
-				<span class="branch-item__category">${launchpad.category}</span>
+				<code-icon icon="${groupIconString}"></code-icon
+				><span class="branch-item__category">${groupLabel.toUpperCase()}</span>
 			</p>
 		</div>`;
 	}

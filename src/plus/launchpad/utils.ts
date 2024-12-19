@@ -11,7 +11,7 @@ import {
 } from '../integrations/providers/gitlab/models';
 import type { LaunchpadSummaryResult } from './launchpadIndicator';
 import { generateLaunchpadSummary } from './launchpadIndicator';
-import type { LaunchpadGroup } from './launchpadProvider';
+import type { LaunchpadGroup } from './models';
 
 export async function getLaunchpadSummary(container: Container): Promise<LaunchpadSummaryResult | { error: Error }> {
 	const result = await container.launchpad.getCategorizedItems();

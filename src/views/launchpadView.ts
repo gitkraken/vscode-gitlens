@@ -11,12 +11,10 @@ import { GitUri, unknownGitUri } from '../git/gitUri';
 import type { SubscriptionChangeEvent } from '../plus/gk/account/subscriptionService';
 import { ensurePlusFeaturesEnabled } from '../plus/gk/utils';
 import type { LaunchpadCommandArgs } from '../plus/launchpad/launchpad';
-import type { LaunchpadGroup, LaunchpadItem } from '../plus/launchpad/launchpadProvider';
-import {
-	groupAndSortLaunchpadItems,
-	launchpadGroupIconMap,
-	launchpadGroupLabelMap,
-} from '../plus/launchpad/launchpadProvider';
+import type { LaunchpadItem } from '../plus/launchpad/launchpadProvider';
+import { groupAndSortLaunchpadItems } from '../plus/launchpad/launchpadProvider';
+import type { LaunchpadGroup } from '../plus/launchpad/models';
+import { launchpadGroupIconMap, launchpadGroupLabelMap } from '../plus/launchpad/models';
 import { createCommand, executeCommand } from '../system/vscode/command';
 import { configuration } from '../system/vscode/configuration';
 import { CacheableChildrenViewNode } from './nodes/abstract/cacheableChildrenViewNode';

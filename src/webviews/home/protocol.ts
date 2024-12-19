@@ -6,7 +6,8 @@ import type { GitRebaseStatus } from '../../git/models/rebase';
 import type { GitBranchReference } from '../../git/models/reference';
 import type { Subscription } from '../../plus/gk/account/subscription';
 import type { LaunchpadSummaryResult } from '../../plus/launchpad/launchpadIndicator';
-import type { LaunchpadGroup, LaunchpadItem } from '../../plus/launchpad/launchpadProvider';
+import type { LaunchpadItem } from '../../plus/launchpad/launchpadProvider';
+import type { LaunchpadGroup } from '../../plus/launchpad/models';
 import type { IpcScope, WebviewState } from '../protocol';
 import { IpcCommand, IpcNotification, IpcRequest } from '../protocol';
 
