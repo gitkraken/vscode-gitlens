@@ -958,6 +958,16 @@ export class GraphWebviewProvider implements WebviewProvider<State, State, Graph
 			return;
 		}
 
+		if (e.changed(RepositoryChange.Config, RepositoryChangeComparisonMode.Any)) {
+			if (this._refsMetadata != null) {
+				// Clear out any associated issue metadata
+				for (const [, value] of this._refsMetadata) {
+					if (value == null) continue;
+					value.issue = undefined;
+				}
+			}
+		}
+
 		if (e.changed(RepositoryChange.Head, RepositoryChangeComparisonMode.Any)) {
 			this.setSelectedRows(undefined);
 		}
