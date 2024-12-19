@@ -53,16 +53,16 @@ export class GlBranchIcon extends LitElement {
 	state?: GitTrackingState;
 
 	@property({ type: Boolean })
-	missingUpstream?: boolean;
+	missingUpstream: boolean = false;
 
 	@property({ type: Boolean })
-	hasChanges?: boolean;
+	hasChanges: boolean = false;
 
 	@property({ type: String })
 	upstream?: string;
 
 	@property({ type: Boolean })
-	worktree?: boolean;
+	worktree: boolean = false;
 
 	private get status(): StatusType {
 		if (!this.state) return undefined;

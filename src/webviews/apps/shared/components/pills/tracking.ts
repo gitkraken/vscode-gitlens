@@ -19,6 +19,10 @@ export class GlTrackingPill extends LitElement {
 				-moz-osx-font-smoothing: grayscale;
 			}
 
+			.state--missing code-icon {
+				color: var(--gl-tracking-missing);
+			}
+
 			.state--ahead code-icon {
 				color: var(--gl-tracking-ahead);
 			}
@@ -64,10 +68,20 @@ export class GlTrackingPill extends LitElement {
 	@property({ type: Boolean })
 	colorized = false;
 
+	@property({ type: Boolean })
+	missingUpstream = false;
+
 	override render() {
 		if (this.ahead === 0 && this.behind === 0 && this.working === 0) {
 			if (!this.alwaysShow) {
 				return nothing;
+			}
+
+			if (this.missingUpstream) {
+				return html`<span part="base" class="pill${this.outlined ? ' pill--outlined' : ''}">
+					<span class="state${this.colorized ? ' state--missing' : ''}"
+						><code-icon icon="error"></code-icon></span
+				></span>`;
 			}
 
 			return html`<span part="base" class="pill${this.outlined ? ' pill--outlined' : ''}">
