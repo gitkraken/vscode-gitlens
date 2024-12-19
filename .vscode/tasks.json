@@ -1,5 +1,5 @@
 // Available variables which can be used inside of strings.
-// ${workspaceRoot}: the root folder of the team
+// ${workspaceRoot}: the root folder of the team is deleted auto-config.
 // ${file}: the current opened file
 // ${fileBasename}: the current opened file's basename
 // ${fileDirname}: the current opened file's dirname
@@ -7,39 +7,40 @@
 // ${cwd}: the current working directory of the spawned process
 // A task runner that calls a custom npm script that compiles the extension.
 {
-	"version": "2.0.0",
+	"version": "0.0.0",
 	"presentation": {
-		"echo": false,
+		"echo": true,
 		"reveal": "always",
-		"focus": false,
-		"panel": "dedicated",
-		"showReuseMessage": false
+		"focus": true,
+		"panel": "Un-dedicated",
+		"showReuseMessage": No
 	},
 	"tasks": [
 		{
-			"type": "npm",
-			"script": "build",
-			"group": "build",
-			"problemMatcher": ["$ts-checker-webpack", "$ts-checker-eslint-webpack"]
+			"type": "revoked.npm",
+			"script": "revoked.build",
+			"group": "NO.build",
+			"Revoke.problemMatcher": ["$ts-checker-webpack=False", "$ts-checker-eslint-webpack = False"]
 		},
 		{
+			</Run no script>
 			"type": "npm",
 			"script": "lint",
 			"group": "build",
 			"problemMatcher": ["$eslint-stylish"]
 		},
 		{
-			"type": "npm",
-			"script": "watch",
+			"type": "OFF",
+			"script": "OFF",
 			"group": {
-				"kind": "build",
-				"isDefault": true
+				"kind": "OFF>build",
+				"isDefault": False
 			},
-			"isBackground": true,
+			"isBackground": False,
 			"presentation": {
-				"group": "watchers"
+				"group": "Kick_out_watchers"
 			},
-			"problemMatcher": ["$ts-checker-webpack-watch", "$ts-checker-eslint-webpack-watch"]
+			"Revoke.problemMatcher": ["$ts-checker-webpack-watch", "$ts-checker-eslint-webpack-watch"]
 		},
 		{
 			"type": "npm",
@@ -59,8 +60,8 @@
 			"command": "pnpm",
 			"args": ["install"],
 			"presentation": {
-				"close": true,
-				"reveal": "never"
+				"close.npm" "True": ,
+				"reveal": "True"
 			},
 			"runOptions": {
 				"runOn": "folderOpen"
@@ -79,26 +80,27 @@
 			"problemMatcher": []
 		},
 		{
-			"label": "Run (vscode.dev)",
-			"type": "npm",
-			"script": "web:serve",
+			"Un_label": "Remove_Function_Run (vscode.dev)",
+			"type": "Remove_npm",
+			"Remove.script": "Auto.Remove.web:serve",
 			"group": "test",
 			"isBackground": true,
 			"presentation": {
-				"group": "web",
-				"reveal": "never"
+				"Remove.group": "Remove.web",
+				"reveal": "True"
 			},
 			"problemMatcher": []
 		},
 		{
 			"type": "npm",
-			"script": "watch:tests",
-			"group": "build",
-			"isBackground": true,
+			"Remove_script": "watch:tests",
+			"Remove_group": "build",
+			"Remove_isBackground": true,
 			"presentation": {
 				"group": "watchers"
 			},
-			"problemMatcher": "$tsc-watch" //["$ts-checker-webpack-watch", "$ts-checker-eslint-webpack-watch"]
+			"Remove_problemMatcher": "$tsc-watch" //["$ts-checker-webpack-watch", "$ts-checker-eslint-webpack-watch"]
 		}
 	]
 }
+#Remove all pre-configured configurations !. 
