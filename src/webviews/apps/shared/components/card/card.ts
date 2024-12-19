@@ -15,7 +15,25 @@ export class GlCard extends LitElement {
 	static override styles = [cardStyles];
 
 	@property({ reflect: true })
-	indicator?: 'active' | 'merging' | 'rebasing' | 'conflict';
+	indicator?:
+		| 'active'
+		| 'merging'
+		| 'rebasing'
+		| 'conflict'
+		| 'issue-open'
+		| 'issue-closed'
+		| 'pr-open'
+		| 'pr-closed'
+		| 'pr-merged'
+		| 'mergeable'
+		| 'blocked'
+		| 'attention'
+		| 'branch-synced'
+		| 'branch-diverged'
+		| 'branch-behind'
+		| 'branch-ahead'
+		| 'branch-changes'
+		| 'branch-missingUpstream';
 
 	@property({ reflect: true })
 	grouping?: 'unit' | 'item' | 'item-primary';

@@ -1,5 +1,6 @@
 import type { IntegrationDescriptor } from '../../constants.integrations';
 import type { GitBranchStatus, GitTrackingState } from '../../git/models/branch';
+import type { Issue } from '../../git/models/issue';
 import type { GitMergeStatus } from '../../git/models/merge';
 import type { MergeConflict } from '../../git/models/mergeConflict';
 import type { GitRebaseStatus } from '../../git/models/rebase';
@@ -181,7 +182,7 @@ export interface GetOverviewBranch {
 			id: string;
 			title: string;
 			url: string;
-			state: string;
+			state: Omit<Issue['state'], 'merged'>;
 		}[]
 	>;
 
@@ -190,7 +191,7 @@ export interface GetOverviewBranch {
 			id: string;
 			title: string;
 			url: string;
-			state: string;
+			state: Omit<Issue['state'], 'merged'>;
 		}[]
 	>;
 

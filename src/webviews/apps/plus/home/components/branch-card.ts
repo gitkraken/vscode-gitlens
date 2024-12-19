@@ -4,6 +4,7 @@ import { customElement, property, state } from 'lit/decorators.js';
 import { classMap } from 'lit/directives/class-map.js';
 import { when } from 'lit/directives/when.js';
 import type { Commands } from '../../../../../constants.commands';
+import type { LaunchpadItem } from '../../../../../plus/launchpad/launchpadProvider';
 import {
 	launchpadCategoryToGroupMap,
 	launchpadGroupIconMap,
@@ -11,7 +12,9 @@ import {
 } from '../../../../../plus/launchpad/models';
 import type { AssociateIssueWithBranchCommandArgs } from '../../../../../plus/startWork/startWork';
 import { createCommandLink } from '../../../../../system/commands';
+import { pluralize } from '../../../../../system/string';
 import type { GetOverviewBranch, OpenInGraphParams } from '../../../../home/protocol';
+import { renderBranchName } from '../../../shared/components/branch-name';
 import type { GlCard } from '../../../shared/components/card/card';
 import { GlElement, observe } from '../../../shared/components/element';
 import { srOnlyStyles } from '../../../shared/components/styles/lit/a11y.css';
@@ -26,7 +29,7 @@ import '../../../shared/components/rich/issue-icon';
 import '../../../shared/components/rich/pr-icon';
 import '../../../shared/components/actions/action-item';
 import '../../../shared/components/actions/action-nav';
-import '../../shared/components/branch-icon';
+import '../../../shared/components/branch-icon';
 import './merge-target-status';
 
 export const branchCardStyles = css`
@@ -167,6 +170,34 @@ export const branchCardStyles = css`
 
 	.branch-item__category {
 		margin-inline-start: 0.6rem;
+	}
+
+	.launchpad-grouping--mergeable {
+		color: var(--vscode-gitlens-launchpadIndicatorMergeableColor);
+	}
+
+	.launchpad-grouping--blocked {
+		color: var(--vscode-gitlens-launchpadIndicatorBlockedColor);
+	}
+
+	.launchpad-grouping--attention {
+		color: var(--vscode-gitlens-launchpadIndicatorAttentionColor);
+	}
+
+	.tracking__pill,
+	.wip__pill {
+		display: flex;
+		flex-direction: row;
+		gap: 1rem;
+	}
+
+	.tracking__tooltip p,
+	.wip__tooltip p {
+		margin-block: 0;
+	}
+
+	p.tracking__tooltip--wip {
+		margin-block-start: 1rem;
 	}
 `;
 
@@ -394,7 +425,37 @@ export abstract class GlBranchCardBase extends GlElement {
 			if (this.wip?.hasConflicts) return 'conflict';
 			return isMerging ? 'merging' : 'rebasing';
 		}
-		return this.branch.opened ? 'active' : undefined;
+
+		const hasWip =
+			!this.branch.opened &&
+			this.wip?.workingTreeState != null &&
+			this.wip.workingTreeState.added + this.wip.workingTreeState.changed + this.wip.workingTreeState.deleted > 0;
+
+		if (hasWip) {
+			return 'branch-changes';
+		}
+
+		switch (this.branch.status) {
+			case 'ahead':
+				return 'branch-ahead';
+			case 'behind':
+				return 'branch-behind';
+			case 'diverged':
+				return 'branch-diverged';
+			case 'upToDate':
+				return 'branch-synced';
+			case 'missingUpstream':
+				return 'branch-missingUpstream';
+			default:
+				return 'branch-synced';
+		}
+	}
+
+	get branchCardIndicator() {
+		if (this.branch.opened) {
+			return this.cardIndicator;
+		}
+		return undefined;
 	}
 
 	override connectedCallback() {
@@ -447,12 +508,19 @@ export abstract class GlBranchCardBase extends GlElement {
 		const workingTreeState = this.wip?.workingTreeState;
 		if (workingTreeState == null) return nothing;
 
-		return html`<commit-stats
-			added=${workingTreeState.added}
-			modified=${workingTreeState.changed}
-			removed=${workingTreeState.deleted}
-			symbol="icons"
-		></commit-stats>`;
+		const parts = getWipTooltipParts(workingTreeState);
+
+		return html`<gl-tooltip class="wip__pill" placement="bottom"
+			><commit-stats
+				added=${workingTreeState.added}
+				modified=${workingTreeState.changed}
+				removed=${workingTreeState.deleted}
+				symbol="icons"
+			></commit-stats>
+			<div class="wip__tooltip" slot="content">
+				<p>${parts.length ? `${parts.join(', ')} in the working tree` : 'No working tree changes'}</p>
+			</div>
+		</gl-tooltip>`;
 	}
 
 	protected renderAvatars() {
@@ -481,23 +549,57 @@ export abstract class GlBranchCardBase extends GlElement {
 	protected renderTracking(showWip = false) {
 		const ahead = this.branch.state.ahead ?? 0;
 		const behind = this.branch.state.behind ?? 0;
+
 		let working = 0;
+		let wipTooltip;
 		if (showWip) {
 			const workingTreeState = this.wip?.workingTreeState;
 			if (workingTreeState != null) {
 				working = workingTreeState.added + workingTreeState.changed + workingTreeState.deleted;
+
+				const wipParts = getWipTooltipParts(workingTreeState);
+				if (wipParts.length) {
+					wipTooltip = html`<p class="tracking__tooltip--wip">${wipParts.join(', ')} in the working tree</p>`;
+				}
 			}
 		}
 
-		return html`<gl-tracking-pill
-			class="pill"
-			colorized
-			outlined
-			always-show
-			ahead=${ahead}
-			behind=${behind}
-			working=${working}
-		></gl-tracking-pill>`;
+		let tooltip;
+		if (this.branch.upstream?.missing) {
+			tooltip = html`${renderBranchName(this.branch.name)} is missing its upstream
+			${renderBranchName(this.branch.upstream.name)}`;
+		} else {
+			let ahead = false;
+			const status: string[] = [];
+			if (this.branch.state.behind) {
+				status.push(`${pluralize('commit', this.branch.state.behind)} behind`);
+			}
+			if (this.branch.state.ahead) {
+				ahead = true;
+				status.push(`${pluralize('commit', this.branch.state.ahead)} ahead`);
+			}
+
+			if (status.length) {
+				tooltip = html`${renderBranchName(this.branch.name)} is ${status.join(', ')}${ahead ? ' of' : ''}
+				${renderBranchName(this.branch.upstream?.name)}`;
+			} else {
+				tooltip = html`${renderBranchName(this.branch.name)} is up to date with
+				${renderBranchName(this.branch.upstream?.name)}`;
+			}
+		}
+
+		return html`<gl-tooltip class="tracking__pill" placement="bottom"
+			><gl-tracking-pill
+				class="pill"
+				colorized
+				outlined
+				always-show
+				ahead=${ahead}
+				behind=${behind}
+				working=${working}
+			></gl-tracking-pill>
+			<div class="tracking__tooltip" slot="content">${tooltip}${wipTooltip}</div></gl-tooltip
+		>`;
 	}
 
 	protected abstract getBranchActions(): TemplateResult[];
@@ -545,7 +647,7 @@ export abstract class GlBranchCardBase extends GlElement {
 			<gl-work-item
 				?primary=${!this.branch.opened}
 				?nested=${!this.branch.opened}
-				.indicator=${this.cardIndicator}
+				.indicator=${this.branchCardIndicator}
 				?expanded=${this.expanded}
 			>
 				<div class="branch-item__section">
@@ -576,7 +678,18 @@ export abstract class GlBranchCardBase extends GlElement {
 	}
 
 	private renderBranchIcon() {
-		return html`<gl-branch-icon .branch="${this.branch}"></gl-branch-icon>`;
+		// Don't show changes on the active branch
+		const hasChanges =
+			!this.branch.opened &&
+			this.wip?.workingTreeState != null &&
+			this.wip.workingTreeState.added + this.wip.workingTreeState.changed + this.wip.workingTreeState.deleted > 0;
+		return html`<gl-branch-icon
+			.state="${this.branch.state}"
+			.hasChanges="${hasChanges}"
+			.missingUpstream=${this.branch.status === 'missingUpstream'}
+			.upstream=${this.branch.upstream?.name}
+			.worktree=${this.branch.worktree != null}
+		></gl-branch-icon>`;
 	}
 
 	protected renderPrItem() {
@@ -595,9 +708,15 @@ export abstract class GlBranchCardBase extends GlElement {
 			return nothing;
 		}
 
+		let indicator: GlCard['indicator'] =
+			this.pr.state === 'merged' ? 'pr-merged' : this.pr.state === 'closed' ? 'pr-closed' : 'pr-open';
+		if (this.launchpadItem) {
+			indicator = getLaunchpadItemGrouping(this.launchpadItem.category);
+		}
+
 		const actions = this.renderPrActions();
 		return html`
-			<gl-work-item ?expanded=${this.expanded} ?nested=${!this.branch.opened}>
+			<gl-work-item ?expanded=${this.expanded} ?nested=${!this.branch.opened} .indicator=${indicator}>
 				<div class="branch-item__section">
 					<p class="branch-item__grouping">
 						<span class="branch-item__icon">
@@ -617,15 +736,20 @@ export abstract class GlBranchCardBase extends GlElement {
 
 	protected renderLaunchpadItem() {
 		if (this.launchpadItem == null) return nothing;
+
 		const group = launchpadCategoryToGroupMap.get(this.launchpadItem.category);
-		if (group == null) return nothing;
+		if (group == null || group === 'other' || group === 'draft' || group === 'current-branch') {
+			return nothing;
+		}
+
 		const groupLabel = launchpadGroupLabelMap.get(group);
 		const groupIcon = launchpadGroupIconMap.get(group);
+
 		if (groupLabel == null || groupIcon == null) return nothing;
 		const groupIconString = groupIcon.match(/\$\((.*?)\)/)![1];
 
 		return html`<div class="branch-item__section branch-item__section--details" slot="context">
-			<p>
+			<p class="launchpad-grouping--${getLaunchpadItemGrouping(this.launchpadItem.category)}">
 				<code-icon icon="${groupIconString}"></code-icon
 				><span class="branch-item__category">${groupLabel.toUpperCase()}</span>
 			</p>
@@ -643,27 +767,36 @@ export abstract class GlBranchCardBase extends GlElement {
 	}
 
 	protected renderIssuesItem() {
-		if (!this.issues?.length && !this.autolinks?.length) {
-			if (this.expanded) {
-				return html`<gl-button
-					class="branch-item__missing"
-					appearance="secondary"
-					full
-					href=${this.createCommandLink<AssociateIssueWithBranchCommandArgs>(
-						'gitlens.associateIssueWithBranch',
-						{
-							branch: this.branch.reference,
-							source: 'home',
-						},
-					)}
-					>Associate an Issue</gl-button
-				>`;
+		const issues = [...(this.issues ?? []), ...(this.autolinks ?? [])];
+		if (!issues.length) {
+			if (!this.expanded) return nothing;
+
+			return html`<gl-button
+				class="branch-item__missing"
+				appearance="secondary"
+				full
+				href=${this.createCommandLink<AssociateIssueWithBranchCommandArgs>('gitlens.associateIssueWithBranch', {
+					branch: this.branch.reference,
+					source: 'home',
+				})}
+				>Associate an Issue</gl-button
+			>`;
+		}
+
+		let indicator: GlCard['indicator'];
+		for (const issue of issues) {
+			if (issue.state === 'opened') {
+				indicator = 'issue-open';
+				break;
 			}
-			return nothing;
+
+			if (issue.state === 'closed') {
+				indicator = 'issue-closed';
+			}
 		}
 
 		return html`
-			<gl-work-item ?expanded=${this.expanded} ?nested=${!this.branch.opened}>
+			<gl-work-item ?expanded=${this.expanded} ?nested=${!this.branch.opened} .indicator=${indicator}>
 				<div class="branch-item__section">${this.renderIssues()}</div>
 			</gl-work-item>
 		`;
@@ -859,4 +992,34 @@ export class GlWorkUnit extends LitElement {
 
 		return html`<slot class="work-item__summary" name="summary"></slot>`;
 	}
+}
+
+function getLaunchpadItemGrouping(category: LaunchpadItem['actionableCategory']) {
+	const group = launchpadCategoryToGroupMap.get(category);
+
+	switch (group) {
+		case 'mergeable':
+			return 'mergeable';
+		case 'blocked':
+			return 'blocked';
+		case 'follow-up':
+		case 'needs-review':
+			return 'attention';
+	}
+
+	return undefined;
+}
+
+function getWipTooltipParts(workingTreeState: { added: number; changed: number; deleted: number }) {
+	const parts = [];
+	if (workingTreeState.added) {
+		parts.push(`${pluralize('file', workingTreeState.added ?? 0)} added`);
+	}
+	if (workingTreeState.changed) {
+		parts.push(`${pluralize('file', workingTreeState.changed ?? 0)} changed`);
+	}
+	if (workingTreeState.deleted) {
+		parts.push(`${pluralize('file', workingTreeState.deleted ?? 0)} deleted`);
+	}
+	return parts;
 }
