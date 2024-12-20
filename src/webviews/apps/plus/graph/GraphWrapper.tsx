@@ -1032,6 +1032,20 @@ export function GraphWrapper({
 			<header className="titlebar graph-app__header">
 				<div className="titlebar__row titlebar__row--wrap">
 					<div className="titlebar__group">
+						<GlPopover placement="bottom">
+							<a
+								href={'command:gitlens.views.home.focus'}
+								className="action-button"
+								style={{ paddingInline: '0.4rem' }}
+								aria-label={`Open GitLens Home View`}
+								slot="anchor"
+							>
+								<span>
+									<CodeIcon className="action-button__icon" icon={'gl-gitlens'} aria-hidden="true" />
+								</span>
+							</a>
+							<span slot="content">Open GitLens Home View</span>
+						</GlPopover>
 						{repo?.provider?.url && (
 							<>
 								<GlPopover placement="bottom">
