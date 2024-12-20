@@ -46,24 +46,7 @@ export class ServerConnection implements Disposable {
 	dispose() {}
 
 	@memoize()
-	private get baseApiUri(): Uri {
-		if (this.container.env === 'staging') {
-			return Uri.parse('https://stagingapi.gitkraken.com');
-		}
-
-		if (this.container.env === 'dev') {
-			return Uri.parse('https://devapi.gitkraken.com');
-		}
-
-		return Uri.parse('https://api.gitkraken.com');
-	}
-
-	getApiUrl(...pathSegments: string[]) {
-		return Uri.joinPath(this.baseApiUri, ...pathSegments).toString();
-	}
-
-	@memoize()
-	private get baseGkDevApiUri(): Uri {
+	private get baseGkApiUri(): Uri {
 		if (this.container.env === 'staging') {
 			return Uri.parse('https://staging-api.gitkraken.dev');
 		}
@@ -75,8 +58,8 @@ export class ServerConnection implements Disposable {
 		return Uri.parse('https://api.gitkraken.dev');
 	}
 
-	getGkDevApiUrl(...pathSegments: string[]) {
-		return Uri.joinPath(this.baseGkDevApiUri, ...pathSegments).toString();
+	getGkApiUrl(...pathSegments: string[]) {
+		return Uri.joinPath(this.baseGkApiUri, ...pathSegments).toString();
 	}
 
 	@memoize()
@@ -133,12 +116,12 @@ export class ServerConnection implements Disposable {
 		}
 	}
 
-	async fetchApi(path: string, init?: RequestInit, options?: GKFetchOptions): Promise<Response> {
-		return this.gkFetch(this.getApiUrl(path), init, options);
+	async fetchGkApi(path: string, init?: RequestInit, options?: GKFetchOptions): Promise<Response> {
+		return this.gkFetch(this.getGkApiUrl(path), init, options);
 	}
 
-	async fetchApiGraphQL(path: string, request: GraphQLRequest, init?: RequestInit, options?: GKFetchOptions) {
-		return this.fetchApi(
+	async fetchGkApiGraphQL(path: string, request: GraphQLRequest, init?: RequestInit, options?: GKFetchOptions) {
+		return this.fetchGkApi(
 			path,
 			{
 				method: 'POST',
@@ -147,10 +130,6 @@ export class ServerConnection implements Disposable {
 			},
 			options,
 		);
-	}
-
-	async fetchGkDevApi(path: string, init?: RequestInit, options?: GKFetchOptions): Promise<Response> {
-		return this.gkFetch(this.getGkDevApiUrl(path), init, options);
 	}
 
 	private async gkFetch(url: RequestInfo, init?: RequestInit, options?: GKFetchOptions): Promise<Response> {

@@ -46,6 +46,7 @@ import type { StartWorkCommandArgs } from '../../plus/startWork/startWork';
 import type { ShowInCommitGraphCommandArgs } from '../../plus/webviews/graph/protocol';
 import type { Change } from '../../plus/webviews/patchDetails/protocol';
 import { showRepositoryPicker } from '../../quickpicks/repositoryPicker';
+import { debug } from '../../system/decorators/log';
 import type { Deferrable } from '../../system/function';
 import { debounce } from '../../system/function';
 import { filterMap } from '../../system/iterable';
@@ -742,7 +743,7 @@ export class HomeWebviewProvider implements WebviewProvider<State, State, HomeWe
 
 	private subscribeToRepository(repo: Repository): Disposable {
 		return Disposable.from(
-			// TODO: advanced confiugration for the watchFileSystem timing
+			// TODO: advanced configuration for the watchFileSystem timing
 			repo.watchFileSystem(1000),
 			repo.onDidChangeFileSystem(() => this.onOverviewRepoChanged('wip')),
 			repo.onDidChange(e => {
@@ -764,6 +765,7 @@ export class HomeWebviewProvider implements WebviewProvider<State, State, HomeWe
 		);
 	}
 
+	@debug()
 	private onOverviewRepoChanged(scope: 'repo' | 'wip') {
 		if (this._invalidateOverview !== 'repo') {
 			this._invalidateOverview = scope;
