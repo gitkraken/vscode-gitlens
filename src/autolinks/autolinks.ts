@@ -42,7 +42,7 @@ export class Autolinks implements Disposable {
 	constructor(private readonly container: Container) {
 		this._disposable = Disposable.from(configuration.onDidChange(this.onConfigurationChanged, this));
 
-		this.onConfigurationChanged();
+		this.setAutolinksFromConfig();
 	}
 
 	dispose() {
@@ -51,19 +51,23 @@ export class Autolinks implements Disposable {
 
 	private onConfigurationChanged(e?: ConfigurationChangeEvent) {
 		if (configuration.changed(e, 'autolinks')) {
-			const autolinks = configuration.get('autolinks');
-			// Since VS Code's configuration objects are live we need to copy them to avoid writing back to the configuration
-			this._references =
-				autolinks
-					?.filter(a => a.prefix && a.url)
-					?.map(a => ({
-						prefix: a.prefix,
-						url: a.url,
-						alphanumeric: a.alphanumeric ?? false,
-						ignoreCase: a.ignoreCase ?? false,
-						title: a.title ?? undefined,
-					})) ?? [];
+			this.setAutolinksFromConfig();
 		}
+	}
+
+	private setAutolinksFromConfig() {
+		const autolinks = configuration.get('autolinks');
+		// Since VS Code's configuration objects are live we need to copy them to avoid writing back to the configuration
+		this._references =
+			autolinks
+				?.filter(a => a.prefix && a.url)
+				?.map(a => ({
+					prefix: a.prefix,
+					url: a.url,
+					alphanumeric: a.alphanumeric ?? false,
+					ignoreCase: a.ignoreCase ?? false,
+					title: a.title ?? undefined,
+				})) ?? [];
 	}
 
 	/** Collects connected integration autolink references into @param refsets */
@@ -111,8 +115,12 @@ export class Autolinks implements Disposable {
 	}
 
 	/** Collects custom-configured autolink references into @param refsets */
-	private collectCustomAutolinks(remote: GitRemote | undefined, refsets: RefSet[]): void {
-		if (this._references.length && remote?.provider == null) {
+	private collectCustomAutolinks(
+		remote: GitRemote | undefined,
+		refsets: RefSet[],
+		options?: { excludeCustom?: boolean },
+	): void {
+		if (this._references.length && (remote?.provider == null || !options?.excludeCustom)) {
 			refsets.push([undefined, this._references]);
 		}
 	}
@@ -122,9 +130,7 @@ export class Autolinks implements Disposable {
 
 		await this.collectIntegrationAutolinks(remote, refsets);
 		this.collectRemoteAutolinks(remote, refsets);
-		if (!options?.excludeCustom) {
-			this.collectCustomAutolinks(remote, refsets);
-		}
+		this.collectCustomAutolinks(remote, refsets, options);
 
 		return refsets;
 	}
