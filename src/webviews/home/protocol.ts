@@ -108,23 +108,6 @@ export interface GetOverviewBranch {
 		| undefined
 	>;
 
-	owner?: Promise<
-		| {
-				name: string;
-				email: string;
-				avatarUrl: string;
-				current: boolean;
-				timestamp?: number;
-				count: number;
-				stats?: {
-					files: number;
-					additions: number;
-					deletions: number;
-				};
-		  }
-		| undefined
-	>;
-
 	contributors?: Promise<
 		{
 			name: string;

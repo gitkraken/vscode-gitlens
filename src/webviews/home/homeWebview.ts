@@ -119,7 +119,6 @@ type BranchMergeTargetStatusInfo = Awaited<GetOverviewBranch['mergeTarget']>;
 type ContributorsInfo = Awaited<GetOverviewBranch['contributors']>;
 type IssuesInfo = Awaited<GetOverviewBranch['issues']>;
 type LaunchpadItemInfo = Awaited<NonNullable<Awaited<GetOverviewBranch['pr']>>['launchpad']>;
-type OwnerInfo = Awaited<GetOverviewBranch['owner']>;
 type PullRequestInfo = Awaited<GetOverviewBranch['pr']>;
 type WipInfo = Awaited<GetOverviewBranch['wip']>;
 
@@ -1323,7 +1322,6 @@ function enrichOverviewBranches(
 		branch.wip = getWipInfo(container, branch, statusPromises.get(branch.id), isActive);
 
 		const contributors = contributorsPromises.get(branch.id);
-		branch.owner = getOwnerInfo(container, contributors);
 		branch.contributors = getContributorsInfo(container, contributors);
 
 		branch.mergeTarget = mergeTargetPromises.get(branch.id);
@@ -1377,29 +1375,6 @@ async function getContributorsInfo(
 		),
 	);
 	return result.map(r => (r.status === 'fulfilled' ? r.value : undefined)).filter(r => r != null);
-}
-
-async function getOwnerInfo(
-	_container: Container,
-	contributorsPromise: Promise<BranchContributorOverview | undefined> | undefined,
-) {
-	if (contributorsPromise == null) return undefined;
-
-	const contributors = await contributorsPromise;
-	if (contributors == null) return undefined;
-
-	const owner = contributors.owner ?? contributors.contributors?.shift();
-	if (owner == null) return undefined;
-
-	return {
-		name: owner.name ?? '',
-		email: owner.email ?? '',
-		current: owner.current,
-		timestamp: owner.date?.getTime(),
-		count: owner.count,
-		stats: owner.stats,
-		avatarUrl: (await owner.getAvatarUri())?.toString(),
-	} satisfies OwnerInfo;
 }
 
 async function getBranchMergeTargetStatusInfo(
