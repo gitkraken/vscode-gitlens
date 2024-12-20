@@ -1,7 +1,5 @@
-import { HostingIntegrationId } from '../../../../constants.integrations';
-import type { PullRequestState } from '../../../../git/models/pullRequest';
-import { PullRequest } from '../../../../git/models/pullRequest';
-import type { PullRequestUrlIdentity } from '../../../../git/models/pullRequest.utils';
+import type { PullRequestRefs, PullRequestState } from '../../../../git/models/pullRequest';
+import { PullRequest, PullRequestMergeableState } from '../../../../git/models/pullRequest';
 import type { Provider } from '../../../../git/models/remoteProvider';
 import type { Integration } from '../../integration';
 import type { ProviderPullRequest } from '../models';
@@ -93,7 +91,21 @@ export interface GitLabMergeRequestREST {
 	updated_at: string;
 	closed_at: string | null;
 	merged_at: string | null;
+	detailed_merge_status: 'conflict' | 'mergeable' | string; // https://docs.gitlab.com/ee/api/merge_requests.html#merge-status
+	diff_refs: {
+		base_sha: string;
+		head_sha: string;
+		start_sha: string;
+	};
+	source_branch: string;
+	source_project_id: number;
+	target_branch: string;
+	target_project_id: number;
 	web_url: string;
+	references: {
+		full: string;
+		short: string;
+	};
 }
 
 export function fromGitLabMergeRequestREST(
@@ -104,22 +116,61 @@ export function fromGitLabMergeRequestREST(
 	return new PullRequest(
 		provider,
 		{
+			// author
 			id: pr.author?.id ?? '',
 			name: pr.author?.name ?? 'Unknown',
 			avatarUrl: pr.author?.avatar_url ?? '',
 			url: pr.author?.web_url ?? '',
 		},
-		String(pr.iid),
-		undefined,
+		String(pr.iid), // id
+		String(pr.id), // nodeId
 		pr.title,
 		pr.web_url,
-		repo,
-		fromGitLabMergeRequestState(pr.state),
+		{
+			// IssueRepository
+			owner: repo.owner,
+			repo: repo.repo,
+			url: pr.web_url.replace(/\/-\/merge_requests\/\d+$/, ''),
+		},
+		fromGitLabMergeRequestState(pr.state), // PullRequestState
 		new Date(pr.created_at),
 		new Date(pr.updated_at),
 		pr.closed_at == null ? undefined : new Date(pr.closed_at),
 		pr.merged_at == null ? undefined : new Date(pr.merged_at),
+		pr.detailed_merge_status === 'mergeable'
+			? PullRequestMergeableState.Mergeable
+			: pr.detailed_merge_status === 'conflict'
+			  ? PullRequestMergeableState.Conflicting
+			  : PullRequestMergeableState.Unknown,
+		undefined, // viewerCanUpdate
+		fromGitLabMergeRequestRefs(pr, repo), // PullRequestRefs
 	);
+}
+
+function fromGitLabMergeRequestRefs(
+	pr: GitLabMergeRequestREST,
+	repo: { owner: string; repo: string },
+): PullRequestRefs {
+	const repoUrl = pr.web_url.replace(/\/merge_requests\/\d+$/, '');
+	return {
+		base: {
+			owner: repo.owner,
+			branch: pr.target_branch,
+			exists: true,
+			url: `${repoUrl}/tree/${pr.target_branch}`,
+			repo: repo.repo,
+			sha: pr.diff_refs?.base_sha,
+		},
+		head: {
+			owner: repo.owner,
+			branch: pr.source_branch,
+			exists: true,
+			url: `${repoUrl}/tree/${pr.source_branch}`,
+			repo: repo.repo,
+			sha: pr.diff_refs?.head_sha,
+		},
+		isCrossRepository: pr.source_project_id !== pr.target_project_id,
+	};
 }
 
 export interface GitLabProjectREST {
@@ -151,19 +202,4 @@ export function fromGitLabMergeRequestProvidersApi(pr: ProviderPullRequest, prov
 		},
 	};
 	return fromProviderPullRequest(wrappedPr, provider);
-}
-
-const prUrlRegex = /^(?:https?:\/\/)?(?:gitlab\.com\/)?(.+?)\/-\/merge_requests\/(\d+)/i;
-
-export function isMaybeGitLabPullRequestUrl(url: string): boolean {
-	return prUrlRegex.test(url);
-}
-
-export function getGitLabPullRequestIdentityFromMaybeUrl(url: string): RequireSome<PullRequestUrlIdentity, 'provider'> {
-	if (url == null) return { prNumber: undefined, ownerAndRepo: undefined, provider: HostingIntegrationId.GitLab };
-
-	const match = prUrlRegex.exec(url);
-	if (match == null) return { prNumber: undefined, ownerAndRepo: undefined, provider: HostingIntegrationId.GitLab };
-
-	return { prNumber: match[2], ownerAndRepo: match[1], provider: HostingIntegrationId.GitLab };
 }
