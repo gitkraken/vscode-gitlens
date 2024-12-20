@@ -5,6 +5,7 @@ export const actionCommandPrefix = 'gitlens.action.';
 
 export const enum GlCommand {
 	AddAuthors = 'gitlens.addAuthors',
+	AssociateIssueWithBranch = 'gitlens.associateIssueWithBranch',
 	BrowseRepoAtRevision = 'gitlens.browseRepoAtRevision',
 	BrowseRepoAtRevisionInNewWindow = 'gitlens.browseRepoAtRevisionInNewWindow',
 	BrowseRepoBeforeRevision = 'gitlens.browseRepoBeforeRevision',
@@ -572,6 +573,7 @@ export type TreeViewCommands = `gitlens.views.${
 	| 'addAuthors'
 	| 'addAuthor'
 	| 'addAuthor.multi'
+	| 'associateIssueWithBranch'
 	| 'openBranchOnRemote'
 	| 'openBranchOnRemote.multi'
 	| 'copyRemoteCommitUrl'
@@ -679,13 +681,17 @@ type HomeWebviewCommands = `home.${
 	| 'openPullRequestChanges'
 	| 'openPullRequestComparison'
 	| 'openPullRequestOnRemote'
+	| 'openPullRequestDetails'
 	| 'createPullRequest'
 	| 'openWorktree'
 	| 'switchToBranch'
 	| 'fetch'
 	| 'openInGraph'
 	| 'createBranch'
-	| 'startWork'}`;
+	| 'mergeIntoCurrent'
+	| 'rebaseCurrentOnto'
+	| 'startWork'
+	| 'createCloudPatch'}`;
 
 type GraphWebviewCommands = `graph.${
 	| 'switchToEditorLayout'
@@ -695,6 +701,7 @@ type GraphWebviewCommands = `graph.${
 	| 'pull'
 	| 'fetch'
 	| 'pushWithForce'
+	| 'associateIssueWithBranch'
 	| 'publishBranch'
 	| 'switchToAnotherBranch'
 	| 'createBranch'
@@ -796,7 +803,8 @@ type GraphWebviewCommands = `graph.${
 	| 'openWorktree'
 	| 'openWorktreeInNewWindow'
 	| 'copyWorkingChangesToWorktree'
-	| 'generateCommitMessage'}`;
+	| 'generateCommitMessage'
+	| 'compareSelectedCommits.multi'}`;
 
 type TimelineWebviewCommands = `timeline.${'refresh' | 'split'}`;
 
@@ -810,9 +818,11 @@ type HomeWebviewViewCommands = `home.${
 	| 'push'
 	| 'publishBranch'
 	| 'disablePreview'
+	| 'enablePreview'
 	| 'previewFeedback'
 	| 'whatsNew'
 	| 'help'
+	| 'info'
 	| 'issues'
 	| 'discussions'
 	| 'account.resync'}`;

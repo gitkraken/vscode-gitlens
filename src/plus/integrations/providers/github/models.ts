@@ -1,4 +1,5 @@
 import type { Endpoints } from '@octokit/types';
+import { HostingIntegrationId } from '../../../../constants.integrations';
 import { GitFileIndexStatus } from '../../../../git/models/file';
 import type { IssueLabel } from '../../../../git/models/issue';
 import { Issue, RepositoryAccessLevel } from '../../../../git/models/issue';
@@ -10,6 +11,7 @@ import {
 	PullRequestReviewState,
 	PullRequestStatusCheckRollupState,
 } from '../../../../git/models/pullRequest';
+import type { PullRequestUrlIdentity } from '../../../../git/models/pullRequest.utils';
 import type { Provider } from '../../../../git/models/remoteProvider';
 
 export interface GitHubBlame {
@@ -103,6 +105,7 @@ export interface GitHubPullRequestLite extends Omit<GitHubIssueOrPullRequest, '_
 	};
 
 	isCrossRepository: boolean;
+	isDraft: boolean;
 	mergedAt: string | null;
 	permalink: string;
 
@@ -150,7 +153,6 @@ export interface GitHubPullRequest extends GitHubPullRequestLite {
 	};
 	checksUrl: string;
 	deletions: number;
-	isDraft: boolean;
 	mergeable: GitHubPullRequestMergeableState;
 	reviewDecision: GitHubPullRequestReviewDecision;
 	latestReviews: {
@@ -216,6 +218,7 @@ export function fromGitHubPullRequestLite(pr: GitHubPullRequestLite, provider: P
 			},
 			isCrossRepository: pr.isCrossRepository,
 		},
+		pr.isDraft,
 	);
 }
 
@@ -418,18 +421,18 @@ export function fromGitHubIssue(value: GitHubIssue, provider: Provider): Issue {
 			avatarUrl: value.author.avatarUrl,
 			url: value.author.url,
 		},
-		{
-			owner: value.repository.owner.login,
-			repo: value.repository.name,
-			accessLevel: fromGitHubViewerPermissionToAccessLevel(value.repository.viewerPermission),
-			url: value.repository.url,
-		},
 		value.assignees.nodes.map(assignee => ({
 			id: assignee.login,
 			name: assignee.login,
 			avatarUrl: assignee.avatarUrl,
 			url: assignee.url,
 		})),
+		{
+			owner: value.repository.owner.login,
+			repo: value.repository.name,
+			accessLevel: fromGitHubViewerPermissionToAccessLevel(value.repository.viewerPermission),
+			url: value.repository.url,
+		},
 		value.closedAt == null ? undefined : new Date(value.closedAt),
 		value.labels?.nodes == null
 			? undefined
@@ -507,4 +510,21 @@ export function fromCommitFileStatus(
 			return GitFileIndexStatus.Copied;
 	}
 	return undefined;
+}
+
+const prUrlRegex = /^(?:https?:\/\/)?(?:github\.com\/)?([^/]+\/[^/]+)\/pull\/(\d+)/i;
+
+export function isMaybeGitHubPullRequestUrl(url: string): boolean {
+	if (url == null) return false;
+
+	return prUrlRegex.test(url);
+}
+
+export function getGitHubPullRequestIdentityFromMaybeUrl(url: string): RequireSome<PullRequestUrlIdentity, 'provider'> {
+	if (url == null) return { prNumber: undefined, ownerAndRepo: undefined, provider: HostingIntegrationId.GitHub };
+
+	const match = prUrlRegex.exec(url);
+	if (match == null) return { prNumber: undefined, ownerAndRepo: undefined, provider: HostingIntegrationId.GitHub };
+
+	return { prNumber: match[2], ownerAndRepo: match[1], provider: HostingIntegrationId.GitHub };
 }

@@ -1,7 +1,7 @@
 import { env, window } from 'vscode';
 import { GlCommand } from '../constants.commands';
 import type { Container } from '../container';
-import { shortenRevision } from '../git/models/reference';
+import { shortenRevision } from '../git/models/revision.utils';
 import { command } from '../system/vscode/command';
 import { openUrl } from '../system/vscode/utils';
 import type { CommandContext } from './base';

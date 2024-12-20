@@ -1,11 +1,11 @@
 import { GlyphChars } from '../constants';
 import { GlCommand } from '../constants.commands';
 import type { Container } from '../container';
-import { createRevisionRange, shortenRevision } from '../git/models/reference';
 import type { GitRemote } from '../git/models/remote';
 import { getHighlanderProviders } from '../git/models/remote';
 import type { RemoteResource } from '../git/models/remoteResource';
 import { RemoteResourceType } from '../git/models/remoteResource';
+import { createRevisionRange, shortenRevision } from '../git/models/revision.utils';
 import type { RemoteProvider } from '../git/remotes/remoteProvider';
 import { showGenericErrorMessage } from '../messages';
 import { showRemoteProviderPicker } from '../quickpicks/remoteProviderPicker';
@@ -105,7 +105,7 @@ export class OpenOnRemoteCommand extends GlCommandBase {
 			let title;
 			let placeholder = `Choose which remote to ${
 				args.clipboard ? `copy the link${resources.length > 1 ? 's' : ''} for` : 'open on'
-			}`;
+			} (or use the gear to set it as default)`;
 
 			function getTitlePrefix(type: string): string {
 				return args?.clipboard

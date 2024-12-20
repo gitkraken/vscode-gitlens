@@ -3,7 +3,7 @@ import type { Colors } from '../../constants.colors';
 import { GitUri } from '../../git/gitUri';
 import type { GitBranch } from '../../git/models/branch';
 import type { GitRebaseStatus } from '../../git/models/rebase';
-import { getReferenceLabel } from '../../git/models/reference';
+import { getReferenceLabel } from '../../git/models/reference.utils';
 import type { GitStatus } from '../../git/models/status';
 import { pluralize } from '../../system/string';
 import { executeCoreCommand } from '../../system/vscode/command';

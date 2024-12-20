@@ -21,6 +21,7 @@ import type {
 	GetAzureResourcesForUserFn,
 	GetCurrentUserFn,
 	GetCurrentUserForInstanceFn,
+	GetIssueFn,
 	GetIssuesForAzureProjectFn,
 	GetIssuesForRepoFn,
 	GetIssuesForReposFn,
@@ -124,6 +125,7 @@ export class ProvidersApi {
 				getPullRequestsForUserFn: providerApis.gitlab.getPullRequestsAssociatedWithUser.bind(
 					providerApis.gitlab,
 				) as GetPullRequestsForUserFn,
+				getIssueFn: providerApis.gitlab.getIssue.bind(providerApis.gitlab) as GetIssueFn,
 				getIssuesForReposFn: providerApis.gitlab.getIssuesForRepos.bind(
 					providerApis.gitlab,
 				) as GetIssuesForReposFn,
@@ -207,7 +209,7 @@ export class ProvidersApi {
 					providerApis.jira,
 				),
 				getJiraProjectsForResourcesFn: providerApis.jira.getJiraProjectsForResources.bind(providerApis.jira),
-				getIssueFn: providerApis.jira.getIssue.bind(providerApis.jira),
+				getIssueFn: providerApis.jira.getIssue.bind(providerApis.jira) as GetIssueFn,
 				getIssuesForProjectFn: providerApis.jira.getIssuesForProject.bind(providerApis.jira),
 				getIssuesForResourceForCurrentUserFn: providerApis.jira.getIssuesForResourceForCurrentUser.bind(
 					providerApis.jira,
@@ -807,8 +809,7 @@ export class ProvidersApi {
 
 	async getIssue(
 		providerId: IntegrationId,
-		resourceId: string,
-		issueId: string,
+		input: { resourceId: string; number: string } | { namespace: string; name: string; number: string },
 		options?: { accessToken?: string },
 	): Promise<ProviderIssue | undefined> {
 		const { provider, token } = await this.ensureProviderTokenAndFunction(
@@ -818,7 +819,7 @@ export class ProvidersApi {
 		);
 
 		try {
-			const result = await provider.getIssueFn?.({ resourceId: resourceId, number: issueId }, { token: token });
+			const result = await provider.getIssueFn?.(input, { token: token });
 
 			return result?.data;
 		} catch (e) {

@@ -2,7 +2,6 @@ import { MarkdownString, TreeItem, TreeItemCollapsibleState } from 'vscode';
 import { GitUri } from '../../git/gitUri';
 import { GitBranch } from '../../git/models/branch';
 import type { GitCommit } from '../../git/models/commit';
-import { getIssueOrPullRequestMarkdownIcon, getIssueOrPullRequestThemeIcon } from '../../git/models/issue';
 import type { PullRequest } from '../../git/models/pullRequest';
 import {
 	ensurePullRequestRefs,
@@ -10,9 +9,10 @@ import {
 	getOrOpenPullRequestRepository,
 } from '../../git/models/pullRequest';
 import type { GitBranchReference } from '../../git/models/reference';
-import { createRevisionRange } from '../../git/models/reference';
 import type { Repository } from '../../git/models/repository';
+import { createRevisionRange } from '../../git/models/revision.utils';
 import { getAheadBehindFilesQuery, getCommitsQuery } from '../../git/queryResults';
+import { getIssueOrPullRequestMarkdownIcon, getIssueOrPullRequestThemeIcon } from '../../git/utils/icons';
 import { pluralize } from '../../system/string';
 import type { ViewsWithCommits } from '../viewBase';
 import { CacheableChildrenViewNode } from './abstract/cacheableChildrenViewNode';

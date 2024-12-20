@@ -1,7 +1,7 @@
 import type { TreeViewRefFileNodeTypes, TreeViewRefNodeTypes } from '../../../constants.views';
 import type { GitUri } from '../../../git/gitUri';
 import type { GitReference, GitRevisionReference } from '../../../git/models/reference';
-import { getReferenceLabel } from '../../../git/models/reference';
+import { getReferenceLabel } from '../../../git/models/reference.utils';
 import type { View } from '../../viewBase';
 import { ViewFileNode } from './viewFileNode';
 import { ViewNode } from './viewNode';

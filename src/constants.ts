@@ -50,6 +50,7 @@ export const enum CharCode {
 export type GitConfigKeys =
 	| `branch.${string}.${'gk' | 'vscode'}-merge-base`
 	| `branch.${string}.gk-target-base`
+	| `branch.${string}.gk-associated-issues`
 	| `branch.${string}.github-pr-owner-number`;
 
 export const enum GlyphChars {
@@ -172,6 +173,7 @@ export const urls = Object.freeze({
 	githubIssues: `https://github.com/gitkraken/vscode-gitlens/issues/?${utm}`,
 	githubDiscussions: `https://github.com/gitkraken/vscode-gitlens/discussions/?${utm}`,
 	helpCenter: `https://help.gitkraken.com/gitlens/gitlens-start-here/?${utm}`,
+	helpCenterHome: `https://help.gitkraken.com/gitlens/home-view/?${utm}`,
 	releaseNotes: `https://help.gitkraken.com/gitlens/gitlens-release-notes-current/?${utm}`,
 
 	acceleratePrReviews: `https://help.gitkraken.com/gitlens/gitlens-start-here/?${utm}#accelerate-pr-reviews`,

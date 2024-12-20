@@ -11,12 +11,13 @@ import { openChanges, openChangesWithWorking, openFile } from '../../../git/acti
 import { ApplyPatchCommitError, ApplyPatchCommitErrorReason } from '../../../git/errors';
 import type { RepositoriesChangeEvent } from '../../../git/gitProviderService';
 import type { GitCommit } from '../../../git/models/commit';
-import { uncommitted, uncommittedStaged } from '../../../git/models/constants';
 import { GitFileChange } from '../../../git/models/file';
 import type { PatchRevisionRange } from '../../../git/models/patch';
-import { createReference, shortenRevision } from '../../../git/models/reference';
+import { createReference } from '../../../git/models/reference.utils';
 import type { Repository } from '../../../git/models/repository';
 import { isRepository } from '../../../git/models/repository';
+import { uncommitted, uncommittedStaged } from '../../../git/models/revision';
+import { shortenRevision } from '../../../git/models/revision.utils';
 import type {
 	CreateDraftChange,
 	Draft,

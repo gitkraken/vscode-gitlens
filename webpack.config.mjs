@@ -118,7 +118,8 @@ function getExtensionConfig(target, mode, env) {
 		}
 
 		plugins.push(
-			new ContributionsPlugin(),
+			new GenerateContributionsPlugin(),
+			new ExtractContributionsPlugin(),
 			new DocsPlugin(),
 			new LicensesPlugin(),
 			new FantasticonPlugin({
@@ -742,15 +743,13 @@ const schema = {
 
 class FileGeneratorPlugin {
 	/**
-	 *
-	 * @param {string} pluginName
-	 * @param {string[]} pathsToWatch
-	 * @param {{ name: string; command: string; args: string[] }} command
+	 * @param {{pluginName: string; pathsToWatch: string[]; command: { name: string; command: string; args: string[] }; strings?: { starting: string; completed: string } }} config
 	 */
-	constructor(pluginName, pathsToWatch, command) {
-		this.pluginName = pluginName;
-		this.pathsToWatch = pathsToWatch;
-		this.command = command;
+	constructor(config) {
+		this.pluginName = config.pluginName;
+		this.pathsToWatch = config.pathsToWatch;
+		this.command = config.command;
+		this.strings = config.strings ?? { starting: 'Generating', completed: 'Generated' };
 		this.lastModified = 0;
 	}
 
@@ -801,7 +800,7 @@ class FileGeneratorPlugin {
 				pendingGeneration = true;
 
 				try {
-					logger.log(`Generating ${this.command.name}...`);
+					logger.log(`${this.strings.starting} ${this.command.name}...`);
 					const start = Date.now();
 
 					const result = spawnSync(this.command.command, this.command.args, {
@@ -812,7 +811,9 @@ class FileGeneratorPlugin {
 
 					if (result.status === 0) {
 						this.lastModified = Date.now();
-						logger.log(`Generated ${this.command.name} in \x1b[32m${Date.now() - start}ms\x1b[0m`);
+						logger.log(
+							`${this.strings.completed} ${this.command.name} in \x1b[32m${Date.now() - start}ms\x1b[0m`,
+						);
 					} else {
 						logger.error(`[${this.pluginName}] Failed to run ${this.command.name}: ${result.stderr}`);
 					}
@@ -829,32 +830,62 @@ class FileGeneratorPlugin {
 	}
 }
 
-class ContributionsPlugin extends FileGeneratorPlugin {
+class GenerateContributionsPlugin extends FileGeneratorPlugin {
 	constructor() {
-		super('contributions', [path.join(__dirname, 'contributions.json')], {
-			name: "'package.json' contributions",
-			command: pkgMgr,
-			args: ['run', 'generate:contributions'],
+		super({
+			pluginName: 'contributions',
+			pathsToWatch: [path.join(__dirname, 'contributions.json')],
+			command: {
+				name: "'package.json' contributions",
+				command: pkgMgr,
+				args: ['run', 'generate:contributions'],
+			},
+		});
+	}
+}
+
+class ExtractContributionsPlugin extends FileGeneratorPlugin {
+	constructor() {
+		super({
+			pluginName: 'contributions',
+			pathsToWatch: [path.join(__dirname, 'package.json')],
+			command: {
+				name: "contributions from 'package.json'",
+				command: pkgMgr,
+				args: ['run', 'extract:contributions'],
+			},
+			strings: {
+				starting: 'Extracting',
+				completed: 'Extracted',
+			},
 		});
 	}
 }
 
 class DocsPlugin extends FileGeneratorPlugin {
 	constructor() {
-		super('docs', [path.join(__dirname, 'src', 'constants.telemetry.ts')], {
-			name: 'docs',
-			command: pkgMgr,
-			args: ['run', 'generate:docs:telemetry'],
+		super({
+			pluginName: 'docs',
+			pathsToWatch: [path.join(__dirname, 'src', 'constants.telemetry.ts')],
+			command: {
+				name: 'docs',
+				command: pkgMgr,
+				args: ['run', 'generate:docs:telemetry'],
+			},
 		});
 	}
 }
 
 class LicensesPlugin extends FileGeneratorPlugin {
 	constructor() {
-		super('licenses', [path.join(__dirname, 'package.json')], {
-			name: 'licenses',
-			command: pkgMgr,
-			args: ['run', 'generate:licenses'],
+		super({
+			pluginName: 'licenses',
+			pathsToWatch: [path.join(__dirname, 'package.json')],
+			command: {
+				name: 'licenses',
+				command: pkgMgr,
+				args: ['run', 'generate:licenses'],
+			},
 		});
 	}
 }

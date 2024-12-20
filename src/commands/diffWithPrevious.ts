@@ -3,7 +3,7 @@ import { GlCommand } from '../constants.commands';
 import type { Container } from '../container';
 import { GitUri } from '../git/gitUri';
 import type { GitCommit } from '../git/models/commit';
-import { deletedOrMissing } from '../git/models/constants';
+import { deletedOrMissing } from '../git/models/revision';
 import { showCommitHasNoPreviousCommitWarningMessage, showGenericErrorMessage } from '../messages';
 import { Logger } from '../system/logger';
 import { command, executeCommand } from '../system/vscode/command';

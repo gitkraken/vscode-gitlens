@@ -1,13 +1,13 @@
 import { Disposable, Selection, TreeItem, TreeItemCollapsibleState, window } from 'vscode';
 import type { GitUri } from '../../git/gitUri';
 import type { GitBranch } from '../../git/models/branch';
-import { deletedOrMissing } from '../../git/models/constants';
 import type { GitFile } from '../../git/models/file';
 import { GitFileIndexStatus } from '../../git/models/file';
 import type { GitLog } from '../../git/models/log';
-import { isUncommitted } from '../../git/models/reference';
 import type { RepositoryChangeEvent, RepositoryFileSystemChangeEvent } from '../../git/models/repository';
 import { RepositoryChange, RepositoryChangeComparisonMode } from '../../git/models/repository';
+import { deletedOrMissing } from '../../git/models/revision';
+import { isUncommitted } from '../../git/models/revision.utils';
 import { gate } from '../../system/decorators/gate';
 import { debug } from '../../system/decorators/log';
 import { memoize } from '../../system/decorators/memoize';

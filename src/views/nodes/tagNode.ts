@@ -4,7 +4,7 @@ import { emojify } from '../../emojis';
 import type { GitUri } from '../../git/gitUri';
 import type { GitLog } from '../../git/models/log';
 import type { GitTagReference } from '../../git/models/reference';
-import { shortenRevision } from '../../git/models/reference';
+import { shortenRevision } from '../../git/models/revision.utils';
 import type { GitTag } from '../../git/models/tag';
 import { gate } from '../../system/decorators/gate';
 import { debug } from '../../system/decorators/log';

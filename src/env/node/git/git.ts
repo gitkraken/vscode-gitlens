@@ -28,8 +28,8 @@ import {
 } from '../../../git/errors';
 import type { GitDir } from '../../../git/gitProvider';
 import type { GitDiffFilter } from '../../../git/models/diff';
-import type { GitRevisionRange } from '../../../git/models/reference';
-import { isUncommitted, isUncommittedStaged, shortenRevision } from '../../../git/models/reference';
+import type { GitRevisionRange } from '../../../git/models/revision';
+import { isUncommitted, isUncommittedStaged, shortenRevision } from '../../../git/models/revision.utils';
 import type { GitUser } from '../../../git/models/user';
 import { parseGitBranchesDefaultFormat } from '../../../git/parsers/branchParser';
 import { parseGitLogAllFormat, parseGitLogDefaultFormat } from '../../../git/parsers/logParser';
@@ -1531,6 +1531,37 @@ export class Git {
 		const params = ['merge-base', '--is-ancestor'];
 		const exitCode = await this.git({ cwd: repoPath, exitCodeOnly: true }, ...params, ref1, ref2);
 		return exitCode === 0;
+	}
+
+	async merge_tree(repoPath: string, branch: string, target: string, ...args: string[]): Promise<string> {
+		try {
+			return await this.git<string>(
+				{ cwd: repoPath, errors: GitErrorHandling.Throw },
+				'merge-tree',
+				...args,
+				branch,
+				target,
+			);
+		} catch (ex) {
+			const msg = ex?.toString() ?? '';
+
+			if (GitErrors.notAValidObjectName.test(msg)) {
+				throw new Error(
+					`'${target}' or '${branch}' not found - ensure the branches exist and are fully qualified (e.g. 'refs/heads/main')`,
+				);
+			}
+			if (GitErrors.badRevision.test(msg)) {
+				throw new Error(`Invalid branch name: ${msg.slice(msg.indexOf("'"))}`);
+			}
+			if (GitErrors.noMergeBase.test(msg)) {
+				throw new Error(`Unable to merge '${branch}' and '${target}' as they have no common ancestor`);
+			}
+
+			if (ex instanceof RunError) return ex.stdout;
+
+			debugger;
+			return '';
+		}
 	}
 
 	reflog(

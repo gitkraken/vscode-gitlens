@@ -6,7 +6,7 @@ import { reveal, showDetailsView } from '../../git/actions/stash';
 import { StashApplyError, StashApplyErrorReason, StashPushError, StashPushErrorReason } from '../../git/errors';
 import type { GitStashCommit } from '../../git/models/commit';
 import type { GitStashReference } from '../../git/models/reference';
-import { getReferenceLabel } from '../../git/models/reference';
+import { getReferenceLabel } from '../../git/models/reference.utils';
 import type { Repository } from '../../git/models/repository';
 import { showGenericErrorMessage } from '../../messages';
 import type { QuickPickItemOfT } from '../../quickpicks/items/common';

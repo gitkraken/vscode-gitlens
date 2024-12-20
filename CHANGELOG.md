@@ -6,16 +6,77 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/) and this p
 
 ## [Unreleased]
 
+## [16.1.0] - 2024-12-19
+
 ### Added
 
-- Adds Holiday promotion
+- Remodels and polishes the _Home_ view:
+  - Adds a new header bar with information, controls, and management for your account and integrations
+  - Branch cards are now grouped, expandable sets which include information on the branch, its associated pull requests and issues
+  - Adds "merge target" status to the active branch
+    - Includes the status of the branch relative to the branch that it is most likely to be merged into (its "merge target")
+    - Includes pre-emptive conflict detection with the merge target and _Merge_ and _Rebase_ actions
+  - Adds merge and rebase status to the active branch while in a merge or rebase
+  - Adds a _Commit_ action which automatically generates a commit message and focuses the SCM commit box
+  - Integrates Launchpad status directly into pull requests and adds colored indicators reflecting Launchpad statuses: "Mergeable", "Blocked", and "Needs Attention"
+  - Adds upstream status information to branch cards
+  - Adds more pull request actions:
+    - _Open Pull Request Changes_ which opens a pull request's changes in a multidiff editor tab
+    - _Compare Pull Request_ which opens a pull request in the _Search & Compare_ view
+    - _Open Pull Request Details_ which opens a pull request in the _Pull Request_ view
+  - Adds the ability to share your working changes with teammates
+  - Increases the prominence of the "branch owner's" avatar
+    - The "branch owner" is the person who contributed the most changes across the commits between the branch's HEAD and branching point
+  - Adds contextual tooltips throughout
+- Adds pre-emptive conflict detection to _Merge_ and _Rebase_ git commands
+- Adds the ability to show stashes in the _Commits_, _Branches_ and _Worktrees_ views &mdash; off by default, can be toggled in the _View Options_ context menu of each view
+- Adds the ability to show remote branches (for the default remote) in the _Branches_ view &mdash; off by default, can be toggled in the _View Options_ context menu of each view
+- Adds the ability to associate issues with branches &mdash; closes [#3870](https://github.com/gitkraken/vscode-gitlens/issues/3870)
+  - Shows issues associated with branches in _Home_ view &mdash; closes [#3806](https://github.com/gitkraken/vscode-gitlens/issues/3806)
+  - Shows issues associated with branches in the _Commit Graph_
+  - Adds a new command _Associate Issue with Branch..._ command to the command palette and to the context menus of branches in views and the _Commit Graph_ allowing the user to associate an issue with an existing branch &mdash; closes [#3884](https://github.com/gitkraken/vscode-gitlens/issues/3884)
+  - Associates issues chosen in the _Start Work_ command with branches created for them
 - Adds the ability to get autolinks for branches via the branch name &mdash; closes [#3547](https://github.com/gitkraken/vscode-gitlens/issues/3547)
 - Adds GitLab issues to the issues list in the _Start Work_ command when GitLab is connected &mdash; closes [#3779](https://github.com/gitkraken/vscode-gitlens/issues/3779)
+- Adds the latest Gemini models to AI features
+- Adds support for deep links to the _Home_ view
 - Adds `gitlens.advanced.caching.gitPath` setting to specify whether to cache the git path &mdash; closes [#2877](https://github.com/gitkraken/vscode-gitlens/issues/2877)
 
 ### Changed
 
+- Improves the _Launchpad_ search experience &mdash; closes [#3855](https://github.com/gitkraken/vscode-gitlens/issues/3855):
+  - Adds a _Search for Pull Request..._ option that allows the user to search for pull requests outside of the listed ones in _Launchpad_. Currently supports GitHub pull requests, with GitLab soon to be added.
+  - Pasting a pull request URL which does not match any listed _Launchpad_ issues will automatically trigger a GitHub search for the pull request
+  - When in provider search mode, adds a _Cancel Searching_ option which will restore the original list of pull requests. Clearing the search input will automatically cancel the search.
+- Improves the _Start Work_ flow and user experience &mdash; closes [#3807](https://github.com/gitkraken/vscode-gitlens/issues/3807):
+  - Splits the _Start Work_ button into two buttons, a _Start Work on an Issue_ button for creating a branch from an issue, and a button for creating a branch without an associated issue &mdash; closes [#3808](https://github.com/gitkraken/vscode-gitlens/issues/3808)
+  - Updates the command flow so that an issue is selected first, and the option to create a worktree is presented after creating the branch &mdash; closes [#3809](https://github.com/gitkraken/vscode-gitlens/issues/3809)
+  - Adds an integration connection button to the title bar &mdash; closes [#3832](https://github.com/gitkraken/vscode-gitlens/issues/3832)
+  - Adds a quickpick option to connect additional integrations when no issues are found &mdash; closes [#3833](https://github.com/gitkraken/vscode-gitlens/issues/3833)
+  - Rewords the placeholder text for better clarity when choosing a base for the new branch &mdash; closes [#3834](https://github.com/gitkraken/vscode-gitlens/issues/3834)
+  - Adds hover tooltip on issues showing their descriptions
+  - Improves tooltips on "Open in Remote" icon
+- Refines commit/file stats formatting and improves coloring and formatting in tooltips
+- Moves the _Commit Graph_ filter commits toggle into the left of the search bar
+- Improves the responsiveness of the _Worktrees_ view to changes in relevant state
+- Improves the HEAD indicator icon to align more with VS Code
 - Updates prep-release reference &mdash; thanks to [PR #3732](https://github.com/gitkraken/vscode-gitlens/pull/3732) by Emmanuel Ferdman ([@emmanuel-ferdman](https://github.com/emmanuel-ferdman))
+
+### Fixed
+
+- Fixes [#3747](https://github.com/gitkraken/vscode-gitlens/issues/3747) - _Rebase Current Branch onto Branch_ incorrectly shows that the current branch is caught up to the destination
+- Fixes [#3836](https://github.com/gitkraken/vscode-gitlens/issues/3836) - Back button in _Start Work_ goes to the wrong step
+- Fixes [#3791](https://github.com/gitkraken/vscode-gitlens/issues/3791) - Pin/snooze in Launchpad trigger a full refresh and are no longer optimistic
+- Fixes [#3886](https://github.com/gitkraken/vscode-gitlens/issues/3886) - Jira orgs/projects accumulating size in global storage
+- Fixes [#3849](https://github.com/gitkraken/vscode-gitlens/issues/3849) - _Launchpad_ view state does not sync properly when connecting/disconnecting integrations
+- Fixes some cases where issues are not properly restricted to open repositories in _Start Work_
+- Fixes issue bodies missing on Jira issue items in _Start Work_
+- Fixes some Jira issues missing in _Start Work_
+- Fixes Jira integration failing to fetch issues for all organizations when there is an issue with one of the organizations
+- Fixes duplicate generic autolinks appearing in _Commit Details_ when the enriched version is shown
+- Fixes the worktree icon in the _Commit Graph_
+- Fixes hovers in the _Commit Graph_ to correctly show branch/tag tips and additions/deletions when the _Changes_ column is enabled
+- Fixes incorrect subscription label in the _Account_ section when signed out
 
 ## [16.0.4] - 2024-11-25
 
@@ -5805,7 +5866,8 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/) and this p
 
 - Initial release but still heavily a work in progress.
 
-[unreleased]: https://github.com/gitkraken/vscode-gitlens/compare/v16.0.4...HEAD
+[unreleased]: https://github.com/gitkraken/vscode-gitlens/compare/v16.1.0...HEAD
+[16.1.0]: https://github.com/gitkraken/vscode-gitlens/compare/v16.0.4...gitkraken:v16.1.0
 [16.0.4]: https://github.com/gitkraken/vscode-gitlens/compare/v16.0.3...gitkraken:v16.0.4
 [16.0.3]: https://github.com/gitkraken/vscode-gitlens/compare/v16.0.2...gitkraken:v16.0.3
 [16.0.2]: https://github.com/gitkraken/vscode-gitlens/compare/v16.0.1...gitkraken:v16.0.2

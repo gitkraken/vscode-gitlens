@@ -18,14 +18,14 @@ export type StorageChangeEvent =
 			/**
 			 * The key of the stored value that has changed.
 			 */
-			readonly key: GlobalStorageKeys;
+			readonly keys: GlobalStorageKeys[];
 			readonly workspace: false;
 	  }
 	| {
 			/**
 			 * The key of the stored value that has changed.
 			 */
-			readonly key: WorkspaceStorageKeys;
+			readonly keys: WorkspaceStorageKeys[];
 			readonly workspace: true;
 	  };
 
@@ -61,7 +61,7 @@ export class Storage implements Disposable {
 	@debug({ logThreshold: 250 })
 	async delete(key: GlobalStorageKeys): Promise<void> {
 		await this.context.globalState.update(`${extensionPrefix}:${key}`, undefined);
-		this._onDidChange.fire({ key: key, workspace: false });
+		this._onDidChange.fire({ keys: [key], workspace: false });
 	}
 
 	@debug({ logThreshold: 250 })
@@ -72,6 +72,8 @@ export class Storage implements Disposable {
 	async deleteWithPrefixCore(prefix?: ExtractPrefixes<GlobalStorageKeys, ':'>, exclude?: RegExp): Promise<void> {
 		const qualifiedKeyPrefix = `${extensionPrefix}:`;
 
+		const keys: GlobalStorageKeys[] = [];
+
 		for (const qualifiedKey of this.context.globalState.keys() as `${typeof extensionPrefix}:${GlobalStorageKeys}`[]) {
 			if (!qualifiedKey.startsWith(qualifiedKeyPrefix)) continue;
 
@@ -79,9 +81,13 @@ export class Storage implements Disposable {
 			if (prefix == null || key === prefix || key.startsWith(`${prefix}:`)) {
 				if (exclude?.test(key)) continue;
 
+				keys.push(key);
 				await this.context.globalState.update(qualifiedKey, undefined);
-				this._onDidChange.fire({ key: key, workspace: false });
 			}
+		}
+
+		if (keys.length) {
+			this._onDidChange.fire({ keys: keys, workspace: false });
 		}
 	}
 
@@ -93,7 +99,7 @@ export class Storage implements Disposable {
 	@debug({ args: { 1: false }, logThreshold: 250 })
 	async store<T extends keyof GlobalStorage>(key: T, value: GlobalStorage[T] | undefined): Promise<void> {
 		await this.context.globalState.update(`${extensionPrefix}:${key}`, value);
-		this._onDidChange.fire({ key: key, workspace: false });
+		this._onDidChange.fire({ keys: [key], workspace: false });
 	}
 
 	@debug({ args: false, logThreshold: 250 })
@@ -123,7 +129,7 @@ export class Storage implements Disposable {
 	@debug({ logThreshold: 250 })
 	async deleteWorkspace(key: WorkspaceStorageKeys): Promise<void> {
 		await this.context.workspaceState.update(`${extensionPrefix}:${key}`, undefined);
-		this._onDidChange.fire({ key: key, workspace: true });
+		this._onDidChange.fire({ keys: [key], workspace: true });
 	}
 
 	@debug({ logThreshold: 250 })
@@ -137,6 +143,8 @@ export class Storage implements Disposable {
 	): Promise<void> {
 		const qualifiedKeyPrefix = `${extensionPrefix}:`;
 
+		const keys: WorkspaceStorageKeys[] = [];
+
 		for (const qualifiedKey of this.context.workspaceState.keys() as `${typeof extensionPrefix}:${WorkspaceStorageKeys}`[]) {
 			if (!qualifiedKey.startsWith(qualifiedKeyPrefix)) continue;
 
@@ -144,9 +152,13 @@ export class Storage implements Disposable {
 			if (prefix == null || key === prefix || key.startsWith(`${prefix}:`)) {
 				if (exclude?.includes(key)) continue;
 
+				keys.push(key);
 				await this.context.workspaceState.update(qualifiedKey, undefined);
-				this._onDidChange.fire({ key: key, workspace: true });
 			}
+		}
+
+		if (keys.length) {
+			this._onDidChange.fire({ keys: keys, workspace: true });
 		}
 	}
 
@@ -161,6 +173,6 @@ export class Storage implements Disposable {
 		value: WorkspaceStorage[T] | undefined,
 	): Promise<void> {
 		await this.context.workspaceState.update(`${extensionPrefix}:${key}`, value);
-		this._onDidChange.fire({ key: key, workspace: true });
+		this._onDidChange.fire({ keys: [key], workspace: true });
 	}
 }

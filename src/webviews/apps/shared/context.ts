@@ -26,6 +26,7 @@ export class LoggerContext {
 				},
 			},
 			DEBUG ? 'debug' : 'off',
+			DEBUG,
 		);
 	}
 

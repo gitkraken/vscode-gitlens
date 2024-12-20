@@ -1,8 +1,8 @@
 import * as assert from 'assert';
 import { suite, test } from 'mocha';
 import { map } from '../../system/iterable';
-import type { Autolink, RefSet } from '../autolinks';
-import { getAutolinks, getBranchAutolinks } from '../autolinks';
+import type { Autolink, RefSet } from '../autolinks.utils';
+import { getAutolinks, getBranchAutolinks } from '../autolinks.utils';
 
 const mockRefSets = (prefixes: string[] = ['']): RefSet[] =>
 	prefixes.map(prefix => [

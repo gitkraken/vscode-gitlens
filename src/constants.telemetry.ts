@@ -218,6 +218,23 @@ export interface TelemetryEvents extends WebviewShowAbortedEvents, WebviewShownE
 	/** Sent when the user chooses to manage integrations */
 	'startWork/action': StartWorkActionEvent;
 
+	/** Sent when the user opens Start Work; use `instance` to correlate an Associate Issue with Branch "session" */
+	'associateIssueWithBranch/open': StartWorkEventDataBase;
+	/** Sent when the launchpad is opened; use `instance` to correlate an Associate Issue with Branch "session" */
+	'associateIssueWithBranch/opened': StartWorkConnectedEventData;
+	/** Sent when the user takes an action on an issue */
+	'associateIssueWithBranch/issue/action': StartWorkIssueActionEvent;
+	/** Sent when the user chooses an issue to associate with the branch in the second step */
+	'associateIssueWithBranch/issue/chosen': StartWorkIssueChosenEvent;
+	/** Sent when the user reaches the "connect an integration" step of Associate Issue with Branch */
+	'associateIssueWithBranch/steps/connect': StartWorkConnectedEventData;
+	/** Sent when the user reaches the "choose an issue" step of Associate Issue with Branch */
+	'associateIssueWithBranch/steps/issue': StartWorkConnectedEventData;
+	/** Sent when the user chooses to connect an integration */
+	'associateIssueWithBranch/title/action': StartWorkTitleActionEvent;
+	/** Sent when the user chooses to manage integrations */
+	'associateIssueWithBranch/action': StartWorkActionEvent;
+
 	/** Sent when the subscription is loaded */
 	subscription: SubscriptionEventData;
 
@@ -861,6 +878,7 @@ export type TrackingContext = 'graph' | 'launchpad' | 'visual_file_history' | 'w
 
 export type Sources =
 	| 'account'
+	| 'associateIssueWithBranch'
 	| 'code-suggest'
 	| 'cloud-patches'
 	| 'commandPalette'
@@ -884,6 +902,7 @@ export type Sources =
 	| 'trial-indicator'
 	| 'scm-input'
 	| 'subscription'
+	| 'view'
 	| 'walkthrough'
 	| 'whatsnew'
 	| 'worktrees';

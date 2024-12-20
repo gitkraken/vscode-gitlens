@@ -1,8 +1,8 @@
 import fs from 'fs';
 
 const packageJSONPromises = Promise.all([
-	import('../package.json', { assert: { type: 'json' } }),
-	import('../dist/icons-contribution.json', { assert: { type: 'json' } }),
+	import('../package.json', { with: { type: 'json' } }),
+	import('../dist/icons-contribution.json', { with: { type: 'json' } }),
 ]);
 
 const scssPromises = Promise.all([

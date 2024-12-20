@@ -1,7 +1,7 @@
-import { Container } from '../../container';
+import type { Container } from '../../container';
 import { formatDate, fromNow } from '../../system/date';
 import { memoize } from '../../system/decorators/memoize';
-import { shortenRevision } from './reference';
+import { shortenRevision } from './revision.utils';
 
 export interface GitReflog {
 	readonly repoPath: string;
@@ -18,6 +18,7 @@ export class GitReflogRecord {
 	private _previousSha: string | undefined;
 
 	constructor(
+		private readonly container: Container,
 		public readonly repoPath: string,
 		public readonly sha: string,
 		private _selector: string,
@@ -37,8 +38,8 @@ export class GitReflogRecord {
 	}
 
 	get formattedDate(): string {
-		return Container.instance.CommitDateFormatting.dateStyle === 'absolute'
-			? this.formatDate(Container.instance.CommitDateFormatting.dateFormat)
+		return this.container.CommitDateFormatting.dateStyle === 'absolute'
+			? this.formatDate(this.container.CommitDateFormatting.dateFormat)
 			: this.formatDateFromNow();
 	}
 

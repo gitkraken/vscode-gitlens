@@ -1,5 +1,7 @@
+import { HostingIntegrationId } from '../../../../constants.integrations';
 import type { PullRequestState } from '../../../../git/models/pullRequest';
 import { PullRequest } from '../../../../git/models/pullRequest';
+import type { PullRequestUrlIdentity } from '../../../../git/models/pullRequest.utils';
 import type { Provider } from '../../../../git/models/remoteProvider';
 import type { Integration } from '../../integration';
 import type { ProviderPullRequest } from '../models';
@@ -149,4 +151,19 @@ export function fromGitLabMergeRequestProvidersApi(pr: ProviderPullRequest, prov
 		},
 	};
 	return fromProviderPullRequest(wrappedPr, provider);
+}
+
+const prUrlRegex = /^(?:https?:\/\/)?(?:gitlab\.com\/)?(.+?)\/-\/merge_requests\/(\d+)/i;
+
+export function isMaybeGitLabPullRequestUrl(url: string): boolean {
+	return prUrlRegex.test(url);
+}
+
+export function getGitLabPullRequestIdentityFromMaybeUrl(url: string): RequireSome<PullRequestUrlIdentity, 'provider'> {
+	if (url == null) return { prNumber: undefined, ownerAndRepo: undefined, provider: HostingIntegrationId.GitLab };
+
+	const match = prUrlRegex.exec(url);
+	if (match == null) return { prNumber: undefined, ownerAndRepo: undefined, provider: HostingIntegrationId.GitLab };
+
+	return { prNumber: match[2], ownerAndRepo: match[1], provider: HostingIntegrationId.GitLab };
 }

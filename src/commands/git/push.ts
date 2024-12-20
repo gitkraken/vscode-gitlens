@@ -1,9 +1,9 @@
 import { GlyphChars } from '../../constants';
 import type { Container } from '../../container';
 import { Features } from '../../features';
-import { getRemoteNameFromBranchName } from '../../git/models/branch';
+import { getRemoteNameFromBranchName } from '../../git/models/branch.utils';
 import type { GitBranchReference, GitReference } from '../../git/models/reference';
-import { getReferenceLabel, isBranchReference } from '../../git/models/reference';
+import { getReferenceLabel, isBranchReference } from '../../git/models/reference.utils';
 import type { Repository } from '../../git/models/repository';
 import { createDirectiveQuickPickItem, Directive } from '../../quickpicks/items/directive';
 import type { FlagsQuickPickItem } from '../../quickpicks/items/flags';

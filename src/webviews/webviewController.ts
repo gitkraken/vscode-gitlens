@@ -1,6 +1,6 @@
 import { getNonce } from '@env/crypto';
 import type { ViewBadge, Webview, WebviewPanel, WebviewView, WindowState } from 'vscode';
-import { Disposable, EventEmitter, Uri, ViewColumn, window, workspace } from 'vscode';
+import { CancellationTokenSource, Disposable, EventEmitter, Uri, ViewColumn, window, workspace } from 'vscode';
 import type { Commands } from '../constants.commands';
 import type { WebviewTelemetryContext } from '../constants.telemetry';
 import type { CustomEditorTypes, WebviewIds, WebviewTypes, WebviewViewIds, WebviewViewTypes } from '../constants.views';
@@ -21,6 +21,7 @@ import type {
 	IpcCallResponseParamsType,
 	IpcMessage,
 	IpcNotification,
+	IpcPromise,
 	IpcRequest,
 	WebviewFocusChangedParams,
 	WebviewState,
@@ -29,6 +30,7 @@ import {
 	DidChangeHostWindowFocusNotification,
 	DidChangeWebviewFocusNotification,
 	ExecuteCommand,
+	ipcPromiseSettled,
 	TelemetrySendEventCommand,
 	WebviewFocusChangedCommand,
 	WebviewReadyCommand,
@@ -149,10 +151,13 @@ export class WebviewController<
 		return this._ready;
 	}
 
+	private cancellation: CancellationTokenSource | undefined;
 	private disposable: Disposable | undefined;
 	private _isInEditor: boolean;
 	private /*readonly*/ provider!: WebviewProvider<State, SerializedState, ShowingArgs>;
 	private readonly webview: Webview;
+
+	private viewColumn: ViewColumn | undefined;
 
 	private constructor(
 		private readonly container: Container,
@@ -184,9 +189,15 @@ export class WebviewController<
 				window.onDidChangeWindowState(this.onWindowStateChanged, this),
 				parent.webview.onDidReceiveMessage(this.onMessageReceivedCore, this),
 				isInEditor
-					? parent.onDidChangeViewState(({ webviewPanel: { visible, active } }) =>
-							this.onParentVisibilityChanged(visible, active),
-					  )
+					? parent.onDidChangeViewState(({ webviewPanel }) => {
+							const { visible, active, viewColumn } = webviewPanel;
+							this.onParentVisibilityChanged(
+								visible,
+								active,
+								this.viewColumn != null && this.viewColumn !== viewColumn,
+							);
+							this.viewColumn = viewColumn;
+					  })
 					: parent.onDidChangeVisibility(() => this.onParentVisibilityChanged(this.visible, this.active)),
 				parent.onDidDispose(this.onParentDisposed, this),
 				...(this.provider.registerCommands?.() ?? []),
@@ -198,6 +209,8 @@ export class WebviewController<
 	private _disposed: boolean = false;
 	dispose() {
 		this._disposed = true;
+		this.cancellation?.cancel();
+		this.cancellation?.dispose();
 		resetContextKeys(this.descriptor.contextKeyPrefix);
 
 		this.provider?.onFocusChanged?.(false);
@@ -340,6 +353,7 @@ export class WebviewController<
 		}
 
 		if (loading) {
+			this.cancellation ??= new CancellationTokenSource();
 			this.webview.html = await this.getHtml(this.webview);
 		}
 
@@ -385,6 +399,9 @@ export class WebviewController<
 
 	@debug()
 	async refresh(force?: boolean): Promise<void> {
+		this.cancellation?.cancel();
+		this.cancellation = new CancellationTokenSource();
+
 		if (force) {
 			this.clearPendingIpcNotifications();
 		}
@@ -466,7 +483,12 @@ export class WebviewController<
 	}
 
 	@debug()
-	private onParentVisibilityChanged(visible: boolean, active?: boolean) {
+	private onParentVisibilityChanged(visible: boolean, active?: boolean, forceReload?: boolean) {
+		if (forceReload) {
+			void this.refresh();
+			return;
+		}
+
 		if (this.descriptor.webviewHostOptions?.retainContextWhenHidden !== true) {
 			if (visible) {
 				if (this._ready) {
@@ -574,6 +596,31 @@ export class WebviewController<
 		params: IpcCallParamsType<T>,
 		completionId?: string,
 	): Promise<boolean> {
+		const pendingPromises: [Promise<unknown>, IpcPromise][] = [];
+		this.replacePromisesWithIpcPromises(params, pendingPromises);
+
+		const cancellation = this.cancellation?.token;
+		queueMicrotask(() => {
+			for (const [promise, ipcPromise] of pendingPromises) {
+				promise.then(
+					r => {
+						if (cancellation?.isCancellationRequested) {
+							debugger;
+							return;
+						}
+						return this.notify(ipcPromiseSettled, { status: 'fulfilled', value: r }, ipcPromise.id);
+					},
+					(ex: unknown) => {
+						if (cancellation?.isCancellationRequested) {
+							debugger;
+							return;
+						}
+						return this.notify(ipcPromiseSettled, { status: 'rejected', reason: ex }, ipcPromise.id);
+					},
+				);
+			}
+		});
+
 		let packed;
 		if (notificationType.pack && params != null) {
 			const sw = maybeStopWatch(
@@ -611,6 +658,25 @@ export class WebviewController<
 		params: IpcCallResponseParamsType<T>,
 	): Promise<boolean> {
 		return this.notify(requestType.response, params, msg.completionId);
+	}
+
+	private replacePromisesWithIpcPromises(data: unknown, pendingPromises: [Promise<unknown>, IpcPromise][]) {
+		if (data == null || typeof data !== 'object') return;
+
+		for (const key in data) {
+			const value = (data as Record<string, unknown>)[key];
+			if (value instanceof Promise) {
+				const ipcPromise: IpcPromise = {
+					__ipc: 'promise',
+					id: this.nextIpcId(),
+					method: ipcPromiseSettled.method,
+				};
+				(data as Record<string, unknown>)[key] = ipcPromise;
+				pendingPromises.push([value, ipcPromise]);
+			}
+
+			this.replacePromisesWithIpcPromises(value, pendingPromises);
+		}
 	}
 
 	@serialize()

@@ -2,7 +2,7 @@
 	"name": "gitlens",
 	"displayName": "GitLens — Git supercharged",
 	"description": "Supercharge Git within VS Code — Visualize code authorship at a glance via Git blame annotations and CodeLens, seamlessly navigate and explore Git repositories, gain valuable insights via rich visualizations and powerful comparison commands, and so much more",
-	"version": "16.0.2",
+	"version": "16.1.0",
 	"engines": {
 		"vscode": "^1.82.0"
 	},
@@ -1157,12 +1157,19 @@
 						"scope": "window",
 						"order": 702
 					},
+					"gitlens.graph.issues.enabled": {
+						"type": "boolean",
+						"default": true,
+						"markdownDescription": "Specifies whether to show associated issues on branches in the _Commit Graph_. Requires a connection to a supported issue service (e.g. GitHub)",
+						"scope": "window",
+						"order": 703
+					},
 					"gitlens.graph.pullRequests.enabled": {
 						"type": "boolean",
 						"default": true,
 						"markdownDescription": "Specifies whether to show associated pull requests on remote branches in the _Commit Graph_. Requires a connection to a supported remote service (e.g. GitHub)",
 						"scope": "window",
-						"order": 703
+						"order": 704
 					},
 					"gitlens.graph.avatars": {
 						"type": "boolean",
@@ -5762,6 +5769,11 @@
 				"category": "GitLens"
 			},
 			{
+				"command": "gitlens.associateIssueWithBranch",
+				"title": "Associate Issue with Branch...",
+				"category": "GitLens"
+			},
+			{
 				"command": "gitlens.browseRepoAtRevision",
 				"title": "Browse Repository from Revision",
 				"category": "GitLens",
@@ -6303,6 +6315,11 @@
 				"icon": "$(person-add)"
 			},
 			{
+				"command": "gitlens.graph.associateIssueWithBranch",
+				"title": "Associate Issue with Branch...",
+				"enablement": "!operationInProgress"
+			},
+			{
 				"command": "gitlens.graph.cherryPick",
 				"title": "Cherry Pick Commit...",
 				"enablement": "!operationInProgress"
@@ -6389,6 +6406,11 @@
 			{
 				"command": "gitlens.graph.compareBranchWithHead",
 				"title": "Compare with HEAD",
+				"icon": "$(compare-changes)"
+			},
+			{
+				"command": "gitlens.graph.compareSelectedCommits.multi",
+				"title": "Compare Selected Commits",
 				"icon": "$(compare-changes)"
 			},
 			{
@@ -7565,6 +7587,11 @@
 				"enablement": "!operationInProgress"
 			},
 			{
+				"command": "gitlens.views.associateIssueWithBranch",
+				"title": "Associate Issue with Branch...",
+				"enablement": "!operationInProgress"
+			},
+			{
 				"command": "gitlens.views.branches.copy",
 				"title": "Copy"
 			},
@@ -8115,7 +8142,7 @@
 			{
 				"command": "gitlens.views.home.disablePreview",
 				"title": "Revert to Old Home View",
-				"icon": "$(arrow-left)"
+				"icon": "$(discard)"
 			},
 			{
 				"command": "gitlens.views.home.discussions",
@@ -8123,8 +8150,18 @@
 				"icon": "$(comment-discussion)"
 			},
 			{
+				"command": "gitlens.views.home.enablePreview",
+				"title": "Switch to New Home View",
+				"icon": "$(redo)"
+			},
+			{
 				"command": "gitlens.views.home.help",
 				"title": "Help Center",
+				"icon": "$(question)"
+			},
+			{
+				"command": "gitlens.views.home.info",
+				"title": "Learn about Home View",
 				"icon": "$(question)"
 			},
 			{
@@ -9818,6 +9855,13 @@
 					"fontPath": "dist/glicons.woff2",
 					"fontCharacter": "\\f140"
 				}
+			},
+			"gitlens-merge-target": {
+				"description": "merge-target icon",
+				"default": {
+					"fontPath": "dist/glicons.woff2",
+					"fontCharacter": "\\f141"
+				}
 			}
 		},
 		"menus": {
@@ -9837,6 +9881,10 @@
 				{
 					"command": "gitlens.applyPatchFromClipboard",
 					"when": "gitlens:enabled && !gitlens:untrusted && !gitlens:hasVirtualFolders"
+				},
+				{
+					"command": "gitlens.associateIssueWithBranch",
+					"when": "gitlens:enabled && !gitlens:readonly && !gitlens:untrusted && !gitlens:hasVirtualFolders"
 				},
 				{
 					"command": "gitlens.browseRepoAtRevision",
@@ -10239,6 +10287,10 @@
 					"when": "false"
 				},
 				{
+					"command": "gitlens.graph.associateIssueWithBranch",
+					"when": "false"
+				},
+				{
 					"command": "gitlens.graph.cherryPick",
 					"when": "false"
 				},
@@ -10316,6 +10368,10 @@
 				},
 				{
 					"command": "gitlens.graph.compareBranchWithHead",
+					"when": "false"
+				},
+				{
+					"command": "gitlens.graph.compareSelectedCommits.multi",
 					"when": "false"
 				},
 				{
@@ -11195,6 +11251,10 @@
 					"when": "false"
 				},
 				{
+					"command": "gitlens.views.associateIssueWithBranch",
+					"when": "false"
+				},
+				{
 					"command": "gitlens.views.branches.copy",
 					"when": "false"
 				},
@@ -11675,7 +11735,15 @@
 					"when": "false"
 				},
 				{
+					"command": "gitlens.views.home.enablePreview",
+					"when": "false"
+				},
+				{
 					"command": "gitlens.views.home.help",
+					"when": "false"
+				},
+				{
+					"command": "gitlens.views.home.info",
 					"when": "false"
 				},
 				{
@@ -15181,13 +15249,18 @@
 				},
 				{
 					"command": "gitlens.views.deleteBranch",
-					"when": "viewItem =~ /gitlens:branch\\b(?!.*?\\b\\+(current|checkedout)\\b)(?!.*?\\b\\+closed\\b)/ && !listMultiSelection && !gitlens:hasVirtualFolders && !gitlens:readonly && !gitlens:untrusted",
+					"when": "viewItem =~ /gitlens:branch\\b(?!.*?\\b\\+current\\b)(?!.*?\\b\\+closed\\b)/ && !listMultiSelection && !gitlens:hasVirtualFolders && !gitlens:readonly && !gitlens:untrusted",
 					"group": "1_gitlens_actions@7"
 				},
 				{
 					"command": "gitlens.views.deleteBranch.multi",
 					"when": "viewItem =~ /gitlens:branch\\b(?!.*?\\b\\+(current|checkedout)\\b)(?!.*?\\b\\+closed\\b)/ && listMultiSelection && !gitlens:hasVirtualFolders && !gitlens:readonly && !gitlens:untrusted",
 					"group": "1_gitlens_actions@7"
+				},
+				{
+					"command": "gitlens.views.associateIssueWithBranch",
+					"when": "viewItem =~ /gitlens:branch\\b(?!.*?\\b\\+remote\\b)/ && !listMultiSelection && !gitlens:hasVirtualFolders && !gitlens:readonly && !gitlens:untrusted",
+					"group": "1_gitlens_actions@8"
 				},
 				{
 					"command": "gitlens.views.createBranch",
@@ -17211,11 +17284,21 @@
 				{
 					"command": "gitlens.views.home.previewFeedback",
 					"when": "view == gitlens.views.home",
-					"group": "navigation@97"
+					"group": "navigation@96"
 				},
 				{
 					"command": "gitlens.views.home.disablePreview",
 					"when": "view == gitlens.views.home && config.gitlens.home.preview.enabled",
+					"group": "navigation@97"
+				},
+				{
+					"command": "gitlens.views.home.enablePreview",
+					"when": "view == gitlens.views.home && !config.gitlens.home.preview.enabled",
+					"group": "navigation@97"
+				},
+				{
+					"command": "gitlens.views.home.info",
+					"when": "view == gitlens.views.home",
 					"group": "navigation@98"
 				},
 				{
@@ -18071,6 +18154,11 @@
 					"group": "1_gitlens_actions@7"
 				},
 				{
+					"command": "gitlens.graph.associateIssueWithBranch",
+					"when": "webviewItem =~ /gitlens:branch\\b(?!.*?\\b\\+remote\\b)/ && !gitlens:hasVirtualFolders && !gitlens:readonly && !gitlens:untrusted",
+					"group": "1_gitlens_actions@8"
+				},
+				{
 					"command": "gitlens.graph.createBranch",
 					"when": "webviewItem =~ /gitlens:branch\\b/ && !gitlens:hasVirtualFolders && !gitlens:readonly && !gitlens:untrusted",
 					"group": "1_gitlens_actions_@7"
@@ -18444,6 +18532,11 @@
 					"command": "gitlens.graph.openCommitOnRemote.multi",
 					"when": "webviewItems =~ /gitlens:commit\\b/ && listMultiSelection && gitlens:repos:withRemotes",
 					"group": "3_gitlens_explore@2"
+				},
+				{
+					"command": "gitlens.graph.compareSelectedCommits.multi",
+					"when": "webviewItems =~ /gitlens:commit\\b/ && listDoubleSelection",
+					"group": "4_gitlens_compare@2"
 				}
 			]
 		},
@@ -19673,10 +19766,14 @@
 		"build:webviews": "webpack --mode development --config-name webviews",
 		"build:icons": "pnpm run icons:svgo && pnpm fantasticon && pnpm run icons:apply && pnpm run icons:export",
 		"build:tests": "node ./scripts/esbuild.tests.mjs --mode development",
+		"// Extracts the contributions from package.json into contributions.json": "//",
 		"extract:contributions": "node --experimental-strip-types ./scripts/generateContributions.mts --extract",
+		"// Generates contributions in contributions.json into package.json": "//",
 		"generate:contributions": "node --experimental-strip-types ./scripts/generateContributions.mts",
+		"// Generates docs/telemetry-events.md": "//",
 		"generate:docs:telemetry": "node ./scripts/generateTelemetryDocs.mjs",
 		"generate:emoji": "node ./scripts/generateEmojiShortcodeMap.mjs",
+		"// Generates ThirdPartyNotices.txt": "//",
 		"generate:licenses": "node ./scripts/generateLicenses.mjs",
 		"bundle": "webpack --mode production",
 		"bundle:extension": "webpack --mode production --config-name extension:node",

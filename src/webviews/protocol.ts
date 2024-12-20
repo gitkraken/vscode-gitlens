@@ -106,6 +106,27 @@ export const TelemetrySendEventCommand = new IpcCommand<TelemetrySendEventParams
 
 // NOTIFICATIONS
 
+export interface IpcPromise {
+	__ipc: 'promise';
+	id: string;
+	method: string;
+}
+
+export function isIpcPromise(value: unknown): value is IpcPromise {
+	return (
+		value != null &&
+		typeof value === 'object' &&
+		'__ipc' in value &&
+		value.__ipc === 'promise' &&
+		'id' in value &&
+		typeof value.id === 'string' &&
+		'method' in value &&
+		typeof value.method === 'string'
+	);
+}
+
+export const ipcPromiseSettled = new IpcNotification<PromiseSettledResult<unknown>>('core', 'ipc/promise/settled');
+
 export interface DidChangeHostWindowFocusParams {
 	focused: boolean;
 }

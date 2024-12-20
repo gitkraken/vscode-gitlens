@@ -13,13 +13,10 @@ import { executeCommand, registerCommand } from '../../system/vscode/command';
 import { configuration } from '../../system/vscode/configuration';
 import type { ConnectionStateChangeEvent } from '../integrations/integrationService';
 import type { LaunchpadCommandArgs } from './launchpad';
-import type { LaunchpadGroup, LaunchpadItem, LaunchpadProvider, LaunchpadRefreshEvent } from './launchpadProvider';
-import {
-	groupAndSortLaunchpadItems,
-	launchpadGroupIconMap,
-	launchpadPriorityGroups,
-	supportedLaunchpadIntegrations,
-} from './launchpadProvider';
+import type { LaunchpadItem, LaunchpadProvider, LaunchpadRefreshEvent } from './launchpadProvider';
+import { groupAndSortLaunchpadItems, supportedLaunchpadIntegrations } from './launchpadProvider';
+import type { LaunchpadGroup } from './models';
+import { launchpadGroupIconMap, launchpadPriorityGroups } from './models';
 
 type LaunchpadIndicatorState = 'idle' | 'disconnected' | 'loading' | 'load' | 'failed';
 
@@ -368,7 +365,7 @@ export class LaunchpadIndicator implements Disposable {
 									source: 'launchpad-indicator',
 									state: {
 										initialGroup: 'mergeable',
-										selectTopItem: labelType === 'item',
+										selectTopItem: true,
 									},
 								} satisfies Omit<LaunchpadCommandArgs, 'command'>),
 							)} "Open Ready to Merge in Launchpad")`,
@@ -429,7 +426,10 @@ export class LaunchpadIndicator implements Disposable {
 							}](command:gitlens.showLaunchpad?${encodeURIComponent(
 								JSON.stringify({
 									source: 'launchpad-indicator',
-									state: { initialGroup: 'blocked', selectTopItem: labelType === 'item' },
+									state: {
+										initialGroup: 'blocked',
+										selectTopItem: true,
+									},
 								} satisfies Omit<LaunchpadCommandArgs, 'command'>),
 							)} "Open Blocked in Launchpad")`,
 						);
@@ -465,7 +465,7 @@ export class LaunchpadIndicator implements Disposable {
 									source: 'launchpad-indicator',
 									state: {
 										initialGroup: 'follow-up',
-										selectTopItem: labelType === 'item',
+										selectTopItem: true,
 									},
 								} satisfies Omit<LaunchpadCommandArgs, 'command'>),
 							)} "Open Follow-Up in Launchpad")`,
@@ -488,7 +488,7 @@ export class LaunchpadIndicator implements Disposable {
 									source: 'launchpad-indicator',
 									state: {
 										initialGroup: 'needs-review',
-										selectTopItem: labelType === 'item',
+										selectTopItem: true,
 									},
 								} satisfies Omit<LaunchpadCommandArgs, 'command'>),
 							)} "Open Needs Your Review in Launchpad")`,

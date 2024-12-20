@@ -5,7 +5,7 @@ import { ScmResourceGroupType, ScmStatus } from '../@types/vscode.git.resources.
 import { GlCommand } from '../constants.commands';
 import type { Container } from '../container';
 import { GitUri } from '../git/gitUri';
-import { isUncommitted } from '../git/models/reference';
+import { isUncommitted } from '../git/models/revision.utils';
 import { showGenericErrorMessage } from '../messages';
 import { getRepositoryOrShowPicker } from '../quickpicks/repositoryPicker';
 import { filterMap } from '../system/array';

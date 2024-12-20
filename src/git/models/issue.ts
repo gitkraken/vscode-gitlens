@@ -1,6 +1,5 @@
-import { ColorThemeKind, ThemeColor, ThemeIcon, Uri, window } from 'vscode';
+import { Uri } from 'vscode';
 import { Schemes } from '../../constants';
-import type { Colors } from '../../constants.colors';
 import type { Container } from '../../container';
 import type { RepositoryIdentityDescriptor } from '../../gk/models/repositoryIdentities';
 import type { ProviderReference } from './remoteProvider';
@@ -52,12 +51,19 @@ export interface IssueRepository {
 	url?: string;
 }
 
+export interface IssueProject {
+	id: string;
+	name: string;
+	resourceId: string;
+}
+
 export interface IssueShape extends IssueOrPullRequest {
 	author: IssueMember;
 	assignees: IssueMember[];
 	repository?: IssueRepository;
 	labels?: IssueLabel[];
 	body?: string;
+	project?: IssueProject;
 }
 
 export interface SearchedIssue {
@@ -85,111 +91,6 @@ export function serializeIssueOrPullRequest(value: IssueOrPullRequest): IssueOrP
 		state: value.state,
 	};
 	return serialized;
-}
-
-export function getIssueOrPullRequestHtmlIcon(issue?: IssueOrPullRequest): string {
-	if (issue == null) {
-		return `<span class="codicon codicon-link" style="color:${
-			window.activeColorTheme.kind === ColorThemeKind.Dark ? '#a371f7' : '#8250df'
-		};"></span>`;
-	}
-
-	if (issue.type === 'pullrequest') {
-		switch (issue.state) {
-			case 'merged':
-				return `<span class="codicon codicon-git-merge" style="color:${
-					window.activeColorTheme.kind === ColorThemeKind.Dark ? '#a371f7' : '#8250df'
-				};"></span>`;
-			case 'closed':
-				return `<span class="codicon codicon-git-pull-request-closed" style="color:${
-					window.activeColorTheme.kind === ColorThemeKind.Dark ? '#f85149' : '#cf222e'
-				};"></span>`;
-			case 'opened':
-				return `<span class="codicon codicon-git-pull-request" style="color:${
-					window.activeColorTheme.kind === ColorThemeKind.Dark ? '#3fb950' : '#1a7f37'
-				};"></span>`;
-			default:
-				return `<span class="codicon codicon-git-pull-request"></span>`;
-		}
-	} else {
-		if (issue.closed) {
-			return `<span class="codicon codicon-pass" style="color:${
-				window.activeColorTheme.kind === ColorThemeKind.Dark ? '#a371f7' : '#8250df'
-			};"></span>`;
-		}
-		return `<span class="codicon codicon-issues" style="color:${
-			window.activeColorTheme.kind === ColorThemeKind.Dark ? '#3fb950' : '#1a7f37'
-		};"></span>`;
-	}
-}
-
-export function getIssueOrPullRequestMarkdownIcon(issue?: IssueOrPullRequest): string {
-	if (issue == null) {
-		return `<span style="color:${
-			window.activeColorTheme.kind === ColorThemeKind.Dark ? '#a371f7' : '#8250df'
-		};">$(link)</span>`;
-	}
-
-	if (issue.type === 'pullrequest') {
-		switch (issue.state) {
-			case 'merged':
-				return `<span style="color:${
-					window.activeColorTheme.kind === ColorThemeKind.Dark ? '#a371f7' : '#8250df'
-				};">$(git-merge)</span>`;
-			case 'closed':
-				return `<span style="color:${
-					window.activeColorTheme.kind === ColorThemeKind.Dark ? '#f85149' : '#cf222e'
-				};">$(git-pull-request-closed)</span>`;
-			case 'opened':
-				return `<span style="color:${
-					window.activeColorTheme.kind === ColorThemeKind.Dark ? '#3fb950' : '#1a7f37'
-				};">$(git-pull-request)</span>`;
-			default:
-				return `$(git-pull-request)`;
-		}
-	} else {
-		if (issue.closed) {
-			return `<span style="color:${
-				window.activeColorTheme.kind === ColorThemeKind.Dark ? '#a371f7' : '#8250df'
-			};">$(pass)</span>`;
-		}
-		return `<span style="color:${
-			window.activeColorTheme.kind === ColorThemeKind.Dark ? '#3fb950' : '#1a7f37'
-		};">$(issues)</span>`;
-	}
-}
-
-export function getIssueOrPullRequestThemeIcon(issue?: IssueOrPullRequest): ThemeIcon {
-	if (issue == null) {
-		return new ThemeIcon('link', new ThemeColor('gitlens.closedAutolinkedIssueIconColor' satisfies Colors));
-	}
-
-	if (issue.type === 'pullrequest') {
-		switch (issue.state) {
-			case 'merged':
-				return new ThemeIcon(
-					'git-merge',
-					new ThemeColor('gitlens.mergedPullRequestIconColor' satisfies Colors),
-				);
-			case 'closed':
-				return new ThemeIcon(
-					'git-pull-request-closed',
-					new ThemeColor('gitlens.closedPullRequestIconColor' satisfies Colors),
-				);
-			case 'opened':
-				return new ThemeIcon(
-					'git-pull-request',
-					new ThemeColor('gitlens.openPullRequestIconColor' satisfies Colors),
-				);
-			default:
-				return new ThemeIcon('git-pull-request');
-		}
-	} else {
-		if (issue.closed) {
-			return new ThemeIcon('pass', new ThemeColor('gitlens.closedAutolinkedIssueIconColor' satisfies Colors));
-		}
-		return new ThemeIcon('issues', new ThemeColor('gitlens.openAutolinkedIssueIconColor' satisfies Colors));
-	}
 }
 
 export function serializeIssue(value: IssueShape): IssueShape {
@@ -223,6 +124,14 @@ export function serializeIssue(value: IssueShape): IssueShape {
 						owner: value.repository.owner,
 						repo: value.repository.repo,
 						url: value.repository.url,
+				  },
+		project:
+			value.project == null
+				? undefined
+				: {
+						id: value.project.id,
+						name: value.project.name,
+						resourceId: value.project.resourceId,
 				  },
 		assignees: value.assignees.map(assignee => ({
 			id: assignee.id,
@@ -258,13 +167,14 @@ export class Issue implements IssueShape {
 		public readonly closed: boolean,
 		public readonly state: IssueOrPullRequestState,
 		public readonly author: IssueMember,
-		public readonly repository: IssueRepository,
 		public readonly assignees: IssueMember[],
+		public readonly repository?: IssueRepository,
 		public readonly closedDate?: Date,
 		public readonly labels?: IssueLabel[],
 		public readonly commentsCount?: number,
 		public readonly thumbsUpCount?: number,
 		public readonly body?: string,
+		public readonly project?: IssueProject,
 	) {}
 }
 

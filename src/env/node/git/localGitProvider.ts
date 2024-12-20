@@ -62,21 +62,19 @@ import type {
 import { GitUri, isGitUri } from '../../../git/gitUri';
 import { encodeGitLensRevisionUriAuthority } from '../../../git/gitUri.authority';
 import type { GitBlame, GitBlameAuthor, GitBlameLine } from '../../../git/models/blame';
-import type { BranchSortOptions } from '../../../git/models/branch';
+import { GitBranch } from '../../../git/models/branch';
 import {
 	getBranchId,
 	getBranchNameAndRemote,
 	getBranchNameWithoutRemote,
+	getBranchTrackingWithoutRemote,
 	getRemoteNameFromBranchName,
-	GitBranch,
 	isDetachedHead,
-	sortBranches,
-} from '../../../git/models/branch';
+} from '../../../git/models/branch.utils';
 import type { GitStashCommit } from '../../../git/models/commit';
 import { GitCommit, GitCommitIdentity } from '../../../git/models/commit';
-import { deletedOrMissing, uncommitted, uncommittedStaged } from '../../../git/models/constants';
 import type { GitContributorStats } from '../../../git/models/contributor';
-import { GitContributor, sortContributors } from '../../../git/models/contributor';
+import { GitContributor } from '../../../git/models/contributor';
 import type {
 	GitDiff,
 	GitDiffFile,
@@ -99,42 +97,38 @@ import type {
 } from '../../../git/models/graph';
 import type { GitLog } from '../../../git/models/log';
 import type { GitMergeStatus } from '../../../git/models/merge';
+import type { MergeConflict } from '../../../git/models/mergeConflict';
 import type { GitRebaseStatus } from '../../../git/models/rebase';
-import type {
-	GitBranchReference,
-	GitReference,
-	GitRevisionRange,
-	GitTagReference,
-} from '../../../git/models/reference';
+import type { GitBranchReference, GitReference, GitTagReference } from '../../../git/models/reference';
+import { createReference, getReferenceFromBranch, isBranchReference } from '../../../git/models/reference.utils';
+import type { GitReflog } from '../../../git/models/reflog';
+import type { GitRemote } from '../../../git/models/remote';
+import { getVisibilityCacheKey, sortRemotes } from '../../../git/models/remote';
+import { RemoteResourceType } from '../../../git/models/remoteResource';
+import type { RepositoryChangeEvent } from '../../../git/models/repository';
+import { Repository, RepositoryChange, RepositoryChangeComparisonMode } from '../../../git/models/repository';
+import type { GitRevisionRange } from '../../../git/models/revision';
+import { deletedOrMissing, uncommitted, uncommittedStaged } from '../../../git/models/revision';
 import {
-	createReference,
 	createRevisionRange,
-	getBranchTrackingWithoutRemote,
-	getReferenceFromBranch,
-	isBranchReference,
 	isRevisionRange,
 	isSha,
 	isShaLike,
 	isUncommitted,
 	isUncommittedStaged,
 	shortenRevision,
-} from '../../../git/models/reference';
-import type { GitReflog } from '../../../git/models/reflog';
-import type { GitRemote } from '../../../git/models/remote';
-import { getRemoteIconUri, getVisibilityCacheKey, sortRemotes } from '../../../git/models/remote';
-import { RemoteResourceType } from '../../../git/models/remoteResource';
-import type { RepositoryChangeEvent } from '../../../git/models/repository';
-import { Repository, RepositoryChange, RepositoryChangeComparisonMode } from '../../../git/models/repository';
+} from '../../../git/models/revision.utils';
 import type { GitStash } from '../../../git/models/stash';
 import type { GitStatusFile } from '../../../git/models/status';
 import { GitStatus } from '../../../git/models/status';
-import type { GitTag, TagSortOptions } from '../../../git/models/tag';
-import { getTagId, sortTags } from '../../../git/models/tag';
+import type { GitTag } from '../../../git/models/tag';
+import { getTagId } from '../../../git/models/tag';
 import type { GitTreeEntry } from '../../../git/models/tree';
 import type { GitUser } from '../../../git/models/user';
 import { isUserMatch } from '../../../git/models/user';
 import type { GitWorktree } from '../../../git/models/worktree';
-import { getWorktreeId, groupWorktreesByBranch } from '../../../git/models/worktree';
+import { getWorktreeId } from '../../../git/models/worktree';
+import { groupWorktreesByBranch } from '../../../git/models/worktree.utils';
 import { parseGitBlame } from '../../../git/parsers/blameParser';
 import { parseGitBranches } from '../../../git/parsers/branchParser';
 import {
@@ -161,6 +155,7 @@ import {
 	parseGitLogSimpleFormat,
 	parseGitLogSimpleRenamed,
 } from '../../../git/parsers/logParser';
+import { parseMergeTreeConflict } from '../../../git/parsers/mergeTreeParser';
 import { parseGitRefLog, parseGitRefLogDefaultFormat } from '../../../git/parsers/reflogParser';
 import { parseGitRemotes } from '../../../git/parsers/remoteParser';
 import { parseGitStatus } from '../../../git/parsers/statusParser';
@@ -170,6 +165,9 @@ import { parseGitWorktrees } from '../../../git/parsers/worktreeParser';
 import { getRemoteProviderMatcher, loadRemoteProviders } from '../../../git/remotes/remoteProviders';
 import type { GitSearch, GitSearchResultData, GitSearchResults } from '../../../git/search';
 import { getGitArgsFromSearchQuery, getSearchQueryComparisonKey } from '../../../git/search';
+import { getRemoteIconUri } from '../../../git/utils/icons';
+import type { BranchSortOptions, TagSortOptions } from '../../../git/utils/sorting';
+import { sortBranches, sortContributors, sortTags } from '../../../git/utils/sorting';
 import {
 	showBlameInvalidIgnoreRevsFileWarningMessage,
 	showGenericErrorMessage,
@@ -405,14 +403,19 @@ export class LocalGitProvider implements GitProvider, Disposable {
 			registerCommitMessageProvider(this.container, scmGit);
 
 			// Find env to pass to Git
-			for (const v of Object.values(scmGit.git)) {
-				if (v != null && typeof v === 'object' && 'git' in v) {
-					for (const vv of Object.values(v.git)) {
-						if (vv != null && typeof vv === 'object' && 'GIT_ASKPASS' in vv) {
-							Logger.debug(scope, 'Found built-in Git env');
+			if ('env' in scmGit.git) {
+				Logger.debug(scope, 'Found built-in Git env');
+				this.git.setEnv(scmGit.git.env as Record<string, unknown>);
+			} else {
+				for (const v of Object.values(scmGit.git)) {
+					if (v != null && typeof v === 'object' && 'git' in v) {
+						for (const vv of Object.values(v.git)) {
+							if (vv != null && typeof vv === 'object' && 'GIT_ASKPASS' in vv) {
+								Logger.debug(scope, 'Found built-in Git env');
 
-							this.git.setEnv(vv);
-							break;
+								this.git.setEnv(vv);
+								break;
+							}
 						}
 					}
 				}
@@ -2184,43 +2187,10 @@ export class LocalGitProvider implements GitProvider, Disposable {
 		let branchPromise = this.useCaching ? this._branchCache.get(repoPath) : undefined;
 		if (branchPromise == null) {
 			async function load(this: LocalGitProvider): Promise<GitBranch | undefined> {
-				let {
+				const {
 					values: [branch],
 				} = await this.getBranches(repoPath, { filter: b => b.current });
-				if (branch != null) return branch;
-
-				const commitOrdering = configuration.get('advanced.commitOrdering');
-
-				const data = await this.git.rev_parse__currentBranch(repoPath, commitOrdering);
-				if (data == null) return undefined;
-
-				const [name, upstream] = data[0].split('\n');
-				if (isDetachedHead(name)) {
-					const [rebaseStatusResult, committerDateResult] = await Promise.allSettled([
-						this.getRebaseStatus(repoPath),
-						this.git.log__recent_committerdate(repoPath, commitOrdering),
-					]);
-
-					const committerDate = getSettledValue(committerDateResult);
-					const rebaseStatus = getSettledValue(rebaseStatusResult);
-
-					branch = new GitBranch(
-						this.container,
-						repoPath,
-						rebaseStatus?.incoming.name ?? name,
-						false,
-						true,
-						committerDate != null ? new Date(Number(committerDate) * 1000) : undefined,
-						data[1],
-						upstream ? { name: upstream, missing: false } : undefined,
-						undefined,
-						undefined,
-						undefined,
-						rebaseStatus != null,
-					);
-				}
-
-				return branch;
+				return branch ?? this.getCurrentBranch(repoPath);
 			}
 
 			branchPromise = load.call(this);
@@ -2231,6 +2201,38 @@ export class LocalGitProvider implements GitProvider, Disposable {
 		}
 
 		return branchPromise;
+	}
+
+	private async getCurrentBranch(repoPath: string): Promise<GitBranch | undefined> {
+		const commitOrdering = configuration.get('advanced.commitOrdering');
+
+		const data = await this.git.rev_parse__currentBranch(repoPath, commitOrdering);
+		if (data == null) return undefined;
+
+		const [name, upstream] = data[0].split('\n');
+
+		const [rebaseStatusResult, committerDateResult] = await Promise.allSettled([
+			isDetachedHead(name) ? this.getRebaseStatus(repoPath) : undefined,
+			this.git.log__recent_committerdate(repoPath, commitOrdering),
+		]);
+
+		const committerDate = getSettledValue(committerDateResult);
+		const rebaseStatus = getSettledValue(rebaseStatusResult);
+
+		return new GitBranch(
+			this.container,
+			repoPath,
+			rebaseStatus?.incoming.name ?? name,
+			false,
+			true,
+			committerDate != null ? new Date(Number(committerDate) * 1000) : undefined,
+			data[1],
+			upstream ? { name: upstream, missing: false } : undefined,
+			undefined,
+			undefined,
+			undefined,
+			rebaseStatus != null,
+		);
 	}
 
 	@log({ args: { 1: false } })
@@ -2250,43 +2252,28 @@ export class LocalGitProvider implements GitProvider, Disposable {
 				try {
 					const data = await this.git.for_each_ref__branch(repoPath!, { all: true });
 					// If we don't get any data, assume the repo doesn't have any commits yet so check if we have a current branch
-					if (data == null || data.length === 0) {
-						let current;
-
-						const commitOrdering = configuration.get('advanced.commitOrdering');
-
-						const data = await this.git.rev_parse__currentBranch(repoPath!, commitOrdering);
-						if (data != null) {
-							const [name, upstream] = data[0].split('\n');
-
-							const [rebaseStatusResult, committerDateResult] = await Promise.allSettled([
-								isDetachedHead(name) ? this.getRebaseStatus(repoPath!) : undefined,
-								this.git.log__recent_committerdate(repoPath!, commitOrdering),
-							]);
-
-							const committerDate = getSettledValue(committerDateResult);
-							const rebaseStatus = getSettledValue(rebaseStatusResult);
-
-							current = new GitBranch(
-								this.container,
-								repoPath!,
-								rebaseStatus?.incoming.name ?? name,
-								false,
-								true,
-								committerDate != null ? new Date(Number(committerDate) * 1000) : undefined,
-								data[1],
-								{ name: upstream, missing: false },
-								undefined,
-								undefined,
-								undefined,
-								rebaseStatus != null,
-							);
-						}
-
+					if (!data?.length) {
+						const current = await this.getCurrentBranch(repoPath!);
 						return current != null ? { values: [current] } : emptyPagedResult;
 					}
 
-					return { values: parseGitBranches(this.container, data, repoPath!) };
+					const branches = parseGitBranches(this.container, data, repoPath!);
+					if (!branches.length) return emptyPagedResult;
+
+					// If we don't have a current branch, check if we can find it another way (likely detached head)
+					if (!branches.some(b => b.current)) {
+						const current = await this.getCurrentBranch(repoPath!);
+						if (current != null) {
+							// replace the current branch if it already exists and add it first if not
+							const index = branches.findIndex(b => b.id === current.id);
+							if (index !== -1) {
+								branches[index] = current;
+							} else {
+								branches.unshift(current);
+							}
+						}
+					}
+					return { values: branches };
 				} catch (_ex) {
 					this._branchesCache.delete(repoPath!);
 
@@ -4913,7 +4900,7 @@ export class LocalGitProvider implements GitProvider, Disposable {
 			const data = await this.git.log(repoPath, undefined, ...args);
 			if (data == null) return undefined;
 
-			const reflog = parseGitRefLog(data, repoPath, reflogCommands, limit, limit * 100);
+			const reflog = parseGitRefLog(this.container, data, repoPath, reflogCommands, limit, limit * 100);
 			if (reflog?.hasMore) {
 				reflog.more = this.getReflogMoreFn(reflog, options);
 			}
@@ -6452,6 +6439,43 @@ export class LocalGitProvider implements GitProvider, Disposable {
 		} catch (ex) {
 			Logger.error(ex, scope);
 			return undefined;
+		}
+	}
+
+	@log()
+	async getPotentialMergeOrRebaseConflict(
+		repoPath: string,
+		branch: string,
+		targetBranch: string,
+	): Promise<MergeConflict | undefined> {
+		const scope = getLogScope();
+
+		try {
+			// If we have don't have Git v2.33+, just return
+			if (!(await this.git.isAtLeastVersion('2.33'))) {
+				return undefined;
+			}
+
+			let data;
+			try {
+				data = await this.git.merge_tree(repoPath, branch, targetBranch, '-z', '--name-only', '--no-messages');
+			} catch (ex) {
+				Logger.error(ex, scope);
+			}
+			if (!data) return undefined;
+
+			const mergeConflict = parseMergeTreeConflict(data);
+			if (!mergeConflict.conflicts.length) return undefined;
+
+			return {
+				repoPath: repoPath,
+				branch: branch,
+				target: targetBranch,
+				files: mergeConflict.conflicts,
+			};
+		} catch (ex) {
+			Logger.error(ex, scope);
+			throw ex;
 		}
 	}
 

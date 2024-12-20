@@ -2,7 +2,7 @@ import type { Container } from '../../container';
 import type { GitBranch } from '../../git/models/branch';
 import type { GitLog } from '../../git/models/log';
 import type { GitReference, GitRevisionReference, GitTagReference } from '../../git/models/reference';
-import { getReferenceLabel } from '../../git/models/reference';
+import { getReferenceLabel } from '../../git/models/reference.utils';
 import type { Repository } from '../../git/models/repository';
 import type { FlagsQuickPickItem } from '../../quickpicks/items/flags';
 import { createFlagsQuickPickItem } from '../../quickpicks/items/flags';

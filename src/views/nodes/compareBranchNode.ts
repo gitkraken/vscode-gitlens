@@ -5,7 +5,7 @@ import { GlyphChars } from '../../constants';
 import type { StoredBranchComparison, StoredBranchComparisons, StoredNamedRef } from '../../constants.storage';
 import type { GitUri } from '../../git/gitUri';
 import type { GitBranch } from '../../git/models/branch';
-import { createRevisionRange, shortenRevision } from '../../git/models/reference';
+import { createRevisionRange , shortenRevision } from '../../git/models/revision.utils';
 import type { GitUser } from '../../git/models/user';
 import type { CommitsQueryResults, FilesQueryResults } from '../../git/queryResults';
 import { getCommitsQuery, getFilesQuery } from '../../git/queryResults';

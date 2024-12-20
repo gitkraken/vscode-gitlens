@@ -2,7 +2,7 @@ import { MarkdownString, ThemeIcon, TreeItem, TreeItemCollapsibleState } from 'v
 import type { Autolink } from '../../autolinks';
 import { GitUri } from '../../git/gitUri';
 import type { IssueOrPullRequest } from '../../git/models/issue';
-import { getIssueOrPullRequestMarkdownIcon, getIssueOrPullRequestThemeIcon } from '../../git/models/issue';
+import { getIssueOrPullRequestMarkdownIcon, getIssueOrPullRequestThemeIcon } from '../../git/utils/icons';
 import { fromNow } from '../../system/date';
 import { isPromise } from '../../system/promise';
 import type { ViewsWithCommits } from '../viewBase';

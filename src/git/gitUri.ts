@@ -12,9 +12,9 @@ import { getBestPath, relativeDir, splitPath } from '../system/vscode/path';
 import { isVirtualUri } from '../system/vscode/utils';
 import type { RevisionUriData } from './gitProvider';
 import { decodeGitLensRevisionUriAuthority, decodeRemoteHubAuthority } from './gitUri.authority';
-import { uncommittedStaged } from './models/constants';
 import type { GitFile } from './models/file';
-import { isUncommitted, isUncommittedStaged, shortenRevision } from './models/reference';
+import { uncommittedStaged } from './models/revision';
+import { isUncommitted, isUncommittedStaged, shortenRevision } from './models/revision.utils';
 
 const slash = 47; //slash;
 

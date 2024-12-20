@@ -30,9 +30,12 @@ import type { IntegrationId } from '../../constants.integrations';
 import { HostingIntegrationId, IssueIntegrationId } from '../../constants.integrations';
 import type { Source, Sources, StartWorkTelemetryContext, TelemetryEvents } from '../../constants.telemetry';
 import type { Container } from '../../container';
+import { addAssociatedIssueToBranch } from '../../git/models/branch.utils';
 import type { Issue, IssueShape, SearchedIssue } from '../../git/models/issue';
 import { getOrOpenIssueRepository } from '../../git/models/issue';
+import type { GitBranchReference } from '../../git/models/reference';
 import type { Repository } from '../../git/models/repository';
+import { showBranchPicker } from '../../quickpicks/branchPicker';
 import type { QuickPickItemOfT } from '../../quickpicks/items/common';
 import { createQuickPickItemOfT } from '../../quickpicks/items/common';
 import type { DirectiveQuickPickItem } from '../../quickpicks/items/directive';
@@ -43,6 +46,7 @@ import { some } from '../../system/iterable';
 import { executeCommand } from '../../system/vscode/command';
 import { configuration } from '../../system/vscode/configuration';
 import { openUrl } from '../../system/vscode/utils';
+import { getIssueOwner } from '../integrations/providers/utils';
 
 export type StartWorkItem = {
 	item: SearchedIssue;
@@ -70,9 +74,19 @@ function assertsStartWorkStepState(state: StepState<State>): asserts state is St
 	throw new Error('Missing item');
 }
 
-export interface StartWorkCommandArgs {
-	readonly command: 'startWork';
+export interface StartWorkBaseCommandArgs {
+	readonly command: 'startWork' | 'associateIssueWithBranch';
 	source?: Sources;
+}
+
+export interface StartWorkOverrides {
+	ownSource?: 'startWork' | 'associateIssueWithBranch';
+	placeholders?: {
+		localIntegrationConnect?: string;
+		cloudIntegrationConnectHasConnected?: string;
+		cloudIntegrationConnectNoConnected?: string;
+		issueSelection?: string;
+	};
 }
 
 export const supportedStartWorkIntegrations = [
@@ -111,20 +125,35 @@ function isManageIntegrationsItem(item: unknown): item is ManageIntegrationsItem
 	return item === manageIntegrationsItem;
 }
 
-export class StartWorkCommand extends QuickCommand<State> {
+export abstract class StartWorkBaseCommand extends QuickCommand<State> {
 	private readonly source: Source;
 	private readonly telemetryContext: StartWorkTelemetryContext | undefined;
+	private readonly telemetryEventKey: 'startWork' | 'associateIssueWithBranch';
+	protected abstract overrides?: StartWorkOverrides;
 
-	constructor(container: Container, args?: StartWorkCommandArgs) {
-		super(container, 'startWork', 'startWork', `Start Work\u00a0\u00a0${proBadge}`, {
-			description: 'Start work on an issue',
+	constructor(
+		container: Container,
+		args?: StartWorkBaseCommandArgs,
+		key: string = 'startWork',
+		label: string = 'startWork',
+		title: string = `Start Work\u00a0\u00a0${proBadge}`,
+		description: string = 'Start work on an issue',
+		telemetryEventKey: 'startWork' | 'associateIssueWithBranch' = 'startWork',
+	) {
+		super(container, key, label, title, {
+			description: description,
 		});
 
+		this.telemetryEventKey = telemetryEventKey;
 		this.source = { source: args?.source ?? 'commandPalette' };
 
 		if (this.container.telemetry.enabled) {
 			this.telemetryContext = { instance: instanceCounter.next() };
-			this.container.telemetry.sendEvent('startWork/open', { ...this.telemetryContext }, this.source);
+			this.container.telemetry.sendEvent(
+				`${this.telemetryEventKey}/open`,
+				{ ...this.telemetryContext },
+				this.source,
+			);
 		}
 
 		this.initialState = {
@@ -152,7 +181,7 @@ export class StartWorkCommand extends QuickCommand<State> {
 			if (!hasConnectedIntegrations) {
 				if (this.container.telemetry.enabled) {
 					this.container.telemetry.sendEvent(
-						opened ? 'startWork/steps/connect' : 'startWork/opened',
+						opened ? `${this.telemetryEventKey}/steps/connect` : `${this.telemetryEventKey}/opened`,
 						{
 							...context.telemetryContext!,
 							connected: false,
@@ -182,7 +211,7 @@ export class StartWorkCommand extends QuickCommand<State> {
 			if (state.counter < 1 || state.item == null) {
 				if (this.container.telemetry.enabled) {
 					this.container.telemetry.sendEvent(
-						opened ? 'startWork/steps/issue' : 'startWork/opened',
+						opened ? `${this.telemetryEventKey}/steps/issue` : `${this.telemetryEventKey}/opened`,
 						{
 							...context.telemetryContext!,
 							connected: true,
@@ -198,7 +227,7 @@ export class StartWorkCommand extends QuickCommand<State> {
 				state.item = result;
 				if (this.container.telemetry.enabled) {
 					this.container.telemetry.sendEvent(
-						'startWork/issue/chosen',
+						`${this.telemetryEventKey}/issue/chosen`,
 						{
 							...context.telemetryContext!,
 							...buildItemTelemetryData(result),
@@ -211,27 +240,8 @@ export class StartWorkCommand extends QuickCommand<State> {
 
 			assertsStartWorkStepState(state);
 
-			const issue = state.item.item.issue;
-			const repo = issue && (await this.getIssueRepositoryIfExists(issue));
-
-			const result = yield* getSteps(
-				this.container,
-				{
-					command: 'branch',
-					state: {
-						subcommand: 'create',
-						repo: repo,
-						name: issue ? `${slug(issue.id, { lower: false })}-${slug(issue.title)}` : undefined,
-						suggestNameOnly: true,
-						suggestRepoOnly: true,
-						confirmOptions: ['--switch', '--worktree'],
-					},
-				},
-				this.pickedVia,
-			);
-			if (result !== StepResultBreak) {
-				state.counter = 0;
-				continue;
+			if (this.continuation) {
+				yield* this.continuation(state, context);
 			}
 
 			endSteps(state);
@@ -240,7 +250,9 @@ export class StartWorkCommand extends QuickCommand<State> {
 		return state.counter < 0 ? StepResultBreak : undefined;
 	}
 
-	private async getIssueRepositoryIfExists(issue: IssueShape | Issue): Promise<Repository | undefined> {
+	protected abstract continuation?(state: StartWorkStepState, context: Context): StepGenerator;
+
+	protected async getIssueRepositoryIfExists(issue: IssueShape | Issue): Promise<Repository | undefined> {
 		try {
 			return await getOrOpenIssueRepository(this.container, issue);
 		} catch {
@@ -265,7 +277,7 @@ export class StartWorkCommand extends QuickCommand<State> {
 						createQuickPickItemOfT(
 							{
 								label: 'Connect to GitHub...',
-								detail: 'Will connect to GitHub to provide access your pull requests and issues',
+								detail: 'Will connect to GitHub to provide access to your pull requests and issues',
 							},
 							integration,
 						),
@@ -281,7 +293,9 @@ export class StartWorkCommand extends QuickCommand<State> {
 			confirmations,
 			createDirectiveQuickPickItem(Directive.Cancel, false, { label: 'Cancel' }),
 			{
-				placeholder: 'Connect an integration to view their issues in Start Work',
+				placeholder:
+					this.overrides?.placeholders?.localIntegrationConnect ??
+					'Connect an integration to view its issues in Start Work',
 				buttons: [],
 				ignoreFocusOut: false,
 			},
@@ -302,7 +316,7 @@ export class StartWorkCommand extends QuickCommand<State> {
 		const integration = await this.container.integrations.get(id);
 		let connected = integration.maybeConnected ?? (await integration.isConnected());
 		if (!connected) {
-			connected = await integration.connect('startWork');
+			connected = await integration.connect(this.overrides?.ownSource ?? 'startWork');
 		}
 
 		return connected;
@@ -328,7 +342,7 @@ export class StartWorkCommand extends QuickCommand<State> {
 						{
 							label: `Connect an ${hasConnectedIntegration ? 'Additional ' : ''}Integration...`,
 							detail: hasConnectedIntegration
-								? 'Connect additional integrations to view their issues in Start Work'
+								? 'Connect additional integrations to view their issues'
 								: 'Connect an integration to accelerate your work',
 							picked: true,
 						},
@@ -338,8 +352,10 @@ export class StartWorkCommand extends QuickCommand<State> {
 				createDirectiveQuickPickItem(Directive.Cancel, false, { label: 'Cancel' }),
 				{
 					placeholder: hasConnectedIntegration
-						? 'Connect additional integrations to Start Work'
-						: 'Connect an integration to get started with Start Work',
+						? this.overrides?.placeholders?.cloudIntegrationConnectHasConnected ??
+						  'Connect additional integrations to Start Work'
+						: this.overrides?.placeholders?.cloudIntegrationConnectNoConnected ??
+						  'Connect an integration to get started with Start Work',
 					buttons: [],
 					ignoreFocusOut: true,
 				},
@@ -361,7 +377,7 @@ export class StartWorkCommand extends QuickCommand<State> {
 			const connected = await this.container.integrations.connectCloudIntegrations(
 				{ integrationIds: supportedStartWorkIntegrations },
 				{
-					source: 'startWork',
+					source: this.overrides?.ownSource ?? 'startWork',
 				},
 			);
 			if (step.quickpick) {
@@ -386,7 +402,6 @@ export class StartWorkCommand extends QuickCommand<State> {
 			return {
 				label:
 					i.item.issue.title.length > 60 ? `${i.item.issue.title.substring(0, 60)}...` : i.item.issue.title,
-				// description: `${i.repoAndOwner}#${i.id}, by @${i.author}`,
 				description: `\u00a0 ${
 					i.item.issue.repository ? `${i.item.issue.repository.owner}/${i.item.issue.repository.repo}#` : ''
 				}${i.item.issue.id} \u00a0`,
@@ -409,7 +424,7 @@ export class StartWorkCommand extends QuickCommand<State> {
 			return items;
 		};
 
-		function getItemsAndPlaceholder(): {
+		function getItemsAndPlaceholder(placeholderOverride?: string): {
 			placeholder: string;
 			items: (DirectiveQuickPickItem | QuickPickItemOfT<StartWorkItem | undefined>)[];
 		} {
@@ -424,7 +439,7 @@ export class StartWorkCommand extends QuickCommand<State> {
 			}
 
 			return {
-				placeholder: 'Choose an issue to start working on',
+				placeholder: placeholderOverride ?? 'Choose an issue to start working on',
 				items: [...getItems(context.result), createDirectiveQuickPickItem(Directive.Cancel)],
 			};
 		}
@@ -433,7 +448,7 @@ export class StartWorkCommand extends QuickCommand<State> {
 			quickpick.busy = true;
 			try {
 				await updateContextItems(this.container, context);
-				const { items, placeholder } = getItemsAndPlaceholder();
+				const { items, placeholder } = getItemsAndPlaceholder(this.overrides?.placeholders?.issueSelection);
 				quickpick.placeholder = placeholder;
 				quickpick.items = items;
 			} catch {
@@ -492,7 +507,7 @@ export class StartWorkCommand extends QuickCommand<State> {
 			return StepResultBreak;
 		} else if (isManageIntegrationsItem(element)) {
 			this.sendActionTelemetry('manage', context);
-			executeCommand(GlCommand.PlusManageCloudIntegrations, { source: 'startWork' });
+			executeCommand(GlCommand.PlusManageCloudIntegrations, { source: this.overrides?.ownSource ?? 'startWork' });
 			endSteps(state);
 			return StepResultBreak;
 		}
@@ -506,7 +521,7 @@ export class StartWorkCommand extends QuickCommand<State> {
 	}
 
 	private sendItemActionTelemetry(action: 'soft-open', item: StartWorkItem, context: Context) {
-		this.container.telemetry.sendEvent('startWork/issue/action', {
+		this.container.telemetry.sendEvent(`${this.telemetryEventKey}/issue/action`, {
 			...context.telemetryContext!,
 			...buildItemTelemetryData(item),
 			action: action,
@@ -518,7 +533,7 @@ export class StartWorkCommand extends QuickCommand<State> {
 		if (!this.container.telemetry.enabled) return;
 
 		this.container.telemetry.sendEvent(
-			'startWork/title/action',
+			`${this.telemetryEventKey}/title/action`,
 			{ ...context.telemetryContext!, connected: true, action: action },
 			this.source,
 		);
@@ -528,10 +543,115 @@ export class StartWorkCommand extends QuickCommand<State> {
 		if (!this.container.telemetry.enabled) return;
 
 		this.container.telemetry.sendEvent(
-			'startWork/action',
+			`${this.telemetryEventKey}/action`,
 			{ ...context.telemetryContext!, connected: true, action: action },
 			this.source,
 		);
+	}
+}
+
+export interface StartWorkCommandArgs {
+	readonly command: 'startWork';
+	source?: Sources;
+}
+
+export class StartWorkCommand extends StartWorkBaseCommand {
+	overrides?: undefined;
+
+	protected override async *continuation(
+		state: StartWorkStepState,
+		_context: Context,
+	): AsyncStepResultGenerator<void> {
+		const issue = state.item.item.issue;
+		const repo = issue && (await this.getIssueRepositoryIfExists(issue));
+
+		const result = yield* getSteps(
+			this.container,
+			{
+				command: 'branch',
+				state: {
+					subcommand: 'create',
+					repo: repo,
+					name: issue ? `${slug(issue.id, { lower: false })}-${slug(issue.title)}` : undefined,
+					suggestNameOnly: true,
+					suggestRepoOnly: true,
+					confirmOptions: ['--switch', '--worktree'],
+					associateWithIssue: issue,
+				},
+			},
+			this.pickedVia,
+		);
+		if (result !== StepResultBreak) {
+			state.counter = 0;
+		} else {
+			endSteps(state);
+		}
+	}
+}
+
+export interface AssociateIssueWithBranchCommandArgs {
+	readonly command: 'associateIssueWithBranch';
+	branch?: GitBranchReference;
+	source?: Sources;
+}
+
+export class AssociateIssueWithBranchCommand extends StartWorkBaseCommand {
+	private branch: GitBranchReference | undefined;
+	protected override overrides: StartWorkOverrides = {
+		ownSource: 'associateIssueWithBranch',
+		placeholders: {
+			cloudIntegrationConnectHasConnected:
+				'Connect additional integrations to associate their issues with your branches',
+			cloudIntegrationConnectNoConnected: 'Connect an integration to associate its issues with your branches',
+			localIntegrationConnect: 'Connect an integration to associate its issues with your branches',
+			issueSelection: 'Choose an issue to associate with your branch',
+		},
+	};
+
+	constructor(container: Container, args?: AssociateIssueWithBranchCommandArgs) {
+		super(
+			container,
+			{ command: 'associateIssueWithBranch', source: args?.source ?? 'commandPalette' },
+			'associateIssueWithBranch',
+			'associateIssueWithBranch',
+			`Associate Issue with Branch\u00a0\u00a0${proBadge}`,
+			'Associate an issue with your branch',
+			'associateIssueWithBranch',
+		);
+		this.branch = args?.branch;
+	}
+
+	// eslint-disable-next-line require-yield
+	protected override async *continuation(
+		state: StartWorkStepState,
+		_context: Context,
+	): AsyncStepResultGenerator<void> {
+		if (!this.container.git.openRepositories.length) {
+			return;
+		}
+
+		const issue = state.item.item.issue;
+
+		if (this.branch == null) {
+			this.branch = await showBranchPicker(
+				`Associate Issue with Branch\u00a0\u00a0${proBadge}`,
+				'Choose a branch to associate the issue with',
+				this.container.git.openRepositories,
+				{ filter: b => !b.remote },
+			);
+		}
+
+		if (this.branch == null) {
+			return;
+		}
+
+		const owner = getIssueOwner(issue);
+		if (owner == null) {
+			return;
+		}
+
+		await addAssociatedIssueToBranch(this.container, this.branch, { ...issue, type: 'issue' }, owner);
+		endSteps(state);
 	}
 }
 

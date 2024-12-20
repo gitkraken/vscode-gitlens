@@ -53,18 +53,26 @@ export class GLIntegrationsChip extends LitElement {
 				gap: 0.6rem;
 			}
 
+			:host-context(.vscode-dark),
+			:host-context(.vscode-high-contrast) {
+				--status-color--connected: #00dd00;
+			}
+
+			:host-context(.vscode-light),
+			:host-context(.vscode-high-contrast-light) {
+				--status-color--connected: #00aa00;
+			}
+
 			.status--disconnected.integration {
 				color: var(--color-foreground--25);
 			}
 
-			:host-context(.vscode-dark) .status--connected .status-indicator,
-			:host-context(.vscode-high-contrast) .status--connected .status-indicator {
-				color: #00dd00;
+			.status--connected .status-indicator {
+				color: var(--status-color--connected);
 			}
 
-			:host-context(.vscode-light) .status--connected .status-indicator,
-			:host-context(.vscode-high-contrast-light) .status--connected .status-indicator {
-				color: #00aa00;
+			.status--connected .status-indicator {
+				color: var(--status-color--connected);
 			}
 
 			gl-tooltip.status-indicator {

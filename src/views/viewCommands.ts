@@ -22,7 +22,6 @@ import * as StashActions from '../git/actions/stash';
 import * as TagActions from '../git/actions/tag';
 import * as WorktreeActions from '../git/actions/worktree';
 import { GitUri } from '../git/gitUri';
-import { deletedOrMissing } from '../git/models/constants';
 import { matchContributor } from '../git/models/contributor';
 import {
 	ensurePullRequestRefs,
@@ -31,10 +30,13 @@ import {
 	getOrOpenPullRequestRepository,
 	getRepositoryIdentityForPullRequest,
 } from '../git/models/pullRequest';
-import { createReference, shortenRevision } from '../git/models/reference';
+import { createReference } from '../git/models/reference.utils';
 import { RemoteResourceType } from '../git/models/remoteResource';
+import { deletedOrMissing } from '../git/models/revision';
+import { shortenRevision } from '../git/models/revision.utils';
 import { showPatchesView } from '../plus/drafts/actions';
 import { getPullRequestBranchDeepLink } from '../plus/launchpad/launchpadProvider';
+import type { AssociateIssueWithBranchCommandArgs } from '../plus/startWork/startWork';
 import { showContributorsPicker } from '../quickpicks/contributorsPicker';
 import { filterMap } from '../system/array';
 import { log } from '../system/decorators/log';
@@ -244,6 +246,8 @@ export class ViewCommands implements Disposable {
 				this,
 				'sequential',
 			),
+
+			registerViewCommand('gitlens.views.associateIssueWithBranch', n => this.associateIssueWithBranch(n), this),
 
 			registerViewCommand(
 				'gitlens.views.copyRemoteCommitUrl',
@@ -1623,6 +1627,17 @@ export class ViewCommands implements Disposable {
 		}
 
 		void node.triggerChange(true);
+	}
+
+	@log()
+	private async associateIssueWithBranch(node: BranchNode) {
+		if (!node.is('branch')) return Promise.resolve();
+
+		executeCommand<AssociateIssueWithBranchCommandArgs>(GlCommand.AssociateIssueWithBranch, {
+			command: 'associateIssueWithBranch',
+			branch: node.ref,
+			source: 'view',
+		});
 	}
 }
 
