@@ -6,6 +6,20 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/) and this p
 
 ## [Unreleased]
 
+### Added
+
+- Adds action to the launchpad status on PR's on _Home_ to open the _Launchpad_ directly to the item
+
+### Changed
+
+- Improves draft PR handling and launchpad grouping
+
+### Fixed
+
+- Fixes [#3899](https://github.com/gitkraken/vscode-gitlens/issues/#3899) - custom autolinks not being detected
+- Fixes launchpad status icon for 'waiting for review' state on _Home_
+- Fixes missing _Delete Branch..._ command from branches on worktrees in the _Branches_ view
+
 ## [16.1.0] - 2024-12-19
 
 ### Added
