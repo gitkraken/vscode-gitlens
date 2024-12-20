@@ -556,7 +556,7 @@ export abstract class IntegrationBase<
 		const connected = this.maybeConnected ?? (await this.isConnected());
 		if (!connected) return undefined;
 
-		const pr = this.container.cache.getPullRequest(id, resource, this, () => ({
+		const pr = await this.container.cache.getPullRequest(id, resource, this, () => ({
 			value: (async () => {
 				try {
 					const result = await this.getProviderPullRequest?.(this._session!, resource, id);
