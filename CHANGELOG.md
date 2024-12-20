@@ -17,6 +17,7 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/) and this p
 ### Fixed
 
 - Fixes [#3899](https://github.com/gitkraken/vscode-gitlens/issues/#3899) - custom autolinks not being detected
+- Fixes owner avatars from getting lost (progressively) on refresh of the _Home_ view
 - Fixes launchpad status icon for 'waiting for review' state on _Home_
 - Fixes missing _Delete Branch..._ command from branches on worktrees in the _Branches_ view
 
