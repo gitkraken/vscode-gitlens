@@ -2,6 +2,7 @@ import { IssueIntegrationId } from '../constants.integrations';
 import type { IssueOrPullRequest } from '../git/models/issueOrPullRequest';
 import type { ProviderReference } from '../git/models/remoteProvider';
 import type { ResourceDescriptor } from '../plus/integrations/integration';
+import { flatMap } from '../system/iterable';
 import { escapeMarkdown } from '../system/markdown';
 import type { MaybePausedResult } from '../system/promise';
 import { encodeHtmlWeak, escapeRegex } from '../system/string';
@@ -30,6 +31,7 @@ export interface Autolink extends AutolinkReference {
 	provider?: ProviderReference;
 	id: string;
 	index?: number;
+	priority?: string;
 
 	tokenize?:
 		| ((
@@ -129,16 +131,24 @@ export type RefSet = [
  * @returns non-0 result that means a probability of the autolink `b` is more relevant of the autolink `a`
  */
 function compareAutolinks(a: Autolink, b: Autolink): number {
+	if (b.prefix.length - a.prefix.length) {
+		return b.prefix.length - a.prefix.length;
+	}
+	if (a.priority || b.priority) {
+		if ((b.priority ?? '') > (a.priority ?? '')) {
+			return 1;
+		}
+		if ((b.priority ?? '') < (a.priority ?? '')) {
+			return -1;
+		}
+		return 0;
+	}
 	// consider that if the number is in the start, it's the most relevant link
 	if (b.index === 0) return 1;
 	if (a.index === 0) return -1;
 
 	// maybe it worths to use some weight function instead.
-	return (
-		b.prefix.length - a.prefix.length ||
-		b.id.length - a.id.length ||
-		(b.index != null && a.index != null ? -(b.index - a.index) : 0)
-	);
+	return b.id.length - a.id.length || (b.index != null && a.index != null ? -(b.index - a.index) : 0);
 }
 
 export function ensureCachedRegex(
@@ -176,12 +186,17 @@ export function ensureCachedRegex(
 			`(^|\\s|\\(|\\[|\\{)(${escapeRegex(ref.prefix)}(${ref.alphanumeric ? '\\w' : '\\d'}+))\\b`,
 			ref.ignoreCase ? 'gi' : 'g',
 		);
-		ref.branchNameRegex = new RegExp(
-			`(^|\\-|_|\\.|\\/)(?<prefix>${ref.prefix})(?<issueKeyNumber>${
-				ref.alphanumeric ? '\\w' : '\\d'
-			}+)(?=$|\\-|_|\\.|\\/)`,
-			'gi',
-		);
+		if (!ref.prefix && !ref.alphanumeric) {
+			ref.branchNameRegex =
+				/(?<numberChunkBeginning>^|\/|-|_)(?<numberChunk>(?<issueKeyNumber>\d+)(((-|\.|_)\d+){0,1}))(?<numberChunkEnding>$|\/|-|_)/gi;
+		} else {
+			ref.branchNameRegex = new RegExp(
+				`(^|\\-|_|\\.|\\/)(?<prefix>${ref.prefix})(?<issueKeyNumber>${
+					ref.alphanumeric ? '\\w' : '\\d'
+				}+)(?=$|\\-|_|\\.|\\/)`,
+				'gi',
+			);
+		}
 	}
 
 	return true;
@@ -231,6 +246,22 @@ export function getAutolinks(message: string, refsets: Readonly<RefSet[]>): Map<
 	return autolinks;
 }
 
+function calculatePriority(
+	input: string,
+	issueKey: string,
+	numberGroup: string,
+	index: number,
+	chunkIndex: number = 0,
+): string {
+	const edgeDistance = Math.min(index, input.length - index + numberGroup.length - 1);
+	const isSingleNumber = issueKey === numberGroup;
+	return `
+		${String.fromCharCode('a'.charCodeAt(0) + chunkIndex)}:
+		${String.fromCharCode('a'.charCodeAt(0) - edgeDistance)}:
+		${String.fromCharCode('a'.charCodeAt(0) + Number(isSingleNumber))}
+	`;
+}
+
 export function getBranchAutolinks(branchName: string, refsets: Readonly<RefSet[]>): Map<string, Autolink> {
 	const autolinks = new Map<string, Autolink>();
 
@@ -247,7 +278,30 @@ export function getBranchAutolinks(branchName: string, refsets: Readonly<RefSet[
 			}
 
 			ensureCachedRegex(ref, 'plaintext');
-			const matches = branchName.matchAll(ref.branchNameRegex);
+			let chunks = [branchName];
+			const nonPrefixedRef = !ref.prefix && !ref.alphanumeric;
+			if (nonPrefixedRef) {
+				chunks = branchName.split('/');
+			}
+			let chunkIndex = 0;
+			const chunkMap = new Map<string, number>();
+			let skip = false;
+			const matches = flatMap(chunks, chunk => {
+				const releaseMatch = /^release(s?)((?<releaseNum>-[\d.-]+)?)$/gm.exec(chunk);
+				if (releaseMatch) {
+					if (!releaseMatch.groups?.releaseNum) {
+						skip = true;
+					}
+					return [];
+				}
+				if (skip) {
+					skip = false;
+					return [];
+				}
+				const match = chunk.matchAll(ref.branchNameRegex);
+				chunkMap.set(chunk, chunkIndex++);
+				return match;
+			});
 			do {
 				match = matches.next();
 				if (!match.value?.groups) break;
@@ -260,12 +314,28 @@ export function getBranchAutolinks(branchName: string, refsets: Readonly<RefSet[
 				if (existingIndex != null) {
 					index = Math.min(index, existingIndex);
 				}
+				console.log(
+					JSON.stringify(match.value),
+					match.value.groups.numberChunk,
+					match.value.groups.numberChunkBeginning,
+					match.value.input,
+					match.value.groups.issueKeyNumber,
+				);
 				autolinks.set(linkUrl, {
 					...ref,
 					provider: provider,
 					id: num,
 					index: index,
 					url: linkUrl,
+					priority: nonPrefixedRef
+						? calculatePriority(
+								match.value.input,
+								num,
+								match.value.groups.numberChunk,
+								index,
+								chunkMap.get(match.value.input),
+						  )
+						: undefined,
 					title: ref.title?.replace(numRegex, num),
 					description: ref.description?.replace(numRegex, num),
 					descriptor: ref.descriptor,
