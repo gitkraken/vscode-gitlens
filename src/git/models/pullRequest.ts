@@ -272,7 +272,7 @@ export function getRepositoryIdentityForPullRequest(
 	if (headRepo) {
 		return {
 			remote: {
-				url: pr.refs?.head?.url,
+				url: pr.repository.url,
 				domain: pr.provider.domain,
 			},
 			name: `${pr.refs?.head?.owner ?? pr.repository.owner}/${pr.refs?.head?.repo ?? pr.repository.repo}`,
