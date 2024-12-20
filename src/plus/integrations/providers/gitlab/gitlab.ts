@@ -35,12 +35,13 @@ import type {
 	GitLabCommit,
 	GitLabIssue,
 	GitLabMergeRequest,
+	GitLabMergeRequestFull,
 	GitLabMergeRequestREST,
 	GitLabMergeRequestState,
 	GitLabProjectREST,
 	GitLabUser,
 } from './models';
-import { fromGitLabMergeRequestREST, fromGitLabMergeRequestState } from './models';
+import { fromGitLabMergeRequest, fromGitLabMergeRequestREST, fromGitLabMergeRequestState } from './models';
 
 // drop it as soon as we switch to @gitkraken/providers-api
 const gitlabUserIdPrefix = 'gid://gitlab/User/';
@@ -585,24 +586,73 @@ export class GitLabApi implements Disposable {
 	): Promise<PullRequest | undefined> {
 		const scope = getLogScope();
 
-		const projectId = await this.getProjectId(provider, token, owner, repo, options?.baseUrl, cancellation);
-		if (!projectId) return undefined;
+		interface QueryResult {
+			data: {
+				project: {
+					mergeRequest: GitLabMergeRequestFull | null;
+				} | null;
+			};
+		}
 
 		try {
-			const mr = await this.request<GitLabMergeRequestREST>(
+			const query = `query getMergeRequest(
+	$fullPath: ID!
+	$iid: String!
+) {
+	project(fullPath: $fullPath) {
+		mergeRequest(iid: $iid) {
+			id,
+			iid
+			state,
+			author {
+				id
+				name
+				avatarUrl
+				webUrl
+			}
+			diffRefs {
+				baseSha
+				headSha
+			}
+			title
+			description
+			webUrl
+			createdAt
+			updatedAt
+			mergedAt
+			targetBranch
+			sourceBranch
+			project {
+				id
+				fullPath
+				webUrl
+			}
+			sourceProject {
+				id
+				fullPath
+				webUrl
+			}
+		}
+	}
+}`;
+
+			const rsp = await this.graphql<QueryResult>(
 				provider,
 				token,
 				options?.baseUrl,
-				`v4/projects/${projectId}/merge_requests/${id}`,
+				query,
 				{
-					method: 'GET',
+					fullPath: `${owner}/${repo}`,
+					iid: String(id),
 				},
 				cancellation,
 				scope,
 			);
-			if (mr == null) return undefined;
 
-			return fromGitLabMergeRequestREST(mr, provider, { owner: owner, repo: repo });
+			if (rsp?.data?.project?.mergeRequest == null) return undefined;
+
+			const pr = rsp.data.project.mergeRequest;
+			return fromGitLabMergeRequest(pr, provider);
 		} catch (ex) {
 			if (ex instanceof RequestNotFoundError) return undefined;
 
