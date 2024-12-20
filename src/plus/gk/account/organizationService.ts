@@ -61,7 +61,7 @@ export class OrganizationService implements Disposable {
 
 			let rsp;
 			try {
-				rsp = await this.connection.fetchApi(
+				rsp = await this.connection.fetchGkApi(
 					'user/organizations-light',
 					{
 						method: 'GET',
@@ -152,7 +152,7 @@ export class OrganizationService implements Disposable {
 		options?: { force?: boolean },
 	): Promise<FullOrganization | undefined> {
 		if (!this._fullOrganizations?.has(id) || options?.force === true) {
-			const rsp = await this.connection.fetchApi(`organization/${id}`, { method: 'GET' });
+			const rsp = await this.connection.fetchGkApi(`organization/${id}`, { method: 'GET' });
 			if (!rsp.ok) {
 				Logger.error(
 					'',
@@ -213,7 +213,7 @@ export class OrganizationService implements Disposable {
 		if (id == null) return undefined;
 
 		if (!this._organizationSettings?.has(id) || options?.force === true) {
-			const rsp = await this.connection.fetchApi(
+			const rsp = await this.connection.fetchGkApi(
 				`v1/organizations/settings`,
 				{ method: 'GET' },
 				{ organizationId: id },

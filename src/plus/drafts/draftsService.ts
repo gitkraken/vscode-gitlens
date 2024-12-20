@@ -8,7 +8,7 @@ import type { Container } from '../../container';
 import type { GitCommit } from '../../git/models/commit';
 import type { PullRequest } from '../../git/models/pullRequest';
 import { isRepository, Repository } from '../../git/models/repository';
-import { isSha, isUncommitted , shortenRevision } from '../../git/models/revision.utils';
+import { isSha, isUncommitted, shortenRevision } from '../../git/models/revision.utils';
 import type { GitUser } from '../../git/models/user';
 import { getRemoteProviderMatcher } from '../../git/remotes/remoteProviders';
 import type {
@@ -123,7 +123,7 @@ export class DraftService implements Disposable {
 			}
 
 			// POST v1/drafts
-			const createDraftRsp = await this.connection.fetchGkDevApi('v1/drafts', {
+			const createDraftRsp = await this.connection.fetchGkApi('v1/drafts', {
 				method: 'POST',
 				body: JSON.stringify({
 					type: type,
@@ -143,7 +143,7 @@ export class DraftService implements Disposable {
 			type ChangesetResult = { data: DraftChangesetCreateResponse };
 
 			// POST /v1/drafts/:draftId/changesets
-			const createChangesetRsp = await this.connection.fetchGkDevApi(`v1/drafts/${draftId}/changesets`, {
+			const createChangesetRsp = await this.connection.fetchGkApi(`v1/drafts/${draftId}/changesets`, {
 				method: 'POST',
 				body: JSON.stringify({
 					// parentChangesetId: null,
@@ -205,7 +205,7 @@ export class DraftService implements Disposable {
 			}
 
 			// POST /v1/drafts/:draftId/publish
-			const publishRsp = await this.connection.fetchGkDevApi(`v1/drafts/${draftId}/publish`, {
+			const publishRsp = await this.connection.fetchGkApi(`v1/drafts/${draftId}/publish`, {
 				method: 'POST',
 				headers: providerAuthHeader,
 				body: prEntityIdBody != null ? JSON.stringify(prEntityIdBody) : undefined,
@@ -216,7 +216,7 @@ export class DraftService implements Disposable {
 
 			type Result = { data: DraftResponse };
 
-			const draftRsp = await this.connection.fetchGkDevApi(`v1/drafts/${draftId}`, {
+			const draftRsp = await this.connection.fetchGkApi(`v1/drafts/${draftId}`, {
 				method: 'GET',
 				headers: providerAuthHeader,
 			});
@@ -324,7 +324,7 @@ export class DraftService implements Disposable {
 
 	@log()
 	async deleteDraft(id: string): Promise<void> {
-		await this.connection.fetchGkDevApi(`v1/drafts/${id}`, { method: 'DELETE' });
+		await this.connection.fetchGkApi(`v1/drafts/${id}`, { method: 'DELETE' });
 	}
 
 	@log<DraftService['archiveDraft']>({ args: { 1: opts => JSON.stringify({ ...opts, providerAuth: undefined }) } })
@@ -347,7 +347,7 @@ export class DraftService implements Disposable {
 				};
 			}
 
-			const rsp = await this.connection.fetchGkDevApi(`v1/drafts/${draft.id}/archive`, {
+			const rsp = await this.connection.fetchGkApi(`v1/drafts/${draft.id}/archive`, {
 				method: 'POST',
 				body:
 					options?.archiveReason != null
@@ -381,7 +381,7 @@ export class DraftService implements Disposable {
 		}
 
 		const [rspResult, changesetsResult] = await Promise.allSettled([
-			this.connection.fetchGkDevApi(`v1/drafts/${id}`, { method: 'GET', headers: headers }),
+			this.connection.fetchGkApi(`v1/drafts/${id}`, { method: 'GET', headers: headers }),
 			this.getChangesets(id),
 		]);
 
@@ -458,7 +458,7 @@ export class DraftService implements Disposable {
 			};
 		}
 
-		const rsp = await this.connection.fetchGkDevApi(
+		const rsp = await this.connection.fetchGkApi(
 			'/v1/drafts',
 			{
 				method: 'GET',
@@ -500,7 +500,7 @@ export class DraftService implements Disposable {
 		type Result = { data: DraftChangesetResponse[] };
 
 		try {
-			const rsp = await this.connection.fetchGkDevApi(`/v1/drafts/${id}/changesets`, { method: 'GET' });
+			const rsp = await this.connection.fetchGkApi(`/v1/drafts/${id}/changesets`, { method: 'GET' });
 			if (!rsp.ok) {
 				await handleBadDraftResponse(`Unable to open changesets for draft '${id}'`, rsp, scope);
 			}
@@ -538,7 +538,7 @@ export class DraftService implements Disposable {
 		type Result = { data: DraftPatchResponse };
 
 		// GET /v1/patches/:patchId
-		const rsp = await this.connection.fetchGkDevApi(`/v1/patches/${id}`, { method: 'GET' });
+		const rsp = await this.connection.fetchGkApi(`/v1/patches/${id}`, { method: 'GET' });
 
 		if (!rsp.ok) {
 			await handleBadDraftResponse(`Unable to open patch '${id}'`, rsp, scope);
@@ -610,7 +610,7 @@ export class DraftService implements Disposable {
 		type Result = { data: Draft };
 
 		try {
-			const rsp = await this.connection.fetchGkDevApi(`/v1/drafts/${id}`, {
+			const rsp = await this.connection.fetchGkApi(`/v1/drafts/${id}`, {
 				method: 'PATCH',
 				body: JSON.stringify({ visibility: visibility }),
 			});
@@ -636,7 +636,7 @@ export class DraftService implements Disposable {
 		type Result = { data: DraftUser[] };
 
 		try {
-			const rsp = await this.connection.fetchGkDevApi(`/v1/drafts/${id}/users`, { method: 'GET' });
+			const rsp = await this.connection.fetchGkApi(`/v1/drafts/${id}/users`, { method: 'GET' });
 
 			if (rsp?.ok === false) {
 				await handleBadDraftResponse(`Unable to get users for draft '${id}'`, rsp, scope);
@@ -664,7 +664,7 @@ export class DraftService implements Disposable {
 				throw new Error('No changes found');
 			}
 
-			const rsp = await this.connection.fetchGkDevApi(`/v1/drafts/${id}/users`, {
+			const rsp = await this.connection.fetchGkApi(`/v1/drafts/${id}/users`, {
 				method: 'POST',
 				body: JSON.stringify({
 					id: id,
@@ -690,7 +690,7 @@ export class DraftService implements Disposable {
 	async removeDraftUser(id: string, userId: DraftUser['userId']): Promise<boolean> {
 		const scope = getLogScope();
 		try {
-			const rsp = await this.connection.fetchGkDevApi(`/v1/drafts/${id}/users/${userId}`, { method: 'DELETE' });
+			const rsp = await this.connection.fetchGkApi(`/v1/drafts/${id}/users/${userId}`, { method: 'DELETE' });
 
 			if (rsp?.ok === false) {
 				await handleBadDraftResponse(`Unable to update user ${userId} for draft '${id}'`, rsp, scope);
@@ -718,7 +718,7 @@ export class DraftService implements Disposable {
 	async getRepositoryIdentity(draftId: Draft['id'], repoId: GkRepositoryId): Promise<RepositoryIdentity> {
 		type Result = { data: RepositoryIdentityResponse };
 
-		const rsp = await this.connection.fetchGkDevApi(`/v1/drafts/${draftId}/git-repositories/${repoId}`, {
+		const rsp = await this.connection.fetchGkApi(`/v1/drafts/${draftId}/git-repositories/${repoId}`, {
 			method: 'GET',
 		});
 		const data = ((await rsp.json()) as Result).data;
@@ -862,7 +862,7 @@ export class DraftService implements Disposable {
 		});
 
 		try {
-			const rsp = await this.connection.fetchGkDevApi(
+			const rsp = await this.connection.fetchGkApi(
 				'v1/drafts/counts',
 				{
 					method: 'POST',

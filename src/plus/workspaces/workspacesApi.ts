@@ -471,6 +471,6 @@ export class WorkspacesApi {
 	}
 
 	private async fetch(request: GraphQLRequest, init?: RequestInit) {
-		return this.connection.fetchApiGraphQL('api/projects/graphql', request, init);
+		return this.connection.fetchGkApiGraphQL('api/projects/graphql', request, init);
 	}
 }
