@@ -41,12 +41,12 @@ export function rebase(repo?: string | Repository, ref?: GitReference, interacti
 export function reset(
 	repo?: string | Repository,
 	ref?: GitRevisionReference | GitTagReference,
-	flags?: NonNullable<ResetGitCommandArgs['state']>['flags'],
+	options?: NonNullable<ResetGitCommandArgs['state']>['options'],
 ) {
 	return executeGitCommand({
 		command: 'reset',
-		confirm: flags == null || flags.includes('--hard'),
-		state: { repo: repo, reference: ref, flags: flags },
+		confirm: options == null || options.hard,
+		state: { repo: repo, reference: ref, options: options },
 	});
 }
 
