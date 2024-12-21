@@ -152,6 +152,11 @@ export class GitHubGitProvider implements GitProvider, Disposable {
 		return this._onDidChange.event;
 	}
 
+	private _onWillChangeRepository = new EventEmitter<RepositoryChangeEvent>();
+	get onWillChangeRepository(): Event<RepositoryChangeEvent> {
+		return this._onWillChangeRepository.event;
+	}
+
 	private _onDidChangeRepository = new EventEmitter<RepositoryChangeEvent>();
 	get onDidChangeRepository(): Event<RepositoryChangeEvent> {
 		return this._onDidChangeRepository.event;
@@ -213,7 +218,7 @@ export class GitHubGitProvider implements GitProvider, Disposable {
 		this._tagsCache.delete(repo.path);
 		this._repoInfoCache.delete(repo.path);
 
-		this._onDidChangeRepository.fire(e);
+		this._onWillChangeRepository.fire(e);
 	}
 
 	async discoverRepositories(
@@ -289,7 +294,10 @@ export class GitHubGitProvider implements GitProvider, Disposable {
 		return [
 			new Repository(
 				this.container,
-				this.onRepositoryChanged.bind(this),
+				{
+					onDidRepositoryChange: this._onDidChangeRepository,
+					onRepositoryChanged: this.onRepositoryChanged.bind(this),
+				},
 				this.descriptor,
 				folder ?? workspace.getWorkspaceFolder(uri),
 				uri,

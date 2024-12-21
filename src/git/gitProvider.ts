@@ -470,6 +470,7 @@ export interface GitProviderRepository {
 
 export interface GitProvider extends GitProviderRepository, Disposable {
 	get onDidChange(): Event<void>;
+	get onWillChangeRepository(): Event<RepositoryChangeEvent>;
 	get onDidChangeRepository(): Event<RepositoryChangeEvent>;
 	get onDidCloseRepository(): Event<RepositoryCloseEvent>;
 	get onDidOpenRepository(): Event<RepositoryOpenEvent>;
