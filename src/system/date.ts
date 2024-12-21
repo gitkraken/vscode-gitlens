@@ -358,6 +358,14 @@ export function formatNumeric(
 	style?: 'decimal' | 'currency' | 'percent' | 'unit' | null | undefined,
 	locale?: string,
 ): string {
+	const format = getNumericFormat(style, locale);
+	return format(value);
+}
+
+export function getNumericFormat(
+	style?: 'decimal' | 'currency' | 'percent' | 'unit' | null | undefined,
+	locale?: string,
+): Intl.NumberFormat['format'] {
 	if (style == null) {
 		style = 'decimal';
 	}
@@ -381,5 +389,5 @@ export function formatNumeric(
 		numberFormatCache.set(key, formatter);
 	}
 
-	return formatter.format(value);
+	return formatter.format;
 }
