@@ -6,6 +6,10 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/) and this p
 
 ## [Unreleased]
 
+### Added
+
+- Adds a _Contributors_ section to comparison results in the views
+
 ## [16.1.1] - 2024-12-20
 
 ### Added

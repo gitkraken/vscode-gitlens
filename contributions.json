@@ -10138,6 +10138,32 @@
 				]
 			}
 		},
+		"gitlens.views.setContributorsStatisticsOff": {
+			"label": "Hide Contributors Statistics",
+			"icon": "$(graph-line)",
+			"menus": {
+				"view/item/context": [
+					{
+						"when": "viewItem == gitlens:contributors && config.gitlens.views.showContributorsStatistics",
+						"group": "inline",
+						"order": 99
+					}
+				]
+			}
+		},
+		"gitlens.views.setContributorsStatisticsOn": {
+			"label": "Show Contributors Statistics",
+			"icon": "$(graph-line)",
+			"menus": {
+				"view/item/context": [
+					{
+						"when": "viewItem == gitlens:contributors && !config.gitlens.views.showContributorsStatistics",
+						"group": "inline",
+						"order": 99
+					}
+				]
+			}
+		},
 		"gitlens.views.setResultsCommitsFilterAuthors": {
 			"label": "Filter Commits by Author...",
 			"icon": "$(filter)",

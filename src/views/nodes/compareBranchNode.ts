@@ -5,7 +5,7 @@ import { GlyphChars } from '../../constants';
 import type { StoredBranchComparison, StoredBranchComparisons, StoredNamedRef } from '../../constants.storage';
 import type { GitUri } from '../../git/gitUri';
 import type { GitBranch } from '../../git/models/branch';
-import { createRevisionRange , shortenRevision } from '../../git/models/revision.utils';
+import { createRevisionRange, shortenRevision } from '../../git/models/revision.utils';
 import type { GitUser } from '../../git/models/user';
 import type { CommitsQueryResults, FilesQueryResults } from '../../git/queryResults';
 import { getCommitsQuery, getFilesQuery } from '../../git/queryResults';
@@ -118,8 +118,11 @@ export class CompareBranchNode extends SubscribeableViewNode<
 		if (this._compareWith == null) return [];
 
 		if (this.children == null) {
-			const ahead = this.ahead;
-			const behind = this.behind;
+			const ahead = {
+				...this.ahead,
+				range: createRevisionRange(this.ahead.ref1, this.compareWithWorkingTree ? '' : this.ahead.ref2, '..'),
+			};
+			const behind = { ...this.behind, range: createRevisionRange(this.behind.ref1, this.behind.ref2, '..') };
 
 			const counts = await this.view.container.git.getLeftRightCommitCount(
 				this.branch.repoPath,
@@ -138,7 +141,7 @@ export class CompareBranchNode extends SubscribeableViewNode<
 					this.repoPath,
 					'Behind',
 					{
-						query: this.getCommitsQuery(createRevisionRange(behind.ref1, behind.ref2, '..')),
+						query: this.getCommitsQuery(behind.range),
 						comparison: behind,
 						direction: 'behind',
 						files: {
@@ -158,9 +161,7 @@ export class CompareBranchNode extends SubscribeableViewNode<
 					this.repoPath,
 					'Ahead',
 					{
-						query: this.getCommitsQuery(
-							createRevisionRange(ahead.ref1, this.compareWithWorkingTree ? '' : ahead.ref2, '..'),
-						),
+						query: this.getCommitsQuery(ahead.ref1),
 						comparison: ahead,
 						direction: 'ahead',
 						files: {

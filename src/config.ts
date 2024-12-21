@@ -673,14 +673,16 @@ export interface ViewsCommonConfig {
 			readonly tooltip: string;
 		};
 	};
+	readonly openChangesInMultiDiffEditor: boolean;
+	readonly pageItemLimit: number;
 	readonly scm: {
 		grouped: {
 			readonly default: GroupableTreeViewTypes;
 			readonly views: Record<GroupableTreeViewTypes, boolean>;
 		};
 	};
-	readonly openChangesInMultiDiffEditor: boolean;
-	readonly pageItemLimit: number;
+	readonly showComparisonContributors: boolean;
+	readonly showContributorsStatistics: boolean;
 	readonly showCurrentBranchOnTop: boolean;
 	readonly showRelativeDateMarkers: boolean;
 }
@@ -689,7 +691,10 @@ export const viewsCommonConfigKeys: (keyof ViewsCommonConfig)[] = [
 	'collapseWorktreesWhenPossible',
 	'defaultItemLimit',
 	'formats',
+	'openChangesInMultiDiffEditor',
 	'pageItemLimit',
+	'showComparisonContributors',
+	'showContributorsStatistics',
 	'showCurrentBranchOnTop',
 	'showRelativeDateMarkers',
 ];
