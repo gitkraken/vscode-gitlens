@@ -463,8 +463,8 @@ export class GitProviderService implements Disposable {
 					void this.discoverRepositories(workspaceFolders, { force: true });
 				}
 			}),
-			provider.onDidChangeRepository(async e => {
-				Logger.debug(`GitProvider(${id}).onDidChangeRepository(e=${e.repository.toString()})`);
+			provider.onWillChangeRepository(e => {
+				Logger.debug(`GitProvider(${id}).onWillChangeRepository(e=${e.repository.toString()})`);
 
 				if (
 					e.changed(
@@ -475,6 +475,9 @@ export class GitProviderService implements Disposable {
 				) {
 					this._bestRemotesCache.clear();
 				}
+			}),
+			provider.onDidChangeRepository(async e => {
+				Logger.debug(`GitProvider(${id}).onDidChangeRepository(e=${e.repository.toString()})`);
 
 				if (e.changed(RepositoryChange.Closed, RepositoryChangeComparisonMode.Any)) {
 					this.updateContext();

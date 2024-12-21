@@ -274,6 +274,11 @@ export class LocalGitProvider implements GitProvider, Disposable {
 		return this._onDidChange.event;
 	}
 
+	private _onWillChangeRepository = new EventEmitter<RepositoryChangeEvent>();
+	get onWillChangeRepository(): Event<RepositoryChangeEvent> {
+		return this._onWillChangeRepository.event;
+	}
+
 	private _onDidChangeRepository = new EventEmitter<RepositoryChangeEvent>();
 	get onDidChangeRepository(): Event<RepositoryChangeEvent> {
 		return this._onDidChangeRepository.event;
@@ -371,7 +376,7 @@ export class LocalGitProvider implements GitProvider, Disposable {
 			this._worktreesCache.delete(repo.path);
 		}
 
-		this._onDidChangeRepository.fire(e);
+		this._onWillChangeRepository.fire(e);
 	}
 
 	private _gitLocator: Promise<GitLocation> | undefined;
@@ -574,7 +579,10 @@ export class LocalGitProvider implements GitProvider, Disposable {
 		const opened = [
 			new Repository(
 				this.container,
-				this.onRepositoryChanged.bind(this),
+				{
+					onDidRepositoryChange: this._onDidChangeRepository,
+					onRepositoryChanged: this.onRepositoryChanged.bind(this),
+				},
 				this.descriptor,
 				folder ?? workspace.getWorkspaceFolder(uri),
 				uri,
@@ -590,7 +598,10 @@ export class LocalGitProvider implements GitProvider, Disposable {
 			opened.push(
 				new Repository(
 					this.container,
-					this.onRepositoryChanged.bind(this),
+					{
+						onDidRepositoryChange: this._onDidChangeRepository,
+						onRepositoryChanged: this.onRepositoryChanged.bind(this),
+					},
 					this.descriptor,
 					folder ?? workspace.getWorkspaceFolder(canonicalUri),
 					canonicalUri,
@@ -607,10 +618,7 @@ export class LocalGitProvider implements GitProvider, Disposable {
 	@debug({ singleLine: true })
 	openRepositoryInitWatcher(): RepositoryInitWatcher {
 		const watcher = workspace.createFileSystemWatcher('**/.git', false, true, true);
-		return {
-			onDidCreate: watcher.onDidCreate,
-			dispose: () => void watcher.dispose(),
-		};
+		return { onDidCreate: watcher.onDidCreate, dispose: watcher.dispose };
 	}
 
 	private _supportedFeatures = new Map<Features, boolean>();
