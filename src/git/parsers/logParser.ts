@@ -108,25 +108,21 @@ let _contributorsParser: ContributorsParserMaybeWithStats | undefined;
 let _contributorsParserWithStats: ContributorsParserMaybeWithStats | undefined;
 export function getContributorsParser(stats?: boolean): ContributorsParserMaybeWithStats {
 	if (stats) {
-		if (_contributorsParserWithStats == null) {
-			_contributorsParserWithStats = createLogParserWithStats({
-				sha: '%H',
-				author: '%aN',
-				email: '%aE',
-				date: '%at',
-			});
-		}
-		return _contributorsParserWithStats;
-	}
-
-	if (_contributorsParser == null) {
-		_contributorsParser = createLogParser({
+		_contributorsParserWithStats ??= createLogParserWithStats({
 			sha: '%H',
 			author: '%aN',
 			email: '%aE',
 			date: '%at',
 		});
+		return _contributorsParserWithStats;
 	}
+
+	_contributorsParser ??= createLogParser({
+		sha: '%H',
+		author: '%aN',
+		email: '%aE',
+		date: '%at',
+	});
 	return _contributorsParser;
 }
 
@@ -146,23 +142,7 @@ let _graphParserWithStats: GraphParserMaybeWithStats | undefined;
 
 export function getGraphParser(stats?: boolean): GraphParserMaybeWithStats {
 	if (stats) {
-		if (_graphParserWithStats == null) {
-			_graphParserWithStats = createLogParserWithStats({
-				sha: '%H',
-				author: '%aN',
-				authorEmail: '%aE',
-				authorDate: '%at',
-				committerDate: '%ct',
-				parents: '%P',
-				tips: '%D',
-				message: '%B',
-			});
-		}
-		return _graphParserWithStats;
-	}
-
-	if (_graphParser == null) {
-		_graphParser = createLogParser({
+		_graphParserWithStats ??= createLogParserWithStats({
 			sha: '%H',
 			author: '%aN',
 			authorEmail: '%aE',
@@ -172,16 +152,26 @@ export function getGraphParser(stats?: boolean): GraphParserMaybeWithStats {
 			tips: '%D',
 			message: '%B',
 		});
+		return _graphParserWithStats;
 	}
+
+	_graphParser ??= createLogParser({
+		sha: '%H',
+		author: '%aN',
+		authorEmail: '%aE',
+		authorDate: '%at',
+		committerDate: '%ct',
+		parents: '%P',
+		tips: '%D',
+		message: '%B',
+	});
 	return _graphParser;
 }
 
 let _graphStatsParser: ParserWithStats<{ sha: string }> | undefined;
 
 export function getGraphStatsParser(): ParserWithStats<{ sha: string }> {
-	if (_graphStatsParser == null) {
-		_graphStatsParser = createLogParserWithStats({ sha: '%H' });
-	}
+	_graphStatsParser ??= createLogParserWithStats({ sha: '%H' });
 	return _graphStatsParser;
 }
 
@@ -189,9 +179,7 @@ type RefParser = Parser<string>;
 
 let _refParser: RefParser | undefined;
 export function getRefParser(): RefParser {
-	if (_refParser == null) {
-		_refParser = createLogParserSingle('%H');
-	}
+	_refParser ??= createLogParserSingle('%H');
 	return _refParser;
 }
 
@@ -199,13 +187,11 @@ type RefAndDateParser = Parser<{ sha: string; authorDate: string; committerDate:
 
 let _refAndDateParser: RefAndDateParser | undefined;
 export function getRefAndDateParser(): RefAndDateParser {
-	if (_refAndDateParser == null) {
-		_refAndDateParser = createLogParser({
-			sha: '%H',
-			authorDate: '%at',
-			committerDate: '%ct',
-		});
-	}
+	_refAndDateParser ??= createLogParser({
+		sha: '%H',
+		authorDate: '%at',
+		committerDate: '%ct',
+	});
 	return _refAndDateParser;
 }
 
