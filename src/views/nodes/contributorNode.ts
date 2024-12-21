@@ -85,6 +85,19 @@ export class ContributorNode extends ViewNode<'contributor', ViewsWithContributo
 	async getTreeItem(): Promise<TreeItem> {
 		const presence = this.options?.presence?.get(this.contributor.email!);
 
+		const numberFormatter = new Intl.NumberFormat();
+
+		const shortStats =
+			this.contributor.stats != null
+				? ` (${pluralize('file', this.contributor.stats.files, {
+						format: numberFormatter.format,
+				  })}, +${numberFormatter.format(this.contributor.stats.additions)} -${numberFormatter.format(
+						this.contributor.stats.additions,
+				  )} ${pluralize('line', this.contributor.stats.additions + this.contributor.stats.deletions, {
+						only: true,
+				  })})`
+				: '';
+
 		const item = new TreeItem(
 			this.contributor.current ? `${this.contributor.label} (you)` : this.contributor.label,
 			TreeItemCollapsibleState.Collapsed,
@@ -100,7 +113,10 @@ export class ContributorNode extends ViewNode<'contributor', ViewsWithContributo
 		}${this.contributor.date != null ? `${this.contributor.formatDateFromNow()}, ` : ''}${pluralize(
 			'commit',
 			this.contributor.count,
-		)}`;
+			{
+				format: numberFormatter.format,
+			},
+		)}${shortStats}`;
 
 		let avatarUri;
 		let avatarMarkdown;
@@ -127,8 +143,6 @@ export class ContributorNode extends ViewNode<'contributor', ViewsWithContributo
 				)}|width=${size},height=${size} "${this.contributor.label}")`;
 			}
 		}
-
-		const numberFormatter = new Intl.NumberFormat();
 
 		const stats =
 			this.contributor.stats != null
