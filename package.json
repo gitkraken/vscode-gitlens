@@ -1552,6 +1552,27 @@
 						"scope": "window",
 						"order": 5
 					},
+					"gitlens.views.showComparisonContributors": {
+						"type": "boolean",
+						"default": true,
+						"markdownDescription": "Specifies whether to show a _Contributors_ section on comparison results in the views",
+						"scope": "window",
+						"order": 6
+					},
+					"gitlens.views.showContributorsStatistics": {
+						"type": "boolean",
+						"default": false,
+						"markdownDescription": "Specifies whether to show contributor statistics in _Contributors_ sections in the views. This can take a while to compute depending on the repository size",
+						"scope": "window",
+						"order": 7
+					},
+					"gitlens.views.showRelativeDateMarkers": {
+						"type": "boolean",
+						"default": true,
+						"markdownDescription": "Specifies whether to show relative date markers (_Less than a week ago_, _Over a week ago_, _Over a month ago_, etc) on revision (commit) histories in the views",
+						"scope": "window",
+						"order": 8
+					},
 					"gitlens.views.defaultItemLimit": {
 						"type": "number",
 						"default": 10,
@@ -1565,13 +1586,6 @@
 						"markdownDescription": "Specifies the number of items to show in a each page when paginating a view list. Use 0 to specify no limit",
 						"scope": "window",
 						"order": 11
-					},
-					"gitlens.views.showRelativeDateMarkers": {
-						"type": "boolean",
-						"default": true,
-						"markdownDescription": "Specifies whether to show relative date markers (_Less than a week ago_, _Over a week ago_, _Over a month ago_, etc) on revision (commit) histories in the views",
-						"scope": "window",
-						"order": 20
 					},
 					"gitlens.views.formats.commits.label": {
 						"type": "string",
@@ -9068,6 +9082,16 @@
 				"icon": "$(compare-changes)"
 			},
 			{
+				"command": "gitlens.views.setContributorsStatisticsOff",
+				"title": "Hide Contributors Statistics",
+				"icon": "$(graph-line)"
+			},
+			{
+				"command": "gitlens.views.setContributorsStatisticsOn",
+				"title": "Show Contributors Statistics",
+				"icon": "$(graph-line)"
+			},
+			{
 				"command": "gitlens.views.setResultsCommitsFilterAuthors",
 				"title": "Filter Commits by Author...",
 				"icon": "$(filter)"
@@ -12511,6 +12535,14 @@
 					"when": "false"
 				},
 				{
+					"command": "gitlens.views.setContributorsStatisticsOff",
+					"when": "false"
+				},
+				{
+					"command": "gitlens.views.setContributorsStatisticsOn",
+					"when": "false"
+				},
+				{
 					"command": "gitlens.views.setResultsCommitsFilterAuthors",
 					"when": "false"
 				},
@@ -15848,6 +15880,16 @@
 					"command": "gitlens.views.addAuthors",
 					"when": "viewItem =~ /gitlens:contributors\\b/ && !gitlens:hasVirtualFolders && !gitlens:readonly && !gitlens:untrusted",
 					"group": "inline@1"
+				},
+				{
+					"command": "gitlens.views.setContributorsStatisticsOff",
+					"when": "viewItem == gitlens:contributors && config.gitlens.views.showContributorsStatistics",
+					"group": "inline@99"
+				},
+				{
+					"command": "gitlens.views.setContributorsStatisticsOn",
+					"when": "viewItem == gitlens:contributors && !config.gitlens.views.showContributorsStatistics",
+					"group": "inline@99"
 				},
 				{
 					"command": "gitlens.views.addAuthors",

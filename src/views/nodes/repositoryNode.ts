@@ -189,7 +189,11 @@ export class RepositoryNode extends SubscribeableViewNode<'repository', ViewsWit
 			}
 
 			if (this.view.config.showContributors) {
-				children.push(new ContributorsNode(this.uri, this.view, this, this.repo));
+				children.push(
+					new ContributorsNode(this.uri, this.view, this, this.repo, {
+						stats: this.view.config.showContributorsStatistics,
+					}),
+				);
 			}
 
 			if (this.view.config.showIncomingActivity && !this.repo.provider.virtual) {

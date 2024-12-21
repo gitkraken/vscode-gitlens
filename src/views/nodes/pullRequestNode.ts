@@ -177,6 +177,7 @@ export async function getPullRequestChildren(
 	const comparison = {
 		ref1: refs.base.ref,
 		ref2: refs.head.ref,
+		range: createRevisionRange(refs.base.ref, refs.head.ref, '..'),
 	};
 
 	const children = [
@@ -186,11 +187,7 @@ export async function getPullRequestChildren(
 			repoPath,
 			'Commits',
 			{
-				query: getCommitsQuery(
-					view.container,
-					repoPath,
-					createRevisionRange(comparison.ref1, comparison.ref2, '..'),
-				),
+				query: getCommitsQuery(view.container, repoPath, comparison.range),
 				comparison: comparison,
 			},
 			{
