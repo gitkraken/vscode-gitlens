@@ -3093,6 +3093,16 @@ export class LocalGitProvider implements GitProvider, Disposable {
 							contributors.set(key, contributor);
 						} else {
 							(contributor as PickMutable<GitContributor, 'count'>).count++;
+							if (options?.stats && c.stats != null) {
+								(contributor as PickMutable<GitContributor, 'stats'>).stats =
+									contributor.stats == null
+										? c.stats
+										: {
+												additions: contributor.stats.additions + c.stats.additions,
+												deletions: contributor.stats.deletions + c.stats.deletions,
+												files: contributor.stats.files + c.stats.files,
+										  };
+							}
 							const date = new Date(Number(c.date) * 1000);
 							if (date > contributor.date!) {
 								(contributor as PickMutable<GitContributor, 'date'>).date = date;
