@@ -492,10 +492,11 @@ export class GitProviderService implements Disposable {
 				}
 
 				if (e.changed(RepositoryChange.Remotes, RepositoryChangeComparisonMode.Any)) {
-					const remotes = await provider.getRemotes(e.repository.path);
 					const visibilityInfo = this.getVisibilityInfoFromCache(e.repository.path);
 					if (visibilityInfo != null) {
-						this.checkVisibilityCachedRemotes(e.repository.path, visibilityInfo, remotes);
+						await this.checkVisibilityCachedRemotes(e.repository.path, visibilityInfo, () =>
+							provider.getRemotes(e.repository.path),
+						);
 					}
 				}
 
@@ -920,20 +921,21 @@ export class GitProviderService implements Disposable {
 		return visibilityInfo;
 	}
 
-	private checkVisibilityCachedRemotes(
+	private async checkVisibilityCachedRemotes(
 		key: string,
 		visibilityInfo: RepositoryVisibilityInfo | undefined,
-		remotes: GitRemote[],
-	): boolean {
+		getRemotes: () => Promise<GitRemote[]>,
+	): Promise<boolean> {
 		if (visibilityInfo == null) return true;
 
 		if (visibilityInfo.visibility === 'public') {
+			const remotes = await getRemotes();
 			if (remotes.length === 0 || !remotes.some(r => r.remoteKey === visibilityInfo.remotesHash)) {
 				void this.clearRepoVisibilityCache([key]);
 				return false;
 			}
 		} else if (visibilityInfo.visibility === 'private') {
-			const remotesHash = getVisibilityCacheKey(remotes);
+			const remotesHash = getVisibilityCacheKey(await getRemotes());
 			if (remotesHash !== visibilityInfo.remotesHash) {
 				void this.clearRepoVisibilityCache([key]);
 				return false;
@@ -1010,9 +1012,13 @@ export class GitProviderService implements Disposable {
 			repoPath: string | Uri,
 		): Promise<RepositoryVisibility> {
 			const { provider, path } = this.getProvider(repoPath);
-			const remotes = await provider.getRemotes(path, { sort: true });
 			const visibilityInfo = this.getVisibilityInfoFromCache(path);
-			if (visibilityInfo == null || !this.checkVisibilityCachedRemotes(path, visibilityInfo, remotes)) {
+			if (
+				visibilityInfo == null ||
+				!(await this.checkVisibilityCachedRemotes(path, visibilityInfo, () =>
+					provider.getRemotes(path, { sort: true }),
+				))
+			) {
 				const [visibility, remotesHash] = await provider.visibility(path);
 				if (visibility !== 'local') {
 					this.updateVisibilityCache(path, {
