@@ -14,7 +14,7 @@ import { createReference } from '../../git/models/reference.utils';
 import type { GitRemote } from '../../git/models/remote';
 import { getRemoteUpstreamDescription } from '../../git/models/remote';
 import type { Repository } from '../../git/models/repository';
-import { isRevisionRange , shortenRevision } from '../../git/models/revision.utils';
+import { isRevisionRange, shortenRevision } from '../../git/models/revision.utils';
 import type { GitTag } from '../../git/models/tag';
 import { getBranchIconPath, getWorktreeBranchIconPath } from '../../git/utils/icons';
 import { fromNow } from '../../system/date';

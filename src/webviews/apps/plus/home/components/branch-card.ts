@@ -415,7 +415,6 @@ export abstract class GlBranchCardBase extends GlElement {
 		}
 
 		const hasWip =
-			!this.branch.opened &&
 			this.wip?.workingTreeState != null &&
 			this.wip.workingTreeState.added + this.wip.workingTreeState.changed + this.wip.workingTreeState.deleted > 0;
 
@@ -649,9 +648,7 @@ export abstract class GlBranchCardBase extends GlElement {
 	}
 
 	private renderBranchIcon() {
-		// Don't show changes on the active branch
 		const hasChanges =
-			!this.branch.opened &&
 			this.wip?.workingTreeState != null &&
 			this.wip.workingTreeState.added + this.wip.workingTreeState.changed + this.wip.workingTreeState.deleted > 0;
 		return html`<gl-branch-icon
