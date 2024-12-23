@@ -1275,6 +1275,21 @@ export function GraphWrapper({
 								</span>
 							</span>
 						</GlTooltip>
+						<GlTooltip placement="bottom">
+							<a
+								href={'command:gitlens.views.home.focus'}
+								className="action-button"
+								aria-label={`Open GitLens Home View`}
+							>
+								<span>
+									<CodeIcon className="action-button__icon" icon={'gl-gitlens'} aria-hidden="true" />
+								</span>
+							</a>
+							<span slot="content">
+								<strong>GitLens Home</strong> — track, manage, and collaborate on your branches and pull
+								requests, all in one intuitive hub
+							</span>
+						</GlTooltip>
 						{(subscription == null || !isSubscriptionPaid(subscription)) && (
 							<GlFeatureBadge
 								source={{ source: 'graph', detail: 'badge' }}
