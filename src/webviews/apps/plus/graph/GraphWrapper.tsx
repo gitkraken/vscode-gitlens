@@ -899,6 +899,7 @@ export function GraphWrapper({
 
 	const handleRowContextMenu = (_event: React.MouseEvent<any>, graphZoneType: GraphZoneType, graphRow: GraphRow) => {
 		if (graphZoneType === refZone) return;
+		hover.current?.hide();
 
 		// If the row is in the current selection, use the typed selection context, otherwise clear it
 		const newSelectionContext = selectionContexts?.selectedShas.has(graphRow.sha)
