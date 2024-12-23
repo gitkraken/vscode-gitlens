@@ -11,6 +11,10 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/) and this p
 - Adds go to home view button to the commit graph title section &mdash; closes [#3873](https://github.com/gitkraken/vscode-gitlens/issues/3873)
 - Adds a _Contributors_ section to comparison results in the views
 
+### Fixed
+
+- Fixes [#3888](https://github.com/gitkraken/vscode-gitlens/issues/#3888) - Graph hover should disappear when right-clicking a row
+
 ## [16.1.1] - 2024-12-20
 
 ### Added
