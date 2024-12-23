@@ -214,13 +214,15 @@ export class LaunchpadProvider implements Disposable {
 	}
 
 	private async getSearchedPullRequests(search: string, cancellation?: CancellationToken) {
-		const prUrlIdentity: PullRequestUrlIdentity | undefined = await this.getPullRequestIdentityFromMaybeUrl(search);
+		const connectedIntegrations = await this.getConnectedIntegrations();
+		const prUrlIdentity: PullRequestUrlIdentity | undefined = await this.getPullRequestIdentityFromMaybeUrl(
+			search,
+			connectedIntegrations,
+		);
 		const result: { readonly value: SearchedPullRequest[]; duration: number } = {
 			value: [],
 			duration: 0,
 		};
-
-		const connectedIntegrations = await this.getConnectedIntegrations();
 
 		const findByPrIdentity = async (
 			integration: HostingIntegration,
@@ -596,8 +598,10 @@ export class LaunchpadProvider implements Disposable {
 	// - cons: it's async
 	// What do you think?
 
-	async getPullRequestIdentityFromMaybeUrl(search: string): Promise<PullRequestUrlIdentity | undefined> {
-		const connectedIntegrations = await this.getConnectedIntegrations();
+	async getPullRequestIdentityFromMaybeUrl(
+		search: string,
+		connectedIntegrations: Map<IntegrationId, boolean>,
+	): Promise<PullRequestUrlIdentity | undefined> {
 		for (const integrationId of supportedLaunchpadIntegrations) {
 			if (connectedIntegrations.get(integrationId)) {
 				const integration = await this.container.integrations.get(integrationId);
