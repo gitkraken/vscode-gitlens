@@ -214,13 +214,15 @@ export class LaunchpadProvider implements Disposable {
 	}
 
 	private async getSearchedPullRequests(search: string, cancellation?: CancellationToken) {
-		const prUrlIdentity: PullRequestUrlIdentity | undefined = await this.getPullRequestIdentityFromSearch(search);
+		const connectedIntegrations = await this.getConnectedIntegrations();
+		const prUrlIdentity: PullRequestUrlIdentity | undefined = await this.getPullRequestIdentityFromSearch(
+			search,
+			connectedIntegrations,
+		);
 		const result: { readonly value: SearchedPullRequest[]; duration: number } = {
 			value: [],
 			duration: 0,
 		};
-
-		const connectedIntegrations = await this.getConnectedIntegrations();
 
 		const findByPrIdentity = async (
 			integration: HostingIntegration,
@@ -589,8 +591,10 @@ export class LaunchpadProvider implements Disposable {
 		);
 	}
 
-	async getPullRequestIdentityFromSearch(search: string): Promise<PullRequestUrlIdentity | undefined> {
-		const connectedIntegrations = await this.getConnectedIntegrations();
+	async getPullRequestIdentityFromSearch(
+		search: string,
+		connectedIntegrations: Map<IntegrationId, boolean>,
+	): Promise<PullRequestUrlIdentity | undefined> {
 		for (const integrationId of supportedLaunchpadIntegrations) {
 			if (connectedIntegrations.get(integrationId)) {
 				const integration = await this.container.integrations.get(integrationId);
