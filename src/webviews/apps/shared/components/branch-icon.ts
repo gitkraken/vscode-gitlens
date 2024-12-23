@@ -1,10 +1,8 @@
 import { css, html, LitElement } from 'lit';
 import { customElement, property } from 'lit/decorators.js';
-import type { GitTrackingState } from '../../../../git/models/branch';
+import type { GitBranchStatus } from '../../../../git/models/branch';
 import { renderBranchName } from './branch-name';
 import './overlays/tooltip';
-
-type StatusType = 'synced' | 'diverged' | 'behind' | 'ahead' | 'changes' | 'missingUpstream' | undefined;
 
 @customElement('gl-branch-icon')
 export class GlBranchIcon extends LitElement {
@@ -40,6 +38,14 @@ export class GlBranchIcon extends LitElement {
 			--gl-icon-color-foreground: #424242;
 		}
 
+		p {
+			margin: 0;
+		}
+
+		p + p {
+			margin-top: 0.4rem;
+		}
+
 		svg {
 			width: 100%;
 			height: 100%;
@@ -50,10 +56,7 @@ export class GlBranchIcon extends LitElement {
 	branch?: string;
 
 	@property({ type: String })
-	state?: GitTrackingState;
-
-	@property({ type: Boolean })
-	missingUpstream: boolean = false;
+	status?: GitBranchStatus;
 
 	@property({ type: Boolean })
 	hasChanges: boolean = false;
@@ -64,29 +67,8 @@ export class GlBranchIcon extends LitElement {
 	@property({ type: Boolean })
 	worktree: boolean = false;
 
-	private get status(): StatusType {
-		if (!this.state) return undefined;
-
-		let status: StatusType;
-
-		if (this.hasChanges) {
-			status = 'changes';
-		} else if (this.missingUpstream) {
-			status = 'missingUpstream';
-		} else if (this.state.behind > 0 && this.state.ahead > 0) {
-			status = 'diverged';
-		} else if (this.state.behind > 0) {
-			status = 'behind';
-		} else if (this.state.ahead > 0) {
-			status = 'ahead';
-		} else {
-			status = 'synced';
-		}
-		return status;
-	}
-
 	override render() {
-		if (!this.state) {
+		if (!this.status) {
 			return html`<code-icon icon=${this.worktree ? 'gl-worktrees-view' : 'git-branch'}></code-icon>`;
 		}
 
@@ -135,29 +117,61 @@ export class GlBranchIcon extends LitElement {
 	}
 
 	private get statusTooltip() {
-		const branchOrWorktree = html`<span
-			>${this.branch ? renderBranchName(this.branch) : 'Branch'}${this.worktree ? ', in a worktree,' : ''}</span
-		>`;
+		const branchOrWorktree = this.branch ? renderBranchName(this.branch) : 'Branch';
 
+		let tooltip;
 		const upstream = this.upstream ? renderBranchName(this.upstream) : 'its upstream';
 		switch (this.status) {
 			case 'diverged':
-				return html`${branchOrWorktree} has diverged from ${upstream}`;
+				tooltip = html`${branchOrWorktree} has diverged from ${upstream}`;
+				break;
 			case 'behind':
-				return html`${branchOrWorktree} is behind ${upstream}`;
+				tooltip = html`${branchOrWorktree} is behind ${upstream}`;
+				break;
 			case 'ahead':
-				return html`${branchOrWorktree} is ahead of ${upstream}`;
-			case 'changes':
-				return html`${branchOrWorktree} has working changes`;
+				tooltip = html`${branchOrWorktree} is ahead of ${upstream}`;
+				break;
 			case 'missingUpstream':
-				return html`${branchOrWorktree} is missing its upstream ${upstream}`;
-			case 'synced':
+				tooltip = html`${branchOrWorktree} is missing its upstream ${upstream}`;
+				break;
+			case 'upToDate':
+				tooltip = html`${branchOrWorktree} is up to date with ${upstream}`;
+				break;
+			case 'local':
+				tooltip = html`${branchOrWorktree} is a local branch which has't been published`;
+				break;
+			case 'remote':
+				tooltip = html`${branchOrWorktree} is a remote branch`;
+				break;
+			case 'detached':
+				tooltip = html`${branchOrWorktree} is in a detached state, i.e. checked out to a commit or tag`;
+				break;
 			default:
-				return html`${branchOrWorktree} is up to date with ${upstream}`;
+				tooltip = html`${branchOrWorktree} is in an unknown state`;
+				break;
 		}
+
+		tooltip = html`<p>${tooltip}</p>`;
+		if (this.worktree) {
+			if (this.hasChanges) {
+				tooltip = html`${tooltip}
+					<p>Checked out in a worktree and has working (uncommitted) changes</p>`;
+			} else {
+				tooltip = html`${tooltip}
+					<p>Checked out in a worktree</p>`;
+			}
+		} else if (this.hasChanges) {
+			tooltip = html`${tooltip}
+				<p>Has working (uncommitted) changes</p>`;
+		}
+		return tooltip;
 	}
 
 	private getStatusCssColor(): string {
+		if (this.hasChanges) {
+			return 'var(--gl-icon-color-status-changes)';
+		}
+
 		switch (this.status) {
 			case 'diverged':
 				return 'var(--gl-icon-color-status-diverged)';
@@ -165,13 +179,12 @@ export class GlBranchIcon extends LitElement {
 				return 'var(--gl-icon-color-status-behind)';
 			case 'ahead':
 				return 'var(--gl-icon-color-status-ahead)';
-			case 'changes':
-				return 'var(--gl-icon-color-status-changes)';
 			case 'missingUpstream':
 				return 'var(--gl-icon-color-status-missingUpstream)';
-			case 'synced':
-			default:
+			case 'upToDate':
 				return 'var(--gl-icon-color-status-synced)';
+			default:
+				return 'transparent';
 		}
 	}
 }
