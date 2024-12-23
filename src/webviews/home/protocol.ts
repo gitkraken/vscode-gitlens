@@ -76,8 +76,8 @@ export interface GetOverviewBranch {
 	opened: boolean;
 	timestamp?: number;
 	state: GitTrackingState;
-	upstream: { name: string; missing: boolean } | undefined;
 	status: GitBranchStatus;
+	upstream: { name: string; missing: boolean } | undefined;
 
 	wip?: Promise<
 		| {

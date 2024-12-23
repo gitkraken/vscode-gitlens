@@ -435,7 +435,7 @@ export abstract class GlBranchCardBase extends GlElement {
 			case 'missingUpstream':
 				return 'branch-missingUpstream';
 			default:
-				return 'branch-synced';
+				return undefined;
 		}
 	}
 
@@ -655,10 +655,10 @@ export abstract class GlBranchCardBase extends GlElement {
 			this.wip?.workingTreeState != null &&
 			this.wip.workingTreeState.added + this.wip.workingTreeState.changed + this.wip.workingTreeState.deleted > 0;
 		return html`<gl-branch-icon
-			.state="${this.branch.state}"
+			branch="${this.branch.name}"
+			status="${this.branch.status}"
 			?hasChanges=${hasChanges}
-			?missingUpstream=${this.branch.upstream?.missing ?? false}
-			.upstream=${this.branch.upstream?.name}
+			upstream=${this.branch.upstream?.name}
 			?worktree=${this.branch.worktree != null}
 		></gl-branch-icon>`;
 	}
