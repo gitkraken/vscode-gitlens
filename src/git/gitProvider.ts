@@ -7,7 +7,7 @@ import type { Features } from '../features';
 import type { GitUri } from './gitUri';
 import type { GitBlame, GitBlameLine } from './models/blame';
 import type { GitBranch } from './models/branch';
-import type { GitCommit } from './models/commit';
+import type { GitCommit, GitCommitStats } from './models/commit';
 import type { GitContributor, GitContributorStats } from './models/contributor';
 import type { GitDiff, GitDiffFile, GitDiffFiles, GitDiffFilter, GitDiffLine, GitDiffShortStat } from './models/diff';
 import type { GitFile, GitFileChange } from './models/file';
@@ -115,9 +115,17 @@ export interface RepositoryVisibilityInfo {
 	remotesHash?: string;
 }
 
-export interface BranchContributorOverview {
-	readonly owner?: GitContributor;
-	readonly contributors?: GitContributor[];
+export interface BranchContributionsOverview extends GitCommitStats<number> {
+	readonly repoPath: string;
+	readonly branch: string;
+	readonly baseOrTargetBranch: string;
+	readonly mergeBase: string;
+
+	readonly commits: number;
+	readonly latestCommitDate: Date | undefined;
+	readonly firstCommitDate: Date | undefined;
+
+	readonly contributors: GitContributor[];
 }
 
 export interface GitProviderRepository {
@@ -188,7 +196,7 @@ export interface GitProviderRepository {
 			sort?: boolean | BranchSortOptions | undefined;
 		},
 	): Promise<PagedResult<GitBranch>>;
-	getBranchContributorOverview?(repoPath: string, ref: string): Promise<BranchContributorOverview | undefined>;
+	getBranchContributionsOverview?(repoPath: string, ref: string): Promise<BranchContributionsOverview | undefined>;
 	getChangedFilesCount(repoPath: string, ref?: string): Promise<GitDiffShortStat | undefined>;
 	getCommit(repoPath: string, ref: string): Promise<GitCommit | undefined>;
 	getCommitBranches(
@@ -244,7 +252,10 @@ export interface GitProviderRepository {
 	): Promise<GitContributor[]>;
 	getCurrentUser(repoPath: string): Promise<GitUser | undefined>;
 	getBaseBranchName?(repoPath: string, ref: string): Promise<string | undefined>;
+	setBaseBranchName?(repoPath: string, ref: string, base: string): Promise<void>;
 	getDefaultBranchName(repoPath: string | undefined, remote?: string): Promise<string | undefined>;
+	getTargetBranchName?(repoPath: string, ref: string): Promise<string | undefined>;
+	setTargetBranchName?(repoPath: string, ref: string, target: string): Promise<void>;
 	getDiff?(
 		repoPath: string | Uri,
 		to: string,

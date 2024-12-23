@@ -145,16 +145,8 @@ export async function getTargetBranchName(
 		timeout?: number;
 	},
 ): Promise<MaybePausedResult<string | undefined>> {
-	const targetBaseConfigKey: GitConfigKeys = `branch.${branch.name}.gk-target-base`;
-
-	const targetBase = await container.git.getConfig(branch.repoPath, targetBaseConfigKey);
-
-	if (options?.cancellation?.isCancellationRequested) return { value: undefined, paused: false };
-
-	if (targetBase != null) {
-		const targetBranch = await container.git.getBranch(branch.repoPath, targetBase);
-		if (targetBranch != null) return { value: targetBranch.name, paused: false };
-	}
+	const targetBranch = await container.git.getTargetBranchName(branch.repoPath, branch.name);
+	if (targetBranch != null) return { value: targetBranch, paused: false };
 
 	if (options?.cancellation?.isCancellationRequested) return { value: undefined, paused: false };
 
@@ -163,7 +155,7 @@ export async function getTargetBranchName(
 			if (pr?.refs?.base == null) return undefined;
 
 			const name = `${branch.getRemoteName()}/${pr.refs.base.branch}`;
-			void container.git.setConfig(branch.repoPath, targetBaseConfigKey, name);
+			void container.git.setTargetBranchName(branch.repoPath, branch.name, name);
 
 			return name;
 		}),

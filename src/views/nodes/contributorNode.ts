@@ -109,9 +109,9 @@ export class ContributorNode extends ViewNode<'contributor', ViewsWithContributo
 			presence != null && presence.status !== 'offline'
 				? `${presence.statusText} ${GlyphChars.Space}${GlyphChars.Dot}${GlyphChars.Space} `
 				: ''
-		}${this.contributor.date != null ? `${this.contributor.formatDateFromNow()}, ` : ''}${pluralize(
+		}${this.contributor.latestCommitDate != null ? `${this.contributor.formatDateFromNow()}, ` : ''}${pluralize(
 			'commit',
-			this.contributor.count,
+			this.contributor.commits,
 		)}${shortStats}`;
 
 		let avatarUri;
@@ -124,7 +124,7 @@ export class ContributorNode extends ViewNode<'contributor', ViewsWithContributo
 			});
 
 			if (presence != null) {
-				const title = `${this.contributor.count ? 'You are' : `${this.contributor.label} is`} ${
+				const title = `${this.contributor.commits ? 'You are' : `${this.contributor.label} is`} ${
 					presence.status === 'dnd' ? 'in ' : ''
 				}${presence.statusText.toLocaleLowerCase()}`;
 
@@ -153,14 +153,14 @@ export class ContributorNode extends ViewNode<'contributor', ViewsWithContributo
 			: `__${this.contributor.label}__`;
 
 		const lastCommitted =
-			this.contributor.date != null
+			this.contributor.latestCommitDate != null
 				? `Last commit ${this.contributor.formatDateFromNow()} (${this.contributor.formatDate()})\\\n`
 				: '';
 
 		const markdown = new MarkdownString(
 			`${avatarMarkdown != null ? avatarMarkdown : ''} &nbsp;${link} \n\n${lastCommitted}${pluralize(
 				'commit',
-				this.contributor.count,
+				this.contributor.commits,
 			)}${stats}`,
 		);
 		markdown.supportHtml = true;

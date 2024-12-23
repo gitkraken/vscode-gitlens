@@ -245,13 +245,13 @@ export function parseGitDiffShortStat(data: string): GitDiffShortStat | undefine
 	const [, files, insertions, deletions] = match;
 
 	const diffShortStat: GitDiffShortStat = {
-		changedFiles: files == null ? 0 : parseInt(files, 10),
+		files: files == null ? 0 : parseInt(files, 10),
 		additions: insertions == null ? 0 : parseInt(insertions, 10),
 		deletions: deletions == null ? 0 : parseInt(deletions, 10),
 	};
 
 	sw?.stop({
-		suffix: ` parsed ${diffShortStat.changedFiles} files, +${diffShortStat.additions} -${diffShortStat.deletions}`,
+		suffix: ` parsed ${diffShortStat.files} files, +${diffShortStat.additions} -${diffShortStat.deletions}`,
 	});
 
 	return diffShortStat;

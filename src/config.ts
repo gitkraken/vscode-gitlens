@@ -83,7 +83,15 @@ export const enum CodeLensCommand {
 }
 
 export type CodeLensScopes = 'document' | 'containers' | 'blocks';
-export type ContributorSorting = 'count:desc' | 'count:asc' | 'date:desc' | 'date:asc' | 'name:asc' | 'name:desc';
+export type ContributorSorting =
+	| 'count:desc'
+	| 'count:asc'
+	| 'date:desc'
+	| 'date:asc'
+	| 'name:asc'
+	| 'name:desc'
+	| 'score:desc'
+	| 'score:asc';
 export type RepositoriesSorting = 'discovered' | 'lastFetched:desc' | 'lastFetched:asc' | 'name:asc' | 'name:desc';
 export type CustomRemoteType =
 	| 'AzureDevOps'

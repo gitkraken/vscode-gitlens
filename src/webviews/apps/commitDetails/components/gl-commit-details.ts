@@ -503,13 +503,13 @@ export class GlCommitDetails extends GlDetailsBase {
 	}
 
 	private renderCommitStats(stats?: NonNullable<NonNullable<typeof this.state>['commit']>['stats']) {
-		if (stats?.changedFiles == null) return undefined;
+		if (stats?.files == null) return undefined;
 
-		if (typeof stats.changedFiles === 'number') {
-			return html`<commit-stats added="?" modified="${stats.changedFiles}" removed="?"></commit-stats>`;
+		if (typeof stats.files === 'number') {
+			return html`<commit-stats added="?" modified="${stats.files}" removed="?"></commit-stats>`;
 		}
 
-		const { added, deleted, changed } = stats.changedFiles;
+		const { added, deleted, changed } = stats.files;
 		return html`<commit-stats added="${added}" modified="${changed}" removed="${deleted}"></commit-stats>`;
 	}
 

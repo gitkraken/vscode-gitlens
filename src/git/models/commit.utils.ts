@@ -1,6 +1,6 @@
 import type { GitCommitStats } from './commit';
 
-export function getChangedFilesCount(changedFiles: GitCommitStats['changedFiles'] | undefined): number {
+export function getChangedFilesCount(changedFiles: GitCommitStats['files'] | undefined): number {
 	if (changedFiles == null) return 0;
 
 	return typeof changedFiles === 'number'
