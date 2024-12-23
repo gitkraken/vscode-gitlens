@@ -1130,7 +1130,7 @@ export class GraphWebviewProvider implements WebviewProvider<State, State, Graph
 								additions: stats.additions,
 								deletions: stats.deletions,
 								// If `changedFiles` already exists, then use it, otherwise use the files count
-								changedFiles: commit.stats?.changedFiles ? commit.stats.changedFiles : stats.files,
+								files: commit.stats?.files ? commit.stats.files : stats.files,
 							},
 						});
 					}
@@ -3875,7 +3875,7 @@ export class GraphWebviewProvider implements WebviewProvider<State, State, Graph
 			const { repoPath, name, email, current } = item.webviewItemValue;
 			return ContributorActions.addAuthors(
 				repoPath,
-				new GitContributor(repoPath, name, email, 0, undefined, current),
+				new GitContributor(repoPath, name, email, 0, undefined, undefined, current),
 			);
 		}
 

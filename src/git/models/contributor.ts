@@ -3,6 +3,7 @@ import { getAvatarUri } from '../../avatars';
 import type { GravatarDefaultStyle } from '../../config';
 import { formatDate, fromNow } from '../../system/date';
 import { memoize } from '../../system/decorators/memoize';
+import type { GitCommitStats } from './commit';
 import type { GitUser } from './user';
 
 export interface GitContributorStats {
@@ -51,14 +52,11 @@ export class GitContributor {
 		public readonly repoPath: string,
 		public readonly name: string | undefined,
 		public readonly email: string | undefined,
-		public readonly count: number,
-		public readonly date?: Date,
+		public readonly commits: number,
+		public readonly latestCommitDate?: Date,
+		public readonly firstCommitDate?: Date,
 		public readonly current: boolean = false,
-		public readonly stats?: {
-			files: number;
-			additions: number;
-			deletions: number;
-		},
+		public readonly stats?: GitCommitStats<number> & { contributionScore: number },
 		public readonly username?: string | undefined,
 		private readonly avatarUrl?: string | undefined,
 		public readonly id?: string | undefined,
@@ -70,11 +68,11 @@ export class GitContributor {
 
 	@memoize<GitContributor['formatDate']>(format => format ?? 'MMMM Do, YYYY h:mma')
 	formatDate(format?: string | null): string {
-		return this.date != null ? formatDate(this.date, format ?? 'MMMM Do, YYYY h:mma') : '';
+		return this.latestCommitDate != null ? formatDate(this.latestCommitDate, format ?? 'MMMM Do, YYYY h:mma') : '';
 	}
 
 	formatDateFromNow(short?: boolean): string {
-		return this.date != null ? fromNow(this.date, short) : '';
+		return this.latestCommitDate != null ? fromNow(this.latestCommitDate, short) : '';
 	}
 
 	getAvatarUri(options?: { defaultStyle?: GravatarDefaultStyle; size?: number }): Uri | Promise<Uri> {

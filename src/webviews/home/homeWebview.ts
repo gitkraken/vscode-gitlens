@@ -18,7 +18,7 @@ import type { Container } from '../../container';
 import { executeGitCommand } from '../../git/actions';
 import { openComparisonChanges } from '../../git/actions/commit';
 import * as RepoActions from '../../git/actions/repository';
-import type { BranchContributorOverview } from '../../git/gitProvider';
+import type { BranchContributionsOverview } from '../../git/gitProvider';
 import type { GitBranch } from '../../git/models/branch';
 import { getAssociatedIssuesForBranch, getBranchTargetInfo } from '../../git/models/branch.utils';
 import type { GitFileChangeShape } from '../../git/models/file';
@@ -1122,7 +1122,7 @@ function getOverviewBranches(
 	const autolinkPromises = new Map<string, Promise<Map<string, EnrichedAutolink> | undefined>>();
 	const issuePromises = new Map<string, Promise<Issue[] | undefined>>();
 	const statusPromises = new Map<string, Promise<GitStatus | undefined>>();
-	const contributorsPromises = new Map<string, Promise<BranchContributorOverview | undefined>>();
+	const contributorsPromises = new Map<string, Promise<BranchContributionsOverview | undefined>>();
 	const mergeTargetPromises = new Map<string, Promise<BranchMergeTargetStatusInfo>>();
 
 	const now = Date.now();
@@ -1144,7 +1144,7 @@ function getOverviewBranches(
 				);
 				contributorsPromises.set(
 					branch.id,
-					container.git.getBranchContributorOverview(branch.repoPath, branch.ref),
+					container.git.getBranchContributionsOverview(branch.repoPath, branch.ref),
 				);
 				if (branch.current) {
 					mergeTargetPromises.set(branch.id, getBranchMergeTargetStatusInfo(container, branch));
@@ -1186,7 +1186,7 @@ function getOverviewBranches(
 				);
 				contributorsPromises.set(
 					branch.id,
-					container.git.getBranchContributorOverview(branch.repoPath, branch.ref),
+					container.git.getBranchContributionsOverview(branch.repoPath, branch.ref),
 				);
 			}
 
@@ -1249,7 +1249,7 @@ function getOverviewBranches(
 
 					contributorsPromises.set(
 						branch.id,
-						container.git.getBranchContributorOverview(branch.repoPath, branch.ref),
+						container.git.getBranchContributionsOverview(branch.repoPath, branch.ref),
 					);
 				}
 
@@ -1296,7 +1296,7 @@ function enrichOverviewBranches(
 	autolinkPromises: Map<string, Promise<Map<string, EnrichedAutolink> | undefined>>,
 	issuePromises: Map<string, Promise<Issue[] | undefined>>,
 	statusPromises: Map<string, Promise<GitStatus | undefined>>,
-	contributorsPromises: Map<string, Promise<BranchContributorOverview | undefined>>,
+	contributorsPromises: Map<string, Promise<BranchContributionsOverview | undefined>>,
 	mergeTargetPromises: Map<string, Promise<BranchMergeTargetStatusInfo>>,
 	container: Container,
 ) {
@@ -1355,7 +1355,7 @@ async function getAutolinkIssuesInfo(links: Map<string, EnrichedAutolink> | unde
 
 async function getContributorsInfo(
 	_container: Container,
-	contributorsPromise: Promise<BranchContributorOverview | undefined> | undefined,
+	contributorsPromise: Promise<BranchContributionsOverview | undefined> | undefined,
 ) {
 	if (contributorsPromise == null) return [];
 
@@ -1369,8 +1369,8 @@ async function getContributorsInfo(
 					name: c.name ?? '',
 					email: c.email ?? '',
 					current: c.current,
-					timestamp: c.date?.getTime(),
-					count: c.count,
+					timestamp: c.latestCommitDate?.getTime(),
+					count: c.commits,
 					stats: c.stats,
 					avatarUrl: (await c.getAvatarUri())?.toString(),
 				}) satisfies NonNullable<ContributorsInfo>[0],

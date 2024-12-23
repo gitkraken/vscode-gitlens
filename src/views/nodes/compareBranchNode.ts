@@ -356,7 +356,7 @@ export class CompareBranchNode extends SubscribeableViewNode<
 					stats = {
 						additions: stats.additions + workingStats.additions,
 						deletions: stats.deletions + workingStats.deletions,
-						changedFiles: files.length,
+						files: files.length,
 						approximated: true,
 					};
 				}

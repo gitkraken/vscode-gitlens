@@ -129,8 +129,8 @@ export function sortContributors(
 				return (
 					pickedCompare ||
 					(options.current ? (a.current ? -1 : 1) - (b.current ? -1 : 1) : 0) ||
-					a.count - b.count ||
-					(a.date?.getTime() ?? 0) - (b.date?.getTime() ?? 0)
+					a.commits - b.commits ||
+					(a.latestCommitDate?.getTime() ?? 0) - (b.latestCommitDate?.getTime() ?? 0)
 				);
 			});
 		case 'date:desc':
@@ -142,8 +142,8 @@ export function sortContributors(
 				return (
 					pickedCompare ||
 					(options.current ? (a.current ? -1 : 1) - (b.current ? -1 : 1) : 0) ||
-					(b.date?.getTime() ?? 0) - (a.date?.getTime() ?? 0) ||
-					b.count - a.count
+					(b.latestCommitDate?.getTime() ?? 0) - (a.latestCommitDate?.getTime() ?? 0) ||
+					b.commits - a.commits
 				);
 			});
 		case 'date:asc':
@@ -155,8 +155,8 @@ export function sortContributors(
 				return (
 					pickedCompare ||
 					(options.current ? (a.current ? -1 : 1) - (b.current ? -1 : 1) : 0) ||
-					(a.date?.getTime() ?? 0) - (b.date?.getTime() ?? 0) ||
-					b.count - a.count
+					(a.latestCommitDate?.getTime() ?? 0) - (b.latestCommitDate?.getTime() ?? 0) ||
+					b.commits - a.commits
 				);
 			});
 		case 'name:asc':
@@ -183,6 +183,34 @@ export function sortContributors(
 					sortCompare(b.name ?? b.username!, a.name ?? a.username!)
 				);
 			});
+		case 'score:desc':
+			return contributors.sort((a, b) => {
+				const pickedCompare = comparePicked(a, b);
+				a = getContributor(a);
+				b = getContributor(b);
+
+				return (
+					pickedCompare ||
+					(options.current ? (a.current ? -1 : 1) - (b.current ? -1 : 1) : 0) ||
+					(b.stats?.contributionScore ?? 0) - (a.stats?.contributionScore ?? 0) ||
+					b.commits - a.commits ||
+					(b.latestCommitDate?.getTime() ?? 0) - (a.latestCommitDate?.getTime() ?? 0)
+				);
+			});
+		case 'score:asc':
+			return contributors.sort((a, b) => {
+				const pickedCompare = comparePicked(a, b);
+				a = getContributor(a);
+				b = getContributor(b);
+
+				return (
+					pickedCompare ||
+					(options.current ? (a.current ? -1 : 1) - (b.current ? -1 : 1) : 0) ||
+					(a.stats?.contributionScore ?? 0) - (b.stats?.contributionScore ?? 0) ||
+					a.commits - b.commits ||
+					(a.latestCommitDate?.getTime() ?? 0) - (b.latestCommitDate?.getTime() ?? 0)
+				);
+			});
 		case 'count:desc':
 		default:
 			return contributors.sort((a, b) => {
@@ -193,8 +221,8 @@ export function sortContributors(
 				return (
 					pickedCompare ||
 					(options.current ? (a.current ? -1 : 1) - (b.current ? -1 : 1) : 0) ||
-					b.count - a.count ||
-					(b.date?.getTime() ?? 0) - (a.date?.getTime() ?? 0)
+					b.commits - a.commits ||
+					(b.latestCommitDate?.getTime() ?? 0) - (a.latestCommitDate?.getTime() ?? 0)
 				);
 			});
 	}

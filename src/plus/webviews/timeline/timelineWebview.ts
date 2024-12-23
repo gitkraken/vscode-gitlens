@@ -374,10 +374,7 @@ export class TimelineWebviewProvider implements WebviewProvider<State, State, Ti
 		}
 
 		let queryRequiredCommits = [
-			...filter(
-				log.commits.values(),
-				c => c.file?.stats == null && getChangedFilesCount(c.stats?.changedFiles) !== 1,
-			),
+			...filter(log.commits.values(), c => c.file?.stats == null && getChangedFilesCount(c.stats?.files) !== 1),
 		];
 
 		if (queryRequiredCommits.length !== 0) {
@@ -403,8 +400,7 @@ export class TimelineWebviewProvider implements WebviewProvider<State, State, Ti
 		const dataset: Commit[] = [];
 		for (const commit of log.commits.values()) {
 			const stats =
-				commit.file?.stats ??
-				(getChangedFilesCount(commit.stats?.changedFiles) === 1 ? commit.stats : undefined);
+				commit.file?.stats ?? (getChangedFilesCount(commit.stats?.files) === 1 ? commit.stats : undefined);
 			dataset.push({
 				author: commit.author.name === 'You' ? name : commit.author.name,
 				additions: stats?.additions,

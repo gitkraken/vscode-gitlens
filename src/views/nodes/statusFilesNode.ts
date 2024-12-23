@@ -121,7 +121,7 @@ export class StatusFilesNode extends ViewNode<'status-files', ViewsWithWorkingTr
 						`${this.status.upstream?.name}...`,
 					);
 					if (stats != null) {
-						files += stats.changedFiles;
+						files += stats.files;
 					} else {
 						files = -1;
 					}

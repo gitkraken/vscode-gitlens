@@ -43,7 +43,7 @@ import { configuration } from '../system/vscode/configuration';
 import { setContext } from '../system/vscode/context';
 import { getBestPath } from '../system/vscode/path';
 import type {
-	BranchContributorOverview,
+	BranchContributionsOverview,
 	GitCaches,
 	GitDir,
 	GitProvider,
@@ -1703,14 +1703,14 @@ export class GitProviderService implements Disposable {
 	}
 
 	@log()
-	async getBranchContributorOverview(
+	async getBranchContributionsOverview(
 		repoPath: string | Uri | undefined,
 		ref: string,
-	): Promise<BranchContributorOverview | undefined> {
+	): Promise<BranchContributionsOverview | undefined> {
 		if (repoPath == null) return undefined;
 
 		const { provider, path } = this.getProvider(repoPath);
-		return provider.getBranchContributorOverview?.(path, ref);
+		return provider.getBranchContributionsOverview?.(path, ref);
 	}
 
 	@log({ args: { 1: false } })
@@ -1966,11 +1966,29 @@ export class GitProviderService implements Disposable {
 	}
 
 	@log()
+	async setBaseBranchName(repoPath: string | Uri, ref: string, base: string): Promise<void> {
+		const { provider, path } = this.getProvider(repoPath);
+		return provider.setBaseBranchName?.(path, ref, base);
+	}
+
+	@log()
 	async getDefaultBranchName(repoPath: string | Uri | undefined, remote?: string): Promise<string | undefined> {
 		if (repoPath == null) return undefined;
 
 		const { provider, path } = this.getProvider(repoPath);
 		return provider.getDefaultBranchName(path, remote);
+	}
+
+	@log()
+	async getTargetBranchName(repoPath: string | Uri, ref: string): Promise<string | undefined> {
+		const { provider, path } = this.getProvider(repoPath);
+		return provider.getTargetBranchName?.(path, ref);
+	}
+
+	@log()
+	async setTargetBranchName(repoPath: string | Uri, ref: string, target: string): Promise<void> {
+		const { provider, path } = this.getProvider(repoPath);
+		return provider.setTargetBranchName?.(path, ref, target);
 	}
 
 	@log()
