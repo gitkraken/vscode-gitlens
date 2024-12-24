@@ -21,6 +21,11 @@ import {
 	getOrOpenPullRequestRepository,
 	getRepositoryIdentityForPullRequest,
 } from '../../git/models/pullRequest';
+import type { PullRequestUrlIdentity } from '../../git/models/pullRequest.utils';
+import {
+	getPullRequestIdentityFromMaybeUrl,
+	isMaybeNonSpecificPullRequestSearchUrl,
+} from '../../git/models/pullRequest.utils';
 import type { GitRemote } from '../../git/models/remote';
 import type { Repository } from '../../git/models/repository';
 import type { CodeSuggestionCounts, Draft } from '../../gk/models/drafts';
@@ -39,10 +44,10 @@ import type { UriTypes } from '../../uris/deepLinks/deepLink';
 import { DeepLinkActionType, DeepLinkType } from '../../uris/deepLinks/deepLink';
 import { showInspectView } from '../../webviews/commitDetails/actions';
 import type { ShowWipArgs } from '../../webviews/commitDetails/protocol';
-import type { IntegrationResult } from '../integrations/integration';
+import type { HostingIntegration, IntegrationResult, RepositoryDescriptor } from '../integrations/integration';
 import type { ConnectionStateChangeEvent } from '../integrations/integrationService';
-import type { GitHubRepositoryDescriptor } from '../integrations/providers/github';
-import type { GitLabRepositoryDescriptor } from '../integrations/providers/gitlab';
+import { isMaybeGitHubPullRequestUrl } from '../integrations/providers/github/github.utils';
+import { isMaybeGitLabPullRequestUrl } from '../integrations/providers/gitlab/gitlab.utils';
 import type { EnrichablePullRequest, ProviderActionablePullRequest } from '../integrations/providers/models';
 import {
 	fromProviderPullRequest,
@@ -59,7 +64,6 @@ import {
 	prActionsMap,
 	sharedCategoryToLaunchpadActionCategoryMap,
 } from './models';
-import { getPullRequestIdentityFromMaybeUrl } from './utils';
 
 export function getSuggestedActions(category: LaunchpadActionCategory, isCurrentBranch: boolean): LaunchpadAction[] {
 	const actions = [...prActionsMap.get(category)!];
@@ -210,44 +214,76 @@ export class LaunchpadProvider implements Disposable {
 	}
 
 	private async getSearchedPullRequests(search: string, cancellation?: CancellationToken) {
-		// TODO: This needs to be generalized to work outside of GitHub,
-		// The current idea is that we should iterate the connected integrations and apply their parsing.
-		// Probably we even want to build a map like this: { integrationId: identity }
-		// Then we iterate connected integrations and search in each of them with the corresponding identity.
-		const { ownerAndRepo, prNumber, provider } = getPullRequestIdentityFromMaybeUrl(search);
-		let result: TimedResult<SearchedPullRequest[] | undefined> | undefined;
+		const connectedIntegrations = await this.getConnectedIntegrations();
+		const prUrlIdentity: PullRequestUrlIdentity | undefined = await this.getPullRequestIdentityFromMaybeUrl(
+			search,
+			connectedIntegrations,
+		);
+		const result: { readonly value: SearchedPullRequest[]; duration: number } = {
+			value: [],
+			duration: 0,
+		};
 
-		if (provider != null && prNumber != null && ownerAndRepo != null) {
-			// TODO: This needs to be generalized to work outside of GitHub/GitLab
-			const integration = await this.container.integrations.get(provider);
-			const [owner, repo] = ownerAndRepo.split('/', 2);
-			const descriptor: GitHubRepositoryDescriptor | GitLabRepositoryDescriptor = {
-				key: ownerAndRepo,
-				owner: owner,
-				name: repo,
-			};
-			const pr = await withDurationAndSlowEventOnTimeout(
-				integration?.getPullRequest(descriptor, prNumber),
-				'getPullRequest',
-				this.container,
-			);
-			if (pr?.value != null) {
-				result = { value: [{ pullRequest: pr.value, reasons: [] }], duration: pr.duration };
-				return { prs: result, suggestionCounts: undefined };
+		const findByPrIdentity = async (
+			integration: HostingIntegration,
+		): Promise<undefined | TimedResult<SearchedPullRequest[] | undefined>> => {
+			const { provider, ownerAndRepo, prNumber } = prUrlIdentity ?? {};
+			const providerMatch = provider == null || provider === integration.id;
+			if (providerMatch && prNumber != null && ownerAndRepo != null) {
+				const [owner, repo] = ownerAndRepo.split('/', 2);
+				const descriptor: RepositoryDescriptor = {
+					key: ownerAndRepo,
+					owner: owner,
+					name: repo,
+				};
+				const pr = await withDurationAndSlowEventOnTimeout(
+					integration?.getPullRequest(descriptor, prNumber),
+					'getPullRequest',
+					this.container,
+				);
+				if (pr?.value != null) {
+					return { value: [{ pullRequest: pr.value, reasons: [] }], duration: pr.duration };
+				}
 			}
-		} else {
-			const integration = await this.container.integrations.get(HostingIntegrationId.GitHub);
+			return undefined;
+		};
+
+		const findByQuery = async (
+			integration: HostingIntegration,
+		): Promise<undefined | TimedResult<SearchedPullRequest[] | undefined>> => {
 			const prs = await withDurationAndSlowEventOnTimeout(
 				integration?.searchPullRequests(search, undefined, cancellation),
 				'searchPullRequests',
 				this.container,
 			);
 			if (prs != null) {
-				result = { value: prs.value?.map(pr => ({ pullRequest: pr, reasons: [] })), duration: prs.duration };
-				return { prs: result, suggestionCounts: undefined };
+				return { value: prs.value?.map(pr => ({ pullRequest: pr, reasons: [] })), duration: prs.duration };
 			}
-		}
-		return { prs: undefined, suggestionCounts: undefined };
+			return undefined;
+		};
+
+		const searchIntegrationPRs = prUrlIdentity ? findByPrIdentity : findByQuery;
+
+		await Promise.allSettled(
+			[...connectedIntegrations.keys()]
+				.filter(
+					(id: IntegrationId): id is SupportedLaunchpadIntegrationIds =>
+						(connectedIntegrations.get(id) && isSupportedLaunchpadIntegrationId(id)) ?? false,
+				)
+				.map(async (id: SupportedLaunchpadIntegrationIds) => {
+					const integration = await this.container.integrations.get(id);
+					const searchResult = await searchIntegrationPRs(integration);
+					const prs = searchResult?.value;
+					if (prs) {
+						result.value?.push(...prs);
+						result.duration = Math.max(result.duration, searchResult.duration);
+					}
+				}),
+		);
+		return {
+			prs: result,
+			suggestionCounts: undefined,
+		};
 	}
 
 	private _enrichedItems: CachedLaunchpadPromise<TimedResult<EnrichedItem[]>> | undefined;
@@ -545,6 +581,37 @@ export class LaunchpadProvider implements Disposable {
 		await Promise.allSettled(map(this.container.git.openRepositories, r => matchRemotes(r)));
 
 		return repoRemotes;
+	}
+
+	isMaybeSupportedLaunchpadPullRequestSearchUrl(search: string): boolean {
+		return (
+			isMaybeGitHubPullRequestUrl(search) ||
+			isMaybeGitLabPullRequestUrl(search) ||
+			isMaybeNonSpecificPullRequestSearchUrl(search)
+		);
+	}
+	//// ??? or maybe better just to do this:
+	// async isMaybeSupportedLaunchpadPullRequestSearchUrl(search: string): Promise<boolean> {
+	// 	return (await this.getPullRequestIdentityFromMaybeUrl(search)) != null;
+	// }
+	// - pros: it corresponds to active integrations
+	// - cons: it's async
+	// What do you think?
+
+	async getPullRequestIdentityFromMaybeUrl(
+		search: string,
+		connectedIntegrations: Map<IntegrationId, boolean>,
+	): Promise<PullRequestUrlIdentity | undefined> {
+		for (const integrationId of supportedLaunchpadIntegrations) {
+			if (connectedIntegrations.get(integrationId)) {
+				const integration = await this.container.integrations.get(integrationId);
+				const prIdentity = integration.getPullRequestIdentityFromMaybeUrl?.(search);
+				if (prIdentity) {
+					return prIdentity;
+				}
+			}
+		}
+		return getPullRequestIdentityFromMaybeUrl(search);
 	}
 
 	@gate<LaunchpadProvider['getCategorizedItems']>(

@@ -571,6 +571,45 @@ export class GitLabApi implements Disposable {
 		}
 	}
 
+	@debug<GitLabApi['getPullRequest']>({ args: { 0: p => p.name, 1: '<token>' } })
+	async getPullRequest(
+		provider: Provider,
+		token: string,
+		owner: string,
+		repo: string,
+		id: number,
+		options?: {
+			baseUrl?: string;
+		},
+		cancellation?: CancellationToken,
+	): Promise<PullRequest | undefined> {
+		const scope = getLogScope();
+
+		const projectId = await this.getProjectId(provider, token, owner, repo, options?.baseUrl, cancellation);
+		if (!projectId) return undefined;
+
+		try {
+			const mr = await this.request<GitLabMergeRequestREST>(
+				provider,
+				token,
+				options?.baseUrl,
+				`v4/projects/${projectId}/merge_requests/${id}`,
+				{
+					method: 'GET',
+				},
+				cancellation,
+				scope,
+			);
+			if (mr == null) return undefined;
+
+			return fromGitLabMergeRequestREST(mr, provider, { owner: owner, repo: repo });
+		} catch (ex) {
+			if (ex instanceof RequestNotFoundError) return undefined;
+
+			throw this.handleException(ex, provider, scope);
+		}
+	}
+
 	@debug<GitLabApi['getRepositoryMetadata']>({ args: { 0: p => p.name, 1: '<token>' } })
 	async getRepositoryMetadata(
 		provider: Provider,
@@ -617,6 +656,50 @@ export class GitLabApi implements Disposable {
 			} satisfies RepositoryMetadata;
 		} catch (ex) {
 			if (ex instanceof RequestNotFoundError) return undefined;
+
+			throw this.handleException(ex, provider, scope);
+		}
+	}
+
+	@debug<GitLabApi['searchPullRequests']>({ args: { 0: p => p.name, 1: '<token>' } })
+	async searchPullRequests(
+		provider: Provider,
+		token: string,
+		options?: { search?: string; user?: string; repos?: string[]; baseUrl?: string; avatarSize?: number },
+		cancellation?: CancellationToken,
+	): Promise<PullRequest[]> {
+		const scope = getLogScope();
+		const search = options?.search;
+		if (!search) {
+			return [];
+		}
+		try {
+			const gitlabPRs = await this.request<GitLabMergeRequestREST[]>(
+				provider,
+				token,
+				options?.baseUrl,
+				`v4/search/?scope=merge_requests&search=${search}`,
+				{
+					method: 'GET',
+				},
+				cancellation,
+				scope,
+			);
+			if (gitlabPRs.length === 0) {
+				return [];
+			}
+
+			const prs: PullRequest[] = gitlabPRs.map(pr => {
+				const fullRef = pr.references.full;
+				const project = {
+					owner: fullRef.substring(0, fullRef.lastIndexOf('/')),
+					repo: fullRef.substring(fullRef.lastIndexOf('/') + 1, fullRef.lastIndexOf('!')),
+				};
+				return fromGitLabMergeRequestREST(pr, provider, project);
+			});
+			return prs;
+		} catch (ex) {
+			if (ex instanceof RequestNotFoundError) return [];
 
 			throw this.handleException(ex, provider, scope);
 		}
