@@ -20147,6 +20147,7 @@
 		"react-dom": "16.8.4",
 		"signal-utils": "0.21.1",
 		"slug": "10.0.0",
+		"slugify": "1.6.6",
 		"sortablejs": "1.15.0"
 	},
 	"devDependencies": {
