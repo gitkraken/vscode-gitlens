@@ -157,7 +157,7 @@ importers:
         specifier: 8.21.0
         version: 8.21.0(eslint@9.19.0(jiti@2.4.0))(typescript@5.7.3)
       '@vscode/test-cli':
-        specifier: ^0.0.10
+        specifier: 0.0.10
         version: 0.0.10
       '@vscode/test-electron':
         specifier: 2.4.1
