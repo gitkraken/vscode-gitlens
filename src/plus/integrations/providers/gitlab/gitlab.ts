@@ -47,8 +47,10 @@ import { fromGitLabMergeRequest, fromGitLabMergeRequestREST, fromGitLabMergeRequ
 const gitlabUserIdPrefix = 'gid://gitlab/User/';
 const gitlabMergeRequestIdPrefix = 'gid://gitlab/MergeRequest/';
 
-function buildGitLabUserId(id: string | undefined): string | undefined {
-	return id?.startsWith(gitlabUserIdPrefix) ? id.substring(gitlabUserIdPrefix.length) : id;
+function buildGitLabUserId(id: string | number | undefined): string | undefined {
+	return typeof id === 'string' && id?.startsWith(gitlabUserIdPrefix)
+		? id.substring(gitlabUserIdPrefix.length)
+		: String(id);
 }
 
 export class GitLabApi implements Disposable {
