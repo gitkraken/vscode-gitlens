@@ -80,7 +80,7 @@ export interface GitLabMergeRequestFull extends GitLabMergeRequest {
 		headSha: string;
 	} | null;
 	project: GitLabRepositoryStub;
-	sourceProject: GitLabRepositoryStub;
+	sourceProject: GitLabRepositoryStub | null;
 }
 
 export type GitLabMergeRequestState = 'opened' | 'closed' | 'locked' | 'merged';
@@ -213,6 +213,9 @@ export function fromGitLabMergeRequest(pr: GitLabMergeRequestFull, provider: Pro
 }
 
 function fromGitLabMergeRequestRefs(pr: GitLabMergeRequestFull): PullRequestRefs | undefined {
+	if (pr.sourceProject == null) {
+		return undefined;
+	}
 	return {
 		base: {
 			owner: getRepoNamespace(pr.sourceProject.fullPath),
