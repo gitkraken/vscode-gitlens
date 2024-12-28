@@ -1,8 +1,8 @@
 import { css, html } from 'lit';
 import { customElement, property } from 'lit/decorators.js';
 import type { DraftVisibility } from '../../../../gk/models/drafts';
-import type { Change, DraftUserSelection } from '../../../../plus/webviews/patchDetails/protocol';
 import type { Preferences, State } from '../../../commitDetails/protocol';
+import type { Change, DraftUserSelection } from '../../../plus/patchDetails/protocol';
 import { GlElement } from '../../shared/components/element';
 import { buttonStyles } from './button.css';
 import '../../plus/patchDetails/components/gl-patch-create';

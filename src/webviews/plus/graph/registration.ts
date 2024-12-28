@@ -14,11 +14,7 @@ import type { CommitNode } from '../../../views/nodes/commitNode';
 import { PullRequestNode } from '../../../views/nodes/pullRequestNode';
 import type { StashNode } from '../../../views/nodes/stashNode';
 import type { TagNode } from '../../../views/nodes/tagNode';
-import type {
-	WebviewPanelShowCommandArgs,
-	WebviewPanelsProxy,
-	WebviewsController,
-} from '../../../webviews/webviewsController';
+import type { WebviewPanelShowCommandArgs, WebviewPanelsProxy, WebviewsController } from '../../webviewsController';
 import type { ShowInCommitGraphCommandArgs, State } from './protocol';
 
 export type GraphWebviewShowingArgs = [Repository | { ref: GitReference }];

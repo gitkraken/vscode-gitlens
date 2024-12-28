@@ -27,6 +27,9 @@ import type { SearchQuery } from '../../../../constants.search';
 import type { Subscription } from '../../../../plus/gk/account/subscription';
 import { isSubscriptionPaid } from '../../../../plus/gk/account/subscription';
 import type { LaunchpadCommandArgs } from '../../../../plus/launchpad/launchpad';
+import { createCommandLink } from '../../../../system/commands';
+import { filterMap, first, groupByFilterMap, join } from '../../../../system/iterable';
+import { createWebviewCommandLink } from '../../../../system/webview';
 import type {
 	DidEnsureRowParams,
 	DidGetRowHoverParams,
@@ -49,7 +52,7 @@ import type {
 	State,
 	UpdateGraphConfigurationParams,
 	UpdateStateCallback,
-} from '../../../../plus/webviews/graph/protocol';
+} from '../../../plus/graph/protocol';
 import {
 	DidChangeAvatarsNotification,
 	DidChangeBranchStateNotification,
@@ -66,10 +69,7 @@ import {
 	DidFetchNotification,
 	DidSearchNotification,
 	DidStartFeaturePreviewNotification,
-} from '../../../../plus/webviews/graph/protocol';
-import { createCommandLink } from '../../../../system/commands';
-import { filterMap, first, groupByFilterMap, join } from '../../../../system/iterable';
-import { createWebviewCommandLink } from '../../../../system/webview';
+} from '../../../plus/graph/protocol';
 import type { IpcNotification } from '../../../protocol';
 import { DidChangeHostWindowFocusNotification } from '../../../protocol';
 import { GlButton } from '../../shared/components/button.react';

@@ -177,13 +177,6 @@ import {
 	showGitMissingErrorMessage,
 	showGitVersionUnsupportedErrorMessage,
 } from '../../../messages';
-import type {
-	GraphBranchContextValue,
-	GraphItemContext,
-	GraphItemRefContext,
-	GraphItemRefGroupContext,
-	GraphTagContextValue,
-} from '../../../plus/webviews/graph/protocol';
 import { asRepoComparisonKey } from '../../../repositories';
 import { countStringLength, filterMap } from '../../../system/array';
 import { gate } from '../../../system/decorators/gate';
@@ -224,6 +217,13 @@ import { getBestPath, relative, splitPath } from '../../../system/vscode/path';
 import { serializeWebviewItemContext } from '../../../system/webview';
 import type { CachedBlame, CachedDiff, CachedLog, TrackedGitDocument } from '../../../trackers/trackedDocument';
 import { GitDocumentState } from '../../../trackers/trackedDocument';
+import type {
+	GraphBranchContextValue,
+	GraphItemContext,
+	GraphItemRefContext,
+	GraphItemRefGroupContext,
+	GraphTagContextValue,
+} from '../../../webviews/plus/graph/protocol';
 import { registerCommitMessageProvider } from './commitMessageProvider';
 import type { Git, PushForceOptions } from './git';
 import {

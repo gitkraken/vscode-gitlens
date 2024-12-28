@@ -7,15 +7,15 @@ import { when } from 'lit/directives/when.js';
 import { urls } from '../../../../../constants';
 import type { GitFileChangeShape } from '../../../../../git/models/file';
 import type { DraftRole, DraftVisibility } from '../../../../../gk/models/drafts';
+import { debounce } from '../../../../../system/function';
+import { flatCount } from '../../../../../system/iterable';
+import type { Serialized } from '../../../../../system/vscode/serialize';
 import type {
 	Change,
 	DraftUserSelection,
 	ExecuteFileActionParams,
 	State,
-} from '../../../../../plus/webviews/patchDetails/protocol';
-import { debounce } from '../../../../../system/function';
-import { flatCount } from '../../../../../system/iterable';
-import type { Serialized } from '../../../../../system/vscode/serialize';
+} from '../../../../plus/patchDetails/protocol';
 import type {
 	TreeItemActionDetail,
 	TreeItemBase,

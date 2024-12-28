@@ -1,6 +1,6 @@
 import React from 'react';
-import type { BranchState, State } from '../../../../../plus/webviews/graph/protocol';
 import { fromNow } from '../../../../../system/date';
+import type { BranchState, State } from '../../../../plus/graph/protocol';
 import { FetchButton } from './fetchButton';
 import { PushPullButton } from './pushPullButton';
 

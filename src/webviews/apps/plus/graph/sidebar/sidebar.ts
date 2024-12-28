@@ -3,7 +3,7 @@ import { Task } from '@lit/task';
 import { css, html, LitElement, nothing } from 'lit';
 import { customElement, property } from 'lit/decorators.js';
 import { repeat } from 'lit/directives/repeat.js';
-import { DidChangeNotification, GetCountsRequest } from '../../../../../plus/webviews/graph/protocol';
+import { DidChangeNotification, GetCountsRequest } from '../../../../plus/graph/protocol';
 import { ipcContext } from '../../../shared/context';
 import type { Disposable } from '../../../shared/events';
 import type { HostIpc } from '../../../shared/ipc';

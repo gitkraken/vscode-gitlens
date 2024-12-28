@@ -388,8 +388,6 @@ export default ts.config(
 			'src/env/browser/**/*',
 			'src/plus/gk/account/promos.ts',
 			'src/plus/gk/account/subscription.ts',
-			'src/plus/webviews/**/protocol.ts',
-			'src/webviews/protocol.ts',
 			'src/webviews/**/protocol.ts',
 			'src/config.ts',
 			'src/constants.ts',

@@ -1,7 +1,7 @@
 import type { ReactNode } from 'react';
 import React from 'react';
-import type { BranchState, State } from '../../../../../plus/webviews/graph/protocol';
 import { createWebviewCommandLink } from '../../../../../system/webview';
+import type { BranchState, State } from '../../../../plus/graph/protocol';
 import { CodeIcon } from '../../../shared/components/code-icon.react';
 import { GlTooltip } from '../../../shared/components/overlays/tooltip.react';
 

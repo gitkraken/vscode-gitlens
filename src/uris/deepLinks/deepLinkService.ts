@@ -18,7 +18,6 @@ import { parseGitRemoteUrl } from '../../git/parsers/remoteParser';
 import type { RepositoryIdentity } from '../../gk/models/repositoryIdentities';
 import { missingRepositoryId } from '../../gk/models/repositoryIdentities';
 import { ensureAccount, ensurePaidPlan } from '../../plus/utils';
-import type { ShowInCommitGraphCommandArgs } from '../../plus/webviews/graph/protocol';
 import { createQuickPickSeparator } from '../../quickpicks/items/common';
 import { debug } from '../../system/decorators/log';
 import { once } from '../../system/event';
@@ -31,6 +30,7 @@ import type { OpenWorkspaceLocation } from '../../system/vscode/utils';
 import { findOrOpenEditor, openWorkspace } from '../../system/vscode/utils';
 import { showInspectView } from '../../webviews/commitDetails/actions';
 import type { ShowWipArgs } from '../../webviews/commitDetails/protocol';
+import type { ShowInCommitGraphCommandArgs } from '../../webviews/plus/graph/protocol';
 import type { DeepLink, DeepLinkProgress, DeepLinkRepoOpenType, DeepLinkServiceContext, UriTypes } from './deepLink';
 import {
 	AccountDeepLinkTypes,

@@ -4,7 +4,7 @@ import { GlCommand } from '../../../constants.commands';
 import { registerCommand } from '../../../system/vscode/command';
 import { configuration } from '../../../system/vscode/configuration';
 import type { ViewFileNode } from '../../../views/nodes/abstract/viewFileNode';
-import type { WebviewPanelsProxy, WebviewsController } from '../../../webviews/webviewsController';
+import type { WebviewPanelsProxy, WebviewsController } from '../../webviewsController';
 import type { State } from './protocol';
 
 export type TimelineWebviewShowingArgs = [Uri | ViewFileNode];

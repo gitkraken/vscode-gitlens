@@ -17,8 +17,6 @@
 		"../../plus/gk/account/promos.ts",
 		"../../plus/gk/account/subscription.ts",
 		"../../plus/launchpad/models.ts",
-		"../../plus/webviews/**/protocol.ts",
-		"../protocol.ts",
 		"../**/protocol.ts",
 		"../../config.ts",
 		"../../constants.ts",
