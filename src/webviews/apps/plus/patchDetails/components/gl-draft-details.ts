@@ -13,6 +13,8 @@ import type {
 	DraftRole,
 	DraftVisibility,
 } from '../../../../../gk/models/drafts';
+import { makeHierarchical } from '../../../../../system/array';
+import { flatCount } from '../../../../../system/iterable';
 import type {
 	CloudDraftDetails,
 	DraftDetails,
@@ -20,9 +22,7 @@ import type {
 	ExecuteFileActionParams,
 	PatchDetails,
 	State,
-} from '../../../../../plus/webviews/patchDetails/protocol';
-import { makeHierarchical } from '../../../../../system/array';
-import { flatCount } from '../../../../../system/iterable';
+} from '../../../../plus/patchDetails/protocol';
 import type {
 	TreeItemActionDetail,
 	TreeItemBase,

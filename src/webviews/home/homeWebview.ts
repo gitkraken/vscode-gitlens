@@ -43,8 +43,6 @@ import type { LaunchpadCategorizedResult } from '../../plus/launchpad/launchpadP
 import { getLaunchpadItemGroups } from '../../plus/launchpad/launchpadProvider';
 import { getLaunchpadSummary } from '../../plus/launchpad/utils';
 import type { StartWorkCommandArgs } from '../../plus/startWork/startWork';
-import type { ShowInCommitGraphCommandArgs } from '../../plus/webviews/graph/protocol';
-import type { Change } from '../../plus/webviews/patchDetails/protocol';
 import { showRepositoryPicker } from '../../quickpicks/repositoryPicker';
 import { debug } from '../../system/decorators/log';
 import type { Deferrable } from '../../system/function';
@@ -55,6 +53,8 @@ import { executeActionCommand, executeCommand, registerCommand } from '../../sys
 import { configuration } from '../../system/vscode/configuration';
 import { getContext, onDidChangeContext } from '../../system/vscode/context';
 import { openUrl, openWorkspace } from '../../system/vscode/utils';
+import type { ShowInCommitGraphCommandArgs } from '../plus/graph/protocol';
+import type { Change } from '../plus/patchDetails/protocol';
 import type { IpcMessage } from '../protocol';
 import type { WebviewHost, WebviewProvider, WebviewShowingArgs } from '../webviewProvider';
 import type { WebviewShowOptions } from '../webviewsController';

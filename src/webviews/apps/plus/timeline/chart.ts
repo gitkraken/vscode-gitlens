@@ -2,9 +2,9 @@
 import type { Chart, ChartOptions, ChartTypes, DataItem } from 'billboard.js';
 // import BubbleCompare from 'billboard.js/dist/plugin/billboardjs-plugin-bubblecompare';
 // import { scaleSqrt } from 'd3-scale';
-import type { Commit, State } from '../../../../plus/webviews/timeline/protocol';
 import type { Deferred } from '../../../../system/promise';
 import { defer } from '../../../../system/promise';
+import type { Commit, State } from '../../../plus/timeline/protocol';
 import { formatDate, fromNow } from '../../shared/date';
 import type { Disposable, Event } from '../../shared/events';
 import { Emitter } from '../../shared/events';

@@ -1,12 +1,8 @@
 /*global*/
 import './timeline.scss';
 import { isSubscriptionPaid } from '../../../../plus/gk/account/subscription';
-import type { Period, State } from '../../../../plus/webviews/timeline/protocol';
-import {
-	DidChangeNotification,
-	OpenDataPointCommand,
-	UpdatePeriodCommand,
-} from '../../../../plus/webviews/timeline/protocol';
+import type { Period, State } from '../../../plus/timeline/protocol';
+import { DidChangeNotification, OpenDataPointCommand, UpdatePeriodCommand } from '../../../plus/timeline/protocol';
 import type { IpcMessage } from '../../../protocol';
 import { App } from '../../shared/appBase';
 import type { GlFeatureBadge } from '../../shared/components/feature-badge';

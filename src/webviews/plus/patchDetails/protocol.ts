@@ -16,11 +16,11 @@ import type {
 	LocalDraft,
 } from '../../../gk/models/drafts';
 import type { GkRepositoryId } from '../../../gk/models/repositoryIdentities';
+import type { OrganizationMember } from '../../../plus/gk/account/organization';
 import type { DateTimeFormat } from '../../../system/date';
 import type { Serialized } from '../../../system/vscode/serialize';
-import type { IpcScope, WebviewState } from '../../../webviews/protocol';
-import { IpcCommand, IpcNotification, IpcRequest } from '../../../webviews/protocol';
-import type { OrganizationMember } from '../../gk/account/organization';
+import type { IpcScope, WebviewState } from '../../protocol';
+import { IpcCommand, IpcNotification, IpcRequest } from '../../protocol';
 
 export const scope: IpcScope = 'patchDetails';
 

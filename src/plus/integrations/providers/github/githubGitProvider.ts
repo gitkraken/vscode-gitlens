@@ -107,14 +107,14 @@ import { relative } from '../../../../system/vscode/path';
 import { serializeWebviewItemContext } from '../../../../system/webview';
 import type { CachedBlame, CachedLog, TrackedGitDocument } from '../../../../trackers/trackedDocument';
 import { GitDocumentState } from '../../../../trackers/trackedDocument';
-import type { GitHubAuthorityMetadata, Metadata, RemoteHubApi } from '../../../remotehub';
-import { getRemoteHubApi, HeadType, RepositoryRefType } from '../../../remotehub';
 import type {
 	GraphBranchContextValue,
 	GraphItemContext,
 	GraphItemRefContext,
 	GraphTagContextValue,
-} from '../../../webviews/graph/protocol';
+} from '../../../../webviews/plus/graph/protocol';
+import type { GitHubAuthorityMetadata, Metadata, RemoteHubApi } from '../../../remotehub';
+import { getRemoteHubApi, HeadType, RepositoryRefType } from '../../../remotehub';
 import type {
 	IntegrationAuthenticationService,
 	IntegrationAuthenticationSessionDescriptor,
