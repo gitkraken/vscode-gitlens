@@ -11,6 +11,11 @@ import { ipcContext, LoggerContext, loggerContext, telemetryContext, TelemetryCo
 import type { Disposable } from './events';
 import { HostIpc } from './ipc';
 
+export interface StateProvider<State> extends Disposable {
+	readonly state: State;
+	// readonly signal?: ReturnType<typeof signal<State>>;
+}
+
 export abstract class GlApp<
 	State extends { webviewId: CustomEditorIds | WebviewIds | WebviewViewIds; timestamp: number } = {
 		webviewId: CustomEditorIds | WebviewIds | WebviewViewIds;
@@ -34,16 +39,20 @@ export abstract class GlApp<
 	@provide({ context: telemetryContext })
 	protected _telemetry!: TelemetryContext;
 
-	@property({ type: Object })
-	state!: State;
+	@property({ type: Object, noAccessor: true })
+	private bootstrap!: State;
 
-	private readonly disposables: Disposable[] = [];
+	get state() {
+		return this._stateProvider.state;
+	}
+
+	protected readonly disposables: Disposable[] = [];
 	private _focused?: boolean;
 	private _inputFocused?: boolean;
 	private _sendWebviewFocusChangedCommandDebounced!: Deferrable<(params: WebviewFocusChangedParams) => void>;
-	private _stateProvider!: Disposable;
+	private _stateProvider!: StateProvider<State>;
 
-	protected abstract createStateProvider(state: State, ipc: HostIpc): Disposable;
+	protected abstract createStateProvider(state: State, ipc: HostIpc): StateProvider<State>;
 
 	override connectedCallback() {
 		super.connectedCallback();
@@ -51,15 +60,14 @@ export abstract class GlApp<
 		this._logger = new LoggerContext(this.name);
 		this._logger.log('connected');
 
-		//const themeEvent = computeThemeColors();
-		//if (this.onThemeUpdated != null) {
-		//this.onThemeUpdated(themeEvent);
-		//disposables.push(onDidChangeTheme(this.onThemeUpdated, this));
-		//}
-
 		this._ipc = new HostIpc(this.name);
+
+		const state = this.bootstrap;
+		this.bootstrap = undefined!;
+		this._ipc.replaceIpcPromisesWithPromises(state);
+
 		this.disposables.push(
-			(this._stateProvider = this.createStateProvider(this.state, this._ipc)),
+			(this._stateProvider = this.createStateProvider(state, this._ipc)),
 			this._ipc.onReceiveMessage(msg => {
 				switch (true) {
 					case DidChangeWebviewFocusNotification.is(msg):

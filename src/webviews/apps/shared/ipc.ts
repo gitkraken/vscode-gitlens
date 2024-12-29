@@ -80,7 +80,7 @@ export class HostIpc implements Disposable {
 		this._onReceiveMessage.fire(msg);
 	}
 
-	private replaceIpcPromisesWithPromises(data: unknown) {
+	replaceIpcPromisesWithPromises(data: unknown) {
 		if (data == null || typeof data !== 'object') return;
 
 		for (const key in data) {
