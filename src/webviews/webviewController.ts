@@ -151,6 +151,7 @@ export class WebviewController<
 		return this._ready;
 	}
 
+	/** Used to cancel pending ipc promise operations */
 	private cancellation: CancellationTokenSource | undefined;
 	private disposable: Disposable | undefined;
 	private _isInEditor: boolean;
@@ -570,6 +571,8 @@ export class WebviewController<
 			this.provider.includeEndOfBody?.(),
 		]);
 
+		this.replacePromisesWithIpcPromises(bootstrap);
+
 		const html = replaceWebviewHtmlTokens(
 			utf8TextDecoder.decode(bytes),
 			this.id,
@@ -596,30 +599,7 @@ export class WebviewController<
 		params: IpcCallParamsType<T>,
 		completionId?: string,
 	): Promise<boolean> {
-		const pendingPromises: [Promise<unknown>, IpcPromise][] = [];
-		this.replacePromisesWithIpcPromises(params, pendingPromises);
-
-		const cancellation = this.cancellation?.token;
-		queueMicrotask(() => {
-			for (const [promise, ipcPromise] of pendingPromises) {
-				promise.then(
-					r => {
-						if (cancellation?.isCancellationRequested) {
-							debugger;
-							return;
-						}
-						return this.notify(ipcPromiseSettled, { status: 'fulfilled', value: r }, ipcPromise.id);
-					},
-					(ex: unknown) => {
-						if (cancellation?.isCancellationRequested) {
-							debugger;
-							return;
-						}
-						return this.notify(ipcPromiseSettled, { status: 'rejected', reason: ex }, ipcPromise.id);
-					},
-				);
-			}
-		});
+		this.replacePromisesWithIpcPromises(params);
 
 		let packed;
 		if (notificationType.pack && params != null) {
@@ -646,6 +626,8 @@ export class WebviewController<
 		const success = await this.postMessage(msg);
 		if (success) {
 			this._pendingIpcNotifications.clear();
+		} else if (notificationType === ipcPromiseSettled) {
+			this._pendingIpcPromiseNotifications.add({ msg: msg, timestamp: Date.now() });
 		} else {
 			this.addPendingIpcNotificationCore(notificationType, msg);
 		}
@@ -660,7 +642,35 @@ export class WebviewController<
 		return this.notify(requestType.response, params, msg.completionId);
 	}
 
-	private replacePromisesWithIpcPromises(data: unknown, pendingPromises: [Promise<unknown>, IpcPromise][]) {
+	private replacePromisesWithIpcPromises(data: unknown) {
+		const pendingPromises: [Promise<unknown>, IpcPromise][] = [];
+		this.replacePromisesWithIpcPromisesCore(data, pendingPromises);
+		if (pendingPromises.length === 0) return;
+
+		const cancellation = this.cancellation?.token;
+		queueMicrotask(() => {
+			for (const [promise, ipcPromise] of pendingPromises) {
+				promise.then(
+					r => {
+						if (cancellation?.isCancellationRequested) {
+							debugger;
+							return;
+						}
+						return this.notify(ipcPromiseSettled, { status: 'fulfilled', value: r }, ipcPromise.id);
+					},
+					(ex: unknown) => {
+						if (cancellation?.isCancellationRequested) {
+							debugger;
+							return;
+						}
+						return this.notify(ipcPromiseSettled, { status: 'rejected', reason: ex }, ipcPromise.id);
+					},
+				);
+			}
+		});
+	}
+
+	private replacePromisesWithIpcPromisesCore(data: unknown, pendingPromises: [Promise<unknown>, IpcPromise][]) {
 		if (data == null || typeof data !== 'object') return;
 
 		for (const key in data) {
@@ -675,7 +685,7 @@ export class WebviewController<
 				pendingPromises.push([value, ipcPromise]);
 			}
 
-			this.replacePromisesWithIpcPromises(value, pendingPromises);
+			this.replacePromisesWithIpcPromisesCore(value, pendingPromises);
 		}
 	}
 
@@ -730,7 +740,11 @@ export class WebviewController<
 		return success;
 	}
 
-	private _pendingIpcNotifications = new Map<IpcNotification, IpcMessage | (() => Promise<boolean>)>();
+	private _pendingIpcNotifications = new Map<
+		IpcNotification,
+		{ msg: IpcMessage | (() => Promise<boolean>); timestamp: number }
+	>();
+	private _pendingIpcPromiseNotifications = new Set<{ msg: IpcMessage; timestamp: number }>();
 
 	addPendingIpcNotification(
 		type: IpcNotification<any>,
@@ -752,7 +766,7 @@ export class WebviewController<
 			debugger;
 			return;
 		}
-		this._pendingIpcNotifications.set(type, msgOrFn);
+		this._pendingIpcNotifications.set(type, { msg: msgOrFn, timestamp: Date.now() });
 	}
 
 	clearPendingIpcNotifications() {
@@ -760,15 +774,24 @@ export class WebviewController<
 	}
 
 	sendPendingIpcNotifications() {
-		if (!this._ready || this._pendingIpcNotifications.size === 0) return;
+		if (
+			!this._ready ||
+			(this._pendingIpcNotifications.size === 0 && this._pendingIpcPromiseNotifications.size === 0)
+		) {
+			return;
+		}
 
-		const ipcs = new Map(this._pendingIpcNotifications);
+		const ipcs = [...this._pendingIpcNotifications.values(), ...this._pendingIpcPromiseNotifications.values()].sort(
+			(a, b) => a.timestamp - b.timestamp,
+		);
 		this._pendingIpcNotifications.clear();
-		for (const msgOrFn of ipcs.values()) {
-			if (typeof msgOrFn === 'function') {
-				void msgOrFn();
+		this._pendingIpcPromiseNotifications.clear();
+
+		for (const { msg } of ipcs.values()) {
+			if (typeof msg === 'function') {
+				void msg();
 			} else {
-				void this.postMessage(msgOrFn);
+				void this.postMessage(msg);
 			}
 		}
 	}
