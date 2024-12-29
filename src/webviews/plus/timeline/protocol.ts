@@ -5,7 +5,7 @@ import { IpcCommand, IpcNotification } from '../../protocol';
 export const scope: IpcScope = 'timeline';
 
 export interface State extends WebviewState {
-	dataset?: Commit[];
+	dataset?: Promise<Commit[]>;
 	period: Period;
 	title?: string;
 	sha?: string;

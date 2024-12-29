@@ -1,106 +1,57 @@
-/*global*/
 import './timeline.scss';
+import type { PropertyValues } from 'lit';
+import { html, LitElement, nothing } from 'lit';
+import { customElement, query, state } from 'lit/decorators.js';
 import { isSubscriptionPaid } from '../../../../plus/gk/account/subscription';
 import type { Period, State } from '../../../plus/timeline/protocol';
-import { DidChangeNotification, OpenDataPointCommand, UpdatePeriodCommand } from '../../../plus/timeline/protocol';
-import type { IpcMessage } from '../../../protocol';
-import { App } from '../../shared/appBase';
-import type { GlFeatureBadge } from '../../shared/components/feature-badge';
-import type { GlFeatureGate } from '../../shared/components/feature-gate';
-import { DOM } from '../../shared/dom';
-import type { DataPointClickEvent } from './chart';
-import { TimelineChart } from './chart';
-import '../../shared/components/code-icon';
-import '../../shared/components/progress';
-import '../../shared/components/button';
+import { OpenDataPointCommand, UpdatePeriodCommand } from '../../../plus/timeline/protocol';
+import { GlApp } from '../../shared/app';
+import type { HostIpc } from '../../shared/ipc';
+import type { DataPointClickEventDetail, GlTimelineChart } from './components/chart';
+import { TimelineStateProvider } from './stateProvider';
+import { timelineBaseStyles, timelineStyles } from './timeline.css';
+import './components/chart';
 import '../../shared/components/feature-gate';
 import '../../shared/components/feature-badge';
+import '../../shared/components/code-icon';
+import '../../shared/components/progress';
 
-export class TimelineApp extends App<State> {
-	private _chart: TimelineChart | undefined;
+@customElement('gl-timeline-app')
+export class GlTimelineApp extends GlApp<State> {
+	static override shadowRootOptions: ShadowRootInit = {
+		...LitElement.shadowRootOptions,
+		delegatesFocus: true,
+	};
 
-	constructor() {
-		super('TimelineApp');
+	static override styles = [timelineBaseStyles, timelineStyles];
+
+	@query('#chart')
+	private _chart?: GlTimelineChart;
+
+	protected override createStateProvider(state: State, ipc: HostIpc) {
+		return new TimelineStateProvider(this, state, ipc);
 	}
 
-	protected override onInitialize() {
-		this.updateState();
+	override connectedCallback(): void {
+		super.connectedCallback();
+
+		document.addEventListener('keydown', this.onDocumentKeyDown);
 	}
 
-	protected override onBind() {
-		const disposables = super.onBind?.() ?? [];
+	override disconnectedCallback(): void {
+		document.removeEventListener('keydown', this.onDocumentKeyDown);
 
-		disposables.push(
-			DOM.on(document, 'keydown', (e: KeyboardEvent) => this.onKeyDown(e)),
-			DOM.on(document.getElementById('periods')! as HTMLSelectElement, 'change', (e, target) =>
-				this.onPeriodChanged(e, target),
-			),
-			{ dispose: () => this._chart?.dispose() },
-		);
-
-		return disposables;
+		super.disconnectedCallback();
 	}
 
-	protected override onMessageReceived(msg: IpcMessage) {
-		switch (true) {
-			case DidChangeNotification.is(msg):
-				this.state = msg.params.state;
-				this.setState(this.state);
-				this.updateState();
-				break;
-
-			default:
-				super.onMessageReceived?.(msg);
-		}
+	get allowed() {
+		return this.state.access?.allowed ?? false;
 	}
 
-	private onChartDataPointClicked(e: DataPointClickEvent) {
-		this.sendCommand(OpenDataPointCommand, e);
-	}
+	get header() {
+		let title = this.state.title;
+		let description;
 
-	private onKeyDown(e: KeyboardEvent) {
-		if (e.key === 'Escape' || e.key === 'Esc') {
-			this._chart?.reset();
-		}
-	}
-
-	private onPeriodChanged(_e: Event, element: HTMLSelectElement) {
-		const value = element.options[element.selectedIndex].value;
-		assertPeriod(value);
-
-		this.log(`onPeriodChanged(): name=${element.name}, value=${value}`);
-
-		this.updateLoading(true);
-		this.sendCommand(UpdatePeriodCommand, { period: value });
-	}
-
-	private updateState() {
-		const $gate = document.getElementById('subscription-gate')! as GlFeatureGate;
-		if ($gate != null) {
-			$gate.source = { source: 'timeline', detail: 'gate' };
-			$gate.state = this.state.access.subscription.current.state;
-			$gate.visible = this.state.access.allowed !== true; // && this.state.uri != null;
-		}
-
-		const showBadge =
-			this.state.access.subscription?.current == null ||
-			!isSubscriptionPaid(this.state.access.subscription?.current);
-
-		const els = document.querySelectorAll<GlFeatureBadge>('gl-feature-badge');
-		for (const el of els) {
-			el.source = { source: 'timeline', detail: 'badge' };
-			el.subscription = this.state.access.subscription.current;
-			el.hidden = !showBadge;
-		}
-
-		if (this._chart == null) {
-			this._chart = new TimelineChart('#chart', this.placement);
-			this._chart.onDidClickDataPoint(this.onChartDataPointClicked, this);
-		}
-
-		let { title, sha } = this.state;
-
-		let description = '';
 		if (title != null) {
 			const index = title.lastIndexOf('/');
 			if (index >= 0) {
@@ -108,53 +59,144 @@ export class TimelineApp extends App<State> {
 				description = title.substring(0, index);
 				title = name;
 			}
-		} else if (this.placement === 'editor' && this.state.dataset == null && !this.state.access.allowed) {
-			title = 'index.ts';
-			description = 'src/app';
 		}
 
-		function updateBoundData(key: string, value: string | undefined, options?: { html?: boolean }) {
-			const $el = document.querySelector(`[data-bind="${key}"]`);
-			if ($el != null) {
-				if (options?.html) {
-					$el.innerHTML = value ?? '';
-				} else {
-					$el.textContent = value ?? '';
-				}
-			}
-		}
-
-		updateBoundData('title', title);
-		updateBoundData('description', description);
-		updateBoundData(
-			'sha',
-			sha
-				? /*html*/ `<code-icon icon="git-commit" size="16"></code-icon><span class="sha">${sha}</span>`
-				: undefined,
-			{
-				html: true,
-			},
-		);
-
-		const $periods = document.getElementById('periods') as HTMLSelectElement;
-		if ($periods != null) {
-			const period = this.state?.period;
-
-			const $periodOptions = $periods.getElementsByTagName('option');
-			for (const $option of $periodOptions) {
-				if (period === $option.getAttribute('value')) {
-					$option.setAttribute('selected', '');
-				} else {
-					$option.removeAttribute('selected');
-				}
-			}
-		}
-
-		void this._chart.updateChart(this.state).finally(() => this.updateLoading(false));
+		return { title: title ?? '', description: description ?? '' };
 	}
 
-	private updateLoading(loading: boolean) {
-		document.getElementById('spinner')?.setAttribute('active', loading ? 'true' : 'false');
+	@state()
+	private _loading = true;
+	get loading() {
+		return this.state.dataset != null && this.uri != null && this._loading;
+	}
+
+	get period() {
+		return this.state.period;
+	}
+
+	get subscription() {
+		return this.state.access?.subscription?.current;
+	}
+
+	get sha() {
+		return this.state.sha;
+	}
+
+	get uri() {
+		return this.state.uri;
+	}
+
+	protected override willUpdate(changedProperties: PropertyValues): void {
+		if (!changedProperties.has('_loading')) {
+			this._loading = Boolean(this.state.dataset && this.uri);
+		}
+
+		super.willUpdate(changedProperties);
+	}
+
+	override render() {
+		return html`
+			${this.allowed
+				? html`<gl-feature-gate
+						.source=${{ source: 'timeline' as const, detail: 'gate' }}
+						.state=${this.subscription?.state}
+				  ></gl-feature-gate>`
+				: nothing}
+			<div class="container">
+				<progress-indicator ?active=${this.loading}></progress-indicator>
+				<header class="header" ?hidden=${!this.uri}>
+					<span class="details">
+						<span class="details__title">${this.header.title}</span>
+						<span class="details__description">${this.header.description}</span>
+						<span class="details__sha">
+							${this.sha
+								? html`<code-icon icon="git-commit" size="16"></code-icon
+										><span class="sha">${this.sha}</span>`
+								: nothing}
+						</span>
+					</span>
+					<span class="toolbox">
+						<span class="select-container">
+							<label for="periods">Timeframe</label>
+							<select
+								class="period"
+								name="periods"
+								position="below"
+								.value=${this.period}
+								@change=${this.onPeriodChanged}
+							>
+								<option value="7|D" ?selected=${this.period === '7|D'}>1 week</option>
+								<option value="1|M" ?selected=${this.period === '1|M'}>1 month</option>
+								<option value="3|M" ?selected=${this.period === '3|M'}>3 months</option>
+								<option value="6|M" ?selected=${this.period === '6|M'}>6 months</option>
+								<option value="9|M" ?selected=${this.period === '9|M'}>9 months</option>
+								<option value="1|Y" ?selected=${this.period === '1|Y'}>1 year</option>
+								<option value="2|Y" ?selected=${this.period === '2|Y'}>2 years</option>
+								<option value="4|Y" ?selected=${this.period === '4|Y'}>4 years</option>
+								<option value="all" ?selected=${this.period === 'all'}>Full history</option>
+							</select>
+						</span>
+						<gl-button
+							appearance="toolbar"
+							data-placement-visible="view"
+							href="command:gitlens.views.timeline.openInTab"
+							tooltip="Open in Editor"
+							aria-label="Open in Editor"
+						>
+							<code-icon icon="link-external"></code-icon>
+						</gl-button>
+						${this.subscription == null || !isSubscriptionPaid(this.subscription)
+							? html`<gl-feature-badge
+									placement="bottom"
+									.source=${{ source: 'timeline' as const, detail: 'badge' }}
+									.subscription=${this.subscription}
+							  ></gl-feature-badge>`
+							: nothing}
+					</span>
+				</header>
+
+				<main class="timeline">${this.renderChart()}</main>
+			</div>
+		`;
+	}
+
+	private renderChart() {
+		if (!this.uri || !this.state.dataset) {
+			return html`<div class="timeline__empty">
+				<p>There are no editors open that can provide file history information.</p>
+			</div>`;
+		}
+
+		return html`<gl-timeline-chart
+			id="chart"
+			placement="${this.placement}"
+			dateFormat=${this.state.dateFormat}
+			shortDateFormat=${this.state.shortDateFormat}
+			.dataPromise=${this.state.dataset}
+			@gl-data-point-click=${this.onChartDataPointClicked}
+			@gl-load=${() => (this._loading = false)}
+		>
+		</gl-timeline-chart>`;
+	}
+
+	private onChartDataPointClicked(e: CustomEvent<DataPointClickEventDetail>) {
+		this._ipc.sendCommand(OpenDataPointCommand, e.detail);
+	}
+
+	private onDocumentKeyDown = (e: KeyboardEvent) => {
+		if (e.key === 'Escape' || e.key === 'Esc') {
+			this._chart?.reset();
+		}
+	};
+
+	private onPeriodChanged(e: Event) {
+		const element = e.target as HTMLSelectElement;
+		const value = element.options[element.selectedIndex].value;
+		assertPeriod(value);
+
+		// this.log(`onPeriodChanged(): name=${element.name}, value=${value}`);
+
+		this._ipc.sendCommand(UpdatePeriodCommand, { period: value });
 	}
 }
 
@@ -166,5 +208,3 @@ function assertPeriod(period: string): asserts period is Period {
 		throw new Error(`Invalid period: ${period}`);
 	}
 }
-
-new TimelineApp();
