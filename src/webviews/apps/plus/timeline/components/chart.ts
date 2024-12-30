@@ -38,6 +38,7 @@ export class GlTimelineChart extends GlElement {
 	private readonly _commitsByTimestamp = new Map<string, Commit>();
 	private readonly _authorsByIndex = new Map<number, string>();
 	private readonly _indexByAuthors = new Map<string, number>();
+	private readonly _zByAuthorAndX = new Map<string, Map<number, number>>();
 
 	private _abortController?: AbortController;
 	private _loading?: ReturnType<typeof defer<void>>;
@@ -147,6 +148,7 @@ export class GlTimelineChart extends GlElement {
 		this._commitsByTimestamp.clear();
 		this._authorsByIndex.clear();
 		this._indexByAuthors.clear();
+		this._zByAuthorAndX.clear();
 
 		const xs: Record<string, string> = {};
 		const colors: Record<string, string> = {};
@@ -197,7 +199,7 @@ export class GlTimelineChart extends GlElement {
 			return result;
 		};
 
-		const { bb, bar, bubble, zoom } = await import(/* webpackChunkName: "lib-billboard" */ 'billboard.js');
+		const { bb, bar, scatter, zoom } = await import(/* webpackChunkName: "lib-billboard" */ 'billboard.js');
 		if (abortSignal?.aborted) {
 			loading?.cancel();
 			return;
@@ -249,7 +251,7 @@ export class GlTimelineChart extends GlElement {
 
 				names[author] = author;
 
-				types[author] = bubble();
+				types[author] = scatter();
 
 				group.push(authorX);
 			}
@@ -260,11 +262,15 @@ export class GlTimelineChart extends GlElement {
 
 			series[authorX].push(date);
 
+			series[author].push(this._indexByAuthors.get(author));
+
+			let zAuthor = this._zByAuthorAndX.get(author);
+			if (zAuthor == null) {
+				zAuthor = new Map();
+				this._zByAuthorAndX.set(author, zAuthor);
+			}
 			const z = additions == null && deletions == null ? 6 : bubbleScale((additions ?? 0) + (deletions ?? 0));
-			series[author].push({
-				y: this._indexByAuthors.get(author),
-				z: z,
-			});
+			zAuthor.set(new Date(date).getTime(), z);
 
 			this._commitsByTimestamp.set(date, commit);
 		}
@@ -387,12 +393,7 @@ export class GlTimelineChart extends GlElement {
 				},
 			},
 			bar: { width: 2, sensitivity: 4, padding: 2 },
-			bubble: {
-				maxR: 75,
-				// maxR: d => {
-				// 	const z = (d as { value: { z: number } })?.value.z;
-				// 	return z == null || isNaN(z) ? 6 : z;
-				// },
+			scatter: {
 				zerobased: true,
 			},
 			grid: {
@@ -412,7 +413,41 @@ export class GlTimelineChart extends GlElement {
 				},
 				tooltip: true,
 			},
-			point: { sensitivity: d => Math.max(6, ((d as unknown as { value: { z: number } }).value?.z ?? 6) / 2) },
+			point: {
+				r: d => {
+					if (d == null) return 0;
+
+					if ('data' in d && typeof d.data === 'function') {
+						d = d.data()[0];
+						if (d == null) return 0;
+					}
+
+					const result = Math.max(
+						6,
+						this._zByAuthorAndX.get(d.id)?.get((d.x as unknown as Date).getTime()) ?? 6,
+					);
+					return result;
+				},
+				focus: {
+					expand: {
+						enabled: true,
+					},
+				},
+				sensitivity: d => {
+					if (d == null) return 0;
+
+					if ('data' in d && typeof d.data === 'function') {
+						d = d.data()[0];
+						if (d == null) return 0;
+					}
+
+					const result = Math.max(
+						6,
+						(this._zByAuthorAndX.get(d.id)?.get((d.x as unknown as Date).getTime()) ?? 6) / 2,
+					);
+					return result;
+				},
+			},
 			resize: { auto: true },
 			tooltip: {
 				contents: (data, _defaultTitleFormat, _defaultValueFormat, _color) => {
