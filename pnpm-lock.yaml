@@ -107,6 +107,9 @@ importers:
       slug:
         specifier: 10.0.0
         version: 10.0.0
+      slugify:
+        specifier: 1.6.6
+        version: 1.6.6
       sortablejs:
         specifier: 1.15.0
         version: 1.15.0
@@ -154,7 +157,7 @@ importers:
         specifier: 8.18.0
         version: 8.18.0(eslint@9.16.0(jiti@2.4.0))(typescript@5.7.2)
       '@vscode/test-cli':
-        specifier: ^0.0.10
+        specifier: 0.0.10
         version: 0.0.10
       '@vscode/test-electron':
         specifier: 2.4.1

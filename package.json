@@ -20030,6 +20030,7 @@
 		"react-dom": "16.8.4",
 		"signal-utils": "0.20.0",
 		"slug": "10.0.0",
+		"slugify": "1.6.6",
 		"sortablejs": "1.15.0"
 	},
 	"devDependencies": {
@@ -20047,7 +20048,7 @@
 		"@types/sortablejs": "1.15.8",
 		"@types/vscode": "1.82.0",
 		"@typescript-eslint/parser": "8.18.0",
-		"@vscode/test-cli": "^0.0.10",
+		"@vscode/test-cli": "0.0.10",
 		"@vscode/test-electron": "2.4.1",
 		"@vscode/test-web": "0.0.65",
 		"@vscode/vsce": "3.2.1",
