@@ -413,6 +413,16 @@ export class ViewCommands implements Disposable {
 				n => this.setResultsCommitsFilter(n, false),
 				this,
 			),
+			registerViewCommand(
+				'gitlens.views.setContributorsStatisticsOff',
+				() => this.setContributorsStatistics(false),
+				this,
+			),
+			registerViewCommand(
+				'gitlens.views.setContributorsStatisticsOn',
+				() => this.setContributorsStatistics(true),
+				this,
+			),
 		);
 	}
 
@@ -1047,6 +1057,11 @@ export class ViewCommands implements Disposable {
 	@log()
 	private setShowRelativeDateMarkers(enabled: boolean) {
 		return configuration.updateEffective('views.showRelativeDateMarkers', enabled);
+	}
+
+	@log()
+	private setContributorsStatistics(enabled: boolean) {
+		return configuration.updateEffective('views.showContributorsStatistics', enabled);
 	}
 
 	@log()

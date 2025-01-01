@@ -108,7 +108,7 @@ export class BranchTrackingStatusFilesNode extends ViewNode<'tracking-status-fil
 			this.repoPath,
 			this.direction === 'behind' ? `${this.ref1}...${this.ref2}` : `${this.ref2}...`,
 		);
-		const files = stats?.changedFiles ?? 0;
+		const files = stats?.files ?? 0;
 
 		const label = `${pluralize('file', files)} changed`;
 		const item = new TreeItem(label, TreeItemCollapsibleState.Collapsed);

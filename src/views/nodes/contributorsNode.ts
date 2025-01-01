@@ -24,7 +24,13 @@ export class ContributorsNode extends CacheableChildrenViewNode<
 		view: ViewsWithContributorsNode,
 		protected override readonly parent: ViewNode,
 		public readonly repo: Repository,
-		private readonly options?: { all?: boolean; showMergeCommits?: boolean; stats?: boolean },
+		private readonly options?: {
+			all?: boolean;
+			icon?: boolean;
+			ref?: string;
+			showMergeCommits?: boolean;
+			stats?: boolean;
+		},
 	) {
 		super('contributors', uri, view, parent);
 
@@ -42,11 +48,11 @@ export class ContributorsNode extends CacheableChildrenViewNode<
 
 	async getChildren(): Promise<ViewNode[]> {
 		if (this.children == null) {
-			const all = this.options?.all ?? configuration.get('views.contributors.showAllBranches');
+			let ref = this.options?.ref;
+			const all = ref == null && (this.options?.all ?? configuration.get('views.contributors.showAllBranches'));
 
-			let ref: string | undefined;
-			// If we aren't getting all branches, get the upstream of the current branch if there is one
-			if (!all) {
+			// If there is no ref and we aren't getting all branches, get the upstream of the current branch if there is one
+			if (ref == null && !all) {
 				try {
 					const branch = await this.view.container.git.getBranch(this.uri.repoPath);
 					if (branch?.upstream?.name != null && !branch.upstream.missing) {
@@ -88,7 +94,9 @@ export class ContributorsNode extends CacheableChildrenViewNode<
 		const item = new TreeItem('Contributors', TreeItemCollapsibleState.Collapsed);
 		item.id = this.id;
 		item.contextValue = ContextValues.Contributors;
-		item.iconPath = new ThemeIcon('organization');
+		if (this.options?.icon !== false) {
+			item.iconPath = new ThemeIcon('organization');
+		}
 		return item;
 	}
 

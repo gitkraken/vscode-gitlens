@@ -46,8 +46,6 @@ import type { SubscriptionChangeEvent } from '../../plus/gk/account/subscription
 import type { ConnectionStateChangeEvent } from '../../plus/integrations/integrationService';
 import { getEntityIdentifierInput } from '../../plus/integrations/providers/utils';
 import { confirmDraftStorage, ensureAccount } from '../../plus/utils';
-import type { ShowInCommitGraphCommandArgs } from '../../plus/webviews/graph/protocol';
-import type { Change } from '../../plus/webviews/patchDetails/protocol';
 import { debug } from '../../system/decorators/log';
 import type { Deferrable } from '../../system/function';
 import { debounce } from '../../system/function';
@@ -67,6 +65,8 @@ import { getContext, onDidChangeContext } from '../../system/vscode/context';
 import type { Serialized } from '../../system/vscode/serialize';
 import { serialize } from '../../system/vscode/serialize';
 import type { LinesChangeEvent } from '../../trackers/lineTracker';
+import type { ShowInCommitGraphCommandArgs } from '../plus/graph/protocol';
+import type { Change } from '../plus/patchDetails/protocol';
 import type { IpcCallMessageType, IpcMessage } from '../protocol';
 import { updatePendingContext } from '../webviewController';
 import type { WebviewHost, WebviewProvider, WebviewShowingArgs } from '../webviewProvider';

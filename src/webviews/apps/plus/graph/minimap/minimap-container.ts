@@ -8,7 +8,7 @@ import type {
 	GraphRowStats,
 	GraphSearchResults,
 	GraphSearchResultsError,
-} from '../../../../../plus/webviews/graph/protocol';
+} from '../../../../plus/graph/protocol';
 import { GlElement, observe } from '../../../shared/components/element';
 import type {
 	GlGraphMinimap,

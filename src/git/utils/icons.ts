@@ -13,12 +13,11 @@ import type { Repository } from '../models/repository';
 import type { GitStatus } from '../models/status';
 
 export function getBranchIconPath(container: Container, branch: GitBranch | undefined): IconPath {
-	const status = branch?.status;
-	switch (status) {
+	switch (branch?.status) {
 		case 'ahead':
 		case 'behind':
 		case 'diverged':
-			return getIconPathUris(container, `icon-branch-${status}.svg`);
+			return getIconPathUris(container, `icon-branch-${branch.status}.svg`);
 		case 'upToDate':
 			return getIconPathUris(container, `icon-branch-synced.svg`);
 		default:
@@ -165,10 +164,6 @@ export function getRepositoryStatusIconPath(
 ): IconPath {
 	const type = repository.virtual ? '-cloud' : '';
 
-	if (status?.hasWorkingTreeChanges) {
-		return getIconPathUris(container, `icon-repo-changes${type}.svg`);
-	}
-
 	const branchStatus = status?.branchStatus;
 	switch (branchStatus) {
 		case 'ahead':
@@ -176,22 +171,37 @@ export function getRepositoryStatusIconPath(
 		case 'diverged':
 			return getIconPathUris(container, `icon-repo-${branchStatus}${type}.svg`);
 		case 'upToDate':
+			if (status?.hasWorkingTreeChanges) {
+				return getIconPathUris(container, `icon-repo-changes${type}.svg`);
+			}
 			return getIconPathUris(container, `icon-repo-synced${type}.svg`);
 		default:
+			if (status?.hasWorkingTreeChanges) {
+				return getIconPathUris(container, `icon-repo-changes${type}.svg`);
+			}
 			return getIconPathUris(container, `icon-repo${type}.svg`);
 	}
 }
 
-export function getWorktreeBranchIconPath(container: Container, branch: GitBranch | undefined): IconPath {
-	const status = branch?.status;
-	switch (status) {
+export function getWorktreeBranchIconPath(
+	container: Container,
+	branch: GitBranch | undefined,
+	status?: GitStatus,
+): IconPath {
+	switch (branch?.status) {
 		case 'ahead':
 		case 'behind':
 		case 'diverged':
-			return getIconPathUris(container, `icon-repo-${status}.svg`);
+			return getIconPathUris(container, `icon-repo-${branch.status}.svg`);
 		case 'upToDate':
+			if (status?.hasWorkingTreeChanges) {
+				return getIconPathUris(container, `icon-repo-changes.svg`);
+			}
 			return getIconPathUris(container, `icon-repo-synced.svg`);
 		default:
+			if (status?.hasWorkingTreeChanges) {
+				return getIconPathUris(container, `icon-repo-changes.svg`);
+			}
 			return getIconPathUris(container, `icon-repo.svg`);
 	}
 }

@@ -15,7 +15,7 @@ export class CloudIntegrationService {
 	async getConnections(): Promise<CloudIntegrationConnection[] | undefined> {
 		const scope = getLogScope();
 
-		const providersRsp = await this.connection.fetchGkDevApi(
+		const providersRsp = await this.connection.fetchGkApi(
 			'v1/provider-tokens',
 			{ method: 'GET' },
 			{ organizationId: false },
@@ -59,7 +59,7 @@ export class CloudIntegrationService {
 			  }
 			: { method: 'GET' };
 
-		const tokenRsp = await this.connection.fetchGkDevApi(
+		const tokenRsp = await this.connection.fetchGkApi(
 			`v1/provider-tokens/${cloudIntegrationType}${refresh ? '/refresh' : ''}`,
 			reqInitOptions,
 			{ organizationId: false },
@@ -100,7 +100,7 @@ export class CloudIntegrationService {
 			return false;
 		}
 
-		const tokenRsp = await this.connection.fetchGkDevApi(
+		const tokenRsp = await this.connection.fetchGkApi(
 			`v1/provider-tokens/${cloudIntegrationType}`,
 			{ method: 'DELETE' },
 			{ organizationId: false },

@@ -243,7 +243,6 @@ export abstract class GlBranchCardBase extends GlElement {
 		this.autolinksPromise = value?.autolinks;
 		this.contributorsPromise = value?.contributors;
 		this.issuesPromise = value?.issues;
-		this.ownerPromise = value?.owner;
 		this.prPromise = value?.pr;
 		this.wipPromise = value?.wip;
 	}
@@ -305,26 +304,6 @@ export abstract class GlBranchCardBase extends GlElement {
 		void this._issuesPromise?.then(
 			r => (this._issues = r),
 			() => (this._issues = undefined),
-		);
-	}
-
-	@state()
-	private _owner!: Awaited<GetOverviewBranch['owner']>;
-	get owner() {
-		return this._owner;
-	}
-
-	private _ownerPromise!: GetOverviewBranch['owner'];
-	get ownerPromise() {
-		return this._ownerPromise;
-	}
-	set ownerPromise(value: GetOverviewBranch['owner']) {
-		if (this._ownerPromise === value) return;
-
-		this._ownerPromise = value;
-		void this._ownerPromise?.then(
-			r => (this._owner = r),
-			() => (this._owner = undefined),
 		);
 	}
 
@@ -436,7 +415,6 @@ export abstract class GlBranchCardBase extends GlElement {
 		}
 
 		const hasWip =
-			!this.branch.opened &&
 			this.wip?.workingTreeState != null &&
 			this.wip.workingTreeState.added + this.wip.workingTreeState.changed + this.wip.workingTreeState.deleted > 0;
 
@@ -456,7 +434,7 @@ export abstract class GlBranchCardBase extends GlElement {
 			case 'missingUpstream':
 				return 'branch-missingUpstream';
 			default:
-				return 'branch-synced';
+				return undefined;
 		}
 	}
 
@@ -526,24 +504,12 @@ export abstract class GlBranchCardBase extends GlElement {
 	}
 
 	protected renderAvatars() {
-		const { owner, contributors } = this;
+		const { contributors } = this;
 
-		const avatars = [];
-
-		if (owner) {
-			avatars.push(owner);
-		}
-
-		if (contributors) {
-			avatars.push(...contributors);
-		}
-
-		if (avatars.length === 0) {
-			return undefined;
-		}
+		if (!contributors?.length) return undefined;
 
 		return html`<gl-avatar-list
-			.avatars=${avatars.map(a => ({ name: a.name, src: a.avatarUrl }))}
+			.avatars=${contributors.map(a => ({ name: a.name, src: a.avatarUrl }))}
 			max="1"
 		></gl-avatar-list>`;
 	}
@@ -682,16 +648,14 @@ export abstract class GlBranchCardBase extends GlElement {
 	}
 
 	private renderBranchIcon() {
-		// Don't show changes on the active branch
 		const hasChanges =
-			!this.branch.opened &&
 			this.wip?.workingTreeState != null &&
 			this.wip.workingTreeState.added + this.wip.workingTreeState.changed + this.wip.workingTreeState.deleted > 0;
 		return html`<gl-branch-icon
-			.state="${this.branch.state}"
+			branch="${this.branch.name}"
+			status="${this.branch.status}"
 			?hasChanges=${hasChanges}
-			?missingUpstream=${this.branch.upstream?.missing ?? false}
-			.upstream=${this.branch.upstream?.name}
+			upstream=${this.branch.upstream?.name}
 			?worktree=${this.branch.worktree != null}
 		></gl-branch-icon>`;
 	}

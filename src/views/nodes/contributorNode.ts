@@ -4,6 +4,7 @@ import { GlyphChars } from '../../constants';
 import type { GitUri } from '../../git/gitUri';
 import type { GitContributor } from '../../git/models/contributor';
 import type { GitLog } from '../../git/models/log';
+import { formatNumeric } from '../../system/date';
 import { gate } from '../../system/decorators/gate';
 import { debug } from '../../system/decorators/log';
 import { map } from '../../system/iterable';
@@ -85,6 +86,17 @@ export class ContributorNode extends ViewNode<'contributor', ViewsWithContributo
 	async getTreeItem(): Promise<TreeItem> {
 		const presence = this.options?.presence?.get(this.contributor.email!);
 
+		const shortStats =
+			this.contributor.stats != null
+				? ` (${pluralize('file', this.contributor.stats.files)}, +${formatNumeric(
+						this.contributor.stats.additions,
+				  )} -${formatNumeric(this.contributor.stats.additions)} ${pluralize(
+						'line',
+						this.contributor.stats.additions + this.contributor.stats.deletions,
+						{ only: true },
+				  )})`
+				: '';
+
 		const item = new TreeItem(
 			this.contributor.current ? `${this.contributor.label} (you)` : this.contributor.label,
 			TreeItemCollapsibleState.Collapsed,
@@ -97,10 +109,10 @@ export class ContributorNode extends ViewNode<'contributor', ViewsWithContributo
 			presence != null && presence.status !== 'offline'
 				? `${presence.statusText} ${GlyphChars.Space}${GlyphChars.Dot}${GlyphChars.Space} `
 				: ''
-		}${this.contributor.date != null ? `${this.contributor.formatDateFromNow()}, ` : ''}${pluralize(
+		}${this.contributor.latestCommitDate != null ? `${this.contributor.formatDateFromNow()}, ` : ''}${pluralize(
 			'commit',
-			this.contributor.count,
-		)}`;
+			this.contributor.commits,
+		)}${shortStats}`;
 
 		let avatarUri;
 		let avatarMarkdown;
@@ -112,7 +124,7 @@ export class ContributorNode extends ViewNode<'contributor', ViewsWithContributo
 			});
 
 			if (presence != null) {
-				const title = `${this.contributor.count ? 'You are' : `${this.contributor.label} is`} ${
+				const title = `${this.contributor.commits ? 'You are' : `${this.contributor.label} is`} ${
 					presence.status === 'dnd' ? 'in ' : ''
 				}${presence.statusText.toLocaleLowerCase()}`;
 
@@ -128,17 +140,12 @@ export class ContributorNode extends ViewNode<'contributor', ViewsWithContributo
 			}
 		}
 
-		const numberFormatter = new Intl.NumberFormat();
-
 		const stats =
 			this.contributor.stats != null
-				? `\\\n${pluralize('file', this.contributor.stats.files, {
-						format: numberFormatter.format,
-				  })} changed, ${pluralize('addition', this.contributor.stats.additions, {
-						format: numberFormatter.format,
-				  })}, ${pluralize('deletion', this.contributor.stats.deletions, {
-						format: numberFormatter.format,
-				  })}`
+				? `\\\n${pluralize('file', this.contributor.stats.files)} changed, ${pluralize(
+						'addition',
+						this.contributor.stats.additions,
+				  )}, ${pluralize('deletion', this.contributor.stats.deletions)}`
 				: '';
 
 		const link = this.contributor.email
@@ -146,15 +153,14 @@ export class ContributorNode extends ViewNode<'contributor', ViewsWithContributo
 			: `__${this.contributor.label}__`;
 
 		const lastCommitted =
-			this.contributor.date != null
+			this.contributor.latestCommitDate != null
 				? `Last commit ${this.contributor.formatDateFromNow()} (${this.contributor.formatDate()})\\\n`
 				: '';
 
 		const markdown = new MarkdownString(
 			`${avatarMarkdown != null ? avatarMarkdown : ''} &nbsp;${link} \n\n${lastCommitted}${pluralize(
 				'commit',
-				this.contributor.count,
-				{ format: numberFormatter.format },
+				this.contributor.commits,
 			)}${stats}`,
 		);
 		markdown.supportHtml = true;

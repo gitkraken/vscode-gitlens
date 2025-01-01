@@ -318,7 +318,7 @@ export class GitCommit implements GitRevisionReference {
 			}
 		}
 
-		this._stats = { ...this._stats, changedFiles: changedFiles, additions: additions, deletions: deletions };
+		this._stats = { ...this._stats, files: changedFiles, additions: additions, deletions: deletions };
 	}
 
 	async findFile(
@@ -372,7 +372,7 @@ export class GitCommit implements GitRevisionReference {
 		const { stats } = this;
 		if (stats == null) return options?.empty ?? '';
 
-		const { changedFiles, additions, deletions } = stats;
+		const { files: changedFiles, additions, deletions } = stats;
 		if (getChangedFilesCount(changedFiles) <= 0 && additions <= 0 && deletions <= 0) return options?.empty ?? '';
 
 		const separator = options?.separator ?? ' ';
@@ -707,10 +707,14 @@ export interface GitCommitLine {
 	line: number;
 }
 
-export interface GitCommitStats {
+export interface GitCommitStats<
+	Files extends number | { added: number; deleted: number; changed: number } =
+		| number
+		| { added: number; deleted: number; changed: number },
+> {
+	readonly files: Files;
 	readonly additions: number;
 	readonly deletions: number;
-	readonly changedFiles: number | { added: number; deleted: number; changed: number };
 }
 
 export interface GitStashCommit extends GitCommit {

@@ -133,8 +133,8 @@ export type WebviewViewByType = {
 export type ViewsWithBranches = BranchesView | CommitsView | RemotesView | RepositoriesView | WorkspacesView;
 export type ViewsWithBranchesNode = BranchesView | RepositoriesView | WorkspacesView;
 export type ViewsWithCommits = Exclude<View, LineHistoryView | StashesView>;
-export type ViewsWithContributors = ContributorsView | RepositoriesView | WorkspacesView;
-export type ViewsWithContributorsNode = ContributorsView | RepositoriesView | WorkspacesView;
+export type ViewsWithContributors = ViewsWithCommits;
+export type ViewsWithContributorsNode = ViewsWithCommits;
 export type ViewsWithRemotes = RemotesView | RepositoriesView | WorkspacesView;
 export type ViewsWithRemotesNode = RemotesView | RepositoriesView | WorkspacesView;
 export type ViewsWithRepositories = RepositoriesView | WorkspacesView;
@@ -328,8 +328,13 @@ export abstract class ViewBase<
 		if (!configuration.changed(e, 'views')) return false;
 
 		if (configuration.changed(e, `views.${this.configKey}` as const)) return true;
-		for (const key of viewsCommonConfigKeys) {
-			if (configuration.changed(e, `views.${key}` as const)) return true;
+		if (
+			configuration.changed(
+				e,
+				viewsCommonConfigKeys.map(k => `views.${k}` as const),
+			)
+		) {
+			return true;
 		}
 
 		return false;

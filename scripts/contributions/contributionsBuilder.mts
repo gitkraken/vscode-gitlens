@@ -444,7 +444,7 @@ const orderedContextKeysByLocation = new Map<string, [primary: string[], ...(str
 	['timeline/title', [['timeline'], 'gitlens:enabled', configRegex]],
 	['timeline/item/context', [['timelineItem'], 'timeline', 'gitlens:enabled', configRegex]],
 	['view/title', [['view', 'gitlens:views:scm:grouped:view'], configRegex]],
-	['view/item/context', [['viewItem'], 'view', 'gitlens:views:scm:grouped:view', configRegex, 'listMultiSelection']],
+	['view/item/context', [['viewItem'], 'gitlens:views:scm:grouped:view', 'view', configRegex, 'listMultiSelection']],
 	['webview/context', [['webviewItem', 'webviewItems', 'webviewItemGroup'], configRegex, 'listMultiSelection']],
 	[
 		'editor/',
@@ -456,8 +456,8 @@ const orderedContextKeysByLocation = new Map<string, [primary: string[], ...(str
 		[
 			[
 				'viewItem',
-				'view',
 				'gitlens:views:scm:grouped:view',
+				'view',
 				'webviewItem',
 				'webviewItems',
 				'webviewItemGroup',

@@ -76,8 +76,8 @@ export interface GetOverviewBranch {
 	opened: boolean;
 	timestamp?: number;
 	state: GitTrackingState;
-	upstream: { name: string; missing: boolean } | undefined;
 	status: GitBranchStatus;
+	upstream: { name: string; missing: boolean } | undefined;
 
 	wip?: Promise<
 		| {
@@ -104,23 +104,6 @@ export interface GetOverviewBranch {
 				targetBranch: string | undefined;
 				baseBranch: string | undefined;
 				defaultBranch: string | undefined;
-		  }
-		| undefined
-	>;
-
-	owner?: Promise<
-		| {
-				name: string;
-				email: string;
-				avatarUrl: string;
-				current: boolean;
-				timestamp?: number;
-				count: number;
-				stats?: {
-					files: number;
-					additions: number;
-					deletions: number;
-				};
 		  }
 		| undefined
 	>;

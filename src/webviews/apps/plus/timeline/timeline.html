@@ -24,57 +24,6 @@
 		data-placement="#{placement}"
 		data-vscode-context='{ "webview": "#{webviewId}", "webviewInstance": "#{webviewInstanceId}" }'
 	>
-		<gl-feature-gate id="subscription-gate" class="scrollable" featureWithArticleIfNeeded="Visual File History"
-			><p slot="feature">
-				<a href="https://help.gitkraken.com/gitlens/gitlens-features/#visual-file-history-pro"
-					>Visual File History</a
-				>
-				<gl-feature-badge></gl-feature-badge>
-				&mdash; visualize the evolution of a file and quickly identify when the most impactful changes were made
-				and by whom.
-			</p></gl-feature-gate
-		>
-		<div class="container">
-			<progress-indicator id="spinner" position="top" active="true"></progress-indicator>
-			<section id="header" class="header">
-				<div class="header--context">
-					<h2 data-bind="title"></h2>
-					<h2 data-bind="sha"></h2>
-					<h2 data-bind="description"></h2>
-				</div>
-				<div class="toolbox">
-					<div class="select-container">
-						<label for="periods">Timeframe</label>
-						<select id="periods" name="periods" position="below" class="gl-timeline-select">
-							<option value="7|D">1 week</option>
-							<option value="1|M">1 month</option>
-							<option value="3|M" selected="true">3 months</option>
-							<option value="6|M">6 months</option>
-							<option value="9|M">9 months</option>
-							<option value="1|Y">1 year</option>
-							<option value="2|Y">2 years</option>
-							<option value="4|Y">4 years</option>
-							<option value="all">Full history</option>
-						</select>
-					</div>
-					<gl-button
-						appearance="toolbar"
-						data-placement-visible="view"
-						href="command:gitlens.views.timeline.openInTab"
-						tooltip="Open in Editor"
-						aria-label="Open in Editor"
-					>
-						<code-icon icon="link-external"></code-icon>
-					</gl-button>
-					<gl-feature-badge placement="bottom"></gl-feature-badge>
-				</div>
-			</section>
-			<section id="content">
-				<div id="empty" hidden></div>
-				<div id="chart"></div>
-			</section>
-			<section id="footer"></section>
-		</div>
-		#{endOfBody}
+		<gl-timeline-app name="TimelineView" placement="#{placement}" bootstrap="#{state}"></gl-timeline-app>
 	</body>
 </html>

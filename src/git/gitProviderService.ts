@@ -43,7 +43,7 @@ import { configuration } from '../system/vscode/configuration';
 import { setContext } from '../system/vscode/context';
 import { getBestPath } from '../system/vscode/path';
 import type {
-	BranchContributorOverview,
+	BranchContributionsOverview,
 	GitCaches,
 	GitDir,
 	GitProvider,
@@ -463,8 +463,8 @@ export class GitProviderService implements Disposable {
 					void this.discoverRepositories(workspaceFolders, { force: true });
 				}
 			}),
-			provider.onDidChangeRepository(async e => {
-				Logger.debug(`GitProvider(${id}).onDidChangeRepository(e=${e.repository.toString()})`);
+			provider.onWillChangeRepository(e => {
+				Logger.debug(`GitProvider(${id}).onWillChangeRepository(e=${e.repository.toString()})`);
 
 				if (
 					e.changed(
@@ -475,6 +475,9 @@ export class GitProviderService implements Disposable {
 				) {
 					this._bestRemotesCache.clear();
 				}
+			}),
+			provider.onDidChangeRepository(async e => {
+				Logger.debug(`GitProvider(${id}).onDidChangeRepository(e=${e.repository.toString()})`);
 
 				if (e.changed(RepositoryChange.Closed, RepositoryChangeComparisonMode.Any)) {
 					this.updateContext();
@@ -489,10 +492,11 @@ export class GitProviderService implements Disposable {
 				}
 
 				if (e.changed(RepositoryChange.Remotes, RepositoryChangeComparisonMode.Any)) {
-					const remotes = await provider.getRemotes(e.repository.path);
 					const visibilityInfo = this.getVisibilityInfoFromCache(e.repository.path);
 					if (visibilityInfo != null) {
-						this.checkVisibilityCachedRemotes(e.repository.path, visibilityInfo, remotes);
+						await this.checkVisibilityCachedRemotes(e.repository.path, visibilityInfo, () =>
+							provider.getRemotes(e.repository.path),
+						);
 					}
 				}
 
@@ -917,20 +921,21 @@ export class GitProviderService implements Disposable {
 		return visibilityInfo;
 	}
 
-	private checkVisibilityCachedRemotes(
+	private async checkVisibilityCachedRemotes(
 		key: string,
 		visibilityInfo: RepositoryVisibilityInfo | undefined,
-		remotes: GitRemote[],
-	): boolean {
+		getRemotes: () => Promise<GitRemote[]>,
+	): Promise<boolean> {
 		if (visibilityInfo == null) return true;
 
 		if (visibilityInfo.visibility === 'public') {
+			const remotes = await getRemotes();
 			if (remotes.length === 0 || !remotes.some(r => r.remoteKey === visibilityInfo.remotesHash)) {
 				void this.clearRepoVisibilityCache([key]);
 				return false;
 			}
 		} else if (visibilityInfo.visibility === 'private') {
-			const remotesHash = getVisibilityCacheKey(remotes);
+			const remotesHash = getVisibilityCacheKey(await getRemotes());
 			if (remotesHash !== visibilityInfo.remotesHash) {
 				void this.clearRepoVisibilityCache([key]);
 				return false;
@@ -1007,9 +1012,13 @@ export class GitProviderService implements Disposable {
 			repoPath: string | Uri,
 		): Promise<RepositoryVisibility> {
 			const { provider, path } = this.getProvider(repoPath);
-			const remotes = await provider.getRemotes(path, { sort: true });
 			const visibilityInfo = this.getVisibilityInfoFromCache(path);
-			if (visibilityInfo == null || !this.checkVisibilityCachedRemotes(path, visibilityInfo, remotes)) {
+			if (
+				visibilityInfo == null ||
+				!(await this.checkVisibilityCachedRemotes(path, visibilityInfo, () =>
+					provider.getRemotes(path, { sort: true }),
+				))
+			) {
 				const [visibility, remotesHash] = await provider.visibility(path);
 				if (visibility !== 'local') {
 					this.updateVisibilityCache(path, {
@@ -1694,14 +1703,14 @@ export class GitProviderService implements Disposable {
 	}
 
 	@log()
-	async getBranchContributorOverview(
+	async getBranchContributionsOverview(
 		repoPath: string | Uri | undefined,
 		ref: string,
-	): Promise<BranchContributorOverview | undefined> {
+	): Promise<BranchContributionsOverview | undefined> {
 		if (repoPath == null) return undefined;
 
 		const { provider, path } = this.getProvider(repoPath);
-		return provider.getBranchContributorOverview?.(path, ref);
+		return provider.getBranchContributionsOverview?.(path, ref);
 	}
 
 	@log({ args: { 1: false } })
@@ -1957,11 +1966,29 @@ export class GitProviderService implements Disposable {
 	}
 
 	@log()
+	async setBaseBranchName(repoPath: string | Uri, ref: string, base: string): Promise<void> {
+		const { provider, path } = this.getProvider(repoPath);
+		return provider.setBaseBranchName?.(path, ref, base);
+	}
+
+	@log()
 	async getDefaultBranchName(repoPath: string | Uri | undefined, remote?: string): Promise<string | undefined> {
 		if (repoPath == null) return undefined;
 
 		const { provider, path } = this.getProvider(repoPath);
 		return provider.getDefaultBranchName(path, remote);
+	}
+
+	@log()
+	async getTargetBranchName(repoPath: string | Uri, ref: string): Promise<string | undefined> {
+		const { provider, path } = this.getProvider(repoPath);
+		return provider.getTargetBranchName?.(path, ref);
+	}
+
+	@log()
+	async setTargetBranchName(repoPath: string | Uri, ref: string, target: string): Promise<void> {
+		const { provider, path } = this.getProvider(repoPath);
+		return provider.setTargetBranchName?.(path, ref, target);
 	}
 
 	@log()

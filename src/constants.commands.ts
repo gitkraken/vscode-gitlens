@@ -662,7 +662,9 @@ export type TreeViewCommands = `gitlens.views.${
 	| 'openWorktreeInNewWindow'
 	| 'openWorktreeInNewWindow.multi'
 	| 'setResultsCommitsFilterAuthors'
-	| 'setResultsCommitsFilterOff'}`;
+	| 'setResultsCommitsFilterOff'
+	| 'setContributorsStatisticsOff'
+	| 'setContributorsStatisticsOn'}`;
 
 type ExtractSuffix<Prefix extends string, U> = U extends `${Prefix}${infer V}` ? V : never;
 type FilterCommands<Prefix extends string, U> = U extends `${Prefix}${infer V}` ? `${Prefix}${V}` : never;

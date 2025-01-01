@@ -5,7 +5,7 @@ import { executeCommand } from '../../../system/vscode/command';
 import { configuration } from '../../../system/vscode/configuration';
 import { setContext } from '../../../system/vscode/context';
 import type { Serialized } from '../../../system/vscode/serialize';
-import type { WebviewPanelShowCommandArgs, WebviewsController } from '../../../webviews/webviewsController';
+import type { WebviewPanelShowCommandArgs, WebviewsController } from '../../webviewsController';
 import type { CreateDraft, State, ViewDraft } from './protocol';
 
 export type ShowCreateDraft = {

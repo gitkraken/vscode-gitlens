@@ -66,7 +66,7 @@ export class EnrichmentService implements Disposable {
 		const scope = getLogScope();
 
 		try {
-			const rsp = await this.connection.fetchGkDevApi(`v1/enrich-items/${id}`, { method: 'DELETE' });
+			const rsp = await this.connection.fetchGkApi(`v1/enrich-items/${id}`, { method: 'DELETE' });
 
 			if (!rsp.ok) throw new Error(`Unable to ${context} item '${id}':  (${rsp.status}) ${rsp.statusText}`);
 		} catch (ex) {
@@ -83,7 +83,7 @@ export class EnrichmentService implements Disposable {
 		try {
 			type Result = { data: EnrichedItemResponse[] };
 
-			const rsp = await this.connection.fetchGkDevApi('v1/enrich-items', { method: 'GET' });
+			const rsp = await this.connection.fetchGkApi('v1/enrich-items', { method: 'GET' });
 			if (cancellation?.isCancellationRequested) throw new CancellationError();
 
 			const result = (await rsp.json()) as Result;
@@ -132,7 +132,7 @@ export class EnrichmentService implements Disposable {
 				entityUrl: item.url,
 			};
 
-			const rsp = await this.connection.fetchGkDevApi('v1/enrich-items/pin', {
+			const rsp = await this.connection.fetchGkApi('v1/enrich-items/pin', {
 				method: 'POST',
 				body: JSON.stringify(rq),
 			});
@@ -183,7 +183,7 @@ export class EnrichmentService implements Disposable {
 				rq.expiresAt = item.expiresAt;
 			}
 
-			const rsp = await this.connection.fetchGkDevApi('v1/enrich-items/snooze', {
+			const rsp = await this.connection.fetchGkApi('v1/enrich-items/snooze', {
 				method: 'POST',
 				body: JSON.stringify(rq),
 			});

@@ -93,6 +93,11 @@ import { getWorktreesByBranch } from '../../../git/models/worktree.utils';
 import type { GitSearch } from '../../../git/search';
 import { getSearchQueryComparisonKey, parseSearchQuery } from '../../../git/search';
 import { getRemoteIconUri } from '../../../git/utils/icons';
+import type { FeaturePreviewChangeEvent, SubscriptionChangeEvent } from '../../../plus/gk/account/subscriptionService';
+import type { ConnectionStateChangeEvent } from '../../../plus/integrations/integrationService';
+import { remoteProviderIdToIntegrationId } from '../../../plus/integrations/integrationService';
+import { getPullRequestBranchDeepLink } from '../../../plus/launchpad/launchpadProvider';
+import type { AssociateIssueWithBranchCommandArgs } from '../../../plus/startWork/startWork';
 import { ReferencesQuickPickIncludes, showReferencePicker } from '../../../quickpicks/referencePicker';
 import { showRepositoryPicker } from '../../../quickpicks/repositoryPicker';
 import { gate } from '../../../system/decorators/gate';
@@ -120,15 +125,10 @@ import { isDarkTheme, isLightTheme, openUrl, openWorkspace } from '../../../syst
 import { isWebviewItemContext, isWebviewItemGroupContext, serializeWebviewItemContext } from '../../../system/webview';
 import { DeepLinkActionType } from '../../../uris/deepLinks/deepLink';
 import { RepositoryFolderNode } from '../../../views/nodes/abstract/repositoryFolderNode';
-import type { IpcCallMessageType, IpcMessage, IpcNotification } from '../../../webviews/protocol';
-import type { WebviewHost, WebviewProvider, WebviewShowingArgs } from '../../../webviews/webviewProvider';
-import type { WebviewPanelShowCommandArgs, WebviewShowOptions } from '../../../webviews/webviewsController';
-import { isSerializedState } from '../../../webviews/webviewsController';
-import type { FeaturePreviewChangeEvent, SubscriptionChangeEvent } from '../../gk/account/subscriptionService';
-import type { ConnectionStateChangeEvent } from '../../integrations/integrationService';
-import { remoteProviderIdToIntegrationId } from '../../integrations/integrationService';
-import { getPullRequestBranchDeepLink } from '../../launchpad/launchpadProvider';
-import type { AssociateIssueWithBranchCommandArgs } from '../../startWork/startWork';
+import type { IpcCallMessageType, IpcMessage, IpcNotification } from '../../protocol';
+import type { WebviewHost, WebviewProvider, WebviewShowingArgs } from '../../webviewProvider';
+import type { WebviewPanelShowCommandArgs, WebviewShowOptions } from '../../webviewsController';
+import { isSerializedState } from '../../webviewsController';
 import type {
 	BranchState,
 	DidChangeRefsVisibilityParams,
@@ -1130,7 +1130,7 @@ export class GraphWebviewProvider implements WebviewProvider<State, State, Graph
 								additions: stats.additions,
 								deletions: stats.deletions,
 								// If `changedFiles` already exists, then use it, otherwise use the files count
-								changedFiles: commit.stats?.changedFiles ? commit.stats.changedFiles : stats.files,
+								files: commit.stats?.files ? commit.stats.files : stats.files,
 							},
 						});
 					}
@@ -3875,7 +3875,7 @@ export class GraphWebviewProvider implements WebviewProvider<State, State, Graph
 			const { repoPath, name, email, current } = item.webviewItemValue;
 			return ContributorActions.addAuthors(
 				repoPath,
-				new GitContributor(repoPath, name, email, 0, undefined, current),
+				new GitContributor(repoPath, name, email, 0, undefined, undefined, current),
 			);
 		}
 

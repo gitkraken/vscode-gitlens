@@ -36,9 +36,9 @@ export interface GitDiffLine {
 }
 
 export interface GitDiffShortStat {
+	readonly files: number;
 	readonly additions: number;
 	readonly deletions: number;
-	readonly changedFiles: number;
 }
 
 export interface GitDiffFiles {

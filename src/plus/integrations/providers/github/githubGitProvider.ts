@@ -107,14 +107,14 @@ import { relative } from '../../../../system/vscode/path';
 import { serializeWebviewItemContext } from '../../../../system/webview';
 import type { CachedBlame, CachedLog, TrackedGitDocument } from '../../../../trackers/trackedDocument';
 import { GitDocumentState } from '../../../../trackers/trackedDocument';
-import type { GitHubAuthorityMetadata, Metadata, RemoteHubApi } from '../../../remotehub';
-import { getRemoteHubApi, HeadType, RepositoryRefType } from '../../../remotehub';
 import type {
 	GraphBranchContextValue,
 	GraphItemContext,
 	GraphItemRefContext,
 	GraphTagContextValue,
-} from '../../../webviews/graph/protocol';
+} from '../../../../webviews/plus/graph/protocol';
+import type { GitHubAuthorityMetadata, Metadata, RemoteHubApi } from '../../../remotehub';
+import { getRemoteHubApi, HeadType, RepositoryRefType } from '../../../remotehub';
 import type {
 	IntegrationAuthenticationService,
 	IntegrationAuthenticationSessionDescriptor,
@@ -150,6 +150,11 @@ export class GitHubGitProvider implements GitProvider, Disposable {
 	private _onDidChange = new EventEmitter<void>();
 	get onDidChange(): Event<void> {
 		return this._onDidChange.event;
+	}
+
+	private _onWillChangeRepository = new EventEmitter<RepositoryChangeEvent>();
+	get onWillChangeRepository(): Event<RepositoryChangeEvent> {
+		return this._onWillChangeRepository.event;
 	}
 
 	private _onDidChangeRepository = new EventEmitter<RepositoryChangeEvent>();
@@ -213,7 +218,7 @@ export class GitHubGitProvider implements GitProvider, Disposable {
 		this._tagsCache.delete(repo.path);
 		this._repoInfoCache.delete(repo.path);
 
-		this._onDidChangeRepository.fire(e);
+		this._onWillChangeRepository.fire(e);
 	}
 
 	async discoverRepositories(
@@ -289,7 +294,10 @@ export class GitHubGitProvider implements GitProvider, Disposable {
 		return [
 			new Repository(
 				this.container,
-				this.onRepositoryChanged.bind(this),
+				{
+					onDidRepositoryChange: this._onDidChangeRepository,
+					onRepositoryChanged: this.onRepositoryChanged.bind(this),
+				},
 				this.descriptor,
 				folder ?? workspace.getWorkspaceFolder(uri),
 				uri,
@@ -659,7 +667,7 @@ export class GitHubGitProvider implements GitProvider, Disposable {
 						c.parents.nodes[0]?.oid ? [c.parents.nodes[0]?.oid] : [],
 						c.message,
 						new GitFileChange(root.toString(), relativePath, GitFileIndexStatus.Modified),
-						{ changedFiles: c.changedFiles ?? 0, additions: c.additions ?? 0, deletions: c.deletions ?? 0 },
+						{ files: c.changedFiles ?? 0, additions: c.additions ?? 0, deletions: c.deletions ?? 0 },
 						[],
 					);
 
@@ -784,7 +792,7 @@ export class GitHubGitProvider implements GitProvider, Disposable {
 				c.parents.nodes[0]?.oid ? [c.parents.nodes[0]?.oid] : [],
 				c.message,
 				new GitFileChange(root.toString(), relativePath, GitFileIndexStatus.Modified),
-				{ changedFiles: c.changedFiles ?? 0, additions: c.additions ?? 0, deletions: c.deletions ?? 0 },
+				{ files: c.changedFiles ?? 0, additions: c.additions ?? 0, deletions: c.deletions ?? 0 },
 				[],
 			);
 
@@ -1043,8 +1051,8 @@ export class GitHubGitProvider implements GitProvider, Disposable {
 
 		const { stats } = commit;
 
-		const changedFiles = getChangedFilesCount(stats.changedFiles);
-		return { additions: stats.additions, deletions: stats.deletions, changedFiles: changedFiles };
+		const changedFiles = getChangedFilesCount(stats.files);
+		return { additions: stats.additions, deletions: stats.deletions, files: changedFiles };
 	}
 
 	@log()
@@ -1094,7 +1102,7 @@ export class GitHubGitProvider implements GitProvider, Disposable {
 						),
 				) ?? [],
 				{
-					changedFiles: commit.changedFiles ?? 0,
+					files: commit.changedFiles ?? 0,
 					additions: commit.additions ?? 0,
 					deletions: commit.deletions ?? 0,
 				},
@@ -1236,7 +1244,7 @@ export class GitHubGitProvider implements GitProvider, Disposable {
 				commit.message,
 				{ file: foundFile, files: files },
 				{
-					changedFiles: commit.changedFiles ?? 0,
+					files: commit.changedFiles ?? 0,
 					additions: commit.additions ?? 0,
 					deletions: commit.deletions ?? 0,
 				},
@@ -1620,7 +1628,7 @@ export class GitHubGitProvider implements GitProvider, Disposable {
 
 			if (commit.stats != null) {
 				rowStats.set(commit.sha, {
-					files: getChangedFilesCount(commit.stats.changedFiles),
+					files: getChangedFilesCount(commit.stats.files),
 					additions: commit.stats.additions,
 					deletions: commit.stats.deletions,
 				});
@@ -1759,6 +1767,7 @@ export class GitHubGitProvider implements GitProvider, Disposable {
 						c.name,
 						c.email,
 						c.contributions,
+						undefined,
 						undefined,
 						isUserMatch(currentUser, c.name, c.email, c.login),
 						undefined,
@@ -2022,7 +2031,7 @@ export class GitHubGitProvider implements GitProvider, Disposable {
 								),
 						),
 						{
-							changedFiles: commit.changedFiles ?? 0,
+							files: commit.changedFiles ?? 0,
 							additions: commit.additions ?? 0,
 							deletions: commit.deletions ?? 0,
 						},
@@ -2414,7 +2423,7 @@ export class GitHubGitProvider implements GitProvider, Disposable {
 						commit.message,
 						{ file: foundFile, files: files },
 						{
-							changedFiles: commit.changedFiles ?? 0,
+							files: commit.changedFiles ?? 0,
 							additions: commit.additions ?? 0,
 							deletions: commit.deletions ?? 0,
 						},
@@ -3197,7 +3206,7 @@ export class GitHubGitProvider implements GitProvider, Disposable {
 								),
 						),
 						{
-							changedFiles: commit.changedFiles ?? 0,
+							files: commit.changedFiles ?? 0,
 							additions: commit.additions ?? 0,
 							deletions: commit.deletions ?? 0,
 						},

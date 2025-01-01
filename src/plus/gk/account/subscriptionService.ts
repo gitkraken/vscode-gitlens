@@ -654,7 +654,7 @@ export class SubscriptionService implements Disposable {
 		if (session == null) return;
 
 		try {
-			const rsp = await this.connection.fetchApi('user/reactivate-trial', {
+			const rsp = await this.connection.fetchGkApi('user/reactivate-trial', {
 				method: 'POST',
 				body: JSON.stringify({ client: 'gitlens' }),
 			});
@@ -735,7 +735,7 @@ export class SubscriptionService implements Disposable {
 		if (session == null) return false;
 
 		try {
-			const rsp = await this.connection.fetchApi(
+			const rsp = await this.connection.fetchGkApi(
 				'resend-email',
 				{
 					method: 'POST',
@@ -1041,7 +1041,7 @@ export class SubscriptionService implements Disposable {
 				previewExpiresOn: this._subscription.previewTrial?.expiresOn,
 			};
 
-			const rsp = await this.connection.fetchApi(
+			const rsp = await this.connection.fetchGkApi(
 				'gitlens/checkin',
 				{
 					method: 'POST',

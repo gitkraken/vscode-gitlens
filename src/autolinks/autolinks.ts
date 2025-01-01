@@ -230,7 +230,7 @@ export class Autolinks implements Disposable {
 				link.provider?.domain === integration.domain
 					? integration.getIssueOrPullRequest(
 							link.descriptor ?? remote.provider.repoDesc,
-							link.referenceType === 'branch' ? link.id : id,
+							this.getAutolinkEnrichableId(link),
 					  )
 					: link.descriptor != null
 					  ? linkIntegration?.getIssueOrPullRequest(link.descriptor, this.getAutolinkEnrichableId(link))

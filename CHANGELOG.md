@@ -6,6 +6,32 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/) and this p
 
 ## [Unreleased]
 
+### Added
+
+- Adds go to home view button to the commit graph title section &mdash; closes [#3873](https://github.com/gitkraken/vscode-gitlens/issues/3873)
+- Adds a _Contributors_ section to comparison results in the views
+
+### Fixed
+
+- Fixes [#3888](https://github.com/gitkraken/vscode-gitlens/issues/#3888) - Graph hover should disappear when right-clicking a row
+
+## [16.1.1] - 2024-12-20
+
+### Added
+
+- Adds action to the launchpad status on PR's on _Home_ to open the _Launchpad_ directly to the item
+
+### Changed
+
+- Improves draft PR handling and launchpad grouping
+
+### Fixed
+
+- Fixes [#3899](https://github.com/gitkraken/vscode-gitlens/issues/#3899) - custom autolinks not being detected
+- Fixes owner avatars from getting lost (progressively) on refresh of the _Home_ view
+- Fixes launchpad status icon for 'waiting for review' state on _Home_
+- Fixes missing _Delete Branch..._ command from branches on worktrees in the _Branches_ view
+
 ## [16.1.0] - 2024-12-19
 
 ### Added
@@ -5866,7 +5892,8 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/) and this p
 
 - Initial release but still heavily a work in progress.
 
-[unreleased]: https://github.com/gitkraken/vscode-gitlens/compare/v16.1.0...HEAD
+[unreleased]: https://github.com/gitkraken/vscode-gitlens/compare/v16.1.1...HEAD
+[16.1.1]: https://github.com/gitkraken/vscode-gitlens/compare/v16.1.0...gitkraken:v16.1.1
 [16.1.0]: https://github.com/gitkraken/vscode-gitlens/compare/v16.0.4...gitkraken:v16.1.0
 [16.0.4]: https://github.com/gitkraken/vscode-gitlens/compare/v16.0.3...gitkraken:v16.0.4
 [16.0.3]: https://github.com/gitkraken/vscode-gitlens/compare/v16.0.2...gitkraken:v16.0.3

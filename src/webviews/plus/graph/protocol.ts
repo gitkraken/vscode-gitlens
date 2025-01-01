@@ -40,11 +40,11 @@ import type {
 } from '../../../git/models/reference';
 import type { ProviderReference } from '../../../git/models/remoteProvider';
 import type { GitSearchResultData } from '../../../git/search';
+import type { Subscription } from '../../../plus/gk/account/subscription';
 import type { DateTimeFormat } from '../../../system/date';
 import type { WebviewItemContext, WebviewItemGroupContext } from '../../../system/webview';
-import type { IpcScope, WebviewState } from '../../../webviews/protocol';
-import { IpcCommand, IpcNotification, IpcRequest } from '../../../webviews/protocol';
-import type { Subscription } from '../../gk/account/subscription';
+import type { IpcScope, WebviewState } from '../../protocol';
+import { IpcCommand, IpcNotification, IpcRequest } from '../../protocol';
 
 export type { GraphRefType } from '@gitkraken/gitkraken-components';
 

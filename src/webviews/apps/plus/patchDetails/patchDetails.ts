@@ -3,7 +3,9 @@ import type { TextDocumentShowOptions } from 'vscode';
 import type { ViewFilesLayout } from '../../../../config';
 import type { Commands } from '../../../../constants.commands';
 import type { DraftPatchFileChange, DraftVisibility } from '../../../../gk/models/drafts';
-import type { State, SwitchModeParams } from '../../../../plus/webviews/patchDetails/protocol';
+import { debounce } from '../../../../system/function';
+import type { Serialized } from '../../../../system/vscode/serialize';
+import type { State, SwitchModeParams } from '../../../plus/patchDetails/protocol';
 import {
 	ApplyPatchCommand,
 	ArchiveDraftCommand,
@@ -33,9 +35,7 @@ import {
 	UpdatePatchUsersCommand,
 	UpdatePatchUserSelectionCommand,
 	UpdatePreferencesCommand,
-} from '../../../../plus/webviews/patchDetails/protocol';
-import { debounce } from '../../../../system/function';
-import type { Serialized } from '../../../../system/vscode/serialize';
+} from '../../../plus/patchDetails/protocol';
 import type { IpcMessage } from '../../../protocol';
 import { ExecuteCommand } from '../../../protocol';
 import { App } from '../../shared/appBase';

@@ -1,9 +1,9 @@
 import { window } from 'vscode';
 import { GlCommand } from '../constants.commands';
 import type { Container } from '../container';
-import type { GraphWebviewShowingArgs } from '../plus/webviews/graph/registration';
 import { command, executeCoreCommand } from '../system/vscode/command';
 import type { HomeWebviewShowingArgs } from '../webviews/home/registration';
+import type { GraphWebviewShowingArgs } from '../webviews/plus/graph/registration';
 import type { CommandContext } from './base';
 import { GlCommandBase } from './base';
 

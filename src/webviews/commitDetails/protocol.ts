@@ -8,9 +8,9 @@ import type { IssueOrPullRequest } from '../../git/models/issue';
 import type { PullRequestShape } from '../../git/models/pullRequest';
 import type { Repository } from '../../git/models/repository';
 import type { Draft, DraftVisibility } from '../../gk/models/drafts';
-import type { Change, DraftUserSelection } from '../../plus/webviews/patchDetails/protocol';
 import type { DateTimeFormat } from '../../system/date';
 import type { Serialized } from '../../system/vscode/serialize';
+import type { Change, DraftUserSelection } from '../plus/patchDetails/protocol';
 import type { IpcScope, WebviewState } from '../protocol';
 import { IpcCommand, IpcNotification, IpcRequest } from '../protocol';
 

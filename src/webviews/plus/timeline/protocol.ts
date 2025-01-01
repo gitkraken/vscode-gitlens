@@ -1,11 +1,11 @@
 import type { FeatureAccess } from '../../../features';
-import type { IpcScope, WebviewState } from '../../../webviews/protocol';
-import { IpcCommand, IpcNotification } from '../../../webviews/protocol';
+import type { IpcScope, WebviewState } from '../../protocol';
+import { IpcCommand, IpcNotification } from '../../protocol';
 
 export const scope: IpcScope = 'timeline';
 
 export interface State extends WebviewState {
-	dataset?: Commit[];
+	dataset?: Promise<Commit[]>;
 	period: Period;
 	title?: string;
 	sha?: string;

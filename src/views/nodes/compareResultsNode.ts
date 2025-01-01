@@ -4,7 +4,7 @@ import { Disposable, ThemeIcon, TreeItem, TreeItemCheckboxState, TreeItemCollaps
 import type { StoredNamedRef } from '../../constants.storage';
 import type { FilesComparison } from '../../git/actions/commit';
 import { GitUri } from '../../git/gitUri';
-import { createRevisionRange , shortenRevision } from '../../git/models/revision.utils';
+import { createRevisionRange, shortenRevision } from '../../git/models/revision.utils';
 import type { GitUser } from '../../git/models/user';
 import type { CommitsQueryResults, FilesQueryResults } from '../../git/queryResults';
 import { getAheadBehindFilesQuery, getCommitsQuery, getFilesQuery } from '../../git/queryResults';
@@ -133,8 +133,11 @@ export class CompareResultsNode extends SubscribeableViewNode<
 
 	async getChildren(): Promise<ViewNode[]> {
 		if (this.children == null) {
-			const ahead = this.ahead;
-			const behind = this.behind;
+			const ahead = {
+				...this.ahead,
+				range: createRevisionRange(this.ahead.ref1, this.ahead.ref2, '..'),
+			};
+			const behind = { ...this.behind, range: createRevisionRange(this.behind.ref1, this.behind.ref2, '..') };
 
 			const counts = await this.view.container.git.getLeftRightCommitCount(
 				this.repoPath,
@@ -154,7 +157,7 @@ export class CompareResultsNode extends SubscribeableViewNode<
 					this.repoPath,
 					'Behind',
 					{
-						query: this.getCommitsQuery(createRevisionRange(behind.ref1, behind.ref2, '..')),
+						query: this.getCommitsQuery(behind.range),
 						comparison: behind,
 						direction: 'behind',
 						files: {
@@ -174,7 +177,7 @@ export class CompareResultsNode extends SubscribeableViewNode<
 					this.repoPath,
 					'Ahead',
 					{
-						query: this.getCommitsQuery(createRevisionRange(ahead.ref1, ahead.ref2, '..')),
+						query: this.getCommitsQuery(ahead.range),
 						comparison: ahead,
 						direction: 'ahead',
 						files: {

@@ -13,6 +13,8 @@ import type {
 	DraftRole,
 	DraftVisibility,
 } from '../../../../../gk/models/drafts';
+import { makeHierarchical } from '../../../../../system/array';
+import { flatCount } from '../../../../../system/iterable';
 import type {
 	CloudDraftDetails,
 	DraftDetails,
@@ -20,9 +22,7 @@ import type {
 	ExecuteFileActionParams,
 	PatchDetails,
 	State,
-} from '../../../../../plus/webviews/patchDetails/protocol';
-import { makeHierarchical } from '../../../../../system/array';
-import { flatCount } from '../../../../../system/iterable';
+} from '../../../../plus/patchDetails/protocol';
 import type {
 	TreeItemActionDetail,
 	TreeItemBase,
@@ -242,19 +242,19 @@ export class GlDraftDetails extends GlTreeBase {
 	}
 
 	// private renderCommitStats() {
-	// 	if (this.state?.draft?.stats?.changedFiles == null) {
+	// 	if (this.state?.draft?.stats?.files == null) {
 	// 		return undefined;
 	// 	}
 
-	// 	if (typeof this.state.draft.stats.changedFiles === 'number') {
+	// 	if (typeof this.state.draft.stats.files === 'number') {
 	// 		return html`<commit-stats
 	// 			.added=${undefined}
-	// 			modified="${this.state.draft.stats.changedFiles}"
+	// 			modified="${this.state.draft.stats.files}"
 	// 			.removed=${undefined}
 	// 		></commit-stats>`;
 	// 	}
 
-	// 	const { added, deleted, changed } = this.state.draft.stats.changedFiles;
+	// 	const { added, deleted, changed } = this.state.draft.stats.files;
 	// 	return html`<commit-stats added="${added}" modified="${changed}" removed="${deleted}"></commit-stats>`;
 	// }
 

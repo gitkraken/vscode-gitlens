@@ -8,6 +8,7 @@ import type { FeatureAccess, PlusFeatures } from '../../features';
 import { showCreatePullRequestPrompt, showGenericErrorMessage } from '../../messages';
 import type { RepoComparisonKey } from '../../repositories';
 import { asRepoComparisonKey } from '../../repositories';
+import { getScopedCounter } from '../../system/counter';
 import { formatDate, fromNow } from '../../system/date';
 import { gate } from '../../system/decorators/gate';
 import { debug, log, logName } from '../../system/decorators/log';
@@ -24,7 +25,7 @@ import { configuration } from '../../system/vscode/configuration';
 import type { GitProviderDescriptor, GitProviderRepository } from '../gitProvider';
 import type { GitProviderService } from '../gitProviderService';
 import type { GitBranch } from './branch';
-import { getBranchNameWithoutRemote, getNameWithoutRemote , getRemoteNameFromBranchName } from './branch.utils';
+import { getBranchNameWithoutRemote, getNameWithoutRemote, getRemoteNameFromBranchName } from './branch.utils';
 import type { GitBranchReference, GitReference } from './reference';
 import { isBranchReference } from './reference.utils';
 import type { GitRemote } from './remote';
@@ -175,7 +176,9 @@ export interface RepositoryFileSystemChangeEvent {
 	readonly uris: Uri[];
 }
 
-@logName<Repository>((r, name) => `${name}(${r.id})`)
+const instanceCounter = getScopedCounter();
+
+@logName<Repository>((r, name) => `${name}(${r.id}|${r.instance})`)
 export class Repository implements Disposable {
 	static formatLastFetched(lastFetched: number, short: boolean = true): string {
 		const date = new Date(lastFetched);
@@ -224,6 +227,7 @@ export class Repository implements Disposable {
 
 	readonly id: RepoComparisonKey;
 	readonly index: number;
+	readonly instance = instanceCounter.next();
 
 	private _name: string;
 	get name(): string {
@@ -247,7 +251,10 @@ export class Repository implements Disposable {
 
 	constructor(
 		private readonly container: Container,
-		private readonly onDidRepositoryChange: (repo: Repository, e: RepositoryChangeEvent) => void,
+		private readonly providerService: {
+			readonly onDidRepositoryChange: EventEmitter<RepositoryChangeEvent>;
+			readonly onRepositoryChanged: (repo: Repository, e: RepositoryChangeEvent) => void;
+		},
 		public readonly provider: GitProviderDescriptor,
 		public readonly folder: WorkspaceFolder | undefined,
 		public readonly uri: Uri,
@@ -361,9 +368,9 @@ export class Repository implements Disposable {
 
 			disposables.push(
 				watcher,
-				watcher.onDidChange(e => this.onRepositoryChanged(e, uri)),
-				watcher.onDidCreate(e => this.onRepositoryChanged(e, uri)),
-				watcher.onDidDelete(e => this.onRepositoryChanged(e, uri)),
+				watcher.onDidChange(e => this.onRepositoryChanged(e, uri, 'change')),
+				watcher.onDidCreate(e => this.onRepositoryChanged(e, uri, 'create')),
+				watcher.onDidDelete(e => this.onRepositoryChanged(e, uri, 'delete')),
 			);
 			return watcher;
 		}
@@ -465,7 +472,7 @@ export class Repository implements Disposable {
 	}
 
 	@debug()
-	private onRepositoryChanged(uri: Uri | undefined, base: Uri) {
+	private onRepositoryChanged(uri: Uri | undefined, base: Uri, _reason: 'create' | 'change' | 'delete') {
 		// TODO@eamodio Revisit -- as I can't seem to get this to work as a negative glob pattern match when creating the watcher
 		if (uri?.path.includes('/fsmonitor--daemon/')) {
 			return;
@@ -1031,7 +1038,7 @@ export class Repository implements Disposable {
 
 		this._pendingRepoChange = this._pendingRepoChange?.with(changes) ?? new RepositoryChangeEvent(this, changes);
 
-		this.onDidRepositoryChange(this, new RepositoryChangeEvent(this, changes));
+		this.providerService.onRepositoryChanged(this, this._pendingRepoChange);
 
 		if (this._suspended) {
 			Logger.debug(scope, `queueing suspended ${this._pendingRepoChange.toString(true)}`);
@@ -1049,7 +1056,11 @@ export class Repository implements Disposable {
 		this._pendingRepoChange = undefined;
 
 		Logger.debug(`Repository(${this.id}) firing ${e.toString(true)}`);
-		this._onDidChange.fire(e);
+		try {
+			this._onDidChange.fire(e);
+		} finally {
+			this.providerService.onDidRepositoryChange.fire(e);
+		}
 	}
 
 	@debug()

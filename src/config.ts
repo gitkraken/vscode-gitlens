@@ -83,7 +83,15 @@ export const enum CodeLensCommand {
 }
 
 export type CodeLensScopes = 'document' | 'containers' | 'blocks';
-export type ContributorSorting = 'count:desc' | 'count:asc' | 'date:desc' | 'date:asc' | 'name:asc' | 'name:desc';
+export type ContributorSorting =
+	| 'count:desc'
+	| 'count:asc'
+	| 'date:desc'
+	| 'date:asc'
+	| 'name:asc'
+	| 'name:desc'
+	| 'score:desc'
+	| 'score:asc';
 export type RepositoriesSorting = 'discovered' | 'lastFetched:desc' | 'lastFetched:asc' | 'name:asc' | 'name:desc';
 export type CustomRemoteType =
 	| 'AzureDevOps'
@@ -673,14 +681,16 @@ export interface ViewsCommonConfig {
 			readonly tooltip: string;
 		};
 	};
+	readonly openChangesInMultiDiffEditor: boolean;
+	readonly pageItemLimit: number;
 	readonly scm: {
 		grouped: {
 			readonly default: GroupableTreeViewTypes;
 			readonly views: Record<GroupableTreeViewTypes, boolean>;
 		};
 	};
-	readonly openChangesInMultiDiffEditor: boolean;
-	readonly pageItemLimit: number;
+	readonly showComparisonContributors: boolean;
+	readonly showContributorsStatistics: boolean;
 	readonly showCurrentBranchOnTop: boolean;
 	readonly showRelativeDateMarkers: boolean;
 }
@@ -689,7 +699,10 @@ export const viewsCommonConfigKeys: (keyof ViewsCommonConfig)[] = [
 	'collapseWorktreesWhenPossible',
 	'defaultItemLimit',
 	'formats',
+	'openChangesInMultiDiffEditor',
 	'pageItemLimit',
+	'showComparisonContributors',
+	'showContributorsStatistics',
 	'showCurrentBranchOnTop',
 	'showRelativeDateMarkers',
 ];

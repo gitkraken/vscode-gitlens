@@ -27,6 +27,9 @@ import type { SearchQuery } from '../../../../constants.search';
 import type { Subscription } from '../../../../plus/gk/account/subscription';
 import { isSubscriptionPaid } from '../../../../plus/gk/account/subscription';
 import type { LaunchpadCommandArgs } from '../../../../plus/launchpad/launchpad';
+import { createCommandLink } from '../../../../system/commands';
+import { filterMap, first, groupByFilterMap, join } from '../../../../system/iterable';
+import { createWebviewCommandLink } from '../../../../system/webview';
 import type {
 	DidEnsureRowParams,
 	DidGetRowHoverParams,
@@ -49,7 +52,7 @@ import type {
 	State,
 	UpdateGraphConfigurationParams,
 	UpdateStateCallback,
-} from '../../../../plus/webviews/graph/protocol';
+} from '../../../plus/graph/protocol';
 import {
 	DidChangeAvatarsNotification,
 	DidChangeBranchStateNotification,
@@ -66,10 +69,7 @@ import {
 	DidFetchNotification,
 	DidSearchNotification,
 	DidStartFeaturePreviewNotification,
-} from '../../../../plus/webviews/graph/protocol';
-import { createCommandLink } from '../../../../system/commands';
-import { filterMap, first, groupByFilterMap, join } from '../../../../system/iterable';
-import { createWebviewCommandLink } from '../../../../system/webview';
+} from '../../../plus/graph/protocol';
 import type { IpcNotification } from '../../../protocol';
 import { DidChangeHostWindowFocusNotification } from '../../../protocol';
 import { GlButton } from '../../shared/components/button.react';
@@ -899,6 +899,7 @@ export function GraphWrapper({
 
 	const handleRowContextMenu = (_event: React.MouseEvent<any>, graphZoneType: GraphZoneType, graphRow: GraphRow) => {
 		if (graphZoneType === refZone) return;
+		hover.current?.hide();
 
 		// If the row is in the current selection, use the typed selection context, otherwise clear it
 		const newSelectionContext = selectionContexts?.selectedShas.has(graphRow.sha)
@@ -1272,6 +1273,21 @@ export function GraphWrapper({
 									<strong>Launchpad</strong> &mdash; organizes your pull requests into actionable
 									groups to help you focus and keep your team unblocked
 								</span>
+							</span>
+						</GlTooltip>
+						<GlTooltip placement="bottom">
+							<a
+								href={'command:gitlens.views.home.focus'}
+								className="action-button"
+								aria-label={`Open GitLens Home View`}
+							>
+								<span>
+									<CodeIcon className="action-button__icon" icon={'gl-gitlens'} aria-hidden="true" />
+								</span>
+							</a>
+							<span slot="content">
+								<strong>GitLens Home</strong> — track, manage, and collaborate on your branches and pull
+								requests, all in one intuitive hub
 							</span>
 						</GlTooltip>
 						{(subscription == null || !isSubscriptionPaid(subscription)) && (

@@ -18,11 +18,11 @@ import type { Draft, LocalDraft } from '../gk/models/drafts';
 import { showPatchesView } from '../plus/drafts/actions';
 import type { ProviderAuth } from '../plus/drafts/draftsService';
 import { getProviderIdFromEntityIdentifier } from '../plus/integrations/providers/utils';
-import type { Change, CreateDraft } from '../plus/webviews/patchDetails/protocol';
 import { getRepositoryOrShowPicker } from '../quickpicks/repositoryPicker';
 import { map } from '../system/iterable';
 import { Logger } from '../system/logger';
 import { command } from '../system/vscode/command';
+import type { Change, CreateDraft } from '../webviews/plus/patchDetails/protocol';
 import type { CommandContext } from './base';
 import {
 	ActiveEditorCommand,

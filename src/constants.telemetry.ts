@@ -8,10 +8,10 @@ import type { CustomEditorTypes, TreeViewTypes, WebviewTypes, WebviewViewTypes }
 import type { FeaturePreviews, FeaturePreviewStatus } from './features';
 import type { GitContributionTiers } from './git/models/contributor';
 import type { Subscription, SubscriptionAccount } from './plus/gk/account/subscription';
-import type { GraphColumnConfig } from './plus/webviews/graph/protocol';
-import type { Period } from './plus/webviews/timeline/protocol';
 import type { Flatten } from './system/object';
 import type { WalkthroughContextKeys } from './telemetry/walkthroughStateProvider';
+import type { GraphColumnConfig } from './webviews/plus/graph/protocol';
+import type { Period } from './webviews/plus/timeline/protocol';
 
 export declare type AttributeValue =
 	| string

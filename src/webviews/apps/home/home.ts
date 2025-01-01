@@ -10,7 +10,6 @@ import { OverviewState, overviewStateContext } from '../plus/home/components/ove
 import type { GLHomeHeader } from '../plus/shared/components/home-header';
 import { GlApp } from '../shared/app';
 import { scrollableBase } from '../shared/components/styles/lit/base.css';
-import type { Disposable } from '../shared/events';
 import type { HostIpc } from '../shared/ipc';
 import { homeBaseStyles, homeStyles } from './home.css';
 import { HomeStateProvider } from './stateProvider';
@@ -27,7 +26,6 @@ import './components/repo-alerts';
 @customElement('gl-home-app')
 export class GlHomeApp extends GlApp<State> {
 	static override styles = [homeBaseStyles, scrollableBase, homeStyles];
-	private disposable: Disposable[] = [];
 
 	@provide({ context: overviewStateContext })
 	private _overviewState!: OverviewState;
@@ -38,7 +36,7 @@ export class GlHomeApp extends GlApp<State> {
 	private badgeSource = { source: 'home', detail: 'badge' };
 
 	protected override createStateProvider(state: State, ipc: HostIpc) {
-		this.disposable.push((this._overviewState = new OverviewState(ipc)));
+		this.disposables.push((this._overviewState = new OverviewState(ipc)));
 
 		return new HomeStateProvider(this, state, ipc);
 	}
@@ -46,7 +44,7 @@ export class GlHomeApp extends GlApp<State> {
 	override connectedCallback(): void {
 		super.connectedCallback();
 
-		this.disposable.push(
+		this.disposables.push(
 			this._ipc.onReceiveMessage(msg => {
 				switch (true) {
 					case DidFocusAccount.is(msg):
@@ -57,17 +55,11 @@ export class GlHomeApp extends GlApp<State> {
 		);
 	}
 
-	override disconnectedCallback(): void {
-		super.disconnectedCallback();
-
-		this.disposable.forEach(d => d.dispose());
-	}
-
 	override render() {
 		return html`
 			<div class="home scrollable">
 				<gl-home-header class="home__header"></gl-home-header>
-				${when(!this.state.previewEnabled, () => html`<gl-preview-banner></gl-preview-banner>`)}
+				${when(!this.state?.previewEnabled, () => html`<gl-preview-banner></gl-preview-banner>`)}
 				<gl-repo-alerts class="home__alerts"></gl-repo-alerts>
 				<main class="home__main scrollable" id="main">
 					${when(

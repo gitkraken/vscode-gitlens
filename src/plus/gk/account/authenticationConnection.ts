@@ -47,7 +47,7 @@ export class AuthenticationConnection implements Disposable {
 
 		let rsp: Response;
 		try {
-			rsp = await this.connection.fetchApi('user', undefined, { token: token });
+			rsp = await this.connection.fetchGkApi('user', undefined, { token: token });
 		} catch (ex) {
 			Logger.error(ex, scope);
 			throw ex;
@@ -195,7 +195,7 @@ export class AuthenticationConnection implements Disposable {
 			}
 		}
 
-		const rsp = await this.connection.fetchGkDevApi(
+		const rsp = await this.connection.fetchGkApi(
 			'oauth/access_token',
 			{
 				method: 'POST',
@@ -258,7 +258,7 @@ export class AuthenticationConnection implements Disposable {
 				  )
 				: undefined;
 
-		const rsp = await this.connection.fetchGkDevApi('v1/login/auth-exchange', {
+		const rsp = await this.connection.fetchGkApi('v1/login/auth-exchange', {
 			method: 'POST',
 			body: JSON.stringify({
 				source: 'gitlens',

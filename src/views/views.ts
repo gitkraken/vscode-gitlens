@@ -11,9 +11,6 @@ import type {
 } from '../git/models/reference';
 import type { GitRemote } from '../git/models/remote';
 import type { GitWorktree } from '../git/models/worktree';
-import { registerGraphWebviewView } from '../plus/webviews/graph/registration';
-import { registerPatchDetailsWebviewView } from '../plus/webviews/patchDetails/registration';
-import { registerTimelineWebviewView } from '../plus/webviews/timeline/registration';
 import { once } from '../system/function';
 import { first } from '../system/iterable';
 import { compare } from '../system/version';
@@ -25,6 +22,9 @@ import {
 	registerGraphDetailsWebviewView,
 } from '../webviews/commitDetails/registration';
 import { registerHomeWebviewView } from '../webviews/home/registration';
+import { registerGraphWebviewView } from '../webviews/plus/graph/registration';
+import { registerPatchDetailsWebviewView } from '../webviews/plus/patchDetails/registration';
+import { registerTimelineWebviewView } from '../webviews/plus/timeline/registration';
 import type { WebviewsController } from '../webviews/webviewsController';
 import { BranchesView } from './branchesView';
 import { CommitsView } from './commitsView';
