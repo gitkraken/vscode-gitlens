@@ -30,10 +30,6 @@ export class AutolinkedItemsNode extends CacheableChildrenViewNode<'autolinks', 
 		this._uniqueId = getViewNodeId(this.type, this.context);
 	}
 
-	override get id(): string {
-		return this._uniqueId;
-	}
-
 	async getChildren(): Promise<ViewNode[]> {
 		if (this.children == null) {
 			const commits = [...this.log.commits.values()];

@@ -53,12 +53,10 @@ export class PullRequestNode extends CacheableChildrenViewNode<'pullrequest', Vi
 		}
 
 		this.updateContext({ pullRequest: pullRequest });
-		this._uniqueId = getViewNodeId(this.type, this.context);
-		this.repoPath = repoPath;
-	}
+		// this._uniqueId = getViewNodeId(this.type, this.context);
+		this._uniqueId = `${this.type}(${this.pullRequest.url})`;
 
-	override get id(): string {
-		return this._uniqueId;
+		this.repoPath = repoPath;
 	}
 
 	override toClipboard(type?: ClipboardType): string {

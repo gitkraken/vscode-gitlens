@@ -246,14 +246,14 @@ export abstract class ViewBase<
 				}
 
 				if (typeof item.tooltip === 'string') {
-					item.tooltip = `${item.tooltip}\n\n---\ncontext: ${item.contextValue}\nnode: ${node.toString()}${
-						parent != null ? `\nparent: ${parent.toString()}` : ''
-					}`;
+					item.tooltip = `${item.tooltip}\n\n---\ncontext: ${
+						item.contextValue
+					}\nnode: ${node.toString()}\nparent: ${parent?.toString()}`;
 				} else {
 					item.tooltip.appendMarkdown(
-						`\n\n---\n\ncontext: \`${item.contextValue}\`\\\nnode: \`${node.toString()}\`${
-							parent != null ? `\\\nparent: \`${parent.toString()}\`` : ''
-						}`,
+						`\n\n---\n\ncontext: \`${
+							item.contextValue
+						}\`\\\nnode: \`${node.toString()}\` \\\nparent: \`${parent?.toString()}\``,
 					);
 				}
 			}
@@ -431,13 +431,21 @@ export abstract class ViewBase<
 		if (this.root == null || force) {
 			this.root?.dispose();
 			this.root = this.getRoot();
+			// if (this.root.childrenIds.size > 0) {
+			// 	debugger;
+			// 	this.root.childrenIds.clear();
+			// }
 		}
 
 		return this.root;
 	}
 
 	getChildren(node?: ViewNode): ViewNode[] | Promise<ViewNode[]> {
-		if (node != null) return node.getChildren();
+		if (node != null) {
+			// node.childrenIds.clear();
+			node.childrenCount = 0;
+			return node.getChildren();
+		}
 
 		const root = this.ensureRoot();
 		const children = root.getChildren();
@@ -463,7 +471,24 @@ export abstract class ViewBase<
 	}
 
 	getTreeItem(node: ViewNode): TreeItem | Promise<TreeItem> {
-		return node.getTreeItem();
+		if (node.splatted) {
+			debugger;
+			node.splatted = false;
+		}
+
+		const item = node.getTreeItem();
+		if (isPromise(item)) {
+			return item.then(i => {
+				i.id = node.treeId;
+				console.log('#######', node.type, node.splatted, node.id, i.id);
+
+				return i;
+			});
+		}
+
+		item.id = node.treeId;
+		console.log('#######', node.type, node.splatted, node.id, item.id);
+		return item;
 	}
 
 	getViewDescription(count?: number) {
