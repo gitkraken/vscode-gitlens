@@ -1464,8 +1464,8 @@
 				"webview/context": [
 					{
 						"when": "webviewItem =~ /gitlens:branch\\b(?!.*?\\b\\+remote\\b)/ && !gitlens:hasVirtualFolders && !gitlens:readonly && !gitlens:untrusted",
-						"group": "1_gitlens_actions",
-						"order": 8
+						"group": "1_gitlens_actions_2",
+						"order": 1
 					}
 				]
 			}
@@ -1932,8 +1932,8 @@
 				"webview/context": [
 					{
 						"when": "webviewItem =~ /gitlens:branch\\b/ && !gitlens:hasVirtualFolders && !gitlens:readonly && !gitlens:untrusted",
-						"group": "1_gitlens_actions_",
-						"order": 7
+						"group": "1_gitlens_actions_3",
+						"order": 1
 					},
 					{
 						"when": "webviewItem =~ /gitlens:commit\\b/ && !listMultiSelection && !gitlens:hasVirtualFolders && !gitlens:readonly && !gitlens:untrusted",
@@ -1979,8 +1979,8 @@
 				"webview/context": [
 					{
 						"when": "webviewItem =~ /gitlens:branch\\b(?=.*?\\b\\+(tracking|remote)\\b)/ && gitlens:action:createPullRequest && gitlens:repos:withRemotes",
-						"group": "1_gitlens_actions_",
-						"order": 10
+						"group": "1_gitlens_actions_3",
+						"order": 4
 					}
 				]
 			}
@@ -1993,8 +1993,8 @@
 				"webview/context": [
 					{
 						"when": "webviewItem =~ /gitlens:branch\\b/ && !gitlens:hasVirtualFolders && !gitlens:readonly && !gitlens:untrusted",
-						"group": "1_gitlens_actions_",
-						"order": 8
+						"group": "1_gitlens_actions_3",
+						"order": 2
 					},
 					{
 						"when": "webviewItem =~ /gitlens:commit\\b/ && !listMultiSelection && !gitlens:hasVirtualFolders && !gitlens:readonly && !gitlens:untrusted",
@@ -2012,8 +2012,8 @@
 				"webview/context": [
 					{
 						"when": "webviewItem =~ /gitlens:branch\\b/ && !gitlens:hasVirtualFolders && !gitlens:readonly && !gitlens:untrusted",
-						"group": "1_gitlens_actions_",
-						"order": 9
+						"group": "1_gitlens_actions_3",
+						"order": 3
 					}
 				]
 			}
@@ -2026,8 +2026,8 @@
 				"webview/context": [
 					{
 						"when": "webviewItem =~ /gitlens:branch\\b(?!.*?\\b\\+(current|checkedout)\\b)/ && !gitlens:hasVirtualFolders && !gitlens:readonly && !gitlens:untrusted",
-						"group": "1_gitlens_actions",
-						"order": 7
+						"group": "1_gitlens_actions_2",
+						"order": 3
 					}
 				]
 			}
@@ -2144,8 +2144,8 @@
 				"webview/context": [
 					{
 						"when": "webviewItem =~ /gitlens:branch\\b(?!.*?\\b\\+current\\b)/ && !gitlens:hasVirtualFolders && !gitlens:readonly && !gitlens:untrusted",
-						"group": "1_gitlens_actions",
-						"order": 4
+						"group": "1_gitlens_actions_1",
+						"order": 1
 					}
 				]
 			}
@@ -2439,8 +2439,8 @@
 				"webview/context": [
 					{
 						"when": "webviewItem =~ /gitlens:branch\\b(?!.*?\\b\\+current\\b)/ && !gitlens:hasVirtualFolders && !gitlens:readonly && !gitlens:untrusted",
-						"group": "1_gitlens_actions",
-						"order": 5
+						"group": "1_gitlens_actions_1",
+						"order": 2
 					}
 				]
 			}
@@ -2465,8 +2465,8 @@
 				"webview/context": [
 					{
 						"when": "webviewItem =~ /gitlens:branch\\b(?=.*?\\b\\+current\\b)(?=.*?\\b\\+tracking\\b)/ && !gitlens:hasVirtualFolders && !gitlens:readonly && !gitlens:untrusted",
-						"group": "1_gitlens_actions",
-						"order": 5
+						"group": "1_gitlens_actions_1",
+						"order": 2
 					}
 				]
 			}
@@ -2491,8 +2491,8 @@
 				"webview/context": [
 					{
 						"when": "webviewItem =~ /gitlens:branch\\b/ && !gitlens:hasVirtualFolders && !gitlens:readonly && !gitlens:untrusted",
-						"group": "1_gitlens_actions",
-						"order": 6
+						"group": "1_gitlens_actions_2",
+						"order": 2
 					}
 				]
 			}
@@ -2568,8 +2568,8 @@
 				"webview/context": [
 					{
 						"when": "webviewItem =~ /gitlens:branch\\b/ && !gitlens:hasVirtualFolders && !gitlens:readonly && !gitlens:untrusted",
-						"group": "1_gitlens_actions",
-						"order": 4
+						"group": "1_gitlens_actions_1",
+						"order": 3
 					}
 				]
 			}
@@ -4832,8 +4832,8 @@
 				"view/item/context": [
 					{
 						"when": "viewItem =~ /gitlens:branch\\b(?!.*?\\b\\+remote\\b)/ && !listMultiSelection && !gitlens:hasVirtualFolders && !gitlens:readonly && !gitlens:untrusted",
-						"group": "1_gitlens_actions",
-						"order": 8
+						"group": "1_gitlens_actions_2",
+						"order": 1
 					}
 				]
 			}
@@ -6191,7 +6191,7 @@
 				"view/item/context": [
 					{
 						"when": "viewItem =~ /gitlens:branch\\b(?!.*?\\b\\+closed\\b)/ && !listMultiSelection && !gitlens:hasVirtualFolders && !gitlens:readonly && !gitlens:untrusted",
-						"group": "1_gitlens_actions_",
+						"group": "1_gitlens_actions_3",
 						"order": 7
 					},
 					{
@@ -6234,7 +6234,7 @@
 					},
 					{
 						"when": "viewItem =~ /gitlens:branch\\b(?=.*?\\b\\+(tracking|remote)\\b)(?!.*?\\b\\+closed\\b)/ && !listMultiSelection && gitlens:action:createPullRequest && gitlens:repos:withRemotes",
-						"group": "1_gitlens_actions_",
+						"group": "1_gitlens_actions_3",
 						"order": 10
 					},
 					{
@@ -6265,7 +6265,7 @@
 				"view/item/context": [
 					{
 						"when": "viewItem =~ /gitlens:branch\\b(?!.*?\\b\\+closed\\b)/ && !listMultiSelection && !gitlens:hasVirtualFolders && !gitlens:readonly && !gitlens:untrusted",
-						"group": "1_gitlens_actions_",
+						"group": "1_gitlens_actions_3",
 						"order": 8
 					},
 					{
@@ -6299,7 +6299,7 @@
 				"view/item/context": [
 					{
 						"when": "viewItem =~ /gitlens:branch\\b(?!.*?\\b\\+closed\\b)/ && !listMultiSelection && !gitlens:hasVirtualFolders && !gitlens:readonly && !gitlens:untrusted",
-						"group": "1_gitlens_actions_",
+						"group": "1_gitlens_actions_3",
 						"order": 9
 					},
 					{
@@ -6323,8 +6323,8 @@
 				"view/item/context": [
 					{
 						"when": "viewItem =~ /gitlens:branch\\b(?!.*?\\b\\+current\\b)(?!.*?\\b\\+closed\\b)/ && !listMultiSelection && !gitlens:hasVirtualFolders && !gitlens:readonly && !gitlens:untrusted",
-						"group": "1_gitlens_actions",
-						"order": 7
+						"group": "1_gitlens_actions_2",
+						"order": 3
 					}
 				]
 			}
@@ -6337,8 +6337,8 @@
 				"view/item/context": [
 					{
 						"when": "viewItem =~ /gitlens:branch\\b(?!.*?\\b\\+(current|checkedout)\\b)(?!.*?\\b\\+closed\\b)/ && listMultiSelection && !gitlens:hasVirtualFolders && !gitlens:readonly && !gitlens:untrusted",
-						"group": "1_gitlens_actions",
-						"order": 7
+						"group": "1_gitlens_actions_2",
+						"order": 3
 					}
 				]
 			}
@@ -7271,8 +7271,8 @@
 				"view/item/context": [
 					{
 						"when": "viewItem =~ /gitlens:branch\\b(?!.*?\\b\\+current\\b)(?!.*?\\b\\+closed\\b)/ && !listMultiSelection && !gitlens:hasVirtualFolders && !gitlens:readonly && !gitlens:untrusted",
-						"group": "1_gitlens_actions",
-						"order": 4
+						"group": "1_gitlens_actions_1",
+						"order": 1
 					}
 				]
 			}
@@ -8160,8 +8160,8 @@
 				"view/item/context": [
 					{
 						"when": "viewItem =~ /gitlens:branch\\b(?!.*?\\b\\+current\\b)(?!.*?\\b\\+closed\\b)/ && !listMultiSelection && !gitlens:hasVirtualFolders && !gitlens:readonly && !gitlens:untrusted",
-						"group": "1_gitlens_actions",
-						"order": 5
+						"group": "1_gitlens_actions_1",
+						"order": 2
 					}
 				]
 			}
@@ -8193,8 +8193,8 @@
 				"view/item/context": [
 					{
 						"when": "viewItem =~ /gitlens:branch\\b(?=.*?\\b\\+current\\b)(?=.*?\\b\\+tracking\\b)(?!.*?\\b\\+closed\\b)/ && !listMultiSelection && !gitlens:hasVirtualFolders && !gitlens:readonly && !gitlens:untrusted",
-						"group": "1_gitlens_actions",
-						"order": 5
+						"group": "1_gitlens_actions_1",
+						"order": 2
 					}
 				]
 			}
@@ -8459,8 +8459,8 @@
 				"view/item/context": [
 					{
 						"when": "viewItem =~ /gitlens:branch\\b(?!.*?\\b\\+closed\\b)/ && !listMultiSelection && !gitlens:hasVirtualFolders && !gitlens:readonly && !gitlens:untrusted",
-						"group": "1_gitlens_actions",
-						"order": 6
+						"group": "1_gitlens_actions_2",
+						"order": 2
 					}
 				]
 			}
@@ -8982,8 +8982,8 @@
 				"view/item/context": [
 					{
 						"when": "viewItem =~ /gitlens:branch\\b(?!.*?\\b\\+rebase\\b)/ && !listMultiSelection && !gitlens:hasVirtualFolders && !gitlens:readonly && !gitlens:untrusted",
-						"group": "1_gitlens_actions",
-						"order": 4
+						"group": "1_gitlens_actions_1",
+						"order": 3
 					}
 				]
 			}

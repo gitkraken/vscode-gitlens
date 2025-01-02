@@ -15317,62 +15317,62 @@
 				{
 					"command": "gitlens.views.mergeBranchInto",
 					"when": "viewItem =~ /gitlens:branch\\b(?!.*?\\b\\+current\\b)(?!.*?\\b\\+closed\\b)/ && !listMultiSelection && !gitlens:hasVirtualFolders && !gitlens:readonly && !gitlens:untrusted",
-					"group": "1_gitlens_actions@4"
-				},
-				{
-					"command": "gitlens.views.resetToTip",
-					"when": "viewItem =~ /gitlens:branch\\b(?!.*?\\b\\+rebase\\b)/ && !listMultiSelection && !gitlens:hasVirtualFolders && !gitlens:readonly && !gitlens:untrusted",
-					"group": "1_gitlens_actions@4"
+					"group": "1_gitlens_actions_1@1"
 				},
 				{
 					"command": "gitlens.views.rebaseOntoBranch",
 					"when": "viewItem =~ /gitlens:branch\\b(?!.*?\\b\\+current\\b)(?!.*?\\b\\+closed\\b)/ && !listMultiSelection && !gitlens:hasVirtualFolders && !gitlens:readonly && !gitlens:untrusted",
-					"group": "1_gitlens_actions@5"
+					"group": "1_gitlens_actions_1@2"
 				},
 				{
 					"command": "gitlens.views.rebaseOntoUpstream",
 					"when": "viewItem =~ /gitlens:branch\\b(?=.*?\\b\\+current\\b)(?=.*?\\b\\+tracking\\b)(?!.*?\\b\\+closed\\b)/ && !listMultiSelection && !gitlens:hasVirtualFolders && !gitlens:readonly && !gitlens:untrusted",
-					"group": "1_gitlens_actions@5"
+					"group": "1_gitlens_actions_1@2"
 				},
 				{
-					"command": "gitlens.views.renameBranch",
-					"when": "viewItem =~ /gitlens:branch\\b(?!.*?\\b\\+closed\\b)/ && !listMultiSelection && !gitlens:hasVirtualFolders && !gitlens:readonly && !gitlens:untrusted",
-					"group": "1_gitlens_actions@6"
-				},
-				{
-					"command": "gitlens.views.deleteBranch",
-					"when": "viewItem =~ /gitlens:branch\\b(?!.*?\\b\\+current\\b)(?!.*?\\b\\+closed\\b)/ && !listMultiSelection && !gitlens:hasVirtualFolders && !gitlens:readonly && !gitlens:untrusted",
-					"group": "1_gitlens_actions@7"
-				},
-				{
-					"command": "gitlens.views.deleteBranch.multi",
-					"when": "viewItem =~ /gitlens:branch\\b(?!.*?\\b\\+(current|checkedout)\\b)(?!.*?\\b\\+closed\\b)/ && listMultiSelection && !gitlens:hasVirtualFolders && !gitlens:readonly && !gitlens:untrusted",
-					"group": "1_gitlens_actions@7"
+					"command": "gitlens.views.resetToTip",
+					"when": "viewItem =~ /gitlens:branch\\b(?!.*?\\b\\+rebase\\b)/ && !listMultiSelection && !gitlens:hasVirtualFolders && !gitlens:readonly && !gitlens:untrusted",
+					"group": "1_gitlens_actions_1@3"
 				},
 				{
 					"command": "gitlens.views.associateIssueWithBranch",
 					"when": "viewItem =~ /gitlens:branch\\b(?!.*?\\b\\+remote\\b)/ && !listMultiSelection && !gitlens:hasVirtualFolders && !gitlens:readonly && !gitlens:untrusted",
-					"group": "1_gitlens_actions@8"
+					"group": "1_gitlens_actions_2@1"
+				},
+				{
+					"command": "gitlens.views.renameBranch",
+					"when": "viewItem =~ /gitlens:branch\\b(?!.*?\\b\\+closed\\b)/ && !listMultiSelection && !gitlens:hasVirtualFolders && !gitlens:readonly && !gitlens:untrusted",
+					"group": "1_gitlens_actions_2@2"
+				},
+				{
+					"command": "gitlens.views.deleteBranch",
+					"when": "viewItem =~ /gitlens:branch\\b(?!.*?\\b\\+current\\b)(?!.*?\\b\\+closed\\b)/ && !listMultiSelection && !gitlens:hasVirtualFolders && !gitlens:readonly && !gitlens:untrusted",
+					"group": "1_gitlens_actions_2@3"
+				},
+				{
+					"command": "gitlens.views.deleteBranch.multi",
+					"when": "viewItem =~ /gitlens:branch\\b(?!.*?\\b\\+(current|checkedout)\\b)(?!.*?\\b\\+closed\\b)/ && listMultiSelection && !gitlens:hasVirtualFolders && !gitlens:readonly && !gitlens:untrusted",
+					"group": "1_gitlens_actions_2@3"
 				},
 				{
 					"command": "gitlens.views.createBranch",
 					"when": "viewItem =~ /gitlens:branch\\b(?!.*?\\b\\+closed\\b)/ && !listMultiSelection && !gitlens:hasVirtualFolders && !gitlens:readonly && !gitlens:untrusted",
-					"group": "1_gitlens_actions_@7"
+					"group": "1_gitlens_actions_3@7"
 				},
 				{
 					"command": "gitlens.views.createTag",
 					"when": "viewItem =~ /gitlens:branch\\b(?!.*?\\b\\+closed\\b)/ && !listMultiSelection && !gitlens:hasVirtualFolders && !gitlens:readonly && !gitlens:untrusted",
-					"group": "1_gitlens_actions_@8"
+					"group": "1_gitlens_actions_3@8"
 				},
 				{
 					"command": "gitlens.views.createWorktree",
 					"when": "viewItem =~ /gitlens:branch\\b(?!.*?\\b\\+closed\\b)/ && !listMultiSelection && !gitlens:hasVirtualFolders && !gitlens:readonly && !gitlens:untrusted",
-					"group": "1_gitlens_actions_@9"
+					"group": "1_gitlens_actions_3@9"
 				},
 				{
 					"command": "gitlens.views.createPullRequest",
 					"when": "viewItem =~ /gitlens:branch\\b(?=.*?\\b\\+(tracking|remote)\\b)(?!.*?\\b\\+closed\\b)/ && !listMultiSelection && gitlens:action:createPullRequest && gitlens:repos:withRemotes",
-					"group": "1_gitlens_actions_@10"
+					"group": "1_gitlens_actions_3@10"
 				},
 				{
 					"command": "gitlens.views.openBranchOnRemote",
@@ -18308,57 +18308,57 @@
 				{
 					"command": "gitlens.graph.mergeBranchInto",
 					"when": "webviewItem =~ /gitlens:branch\\b(?!.*?\\b\\+current\\b)/ && !gitlens:hasVirtualFolders && !gitlens:readonly && !gitlens:untrusted",
-					"group": "1_gitlens_actions@4"
-				},
-				{
-					"command": "gitlens.graph.resetToTip",
-					"when": "webviewItem =~ /gitlens:branch\\b/ && !gitlens:hasVirtualFolders && !gitlens:readonly && !gitlens:untrusted",
-					"group": "1_gitlens_actions@4"
+					"group": "1_gitlens_actions_1@1"
 				},
 				{
 					"command": "gitlens.graph.rebaseOntoBranch",
 					"when": "webviewItem =~ /gitlens:branch\\b(?!.*?\\b\\+current\\b)/ && !gitlens:hasVirtualFolders && !gitlens:readonly && !gitlens:untrusted",
-					"group": "1_gitlens_actions@5"
+					"group": "1_gitlens_actions_1@2"
 				},
 				{
 					"command": "gitlens.graph.rebaseOntoUpstream",
 					"when": "webviewItem =~ /gitlens:branch\\b(?=.*?\\b\\+current\\b)(?=.*?\\b\\+tracking\\b)/ && !gitlens:hasVirtualFolders && !gitlens:readonly && !gitlens:untrusted",
-					"group": "1_gitlens_actions@5"
+					"group": "1_gitlens_actions_1@2"
 				},
 				{
-					"command": "gitlens.graph.renameBranch",
+					"command": "gitlens.graph.resetToTip",
 					"when": "webviewItem =~ /gitlens:branch\\b/ && !gitlens:hasVirtualFolders && !gitlens:readonly && !gitlens:untrusted",
-					"group": "1_gitlens_actions@6"
-				},
-				{
-					"command": "gitlens.graph.deleteBranch",
-					"when": "webviewItem =~ /gitlens:branch\\b(?!.*?\\b\\+(current|checkedout)\\b)/ && !gitlens:hasVirtualFolders && !gitlens:readonly && !gitlens:untrusted",
-					"group": "1_gitlens_actions@7"
+					"group": "1_gitlens_actions_1@3"
 				},
 				{
 					"command": "gitlens.graph.associateIssueWithBranch",
 					"when": "webviewItem =~ /gitlens:branch\\b(?!.*?\\b\\+remote\\b)/ && !gitlens:hasVirtualFolders && !gitlens:readonly && !gitlens:untrusted",
-					"group": "1_gitlens_actions@8"
+					"group": "1_gitlens_actions_2@1"
+				},
+				{
+					"command": "gitlens.graph.renameBranch",
+					"when": "webviewItem =~ /gitlens:branch\\b/ && !gitlens:hasVirtualFolders && !gitlens:readonly && !gitlens:untrusted",
+					"group": "1_gitlens_actions_2@2"
+				},
+				{
+					"command": "gitlens.graph.deleteBranch",
+					"when": "webviewItem =~ /gitlens:branch\\b(?!.*?\\b\\+(current|checkedout)\\b)/ && !gitlens:hasVirtualFolders && !gitlens:readonly && !gitlens:untrusted",
+					"group": "1_gitlens_actions_2@3"
 				},
 				{
 					"command": "gitlens.graph.createBranch",
 					"when": "webviewItem =~ /gitlens:branch\\b/ && !gitlens:hasVirtualFolders && !gitlens:readonly && !gitlens:untrusted",
-					"group": "1_gitlens_actions_@7"
+					"group": "1_gitlens_actions_3@1"
 				},
 				{
 					"command": "gitlens.graph.createTag",
 					"when": "webviewItem =~ /gitlens:branch\\b/ && !gitlens:hasVirtualFolders && !gitlens:readonly && !gitlens:untrusted",
-					"group": "1_gitlens_actions_@8"
+					"group": "1_gitlens_actions_3@2"
 				},
 				{
 					"command": "gitlens.graph.createWorktree",
 					"when": "webviewItem =~ /gitlens:branch\\b/ && !gitlens:hasVirtualFolders && !gitlens:readonly && !gitlens:untrusted",
-					"group": "1_gitlens_actions_@9"
+					"group": "1_gitlens_actions_3@3"
 				},
 				{
 					"command": "gitlens.graph.createPullRequest",
 					"when": "webviewItem =~ /gitlens:branch\\b(?=.*?\\b\\+(tracking|remote)\\b)/ && gitlens:action:createPullRequest && gitlens:repos:withRemotes",
-					"group": "1_gitlens_actions_@10"
+					"group": "1_gitlens_actions_3@4"
 				},
 				{
 					"command": "gitlens.graph.openBranchOnRemote",
