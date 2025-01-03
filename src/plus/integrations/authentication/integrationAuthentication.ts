@@ -338,7 +338,11 @@ export abstract class CloudIntegrationAuthenticationProvider<
 		let session = await cloudIntegrations.getConnectionSession(this.authProviderId);
 
 		// Make an exception for GitHub because they always return 0
-		if (session?.expiresIn === 0 && this.authProviderId === HostingIntegrationId.GitHub) {
+		if (
+			session?.expiresIn === 0 &&
+			(this.authProviderId === HostingIntegrationId.GitHub ||
+				this.authProviderId === SelfHostedIntegrationId.CloudGitHubEnterprise)
+		) {
 			// It never expires so don't refresh it frequently:
 			session.expiresIn = maxSmallIntegerV8; // maximum expiration length
 		}
@@ -522,6 +526,11 @@ export class IntegrationAuthenticationService implements Disposable {
 						  ).GitHubAuthenticationProvider(this.container)
 						: new BuiltInAuthenticationProvider(this.container, providerId);
 
+					break;
+				case SelfHostedIntegrationId.CloudGitHubEnterprise:
+					provider = new (
+						await import(/* webpackChunkName: "integrations" */ './github')
+					).GitHubEnterpriseCloudAuthenticationProvider(this.container);
 					break;
 				case SelfHostedIntegrationId.GitHubEnterprise:
 					provider = new (
