@@ -44,6 +44,7 @@ import type {
 } from './integration';
 import { isHostingIntegrationId, isSelfHostedIntegrationId } from './providers/models';
 import type { ProvidersApi } from './providers/providersApi';
+import { isGitHubDotCom } from './providers/utils';
 
 export interface ConnectionStateChangeEvent {
 	key: string;
@@ -88,8 +89,10 @@ export class IntegrationService implements Disposable {
 	@gate()
 	@debug()
 	private async syncCloudIntegrations(forceConnect: boolean) {
+		const scope = getLogScope();
 		const connectedIntegrations = new Set<IntegrationId>();
 		const loggedIn = await this.container.subscription.getAuthenticationSession();
+		const domains = new Map<string, string>();
 		if (loggedIn) {
 			const cloudIntegrations = await this.container.cloudIntegrations;
 			const connections = await cloudIntegrations?.getConnections();
@@ -100,10 +103,18 @@ export class IntegrationService implements Disposable {
 				// GKDev includes some integrations like "google" that we don't support
 				if (integrationId == null) return;
 				connectedIntegrations.add(toIntegrationId[p.provider]);
+				if (p.domain?.length > 0) {
+					try {
+						const host = new URL(p.domain).host;
+						domains.set(integrationId, host);
+					} catch {
+						Logger.warn(`Invalid domain for ${integrationId} integration: ${p.domain}. Ignoring.`, scope);
+					}
+				}
 			});
 		}
 
-		for await (const integration of this.getSupportedCloudIntegrations()) {
+		for await (const integration of this.getSupportedCloudIntegrations(domains)) {
 			await integration.syncCloudConnection(
 				connectedIntegrations.has(integration.id) ? 'connected' : 'disconnected',
 				forceConnect,
@@ -121,9 +132,19 @@ export class IntegrationService implements Disposable {
 		return connectedIntegrations;
 	}
 
-	private async *getSupportedCloudIntegrations() {
+	private async *getSupportedCloudIntegrations(domains: Map<string, string>): AsyncIterable<Integration> {
 		for (const id of getSupportedCloudIntegrationIds()) {
-			yield this.get(id);
+			if (id === SelfHostedIntegrationId.CloudGitHubEnterprise && !domains.has(id)) {
+				try {
+					// Try getting whatever we have now because we will need to disconnect
+					yield this.get(id);
+				} catch {
+					// Ignore this exception and continue,
+					// because we probably haven't ever had an instance of this integration
+				}
+			} else {
+				yield this.get(id, domains?.get(id));
+			}
 		}
 	}
 
@@ -437,6 +458,7 @@ export class IntegrationService implements Disposable {
 						await import(/* webpackChunkName: "integrations" */ './providers/github')
 					).GitHubIntegration(this.container, this.authenticationService, this.getProvidersApi.bind(this));
 					break;
+				case SelfHostedIntegrationId.CloudGitHubEnterprise:
 				case SelfHostedIntegrationId.GitHubEnterprise:
 					if (domain == null) throw new Error(`Domain is required for '${id}' integration`);
 					integration = new (
@@ -446,6 +468,7 @@ export class IntegrationService implements Disposable {
 						this.authenticationService,
 						this.getProvidersApi.bind(this),
 						domain,
+						id,
 					);
 					break;
 				case HostingIntegrationId.GitLab:
@@ -548,6 +571,9 @@ export class IntegrationService implements Disposable {
 			case 'github':
 				if (remote.provider.custom && remote.provider.domain != null) {
 					return get(SelfHostedIntegrationId.GitHubEnterprise, remote.provider.domain) as RT;
+				}
+				if (remote.provider.domain != null && !isGitHubDotCom(remote.provider.domain)) {
+					return get(SelfHostedIntegrationId.CloudGitHubEnterprise, remote.provider.domain) as RT;
 				}
 				return get(HostingIntegrationId.GitHub) as RT;
 			case 'gitlab':
