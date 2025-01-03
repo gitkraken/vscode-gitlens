@@ -7,6 +7,7 @@ export enum HostingIntegrationId {
 
 export enum SelfHostedIntegrationId {
 	GitHubEnterprise = 'github-enterprise',
+	CloudGitHubEnterprise = 'cloud-github-enterprise',
 	GitLabSelfHosted = 'gitlab-self-hosted',
 }
 
@@ -19,6 +20,7 @@ export type IntegrationId = HostingIntegrationId | IssueIntegrationId | SelfHost
 
 export const supportedOrderedCloudIssueIntegrationIds = [IssueIntegrationId.Jira];
 export const supportedOrderedCloudIntegrationIds = [
+	SelfHostedIntegrationId.CloudGitHubEnterprise,
 	HostingIntegrationId.GitHub,
 	HostingIntegrationId.GitLab,
 	IssueIntegrationId.Jira,

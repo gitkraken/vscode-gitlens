@@ -69,6 +69,16 @@ export class GitHubAuthenticationProvider extends CloudIntegrationAuthentication
 	}
 }
 
+export class GitHubEnterpriseCloudAuthenticationProvider extends CloudIntegrationAuthenticationProvider<SelfHostedIntegrationId.CloudGitHubEnterprise> {
+	protected override getCompletionInputTitle(): string {
+		throw new Error('Connect to GitHub Enterprise');
+	}
+
+	protected override get authProviderId(): SelfHostedIntegrationId.CloudGitHubEnterprise {
+		return SelfHostedIntegrationId.CloudGitHubEnterprise;
+	}
+}
+
 export class GitHubEnterpriseAuthenticationProvider extends LocalIntegrationAuthenticationProvider<SelfHostedIntegrationId.GitHubEnterprise> {
 	protected override get authProviderId(): SelfHostedIntegrationId.GitHubEnterprise {
 		return SelfHostedIntegrationId.GitHubEnterprise;
