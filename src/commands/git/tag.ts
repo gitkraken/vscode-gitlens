@@ -247,7 +247,7 @@ export class TagGitCommand extends QuickCommand<State> {
 					placeholder: context =>
 						`Choose a branch${context.showTags ? ' or tag' : ''} to create the new tag from`,
 					picked: state.reference?.ref ?? (await state.repo.git.getBranch())?.ref,
-					titleContext: ' from',
+					title: `${context.title} from`,
 					value: isRevisionReference(state.reference) ? state.reference.ref : undefined,
 				});
 				// Always break on the first step (so we will go back)
@@ -259,7 +259,7 @@ export class TagGitCommand extends QuickCommand<State> {
 			if (state.counter < 4 || state.name == null) {
 				const result = yield* inputTagNameStep(state, context, {
 					placeholder: 'Please provide a name for the new tag',
-					titleContext: ` at ${getReferenceLabel(state.reference, {
+					title: `${context.title} at ${getReferenceLabel(state.reference, {
 						capitalize: true,
 						icon: false,
 					})}`,
