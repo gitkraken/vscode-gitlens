@@ -399,9 +399,9 @@ export class WorktreeGitCommand extends QuickCommand<State> {
 			if (state.counter < 3 || state.reference == null) {
 				const result = yield* pickBranchOrTagStep(state, context, {
 					placeholder: context =>
-						`Choose a branch${context.showTags ? ' or tag' : ''} to create the new worktree for`,
+						`Choose a branch${context.showTags ? ' or tag' : ''} to create the new worktree from`,
 					picked: state.reference?.ref ?? (await state.repo.git.getBranch())?.ref,
-					title: `${context.title} for`,
+					title: `Select Branch to Create Worktree From`,
 					value: isRevisionReference(state.reference) ? state.reference.ref : undefined,
 				});
 				// Always break on the first step (so we will go back)
@@ -723,9 +723,9 @@ export class WorktreeGitCommand extends QuickCommand<State> {
 			state.createBranch ? ['-b'] : [],
 			{
 				label: isRemoteBranch
-					? 'Create Worktree for New Local Branch'
+					? 'Create Worktree from New Local Branch'
 					: isBranch
-					  ? 'Create Worktree for Branch'
+					  ? 'Create Worktree from Branch'
 					  : context.title,
 				description: '',
 				detail: `Will create worktree in $(folder) ${
@@ -750,9 +750,9 @@ export class WorktreeGitCommand extends QuickCommand<State> {
 						['--direct'],
 						{
 							label: isRemoteBranch
-								? 'Create Worktree for Local Branch'
+								? 'Create Worktree from Local Branch'
 								: isBranch
-								  ? 'Create Worktree for Branch'
+								  ? 'Create Worktree from Branch'
 								  : context.title,
 							description: '',
 							detail: `Will create worktree directly in $(folder) ${truncateLeft(
@@ -771,8 +771,8 @@ export class WorktreeGitCommand extends QuickCommand<State> {
 					['-b', '--direct'],
 					{
 						label: isRemoteBranch
-							? 'Create Worktree for New Local Branch'
-							: 'Create Worktree for New Branch',
+							? 'Create Worktree from New Local Branch'
+							: 'Create Worktree from New Branch',
 						description: '',
 						detail: `Will create worktree directly in $(folder) ${truncateLeft(pickedFriendlyPath, 60)}`,
 					},
