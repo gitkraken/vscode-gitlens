@@ -8,7 +8,7 @@ import { fetch, getProxyAgent } from '@env/fetch';
 import { hrtime } from '@env/hrtime';
 import { isLinux, isWindows } from '@env/platform';
 import type { CancellationToken, Event, TextDocument, WorkspaceFolder } from 'vscode';
-import { Disposable, env, EventEmitter, extensions, FileType, Range, Uri, window, workspace } from 'vscode';
+import { Disposable, env, EventEmitter, extensions, Range, Uri, window, workspace } from 'vscode';
 import type { GitExtension, API as ScmGitApi } from '../../../@types/vscode.git';
 import { getCachedAvatarUri } from '../../../avatars';
 import type { GitConfigKeys } from '../../../constants';
@@ -214,6 +214,7 @@ import { compare, fromString } from '../../../system/version';
 import { TimedCancellationSource } from '../../../system/vscode/cancellation';
 import { configuration } from '../../../system/vscode/configuration';
 import { getBestPath, relative, splitPath } from '../../../system/vscode/path';
+import { isFolder } from '../../../system/vscode/utils';
 import { serializeWebviewItemContext } from '../../../system/webview';
 import type { CachedBlame, CachedDiff, CachedLog, TrackedGitDocument } from '../../../trackers/trackedDocument';
 import { GitDocumentState } from '../../../trackers/trackedDocument';
@@ -1682,8 +1683,7 @@ export class LocalGitProvider implements GitProvider, Disposable {
 		let repoPath: string | undefined;
 		try {
 			if (isDirectory == null) {
-				const stats = await workspace.fs.stat(uri);
-				isDirectory = (stats.type & FileType.Directory) === FileType.Directory;
+				isDirectory = await isFolder(uri);
 			}
 
 			// If the uri isn't a directory, go up one level
