@@ -1,5 +1,5 @@
 import type { ChildProcess } from 'child_process';
-import { FileType, Uri, workspace } from 'vscode';
+import { Uri } from 'vscode';
 import { Schemes } from '../../../constants';
 import { Container } from '../../../container';
 import type { GitCommandOptions, GitSpawnOptions } from '../../../git/commandOptions';
@@ -8,6 +8,7 @@ import type { Repository } from '../../../git/models/repository';
 import { Logger } from '../../../system/logger';
 import { getLogScope } from '../../../system/logger.scope';
 import { addVslsPrefixIfNeeded } from '../../../system/vscode/path';
+import { isFolder } from '../../../system/vscode/utils';
 import { Git } from './git';
 import { LocalGitProvider } from './localGitProvider';
 
@@ -107,8 +108,7 @@ export class VslsGitProvider extends LocalGitProvider {
 		let repoPath: string | undefined;
 		try {
 			if (isDirectory == null) {
-				const stats = await workspace.fs.stat(uri);
-				isDirectory = (stats.type & FileType.Directory) === FileType.Directory;
+				isDirectory = await isFolder(uri);
 			}
 
 			// If the uri isn't a directory, go up one level
