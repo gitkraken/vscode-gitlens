@@ -1621,7 +1621,7 @@ export class SubscriptionService implements Disposable {
 
 		const pick = await window.showQuickPick(picks, {
 			title: 'Switch Organization',
-			placeHolder: 'Select the active organization for your account',
+			placeHolder: 'Choose an active organization for your account',
 		});
 
 		const currentActiveOrganization = this._subscription?.activeOrganization;

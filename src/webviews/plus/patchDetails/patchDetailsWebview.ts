@@ -465,7 +465,7 @@ export class PatchDetailsWebviewProvider
 				if (shouldPickBranch) {
 					const repo = commit.getRepository();
 					const branch = await showNewOrSelectBranchPicker(
-						`Choose a Branch ${GlyphChars.Dot} ${repo?.name}`,
+						`Select a Branch ${GlyphChars.Dot} ${repo?.name}`,
 						// 'Choose a branch to apply the Cloud Patch to',
 						repo,
 					);
@@ -551,7 +551,7 @@ export class PatchDetailsWebviewProvider
 
 		const members = await showOrganizationMembersPicker(
 			'Select Collaborators',
-			'Select the collaborators to share this patch with',
+			'Choose collaborators to share this patch with',
 			this.getOrganizationMembers(),
 			{
 				multiselect: true,
