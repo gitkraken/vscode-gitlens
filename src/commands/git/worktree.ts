@@ -401,7 +401,7 @@ export class WorktreeGitCommand extends QuickCommand<State> {
 					placeholder: context =>
 						`Choose a branch${context.showTags ? ' or tag' : ''} to create the new worktree for`,
 					picked: state.reference?.ref ?? (await state.repo.git.getBranch())?.ref,
-					titleContext: ' for',
+					title: `${context.title} for`,
 					value: isRevisionReference(state.reference) ? state.reference.ref : undefined,
 				});
 				// Always break on the first step (so we will go back)
@@ -449,7 +449,7 @@ export class WorktreeGitCommand extends QuickCommand<State> {
 
 				if (state.createBranch == null) {
 					const result = yield* inputBranchNameStep(state, context, {
-						titleContext: ` and New Branch from ${getReferenceLabel(state.reference, {
+						title: `${context.title} and New Branch from ${getReferenceLabel(state.reference, {
 							capitalize: true,
 							icon: false,
 							label: state.reference.refType !== 'branch',
