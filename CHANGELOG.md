@@ -13,6 +13,7 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/) and this p
 
 ### Fixed
 
+- Fixes [#3911](https://github.com/gitkraken/vscode-gitlens/issues/#3911) - Avoid Home opening when first-install isn't reliable (e.g. GitPod)
 - Fixes [#3888](https://github.com/gitkraken/vscode-gitlens/issues/#3888) - Graph hover should disappear when right-clicking a row
 
 ## [16.1.1] - 2024-12-20
