@@ -239,7 +239,7 @@ class AccountDebug {
 				);
 
 				quickpick.title = 'Subscription Simulator';
-				quickpick.placeholder = 'Select the subscription state to simulate';
+				quickpick.placeholder = 'Choose the subscription state to simulate';
 
 				const [items, picked] = getItemsAndPicked(this.simulatingPick);
 				quickpick.items = items;

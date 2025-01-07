@@ -28,26 +28,13 @@ export function gate<T extends (...arg: any) => any>(resolver?: (...args: Parame
 
 			let promise = this[prop];
 			if (promise === undefined) {
-				let result;
-				try {
-					result = fn.apply(this, args);
-					if (result == null || !isPromise(result)) {
-						return result;
-					}
-
-					this[prop] = promise = result
-						.then((r: any) => {
-							this[prop] = undefined;
-							return r;
-						})
-						.catch((ex: unknown) => {
-							this[prop] = undefined;
-							throw ex;
-						});
-				} catch (ex) {
-					this[prop] = undefined;
-					throw ex;
+				promise = fn.apply(this, args);
+				if (promise == null || !isPromise(promise)) {
+					return promise;
 				}
+
+				this[prop] = promise;
+				void promise.finally(() => (this[prop] = undefined));
 			}
 
 			return promise;

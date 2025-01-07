@@ -720,7 +720,7 @@ export class Repository implements Disposable {
 	@log()
 	async pull(options?: { progress?: boolean; rebase?: boolean }) {
 		const { progress, ...opts } = { progress: true, ...options };
-		if (!progress) return this.pullCore();
+		if (!progress) return this.pullCore(opts);
 
 		return window.withProgress(
 			{

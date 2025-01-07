@@ -1,5 +1,5 @@
 import type { ColorTheme, Tab, TextDocument, TextDocumentShowOptions, TextEditor, WorkspaceFolder } from 'vscode';
-import { version as codeVersion, ColorThemeKind, env, Uri, ViewColumn, window, workspace } from 'vscode';
+import { version as codeVersion, ColorThemeKind, env, FileType, Uri, ViewColumn, window, workspace } from 'vscode';
 import { imageMimetypes, Schemes, trackableSchemes } from '../../constants';
 import { isGitUri } from '../../git/gitUri';
 import { Logger } from '../logger';
@@ -145,6 +145,17 @@ export function isDarkTheme(theme: ColorTheme): boolean {
 
 export function isLightTheme(theme: ColorTheme): boolean {
 	return theme.kind === ColorThemeKind.Light || theme.kind === ColorThemeKind.HighContrastLight;
+}
+
+export async function isFolder(uri: Uri): Promise<boolean> {
+	try {
+		const stats = await workspace.fs.stat(uri);
+		if ((stats.type & FileType.Directory) === FileType.Directory) {
+			return true;
+		}
+	} catch {}
+
+	return false;
 }
 
 export function isTextDocument(document: unknown): document is TextDocument {

@@ -291,7 +291,7 @@ export class SwitchGitCommand extends QuickCommand<State> {
 						this._canConfirmOverride = false;
 
 						const result = yield* inputBranchNameStep(state as SwitchStepState, context, {
-							titleContext: ` from ${getReferenceLabel(state.reference, {
+							title: `${context.title} from ${getReferenceLabel(state.reference, {
 								capitalize: true,
 								icon: false,
 								label: state.reference.refType !== 'branch',

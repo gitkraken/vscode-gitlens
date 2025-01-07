@@ -361,7 +361,7 @@ export class BranchGitCommand extends QuickCommand {
 		while (this.canStepsContinue(state)) {
 			if (state.counter < 3 || state.reference == null) {
 				const result = yield* pickBranchOrTagStep(state, context, {
-					placeholder: `Select a base to create the new branch from`,
+					placeholder: `Choose a base to create the new branch from`,
 					picked: state.reference?.ref ?? (await state.repo.git.getBranch())?.ref,
 					title: 'Select Base to Create Branch From',
 					value: isRevisionReference(state.reference) ? state.reference.ref : undefined,
@@ -374,7 +374,7 @@ export class BranchGitCommand extends QuickCommand {
 
 			if (state.counter < 4 || state.name == null || state.suggestNameOnly) {
 				const result = yield* inputBranchNameStep(state, context, {
-					titleContext: ` from ${getReferenceLabel(state.reference, {
+					title: `${context.title} from ${getReferenceLabel(state.reference, {
 						capitalize: true,
 						icon: false,
 						label: state.reference.refType !== 'branch',
@@ -660,7 +660,7 @@ export class BranchGitCommand extends QuickCommand {
 
 			if (state.counter < 4 || state.name == null) {
 				const result = yield* inputBranchNameStep(state, context, {
-					titleContext: ` ${getReferenceLabel(state.reference, false)}`,
+					title: `${context.title} ${getReferenceLabel(state.reference, false)}`,
 					value: state.name ?? state.reference.name,
 				});
 				if (result === StepResultBreak) continue;

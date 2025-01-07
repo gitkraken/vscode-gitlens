@@ -103,12 +103,12 @@ export async function showNewOrSelectBranchPicker(
 
 	// TODO: needs updating
 	const createNewBranch = {
-		label: 'Create new branch',
+		label: 'Create New Branch',
 		description:
 			'Creates a branch to apply the Cloud Patch to. (Typing an existing branch name will use that branch.)',
 	};
 	const selectExistingBranch = {
-		label: 'Select existing branch',
+		label: 'Select Existing Branch',
 		description: 'Selects an existing branch to apply the Cloud Patch to.',
 	};
 
@@ -131,7 +131,7 @@ export async function showNewOrSelectBranchPicker(
 			);
 
 			quickpick.title = title;
-			quickpick.placeholder = 'Select a branch option';
+			quickpick.placeholder = 'Choose a branch option';
 			quickpick.matchOnDescription = true;
 			quickpick.matchOnDetail = true;
 			quickpick.items = items;
@@ -142,7 +142,7 @@ export async function showNewOrSelectBranchPicker(
 		if (pick === createNewBranch) {
 			return await showNewBranchPicker(title, 'Enter a name for the new branch', repository);
 		} else if (pick === selectExistingBranch) {
-			return await showBranchPicker(title, 'Select an existing branch', repository);
+			return await showBranchPicker(title, 'Choose an existing branch', repository);
 		}
 
 		return undefined;

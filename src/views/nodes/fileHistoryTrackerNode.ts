@@ -1,5 +1,5 @@
 import type { TextEditor } from 'vscode';
-import { Disposable, FileType, TreeItem, TreeItemCollapsibleState, window, workspace } from 'vscode';
+import { Disposable, TreeItem, TreeItemCollapsibleState, window } from 'vscode';
 import type { GitCommitish } from '../../git/gitUri';
 import { GitUri, unknownGitUri } from '../../git/gitUri';
 import { isBranchReference } from '../../git/models/reference.utils';
@@ -14,7 +14,7 @@ import { debounce } from '../../system/function';
 import { Logger } from '../../system/logger';
 import { getLogScope, setLogScopeExit } from '../../system/logger.scope';
 import { setContext } from '../../system/vscode/context';
-import { isVirtualUri } from '../../system/vscode/utils';
+import { isFolder, isVirtualUri } from '../../system/vscode/utils';
 import type { FileHistoryView } from '../fileHistoryView';
 import { SubscribeableViewNode } from './abstract/subscribeableViewNode';
 import type { ViewNode } from './abstract/viewNode';
@@ -62,14 +62,7 @@ export class FileHistoryTrackerNode extends SubscribeableViewNode<'file-history-
 				sha: this._base ?? this.uri.sha,
 			};
 			const fileUri = new GitUri(this.uri, commitish);
-
-			let folder = false;
-			try {
-				const stats = await workspace.fs.stat(this.uri);
-				if ((stats.type & FileType.Directory) === FileType.Directory) {
-					folder = true;
-				}
-			} catch {}
+			const folder = await isFolder(this.uri);
 
 			this.view.title = folder ? 'Folder History' : 'File History';
 
