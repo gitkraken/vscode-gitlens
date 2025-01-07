@@ -38,8 +38,11 @@ export class RemotesGitSubProvider extends RemotesGitProviderBase implements Git
 		let remotesPromise = this.cache.remotes?.get(repoPath);
 		if (remotesPromise == null) {
 			async function load(this: RemotesGitSubProvider): Promise<GitRemote[]> {
+				const ci = await this.container.cloudIntegrations;
+				const connections = await ci?.getConnections();
 				const providers = loadRemoteProviders(
 					configuration.get('remotes', this.container.git.getRepository(repoPath!)?.folder?.uri ?? null),
+					connections,
 				);
 
 				try {
@@ -48,7 +51,7 @@ export class RemotesGitSubProvider extends RemotesGitProviderBase implements Git
 						this.container,
 						data,
 						repoPath!,
-						getRemoteProviderMatcher(this.container, providers),
+						await getRemoteProviderMatcher(this.container, providers),
 					);
 					return remotes;
 				} catch (ex) {
