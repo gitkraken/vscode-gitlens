@@ -948,7 +948,7 @@ export class GraphWebviewProvider implements WebviewProvider<State, State, Graph
 				RepositoryChange.Remotes,
 				// RepositoryChange.RemoteProviders,
 				RepositoryChange.Stash,
-				RepositoryChange.Status,
+				RepositoryChange.PausedOperationStatus,
 				RepositoryChange.Tags,
 				RepositoryChange.Unknown,
 				RepositoryChangeComparisonMode.Any,

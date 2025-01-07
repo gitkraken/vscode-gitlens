@@ -95,11 +95,12 @@ export const enum RepositoryChange {
 	Remotes = 5,
 	Worktrees = 6,
 	Config = 7,
-	/** Union of Cherry, Merge, and Rebase */
-	Status = 8,
+	/** Effectively a union of Cherry, Merge, Rebase, and Revert */
+	PausedOperationStatus = 8,
 	CherryPick = 9,
 	Merge = 10,
 	Rebase = 11,
+	Revert = 12,
 
 	// No file watching required
 	Closed = 100,
@@ -147,16 +148,18 @@ export class RepositoryChangeEvent {
 			if (
 				affected.includes(RepositoryChange.CherryPick) ||
 				affected.includes(RepositoryChange.Merge) ||
-				affected.includes(RepositoryChange.Rebase)
+				affected.includes(RepositoryChange.Rebase) ||
+				affected.includes(RepositoryChange.Revert)
 			) {
-				if (!affected.includes(RepositoryChange.Status)) {
-					affected.push(RepositoryChange.Status);
+				if (!affected.includes(RepositoryChange.PausedOperationStatus)) {
+					affected.push(RepositoryChange.PausedOperationStatus);
 				}
-			} else if (affected.includes(RepositoryChange.Status)) {
+			} else if (affected.includes(RepositoryChange.PausedOperationStatus)) {
 				changes = new Set(changes);
 				changes.delete(RepositoryChange.CherryPick);
 				changes.delete(RepositoryChange.Merge);
 				changes.delete(RepositoryChange.Rebase);
+				changes.delete(RepositoryChange.Revert);
 			}
 		}
 
@@ -486,7 +489,7 @@ export class Repository implements Disposable {
 		const match =
 			uri != null
 				? // Move worktrees first, since if it is in a worktree it isn't affecting this repo directly
-				  /(worktrees|index|HEAD|FETCH_HEAD|ORIG_HEAD|CHERRY_PICK_HEAD|MERGE_HEAD|REBASE_HEAD|rebase-merge|config|refs\/(?:heads|remotes|stash|tags))/.exec(
+				  /(worktrees|index|HEAD|FETCH_HEAD|ORIG_HEAD|CHERRY_PICK_HEAD|MERGE_HEAD|REBASE_HEAD|rebase-merge|REVERT_HEAD|config|refs\/(?:heads|remotes|stash|tags))/.exec(
 						this.container.git.getRelativePath(uri, base),
 				  )
 				: undefined;
@@ -514,16 +517,20 @@ export class Repository implements Disposable {
 					return;
 
 				case 'CHERRY_PICK_HEAD':
-					this.fireChange(RepositoryChange.CherryPick, RepositoryChange.Status);
+					this.fireChange(RepositoryChange.CherryPick, RepositoryChange.PausedOperationStatus);
 					return;
 
 				case 'MERGE_HEAD':
-					this.fireChange(RepositoryChange.Merge, RepositoryChange.Status);
+					this.fireChange(RepositoryChange.Merge, RepositoryChange.PausedOperationStatus);
 					return;
 
 				case 'REBASE_HEAD':
 				case 'rebase-merge':
-					this.fireChange(RepositoryChange.Rebase, RepositoryChange.Status);
+					this.fireChange(RepositoryChange.Rebase, RepositoryChange.PausedOperationStatus);
+					return;
+
+				case 'REVERT_HEAD':
+					this.fireChange(RepositoryChange.Revert, RepositoryChange.PausedOperationStatus);
 					return;
 
 				case 'refs/heads':

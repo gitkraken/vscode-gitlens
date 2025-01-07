@@ -268,9 +268,7 @@ export class GlActiveBranchCard extends GlBranchCardBase {
 			`);
 		}
 
-		const rebaseStatus = this.wip?.rebaseStatus;
-		const mergeStatus = this.wip?.mergeStatus;
-		if (rebaseStatus != null || mergeStatus != null) {
+		if (this.wip?.pausedOpStatus != null) {
 			return wrappedActions();
 		}
 
@@ -371,15 +369,11 @@ export class GlActiveBranchCard extends GlBranchCardBase {
 
 	protected renderBranchIndicator() {
 		const wip = this.wip;
-
-		if (wip?.mergeStatus == null && wip?.rebaseStatus == null) {
-			return undefined;
-		}
+		if (wip?.pausedOpStatus == null) return undefined;
 
 		return html`<gl-merge-rebase-status
 			?conflicts=${wip.hasConflicts}
-			.merge=${wip.mergeStatus}
-			.rebase=${wip.rebaseStatus}
+			.pausedOpStatus=${wip.pausedOpStatus}
 		></gl-merge-rebase-status>`;
 	}
 

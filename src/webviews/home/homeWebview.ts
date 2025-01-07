@@ -754,7 +754,7 @@ export class HomeWebviewProvider implements WebviewProvider<State, State, HomeWe
 						RepositoryChange.Heads,
 						// RepositoryChange.Index,
 						RepositoryChange.Remotes,
-						RepositoryChange.Status,
+						RepositoryChange.PausedOperationStatus,
 						RepositoryChange.Unknown,
 						RepositoryChangeComparisonMode.Any,
 					)
@@ -1489,21 +1489,18 @@ async function getWipInfo(
 ) {
 	if (statusPromise == null) return undefined;
 
-	const [statusResult, mergeStatusResult, rebaseStatusResult] = await Promise.allSettled([
+	const [statusResult, pausedOpStatusResult] = await Promise.allSettled([
 		statusPromise,
-		active ? container.git.getMergeStatus(branch.repoPath) : undefined,
-		active ? container.git.getRebaseStatus(branch.repoPath) : undefined,
+		active ? container.git.getPausedOperationStatus(branch.repoPath) : undefined,
 	]);
 
 	const status = getSettledValue(statusResult);
-	const mergeStatus = getSettledValue(mergeStatusResult);
-	const rebaseStatus = getSettledValue(rebaseStatusResult);
+	const pausedOpStatus = getSettledValue(pausedOpStatusResult);
 
 	return {
 		workingTreeState: status?.getDiffStatus(),
 		hasConflicts: status?.hasConflicts,
 		conflictsCount: status?.conflicts.length,
-		mergeStatus: mergeStatus,
-		rebaseStatus: rebaseStatus,
+		pausedOpStatus: pausedOpStatus,
 	} satisfies WipInfo;
 }

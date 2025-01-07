@@ -75,7 +75,8 @@ const rootSha = '4b825dc642cb6eb9a060e54bf8d69288fbee4904';
 export const GitErrors = {
 	badRevision: /bad revision '(.*?)'/i,
 	cantLockRef: /cannot lock ref|unable to update local ref/i,
-	changesWouldBeOverwritten: /Your local changes to the following files would be overwritten/i,
+	changesWouldBeOverwritten:
+		/Your local changes to the following files would be overwritten|Your local changes would be overwritten/i,
 	commitChangesFirst: /Please, commit your changes before you can/i,
 	conflict: /^CONFLICT \([^)]+\): \b/m,
 	failedToDeleteDirectoryNotEmpty: /failed to delete '(.*?)': Directory not empty/i,
@@ -93,18 +94,21 @@ export const GitErrors = {
 	alreadyCheckedOut: /already checked out/i,
 	mainWorkingTree: /is a main working tree/i,
 	noUpstream: /^fatal: The current branch .* has no upstream branch/i,
+	noPausedOperation:
+		/no merge (?:in progress|to abort)|no cherry-pick(?: or revert)? in progress|no rebase in progress/i,
 	permissionDenied: /Permission.*denied/i,
 	pushRejected: /^error: failed to push some refs to\b/m,
 	rebaseMultipleBranches: /cannot rebase onto multiple branches/i,
 	remoteAhead: /rejected because the remote contains work/i,
 	remoteConnection: /Could not read from remote repository/i,
 	tagConflict: /! \[rejected\].*\(would clobber existing tag\)/m,
-	unmergedFiles: /is not possible because you have unmerged files/i,
+	unmergedFiles: /is not possible because you have unmerged files|You have unmerged files/i,
 	unstagedChanges: /You have unstaged changes/i,
 	tagAlreadyExists: /tag .* already exists/i,
 	tagNotFound: /tag .* not found/i,
 	invalidTagName: /invalid tag name/i,
 	remoteRejected: /rejected because the remote contains work/i,
+	unresolvedConflicts: /You must edit all merge conflicts|Resolve all conflicts/i,
 };
 
 const GitWarnings = {
@@ -1543,7 +1547,7 @@ export class Git {
 				target,
 			);
 		} catch (ex) {
-			const msg = ex?.toString() ?? '';
+			const msg: string = ex?.toString() ?? '';
 
 			if (GitErrors.notAValidObjectName.test(msg)) {
 				throw new Error(

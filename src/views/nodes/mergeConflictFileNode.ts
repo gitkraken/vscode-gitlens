@@ -3,8 +3,7 @@ import { ThemeIcon, TreeItem, TreeItemCollapsibleState } from 'vscode';
 import { StatusFileFormatter } from '../../git/formatters/statusFormatter';
 import { GitUri } from '../../git/gitUri';
 import type { GitFile } from '../../git/models/file';
-import type { GitMergeStatus } from '../../git/models/merge';
-import type { GitRebaseStatus } from '../../git/models/rebase';
+import type { GitPausedOperationStatus } from '../../git/models/pausedOperationStatus';
 import { createCoreCommand } from '../../system/vscode/command';
 import { relativeDir } from '../../system/vscode/path';
 import type { ViewsWithCommits } from '../viewBase';
@@ -20,7 +19,7 @@ export class MergeConflictFileNode extends ViewFileNode<'conflict-file', ViewsWi
 		view: ViewsWithCommits,
 		parent: ViewNode,
 		file: GitFile,
-		public readonly status: GitMergeStatus | GitRebaseStatus,
+		public readonly status: GitPausedOperationStatus,
 	) {
 		super('conflict-file', GitUri.fromFile(file, status.repoPath, status.HEAD.ref), view, parent, file);
 	}

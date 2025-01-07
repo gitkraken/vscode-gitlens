@@ -62,8 +62,6 @@ import type {
 	GitGraphRowTag,
 } from '../../../../git/models/graph';
 import type { GitLog } from '../../../../git/models/log';
-import type { GitMergeStatus } from '../../../../git/models/merge';
-import type { GitRebaseStatus } from '../../../../git/models/rebase';
 import type { GitReference } from '../../../../git/models/reference';
 import { createReference } from '../../../../git/models/reference.utils';
 import type { GitReflog } from '../../../../git/models/reflog';
@@ -695,7 +693,7 @@ export class GitHubGitProvider implements GitProvider, Disposable {
 			debugger;
 			// Trap and cache expected blame errors
 			if (document.state != null && !String(ex).includes('No provider registered with')) {
-				const msg = ex?.toString() ?? '';
+				const msg: string = ex?.toString() ?? '';
 				Logger.debug(scope, `Cache replace (with empty promise): '${key}'`);
 
 				const value: CachedBlame = {
@@ -2559,18 +2557,6 @@ export class GitHubGitProvider implements GitProvider, Disposable {
 			debugger;
 			return undefined;
 		}
-	}
-
-	// @gate()
-	@log()
-	async getMergeStatus(_repoPath: string): Promise<GitMergeStatus | undefined> {
-		return undefined;
-	}
-
-	// @gate()
-	@log()
-	async getRebaseStatus(_repoPath: string): Promise<GitRebaseStatus | undefined> {
-		return undefined;
 	}
 
 	@log()
