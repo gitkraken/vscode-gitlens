@@ -17,11 +17,11 @@ export class VslsGit extends Git {
 		super();
 	}
 
-	override async git<TOut extends string | Buffer>(options: GitCommandOptions, ...args: any[]): Promise<TOut> {
+	override async exec<TOut extends string | Buffer>(options: GitCommandOptions, ...args: any[]): Promise<TOut> {
 		if (options.local) {
 			// Since we will have a live share path here, just blank it out
 			options.cwd = '';
-			return this.localGit.git<TOut>(options, ...args);
+			return this.localGit.exec<TOut>(options, ...args);
 		}
 
 		const guest = await Container.instance.vsls.guest();
@@ -33,8 +33,7 @@ export class VslsGit extends Git {
 		return guest.git<TOut>(options, ...args);
 	}
 
-	// eslint-disable-next-line @typescript-eslint/require-await
-	override async gitSpawn(_options: GitSpawnOptions, ..._args: any[]): Promise<ChildProcess> {
+	override spawn(_options: GitSpawnOptions, ..._args: any[]): Promise<ChildProcess> {
 		debugger;
 		throw new Error('Git spawn not supported in Live Share');
 	}
