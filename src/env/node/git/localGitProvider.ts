@@ -1387,7 +1387,7 @@ export class LocalGitProvider implements GitProvider, Disposable {
 			// Create the temp index file from a base ref/sha
 
 			// Get the tree of the base
-			const newIndex = await this.git.git<string>(
+			const newIndex = await this.git.exec<string>(
 				{
 					cwd: repoPath,
 					env: env,
@@ -1400,7 +1400,7 @@ export class LocalGitProvider implements GitProvider, Disposable {
 			);
 
 			// Write the tree to our temp index
-			await this.git.git<string>(
+			await this.git.exec<string>(
 				{
 					cwd: repoPath,
 					env: env,
@@ -1416,7 +1416,7 @@ export class LocalGitProvider implements GitProvider, Disposable {
 
 			// Create a new tree from our patched index
 			const tree = (
-				await this.git.git<string>(
+				await this.git.exec<string>(
 					{
 						cwd: repoPath,
 						env: env,
@@ -1427,7 +1427,7 @@ export class LocalGitProvider implements GitProvider, Disposable {
 
 			// Create new commit from the tree
 			const sha = (
-				await this.git.git<string>(
+				await this.git.exec<string>(
 					{
 						cwd: repoPath,
 						env: env,
@@ -3018,7 +3018,7 @@ export class LocalGitProvider implements GitProvider, Disposable {
 		}
 
 		try {
-			const data = await this.git.git<string>({ cwd: repoPath }, ...args);
+			const data = await this.git.exec<string>({ cwd: repoPath }, ...args);
 			if (data == null) return undefined;
 
 			const contributions = data
@@ -3325,7 +3325,7 @@ export class LocalGitProvider implements GitProvider, Disposable {
 	}
 
 	private async getValidatedBranchName(repoPath: string, name: string): Promise<string | undefined> {
-		const data = await this.git.git<string>(
+		const data = await this.git.exec<string>(
 			{ cwd: repoPath },
 			'rev-parse',
 			'--verify',
