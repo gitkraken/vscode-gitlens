@@ -31,8 +31,7 @@ import { BranchTrackingStatusNode } from './branchTrackingStatusNode';
 import { MessageNode } from './common';
 import { CompareBranchNode } from './compareBranchNode';
 import { ContributorsNode } from './contributorsNode';
-import { MergeStatusNode } from './mergeStatusNode';
-import { RebaseStatusNode } from './rebaseStatusNode';
+import { PausedOperationStatusNode } from './pausedOperationStatusNode';
 import { ReflogNode } from './reflogNode';
 import { RemotesNode } from './remotesNode';
 import { StashesNode } from './stashesNode';
@@ -99,15 +98,9 @@ export class RepositoryNode extends SubscribeableViewNode<'repository', ViewsWit
 					status.rebasing,
 				);
 
-				const [mergeStatus, rebaseStatus] = await Promise.all([
-					this.view.container.git.getMergeStatus(status.repoPath),
-					this.view.container.git.getRebaseStatus(status.repoPath),
-				]);
-
-				if (mergeStatus != null) {
-					children.push(new MergeStatusNode(this.view, this, branch, mergeStatus, status, true));
-				} else if (rebaseStatus != null) {
-					children.push(new RebaseStatusNode(this.view, this, branch, rebaseStatus, status, true));
+				const pausedOpStatus = await this.view.container.git.getPausedOperationStatus(status.repoPath);
+				if (pausedOpStatus != null) {
+					children.push(new PausedOperationStatusNode(this.view, this, branch, pausedOpStatus, status, true));
 				} else if (this.view.config.showUpstreamStatus) {
 					if (status.upstream) {
 						if (!status.state.behind && !status.state.ahead) {
@@ -453,7 +446,7 @@ export class RepositoryNode extends SubscribeableViewNode<'repository', ViewsWit
 				RepositoryChange.Index,
 				RepositoryChange.Heads,
 				RepositoryChange.Opened,
-				RepositoryChange.Status,
+				RepositoryChange.PausedOperationStatus,
 				RepositoryChange.Unknown,
 				RepositoryChangeComparisonMode.Any,
 			)

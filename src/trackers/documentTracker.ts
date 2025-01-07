@@ -167,7 +167,7 @@ export class GitDocumentTracker implements Disposable {
 			e.changed(
 				RepositoryChange.Index,
 				RepositoryChange.Heads,
-				RepositoryChange.Status,
+				RepositoryChange.PausedOperationStatus,
 				RepositoryChange.Unknown,
 				RepositoryChangeComparisonMode.Any,
 			)

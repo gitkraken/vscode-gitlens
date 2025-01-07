@@ -97,11 +97,10 @@ import type {
 	GitGraphRowTag,
 } from '../../../git/models/graph';
 import type { GitLog } from '../../../git/models/log';
-import type { GitMergeStatus } from '../../../git/models/merge';
 import type { MergeConflict } from '../../../git/models/mergeConflict';
-import type { GitRebaseStatus } from '../../../git/models/rebase';
-import type { GitBranchReference, GitReference, GitTagReference } from '../../../git/models/reference';
-import { createReference, getReferenceFromBranch, isBranchReference } from '../../../git/models/reference.utils';
+import type { GitPausedOperationStatus } from '../../../git/models/pausedOperationStatus';
+import type { GitBranchReference, GitReference } from '../../../git/models/reference';
+import { createReference, isBranchReference } from '../../../git/models/reference.utils';
 import type { GitReflog } from '../../../git/models/reflog';
 import type { GitRemote } from '../../../git/models/remote';
 import { getVisibilityCacheKey, sortRemotes } from '../../../git/models/remote';
@@ -236,6 +235,7 @@ import {
 } from './git';
 import type { GitLocation } from './locator';
 import { findGitPath, InvalidGitConfigError, UnableToFindGitError } from './locator';
+import { abortPausedOperation, continuePausedOperation, getPausedOperationStatus } from './operations/pausedOperations';
 import { CancelledRunError, fsExists, RunError } from './shell';
 
 const emptyArray = Object.freeze([]) as unknown as any[];
@@ -299,8 +299,7 @@ export class LocalGitProvider implements GitProvider, Disposable {
 	private readonly _branchCache = new Map<string, Promise<GitBranch | undefined>>();
 	private readonly _branchesCache = new Map<string, Promise<PagedResult<GitBranch>>>();
 	private readonly _contributorsCache = new Map<string, Map<string, Promise<GitContributor[]>>>();
-	private readonly _mergeStatusCache = new Map<string, Promise<GitMergeStatus | undefined>>();
-	private readonly _rebaseStatusCache = new Map<string, Promise<GitRebaseStatus | undefined>>();
+	private readonly _pausedOperationStatusCache = new Map<string, Promise<GitPausedOperationStatus | undefined>>();
 	private readonly _remotesCache = new Map<string, Promise<GitRemote[]>>();
 	private readonly _repoInfoCache = new Map<string, RepositoryInfo>();
 	private readonly _stashesCache = new Map<string, GitStash | null>();
@@ -356,14 +355,17 @@ export class LocalGitProvider implements GitProvider, Disposable {
 			this._trackedPaths.clear();
 		}
 
-		if (e.changed(RepositoryChange.Merge, RepositoryChangeComparisonMode.Any)) {
+		if (
+			e.changed(
+				RepositoryChange.CherryPick,
+				RepositoryChange.Merge,
+				RepositoryChange.Rebase,
+				RepositoryChange.Revert,
+				RepositoryChangeComparisonMode.Any,
+			)
+		) {
 			this._branchCache.delete(repo.path);
-			this._mergeStatusCache.delete(repo.path);
-		}
-
-		if (e.changed(RepositoryChange.Rebase, RepositoryChangeComparisonMode.Any)) {
-			this._branchCache.delete(repo.path);
-			this._rebaseStatusCache.delete(repo.path);
+			this._pausedOperationStatusCache.delete(repo.path);
 		}
 
 		if (e.changed(RepositoryChange.Stash, RepositoryChangeComparisonMode.Any)) {
@@ -1479,7 +1481,7 @@ export class LocalGitProvider implements GitProvider, Disposable {
 		}
 
 		if (!caches.length || caches.includes('status')) {
-			cachesToClear.push(this._mergeStatusCache, this._rebaseStatusCache);
+			cachesToClear.push(this._pausedOperationStatusCache);
 		}
 
 		if (!caches.length || caches.includes('tags')) {
@@ -1872,7 +1874,7 @@ export class LocalGitProvider implements GitProvider, Disposable {
 
 			// Trap and cache expected blame errors
 			if (document.state != null) {
-				const msg = ex?.toString() ?? '';
+				const msg: string = ex?.toString() ?? '';
 				Logger.debug(scope, `Cache replace (with empty promise): '${key}'; reason=${msg}`);
 
 				const value: CachedBlame = {
@@ -1968,7 +1970,7 @@ export class LocalGitProvider implements GitProvider, Disposable {
 
 			// Trap and cache expected blame errors
 			if (document.state != null) {
-				const msg = ex?.toString() ?? '';
+				const msg: string = ex?.toString() ?? '';
 				Logger.debug(scope, `Cache replace (with empty promise): '${key}'; reason=${msg}`);
 
 				const value: CachedBlame = {
@@ -2220,13 +2222,14 @@ export class LocalGitProvider implements GitProvider, Disposable {
 
 		const [name, upstream] = data[0].split('\n');
 
-		const [rebaseStatusResult, committerDateResult] = await Promise.allSettled([
-			isDetachedHead(name) ? this.getRebaseStatus(repoPath) : undefined,
+		const [pausedOpStatusResult, committerDateResult] = await Promise.allSettled([
+			isDetachedHead(name) ? this.getPausedOperationStatus(repoPath) : undefined,
 			this.git.log__recent_committerdate(repoPath, commitOrdering),
 		]);
 
 		const committerDate = getSettledValue(committerDateResult);
-		const rebaseStatus = getSettledValue(rebaseStatusResult);
+		const pausedOpStatus = getSettledValue(pausedOpStatusResult);
+		const rebaseStatus = pausedOpStatus?.type === 'rebase' ? pausedOpStatus : undefined;
 
 		return new GitBranch(
 			this.container,
@@ -3539,7 +3542,7 @@ export class LocalGitProvider implements GitProvider, Disposable {
 		} catch (ex) {
 			// Trap and cache expected diff errors
 			if (document.state != null) {
-				const msg = ex?.toString() ?? '';
+				const msg: string = ex?.toString() ?? '';
 				Logger.debug(scope, `Cache replace (with empty promise): '${key}'`);
 
 				const value: CachedDiff = {
@@ -3624,7 +3627,7 @@ export class LocalGitProvider implements GitProvider, Disposable {
 		} catch (ex) {
 			// Trap and cache expected diff errors
 			if (document.state != null) {
-				const msg = ex?.toString() ?? '';
+				const msg: string = ex?.toString() ?? '';
 				Logger.debug(scope, `Cache replace (with empty promise): '${key}'`);
 
 				const value: CachedDiff = {
@@ -4417,170 +4420,24 @@ export class LocalGitProvider implements GitProvider, Disposable {
 		}
 	}
 
+	@gate()
 	@log()
-	async getMergeStatus(repoPath: string): Promise<GitMergeStatus | undefined> {
-		let status = this.useCaching ? this._mergeStatusCache.get(repoPath) : undefined;
-		if (status == null) {
-			async function getCore(this: LocalGitProvider): Promise<GitMergeStatus | undefined> {
-				const merge = await this.git.rev_parse__verify(repoPath, 'MERGE_HEAD');
-				if (merge == null) return undefined;
-
-				const [branchResult, mergeBaseResult, possibleSourceBranchesResult] = await Promise.allSettled([
-					this.getBranch(repoPath),
-					this.getMergeBase(repoPath, 'MERGE_HEAD', 'HEAD'),
-					this.getCommitBranches(repoPath, ['MERGE_HEAD'], undefined, { all: true, mode: 'pointsAt' }),
-				]);
-
-				const branch = getSettledValue(branchResult);
-				const mergeBase = getSettledValue(mergeBaseResult);
-				const possibleSourceBranches = getSettledValue(possibleSourceBranchesResult);
-
-				return {
-					type: 'merge',
-					repoPath: repoPath,
-					mergeBase: mergeBase,
-					HEAD: createReference(merge, repoPath, { refType: 'revision' }),
-					current: getReferenceFromBranch(branch!),
-					incoming:
-						possibleSourceBranches?.length === 1
-							? createReference(possibleSourceBranches[0], repoPath, {
-									refType: 'branch',
-									name: possibleSourceBranches[0],
-									remote: false,
-							  })
-							: undefined,
-				} satisfies GitMergeStatus;
-			}
-
-			status = getCore.call(this);
-			if (this.useCaching) {
-				this._mergeStatusCache.set(repoPath, status);
-			}
-		}
-
-		return status;
+	getPausedOperationStatus(repoPath: string): Promise<GitPausedOperationStatus | undefined> {
+		return getPausedOperationStatus.call(
+			this,
+			repoPath,
+			this.useCaching ? this._pausedOperationStatusCache : undefined,
+		);
 	}
 
 	@log()
-	async getRebaseStatus(repoPath: string): Promise<GitRebaseStatus | undefined> {
-		let status = this.useCaching ? this._rebaseStatusCache.get(repoPath) : undefined;
-		if (status == null) {
-			async function getCore(this: LocalGitProvider): Promise<GitRebaseStatus | undefined> {
-				const gitDir = await this.getGitDir(repoPath);
-				const [rebaseMergeHeadResult, rebaseApplyHeadResult] = await Promise.allSettled([
-					this.git.readDotGitFile(gitDir, ['rebase-merge', 'head-name']),
-					this.git.readDotGitFile(gitDir, ['rebase-apply', 'head-name']),
-				]);
-				const rebaseMergeHead = getSettledValue(rebaseMergeHeadResult);
-				const rebaseApplyHead = getSettledValue(rebaseApplyHeadResult);
+	abortPausedOperation(repoPath: string, options?: { quit?: boolean }): Promise<void> {
+		return abortPausedOperation.call(this, repoPath, options);
+	}
 
-				let branch = rebaseApplyHead ?? rebaseMergeHead;
-				if (branch == null) return undefined;
-
-				const path = rebaseApplyHead != null ? 'rebase-apply' : 'rebase-merge';
-
-				const [
-					rebaseHeadResult,
-					origHeadResult,
-					ontoResult,
-					stepsNumberResult,
-					stepsTotalResult,
-					stepsMessageResult,
-				] = await Promise.allSettled([
-					this.git.rev_parse__verify(repoPath, 'REBASE_HEAD'),
-					this.git.readDotGitFile(gitDir, [path, 'orig-head']),
-					this.git.readDotGitFile(gitDir, [path, 'onto']),
-					this.git.readDotGitFile(gitDir, [path, 'msgnum'], { numeric: true }),
-					this.git.readDotGitFile(gitDir, [path, 'end'], { numeric: true }),
-					this.git
-						.readDotGitFile(gitDir, [path, 'message'], { throw: true })
-						.catch(() => this.git.readDotGitFile(gitDir, [path, 'message-squashed'])),
-				]);
-
-				const origHead = getSettledValue(origHeadResult);
-				const onto = getSettledValue(ontoResult);
-				if (origHead == null || onto == null) return undefined;
-
-				let mergeBase;
-				const rebaseHead = getSettledValue(rebaseHeadResult);
-				if (rebaseHead != null) {
-					mergeBase = await this.getMergeBase(repoPath, rebaseHead, 'HEAD');
-				} else {
-					mergeBase = await this.getMergeBase(repoPath, onto, origHead);
-				}
-
-				if (branch.startsWith('refs/heads/')) {
-					branch = branch.substring(11).trim();
-				}
-
-				const [branchTipsResult, tagTipsResult] = await Promise.allSettled([
-					this.getCommitBranches(repoPath, [onto], undefined, { all: true, mode: 'pointsAt' }),
-					this.getCommitTags(repoPath, onto, { mode: 'pointsAt' }),
-				]);
-
-				const branchTips = getSettledValue(branchTipsResult);
-				const tagTips = getSettledValue(tagTipsResult);
-
-				let ontoRef: GitBranchReference | GitTagReference | undefined;
-				if (branchTips != null) {
-					for (const ref of branchTips) {
-						if (ref.startsWith('(no branch, rebasing')) continue;
-
-						ontoRef = createReference(ref, repoPath, {
-							refType: 'branch',
-							name: ref,
-							remote: false,
-						});
-						break;
-					}
-				}
-				if (ontoRef == null && tagTips != null) {
-					for (const ref of tagTips) {
-						if (ref.startsWith('(no branch, rebasing')) continue;
-
-						ontoRef = createReference(ref, repoPath, {
-							refType: 'tag',
-							name: ref,
-						});
-						break;
-					}
-				}
-
-				return {
-					type: 'rebase',
-					repoPath: repoPath,
-					mergeBase: mergeBase,
-					HEAD: createReference(rebaseHead ?? origHead, repoPath, { refType: 'revision' }),
-					onto: createReference(onto, repoPath, { refType: 'revision' }),
-					current: ontoRef,
-					incoming: createReference(branch, repoPath, {
-						refType: 'branch',
-						name: branch,
-						remote: false,
-					}),
-					steps: {
-						current: {
-							number: getSettledValue(stepsNumberResult) ?? 0,
-							commit:
-								rebaseHead != null
-									? createReference(rebaseHead, repoPath, {
-											refType: 'revision',
-											message: getSettledValue(stepsMessageResult),
-									  })
-									: undefined,
-						},
-						total: getSettledValue(stepsTotalResult) ?? 0,
-					},
-				} satisfies GitRebaseStatus;
-			}
-
-			status = getCore.call(this);
-			if (this.useCaching) {
-				this._rebaseStatusCache.set(repoPath, status);
-			}
-		}
-
-		return status;
+	@log()
+	continuePausedOperation(repoPath: string, options?: { skip?: boolean }): Promise<void> {
+		return continuePausedOperation.call(this, repoPath, options);
 	}
 
 	@log()
@@ -5335,11 +5192,11 @@ export class LocalGitProvider implements GitProvider, Disposable {
 		const status = parseGitStatus(data, repoPath, porcelainVersion);
 
 		if (status?.detached) {
-			const rebaseStatus = await this.getRebaseStatus(repoPath);
-			if (rebaseStatus != null) {
+			const pausedOpStatus = await this.getPausedOperationStatus(repoPath);
+			if (pausedOpStatus?.type === 'rebase') {
 				return new GitStatus(
 					repoPath,
-					rebaseStatus.incoming.name,
+					pausedOpStatus.incoming.name,
 					status.sha,
 					status.files,
 					status.state,

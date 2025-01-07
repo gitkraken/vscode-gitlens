@@ -18,8 +18,10 @@ export class GlCard extends LitElement {
 	indicator?:
 		| 'base'
 		| 'active'
+		| 'cherry-picking'
 		| 'merging'
 		| 'rebasing'
+		| 'reverting'
 		| 'conflict'
 		| 'issue-open'
 		| 'issue-closed'
