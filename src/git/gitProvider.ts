@@ -13,9 +13,8 @@ import type { GitDiff, GitDiffFile, GitDiffFiles, GitDiffFilter, GitDiffLine, Gi
 import type { GitFile, GitFileChange } from './models/file';
 import type { GitGraph } from './models/graph';
 import type { GitLog } from './models/log';
-import type { GitMergeStatus } from './models/merge';
 import type { MergeConflict } from './models/mergeConflict';
-import type { GitRebaseStatus } from './models/rebase';
+import type { GitPausedOperationStatus } from './models/pausedOperationStatus';
 import type { GitBranchReference, GitReference } from './models/reference';
 import type { GitReflog } from './models/reflog';
 import type { GitRemote } from './models/remote';
@@ -329,8 +328,6 @@ export interface GitProviderRepository {
 		ref2: string,
 		options?: { forkPoint?: boolean | undefined },
 	): Promise<string | undefined>;
-	getMergeStatus(repoPath: string): Promise<GitMergeStatus | undefined>;
-	getRebaseStatus(repoPath: string): Promise<GitRebaseStatus | undefined>;
 	getNextComparisonUris(
 		repoPath: string,
 		uri: Uri,
@@ -338,6 +335,9 @@ export interface GitProviderRepository {
 		skip?: number,
 	): Promise<NextComparisonUrisResult | undefined>;
 	getOldestUnpushedRefForFile(repoPath: string, uri: Uri): Promise<string | undefined>;
+	getPausedOperationStatus?(repoPath: string): Promise<GitPausedOperationStatus | undefined>;
+	abortPausedOperation?(repoPath: string, options?: { quit?: boolean }): Promise<void>;
+	continuePausedOperation?(repoPath: string, options?: { skip?: boolean }): Promise<void>;
 	getPreviousComparisonUris(
 		repoPath: string,
 		uri: Uri,

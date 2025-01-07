@@ -1,7 +1,6 @@
 import { TreeItem, TreeItemCollapsibleState } from 'vscode';
 import { GitUri } from '../../git/gitUri';
-import type { GitMergeStatus } from '../../git/models/merge';
-import type { GitRebaseStatus } from '../../git/models/rebase';
+import type { GitPausedOperationStatus } from '../../git/models/pausedOperationStatus';
 import type { GitStatusFile } from '../../git/models/status';
 import { makeHierarchical } from '../../system/array';
 import { joinPaths, normalizePath } from '../../system/path';
@@ -16,7 +15,7 @@ export class MergeConflictFilesNode extends ViewNode<'conflict-files', ViewsWith
 	constructor(
 		view: ViewsWithCommits,
 		protected override readonly parent: ViewNode,
-		private readonly status: GitMergeStatus | GitRebaseStatus,
+		private readonly status: GitPausedOperationStatus,
 		private readonly conflicts: GitStatusFile[],
 	) {
 		super('conflict-files', GitUri.fromRepoPath(status.repoPath), view, parent);

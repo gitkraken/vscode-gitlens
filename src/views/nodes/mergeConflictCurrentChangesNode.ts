@@ -6,8 +6,7 @@ import { GlCommand } from '../../constants.commands';
 import { GitUri } from '../../git/gitUri';
 import type { GitCommit } from '../../git/models/commit';
 import type { GitFile } from '../../git/models/file';
-import type { GitMergeStatus } from '../../git/models/merge';
-import type { GitRebaseStatus } from '../../git/models/rebase';
+import type { GitPausedOperationStatus } from '../../git/models/pausedOperationStatus';
 import { getReferenceLabel } from '../../git/models/reference.utils';
 import { createCommand, createCoreCommand } from '../../system/vscode/command';
 import { configuration } from '../../system/vscode/configuration';
@@ -24,7 +23,7 @@ export class MergeConflictCurrentChangesNode extends ViewNode<
 	constructor(
 		view: ViewsWithCommits | FileHistoryView | LineHistoryView,
 		protected override readonly parent: ViewNode,
-		private readonly status: GitMergeStatus | GitRebaseStatus,
+		private readonly status: GitPausedOperationStatus,
 		private readonly file: GitFile,
 	) {
 		super('conflict-current-changes', GitUri.fromFile(file, status.repoPath, 'HEAD'), view, parent);

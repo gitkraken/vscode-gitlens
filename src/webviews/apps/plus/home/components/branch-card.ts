@@ -407,11 +407,18 @@ export abstract class GlBranchCardBase extends GlElement {
 	get branchCardIndicator() {
 		if (!this.branch.opened) return undefined;
 
-		const isMerging = this.wip?.mergeStatus != null;
-		const isRebasing = this.wip?.rebaseStatus != null;
-		if (isMerging || isRebasing) {
+		if (this.wip?.pausedOpStatus != null) {
 			if (this.wip?.hasConflicts) return 'conflict';
-			return isMerging ? 'merging' : 'rebasing';
+			switch (this.wip.pausedOpStatus.type) {
+				case 'cherry-pick':
+					return 'cherry-picking';
+				case 'merge':
+					return 'merging';
+				case 'rebase':
+					return 'rebasing';
+				case 'revert':
+					return 'reverting';
+			}
 		}
 
 		const hasWip =

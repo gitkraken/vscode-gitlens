@@ -1,3 +1,5 @@
+import type { GitPausedOperation } from './models/pausedOperationStatus';
+
 export class GitSearchError extends Error {
 	constructor(public readonly original: Error) {
 		super(original.message);
@@ -565,5 +567,68 @@ export class TagError extends Error {
 		this.action = action;
 		this.message = TagError.buildTagErrorMessage(this.reason, this.tag, action);
 		return this;
+	}
+}
+
+export const enum PausedOperationAbortErrorReason {
+	NothingToAbort,
+}
+
+export class PausedOperationAbortError extends Error {
+	static is(ex: unknown, reason?: PausedOperationAbortErrorReason): ex is PausedOperationAbortError {
+		return ex instanceof PausedOperationAbortError && (reason == null || ex.reason === reason);
+	}
+
+	readonly original?: Error;
+	readonly reason: PausedOperationAbortErrorReason | undefined;
+	readonly operation: GitPausedOperation;
+
+	constructor(
+		reason: PausedOperationAbortErrorReason | undefined,
+		operation: GitPausedOperation,
+		message?: string,
+		original?: Error,
+	) {
+		message ||= 'Unable to abort operation';
+		super(message);
+
+		this.original = original;
+		this.reason = reason;
+		this.operation = operation;
+		Error.captureStackTrace?.(this, PausedOperationAbortError);
+	}
+}
+
+export const enum PausedOperationContinueErrorReason {
+	NothingToContinue,
+	UnmergedFiles,
+	UncommittedChanges,
+	UnstagedChanges,
+	UnresolvedConflicts,
+	WouldOverwrite,
+}
+
+export class PausedOperationContinueError extends Error {
+	static is(ex: unknown, reason?: PausedOperationContinueErrorReason): ex is PausedOperationContinueError {
+		return ex instanceof PausedOperationContinueError && (reason == null || ex.reason === reason);
+	}
+
+	readonly original?: Error;
+	readonly reason: PausedOperationContinueErrorReason | undefined;
+	readonly operation: GitPausedOperation;
+
+	constructor(
+		reason: PausedOperationContinueErrorReason | undefined,
+		operation: GitPausedOperation,
+		message?: string,
+		original?: Error,
+	) {
+		message ||= 'Unable to continue operation';
+		super(message);
+
+		this.original = original;
+		this.reason = reason;
+		this.operation = operation;
+		Error.captureStackTrace?.(this, PausedOperationContinueError);
 	}
 }

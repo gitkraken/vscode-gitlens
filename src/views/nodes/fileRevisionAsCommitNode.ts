@@ -59,18 +59,12 @@ export class FileRevisionAsCommitNode extends ViewRefFileNode<
 	async getChildren(): Promise<ViewNode[]> {
 		if (!this.commit.file?.hasConflicts) return [];
 
-		const [mergeStatusResult, rebaseStatusResult] = await Promise.allSettled([
-			this.view.container.git.getMergeStatus(this.commit.repoPath),
-			this.view.container.git.getRebaseStatus(this.commit.repoPath),
-		]);
-
-		const mergeStatus = getSettledValue(mergeStatusResult);
-		const rebaseStatus = getSettledValue(rebaseStatusResult);
-		if (mergeStatus == null && rebaseStatus == null) return [];
+		const pausedOpStatus = await this.view.container.git.getPausedOperationStatus(this.commit.repoPath);
+		if (pausedOpStatus == null) return [];
 
 		return [
-			new MergeConflictCurrentChangesNode(this.view, this, (mergeStatus ?? rebaseStatus)!, this.file),
-			new MergeConflictIncomingChangesNode(this.view, this, (mergeStatus ?? rebaseStatus)!, this.file),
+			new MergeConflictCurrentChangesNode(this.view, this, pausedOpStatus, this.file),
+			new MergeConflictIncomingChangesNode(this.view, this, pausedOpStatus, this.file),
 		];
 	}
 

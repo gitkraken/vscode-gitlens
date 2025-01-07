@@ -35,8 +35,10 @@ export const cardStyles = css`
 		border-inline-start-color: var(--gl-card-indicator-border, var(--vscode-gitDecoration-addedResourceForeground));
 	}
 
+	.card.is-cherry-picking,
+	.card.is-merging,
 	.card.is-rebasing,
-	.card.is-merging {
+	.card.is-reverting {
 		border-inline-start-color: var(
 			--gl-card-indicator-border,
 			var(--vscode-gitlens-decorations\\.statusMergingOrRebasingForegroundColor)
