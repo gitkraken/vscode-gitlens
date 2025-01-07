@@ -1,5 +1,8 @@
 import type { RemotesConfig } from '../../config';
+import { SelfHostedIntegrationId } from '../../constants.integrations';
 import type { Container } from '../../container';
+import type { CloudIntegrationConnection } from '../../plus/integrations/authentication/models';
+import { toIntegrationId } from '../../plus/integrations/authentication/models';
 import { Logger } from '../../system/logger';
 import { configuration } from '../../system/vscode/configuration';
 import { AzureDevOpsRemote } from './azure-devops';
@@ -73,7 +76,10 @@ const builtInProviders: RemoteProviders = [
 	},
 ];
 
-export function loadRemoteProviders(cfg: RemotesConfig[] | null | undefined): RemoteProviders {
+export function loadRemoteProviders(
+	cfg: RemotesConfig[] | null | undefined,
+	connectedIntegrations: CloudIntegrationConnection[] | undefined,
+): RemoteProviders {
 	const providers: RemoteProviders = [];
 
 	if (cfg?.length) {
@@ -94,6 +100,29 @@ export function loadRemoteProviders(cfg: RemotesConfig[] | null | undefined): Re
 				matcher: matcher!,
 				creator: providerCreator,
 			});
+		}
+	}
+
+	if (connectedIntegrations?.length) {
+		for (const ci of connectedIntegrations) {
+			if (toIntegrationId[ci.provider] === SelfHostedIntegrationId.CloudGitHubEnterprise) {
+				const matcher = new URL(ci.domain).host.toLocaleLowerCase();
+				const providerCreator = (_container: Container, domain: string, path: string) =>
+					new GitHubRemote(domain, path);
+				const provider = {
+					custom: false,
+					matcher: matcher,
+					creator: providerCreator,
+				};
+
+				const indexOfCustomDuplication: number = providers.findIndex(p => p.matcher === matcher);
+
+				if (indexOfCustomDuplication !== -1) {
+					providers[indexOfCustomDuplication] = provider;
+				} else {
+					providers.push(provider);
+				}
+			}
 		}
 	}
 
@@ -136,12 +165,14 @@ function getCustomProviderCreator(cfg: RemotesConfig) {
 	}
 }
 
-export function getRemoteProviderMatcher(
+export async function getRemoteProviderMatcher(
 	container: Container,
 	providers?: RemoteProviders,
-): (url: string, domain: string, path: string) => RemoteProvider | undefined {
+): Promise<(url: string, domain: string, path: string) => RemoteProvider | undefined> {
 	if (providers == null) {
-		providers = loadRemoteProviders(configuration.get('remotes', null));
+		const ci = await container.cloudIntegrations;
+		const c = await ci?.getConnections();
+		providers = loadRemoteProviders(configuration.get('remotes', null), c);
 	}
 
 	return (url: string, domain: string, path: string) =>
