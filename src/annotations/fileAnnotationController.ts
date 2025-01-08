@@ -3,6 +3,7 @@ import type {
 	ConfigurationChangeEvent,
 	Event,
 	Progress,
+	TabChangeEvent,
 	TextDocument,
 	TextEditor,
 	TextEditorDecorationType,
@@ -42,7 +43,7 @@ import type {
 	DocumentDirtyStateChangeEvent,
 } from '../trackers/documentTracker';
 import type { AnnotationContext, AnnotationProviderBase, TextEditorCorrelationKey } from './annotationProvider';
-import { getEditorCorrelationKey } from './annotationProvider';
+import { getEditorCorrelationKey, getEditorCorrelationKeyFromTab } from './annotationProvider';
 import type { ChangesAnnotationContext } from './gutterChangesAnnotationProvider';
 
 export const Decorations = {
@@ -224,6 +225,12 @@ export class FileAnnotationController implements Disposable {
 			} else if (e.dirty) {
 				void this.clearCore(key);
 			}
+		}
+	}
+
+	private onTabsChanged(e: TabChangeEvent) {
+		for (const tab of e.closed) {
+			void this.clearCore(getEditorCorrelationKeyFromTab(tab));
 		}
 	}
 
@@ -688,6 +695,7 @@ export class FileAnnotationController implements Disposable {
 			window.onDidChangeActiveTextEditor(debounce(this.onActiveTextEditorChanged, 50), this),
 			window.onDidChangeTextEditorViewColumn(this.onTextEditorViewColumnChanged, this),
 			window.onDidChangeVisibleTextEditors(debounce(this.onVisibleTextEditorsChanged, 50), this),
+			window.tabGroups.onDidChangeTabs(this.onTabsChanged, this),
 			workspace.onDidCloseTextDocument(this.onTextDocumentClosed, this),
 			this.container.documentTracker.onDidChangeBlameState(this.onBlameStateChanged, this),
 			this.container.documentTracker.onDidChangeDirtyState(this.onDirtyStateChanged, this),

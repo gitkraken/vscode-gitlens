@@ -13,9 +13,10 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/) and this p
 
 ### Fixed
 
-- Fixes [#3914](https://github.com/gitkraken/vscode-gitlens/issues/#3914) - Attempting to clear a file annotation on a split file w/o the annotation no-ops
-- Fixes [#3911](https://github.com/gitkraken/vscode-gitlens/issues/#3911) - Avoid Home opening when first-install isn't reliable (e.g. GitPod)
-- Fixes [#3888](https://github.com/gitkraken/vscode-gitlens/issues/#3888) - Graph hover should disappear when right-clicking a row
+- Fixes [#3915](https://github.com/gitkraken/vscode-gitlens/issues/3915) - Closing a split editor with annotations causes the Clear Annotations button to get stuck
+- Fixes [#3914](https://github.com/gitkraken/vscode-gitlens/issues/3914) - Attempting to clear a file annotation on a split file w/o the annotation no-ops
+- Fixes [#3911](https://github.com/gitkraken/vscode-gitlens/issues/3911) - Avoid Home opening when first-install isn't reliable (e.g. GitPod)
+- Fixes [#3888](https://github.com/gitkraken/vscode-gitlens/issues/3888) - Graph hover should disappear when right-clicking a row
 
 ## [16.1.1] - 2024-12-20
 
@@ -29,7 +30,7 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/) and this p
 
 ### Fixed
 
-- Fixes [#3899](https://github.com/gitkraken/vscode-gitlens/issues/#3899) - custom autolinks not being detected
+- Fixes [#3899](https://github.com/gitkraken/vscode-gitlens/issues/3899) - custom autolinks not being detected
 - Fixes owner avatars from getting lost (progressively) on refresh of the _Home_ view
 - Fixes launchpad status icon for 'waiting for review' state on _Home_
 - Fixes missing _Delete Branch..._ command from branches on worktrees in the _Branches_ view
