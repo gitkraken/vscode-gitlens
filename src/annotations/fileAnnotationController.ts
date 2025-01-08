@@ -273,8 +273,9 @@ export class FileAnnotationController implements Disposable {
 	}
 
 	@log<FileAnnotationController['clear']>({ args: { 0: e => e?.document.uri.toString(true) } })
-	clear(editor: TextEditor) {
+	clear(editor: TextEditor | undefined) {
 		if (this.isInWindowToggle()) return this.clearAll();
+		if (editor == null) return;
 
 		return this.clearCore(getEditorCorrelationKey(editor), true);
 	}
