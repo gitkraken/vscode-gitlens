@@ -18,9 +18,9 @@ export interface AnnotationState {
 	restoring?: boolean;
 }
 
-export type TextEditorCorrelationKey = string;
+export type TextEditorCorrelationKey = `${string}|${number}`;
 export function getEditorCorrelationKey(editor: TextEditor | undefined): TextEditorCorrelationKey {
-	return `${editor?.document.uri.toString()}|${editor?.viewColumn}`;
+	return `${editor?.document.uri.toString()}|${editor?.viewColumn ?? 0}`;
 }
 
 export type DidChangeStatusCallback = (e: { editor?: TextEditor; status?: AnnotationStatus }) => void;
