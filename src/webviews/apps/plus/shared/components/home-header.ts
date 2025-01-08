@@ -10,7 +10,7 @@ import '../../../shared/components/button-container';
 import '../../../shared/components/code-icon';
 import '../../../shared/components/overlays/popover';
 import '../../../shared/components/promo';
-import '../../../shared/components/snow';
+// import '../../../shared/components/snow';
 
 @customElement('gl-home-header')
 export class GLHomeHeader extends LitElement {
@@ -65,7 +65,7 @@ export class GLHomeHeader extends LitElement {
 	override render() {
 		return html`<gl-promo-banner></gl-promo-banner>
 			<div class="container" tabindex="-1">
-				<span class="group"><gl-account-chip></gl-account-chip> <gl-snow></gl-snow></span>
+				<span class="group"><gl-account-chip></gl-account-chip></span>
 				<gl-integrations-chip></gl-integrations-chip>
 			</div>
 			<gl-onboarding></gl-onboarding>`;
