@@ -1,16 +1,16 @@
 import type { ColorTheme } from 'vscode';
 import { ColorThemeKind, ThemeColor, ThemeIcon, Uri, window } from 'vscode';
-import type { IconPath } from '../../@types/vscode.iconpath';
-import type { Colors } from '../../constants.colors';
-import type { Container } from '../../container';
-import { isLightTheme } from '../../system/vscode/utils';
-import { getIconPathUris } from '../../system/vscode/vscode';
-import type { GitBranch } from '../models/branch';
-import type { IssueOrPullRequest } from '../models/issue';
-import type { GitRemote } from '../models/remote';
-import { getRemoteThemeIconString } from '../models/remote';
-import type { Repository } from '../models/repository';
-import type { GitStatus } from '../models/status';
+import type { IconPath } from '../../../@types/vscode.iconpath';
+import type { Colors } from '../../../constants.colors';
+import type { Container } from '../../../container';
+import { isLightTheme } from '../../../system/vscode/utils';
+import { getIconPathUris } from '../../../system/vscode/vscode';
+import type { GitBranch } from '../../models/branch';
+import type { IssueOrPullRequest } from '../../models/issue';
+import type { GitRemote } from '../../models/remote';
+import { getRemoteThemeIconString } from '../../models/remote';
+import type { Repository } from '../../models/repository';
+import type { GitStatus } from '../../models/status';
 
 export function getBranchIconPath(container: Container, branch: GitBranch | undefined): IconPath {
 	switch (branch?.status) {

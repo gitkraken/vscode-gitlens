@@ -40,7 +40,7 @@ import { getHighlanderProviders } from '../models/remote';
 import { uncommitted, uncommittedStaged } from '../models/revision';
 import { isUncommittedStaged, shortenRevision } from '../models/revision.utils';
 import type { RemoteProvider } from '../remotes/remoteProvider';
-import { getIssueOrPullRequestMarkdownIcon } from '../utils/icons';
+import { getIssueOrPullRequestMarkdownIcon } from '../utils/vscode/icons';
 import type { FormatOptions, RequiredTokenOptions } from './formatter';
 import { Formatter } from './formatter';
 

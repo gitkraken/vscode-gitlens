@@ -4,7 +4,7 @@ import { GlyphChars } from '../../constants';
 import { Container } from '../../container';
 import type { QuickPickItemOfT } from '../../quickpicks/items/common';
 import { pad } from '../../system/string';
-import { getBranchIconPath } from '../utils/icons';
+import { getBranchIconPath } from '../utils/vscode/icons';
 import { shortenRevision } from './revision.utils';
 import type { GitStatus } from './status';
 import type { GitWorktree } from './worktree';

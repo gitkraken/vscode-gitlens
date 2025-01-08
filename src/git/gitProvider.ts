@@ -27,7 +27,7 @@ import type { GitTreeEntry } from './models/tree';
 import type { GitUser } from './models/user';
 import type { GitWorktree } from './models/worktree';
 import type { GitSearch } from './search';
-import type { BranchSortOptions, TagSortOptions } from './utils/sorting';
+import type { BranchSortOptions, TagSortOptions } from './utils/vscode/sorting';
 
 export type GitCaches =
 	| 'branches'

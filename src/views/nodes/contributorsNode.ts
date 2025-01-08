@@ -2,7 +2,7 @@ import { ThemeIcon, TreeItem, TreeItemCollapsibleState } from 'vscode';
 import type { GitUri } from '../../git/gitUri';
 import type { GitContributor } from '../../git/models/contributor';
 import type { Repository } from '../../git/models/repository';
-import { sortContributors } from '../../git/utils/sorting';
+import { sortContributors } from '../../git/utils/vscode/sorting';
 import { debug } from '../../system/decorators/log';
 import { configuration } from '../../system/vscode/configuration';
 import type { ViewsWithContributorsNode } from '../viewBase';

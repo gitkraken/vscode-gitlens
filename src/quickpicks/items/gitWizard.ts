@@ -16,7 +16,7 @@ import { getRemoteUpstreamDescription } from '../../git/models/remote';
 import type { Repository } from '../../git/models/repository';
 import { isRevisionRange, shortenRevision } from '../../git/models/revision.utils';
 import type { GitTag } from '../../git/models/tag';
-import { getBranchIconPath, getWorktreeBranchIconPath } from '../../git/utils/icons';
+import { getBranchIconPath, getWorktreeBranchIconPath } from '../../git/utils/vscode/icons';
 import { fromNow } from '../../system/date';
 import { pad } from '../../system/string';
 import { configuration } from '../../system/vscode/configuration';
