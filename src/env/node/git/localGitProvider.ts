@@ -165,9 +165,9 @@ import { parseGitWorktrees } from '../../../git/parsers/worktreeParser';
 import { getRemoteProviderMatcher, loadRemoteProviders } from '../../../git/remotes/remoteProviders';
 import type { GitSearch, GitSearchResultData, GitSearchResults } from '../../../git/search';
 import { getGitArgsFromSearchQuery, getSearchQueryComparisonKey } from '../../../git/search';
-import { getRemoteIconUri } from '../../../git/utils/icons';
-import type { BranchSortOptions, TagSortOptions } from '../../../git/utils/sorting';
-import { sortBranches, sortContributors, sortTags } from '../../../git/utils/sorting';
+import { getRemoteIconUri } from '../../../git/utils/vscode/icons';
+import type { BranchSortOptions, TagSortOptions } from '../../../git/utils/vscode/sorting';
+import { sortBranches, sortContributors, sortTags } from '../../../git/utils/vscode/sorting';
 import {
 	showBlameInvalidIgnoreRevsFileWarningMessage,
 	showGenericErrorMessage,

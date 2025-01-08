@@ -34,7 +34,7 @@ import { createRevisionRange } from '../../git/models/revision.utils';
 import type { GitStatus } from '../../git/models/status';
 import type { GitWorktree } from '../../git/models/worktree';
 import { getOpenedWorktreesByBranch, groupWorktreesByBranch } from '../../git/models/worktree.utils';
-import { sortBranches } from '../../git/utils/sorting';
+import { sortBranches } from '../../git/utils/vscode/sorting';
 import { showPatchesView } from '../../plus/drafts/actions';
 import type { Subscription } from '../../plus/gk/account/subscription';
 import { isSubscriptionStatePaidOrTrial } from '../../plus/gk/account/subscription';

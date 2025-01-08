@@ -10,7 +10,7 @@ import { getHighlanderProviderName } from '../../git/models/remote';
 import { shortenRevision } from '../../git/models/revision.utils';
 import type { GitStatus } from '../../git/models/status';
 import type { GitWorktree } from '../../git/models/worktree';
-import { getBranchIconPath } from '../../git/utils/icons';
+import { getBranchIconPath } from '../../git/utils/vscode/icons';
 import { gate } from '../../system/decorators/gate';
 import { debug } from '../../system/decorators/log';
 import { map } from '../../system/iterable';

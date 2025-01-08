@@ -7,7 +7,7 @@ import type { GitContributor } from '../git/models/contributor';
 import type { ContributorQuickPickItem } from '../git/models/contributor.quickpick';
 import { createContributorQuickPickItem } from '../git/models/contributor.quickpick';
 import type { Repository } from '../git/models/repository';
-import { sortContributors } from '../git/utils/sorting';
+import { sortContributors } from '../git/utils/vscode/sorting';
 import { debounce } from '../system/function';
 import { defer } from '../system/promise';
 import { pad, truncate } from '../system/string';

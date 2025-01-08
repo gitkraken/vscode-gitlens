@@ -12,7 +12,7 @@ import { escapeMarkdown, unescapeMarkdown } from '../../system/markdown';
 import { equalsIgnoreCase } from '../../system/string';
 import type { Repository } from '../models/repository';
 import { isSha } from '../models/revision.utils';
-import { getIssueOrPullRequestMarkdownIcon } from '../utils/icons';
+import { getIssueOrPullRequestMarkdownIcon } from '../utils/vscode/icons';
 import type { RemoteProviderId } from './remoteProvider';
 import { RemoteProvider } from './remoteProvider';
 

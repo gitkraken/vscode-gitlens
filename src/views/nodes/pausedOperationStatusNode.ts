@@ -3,9 +3,9 @@ import type { Colors } from '../../constants.colors';
 import { GitUri } from '../../git/gitUri';
 import type { GitBranch } from '../../git/models/branch';
 import type { GitPausedOperationStatus } from '../../git/models/pausedOperationStatus';
-import { statusStringsByType } from '../../git/models/pausedOperationStatus';
 import { getReferenceLabel } from '../../git/models/reference.utils';
 import type { GitStatus } from '../../git/models/status';
+import { pausedOperationStatusStringsByType } from '../../git/utils/pausedOperationStatus.utils';
 import { pluralize } from '../../system/string';
 import { executeCoreCommand } from '../../system/vscode/command';
 import type { ViewsWithCommits } from '../viewBase';
@@ -110,7 +110,7 @@ export class PausedOperationStatusNode extends ViewNode<'paused-operation-status
 		const hasConflicts = this.status?.hasConflicts === true;
 
 		if (this.pausedOpStatus.type !== 'rebase') {
-			const strings = statusStringsByType[this.pausedOpStatus.type];
+			const strings = pausedOperationStatusStringsByType[this.pausedOpStatus.type];
 			return `${hasConflicts ? strings.conflicts : strings.label} ${getReferenceLabel(
 				this.pausedOpStatus.incoming,
 				{
@@ -124,7 +124,7 @@ export class PausedOperationStatusNode extends ViewNode<'paused-operation-status
 		}
 
 		const started = this.pausedOpStatus.steps.total > 0;
-		const strings = statusStringsByType[this.pausedOpStatus.type];
+		const strings = pausedOperationStatusStringsByType[this.pausedOpStatus.type];
 		return `${hasConflicts ? strings.conflicts : started ? strings.label : strings.pending} ${getReferenceLabel(
 			this.pausedOpStatus.incoming,
 			{ expand: false, icon: false },
@@ -139,7 +139,7 @@ export class PausedOperationStatusNode extends ViewNode<'paused-operation-status
 
 		let tooltip;
 		if (this.pausedOpStatus.type !== 'rebase') {
-			const strings = statusStringsByType[this.pausedOpStatus.type];
+			const strings = pausedOperationStatusStringsByType[this.pausedOpStatus.type];
 			tooltip = `${strings.label} ${getReferenceLabel(this.pausedOpStatus.incoming, { label: false })} ${
 				strings.directionality
 			} ${getReferenceLabel(this.pausedOpStatus.current, { label: false })}${
@@ -149,7 +149,7 @@ export class PausedOperationStatusNode extends ViewNode<'paused-operation-status
 			}`;
 		} else {
 			const started = this.pausedOpStatus.steps.total > 0;
-			const strings = statusStringsByType[this.pausedOpStatus.type];
+			const strings = pausedOperationStatusStringsByType[this.pausedOpStatus.type];
 			tooltip = `${started ? strings.label : strings.pending} ${getReferenceLabel(this.pausedOpStatus.incoming, {
 				label: false,
 			})} ${strings.directionality} ${getReferenceLabel(this.pausedOpStatus.current ?? this.pausedOpStatus.onto, {
