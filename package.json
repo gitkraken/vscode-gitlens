@@ -20091,7 +20091,7 @@
 		"sass": "1.83.1",
 		"sass-loader": "16.0.4",
 		"schema-utils": "4.3.0",
-		"sharp": "0.32.6",
+		"sharp": "0.33.5",
 		"svgo": "3.3.2",
 		"terser-webpack-plugin": "5.3.11",
 		"ts-loader": "9.5.1",
@@ -20103,9 +20103,6 @@
 		"webpack-node-externals": "3.0.0",
 		"webpack-require-from": "1.8.6"
 	},
-	"pnpm.onlyBuiltDependencies": [
-		"@swc/core"
-	],
 	"resolutions": {
 		"esbuild": "0.24.2",
 		"iconv-lite": "0.6.3",
