@@ -17,7 +17,7 @@ import { getHighlanderProviders } from '../../git/models/remote';
 import { Repository } from '../../git/models/repository';
 import type { GitUser } from '../../git/models/user';
 import type { GitWorktree } from '../../git/models/worktree';
-import { getBranchIconPath, getRemoteIconPath, getWorktreeBranchIconPath } from '../../git/utils/icons';
+import { getBranchIconPath, getRemoteIconPath, getWorktreeBranchIconPath } from '../../git/utils/vscode/icons';
 import { fromNow } from '../../system/date';
 import { gate } from '../../system/decorators/gate';
 import { log } from '../../system/decorators/log';

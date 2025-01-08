@@ -1,7 +1,7 @@
 import { css, html, LitElement, nothing } from 'lit';
 import { customElement, property } from 'lit/decorators.js';
 import type { GitPausedOperationStatus } from '../../../../../git/models/pausedOperationStatus';
-import { statusStringsByType } from '../../../../../git/models/pausedOperationStatus';
+import { pausedOperationStatusStringsByType } from '../../../../../git/utils/pausedOperationStatus.utils';
 import { getReferenceLabel } from '../../../shared/git-utils';
 import '../../../shared/components/overlays/tooltip';
 
@@ -66,7 +66,7 @@ export class GlMergeConflictWarning extends LitElement {
 
 	private renderStatus(pausedOpStatus: GitPausedOperationStatus) {
 		if (pausedOpStatus.type !== 'rebase') {
-			const strings = statusStringsByType[pausedOpStatus.type];
+			const strings = pausedOperationStatusStringsByType[pausedOpStatus.type];
 			return html`<span class="label"
 				>${this.conflicts ? strings.conflicts : strings.label}
 				<code-icon
@@ -79,7 +79,7 @@ export class GlMergeConflictWarning extends LitElement {
 		}
 
 		const started = pausedOpStatus.steps.total > 0;
-		const strings = statusStringsByType[pausedOpStatus.type];
+		const strings = pausedOperationStatusStringsByType[pausedOpStatus.type];
 		return html`<span class="label"
 				>${this.conflicts ? strings.conflicts : started ? strings.label : strings.pending}
 				<code-icon

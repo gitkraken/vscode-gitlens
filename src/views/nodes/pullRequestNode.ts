@@ -12,7 +12,7 @@ import type { GitBranchReference } from '../../git/models/reference';
 import type { Repository } from '../../git/models/repository';
 import { createRevisionRange } from '../../git/models/revision.utils';
 import { getAheadBehindFilesQuery, getCommitsQuery } from '../../git/queryResults';
-import { getIssueOrPullRequestMarkdownIcon, getIssueOrPullRequestThemeIcon } from '../../git/utils/icons';
+import { getIssueOrPullRequestMarkdownIcon, getIssueOrPullRequestThemeIcon } from '../../git/utils/vscode/icons';
 import { pluralize } from '../../system/string';
 import type { ViewsWithCommits } from '../viewBase';
 import { CacheableChildrenViewNode } from './abstract/cacheableChildrenViewNode';

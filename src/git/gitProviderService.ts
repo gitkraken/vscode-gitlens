@@ -88,8 +88,8 @@ import type { GitUser } from './models/user';
 import type { GitWorktree } from './models/worktree';
 import type { RemoteProvider } from './remotes/remoteProvider';
 import type { GitSearch } from './search';
-import type { BranchSortOptions, TagSortOptions } from './utils/sorting';
-import { sortRepositories } from './utils/sorting';
+import type { BranchSortOptions, TagSortOptions } from './utils/vscode/sorting';
+import { sortRepositories } from './utils/vscode/sorting';
 
 const emptyArray = Object.freeze([]) as unknown as any[];
 const emptyDisposable = Object.freeze({

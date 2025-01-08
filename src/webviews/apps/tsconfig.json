@@ -22,9 +22,10 @@
 		"../../constants.ts",
 		"../../constants.*.ts",
 		"../../features.ts",
+		"../../git/utils/*.ts",
 		"../../subscription.ts",
 		"../../system/*.ts",
 		"../../system/decorators/log.ts"
 	],
-	"exclude": []
+	"exclude": ["**/vscode/**/*"]
 }
