@@ -19942,6 +19942,9 @@
 	},
 	"scripts": {
 		"analyze:bundle": "webpack --mode production --env analyzeBundle",
+		"analyze:bundle:extension": "webpack --mode production --config-name extension:node --env analyzeBundle",
+		"analyze:bundle:extension:browser": "webpack --mode production --config-name extension:webworker --env analyzeBundle",
+		"analyze:bundle:webviews": "webpack --mode production --config-name webviews --env analyzeBundle",
 		"analyze:deps": "webpack --env analyzeDeps",
 		"build": "webpack --mode development",
 		"build:quick": "webpack --mode development --env skipLint",

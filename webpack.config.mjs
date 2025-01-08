@@ -183,7 +183,7 @@ function getExtensionConfig(target, mode, env) {
 		},
 		mode: mode,
 		target: target,
-		devtool: mode === 'production' ? false : 'source-map',
+		devtool: mode === 'production' && !env.analyzeBundle ? false : 'source-map',
 		output: {
 			chunkFilename: '[name].js',
 			filename: 'gitlens.js',
@@ -420,7 +420,7 @@ function getWebviewsConfig(mode, env) {
 		},
 		mode: mode,
 		target: 'web',
-		devtool: mode === 'production' ? false : 'source-map',
+		devtool: mode === 'production' && !env.analyzeBundle ? false : 'source-map',
 		output: {
 			chunkFilename: '[name].js',
 			filename: '[name].js',
