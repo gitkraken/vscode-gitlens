@@ -879,9 +879,15 @@ export class HomeWebviewProvider implements WebviewProvider<State, State, HomeWe
 			}));
 
 			// union (uniquely by id) with supportedCloudIntegrationDescriptors
-			integrations.push(
-				...this._defaultSupportedCloudIntegrations.filter(d => !integrations.some(i => i.id === d.id)),
-			);
+			this._defaultSupportedCloudIntegrations.forEach(d => {
+				const i = integrations.find(i => i.id === d.id);
+				if (i == null) {
+					integrations.push(d);
+				} else if (i.icon !== d.icon) {
+					i.icon = d.icon;
+				}
+			});
+
 			integrations.sort(
 				(a, b) =>
 					supportedOrderedCloudIntegrationIds.indexOf(a.id) -
