@@ -39,6 +39,7 @@ export interface IntegrationDescriptor {
 	name: string;
 	icon: string;
 	supports: IntegrationFeatures[];
+	weight?: number;
 }
 export const supportedCloudIntegrationDescriptors: IntegrationDescriptor[] = [
 	{
@@ -46,12 +47,14 @@ export const supportedCloudIntegrationDescriptors: IntegrationDescriptor[] = [
 		name: 'GitHub',
 		icon: 'gl-provider-github',
 		supports: ['prs', 'issues'],
+		weight: 1,
 	},
 	{
 		id: SelfHostedIntegrationId.CloudGitHubEnterprise,
 		name: 'GitHub Enterprise',
 		icon: 'gl-provider-github',
 		supports: ['prs', 'issues'],
+		weight: 0,
 	},
 	{
 		id: HostingIntegrationId.GitLab,
