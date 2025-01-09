@@ -883,8 +883,13 @@ export class HomeWebviewProvider implements WebviewProvider<State, State, HomeWe
 				const i = integrations.find(i => i.id === d.id);
 				if (i == null) {
 					integrations.push(d);
-				} else if (d.weight !== undefined) {
-					i.weight = d.weight;
+				} else {
+					if (d.weight !== undefined) {
+						i.weight = d.weight;
+					}
+					if (i.icon !== d.icon) {
+						i.icon = d.icon;
+					}
 				}
 			});
 			integrations.sort((a, b) => {
