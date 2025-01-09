@@ -6,7 +6,7 @@ import type { Container } from '../container';
 import { showGenericErrorMessage } from '../messages';
 import { Logger } from '../system/logger';
 import { command } from '../system/vscode/command';
-import { getEditorIfVisible, isTrackableTextEditor } from '../system/vscode/utils';
+import { getEditorIfVisible, getOtherVisibleTextEditors, isTrackableTextEditor } from '../system/vscode/utils';
 import { ActiveEditorCommand, EditorCommand } from './base';
 
 @command()
@@ -17,10 +17,17 @@ export class ClearFileAnnotationsCommand extends EditorCommand {
 
 	async execute(editor: TextEditor | undefined, _edit: TextEditorEdit, uri?: Uri): Promise<void> {
 		editor = getValidEditor(editor, uri);
-		if (editor == null) return;
 
 		try {
-			await this.container.fileAnnotations.clear(editor);
+			if (!editor || this.container.fileAnnotations.isInWindowToggle()) {
+				await this.container.fileAnnotations.clear(editor);
+				return;
+			}
+
+			// Clear split editors as though they were linked, because we can't handle the command states effectively
+			await Promise.allSettled(
+				[editor, ...getOtherVisibleTextEditors(editor)].map(e => this.container.fileAnnotations.clear(e)),
+			);
 		} catch (ex) {
 			Logger.error(ex, 'ClearFileAnnotationsCommand');
 			void showGenericErrorMessage('Unable to clear file annotations');
@@ -117,6 +124,35 @@ async function toggleFileAnnotations<TArgs extends ToggleFileAnnotationCommandAr
 			},
 			args.on,
 		));
+
+		// Should we link split editors together??
+		// if (!editor || container.fileAnnotations.isInWindowToggle()) {
+		// 	void (await container.fileAnnotations.toggle(
+		// 		editor,
+		// 		args.type,
+		// 		{
+		// 			selection: args.context?.selection ?? { line: editor?.selection.active.line },
+		// 			...args.context,
+		// 		},
+		// 		args.on,
+		// 	));
+
+		// 	return;
+		// }
+
+		// await Promise.allSettled(
+		// 	[editor, ...getOtherVisibleTextEditors(editor)].map(e =>
+		// 		container.fileAnnotations.toggle(
+		// 			e,
+		// 			args.type,
+		// 			{
+		// 				selection: args.context?.selection ?? { line: e?.selection.active.line },
+		// 				...args.context,
+		// 			},
+		// 			args.on,
+		// 		),
+		// 	),
+		// );
 	} catch (ex) {
 		Logger.error(ex, 'ToggleFileAnnotationsCommand');
 		void showGenericErrorMessage(`Unable to toggle file ${args.type} annotations`);

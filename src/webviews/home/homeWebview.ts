@@ -34,7 +34,7 @@ import { createRevisionRange } from '../../git/models/revision.utils';
 import type { GitStatus } from '../../git/models/status';
 import type { GitWorktree } from '../../git/models/worktree';
 import { getOpenedWorktreesByBranch, groupWorktreesByBranch } from '../../git/models/worktree.utils';
-import { sortBranches } from '../../git/utils/sorting';
+import { sortBranches } from '../../git/utils/vscode/sorting';
 import { showPatchesView } from '../../plus/drafts/actions';
 import type { Subscription } from '../../plus/gk/account/subscription';
 import { isSubscriptionStatePaidOrTrial } from '../../plus/gk/account/subscription';
@@ -754,7 +754,7 @@ export class HomeWebviewProvider implements WebviewProvider<State, State, HomeWe
 						RepositoryChange.Heads,
 						// RepositoryChange.Index,
 						RepositoryChange.Remotes,
-						RepositoryChange.Status,
+						RepositoryChange.PausedOperationStatus,
 						RepositoryChange.Unknown,
 						RepositoryChangeComparisonMode.Any,
 					)
@@ -1489,21 +1489,18 @@ async function getWipInfo(
 ) {
 	if (statusPromise == null) return undefined;
 
-	const [statusResult, mergeStatusResult, rebaseStatusResult] = await Promise.allSettled([
+	const [statusResult, pausedOpStatusResult] = await Promise.allSettled([
 		statusPromise,
-		active ? container.git.getMergeStatus(branch.repoPath) : undefined,
-		active ? container.git.getRebaseStatus(branch.repoPath) : undefined,
+		active ? container.git.getPausedOperationStatus(branch.repoPath) : undefined,
 	]);
 
 	const status = getSettledValue(statusResult);
-	const mergeStatus = getSettledValue(mergeStatusResult);
-	const rebaseStatus = getSettledValue(rebaseStatusResult);
+	const pausedOpStatus = getSettledValue(pausedOpStatusResult);
 
 	return {
 		workingTreeState: status?.getDiffStatus(),
 		hasConflicts: status?.hasConflicts,
 		conflictsCount: status?.conflicts.length,
-		mergeStatus: mergeStatus,
-		rebaseStatus: rebaseStatus,
+		pausedOpStatus: pausedOpStatus,
 	} satisfies WipInfo;
 }

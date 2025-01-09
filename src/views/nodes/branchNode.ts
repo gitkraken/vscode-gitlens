@@ -17,7 +17,7 @@ import { getHighlanderProviders } from '../../git/models/remote';
 import { Repository } from '../../git/models/repository';
 import type { GitUser } from '../../git/models/user';
 import type { GitWorktree } from '../../git/models/worktree';
-import { getBranchIconPath, getRemoteIconPath, getWorktreeBranchIconPath } from '../../git/utils/icons';
+import { getBranchIconPath, getRemoteIconPath, getWorktreeBranchIconPath } from '../../git/utils/vscode/icons';
 import { fromNow } from '../../system/date';
 import { gate } from '../../system/decorators/gate';
 import { log } from '../../system/decorators/log';
@@ -41,9 +41,8 @@ import { CommitNode } from './commitNode';
 import { LoadMoreNode, MessageNode } from './common';
 import { CompareBranchNode } from './compareBranchNode';
 import { insertDateMarkers } from './helpers';
-import { MergeStatusNode } from './mergeStatusNode';
+import { PausedOperationStatusNode } from './pausedOperationStatusNode';
 import { PullRequestNode } from './pullRequestNode';
-import { RebaseStatusNode } from './rebaseStatusNode';
 import { StashNode } from './stashNode';
 
 type State = {
@@ -224,8 +223,7 @@ export class BranchNode
 				logResult,
 				getBranchAndTagTipsResult,
 				statusResult,
-				mergeStatusResult,
-				rebaseStatusResult,
+				pausedOpStatusResult,
 				unpublishedCommitsResult,
 				baseResult,
 				targetResult,
@@ -236,9 +234,8 @@ export class BranchNode
 					? this.view.container.git.getStatus(this.uri.repoPath)
 					: undefined,
 				this.options.showStatus && branch.current
-					? this.view.container.git.getMergeStatus(this.uri.repoPath!)
+					? this.view.container.git.getPausedOperationStatus(this.uri.repoPath!)
 					: undefined,
-				this.options.showStatus ? this.view.container.git.getRebaseStatus(this.uri.repoPath!) : undefined,
 				!branch.remote
 					? this.view.container.git.getBranchAheadRange(branch).then(range =>
 							range
@@ -266,36 +263,20 @@ export class BranchNode
 			const children = [];
 
 			const status = getSettledValue(statusResult);
-			const mergeStatus = getSettledValue(mergeStatusResult);
-			const rebaseStatus = getSettledValue(rebaseStatusResult);
+			const pausedOpsStatus = getSettledValue(pausedOpStatusResult);
 			const unpublishedCommits = getSettledValue(unpublishedCommitsResult);
 
 			if (pullRequest != null) {
 				children.push(new PullRequestNode(this.view, this, pullRequest, branch));
 			}
 
-			if (this.options.showStatus && mergeStatus != null) {
+			if (pausedOpsStatus != null) {
 				children.push(
-					new MergeStatusNode(
+					new PausedOperationStatusNode(
 						this.view,
 						this,
 						branch,
-						mergeStatus,
-						status ?? (await this.view.container.git.getStatus(this.uri.repoPath)),
-						this.root,
-					),
-				);
-			} else if (
-				this.options.showStatus &&
-				rebaseStatus != null &&
-				(branch.current || branch.name === rebaseStatus.incoming.name)
-			) {
-				children.push(
-					new RebaseStatusNode(
-						this.view,
-						this,
-						branch,
-						rebaseStatus,
+						pausedOpsStatus,
 						status ?? (await this.view.container.git.getStatus(this.uri.repoPath)),
 						this.root,
 					),

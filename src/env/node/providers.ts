@@ -19,7 +19,7 @@ function ensureGit() {
 }
 
 export function git(options: GitCommandOptions, ...args: any[]): Promise<string | Buffer> {
-	return ensureGit().git(options, ...args);
+	return ensureGit().exec(options, ...args);
 }
 
 export function gitLogStreamTo(

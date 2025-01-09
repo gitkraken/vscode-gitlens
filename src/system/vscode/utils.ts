@@ -98,6 +98,12 @@ export function getEditorIfVisible(documentOrUri: TextDocument | Uri): TextEdito
 	return window.visibleTextEditors.find(e => e.document === documentOrUri);
 }
 
+export function getOtherVisibleTextEditors(editor: TextEditor): TextEditor[] {
+	return window.visibleTextEditors.filter(
+		e => e !== editor && e.document.uri.toString() === editor.document.uri.toString(),
+	);
+}
+
 export function getQuickPickIgnoreFocusOut() {
 	return !configuration.get('advanced.quickPick.closeOnFocusOut');
 }

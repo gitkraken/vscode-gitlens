@@ -5,7 +5,7 @@ import type { IntegrationId } from '../constants.integrations';
 import { IssueIntegrationId } from '../constants.integrations';
 import type { Container } from '../container';
 import type { GitRemote } from '../git/models/remote';
-import { getIssueOrPullRequestHtmlIcon, getIssueOrPullRequestMarkdownIcon } from '../git/utils/icons';
+import { getIssueOrPullRequestHtmlIcon, getIssueOrPullRequestMarkdownIcon } from '../git/utils/vscode/icons';
 import type { HostingIntegration, IssueIntegration } from '../plus/integrations/integration';
 import { fromNow } from '../system/date';
 import { debug } from '../system/decorators/log';

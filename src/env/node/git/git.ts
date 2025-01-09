@@ -75,7 +75,8 @@ const rootSha = '4b825dc642cb6eb9a060e54bf8d69288fbee4904';
 export const GitErrors = {
 	badRevision: /bad revision '(.*?)'/i,
 	cantLockRef: /cannot lock ref|unable to update local ref/i,
-	changesWouldBeOverwritten: /Your local changes to the following files would be overwritten/i,
+	changesWouldBeOverwritten:
+		/Your local changes to the following files would be overwritten|Your local changes would be overwritten/i,
 	commitChangesFirst: /Please, commit your changes before you can/i,
 	conflict: /^CONFLICT \([^)]+\): \b/m,
 	failedToDeleteDirectoryNotEmpty: /failed to delete '(.*?)': Directory not empty/i,
@@ -93,18 +94,21 @@ export const GitErrors = {
 	alreadyCheckedOut: /already checked out/i,
 	mainWorkingTree: /is a main working tree/i,
 	noUpstream: /^fatal: The current branch .* has no upstream branch/i,
+	noPausedOperation:
+		/no merge (?:in progress|to abort)|no cherry-pick(?: or revert)? in progress|no rebase in progress/i,
 	permissionDenied: /Permission.*denied/i,
 	pushRejected: /^error: failed to push some refs to\b/m,
 	rebaseMultipleBranches: /cannot rebase onto multiple branches/i,
 	remoteAhead: /rejected because the remote contains work/i,
 	remoteConnection: /Could not read from remote repository/i,
 	tagConflict: /! \[rejected\].*\(would clobber existing tag\)/m,
-	unmergedFiles: /is not possible because you have unmerged files/i,
+	unmergedFiles: /is not possible because you have unmerged files|You have unmerged files/i,
 	unstagedChanges: /You have unstaged changes/i,
 	tagAlreadyExists: /tag .* already exists/i,
 	tagNotFound: /tag .* not found/i,
 	invalidTagName: /invalid tag name/i,
 	remoteRejected: /rejected because the remote contains work/i,
+	unresolvedConflicts: /You must edit all merge conflicts|Resolve all conflicts/i,
 };
 
 const GitWarnings = {
@@ -177,9 +181,9 @@ export class Git {
 	/** Map of running git commands -- avoids running duplicate overlaping commands */
 	private readonly pendingCommands = new Map<string, Promise<string | Buffer>>();
 
-	async git(options: ExitCodeOnlyGitCommandOptions, ...args: any[]): Promise<number>;
-	async git<T extends string | Buffer>(options: GitCommandOptions, ...args: any[]): Promise<T>;
-	async git<T extends string | Buffer>(options: GitCommandOptions, ...args: any[]): Promise<T> {
+	async exec(options: ExitCodeOnlyGitCommandOptions, ...args: any[]): Promise<number>;
+	async exec<T extends string | Buffer>(options: GitCommandOptions, ...args: any[]): Promise<T>;
+	async exec<T extends string | Buffer>(options: GitCommandOptions, ...args: any[]): Promise<T> {
 		if (!workspace.isTrusted) throw new WorkspaceUntrustedError();
 
 		const start = hrtime();
@@ -260,7 +264,7 @@ export class Git {
 		}
 	}
 
-	async gitSpawn(options: GitSpawnOptions, ...args: any[]): Promise<ChildProcess> {
+	async spawn(options: GitSpawnOptions, ...args: any[]): Promise<ChildProcess> {
 		if (!workspace.isTrusted) throw new WorkspaceUntrustedError();
 
 		const start = hrtime();
@@ -362,7 +366,7 @@ export class Git {
 	// Git commands
 
 	add(repoPath: string | undefined, pathspecs: string[], ...args: string[]) {
-		return this.git<string>({ cwd: repoPath }, 'add', ...args, '--', ...pathspecs);
+		return this.exec<string>({ cwd: repoPath }, 'add', ...args, '--', ...pathspecs);
 	}
 
 	apply(repoPath: string | undefined, patch: string, options: { allowConflicts?: boolean } = {}) {
@@ -370,7 +374,7 @@ export class Git {
 		if (options.allowConflicts) {
 			params.push('-3');
 		}
-		return this.git<string>({ cwd: repoPath, stdin: patch }, ...params);
+		return this.exec<string>({ cwd: repoPath, stdin: patch }, ...params);
 	}
 
 	async apply2(
@@ -384,7 +388,7 @@ export class Git {
 		},
 		...args: string[]
 	) {
-		return this.git<string>(
+		return this.exec<string>(
 			{
 				cwd: repoPath,
 				cancellation: options?.cancellation,
@@ -497,7 +501,7 @@ export class Git {
 		}
 
 		try {
-			const blame = await this.git<string>(
+			const blame = await this.exec<string>(
 				{ cwd: root, stdin: stdin, correlationKey: options?.correlationKey },
 				...params,
 				'--',
@@ -521,11 +525,11 @@ export class Git {
 	}
 
 	branch(repoPath: string, ...args: string[]) {
-		return this.git<string>({ cwd: repoPath }, 'branch', ...args);
+		return this.exec<string>({ cwd: repoPath }, 'branch', ...args);
 	}
 
 	branch__set_upstream(repoPath: string, branch: string, remote: string, remoteBranch: string) {
-		return this.git<string>({ cwd: repoPath }, 'branch', '--set-upstream-to', `${remote}/${remoteBranch}`, branch);
+		return this.exec<string>({ cwd: repoPath }, 'branch', '--set-upstream-to', `${remote}/${remoteBranch}`, branch);
 	}
 
 	branchOrTag__containsOrPointsAt(
@@ -556,19 +560,19 @@ export class Git {
 			params.push(options.name);
 		}
 
-		return this.git<string>(
+		return this.exec<string>(
 			{ cwd: repoPath, configs: gitBranchDefaultConfigs, errors: GitErrorHandling.Ignore },
 			...params,
 		);
 	}
 
 	async cat_file__size(repoPath: string, oid: string): Promise<number> {
-		const data = await this.git<string>({ cwd: repoPath }, 'cat-file', '-s', oid);
+		const data = await this.exec<string>({ cwd: repoPath }, 'cat-file', '-s', oid);
 		return data.length ? parseInt(data.trim(), 10) : 0;
 	}
 
 	check_ignore(repoPath: string, ...files: string[]) {
-		return this.git<string>(
+		return this.exec<string>(
 			{ cwd: repoPath, errors: GitErrorHandling.Ignore, stdin: files.join('\0') },
 			'check-ignore',
 			'-z',
@@ -577,7 +581,7 @@ export class Git {
 	}
 
 	check_mailmap(repoPath: string, author: string) {
-		return this.git<string>({ cwd: repoPath, errors: GitErrorHandling.Ignore }, 'check-mailmap', author);
+		return this.exec<string>({ cwd: repoPath, errors: GitErrorHandling.Ignore }, 'check-mailmap', author);
 	}
 
 	async check_ref_format(ref: string, repoPath?: string, options: { branch?: boolean } = { branch: true }) {
@@ -589,7 +593,7 @@ export class Git {
 		}
 
 		try {
-			const data = await this.git<string>(
+			const data = await this.exec<string>(
 				{ cwd: repoPath ?? '', errors: GitErrorHandling.Throw },
 				...params,
 				ref,
@@ -614,7 +618,7 @@ export class Git {
 			}
 		}
 
-		return this.git<string>({ cwd: repoPath }, ...params);
+		return this.exec<string>({ cwd: repoPath }, ...params);
 	}
 
 	async cherrypick(repoPath: string, sha: string, options: { noCommit?: boolean; errors?: GitErrorHandling } = {}) {
@@ -625,7 +629,7 @@ export class Git {
 		params.push(sha);
 
 		try {
-			await this.git<string>({ cwd: repoPath, errors: options?.errors }, ...params);
+			await this.exec<string>({ cwd: repoPath, errors: options?.errors }, ...params);
 		} catch (ex) {
 			const msg: string = ex?.toString() ?? '';
 			let reason: CherryPickErrorReason = CherryPickErrorReason.Other;
@@ -655,13 +659,13 @@ export class Git {
 			folderPath = joinPath(parentPath, `${remotePath}-${count}`);
 		}
 
-		await this.git<string>({ cwd: parentPath }, 'clone', url, folderPath);
+		await this.exec<string>({ cwd: parentPath }, 'clone', url, folderPath);
 
 		return folderPath;
 	}
 
 	async config__get(key: string, repoPath?: string, options?: { local?: boolean }) {
-		const data = await this.git<string>(
+		const data = await this.exec<string>(
 			{ cwd: repoPath ?? '', errors: GitErrorHandling.Ignore, local: options?.local },
 			'config',
 			'--get',
@@ -671,7 +675,7 @@ export class Git {
 	}
 
 	async config__get_regex(pattern: string, repoPath?: string, options?: { local?: boolean }) {
-		const data = await this.git<string>(
+		const data = await this.exec<string>(
 			{ cwd: repoPath ?? '', errors: GitErrorHandling.Ignore, local: options?.local },
 			'config',
 			'--get-regex',
@@ -687,7 +691,7 @@ export class Git {
 		} else {
 			params.push(key, value);
 		}
-		await this.git<string>({ cwd: repoPath ?? '', local: true }, ...params);
+		await this.exec<string>({ cwd: repoPath ?? '', local: true }, ...params);
 	}
 
 	async diff(
@@ -729,7 +733,7 @@ export class Git {
 		}
 
 		try {
-			return await this.git<string>(
+			return await this.exec<string>(
 				{
 					cwd: repoPath,
 					configs: gitDiffDefaultConfigs,
@@ -764,7 +768,7 @@ export class Git {
 		},
 		...args: string[]
 	) {
-		return this.git<string>(
+		return this.exec<string>(
 			{
 				cwd: repoPath,
 				cancellation: options?.cancellation,
@@ -807,7 +811,7 @@ export class Git {
 		params.push('--no-index');
 
 		try {
-			return await this.git<string>(
+			return await this.exec<string>(
 				{
 					cwd: repoPath,
 					configs: gitDiffDefaultConfigs,
@@ -867,7 +871,7 @@ export class Git {
 			params.push(options.path);
 		}
 
-		return this.git<string>({ cwd: repoPath, configs: gitDiffDefaultConfigs }, ...params);
+		return this.exec<string>({ cwd: repoPath, configs: gitDiffDefaultConfigs }, ...params);
 	}
 
 	async diff__shortstat(repoPath: string, ref?: string) {
@@ -877,7 +881,7 @@ export class Git {
 		}
 
 		try {
-			return await this.git<string>({ cwd: repoPath, configs: gitDiffDefaultConfigs }, ...params, '--');
+			return await this.exec<string>({ cwd: repoPath, configs: gitDiffDefaultConfigs }, ...params, '--');
 		} catch (ex) {
 			const msg: string = ex?.toString() ?? '';
 			if (GitErrors.noMergeBase.test(msg)) {
@@ -905,7 +909,7 @@ export class Git {
 			params.push(options.ref2);
 		}
 
-		return this.git<string>({ cwd: repoPath }, ...params, '--', fileName);
+		return this.exec<string>({ cwd: repoPath }, ...params, '--', fileName);
 	}
 
 	difftool__dir_diff(repoPath: string, tool: string, ref1: string, ref2?: string) {
@@ -914,7 +918,7 @@ export class Git {
 			params.push(ref2);
 		}
 
-		return this.git<string>({ cwd: repoPath }, ...params);
+		return this.exec<string>({ cwd: repoPath }, ...params);
 	}
 
 	async fetch(
@@ -949,7 +953,7 @@ export class Git {
 		}
 
 		try {
-			void (await this.git<string>({ cwd: repoPath }, ...params));
+			void (await this.exec<string>({ cwd: repoPath }, ...params));
 		} catch (ex) {
 			const msg: string = ex?.toString() ?? '';
 			let reason: FetchErrorReason = FetchErrorReason.Other;
@@ -1006,7 +1010,7 @@ export class Git {
 		}
 
 		try {
-			void (await this.git<string>({ cwd: repoPath }, ...params));
+			void (await this.exec<string>({ cwd: repoPath }, ...params));
 		} catch (ex) {
 			const msg: string = ex?.toString() ?? '';
 			let reason: PushErrorReason = PushErrorReason.Other;
@@ -1053,7 +1057,7 @@ export class Git {
 		}
 
 		try {
-			void (await this.git<string>({ cwd: repoPath }, ...params));
+			void (await this.exec<string>({ cwd: repoPath }, ...params));
 		} catch (ex) {
 			const msg: string = ex?.toString() ?? '';
 			let reason: PullErrorReason = PullErrorReason.Other;
@@ -1098,7 +1102,7 @@ export class Git {
 			params.push('refs/remotes');
 		}
 
-		return this.git<string>({ cwd: repoPath }, ...params);
+		return this.exec<string>({ cwd: repoPath }, ...params);
 	}
 
 	log(
@@ -1112,7 +1116,7 @@ export class Git {
 		},
 		...args: string[]
 	) {
-		return this.git<string>(
+		return this.exec<string>(
 			{
 				cwd: repoPath,
 				cancellation: options?.cancellation,
@@ -1140,7 +1144,7 @@ export class Git {
 			params.push('--stdin');
 		}
 
-		const proc = await this.gitSpawn(
+		const proc = await this.spawn(
 			{ cwd: repoPath, configs: options?.configs ?? gitLogDefaultConfigs, stdin: options?.stdin },
 			...params,
 			'--',
@@ -1319,7 +1323,7 @@ export class Git {
 			params.push('--', file);
 		}
 
-		return this.git<string>({ cwd: root, configs: gitLogDefaultConfigs }, ...params);
+		return this.exec<string>({ cwd: root, configs: gitLogDefaultConfigs }, ...params);
 	}
 
 	async log__file_recent(
@@ -1347,7 +1351,7 @@ export class Git {
 			params.push(options?.ref);
 		}
 
-		const data = await this.git<string>(
+		const data = await this.exec<string>(
 			{
 				cancellation: options?.cancellation,
 				cwd: repoPath,
@@ -1379,7 +1383,7 @@ export class Git {
 			params.push('--', file);
 		}
 
-		const data = await this.git<string>(
+		const data = await this.exec<string>(
 			{
 				cancellation: cancellation,
 				cwd: repoPath,
@@ -1398,7 +1402,7 @@ export class Git {
 			params.push(`--${ordering}-order`);
 		}
 
-		const data = await this.git<string>(
+		const data = await this.exec<string>(
 			{ cwd: repoPath, configs: gitLogDefaultConfigs, errors: GitErrorHandling.Ignore },
 			...params,
 			'--',
@@ -1414,7 +1418,7 @@ export class Git {
 			params.push(`--${ordering}-order`);
 		}
 
-		const data = await this.git<string>(
+		const data = await this.exec<string>(
 			{ cwd: repoPath, configs: gitLogDefaultConfigs, errors: GitErrorHandling.Ignore },
 			...params,
 			'--',
@@ -1436,7 +1440,7 @@ export class Git {
 	) {
 		if (options?.shas != null) {
 			const stdin = join(options.shas, '\n');
-			return this.git<string>(
+			return this.exec<string>(
 				{ cwd: repoPath, stdin: stdin },
 				'show',
 				'--stdin',
@@ -1449,7 +1453,7 @@ export class Git {
 		let files;
 		[search, files] = splitAt(search, search.indexOf('--'));
 
-		return this.git<string>(
+		return this.exec<string>(
 			{ cwd: repoPath, configs: ['-C', repoPath, ...gitLogDefaultConfigs], stdin: options?.stdin },
 			'log',
 			...(options?.stdin ? ['--stdin'] : emptyArray),
@@ -1490,7 +1494,7 @@ export class Git {
 			params.push('-o');
 		}
 
-		const data = await this.git<string>(
+		const data = await this.exec<string>(
 			{ cwd: repoPath, errors: GitErrorHandling.Ignore },
 			...params,
 			'--',
@@ -1500,11 +1504,11 @@ export class Git {
 	}
 
 	ls_remote(repoPath: string, remote: string, ref?: string) {
-		return this.git<string>({ cwd: repoPath }, 'ls-remote', remote, ref);
+		return this.exec<string>({ cwd: repoPath }, 'ls-remote', remote, ref);
 	}
 
 	ls_remote__HEAD(repoPath: string, remote: string) {
-		return this.git<string>({ cwd: repoPath }, 'ls-remote', '--symref', remote, 'HEAD');
+		return this.exec<string>({ cwd: repoPath }, 'ls-remote', '--symref', remote, 'HEAD');
 	}
 
 	async ls_tree(repoPath: string, ref: string, path?: string) {
@@ -1514,7 +1518,7 @@ export class Git {
 		} else {
 			params.push('-lrt', ref, '--');
 		}
-		const data = await this.git<string>({ cwd: repoPath, errors: GitErrorHandling.Ignore }, ...params);
+		const data = await this.exec<string>({ cwd: repoPath, errors: GitErrorHandling.Ignore }, ...params);
 		return data.length === 0 ? undefined : data.trim();
 	}
 
@@ -1524,18 +1528,18 @@ export class Git {
 			params.push('--fork-point');
 		}
 
-		return this.git<string>({ cwd: repoPath }, ...params, ref1, ref2);
+		return this.exec<string>({ cwd: repoPath }, ...params, ref1, ref2);
 	}
 
 	async merge_base__is_ancestor(repoPath: string, ref1: string, ref2: string): Promise<boolean> {
 		const params = ['merge-base', '--is-ancestor'];
-		const exitCode = await this.git({ cwd: repoPath, exitCodeOnly: true }, ...params, ref1, ref2);
+		const exitCode = await this.exec({ cwd: repoPath, exitCodeOnly: true }, ...params, ref1, ref2);
 		return exitCode === 0;
 	}
 
 	async merge_tree(repoPath: string, branch: string, target: string, ...args: string[]): Promise<string> {
 		try {
-			return await this.git<string>(
+			return await this.exec<string>(
 				{ cwd: repoPath, errors: GitErrorHandling.Throw },
 				'merge-tree',
 				...args,
@@ -1543,7 +1547,7 @@ export class Git {
 				target,
 			);
 		} catch (ex) {
-			const msg = ex?.toString() ?? '';
+			const msg: string = ex?.toString() ?? '';
 
 			if (GitErrors.notAValidObjectName.test(msg)) {
 				throw new Error(
@@ -1575,7 +1579,7 @@ export class Git {
 		},
 		...args: string[]
 	): Promise<string> {
-		return this.git<string>(
+		return this.exec<string>(
 			{
 				cwd: repoPath,
 				cancellation: options?.cancellation,
@@ -1592,7 +1596,7 @@ export class Git {
 	}
 
 	remote(repoPath: string): Promise<string> {
-		return this.git<string>({ cwd: repoPath }, 'remote', '-v');
+		return this.exec<string>({ cwd: repoPath }, 'remote', '-v');
 	}
 
 	remote__add(repoPath: string, name: string, url: string, options?: { fetch?: boolean }) {
@@ -1600,23 +1604,23 @@ export class Git {
 		if (options?.fetch) {
 			params.push('-f');
 		}
-		return this.git<string>({ cwd: repoPath }, ...params, name, url);
+		return this.exec<string>({ cwd: repoPath }, ...params, name, url);
 	}
 
 	remote__prune(repoPath: string, name: string) {
-		return this.git<string>({ cwd: repoPath }, 'remote', 'prune', name);
+		return this.exec<string>({ cwd: repoPath }, 'remote', 'prune', name);
 	}
 
 	remote__remove(repoPath: string, name: string) {
-		return this.git<string>({ cwd: repoPath }, 'remote', 'remove', name);
+		return this.exec<string>({ cwd: repoPath }, 'remote', 'remove', name);
 	}
 
 	remote__get_url(repoPath: string, remote: string): Promise<string> {
-		return this.git<string>({ cwd: repoPath }, 'remote', 'get-url', remote);
+		return this.exec<string>({ cwd: repoPath }, 'remote', 'get-url', remote);
 	}
 
 	reset(repoPath: string | undefined, pathspecs: string[]) {
-		return this.git<string>({ cwd: repoPath }, 'reset', '-q', '--', ...pathspecs);
+		return this.exec<string>({ cwd: repoPath }, 'reset', '-q', '--', ...pathspecs);
 	}
 
 	async rev_list(
@@ -1637,7 +1641,7 @@ export class Git {
 			params.push(`--since="${options.since}"`, '--date-order');
 		}
 
-		const rawData = await this.git<string>(
+		const rawData = await this.exec<string>(
 			{ cwd: repoPath, errors: GitErrorHandling.Ignore },
 			...params,
 			ref,
@@ -1655,7 +1659,7 @@ export class Git {
 			params.push('--all');
 		}
 
-		let data = await this.git<string>({ cwd: repoPath, errors: GitErrorHandling.Ignore }, ...params, ref, '--');
+		let data = await this.exec<string>({ cwd: repoPath, errors: GitErrorHandling.Ignore }, ...params, ref, '--');
 		data = data.trim();
 		if (data.length === 0) return undefined;
 
@@ -1679,7 +1683,12 @@ export class Git {
 			params.push('--no-merges');
 		}
 
-		const data = await this.git<string>({ cwd: repoPath, errors: GitErrorHandling.Ignore }, ...params, range, '--');
+		const data = await this.exec<string>(
+			{ cwd: repoPath, errors: GitErrorHandling.Ignore },
+			...params,
+			range,
+			'--',
+		);
 		if (data.length === 0) return undefined;
 
 		const parts = data.split('\t');
@@ -1697,7 +1706,7 @@ export class Git {
 	}
 
 	async rev_parse(repoPath: string, ref: string): Promise<string | undefined> {
-		const data = await this.git<string>({ cwd: repoPath, errors: GitErrorHandling.Ignore }, 'rev-parse', ref);
+		const data = await this.exec<string>({ cwd: repoPath, errors: GitErrorHandling.Ignore }, 'rev-parse', ref);
 		return data.length === 0 ? undefined : data.trim();
 	}
 
@@ -1706,7 +1715,7 @@ export class Git {
 		ordering: 'date' | 'author-date' | 'topo' | null,
 	): Promise<[string, string | undefined] | undefined> {
 		try {
-			const data = await this.git<string>(
+			const data = await this.exec<string>(
 				{ cwd: repoPath, errors: GitErrorHandling.Throw },
 				'rev-parse',
 				'--abbrev-ref',
@@ -1781,7 +1790,7 @@ export class Git {
 	}
 
 	async rev_parse__git_dir(cwd: string): Promise<{ path: string; commonPath?: string } | undefined> {
-		const data = await this.git<string>(
+		const data = await this.exec<string>(
 			{ cwd: cwd, errors: GitErrorHandling.Ignore },
 			'rev-parse',
 			'--git-dir',
@@ -1818,7 +1827,7 @@ export class Git {
 			// Check if the folder is a bare clone: if it has a file named HEAD && `rev-parse --show-cdup` is empty
 			try {
 				accessSync(joinPaths(cwd, 'HEAD'));
-				data = await this.git<string>(
+				data = await this.exec<string>(
 					{ cwd: cwd, errors: GitErrorHandling.Throw, configs: ['-C', cwd] },
 					'rev-parse',
 					'--show-cdup',
@@ -1833,7 +1842,11 @@ export class Git {
 		}
 
 		try {
-			data = await this.git<string>({ cwd: cwd, errors: GitErrorHandling.Throw }, 'rev-parse', '--show-toplevel');
+			data = await this.exec<string>(
+				{ cwd: cwd, errors: GitErrorHandling.Throw },
+				'rev-parse',
+				'--show-toplevel',
+			);
 			// Make sure to normalize: https://github.com/git-for-windows/git/issues/2478
 			// Keep trailing spaces which are part of the directory name
 			return data.length === 0
@@ -1856,7 +1869,7 @@ export class Git {
 			const inDotGit = /this operation must be run in a work tree/.test(ex.stderr);
 			// Check if we are in a bare clone
 			if (inDotGit && workspace.isTrusted) {
-				data = await this.git<string>(
+				data = await this.exec<string>(
 					{ cwd: cwd, errors: GitErrorHandling.Ignore },
 					'rev-parse',
 					'--is-bare-repository',
@@ -1894,7 +1907,7 @@ export class Git {
 			params.push('--end-of-options');
 		}
 
-		const data = await this.git<string>(
+		const data = await this.exec<string>(
 			{ cwd: repoPath, errors: GitErrorHandling.Ignore },
 			...params,
 			fileName ? `${ref}:./${fileName}` : `${ref}^{commit}`,
@@ -1907,7 +1920,7 @@ export class Git {
 		options?: { cancellation?: CancellationToken; configs?: readonly string[] },
 		...args: string[]
 	) {
-		return this.git<string>(
+		return this.exec<string>(
 			{
 				cwd: repoPath,
 				cancellation: options?.cancellation,
@@ -1943,7 +1956,7 @@ export class Git {
 		const args = ref.endsWith(':') ? `${ref}./${file}` : `${ref}:./${file}`;
 
 		try {
-			const data = await this.git<TOut>(opts, 'show', '--textconv', args, '--');
+			const data = await this.exec<TOut>(opts, 'show', '--textconv', args, '--');
 			return data;
 		} catch (ex) {
 			const msg: string = ex?.toString() ?? '';
@@ -1965,12 +1978,12 @@ export class Git {
 
 	stash__apply(repoPath: string, stashName: string, deleteAfter: boolean): Promise<string | undefined> {
 		if (!stashName) return Promise.resolve(undefined);
-		return this.git<string>({ cwd: repoPath }, 'stash', deleteAfter ? 'pop' : 'apply', stashName);
+		return this.exec<string>({ cwd: repoPath }, 'stash', deleteAfter ? 'pop' : 'apply', stashName);
 	}
 
 	async stash__rename(repoPath: string, stashName: string, ref: string, message: string, stashOnRef?: string) {
 		await this.stash__delete(repoPath, stashName, ref);
-		return this.git<string>(
+		return this.exec<string>(
 			{ cwd: repoPath },
 			'stash',
 			'store',
@@ -1984,7 +1997,7 @@ export class Git {
 		if (!stashName) return undefined;
 
 		if (ref) {
-			const stashRef = await this.git<string>(
+			const stashRef = await this.exec<string>(
 				{ cwd: repoPath, errors: GitErrorHandling.Ignore },
 				'show',
 				'--format=%H',
@@ -1996,7 +2009,7 @@ export class Git {
 			}
 		}
 
-		return this.git<string>({ cwd: repoPath }, 'stash', 'drop', stashName);
+		return this.exec<string>({ cwd: repoPath }, 'stash', 'drop', stashName);
 	}
 
 	stash__list(
@@ -2007,7 +2020,7 @@ export class Git {
 			args = ['--name-status'];
 		}
 
-		return this.git<string>(
+		return this.exec<string>(
 			{ cwd: repoPath },
 			'stash',
 			'list',
@@ -2019,7 +2032,7 @@ export class Git {
 	async stash__create(repoPath: string): Promise<string | undefined> {
 		const params = ['stash', 'create'];
 
-		const data = await this.git<string>({ cwd: repoPath }, ...params);
+		const data = await this.exec<string>({ cwd: repoPath }, ...params);
 		return data?.trim() || undefined;
 	}
 
@@ -2032,7 +2045,7 @@ export class Git {
 
 		params.push(sha);
 
-		await this.git<string>({ cwd: repoPath }, ...params);
+		await this.exec<string>({ cwd: repoPath }, ...params);
 	}
 
 	async stash__push(
@@ -2081,7 +2094,7 @@ export class Git {
 		}
 
 		try {
-			const data = await this.git<string>({ cwd: repoPath, stdin: stdin }, ...params);
+			const data = await this.exec<string>({ cwd: repoPath, stdin: stdin }, ...params);
 			if (data.includes('No local changes to save')) {
 				throw new StashPushError(StashPushErrorReason.NothingToSave);
 				return;
@@ -2099,7 +2112,7 @@ export class Git {
 	}
 
 	stash(repoPath: string, ...args: string[]) {
-		return this.git<string>({ cwd: repoPath }, 'stash', ...args);
+		return this.exec<string>({ cwd: repoPath }, 'stash', ...args);
 	}
 
 	async status(
@@ -2119,7 +2132,7 @@ export class Git {
 			);
 		}
 
-		return this.git<string>(
+		return this.exec<string>(
 			{ cwd: repoPath, configs: gitStatusDefaultConfigs, env: { GIT_OPTIONAL_LOCKS: '0' } },
 			...params,
 			'--',
@@ -2127,12 +2140,12 @@ export class Git {
 	}
 
 	symbolic_ref(repoPath: string, ref: string) {
-		return this.git<string>({ cwd: repoPath }, 'symbolic-ref', '--short', ref);
+		return this.exec<string>({ cwd: repoPath }, 'symbolic-ref', '--short', ref);
 	}
 
 	async tag(repoPath: string, ...args: string[]) {
 		try {
-			const output = await this.git<string>({ cwd: repoPath }, 'tag', ...args);
+			const output = await this.exec<string>({ cwd: repoPath }, 'tag', ...args);
 			return output;
 		} catch (ex) {
 			const msg: string = ex?.toString() ?? '';
@@ -2169,11 +2182,11 @@ export class Git {
 		if (commitish) {
 			params.push(commitish);
 		}
-		return this.git<string>({ cwd: repoPath }, ...params);
+		return this.exec<string>({ cwd: repoPath }, ...params);
 	}
 
 	worktree__list(repoPath: string) {
-		return this.git<string>({ cwd: repoPath }, 'worktree', 'list', '--porcelain');
+		return this.exec<string>({ cwd: repoPath }, 'worktree', 'list', '--porcelain');
 	}
 
 	worktree__remove(repoPath: string, worktree: string, { force }: { force?: boolean } = {}) {
@@ -2183,7 +2196,7 @@ export class Git {
 		}
 		params.push(worktree);
 
-		return this.git<string>({ cwd: repoPath, errors: GitErrorHandling.Throw }, ...params);
+		return this.exec<string>({ cwd: repoPath, errors: GitErrorHandling.Throw }, ...params);
 	}
 
 	async readDotGitFile(

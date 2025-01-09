@@ -1,9 +1,8 @@
 import type { IntegrationDescriptor } from '../../constants.integrations';
 import type { GitBranchStatus, GitTrackingState } from '../../git/models/branch';
 import type { Issue } from '../../git/models/issue';
-import type { GitMergeStatus } from '../../git/models/merge';
 import type { MergeConflict } from '../../git/models/mergeConflict';
-import type { GitRebaseStatus } from '../../git/models/rebase';
+import type { GitPausedOperationStatus } from '../../git/models/pausedOperationStatus';
 import type { GitBranchReference } from '../../git/models/reference';
 import type { Subscription } from '../../plus/gk/account/subscription';
 import type { LaunchpadSummaryResult } from '../../plus/launchpad/launchpadIndicator';
@@ -88,8 +87,7 @@ export interface GetOverviewBranch {
 				};
 				hasConflicts?: boolean;
 				conflictsCount?: number;
-				mergeStatus?: GitMergeStatus;
-				rebaseStatus?: GitRebaseStatus;
+				pausedOpStatus?: GitPausedOperationStatus;
 		  }
 		| undefined
 	>;

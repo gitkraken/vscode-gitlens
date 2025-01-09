@@ -92,7 +92,7 @@ import { isSha, shortenRevision } from '../../../git/models/revision.utils';
 import { getWorktreesByBranch } from '../../../git/models/worktree.utils';
 import type { GitSearch } from '../../../git/search';
 import { getSearchQueryComparisonKey, parseSearchQuery } from '../../../git/search';
-import { getRemoteIconUri } from '../../../git/utils/icons';
+import { getRemoteIconUri } from '../../../git/utils/vscode/icons';
 import type { FeaturePreviewChangeEvent, SubscriptionChangeEvent } from '../../../plus/gk/account/subscriptionService';
 import type { ConnectionStateChangeEvent } from '../../../plus/integrations/integrationService';
 import { remoteProviderIdToIntegrationId } from '../../../plus/integrations/integrationService';
@@ -948,7 +948,7 @@ export class GraphWebviewProvider implements WebviewProvider<State, State, Graph
 				RepositoryChange.Remotes,
 				// RepositoryChange.RemoteProviders,
 				RepositoryChange.Stash,
-				RepositoryChange.Status,
+				RepositoryChange.PausedOperationStatus,
 				RepositoryChange.Tags,
 				RepositoryChange.Unknown,
 				RepositoryChangeComparisonMode.Any,

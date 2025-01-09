@@ -1,8 +1,7 @@
 import { css, html, LitElement, nothing } from 'lit';
 import { customElement, property } from 'lit/decorators.js';
-import { when } from 'lit/directives/when.js';
-import type { GitMergeStatus } from '../../../../../git/models/merge';
-import type { GitRebaseStatus } from '../../../../../git/models/rebase';
+import type { GitPausedOperationStatus } from '../../../../../git/models/pausedOperationStatus';
+import { pausedOperationStatusStringsByType } from '../../../../../git/utils/pausedOperationStatus.utils';
 import { getReferenceLabel } from '../../../shared/git-utils';
 import '../../../shared/components/overlays/tooltip';
 
@@ -52,44 +51,50 @@ export class GlMergeConflictWarning extends LitElement {
 	conflicts = false;
 
 	@property({ type: Object })
-	merge?: GitMergeStatus;
-
-	@property({ type: Object })
-	rebase?: GitRebaseStatus;
+	pausedOpStatus?: GitPausedOperationStatus;
 
 	override render() {
-		if (this.merge == null && this.rebase == null) return nothing;
+		if (this.pausedOpStatus == null) return nothing;
 
 		return html`
 			<span class="status">
 				<code-icon icon="warning" class="icon"></code-icon>
-				${when(
-					this.merge != null,
-					() => this.renderMerge(),
-					() => this.renderRebase(),
-				)}
+				${this.renderStatus(this.pausedOpStatus)}
 			</span>
 		`;
 	}
 
-	private renderMerge() {
-		return html`<span class="label"
-			>${this.conflicts ? 'Resolve conflicts before merging' : 'Merging'} into
-			${getReferenceLabel(this.merge!.current, { expand: false, icon: false })}</span
-		>`;
-	}
+	private renderStatus(pausedOpStatus: GitPausedOperationStatus) {
+		if (pausedOpStatus.type !== 'rebase') {
+			const strings = pausedOperationStatusStringsByType[pausedOpStatus.type];
+			return html`<span class="label"
+				>${this.conflicts ? strings.conflicts : strings.label}
+				<code-icon
+					icon="${pausedOpStatus.incoming.refType === 'branch' ? 'git-branch' : 'git-commit'}"
+					class="icon"
+				></code-icon>
+				${getReferenceLabel(pausedOpStatus.incoming, { expand: false, icon: false })} ${strings.directionality}
+				${getReferenceLabel(pausedOpStatus.current, { expand: false, icon: false })}</span
+			>`;
+		}
 
-	private renderRebase() {
-		const started = this.rebase!.steps.total > 0;
+		const started = pausedOpStatus.steps.total > 0;
+		const strings = pausedOperationStatusStringsByType[pausedOpStatus.type];
 		return html`<span class="label"
-				>${this.conflicts ? 'Resolve conflicts to continue rebasing' : started ? 'Rebasing' : 'Pending rebase'}
-				onto
-				${getReferenceLabel(this.rebase!.current ?? this.rebase!.onto, {
+				>${this.conflicts ? strings.conflicts : started ? strings.label : strings.pending}
+				<code-icon
+					icon="${pausedOpStatus.incoming.refType === 'branch' ? 'git-branch' : 'git-commit'}"
+					class="icon"
+				></code-icon>
+				${getReferenceLabel(pausedOpStatus.incoming, { expand: false, icon: false })} ${strings.directionality}
+				${getReferenceLabel(pausedOpStatus.current ?? pausedOpStatus.onto, {
 					expand: false,
 					icon: false,
 				})}</span
 			>${started
-				? html`<span class="steps">(${this.rebase!.steps.current.number}/${this.rebase!.steps.total})</span>`
+				? html`<span class="steps"
+						>(${pausedOpStatus.steps.current.number}/${pausedOpStatus.steps.total})</span
+				  >`
 				: nothing}`;
 	}
 }

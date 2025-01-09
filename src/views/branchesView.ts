@@ -44,7 +44,7 @@ export class BranchesRepositoryNode extends RepositoryFolderNode<BranchesView, B
 			RepositoryChange.Index,
 			RepositoryChange.Remotes,
 			RepositoryChange.RemoteProviders,
-			RepositoryChange.Status,
+			RepositoryChange.PausedOperationStatus,
 			RepositoryChange.Unknown,
 			RepositoryChangeComparisonMode.Any,
 		);

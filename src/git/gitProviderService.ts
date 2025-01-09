@@ -69,9 +69,8 @@ import type { GitDiff, GitDiffFile, GitDiffFiles, GitDiffFilter, GitDiffLine, Gi
 import type { GitFile, GitFileChange } from './models/file';
 import type { GitGraph } from './models/graph';
 import type { GitLog } from './models/log';
-import type { GitMergeStatus } from './models/merge';
 import type { MergeConflict } from './models/mergeConflict';
-import type { GitRebaseStatus } from './models/rebase';
+import type { GitPausedOperationStatus } from './models/pausedOperationStatus';
 import type { GitBranchReference, GitReference } from './models/reference';
 import type { GitReflog } from './models/reflog';
 import type { GitRemote } from './models/remote';
@@ -89,8 +88,8 @@ import type { GitUser } from './models/user';
 import type { GitWorktree } from './models/worktree';
 import type { RemoteProvider } from './remotes/remoteProvider';
 import type { GitSearch } from './search';
-import type { BranchSortOptions, TagSortOptions } from './utils/sorting';
-import { sortRepositories } from './utils/sorting';
+import type { BranchSortOptions, TagSortOptions } from './utils/vscode/sorting';
+import { sortRepositories } from './utils/vscode/sorting';
 
 const emptyArray = Object.freeze([]) as unknown as any[];
 const emptyDisposable = Object.freeze({
@@ -2152,20 +2151,6 @@ export class GitProviderService implements Disposable {
 		return provider.getMergeBase(path, ref1, ref2, options);
 	}
 
-	@gate()
-	@log()
-	async getMergeStatus(repoPath: string | Uri): Promise<GitMergeStatus | undefined> {
-		const { provider, path } = this.getProvider(repoPath);
-		return provider.getMergeStatus(path);
-	}
-
-	@gate()
-	@log()
-	async getRebaseStatus(repoPath: string | Uri): Promise<GitRebaseStatus | undefined> {
-		const { provider, path } = this.getProvider(repoPath);
-		return provider.getRebaseStatus(path);
-	}
-
 	@log()
 	getNextComparisonUris(
 		repoPath: string | Uri,
@@ -2183,6 +2168,27 @@ export class GitProviderService implements Disposable {
 	async getOldestUnpushedRefForFile(repoPath: string | Uri, uri: Uri): Promise<string | undefined> {
 		const { provider, path } = this.getProvider(repoPath);
 		return provider.getOldestUnpushedRefForFile(path, uri);
+	}
+
+	@gate()
+	@log()
+	async getPausedOperationStatus(repoPath: string | Uri): Promise<GitPausedOperationStatus | undefined> {
+		const { provider, path } = this.getProvider(repoPath);
+		return provider.getPausedOperationStatus?.(path);
+	}
+
+	@gate()
+	@log()
+	async abortPausedOperation(repoPath: string, options?: { quit?: boolean }): Promise<void> {
+		const { provider, path } = this.getProvider(repoPath);
+		return provider.abortPausedOperation?.(path, options);
+	}
+
+	@gate()
+	@log()
+	async continuePausedOperation(repoPath: string, options?: { skip?: boolean }): Promise<void> {
+		const { provider, path } = this.getProvider(repoPath);
+		return provider.continuePausedOperation?.(path, options);
 	}
 
 	@log()
