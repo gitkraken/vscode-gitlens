@@ -694,7 +694,11 @@ type HomeWebviewCommands = `home.${
 	| 'mergeIntoCurrent'
 	| 'rebaseCurrentOnto'
 	| 'startWork'
-	| 'createCloudPatch'}`;
+	| 'createCloudPatch'
+	| 'skipPausedOperation'
+	| 'continuePausedOperation'
+	| 'abortPausedOperation'
+	| 'openRebaseEditor'}`;
 
 type GraphWebviewCommands = `graph.${
 	| 'switchToEditorLayout'
