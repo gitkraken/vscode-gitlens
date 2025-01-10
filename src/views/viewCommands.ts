@@ -1,6 +1,6 @@
-import { getTempFile } from '@env/platform';
 import type { TextDocumentShowOptions } from 'vscode';
 import { Disposable, env, Uri, window, workspace } from 'vscode';
+import { getTempFile } from '@env/platform';
 import type { CreatePullRequestActionContext, OpenPullRequestActionContext } from '../api/gitlens';
 import type { DiffWithCommandArgs } from '../commands/diffWith';
 import type { DiffWithPreviousCommandArgs } from '../commands/diffWithPrevious';

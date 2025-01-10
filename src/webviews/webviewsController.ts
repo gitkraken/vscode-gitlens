@@ -1,4 +1,3 @@
-import { uuid } from '@env/crypto';
 import type {
 	CancellationToken,
 	WebviewOptions,
@@ -8,6 +7,7 @@ import type {
 	WebviewViewResolveContext,
 } from 'vscode';
 import { Disposable, Uri, ViewColumn, window } from 'vscode';
+import { uuid } from '@env/crypto';
 import type { GlCommands } from '../constants.commands';
 import type { TrackedUsageFeatures } from '../constants.telemetry';
 import type { WebviewIds, WebviewTypes, WebviewViewIds, WebviewViewTypes } from '../constants.views';

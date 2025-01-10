@@ -1,4 +1,3 @@
-import { md5 } from '@env/crypto';
 import type {
 	CodeSuggestionsCountByPrUuid,
 	EnrichedItemsByUniqueId,
@@ -6,6 +5,7 @@ import type {
 } from '@gitkraken/provider-apis';
 import type { CancellationToken, ConfigurationChangeEvent } from 'vscode';
 import { Disposable, env, EventEmitter, Uri, window } from 'vscode';
+import { md5 } from '@env/crypto';
 import { GlCommand } from '../../constants.commands';
 import type { IntegrationId } from '../../constants.integrations';
 import { HostingIntegrationId } from '../../constants.integrations';

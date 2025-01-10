@@ -1,4 +1,3 @@
-import { getNonce } from '@env/crypto';
 import type {
 	CancellationToken,
 	CustomTextEditorProvider,
@@ -7,6 +6,7 @@ import type {
 	WebviewPanelOnDidChangeViewStateEvent,
 } from 'vscode';
 import { ConfigurationTarget, Disposable, Position, Range, Uri, window, workspace, WorkspaceEdit } from 'vscode';
+import { getNonce } from '@env/crypto';
 import { InspectCommand } from '../../commands/inspect';
 import type { Container } from '../../container';
 import { emojify } from '../../emojis';

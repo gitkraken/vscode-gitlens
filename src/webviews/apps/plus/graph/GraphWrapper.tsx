@@ -1,4 +1,3 @@
-import { getPlatform } from '@env/platform';
 import type {
 	CommitType,
 	GraphColumnMode,
@@ -19,6 +18,7 @@ import SlOption from '@shoelace-style/shoelace/dist/react/option/index.js';
 import SlSelect from '@shoelace-style/shoelace/dist/react/select/index.js';
 import type { FormEvent, MouseEvent, ReactElement } from 'react';
 import React, { createElement, useEffect, useMemo, useRef, useState } from 'react';
+import { getPlatform } from '@env/platform';
 import type { ConnectCloudIntegrationsCommandArgs } from '../../../../commands/cloudIntegrations';
 import type { BranchGitCommandArgs } from '../../../../commands/git/branch';
 import type { DateStyle, GraphBranchesVisibility } from '../../../../config';

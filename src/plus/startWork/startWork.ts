@@ -1,7 +1,7 @@
-import { md5 } from '@env/crypto';
 import slug from 'slug';
 import type { QuickInputButton, QuickPick, QuickPickItem } from 'vscode';
 import { Uri } from 'vscode';
+import { md5 } from '@env/crypto';
 import type {
 	AsyncStepResultGenerator,
 	PartialStepState,
