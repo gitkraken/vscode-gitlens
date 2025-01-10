@@ -316,7 +316,7 @@ export async function getBranchesAndOrTags(
 		const [worktreesByBranchResult, branchesResult, tagsResult] = await Promise.allSettled([
 			include.includes('branches') ? getWorktreesByBranch(repo) : undefined,
 			include.includes('branches')
-				? repo.git.getBranches({
+				? repo.git.branches().getBranches({
 						filter: filter?.branches,
 						sort: typeof sort === 'boolean' ? sort : sort?.branches,
 				  })
@@ -334,7 +334,7 @@ export async function getBranchesAndOrTags(
 			include.includes('branches')
 				? Promise.allSettled(
 						repos.map(r =>
-							r.git.getBranches({
+							r.git.branches().getBranches({
 								filter: filter?.branches,
 								sort: typeof sort === 'boolean' ? sort : sort?.branches,
 							}),
@@ -580,7 +580,7 @@ export async function* inputBranchNameStep<
 					return [false, `'${value}' isn't a valid branch name`];
 				}
 
-				const alreadyExists = await state.repo.git.getBranch(value);
+				const alreadyExists = await state.repo.git.branches().getBranch(value);
 				if (alreadyExists) {
 					return [false, `A branch named '${value}' already exists`];
 				}
@@ -596,7 +596,7 @@ export async function* inputBranchNameStep<
 					return [false, `'${value}' isn't a valid branch name`];
 				}
 
-				const alreadyExists = await repo.git.getBranch(value);
+				const alreadyExists = await repo.git.branches().getBranch(value);
 				if (alreadyExists) {
 					return [false, `A branch named '${value}' already exists`];
 				}
@@ -2063,7 +2063,7 @@ async function getShowCommitOrStashStepItems<
 			new CommitCopyMessageQuickPickItem(state.reference),
 		);
 	} else {
-		const remotes = await Container.instance.git.getRemotesWithProviders(state.repo.path, { sort: true });
+		const remotes = await state.repo.git.getRemotesWithProviders({ sort: true });
 		if (remotes?.length) {
 			items.push(
 				createQuickPickSeparator(getHighlanderProviderName(remotes) ?? 'Remote'),
@@ -2080,10 +2080,10 @@ async function getShowCommitOrStashStepItems<
 
 		items.push(createQuickPickSeparator('Actions'));
 
-		const branch = await Container.instance.git.getBranch(state.repo.path);
+		const branch = await state.repo.git.branches().getBranch();
 		const [branches, published] = await Promise.all([
 			branch != null
-				? Container.instance.git.getCommitBranches(state.repo.path, state.reference.ref, branch.name, {
+				? state.repo.git.branches().getBranchesForCommit([state.reference.ref], branch.name, {
 						commitDate: isCommit(state.reference) ? state.reference.committer.date : undefined,
 				  })
 				: undefined,

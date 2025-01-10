@@ -439,7 +439,7 @@ export class HomeWebviewProvider implements WebviewProvider<State, State, HomeWe
 		const repo = this._repositoryBranches.get(refs.repoPath);
 		let branch = repo?.branches.find(b => b.id === refs.branchId);
 		if (branch == null) {
-			branch = await repo?.repo?.git.getBranch(refs.branchId);
+			branch = await repo?.repo?.git.branches().getBranch(refs.branchId);
 			if (branch == null) return;
 		}
 
@@ -450,7 +450,7 @@ export class HomeWebviewProvider implements WebviewProvider<State, State, HomeWe
 		const repo = this._repositoryBranches.get(refs.repoPath);
 		let branch = repo?.branches.find(b => b.id === refs.branchId);
 		if (branch == null) {
-			branch = await repo?.repo?.git.getBranch(refs.branchId);
+			branch = await repo?.repo?.git.branches().getBranch(refs.branchId);
 			if (branch == null) return;
 		}
 
@@ -794,7 +794,7 @@ export class HomeWebviewProvider implements WebviewProvider<State, State, HomeWe
 			const worktrees = (await repo.git.worktrees()?.getWorktrees()) ?? [];
 			const worktreesByBranch = groupWorktreesByBranch(worktrees, { includeDefault: true });
 			const [branchesResult] = await Promise.allSettled([
-				repo.git.getBranches({
+				repo.git.branches().getBranches({
 					filter: b => !b.remote,
 					sort: { current: true, openedWorktreesByBranch: getOpenedWorktreesByBranch(worktreesByBranch) },
 				}),
@@ -1144,7 +1144,7 @@ function getOverviewBranches(
 				);
 				contributorsPromises.set(
 					branch.id,
-					container.git.getBranchContributionsOverview(branch.repoPath, branch.ref),
+					container.git.branches(branch.repoPath).getBranchContributionsOverview(branch.ref),
 				);
 				if (branch.current) {
 					mergeTargetPromises.set(branch.id, getBranchMergeTargetStatusInfo(container, branch));
@@ -1186,7 +1186,7 @@ function getOverviewBranches(
 				);
 				contributorsPromises.set(
 					branch.id,
-					container.git.getBranchContributionsOverview(branch.repoPath, branch.ref),
+					container.git.branches(branch.repoPath).getBranchContributionsOverview(branch.ref),
 				);
 			}
 
@@ -1249,7 +1249,7 @@ function getOverviewBranches(
 
 					contributorsPromises.set(
 						branch.id,
-						container.git.getBranchContributionsOverview(branch.repoPath, branch.ref),
+						container.git.branches(branch.repoPath).getBranchContributionsOverview(branch.ref),
 					);
 				}
 

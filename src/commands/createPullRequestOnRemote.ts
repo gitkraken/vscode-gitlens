@@ -35,7 +35,7 @@ export class CreatePullRequestOnRemoteCommand extends GlCommandBase {
 		if (repo == null) return;
 
 		if (args == null) {
-			const branch = await repo.git.getBranch();
+			const branch = await repo.git.branches().getBranch();
 			if (branch?.upstream == null) {
 				void window.showErrorMessage(
 					`Unable to create a pull request for branch \`${branch?.name}\` because it has no upstream branch`,

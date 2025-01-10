@@ -1324,7 +1324,7 @@ export class CommitDetailsWebviewProvider
 		repository: Repository,
 		branchName: string,
 	): Promise<{ branch: GitBranch; pullRequest: PullRequest | undefined; codeSuggestions: Draft[] } | undefined> {
-		const branch = await repository.git.getBranch(branchName);
+		const branch = await repository.git.branches().getBranch(branchName);
 		if (branch == null) return undefined;
 
 		if (this.mode === 'commit') {

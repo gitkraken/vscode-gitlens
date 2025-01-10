@@ -132,7 +132,7 @@ export class CherryPickGitCommand extends QuickCommand<State> {
 			}
 
 			if (context.destination == null) {
-				const branch = await state.repo.git.getBranch();
+				const branch = await state.repo.git.branches().getBranch();
 				if (branch == null) break;
 
 				context.destination = branch;
@@ -173,14 +173,13 @@ export class CherryPickGitCommand extends QuickCommand<State> {
 			}
 
 			if (context.selectedBranchOrTag == null && state.references?.length) {
-				const branches = await this.container.git.getCommitBranches(
-					state.repo.path,
+				const branches = await state.repo.git.branches().getBranchesForCommit(
 					state.references.map(r => r.ref),
 					undefined,
 					{ mode: 'contains' },
 				);
 				if (branches.length) {
-					const branch = await state.repo.git.getBranch(branches[0]);
+					const branch = await state.repo.git.branches().getBranch(branches[0]);
 					if (branch != null) {
 						context.selectedBranchOrTag = branch;
 					}

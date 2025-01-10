@@ -362,7 +362,7 @@ export class BranchGitCommand extends QuickCommand {
 			if (state.counter < 3 || state.reference == null) {
 				const result = yield* pickBranchOrTagStep(state, context, {
 					placeholder: `Choose a base to create the new branch from`,
-					picked: state.reference?.ref ?? (await state.repo.git.getBranch())?.ref,
+					picked: state.reference?.ref ?? (await state.repo.git.branches().getBranch())?.ref,
 					title: 'Select Base to Create Branch From',
 					value: isRevisionReference(state.reference) ? state.reference.ref : undefined,
 				});
@@ -423,7 +423,7 @@ export class BranchGitCommand extends QuickCommand {
 				await state.repo.switch(state.reference.ref, { createBranch: state.name });
 			} else {
 				try {
-					await state.repo.git.createBranch(state.name, state.reference.ref);
+					await state.repo.git.branches().createBranch?.(state.name, state.reference.ref);
 				} catch (ex) {
 					Logger.error(ex);
 					// TODO likely need some better error handling here
@@ -433,7 +433,7 @@ export class BranchGitCommand extends QuickCommand {
 
 			if (state.associateWithIssue != null) {
 				const issue = state.associateWithIssue;
-				const branch = await state.repo.git.getBranch(state.name);
+				const branch = await state.repo.git.branches().getBranch(state.name);
 				// TODO: These descriptors are hacked in. Use an integration function to get the right resource for the issue.
 				const owner = getIssueOwner(issue);
 				if (branch != null && owner != null) {
@@ -675,7 +675,7 @@ export class BranchGitCommand extends QuickCommand {
 
 			endSteps(state);
 			try {
-				await state.repo.git.renameBranch(state.reference.ref, state.name);
+				await state.repo.git.branches().renameBranch?.(state.reference.ref, state.name);
 			} catch (ex) {
 				Logger.error(ex);
 				// TODO likely need some better error handling here

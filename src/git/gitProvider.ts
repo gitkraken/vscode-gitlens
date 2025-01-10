@@ -128,8 +128,6 @@ export interface BranchContributionsOverview extends GitCommitStats<number> {
 }
 
 export interface GitProviderRepository {
-	createBranch?(repoPath: string, name: string, ref: string): Promise<void>;
-	renameBranch?(repoPath: string, oldName: string, newName: string): Promise<void>;
 	createTag?(repoPath: string, name: string, ref: string, message?: string): Promise<void>;
 	deleteTag?(repoPath: string, name: string): Promise<void>;
 	addRemote?(repoPath: string, name: string, url: string, options?: { fetch?: boolean }): Promise<void>;
@@ -170,26 +168,8 @@ export interface GitProviderRepository {
 		},
 	): Promise<void>;
 
-	getBranch(repoPath: string): Promise<GitBranch | undefined>;
-	getBranches(
-		repoPath: string,
-		options?: {
-			filter?: ((b: GitBranch) => boolean) | undefined;
-			paging?: PagingOptions | undefined;
-			sort?: boolean | BranchSortOptions | undefined;
-		},
-	): Promise<PagedResult<GitBranch>>;
-	getBranchContributionsOverview?(repoPath: string, ref: string): Promise<BranchContributionsOverview | undefined>;
 	getChangedFilesCount(repoPath: string, ref?: string): Promise<GitDiffShortStat | undefined>;
 	getCommit(repoPath: string, ref: string): Promise<GitCommit | undefined>;
-	getCommitBranches(
-		repoPath: string,
-		refs: string[],
-		branch?: string | undefined,
-		options?:
-			| { all?: boolean; commitDate?: Date; mode?: 'contains' | 'pointsAt' }
-			| { commitDate?: Date; mode?: 'contains' | 'pointsAt'; remotes?: boolean },
-	): Promise<string[]>;
 	getCommitCount(repoPath: string, ref: string): Promise<number | undefined>;
 	getCommitFileStats?(repoPath: string | Uri, ref: string): Promise<GitFileChange[] | undefined>;
 	getCommitForFile(
@@ -234,11 +214,6 @@ export interface GitProviderRepository {
 		},
 	): Promise<GitContributor[]>;
 	getCurrentUser(repoPath: string): Promise<GitUser | undefined>;
-	getBaseBranchName?(repoPath: string, ref: string): Promise<string | undefined>;
-	setBaseBranchName?(repoPath: string, ref: string, base: string): Promise<void>;
-	getDefaultBranchName(repoPath: string | undefined, remote?: string): Promise<string | undefined>;
-	getTargetBranchName?(repoPath: string, ref: string): Promise<string | undefined>;
-	setTargetBranchName?(repoPath: string, ref: string, target: string): Promise<void>;
 	getDiff?(
 		repoPath: string | Uri,
 		to: string,
@@ -306,12 +281,6 @@ export interface GitProviderRepository {
 			skip?: number | undefined;
 		},
 	): Promise<GitLog | undefined>;
-	getMergeBase(
-		repoPath: string,
-		ref1: string,
-		ref2: string,
-		options?: { forkPoint?: boolean | undefined },
-	): Promise<string | undefined>;
 	getNextComparisonUris(
 		repoPath: string,
 		uri: Uri,
@@ -422,11 +391,47 @@ export interface GitProviderRepository {
 	validateBranchOrTagName(repoPath: string, ref: string): Promise<boolean>;
 	validateReference(repoPath: string, ref: string): Promise<boolean>;
 
+	branches: GitProviderBranches;
 	patch?: GitProviderPatch;
 	staging?: GitProviderStaging;
 	stash?: GitProviderStash;
 	status: GitProviderStatus;
 	worktrees?: GitProviderWorktrees;
+}
+
+export interface GitProviderBranches {
+	getBranch(repoPath: string, name?: string): Promise<GitBranch | undefined>;
+	getBranches(
+		repoPath: string,
+		options?: {
+			filter?: ((b: GitBranch) => boolean) | undefined;
+			paging?: PagingOptions | undefined;
+			sort?: boolean | BranchSortOptions | undefined;
+		},
+	): Promise<PagedResult<GitBranch>>;
+	getBranchContributionsOverview(repoPath: string, ref: string): Promise<BranchContributionsOverview | undefined>;
+	getBranchesForCommit(
+		repoPath: string,
+		refs: string[],
+		branch?: string | undefined,
+		options?:
+			| { all?: boolean; commitDate?: Date; mode?: 'contains' | 'pointsAt' }
+			| { commitDate?: Date; mode?: 'contains' | 'pointsAt'; remotes?: boolean },
+	): Promise<string[]>;
+	getDefaultBranchName(repoPath: string | undefined, remote?: string): Promise<string | undefined>;
+	getMergeBase(
+		repoPath: string,
+		ref1: string,
+		ref2: string,
+		options?: { forkPoint?: boolean | undefined },
+	): Promise<string | undefined>;
+
+	createBranch?(repoPath: string, name: string, ref: string): Promise<void>;
+	getBaseBranchName?(repoPath: string, ref: string): Promise<string | undefined>;
+	setBaseBranchName?(repoPath: string, ref: string, base: string): Promise<void>;
+	getTargetBranchName?(repoPath: string, ref: string): Promise<string | undefined>;
+	setTargetBranchName?(repoPath: string, ref: string, target: string): Promise<void>;
+	renameBranch?(repoPath: string, oldName: string, newName: string): Promise<void>;
 }
 
 export interface GitProviderPatch {
@@ -500,6 +505,7 @@ export interface GitProviderWorktrees {
 }
 
 type SupportedProvidersForRepo =
+	| GitProviderBranches
 	| GitProviderPatch
 	| GitProviderStaging
 	| GitProviderStash

@@ -284,7 +284,7 @@ export class DeepLinkService implements Disposable {
 			branchName = `${secondaryRemote.name}/${branchName}`;
 		}
 
-		let branch = await repo.git.getBranch(branchName);
+		let branch = await repo.git.branches().getBranch(branchName);
 		if (branch != null) {
 			return branch;
 		}
@@ -299,7 +299,7 @@ export class DeepLinkService implements Disposable {
 					for (const remote of remotes) {
 						if (remote.provider?.owner === owner) {
 							branchName = `${remote.name}/${branchBaseName}`;
-							branch = await repo.git.getBranch(branchName);
+							branch = await repo.git.branches().getBranch(branchName);
 							if (branch != null) {
 								return branch;
 							}
@@ -310,7 +310,7 @@ export class DeepLinkService implements Disposable {
 		}
 
 		// If the above don't work, it may still exist locally.
-		return repo.git.getBranch(targetId);
+		return repo.git.branches().getBranch(targetId);
 	}
 
 	private async getCommit(targetId: string): Promise<GitCommit | undefined> {
@@ -1291,7 +1291,7 @@ export class DeepLinkService implements Disposable {
 					let skipSwitch = false;
 					if (targetType === DeepLinkType.Branch) {
 						// Check if the branch is already checked out. If so, we are done.
-						const currentBranch = await repo.git.getBranch();
+						const currentBranch = await repo.git.branches().getBranch();
 						this._context.currentBranch = currentBranch?.name;
 						const targetBranch = await this.getBranch(targetId);
 						if (
@@ -1360,7 +1360,10 @@ export class DeepLinkService implements Disposable {
 							new Promise<boolean>(resolve =>
 								once(repo.onDidChange)(async (e: RepositoryChangeEvent) => {
 									if (e.changed(RepositoryChange.Head, RepositoryChangeComparisonMode.Any)) {
-										if ((await repo.git.getBranch())?.name !== this._context.currentBranch) {
+										if (
+											(await repo.git.branches().getBranch())?.name !==
+											this._context.currentBranch
+										) {
 											resolve(true);
 										} else {
 											resolve(false);

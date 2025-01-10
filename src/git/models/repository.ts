@@ -36,7 +36,6 @@ type GitProviderRepoKeys =
 	| 'getBestRemoteWithProvider'
 	| 'getBestRemotesWithProviders'
 	| 'getBestRemoteWithIntegration'
-	| 'getBranch'
 	| 'getDefaultRemote'
 	| 'getRemote'
 	| 'getRemotesWithProviders'
