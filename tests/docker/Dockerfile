@@ -30,4 +30,4 @@ RUN apt-get update && \
     apt-get install -y nodejs && \
     rm -rf /var/lib/apt/lists/*
 
-RUN npm install -g pnpm@9
+RUN npm install -g pnpm@10
