@@ -74,7 +74,6 @@ import type { GitDiff, GitDiffFile, GitDiffFiles, GitDiffFilter, GitDiffLine, Gi
 import type { GitFile, GitFileChange } from './models/file';
 import type { GitGraph } from './models/graph';
 import type { GitLog } from './models/log';
-import type { MergeConflict } from './models/mergeConflict';
 import type { GitBranchReference, GitReference } from './models/reference';
 import type { GitReflog } from './models/reflog';
 import type { GitRemote } from './models/remote';
@@ -2016,16 +2015,6 @@ export class GitProviderService implements Disposable {
 	): Promise<GitReflog | undefined> {
 		const { provider, path } = this.getProvider(repoPath);
 		return provider.getIncomingActivity(path, options);
-	}
-
-	@log()
-	async getPotentialMergeOrRebaseConflict(
-		repoPath: string | Uri,
-		branch: string,
-		targetBranch: string,
-	): Promise<MergeConflict | undefined> {
-		const { provider, path } = this.getProvider(repoPath);
-		return provider.getPotentialMergeOrRebaseConflict?.(path, branch, targetBranch);
 	}
 
 	getBestRepository(): Repository | undefined;

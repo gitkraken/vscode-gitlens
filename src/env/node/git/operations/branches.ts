@@ -9,8 +9,10 @@ import type {
 } from '../../../../git/gitProvider';
 import { GitBranch } from '../../../../git/models/branch';
 import { isDetachedHead } from '../../../../git/models/branch.utils';
+import type { MergeConflict } from '../../../../git/models/mergeConflict';
 import { createRevisionRange } from '../../../../git/models/revision.utils';
 import { parseGitBranches } from '../../../../git/parsers/branchParser';
+import { parseMergeTreeConflict } from '../../../../git/parsers/mergeTreeParser';
 import type { BranchSortOptions } from '../../../../git/utils/vscode/sorting';
 import { sortBranches, sortContributors } from '../../../../git/utils/vscode/sorting';
 import { filterMap } from '../../../../system/array';
@@ -304,6 +306,43 @@ export class BranchesGitProvider implements GitProviderBranches {
 	@log()
 	async createBranch(repoPath: string, name: string, ref: string): Promise<void> {
 		await this.git.branch(repoPath, name, ref);
+	}
+
+	@log()
+	async getPotentialMergeOrRebaseConflict(
+		repoPath: string,
+		branch: string,
+		targetBranch: string,
+	): Promise<MergeConflict | undefined> {
+		const scope = getLogScope();
+
+		try {
+			// If we have don't have Git v2.33+, just return
+			if (!(await this.git.isAtLeastVersion('2.33'))) {
+				return undefined;
+			}
+
+			let data;
+			try {
+				data = await this.git.merge_tree(repoPath, branch, targetBranch, '-z', '--name-only', '--no-messages');
+			} catch (ex) {
+				Logger.error(ex, scope);
+			}
+			if (!data) return undefined;
+
+			const mergeConflict = parseMergeTreeConflict(data);
+			if (!mergeConflict.conflicts.length) return undefined;
+
+			return {
+				repoPath: repoPath,
+				branch: branch,
+				target: targetBranch,
+				files: mergeConflict.conflicts,
+			};
+		} catch (ex) {
+			Logger.error(ex, scope);
+			throw ex;
+		}
 	}
 
 	@log({ exit: true })
