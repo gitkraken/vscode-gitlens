@@ -81,6 +81,7 @@ import type { FileRevisionAsCommitNode } from './nodes/fileRevisionAsCommitNode'
 import type { FolderNode } from './nodes/folderNode';
 import type { LineHistoryNode } from './nodes/lineHistoryNode';
 import type { MergeConflictFileNode } from './nodes/mergeConflictFileNode';
+import type { PausedOperationStatusNode } from './nodes/pausedOperationStatusNode';
 import type { PullRequestNode } from './nodes/pullRequestNode';
 import type { RemoteNode } from './nodes/remoteNode';
 import type { RepositoryNode } from './nodes/repositoryNode';
@@ -403,6 +404,15 @@ export class ViewCommands implements Disposable {
 				true,
 			),
 
+			registerViewCommand('gitlens.views.abortPausedOperation', this.abortPausedOperation, this),
+			registerViewCommand('gitlens.views.continuePausedOperation', this.continuePausedOperation, this),
+			registerViewCommand('gitlens.views.skipPausedOperation', this.skipPausedOperation, this),
+			registerViewCommand(
+				'gitlens.views.openPausedOperationInRebaseEditor',
+				this.openPausedOperationInRebaseEditor,
+				this,
+			),
+
 			registerViewCommand(
 				'gitlens.views.setResultsCommitsFilterAuthors',
 				n => this.setResultsCommitsFilter(n, true),
@@ -702,6 +712,37 @@ export class ViewCommands implements Disposable {
 		if (!node.isAny('tracking-status', 'repository', 'repo-folder')) return Promise.resolve();
 
 		return executeCoreCommand('openInIntegratedTerminal', Uri.file(node.repoPath));
+	}
+
+	@log()
+	private abortPausedOperation(node: PausedOperationStatusNode) {
+		if (!node.is('paused-operation-status')) return Promise.resolve();
+
+		return this.container.git.status(node.pausedOpStatus.repoPath).abortPausedOperation?.();
+	}
+
+	@log()
+	private continuePausedOperation(node: PausedOperationStatusNode) {
+		if (!node.is('paused-operation-status')) return Promise.resolve();
+
+		return this.container.git.status(node.pausedOpStatus.repoPath).continuePausedOperation?.();
+	}
+
+	@log()
+	private skipPausedOperation(node: PausedOperationStatusNode) {
+		if (!node.is('paused-operation-status')) return Promise.resolve();
+
+		return this.container.git.status(node.pausedOpStatus.repoPath).continuePausedOperation?.({ skip: true });
+	}
+
+	@log()
+	private openPausedOperationInRebaseEditor(node: PausedOperationStatusNode) {
+		if (!node.is('paused-operation-status') || node.pausedOpStatus.type !== 'rebase') return Promise.resolve();
+
+		const rebaseTodoUri = Uri.joinPath(node.uri, '.git', 'rebase-merge', 'git-rebase-todo');
+		return executeCoreCommand('vscode.openWith', rebaseTodoUri, 'gitlens.rebase', {
+			preview: false,
+		});
 	}
 
 	@log()
