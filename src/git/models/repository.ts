@@ -822,11 +822,6 @@ export class Repository implements Disposable {
 		);
 	}
 
-	@log()
-	reset(...args: string[]) {
-		void this.runTerminalCommand('reset', ...args);
-	}
-
 	resume() {
 		if (!this._suspended) return;
 

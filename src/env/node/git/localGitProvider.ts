@@ -4942,6 +4942,11 @@ export class LocalGitProvider implements GitProvider, Disposable {
 		}
 	}
 
+	@log()
+	async reset(repoPath: string, ref: string, options?: { hard?: boolean } | { soft?: boolean }): Promise<void> {
+		await this.git.reset(repoPath, [], { ...options, ref: ref });
+	}
+
 	@log({ args: { 2: false } })
 	async runGitCommandViaTerminal(
 		repoPath: string,
