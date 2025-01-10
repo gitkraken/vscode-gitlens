@@ -1,4 +1,3 @@
-import type { ResetGitCommandArgs } from '../../commands/git/reset';
 import { Container } from '../../container';
 import type { ViewsWithRepositoryFolders } from '../../views/viewBase';
 import { executeGitCommand } from '../actions';
@@ -41,11 +40,18 @@ export function rebase(repo?: string | Repository, ref?: GitReference, interacti
 export function reset(
 	repo?: string | Repository,
 	ref?: GitRevisionReference | GitTagReference,
-	flags?: NonNullable<ResetGitCommandArgs['state']>['flags'],
+	options?: { hard?: boolean; soft?: never } | { hard?: never; soft?: boolean },
 ) {
+	const flags: Array<'--hard' | '--soft'> = [];
+	if (options?.hard) {
+		flags.push('--hard');
+	} else if (options?.soft) {
+		flags.push('--soft');
+	}
+
 	return executeGitCommand({
 		command: 'reset',
-		confirm: flags == null || flags.includes('--hard'),
+		confirm: options == null || options.hard,
 		state: { repo: repo, reference: ref, flags: flags },
 	});
 }
