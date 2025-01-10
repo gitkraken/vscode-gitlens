@@ -196,7 +196,7 @@ export class FileRevisionAsCommitNode extends ViewRefFileNode<
 	async getConflictBaseUri(): Promise<Uri | undefined> {
 		if (!this.commit.file?.hasConflicts) return undefined;
 
-		const mergeBase = await this.view.container.git.getMergeBase(this.repoPath, 'MERGE_HEAD', 'HEAD');
+		const mergeBase = await this.view.container.git.branches(this.repoPath).getMergeBase('MERGE_HEAD', 'HEAD');
 		return GitUri.fromFile(this.file, this.repoPath, mergeBase ?? 'HEAD');
 	}
 

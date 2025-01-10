@@ -101,7 +101,7 @@ export class GitTerminalLinkProvider implements Disposable, TerminalLinkProvider
 			}
 
 			if (branchResults === undefined) {
-				branchResults = await this.container.git.getBranches(repoPath);
+				branchResults = await this.container.git.branches(repoPath).getBranches();
 				// TODO@eamodio handle paging
 			}
 

@@ -91,7 +91,7 @@ export class BranchesViewNode extends RepositoriesSubscribeableNode<BranchesView
 			const { showRemoteBranches } = this.view.config;
 			const defaultRemote = showRemoteBranches ? (await child.repo.git.getDefaultRemote())?.name : undefined;
 
-			const branches = await child.repo.git.getBranches({
+			const branches = await child.repo.git.branches().getBranches({
 				filter: b =>
 					!b.remote || (showRemoteBranches && defaultRemote != null && b.getRemoteName() === defaultRemote),
 			});
@@ -249,12 +249,13 @@ export class BranchesView extends ViewBase<'branches', BranchesViewNode, Branche
 		const { repoPath } = commit;
 
 		// Get all the branches the commit is on
-		const branches = await this.container.git.getCommitBranches(
-			commit.repoPath,
-			commit.ref,
-			undefined,
-			isCommit(commit) ? { commitDate: commit.committer.date } : undefined,
-		);
+		const branches = await this.container.git
+			.branches(commit.repoPath)
+			.getBranchesForCommit(
+				[commit.ref],
+				undefined,
+				isCommit(commit) ? { commitDate: commit.committer.date } : undefined,
+			);
 		if (branches.length === 0) return undefined;
 
 		return this.findNode((n: any) => n.commit?.ref === commit.ref, {

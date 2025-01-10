@@ -322,12 +322,13 @@ export class RepositoriesView extends ViewBase<'repositories', RepositoriesNode,
 		const { repoPath } = commit;
 
 		// Get all the branches the commit is on
-		let branches = await this.container.git.getCommitBranches(
-			commit.repoPath,
-			commit.ref,
-			undefined,
-			isCommit(commit) ? { commitDate: commit.committer.date } : undefined,
-		);
+		let branches = await this.container.git
+			.branches(commit.repoPath)
+			.getBranchesForCommit(
+				[commit.ref],
+				undefined,
+				isCommit(commit) ? { commitDate: commit.committer.date } : undefined,
+			);
 		if (branches.length !== 0) {
 			return this.findNode((n: any) => n.commit?.ref === commit.ref, {
 				allowPaging: true,
@@ -356,12 +357,13 @@ export class RepositoriesView extends ViewBase<'repositories', RepositoriesNode,
 		}
 
 		// If we didn't find the commit on any local branches, check remote branches
-		branches = await this.container.git.getCommitBranches(
-			commit.repoPath,
-			commit.ref,
-			undefined,
-			isCommit(commit) ? { commitDate: commit.committer.date, remotes: true } : { remotes: true },
-		);
+		branches = await this.container.git
+			.branches(commit.repoPath)
+			.getBranchesForCommit(
+				[commit.ref],
+				undefined,
+				isCommit(commit) ? { commitDate: commit.committer.date, remotes: true } : { remotes: true },
+			);
 		if (branches.length === 0) return undefined;
 
 		const remotes = branches.map(b => b.split('/', 1)[0]);

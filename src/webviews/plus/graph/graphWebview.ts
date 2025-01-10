@@ -1282,7 +1282,8 @@ export class GraphWebviewProvider implements WebviewProvider<State, State, Graph
 				this._refsMetadata = new Map();
 			}
 
-			const branch = (await this.container.git.getBranches(repoPath, { filter: b => b.id === id }))?.values?.[0];
+			const branch = (await this.container.git.branches(repoPath).getBranches({ filter: b => b.id === id }))
+				?.values?.[0];
 			const metadata = { ...this._refsMetadata.get(id) };
 
 			if (branch == null) {
@@ -1484,7 +1485,7 @@ export class GraphWebviewProvider implements WebviewProvider<State, State, Graph
 		const repo = this.repository;
 		if (repo == null) return undefined;
 
-		const branch = await repo.git.getBranch();
+		const branch = await repo.git.branches().getBranch();
 		if (branch == null) return undefined;
 
 		const pr = await branch.getAssociatedPullRequest();
@@ -1661,7 +1662,7 @@ export class GraphWebviewProvider implements WebviewProvider<State, State, Graph
 		if (!msg.params.alt) {
 			let branch = find(this._graph!.branches.values(), b => b.current);
 			if (branch == null) {
-				branch = await this.repository.git.getBranch();
+				branch = await this.repository.git.branches().getBranch();
 			}
 			if (branch != null) {
 				pick = branch;
@@ -2191,7 +2192,7 @@ export class GraphWebviewProvider implements WebviewProvider<State, State, Graph
 				const cancellation = this.createCancellation('computeIncludedRefs');
 
 				const [baseResult, defaultResult, targetResult] = await Promise.allSettled([
-					this.container.git.getBaseBranchName(current.repoPath, current.name),
+					this.container.git.branches(current.repoPath).getBaseBranchName?.(current.name),
 					getDefaultBranchName(this.container, current.repoPath, current.getRemoteName()),
 					getTargetBranchName(this.container, current, {
 						cancellation: cancellation.token,
@@ -2521,7 +2522,7 @@ export class GraphWebviewProvider implements WebviewProvider<State, State, Graph
 		const promises = Promise.allSettled([
 			this.getGraphAccess(),
 			this.getWorkingTreeStats(),
-			this.repository.git.getBranch(),
+			this.repository.git.branches().getBranch(),
 			this.repository.getLastFetched(),
 		]);
 
@@ -3545,7 +3546,7 @@ export class GraphWebviewProvider implements WebviewProvider<State, State, Graph
 			const { ref } = item.webviewItemValue;
 
 			const repo = this.container.git.getRepository(ref.repoPath);
-			const branch = await repo?.git.getBranch(ref.name);
+			const branch = await repo?.git.branches().getBranch(ref.name);
 			const remote = await branch?.getRemote();
 
 			return executeActionCommand<CreatePullRequestActionContext>('createPullRequest', {
@@ -3660,10 +3661,11 @@ export class GraphWebviewProvider implements WebviewProvider<State, State, Graph
 		const ref = this.getGraphItemRef(item);
 		if (ref == null) return Promise.resolve();
 
-		const branch = await this.container.git.getBranch(ref.repoPath);
+		const branchesProvider = this.container.git.branches(ref.repoPath);
+		const branch = await branchesProvider.getBranch();
 		if (branch == null) return undefined;
 
-		const commonAncestor = await this.container.git.getMergeBase(ref.repoPath, branch.ref, ref.ref);
+		const commonAncestor = await branchesProvider.getMergeBase(branch.ref, ref.ref);
 		if (commonAncestor == null) return undefined;
 
 		return this.container.views.searchAndCompare.compare(ref.repoPath, '', {
@@ -3694,10 +3696,11 @@ export class GraphWebviewProvider implements WebviewProvider<State, State, Graph
 		const ref = this.getGraphItemRef(item);
 		if (ref == null) return Promise.resolve();
 
-		const branch = await this.container.git.getBranch(ref.repoPath);
+		const branchesProvider = this.container.git.branches(ref.repoPath);
+		const branch = await branchesProvider.getBranch();
 		if (branch == null) return undefined;
 
-		const commonAncestor = await this.container.git.getMergeBase(ref.repoPath, branch.ref, ref.ref);
+		const commonAncestor = await branchesProvider.getMergeBase(branch.ref, ref.ref);
 		if (commonAncestor == null) return undefined;
 
 		return this.container.views.searchAndCompare.compare(ref.repoPath, ref.ref, {
@@ -3711,10 +3714,11 @@ export class GraphWebviewProvider implements WebviewProvider<State, State, Graph
 		const ref = this.getGraphItemRef(item);
 		if (ref == null) return Promise.resolve();
 
-		const branch = await this.container.git.getBranch(ref.repoPath);
+		const branchesProvider = this.container.git.branches(ref.repoPath);
+		const branch = await branchesProvider.getBranch();
 		if (branch == null) return undefined;
 
-		const commonAncestor = await this.container.git.getMergeBase(ref.repoPath, branch.ref, ref.ref);
+		const commonAncestor = await branchesProvider.getMergeBase(branch.ref, ref.ref);
 		if (commonAncestor == null) return undefined;
 
 		return openComparisonChanges(
@@ -3818,7 +3822,7 @@ export class GraphWebviewProvider implements WebviewProvider<State, State, Graph
 		if (isGraphItemRefContext(item, 'branch')) {
 			const { ref } = item.webviewItemValue;
 			const repo = this.container.git.getRepository(ref.repoPath);
-			const branch = await repo?.git.getBranch(ref.name);
+			const branch = await repo?.git.branches().getBranch(ref.name);
 			const pr = await branch?.getAssociatedPullRequest();
 			if (branch != null && repo != null && pr != null) {
 				const remoteUrl = (await branch.getRemote())?.url ?? getRepositoryIdentityForPullRequest(pr).remote.url;

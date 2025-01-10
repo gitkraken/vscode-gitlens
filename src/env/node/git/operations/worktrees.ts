@@ -82,7 +82,7 @@ export class WorktreesGitProvider implements GitProviderWorktrees {
 				try {
 					const [data, branches] = await Promise.all([
 						this.git.worktree__list(repoPath),
-						this.provider.getBranches(repoPath),
+						this.provider.branches.getBranches(repoPath),
 					]);
 
 					return parseGitWorktrees(this.container, data, repoPath, branches.values);

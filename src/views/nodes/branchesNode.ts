@@ -41,7 +41,7 @@ export class BranchesNode extends CacheableChildrenViewNode<'branches', ViewsWit
 			const showRemoteBranches = this.view.type === 'branches' && this.view.config.showRemoteBranches;
 			const defaultRemote = showRemoteBranches ? (await this.repo.git.getDefaultRemote())?.name : undefined;
 
-			const options: Parameters<typeof this.repo.git.getBranches>['0'] = {
+			const options: Parameters<ReturnType<typeof this.repo.git.branches>['getBranches']>['0'] = {
 				// only show local branches or remote branches for the default remote
 				filter: b =>
 					!b.remote || (showRemoteBranches && defaultRemote != null && b.getRemoteName() === defaultRemote),
@@ -54,7 +54,9 @@ export class BranchesNode extends CacheableChildrenViewNode<'branches', ViewsWit
 					: { current: false, groupByType: defaultRemote == null },
 			};
 
-			const branches = new PageableResult<GitBranch>(p => this.repo.git.getBranches({ ...options, paging: p }));
+			const branches = new PageableResult<GitBranch>(p =>
+				this.repo.git.branches().getBranches({ ...options, paging: p }),
+			);
 
 			let localUpstreamNames: Set<string> | undefined;
 			// Filter out remote branches that have a local branch

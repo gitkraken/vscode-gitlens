@@ -86,9 +86,9 @@ export class LineHistoryTrackerNode extends SubscribeableViewNode<
 
 			let branch;
 			if (!commitish.sha || commitish.sha === 'HEAD') {
-				branch = await this.view.container.git.getBranch(this.uri.repoPath);
+				branch = await this.view.container.git.branches(commitish.repoPath).getBranch();
 			} else if (!isSha(commitish.sha)) {
-				branch = await this.view.container.git.getBranch(this.uri.repoPath, commitish.sha);
+				branch = await this.view.container.git.branches(commitish.repoPath).getBranch(commitish.sha);
 			}
 			this.child = new LineHistoryNode(fileUri, this.view, this, branch, selection, editorContents);
 		}
@@ -131,7 +131,7 @@ export class LineHistoryTrackerNode extends SubscribeableViewNode<
 		if (pick == null) return;
 
 		if (isBranchReference(pick)) {
-			const branch = await this.view.container.git.getBranch(this.uri.repoPath);
+			const branch = await this.view.container.git.branches(this.uri.repoPath!).getBranch();
 			this._base = branch?.name === pick.name ? undefined : pick.ref;
 		} else {
 			this._base = pick.ref;

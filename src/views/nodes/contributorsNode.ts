@@ -54,7 +54,7 @@ export class ContributorsNode extends CacheableChildrenViewNode<
 			// If there is no ref and we aren't getting all branches, get the upstream of the current branch if there is one
 			if (ref == null && !all) {
 				try {
-					const branch = await this.view.container.git.getBranch(this.uri.repoPath);
+					const branch = await this.view.container.git.branches(this.uri.repoPath!).getBranch();
 					if (branch?.upstream?.name != null && !branch.upstream.missing) {
 						ref = '@{u}';
 					}

@@ -400,7 +400,7 @@ export class WorktreeGitCommand extends QuickCommand<State> {
 				const result = yield* pickBranchOrTagStep(state, context, {
 					placeholder: context =>
 						`Choose a branch${context.showTags ? ' or tag' : ''} to create the new worktree from`,
-					picked: state.reference?.ref ?? (await state.repo.git.getBranch())?.ref,
+					picked: state.reference?.ref ?? (await state.repo.git.branches().getBranch())?.ref,
 					title: `Select Branch to Create Worktree From`,
 					value: isRevisionReference(state.reference) ? state.reference.ref : undefined,
 				});
@@ -426,7 +426,7 @@ export class WorktreeGitCommand extends QuickCommand<State> {
 
 			if (isRemoteBranch) {
 				state.createBranch = getNameWithoutRemote(state.reference);
-				const branch = await state.repo.git.getBranch(state.createBranch);
+				const branch = await state.repo.git.branches().getBranch(state.createBranch);
 				if (branch != null && !branch.remote) {
 					state.createBranch = branch.name;
 				}
@@ -437,7 +437,7 @@ export class WorktreeGitCommand extends QuickCommand<State> {
 				if (state.createBranch != null) {
 					let valid = await this.container.git.validateBranchOrTagName(state.repo.path, state.createBranch);
 					if (valid) {
-						const alreadyExists = await state.repo.git.getBranch(state.createBranch);
+						const alreadyExists = await state.repo.git.branches().getBranch(state.createBranch);
 						valid = alreadyExists == null;
 					}
 

@@ -135,7 +135,7 @@ export class RebaseGitCommand extends QuickCommand<State> {
 			}
 
 			if (context.branch == null) {
-				const branch = await state.repo.git.getBranch();
+				const branch = await state.repo.git.branches().getBranch();
 				if (branch == null) break;
 
 				context.branch = branch;

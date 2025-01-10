@@ -26,7 +26,7 @@ export class OpenCurrentBranchOnRemoteCommand extends ActiveEditorCommand {
 		if (repository == null) return;
 
 		try {
-			const branch = await repository.git.getBranch();
+			const branch = await repository.git.branches().getBranch();
 			if (branch?.detached) {
 				void (await executeCommand<OpenOnRemoteCommandArgs>(GlCommand.OpenOnRemote, {
 					resource: {

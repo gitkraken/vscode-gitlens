@@ -45,7 +45,9 @@ export async function getWorktreeForBranch(
 
 		if (upstreamNames == null || worktree.branch == null) continue;
 
-		branches ??= new PageableResult<GitBranch>(p => repo.git.getBranches(p != null ? { paging: p } : undefined));
+		branches ??= new PageableResult<GitBranch>(p =>
+			repo.git.branches().getBranches(p != null ? { paging: p } : undefined),
+		);
 
 		const values = branches.values();
 		if (Symbol.asyncIterator in values) {

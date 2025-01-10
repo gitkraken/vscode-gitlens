@@ -250,7 +250,7 @@ export class RebaseEditorProvider implements CustomTextEditorProvider, Disposabl
 
 	private async parseState(context: RebaseEditorContext): Promise<State> {
 		if (context.branchName === undefined) {
-			const branch = await this.container.git.getBranch(context.repoPath);
+			const branch = await this.container.git.branches(context.repoPath).getBranch();
 			context.branchName = branch?.name ?? null;
 		}
 		const state = await parseRebaseTodo(this.container, context, this.ascending);

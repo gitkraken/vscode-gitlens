@@ -249,7 +249,7 @@ export class SwitchGitCommand extends QuickCommand<State> {
 				}
 			} else if (isBranchReference(state.reference) && state.reference.remote) {
 				// See if there is a local branch that tracks the remote branch
-				const { values: branches } = await this.container.git.getBranches(state.reference.repoPath, {
+				const { values: branches } = await this.container.git.branches(state.reference.repoPath).getBranches({
 					filter: b => b.upstream?.name === state.reference!.name,
 					sort: { orderBy: 'date:desc' },
 				});

@@ -532,9 +532,12 @@ export class ViewCommands implements Disposable {
 				  ? node.branch
 				  : undefined;
 		if (from == null) {
-			const branch = await this.container.git.getBranch(
-				node?.repoPath ?? this.container.git.getBestRepository()?.uri,
-			);
+			const repo = node?.repoPath
+				? this.container.git.getRepository(node.repoPath)
+				: this.container.git.getBestRepository();
+			if (repo == null) return;
+
+			const branch = await repo.git.branches().getBranch();
 			from = branch;
 		}
 		return BranchActions.create(node?.repoPath, from);
@@ -580,9 +583,12 @@ export class ViewCommands implements Disposable {
 				  ? node.branch
 				  : undefined;
 		if (from == null) {
-			const branch = await this.container.git.getBranch(
-				node?.repoPath ?? this.container.git.getBestRepository()?.uri,
-			);
+			const repo = node?.repoPath
+				? this.container.git.getRepository(node.repoPath)
+				: this.container.git.getBestRepository();
+			if (repo == null) return;
+
+			const branch = await repo.git.branches().getBranch();
 			from = branch;
 		}
 		return TagActions.create(node?.repoPath, from);
@@ -1169,10 +1175,11 @@ export class ViewCommands implements Disposable {
 	private async compareWithMergeBase(node: BranchNode) {
 		if (!node.is('branch')) return Promise.resolve();
 
-		const branch = await this.container.git.getBranch(node.repoPath);
+		const branchesProvider = this.container.git.branches(node.repoPath);
+		const branch = await branchesProvider.getBranch();
 		if (branch == null) return undefined;
 
-		const commonAncestor = await this.container.git.getMergeBase(node.repoPath, branch.ref, node.ref.ref);
+		const commonAncestor = await branchesProvider.getMergeBase(branch.ref, node.ref.ref);
 		if (commonAncestor == null) return undefined;
 
 		return this.container.views.searchAndCompare.compare(node.repoPath, node.ref.ref, {
@@ -1185,10 +1192,11 @@ export class ViewCommands implements Disposable {
 	private async openChangedFileDiffsWithMergeBase(node: BranchNode) {
 		if (!node.is('branch')) return Promise.resolve();
 
-		const branch = await this.container.git.getBranch(node.repoPath);
+		const branchesProvider = this.container.git.branches(node.repoPath);
+		const branch = await branchesProvider.getBranch();
 		if (branch == null) return undefined;
 
-		const commonAncestor = await this.container.git.getMergeBase(node.repoPath, branch.ref, node.ref.ref);
+		const commonAncestor = await branchesProvider.getMergeBase(branch.ref, node.ref.ref);
 		if (commonAncestor == null) return undefined;
 
 		return CommitActions.openComparisonChanges(
@@ -1224,10 +1232,11 @@ export class ViewCommands implements Disposable {
 	private async compareAncestryWithWorking(node: BranchNode) {
 		if (!node.is('branch')) return undefined;
 
-		const branch = await this.container.git.getBranch(node.repoPath);
+		const branchesProvider = this.container.git.branches(node.repoPath);
+		const branch = await branchesProvider.getBranch();
 		if (branch == null) return undefined;
 
-		const commonAncestor = await this.container.git.getMergeBase(node.repoPath, branch.ref, node.ref.ref);
+		const commonAncestor = await branchesProvider.getMergeBase(branch.ref, node.ref.ref);
 		if (commonAncestor == null) return undefined;
 
 		return this.container.views.searchAndCompare.compare(node.repoPath, '', {

@@ -197,7 +197,7 @@ export class PushGitCommand extends QuickCommand<State> {
 						{ placeholder: 'Cannot push a remote branch' },
 					);
 				} else {
-					const branch = await repo.git.getBranch(state.reference.name);
+					const branch = await repo.git.branches().getBranch(state.reference.name);
 
 					if (branch != null && branch?.upstream == null) {
 						for (const remote of await repo.git.getRemotes()) {

@@ -43,10 +43,10 @@ import { configuration } from '../system/vscode/configuration';
 import { setContext } from '../system/vscode/context';
 import { getBestPath } from '../system/vscode/path';
 import type {
-	BranchContributionsOverview,
 	GitCaches,
 	GitDir,
 	GitProvider,
+	GitProviderBranches,
 	GitProviderDescriptor,
 	GitProviderForRepo,
 	GitProviderId,
@@ -91,7 +91,7 @@ import type { GitTreeEntry } from './models/tree';
 import type { GitUser } from './models/user';
 import type { RemoteProvider } from './remotes/remoteProvider';
 import type { GitSearch } from './search';
-import type { BranchSortOptions, TagSortOptions } from './utils/vscode/sorting';
+import type { TagSortOptions } from './utils/vscode/sorting';
 import { sortRepositories } from './utils/vscode/sorting';
 
 const emptyArray = Object.freeze([]) as unknown as any[];
@@ -1358,22 +1358,6 @@ export class GitProviderService implements Disposable {
 	}
 
 	@log()
-	createBranch(repoPath: string | Uri, name: string, ref: string): Promise<void> {
-		const { provider, path } = this.getProvider(repoPath);
-		if (provider.createBranch == null) throw new ProviderNotSupportedError(provider.descriptor.name);
-
-		return provider.createBranch(path, name, ref);
-	}
-
-	@log()
-	renameBranch(repoPath: string | Uri, oldName: string, newName: string): Promise<void> {
-		const { provider, path } = this.getProvider(repoPath);
-		if (provider.renameBranch == null) throw new ProviderNotSupportedError(provider.descriptor.name);
-
-		return provider.renameBranch(path, oldName, newName);
-	}
-
-	@log()
 	createTag(repoPath: string | Uri, name: string, ref: string, message?: string): Promise<void> {
 		const { provider, path } = this.getProvider(repoPath);
 		if (provider.createTag == null) throw new ProviderNotSupportedError(provider.descriptor.name);
@@ -1623,21 +1607,6 @@ export class GitProviderService implements Disposable {
 		return provider.getBlameRange(blame, uri, range);
 	}
 
-	@log()
-	async getBranch(repoPath: string | Uri | undefined, name?: string): Promise<GitBranch | undefined> {
-		if (name != null) {
-			const {
-				values: [branch],
-			} = await this.getBranches(repoPath, { filter: b => b.name === name });
-			return branch;
-		}
-
-		if (repoPath == null) return undefined;
-
-		const { provider, path } = this.getProvider(repoPath);
-		return provider.getBranch(path);
-	}
-
 	@log<GitProviderService['getBranchAheadRange']>({ args: { 0: b => b.name } })
 	async getBranchAheadRange(branch: GitBranch): Promise<string | undefined> {
 		if (branch.state.ahead > 0) {
@@ -1646,7 +1615,7 @@ export class GitProviderService implements Disposable {
 
 		if (branch.upstream == null) {
 			// If we have no upstream branch, try to find a best guess branch to use as the "base"
-			const { values: branches } = await this.getBranches(branch.repoPath, {
+			const { values: branches } = await this.branches(branch.repoPath).getBranches({
 				filter: b => weightedDefaultBranches.has(b.name),
 			});
 			if (branches.length > 0) {
@@ -1671,32 +1640,6 @@ export class GitProviderService implements Disposable {
 	}
 
 	@log()
-	async getBranchContributionsOverview(
-		repoPath: string | Uri | undefined,
-		ref: string,
-	): Promise<BranchContributionsOverview | undefined> {
-		if (repoPath == null) return undefined;
-
-		const { provider, path } = this.getProvider(repoPath);
-		return provider.getBranchContributionsOverview?.(path, ref);
-	}
-
-	@log({ args: { 1: false } })
-	async getBranches(
-		repoPath: string | Uri | undefined,
-		options?: {
-			filter?: (b: GitBranch) => boolean;
-			paging?: PagingOptions;
-			sort?: boolean | BranchSortOptions;
-		},
-	): Promise<PagedResult<GitBranch>> {
-		if (repoPath == null) return { values: [] };
-
-		const { provider, path } = this.getProvider(repoPath);
-		return provider.getBranches(path, options);
-	}
-
-	@log()
 	async getBranchesAndTagsTipsLookup(
 		repoPath: string | Uri | undefined,
 		suppressName?: string,
@@ -1716,7 +1659,7 @@ export class GitProviderService implements Disposable {
 		};
 
 		const [branchesResult, tagsResult, remotesResult] = await Promise.allSettled([
-			this.getBranches(repoPath),
+			this.branches(repoPath).getBranches(),
 			this.getTags(repoPath),
 			this.getRemotes(repoPath),
 		]);
@@ -1826,19 +1769,6 @@ export class GitProviderService implements Disposable {
 	}
 
 	@log()
-	getCommitBranches(
-		repoPath: string | Uri,
-		refs: string | string[],
-		branch?: string | undefined,
-		options?:
-			| { all?: boolean; commitDate?: Date; mode?: 'contains' | 'pointsAt' }
-			| { commitDate?: Date; mode?: 'contains' | 'pointsAt'; remotes?: boolean },
-	): Promise<string[]> {
-		const { provider, path } = this.getProvider(repoPath);
-		return provider.getCommitBranches(path, typeof refs === 'string' ? [refs] : refs, branch, options);
-	}
-
-	@log()
 	getCommitCount(repoPath: string | Uri, ref: string): Promise<number | undefined> {
 		const { provider, path } = this.getProvider(repoPath);
 		return provider.getCommitCount(path, ref);
@@ -1925,38 +1855,6 @@ export class GitProviderService implements Disposable {
 	getCurrentUser(repoPath: string | Uri): Promise<GitUser | undefined> {
 		const { provider, path } = this.getProvider(repoPath);
 		return provider.getCurrentUser(path);
-	}
-
-	@log()
-	async getBaseBranchName(repoPath: string | Uri, ref: string): Promise<string | undefined> {
-		const { provider, path } = this.getProvider(repoPath);
-		return provider.getBaseBranchName?.(path, ref);
-	}
-
-	@log()
-	async setBaseBranchName(repoPath: string | Uri, ref: string, base: string): Promise<void> {
-		const { provider, path } = this.getProvider(repoPath);
-		return provider.setBaseBranchName?.(path, ref, base);
-	}
-
-	@log()
-	async getDefaultBranchName(repoPath: string | Uri | undefined, remote?: string): Promise<string | undefined> {
-		if (repoPath == null) return undefined;
-
-		const { provider, path } = this.getProvider(repoPath);
-		return provider.getDefaultBranchName(path, remote);
-	}
-
-	@log()
-	async getTargetBranchName(repoPath: string | Uri, ref: string): Promise<string | undefined> {
-		const { provider, path } = this.getProvider(repoPath);
-		return provider.getTargetBranchName?.(path, ref);
-	}
-
-	@log()
-	async setTargetBranchName(repoPath: string | Uri, ref: string, target: string): Promise<void> {
-		const { provider, path } = this.getProvider(repoPath);
-		return provider.setTargetBranchName?.(path, ref, target);
 	}
 
 	@log()
@@ -2110,17 +2008,6 @@ export class GitProviderService implements Disposable {
 	}
 
 	@log()
-	async getMergeBase(
-		repoPath: string | Uri,
-		ref1: string,
-		ref2: string,
-		options?: { forkPoint?: boolean },
-	): Promise<string | undefined> {
-		const { provider, path } = this.getProvider(repoPath);
-		return provider.getMergeBase(path, ref1, ref2, options);
-	}
-
-	@log()
 	getNextComparisonUris(
 		repoPath: string | Uri,
 		uri: Uri,
@@ -2221,7 +2108,7 @@ export class GitProviderService implements Disposable {
 				if (cancellation?.isCancellationRequested) throw new CancellationError();
 
 				const defaultRemote = remotes.find(r => r.default)?.name;
-				const currentBranchRemote = (await this.getBranch(remotes[0].repoPath))?.getRemoteName();
+				const currentBranchRemote = (await this.branches(remotes[0].repoPath).getBranch())?.getRemoteName();
 
 				const weighted: [number, GitRemote<RemoteProvider>][] = [];
 
@@ -2843,6 +2730,12 @@ export class GitProviderService implements Disposable {
 
 		const { provider, path } = this.getProvider(repoPath);
 		return provider.validateReference(path, ref);
+	}
+
+	@log()
+	branches(repoPath: string | Uri): GitProviderForRepo<GitProviderBranches> {
+		const { provider, path: rp } = this.getProvider(repoPath);
+		return createProviderProxyForRepo(provider.branches, rp);
 	}
 
 	@log()

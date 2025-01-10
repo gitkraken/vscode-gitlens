@@ -42,7 +42,7 @@ import type {
 import { GitUri } from '../../../../git/gitUri';
 import { decodeRemoteHubAuthority } from '../../../../git/gitUri.authority';
 import type { GitBlame, GitBlameAuthor, GitBlameLine } from '../../../../git/models/blame';
-import { GitBranch } from '../../../../git/models/branch';
+import type { GitBranch } from '../../../../git/models/branch';
 import { getBranchId, getBranchNameWithoutRemote } from '../../../../git/models/branch.utils';
 import type { GitCommitLine, GitStashCommit } from '../../../../git/models/commit';
 import { GitCommit, GitCommitIdentity } from '../../../../git/models/commit';
@@ -87,8 +87,8 @@ import { getRemoteProviderMatcher, loadRemoteProviders } from '../../../../git/r
 import type { GitSearch, GitSearchResultData, GitSearchResults } from '../../../../git/search';
 import { getSearchQueryComparisonKey, parseSearchQuery } from '../../../../git/search';
 import { getRemoteIconUri } from '../../../../git/utils/vscode/icons';
-import type { BranchSortOptions, TagSortOptions } from '../../../../git/utils/vscode/sorting';
-import { sortBranches, sortTags } from '../../../../git/utils/vscode/sorting';
+import type { TagSortOptions } from '../../../../git/utils/vscode/sorting';
+import { sortTags } from '../../../../git/utils/vscode/sorting';
 import { gate } from '../../../../system/decorators/gate';
 import { debug, log } from '../../../../system/decorators/log';
 import { filterMap, first, last, map, some, union } from '../../../../system/iterable';
@@ -116,8 +116,8 @@ import type {
 	IntegrationAuthenticationSessionDescriptor,
 } from '../../authentication/integrationAuthentication';
 import type { GitHubApi } from './github';
-import type { GitHubBranch } from './models';
 import { fromCommitFileStatus } from './models';
+import { BranchesGitProvider } from './operations/branches';
 import { StatusGitProvider } from './operations/status';
 
 const doubleQuoteRegex = /"/g;
@@ -427,11 +427,6 @@ export class GitHubGitProvider implements GitProvider, Disposable {
 	@log()
 	async getWorkingUri(repoPath: string, uri: Uri) {
 		return this.createVirtualUri(repoPath, undefined, uri.path);
-	}
-
-	@log()
-	async branchContainsCommit(_repoPath: string, _name: string, _ref: string): Promise<boolean> {
-		return false;
 	}
 
 	@log<GitHubGitProvider['excludeIgnoredUris']>({ args: { 1: uris => uris.length } })
@@ -833,154 +828,6 @@ export class GitHubGitProvider implements GitProvider, Disposable {
 	}
 
 	@log()
-	async getBranch(repoPath: string): Promise<GitBranch | undefined> {
-		let branchPromise = this._cache.branch?.get(repoPath);
-		if (branchPromise == null) {
-			async function load(this: GitHubGitProvider): Promise<GitBranch | undefined> {
-				const {
-					values: [branch],
-				} = await this.getBranches(repoPath, { filter: b => b.current });
-				if (branch != null) return branch;
-
-				try {
-					const { metadata } = await this.ensureRepositoryContext(repoPath);
-
-					const revision = await metadata.getRevision();
-					switch (revision.type) {
-						case HeadType.Tag:
-						case HeadType.Commit:
-							return new GitBranch(
-								this.container,
-								repoPath,
-								revision.name,
-								false,
-								true,
-								undefined,
-								revision.revision,
-								undefined,
-								undefined,
-								undefined,
-								true,
-							);
-					}
-
-					return undefined;
-				} catch (ex) {
-					debugger;
-					Logger.error(ex, getLogScope());
-					return undefined;
-				}
-			}
-
-			branchPromise = load.call(this);
-			this._cache.branch?.set(repoPath, branchPromise);
-		}
-
-		return branchPromise;
-	}
-
-	@log({ args: { 1: false } })
-	async getBranches(
-		repoPath: string | undefined,
-		options?: {
-			filter?: (b: GitBranch) => boolean;
-			paging?: PagingOptions;
-			sort?: boolean | BranchSortOptions;
-		},
-	): Promise<PagedResult<GitBranch>> {
-		if (repoPath == null) return emptyPagedResult;
-
-		const scope = getLogScope();
-
-		let branchesPromise = options?.paging?.cursor ? undefined : this._cache.branches?.get(repoPath);
-		if (branchesPromise == null) {
-			async function load(this: GitHubGitProvider): Promise<PagedResult<GitBranch>> {
-				try {
-					const { metadata, github, session } = await this.ensureRepositoryContext(repoPath!);
-
-					const branches: GitBranch[] = [];
-
-					function addBranches(container: Container, branch: GitHubBranch, current: boolean) {
-						const date = new Date(
-							configuration.get('advanced.commitOrdering') === 'author-date'
-								? branch.target.authoredDate
-								: branch.target.committedDate,
-						);
-						const ref = branch.target.oid;
-
-						branches.push(
-							new GitBranch(container, repoPath!, branch.name, false, current, date, ref, {
-								name: `origin/${branch.name}`,
-								missing: false,
-							}),
-							new GitBranch(container, repoPath!, `origin/${branch.name}`, true, false, date, ref),
-						);
-					}
-
-					let currentBranch: string | undefined;
-
-					const revision = await metadata.getRevision();
-					switch (revision.type) {
-						case HeadType.Branch:
-							currentBranch = revision.name;
-							break;
-						case HeadType.RemoteBranch: {
-							const index = revision.name.indexOf(':');
-							currentBranch = index === -1 ? revision.name : revision.name.substring(index + 1);
-							break;
-						}
-					}
-
-					let cursor = options?.paging?.cursor;
-					const loadAll = cursor == null;
-
-					while (true) {
-						const result = await github.getBranches(
-							session.accessToken,
-							metadata.repo.owner,
-							metadata.repo.name,
-							{ cursor: cursor },
-						);
-
-						for (const branch of result.values) {
-							addBranches(this.container, branch, branch.name === currentBranch);
-						}
-
-						if (!result.paging?.more || !loadAll) return { ...result, values: branches };
-
-						cursor = result.paging.cursor;
-					}
-				} catch (ex) {
-					Logger.error(ex, scope);
-					debugger;
-
-					this._cache.branches?.delete(repoPath!);
-					return emptyPagedResult;
-				}
-			}
-
-			branchesPromise = load.call(this);
-			if (options?.paging?.cursor == null) {
-				this._cache.branches?.set(repoPath, branchesPromise);
-			}
-		}
-
-		let result = await branchesPromise;
-		if (options?.filter != null) {
-			result = {
-				...result,
-				values: result.values.filter(options.filter),
-			};
-		}
-
-		if (options?.sort != null) {
-			sortBranches(result.values, typeof options.sort === 'boolean' ? undefined : options.sort);
-		}
-
-		return result;
-	}
-
-	@log()
 	async getChangedFilesCount(repoPath: string, ref?: string): Promise<GitDiffShortStat | undefined> {
 		// TODO@eamodio if there is no ref we can't return anything, until we can get at the change store from RemoteHub
 		if (!ref) return undefined;
@@ -1051,53 +898,6 @@ export class GitHubGitProvider implements GitProvider, Disposable {
 			Logger.error(ex, scope);
 			debugger;
 			return undefined;
-		}
-	}
-
-	@log()
-	async getCommitBranches(
-		repoPath: string,
-		refs: string[],
-		branch?: string | undefined,
-		options?:
-			| { all?: boolean; commitDate?: Date; mode?: 'contains' | 'pointsAt' }
-			| { commitDate?: Date; mode?: 'contains' | 'pointsAt'; remotes?: boolean },
-	): Promise<string[]> {
-		if (repoPath == null || options?.commitDate == null) return [];
-
-		const scope = getLogScope();
-
-		try {
-			const { metadata, github, session } = await this.ensureRepositoryContext(repoPath);
-
-			let branches;
-
-			if (branch) {
-				branches = await github.getCommitOnBranch(
-					session.accessToken,
-					metadata.repo.owner,
-					metadata.repo.name,
-					branch,
-					refs.map(stripOrigin),
-					options?.mode ?? 'contains',
-					options?.commitDate,
-				);
-			} else {
-				branches = await github.getCommitBranches(
-					session.accessToken,
-					metadata.repo.owner,
-					metadata.repo.name,
-					refs.map(stripOrigin),
-					options?.mode ?? 'contains',
-					options?.commitDate,
-				);
-			}
-
-			return branches;
-		} catch (ex) {
-			Logger.error(ex, scope);
-			debugger;
-			return [];
 		}
 	}
 
@@ -1214,8 +1014,8 @@ export class GitHubGitProvider implements GitProvider, Disposable {
 		const [logResult, headBranchResult, branchesResult, remotesResult, tagsResult, currentUserResult] =
 			await Promise.allSettled([
 				this.getLog(repoPath, { all: true, ordering: ordering, limit: defaultLimit }),
-				this.getBranch(repoPath),
-				this.getBranches(repoPath, { filter: b => b.remote }),
+				this.branches.getBranch(repoPath),
+				this.branches.getBranches(repoPath, { filter: b => b.remote }),
 				this.getRemotes(repoPath),
 				this.getTags(repoPath),
 				this.getCurrentUser(repoPath),
@@ -1751,22 +1551,6 @@ export class GitHubGitProvider implements GitProvider, Disposable {
 
 			// Mark it so we won't bother trying again
 			this._cache.repoInfo.set(repoPath, { ...repo, user: null });
-			return undefined;
-		}
-	}
-
-	@log()
-	async getDefaultBranchName(repoPath: string | undefined, _remote?: string): Promise<string | undefined> {
-		if (repoPath == null) return undefined;
-
-		const scope = getLogScope();
-
-		try {
-			const { metadata, github, session } = await this.ensureRepositoryContext(repoPath);
-			return await github.getDefaultBranchName(session.accessToken, metadata.repo.owner, metadata.repo.name);
-		} catch (ex) {
-			Logger.error(ex, scope);
-			debugger;
 			return undefined;
 		}
 	}
@@ -2473,34 +2257,6 @@ export class GitHubGitProvider implements GitProvider, Disposable {
 	}
 
 	@log()
-	async getMergeBase(
-		repoPath: string,
-		ref1: string,
-		ref2: string,
-		_options: { forkPoint?: boolean },
-	): Promise<string | undefined> {
-		if (repoPath == null) return undefined;
-
-		const scope = getLogScope();
-
-		const { metadata, github, session } = await this.ensureRepositoryContext(repoPath);
-
-		try {
-			const result = await github.getComparison(
-				session.accessToken,
-				metadata.repo.owner,
-				metadata.repo.name,
-				createRevisionRange(stripOrigin(ref1), stripOrigin(ref2), '...'),
-			);
-			return result?.merge_base_commit?.sha;
-		} catch (ex) {
-			Logger.error(ex, scope);
-			debugger;
-			return undefined;
-		}
-	}
-
-	@log()
 	async getNextComparisonUris(
 		repoPath: string,
 		uri: Uri,
@@ -2898,7 +2654,7 @@ export class GitHubGitProvider implements GitProvider, Disposable {
 		},
 	) {
 		const [{ values: branches }, { values: tags }] = await Promise.all([
-			this.getBranches(repoPath, {
+			this.branches.getBranches(repoPath, {
 				filter: options?.filter?.branches,
 				sort: false,
 			}),
@@ -3299,9 +3055,18 @@ export class GitHubGitProvider implements GitProvider, Disposable {
 		return true;
 	}
 
+	private _branches: BranchesGitProvider | undefined;
+	get branches(): BranchesGitProvider {
+		return (this._branches ??= new BranchesGitProvider(
+			this.container,
+			this._cache,
+			this as unknown as GitHubGitProviderInternal,
+		));
+	}
+
 	private _status: StatusGitProvider | undefined;
 	get status(): StatusGitProvider {
-		return (this._status ??= new StatusGitProvider(this.container, this as GitHubGitProviderInternal));
+		return (this._status ??= new StatusGitProvider(this.container, this as unknown as GitHubGitProviderInternal));
 	}
 
 	@gate()
@@ -3571,7 +3336,7 @@ export class GitHubGitProvider implements GitProvider, Disposable {
 		if (isRevisionRange(ref)) return undefined;
 
 		const [branchResults, tagResults] = await Promise.allSettled([
-			this.getBranches(repoPath, { filter: b => b.name === ref }),
+			this.branches.getBranches(repoPath, { filter: b => b.name === ref }),
 			this.getTags(repoPath, { filter: t => t.name === ref }),
 		]);
 
@@ -3670,6 +3435,6 @@ async function ensureProviderLoaded<T extends (uri: Uri) => any>(
 }
 
 //** Strips `origin/` from a reference or range, because we "fake" origin as the default remote */
-function stripOrigin<T extends string | GitRevisionRange | undefined>(ref: T): T {
+export function stripOrigin<T extends string | GitRevisionRange | undefined>(ref: T): T {
 	return ref?.replace(/(?:^|(?<=..))origin\//, '') as T;
 }

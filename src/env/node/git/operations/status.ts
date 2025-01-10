@@ -106,7 +106,7 @@ export class StatusGitProvider implements GitProviderStatus {
 						)?.trim();
 						if (!cherryPickHead) return undefined;
 
-						const branch = (await this.provider.getBranch(repoPath))!;
+						const branch = (await this.provider.branches.getBranch(repoPath))!;
 
 						return {
 							type: 'cherry-pick',
@@ -130,9 +130,9 @@ export class StatusGitProvider implements GitProviderStatus {
 						if (!mergeHead) return undefined;
 
 						const [branchResult, mergeBaseResult, possibleSourceBranchesResult] = await Promise.allSettled([
-							this.provider.getBranch(repoPath),
-							this.provider.getMergeBase(repoPath, 'MERGE_HEAD', 'HEAD'),
-							this.provider.getCommitBranches(repoPath, ['MERGE_HEAD'], undefined, {
+							this.provider.branches.getBranch(repoPath),
+							this.provider.branches.getMergeBase(repoPath, 'MERGE_HEAD', 'HEAD'),
+							this.provider.branches.getBranchesForCommit(repoPath, ['MERGE_HEAD'], undefined, {
 								all: true,
 								mode: 'pointsAt',
 							}),
@@ -170,7 +170,7 @@ export class StatusGitProvider implements GitProviderStatus {
 						)?.trim();
 						if (!revertHead) return undefined;
 
-						const branch = (await this.provider.getBranch(repoPath))!;
+						const branch = (await this.provider.branches.getBranch(repoPath))!;
 
 						return {
 							type: 'revert',
@@ -216,9 +216,9 @@ export class StatusGitProvider implements GitProviderStatus {
 						let mergeBase;
 						const rebaseHead = getSettledValue(rebaseHeadResult);
 						if (rebaseHead != null) {
-							mergeBase = await this.provider.getMergeBase(repoPath, rebaseHead, 'HEAD');
+							mergeBase = await this.provider.branches.getMergeBase(repoPath, rebaseHead, 'HEAD');
 						} else {
-							mergeBase = await this.provider.getMergeBase(repoPath, onto, origHead);
+							mergeBase = await this.provider.branches.getMergeBase(repoPath, onto, origHead);
 						}
 
 						if (branch.startsWith('refs/heads/')) {
@@ -226,7 +226,7 @@ export class StatusGitProvider implements GitProviderStatus {
 						}
 
 						const [branchTipsResult, tagTipsResult] = await Promise.allSettled([
-							this.provider.getCommitBranches(repoPath, [onto], undefined, {
+							this.provider.branches.getBranchesForCommit(repoPath, [onto], undefined, {
 								all: true,
 								mode: 'pointsAt',
 							}),

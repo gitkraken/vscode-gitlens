@@ -74,11 +74,11 @@ export class PatchGitProvider implements GitProviderPatch {
 		}
 
 		let targetPath = repoPath;
-		const currentBranch = await this.provider.getBranch(repoPath);
+		const currentBranch = await this.provider.branches.getBranch(repoPath);
 		const branchExists =
 			options?.branchName == null ||
 			currentBranch?.name === options.branchName ||
-			(await this.provider.getBranches(repoPath, { filter: b => b.name === options.branchName }))?.values
+			(await this.provider.branches.getBranches(repoPath, { filter: b => b.name === options.branchName }))?.values
 				?.length > 0;
 		const shouldCreate = options?.branchName != null && !branchExists && options.createBranchIfNeeded;
 

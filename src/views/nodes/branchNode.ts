@@ -248,7 +248,7 @@ export class BranchNode
 					  )
 					: undefined,
 				loadComparisonDefaultCompareWith
-					? this.view.container.git.getBaseBranchName(this.branch.repoPath, this.branch.name)
+					? this.view.container.git.branches(this.branch.repoPath).getBaseBranchName?.(this.branch.name)
 					: undefined,
 				loadComparisonDefaultCompareWith
 					? getTargetBranchName(this.view.container, this.branch, {
