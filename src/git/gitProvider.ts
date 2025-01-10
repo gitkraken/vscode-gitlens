@@ -309,11 +309,6 @@ export interface GitProviderRepository {
 			skip?: number | undefined;
 		},
 	): Promise<GitReflog | undefined>;
-	getPotentialMergeOrRebaseConflict?(
-		repoPath: string,
-		branch: string,
-		targetBranch: string,
-	): Promise<MergeConflict | undefined>;
 	getRevisionContent(repoPath: string, path: string, ref: string): Promise<Uint8Array | undefined>;
 	getTreeEntryForRevision(repoPath: string, path: string, ref: string): Promise<GitTreeEntry | undefined>;
 	getTreeForRevision(repoPath: string, ref: string): Promise<GitTreeEntry[]>;
@@ -415,6 +410,11 @@ export interface GitProviderBranches {
 	): Promise<string | undefined>;
 
 	createBranch?(repoPath: string, name: string, ref: string): Promise<void>;
+	getPotentialMergeOrRebaseConflict?(
+		repoPath: string,
+		branch: string,
+		targetBranch: string,
+	): Promise<MergeConflict | undefined>;
 	getBaseBranchName?(repoPath: string, ref: string): Promise<string | undefined>;
 	setBaseBranchName?(repoPath: string, ref: string, base: string): Promise<void>;
 	getTargetBranchName?(repoPath: string, ref: string): Promise<string | undefined>;

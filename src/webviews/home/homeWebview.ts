@@ -1399,7 +1399,7 @@ async function getBranchMergeTargetStatusInfo(
 		container.git.getLeftRightCommitCount(branch.repoPath, createRevisionRange(target, branch.ref, '...'), {
 			excludeMerges: true,
 		}),
-		container.git.getPotentialMergeOrRebaseConflict(branch.repoPath, branch.name, target),
+		container.git.branches(branch.repoPath).getPotentialMergeOrRebaseConflict?.(branch.name, target),
 	]);
 
 	const counts = getSettledValue(countsResult);

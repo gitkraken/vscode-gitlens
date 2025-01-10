@@ -78,7 +78,6 @@ import type {
 	GitGraphRowTag,
 } from '../../../git/models/graph';
 import type { GitLog } from '../../../git/models/log';
-import type { MergeConflict } from '../../../git/models/mergeConflict';
 import type { GitBranchReference, GitReference } from '../../../git/models/reference';
 import { createReference, isBranchReference } from '../../../git/models/reference.utils';
 import type { GitReflog } from '../../../git/models/reflog';
@@ -128,7 +127,6 @@ import {
 	parseGitLogSimpleFormat,
 	parseGitLogSimpleRenamed,
 } from '../../../git/parsers/logParser';
-import { parseMergeTreeConflict } from '../../../git/parsers/mergeTreeParser';
 import { parseGitRefLog, parseGitRefLogDefaultFormat } from '../../../git/parsers/reflogParser';
 import { parseGitLsFiles, parseGitTree } from '../../../git/parsers/treeParser';
 import type { GitSearch, GitSearchResultData, GitSearchResults } from '../../../git/search';
@@ -4969,43 +4967,6 @@ export class LocalGitProvider implements GitProvider, Disposable {
 		} catch (ex) {
 			Logger.error(ex, scope);
 			return undefined;
-		}
-	}
-
-	@log()
-	async getPotentialMergeOrRebaseConflict(
-		repoPath: string,
-		branch: string,
-		targetBranch: string,
-	): Promise<MergeConflict | undefined> {
-		const scope = getLogScope();
-
-		try {
-			// If we have don't have Git v2.33+, just return
-			if (!(await this.git.isAtLeastVersion('2.33'))) {
-				return undefined;
-			}
-
-			let data;
-			try {
-				data = await this.git.merge_tree(repoPath, branch, targetBranch, '-z', '--name-only', '--no-messages');
-			} catch (ex) {
-				Logger.error(ex, scope);
-			}
-			if (!data) return undefined;
-
-			const mergeConflict = parseMergeTreeConflict(data);
-			if (!mergeConflict.conflicts.length) return undefined;
-
-			return {
-				repoPath: repoPath,
-				branch: branch,
-				target: targetBranch,
-				files: mergeConflict.conflicts,
-			};
-		} catch (ex) {
-			Logger.error(ex, scope);
-			throw ex;
 		}
 	}
 }
