@@ -1,6 +1,6 @@
-import { wrapForForcedInsecureSSL } from '@env/fetch';
 import type { CancellationToken, Disposable, Event, Uri } from 'vscode';
 import { authentication, EventEmitter, window } from 'vscode';
+import { wrapForForcedInsecureSSL } from '@env/fetch';
 import type { IntegrationId } from '../../../constants.integrations';
 import { HostingIntegrationId, IssueIntegrationId, SelfHostedIntegrationId } from '../../../constants.integrations';
 import type { IntegrationAuthenticationKeys } from '../../../constants.storage';

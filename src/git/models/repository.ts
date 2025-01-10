@@ -1,6 +1,6 @@
-import { md5, uuid } from '@env/crypto';
 import type { ConfigurationChangeEvent, Event, Uri, WorkspaceFolder } from 'vscode';
 import { Disposable, EventEmitter, ProgressLocation, RelativePattern, window, workspace } from 'vscode';
+import { md5, uuid } from '@env/crypto';
 import type { CreatePullRequestActionContext } from '../../api/gitlens';
 import { Schemes } from '../../constants';
 import type { Container } from '../../container';
