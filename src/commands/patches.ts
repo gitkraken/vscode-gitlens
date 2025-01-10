@@ -210,8 +210,10 @@ export class ApplyPatchFromClipboardCommand extends GlCommandBase {
 		const patch = await env.clipboard.readText();
 		let repo = this.container.git.highlander;
 
+		const patchProvider = repo?.uri != null ? this.container.git.patch(repo.uri) : undefined;
+
 		// Make sure it looks like a valid patch
-		const valid = patch.length ? await this.container.git.validatePatch(repo?.uri ?? Uri.file(''), patch) : false;
+		const valid = patch.length ? await patchProvider?.validatePatch(patch) : false;
 		if (!valid) {
 			void window.showWarningMessage('No valid patch found in the clipboard');
 			return;
@@ -221,15 +223,10 @@ export class ApplyPatchFromClipboardCommand extends GlCommandBase {
 		if (repo == null) return;
 
 		try {
-			const commit = await this.container.git.createUnreachableCommitForPatch(
-				repo.uri,
-				patch,
-				'HEAD',
-				'Pasted Patch',
-			);
+			const commit = await patchProvider?.createUnreachableCommitForPatch(patch, 'HEAD', 'Pasted Patch');
 			if (commit == null) return;
 
-			await this.container.git.applyUnreachableCommitForPatch(repo.uri, commit.sha, { stash: false });
+			await patchProvider?.applyUnreachableCommitForPatch(commit.sha, { stash: false });
 			void window.showInformationMessage(`Patch applied successfully`);
 		} catch (ex) {
 			if (ex instanceof CancellationError) return;

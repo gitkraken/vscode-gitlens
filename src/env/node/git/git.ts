@@ -352,6 +352,14 @@ export class Git {
 		return (await this.getLocation()).version;
 	}
 
+	async ensureGitVersion(version: string, prefix: string, suffix: string): Promise<void> {
+		if (await this.isAtLeastVersion(version)) return;
+
+		throw new Error(
+			`${prefix} requires a newer version of Git (>= ${version}) than is currently installed (${await this.version()}).${suffix}`,
+		);
+	}
+
 	async isAtLeastVersion(minimum: string): Promise<boolean> {
 		const result = compare(fromString(await this.version()), fromString(minimum));
 		return result !== -1;

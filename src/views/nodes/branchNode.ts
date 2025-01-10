@@ -231,10 +231,10 @@ export class BranchNode
 				this.getLog(),
 				this.view.container.git.getBranchesAndTagsTipsLookup(this.uri.repoPath, branch.name),
 				this.options.showStatus && branch.current
-					? this.view.container.git.getStatus(this.uri.repoPath)
+					? this.view.container.git.status(this.uri.repoPath!).getStatus()
 					: undefined,
 				this.options.showStatus && branch.current
-					? this.view.container.git.getPausedOperationStatus(this.uri.repoPath!)
+					? this.view.container.git.status(this.uri.repoPath!).getPausedOperationStatus?.()
 					: undefined,
 				!branch.remote
 					? this.view.container.git.getBranchAheadRange(branch).then(range =>
@@ -277,7 +277,7 @@ export class BranchNode
 						this,
 						branch,
 						pausedOpsStatus,
-						status ?? (await this.view.container.git.getStatus(this.uri.repoPath)),
+						status ?? (await this.view.container.git.status(this.uri.repoPath!).getStatus()),
 						this.root,
 					),
 				);

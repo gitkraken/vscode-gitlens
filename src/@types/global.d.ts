@@ -40,4 +40,28 @@ export declare global {
 		: never;
 
 	export type UnwrapCustomEvent<T> = T extends CustomEvent<infer U> ? U : never;
+
+	export type RemoveFirstArg<F> = F extends {
+		(first: any, ...args: infer A1): infer R1;
+		(first: any, ...args: infer A2): infer R2;
+		(first: any, ...args: infer A3): infer R3;
+		(first: any, ...args: infer A4): infer R4;
+	}
+		? ((...args: A1) => R1) & ((...args: A2) => R2) & ((...args: A3) => R3) & ((...args: A4) => R4)
+		: F extends {
+					(first: any, ...args: infer A1): infer R1;
+					(first: any, ...args: infer A2): infer R2;
+					(first: any, ...args: infer A3): infer R3;
+		    }
+		  ? ((...args: A1) => R1) & ((...args: A2) => R2) & ((...args: A3) => R3)
+		  : F extends {
+						(first: any, ...args: infer A1): infer R1;
+						(first: any, ...args: infer A2): infer R2;
+		      }
+		    ? ((...args: A1) => R1) & ((...args: A2) => R2)
+		    : F extends {
+							(first: any, ...args: infer A1): infer R1;
+		        }
+		      ? (...args: A1) => R1
+		      : never;
 }

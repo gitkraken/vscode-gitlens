@@ -88,7 +88,7 @@ export class ExternalDiffCommand extends GlCommandBase {
 				const repository = await getRepositoryOrShowPicker('Open All Changes (difftool)');
 				if (repository == null) return undefined;
 
-				const status = await this.container.git.getStatus(repository.uri);
+				const status = await this.container.git.status(repository.uri).getStatus();
 				if (status == null) {
 					return window.showInformationMessage("The repository doesn't have any changes");
 				}
@@ -130,7 +130,7 @@ export class ExternalDiffCommand extends GlCommandBase {
 				if (!repoPath) return;
 
 				const uri = editor.document.uri;
-				const status = await this.container.git.getStatusForFile(repoPath, uri);
+				const status = await this.container.git.status(repoPath).getStatusForFile?.(uri);
 				if (status == null) {
 					void window.showInformationMessage("The current file doesn't have any changes");
 

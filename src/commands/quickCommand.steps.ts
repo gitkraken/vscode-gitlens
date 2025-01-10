@@ -246,7 +246,8 @@ export async function getWorktrees(
 	},
 ): Promise<WorktreeQuickPickItem[]> {
 	const worktrees =
-		repoOrWorktrees instanceof Repository ? await repoOrWorktrees.git.getWorktrees() : repoOrWorktrees;
+		repoOrWorktrees instanceof Repository ? await repoOrWorktrees.git.worktrees()?.getWorktrees() : repoOrWorktrees;
+	if (worktrees == null) return [];
 
 	const items = filterMap(
 		await Promise.allSettled(

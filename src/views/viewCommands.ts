@@ -1070,7 +1070,7 @@ export class ViewCommands implements Disposable {
 			return;
 		}
 
-		await this.container.git.stageFile(node.repoPath, node.file.path);
+		await this.container.git.staging(node.repoPath)?.stageFile(node.file.path);
 		void node.triggerChange();
 	}
 
@@ -1078,7 +1078,7 @@ export class ViewCommands implements Disposable {
 	private async stageDirectory(node: FolderNode) {
 		if (!node.is('folder') || !node.relativePath) return;
 
-		await this.container.git.stageDirectory(node.repoPath, node.relativePath);
+		await this.container.git.staging(node.repoPath)?.stageDirectory(node.relativePath);
 		void node.triggerChange();
 	}
 
@@ -1123,7 +1123,7 @@ export class ViewCommands implements Disposable {
 	private async unstageFile(node: CommitFileNode | FileRevisionAsCommitNode | StatusFileNode) {
 		if (!node.isAny('commit-file', 'file-commit', 'status-file')) return;
 
-		await this.container.git.unstageFile(node.repoPath, node.file.path);
+		await this.container.git.staging(node.repoPath)?.unstageFile(node.file.path);
 		void node.triggerChange();
 	}
 
@@ -1131,7 +1131,7 @@ export class ViewCommands implements Disposable {
 	private async unstageDirectory(node: FolderNode) {
 		if (!node.is('folder') || !node.relativePath) return;
 
-		await this.container.git.unstageDirectory(node.repoPath, node.relativePath);
+		await this.container.git.staging(node.repoPath)?.unstageDirectory(node.relativePath);
 		void node.triggerChange();
 	}
 

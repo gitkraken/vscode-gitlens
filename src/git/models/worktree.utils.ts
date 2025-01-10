@@ -37,7 +37,9 @@ export async function getWorktreeForBranch(
 		);
 	}
 
-	worktrees ??= await repo.git.getWorktrees();
+	worktrees ??= await repo.git.worktrees()?.getWorktrees();
+	if (!worktrees?.length) return undefined;
+
 	for (const worktree of worktrees) {
 		if (worktree.branch?.name === branchName) return worktree;
 
@@ -74,7 +76,10 @@ export async function getWorktreesByBranch(
 	if (repos == null) return worktreesByBranch;
 
 	async function addWorktrees(repo: Repository) {
-		groupWorktreesByBranch(await repo.git.getWorktrees(), {
+		const worktrees = repo.git.worktrees();
+		if (worktrees == null) return;
+
+		groupWorktreesByBranch(await worktrees.getWorktrees(), {
 			includeDefault: options?.includeDefault,
 			worktreesByBranch: worktreesByBranch,
 		});

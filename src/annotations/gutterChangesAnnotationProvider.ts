@@ -131,10 +131,9 @@ export class GutterChangesAnnotationProvider extends AnnotationProviderBase<Chan
 					localChanges = false;
 				}
 			} else {
-				const status = await this.container.git.getStatusForFile(
-					this.trackedDocument.uri.repoPath!,
-					this.trackedDocument.uri,
-				);
+				const status = await this.container.git
+					.status(this.trackedDocument.uri.repoPath!)
+					.getStatusForFile?.(this.trackedDocument.uri);
 				const commits = status?.getPseudoCommits(
 					this.container,
 					await this.container.git.getCurrentUser(this.trackedDocument.uri.repoPath!),

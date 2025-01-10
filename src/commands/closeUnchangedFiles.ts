@@ -27,7 +27,7 @@ export class CloseUnchangedFilesCommand extends GlCommandBase {
 				const repository = await getRepositoryOrShowPicker('Close All Unchanged Files');
 				if (repository == null) return;
 
-				const status = await this.container.git.getStatus(repository.uri);
+				const status = await this.container.git.status(repository.uri).getStatus();
 				if (status == null) {
 					void window.showWarningMessage('Unable to close unchanged files');
 

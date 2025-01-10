@@ -24,9 +24,9 @@ import {
 	OpenVirtualRepositoryErrorReason,
 } from '../../../../errors';
 import { Features } from '../../../../features';
+import { GitCache } from '../../../../git/cache';
 import { GitSearchError } from '../../../../git/errors';
 import type {
-	GitCaches,
 	GitProvider,
 	LeftRightCommitCountResult,
 	NextComparisonUrisResult,
@@ -78,8 +78,6 @@ import {
 	isShaLike,
 	isUncommitted,
 } from '../../../../git/models/revision.utils';
-import type { GitStatusFile } from '../../../../git/models/status';
-import { GitStatus } from '../../../../git/models/status';
 import { getTagId, GitTag } from '../../../../git/models/tag';
 import type { GitTreeEntry } from '../../../../git/models/tree';
 import type { GitUser } from '../../../../git/models/user';
@@ -120,9 +118,9 @@ import type {
 import type { GitHubApi } from './github';
 import type { GitHubBranch } from './models';
 import { fromCommitFileStatus } from './models';
+import { StatusGitProvider } from './operations/status';
 
 const doubleQuoteRegex = /"/g;
-const emptyArray = Object.freeze([]) as unknown as any[];
 const emptyPagedResult: PagedResult<any> = Object.freeze({ values: [] });
 const emptyPromise: Promise<GitBlame | GitDiffFile | GitLog | undefined> = Promise.resolve(undefined);
 
@@ -132,9 +130,9 @@ const githubAuthenticationScopes = ['repo', 'read:user', 'user:email'];
 // eslint-disable-next-line no-control-regex
 const validBranchOrTagRegex = /^[^/](?!.*\/\.)(?!.*\.\.)(?!.*\/\/)(?!.*@\{)[^\x00-\x1F\x7F ~^:?*[\\]+[^./]$/;
 
-interface RepositoryInfo {
-	user?: GitUser | null;
-}
+export type GitHubGitProviderInternal = Omit<GitHubGitProvider, 'ensureRepositoryContext'> & {
+	ensureRepositoryContext: GitHubGitProvider['ensureRepositoryContext'];
+};
 
 export class GitHubGitProvider implements GitProvider, Disposable {
 	descriptor = { id: 'github' as const, name: 'GitHub', virtual: true };
@@ -170,24 +168,14 @@ export class GitHubGitProvider implements GitProvider, Disposable {
 		return this._onDidOpenRepository.event;
 	}
 
-	private readonly _branchCache = new Map<string, Promise<GitBranch | undefined>>();
-	private readonly _branchesCache = new Map<string, Promise<PagedResult<GitBranch>>>();
-	private readonly _repoInfoCache = new Map<string, RepositoryInfo>();
-	private readonly _tagsCache = new Map<string, Promise<PagedResult<GitTag>>>();
-
+	private readonly _cache: GitCache;
 	private readonly _disposables: Disposable[] = [];
 
 	constructor(
 		private readonly container: Container,
 		private readonly authenticationService: IntegrationAuthenticationService,
 	) {
-		this._disposables.push(
-			this.container.events.on('git:cache:reset', e =>
-				e.data.repoPath
-					? this.resetCache(e.data.repoPath, ...(e.data.caches ?? emptyArray))
-					: this.resetCaches(...(e.data.caches ?? emptyArray)),
-			),
-		);
+		this._cache = new GitCache(this.container);
 		void authenticationService.get(this.authenticationProviderId).then(authProvider => {
 			this._disposables.push(authProvider.onDidChange(this.onAuthenticationSessionsChanged, this));
 		});
@@ -203,19 +191,7 @@ export class GitHubGitProvider implements GitProvider, Disposable {
 	}
 
 	private onRepositoryChanged(repo: Repository, e: RepositoryChangeEvent) {
-		// if (e.changed(RepositoryChange.Config, RepositoryChangeComparisonMode.Any)) {
-		// 	this._repoInfoCache.delete(repo.path);
-		// }
-
-		// if (e.changed(RepositoryChange.Heads, RepositoryChange.Remotes, RepositoryChangeComparisonMode.Any)) {
-		// 	this._branchesCache.delete(repo.path);
-		// }
-
-		this._branchCache.delete(repo.path);
-		this._branchesCache.delete(repo.path);
-		this._tagsCache.delete(repo.path);
-		this._repoInfoCache.delete(repo.path);
-
+		this._cache.clearCaches(repo.path);
 		this._onWillChangeRepository.fire(e);
 	}
 
@@ -456,41 +432,6 @@ export class GitHubGitProvider implements GitProvider, Disposable {
 	@log()
 	async branchContainsCommit(_repoPath: string, _name: string, _ref: string): Promise<boolean> {
 		return false;
-	}
-
-	@log({ singleLine: true })
-	private resetCache(
-		repoPath: string,
-		...caches: ('branches' | 'contributors' | 'providers' | 'remotes' | 'stashes' | 'status' | 'tags')[]
-	) {
-		if (caches.length === 0 || caches.includes('branches')) {
-			this._branchCache.delete(repoPath);
-			this._branchesCache.delete(repoPath);
-		}
-
-		if (caches.length === 0 || caches.includes('tags')) {
-			this._tagsCache.delete(repoPath);
-		}
-
-		if (caches.length === 0) {
-			this._repoInfoCache.delete(repoPath);
-		}
-	}
-
-	@log({ singleLine: true })
-	private resetCaches(...caches: GitCaches[]): void {
-		if (caches.length === 0 || caches.includes('branches')) {
-			this._branchCache.clear();
-			this._branchesCache.clear();
-		}
-
-		if (caches.length === 0 || caches.includes('tags')) {
-			this._tagsCache.clear();
-		}
-
-		if (caches.length === 0) {
-			this._repoInfoCache.clear();
-		}
 	}
 
 	@log<GitHubGitProvider['excludeIgnoredUris']>({ args: { 1: uris => uris.length } })
@@ -893,7 +834,7 @@ export class GitHubGitProvider implements GitProvider, Disposable {
 
 	@log()
 	async getBranch(repoPath: string): Promise<GitBranch | undefined> {
-		let branchPromise = this._branchCache.get(repoPath);
+		let branchPromise = this._cache.branch?.get(repoPath);
 		if (branchPromise == null) {
 			async function load(this: GitHubGitProvider): Promise<GitBranch | undefined> {
 				const {
@@ -932,7 +873,7 @@ export class GitHubGitProvider implements GitProvider, Disposable {
 			}
 
 			branchPromise = load.call(this);
-			this._branchCache.set(repoPath, branchPromise);
+			this._cache.branch?.set(repoPath, branchPromise);
 		}
 
 		return branchPromise;
@@ -951,7 +892,7 @@ export class GitHubGitProvider implements GitProvider, Disposable {
 
 		const scope = getLogScope();
 
-		let branchesPromise = options?.paging?.cursor ? undefined : this._branchesCache.get(repoPath);
+		let branchesPromise = options?.paging?.cursor ? undefined : this._cache.branches?.get(repoPath);
 		if (branchesPromise == null) {
 			async function load(this: GitHubGitProvider): Promise<PagedResult<GitBranch>> {
 				try {
@@ -1013,14 +954,14 @@ export class GitHubGitProvider implements GitProvider, Disposable {
 					Logger.error(ex, scope);
 					debugger;
 
-					this._branchesCache.delete(repoPath!);
+					this._cache.branches?.delete(repoPath!);
 					return emptyPagedResult;
 				}
 			}
 
 			branchesPromise = load.call(this);
 			if (options?.paging?.cursor == null) {
-				this._branchesCache.set(repoPath, branchesPromise);
+				this._cache.branches?.set(repoPath, branchesPromise);
 			}
 		}
 
@@ -1791,7 +1732,7 @@ export class GitHubGitProvider implements GitProvider, Disposable {
 
 		const scope = getLogScope();
 
-		const repo = this._repoInfoCache.get(repoPath);
+		const repo = this._cache.repoInfo.get(repoPath);
 
 		let user = repo?.user;
 		if (user != null) return user;
@@ -1802,14 +1743,14 @@ export class GitHubGitProvider implements GitProvider, Disposable {
 			const { metadata, github, session } = await this.ensureRepositoryContext(repoPath);
 			user = await github.getCurrentUser(session.accessToken, metadata.repo.owner, metadata.repo.name);
 
-			this._repoInfoCache.set(repoPath, { ...repo, user: user ?? null });
+			this._cache.repoInfo.set(repoPath, { ...repo, user: user ?? null });
 			return user;
 		} catch (ex) {
 			Logger.error(ex, scope);
 			debugger;
 
 			// Mark it so we won't bother trying again
-			this._repoInfoCache.set(repoPath, { ...repo, user: null });
+			this._cache.repoInfo.set(repoPath, { ...repo, user: null });
 			return undefined;
 		}
 	}
@@ -2799,38 +2740,6 @@ export class GitHubGitProvider implements GitProvider, Disposable {
 		return workspace.fs.readFile(uri);
 	}
 
-	@log()
-	async getStatusForFile(_repoPath: string, _uri: Uri): Promise<GitStatusFile | undefined> {
-		return undefined;
-	}
-
-	@log()
-	async getStatusForFiles(_repoPath: string, _pathOrGlob: Uri): Promise<GitStatusFile[] | undefined> {
-		return undefined;
-	}
-
-	@log()
-	async getStatus(repoPath: string | undefined): Promise<GitStatus | undefined> {
-		if (repoPath == null) return undefined;
-
-		const context = await this.ensureRepositoryContext(repoPath);
-		if (context == null) return undefined;
-
-		const revision = await context.metadata.getRevision();
-		if (revision == null) return undefined;
-
-		return new GitStatus(
-			repoPath,
-			revision.name,
-			revision.revision,
-			[],
-			{ ahead: 0, behind: 0 },
-			revision.type === HeadType.Branch || revision.type === HeadType.RemoteBranch
-				? { name: `origin/${revision.name}`, missing: false }
-				: undefined,
-		);
-	}
-
 	@log({ args: { 1: false } })
 	async getTags(
 		repoPath: string | undefined,
@@ -2844,7 +2753,7 @@ export class GitHubGitProvider implements GitProvider, Disposable {
 
 		const scope = getLogScope();
 
-		let tagsPromise = options?.paging?.cursor ? undefined : this._tagsCache.get(repoPath);
+		let tagsPromise = options?.paging?.cursor ? undefined : this._cache.tags?.get(repoPath);
 		if (tagsPromise == null) {
 			async function load(this: GitHubGitProvider): Promise<PagedResult<GitTag>> {
 				try {
@@ -2892,14 +2801,14 @@ export class GitHubGitProvider implements GitProvider, Disposable {
 					Logger.error(ex, scope);
 					debugger;
 
-					this._tagsCache.delete(repoPath!);
+					this._cache.tags?.delete(repoPath!);
 					return emptyPagedResult;
 				}
 			}
 
 			tagsPromise = load.call(this);
 			if (options?.paging?.cursor == null) {
-				this._tagsCache.set(repoPath, tagsPromise);
+				this._cache.tags?.set(repoPath, tagsPromise);
 			}
 		}
 
@@ -3388,6 +3297,11 @@ export class GitHubGitProvider implements GitProvider, Disposable {
 	@log()
 	async validateReference(_repoPath: string, _ref: string): Promise<boolean> {
 		return true;
+	}
+
+	private _status: StatusGitProvider | undefined;
+	get status(): StatusGitProvider {
+		return (this._status ??= new StatusGitProvider(this.container, this as GitHubGitProviderInternal));
 	}
 
 	@gate()

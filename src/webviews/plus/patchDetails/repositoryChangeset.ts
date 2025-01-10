@@ -209,7 +209,7 @@ export class RepositoryWipChangeset implements RepositoryChangeset {
 	}
 
 	private async getFiles(): Promise<{ files: Change['files'] }> {
-		const status = await this.container.git.getStatus(this.repository.path);
+		const status = await this.container.git.status(this.repository.path).getStatus();
 
 		const files: GitFileChangeShape[] = [];
 		if (status != null) {

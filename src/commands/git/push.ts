@@ -294,7 +294,7 @@ export class PushGitCommand extends QuickCommand<State> {
 					}
 				}
 			} else {
-				const status = await repo.git.getStatus();
+				const status = await repo.git.status().getStatus();
 
 				const branch: GitBranchReference = {
 					refType: 'branch',

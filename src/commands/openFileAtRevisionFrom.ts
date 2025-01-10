@@ -49,7 +49,7 @@ export class OpenFileAtRevisionFromCommand extends ActiveEditorCommand {
 
 				const title = `Open Changes with Stash${pad(GlyphChars.Dot, 2, 2)}`;
 				const pick = await showStashPicker(
-					this.container.git.getStash(gitUri.repoPath),
+					this.container.git.stash(gitUri.repoPath)?.getStash(),
 					`${title}${gitUri.getFormattedFileName({ truncateTo: quickPickTitleMaxChars - title.length })}`,
 					'Choose a stash to compare with',
 					// Stashes should always come with files, so this should be fine (but protect it just in case)
