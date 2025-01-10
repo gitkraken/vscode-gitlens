@@ -11,6 +11,10 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/) and this p
 - Adds go to home view button to the commit graph title section &mdash; closes [#3873](https://github.com/gitkraken/vscode-gitlens/issues/3873)
 - Adds a _Contributors_ section to comparison results in the views
 
+### Changed
+
+- Makes GitLens XDG-compatible&mdash; closes [#3660](https://github.com/gitkraken/vscode-gitlens/issues/3660)
+
 ### Fixed
 
 - Fixes [#3915](https://github.com/gitkraken/vscode-gitlens/issues/3915) - Closing a split editor with annotations causes the Clear Annotations button to get stuck
