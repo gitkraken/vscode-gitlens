@@ -20,7 +20,7 @@ COPY supervisor.conf /etc/supervisor/conf.d/supervisor.conf
 # --- --- --- --- --- --- ---
 
 # enable node source repo
-RUN curl -sL https://deb.nodesource.com/setup_20.x | bash -
+RUN curl -sL https://deb.nodesource.com/setup_22.x | bash -
 # enable yarn repo
 # RUN curl -sS https://dl.yarnpkg.com/debian/pubkey.gpg | apt-key add -
 # RUN echo "deb https://dl.yarnpkg.com/debian/ stable main" | tee /etc/apt/sources.list.d/yarn.list
@@ -31,3 +31,4 @@ RUN apt-get update && \
     rm -rf /var/lib/apt/lists/*
 
 RUN npm install -g pnpm@10
+
