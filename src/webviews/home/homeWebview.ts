@@ -1,5 +1,5 @@
 import type { ConfigurationChangeEvent } from 'vscode';
-import { Disposable, workspace } from 'vscode';
+import { Disposable, Uri, workspace } from 'vscode';
 import type { CreatePullRequestActionContext } from '../../api/gitlens';
 import type { EnrichedAutolink } from '../../autolinks';
 import { getAvatarUriFromGravatarEmail } from '../../avatars';
@@ -23,6 +23,7 @@ import type { GitBranch } from '../../git/models/branch';
 import { getAssociatedIssuesForBranch, getBranchTargetInfo } from '../../git/models/branch.utils';
 import type { GitFileChangeShape } from '../../git/models/file';
 import type { Issue } from '../../git/models/issue';
+import type { GitPausedOperationStatus } from '../../git/models/pausedOperationStatus';
 import type { PullRequest } from '../../git/models/pullRequest';
 import { getComparisonRefsForPullRequest } from '../../git/models/pullRequest';
 import { getReferenceFromBranch } from '../../git/models/reference.utils';
@@ -49,7 +50,7 @@ import type { Deferrable } from '../../system/function';
 import { debounce } from '../../system/function';
 import { filterMap } from '../../system/iterable';
 import { getSettledValue } from '../../system/promise';
-import { executeActionCommand, executeCommand, registerCommand } from '../../system/vscode/command';
+import { executeActionCommand, executeCommand, executeCoreCommand, registerCommand } from '../../system/vscode/command';
 import { configuration } from '../../system/vscode/configuration';
 import { getContext, onDidChangeContext } from '../../system/vscode/context';
 import { openUrl, openWorkspace } from '../../system/vscode/utils';
@@ -113,6 +114,9 @@ interface RepositoryBranchData {
 interface BranchRef {
 	repoPath: string;
 	branchId: string;
+}
+interface GitPausedOperationCommandArgs {
+	operation: GitPausedOperationStatus;
 }
 
 // type AutolinksInfo = Awaited<GetOverviewBranch['autolinks']>;
@@ -309,6 +313,10 @@ export class HomeWebviewProvider implements WebviewProvider<State, State, HomeWe
 			registerCommand('gitlens.home.rebaseCurrentOnto', this.rebaseCurrentOnto, this),
 			registerCommand('gitlens.home.startWork', this.startWork, this),
 			registerCommand('gitlens.home.createCloudPatch', this.createCloudPatch, this),
+			registerCommand('gitlens.home.skipPausedOperation', this.skipPausedOperation, this),
+			registerCommand('gitlens.home.continuePausedOperation', this.continuePausedOperation, this),
+			registerCommand('gitlens.home.abortPausedOperation', this.abortPausedOperation, this),
+			registerCommand('gitlens.home.openRebaseEditor', this.openRebaseEditor, this),
 		];
 	}
 
@@ -451,6 +459,33 @@ export class HomeWebviewProvider implements WebviewProvider<State, State, HomeWe
 		void executeCommand<StartWorkCommandArgs>(GlCommand.StartWork, {
 			command: 'startWork',
 			source: 'home',
+		});
+	}
+
+	private async abortPausedOperation(pausedOpArgs: GitPausedOperationCommandArgs) {
+		await this.container.git.status(pausedOpArgs.operation.repoPath).abortPausedOperation?.();
+	}
+
+	private async continuePausedOperation(pausedOpArgs: GitPausedOperationCommandArgs) {
+		if (pausedOpArgs.operation.type === 'revert') return;
+		await this.container.git.status(pausedOpArgs.operation.repoPath).continuePausedOperation?.();
+	}
+
+	private async skipPausedOperation(pausedOpArgs: GitPausedOperationCommandArgs) {
+		if (pausedOpArgs.operation.type === 'merge') return;
+
+		await this.container.git.status(pausedOpArgs.operation.repoPath).continuePausedOperation?.({ skip: true });
+	}
+
+	private async openRebaseEditor(pausedOpArgs: GitPausedOperationCommandArgs) {
+		if (pausedOpArgs.operation.type !== 'rebase') return;
+
+		const repo = this._repositoryBranches.get(pausedOpArgs.operation.repoPath)?.repo;
+		if (repo == null) return;
+
+		const rebaseTodoUri = Uri.joinPath(repo.uri, '.git', 'rebase-merge', 'git-rebase-todo');
+		await executeCoreCommand('vscode.openWith', rebaseTodoUri, 'gitlens.rebase', {
+			preview: false,
 		});
 	}
 
