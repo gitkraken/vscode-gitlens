@@ -237,9 +237,16 @@ export class IntegrationService implements Disposable {
 			}
 
 			for (const integrationId of integrationIds) {
-				const integration = await this.get(integrationId);
-				if (integration.maybeConnected ?? (await integration.isConnected())) {
-					connectedIntegrations.add(integrationId);
+				try {
+					const integration = await this.get(integrationId);
+					if (integration.maybeConnected ?? (await integration.isConnected())) {
+						connectedIntegrations.add(integrationId);
+					}
+				} catch (ex) {
+					Logger.log(
+						`Failed to get integration ${integrationId} by its ID. Consider it as not-connected and ignore. Error message: ${ex.message}`,
+						scope,
+					);
 				}
 			}
 
@@ -459,6 +466,24 @@ export class IntegrationService implements Disposable {
 					).GitHubIntegration(this.container, this.authenticationService, this.getProvidersApi.bind(this));
 					break;
 				case SelfHostedIntegrationId.CloudGitHubEnterprise:
+					if (domain == null) {
+						integration = this.findCachedById(id);
+						if (integration != null) {
+							// return immediately in order to not to cache it after the "switch" block:
+							return integration;
+						}
+						throw new Error(`Domain is required for '${id}' integration`);
+					}
+					integration = new (
+						await import(/* webpackChunkName: "integrations" */ './providers/github')
+					).GitHubEnterpriseIntegration(
+						this.container,
+						this.authenticationService,
+						this.getProvidersApi.bind(this),
+						domain,
+						id,
+					);
+					break;
 				case SelfHostedIntegrationId.GitHubEnterprise:
 					if (domain == null) throw new Error(`Domain is required for '${id}' integration`);
 					integration = new (
@@ -881,6 +906,16 @@ export class IntegrationService implements Disposable {
 		domain?: string,
 	): Integration | undefined {
 		return this._integrations.get(this.getCacheKey(id, domain));
+	}
+
+	private findCachedById(id: SupportedSelfHostedIntegrationIds): Integration | undefined {
+		const key = this.getCacheKey(id, '');
+		for (const [k, integration] of this._integrations) {
+			if (k.startsWith(key)) {
+				return integration;
+			}
+		}
+		return undefined;
 	}
 
 	private getCacheKey(
