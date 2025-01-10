@@ -1,8 +1,12 @@
 import { css, html, LitElement, nothing } from 'lit';
 import { customElement, property } from 'lit/decorators.js';
+import { when } from 'lit/directives/when.js';
 import type { GitPausedOperationStatus } from '../../../../../git/models/pausedOperationStatus';
 import { pausedOperationStatusStringsByType } from '../../../../../git/utils/pausedOperationStatus.utils';
+import { createCommandLink } from '../../../../../system/commands';
 import { getReferenceLabel } from '../../../shared/git-utils';
+import '../../../shared/components/actions/action-item';
+import '../../../shared/components/actions/action-nav';
 import '../../../shared/components/overlays/tooltip';
 
 @customElement('gl-merge-rebase-status')
@@ -53,6 +57,30 @@ export class GlMergeConflictWarning extends LitElement {
 	@property({ type: Object })
 	pausedOpStatus?: GitPausedOperationStatus;
 
+	private get onSkipUrl() {
+		return createCommandLink('gitlens.home.skipPausedOperation', {
+			operation: this.pausedOpStatus,
+		});
+	}
+
+	private get onContinueUrl() {
+		return createCommandLink('gitlens.home.continuePausedOperation', {
+			operation: this.pausedOpStatus,
+		});
+	}
+
+	private get onAbortUrl() {
+		return createCommandLink('gitlens.home.abortPausedOperation', {
+			operation: this.pausedOpStatus,
+		});
+	}
+
+	private get onOpenEditorUrl() {
+		return createCommandLink('gitlens.home.openRebaseEditor', {
+			operation: this.pausedOpStatus,
+		});
+	}
+
 	override render() {
 		if (this.pausedOpStatus == null) return nothing;
 
@@ -68,14 +96,15 @@ export class GlMergeConflictWarning extends LitElement {
 		if (pausedOpStatus.type !== 'rebase') {
 			const strings = pausedOperationStatusStringsByType[pausedOpStatus.type];
 			return html`<span class="label"
-				>${this.conflicts ? strings.conflicts : strings.label}
-				<code-icon
-					icon="${pausedOpStatus.incoming.refType === 'branch' ? 'git-branch' : 'git-commit'}"
-					class="icon"
-				></code-icon>
-				${getReferenceLabel(pausedOpStatus.incoming, { expand: false, icon: false })} ${strings.directionality}
-				${getReferenceLabel(pausedOpStatus.current, { expand: false, icon: false })}</span
-			>`;
+					>${this.conflicts ? strings.conflicts : strings.label}
+					<code-icon
+						icon="${pausedOpStatus.incoming.refType === 'branch' ? 'git-branch' : 'git-commit'}"
+						class="icon"
+					></code-icon>
+					${getReferenceLabel(pausedOpStatus.incoming, { expand: false, icon: false })}
+					${strings.directionality}
+					${getReferenceLabel(pausedOpStatus.current, { expand: false, icon: false })}</span
+				>${this.renderActions()}`;
 		}
 
 		const started = pausedOpStatus.steps.total > 0;
@@ -95,6 +124,35 @@ export class GlMergeConflictWarning extends LitElement {
 				? html`<span class="steps"
 						>(${pausedOpStatus.steps.current.number}/${pausedOpStatus.steps.total})</span
 				  >`
-				: nothing}`;
+				: nothing}${this.renderActions()}`;
+	}
+
+	private renderActions() {
+		if (this.pausedOpStatus == null) return nothing;
+
+		const status = this.pausedOpStatus.type;
+
+		return html`<action-nav>
+			${when(
+				status !== 'revert',
+				() => html`
+					<action-item label="Continue" icon="debug-continue" href=${this.onContinueUrl}></action-item>
+				`,
+			)}
+			${when(
+				status !== 'merge',
+				() => html`<action-item label="Skip" icon="debug-step-over" href=${this.onSkipUrl}></action-item>`,
+			)}
+			<action-item label="Abort" href=${this.onAbortUrl} icon="circle-slash"></action-item>
+			${when(
+				status === 'rebase',
+				() =>
+					html`<action-item
+						label="Open in Rebase Editor"
+						href=${this.onOpenEditorUrl}
+						icon="edit"
+					></action-item>`,
+			)}
+		</action-nav>`;
 	}
 }
