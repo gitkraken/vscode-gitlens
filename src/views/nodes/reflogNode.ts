@@ -30,10 +30,6 @@ export class ReflogNode
 		this.limit = this.view.getNodeLastKnownLimit(this);
 	}
 
-	override get id(): string {
-		return this._uniqueId;
-	}
-
 	async getChildren(): Promise<ViewNode[]> {
 		if (this.children === undefined) {
 			const children = [];

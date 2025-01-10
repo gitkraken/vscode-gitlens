@@ -29,10 +29,6 @@ export class StashNode extends ViewRefNode<'stash', ViewsWithStashes, GitStashRe
 		this._uniqueId = getViewNodeId(this.type, this.context);
 	}
 
-	override get id(): string {
-		return this._uniqueId;
-	}
-
 	override toClipboard(): string {
 		return this.commit.stashName;
 	}

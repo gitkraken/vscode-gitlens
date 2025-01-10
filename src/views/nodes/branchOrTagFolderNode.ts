@@ -22,10 +22,6 @@ export class BranchOrTagFolderNode extends ViewNode<'branch-tag-folder'> {
 		this._uniqueId = getViewNodeId(`${this.type}+${folderType}+${relativePath ?? folderName}`, this.context);
 	}
 
-	override get id(): string {
-		return this._uniqueId;
-	}
-
 	override toClipboard(): string {
 		return this.folderName;
 	}

@@ -22,10 +22,6 @@ export class DraftNode extends ViewNode<'draft', ViewsWithCommits | DraftsView> 
 		this._uniqueId = getViewNodeId(this.type, this.context);
 	}
 
-	override get id(): string {
-		return this._uniqueId;
-	}
-
 	override toClipboard(): string {
 		return this.getUrl();
 	}

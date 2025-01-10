@@ -158,7 +158,29 @@ export interface AmbientContext {
 	readonly worktreesByBranch?: Map<string, GitWorktree>;
 }
 
-export function getViewNodeId(type: string, context: AmbientContext): string {
+export function getViewNodeId(
+	type: TreeViewNodeTypes | `${TreeViewNodeTypes}+${string}`,
+	context: AmbientContext,
+): string {
+	switch (type) {
+		case 'branch':
+			return `${type}(${context.branch?.id})`;
+
+		case 'commit':
+			return `${type}(${context.commit?.repoPath}|${context.commit?.sha})`;
+
+		case 'pullrequest':
+			return `${type}(${context.pullRequest?.url})`;
+
+		case 'commit-file':
+			return `${type}:(${
+				context.repository?.path ?? context.branch?.repoPath ?? context.commit?.repoPath
+			}|${context.file?.path}+${context.file?.status})`;
+
+		// case 'results-file':
+		// 	return `${type}(${context.file?.path}+${context.file?.status})`;
+	}
+
 	let uniqueness = '';
 	if (context.root) {
 		uniqueness += '/root';
@@ -256,8 +278,22 @@ export abstract class ViewNode<
 		return types.includes(this.type as unknown as T[number]);
 	}
 
+	public childrenIds = new Set<string>();
+	public childrenCount = 0;
 	protected _uniqueId!: string;
-	protected splatted = false;
+
+	private _splatted: boolean;
+	//** Indicates if this node is only shown as its children, not itself */
+	get splatted(): boolean {
+		return this._splatted;
+	}
+	set splatted(value: boolean) {
+		if (this._splatted === value) return;
+
+		this._splatted = value;
+		// this.setId();
+	}
+
 	// NOTE: @eamodio uncomment to track node leaks
 	// readonly uuid = uuid();
 
@@ -266,8 +302,15 @@ export abstract class ViewNode<
 		// public readonly id: string | undefined,
 		uri: GitUri,
 		public readonly view: TView,
-		protected parent?: ViewNode,
+		protected parent?: ViewNode | undefined,
+		//** Indicates if this node is only shown as its children, not itself */
+		splatted?: boolean,
 	) {
+		this._splatted = splatted ?? false;
+		(parent ?? this).childrenCount++;
+
+		// this.setId();
+
 		// NOTE: @eamodio uncomment to track node leaks
 		// queueMicrotask(() => this.view.registerNode(this));
 		this._uri = uri;
@@ -281,9 +324,38 @@ export abstract class ViewNode<
 		// NOTE: @eamodio uncomment to track node leaks
 		// this.view.unregisterNode(this);
 	}
+	private _id!: string;
+	get id(): string {
+		if (this._id == null) {
+			// if (!this.splatted) {
+			this._id = this._uniqueId ?? `${(this.parent ?? this).childrenCount}:${this.type}`;
+			// }
+		}
+		return this._id;
+	}
 
-	get id(): string | undefined {
-		return this._uniqueId;
+	get parentId(): string {
+		return this.parent?.treeId ?? '~';
+	}
+
+	get treeId(): string {
+		return this.splatted ? this.parentId : `${this.parentId}/${this.id}`;
+	}
+
+	private setId() {
+		// if (this.splatted) {
+		// 	this._id = undefined!; //this.parent?.id ?? '~';
+		// } else {
+		// 	const { parent } = this;
+		// 	const { childrenIds } = parent ?? this;
+		// 	this._id = this._uniqueId ?? `${childrenIds.size ?? 0}:${this.type}`;
+		// 	if (childrenIds.has(this._id)) {
+		// 		debugger;
+		// 		// this._id = `${this._id}-${this._uniqueCounter++}`;
+		// 	}
+		// 	childrenIds.add(this._id);
+		// }
+		// console.log('#######', this.type, this.splatted, this._id);
 	}
 
 	private _context: AmbientContext | undefined;
@@ -343,20 +415,24 @@ export abstract class ViewNode<
 
 	getSplattedChild?(): Promise<ViewNode | undefined>;
 
+	protected get storedId(): string | undefined {
+		return this.id;
+	}
+
 	deleteState<T extends StateKey<State> = StateKey<State>>(key?: T): void {
-		if (this.id == null) {
+		if (this.storedId == null) {
 			debugger;
 			throw new Error('Id is required to delete state');
 		}
-		this.view.nodeState.deleteState(this.id, key as string);
+		this.view.nodeState.deleteState(this.storedId, key as string);
 	}
 
 	getState<T extends StateKey<State> = StateKey<State>>(key: T): StateValue<State, T> | undefined {
-		if (this.id == null) {
+		if (this.storedId == null) {
 			debugger;
 			throw new Error('Id is required to get state');
 		}
-		return this.view.nodeState.getState(this.id, key as string);
+		return this.view.nodeState.getState(this.storedId, key as string);
 	}
 
 	storeState<T extends StateKey<State> = StateKey<State>>(
@@ -364,11 +440,11 @@ export abstract class ViewNode<
 		value: StateValue<State, T>,
 		sticky?: boolean,
 	): void {
-		if (this.id == null) {
+		if (this.storedId == null) {
 			debugger;
 			throw new Error('Id is required to store state');
 		}
-		this.view.nodeState.storeState(this.id, key as string, value, sticky);
+		this.view.nodeState.storeState(this.storedId, key as string, value, sticky);
 	}
 }
 

@@ -27,10 +27,6 @@ export class ReflogRecordNode extends ViewNode<'reflog-record', ViewsWithCommits
 		this.limit = this.view.getNodeLastKnownLimit(this);
 	}
 
-	override get id(): string {
-		return this._uniqueId;
-	}
-
 	async getChildren(): Promise<ViewNode[]> {
 		const log = await this.getLog();
 		if (log === undefined) return [new MessageNode(this.view, this, 'No commits could be found.')];

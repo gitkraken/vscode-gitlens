@@ -35,10 +35,6 @@ export class FolderNode extends ViewNode<'folder', ViewsWithCommits | StashesVie
 		this._uniqueId = getViewNodeId(`${this.type}+${relativePath ?? folderName}`, this.context);
 	}
 
-	override get id(): string {
-		return this._uniqueId;
-	}
-
 	override toClipboard(): string {
 		return this.folderName;
 	}

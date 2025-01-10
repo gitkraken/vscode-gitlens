@@ -66,6 +66,7 @@ export class StatusFileNode extends ViewFileNode<'status-file', ViewsWithCommits
 
 		super('status-file', GitUri.fromFile(file, repoPath, ref), view, parent, file);
 
+		this._uniqueId = `${this.type}(${this.repoPath}|${this.file.path}+${this.file.status})`;
 		this._files = files;
 		this._type = type;
 		this._hasStagedChanges = hasStagedChanges;

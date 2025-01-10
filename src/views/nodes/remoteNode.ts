@@ -27,10 +27,6 @@ export class RemoteNode extends ViewNode<'remote', ViewsWithRemotes> {
 		this._uniqueId = getViewNodeId(this.type, this.context);
 	}
 
-	override get id(): string {
-		return this._uniqueId;
-	}
-
 	override toClipboard(): string {
 		return this.remote.name;
 	}
