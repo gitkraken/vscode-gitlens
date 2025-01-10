@@ -136,27 +136,11 @@ export interface GitProviderRepository {
 	pruneRemote?(repoPath: string, name: string): Promise<void>;
 	removeRemote?(repoPath: string, name: string): Promise<void>;
 
-	applyUnreachableCommitForPatch?(
-		repoPath: string,
-		ref: string,
-		options?: {
-			branchName?: string;
-			createBranchIfNeeded?: boolean;
-			createWorktreePath?: string;
-			stash?: boolean | 'prompt';
-		},
-	): Promise<void>;
 	checkout?(
 		repoPath: string,
 		ref: string,
 		options?: { createBranch?: string | undefined } | { path?: string | undefined },
 	): Promise<void>;
-	createUnreachableCommitForPatch?(
-		repoPath: string,
-		contents: string,
-		baseRef: string,
-		message: string,
-	): Promise<GitCommit | undefined>;
 	excludeIgnoredUris(repoPath: string, uris: Uri[]): Promise<Uri[]>;
 
 	fetch?(
@@ -335,9 +319,6 @@ export interface GitProviderRepository {
 		skip?: number,
 	): Promise<NextComparisonUrisResult | undefined>;
 	getOldestUnpushedRefForFile(repoPath: string, uri: Uri): Promise<string | undefined>;
-	getPausedOperationStatus?(repoPath: string): Promise<GitPausedOperationStatus | undefined>;
-	abortPausedOperation?(repoPath: string, options?: { quit?: boolean }): Promise<void>;
-	continuePausedOperation?(repoPath: string, options?: { skip?: boolean }): Promise<void>;
 	getPreviousComparisonUris(
 		repoPath: string,
 		uri: Uri,
@@ -371,15 +352,6 @@ export interface GitProviderRepository {
 		options?: { filter?: (remote: GitRemote) => boolean; sort?: boolean },
 	): Promise<GitRemote[]>;
 	getRevisionContent(repoPath: string, path: string, ref: string): Promise<Uint8Array | undefined>;
-	getStash?(repoPath: string | undefined): Promise<GitStash | undefined>;
-	getStashCommitFiles?(
-		repoPath: string,
-		ref: string,
-		options?: { include?: { stats?: boolean } },
-	): Promise<GitFileChange[]>;
-	getStatus(repoPath: string | undefined): Promise<GitStatus | undefined>;
-	getStatusForFile(repoPath: string, uri: Uri): Promise<GitStatusFile | undefined>;
-	getStatusForFiles(repoPath: string, pathOrGlob: Uri): Promise<GitStatusFile[] | undefined>;
 	getTags(
 		repoPath: string | undefined,
 		options?: {
@@ -448,35 +420,110 @@ export interface GitProviderRepository {
 	): Promise<void>;
 
 	validateBranchOrTagName(repoPath: string, ref: string): Promise<boolean>;
-	validatePatch?(repoPath: string | undefined, contents: string): Promise<boolean>;
 	validateReference(repoPath: string, ref: string): Promise<boolean>;
 
-	stageFile?(repoPath: string, pathOrUri: string | Uri, options?: { intentToAdd?: boolean }): Promise<void>;
-	stageFiles?(repoPath: string, pathOrUri: string[] | Uri[], options?: { intentToAdd?: boolean }): Promise<void>;
-	stageDirectory?(repoPath: string, directoryOrUri: string | Uri, options?: { intentToAdd?: boolean }): Promise<void>;
-	unstageFile?(repoPath: string, pathOrUri: string | Uri): Promise<void>;
-	unstageFiles?(repoPath: string, pathOrUri: string[] | Uri[]): Promise<void>;
-	unstageDirectory?(repoPath: string, directoryOrUri: string | Uri): Promise<void>;
+	patch?: GitProviderPatch;
+	staging?: GitProviderStaging;
+	stash?: GitProviderStash;
+	status: GitProviderStatus;
+	worktrees?: GitProviderWorktrees;
+}
 
-	applyStash?(repoPath: string, stashName: string, options?: { deleteAfter?: boolean | undefined }): Promise<void>;
-	deleteStash?(repoPath: string, stashName: string, ref?: string): Promise<void>;
-	renameStash?(repoPath: string, stashName: string, ref: string, message: string, stashOnRef?: string): Promise<void>;
-	saveStash?(
+export interface GitProviderPatch {
+	applyUnreachableCommitForPatch(
+		repoPath: string,
+		ref: string,
+		options?: {
+			branchName?: string;
+			createBranchIfNeeded?: boolean;
+			createWorktreePath?: string;
+			stash?: boolean | 'prompt';
+		},
+	): Promise<void>;
+	createUnreachableCommitForPatch(
+		repoPath: string,
+		contents: string,
+		baseRef: string,
+		message: string,
+	): Promise<GitCommit | undefined>;
+	validatePatch(repoPath: string | undefined, contents: string): Promise<boolean>;
+}
+
+export interface GitProviderStaging {
+	stageFile(repoPath: string, pathOrUri: string | Uri, options?: { intentToAdd?: boolean }): Promise<void>;
+	stageFiles(repoPath: string, pathOrUri: string[] | Uri[], options?: { intentToAdd?: boolean }): Promise<void>;
+	stageDirectory(repoPath: string, directoryOrUri: string | Uri, options?: { intentToAdd?: boolean }): Promise<void>;
+	unstageFile(repoPath: string, pathOrUri: string | Uri): Promise<void>;
+	unstageFiles(repoPath: string, pathOrUri: string[] | Uri[]): Promise<void>;
+	unstageDirectory(repoPath: string, directoryOrUri: string | Uri): Promise<void>;
+}
+
+export interface GitProviderStash {
+	applyStash(repoPath: string, stashName: string, options?: { deleteAfter?: boolean | undefined }): Promise<void>;
+	getStash(repoPath: string | undefined): Promise<GitStash | undefined>;
+	getStashCommitFiles(
+		repoPath: string,
+		ref: string,
+		options?: { include?: { stats?: boolean } },
+	): Promise<GitFileChange[]>;
+	deleteStash(repoPath: string, stashName: string, ref?: string): Promise<void>;
+	renameStash(repoPath: string, stashName: string, ref: string, message: string, stashOnRef?: string): Promise<void>;
+	saveStash(
 		repoPath: string,
 		message?: string,
 		uris?: Uri[],
 		options?: { includeUntracked?: boolean; keepIndex?: boolean; onlyStaged?: boolean },
 	): Promise<void>;
-	saveStashSnapshot?(repoPath: string, message?: string): Promise<void>;
+	saveSnapshot(repoPath: string, message?: string): Promise<void>;
+}
 
-	createWorktree?(
+export interface GitProviderStatus {
+	getStatus(repoPath: string | undefined): Promise<GitStatus | undefined>;
+	getStatusForFile?(repoPath: string, uri: Uri): Promise<GitStatusFile | undefined>;
+	getStatusForFiles?(repoPath: string, pathOrGlob: Uri): Promise<GitStatusFile[] | undefined>;
+
+	getPausedOperationStatus?(repoPath: string): Promise<GitPausedOperationStatus | undefined>;
+	abortPausedOperation?(repoPath: string, options?: { quit?: boolean }): Promise<void>;
+	continuePausedOperation?(repoPath: string, options?: { skip?: boolean }): Promise<void>;
+}
+
+export interface GitProviderWorktrees {
+	createWorktree(
 		repoPath: string,
 		path: string,
 		options?: { commitish?: string; createBranch?: string; detach?: boolean; force?: boolean },
 	): Promise<void>;
-	getWorktrees?(repoPath: string): Promise<GitWorktree[]>;
-	getWorktreesDefaultUri?(repoPath: string): Promise<Uri | undefined>;
-	deleteWorktree?(repoPath: string, path: string | Uri, options?: { force?: boolean }): Promise<void>;
+	getWorktree(repoPath: string, predicate: (w: GitWorktree) => boolean): Promise<GitWorktree | undefined>;
+	getWorktrees(repoPath: string): Promise<GitWorktree[]>;
+	getWorktreesDefaultUri(repoPath: string): Promise<Uri | undefined>;
+	deleteWorktree(repoPath: string, path: string | Uri, options?: { force?: boolean }): Promise<void>;
+}
+
+type SupportedProvidersForRepo =
+	| GitProviderPatch
+	| GitProviderStaging
+	| GitProviderStash
+	| GitProviderStatus
+	| GitProviderWorktrees;
+
+export type GitProviderForRepo<T extends SupportedProvidersForRepo> = {
+	[K in keyof T]: RemoveFirstArg<T[K]>;
+};
+
+export function createProviderProxyForRepo<T extends SupportedProvidersForRepo, U extends GitProviderForRepo<T>>(
+	target: T,
+	rp: string,
+): U {
+	return new Proxy(target, {
+		get: (target, prop: string | symbol): unknown => {
+			const value = target[prop as keyof T];
+			if (typeof value === 'function') {
+				// eslint-disable-next-line @typescript-eslint/no-unsafe-return
+				return (...args: unknown[]) => value.call(target, rp, ...args);
+			}
+			return value;
+		},
+	}) as unknown as U;
 }
 
 export interface GitProvider extends GitProviderRepository, Disposable {

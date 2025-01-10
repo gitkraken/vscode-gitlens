@@ -1110,7 +1110,7 @@ export class GraphWebviewProvider implements WebviewProvider<State, State, Graph
 						commit = await this.container.git.getCommit(this._graph.repoPath, uncommitted);
 						break;
 					case 'stash-node': {
-						const gitStash = await this.container.git.getStash(this._graph.repoPath);
+						const gitStash = await this.container.git.stash(this._graph.repoPath)?.getStash();
 						commit = gitStash?.stashes.get(msg.params.id);
 						break;
 					}
@@ -2460,7 +2460,7 @@ export class GraphWebviewProvider implements WebviewProvider<State, State, Graph
 	private async getWorkingTreeStats(): Promise<GraphWorkingTreeStats | undefined> {
 		if (this.repository == null || this.container.git.repositoryCount === 0) return undefined;
 
-		const status = await this.container.git.getStatus(this.repository.path);
+		const status = await this.container.git.status(this.repository.path).getStatus();
 		const workingTreeStatus = status?.getDiffStatus();
 		return {
 			added: workingTreeStatus?.added ?? 0,

@@ -1473,7 +1473,7 @@ export class CommitDetailsWebviewProvider
 			commit = commitish;
 		} else if (commitish != null) {
 			if (commitish.refType === 'stash') {
-				const gitStash = await this.container.git.getStash(commitish.repoPath);
+				const gitStash = await this.container.git.stash(commitish.repoPath)?.getStash();
 				commit = gitStash?.stashes.get(commitish.ref);
 			} else {
 				commit = await this.container.git.getCommit(commitish.repoPath, commitish.ref);
@@ -1556,7 +1556,7 @@ export class CommitDetailsWebviewProvider
 	}
 
 	private async getWipChange(repository: Repository): Promise<WipChange | undefined> {
-		const status = await this.container.git.getStatus(repository.path);
+		const status = await this.container.git.status(repository.path).getStatus();
 		if (status == null) return undefined;
 
 		const files: GitFileChangeShape[] = [];
@@ -1952,7 +1952,7 @@ export class CommitDetailsWebviewProvider
 
 		const [commit, file] = result;
 
-		await this.container.git.stageFile(commit.repoPath, file.path);
+		await this.container.git.staging(commit.repoPath)?.stageFile(file.path);
 	}
 
 	private async unstageFile(params: ExecuteFileActionParams) {
@@ -1961,7 +1961,7 @@ export class CommitDetailsWebviewProvider
 
 		const [commit, file] = result;
 
-		await this.container.git.unstageFile(commit.repoPath, file.path);
+		await this.container.git.staging(commit.repoPath)?.unstageFile(file.path);
 	}
 
 	private getShowOptions(params: ExecuteFileActionParams): TextDocumentShowOptions | undefined {

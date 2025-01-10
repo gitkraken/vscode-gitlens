@@ -201,10 +201,9 @@ export class SwitchGitCommand extends QuickCommand<State> {
 			if (isBranchReference(state.reference) && !state.reference.remote) {
 				state.createBranch = undefined;
 
-				const worktree = await this.container.git.getWorktree(
-					state.reference.repoPath,
-					w => w.branch?.name === state.reference!.name,
-				);
+				const worktree = await this.container.git
+					.worktrees(state.reference.repoPath)
+					?.getWorktree(w => w.branch?.name === state.reference!.name);
 				if (worktree != null && !worktree.isDefault) {
 					if (state.fastForwardTo != null) {
 						state.repos[0].merge('--ff-only', state.fastForwardTo.ref);

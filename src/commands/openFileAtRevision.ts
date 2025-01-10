@@ -143,7 +143,7 @@ export class OpenFileAtRevisionCommand extends ActiveEditorCommand {
 									getState: async () => {
 										const items: (CommandQuickPickItem | DirectiveQuickPickItem)[] = [];
 
-										const status = await this.container.git.getStatus(gitUri.repoPath);
+										const status = await this.container.git.status(gitUri.repoPath!).getStatus();
 										if (status != null) {
 											for (const f of status.files) {
 												if (f.workingTreeStatus === '?' || f.workingTreeStatus === '!') {

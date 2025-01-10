@@ -193,7 +193,7 @@ export class PullGitCommand extends QuickCommand<State> {
 			}
 		} else {
 			const [repo] = state.repos;
-			const [status, lastFetched] = await Promise.all([repo.git.getStatus(), repo.getLastFetched()]);
+			const [status, lastFetched] = await Promise.all([repo.git.status().getStatus(), repo.getLastFetched()]);
 
 			let lastFetchedOn = '';
 			if (lastFetched !== 0) {

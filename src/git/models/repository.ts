@@ -31,34 +31,7 @@ import { isBranchReference } from './reference.utils';
 import type { GitRemote } from './remote';
 import type { GitWorktree } from './worktree';
 
-type RemoveFirstArg<F> = F extends {
-	(first: any, ...args: infer A1): infer R1;
-	(first: any, ...args: infer A2): infer R2;
-	(first: any, ...args: infer A3): infer R3;
-	(first: any, ...args: infer A4): infer R4;
-}
-	? ((...args: A1) => R1) & ((...args: A2) => R2) & ((...args: A3) => R3) & ((...args: A4) => R4)
-	: F extends {
-				(first: any, ...args: infer A1): infer R1;
-				(first: any, ...args: infer A2): infer R2;
-				(first: any, ...args: infer A3): infer R3;
-	    }
-	  ? ((...args: A1) => R1) & ((...args: A2) => R2) & ((...args: A3) => R3)
-	  : F extends {
-					(first: any, ...args: infer A1): infer R1;
-					(first: any, ...args: infer A2): infer R2;
-	      }
-	    ? ((...args: A1) => R1) & ((...args: A2) => R2)
-	    : F extends {
-						(first: any, ...args: infer A1): infer R1;
-	        }
-	      ? (...args: A1) => R1
-	      : never;
-
-export type RepoGitProviderService = Pick<
-	{
-		[K in keyof GitProviderService]: RemoveFirstArg<GitProviderService[K]>;
-	},
+type GitProviderRepoKeys =
 	| keyof GitProviderRepository
 	| 'getBestRemoteWithProvider'
 	| 'getBestRemotesWithProviders'
@@ -66,9 +39,16 @@ export type RepoGitProviderService = Pick<
 	| 'getBranch'
 	| 'getDefaultRemote'
 	| 'getRemote'
+	| 'getRemotesWithProviders'
+	| 'getRemotesWithIntegrations'
 	| 'getTag'
-	| 'getWorktree'
-	| 'supports'
+	| 'supports';
+
+export type GitProviderServiceForRepo = Pick<
+	{
+		[K in keyof GitProviderService]: RemoveFirstArg<GitProviderService[K]>;
+	},
+	GitProviderRepoKeys
 >;
 
 const millisecondsPerMinute = 60 * 1000;
@@ -419,18 +399,24 @@ export class Repository implements Disposable {
 	}
 
 	@memoize()
-	get git(): RepoGitProviderService {
+	get git(): GitProviderServiceForRepo {
 		const uri = this.uri;
 		return new Proxy(this.container.git, {
-			get: (target, prop: keyof GitProviderService): any => {
+			get: (target, prop: GitProviderRepoKeys): unknown => {
 				const value = target[prop];
 				if (typeof value === 'function') {
-					// eslint-disable-next-line @typescript-eslint/no-unsafe-return, @typescript-eslint/no-unsafe-function-type
-					return (...args: any[]) => (value as Function).call(target, uri, ...args);
+					return (...args: unknown[]) =>
+						// The extra `satisfies` here is to catch type errors, but we still need the `as` to satisfy TypeScript
+						(
+							value satisfies (repoPath: string | Uri, ...args: any[]) => unknown as (
+								repoPath: string | Uri,
+								...args: any[]
+							) => unknown
+						).call(target, uri, ...args);
 				}
 				return value;
 			},
-		}) as unknown as RepoGitProviderService;
+		}) as unknown as GitProviderServiceForRepo;
 	}
 
 	get path(): string {
@@ -713,9 +699,12 @@ export class Repository implements Disposable {
 		uri: Uri,
 		options?: { commitish?: string; createBranch?: string; detach?: boolean; force?: boolean },
 	): Promise<GitWorktree | undefined> {
-		await this.git.createWorktree(uri.fsPath, options);
+		const worktrees = this.git.worktrees();
+		if (worktrees == null) return undefined;
+
+		await worktrees.createWorktree(uri.fsPath, options);
 		const url = uri.toString();
-		return this.git.getWorktree(w => w.uri.toString() === url);
+		return worktrees.getWorktree(w => w.uri.toString() === url);
 	}
 
 	@log()
@@ -878,7 +867,7 @@ export class Repository implements Disposable {
 	@gate()
 	@log()
 	async stashApply(stashName: string, options?: { deleteAfter?: boolean }) {
-		await this.git.applyStash(stashName, options);
+		await this.git.stash()?.applyStash(stashName, options);
 
 		this.fireChange(RepositoryChange.Stash);
 	}
@@ -886,7 +875,7 @@ export class Repository implements Disposable {
 	@gate()
 	@log()
 	async stashDelete(stashName: string, ref?: string) {
-		await this.git.deleteStash(stashName, ref);
+		await this.git.stash()?.deleteStash(stashName, ref);
 
 		this.fireChange(RepositoryChange.Stash);
 	}
@@ -894,7 +883,7 @@ export class Repository implements Disposable {
 	@gate()
 	@log()
 	async stashRename(stashName: string, ref: string, message: string, stashOnRef?: string) {
-		await this.git.renameStash(stashName, ref, message, stashOnRef);
+		await this.git.stash()?.renameStash(stashName, ref, message, stashOnRef);
 
 		this.fireChange(RepositoryChange.Stash);
 	}
@@ -906,7 +895,7 @@ export class Repository implements Disposable {
 		uris?: Uri[],
 		options?: { includeUntracked?: boolean; keepIndex?: boolean; onlyStaged?: boolean },
 	): Promise<void> {
-		await this.git.saveStash(message, uris, options);
+		await this.git.stash()?.saveStash(message, uris, options);
 
 		this.fireChange(RepositoryChange.Stash);
 	}
@@ -914,7 +903,7 @@ export class Repository implements Disposable {
 	@gate()
 	@log()
 	async stashSaveSnapshot(message?: string): Promise<void> {
-		await this.git.saveStashSnapshot(message);
+		await this.git.stash()?.saveSnapshot(message);
 
 		this.fireChange(RepositoryChange.Stash);
 	}

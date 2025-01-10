@@ -59,7 +59,7 @@ export class FileRevisionAsCommitNode extends ViewRefFileNode<
 	async getChildren(): Promise<ViewNode[]> {
 		if (!this.commit.file?.hasConflicts) return [];
 
-		const pausedOpStatus = await this.view.container.git.getPausedOperationStatus(this.commit.repoPath);
+		const pausedOpStatus = await this.view.container.git.status(this.commit.repoPath).getPausedOperationStatus?.();
 		if (pausedOpStatus == null) return [];
 
 		return [

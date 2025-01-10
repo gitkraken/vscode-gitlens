@@ -466,7 +466,7 @@ export class HomeWebviewProvider implements WebviewProvider<State, State, HomeWe
 	}
 
 	private async createCloudPatch(refs: BranchRef) {
-		const status = await this.container.git.getStatus(refs.repoPath);
+		const status = await this.container.git.status(refs.repoPath).getStatus();
 		if (status == null) return;
 
 		const files: GitFileChangeShape[] = [];
@@ -791,7 +791,7 @@ export class HomeWebviewProvider implements WebviewProvider<State, State, HomeWe
 	private readonly _repositoryBranches: Map<string, RepositoryBranchData> = new Map();
 	private async getBranchesData(repo: Repository, force = false) {
 		if (force || !this._repositoryBranches.has(repo.path)) {
-			const worktrees = (await repo.git.getWorktrees()) ?? [];
+			const worktrees = (await repo.git.worktrees()?.getWorktrees()) ?? [];
 			const worktreesByBranch = groupWorktreesByBranch(worktrees, { includeDefault: true });
 			const [branchesResult] = await Promise.allSettled([
 				repo.git.getBranches({
@@ -1155,7 +1155,7 @@ function getOverviewBranches(
 				statusPromises.set(branch.id, wt.getStatus(forceOptions));
 			} else {
 				if (repoStatusPromise === undefined) {
-					repoStatusPromise = container.git.getStatus(branch.repoPath);
+					repoStatusPromise = container.git.status(branch.repoPath).getStatus();
 				}
 				statusPromises.set(branch.id, repoStatusPromise);
 			}
@@ -1491,7 +1491,7 @@ async function getWipInfo(
 
 	const [statusResult, pausedOpStatusResult] = await Promise.allSettled([
 		statusPromise,
-		active ? container.git.getPausedOperationStatus(branch.repoPath) : undefined,
+		active ? container.git.status(branch.repoPath).getPausedOperationStatus?.() : undefined,
 	]);
 
 	const status = getSettledValue(statusResult);

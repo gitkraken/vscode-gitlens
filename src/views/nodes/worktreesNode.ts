@@ -41,8 +41,8 @@ export class WorktreesNode extends CacheableChildrenViewNode<'worktrees', ViewsW
 			const access = await this.repo.access(PlusFeatures.Worktrees);
 			if (!access.allowed) return [];
 
-			const worktrees = await this.repo.git.getWorktrees();
-			if (worktrees.length === 0) return [new MessageNode(this.view, this, 'No worktrees could be found.')];
+			const worktrees = await this.repo.git.worktrees()?.getWorktrees();
+			if (!worktrees?.length) return [new MessageNode(this.view, this, 'No worktrees could be found.')];
 
 			this.children = filterMap(
 				await Promise.allSettled(

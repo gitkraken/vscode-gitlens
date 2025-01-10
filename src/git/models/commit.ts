@@ -212,7 +212,7 @@ export class GitCommit implements GitRevisionReference {
 			this._etagFileSystem = repository?.etagFileSystem;
 
 			if (this._etagFileSystem != null) {
-				const status = await this.container.git.getStatus(this.repoPath);
+				const status = await this.container.git.status(this.repoPath).getStatus();
 				if (status != null) {
 					this._files = status.files.flatMap(f => f.getPseudoFileChanges());
 				}
@@ -230,7 +230,7 @@ export class GitCommit implements GitRevisionReference {
 
 		if (this.refType === 'stash') {
 			const [stashFilesResult] = await Promise.allSettled([
-				this.container.git.getStashCommitFiles(this.repoPath, this.sha, options),
+				this.container.git.stash(this.repoPath)?.getStashCommitFiles(this.sha, options),
 				this.getPreviousSha(),
 			]);
 

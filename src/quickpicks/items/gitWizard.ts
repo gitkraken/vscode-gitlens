@@ -378,7 +378,7 @@ export async function createRepositoryQuickPickItem(
 ) {
 	let repoStatus;
 	if (options?.branch || options?.status) {
-		repoStatus = await repository.git.getStatus();
+		repoStatus = await repository.git.status().getStatus();
 	}
 
 	let description = '';

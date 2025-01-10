@@ -484,7 +484,7 @@ export class PatchDetailsWebviewProvider
 					};
 				}
 
-				await this.container.git.applyUnreachableCommitForPatch(commit.repoPath, commit.ref, {
+				await this.container.git.patch(commit.repoPath)?.applyUnreachableCommitForPatch(commit.ref, {
 					stash: 'prompt',
 					...options,
 				});
@@ -1441,12 +1441,9 @@ export class PatchDetailsWebviewProvider
 
 			do {
 				try {
-					const commit = await this.container.git.createUnreachableCommitForPatch(
-						repo.uri,
-						patch.contents!,
-						baseRef,
-						draft.title,
-					);
+					const commit = await repo.git
+						.patch()
+						?.createUnreachableCommitForPatch(patch.contents!, baseRef, draft.title);
 					patch.commit = commit;
 				} catch (ex) {
 					if (baseRef != null) {

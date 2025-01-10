@@ -28,7 +28,7 @@ export class OpenChangedFilesCommand extends GlCommandBase {
 				const repository = await getRepositoryOrShowPicker('Open All Changed Files');
 				if (repository == null) return;
 
-				const status = await this.container.git.getStatus(repository.uri);
+				const status = await this.container.git.status(repository.uri).getStatus();
 				if (status == null) {
 					void window.showWarningMessage('Unable to open changed files');
 
