@@ -128,7 +128,7 @@ export class GitBranch implements GitBranchReference {
 
 	@memoize()
 	async getEnrichedAutolinks(): Promise<Map<string, EnrichedAutolink> | undefined> {
-		const remote = await this.container.git.getBestRemoteWithProvider(this.repoPath);
+		const remote = await this.container.git.remotes(this.repoPath).getBestRemoteWithProvider();
 		const branchAutolinks = await this.container.autolinks.getBranchAutolinks(this.name, remote);
 		return this.container.autolinks.getEnrichedAutolinks(branchAutolinks, remote);
 	}
@@ -155,8 +155,7 @@ export class GitBranch implements GitBranchReference {
 		const remoteName = this.getRemoteName();
 		if (remoteName == null) return undefined;
 
-		const remotes = await this.container.git.getRemotes(this.repoPath);
-		return remotes.length ? remotes.find(r => r.name === remoteName) : undefined;
+		return this.container.git.remotes(this.repoPath).getRemote(remoteName);
 	}
 
 	@memoize()

@@ -51,11 +51,11 @@ export class CreatePullRequestOnRemoteCommand extends GlCommandBase {
 			};
 		}
 
-		const compareRemote = await repo.git.getRemote(args.remote);
+		const compareRemote = await repo.git.remotes().getRemote(args.remote);
 		if (compareRemote?.provider == null) return;
 
 		const providerId = compareRemote.provider.id;
-		const remotes = (await repo.git.getRemotes({
+		const remotes = (await repo.git.remotes().getRemotes({
 			filter: r => r.provider?.id === providerId,
 			sort: true,
 		})) as GitRemote<RemoteProvider>[];

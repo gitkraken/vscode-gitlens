@@ -26,7 +26,6 @@ import {
 	PullError,
 	PushError,
 	PushErrorReason,
-	TagError,
 } from '../../../git/errors';
 import type {
 	GitDir,
@@ -34,8 +33,6 @@ import type {
 	GitProviderDescriptor,
 	LeftRightCommitCountResult,
 	NextComparisonUrisResult,
-	PagedResult,
-	PagingOptions,
 	PreviousComparisonUrisResult,
 	PreviousLineComparisonUrisResult,
 	RepositoryCloseEvent,
@@ -86,7 +83,7 @@ import type { GitBranchReference, GitReference } from '../../../git/models/refer
 import { createReference, isBranchReference } from '../../../git/models/reference.utils';
 import type { GitReflog } from '../../../git/models/reflog';
 import type { GitRemote } from '../../../git/models/remote';
-import { getVisibilityCacheKey, sortRemotes } from '../../../git/models/remote';
+import { getVisibilityCacheKey } from '../../../git/models/remote';
 import { RemoteResourceType } from '../../../git/models/remoteResource';
 import type { RepositoryChangeEvent } from '../../../git/models/repository';
 import { Repository, RepositoryChange, RepositoryChangeComparisonMode } from '../../../git/models/repository';
@@ -133,15 +130,10 @@ import {
 } from '../../../git/parsers/logParser';
 import { parseMergeTreeConflict } from '../../../git/parsers/mergeTreeParser';
 import { parseGitRefLog, parseGitRefLogDefaultFormat } from '../../../git/parsers/reflogParser';
-import { parseGitRemotes } from '../../../git/parsers/remoteParser';
-import { parseGitTags, parseGitTagsDefaultFormat } from '../../../git/parsers/tagParser';
 import { parseGitLsFiles, parseGitTree } from '../../../git/parsers/treeParser';
-import { getRemoteProviderMatcher, loadRemoteProviders } from '../../../git/remotes/remoteProviders';
 import type { GitSearch, GitSearchResultData, GitSearchResults } from '../../../git/search';
 import { getGitArgsFromSearchQuery, getSearchQueryComparisonKey } from '../../../git/search';
 import { getRemoteIconUri } from '../../../git/utils/vscode/icons';
-import type { TagSortOptions } from '../../../git/utils/vscode/sorting';
-import { sortTags } from '../../../git/utils/vscode/sorting';
 import {
 	showBlameInvalidIgnoreRevsFileWarningMessage,
 	showGenericErrorMessage,
@@ -192,15 +184,16 @@ import type { GitLocation } from './locator';
 import { findGitPath, InvalidGitConfigError, UnableToFindGitError } from './locator';
 import { BranchesGitProvider } from './operations/branches';
 import { PatchGitProvider } from './operations/patch';
+import { RemotesGitProvider } from './operations/remotes';
 import { StagingGitProvider } from './operations/staging';
 import { StashGitProvider } from './operations/stash';
 import { StatusGitProvider } from './operations/status';
+import { TagsGitProvider } from './operations/tags';
 import { WorktreesGitProvider } from './operations/worktrees';
 import { CancelledRunError, fsExists } from './shell';
 
 const emptyArray = Object.freeze([]) as unknown as any[];
 const emptyPromise: Promise<GitBlame | GitDiffFile | GitLog | undefined> = Promise.resolve(undefined);
-const emptyPagedResult: PagedResult<any> = Object.freeze({ values: [] });
 const slash = 47;
 
 const RepoSearchWarnings = {
@@ -281,6 +274,7 @@ export class LocalGitProvider implements GitProvider, Disposable {
 
 		if (e.changed(RepositoryChange.Remotes, RepositoryChange.RemoteProviders, RepositoryChangeComparisonMode.Any)) {
 			this._cache.remotes?.delete(repo.path);
+			this._cache.bestRemotes?.delete(repo.path);
 		}
 
 		if (e.changed(RepositoryChange.Index, RepositoryChange.Unknown, RepositoryChangeComparisonMode.Any)) {
@@ -582,7 +576,7 @@ export class LocalGitProvider implements GitProvider, Disposable {
 
 	@debug<LocalGitProvider['visibility']>({ exit: r => `returned ${r[0]}` })
 	async visibility(repoPath: string): Promise<[visibility: RepositoryVisibility, cacheKey: string | undefined]> {
-		const remotes = await this.getRemotes(repoPath, { sort: true });
+		const remotes = await this.remotes.getRemotes(repoPath, { sort: true });
 		if (remotes.length === 0) return ['local', undefined];
 
 		let local = true;
@@ -1087,32 +1081,6 @@ export class LocalGitProvider implements GitProvider, Disposable {
 
 			Logger.error(ex, scope);
 			void showGenericErrorMessage('Unable to apply changes');
-		}
-	}
-
-	@log()
-	async createTag(repoPath: string, name: string, ref: string, message?: string): Promise<void> {
-		try {
-			await this.git.tag(repoPath, name, ref, ...(message != null && message.length > 0 ? ['-m', message] : []));
-		} catch (ex) {
-			if (ex instanceof TagError) {
-				throw ex.WithTag(name).WithAction('create');
-			}
-
-			throw ex;
-		}
-	}
-
-	@log()
-	async deleteTag(repoPath: string, name: string): Promise<void> {
-		try {
-			await this.git.tag(repoPath, '-d', name);
-		} catch (ex) {
-			if (ex instanceof TagError) {
-				throw ex.WithTag(name).WithAction('delete');
-			}
-
-			throw ex;
 		}
 	}
 
@@ -1947,7 +1915,7 @@ export class LocalGitProvider implements GitProvider, Disposable {
 				this.git.log(repoPath, undefined, ...refParser.arguments, '-n1', options?.ref ?? 'HEAD'),
 				this.stash?.getStash(repoPath),
 				this.branches.getBranches(repoPath),
-				this.getRemotes(repoPath),
+				this.remotes.getRemotes(repoPath),
 				this.getCurrentUser(repoPath),
 				this.worktrees
 					?.getWorktrees(repoPath)
@@ -4197,55 +4165,6 @@ export class LocalGitProvider implements GitProvider, Disposable {
 		};
 	}
 
-	@log({ args: { 1: false } })
-	async getRemotes(
-		repoPath: string | undefined,
-		options?: { filter?: (remote: GitRemote) => boolean; sort?: boolean },
-	): Promise<GitRemote[]> {
-		if (repoPath == null) return [];
-
-		const scope = getLogScope();
-
-		let remotesPromise = this._cache.remotes?.get(repoPath);
-		if (remotesPromise == null) {
-			async function load(this: LocalGitProvider): Promise<GitRemote[]> {
-				const providers = loadRemoteProviders(
-					configuration.get('remotes', this.container.git.getRepository(repoPath!)?.folder?.uri ?? null),
-				);
-
-				try {
-					const data = await this.git.remote(repoPath!);
-					const remotes = parseGitRemotes(
-						this.container,
-						data,
-						repoPath!,
-						getRemoteProviderMatcher(this.container, providers),
-					);
-					return remotes;
-				} catch (ex) {
-					this._cache.remotes?.delete(repoPath!);
-					Logger.error(ex, scope);
-					return [];
-				}
-			}
-
-			remotesPromise = load.call(this);
-
-			this._cache.remotes?.set(repoPath, remotesPromise);
-		}
-
-		let remotes = await remotesPromise;
-		if (options?.filter != null) {
-			remotes = remotes.filter(options.filter);
-		}
-
-		if (options?.sort) {
-			sortRemotes(remotes);
-		}
-
-		return remotes;
-	}
-
 	@gate()
 	@log()
 	getRevisionContent(repoPath: string, path: string, ref: string): Promise<Uint8Array | undefined> {
@@ -4254,52 +4173,6 @@ export class LocalGitProvider implements GitProvider, Disposable {
 		return this.git.show__content<Buffer>(root, relativePath, ref, { encoding: 'buffer' }) as Promise<
 			Uint8Array | undefined
 		>;
-	}
-
-	@log({ args: { 1: false } })
-	async getTags(
-		repoPath: string | undefined,
-		options?: {
-			filter?: (t: GitTag) => boolean;
-			paging?: PagingOptions;
-			sort?: boolean | TagSortOptions;
-		},
-	): Promise<PagedResult<GitTag>> {
-		if (repoPath == null) return emptyPagedResult;
-
-		let resultsPromise = this._cache.tags?.get(repoPath);
-		if (resultsPromise == null) {
-			async function load(this: LocalGitProvider): Promise<PagedResult<GitTag>> {
-				try {
-					const data = await this.git.tag(repoPath!, '-l', `--format=${parseGitTagsDefaultFormat}`);
-					return { values: parseGitTags(data, repoPath!) };
-				} catch (_ex) {
-					this._cache.tags?.delete(repoPath!);
-
-					return emptyPagedResult;
-				}
-			}
-
-			resultsPromise = load.call(this);
-
-			if (options?.paging?.cursor == null) {
-				this._cache.tags?.set(repoPath, resultsPromise);
-			}
-		}
-
-		let result = await resultsPromise;
-		if (options?.filter != null) {
-			result = {
-				...result,
-				values: result.values.filter(options.filter),
-			};
-		}
-
-		if (options?.sort) {
-			sortTags(result.values, typeof options.sort === 'boolean' ? undefined : options.sort);
-		}
-
-		return result;
 	}
 
 	@log()
@@ -4342,12 +4215,14 @@ export class LocalGitProvider implements GitProvider, Disposable {
 			filter?: { branches?: (b: GitBranch) => boolean; tags?: (t: GitTag) => boolean };
 		},
 	) {
+		if (repoPath == null) return false;
+
 		const [{ values: branches }, { values: tags }] = await Promise.all([
 			this.branches.getBranches(repoPath, {
 				filter: options?.filter?.branches,
 				sort: false,
 			}),
-			this.getTags(repoPath, {
+			this.tags.getTags(repoPath, {
 				filter: options?.filter?.tags,
 				sort: false,
 			}),
@@ -4983,6 +4858,10 @@ export class LocalGitProvider implements GitProvider, Disposable {
 		return (this._patch ??= new PatchGitProvider(this.container, this.git, this));
 	}
 
+	private _remotes: RemotesGitProvider | undefined;
+	get remotes(): RemotesGitProvider {
+		return (this._remotes ??= new RemotesGitProvider(this.container, this.git, this._cache, this));
+	}
 	private _staging: StagingGitProvider | undefined;
 	get staging(): StagingGitProvider | undefined {
 		return (this._staging ??= new StagingGitProvider(this.container, this.git));
@@ -4998,6 +4877,10 @@ export class LocalGitProvider implements GitProvider, Disposable {
 		return (this._status ??= new StatusGitProvider(this.container, this.git, this._cache, this));
 	}
 
+	private _tags: TagsGitProvider | undefined;
+	get tags(): TagsGitProvider {
+		return (this._tags ??= new TagsGitProvider(this.container, this.git, this._cache));
+	}
 	private _worktrees: WorktreesGitProvider | undefined;
 	get worktrees(): WorktreesGitProvider {
 		return (this._worktrees ??= new WorktreesGitProvider(this.container, this.git, this._cache, this));

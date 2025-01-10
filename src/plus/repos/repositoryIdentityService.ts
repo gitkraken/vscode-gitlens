@@ -34,7 +34,7 @@ export class RepositoryIdentityService implements Disposable {
 		repository: Repository,
 	): Promise<RepositoryIdentityDescriptor<T>> {
 		const [bestRemotePromise, initialCommitShaPromise] = await Promise.allSettled([
-			this.container.git.getBestRemoteWithProvider(repository.uri),
+			this.container.git.remotes(repository.uri).getBestRemoteWithProvider(),
 			this.container.git.getFirstCommitSha(repository.uri),
 		]);
 		const bestRemote = getSettledValue(bestRemotePromise);
@@ -100,7 +100,7 @@ export class RepositoryIdentityService implements Disposable {
 			// As a fallback, try to match using the repo id.
 			for (const repo of this.container.git.repositories) {
 				if (remoteDomain != null && remotePath != null) {
-					const matchingRemotes = await repo.git.getRemotes({
+					const matchingRemotes = await repo.git.remotes().getRemotes({
 						filter: r => r.matches(remoteDomain, remotePath),
 					});
 					if (matchingRemotes.length > 0) {
@@ -169,7 +169,7 @@ export class RepositoryIdentityService implements Disposable {
 
 		const [identityResult, remotesResult] = await Promise.allSettled([
 			identity == null ? this.getRepositoryIdentity<T>(repo) : undefined,
-			repo.git.getRemotes(),
+			repo.git.remotes().getRemotes(),
 		]);
 
 		identity ??= getSettledValue(identityResult);

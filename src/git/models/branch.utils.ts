@@ -91,7 +91,7 @@ export async function getDefaultBranchName(
 	const name = await container.git.branches(repoPath).getDefaultBranchName(remoteName);
 	if (name != null) return name;
 
-	const remote = await container.git.getBestRemoteWithIntegration(repoPath);
+	const remote = await container.git.remotes(repoPath).getBestRemoteWithIntegration();
 	if (remote == null) return undefined;
 
 	const integration = await remote.getIntegration();

@@ -219,7 +219,7 @@ export class DeepLinkService implements Disposable {
 			}
 
 			if (remoteDomain != null && remotePath != null) {
-				const matchingRemotes = await repo.git.getRemotes({
+				const matchingRemotes = await repo.git.remotes().getRemotes({
 					filter: r => r.matches(remoteDomain, remotePath),
 				});
 				if (matchingRemotes.length > 0) {
@@ -295,7 +295,7 @@ export class DeepLinkService implements Disposable {
 			if (providerRepoInfo != null && branchName != null) {
 				const [owner, repoName] = providerRepoInfo.split('/');
 				if (owner != null && repoName != null) {
-					const remotes = await repo.git.getRemotes();
+					const remotes = await repo.git.remotes().getRemotes();
 					for (const remote of remotes) {
 						if (remote.provider?.owner === owner) {
 							branchName = `${remote.name}/${branchBaseName}`;
@@ -325,7 +325,7 @@ export class DeepLinkService implements Disposable {
 
 	private async getTag(targetId: string): Promise<GitTag | undefined> {
 		const { repo } = this._context;
-		return repo?.git.getTag(targetId);
+		return repo?.git.tags().getTag(targetId);
 	}
 
 	private async getShaForBranch(targetId: string): Promise<string | undefined> {
@@ -873,14 +873,16 @@ export class DeepLinkService implements Disposable {
 					}
 
 					if (remoteUrl && !remote) {
-						const matchingRemotes = await repo.git.getRemotes({ filter: r => r.url === remoteUrl });
+						const matchingRemotes = await repo.git
+							.remotes()
+							.getRemotes({ filter: r => r.url === remoteUrl });
 						if (matchingRemotes.length > 0) {
 							this._context.remote = matchingRemotes[0];
 						}
 					}
 
 					if (secondaryRemoteUrl && !secondaryRemote) {
-						const matchingRemotes = await repo.git.getRemotes({
+						const matchingRemotes = await repo.git.remotes().getRemotes({
 							filter: r => r.url === secondaryRemoteUrl,
 						});
 						if (matchingRemotes.length > 0) {
@@ -917,7 +919,7 @@ export class DeepLinkService implements Disposable {
 					if (remoteUrl && !remote) {
 						remoteName = await this.showAddRemotePrompt(
 							remoteUrl,
-							(await repo.git.getRemotes()).map(r => r.name),
+							(await repo.git.remotes().getRemotes()).map(r => r.name),
 						);
 
 						if (remoteName) {
@@ -929,7 +931,9 @@ export class DeepLinkService implements Disposable {
 								break;
 							}
 
-							[this._context.remote] = await repo.git.getRemotes({ filter: r => r.url === remoteUrl });
+							[this._context.remote] = await repo.git
+								.remotes()
+								.getRemotes({ filter: r => r.url === remoteUrl });
 							if (!this._context.remote) {
 								action = DeepLinkServiceAction.DeepLinkErrored;
 								message = 'Failed to add remote.';
@@ -944,7 +948,7 @@ export class DeepLinkService implements Disposable {
 					if (secondaryRemoteUrl && !secondaryRemote) {
 						secondaryRemoteName = await this.showAddRemotePrompt(
 							secondaryRemoteUrl,
-							(await repo.git.getRemotes()).map(r => r.name),
+							(await repo.git.remotes().getRemotes()).map(r => r.name),
 						);
 
 						if (secondaryRemoteName) {
@@ -956,7 +960,7 @@ export class DeepLinkService implements Disposable {
 								break;
 							}
 
-							[this._context.secondaryRemote] = await repo.git.getRemotes({
+							[this._context.secondaryRemote] = await repo.git.remotes().getRemotes({
 								filter: r => r.url === secondaryRemoteUrl,
 							});
 							if (!this._context.secondaryRemote) {

@@ -197,17 +197,18 @@ export async function getRemotes(
 ): Promise<RemoteQuickPickItem[]> {
 	if (repo == null) return [];
 
-	const remotes = (await repo.git.getRemotes(options?.filter != null ? { filter: options.filter } : undefined)).map(
-		r =>
-			createRemoteQuickPickItem(
-				r,
-				options?.picked != null &&
-					(typeof options.picked === 'string' ? r.name === options.picked : options.picked.includes(r.name)),
-				{
-					buttons: options?.buttons,
-					upstream: true,
-				},
-			),
+	const remotes = (
+		await repo.git.remotes().getRemotes(options?.filter != null ? { filter: options.filter } : undefined)
+	).map(r =>
+		createRemoteQuickPickItem(
+			r,
+			options?.picked != null &&
+				(typeof options.picked === 'string' ? r.name === options.picked : options.picked.includes(r.name)),
+			{
+				buttons: options?.buttons,
+				upstream: true,
+			},
+		),
 	);
 	return remotes;
 }
@@ -321,7 +322,7 @@ export async function getBranchesAndOrTags(
 						sort: typeof sort === 'boolean' ? sort : sort?.branches,
 				  })
 				: undefined,
-			include.includes('tags') ? repo.git.getTags({ filter: filter?.tags, sort: true }) : undefined,
+			include.includes('tags') ? repo.git.tags().getTags({ filter: filter?.tags, sort: true }) : undefined,
 		]);
 
 		worktreesByBranch = getSettledValue(worktreesByBranchResult);
@@ -344,7 +345,7 @@ export async function getBranchesAndOrTags(
 			include.includes('tags')
 				? Promise.allSettled(
 						repos.map(r =>
-							r.git.getTags({
+							r.git.tags().getTags({
 								filter: filter?.tags,
 								sort: typeof sort === 'boolean' ? sort : sort?.tags,
 							}),
@@ -519,7 +520,7 @@ export function getValidateGitReferenceFn(
 			return true;
 		}
 
-		if (!(await Container.instance.git.validateReference(repos.path, value))) {
+		if (!(await repos.git.validateReference(value))) {
 			if (inRefMode) {
 				quickpick.items = [
 					createDirectiveQuickPickItem(Directive.Back, true, {
@@ -534,7 +535,7 @@ export function getValidateGitReferenceFn(
 
 		if (!inRefMode) {
 			if (
-				await Container.instance.git.hasBranchOrTag(repos.path, {
+				await repos.git.hasBranchOrTag({
 					filter: { branches: b => b.name.includes(value), tags: t => t.name.includes(value) },
 				})
 			) {
@@ -542,7 +543,7 @@ export function getValidateGitReferenceFn(
 			}
 		}
 
-		const commit = await Container.instance.git.getCommit(repos.path, value);
+		const commit = await repos.git.getCommit(value);
 		quickpick.items = [
 			await createCommitQuickPickItem(commit!, true, {
 				alwaysShow: true,
@@ -575,7 +576,7 @@ export async function* inputBranchNameStep<
 			if (value.length === 0) return [false, 'Please enter a valid branch name'];
 
 			if ('repo' in state) {
-				const valid = await Container.instance.git.validateBranchOrTagName(state.repo.path, value);
+				const valid = await state.repo.git.validateBranchOrTagName(value);
 				if (!valid) {
 					return [false, `'${value}' isn't a valid branch name`];
 				}
@@ -591,7 +592,7 @@ export async function* inputBranchNameStep<
 			let valid = true;
 
 			for (const repo of state.repos) {
-				valid = await Container.instance.git.validateBranchOrTagName(repo.path, value);
+				valid = await repo.git.validateBranchOrTagName(value);
 				if (!valid) {
 					return [false, `'${value}' isn't a valid branch name`];
 				}
@@ -637,7 +638,8 @@ export async function* inputRemoteNameStep<
 			if (!valid) return [false, `'${value}' isn't a valid remote name`];
 
 			if ('repo' in state) {
-				const alreadyExists = (await state.repo.git.getRemotes({ filter: r => r.name === value })).length !== 0;
+				const alreadyExists =
+					(await state.repo.git.remotes().getRemotes({ filter: r => r.name === value })).length !== 0;
 				if (alreadyExists) {
 					return [false, `A remote named '${value}' already exists`];
 				}
@@ -707,14 +709,14 @@ export async function* inputTagNameStep<
 			if (value.length === 0) return [false, 'Please enter a valid tag name'];
 
 			if ('repo' in state) {
-				const valid = await Container.instance.git.validateBranchOrTagName(state.repo.path, value);
+				const valid = await state.repo.git.validateBranchOrTagName(value);
 				return [valid, valid ? undefined : `'${value}' isn't a valid tag name`];
 			}
 
 			let valid = true;
 
 			for (const repo of state.repos) {
-				valid = await Container.instance.git.validateBranchOrTagName(repo.path, value);
+				valid = await repo.git.validateBranchOrTagName(value);
 				if (!valid) {
 					return [false, `'${value}' isn't a valid branch name`];
 				}
@@ -1369,7 +1371,7 @@ export function* pickContributorsStep<
 
 		const items = [];
 
-		for (const c of await Container.instance.git.getContributors(state.repo.path)) {
+		for (const c of await state.repo.git.getContributors()) {
 			items.push(
 				await createContributorQuickPickItem(c, message?.includes(c.getCoauthor()), {
 					buttons: [RevealInSideBarQuickInputButton],
@@ -2063,7 +2065,7 @@ async function getShowCommitOrStashStepItems<
 			new CommitCopyMessageQuickPickItem(state.reference),
 		);
 	} else {
-		const remotes = await state.repo.git.getRemotesWithProviders({ sort: true });
+		const remotes = await state.repo.git.remotes().getRemotesWithProviders({ sort: true });
 		if (remotes?.length) {
 			items.push(
 				createQuickPickSeparator(getHighlanderProviderName(remotes) ?? 'Remote'),
@@ -2401,7 +2403,7 @@ async function getShowCommitOrStashFileStepItems<
 			new CommitCopyMessageQuickPickItem(state.reference),
 		);
 	} else {
-		const remotes = await Container.instance.git.getRemotesWithProviders(state.repo.path, { sort: true });
+		const remotes = await state.repo.git.remotes().getRemotesWithProviders({ sort: true });
 		if (remotes?.length) {
 			items.push(
 				createQuickPickSeparator(getHighlanderProviderName(remotes) ?? 'Remote'),
