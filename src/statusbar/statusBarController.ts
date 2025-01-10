@@ -337,7 +337,7 @@ export class StatusBarController implements Disposable {
 			label: `${this._statusBarBlame.text}\n${actionTooltip}`,
 		};
 
-		const remotes = await this.container.git.getBestRemotesWithProviders(commit.repoPath);
+		const remotes = await this.container.git.remotes(commit.repoPath).getBestRemotesWithProviders();
 		const [remote] = remotes;
 
 		const defaultDateFormat = configuration.get('defaultDateFormat');

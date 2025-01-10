@@ -573,7 +573,7 @@ export class IntegrationService implements Disposable {
 		) as SupportedHostingIntegrationIds[];
 		const openRemotesByIntegrationId = new Map<IntegrationId, ResourceDescriptor[]>();
 		for (const repository of this.container.git.openRepositories) {
-			const remotes = await repository.git.getRemotes();
+			const remotes = await repository.git.remotes().getRemotes();
 			if (remotes.length === 0) continue;
 			for (const remote of remotes) {
 				const remoteIntegration = await remote.getIntegration();

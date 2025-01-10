@@ -4,6 +4,7 @@ import type { ForcePushMode } from '../@types/vscode.git.enums';
 import type { GitConfigKeys } from '../constants';
 import type { SearchQuery } from '../constants.search';
 import type { Features } from '../features';
+import type { HostingIntegration } from '../plus/integrations/integration';
 import type { GitUri } from './gitUri';
 import type { GitBlame, GitBlameLine } from './models/blame';
 import type { GitBranch } from './models/branch';
@@ -26,6 +27,7 @@ import type { GitTag } from './models/tag';
 import type { GitTreeEntry } from './models/tree';
 import type { GitUser } from './models/user';
 import type { GitWorktree } from './models/worktree';
+import type { RemoteProvider } from './remotes/remoteProvider';
 import type { GitSearch } from './search';
 import type { BranchSortOptions, TagSortOptions } from './utils/vscode/sorting';
 
@@ -128,12 +130,6 @@ export interface BranchContributionsOverview extends GitCommitStats<number> {
 }
 
 export interface GitProviderRepository {
-	createTag?(repoPath: string, name: string, ref: string, message?: string): Promise<void>;
-	deleteTag?(repoPath: string, name: string): Promise<void>;
-	addRemote?(repoPath: string, name: string, url: string, options?: { fetch?: boolean }): Promise<void>;
-	pruneRemote?(repoPath: string, name: string): Promise<void>;
-	removeRemote?(repoPath: string, name: string): Promise<void>;
-
 	reset?(repoPath: string, ref: string, options?: { hard?: boolean } | { soft?: boolean }): Promise<void>;
 
 	checkout?(
@@ -318,19 +314,7 @@ export interface GitProviderRepository {
 		branch: string,
 		targetBranch: string,
 	): Promise<MergeConflict | undefined>;
-	getRemotes(
-		repoPath: string | undefined,
-		options?: { filter?: (remote: GitRemote) => boolean; sort?: boolean },
-	): Promise<GitRemote[]>;
 	getRevisionContent(repoPath: string, path: string, ref: string): Promise<Uint8Array | undefined>;
-	getTags(
-		repoPath: string | undefined,
-		options?: {
-			filter?: ((t: GitTag) => boolean) | undefined;
-			paging?: PagingOptions | undefined;
-			sort?: boolean | TagSortOptions | undefined;
-		},
-	): Promise<PagedResult<GitTag>>;
 	getTreeEntryForRevision(repoPath: string, path: string, ref: string): Promise<GitTreeEntry | undefined>;
 	getTreeForRevision(repoPath: string, ref: string): Promise<GitTreeEntry[]>;
 	hasBranchOrTag(
@@ -395,9 +379,11 @@ export interface GitProviderRepository {
 
 	branches: GitProviderBranches;
 	patch?: GitProviderPatch;
+	remotes: GitProviderRemotes;
 	staging?: GitProviderStaging;
 	stash?: GitProviderStash;
 	status: GitProviderStatus;
+	tags: GitProviderTags;
 	worktrees?: GitProviderWorktrees;
 }
 
@@ -456,6 +442,50 @@ export interface GitProviderPatch {
 	validatePatch(repoPath: string | undefined, contents: string): Promise<boolean>;
 }
 
+export interface GitProviderRemotes {
+	getRemote(
+		repoPath: string | undefined,
+		name: string,
+		cancellation?: CancellationToken,
+	): Promise<GitRemote | undefined>;
+	getRemotes(
+		repoPath: string | undefined,
+		options?: { filter?: (remote: GitRemote) => boolean; sort?: boolean },
+		cancellation?: CancellationToken,
+	): Promise<GitRemote[]>;
+
+	getDefaultRemote(repoPath: string, _cancellation?: CancellationToken): Promise<GitRemote | undefined>;
+	getRemotesWithProviders(
+		repoPath: string,
+		options?: { sort?: boolean },
+		cancellation?: CancellationToken,
+	): Promise<GitRemote<RemoteProvider>[]>;
+	getRemotesWithIntegrations(
+		repoPath: string,
+		options?: { sort?: boolean },
+		cancellation?: CancellationToken,
+	): Promise<GitRemote<RemoteProvider>[]>;
+	getBestRemoteWithProvider(
+		repoPath: string,
+		cancellation?: CancellationToken,
+	): Promise<GitRemote<RemoteProvider> | undefined>;
+	getBestRemotesWithProviders(
+		repoPath: string,
+		cancellation?: CancellationToken,
+	): Promise<GitRemote<RemoteProvider>[]>;
+	getBestRemoteWithIntegration(
+		repoPath: string,
+		options?: {
+			filter?: (remote: GitRemote, integration: HostingIntegration) => boolean;
+			includeDisconnected?: boolean;
+		},
+		cancellation?: CancellationToken,
+	): Promise<GitRemote<RemoteProvider> | undefined>;
+	addRemote?(repoPath: string, name: string, url: string, options?: { fetch?: boolean }): Promise<void>;
+	pruneRemote?(repoPath: string, name: string): Promise<void>;
+	removeRemote?(repoPath: string, name: string): Promise<void>;
+}
+
 export interface GitProviderStaging {
 	stageFile(repoPath: string, pathOrUri: string | Uri, options?: { intentToAdd?: boolean }): Promise<void>;
 	stageFiles(repoPath: string, pathOrUri: string[] | Uri[], options?: { intentToAdd?: boolean }): Promise<void>;
@@ -494,6 +524,21 @@ export interface GitProviderStatus {
 	continuePausedOperation?(repoPath: string, options?: { skip?: boolean }): Promise<void>;
 }
 
+export interface GitProviderTags {
+	getTag(repoPath: string, name: string): Promise<GitTag | undefined>;
+	getTags(
+		repoPath: string,
+		options?: {
+			filter?: ((t: GitTag) => boolean) | undefined;
+			paging?: PagingOptions | undefined;
+			sort?: boolean | TagSortOptions | undefined;
+		},
+	): Promise<PagedResult<GitTag>>;
+
+	createTag?(repoPath: string, name: string, ref: string, message?: string): Promise<void>;
+	deleteTag?(repoPath: string, name: string): Promise<void>;
+}
+
 export interface GitProviderWorktrees {
 	createWorktree(
 		repoPath: string,
@@ -509,9 +554,11 @@ export interface GitProviderWorktrees {
 type SupportedProvidersForRepo =
 	| GitProviderBranches
 	| GitProviderPatch
+	| GitProviderRemotes
 	| GitProviderStaging
 	| GitProviderStash
 	| GitProviderStatus
+	| GitProviderTags
 	| GitProviderWorktrees;
 
 export type GitProviderForRepo<T extends SupportedProvidersForRepo> = {

@@ -13,6 +13,7 @@ import type { GitStash } from './models/stash';
 import type { GitTag } from './models/tag';
 import type { GitUser } from './models/user';
 import type { GitWorktree } from './models/worktree';
+import type { RemoteProvider } from './remotes/remoteProvider';
 
 interface RepositoryInfo {
 	gitDir?: GitDir;
@@ -53,6 +54,11 @@ export class GitCache implements Disposable {
 	private _useCaching: boolean = false;
 	get useCaching() {
 		return this._useCaching;
+	}
+
+	private _bestRemotesCache: Map<string, Promise<GitRemote<RemoteProvider>[]>> | undefined;
+	get bestRemotes(): Map<string, Promise<GitRemote<RemoteProvider>[]>> {
+		return (this._bestRemotesCache ??= new Map<string, Promise<GitRemote<RemoteProvider>[]>>());
 	}
 
 	private _branchCache: Map<string, Promise<GitBranch | undefined>> | undefined;
@@ -113,39 +119,45 @@ export class GitCache implements Disposable {
 
 	@log({ singleLine: true })
 	clearCaches(repoPath: string | undefined, ...caches: GitCaches[]) {
-		const cachesToClear = [];
+		const cachesToClear = new Set<Map<string, unknown> | PathTrie<unknown> | undefined>();
 
 		if (!caches.length || caches.includes('branches')) {
-			cachesToClear.push(this._branchCache);
-			cachesToClear.push(this._branchesCache);
+			cachesToClear.add(this._branchCache);
+			cachesToClear.add(this._branchesCache);
 		}
 
 		if (!caches.length || caches.includes('contributors')) {
-			cachesToClear.push(this._contributorsCache);
+			cachesToClear.add(this._contributorsCache);
 		}
 
 		if (!caches.length || caches.includes('remotes')) {
-			cachesToClear.push(this._remotesCache);
+			cachesToClear.add(this._remotesCache);
+			cachesToClear.add(this._bestRemotesCache);
+		}
+
+		if (!caches.length || caches.includes('providers')) {
+			cachesToClear.add(this._bestRemotesCache);
 		}
 
 		if (!caches.length || caches.includes('stashes')) {
-			cachesToClear.push(this._stashesCache);
+			cachesToClear.add(this._stashesCache);
 		}
 
 		if (!caches.length || caches.includes('status')) {
-			cachesToClear.push(this._pausedOperationStatusCache);
+			cachesToClear.add(this._pausedOperationStatusCache);
 		}
 
 		if (!caches.length || caches.includes('tags')) {
-			cachesToClear.push(this._tagsCache);
+			cachesToClear.add(this._tagsCache);
 		}
 
 		if (!caches.length || caches.includes('worktrees')) {
-			cachesToClear.push(this._worktreesCache);
+			cachesToClear.add(this._worktreesCache);
 		}
 
 		if (!caches.length) {
-			cachesToClear.push(this._repoInfoCache, this._trackedPaths);
+			cachesToClear.add(this._repoInfoCache);
+			cachesToClear.add(this._trackedPaths);
 		}
 
 		for (const cache of cachesToClear) {

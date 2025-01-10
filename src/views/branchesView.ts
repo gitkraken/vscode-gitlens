@@ -89,7 +89,9 @@ export class BranchesViewNode extends RepositoriesSubscribeableNode<BranchesView
 			const [child] = this.children;
 
 			const { showRemoteBranches } = this.view.config;
-			const defaultRemote = showRemoteBranches ? (await child.repo.git.getDefaultRemote())?.name : undefined;
+			const defaultRemote = showRemoteBranches
+				? (await child.repo.git.remotes().getDefaultRemote())?.name
+				: undefined;
 
 			const branches = await child.repo.git.branches().getBranches({
 				filter: b =>

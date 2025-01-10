@@ -798,7 +798,7 @@ export class GraphWebviewProvider implements WebviewProvider<State, State, Graph
 	private async onGetCounts<T extends typeof GetCountsRequest>(requestType: T, msg: IpcCallMessageType<T>) {
 		let counts: DidGetCountParams;
 		if (this._graph != null) {
-			const tags = await this.container.git.getTags(this._graph.repoPath);
+			const tags = await this.container.git.tags(this._graph.repoPath).getTags();
 			counts = {
 				branches: count(this._graph.branches?.values(), b => !b.remote),
 				remotes: this._graph.remotes.size,
@@ -1163,7 +1163,7 @@ export class GraphWebviewProvider implements WebviewProvider<State, State, Graph
 
 	private async getCommitTooltip(commit: GitCommit, cancellation: CancellationToken) {
 		const [remotesResult, _] = await Promise.allSettled([
-			this.container.git.getBestRemotesWithProviders(commit.repoPath),
+			this.container.git.remotes(commit.repoPath).getBestRemotesWithProviders(),
 			commit.ensureFullDetails({ include: { stats: true } }),
 		]);
 
@@ -4062,7 +4062,7 @@ async function formatRepositories(repositories: Repository[]): Promise<GraphRepo
 
 	const result = await Promise.allSettled(
 		repositories.map<Promise<GraphRepository>>(async repo => {
-			const remotes = await repo.git.getBestRemotesWithProviders();
+			const remotes = await repo.git.remotes().getBestRemotesWithProviders();
 			const remote = remotes.find(r => r.hasIntegration()) ?? remotes[0];
 
 			return {

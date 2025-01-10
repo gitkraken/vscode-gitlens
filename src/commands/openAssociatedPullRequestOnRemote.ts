@@ -36,7 +36,7 @@ export class OpenAssociatedPullRequestOnRemoteCommand extends ActiveEditorComman
 		} else {
 			try {
 				const repo = await getRepositoryOrShowPicker('Open Associated Pull Request', undefined, undefined, {
-					filter: async r => (await this.container.git.getBestRemoteWithIntegration(r.uri)) != null,
+					filter: async r => (await this.container.git.remotes(r.uri).getBestRemoteWithIntegration()) != null,
 				});
 				if (repo == null) return;
 

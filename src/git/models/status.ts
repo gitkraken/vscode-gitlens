@@ -280,7 +280,7 @@ export class GitStatus {
 	async getRemote(): Promise<GitRemote | undefined> {
 		if (this.upstream == null) return undefined;
 
-		const remotes = await Container.instance.git.getRemotesWithProviders(this.repoPath);
+		const remotes = await Container.instance.git.remotes(this.repoPath).getRemotesWithProviders();
 		if (remotes.length === 0) return undefined;
 
 		const remoteName = getRemoteNameFromBranchName(this.upstream?.name);

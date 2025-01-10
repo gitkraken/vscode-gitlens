@@ -31,17 +31,7 @@ import { isBranchReference } from './reference.utils';
 import type { GitRemote } from './remote';
 import type { GitWorktree } from './worktree';
 
-type GitProviderRepoKeys =
-	| keyof GitProviderRepository
-	| 'getBestRemoteWithProvider'
-	| 'getBestRemotesWithProviders'
-	| 'getBestRemoteWithIntegration'
-	| 'getDefaultRemote'
-	| 'getRemote'
-	| 'getRemotesWithProviders'
-	| 'getRemotesWithIntegrations'
-	| 'getTag'
-	| 'supports';
+type GitProviderRepoKeys = keyof GitProviderRepository | 'supports';
 
 export type GitProviderServiceForRepo = Pick<
 	{
@@ -551,8 +541,8 @@ export class Repository implements Disposable {
 	// TODO: Can we remove this -- since no callers use the return value (though maybe they need that await?)
 	@log()
 	async addRemote(name: string, url: string, options?: { fetch?: boolean }): Promise<GitRemote | undefined> {
-		await this.git.addRemote(name, url, options);
-		const [remote] = await this.git.getRemotes({ filter: r => r.url === url });
+		await this.git.remotes().addRemote?.(name, url, options);
+		const [remote] = await this.git.remotes().getRemotes({ filter: r => r.url === url });
 		return remote;
 	}
 
@@ -746,7 +736,7 @@ export class Repository implements Disposable {
 		if (!this.container.actionRunners.count('createPullRequest')) return;
 		if (!(await showCreatePullRequestPrompt(branch.name))) return;
 
-		const remote = await this.git.getRemote(remoteName);
+		const remote = await this.git.remotes().getRemote(remoteName);
 
 		void executeActionCommand<CreatePullRequestActionContext>('createPullRequest', {
 			repoPath: this.path,

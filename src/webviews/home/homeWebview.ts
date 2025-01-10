@@ -669,7 +669,7 @@ export class HomeWebviewProvider implements WebviewProvider<State, State, HomeWe
 			url?: string;
 		};
 	}> {
-		const remotes = await repo.git.getBestRemotesWithProviders();
+		const remotes = await repo.git.remotes().getBestRemotesWithProviders();
 		const remote = remotes.find(r => r.hasIntegration()) ?? remotes[0];
 
 		return {

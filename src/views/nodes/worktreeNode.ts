@@ -293,7 +293,7 @@ export class WorktreeNode extends CacheableChildrenViewNode<'worktree', ViewsWit
 							);
 						} else {
 							const providerName = getHighlanderProviderName(
-								await this.view.container.git.getRemotesWithProviders(branch.repoPath),
+								await this.view.container.git.remotes(branch.repoPath).getRemotesWithProviders(),
 							);
 
 							tooltip.appendMarkdown(

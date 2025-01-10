@@ -200,7 +200,7 @@ export class PushGitCommand extends QuickCommand<State> {
 					const branch = await repo.git.branches().getBranch(state.reference.name);
 
 					if (branch != null && branch?.upstream == null) {
-						for (const remote of await repo.git.getRemotes()) {
+						for (const remote of await repo.git.remotes().getRemotes()) {
 							items.push(
 								createFlagsQuickPickItem<Flags>(
 									state.flags,
@@ -317,7 +317,7 @@ export class PushGitCommand extends QuickCommand<State> {
 							pushDetails = '';
 						}
 
-						for (const remote of await repo.git.getRemotes()) {
+						for (const remote of await repo.git.remotes().getRemotes()) {
 							items.push(
 								createFlagsQuickPickItem<Flags>(
 									state.flags,

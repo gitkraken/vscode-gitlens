@@ -94,7 +94,7 @@ export class BranchesGitProvider implements GitProviderBranches {
 
 	@log({ args: { 1: false } })
 	async getBranches(
-		repoPath: string | undefined,
+		repoPath: string,
 		options?: {
 			filter?: (b: GitBranch) => boolean;
 			paging?: PagingOptions;
@@ -107,19 +107,19 @@ export class BranchesGitProvider implements GitProviderBranches {
 		if (resultsPromise == null) {
 			async function load(this: BranchesGitProvider): Promise<PagedResult<GitBranch>> {
 				try {
-					const data = await this.git.for_each_ref__branch(repoPath!, { all: true });
+					const data = await this.git.for_each_ref__branch(repoPath, { all: true });
 					// If we don't get any data, assume the repo doesn't have any commits yet so check if we have a current branch
 					if (!data?.length) {
-						const current = await this.getCurrentBranch(repoPath!);
+						const current = await this.getCurrentBranch(repoPath);
 						return current != null ? { values: [current] } : emptyPagedResult;
 					}
 
-					const branches = parseGitBranches(this.container, data, repoPath!);
+					const branches = parseGitBranches(this.container, data, repoPath);
 					if (!branches.length) return emptyPagedResult;
 
 					// If we don't have a current branch, check if we can find it another way (likely detached head)
 					if (!branches.some(b => b.current)) {
-						const current = await this.getCurrentBranch(repoPath!);
+						const current = await this.getCurrentBranch(repoPath);
 						if (current != null) {
 							// replace the current branch if it already exists and add it first if not
 							const index = branches.findIndex(b => b.id === current.id);
@@ -132,7 +132,7 @@ export class BranchesGitProvider implements GitProviderBranches {
 					}
 					return { values: branches };
 				} catch (_ex) {
-					this.cache.branches?.delete(repoPath!);
+					this.cache.branches?.delete(repoPath);
 
 					return emptyPagedResult;
 				}

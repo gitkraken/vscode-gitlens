@@ -678,7 +678,9 @@ export async function getBranchNodeParts(
 					break;
 			}
 		} else {
-			const providers = getHighlanderProviders(await container.git.getRemotesWithProviders(branch.repoPath));
+			const providers = getHighlanderProviders(
+				await container.git.remotes(branch.repoPath).getRemotesWithProviders(),
+			);
 			const providerName = providers?.length ? providers[0].name : undefined;
 
 			tooltip += `\n\nLocal branch, hasn't been published to ${providerName ?? 'a remote'}`;
@@ -718,7 +720,7 @@ export async function getBranchNodeParts(
 	let localUnpublished = false;
 	if (status === 'local') {
 		// If there are any remotes then say this is unpublished, otherwise local
-		const remotes = await container.git.getRemotes(branch.repoPath);
+		const remotes = await container.git.remotes(branch.repoPath).getRemotes();
 		if (remotes.length) {
 			localUnpublished = true;
 		}

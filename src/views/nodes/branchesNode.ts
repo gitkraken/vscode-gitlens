@@ -39,7 +39,9 @@ export class BranchesNode extends CacheableChildrenViewNode<'branches', ViewsWit
 	async getChildren(): Promise<ViewNode[]> {
 		if (this.children == null) {
 			const showRemoteBranches = this.view.type === 'branches' && this.view.config.showRemoteBranches;
-			const defaultRemote = showRemoteBranches ? (await this.repo.git.getDefaultRemote())?.name : undefined;
+			const defaultRemote = showRemoteBranches
+				? (await this.repo.git.remotes().getDefaultRemote())?.name
+				: undefined;
 
 			const options: Parameters<ReturnType<typeof this.repo.git.branches>['getBranches']>['0'] = {
 				// only show local branches or remote branches for the default remote
@@ -113,7 +115,7 @@ export class BranchesNode extends CacheableChildrenViewNode<'branches', ViewsWit
 		const item = new TreeItem('Branches', TreeItemCollapsibleState.Collapsed);
 		item.id = this.id;
 		item.contextValue = ContextValues.Branches;
-		if ((await this.repo.git.getRemotes()).length) {
+		if ((await this.repo.git.remotes().getRemotes()).length) {
 			item.contextValue += '+remotes';
 		}
 		// TODO@axosoft-ramint Temporary workaround, remove when our git commands work on closed repos.

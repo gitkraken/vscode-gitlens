@@ -30,8 +30,6 @@ import type {
 	GitProvider,
 	LeftRightCommitCountResult,
 	NextComparisonUrisResult,
-	PagedResult,
-	PagingOptions,
 	PreviousComparisonUrisResult,
 	PreviousLineComparisonUrisResult,
 	RepositoryCloseEvent,
@@ -65,7 +63,8 @@ import type { GitLog } from '../../../../git/models/log';
 import type { GitReference } from '../../../../git/models/reference';
 import { createReference } from '../../../../git/models/reference.utils';
 import type { GitReflog } from '../../../../git/models/reflog';
-import { getVisibilityCacheKey, GitRemote } from '../../../../git/models/remote';
+import type { GitRemote } from '../../../../git/models/remote';
+import { getVisibilityCacheKey } from '../../../../git/models/remote';
 import type { RepositoryChangeEvent } from '../../../../git/models/repository';
 import { Repository } from '../../../../git/models/repository';
 import type { GitRevisionRange } from '../../../../git/models/revision';
@@ -78,17 +77,15 @@ import {
 	isShaLike,
 	isUncommitted,
 } from '../../../../git/models/revision.utils';
-import { getTagId, GitTag } from '../../../../git/models/tag';
+import type { GitTag } from '../../../../git/models/tag';
+import { getTagId } from '../../../../git/models/tag';
 import type { GitTreeEntry } from '../../../../git/models/tree';
 import type { GitUser } from '../../../../git/models/user';
 import { isUserMatch } from '../../../../git/models/user';
 import type { GitWorktree } from '../../../../git/models/worktree';
-import { getRemoteProviderMatcher, loadRemoteProviders } from '../../../../git/remotes/remoteProviders';
 import type { GitSearch, GitSearchResultData, GitSearchResults } from '../../../../git/search';
 import { getSearchQueryComparisonKey, parseSearchQuery } from '../../../../git/search';
 import { getRemoteIconUri } from '../../../../git/utils/vscode/icons';
-import type { TagSortOptions } from '../../../../git/utils/vscode/sorting';
-import { sortTags } from '../../../../git/utils/vscode/sorting';
 import { gate } from '../../../../system/decorators/gate';
 import { debug, log } from '../../../../system/decorators/log';
 import { filterMap, first, last, map, some, union } from '../../../../system/iterable';
@@ -118,10 +115,11 @@ import type {
 import type { GitHubApi } from './github';
 import { fromCommitFileStatus } from './models';
 import { BranchesGitProvider } from './operations/branches';
+import { RemotesGitProvider } from './operations/remotes';
 import { StatusGitProvider } from './operations/status';
+import { TagsGitProvider } from './operations/tags';
 
 const doubleQuoteRegex = /"/g;
-const emptyPagedResult: PagedResult<any> = Object.freeze({ values: [] });
 const emptyPromise: Promise<GitBlame | GitDiffFile | GitLog | undefined> = Promise.resolve(undefined);
 
 const githubAuthenticationScopes = ['repo', 'read:user', 'user:email'];
@@ -298,7 +296,7 @@ export class GitHubGitProvider implements GitProvider, Disposable {
 	}
 
 	async visibility(repoPath: string): Promise<[visibility: RepositoryVisibility, cacheKey: string | undefined]> {
-		const remotes = await this.getRemotes(repoPath, { sort: true });
+		const remotes = await this.remotes.getRemotes(repoPath, { sort: true });
 		if (remotes.length === 0) return ['local', undefined];
 
 		for await (const result of asSettled(remotes.map(r => this.getRemoteVisibility(r)))) {
@@ -1016,8 +1014,8 @@ export class GitHubGitProvider implements GitProvider, Disposable {
 				this.getLog(repoPath, { all: true, ordering: ordering, limit: defaultLimit }),
 				this.branches.getBranch(repoPath),
 				this.branches.getBranches(repoPath, { filter: b => b.remote }),
-				this.getRemotes(repoPath),
-				this.getTags(repoPath),
+				this.remotes.getRemotes(repoPath),
+				this.tags.getTags(repoPath),
 				this.getCurrentUser(repoPath),
 			]);
 
@@ -2457,130 +2455,10 @@ export class GitHubGitProvider implements GitProvider, Disposable {
 		return undefined;
 	}
 
-	@log({ args: { 1: false } })
-	async getRemotes(
-		repoPath: string | undefined,
-		_options?: { filter?: (remote: GitRemote) => boolean; sort?: boolean },
-	): Promise<GitRemote[]> {
-		if (repoPath == null) return [];
-
-		const providers = loadRemoteProviders(configuration.get('remotes', null));
-
-		const uri = Uri.parse(repoPath, true);
-		const [, owner, repo] = uri.path.split('/', 3);
-
-		const url = `https://github.com/${owner}/${repo}.git`;
-		const domain = 'github.com';
-		const path = `${owner}/${repo}`;
-
-		return [
-			new GitRemote(
-				this.container,
-				repoPath,
-				'origin',
-				'https',
-				domain,
-				path,
-				getRemoteProviderMatcher(this.container, providers)(url, domain, path),
-				[
-					{ type: 'fetch', url: url },
-					{ type: 'push', url: url },
-				],
-			),
-		];
-	}
-
 	@log()
 	async getRevisionContent(repoPath: string, path: string, ref: string): Promise<Uint8Array | undefined> {
 		const uri = ref ? this.createProviderUri(repoPath, ref, path) : this.createVirtualUri(repoPath, ref, path);
 		return workspace.fs.readFile(uri);
-	}
-
-	@log({ args: { 1: false } })
-	async getTags(
-		repoPath: string | undefined,
-		options?: {
-			filter?: (t: GitTag) => boolean;
-			paging?: PagingOptions;
-			sort?: boolean | TagSortOptions;
-		},
-	): Promise<PagedResult<GitTag>> {
-		if (repoPath == null) return emptyPagedResult;
-
-		const scope = getLogScope();
-
-		let tagsPromise = options?.paging?.cursor ? undefined : this._cache.tags?.get(repoPath);
-		if (tagsPromise == null) {
-			async function load(this: GitHubGitProvider): Promise<PagedResult<GitTag>> {
-				try {
-					const { metadata, github, session } = await this.ensureRepositoryContext(repoPath!);
-
-					const tags: GitTag[] = [];
-
-					let cursor = options?.paging?.cursor;
-					const loadAll = cursor == null;
-
-					let authoredDate;
-					let committedDate;
-
-					while (true) {
-						const result = await github.getTags(
-							session.accessToken,
-							metadata.repo.owner,
-							metadata.repo.name,
-							{ cursor: cursor },
-						);
-
-						for (const tag of result.values) {
-							authoredDate =
-								tag.target.authoredDate ?? tag.target.target?.authoredDate ?? tag.target.tagger?.date;
-							committedDate =
-								tag.target.committedDate ?? tag.target.target?.committedDate ?? tag.target.tagger?.date;
-
-							tags.push(
-								new GitTag(
-									repoPath!,
-									tag.name,
-									tag.target.target?.oid ?? tag.target.oid,
-									tag.target.message ?? tag.target.target?.message ?? '',
-									authoredDate != null ? new Date(authoredDate) : undefined,
-									committedDate != null ? new Date(committedDate) : undefined,
-								),
-							);
-						}
-
-						if (!result.paging?.more || !loadAll) return { ...result, values: tags };
-
-						cursor = result.paging.cursor;
-					}
-				} catch (ex) {
-					Logger.error(ex, scope);
-					debugger;
-
-					this._cache.tags?.delete(repoPath!);
-					return emptyPagedResult;
-				}
-			}
-
-			tagsPromise = load.call(this);
-			if (options?.paging?.cursor == null) {
-				this._cache.tags?.set(repoPath, tagsPromise);
-			}
-		}
-
-		let result = await tagsPromise;
-		if (options?.filter != null) {
-			result = {
-				...result,
-				values: result.values.filter(options.filter),
-			};
-		}
-
-		if (options?.sort != null) {
-			sortTags(result.values, typeof options.sort === 'boolean' ? undefined : options.sort);
-		}
-
-		return result;
 	}
 
 	@log()
@@ -2658,7 +2536,7 @@ export class GitHubGitProvider implements GitProvider, Disposable {
 				filter: options?.filter?.branches,
 				sort: false,
 			}),
-			this.getTags(repoPath, {
+			this.tags.getTags(repoPath, {
 				filter: options?.filter?.tags,
 				sort: false,
 			}),
@@ -3064,9 +2942,27 @@ export class GitHubGitProvider implements GitProvider, Disposable {
 		));
 	}
 
+	private _remotes: RemotesGitProvider | undefined;
+	get remotes(): RemotesGitProvider {
+		return (this._remotes ??= new RemotesGitProvider(
+			this.container,
+			this._cache,
+			this as unknown as GitHubGitProviderInternal,
+		));
+	}
+
 	private _status: StatusGitProvider | undefined;
 	get status(): StatusGitProvider {
 		return (this._status ??= new StatusGitProvider(this.container, this as unknown as GitHubGitProviderInternal));
+	}
+
+	private _tags: TagsGitProvider | undefined;
+	get tags(): TagsGitProvider {
+		return (this._tags ??= new TagsGitProvider(
+			this.container,
+			this._cache,
+			this as unknown as GitHubGitProviderInternal,
+		));
 	}
 
 	@gate()
@@ -3337,7 +3233,7 @@ export class GitHubGitProvider implements GitProvider, Disposable {
 
 		const [branchResults, tagResults] = await Promise.allSettled([
 			this.branches.getBranches(repoPath, { filter: b => b.name === ref }),
-			this.getTags(repoPath, { filter: t => t.name === ref }),
+			this.tags.getTags(repoPath, { filter: t => t.name === ref }),
 		]);
 
 		ref = getSettledValue(branchResults)?.values[0]?.sha ?? getSettledValue(tagResults)?.values[0]?.sha;

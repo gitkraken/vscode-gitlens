@@ -117,7 +117,7 @@ export abstract class RepositoryFolderNode<
 			let providerName;
 			if (branch.upstream != null) {
 				const providers = getHighlanderProviders(
-					await this.view.container.git.getRemotesWithProviders(branch.repoPath),
+					await this.view.container.git.remotes(branch.repoPath).getRemotesWithProviders(),
 				);
 				providerName = providers?.length ? providers[0].name : undefined;
 			} else {

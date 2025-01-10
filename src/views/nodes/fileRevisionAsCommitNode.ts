@@ -232,7 +232,7 @@ export async function getFileRevisionAsCommitTooltip(
 	},
 ) {
 	const [remotesResult, _] = await Promise.allSettled([
-		container.git.getBestRemotesWithProviders(commit.repoPath, options?.cancellation),
+		container.git.remotes(commit.repoPath).getBestRemotesWithProviders(options?.cancellation),
 		commit.message == null ? commit.ensureFullDetails() : undefined,
 	]);
 

@@ -262,7 +262,7 @@ export class DraftService implements Disposable {
 				? change.repository.git.getDiff(change.revision.to, change.revision.from)
 				: undefined,
 			change.repository.git.getFirstCommitSha(),
-			change.repository.git.getBestRemoteWithProvider(),
+			change.repository.git.remotes().getBestRemoteWithProvider(),
 			change.repository.git.getCurrentUser(),
 		]);
 
@@ -754,7 +754,7 @@ export class DraftService implements Disposable {
 	): Promise<ProviderAuth | undefined> {
 		let integration;
 		if (isRepository(repoOrIntegrationId)) {
-			const remoteProvider = await repoOrIntegrationId.git.getBestRemoteWithIntegration();
+			const remoteProvider = await repoOrIntegrationId.git.remotes().getBestRemoteWithIntegration();
 			if (remoteProvider == null) return undefined;
 
 			integration = await remoteProvider.getIntegration();
