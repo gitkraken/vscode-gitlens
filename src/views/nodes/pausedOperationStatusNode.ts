@@ -1,4 +1,4 @@
-import { MarkdownString, ThemeColor, ThemeIcon, TreeItem, TreeItemCollapsibleState, Uri } from 'vscode';
+import { MarkdownString, ThemeColor, ThemeIcon, TreeItem, TreeItemCollapsibleState } from 'vscode';
 import type { Colors } from '../../constants.colors';
 import { GitUri } from '../../git/gitUri';
 import type { GitBranch } from '../../git/models/branch';
@@ -7,7 +7,6 @@ import { getReferenceLabel } from '../../git/models/reference.utils';
 import type { GitStatus } from '../../git/models/status';
 import { pausedOperationStatusStringsByType } from '../../git/utils/pausedOperationStatus.utils';
 import { pluralize } from '../../system/string';
-import { executeCoreCommand } from '../../system/vscode/command';
 import type { ViewsWithCommits } from '../viewBase';
 import { createViewDecorationUri } from '../viewDecorationProvider';
 import { ContextValues, getViewNodeId, ViewNode } from './abstract/viewNode';
@@ -171,14 +170,5 @@ export class PausedOperationStatusNode extends ViewNode<'paused-operation-status
 		markdown.supportHtml = true;
 		markdown.isTrusted = true;
 		return markdown;
-	}
-
-	async openRebaseEditor() {
-		if (this.pausedOpStatus.type !== 'rebase') return;
-
-		const rebaseTodoUri = Uri.joinPath(this.uri, '.git', 'rebase-merge', 'git-rebase-todo');
-		await executeCoreCommand('vscode.openWith', rebaseTodoUri, 'gitlens.rebase', {
-			preview: false,
-		});
 	}
 }
