@@ -412,13 +412,9 @@ export class GitProviderService implements Disposable {
 	// 	// return this.container.vsls.readonly;
 	// }
 
-	// get useCaching() {
-	// 	return configuration.get('advanced.caching.enabled');
-	// }
-
 	/**
 	 * Registers a {@link GitProvider}
-	 * @param id A unique indentifier for the provider
+	 * @param id A unique identifier for the provider
 	 * @param name A name for the provider
 	 * @param provider A provider for handling git operations
 	 * @returns A disposable to unregister the {@link GitProvider}
