@@ -1,4 +1,6 @@
+import { formatDate, fromNow } from '../../system/date';
 import { map } from '../../system/iterable';
+import { configuration } from '../../system/vscode/configuration';
 import type { Repository } from './repository';
 
 export async function groupRepositories(repositories: Repository[]): Promise<Map<Repository, Map<string, Repository>>> {
@@ -35,4 +37,34 @@ export async function groupRepositories(repositories: Repository[]): Promise<Map
 	}
 
 	return new Map(map(result, ([, r]) => [r.repo, r.worktrees]));
+}
+
+const millisecondsPerMinute = 60 * 1000;
+const millisecondsPerHour = 60 * 60 * 1000;
+const millisecondsPerDay = 24 * 60 * 60 * 1000;
+
+export function formatLastFetched(lastFetched: number, short: boolean = true): string {
+	const date = new Date(lastFetched);
+	if (Date.now() - lastFetched < millisecondsPerDay) {
+		return fromNow(date);
+	}
+
+	if (short) {
+		return formatDate(date, configuration.get('defaultDateShortFormat') ?? 'short');
+	}
+
+	let format =
+		configuration.get('defaultDateFormat') ??
+		`dddd, MMMM Do, YYYY [at] ${configuration.get('defaultTimeFormat') ?? 'h:mma'}`;
+	if (!/[hHm]/.test(format)) {
+		format += ` [at] ${configuration.get('defaultTimeFormat') ?? 'h:mma'}`;
+	}
+	return formatDate(date, format);
+}
+
+export function getLastFetchedUpdateInterval(lastFetched: number): number {
+	const timeDiff = Date.now() - lastFetched;
+	return timeDiff < millisecondsPerDay
+		? (timeDiff < millisecondsPerHour ? millisecondsPerMinute : millisecondsPerHour) / 2
+		: 0;
 }

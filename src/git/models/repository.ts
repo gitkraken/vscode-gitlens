@@ -9,7 +9,6 @@ import { showCreatePullRequestPrompt, showGenericErrorMessage } from '../../mess
 import type { RepoComparisonKey } from '../../repositories';
 import { asRepoComparisonKey } from '../../repositories';
 import { getScopedCounter } from '../../system/counter';
-import { formatDate, fromNow } from '../../system/date';
 import { gate } from '../../system/decorators/gate';
 import { debug, log, logName } from '../../system/decorators/log';
 import { memoize } from '../../system/decorators/memoize';
@@ -37,10 +36,6 @@ export type GitProviderServiceForRepo = Pick<
 	},
 	GitProviderRepoKeys
 >;
-
-const millisecondsPerMinute = 60 * 1000;
-const millisecondsPerHour = 60 * 60 * 1000;
-const millisecondsPerDay = 24 * 60 * 60 * 1000;
 
 const dotGitWatcherGlobFiles = 'index,HEAD,*_HEAD,MERGE_*,rebase-apply/**,rebase-merge/**,sequencer/**';
 const dotGitWatcherGlobWorktreeFiles =
@@ -150,32 +145,6 @@ const instanceCounter = getScopedCounter();
 
 @logName<Repository>((r, name) => `${name}(${r.id}|${r.instance})`)
 export class Repository implements Disposable {
-	static formatLastFetched(lastFetched: number, short: boolean = true): string {
-		const date = new Date(lastFetched);
-		if (Date.now() - lastFetched < millisecondsPerDay) {
-			return fromNow(date);
-		}
-
-		if (short) {
-			return formatDate(date, configuration.get('defaultDateShortFormat') ?? 'short');
-		}
-
-		let format =
-			configuration.get('defaultDateFormat') ??
-			`dddd, MMMM Do, YYYY [at] ${configuration.get('defaultTimeFormat') ?? 'h:mma'}`;
-		if (!/[hHm]/.test(format)) {
-			format += ` [at] ${configuration.get('defaultTimeFormat') ?? 'h:mma'}`;
-		}
-		return formatDate(date, format);
-	}
-
-	static getLastFetchedUpdateInterval(lastFetched: number): number {
-		const timeDiff = Date.now() - lastFetched;
-		return timeDiff < millisecondsPerDay
-			? (timeDiff < millisecondsPerHour ? millisecondsPerMinute : millisecondsPerHour) / 2
-			: 0;
-	}
-
 	private _onDidChange = new EventEmitter<RepositoryChangeEvent>();
 	get onDidChange(): Event<RepositoryChangeEvent> {
 		return this._onDidChange.event;

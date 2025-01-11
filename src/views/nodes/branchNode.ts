@@ -14,7 +14,8 @@ import type { GitLog } from '../../git/models/log';
 import type { PullRequest, PullRequestState } from '../../git/models/pullRequest';
 import type { GitBranchReference } from '../../git/models/reference';
 import { getHighlanderProviders } from '../../git/models/remote';
-import { Repository } from '../../git/models/repository';
+import type { Repository } from '../../git/models/repository';
+import { getLastFetchedUpdateInterval } from '../../git/models/repository.utils';
 import type { GitUser } from '../../git/models/user';
 import type { GitWorktree } from '../../git/models/worktree';
 import { getBranchIconPath, getRemoteIconPath, getWorktreeBranchIconPath } from '../../git/utils/vscode/icons';
@@ -803,7 +804,7 @@ export class CommitsCurrentBranchNode extends SubscribeableViewNode<'commits-cur
 	protected async subscribe() {
 		const lastFetched = (await this.getLastFetched()) ?? 0;
 
-		const interval = Repository.getLastFetchedUpdateInterval(lastFetched);
+		const interval = getLastFetchedUpdateInterval(lastFetched);
 		if (lastFetched !== 0 && interval > 0) {
 			return Disposable.from(
 				this.repo != null
@@ -811,7 +812,7 @@ export class CommitsCurrentBranchNode extends SubscribeableViewNode<'commits-cur
 					: emptyDisposable,
 				disposableInterval(() => {
 					// Check if the interval should change, and if so, reset it
-					if (interval !== Repository.getLastFetchedUpdateInterval(lastFetched)) {
+					if (interval !== getLastFetchedUpdateInterval(lastFetched)) {
 						void this.resetSubscription();
 					}
 
