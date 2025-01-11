@@ -12,7 +12,7 @@ import {
 	StashPushError,
 	WorktreeCreateError,
 } from '../../../../git/errors';
-import type { GitProviderPatch } from '../../../../git/gitProvider';
+import type { GitPatchSubProvider } from '../../../../git/gitProvider';
 import type { GitCommit } from '../../../../git/models/commit';
 import { log } from '../../../../system/decorators/log';
 import { Logger } from '../../../../system/logger';
@@ -21,7 +21,7 @@ import { joinPaths, normalizePath } from '../../../../system/path';
 import type { Git } from '../git';
 import type { LocalGitProvider } from '../localGitProvider';
 
-export class PatchGitProvider implements GitProviderPatch {
+export class PatchGitSubProvider implements GitPatchSubProvider {
 	constructor(
 		private readonly container: Container,
 		private readonly git: Git,

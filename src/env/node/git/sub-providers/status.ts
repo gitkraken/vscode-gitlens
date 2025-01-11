@@ -9,7 +9,7 @@ import {
 	PausedOperationContinueError,
 	PausedOperationContinueErrorReason,
 } from '../../../../git/errors';
-import type { GitProviderStatus } from '../../../../git/gitProvider';
+import type { GitStatusSubProvider } from '../../../../git/gitProvider';
 import type {
 	GitCherryPickStatus,
 	GitMergeStatus,
@@ -32,7 +32,7 @@ import type { Git } from '../git';
 import { GitErrors } from '../git';
 import type { LocalGitProvider } from '../localGitProvider';
 
-export class StatusGitProvider implements GitProviderStatus {
+export class StatusGitSubProvider implements GitStatusSubProvider {
 	constructor(
 		private readonly container: Container,
 		private readonly git: Git,
@@ -45,7 +45,7 @@ export class StatusGitProvider implements GitProviderStatus {
 	async getPausedOperationStatus(repoPath: string): Promise<GitPausedOperationStatus | undefined> {
 		let status = this.cache.pausedOperationStatus?.get(repoPath);
 		if (status == null) {
-			async function getCore(this: StatusGitProvider): Promise<GitPausedOperationStatus | undefined> {
+			async function getCore(this: StatusGitSubProvider): Promise<GitPausedOperationStatus | undefined> {
 				const gitDir = await this.provider.getGitDir(repoPath);
 
 				type Operation = 'cherry-pick' | 'merge' | 'rebase-apply' | 'rebase-merge' | 'revert';

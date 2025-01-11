@@ -1,7 +1,7 @@
 import type { Container } from '../../../../container';
 import type { GitCache } from '../../../../git/cache';
 import { TagError } from '../../../../git/errors';
-import type { GitProviderTags, PagedResult, PagingOptions } from '../../../../git/gitProvider';
+import type { GitTagsSubProvider, PagedResult, PagingOptions } from '../../../../git/gitProvider';
 import type { GitTag } from '../../../../git/models/tag';
 import { parseGitTags, parseGitTagsDefaultFormat } from '../../../../git/parsers/tagParser';
 import type { TagSortOptions } from '../../../../git/utils/vscode/sorting';
@@ -11,7 +11,7 @@ import type { Git } from '../git';
 
 const emptyPagedResult: PagedResult<any> = Object.freeze({ values: [] });
 
-export class TagsGitProvider implements GitProviderTags {
+export class TagsGitSubProvider implements GitTagsSubProvider {
 	constructor(
 		private readonly container: Container,
 		private readonly git: Git,
@@ -39,7 +39,7 @@ export class TagsGitProvider implements GitProviderTags {
 
 		let resultsPromise = this.cache.tags?.get(repoPath);
 		if (resultsPromise == null) {
-			async function load(this: TagsGitProvider): Promise<PagedResult<GitTag>> {
+			async function load(this: TagsGitSubProvider): Promise<PagedResult<GitTag>> {
 				try {
 					const data = await this.git.tag(repoPath, '-l', `--format=${parseGitTagsDefaultFormat}`);
 					return { values: parseGitTags(data, repoPath) };

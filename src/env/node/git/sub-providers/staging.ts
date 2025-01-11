@@ -1,11 +1,11 @@
 import type { Uri } from 'vscode';
 import type { Container } from '../../../../container';
-import type { GitProviderStaging } from '../../../../git/gitProvider';
+import type { GitStagingSubProvider } from '../../../../git/gitProvider';
 import { log } from '../../../../system/decorators/log';
 import { splitPath } from '../../../../system/vscode/path';
 import type { Git } from '../git';
 
-export class StagingGitProvider implements GitProviderStaging {
+export class StagingGitSubProvider implements GitStagingSubProvider {
 	constructor(
 		private readonly container: Container,
 		private readonly git: Git,

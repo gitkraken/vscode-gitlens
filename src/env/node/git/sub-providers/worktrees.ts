@@ -10,7 +10,7 @@ import {
 	WorktreeDeleteError,
 	WorktreeDeleteErrorReason,
 } from '../../../../git/errors';
-import type { GitProviderWorktrees } from '../../../../git/gitProvider';
+import type { GitWorktreesSubProvider } from '../../../../git/gitProvider';
 import type { GitWorktree } from '../../../../git/models/worktree';
 import { parseGitWorktrees } from '../../../../git/parsers/worktreeParser';
 import { log } from '../../../../system/decorators/log';
@@ -24,7 +24,7 @@ import { GitErrors } from '../git';
 import type { LocalGitProvider } from '../localGitProvider';
 import { isWindows } from '../shell';
 
-export class WorktreesGitProvider implements GitProviderWorktrees {
+export class WorktreesGitSubProvider implements GitWorktreesSubProvider {
 	constructor(
 		private readonly container: Container,
 		private readonly git: Git,
@@ -78,7 +78,7 @@ export class WorktreesGitProvider implements GitProviderWorktrees {
 
 		let worktrees = this.cache.worktrees?.get(repoPath);
 		if (worktrees == null) {
-			async function load(this: WorktreesGitProvider) {
+			async function load(this: WorktreesGitSubProvider) {
 				try {
 					const [data, branches] = await Promise.all([
 						this.git.worktree__list(repoPath),

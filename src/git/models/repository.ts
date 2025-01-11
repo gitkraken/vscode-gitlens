@@ -22,7 +22,7 @@ import { updateRecordValue } from '../../system/object';
 import { basename, normalizePath } from '../../system/path';
 import { executeActionCommand } from '../../system/vscode/command';
 import { configuration } from '../../system/vscode/configuration';
-import type { GitProviderDescriptor, GitProviderRepository } from '../gitProvider';
+import type { GitProviderDescriptor, GitRepositoryProvider } from '../gitProvider';
 import type { GitProviderService } from '../gitProviderService';
 import type { GitBranch } from './branch';
 import { getBranchNameWithoutRemote, getNameWithoutRemote, getRemoteNameFromBranchName } from './branch.utils';
@@ -31,7 +31,7 @@ import { isBranchReference } from './reference.utils';
 import type { GitRemote } from './remote';
 import type { GitWorktree } from './worktree';
 
-type GitProviderRepoKeys = keyof GitProviderRepository | 'supports';
+type GitProviderRepoKeys = keyof GitRepositoryProvider | 'supports';
 
 export type GitProviderServiceForRepo = Pick<
 	{
