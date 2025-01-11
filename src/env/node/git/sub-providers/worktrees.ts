@@ -37,15 +37,15 @@ export class WorktreesGitSubProvider implements GitWorktreesSubProvider {
 		repoPath: string,
 		path: string,
 		options?: { commitish?: string; createBranch?: string; detach?: boolean; force?: boolean },
-	) {
+	): Promise<void> {
 		const scope = getLogScope();
 
 		try {
 			await this.git.worktree__add(repoPath, path, options);
-			this.container.events.fire('git:cache:reset', { repoPath: repoPath, caches: ['worktrees'] });
-			if (options?.createBranch) {
-				this.container.events.fire('git:cache:reset', { repoPath: repoPath, caches: ['branches'] });
-			}
+			this.container.events.fire('git:cache:reset', {
+				repoPath: repoPath,
+				caches: options?.createBranch ? ['branches', 'worktrees'] : ['worktrees'],
+			});
 		} catch (ex) {
 			Logger.error(ex, scope);
 
@@ -61,6 +61,16 @@ export class WorktreesGitSubProvider implements GitWorktreesSubProvider {
 
 			throw new WorktreeCreateError(undefined, ex);
 		}
+	}
+
+	async createWorktreeWithResult(
+		repoPath: string,
+		path: string,
+		options?: { commitish?: string; createBranch?: string; detach?: boolean; force?: boolean },
+	): Promise<GitWorktree | undefined> {
+		await this.createWorktree(repoPath, path, options);
+		const normalized = normalizePath(path);
+		return this.getWorktree(repoPath, w => normalizePath(w.uri.fsPath) === normalized);
 	}
 
 	@log()

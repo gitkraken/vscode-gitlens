@@ -400,7 +400,9 @@ export async function ensurePullRequestRemote(
 	);
 
 	if (result === confirm) {
-		await repo.addRemote(identity.provider.repoDomain, identity.remote.url, { fetch: true });
+		await repo.git
+			.remotes()
+			.addRemoteWithResult?.(identity.provider.repoDomain, identity.remote.url, { fetch: true });
 		return true;
 	}
 

@@ -482,6 +482,12 @@ export interface GitRemotesSubProvider {
 		cancellation?: CancellationToken,
 	): Promise<GitRemote<RemoteProvider> | undefined>;
 	addRemote?(repoPath: string, name: string, url: string, options?: { fetch?: boolean }): Promise<void>;
+	addRemoteWithResult?(
+		repoPath: string,
+		name: string,
+		url: string,
+		options?: { fetch?: boolean },
+	): Promise<GitRemote | undefined>;
 	pruneRemote?(repoPath: string, name: string): Promise<void>;
 	removeRemote?(repoPath: string, name: string): Promise<void>;
 	setRemoteAsDefault(repoPath: string, name: string, value?: boolean): Promise<void>;
@@ -546,6 +552,11 @@ export interface GitWorktreesSubProvider {
 		path: string,
 		options?: { commitish?: string; createBranch?: string; detach?: boolean; force?: boolean },
 	): Promise<void>;
+	createWorktreeWithResult(
+		repoPath: string,
+		path: string,
+		options?: { commitish?: string; createBranch?: string; detach?: boolean; force?: boolean },
+	): Promise<GitWorktree | undefined>;
 	getWorktree(repoPath: string, predicate: (w: GitWorktree) => boolean): Promise<GitWorktree | undefined>;
 	getWorktrees(repoPath: string): Promise<GitWorktree[]>;
 	getWorktreesDefaultUri(repoPath: string): Promise<Uri | undefined>;

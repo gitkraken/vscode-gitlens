@@ -28,8 +28,6 @@ import type { GitBranch } from './branch';
 import { getBranchNameWithoutRemote, getNameWithoutRemote, getRemoteNameFromBranchName } from './branch.utils';
 import type { GitBranchReference, GitReference } from './reference';
 import { isBranchReference } from './reference.utils';
-import type { GitRemote } from './remote';
-import type { GitWorktree } from './worktree';
 
 type GitProviderRepoKeys = keyof GitRepositoryProvider | 'supports';
 
@@ -543,14 +541,6 @@ export class Repository implements Disposable {
 		return this.container.git.access(feature, this.uri);
 	}
 
-	// TODO: Can we remove this -- since no callers use the return value (though maybe they need that await?)
-	@log()
-	async addRemote(name: string, url: string, options?: { fetch?: boolean }): Promise<GitRemote | undefined> {
-		await this.git.remotes().addRemote?.(name, url, options);
-		const [remote] = await this.git.remotes().getRemotes({ filter: r => r.url === url });
-		return remote;
-	}
-
 	@log()
 	branchDelete(branches: GitBranchReference | GitBranchReference[], options?: { force?: boolean; remote?: boolean }) {
 		if (!Array.isArray(branches)) {
@@ -685,20 +675,6 @@ export class Repository implements Disposable {
 		}
 
 		return this._lastFetched ?? 0;
-	}
-
-	// TODO: Move to GitProviderService?
-	@log()
-	async createWorktree(
-		uri: Uri,
-		options?: { commitish?: string; createBranch?: string; detach?: boolean; force?: boolean },
-	): Promise<GitWorktree | undefined> {
-		const worktrees = this.git.worktrees();
-		if (worktrees == null) return undefined;
-
-		await worktrees.createWorktree(uri.fsPath, options);
-		const url = uri.toString();
-		return worktrees.getWorktree(w => w.uri.toString() === url);
 	}
 
 	@log()
