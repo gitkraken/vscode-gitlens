@@ -1,11 +1,13 @@
 import type { CancellationToken } from 'vscode';
 import type { Container } from '../../../../container';
 import type { GitCache } from '../../../../git/cache';
+import type { GitRemotesSubProvider } from '../../../../git/gitProvider';
 import type { GitRemote } from '../../../../git/models/remote';
 import { sortRemotes } from '../../../../git/models/remote';
 import { parseGitRemotes } from '../../../../git/parsers/remoteParser';
 import { getRemoteProviderMatcher, loadRemoteProviders } from '../../../../git/remotes/remoteProviders';
 import { RemotesGitProviderBase } from '../../../../git/sub-providers/remotes';
+import { gate } from '../../../../system/decorators/gate';
 import { log } from '../../../../system/decorators/log';
 import { Logger } from '../../../../system/logger';
 import { getLogScope } from '../../../../system/logger.scope';
@@ -13,7 +15,7 @@ import { configuration } from '../../../../system/vscode/configuration';
 import type { Git } from '../git';
 import type { LocalGitProvider } from '../localGitProvider';
 
-export class RemotesGitSubProvider extends RemotesGitProviderBase {
+export class RemotesGitSubProvider extends RemotesGitProviderBase implements GitRemotesSubProvider {
 	constructor(
 		container: Container,
 		private readonly git: Git,
@@ -71,5 +73,26 @@ export class RemotesGitSubProvider extends RemotesGitProviderBase {
 		}
 
 		return remotes;
+	}
+
+	@gate()
+	@log()
+	async addRemote(repoPath: string, name: string, url: string, options?: { fetch?: boolean }): Promise<void> {
+		await this.git.remote__add(repoPath, name, url, options);
+		this.container.events.fire('git:cache:reset', { repoPath: repoPath, caches: ['remotes'] });
+	}
+
+	@gate()
+	@log()
+	async pruneRemote(repoPath: string, name: string): Promise<void> {
+		await this.git.remote__prune(repoPath, name);
+		this.container.events.fire('git:cache:reset', { repoPath: repoPath, caches: ['remotes'] });
+	}
+
+	@gate()
+	@log()
+	async removeRemote(repoPath: string, name: string): Promise<void> {
+		await this.git.remote__remove(repoPath, name);
+		this.container.events.fire('git:cache:reset', { repoPath: repoPath, caches: ['remotes'] });
 	}
 }
