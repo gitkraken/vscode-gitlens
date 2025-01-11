@@ -484,6 +484,7 @@ export interface GitRemotesSubProvider {
 	addRemote?(repoPath: string, name: string, url: string, options?: { fetch?: boolean }): Promise<void>;
 	pruneRemote?(repoPath: string, name: string): Promise<void>;
 	removeRemote?(repoPath: string, name: string): Promise<void>;
+	setRemoteAsDefault(repoPath: string, name: string, value?: boolean): Promise<void>;
 }
 
 export interface GitStagingSubProvider {
