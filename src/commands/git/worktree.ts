@@ -524,7 +524,7 @@ export class WorktreeGitCommand extends QuickCommand<State> {
 				if (state.addRemote != null) {
 					await state.repo.git
 						.remotes()
-						.addRemoteWithResult?.(state.addRemote.name, state.addRemote.url, { fetch: true });
+						.addRemote?.(state.addRemote.name, state.addRemote.url, { fetch: true });
 				}
 
 				worktree = await state.repo.git.worktrees()?.createWorktreeWithResult(uri.fsPath, {
