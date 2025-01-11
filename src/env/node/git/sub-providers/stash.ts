@@ -8,6 +8,7 @@ import type { GitStashCommit } from '../../../../git/models/commit';
 import { GitCommit, GitCommitIdentity } from '../../../../git/models/commit';
 import type { GitFileStatus } from '../../../../git/models/file';
 import { GitFileChange, GitFileWorkingTreeStatus, mapFilesWithStats } from '../../../../git/models/file';
+import { RepositoryChange } from '../../../../git/models/repository';
 import type { GitStash } from '../../../../git/models/stash';
 import type { ParserWithFilesAndMaybeStats } from '../../../../git/parsers/logParser';
 import { createLogParserWithFiles, createLogParserWithFilesAndStats } from '../../../../git/parsers/logParser';
@@ -33,10 +34,12 @@ export class StashGitSubProvider implements GitStashSubProvider {
 		private readonly cache: GitCache,
 	) {}
 
+	@gate()
 	@log()
 	async applyStash(repoPath: string, stashName: string, options?: { deleteAfter?: boolean }): Promise<void> {
 		try {
 			await this.git.stash__apply(repoPath, stashName, Boolean(options?.deleteAfter));
+			this.container.events.fire('git:repo:change', { repoPath: repoPath, changes: [RepositoryChange.Stash] });
 		} catch (ex) {
 			if (ex instanceof Error) {
 				const msg: string = ex.message ?? '';
@@ -188,6 +191,7 @@ export class StashGitSubProvider implements GitStashSubProvider {
 		return gitStash ?? undefined;
 	}
 
+	@gate()
 	@log()
 	async getStashCommitFiles(
 		repoPath: string,
@@ -270,12 +274,15 @@ export class StashGitSubProvider implements GitStashSubProvider {
 		return undefined;
 	}
 
+	@gate()
 	@log()
 	async deleteStash(repoPath: string, stashName: string, ref?: string): Promise<void> {
 		await this.git.stash__delete(repoPath, stashName, ref);
+		this.container.events.fire('git:repo:change', { repoPath: repoPath, changes: [RepositoryChange.Stash] });
 		this.container.events.fire('git:cache:reset', { repoPath: repoPath, caches: ['stashes'] });
 	}
 
+	@gate()
 	@log()
 	async renameStash(
 		repoPath: string,
@@ -285,6 +292,7 @@ export class StashGitSubProvider implements GitStashSubProvider {
 		stashOnRef?: string,
 	): Promise<void> {
 		await this.git.stash__rename(repoPath, stashName, ref, message, stashOnRef);
+		this.container.events.fire('git:repo:change', { repoPath: repoPath, changes: [RepositoryChange.Stash] });
 		this.container.events.fire('git:cache:reset', { repoPath: repoPath, caches: ['stashes'] });
 	}
 
@@ -295,52 +303,53 @@ export class StashGitSubProvider implements GitStashSubProvider {
 		uris?: Uri[],
 		options?: { includeUntracked?: boolean; keepIndex?: boolean; onlyStaged?: boolean },
 	): Promise<void> {
-		try {
-			if (!uris?.length) {
-				await this.git.stash__push(repoPath, message, options);
-				return;
-			}
-
-			await this.git.ensureGitVersion(
-				'2.13.2',
-				'Stashing individual files',
-				' Please retry by stashing everything or install a more recent version of Git and try again.',
-			);
-
-			const pathspecs = uris.map(u => `./${splitPath(u, repoPath)[0]}`);
-
-			const stdinVersion = '2.30.0';
-			let stdin = await this.git.isAtLeastVersion(stdinVersion);
-			if (stdin && options?.onlyStaged && uris.length) {
-				// Since Git doesn't support --staged with --pathspec-from-file try to pass them in directly
-				stdin = false;
-			}
-
-			// If we don't support stdin, then error out if we are over the maximum allowed git cli length
-			if (!stdin && countStringLength(pathspecs) > maxGitCliLength) {
-				await this.git.ensureGitVersion(
-					stdinVersion,
-					`Stashing so many files (${pathspecs.length}) at once`,
-					' Please retry by stashing fewer files or install a more recent version of Git and try again.',
-				);
-			}
-
-			await this.git.stash__push(repoPath, message, {
-				...options,
-				pathspecs: pathspecs,
-				stdin: stdin,
-			});
-		} finally {
+		if (!uris?.length) {
+			await this.git.stash__push(repoPath, message, options);
+			this.container.events.fire('git:repo:change', { repoPath: repoPath, changes: [RepositoryChange.Stash] });
 			this.container.events.fire('git:cache:reset', { repoPath: repoPath, caches: ['stashes', 'status'] });
+			return;
 		}
+
+		await this.git.ensureGitVersion(
+			'2.13.2',
+			'Stashing individual files',
+			' Please retry by stashing everything or install a more recent version of Git and try again.',
+		);
+
+		const pathspecs = uris.map(u => `./${splitPath(u, repoPath)[0]}`);
+
+		const stdinVersion = '2.30.0';
+		let stdin = await this.git.isAtLeastVersion(stdinVersion);
+		if (stdin && options?.onlyStaged && uris.length) {
+			// Since Git doesn't support --staged with --pathspec-from-file try to pass them in directly
+			stdin = false;
+		}
+
+		// If we don't support stdin, then error out if we are over the maximum allowed git cli length
+		if (!stdin && countStringLength(pathspecs) > maxGitCliLength) {
+			await this.git.ensureGitVersion(
+				stdinVersion,
+				`Stashing so many files (${pathspecs.length}) at once`,
+				' Please retry by stashing fewer files or install a more recent version of Git and try again.',
+			);
+		}
+
+		await this.git.stash__push(repoPath, message, {
+			...options,
+			pathspecs: pathspecs,
+			stdin: stdin,
+		});
+		this.container.events.fire('git:cache:reset', { repoPath: repoPath, caches: ['stashes', 'status'] });
 	}
 
+	@gate()
 	@log()
 	async saveSnapshot(repoPath: string, message?: string): Promise<void> {
 		const id = await this.git.stash__create(repoPath);
 		if (id == null) return;
 
 		await this.git.stash__store(repoPath, id, message);
+		this.container.events.fire('git:repo:change', { repoPath: repoPath, changes: [RepositoryChange.Stash] });
 		this.container.events.fire('git:cache:reset', { repoPath: repoPath, caches: ['stashes'] });
 	}
 }

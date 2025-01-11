@@ -4,6 +4,7 @@ import type { CustomEditorIds, ViewIds, WebviewIds } from './constants.views';
 import type { GitCaches } from './git/gitProvider';
 import type { GitCommit } from './git/models/commit';
 import type { GitRevisionReference } from './git/models/reference';
+import type { RepositoryChange } from './git/models/repository';
 import type { Draft, LocalDraft } from './gk/models/drafts';
 
 export type CommitSelectedEvent = EventBusEvent<'commit:selected'>;
@@ -35,11 +36,27 @@ interface GitCacheResetEventArgs {
 	readonly caches?: GitCaches[];
 }
 
+/**
+ *  Out-of-band event to ensure @type {import('./git/models/repository').Repository} fires its change event
+ *  Should only be listened to by @type {import('./git/models/repository').Repository}
+ */
+export type GitRepoChangeEvent = EventBusEvent<'git:repo:change'>;
+interface GitRepoChangeEventArgs {
+	readonly repoPath: string;
+	readonly changes: RepositoryChange[];
+}
+
 type EventsMapping = {
 	'commit:selected': CommitSelectedEventArgs;
 	'draft:selected': DraftSelectedEventArgs;
 	'file:selected': FileSelectedEventArgs;
+
 	'git:cache:reset': GitCacheResetEventArgs;
+	/**
+	 *  Out-of-band event to ensure @type {import('./git/models/repository').Repository} fires its change event
+	 *  Should only be listened to by @type {import('./git/models/repository').Repository}
+	 */
+	'git:repo:change': GitRepoChangeEventArgs;
 };
 
 interface EventBusEvent<T extends keyof EventsMapping = keyof EventsMapping> {
