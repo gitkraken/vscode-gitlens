@@ -3,7 +3,7 @@ import { window } from 'vscode';
 import type { Container } from '../../../../container';
 import type { GitCache } from '../../../../git/cache';
 import { StashApplyError, StashApplyErrorReason } from '../../../../git/errors';
-import type { GitProviderStash } from '../../../../git/gitProvider';
+import type { GitStashSubProvider } from '../../../../git/gitProvider';
 import type { GitStashCommit } from '../../../../git/models/commit';
 import { GitCommit, GitCommitIdentity } from '../../../../git/models/commit';
 import type { GitFileStatus } from '../../../../git/models/file';
@@ -26,7 +26,7 @@ const stashSummaryRegex =
 	// eslint-disable-next-line no-control-regex
 	/(?:(?:(?<wip>WIP) on|On) (?<onref>[^/](?!.*\/\.)(?!.*\.\.)(?!.*\/\/)(?!.*@\{)[^\x00-\x1F\x7F ~^:?*[\\]+[^./]):\s*)?(?<summary>.*)$/s;
 
-export class StashGitProvider implements GitProviderStash {
+export class StashGitSubProvider implements GitStashSubProvider {
 	constructor(
 		private readonly container: Container,
 		private readonly git: Git,
@@ -288,7 +288,7 @@ export class StashGitProvider implements GitProviderStash {
 		this.container.events.fire('git:cache:reset', { repoPath: repoPath, caches: ['stashes'] });
 	}
 
-	@log<StashGitProvider['saveStash']>({ args: { 2: uris => uris?.length } })
+	@log<StashGitSubProvider['saveStash']>({ args: { 2: uris => uris?.length } })
 	async saveStash(
 		repoPath: string,
 		message?: string,

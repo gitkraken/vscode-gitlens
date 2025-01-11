@@ -3,9 +3,9 @@ import type { Container } from '../../../../container';
 import type { GitCache } from '../../../../git/cache';
 import type { GitRemote } from '../../../../git/models/remote';
 import { sortRemotes } from '../../../../git/models/remote';
-import { RemotesGitProviderBase } from '../../../../git/operations/remotes';
 import { parseGitRemotes } from '../../../../git/parsers/remoteParser';
 import { getRemoteProviderMatcher, loadRemoteProviders } from '../../../../git/remotes/remoteProviders';
+import { RemotesGitProviderBase } from '../../../../git/sub-providers/remotes';
 import { log } from '../../../../system/decorators/log';
 import { Logger } from '../../../../system/logger';
 import { getLogScope } from '../../../../system/logger.scope';
@@ -13,7 +13,7 @@ import { configuration } from '../../../../system/vscode/configuration';
 import type { Git } from '../git';
 import type { LocalGitProvider } from '../localGitProvider';
 
-export class RemotesGitProvider extends RemotesGitProviderBase {
+export class RemotesGitSubProvider extends RemotesGitProviderBase {
 	constructor(
 		container: Container,
 		private readonly git: Git,
@@ -35,7 +35,7 @@ export class RemotesGitProvider extends RemotesGitProviderBase {
 
 		let remotesPromise = this.cache.remotes?.get(repoPath);
 		if (remotesPromise == null) {
-			async function load(this: RemotesGitProvider): Promise<GitRemote[]> {
+			async function load(this: RemotesGitSubProvider): Promise<GitRemote[]> {
 				const providers = loadRemoteProviders(
 					configuration.get('remotes', this.container.git.getRepository(repoPath!)?.folder?.uri ?? null),
 				);

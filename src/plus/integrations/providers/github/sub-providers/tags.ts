@@ -1,6 +1,6 @@
 import type { Container } from '../../../../../container';
 import type { GitCache } from '../../../../../git/cache';
-import type { GitProviderTags, PagedResult, PagingOptions } from '../../../../../git/gitProvider';
+import type { GitTagsSubProvider, PagedResult, PagingOptions } from '../../../../../git/gitProvider';
 import { GitTag } from '../../../../../git/models/tag';
 import type { TagSortOptions } from '../../../../../git/utils/vscode/sorting';
 import { sortTags } from '../../../../../git/utils/vscode/sorting';
@@ -11,7 +11,7 @@ import type { GitHubGitProviderInternal } from '../githubGitProvider';
 
 const emptyPagedResult: PagedResult<any> = Object.freeze({ values: [] });
 
-export class TagsGitProvider implements GitProviderTags {
+export class TagsGitSubProvider implements GitTagsSubProvider {
 	constructor(
 		private readonly container: Container,
 		private readonly cache: GitCache,
@@ -41,7 +41,7 @@ export class TagsGitProvider implements GitProviderTags {
 
 		let tagsPromise = options?.paging?.cursor ? undefined : this.cache.tags?.get(repoPath);
 		if (tagsPromise == null) {
-			async function load(this: TagsGitProvider): Promise<PagedResult<GitTag>> {
+			async function load(this: TagsGitSubProvider): Promise<PagedResult<GitTag>> {
 				try {
 					const { metadata, github, session } = await this.provider.ensureRepositoryContext(repoPath!);
 

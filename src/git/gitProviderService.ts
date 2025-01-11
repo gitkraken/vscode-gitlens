@@ -41,20 +41,20 @@ import { configuration } from '../system/vscode/configuration';
 import { setContext } from '../system/vscode/context';
 import { getBestPath } from '../system/vscode/path';
 import type {
+	GitBranchesSubProvider,
 	GitCaches,
 	GitDir,
+	GitPatchSubProvider,
 	GitProvider,
-	GitProviderBranches,
 	GitProviderDescriptor,
-	GitProviderForRepo,
 	GitProviderId,
-	GitProviderPatch,
-	GitProviderRemotes,
-	GitProviderStaging,
-	GitProviderStash,
-	GitProviderStatus,
-	GitProviderTags,
-	GitProviderWorktrees,
+	GitRemotesSubProvider,
+	GitStagingSubProvider,
+	GitStashSubProvider,
+	GitStatusSubProvider,
+	GitSubProviderForRepo,
+	GitTagsSubProvider,
+	GitWorktreesSubProvider,
 	LeftRightCommitCountResult,
 	NextComparisonUrisResult,
 	PreviousComparisonUrisResult,
@@ -63,7 +63,7 @@ import type {
 	RepositoryVisibilityInfo,
 	ScmRepository,
 } from './gitProvider';
-import { createProviderProxyForRepo } from './gitProvider';
+import { createSubProviderProxyForRepo } from './gitProvider';
 import type { GitUri } from './gitUri';
 import type { GitBlame, GitBlameLine } from './models/blame';
 import type { GitBranch } from './models/branch';
@@ -2475,59 +2475,59 @@ export class GitProviderService implements Disposable {
 	}
 
 	@log()
-	branches(repoPath: string | Uri): GitProviderForRepo<GitProviderBranches> {
+	branches(repoPath: string | Uri): GitSubProviderForRepo<GitBranchesSubProvider> {
 		const { provider, path: rp } = this.getProvider(repoPath);
-		return createProviderProxyForRepo(provider.branches, rp);
+		return createSubProviderProxyForRepo(provider.branches, rp);
 	}
 
 	@log()
-	patch(repoPath: string | Uri): GitProviderForRepo<GitProviderPatch> | undefined {
+	patch(repoPath: string | Uri): GitSubProviderForRepo<GitPatchSubProvider> | undefined {
 		const { provider, path: rp } = this.getProvider(repoPath);
 
 		const { patch } = provider;
-		return patch != null ? createProviderProxyForRepo(patch, rp) : undefined;
+		return patch != null ? createSubProviderProxyForRepo(patch, rp) : undefined;
 	}
 
 	@log()
-	remotes(repoPath: string | Uri): GitProviderForRepo<GitProviderRemotes> {
+	remotes(repoPath: string | Uri): GitSubProviderForRepo<GitRemotesSubProvider> {
 		const { provider, path: rp } = this.getProvider(repoPath);
-		return createProviderProxyForRepo(provider.remotes, rp);
+		return createSubProviderProxyForRepo(provider.remotes, rp);
 	}
 
 	@log()
-	staging(repoPath: string | Uri): GitProviderForRepo<GitProviderStaging> | undefined {
+	staging(repoPath: string | Uri): GitSubProviderForRepo<GitStagingSubProvider> | undefined {
 		const { provider, path: rp } = this.getProvider(repoPath);
 
 		const { staging } = provider;
-		return staging != null ? createProviderProxyForRepo(staging, rp) : undefined;
+		return staging != null ? createSubProviderProxyForRepo(staging, rp) : undefined;
 	}
 
 	@log()
-	stash(repoPath: string | Uri): GitProviderForRepo<GitProviderStash> | undefined {
+	stash(repoPath: string | Uri): GitSubProviderForRepo<GitStashSubProvider> | undefined {
 		const { provider, path: rp } = this.getProvider(repoPath);
 
 		const { stash } = provider;
-		return stash != null ? createProviderProxyForRepo(stash, rp) : undefined;
+		return stash != null ? createSubProviderProxyForRepo(stash, rp) : undefined;
 	}
 
 	@log()
-	status(repoPath: string | Uri): GitProviderForRepo<GitProviderStatus> {
+	status(repoPath: string | Uri): GitSubProviderForRepo<GitStatusSubProvider> {
 		const { provider, path: rp } = this.getProvider(repoPath);
-		return createProviderProxyForRepo(provider.status, rp);
+		return createSubProviderProxyForRepo(provider.status, rp);
 	}
 
 	@log()
-	tags(repoPath: string | Uri): GitProviderForRepo<GitProviderTags> {
+	tags(repoPath: string | Uri): GitSubProviderForRepo<GitTagsSubProvider> {
 		const { provider, path: rp } = this.getProvider(repoPath);
-		return createProviderProxyForRepo(provider.tags, rp);
+		return createSubProviderProxyForRepo(provider.tags, rp);
 	}
 
 	@log()
-	worktrees(repoPath: string | Uri): GitProviderForRepo<GitProviderWorktrees> | undefined {
+	worktrees(repoPath: string | Uri): GitSubProviderForRepo<GitWorktreesSubProvider> | undefined {
 		const { provider, path: rp } = this.getProvider(repoPath);
 
 		const { worktrees } = provider;
-		return worktrees != null ? createProviderProxyForRepo(worktrees, rp) : undefined;
+		return worktrees != null ? createSubProviderProxyForRepo(worktrees, rp) : undefined;
 	}
 
 	@log()

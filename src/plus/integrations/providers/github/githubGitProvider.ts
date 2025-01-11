@@ -114,10 +114,10 @@ import type {
 } from '../../authentication/integrationAuthentication';
 import type { GitHubApi } from './github';
 import { fromCommitFileStatus } from './models';
-import { BranchesGitProvider } from './operations/branches';
-import { RemotesGitProvider } from './operations/remotes';
-import { StatusGitProvider } from './operations/status';
-import { TagsGitProvider } from './operations/tags';
+import { BranchesGitSubProvider } from './sub-providers/branches';
+import { RemotesGitSubProvider } from './sub-providers/remotes';
+import { StatusGitSubProvider } from './sub-providers/status';
+import { TagsGitSubProvider } from './sub-providers/tags';
 
 const doubleQuoteRegex = /"/g;
 const emptyPromise: Promise<GitBlame | GitDiffFile | GitLog | undefined> = Promise.resolve(undefined);
@@ -2933,32 +2933,35 @@ export class GitHubGitProvider implements GitProvider, Disposable {
 		return true;
 	}
 
-	private _branches: BranchesGitProvider | undefined;
-	get branches(): BranchesGitProvider {
-		return (this._branches ??= new BranchesGitProvider(
+	private _branches: BranchesGitSubProvider | undefined;
+	get branches(): BranchesGitSubProvider {
+		return (this._branches ??= new BranchesGitSubProvider(
 			this.container,
 			this._cache,
 			this as unknown as GitHubGitProviderInternal,
 		));
 	}
 
-	private _remotes: RemotesGitProvider | undefined;
-	get remotes(): RemotesGitProvider {
-		return (this._remotes ??= new RemotesGitProvider(
+	private _remotes: RemotesGitSubProvider | undefined;
+	get remotes(): RemotesGitSubProvider {
+		return (this._remotes ??= new RemotesGitSubProvider(
 			this.container,
 			this._cache,
 			this as unknown as GitHubGitProviderInternal,
 		));
 	}
 
-	private _status: StatusGitProvider | undefined;
-	get status(): StatusGitProvider {
-		return (this._status ??= new StatusGitProvider(this.container, this as unknown as GitHubGitProviderInternal));
+	private _status: StatusGitSubProvider | undefined;
+	get status(): StatusGitSubProvider {
+		return (this._status ??= new StatusGitSubProvider(
+			this.container,
+			this as unknown as GitHubGitProviderInternal,
+		));
 	}
 
-	private _tags: TagsGitProvider | undefined;
-	get tags(): TagsGitProvider {
-		return (this._tags ??= new TagsGitProvider(
+	private _tags: TagsGitSubProvider | undefined;
+	get tags(): TagsGitSubProvider {
+		return (this._tags ??= new TagsGitSubProvider(
 			this.container,
 			this._cache,
 			this as unknown as GitHubGitProviderInternal,

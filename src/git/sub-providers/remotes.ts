@@ -5,12 +5,12 @@ import type { HostingIntegration } from '../../plus/integrations/integration';
 import { log } from '../../system/decorators/log';
 import { sortCompare } from '../../system/string';
 import type { GitCache } from '../cache';
-import type { GitProvider, GitProviderRemotes } from '../gitProvider';
+import type { GitProvider, GitRemotesSubProvider } from '../gitProvider';
 import type { GitRemote } from '../models/remote';
 import { getDefaultRemoteOrHighlander } from '../models/remote';
 import type { RemoteProvider } from '../remotes/remoteProvider';
 
-export abstract class RemotesGitProviderBase implements GitProviderRemotes {
+export abstract class RemotesGitProviderBase implements GitRemotesSubProvider {
 	constructor(
 		protected readonly container: Container,
 		protected readonly cache: GitCache,

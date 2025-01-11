@@ -180,15 +180,15 @@ import type { Git, PushForceOptions } from './git';
 import { getShaInLogRegex, GitErrors, gitLogDefaultConfigs, gitLogDefaultConfigsWithFiles } from './git';
 import type { GitLocation } from './locator';
 import { findGitPath, InvalidGitConfigError, UnableToFindGitError } from './locator';
-import { BranchesGitProvider } from './operations/branches';
-import { PatchGitProvider } from './operations/patch';
-import { RemotesGitProvider } from './operations/remotes';
-import { StagingGitProvider } from './operations/staging';
-import { StashGitProvider } from './operations/stash';
-import { StatusGitProvider } from './operations/status';
-import { TagsGitProvider } from './operations/tags';
-import { WorktreesGitProvider } from './operations/worktrees';
 import { CancelledRunError, fsExists } from './shell';
+import { BranchesGitSubProvider } from './sub-providers/branches';
+import { PatchGitSubProvider } from './sub-providers/patch';
+import { RemotesGitSubProvider } from './sub-providers/remotes';
+import { StagingGitSubProvider } from './sub-providers/staging';
+import { StashGitSubProvider } from './sub-providers/stash';
+import { StatusGitSubProvider } from './sub-providers/status';
+import { TagsGitSubProvider } from './sub-providers/tags';
+import { WorktreesGitSubProvider } from './sub-providers/worktrees';
 
 const emptyArray = Object.freeze([]) as unknown as any[];
 const emptyPromise: Promise<GitBlame | GitDiffFile | GitLog | undefined> = Promise.resolve(undefined);
@@ -4846,42 +4846,42 @@ export class LocalGitProvider implements GitProvider, Disposable {
 		return (await this.git.rev_parse__verify(repoPath, ref)) != null;
 	}
 
-	private _branches: BranchesGitProvider | undefined;
-	get branches(): BranchesGitProvider {
-		return (this._branches ??= new BranchesGitProvider(this.container, this.git, this._cache, this));
+	private _branches: BranchesGitSubProvider | undefined;
+	get branches(): BranchesGitSubProvider {
+		return (this._branches ??= new BranchesGitSubProvider(this.container, this.git, this._cache, this));
 	}
 
-	private _patch: PatchGitProvider | undefined;
-	get patch(): PatchGitProvider | undefined {
-		return (this._patch ??= new PatchGitProvider(this.container, this.git, this));
+	private _patch: PatchGitSubProvider | undefined;
+	get patch(): PatchGitSubProvider | undefined {
+		return (this._patch ??= new PatchGitSubProvider(this.container, this.git, this));
 	}
 
-	private _remotes: RemotesGitProvider | undefined;
-	get remotes(): RemotesGitProvider {
-		return (this._remotes ??= new RemotesGitProvider(this.container, this.git, this._cache, this));
+	private _remotes: RemotesGitSubProvider | undefined;
+	get remotes(): RemotesGitSubProvider {
+		return (this._remotes ??= new RemotesGitSubProvider(this.container, this.git, this._cache, this));
 	}
-	private _staging: StagingGitProvider | undefined;
-	get staging(): StagingGitProvider | undefined {
-		return (this._staging ??= new StagingGitProvider(this.container, this.git));
-	}
-
-	private _stash: StashGitProvider | undefined;
-	get stash(): StashGitProvider {
-		return (this._stash ??= new StashGitProvider(this.container, this.git, this._cache));
+	private _staging: StagingGitSubProvider | undefined;
+	get staging(): StagingGitSubProvider | undefined {
+		return (this._staging ??= new StagingGitSubProvider(this.container, this.git));
 	}
 
-	private _status: StatusGitProvider | undefined;
-	get status(): StatusGitProvider {
-		return (this._status ??= new StatusGitProvider(this.container, this.git, this._cache, this));
+	private _stash: StashGitSubProvider | undefined;
+	get stash(): StashGitSubProvider {
+		return (this._stash ??= new StashGitSubProvider(this.container, this.git, this._cache));
 	}
 
-	private _tags: TagsGitProvider | undefined;
-	get tags(): TagsGitProvider {
-		return (this._tags ??= new TagsGitProvider(this.container, this.git, this._cache));
+	private _status: StatusGitSubProvider | undefined;
+	get status(): StatusGitSubProvider {
+		return (this._status ??= new StatusGitSubProvider(this.container, this.git, this._cache, this));
 	}
-	private _worktrees: WorktreesGitProvider | undefined;
-	get worktrees(): WorktreesGitProvider {
-		return (this._worktrees ??= new WorktreesGitProvider(this.container, this.git, this._cache, this));
+
+	private _tags: TagsGitSubProvider | undefined;
+	get tags(): TagsGitSubProvider {
+		return (this._tags ??= new TagsGitSubProvider(this.container, this.git, this._cache));
+	}
+	private _worktrees: WorktreesGitSubProvider | undefined;
+	get worktrees(): WorktreesGitSubProvider {
+		return (this._worktrees ??= new WorktreesGitSubProvider(this.container, this.git, this._cache, this));
 	}
 
 	private _scmGitApi: Promise<ScmGitApi | undefined> | undefined;

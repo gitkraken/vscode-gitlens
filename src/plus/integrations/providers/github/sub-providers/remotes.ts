@@ -1,11 +1,11 @@
 import { Uri } from 'vscode';
 import { GitRemote } from '../../../../../git/models/remote';
-import { RemotesGitProviderBase } from '../../../../../git/operations/remotes';
 import { getRemoteProviderMatcher, loadRemoteProviders } from '../../../../../git/remotes/remoteProviders';
+import { RemotesGitProviderBase } from '../../../../../git/sub-providers/remotes';
 import { log } from '../../../../../system/decorators/log';
 import { configuration } from '../../../../../system/vscode/configuration';
 
-export class RemotesGitProvider extends RemotesGitProviderBase {
+export class RemotesGitSubProvider extends RemotesGitProviderBase {
 	@log({ args: { 1: false } })
 	// eslint-disable-next-line @typescript-eslint/require-await
 	async getRemotes(

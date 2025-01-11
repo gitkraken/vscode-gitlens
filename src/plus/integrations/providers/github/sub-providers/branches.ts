@@ -2,7 +2,7 @@ import type { Container } from '../../../../../container';
 import type { GitCache } from '../../../../../git/cache';
 import type {
 	BranchContributionsOverview,
-	GitProviderBranches,
+	GitBranchesSubProvider,
 	PagedResult,
 	PagingOptions,
 } from '../../../../../git/gitProvider';
@@ -22,7 +22,7 @@ import type { GitHubBranch } from '../models';
 
 const emptyPagedResult: PagedResult<any> = Object.freeze({ values: [] });
 
-export class BranchesGitProvider implements GitProviderBranches {
+export class BranchesGitSubProvider implements GitBranchesSubProvider {
 	constructor(
 		private readonly container: Container,
 		private readonly cache: GitCache,
@@ -41,7 +41,7 @@ export class BranchesGitProvider implements GitProviderBranches {
 
 		let branchPromise = this.cache.branch?.get(repoPath);
 		if (branchPromise == null) {
-			async function load(this: BranchesGitProvider): Promise<GitBranch | undefined> {
+			async function load(this: BranchesGitSubProvider): Promise<GitBranch | undefined> {
 				const {
 					values: [branch],
 				} = await this.getBranches(repoPath, { filter: b => b.current });
@@ -99,7 +99,7 @@ export class BranchesGitProvider implements GitProviderBranches {
 
 		let branchesPromise = options?.paging?.cursor ? undefined : this.cache.branches?.get(repoPath);
 		if (branchesPromise == null) {
-			async function load(this: BranchesGitProvider): Promise<PagedResult<GitBranch>> {
+			async function load(this: BranchesGitSubProvider): Promise<PagedResult<GitBranch>> {
 				try {
 					const { metadata, github, session } = await this.provider.ensureRepositoryContext(repoPath!);
 

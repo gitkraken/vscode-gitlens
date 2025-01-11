@@ -129,7 +129,7 @@ export interface BranchContributionsOverview extends GitCommitStats<number> {
 	readonly contributors: GitContributor[];
 }
 
-export interface GitProviderRepository {
+export interface GitRepositoryProvider {
 	reset?(repoPath: string, ref: string, options?: { hard?: boolean } | { soft?: boolean }): Promise<void>;
 
 	checkout?(
@@ -372,17 +372,17 @@ export interface GitProviderRepository {
 	validateBranchOrTagName(repoPath: string, ref: string): Promise<boolean>;
 	validateReference(repoPath: string, ref: string): Promise<boolean>;
 
-	branches: GitProviderBranches;
-	patch?: GitProviderPatch;
-	remotes: GitProviderRemotes;
-	staging?: GitProviderStaging;
-	stash?: GitProviderStash;
-	status: GitProviderStatus;
-	tags: GitProviderTags;
-	worktrees?: GitProviderWorktrees;
+	branches: GitBranchesSubProvider;
+	patch?: GitPatchSubProvider;
+	remotes: GitRemotesSubProvider;
+	staging?: GitStagingSubProvider;
+	stash?: GitStashSubProvider;
+	status: GitStatusSubProvider;
+	tags: GitTagsSubProvider;
+	worktrees?: GitWorktreesSubProvider;
 }
 
-export interface GitProviderBranches {
+export interface GitBranchesSubProvider {
 	getBranch(repoPath: string, name?: string): Promise<GitBranch | undefined>;
 	getBranches(
 		repoPath: string,
@@ -422,7 +422,7 @@ export interface GitProviderBranches {
 	renameBranch?(repoPath: string, oldName: string, newName: string): Promise<void>;
 }
 
-export interface GitProviderPatch {
+export interface GitPatchSubProvider {
 	applyUnreachableCommitForPatch(
 		repoPath: string,
 		ref: string,
@@ -442,7 +442,7 @@ export interface GitProviderPatch {
 	validatePatch(repoPath: string | undefined, contents: string): Promise<boolean>;
 }
 
-export interface GitProviderRemotes {
+export interface GitRemotesSubProvider {
 	getRemote(
 		repoPath: string | undefined,
 		name: string,
@@ -486,7 +486,7 @@ export interface GitProviderRemotes {
 	removeRemote?(repoPath: string, name: string): Promise<void>;
 }
 
-export interface GitProviderStaging {
+export interface GitStagingSubProvider {
 	stageFile(repoPath: string, pathOrUri: string | Uri, options?: { intentToAdd?: boolean }): Promise<void>;
 	stageFiles(repoPath: string, pathOrUri: string[] | Uri[], options?: { intentToAdd?: boolean }): Promise<void>;
 	stageDirectory(repoPath: string, directoryOrUri: string | Uri, options?: { intentToAdd?: boolean }): Promise<void>;
@@ -495,7 +495,7 @@ export interface GitProviderStaging {
 	unstageDirectory(repoPath: string, directoryOrUri: string | Uri): Promise<void>;
 }
 
-export interface GitProviderStash {
+export interface GitStashSubProvider {
 	applyStash(repoPath: string, stashName: string, options?: { deleteAfter?: boolean | undefined }): Promise<void>;
 	getStash(repoPath: string | undefined): Promise<GitStash | undefined>;
 	getStashCommitFiles(
@@ -514,7 +514,7 @@ export interface GitProviderStash {
 	saveSnapshot(repoPath: string, message?: string): Promise<void>;
 }
 
-export interface GitProviderStatus {
+export interface GitStatusSubProvider {
 	getStatus(repoPath: string | undefined): Promise<GitStatus | undefined>;
 	getStatusForFile?(repoPath: string, uri: Uri): Promise<GitStatusFile | undefined>;
 	getStatusForFiles?(repoPath: string, pathOrGlob: Uri): Promise<GitStatusFile[] | undefined>;
@@ -524,7 +524,7 @@ export interface GitProviderStatus {
 	continuePausedOperation?(repoPath: string, options?: { skip?: boolean }): Promise<void>;
 }
 
-export interface GitProviderTags {
+export interface GitTagsSubProvider {
 	getTag(repoPath: string, name: string): Promise<GitTag | undefined>;
 	getTags(
 		repoPath: string,
@@ -539,7 +539,7 @@ export interface GitProviderTags {
 	deleteTag?(repoPath: string, name: string): Promise<void>;
 }
 
-export interface GitProviderWorktrees {
+export interface GitWorktreesSubProvider {
 	createWorktree(
 		repoPath: string,
 		path: string,
@@ -551,21 +551,21 @@ export interface GitProviderWorktrees {
 	deleteWorktree(repoPath: string, path: string | Uri, options?: { force?: boolean }): Promise<void>;
 }
 
-type SupportedProvidersForRepo =
-	| GitProviderBranches
-	| GitProviderPatch
-	| GitProviderRemotes
-	| GitProviderStaging
-	| GitProviderStash
-	| GitProviderStatus
-	| GitProviderTags
-	| GitProviderWorktrees;
+type GitSubProviders =
+	| GitBranchesSubProvider
+	| GitPatchSubProvider
+	| GitRemotesSubProvider
+	| GitStagingSubProvider
+	| GitStashSubProvider
+	| GitStatusSubProvider
+	| GitTagsSubProvider
+	| GitWorktreesSubProvider;
 
-export type GitProviderForRepo<T extends SupportedProvidersForRepo> = {
+export type GitSubProviderForRepo<T extends GitSubProviders> = {
 	[K in keyof T]: RemoveFirstArg<T[K]>;
 };
 
-export function createProviderProxyForRepo<T extends SupportedProvidersForRepo, U extends GitProviderForRepo<T>>(
+export function createSubProviderProxyForRepo<T extends GitSubProviders, U extends GitSubProviderForRepo<T>>(
 	target: T,
 	rp: string,
 ): U {
@@ -581,7 +581,7 @@ export function createProviderProxyForRepo<T extends SupportedProvidersForRepo, 
 	}) as unknown as U;
 }
 
-export interface GitProvider extends GitProviderRepository, Disposable {
+export interface GitProvider extends GitRepositoryProvider, Disposable {
 	get onDidChange(): Event<void>;
 	get onWillChangeRepository(): Event<RepositoryChangeEvent>;
 	get onDidChangeRepository(): Event<RepositoryChangeEvent>;

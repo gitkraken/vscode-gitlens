@@ -1,12 +1,12 @@
 import type { Container } from '../../../../../container';
-import type { GitProviderStatus } from '../../../../../git/gitProvider';
+import type { GitStatusSubProvider } from '../../../../../git/gitProvider';
 import { GitStatus } from '../../../../../git/models/status';
 import { gate } from '../../../../../system/decorators/gate';
 import { log } from '../../../../../system/decorators/log';
 import { HeadType } from '../../../../remotehub';
 import type { GitHubGitProviderInternal } from '../githubGitProvider';
 
-export class StatusGitProvider implements GitProviderStatus {
+export class StatusGitSubProvider implements GitStatusSubProvider {
 	constructor(
 		private readonly container: Container,
 		private readonly provider: GitHubGitProviderInternal,
