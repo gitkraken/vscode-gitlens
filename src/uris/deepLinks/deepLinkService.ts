@@ -924,17 +924,15 @@ export class DeepLinkService implements Disposable {
 
 						if (remoteName) {
 							try {
-								await repo.git.remotes().addRemoteWithResult?.(remoteName, remoteUrl, { fetch: true });
+								this._context.remote = await repo.git
+									.remotes()
+									.addRemoteWithResult?.(remoteName, remoteUrl, { fetch: true });
+								if (!this._context.remote) {
+									action = DeepLinkServiceAction.DeepLinkErrored;
+									message = 'Failed to add remote.';
+									break;
+								}
 							} catch {
-								action = DeepLinkServiceAction.DeepLinkErrored;
-								message = 'Failed to add remote.';
-								break;
-							}
-
-							[this._context.remote] = await repo.git
-								.remotes()
-								.getRemotes({ filter: r => r.url === remoteUrl });
-							if (!this._context.remote) {
 								action = DeepLinkServiceAction.DeepLinkErrored;
 								message = 'Failed to add remote.';
 								break;
@@ -953,19 +951,15 @@ export class DeepLinkService implements Disposable {
 
 						if (secondaryRemoteName) {
 							try {
-								await repo.git
+								this._context.secondaryRemote = await repo.git
 									.remotes()
 									.addRemoteWithResult?.(secondaryRemoteName, secondaryRemoteUrl, { fetch: true });
+								if (!this._context.secondaryRemote) {
+									action = DeepLinkServiceAction.DeepLinkErrored;
+									message = 'Failed to add remote.';
+									break;
+								}
 							} catch {
-								action = DeepLinkServiceAction.DeepLinkErrored;
-								message = 'Failed to add remote.';
-								break;
-							}
-
-							[this._context.secondaryRemote] = await repo.git.remotes().getRemotes({
-								filter: r => r.url === secondaryRemoteUrl,
-							});
-							if (!this._context.secondaryRemote) {
 								action = DeepLinkServiceAction.DeepLinkErrored;
 								message = 'Failed to add remote.';
 								break;
