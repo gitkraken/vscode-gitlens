@@ -551,7 +551,7 @@ export interface GitWorktreesSubProvider {
 	deleteWorktree(repoPath: string, path: string | Uri, options?: { force?: boolean }): Promise<void>;
 }
 
-type GitSubProviders =
+export type GitSubProvider =
 	| GitBranchesSubProvider
 	| GitPatchSubProvider
 	| GitRemotesSubProvider
@@ -561,11 +561,19 @@ type GitSubProviders =
 	| GitTagsSubProvider
 	| GitWorktreesSubProvider;
 
-export type GitSubProviderForRepo<T extends GitSubProviders> = {
+export type GitSubProviderProps = keyof {
+	[P in keyof GitProvider as NonNullable<GitProvider[P]> extends GitSubProvider ? P : never]: GitProvider[P];
+};
+
+export type NonNullableGitSubProviderProps = keyof {
+	[P in keyof GitProvider as GitProvider[P] extends GitSubProvider ? P : never]: GitProvider[P];
+};
+
+export type GitSubProviderForRepo<T extends GitSubProvider> = {
 	[K in keyof T]: RemoveFirstArg<T[K]>;
 };
 
-export function createSubProviderProxyForRepo<T extends GitSubProviders, U extends GitSubProviderForRepo<T>>(
+export function createSubProviderProxyForRepo<T extends GitSubProvider, U extends GitSubProviderForRepo<T>>(
 	target: T,
 	rp: string,
 ): U {

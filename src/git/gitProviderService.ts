@@ -53,10 +53,12 @@ import type {
 	GitStashSubProvider,
 	GitStatusSubProvider,
 	GitSubProviderForRepo,
+	GitSubProviderProps,
 	GitTagsSubProvider,
 	GitWorktreesSubProvider,
 	LeftRightCommitCountResult,
 	NextComparisonUrisResult,
+	NonNullableGitSubProviderProps,
 	PreviousComparisonUrisResult,
 	PreviousLineComparisonUrisResult,
 	RepositoryVisibility,
@@ -2474,60 +2476,79 @@ export class GitProviderService implements Disposable {
 		return provider.validateReference(path, ref);
 	}
 
+	private readonly _subProviderProxies = new Map<GitProvider, Map<string, GitSubProviderForRepo<any>>>();
+
+	private getSubProviderProxy<T extends NonNullableGitSubProviderProps>(
+		repoPath: string | Uri,
+		prop: T,
+	): GitSubProviderForRepo<GitProvider[T]>;
+	private getSubProviderProxy<T extends GitSubProviderProps>(
+		repoPath: string | Uri,
+		prop: T,
+	): GitSubProviderForRepo<NonNullable<GitProvider[T]>> | undefined;
+	private getSubProviderProxy<T extends GitSubProviderProps>(
+		repoPath: string | Uri,
+		prop: T,
+	): GitSubProviderForRepo<NonNullable<GitProvider[T]>> | undefined {
+		const { provider, path } = this.getProvider(repoPath);
+
+		let proxies = this._subProviderProxies.get(provider);
+		if (proxies == null) {
+			proxies = new Map();
+			this._subProviderProxies.set(provider, proxies);
+		}
+
+		const key = `${prop}|${path}`;
+		let proxy = proxies.get(key);
+		if (proxy == null) {
+			const subProvider = provider[prop];
+			if (subProvider == null) return undefined;
+
+			proxy = createSubProviderProxyForRepo(subProvider, path);
+			proxies.set(key, proxy);
+		}
+
+		return proxy;
+	}
+
 	@log()
 	branches(repoPath: string | Uri): GitSubProviderForRepo<GitBranchesSubProvider> {
-		const { provider, path: rp } = this.getProvider(repoPath);
-		return createSubProviderProxyForRepo(provider.branches, rp);
+		return this.getSubProviderProxy(repoPath, 'branches');
 	}
 
 	@log()
 	patch(repoPath: string | Uri): GitSubProviderForRepo<GitPatchSubProvider> | undefined {
-		const { provider, path: rp } = this.getProvider(repoPath);
-
-		const { patch } = provider;
-		return patch != null ? createSubProviderProxyForRepo(patch, rp) : undefined;
+		return this.getSubProviderProxy(repoPath, 'patch');
 	}
 
 	@log()
 	remotes(repoPath: string | Uri): GitSubProviderForRepo<GitRemotesSubProvider> {
-		const { provider, path: rp } = this.getProvider(repoPath);
-		return createSubProviderProxyForRepo(provider.remotes, rp);
+		return this.getSubProviderProxy(repoPath, 'remotes');
 	}
 
 	@log()
 	staging(repoPath: string | Uri): GitSubProviderForRepo<GitStagingSubProvider> | undefined {
-		const { provider, path: rp } = this.getProvider(repoPath);
-
-		const { staging } = provider;
-		return staging != null ? createSubProviderProxyForRepo(staging, rp) : undefined;
+		return this.getSubProviderProxy(repoPath, 'staging');
 	}
 
 	@log()
 	stash(repoPath: string | Uri): GitSubProviderForRepo<GitStashSubProvider> | undefined {
-		const { provider, path: rp } = this.getProvider(repoPath);
-
-		const { stash } = provider;
-		return stash != null ? createSubProviderProxyForRepo(stash, rp) : undefined;
+		return this.getSubProviderProxy(repoPath, 'stash');
 	}
 
 	@log()
 	status(repoPath: string | Uri): GitSubProviderForRepo<GitStatusSubProvider> {
-		const { provider, path: rp } = this.getProvider(repoPath);
-		return createSubProviderProxyForRepo(provider.status, rp);
+		return this.getSubProviderProxy(repoPath, 'status');
 	}
 
 	@log()
 	tags(repoPath: string | Uri): GitSubProviderForRepo<GitTagsSubProvider> {
-		const { provider, path: rp } = this.getProvider(repoPath);
-		return createSubProviderProxyForRepo(provider.tags, rp);
+		return this.getSubProviderProxy(repoPath, 'tags');
 	}
 
 	@log()
 	worktrees(repoPath: string | Uri): GitSubProviderForRepo<GitWorktreesSubProvider> | undefined {
-		const { provider, path: rp } = this.getProvider(repoPath);
-
-		const { worktrees } = provider;
-		return worktrees != null ? createSubProviderProxyForRepo(worktrees, rp) : undefined;
+		return this.getSubProviderProxy(repoPath, 'worktrees');
 	}
 
 	@log()
