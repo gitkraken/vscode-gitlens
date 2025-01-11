@@ -345,7 +345,7 @@ export class StashGitCommand extends QuickCommand<State> {
 			endSteps(state);
 
 			try {
-				await state.repo.stashApply(
+				await state.repo.git.stash()?.applyStash(
 					// pop can only take a stash index, e.g. `stash@{1}`
 					state.subcommand === 'pop' ? `stash@{${state.reference.number}}` : state.reference.ref,
 					{ deleteAfter: state.subcommand === 'pop' },
@@ -447,7 +447,7 @@ export class StashGitCommand extends QuickCommand<State> {
 			for (const ref of state.references) {
 				try {
 					// drop can only take a stash index, e.g. `stash@{1}`
-					await state.repo.stashDelete(`stash@{${ref.number}}`, ref.ref);
+					await state.repo.git.stash()?.deleteStash(`stash@{${ref.number}}`, ref.ref);
 				} catch (ex) {
 					Logger.error(ex, context.title);
 
@@ -540,9 +540,9 @@ export class StashGitCommand extends QuickCommand<State> {
 
 			try {
 				if (state.flags.includes('--snapshot')) {
-					await state.repo.stashSaveSnapshot(state.message);
+					await state.repo.git.stash()?.saveSnapshot(state.message);
 				} else {
-					await state.repo.stashSave(state.message, state.uris, {
+					await state.repo.git.stash()?.saveStash(state.message, state.uris, {
 						includeUntracked: state.flags.includes('--include-untracked'),
 						keepIndex: state.flags.includes('--keep-index'),
 						onlyStaged: state.flags.includes('--staged'),
@@ -745,12 +745,9 @@ export class StashGitCommand extends QuickCommand<State> {
 			endSteps(state);
 
 			try {
-				await state.repo.stashRename(
-					state.reference.name,
-					state.reference.ref,
-					state.message,
-					state.reference.stashOnRef,
-				);
+				await state.repo.git
+					.stash()
+					?.renameStash(state.reference.name, state.reference.ref, state.message, state.reference.stashOnRef);
 			} catch (ex) {
 				Logger.error(ex, context.title);
 				void showGenericErrorMessage(ex.message);

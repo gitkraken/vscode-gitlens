@@ -323,6 +323,11 @@ export class Repository implements Disposable {
 					}
 				}
 			}),
+			this.container.events.on('git:repo:change', e => {
+				if (e.data.repoPath === this.path) {
+					this.fireChange(...e.data.changes);
+				}
+			}),
 		);
 
 		const watcher = workspace.createFileSystemWatcher(new RelativePattern(this.uri, '**/.gitignore'));
@@ -846,50 +851,6 @@ export class Repository implements Disposable {
 
 	star(branch?: GitBranch) {
 		return this.updateStarred(true, branch);
-	}
-
-	@gate()
-	@log()
-	async stashApply(stashName: string, options?: { deleteAfter?: boolean }) {
-		await this.git.stash()?.applyStash(stashName, options);
-
-		this.fireChange(RepositoryChange.Stash);
-	}
-
-	@gate()
-	@log()
-	async stashDelete(stashName: string, ref?: string) {
-		await this.git.stash()?.deleteStash(stashName, ref);
-
-		this.fireChange(RepositoryChange.Stash);
-	}
-
-	@gate()
-	@log()
-	async stashRename(stashName: string, ref: string, message: string, stashOnRef?: string) {
-		await this.git.stash()?.renameStash(stashName, ref, message, stashOnRef);
-
-		this.fireChange(RepositoryChange.Stash);
-	}
-
-	@gate()
-	@log()
-	async stashSave(
-		message?: string,
-		uris?: Uri[],
-		options?: { includeUntracked?: boolean; keepIndex?: boolean; onlyStaged?: boolean },
-	): Promise<void> {
-		await this.git.stash()?.saveStash(message, uris, options);
-
-		this.fireChange(RepositoryChange.Stash);
-	}
-
-	@gate()
-	@log()
-	async stashSaveSnapshot(message?: string): Promise<void> {
-		await this.git.stash()?.saveSnapshot(message);
-
-		this.fireChange(RepositoryChange.Stash);
 	}
 
 	@gate()
