@@ -3,8 +3,9 @@ import { MarkdownString, TreeItem, TreeItemCollapsibleState } from 'vscode';
 import { GlyphChars } from '../../../constants';
 import type { GitUri } from '../../../git/gitUri';
 import { getHighlanderProviders } from '../../../git/models/remote';
-import type { RepositoryChangeEvent } from '../../../git/models/repository';
-import { Repository, RepositoryChange, RepositoryChangeComparisonMode } from '../../../git/models/repository';
+import type { Repository, RepositoryChangeEvent } from '../../../git/models/repository';
+import { RepositoryChange, RepositoryChangeComparisonMode } from '../../../git/models/repository';
+import { formatLastFetched } from '../../../git/models/repository.utils';
 import { gate } from '../../../system/decorators/gate';
 import { debug, log } from '../../../system/decorators/log';
 import { weakEvent } from '../../../system/event';
@@ -111,7 +112,7 @@ export abstract class RepositoryFolderNode<
 				}
 			}
 			if (lastFetched) {
-				item.description = `${item.description ?? ''}Last fetched ${Repository.formatLastFetched(lastFetched)}`;
+				item.description = `${item.description ?? ''}Last fetched ${formatLastFetched(lastFetched)}`;
 			}
 
 			let providerName;
@@ -128,10 +129,7 @@ export abstract class RepositoryFolderNode<
 			item.tooltip = new MarkdownString(
 				`${this.repo.formattedName ?? this.uri.repoPath ?? ''}${
 					lastFetched
-						? `${pad(GlyphChars.Dash, 2, 2)}Last fetched ${Repository.formatLastFetched(
-								lastFetched,
-								false,
-						  )}`
+						? `${pad(GlyphChars.Dash, 2, 2)}Last fetched ${formatLastFetched(lastFetched, false)}`
 						: ''
 				}${this.repo.formattedName ? `\n${this.uri.repoPath}` : ''}\n\nCurrent branch $(git-branch) ${
 					branch.name

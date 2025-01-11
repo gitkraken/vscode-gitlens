@@ -80,13 +80,13 @@ import type {
 } from '../../../git/models/reference';
 import { createReference, getReferenceFromBranch, isGitReference } from '../../../git/models/reference.utils';
 import { RemoteResourceType } from '../../../git/models/remoteResource';
-import type { RepositoryChangeEvent, RepositoryFileSystemChangeEvent } from '../../../git/models/repository';
-import {
-	isRepository,
+import type {
 	Repository,
-	RepositoryChange,
-	RepositoryChangeComparisonMode,
+	RepositoryChangeEvent,
+	RepositoryFileSystemChangeEvent,
 } from '../../../git/models/repository';
+import { isRepository, RepositoryChange, RepositoryChangeComparisonMode } from '../../../git/models/repository';
+import { getLastFetchedUpdateInterval } from '../../../git/models/repository.utils';
 import { uncommitted } from '../../../git/models/revision';
 import { isSha, shortenRevision } from '../../../git/models/revision.utils';
 import { getWorktreesByBranch } from '../../../git/models/worktree.utils';
@@ -2064,12 +2064,12 @@ export class GraphWebviewProvider implements WebviewProvider<State, State, Graph
 
 		const lastFetched = (await repo.getLastFetched()) ?? 0;
 
-		let interval = Repository.getLastFetchedUpdateInterval(lastFetched);
+		let interval = getLastFetchedUpdateInterval(lastFetched);
 		if (lastFetched !== 0 && interval > 0) {
 			this._lastFetchedDisposable = disposableInterval(() => {
 				// Check if the interval should change, and if so, reset it
-				const checkInterval = Repository.getLastFetchedUpdateInterval(lastFetched);
-				if (interval !== Repository.getLastFetchedUpdateInterval(lastFetched)) {
+				const checkInterval = getLastFetchedUpdateInterval(lastFetched);
+				if (interval !== getLastFetchedUpdateInterval(lastFetched)) {
 					interval = checkInterval;
 				}
 
