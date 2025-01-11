@@ -17,7 +17,7 @@ import type { GitCommit } from '../../../../git/models/commit';
 import { log } from '../../../../system/decorators/log';
 import { Logger } from '../../../../system/logger';
 import { getLogScope } from '../../../../system/logger.scope';
-import { joinPaths, normalizePath } from '../../../../system/path';
+import { joinPaths } from '../../../../system/path';
 import type { Git } from '../git';
 import type { LocalGitProvider } from '../localGitProvider';
 
@@ -94,10 +94,23 @@ export class PatchGitSubProvider implements GitPatchSubProvider {
 			}
 
 			try {
-				await this.provider.worktrees.createWorktree(repoPath, options.createWorktreePath, {
-					commitish: options?.branchName != null && branchExists ? options.branchName : currentBranch?.name,
-					createBranch: shouldCreate ? options.branchName : undefined,
-				});
+				const worktree = await this.provider.worktrees.createWorktreeWithResult(
+					repoPath,
+					options.createWorktreePath,
+					{
+						commitish:
+							options?.branchName != null && branchExists ? options.branchName : currentBranch?.name,
+						createBranch: shouldCreate ? options.branchName : undefined,
+					},
+				);
+				if (worktree == null) {
+					throw new ApplyPatchCommitError(
+						ApplyPatchCommitErrorReason.CreateWorktreeFailed,
+						'Unable to apply patch; failed creating worktree',
+					);
+				}
+
+				targetPath = worktree.uri.fsPath;
 			} catch (ex) {
 				Logger.error(ex, scope);
 				throw new ApplyPatchCommitError(
@@ -108,19 +121,6 @@ export class PatchGitSubProvider implements GitPatchSubProvider {
 					ex,
 				);
 			}
-
-			const worktree = await this.provider.worktrees?.getWorktree(
-				repoPath,
-				w => normalizePath(w.uri.fsPath) === normalizePath(options.createWorktreePath!),
-			);
-			if (worktree == null) {
-				throw new ApplyPatchCommitError(
-					ApplyPatchCommitErrorReason.CreateWorktreeFailed,
-					'Unable to apply patch; failed creating worktree',
-				);
-			}
-
-			targetPath = worktree.uri.fsPath;
 		}
 
 		if (options?.branchName != null && currentBranch?.name !== options.branchName) {

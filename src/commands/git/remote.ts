@@ -328,11 +328,9 @@ export class RemoteGitCommand extends QuickCommand<State> {
 
 			endSteps(state);
 
-			const remote = await state.repo.addRemote(
-				state.name,
-				state.url,
-				state.flags.includes('-f') ? { fetch: true } : undefined,
-			);
+			const remote = await state.repo.git
+				.remotes()
+				.addRemoteWithResult?.(state.name, state.url, state.flags.includes('-f') ? { fetch: true } : undefined);
 			if (state.reveal !== false) {
 				void reveal(remote, {
 					focus: true,

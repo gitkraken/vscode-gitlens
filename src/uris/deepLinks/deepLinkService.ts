@@ -924,7 +924,7 @@ export class DeepLinkService implements Disposable {
 
 						if (remoteName) {
 							try {
-								await repo.addRemote(remoteName, remoteUrl, { fetch: true });
+								await repo.git.remotes().addRemoteWithResult?.(remoteName, remoteUrl, { fetch: true });
 							} catch {
 								action = DeepLinkServiceAction.DeepLinkErrored;
 								message = 'Failed to add remote.';
@@ -953,7 +953,9 @@ export class DeepLinkService implements Disposable {
 
 						if (secondaryRemoteName) {
 							try {
-								await repo.addRemote(secondaryRemoteName, secondaryRemoteUrl, { fetch: true });
+								await repo.git
+									.remotes()
+									.addRemoteWithResult?.(secondaryRemoteName, secondaryRemoteUrl, { fetch: true });
 							} catch {
 								action = DeepLinkServiceAction.DeepLinkErrored;
 								message = 'Failed to add remote.';
