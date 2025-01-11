@@ -8,6 +8,7 @@ import type { GitCache } from '../cache';
 import type { GitProvider, GitRemotesSubProvider } from '../gitProvider';
 import type { GitRemote } from '../models/remote';
 import { getDefaultRemoteOrHighlander } from '../models/remote';
+import { RepositoryChange } from '../models/repository';
 import type { RemoteProvider } from '../remotes/remoteProvider';
 
 export abstract class RemotesGitProviderBase implements GitRemotesSubProvider {
@@ -180,5 +181,14 @@ export abstract class RemotesGitProviderBase implements GitRemotesSubProvider {
 		}
 
 		return undefined;
+	}
+
+	@log()
+	async setRemoteAsDefault(repoPath: string, name: string, value: boolean = true) {
+		await this.container.storage.storeWorkspace('remote:default', value ? name : undefined);
+		this.container.events.fire('git:repo:change', {
+			repoPath: repoPath,
+			changes: [RepositoryChange.Remotes, RepositoryChange.RemoteProviders],
+		});
 	}
 }
