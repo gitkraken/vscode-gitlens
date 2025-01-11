@@ -42,9 +42,9 @@ const millisecondsPerMinute = 60 * 1000;
 const millisecondsPerHour = 60 * 60 * 1000;
 const millisecondsPerDay = 24 * 60 * 60 * 1000;
 
-const dotGitWatcherGlobFiles = 'index,HEAD,*_HEAD,MERGE_*,rebase-merge/**,sequencer/**';
+const dotGitWatcherGlobFiles = 'index,HEAD,*_HEAD,MERGE_*,rebase-apply/**,rebase-merge/**,sequencer/**';
 const dotGitWatcherGlobWorktreeFiles =
-	'worktrees/*,worktrees/**/index,worktrees/**/HEAD,worktrees/**/*_HEAD,worktrees/**/MERGE_*,worktrees/**/rebase-merge/**,worktrees/**/sequencer/**';
+	'worktrees/*,worktrees/**/index,worktrees/**/HEAD,worktrees/**/*_HEAD,worktrees/**/MERGE_*,worktrees/**/rebase-merge/**,worktrees/**/rebase-apply/**,worktrees/**/sequencer/**';
 
 const dotGitWatcherGlobRoot = `{${dotGitWatcherGlobFiles}}`;
 const dotGitWatcherGlobCommon = `{config,refs/**,${dotGitWatcherGlobWorktreeFiles}}`;
@@ -454,7 +454,7 @@ export class Repository implements Disposable {
 
 	@debug()
 	private onRepositoryChanged(uri: Uri | undefined, base: Uri, _reason: 'create' | 'change' | 'delete') {
-		// TODO@eamodio Revisit -- as I can't seem to get this to work as a negative glob pattern match when creating the watcher
+		// VS Code won't work with negative glob pattern match when creating the watcher, so we have to ignore it here
 		if (uri?.path.includes('/fsmonitor--daemon/')) {
 			return;
 		}
@@ -467,7 +467,7 @@ export class Repository implements Disposable {
 		const match =
 			uri != null
 				? // Move worktrees first, since if it is in a worktree it isn't affecting this repo directly
-				  /(worktrees|index|HEAD|FETCH_HEAD|ORIG_HEAD|CHERRY_PICK_HEAD|MERGE_HEAD|REBASE_HEAD|rebase-merge|REVERT_HEAD|config|refs\/(?:heads|remotes|stash|tags))/.exec(
+				  /(worktrees|index|HEAD|FETCH_HEAD|ORIG_HEAD|CHERRY_PICK_HEAD|MERGE_HEAD|REBASE_HEAD|rebase-merge|rebase-apply|REVERT_HEAD|config|refs\/(?:heads|remotes|stash|tags))/.exec(
 						this.container.git.getRelativePath(uri, base),
 				  )
 				: undefined;
@@ -504,6 +504,7 @@ export class Repository implements Disposable {
 
 				case 'REBASE_HEAD':
 				case 'rebase-merge':
+				case 'rebase-apply':
 					this.fireChange(RepositoryChange.Rebase, RepositoryChange.PausedOperationStatus);
 					return;
 
