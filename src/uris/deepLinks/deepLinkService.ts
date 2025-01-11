@@ -22,7 +22,7 @@ import { createQuickPickSeparator } from '../../quickpicks/items/common';
 import { debug } from '../../system/decorators/log';
 import { once } from '../../system/event';
 import { Logger } from '../../system/logger';
-import { normalizePath } from '../../system/path';
+import { maybeUri, normalizePath } from '../../system/path';
 import { fromBase64 } from '../../system/string';
 import { executeCommand } from '../../system/vscode/command';
 import { configuration } from '../../system/vscode/configuration';
@@ -194,7 +194,7 @@ export class DeepLinkService implements Disposable {
 		isPending?: boolean,
 	): Promise<void> {
 		if (repoPath != null && isPending) {
-			const repoOpenUri = Uri.parse(repoPath);
+			const repoOpenUri = maybeUri(repoPath) ? Uri.parse(repoPath) : repoPath;
 			try {
 				const openRepo = await this.container.git.getOrOpenRepository(repoOpenUri, { detectNested: false });
 				if (openRepo != null) {
