@@ -1,4 +1,7 @@
 import { createContext } from '@lit/context';
+import type { PromoKeys } from '../../../constants.promos';
+import type { SubscriptionState } from '../../../constants.subscription';
+import type { Promo, PromoLocation } from '../../../plus/gk/account/promos';
 import { Logger } from '../../../system/logger';
 import type { LogScope } from '../../../system/logger.scope';
 import { getNewLogScope } from '../../../system/logger.scope';
@@ -61,3 +64,11 @@ export class TelemetryContext implements Disposable {
 export const ipcContext = createContext<HostIpc>('ipc');
 export const loggerContext = createContext<LoggerContext>('logger');
 export const telemetryContext = createContext<unknown>('telemetry');
+export const promoContext =
+	createContext<
+		(
+			subscriptionState: SubscriptionState | undefined,
+			location?: PromoLocation,
+			key?: PromoKeys,
+		) => Promo | undefined
+	>('promo');

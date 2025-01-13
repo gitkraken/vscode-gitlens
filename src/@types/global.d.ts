@@ -1,5 +1,6 @@
 export declare global {
 	declare const DEBUG: boolean;
+	declare const GL_PROMO_URI: string | undefined;
 
 	export type PartialDeep<T> = T extends Record<string, unknown> ? { [K in keyof T]?: PartialDeep<T[K]> } : T;
 	export type Optional<T, K extends keyof T> = Omit<T, K> & { [P in K]?: T[P] };

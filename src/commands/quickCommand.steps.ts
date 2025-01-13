@@ -45,7 +45,7 @@ import {
 } from '../git/utils/reference.utils';
 import { getHighlanderProviderName } from '../git/utils/remote.utils';
 import { createRevisionRange, isRevisionRange } from '../git/utils/revision.utils';
-import { getApplicablePromo } from '../plus/gk/utils/promo.utils';
+import { getApplicablePromo } from '../plus/gk/account/promos';
 import { isSubscriptionPaidPlan, isSubscriptionPreviewTrialExpired } from '../plus/gk/utils/subscription.utils';
 import type { LaunchpadCommandArgs } from '../plus/launchpad/launchpad';
 import {
@@ -2651,7 +2651,7 @@ export async function* ensureAccessStep<
 	} else {
 		if (access.subscription.required == null) return access;
 
-		const promo = getApplicablePromo(access.subscription.current.state, 'gate');
+		const promo = await getApplicablePromo(access.subscription.current.state, 'gate');
 		const detail = promo?.quickpick.detail;
 
 		placeholder = 'Pro feature — requires a trial or GitLens Pro for use on privately-hosted repos';
