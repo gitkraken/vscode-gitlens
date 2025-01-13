@@ -153,7 +153,7 @@ export function isLightTheme(theme: ColorTheme): boolean {
 	return theme.kind === ColorThemeKind.Light || theme.kind === ColorThemeKind.HighContrastLight;
 }
 
-export async function isFolder(uri: Uri): Promise<boolean> {
+export async function isFolderUri(uri: Uri): Promise<boolean> {
 	try {
 		const stats = await workspace.fs.stat(uri);
 		if ((stats.type & FileType.Directory) === FileType.Directory) {

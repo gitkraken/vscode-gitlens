@@ -14,7 +14,7 @@ import { debounce } from '../../system/function';
 import { Logger } from '../../system/logger';
 import { getLogScope, setLogScopeExit } from '../../system/logger.scope';
 import { setContext } from '../../system/vscode/context';
-import { isFolder, isVirtualUri } from '../../system/vscode/utils';
+import { isFolderUri, isVirtualUri } from '../../system/vscode/utils';
 import type { FileHistoryView } from '../fileHistoryView';
 import { SubscribeableViewNode } from './abstract/subscribeableViewNode';
 import type { ViewNode } from './abstract/viewNode';
@@ -62,7 +62,7 @@ export class FileHistoryTrackerNode extends SubscribeableViewNode<'file-history-
 				sha: this._base ?? this.uri.sha,
 			};
 			const fileUri = new GitUri(this.uri, commitish);
-			const folder = await isFolder(this.uri);
+			const folder = await isFolderUri(this.uri);
 
 			this.view.title = folder ? 'Folder History' : 'File History';
 

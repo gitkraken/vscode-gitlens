@@ -8,7 +8,7 @@ import type { Repository } from '../../../git/models/repository';
 import { Logger } from '../../../system/logger';
 import { getLogScope } from '../../../system/logger.scope';
 import { addVslsPrefixIfNeeded } from '../../../system/vscode/path';
-import { isFolder } from '../../../system/vscode/utils';
+import { isFolderUri } from '../../../system/vscode/utils';
 import { Git } from './git';
 import { LocalGitProvider } from './localGitProvider';
 
@@ -107,7 +107,7 @@ export class VslsGitProvider extends LocalGitProvider {
 		let repoPath: string | undefined;
 		try {
 			if (isDirectory == null) {
-				isDirectory = await isFolder(uri);
+				isDirectory = await isFolderUri(uri);
 			}
 
 			// If the uri isn't a directory, go up one level

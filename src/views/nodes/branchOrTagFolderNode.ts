@@ -68,7 +68,7 @@ export class BranchOrTagFolderNode extends ViewNode<'branch-tag-folder'> {
 			this._expand ? TreeItemCollapsibleState.Expanded : TreeItemCollapsibleState.Collapsed,
 		);
 		item.id = this.id;
-		item.contextValue = ContextValues.Folder;
+		item.contextValue = ContextValues.BranchOrTagFolder;
 		item.iconPath = ThemeIcon.Folder;
 		item.tooltip = this.label;
 		return item;
