@@ -480,11 +480,11 @@ export class HomeWebviewProvider implements WebviewProvider<State, State, HomeWe
 	private async openRebaseEditor(pausedOpArgs: GitPausedOperationCommandArgs) {
 		if (pausedOpArgs.operation.type !== 'rebase') return;
 
-		const repo = this._repositoryBranches.get(pausedOpArgs.operation.repoPath)?.repo;
-		if (repo == null) return;
+		const gitDir = await this.container.git.getGitDir(pausedOpArgs.operation.repoPath);
+		if (gitDir == null) return;
 
-		const rebaseTodoUri = Uri.joinPath(repo.uri, '.git', 'rebase-merge', 'git-rebase-todo');
-		await executeCoreCommand('vscode.openWith', rebaseTodoUri, 'gitlens.rebase', {
+		const rebaseTodoUri = Uri.joinPath(gitDir.uri, 'rebase-merge', 'git-rebase-todo');
+		void executeCoreCommand('vscode.openWith', rebaseTodoUri, 'gitlens.rebase', {
 			preview: false,
 		});
 	}
