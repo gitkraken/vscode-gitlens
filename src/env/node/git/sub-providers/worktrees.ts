@@ -1,7 +1,7 @@
 import { exec } from 'child_process';
 import { promises as fs } from 'fs';
 import { homedir } from 'os';
-import type { Uri } from 'vscode';
+import { Uri } from 'vscode';
 import type { Container } from '../../../../container';
 import type { GitCache } from '../../../../git/cache';
 import {
@@ -112,8 +112,20 @@ export class WorktreesGitSubProvider implements GitWorktreesSubProvider {
 	}
 
 	@log()
-	// eslint-disable-next-line @typescript-eslint/require-await
 	async getWorktreesDefaultUri(repoPath: string): Promise<Uri | undefined> {
+		let defaultUri = this.getWorktreesDefaultUriCore(repoPath);
+		if (defaultUri != null) return defaultUri;
+
+		// If we don't have a default set, default it to the parent folder of the repo folder
+		const repo = this.container.git.getRepository(repoPath);
+		defaultUri = (await repo?.getCommonRepositoryUri()) ?? repo?.uri;
+		if (defaultUri != null) {
+			defaultUri = Uri.joinPath(defaultUri, '..');
+		}
+		return defaultUri;
+	}
+
+	private getWorktreesDefaultUriCore(repoPath: string): Uri | undefined {
 		let location = configuration.get('worktrees.defaultLocation');
 		if (location == null) return undefined;
 
