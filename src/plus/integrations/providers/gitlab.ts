@@ -396,7 +396,7 @@ abstract class GitLabIntegrationBase<
 		};
 	}
 
-	override getPullRequestIdentityFromMaybeUrl(search: string): PullRequestUrlIdentity | undefined {
+	protected override getProviderPullRequestIdentityFromMaybeUrl(search: string): PullRequestUrlIdentity | undefined {
 		return getGitLabPullRequestIdentityFromMaybeUrl(search);
 	}
 }
