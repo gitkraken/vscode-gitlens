@@ -893,7 +893,7 @@ export class SubscriptionService implements Disposable {
 
 		const hasAccount = this._subscription.account != null;
 
-		const promoCode = getApplicablePromo(this._subscription.state)?.code;
+		const promoCode = (await getApplicablePromo(this._subscription.state))?.code;
 		if (promoCode != null) {
 			query.set('promoCode', promoCode);
 		}
@@ -1375,8 +1375,9 @@ export class SubscriptionService implements Disposable {
 		subscription.state = computeSubscriptionState(subscription);
 		assertSubscriptionState(subscription);
 
-		const promo = getApplicablePromo(subscription.state);
-		void setContext('gitlens:promo', promo?.key);
+		void getApplicablePromo(subscription.state).then(promo => {
+			void setContext('gitlens:promo', promo?.key);
+		});
 
 		const previous = this._subscription as typeof this._subscription | undefined; // Can be undefined here, since we call this in the constructor
 		// Check the previous and new subscriptions are exactly the same

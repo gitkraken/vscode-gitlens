@@ -15,6 +15,7 @@
 		"../../@types/**/*",
 		"../../env/browser/**/*",
 		"../../plus/gk/account/promos.ts",
+		"../../plus/gk/account/promosTools.ts",
 		"../../plus/gk/account/subscription.ts",
 		"../../plus/launchpad/models.ts",
 		"../**/protocol.ts",

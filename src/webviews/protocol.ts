@@ -10,6 +10,7 @@ import type {
 	WebviewViewIds,
 	WebviewViewTypes,
 } from '../constants.views';
+import type { Promo } from '../plus/gk/account/promos';
 import type { ConfigPath, ConfigPathValue, Path, PathValue } from '../system/vscode/configuration';
 
 export type IpcScope = 'core' | CustomEditorTypes | WebviewTypes | WebviewViewTypes;
@@ -72,6 +73,7 @@ export class IpcNotification<Params = void> extends IpcCall<Params> {}
 // COMMANDS
 
 export const WebviewReadyCommand = new IpcCommand('core', 'webview/ready');
+export const ReadPromoCommand = new IpcCommand('core', 'webview/promo/read');
 
 export interface WebviewFocusChangedParams {
 	focused: boolean;
@@ -142,6 +144,8 @@ export const DidChangeWebviewFocusNotification = new IpcCommand<DidChangeWebview
 	'core',
 	'webview/focus/didChange',
 );
+
+export const DidPromoInitialized = new IpcCommand<{ promo: Promo[] | undefined }>('core', 'webview/promo/initialized');
 
 export interface DidChangeConfigurationParams {
 	config: Config;

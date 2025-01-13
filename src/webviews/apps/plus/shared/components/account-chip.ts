@@ -6,7 +6,6 @@ import { urls } from '../../../../../constants';
 import { proTrialLengthInDays, SubscriptionPlanId, SubscriptionState } from '../../../../../constants.subscription';
 import type { Source } from '../../../../../constants.telemetry';
 import type { Promo } from '../../../../../plus/gk/account/promos';
-import { getApplicablePromo } from '../../../../../plus/gk/account/promos';
 import {
 	getSubscriptionPlanTier,
 	getSubscriptionStateName,
@@ -17,13 +16,14 @@ import { createCommandLink } from '../../../../../system/commands';
 import { pluralize } from '../../../../../system/string';
 import type { State } from '../../../../home/protocol';
 import { stateContext } from '../../../home/context';
-import type { GlPopover } from '../../../shared/components/overlays/popover.react';
-import { elementBase, linkBase } from '../../../shared/components/styles/lit/base.css';
-import { chipStyles } from './chipStyles';
 import '../../../shared/components/button';
 import '../../../shared/components/button-container';
 import '../../../shared/components/code-icon';
 import '../../../shared/components/overlays/popover';
+import type { GlPopover } from '../../../shared/components/overlays/popover.react';
+import { elementBase, linkBase } from '../../../shared/components/styles/lit/base.css';
+import { promoContext } from '../../../shared/context';
+import { chipStyles } from './chipStyles';
 
 @customElement('gl-account-chip')
 export class GLAccountChip extends LitElement {
@@ -395,8 +395,11 @@ export class GLAccountChip extends LitElement {
 		</div>`;
 	}
 
+	@consume({ context: promoContext, subscribe: true })
+	private readonly getApplicablePromo!: typeof promoContext.__context__;
+
 	private renderAccountState() {
-		const promo = getApplicablePromo(this.subscriptionState, 'account');
+		const promo = this.getApplicablePromo(this.subscriptionState, 'account');
 
 		switch (this.subscriptionState) {
 			case SubscriptionState.Paid:

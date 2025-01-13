@@ -1,13 +1,19 @@
 import { provide } from '@lit/context';
 import { html, LitElement } from 'lit';
-import { property } from 'lit/decorators.js';
+import { property, state } from 'lit/decorators.js';
 import type { CustomEditorIds, WebviewIds, WebviewViewIds } from '../../../constants.views';
+import { pickApplicablePromo } from '../../../plus/gk/account/promosTools';
 import type { Deferrable } from '../../../system/function';
 import { debounce } from '../../../system/function';
 import type { WebviewFocusChangedParams } from '../../protocol';
-import { DidChangeWebviewFocusNotification, WebviewFocusChangedCommand, WebviewReadyCommand } from '../../protocol';
+import {
+	DidChangeWebviewFocusNotification,
+	DidPromoInitialized,
+	WebviewFocusChangedCommand,
+	WebviewReadyCommand,
+} from '../../protocol';
 import { GlElement } from './components/element';
-import { ipcContext, LoggerContext, loggerContext, telemetryContext, TelemetryContext } from './context';
+import { ipcContext, LoggerContext, loggerContext, promoContext, telemetryContext, TelemetryContext } from './context';
 import type { Disposable } from './events';
 import { HostIpc } from './ipc';
 
@@ -35,6 +41,10 @@ export abstract class GlApp<
 
 	@provide({ context: loggerContext })
 	protected _logger!: LoggerContext;
+
+	@provide({ context: promoContext })
+	@state()
+	protected _getApplicablePromo: typeof promoContext.__context__ = () => undefined;
 
 	@provide({ context: telemetryContext })
 	protected _telemetry!: TelemetryContext;
@@ -74,6 +84,9 @@ export abstract class GlApp<
 				switch (true) {
 					case DidChangeWebviewFocusNotification.is(msg):
 						window.dispatchEvent(new CustomEvent(msg.params.focused ? 'webview-focus' : 'webview-blur'));
+						break;
+					case DidPromoInitialized.is(msg):
+						this._getApplicablePromo = pickApplicablePromo.bind(null, msg.params.promo);
 						break;
 				}
 			}),

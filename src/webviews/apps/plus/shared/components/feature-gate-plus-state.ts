@@ -1,3 +1,4 @@
+import { consume } from '@lit/context';
 import { css, html, LitElement, nothing } from 'lit';
 import { customElement, property, query } from 'lit/decorators.js';
 import { urls } from '../../../../../constants';
@@ -12,12 +13,12 @@ import type { Source } from '../../../../../constants.telemetry';
 import type { FeaturePreview } from '../../../../../features';
 import { getFeaturePreviewStatus } from '../../../../../features';
 import type { Promo } from '../../../../../plus/gk/account/promos';
-import { getApplicablePromo } from '../../../../../plus/gk/account/promos';
 import { pluralize } from '../../../../../system/string';
-import type { GlButton } from '../../../shared/components/button';
-import { linkStyles } from './vscode.css';
 import '../../../shared/components/button';
+import type { GlButton } from '../../../shared/components/button';
 import '../../../shared/components/promo';
+import { promoContext } from '../../../shared/context';
+import { linkStyles } from './vscode.css';
 
 declare global {
 	interface HTMLElementTagNameMap {
@@ -112,6 +113,9 @@ export class GlFeatureGatePlusState extends LitElement {
 		}
 	}
 
+	@consume({ context: promoContext, subscribe: true })
+	private readonly getApplicablePromo!: typeof promoContext.__context__;
+
 	override render() {
 		if (this.state == null) {
 			this.hidden = true;
@@ -120,7 +124,7 @@ export class GlFeatureGatePlusState extends LitElement {
 
 		this.hidden = false;
 		const appearance = (this.appearance ?? 'alert') === 'alert' ? 'alert' : nothing;
-		const promo = this.state ? getApplicablePromo(this.state, 'gate') : undefined;
+		const promo = this.state ? this.getApplicablePromo(this.state, 'gate') : undefined;
 
 		switch (this.state) {
 			case SubscriptionState.VerificationRequired:

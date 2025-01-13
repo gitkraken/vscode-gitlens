@@ -2652,7 +2652,7 @@ export async function* ensureAccessStep<
 	} else {
 		if (access.subscription.required == null) return access;
 
-		const promo = getApplicablePromo(access.subscription.current.state, 'gate');
+		const promo = await getApplicablePromo(access.subscription.current.state, 'gate');
 		const detail = promo?.quickpick.detail;
 
 		placeholder = 'Pro feature — requires a trial or GitLens Pro for use on privately-hosted repos';

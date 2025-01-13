@@ -1,3 +1,4 @@
+import { consume } from '@lit/context';
 import type { TemplateResult } from 'lit';
 import { css, html, LitElement, nothing, unsafeCSS } from 'lit';
 import { customElement, property } from 'lit/decorators.js';
@@ -6,7 +7,6 @@ import { GlCommand } from '../../../../constants.commands';
 import { proTrialLengthInDays, SubscriptionPlanId, SubscriptionState } from '../../../../constants.subscription';
 import type { Source } from '../../../../constants.telemetry';
 import type { Promo } from '../../../../plus/gk/account/promos';
-import { getApplicablePromo } from '../../../../plus/gk/account/promos';
 import type { Subscription } from '../../../../plus/gk/account/subscription';
 import {
 	getSubscriptionPlanName,
@@ -15,12 +15,13 @@ import {
 	isSubscriptionStateTrial,
 } from '../../../../plus/gk/account/subscription';
 import { pluralize } from '../../../../system/string';
-import type { GlPopover } from './overlays/popover';
-import { focusOutline } from './styles/lit/a11y.css';
-import { elementBase, linkBase } from './styles/lit/base.css';
+import { promoContext } from '../context';
 import './overlays/popover';
+import type { GlPopover } from './overlays/popover';
 import './overlays/tooltip';
 import './promo';
+import { focusOutline } from './styles/lit/a11y.css';
+import { elementBase, linkBase } from './styles/lit/base.css';
 
 declare global {
 	interface HTMLElementTagNameMap {
@@ -329,8 +330,11 @@ export class GlFeatureBadge extends LitElement {
 		</div>`;
 	}
 
+	@consume({ context: promoContext, subscribe: true })
+	getApplicablePromo!: typeof promoContext.__context__;
+
 	private renderUpgradeActions(leadin?: TemplateResult) {
-		const promo = getApplicablePromo(this.state, 'badge');
+		const promo = this.getApplicablePromo(this.state, 'badge');
 
 		return html`<div class="actions">
 			${leadin ?? nothing}
