@@ -1,6 +1,7 @@
 import type { GitConfigKeys } from '../../../../constants';
 import type { Container } from '../../../../container';
 import type { GitCache } from '../../../../git/cache';
+import { GitErrorHandling } from '../../../../git/commandOptions';
 import type {
 	BranchContributionsOverview,
 	GitBranchesSubProvider,
@@ -467,7 +468,7 @@ export class BranchesGitSubProvider implements GitBranchesSubProvider {
 
 	private async getValidatedBranchName(repoPath: string, name: string): Promise<string | undefined> {
 		const data = await this.git.exec<string>(
-			{ cwd: repoPath },
+			{ cwd: repoPath, errors: GitErrorHandling.Ignore },
 			'rev-parse',
 			'--verify',
 			'--quiet',
