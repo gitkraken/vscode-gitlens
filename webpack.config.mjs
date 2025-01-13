@@ -524,7 +524,21 @@ function getWebviewsConfig(mode, env) {
 							},
 						},
 					],
-					exclude: /node_modules/,
+					exclude: [/node_modules/, /\.lit\.scss$/],
+				},
+				{
+					test: /\.lit\.scss$/,
+					use: [
+						{
+							loader: 'lit-scss-loader',
+							options: {
+								minify: true, // defaults to false
+							},
+						},
+						'extract-loader',
+						'css-loader',
+						'sass-loader',
+					],
 				},
 			],
 		},
