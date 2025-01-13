@@ -9,7 +9,7 @@ import type {
 	PagingOptions,
 } from '../../../../git/gitProvider';
 import { GitBranch } from '../../../../git/models/branch';
-import { isDetachedHead } from '../../../../git/models/branch.utils';
+import { getLocalBranchByUpstream, isDetachedHead } from '../../../../git/models/branch.utils';
 import type { MergeConflict } from '../../../../git/models/mergeConflict';
 import { createRevisionRange } from '../../../../git/models/revision.utils';
 import { parseGitBranches } from '../../../../git/parsers/branchParser';
@@ -21,6 +21,7 @@ import { gate } from '../../../../system/decorators/gate';
 import { log } from '../../../../system/decorators/log';
 import { Logger } from '../../../../system/logger';
 import { getLogScope } from '../../../../system/logger.scope';
+import { PageableResult } from '../../../../system/paging';
 import { getSettledValue } from '../../../../system/promise';
 import { configuration } from '../../../../system/vscode/configuration';
 import type { Git } from '../git';
@@ -307,6 +308,14 @@ export class BranchesGitSubProvider implements GitBranchesSubProvider {
 	@log()
 	async createBranch(repoPath: string, name: string, ref: string): Promise<void> {
 		await this.git.branch(repoPath, name, ref);
+	}
+
+	@log()
+	async getLocalBranchByUpstream(repoPath: string, remoteBranchName: string): Promise<GitBranch | undefined> {
+		const branches = new PageableResult<GitBranch>(p =>
+			this.getBranches(repoPath, p != null ? { paging: p } : undefined),
+		);
+		return getLocalBranchByUpstream(remoteBranchName, branches);
 	}
 
 	@log()

@@ -9,14 +9,13 @@ import {
 	getIssueFromGitConfigEntityIdentifier,
 } from '../../plus/integrations/providers/utils';
 import { Logger } from '../../system/logger';
-import { PageableResult } from '../../system/paging';
+import type { PageableResult } from '../../system/paging';
 import type { MaybePausedResult } from '../../system/promise';
 import { getSettledValue, pauseOnCancelOrTimeout } from '../../system/promise';
 import type { GitBranch } from './branch';
 import type { Issue } from './issue';
 import type { PullRequest } from './pullRequest';
 import type { GitBranchReference, GitReference } from './reference';
-import type { Repository } from './repository';
 import { shortenRevision } from './revision.utils';
 
 const detachedHEADRegex = /^(HEAD|\(.*\))$/;
@@ -100,9 +99,8 @@ export async function getDefaultBranchName(
 }
 
 export async function getLocalBranchByUpstream(
-	repo: Repository,
 	remoteBranchName: string,
-	branches?: PageableResult<GitBranch> | Map<unknown, GitBranch>,
+	branches: PageableResult<GitBranch> | Map<unknown, GitBranch>,
 ): Promise<GitBranch | undefined> {
 	let qualifiedRemoteBranchName;
 	if (remoteBranchName.startsWith('remotes/')) {
@@ -111,10 +109,6 @@ export async function getLocalBranchByUpstream(
 	} else {
 		qualifiedRemoteBranchName = `remotes/${remoteBranchName}`;
 	}
-
-	branches ??= new PageableResult<GitBranch>(p =>
-		repo.git.branches().getBranches(p != null ? { paging: p } : undefined),
-	);
 
 	function matches(branch: GitBranch): boolean {
 		return (

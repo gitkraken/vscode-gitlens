@@ -2754,11 +2754,7 @@ export class GraphWebviewProvider implements WebviewProvider<State, State, Graph
 							type: 'remote',
 						});
 
-						const localDefault = await getLocalBranchByUpstream(
-							this.repository!,
-							defaultBranchName,
-							graph.branches,
-						);
+						const localDefault = await getLocalBranchByUpstream(defaultBranchName, graph.branches);
 						if (localDefault != null) {
 							refs.push({
 								id: localDefault.id,
@@ -2899,11 +2895,7 @@ export class GraphWebviewProvider implements WebviewProvider<State, State, Graph
 							});
 						}
 
-						const localDefault = await getLocalBranchByUpstream(
-							this.repository!,
-							defaultBranchName,
-							graph.branches,
-						);
+						const localDefault = await getLocalBranchByUpstream(defaultBranchName, graph.branches);
 						if (localDefault != null) {
 							if (!refs.has(localDefault.id)) {
 								refs.set(localDefault.id, {
