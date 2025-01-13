@@ -31,6 +31,9 @@ export class GlTimelineApp extends GlApp<State> {
 	protected override createStateProvider(state: State, ipc: HostIpc) {
 		return new TimelineStateProvider(this, state, ipc);
 	}
+	protected override onPersistState(state: State) {
+		this._ipc.setState({ period: state.period, uri: state.uri });
+	}
 
 	override connectedCallback(): void {
 		super.connectedCallback();
@@ -86,8 +89,14 @@ export class GlTimelineApp extends GlApp<State> {
 		return this.state.uri;
 	}
 
+	@state()
+	private _zoomed = false;
+	get zoomed() {
+		return this._zoomed;
+	}
+
 	protected override willUpdate(changedProperties: PropertyValues): void {
-		if (!changedProperties.has('_loading')) {
+		if (!changedProperties.has('_loading') && !changedProperties.has('_zoomed')) {
 			this._loading = Boolean(this.state.dataset && this.uri);
 		}
 
@@ -116,6 +125,25 @@ export class GlTimelineApp extends GlApp<State> {
 						</span>
 					</span>
 					<span class="toolbox">
+						${this.zoomed
+							? html`<gl-button
+									appearance="toolbar"
+									@click=${(e: MouseEvent) =>
+										e.shiftKey || e.altKey ? this._chart?.reset() : this._chart?.zoom(-1)}
+									aria-label="Zoom Out"
+							  >
+									<code-icon icon="zoom-out"></code-icon>
+									<span slot="tooltip">Zoom Out<br />[Alt] Reset Zoom</span>
+							  </gl-button>`
+							: nothing}
+						<gl-button
+							appearance="toolbar"
+							@click=${() => this._chart?.zoom(0.5)}
+							tooltip="Zoom In"
+							aria-label="Zoom In"
+						>
+							<code-icon icon="zoom-in"></code-icon>
+						</gl-button>
 						<span class="select-container">
 							<label for="periods">Timeframe</label>
 							<select
@@ -136,15 +164,16 @@ export class GlTimelineApp extends GlApp<State> {
 								<option value="all" ?selected=${this.period === 'all'}>Full history</option>
 							</select>
 						</span>
-						<gl-button
-							appearance="toolbar"
-							data-placement-visible="view"
-							href="command:gitlens.views.timeline.openInTab"
-							tooltip="Open in Editor"
-							aria-label="Open in Editor"
-						>
-							<code-icon icon="link-external"></code-icon>
-						</gl-button>
+						${this.placement === 'view'
+							? html`<gl-button
+									appearance="toolbar"
+									href="command:gitlens.views.timeline.openInTab"
+									tooltip="Open in Editor"
+									aria-label="Open in Editor"
+							  >
+									<code-icon icon="link-external"></code-icon>
+							  </gl-button>`
+							: nothing}
 						${this.subscription == null || !isSubscriptionPaid(this.subscription)
 							? html`<gl-feature-badge
 									placement="bottom"
@@ -170,11 +199,12 @@ export class GlTimelineApp extends GlApp<State> {
 		return html`<gl-timeline-chart
 			id="chart"
 			placement="${this.placement}"
-			dateFormat=${this.state.dateFormat}
-			shortDateFormat=${this.state.shortDateFormat}
+			dateFormat="${this.state.dateFormat}"
+			shortDateFormat="${this.state.shortDateFormat}"
 			.dataPromise=${this.state.dataset}
 			@gl-data-point-click=${this.onChartDataPointClicked}
 			@gl-load=${() => (this._loading = false)}
+			@gl-zoomed=${(e: CustomEvent<boolean>) => (this._zoomed = e.detail)}
 		>
 		</gl-timeline-chart>`;
 	}

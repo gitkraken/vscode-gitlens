@@ -48,13 +48,27 @@ export const timelineChartStyles = css`
 		font-size: 11px;
 	}
 
-	.bb .bb-legend-item-tile,
+	.bb .bb-event-rects,
+	.bb .bb-event-rect {
+		cursor: pointer !important;
+	}
+
+	.bb .bb-event-rects:active,
+	.bb .bb-event-rect:active {
+		cursor: ew-resize !important;
+	}
+
 	.bb .bb-xgrid-focus,
 	.bb .bb-ygrid-focus,
 	.bb .bb-ygrid,
 	.bb .bb-event-rect,
 	.bb .bb-bars path {
 		shape-rendering: crispEdges;
+	}
+
+	.bb .bb-legend-item-tile {
+		stroke-width: 2px;
+		transform: translate(0, 1px);
 	}
 
 	.bb .bb-chart-arc .bb-gauge-value {
@@ -374,5 +388,24 @@ export const timelineChartStyles = css`
 
 	.bb-tooltip .message__content {
 		white-space: pre-line;
+	}
+
+	:host-context(:host[placement='view']) .bb-axis-y .tick text {
+		transform: translate(0, 0.4rem);
+		font-family: codicon;
+		font-size: 1.5rem;
+	}
+
+	@media (max-height: 275px) {
+		:host-context(:host[placement='view']) .bb-axis-y .tick text {
+			transform: none;
+			font-size: 1rem;
+		}
+	}
+
+	@media (max-height: 225px) {
+		:host-context(:host[placement='view']) .bb-axis-y .tick text {
+			display: none;
+		}
 	}
 `;
