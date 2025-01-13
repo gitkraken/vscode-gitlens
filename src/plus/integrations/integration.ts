@@ -1363,5 +1363,9 @@ export abstract class HostingIntegration<
 		cancellation?: CancellationToken,
 	): Promise<PullRequest[] | undefined>;
 
-	getPullRequestIdentityFromMaybeUrl?(search: string): PullRequestUrlIdentity | undefined;
+	getPullRequestIdentityFromMaybeUrl(search: string): PullRequestUrlIdentity | undefined {
+		return this.getProviderPullRequestIdentityFromMaybeUrl?.(search);
+	}
+
+	protected getProviderPullRequestIdentityFromMaybeUrl?(search: string): PullRequestUrlIdentity | undefined;
 }

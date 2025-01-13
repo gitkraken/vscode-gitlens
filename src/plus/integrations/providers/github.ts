@@ -295,7 +295,7 @@ export class GitHubIntegration extends GitHubIntegrationBase<HostingIntegrationI
 		}
 	}
 
-	override getPullRequestIdentityFromMaybeUrl(search: string): PullRequestUrlIdentity | undefined {
+	protected override getProviderPullRequestIdentityFromMaybeUrl(search: string): PullRequestUrlIdentity | undefined {
 		return getGitHubPullRequestIdentityFromMaybeUrl(search);
 	}
 }

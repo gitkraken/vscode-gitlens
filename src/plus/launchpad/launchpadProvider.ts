@@ -598,7 +598,7 @@ export class LaunchpadProvider implements Disposable {
 		for (const integrationId of supportedLaunchpadIntegrations) {
 			if (connectedIntegrations.get(integrationId)) {
 				const integration = await this.container.integrations.get(integrationId);
-				const prIdentity = integration.getPullRequestIdentityFromMaybeUrl?.(search);
+				const prIdentity = integration.getPullRequestIdentityFromMaybeUrl(search);
 				if (prIdentity) {
 					return prIdentity;
 				}
