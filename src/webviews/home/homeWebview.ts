@@ -830,7 +830,7 @@ export class HomeWebviewProvider implements WebviewProvider<State, State, HomeWe
 			);
 
 			const integrationsResults = await Promise.allSettled(promises);
-			const integrations = [...filterMap(integrationsResults, r => getSettledValue(r))];
+			const integrations: IntegrationState[] = [...filterMap(integrationsResults, r => getSettledValue(r))];
 
 			this._defaultSupportedCloudIntegrations ??= supportedCloudIntegrationDescriptors.map(d => ({
 				...d,
@@ -838,14 +838,28 @@ export class HomeWebviewProvider implements WebviewProvider<State, State, HomeWe
 			}));
 
 			// union (uniquely by id) with supportedCloudIntegrationDescriptors
-			integrations.push(
-				...this._defaultSupportedCloudIntegrations.filter(d => !integrations.some(i => i.id === d.id)),
-			);
-			integrations.sort(
-				(a, b) =>
+			this._defaultSupportedCloudIntegrations.forEach(d => {
+				const i = integrations.find(i => i.id === d.id);
+				if (i == null) {
+					integrations.push(d);
+				} else {
+					if (d.weight !== undefined) {
+						i.weight = d.weight;
+					}
+					if (i.icon !== d.icon) {
+						i.icon = d.icon;
+					}
+				}
+			});
+			integrations.sort((a, b) => {
+				if (a.weight !== undefined && b.weight !== undefined) {
+					return -(a.weight - b.weight);
+				}
+				return (
 					supportedOrderedCloudIntegrationIds.indexOf(a.id) -
-					supportedOrderedCloudIntegrationIds.indexOf(b.id),
-			);
+					supportedOrderedCloudIntegrationIds.indexOf(b.id)
+				);
+			});
 
 			this._integrationStates = integrations;
 		}

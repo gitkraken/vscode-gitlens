@@ -98,6 +98,20 @@ export class ProvidersApi {
 					providerApis.github,
 				) as GetIssuesForReposFn,
 			},
+			[SelfHostedIntegrationId.CloudGitHubEnterprise]: {
+				...providersMetadata[SelfHostedIntegrationId.GitHubEnterprise],
+				provider: providerApis.github,
+				getCurrentUserFn: providerApis.github.getCurrentUser.bind(providerApis.github) as GetCurrentUserFn,
+				getPullRequestsForReposFn: providerApis.github.getPullRequestsForRepos.bind(
+					providerApis.github,
+				) as GetPullRequestsForReposFn,
+				getPullRequestsForUserFn: providerApis.github.getPullRequestsAssociatedWithUser.bind(
+					providerApis.github,
+				) as GetPullRequestsForUserFn,
+				getIssuesForReposFn: providerApis.github.getIssuesForRepos.bind(
+					providerApis.github,
+				) as GetIssuesForReposFn,
+			},
 			[SelfHostedIntegrationId.GitHubEnterprise]: {
 				...providersMetadata[SelfHostedIntegrationId.GitHubEnterprise],
 				provider: providerApis.github,
