@@ -153,7 +153,7 @@ export class GlSearchBox extends GlElement {
 	resultsLoaded = false;
 
 	get hasResults() {
-		return this.total > 1;
+		return this.total >= 1;
 	}
 
 	@query('gl-search-input')
@@ -221,6 +221,9 @@ export class GlSearchBox extends GlElement {
 	}
 
 	private get resultsHtml() {
+		if (!this.value) {
+			return html`<span class="count"></span>`;
+		}
 		if (this.searching) {
 			return html`<gl-tooltip hoist placement="top" class="count"
 				><code-icon icon="loading" modifier="spin"></code-icon><span slot="content">Searching...</span>
