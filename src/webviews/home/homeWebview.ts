@@ -194,26 +194,13 @@ export class HomeWebviewProvider implements WebviewProvider<State, State, HomeWe
 		}
 
 		this._discovering = this.container.git.isDiscoveringRepositories;
+		void this._discovering.finally(() => (this._discovering = undefined));
 		this._etag = await this._discovering;
-		this._discovering = undefined;
 		this.notifyDidCompleteDiscoveringRepositories();
 	}
 
 	private onChangeConnectionState() {
-		void this.notifyDidChangeOnboardingIntegration();
-	}
-
-	private async shouldNotifyRepositoryChange(): Promise<boolean> {
-		if (this._etag === this.container.git.etag) {
-			return false;
-		}
-
-		if (this._discovering != null) {
-			this._etag = await this._discovering;
-			if (this._etag === this.container.git.etag) return false;
-		}
-
-		return true;
+		void this.notifyDidChangeIntegrations();
 	}
 
 	private async onChooseRepository() {
@@ -237,10 +224,9 @@ export class HomeWebviewProvider implements WebviewProvider<State, State, HomeWe
 		this.selectRepository(pick.path);
 	}
 
-	private async onRepositoriesChanged() {
-		if (!(await this.shouldNotifyRepositoryChange())) {
-			return;
-		}
+	private onRepositoriesChanged() {
+		if (this._discovering != null || this._etag === this.container.git.etag) return;
+
 		this.notifyDidChangeRepositories();
 	}
 
@@ -394,7 +380,10 @@ export class HomeWebviewProvider implements WebviewProvider<State, State, HomeWe
 		}
 
 		this.resumeRepositorySubscription();
-		this.notifyDidChangeRepositories(true);
+
+		if (this._discovering == null && this._etag !== this.container.git.etag) {
+			this.notifyDidChangeRepositories(true);
+		}
 	}
 
 	private openInGraph(params: OpenInGraphParams) {
@@ -903,6 +892,8 @@ export class HomeWebviewProvider implements WebviewProvider<State, State, HomeWe
 	}
 	private _notifyDidChangeRepositoriesDebounced: Deferrable<() => void> | undefined = undefined;
 	private notifyDidChangeRepositories(immediate = false) {
+		if (this._discovering != null) return;
+
 		if (immediate) {
 			this.notifyDidChangeRepositoriesCore();
 			return;
@@ -934,7 +925,7 @@ export class HomeWebviewProvider implements WebviewProvider<State, State, HomeWe
 		void this.host.notify(DidChangeLaunchpad, undefined);
 	}
 
-	private async notifyDidChangeOnboardingIntegration() {
+	private async notifyDidChangeIntegrations() {
 		// force rechecking
 		const integrations = await this.getIntegrationStates(true);
 		const anyConnected = integrations.some(i => i.connected);
