@@ -1,5 +1,5 @@
 import type { ConfigurationChangeEvent } from 'vscode';
-import { Disposable, Uri, workspace } from 'vscode';
+import { Disposable, Uri, window, workspace } from 'vscode';
 import type { CreatePullRequestActionContext } from '../../api/gitlens';
 import type { EnrichedAutolink } from '../../autolinks';
 import { getAvatarUriFromGravatarEmail } from '../../avatars';
@@ -463,18 +463,42 @@ export class HomeWebviewProvider implements WebviewProvider<State, State, HomeWe
 	}
 
 	private async abortPausedOperation(pausedOpArgs: GitPausedOperationCommandArgs) {
-		await this.container.git.status(pausedOpArgs.operation.repoPath).abortPausedOperation?.();
+		const abortPausedOperation = this.container.git.status(pausedOpArgs.operation.repoPath).abortPausedOperation;
+		if (abortPausedOperation == null) return;
+
+		try {
+			await abortPausedOperation();
+		} catch (ex) {
+			void window.showErrorMessage(ex.message);
+		}
 	}
 
 	private async continuePausedOperation(pausedOpArgs: GitPausedOperationCommandArgs) {
 		if (pausedOpArgs.operation.type === 'revert') return;
-		await this.container.git.status(pausedOpArgs.operation.repoPath).continuePausedOperation?.();
+
+		const continuePausedOperation = this.container.git.status(
+			pausedOpArgs.operation.repoPath,
+		).continuePausedOperation;
+		if (continuePausedOperation == null) return;
+
+		try {
+			await continuePausedOperation();
+		} catch (ex) {
+			void window.showErrorMessage(ex.message);
+		}
 	}
 
 	private async skipPausedOperation(pausedOpArgs: GitPausedOperationCommandArgs) {
-		if (pausedOpArgs.operation.type === 'merge') return;
+		const continuePausedOperation = this.container.git.status(
+			pausedOpArgs.operation.repoPath,
+		).continuePausedOperation;
+		if (continuePausedOperation == null) return;
 
-		await this.container.git.status(pausedOpArgs.operation.repoPath).continuePausedOperation?.({ skip: true });
+		try {
+			await continuePausedOperation({ skip: true });
+		} catch (ex) {
+			void window.showErrorMessage(ex.message);
+		}
 	}
 
 	private async openRebaseEditor(pausedOpArgs: GitPausedOperationCommandArgs) {

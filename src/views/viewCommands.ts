@@ -715,24 +715,45 @@ export class ViewCommands implements Disposable {
 	}
 
 	@log()
-	private abortPausedOperation(node: PausedOperationStatusNode) {
-		if (!node.is('paused-operation-status')) return Promise.resolve();
+	private async abortPausedOperation(node: PausedOperationStatusNode) {
+		if (!node.is('paused-operation-status')) return;
 
-		return this.container.git.status(node.pausedOpStatus.repoPath).abortPausedOperation?.();
+		const abortPausedOperation = this.container.git.status(node.pausedOpStatus.repoPath).abortPausedOperation;
+		if (abortPausedOperation == null) return;
+
+		try {
+			await abortPausedOperation();
+		} catch (ex) {
+			void window.showErrorMessage(ex.message);
+		}
 	}
 
 	@log()
-	private continuePausedOperation(node: PausedOperationStatusNode) {
-		if (!node.is('paused-operation-status')) return Promise.resolve();
+	private async continuePausedOperation(node: PausedOperationStatusNode) {
+		if (!node.is('paused-operation-status')) return;
 
-		return this.container.git.status(node.pausedOpStatus.repoPath).continuePausedOperation?.();
+		const continuePausedOperation = this.container.git.status(node.pausedOpStatus.repoPath).continuePausedOperation;
+		if (continuePausedOperation == null) return;
+
+		try {
+			await continuePausedOperation();
+		} catch (ex) {
+			void window.showErrorMessage(ex.message);
+		}
 	}
 
 	@log()
-	private skipPausedOperation(node: PausedOperationStatusNode) {
-		if (!node.is('paused-operation-status')) return Promise.resolve();
+	private async skipPausedOperation(node: PausedOperationStatusNode) {
+		if (!node.is('paused-operation-status')) return;
 
-		return this.container.git.status(node.pausedOpStatus.repoPath).continuePausedOperation?.({ skip: true });
+		const continuePausedOperation = this.container.git.status(node.pausedOpStatus.repoPath).continuePausedOperation;
+		if (continuePausedOperation == null) return;
+
+		try {
+			await continuePausedOperation({ skip: true });
+		} catch (ex) {
+			void window.showErrorMessage(ex.message);
+		}
 	}
 
 	@log()
