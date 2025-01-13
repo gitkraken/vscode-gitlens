@@ -43,6 +43,7 @@ import { getBestPath } from '../system/vscode/path';
 import type {
 	GitBranchesSubProvider,
 	GitCaches,
+	GitContributorsSubProvider,
 	GitDir,
 	GitPatchSubProvider,
 	GitProvider,
@@ -70,7 +71,6 @@ import type { GitUri } from './gitUri';
 import type { GitBlame, GitBlameLine } from './models/blame';
 import type { GitBranch } from './models/branch';
 import { GitCommit, GitCommitIdentity } from './models/commit';
-import type { GitContributor, GitContributorStats } from './models/contributor';
 import { calculateDistribution } from './models/contributor';
 import type { GitDiff, GitDiffFile, GitDiffFiles, GitDiffFilter, GitDiffLine, GitDiffShortStat } from './models/diff';
 import type { GitFile, GitFileChange } from './models/file';
@@ -190,7 +190,7 @@ export class GitProviderService implements Disposable {
 						const since = '1.year.ago';
 						const [remotesResult, contributorsStatsResult] = await Promise.allSettled([
 							repo.git.remotes().getRemotes(),
-							repo.git.getContributorsStats({ since: since }),
+							repo.git.contributors().getContributorsStats({ since: since }),
 						]);
 
 						const remotes = getSettledValue(remotesResult) ?? [];
@@ -1775,28 +1775,6 @@ export class GitProviderService implements Disposable {
 		return provider.setConfig?.(path, key, value);
 	}
 
-	@log()
-	async getContributorsStats(
-		repoPath: string | Uri,
-		options?: { merges?: boolean; since?: string },
-	): Promise<GitContributorStats | undefined> {
-		if (repoPath == null) return undefined;
-
-		const { provider, path } = this.getProvider(repoPath);
-		return provider.getContributorsStats(path, options);
-	}
-
-	@log()
-	async getContributors(
-		repoPath: string | Uri,
-		options?: { all?: boolean; merges?: boolean | 'first-parent'; ref?: string; stats?: boolean },
-	): Promise<GitContributor[]> {
-		if (repoPath == null) return [];
-
-		const { provider, path } = this.getProvider(repoPath);
-		return provider.getContributors(path, options);
-	}
-
 	@gate()
 	@log()
 	getCurrentUser(repoPath: string | Uri): Promise<GitUser | undefined> {
@@ -2510,6 +2488,11 @@ export class GitProviderService implements Disposable {
 	@log()
 	branches(repoPath: string | Uri): GitSubProviderForRepo<GitBranchesSubProvider> {
 		return this.getSubProviderProxy(repoPath, 'branches');
+	}
+
+	@log()
+	contributors(repoPath: string | Uri): GitSubProviderForRepo<GitContributorsSubProvider> {
+		return this.getSubProviderProxy(repoPath, 'contributors');
 	}
 
 	@log()

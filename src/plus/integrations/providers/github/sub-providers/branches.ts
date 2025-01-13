@@ -207,7 +207,7 @@ export class BranchesGitSubProvider implements GitBranchesSubProvider {
 			const mergeBase = await this.getMergeBase(repoPath, ref, baseOrTargetBranch);
 			if (mergeBase == null) return undefined;
 
-			const contributors = await this.provider.getContributors(repoPath, {
+			const contributors = await this.provider.contributors.getContributors(repoPath, {
 				ref: createRevisionRange(mergeBase, ref, '..'),
 				stats: true,
 			});

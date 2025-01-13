@@ -1371,7 +1371,7 @@ export function* pickContributorsStep<
 
 		const items = [];
 
-		for (const c of await state.repo.git.getContributors()) {
+		for (const c of await state.repo.git.contributors().getContributors()) {
 			items.push(
 				await createContributorQuickPickItem(c, message?.includes(c.getCoauthor()), {
 					buttons: [RevealInSideBarQuickInputButton],
