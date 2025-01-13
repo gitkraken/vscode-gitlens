@@ -3063,7 +3063,7 @@
 						"order": 1
 					}
 				],
-				"gitlens/explorer/history": [
+				"gitlens/explorer/file/history": [
 					{
 						"when": "!explorerResourceIsRoot && !explorerResourceIsFolder && gitlens:enabled",
 						"group": "1_gitlens",
@@ -3195,9 +3195,8 @@
 		"gitlens.openFolderHistory": {
 			"label": "Open Folder History",
 			"menus": {
-				"gitlens/explorer/history": [
+				"gitlens/explorer/folder/history": [
 					{
-						"when": "explorerResourceIsFolder && gitlens:enabled",
 						"group": "1_gitlens",
 						"order": 1
 					}
@@ -3518,7 +3517,7 @@
 						"order": 1
 					}
 				],
-				"gitlens/explorer/history": [
+				"gitlens/explorer/file/history": [
 					{
 						"when": "!explorerResourceIsRoot && !explorerResourceIsFolder && gitlens:enabled",
 						"group": "1_gitlens_quick",
@@ -3686,6 +3685,50 @@
 			"label": "Show File History View",
 			"commandPalette": "gitlens:enabled"
 		},
+		"gitlens.showFileInTimeline": {
+			"label": "Open Visual File History",
+			"icon": "$(graph-scatter)",
+			"commandPalette": "gitlens:enabled && resource in gitlens:tabs:tracked",
+			"menus": {
+				"gitlens/commit/file/history": [
+					{
+						"group": "1_gitlens",
+						"order": 2
+					}
+				],
+				"gitlens/editor/history": [
+					{
+						"group": "1_gitlens",
+						"order": 2
+					}
+				],
+				"gitlens/explorer/file/history": [
+					{
+						"when": "!explorerResourceIsRoot && !explorerResourceIsFolder && gitlens:enabled",
+						"group": "1_gitlens",
+						"order": 2
+					}
+				],
+				"gitlens/scm/resourceState/history": [
+					{
+						"group": "1_gitlens",
+						"order": 2
+					}
+				]
+			}
+		},
+		"gitlens.showFolderInTimeline": {
+			"label": "Open Visual Folder History",
+			"icon": "$(graph-scatter)",
+			"menus": {
+				"gitlens/explorer/folder/history": [
+					{
+						"group": "1_gitlens",
+						"order": 2
+					}
+				]
+			}
+		},
 		"gitlens.showGraph": {
 			"label": "Show Commit Graph",
 			"icon": "$(gitlens-graph)",
@@ -3807,38 +3850,6 @@
 						"when": "viewItem =~ /gitlens:file\\b(?=.*?\\b\\+committed\\b)/ && view =~ /gitlens\\.views\\.(fileHistory|lineHistory\\b)/ && !listMultiSelection",
 						"group": "2_gitlens_quickopen",
 						"order": 3
-					}
-				]
-			}
-		},
-		"gitlens.showInTimeline": {
-			"label": "Open Visual File History",
-			"icon": "$(graph-scatter)",
-			"commandPalette": "gitlens:enabled && resource in gitlens:tabs:tracked",
-			"menus": {
-				"gitlens/commit/file/history": [
-					{
-						"group": "1_gitlens",
-						"order": 2
-					}
-				],
-				"gitlens/editor/history": [
-					{
-						"group": "1_gitlens",
-						"order": 2
-					}
-				],
-				"gitlens/explorer/history": [
-					{
-						"when": "!explorerResourceIsRoot && !explorerResourceIsFolder && gitlens:enabled",
-						"group": "1_gitlens",
-						"order": 2
-					}
-				],
-				"gitlens/scm/resourceState/history": [
-					{
-						"group": "1_gitlens",
-						"order": 2
 					}
 				]
 			}
@@ -5312,7 +5323,7 @@
 			"menus": {
 				"view/item/context": [
 					{
-						"when": "viewItem =~ /gitlens:(branch|compare|folder|grouping|results|search|status|tag)\\b/ && !listMultiSelection",
+						"when": "viewItem =~ /gitlens:(branch|compare|folder|grouping|pseudo:folder|results|search|status|tag)\\b/ && !listMultiSelection",
 						"group": "9_gitlens",
 						"order": 1
 					}
@@ -6567,7 +6578,7 @@
 			"menus": {
 				"view/item/context": [
 					{
-						"when": "viewItem =~ /gitlens:(branch|compare|folder|grouping|results|search|status|tag)\\b/ && !listMultiSelection",
+						"when": "viewItem =~ /gitlens:(branch|compare|folder|grouping|pseudo:folder|results|search|status|tag)\\b/ && !listMultiSelection",
 						"group": "9_gitlens",
 						"order": 2
 					}
@@ -11937,7 +11948,7 @@
 				]
 			}
 		},
-		"gitlens/explorer/history": {
+		"gitlens/explorer/file/history": {
 			"label": "File History",
 			"menus": {
 				"explorer/context": [
@@ -11945,6 +11956,25 @@
 						"when": "gitlens:enabled && config.gitlens.menus.explorer.history",
 						"group": "4_timeline",
 						"order": 0
+					}
+				]
+			}
+		},
+		"gitlens/explorer/folder/history": {
+			"label": "Folder History",
+			"menus": {
+				"explorer/context": [
+					{
+						"when": "gitlens:enabled && config.gitlens.menus.explorer.history",
+						"group": "4_timeline",
+						"order": 0
+					}
+				],
+				"view/item/context": [
+					{
+						"when": "viewItem =~ /gitlens:folder\\b/",
+						"group": "4_timeline",
+						"order": 1
 					}
 				]
 			}

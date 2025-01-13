@@ -164,7 +164,7 @@ import { compare, fromString } from '../../../system/version';
 import { TimedCancellationSource } from '../../../system/vscode/cancellation';
 import { configuration } from '../../../system/vscode/configuration';
 import { getBestPath, relative, splitPath } from '../../../system/vscode/path';
-import { isFolder } from '../../../system/vscode/utils';
+import { isFolderUri } from '../../../system/vscode/utils';
 import { serializeWebviewItemContext } from '../../../system/webview';
 import type { CachedBlame, CachedDiff, CachedLog, TrackedGitDocument } from '../../../trackers/trackedDocument';
 import { GitDocumentState } from '../../../trackers/trackedDocument';
@@ -1283,7 +1283,7 @@ export class LocalGitProvider implements GitProvider, Disposable {
 		let repoPath: string | undefined;
 		try {
 			if (isDirectory == null) {
-				isDirectory = await isFolder(uri);
+				isDirectory = await isFolderUri(uri);
 			}
 
 			// If the uri isn't a directory, go up one level

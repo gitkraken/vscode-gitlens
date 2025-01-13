@@ -20,8 +20,9 @@ import { flatten } from '../../../system/object';
 import { getSettledValue } from '../../../system/promise';
 import { executeCommand, registerCommand } from '../../../system/vscode/command';
 import { configuration } from '../../../system/vscode/configuration';
-import { getTabUri } from '../../../system/vscode/utils';
+import { getTabUri, isFolderUri } from '../../../system/vscode/utils';
 import { isViewFileNode } from '../../../views/nodes/abstract/viewFileNode';
+import { isViewNode } from '../../../views/nodes/abstract/viewNode';
 import type { IpcMessage } from '../../protocol';
 import type { WebviewHost, WebviewProvider, WebviewShowingArgs } from '../../webviewProvider';
 import type { WebviewShowOptions } from '../../webviewsController';
@@ -126,7 +127,7 @@ export class TimelineWebviewProvider implements WebviewProvider<State, State, Ti
 		if (arg != null) {
 			if (arg instanceof Uri) {
 				uri = arg;
-			} else if (isViewFileNode(arg)) {
+			} else if (isViewNode(arg) && (arg.type === 'folder' || isViewFileNode(arg))) {
 				uri = arg.uri;
 			} else if (isSerializedState<State>(arg)) {
 				this._context.period = arg.state.period;
@@ -168,7 +169,7 @@ export class TimelineWebviewProvider implements WebviewProvider<State, State, Ti
 					() => {
 						if (this._context.uri == null) return;
 
-						void executeCommand(GlCommand.ShowInTimeline, this._context.uri);
+						void executeCommand(GlCommand.ShowFileInTimeline, this._context.uri);
 						this.container.telemetry.sendEvent('timeline/action/openInEditor', this.getTelemetryContext());
 					},
 					this,
@@ -291,11 +292,13 @@ export class TimelineWebviewProvider implements WebviewProvider<State, State, Ti
 
 		const gitUri = context.uri != null ? await GitUri.fromUri(context.uri) : undefined;
 		const repoPath = gitUri?.repoPath;
+		const isFolder = context.uri != null ? await isFolderUri(context.uri) : false;
 
 		if (this.host.isHost('editor')) {
-			this.host.title =
-				gitUri == null ? this.host.originalTitle : `${this.host.originalTitle}: ${gitUri.fileName}`;
+			const title = isFolder ? 'Visual Folder History' : 'Visual File History';
+			this.host.title = gitUri == null ? title : `${title}: ${gitUri.fileName}`;
 		} else {
+			// Currently the view can only show files, so we don't need to change the name
 			this.host.description = gitUri?.fileName ?? proBadge;
 		}
 
@@ -308,6 +311,7 @@ export class TimelineWebviewProvider implements WebviewProvider<State, State, Ti
 				title: 'src/app/index.ts',
 				sha: undefined,
 				uri: context.uri?.toString(),
+				uriType: isFolder ? 'folder' : 'file',
 				dateFormat: dateFormat,
 				shortDateFormat: shortDateFormat,
 				access: access,
@@ -321,6 +325,7 @@ export class TimelineWebviewProvider implements WebviewProvider<State, State, Ti
 				title: gitUri?.relativePath,
 				sha: gitUri?.shortSha,
 				uri: context.uri?.toString(),
+				uriType: isFolder ? 'folder' : 'file',
 				dateFormat: dateFormat,
 				shortDateFormat: shortDateFormat,
 				access: access,
@@ -334,6 +339,7 @@ export class TimelineWebviewProvider implements WebviewProvider<State, State, Ti
 			title: gitUri.relativePath,
 			sha: gitUri.shortSha,
 			uri: context.uri.toString(),
+			uriType: isFolder ? 'folder' : 'file',
 			dateFormat: dateFormat,
 			shortDateFormat: shortDateFormat,
 			access: access,

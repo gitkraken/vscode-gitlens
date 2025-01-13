@@ -10,6 +10,7 @@ export interface State extends WebviewState {
 	title?: string;
 	sha?: string;
 	uri?: string;
+	uriType?: 'folder' | 'file';
 
 	dateFormat: string;
 	shortDateFormat: string;

@@ -62,6 +62,7 @@ export const enum ContextValues {
 	AutolinkedItem = 'gitlens:autolinked:item',
 	Branch = 'gitlens:branch',
 	Branches = 'gitlens:branches',
+	BranchOrTagFolder = 'gitlens:pseudo:folder',
 	BranchStatusAheadOfUpstream = 'gitlens:status-branch:upstream:ahead',
 	BranchStatusBehindUpstream = 'gitlens:status-branch:upstream:behind',
 	BranchStatusMissingUpstream = 'gitlens:status-branch:upstream:missing',

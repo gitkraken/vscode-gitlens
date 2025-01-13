@@ -89,6 +89,10 @@ export class GlTimelineApp extends GlApp<State> {
 		return this.state.uri;
 	}
 
+	get uriType() {
+		return this.state.uriType;
+	}
+
 	@state()
 	private _zoomed = false;
 	get zoomed() {
@@ -115,7 +119,10 @@ export class GlTimelineApp extends GlApp<State> {
 				<progress-indicator ?active=${this.loading}></progress-indicator>
 				<header class="header" ?hidden=${!this.uri}>
 					<span class="details">
-						<span class="details__title">${this.header.title}</span>
+						<span class="details__title"
+							><code-icon icon="${this.uriType === 'folder' ? 'folder' : 'file'}"></code-icon
+							>&nbsp;&nbsp;${this.header.title}</span
+						>
 						<span class="details__description">${this.header.description}</span>
 						<span class="details__sha">
 							${this.sha

@@ -16,7 +16,7 @@ export function registerTimelineWebviewPanel(controller: WebviewsController) {
 			id: 'gitlens.timeline',
 			fileName: 'timeline.html',
 			iconPath: 'images/gitlens-icon.png',
-			title: 'Visual File History',
+			title: 'Visual History',
 			contextKeyPrefix: `gitlens:webview:timeline`,
 			trackingFeature: 'timelineWebview',
 			type: 'timeline',
@@ -42,7 +42,7 @@ export function registerTimelineWebviewView(controller: WebviewsController) {
 		{
 			id: 'gitlens.views.timeline',
 			fileName: 'timeline.html',
-			title: 'Visual File History',
+			title: 'Visual History',
 			contextKeyPrefix: `gitlens:webviewView:timeline`,
 			trackingFeature: 'timelineView',
 			type: 'timeline',
@@ -65,9 +65,14 @@ export function registerTimelineWebviewCommands<T>(
 ) {
 	return Disposable.from(
 		registerCommand(
-			GlCommand.ShowInTimeline,
+			GlCommand.ShowFileInTimeline,
 			(...args: TimelineWebviewShowingArgs) => void panels.show(undefined, ...args),
 		),
+		registerCommand(
+			GlCommand.ShowFolderInTimeline,
+			(...args: TimelineWebviewShowingArgs) => void panels.show(undefined, ...args),
+		),
+
 		registerCommand(`${panels.id}.refresh`, () => void panels.getActiveInstance()?.refresh(true)),
 		registerCommand(
 			`${panels.id}.split`,
