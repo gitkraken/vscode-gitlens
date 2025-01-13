@@ -736,11 +736,14 @@ export class ViewCommands implements Disposable {
 	}
 
 	@log()
-	private openPausedOperationInRebaseEditor(node: PausedOperationStatusNode) {
-		if (!node.is('paused-operation-status') || node.pausedOpStatus.type !== 'rebase') return Promise.resolve();
+	private async openPausedOperationInRebaseEditor(node: PausedOperationStatusNode) {
+		if (!node.is('paused-operation-status') || node.pausedOpStatus.type !== 'rebase') return;
 
-		const rebaseTodoUri = Uri.joinPath(node.uri, '.git', 'rebase-merge', 'git-rebase-todo');
-		return executeCoreCommand('vscode.openWith', rebaseTodoUri, 'gitlens.rebase', {
+		const gitDir = await this.container.git.getGitDir(node.repoPath);
+		if (gitDir == null) return;
+
+		const rebaseTodoUri = Uri.joinPath(gitDir.uri, 'rebase-merge', 'git-rebase-todo');
+		void executeCoreCommand('vscode.openWith', rebaseTodoUri, 'gitlens.rebase', {
 			preview: false,
 		});
 	}
