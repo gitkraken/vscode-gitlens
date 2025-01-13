@@ -398,6 +398,7 @@ export interface GitBranchesSubProvider {
 	): Promise<string | undefined>;
 
 	createBranch?(repoPath: string, name: string, ref: string): Promise<void>;
+	getLocalBranchByUpstream?(repoPath: string, remoteBranchName: string): Promise<GitBranch | undefined>;
 	getPotentialMergeOrRebaseConflict?(
 		repoPath: string,
 		branch: string,

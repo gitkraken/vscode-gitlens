@@ -14,7 +14,6 @@ import { CancellationError } from '../../errors';
 import { openComparisonChanges } from '../../git/actions/commit';
 import type { Account } from '../../git/models/author';
 import type { GitBranch } from '../../git/models/branch';
-import { getLocalBranchByUpstream } from '../../git/models/branch.utils';
 import type { PullRequest, SearchedPullRequest } from '../../git/models/pullRequest';
 import {
 	getComparisonRefsForPullRequest,
@@ -533,7 +532,7 @@ export class LaunchpadProvider implements Disposable {
 		const [repo, remote] = match;
 
 		const remoteBranchName = `${remote.name}/${pr.refs?.head.branch ?? pr.headRef?.name}`;
-		const matchingLocalBranch = await getLocalBranchByUpstream(repo, remoteBranchName);
+		const matchingLocalBranch = await repo.git.branches().getLocalBranchByUpstream?.(remoteBranchName);
 
 		return { repo: repo, remote: remote, localBranch: matchingLocalBranch };
 	}
