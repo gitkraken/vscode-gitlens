@@ -7582,6 +7582,11 @@
 				"category": "GitLens"
 			},
 			{
+				"command": "gitlens.views.abortPausedOperation",
+				"title": "Abort",
+				"icon": "$(circle-slash)"
+			},
+			{
 				"command": "gitlens.views.addAuthor",
 				"title": "Add as Co-author",
 				"icon": "$(person-add)"
@@ -7856,6 +7861,11 @@
 				"command": "gitlens.views.compareWithWorking",
 				"title": "Compare Working Tree to Here",
 				"icon": "$(gitlens-compare-ref-working)"
+			},
+			{
+				"command": "gitlens.views.continuePausedOperation",
+				"title": "Continue",
+				"icon": "$(debug-continue)"
 			},
 			{
 				"command": "gitlens.views.contributors.copy",
@@ -8388,6 +8398,11 @@
 			{
 				"command": "gitlens.views.openOnlyChangedFiles",
 				"title": "Open Changed & Close Unchanged Files"
+			},
+			{
+				"command": "gitlens.views.openPausedOperationInRebaseEditor",
+				"title": "Open in Rebase Editor",
+				"icon": "$(edit)"
 			},
 			{
 				"command": "gitlens.views.openPreviousChangesWithWorking",
@@ -9115,6 +9130,11 @@
 			{
 				"command": "gitlens.views.setShowRelativeDateMarkersOn",
 				"title": "Show Date Markers"
+			},
+			{
+				"command": "gitlens.views.skipPausedOperation",
+				"title": "Skip",
+				"icon": "$(debug-step-over)"
 			},
 			{
 				"command": "gitlens.views.stageDirectory",
@@ -11266,6 +11286,10 @@
 					"when": "gitlens:enabled"
 				},
 				{
+					"command": "gitlens.views.abortPausedOperation",
+					"when": "false"
+				},
+				{
 					"command": "gitlens.views.addAuthor",
 					"when": "false"
 				},
@@ -11507,6 +11531,10 @@
 				},
 				{
 					"command": "gitlens.views.compareWithWorking",
+					"when": "false"
+				},
+				{
+					"command": "gitlens.views.continuePausedOperation",
 					"when": "false"
 				},
 				{
@@ -11955,6 +11983,10 @@
 				},
 				{
 					"command": "gitlens.views.openOnlyChangedFiles",
+					"when": "false"
+				},
+				{
+					"command": "gitlens.views.openPausedOperationInRebaseEditor",
 					"when": "false"
 				},
 				{
@@ -12567,6 +12599,10 @@
 				},
 				{
 					"command": "gitlens.views.setShowRelativeDateMarkersOn",
+					"when": "false"
+				},
+				{
+					"command": "gitlens.views.skipPausedOperation",
 					"when": "false"
 				},
 				{
@@ -16197,6 +16233,26 @@
 					"command": "gitlens.views.loadAllChildren",
 					"when": "viewItem =~ /gitlens:pager\\b/ && !listMultiSelection",
 					"group": "1_gitlens_actions@1"
+				},
+				{
+					"command": "gitlens.views.abortPausedOperation",
+					"when": "viewItem =~ /gitlens:paused-operation\\b/ && !listMultiSelection",
+					"group": "inline@3"
+				},
+				{
+					"command": "gitlens.views.continuePausedOperation",
+					"when": "viewItem =~ /gitlens:paused-operation:(cherry-pick|merge|rebase)\\b/ && !listMultiSelection",
+					"group": "inline@1"
+				},
+				{
+					"command": "gitlens.views.skipPausedOperation",
+					"when": "viewItem =~ /gitlens:paused-operation:(cherry-pick|rebase|revert)\\b/ && !listMultiSelection",
+					"group": "inline@2"
+				},
+				{
+					"command": "gitlens.views.openPausedOperationInRebaseEditor",
+					"when": "viewItem =~ /gitlens:paused-operation:rebase\\b/ && !listMultiSelection",
+					"group": "inline@4"
 				},
 				{
 					"command": "gitlens.views.openPullRequest",

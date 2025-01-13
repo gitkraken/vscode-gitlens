@@ -665,7 +665,11 @@ export type TreeViewCommands = `gitlens.views.${
 	| 'setResultsCommitsFilterAuthors'
 	| 'setResultsCommitsFilterOff'
 	| 'setContributorsStatisticsOff'
-	| 'setContributorsStatisticsOn'}`;
+	| 'setContributorsStatisticsOn'
+	| 'abortPausedOperation'
+	| 'continuePausedOperation'
+	| 'skipPausedOperation'
+	| 'openPausedOperationInRebaseEditor'}`;
 
 type ExtractSuffix<Prefix extends string, U> = U extends `${Prefix}${infer V}` ? V : never;
 type FilterCommands<Prefix extends string, U> = U extends `${Prefix}${infer V}` ? `${Prefix}${V}` : never;
@@ -694,7 +698,11 @@ type HomeWebviewCommands = `home.${
 	| 'mergeIntoCurrent'
 	| 'rebaseCurrentOnto'
 	| 'startWork'
-	| 'createCloudPatch'}`;
+	| 'createCloudPatch'
+	| 'skipPausedOperation'
+	| 'continuePausedOperation'
+	| 'abortPausedOperation'
+	| 'openRebaseEditor'}`;
 
 type GraphWebviewCommands = `graph.${
 	| 'switchToEditorLayout'
