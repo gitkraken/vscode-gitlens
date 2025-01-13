@@ -134,7 +134,7 @@ export class GlMergeConflictWarning extends LitElement {
 
 		return html`<action-nav>
 			${when(
-				status !== 'revert',
+				status !== 'revert' && !(status === 'rebase' && this.conflicts),
 				() => html`
 					<action-item label="Continue" icon="debug-continue" href=${this.onContinueUrl}></action-item>
 				`,
