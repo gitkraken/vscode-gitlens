@@ -20038,7 +20038,7 @@
 		"@gk-nzaytsev/fast-string-truncated-width": "1.1.0",
 		"@lit-labs/signals": "0.1.1",
 		"@lit/context": "1.1.3",
-		"@lit/react": "1.0.6",
+		"@lit/react": "1.0.7",
 		"@lit/task": "1.0.1",
 		"@octokit/graphql": "8.1.2",
 		"@octokit/request": "9.1.4",
@@ -20059,8 +20059,8 @@
 		"node-fetch": "2.7.0",
 		"os-browserify": "0.3.0",
 		"path-browserify": "1.0.1",
-		"react": "16.8.4",
-		"react-dom": "16.8.4",
+		"react": "19.0.0",
+		"react-dom": "19.0.0",
 		"signal-utils": "0.21.1",
 		"slug": "10.0.0",
 		"sortablejs": "1.15.0",
@@ -20075,8 +20075,8 @@
 		"@types/eslint__js": "8.42.3",
 		"@types/mocha": "10.0.10",
 		"@types/node": "18.15.13",
-		"@types/react": "17.0.83",
-		"@types/react-dom": "17.0.25",
+		"@types/react": "19.0.6",
+		"@types/react-dom": "19.0.3",
 		"@types/slug": "5.0.9",
 		"@types/sortablejs": "1.15.8",
 		"@types/vscode": "1.82.0",
@@ -20138,5 +20138,10 @@
 		"node-fetch": "2.7.0",
 		"semver-regex": "4.0.5"
 	},
-	"packageManager": "pnpm@10.0.0"
+	"packageManager": "pnpm@10.0.0",
+	"pnpm": {
+		"overrides": {
+			"@gitkraken/gitkraken-components": "link:../GitKrakenComponents"
+		}
+	}
 }
