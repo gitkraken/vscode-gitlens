@@ -45,8 +45,6 @@ import { getBranchId, getBranchNameWithoutRemote } from '../../../../git/models/
 import type { GitCommitLine, GitStashCommit } from '../../../../git/models/commit';
 import { GitCommit, GitCommitIdentity } from '../../../../git/models/commit';
 import { getChangedFilesCount } from '../../../../git/models/commit.utils';
-import type { GitContributorStats } from '../../../../git/models/contributor';
-import { GitContributor } from '../../../../git/models/contributor';
 import type { GitDiffFile, GitDiffFilter, GitDiffLine, GitDiffShortStat } from '../../../../git/models/diff';
 import type { GitFile } from '../../../../git/models/file';
 import { GitFileChange, GitFileIndexStatus } from '../../../../git/models/file';
@@ -81,7 +79,6 @@ import type { GitTag } from '../../../../git/models/tag';
 import { getTagId } from '../../../../git/models/tag';
 import type { GitTreeEntry } from '../../../../git/models/tree';
 import type { GitUser } from '../../../../git/models/user';
-import { isUserMatch } from '../../../../git/models/user';
 import type { GitWorktree } from '../../../../git/models/worktree';
 import type { GitSearch, GitSearchResultData, GitSearchResults } from '../../../../git/search';
 import { getSearchQueryComparisonKey, parseSearchQuery } from '../../../../git/search';
@@ -115,6 +112,7 @@ import type {
 import type { GitHubApi } from './github';
 import { fromCommitFileStatus } from './models';
 import { BranchesGitSubProvider } from './sub-providers/branches';
+import { ContributorsGitSubProvider } from './sub-providers/contributors';
 import { RemotesGitSubProvider } from './sub-providers/remotes';
 import { StatusGitSubProvider } from './sub-providers/status';
 import { TagsGitSubProvider } from './sub-providers/tags';
@@ -1444,78 +1442,6 @@ export class GitHubGitProvider implements GitProvider, Disposable {
 			);
 
 			return tags;
-		} catch (ex) {
-			Logger.error(ex, scope);
-			debugger;
-			return [];
-		}
-	}
-
-	@log()
-	async getContributorsStats(
-		repoPath: string,
-		_options?: { merges?: boolean; since?: string },
-	): Promise<GitContributorStats | undefined> {
-		if (repoPath == null) return undefined;
-
-		const scope = getLogScope();
-
-		try {
-			const { metadata, github, session } = await this.ensureRepositoryContext(repoPath);
-
-			const results = await github.getContributors(session.accessToken, metadata.repo.owner, metadata.repo.name);
-
-			const contributions = results.map(c => c.contributions).sort((a, b) => b - a);
-
-			const result: GitContributorStats = {
-				count: contributions.length,
-				contributions: contributions,
-			};
-			return result;
-		} catch (ex) {
-			Logger.error(ex, scope);
-			debugger;
-			return undefined;
-		}
-	}
-
-	@log()
-	async getContributors(
-		repoPath: string,
-		_options?: { all?: boolean; merges?: boolean | 'first-parent'; ref?: string; stats?: boolean },
-	): Promise<GitContributor[]> {
-		if (repoPath == null) return [];
-
-		const scope = getLogScope();
-
-		try {
-			const { metadata, github, session } = await this.ensureRepositoryContext(repoPath);
-
-			const results = await github.getContributors(session.accessToken, metadata.repo.owner, metadata.repo.name);
-			const currentUser = await this.getCurrentUser(repoPath);
-
-			const contributors = [];
-			for (const c of results) {
-				if (c.type !== 'User') continue;
-
-				contributors.push(
-					new GitContributor(
-						repoPath,
-						c.name,
-						c.email,
-						c.contributions,
-						undefined,
-						undefined,
-						isUserMatch(currentUser, c.name, c.email, c.login),
-						undefined,
-						c.login,
-						c.avatar_url,
-						c.node_id,
-					),
-				);
-			}
-
-			return contributors;
 		} catch (ex) {
 			Logger.error(ex, scope);
 			debugger;
@@ -2936,6 +2862,15 @@ export class GitHubGitProvider implements GitProvider, Disposable {
 	private _branches: BranchesGitSubProvider | undefined;
 	get branches(): BranchesGitSubProvider {
 		return (this._branches ??= new BranchesGitSubProvider(
+			this.container,
+			this._cache,
+			this as unknown as GitHubGitProviderInternal,
+		));
+	}
+
+	private _contributors: ContributorsGitSubProvider | undefined;
+	get contributors(): ContributorsGitSubProvider {
+		return (this._contributors ??= new ContributorsGitSubProvider(
 			this.container,
 			this._cache,
 			this as unknown as GitHubGitProviderInternal,

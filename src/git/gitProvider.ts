@@ -198,19 +198,6 @@ export interface GitRepositoryProvider {
 	): Promise<string[]>;
 	getConfig?(repoPath: string, key: GitConfigKeys): Promise<string | undefined>;
 	setConfig?(repoPath: string, key: GitConfigKeys, value: string | undefined): Promise<void>;
-	getContributorsStats(
-		repoPath: string,
-		options?: { merges?: boolean; since?: string },
-	): Promise<GitContributorStats | undefined>;
-	getContributors(
-		repoPath: string,
-		options?: {
-			all?: boolean | undefined;
-			merges?: boolean | 'first-parent';
-			ref?: string | undefined;
-			stats?: boolean | undefined;
-		},
-	): Promise<GitContributor[]>;
 	getCurrentUser(repoPath: string): Promise<GitUser | undefined>;
 	getDiff?(
 		repoPath: string | Uri,
@@ -373,6 +360,7 @@ export interface GitRepositoryProvider {
 	validateReference(repoPath: string, ref: string): Promise<boolean>;
 
 	branches: GitBranchesSubProvider;
+	contributors: GitContributorsSubProvider;
 	patch?: GitPatchSubProvider;
 	remotes: GitRemotesSubProvider;
 	staging?: GitStagingSubProvider;
@@ -420,6 +408,22 @@ export interface GitBranchesSubProvider {
 	getTargetBranchName?(repoPath: string, ref: string): Promise<string | undefined>;
 	setTargetBranchName?(repoPath: string, ref: string, target: string): Promise<void>;
 	renameBranch?(repoPath: string, oldName: string, newName: string): Promise<void>;
+}
+
+export interface GitContributorsSubProvider {
+	getContributorsStats(
+		repoPath: string,
+		options?: { merges?: boolean; since?: string },
+	): Promise<GitContributorStats | undefined>;
+	getContributors(
+		repoPath: string,
+		options?: {
+			all?: boolean | undefined;
+			merges?: boolean | 'first-parent';
+			ref?: string | undefined;
+			stats?: boolean | undefined;
+		},
+	): Promise<GitContributor[]>;
 }
 
 export interface GitPatchSubProvider {
@@ -565,6 +569,7 @@ export interface GitWorktreesSubProvider {
 
 export type GitSubProvider =
 	| GitBranchesSubProvider
+	| GitContributorsSubProvider
 	| GitPatchSubProvider
 	| GitRemotesSubProvider
 	| GitStagingSubProvider
