@@ -53,6 +53,7 @@ export abstract class GlApp<
 	private _stateProvider!: StateProvider<State>;
 
 	protected abstract createStateProvider(state: State, ipc: HostIpc): StateProvider<State>;
+	protected onPersistState(_state: State) {}
 
 	override connectedCallback() {
 		super.connectedCallback();
@@ -65,6 +66,7 @@ export abstract class GlApp<
 		const state = this.bootstrap;
 		this.bootstrap = undefined!;
 		this._ipc.replaceIpcPromisesWithPromises(state);
+		this.onPersistState(state);
 
 		this.disposables.push(
 			(this._stateProvider = this.createStateProvider(state, this._ipc)),

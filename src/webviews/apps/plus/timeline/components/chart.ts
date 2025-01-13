@@ -1,4 +1,5 @@
 import type { Chart, ChartOptions, ChartTypes, DataItem } from 'billboard.js';
+import type { PropertyValues } from 'lit';
 import { html, LitElement, nothing } from 'lit';
 import { customElement, property, query, state } from 'lit/decorators.js';
 import { defer } from '../../../../../system/promise';
@@ -23,6 +24,7 @@ declare global {
 	interface GlobalEventHandlersEventMap {
 		'gl-data-point-click': CustomEvent<DataPointClickEventDetail>;
 		'gl-load': void;
+		'gl-zoomed': CustomEvent<boolean>;
 	}
 }
 
@@ -66,6 +68,9 @@ export class GlTimelineChart extends GlElement {
 		return this._data;
 	}
 
+	@property({ type: Boolean, reflect: true })
+	zoomed = false;
+
 	private _dataPromise!: NonNullable<State['dataset']>;
 	@property({ type: Object })
 	get dataPromise() {
@@ -81,16 +86,32 @@ export class GlTimelineChart extends GlElement {
 		);
 	}
 
+	private _resizeObserver?: ResizeObserver;
+
+	override connectedCallback(): void {
+		super.connectedCallback();
+
+		this._resizeObserver = new ResizeObserver(this.onResize);
+		this._resizeObserver?.observe(this, { box: 'border-box' });
+	}
+
 	override disconnectedCallback(): void {
-		super.disconnectedCallback();
+		this._resizeObserver?.disconnect();
+		this._resizeObserver = undefined;
 
 		this._loading?.cancel();
 
 		this._chart?.destroy();
 		this._chart = undefined;
+
+		super.disconnectedCallback();
 	}
 
-	protected override willUpdate(changedProperties: Map<string | number | symbol, unknown>): void {
+	override update(changedProperties: PropertyValues): void {
+		if (changedProperties.has('zoomed')) {
+			this.emit('gl-zoomed', this.zoomed);
+		}
+
 		if (changedProperties.has('dataPromise')) {
 			this._abortController?.abort();
 			this._abortController = new AbortController();
@@ -99,7 +120,7 @@ export class GlTimelineChart extends GlElement {
 			void this.updateChart(this.dataPromise);
 		}
 
-		super.willUpdate(changedProperties);
+		super.update(changedProperties);
 	}
 
 	protected override render() {
@@ -116,7 +137,28 @@ export class GlTimelineChart extends GlElement {
 	reset() {
 		// this._chart?.unselect();
 		this._chart?.unzoom();
+		this.zoomed = false;
 	}
+
+	zoom(factor: number) {
+		if (!this._chart) return;
+
+		const d = this._chart.zoom();
+		const domain = [new Date(d[0]), new Date(d[1])];
+		const range = domain[1].getTime() - domain[0].getTime();
+		const mid = new Date((domain[1].getTime() + domain[0].getTime()) / 2);
+
+		const start = new Date(mid.getTime() - (range * (1 - factor)) / 2);
+		const end = new Date(mid.getTime() + (range * (1 - factor)) / 2);
+
+		const updated = this._chart.zoom([start, end]);
+		if (factor < 0 && updated[0] === d[0] && updated[1] === d[1]) {
+			this._chart.unzoom();
+			this.zoomed = false;
+		}
+	}
+
+	private _domain!: [oldestDate: Date, latestDate: Date];
 
 	async updateChart(dataPromise: State['dataset']) {
 		if (this._loading?.pending) return;
@@ -199,7 +241,9 @@ export class GlTimelineChart extends GlElement {
 			return result;
 		};
 
-		const { bb, bar, scatter, zoom } = await import(/* webpackChunkName: "lib-billboard" */ 'billboard.js');
+		const { bb, bar, scatter, selection, zoom } = await import(
+			/* webpackChunkName: "lib-billboard" */ 'billboard.js'
+		);
 		if (abortSignal?.aborted) {
 			loading?.cancel();
 			return;
@@ -280,9 +324,11 @@ export class GlTimelineChart extends GlElement {
 		// eslint-disable-next-line @typescript-eslint/no-unsafe-return
 		const columns = Object.entries(series).map(([key, value]) => [key, ...value]);
 
+		this._domain = [new Date(dataset[dataset.length - 1].date), new Date(dataset[0].date)];
+
 		try {
 			if (this._chart == null) {
-				const options = this.getChartOptions(zoom);
+				const options = this.getChartOptions(selection, zoom);
 
 				options.axis ??= { y: { tick: {} } };
 				options.axis.y ??= { tick: {} };
@@ -302,7 +348,47 @@ export class GlTimelineChart extends GlElement {
 					xs: xs,
 				};
 
-				options.onafterinit = () => setTimeout(() => loading?.fulfill(), 250);
+				options.onafterinit = function () {
+					setTimeout(() => loading?.fulfill(), 250);
+				};
+
+				if (this.compact) {
+					// eslint-disable-next-line @typescript-eslint/no-this-alias
+					const host = this;
+					options.onrendered = function () {
+						// eslint-disable-next-line @typescript-eslint/no-this-alias
+						const chart = this;
+						if (chart == null) return;
+
+						chart.$.main.selectAll('.bb-axis-y .tick text tspan').each(function (this, d) {
+							if (this == null) return;
+
+							const author = host._authorsByIndex.get(-(d as { index: number }).index)!;
+							const color = chart.color(author);
+
+							const el = this as SVGTSpanElement;
+							// if (host.compact) {
+							el.setAttribute('fill', color);
+
+							const title = document.createElementNS('http://www.w3.org/2000/svg', 'title');
+							title.textContent = author;
+							el.appendChild(title);
+							// } else {
+							// 	const suffix = '\u00a0\u00a0⬤';
+							// 	if (!el.textContent!.endsWith(suffix)) return;
+
+							// 	const content = el.textContent!;
+							// 	el.textContent = content.slice(0, content.length - suffix.length);
+
+							// 	const tspan = document.createElementNS('http://www.w3.org/2000/svg', 'tspan');
+							// 	tspan.textContent = suffix;
+							// 	tspan.setAttribute('fill', color);
+
+							// 	el.insertAdjacentElement('afterend', tspan);
+							// }
+						});
+					};
+				}
 
 				this._chart = bb.generate(options);
 			} else {
@@ -310,17 +396,16 @@ export class GlTimelineChart extends GlElement {
 				this._chart.config('axis.y.min', index - 2, false);
 				this._chart.groups(groups);
 
-				const chart = this._chart;
 				this._chart.load({
 					axes: axes,
 					colors: colors,
 					columns: columns,
 					names: names,
+					resizeAfter: true,
 					types: types,
-					xs: xs,
 					unload: true,
+					xs: xs,
 					done: () => {
-						chart.resize();
 						setTimeout(() => loading?.fulfill(), 250);
 					},
 				});
@@ -335,50 +420,50 @@ export class GlTimelineChart extends GlElement {
 		}
 	}
 
-	private getChartOptions(zoom: typeof import('billboard.js').zoom) {
+	private getChartOptions(
+		selection: typeof import('billboard.js').selection,
+		zoom: typeof import('billboard.js').zoom,
+	) {
 		const config: ChartOptions = {
 			bindto: this.chartContainer,
+			clipPath: true,
 			data: {
 				xFormat: '%Y-%m-%dT%H:%M:%S.%LZ',
 				xLocaltime: false,
-				// selection: {
-				// 	enabled: selection(),
-				// 	draggable: false,
-				// 	grouped: false,
-				// 	multiple: false,
-				// },
-				onclick: this.onDataPointClicked.bind(this),
+				selection: {
+					enabled: selection(),
+					draggable: false,
+					grouped: true,
+					multiple: false,
+					isselectable: () => false,
+				},
+				onclick: this.onDataPointClicked,
 			},
 			axis: {
 				x: {
 					type: 'timeseries',
-					clipPath: false,
 					localtime: true,
-					show: !this.compact,
+					show: true,
+					height: this.compact ? 28 : undefined,
+					forceAsSingle: true,
 					tick: {
 						centered: true,
 						culling: false,
 						fit: false,
 						format: (x: number | Date) =>
-							this.compact
-								? ''
-								: typeof x === 'number'
-								  ? x
-								  : formatDate(x, this.shortDateFormat ?? 'short'),
-						multiline: false,
-						show: false,
-						outer: !this.compact,
+							typeof x === 'number' ? x : formatDate(x, this.shortDateFormat ?? 'short'),
+						show: true,
+						outer: true,
 					},
 				},
 				y: {
 					max: 0,
-					padding: { top: 75, bottom: 100 },
+					padding: { top: 75, bottom: 75 },
 					show: true,
 					tick: {
-						format: (y: number) => this._authorsByIndex.get(y) ?? '',
-						text: { show: !this.compact },
-						outer: false,
-						show: !this.compact,
+						format: (y: number) => (this.compact ? '\u{EB99}' : this._authorsByIndex.get(y) ?? ''), // `${this._authorsByIndex.get(y) ?? ''}\u00a0\u00a0⬤`,
+						outer: true,
+						show: true,
 					},
 				},
 				y2: {
@@ -388,7 +473,7 @@ export class GlTimelineChart extends GlElement {
 					show: true,
 					tick: {
 						format: (y: number) => (this.compact ? '' : y),
-						outer: !this.compact,
+						outer: true,
 					},
 				},
 			},
@@ -433,22 +518,23 @@ export class GlTimelineChart extends GlElement {
 						enabled: true,
 					},
 				},
-				sensitivity: d => {
-					if (d == null) return 0;
+				select: { r: 6 },
+				// sensitivity: d => {
+				// 	if (d == null) return 0;
 
-					if ('data' in d && typeof d.data === 'function') {
-						d = d.data()[0];
-						if (d == null) return 0;
-					}
+				// 	if ('data' in d && typeof d.data === 'function') {
+				// 		d = d.data()[0];
+				// 		if (d == null) return 0;
+				// 	}
 
-					const result = Math.max(
-						6,
-						(this._zByAuthorAndX.get(d.id)?.get((d.x as unknown as Date).getTime()) ?? 6) / 2,
-					);
-					return result;
-				},
+				// 	const result = Math.max(
+				// 		6,
+				// 		(this._zByAuthorAndX.get(d.id)?.get((d.x as unknown as Date).getTime()) ?? 6) / 2,
+				// 	);
+				// 	return result;
+				// },
 			},
-			resize: { auto: true },
+			resize: { auto: false },
 			tooltip: {
 				contents: (data, _defaultTitleFormat, _defaultValueFormat, _color) => {
 					const d = data[0];
@@ -460,11 +546,11 @@ export class GlTimelineChart extends GlElement {
 					const deletions = commit.deletions;
 					const additionsLabel =
 						additions == null
-							? undefined
+							? ''
 							: /*html*/ `<span class="additions">+${pluralize('line', additions)}</span>`;
 					let deletionsLabel =
 						deletions == null
-							? undefined
+							? ''
 							: /*html*/ `<span class="deletions">-${pluralize('line', deletions)}</span>`;
 					if (additionsLabel) {
 						deletionsLabel = `, ${deletionsLabel}`;
@@ -488,34 +574,30 @@ export class GlTimelineChart extends GlElement {
 			},
 			zoom: {
 				enabled: zoom(),
-				type: 'drag',
-				rescale: true,
-				resetButton: true,
+				type: 'wheel',
+				// resetButton: true, // Doesn't work
 				extent: [1, 0.01],
-				x: { min: 100 },
-				// onzoomstart: function(...args: any[]) {
-				//     console.log('onzoomstart', args);
-				// },
-				// onzoom: function(...args: any[]) {
-				//     console.log('onzoom', args);
-				// },
-				// onzoomend: function(...args: any[]) {
-				//     console.log('onzoomend', args);
-				// }
+				onzoom: (domain: [string, string]) => {
+					if (new Date(domain[0]) <= this._domain[0] && new Date(domain[1]) >= this._domain[1]) {
+						this.zoomed = false;
+					} else {
+						this.zoomed = true;
+					}
+				},
+				onzoomend: (domain: [string, string]) => {
+					if (new Date(domain[0]) <= this._domain[0] && new Date(domain[1]) >= this._domain[1]) {
+						this.zoomed = false;
+					} else {
+						this.zoomed = true;
+					}
+				},
 			},
-			// plugins: [
-			// 	new BubbleCompare({
-			// 		minR: 6,
-			// 		maxR: 100,
-			// 		expandScale: 1.2,
-			// 	}),
-			// ],
 		};
 
 		return config;
 	}
 
-	private onDataPointClicked(d: DataItem, _element: SVGElement) {
+	private onDataPointClicked = (d: DataItem, _element: SVGElement) => {
 		const commit = this._commitsByTimestamp.get(new Date(d.x).toISOString());
 		if (commit == null) return;
 
@@ -526,7 +608,14 @@ export class GlTimelineChart extends GlElement {
 				selected: true, //selected?.[0]?.id === d.id,
 			},
 		});
-	}
+	};
+
+	private onResize = (entries: ResizeObserverEntry[]) => {
+		this._chart?.resize({
+			width: entries[0].contentRect.width,
+			height: entries[0].contentRect.height,
+		});
+	};
 }
 
 function capitalize(s: string): string {
