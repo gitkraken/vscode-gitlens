@@ -92,6 +92,8 @@ function fromStringToEntityIdentifierProviderType(str: string): EntityIdentifier
 	switch (str) {
 		case 'github':
 			return EntityIdentifierProviderType.Github;
+		case 'cloud-github-enterprise':
+			return EntityIdentifierProviderType.GithubEnterprise;
 		case 'gitlab':
 			return EntityIdentifierProviderType.Gitlab;
 		case 'jira':

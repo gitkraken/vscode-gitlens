@@ -116,6 +116,7 @@ repository {
 	viewerPermission
 }
 `;
+// Removing statusCheckRollup from this fragment fixes the request, but vanishes the categorized result
 const gqlPullRequestFragment = `
 ${gqlPullRequestLiteFragment}
 additions
