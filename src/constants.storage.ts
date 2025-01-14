@@ -78,6 +78,7 @@ export type GlobalStorage = {
 	'launchpadView:groups:expanded': StoredLaunchpadGroup[];
 	'graph:searchMode': StoredGraphSearchMode;
 	'views:scm:grouped:welcome:dismissed': boolean;
+	'integrations:configured': StoredIntegrationConfigurations;
 } & { [key in `plus:preview:${FeaturePreviews}:usages`]: StoredFeaturePreviewUsagePeriod[] } & {
 	[key in `confirm:ai:tos:${AIProviders}`]: boolean;
 } & {
@@ -87,6 +88,19 @@ export type GlobalStorage = {
 } & { [key in `jira:${string}:organizations`]: Stored<StoredJiraOrganization[] | undefined> } & {
 	[key in `jira:${string}:projects`]: Stored<StoredJiraProject[] | undefined>;
 };
+
+export type StoredIntegrationConfigurations = Record<
+	string,
+	StoredConfiguredProviderAuthenticationDescriptor[] | undefined
+>;
+
+export interface StoredConfiguredProviderAuthenticationDescriptor {
+	cloud: boolean;
+	integrationId: IntegrationId;
+	domain?: string;
+	expiresAt?: string;
+	scopes: string;
+}
 
 export type DeprecatedWorkspaceStorage = {
 	/** @deprecated use `confirm:ai:tos:${AIProviders}` */
