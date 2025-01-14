@@ -30,6 +30,7 @@ import type { FeaturePreview } from '../../../features';
 import type { RepositoryVisibility } from '../../../git/gitProvider';
 import type { GitTrackingState } from '../../../git/models/branch';
 import type { GitGraphRowType } from '../../../git/models/graph';
+import type { GitPausedOperationStatus } from '../../../git/models/pausedOperationStatus';
 import type { PullRequestRefs, PullRequestShape } from '../../../git/models/pullRequest';
 import type {
 	GitBranchReference,
@@ -146,7 +147,10 @@ export interface BranchState extends GitTrackingState {
 	worktree?: boolean;
 }
 
-export type GraphWorkingTreeStats = WorkDirStats;
+export type GraphWorkingTreeStats = WorkDirStats & {
+	hasConflicts?: boolean;
+	pausedOpStatus?: GitPausedOperationStatus;
+};
 
 export interface GraphPaging {
 	startingCursor?: string;
