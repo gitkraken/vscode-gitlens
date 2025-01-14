@@ -144,6 +144,8 @@ export interface TelemetryEvents extends WebviewShowAbortedEvents, WebviewShownE
 	/** Sent when the user changes the selected tab (mode) on the Graph Details view */
 	'graphDetails/mode/changed': GraphDetailsModeChangedEvent;
 
+	/** Sent when a Home command is executed */
+	'home/command': CommandEventData;
 	/** Sent when the new Home view preview is toggled on/off */
 	'home/preview/toggled': HomePreviewToggledEvent;
 	/** Sent when the user chooses to create a branch from the home view */
