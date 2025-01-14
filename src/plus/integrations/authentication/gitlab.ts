@@ -3,7 +3,10 @@ import { env, ThemeIcon, Uri, window } from 'vscode';
 import type { SelfHostedIntegrationId } from '../../../constants.integrations';
 import { HostingIntegrationId } from '../../../constants.integrations';
 import type { Container } from '../../../container';
-import type { IntegrationAuthenticationSessionDescriptor } from './integrationAuthentication';
+import type {
+	IntegrationAuthenticationService,
+	IntegrationAuthenticationSessionDescriptor,
+} from './integrationAuthentication';
 import {
 	CloudIntegrationAuthenticationProvider,
 	LocalIntegrationAuthenticationProvider,
@@ -15,9 +18,10 @@ type GitLabId = HostingIntegrationId.GitLab | SelfHostedIntegrationId.GitLabSelf
 export class GitLabLocalAuthenticationProvider extends LocalIntegrationAuthenticationProvider<GitLabId> {
 	constructor(
 		container: Container,
+		authenticationService: IntegrationAuthenticationService,
 		protected readonly authProviderId: GitLabId,
 	) {
-		super(container);
+		super(container, authenticationService);
 	}
 
 	override async createSession(

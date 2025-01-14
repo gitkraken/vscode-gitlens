@@ -21,6 +21,7 @@ import { configuration } from '../../system/vscode/configuration';
 import { openUrl } from '../../system/vscode/utils';
 import type { SubscriptionChangeEvent } from '../gk/account/subscriptionService';
 import type { IntegrationAuthenticationService } from './authentication/integrationAuthentication';
+import type { ConfiguredProviderAuthenticationDescriptor } from './authentication/models';
 import {
 	CloudIntegrationAuthenticationUriPathPrefix,
 	getSupportedCloudIntegrationIds,
@@ -473,8 +474,28 @@ export class IntegrationService implements Disposable {
 							// return immediately in order to not to cache it after the "switch" block:
 							return integration;
 						}
+
+						const existingConfigured = this.authenticationService.configured?.get(
+							SelfHostedIntegrationId.CloudGitHubEnterprise,
+						);
+						if (existingConfigured?.length) {
+							const { domain } = existingConfigured[0];
+							if (domain == null) throw new Error(`Domain is required for '${id}' integration`);
+							integration = new (
+								await import(/* webpackChunkName: "integrations" */ './providers/github')
+							).GitHubEnterpriseIntegration(
+								this.container,
+								this.authenticationService,
+								this.getProvidersApi.bind(this),
+								domain,
+								id,
+							);
+							break;
+						}
+
 						throw new Error(`Domain is required for '${id}' integration`);
 					}
+
 					integration = new (
 						await import(/* webpackChunkName: "integrations" */ './providers/github')
 					).GitHubEnterpriseIntegration(
@@ -926,6 +947,17 @@ export class IntegrationService implements Disposable {
 		domain?: string,
 	): IntegrationKey {
 		return isSelfHostedIntegrationId(id) ? (`${id}:${domain}` as const) : id;
+	}
+
+	getConfiguredIntegrationDescriptors(id?: IntegrationId): ConfiguredProviderAuthenticationDescriptor[] {
+		const configured = this.authenticationService.configured;
+		if (id != null) return configured.get(id) ?? [];
+		const results = [];
+		for (const [, descriptors] of configured) {
+			results.push(...descriptors);
+		}
+
+		return results;
 	}
 }
 
