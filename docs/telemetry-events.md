@@ -998,6 +998,17 @@ or
 }
 ```
 
+### home/command
+
+> Sent when a Home command is executed
+
+```typescript
+{
+  'command': string,
+  'webview': string
+}
+```
+
 ### home/createBranch
 
 > Sent when the user chooses to create a branch from the home view
