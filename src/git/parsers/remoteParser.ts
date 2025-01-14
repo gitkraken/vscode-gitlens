@@ -6,13 +6,11 @@ import type { getRemoteProviderMatcher } from '../remotes/remoteProviders';
 
 const remoteRegex = /^(.*)\t(.*)\s\((.*)\)$/gm;
 
-type PromiseType<T> = T extends Promise<infer U> ? U : T;
-
 export function parseGitRemotes(
 	container: Container,
 	data: string,
 	repoPath: string,
-	remoteProviderMatcher: PromiseType<ReturnType<typeof getRemoteProviderMatcher>>,
+	remoteProviderMatcher: Awaited<ReturnType<typeof getRemoteProviderMatcher>>,
 ): GitRemote[] {
 	using sw = maybeStopWatch(`Git.parseRemotes(${repoPath})`, { log: false, logLevel: 'debug' });
 	if (!data) return [];

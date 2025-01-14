@@ -7,7 +7,6 @@ import { configuration } from '../../../../../system/vscode/configuration';
 
 export class RemotesGitSubProvider extends RemotesGitProviderBase {
 	@log({ args: { 1: false } })
-	// eslint-disable-next-line @typescript-eslint/require-await
 	async getRemotes(
 		repoPath: string | undefined,
 		_options?: { filter?: (remote: GitRemote) => boolean; sort?: boolean },
