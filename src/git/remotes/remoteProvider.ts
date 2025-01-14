@@ -20,6 +20,7 @@ export type RemoteProviderId =
 	| 'gerrit'
 	| 'gitea'
 	| 'github'
+	| 'cloud-github-enterprise'
 	| 'gitlab'
 	| 'google-source';
 

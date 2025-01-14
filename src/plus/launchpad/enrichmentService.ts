@@ -217,6 +217,7 @@ const supportedRemoteProvidersToEnrich: Record<RemoteProvider['id'], EnrichedIte
 	gerrit: undefined,
 	gitea: undefined,
 	github: 'github',
+	'cloud-github-enterprise': 'github',
 	gitlab: 'gitlab',
 	'google-source': undefined,
 };
