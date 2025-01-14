@@ -26,7 +26,7 @@ import '../../../shared/components/overlays/tooltip';
 import '../../../shared/components/pills/tracking';
 import '../../../shared/components/rich/issue-icon';
 import '../../../shared/components/rich/pr-icon';
-import './merge-rebase-status';
+import '../../shared/components/merge-rebase-status';
 
 export const activeWorkTagName = 'gl-active-work';
 

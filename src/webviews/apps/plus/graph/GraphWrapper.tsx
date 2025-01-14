@@ -93,6 +93,7 @@ import type {
 import type { DateTimeFormat } from '../../shared/date';
 import { formatDate, fromNow } from '../../shared/date';
 import { emitTelemetrySentEvent } from '../../shared/telemetry';
+import { GlMergeConflictWarning } from '../shared/components/merge-rebase-status.react';
 import { GitActionsButtons } from './actions/gitActionsButtons';
 import { GlGraphHover } from './hover/graphHover.react';
 import type { GraphMinimapDaySelectedEventDetail } from './minimap/minimap';
@@ -1138,7 +1139,9 @@ export function GraphWrapper({
 								disabled={repos.length < 2}
 								onClick={() => handleChooseRepository()}
 							>
-								{repo?.formattedName ?? 'none selected'}
+								<span className="action-button__truncated">
+									{repo?.formattedName ?? 'none selected'}
+								</span>
 								{repos.length > 1 && (
 									<CodeIcon className="action-button__more" icon="chevron-down" aria-hidden="true" />
 								)}
@@ -1298,6 +1301,21 @@ export function GraphWrapper({
 						)}
 					</div>
 				</div>
+				{allowed &&
+					workingTreeStats != null &&
+					(workingTreeStats.hasConflicts || workingTreeStats.pausedOpStatus) && (
+						<div className="merge-conflict-warning">
+							<GlMergeConflictWarning
+								className="merge-conflict-warning__content"
+								conflicts={workingTreeStats.hasConflicts}
+								pausedOpStatus={workingTreeStats.pausedOpStatus}
+								skipCommand="gitlens.graph.skipPausedOperation"
+								continueCommand="gitlens.graph.continuePausedOperation"
+								abortCommand="gitlens.graph.abortPausedOperation"
+								openEditorCommand="gitlens.graph.openRebaseEditor"
+							></GlMergeConflictWarning>
+						</div>
+					)}
 				{allowed && (
 					<div className="titlebar__row">
 						<div className="titlebar__group">
