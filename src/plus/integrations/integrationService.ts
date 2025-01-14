@@ -91,8 +91,9 @@ export class IntegrationService implements Disposable {
 	private async syncCloudIntegrations(forceConnect: boolean) {
 		const scope = getLogScope();
 		const connectedIntegrations = new Set<IntegrationId>();
+		const domainsById = new Map<IntegrationId, string>();
+
 		const loggedIn = await this.container.subscription.getAuthenticationSession();
-		const domains = new Map<string, string>();
 		if (loggedIn) {
 			const cloudIntegrations = await this.container.cloudIntegrations;
 			const connections = await cloudIntegrations?.getConnections();
@@ -106,7 +107,7 @@ export class IntegrationService implements Disposable {
 				if (p.domain?.length > 0) {
 					try {
 						const host = new URL(p.domain).host;
-						domains.set(integrationId, host);
+						domainsById.set(integrationId, host);
 					} catch {
 						Logger.warn(`Invalid domain for ${integrationId} integration: ${p.domain}. Ignoring.`, scope);
 					}
@@ -114,7 +115,7 @@ export class IntegrationService implements Disposable {
 			});
 		}
 
-		for await (const integration of this.getSupportedCloudIntegrations(domains)) {
+		for await (const integration of this.getSupportedCloudIntegrations(domainsById)) {
 			await integration.syncCloudConnection(
 				connectedIntegrations.has(integration.id) ? 'connected' : 'disconnected',
 				forceConnect,
@@ -132,9 +133,9 @@ export class IntegrationService implements Disposable {
 		return connectedIntegrations;
 	}
 
-	private async *getSupportedCloudIntegrations(domains: Map<string, string>): AsyncIterable<Integration> {
+	private async *getSupportedCloudIntegrations(domainsById: Map<IntegrationId, string>): AsyncIterable<Integration> {
 		for (const id of getSupportedCloudIntegrationIds()) {
-			if (id === SelfHostedIntegrationId.CloudGitHubEnterprise && !domains.has(id)) {
+			if (id === SelfHostedIntegrationId.CloudGitHubEnterprise && !domainsById.has(id)) {
 				try {
 					// Try getting whatever we have now because we will need to disconnect
 					yield this.get(id);
@@ -143,7 +144,7 @@ export class IntegrationService implements Disposable {
 					// because we probably haven't ever had an instance of this integration
 				}
 			} else {
-				yield this.get(id, domains?.get(id));
+				yield this.get(id, domainsById.get(id));
 			}
 		}
 	}
@@ -594,11 +595,13 @@ export class IntegrationService implements Disposable {
 			// case 'bitbucket':
 			// 	return get(HostingIntegrationId.Bitbucket) as RT;
 			case 'github':
-				if (remote.provider.custom && remote.provider.domain != null) {
-					return get(SelfHostedIntegrationId.GitHubEnterprise, remote.provider.domain) as RT;
-				}
 				if (remote.provider.domain != null && !isGitHubDotCom(remote.provider.domain)) {
-					return get(SelfHostedIntegrationId.CloudGitHubEnterprise, remote.provider.domain) as RT;
+					return get(
+						remote.provider.custom
+							? SelfHostedIntegrationId.GitHubEnterprise
+							: SelfHostedIntegrationId.CloudGitHubEnterprise,
+						remote.provider.domain,
+					) as RT;
 				}
 				return get(HostingIntegrationId.GitHub) as RT;
 			case 'gitlab':
