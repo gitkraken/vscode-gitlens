@@ -165,9 +165,15 @@ export interface GitHubPullRequest extends GitHubPullRequestLite {
 			requestedReviewer: GitHubMember | null;
 		}[];
 	};
-	statusCheckRollup: {
-		state: 'SUCCESS' | 'FAILURE' | 'PENDING' | 'EXPECTED' | 'ERROR';
-	} | null;
+	commits: {
+		nodes: {
+			commit: {
+				statusCheckRollup: {
+					state: 'SUCCESS' | 'FAILURE' | 'PENDING' | 'EXPECTED' | 'ERROR';
+				} | null;
+			};
+		}[];
+	};
 	totalCommentsCount: number;
 	viewerCanUpdate: boolean;
 }
@@ -393,7 +399,7 @@ export function fromGitHubPullRequest(pr: GitHubPullRequest, provider: Provider)
 			avatarUrl: r.avatarUrl,
 			url: r.url,
 		})),
-		fromGitHubPullRequestStatusCheckRollupState(pr.statusCheckRollup?.state),
+		fromGitHubPullRequestStatusCheckRollupState(pr.commits.nodes?.[0]?.commit.statusCheckRollup?.state),
 	);
 }
 
