@@ -115,9 +115,6 @@ interface BranchRef {
 	repoPath: string;
 	branchId: string;
 }
-interface GitPausedOperationCommandArgs {
-	operation: GitPausedOperationStatus;
-}
 
 // type AutolinksInfo = Awaited<GetOverviewBranch['autolinks']>;
 type BranchMergeTargetStatusInfo = Awaited<GetOverviewBranch['mergeTarget']>;
@@ -462,8 +459,8 @@ export class HomeWebviewProvider implements WebviewProvider<State, State, HomeWe
 		});
 	}
 
-	private async abortPausedOperation(pausedOpArgs: GitPausedOperationCommandArgs) {
-		const abortPausedOperation = this.container.git.status(pausedOpArgs.operation.repoPath).abortPausedOperation;
+	private async abortPausedOperation(pausedOpArgs: GitPausedOperationStatus) {
+		const abortPausedOperation = this.container.git.status(pausedOpArgs.repoPath).abortPausedOperation;
 		if (abortPausedOperation == null) return;
 
 		try {
@@ -473,12 +470,10 @@ export class HomeWebviewProvider implements WebviewProvider<State, State, HomeWe
 		}
 	}
 
-	private async continuePausedOperation(pausedOpArgs: GitPausedOperationCommandArgs) {
-		if (pausedOpArgs.operation.type === 'revert') return;
+	private async continuePausedOperation(pausedOpArgs: GitPausedOperationStatus) {
+		if (pausedOpArgs.type === 'revert') return;
 
-		const continuePausedOperation = this.container.git.status(
-			pausedOpArgs.operation.repoPath,
-		).continuePausedOperation;
+		const continuePausedOperation = this.container.git.status(pausedOpArgs.repoPath).continuePausedOperation;
 		if (continuePausedOperation == null) return;
 
 		try {
@@ -488,10 +483,8 @@ export class HomeWebviewProvider implements WebviewProvider<State, State, HomeWe
 		}
 	}
 
-	private async skipPausedOperation(pausedOpArgs: GitPausedOperationCommandArgs) {
-		const continuePausedOperation = this.container.git.status(
-			pausedOpArgs.operation.repoPath,
-		).continuePausedOperation;
+	private async skipPausedOperation(pausedOpArgs: GitPausedOperationStatus) {
+		const continuePausedOperation = this.container.git.status(pausedOpArgs.repoPath).continuePausedOperation;
 		if (continuePausedOperation == null) return;
 
 		try {
@@ -501,10 +494,10 @@ export class HomeWebviewProvider implements WebviewProvider<State, State, HomeWe
 		}
 	}
 
-	private async openRebaseEditor(pausedOpArgs: GitPausedOperationCommandArgs) {
-		if (pausedOpArgs.operation.type !== 'rebase') return;
+	private async openRebaseEditor(pausedOpArgs: GitPausedOperationStatus) {
+		if (pausedOpArgs.type !== 'rebase') return;
 
-		const gitDir = await this.container.git.getGitDir(pausedOpArgs.operation.repoPath);
+		const gitDir = await this.container.git.getGitDir(pausedOpArgs.repoPath);
 		if (gitDir == null) return;
 
 		const rebaseTodoUri = Uri.joinPath(gitDir.uri, 'rebase-merge', 'git-rebase-todo');

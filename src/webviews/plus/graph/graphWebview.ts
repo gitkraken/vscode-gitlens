@@ -1,5 +1,5 @@
-import type { CancellationToken, ColorTheme, ConfigurationChangeEvent, Uri } from 'vscode';
-import { CancellationTokenSource, Disposable, env, window } from 'vscode';
+import type { CancellationToken, ColorTheme, ConfigurationChangeEvent } from 'vscode';
+import { CancellationTokenSource, Disposable, env, Uri, window } from 'vscode';
 import type { CreatePullRequestActionContext, OpenPullRequestActionContext } from '../../../api/gitlens';
 import { getAvatarUri } from '../../../avatars';
 import { parseCommandContext } from '../../../commands/base';
@@ -692,6 +692,11 @@ export class GraphWebviewProvider implements WebviewProvider<State, State, Graph
 			this.host.registerWebviewCommand('gitlens.graph.generateCommitMessage', this.generateCommitMessage),
 
 			this.host.registerWebviewCommand('gitlens.graph.compareSelectedCommits.multi', this.compareSelectedCommits),
+			// TODO@d13: convert to this.host.registerWebviewCommand
+			registerCommand('gitlens.graph.abortPausedOperation', this.abortPausedOperation, this),
+			registerCommand('gitlens.graph.continuePausedOperation', this.continuePausedOperation, this),
+			registerCommand('gitlens.graph.openRebaseEditor', this.openRebaseEditor, this),
+			registerCommand('gitlens.graph.skipPausedOperation', this.skipPausedOperation, this),
 		);
 
 		return commands;
@@ -2461,12 +2466,17 @@ export class GraphWebviewProvider implements WebviewProvider<State, State, Graph
 	private async getWorkingTreeStats(): Promise<GraphWorkingTreeStats | undefined> {
 		if (this.repository == null || this.container.git.repositoryCount === 0) return undefined;
 
-		const status = await this.container.git.status(this.repository.path).getStatus();
+		const statusProivder = this.container.git.status(this.repository.path);
+		const status = await statusProivder.getStatus();
 		const workingTreeStatus = status?.getDiffStatus();
+		const pausedOpStatus = await statusProivder.getPausedOperationStatus?.();
+
 		return {
 			added: workingTreeStatus?.added ?? 0,
 			deleted: workingTreeStatus?.deleted ?? 0,
 			modified: workingTreeStatus?.changed ?? 0,
+			hasConflicts: status?.hasConflicts,
+			pausedOpStatus: pausedOpStatus,
 			context: serializeWebviewItemContext<GraphItemContext>({
 				webviewItem: 'gitlens:wip',
 				webviewItemValue: {
@@ -3310,6 +3320,67 @@ export class GraphWebviewProvider implements WebviewProvider<State, State, Graph
 		const [ref1, ref2] = await getOrderedComparisonRefs(this.container, commit1.repoPath, commit1.ref, commit2.ref);
 
 		return this.container.views.searchAndCompare.compare(commit1.repoPath, ref1, ref2);
+	}
+
+	@log()
+	private async abortPausedOperation(_item?: GraphItemContext) {
+		if (this.repository == null) return;
+
+		const abortPausedOperation = this.container.git.status(this.repository.path).abortPausedOperation;
+		if (abortPausedOperation == null) return;
+
+		try {
+			await abortPausedOperation();
+		} catch (ex) {
+			void window.showErrorMessage(ex.message);
+		}
+	}
+
+	@log()
+	private async continuePausedOperation(_item?: GraphItemContext) {
+		if (this.repository == null) return;
+
+		const status = await this.container.git.status(this.repository.path).getPausedOperationStatus?.();
+		if (status == null || status.type === 'revert') return;
+
+		const continuePausedOperation = this.container.git.status(status.repoPath).continuePausedOperation;
+		if (continuePausedOperation == null) return;
+
+		try {
+			await continuePausedOperation();
+		} catch (ex) {
+			void window.showErrorMessage(ex.message);
+		}
+	}
+
+	@log()
+	private async openRebaseEditor(_item?: GraphItemContext) {
+		if (this.repository == null) return;
+
+		const status = await this.container.git.status(this.repository.path).getPausedOperationStatus?.();
+		if (status == null || status.type !== 'rebase') return;
+
+		const gitDir = await this.container.git.getGitDir(this.repository.path);
+		if (gitDir == null) return;
+
+		const rebaseTodoUri = Uri.joinPath(gitDir.uri, 'rebase-merge', 'git-rebase-todo');
+		void executeCoreCommand('vscode.openWith', rebaseTodoUri, 'gitlens.rebase', {
+			preview: false,
+		});
+	}
+
+	@log()
+	private async skipPausedOperation(_item?: GraphItemContext) {
+		if (this.repository == null) return;
+
+		const continuePausedOperation = this.container.git.status(this.repository.path).continuePausedOperation;
+		if (continuePausedOperation == null) return;
+
+		try {
+			await continuePausedOperation({ skip: true });
+		} catch (ex) {
+			void window.showErrorMessage(ex.message);
+		}
 	}
 
 	@log()

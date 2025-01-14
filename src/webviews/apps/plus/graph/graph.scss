@@ -883,7 +883,7 @@ button:not([disabled]),
 			display: grid;
 			grid-auto-flow: column;
 			justify-content: start;
-			grid-template-columns: minmax(min-content, 1fr) min-content;
+			grid-template-columns: 1fr min-content;
 		}
 	}
 
@@ -893,6 +893,10 @@ button:not([disabled]),
 
 	&__row--wrap &__group {
 		white-space: nowrap;
+
+		&:nth-child(odd) {
+			min-width: 0;
+		}
 	}
 
 	&__debugging {
@@ -1309,4 +1313,20 @@ sl-select[open]::part(combobox) {
 sl-select:hover::part(combobox),
 sl-select:focus::part(combobox) {
 	background-color: var(--color-graph-actionbar-selectedBackground);
+}
+
+.merge-conflict-warning {
+	flex: 0 0 100%;
+	min-width: 0;
+
+	// &__content {
+	// 	display: block;
+	// 	width: 100%;
+	// 	min-width: 0;
+	// 	max-width: fit-content;
+	// }
+
+	&__content::part(base) {
+		max-width: fit-content;
+	}
 }
