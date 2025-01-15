@@ -14,7 +14,7 @@ export class RemotesGitSubProvider extends RemotesGitProviderBase {
 	): Promise<GitRemote[]> {
 		if (repoPath == null) return [];
 
-		const providers = loadRemoteProviders(configuration.get('remotes', null));
+		const providers = loadRemoteProviders(configuration.get('remotes', null), undefined);
 
 		const uri = Uri.parse(repoPath, true);
 		const [, owner, repo] = uri.path.split('/', 3);
