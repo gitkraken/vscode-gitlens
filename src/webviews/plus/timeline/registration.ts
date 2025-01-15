@@ -42,7 +42,7 @@ export function registerTimelineWebviewView(controller: WebviewsController) {
 		{
 			id: 'gitlens.views.timeline',
 			fileName: 'timeline.html',
-			title: 'Visual History',
+			title: 'Visual File History',
 			contextKeyPrefix: `gitlens:webviewView:timeline`,
 			trackingFeature: 'timelineView',
 			type: 'timeline',
