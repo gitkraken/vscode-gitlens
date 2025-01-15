@@ -73,6 +73,7 @@ export type ProviderRequestResponse<T> = Response<T>;
 export type ProviderRequestOptions = RequestOptions;
 
 const selfHostedIntegrationIds: SelfHostedIntegrationId[] = [
+	SelfHostedIntegrationId.CloudGitHubEnterprise,
 	SelfHostedIntegrationId.GitHubEnterprise,
 	SelfHostedIntegrationId.GitLabSelfHosted,
 ] as const;
@@ -336,6 +337,22 @@ export const providersMetadata: ProvidersMetadata = {
 	[HostingIntegrationId.GitHub]: {
 		domain: 'github.com',
 		id: HostingIntegrationId.GitHub,
+		issuesPagingMode: PagingMode.Repos,
+		pullRequestsPagingMode: PagingMode.Repos,
+		// Use 'username' property on account for PR filters
+		supportedPullRequestFilters: [
+			PullRequestFilter.Author,
+			PullRequestFilter.Assignee,
+			PullRequestFilter.ReviewRequested,
+			PullRequestFilter.Mention,
+		],
+		// Use 'username' property on account for issue filters
+		supportedIssueFilters: [IssueFilter.Author, IssueFilter.Assignee, IssueFilter.Mention],
+		scopes: ['repo', 'read:user', 'user:email'],
+	},
+	[SelfHostedIntegrationId.CloudGitHubEnterprise]: {
+		domain: '',
+		id: SelfHostedIntegrationId.CloudGitHubEnterprise,
 		issuesPagingMode: PagingMode.Repos,
 		pullRequestsPagingMode: PagingMode.Repos,
 		// Use 'username' property on account for PR filters

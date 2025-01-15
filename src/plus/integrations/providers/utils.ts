@@ -12,7 +12,7 @@ import type { IssueResourceDescriptor, RepositoryDescriptor } from '../integrati
 import { isIssueResourceDescriptor, isRepositoryDescriptor } from '../integration';
 import type { GitConfigEntityIdentifier } from './models';
 
-function isGitHubDotCom(domain: string): boolean {
+export function isGitHubDotCom(domain: string): boolean {
 	return equalsIgnoreCase(domain, 'github.com');
 }
 

@@ -4,7 +4,10 @@ import { wrapForForcedInsecureSSL } from '@env/fetch';
 import { HostingIntegrationId, SelfHostedIntegrationId } from '../../../constants.integrations';
 import type { Sources } from '../../../constants.telemetry';
 import type { Container } from '../../../container';
-import type { IntegrationAuthenticationSessionDescriptor } from './integrationAuthentication';
+import type {
+	IntegrationAuthenticationService,
+	IntegrationAuthenticationSessionDescriptor,
+} from './integrationAuthentication';
 import {
 	CloudIntegrationAuthenticationProvider,
 	LocalIntegrationAuthenticationProvider,
@@ -12,8 +15,8 @@ import {
 import type { ProviderAuthenticationSession } from './models';
 
 export class GitHubAuthenticationProvider extends CloudIntegrationAuthenticationProvider<HostingIntegrationId.GitHub> {
-	constructor(container: Container) {
-		super(container);
+	constructor(container: Container, authenticationService: IntegrationAuthenticationService) {
+		super(container, authenticationService);
 		this.disposables.push(
 			authentication.onDidChangeSessions(e => {
 				if (e.provider.id === this.authProviderId) {
@@ -66,6 +69,16 @@ export class GitHubAuthenticationProvider extends CloudIntegrationAuthentication
 
 	protected override getCompletionInputTitle(): string {
 		return 'Connect to GitHub';
+	}
+}
+
+export class GitHubEnterpriseCloudAuthenticationProvider extends CloudIntegrationAuthenticationProvider<SelfHostedIntegrationId.CloudGitHubEnterprise> {
+	protected override getCompletionInputTitle(): string {
+		throw new Error('Connect to GitHub Enterprise');
+	}
+
+	protected override get authProviderId(): SelfHostedIntegrationId.CloudGitHubEnterprise {
+		return SelfHostedIntegrationId.CloudGitHubEnterprise;
 	}
 }
 
