@@ -11,6 +11,7 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/) and this p
 - Adds new ability to search for a GitLab MR in the _Launchpad_ &mdash; closes [#3788](https://github.com/gitkraken/vscode-gitlens/issues/3788)
 - Adds go to home view button to the commit graph title section &mdash; closes [#3873](https://github.com/gitkraken/vscode-gitlens/issues/3873)
 - Adds a _Contributors_ section to comparison results in the views
+- Adds a new control for graph branches visibility &mdash; closes [#3101](https://github.com/gitkraken/vscode-gitlens/issues/3101)
 
 ### Changed
 
