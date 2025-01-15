@@ -110,6 +110,7 @@ abstract class IntegrationAuthenticationProviderBase<ID extends IntegrationId = 
 		session: ProviderAuthenticationSession | StoredSession,
 	) {
 		await this.container.storage.storeSecret(key, JSON.stringify(session));
+		// TODO: we should add `domain` on to the session like we are doing with `cloud` to make it explicit
 		await this.authenticationService.addConfigured({
 			integrationId: this.authProviderId,
 			domain: isSelfHostedIntegrationId(this.authProviderId) ? session.id : undefined,
