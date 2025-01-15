@@ -890,7 +890,7 @@ export function GraphWrapper({
 	const fixedExcludeRefsById = useMemo(() => ({ ...excludeRefsById }), [excludeRefsById]);
 	const handleOnToggleRefsVisibilityClick = (_event: any, refs: GraphRefOptData[], visible: boolean) => {
 		if (!visible) {
-			document.getElementById('test')?.animate(
+			document.getElementById('hiddenRefs')?.animate(
 				[
 					{ offset: 0, background: 'transparent' },
 					{
@@ -1059,8 +1059,6 @@ export function GraphWrapper({
 
 		onChangeSelection?.(rows);
 	};
-
-	const hasExcludedRefs = excludeRefsById && Object.keys(excludeRefsById).length;
 
 	return (
 		<>
@@ -1389,8 +1387,8 @@ export function GraphWrapper({
 									distance={0}
 								>
 									<GlTooltip placement="top" slot="anchor">
-										<button type="button" id="test" className="action-button">
-											<CodeIcon icon={`eye`} />
+										<button type="button" id="hiddenRefs" className="action-button">
+											<CodeIcon icon={`eye-closed`} />
 											{Object.values(excludeRefsById ?? {}).length}
 											<CodeIcon
 												className="action-button__more"
@@ -1398,11 +1396,12 @@ export function GraphWrapper({
 												aria-hidden="true"
 											/>
 										</button>
-										<span slot="content">Hidden branches</span>
+										<span slot="content">Hidden Branches / Tags</span>
 									</GlTooltip>
 									<div slot="content">
-										<MenuLabel>Hidden branches</MenuLabel>
-										{hasExcludedRefs &&
+										<MenuLabel>Hidden Branches / Tags</MenuLabel>
+										{excludeRefsById &&
+											Object.keys(excludeRefsById).length &&
 											[...Object.values(excludeRefsById), null].map(ref =>
 												ref ? (
 													<MenuItem
@@ -1426,7 +1425,7 @@ export function GraphWrapper({
 															);
 														}}
 													>
-														Show all
+														Show All
 													</MenuItem>
 												),
 											)}
