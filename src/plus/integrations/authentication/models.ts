@@ -14,7 +14,7 @@ export interface ProviderAuthenticationSession extends AuthenticationSession {
 	readonly expiresAt?: Date;
 }
 
-export interface ConfiguredProviderAuthenticationDescriptor {
+export interface ConfiguredIntegrationDescriptor {
 	readonly cloud: boolean;
 	readonly integrationId: IntegrationId;
 	readonly domain?: string;

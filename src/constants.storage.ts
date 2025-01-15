@@ -89,12 +89,9 @@ export type GlobalStorage = {
 	[key in `jira:${string}:projects`]: Stored<StoredJiraProject[] | undefined>;
 };
 
-export type StoredIntegrationConfigurations = Record<
-	string,
-	StoredConfiguredProviderAuthenticationDescriptor[] | undefined
->;
+export type StoredIntegrationConfigurations = Record<string, StoredConfiguredIntegrationDescriptor[] | undefined>;
 
-export interface StoredConfiguredProviderAuthenticationDescriptor {
+export interface StoredConfiguredIntegrationDescriptor {
 	cloud: boolean;
 	integrationId: IntegrationId;
 	domain?: string;

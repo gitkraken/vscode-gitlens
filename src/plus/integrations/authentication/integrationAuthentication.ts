@@ -3,17 +3,14 @@ import { authentication, EventEmitter, window } from 'vscode';
 import { wrapForForcedInsecureSSL } from '@env/fetch';
 import type { IntegrationId } from '../../../constants.integrations';
 import { HostingIntegrationId, IssueIntegrationId, SelfHostedIntegrationId } from '../../../constants.integrations';
-import type {
-	IntegrationAuthenticationKeys,
-	StoredConfiguredProviderAuthenticationDescriptor,
-} from '../../../constants.storage';
+import type { IntegrationAuthenticationKeys, StoredConfiguredIntegrationDescriptor } from '../../../constants.storage';
 import type { Sources } from '../../../constants.telemetry';
 import type { Container } from '../../../container';
 import { gate } from '../../../system/decorators/gate';
 import { debug, log } from '../../../system/decorators/log';
 import type { DeferredEventExecutor } from '../../../system/event';
 import { isSelfHostedIntegrationId, supportedIntegrationIds } from '../providers/models';
-import type { ConfiguredProviderAuthenticationDescriptor, ProviderAuthenticationSession } from './models';
+import type { ConfiguredIntegrationDescriptor, ProviderAuthenticationSession } from './models';
 import { isSupportedCloudIntegrationId } from './models';
 
 const maxSmallIntegerV8 = 2 ** 30 - 1; // Max number that can be stored in V8's smis (small integers)
@@ -506,7 +503,7 @@ class BuiltInAuthenticationProvider extends LocalIntegrationAuthenticationProvid
 
 export class IntegrationAuthenticationService implements Disposable {
 	private readonly providers = new Map<IntegrationId, IntegrationAuthenticationProvider>();
-	private _configured?: Map<IntegrationId, ConfiguredProviderAuthenticationDescriptor[]>;
+	private _configured?: Map<IntegrationId, ConfiguredIntegrationDescriptor[]>;
 
 	constructor(private readonly container: Container) {}
 
@@ -515,7 +512,7 @@ export class IntegrationAuthenticationService implements Disposable {
 		this.providers.clear();
 	}
 
-	get configured(): Map<IntegrationId, ConfiguredProviderAuthenticationDescriptor[]> {
+	get configured(): Map<IntegrationId, ConfiguredIntegrationDescriptor[]> {
 		if (this._configured == null) {
 			this._configured = new Map();
 			const storedConfigured = this.container.storage.get('integrations:configured');
@@ -534,7 +531,7 @@ export class IntegrationAuthenticationService implements Disposable {
 
 	private async storeConfigured() {
 		// We need to convert the map to a record to store
-		const configured: Record<string, StoredConfiguredProviderAuthenticationDescriptor[]> = {};
+		const configured: Record<string, StoredConfiguredIntegrationDescriptor[]> = {};
 		for (const [id, descriptors] of this.configured) {
 			configured[id] = descriptors.map(d => ({
 				...d,
@@ -549,7 +546,7 @@ export class IntegrationAuthenticationService implements Disposable {
 		await this.container.storage.store('integrations:configured', configured);
 	}
 
-	async addConfigured(descriptor: ConfiguredProviderAuthenticationDescriptor) {
+	async addConfigured(descriptor: ConfiguredIntegrationDescriptor) {
 		const descriptors = this.configured.get(descriptor.integrationId) ?? [];
 		// Only add if one does not exist
 		if (descriptors.some(d => d.domain === descriptor.domain && d.integrationId === descriptor.integrationId)) {
@@ -560,7 +557,7 @@ export class IntegrationAuthenticationService implements Disposable {
 		await this.storeConfigured();
 	}
 
-	async removeConfigured(descriptor: Pick<ConfiguredProviderAuthenticationDescriptor, 'integrationId' | 'domain'>) {
+	async removeConfigured(descriptor: Pick<ConfiguredIntegrationDescriptor, 'integrationId' | 'domain'>) {
 		const descriptors = this.configured.get(descriptor.integrationId);
 		if (descriptors == null) return;
 		const index = descriptors.findIndex(

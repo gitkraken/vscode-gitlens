@@ -1,7 +1,7 @@
 import type { RemotesConfig } from '../../config';
 import { SelfHostedIntegrationId } from '../../constants.integrations';
 import type { Container } from '../../container';
-import type { ConfiguredProviderAuthenticationDescriptor } from '../../plus/integrations/authentication/models';
+import type { ConfiguredIntegrationDescriptor } from '../../plus/integrations/authentication/models';
 import { Logger } from '../../system/logger';
 import { configuration } from '../../system/vscode/configuration';
 import { AzureDevOpsRemote } from './azure-devops';
@@ -77,7 +77,7 @@ const builtInProviders: RemoteProviders = [
 
 export function loadRemoteProviders(
 	cfg: RemotesConfig[] | null | undefined,
-	configuredIntegrations?: ConfiguredProviderAuthenticationDescriptor[],
+	configuredIntegrations?: ConfiguredIntegrationDescriptor[],
 ): RemoteProviders {
 	const providers: RemoteProviders = [];
 

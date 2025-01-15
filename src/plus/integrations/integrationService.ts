@@ -21,7 +21,7 @@ import { configuration } from '../../system/vscode/configuration';
 import { openUrl } from '../../system/vscode/utils';
 import type { SubscriptionChangeEvent } from '../gk/account/subscriptionService';
 import type { IntegrationAuthenticationService } from './authentication/integrationAuthentication';
-import type { ConfiguredProviderAuthenticationDescriptor } from './authentication/models';
+import type { ConfiguredIntegrationDescriptor } from './authentication/models';
 import {
 	CloudIntegrationAuthenticationUriPathPrefix,
 	getSupportedCloudIntegrationIds,
@@ -949,7 +949,7 @@ export class IntegrationService implements Disposable {
 		return isSelfHostedIntegrationId(id) ? (`${id}:${domain}` as const) : id;
 	}
 
-	getConfiguredIntegrationDescriptors(id?: IntegrationId): ConfiguredProviderAuthenticationDescriptor[] {
+	getConfiguredIntegrationDescriptors(id?: IntegrationId): ConfiguredIntegrationDescriptor[] {
 		const configured = this.authenticationService.configured;
 		if (id != null) return configured.get(id) ?? [];
 		const results = [];
