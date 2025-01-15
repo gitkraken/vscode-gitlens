@@ -60,6 +60,7 @@ import type { IpcMessage } from '../protocol';
 import type { WebviewHost, WebviewProvider, WebviewShowingArgs } from '../webviewProvider';
 import type { WebviewShowOptions } from '../webviewsController';
 import type {
+	BranchRef,
 	CollapseSectionParams,
 	DidChangeRepositoriesParams,
 	GetOverviewBranch,
@@ -110,10 +111,6 @@ interface RepositoryBranchData {
 	repo: Repository;
 	branches: GitBranch[];
 	worktreesByBranch: Map<string, GitWorktree>;
-}
-interface BranchRef {
-	repoPath: string;
-	branchId: string;
 }
 
 // type AutolinksInfo = Awaited<GetOverviewBranch['autolinks']>;
@@ -296,6 +293,7 @@ export class HomeWebviewProvider implements WebviewProvider<State, State, HomeWe
 				(src?: Source) => this.container.subscription.validate({ force: true }, src),
 				this,
 			),
+			registerCommand('gitlens.home.openMergeTargetComparison', this.mergeTargetCompare, this),
 			registerCommand('gitlens.home.openPullRequestChanges', this.pullRequestChanges, this),
 			registerCommand('gitlens.home.openPullRequestComparison', this.pullRequestCompare, this),
 			registerCommand('gitlens.home.openPullRequestOnRemote', this.pullRequestViewOnRemote, this),
@@ -429,26 +427,26 @@ export class HomeWebviewProvider implements WebviewProvider<State, State, HomeWe
 		});
 	}
 
-	private async mergeIntoCurrent(refs: BranchRef) {
-		const repo = this._repositoryBranches.get(refs.repoPath);
-		let branch = repo?.branches.find(b => b.id === refs.branchId);
+	private async mergeIntoCurrent(ref: BranchRef) {
+		const repoInfo = this._repositoryBranches.get(ref.repoPath);
+		let branch = repoInfo?.branches.find(b => b.id === ref.branchId);
 		if (branch == null) {
-			branch = await repo?.repo?.git.branches().getBranch(refs.branchId);
+			branch = await repoInfo?.repo?.git.branches().getBranch(ref.branchName);
 			if (branch == null) return;
 		}
 
-		void RepoActions.merge(repo!.repo, getReferenceFromBranch(branch));
+		void RepoActions.merge(repoInfo!.repo, getReferenceFromBranch(branch));
 	}
 
-	private async rebaseCurrentOnto(refs: BranchRef) {
-		const repo = this._repositoryBranches.get(refs.repoPath);
-		let branch = repo?.branches.find(b => b.id === refs.branchId);
+	private async rebaseCurrentOnto(ref: BranchRef) {
+		const repoInfo = this._repositoryBranches.get(ref.repoPath);
+		let branch = repoInfo?.branches.find(b => b.id === ref.branchId);
 		if (branch == null) {
-			branch = await repo?.repo?.git.branches().getBranch(refs.branchId);
+			branch = await repoInfo?.repo?.git.branches().getBranch(ref.branchName);
 			if (branch == null) return;
 		}
 
-		void RepoActions.rebase(repo!.repo, getReferenceFromBranch(branch));
+		void RepoActions.rebase(repoInfo!.repo, getReferenceFromBranch(branch));
 	}
 
 	private startWork() {
@@ -506,8 +504,8 @@ export class HomeWebviewProvider implements WebviewProvider<State, State, HomeWe
 		});
 	}
 
-	private async createCloudPatch(refs: BranchRef) {
-		const status = await this.container.git.status(refs.repoPath).getStatus();
+	private async createCloudPatch(ref: BranchRef) {
+		const status = await this.container.git.status(ref.repoPath).getStatus();
 		if (status == null) return;
 
 		const files: GitFileChangeShape[] = [];
@@ -526,7 +524,7 @@ export class HomeWebviewProvider implements WebviewProvider<State, State, HomeWe
 			}
 		}
 
-		const { repo } = this._repositoryBranches.get(refs.repoPath)!;
+		const { repo } = this._repositoryBranches.get(ref.repoPath)!;
 		const change: Change = {
 			type: 'wip',
 			repository: {
@@ -1015,11 +1013,15 @@ export class HomeWebviewProvider implements WebviewProvider<State, State, HomeWe
 		});
 	}
 
-	private async pullRequestCompare(refs: BranchRef) {
-		const pr = await this.findPullRequest(refs);
+	private mergeTargetCompare(ref: BranchRef & { mergeTargetId: string }) {
+		return this.container.views.searchAndCompare.compare(ref.repoPath, ref.branchId, ref.mergeTargetId);
+	}
+
+	private async pullRequestCompare(ref: BranchRef) {
+		const pr = await this.findPullRequest(ref);
 		if (pr?.refs?.base == null || pr.refs.head == null) return;
 
-		const comparisonRefs = getComparisonRefsForPullRequest(refs.repoPath, pr.refs);
+		const comparisonRefs = getComparisonRefsForPullRequest(ref.repoPath, pr.refs);
 		return this.container.views.searchAndCompare.compare(
 			comparisonRefs.repoPath,
 			comparisonRefs.head,
@@ -1027,11 +1029,11 @@ export class HomeWebviewProvider implements WebviewProvider<State, State, HomeWe
 		);
 	}
 
-	private async pullRequestChanges(refs: BranchRef) {
-		const pr = await this.findPullRequest(refs);
+	private async pullRequestChanges(ref: BranchRef) {
+		const pr = await this.findPullRequest(ref);
 		if (pr?.refs?.base == null || pr.refs.head == null) return;
 
-		const comparisonRefs = getComparisonRefsForPullRequest(refs.repoPath, pr.refs);
+		const comparisonRefs = getComparisonRefsForPullRequest(ref.repoPath, pr.refs);
 		return openComparisonChanges(
 			this.container,
 			{
@@ -1043,8 +1045,8 @@ export class HomeWebviewProvider implements WebviewProvider<State, State, HomeWe
 		);
 	}
 
-	private async pullRequestViewOnRemote(refs: BranchRef, clipboard?: boolean) {
-		const pr = await this.findPullRequest(refs);
+	private async pullRequestViewOnRemote(ref: BranchRef, clipboard?: boolean) {
+		const pr = await this.findPullRequest(ref);
 		if (pr == null) return;
 
 		void executeCommand<OpenPullRequestOnRemoteCommandArgs>(GlCommand.OpenPullRequestOnRemote, {
@@ -1053,22 +1055,23 @@ export class HomeWebviewProvider implements WebviewProvider<State, State, HomeWe
 		});
 	}
 
-	private async pullRequestDetails(refs: BranchRef) {
-		const pr = await this.findPullRequest(refs);
+	private async pullRequestDetails(ref: BranchRef) {
+		const pr = await this.findPullRequest(ref);
 		if (pr == null) return;
 
-		void this.container.views.pullRequest.showPullRequest(pr, refs.repoPath);
+		void this.container.views.pullRequest.showPullRequest(pr, ref.repoPath);
 	}
 
-	private async pullRequestCreate(refs: BranchRef) {
-		const repo = this._repositoryBranches.get(refs.repoPath);
-		const branch = repo?.branches.find(b => b.id === refs.branchId);
+	private async pullRequestCreate(ref: BranchRef) {
+		const repo = this._repositoryBranches.get(ref.repoPath);
+		const branch = repo?.branches.find(b => b.id === ref.branchId);
 		if (branch == null) return;
+
 		const remote = await branch.getRemote();
 		if (remote == null) return;
 
 		executeActionCommand<CreatePullRequestActionContext>('createPullRequest', {
-			repoPath: refs.repoPath,
+			repoPath: ref.repoPath,
 			remote:
 				remote != null
 					? {
@@ -1092,54 +1095,60 @@ export class HomeWebviewProvider implements WebviewProvider<State, State, HomeWe
 		});
 	}
 
-	private worktreeOpen(refs: BranchRef) {
-		const worktree = this.findWorktree(refs);
+	private worktreeOpen(ref: BranchRef) {
+		const worktree = this.findWorktree(ref);
 		if (worktree == null) return;
 
 		openWorkspace(worktree.uri);
 	}
 
-	private switchToBranch(refs: BranchRef) {
-		const repo = this._repositoryBranches.get(refs.repoPath);
-		const branch = repo?.branches.find(b => b.id === refs.branchId);
+	private switchToBranch(ref: BranchRef) {
+		const repo = this._repositoryBranches.get(ref.repoPath);
+		const branch = repo?.branches.find(b => b.id === ref.branchId);
 		if (branch == null) return;
 
 		void RepoActions.switchTo(repo!.repo, getReferenceFromBranch(branch));
 	}
 
-	private fetch(refs?: BranchRef) {
-		if (refs == null) {
+	private async fetch(ref?: BranchRef) {
+		if (ref == null) {
 			const repo = this.getSelectedRepository();
 			void RepoActions.fetch(repo);
 			return;
 		}
 
-		const repo = this._repositoryBranches.get(refs.repoPath);
-		const branch = repo?.branches.find(b => b.id === refs.branchId);
+		const repoInfo = this._repositoryBranches.get(ref.repoPath);
+		if (repoInfo == null) return;
+
+		let branch = repoInfo.branches.find(b => b.id === ref.branchId);
+		if (branch == null) {
+			branch = await repoInfo.repo.git.branches().getBranch(ref.branchId);
+		}
 		if (branch == null) return;
 
-		void RepoActions.fetch(repo!.repo, getReferenceFromBranch(branch));
+		void RepoActions.fetch(repoInfo.repo, getReferenceFromBranch(branch));
 	}
 
-	private findBranch(refs: BranchRef): GitBranch | undefined {
-		const branches = this._repositoryBranches.get(refs.repoPath)?.branches;
-		return branches?.find(b => b.id === refs.branchId);
+	private findBranch(ref: BranchRef): GitBranch | undefined {
+		const branches = this._repositoryBranches.get(ref.repoPath)?.branches;
+		return branches?.find(b => b.id === ref.branchId);
 	}
 
-	private findWorktree(refs: BranchRef): GitWorktree | undefined {
-		const repo = this._repositoryBranches.get(refs.repoPath);
+	private findWorktree(ref: BranchRef): GitWorktree | undefined {
+		const repo = this._repositoryBranches.get(ref.repoPath);
 		if (repo == null) return undefined;
 
-		const branch = repo.branches.find(b => b.id === refs.branchId);
+		const branch = repo.branches.find(b => b.id === ref.branchId);
 		if (branch == null) return undefined;
 
 		return repo.worktreesByBranch.get(branch.id);
 	}
 
-	private async findPullRequest(refs: BranchRef): Promise<PullRequest | undefined> {
-		const branches = this.findBranch(refs);
-		if (branches == null) return undefined;
-		return branches.getAssociatedPullRequest();
+	private async findPullRequest(ref: BranchRef): Promise<PullRequest | undefined> {
+		const branch = this.findBranch(ref);
+		if (branch == null) return undefined;
+
+		return branch.getAssociatedPullRequest();
 	}
 }
 
@@ -1436,30 +1445,42 @@ async function getBranchMergeTargetStatusInfo(
 		associatedPullRequest: branch.getAssociatedPullRequest(),
 	});
 
-	let targetBranch;
+	let targetResult;
 	if (!info.targetBranch.paused && info.targetBranch.value) {
-		targetBranch = info.targetBranch.value;
+		targetResult = info.targetBranch.value;
 	}
 
-	const target = targetBranch ?? info.baseBranch ?? info.defaultBranch;
+	const target = targetResult ?? info.baseBranch ?? info.defaultBranch;
 	if (target == null) return undefined;
 
-	const [countsResult, conflictResult] = await Promise.allSettled([
-		container.git.getLeftRightCommitCount(branch.repoPath, createRevisionRange(target, branch.ref, '...'), {
-			excludeMerges: true,
-		}),
-		container.git.branches(branch.repoPath).getPotentialMergeOrRebaseConflict?.(branch.name, target),
+	const branchProvider = container.git.branches(branch.repoPath);
+	const targetBranch = await branchProvider.getBranch(target);
+	if (targetBranch == null) return undefined;
+
+	const [countsResult, conflictResult, mergedStatusResult] = await Promise.allSettled([
+		container.git.getLeftRightCommitCount(
+			branch.repoPath,
+			createRevisionRange(targetBranch.name, branch.ref, '...'),
+			{
+				excludeMerges: true,
+			},
+		),
+		branchProvider.getPotentialMergeOrRebaseConflict?.(branch.name, targetBranch.name),
+		branchProvider.getBranchMergedStatus?.(branch, targetBranch),
 	]);
 
 	const counts = getSettledValue(countsResult);
 	const status = counts != null ? { ahead: counts.right, behind: counts.left } : undefined;
+	const mergedStatus = getSettledValue(mergedStatusResult);
 
 	return {
 		repoPath: branch.repoPath,
-		name: target,
+		id: targetBranch.id,
+		name: targetBranch.name,
 		status: status,
+		mergedStatus: mergedStatus,
 		potentialConflicts: getSettledValue(conflictResult),
-		targetBranch: targetBranch,
+		targetBranch: targetBranch.name,
 		baseBranch: info.baseBranch,
 		defaultBranch: info.defaultBranch,
 	};
