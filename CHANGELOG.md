@@ -15,6 +15,7 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/) and this p
 ### Changed
 
 - Makes GitLens XDG-compatible&mdash; closes [#3660](https://github.com/gitkraken/vscode-gitlens/issues/3660)
+- GitLens "reset" commands no longer open a terminal
 
 ### Fixed
 
@@ -22,6 +23,7 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/) and this p
 - Fixes [#3914](https://github.com/gitkraken/vscode-gitlens/issues/3914) - Attempting to clear a file annotation on a split file w/o the annotation no-ops
 - Fixes [#3911](https://github.com/gitkraken/vscode-gitlens/issues/3911) - Avoid Home opening when first-install isn't reliable (e.g. GitPod)
 - Fixes [#3888](https://github.com/gitkraken/vscode-gitlens/issues/3888) - Graph hover should disappear when right-clicking a row
+- Fixes [#3909](https://github.com/gitkraken/vscode-gitlens/issues/3909) - GitLens "Pull with Rebase" is not rebase, but merge
 
 ## [16.1.1] - 2024-12-20
 
