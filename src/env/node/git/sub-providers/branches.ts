@@ -5,12 +5,14 @@ import { GitErrorHandling } from '../../../../git/commandOptions';
 import type {
 	BranchContributionsOverview,
 	GitBranchesSubProvider,
+	GitBranchMergedStatus,
 	PagedResult,
 	PagingOptions,
 } from '../../../../git/gitProvider';
 import { GitBranch } from '../../../../git/models/branch';
 import { getLocalBranchByUpstream, isDetachedHead } from '../../../../git/models/branch.utils';
 import type { MergeConflict } from '../../../../git/models/mergeConflict';
+import type { GitBranchReference } from '../../../../git/models/reference';
 import { createRevisionRange } from '../../../../git/models/revision.utils';
 import { parseGitBranches } from '../../../../git/parsers/branchParser';
 import { parseMergeTreeConflict } from '../../../../git/parsers/mergeTreeParser';
@@ -311,6 +313,74 @@ export class BranchesGitSubProvider implements GitBranchesSubProvider {
 	}
 
 	@log()
+	async getBranchMergedStatus(
+		repoPath: string,
+		branch: GitBranchReference,
+		into: GitBranchReference,
+	): Promise<GitBranchMergedStatus> {
+		const result = await this.getBranchMergedStatusCore(repoPath, branch, into);
+		if (result.merged) return result;
+
+		// If the branch we are checking is a remote branch, check if it has been merged into its local branch (if there is one)
+		if (into.remote) {
+			const localIntoBranch = await this.getLocalBranchByUpstream(repoPath, into.name);
+			// If there is a local branch and it is not the branch we are checking, check if it has been merged into it
+			if (localIntoBranch != null && localIntoBranch.name !== branch.name) {
+				const result = await this.getBranchMergedStatusCore(repoPath, branch, localIntoBranch);
+				if (result.merged) {
+					return {
+						...result,
+						localBranchOnly: { name: localIntoBranch.name },
+					};
+				}
+			}
+		}
+
+		return { merged: false };
+	}
+
+	private async getBranchMergedStatusCore(
+		repoPath: string,
+		branch: GitBranchReference,
+		into: GitBranchReference,
+	): Promise<Exclude<GitBranchMergedStatus, 'localBranchOnly'>> {
+		const scope = getLogScope();
+
+		try {
+			// Check if branch is direct ancestor (handles FF merges)
+			try {
+				await this.git.exec(
+					{ cwd: repoPath, errors: GitErrorHandling.Throw },
+					'merge-base',
+					'--is-ancestor',
+					branch.name,
+					into.name,
+				);
+				return { merged: true, confidence: 'highest' };
+			} catch {}
+
+			// Cherry-pick detection (handles cherry-picks, rebases, etc)
+			const data = await this.git.exec<string>(
+				{ cwd: repoPath },
+				'cherry',
+				'--abbrev',
+				'-v',
+				into.name,
+				branch.name,
+			);
+			// Check if there are no lines or all lines startwith a `-` (i.e. likely merged)
+			if (!data || data.split('\n').every(l => l.startsWith('-'))) {
+				return { merged: true, confidence: 'high' };
+			}
+
+			return { merged: false };
+		} catch (ex) {
+			Logger.error(ex, scope);
+			return { merged: false };
+		}
+	}
+
+	@log()
 	async getLocalBranchByUpstream(repoPath: string, remoteBranchName: string): Promise<GitBranch | undefined> {
 		const branches = new PageableResult<GitBranch>(p =>
 			this.getBranches(repoPath, p != null ? { paging: p } : undefined),
@@ -425,7 +495,12 @@ export class BranchesGitSubProvider implements GitBranchesSubProvider {
 			if (match != null && match.length === 2) {
 				let name: string | undefined = match[1];
 				if (name !== 'HEAD') {
-					name = await this.getValidatedBranchName(repoPath, options?.upstream ? `${name}@{u}` : name);
+					if (options?.upstream) {
+						const upstream = await this.getValidatedBranchName(repoPath, `${name}@{u}`);
+						if (upstream) return upstream;
+					}
+
+					name = await this.getValidatedBranchName(repoPath, name);
 					if (name) return name;
 				}
 			}
@@ -438,13 +513,17 @@ export class BranchesGitSubProvider implements GitBranchesSubProvider {
 				`--grep-reflog=checkout: moving from .* to ${ref.replace('refs/heads/', '')}`,
 			);
 			entries = data.split('\n').filter(entry => Boolean(entry));
-
 			if (!entries.length) return undefined;
 
 			match = entries[entries.length - 1].match(/checkout: moving from ([^\s]+)\s/);
 			if (match != null && match.length === 2) {
 				let name: string | undefined = match[1];
-				name = await this.getValidatedBranchName(repoPath, options?.upstream ? `${name}@{u}` : name);
+				if (options?.upstream) {
+					const upstream = await this.getValidatedBranchName(repoPath, `${name}@{u}`);
+					if (upstream) return upstream;
+				}
+
+				name = await this.getValidatedBranchName(repoPath, name);
 				if (name) return name;
 			}
 		} catch {}

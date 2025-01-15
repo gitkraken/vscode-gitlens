@@ -370,6 +370,12 @@ export interface GitRepositoryProvider {
 	worktrees?: GitWorktreesSubProvider;
 }
 
+export type MergeDetectionConfidence = 'highest' | 'high' | 'medium';
+
+export type GitBranchMergedStatus =
+	| { merged: false }
+	| { merged: true; confidence: MergeDetectionConfidence; localBranchOnly?: { name: string } };
+
 export interface GitBranchesSubProvider {
 	getBranch(repoPath: string, name?: string): Promise<GitBranch | undefined>;
 	getBranches(
@@ -398,6 +404,18 @@ export interface GitBranchesSubProvider {
 	): Promise<string | undefined>;
 
 	createBranch?(repoPath: string, name: string, ref: string): Promise<void>;
+	/**
+	 * Returns whether a branch has been merged into another branch
+	 * @param repoPath The repository path
+	 * @param branch The branch to check if merged
+	 * @param into The branch to check if merged into
+	 * @returns A promise of whether the branch is merged
+	 */
+	getBranchMergedStatus?(
+		repoPath: string,
+		branch: GitBranchReference,
+		into: GitBranchReference,
+	): Promise<GitBranchMergedStatus>;
 	getLocalBranchByUpstream?(repoPath: string, remoteBranchName: string): Promise<GitBranch | undefined>;
 	getPotentialMergeOrRebaseConflict?(
 		repoPath: string,

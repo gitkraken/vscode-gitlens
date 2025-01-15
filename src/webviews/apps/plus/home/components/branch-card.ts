@@ -15,7 +15,7 @@ import type { AssociateIssueWithBranchCommandArgs } from '../../../../../plus/st
 import { createCommandLink } from '../../../../../system/commands';
 import { fromNow } from '../../../../../system/date';
 import { interpolate, pluralize } from '../../../../../system/string';
-import type { GetOverviewBranch, OpenInGraphParams } from '../../../../home/protocol';
+import type { BranchRef, GetOverviewBranch, OpenInGraphParams } from '../../../../home/protocol';
 import { renderBranchName } from '../../../shared/components/branch-name';
 import type { GlCard } from '../../../shared/components/card/card';
 import { GlElement, observe } from '../../../shared/components/element';
@@ -246,6 +246,7 @@ export abstract class GlBranchCardBase extends GlElement {
 		this.contributorsPromise = value?.contributors;
 		this.issuesPromise = value?.issues;
 		this.prPromise = value?.pr;
+		this.mergeTargetPromise = value?.mergeTarget;
 		this.wipPromise = value?.wip;
 	}
 
@@ -356,6 +357,26 @@ export abstract class GlBranchCardBase extends GlElement {
 	}
 
 	@state()
+	private _mergeTarget!: Awaited<GetOverviewBranch['mergeTarget']>;
+	get mergeTarget() {
+		return this._mergeTarget;
+	}
+
+	private _mergeTargetPromise!: GetOverviewBranch['mergeTarget'];
+	get mergeTargetPromise() {
+		return this._mergeTargetPromise;
+	}
+	set mergeTargetPromise(value: GetOverviewBranch['mergeTarget']) {
+		if (this._mergeTargetPromise === value) return;
+
+		this._mergeTargetPromise = value;
+		void this._mergeTargetPromise?.then(
+			r => (this._mergeTarget = r),
+			() => (this._mergeTarget = undefined),
+		);
+	}
+
+	@state()
 	private _wip!: Awaited<GetOverviewBranch['wip']>;
 	get wip() {
 		return this._wip;
@@ -391,10 +412,11 @@ export abstract class GlBranchCardBase extends GlElement {
 		this.attachFocusListener();
 	}
 
-	get branchRefs() {
+	get branchRef(): BranchRef {
 		return {
 			repoPath: this.repo,
 			branchId: this.branch.id,
+			branchName: this.branch.name,
 		};
 	}
 
@@ -406,7 +428,7 @@ export abstract class GlBranchCardBase extends GlElement {
 		return getLaunchpadItemGrouping(getLaunchpadItemGroup(this.pr, this.launchpadItem)) ?? 'base';
 	}
 
-	get branchCardIndicator() {
+	get branchCardIndicator(): GlCard['indicator'] {
 		if (!this.branch.opened) return undefined;
 
 		if (this.wip?.pausedOpStatus != null) {
@@ -429,6 +451,10 @@ export abstract class GlBranchCardBase extends GlElement {
 
 		if (hasWip) {
 			return 'branch-changes';
+		}
+
+		if (this.mergeTarget?.mergedStatus?.merged) {
+			return 'branch-merged';
 		}
 
 		switch (this.branch.status) {
@@ -598,7 +624,7 @@ export abstract class GlBranchCardBase extends GlElement {
 	}
 
 	protected createCommandLink<T>(command: Commands, args?: T | any) {
-		return createCommandLink<T>(command, args ?? this.branchRefs);
+		return createCommandLink<T>(command, args ?? this.branchRef);
 	}
 
 	protected renderTimestamp() {
@@ -759,7 +785,7 @@ export abstract class GlBranchCardBase extends GlElement {
 
 		return html`<gl-merge-target-status
 			class="branch-item__merge-target"
-			.branch=${this.branch.name}
+			.branch=${this.branch}
 			.targetPromise=${this.branch.mergeTarget}
 		></gl-merge-target-status>`;
 	}
@@ -855,7 +881,7 @@ export class GlBranchCard extends GlBranchCardBase {
 				label="Open in Commit Graph"
 				icon="gl-graph"
 				href=${createCommandLink('gitlens.home.openInGraph', {
-					...this.branchRefs,
+					...this.branchRef,
 					type: 'branch',
 				} satisfies OpenInGraphParams)}
 			></action-item>`,
