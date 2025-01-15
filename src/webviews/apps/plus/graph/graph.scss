@@ -250,6 +250,20 @@ button:not([disabled]),
 	--button-foreground: var(--color-foreground);
 }
 
+.shrink {
+	max-width: fit-content;
+	transition: all .2s;
+
+	&.hidden {
+		max-width: 0;
+		overflow: hidden;
+		.titlebar__group &:not(:first-child) {
+			// compensate the parent gap
+			margin-left: -0.5rem;
+		}
+	}
+}
+
 .action-button {
 	position: relative;
 	appearance: none;
@@ -473,6 +487,12 @@ button:not([disabled]),
 
 .gk-graph.bs-tooltip {
 	z-index: 1040;
+}
+
+.flex-gap {
+	display: flex;
+	gap: 0.5em;
+	align-items: center;
 }
 
 .alert {
