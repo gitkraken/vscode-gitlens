@@ -479,17 +479,19 @@ export class IntegrationService implements Disposable {
 							SelfHostedIntegrationId.CloudGitHubEnterprise,
 						);
 						if (existingConfigured?.length) {
-							const { domain } = existingConfigured[0];
-							if (domain == null) throw new Error(`Domain is required for '${id}' integration`);
+							const { domain: configuredDomain } = existingConfigured[0];
+							if (configuredDomain == null) throw new Error(`Domain is required for '${id}' integration`);
 							integration = new (
 								await import(/* webpackChunkName: "integrations" */ './providers/github')
 							).GitHubEnterpriseIntegration(
 								this.container,
 								this.authenticationService,
 								this.getProvidersApi.bind(this),
-								domain,
+								configuredDomain,
 								id,
 							);
+							// assign domain because it's part of caching key:
+							domain = configuredDomain;
 							break;
 						}
 
