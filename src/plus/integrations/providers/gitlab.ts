@@ -363,7 +363,7 @@ abstract class GitLabIntegrationBase<
 	}
 
 	protected override async mergeProviderPullRequest(
-		_session: AuthenticationSession,
+		{ accessToken }: AuthenticationSession,
 		pr: PullRequest,
 		options?: {
 			mergeMethod?: PullRequestMergeMethod;
@@ -379,6 +379,7 @@ abstract class GitLabIntegrationBase<
 				...options,
 				isPAT: isEnterprise,
 				baseUrl: isEnterprise ? `https://${this.domain}` : undefined,
+				accessToken: accessToken,
 			});
 			return res;
 		} catch (ex) {

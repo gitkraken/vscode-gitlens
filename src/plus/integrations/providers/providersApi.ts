@@ -721,12 +721,17 @@ export class ProvidersApi {
 		providerId: IntegrationId,
 		pr: PullRequest,
 		options?: {
+			accessToken?: string;
 			mergeMethod?: PullRequestMergeMethod;
 			isPAT?: boolean;
 			baseUrl?: string;
 		},
 	): Promise<boolean> {
-		const { provider, token } = await this.ensureProviderTokenAndFunction(providerId, 'mergePullRequestFn');
+		const { provider, token } = await this.ensureProviderTokenAndFunction(
+			providerId,
+			'mergePullRequestFn',
+			options?.accessToken,
+		);
 		const headRef = pr.refs?.head;
 		if (headRef == null) return false;
 
