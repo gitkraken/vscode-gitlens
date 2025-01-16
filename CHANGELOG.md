@@ -8,6 +8,7 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/) and this p
 
 ### Added
 
+- Adds support for GitHub Enterprise and GitLab Self-Managed integrations in _Launchpad_ and _Start Work_ &mdash; closes [#3901](https://github.com/gitkraken/vscode-gitlens/issues/3901), [#3923](https://github.com/gitkraken/vscode-gitlens/issues/3923) and [#3934](https://github.com/gitkraken/vscode-gitlens/issues/3934)
 - Adds new ability to search for a GitLab MR in the _Launchpad_ &mdash; closes [#3788](https://github.com/gitkraken/vscode-gitlens/issues/3788)
 - Adds go to home view button to the commit graph title section &mdash; closes [#3873](https://github.com/gitkraken/vscode-gitlens/issues/3873)
 - Adds a _Contributors_ section to comparison results in the views
