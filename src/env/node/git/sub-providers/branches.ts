@@ -318,6 +318,10 @@ export class BranchesGitSubProvider implements GitBranchesSubProvider {
 		branch: GitBranchReference,
 		into: GitBranchReference,
 	): Promise<GitBranchMergedStatus> {
+		if (branch.name === into.name || branch.upstream?.name === into.name) {
+			return { merged: false };
+		}
+
 		const result = await this.getBranchMergedStatusCore(repoPath, branch, into);
 		if (result.merged) return result;
 
