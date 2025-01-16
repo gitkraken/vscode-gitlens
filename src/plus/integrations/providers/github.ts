@@ -252,6 +252,7 @@ abstract class GitHubIntegrationBase<ID extends SupportedIntegrationIds> extends
 		return (
 			(await this.container.github)?.mergePullRequest(this, accessToken, id, headRefSha, {
 				mergeMethod: options?.mergeMethod,
+				baseUrl: this.apiBaseUrl,
 			}) ?? false
 		);
 	}
