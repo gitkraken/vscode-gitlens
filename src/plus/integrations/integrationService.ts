@@ -643,12 +643,16 @@ export class IntegrationService implements Disposable {
 		args: { 0: integrationIds => (integrationIds?.length ? integrationIds.join(',') : '<undefined>'), 1: false },
 	})
 	async getMyIssues(
-		integrationIds?: (SupportedHostingIntegrationIds | SupportedIssueIntegrationIds)[],
+		integrationIds?: (
+			| SupportedHostingIntegrationIds
+			| SupportedIssueIntegrationIds
+			| SupportedSelfHostedIntegrationIds
+		)[],
 		options?: { openRepositoriesOnly?: boolean; cancellation?: CancellationToken },
 	): Promise<SearchedIssue[] | undefined> {
 		const integrations: Map<Integration, ResourceDescriptor[] | undefined> = new Map();
 		const hostingIntegrationIds = integrationIds?.filter(
-			id => id in HostingIntegrationId,
+			id => id in HostingIntegrationId || id in SelfHostedIntegrationId,
 		) as SupportedHostingIntegrationIds[];
 		const openRemotesByIntegrationId = new Map<IntegrationId, ResourceDescriptor[]>();
 		for (const repository of this.container.git.openRepositories) {
@@ -659,7 +663,7 @@ export class IntegrationService implements Disposable {
 				if (remoteIntegration == null) continue;
 				for (const integrationId of hostingIntegrationIds?.length
 					? hostingIntegrationIds
-					: Object.values(HostingIntegrationId)) {
+					: [...Object.values(HostingIntegrationId), ...Object.values(SelfHostedIntegrationId)]) {
 					if (
 						remoteIntegration.id === integrationId &&
 						remote.provider?.owner != null &&
@@ -681,12 +685,16 @@ export class IntegrationService implements Disposable {
 		}
 		for (const integrationId of integrationIds?.length
 			? integrationIds
-			: [...Object.values(HostingIntegrationId), ...Object.values(IssueIntegrationId)]) {
+			: [
+					...Object.values(HostingIntegrationId),
+					...Object.values(IssueIntegrationId),
+					...Object.values(SelfHostedIntegrationId),
+			  ]) {
 			const integration = await this.get(integrationId);
 			if (
 				integration == null ||
 				(options?.openRepositoriesOnly &&
-					isHostingIntegrationId(integrationId) &&
+					(isHostingIntegrationId(integrationId) || isSelfHostedIntegrationId(integrationId)) &&
 					!openRemotesByIntegrationId.has(integrationId))
 			) {
 				continue;
@@ -695,7 +703,7 @@ export class IntegrationService implements Disposable {
 			integrations.set(
 				integration,
 				options?.openRepositoriesOnly &&
-					isHostingIntegrationId(integrationId) &&
+					(isHostingIntegrationId(integrationId) || isSelfHostedIntegrationId(integrationId)) &&
 					openRemotesByIntegrationId.has(integrationId)
 					? openRemotesByIntegrationId.get(integrationId)
 					: undefined,

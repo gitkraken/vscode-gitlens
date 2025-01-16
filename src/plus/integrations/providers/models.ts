@@ -915,5 +915,6 @@ export type GitConfigEntityIdentifier = AnyEntityIdentifierInput & {
 		id: string;
 		owner: { key: string; name: string; id: string | undefined; owner: string | undefined };
 		createdDate: string;
+		isCloudEnterprise?: boolean;
 	};
 };
