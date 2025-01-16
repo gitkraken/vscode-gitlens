@@ -146,8 +146,6 @@ export class GitProviderService implements Disposable {
 			});
 		}
 
-		this._etag = Date.now();
-
 		this._onDidChangeProviders.fire({ added: added ?? [], removed: removed ?? [], etag: this._etag });
 	}
 
@@ -175,8 +173,6 @@ export class GitProviderService implements Disposable {
 				'repositories.removed': removed?.length ?? 0,
 			});
 		}
-
-		this._etag = Date.now();
 
 		this.clearAccessCache();
 		this._reposVisibilityCache = undefined;
@@ -346,10 +342,12 @@ export class GitProviderService implements Disposable {
 		}
 
 		if (e.added.length) {
+			this._etag = Date.now();
 			void this.discoverRepositories(e.added);
 		}
 
 		if (e.removed.length) {
+			this._etag = Date.now();
 			const removed: Repository[] = [];
 
 			for (const folder of e.removed) {
@@ -450,6 +448,7 @@ export class GitProviderService implements Disposable {
 			provider,
 			...disposables,
 			provider.onDidChange(() => {
+				this._etag = Date.now();
 				Logger.debug(`GitProvider(${id}).onDidChange()`);
 
 				const { workspaceFolders } = workspace;
@@ -458,6 +457,7 @@ export class GitProviderService implements Disposable {
 				}
 			}),
 			provider.onDidChangeRepository(async e => {
+				this._etag = Date.now();
 				Logger.debug(`GitProvider(${id}).onDidChangeRepository(e=${e.repository.toString()})`);
 
 				if (e.changed(RepositoryChange.Closed, RepositoryChangeComparisonMode.Any)) {
@@ -484,6 +484,7 @@ export class GitProviderService implements Disposable {
 				this._onDidChangeRepository.fire(e);
 			}),
 			provider.onDidCloseRepository(e => {
+				this._etag = Date.now();
 				const repository = this._repositories.get(e.uri);
 				Logger.debug(
 					`GitProvider(${id}).onDidCloseRepository(e=${repository?.toString() ?? e.uri.toString()})`,
@@ -494,6 +495,7 @@ export class GitProviderService implements Disposable {
 				}
 			}),
 			provider.onDidOpenRepository(e => {
+				this._etag = Date.now();
 				const repository = this._repositories.get(e.uri);
 				Logger.debug(`GitProvider(${id}).onDidOpenRepository(e=${repository?.toString() ?? e.uri.toString()})`);
 
@@ -505,6 +507,7 @@ export class GitProviderService implements Disposable {
 			}),
 		);
 
+		this._etag = Date.now();
 		this.fireProvidersChanged([provider]);
 
 		// Don't kick off the discovery if we're still initializing (we'll do it at the end for all "known" providers)
@@ -514,6 +517,7 @@ export class GitProviderService implements Disposable {
 
 		return {
 			dispose: () => {
+				this._etag = Date.now();
 				disposable.dispose();
 				this._providers.delete(id);
 
@@ -666,6 +670,7 @@ export class GitProviderService implements Disposable {
 			this.updateContext();
 
 			if (added.length) {
+				this._etag = Date.now();
 				queueMicrotask(() => {
 					void this.addRepositoriesToPathMap(added);
 					// Defer the event trigger enough to let everything unwind
@@ -2154,6 +2159,7 @@ export class GitProviderService implements Disposable {
 				this.updateContext();
 
 				if (added.length) {
+					this._etag = Date.now();
 					queueMicrotask(() => {
 						void this.addRepositoriesToPathMap(added);
 						// Send a notification that the repositories changed
