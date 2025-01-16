@@ -100,6 +100,10 @@ export class CustomRemote extends RemoteProvider {
 		return url;
 	}
 
+	protected override getUrlForTag(tag: string): string {
+		return this.getUrl(this.urls.tag, this.getContext({ tag: tag }));
+	}
+
 	private getUrl(template: string, context: Record<string, string>): string {
 		const url = interpolate(template, context);
 		const encoded = getTokensFromTemplate(template).some(t => t.key.endsWith('_encoded'));

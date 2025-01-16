@@ -42,7 +42,11 @@ export function showCommitHasNoPreviousCommitWarningMessage(commit?: GitCommit):
 }
 
 export function showCommitNotFoundWarningMessage(message: string): Promise<MessageItem | undefined> {
-	return showMessage('warn', `${message}. The commit could not be found.`, 'suppressCommitNotFoundWarning');
+	return showMessage('warn', `${message}. The tag commit not be found.`, 'suppressCommitNotFoundWarning');
+}
+
+export function showTagNotFoundWarningMessage(message: string): Promise<MessageItem | undefined> {
+	return showMessage('warn', `${message}. The tag could not be found.`, 'suppressTagNotFoundWarning');
 }
 
 export async function showCreatePullRequestPrompt(branch: string): Promise<boolean> {

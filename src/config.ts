@@ -580,12 +580,14 @@ export interface RemotesUrlsConfig {
 	readonly fileInCommit: string;
 	readonly fileLine: string;
 	readonly fileRange: string;
+	readonly tag: string;
 }
 
 // NOTE: Must be kept in sync with `gitlens.advanced.messages` setting in the package.json
 export type SuppressedMessages =
 	| 'suppressCommitHasNoPreviousCommitWarning'
 	| 'suppressCommitNotFoundWarning'
+	| 'suppressTagNotFoundWarning'
 	| 'suppressCreatePullRequestPrompt'
 	| 'suppressDebugLoggingWarning'
 	| 'suppressFileNotUnderSourceControlWarning'

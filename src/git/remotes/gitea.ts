@@ -155,4 +155,8 @@ export class GiteaRemote extends RemoteProvider {
 		// this route is deprecated but there is no alternative
 		return `${this.encodeUrl(`${this.baseUrl}/src/${fileName}`)}${line}`;
 	}
+
+	protected getUrlForTag(tag: string): string {
+		return this.encodeUrl(`${this.baseUrl}/releases/tag/${tag}`);
+	}
 }

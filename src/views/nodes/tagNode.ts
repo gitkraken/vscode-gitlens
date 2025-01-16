@@ -26,6 +26,7 @@ export class TagNode extends ViewRefNode<'tag', ViewsWithTags, GitTagReference> 
 		view: ViewsWithTags,
 		public override parent: ViewNode,
 		public readonly tag: GitTag,
+		public readonly remoteUrl: string | undefined,
 	) {
 		super('tag', uri, view, parent);
 
@@ -81,7 +82,11 @@ export class TagNode extends ViewRefNode<'tag', ViewsWithTags, GitTagReference> 
 	getTreeItem(): TreeItem {
 		const item = new TreeItem(this.label, TreeItemCollapsibleState.Collapsed);
 		item.id = this.id;
-		item.contextValue = ContextValues.Tag;
+		let contextValue: string = ContextValues.Tag;
+		if (this.remoteUrl) {
+			contextValue += '+remote';
+		}
+		item.contextValue = contextValue;
 		item.description = emojify(this.tag.message);
 		item.tooltip = `${this.tag.name}${pad(GlyphChars.Dash, 2, 2)}${shortenRevision(this.tag.sha, {
 			force: true,

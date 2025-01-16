@@ -3668,7 +3668,8 @@
 										"fileInCommit",
 										"fileInBranch",
 										"fileLine",
-										"fileRange"
+										"fileRange",
+										"tag"
 									],
 									"properties": {
 										"repository": {
@@ -3706,6 +3707,10 @@
 										"fileRange": {
 											"type": "string",
 											"markdownDescription": "Specifies the format of a range in a file URL for the custom remote service\n\nAvailable tokens\\\n`${start}` &mdash; starting line\\\n`${end}` &mdash; ending line"
+										},
+										"tag": {
+											"type": "string",
+											"markdownDescription": "Specifies the format of a tag URL for the custom remote service\n\nAvailable tokens\\\n`${repo}` &mdash; repository path\\\n`${tagName}` &mdash; name of the tag"
 										}
 									},
 									"additionalProperties": false
@@ -6758,6 +6763,22 @@
 				"icon": "$(globe)"
 			},
 			{
+				"command": "gitlens.openTagOnRemote",
+				"title": "Open Tag on Remote",
+				"category": "GitLens",
+				"icon": "$(globe)"
+			},
+			{
+				"command": "gitlens.views.openTagOnRemote",
+				"title": "Open Tag on Remote",
+				"icon": "$(globe)"
+			},
+			{
+				"command": "gitlens.views.openTagOnRemote.multi",
+				"title": "Open Tags on Remote",
+				"icon": "$(globe)"
+			},
+			{
 				"command": "gitlens.copyRemoteCommitUrl",
 				"title": "Copy Remote Commit URL",
 				"category": "GitLens",
@@ -6771,6 +6792,22 @@
 			{
 				"command": "gitlens.views.copyRemoteCommitUrl.multi",
 				"title": "Copy Remote Commit URLs",
+				"icon": "$(copy)"
+			},
+			{
+				"command": "gitlens.copyRemoteTagUrl",
+				"title": "Copy Remote Tag URL",
+				"category": "GitLens",
+				"icon": "$(copy)"
+			},
+			{
+				"command": "gitlens.views.copyRemoteTagUrl",
+				"title": "Copy Remote Tag URL",
+				"icon": "$(copy)"
+			},
+			{
+				"command": "gitlens.views.copyRemoteTagUrl.multi",
+				"title": "Copy Remote Tag URLs",
 				"icon": "$(copy)"
 			},
 			{
@@ -10561,6 +10598,18 @@
 					"when": "false"
 				},
 				{
+					"command": "gitlens.openTagOnRemote",
+					"when": "gitlens:repos:withRemotes"
+				},
+				{
+					"command": "gitlens.views.openTagOnRemote",
+					"when": "false"
+				},
+				{
+					"command": "gitlens.views.openTagOnRemote.multi",
+					"when": "false"
+				},
+				{
 					"command": "gitlens.copyRemoteCommitUrl",
 					"when": "gitlens:repos:withRemotes"
 				},
@@ -10570,6 +10619,14 @@
 				},
 				{
 					"command": "gitlens.views.copyRemoteCommitUrl.multi",
+					"when": "false"
+				},
+				{
+					"command": "gitlens.views.copyRemoteTagUrl",
+					"when": "false"
+				},
+				{
+					"command": "gitlens.views.copyRemoteTagUrl.multi",
 					"when": "false"
 				},
 				{
@@ -14869,6 +14926,12 @@
 					"alt": "gitlens.views.copyRemoteCommitUrl"
 				},
 				{
+					"command": "gitlens.views.openTagOnRemote",
+					"when": "gitlens:repos:withRemotes && viewItem =~ /gitlens:tag\\b(.*?\\b\\+remote\\b)/",
+					"group": "inline@99",
+					"alt": "gitlens.views.copyRemoteTagUrl"
+				},
+				{
 					"command": "gitlens.views.cherryPick",
 					"when": "!listMultiSelection && !gitlens:readonly && !gitlens:untrusted && !gitlens:hasVirtualFolders && viewItem =~ /gitlens:commit\\b(?!.*?\\b\\+(current|rebase)\\b)/",
 					"group": "1_gitlens_actions@1"
@@ -14982,6 +15045,16 @@
 				{
 					"command": "gitlens.views.openCommitOnRemote.multi",
 					"when": "listMultiSelection && gitlens:repos:withRemotes && viewItem =~ /gitlens:commit\\b/",
+					"group": "3_gitlens_explore@2"
+				},
+				{
+					"command": "gitlens.views.openTagOnRemote",
+					"when": "!listMultiSelection && gitlens:repos:withRemotes && viewItem =~ /gitlens:tag\\b(.*?\\b\\+remote\\b)/",
+					"group": "3_gitlens_explore@2"
+				},
+				{
+					"command": "gitlens.views.openTagOnRemote.multi",
+					"when": "listMultiSelection && gitlens:repos:withRemotes && viewItem =~ /gitlens:tag\\b(.*?\\b\\+remote\\b)/",
 					"group": "3_gitlens_explore@2"
 				},
 				{

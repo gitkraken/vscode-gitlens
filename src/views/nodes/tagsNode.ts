@@ -1,5 +1,6 @@
 import { ThemeIcon, TreeItem, TreeItemCollapsibleState } from 'vscode';
 import { GitUri } from '../../git/gitUri';
+import { RemoteResourceType } from '../../git/models/remoteResource';
 import type { Repository } from '../../git/models/repository';
 import { makeHierarchical } from '../../system/array';
 import { debug } from '../../system/decorators/log';
@@ -36,10 +37,17 @@ export class TagsNode extends CacheableChildrenViewNode<'tags', ViewsWithTagsNod
 		if (this.children == null) {
 			const tags = await this.repo.git.getTags({ sort: true });
 			if (tags.values.length === 0) return [new MessageNode(this.view, this, 'No tags could be found.')];
-
+			const remote = await this.repo.git.getBestRemoteWithProvider();
 			// TODO@eamodio handle paging
 			const tagNodes = tags.values.map(
-				t => new TagNode(GitUri.fromRepoPath(this.uri.repoPath!, t.ref), this.view, this, t),
+				t =>
+					new TagNode(
+						GitUri.fromRepoPath(this.uri.repoPath!, t.ref),
+						this.view,
+						this,
+						t,
+						remote?.provider?.url({ type: RemoteResourceType.Tag, tag: t.name }),
+					),
 			);
 			if (this.view.config.branches.layout === 'list') return tagNodes;
 

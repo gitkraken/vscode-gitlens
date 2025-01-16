@@ -191,4 +191,8 @@ export class GerritRemote extends RemoteProvider {
 		if (branch) return `${this.encodeUrl(`${this.getUrlForBranch(branch)}/${fileName}`)}${line}`;
 		return `${this.encodeUrl(`${this.baseUrl}/+/HEAD/${fileName}`)}${line}`;
 	}
+
+	protected override getUrlForTag(): string | undefined {
+		return undefined;
+	}
 }
