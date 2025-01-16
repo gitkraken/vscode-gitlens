@@ -70,13 +70,15 @@ export function getEntityIdentifierInput(entity: IssueOrPullRequest | LaunchpadI
 }
 
 export function getProviderIdFromEntityIdentifier(
-	entityIdentifier: EntityIdentifier | AnyEntityIdentifierInput,
+	entityIdentifier: EntityIdentifier | AnyEntityIdentifierInput | GitConfigEntityIdentifier,
 ): IntegrationId | undefined {
 	switch (entityIdentifier.provider) {
 		case EntityIdentifierProviderType.Github:
 			return HostingIntegrationId.GitHub;
 		case EntityIdentifierProviderType.GithubEnterprise:
-			return SelfHostedIntegrationId.GitHubEnterprise;
+			return isGitConfigEntityIdentifier(entityIdentifier) && entityIdentifier.metadata.isCloudEnterprise
+				? SelfHostedIntegrationId.CloudGitHubEnterprise
+				: SelfHostedIntegrationId.GitHubEnterprise;
 		case EntityIdentifierProviderType.Gitlab:
 			return HostingIntegrationId.GitLab;
 		case EntityIdentifierProviderType.GitlabSelfHosted:
@@ -127,6 +129,7 @@ export function encodeIssueOrPullRequestForGitConfig(
 			id: entity.id,
 			owner: encodedOwner,
 			createdDate: new Date().toISOString(),
+			isCloudEnterprise: entity.provider.id === SelfHostedIntegrationId.CloudGitHubEnterprise,
 		},
 	};
 }
@@ -194,7 +197,8 @@ export async function getIssueFromGitConfigEntityIdentifier(
 	if (
 		identifier.provider !== EntityIdentifierProviderType.Jira &&
 		identifier.provider !== EntityIdentifierProviderType.Github &&
-		identifier.provider !== EntityIdentifierProviderType.Gitlab
+		identifier.provider !== EntityIdentifierProviderType.Gitlab &&
+		identifier.provider !== EntityIdentifierProviderType.GithubEnterprise
 	) {
 		return undefined;
 	}

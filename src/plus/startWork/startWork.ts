@@ -27,7 +27,7 @@ import { getSteps } from '../../commands/quickWizard.utils';
 import { proBadge } from '../../constants';
 import { GlCommand } from '../../constants.commands';
 import type { IntegrationId } from '../../constants.integrations';
-import { HostingIntegrationId, IssueIntegrationId } from '../../constants.integrations';
+import { HostingIntegrationId, IssueIntegrationId, SelfHostedIntegrationId } from '../../constants.integrations';
 import type { Source, Sources, StartWorkTelemetryContext, TelemetryEvents } from '../../constants.telemetry';
 import type { Container } from '../../container';
 import { addAssociatedIssueToBranch } from '../../git/models/branch.utils';
@@ -91,6 +91,7 @@ export interface StartWorkOverrides {
 
 export const supportedStartWorkIntegrations = [
 	HostingIntegrationId.GitHub,
+	SelfHostedIntegrationId.CloudGitHubEnterprise,
 	HostingIntegrationId.GitLab,
 	IssueIntegrationId.Jira,
 ];
@@ -707,6 +708,7 @@ function buildItemTelemetryData(item: StartWorkItem) {
 function getOpenOnWebQuickInputButton(integrationId: string): QuickInputButton | undefined {
 	switch (integrationId) {
 		case HostingIntegrationId.GitHub:
+		case SelfHostedIntegrationId.CloudGitHubEnterprise:
 			return OpenOnGitHubQuickInputButton;
 		case HostingIntegrationId.GitLab:
 			return OpenOnGitLabQuickInputButton;
