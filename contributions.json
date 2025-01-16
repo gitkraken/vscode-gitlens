@@ -3065,7 +3065,6 @@
 				],
 				"gitlens/explorer/file/history": [
 					{
-						"when": "!explorerResourceIsRoot && !explorerResourceIsFolder && gitlens:enabled",
 						"group": "1_gitlens",
 						"order": 1
 					}
@@ -3519,7 +3518,6 @@
 				],
 				"gitlens/explorer/file/history": [
 					{
-						"when": "!explorerResourceIsRoot && !explorerResourceIsFolder && gitlens:enabled",
 						"group": "1_gitlens_quick",
 						"order": 1
 					}
@@ -3704,7 +3702,6 @@
 				],
 				"gitlens/explorer/file/history": [
 					{
-						"when": "!explorerResourceIsRoot && !explorerResourceIsFolder && gitlens:enabled",
 						"group": "1_gitlens",
 						"order": 2
 					}
@@ -12025,7 +12022,7 @@
 			"menus": {
 				"explorer/context": [
 					{
-						"when": "gitlens:enabled && config.gitlens.menus.explorer.history",
+						"when": "!explorerResourceIsRoot && !explorerResourceIsFolder && gitlens:enabled && config.gitlens.menus.explorer.history",
 						"group": "4_timeline",
 						"order": 0
 					}
@@ -12037,7 +12034,7 @@
 			"menus": {
 				"explorer/context": [
 					{
-						"when": "gitlens:enabled && config.gitlens.menus.explorer.history",
+						"when": "(explorerResourceIsRoot || explorerResourceIsFolder) && gitlens:enabled && config.gitlens.menus.explorer.history",
 						"group": "4_timeline",
 						"order": 0
 					}

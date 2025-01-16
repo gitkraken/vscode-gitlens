@@ -13189,12 +13189,12 @@
 				},
 				{
 					"submenu": "gitlens/explorer/file/history",
-					"when": "gitlens:enabled && config.gitlens.menus.explorer.history",
+					"when": "!explorerResourceIsRoot && !explorerResourceIsFolder && gitlens:enabled && config.gitlens.menus.explorer.history",
 					"group": "4_timeline@0"
 				},
 				{
 					"submenu": "gitlens/explorer/folder/history",
-					"when": "gitlens:enabled && config.gitlens.menus.explorer.history",
+					"when": "(explorerResourceIsRoot || explorerResourceIsFolder) && gitlens:enabled && config.gitlens.menus.explorer.history",
 					"group": "4_timeline@0"
 				},
 				{
@@ -13760,17 +13760,14 @@
 			"gitlens/explorer/file/history": [
 				{
 					"command": "gitlens.openFileHistory",
-					"when": "!explorerResourceIsRoot && !explorerResourceIsFolder && gitlens:enabled",
 					"group": "1_gitlens@1"
 				},
 				{
 					"command": "gitlens.showFileInTimeline",
-					"when": "!explorerResourceIsRoot && !explorerResourceIsFolder && gitlens:enabled",
 					"group": "1_gitlens@2"
 				},
 				{
 					"command": "gitlens.quickOpenFileHistory",
-					"when": "!explorerResourceIsRoot && !explorerResourceIsFolder && gitlens:enabled",
 					"group": "1_gitlens_quick@1"
 				}
 			],
