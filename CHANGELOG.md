@@ -13,6 +13,7 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/) and this p
 - Adds go to home view button to the commit graph title section &mdash; closes [#3873](https://github.com/gitkraken/vscode-gitlens/issues/3873)
 - Adds a _Contributors_ section to comparison results in the views
 - Adds a new Hidden Branches dropdown next to the Branch Visibility dropdown in the graph toolbar &mdash; closes [#3101](https://github.com/gitkraken/vscode-gitlens/issues/3101)
+- Adds actions for "paused" git operations (cherry-pick, marge, rebase, revert) in _Home_, _Commit Graph_ and _GitLens_ views &mdash; closes [#3913](https://github.com/gitkraken/vscode-gitlens/issues/3913)
 
 ### Changed
 
