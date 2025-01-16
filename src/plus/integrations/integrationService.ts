@@ -790,7 +790,10 @@ export class IntegrationService implements Disposable {
 	): Promise<IntegrationResult<SearchedPullRequest[] | undefined>> {
 		const integrations: Map<HostingIntegration, ResourceDescriptor[] | undefined> = new Map();
 		for (const integrationId of integrationIds?.length ? integrationIds : Object.values(HostingIntegrationId)) {
-			const integration = await this.get(integrationId);
+			let integration;
+			try {
+				integration = await this.get(integrationId);
+			} catch {}
 			if (integration == null) continue;
 
 			integrations.set(integration, undefined);
