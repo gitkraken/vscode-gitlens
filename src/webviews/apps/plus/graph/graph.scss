@@ -252,7 +252,7 @@ button:not([disabled]),
 
 .shrink {
 	max-width: fit-content;
-	transition: all .2s;
+	transition: all 0.2s;
 
 	&.hidden {
 		max-width: 0;
@@ -1338,15 +1338,4 @@ sl-select:focus::part(combobox) {
 .merge-conflict-warning {
 	flex: 0 0 100%;
 	min-width: 0;
-
-	// &__content {
-	// 	display: block;
-	// 	width: 100%;
-	// 	min-width: 0;
-	// 	max-width: fit-content;
-	// }
-
-	&__content::part(base) {
-		max-width: fit-content;
-	}
 }
