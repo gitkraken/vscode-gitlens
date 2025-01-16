@@ -8,7 +8,7 @@ import { Disposable, env, EventEmitter, Uri, window } from 'vscode';
 import { md5 } from '@env/crypto';
 import { GlCommand } from '../../constants.commands';
 import type { IntegrationId } from '../../constants.integrations';
-import { HostingIntegrationId } from '../../constants.integrations';
+import { HostingIntegrationId, SelfHostedIntegrationId } from '../../constants.integrations';
 import type { Container } from '../../container';
 import { CancellationError } from '../../errors';
 import { openComparisonChanges } from '../../git/actions/commit';
@@ -109,7 +109,8 @@ type PullRequestsWithSuggestionCounts = {
 
 export type LaunchpadRefreshEvent = LaunchpadCategorizedResult;
 
-export const supportedLaunchpadIntegrations = [HostingIntegrationId.GitHub, HostingIntegrationId.GitLab];
+export const supportedLaunchpadIntegrations: (HostingIntegrationId | SelfHostedIntegrationId.CloudGitHubEnterprise)[] =
+	[HostingIntegrationId.GitHub, SelfHostedIntegrationId.CloudGitHubEnterprise, HostingIntegrationId.GitLab];
 type SupportedLaunchpadIntegrationIds = (typeof supportedLaunchpadIntegrations)[number];
 function isSupportedLaunchpadIntegrationId(id: string): id is SupportedLaunchpadIntegrationIds {
 	return supportedLaunchpadIntegrations.includes(id as SupportedLaunchpadIntegrationIds);
