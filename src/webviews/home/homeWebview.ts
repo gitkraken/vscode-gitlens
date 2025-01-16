@@ -806,6 +806,8 @@ export class HomeWebviewProvider implements WebviewProvider<State, State, HomeWe
 
 	@debug()
 	private onOverviewRepoChanged(scope: 'repo' | 'wip') {
+		if (this._etag === this.container.git.etag) return;
+
 		if (this._invalidateOverview !== 'repo') {
 			this._invalidateOverview = scope;
 		}
