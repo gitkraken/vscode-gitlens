@@ -1564,6 +1564,7 @@ function getOpenOnGitProviderQuickInputButton(integrationId: string): QuickInput
 	switch (integrationId) {
 		case HostingIntegrationId.GitLab:
 		case SelfHostedIntegrationId.GitLabSelfHosted:
+		case SelfHostedIntegrationId.CloudGitLabSelfHosted:
 			return OpenOnGitLabQuickInputButton;
 		case HostingIntegrationId.GitHub:
 		case SelfHostedIntegrationId.GitHubEnterprise:
@@ -1583,6 +1584,7 @@ function getIntegrationTitle(integrationId: string): string {
 	switch (integrationId) {
 		case HostingIntegrationId.GitLab:
 		case SelfHostedIntegrationId.GitLabSelfHosted:
+		case SelfHostedIntegrationId.CloudGitLabSelfHosted:
 			return 'GitLab';
 		case HostingIntegrationId.GitHub:
 		case SelfHostedIntegrationId.GitHubEnterprise:

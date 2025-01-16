@@ -218,6 +218,7 @@ const supportedRemoteProvidersToEnrich: Record<RemoteProvider['id'], EnrichedIte
 	gitea: undefined,
 	github: 'github',
 	'cloud-github-enterprise': 'github',
+	'cloud-gitlab-self-hosted': 'gitlab',
 	gitlab: 'gitlab',
 	'google-source': undefined,
 };

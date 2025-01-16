@@ -40,7 +40,15 @@ export interface CloudIntegrationConnection {
 	domain: string;
 }
 
-export type CloudIntegrationType = 'jira' | 'trello' | 'gitlab' | 'github' | 'bitbucket' | 'azure' | 'githubEnterprise';
+export type CloudIntegrationType =
+	| 'jira'
+	| 'trello'
+	| 'gitlab'
+	| 'github'
+	| 'bitbucket'
+	| 'azure'
+	| 'githubEnterprise'
+	| 'gitlabSelfHosted';
 
 export type CloudIntegrationAuthType = 'oauth' | 'pat';
 
@@ -62,6 +70,7 @@ export const toIntegrationId: { [key in CloudIntegrationType]: IntegrationId } =
 	gitlab: HostingIntegrationId.GitLab,
 	github: HostingIntegrationId.GitHub,
 	githubEnterprise: SelfHostedIntegrationId.CloudGitHubEnterprise,
+	gitlabSelfHosted: SelfHostedIntegrationId.CloudGitLabSelfHosted,
 	bitbucket: HostingIntegrationId.Bitbucket,
 	azure: HostingIntegrationId.AzureDevOps,
 };
@@ -74,6 +83,7 @@ export const toCloudIntegrationType: { [key in IntegrationId]: CloudIntegrationT
 	[HostingIntegrationId.Bitbucket]: 'bitbucket',
 	[HostingIntegrationId.AzureDevOps]: 'azure',
 	[SelfHostedIntegrationId.CloudGitHubEnterprise]: 'githubEnterprise',
+	[SelfHostedIntegrationId.CloudGitLabSelfHosted]: 'gitlabSelfHosted',
 	[SelfHostedIntegrationId.GitHubEnterprise]: undefined,
 	[SelfHostedIntegrationId.GitLabSelfHosted]: undefined,
 };

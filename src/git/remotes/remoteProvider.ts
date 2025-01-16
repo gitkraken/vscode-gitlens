@@ -21,6 +21,7 @@ export type RemoteProviderId =
 	| 'gitea'
 	| 'github'
 	| 'cloud-github-enterprise'
+	| 'cloud-gitlab-self-hosted'
 	| 'gitlab'
 	| 'google-source';
 

@@ -93,6 +93,7 @@ export const supportedStartWorkIntegrations = [
 	HostingIntegrationId.GitHub,
 	SelfHostedIntegrationId.CloudGitHubEnterprise,
 	HostingIntegrationId.GitLab,
+	SelfHostedIntegrationId.CloudGitLabSelfHosted,
 	IssueIntegrationId.Jira,
 ];
 export type SupportedStartWorkIntegrationIds = (typeof supportedStartWorkIntegrations)[number];
@@ -711,6 +712,7 @@ function getOpenOnWebQuickInputButton(integrationId: string): QuickInputButton |
 		case SelfHostedIntegrationId.CloudGitHubEnterprise:
 			return OpenOnGitHubQuickInputButton;
 		case HostingIntegrationId.GitLab:
+		case SelfHostedIntegrationId.CloudGitLabSelfHosted:
 			return OpenOnGitLabQuickInputButton;
 		case IssueIntegrationId.Jira:
 			return OpenOnJiraQuickInputButton;
