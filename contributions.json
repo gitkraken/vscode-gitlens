@@ -4726,6 +4726,11 @@
 						"when": "viewItem =~ /gitlens:paused-operation\\b/ && !listMultiSelection",
 						"group": "inline",
 						"order": 3
+					},
+					{
+						"when": "viewItem =~ /gitlens:paused-operation\\b/ && !listMultiSelection",
+						"group": "1_gitlens_actions",
+						"order": 3
 					}
 				]
 			}
@@ -5867,6 +5872,11 @@
 					{
 						"when": "viewItem =~ /gitlens:paused-operation:(cherry-pick|merge|rebase)\\b/ && !listMultiSelection",
 						"group": "inline",
+						"order": 1
+					},
+					{
+						"when": "viewItem =~ /gitlens:paused-operation:(cherry-pick|merge|rebase)\\b/ && !listMultiSelection",
+						"group": "1_gitlens_actions",
 						"order": 1
 					}
 				]
@@ -7673,6 +7683,11 @@
 						"when": "viewItem =~ /gitlens:paused-operation:rebase\\b/ && !listMultiSelection",
 						"group": "inline",
 						"order": 4
+					},
+					{
+						"when": "viewItem =~ /gitlens:paused-operation:rebase\\b/ && !listMultiSelection",
+						"group": "2_gitlens",
+						"order": 1
 					}
 				]
 			}
@@ -10438,6 +10453,11 @@
 					{
 						"when": "viewItem =~ /gitlens:paused-operation:(cherry-pick|rebase|revert)\\b/ && !listMultiSelection",
 						"group": "inline",
+						"order": 2
+					},
+					{
+						"when": "viewItem =~ /gitlens:paused-operation:(cherry-pick|rebase|revert)\\b/ && !listMultiSelection",
+						"group": "1_gitlens_actions",
 						"order": 2
 					}
 				]

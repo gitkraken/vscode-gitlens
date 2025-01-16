@@ -16240,6 +16240,11 @@
 					"group": "inline@3"
 				},
 				{
+					"command": "gitlens.views.abortPausedOperation",
+					"when": "viewItem =~ /gitlens:paused-operation\\b/ && !listMultiSelection",
+					"group": "1_gitlens_actions@3"
+				},
+				{
 					"command": "gitlens.views.continuePausedOperation",
 					"when": "viewItem =~ /gitlens:paused-operation:(cherry-pick|merge|rebase)\\b/ && !listMultiSelection",
 					"group": "inline@1"
@@ -16250,9 +16255,24 @@
 					"group": "inline@2"
 				},
 				{
+					"command": "gitlens.views.continuePausedOperation",
+					"when": "viewItem =~ /gitlens:paused-operation:(cherry-pick|merge|rebase)\\b/ && !listMultiSelection",
+					"group": "1_gitlens_actions@1"
+				},
+				{
+					"command": "gitlens.views.skipPausedOperation",
+					"when": "viewItem =~ /gitlens:paused-operation:(cherry-pick|rebase|revert)\\b/ && !listMultiSelection",
+					"group": "1_gitlens_actions@2"
+				},
+				{
 					"command": "gitlens.views.openPausedOperationInRebaseEditor",
 					"when": "viewItem =~ /gitlens:paused-operation:rebase\\b/ && !listMultiSelection",
 					"group": "inline@4"
+				},
+				{
+					"command": "gitlens.views.openPausedOperationInRebaseEditor",
+					"when": "viewItem =~ /gitlens:paused-operation:rebase\\b/ && !listMultiSelection",
+					"group": "2_gitlens@1"
 				},
 				{
 					"command": "gitlens.views.openPullRequest",
