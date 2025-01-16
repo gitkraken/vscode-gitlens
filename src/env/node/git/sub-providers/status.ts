@@ -193,7 +193,7 @@ export class StatusGitSubProvider implements GitStatusSubProvider {
 							stepsTotalResult,
 							stepsMessageResult,
 						] = await Promise.allSettled([
-							await this.git.exec<string>(
+							this.git.exec<string>(
 								{ cwd: repoPath, errors: GitErrorHandling.Ignore },
 								'rev-parse',
 								'--quiet',
@@ -213,19 +213,16 @@ export class StatusGitSubProvider implements GitStatusSubProvider {
 						const onto = getSettledValue(ontoResult);
 						if (origHead == null || onto == null) return undefined;
 
-						let mergeBase;
-						const rebaseHead = getSettledValue(rebaseHeadResult);
-						if (rebaseHead != null) {
-							mergeBase = await this.provider.branches.getMergeBase(repoPath, rebaseHead, 'HEAD');
-						} else {
-							mergeBase = await this.provider.branches.getMergeBase(repoPath, onto, origHead);
-						}
+						const rebaseHead = getSettledValue(rebaseHeadResult)?.trim();
 
 						if (branch.startsWith('refs/heads/')) {
 							branch = branch.substring(11).trim();
 						}
 
-						const [branchTipsResult, tagTipsResult] = await Promise.allSettled([
+						const [mergeBaseResult, branchTipsResult, tagTipsResult] = await Promise.allSettled([
+							rebaseHead != null
+								? this.provider.branches.getMergeBase(repoPath, rebaseHead, 'HEAD')
+								: this.provider.branches.getMergeBase(repoPath, onto, origHead),
 							this.provider.branches.getBranchesForCommit(repoPath, [onto], undefined, {
 								all: true,
 								mode: 'pointsAt',
@@ -233,6 +230,7 @@ export class StatusGitSubProvider implements GitStatusSubProvider {
 							this.provider.getCommitTags(repoPath, onto, { mode: 'pointsAt' }),
 						]);
 
+						const mergeBase = getSettledValue(mergeBaseResult);
 						const branchTips = getSettledValue(branchTipsResult);
 						const tagTips = getSettledValue(tagTipsResult);
 
