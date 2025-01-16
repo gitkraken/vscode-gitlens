@@ -376,7 +376,9 @@ export abstract class CloudIntegrationAuthenticationProvider<
 		if (
 			session?.expiresIn === 0 &&
 			(this.authProviderId === HostingIntegrationId.GitHub ||
-				this.authProviderId === SelfHostedIntegrationId.CloudGitHubEnterprise)
+				this.authProviderId === SelfHostedIntegrationId.CloudGitHubEnterprise ||
+				// Note: added GitLab self managed here because the cloud token is always a PAT, and the api does not know when it expires, nor can it refresh it
+				this.authProviderId === SelfHostedIntegrationId.CloudGitLabSelfHosted)
 		) {
 			// It never expires so don't refresh it frequently:
 			session.expiresIn = maxSmallIntegerV8; // maximum expiration length
@@ -641,6 +643,11 @@ export class IntegrationAuthenticationService implements Disposable {
 						: new (
 								await import(/* webpackChunkName: "integrations" */ './gitlab')
 						  ).GitLabLocalAuthenticationProvider(this.container, this, HostingIntegrationId.GitLab);
+					break;
+				case SelfHostedIntegrationId.CloudGitLabSelfHosted:
+					provider = new (
+						await import(/* webpackChunkName: "integrations" */ './gitlab')
+					).GitLabSelfHostedCloudAuthenticationProvider(this.container, this);
 					break;
 				case SelfHostedIntegrationId.GitLabSelfHosted:
 					provider = new (

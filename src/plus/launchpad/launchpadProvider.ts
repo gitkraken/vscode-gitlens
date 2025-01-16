@@ -109,8 +109,16 @@ type PullRequestsWithSuggestionCounts = {
 
 export type LaunchpadRefreshEvent = LaunchpadCategorizedResult;
 
-export const supportedLaunchpadIntegrations: (HostingIntegrationId | SelfHostedIntegrationId.CloudGitHubEnterprise)[] =
-	[HostingIntegrationId.GitHub, SelfHostedIntegrationId.CloudGitHubEnterprise, HostingIntegrationId.GitLab];
+export const supportedLaunchpadIntegrations: (
+	| HostingIntegrationId
+	| SelfHostedIntegrationId.CloudGitHubEnterprise
+	| SelfHostedIntegrationId.CloudGitLabSelfHosted
+)[] = [
+	HostingIntegrationId.GitHub,
+	SelfHostedIntegrationId.CloudGitHubEnterprise,
+	HostingIntegrationId.GitLab,
+	SelfHostedIntegrationId.CloudGitLabSelfHosted,
+];
 type SupportedLaunchpadIntegrationIds = (typeof supportedLaunchpadIntegrations)[number];
 function isSupportedLaunchpadIntegrationId(id: string): id is SupportedLaunchpadIntegrationIds {
 	return supportedLaunchpadIntegrations.includes(id as SupportedLaunchpadIntegrationIds);

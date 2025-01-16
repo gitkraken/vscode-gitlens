@@ -104,10 +104,16 @@ export function loadRemoteProviders(
 
 	if (configuredIntegrations?.length) {
 		for (const ci of configuredIntegrations) {
-			if (ci.integrationId === SelfHostedIntegrationId.CloudGitHubEnterprise && ci.domain) {
+			if (
+				(ci.integrationId === SelfHostedIntegrationId.CloudGitHubEnterprise ||
+					ci.integrationId === SelfHostedIntegrationId.CloudGitLabSelfHosted) &&
+				ci.domain
+			) {
 				const matcher = ci.domain.toLocaleLowerCase();
 				const providerCreator = (_container: Container, domain: string, path: string) =>
-					new GitHubRemote(domain, path);
+					ci.integrationId === SelfHostedIntegrationId.CloudGitHubEnterprise
+						? new GitHubRemote(domain, path)
+						: new GitLabRemote(domain, path);
 				const provider = {
 					custom: false,
 					matcher: matcher,
