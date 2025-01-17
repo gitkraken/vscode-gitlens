@@ -26,6 +26,7 @@ import { isTag } from '../git/models/tag';
 import { CloudWorkspace, LocalWorkspace } from '../plus/workspaces/models';
 import { sequentialize } from '../system/function';
 import { registerCommand } from '../system/vscode/command';
+import { isScm, isScmResourceGroup, isScmResourceState } from '../system/vscode/scm';
 import { ViewNode } from '../views/nodes/abstract/viewNode';
 import { ViewRefFileNode, ViewRefNode } from '../views/nodes/abstract/viewRefNode';
 
@@ -42,6 +43,8 @@ export interface CommandBaseContext {
 	command: string;
 	editor?: TextEditor;
 	uri?: Uri;
+
+	readonly args: unknown[];
 }
 
 export interface CommandEditorLineContext extends CommandBaseContext {
@@ -237,34 +240,6 @@ export type CommandContext =
 	| CommandViewNodeContext
 	| CommandViewNodesContext;
 
-export function isScm(scm: any): scm is SourceControl {
-	if (scm == null) return false;
-
-	return (
-		(scm as SourceControl).id != null &&
-		(scm as SourceControl).rootUri != null &&
-		(scm as SourceControl).inputBox != null &&
-		(scm as SourceControl).statusBarCommands != null
-	);
-}
-
-function isScmResourceGroup(group: any): group is SourceControlResourceGroup {
-	if (group == null) return false;
-
-	return (
-		(group as SourceControlResourceGroup).id != null &&
-		(group as SourceControlResourceGroup).label != null &&
-		(group as SourceControlResourceGroup).resourceStates != null &&
-		Array.isArray((group as SourceControlResourceGroup).resourceStates)
-	);
-}
-
-function isScmResourceState(resource: any): resource is SourceControlResourceState {
-	if (resource == null) return false;
-
-	return (resource as SourceControlResourceState).resourceUri != null;
-}
-
 function isTimelineItem(item: any): item is TimelineItem {
 	if (item == null) return false;
 
@@ -334,6 +309,7 @@ export function parseCommandContext(
 ): [CommandContext | CommandContext[], any[]] {
 	let editor: TextEditor | undefined = undefined;
 
+	const originalArgs = [...args];
 	let firstArg = args[0];
 
 	if (options?.expectsEditor) {
@@ -357,9 +333,12 @@ export function parseCommandContext(
 
 				const uris = rest[0];
 				if (uris != null && Array.isArray(uris) && uris.length !== 0 && uris[0] instanceof Uri) {
-					return [{ command: command, type: 'uris', editor: editor, uri: uri, uris: uris }, rest.slice(1)];
+					return [
+						{ command: command, type: 'uris', args: originalArgs, editor: editor, uri: uri, uris: uris },
+						rest.slice(1),
+					];
 				}
-				return [{ command: command, type: 'uri', editor: editor, uri: uri }, rest];
+				return [{ command: command, type: 'uri', args: originalArgs, editor: editor, uri: uri }, rest];
 			}
 
 			args = args.slice(1);
@@ -370,6 +349,7 @@ export function parseCommandContext(
 					{
 						command: command,
 						type: 'editorLine',
+						args: originalArgs,
 						editor: undefined,
 						line: firstArg.lineNumber - 1, // convert to zero-based
 						uri: firstArg.uri,
@@ -395,14 +375,14 @@ export function parseCommandContext(
 			const contexts: CommandContext[] = [];
 			for (const n of nodes) {
 				if (n?.constructor === node.constructor) {
-					contexts.push({ command: command, type: 'viewItem', node: n, uri: n.uri });
+					contexts.push({ command: command, type: 'viewItem', args: originalArgs, node: n, uri: n.uri });
 				}
 			}
 
 			return [contexts, rest];
 		}
 
-		return [{ command: command, type: 'viewItem', node: node, uri: node.uri }, rest];
+		return [{ command: command, type: 'viewItem', args: originalArgs, node: node, uri: node.uri }, rest];
 	}
 
 	if (isScmResourceState(firstArg)) {
@@ -416,7 +396,13 @@ export function parseCommandContext(
 		}
 
 		return [
-			{ command: command, type: 'scm-states', scmResourceStates: states, uri: states[0].resourceUri },
+			{
+				command: command,
+				type: 'scm-states',
+				args: originalArgs,
+				scmResourceStates: states,
+				uri: states[0].resourceUri,
+			},
 			args.slice(count),
 		];
 	}
@@ -431,20 +417,23 @@ export function parseCommandContext(
 			groups.push(arg);
 		}
 
-		return [{ command: command, type: 'scm-groups', scmResourceGroups: groups }, args.slice(count)];
+		return [
+			{ command: command, type: 'scm-groups', args: originalArgs, scmResourceGroups: groups },
+			args.slice(count),
+		];
 	}
 
 	if (isGitTimelineItem(firstArg)) {
 		const [item, uri, ...rest] = args as [GitTimelineItem, Uri, any];
-		return [{ command: command, type: 'timeline-item:git', item: item, uri: uri }, rest];
+		return [{ command: command, type: 'timeline-item:git', args: originalArgs, item: item, uri: uri }, rest];
 	}
 
 	if (isScm(firstArg)) {
 		const [scm, ...rest] = args as [SourceControl, any];
-		return [{ command: command, type: 'scm', scm: scm }, rest];
+		return [{ command: command, type: 'scm', args: originalArgs, scm: scm }, rest];
 	}
 
-	return [{ command: command, type: 'unknown', editor: editor, uri: editor?.document.uri }, args];
+	return [{ command: command, type: 'unknown', args: originalArgs, editor: editor, uri: editor?.document.uri }, args];
 }
 
 export abstract class ActiveEditorCommand extends GlCommandBase {

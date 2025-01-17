@@ -13904,6 +13904,16 @@
 					"group": "1_gitlens@2"
 				}
 			],
+			"gitlens/scm/resourceFolder/history": [
+				{
+					"command": "gitlens.openFolderHistory",
+					"group": "1_gitlens@2"
+				},
+				{
+					"command": "gitlens.showFolderInTimeline",
+					"group": "1_gitlens@2"
+				}
+			],
 			"gitlens/scm/resourceGroup/changes": [
 				{
 					"command": "gitlens.externalDiffAll",
@@ -15049,6 +15059,11 @@
 					"submenu": "gitlens/scm/resourceFolder/changes",
 					"when": "scmResourceGroup =~ /^(workingTree|index|merge)$/ && scmProvider == git && gitlens:enabled && config.gitlens.menus.scmItem.compare",
 					"group": "2_gitlens@1"
+				},
+				{
+					"submenu": "gitlens/scm/resourceFolder/history",
+					"when": "scmResourceGroup =~ /^(workingTree|index|merge)$/ && scmProvider == git && gitlens:enabled && config.gitlens.menus.scmItem.history",
+					"group": "2_gitlens_1@1"
 				},
 				{
 					"command": "gitlens.copyPatchToClipboard",
@@ -18935,6 +18950,10 @@
 			{
 				"id": "gitlens/scm/resourceFolder/changes",
 				"label": "Open Changes with"
+			},
+			{
+				"id": "gitlens/scm/resourceFolder/history",
+				"label": "Folder History"
 			},
 			{
 				"id": "gitlens/scm/resourceGroup/changes",

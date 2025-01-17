@@ -3,6 +3,7 @@ import { Disposable, ViewColumn } from 'vscode';
 import { GlCommand } from '../../../constants.commands';
 import { registerCommand } from '../../../system/vscode/command';
 import { configuration } from '../../../system/vscode/configuration';
+import { getScmResourceFolderUri, isScmResourceState } from '../../../system/vscode/scm';
 import type { ViewFileNode } from '../../../views/nodes/abstract/viewFileNode';
 import type { WebviewPanelsProxy, WebviewsController } from '../../webviewsController';
 import type { State } from './protocol';
@@ -64,14 +65,20 @@ export function registerTimelineWebviewCommands<T>(
 	panels: WebviewPanelsProxy<'gitlens.timeline', TimelineWebviewShowingArgs, T>,
 ) {
 	return Disposable.from(
-		registerCommand(
-			GlCommand.ShowFileInTimeline,
-			(...args: TimelineWebviewShowingArgs) => void panels.show(undefined, ...args),
-		),
-		registerCommand(
-			GlCommand.ShowFolderInTimeline,
-			(...args: TimelineWebviewShowingArgs) => void panels.show(undefined, ...args),
-		),
+		registerCommand(GlCommand.ShowFileInTimeline, (...args: TimelineWebviewShowingArgs) => {
+			const [arg] = args;
+			if (isScmResourceState(arg)) {
+				args = [arg.resourceUri];
+			}
+			return void panels.show(undefined, ...args);
+		}),
+		registerCommand(GlCommand.ShowFolderInTimeline, (...args: TimelineWebviewShowingArgs) => {
+			const uri = getScmResourceFolderUri(args);
+			if (uri != null) {
+				args = [uri];
+			}
+			void panels.show(undefined, ...args);
+		}),
 
 		registerCommand(`${panels.id}.refresh`, () => void panels.getActiveInstance()?.refresh(true)),
 		registerCommand(
