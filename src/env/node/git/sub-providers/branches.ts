@@ -13,6 +13,7 @@ import { GitBranch } from '../../../../git/models/branch';
 import { getLocalBranchByUpstream, isDetachedHead } from '../../../../git/models/branch.utils';
 import type { MergeConflict } from '../../../../git/models/mergeConflict';
 import type { GitBranchReference } from '../../../../git/models/reference';
+import { getReferenceFromBranch } from '../../../../git/models/reference.utils';
 import { createRevisionRange } from '../../../../git/models/revision.utils';
 import { parseGitBranches } from '../../../../git/parsers/branchParser';
 import { parseMergeTreeConflict } from '../../../../git/parsers/mergeTreeParser';
@@ -334,7 +335,7 @@ export class BranchesGitSubProvider implements GitBranchesSubProvider {
 				if (result.merged) {
 					return {
 						...result,
-						localBranchOnly: { name: localIntoBranch.name },
+						localBranchOnly: getReferenceFromBranch(localIntoBranch),
 					};
 				}
 			}
