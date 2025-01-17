@@ -1,7 +1,7 @@
 /*global document window*/
 import type { CssVariables, GraphRef, GraphRefOptData, GraphRow } from '@gitkraken/gitkraken-components';
 import React from 'react';
-import { render, unmountComponentAtNode } from 'react-dom';
+import { createRoot } from 'react-dom/client';
 import type { GraphBranchesVisibility } from '../../../../config';
 import type { SearchQuery } from '../../../../constants.search';
 import type { GitGraphRowType } from '../../../../git/models/graph';
@@ -95,9 +95,10 @@ export class GraphApp extends App<State> {
 
 		this.ensureTheming(this.state);
 
-		const $root = document.getElementById('root');
-		if ($root != null) {
-			render(
+		const $rootElement = document.getElementById('root');
+		const root = createRoot($rootElement!);
+		if ($rootElement != null) {
+			root.render(
 				<GraphWrapper
 					nonce={this.state.nonce}
 					state={this.state}
@@ -131,10 +132,11 @@ export class GraphApp extends App<State> {
 					onSearchPromise={(...params) => this.onSearchPromise(...params)}
 					onSearchOpenInView={(...params) => this.onSearchOpenInView(...params)}
 				/>,
-				$root,
 			);
 			disposables.push({
-				dispose: () => unmountComponentAtNode($root),
+				dispose: () => {
+					root.unmount();
+				},
 			});
 		}
 
