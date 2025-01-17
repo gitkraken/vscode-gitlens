@@ -374,7 +374,7 @@ export type MergeDetectionConfidence = 'highest' | 'high' | 'medium';
 
 export type GitBranchMergedStatus =
 	| { merged: false }
-	| { merged: true; confidence: MergeDetectionConfidence; localBranchOnly?: { name: string } };
+	| { merged: true; confidence: MergeDetectionConfidence; localBranchOnly?: GitBranchReference };
 
 export interface GitBranchesSubProvider {
 	getBranch(repoPath: string, name?: string): Promise<GitBranch | undefined>;
