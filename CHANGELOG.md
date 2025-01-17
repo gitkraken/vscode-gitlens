@@ -20,7 +20,7 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/) and this p
   - Improves hover content and interations
   - Adds explicit zoom in/out buttons and changes mouse zoom to use the mouse wheel &mdash; when zoomed, drag to scrub through the history
   - Optimizes chart resizing and axis label rendering with author indicators, and re-adds the legend to the view
-- Adds a new _Folder History_ > _Open Visual Folder History_ command to folders in the _Explorer_ view, and other GitLens views
+- Adds a new _Folder History_ > _Open Visual Folder History_ command to folders in the _Explorer_ view, _Source Control_ view, and other GitLens views
 - Adds new ability to see and act upon a "paused" Git operation, e.g. merge, rebase, cherry-pick, revert, across the _Commits_, _Commit Graph_, and _Home_ views &mdash; closes [#3913](https://github.com/gitkraken/vscode-gitlens/issues/3913)
   - Adds a new banner on the _Commit Graph_ and updates the banner on _Home_ with actions to continue, skip, or abort the operation
   - Adds _Continue_, _Skip_, and _Abort_ actions to the _Commits_ view

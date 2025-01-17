@@ -9,9 +9,17 @@ const driveLetterNormalizeRegex = /(?<=^\/?)([A-Z])(?=:\/)/;
 const hasSchemeRegex = /^([a-zA-Z][\w+.-]+):/;
 const pathNormalizeRegex = /\\/g;
 
-export function commonBase(s1: string, s2: string, delimiter: string, ignoreCase?: boolean): string | undefined {
-	const index = commonBaseIndex(s1, s2, delimiter, ignoreCase);
-	return index > 0 ? s1.substring(0, index + 1) : undefined;
+export function commonBase(s: string[], delimiter: string, ignoreCase?: boolean): string | undefined {
+	if (s.length === 0) return undefined;
+
+	let common = s[0];
+	for (let i = 1; i < s.length; i++) {
+		const index = commonBaseIndex(common, s[i], delimiter, ignoreCase);
+		if (index === 0) return undefined;
+		common = common.substring(0, index + 1);
+	}
+
+	return common;
 }
 
 export function commonBaseIndex(s1: string, s2: string, delimiter: string, ignoreCase?: boolean): number {

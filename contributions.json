@@ -3199,6 +3199,12 @@
 						"group": "1_gitlens",
 						"order": 1
 					}
+				],
+				"gitlens/scm/resourceFolder/history": [
+					{
+						"group": "1_gitlens",
+						"order": 2
+					}
 				]
 			}
 		},
@@ -3719,6 +3725,12 @@
 			"icon": "$(graph-scatter)",
 			"menus": {
 				"gitlens/explorer/folder/history": [
+					{
+						"group": "1_gitlens",
+						"order": 2
+					}
+				],
+				"gitlens/scm/resourceFolder/history": [
 					{
 						"group": "1_gitlens",
 						"order": 2
@@ -12111,6 +12123,18 @@
 					{
 						"when": "scmResourceGroup =~ /^(workingTree|index|merge)$/ && scmProvider == git && gitlens:enabled && config.gitlens.menus.scmItem.compare",
 						"group": "2_gitlens",
+						"order": 1
+					}
+				]
+			}
+		},
+		"gitlens/scm/resourceFolder/history": {
+			"label": "Folder History",
+			"menus": {
+				"scm/resourceFolder/context": [
+					{
+						"when": "scmResourceGroup =~ /^(workingTree|index|merge)$/ && scmProvider == git && gitlens:enabled && config.gitlens.menus.scmItem.history",
+						"group": "2_gitlens_1",
 						"order": 1
 					}
 				]
