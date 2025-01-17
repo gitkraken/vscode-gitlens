@@ -55,6 +55,7 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/) and this p
 - Fixes intermittent issue with greater reliability of webview requests
 - Fixes an issue with autolink enrichment for issues
 - Fixes issues with incorrect aggregate contributor stats
+- Fixes [#3476](https://github.com/gitkraken/vscode-gitlens/issues/3476) - Can't show commit graph in floating window
 
 ## [16.1.1] - 2024-12-20
 
