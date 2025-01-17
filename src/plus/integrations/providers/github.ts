@@ -13,8 +13,9 @@ import { log } from '../../../system/decorators/log';
 import { ensurePaidPlan } from '../../gk/utils/-webview/plus.utils';
 import type { IntegrationAuthenticationProviderDescriptor } from '../authentication/integrationAuthenticationProvider';
 import type { IntegrationAuthenticationService } from '../authentication/integrationAuthenticationService';
-import type { RepositoryDescriptor, SupportedIntegrationIds } from '../integration';
+import type { RepositoryDescriptor } from '../integration';
 import { HostingIntegration } from '../integration';
+import type { GitHubRelatedIntegrationIds } from './github/github.utils';
 import { getGitHubPullRequestIdentityFromMaybeUrl } from './github/github.utils';
 import { providersMetadata } from './models';
 import type { ProvidersApi } from './providersApi';
@@ -38,7 +39,7 @@ const cloudEnterpriseAuthProvider: IntegrationAuthenticationProviderDescriptor =
 
 export type GitHubRepositoryDescriptor = RepositoryDescriptor;
 
-abstract class GitHubIntegrationBase<ID extends SupportedIntegrationIds> extends HostingIntegration<
+abstract class GitHubIntegrationBase<ID extends GitHubRelatedIntegrationIds> extends HostingIntegration<
 	ID,
 	GitHubRepositoryDescriptor
 > {
@@ -260,6 +261,10 @@ abstract class GitHubIntegrationBase<ID extends SupportedIntegrationIds> extends
 			baseUrl: this.apiBaseUrl,
 		});
 	}
+
+	protected override getProviderPullRequestIdentityFromMaybeUrl(search: string): PullRequestUrlIdentity | undefined {
+		return getGitHubPullRequestIdentityFromMaybeUrl(search, this.id);
+	}
 }
 
 export class GitHubIntegration extends GitHubIntegrationBase<HostingIntegrationId.GitHub> {
@@ -293,10 +298,6 @@ export class GitHubIntegration extends GitHubIntegrationBase<HostingIntegrationI
 			}
 			super.refresh();
 		}
-	}
-
-	protected override getProviderPullRequestIdentityFromMaybeUrl(search: string): PullRequestUrlIdentity | undefined {
-		return getGitHubPullRequestIdentityFromMaybeUrl(search);
 	}
 }
 
