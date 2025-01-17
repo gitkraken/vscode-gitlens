@@ -1,4 +1,4 @@
-import type { HostingIntegrationId } from '../../constants.integrations';
+import type { HostingIntegrationId, SelfHostedIntegrationId } from '../../constants.integrations';
 import type {
 	PullRequest,
 	PullRequestComparisonRefs,
@@ -9,7 +9,7 @@ import type {
 import { shortenRevision } from './revision.utils';
 
 export interface PullRequestUrlIdentity {
-	provider?: HostingIntegrationId;
+	provider?: SelfHostedIntegrationId | HostingIntegrationId;
 
 	ownerAndRepo?: string;
 	prNumber: string;
