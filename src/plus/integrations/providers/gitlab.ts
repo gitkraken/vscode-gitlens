@@ -17,6 +17,7 @@ import type { IntegrationAuthenticationProviderDescriptor } from '../authenticat
 import type { IntegrationAuthenticationService } from '../authentication/integrationAuthenticationService';
 import type { RepositoryDescriptor } from '../integration';
 import { HostingIntegration } from '../integration';
+import type { GitLabRelatedIntegrationIds } from './gitlab/gitlab.utils';
 import { getGitLabPullRequestIdentityFromMaybeUrl } from './gitlab/gitlab.utils';
 import { fromGitLabMergeRequestProvidersApi } from './gitlab/models';
 import type { ProviderRepository } from './models';
@@ -42,12 +43,10 @@ const cloudEnterpriseAuthProvider: IntegrationAuthenticationProviderDescriptor =
 
 export type GitLabRepositoryDescriptor = RepositoryDescriptor;
 
-abstract class GitLabIntegrationBase<
-	ID extends
-		| HostingIntegrationId.GitLab
-		| SelfHostedIntegrationId.GitLabSelfHosted
-		| SelfHostedIntegrationId.CloudGitLabSelfHosted,
-> extends HostingIntegration<ID, GitLabRepositoryDescriptor> {
+abstract class GitLabIntegrationBase<ID extends GitLabRelatedIntegrationIds> extends HostingIntegration<
+	ID,
+	GitLabRepositoryDescriptor
+> {
 	protected abstract get apiBaseUrl(): string;
 
 	protected override async getProviderAccountForCommit(
@@ -409,7 +408,7 @@ abstract class GitLabIntegrationBase<
 	}
 
 	protected override getProviderPullRequestIdentityFromMaybeUrl(search: string): PullRequestUrlIdentity | undefined {
-		return getGitLabPullRequestIdentityFromMaybeUrl(search);
+		return getGitLabPullRequestIdentityFromMaybeUrl(search, this.id);
 	}
 }
 
