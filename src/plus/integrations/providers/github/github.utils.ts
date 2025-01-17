@@ -2,18 +2,22 @@
 // That's why this file has been created that can collect more simple functions which
 // don't require Container and can be tested.
 
-import { HostingIntegrationId } from '../../../../constants.integrations';
+import type { HostingIntegrationId, SelfHostedIntegrationId } from '../../../../constants.integrations';
 import type { PullRequestUrlIdentity } from '../../../../git/utils/pullRequest.utils';
+
+export type GitHubRelatedIntegrationIds =
+	| HostingIntegrationId.GitHub
+	| SelfHostedIntegrationId.GitHubEnterprise
+	| SelfHostedIntegrationId.CloudGitHubEnterprise;
 
 export function isMaybeGitHubPullRequestUrl(url: string): boolean {
 	if (url == null) return false;
-
 	return getGitHubPullRequestIdentityFromMaybeUrl(url) != null;
 }
 
 export function getGitHubPullRequestIdentityFromMaybeUrl(
 	search: string,
-): (PullRequestUrlIdentity & { provider: HostingIntegrationId.GitHub }) | undefined {
+): Omit<PullRequestUrlIdentity, 'provider'> | undefined {
 	let ownerAndRepo: string | undefined = undefined;
 	let prNumber: string | undefined = undefined;
 
@@ -30,7 +34,5 @@ export function getGitHubPullRequestIdentityFromMaybeUrl(
 		}
 	}
 
-	return prNumber != null
-		? { ownerAndRepo: ownerAndRepo, prNumber: prNumber, provider: HostingIntegrationId.GitHub }
-		: undefined;
+	return prNumber != null ? { ownerAndRepo: ownerAndRepo, prNumber: prNumber } : undefined;
 }
