@@ -1,10 +1,14 @@
-import type { GitCloudHostIntegrationId, GitSelfManagedHostIntegrationId } from '../../../../constants.integrations';
+// GitHub provider: github.ts pulls many dependencies through Container and some of them break the unit tests.
+// That's why this file has been created that can collect more simple functions which
+// don't require Container and can be tested.
+
+import type { HostingIntegrationId, SelfHostedIntegrationId } from '../../../../constants.integrations';
 import type { PullRequestUrlIdentity } from '../../../../git/utils/pullRequest.utils';
 
-export type GitHubIntegrationIds =
-	| GitCloudHostIntegrationId.GitHub
-	| GitSelfManagedHostIntegrationId.GitHubEnterprise
-	| GitSelfManagedHostIntegrationId.CloudGitHubEnterprise;
+export type GitHubRelatedIntegrationIds =
+	| HostingIntegrationId.GitHub
+	| SelfHostedIntegrationId.GitHubEnterprise
+	| SelfHostedIntegrationId.CloudGitHubEnterprise;
 
 export function isMaybeGitHubPullRequestUrl(url: string): boolean {
 	if (url == null) return false;
@@ -16,12 +20,12 @@ export function getGitHubPullRequestIdentityFromMaybeUrl(
 ): (PullRequestUrlIdentity & { provider: undefined }) | undefined;
 export function getGitHubPullRequestIdentityFromMaybeUrl(
 	search: string,
-	id: GitHubIntegrationIds,
-): (PullRequestUrlIdentity & { provider: GitHubIntegrationIds }) | undefined;
+	id: GitHubRelatedIntegrationIds,
+): (PullRequestUrlIdentity & { provider: GitHubRelatedIntegrationIds }) | undefined;
 export function getGitHubPullRequestIdentityFromMaybeUrl(
 	search: string,
-	id?: GitHubIntegrationIds,
-): (PullRequestUrlIdentity & { provider: GitHubIntegrationIds | undefined }) | undefined {
+	id?: GitHubRelatedIntegrationIds,
+): (PullRequestUrlIdentity & { provider: GitHubRelatedIntegrationIds | undefined }) | undefined {
 	let ownerAndRepo: string | undefined = undefined;
 	let prNumber: string | undefined = undefined;
 
