@@ -51,11 +51,11 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/) and this p
 - Fixes [#3911](https://github.com/gitkraken/vscode-gitlens/issues/3911) - Avoid Home opening when first-install isn't reliable (e.g. GitPod)
 - Fixes [#3888](https://github.com/gitkraken/vscode-gitlens/issues/3888) - Graph hover should disappear when right-clicking a row
 - Fixes [#3909](https://github.com/gitkraken/vscode-gitlens/issues/3909) - GitLens "Pull with Rebase" is not rebase, but merge
+- Fixes [#3476](https://github.com/gitkraken/vscode-gitlens/issues/3476) - Can't show commit graph in floating window
 - Fixes an issue with unpin button visibility in the _File History_ view
 - Fixes intermittent issue with greater reliability of webview requests
 - Fixes an issue with autolink enrichment for issues
 - Fixes issues with incorrect aggregate contributor stats
-- Fixes [#3476](https://github.com/gitkraken/vscode-gitlens/issues/3476) - Can't show commit graph in floating window
 
 ## [16.1.1] - 2024-12-20
 
