@@ -1,5 +1,14 @@
-type SearchOperatorsShortForm = '' | '=:' | '@:' | '#:' | '?:' | '~:' | 'is:';
-export type SearchOperatorsLongForm = 'message:' | 'author:' | 'commit:' | 'file:' | 'change:' | 'type:';
+type SearchOperatorsShortForm = '' | '=:' | '@:' | '#:' | '?:' | '~:' | 'is:' | 'after:' | 'before:';
+export type SearchOperatorsLongForm =
+	| 'message:'
+	| 'author:'
+	| 'commit:'
+	| 'file:'
+	| 'change:'
+	| 'type:'
+	| 'date:'
+	| 'after:'
+	| 'before:';
 export type SearchOperators = SearchOperatorsShortForm | SearchOperatorsLongForm;
 
 export const searchOperators = new Set<string>([
@@ -16,6 +25,9 @@ export const searchOperators = new Set<string>([
 	'change:',
 	'is:',
 	'type:',
+	'date:',
+	'after:',
+	'before:',
 ]);
 
 export const searchOperatorsToLongFormMap = new Map<SearchOperators, SearchOperatorsLongForm>([
@@ -32,13 +44,16 @@ export const searchOperatorsToLongFormMap = new Map<SearchOperators, SearchOpera
 	['change:', 'change:'],
 	['is:', 'type:'],
 	['type:', 'type:'],
+	['after:', 'after:'],
+	['before:', 'before:'],
+	['date:', 'date:'],
 ]);
 
 export const searchOperationRegex =
-	/(?:(?<op>=:|message:|@:|author:|#:|commit:|\?:|file:|~:|change:|is:|type:)\s?(?<value>".+?"|\S+}?))|(?<text>\S+)(?!(?:=|message|@|author|#|commit|\?|file|~|change|is|type):)/g;
+	/(?:(?<op>=:|message:|@:|author:|#:|commit:|\?:|file:|~:|change:|is:|type:|date:|after:|before:)\s?(?<value>".+?"|\S+}?))|(?<text>\S+)(?!(?:=|message|@|author|#|commit|\?|file|~|change|is|type):)/g;
 
 export const searchOperationHelpRegex =
-	/(?:^|(\b|\s)*)((=:|message:|@:|author:|#:|commit:|\?:|file:|~:|change:|is:|type:)(?:"[^"]*"?|\w*))(?:$|(\b|\s))/g;
+	/(?:^|(\b|\s)*)((=:|message:|@:|author:|#:|commit:|\?:|file:|~:|change:|is:|type:|date:|after:|before:)(?:"[^"]*"?|\w*))(?:$|(\b|\s))/g;
 
 export interface SearchQuery {
 	query: string;
