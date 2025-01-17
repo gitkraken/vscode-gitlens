@@ -6,6 +6,8 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/) and this p
 
 ## [Unreleased]
 
+## [16.2.0] - 2025-01-17
+
 ### Added
 
 - Adds richer support for GitHub Enterprise and GitLab Self-Managed &mdash; closes [#3901](https://github.com/gitkraken/vscode-gitlens/issues/3901), [#3934](https://github.com/gitkraken/vscode-gitlens/issues/3934)
@@ -5934,7 +5936,8 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/) and this p
 
 - Initial release but still heavily a work in progress.
 
-[unreleased]: https://github.com/gitkraken/vscode-gitlens/compare/v16.1.1...HEAD
+[unreleased]: https://github.com/gitkraken/vscode-gitlens/compare/v16.2.0...HEAD
+[16.2.0]: https://github.com/gitkraken/vscode-gitlens/compare/v16.1.1...gitkraken:v16.2.0
 [16.1.1]: https://github.com/gitkraken/vscode-gitlens/compare/v16.1.0...gitkraken:v16.1.1
 [16.1.0]: https://github.com/gitkraken/vscode-gitlens/compare/v16.0.4...gitkraken:v16.1.0
 [16.0.4]: https://github.com/gitkraken/vscode-gitlens/compare/v16.0.3...gitkraken:v16.0.4
