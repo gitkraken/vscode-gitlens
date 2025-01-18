@@ -1,5 +1,3 @@
-import { fetch, getProxyAgent, wrapForForcedInsecureSSL } from '@env/fetch';
-import { isWeb } from '@env/platform';
 import { graphql, GraphqlResponseError } from '@octokit/graphql';
 import { request } from '@octokit/request';
 import { RequestError } from '@octokit/request-error';
@@ -7,6 +5,8 @@ import type { Endpoints, OctokitResponse, RequestParameters } from '@octokit/typ
 import type { HttpsProxyAgent } from 'https-proxy-agent';
 import type { CancellationToken, Disposable, Event } from 'vscode';
 import { EventEmitter, Uri, window } from 'vscode';
+import { fetch, getProxyAgent, wrapForForcedInsecureSSL } from '@env/fetch';
+import { isWeb } from '@env/platform';
 import type { Container } from '../../../../container';
 import {
 	AuthenticationError,
@@ -156,8 +156,14 @@ reviewRequests(first: 10) {
 		}
 	}
 }
-statusCheckRollup {
-	state
+commits(last: 1) {
+	nodes {
+		commit {
+			statusCheckRollup {
+				state
+			}
+		}
+	}
 }
 totalCommentsCount
 viewerCanUpdate

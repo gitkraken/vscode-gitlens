@@ -129,10 +129,12 @@ export class CompareBranchNode extends SubscribeableViewNode<
 				createRevisionRange(behind.ref1, behind.ref2, '...'),
 				{ authors: this.filterByAuthors },
 			);
+
+			const branchesProvider = this.view.container.git.branches(this.repoPath);
 			const mergeBase =
-				(await this.view.container.git.getMergeBase(this.repoPath, behind.ref1, behind.ref2, {
+				(await branchesProvider.getMergeBase(behind.ref1, behind.ref2, {
 					forkPoint: true,
-				})) ?? (await this.view.container.git.getMergeBase(this.repoPath, behind.ref1, behind.ref2));
+				})) ?? (await branchesProvider.getMergeBase(behind.ref1, behind.ref2));
 
 			const children: ViewNode[] = [
 				new ResultsCommitsNode(
@@ -161,7 +163,7 @@ export class CompareBranchNode extends SubscribeableViewNode<
 					this.repoPath,
 					'Ahead',
 					{
-						query: this.getCommitsQuery(ahead.ref1),
+						query: this.getCommitsQuery(ahead.range),
 						comparison: ahead,
 						direction: 'ahead',
 						files: {

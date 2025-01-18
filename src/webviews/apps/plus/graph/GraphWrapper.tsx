@@ -1,4 +1,3 @@
-import { getPlatform } from '@env/platform';
 import type {
 	CommitType,
 	GraphColumnMode,
@@ -19,6 +18,7 @@ import SlOption from '@shoelace-style/shoelace/dist/react/option/index.js';
 import SlSelect from '@shoelace-style/shoelace/dist/react/select/index.js';
 import type { FormEvent, MouseEvent, ReactElement } from 'react';
 import React, { createElement, useEffect, useMemo, useRef, useState } from 'react';
+import { getPlatform } from '@env/platform';
 import type { ConnectCloudIntegrationsCommandArgs } from '../../../../commands/cloudIntegrations';
 import type { BranchGitCommandArgs } from '../../../../commands/git/branch';
 import type { DateStyle, GraphBranchesVisibility } from '../../../../config';
@@ -93,11 +93,25 @@ import type {
 import type { DateTimeFormat } from '../../shared/date';
 import { formatDate, fromNow } from '../../shared/date';
 import { emitTelemetrySentEvent } from '../../shared/telemetry';
+import { GlMergeConflictWarning } from '../shared/components/merge-rebase-status.react';
 import { GitActionsButtons } from './actions/gitActionsButtons';
 import { GlGraphHover } from './hover/graphHover.react';
 import type { GraphMinimapDaySelectedEventDetail } from './minimap/minimap';
 import { GlGraphMinimapContainer } from './minimap/minimap-container.react';
 import { GlGraphSideBar } from './sidebar/sidebar.react';
+
+function getRemoteIcon(type: string | number) {
+	switch (type) {
+		case 'head':
+			return 'vm';
+		case 'remote':
+			return 'cloud';
+		case 'tag':
+			return 'tag';
+		default:
+			return '';
+	}
+}
 
 export interface GraphWrapperProps {
 	nonce?: string;
@@ -872,7 +886,25 @@ export function GraphWrapper({
 		onChangeColumns?.(graphColumnsConfig);
 	};
 
+	// dirty trick to avoid mutations on the GraphContainer side
+	const fixedExcludeRefsById = useMemo(() => ({ ...excludeRefsById }), [excludeRefsById]);
 	const handleOnToggleRefsVisibilityClick = (_event: any, refs: GraphRefOptData[], visible: boolean) => {
+		if (!visible) {
+			document.getElementById('hiddenRefs')?.animate(
+				[
+					{ offset: 0, background: 'transparent' },
+					{
+						offset: 0.4,
+						background: 'var(--vscode-statusBarItem-warningBackground)',
+					},
+					{ offset: 1, background: 'transparent' },
+				],
+				{
+					duration: 1000,
+					iterations: !Object.keys(fixedExcludeRefsById ?? {}).length ? 2 : 1,
+				},
+			);
+		}
 		onChangeRefsVisibility?.(refs, visible);
 	};
 
@@ -1138,7 +1170,9 @@ export function GraphWrapper({
 								disabled={repos.length < 2}
 								onClick={() => handleChooseRepository()}
 							>
-								{repo?.formattedName ?? 'none selected'}
+								<span className="action-button__truncated">
+									{repo?.formattedName ?? 'none selected'}
+								</span>
 								{repos.length > 1 && (
 									<CodeIcon className="action-button__more" icon="chevron-down" aria-hidden="true" />
 								)}
@@ -1298,6 +1332,21 @@ export function GraphWrapper({
 						)}
 					</div>
 				</div>
+				{allowed &&
+					workingTreeStats != null &&
+					(workingTreeStats.hasConflicts || workingTreeStats.pausedOpStatus) && (
+						<div className="merge-conflict-warning">
+							<GlMergeConflictWarning
+								className="merge-conflict-warning__content"
+								conflicts={workingTreeStats.hasConflicts}
+								pausedOpStatus={workingTreeStats.pausedOpStatus}
+								skipCommand="gitlens.graph.skipPausedOperation"
+								continueCommand="gitlens.graph.continuePausedOperation"
+								abortCommand="gitlens.graph.abortPausedOperation"
+								openEditorCommand="gitlens.graph.openRebaseEditor"
+							></GlMergeConflictWarning>
+						</div>
+					)}
 				{allowed && (
 					<div className="titlebar__row">
 						<div className="titlebar__group">
@@ -1329,6 +1378,60 @@ export function GraphWrapper({
 									<SlOption value="current">Current Branch</SlOption>
 								</SlSelect>
 							</GlTooltip>
+							<div className={`shrink ${!Object.values(excludeRefsById ?? {}).length && 'hidden'}`}>
+								<GlPopover
+									className="popover"
+									placement="bottom-start"
+									trigger="click focus"
+									arrow={false}
+									distance={0}
+								>
+									<GlTooltip placement="top" slot="anchor">
+										<button type="button" id="hiddenRefs" className="action-button">
+											<CodeIcon icon={`eye-closed`} />
+											{Object.values(excludeRefsById ?? {}).length}
+											<CodeIcon
+												className="action-button__more"
+												icon="chevron-down"
+												aria-hidden="true"
+											/>
+										</button>
+										<span slot="content">Hidden Branches / Tags</span>
+									</GlTooltip>
+									<div slot="content">
+										<MenuLabel>Hidden Branches / Tags</MenuLabel>
+										{excludeRefsById &&
+											Object.keys(excludeRefsById).length &&
+											[...Object.values(excludeRefsById), null].map(ref =>
+												ref ? (
+													<MenuItem
+														// key prop is skipped intentionally. It allows me to not hide the dropdown after click (I don't know why)
+														onClick={event => {
+															handleOnToggleRefsVisibilityClick(event, [ref], true);
+														}}
+														className="flex-gap"
+													>
+														<CodeIcon icon={getRemoteIcon(ref.type)}></CodeIcon>
+														<span>{ref.name}</span>
+													</MenuItem>
+												) : (
+													// One more weird case. If I render it outside the listed items, the dropdown is hidden after click on the last item
+													<MenuItem
+														onClick={event => {
+															handleOnToggleRefsVisibilityClick(
+																event,
+																Object.values(excludeRefsById ?? {}),
+																true,
+															);
+														}}
+													>
+														Show All
+													</MenuItem>
+												),
+											)}
+									</div>
+								</GlPopover>
+							</div>
 							<GlPopover
 								className="popover"
 								placement="bottom-start"

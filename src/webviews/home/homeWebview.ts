@@ -1,5 +1,5 @@
 import type { ConfigurationChangeEvent } from 'vscode';
-import { Disposable, workspace } from 'vscode';
+import { Disposable, Uri, window, workspace } from 'vscode';
 import type { CreatePullRequestActionContext } from '../../api/gitlens';
 import type { EnrichedAutolink } from '../../autolinks';
 import { getAvatarUriFromGravatarEmail } from '../../avatars';
@@ -23,6 +23,7 @@ import type { GitBranch } from '../../git/models/branch';
 import { getAssociatedIssuesForBranch, getBranchTargetInfo } from '../../git/models/branch.utils';
 import type { GitFileChangeShape } from '../../git/models/file';
 import type { Issue } from '../../git/models/issue';
+import type { GitPausedOperationStatus } from '../../git/models/pausedOperationStatus';
 import type { PullRequest } from '../../git/models/pullRequest';
 import { getComparisonRefsForPullRequest } from '../../git/models/pullRequest';
 import { getReferenceFromBranch } from '../../git/models/reference.utils';
@@ -49,7 +50,7 @@ import type { Deferrable } from '../../system/function';
 import { debounce } from '../../system/function';
 import { filterMap } from '../../system/iterable';
 import { getSettledValue } from '../../system/promise';
-import { executeActionCommand, executeCommand, registerCommand } from '../../system/vscode/command';
+import { executeActionCommand, executeCommand, executeCoreCommand, registerCommand } from '../../system/vscode/command';
 import { configuration } from '../../system/vscode/configuration';
 import { getContext, onDidChangeContext } from '../../system/vscode/context';
 import { openUrl, openWorkspace } from '../../system/vscode/utils';
@@ -59,6 +60,7 @@ import type { IpcMessage } from '../protocol';
 import type { WebviewHost, WebviewProvider, WebviewShowingArgs } from '../webviewProvider';
 import type { WebviewShowOptions } from '../webviewsController';
 import type {
+	BranchRef,
 	CollapseSectionParams,
 	DidChangeRepositoriesParams,
 	GetOverviewBranch,
@@ -109,10 +111,6 @@ interface RepositoryBranchData {
 	repo: Repository;
 	branches: GitBranch[];
 	worktreesByBranch: Map<string, GitWorktree>;
-}
-interface BranchRef {
-	repoPath: string;
-	branchId: string;
 }
 
 // type AutolinksInfo = Awaited<GetOverviewBranch['autolinks']>;
@@ -194,26 +192,13 @@ export class HomeWebviewProvider implements WebviewProvider<State, State, HomeWe
 		}
 
 		this._discovering = this.container.git.isDiscoveringRepositories;
+		void this._discovering.finally(() => (this._discovering = undefined));
 		this._etag = await this._discovering;
-		this._discovering = undefined;
 		this.notifyDidCompleteDiscoveringRepositories();
 	}
 
 	private onChangeConnectionState() {
-		void this.notifyDidChangeOnboardingIntegration();
-	}
-
-	private async shouldNotifyRepositoryChange(): Promise<boolean> {
-		if (this._etag === this.container.git.etag) {
-			return false;
-		}
-
-		if (this._discovering != null) {
-			this._etag = await this._discovering;
-			if (this._etag === this.container.git.etag) return false;
-		}
-
-		return true;
+		void this.notifyDidChangeIntegrations();
 	}
 
 	private async onChooseRepository() {
@@ -237,10 +222,9 @@ export class HomeWebviewProvider implements WebviewProvider<State, State, HomeWe
 		this.selectRepository(pick.path);
 	}
 
-	private async onRepositoriesChanged() {
-		if (!(await this.shouldNotifyRepositoryChange())) {
-			return;
-		}
+	private onRepositoriesChanged() {
+		if (this._discovering != null || this._etag === this.container.git.etag) return;
+
 		this.notifyDidChangeRepositories();
 	}
 
@@ -309,6 +293,7 @@ export class HomeWebviewProvider implements WebviewProvider<State, State, HomeWe
 				(src?: Source) => this.container.subscription.validate({ force: true }, src),
 				this,
 			),
+			registerCommand('gitlens.home.openMergeTargetComparison', this.mergeTargetCompare, this),
 			registerCommand('gitlens.home.openPullRequestChanges', this.pullRequestChanges, this),
 			registerCommand('gitlens.home.openPullRequestComparison', this.pullRequestCompare, this),
 			registerCommand('gitlens.home.openPullRequestOnRemote', this.pullRequestViewOnRemote, this),
@@ -323,6 +308,10 @@ export class HomeWebviewProvider implements WebviewProvider<State, State, HomeWe
 			registerCommand('gitlens.home.rebaseCurrentOnto', this.rebaseCurrentOnto, this),
 			registerCommand('gitlens.home.startWork', this.startWork, this),
 			registerCommand('gitlens.home.createCloudPatch', this.createCloudPatch, this),
+			registerCommand('gitlens.home.skipPausedOperation', this.skipPausedOperation, this),
+			registerCommand('gitlens.home.continuePausedOperation', this.continuePausedOperation, this),
+			registerCommand('gitlens.home.abortPausedOperation', this.abortPausedOperation, this),
+			registerCommand('gitlens.home.openRebaseEditor', this.openRebaseEditor, this),
 		];
 	}
 
@@ -394,7 +383,10 @@ export class HomeWebviewProvider implements WebviewProvider<State, State, HomeWe
 		}
 
 		this.resumeRepositorySubscription();
-		this.notifyDidChangeRepositories(true);
+
+		if (this._discovering == null && this._etag !== this.container.git.etag) {
+			this.notifyDidChangeRepositories(true);
+		}
 	}
 
 	private openInGraph(params: OpenInGraphParams) {
@@ -435,26 +427,26 @@ export class HomeWebviewProvider implements WebviewProvider<State, State, HomeWe
 		});
 	}
 
-	private async mergeIntoCurrent(refs: BranchRef) {
-		const repo = this._repositoryBranches.get(refs.repoPath);
-		let branch = repo?.branches.find(b => b.id === refs.branchId);
+	private async mergeIntoCurrent(ref: BranchRef) {
+		const repoInfo = this._repositoryBranches.get(ref.repoPath);
+		let branch = repoInfo?.branches.find(b => b.id === ref.branchId);
 		if (branch == null) {
-			branch = await repo?.repo?.git.getBranch(refs.branchId);
+			branch = await repoInfo?.repo?.git.branches().getBranch(ref.branchName);
 			if (branch == null) return;
 		}
 
-		void RepoActions.merge(repo!.repo, getReferenceFromBranch(branch));
+		void RepoActions.merge(repoInfo!.repo, getReferenceFromBranch(branch));
 	}
 
-	private async rebaseCurrentOnto(refs: BranchRef) {
-		const repo = this._repositoryBranches.get(refs.repoPath);
-		let branch = repo?.branches.find(b => b.id === refs.branchId);
+	private async rebaseCurrentOnto(ref: BranchRef) {
+		const repoInfo = this._repositoryBranches.get(ref.repoPath);
+		let branch = repoInfo?.branches.find(b => b.id === ref.branchId);
 		if (branch == null) {
-			branch = await repo?.repo?.git.getBranch(refs.branchId);
+			branch = await repoInfo?.repo?.git.branches().getBranch(ref.branchName);
 			if (branch == null) return;
 		}
 
-		void RepoActions.rebase(repo!.repo, getReferenceFromBranch(branch));
+		void RepoActions.rebase(repoInfo!.repo, getReferenceFromBranch(branch));
 	}
 
 	private startWork() {
@@ -465,8 +457,55 @@ export class HomeWebviewProvider implements WebviewProvider<State, State, HomeWe
 		});
 	}
 
-	private async createCloudPatch(refs: BranchRef) {
-		const status = await this.container.git.getStatus(refs.repoPath);
+	private async abortPausedOperation(pausedOpArgs: GitPausedOperationStatus) {
+		const abortPausedOperation = this.container.git.status(pausedOpArgs.repoPath).abortPausedOperation;
+		if (abortPausedOperation == null) return;
+
+		try {
+			await abortPausedOperation();
+		} catch (ex) {
+			void window.showErrorMessage(ex.message);
+		}
+	}
+
+	private async continuePausedOperation(pausedOpArgs: GitPausedOperationStatus) {
+		if (pausedOpArgs.type === 'revert') return;
+
+		const continuePausedOperation = this.container.git.status(pausedOpArgs.repoPath).continuePausedOperation;
+		if (continuePausedOperation == null) return;
+
+		try {
+			await continuePausedOperation();
+		} catch (ex) {
+			void window.showErrorMessage(ex.message);
+		}
+	}
+
+	private async skipPausedOperation(pausedOpArgs: GitPausedOperationStatus) {
+		const continuePausedOperation = this.container.git.status(pausedOpArgs.repoPath).continuePausedOperation;
+		if (continuePausedOperation == null) return;
+
+		try {
+			await continuePausedOperation({ skip: true });
+		} catch (ex) {
+			void window.showErrorMessage(ex.message);
+		}
+	}
+
+	private async openRebaseEditor(pausedOpArgs: GitPausedOperationStatus) {
+		if (pausedOpArgs.type !== 'rebase') return;
+
+		const gitDir = await this.container.git.getGitDir(pausedOpArgs.repoPath);
+		if (gitDir == null) return;
+
+		const rebaseTodoUri = Uri.joinPath(gitDir.uri, 'rebase-merge', 'git-rebase-todo');
+		void executeCoreCommand('vscode.openWith', rebaseTodoUri, 'gitlens.rebase', {
+			preview: false,
+		});
+	}
+
+	private async createCloudPatch(ref: BranchRef) {
+		const status = await this.container.git.status(ref.repoPath).getStatus();
 		if (status == null) return;
 
 		const files: GitFileChangeShape[] = [];
@@ -485,7 +524,7 @@ export class HomeWebviewProvider implements WebviewProvider<State, State, HomeWe
 			}
 		}
 
-		const { repo } = this._repositoryBranches.get(refs.repoPath)!;
+		const { repo } = this._repositoryBranches.get(ref.repoPath)!;
 		const change: Change = {
 			type: 'wip',
 			repository: {
@@ -669,7 +708,7 @@ export class HomeWebviewProvider implements WebviewProvider<State, State, HomeWe
 			url?: string;
 		};
 	}> {
-		const remotes = await repo.git.getBestRemotesWithProviders();
+		const remotes = await repo.git.remotes().getBestRemotesWithProviders();
 		const remote = remotes.find(r => r.hasIntegration()) ?? remotes[0];
 
 		return {
@@ -767,6 +806,8 @@ export class HomeWebviewProvider implements WebviewProvider<State, State, HomeWe
 
 	@debug()
 	private onOverviewRepoChanged(scope: 'repo' | 'wip') {
+		if (this._etag === this.container.git.etag) return;
+
 		if (this._invalidateOverview !== 'repo') {
 			this._invalidateOverview = scope;
 		}
@@ -791,10 +832,10 @@ export class HomeWebviewProvider implements WebviewProvider<State, State, HomeWe
 	private readonly _repositoryBranches: Map<string, RepositoryBranchData> = new Map();
 	private async getBranchesData(repo: Repository, force = false) {
 		if (force || !this._repositoryBranches.has(repo.path)) {
-			const worktrees = (await repo.git.getWorktrees()) ?? [];
+			const worktrees = (await repo.git.worktrees()?.getWorktrees()) ?? [];
 			const worktreesByBranch = groupWorktreesByBranch(worktrees, { includeDefault: true });
 			const [branchesResult] = await Promise.allSettled([
-				repo.git.getBranches({
+				repo.git.branches().getBranches({
 					filter: b => !b.remote,
 					sort: { current: true, openedWorktreesByBranch: getOpenedWorktreesByBranch(worktreesByBranch) },
 				}),
@@ -838,9 +879,15 @@ export class HomeWebviewProvider implements WebviewProvider<State, State, HomeWe
 			}));
 
 			// union (uniquely by id) with supportedCloudIntegrationDescriptors
-			integrations.push(
-				...this._defaultSupportedCloudIntegrations.filter(d => !integrations.some(i => i.id === d.id)),
-			);
+			this._defaultSupportedCloudIntegrations.forEach(d => {
+				const i = integrations.find(i => i.id === d.id);
+				if (i == null) {
+					integrations.push(d);
+				} else if (i.icon !== d.icon) {
+					i.icon = d.icon;
+				}
+			});
+
 			integrations.sort(
 				(a, b) =>
 					supportedOrderedCloudIntegrationIds.indexOf(a.id) -
@@ -903,6 +950,8 @@ export class HomeWebviewProvider implements WebviewProvider<State, State, HomeWe
 	}
 	private _notifyDidChangeRepositoriesDebounced: Deferrable<() => void> | undefined = undefined;
 	private notifyDidChangeRepositories(immediate = false) {
+		if (this._discovering != null) return;
+
 		if (immediate) {
 			this.notifyDidChangeRepositoriesCore();
 			return;
@@ -934,7 +983,7 @@ export class HomeWebviewProvider implements WebviewProvider<State, State, HomeWe
 		void this.host.notify(DidChangeLaunchpad, undefined);
 	}
 
-	private async notifyDidChangeOnboardingIntegration() {
+	private async notifyDidChangeIntegrations() {
 		// force rechecking
 		const integrations = await this.getIntegrationStates(true);
 		const anyConnected = integrations.some(i => i.connected);
@@ -966,11 +1015,15 @@ export class HomeWebviewProvider implements WebviewProvider<State, State, HomeWe
 		});
 	}
 
-	private async pullRequestCompare(refs: BranchRef) {
-		const pr = await this.findPullRequest(refs);
+	private mergeTargetCompare(ref: BranchRef & { mergeTargetId: string }) {
+		return this.container.views.searchAndCompare.compare(ref.repoPath, ref.branchId, ref.mergeTargetId);
+	}
+
+	private async pullRequestCompare(ref: BranchRef) {
+		const pr = await this.findPullRequest(ref);
 		if (pr?.refs?.base == null || pr.refs.head == null) return;
 
-		const comparisonRefs = getComparisonRefsForPullRequest(refs.repoPath, pr.refs);
+		const comparisonRefs = getComparisonRefsForPullRequest(ref.repoPath, pr.refs);
 		return this.container.views.searchAndCompare.compare(
 			comparisonRefs.repoPath,
 			comparisonRefs.head,
@@ -978,11 +1031,11 @@ export class HomeWebviewProvider implements WebviewProvider<State, State, HomeWe
 		);
 	}
 
-	private async pullRequestChanges(refs: BranchRef) {
-		const pr = await this.findPullRequest(refs);
+	private async pullRequestChanges(ref: BranchRef) {
+		const pr = await this.findPullRequest(ref);
 		if (pr?.refs?.base == null || pr.refs.head == null) return;
 
-		const comparisonRefs = getComparisonRefsForPullRequest(refs.repoPath, pr.refs);
+		const comparisonRefs = getComparisonRefsForPullRequest(ref.repoPath, pr.refs);
 		return openComparisonChanges(
 			this.container,
 			{
@@ -994,8 +1047,8 @@ export class HomeWebviewProvider implements WebviewProvider<State, State, HomeWe
 		);
 	}
 
-	private async pullRequestViewOnRemote(refs: BranchRef, clipboard?: boolean) {
-		const pr = await this.findPullRequest(refs);
+	private async pullRequestViewOnRemote(ref: BranchRef, clipboard?: boolean) {
+		const pr = await this.findPullRequest(ref);
 		if (pr == null) return;
 
 		void executeCommand<OpenPullRequestOnRemoteCommandArgs>(GlCommand.OpenPullRequestOnRemote, {
@@ -1004,22 +1057,23 @@ export class HomeWebviewProvider implements WebviewProvider<State, State, HomeWe
 		});
 	}
 
-	private async pullRequestDetails(refs: BranchRef) {
-		const pr = await this.findPullRequest(refs);
+	private async pullRequestDetails(ref: BranchRef) {
+		const pr = await this.findPullRequest(ref);
 		if (pr == null) return;
 
-		void this.container.views.pullRequest.showPullRequest(pr, refs.repoPath);
+		void this.container.views.pullRequest.showPullRequest(pr, ref.repoPath);
 	}
 
-	private async pullRequestCreate(refs: BranchRef) {
-		const repo = this._repositoryBranches.get(refs.repoPath);
-		const branch = repo?.branches.find(b => b.id === refs.branchId);
+	private async pullRequestCreate(ref: BranchRef) {
+		const repo = this._repositoryBranches.get(ref.repoPath);
+		const branch = repo?.branches.find(b => b.id === ref.branchId);
 		if (branch == null) return;
+
 		const remote = await branch.getRemote();
 		if (remote == null) return;
 
 		executeActionCommand<CreatePullRequestActionContext>('createPullRequest', {
-			repoPath: refs.repoPath,
+			repoPath: ref.repoPath,
 			remote:
 				remote != null
 					? {
@@ -1043,54 +1097,60 @@ export class HomeWebviewProvider implements WebviewProvider<State, State, HomeWe
 		});
 	}
 
-	private worktreeOpen(refs: BranchRef) {
-		const worktree = this.findWorktree(refs);
+	private worktreeOpen(ref: BranchRef) {
+		const worktree = this.findWorktree(ref);
 		if (worktree == null) return;
 
 		openWorkspace(worktree.uri);
 	}
 
-	private switchToBranch(refs: BranchRef) {
-		const repo = this._repositoryBranches.get(refs.repoPath);
-		const branch = repo?.branches.find(b => b.id === refs.branchId);
+	private switchToBranch(ref: BranchRef) {
+		const repo = this._repositoryBranches.get(ref.repoPath);
+		const branch = repo?.branches.find(b => b.id === ref.branchId);
 		if (branch == null) return;
 
 		void RepoActions.switchTo(repo!.repo, getReferenceFromBranch(branch));
 	}
 
-	private fetch(refs?: BranchRef) {
-		if (refs == null) {
+	private async fetch(ref?: BranchRef) {
+		if (ref == null) {
 			const repo = this.getSelectedRepository();
 			void RepoActions.fetch(repo);
 			return;
 		}
 
-		const repo = this._repositoryBranches.get(refs.repoPath);
-		const branch = repo?.branches.find(b => b.id === refs.branchId);
+		const repoInfo = this._repositoryBranches.get(ref.repoPath);
+		if (repoInfo == null) return;
+
+		let branch = repoInfo.branches.find(b => b.id === ref.branchId);
+		if (branch == null) {
+			branch = await repoInfo.repo.git.branches().getBranch(ref.branchId);
+		}
 		if (branch == null) return;
 
-		void RepoActions.fetch(repo!.repo, getReferenceFromBranch(branch));
+		void RepoActions.fetch(repoInfo.repo, getReferenceFromBranch(branch));
 	}
 
-	private findBranch(refs: BranchRef): GitBranch | undefined {
-		const branches = this._repositoryBranches.get(refs.repoPath)?.branches;
-		return branches?.find(b => b.id === refs.branchId);
+	private findBranch(ref: BranchRef): GitBranch | undefined {
+		const branches = this._repositoryBranches.get(ref.repoPath)?.branches;
+		return branches?.find(b => b.id === ref.branchId);
 	}
 
-	private findWorktree(refs: BranchRef): GitWorktree | undefined {
-		const repo = this._repositoryBranches.get(refs.repoPath);
+	private findWorktree(ref: BranchRef): GitWorktree | undefined {
+		const repo = this._repositoryBranches.get(ref.repoPath);
 		if (repo == null) return undefined;
 
-		const branch = repo.branches.find(b => b.id === refs.branchId);
+		const branch = repo.branches.find(b => b.id === ref.branchId);
 		if (branch == null) return undefined;
 
 		return repo.worktreesByBranch.get(branch.id);
 	}
 
-	private async findPullRequest(refs: BranchRef): Promise<PullRequest | undefined> {
-		const branches = this.findBranch(refs);
-		if (branches == null) return undefined;
-		return branches.getAssociatedPullRequest();
+	private async findPullRequest(ref: BranchRef): Promise<PullRequest | undefined> {
+		const branch = this.findBranch(ref);
+		if (branch == null) return undefined;
+
+		return branch.getAssociatedPullRequest();
 	}
 }
 
@@ -1144,7 +1204,7 @@ function getOverviewBranches(
 				);
 				contributorsPromises.set(
 					branch.id,
-					container.git.getBranchContributionsOverview(branch.repoPath, branch.ref),
+					container.git.branches(branch.repoPath).getBranchContributionsOverview(branch.ref),
 				);
 				if (branch.current) {
 					mergeTargetPromises.set(branch.id, getBranchMergeTargetStatusInfo(container, branch));
@@ -1155,7 +1215,7 @@ function getOverviewBranches(
 				statusPromises.set(branch.id, wt.getStatus(forceOptions));
 			} else {
 				if (repoStatusPromise === undefined) {
-					repoStatusPromise = container.git.getStatus(branch.repoPath);
+					repoStatusPromise = container.git.status(branch.repoPath).getStatus();
 				}
 				statusPromises.set(branch.id, repoStatusPromise);
 			}
@@ -1186,7 +1246,7 @@ function getOverviewBranches(
 				);
 				contributorsPromises.set(
 					branch.id,
-					container.git.getBranchContributionsOverview(branch.repoPath, branch.ref),
+					container.git.branches(branch.repoPath).getBranchContributionsOverview(branch.ref),
 				);
 			}
 
@@ -1249,7 +1309,7 @@ function getOverviewBranches(
 
 					contributorsPromises.set(
 						branch.id,
-						container.git.getBranchContributionsOverview(branch.repoPath, branch.ref),
+						container.git.branches(branch.repoPath).getBranchContributionsOverview(branch.ref),
 					);
 				}
 
@@ -1387,30 +1447,42 @@ async function getBranchMergeTargetStatusInfo(
 		associatedPullRequest: branch.getAssociatedPullRequest(),
 	});
 
-	let targetBranch;
+	let targetResult;
 	if (!info.targetBranch.paused && info.targetBranch.value) {
-		targetBranch = info.targetBranch.value;
+		targetResult = info.targetBranch.value;
 	}
 
-	const target = targetBranch ?? info.baseBranch ?? info.defaultBranch;
+	const target = targetResult ?? info.baseBranch ?? info.defaultBranch;
 	if (target == null) return undefined;
 
-	const [countsResult, conflictResult] = await Promise.allSettled([
-		container.git.getLeftRightCommitCount(branch.repoPath, createRevisionRange(target, branch.ref, '...'), {
-			excludeMerges: true,
-		}),
-		container.git.getPotentialMergeOrRebaseConflict(branch.repoPath, branch.name, target),
+	const branchProvider = container.git.branches(branch.repoPath);
+	const targetBranch = await branchProvider.getBranch(target);
+	if (targetBranch == null) return undefined;
+
+	const [countsResult, conflictResult, mergedStatusResult] = await Promise.allSettled([
+		container.git.getLeftRightCommitCount(
+			branch.repoPath,
+			createRevisionRange(targetBranch.name, branch.ref, '...'),
+			{
+				excludeMerges: true,
+			},
+		),
+		branchProvider.getPotentialMergeOrRebaseConflict?.(branch.name, targetBranch.name),
+		branchProvider.getBranchMergedStatus?.(branch, targetBranch),
 	]);
 
 	const counts = getSettledValue(countsResult);
 	const status = counts != null ? { ahead: counts.right, behind: counts.left } : undefined;
+	const mergedStatus = getSettledValue(mergedStatusResult);
 
 	return {
 		repoPath: branch.repoPath,
-		name: target,
+		id: targetBranch.id,
+		name: targetBranch.name,
 		status: status,
+		mergedStatus: mergedStatus,
 		potentialConflicts: getSettledValue(conflictResult),
-		targetBranch: targetBranch,
+		targetBranch: targetBranch.name,
 		baseBranch: info.baseBranch,
 		defaultBranch: info.defaultBranch,
 	};
@@ -1491,7 +1563,7 @@ async function getWipInfo(
 
 	const [statusResult, pausedOpStatusResult] = await Promise.allSettled([
 		statusPromise,
-		active ? container.git.getPausedOperationStatus(branch.repoPath) : undefined,
+		active ? container.git.status(branch.repoPath).getPausedOperationStatus?.() : undefined,
 	]);
 
 	const status = getSettledValue(statusResult);

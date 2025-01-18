@@ -632,3 +632,66 @@ export class PausedOperationContinueError extends Error {
 		Error.captureStackTrace?.(this, PausedOperationContinueError);
 	}
 }
+
+export const enum ResetErrorReason {
+	AmbiguousArgument,
+	ChangesWouldBeOverwritten,
+	DetachedHead,
+	EntryNotUpToDate,
+	PermissionDenied,
+	RefLocked,
+	Other,
+	UnmergedChanges,
+}
+
+export class ResetError extends Error {
+	static is(ex: unknown, reason?: ResetErrorReason): ex is ResetError {
+		return ex instanceof ResetError && (reason == null || ex.reason === reason);
+	}
+
+	readonly original?: Error;
+	readonly reason: ResetErrorReason | undefined;
+	constructor(reason?: ResetErrorReason, original?: Error);
+	constructor(message?: string, original?: Error);
+	constructor(messageOrReason: string | ResetErrorReason | undefined, original?: Error) {
+		let message;
+		let reason: ResetErrorReason | undefined;
+		if (messageOrReason == null) {
+			message = 'Unable to reset';
+		} else if (typeof messageOrReason === 'string') {
+			message = messageOrReason;
+			reason = undefined;
+		} else {
+			reason = messageOrReason;
+			message = 'Unable to reset';
+			switch (reason) {
+				case ResetErrorReason.UnmergedChanges:
+					message = `${message} because there are unmerged changes`;
+					break;
+				case ResetErrorReason.AmbiguousArgument:
+					message = `${message} because the argument is ambiguous`;
+					break;
+				case ResetErrorReason.EntryNotUpToDate:
+					message = `${message} because the entry is not up to date`;
+					break;
+				case ResetErrorReason.RefLocked:
+					message = `${message} because the ref is locked`;
+					break;
+				case ResetErrorReason.PermissionDenied:
+					message = `${message} because you don't have permission to modify affected files`;
+					break;
+				case ResetErrorReason.DetachedHead:
+					message = `${message} because you are in a detached HEAD state`;
+					break;
+				case ResetErrorReason.ChangesWouldBeOverwritten:
+					message = `${message} because your local changes would be overwritten`;
+					break;
+			}
+		}
+		super(message);
+
+		this.original = original;
+		this.reason = reason;
+		Error.captureStackTrace?.(this, ResetError);
+	}
+}

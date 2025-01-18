@@ -16,12 +16,16 @@ export class GlBranchName extends LitElement {
 			margin-top: -3px;
 		}
 
-		strong {
-			font-weight: bold;
+		.icon {
+			margin: 0 0.3rem 0.1rem 0.2rem;
 		}
 
-		code-icon {
-			margin-bottom: 2px;
+		.worktree .icon {
+			margin-right: 0.4rem;
+		}
+
+		.label {
+			font-weight: bold;
 		}
 	`;
 
@@ -31,12 +35,18 @@ export class GlBranchName extends LitElement {
 	@property({ type: Number })
 	size: number = 12;
 
+	@property({ type: Boolean })
+	worktree = false;
+
 	override render() {
-		return html`
-			<code-icon icon="git-branch" size="${this.size}"></code-icon>&nbsp;<strong
-				>${this.name ?? '<missing>'}</strong
-			>
-		`;
+		return html`<span class="${this.worktree ? 'worktree' : 'branch'}"
+			><code-icon
+				class="icon"
+				icon="${this.worktree ? 'gl-worktrees-view' : 'git-branch'}"
+				size="${this.size}"
+			></code-icon
+			><span class="label">${this.name ?? '<missing>'}</span></span
+		>`;
 	}
 }
 
@@ -45,6 +55,7 @@ declare global {
 		'gl-branch-name': GlBranchName;
 	}
 }
-export function renderBranchName(name: string | undefined, size = 12) {
-	return html`<gl-branch-name .name=${name} .size=${size}></gl-branch-name>`;
+
+export function renderBranchName(name: string | undefined, worktree?: boolean) {
+	return html`<gl-branch-name .name=${name} .size=${12} ?worktree=${worktree ?? false}></gl-branch-name>`;
 }

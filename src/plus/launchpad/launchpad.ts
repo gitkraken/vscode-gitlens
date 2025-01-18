@@ -63,7 +63,6 @@ import {
 } from './launchpadProvider';
 import type { LaunchpadAction, LaunchpadGroup, LaunchpadTargetAction } from './models';
 import { actionGroupMap, launchpadGroupIconMap, launchpadGroupLabelMap, launchpadGroups } from './models';
-import { isMaybeSupportedLaunchpadPullRequestSearchUrl } from './utils';
 
 export interface LaunchpadItemQuickPickItem extends QuickPickItem {
 	readonly type: 'item';
@@ -757,7 +756,7 @@ export class LaunchpadCommand extends QuickCommand<State> {
 				}
 
 				// In API search mode, search the API and update the quickpick
-				if (context.inSearch || isMaybeSupportedLaunchpadPullRequestSearchUrl(value)) {
+				if (context.inSearch || this.container.launchpad.isMaybeSupportedLaunchpadPullRequestSearchUrl(value)) {
 					let immediate = false;
 					if (!context.inSearch) {
 						immediate = value.length >= 3;
@@ -1565,9 +1564,11 @@ function getOpenOnGitProviderQuickInputButton(integrationId: string): QuickInput
 	switch (integrationId) {
 		case HostingIntegrationId.GitLab:
 		case SelfHostedIntegrationId.GitLabSelfHosted:
+		case SelfHostedIntegrationId.CloudGitLabSelfHosted:
 			return OpenOnGitLabQuickInputButton;
 		case HostingIntegrationId.GitHub:
 		case SelfHostedIntegrationId.GitHubEnterprise:
+		case SelfHostedIntegrationId.CloudGitHubEnterprise:
 			return OpenOnGitHubQuickInputButton;
 		default:
 			return undefined;
@@ -1583,9 +1584,11 @@ function getIntegrationTitle(integrationId: string): string {
 	switch (integrationId) {
 		case HostingIntegrationId.GitLab:
 		case SelfHostedIntegrationId.GitLabSelfHosted:
+		case SelfHostedIntegrationId.CloudGitLabSelfHosted:
 			return 'GitLab';
 		case HostingIntegrationId.GitHub:
 		case SelfHostedIntegrationId.GitHubEnterprise:
+		case SelfHostedIntegrationId.CloudGitHubEnterprise:
 			return 'GitHub';
 		default:
 			return integrationId;

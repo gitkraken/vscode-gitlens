@@ -11,7 +11,8 @@ import { matchContributor } from '../git/models/contributor';
 import type { GitRevisionReference } from '../git/models/reference';
 import { getReferenceLabel } from '../git/models/reference.utils';
 import type { RepositoryChangeEvent } from '../git/models/repository';
-import { Repository, RepositoryChange, RepositoryChangeComparisonMode } from '../git/models/repository';
+import { RepositoryChange, RepositoryChangeComparisonMode } from '../git/models/repository';
+import { getLastFetchedUpdateInterval } from '../git/models/repository.utils';
 import type { GitUser } from '../git/models/user';
 import { showContributorsPicker } from '../quickpicks/contributorsPicker';
 import { getRepositoryOrShowPicker } from '../quickpicks/repositoryPicker';
@@ -34,7 +35,7 @@ import { registerViewCommand } from './viewCommands';
 export class CommitsRepositoryNode extends RepositoryFolderNode<CommitsView, BranchNode> {
 	async getChildren(): Promise<ViewNode[]> {
 		if (this.child == null) {
-			const branch = await this.repo.git.getBranch();
+			const branch = await this.repo.git.branches().getBranch();
 			if (branch == null) {
 				this.view.message = 'No commits could be found.';
 
@@ -83,13 +84,13 @@ export class CommitsRepositoryNode extends RepositoryFolderNode<CommitsView, Bra
 	protected override async subscribe() {
 		const lastFetched = (await this.repo?.getLastFetched()) ?? 0;
 
-		const interval = Repository.getLastFetchedUpdateInterval(lastFetched);
+		const interval = getLastFetchedUpdateInterval(lastFetched);
 		if (lastFetched !== 0 && interval > 0) {
 			return Disposable.from(
 				await super.subscribe(),
 				disposableInterval(() => {
 					// Check if the interval should change, and if so, reset it
-					if (interval !== Repository.getLastFetchedUpdateInterval(lastFetched)) {
+					if (interval !== getLastFetchedUpdateInterval(lastFetched)) {
 						void this.resetSubscription();
 					}
 
@@ -174,7 +175,7 @@ export class CommitsViewNode extends RepositoriesSubscribeableNode<CommitsView, 
 		if (this.children.length === 1) {
 			const [child] = this.children;
 
-			const branch = await child.repo.git.getBranch();
+			const branch = await child.repo.git.branches().getBranch();
 			if (branch != null) {
 				const descParts = [];
 
@@ -346,11 +347,12 @@ export class CommitsView extends ViewBase<'commits', CommitsViewNode, CommitsVie
 	async findCommit(commit: GitCommit | { repoPath: string; ref: string }, token?: CancellationToken) {
 		const { repoPath } = commit;
 
-		const branch = await this.container.git.getBranch(commit.repoPath);
+		const branchesProvider = this.container.git.branches(commit.repoPath);
+		const branch = await branchesProvider.getBranch();
 		if (branch == null) return undefined;
 
 		// Check if the commit exists on the current branch
-		const branches = await this.container.git.getCommitBranches(commit.repoPath, commit.ref, branch.name, {
+		const branches = await branchesProvider.getBranchesForCommit([commit.ref], branch.name, {
 			commitDate: isCommit(commit) ? commit.committer.date : undefined,
 		});
 		if (!branches.length) return undefined;

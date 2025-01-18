@@ -1,7 +1,7 @@
-import type { HeadersInit } from '@env/fetch';
 import type { EntityIdentifier } from '@gitkraken/provider-apis';
 import { EntityIdentifierUtils } from '@gitkraken/provider-apis';
 import type { Disposable } from 'vscode';
+import type { HeadersInit } from '@env/fetch';
 import { getAvatarUri } from '../../avatars';
 import type { IntegrationId } from '../../constants.integrations';
 import type { Container } from '../../container';
@@ -253,17 +253,17 @@ export class DraftService implements Disposable {
 
 		const [branchNamesResult, diffResult, firstShaResult, remoteResult, userResult] = await Promise.allSettled([
 			isWIP
-				? this.container.git.getBranch(change.repository.uri).then(b => (b != null ? [b.name] : undefined))
-				: this.container.git.getCommitBranches(change.repository.uri, [
-						change.revision.to,
-						change.revision.from,
-				  ]),
+				? change.repository.git
+						.branches()
+						.getBranch()
+						.then(b => (b != null ? [b.name] : undefined))
+				: change.repository.git.branches().getBranchesForCommit([change.revision.to, change.revision.from]),
 			change.contents == null
-				? this.container.git.getDiff(change.repository.path, change.revision.to, change.revision.from)
+				? change.repository.git.getDiff(change.revision.to, change.revision.from)
 				: undefined,
-			this.container.git.getFirstCommitSha(change.repository.uri),
-			this.container.git.getBestRemoteWithProvider(change.repository.uri),
-			this.container.git.getCurrentUser(change.repository.uri),
+			change.repository.git.getFirstCommitSha(),
+			change.repository.git.remotes().getBestRemoteWithProvider(),
+			change.repository.git.getCurrentUser(),
 		]);
 
 		const firstSha = getSettledValue(firstShaResult);
@@ -754,7 +754,7 @@ export class DraftService implements Disposable {
 	): Promise<ProviderAuth | undefined> {
 		let integration;
 		if (isRepository(repoOrIntegrationId)) {
-			const remoteProvider = await repoOrIntegrationId.git.getBestRemoteWithIntegration();
+			const remoteProvider = await repoOrIntegrationId.git.remotes().getBestRemoteWithIntegration();
 			if (remoteProvider == null) return undefined;
 
 			integration = await remoteProvider.getIntegration();

@@ -31,6 +31,7 @@ export class GlCard extends LitElement {
 		| 'mergeable'
 		| 'blocked'
 		| 'attention'
+		| 'branch-merged'
 		| 'branch-synced'
 		| 'branch-diverged'
 		| 'branch-behind'

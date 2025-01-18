@@ -295,7 +295,7 @@ export class BranchTrackingStatusNode
 				break;
 			}
 			case 'none': {
-				const remotes = await this.view.container.git.getRemotesWithProviders(this.branch.repoPath);
+				const remotes = await this.view.container.git.remotes(this.branch.repoPath).getRemotesWithProviders();
 				const providers = getHighlanderProviders(remotes);
 				const providerName = providers?.length ? providers[0].name : undefined;
 

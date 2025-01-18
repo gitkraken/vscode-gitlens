@@ -67,7 +67,7 @@ export class FileHistoryNode
 		const [log, fileStatuses, currentUser, getBranchAndTagTips, unpublishedCommits] = await Promise.all([
 			this.getLog(),
 			this.uri.sha == null
-				? this.view.container.git.getStatusForFiles(this.uri.repoPath, this.getPathOrGlob())
+				? this.view.container.git.status(this.uri.repoPath).getStatusForFiles?.(this.getPathOrGlob())
 				: undefined,
 			this.uri.sha == null ? this.view.container.git.getCurrentUser(this.uri.repoPath) : undefined,
 			this.view.container.git.getBranchesAndTagsTipsLookup(this.uri.repoPath, this.branch?.name),

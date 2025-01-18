@@ -121,7 +121,7 @@ export class OpenFileOnRemoteCommand extends ActiveEditorCommand {
 		args = { range: true, ...args };
 
 		try {
-			let remotes = await this.container.git.getRemotesWithProviders(gitUri.repoPath, { sort: true });
+			let remotes = await this.container.git.remotes(gitUri.repoPath).getRemotesWithProviders({ sort: true });
 
 			let range: Range | undefined;
 			if (args.range) {
@@ -155,7 +155,7 @@ export class OpenFileOnRemoteCommand extends ActiveEditorCommand {
 			if ((args.sha == null && args.branchOrTag == null) || args.pickBranchOrTag) {
 				let branch;
 				if (!args.pickBranchOrTag) {
-					branch = await this.container.git.getBranch(gitUri.repoPath);
+					branch = await this.container.git.branches(gitUri.repoPath).getBranch();
 				}
 
 				if (branch?.upstream == null) {

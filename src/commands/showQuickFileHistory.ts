@@ -9,6 +9,7 @@ import type { GitReference } from '../git/models/reference';
 import type { GitTag } from '../git/models/tag';
 import type { CommandQuickPickItem } from '../quickpicks/items/common';
 import { command } from '../system/vscode/command';
+import { getScmResourceFolderUri } from '../system/vscode/scm';
 import type { CommandContext } from './base';
 import { ActiveEditorCachedCommand, getCommandUri } from './base';
 
@@ -36,16 +37,22 @@ export class ShowQuickFileHistoryCommand extends ActiveEditorCachedCommand {
 	}
 
 	protected override preExecute(context: CommandContext, args?: ShowQuickFileHistoryCommandArgs) {
+		let uri = context.uri;
 		if (
 			context.command === GlCommand.OpenFileHistory ||
-			context.command === GlCommand.OpenFolderHistory ||
 			context.command === GlCommand.Deprecated_ShowFileHistoryInView
 		) {
 			args = { ...args };
 			args.showInSideBar = true;
+		} else if (context.command === GlCommand.OpenFolderHistory) {
+			args = { ...args };
+			args.showInSideBar = true;
+			if (context.type === 'scm-states') {
+				uri = getScmResourceFolderUri(context.args) ?? context.uri;
+			}
 		}
 
-		return this.execute(context.editor, context.uri, args);
+		return this.execute(context.editor, uri, args);
 	}
 
 	async execute(editor?: TextEditor, uri?: Uri, args?: ShowQuickFileHistoryCommandArgs) {

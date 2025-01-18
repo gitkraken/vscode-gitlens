@@ -64,7 +64,7 @@ export class StashesViewNode extends RepositoriesSubscribeableNode<StashesView, 
 		if (this.children.length === 1) {
 			const [child] = this.children;
 
-			const gitStash = await child.repo.git.getStash();
+			const gitStash = await child.repo.git.stash()?.getStash();
 			if (!gitStash?.stashes.size) {
 				this.view.message = 'No stashes could be found.';
 				void child.ensureSubscription();

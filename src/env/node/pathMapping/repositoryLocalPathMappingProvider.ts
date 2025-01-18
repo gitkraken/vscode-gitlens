@@ -4,11 +4,7 @@ import type { Container } from '../../../container';
 import type { LocalRepoDataMap } from '../../../pathMapping/models';
 import type { RepositoryPathMappingProvider } from '../../../pathMapping/repositoryPathMappingProvider';
 import { Logger } from '../../../system/logger';
-import {
-	acquireSharedFolderWriteLock,
-	getSharedRepositoryMappingFileUri,
-	releaseSharedFolderWriteLock,
-} from './sharedGKDataFolder';
+import { SharedGKDataFolderMapper } from './sharedGKDataFolder';
 
 export class RepositoryLocalPathMappingProvider implements RepositoryPathMappingProvider, Disposable {
 	constructor(private readonly container: Container) {}
@@ -58,7 +54,7 @@ export class RepositoryLocalPathMappingProvider implements RepositoryPathMapping
 	}
 
 	private async loadLocalRepoDataMap() {
-		const localFileUri = getSharedRepositoryMappingFileUri();
+		const localFileUri = await SharedGKDataFolderMapper.getSharedRepositoryMappingFileUri();
 		try {
 			const data = await workspace.fs.readFile(localFileUri);
 			this._localRepoDataMap = (JSON.parse(data.toString()) ?? {}) as LocalRepoDataMap;
@@ -86,7 +82,7 @@ export class RepositoryLocalPathMappingProvider implements RepositoryPathMapping
 	}
 
 	private async _writeLocalRepoPath(key: string, localPath: string): Promise<void> {
-		if (!key || !localPath || !(await acquireSharedFolderWriteLock())) {
+		if (!key || !localPath || !(await SharedGKDataFolderMapper.acquireSharedFolderWriteLock())) {
 			return;
 		}
 
@@ -103,13 +99,13 @@ export class RepositoryLocalPathMappingProvider implements RepositoryPathMapping
 			this._localRepoDataMap[key].paths.push(localPath);
 		}
 
-		const localFileUri = getSharedRepositoryMappingFileUri();
+		const localFileUri = await SharedGKDataFolderMapper.getSharedRepositoryMappingFileUri();
 		const outputData = new Uint8Array(Buffer.from(JSON.stringify(this._localRepoDataMap)));
 		try {
 			await workspace.fs.writeFile(localFileUri, outputData);
 		} catch (error) {
 			Logger.error(error, 'writeLocalRepoPath');
 		}
-		await releaseSharedFolderWriteLock();
+		await SharedGKDataFolderMapper.releaseSharedFolderWriteLock();
 	}
 }

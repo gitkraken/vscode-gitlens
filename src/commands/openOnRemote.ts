@@ -43,7 +43,7 @@ export class OpenOnRemoteCommand extends GlCommandBase {
 		let remotes =
 			'remotes' in args
 				? args.remotes
-				: await this.container.git.getRemotesWithProviders(args.repoPath, { sort: true });
+				: await this.container.git.remotes(args.repoPath).getRemotesWithProviders({ sort: true });
 
 		if (args.remote != null) {
 			const filtered = remotes.filter(r => r.name === args.remote);

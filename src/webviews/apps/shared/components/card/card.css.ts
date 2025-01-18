@@ -108,6 +108,10 @@ export const cardStyles = css`
 		);
 	}
 
+	.card.is-branch-merged {
+		border-inline-start-color: var(--gl-card-indicator-border, var(--vscode-gitlens-mergedPullRequestIconColor));
+	}
+
 	.card.is-branch-synced {
 		border-inline-start-color: var(
 			--gl-card-indicator-border,

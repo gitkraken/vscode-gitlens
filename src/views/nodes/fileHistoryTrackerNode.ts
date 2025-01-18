@@ -14,7 +14,7 @@ import { debounce } from '../../system/function';
 import { Logger } from '../../system/logger';
 import { getLogScope, setLogScopeExit } from '../../system/logger.scope';
 import { setContext } from '../../system/vscode/context';
-import { isFolder, isVirtualUri } from '../../system/vscode/utils';
+import { isFolderUri, isVirtualUri } from '../../system/vscode/utils';
 import type { FileHistoryView } from '../fileHistoryView';
 import { SubscribeableViewNode } from './abstract/subscribeableViewNode';
 import type { ViewNode } from './abstract/viewNode';
@@ -62,15 +62,15 @@ export class FileHistoryTrackerNode extends SubscribeableViewNode<'file-history-
 				sha: this._base ?? this.uri.sha,
 			};
 			const fileUri = new GitUri(this.uri, commitish);
-			const folder = await isFolder(this.uri);
+			const folder = await isFolderUri(this.uri);
 
 			this.view.title = folder ? 'Folder History' : 'File History';
 
 			let branch;
 			if (!commitish.sha || commitish.sha === 'HEAD') {
-				branch = await this.view.container.git.getBranch(this.uri.repoPath);
+				branch = await this.view.container.git.branches(commitish.repoPath).getBranch();
 			} else if (!isSha(commitish.sha)) {
-				branch = await this.view.container.git.getBranch(this.uri.repoPath, commitish.sha);
+				branch = await this.view.container.git.branches(commitish.repoPath).getBranch(commitish.sha);
 			}
 			this.child = new FileHistoryNode(fileUri, this.view, this, folder, branch);
 		}
@@ -111,7 +111,7 @@ export class FileHistoryTrackerNode extends SubscribeableViewNode<'file-history-
 		if (pick == null) return;
 
 		if (isBranchReference(pick)) {
-			const branch = await this.view.container.git.getBranch(this.uri.repoPath);
+			const branch = await this.view.container.git.branches(this.uri.repoPath!).getBranch();
 			this._base = branch?.name === pick.name ? undefined : pick.ref;
 		} else {
 			this._base = pick.ref;

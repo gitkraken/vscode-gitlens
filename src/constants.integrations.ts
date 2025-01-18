@@ -7,6 +7,8 @@ export enum HostingIntegrationId {
 
 export enum SelfHostedIntegrationId {
 	GitHubEnterprise = 'github-enterprise',
+	CloudGitHubEnterprise = 'cloud-github-enterprise',
+	CloudGitLabSelfHosted = 'cloud-gitlab-self-hosted',
 	GitLabSelfHosted = 'gitlab-self-hosted',
 }
 
@@ -20,7 +22,9 @@ export type IntegrationId = HostingIntegrationId | IssueIntegrationId | SelfHost
 export const supportedOrderedCloudIssueIntegrationIds = [IssueIntegrationId.Jira];
 export const supportedOrderedCloudIntegrationIds = [
 	HostingIntegrationId.GitHub,
+	SelfHostedIntegrationId.CloudGitHubEnterprise,
 	HostingIntegrationId.GitLab,
+	SelfHostedIntegrationId.CloudGitLabSelfHosted,
 	IssueIntegrationId.Jira,
 ];
 
@@ -46,8 +50,20 @@ export const supportedCloudIntegrationDescriptors: IntegrationDescriptor[] = [
 		supports: ['prs', 'issues'],
 	},
 	{
+		id: SelfHostedIntegrationId.CloudGitHubEnterprise,
+		name: 'GitHub Enterprise',
+		icon: 'gl-provider-github',
+		supports: ['prs', 'issues'],
+	},
+	{
 		id: HostingIntegrationId.GitLab,
 		name: 'GitLab',
+		icon: 'gl-provider-gitlab',
+		supports: ['prs', 'issues'],
+	},
+	{
+		id: SelfHostedIntegrationId.CloudGitLabSelfHosted,
+		name: 'GitLab Self-Managed',
 		icon: 'gl-provider-gitlab',
 		supports: ['prs', 'issues'],
 	},

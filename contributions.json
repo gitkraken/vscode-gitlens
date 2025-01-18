@@ -3063,9 +3063,8 @@
 						"order": 1
 					}
 				],
-				"gitlens/explorer/history": [
+				"gitlens/explorer/file/history": [
 					{
-						"when": "!explorerResourceIsRoot && !explorerResourceIsFolder && gitlens:enabled",
 						"group": "1_gitlens",
 						"order": 1
 					}
@@ -3195,11 +3194,16 @@
 		"gitlens.openFolderHistory": {
 			"label": "Open Folder History",
 			"menus": {
-				"gitlens/explorer/history": [
+				"gitlens/explorer/folder/history": [
 					{
-						"when": "explorerResourceIsFolder && gitlens:enabled",
 						"group": "1_gitlens",
 						"order": 1
+					}
+				],
+				"gitlens/scm/resourceFolder/history": [
+					{
+						"group": "1_gitlens",
+						"order": 2
 					}
 				]
 			}
@@ -3518,9 +3522,8 @@
 						"order": 1
 					}
 				],
-				"gitlens/explorer/history": [
+				"gitlens/explorer/file/history": [
 					{
-						"when": "!explorerResourceIsRoot && !explorerResourceIsFolder && gitlens:enabled",
 						"group": "1_gitlens_quick",
 						"order": 1
 					}
@@ -3686,6 +3689,55 @@
 			"label": "Show File History View",
 			"commandPalette": "gitlens:enabled"
 		},
+		"gitlens.showFileInTimeline": {
+			"label": "Open Visual File History",
+			"icon": "$(graph-scatter)",
+			"commandPalette": "gitlens:enabled && resource in gitlens:tabs:tracked",
+			"menus": {
+				"gitlens/commit/file/history": [
+					{
+						"group": "1_gitlens",
+						"order": 2
+					}
+				],
+				"gitlens/editor/history": [
+					{
+						"group": "1_gitlens",
+						"order": 2
+					}
+				],
+				"gitlens/explorer/file/history": [
+					{
+						"group": "1_gitlens",
+						"order": 2
+					}
+				],
+				"gitlens/scm/resourceState/history": [
+					{
+						"group": "1_gitlens",
+						"order": 2
+					}
+				]
+			}
+		},
+		"gitlens.showFolderInTimeline": {
+			"label": "Open Visual Folder History",
+			"icon": "$(graph-scatter)",
+			"menus": {
+				"gitlens/explorer/folder/history": [
+					{
+						"group": "1_gitlens",
+						"order": 2
+					}
+				],
+				"gitlens/scm/resourceFolder/history": [
+					{
+						"group": "1_gitlens",
+						"order": 2
+					}
+				]
+			}
+		},
 		"gitlens.showGraph": {
 			"label": "Show Commit Graph",
 			"icon": "$(gitlens-graph)",
@@ -3807,38 +3859,6 @@
 						"when": "viewItem =~ /gitlens:file\\b(?=.*?\\b\\+committed\\b)/ && view =~ /gitlens\\.views\\.(fileHistory|lineHistory\\b)/ && !listMultiSelection",
 						"group": "2_gitlens_quickopen",
 						"order": 3
-					}
-				]
-			}
-		},
-		"gitlens.showInTimeline": {
-			"label": "Open Visual File History",
-			"icon": "$(graph-scatter)",
-			"commandPalette": "gitlens:enabled && resource in gitlens:tabs:tracked",
-			"menus": {
-				"gitlens/commit/file/history": [
-					{
-						"group": "1_gitlens",
-						"order": 2
-					}
-				],
-				"gitlens/editor/history": [
-					{
-						"group": "1_gitlens",
-						"order": 2
-					}
-				],
-				"gitlens/explorer/history": [
-					{
-						"when": "!explorerResourceIsRoot && !explorerResourceIsFolder && gitlens:enabled",
-						"group": "1_gitlens",
-						"order": 2
-					}
-				],
-				"gitlens/scm/resourceState/history": [
-					{
-						"group": "1_gitlens",
-						"order": 2
 					}
 				]
 			}
@@ -4706,6 +4726,24 @@
 			"label": "Toggle Zen Mode",
 			"commandPalette": "gitlens:enabled"
 		},
+		"gitlens.views.abortPausedOperation": {
+			"label": "Abort",
+			"icon": "$(circle-slash)",
+			"menus": {
+				"view/item/context": [
+					{
+						"when": "viewItem =~ /gitlens:paused-operation\\b/ && !listMultiSelection",
+						"group": "inline",
+						"order": 3
+					},
+					{
+						"when": "viewItem =~ /gitlens:paused-operation\\b/ && !listMultiSelection",
+						"group": "1_gitlens_actions",
+						"order": 3
+					}
+				]
+			}
+		},
 		"gitlens.views.addAuthor": {
 			"label": "Add as Co-author",
 			"icon": "$(person-add)",
@@ -5312,7 +5350,7 @@
 			"menus": {
 				"view/item/context": [
 					{
-						"when": "viewItem =~ /gitlens:(branch|compare|folder|grouping|results|search|status|tag)\\b/ && !listMultiSelection",
+						"when": "viewItem =~ /gitlens:(branch|compare|folder|grouping|pseudo:folder|results|search|status|tag)\\b/ && !listMultiSelection",
 						"group": "9_gitlens",
 						"order": 1
 					}
@@ -5831,6 +5869,24 @@
 						"when": "viewItem =~ /gitlens:file\\b(?=.*?\\b\\+committed\\b)/ && view =~ /^gitlens\\.views\\.(fileHistory|lineHistory)/ && !listMultiSelection && !gitlens:hasVirtualFolders",
 						"group": "4_gitlens_compare",
 						"order": 3
+					}
+				]
+			}
+		},
+		"gitlens.views.continuePausedOperation": {
+			"label": "Continue",
+			"icon": "$(debug-continue)",
+			"menus": {
+				"view/item/context": [
+					{
+						"when": "viewItem =~ /gitlens:paused-operation:(cherry-pick|merge|rebase)\\b/ && !listMultiSelection",
+						"group": "inline",
+						"order": 1
+					},
+					{
+						"when": "viewItem =~ /gitlens:paused-operation:(cherry-pick|merge|rebase)\\b/ && !listMultiSelection",
+						"group": "1_gitlens_actions",
+						"order": 1
 					}
 				]
 			}
@@ -6567,7 +6623,7 @@
 			"menus": {
 				"view/item/context": [
 					{
-						"when": "viewItem =~ /gitlens:(branch|compare|folder|grouping|results|search|status|tag)\\b/ && !listMultiSelection",
+						"when": "viewItem =~ /gitlens:(branch|compare|folder|grouping|pseudo:folder|results|search|status|tag)\\b/ && !listMultiSelection",
 						"group": "9_gitlens",
 						"order": 2
 					}
@@ -6722,7 +6778,7 @@
 			"menus": {
 				"view/title": [
 					{
-						"when": "view == gitlens.views.fileHistory && gitlens:views:fileHistory:canPin && !gitlens:views:fileHistory:editorFollowing",
+						"when": "view == gitlens.views.fileHistory && !gitlens:views:fileHistory:editorFollowing",
 						"group": "navigation",
 						"order": 10
 					}
@@ -7623,6 +7679,24 @@
 					{
 						"group": "2_gitlens",
 						"order": 3
+					}
+				]
+			}
+		},
+		"gitlens.views.openPausedOperationInRebaseEditor": {
+			"label": "Open in Rebase Editor",
+			"icon": "$(edit)",
+			"menus": {
+				"view/item/context": [
+					{
+						"when": "viewItem =~ /gitlens:paused-operation:rebase\\b/ && !listMultiSelection",
+						"group": "inline",
+						"order": 4
+					},
+					{
+						"when": "viewItem =~ /gitlens:paused-operation:rebase\\b/ && !listMultiSelection",
+						"group": "2_gitlens",
+						"order": 1
 					}
 				]
 			}
@@ -10380,6 +10454,24 @@
 				]
 			}
 		},
+		"gitlens.views.skipPausedOperation": {
+			"label": "Skip",
+			"icon": "$(debug-step-over)",
+			"menus": {
+				"view/item/context": [
+					{
+						"when": "viewItem =~ /gitlens:paused-operation:(cherry-pick|rebase|revert)\\b/ && !listMultiSelection",
+						"group": "inline",
+						"order": 2
+					},
+					{
+						"when": "viewItem =~ /gitlens:paused-operation:(cherry-pick|rebase|revert)\\b/ && !listMultiSelection",
+						"group": "1_gitlens_actions",
+						"order": 2
+					}
+				]
+			}
+		},
 		"gitlens.views.stageDirectory": {
 			"label": "Stage All Changes",
 			"icon": "$(add)",
@@ -11937,14 +12029,33 @@
 				]
 			}
 		},
-		"gitlens/explorer/history": {
+		"gitlens/explorer/file/history": {
 			"label": "File History",
 			"menus": {
 				"explorer/context": [
 					{
-						"when": "gitlens:enabled && config.gitlens.menus.explorer.history",
+						"when": "!explorerResourceIsRoot && !explorerResourceIsFolder && gitlens:enabled && config.gitlens.menus.explorer.history",
 						"group": "4_timeline",
 						"order": 0
+					}
+				]
+			}
+		},
+		"gitlens/explorer/folder/history": {
+			"label": "Folder History",
+			"menus": {
+				"explorer/context": [
+					{
+						"when": "(explorerResourceIsRoot || explorerResourceIsFolder) && gitlens:enabled && config.gitlens.menus.explorer.history",
+						"group": "4_timeline",
+						"order": 0
+					}
+				],
+				"view/item/context": [
+					{
+						"when": "viewItem =~ /gitlens:folder\\b/",
+						"group": "4_timeline",
+						"order": 1
 					}
 				]
 			}
@@ -12012,6 +12123,18 @@
 					{
 						"when": "scmResourceGroup =~ /^(workingTree|index|merge)$/ && scmProvider == git && gitlens:enabled && config.gitlens.menus.scmItem.compare",
 						"group": "2_gitlens",
+						"order": 1
+					}
+				]
+			}
+		},
+		"gitlens/scm/resourceFolder/history": {
+			"label": "Folder History",
+			"menus": {
+				"scm/resourceFolder/context": [
+					{
+						"when": "scmResourceGroup =~ /^(workingTree|index|merge)$/ && scmProvider == git && gitlens:enabled && config.gitlens.menus.scmItem.history",
+						"group": "2_gitlens_1",
 						"order": 1
 					}
 				]

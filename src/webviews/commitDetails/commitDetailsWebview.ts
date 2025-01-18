@@ -1324,7 +1324,7 @@ export class CommitDetailsWebviewProvider
 		repository: Repository,
 		branchName: string,
 	): Promise<{ branch: GitBranch; pullRequest: PullRequest | undefined; codeSuggestions: Draft[] } | undefined> {
-		const branch = await repository.git.getBranch(branchName);
+		const branch = await repository.git.branches().getBranch(branchName);
 		if (branch == null) return undefined;
 
 		if (this.mode === 'commit') {
@@ -1413,7 +1413,7 @@ export class CommitDetailsWebviewProvider
 		const { commit } = current;
 		if (commit == null) return;
 
-		const remote = await this.container.git.getBestRemoteWithIntegration(commit.repoPath);
+		const remote = await this.container.git.remotes(commit.repoPath).getBestRemoteWithIntegration();
 
 		if (cancellation.isCancellationRequested) return;
 
@@ -1473,7 +1473,7 @@ export class CommitDetailsWebviewProvider
 			commit = commitish;
 		} else if (commitish != null) {
 			if (commitish.refType === 'stash') {
-				const gitStash = await this.container.git.getStash(commitish.repoPath);
+				const gitStash = await this.container.git.stash(commitish.repoPath)?.getStash();
 				commit = gitStash?.stashes.get(commitish.ref);
 			} else {
 				commit = await this.container.git.getCommit(commitish.repoPath, commitish.ref);
@@ -1556,7 +1556,7 @@ export class CommitDetailsWebviewProvider
 	}
 
 	private async getWipChange(repository: Repository): Promise<WipChange | undefined> {
-		const status = await this.container.git.getStatus(repository.path);
+		const status = await this.container.git.status(repository.path).getStatus();
 		if (status == null) return undefined;
 
 		const files: GitFileChangeShape[] = [];
@@ -1766,7 +1766,7 @@ export class CommitDetailsWebviewProvider
 		const [commitResult, avatarUriResult, remoteResult] = await Promise.allSettled([
 			!commit.hasFullDetails() ? commit.ensureFullDetails().then(() => commit) : commit,
 			commit.author.getAvatarUri(commit, { size: 32 }),
-			this.container.git.getBestRemoteWithIntegration(commit.repoPath, { includeDisconnected: true }),
+			this.container.git.remotes(commit.repoPath).getBestRemoteWithIntegration({ includeDisconnected: true }),
 		]);
 
 		commit = getSettledValue(commitResult, commit);
@@ -1952,7 +1952,7 @@ export class CommitDetailsWebviewProvider
 
 		const [commit, file] = result;
 
-		await this.container.git.stageFile(commit.repoPath, file.path);
+		await this.container.git.staging(commit.repoPath)?.stageFile(file.path);
 	}
 
 	private async unstageFile(params: ExecuteFileActionParams) {
@@ -1961,7 +1961,7 @@ export class CommitDetailsWebviewProvider
 
 		const [commit, file] = result;
 
-		await this.container.git.unstageFile(commit.repoPath, file.path);
+		await this.container.git.staging(commit.repoPath)?.unstageFile(file.path);
 	}
 
 	private getShowOptions(params: ExecuteFileActionParams): TextDocumentShowOptions | undefined {

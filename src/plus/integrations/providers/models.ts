@@ -10,6 +10,7 @@ import type {
 	GetRepoInput,
 	GitHub,
 	GitLab,
+	GitMergeStrategy,
 	GitPullRequest,
 	GitRepository,
 	Issue,
@@ -20,6 +21,7 @@ import type {
 	RequestFunction,
 	RequestOptions,
 	Response,
+	SetPullRequestInput,
 	Trello,
 } from '@gitkraken/provider-apis';
 import {
@@ -30,7 +32,6 @@ import {
 	GitPullRequestReviewState,
 	GitPullRequestState,
 } from '@gitkraken/provider-apis';
-import type { GitProvider } from '@gitkraken/provider-apis/dist/providers/gitProvider';
 import type { IntegrationId } from '../../../constants.integrations';
 import { HostingIntegrationId, IssueIntegrationId, SelfHostedIntegrationId } from '../../../constants.integrations';
 import type { Account as UserAccount } from '../../../git/models/author';
@@ -73,7 +74,9 @@ export type ProviderRequestResponse<T> = Response<T>;
 export type ProviderRequestOptions = RequestOptions;
 
 const selfHostedIntegrationIds: SelfHostedIntegrationId[] = [
+	SelfHostedIntegrationId.CloudGitHubEnterprise,
 	SelfHostedIntegrationId.GitHubEnterprise,
+	SelfHostedIntegrationId.CloudGitLabSelfHosted,
 	SelfHostedIntegrationId.GitLabSelfHosted,
 ] as const;
 
@@ -235,7 +238,29 @@ export type GetPullRequestsForAzureProjectsFn = (
 	options?: EnterpriseOptions,
 ) => Promise<{ data: ProviderPullRequest[] }>;
 
-export type MergePullRequestFn = GitProvider['mergePullRequest'];
+export type MergePullRequestFn =
+	| ((
+			input: {
+				pullRequest: {
+					headRef: {
+						oid: string | null;
+					} | null;
+				} & SetPullRequestInput;
+				mergeStrategy?: GitMergeStrategy;
+			},
+			options?: EnterpriseOptions,
+	  ) => Promise<void>)
+	| ((
+			input: {
+				pullRequest: {
+					headRef: {
+						oid: string | null;
+					} | null;
+				} & SetPullRequestInput;
+				mergeStrategy?: GitMergeStrategy.Squash;
+			},
+			options?: EnterpriseOptions,
+	  ) => Promise<void>);
 
 export type GetIssueFn = (
 	input:
@@ -349,6 +374,22 @@ export const providersMetadata: ProvidersMetadata = {
 		supportedIssueFilters: [IssueFilter.Author, IssueFilter.Assignee, IssueFilter.Mention],
 		scopes: ['repo', 'read:user', 'user:email'],
 	},
+	[SelfHostedIntegrationId.CloudGitHubEnterprise]: {
+		domain: '',
+		id: SelfHostedIntegrationId.CloudGitHubEnterprise,
+		issuesPagingMode: PagingMode.Repos,
+		pullRequestsPagingMode: PagingMode.Repos,
+		// Use 'username' property on account for PR filters
+		supportedPullRequestFilters: [
+			PullRequestFilter.Author,
+			PullRequestFilter.Assignee,
+			PullRequestFilter.ReviewRequested,
+			PullRequestFilter.Mention,
+		],
+		// Use 'username' property on account for issue filters
+		supportedIssueFilters: [IssueFilter.Author, IssueFilter.Assignee, IssueFilter.Mention],
+		scopes: ['repo', 'read:user', 'user:email'],
+	},
 	[SelfHostedIntegrationId.GitHubEnterprise]: {
 		domain: '',
 		id: SelfHostedIntegrationId.GitHubEnterprise,
@@ -368,6 +409,21 @@ export const providersMetadata: ProvidersMetadata = {
 	[HostingIntegrationId.GitLab]: {
 		domain: 'gitlab.com',
 		id: HostingIntegrationId.GitLab,
+		issuesPagingMode: PagingMode.Repo,
+		pullRequestsPagingMode: PagingMode.Repo,
+		// Use 'username' property on account for PR filters
+		supportedPullRequestFilters: [
+			PullRequestFilter.Author,
+			PullRequestFilter.Assignee,
+			PullRequestFilter.ReviewRequested,
+		],
+		// Use 'username' property on account for issue filters
+		supportedIssueFilters: [IssueFilter.Author, IssueFilter.Assignee],
+		scopes: ['api', 'read_user', 'read_repository'],
+	},
+	[SelfHostedIntegrationId.CloudGitLabSelfHosted]: {
+		domain: '',
+		id: SelfHostedIntegrationId.CloudGitLabSelfHosted,
 		issuesPagingMode: PagingMode.Repo,
 		pullRequestsPagingMode: PagingMode.Repo,
 		// Use 'username' property on account for PR filters
@@ -898,5 +954,6 @@ export type GitConfigEntityIdentifier = AnyEntityIdentifierInput & {
 		id: string;
 		owner: { key: string; name: string; id: string | undefined; owner: string | undefined };
 		createdDate: string;
+		isCloudEnterprise?: boolean;
 	};
 };

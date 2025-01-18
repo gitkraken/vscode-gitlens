@@ -3,7 +3,6 @@ import { window } from 'vscode';
 import { GlCommand } from '../../constants.commands';
 import type { Container } from '../../container';
 import { create as createWorktree, open as openWorktree } from '../../git/actions/worktree';
-import { getLocalBranchByUpstream } from '../../git/models/branch.utils';
 import type { GitBranchReference } from '../../git/models/reference';
 import { createReference, getReferenceFromBranch } from '../../git/models/reference.utils';
 import type { GitRemote } from '../../git/models/remote';
@@ -86,7 +85,7 @@ export class OpenOrCreateWorktreeCommand extends GlCommandBase {
 		const remoteUrl = remoteUri.toString();
 		const [, remoteDomain, remotePath] = parseGitRemoteUrl(remoteUrl);
 
-		const remotes = await repo.git.getRemotes({ filter: r => r.matches(remoteDomain, remotePath) });
+		const remotes = await repo.git.remotes().getRemotes({ filter: r => r.matches(remoteDomain, remotePath) });
 		const remote = remotes[0] as GitRemote | undefined;
 
 		let addRemote: { name: string; url: string } | undefined;
@@ -113,7 +112,7 @@ export class OpenOrCreateWorktreeCommand extends GlCommandBase {
 		let branchRef: GitBranchReference;
 		let createBranch: string | undefined;
 
-		const localBranch = await getLocalBranchByUpstream(repo, remoteBranchName);
+		const localBranch = await repo.git.branches().getLocalBranchByUpstream?.(remoteBranchName);
 		if (localBranch != null) {
 			branchRef = getReferenceFromBranch(localBranch);
 			// TODO@eamodio check if we are behind and if so ask the user to fast-forward

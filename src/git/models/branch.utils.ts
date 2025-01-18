@@ -9,14 +9,13 @@ import {
 	getIssueFromGitConfigEntityIdentifier,
 } from '../../plus/integrations/providers/utils';
 import { Logger } from '../../system/logger';
-import { PageableResult } from '../../system/paging';
+import type { PageableResult } from '../../system/paging';
 import type { MaybePausedResult } from '../../system/promise';
 import { getSettledValue, pauseOnCancelOrTimeout } from '../../system/promise';
 import type { GitBranch } from './branch';
 import type { Issue } from './issue';
 import type { PullRequest } from './pullRequest';
 import type { GitBranchReference, GitReference } from './reference';
-import type { Repository } from './repository';
 import { shortenRevision } from './revision.utils';
 
 const detachedHEADRegex = /^(HEAD|\(.*\))$/;
@@ -88,10 +87,10 @@ export async function getDefaultBranchName(
 	remoteName?: string,
 	options?: { cancellation?: CancellationToken },
 ): Promise<string | undefined> {
-	const name = await container.git.getDefaultBranchName(repoPath, remoteName);
+	const name = await container.git.branches(repoPath).getDefaultBranchName(remoteName);
 	if (name != null) return name;
 
-	const remote = await container.git.getBestRemoteWithIntegration(repoPath);
+	const remote = await container.git.remotes(repoPath).getBestRemoteWithIntegration();
 	if (remote == null) return undefined;
 
 	const integration = await remote.getIntegration();
@@ -100,9 +99,8 @@ export async function getDefaultBranchName(
 }
 
 export async function getLocalBranchByUpstream(
-	repo: Repository,
 	remoteBranchName: string,
-	branches?: PageableResult<GitBranch> | Map<unknown, GitBranch>,
+	branches: PageableResult<GitBranch> | Map<unknown, GitBranch>,
 ): Promise<GitBranch | undefined> {
 	let qualifiedRemoteBranchName;
 	if (remoteBranchName.startsWith('remotes/')) {
@@ -111,8 +109,6 @@ export async function getLocalBranchByUpstream(
 	} else {
 		qualifiedRemoteBranchName = `remotes/${remoteBranchName}`;
 	}
-
-	branches ??= new PageableResult<GitBranch>(p => repo.git.getBranches(p != null ? { paging: p } : undefined));
 
 	function matches(branch: GitBranch): boolean {
 		return (
@@ -145,7 +141,7 @@ export async function getTargetBranchName(
 		timeout?: number;
 	},
 ): Promise<MaybePausedResult<string | undefined>> {
-	const targetBranch = await container.git.getTargetBranchName(branch.repoPath, branch.name);
+	const targetBranch = await container.git.branches(branch.repoPath).getTargetBranchName?.(branch.name);
 	if (targetBranch != null) return { value: targetBranch, paused: false };
 
 	if (options?.cancellation?.isCancellationRequested) return { value: undefined, paused: false };
@@ -155,7 +151,7 @@ export async function getTargetBranchName(
 			if (pr?.refs?.base == null) return undefined;
 
 			const name = `${branch.getRemoteName()}/${pr.refs.base.branch}`;
-			void container.git.setTargetBranchName(branch.repoPath, branch.name, name);
+			void container.git.branches(branch.repoPath).setTargetBranchName?.(branch.name, name);
 
 			return name;
 		}),
@@ -180,7 +176,7 @@ export async function getBranchTargetInfo(
 	},
 ): Promise<BranchTargetInfo> {
 	const [baseResult, defaultResult, targetResult] = await Promise.allSettled([
-		container.git.getBaseBranchName(current.repoPath, current.name),
+		container.git.branches(current.repoPath).getBaseBranchName?.(current.name),
 		getDefaultBranchName(container, current.repoPath, current.getRemoteName()),
 		getTargetBranchName(container, current, {
 			cancellation: options?.cancellation,

@@ -201,10 +201,9 @@ export class SwitchGitCommand extends QuickCommand<State> {
 			if (isBranchReference(state.reference) && !state.reference.remote) {
 				state.createBranch = undefined;
 
-				const worktree = await this.container.git.getWorktree(
-					state.reference.repoPath,
-					w => w.branch?.name === state.reference!.name,
-				);
+				const worktree = await this.container.git
+					.worktrees(state.reference.repoPath)
+					?.getWorktree(w => w.branch?.name === state.reference!.name);
 				if (worktree != null && !worktree.isDefault) {
 					if (state.fastForwardTo != null) {
 						state.repos[0].merge('--ff-only', state.fastForwardTo.ref);
@@ -250,7 +249,7 @@ export class SwitchGitCommand extends QuickCommand<State> {
 				}
 			} else if (isBranchReference(state.reference) && state.reference.remote) {
 				// See if there is a local branch that tracks the remote branch
-				const { values: branches } = await this.container.git.getBranches(state.reference.repoPath, {
+				const { values: branches } = await this.container.git.branches(state.reference.repoPath).getBranches({
 					filter: b => b.upstream?.name === state.reference!.name,
 					sort: { orderBy: 'date:desc' },
 				});

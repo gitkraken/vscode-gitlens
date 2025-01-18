@@ -1,5 +1,5 @@
-import type { CancellationToken, ColorTheme, ConfigurationChangeEvent, Uri } from 'vscode';
-import { CancellationTokenSource, Disposable, env, window } from 'vscode';
+import type { CancellationToken, ColorTheme, ConfigurationChangeEvent } from 'vscode';
+import { CancellationTokenSource, Disposable, env, Uri, window } from 'vscode';
 import type { CreatePullRequestActionContext, OpenPullRequestActionContext } from '../../../api/gitlens';
 import { getAvatarUri } from '../../../avatars';
 import { parseCommandContext } from '../../../commands/base';
@@ -80,13 +80,13 @@ import type {
 } from '../../../git/models/reference';
 import { createReference, getReferenceFromBranch, isGitReference } from '../../../git/models/reference.utils';
 import { RemoteResourceType } from '../../../git/models/remoteResource';
-import type { RepositoryChangeEvent, RepositoryFileSystemChangeEvent } from '../../../git/models/repository';
-import {
-	isRepository,
+import type {
 	Repository,
-	RepositoryChange,
-	RepositoryChangeComparisonMode,
+	RepositoryChangeEvent,
+	RepositoryFileSystemChangeEvent,
 } from '../../../git/models/repository';
+import { isRepository, RepositoryChange, RepositoryChangeComparisonMode } from '../../../git/models/repository';
+import { getLastFetchedUpdateInterval } from '../../../git/models/repository.utils';
 import { uncommitted } from '../../../git/models/revision';
 import { isSha, shortenRevision } from '../../../git/models/revision.utils';
 import { getWorktreesByBranch } from '../../../git/models/worktree.utils';
@@ -692,6 +692,11 @@ export class GraphWebviewProvider implements WebviewProvider<State, State, Graph
 			this.host.registerWebviewCommand('gitlens.graph.generateCommitMessage', this.generateCommitMessage),
 
 			this.host.registerWebviewCommand('gitlens.graph.compareSelectedCommits.multi', this.compareSelectedCommits),
+			// TODO@d13: convert to this.host.registerWebviewCommand
+			registerCommand('gitlens.graph.abortPausedOperation', this.abortPausedOperation, this),
+			registerCommand('gitlens.graph.continuePausedOperation', this.continuePausedOperation, this),
+			registerCommand('gitlens.graph.openRebaseEditor', this.openRebaseEditor, this),
+			registerCommand('gitlens.graph.skipPausedOperation', this.skipPausedOperation, this),
 		);
 
 		return commands;
@@ -798,7 +803,7 @@ export class GraphWebviewProvider implements WebviewProvider<State, State, Graph
 	private async onGetCounts<T extends typeof GetCountsRequest>(requestType: T, msg: IpcCallMessageType<T>) {
 		let counts: DidGetCountParams;
 		if (this._graph != null) {
-			const tags = await this.container.git.getTags(this._graph.repoPath);
+			const tags = await this.container.git.tags(this._graph.repoPath).getTags();
 			counts = {
 				branches: count(this._graph.branches?.values(), b => !b.remote),
 				remotes: this._graph.remotes.size,
@@ -1110,7 +1115,7 @@ export class GraphWebviewProvider implements WebviewProvider<State, State, Graph
 						commit = await this.container.git.getCommit(this._graph.repoPath, uncommitted);
 						break;
 					case 'stash-node': {
-						const gitStash = await this.container.git.getStash(this._graph.repoPath);
+						const gitStash = await this.container.git.stash(this._graph.repoPath)?.getStash();
 						commit = gitStash?.stashes.get(msg.params.id);
 						break;
 					}
@@ -1163,7 +1168,7 @@ export class GraphWebviewProvider implements WebviewProvider<State, State, Graph
 
 	private async getCommitTooltip(commit: GitCommit, cancellation: CancellationToken) {
 		const [remotesResult, _] = await Promise.allSettled([
-			this.container.git.getBestRemotesWithProviders(commit.repoPath),
+			this.container.git.remotes(commit.repoPath).getBestRemotesWithProviders(),
 			commit.ensureFullDetails({ include: { stats: true } }),
 		]);
 
@@ -1282,7 +1287,8 @@ export class GraphWebviewProvider implements WebviewProvider<State, State, Graph
 				this._refsMetadata = new Map();
 			}
 
-			const branch = (await this.container.git.getBranches(repoPath, { filter: b => b.id === id }))?.values?.[0];
+			const branch = (await this.container.git.branches(repoPath).getBranches({ filter: b => b.id === id }))
+				?.values?.[0];
 			const metadata = { ...this._refsMetadata.get(id) };
 
 			if (branch == null) {
@@ -1484,7 +1490,7 @@ export class GraphWebviewProvider implements WebviewProvider<State, State, Graph
 		const repo = this.repository;
 		if (repo == null) return undefined;
 
-		const branch = await repo.git.getBranch();
+		const branch = await repo.git.branches().getBranch();
 		if (branch == null) return undefined;
 
 		const pr = await branch.getAssociatedPullRequest();
@@ -1661,7 +1667,7 @@ export class GraphWebviewProvider implements WebviewProvider<State, State, Graph
 		if (!msg.params.alt) {
 			let branch = find(this._graph!.branches.values(), b => b.current);
 			if (branch == null) {
-				branch = await this.repository.git.getBranch();
+				branch = await this.repository.git.branches().getBranch();
 			}
 			if (branch != null) {
 				pick = branch;
@@ -2063,12 +2069,12 @@ export class GraphWebviewProvider implements WebviewProvider<State, State, Graph
 
 		const lastFetched = (await repo.getLastFetched()) ?? 0;
 
-		let interval = Repository.getLastFetchedUpdateInterval(lastFetched);
+		let interval = getLastFetchedUpdateInterval(lastFetched);
 		if (lastFetched !== 0 && interval > 0) {
 			this._lastFetchedDisposable = disposableInterval(() => {
 				// Check if the interval should change, and if so, reset it
-				const checkInterval = Repository.getLastFetchedUpdateInterval(lastFetched);
-				if (interval !== Repository.getLastFetchedUpdateInterval(lastFetched)) {
+				const checkInterval = getLastFetchedUpdateInterval(lastFetched);
+				if (interval !== getLastFetchedUpdateInterval(lastFetched)) {
 					interval = checkInterval;
 				}
 
@@ -2191,7 +2197,7 @@ export class GraphWebviewProvider implements WebviewProvider<State, State, Graph
 				const cancellation = this.createCancellation('computeIncludedRefs');
 
 				const [baseResult, defaultResult, targetResult] = await Promise.allSettled([
-					this.container.git.getBaseBranchName(current.repoPath, current.name),
+					this.container.git.branches(current.repoPath).getBaseBranchName?.(current.name),
 					getDefaultBranchName(this.container, current.repoPath, current.getRemoteName()),
 					getTargetBranchName(this.container, current, {
 						cancellation: cancellation.token,
@@ -2460,12 +2466,17 @@ export class GraphWebviewProvider implements WebviewProvider<State, State, Graph
 	private async getWorkingTreeStats(): Promise<GraphWorkingTreeStats | undefined> {
 		if (this.repository == null || this.container.git.repositoryCount === 0) return undefined;
 
-		const status = await this.container.git.getStatus(this.repository.path);
+		const statusProivder = this.container.git.status(this.repository.path);
+		const status = await statusProivder.getStatus();
 		const workingTreeStatus = status?.getDiffStatus();
+		const pausedOpStatus = await statusProivder.getPausedOperationStatus?.();
+
 		return {
 			added: workingTreeStatus?.added ?? 0,
 			deleted: workingTreeStatus?.deleted ?? 0,
 			modified: workingTreeStatus?.changed ?? 0,
+			hasConflicts: status?.hasConflicts,
+			pausedOpStatus: pausedOpStatus,
 			context: serializeWebviewItemContext<GraphItemContext>({
 				webviewItem: 'gitlens:wip',
 				webviewItemValue: {
@@ -2521,7 +2532,7 @@ export class GraphWebviewProvider implements WebviewProvider<State, State, Graph
 		const promises = Promise.allSettled([
 			this.getGraphAccess(),
 			this.getWorkingTreeStats(),
-			this.repository.git.getBranch(),
+			this.repository.git.branches().getBranch(),
 			this.repository.getLastFetched(),
 		]);
 
@@ -2753,11 +2764,7 @@ export class GraphWebviewProvider implements WebviewProvider<State, State, Graph
 							type: 'remote',
 						});
 
-						const localDefault = await getLocalBranchByUpstream(
-							this.repository!,
-							defaultBranchName,
-							graph.branches,
-						);
+						const localDefault = await getLocalBranchByUpstream(defaultBranchName, graph.branches);
 						if (localDefault != null) {
 							refs.push({
 								id: localDefault.id,
@@ -2898,11 +2905,7 @@ export class GraphWebviewProvider implements WebviewProvider<State, State, Graph
 							});
 						}
 
-						const localDefault = await getLocalBranchByUpstream(
-							this.repository!,
-							defaultBranchName,
-							graph.branches,
-						);
+						const localDefault = await getLocalBranchByUpstream(defaultBranchName, graph.branches);
 						if (localDefault != null) {
 							if (!refs.has(localDefault.id)) {
 								refs.set(localDefault.id, {
@@ -3320,6 +3323,67 @@ export class GraphWebviewProvider implements WebviewProvider<State, State, Graph
 	}
 
 	@log()
+	private async abortPausedOperation(_item?: GraphItemContext) {
+		if (this.repository == null) return;
+
+		const abortPausedOperation = this.container.git.status(this.repository.path).abortPausedOperation;
+		if (abortPausedOperation == null) return;
+
+		try {
+			await abortPausedOperation();
+		} catch (ex) {
+			void window.showErrorMessage(ex.message);
+		}
+	}
+
+	@log()
+	private async continuePausedOperation(_item?: GraphItemContext) {
+		if (this.repository == null) return;
+
+		const status = await this.container.git.status(this.repository.path).getPausedOperationStatus?.();
+		if (status == null || status.type === 'revert') return;
+
+		const continuePausedOperation = this.container.git.status(status.repoPath).continuePausedOperation;
+		if (continuePausedOperation == null) return;
+
+		try {
+			await continuePausedOperation();
+		} catch (ex) {
+			void window.showErrorMessage(ex.message);
+		}
+	}
+
+	@log()
+	private async openRebaseEditor(_item?: GraphItemContext) {
+		if (this.repository == null) return;
+
+		const status = await this.container.git.status(this.repository.path).getPausedOperationStatus?.();
+		if (status == null || status.type !== 'rebase') return;
+
+		const gitDir = await this.container.git.getGitDir(this.repository.path);
+		if (gitDir == null) return;
+
+		const rebaseTodoUri = Uri.joinPath(gitDir.uri, 'rebase-merge', 'git-rebase-todo');
+		void executeCoreCommand('vscode.openWith', rebaseTodoUri, 'gitlens.rebase', {
+			preview: false,
+		});
+	}
+
+	@log()
+	private async skipPausedOperation(_item?: GraphItemContext) {
+		if (this.repository == null) return;
+
+		const continuePausedOperation = this.container.git.status(this.repository.path).continuePausedOperation;
+		if (continuePausedOperation == null) return;
+
+		try {
+			await continuePausedOperation({ skip: true });
+		} catch (ex) {
+			void window.showErrorMessage(ex.message);
+		}
+	}
+
+	@log()
 	private copyDeepLinkToBranch(item?: GraphItemContext) {
 		if (isGraphItemRefContext(item, 'branch')) {
 			const { ref } = item.webviewItemValue;
@@ -3545,7 +3609,7 @@ export class GraphWebviewProvider implements WebviewProvider<State, State, Graph
 			const { ref } = item.webviewItemValue;
 
 			const repo = this.container.git.getRepository(ref.repoPath);
-			const branch = await repo?.git.getBranch(ref.name);
+			const branch = await repo?.git.branches().getBranch(ref.name);
 			const remote = await branch?.getRemote();
 
 			return executeActionCommand<CreatePullRequestActionContext>('createPullRequest', {
@@ -3660,10 +3724,11 @@ export class GraphWebviewProvider implements WebviewProvider<State, State, Graph
 		const ref = this.getGraphItemRef(item);
 		if (ref == null) return Promise.resolve();
 
-		const branch = await this.container.git.getBranch(ref.repoPath);
+		const branchesProvider = this.container.git.branches(ref.repoPath);
+		const branch = await branchesProvider.getBranch();
 		if (branch == null) return undefined;
 
-		const commonAncestor = await this.container.git.getMergeBase(ref.repoPath, branch.ref, ref.ref);
+		const commonAncestor = await branchesProvider.getMergeBase(branch.ref, ref.ref);
 		if (commonAncestor == null) return undefined;
 
 		return this.container.views.searchAndCompare.compare(ref.repoPath, '', {
@@ -3694,10 +3759,11 @@ export class GraphWebviewProvider implements WebviewProvider<State, State, Graph
 		const ref = this.getGraphItemRef(item);
 		if (ref == null) return Promise.resolve();
 
-		const branch = await this.container.git.getBranch(ref.repoPath);
+		const branchesProvider = this.container.git.branches(ref.repoPath);
+		const branch = await branchesProvider.getBranch();
 		if (branch == null) return undefined;
 
-		const commonAncestor = await this.container.git.getMergeBase(ref.repoPath, branch.ref, ref.ref);
+		const commonAncestor = await branchesProvider.getMergeBase(branch.ref, ref.ref);
 		if (commonAncestor == null) return undefined;
 
 		return this.container.views.searchAndCompare.compare(ref.repoPath, ref.ref, {
@@ -3711,10 +3777,11 @@ export class GraphWebviewProvider implements WebviewProvider<State, State, Graph
 		const ref = this.getGraphItemRef(item);
 		if (ref == null) return Promise.resolve();
 
-		const branch = await this.container.git.getBranch(ref.repoPath);
+		const branchesProvider = this.container.git.branches(ref.repoPath);
+		const branch = await branchesProvider.getBranch();
 		if (branch == null) return undefined;
 
-		const commonAncestor = await this.container.git.getMergeBase(ref.repoPath, branch.ref, ref.ref);
+		const commonAncestor = await branchesProvider.getMergeBase(branch.ref, ref.ref);
 		if (commonAncestor == null) return undefined;
 
 		return openComparisonChanges(
@@ -3818,7 +3885,7 @@ export class GraphWebviewProvider implements WebviewProvider<State, State, Graph
 		if (isGraphItemRefContext(item, 'branch')) {
 			const { ref } = item.webviewItemValue;
 			const repo = this.container.git.getRepository(ref.repoPath);
-			const branch = await repo?.git.getBranch(ref.name);
+			const branch = await repo?.git.branches().getBranch(ref.name);
 			const pr = await branch?.getAssociatedPullRequest();
 			if (branch != null && repo != null && pr != null) {
 				const remoteUrl = (await branch.getRemote())?.url ?? getRepositoryIdentityForPullRequest(pr).remote.url;
@@ -4058,7 +4125,7 @@ async function formatRepositories(repositories: Repository[]): Promise<GraphRepo
 
 	const result = await Promise.allSettled(
 		repositories.map<Promise<GraphRepository>>(async repo => {
-			const remotes = await repo.git.getBestRemotesWithProviders();
+			const remotes = await repo.git.remotes().getBestRemotesWithProviders();
 			const remote = remotes.find(r => r.hasIntegration()) ?? remotes[0];
 
 			return {

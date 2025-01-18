@@ -1,5 +1,5 @@
-import { fetch } from '@env/fetch';
 import type { CancellationToken } from 'vscode';
+import { fetch } from '@env/fetch';
 import type { AIProviders } from '../constants.ai';
 import type { TelemetryEvents } from '../constants.telemetry';
 import type { Container } from '../container';

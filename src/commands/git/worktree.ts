@@ -381,7 +381,7 @@ export class WorktreeGitCommand extends QuickCommand<State> {
 
 	private async *createCommandSteps(state: CreateStepState, context: Context): AsyncStepResultGenerator<void> {
 		if (context.defaultUri == null) {
-			context.defaultUri = await state.repo.git.getWorktreesDefaultUri();
+			context.defaultUri = await state.repo.git.worktrees()?.getWorktreesDefaultUri();
 		}
 
 		if (state.flags == null) {
@@ -400,7 +400,7 @@ export class WorktreeGitCommand extends QuickCommand<State> {
 				const result = yield* pickBranchOrTagStep(state, context, {
 					placeholder: context =>
 						`Choose a branch${context.showTags ? ' or tag' : ''} to create the new worktree from`,
-					picked: state.reference?.ref ?? (await state.repo.git.getBranch())?.ref,
+					picked: state.reference?.ref ?? (await state.repo.git.branches().getBranch())?.ref,
 					title: `Select Branch to Create Worktree From`,
 					value: isRevisionReference(state.reference) ? state.reference.ref : undefined,
 				});
@@ -426,7 +426,7 @@ export class WorktreeGitCommand extends QuickCommand<State> {
 
 			if (isRemoteBranch) {
 				state.createBranch = getNameWithoutRemote(state.reference);
-				const branch = await state.repo.git.getBranch(state.createBranch);
+				const branch = await state.repo.git.branches().getBranch(state.createBranch);
 				if (branch != null && !branch.remote) {
 					state.createBranch = branch.name;
 				}
@@ -437,7 +437,7 @@ export class WorktreeGitCommand extends QuickCommand<State> {
 				if (state.createBranch != null) {
 					let valid = await this.container.git.validateBranchOrTagName(state.repo.path, state.createBranch);
 					if (valid) {
-						const alreadyExists = await state.repo.git.getBranch(state.createBranch);
+						const alreadyExists = await state.repo.git.branches().getBranch(state.createBranch);
 						valid = alreadyExists == null;
 					}
 
@@ -522,10 +522,12 @@ export class WorktreeGitCommand extends QuickCommand<State> {
 			let worktree: GitWorktree | undefined;
 			try {
 				if (state.addRemote != null) {
-					await state.repo.addRemote(state.addRemote.name, state.addRemote.url, { fetch: true });
+					await state.repo.git
+						.remotes()
+						.addRemote?.(state.addRemote.name, state.addRemote.url, { fetch: true });
 				}
 
-				worktree = await state.repo.createWorktree(uri, {
+				worktree = await state.repo.git.worktrees()?.createWorktreeWithResult(uri.fsPath, {
 					commitish: state.reference?.name,
 					createBranch: state.flags.includes('-b') ? state.createBranch : undefined,
 					detach: state.flags.includes('--detach'),
@@ -835,7 +837,7 @@ export class WorktreeGitCommand extends QuickCommand<State> {
 	}
 
 	private async *deleteCommandSteps(state: DeleteStepState, context: Context): StepGenerator {
-		context.worktrees = await state.repo.git.getWorktrees();
+		context.worktrees = (await state.repo.git.worktrees()?.getWorktrees()) ?? [];
 
 		if (state.flags == null) {
 			state.flags = [];
@@ -900,7 +902,7 @@ export class WorktreeGitCommand extends QuickCommand<State> {
 							}
 						}
 
-						await state.repo.git.deleteWorktree(uri, { force: force });
+						await state.repo.git.worktrees()?.deleteWorktree(uri, { force: force });
 						succeeded = true;
 					} catch (ex) {
 						skipHasChangesPrompt = false;
@@ -1044,7 +1046,7 @@ export class WorktreeGitCommand extends QuickCommand<State> {
 		while (this.canStepsContinue(state)) {
 			if (state.counter < 3 || state.worktree == null) {
 				context.title = getTitle(state.subcommand);
-				context.worktrees ??= await state.repo.git.getWorktrees();
+				context.worktrees ??= (await state.repo.git.worktrees()?.getWorktrees()) ?? [];
 
 				const result = yield* pickWorktreeStep(state, context, {
 					excludeOpened: true,
@@ -1146,7 +1148,7 @@ export class WorktreeGitCommand extends QuickCommand<State> {
 			context.title = state?.overrides?.title ?? getTitle(state.subcommand);
 
 			if (state.counter < 3 || state.worktree == null) {
-				context.worktrees ??= await state.repo.git.getWorktrees();
+				context.worktrees ??= (await state.repo.git.worktrees()?.getWorktrees()) ?? [];
 
 				let placeholder;
 				switch (state.changes.type) {
@@ -1205,17 +1207,15 @@ export class WorktreeGitCommand extends QuickCommand<State> {
 			endSteps(state);
 
 			try {
-				const commit = await this.container.git.createUnreachableCommitForPatch(
-					state.worktree.uri,
+				const patchProvider = this.container.git.patch(state.worktree.repoPath);
+				const commit = await patchProvider?.createUnreachableCommitForPatch(
 					state.changes.contents,
 					state.changes.baseSha,
 					'Copied Changes',
 				);
 				if (commit == null) return;
 
-				await this.container.git.applyUnreachableCommitForPatch(state.worktree.uri, commit.sha, {
-					stash: false,
-				});
+				await patchProvider?.applyUnreachableCommitForPatch(commit.sha, { stash: false });
 				void window.showInformationMessage(`Changes copied successfully`);
 			} catch (ex) {
 				if (ex instanceof CancellationError) return;

@@ -162,6 +162,7 @@ export const timelineStyles = css`
 	.select-container label {
 		margin: 0 1em 0 0.5rem;
 		font-size: var(--font-size);
+		user-select: none;
 	}
 
 	.select-container::after {

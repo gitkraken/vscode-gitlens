@@ -86,8 +86,7 @@ export class GitRemote<TProvider extends RemoteProvider | undefined = RemoteProv
 	}
 
 	async setAsDefault(value: boolean = true) {
-		const repository = this.container.git.getRepository(this.repoPath);
-		await repository?.setRemoteAsDefault(this, value);
+		await this.container.git.remotes(this.repoPath).setRemoteAsDefault(this.name, value);
 	}
 }
 

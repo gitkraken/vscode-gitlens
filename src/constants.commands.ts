@@ -183,7 +183,8 @@ export const enum GlCommand {
 	ShowInCommitGraph = 'gitlens.showInCommitGraph',
 	ShowInCommitGraphView = 'gitlens.showInCommitGraphView',
 	ShowInDetailsView = 'gitlens.showInDetailsView',
-	ShowInTimeline = 'gitlens.showInTimeline',
+	ShowFileInTimeline = 'gitlens.showFileInTimeline',
+	ShowFolderInTimeline = 'gitlens.showFolderInTimeline',
 	ShowLastQuickPick = 'gitlens.showLastQuickPick',
 	ShowLaunchpad = 'gitlens.showLaunchpad',
 	ShowLaunchpadView = 'gitlens.showLaunchpadView',
@@ -664,7 +665,11 @@ export type TreeViewCommands = `gitlens.views.${
 	| 'setResultsCommitsFilterAuthors'
 	| 'setResultsCommitsFilterOff'
 	| 'setContributorsStatisticsOff'
-	| 'setContributorsStatisticsOn'}`;
+	| 'setContributorsStatisticsOn'
+	| 'abortPausedOperation'
+	| 'continuePausedOperation'
+	| 'skipPausedOperation'
+	| 'openPausedOperationInRebaseEditor'}`;
 
 type ExtractSuffix<Prefix extends string, U> = U extends `${Prefix}${infer V}` ? V : never;
 type FilterCommands<Prefix extends string, U> = U extends `${Prefix}${infer V}` ? `${Prefix}${V}` : never;
@@ -680,6 +685,7 @@ export type TreeViewCommandSuffixesByViewType<T extends TreeViewTypes> = Extract
 >;
 
 type HomeWebviewCommands = `home.${
+	| 'openMergeTargetComparison'
 	| 'openPullRequestChanges'
 	| 'openPullRequestComparison'
 	| 'openPullRequestOnRemote'
@@ -693,7 +699,11 @@ type HomeWebviewCommands = `home.${
 	| 'mergeIntoCurrent'
 	| 'rebaseCurrentOnto'
 	| 'startWork'
-	| 'createCloudPatch'}`;
+	| 'createCloudPatch'
+	| 'skipPausedOperation'
+	| 'continuePausedOperation'
+	| 'abortPausedOperation'
+	| 'openRebaseEditor'}`;
 
 type GraphWebviewCommands = `graph.${
 	| 'switchToEditorLayout'
@@ -806,7 +816,11 @@ type GraphWebviewCommands = `graph.${
 	| 'openWorktreeInNewWindow'
 	| 'copyWorkingChangesToWorktree'
 	| 'generateCommitMessage'
-	| 'compareSelectedCommits.multi'}`;
+	| 'compareSelectedCommits.multi'
+	| 'skipPausedOperation'
+	| 'continuePausedOperation'
+	| 'abortPausedOperation'
+	| 'openRebaseEditor'}`;
 
 type TimelineWebviewCommands = `timeline.${'refresh' | 'split'}`;
 

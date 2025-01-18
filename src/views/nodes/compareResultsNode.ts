@@ -1,6 +1,6 @@
-import { md5 } from '@env/crypto';
 import type { TreeCheckboxChangeEvent } from 'vscode';
 import { Disposable, ThemeIcon, TreeItem, TreeItemCheckboxState, TreeItemCollapsibleState, window } from 'vscode';
+import { md5 } from '@env/crypto';
 import type { StoredNamedRef } from '../../constants.storage';
 import type { FilesComparison } from '../../git/actions/commit';
 import { GitUri } from '../../git/gitUri';
@@ -145,10 +145,11 @@ export class CompareResultsNode extends SubscribeableViewNode<
 				{ authors: this.filterByAuthors },
 			);
 
+			const branchesProvider = this.view.container.git.branches(this.repoPath);
 			const mergeBase =
-				(await this.view.container.git.getMergeBase(this.repoPath, behind.ref1, behind.ref2, {
+				(await branchesProvider.getMergeBase(behind.ref1, behind.ref2, {
 					forkPoint: true,
-				})) ?? (await this.view.container.git.getMergeBase(this.repoPath, behind.ref1, behind.ref2));
+				})) ?? (await branchesProvider.getMergeBase(behind.ref1, behind.ref2));
 
 			const children: ViewNode[] = [
 				new ResultsCommitsNode(

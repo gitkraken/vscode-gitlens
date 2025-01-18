@@ -197,10 +197,10 @@ export class PushGitCommand extends QuickCommand<State> {
 						{ placeholder: 'Cannot push a remote branch' },
 					);
 				} else {
-					const branch = await repo.git.getBranch(state.reference.name);
+					const branch = await repo.git.branches().getBranch(state.reference.name);
 
 					if (branch != null && branch?.upstream == null) {
-						for (const remote of await repo.git.getRemotes()) {
+						for (const remote of await repo.git.remotes().getRemotes()) {
 							items.push(
 								createFlagsQuickPickItem<Flags>(
 									state.flags,
@@ -294,7 +294,7 @@ export class PushGitCommand extends QuickCommand<State> {
 					}
 				}
 			} else {
-				const status = await repo.git.getStatus();
+				const status = await repo.git.status().getStatus();
 
 				const branch: GitBranchReference = {
 					refType: 'branch',
@@ -317,7 +317,7 @@ export class PushGitCommand extends QuickCommand<State> {
 							pushDetails = '';
 						}
 
-						for (const remote of await repo.git.getRemotes()) {
+						for (const remote of await repo.git.remotes().getRemotes()) {
 							items.push(
 								createFlagsQuickPickItem<Flags>(
 									state.flags,

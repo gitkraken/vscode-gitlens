@@ -1,5 +1,5 @@
-import { md5 } from '@env/crypto';
 import { EventEmitter, Uri } from 'vscode';
+import { md5 } from '@env/crypto';
 import type { GravatarDefaultStyle } from './config';
 import type { StoredAvatar } from './constants.storage';
 import { Container } from './container';
@@ -227,7 +227,9 @@ async function getAvatarUriFromRemoteProvider(
 		// 	account = await remote?.provider.getAccountForEmail(email, { avatarSize: size });
 		// } else {
 		if (typeof repoPathOrCommit !== 'string') {
-			const remote = await Container.instance.git.getBestRemoteWithIntegration(repoPathOrCommit.repoPath);
+			const remote = await Container.instance.git
+				.remotes(repoPathOrCommit.repoPath)
+				.getBestRemoteWithIntegration();
 			if (remote?.hasIntegration()) {
 				account = await (
 					await remote.getIntegration()

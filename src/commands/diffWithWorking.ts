@@ -76,7 +76,7 @@ export class DiffWithWorkingCommand extends ActiveEditorCommand {
 
 		// If we are a fake "staged" sha, check the status
 		if (gitUri.isUncommittedStaged) {
-			const status = await this.container.git.getStatusForFile(gitUri.repoPath!, gitUri);
+			const status = await this.container.git.status(gitUri.repoPath!).getStatusForFile?.(gitUri);
 			if (status?.indexStatus != null) {
 				void (await executeCommand<DiffWithCommandArgs>(GlCommand.DiffWith, {
 					repoPath: gitUri.repoPath,

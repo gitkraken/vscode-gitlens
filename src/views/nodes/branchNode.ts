@@ -14,7 +14,8 @@ import type { GitLog } from '../../git/models/log';
 import type { PullRequest, PullRequestState } from '../../git/models/pullRequest';
 import type { GitBranchReference } from '../../git/models/reference';
 import { getHighlanderProviders } from '../../git/models/remote';
-import { Repository } from '../../git/models/repository';
+import type { Repository } from '../../git/models/repository';
+import { getLastFetchedUpdateInterval } from '../../git/models/repository.utils';
 import type { GitUser } from '../../git/models/user';
 import type { GitWorktree } from '../../git/models/worktree';
 import { getBranchIconPath, getRemoteIconPath, getWorktreeBranchIconPath } from '../../git/utils/vscode/icons';
@@ -231,10 +232,10 @@ export class BranchNode
 				this.getLog(),
 				this.view.container.git.getBranchesAndTagsTipsLookup(this.uri.repoPath, branch.name),
 				this.options.showStatus && branch.current
-					? this.view.container.git.getStatus(this.uri.repoPath)
+					? this.view.container.git.status(this.uri.repoPath!).getStatus()
 					: undefined,
 				this.options.showStatus && branch.current
-					? this.view.container.git.getPausedOperationStatus(this.uri.repoPath!)
+					? this.view.container.git.status(this.uri.repoPath!).getPausedOperationStatus?.()
 					: undefined,
 				!branch.remote
 					? this.view.container.git.getBranchAheadRange(branch).then(range =>
@@ -248,7 +249,7 @@ export class BranchNode
 					  )
 					: undefined,
 				loadComparisonDefaultCompareWith
-					? this.view.container.git.getBaseBranchName(this.branch.repoPath, this.branch.name)
+					? this.view.container.git.branches(this.branch.repoPath).getBaseBranchName?.(this.branch.name)
 					: undefined,
 				loadComparisonDefaultCompareWith
 					? getTargetBranchName(this.view.container, this.branch, {
@@ -277,7 +278,7 @@ export class BranchNode
 						this,
 						branch,
 						pausedOpsStatus,
-						status ?? (await this.view.container.git.getStatus(this.uri.repoPath)),
+						status ?? (await this.view.container.git.status(this.uri.repoPath!).getStatus()),
 						this.root,
 					),
 				);
@@ -678,7 +679,9 @@ export async function getBranchNodeParts(
 					break;
 			}
 		} else {
-			const providers = getHighlanderProviders(await container.git.getRemotesWithProviders(branch.repoPath));
+			const providers = getHighlanderProviders(
+				await container.git.remotes(branch.repoPath).getRemotesWithProviders(),
+			);
 			const providerName = providers?.length ? providers[0].name : undefined;
 
 			tooltip += `\n\nLocal branch, hasn't been published to ${providerName ?? 'a remote'}`;
@@ -718,7 +721,7 @@ export async function getBranchNodeParts(
 	let localUnpublished = false;
 	if (status === 'local') {
 		// If there are any remotes then say this is unpublished, otherwise local
-		const remotes = await container.git.getRemotes(branch.repoPath);
+		const remotes = await container.git.remotes(branch.repoPath).getRemotes();
 		if (remotes.length) {
 			localUnpublished = true;
 		}
@@ -801,7 +804,7 @@ export class CommitsCurrentBranchNode extends SubscribeableViewNode<'commits-cur
 	protected async subscribe() {
 		const lastFetched = (await this.getLastFetched()) ?? 0;
 
-		const interval = Repository.getLastFetchedUpdateInterval(lastFetched);
+		const interval = getLastFetchedUpdateInterval(lastFetched);
 		if (lastFetched !== 0 && interval > 0) {
 			return Disposable.from(
 				this.repo != null
@@ -809,7 +812,7 @@ export class CommitsCurrentBranchNode extends SubscribeableViewNode<'commits-cur
 					: emptyDisposable,
 				disposableInterval(() => {
 					// Check if the interval should change, and if so, reset it
-					if (interval !== Repository.getLastFetchedUpdateInterval(lastFetched)) {
+					if (interval !== getLastFetchedUpdateInterval(lastFetched)) {
 						void this.resetSubscription();
 					}
 

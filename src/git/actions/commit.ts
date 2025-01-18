@@ -865,7 +865,7 @@ export async function undoCommit(container: Container, commit: GitRevisionRefere
 		return;
 	}
 
-	const status = await container.git.getStatus(commit.repoPath);
+	const status = await container.git.status(commit.repoPath).getStatus();
 	if (status?.files.length) {
 		const confirm = { title: 'Undo Commit' };
 		const cancel = { title: 'Cancel', isCloseAffordance: true };

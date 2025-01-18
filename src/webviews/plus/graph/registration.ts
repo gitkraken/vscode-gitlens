@@ -1,5 +1,4 @@
 import { Disposable, ViewColumn } from 'vscode';
-import { isScm } from '../../../commands/base';
 import { GlCommand } from '../../../constants.commands';
 import type { Container } from '../../../container';
 import type { GitReference } from '../../../git/models/reference';
@@ -7,6 +6,7 @@ import type { Repository } from '../../../git/models/repository';
 import { executeCommand, executeCoreCommand, registerCommand } from '../../../system/vscode/command';
 import { configuration } from '../../../system/vscode/configuration';
 import { getContext } from '../../../system/vscode/context';
+import { isScm } from '../../../system/vscode/scm';
 import { ViewNode } from '../../../views/nodes/abstract/viewNode';
 import type { BranchNode } from '../../../views/nodes/branchNode';
 import type { CommitFileNode } from '../../../views/nodes/commitFileNode';

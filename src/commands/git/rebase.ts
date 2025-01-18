@@ -135,7 +135,7 @@ export class RebaseGitCommand extends QuickCommand<State> {
 			}
 
 			if (context.branch == null) {
-				const branch = await state.repo.git.getBranch();
+				const branch = await state.repo.git.branches().getBranch();
 				if (branch == null) break;
 
 				context.branch = branch;
@@ -282,11 +282,9 @@ export class RebaseGitCommand extends QuickCommand<State> {
 		let potentialConflict;
 		const subscription = await this.container.subscription.getSubscription();
 		if (isSubscriptionStatePaidOrTrial(subscription?.state)) {
-			potentialConflict = this.container.git.getPotentialMergeOrRebaseConflict(
-				state.repo.path,
-				context.branch.name,
-				state.destination.ref,
-			);
+			potentialConflict = state.repo.git
+				.branches()
+				.getPotentialMergeOrRebaseConflict?.(context.branch.name, state.destination.ref);
 		}
 
 		let step: QuickPickStep<DirectiveQuickPickItem | FlagsQuickPickItem<Flags>>;

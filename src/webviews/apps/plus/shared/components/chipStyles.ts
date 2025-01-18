@@ -49,5 +49,8 @@ export const chipStyles = css`
 		font-size: 1.5rem;
 		font-weight: 600;
 		margin: 0;
+		white-space: nowrap;
+		text-overflow: ellipsis;
+		overflow: hidden;
 	}
 `;

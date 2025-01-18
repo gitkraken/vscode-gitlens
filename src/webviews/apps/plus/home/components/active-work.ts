@@ -9,8 +9,6 @@ import { createCommandLink } from '../../../../../system/commands';
 import { createWebviewCommandLink } from '../../../../../system/webview';
 import type { GetOverviewBranch, OpenInGraphParams, State } from '../../../../home/protocol';
 import { stateContext } from '../../../home/context';
-import { ipcContext } from '../../../shared/context';
-import type { HostIpc } from '../../../shared/ipc';
 import { linkStyles } from '../../shared/components/vscode.css';
 import { branchCardStyles, GlBranchCardBase } from './branch-card';
 import type { Overview, OverviewState } from './overviewState';
@@ -26,7 +24,7 @@ import '../../../shared/components/overlays/tooltip';
 import '../../../shared/components/pills/tracking';
 import '../../../shared/components/rich/issue-icon';
 import '../../../shared/components/rich/pr-icon';
-import './merge-rebase-status';
+import '../../shared/components/merge-rebase-status';
 
 export const activeWorkTagName = 'gl-active-work';
 
@@ -63,9 +61,6 @@ export class GlActiveWork extends SignalWatcher(LitElement) {
 
 	@consume({ context: overviewStateContext })
 	private _overviewState!: OverviewState;
-
-	@consume({ context: ipcContext })
-	private _ipc!: HostIpc;
 
 	override connectedCallback() {
 		super.connectedCallback();

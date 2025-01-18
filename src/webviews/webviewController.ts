@@ -1,6 +1,6 @@
-import { getNonce } from '@env/crypto';
 import type { ViewBadge, Webview, WebviewPanel, WebviewView, WindowState } from 'vscode';
 import { CancellationTokenSource, Disposable, EventEmitter, Uri, ViewColumn, window, workspace } from 'vscode';
+import { getNonce } from '@env/crypto';
 import type { Commands } from '../constants.commands';
 import type { WebviewTelemetryContext } from '../constants.telemetry';
 import type { CustomEditorTypes, WebviewIds, WebviewTypes, WebviewViewIds, WebviewViewTypes } from '../constants.views';

@@ -115,7 +115,7 @@ export class BitbucketRemote extends RemoteProvider {
 		} while (index > 0);
 
 		if (possibleBranches.size !== 0) {
-			const { values: branches } = await repository.git.getBranches({
+			const { values: branches } = await repository.git.branches().getBranches({
 				filter: b => b.remote && possibleBranches.has(b.getNameWithoutRemote()),
 			});
 			for (const branch of branches) {

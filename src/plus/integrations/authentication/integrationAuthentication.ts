@@ -1,16 +1,16 @@
-import { wrapForForcedInsecureSSL } from '@env/fetch';
 import type { CancellationToken, Disposable, Event, Uri } from 'vscode';
 import { authentication, EventEmitter, window } from 'vscode';
+import { wrapForForcedInsecureSSL } from '@env/fetch';
 import type { IntegrationId } from '../../../constants.integrations';
 import { HostingIntegrationId, IssueIntegrationId, SelfHostedIntegrationId } from '../../../constants.integrations';
-import type { IntegrationAuthenticationKeys } from '../../../constants.storage';
+import type { IntegrationAuthenticationKeys, StoredConfiguredIntegrationDescriptor } from '../../../constants.storage';
 import type { Sources } from '../../../constants.telemetry';
 import type { Container } from '../../../container';
 import { gate } from '../../../system/decorators/gate';
 import { debug, log } from '../../../system/decorators/log';
 import type { DeferredEventExecutor } from '../../../system/event';
-import { supportedIntegrationIds } from '../providers/models';
-import type { ProviderAuthenticationSession } from './models';
+import { isSelfHostedIntegrationId, supportedIntegrationIds } from '../providers/models';
+import type { ConfiguredIntegrationDescriptor, ProviderAuthenticationSession } from './models';
 import { isSupportedCloudIntegrationId } from './models';
 
 const maxSmallIntegerV8 = 2 ** 30 - 1; // Max number that can be stored in V8's smis (small integers)
@@ -55,7 +55,10 @@ abstract class IntegrationAuthenticationProviderBase<ID extends IntegrationId = 
 {
 	protected readonly disposables: Disposable[] = [];
 
-	constructor(protected readonly container: Container) {}
+	constructor(
+		protected readonly container: Container,
+		protected readonly authenticationService: IntegrationAuthenticationService,
+	) {}
 
 	dispose() {
 		this.disposables.forEach(d => void d.dispose());
@@ -94,8 +97,12 @@ abstract class IntegrationAuthenticationProviderBase<ID extends IntegrationId = 
 
 	protected abstract restoreSession(sessionId: string): Promise<ProviderAuthenticationSession | undefined>;
 
-	protected async deleteSecret(key: IntegrationAuthenticationKeys) {
+	protected async deleteSecret(key: IntegrationAuthenticationKeys, sessionId: string) {
 		await this.container.storage.deleteSecret(key);
+		await this.authenticationService.removeConfigured({
+			integrationId: this.authProviderId,
+			domain: isSelfHostedIntegrationId(this.authProviderId) ? sessionId : undefined,
+		});
 	}
 
 	protected async writeSecret(
@@ -103,18 +110,46 @@ abstract class IntegrationAuthenticationProviderBase<ID extends IntegrationId = 
 		session: ProviderAuthenticationSession | StoredSession,
 	) {
 		await this.container.storage.storeSecret(key, JSON.stringify(session));
+		// TODO: we should add `domain` on to the session like we are doing with `cloud` to make it explicit
+		await this.authenticationService.addConfigured({
+			integrationId: this.authProviderId,
+			domain: isSelfHostedIntegrationId(this.authProviderId) ? session.id : undefined,
+			expiresAt: session.expiresAt,
+			scopes: session.scopes.join(','),
+			cloud: session.cloud ?? false,
+		});
 	}
 
-	protected async readSecret(key: IntegrationAuthenticationKeys): Promise<StoredSession | undefined> {
+	protected async readSecret(
+		key: IntegrationAuthenticationKeys,
+		sessionId: string,
+	): Promise<StoredSession | undefined> {
 		let storedSession: StoredSession | undefined;
 		try {
 			const sessionJSON = await this.container.storage.getSecret(key);
 			if (sessionJSON) {
 				storedSession = JSON.parse(sessionJSON);
+				if (storedSession != null) {
+					const configured = this.authenticationService.configured.get(this.authProviderId);
+					const domain = isSelfHostedIntegrationId(this.authProviderId) ? storedSession.id : undefined;
+					if (
+						configured == null ||
+						configured.length === 0 ||
+						!configured.some(c => c.domain === domain && c.integrationId === this.authProviderId)
+					) {
+						await this.authenticationService.addConfigured({
+							integrationId: this.authProviderId,
+							domain: domain,
+							expiresAt: storedSession.expiresAt,
+							scopes: storedSession.scopes.join(','),
+							cloud: storedSession.cloud ?? false,
+						});
+					}
+				}
 			}
 		} catch (_ex) {
 			try {
-				await this.deleteSecret(key);
+				await this.deleteSecret(key, sessionId);
 			} catch {}
 		}
 		return storedSession;
@@ -189,7 +224,7 @@ export abstract class LocalIntegrationAuthenticationProvider<
 	ID extends IntegrationId = IntegrationId,
 > extends IntegrationAuthenticationProviderBase<ID> {
 	protected override async deleteAllSecrets(sessionId: string) {
-		await this.deleteSecret(this.getLocalSecretKey(sessionId));
+		await this.deleteSecret(this.getLocalSecretKey(sessionId), sessionId);
 	}
 
 	protected override async storeSession(sessionId: string, session: ProviderAuthenticationSession) {
@@ -198,7 +233,7 @@ export abstract class LocalIntegrationAuthenticationProvider<
 
 	protected override async restoreSession(sessionId: string): Promise<ProviderAuthenticationSession | undefined> {
 		const key = this.getLocalSecretKey(sessionId);
-		return convertStoredSessionToSession(await this.readSecret(key), false);
+		return convertStoredSessionToSession(await this.readSecret(key, sessionId), false);
 	}
 
 	protected abstract createSession(
@@ -225,8 +260,8 @@ export abstract class CloudIntegrationAuthenticationProvider<
 
 	protected override async deleteAllSecrets(sessionId: string) {
 		await Promise.allSettled([
-			this.deleteSecret(this.getLocalSecretKey(sessionId)),
-			this.deleteSecret(this.getCloudSecretKey(sessionId)),
+			this.deleteSecret(this.getLocalSecretKey(sessionId), sessionId),
+			this.deleteSecret(this.getCloudSecretKey(sessionId), sessionId),
 		]);
 	}
 
@@ -241,7 +276,7 @@ export abstract class CloudIntegrationAuthenticationProvider<
 	protected override async restoreSession(sessionId: string): Promise<ProviderAuthenticationSession | undefined> {
 		let cloudIfMissing = false;
 		// At first we try to restore a token with the local key
-		let session = await this.readSecret(this.getLocalSecretKey(sessionId));
+		let session = await this.readSecret(this.getLocalSecretKey(sessionId), sessionId);
 		if (session != null) {
 			// Check the `expiresAt` field
 			// If it has an expiresAt property and the key is the old type, then it's a cloud session,
@@ -251,7 +286,7 @@ export abstract class CloudIntegrationAuthenticationProvider<
 			if (session.expiresAt != null) {
 				cloudIfMissing = true;
 				await Promise.allSettled([
-					this.deleteSecret(this.getLocalSecretKey(sessionId)),
+					this.deleteSecret(this.getLocalSecretKey(sessionId), session.id),
 					this.writeSecret(this.getCloudSecretKey(sessionId), session),
 				]);
 			}
@@ -260,7 +295,7 @@ export abstract class CloudIntegrationAuthenticationProvider<
 		// If no local session we try to restore a session with the cloud key
 		if (session == null) {
 			cloudIfMissing = true;
-			session = await this.readSecret(this.getCloudSecretKey(sessionId));
+			session = await this.readSecret(this.getCloudSecretKey(sessionId), sessionId);
 		}
 
 		return convertStoredSessionToSession(session, cloudIfMissing);
@@ -338,7 +373,13 @@ export abstract class CloudIntegrationAuthenticationProvider<
 		let session = await cloudIntegrations.getConnectionSession(this.authProviderId);
 
 		// Make an exception for GitHub because they always return 0
-		if (session?.expiresIn === 0 && this.authProviderId === HostingIntegrationId.GitHub) {
+		if (
+			session?.expiresIn === 0 &&
+			(this.authProviderId === HostingIntegrationId.GitHub ||
+				this.authProviderId === SelfHostedIntegrationId.CloudGitHubEnterprise ||
+				// Note: added GitLab self managed here because the cloud token is always a PAT, and the api does not know when it expires, nor can it refresh it
+				this.authProviderId === SelfHostedIntegrationId.CloudGitLabSelfHosted)
+		) {
 			// It never expires so don't refresh it frequently:
 			session.expiresIn = maxSmallIntegerV8; // maximum expiration length
 		}
@@ -419,9 +460,10 @@ export abstract class CloudIntegrationAuthenticationProvider<
 class BuiltInAuthenticationProvider extends LocalIntegrationAuthenticationProvider {
 	constructor(
 		container: Container,
+		authenticationService: IntegrationAuthenticationService,
 		protected readonly authProviderId: IntegrationId,
 	) {
-		super(container);
+		super(container, authenticationService);
 		this.disposables.push(
 			authentication.onDidChangeSessions(e => {
 				if (e.provider.id === this.authProviderId) {
@@ -464,12 +506,72 @@ class BuiltInAuthenticationProvider extends LocalIntegrationAuthenticationProvid
 
 export class IntegrationAuthenticationService implements Disposable {
 	private readonly providers = new Map<IntegrationId, IntegrationAuthenticationProvider>();
+	private _configured?: Map<IntegrationId, ConfiguredIntegrationDescriptor[]>;
 
 	constructor(private readonly container: Container) {}
 
 	dispose() {
 		this.providers.forEach(p => void p.dispose());
 		this.providers.clear();
+	}
+
+	get configured(): Map<IntegrationId, ConfiguredIntegrationDescriptor[]> {
+		if (this._configured == null) {
+			this._configured = new Map();
+			const storedConfigured = this.container.storage.get('integrations:configured');
+			for (const [id, configured] of Object.entries(storedConfigured ?? {})) {
+				if (configured == null) continue;
+				const descriptors = configured.map(d => ({
+					...d,
+					expiresAt: d.expiresAt ? new Date(d.expiresAt) : undefined,
+				}));
+				this._configured.set(id as IntegrationId, descriptors);
+			}
+		}
+
+		return this._configured;
+	}
+
+	private async storeConfigured() {
+		// We need to convert the map to a record to store
+		const configured: Record<string, StoredConfiguredIntegrationDescriptor[]> = {};
+		for (const [id, descriptors] of this.configured) {
+			configured[id] = descriptors.map(d => ({
+				...d,
+				expiresAt: d.expiresAt
+					? d.expiresAt instanceof Date
+						? d.expiresAt.toISOString()
+						: d.expiresAt
+					: undefined,
+			}));
+		}
+
+		await this.container.storage.store('integrations:configured', configured);
+	}
+
+	async addConfigured(descriptor: ConfiguredIntegrationDescriptor) {
+		const descriptors = this.configured.get(descriptor.integrationId) ?? [];
+		// Only add if one does not exist
+		if (descriptors.some(d => d.domain === descriptor.domain && d.integrationId === descriptor.integrationId)) {
+			return;
+		}
+		descriptors.push(descriptor);
+		this.configured.set(descriptor.integrationId, descriptors);
+		await this.storeConfigured();
+	}
+
+	async removeConfigured(descriptor: Pick<ConfiguredIntegrationDescriptor, 'integrationId' | 'domain'>) {
+		const descriptors = this.configured.get(descriptor.integrationId);
+		if (descriptors == null) return;
+		const index = descriptors.findIndex(
+			d => d.domain === descriptor.domain && d.integrationId === descriptor.integrationId,
+		);
+		if (index === -1) return;
+
+		descriptors.splice(index, 1);
+		this.configured.set(descriptor.integrationId, descriptors);
+
+		await this.storeConfigured();
 	}
 
 	async get(providerId: IntegrationId): Promise<IntegrationAuthenticationProvider> {
@@ -508,47 +610,57 @@ export class IntegrationAuthenticationService implements Disposable {
 				case HostingIntegrationId.AzureDevOps:
 					provider = new (
 						await import(/* webpackChunkName: "integrations" */ './azureDevOps')
-					).AzureDevOpsAuthenticationProvider(this.container);
+					).AzureDevOpsAuthenticationProvider(this.container, this);
 					break;
 				case HostingIntegrationId.Bitbucket:
 					provider = new (
 						await import(/* webpackChunkName: "integrations" */ './bitbucket')
-					).BitbucketAuthenticationProvider(this.container);
+					).BitbucketAuthenticationProvider(this.container, this);
 					break;
 				case HostingIntegrationId.GitHub:
 					provider = isSupportedCloudIntegrationId(HostingIntegrationId.GitHub)
 						? new (
 								await import(/* webpackChunkName: "integrations" */ './github')
-						  ).GitHubAuthenticationProvider(this.container)
-						: new BuiltInAuthenticationProvider(this.container, providerId);
+						  ).GitHubAuthenticationProvider(this.container, this)
+						: new BuiltInAuthenticationProvider(this.container, this, providerId);
 
+					break;
+				case SelfHostedIntegrationId.CloudGitHubEnterprise:
+					provider = new (
+						await import(/* webpackChunkName: "integrations" */ './github')
+					).GitHubEnterpriseCloudAuthenticationProvider(this.container, this);
 					break;
 				case SelfHostedIntegrationId.GitHubEnterprise:
 					provider = new (
 						await import(/* webpackChunkName: "integrations" */ './github')
-					).GitHubEnterpriseAuthenticationProvider(this.container);
+					).GitHubEnterpriseAuthenticationProvider(this.container, this);
 					break;
 				case HostingIntegrationId.GitLab:
 					provider = isSupportedCloudIntegrationId(HostingIntegrationId.GitLab)
 						? new (
 								await import(/* webpackChunkName: "integrations" */ './gitlab')
-						  ).GitLabCloudAuthenticationProvider(this.container)
+						  ).GitLabCloudAuthenticationProvider(this.container, this)
 						: new (
 								await import(/* webpackChunkName: "integrations" */ './gitlab')
-						  ).GitLabLocalAuthenticationProvider(this.container, HostingIntegrationId.GitLab);
+						  ).GitLabLocalAuthenticationProvider(this.container, this, HostingIntegrationId.GitLab);
+					break;
+				case SelfHostedIntegrationId.CloudGitLabSelfHosted:
+					provider = new (
+						await import(/* webpackChunkName: "integrations" */ './gitlab')
+					).GitLabSelfHostedCloudAuthenticationProvider(this.container, this);
 					break;
 				case SelfHostedIntegrationId.GitLabSelfHosted:
 					provider = new (
 						await import(/* webpackChunkName: "integrations" */ './gitlab')
-					).GitLabLocalAuthenticationProvider(this.container, SelfHostedIntegrationId.GitLabSelfHosted);
+					).GitLabLocalAuthenticationProvider(this.container, this, SelfHostedIntegrationId.GitLabSelfHosted);
 					break;
 				case IssueIntegrationId.Jira:
 					provider = new (
 						await import(/* webpackChunkName: "integrations" */ './jira')
-					).JiraAuthenticationProvider(this.container);
+					).JiraAuthenticationProvider(this.container, this);
 					break;
 				default:
-					provider = new BuiltInAuthenticationProvider(this.container, providerId);
+					provider = new BuiltInAuthenticationProvider(this.container, this, providerId);
 			}
 			this.providers.set(providerId, provider);
 		}

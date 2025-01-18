@@ -3,9 +3,9 @@ import { spawn } from 'child_process';
 import { accessSync } from 'fs';
 import { join as joinPath } from 'path';
 import * as process from 'process';
-import { hrtime } from '@env/hrtime';
 import type { CancellationToken, OutputChannel } from 'vscode';
 import { env, Uri, window, workspace } from 'vscode';
+import { hrtime } from '@env/hrtime';
 import { GlyphChars } from '../../../constants';
 import type { GitCommandOptions, GitSpawnOptions } from '../../../git/commandOptions';
 import { GitErrorHandling } from '../../../git/commandOptions';
@@ -20,6 +20,8 @@ import {
 	PullErrorReason,
 	PushError,
 	PushErrorReason,
+	ResetError,
+	ResetErrorReason,
 	StashPushError,
 	StashPushErrorReason,
 	TagError,
@@ -73,42 +75,47 @@ const textDecoder = new TextDecoder('utf8');
 const rootSha = '4b825dc642cb6eb9a060e54bf8d69288fbee4904';
 
 export const GitErrors = {
+	alreadyCheckedOut: /already checked out/i,
+	alreadyExists: /already exists/i,
+	ambiguousArgument: /fatal:\s*ambiguous argument ['"].+['"]: unknown revision or path not in the working tree/i,
 	badRevision: /bad revision '(.*?)'/i,
 	cantLockRef: /cannot lock ref|unable to update local ref/i,
 	changesWouldBeOverwritten:
 		/Your local changes to the following files would be overwritten|Your local changes would be overwritten/i,
 	commitChangesFirst: /Please, commit your changes before you can/i,
 	conflict: /^CONFLICT \([^)]+\): \b/m,
+	detachedHead: /You are in 'detached HEAD' state/i,
+	entryNotUpToDate: /error:\s*Entry ['"].+['"] not uptodate\. Cannot merge\./i,
 	failedToDeleteDirectoryNotEmpty: /failed to delete '(.*?)': Directory not empty/i,
+	invalidLineCount: /file .+? has only \d+ lines/i,
 	invalidObjectName: /invalid object name: (.*)\s/i,
 	invalidObjectNameList: /could not open object name list: (.*)\s/i,
+	invalidTagName: /invalid tag name/i,
+	mainWorkingTree: /is a main working tree/i,
 	noFastForward: /\(non-fast-forward\)/i,
 	noMergeBase: /no merge base/i,
 	noRemoteRepositorySpecified: /No remote repository specified\./i,
+	noUpstream: /^fatal: The current branch .* has no upstream branch/i,
 	notAValidObjectName: /Not a valid object name/i,
 	notAWorkingTree: /'(.*?)' is not a working tree/i,
 	noUserNameConfigured: /Please tell me who you are\./i,
-	invalidLineCount: /file .+? has only \d+ lines/i,
-	uncommittedChanges: /contains modified or untracked files/i,
-	alreadyExists: /already exists/i,
-	alreadyCheckedOut: /already checked out/i,
-	mainWorkingTree: /is a main working tree/i,
-	noUpstream: /^fatal: The current branch .* has no upstream branch/i,
 	noPausedOperation:
 		/no merge (?:in progress|to abort)|no cherry-pick(?: or revert)? in progress|no rebase in progress/i,
 	permissionDenied: /Permission.*denied/i,
 	pushRejected: /^error: failed to push some refs to\b/m,
 	rebaseMultipleBranches: /cannot rebase onto multiple branches/i,
+	refLocked: /fatal:\s*cannot lock ref ['"].+['"]: unable to create file/i,
 	remoteAhead: /rejected because the remote contains work/i,
 	remoteConnection: /Could not read from remote repository/i,
-	tagConflict: /! \[rejected\].*\(would clobber existing tag\)/m,
-	unmergedFiles: /is not possible because you have unmerged files|You have unmerged files/i,
-	unstagedChanges: /You have unstaged changes/i,
-	tagAlreadyExists: /tag .* already exists/i,
-	tagNotFound: /tag .* not found/i,
-	invalidTagName: /invalid tag name/i,
 	remoteRejected: /rejected because the remote contains work/i,
+	tagAlreadyExists: /tag .* already exists/i,
+	tagConflict: /! \[rejected\].*\(would clobber existing tag\)/m,
+	tagNotFound: /tag .* not found/i,
+	uncommittedChanges: /contains modified or untracked files/i,
+	unmergedChanges: /error:\s*you need to resolve your current index first/i,
+	unmergedFiles: /is not possible because you have unmerged files|You have unmerged files/i,
 	unresolvedConflicts: /You must edit all merge conflicts|Resolve all conflicts/i,
+	unstagedChanges: /You have unstaged changes/i,
 };
 
 const GitWarnings = {
@@ -175,6 +182,16 @@ const tagErrorAndReason: [RegExp, TagErrorReason][] = [
 	[GitErrors.invalidTagName, TagErrorReason.InvalidTagName],
 	[GitErrors.permissionDenied, TagErrorReason.PermissionDenied],
 	[GitErrors.remoteRejected, TagErrorReason.RemoteRejected],
+];
+
+const resetErrorAndReason: [RegExp, ResetErrorReason][] = [
+	[GitErrors.ambiguousArgument, ResetErrorReason.AmbiguousArgument],
+	[GitErrors.changesWouldBeOverwritten, ResetErrorReason.ChangesWouldBeOverwritten],
+	[GitErrors.detachedHead, ResetErrorReason.DetachedHead],
+	[GitErrors.entryNotUpToDate, ResetErrorReason.EntryNotUpToDate],
+	[GitErrors.permissionDenied, ResetErrorReason.PermissionDenied],
+	[GitErrors.refLocked, ResetErrorReason.RefLocked],
+	[GitErrors.unmergedChanges, ResetErrorReason.UnmergedChanges],
 ];
 
 export class Git {
@@ -350,6 +367,14 @@ export class Git {
 
 	async version(): Promise<string> {
 		return (await this.getLocation()).version;
+	}
+
+	async ensureGitVersion(version: string, prefix: string, suffix: string): Promise<void> {
+		if (await this.isAtLeastVersion(version)) return;
+
+		throw new Error(
+			`${prefix} requires a newer version of Git (>= ${version}) than is currently installed (${await this.version()}).${suffix}`,
+		);
 	}
 
 	async isAtLeastVersion(minimum: string): Promise<boolean> {
@@ -1619,8 +1644,33 @@ export class Git {
 		return this.exec<string>({ cwd: repoPath }, 'remote', 'get-url', remote);
 	}
 
-	reset(repoPath: string | undefined, pathspecs: string[]) {
-		return this.exec<string>({ cwd: repoPath }, 'reset', '-q', '--', ...pathspecs);
+	async reset(
+		repoPath: string,
+		pathspecs: string[],
+		options?: { hard?: boolean; soft?: never; ref?: string } | { soft?: boolean; hard?: never; ref?: string },
+	): Promise<void> {
+		try {
+			const flags = [];
+			if (options?.hard) {
+				flags.push('--hard');
+			} else if (options?.soft) {
+				flags.push('--soft');
+			}
+
+			if (options?.ref) {
+				flags.push(options.ref);
+			}
+			await this.exec<string>({ cwd: repoPath }, 'reset', '-q', ...flags, '--', ...pathspecs);
+		} catch (ex) {
+			const msg: string = ex?.toString() ?? '';
+			for (const [error, reason] of resetErrorAndReason) {
+				if (error.test(msg) || error.test(ex.stderr ?? '')) {
+					throw new ResetError(reason, ex);
+				}
+			}
+
+			throw new ResetError(ResetErrorReason.Other, ex);
+		}
 	}
 
 	async rev_list(

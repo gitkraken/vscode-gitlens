@@ -1,4 +1,5 @@
 import type { IntegrationDescriptor } from '../../constants.integrations';
+import type { GitBranchMergedStatus } from '../../git/gitProvider';
 import type { GitBranchStatus, GitTrackingState } from '../../git/models/branch';
 import type { Issue } from '../../git/models/issue';
 import type { MergeConflict } from '../../git/models/mergeConflict';
@@ -95,8 +96,10 @@ export interface GetOverviewBranch {
 	mergeTarget?: Promise<
 		| {
 				repoPath: string;
-				name: string | undefined;
+				id: string;
+				name: string;
 				status?: GitTrackingState;
+				mergedStatus?: GitBranchMergedStatus;
 				potentialConflicts?: MergeConflict;
 
 				targetBranch: string | undefined;
@@ -306,3 +309,9 @@ export const DidChangeOverviewFilter = new IpcNotification<DidChangeOwnerFilterP
 );
 
 export const DidFocusAccount = new IpcNotification<undefined>(scope, 'account/didFocus');
+
+export interface BranchRef {
+	repoPath: string;
+	branchId: string;
+	branchName: string;
+}

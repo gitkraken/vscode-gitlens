@@ -81,10 +81,12 @@ export class CopyOrOpenRemoteCommandQuickPickItem extends CommandQuickPickItem {
 					// turn this into a `Revision` request
 					const { branchOrTag } = resource;
 					const [branches, tags] = await Promise.allSettled([
-						Container.instance.git.getBranches(this.remote.repoPath, {
+						Container.instance.git.branches(this.remote.repoPath).getBranches({
 							filter: b => b.name === branchOrTag || b.getNameWithoutRemote() === branchOrTag,
 						}),
-						Container.instance.git.getTags(this.remote.repoPath, { filter: t => t.name === branchOrTag }),
+						Container.instance.git
+							.tags(this.remote.repoPath)
+							.getTags({ filter: t => t.name === branchOrTag }),
 					]);
 
 					const sha = getSettledValue(branches)?.values[0]?.sha ?? getSettledValue(tags)?.values[0]?.sha;

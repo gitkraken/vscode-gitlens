@@ -212,7 +212,7 @@ export class GitCommit implements GitRevisionReference {
 			this._etagFileSystem = repository?.etagFileSystem;
 
 			if (this._etagFileSystem != null) {
-				const status = await this.container.git.getStatus(this.repoPath);
+				const status = await this.container.git.status(this.repoPath).getStatus();
 				if (status != null) {
 					this._files = status.files.flatMap(f => f.getPseudoFileChanges());
 				}
@@ -230,7 +230,7 @@ export class GitCommit implements GitRevisionReference {
 
 		if (this.refType === 'stash') {
 			const [stashFilesResult] = await Promise.allSettled([
-				this.container.git.getStashCommitFiles(this.repoPath, this.sha, options),
+				this.container.git.stash(this.repoPath)?.getStashCommitFiles(this.sha, options),
 				this.getPreviousSha(),
 			]);
 
@@ -468,7 +468,7 @@ export class GitCommit implements GitRevisionReference {
 		remote?: GitRemote<RemoteProvider>,
 		options?: { expiryOverride?: boolean | number },
 	): Promise<PullRequest | undefined> {
-		remote ??= await this.container.git.getBestRemoteWithIntegration(this.repoPath);
+		remote ??= await this.container.git.remotes(this.repoPath).getBestRemoteWithIntegration();
 		if (!remote?.hasIntegration()) return undefined;
 
 		return (await this.container.integrations.getByRemote(remote))?.getPullRequestForCommit(
@@ -481,7 +481,7 @@ export class GitCommit implements GitRevisionReference {
 	async getEnrichedAutolinks(remote?: GitRemote<RemoteProvider>): Promise<Map<string, EnrichedAutolink> | undefined> {
 		if (this.isUncommitted) return undefined;
 
-		remote ??= await this.container.git.getBestRemoteWithIntegration(this.repoPath);
+		remote ??= await this.container.git.remotes(this.repoPath).getBestRemoteWithIntegration();
 		if (remote?.provider == null) return undefined;
 
 		// TODO@eamodio should we cache these? Seems like we would use more memory than it's worth

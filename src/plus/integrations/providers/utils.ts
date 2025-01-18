@@ -12,11 +12,11 @@ import type { IssueResourceDescriptor, RepositoryDescriptor } from '../integrati
 import { isIssueResourceDescriptor, isRepositoryDescriptor } from '../integration';
 import type { GitConfigEntityIdentifier } from './models';
 
-function isGitHubDotCom(domain: string): boolean {
+export function isGitHubDotCom(domain: string): boolean {
 	return equalsIgnoreCase(domain, 'github.com');
 }
 
-function isGitLabDotCom(domain: string): boolean {
+export function isGitLabDotCom(domain: string): boolean {
 	return equalsIgnoreCase(domain, 'gitlab.com');
 }
 
@@ -70,17 +70,21 @@ export function getEntityIdentifierInput(entity: IssueOrPullRequest | LaunchpadI
 }
 
 export function getProviderIdFromEntityIdentifier(
-	entityIdentifier: EntityIdentifier | AnyEntityIdentifierInput,
+	entityIdentifier: EntityIdentifier | AnyEntityIdentifierInput | GitConfigEntityIdentifier,
 ): IntegrationId | undefined {
 	switch (entityIdentifier.provider) {
 		case EntityIdentifierProviderType.Github:
 			return HostingIntegrationId.GitHub;
 		case EntityIdentifierProviderType.GithubEnterprise:
-			return SelfHostedIntegrationId.GitHubEnterprise;
+			return isGitConfigEntityIdentifier(entityIdentifier) && entityIdentifier.metadata.isCloudEnterprise
+				? SelfHostedIntegrationId.CloudGitHubEnterprise
+				: SelfHostedIntegrationId.GitHubEnterprise;
 		case EntityIdentifierProviderType.Gitlab:
 			return HostingIntegrationId.GitLab;
 		case EntityIdentifierProviderType.GitlabSelfHosted:
-			return SelfHostedIntegrationId.GitLabSelfHosted;
+			return isGitConfigEntityIdentifier(entityIdentifier) && entityIdentifier.metadata.isCloudEnterprise
+				? SelfHostedIntegrationId.CloudGitLabSelfHosted
+				: SelfHostedIntegrationId.GitLabSelfHosted;
 		case EntityIdentifierProviderType.Jira:
 			return IssueIntegrationId.Jira;
 		default:
@@ -92,6 +96,10 @@ function fromStringToEntityIdentifierProviderType(str: string): EntityIdentifier
 	switch (str) {
 		case 'github':
 			return EntityIdentifierProviderType.Github;
+		case 'cloud-github-enterprise':
+			return EntityIdentifierProviderType.GithubEnterprise;
+		case 'cloud-gitlab-self-hosted':
+			return EntityIdentifierProviderType.GitlabSelfHosted;
 		case 'gitlab':
 			return EntityIdentifierProviderType.Gitlab;
 		case 'jira':
@@ -125,6 +133,9 @@ export function encodeIssueOrPullRequestForGitConfig(
 			id: entity.id,
 			owner: encodedOwner,
 			createdDate: new Date().toISOString(),
+			isCloudEnterprise:
+				entity.provider.id === SelfHostedIntegrationId.CloudGitHubEnterprise ||
+				entity.provider.id === SelfHostedIntegrationId.CloudGitLabSelfHosted,
 		},
 	};
 }
@@ -192,7 +203,9 @@ export async function getIssueFromGitConfigEntityIdentifier(
 	if (
 		identifier.provider !== EntityIdentifierProviderType.Jira &&
 		identifier.provider !== EntityIdentifierProviderType.Github &&
-		identifier.provider !== EntityIdentifierProviderType.Gitlab
+		identifier.provider !== EntityIdentifierProviderType.Gitlab &&
+		identifier.provider !== EntityIdentifierProviderType.GithubEnterprise &&
+		identifier.provider !== EntityIdentifierProviderType.GitlabSelfHosted
 	) {
 		return undefined;
 	}

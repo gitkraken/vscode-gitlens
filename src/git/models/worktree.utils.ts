@@ -37,13 +37,17 @@ export async function getWorktreeForBranch(
 		);
 	}
 
-	worktrees ??= await repo.git.getWorktrees();
+	worktrees ??= await repo.git.worktrees()?.getWorktrees();
+	if (!worktrees?.length) return undefined;
+
 	for (const worktree of worktrees) {
 		if (worktree.branch?.name === branchName) return worktree;
 
 		if (upstreamNames == null || worktree.branch == null) continue;
 
-		branches ??= new PageableResult<GitBranch>(p => repo.git.getBranches(p != null ? { paging: p } : undefined));
+		branches ??= new PageableResult<GitBranch>(p =>
+			repo.git.branches().getBranches(p != null ? { paging: p } : undefined),
+		);
 
 		const values = branches.values();
 		if (Symbol.asyncIterator in values) {
@@ -74,7 +78,10 @@ export async function getWorktreesByBranch(
 	if (repos == null) return worktreesByBranch;
 
 	async function addWorktrees(repo: Repository) {
-		groupWorktreesByBranch(await repo.git.getWorktrees(), {
+		const worktrees = repo.git.worktrees();
+		if (worktrees == null) return;
+
+		groupWorktreesByBranch(await worktrees.getWorktrees(), {
 			includeDefault: options?.includeDefault,
 			worktreesByBranch: worktreesByBranch,
 		});

@@ -59,7 +59,7 @@ export class FileRevisionAsCommitNode extends ViewRefFileNode<
 	async getChildren(): Promise<ViewNode[]> {
 		if (!this.commit.file?.hasConflicts) return [];
 
-		const pausedOpStatus = await this.view.container.git.getPausedOperationStatus(this.commit.repoPath);
+		const pausedOpStatus = await this.view.container.git.status(this.commit.repoPath).getPausedOperationStatus?.();
 		if (pausedOpStatus == null) return [];
 
 		return [
@@ -196,7 +196,7 @@ export class FileRevisionAsCommitNode extends ViewRefFileNode<
 	async getConflictBaseUri(): Promise<Uri | undefined> {
 		if (!this.commit.file?.hasConflicts) return undefined;
 
-		const mergeBase = await this.view.container.git.getMergeBase(this.repoPath, 'MERGE_HEAD', 'HEAD');
+		const mergeBase = await this.view.container.git.branches(this.repoPath).getMergeBase('MERGE_HEAD', 'HEAD');
 		return GitUri.fromFile(this.file, this.repoPath, mergeBase ?? 'HEAD');
 	}
 
@@ -232,7 +232,7 @@ export async function getFileRevisionAsCommitTooltip(
 	},
 ) {
 	const [remotesResult, _] = await Promise.allSettled([
-		container.git.getBestRemotesWithProviders(commit.repoPath, options?.cancellation),
+		container.git.remotes(commit.repoPath).getBestRemotesWithProviders(options?.cancellation),
 		commit.message == null ? commit.ensureFullDetails() : undefined,
 	]);
 

@@ -2,12 +2,10 @@ import { Uri, window } from 'vscode';
 import { Schemes } from '../../constants';
 import { Container } from '../../container';
 import type { RepositoryIdentityDescriptor } from '../../gk/models/repositoryIdentities';
-import type { EnrichablePullRequest } from '../../plus/integrations/providers/models';
 import { formatDate, fromNow } from '../../system/date';
 import { memoize } from '../../system/decorators/memoize';
 import type { LeftRightCommitCountResult } from '../gitProvider';
 import type { IssueOrPullRequest, IssueRepository, IssueOrPullRequestState as PullRequestState } from './issue';
-import type { PullRequestUrlIdentity } from './pullRequest.utils';
 import type { ProviderReference } from './remoteProvider';
 import type { Repository } from './repository';
 import { createRevisionRange, shortenRevision } from './revision.utils';
@@ -379,7 +377,7 @@ export async function ensurePullRequestRemote(
 	const prRemoteUrl = identity.remote.url.replace(/\.git$/, '');
 
 	let found = false;
-	for (const remote of await repo.git.getRemotes()) {
+	for (const remote of await repo.git.remotes().getRemotes()) {
 		if (remote.matches(prRemoteUrl)) {
 			found = true;
 			break;
@@ -400,7 +398,9 @@ export async function ensurePullRequestRemote(
 	);
 
 	if (result === confirm) {
-		await repo.addRemote(identity.provider.repoDomain, identity.remote.url, { fetch: true });
+		await repo.git
+			.remotes()
+			.addRemoteWithResult?.(identity.provider.repoDomain, identity.remote.url, { fetch: true });
 		return true;
 	}
 
@@ -416,22 +416,4 @@ export async function getOpenedPullRequestRepo(
 
 	const repo = await getOrOpenPullRequestRepository(container, pr, { promptIfNeeded: true });
 	return repo;
-}
-
-export function doesPullRequestSatisfyRepositoryURLIdentity(
-	pr: EnrichablePullRequest | undefined,
-	{ ownerAndRepo, prNumber }: PullRequestUrlIdentity,
-): boolean {
-	if (pr == null) {
-		return false;
-	}
-	const satisfiesPrNumber = prNumber != null && pr.number === parseInt(prNumber, 10);
-	if (!satisfiesPrNumber) {
-		return false;
-	}
-	const satisfiesOwnerAndRepo = ownerAndRepo != null && pr.repoIdentity.name === ownerAndRepo;
-	if (!satisfiesOwnerAndRepo) {
-		return false;
-	}
-	return true;
 }

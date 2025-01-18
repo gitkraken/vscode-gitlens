@@ -1,5 +1,5 @@
-import { isLinux } from '@env/platform';
 import type { Uri } from 'vscode';
+import { isLinux } from '@env/platform';
 import { filterMap } from './iterable';
 import { normalizePath as _normalizePath } from './path';
 

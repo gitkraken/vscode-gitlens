@@ -240,11 +240,9 @@ export class ResultsFilesNode extends ViewNode<'results-files', ViewsWithCommits
 
 		const ref = this.filter === FilesQueryFilter.Left ? this.ref2 : this.ref1;
 
-		const mergeBase = await this.view.container.git.getMergeBase(
-			this.repoPath,
-			this.ref1 || 'HEAD',
-			this.ref2 || 'HEAD',
-		);
+		const mergeBase = await this.view.container.git
+			.branches(this.repoPath)
+			.getMergeBase(this.ref1 || 'HEAD', this.ref2 || 'HEAD');
 		if (mergeBase != null) {
 			const files = await this.view.container.git.getDiffStatus(this.uri.repoPath!, `${mergeBase}..${ref}`);
 			if (files != null) {

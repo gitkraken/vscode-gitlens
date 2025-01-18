@@ -270,7 +270,10 @@ export class AIProviderService implements Disposable {
 		const start = Date.now();
 		try {
 			const result = await (options?.progress != null
-				? window.withProgress(options.progress, () => promise)
+				? window.withProgress(
+						{ ...options.progress, title: `Generating commit message with ${model.name}...` },
+						() => promise,
+				  )
 				: promise);
 
 			payload['output.length'] = result?.length;

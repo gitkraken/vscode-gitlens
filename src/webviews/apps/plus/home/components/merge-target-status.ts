@@ -2,7 +2,7 @@ import { css, html, LitElement, nothing } from 'lit';
 import { customElement, property, state } from 'lit/decorators.js';
 import { createCommandLink } from '../../../../../system/commands';
 import { pluralize } from '../../../../../system/string';
-import type { GetOverviewBranch } from '../../../../home/protocol';
+import type { BranchRef, GetOverviewBranch } from '../../../../home/protocol';
 import { renderBranchName } from '../../../shared/components/branch-name';
 import { elementBase, linkBase, scrollableBase } from '../../../shared/components/styles/lit/base.css';
 import { chipStyles } from '../../shared/components/chipStyles';
@@ -54,25 +54,28 @@ export class GlMergeTargetStatus extends LitElement {
 				color: var(--vscode-gitlens-decorations\\.statusMergingOrRebasingForegroundColor);
 			}
 
-			.status--conflict .icon {
-				color: var(--vscode-gitlens-decorations\\.statusMergingOrRebasingForegroundColor);
+			.header__subtitle {
+				font-size: 1.3rem;
+				margin: 0.2rem 0 0 0;
 			}
 
+			.status--conflict .icon,
 			.status--conflict .status-indicator {
-				/* color: var(--vscode-gitlens-decorations\\.statusMergingOrRebasingConflictForegroundColor); */
 				color: var(--vscode-gitlens-decorations\\.statusMergingOrRebasingForegroundColor);
 			}
 
-			.status--behind .icon {
-				color: var(--vscode-gitlens-decorations\\.statusMergingOrRebasingForegroundColor);
-			}
-
+			.status--behind .icon,
 			.status--behind .status-indicator {
 				color: var(--vscode-gitlens-decorations\\.statusMergingOrRebasingForegroundColor);
 			}
 
-			.status--behind .icon {
-				/* color: var(--color-status--in-sync); */
+			.status--merged .icon,
+			.status--merged .status-indicator {
+				color: var(--vscode-gitlens-mergedPullRequestIconColor);
+			}
+
+			.status--merged .icon {
+				transform: rotateY(180deg);
 			}
 
 			.status--in-sync .status-indicator {
@@ -185,11 +188,17 @@ export class GlMergeTargetStatus extends LitElement {
 			gl-popover {
 				--max-width: 80vw;
 			}
+
+			.info {
+				cursor: help;
+				display: inline-flex;
+				vertical-align: middle;
+			}
 		`,
 	];
 
-	@property({ type: String })
-	branch: string | undefined;
+	@property({ type: Object })
+	branch!: Pick<GetOverviewBranch, 'repoPath' | 'id' | 'name' | 'opened' | 'upstream' | 'worktree'>;
 
 	@state()
 	private _target: Awaited<GetOverviewBranch['mergeTarget']>;
@@ -206,11 +215,9 @@ export class GlMergeTargetStatus extends LitElement {
 		if (this._targetPromise === value) return;
 
 		this._targetPromise = value;
-		this._target = undefined;
-
 		void this._targetPromise?.then(
 			r => (this._target = r),
-			() => {},
+			() => (this._target = undefined),
 		);
 	}
 
@@ -218,45 +225,58 @@ export class GlMergeTargetStatus extends LitElement {
 		return this.target?.potentialConflicts;
 	}
 
+	private get mergedStatus() {
+		return this.target?.mergedStatus;
+	}
+
 	private get status() {
 		return this.target?.status;
 	}
 
-	private get targetBranchRef() {
-		if (this.target?.name == null) return undefined;
+	private get branchRef(): BranchRef | undefined {
+		if (this.branch == null) return undefined;
+
+		return {
+			repoPath: this.branch.repoPath,
+			branchId: this.branch.id,
+			branchName: this.branch.name,
+		};
+	}
+
+	private get targetBranchRef(): BranchRef | undefined {
+		if (this.target == null) return undefined;
 
 		return {
 			repoPath: this.target.repoPath,
-			branchId: this.target.name,
+			branchId: this.target.id,
+			branchName: this.target.name,
 		};
 	}
 
 	override render() {
 		if (!this.status && !this.conflicts) return nothing;
 
-		let statusClass;
-		let statusIndicator;
-		if (this.conflicts) {
-			statusClass = 'status--conflict';
-			statusIndicator = 'warning';
+		let icon;
+		let status;
+
+		if (this.mergedStatus?.merged) {
+			icon = 'git-merge';
+			status = 'merged';
+		} else if (this.conflicts) {
+			icon = 'warning';
+			status = 'conflict';
 		} else if ((this.status?.behind ?? 0) > 0) {
-			statusClass = 'status--behind';
-			statusIndicator = 'arrow-down';
+			icon = 'arrow-down';
+			status = 'behind';
 		} else {
-			statusClass = 'status--in-sync';
-			statusIndicator = 'check';
+			icon = 'check';
+			status = 'in-sync';
 		}
 
-		const iconStatus = this.conflicts
-			? 'icon--conflict'
-			: (this.status?.behind ?? 0) > 0
-			  ? 'icon--behind'
-			  : 'icon--in-sync';
-
 		return html`<gl-popover placement="bottom" trigger="hover click focus" hoist>
-			<span slot="anchor" class="chip ${statusClass}" tabindex="0"
-				><code-icon class="icon " icon="gl-merge-target" size="18"></code-icon
-				></code-icon><code-icon class="status-indicator ${iconStatus}" icon="${statusIndicator}" size="12"></code-icon>
+			<span slot="anchor" class="chip status--${status}" tabindex="0"
+				><code-icon class="icon" icon="gl-merge-target" size="18"></code-icon
+				></code-icon><code-icon class="status-indicator icon--${status}" icon="${icon}" size="12"></code-icon>
 			</span>
 			<div slot="content" class="content">${this.renderContent()}</div>
 		</gl-popover>`;
@@ -265,29 +285,55 @@ export class GlMergeTargetStatus extends LitElement {
 	private renderContent() {
 		const target = renderBranchName(this.target?.name);
 
-		const mergeTargetInfo = html`<span class="header__actions"
-			><gl-tooltip position="bottom" style="cursor:help;">
-				<code-icon icon="question" size="18"></code-icon>
-				<span slot="content"
-					>The "merge target" is the branch that ${renderBranchName(this.branch)} is most likely to be merged
-					into.</span
-				>
-			</gl-tooltip></span
-		>`;
+		if (this.mergedStatus?.merged) {
+			if (this.mergedStatus.localBranchOnly) {
+				return html`<div class="header">
+						<span class="header__title"
+							><code-icon icon="git-merge"></code-icon> Branch
+							${this.mergedStatus.confidence !== 'highest' ? 'Likely ' : ''}Merged Locally into Merge
+							Target&nbsp;${this.renderInfo()}${this.renderCurrentTarget()}</span
+						>
+						${this.renderActions()}
+					</div>
+					<div class="body">
+						<p>
+							Your current branch ${renderBranchName(this.branch.name)} has
+							${this.mergedStatus.confidence !== 'highest' ? 'likely ' : ''}been merged into its merge
+							target's local branch ${renderBranchName(this.mergedStatus.localBranchOnly.name)}.
+						</p>
+					</div>`;
+			}
+
+			return html`<div class="header">
+					<span class="header__title"
+						><code-icon icon="git-merge"></code-icon> Branch
+						${this.mergedStatus.confidence !== 'highest' ? 'Likely ' : ''}Merged into Merge
+						Target&nbsp;${this.renderInfo()}${this.renderCurrentTarget()}</span
+					>
+					${this.renderActions()}
+				</div>
+				<div class="body">
+					<p>
+						Your current branch ${renderBranchName(this.branch.name)} has
+						${this.mergedStatus.confidence !== 'highest' ? 'likely ' : ''}been merged into its merge target
+						${target}.
+					</p>
+				</div>`;
+		}
 
 		if (this.conflicts) {
 			return html`
 				<div class="header">
 					<span class="header__title"
 						><code-icon class="status--warning" icon="warning"></code-icon> Potential Conflicts with Merge
-						Target</span
+						Target&nbsp;${this.renderInfo()}${this.renderCurrentTarget()}</span
 					>
-					${mergeTargetInfo}
+					${this.renderActions()}
 				</div>
 				<div class="body">
 					${this.status
 						? html`<p>
-								Your current branch ${renderBranchName(this.branch)} is
+								Your current branch ${renderBranchName(this.branch.name)} is
 								${pluralize('commit', this.status.behind)} behind its merge target ${target}.
 						  </p>`
 						: nothing}
@@ -321,26 +367,26 @@ export class GlMergeTargetStatus extends LitElement {
 								'Commit',
 								this.status.behind,
 							)}
-							Behind Merge Target</span
+							Behind Merge Target&nbsp;${this.renderInfo()}${this.renderCurrentTarget()}</span
 						>
-						${mergeTargetInfo}
+						${this.renderActions()}
 					</div>
 					<div class="body">
 						<p>
-							Your current branch ${renderBranchName(this.branch)} is
+							Your current branch ${renderBranchName(this.branch.name)} is
 							${pluralize('commit', this.status.behind)} behind its merge target ${target}.
 						</p>
 						<div class="button-container">
 							<gl-button
 								full
 								href="${createCommandLink('gitlens.home.rebaseCurrentOnto', this.targetBranchRef)}"
-								>Rebase ${renderBranchName(this.branch)} onto ${target}</gl-button
+								>Rebase ${renderBranchName(this.branch.name)} onto ${target}</gl-button
 							>
 							<gl-button
 								full
 								appearance="secondary"
 								href="${createCommandLink('gitlens.home.mergeIntoCurrent', this.targetBranchRef)}"
-								>Merge ${target} into ${renderBranchName(this.branch)}</gl-button
+								>Merge ${target} into ${renderBranchName(this.branch.name)}</gl-button
 							>
 						</div>
 						<p class="status--merge-clean">
@@ -350,18 +396,57 @@ export class GlMergeTargetStatus extends LitElement {
 			}
 
 			return html`<div class="header">
-					<span class="header__title"><code-icon icon="check"></code-icon> Up to Date with Merge Target</span>
-					${mergeTargetInfo}
+					<span class="header__title"
+						><code-icon icon="check"></code-icon> Up to Date with Merge
+						Target&nbsp;${this.renderInfo()}${this.renderCurrentTarget()}</span
+					>
+					${this.renderActions()}
 				</div>
 				<div class="body">
 					<p>
-						Your current branch ${renderBranchName(this.branch)} is up to date with its merge target
+						Your current branch ${renderBranchName(this.branch.name)} is up to date with its merge target
 						${target}.
 					</p>
 				</div>`;
 		}
 
 		return nothing;
+	}
+
+	private renderActions() {
+		return html`<span class="header__actions"
+			><gl-button
+				href="${createCommandLink('gitlens.home.openMergeTargetComparison', {
+					...this.branchRef,
+					mergeTargetId: this.targetBranchRef?.branchId,
+				})}"
+				appearance="toolbar"
+				><code-icon icon="git-compare"></code-icon>
+				<span slot="tooltip"
+					>Compare Branch with Merge Target<br />${renderBranchName(this.branch.name)} &leftrightarrow;
+					${renderBranchName(this.target?.name)}</span
+				> </gl-button
+			><gl-button href="${createCommandLink('gitlens.home.fetch', this.targetBranchRef)}" appearance="toolbar"
+				><code-icon icon="repo-fetch"></code-icon>
+				<span slot="tooltip">Fetch Merge Target<br />${renderBranchName(this.target?.name)}</span>
+			</gl-button></span
+		>`;
+	}
+
+	private renderCurrentTarget() {
+		return nothing;
+		// return html`<br />
+		// 	<p class="header__subtitle">Merge Target is ${renderBranchName(this.target?.name)}</p>`;
+	}
+
+	private renderInfo() {
+		return html`<gl-tooltip class="info" position="bottom">
+			<code-icon icon="question" size="16"></code-icon>
+			<span slot="content"
+				>The "merge target" is the branch that ${renderBranchName(this.branch.name)} is most likely to be merged
+				into.</span
+			>
+		</gl-tooltip>`;
 	}
 
 	private renderFiles(files: { path: string }[]) {

@@ -84,7 +84,7 @@ export class GitWorktree {
 			// eslint-disable-next-line no-async-promise-executor
 			this._statusPromise = new Promise(async (resolve, reject) => {
 				try {
-					const status = await Container.instance.git.getStatus(this.uri.fsPath);
+					const status = await Container.instance.git.status(this.uri.fsPath).getStatus();
 					this._status = status;
 					resolve(status);
 				} catch (ex) {

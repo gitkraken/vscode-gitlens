@@ -1,4 +1,3 @@
-import { getNonce } from '@env/crypto';
 import type {
 	CancellationToken,
 	CustomTextEditorProvider,
@@ -7,6 +6,7 @@ import type {
 	WebviewPanelOnDidChangeViewStateEvent,
 } from 'vscode';
 import { ConfigurationTarget, Disposable, Position, Range, Uri, window, workspace, WorkspaceEdit } from 'vscode';
+import { getNonce } from '@env/crypto';
 import { InspectCommand } from '../../commands/inspect';
 import type { Container } from '../../container';
 import { emojify } from '../../emojis';
@@ -250,7 +250,7 @@ export class RebaseEditorProvider implements CustomTextEditorProvider, Disposabl
 
 	private async parseState(context: RebaseEditorContext): Promise<State> {
 		if (context.branchName === undefined) {
-			const branch = await this.container.git.getBranch(context.repoPath);
+			const branch = await this.container.git.branches(context.repoPath).getBranch();
 			context.branchName = branch?.name ?? null;
 		}
 		const state = await parseRebaseTodo(this.container, context, this.ascending);

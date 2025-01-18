@@ -14,6 +14,14 @@ export interface ProviderAuthenticationSession extends AuthenticationSession {
 	readonly expiresAt?: Date;
 }
 
+export interface ConfiguredIntegrationDescriptor {
+	readonly cloud: boolean;
+	readonly integrationId: IntegrationId;
+	readonly domain?: string;
+	readonly expiresAt?: string | Date;
+	readonly scopes: string;
+}
+
 export interface CloudIntegrationAuthenticationSession {
 	type: CloudIntegrationAuthType;
 	accessToken: string;
@@ -32,7 +40,15 @@ export interface CloudIntegrationConnection {
 	domain: string;
 }
 
-export type CloudIntegrationType = 'jira' | 'trello' | 'gitlab' | 'github' | 'bitbucket' | 'azure';
+export type CloudIntegrationType =
+	| 'jira'
+	| 'trello'
+	| 'gitlab'
+	| 'github'
+	| 'bitbucket'
+	| 'azure'
+	| 'githubEnterprise'
+	| 'gitlabSelfHosted';
 
 export type CloudIntegrationAuthType = 'oauth' | 'pat';
 
@@ -53,6 +69,8 @@ export const toIntegrationId: { [key in CloudIntegrationType]: IntegrationId } =
 	trello: IssueIntegrationId.Trello,
 	gitlab: HostingIntegrationId.GitLab,
 	github: HostingIntegrationId.GitHub,
+	githubEnterprise: SelfHostedIntegrationId.CloudGitHubEnterprise,
+	gitlabSelfHosted: SelfHostedIntegrationId.CloudGitLabSelfHosted,
 	bitbucket: HostingIntegrationId.Bitbucket,
 	azure: HostingIntegrationId.AzureDevOps,
 };
@@ -64,6 +82,8 @@ export const toCloudIntegrationType: { [key in IntegrationId]: CloudIntegrationT
 	[HostingIntegrationId.GitHub]: 'github',
 	[HostingIntegrationId.Bitbucket]: 'bitbucket',
 	[HostingIntegrationId.AzureDevOps]: 'azure',
+	[SelfHostedIntegrationId.CloudGitHubEnterprise]: 'githubEnterprise',
+	[SelfHostedIntegrationId.CloudGitLabSelfHosted]: 'gitlabSelfHosted',
 	[SelfHostedIntegrationId.GitHubEnterprise]: undefined,
 	[SelfHostedIntegrationId.GitLabSelfHosted]: undefined,
 };
