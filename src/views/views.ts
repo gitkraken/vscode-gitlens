@@ -11,12 +11,12 @@ import type {
 } from '../git/models/reference';
 import type { GitRemote } from '../git/models/remote';
 import type { GitWorktree } from '../git/models/worktree';
+import { executeCommand, executeCoreCommand, registerCommand } from '../system/-webview/command';
+import { configuration } from '../system/-webview/configuration';
+import { getContext, setContext } from '../system/-webview/context';
 import { once } from '../system/function';
 import { first } from '../system/iterable';
 import { compare } from '../system/version';
-import { executeCommand, executeCoreCommand, registerCommand } from '../system/vscode/command';
-import { configuration } from '../system/vscode/configuration';
-import { getContext, setContext } from '../system/vscode/context';
 import {
 	registerCommitDetailsWebviewView,
 	registerGraphDetailsWebviewView,

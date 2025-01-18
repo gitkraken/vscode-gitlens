@@ -13,12 +13,12 @@ import {
 import type { GitWorktreesSubProvider } from '../../../../git/gitProvider';
 import type { GitWorktree } from '../../../../git/models/worktree';
 import { parseGitWorktrees } from '../../../../git/parsers/worktreeParser';
+import { configuration } from '../../../../system/-webview/configuration';
 import { log } from '../../../../system/decorators/log';
 import { Logger } from '../../../../system/logger';
 import { getLogScope } from '../../../../system/logger.scope';
 import { joinPaths, normalizePath } from '../../../../system/path';
 import { interpolate } from '../../../../system/string';
-import { configuration } from '../../../../system/vscode/configuration';
 import type { Git } from '../git';
 import { GitErrors } from '../git';
 import type { LocalGitProvider } from '../localGitProvider';

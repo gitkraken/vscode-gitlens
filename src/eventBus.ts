@@ -5,7 +5,7 @@ import type { GitCaches } from './git/gitProvider';
 import type { GitCommit } from './git/models/commit';
 import type { GitRevisionReference } from './git/models/reference';
 import type { RepositoryChange } from './git/models/repository';
-import type { Draft, LocalDraft } from './gk/models/drafts';
+import type { Draft, LocalDraft } from './plus/drafts/models/drafts';
 
 export type CommitSelectedEvent = EventBusEvent<'commit:selected'>;
 interface CommitSelectedEventArgs {

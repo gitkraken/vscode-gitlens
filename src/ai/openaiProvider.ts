@@ -1,4 +1,4 @@
-import { configuration } from '../system/vscode/configuration';
+import { configuration } from '../system/-webview/configuration';
 import type { AIModel } from './aiProviderService';
 import { OpenAICompatibleProvider } from './openAICompatibleProvider';
 

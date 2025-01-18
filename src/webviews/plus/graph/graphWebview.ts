@@ -2,7 +2,7 @@ import type { CancellationToken, ColorTheme, ConfigurationChangeEvent } from 'vs
 import { CancellationTokenSource, Disposable, env, Uri, window } from 'vscode';
 import type { CreatePullRequestActionContext, OpenPullRequestActionContext } from '../../../api/gitlens';
 import { getAvatarUri } from '../../../avatars';
-import { parseCommandContext } from '../../../commands/base';
+import { parseCommandContext } from '../../../commands/commandContext.utils';
 import type { CopyDeepLinkCommandArgs } from '../../../commands/copyDeepLink';
 import type { CopyMessageToClipboardCommandArgs } from '../../../commands/copyMessageToClipboard';
 import type { CopyShaToClipboardCommandArgs } from '../../../commands/copyShaToClipboard';
@@ -50,27 +50,12 @@ import * as WorktreeActions from '../../../git/actions/worktree';
 import { GitSearchError } from '../../../git/errors';
 import { CommitFormatter } from '../../../git/formatters/commitFormatter';
 import type { GitBranch } from '../../../git/models/branch';
-import {
-	getAssociatedIssuesForBranch,
-	getBranchId,
-	getBranchNameWithoutRemote,
-	getDefaultBranchName,
-	getLocalBranchByUpstream,
-	getRemoteNameFromBranchName,
-	getTargetBranchName,
-} from '../../../git/models/branch.utils';
 import type { GitCommit } from '../../../git/models/commit';
 import { isStash } from '../../../git/models/commit';
-import { splitCommitMessage } from '../../../git/models/commit.utils';
 import { GitContributor } from '../../../git/models/contributor';
 import type { GitGraph, GitGraphRowType } from '../../../git/models/graph';
 import type { IssueShape } from '../../../git/models/issue';
 import type { PullRequest } from '../../../git/models/pullRequest';
-import {
-	getComparisonRefsForPullRequest,
-	getRepositoryIdentityForPullRequest,
-	serializePullRequest,
-} from '../../../git/models/pullRequest';
 import type {
 	GitBranchReference,
 	GitReference,
@@ -78,7 +63,6 @@ import type {
 	GitStashReference,
 	GitTagReference,
 } from '../../../git/models/reference';
-import { createReference, getReferenceFromBranch, isGitReference } from '../../../git/models/reference.utils';
 import { RemoteResourceType } from '../../../git/models/remoteResource';
 import type {
 	Repository,
@@ -86,21 +70,47 @@ import type {
 	RepositoryFileSystemChangeEvent,
 } from '../../../git/models/repository';
 import { isRepository, RepositoryChange, RepositoryChangeComparisonMode } from '../../../git/models/repository';
-import { getLastFetchedUpdateInterval } from '../../../git/models/repository.utils';
 import { uncommitted } from '../../../git/models/revision';
-import { isSha, shortenRevision } from '../../../git/models/revision.utils';
-import { getWorktreesByBranch } from '../../../git/models/worktree.utils';
 import type { GitSearch } from '../../../git/search';
 import { getSearchQueryComparisonKey, parseSearchQuery } from '../../../git/search';
-import { getRemoteIconUri } from '../../../git/utils/vscode/icons';
-import type { FeaturePreviewChangeEvent, SubscriptionChangeEvent } from '../../../plus/gk/account/subscriptionService';
+import { getAssociatedIssuesForBranch } from '../../../git/utils/-webview/branch.issue.utils';
+import { getDefaultBranchName, getTargetBranchName } from '../../../git/utils/-webview/branch.utils';
+import { getRemoteIconUri } from '../../../git/utils/-webview/icons';
+import { getReferenceFromBranch } from '../../../git/utils/-webview/reference.utils';
+import { getWorktreesByBranch } from '../../../git/utils/-webview/worktree.utils';
+import {
+	getBranchId,
+	getBranchNameWithoutRemote,
+	getLocalBranchByUpstream,
+	getRemoteNameFromBranchName,
+} from '../../../git/utils/branch.utils';
+import { splitCommitMessage } from '../../../git/utils/commit.utils';
+import { getLastFetchedUpdateInterval } from '../../../git/utils/fetch.utils';
+import {
+	getComparisonRefsForPullRequest,
+	getRepositoryIdentityForPullRequest,
+	serializePullRequest,
+} from '../../../git/utils/pullRequest.utils';
+import { createReference, isGitReference } from '../../../git/utils/reference.utils';
+import { isSha, shortenRevision } from '../../../git/utils/revision.utils';
+import type { FeaturePreviewChangeEvent, SubscriptionChangeEvent } from '../../../plus/gk/subscriptionService';
 import type { ConnectionStateChangeEvent } from '../../../plus/integrations/integrationService';
 import { remoteProviderIdToIntegrationId } from '../../../plus/integrations/integrationService';
 import { getPullRequestBranchDeepLink } from '../../../plus/launchpad/launchpadProvider';
 import type { AssociateIssueWithBranchCommandArgs } from '../../../plus/startWork/startWork';
 import { ReferencesQuickPickIncludes, showReferencePicker } from '../../../quickpicks/referencePicker';
 import { showRepositoryPicker } from '../../../quickpicks/repositoryPicker';
-import { gate } from '../../../system/decorators/gate';
+import {
+	executeActionCommand,
+	executeCommand,
+	executeCoreCommand,
+	registerCommand,
+} from '../../../system/-webview/command';
+import { configuration } from '../../../system/-webview/configuration';
+import { getContext, onDidChangeContext } from '../../../system/-webview/context';
+import type { OpenWorkspaceLocation } from '../../../system/-webview/utils';
+import { isDarkTheme, isLightTheme, openUrl, openWorkspace } from '../../../system/-webview/utils';
+import { gate } from '../../../system/decorators/-webview/gate';
 import { debug, log } from '../../../system/decorators/log';
 import type { Deferrable } from '../../../system/function';
 import { debounce, disposableInterval } from '../../../system/function';
@@ -112,16 +122,6 @@ import {
 	pauseOnCancelOrTimeoutMapTuplePromise,
 } from '../../../system/promise';
 import { Stopwatch } from '../../../system/stopwatch';
-import {
-	executeActionCommand,
-	executeCommand,
-	executeCoreCommand,
-	registerCommand,
-} from '../../../system/vscode/command';
-import { configuration } from '../../../system/vscode/configuration';
-import { getContext, onDidChangeContext } from '../../../system/vscode/context';
-import type { OpenWorkspaceLocation } from '../../../system/vscode/utils';
-import { isDarkTheme, isLightTheme, openUrl, openWorkspace } from '../../../system/vscode/utils';
 import { isWebviewItemContext, isWebviewItemGroupContext, serializeWebviewItemContext } from '../../../system/webview';
 import { DeepLinkActionType } from '../../../uris/deepLinks/deepLink';
 import { RepositoryFolderNode } from '../../../views/nodes/abstract/repositoryFolderNode';
@@ -3877,7 +3877,7 @@ export class GraphWebviewProvider implements WebviewProvider<State, State, Graph
 		const commit = await this.getCommitFromGraphItemRef(item);
 		if (commit == null) return;
 
-		return openOnlyChangedFiles(commit);
+		return openOnlyChangedFiles(this.container, commit);
 	}
 
 	@log()

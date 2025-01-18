@@ -8,10 +8,11 @@ import type { GitLog } from '../git/models/log';
 import type { GitReference } from '../git/models/reference';
 import type { GitTag } from '../git/models/tag';
 import type { CommandQuickPickItem } from '../quickpicks/items/common';
-import { command } from '../system/vscode/command';
-import { getScmResourceFolderUri } from '../system/vscode/scm';
-import type { CommandContext } from './base';
-import { ActiveEditorCachedCommand, getCommandUri } from './base';
+import { command } from '../system/-webview/command';
+import { getScmResourceFolderUri } from '../system/-webview/scm';
+import { ActiveEditorCachedCommand } from './commandBase';
+import { getCommandUri } from './commandBase.utils';
+import type { CommandContext } from './commandContext';
 
 export interface ShowQuickFileHistoryCommandArgs {
 	reference?: GitBranch | GitTag | GitReference;

@@ -1,17 +1,17 @@
 import { GlyphChars } from '../../constants';
 import type { Container } from '../../container';
 import { Features } from '../../features';
-import { getRemoteNameFromBranchName } from '../../git/models/branch.utils';
 import type { GitBranchReference, GitReference } from '../../git/models/reference';
-import { getReferenceLabel, isBranchReference } from '../../git/models/reference.utils';
 import type { Repository } from '../../git/models/repository';
+import { getRemoteNameFromBranchName } from '../../git/utils/branch.utils';
+import { getReferenceLabel, isBranchReference } from '../../git/utils/reference.utils';
 import { createDirectiveQuickPickItem, Directive } from '../../quickpicks/items/directive';
 import type { FlagsQuickPickItem } from '../../quickpicks/items/flags';
 import { createFlagsQuickPickItem } from '../../quickpicks/items/flags';
+import { configuration } from '../../system/-webview/configuration';
 import { isStringArray } from '../../system/array';
 import { fromNow } from '../../system/date';
 import { pad, pluralize } from '../../system/string';
-import { configuration } from '../../system/vscode/configuration';
 import type { ViewsWithRepositoryFolders } from '../../views/viewBase';
 import type {
 	AsyncStepResultGenerator,

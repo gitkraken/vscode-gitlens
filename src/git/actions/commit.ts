@@ -13,21 +13,22 @@ import { GlyphChars } from '../../constants';
 import { GlCommand } from '../../constants.commands';
 import { Container } from '../../container';
 import { showRevisionFilesPicker } from '../../quickpicks/revisionFilesPicker';
+import { executeCommand, executeCoreGitCommand, executeEditorCommand } from '../../system/-webview/command';
+import { configuration } from '../../system/-webview/configuration';
+import { findOrOpenEditor, findOrOpenEditors, openChangesEditor } from '../../system/-webview/utils';
 import { getSettledValue } from '../../system/promise';
-import { executeCommand, executeCoreGitCommand, executeEditorCommand } from '../../system/vscode/command';
-import { configuration } from '../../system/vscode/configuration';
-import { findOrOpenEditor, findOrOpenEditors, openChangesEditor } from '../../system/vscode/utils';
 import type { ShowInCommitGraphCommandArgs } from '../../webviews/plus/graph/protocol';
 import { GitUri } from '../gitUri';
 import type { GitCommit } from '../models/commit';
 import { isCommit } from '../models/commit';
 import type { GitFile } from '../models/file';
-import { GitFileChange } from '../models/file';
+import { GitFileChange } from '../models/fileChange';
 import type { GitRevisionReference } from '../models/reference';
-import { createReference, getReferenceFromRevision, getReferenceLabel } from '../models/reference.utils';
 import { deletedOrMissing } from '../models/revision';
-import { createRevisionRange, isUncommitted, isUncommittedStaged, shortenRevision } from '../models/revision.utils';
 import { getAheadBehindFilesQuery } from '../queryResults';
+import { getReferenceFromRevision } from '../utils/-webview/reference.utils';
+import { createReference, getReferenceLabel } from '../utils/reference.utils';
+import { createRevisionRange, isUncommitted, isUncommittedStaged, shortenRevision } from '../utils/revision.utils';
 
 export type Ref = { repoPath: string; ref: string };
 export type RefRange = { repoPath: string; rhs: string; lhs: string };
@@ -821,9 +822,9 @@ export async function showInCommitGraph(
 	}));
 }
 
-export async function openOnlyChangedFiles(commit: GitCommit): Promise<void>;
-export async function openOnlyChangedFiles(files: GitFile[]): Promise<void>;
-export async function openOnlyChangedFiles(commitOrFiles: GitCommit | GitFile[]): Promise<void> {
+export async function openOnlyChangedFiles(container: Container, commit: GitCommit): Promise<void>;
+export async function openOnlyChangedFiles(container: Container, files: GitFile[]): Promise<void>;
+export async function openOnlyChangedFiles(container: Container, commitOrFiles: GitCommit | GitFile[]): Promise<void> {
 	let files;
 	if (isCommit(commitOrFiles)) {
 		if (commitOrFiles.files == null) {
@@ -832,7 +833,7 @@ export async function openOnlyChangedFiles(commitOrFiles: GitCommit | GitFile[])
 
 		files = commitOrFiles.files ?? [];
 	} else {
-		files = commitOrFiles.map(f => new GitFileChange(f.repoPath!, f.path, f.status, f.originalPath));
+		files = commitOrFiles.map(f => new GitFileChange(container, f.repoPath!, f.path, f.status, f.originalPath));
 	}
 
 	if (

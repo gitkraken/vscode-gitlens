@@ -41,13 +41,12 @@ import { GitUri } from '../../../../git/gitUri';
 import { decodeRemoteHubAuthority } from '../../../../git/gitUri.authority';
 import type { GitBlame, GitBlameAuthor, GitBlameLine } from '../../../../git/models/blame';
 import type { GitBranch } from '../../../../git/models/branch';
-import { getBranchId, getBranchNameWithoutRemote } from '../../../../git/models/branch.utils';
 import type { GitCommitLine, GitStashCommit } from '../../../../git/models/commit';
 import { GitCommit, GitCommitIdentity } from '../../../../git/models/commit';
-import { getChangedFilesCount } from '../../../../git/models/commit.utils';
 import type { GitDiffFile, GitDiffFilter, GitDiffLine, GitDiffShortStat } from '../../../../git/models/diff';
 import type { GitFile } from '../../../../git/models/file';
-import { GitFileChange, GitFileIndexStatus } from '../../../../git/models/file';
+import { GitFileChange } from '../../../../git/models/fileChange';
+import { GitFileIndexStatus } from '../../../../git/models/fileStatus';
 import type {
 	GitGraph,
 	GitGraphRow,
@@ -59,14 +58,23 @@ import type {
 } from '../../../../git/models/graph';
 import type { GitLog } from '../../../../git/models/log';
 import type { GitReference } from '../../../../git/models/reference';
-import { createReference } from '../../../../git/models/reference.utils';
 import type { GitReflog } from '../../../../git/models/reflog';
 import type { GitRemote } from '../../../../git/models/remote';
-import { getVisibilityCacheKey } from '../../../../git/models/remote';
 import type { RepositoryChangeEvent } from '../../../../git/models/repository';
 import { Repository } from '../../../../git/models/repository';
 import type { GitRevisionRange } from '../../../../git/models/revision';
 import { deletedOrMissing, uncommitted } from '../../../../git/models/revision';
+import type { GitTag } from '../../../../git/models/tag';
+import type { GitTreeEntry } from '../../../../git/models/tree';
+import type { GitUser } from '../../../../git/models/user';
+import type { GitWorktree } from '../../../../git/models/worktree';
+import type { GitSearch, GitSearchResultData, GitSearchResults } from '../../../../git/search';
+import { getSearchQueryComparisonKey, parseSearchQuery } from '../../../../git/search';
+import { getRemoteIconUri } from '../../../../git/utils/-webview/icons';
+import { getBranchId, getBranchNameWithoutRemote } from '../../../../git/utils/branch.utils';
+import { getChangedFilesCount } from '../../../../git/utils/commit.utils';
+import { createReference } from '../../../../git/utils/reference.utils';
+import { getVisibilityCacheKey } from '../../../../git/utils/remote.utils';
 import {
 	createRevisionRange,
 	getRevisionRangeParts,
@@ -74,16 +82,12 @@ import {
 	isSha,
 	isShaLike,
 	isUncommitted,
-} from '../../../../git/models/revision.utils';
-import type { GitTag } from '../../../../git/models/tag';
-import { getTagId } from '../../../../git/models/tag';
-import type { GitTreeEntry } from '../../../../git/models/tree';
-import type { GitUser } from '../../../../git/models/user';
-import type { GitWorktree } from '../../../../git/models/worktree';
-import type { GitSearch, GitSearchResultData, GitSearchResults } from '../../../../git/search';
-import { getSearchQueryComparisonKey, parseSearchQuery } from '../../../../git/search';
-import { getRemoteIconUri } from '../../../../git/utils/vscode/icons';
-import { gate } from '../../../../system/decorators/gate';
+} from '../../../../git/utils/revision.utils';
+import { getTagId } from '../../../../git/utils/tag.utils';
+import { configuration } from '../../../../system/-webview/configuration';
+import { setContext } from '../../../../system/-webview/context';
+import { relative } from '../../../../system/-webview/path';
+import { gate } from '../../../../system/decorators/-webview/gate';
 import { debug, log } from '../../../../system/decorators/log';
 import { filterMap, first, last, map, some, union } from '../../../../system/iterable';
 import { Logger } from '../../../../system/logger';
@@ -91,9 +95,6 @@ import type { LogScope } from '../../../../system/logger.scope';
 import { getLogScope } from '../../../../system/logger.scope';
 import { isAbsolute, isFolderGlob, maybeUri, normalizePath } from '../../../../system/path';
 import { asSettled, getSettledValue } from '../../../../system/promise';
-import { configuration } from '../../../../system/vscode/configuration';
-import { setContext } from '../../../../system/vscode/context';
-import { relative } from '../../../../system/vscode/path';
 import { serializeWebviewItemContext } from '../../../../system/webview';
 import type { CachedBlame, CachedLog, TrackedGitDocument } from '../../../../trackers/trackedDocument';
 import { GitDocumentState } from '../../../../trackers/trackedDocument';
@@ -596,7 +597,7 @@ export class GitHubGitProvider implements GitProvider, Disposable {
 						c.message.split('\n', 1)[0],
 						c.parents.nodes[0]?.oid ? [c.parents.nodes[0]?.oid] : [],
 						c.message,
-						new GitFileChange(root.toString(), relativePath, GitFileIndexStatus.Modified),
+						new GitFileChange(this.container, root.toString(), relativePath, GitFileIndexStatus.Modified),
 						{ files: c.changedFiles ?? 0, additions: c.additions ?? 0, deletions: c.deletions ?? 0 },
 						[],
 					);
@@ -721,7 +722,7 @@ export class GitHubGitProvider implements GitProvider, Disposable {
 				c.message.split('\n', 1)[0],
 				c.parents.nodes[0]?.oid ? [c.parents.nodes[0]?.oid] : [],
 				c.message,
-				new GitFileChange(root.toString(), relativePath, GitFileIndexStatus.Modified),
+				new GitFileChange(this.container, root.toString(), relativePath, GitFileIndexStatus.Modified),
 				{ files: c.changedFiles ?? 0, additions: c.additions ?? 0, deletions: c.deletions ?? 0 },
 				[],
 			);
@@ -875,6 +876,7 @@ export class GitHubGitProvider implements GitProvider, Disposable {
 				commit.files?.map(
 					f =>
 						new GitFileChange(
+							this.container,
 							repoPath,
 							f.filename ?? '',
 							fromCommitFileStatus(f.status) ?? GitFileIndexStatus.Modified,
@@ -953,6 +955,7 @@ export class GitHubGitProvider implements GitProvider, Disposable {
 			const files = commit.files?.map(
 				f =>
 					new GitFileChange(
+						this.container,
 						repoPath,
 						f.filename ?? '',
 						fromCommitFileStatus(f.status) ?? GitFileIndexStatus.Modified,
@@ -1564,6 +1567,7 @@ export class GitHubGitProvider implements GitProvider, Disposable {
 			return files?.map(
 				f =>
 					new GitFileChange(
+						this.container,
 						repoPath,
 						f.filename ?? '',
 						fromCommitFileStatus(f.status) ?? GitFileIndexStatus.Modified,
@@ -1665,6 +1669,7 @@ export class GitHubGitProvider implements GitProvider, Disposable {
 						commit.files?.map(
 							f =>
 								new GitFileChange(
+									this.container,
 									repoPath,
 									f.filename ?? '',
 									fromCommitFileStatus(f.status) ?? GitFileIndexStatus.Modified,
@@ -2031,6 +2036,7 @@ export class GitHubGitProvider implements GitProvider, Disposable {
 					const files = commit.files?.map(
 						f =>
 							new GitFileChange(
+								this.container,
 								repoPath,
 								f.filename ?? '',
 								fromCommitFileStatus(f.status) ?? GitFileIndexStatus.Modified,
@@ -2043,6 +2049,7 @@ export class GitHubGitProvider implements GitProvider, Disposable {
 						? undefined
 						: files?.find(f => f.path === relativePath) ??
 						  new GitFileChange(
+								this.container,
 								repoPath,
 								relativePath,
 								GitFileIndexStatus.Modified,
@@ -2647,6 +2654,7 @@ export class GitHubGitProvider implements GitProvider, Disposable {
 						commit.files?.map(
 							f =>
 								new GitFileChange(
+									this.container,
 									repoPath,
 									f.filename ?? '',
 									fromCommitFileStatus(f.status) ?? GitFileIndexStatus.Modified,

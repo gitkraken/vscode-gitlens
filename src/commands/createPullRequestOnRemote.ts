@@ -1,14 +1,14 @@
 import { window } from 'vscode';
 import { GlCommand } from '../constants.commands';
 import type { Container } from '../container';
-import { getRemoteNameFromBranchName } from '../git/models/branch.utils';
 import type { GitRemote } from '../git/models/remote';
 import type { RemoteResource } from '../git/models/remoteResource';
 import { RemoteResourceType } from '../git/models/remoteResource';
 import type { RemoteProvider } from '../git/remotes/remoteProvider';
+import { getRemoteNameFromBranchName } from '../git/utils/branch.utils';
 import { getRepositoryOrShowPicker } from '../quickpicks/repositoryPicker';
-import { command, executeCommand } from '../system/vscode/command';
-import { GlCommandBase } from './base';
+import { command, executeCommand } from '../system/-webview/command';
+import { GlCommandBase } from './commandBase';
 import type { OpenOnRemoteCommandArgs } from './openOnRemote';
 
 export interface CreatePullRequestOnRemoteCommandArgs {

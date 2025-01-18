@@ -5,6 +5,8 @@ import type { Commands } from '../constants.commands';
 import type { WebviewTelemetryContext } from '../constants.telemetry';
 import type { CustomEditorTypes, WebviewIds, WebviewTypes, WebviewViewIds, WebviewViewTypes } from '../constants.views';
 import type { Container } from '../container';
+import { executeCommand, executeCoreCommand } from '../system/-webview/command';
+import { setContext } from '../system/-webview/context';
 import { getScopedCounter } from '../system/counter';
 import { debug, logName } from '../system/decorators/log';
 import { serialize } from '../system/decorators/serialize';
@@ -12,8 +14,6 @@ import { getLoggableName, Logger } from '../system/logger';
 import { getLogScope, getNewLogScope, setLogScopeExit } from '../system/logger.scope';
 import { pauseOnCancelOrTimeout } from '../system/promise';
 import { maybeStopWatch, Stopwatch } from '../system/stopwatch';
-import { executeCommand, executeCoreCommand } from '../system/vscode/command';
-import { setContext } from '../system/vscode/context';
 import type { WebviewContext } from '../system/webview';
 import type {
 	IpcCallMessageType,

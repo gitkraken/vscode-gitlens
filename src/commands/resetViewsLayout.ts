@@ -2,8 +2,8 @@ import { GlCommand } from '../constants.commands';
 import type { ViewIds } from '../constants.views';
 import { viewIdsByDefaultContainerId } from '../constants.views';
 import type { Container } from '../container';
-import { command, executeCoreCommand } from '../system/vscode/command';
-import { GlCommandBase } from './base';
+import { command, executeCoreCommand } from '../system/-webview/command';
+import { GlCommandBase } from './commandBase';
 
 @command()
 export class ResetViewsLayoutCommand extends GlCommandBase {

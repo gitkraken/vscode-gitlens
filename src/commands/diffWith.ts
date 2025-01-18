@@ -6,14 +6,14 @@ import type { Container } from '../container';
 import type { GitCommit } from '../git/models/commit';
 import { isCommit } from '../git/models/commit';
 import { deletedOrMissing } from '../git/models/revision';
-import { isShaLike, isUncommitted, shortenRevision } from '../git/models/revision.utils';
+import { isShaLike, isUncommitted, shortenRevision } from '../git/utils/revision.utils';
 import { showGenericErrorMessage } from '../messages';
+import { command } from '../system/-webview/command';
+import { openDiffEditor } from '../system/-webview/utils';
 import { createMarkdownCommandLink } from '../system/commands';
 import { Logger } from '../system/logger';
 import { basename } from '../system/path';
-import { command } from '../system/vscode/command';
-import { openDiffEditor } from '../system/vscode/utils';
-import { GlCommandBase } from './base';
+import { GlCommandBase } from './commandBase';
 
 export interface DiffWithCommandArgsRevision {
 	sha: string;

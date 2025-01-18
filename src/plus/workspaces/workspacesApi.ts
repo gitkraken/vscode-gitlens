@@ -3,11 +3,12 @@ import type { Container } from '../../container';
 import { log } from '../../system/decorators/log';
 import { Logger } from '../../system/logger';
 import type { GraphQLRequest, ServerConnection } from '../gk/serverConnection';
+import type { CloudWorkspaceData } from './models/cloudWorkspace';
+import { CloudWorkspaceProviderInputType } from './models/cloudWorkspace';
 import type {
 	AddRepositoriesToWorkspaceResponse,
 	AddWorkspaceRepoDescriptor,
 	CloudWorkspaceConnection,
-	CloudWorkspaceData,
 	CreateWorkspaceResponse,
 	DeleteWorkspaceResponse,
 	RemoveRepositoriesFromWorkspaceResponse,
@@ -15,8 +16,8 @@ import type {
 	WorkspaceRepositoriesResponse,
 	WorkspaceResponse,
 	WorkspacesResponse,
-} from './models';
-import { CloudWorkspaceProviderInputType, defaultWorkspaceCount, defaultWorkspaceRepoCount } from './models';
+} from './models/workspaces';
+import { defaultWorkspaceCount, defaultWorkspaceRepoCount } from './models/workspaces';
 
 export class WorkspacesApi {
 	constructor(

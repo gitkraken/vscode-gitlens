@@ -3,11 +3,11 @@ import { MarkdownString, ThemeIcon, TreeItem, TreeItemCollapsibleState } from 'v
 import { CommitFormatter } from '../../git/formatters/commitFormatter';
 import type { GitStashCommit } from '../../git/models/commit';
 import type { GitStashReference } from '../../git/models/reference';
+import { configuration } from '../../system/-webview/configuration';
 import { makeHierarchical } from '../../system/array';
 import { joinPaths, normalizePath } from '../../system/path';
 import { getSettledValue, pauseOnCancelOrTimeoutMapTuplePromise } from '../../system/promise';
 import { sortCompare } from '../../system/string';
-import { configuration } from '../../system/vscode/configuration';
 import type { ViewsWithStashes } from '../viewBase';
 import type { ViewNode } from './abstract/viewNode';
 import { ContextValues, getViewNodeId } from './abstract/viewNode';

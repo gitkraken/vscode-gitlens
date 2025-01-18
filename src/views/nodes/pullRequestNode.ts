@@ -3,16 +3,13 @@ import { GitUri } from '../../git/gitUri';
 import { GitBranch } from '../../git/models/branch';
 import type { GitCommit } from '../../git/models/commit';
 import type { PullRequest } from '../../git/models/pullRequest';
-import {
-	ensurePullRequestRefs,
-	getComparisonRefsForPullRequest,
-	getOrOpenPullRequestRepository,
-} from '../../git/models/pullRequest';
 import type { GitBranchReference } from '../../git/models/reference';
 import type { Repository } from '../../git/models/repository';
-import { createRevisionRange } from '../../git/models/revision.utils';
 import { getAheadBehindFilesQuery, getCommitsQuery } from '../../git/queryResults';
-import { getIssueOrPullRequestMarkdownIcon, getIssueOrPullRequestThemeIcon } from '../../git/utils/vscode/icons';
+import { getIssueOrPullRequestMarkdownIcon, getIssueOrPullRequestThemeIcon } from '../../git/utils/-webview/icons';
+import { ensurePullRequestRefs, getOrOpenPullRequestRepository } from '../../git/utils/-webview/pullRequest.utils';
+import { getComparisonRefsForPullRequest } from '../../git/utils/pullRequest.utils';
+import { createRevisionRange } from '../../git/utils/revision.utils';
 import { pluralize } from '../../system/string';
 import type { ViewsWithCommits } from '../viewBase';
 import { CacheableChildrenViewNode } from './abstract/cacheableChildrenViewNode';

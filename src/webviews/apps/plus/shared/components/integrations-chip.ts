@@ -7,7 +7,7 @@ import type {
 } from '../../../../../commands/cloudIntegrations';
 import type { IntegrationFeatures } from '../../../../../constants.integrations';
 import type { Source } from '../../../../../constants.telemetry';
-import { hasAccountFromSubscriptionState } from '../../../../../plus/gk/account/subscription';
+import { hasAccountFromSubscriptionState } from '../../../../../plus/gk/utils/subscription.utils';
 import { createCommandLink } from '../../../../../system/commands';
 import type { IntegrationState, State } from '../../../../home/protocol';
 import { stateContext } from '../../../home/context';

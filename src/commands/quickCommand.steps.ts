@@ -18,10 +18,23 @@ import type { GitBranch } from '../git/models/branch';
 import type { GitCommit, GitStashCommit } from '../git/models/commit';
 import { isCommit, isStash } from '../git/models/commit';
 import type { GitContributor } from '../git/models/contributor';
-import type { ContributorQuickPickItem } from '../git/models/contributor.quickpick';
-import { createContributorQuickPickItem } from '../git/models/contributor.quickpick';
 import type { GitLog } from '../git/models/log';
 import type { GitBranchReference, GitReference, GitRevisionReference, GitTagReference } from '../git/models/reference';
+import type { GitRemote } from '../git/models/remote';
+import { RemoteResourceType } from '../git/models/remoteResource';
+import { Repository } from '../git/models/repository';
+import type { GitStash } from '../git/models/stash';
+import type { GitStatus } from '../git/models/status';
+import type { GitTag } from '../git/models/tag';
+import type { GitWorktree } from '../git/models/worktree';
+import { remoteUrlRegex } from '../git/parsers/remoteParser';
+import type { ContributorQuickPickItem } from '../git/utils/-webview/contributor.quickpick';
+import { createContributorQuickPickItem } from '../git/utils/-webview/contributor.quickpick';
+import type { BranchSortOptions, TagSortOptions } from '../git/utils/-webview/sorting';
+import { sortBranches, sortContributors, sortTags, sortWorktrees } from '../git/utils/-webview/sorting';
+import type { WorktreeQuickPickItem } from '../git/utils/-webview/worktree.quickpick';
+import { createWorktreeQuickPickItem } from '../git/utils/-webview/worktree.quickpick';
+import { getWorktreesByBranch } from '../git/utils/-webview/worktree.utils';
 import {
 	createReference,
 	getReferenceLabel,
@@ -29,24 +42,11 @@ import {
 	isRevisionReference,
 	isStashReference,
 	isTagReference,
-} from '../git/models/reference.utils';
-import type { GitRemote } from '../git/models/remote';
-import { getHighlanderProviderName } from '../git/models/remote';
-import { RemoteResourceType } from '../git/models/remoteResource';
-import { Repository } from '../git/models/repository';
-import { createRevisionRange, isRevisionRange } from '../git/models/revision.utils';
-import type { GitStash } from '../git/models/stash';
-import type { GitStatus } from '../git/models/status';
-import type { GitTag } from '../git/models/tag';
-import type { GitWorktree } from '../git/models/worktree';
-import type { WorktreeQuickPickItem } from '../git/models/worktree.quickpick';
-import { createWorktreeQuickPickItem } from '../git/models/worktree.quickpick';
-import { getWorktreesByBranch } from '../git/models/worktree.utils';
-import { remoteUrlRegex } from '../git/parsers/remoteParser';
-import type { BranchSortOptions, TagSortOptions } from '../git/utils/vscode/sorting';
-import { sortBranches, sortContributors, sortTags, sortWorktrees } from '../git/utils/vscode/sorting';
-import { getApplicablePromo } from '../plus/gk/account/promos';
-import { isSubscriptionPaidPlan, isSubscriptionPreviewTrialExpired } from '../plus/gk/account/subscription';
+} from '../git/utils/reference.utils';
+import { getHighlanderProviderName } from '../git/utils/remote.utils';
+import { createRevisionRange, isRevisionRange } from '../git/utils/revision.utils';
+import { getApplicablePromo } from '../plus/gk/utils/promo.utils';
+import { isSubscriptionPaidPlan, isSubscriptionPreviewTrialExpired } from '../plus/gk/utils/subscription.utils';
 import type { LaunchpadCommandArgs } from '../plus/launchpad/launchpad';
 import {
 	CommitApplyFileChangesCommandQuickPickItem,
@@ -101,17 +101,17 @@ import {
 	CopyRemoteResourceCommandQuickPickItem,
 	OpenRemoteResourceCommandQuickPickItem,
 } from '../quickpicks/remoteProviderPicker';
+import { executeCommand } from '../system/-webview/command';
+import { configuration } from '../system/-webview/configuration';
+import { formatPath } from '../system/-webview/formatPath';
+import { openWorkspace } from '../system/-webview/utils';
+import { getIconPathUris } from '../system/-webview/vscode';
 import { filterMap, intersection, isStringArray } from '../system/array';
 import { debounce } from '../system/function';
 import { first, map } from '../system/iterable';
 import { Logger } from '../system/logger';
 import { getSettledValue } from '../system/promise';
 import { pad, pluralize, truncate } from '../system/string';
-import { executeCommand } from '../system/vscode/command';
-import { configuration } from '../system/vscode/configuration';
-import { formatPath } from '../system/vscode/formatPath';
-import { openWorkspace } from '../system/vscode/utils';
-import { getIconPathUris } from '../system/vscode/vscode';
 import type { ViewsWithRepositoryFolders } from '../views/viewBase';
 import type {
 	AsyncStepResultGenerator,

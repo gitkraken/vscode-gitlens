@@ -4,10 +4,11 @@ import { getLines } from '../../system/string';
 import type { GitBlame, GitBlameAuthor } from '../models/blame';
 import type { GitCommitLine } from '../models/commit';
 import { GitCommit, GitCommitIdentity } from '../models/commit';
-import { GitFileChange, GitFileIndexStatus } from '../models/file';
+import { GitFileChange } from '../models/fileChange';
+import { GitFileIndexStatus } from '../models/fileStatus';
 import { uncommitted } from '../models/revision';
-import { isUncommitted } from '../models/revision.utils';
 import type { GitUser } from '../models/user';
+import { isUncommitted } from '../utils/revision.utils';
 
 interface BlameEntry {
 	sha: string;
@@ -238,6 +239,7 @@ function parseBlameEntry(
 			[],
 			undefined,
 			new GitFileChange(
+				container,
 				repoPath,
 				entry.path,
 				GitFileIndexStatus.Modified,

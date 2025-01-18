@@ -3,9 +3,9 @@ import { urls } from '../constants';
 import { GlCommand } from '../constants.commands';
 import type { Source, Sources } from '../constants.telemetry';
 import type { Container } from '../container';
-import { command, executeCommand } from '../system/vscode/command';
-import { openUrl, openWalkthrough as openWalkthroughCore } from '../system/vscode/utils';
-import { GlCommandBase } from './base';
+import { command, executeCommand } from '../system/-webview/command';
+import { openUrl, openWalkthrough as openWalkthroughCore } from '../system/-webview/utils';
+import { GlCommandBase } from './commandBase';
 
 @command()
 export class GetStartedCommand extends GlCommandBase {

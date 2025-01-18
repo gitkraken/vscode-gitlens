@@ -12,10 +12,10 @@ import type { GitDiffHunk, GitDiffLine } from '../git/models/diff';
 import type { PullRequest } from '../git/models/pullRequest';
 import type { GitRemote } from '../git/models/remote';
 import { uncommittedStaged } from '../git/models/revision';
-import { isUncommittedStaged, shortenRevision } from '../git/models/revision.utils';
 import type { RemoteProvider } from '../git/remotes/remoteProvider';
+import { isUncommittedStaged, shortenRevision } from '../git/utils/revision.utils';
+import { configuration } from '../system/-webview/configuration';
 import { getSettledValue, pauseOnCancelOrTimeout, pauseOnCancelOrTimeoutMapTuplePromise } from '../system/promise';
-import { configuration } from '../system/vscode/configuration';
 
 export async function changesMessage(
 	container: Container,

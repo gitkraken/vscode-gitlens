@@ -3,14 +3,14 @@ import { escapeMarkdown } from '../../system/markdown';
 import { basename } from '../../system/path';
 import type { TokenOptions } from '../../system/string';
 import type { GitFile, GitFileWithCommit } from '../models/file';
+import { isGitFileChange } from '../models/fileChange';
 import {
 	getGitFileFormattedDirectory,
 	getGitFileFormattedPath,
 	getGitFileOriginalRelativePath,
 	getGitFileRelativePath,
-	getGitFileStatusText,
-	isGitFileChange,
-} from '../models/file';
+} from '../utils/-webview/file.utils';
+import { getGitFileStatusText } from '../utils/fileStatus.utils';
 import type { FormatOptions } from './formatter';
 import { Formatter } from './formatter';
 

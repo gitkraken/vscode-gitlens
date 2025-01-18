@@ -2,13 +2,14 @@ import type { TextEditor, Uri } from 'vscode';
 import { GlCommand } from '../constants.commands';
 import type { Container } from '../container';
 import { GitUri } from '../git/gitUri';
-import { getBranchNameWithoutRemote, getRemoteNameFromBranchName } from '../git/models/branch.utils';
 import { RemoteResourceType } from '../git/models/remoteResource';
+import { getBranchNameWithoutRemote, getRemoteNameFromBranchName } from '../git/utils/branch.utils';
 import { showGenericErrorMessage } from '../messages';
 import { getBestRepositoryOrShowPicker } from '../quickpicks/repositoryPicker';
+import { command, executeCommand } from '../system/-webview/command';
 import { Logger } from '../system/logger';
-import { command, executeCommand } from '../system/vscode/command';
-import { ActiveEditorCommand, getCommandUri } from './base';
+import { ActiveEditorCommand } from './commandBase';
+import { getCommandUri } from './commandBase.utils';
 import type { OpenOnRemoteCommandArgs } from './openOnRemote';
 
 @command()

@@ -3,7 +3,6 @@ import { EventEmitter, ProgressLocation, window } from 'vscode';
 import type { RepositoriesViewConfig, ViewBranchesLayout, ViewFilesLayout } from '../config';
 import { GlCommand } from '../constants.commands';
 import type { Container } from '../container';
-import { getRemoteNameFromBranchName } from '../git/models/branch.utils';
 import type { GitCommit } from '../git/models/commit';
 import { isCommit } from '../git/models/commit';
 import type { GitContributor } from '../git/models/contributor';
@@ -13,13 +12,14 @@ import type {
 	GitStashReference,
 	GitTagReference,
 } from '../git/models/reference';
-import { getReferenceLabel } from '../git/models/reference.utils';
 import type { GitRemote } from '../git/models/remote';
 import type { GitWorktree } from '../git/models/worktree';
-import { gate } from '../system/decorators/gate';
-import { executeCommand } from '../system/vscode/command';
-import { configuration } from '../system/vscode/configuration';
-import { setContext } from '../system/vscode/context';
+import { getRemoteNameFromBranchName } from '../git/utils/branch.utils';
+import { getReferenceLabel } from '../git/utils/reference.utils';
+import { executeCommand } from '../system/-webview/command';
+import { configuration } from '../system/-webview/configuration';
+import { setContext } from '../system/-webview/context';
+import { gate } from '../system/decorators/-webview/gate';
 import { BranchesNode } from './nodes/branchesNode';
 import { BranchNode } from './nodes/branchNode';
 import { BranchOrTagFolderNode } from './nodes/branchOrTagFolderNode';

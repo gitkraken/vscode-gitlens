@@ -5,7 +5,7 @@ import { GlCommand } from '../../constants.commands';
 import { StatusFileFormatter } from '../../git/formatters/statusFormatter';
 import { GitUri } from '../../git/gitUri';
 import type { GitFile } from '../../git/models/file';
-import { getGitFileStatusIcon } from '../../git/models/file';
+import { getGitFileStatusIcon } from '../../git/utils/fileStatus.utils';
 import { dirname, joinPaths } from '../../system/path';
 import type { ViewsWithCommits } from '../viewBase';
 import { getFileTooltipMarkdown, ViewFileNode } from './abstract/viewFileNode';

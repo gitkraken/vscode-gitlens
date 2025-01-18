@@ -4,7 +4,7 @@ import { GitUri } from '../../git/gitUri';
 import type { GitFile } from '../../git/models/file';
 import type { FilesQueryResults } from '../../git/queryResults';
 import { makeHierarchical } from '../../system/array';
-import { gate } from '../../system/decorators/gate';
+import { gate } from '../../system/decorators/-webview/gate';
 import { debug } from '../../system/decorators/log';
 import { map } from '../../system/iterable';
 import { joinPaths, normalizePath } from '../../system/path';

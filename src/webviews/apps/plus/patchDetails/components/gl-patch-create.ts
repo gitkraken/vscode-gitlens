@@ -5,11 +5,11 @@ import { map } from 'lit/directives/map.js';
 import { repeat } from 'lit/directives/repeat.js';
 import { when } from 'lit/directives/when.js';
 import { urls } from '../../../../../constants';
-import type { GitFileChangeShape } from '../../../../../git/models/file';
-import type { DraftRole, DraftVisibility } from '../../../../../gk/models/drafts';
+import type { GitFileChangeShape } from '../../../../../git/models/fileChange';
+import type { DraftRole, DraftVisibility } from '../../../../../plus/drafts/models/drafts';
+import type { Serialized } from '../../../../../system/-webview/serialize';
 import { debounce } from '../../../../../system/function';
 import { flatCount } from '../../../../../system/iterable';
-import type { Serialized } from '../../../../../system/vscode/serialize';
 import type {
 	Change,
 	DraftUserSelection,

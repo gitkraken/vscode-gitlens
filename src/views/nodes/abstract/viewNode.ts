@@ -12,20 +12,22 @@ import type { GitRemote } from '../../../git/models/remote';
 import type { Repository } from '../../../git/models/repository';
 import type { GitTag } from '../../../git/models/tag';
 import type { GitWorktree } from '../../../git/models/worktree';
-import type { Draft } from '../../../gk/models/drafts';
+import type { Draft } from '../../../plus/drafts/models/drafts';
 import type { LaunchpadItem } from '../../../plus/launchpad/launchpadProvider';
-import type { LaunchpadGroup } from '../../../plus/launchpad/models';
+import type { LaunchpadGroup } from '../../../plus/launchpad/models/launchpad';
 import {
 	launchpadCategoryToGroupMap,
 	sharedCategoryToLaunchpadActionCategoryMap,
-} from '../../../plus/launchpad/models';
+} from '../../../plus/launchpad/models/launchpad';
 import type {
 	CloudWorkspace,
 	CloudWorkspaceRepositoryDescriptor,
+} from '../../../plus/workspaces/models/cloudWorkspace';
+import type {
 	LocalWorkspace,
 	LocalWorkspaceRepositoryDescriptor,
-} from '../../../plus/workspaces/models';
-import { gate } from '../../../system/decorators/gate';
+} from '../../../plus/workspaces/models/localWorkspace';
+import { gate } from '../../../system/decorators/-webview/gate';
 import { debug, logName } from '../../../system/decorators/log';
 import { is as isA } from '../../../system/function';
 import { getLoggableName } from '../../../system/logger';

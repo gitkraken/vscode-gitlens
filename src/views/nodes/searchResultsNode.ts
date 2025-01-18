@@ -7,7 +7,7 @@ import { GitUri } from '../../git/gitUri';
 import type { GitLog } from '../../git/models/log';
 import type { CommitsQueryResults } from '../../git/queryResults';
 import { getSearchQueryComparisonKey, getStoredSearchQuery } from '../../git/search';
-import { gate } from '../../system/decorators/gate';
+import { gate } from '../../system/decorators/-webview/gate';
 import { debug } from '../../system/decorators/log';
 import { pluralize } from '../../system/string';
 import type { SearchAndCompareView } from '../searchAndCompareView';

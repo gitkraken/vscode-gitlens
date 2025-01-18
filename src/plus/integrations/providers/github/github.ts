@@ -19,24 +19,26 @@ import {
 import type { PagedResult, RepositoryVisibility } from '../../../../git/gitProvider';
 import type { Account, UnidentifiedAuthor } from '../../../../git/models/author';
 import type { DefaultBranch } from '../../../../git/models/defaultBranch';
-import type { Issue, IssueOrPullRequest, SearchedIssue } from '../../../../git/models/issue';
+import type { Issue, SearchedIssue } from '../../../../git/models/issue';
+import type { IssueOrPullRequest } from '../../../../git/models/issueOrPullRequest';
 import type { PullRequest, SearchedPullRequest } from '../../../../git/models/pullRequest';
 import { PullRequestMergeMethod } from '../../../../git/models/pullRequest';
 import type { Provider } from '../../../../git/models/remoteProvider';
 import type { RepositoryMetadata } from '../../../../git/models/repositoryMetadata';
 import type { GitRevisionRange } from '../../../../git/models/revision';
+import type { GitUser } from '../../../../git/models/user';
+import { getGitHubNoReplyAddressParts } from '../../../../git/remotes/github';
 import {
 	createRevisionRange,
 	getRevisionRangeParts,
 	isRevisionRange,
 	isSha,
-} from '../../../../git/models/revision.utils';
-import type { GitUser } from '../../../../git/models/user';
-import { getGitHubNoReplyAddressParts } from '../../../../git/remotes/github';
+} from '../../../../git/utils/revision.utils';
 import {
 	showIntegrationRequestFailed500WarningMessage,
 	showIntegrationRequestTimedOutWarningMessage,
 } from '../../../../messages';
+import { configuration } from '../../../../system/-webview/configuration';
 import { debug } from '../../../../system/decorators/log';
 import { uniqueBy } from '../../../../system/iterable';
 import { Logger } from '../../../../system/logger';
@@ -46,7 +48,6 @@ import { maybeStopWatch } from '../../../../system/stopwatch';
 import { base64 } from '../../../../system/string';
 import type { Version } from '../../../../system/version';
 import { fromString, satisfies } from '../../../../system/version';
-import { configuration } from '../../../../system/vscode/configuration';
 import type {
 	GitHubBlame,
 	GitHubBlameRange,

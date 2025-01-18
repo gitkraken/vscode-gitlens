@@ -11,8 +11,8 @@ import {
 import type { Source } from '../../../../../constants.telemetry';
 import type { FeaturePreview } from '../../../../../features';
 import { getFeaturePreviewStatus } from '../../../../../features';
-import type { Promo } from '../../../../../plus/gk/account/promos';
-import { getApplicablePromo } from '../../../../../plus/gk/account/promos';
+import type { Promo } from '../../../../../plus/gk/models/promo';
+import { getApplicablePromo } from '../../../../../plus/gk/utils/promo.utils';
 import { pluralize } from '../../../../../system/string';
 import type { GlButton } from '../../../shared/components/button';
 import { linkStyles } from './vscode.css';

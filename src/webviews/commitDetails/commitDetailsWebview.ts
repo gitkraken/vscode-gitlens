@@ -27,25 +27,37 @@ import { CommitFormatter } from '../../git/formatters/commitFormatter';
 import type { GitBranch } from '../../git/models/branch';
 import type { GitCommit } from '../../git/models/commit';
 import { isCommit, isStash } from '../../git/models/commit';
-import type { GitFileChange, GitFileChangeShape } from '../../git/models/file';
-import type { IssueOrPullRequest } from '../../git/models/issue';
-import { serializeIssueOrPullRequest } from '../../git/models/issue';
+import type { GitFileChange, GitFileChangeShape } from '../../git/models/fileChange';
+import type { IssueOrPullRequest } from '../../git/models/issueOrPullRequest';
 import type { PullRequest } from '../../git/models/pullRequest';
-import { getComparisonRefsForPullRequest, serializePullRequest } from '../../git/models/pullRequest';
 import type { GitRevisionReference } from '../../git/models/reference';
-import { createReference, getReferenceFromRevision } from '../../git/models/reference.utils';
 import type { GitRemote } from '../../git/models/remote';
 import type { Repository } from '../../git/models/repository';
 import { RepositoryChange, RepositoryChangeComparisonMode } from '../../git/models/repository';
 import { uncommitted, uncommittedStaged } from '../../git/models/revision';
-import { shortenRevision } from '../../git/models/revision.utils';
-import type { CreateDraftChange, Draft, DraftVisibility } from '../../gk/models/drafts';
+import { getReferenceFromRevision } from '../../git/utils/-webview/reference.utils';
+import { serializeIssueOrPullRequest } from '../../git/utils/issueOrPullRequest.utils';
+import { getComparisonRefsForPullRequest, serializePullRequest } from '../../git/utils/pullRequest.utils';
+import { createReference } from '../../git/utils/reference.utils';
+import { shortenRevision } from '../../git/utils/revision.utils';
 import { showPatchesView } from '../../plus/drafts/actions';
-import type { Subscription } from '../../plus/gk/account/subscription';
-import type { SubscriptionChangeEvent } from '../../plus/gk/account/subscriptionService';
+import type { CreateDraftChange, Draft, DraftVisibility } from '../../plus/drafts/models/drafts';
+import { confirmDraftStorage } from '../../plus/drafts/utils/-webview/drafts.utils';
+import type { Subscription } from '../../plus/gk/models/subscription';
+import type { SubscriptionChangeEvent } from '../../plus/gk/subscriptionService';
+import { ensureAccount } from '../../plus/gk/utils/-webview/acount.utils';
 import type { ConnectionStateChangeEvent } from '../../plus/integrations/integrationService';
 import { getEntityIdentifierInput } from '../../plus/integrations/providers/utils';
-import { confirmDraftStorage, ensureAccount } from '../../plus/utils';
+import {
+	executeCommand,
+	executeCoreCommand,
+	executeCoreGitCommand,
+	registerCommand,
+} from '../../system/-webview/command';
+import { configuration } from '../../system/-webview/configuration';
+import { getContext, onDidChangeContext } from '../../system/-webview/context';
+import type { Serialized } from '../../system/-webview/serialize';
+import { serialize } from '../../system/-webview/serialize';
 import { debug } from '../../system/decorators/log';
 import type { Deferrable } from '../../system/function';
 import { debounce } from '../../system/function';
@@ -54,16 +66,6 @@ import { Logger } from '../../system/logger';
 import { getLogScope } from '../../system/logger.scope';
 import { MRU } from '../../system/mru';
 import { getSettledValue, pauseOnCancelOrTimeoutMapTuplePromise } from '../../system/promise';
-import {
-	executeCommand,
-	executeCoreCommand,
-	executeCoreGitCommand,
-	registerCommand,
-} from '../../system/vscode/command';
-import { configuration } from '../../system/vscode/configuration';
-import { getContext, onDidChangeContext } from '../../system/vscode/context';
-import type { Serialized } from '../../system/vscode/serialize';
-import { serialize } from '../../system/vscode/serialize';
 import type { LinesChangeEvent } from '../../trackers/lineTracker';
 import type { ShowInCommitGraphCommandArgs } from '../plus/graph/protocol';
 import type { Change } from '../plus/patchDetails/protocol';

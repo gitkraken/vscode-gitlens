@@ -1,11 +1,11 @@
 import { window } from 'vscode';
 import { GlCommand } from '../constants.commands';
 import type { Container } from '../container';
-import { command, executeCoreCommand } from '../system/vscode/command';
+import { command, executeCoreCommand } from '../system/-webview/command';
 import type { HomeWebviewShowingArgs } from '../webviews/home/registration';
 import type { GraphWebviewShowingArgs } from '../webviews/plus/graph/registration';
-import type { CommandContext } from './base';
-import { GlCommandBase } from './base';
+import { GlCommandBase } from './commandBase';
+import type { CommandContext } from './commandContext';
 
 @command()
 export class ShowViewCommand extends GlCommandBase {

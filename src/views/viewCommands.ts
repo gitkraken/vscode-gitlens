@@ -22,26 +22,21 @@ import * as StashActions from '../git/actions/stash';
 import * as TagActions from '../git/actions/tag';
 import * as WorktreeActions from '../git/actions/worktree';
 import { GitUri } from '../git/gitUri';
-import { matchContributor } from '../git/models/contributor';
-import {
-	ensurePullRequestRefs,
-	getComparisonRefsForPullRequest,
-	getOpenedPullRequestRepo,
-	getOrOpenPullRequestRepository,
-	getRepositoryIdentityForPullRequest,
-} from '../git/models/pullRequest';
-import { createReference } from '../git/models/reference.utils';
 import { RemoteResourceType } from '../git/models/remoteResource';
 import { deletedOrMissing } from '../git/models/revision';
-import { shortenRevision } from '../git/models/revision.utils';
+import {
+	ensurePullRequestRefs,
+	getOpenedPullRequestRepo,
+	getOrOpenPullRequestRepository,
+} from '../git/utils/-webview/pullRequest.utils';
+import { matchContributor } from '../git/utils/contributor.utils';
+import { getComparisonRefsForPullRequest, getRepositoryIdentityForPullRequest } from '../git/utils/pullRequest.utils';
+import { createReference } from '../git/utils/reference.utils';
+import { shortenRevision } from '../git/utils/revision.utils';
 import { showPatchesView } from '../plus/drafts/actions';
 import { getPullRequestBranchDeepLink } from '../plus/launchpad/launchpadProvider';
 import type { AssociateIssueWithBranchCommandArgs } from '../plus/startWork/startWork';
 import { showContributorsPicker } from '../quickpicks/contributorsPicker';
-import { filterMap } from '../system/array';
-import { log } from '../system/decorators/log';
-import { partial, sequentialize } from '../system/function';
-import { join, map } from '../system/iterable';
 import {
 	executeActionCommand,
 	executeCommand,
@@ -49,11 +44,15 @@ import {
 	executeCoreGitCommand,
 	executeEditorCommand,
 	registerCommand,
-} from '../system/vscode/command';
-import { configuration } from '../system/vscode/configuration';
-import { setContext } from '../system/vscode/context';
-import type { OpenWorkspaceLocation } from '../system/vscode/utils';
-import { openUrl, openWorkspace, revealInFileExplorer } from '../system/vscode/utils';
+} from '../system/-webview/command';
+import { configuration } from '../system/-webview/configuration';
+import { setContext } from '../system/-webview/context';
+import type { OpenWorkspaceLocation } from '../system/-webview/utils';
+import { openUrl, openWorkspace, revealInFileExplorer } from '../system/-webview/utils';
+import { filterMap } from '../system/array';
+import { log } from '../system/decorators/log';
+import { partial, sequentialize } from '../system/function';
+import { join, map } from '../system/iterable';
 import { DeepLinkActionType } from '../uris/deepLinks/deepLink';
 import type { LaunchpadItemNode } from './launchpadView';
 import type { RepositoryFolderNode } from './nodes/abstract/repositoryFolderNode';
@@ -1612,11 +1611,11 @@ export class ViewCommands implements Disposable {
 			const comparison = await node.getFilesComparison();
 			if (!comparison?.files.length) return undefined;
 
-			return CommitActions.openOnlyChangedFiles(comparison.files);
+			return CommitActions.openOnlyChangedFiles(node.view.container, comparison.files);
 		}
 		if (!node.isAny('commit', 'stash')) return undefined;
 
-		return CommitActions.openOnlyChangedFiles(node.commit);
+		return CommitActions.openOnlyChangedFiles(node.view.container, node.commit);
 	}
 
 	@log()

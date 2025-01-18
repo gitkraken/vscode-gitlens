@@ -5,8 +5,9 @@ import type { IntegrationId } from '../constants.integrations';
 import { IssueIntegrationId } from '../constants.integrations';
 import type { Container } from '../container';
 import type { GitRemote } from '../git/models/remote';
-import { getIssueOrPullRequestHtmlIcon, getIssueOrPullRequestMarkdownIcon } from '../git/utils/vscode/icons';
+import { getIssueOrPullRequestHtmlIcon, getIssueOrPullRequestMarkdownIcon } from '../git/utils/-webview/icons';
 import type { HostingIntegration, IssueIntegration } from '../plus/integrations/integration';
+import { configuration } from '../system/-webview/configuration';
 import { fromNow } from '../system/date';
 import { debug } from '../system/decorators/log';
 import { encodeUrl } from '../system/encoding';
@@ -15,7 +16,6 @@ import { Logger } from '../system/logger';
 import { escapeMarkdown } from '../system/markdown';
 import { getSettledValue, isPromise } from '../system/promise';
 import { capitalize, encodeHtmlWeak, getSuperscript } from '../system/string';
-import { configuration } from '../system/vscode/configuration';
 import type {
 	Autolink,
 	CacheableAutolinkReference,

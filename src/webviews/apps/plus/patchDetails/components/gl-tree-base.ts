@@ -1,5 +1,5 @@
 import { html, nothing } from 'lit';
-import type { GitFileChangeShape } from '../../../../../git/models/file';
+import type { GitFileChangeShape } from '../../../../../git/models/fileChange';
 import type { HierarchicalItem } from '../../../../../system/array';
 import { makeHierarchical } from '../../../../../system/array';
 import { GlElement } from '../../../shared/components/element';

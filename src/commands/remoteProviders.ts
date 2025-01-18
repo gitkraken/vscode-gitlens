@@ -6,11 +6,12 @@ import { isRemote } from '../git/models/remote';
 import type { Repository } from '../git/models/repository';
 import type { RemoteProvider } from '../git/remotes/remoteProvider';
 import { showRepositoryPicker } from '../quickpicks/repositoryPicker';
+import { command } from '../system/-webview/command';
 import { createMarkdownCommandLink } from '../system/commands';
 import { first } from '../system/iterable';
-import { command } from '../system/vscode/command';
-import type { CommandContext } from './base';
-import { GlCommandBase, isCommandContextViewNodeHasRemote } from './base';
+import { GlCommandBase } from './commandBase';
+import type { CommandContext } from './commandContext';
+import { isCommandContextViewNodeHasRemote } from './commandContext.utils';
 
 export interface ConnectRemoteProviderCommandArgs {
 	remote: string;

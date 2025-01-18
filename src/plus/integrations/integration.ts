@@ -9,24 +9,25 @@ import { AuthenticationError, CancellationError, RequestClientError } from '../.
 import type { PagedResult } from '../../git/gitProvider';
 import type { Account, UnidentifiedAuthor } from '../../git/models/author';
 import type { DefaultBranch } from '../../git/models/defaultBranch';
-import type { Issue, IssueOrPullRequest, SearchedIssue } from '../../git/models/issue';
+import type { Issue, SearchedIssue } from '../../git/models/issue';
+import type { IssueOrPullRequest } from '../../git/models/issueOrPullRequest';
 import type {
 	PullRequest,
 	PullRequestMergeMethod,
 	PullRequestState,
 	SearchedPullRequest,
 } from '../../git/models/pullRequest';
-import type { PullRequestUrlIdentity } from '../../git/models/pullRequest.utils';
 import type { RepositoryMetadata } from '../../git/models/repositoryMetadata';
+import type { PullRequestUrlIdentity } from '../../git/utils/pullRequest.utils';
 import { showIntegrationDisconnectedTooManyFailedRequestsWarningMessage } from '../../messages';
-import { gate } from '../../system/decorators/gate';
+import { configuration } from '../../system/-webview/configuration';
+import { gate } from '../../system/decorators/-webview/gate';
 import { debug, log } from '../../system/decorators/log';
 import { first } from '../../system/iterable';
 import { Logger } from '../../system/logger';
 import type { LogScope } from '../../system/logger.scope';
 import { getLogScope } from '../../system/logger.scope';
-import { configuration } from '../../system/vscode/configuration';
-import { isSubscriptionStatePaidOrTrial } from '../gk/account/subscription';
+import { isSubscriptionStatePaidOrTrial } from '../gk/utils/subscription.utils';
 import type {
 	IntegrationAuthenticationProviderDescriptor,
 	IntegrationAuthenticationService,

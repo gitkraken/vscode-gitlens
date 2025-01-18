@@ -2,7 +2,7 @@ import './timeline.scss';
 import type { PropertyValues } from 'lit';
 import { html, LitElement, nothing } from 'lit';
 import { customElement, query, state } from 'lit/decorators.js';
-import { isSubscriptionPaid } from '../../../../plus/gk/account/subscription';
+import { isSubscriptionPaid } from '../../../../plus/gk/utils/subscription.utils';
 import type { Period, State } from '../../../plus/timeline/protocol';
 import { OpenDataPointCommand, UpdatePeriodCommand } from '../../../plus/timeline/protocol';
 import { GlApp } from '../../shared/app';

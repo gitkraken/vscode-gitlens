@@ -15,31 +15,31 @@ import {
 	WorktreeDeleteError,
 	WorktreeDeleteErrorReason,
 } from '../../git/errors';
-import { getNameWithoutRemote } from '../../git/models/branch.utils';
 import type { GitBranchReference, GitReference } from '../../git/models/reference';
-import {
-	getReferenceFromBranch,
-	getReferenceLabel,
-	isBranchReference,
-	isRevisionReference,
-} from '../../git/models/reference.utils';
 import type { Repository } from '../../git/models/repository';
 import { uncommitted, uncommittedStaged } from '../../git/models/revision';
-import { isSha } from '../../git/models/revision.utils';
 import type { GitWorktree } from '../../git/models/worktree';
-import { getWorktreeForBranch } from '../../git/models/worktree.utils';
+import { getReferenceFromBranch } from '../../git/utils/-webview/reference.utils';
+import { getWorktreeForBranch } from '../../git/utils/-webview/worktree.utils';
+import {
+	getReferenceLabel,
+	getReferenceNameWithoutRemote,
+	isBranchReference,
+	isRevisionReference,
+} from '../../git/utils/reference.utils';
+import { isSha } from '../../git/utils/revision.utils';
 import { showGenericErrorMessage } from '../../messages';
 import type { QuickPickItemOfT } from '../../quickpicks/items/common';
 import { createQuickPickSeparator } from '../../quickpicks/items/common';
 import { Directive } from '../../quickpicks/items/directive';
 import type { FlagsQuickPickItem } from '../../quickpicks/items/flags';
 import { createFlagsQuickPickItem } from '../../quickpicks/items/flags';
+import { configuration } from '../../system/-webview/configuration';
+import { isDescendant } from '../../system/-webview/path';
+import { getWorkspaceFriendlyPath, openWorkspace, revealInFileExplorer } from '../../system/-webview/utils';
 import { basename } from '../../system/path';
 import type { Deferred } from '../../system/promise';
 import { pluralize, truncateLeft } from '../../system/string';
-import { configuration } from '../../system/vscode/configuration';
-import { isDescendant } from '../../system/vscode/path';
-import { getWorkspaceFriendlyPath, openWorkspace, revealInFileExplorer } from '../../system/vscode/utils';
 import type { ViewsWithRepositoryFolders } from '../../views/viewBase';
 import type {
 	AsyncStepResultGenerator,
@@ -425,7 +425,7 @@ export class WorktreeGitCommand extends QuickCommand<State> {
 			}
 
 			if (isRemoteBranch) {
-				state.createBranch = getNameWithoutRemote(state.reference);
+				state.createBranch = getReferenceNameWithoutRemote(state.reference);
 				const branch = await state.repo.git.branches().getBranch(state.createBranch);
 				if (branch != null && !branch.remote) {
 					state.createBranch = branch.name;
@@ -711,7 +711,7 @@ export class WorktreeGitCommand extends QuickCommand<State> {
 		}
 
 		const pickedFriendlyPath = truncateLeft(getWorkspaceFriendlyPath(pickedUri), 60);
-		const branchName = state.reference != null ? getNameWithoutRemote(state.reference) : undefined;
+		const branchName = state.reference != null ? getReferenceNameWithoutRemote(state.reference) : undefined;
 
 		const recommendedFriendlyPath = `<root>/${truncateLeft(branchName?.replace(/\\/g, '/') ?? '', 65)}`;
 		const recommendedNewBranchFriendlyPath = `<root>/${state.createBranch || '<new-branch-name>'}`;

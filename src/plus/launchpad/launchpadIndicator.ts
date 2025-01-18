@@ -6,17 +6,17 @@ import type { Colors } from '../../constants.colors';
 import { GlCommand } from '../../constants.commands';
 import type { HostingIntegrationId } from '../../constants.integrations';
 import type { Container } from '../../container';
+import { executeCommand, registerCommand } from '../../system/-webview/command';
+import { configuration } from '../../system/-webview/configuration';
 import { groupByMap } from '../../system/iterable';
 import { wait } from '../../system/promise';
 import { pluralize } from '../../system/string';
-import { executeCommand, registerCommand } from '../../system/vscode/command';
-import { configuration } from '../../system/vscode/configuration';
 import type { ConnectionStateChangeEvent } from '../integrations/integrationService';
 import type { LaunchpadCommandArgs } from './launchpad';
 import type { LaunchpadItem, LaunchpadProvider, LaunchpadRefreshEvent } from './launchpadProvider';
 import { groupAndSortLaunchpadItems, supportedLaunchpadIntegrations } from './launchpadProvider';
-import type { LaunchpadGroup } from './models';
-import { launchpadGroupIconMap, launchpadPriorityGroups } from './models';
+import type { LaunchpadGroup } from './models/launchpad';
+import { launchpadGroupIconMap, launchpadPriorityGroups } from './models/launchpad';
 
 type LaunchpadIndicatorState = 'idle' | 'disconnected' | 'loading' | 'load' | 'failed';
 

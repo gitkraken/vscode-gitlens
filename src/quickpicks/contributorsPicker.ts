@@ -4,14 +4,14 @@ import { ClearQuickInputButton } from '../commands/quickCommand.buttons';
 import { GlyphChars, quickPickTitleMaxChars } from '../constants';
 import type { Container } from '../container';
 import type { GitContributor } from '../git/models/contributor';
-import type { ContributorQuickPickItem } from '../git/models/contributor.quickpick';
-import { createContributorQuickPickItem } from '../git/models/contributor.quickpick';
 import type { Repository } from '../git/models/repository';
-import { sortContributors } from '../git/utils/vscode/sorting';
+import type { ContributorQuickPickItem } from '../git/utils/-webview/contributor.quickpick';
+import { createContributorQuickPickItem } from '../git/utils/-webview/contributor.quickpick';
+import { sortContributors } from '../git/utils/-webview/sorting';
+import { getQuickPickIgnoreFocusOut } from '../system/-webview/utils';
 import { debounce } from '../system/function';
 import { defer } from '../system/promise';
 import { pad, truncate } from '../system/string';
-import { getQuickPickIgnoreFocusOut } from '../system/vscode/utils';
 
 export async function showContributorsPicker(
 	container: Container,

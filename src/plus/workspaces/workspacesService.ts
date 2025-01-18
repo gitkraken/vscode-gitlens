@@ -6,37 +6,35 @@ import type { GitRemote } from '../../git/models/remote';
 import { RemoteResourceType } from '../../git/models/remoteResource';
 import { Repository } from '../../git/models/repository';
 import { showRepositoriesPicker } from '../../quickpicks/repositoryPicker';
+import type { OpenWorkspaceLocation } from '../../system/-webview/utils';
+import { openWorkspace } from '../../system/-webview/utils';
 import { log } from '../../system/decorators/log';
 import { normalizePath } from '../../system/path';
-import type { OpenWorkspaceLocation } from '../../system/vscode/utils';
-import { openWorkspace } from '../../system/vscode/utils';
-import { isSubscriptionStatePaidOrTrial } from '../gk/account/subscription';
-import type { SubscriptionChangeEvent } from '../gk/account/subscriptionService';
 import type { ServerConnection } from '../gk/serverConnection';
+import type { SubscriptionChangeEvent } from '../gk/subscriptionService';
+import { isSubscriptionStatePaidOrTrial } from '../gk/utils/subscription.utils';
+import type { CloudWorkspaceData, CloudWorkspaceRepositoryDescriptor } from './models/cloudWorkspace';
+import {
+	CloudWorkspace,
+	CloudWorkspaceProviderInputType,
+	CloudWorkspaceProviderType,
+	cloudWorkspaceProviderTypeToRemoteProviderId,
+} from './models/cloudWorkspace';
+import type { LocalWorkspaceData, LocalWorkspaceRepositoryDescriptor } from './models/localWorkspace';
+import { LocalWorkspace } from './models/localWorkspace';
 import type {
 	AddWorkspaceRepoDescriptor,
-	CloudWorkspaceData,
-	CloudWorkspaceRepositoryDescriptor,
 	GetWorkspacesResponse,
 	LoadCloudWorkspacesResponse,
 	LoadLocalWorkspacesResponse,
-	LocalWorkspaceData,
-	LocalWorkspaceRepositoryDescriptor,
 	RemoteDescriptor,
 	RepositoryMatch,
 	WorkspaceAutoAddSetting,
 	WorkspaceRepositoriesByName,
 	WorkspaceRepositoryRelation,
 	WorkspacesResponse,
-} from './models';
-import {
-	CloudWorkspace,
-	CloudWorkspaceProviderInputType,
-	CloudWorkspaceProviderType,
-	cloudWorkspaceProviderTypeToRemoteProviderId,
-	LocalWorkspace,
-	WorkspaceAddRepositoriesChoice,
-} from './models';
+} from './models/workspaces';
+import { WorkspaceAddRepositoriesChoice } from './models/workspaces';
 import { WorkspacesApi } from './workspacesApi';
 import type { WorkspacesPathMappingProvider } from './workspacesPathMappingProvider';
 

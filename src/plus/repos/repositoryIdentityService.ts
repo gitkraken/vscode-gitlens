@@ -3,13 +3,13 @@ import { Uri, window } from 'vscode';
 import type { Container } from '../../container';
 import { RemoteResourceType } from '../../git/models/remoteResource';
 import type { Repository } from '../../git/models/repository';
-import { parseGitRemoteUrl } from '../../git/parsers/remoteParser';
 import type {
 	GkProviderId,
 	RepositoryIdentityDescriptor,
 	RepositoryIdentityProviderDescriptor,
-} from '../../gk/models/repositoryIdentities';
-import { missingRepositoryId } from '../../gk/models/repositoryIdentities';
+} from '../../git/models/repositoryIdentities';
+import { missingRepositoryId } from '../../git/models/repositoryIdentities';
+import { parseGitRemoteUrl } from '../../git/parsers/remoteParser';
 import { log } from '../../system/decorators/log';
 import { getSettledValue } from '../../system/promise';
 import type { ServerConnection } from '../gk/serverConnection';

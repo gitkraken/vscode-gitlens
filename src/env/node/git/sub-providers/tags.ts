@@ -4,8 +4,8 @@ import { TagError } from '../../../../git/errors';
 import type { GitTagsSubProvider, PagedResult, PagingOptions } from '../../../../git/gitProvider';
 import type { GitTag } from '../../../../git/models/tag';
 import { parseGitTags, parseGitTagsDefaultFormat } from '../../../../git/parsers/tagParser';
-import type { TagSortOptions } from '../../../../git/utils/vscode/sorting';
-import { sortTags } from '../../../../git/utils/vscode/sorting';
+import type { TagSortOptions } from '../../../../git/utils/-webview/sorting';
+import { sortTags } from '../../../../git/utils/-webview/sorting';
 import { log } from '../../../../system/decorators/log';
 import type { Git } from '../git';
 
@@ -42,7 +42,7 @@ export class TagsGitSubProvider implements GitTagsSubProvider {
 			async function load(this: TagsGitSubProvider): Promise<PagedResult<GitTag>> {
 				try {
 					const data = await this.git.tag(repoPath, '-l', `--format=${parseGitTagsDefaultFormat}`);
-					return { values: parseGitTags(data, repoPath) };
+					return { values: parseGitTags(this.container, data, repoPath) };
 				} catch (_ex) {
 					this.cache.tags?.delete(repoPath);
 

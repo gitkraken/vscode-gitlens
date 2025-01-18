@@ -6,19 +6,20 @@ import { GlCommand } from '../constants.commands';
 import type { Container } from '../container';
 import { openFileAtRevision } from '../git/actions/commit';
 import { GitUri } from '../git/gitUri';
-import { shortenRevision } from '../git/models/revision.utils';
+import { shortenRevision } from '../git/utils/revision.utils';
 import { showCommitHasNoPreviousCommitWarningMessage, showGenericErrorMessage } from '../messages';
 import { showCommitPicker } from '../quickpicks/commitPicker';
 import { CommandQuickPickItem } from '../quickpicks/items/common';
 import type { DirectiveQuickPickItem } from '../quickpicks/items/directive';
 import { createDirectiveQuickPickItem, Directive } from '../quickpicks/items/directive';
+import { command } from '../system/-webview/command';
+import { splitPath } from '../system/-webview/path';
 import { createMarkdownCommandLink } from '../system/commands';
 import { Logger } from '../system/logger';
 import { pad } from '../system/string';
-import { command } from '../system/vscode/command';
-import { splitPath } from '../system/vscode/path';
-import type { CommandContext } from './base';
-import { ActiveEditorCommand, getCommandUri } from './base';
+import { ActiveEditorCommand } from './commandBase';
+import { getCommandUri } from './commandBase.utils';
+import type { CommandContext } from './commandContext';
 import type { OpenFileAtRevisionFromCommandArgs } from './openFileAtRevisionFrom';
 
 export interface OpenFileAtRevisionCommandArgs {

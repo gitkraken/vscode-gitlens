@@ -3,20 +3,17 @@ import { GlyphChars } from '../../constants';
 import { Features } from '../../features';
 import type { GitUri } from '../../git/gitUri';
 import { GitBranch } from '../../git/models/branch';
-import { getHighlanderProviders } from '../../git/models/remote';
 import type { Repository, RepositoryChangeEvent, RepositoryFileSystemChangeEvent } from '../../git/models/repository';
 import { RepositoryChange, RepositoryChangeComparisonMode } from '../../git/models/repository';
-import { formatLastFetched, getLastFetchedUpdateInterval } from '../../git/models/repository.utils';
 import type { GitStatus } from '../../git/models/status';
-import { getRepositoryStatusIconPath } from '../../git/utils/vscode/icons';
-import type {
-	CloudWorkspace,
-	CloudWorkspaceRepositoryDescriptor,
-	LocalWorkspace,
-	LocalWorkspaceRepositoryDescriptor,
-} from '../../plus/workspaces/models';
+import { getRepositoryStatusIconPath } from '../../git/utils/-webview/icons';
+import { formatLastFetched } from '../../git/utils/-webview/repository.utils';
+import { getLastFetchedUpdateInterval } from '../../git/utils/fetch.utils';
+import { getHighlanderProviders } from '../../git/utils/remote.utils';
+import type { CloudWorkspace, CloudWorkspaceRepositoryDescriptor } from '../../plus/workspaces/models/cloudWorkspace';
+import type { LocalWorkspace, LocalWorkspaceRepositoryDescriptor } from '../../plus/workspaces/models/localWorkspace';
 import { findLastIndex } from '../../system/array';
-import { gate } from '../../system/decorators/gate';
+import { gate } from '../../system/decorators/-webview/gate';
 import { debug, log } from '../../system/decorators/log';
 import { weakEvent } from '../../system/event';
 import { disposableInterval } from '../../system/function';

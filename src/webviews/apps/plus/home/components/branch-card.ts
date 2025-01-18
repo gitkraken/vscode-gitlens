@@ -10,7 +10,7 @@ import {
 	launchpadCategoryToGroupMap,
 	launchpadGroupIconMap,
 	launchpadGroupLabelMap,
-} from '../../../../../plus/launchpad/models';
+} from '../../../../../plus/launchpad/models/launchpad';
 import type { AssociateIssueWithBranchCommandArgs } from '../../../../../plus/startWork/startWork';
 import { createCommandLink } from '../../../../../system/commands';
 import { fromNow } from '../../../../../system/date';

@@ -1,13 +1,14 @@
 import type { Uri, WorkspaceFolder } from 'vscode';
+// eslint-disable-next-line @typescript-eslint/no-restricted-imports
 import { workspace } from 'vscode';
-import { Container } from '../../container';
+import type { Container } from '../../container';
+import { relative } from '../../system/-webview/path';
+import { getWorkspaceFriendlyPath } from '../../system/-webview/utils';
 import { formatDate, fromNow } from '../../system/date';
-import { memoize } from '../../system/decorators/memoize';
+import { memoize } from '../../system/decorators/-webview/memoize';
 import { normalizePath } from '../../system/path';
-import { relative } from '../../system/vscode/path';
-import { getWorkspaceFriendlyPath } from '../../system/vscode/utils';
+import { shortenRevision } from '../utils/revision.utils';
 import type { GitBranch } from './branch';
-import { shortenRevision } from './revision.utils';
 import type { GitStatus } from './status';
 
 export class GitWorktree {
@@ -84,7 +85,7 @@ export class GitWorktree {
 			// eslint-disable-next-line no-async-promise-executor
 			this._statusPromise = new Promise(async (resolve, reject) => {
 				try {
-					const status = await Container.instance.git.status(this.uri.fsPath).getStatus();
+					const status = await this.container.git.status(this.uri.fsPath).getStatus();
 					this._status = status;
 					resolve(status);
 				} catch (ex) {
@@ -95,10 +96,6 @@ export class GitWorktree {
 		}
 		return this._statusPromise;
 	}
-}
-
-export function getWorktreeId(repoPath: string, name: string): string {
-	return `${repoPath}|worktrees/${name}`;
 }
 
 export function isWorktree(worktree: any): worktree is GitWorktree {

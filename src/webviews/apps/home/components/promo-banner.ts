@@ -1,7 +1,7 @@
 import { consume } from '@lit/context';
 import { css, html, LitElement, nothing } from 'lit';
 import { customElement, property, state } from 'lit/decorators.js';
-import { getApplicablePromo } from '../../../../plus/gk/account/promos';
+import { getApplicablePromo } from '../../../../plus/gk/utils/promo.utils';
 import type { State } from '../../../home/protocol';
 import { stateContext } from '../context';
 import '../../shared/components/promo';

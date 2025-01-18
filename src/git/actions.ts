@@ -3,8 +3,8 @@ import type { BrowseRepoAtRevisionCommandArgs } from '../commands/browseRepoAtRe
 import type { GitWizardCommandArgs } from '../commands/gitWizard';
 import type { QuickWizardCommandArgsWithCompletion } from '../commands/quickWizard.base';
 import { GlCommand } from '../constants.commands';
+import { executeCommand, executeEditorCommand } from '../system/-webview/command';
 import { defer } from '../system/promise';
-import { executeCommand, executeEditorCommand } from '../system/vscode/command';
 
 export async function executeGitCommand(args: GitWizardCommandArgs): Promise<void> {
 	const deferred = defer<void>();

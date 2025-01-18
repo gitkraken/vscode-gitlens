@@ -5,10 +5,12 @@ import { GitUri } from '../git/gitUri';
 import { RemoteResourceType } from '../git/models/remoteResource';
 import { showGenericErrorMessage } from '../messages';
 import { getBestRepositoryOrShowPicker } from '../quickpicks/repositoryPicker';
+import { command, executeCommand } from '../system/-webview/command';
 import { Logger } from '../system/logger';
-import { command, executeCommand } from '../system/vscode/command';
-import type { CommandContext } from './base';
-import { ActiveEditorCommand, getCommandUri, isCommandContextViewNodeHasRemote } from './base';
+import { ActiveEditorCommand } from './commandBase';
+import { getCommandUri } from './commandBase.utils';
+import type { CommandContext } from './commandContext';
+import { isCommandContextViewNodeHasRemote } from './commandContext.utils';
 import type { OpenOnRemoteCommandArgs } from './openOnRemote';
 
 export interface OpenBranchesOnRemoteCommandArgs {

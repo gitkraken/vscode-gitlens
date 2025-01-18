@@ -1,6 +1,6 @@
 import type { Disposable } from 'vscode';
 import type { Container } from '../../../container';
-import type { RepositoryPathMappingProvider } from '../../../pathMapping/repositoryPathMappingProvider';
+import type { RepositoryPathMappingProvider } from '../../../git/pathMapping/repositoryPathMappingProvider';
 
 export class RepositoryWebPathMappingProvider implements RepositoryPathMappingProvider, Disposable {
 	constructor(private readonly _container: Container) {}

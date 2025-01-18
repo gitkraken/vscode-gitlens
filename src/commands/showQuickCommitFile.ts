@@ -7,18 +7,20 @@ import { GitUri } from '../git/gitUri';
 import type { GitCommit, GitStashCommit } from '../git/models/commit';
 import { isCommit } from '../git/models/commit';
 import type { GitLog } from '../git/models/log';
-import { createReference } from '../git/models/reference.utils';
+import { createReference } from '../git/utils/reference.utils';
 import {
 	showCommitNotFoundWarningMessage,
 	showFileNotUnderSourceControlWarningMessage,
 	showGenericErrorMessage,
 	showLineUncommittedWarningMessage,
 } from '../messages';
+import { command } from '../system/-webview/command';
 import { createMarkdownCommandLink } from '../system/commands';
 import { Logger } from '../system/logger';
-import { command } from '../system/vscode/command';
-import type { CommandContext } from './base';
-import { ActiveEditorCachedCommand, getCommandUri, isCommandContextViewNodeHasCommit } from './base';
+import { ActiveEditorCachedCommand } from './commandBase';
+import { getCommandUri } from './commandBase.utils';
+import type { CommandContext } from './commandContext';
+import { isCommandContextViewNodeHasCommit } from './commandContext.utils';
 
 export interface ShowQuickCommitFileCommandArgs {
 	commit?: GitCommit | GitStashCommit;

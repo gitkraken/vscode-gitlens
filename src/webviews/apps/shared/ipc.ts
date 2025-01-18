@@ -1,10 +1,10 @@
 /*global window */
+import type { Serialized } from '../../../system/-webview/serialize';
 import { getScopedCounter } from '../../../system/counter';
 import { debug, logName } from '../../../system/decorators/log';
 import { Logger } from '../../../system/logger';
 import { getLogScope, getNewLogScope } from '../../../system/logger.scope';
 import { maybeStopWatch } from '../../../system/stopwatch';
-import type { Serialized } from '../../../system/vscode/serialize';
 import type { IpcCallParamsType, IpcCallResponseParamsType, IpcCommand, IpcMessage, IpcRequest } from '../../protocol';
 import { ipcPromiseSettled, isIpcPromise } from '../../protocol';
 import { DOM } from './dom';

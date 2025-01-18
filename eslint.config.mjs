@@ -317,7 +317,7 @@ export default ts.config(
 	{
 		name: 'extension:node',
 		files: ['src/**/*'],
-		ignores: ['src/webviews/apps/**/*', 'src/env/browser/**/*'],
+		ignores: ['**/webview/**/*', 'src/test/**/*', 'src/webviews/apps/**/*', 'src/env/browser/**/*'],
 		languageOptions: {
 			globals: {
 				...globals.node,
@@ -358,7 +358,7 @@ export default ts.config(
 	{
 		name: 'extension:browser',
 		files: ['src/**/*'],
-		ignores: ['src/webviews/apps/**/*', 'src/env/node/**/*'],
+		ignores: ['**/webview/**/*', 'src/test/**/*', 'src/webviews/apps/**/*', 'src/env/node/**/*'],
 		languageOptions: {
 			globals: {
 				...globals.worker,
@@ -381,19 +381,19 @@ export default ts.config(
 		// Keep in sync with `src/webviews/apps/tsconfig.json`
 		files: [
 			'src/webviews/apps/**/*',
-			'src/@types/**/*',
-			'src/env/browser/**/*',
-			'src/plus/gk/account/promos.ts',
-			'src/plus/gk/account/subscription.ts',
 			'src/webviews/**/protocol.ts',
+			'src/**/models/**/*.ts',
+			'src/**/utils/**/*.ts',
+			'src/@types/**/*',
 			'src/config.ts',
 			'src/constants.ts',
 			'src/constants.*.ts',
+			'src/env/browser/**/*',
 			'src/features.ts',
-			'src/subscription.ts',
-			'src/system/*.ts',
-			'src/system/decorators/log.ts',
+			'src/system/**/*.ts',
+			'**/webview/**/*',
 		],
+		ignores: ['**/-webview/**/*'],
 		languageOptions: {
 			globals: {
 				...globals.browser,
@@ -414,13 +414,13 @@ export default ts.config(
 				{
 					patterns: [
 						{
-							group: ['react-dom'],
-							importNames: ['Container'],
-							message: 'Use our Container instead',
+							group: ['Container'],
+							message: "Can't use `Container` in webviews",
+							allowTypeImports: true,
 						},
 						{
 							group: ['vscode'],
-							message: "Can't use vscode in webviews",
+							message: "Can't use `vscode` in webviews",
 							allowTypeImports: true,
 						},
 					],

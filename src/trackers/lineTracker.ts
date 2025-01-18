@@ -2,11 +2,11 @@ import type { Event, Selection, TextEditor, TextEditorSelectionChangeEvent } fro
 import { Disposable, EventEmitter, window } from 'vscode';
 import type { Container } from '../container';
 import type { GitCommit } from '../git/models/commit';
+import { isTrackableTextEditor } from '../system/-webview/utils';
 import { debug } from '../system/decorators/log';
 import type { Deferrable } from '../system/function';
 import { debounce } from '../system/function';
 import { getLogScope, setLogScopeExit } from '../system/logger.scope';
-import { isTrackableTextEditor } from '../system/vscode/utils';
 import type {
 	DocumentBlameStateChangeEvent,
 	DocumentContentChangeEvent,

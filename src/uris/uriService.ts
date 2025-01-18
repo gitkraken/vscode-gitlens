@@ -1,8 +1,8 @@
 import type { Disposable, Event, Uri, UriHandler } from 'vscode';
 import { EventEmitter, window } from 'vscode';
 import type { Container } from '../container';
-import { AuthenticationUriPathPrefix, LoginUriPathPrefix } from '../plus/gk/account/authenticationConnection';
-import { SubscriptionUpdatedUriPathPrefix } from '../plus/gk/account/subscription';
+import { AuthenticationUriPathPrefix, LoginUriPathPrefix } from '../plus/gk/authenticationConnection';
+import { SubscriptionUpdatedUriPathPrefix } from '../plus/gk/utils/subscription.utils';
 import { CloudIntegrationAuthenticationUriPathPrefix } from '../plus/integrations/authentication/models';
 import { log } from '../system/decorators/log';
 

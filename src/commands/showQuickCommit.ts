@@ -12,11 +12,13 @@ import {
 	showGenericErrorMessage,
 	showLineUncommittedWarningMessage,
 } from '../messages';
+import { command } from '../system/-webview/command';
 import { createMarkdownCommandLink } from '../system/commands';
 import { Logger } from '../system/logger';
-import { command } from '../system/vscode/command';
-import type { CommandContext } from './base';
-import { ActiveEditorCachedCommand, getCommandUri, isCommandContextViewNodeHasCommit } from './base';
+import { ActiveEditorCachedCommand } from './commandBase';
+import { getCommandUri } from './commandBase.utils';
+import type { CommandContext } from './commandContext';
+import { isCommandContextViewNodeHasCommit } from './commandContext.utils';
 
 export interface ShowQuickCommitCommandArgs {
 	repoPath?: string;

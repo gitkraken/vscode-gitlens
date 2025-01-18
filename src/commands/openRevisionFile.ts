@@ -6,9 +6,10 @@ import { openFileAtRevision } from '../git/actions/commit';
 import { GitUri } from '../git/gitUri';
 import { deletedOrMissing } from '../git/models/revision';
 import { showGenericErrorMessage } from '../messages';
+import { command } from '../system/-webview/command';
 import { Logger } from '../system/logger';
-import { command } from '../system/vscode/command';
-import { ActiveEditorCommand, getCommandUri } from './base';
+import { ActiveEditorCommand } from './commandBase';
+import { getCommandUri } from './commandBase.utils';
 
 export interface OpenRevisionFileCommandArgs {
 	revisionUri?: Uri;

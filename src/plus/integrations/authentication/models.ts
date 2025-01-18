@@ -7,7 +7,7 @@ import {
 	supportedOrderedCloudIntegrationIds,
 	supportedOrderedCloudIssueIntegrationIds,
 } from '../../../constants.integrations';
-import { configuration } from '../../../system/vscode/configuration';
+import { configuration } from '../../../system/-webview/configuration';
 
 export interface ProviderAuthenticationSession extends AuthenticationSession {
 	readonly cloud: boolean;

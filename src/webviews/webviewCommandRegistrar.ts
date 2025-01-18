@@ -1,7 +1,7 @@
 import type { Disposable } from 'vscode';
 import type { Commands } from '../constants.commands';
-import type { CommandCallback } from '../system/vscode/command';
-import { registerWebviewCommand } from '../system/vscode/command';
+import type { CommandCallback } from '../system/-webview/command';
+import { registerWebviewCommand } from '../system/-webview/command';
 import type { WebviewContext } from '../system/webview';
 import { isWebviewContext } from '../system/webview';
 import type { WebviewProvider } from './webviewProvider';

@@ -1,6 +1,6 @@
 import { Disposable } from 'vscode';
 import type { Container } from '../../../container';
-import type { GitFileChangeShape } from '../../../git/models/file';
+import type { GitFileChangeShape } from '../../../git/models/fileChange';
 import type { PatchRevisionRange } from '../../../git/models/patch';
 import type { Repository } from '../../../git/models/repository';
 import { RepositoryChange, RepositoryChangeComparisonMode } from '../../../git/models/repository';

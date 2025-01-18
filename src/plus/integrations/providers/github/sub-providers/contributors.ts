@@ -3,7 +3,7 @@ import type { GitCache } from '../../../../../git/cache';
 import type { GitContributorsSubProvider } from '../../../../../git/gitProvider';
 import type { GitContributorStats } from '../../../../../git/models/contributor';
 import { GitContributor } from '../../../../../git/models/contributor';
-import { isUserMatch } from '../../../../../git/models/user';
+import { isUserMatch } from '../../../../../git/utils/user.utils';
 import { log } from '../../../../../system/decorators/log';
 import { Logger } from '../../../../../system/logger';
 import { getLogScope } from '../../../../../system/logger.scope';

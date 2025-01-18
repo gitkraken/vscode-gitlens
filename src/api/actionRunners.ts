@@ -3,12 +3,12 @@ import { Disposable, EventEmitter, window } from 'vscode';
 import type { Config } from '../config';
 import { actionCommandPrefix } from '../constants.commands';
 import type { Container } from '../container';
+import { registerCommand } from '../system/-webview/command';
+import { configuration } from '../system/-webview/configuration';
+import { setContext } from '../system/-webview/context';
+import { getQuickPickIgnoreFocusOut } from '../system/-webview/utils';
 import { getScopedCounter } from '../system/counter';
 import { sortCompare } from '../system/string';
-import { registerCommand } from '../system/vscode/command';
-import { configuration } from '../system/vscode/configuration';
-import { setContext } from '../system/vscode/context';
-import { getQuickPickIgnoreFocusOut } from '../system/vscode/utils';
 import type { Action, ActionContext, ActionRunner } from './gitlens';
 
 type Actions = ActionContext['type'];
