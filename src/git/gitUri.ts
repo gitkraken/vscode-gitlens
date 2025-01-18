@@ -3,18 +3,18 @@ import { getQueryDataFromScmGitUri } from '../@types/vscode.git.uri';
 import { Schemes } from '../constants';
 import { Container } from '../container';
 import type { GitHubAuthorityMetadata } from '../plus/remotehub';
+import { formatPath } from '../system/-webview/formatPath';
+import { getBestPath, relativeDir, splitPath } from '../system/-webview/path';
+import { isVirtualUri } from '../system/-webview/utils';
 import { UriComparer } from '../system/comparers';
+import { memoize } from '../system/decorators/-webview/memoize';
 import { debug } from '../system/decorators/log';
-import { memoize } from '../system/decorators/memoize';
 import { basename, normalizePath } from '../system/path';
-import { formatPath } from '../system/vscode/formatPath';
-import { getBestPath, relativeDir, splitPath } from '../system/vscode/path';
-import { isVirtualUri } from '../system/vscode/utils';
 import type { RevisionUriData } from './gitProvider';
 import { decodeGitLensRevisionUriAuthority, decodeRemoteHubAuthority } from './gitUri.authority';
 import type { GitFile } from './models/file';
 import { uncommittedStaged } from './models/revision';
-import { isUncommitted, isUncommittedStaged, shortenRevision } from './models/revision.utils';
+import { isUncommitted, isUncommittedStaged, shortenRevision } from './utils/revision.utils';
 
 const slash = 47; //slash;
 

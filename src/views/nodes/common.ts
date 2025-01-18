@@ -2,7 +2,7 @@ import type { Command, Uri } from 'vscode';
 import { TreeItem, TreeItemCollapsibleState } from 'vscode';
 import { GlyphChars } from '../../constants';
 import { unknownGitUri } from '../../git/gitUri';
-import { configuration } from '../../system/vscode/configuration';
+import { configuration } from '../../system/-webview/configuration';
 import type { View } from '../viewBase';
 import type { PageableViewNode } from './abstract/viewNode';
 import { ContextValues, ViewNode } from './abstract/viewNode';

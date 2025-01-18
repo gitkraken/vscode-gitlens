@@ -1,7 +1,7 @@
 import { TreeItem, TreeItemCollapsibleState } from 'vscode';
 import { GitUri } from '../../git/gitUri';
 import type { GitPausedOperationStatus } from '../../git/models/pausedOperationStatus';
-import type { GitStatusFile } from '../../git/models/status';
+import type { GitStatusFile } from '../../git/models/statusFile';
 import { makeHierarchical } from '../../system/array';
 import { joinPaths, normalizePath } from '../../system/path';
 import { pluralize, sortCompare } from '../../system/string';

@@ -2,9 +2,9 @@ import type { TextEditor, Uri } from 'vscode';
 import { GlCommand } from '../constants.commands';
 import type { Container } from '../container';
 import { showGenericErrorMessage } from '../messages';
+import { command } from '../system/-webview/command';
 import { Logger } from '../system/logger';
-import { command } from '../system/vscode/command';
-import { ActiveEditorCommand } from './base';
+import { ActiveEditorCommand } from './commandBase';
 
 @command()
 export class ToggleLineBlameCommand extends ActiveEditorCommand {

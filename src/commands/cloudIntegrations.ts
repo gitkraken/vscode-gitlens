@@ -2,9 +2,9 @@ import { GlCommand } from '../constants.commands';
 import type { SupportedCloudIntegrationIds } from '../constants.integrations';
 import type { Source } from '../constants.telemetry';
 import type { Container } from '../container';
+import { command } from '../system/-webview/command';
 import { createMarkdownCommandLink } from '../system/commands';
-import { command } from '../system/vscode/command';
-import { GlCommandBase } from './base';
+import { GlCommandBase } from './commandBase';
 
 export interface ManageCloudIntegrationsCommandArgs extends Source {}
 

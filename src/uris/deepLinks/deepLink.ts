@@ -4,7 +4,7 @@ import { GlCommand } from '../../constants.commands';
 import type { GitReference } from '../../git/models/reference';
 import type { GitRemote } from '../../git/models/remote';
 import type { Repository } from '../../git/models/repository';
-import type { OpenWorkspaceLocation } from '../../system/vscode/utils';
+import type { OpenWorkspaceLocation } from '../../system/-webview/utils';
 
 export type UriTypes = 'link';
 

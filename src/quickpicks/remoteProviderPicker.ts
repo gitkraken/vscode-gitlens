@@ -6,19 +6,17 @@ import type { Keys } from '../constants';
 import { GlyphChars } from '../constants';
 import { GlCommand } from '../constants.commands';
 import { Container } from '../container';
-import {
-	getBranchNameWithoutRemote,
-	getDefaultBranchName,
-	getRemoteNameFromBranchName,
-} from '../git/models/branch.utils';
 import type { GitRemote } from '../git/models/remote';
-import { getHighlanderProviders } from '../git/models/remote';
 import type { RemoteResource } from '../git/models/remoteResource';
-import { getNameFromRemoteResource, RemoteResourceType } from '../git/models/remoteResource';
+import { RemoteResourceType } from '../git/models/remoteResource';
 import type { RemoteProvider } from '../git/remotes/remoteProvider';
+import { getDefaultBranchName } from '../git/utils/-webview/branch.utils';
+import { getBranchNameWithoutRemote, getRemoteNameFromBranchName } from '../git/utils/branch.utils';
+import { getHighlanderProviders } from '../git/utils/remote.utils';
+import { getNameFromRemoteResource } from '../git/utils/remoteResource.utils';
+import { getQuickPickIgnoreFocusOut } from '../system/-webview/utils';
 import { filterMap } from '../system/array';
 import { getSettledValue } from '../system/promise';
-import { getQuickPickIgnoreFocusOut } from '../system/vscode/utils';
 import { CommandQuickPickItem } from './items/common';
 
 export class ConfigureCustomRemoteProviderCommandQuickPickItem extends CommandQuickPickItem {

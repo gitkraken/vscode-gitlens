@@ -5,14 +5,14 @@ import { when } from 'lit/directives/when.js';
 import { urls } from '../../../../../constants';
 import { proTrialLengthInDays, SubscriptionPlanId, SubscriptionState } from '../../../../../constants.subscription';
 import type { Source } from '../../../../../constants.telemetry';
-import type { Promo } from '../../../../../plus/gk/account/promos';
-import { getApplicablePromo } from '../../../../../plus/gk/account/promos';
+import type { Promo } from '../../../../../plus/gk/models/promo';
+import { getApplicablePromo } from '../../../../../plus/gk/utils/promo.utils';
 import {
 	getSubscriptionPlanTier,
 	getSubscriptionStateName,
 	getSubscriptionTimeRemaining,
 	hasAccountFromSubscriptionState,
-} from '../../../../../plus/gk/account/subscription';
+} from '../../../../../plus/gk/utils/subscription.utils';
 import { createCommandLink } from '../../../../../system/commands';
 import { pluralize } from '../../../../../system/string';
 import type { State } from '../../../../home/protocol';

@@ -1,5 +1,5 @@
 import type { AutolinkReference, DynamicAutolinkReference } from '../../autolinks';
-import type { GkProviderId } from '../../gk/models/repositoryIdentities';
+import type { GkProviderId } from '../models/repositoryIdentities';
 import { GerritRemote } from './gerrit';
 import type { RemoteProviderId } from './remoteProvider';
 

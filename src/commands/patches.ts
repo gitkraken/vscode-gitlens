@@ -9,29 +9,28 @@ import type { IntegrationId } from '../constants.integrations';
 import type { Container } from '../container';
 import { CancellationError } from '../errors';
 import { ApplyPatchCommitError, ApplyPatchCommitErrorReason } from '../git/errors';
-import { splitCommitMessage } from '../git/models/commit.utils';
 import type { GitDiff } from '../git/models/diff';
 import type { Repository } from '../git/models/repository';
 import { uncommitted, uncommittedStaged } from '../git/models/revision';
-import { isSha, shortenRevision } from '../git/models/revision.utils';
-import type { Draft, LocalDraft } from '../gk/models/drafts';
+import { splitCommitMessage } from '../git/utils/commit.utils';
+import { isSha, shortenRevision } from '../git/utils/revision.utils';
 import { showPatchesView } from '../plus/drafts/actions';
 import type { ProviderAuth } from '../plus/drafts/draftsService';
+import type { Draft, LocalDraft } from '../plus/drafts/models/drafts';
 import { getProviderIdFromEntityIdentifier } from '../plus/integrations/providers/utils';
 import { getRepositoryOrShowPicker } from '../quickpicks/repositoryPicker';
+import { command } from '../system/-webview/command';
 import { map } from '../system/iterable';
 import { Logger } from '../system/logger';
-import { command } from '../system/vscode/command';
 import type { Change, CreateDraft } from '../webviews/plus/patchDetails/protocol';
-import type { CommandContext } from './base';
+import { ActiveEditorCommand, GlCommandBase } from './commandBase';
+import type { CommandContext } from './commandContext';
 import {
-	ActiveEditorCommand,
-	GlCommandBase,
 	isCommandContextViewNodeHasCommit,
 	isCommandContextViewNodeHasComparison,
 	isCommandContextViewNodeHasFileCommit,
 	isCommandContextViewNodeHasFileRefs,
-} from './base';
+} from './commandContext.utils';
 
 export interface CreatePatchCommandArgs {
 	to?: string;

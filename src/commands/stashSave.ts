@@ -6,14 +6,14 @@ import type { Container } from '../container';
 import { Features } from '../features';
 import { push } from '../git/actions/stash';
 import { GitUri } from '../git/gitUri';
-import { command } from '../system/vscode/command';
-import type { CommandContext } from './base';
+import { command } from '../system/-webview/command';
+import { GlCommandBase } from './commandBase';
+import type { CommandContext } from './commandContext';
 import {
-	GlCommandBase,
 	isCommandContextViewNodeHasFile,
 	isCommandContextViewNodeHasRepoPath,
 	isCommandContextViewNodeHasRepository,
-} from './base';
+} from './commandContext.utils';
 
 export interface StashSaveCommandArgs {
 	message?: string;

@@ -1,9 +1,9 @@
 import { env, Range, Uri, window } from 'vscode';
 import { GlCommand } from '../constants.commands';
 import type { Container } from '../container';
-import { command } from '../system/vscode/command';
-import { openEditor } from '../system/vscode/utils';
-import { GlCommandBase } from './base';
+import { command } from '../system/-webview/command';
+import { openEditor } from '../system/-webview/utils';
+import { GlCommandBase } from './commandBase';
 
 @command()
 export class OpenFileFromRemoteCommand extends GlCommandBase {

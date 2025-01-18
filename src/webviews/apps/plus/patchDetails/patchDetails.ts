@@ -2,9 +2,9 @@
 import type { TextDocumentShowOptions } from 'vscode';
 import type { ViewFilesLayout } from '../../../../config';
 import type { Commands } from '../../../../constants.commands';
-import type { DraftPatchFileChange, DraftVisibility } from '../../../../gk/models/drafts';
+import type { DraftPatchFileChange, DraftVisibility } from '../../../../plus/drafts/models/drafts';
+import type { Serialized } from '../../../../system/-webview/serialize';
 import { debounce } from '../../../../system/function';
-import type { Serialized } from '../../../../system/vscode/serialize';
 import type { State, SwitchModeParams } from '../../../plus/patchDetails/protocol';
 import {
 	ApplyPatchCommand,

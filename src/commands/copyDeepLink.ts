@@ -3,21 +3,21 @@ import { GlCommand } from '../constants.commands';
 import type { StoredNamedRef } from '../constants.storage';
 import type { Container } from '../container';
 import { GitUri } from '../git/gitUri';
-import { getBranchNameAndRemote } from '../git/models/branch.utils';
 import type { GitReference } from '../git/models/reference';
-import { createReference } from '../git/models/reference.utils';
+import { getBranchNameAndRemote } from '../git/utils/branch.utils';
+import { createReference } from '../git/utils/reference.utils';
 import { showGenericErrorMessage } from '../messages';
 import { ReferencesQuickPickIncludes, showReferencePicker } from '../quickpicks/referencePicker';
 import { showRemotePicker } from '../quickpicks/remotePicker';
 import { getBestRepositoryOrShowPicker } from '../quickpicks/repositoryPicker';
+import { command } from '../system/-webview/command';
 import { Logger } from '../system/logger';
 import { normalizePath } from '../system/path';
-import { command } from '../system/vscode/command';
 import { DeepLinkType, deepLinkTypeToString, refTypeToDeepLinkType } from '../uris/deepLinks/deepLink';
-import type { CommandContext } from './base';
+import { ActiveEditorCommand } from './commandBase';
+import { getCommandUri } from './commandBase.utils';
+import type { CommandContext } from './commandContext';
 import {
-	ActiveEditorCommand,
-	getCommandUri,
 	isCommandContextEditorLine,
 	isCommandContextViewNodeHasBranch,
 	isCommandContextViewNodeHasCommit,
@@ -25,7 +25,7 @@ import {
 	isCommandContextViewNodeHasRemote,
 	isCommandContextViewNodeHasTag,
 	isCommandContextViewNodeHasWorkspace,
-} from './base';
+} from './commandContext.utils';
 
 export interface CopyDeepLinkCommandArgs {
 	refOrRepoPath?: GitReference | string;

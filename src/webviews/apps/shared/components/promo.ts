@@ -1,7 +1,7 @@
 import { css, html, LitElement, nothing } from 'lit';
 import { customElement, property } from 'lit/decorators.js';
 import { ifDefined } from 'lit/directives/if-defined.js';
-import type { Promo } from '../../../../plus/gk/account/promos';
+import type { Promo } from '../../../../plus/gk/models/promo';
 import { typeCheck } from '../../../../system/function';
 
 @customElement('gl-promo')

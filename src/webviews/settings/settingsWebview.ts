@@ -6,13 +6,14 @@ import type { WebviewTelemetryContext } from '../../constants.telemetry';
 import type { Container } from '../../container';
 import { CommitFormatter } from '../../git/formatters/commitFormatter';
 import { GitCommit, GitCommitIdentity } from '../../git/models/commit';
-import { GitFileChange, GitFileIndexStatus } from '../../git/models/file';
+import { GitFileChange } from '../../git/models/fileChange';
+import { GitFileIndexStatus } from '../../git/models/fileStatus';
 import { PullRequest } from '../../git/models/pullRequest';
-import type { SubscriptionChangeEvent } from '../../plus/gk/account/subscriptionService';
+import type { SubscriptionChangeEvent } from '../../plus/gk/subscriptionService';
 import type { ConnectionStateChangeEvent } from '../../plus/integrations/integrationService';
+import type { ConfigPath, CoreConfigPath } from '../../system/-webview/configuration';
+import { configuration } from '../../system/-webview/configuration';
 import { map } from '../../system/iterable';
-import type { ConfigPath, CoreConfigPath } from '../../system/vscode/configuration';
-import { configuration } from '../../system/vscode/configuration';
 import type { CustomConfigPath, IpcMessage } from '../protocol';
 import {
 	assertsConfigKeyValue,
@@ -203,6 +204,7 @@ export class SettingsWebviewProvider implements WebviewProvider<State, State, Se
 							['3ac1d3f51d7cf5f438cc69f25f6740536ad80fef'],
 							e.params.type === 'commit-uncommitted' ? 'Uncommitted changes' : 'Supercharged',
 							new GitFileChange(
+								this.container,
 								'~/code/eamodio/vscode-gitlens-demo',
 								'code.ts',
 								GitFileIndexStatus.Modified,

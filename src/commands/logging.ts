@@ -1,8 +1,8 @@
 import { GlCommand } from '../constants.commands';
 import type { Container } from '../container';
-import { command } from '../system/vscode/command';
-import { configuration } from '../system/vscode/configuration';
-import { GlCommandBase } from './base';
+import { command } from '../system/-webview/command';
+import { configuration } from '../system/-webview/configuration';
+import { GlCommandBase } from './commandBase';
 
 @command()
 export class EnableDebugLoggingCommand extends GlCommandBase {

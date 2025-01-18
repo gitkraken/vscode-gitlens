@@ -1,7 +1,7 @@
 import type { MessageItem } from 'vscode';
 import { window } from 'vscode';
 import { Container } from '../../container';
-import { configuration } from '../../system/vscode/configuration';
+import { configuration } from '../../system/-webview/configuration';
 import type { ShowCreateDraft, ShowViewDraft } from '../../webviews/plus/patchDetails/registration';
 import type { WebviewViewShowOptions } from '../../webviews/webviewsController';
 

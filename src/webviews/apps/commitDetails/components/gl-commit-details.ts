@@ -8,9 +8,9 @@ import type {
 	ManageCloudIntegrationsCommandArgs,
 } from '../../../../commands/cloudIntegrations';
 import type { IssueIntegrationId, SupportedCloudIntegrationIds } from '../../../../constants.integrations';
-import type { IssueOrPullRequest } from '../../../../git/models/issue';
+import type { IssueOrPullRequest } from '../../../../git/models/issueOrPullRequest';
 import type { PullRequestShape } from '../../../../git/models/pullRequest';
-import type { Serialized } from '../../../../system/vscode/serialize';
+import type { Serialized } from '../../../../system/-webview/serialize';
 import type { State } from '../../../commitDetails/protocol';
 import { messageHeadlineSplitterToken } from '../../../commitDetails/protocol';
 import type { TreeItemAction, TreeItemBase } from '../../shared/components/tree/base';

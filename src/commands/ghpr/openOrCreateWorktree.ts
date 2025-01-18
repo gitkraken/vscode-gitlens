@@ -4,14 +4,15 @@ import { GlCommand } from '../../constants.commands';
 import type { Container } from '../../container';
 import { create as createWorktree, open as openWorktree } from '../../git/actions/worktree';
 import type { GitBranchReference } from '../../git/models/reference';
-import { createReference, getReferenceFromBranch } from '../../git/models/reference.utils';
 import type { GitRemote } from '../../git/models/remote';
-import { getWorktreeForBranch } from '../../git/models/worktree.utils';
 import { parseGitRemoteUrl } from '../../git/parsers/remoteParser';
+import { getReferenceFromBranch } from '../../git/utils/-webview/reference.utils';
+import { getWorktreeForBranch } from '../../git/utils/-webview/worktree.utils';
+import { createReference } from '../../git/utils/reference.utils';
+import { command } from '../../system/-webview/command';
 import { Logger } from '../../system/logger';
 import { waitUntilNextTick } from '../../system/promise';
-import { command } from '../../system/vscode/command';
-import { GlCommandBase } from '../base';
+import { GlCommandBase } from '../commandBase';
 
 interface GHPRPullRequestNode {
 	readonly pullRequestModel: GHPRPullRequest;

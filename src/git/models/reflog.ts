@@ -1,7 +1,7 @@
 import type { Container } from '../../container';
 import { formatDate, fromNow } from '../../system/date';
-import { memoize } from '../../system/decorators/memoize';
-import { shortenRevision } from './revision.utils';
+import { memoize } from '../../system/decorators/-webview/memoize';
+import { shortenRevision } from '../utils/revision.utils';
 
 export interface GitReflog {
 	readonly repoPath: string;

@@ -1,5 +1,5 @@
 import { IssueIntegrationId } from '../constants.integrations';
-import type { IssueOrPullRequest } from '../git/models/issue';
+import type { IssueOrPullRequest } from '../git/models/issueOrPullRequest';
 import type { ProviderReference } from '../git/models/remoteProvider';
 import type { ResourceDescriptor } from '../plus/integrations/integration';
 import { escapeMarkdown } from '../system/markdown';

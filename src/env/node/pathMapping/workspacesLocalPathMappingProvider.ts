@@ -1,10 +1,7 @@
 import { Uri, workspace } from 'vscode';
-import type {
-	CloudWorkspacesPathMap,
-	CodeWorkspaceFileContents,
-	LocalWorkspaceFileData,
-	WorkspaceAutoAddSetting,
-} from '../../../plus/workspaces/models';
+import type { CloudWorkspacesPathMap } from '../../../plus/workspaces/models/cloudWorkspace';
+import type { LocalWorkspaceFileData } from '../../../plus/workspaces/models/localWorkspace';
+import type { CodeWorkspaceFileContents, WorkspaceAutoAddSetting } from '../../../plus/workspaces/models/workspaces';
 import type { WorkspacesPathMappingProvider } from '../../../plus/workspaces/workspacesPathMappingProvider';
 import { Logger } from '../../../system/logger';
 import { getSharedLegacyLocalWorkspaceMappingFileUri, SharedGKDataFolderMapper } from './sharedGKDataFolder';

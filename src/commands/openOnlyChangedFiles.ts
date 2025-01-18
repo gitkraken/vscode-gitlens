@@ -4,12 +4,12 @@ import { GlCommand } from '../constants.commands';
 import type { Container } from '../container';
 import { showGenericErrorMessage } from '../messages';
 import { getRepositoryOrShowPicker } from '../quickpicks/repositoryPicker';
+import { command } from '../system/-webview/command';
+import { findOrOpenEditors } from '../system/-webview/utils';
 import { filterMap } from '../system/array';
 import { UriComparer } from '../system/comparers';
 import { Logger } from '../system/logger';
-import { command } from '../system/vscode/command';
-import { findOrOpenEditors } from '../system/vscode/utils';
-import { GlCommandBase } from './base';
+import { GlCommandBase } from './commandBase';
 
 export interface OpenOnlyChangedFilesCommandArgs {
 	uris?: Uri[];

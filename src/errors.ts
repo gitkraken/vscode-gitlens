@@ -2,8 +2,8 @@ import type { Uri } from 'vscode';
 // eslint-disable-next-line @typescript-eslint/no-restricted-imports
 import { CancellationError as _CancellationError } from 'vscode';
 import type { Response } from '@env/fetch';
-import type { RequiredSubscriptionPlans, Subscription } from './plus/gk/account/subscription';
-import { isSubscriptionPaidPlan } from './plus/gk/account/subscription';
+import type { RequiredSubscriptionPlans, Subscription } from './plus/gk/models/subscription';
+import { isSubscriptionPaidPlan } from './plus/gk/utils/subscription.utils';
 
 export class AccessDeniedError extends Error {
 	public readonly subscription: Subscription;

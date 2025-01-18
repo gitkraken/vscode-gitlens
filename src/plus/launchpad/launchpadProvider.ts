@@ -15,34 +15,32 @@ import { openComparisonChanges } from '../../git/actions/commit';
 import type { Account } from '../../git/models/author';
 import type { GitBranch } from '../../git/models/branch';
 import type { PullRequest, SearchedPullRequest } from '../../git/models/pullRequest';
-import {
-	getComparisonRefsForPullRequest,
-	getOrOpenPullRequestRepository,
-	getRepositoryIdentityForPullRequest,
-} from '../../git/models/pullRequest';
-import type { PullRequestUrlIdentity } from '../../git/models/pullRequest.utils';
-import {
-	getPullRequestIdentityFromMaybeUrl,
-	isMaybeNonSpecificPullRequestSearchUrl,
-} from '../../git/models/pullRequest.utils';
 import type { GitRemote } from '../../git/models/remote';
 import type { Repository } from '../../git/models/repository';
-import type { CodeSuggestionCounts, Draft } from '../../gk/models/drafts';
-import { gate } from '../../system/decorators/gate';
+import { getOrOpenPullRequestRepository } from '../../git/utils/-webview/pullRequest.utils';
+import type { PullRequestUrlIdentity } from '../../git/utils/pullRequest.utils';
+import {
+	getComparisonRefsForPullRequest,
+	getPullRequestIdentityFromMaybeUrl,
+	getRepositoryIdentityForPullRequest,
+	isMaybeNonSpecificPullRequestSearchUrl,
+} from '../../git/utils/pullRequest.utils';
+import { executeCommand, registerCommand } from '../../system/-webview/command';
+import { configuration } from '../../system/-webview/configuration';
+import { setContext } from '../../system/-webview/context';
+import { openUrl } from '../../system/-webview/utils';
+import { gate } from '../../system/decorators/-webview/gate';
 import { debug, log } from '../../system/decorators/log';
 import { filterMap, groupByMap, map, some } from '../../system/iterable';
 import { Logger } from '../../system/logger';
 import { getLogScope } from '../../system/logger.scope';
 import type { TimedResult } from '../../system/promise';
 import { getSettledValue, timedWithSlowThreshold } from '../../system/promise';
-import { executeCommand, registerCommand } from '../../system/vscode/command';
-import { configuration } from '../../system/vscode/configuration';
-import { setContext } from '../../system/vscode/context';
-import { openUrl } from '../../system/vscode/utils';
 import type { UriTypes } from '../../uris/deepLinks/deepLink';
 import { DeepLinkActionType, DeepLinkType } from '../../uris/deepLinks/deepLink';
 import { showInspectView } from '../../webviews/commitDetails/actions';
 import type { ShowWipArgs } from '../../webviews/commitDetails/protocol';
+import type { CodeSuggestionCounts, Draft } from '../drafts/models/drafts';
 import type { HostingIntegration, IntegrationResult, RepositoryDescriptor } from '../integrations/integration';
 import type { ConnectionStateChangeEvent } from '../integrations/integrationService';
 import { isMaybeGitHubPullRequestUrl } from '../integrations/providers/github/github.utils';
@@ -53,16 +51,16 @@ import {
 	getActionablePullRequests,
 	toProviderPullRequestWithUniqueId,
 } from '../integrations/providers/models';
-import type { EnrichableItem, EnrichedItem } from './enrichmentService';
 import { convertRemoteProviderIdToEnrichProvider, isEnrichableRemoteProviderId } from './enrichmentService';
-import type { LaunchpadAction, LaunchpadActionCategory, LaunchpadGroup } from './models';
+import type { EnrichableItem, EnrichedItem } from './models/enrichedItem';
+import type { LaunchpadAction, LaunchpadActionCategory, LaunchpadGroup } from './models/launchpad';
 import {
 	launchpadActionCategories,
 	launchpadCategoryToGroupMap,
 	launchpadGroups,
 	prActionsMap,
 	sharedCategoryToLaunchpadActionCategoryMap,
-} from './models';
+} from './models/launchpad';
 
 export function getSuggestedActions(category: LaunchpadActionCategory, isCurrentBranch: boolean): LaunchpadAction[] {
 	const actions = [...prActionsMap.get(category)!];

@@ -1,9 +1,9 @@
 import type { Uri } from 'vscode';
 import { Disposable, ViewColumn } from 'vscode';
 import { GlCommand } from '../../../constants.commands';
-import { registerCommand } from '../../../system/vscode/command';
-import { configuration } from '../../../system/vscode/configuration';
-import { getScmResourceFolderUri, isScmResourceState } from '../../../system/vscode/scm';
+import { registerCommand } from '../../../system/-webview/command';
+import { configuration } from '../../../system/-webview/configuration';
+import { getScmResourceFolderUri, isScmResourceState } from '../../../system/-webview/scm';
 import type { ViewFileNode } from '../../../views/nodes/abstract/viewFileNode';
 import type { WebviewPanelsProxy, WebviewsController } from '../../webviewsController';
 import type { State } from './protocol';

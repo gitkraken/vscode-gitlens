@@ -3,11 +3,11 @@ import { Disposable, EventEmitter, FileSystemError, FileType, workspace } from '
 import { isLinux } from '@env/platform';
 import { Schemes } from '../constants';
 import type { Container } from '../container';
+import { relative } from '../system/-webview/path';
 import { debug } from '../system/decorators/log';
 import { map } from '../system/iterable';
 import { normalizePath } from '../system/path';
 import { TernarySearchTree } from '../system/searchTree';
-import { relative } from '../system/vscode/path';
 import { GitUri, isGitUri } from './gitUri';
 import { deletedOrMissing } from './models/revision';
 import type { GitTreeEntry } from './models/tree';

@@ -5,15 +5,16 @@ import { ScmResourceGroupType, ScmStatus } from '../@types/vscode.git.resources.
 import { GlCommand } from '../constants.commands';
 import type { Container } from '../container';
 import { GitUri } from '../git/gitUri';
-import { isUncommitted } from '../git/models/revision.utils';
+import { isUncommitted } from '../git/utils/revision.utils';
 import { showGenericErrorMessage } from '../messages';
 import { getRepositoryOrShowPicker } from '../quickpicks/repositoryPicker';
+import { command } from '../system/-webview/command';
+import { configuration } from '../system/-webview/configuration';
 import { filterMap } from '../system/array';
 import { Logger } from '../system/logger';
-import { command } from '../system/vscode/command';
-import { configuration } from '../system/vscode/configuration';
-import type { CommandContext } from './base';
-import { GlCommandBase, isCommandContextViewNodeHasFileCommit, isCommandContextViewNodeHasFileRefs } from './base';
+import { GlCommandBase } from './commandBase';
+import type { CommandContext } from './commandContext';
+import { isCommandContextViewNodeHasFileCommit, isCommandContextViewNodeHasFileRefs } from './commandContext.utils';
 
 interface ExternalDiffFile {
 	uri: Uri;

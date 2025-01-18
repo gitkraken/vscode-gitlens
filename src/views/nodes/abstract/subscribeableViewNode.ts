@@ -2,7 +2,7 @@ import type { TreeViewVisibilityChangeEvent } from 'vscode';
 import { Disposable } from 'vscode';
 import type { TreeViewSubscribableNodeTypes } from '../../../constants.views';
 import type { GitUri } from '../../../git/gitUri';
-import { gate } from '../../../system/decorators/gate';
+import { gate } from '../../../system/decorators/-webview/gate';
 import { debug } from '../../../system/decorators/log';
 import { weakEvent } from '../../../system/event';
 import type { View } from '../../viewBase';

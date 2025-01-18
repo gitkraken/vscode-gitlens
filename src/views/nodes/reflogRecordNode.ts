@@ -3,7 +3,7 @@ import { GlyphChars } from '../../constants';
 import { GitUri } from '../../git/gitUri';
 import type { GitLog } from '../../git/models/log';
 import type { GitReflogRecord } from '../../git/models/reflog';
-import { gate } from '../../system/decorators/gate';
+import { gate } from '../../system/decorators/-webview/gate';
 import { debug } from '../../system/decorators/log';
 import { map } from '../../system/iterable';
 import type { ViewsWithCommits } from '../viewBase';

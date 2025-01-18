@@ -3,10 +3,10 @@ import { Disposable, window } from 'vscode';
 import type { FileAnnotationType } from '../config';
 import type { AnnotationStatus } from '../constants';
 import type { Container } from '../container';
+import { getTabUri } from '../system/-webview/utils';
 import { Logger } from '../system/logger';
 import type { Deferred } from '../system/promise';
 import { defer } from '../system/promise';
-import { getTabUri } from '../system/vscode/utils';
 import type { TrackedGitDocument } from '../trackers/trackedDocument';
 import type { Decoration } from './annotations';
 

@@ -3,7 +3,7 @@ import type { TreeViewFileNodeTypes } from '../../../constants.views';
 import { StatusFileFormatter } from '../../../git/formatters/statusFormatter';
 import type { GitUri } from '../../../git/gitUri';
 import type { GitFile } from '../../../git/models/file';
-import type { GitStatusFile } from '../../../git/models/status';
+import type { GitStatusFile } from '../../../git/models/statusFile';
 import type { View } from '../../viewBase';
 import { ViewNode } from './viewNode';
 

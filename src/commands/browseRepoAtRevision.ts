@@ -3,12 +3,13 @@ import { GlCommand } from '../constants.commands';
 import type { Container } from '../container';
 import { GitUri } from '../git/gitUri';
 import { showGenericErrorMessage } from '../messages';
+import { command, executeCoreCommand } from '../system/-webview/command';
+import { openWorkspace } from '../system/-webview/utils';
 import { Logger } from '../system/logger';
 import { basename } from '../system/path';
-import { command, executeCoreCommand } from '../system/vscode/command';
-import { openWorkspace } from '../system/vscode/utils';
-import type { CommandContext } from './base';
-import { ActiveEditorCommand, getCommandUri } from './base';
+import { ActiveEditorCommand } from './commandBase';
+import { getCommandUri } from './commandBase.utils';
+import type { CommandContext } from './commandContext';
 
 export interface BrowseRepoAtRevisionCommandArgs {
 	uri?: Uri;
@@ -41,10 +42,10 @@ export class BrowseRepoAtRevisionCommand extends ActiveEditorCommand {
 				break;
 		}
 
-		return this.execute(context.editor!, context.uri, args);
+		return this.execute(context.editor, context.uri, args);
 	}
 
-	async execute(editor: TextEditor, uri?: Uri, args?: BrowseRepoAtRevisionCommandArgs) {
+	async execute(editor: TextEditor | undefined, uri?: Uri, args?: BrowseRepoAtRevisionCommandArgs) {
 		args = { ...args };
 
 		try {

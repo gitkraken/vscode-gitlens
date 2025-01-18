@@ -1,8 +1,8 @@
 import type { Uri } from 'vscode';
 import type { Container } from '../../../../container';
 import type { GitStagingSubProvider } from '../../../../git/gitProvider';
+import { splitPath } from '../../../../system/-webview/path';
 import { log } from '../../../../system/decorators/log';
-import { splitPath } from '../../../../system/vscode/path';
 import type { Git } from '../git';
 
 export class StagingGitSubProvider implements GitStagingSubProvider {

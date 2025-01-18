@@ -1,11 +1,12 @@
-import { Container } from '../../container';
+import type { Container } from '../../container';
 import { formatDate, fromNow } from '../../system/date';
-import { memoize } from '../../system/decorators/memoize';
+import { memoize } from '../../system/decorators/-webview/memoize';
 import { getLoggableName } from '../../system/logger';
-import type { GitReference, GitTagReference } from './reference';
+import { getTagId } from '../utils/tag.utils';
+import type { GitTagReference } from './reference';
 
-export function getTagId(repoPath: string, name: string): string {
-	return `${repoPath}|tag/${name}`;
+export function isTag(tag: unknown): tag is GitTag {
+	return tag instanceof GitTag;
 }
 
 export class GitTag implements GitTagReference {
@@ -13,6 +14,7 @@ export class GitTag implements GitTagReference {
 	readonly id: string;
 
 	constructor(
+		private readonly container: Container,
 		public readonly repoPath: string,
 		public readonly name: string,
 		public readonly sha: string,
@@ -28,8 +30,8 @@ export class GitTag implements GitTagReference {
 	}
 
 	get formattedDate(): string {
-		return Container.instance.TagDateFormatting.dateStyle === 'absolute'
-			? this.formatDate(Container.instance.TagDateFormatting.dateFormat)
+		return this.container.TagDateFormatting.dateStyle === 'absolute'
+			? this.formatDate(this.container.TagDateFormatting.dateFormat)
 			: this.formatDateFromNow();
 	}
 
@@ -60,12 +62,4 @@ export class GitTag implements GitTagReference {
 		const index = this.name.lastIndexOf('/');
 		return index !== -1 ? this.name.substring(index + 1) : this.name;
 	}
-}
-
-export function isTag(tag: any): tag is GitTag {
-	return tag instanceof GitTag;
-}
-
-export function isOfTagRefType(tag: GitReference | undefined) {
-	return tag?.refType === 'tag';
 }

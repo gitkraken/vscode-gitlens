@@ -3,15 +3,16 @@ import { GlyphChars, quickPickTitleMaxChars } from '../constants';
 import { GlCommand } from '../constants.commands';
 import type { Container } from '../container';
 import { GitUri } from '../git/gitUri';
-import { isBranchReference } from '../git/models/reference.utils';
-import { shortenRevision } from '../git/models/revision.utils';
+import { isBranchReference } from '../git/utils/reference.utils';
+import { shortenRevision } from '../git/utils/revision.utils';
 import { showNoRepositoryWarningMessage } from '../messages';
 import { showStashPicker } from '../quickpicks/commitPicker';
 import { showReferencePicker } from '../quickpicks/referencePicker';
+import { command, executeCommand } from '../system/-webview/command';
 import { basename } from '../system/path';
 import { pad } from '../system/string';
-import { command, executeCommand } from '../system/vscode/command';
-import { ActiveEditorCommand, getCommandUri } from './base';
+import { ActiveEditorCommand } from './commandBase';
+import { getCommandUri } from './commandBase.utils';
 import type { DiffWithCommandArgs } from './diffWith';
 
 export interface DiffWithRevisionFromCommandArgs {

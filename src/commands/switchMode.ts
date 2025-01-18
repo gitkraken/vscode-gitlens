@@ -2,11 +2,11 @@ import { ConfigurationTarget } from 'vscode';
 import { GlCommand } from '../constants.commands';
 import type { Container } from '../container';
 import { showModePicker } from '../quickpicks/modePicker';
+import { command } from '../system/-webview/command';
+import { configuration } from '../system/-webview/configuration';
 import { log } from '../system/decorators/log';
 import { getLogScope, setLogScopeExit } from '../system/logger.scope';
-import { command } from '../system/vscode/command';
-import { configuration } from '../system/vscode/configuration';
-import { GlCommandBase } from './base';
+import { GlCommandBase } from './commandBase';
 
 @command()
 export class SwitchModeCommand extends GlCommandBase {

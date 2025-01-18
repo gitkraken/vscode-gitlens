@@ -1,17 +1,17 @@
 import type { Range, Uri } from 'vscode';
 import type { Autolink, AutolinkReference, DynamicAutolinkReference, MaybeEnrichedAutolink } from '../../autolinks';
 import { GlyphChars } from '../../constants';
-import type { GkProviderId } from '../../gk/models/repositoryIdentities';
 import type { GitLabRepositoryDescriptor } from '../../plus/integrations/providers/gitlab';
 import type { Brand, Unbrand } from '../../system/brand';
 import { fromNow } from '../../system/date';
-import { memoize } from '../../system/decorators/memoize';
+import { memoize } from '../../system/decorators/-webview/memoize';
 import { encodeUrl } from '../../system/encoding';
 import { escapeMarkdown, unescapeMarkdown } from '../../system/markdown';
 import { equalsIgnoreCase } from '../../system/string';
 import type { Repository } from '../models/repository';
-import { isSha } from '../models/revision.utils';
-import { getIssueOrPullRequestMarkdownIcon } from '../utils/vscode/icons';
+import type { GkProviderId } from '../models/repositoryIdentities';
+import { getIssueOrPullRequestMarkdownIcon } from '../utils/-webview/icons';
+import { isSha } from '../utils/revision.utils';
 import type { RemoteProviderId } from './remoteProvider';
 import { RemoteProvider } from './remoteProvider';
 

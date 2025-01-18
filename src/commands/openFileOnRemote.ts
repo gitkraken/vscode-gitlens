@@ -4,23 +4,20 @@ import { GlyphChars } from '../constants';
 import { GlCommand } from '../constants.commands';
 import type { Container } from '../container';
 import { GitUri } from '../git/gitUri';
-import { getBranchNameWithoutRemote, getRemoteNameFromBranchName } from '../git/models/branch.utils';
 import { RemoteResourceType } from '../git/models/remoteResource';
-import { isSha } from '../git/models/revision.utils';
+import { getBranchNameWithoutRemote, getRemoteNameFromBranchName } from '../git/utils/branch.utils';
+import { isSha } from '../git/utils/revision.utils';
 import { showGenericErrorMessage } from '../messages';
 import { showReferencePicker } from '../quickpicks/referencePicker';
+import { command, executeCommand } from '../system/-webview/command';
 import { UriComparer } from '../system/comparers';
 import { Logger } from '../system/logger';
 import { pad, splitSingle } from '../system/string';
-import { command, executeCommand } from '../system/vscode/command';
 import { StatusFileNode } from '../views/nodes/statusFileNode';
-import type { CommandContext } from './base';
-import {
-	ActiveEditorCommand,
-	getCommandUri,
-	isCommandContextViewNodeHasBranch,
-	isCommandContextViewNodeHasCommit,
-} from './base';
+import { ActiveEditorCommand } from './commandBase';
+import { getCommandUri } from './commandBase.utils';
+import type { CommandContext } from './commandContext';
+import { isCommandContextViewNodeHasBranch, isCommandContextViewNodeHasCommit } from './commandContext.utils';
 import type { OpenOnRemoteCommandArgs } from './openOnRemote';
 
 export interface OpenFileOnRemoteCommandArgs {

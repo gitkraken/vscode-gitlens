@@ -12,7 +12,7 @@ import type {
 	DraftPatchFileChange,
 	DraftRole,
 	DraftVisibility,
-} from '../../../../../gk/models/drafts';
+} from '../../../../../plus/drafts/models/drafts';
 import { makeHierarchical } from '../../../../../system/array';
 import { flatCount } from '../../../../../system/iterable';
 import type {

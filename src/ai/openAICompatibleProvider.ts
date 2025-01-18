@@ -4,9 +4,9 @@ import type { AIProviders } from '../constants.ai';
 import type { TelemetryEvents } from '../constants.telemetry';
 import type { Container } from '../container';
 import { CancellationError } from '../errors';
+import { configuration } from '../system/-webview/configuration';
 import { sum } from '../system/iterable';
 import { interpolate } from '../system/string';
-import { configuration } from '../system/vscode/configuration';
 import type { AIModel, AIProvider } from './aiProviderService';
 import { getMaxCharacters, getOrPromptApiKey, showDiffTruncationWarning } from './aiProviderService';
 import {

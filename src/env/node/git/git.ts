@@ -31,11 +31,14 @@ import {
 import type { GitDir } from '../../../git/gitProvider';
 import type { GitDiffFilter } from '../../../git/models/diff';
 import type { GitRevisionRange } from '../../../git/models/revision';
-import { isUncommitted, isUncommittedStaged, shortenRevision } from '../../../git/models/revision.utils';
 import type { GitUser } from '../../../git/models/user';
 import { parseGitBranchesDefaultFormat } from '../../../git/parsers/branchParser';
 import { parseGitLogAllFormat, parseGitLogDefaultFormat } from '../../../git/parsers/logParser';
 import { parseGitRemoteUrl } from '../../../git/parsers/remoteParser';
+import { isUncommitted, isUncommittedStaged, shortenRevision } from '../../../git/utils/revision.utils';
+import { configuration } from '../../../system/-webview/configuration';
+import { splitPath } from '../../../system/-webview/path';
+import { getEditorCommand } from '../../../system/-webview/utils';
 import { splitAt } from '../../../system/array';
 import { log } from '../../../system/decorators/log';
 import { join } from '../../../system/iterable';
@@ -45,9 +48,6 @@ import { getLoggableScopeBlockOverride, getLogScope } from '../../../system/logg
 import { dirname, isAbsolute, isFolderGlob, joinPaths, normalizePath } from '../../../system/path';
 import { getDurationMilliseconds } from '../../../system/string';
 import { compare, fromString } from '../../../system/version';
-import { configuration } from '../../../system/vscode/configuration';
-import { splitPath } from '../../../system/vscode/path';
-import { getEditorCommand } from '../../../system/vscode/utils';
 import { ensureGitTerminal } from '../../../terminal';
 import type { GitLocation } from './locator';
 import type { RunOptions } from './shell';

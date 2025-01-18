@@ -10,23 +10,23 @@ import type {
 	PagingOptions,
 } from '../../../../git/gitProvider';
 import { GitBranch } from '../../../../git/models/branch';
-import { getLocalBranchByUpstream, isDetachedHead } from '../../../../git/models/branch.utils';
 import type { MergeConflict } from '../../../../git/models/mergeConflict';
 import type { GitBranchReference } from '../../../../git/models/reference';
-import { getReferenceFromBranch } from '../../../../git/models/reference.utils';
-import { createRevisionRange } from '../../../../git/models/revision.utils';
 import { parseGitBranches } from '../../../../git/parsers/branchParser';
 import { parseMergeTreeConflict } from '../../../../git/parsers/mergeTreeParser';
-import type { BranchSortOptions } from '../../../../git/utils/vscode/sorting';
-import { sortBranches, sortContributors } from '../../../../git/utils/vscode/sorting';
+import { getReferenceFromBranch } from '../../../../git/utils/-webview/reference.utils';
+import type { BranchSortOptions } from '../../../../git/utils/-webview/sorting';
+import { sortBranches, sortContributors } from '../../../../git/utils/-webview/sorting';
+import { getLocalBranchByUpstream, isDetachedHead } from '../../../../git/utils/branch.utils';
+import { createRevisionRange } from '../../../../git/utils/revision.utils';
+import { configuration } from '../../../../system/-webview/configuration';
 import { filterMap } from '../../../../system/array';
-import { gate } from '../../../../system/decorators/gate';
+import { gate } from '../../../../system/decorators/-webview/gate';
 import { log } from '../../../../system/decorators/log';
 import { Logger } from '../../../../system/logger';
 import { getLogScope } from '../../../../system/logger.scope';
 import { PageableResult } from '../../../../system/paging';
 import { getSettledValue } from '../../../../system/promise';
-import { configuration } from '../../../../system/vscode/configuration';
 import type { Git } from '../git';
 import type { LocalGitProvider } from '../localGitProvider';
 

@@ -1,4 +1,5 @@
 import type { ConfigurationChangeEvent, Event, Uri, WorkspaceFolder } from 'vscode';
+// eslint-disable-next-line @typescript-eslint/no-restricted-imports
 import { Disposable, EventEmitter, ProgressLocation, RelativePattern, window, workspace } from 'vscode';
 import { md5, uuid } from '@env/crypto';
 import type { CreatePullRequestActionContext } from '../../api/gitlens';
@@ -8,10 +9,12 @@ import type { FeatureAccess, PlusFeatures } from '../../features';
 import { showCreatePullRequestPrompt, showGenericErrorMessage } from '../../messages';
 import type { RepoComparisonKey } from '../../repositories';
 import { asRepoComparisonKey } from '../../repositories';
+import { executeActionCommand } from '../../system/-webview/command';
+import { configuration } from '../../system/-webview/configuration';
 import { getScopedCounter } from '../../system/counter';
-import { gate } from '../../system/decorators/gate';
+import { gate } from '../../system/decorators/-webview/gate';
+import { memoize } from '../../system/decorators/-webview/memoize';
 import { debug, log, logName } from '../../system/decorators/log';
-import { memoize } from '../../system/decorators/memoize';
 import type { Deferrable } from '../../system/function';
 import { debounce } from '../../system/function';
 import { filter, groupByMap, join, min, some } from '../../system/iterable';
@@ -19,14 +22,12 @@ import { getLoggableName, Logger } from '../../system/logger';
 import { getLogScope } from '../../system/logger.scope';
 import { updateRecordValue } from '../../system/object';
 import { basename, normalizePath } from '../../system/path';
-import { executeActionCommand } from '../../system/vscode/command';
-import { configuration } from '../../system/vscode/configuration';
 import type { GitProviderDescriptor, GitRepositoryProvider } from '../gitProvider';
 import type { GitProviderService } from '../gitProviderService';
+import { getBranchNameWithoutRemote, getRemoteNameFromBranchName } from '../utils/branch.utils';
+import { getReferenceNameWithoutRemote, isBranchReference } from '../utils/reference.utils';
 import type { GitBranch } from './branch';
-import { getBranchNameWithoutRemote, getNameWithoutRemote, getRemoteNameFromBranchName } from './branch.utils';
 import type { GitBranchReference, GitReference } from './reference';
-import { isBranchReference } from './reference.utils';
 
 type GitProviderRepoKeys = keyof GitRepositoryProvider | 'supports';
 
@@ -549,7 +550,12 @@ export class Repository implements Disposable {
 			const branchesByOrigin = groupByMap(remoteBranches, b => getRemoteNameFromBranchName(b.name));
 
 			for (const [remote, branches] of branchesByOrigin.entries()) {
-				void this.runTerminalCommand('push', '-d', remote, ...branches.map(b => getNameWithoutRemote(b)));
+				void this.runTerminalCommand(
+					'push',
+					'-d',
+					remote,
+					...branches.map(b => getReferenceNameWithoutRemote(b)),
+				);
 			}
 		}
 	}

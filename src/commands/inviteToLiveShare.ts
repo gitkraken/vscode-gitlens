@@ -1,9 +1,10 @@
 import { GlCommand } from '../constants.commands';
 import type { Container } from '../container';
+import { command } from '../system/-webview/command';
 import { createMarkdownCommandLink } from '../system/commands';
-import { command } from '../system/vscode/command';
-import type { CommandContext } from './base';
-import { GlCommandBase, isCommandContextViewNodeHasContributor } from './base';
+import { GlCommandBase } from './commandBase';
+import type { CommandContext } from './commandContext';
+import { isCommandContextViewNodeHasContributor } from './commandContext.utils';
 
 export interface InviteToLiveShareCommandArgs {
 	email?: string;

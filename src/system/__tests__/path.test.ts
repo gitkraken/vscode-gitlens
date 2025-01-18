@@ -1,6 +1,6 @@
 import * as assert from 'assert';
 import { suite, test } from 'mocha';
-import { splitPath } from '../vscode/path';
+import { splitPath } from '../-webview/path';
 
 const smallDiskNameRegex = /^[a-z]:\//gm;
 function capitalizeDiskName(path: string) {

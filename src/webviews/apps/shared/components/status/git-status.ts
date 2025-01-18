@@ -1,28 +1,8 @@
 import type { PropertyValueMap } from 'lit';
 import { css, html, LitElement } from 'lit';
 import { customElement, property, state } from 'lit/decorators.js';
-import type { GitFileStatus } from '../../../../../git/models/file';
-
-// TODO: use the model version
-const statusTextMap: Record<string, string> = {
-	'.': 'Unchanged',
-	'!': 'Ignored',
-	'?': 'Untracked',
-	A: 'Added',
-	D: 'Deleted',
-	M: 'Modified',
-	R: 'Renamed',
-	C: 'Copied',
-	AA: 'Conflict',
-	AU: 'Conflict',
-	UA: 'Conflict',
-	DD: 'Conflict',
-	DU: 'Conflict',
-	UD: 'Conflict',
-	UU: 'Conflict',
-	T: 'Modified',
-	U: 'Updated but Unmerged',
-};
+import type { GitFileStatus } from '../../../../../git/models/fileStatus';
+import { getGitFileStatusText } from '../../../../../git/utils/fileStatus.utils';
 
 @customElement('gl-git-status')
 export class GlGitStatus extends LitElement {
@@ -73,7 +53,7 @@ export class GlGitStatus extends LitElement {
 	@state()
 	get statusName() {
 		if (!this.status) return '';
-		return statusTextMap[this.status];
+		return getGitFileStatusText(this.status);
 	}
 
 	override updated(changedProperties: PropertyValueMap<any> | Map<PropertyKey, unknown>): void {

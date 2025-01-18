@@ -1,6 +1,6 @@
 import { Disposable, ViewColumn } from 'vscode';
 import { GlCommand } from '../../constants.commands';
-import { registerCommand } from '../../system/vscode/command';
+import { registerCommand } from '../../system/-webview/command';
 import type { WebviewPanelsProxy, WebviewsController } from '../webviewsController';
 import type { State } from './protocol';
 

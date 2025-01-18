@@ -2,9 +2,9 @@ import type { CancellationToken, LanguageModelChat, LanguageModelChatSelector } 
 import { CancellationTokenSource, LanguageModelChatMessage, lm } from 'vscode';
 import type { TelemetryEvents } from '../constants.telemetry';
 import type { Container } from '../container';
+import { configuration } from '../system/-webview/configuration';
 import { sum } from '../system/iterable';
 import { capitalize, getPossessiveForm, interpolate } from '../system/string';
-import { configuration } from '../system/vscode/configuration';
 import type { AIModel, AIProvider } from './aiProviderService';
 import { getMaxCharacters, showDiffTruncationWarning } from './aiProviderService';
 import {

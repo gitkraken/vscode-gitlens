@@ -46,13 +46,6 @@ import { GitUri, isGitUri } from '../../../git/gitUri';
 import { encodeGitLensRevisionUriAuthority } from '../../../git/gitUri.authority';
 import type { GitBlame, GitBlameAuthor, GitBlameLine } from '../../../git/models/blame';
 import type { GitBranch } from '../../../git/models/branch';
-import {
-	getBranchId,
-	getBranchNameAndRemote,
-	getBranchNameWithoutRemote,
-	getBranchTrackingWithoutRemote,
-	getRemoteNameFromBranchName,
-} from '../../../git/models/branch.utils';
 import type { GitCommit, GitStashCommit } from '../../../git/models/commit';
 import type {
 	GitDiff,
@@ -62,8 +55,9 @@ import type {
 	GitDiffLine,
 	GitDiffShortStat,
 } from '../../../git/models/diff';
-import type { GitFile, GitFileStatus } from '../../../git/models/file';
-import { GitFileChange } from '../../../git/models/file';
+import type { GitFile } from '../../../git/models/file';
+import { GitFileChange } from '../../../git/models/fileChange';
+import type { GitFileStatus } from '../../../git/models/fileStatus';
 import type {
 	GitGraph,
 	GitGraphRow,
@@ -76,31 +70,17 @@ import type {
 } from '../../../git/models/graph';
 import type { GitLog } from '../../../git/models/log';
 import type { GitBranchReference, GitReference } from '../../../git/models/reference';
-import { createReference, isBranchReference } from '../../../git/models/reference.utils';
 import type { GitReflog } from '../../../git/models/reflog';
 import type { GitRemote } from '../../../git/models/remote';
-import { getVisibilityCacheKey } from '../../../git/models/remote';
 import { RemoteResourceType } from '../../../git/models/remoteResource';
 import type { RepositoryChangeEvent } from '../../../git/models/repository';
 import { Repository, RepositoryChange, RepositoryChangeComparisonMode } from '../../../git/models/repository';
 import type { GitRevisionRange } from '../../../git/models/revision';
 import { deletedOrMissing, uncommitted, uncommittedStaged } from '../../../git/models/revision';
-import {
-	isRevisionRange,
-	isSha,
-	isShaLike,
-	isUncommitted,
-	isUncommittedStaged,
-	shortenRevision,
-} from '../../../git/models/revision.utils';
 import type { GitTag } from '../../../git/models/tag';
-import { getTagId } from '../../../git/models/tag';
 import type { GitTreeEntry } from '../../../git/models/tree';
 import type { GitUser } from '../../../git/models/user';
-import { isUserMatch } from '../../../git/models/user';
 import type { GitWorktree } from '../../../git/models/worktree';
-import { getWorktreeId } from '../../../git/models/worktree';
-import { groupWorktreesByBranch } from '../../../git/models/worktree.utils';
 import { parseGitBlame } from '../../../git/parsers/blameParser';
 import {
 	parseGitApplyFiles,
@@ -127,7 +107,28 @@ import { parseGitRefLog, parseGitRefLogDefaultFormat } from '../../../git/parser
 import { parseGitLsFiles, parseGitTree } from '../../../git/parsers/treeParser';
 import type { GitSearch, GitSearchResultData, GitSearchResults } from '../../../git/search';
 import { getGitArgsFromSearchQuery, getSearchQueryComparisonKey } from '../../../git/search';
-import { getRemoteIconUri } from '../../../git/utils/vscode/icons';
+import { getRemoteIconUri } from '../../../git/utils/-webview/icons';
+import { groupWorktreesByBranch } from '../../../git/utils/-webview/worktree.utils';
+import {
+	getBranchId,
+	getBranchNameAndRemote,
+	getBranchNameWithoutRemote,
+	getBranchTrackingWithoutRemote,
+	getRemoteNameFromBranchName,
+} from '../../../git/utils/branch.utils';
+import { createReference, isBranchReference } from '../../../git/utils/reference.utils';
+import { getVisibilityCacheKey } from '../../../git/utils/remote.utils';
+import {
+	isRevisionRange,
+	isSha,
+	isShaLike,
+	isUncommitted,
+	isUncommittedStaged,
+	shortenRevision,
+} from '../../../git/utils/revision.utils';
+import { getTagId } from '../../../git/utils/tag.utils';
+import { isUserMatch } from '../../../git/utils/user.utils';
+import { getWorktreeId } from '../../../git/utils/worktree.utils';
 import {
 	showBlameInvalidIgnoreRevsFileWarningMessage,
 	showGenericErrorMessage,
@@ -137,8 +138,12 @@ import {
 	showGitVersionUnsupportedErrorMessage,
 } from '../../../messages';
 import { asRepoComparisonKey } from '../../../repositories';
+import { TimedCancellationSource } from '../../../system/-webview/cancellation';
+import { configuration } from '../../../system/-webview/configuration';
+import { getBestPath, relative, splitPath } from '../../../system/-webview/path';
+import { isFolderUri } from '../../../system/-webview/utils';
 import { filterMap } from '../../../system/array';
-import { gate } from '../../../system/decorators/gate';
+import { gate } from '../../../system/decorators/-webview/gate';
 import { debug, log } from '../../../system/decorators/log';
 import { debounce } from '../../../system/function';
 import { filterMap as filterMapIterable, find, first, join, last, map, skip, some } from '../../../system/iterable';
@@ -157,10 +162,6 @@ import {
 import { any, asSettled, getSettledValue } from '../../../system/promise';
 import { equalsIgnoreCase, getDurationMilliseconds, splitSingle } from '../../../system/string';
 import { compare, fromString } from '../../../system/version';
-import { TimedCancellationSource } from '../../../system/vscode/cancellation';
-import { configuration } from '../../../system/vscode/configuration';
-import { getBestPath, relative, splitPath } from '../../../system/vscode/path';
-import { isFolderUri } from '../../../system/vscode/utils';
 import { serializeWebviewItemContext } from '../../../system/webview';
 import type { CachedBlame, CachedDiff, CachedLog, TrackedGitDocument } from '../../../trackers/trackedDocument';
 import { GitDocumentState } from '../../../trackers/trackedDocument';
@@ -1820,11 +1821,19 @@ export class LocalGitProvider implements GitProvider, Disposable {
 		for (const c of parser.parse(data)) {
 			files = c.files.map(
 				f =>
-					new GitFileChange(repoPath, f.path, f.status as GitFileStatus, f.originalPath, undefined, {
-						additions: f.additions,
-						deletions: f.deletions,
-						changes: 0,
-					}),
+					new GitFileChange(
+						this.container,
+						repoPath,
+						f.path,
+						f.status as GitFileStatus,
+						f.originalPath,
+						undefined,
+						{
+							additions: f.additions,
+							deletions: f.deletions,
+							changes: 0,
+						},
+					),
 			);
 			break;
 		}
@@ -2596,7 +2605,7 @@ export class LocalGitProvider implements GitProvider, Disposable {
 		const data = await this.git.apply2(repoPath, { stdin: contents }, '--numstat', '--summary', '-z');
 		if (!data) return undefined;
 
-		const files = parseGitApplyFiles(data, repoPath);
+		const files = parseGitApplyFiles(this.container, data, repoPath);
 		return {
 			files: files,
 		};

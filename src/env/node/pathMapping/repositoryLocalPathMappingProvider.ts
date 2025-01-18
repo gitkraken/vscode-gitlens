@@ -1,8 +1,8 @@
 import type { Disposable } from 'vscode';
 import { workspace } from 'vscode';
 import type { Container } from '../../../container';
-import type { LocalRepoDataMap } from '../../../pathMapping/models';
-import type { RepositoryPathMappingProvider } from '../../../pathMapping/repositoryPathMappingProvider';
+import type { LocalRepoDataMap } from '../../../git/models/pathMapping';
+import type { RepositoryPathMappingProvider } from '../../../git/pathMapping/repositoryPathMappingProvider';
 import { Logger } from '../../../system/logger';
 import { SharedGKDataFolderMapper } from './sharedGKDataFolder';
 

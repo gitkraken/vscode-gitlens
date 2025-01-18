@@ -3,7 +3,8 @@ import { EntityIdentifierProviderType, EntityType, EntityVersion } from '@gitkra
 import type { IntegrationId } from '../../../constants.integrations';
 import { HostingIntegrationId, IssueIntegrationId, SelfHostedIntegrationId } from '../../../constants.integrations';
 import type { Container } from '../../../container';
-import type { Issue, IssueOrPullRequest, IssueShape } from '../../../git/models/issue';
+import type { Issue, IssueShape } from '../../../git/models/issue';
+import type { IssueOrPullRequest } from '../../../git/models/issueOrPullRequest';
 import type { PullRequest } from '../../../git/models/pullRequest';
 import { Logger } from '../../../system/logger';
 import { equalsIgnoreCase } from '../../../system/string';

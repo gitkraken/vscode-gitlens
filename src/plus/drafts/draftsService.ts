@@ -8,9 +8,26 @@ import type { Container } from '../../container';
 import type { GitCommit } from '../../git/models/commit';
 import type { PullRequest } from '../../git/models/pullRequest';
 import { isRepository, Repository } from '../../git/models/repository';
-import { isSha, isUncommitted, shortenRevision } from '../../git/models/revision.utils';
+import type {
+	GkRepositoryId,
+	RepositoryIdentity,
+	RepositoryIdentityRequest,
+	RepositoryIdentityResponse,
+} from '../../git/models/repositoryIdentities';
 import type { GitUser } from '../../git/models/user';
 import { getRemoteProviderMatcher } from '../../git/remotes/remoteProviders';
+import { isSha, isUncommitted, shortenRevision } from '../../git/utils/revision.utils';
+import { log } from '../../system/decorators/log';
+import { Logger } from '../../system/logger';
+import type { LogScope } from '../../system/logger.scope';
+import { getLogScope } from '../../system/logger.scope';
+import { getSettledValue } from '../../system/promise';
+import type { OrganizationMember } from '../gk/models/organization';
+import type { SubscriptionAccount } from '../gk/models/subscription';
+import type { ServerConnection } from '../gk/serverConnection';
+import { providersMetadata } from '../integrations/providers/models';
+import { getEntityIdentifierInput } from '../integrations/providers/utils';
+import type { LaunchpadItem } from '../launchpad/launchpadProvider';
 import type {
 	CodeSuggestionCounts,
 	CodeSuggestionCountsResponse,
@@ -32,24 +49,7 @@ import type {
 	DraftType,
 	DraftUser,
 	DraftVisibility,
-} from '../../gk/models/drafts';
-import type {
-	GkRepositoryId,
-	RepositoryIdentity,
-	RepositoryIdentityRequest,
-	RepositoryIdentityResponse,
-} from '../../gk/models/repositoryIdentities';
-import { log } from '../../system/decorators/log';
-import { Logger } from '../../system/logger';
-import type { LogScope } from '../../system/logger.scope';
-import { getLogScope } from '../../system/logger.scope';
-import { getSettledValue } from '../../system/promise';
-import type { OrganizationMember } from '../gk/account/organization';
-import type { SubscriptionAccount } from '../gk/account/subscription';
-import type { ServerConnection } from '../gk/serverConnection';
-import { providersMetadata } from '../integrations/providers/models';
-import { getEntityIdentifierInput } from '../integrations/providers/utils';
-import type { LaunchpadItem } from '../launchpad/launchpadProvider';
+} from './models/drafts';
 
 export interface ProviderAuth {
 	provider: IntegrationId;

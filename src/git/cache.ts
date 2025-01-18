@@ -1,9 +1,9 @@
 import { Disposable } from 'vscode';
 import type { Container } from '../container';
+import { configuration } from '../system/-webview/configuration';
 import { log } from '../system/decorators/log';
 import type { PromiseOrValue } from '../system/promise';
 import { PathTrie } from '../system/trie';
-import { configuration } from '../system/vscode/configuration';
 import type { GitCaches, GitDir, PagedResult } from './gitProvider';
 import type { GitBranch } from './models/branch';
 import type { GitContributor } from './models/contributor';

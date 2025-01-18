@@ -1,19 +1,21 @@
 /* eslint-disable @typescript-eslint/no-deprecated */
 import type { Range } from 'vscode';
 import type { Container } from '../../container';
+import { relative } from '../../system/-webview/path';
 import { filterMap } from '../../system/array';
 import { normalizePath } from '../../system/path';
 import { maybeStopWatch } from '../../system/stopwatch';
 import { getLines } from '../../system/string';
-import { relative } from '../../system/vscode/path';
 import type { GitCommitLine, GitStashCommit } from '../models/commit';
 import { GitCommit, GitCommitIdentity } from '../models/commit';
-import type { GitFile, GitFileChangeStats } from '../models/file';
-import { GitFileChange, GitFileIndexStatus } from '../models/file';
+import type { GitFile } from '../models/file';
+import type { GitFileChangeStats } from '../models/fileChange';
+import { GitFileChange } from '../models/fileChange';
+import { GitFileIndexStatus } from '../models/fileStatus';
 import type { GitLog } from '../models/log';
 import { uncommitted } from '../models/revision';
 import type { GitUser } from '../models/user';
-import { isUserMatch } from '../models/user';
+import { isUserMatch } from '../utils/user.utils';
 
 const diffRegex = /diff --git a\/(.*) b\/(.*)/;
 const diffRangeRegex = /^@@ -(\d+?),(\d+?) \+(\d+?),(\d+?) @@/;
@@ -840,10 +842,11 @@ function parseLogEntry(
 		const originalFileName = entry.originalPath ?? (relativeFileName !== entry.path ? entry.path : undefined);
 
 		const files: { file?: GitFileChange; files?: GitFileChange[] } = {
-			files: entry.files?.map(f => new GitFileChange(repoPath!, f.path, f.status, f.originalPath)),
+			files: entry.files?.map(f => new GitFileChange(container, repoPath!, f.path, f.status, f.originalPath)),
 		};
 		if (type === LogType.LogFile && relativeFileName != null) {
 			files.file = new GitFileChange(
+				container,
 				repoPath!,
 				relativeFileName,
 				entry.status!,

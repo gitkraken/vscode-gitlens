@@ -2,8 +2,8 @@ import type { Container } from '../../../../../container';
 import type { GitCache } from '../../../../../git/cache';
 import type { GitTagsSubProvider, PagedResult, PagingOptions } from '../../../../../git/gitProvider';
 import { GitTag } from '../../../../../git/models/tag';
-import type { TagSortOptions } from '../../../../../git/utils/vscode/sorting';
-import { sortTags } from '../../../../../git/utils/vscode/sorting';
+import type { TagSortOptions } from '../../../../../git/utils/-webview/sorting';
+import { sortTags } from '../../../../../git/utils/-webview/sorting';
 import { log } from '../../../../../system/decorators/log';
 import { Logger } from '../../../../../system/logger';
 import { getLogScope } from '../../../../../system/logger.scope';
@@ -69,6 +69,7 @@ export class TagsGitSubProvider implements GitTagsSubProvider {
 
 							tags.push(
 								new GitTag(
+									this.container,
 									repoPath!,
 									tag.name,
 									tag.target.target?.oid ?? tag.target.oid,

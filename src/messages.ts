@@ -6,11 +6,11 @@ import { GlCommand } from './constants.commands';
 import type { BlameIgnoreRevsFileError } from './git/errors';
 import { BlameIgnoreRevsFileBadRevisionError } from './git/errors';
 import type { GitCommit } from './git/models/commit';
+import { executeCommand, executeCoreCommand } from './system/-webview/command';
+import { configuration } from './system/-webview/configuration';
+import { openUrl } from './system/-webview/utils';
 import { createMarkdownCommandLink } from './system/commands';
 import { Logger } from './system/logger';
-import { executeCommand, executeCoreCommand } from './system/vscode/command';
-import { configuration } from './system/vscode/configuration';
-import { openUrl } from './system/vscode/utils';
 
 export function showBlameInvalidIgnoreRevsFileWarningMessage(
 	ex: BlameIgnoreRevsFileError | BlameIgnoreRevsFileBadRevisionError,

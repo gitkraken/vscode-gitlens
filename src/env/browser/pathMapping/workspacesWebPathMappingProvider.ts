@@ -1,5 +1,6 @@
 import type { Uri } from 'vscode';
-import type { LocalWorkspaceFileData, WorkspaceAutoAddSetting } from '../../../plus/workspaces/models';
+import type { LocalWorkspaceFileData } from '../../../plus/workspaces/models/localWorkspace';
+import type { WorkspaceAutoAddSetting } from '../../../plus/workspaces/models/workspaces';
 import type { WorkspacesPathMappingProvider } from '../../../plus/workspaces/workspacesPathMappingProvider';
 
 export class WorkspacesWebPathMappingProvider implements WorkspacesPathMappingProvider {

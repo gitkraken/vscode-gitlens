@@ -6,7 +6,7 @@ import { HostingIntegrationId, IssueIntegrationId, SelfHostedIntegrationId } fro
 import type { IntegrationAuthenticationKeys, StoredConfiguredIntegrationDescriptor } from '../../../constants.storage';
 import type { Sources } from '../../../constants.telemetry';
 import type { Container } from '../../../container';
-import { gate } from '../../../system/decorators/gate';
+import { gate } from '../../../system/decorators/-webview/gate';
 import { debug, log } from '../../../system/decorators/log';
 import type { DeferredEventExecutor } from '../../../system/event';
 import { isSelfHostedIntegrationId, supportedIntegrationIds } from '../providers/models';
