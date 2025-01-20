@@ -1817,7 +1817,6 @@ export class GitHubGitProvider implements GitProvider, Disposable {
 		options?: {
 			all?: boolean;
 			cursor?: string;
-			force?: boolean | undefined;
 			limit?: number;
 			ordering?: 'date' | 'author-date' | 'topo' | null;
 			range?: Range;
@@ -1865,6 +1864,10 @@ export class GitHubGitProvider implements GitProvider, Disposable {
 			key += `:n${options.limit}`;
 		}
 
+		if (options.ordering) {
+			key += `:ordering=${options.ordering}`;
+		}
+
 		if (options.renames) {
 			key += ':follow';
 		}
@@ -1881,12 +1884,10 @@ export class GitHubGitProvider implements GitProvider, Disposable {
 			key += `:skip${options.skip}`;
 		}
 
-		if (options.cursor) {
-			key += `:cursor=${options.cursor}`;
-		}
+		const useCache = options.cursor == null && options.range == null;
 
 		const doc = await this.container.documentTracker.getOrAdd(GitUri.fromFile(relativePath, repoPath, options.ref));
-		if (!options.force && options.range == null) {
+		if (useCache) {
 			if (doc.state != null) {
 				const cachedLog = doc.state.getLog(key);
 				if (cachedLog != null) {
@@ -1950,14 +1951,12 @@ export class GitHubGitProvider implements GitProvider, Disposable {
 
 			Logger.debug(scope, `Cache miss: '${key}'`);
 
-			if (doc.state == null) {
-				doc.state = new GitDocumentState();
-			}
+			doc.state ??= new GitDocumentState();
 		}
 
 		const promise = this.getLogForFileCore(repoPath, relativePath, doc, key, scope, options);
 
-		if (doc.state != null && options.range == null) {
+		if (useCache && doc.state != null) {
 			Logger.debug(scope, `Cache add: '${key}'`);
 
 			const value: CachedLog = {

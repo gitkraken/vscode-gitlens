@@ -255,7 +255,6 @@ export interface GitRepositoryProvider {
 		options?: {
 			all?: boolean | undefined;
 			cursor?: string | undefined;
-			force?: boolean | undefined;
 			limit?: number | undefined;
 			ordering?: 'date' | 'author-date' | 'topo' | null | undefined;
 			range?: Range | undefined;
