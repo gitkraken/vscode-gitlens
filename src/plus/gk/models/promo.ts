@@ -1,4 +1,5 @@
-import type { PromoKeys, SubscriptionState } from '../../../constants.subscription';
+import type { PromoKeys } from '../../../constants.promos';
+import type { SubscriptionState } from '../../../constants.subscription';
 
 export type PromoLocation = 'account' | 'badge' | 'gate' | 'home';
 
