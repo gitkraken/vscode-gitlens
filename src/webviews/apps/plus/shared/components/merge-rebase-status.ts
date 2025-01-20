@@ -74,20 +74,35 @@ export class GlMergeConflictWarning extends LitElement {
 	@property()
 	openEditorCommand = 'gitlens.home.openRebaseEditor';
 
+	@property({ type: Object })
+	webviewCommandContext?: { webview: string; webviewInstance: string | undefined };
+
 	private get onSkipUrl() {
-		return createCommandLink(this.skipCommand as Commands, this.pausedOpStatus);
+		return this.createCommandLink(this.skipCommand as Commands, this.pausedOpStatus);
 	}
 
 	private get onContinueUrl() {
-		return createCommandLink(this.continueCommand as Commands, this.pausedOpStatus);
+		return this.createCommandLink(this.continueCommand as Commands, this.pausedOpStatus);
 	}
 
 	private get onAbortUrl() {
-		return createCommandLink(this.abortCommand as Commands, this.pausedOpStatus);
+		return this.createCommandLink(this.abortCommand as Commands, this.pausedOpStatus);
 	}
 
 	private get onOpenEditorUrl() {
-		return createCommandLink(this.openEditorCommand as Commands, this.pausedOpStatus);
+		return this.createCommandLink(this.openEditorCommand as Commands, this.pausedOpStatus);
+	}
+
+	private createCommandLink(command: string, args?: any) {
+		if (this.webviewCommandContext != null) {
+			if (args == null) {
+				args = this.webviewCommandContext;
+			} else {
+				args = { ...args, ...this.webviewCommandContext };
+			}
+		}
+
+		return createCommandLink(command as Commands, args);
 	}
 
 	override render() {
