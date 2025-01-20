@@ -692,11 +692,10 @@ export class GraphWebviewProvider implements WebviewProvider<State, State, Graph
 			this.host.registerWebviewCommand('gitlens.graph.generateCommitMessage', this.generateCommitMessage),
 
 			this.host.registerWebviewCommand('gitlens.graph.compareSelectedCommits.multi', this.compareSelectedCommits),
-			// TODO@d13: convert to this.host.registerWebviewCommand
-			registerCommand('gitlens.graph.abortPausedOperation', this.abortPausedOperation, this),
-			registerCommand('gitlens.graph.continuePausedOperation', this.continuePausedOperation, this),
-			registerCommand('gitlens.graph.openRebaseEditor', this.openRebaseEditor, this),
-			registerCommand('gitlens.graph.skipPausedOperation', this.skipPausedOperation, this),
+			this.host.registerWebviewCommand('gitlens.graph.abortPausedOperation', this.abortPausedOperation),
+			this.host.registerWebviewCommand('gitlens.graph.continuePausedOperation', this.continuePausedOperation),
+			this.host.registerWebviewCommand('gitlens.graph.openRebaseEditor', this.openRebaseEditor),
+			this.host.registerWebviewCommand('gitlens.graph.skipPausedOperation', this.skipPausedOperation),
 		);
 
 		return commands;

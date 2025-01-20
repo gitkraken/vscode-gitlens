@@ -1344,6 +1344,10 @@ export function GraphWrapper({
 								continueCommand="gitlens.graph.continuePausedOperation"
 								abortCommand="gitlens.graph.abortPausedOperation"
 								openEditorCommand="gitlens.graph.openRebaseEditor"
+								webviewCommandContext={{
+									webview: state.webviewId,
+									webviewInstance: state.webviewInstanceId,
+								}}
 							></GlMergeConflictWarning>
 						</div>
 					)}
