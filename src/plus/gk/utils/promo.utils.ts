@@ -1,44 +1,6 @@
-import type { PromoKeys } from '../../../constants.subscription';
-import { SubscriptionState } from '../../../constants.subscription';
+import type { PromoKeys } from '../../../constants.promos';
+import { promos } from '../../../constants.promos';
 import type { Promo, PromoLocation } from '../models/promo';
-
-// Must be ordered by applicable order
-const promos: Promo[] = [
-	{
-		key: 'gkholiday',
-		code: 'GKHOLIDAY',
-		states: [
-			SubscriptionState.Community,
-			SubscriptionState.ProPreview,
-			SubscriptionState.ProPreviewExpired,
-			SubscriptionState.ProTrial,
-			SubscriptionState.ProTrialExpired,
-			SubscriptionState.ProTrialReactivationEligible,
-		],
-		startsOn: new Date('2024-12-09T06:59:00.000Z').getTime(),
-		expiresOn: new Date('2025-01-07T06:59:00.000Z').getTime(),
-		command: { tooltip: 'Get the gift of a better DevEx in 2025! Save up to 80% now' },
-		quickpick: {
-			detail: '$(star-full) Get the gift of a better DevEx in 2025! Save up to 80% now',
-		},
-	},
-	{
-		key: 'pro50',
-		states: [
-			SubscriptionState.Community,
-			SubscriptionState.ProPreview,
-			SubscriptionState.ProPreviewExpired,
-			SubscriptionState.ProTrial,
-			SubscriptionState.ProTrialExpired,
-			SubscriptionState.ProTrialReactivationEligible,
-		],
-		command: { tooltip: 'Save 33% or more on your 1st seat of Pro.' },
-		locations: ['account', 'badge', 'gate'],
-		quickpick: {
-			detail: '$(star-full) Save 33% or more on your 1st seat of Pro',
-		},
-	},
-];
 
 export function getApplicablePromo(
 	state: number | undefined,

@@ -79,14 +79,9 @@ export class GlPromo extends LitElement {
 
 	private renderPromo(promo: Promo) {
 		switch (promo.key) {
-			case 'gkholiday':
-				return html`<span class="content${this.type === 'link' ? nothing : ' muted'}"
-					>Get the gift of a better DevEx in 2025! <b>Save up to 80% now</b></span
-				>`;
-
 			case 'pro50':
 				return html`<span class="content${this.type === 'link' ? nothing : ' muted'}"
-					><b>Save 33% or more</b> on your 1st seat of Pro</span
+					><b>Save 55% or more</b> on your 1st seat of Pro</span
 				>`;
 
 			default: {

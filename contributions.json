@@ -12658,12 +12658,8 @@
 					"when": "!gitlens:launchpad:connect && gitlens:plus:required && gitlens:plus:state == 4"
 				},
 				{
-					"contents": "Save 33% or more on your 1st seat of Pro.",
-					"when": "!gitlens:launchpad:connect && gitlens:plus:required && gitlens:plus:state == 4 && (gitlens:promo == pro50 || !gitlens:promo)"
-				},
-				{
-					"contents": "Get the gift of a better DevEx in 2025! Save up to 80% now",
-					"when": "!gitlens:launchpad:connect && gitlens:plus:required && gitlens:plus:state == 4 && gitlens:promo == gkholiday"
+					"contents": "Save 55% or more on your 1st seat of Pro.",
+					"when": "!gitlens:launchpad:connect && gitlens:plus:required && gitlens:plus:state == 4 && gitlens:promo == pro50"
 				},
 				{
 					"contents": "Your Pro trial has ended. Please upgrade for full access to Launchpad and other Pro features.",
@@ -12765,12 +12761,8 @@
 					"when": "gitlens:views:scm:grouped:view == launchpad && !gitlens:launchpad:connect && gitlens:plus:required && gitlens:plus:state == 4"
 				},
 				{
-					"contents": "Save 33% or more on your 1st seat of Pro.",
-					"when": "gitlens:views:scm:grouped:view == launchpad && !gitlens:launchpad:connect && gitlens:plus:required && gitlens:plus:state == 4 && (gitlens:promo == pro50 || !gitlens:promo)"
-				},
-				{
-					"contents": "Get the gift of a better DevEx in 2025! Save up to 80% now",
-					"when": "gitlens:views:scm:grouped:view == launchpad && !gitlens:launchpad:connect && gitlens:plus:required && gitlens:plus:state == 4 && gitlens:promo == gkholiday"
+					"contents": "Save 55% or more on your 1st seat of Pro.",
+					"when": "gitlens:views:scm:grouped:view == launchpad && !gitlens:launchpad:connect && gitlens:plus:required && gitlens:plus:state == 4 && gitlens:promo == pro50"
 				},
 				{
 					"contents": "Your Pro trial has ended. Please upgrade for full access to Launchpad and other Pro features.",
@@ -12817,12 +12809,8 @@
 					"when": "gitlens:views:scm:grouped:view == worktrees && gitlens:plus:required && gitlens:plus:state == 4"
 				},
 				{
-					"contents": "Save 33% or more on your 1st seat of Pro.",
-					"when": "gitlens:views:scm:grouped:view == worktrees && gitlens:plus:required && gitlens:plus:state == 4 && (gitlens:promo == pro50 || !gitlens:promo)"
-				},
-				{
-					"contents": "Get the gift of a better DevEx in 2025! Save up to 80% now",
-					"when": "gitlens:views:scm:grouped:view == worktrees && gitlens:plus:required && gitlens:plus:state == 4 && gitlens:promo == gkholiday"
+					"contents": "Save 55% or more on your 1st seat of Pro.",
+					"when": "gitlens:views:scm:grouped:view == worktrees && gitlens:plus:required && gitlens:plus:state == 4 && gitlens:promo == pro50"
 				},
 				{
 					"contents": "Your Pro trial has ended. Please upgrade for full access to Worktrees and other Pro features.",
@@ -12951,12 +12939,8 @@
 					"when": "gitlens:plus:required && gitlens:plus:state == 4"
 				},
 				{
-					"contents": "Save 33% or more on your 1st seat of Pro.",
-					"when": "gitlens:plus:required && gitlens:plus:state == 4 && (gitlens:promo == pro50 || !gitlens:promo)"
-				},
-				{
-					"contents": "Get the gift of a better DevEx in 2025! Save up to 80% now",
-					"when": "gitlens:plus:required && gitlens:plus:state == 4 && gitlens:promo == gkholiday"
+					"contents": "Save 55% or more on your 1st seat of Pro.",
+					"when": "gitlens:plus:required && gitlens:plus:state == 4 && gitlens:promo == pro50"
 				},
 				{
 					"contents": "Your Pro trial has ended. Please upgrade for full access to Worktrees and other Pro features.",
