@@ -1920,7 +1920,6 @@ export class GitProviderService implements Disposable {
 		pathOrUri: string | Uri,
 		options?: {
 			all?: boolean;
-			force?: boolean;
 			limit?: number;
 			ordering?: 'date' | 'author-date' | 'topo' | null;
 			range?: Range;

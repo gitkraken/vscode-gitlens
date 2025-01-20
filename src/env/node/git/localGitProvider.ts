@@ -3215,7 +3215,6 @@ export class LocalGitProvider implements GitProvider, Disposable {
 		options?: {
 			all?: boolean;
 			cursor?: string;
-			force?: boolean | undefined;
 			limit?: number;
 			ordering?: 'date' | 'author-date' | 'topo' | null;
 			range?: Range;
@@ -3270,6 +3269,10 @@ export class LocalGitProvider implements GitProvider, Disposable {
 			key += ':merges';
 		}
 
+		if (opts.ordering) {
+			key += `:ordering=${opts.ordering}`;
+		}
+
 		if (opts.renames) {
 			key += ':follow';
 		}
@@ -3286,8 +3289,10 @@ export class LocalGitProvider implements GitProvider, Disposable {
 			key += `:skip${opts.skip}`;
 		}
 
+		const useCache = this.useCaching && opts.cursor == null && opts.range == null;
+
 		const doc = await this.container.documentTracker.getOrAdd(GitUri.fromFile(relativePath, repoPath, opts.ref));
-		if (!opts.force && this.useCaching && opts.range == null) {
+		if (useCache) {
 			if (doc.state != null) {
 				const cachedLog = doc.state.getLog(key);
 				if (cachedLog != null) {
@@ -3356,7 +3361,7 @@ export class LocalGitProvider implements GitProvider, Disposable {
 
 		const promise = this.getLogForFileCore(repoPath, relativePath, opts, doc, key, scope);
 
-		if (doc.state != null && opts.range == null) {
+		if (useCache && doc.state != null) {
 			Logger.debug(scope, `Cache add: '${key}'`);
 
 			const value: CachedLog = {
