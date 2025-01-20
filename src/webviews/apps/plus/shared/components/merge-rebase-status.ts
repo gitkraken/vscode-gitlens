@@ -5,6 +5,7 @@ import type { Commands } from '../../../../../constants.commands';
 import type { GitPausedOperationStatus } from '../../../../../git/models/pausedOperationStatus';
 import { pausedOperationStatusStringsByType } from '../../../../../git/utils/pausedOperationStatus.utils';
 import { createCommandLink } from '../../../../../system/commands';
+import { createWebviewCommandLink } from '../../../../../system/webview';
 import { getReferenceLabel } from '../../../shared/git-utils';
 import '../../../shared/components/actions/action-item';
 import '../../../shared/components/actions/action-nav';
@@ -74,20 +75,35 @@ export class GlMergeConflictWarning extends LitElement {
 	@property()
 	openEditorCommand = 'gitlens.home.openRebaseEditor';
 
+	@property({ type: String })
+	webviewId?: Parameters<typeof createWebviewCommandLink>[1];
+
+	private createWebviewCommandLink<T>(command: string, props: T) {
+		if (this.webviewId) {
+			return createWebviewCommandLink(
+				command as Parameters<typeof createWebviewCommandLink>[0],
+				this.webviewId,
+				'',
+				props,
+			);
+		}
+		return createCommandLink(command as Commands, props);
+	}
+
 	private get onSkipUrl() {
-		return createCommandLink(this.skipCommand as Commands, this.pausedOpStatus);
+		return this.createWebviewCommandLink(this.skipCommand, this.pausedOpStatus);
 	}
 
 	private get onContinueUrl() {
-		return createCommandLink(this.continueCommand as Commands, this.pausedOpStatus);
+		return this.createWebviewCommandLink(this.continueCommand, this.pausedOpStatus);
 	}
 
 	private get onAbortUrl() {
-		return createCommandLink(this.abortCommand as Commands, this.pausedOpStatus);
+		return this.createWebviewCommandLink(this.abortCommand, this.pausedOpStatus);
 	}
 
 	private get onOpenEditorUrl() {
-		return createCommandLink(this.openEditorCommand as Commands, this.pausedOpStatus);
+		return this.createWebviewCommandLink(this.openEditorCommand, this.pausedOpStatus);
 	}
 
 	override render() {

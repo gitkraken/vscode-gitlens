@@ -1344,6 +1344,7 @@ export function GraphWrapper({
 								continueCommand="gitlens.graph.continuePausedOperation"
 								abortCommand="gitlens.graph.abortPausedOperation"
 								openEditorCommand="gitlens.graph.openRebaseEditor"
+								webviewId="gitlens.views.graph"
 							></GlMergeConflictWarning>
 						</div>
 					)}
