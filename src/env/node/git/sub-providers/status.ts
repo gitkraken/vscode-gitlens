@@ -228,7 +228,7 @@ export class StatusGitSubProvider implements GitStatusSubProvider {
 								all: true,
 								mode: 'pointsAt',
 							}),
-							this.provider.getCommitTags(repoPath, onto, { mode: 'pointsAt' }),
+							this.provider.tags.getTagsWithCommit(repoPath, onto, { mode: 'pointsAt' }),
 						]);
 
 						const mergeBase = getSettledValue(mergeBaseResult);

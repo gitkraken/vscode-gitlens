@@ -8,6 +8,7 @@ import { log } from '../../../../../system/decorators/log';
 import { Logger } from '../../../../../system/logger';
 import { getLogScope } from '../../../../../system/logger.scope';
 import type { GitHubGitProviderInternal } from '../githubGitProvider';
+import { stripOrigin } from '../githubGitProvider';
 
 const emptyPagedResult: PagedResult<any> = Object.freeze({ values: [] });
 
@@ -112,5 +113,34 @@ export class TagsGitSubProvider implements GitTagsSubProvider {
 		}
 
 		return result;
+	}
+
+	@log()
+	async getTagsWithCommit(
+		repoPath: string,
+		commit: string,
+		options?: { commitDate?: Date; mode?: 'contains' | 'pointsAt' },
+	): Promise<string[]> {
+		if (repoPath == null || options?.commitDate == null) return [];
+
+		const scope = getLogScope();
+
+		try {
+			const { metadata, github, session } = await this.provider.ensureRepositoryContext(repoPath);
+
+			const tags = await github.getTagsWithCommit(
+				session.accessToken,
+				metadata.repo.owner,
+				metadata.repo.name,
+				stripOrigin(commit),
+				options?.commitDate,
+			);
+
+			return tags;
+		} catch (ex) {
+			Logger.error(ex, scope);
+			debugger;
+			return [];
+		}
 	}
 }

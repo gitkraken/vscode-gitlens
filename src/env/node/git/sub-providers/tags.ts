@@ -6,6 +6,7 @@ import type { GitTag } from '../../../../git/models/tag';
 import { parseGitTags, parseGitTagsDefaultFormat } from '../../../../git/parsers/tagParser';
 import type { TagSortOptions } from '../../../../git/utils/-webview/sorting';
 import { sortTags } from '../../../../git/utils/-webview/sorting';
+import { filterMap } from '../../../../system/array';
 import { log } from '../../../../system/decorators/log';
 import type { Git } from '../git';
 
@@ -70,6 +71,18 @@ export class TagsGitSubProvider implements GitTagsSubProvider {
 		}
 
 		return result;
+	}
+
+	@log()
+	async getTagsWithCommit(
+		repoPath: string,
+		commit: string,
+		options?: { commitDate?: Date; mode?: 'contains' | 'pointsAt' },
+	): Promise<string[]> {
+		const data = await this.git.branchOrTag__containsOrPointsAt(repoPath, [commit], { type: 'tag', ...options });
+		if (!data) return [];
+
+		return filterMap(data.split('\n'), b => b.trim() || undefined);
 	}
 
 	@log()

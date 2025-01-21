@@ -142,7 +142,6 @@ import { TimedCancellationSource } from '../../../system/-webview/cancellation';
 import { configuration } from '../../../system/-webview/configuration';
 import { getBestPath, relative, splitPath } from '../../../system/-webview/path';
 import { isFolderUri } from '../../../system/-webview/utils';
-import { filterMap } from '../../../system/array';
 import { gate } from '../../../system/decorators/-webview/gate';
 import { debug, log } from '../../../system/decorators/log';
 import { debounce } from '../../../system/function';
@@ -2438,18 +2437,6 @@ export class LocalGitProvider implements GitProvider, Disposable {
 		}
 
 		return getCommitsForGraphCore.call(this, defaultLimit, selectSha);
-	}
-
-	@log()
-	async getCommitTags(
-		repoPath: string,
-		ref: string,
-		options?: { commitDate?: Date; mode?: 'contains' | 'pointsAt' },
-	): Promise<string[]> {
-		const data = await this.git.branchOrTag__containsOrPointsAt(repoPath, [ref], { type: 'tag', ...options });
-		if (!data) return [];
-
-		return filterMap(data.split('\n'), b => b.trim() || undefined);
 	}
 
 	getConfig(repoPath: string, key: GitConfigKeys): Promise<string | undefined> {

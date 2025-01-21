@@ -1836,8 +1836,8 @@ export class GitHubApi implements Disposable {
 		}
 	}
 
-	@debug<GitHubApi['getCommitTags']>({ args: { 0: '<token>' } })
-	async getCommitTags(token: string, owner: string, repo: string, ref: string, date: Date): Promise<string[]> {
+	@debug<GitHubApi['getTagsWithCommit']>({ args: { 0: '<token>' } })
+	async getTagsWithCommit(token: string, owner: string, repo: string, ref: string, date: Date): Promise<string[]> {
 		const scope = getLogScope();
 
 		interface QueryResult {
@@ -1856,7 +1856,7 @@ export class GitHubApi implements Disposable {
 		}
 
 		try {
-			const query = `query getCommitTags(
+			const query = `query getTagsWithCommit(
 	$owner: String!
 	$repo: String!
 	$since: GitTimestamp!
