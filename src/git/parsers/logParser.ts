@@ -385,31 +385,48 @@ export function createLogParserWithFilesAndStats<T extends Record<string, unknow
 				if (fieldCount < keys.length) {
 					entry[keys[fieldCount++]] = field.value as ParsedEntryWithFilesAndStats<T>[keyof T];
 				} else {
-					const [additions, deletions, path] = field.value.split('\t');
+					let [additions, deletions, path] = field.value.split('\t');
+					additions = additions.trim();
+					deletions = deletions.trim();
+					path = path.trim();
+
+					let originalPath;
+					let status;
+					// If we don't get a path it is likely a renamed file (because `-z` screws up the format)
+					if (!path) {
+						field = fields.next();
+						path = field.value.trim();
+						field = fields.next();
+						originalPath = field.value.trim();
+						status = 'R';
+					} else {
+						// Handle renamed files which show as path/to/file => new/path/to/file
+						const renameIndex = path.indexOf(' => ');
+						if (renameIndex !== -1) {
+							originalPath = path.substring(0, renameIndex);
+							path = path.substring(renameIndex + 4);
+							status = 'R';
+						}
+					}
+
 					// Skip binary files which show as - for both additions and deletions
 					if (additions === '-' && deletions === '-') continue;
 
 					const file: ParsedEntryFileWithStats = {
 						status:
-							additions === '0' && deletions === '0'
+							status ??
+							(additions === '0' && deletions === '0'
 								? 'M'
 								: additions === '0'
 								  ? 'D'
 								  : deletions === '0'
 								    ? 'A'
-								    : 'M',
+								    : 'M'),
 						path: path,
+						originalPath: originalPath,
 						additions: additions === '-' ? 0 : parseInt(additions, 10),
 						deletions: deletions === '-' ? 0 : parseInt(deletions, 10),
 					};
-
-					// Handle renamed files which show as path/to/file => new/path/to/file
-					if (path.includes(' => ')) {
-						const [originalPath, newPath] = path.split(' => ');
-						file.originalPath = originalPath;
-						file.path = newPath;
-						file.status = 'R';
-					}
 
 					files.push(file);
 				}
