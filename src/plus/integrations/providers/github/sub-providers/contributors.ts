@@ -1,7 +1,7 @@
 import type { Container } from '../../../../../container';
 import type { GitCache } from '../../../../../git/cache';
 import type { GitContributorsSubProvider } from '../../../../../git/gitProvider';
-import type { GitContributorStats } from '../../../../../git/models/contributor';
+import type { GitContributorsStats } from '../../../../../git/models/contributor';
 import { GitContributor } from '../../../../../git/models/contributor';
 import { isUserMatch } from '../../../../../git/utils/user.utils';
 import { log } from '../../../../../system/decorators/log';
@@ -38,12 +38,12 @@ export class ContributorsGitSubProvider implements GitContributorsSubProvider {
 				contributors.push(
 					new GitContributor(
 						repoPath,
-						c.name,
+						c.name ?? c.login ?? '',
 						c.email,
+						isUserMatch(currentUser, c.name, c.email, c.login),
 						c.contributions,
 						undefined,
 						undefined,
-						isUserMatch(currentUser, c.name, c.email, c.login),
 						undefined,
 						c.login,
 						c.avatar_url,
@@ -64,7 +64,7 @@ export class ContributorsGitSubProvider implements GitContributorsSubProvider {
 	async getContributorsStats(
 		repoPath: string,
 		_options?: { merges?: boolean; since?: string },
-	): Promise<GitContributorStats | undefined> {
+	): Promise<GitContributorsStats | undefined> {
 		if (repoPath == null) return undefined;
 
 		const scope = getLogScope();
@@ -76,7 +76,7 @@ export class ContributorsGitSubProvider implements GitContributorsSubProvider {
 
 			const contributions = results.map(c => c.contributions).sort((a, b) => b - a);
 
-			const result: GitContributorStats = {
+			const result: GitContributorsStats = {
 				count: contributions.length,
 				contributions: contributions,
 			};
