@@ -1760,16 +1760,6 @@ export class GitProviderService implements Disposable {
 	}
 
 	@log()
-	getCommitTags(
-		repoPath: string | Uri,
-		ref: string,
-		options?: { commitDate?: Date; mode?: 'contains' | 'pointsAt' },
-	): Promise<string[]> {
-		const { provider, path } = this.getProvider(repoPath);
-		return provider.getCommitTags(path, ref, options);
-	}
-
-	@log()
 	async getConfig(repoPath: string | Uri, key: GitConfigKeys): Promise<string | undefined> {
 		const { provider, path } = this.getProvider(repoPath);
 		return provider.getConfig?.(path, key);

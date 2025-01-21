@@ -190,14 +190,6 @@ export interface GitRepositoryProvider {
 			ref?: string;
 		},
 	): Promise<GitGraph>;
-	getCommitTags(
-		repoPath: string,
-		ref: string,
-		options?: {
-			commitDate?: Date | undefined;
-			mode?: 'contains' | 'pointsAt' | undefined;
-		},
-	): Promise<string[]>;
 	getConfig?(repoPath: string, key: GitConfigKeys): Promise<string | undefined>;
 	setConfig?(repoPath: string, key: GitConfigKeys, value: string | undefined): Promise<void>;
 	getCurrentUser(repoPath: string): Promise<GitUser | undefined>;
@@ -390,7 +382,7 @@ export interface GitBranchesSubProvider {
 	getBranchContributionsOverview(repoPath: string, ref: string): Promise<BranchContributionsOverview | undefined>;
 	getBranchesWithCommits(
 		repoPath: string,
-		refs: string[],
+		commits: string[],
 		branch?: string | undefined,
 		options?:
 			| { all?: boolean; commitDate?: Date; mode?: 'contains' | 'pointsAt' }
@@ -565,6 +557,14 @@ export interface GitTagsSubProvider {
 			sort?: boolean | TagSortOptions | undefined;
 		},
 	): Promise<PagedResult<GitTag>>;
+	getTagsWithCommit(
+		repoPath: string,
+		commit: string,
+		options?: {
+			commitDate?: Date | undefined;
+			mode?: 'contains' | 'pointsAt' | undefined;
+		},
+	): Promise<string[]>;
 
 	createTag?(repoPath: string, name: string, ref: string, message?: string): Promise<void>;
 	deleteTag?(repoPath: string, name: string): Promise<void>;

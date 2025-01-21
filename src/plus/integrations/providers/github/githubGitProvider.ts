@@ -1423,35 +1423,6 @@ export class GitHubGitProvider implements GitProvider, Disposable {
 		};
 	}
 
-	@log()
-	async getCommitTags(
-		repoPath: string,
-		ref: string,
-		options?: { commitDate?: Date; mode?: 'contains' | 'pointsAt' },
-	): Promise<string[]> {
-		if (repoPath == null || options?.commitDate == null) return [];
-
-		const scope = getLogScope();
-
-		try {
-			const { metadata, github, session } = await this.ensureRepositoryContext(repoPath);
-
-			const tags = await github.getCommitTags(
-				session.accessToken,
-				metadata.repo.owner,
-				metadata.repo.name,
-				stripOrigin(ref),
-				options?.commitDate,
-			);
-
-			return tags;
-		} catch (ex) {
-			Logger.error(ex, scope);
-			debugger;
-			return [];
-		}
-	}
-
 	@gate()
 	@log()
 	async getCurrentUser(repoPath: string): Promise<GitUser | undefined> {
