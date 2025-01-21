@@ -6,6 +6,11 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/) and this p
 
 ## [Unreleased]
 
+### Fixed
+
+- Fixes [#3954](https://github.com/gitkraken/vscode-gitlens/issues/3954) - Graph breaks when opening in an editor tab
+- Fixes uncaught errors with cloud self-hosted integrations
+
 ## [16.2.0] - 2025-01-17
 
 ### Added
