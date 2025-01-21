@@ -316,6 +316,7 @@ export abstract class StartWorkBaseCommand extends QuickCommand<State> {
 
 	private async ensureIntegrationConnected(id: IntegrationId) {
 		const integration = await this.container.integrations.get(id);
+		if (integration == null) return false;
 		let connected = integration.maybeConnected ?? (await integration.isConnected());
 		if (!connected) {
 			connected = await integration.connect(this.overrides?.ownSource ?? 'startWork');
@@ -726,6 +727,10 @@ async function getConnectedIntegrations(container: Container): Promise<Map<Suppo
 	await Promise.allSettled(
 		supportedStartWorkIntegrations.map(async integrationId => {
 			const integration = await container.integrations.get(integrationId);
+			if (integration == null) {
+				connected.set(integrationId, false);
+				return;
+			}
 			const isConnected = integration.maybeConnected ?? (await integration.isConnected());
 			const hasAccess = isConnected && (await integration.access());
 			connected.set(integrationId, hasAccess);

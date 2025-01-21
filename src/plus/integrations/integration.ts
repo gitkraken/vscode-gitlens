@@ -1,7 +1,12 @@
 import type { CancellationToken, Event, MessageItem } from 'vscode';
 import { EventEmitter, window } from 'vscode';
 import type { AutolinkReference, DynamicAutolinkReference } from '../../autolinks';
-import type { IntegrationId, IssueIntegrationId, SelfHostedIntegrationId } from '../../constants.integrations';
+import type {
+	CloudSelfHostedIntegrationId,
+	IntegrationId,
+	IssueIntegrationId,
+	SelfHostedIntegrationId,
+} from '../../constants.integrations';
 import { HostingIntegrationId } from '../../constants.integrations';
 import type { Sources } from '../../constants.telemetry';
 import type { Container } from '../../container';
@@ -55,6 +60,7 @@ export type IntegrationResult<T> =
 
 export type SupportedIntegrationIds = IntegrationId;
 export type SupportedHostingIntegrationIds = HostingIntegrationId;
+export type SupportedCloudSelfHostedIntegrationIds = CloudSelfHostedIntegrationId;
 export type SupportedIssueIntegrationIds = IssueIntegrationId;
 export type SupportedSelfHostedIntegrationIds = SelfHostedIntegrationId;
 
