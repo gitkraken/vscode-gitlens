@@ -1,4 +1,5 @@
 import type { AuthenticationSession } from 'vscode';
+import { isWeb } from '@env/platform';
 import type { IntegrationId, SupportedCloudIntegrationIds } from '../../../constants.integrations';
 import {
 	HostingIntegrationId,
@@ -55,9 +56,15 @@ export type CloudIntegrationAuthType = 'oauth' | 'pat';
 export const CloudIntegrationAuthenticationUriPathPrefix = 'did-authenticate-cloud-integration';
 
 export function getSupportedCloudIntegrationIds(): SupportedCloudIntegrationIds[] {
-	return configuration.get('cloudIntegrations.enabled', undefined, true)
+	let supportedCloudIntegrationIds = configuration.get('cloudIntegrations.enabled', undefined, true)
 		? supportedOrderedCloudIntegrationIds
 		: supportedOrderedCloudIssueIntegrationIds;
+	if (isWeb) {
+		// We always have a local GitHub session on vscode.dev and github.dev
+		supportedCloudIntegrationIds = supportedCloudIntegrationIds.filter(id => id !== HostingIntegrationId.GitHub);
+	}
+
+	return supportedCloudIntegrationIds;
 }
 
 export function isSupportedCloudIntegrationId(id: string): id is SupportedCloudIntegrationIds {
