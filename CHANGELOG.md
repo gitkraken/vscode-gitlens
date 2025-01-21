@@ -6,6 +6,10 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/) and this p
 
 ## [Unreleased]
 
+### Fixed
+
+- Fixes [#3938](https://github.com/gitkraken/vscode-gitlens/issues/3938) - GitLens automatically initiating an external sign-in after install on vscode.dev
+
 ## [16.2.1] - 2025-01-21
 
 ### Fixed
