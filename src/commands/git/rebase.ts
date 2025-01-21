@@ -185,7 +185,7 @@ export class RebaseGitCommand extends QuickCommand<State> {
 
 				let log = context.cache.get(ref);
 				if (log == null) {
-					log = this.container.git.getLog(state.repo.path, { ref: ref, merges: 'first-parent' });
+					log = state.repo.git.commits().getLog({ ref: ref, merges: 'first-parent' });
 					context.cache.set(ref, log);
 				}
 
@@ -221,11 +221,11 @@ export class RebaseGitCommand extends QuickCommand<State> {
 	}
 
 	private async *confirmStep(state: RebaseStepState, context: Context): AsyncStepResultGenerator<Flags[]> {
-		const counts = await this.container.git.getLeftRightCommitCount(
-			state.repo.path,
-			createRevisionRange(state.destination.ref, context.branch.ref, '...'),
-			{ excludeMerges: true },
-		);
+		const counts = await state.repo.git
+			.commits()
+			.getLeftRightCommitCount(createRevisionRange(state.destination.ref, context.branch.ref, '...'), {
+				excludeMerges: true,
+			});
 
 		const title = `${context.title} ${getReferenceLabel(state.destination, { icon: false, label: false })}`;
 		const ahead = counts != null ? counts.right : 0;

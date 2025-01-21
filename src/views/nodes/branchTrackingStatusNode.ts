@@ -113,7 +113,7 @@ export class BranchTrackingStatusNode
 			const commit = commits[commits.length - 1];
 			const previousSha = await commit.getPreviousSha();
 			if (previousSha == null) {
-				const previousLog = await this.view.container.git.getLog(this.uri.repoPath!, {
+				const previousLog = await this.view.container.git.commits(this.uri.repoPath!).getLog({
 					limit: 2,
 					ref: commit.sha,
 				});
@@ -349,7 +349,7 @@ export class BranchTrackingStatusNode
 					? createRevisionRange(this.status.upstream?.name, this.status.ref, '..')
 					: createRevisionRange(this.status.ref, this.status.upstream?.name, '..');
 
-			this._log = await this.view.container.git.getLog(this.uri.repoPath!, {
+			this._log = await this.view.container.git.commits(this.uri.repoPath!).getLog({
 				limit: this.limit ?? this.view.config.defaultItemLimit,
 				ref: range,
 			});

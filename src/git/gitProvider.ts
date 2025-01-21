@@ -169,18 +169,6 @@ export interface GitRepositoryProvider {
 	): Promise<void>;
 
 	getChangedFilesCount(repoPath: string, ref?: string): Promise<GitDiffShortStat | undefined>;
-	getCommit(repoPath: string, ref: string): Promise<GitCommit | undefined>;
-	getCommitCount(repoPath: string, ref: string): Promise<number | undefined>;
-	getCommitFileStats?(repoPath: string | Uri, ref: string): Promise<GitFileChange[] | undefined>;
-	getCommitForFile(
-		repoPath: string,
-		uri: Uri,
-		options?: {
-			ref?: string | undefined;
-			firstIfNotFound?: boolean | undefined;
-			range?: Range | undefined;
-		},
-	): Promise<GitCommit | undefined>;
 	getConfig?(repoPath: string, key: GitConfigKeys): Promise<string | undefined>;
 	setConfig?(repoPath: string, key: GitConfigKeys, value: string | undefined): Promise<void>;
 	getCurrentUser(repoPath: string): Promise<GitUser | undefined>;
@@ -200,63 +188,15 @@ export interface GitRepositoryProvider {
 		ref2?: string,
 		options?: { filters?: GitDiffFilter[]; path?: string; similarityThreshold?: number },
 	): Promise<GitFile[] | undefined>;
-	getFileStatusForCommit(repoPath: string, uri: Uri, ref: string): Promise<GitFile | undefined>;
-	getFirstCommitSha?(repoPath: string): Promise<string | undefined>;
 	getGitDir?(repoPath: string): Promise<GitDir | undefined>;
 	getLastFetchedTimestamp(repoPath: string): Promise<number | undefined>;
-	getLeftRightCommitCount(
-		repoPath: string,
-		range: GitRevisionRange,
-		options?: { authors?: GitUser[] | undefined; excludeMerges?: boolean },
-	): Promise<LeftRightCommitCountResult | undefined>;
-	getLog(
-		repoPath: string,
-		options?: {
-			all?: boolean | undefined;
-			authors?: GitUser[] | undefined;
-			cursor?: string | undefined;
-			limit?: number | undefined;
-			merges?: boolean | 'first-parent' | undefined;
-			ordering?: 'date' | 'author-date' | 'topo' | null | undefined;
-			ref?: string | undefined;
-			since?: string | undefined;
-		},
-	): Promise<GitLog | undefined>;
-	getLogRefsOnly(
-		repoPath: string,
-		options?: {
-			authors?: GitUser[] | undefined;
-			cursor?: string | undefined;
-			limit?: number | undefined;
-			merges?: boolean | 'first-parent';
-			ordering?: 'date' | 'author-date' | 'topo' | null | undefined;
-			ref?: string | undefined;
-			since?: string | undefined;
-		},
-	): Promise<Set<string> | undefined>;
-	getLogForFile(
-		repoPath: string,
-		pathOrUri: string | Uri,
-		options?: {
-			all?: boolean | undefined;
-			cursor?: string | undefined;
-			limit?: number | undefined;
-			ordering?: 'date' | 'author-date' | 'topo' | null | undefined;
-			range?: Range | undefined;
-			ref?: string | undefined;
-			renames?: boolean | undefined;
-			reverse?: boolean | undefined;
-			since?: string | undefined;
-			skip?: number | undefined;
-		},
-	): Promise<GitLog | undefined>;
+
 	getNextComparisonUris(
 		repoPath: string,
 		uri: Uri,
 		ref: string | undefined,
 		skip?: number,
 	): Promise<NextComparisonUrisResult | undefined>;
-	getOldestUnpushedRefForFile(repoPath: string, uri: Uri): Promise<string | undefined>;
 	getPreviousComparisonUris(
 		repoPath: string,
 		uri: Uri,
@@ -291,9 +231,6 @@ export interface GitRepositoryProvider {
 				| undefined;
 		},
 	): Promise<boolean>;
-
-	hasCommitBeenPushed(repoPath: string, ref: string): Promise<boolean>;
-	isAncestorOf(repoPath: string, ref1: string, ref2: string): Promise<boolean>;
 
 	getDiffTool?(repoPath?: string): Promise<string | undefined>;
 	openDiffTool?(
@@ -398,6 +335,70 @@ export interface GitBranchesSubProvider {
 }
 
 export interface GitCommitsSubProvider {
+	getCommit(repoPath: string, ref: string): Promise<GitCommit | undefined>;
+	getCommitCount(repoPath: string, ref: string): Promise<number | undefined>;
+	getCommitFileStats?(repoPath: string | Uri, ref: string): Promise<GitFileChange[] | undefined>;
+	getCommitForFile(
+		repoPath: string,
+		uri: Uri,
+		options?: {
+			ref?: string | undefined;
+			firstIfNotFound?: boolean | undefined;
+			range?: Range | undefined;
+		},
+	): Promise<GitCommit | undefined>;
+	getFirstCommitSha?(repoPath: string): Promise<string | undefined>;
+	getFileStatusForCommit(repoPath: string, uri: Uri, ref: string): Promise<GitFile | undefined>;
+	getLeftRightCommitCount(
+		repoPath: string,
+		range: GitRevisionRange,
+		options?: { authors?: GitUser[] | undefined; excludeMerges?: boolean },
+	): Promise<LeftRightCommitCountResult | undefined>;
+	getLog(
+		repoPath: string,
+		options?: {
+			all?: boolean | undefined;
+			authors?: GitUser[] | undefined;
+			cursor?: string | undefined;
+			limit?: number | undefined;
+			merges?: boolean | 'first-parent' | undefined;
+			ordering?: 'date' | 'author-date' | 'topo' | null | undefined;
+			ref?: string | undefined;
+			since?: string | undefined;
+			stashes?: boolean;
+		},
+	): Promise<GitLog | undefined>;
+	getLogRefsOnly(
+		repoPath: string,
+		options?: {
+			authors?: GitUser[] | undefined;
+			cursor?: string | undefined;
+			limit?: number | undefined;
+			merges?: boolean | 'first-parent';
+			ordering?: 'date' | 'author-date' | 'topo' | null | undefined;
+			ref?: string | undefined;
+			since?: string | undefined;
+		},
+	): Promise<Set<string> | undefined>;
+	getLogForFile(
+		repoPath: string,
+		pathOrUri: string | Uri,
+		options?: {
+			all?: boolean | undefined;
+			cursor?: string | undefined;
+			limit?: number | undefined;
+			ordering?: 'date' | 'author-date' | 'topo' | null | undefined;
+			range?: Range | undefined;
+			ref?: string | undefined;
+			renames?: boolean | undefined;
+			reverse?: boolean | undefined;
+			since?: string | undefined;
+			skip?: number | undefined;
+		},
+	): Promise<GitLog | undefined>;
+	getOldestUnpushedRefForFile(repoPath: string, uri: Uri): Promise<string | undefined>;
+	isAncestorOf(repoPath: string, ref1: string, ref2: string): Promise<boolean>;
+	hasCommitBeenPushed(repoPath: string, ref: string): Promise<boolean>;
 	searchCommits(
 		repoPath: string,
 		search: SearchQuery,

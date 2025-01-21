@@ -261,7 +261,7 @@ export class DraftService implements Disposable {
 			change.contents == null
 				? change.repository.git.getDiff(change.revision.to, change.revision.from)
 				: undefined,
-			change.repository.git.getFirstCommitSha(),
+			change.repository.git.commits().getFirstCommitSha?.(),
 			change.repository.git.remotes().getBestRemoteWithProvider(),
 			change.repository.git.getCurrentUser(),
 		]);
@@ -301,7 +301,7 @@ export class DraftService implements Disposable {
 
 		let baseSha = change.revision.from;
 		if (!isSha(baseSha)) {
-			const commit = await this.container.git.getCommit(change.repository.uri, baseSha);
+			const commit = await this.container.git.commits(change.repository.uri).getCommit(baseSha);
 			if (commit != null) {
 				baseSha = commit.sha;
 			} else {

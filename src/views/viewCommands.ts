@@ -798,7 +798,6 @@ export class ViewCommands implements Disposable {
 
 		const refs = getComparisonRefsForPullRequest(repo.path, pr.refs);
 		const counts = await ensurePullRequestRefs(
-			this.container,
 			pr,
 			repo,
 			{ promptMessage: `Unable to open changes for PR #${pr.id} because of a missing remote.` },
@@ -831,7 +830,6 @@ export class ViewCommands implements Disposable {
 
 		const refs = getComparisonRefsForPullRequest(repo.path, pr.refs);
 		const counts = await ensurePullRequestRefs(
-			this.container,
 			pr,
 			repo,
 			{ promptMessage: `Unable to open comparison for PR #${pr.id} because of a missing remote.` },

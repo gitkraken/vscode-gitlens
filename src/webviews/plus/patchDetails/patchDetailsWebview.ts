@@ -1410,7 +1410,7 @@ export class PatchDetailsWebviewProvider
 		if (change == null) return [undefined];
 
 		if (change.type === 'revision') {
-			const commit = await this.container.git.getCommit(file.repoPath, change.revision.to ?? uncommitted);
+			const commit = await this.container.git.commits(file.repoPath).getCommit(change.revision.to ?? uncommitted);
 			if (
 				change.revision.to === change.revision.from ||
 				(change.revision.from.length === change.revision.to.length + 1 &&
@@ -1422,7 +1422,7 @@ export class PatchDetailsWebviewProvider
 
 			return [commit, change.revision];
 		} else if (change.type === 'wip') {
-			return [await this.container.git.getCommit(file.repoPath, change.revision.to ?? uncommitted)];
+			return [await this.container.git.commits(file.repoPath).getCommit(change.revision.to ?? uncommitted)];
 		}
 
 		return [undefined];

@@ -34,8 +34,8 @@ export class RepositoryIdentityService implements Disposable {
 		repository: Repository,
 	): Promise<RepositoryIdentityDescriptor<T>> {
 		const [bestRemotePromise, initialCommitShaPromise] = await Promise.allSettled([
-			this.container.git.remotes(repository.uri).getBestRemoteWithProvider(),
-			this.container.git.getFirstCommitSha(repository.uri),
+			repository.git.remotes().getBestRemoteWithProvider(),
+			repository.git.commits().getFirstCommitSha?.(),
 		]);
 		const bestRemote = getSettledValue(bestRemotePromise);
 

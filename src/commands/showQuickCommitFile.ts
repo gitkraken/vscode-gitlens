@@ -112,7 +112,7 @@ export class ShowQuickCommitFileCommand extends ActiveEditorCachedCommand {
 
 				if (args.fileLog == null) {
 					const repoPath = args.commit?.repoPath ?? gitUri.repoPath;
-					args.commit = await this.container.git.getCommitForFile(repoPath, gitUri, {
+					args.commit = await this.container.git.commits(repoPath!).getCommitForFile(gitUri, {
 						ref: args.sha,
 					});
 					if (args.commit == null) {

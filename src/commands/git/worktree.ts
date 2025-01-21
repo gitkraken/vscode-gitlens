@@ -1193,7 +1193,7 @@ export class WorktreeGitCommand extends QuickCommand<State> {
 			}
 
 			if (!isSha(state.changes.baseSha)) {
-				const commit = await this.container.git.getCommit(state.repo.uri, state.changes.baseSha);
+				const commit = await state.repo.git.commits().getCommit(state.changes.baseSha);
 				if (commit != null) {
 					state.changes.baseSha = commit.sha;
 				}

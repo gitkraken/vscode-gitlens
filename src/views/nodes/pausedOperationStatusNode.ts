@@ -46,7 +46,7 @@ export class PausedOperationStatusNode extends ViewNode<'paused-operation-status
 		if (revision != null) {
 			const commit =
 				revision != null
-					? await this.view.container.git.getCommit(this.pausedOpStatus.repoPath, revision.ref)
+					? await this.view.container.git.commits(this.pausedOpStatus.repoPath).getCommit(revision.ref)
 					: undefined;
 			if (commit != null) {
 				children.push(new RebaseCommitNode(this.view, this, commit));

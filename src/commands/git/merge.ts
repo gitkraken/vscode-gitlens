@@ -175,7 +175,7 @@ export class MergeGitCommand extends QuickCommand<State> {
 
 				let log = context.cache.get(ref);
 				if (log == null) {
-					log = this.container.git.getLog(state.repo.path, { ref: ref, merges: 'first-parent' });
+					log = state.repo.git.commits().getLog({ ref: ref, merges: 'first-parent' });
 					context.cache.set(ref, log);
 				}
 
@@ -211,10 +211,9 @@ export class MergeGitCommand extends QuickCommand<State> {
 	}
 
 	private async *confirmStep(state: MergeStepState, context: Context): AsyncStepResultGenerator<Flags[]> {
-		const counts = await this.container.git.getLeftRightCommitCount(
-			state.repo.path,
-			createRevisionRange(context.destination.ref, state.reference.ref, '...'),
-		);
+		const counts = await state.repo.git
+			.commits()
+			.getLeftRightCommitCount(createRevisionRange(context.destination.ref, state.reference.ref, '...'));
 
 		const title = `Merge ${getReferenceLabel(state.reference, {
 			icon: false,

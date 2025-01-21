@@ -43,7 +43,7 @@ export class OpenRevisionFileCommand extends ActiveEditorCommand {
 		try {
 			if (args.revisionUri == null) {
 				if (gitUri?.sha) {
-					const commit = await this.container.git.getCommit(gitUri.repoPath!, gitUri.sha);
+					const commit = await this.container.git.commits(gitUri.repoPath!).getCommit(gitUri.sha);
 
 					args.revisionUri =
 						commit?.file?.status === 'D'

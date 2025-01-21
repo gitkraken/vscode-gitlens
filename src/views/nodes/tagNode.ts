@@ -71,7 +71,7 @@ export class TagNode extends ViewRefNode<'tag', ViewsWithTags, GitTagReference> 
 		if (log.hasMore) {
 			children.push(
 				new LoadMoreNode(this.view, this, children[children.length - 1], {
-					getCount: () => this.view.container.git.getCommitCount(this.tag.repoPath, this.tag.name),
+					getCount: () => this.view.container.git.commits(this.tag.repoPath).getCommitCount(this.tag.name),
 				}),
 			);
 		}
@@ -113,7 +113,7 @@ export class TagNode extends ViewRefNode<'tag', ViewsWithTags, GitTagReference> 
 	private _log: GitLog | undefined;
 	private async getLog() {
 		if (this._log == null) {
-			this._log = await this.view.container.git.getLog(this.uri.repoPath!, {
+			this._log = await this.view.container.git.commits(this.uri.repoPath!).getLog({
 				limit: this.limit ?? this.view.config.defaultItemLimit,
 				ref: this.tag.name,
 			});

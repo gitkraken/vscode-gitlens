@@ -107,19 +107,14 @@ export class GutterChangesAnnotationProvider extends AnnotationProviderBase<Chan
 
 		let commit: GitCommit | undefined;
 
+		const commitsProvider = this.container.git.commits(this.trackedDocument.uri.repoPath!);
+
 		let localChanges = ref1 == null && ref2 == null;
 		if (localChanges) {
-			let ref = await this.container.git.getOldestUnpushedRefForFile(
-				this.trackedDocument.uri.repoPath!,
-				this.trackedDocument.uri,
-			);
+			let ref = await commitsProvider.getOldestUnpushedRefForFile(this.trackedDocument.uri);
 			if (ref != null) {
 				ref = `${ref}^`;
-				commit = await this.container.git.getCommitForFile(
-					this.trackedDocument.uri.repoPath,
-					this.trackedDocument.uri,
-					{ ref: ref },
-				);
+				commit = await commitsProvider.getCommitForFile(this.trackedDocument.uri, { ref: ref });
 				if (commit != null) {
 					if (ref2 != null) {
 						ref2 = ref;
@@ -139,10 +134,7 @@ export class GutterChangesAnnotationProvider extends AnnotationProviderBase<Chan
 					await this.container.git.getCurrentUser(this.trackedDocument.uri.repoPath!),
 				);
 				if (commits?.length) {
-					commit = await this.container.git.getCommitForFile(
-						this.trackedDocument.uri.repoPath,
-						this.trackedDocument.uri,
-					);
+					commit = await commitsProvider.getCommitForFile(this.trackedDocument.uri);
 					ref1 = 'HEAD';
 				} else if (this.trackedDocument.dirty) {
 					ref1 = 'HEAD';
@@ -153,13 +145,7 @@ export class GutterChangesAnnotationProvider extends AnnotationProviderBase<Chan
 		}
 
 		if (!localChanges) {
-			commit = await this.container.git.getCommitForFile(
-				this.trackedDocument.uri.repoPath,
-				this.trackedDocument.uri,
-				{
-					ref: ref2 ?? ref1,
-				},
-			);
+			commit = await commitsProvider.getCommitForFile(this.trackedDocument.uri, { ref: ref2 ?? ref1 });
 
 			if (commit != null) {
 				if (ref2 != null) {

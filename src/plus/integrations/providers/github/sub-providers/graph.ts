@@ -67,7 +67,7 @@ export class GraphGitSubProvider implements GitGraphSubProvider {
 
 		const [logResult, headBranchResult, branchesResult, remotesResult, tagsResult, currentUserResult] =
 			await Promise.allSettled([
-				this.provider.getLog(repoPath, { all: true, ordering: ordering, limit: defaultLimit }),
+				this.provider.commits.getLog(repoPath, { all: true, ordering: ordering, limit: defaultLimit }),
 				this.provider.branches.getBranch(repoPath),
 				this.provider.branches.getBranches(repoPath, { filter: b => b.remote }),
 				this.provider.remotes.getRemotes(repoPath),
@@ -508,7 +508,7 @@ export class GraphGitSubProvider implements GitGraphSubProvider {
 			const values = operations.get('commit:');
 			if (values != null) {
 				const commitsResults = await Promise.allSettled(
-					map(values, v => this.provider.getCommit(repoPath, v.replace(doubleQuoteRegex, ''))),
+					map(values, v => this.provider.commits.getCommit(repoPath, v.replace(doubleQuoteRegex, ''))),
 				);
 
 				let i = 0;

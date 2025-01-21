@@ -1111,7 +1111,7 @@ export class GraphWebviewProvider implements WebviewProvider<State, State, Graph
 				switch (msg.params.type) {
 					case 'work-dir-changes':
 						cache = false;
-						commit = await this.container.git.getCommit(this._graph.repoPath, uncommitted);
+						commit = await this.container.git.commits(this._graph.repoPath).getCommit(uncommitted);
 						break;
 					case 'stash-node': {
 						const gitStash = await this.container.git.stash(this._graph.repoPath)?.getStash();
@@ -1119,7 +1119,7 @@ export class GraphWebviewProvider implements WebviewProvider<State, State, Graph
 						break;
 					}
 					default: {
-						commit = await this.container.git.getCommit(this._graph.repoPath, msg.params.id);
+						commit = await this.container.git.commits(this._graph.repoPath).getCommit(msg.params.id);
 						break;
 					}
 				}
@@ -4000,10 +4000,10 @@ export class GraphWebviewProvider implements WebviewProvider<State, State, Graph
 
 	private getCommitFromGraphItemRef(item?: GraphItemContext): Promise<GitCommit | undefined> {
 		let ref: GitRevisionReference | GitStashReference | undefined = this.getGraphItemRef(item, 'revision');
-		if (ref != null) return this.container.git.getCommit(ref.repoPath, ref.ref);
+		if (ref != null) return this.container.git.commits(ref.repoPath).getCommit(ref.ref);
 
 		ref = this.getGraphItemRef(item, 'stash');
-		if (ref != null) return this.container.git.getCommit(ref.repoPath, ref.ref);
+		if (ref != null) return this.container.git.commits(ref.repoPath).getCommit(ref.ref);
 
 		return Promise.resolve(undefined);
 	}

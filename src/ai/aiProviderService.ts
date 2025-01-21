@@ -436,7 +436,7 @@ export class AIProviderService implements Disposable {
 
 		const commit = isCommit(commitOrRevision)
 			? commitOrRevision
-			: await this.container.git.getCommit(commitOrRevision.repoPath, commitOrRevision.ref);
+			: await this.container.git.commits(commitOrRevision.repoPath).getCommit(commitOrRevision.ref);
 		if (commit == null) throw new Error('Unable to find commit');
 
 		if (!commit.hasFullDetails()) {

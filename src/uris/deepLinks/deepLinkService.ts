@@ -317,8 +317,9 @@ export class DeepLinkService implements Disposable {
 	private async getCommit(targetId: string): Promise<GitCommit | undefined> {
 		const { repo } = this._context;
 		if (!repo) return undefined;
-		if (await this.container.git.validateReference(repo.path, targetId)) {
-			return repo.git.getCommit(targetId);
+
+		if (await repo.git.validateReference(targetId)) {
+			return repo.git.commits().getCommit(targetId);
 		}
 
 		return undefined;

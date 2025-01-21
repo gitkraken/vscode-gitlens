@@ -161,7 +161,6 @@ export async function getPullRequestChildren(
 	const refs = getComparisonRefsForPullRequest(repoPath, pullRequest.refs!);
 
 	const counts = await ensurePullRequestRefs(
-		view.container,
 		pullRequest,
 		repo,
 		{ promptMessage: `Unable to open details for PR #${pullRequest.id} because of a missing remote.` },
