@@ -80,7 +80,7 @@ export class ReflogRecordNode extends ViewNode<'reflog-record', ViewsWithCommits
 	private async getLog() {
 		if (this._log === undefined) {
 			const range = `${this.record.previousSha}..${this.record.sha}`;
-			this._log = await this.view.container.git.getLog(this.uri.repoPath!, {
+			this._log = await this.view.container.git.commits(this.uri.repoPath!).getLog({
 				limit: this.limit ?? this.view.config.defaultItemLimit,
 				ref: range,
 			});

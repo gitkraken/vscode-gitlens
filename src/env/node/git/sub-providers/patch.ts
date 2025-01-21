@@ -239,7 +239,7 @@ export class PatchGitSubProvider implements GitPatchSubProvider {
 				)
 			)?.trim();
 
-			return await this.provider.getCommit(repoPath, sha);
+			return await this.provider.commits.getCommit(repoPath, sha);
 		} catch (ex) {
 			Logger.error(ex, scope);
 			debugger;

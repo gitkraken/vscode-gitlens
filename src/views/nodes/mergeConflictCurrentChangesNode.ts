@@ -31,9 +31,7 @@ export class MergeConflictCurrentChangesNode extends ViewNode<
 
 	private _commit: Promise<GitCommit | undefined> | undefined;
 	private async getCommit(): Promise<GitCommit | undefined> {
-		if (this._commit == null) {
-			this._commit = this.view.container.git.getCommit(this.status.repoPath, 'HEAD');
-		}
+		this._commit ??= this.view.container.git.commits(this.status.repoPath).getCommit('HEAD');
 		return this._commit;
 	}
 

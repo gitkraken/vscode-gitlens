@@ -259,7 +259,7 @@ export class CreateCloudPatchCommand extends CreatePatchCommandBase {
 			return showPatchesView({ mode: 'create' });
 		}
 
-		const create = await createDraft(this.container, repo, args);
+		const create = await createDraft(repo, args);
 		if (create == null) {
 			return showPatchesView({ mode: 'create', create: { repositories: [repo] } });
 		}
@@ -371,11 +371,7 @@ export class OpenCloudPatchCommand extends GlCommandBase {
 	}
 }
 
-async function createDraft(
-	container: Container,
-	repository: Repository,
-	args: CreatePatchCommandArgs,
-): Promise<CreateDraft | undefined> {
+async function createDraft(repository: Repository, args: CreatePatchCommandArgs): Promise<CreateDraft | undefined> {
 	if (args.to == null) return undefined;
 
 	const to = args.to ?? 'HEAD';
@@ -393,7 +389,9 @@ async function createDraft(
 
 	const create: CreateDraft = { changes: [change], title: args.title, description: args.description };
 
-	const commit = await container.git.getCommit(repository.uri, to);
+	const commitsProvider = repository.git.commits();
+
+	const commit = await commitsProvider.getCommit(to);
 	if (commit == null) return undefined;
 
 	if (args.from == null) {
@@ -401,23 +399,23 @@ async function createDraft(
 
 		change.files = [...commit.files];
 	} else {
-		const diff = await container.git.getDiff(repository.uri, to, args.from);
+		const diff = await repository.git.getDiff(to, args.from);
 		if (diff == null) return;
 
-		const result = await container.git.getDiffFiles(repository.uri, diff.contents);
+		const result = await repository.git.getDiffFiles(diff.contents);
 		if (result?.files == null) return;
 
 		change.files = result.files;
 
 		if (!isSha(args.to)) {
-			const commit = await container.git.getCommit(repository.uri, args.to);
+			const commit = await commitsProvider.getCommit(args.to);
 			if (commit != null) {
 				change.revision.to = commit.sha;
 			}
 		}
 
 		if (!isSha(args.from)) {
-			const commit = await container.git.getCommit(repository.uri, args.from);
+			const commit = await commitsProvider.getCommit(args.from);
 			if (commit != null) {
 				change.revision.from = commit.sha;
 			}

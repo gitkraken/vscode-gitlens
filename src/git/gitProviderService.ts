@@ -58,7 +58,6 @@ import type {
 	GitSubProviderProps,
 	GitTagsSubProvider,
 	GitWorktreesSubProvider,
-	LeftRightCommitCountResult,
 	NextComparisonUrisResult,
 	NonNullableGitSubProviderProps,
 	PreviousComparisonUrisResult,
@@ -71,18 +70,15 @@ import { createSubProviderProxyForRepo } from './gitProvider';
 import type { GitUri } from './gitUri';
 import type { GitBlame, GitBlameLine } from './models/blame';
 import type { GitBranch } from './models/branch';
-import { GitCommit, GitCommitIdentity } from './models/commit';
 import type { GitDiff, GitDiffFile, GitDiffFiles, GitDiffFilter, GitDiffLine, GitDiffShortStat } from './models/diff';
 import type { GitFile } from './models/file';
-import type { GitFileChange } from './models/fileChange';
-import type { GitLog } from './models/log';
 import type { GitBranchReference, GitReference } from './models/reference';
 import type { GitReflog } from './models/reflog';
 import type { GitRemote } from './models/remote';
 import type { Repository, RepositoryChangeEvent } from './models/repository';
 import { RepositoryChange, RepositoryChangeComparisonMode } from './models/repository';
 import type { GitRevisionRange } from './models/revision';
-import { deletedOrMissing, uncommitted, uncommittedStaged } from './models/revision';
+import { deletedOrMissing } from './models/revision';
 import type { GitTag } from './models/tag';
 import type { GitTreeEntry } from './models/tree';
 import type { GitUser } from './models/user';
@@ -1473,16 +1469,6 @@ export class GitProviderService implements Disposable {
 		);
 	}
 
-	@log()
-	getLeftRightCommitCount(
-		repoPath: string | Uri,
-		range: GitRevisionRange,
-		options?: { authors?: GitUser[] | undefined; excludeMerges?: boolean },
-	): Promise<LeftRightCommitCountResult | undefined> {
-		const { provider, path } = this.getProvider(repoPath);
-		return provider.getLeftRightCommitCount(path, range, options);
-	}
-
 	@log<GitProviderService['getBlame']>({ args: { 1: d => d?.isDirty } })
 	/**
 	 * Returns the blame of a file
@@ -1696,55 +1682,6 @@ export class GitProviderService implements Disposable {
 	}
 
 	@log()
-	async getCommit(repoPath: string | Uri, ref: string): Promise<GitCommit | undefined> {
-		const { provider, path } = this.getProvider(repoPath);
-
-		if (ref === uncommitted || ref === uncommittedStaged) {
-			const now = new Date();
-			const user = await this.getCurrentUser(repoPath);
-			return new GitCommit(
-				this.container,
-				path,
-				ref,
-				new GitCommitIdentity('You', user?.email ?? undefined, now),
-				new GitCommitIdentity('You', user?.email ?? undefined, now),
-				'Uncommitted changes',
-				[],
-				'Uncommitted changes',
-				undefined,
-				undefined,
-				[],
-			);
-		}
-
-		return provider.getCommit(path, ref);
-	}
-
-	@log()
-	getCommitCount(repoPath: string | Uri, ref: string): Promise<number | undefined> {
-		const { provider, path } = this.getProvider(repoPath);
-		return provider.getCommitCount(path, ref);
-	}
-
-	@log()
-	async getCommitFileStats(repoPath: string | Uri, ref: string): Promise<GitFileChange[] | undefined> {
-		const { provider, path } = this.getProvider(repoPath);
-		return provider.getCommitFileStats?.(path, ref);
-	}
-
-	@log()
-	async getCommitForFile(
-		repoPath: string | Uri | undefined,
-		uri: Uri,
-		options?: { ref?: string; firstIfNotFound?: boolean; range?: Range },
-	): Promise<GitCommit | undefined> {
-		if (repoPath == null) return undefined;
-
-		const { provider, path } = this.getProvider(repoPath);
-		return provider.getCommitForFile(path, uri, options);
-	}
-
-	@log()
 	async getConfig(repoPath: string | Uri, key: GitConfigKeys): Promise<string | undefined> {
 		const { provider, path } = this.getProvider(repoPath);
 		return provider.getConfig?.(path, key);
@@ -1836,14 +1773,6 @@ export class GitProviderService implements Disposable {
 		return provider.getDiffStatus(path, ref1OrRange, ref2, options);
 	}
 
-	@log()
-	async getFileStatusForCommit(repoPath: string | Uri, uri: Uri, ref: string): Promise<GitFile | undefined> {
-		if (ref === deletedOrMissing || isUncommitted(ref)) return undefined;
-
-		const { provider, path } = this.getProvider(repoPath);
-		return provider.getFileStatusForCommit(path, uri, ref);
-	}
-
 	@debug()
 	getGitDir(repoPath: string | Uri): Promise<GitDir | undefined> {
 		const { provider, path } = this.getProvider(repoPath);
@@ -1857,62 +1786,6 @@ export class GitProviderService implements Disposable {
 	}
 
 	@log()
-	async getLog(
-		repoPath: string | Uri,
-		options?: {
-			all?: boolean;
-			authors?: GitUser[];
-			limit?: number;
-			merges?: boolean | 'first-parent';
-			ordering?: 'date' | 'author-date' | 'topo' | null;
-			ref?: string;
-			since?: string;
-			stashes?: boolean;
-		},
-	): Promise<GitLog | undefined> {
-		const { provider, path } = this.getProvider(repoPath);
-		return provider.getLog(path, options);
-	}
-
-	@log()
-	async getLogRefsOnly(
-		repoPath: string | Uri,
-		options?: {
-			authors?: GitUser[];
-			limit?: number;
-			merges?: boolean | 'first-parent';
-			ordering?: 'date' | 'author-date' | 'topo' | null;
-			ref?: string;
-			since?: string;
-		},
-	): Promise<Set<string> | undefined> {
-		const { provider, path } = this.getProvider(repoPath);
-		return provider.getLogRefsOnly(path, options);
-	}
-
-	@log()
-	async getLogForFile(
-		repoPath: string | Uri | undefined,
-		pathOrUri: string | Uri,
-		options?: {
-			all?: boolean;
-			limit?: number;
-			ordering?: 'date' | 'author-date' | 'topo' | null;
-			range?: Range;
-			ref?: string;
-			renames?: boolean;
-			reverse?: boolean;
-			since?: string;
-			skip?: number;
-		},
-	): Promise<GitLog | undefined> {
-		if (repoPath == null) return undefined;
-
-		const { provider, path } = this.getProvider(repoPath);
-		return provider.getLogForFile(path, pathOrUri, options);
-	}
-
-	@log()
 	getNextComparisonUris(
 		repoPath: string | Uri,
 		uri: Uri,
@@ -1923,12 +1796,6 @@ export class GitProviderService implements Disposable {
 
 		const { provider, path } = this.getProvider(repoPath);
 		return provider.getNextComparisonUris(path, uri, ref, skip);
-	}
-
-	@log()
-	async getOldestUnpushedRefForFile(repoPath: string | Uri, uri: Uri): Promise<string | undefined> {
-		const { provider, path } = this.getProvider(repoPath);
-		return provider.getOldestUnpushedRefForFile(path, uri);
 	}
 
 	@log()
@@ -2234,18 +2101,8 @@ export class GitProviderService implements Disposable {
 	}
 
 	@log({ exit: true })
-	async getFirstCommitSha(repoPath: string | Uri): Promise<string | undefined> {
-		const { provider, path } = this.getProvider(repoPath);
-		try {
-			return await provider.getFirstCommitSha?.(path);
-		} catch {
-			return undefined;
-		}
-	}
-
-	@log({ exit: true })
-	getUniqueRepositoryId(repoPath: string | Uri): Promise<string | undefined> {
-		return this.getFirstCommitSha(repoPath);
+	async getUniqueRepositoryId(repoPath: string | Uri): Promise<string | undefined> {
+		return this.commits(repoPath).getFirstCommitSha?.();
 	}
 
 	@log({ args: { 1: false }, exit: true })
@@ -2262,27 +2119,11 @@ export class GitProviderService implements Disposable {
 	}
 
 	@log({ exit: true })
-	async hasCommitBeenPushed(repoPath: string | Uri, ref: string): Promise<boolean> {
-		if (repoPath == null) return false;
-
-		const { provider, path } = this.getProvider(repoPath);
-		return provider.hasCommitBeenPushed(path, ref);
-	}
-
-	@log({ exit: true })
 	hasUnsafeRepositories(): boolean {
 		for (const provider of this._providers.values()) {
 			if (provider.hasUnsafeRepositories?.()) return true;
 		}
 		return false;
-	}
-
-	@log({ exit: true })
-	async isAncestorOf(repoPath: string | Uri, ref1: string, ref2: string): Promise<boolean> {
-		if (repoPath == null) return false;
-
-		const { provider, path } = this.getProvider(repoPath);
-		return provider.isAncestorOf(path, ref1, ref2);
 	}
 
 	@log({ exit: true })

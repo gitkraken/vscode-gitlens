@@ -93,7 +93,7 @@ export async function copyMessageToClipboard(ref: Ref | GitCommit): Promise<void
 			await commit.ensureFullDetails();
 		}
 	} else {
-		commit = await Container.instance.git.getCommit(ref.repoPath, ref.ref);
+		commit = await Container.instance.git.commits(ref.repoPath).getCommit(ref.ref);
 		if (commit == null) return;
 	}
 
@@ -977,18 +977,20 @@ export async function getOrderedComparisonRefs(
 	refA: string,
 	refB: string,
 ): Promise<[string, string]> {
+	const commitsProvider = container.git.commits(repoPath);
+
 	// Check the ancestry of refA and refB to determine which is the "newer" one
-	const ancestor = await container.git.isAncestorOf(repoPath, refA, refB);
+	const ancestor = await commitsProvider.isAncestorOf(refA, refB);
 	// If refB is an ancestor of refA, compare refA to refB (as refA is "newer")
 	if (ancestor) return [refB, refA];
 
-	const ancestor2 = await container.git.isAncestorOf(repoPath, refB, refA);
+	const ancestor2 = await commitsProvider.isAncestorOf(refB, refA);
 	// If refA is an ancestor of refB, compare refB to refA (as refB is "newer")
 	if (ancestor2) return [refA, refB];
 
 	const [commitRefAResult, commitRefBResult] = await Promise.allSettled([
-		container.git.getCommit(repoPath, refA),
-		container.git.getCommit(repoPath, refB),
+		commitsProvider.getCommit(refA),
+		commitsProvider.getCommit(refB),
 	]);
 
 	const commitRefA = getSettledValue(commitRefAResult);

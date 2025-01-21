@@ -35,7 +35,7 @@ export class MergeConflictIncomingChangesNode extends ViewNode<
 			const ref = this.status.type === 'rebase' ? this.status.steps.current.commit?.ref : this.status.HEAD.ref;
 			if (ref == null) return undefined;
 
-			this._commit = this.view.container.git.getCommit(this.status.repoPath, ref);
+			this._commit = this.view.container.git.commits(this.status.repoPath).getCommit(ref);
 		}
 		return this._commit;
 	}

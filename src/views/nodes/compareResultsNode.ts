@@ -139,11 +139,11 @@ export class CompareResultsNode extends SubscribeableViewNode<
 			};
 			const behind = { ...this.behind, range: createRevisionRange(this.behind.ref1, this.behind.ref2, '..') };
 
-			const counts = await this.view.container.git.getLeftRightCommitCount(
-				this.repoPath,
-				createRevisionRange(behind.ref1 || 'HEAD', behind.ref2, '...'),
-				{ authors: this.filterByAuthors },
-			);
+			const counts = await this.view.container.git
+				.commits(this.repoPath)
+				.getLeftRightCommitCount(createRevisionRange(behind.ref1 || 'HEAD', behind.ref2, '...'), {
+					authors: this.filterByAuthors,
+				});
 
 			const branchesProvider = this.view.container.git.branches(this.repoPath);
 			const mergeBase =

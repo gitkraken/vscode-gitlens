@@ -42,7 +42,7 @@ export class StatusFilesNode extends ViewNode<'status-files', ViewsWithWorkingTr
 
 		let log: GitLog | undefined;
 		if (this.range != null) {
-			log = await this.view.container.git.getLog(repoPath, { limit: 0, ref: this.range });
+			log = await this.view.container.git.commits(repoPath).getLog({ limit: 0, ref: this.range });
 			if (log != null) {
 				await Promise.allSettled(
 					map(

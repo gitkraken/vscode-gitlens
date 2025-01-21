@@ -240,7 +240,7 @@ export class BranchNode
 				!branch.remote
 					? this.view.container.git.getBranchAheadRange(branch).then(range =>
 							range
-								? this.view.container.git.getLogRefsOnly(this.uri.repoPath!, {
+								? this.view.container.git.commits(this.uri.repoPath!).getLogRefsOnly({
 										limit: 0,
 										ref: range,
 										merges: this.options.showMergeCommits,
@@ -390,7 +390,7 @@ export class BranchNode
 			if (log.hasMore) {
 				children.push(
 					new LoadMoreNode(this.view, this, children[children.length - 1], {
-						getCount: () => this.view.container.git.getCommitCount(branch.repoPath, branch.name),
+						getCount: () => this.view.container.git.commits(branch.repoPath).getCommitCount(branch.name),
 					}),
 				);
 			}
@@ -492,7 +492,7 @@ export class BranchNode
 				limit = Math.min(this.branch.state.ahead + 1, limit * 2);
 			}
 
-			this._log = await this.view.container.git.getLog(this.uri.repoPath!, {
+			this._log = await this.view.container.git.commits(this.uri.repoPath!).getLog({
 				limit: limit,
 				ref: this.ref.ref,
 				authors: this.options?.authors,

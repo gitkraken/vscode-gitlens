@@ -543,7 +543,7 @@ export function getValidateGitReferenceFn(
 			}
 		}
 
-		const commit = await repos.git.getCommit(value);
+		const commit = await repos.git.commits().getCommit(value);
 		quickpick.items = [
 			await createCommitQuickPickItem(commit!, true, {
 				alwaysShow: true,

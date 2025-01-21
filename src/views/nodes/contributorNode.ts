@@ -183,7 +183,7 @@ export class ContributorNode extends ViewNode<'contributor', ViewsWithContributo
 	private _log: GitLog | undefined;
 	private async getLog() {
 		if (this._log == null) {
-			this._log = await this.view.container.git.getLog(this.uri.repoPath!, {
+			this._log = await this.view.container.git.commits(this.uri.repoPath!).getLog({
 				all: this.options?.all,
 				ref: this.options?.ref,
 				limit: this.limit ?? this.view.config.defaultItemLimit,

@@ -1466,13 +1466,11 @@ async function getBranchMergeTargetStatusInfo(
 	if (targetBranch == null) return undefined;
 
 	const [countsResult, conflictResult, mergedStatusResult] = await Promise.allSettled([
-		container.git.getLeftRightCommitCount(
-			branch.repoPath,
-			createRevisionRange(targetBranch.name, branch.ref, '...'),
-			{
+		container.git
+			.commits(branch.repoPath)
+			.getLeftRightCommitCount(createRevisionRange(targetBranch.name, branch.ref, '...'), {
 				excludeMerges: true,
-			},
-		),
+			}),
 		branchProvider.getPotentialMergeOrRebaseConflict?.(branch.name, targetBranch.name),
 		branchProvider.getBranchMergedStatus?.(branch, targetBranch),
 	]);

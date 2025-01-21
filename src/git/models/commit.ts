@@ -250,9 +250,10 @@ export class GitCommit implements GitRevisionReference {
 			}
 			this._stashUntrackedFilesLoaded = true;
 		} else {
+			const commitsProvider = this.container.git.commits(this.repoPath);
 			const [commitResult, commitFilesStatsResult] = await Promise.allSettled([
-				this.container.git.getCommit(this.repoPath, this.sha),
-				options?.include?.stats ? this.container.git.getCommitFileStats(this.repoPath, this.sha) : undefined,
+				commitsProvider.getCommit(this.sha),
+				options?.include?.stats ? commitsProvider.getCommitFileStats?.(this.sha) : undefined,
 				this.getPreviousSha(),
 			]);
 
@@ -609,7 +610,7 @@ export class GitCommit implements GitRevisionReference {
 
 	@gate()
 	async isPushed(): Promise<boolean> {
-		return this.container.git.hasCommitBeenPushed(this.repoPath, this.ref);
+		return this.container.git.commits(this.repoPath).hasCommitBeenPushed(this.ref);
 	}
 
 	with<T extends GitCommit>(changes: {

@@ -53,7 +53,7 @@ export class BranchTrackingStatusFilesNode extends ViewNode<'tracking-status-fil
 	}
 
 	private async getGroupedFiles(): Promise<Map<string, GitFileWithCommit[]>> {
-		const log = await this.view.container.git.getLog(this.repoPath, {
+		const log = await this.view.container.git.commits(this.repoPath).getLog({
 			limit: 0,
 			ref:
 				this.direction === 'behind'

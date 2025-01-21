@@ -1478,7 +1478,7 @@ export class CommitDetailsWebviewProvider
 				const gitStash = await this.container.git.stash(commitish.repoPath)?.getStash();
 				commit = gitStash?.stashes.get(commitish.ref);
 			} else {
-				commit = await this.container.git.getCommit(commitish.repoPath, commitish.ref);
+				commit = await this.container.git.commits(commitish.repoPath).getCommit(commitish.ref);
 			}
 		}
 
@@ -1826,7 +1826,7 @@ export class CommitDetailsWebviewProvider
 			const uri = this._context.wip?.changes?.repository.uri;
 			if (uri == null) return;
 
-			commit = await this.container.git.getCommit(Uri.parse(uri), uncommitted);
+			commit = await this.container.git.commits(Uri.parse(uri)).getCommit(uncommitted);
 		} else {
 			commit = this._context.commit;
 		}

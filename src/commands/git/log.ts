@@ -164,8 +164,8 @@ export class LogGitCommand extends QuickCommand<State> {
 				if (log == null) {
 					log =
 						state.fileName != null
-							? this.container.git.getLogForFile(state.repo.path, state.fileName, { ref: ref })
-							: this.container.git.getLog(state.repo.path, { ref: ref });
+							? state.repo.git.commits().getLogForFile(state.fileName, { ref: ref })
+							: state.repo.git.commits().getLog({ ref: ref });
 					context.cache.set(ref, log);
 				}
 
@@ -187,7 +187,7 @@ export class LogGitCommand extends QuickCommand<State> {
 			}
 
 			if (!(state.reference instanceof GitCommit) || state.reference.file != null) {
-				state.reference = await this.container.git.getCommit(state.repo.path, state.reference.ref);
+				state.reference = await state.repo.git.commits().getCommit(state.reference.ref);
 			}
 
 			let result: StepResult<ReturnType<typeof getSteps>>;

@@ -249,7 +249,7 @@ export class ResultsFilesNode extends ViewNode<'results-files', ViewsWithCommits
 				filterTo = new Set<string>(files.map(f => f.path));
 			}
 		} else {
-			const commit = await this.view.container.git.getCommit(this.uri.repoPath!, ref || 'HEAD');
+			const commit = await this.view.container.git.commits(this.uri.repoPath!).getCommit(ref || 'HEAD');
 			if (commit?.files != null) {
 				filterTo = new Set<string>(commit.files.map(f => f.path));
 			}

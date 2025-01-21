@@ -82,7 +82,7 @@ export class LineHistoryNode
 				: undefined,
 			this.view.container.git.getBranchesAndTagsTipsLookup(this.uri.repoPath, this.branch?.name),
 			range
-				? this.view.container.git.getLogRefsOnly(this.uri.repoPath, {
+				? this.view.container.git.commits(this.uri.repoPath).getLogRefsOnly({
 						limit: 0,
 						ref: range,
 				  })
@@ -249,7 +249,7 @@ export class LineHistoryNode
 	private _log: GitLog | undefined;
 	private async getLog(selection?: Selection) {
 		if (this._log == null) {
-			this._log = await this.view.container.git.getLogForFile(this.uri.repoPath, this.uri, {
+			this._log = await this.view.container.git.commits(this.uri.repoPath!).getLogForFile(this.uri, {
 				all: false,
 				limit: this.limit ?? this.view.config.pageItemLimit,
 				range: selection ?? this.selection,
