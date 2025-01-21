@@ -35,6 +35,44 @@
 			"trace": true
 		},
 		{
+			"name": "Run (web)",
+			"type": "extensionHost",
+			"request": "launch",
+			"runtimeExecutable": "${execPath}",
+			"args": [
+				// "--folder-uri=vscode-vfs://github/gitkraken/vscode-gitlens",
+				"--profile=Debugging (GitLens)",
+				"--extensionDevelopmentPath=${workspaceFolder}",
+				"--extensionDevelopmentKind=web"
+			],
+			"debugWebviews": true,
+			"debugWebWorkerHost": true,
+			"rendererDebugOptions": {
+				"outFiles": ["${workspaceFolder}/dist/browser/**/*.js", "${workspaceFolder}/dist/webviews/**/*.js"],
+				"pauseForSourceMap": true,
+				"showAsyncStacks": true,
+				"smartStep": true,
+				"sourceMapRenames": true,
+				"sourceMaps": true,
+				"trace": true,
+				// "urlFilter": "*eamodio.gitlens*",
+				"webRoot": "${workspaceFolder}"
+			},
+			"outFiles": ["${workspaceFolder}/dist/browser/**/*.js"],
+			"pauseForSourceMap": true,
+			"runtimeSourcemapPausePatterns": ["${workspaceFolder}/dist/**/*.js"],
+			"presentation": {
+				"group": "2_run",
+				"order": 2
+			},
+			"skipFiles": ["<node_internals>/**", "**/node_modules/**", "**/resources/app/out/vs/**"],
+			"showAsyncStacks": true,
+			"smartStep": true,
+			"sourceMapRenames": true,
+			"sourceMaps": true,
+			"trace": true
+		},
+		{
 			"name": "Run (sandboxed)",
 			"type": "extensionHost",
 			"request": "launch",
@@ -57,7 +95,7 @@
 			"runtimeSourcemapPausePatterns": ["${workspaceFolder}/dist/**/*.js"],
 			"presentation": {
 				"group": "2_run",
-				"order": 2
+				"order": 3
 			},
 			"showAsyncStacks": true,
 			"skipFiles": ["<node_internals>/**", "**/node_modules/**", "**/resources/app/out/vs/**"],
@@ -129,9 +167,10 @@
 				"--extensionDevelopmentPath=${workspaceFolder}",
 				"--extensionDevelopmentKind=web"
 			],
+			"debugWebviews": true,
 			"debugWebWorkerHost": true,
 			"rendererDebugOptions": {
-				"outFiles": ["${workspaceFolder}/dist/webviews/**/*.js"],
+				"outFiles": ["${workspaceFolder}/dist/browser/**/*.js", "${workspaceFolder}/dist/webviews/**/*.js"],
 				"pauseForSourceMap": true,
 				"showAsyncStacks": true,
 				"smartStep": true,
@@ -139,7 +178,7 @@
 				"sourceMaps": true,
 				"trace": true,
 				// "urlFilter": "*eamodio.gitlens*",
-				"webRoot": "${workspaceFolder}/src/webviews/apps"
+				"webRoot": "${workspaceFolder}"
 			},
 			"outFiles": ["${workspaceFolder}/dist/browser/**/*.js"],
 			"pauseForSourceMap": true,
