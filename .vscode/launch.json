@@ -21,11 +21,12 @@
 				"webRoot": "${workspaceFolder}/src/webviews/apps"
 			},
 			"outFiles": ["${workspaceFolder}/dist/**/*.js"],
+			"pauseForSourceMap": true,
+			"runtimeSourcemapPausePatterns": ["${workspaceFolder}/dist/**/*.js"],
 			"presentation": {
 				"group": "2_run",
 				"order": 1
 			},
-			"pauseForSourceMap": true,
 			"showAsyncStacks": true,
 			"skipFiles": ["<node_internals>/**", "**/node_modules/**", "**/resources/app/out/vs/**"],
 			"smartStep": true,
@@ -53,6 +54,7 @@
 			},
 			"outFiles": ["${workspaceFolder}/dist/**/*.js"],
 			"pauseForSourceMap": true,
+			"runtimeSourcemapPausePatterns": ["${workspaceFolder}/dist/**/*.js"],
 			"presentation": {
 				"group": "2_run",
 				"order": 2
@@ -103,6 +105,7 @@
 			},
 			"outFiles": ["${workspaceFolder}/dist/**/*.js"],
 			"pauseForSourceMap": true,
+			"runtimeSourcemapPausePatterns": ["${workspaceFolder}/dist/**/*.js"],
 			"preLaunchTask": "${defaultBuildTask}",
 			"presentation": {
 				"group": "1_watch",
@@ -140,6 +143,7 @@
 			},
 			"outFiles": ["${workspaceFolder}/dist/browser/**/*.js"],
 			"pauseForSourceMap": true,
+			"runtimeSourcemapPausePatterns": ["${workspaceFolder}/dist/**/*.js"],
 			"preLaunchTask": "${defaultBuildTask}",
 			"presentation": {
 				"group": "1_watch",
@@ -171,6 +175,7 @@
 			},
 			"outFiles": ["${workspaceFolder}/dist/**/*.js"],
 			"pauseForSourceMap": true,
+			"runtimeSourcemapPausePatterns": ["${workspaceFolder}/dist/**/*.js"],
 			"preLaunchTask": "${defaultBuildTask}",
 			"presentation": {
 				"group": "1_watch",
