@@ -1267,8 +1267,8 @@ export class GitHubApi implements Disposable {
 		return { ...(commit ?? results.values[0]), viewer: results.viewer };
 	}
 
-	@debug<GitHubApi['getCommitBranches']>({ args: { 0: '<token>' } })
-	async getCommitBranches(
+	@debug<GitHubApi['getBranchesWithCommits']>({ args: { 0: '<token>' } })
+	async getBranchesWithCommits(
 		token: string,
 		owner: string,
 		repo: string,
@@ -1296,7 +1296,7 @@ export class GitHubApi implements Disposable {
 		const limit = mode === 'contains' ? 10 : 1;
 
 		try {
-			const query = `query getCommitBranches(
+			const query = `query getBranchesWithCommits(
 	$owner: String!
 	$repo: String!
 	$since: GitTimestamp!
@@ -1406,8 +1406,8 @@ export class GitHubApi implements Disposable {
 		}
 	}
 
-	@debug<GitHubApi['getCommitOnBranch']>({ args: { 0: '<token>' } })
-	async getCommitOnBranch(
+	@debug<GitHubApi['getBranchWithCommit']>({ args: { 0: '<token>' } })
+	async getBranchWithCommit(
 		token: string,
 		owner: string,
 		repo: string,
@@ -1433,7 +1433,7 @@ export class GitHubApi implements Disposable {
 		const limit = mode === 'contains' ? 100 : 1;
 
 		try {
-			const query = `query getCommitOnBranch(
+			const query = `query getBranchWithCommit(
 	$owner: String!
 	$repo: String!
 	$ref: String!

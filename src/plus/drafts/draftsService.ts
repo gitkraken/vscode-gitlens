@@ -257,7 +257,7 @@ export class DraftService implements Disposable {
 						.branches()
 						.getBranch()
 						.then(b => (b != null ? [b.name] : undefined))
-				: change.repository.git.branches().getBranchesForCommit([change.revision.to, change.revision.from]),
+				: change.repository.git.branches().getBranchesWithCommits([change.revision.to, change.revision.from]),
 			change.contents == null
 				? change.repository.git.getDiff(change.revision.to, change.revision.from)
 				: undefined,

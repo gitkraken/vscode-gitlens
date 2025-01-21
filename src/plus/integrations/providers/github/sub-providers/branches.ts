@@ -266,9 +266,9 @@ export class BranchesGitSubProvider implements GitBranchesSubProvider {
 	}
 
 	@log()
-	async getBranchesForCommit(
+	async getBranchesWithCommits(
 		repoPath: string,
-		refs: string[],
+		commits: string[],
 		branch?: string | undefined,
 		options?:
 			| { all?: boolean; commitDate?: Date; mode?: 'contains' | 'pointsAt' }
@@ -284,21 +284,21 @@ export class BranchesGitSubProvider implements GitBranchesSubProvider {
 			let branches;
 
 			if (branch) {
-				branches = await github.getCommitOnBranch(
+				branches = await github.getBranchWithCommit(
 					session.accessToken,
 					metadata.repo.owner,
 					metadata.repo.name,
 					branch,
-					refs.map(stripOrigin),
+					commits.map(stripOrigin),
 					options?.mode ?? 'contains',
 					options?.commitDate,
 				);
 			} else {
-				branches = await github.getCommitBranches(
+				branches = await github.getBranchesWithCommits(
 					session.accessToken,
 					metadata.repo.owner,
 					metadata.repo.name,
-					refs.map(stripOrigin),
+					commits.map(stripOrigin),
 					options?.mode ?? 'contains',
 					options?.commitDate,
 				);

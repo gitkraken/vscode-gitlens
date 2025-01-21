@@ -245,16 +245,16 @@ export class BranchesGitSubProvider implements GitBranchesSubProvider {
 	}
 
 	@log()
-	async getBranchesForCommit(
+	async getBranchesWithCommits(
 		repoPath: string,
-		refs: string[],
+		commits: string[],
 		branch?: string | undefined,
 		options?:
 			| { all?: boolean; commitDate?: Date; mode?: 'contains' | 'pointsAt' }
 			| { commitDate?: Date; mode?: 'contains' | 'pointsAt'; remotes?: boolean },
 	): Promise<string[]> {
 		if (branch != null) {
-			const data = await this.git.branchOrTag__containsOrPointsAt(repoPath, refs, {
+			const data = await this.git.branchOrTag__containsOrPointsAt(repoPath, commits, {
 				type: 'branch',
 				mode: 'contains',
 				name: branch,
@@ -262,7 +262,7 @@ export class BranchesGitSubProvider implements GitBranchesSubProvider {
 			return data ? [data?.trim()] : [];
 		}
 
-		const data = await this.git.branchOrTag__containsOrPointsAt(repoPath, refs, { type: 'branch', ...options });
+		const data = await this.git.branchOrTag__containsOrPointsAt(repoPath, commits, { type: 'branch', ...options });
 		if (!data) return [];
 
 		return filterMap(data.split('\n'), b => b.trim() || undefined);

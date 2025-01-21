@@ -253,7 +253,7 @@ export class BranchesView extends ViewBase<'branches', BranchesViewNode, Branche
 		// Get all the branches the commit is on
 		const branches = await this.container.git
 			.branches(commit.repoPath)
-			.getBranchesForCommit(
+			.getBranchesWithCommits(
 				[commit.ref],
 				undefined,
 				isCommit(commit) ? { commitDate: commit.committer.date } : undefined,

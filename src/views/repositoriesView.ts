@@ -324,7 +324,7 @@ export class RepositoriesView extends ViewBase<'repositories', RepositoriesNode,
 		// Get all the branches the commit is on
 		let branches = await this.container.git
 			.branches(commit.repoPath)
-			.getBranchesForCommit(
+			.getBranchesWithCommits(
 				[commit.ref],
 				undefined,
 				isCommit(commit) ? { commitDate: commit.committer.date } : undefined,
@@ -359,7 +359,7 @@ export class RepositoriesView extends ViewBase<'repositories', RepositoriesNode,
 		// If we didn't find the commit on any local branches, check remote branches
 		branches = await this.container.git
 			.branches(commit.repoPath)
-			.getBranchesForCommit(
+			.getBranchesWithCommits(
 				[commit.ref],
 				undefined,
 				isCommit(commit) ? { commitDate: commit.committer.date, remotes: true } : { remotes: true },

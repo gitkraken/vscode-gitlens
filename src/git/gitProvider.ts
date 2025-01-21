@@ -388,7 +388,7 @@ export interface GitBranchesSubProvider {
 		},
 	): Promise<PagedResult<GitBranch>>;
 	getBranchContributionsOverview(repoPath: string, ref: string): Promise<BranchContributionsOverview | undefined>;
-	getBranchesForCommit(
+	getBranchesWithCommits(
 		repoPath: string,
 		refs: string[],
 		branch?: string | undefined,

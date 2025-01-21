@@ -2085,7 +2085,7 @@ async function getShowCommitOrStashStepItems<
 		const branch = await state.repo.git.branches().getBranch();
 		const [branches, published] = await Promise.all([
 			branch != null
-				? state.repo.git.branches().getBranchesForCommit([state.reference.ref], branch.name, {
+				? state.repo.git.branches().getBranchesWithCommits([state.reference.ref], branch.name, {
 						commitDate: isCommit(state.reference) ? state.reference.committer.date : undefined,
 				  })
 				: undefined,
