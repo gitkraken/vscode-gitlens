@@ -195,7 +195,7 @@ export function parseGitApplyFiles(container: Container, data: string, repoPath:
 		line = line.trim();
 		if (!line) continue;
 
-		const match = /(rename) (.*?)\{(.+?)\s+=>\s+(.+?)\}(?: \(\d+%\))|(create|delete) mode \d+ (.+)/.exec(line);
+		const match = /(rename) (.*?)\{?([^{]+?)\s+=>\s+(.+?)\}?(?: \(\d+%\))|(create|delete) mode \d+ (.+)/.exec(line);
 		if (match == null) continue;
 
 		let [, rename, renameRoot, renameOriginalPath, renamePath, createOrDelete, createOrDeletePath] = match;
