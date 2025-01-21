@@ -1,7 +1,7 @@
 import type { Container } from '../../../../container';
 import type { GitCache } from '../../../../git/cache';
 import type { GitContributorsSubProvider } from '../../../../git/gitProvider';
-import type { GitContributorStats } from '../../../../git/models/contributor';
+import type { GitContributorsStats } from '../../../../git/models/contributor';
 import { GitContributor } from '../../../../git/models/contributor';
 import { getContributorsParser } from '../../../../git/parsers/logParser';
 import { calculateContributionScore } from '../../../../git/utils/contributor.utils';
@@ -78,10 +78,10 @@ export class ContributorsGitSubProvider implements GitContributorsSubProvider {
 								repoPath,
 								c.author,
 								c.email,
+								isUserMatch(currentUser, c.author, c.email),
 								1,
 								new Date(timestamp),
 								new Date(timestamp),
-								isUserMatch(currentUser, c.author, c.email),
 								c.stats
 									? {
 											...c.stats,
@@ -143,7 +143,7 @@ export class ContributorsGitSubProvider implements GitContributorsSubProvider {
 	async getContributorsStats(
 		repoPath: string,
 		options?: { merges?: boolean; since?: string },
-	): Promise<GitContributorStats | undefined> {
+	): Promise<GitContributorsStats | undefined> {
 		if (repoPath == null) return undefined;
 
 		const scope = getLogScope();
@@ -166,7 +166,7 @@ export class ContributorsGitSubProvider implements GitContributorsSubProvider {
 				.filter(c => !isNaN(c))
 				.sort((a, b) => b - a);
 
-			const result: GitContributorStats = {
+			const result: GitContributorsStats = {
 				count: contributions.length,
 				contributions: contributions,
 			};

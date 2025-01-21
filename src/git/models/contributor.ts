@@ -13,13 +13,13 @@ export function isContributor(contributor: unknown): contributor is GitContribut
 export class GitContributor {
 	constructor(
 		public readonly repoPath: string,
-		public readonly name: string | undefined,
+		public readonly name: string,
 		public readonly email: string | undefined,
+		public readonly current: boolean,
 		public readonly commits: number,
 		public readonly latestCommitDate?: Date,
 		public readonly firstCommitDate?: Date,
-		public readonly current: boolean = false,
-		public readonly stats?: GitCommitStats<number> & { contributionScore: number },
+		public readonly stats?: GitContributorStats,
 		public readonly username?: string | undefined,
 		private readonly avatarUrl?: string | undefined,
 		public readonly id?: string | undefined,
@@ -49,7 +49,11 @@ export class GitContributor {
 	}
 }
 
-export interface GitContributorStats {
+export interface GitContributorStats extends GitCommitStats<number> {
+	readonly contributionScore: number;
+}
+
+export interface GitContributorsStats {
 	readonly count: number;
 	readonly contributions: number[];
 }

@@ -1,5 +1,5 @@
 import type { GitCommitStats } from '../models/commit';
-import type { GitContributionTiers, GitContributor, GitContributorStats } from '../models/contributor';
+import type { GitContributionTiers, GitContributor, GitContributorsStats } from '../models/contributor';
 import type { GitUser } from '../models/user';
 
 export interface ContributorScoreOptions {
@@ -43,7 +43,7 @@ export function calculateContributionScore(
 }
 
 export function calculateDistribution<T extends string>(
-	stats: GitContributorStats | undefined,
+	stats: GitContributorsStats | undefined,
 	prefix: T,
 ): Record<`${typeof prefix}${GitContributionTiers}`, number> {
 	if (stats == null) return {} as unknown as Record<`${typeof prefix}${GitContributionTiers}`, number>;

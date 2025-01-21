@@ -3937,7 +3937,7 @@ export class GraphWebviewProvider implements WebviewProvider<State, State, Graph
 			const { repoPath, name, email, current } = item.webviewItemValue;
 			return ContributorActions.addAuthors(
 				repoPath,
-				new GitContributor(repoPath, name, email, 0, undefined, undefined, current),
+				new GitContributor(repoPath, name, email, current ?? false, 0),
 			);
 		}
 
