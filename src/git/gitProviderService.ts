@@ -2435,57 +2435,57 @@ export class GitProviderService implements Disposable {
 		return proxy;
 	}
 
-	@log()
+	@log({ singleLine: true })
 	branches(repoPath: string | Uri): GitSubProviderForRepo<GitBranchesSubProvider> {
 		return this.getSubProviderProxy(repoPath, 'branches');
 	}
 
-	@log()
+	@log({ singleLine: true })
 	commits(repoPath: string | Uri): GitSubProviderForRepo<GitCommitsSubProvider> {
 		return this.getSubProviderProxy(repoPath, 'commits');
 	}
 
-	@log()
+	@log({ singleLine: true })
 	contributors(repoPath: string | Uri): GitSubProviderForRepo<GitContributorsSubProvider> {
 		return this.getSubProviderProxy(repoPath, 'contributors');
 	}
 
-	@log()
+	@log({ singleLine: true })
 	graph(repoPath: string | Uri): GitSubProviderForRepo<GitGraphSubProvider> {
 		return this.getSubProviderProxy(repoPath, 'graph');
 	}
 
-	@log()
+	@log({ singleLine: true })
 	patch(repoPath: string | Uri): GitSubProviderForRepo<GitPatchSubProvider> | undefined {
 		return this.getSubProviderProxy(repoPath, 'patch');
 	}
 
-	@log()
+	@log({ singleLine: true })
 	remotes(repoPath: string | Uri): GitSubProviderForRepo<GitRemotesSubProvider> {
 		return this.getSubProviderProxy(repoPath, 'remotes');
 	}
 
-	@log()
+	@log({ singleLine: true })
 	staging(repoPath: string | Uri): GitSubProviderForRepo<GitStagingSubProvider> | undefined {
 		return this.getSubProviderProxy(repoPath, 'staging');
 	}
 
-	@log()
+	@log({ singleLine: true })
 	stash(repoPath: string | Uri): GitSubProviderForRepo<GitStashSubProvider> | undefined {
 		return this.getSubProviderProxy(repoPath, 'stash');
 	}
 
-	@log()
+	@log({ singleLine: true })
 	status(repoPath: string | Uri): GitSubProviderForRepo<GitStatusSubProvider> {
 		return this.getSubProviderProxy(repoPath, 'status');
 	}
 
-	@log()
+	@log({ singleLine: true })
 	tags(repoPath: string | Uri): GitSubProviderForRepo<GitTagsSubProvider> {
 		return this.getSubProviderProxy(repoPath, 'tags');
 	}
 
-	@log()
+	@log({ singleLine: true })
 	worktrees(repoPath: string | Uri): GitSubProviderForRepo<GitWorktreesSubProvider> | undefined {
 		return this.getSubProviderProxy(repoPath, 'worktrees');
 	}
