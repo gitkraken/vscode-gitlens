@@ -173,7 +173,7 @@ export class CherryPickGitCommand extends QuickCommand<State> {
 			}
 
 			if (context.selectedBranchOrTag == null && state.references?.length) {
-				const branches = await state.repo.git.branches().getBranchesForCommit(
+				const branches = await state.repo.git.branches().getBranchesWithCommits(
 					state.references.map(r => r.ref),
 					undefined,
 					{ mode: 'contains' },

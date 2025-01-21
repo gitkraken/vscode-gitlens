@@ -133,7 +133,7 @@ export class StatusGitSubProvider implements GitStatusSubProvider {
 						const [branchResult, mergeBaseResult, possibleSourceBranchesResult] = await Promise.allSettled([
 							this.provider.branches.getBranch(repoPath),
 							this.provider.branches.getMergeBase(repoPath, 'MERGE_HEAD', 'HEAD'),
-							this.provider.branches.getBranchesForCommit(repoPath, ['MERGE_HEAD'], undefined, {
+							this.provider.branches.getBranchesWithCommits(repoPath, ['MERGE_HEAD'], undefined, {
 								all: true,
 								mode: 'pointsAt',
 							}),
@@ -224,7 +224,7 @@ export class StatusGitSubProvider implements GitStatusSubProvider {
 							rebaseHead != null
 								? this.provider.branches.getMergeBase(repoPath, rebaseHead, 'HEAD')
 								: this.provider.branches.getMergeBase(repoPath, onto, origHead),
-							this.provider.branches.getBranchesForCommit(repoPath, [onto], undefined, {
+							this.provider.branches.getBranchesWithCommits(repoPath, [onto], undefined, {
 								all: true,
 								mode: 'pointsAt',
 							}),
