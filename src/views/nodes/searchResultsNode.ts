@@ -232,7 +232,7 @@ export class SearchResultsNode extends ViewNode<'search-results', SearchAndCompa
 		let useCacheOnce = true;
 
 		return async (limit: number | undefined) => {
-			log = await (log ?? this.view.container.git.richSearchCommits(this.repoPath, this.search));
+			log = await (log ?? this.view.container.git.commits(this.repoPath).searchCommits(this.search));
 
 			if (!useCacheOnce && log?.query != null) {
 				log = await log.query(limit);

@@ -30,7 +30,7 @@ import type { GitTreeEntry } from './models/tree';
 import type { GitUser } from './models/user';
 import type { GitWorktree } from './models/worktree';
 import type { RemoteProvider } from './remotes/remoteProvider';
-import type { GitSearch } from './search';
+import type { GitGraphSearch } from './search';
 import type { BranchSortOptions, TagSortOptions } from './utils/-webview/sorting';
 
 export type GitCaches =
@@ -181,15 +181,6 @@ export interface GitRepositoryProvider {
 			range?: Range | undefined;
 		},
 	): Promise<GitCommit | undefined>;
-	getCommitsForGraph(
-		repoPath: string,
-		asWebviewUri: (uri: Uri) => Uri,
-		options?: {
-			include?: { stats?: boolean };
-			limit?: number;
-			ref?: string;
-		},
-	): Promise<GitGraph>;
 	getConfig?(repoPath: string, key: GitConfigKeys): Promise<string | undefined>;
 	setConfig?(repoPath: string, key: GitConfigKeys, value: string | undefined): Promise<void>;
 	getCurrentUser(repoPath: string): Promise<GitUser | undefined>;
@@ -323,24 +314,6 @@ export interface GitRepositoryProvider {
 		pathOrUri?: string | Uri,
 		options?: { force?: boolean; timeout?: number | undefined },
 	): Promise<string>;
-	richSearchCommits(
-		repoPath: string,
-		search: SearchQuery,
-		options?: {
-			limit?: number | undefined;
-			ordering?: 'date' | 'author-date' | 'topo' | null | undefined;
-			skip?: number | undefined;
-		},
-	): Promise<GitLog | undefined>;
-	searchCommits(
-		repoPath: string,
-		search: SearchQuery,
-		options?: {
-			cancellation?: CancellationToken;
-			limit?: number;
-			ordering?: 'date' | 'author-date' | 'topo';
-		},
-	): Promise<GitSearch>;
 
 	runGitCommandViaTerminal?(
 		repoPath: string,
@@ -353,7 +326,9 @@ export interface GitRepositoryProvider {
 	validateReference(repoPath: string, ref: string): Promise<boolean>;
 
 	branches: GitBranchesSubProvider;
+	commits: GitCommitsSubProvider;
 	contributors: GitContributorsSubProvider;
+	graph: GitGraphSubProvider;
 	patch?: GitPatchSubProvider;
 	remotes: GitRemotesSubProvider;
 	staging?: GitStagingSubProvider;
@@ -422,6 +397,18 @@ export interface GitBranchesSubProvider {
 	renameBranch?(repoPath: string, oldName: string, newName: string): Promise<void>;
 }
 
+export interface GitCommitsSubProvider {
+	searchCommits(
+		repoPath: string,
+		search: SearchQuery,
+		options?: {
+			limit?: number | undefined;
+			ordering?: 'date' | 'author-date' | 'topo' | null | undefined;
+			skip?: number | undefined;
+		},
+	): Promise<GitLog | undefined>;
+}
+
 export interface GitContributorsSubProvider {
 	getContributorsStats(
 		repoPath: string,
@@ -436,6 +423,27 @@ export interface GitContributorsSubProvider {
 			stats?: boolean | undefined;
 		},
 	): Promise<GitContributor[]>;
+}
+
+export interface GitGraphSubProvider {
+	getGraph(
+		repoPath: string,
+		asWebviewUri: (uri: Uri) => Uri,
+		options?: {
+			include?: { stats?: boolean };
+			limit?: number;
+			ref?: string;
+		},
+	): Promise<GitGraph>;
+	searchGraph(
+		repoPath: string,
+		search: SearchQuery,
+		options?: {
+			cancellation?: CancellationToken;
+			limit?: number;
+			ordering?: 'date' | 'author-date' | 'topo';
+		},
+	): Promise<GitGraphSearch>;
 }
 
 export interface GitPatchSubProvider {
@@ -589,7 +597,9 @@ export interface GitWorktreesSubProvider {
 
 export type GitSubProvider =
 	| GitBranchesSubProvider
+	| GitCommitsSubProvider
 	| GitContributorsSubProvider
+	| GitGraphSubProvider
 	| GitPatchSubProvider
 	| GitRemotesSubProvider
 	| GitStagingSubProvider

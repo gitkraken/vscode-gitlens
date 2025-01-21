@@ -201,7 +201,7 @@ export class SearchGitCommand extends QuickCommand<State> {
 			const searchKey = getSearchQueryComparisonKey(search);
 
 			if (context.resultsPromise == null || context.resultsKey !== searchKey) {
-				context.resultsPromise = state.repo.git.richSearchCommits(search);
+				context.resultsPromise = state.repo.git.commits().searchCommits(search);
 				context.resultsKey = searchKey;
 			}
 
