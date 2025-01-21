@@ -12,6 +12,7 @@ import type { LaunchpadItem } from '../../launchpad/launchpadProvider';
 import type { IssueResourceDescriptor, RepositoryDescriptor } from '../integration';
 import { isIssueResourceDescriptor, isRepositoryDescriptor } from '../integration';
 import type { GitConfigEntityIdentifier } from './models';
+import { isCloudSelfHostedIntegrationId } from './models';
 
 export function isGitHubDotCom(domain: string): boolean {
 	return equalsIgnoreCase(domain, 'github.com');
@@ -134,9 +135,7 @@ export function encodeIssueOrPullRequestForGitConfig(
 			id: entity.id,
 			owner: encodedOwner,
 			createdDate: new Date().toISOString(),
-			isCloudEnterprise:
-				entity.provider.id === SelfHostedIntegrationId.CloudGitHubEnterprise ||
-				entity.provider.id === SelfHostedIntegrationId.CloudGitLabSelfHosted,
+			isCloudEnterprise: isCloudSelfHostedIntegrationId(entity.provider.id as IntegrationId),
 		},
 	};
 }

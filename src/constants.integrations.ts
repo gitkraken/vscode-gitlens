@@ -12,6 +12,10 @@ export enum SelfHostedIntegrationId {
 	GitLabSelfHosted = 'gitlab-self-hosted',
 }
 
+export type CloudSelfHostedIntegrationId =
+	| SelfHostedIntegrationId.CloudGitHubEnterprise
+	| SelfHostedIntegrationId.CloudGitLabSelfHosted;
+
 export enum IssueIntegrationId {
 	Jira = 'jira',
 	Trello = 'trello',

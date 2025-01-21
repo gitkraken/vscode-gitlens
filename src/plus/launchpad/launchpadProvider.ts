@@ -7,7 +7,7 @@ import type { CancellationToken, ConfigurationChangeEvent } from 'vscode';
 import { Disposable, env, EventEmitter, Uri, window } from 'vscode';
 import { md5 } from '@env/crypto';
 import { GlCommand } from '../../constants.commands';
-import type { IntegrationId } from '../../constants.integrations';
+import type { CloudSelfHostedIntegrationId, IntegrationId } from '../../constants.integrations';
 import { HostingIntegrationId, SelfHostedIntegrationId } from '../../constants.integrations';
 import type { Container } from '../../container';
 import { CancellationError } from '../../errors';
@@ -107,11 +107,7 @@ type PullRequestsWithSuggestionCounts = {
 
 export type LaunchpadRefreshEvent = LaunchpadCategorizedResult;
 
-export const supportedLaunchpadIntegrations: (
-	| HostingIntegrationId
-	| SelfHostedIntegrationId.CloudGitHubEnterprise
-	| SelfHostedIntegrationId.CloudGitLabSelfHosted
-)[] = [
+export const supportedLaunchpadIntegrations: (HostingIntegrationId | CloudSelfHostedIntegrationId)[] = [
 	HostingIntegrationId.GitHub,
 	SelfHostedIntegrationId.CloudGitHubEnterprise,
 	HostingIntegrationId.GitLab,
@@ -278,6 +274,7 @@ export class LaunchpadProvider implements Disposable {
 				)
 				.map(async (id: SupportedLaunchpadIntegrationIds) => {
 					const integration = await this.container.integrations.get(id);
+					if (integration == null) return;
 					const searchResult = await searchIntegrationPRs(integration);
 					const prs = searchResult?.value;
 					if (prs) {
@@ -412,6 +409,7 @@ export class LaunchpadProvider implements Disposable {
 		});
 		if (confirm !== 'Merge') return;
 		const integration = await this.container.integrations.get(integrationId);
+		if (integration == null) return;
 		const pr: PullRequest = fromProviderPullRequest(item, integration);
 		await integration.mergePullRequest(pr);
 		this.refresh();
@@ -604,6 +602,7 @@ export class LaunchpadProvider implements Disposable {
 		for (const integrationId of supportedLaunchpadIntegrations) {
 			if (connectedIntegrations.get(integrationId)) {
 				const integration = await this.container.integrations.get(integrationId);
+				if (integration == null) continue;
 				const prIdentity = integration.getPullRequestIdentityFromMaybeUrl(search);
 				if (prIdentity) {
 					return prIdentity;
@@ -873,6 +872,7 @@ export class LaunchpadProvider implements Disposable {
 	async hasConnectedIntegration(): Promise<boolean> {
 		for (const integrationId of supportedLaunchpadIntegrations) {
 			const integration = await this.container.integrations.get(integrationId);
+			if (integration == null) continue;
 			if (integration.maybeConnected ?? (await integration.isConnected())) {
 				return true;
 			}
@@ -887,6 +887,10 @@ export class LaunchpadProvider implements Disposable {
 		await Promise.allSettled(
 			supportedLaunchpadIntegrations.map(async integrationId => {
 				const integration = await this.container.integrations.get(integrationId);
+				if (integration == null) {
+					connected.set(integrationId, false);
+					return;
+				}
 				const isConnected = integration.maybeConnected ?? (await integration.isConnected());
 				const hasAccess = isConnected && (await integration.access());
 				connected.set(integrationId, hasAccess);

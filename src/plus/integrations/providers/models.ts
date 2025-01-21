@@ -32,7 +32,7 @@ import {
 	GitPullRequestReviewState,
 	GitPullRequestState,
 } from '@gitkraken/provider-apis';
-import type { IntegrationId } from '../../../constants.integrations';
+import type { CloudSelfHostedIntegrationId, IntegrationId } from '../../../constants.integrations';
 import { HostingIntegrationId, IssueIntegrationId, SelfHostedIntegrationId } from '../../../constants.integrations';
 import type { Account as UserAccount } from '../../../git/models/author';
 import type { IssueMember, SearchedIssue } from '../../../git/models/issue';
@@ -101,6 +101,10 @@ export function isHostingIntegrationId(id: IntegrationId): id is HostingIntegrat
 		HostingIntegrationId.Bitbucket,
 		HostingIntegrationId.AzureDevOps,
 	].includes(id as HostingIntegrationId);
+}
+
+export function isCloudSelfHostedIntegrationId(id: IntegrationId): id is CloudSelfHostedIntegrationId {
+	return id === SelfHostedIntegrationId.CloudGitHubEnterprise || id === SelfHostedIntegrationId.CloudGitLabSelfHosted;
 }
 
 export enum PullRequestFilter {

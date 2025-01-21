@@ -9,7 +9,11 @@ import type { Container } from '../../../container';
 import { gate } from '../../../system/decorators/-webview/gate';
 import { debug, log } from '../../../system/decorators/log';
 import type { DeferredEventExecutor } from '../../../system/event';
-import { isSelfHostedIntegrationId, supportedIntegrationIds } from '../providers/models';
+import {
+	isCloudSelfHostedIntegrationId,
+	isSelfHostedIntegrationId,
+	supportedIntegrationIds,
+} from '../providers/models';
 import type { ConfiguredIntegrationDescriptor, ProviderAuthenticationSession } from './models';
 import { isSupportedCloudIntegrationId } from './models';
 
@@ -375,10 +379,7 @@ export abstract class CloudIntegrationAuthenticationProvider<
 		// Make an exception for GitHub because they always return 0
 		if (
 			session?.expiresIn === 0 &&
-			(this.authProviderId === HostingIntegrationId.GitHub ||
-				this.authProviderId === SelfHostedIntegrationId.CloudGitHubEnterprise ||
-				// Note: added GitLab self managed here because the cloud token is always a PAT, and the api does not know when it expires, nor can it refresh it
-				this.authProviderId === SelfHostedIntegrationId.CloudGitLabSelfHosted)
+			(this.authProviderId === HostingIntegrationId.GitHub || isCloudSelfHostedIntegrationId(this.authProviderId))
 		) {
 			// It never expires so don't refresh it frequently:
 			session.expiresIn = maxSmallIntegerV8; // maximum expiration length
