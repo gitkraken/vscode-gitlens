@@ -71,7 +71,7 @@ import type {
 } from '../../../git/models/repository';
 import { isRepository, RepositoryChange, RepositoryChangeComparisonMode } from '../../../git/models/repository';
 import { uncommitted } from '../../../git/models/revision';
-import type { GitSearch } from '../../../git/search';
+import type { GitGraphSearch } from '../../../git/search';
 import { getSearchQueryComparisonKey, parseSearchQuery } from '../../../git/search';
 import { getAssociatedIssuesForBranch } from '../../../git/utils/-webview/branch.issue.utils';
 import { getDefaultBranchName, getTargetBranchName } from '../../../git/utils/-webview/branch.utils';
@@ -302,7 +302,7 @@ export class GraphWebviewProvider implements WebviewProvider<State, State, Graph
 		[DidStartFeaturePreviewNotification, this.notifyDidStartFeaturePreview],
 	]);
 	private _refsMetadata: Map<string, GraphRefMetadata | null> | null | undefined;
-	private _search: GitSearch | undefined;
+	private _search: GitGraphSearch | undefined;
 	private _selectedId?: string;
 	private _selectedRows: GraphSelectedRows | undefined;
 	private _showDetailsView: Config['graph']['showDetailsView'];
@@ -1533,7 +1533,7 @@ export class GraphWebviewProvider implements WebviewProvider<State, State, Graph
 			return { results: undefined };
 		}
 
-		let search: GitSearch | undefined = this._search;
+		let search: GitGraphSearch | undefined = this._search;
 
 		if (e.more && search?.more != null && search.comparisonKey === getSearchQueryComparisonKey(e.search)) {
 			search = await search.more(e.limit ?? configuration.get('graph.searchItemLimit') ?? 100);
@@ -1568,7 +1568,7 @@ export class GraphWebviewProvider implements WebviewProvider<State, State, Graph
 			const cancellation = this.createCancellation('search');
 
 			try {
-				search = await this.repository.git.searchCommits(e.search, {
+				search = await this.repository.git.graph().searchGraph(e.search, {
 					limit: configuration.get('graph.searchItemLimit') ?? 100,
 					ordering: configuration.get('graph.commitOrdering'),
 					cancellation: cancellation.token,
@@ -2082,7 +2082,7 @@ export class GraphWebviewProvider implements WebviewProvider<State, State, Graph
 		}
 	}
 
-	private async ensureSearchStartsInRange(graph: GitGraph, search: GitSearch) {
+	private async ensureSearchStartsInRange(graph: GitGraph, search: GitGraphSearch) {
 		if (search.results.size === 0) return undefined;
 
 		let firstResult: string | undefined;
@@ -2512,20 +2512,16 @@ export class GraphWebviewProvider implements WebviewProvider<State, State, Graph
 		const columns = this.getColumns();
 		const columnSettings = this.getColumnSettings(columns);
 
-		const dataPromise = this.container.git.getCommitsForGraph(
-			this.repository.uri,
-			uri => this.host.asWebviewUri(uri),
-			{
-				include: {
-					stats:
-						(configuration.get('graph.minimap.enabled') &&
-							configuration.get('graph.minimap.dataType') === 'lines') ||
-						!columnSettings.changes.isHidden,
-				},
-				limit: limit,
-				ref: ref,
+		const dataPromise = this.repository.git.graph().getGraph(uri => this.host.asWebviewUri(uri), {
+			include: {
+				stats:
+					(configuration.get('graph.minimap.enabled') &&
+						configuration.get('graph.minimap.dataType') === 'lines') ||
+					!columnSettings.changes.isHidden,
 			},
-		);
+			limit: limit,
+			ref: ref,
+		});
 
 		// Check for access and working tree stats
 		const promises = Promise.allSettled([
@@ -3044,7 +3040,7 @@ export class GraphWebviewProvider implements WebviewProvider<State, State, Graph
 		}
 	}
 
-	private async updateGraphWithMoreRows(graph: GitGraph, id: string | undefined, search?: GitSearch) {
+	private async updateGraphWithMoreRows(graph: GitGraph, id: string | undefined, search?: GitGraphSearch) {
 		const { defaultItemLimit, pageItemLimit } = configuration.get('graph');
 		const updatedGraph = await graph.more?.(pageItemLimit ?? defaultItemLimit, id);
 		if (updatedGraph != null) {

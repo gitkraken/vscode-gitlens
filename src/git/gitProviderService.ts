@@ -14,7 +14,6 @@ import { isWeb } from '@env/platform';
 import { resetAvatarCache } from '../avatars';
 import type { GitConfigKeys } from '../constants';
 import { GlyphChars, Schemes } from '../constants';
-import type { SearchQuery } from '../constants.search';
 import { SubscriptionPlanId } from '../constants.subscription';
 import type { Container } from '../container';
 import { AccessDeniedError, ProviderNotFoundError, ProviderNotSupportedError } from '../errors';
@@ -43,8 +42,10 @@ import { VisitedPathsTrie } from '../system/trie';
 import type {
 	GitBranchesSubProvider,
 	GitCaches,
+	GitCommitsSubProvider,
 	GitContributorsSubProvider,
 	GitDir,
+	GitGraphSubProvider,
 	GitPatchSubProvider,
 	GitProvider,
 	GitProviderDescriptor,
@@ -74,7 +75,6 @@ import { GitCommit, GitCommitIdentity } from './models/commit';
 import type { GitDiff, GitDiffFile, GitDiffFiles, GitDiffFilter, GitDiffLine, GitDiffShortStat } from './models/diff';
 import type { GitFile } from './models/file';
 import type { GitFileChange } from './models/fileChange';
-import type { GitGraph } from './models/graph';
 import type { GitLog } from './models/log';
 import type { GitBranchReference, GitReference } from './models/reference';
 import type { GitReflog } from './models/reflog';
@@ -86,7 +86,6 @@ import { deletedOrMissing, uncommitted, uncommittedStaged } from './models/revis
 import type { GitTag } from './models/tag';
 import type { GitTreeEntry } from './models/tree';
 import type { GitUser } from './models/user';
-import type { GitSearch } from './search';
 import { sortRepositories } from './utils/-webview/sorting';
 import { calculateDistribution } from './utils/contributor.utils';
 import { getRemoteThemeIconString, getVisibilityCacheKey } from './utils/remote.utils';
@@ -1746,20 +1745,6 @@ export class GitProviderService implements Disposable {
 	}
 
 	@log()
-	getCommitsForGraph(
-		repoPath: string | Uri,
-		asWebviewUri: (uri: Uri) => Uri,
-		options?: {
-			include?: { stats?: boolean };
-			limit?: number;
-			ref?: string;
-		},
-	): Promise<GitGraph> {
-		const { provider, path } = this.getProvider(repoPath);
-		return provider.getCommitsForGraph(path, asWebviewUri, options);
-	}
-
-	@log()
 	async getConfig(repoPath: string | Uri, key: GitConfigKeys): Promise<string | undefined> {
 		const { provider, path } = this.getProvider(repoPath);
 		return provider.getConfig?.(path, key);
@@ -2389,37 +2374,6 @@ export class GitProviderService implements Disposable {
 		return provider.resolveReference(path, ref, pathOrUri, options);
 	}
 
-	@log<GitProviderService['richSearchCommits']>({
-		args: {
-			1: s =>
-				`[${s.matchAll ? 'A' : ''}${s.matchCase ? 'C' : ''}${s.matchRegex ? 'R' : ''}]: ${
-					s.query.length > 500 ? `${s.query.substring(0, 500)}...` : s.query
-				}`,
-		},
-	})
-	async richSearchCommits(
-		repoPath: string | Uri,
-		search: SearchQuery,
-		options?: { limit?: number; ordering?: 'date' | 'author-date' | 'topo' | null; skip?: number },
-	): Promise<GitLog | undefined> {
-		const { provider, path } = this.getProvider(repoPath);
-		return provider.richSearchCommits(path, search, options);
-	}
-
-	@log()
-	searchCommits(
-		repoPath: string | Uri,
-		search: SearchQuery,
-		options?: {
-			cancellation?: CancellationToken;
-			limit?: number;
-			ordering?: 'date' | 'author-date' | 'topo';
-		},
-	): Promise<GitSearch> {
-		const { provider, path } = this.getProvider(repoPath);
-		return provider.searchCommits(path, search, options);
-	}
-
 	@log({ args: false })
 	async runGitCommandViaTerminal(
 		repoPath: string | Uri,
@@ -2487,8 +2441,18 @@ export class GitProviderService implements Disposable {
 	}
 
 	@log()
+	commits(repoPath: string | Uri): GitSubProviderForRepo<GitCommitsSubProvider> {
+		return this.getSubProviderProxy(repoPath, 'commits');
+	}
+
+	@log()
 	contributors(repoPath: string | Uri): GitSubProviderForRepo<GitContributorsSubProvider> {
 		return this.getSubProviderProxy(repoPath, 'contributors');
+	}
+
+	@log()
+	graph(repoPath: string | Uri): GitSubProviderForRepo<GitGraphSubProvider> {
+		return this.getSubProviderProxy(repoPath, 'graph');
 	}
 
 	@log()

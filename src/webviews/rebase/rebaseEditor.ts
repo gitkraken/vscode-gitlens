@@ -590,8 +590,7 @@ async function loadRichCommitData(
 	context.commits = [];
 	context.authors = new Map<string, Author>();
 
-	const log = await container.git.richSearchCommits(
-		context.repoPath,
+	const log = await container.git.commits(context.repoPath).searchCommits(
 		{
 			query: `${onto ? `#:${onto} ` : ''}${join(
 				map(entries, e => `#:${e.sha}`),
