@@ -376,7 +376,7 @@ export abstract class CloudIntegrationAuthenticationProvider<
 
 		let session = await cloudIntegrations.getConnectionSession(this.authProviderId);
 
-		// Make an exception for GitHub because they always return 0
+		// Make an exception for GitHub and Cloud Self-Hosted integrations because they always return 0
 		if (
 			session?.expiresIn === 0 &&
 			(this.authProviderId === HostingIntegrationId.GitHub || isCloudSelfHostedIntegrationId(this.authProviderId))

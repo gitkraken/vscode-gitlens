@@ -142,15 +142,10 @@ export class IntegrationService implements Disposable {
 	private async *getSupportedCloudIntegrations(domainsById: Map<IntegrationId, string>): AsyncIterable<Integration> {
 		for (const id of getSupportedCloudIntegrationIds()) {
 			if (isCloudSelfHostedIntegrationId(id) && !domainsById.has(id)) {
-				try {
-					// Try getting whatever we have now because we will need to disconnect
-					const integration = await this.get(id, undefined);
-					if (integration != null) {
-						yield integration;
-					}
-				} catch {
-					// Ignore this exception and continue,
-					// because we probably haven't ever had an instance of this integration
+				// Try getting whatever we have now because we will need to disconnect
+				const integration = await this.get(id, undefined);
+				if (integration != null) {
+					yield integration;
 				}
 			} else {
 				const integration = await this.get(id, domainsById.get(id));
@@ -253,6 +248,7 @@ export class IntegrationService implements Disposable {
 				try {
 					const integration = await this.get(integrationId);
 					if (integration == null) continue;
+
 					if (integration.maybeConnected ?? (await integration.isConnected())) {
 						connectedIntegrations.add(integrationId);
 					}
@@ -377,6 +373,7 @@ export class IntegrationService implements Disposable {
 			for (const integrationId of integrationIds) {
 				const integration = await this.get(integrationId);
 				if (integration == null) continue;
+
 				const connected = integration.maybeConnected ?? (await integration.isConnected());
 				if (connected && !connectedIntegrations.has(integrationId)) {
 					return true;
