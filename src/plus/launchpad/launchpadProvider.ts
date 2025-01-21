@@ -275,6 +275,7 @@ export class LaunchpadProvider implements Disposable {
 				.map(async (id: SupportedLaunchpadIntegrationIds) => {
 					const integration = await this.container.integrations.get(id);
 					if (integration == null) return;
+
 					const searchResult = await searchIntegrationPRs(integration);
 					const prs = searchResult?.value;
 					if (prs) {
@@ -410,6 +411,7 @@ export class LaunchpadProvider implements Disposable {
 		if (confirm !== 'Merge') return;
 		const integration = await this.container.integrations.get(integrationId);
 		if (integration == null) return;
+
 		const pr: PullRequest = fromProviderPullRequest(item, integration);
 		await integration.mergePullRequest(pr);
 		this.refresh();
@@ -603,6 +605,7 @@ export class LaunchpadProvider implements Disposable {
 			if (connectedIntegrations.get(integrationId)) {
 				const integration = await this.container.integrations.get(integrationId);
 				if (integration == null) continue;
+
 				const prIdentity = integration.getPullRequestIdentityFromMaybeUrl(search);
 				if (prIdentity) {
 					return prIdentity;
@@ -873,6 +876,7 @@ export class LaunchpadProvider implements Disposable {
 		for (const integrationId of supportedLaunchpadIntegrations) {
 			const integration = await this.container.integrations.get(integrationId);
 			if (integration == null) continue;
+
 			if (integration.maybeConnected ?? (await integration.isConnected())) {
 				return true;
 			}

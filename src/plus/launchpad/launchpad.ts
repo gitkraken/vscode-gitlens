@@ -200,6 +200,7 @@ export class LaunchpadCommand extends QuickCommand<State> {
 	private async ensureIntegrationConnected(id: IntegrationId) {
 		const integration = await this.container.integrations.get(id);
 		if (integration == null) return false;
+
 		let connected = integration.maybeConnected ?? (await integration.isConnected());
 		if (!connected) {
 			connected = await integration.connect('launchpad');
