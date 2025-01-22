@@ -1281,7 +1281,7 @@ export class Git {
 			argsOrFormat = [`--format=${argsOrFormat}`];
 		}
 
-		const params = ['log', ...argsOrFormat];
+		const params = ['log', ...argsOrFormat, '--use-mailmap'];
 
 		if (ordering) {
 			params.push(`--${ordering}-order`);
