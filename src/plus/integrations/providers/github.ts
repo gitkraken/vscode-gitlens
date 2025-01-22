@@ -293,7 +293,7 @@ export class GitHubIntegration extends GitHubIntegrationBase<HostingIntegrationI
 		const authProvider = await this.authenticationService.get(this.authProvider.id);
 		const session = await authProvider.getSession(this.authProviderDescriptor);
 		if (session == null && this.maybeConnected) {
-			void this.disconnect();
+			void this.disconnect({ silent: true });
 		} else {
 			if (session?.accessToken !== this._session?.accessToken) {
 				this._session = undefined;
