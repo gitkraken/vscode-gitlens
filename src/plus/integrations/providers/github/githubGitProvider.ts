@@ -77,6 +77,7 @@ import { isAbsolute, maybeUri, normalizePath } from '../../../../system/path';
 import { asSettled, getSettledValue } from '../../../../system/promise';
 import type { CachedBlame, TrackedGitDocument } from '../../../../trackers/trackedDocument';
 import { GitDocumentState } from '../../../../trackers/trackedDocument';
+import { getBuiltInIntegrationSession } from '../../../gk/utils/-webview/integrationAuthentication.utils';
 import type { GitHubAuthorityMetadata, Metadata, RemoteHubApi } from '../../../remotehub';
 import { getRemoteHubApi, HeadType, RepositoryRefType } from '../../../remotehub';
 import type {
@@ -1464,23 +1465,35 @@ export class GitHubGitProvider implements GitProvider, Disposable {
 			async function getSession(this: GitHubGitProvider): Promise<AuthenticationSession> {
 				let skip = this.container.storage.get(`provider:authentication:skip:${this.descriptor.id}`, false);
 				const authenticationProvider = await this.authenticationService.get(this.authenticationProviderId);
+				let options:
+					| { forceNewSession: true; createIfNeeded?: never; silent?: never }
+					| { forceNewSession?: never; createIfNeeded: true; silent?: never }
+					| { forceNewSession?: never; createIfNeeded?: never; silent: true } = isWeb
+					? { createIfNeeded: true }
+					: { silent: true };
 
 				try {
-					let session;
 					if (force) {
 						skip = false;
 						void this.container.storage.delete(`provider:authentication:skip:${this.descriptor.id}`);
-
-						session = await authenticationProvider.getSession(this.authenticationDescriptor, {
-							forceNewSession: true,
-						});
+						options = { forceNewSession: true };
 					} else if (!skip && !silent) {
-						session = await authenticationProvider.getSession(this.authenticationDescriptor, {
-							createIfNeeded: true,
-						});
+						options = { createIfNeeded: true };
 					} else {
-						session = await authenticationProvider.getSession(this.authenticationDescriptor);
+						options = isWeb ? { createIfNeeded: true } : { silent: true };
 					}
+
+					const session = isWeb
+						? await getBuiltInIntegrationSession(
+								this.container,
+								HostingIntegrationId.GitHub,
+								this.authenticationDescriptor,
+								options,
+						  )
+						: await authenticationProvider.getSession(
+								this.authenticationDescriptor,
+								options.silent ? undefined : options,
+						  );
 
 					if (session != null) return session;
 

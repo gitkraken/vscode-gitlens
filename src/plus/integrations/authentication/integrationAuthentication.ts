@@ -1,6 +1,5 @@
 import type { CancellationToken, Disposable, Event, Uri } from 'vscode';
 import { authentication, EventEmitter, window } from 'vscode';
-import { wrapForForcedInsecureSSL } from '@env/fetch';
 import type { IntegrationId } from '../../../constants.integrations';
 import { HostingIntegrationId, IssueIntegrationId, SelfHostedIntegrationId } from '../../../constants.integrations';
 import type { IntegrationAuthenticationKeys, StoredConfiguredIntegrationDescriptor } from '../../../constants.storage';
@@ -8,8 +7,8 @@ import type { Sources } from '../../../constants.telemetry';
 import type { Container } from '../../../container';
 import { gate } from '../../../system/decorators/-webview/gate';
 import { debug, log } from '../../../system/decorators/log';
-import { sequentialize } from '../../../system/decorators/serialize';
 import type { DeferredEventExecutor } from '../../../system/event';
+import { getBuiltInIntegrationSession } from '../../gk/utils/-webview/integrationAuthentication.utils';
 import {
 	isCloudSelfHostedIntegrationId,
 	isSelfHostedIntegrationId,
@@ -480,7 +479,6 @@ class BuiltInAuthenticationProvider extends LocalIntegrationAuthenticationProvid
 	}
 
 	@debug()
-	@sequentialize()
 	override async getSession(
 		descriptor?: IntegrationAuthenticationSessionDescriptor,
 		options?: { createIfNeeded?: boolean; forceNewSession?: boolean },
@@ -488,21 +486,11 @@ class BuiltInAuthenticationProvider extends LocalIntegrationAuthenticationProvid
 		if (descriptor == null) return undefined;
 
 		const { createIfNeeded, forceNewSession } = options ?? {};
-		return wrapForForcedInsecureSSL(
-			this.container.integrations.ignoreSSLErrors({ id: this.authProviderId, domain: descriptor?.domain }),
-			async () => {
-				const session = await authentication.getSession(this.authProviderId, descriptor.scopes, {
-					createIfNone: forceNewSession ? undefined : createIfNeeded,
-					silent: !createIfNeeded && !forceNewSession ? true : undefined,
-					forceNewSession: forceNewSession ? true : undefined,
-				});
-				if (session == null) return undefined;
-
-				return {
-					...session,
-					cloud: false,
-				};
-			},
+		return getBuiltInIntegrationSession(
+			this.container,
+			this.authProviderId,
+			descriptor,
+			forceNewSession ? { forceNewSession: true } : createIfNeeded ? { createIfNeeded: true } : { silent: true },
 		);
 	}
 }
