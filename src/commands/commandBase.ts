@@ -2,7 +2,7 @@ import type { TextEditor, TextEditorEdit } from 'vscode';
 import { commands, Disposable } from 'vscode';
 import type { GlCommands } from '../constants.commands';
 import { registerCommand } from '../system/-webview/command';
-import { sequentialize } from '../system/function';
+import { runSequentially } from '../system/function';
 import type { CommandContext } from './commandContext';
 import type { CommandContextParsingOptions } from './commandContext.utils';
 import { parseCommandContext } from './commandContext.utils';
@@ -41,7 +41,7 @@ export abstract class GlCommandBase implements Disposable {
 
 		// If there an array of contexts, then we want to execute the command for each
 		if (Array.isArray(context)) {
-			return sequentialize(
+			return runSequentially(
 				this.preExecute,
 				context.map<[CommandContext, ...any[]]>((c: CommandContext) => [c, ...rest]),
 				this,

@@ -9,7 +9,7 @@ import { executeCommand, executeCoreCommand } from '../system/-webview/command';
 import { setContext } from '../system/-webview/context';
 import { getScopedCounter } from '../system/counter';
 import { debug, logName } from '../system/decorators/log';
-import { serialize } from '../system/decorators/serialize';
+import { sequentialize } from '../system/decorators/serialize';
 import { getLoggableName, Logger } from '../system/logger';
 import { getLogScope, getNewLogScope, setLogScopeExit } from '../system/logger.scope';
 import { pauseOnCancelOrTimeout } from '../system/promise';
@@ -689,7 +689,7 @@ export class WebviewController<
 		}
 	}
 
-	@serialize()
+	@sequentialize()
 	@debug<WebviewController<ID, State>['postMessage']>({
 		args: false,
 		enter: m => `(${m.id}|${m.method}${m.completionId ? `+${m.completionId}` : ''})`,

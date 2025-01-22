@@ -8,7 +8,7 @@ import type { Sources } from '../../../constants.telemetry';
 import type { Container } from '../../../container';
 import { gate } from '../../../system/decorators/-webview/gate';
 import { debug, log } from '../../../system/decorators/log';
-import { serialize } from '../../../system/decorators/serialize';
+import { sequentialize } from '../../../system/decorators/serialize';
 import type { DeferredEventExecutor } from '../../../system/event';
 import {
 	isCloudSelfHostedIntegrationId,
@@ -480,7 +480,7 @@ class BuiltInAuthenticationProvider extends LocalIntegrationAuthenticationProvid
 	}
 
 	@debug()
-	@serialize()
+	@sequentialize()
 	override async getSession(
 		descriptor?: IntegrationAuthenticationSessionDescriptor,
 		options?: { createIfNeeded?: boolean; forceNewSession?: boolean },
