@@ -19,7 +19,8 @@ export class ContributorsGitSubProvider implements GitContributorsSubProvider {
 	@log()
 	async getContributors(
 		repoPath: string,
-		_options?: { all?: boolean; merges?: boolean | 'first-parent'; ref?: string; stats?: boolean },
+		_rev?: string | undefined,
+		_options?: { all?: boolean; merges?: boolean | 'first-parent'; stats?: boolean },
 	): Promise<GitContributor[]> {
 		if (repoPath == null) return [];
 

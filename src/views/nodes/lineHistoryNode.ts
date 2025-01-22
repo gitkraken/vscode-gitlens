@@ -81,12 +81,7 @@ export class LineHistoryNode
 					: await this.view.container.git.getBlameForRange(this.uri, selection)
 				: undefined,
 			this.view.container.git.getBranchesAndTagsTipsLookup(this.uri.repoPath, this.branch?.name),
-			range
-				? this.view.container.git.commits(this.uri.repoPath).getLogRefsOnly({
-						limit: 0,
-						ref: range,
-				  })
-				: undefined,
+			range ? this.view.container.git.commits(this.uri.repoPath).getLogShasOnly(range, { limit: 0 }) : undefined,
 		]);
 
 		// Check for any uncommitted changes in the range
@@ -249,13 +244,14 @@ export class LineHistoryNode
 	private _log: GitLog | undefined;
 	private async getLog(selection?: Selection) {
 		if (this._log == null) {
-			this._log = await this.view.container.git.commits(this.uri.repoPath!).getLogForFile(this.uri, {
-				all: false,
-				limit: this.limit ?? this.view.config.pageItemLimit,
-				range: selection ?? this.selection,
-				ref: this.uri.sha,
-				renames: false,
-			});
+			this._log = await this.view.container.git
+				.commits(this.uri.repoPath!)
+				.getLogForFile(this.uri, this.uri.sha, {
+					all: false,
+					limit: this.limit ?? this.view.config.pageItemLimit,
+					range: selection ?? this.selection,
+					renames: false,
+				});
 		}
 
 		return this._log;

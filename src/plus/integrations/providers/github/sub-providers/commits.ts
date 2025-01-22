@@ -39,7 +39,7 @@ export class CommitsGitSubProvider implements GitCommitsSubProvider {
 	) {}
 
 	@log()
-	async getCommit(repoPath: string, ref: string): Promise<GitCommit | undefined> {
+	async getCommit(repoPath: string, rev: string): Promise<GitCommit | undefined> {
 		if (repoPath == null) return undefined;
 
 		const scope = getLogScope();
@@ -51,7 +51,7 @@ export class CommitsGitSubProvider implements GitCommitsSubProvider {
 				session.accessToken,
 				metadata.repo.owner,
 				metadata.repo.name,
-				stripOrigin(ref),
+				stripOrigin(rev),
 			);
 			if (commit == null) return undefined;
 
@@ -100,7 +100,7 @@ export class CommitsGitSubProvider implements GitCommitsSubProvider {
 	}
 
 	@log()
-	async getCommitCount(repoPath: string, ref: string): Promise<number | undefined> {
+	async getCommitCount(repoPath: string, rev: string): Promise<number | undefined> {
 		if (repoPath == null) return undefined;
 
 		const scope = getLogScope();
@@ -112,7 +112,7 @@ export class CommitsGitSubProvider implements GitCommitsSubProvider {
 				session?.accessToken,
 				metadata.repo.owner,
 				metadata.repo.name,
-				stripOrigin(ref),
+				stripOrigin(rev),
 			);
 
 			return count;
@@ -127,7 +127,8 @@ export class CommitsGitSubProvider implements GitCommitsSubProvider {
 	async getCommitForFile(
 		repoPath: string | undefined,
 		uri: Uri,
-		options?: { ref?: string; firstIfNotFound?: boolean; range?: Range },
+		rev?: string | undefined,
+		_options?: { firstIfNotFound?: boolean },
 	): Promise<GitCommit | undefined> {
 		if (repoPath == null) return undefined;
 
@@ -138,12 +139,12 @@ export class CommitsGitSubProvider implements GitCommitsSubProvider {
 
 			const file = this.provider.getRelativePath(uri, remotehub.getProviderRootUri(uri));
 
-			const ref = !options?.ref || options.ref === 'HEAD' ? (await metadata.getRevision()).revision : options.ref;
+			rev = !rev || rev === 'HEAD' ? (await metadata.getRevision()).revision : rev;
 			const commit = await github.getCommitForFile(
 				session.accessToken,
 				metadata.repo.owner,
 				metadata.repo.name,
-				stripOrigin(ref),
+				stripOrigin(rev),
 				file,
 			);
 			if (commit == null) return undefined;
@@ -196,10 +197,10 @@ export class CommitsGitSubProvider implements GitCommitsSubProvider {
 	}
 
 	@log()
-	async getFileStatusForCommit(repoPath: string, uri: Uri, ref: string): Promise<GitFile | undefined> {
-		if (ref === deletedOrMissing || isUncommitted(ref)) return undefined;
+	async getCommitFileStatus(repoPath: string, uri: Uri, rev: string): Promise<GitFile | undefined> {
+		if (rev === deletedOrMissing || isUncommitted(rev)) return undefined;
 
-		const commit = await this.getCommitForFile(repoPath, uri, { ref: ref });
+		const commit = await this.getCommitForFile(repoPath, uri, rev);
 		if (commit == null) return undefined;
 
 		return commit.findFile(uri);
@@ -241,6 +242,7 @@ export class CommitsGitSubProvider implements GitCommitsSubProvider {
 	@log()
 	async getLog(
 		repoPath: string,
+		rev?: string | undefined,
 		options?: {
 			all?: boolean;
 			authors?: GitUser[];
@@ -248,7 +250,6 @@ export class CommitsGitSubProvider implements GitCommitsSubProvider {
 			limit?: number;
 			merges?: boolean | 'first-parent';
 			ordering?: 'date' | 'author-date' | 'topo' | null;
-			ref?: string;
 			since?: string;
 		},
 	): Promise<GitLog | undefined> {
@@ -261,12 +262,12 @@ export class CommitsGitSubProvider implements GitCommitsSubProvider {
 		try {
 			const { metadata, github, session } = await this.provider.ensureRepositoryContext(repoPath);
 
-			const ref = !options?.ref || options.ref === 'HEAD' ? (await metadata.getRevision()).revision : options.ref;
+			rev = !rev || rev === 'HEAD' ? (await metadata.getRevision()).revision : rev;
 			const result = await github.getCommits(
 				session.accessToken,
 				metadata.repo.owner,
 				metadata.repo.name,
-				stripOrigin(ref),
+				stripOrigin(rev),
 				{
 					all: options?.all,
 					authors: options?.authors,
@@ -330,17 +331,17 @@ export class CommitsGitSubProvider implements GitCommitsSubProvider {
 			const log: GitLog = {
 				repoPath: repoPath,
 				commits: commits,
-				sha: ref,
+				sha: rev,
 				range: undefined,
 				count: commits.size,
 				limit: limit,
 				hasMore: result.paging?.more ?? false,
 				endingCursor: result.paging?.cursor,
-				query: (limit: number | undefined) => this.getLog(repoPath, { ...options, limit: limit }),
+				query: (limit: number | undefined) => this.getLog(repoPath, rev, { ...options, limit: limit }),
 			};
 
 			if (log.hasMore) {
-				log.more = this.getLogMoreFn(log, options);
+				log.more = this.getLogMoreFn(log, rev, options);
 			}
 
 			return log;
@@ -352,20 +353,20 @@ export class CommitsGitSubProvider implements GitCommitsSubProvider {
 	}
 
 	@log()
-	async getLogRefsOnly(
+	async getLogShasOnly(
 		repoPath: string,
+		rev?: string | undefined,
 		options?: {
 			authors?: GitUser[];
 			cursor?: string;
 			limit?: number;
 			merges?: boolean | 'first-parent';
 			ordering?: 'date' | 'author-date' | 'topo' | null;
-			ref?: string;
 			since?: string;
 		},
 	): Promise<Set<string> | undefined> {
 		// TODO@eamodio optimize this
-		const result = await this.getLog(repoPath, options);
+		const result = await this.getLog(repoPath, rev, options);
 		if (result == null) return undefined;
 
 		return new Set([...result.commits.values()].map(c => c.ref));
@@ -373,12 +374,12 @@ export class CommitsGitSubProvider implements GitCommitsSubProvider {
 
 	private getLogMoreFn(
 		log: GitLog,
+		rev: string | undefined,
 		options?: {
 			authors?: GitUser[];
 			limit?: number;
 			merges?: boolean | 'first-parent';
 			ordering?: 'date' | 'author-date' | 'topo' | null;
-			ref?: string;
 		},
 	): (limit: number | { until: string } | undefined) => Promise<GitLog> {
 		return async (limit: number | { until: string } | undefined) => {
@@ -412,7 +413,7 @@ export class CommitsGitSubProvider implements GitCommitsSubProvider {
 			// // If we can't find any more, assume we have everything
 			// if (moreLog == null) return { ...log, hasMore: false, more: undefined };
 
-			const moreLog = await this.getLog(log.repoPath, {
+			const moreLog = await this.getLog(log.repoPath, rev, {
 				...options,
 				limit: moreLimit,
 				cursor: log.endingCursor,
@@ -442,7 +443,7 @@ export class CommitsGitSubProvider implements GitCommitsSubProvider {
 				query: log.query,
 			};
 			if (mergedLog.hasMore) {
-				mergedLog.more = this.getLogMoreFn(mergedLog, options);
+				mergedLog.more = this.getLogMoreFn(mergedLog, rev, options);
 			}
 
 			return mergedLog;
@@ -453,13 +454,13 @@ export class CommitsGitSubProvider implements GitCommitsSubProvider {
 	async getLogForFile(
 		repoPath: string | undefined,
 		pathOrUri: string | Uri,
+		rev?: string | undefined,
 		options?: {
 			all?: boolean;
 			cursor?: string;
 			limit?: number;
 			ordering?: 'date' | 'author-date' | 'topo' | null;
 			range?: Range;
-			ref?: string;
 			renames?: boolean;
 			reverse?: boolean;
 			since?: string;
@@ -487,8 +488,8 @@ export class CommitsGitSubProvider implements GitCommitsSubProvider {
 		// }
 
 		let key = 'log';
-		if (options.ref != null) {
-			key += `:${options.ref}`;
+		if (rev != null) {
+			key += `:${rev}`;
 		}
 
 		// if (options.all == null) {
@@ -525,7 +526,7 @@ export class CommitsGitSubProvider implements GitCommitsSubProvider {
 
 		const useCache = options.cursor == null && options.range == null;
 
-		const doc = await this.container.documentTracker.getOrAdd(GitUri.fromFile(relativePath, repoPath, options.ref));
+		const doc = await this.container.documentTracker.getOrAdd(GitUri.fromFile(relativePath, repoPath, rev));
 		if (useCache) {
 			if (doc.state != null) {
 				const cachedLog = doc.state.getLog(key);
@@ -534,20 +535,20 @@ export class CommitsGitSubProvider implements GitCommitsSubProvider {
 					return cachedLog.item;
 				}
 
-				if (options.ref != null || options.limit != null) {
+				if (rev != null || options.limit != null) {
 					// Since we are looking for partial log, see if we have the log of the whole file
 					const cachedLog = doc.state.getLog(
 						`log${options.renames ? ':follow' : ''}${options.reverse ? ':reverse' : ''}`,
 					);
 					if (cachedLog != null) {
-						if (options.ref == null) {
+						if (rev == null) {
 							Logger.debug(scope, `Cache hit: ~'${key}'`);
 							return cachedLog.item;
 						}
 
 						Logger.debug(scope, `Cache ?: '${key}'`);
 						let log = await cachedLog.item;
-						if (log != null && !log.hasMore && log.commits.has(options.ref)) {
+						if (log != null && !log.hasMore && log.commits.has(rev)) {
 							Logger.debug(scope, `Cache hit: '${key}'`);
 
 							// Create a copy of the log starting at the requested commit
@@ -556,9 +557,9 @@ export class CommitsGitSubProvider implements GitCommitsSubProvider {
 							const commits = new Map(
 								filterMap<[string, GitCommit], [string, GitCommit]>(
 									log.commits.entries(),
-									([ref, c]) => {
+									([sha, c]) => {
 										if (skip) {
-											if (ref !== options?.ref) return undefined;
+											if (sha !== rev) return undefined;
 											skip = false;
 										}
 
@@ -567,7 +568,7 @@ export class CommitsGitSubProvider implements GitCommitsSubProvider {
 											return undefined;
 										}
 
-										return [ref, c];
+										return [sha, c];
 									},
 								),
 							);
@@ -579,7 +580,7 @@ export class CommitsGitSubProvider implements GitCommitsSubProvider {
 								count: commits.size,
 								commits: commits,
 								query: (limit: number | undefined) =>
-									this.getLogForFile(repoPath, pathOrUri, { ...opts, limit: limit }),
+									this.getLogForFile(repoPath, pathOrUri, rev, { ...opts, limit: limit }),
 							};
 
 							return log;
@@ -593,7 +594,7 @@ export class CommitsGitSubProvider implements GitCommitsSubProvider {
 			doc.state ??= new GitDocumentState();
 		}
 
-		const promise = this.getLogForFileCore(repoPath, relativePath, doc, key, scope, options);
+		const promise = this.getLogForFileCore(repoPath, relativePath, rev, doc, key, scope, options);
 
 		if (useCache && doc.state != null) {
 			Logger.debug(scope, `Cache add: '${key}'`);
@@ -610,6 +611,7 @@ export class CommitsGitSubProvider implements GitCommitsSubProvider {
 	private async getLogForFileCore(
 		repoPath: string | undefined,
 		path: string,
+		rev: string | undefined,
 		document: TrackedGitDocument,
 		key: string,
 		scope: LogScope | undefined,
@@ -619,7 +621,6 @@ export class CommitsGitSubProvider implements GitCommitsSubProvider {
 			limit?: number;
 			ordering?: 'date' | 'author-date' | 'topo' | null;
 			range?: Range;
-			ref?: string;
 			renames?: boolean;
 			reverse?: boolean;
 			since?: string;
@@ -642,12 +643,12 @@ export class CommitsGitSubProvider implements GitCommitsSubProvider {
 			// 	range = new Range(range.end, range.start);
 			// }
 
-			const ref = !options?.ref || options.ref === 'HEAD' ? (await metadata.getRevision()).revision : options.ref;
+			rev = !rev || rev === 'HEAD' ? (await metadata.getRevision()).revision : rev;
 			const result = await github.getCommits(
 				session.accessToken,
 				metadata.repo.owner,
 				metadata.repo.name,
-				stripOrigin(ref),
+				stripOrigin(rev),
 				{
 					all: options?.all,
 					after: options?.cursor,
@@ -723,16 +724,17 @@ export class CommitsGitSubProvider implements GitCommitsSubProvider {
 			const log: GitLog = {
 				repoPath: repoPath,
 				commits: commits,
-				sha: ref,
+				sha: rev,
 				range: undefined,
 				count: commits.size,
 				limit: limit,
 				hasMore: result.paging?.more ?? false,
 				endingCursor: result.paging?.cursor,
-				query: (limit: number | undefined) => this.getLogForFile(repoPath, path, { ...options, limit: limit }),
+				query: (limit: number | undefined) =>
+					this.getLogForFile(repoPath, path, rev, { ...options, limit: limit }),
 			};
 			if (log.hasMore) {
-				log.more = this.getLogForFileMoreFn(log, path, options);
+				log.more = this.getLogForFileMoreFn(log, path, rev, options);
 			}
 
 			return log;
@@ -759,12 +761,12 @@ export class CommitsGitSubProvider implements GitCommitsSubProvider {
 	private getLogForFileMoreFn(
 		log: GitLog,
 		relativePath: string,
+		rev: string | undefined,
 		options?: {
 			all?: boolean;
 			limit?: number;
 			ordering?: 'date' | 'author-date' | 'topo' | null;
 			range?: Range;
-			ref?: string;
 			renames?: boolean;
 			reverse?: boolean;
 		},
@@ -779,14 +781,18 @@ export class CommitsGitSubProvider implements GitCommitsSubProvider {
 
 			moreLimit = this.provider.getPagingLimit(moreLimit);
 
-			// const ref = Iterables.last(log.commits.values())?.ref;
-			const moreLog = await this.getLogForFile(log.repoPath, relativePath, {
-				...options,
-				limit: moreUntil == null ? moreLimit : 0,
-				cursor: log.endingCursor,
-				// ref: options.all ? undefined : moreUntil == null ? `${ref}^` : `${moreUntil}^..${ref}^`,
-				// skip: options.all ? log.count : undefined,
-			});
+			// const sha = Iterables.last(log.commits.values())?.ref;
+			const moreLog = await this.getLogForFile(
+				log.repoPath,
+				relativePath,
+				rev /* options.all ? undefined : moreUntil == null ? `${sha}^` : `${moreUntil}^..${sha}^ */,
+				{
+					...options,
+					limit: moreUntil == null ? moreLimit : 0,
+					cursor: log.endingCursor,
+					// skip: options.all ? log.count : undefined,
+				},
+			);
 			// If we can't find any more, assume we have everything
 			if (moreLog == null) return { ...log, hasMore: false, more: undefined };
 
@@ -813,7 +819,7 @@ export class CommitsGitSubProvider implements GitCommitsSubProvider {
 			// }
 
 			if (mergedLog.hasMore) {
-				mergedLog.more = this.getLogForFileMoreFn(mergedLog, relativePath, options);
+				mergedLog.more = this.getLogForFileMoreFn(mergedLog, relativePath, rev, options);
 			}
 
 			return mergedLog;
@@ -821,19 +827,19 @@ export class CommitsGitSubProvider implements GitCommitsSubProvider {
 	}
 
 	@log()
-	getOldestUnpushedRefForFile(_repoPath: string, _uri: Uri): Promise<string | undefined> {
+	getOldestUnpushedShaForFile(_repoPath: string, _uri: Uri): Promise<string | undefined> {
 		// TODO@eamodio until we have access to the RemoteHub change store there isn't anything we can do here
 		return Promise.resolve(undefined);
 	}
 
 	@log()
-	hasCommitBeenPushed(_repoPath: string, _ref: string): Promise<boolean> {
+	hasCommitBeenPushed(_repoPath: string, _rev: string): Promise<boolean> {
 		// In this env we can't have unpushed commits
 		return Promise.resolve(true);
 	}
 
 	@log()
-	async isAncestorOf(repoPath: string, ref1: string, ref2: string): Promise<boolean> {
+	async isAncestorOf(repoPath: string, rev1: string, rev2: string): Promise<boolean> {
 		if (repoPath == null) return false;
 
 		const scope = getLogScope();
@@ -845,7 +851,7 @@ export class CommitsGitSubProvider implements GitCommitsSubProvider {
 				session.accessToken,
 				metadata.repo.owner,
 				metadata.repo.name,
-				createRevisionRange(stripOrigin(ref1), stripOrigin(ref2), '...'),
+				createRevisionRange(stripOrigin(rev1), stripOrigin(rev2), '...'),
 			);
 
 			switch (result?.status) {
@@ -982,7 +988,7 @@ export class CommitsGitSubProvider implements GitCommitsSubProvider {
 				limit: limit,
 				hasMore: result.pageInfo?.hasNextPage ?? false,
 				endingCursor: result.pageInfo?.endCursor ?? undefined,
-				query: (limit: number | undefined) => this.getLog(repoPath, { ...options, limit: limit }),
+				query: (limit: number | undefined) => this.getLog(repoPath, undefined, { ...options, limit: limit }),
 			};
 
 			if (log.hasMore) {

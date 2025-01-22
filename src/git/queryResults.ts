@@ -84,11 +84,7 @@ export function getCommitsQuery(
 	filterByAuthors?: GitUser[] | undefined,
 ): (limit: number | undefined) => Promise<CommitsQueryResults> {
 	return async (limit: number | undefined) => {
-		const log = await container.git.commits(repoPath).getLog({
-			limit: limit,
-			ref: range,
-			authors: filterByAuthors,
-		});
+		const log = await container.git.commits(repoPath).getLog(range, { limit: limit, authors: filterByAuthors });
 
 		const results: Mutable<CommitsQueryResults> = {
 			log: log,

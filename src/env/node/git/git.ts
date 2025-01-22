@@ -1132,10 +1132,10 @@ export class Git {
 
 	log(
 		repoPath: string,
+		rev?: string,
 		options?: {
 			cancellation?: CancellationToken;
 			configs?: readonly string[];
-			ref?: string;
 			errors?: GitErrorHandling;
 			stdin?: string;
 		},
@@ -1152,7 +1152,7 @@ export class Git {
 			'log',
 			...(options?.stdin ? ['--stdin'] : emptyArray),
 			...args,
-			...(options?.ref && !isUncommittedStaged(options.ref) ? [options.ref] : emptyArray),
+			...(rev && !isUncommittedStaged(rev) ? [rev] : emptyArray),
 			...(!args.includes('--') ? ['--'] : emptyArray),
 		);
 	}
@@ -1238,7 +1238,7 @@ export class Git {
 	log__file(
 		repoPath: string,
 		fileName: string,
-		ref: string | undefined,
+		rev: string | undefined,
 		{
 			all,
 			argsOrFormat,
@@ -1334,12 +1334,12 @@ export class Git {
 			}
 		}
 
-		if (ref && !isUncommittedStaged(ref)) {
+		if (rev && !isUncommittedStaged(rev)) {
 			// If we are reversing, we must add a range (with HEAD) because we are using --ancestry-path for better reverse walking
 			if (reverse) {
-				params.push('--reverse', '--ancestry-path', `${ref}..HEAD`);
+				params.push('--reverse', '--ancestry-path', `${rev}..HEAD`);
 			} else {
-				params.push(ref);
+				params.push(rev);
 			}
 		}
 
@@ -1547,18 +1547,18 @@ export class Git {
 		return data.length === 0 ? undefined : data.trim();
 	}
 
-	merge_base(repoPath: string, ref1: string, ref2: string, options?: { forkPoint?: boolean }) {
+	merge_base(repoPath: string, rev1: string, rev2: string, options?: { forkPoint?: boolean }) {
 		const params = ['merge-base'];
 		if (options?.forkPoint) {
 			params.push('--fork-point');
 		}
 
-		return this.exec<string>({ cwd: repoPath }, ...params, ref1, ref2);
+		return this.exec<string>({ cwd: repoPath }, ...params, rev1, rev2);
 	}
 
-	async merge_base__is_ancestor(repoPath: string, ref1: string, ref2: string): Promise<boolean> {
+	async merge_base__is_ancestor(repoPath: string, rev1: string, rev2: string): Promise<boolean> {
 		const params = ['merge-base', '--is-ancestor'];
-		const exitCode = await this.exec({ cwd: repoPath, exitCodeOnly: true }, ...params, ref1, ref2);
+		const exitCode = await this.exec({ cwd: repoPath, exitCodeOnly: true }, ...params, rev1, rev2);
 		return exitCode === 0;
 	}
 
@@ -2031,30 +2031,30 @@ export class Git {
 		return this.exec<string>({ cwd: repoPath }, 'stash', deleteAfter ? 'pop' : 'apply', stashName);
 	}
 
-	async stash__rename(repoPath: string, stashName: string, ref: string, message: string, stashOnRef?: string) {
-		await this.stash__delete(repoPath, stashName, ref);
+	async stash__rename(repoPath: string, stashName: string, sha: string, message: string, stashOnRef?: string) {
+		await this.stash__delete(repoPath, stashName, sha);
 		return this.exec<string>(
 			{ cwd: repoPath },
 			'stash',
 			'store',
 			'-m',
 			stashOnRef ? `On ${stashOnRef}: ${message}` : message,
-			ref,
+			sha,
 		);
 	}
 
-	async stash__delete(repoPath: string, stashName: string, ref?: string) {
+	async stash__delete(repoPath: string, stashName: string, sha?: string) {
 		if (!stashName) return undefined;
 
-		if (ref) {
-			const stashRef = await this.exec<string>(
+		if (sha) {
+			const stashSha = await this.exec<string>(
 				{ cwd: repoPath, errors: GitErrorHandling.Ignore },
 				'show',
 				'--format=%H',
 				'--no-patch',
 				stashName,
 			);
-			if (stashRef?.trim() !== ref) {
+			if (stashSha?.trim() !== sha) {
 				throw new Error('Unable to delete stash; mismatch with stash number');
 			}
 		}

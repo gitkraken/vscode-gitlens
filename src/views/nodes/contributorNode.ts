@@ -182,23 +182,19 @@ export class ContributorNode extends ViewNode<'contributor', ViewsWithContributo
 
 	private _log: GitLog | undefined;
 	private async getLog() {
-		if (this._log == null) {
-			this._log = await this.view.container.git.commits(this.uri.repoPath!).getLog({
-				all: this.options?.all,
-				ref: this.options?.ref,
-				limit: this.limit ?? this.view.config.defaultItemLimit,
-				merges: this.options?.showMergeCommits,
-				authors: [
-					{
-						name: this.contributor.name,
-						email: this.contributor.email,
-						username: this.contributor.username,
-						id: this.contributor.id,
-					},
-				],
-			});
-		}
-
+		this._log ??= await this.view.container.git.commits(this.uri.repoPath!).getLog(this.options?.ref, {
+			all: this.options?.all,
+			limit: this.limit ?? this.view.config.defaultItemLimit,
+			merges: this.options?.showMergeCommits,
+			authors: [
+				{
+					name: this.contributor.name,
+					email: this.contributor.email,
+					username: this.contributor.username,
+					id: this.contributor.id,
+				},
+			],
+		});
 		return this._log;
 	}
 

@@ -118,7 +118,7 @@ export class TagsGitSubProvider implements GitTagsSubProvider {
 	@log()
 	async getTagsWithCommit(
 		repoPath: string,
-		commit: string,
+		sha: string,
 		options?: { commitDate?: Date; mode?: 'contains' | 'pointsAt' },
 	): Promise<string[]> {
 		if (repoPath == null || options?.commitDate == null) return [];
@@ -132,7 +132,7 @@ export class TagsGitSubProvider implements GitTagsSubProvider {
 				session.accessToken,
 				metadata.repo.owner,
 				metadata.repo.name,
-				stripOrigin(commit),
+				stripOrigin(sha),
 				options?.commitDate,
 			);
 

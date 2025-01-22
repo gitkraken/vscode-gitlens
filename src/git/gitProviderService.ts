@@ -2102,7 +2102,7 @@ export class GitProviderService implements Disposable {
 
 	@log({ exit: true })
 	async getUniqueRepositoryId(repoPath: string | Uri): Promise<string | undefined> {
-		return this.commits(repoPath).getFirstCommitSha?.();
+		return this.commits(repoPath).getInitialCommitSha?.();
 	}
 
 	@log({ args: { 1: false }, exit: true })

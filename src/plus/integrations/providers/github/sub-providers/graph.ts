@@ -53,11 +53,11 @@ export class GraphGitSubProvider implements GitGraphSubProvider {
 	@log()
 	async getGraph(
 		repoPath: string,
+		rev: string | undefined,
 		asWebviewUri: (uri: Uri) => Uri,
 		options?: {
 			include?: { stats?: boolean };
 			limit?: number;
-			ref?: string;
 		},
 	): Promise<GitGraph> {
 		const defaultLimit = options?.limit ?? configuration.get('graph.defaultItemLimit') ?? 5000;
@@ -67,7 +67,11 @@ export class GraphGitSubProvider implements GitGraphSubProvider {
 
 		const [logResult, headBranchResult, branchesResult, remotesResult, tagsResult, currentUserResult] =
 			await Promise.allSettled([
-				this.provider.commits.getLog(repoPath, { all: true, ordering: ordering, limit: defaultLimit }),
+				this.provider.commits.getLog(repoPath, rev, {
+					all: true,
+					ordering: ordering,
+					limit: defaultLimit,
+				}),
 				this.provider.branches.getBranch(repoPath),
 				this.provider.branches.getBranches(repoPath, { filter: b => b.remote }),
 				this.provider.remotes.getRemotes(repoPath),

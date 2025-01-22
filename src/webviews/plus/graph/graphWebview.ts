@@ -2507,12 +2507,12 @@ export class GraphWebviewProvider implements WebviewProvider<State, State, Graph
 		const limit = Math.max(defaultItemLimit, this._graph?.ids.size ?? defaultItemLimit);
 
 		const selectedId = this._selectedId;
-		const ref = selectedId == null || selectedId === uncommitted ? 'HEAD' : selectedId;
+		const rev = selectedId == null || selectedId === uncommitted ? 'HEAD' : selectedId;
 
 		const columns = this.getColumns();
 		const columnSettings = this.getColumnSettings(columns);
 
-		const dataPromise = this.repository.git.graph().getGraph(uri => this.host.asWebviewUri(uri), {
+		const dataPromise = this.repository.git.graph().getGraph(rev, uri => this.host.asWebviewUri(uri), {
 			include: {
 				stats:
 					(configuration.get('graph.minimap.enabled') &&
@@ -2520,7 +2520,6 @@ export class GraphWebviewProvider implements WebviewProvider<State, State, Graph
 					!columnSettings.changes.isHidden,
 			},
 			limit: limit,
-			ref: ref,
 		});
 
 		// Check for access and working tree stats

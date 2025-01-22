@@ -253,7 +253,7 @@ export class GitCommit implements GitRevisionReference {
 			const commitsProvider = this.container.git.commits(this.repoPath);
 			const [commitResult, commitFilesStatsResult] = await Promise.allSettled([
 				commitsProvider.getCommit(this.sha),
-				options?.include?.stats ? commitsProvider.getCommitFileStats?.(this.sha) : undefined,
+				options?.include?.stats ? commitsProvider.getCommitFilesStats?.(this.sha) : undefined,
 				this.getPreviousSha(),
 			]);
 

@@ -71,11 +71,11 @@ export class GraphGitSubProvider implements GitGraphSubProvider {
 	@log()
 	async getGraph(
 		repoPath: string,
+		rev: string | undefined,
 		asWebviewUri: (uri: Uri) => Uri,
 		options?: {
 			include?: { stats?: boolean };
 			limit?: number;
-			ref?: string;
 		},
 	): Promise<GitGraph> {
 		const defaultLimit = options?.limit ?? configuration.get('graph.defaultItemLimit') ?? 5000;
@@ -91,7 +91,7 @@ export class GraphGitSubProvider implements GitGraphSubProvider {
 
 		const [refResult, stashResult, branchesResult, remotesResult, currentUserResult, worktreesResult] =
 			await Promise.allSettled([
-				this.git.log(repoPath, undefined, ...refParser.arguments, '-n1', options?.ref ?? 'HEAD'),
+				this.git.log(repoPath, undefined, undefined, ...refParser.arguments, '-n1', rev ?? 'HEAD'),
 				this.provider.stash?.getStash(repoPath),
 				this.provider.branches.getBranches(repoPath),
 				this.provider.remotes.getRemotes(repoPath),
@@ -184,7 +184,7 @@ export class GraphGitSubProvider implements GitGraphSubProvider {
 				} else {
 					args.push(`-n${nextPageLimit + 1}`);
 
-					data = await this.git.log(repoPath, stdin ? { stdin: stdin } : undefined, ...args);
+					data = await this.git.log(repoPath, undefined, stdin ? { stdin: stdin } : undefined, ...args);
 
 					if (cursor) {
 						if (!getShaInLogRegex(cursor.sha).test(data)) {
@@ -584,7 +584,12 @@ export class GraphGitSubProvider implements GitGraphSubProvider {
 						}
 						args.push(`--${ordering}-order`, '--all');
 
-						const statsData = await this.git.log(repoPath, stdin ? { stdin: stdin } : undefined, ...args);
+						const statsData = await this.git.log(
+							repoPath,
+							undefined,
+							stdin ? { stdin: stdin } : undefined,
+							...args,
+						);
 						if (statsData) {
 							const commitStats = statsParser.parse(statsData);
 							for (const stat of commitStats) {
@@ -734,6 +739,7 @@ export class GraphGitSubProvider implements GitGraphSubProvider {
 				try {
 					data = await this.git.log(
 						repoPath,
+						undefined,
 						{
 							cancellation: options?.cancellation,
 							configs: ['-C', repoPath, ...gitLogDefaultConfigs],

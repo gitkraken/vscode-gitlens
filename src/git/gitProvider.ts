@@ -294,7 +294,7 @@ export interface GitBranchesSubProvider {
 	getBranchContributionsOverview(repoPath: string, ref: string): Promise<BranchContributionsOverview | undefined>;
 	getBranchesWithCommits(
 		repoPath: string,
-		commits: string[],
+		shas: string[],
 		branch?: string | undefined,
 		options?:
 			| { all?: boolean; commitDate?: Date; mode?: 'contains' | 'pointsAt' }
@@ -308,7 +308,7 @@ export interface GitBranchesSubProvider {
 		options?: { forkPoint?: boolean | undefined },
 	): Promise<string | undefined>;
 
-	createBranch?(repoPath: string, name: string, ref: string): Promise<void>;
+	createBranch?(repoPath: string, name: string, sha: string): Promise<void>;
 	/**
 	 * Returns whether a branch has been merged into another branch
 	 * @param repoPath The repository path
@@ -335,20 +335,17 @@ export interface GitBranchesSubProvider {
 }
 
 export interface GitCommitsSubProvider {
-	getCommit(repoPath: string, ref: string): Promise<GitCommit | undefined>;
-	getCommitCount(repoPath: string, ref: string): Promise<number | undefined>;
-	getCommitFileStats?(repoPath: string | Uri, ref: string): Promise<GitFileChange[] | undefined>;
+	getCommit(repoPath: string, rev: string): Promise<GitCommit | undefined>;
+	getCommitCount(repoPath: string, rev: string): Promise<number | undefined>;
+	getCommitFilesStats?(repoPath: string, rev: string): Promise<GitFileChange[] | undefined>;
+	getCommitFileStatus(repoPath: string, uri: Uri, rev: string): Promise<GitFile | undefined>;
 	getCommitForFile(
 		repoPath: string,
 		uri: Uri,
-		options?: {
-			ref?: string | undefined;
-			firstIfNotFound?: boolean | undefined;
-			range?: Range | undefined;
-		},
+		rev?: string | undefined,
+		options?: { firstIfNotFound?: boolean | undefined },
 	): Promise<GitCommit | undefined>;
-	getFirstCommitSha?(repoPath: string): Promise<string | undefined>;
-	getFileStatusForCommit(repoPath: string, uri: Uri, ref: string): Promise<GitFile | undefined>;
+	getInitialCommitSha?(repoPath: string): Promise<string | undefined>;
 	getLeftRightCommitCount(
 		repoPath: string,
 		range: GitRevisionRange,
@@ -356,6 +353,7 @@ export interface GitCommitsSubProvider {
 	): Promise<LeftRightCommitCountResult | undefined>;
 	getLog(
 		repoPath: string,
+		rev?: string | undefined,
 		options?: {
 			all?: boolean | undefined;
 			authors?: GitUser[] | undefined;
@@ -363,42 +361,41 @@ export interface GitCommitsSubProvider {
 			limit?: number | undefined;
 			merges?: boolean | 'first-parent' | undefined;
 			ordering?: 'date' | 'author-date' | 'topo' | null | undefined;
-			ref?: string | undefined;
 			since?: string | undefined;
 			stashes?: boolean;
 		},
 	): Promise<GitLog | undefined>;
-	getLogRefsOnly(
+	getLogShasOnly(
 		repoPath: string,
+		rev?: string | undefined,
 		options?: {
 			authors?: GitUser[] | undefined;
 			cursor?: string | undefined;
 			limit?: number | undefined;
 			merges?: boolean | 'first-parent';
 			ordering?: 'date' | 'author-date' | 'topo' | null | undefined;
-			ref?: string | undefined;
 			since?: string | undefined;
 		},
 	): Promise<Set<string> | undefined>;
 	getLogForFile(
 		repoPath: string,
 		pathOrUri: string | Uri,
+		rev?: string | undefined,
 		options?: {
 			all?: boolean | undefined;
 			cursor?: string | undefined;
 			limit?: number | undefined;
 			ordering?: 'date' | 'author-date' | 'topo' | null | undefined;
 			range?: Range | undefined;
-			ref?: string | undefined;
 			renames?: boolean | undefined;
 			reverse?: boolean | undefined;
 			since?: string | undefined;
 			skip?: number | undefined;
 		},
 	): Promise<GitLog | undefined>;
-	getOldestUnpushedRefForFile(repoPath: string, uri: Uri): Promise<string | undefined>;
-	isAncestorOf(repoPath: string, ref1: string, ref2: string): Promise<boolean>;
-	hasCommitBeenPushed(repoPath: string, ref: string): Promise<boolean>;
+	getOldestUnpushedShaForFile(repoPath: string, uri: Uri): Promise<string | undefined>;
+	isAncestorOf(repoPath: string, rev1: string, rev2: string): Promise<boolean>;
+	hasCommitBeenPushed(repoPath: string, rev: string): Promise<boolean>;
 	searchCommits(
 		repoPath: string,
 		search: SearchQuery,
@@ -417,10 +414,10 @@ export interface GitContributorsSubProvider {
 	): Promise<GitContributorsStats | undefined>;
 	getContributors(
 		repoPath: string,
+		rev?: string | undefined,
 		options?: {
 			all?: boolean | undefined;
 			merges?: boolean | 'first-parent';
-			ref?: string | undefined;
 			stats?: boolean | undefined;
 		},
 	): Promise<GitContributor[]>;
@@ -429,11 +426,11 @@ export interface GitContributorsSubProvider {
 export interface GitGraphSubProvider {
 	getGraph(
 		repoPath: string,
+		rev: string | undefined,
 		asWebviewUri: (uri: Uri) => Uri,
 		options?: {
 			include?: { stats?: boolean };
 			limit?: number;
-			ref?: string;
 		},
 	): Promise<GitGraph>;
 	searchGraph(
@@ -450,7 +447,7 @@ export interface GitGraphSubProvider {
 export interface GitPatchSubProvider {
 	applyUnreachableCommitForPatch(
 		repoPath: string,
-		ref: string,
+		rev: string,
 		options?: {
 			branchName?: string;
 			createBranchIfNeeded?: boolean;
@@ -535,8 +532,8 @@ export interface GitStashSubProvider {
 		ref: string,
 		options?: { include?: { stats?: boolean } },
 	): Promise<GitFileChange[]>;
-	deleteStash(repoPath: string, stashName: string, ref?: string): Promise<void>;
-	renameStash(repoPath: string, stashName: string, ref: string, message: string, stashOnRef?: string): Promise<void>;
+	deleteStash(repoPath: string, stashName: string, sha?: string): Promise<void>;
+	renameStash(repoPath: string, stashName: string, sha: string, message: string, stashOnRef?: string): Promise<void>;
 	saveStash(
 		repoPath: string,
 		message?: string,
@@ -568,14 +565,14 @@ export interface GitTagsSubProvider {
 	): Promise<PagedResult<GitTag>>;
 	getTagsWithCommit(
 		repoPath: string,
-		commit: string,
+		sha: string,
 		options?: {
 			commitDate?: Date | undefined;
 			mode?: 'contains' | 'pointsAt' | undefined;
 		},
 	): Promise<string[]>;
 
-	createTag?(repoPath: string, name: string, ref: string, message?: string): Promise<void>;
+	createTag?(repoPath: string, name: string, sha: string, message?: string): Promise<void>;
 	deleteTag?(repoPath: string, name: string): Promise<void>;
 }
 

@@ -123,14 +123,15 @@ export class WorktreeNode extends CacheableChildrenViewNode<'worktree', ViewsWit
 				this.getLog(),
 				this.view.container.git.getBranchesAndTagsTipsLookup(this.uri.repoPath),
 				branch != null && !branch.remote
-					? this.view.container.git.getBranchAheadRange(branch).then(range =>
-							range
-								? this.view.container.git.commits(this.uri.repoPath!).getLogRefsOnly({
-										limit: 0,
-										ref: range,
-								  })
-								: undefined,
-					  )
+					? this.view.container.git
+							.getBranchAheadRange(branch)
+							.then(range =>
+								range
+									? this.view.container.git
+											.commits(this.uri.repoPath!)
+											.getLogShasOnly(range, { limit: 0 })
+									: undefined,
+							)
 					: undefined,
 			]);
 			const log = getSettledValue(logResult);
@@ -402,8 +403,7 @@ export class WorktreeNode extends CacheableChildrenViewNode<'worktree', ViewsWit
 	private _log: GitLog | undefined;
 	private async getLog() {
 		if (this._log == null) {
-			this._log = await this.view.container.git.commits(this.uri.repoPath!).getLog({
-				ref: this.worktree.sha,
+			this._log = await this.view.container.git.commits(this.uri.repoPath!).getLog(this.worktree.sha, {
 				limit: this.limit ?? this.view.config.defaultItemLimit,
 				stashes: this.view.config.showStashes,
 			});

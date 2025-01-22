@@ -186,10 +186,11 @@ export class BranchesGitSubProvider implements GitBranchesSubProvider {
 			const mergeBase = await this.getMergeBase(repoPath, ref, baseOrTargetBranch);
 			if (mergeBase == null) return undefined;
 
-			const contributors = await this.provider.contributors.getContributors(repoPath, {
-				ref: createRevisionRange(mergeBase, ref, '..'),
-				stats: true,
-			});
+			const contributors = await this.provider.contributors.getContributors(
+				repoPath,
+				createRevisionRange(mergeBase, ref, '..'),
+				{ stats: true },
+			);
 
 			sortContributors(contributors, { orderBy: 'score:desc' });
 
@@ -309,8 +310,8 @@ export class BranchesGitSubProvider implements GitBranchesSubProvider {
 	}
 
 	@log()
-	async createBranch(repoPath: string, name: string, ref: string): Promise<void> {
-		await this.git.branch(repoPath, name, ref);
+	async createBranch(repoPath: string, name: string, sha: string): Promise<void> {
+		await this.git.branch(repoPath, name, sha);
 	}
 
 	@log()

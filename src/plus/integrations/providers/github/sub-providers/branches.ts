@@ -207,10 +207,11 @@ export class BranchesGitSubProvider implements GitBranchesSubProvider {
 			const mergeBase = await this.getMergeBase(repoPath, ref, baseOrTargetBranch);
 			if (mergeBase == null) return undefined;
 
-			const contributors = await this.provider.contributors.getContributors(repoPath, {
-				ref: createRevisionRange(mergeBase, ref, '..'),
-				stats: true,
-			});
+			const contributors = await this.provider.contributors.getContributors(
+				repoPath,
+				createRevisionRange(mergeBase, ref, '..'),
+				{ stats: true },
+			);
 
 			sortContributors(contributors, { orderBy: 'score:desc' });
 
@@ -268,7 +269,7 @@ export class BranchesGitSubProvider implements GitBranchesSubProvider {
 	@log()
 	async getBranchesWithCommits(
 		repoPath: string,
-		commits: string[],
+		shas: string[],
 		branch?: string | undefined,
 		options?:
 			| { all?: boolean; commitDate?: Date; mode?: 'contains' | 'pointsAt' }
@@ -289,7 +290,7 @@ export class BranchesGitSubProvider implements GitBranchesSubProvider {
 					metadata.repo.owner,
 					metadata.repo.name,
 					branch,
-					commits.map(stripOrigin),
+					shas.map(stripOrigin),
 					options?.mode ?? 'contains',
 					options?.commitDate,
 				);
@@ -298,7 +299,7 @@ export class BranchesGitSubProvider implements GitBranchesSubProvider {
 					session.accessToken,
 					metadata.repo.owner,
 					metadata.repo.name,
-					commits.map(stripOrigin),
+					shas.map(stripOrigin),
 					options?.mode ?? 'contains',
 					options?.commitDate,
 				);

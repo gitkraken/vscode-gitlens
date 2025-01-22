@@ -132,17 +132,17 @@ export class ResetGitCommand extends QuickCommand<State> {
 			context.title = `${this.title} ${getReferenceLabel(context.destination, { icon: false })}`;
 
 			if (state.counter < 2 || state.reference == null) {
-				const ref = context.destination.ref;
+				const rev = context.destination.ref;
 
-				let log = context.cache.get(ref);
+				let log = context.cache.get(rev);
 				if (log == null) {
-					log = state.repo.git.commits().getLog({ ref: ref, merges: 'first-parent' });
-					context.cache.set(ref, log);
+					log = state.repo.git.commits().getLog(rev, { merges: 'first-parent' });
+					context.cache.set(rev, log);
 				}
 
 				const result: StepResult<GitReference> = yield* pickCommitStep(state as ResetStepState, context, {
 					log: await log,
-					onDidLoadMore: log => context.cache.set(ref, Promise.resolve(log)),
+					onDidLoadMore: log => context.cache.set(rev, Promise.resolve(log)),
 					placeholder: (context, log) =>
 						log == null
 							? `${context.destination.name} has no commits`

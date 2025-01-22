@@ -351,9 +351,8 @@ export class TimelineWebviewProvider implements WebviewProvider<State, State, Ti
 
 		const [currentUserResult, logResult] = await Promise.allSettled([
 			this.container.git.getCurrentUser(repoPath),
-			this.container.git.commits(repoPath).getLogForFile(gitUri.fsPath, {
+			this.container.git.commits(repoPath).getLogForFile(gitUri.fsPath, gitUri.sha, {
 				limit: 0,
-				ref: gitUri.sha,
 				since: getPeriodDate(period)?.toISOString(),
 			}),
 		]);

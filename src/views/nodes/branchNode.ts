@@ -238,15 +238,15 @@ export class BranchNode
 					? this.view.container.git.status(this.uri.repoPath!).getPausedOperationStatus?.()
 					: undefined,
 				!branch.remote
-					? this.view.container.git.getBranchAheadRange(branch).then(range =>
-							range
-								? this.view.container.git.commits(this.uri.repoPath!).getLogRefsOnly({
-										limit: 0,
-										ref: range,
-										merges: this.options.showMergeCommits,
-								  })
-								: undefined,
-					  )
+					? this.view.container.git
+							.getBranchAheadRange(branch)
+							.then(range =>
+								range
+									? this.view.container.git
+											.commits(this.uri.repoPath!)
+											.getLogShasOnly(range, { limit: 0, merges: this.options.showMergeCommits })
+									: undefined,
+							)
 					: undefined,
 				loadComparisonDefaultCompareWith
 					? this.view.container.git.branches(this.branch.repoPath).getBaseBranchName?.(this.branch.name)
@@ -492,9 +492,8 @@ export class BranchNode
 				limit = Math.min(this.branch.state.ahead + 1, limit * 2);
 			}
 
-			this._log = await this.view.container.git.commits(this.uri.repoPath!).getLog({
+			this._log = await this.view.container.git.commits(this.uri.repoPath!).getLog(this.ref.ref, {
 				limit: limit,
-				ref: this.ref.ref,
 				authors: this.options?.authors,
 				merges: this.options?.showMergeCommits,
 				stashes: this.options?.showStashes,

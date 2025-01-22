@@ -261,7 +261,7 @@ export class DraftService implements Disposable {
 			change.contents == null
 				? change.repository.git.getDiff(change.revision.to, change.revision.from)
 				: undefined,
-			change.repository.git.commits().getFirstCommitSha?.(),
+			change.repository.git.commits().getInitialCommitSha?.(),
 			change.repository.git.remotes().getBestRemoteWithProvider(),
 			change.repository.git.getCurrentUser(),
 		]);
