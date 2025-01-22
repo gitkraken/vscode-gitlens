@@ -55,23 +55,23 @@ export class CommitsGitSubProvider implements GitCommitsSubProvider {
 	}
 
 	@log()
-	async getCommit(repoPath: string, ref: string): Promise<GitCommit | undefined> {
-		const log = await this.getLog(repoPath, { limit: 2, ref: ref });
+	async getCommit(repoPath: string, rev: string): Promise<GitCommit | undefined> {
+		const log = await this.getLog(repoPath, rev, { limit: 2 });
 		if (log == null) return undefined;
 
-		return log.commits.get(ref) ?? first(log.commits.values());
+		return log.commits.get(rev) ?? first(log.commits.values());
 	}
 
 	@log({ exit: true })
-	getCommitCount(repoPath: string, ref: string): Promise<number | undefined> {
-		return this.git.rev_list__count(repoPath, ref);
+	getCommitCount(repoPath: string, rev: string): Promise<number | undefined> {
+		return this.git.rev_list__count(repoPath, rev);
 	}
 
 	@log()
-	async getCommitFileStats(repoPath: string, ref: string): Promise<GitFileChange[] | undefined> {
+	async getCommitFilesStats(repoPath: string, rev: string): Promise<GitFileChange[] | undefined> {
 		const parser = createLogParserWithFilesAndStats<{ sha: string }>({ sha: '%H' });
 
-		const data = await this.git.log(repoPath, { ref: ref }, '--max-count=1', ...parser.arguments);
+		const data = await this.git.log(repoPath, rev, undefined, '--max-count=1', ...parser.arguments);
 		if (data == null) return undefined;
 
 		let files: GitFileChange[] | undefined;
@@ -100,29 +100,43 @@ export class CommitsGitSubProvider implements GitCommitsSubProvider {
 	}
 
 	@log()
+	async getCommitFileStatus(repoPath: string, uri: Uri, rev: string): Promise<GitFile | undefined> {
+		if (rev === deletedOrMissing || isUncommitted(rev)) return undefined;
+
+		const [relativePath, root] = splitPath(uri, repoPath);
+
+		// Don't include the filename, as renames won't be returned
+		const data = await this.git.show(root, undefined, '--name-status', '--format=', '-z', rev, '--');
+		if (!data) return undefined;
+
+		const files = parseGitDiffNameStatusFiles(data, repoPath);
+		if (files == null || files.length === 0) return undefined;
+
+		const file = files.find(f => f.path === relativePath || f.originalPath === relativePath);
+		return file;
+	}
+
+	@log()
 	async getCommitForFile(
 		repoPath: string | undefined,
 		uri: Uri,
-		options?: { ref?: string; firstIfNotFound?: boolean; range?: Range },
+		rev?: string | undefined,
+		options?: { firstIfNotFound?: boolean },
 	): Promise<GitCommit | undefined> {
 		const scope = getLogScope();
 
 		const [relativePath, root] = splitPath(uri, repoPath);
 
 		try {
-			const log = await this.getLogForFile(root, relativePath, {
-				limit: 2,
-				ref: options?.ref,
-				range: options?.range,
-			});
+			const log = await this.getLogForFile(root, relativePath, rev, { limit: 2 });
 			if (log == null) return undefined;
 
 			let commit;
-			if (options?.ref) {
-				const commit = log.commits.get(options.ref);
+			if (rev) {
+				const commit = log.commits.get(rev);
 				if (commit == null && !options?.firstIfNotFound) {
 					// If the ref isn't a valid sha we will never find it, so let it fall through so we return the first
-					if (isSha(options.ref) || isUncommitted(options.ref)) return undefined;
+					if (isSha(rev) || isUncommitted(rev)) return undefined;
 				}
 			}
 
@@ -133,25 +147,8 @@ export class CommitsGitSubProvider implements GitCommitsSubProvider {
 		}
 	}
 
-	@log()
-	async getFileStatusForCommit(repoPath: string, uri: Uri, ref: string): Promise<GitFile | undefined> {
-		if (ref === deletedOrMissing || isUncommitted(ref)) return undefined;
-
-		const [relativePath, root] = splitPath(uri, repoPath);
-
-		// Don't include the filename, as renames won't be returned
-		const data = await this.git.show(root, undefined, '--name-status', '--format=', '-z', ref, '--');
-		if (!data) return undefined;
-
-		const files = parseGitDiffNameStatusFiles(data, repoPath);
-		if (files == null || files.length === 0) return undefined;
-
-		const file = files.find(f => f.path === relativePath || f.originalPath === relativePath);
-		return file;
-	}
-
 	@log({ exit: true })
-	async getFirstCommitSha(repoPath: string): Promise<string | undefined> {
+	async getInitialCommitSha(repoPath: string): Promise<string | undefined> {
 		try {
 			const data = await this.git.rev_list(repoPath, 'HEAD', { maxParents: 0 });
 			return data?.[0];
@@ -172,6 +169,7 @@ export class CommitsGitSubProvider implements GitCommitsSubProvider {
 	@log()
 	async getLog(
 		repoPath: string,
+		rev?: string | undefined,
 		options?: {
 			all?: boolean;
 			authors?: GitUser[];
@@ -179,7 +177,6 @@ export class CommitsGitSubProvider implements GitCommitsSubProvider {
 			limit?: number;
 			merges?: boolean | 'first-parent';
 			ordering?: 'date' | 'author-date' | 'topo' | null;
-			ref?: string;
 			since?: number | string;
 			stashes?: boolean | Map<string, GitStashCommit>;
 			status?: boolean;
@@ -249,15 +246,13 @@ export class CommitsGitSubProvider implements GitCommitsSubProvider {
 				args.push(`-n${limit + 1}`);
 			}
 
-			let ref = options?.ref;
-
 			let stashes: Map<string, GitStashCommit> | undefined;
 			let stdin: string | undefined;
 
 			if (options?.stashes) {
 				if (typeof options.stashes === 'boolean') {
 					// TODO@eamodio this is insanity -- there *HAS* to be a better way to get git log to return stashes
-					const gitStash = await this.provider.stash?.getStash(repoPath, { reachableFrom: options?.ref });
+					const gitStash = await this.provider.stash?.getStash(repoPath, { reachableFrom: rev });
 					stashes = new Map(gitStash?.stashes);
 					if (gitStash?.stashes.size) {
 						stdin = '';
@@ -270,20 +265,21 @@ export class CommitsGitSubProvider implements GitCommitsSubProvider {
 							}
 						}
 					}
-					ref ??= 'HEAD';
+					rev ??= 'HEAD';
 				} else {
 					stashes = options.stashes;
 					stdin = join(
 						map(stashes.values(), c => c.sha.substring(0, 9)),
 						'\n',
 					);
-					ref ??= 'HEAD';
+					rev ??= 'HEAD';
 				}
 			}
 
 			const data = await this.git.log(
 				repoPath,
-				{ configs: gitLogDefaultConfigsWithFiles, ref: ref, stdin: stdin },
+				rev,
+				{ configs: gitLogDefaultConfigsWithFiles, stdin: stdin },
 				...args,
 			);
 
@@ -293,7 +289,7 @@ export class CommitsGitSubProvider implements GitCommitsSubProvider {
 				LogType.Log,
 				repoPath,
 				undefined,
-				ref,
+				rev,
 				await this.provider.getCurrentUser(repoPath),
 				limit,
 				false,
@@ -304,7 +300,7 @@ export class CommitsGitSubProvider implements GitCommitsSubProvider {
 			);
 
 			if (log != null) {
-				log.query = (limit: number | undefined) => this.getLog(repoPath, { ...options, limit: limit });
+				log.query = (limit: number | undefined) => this.getLog(repoPath, rev, { ...options, limit: limit });
 				if (log.hasMore) {
 					let opts;
 					if (options != null) {
@@ -324,15 +320,15 @@ export class CommitsGitSubProvider implements GitCommitsSubProvider {
 	}
 
 	@log()
-	async getLogRefsOnly(
+	async getLogShasOnly(
 		repoPath: string,
+		rev?: string | undefined,
 		options?: {
 			authors?: GitUser[];
 			cursor?: string;
 			limit?: number;
 			merges?: boolean | 'first-parent';
 			ordering?: 'date' | 'author-date' | 'topo' | null;
-			ref?: string;
 			since?: string;
 		},
 	): Promise<Set<string> | undefined> {
@@ -371,7 +367,7 @@ export class CommitsGitSubProvider implements GitCommitsSubProvider {
 				args.push(...options.authors.map(a => `--author=^${a.name} <${a.email}>$`));
 			}
 
-			const data = await this.git.log(repoPath, { ref: options?.ref }, ...args);
+			const data = await this.git.log(repoPath, rev, undefined, ...args);
 
 			const commits = new Set(parser.parse(data));
 			return commits;
@@ -384,13 +380,13 @@ export class CommitsGitSubProvider implements GitCommitsSubProvider {
 
 	private getLogMoreFn(
 		log: GitLog,
+		rev: string | undefined,
 		options?: {
 			all?: boolean;
 			authors?: GitUser[];
 			limit?: number;
 			merges?: boolean;
 			ordering?: 'date' | 'author-date' | 'topo' | null;
-			ref?: string;
 		},
 	): (limit: number | { until: string } | undefined) => Promise<GitLog> {
 		return async (limit: number | { until: string } | undefined) => {
@@ -405,7 +401,7 @@ export class CommitsGitSubProvider implements GitCommitsSubProvider {
 
 			// If the log is for a range, then just get everything prior + more
 			if (isRevisionRange(log.sha)) {
-				const moreLog = await this.getLog(log.repoPath, {
+				const moreLog = await this.getLog(log.repoPath, rev, {
 					...options,
 					limit: moreLimit === 0 ? 0 : (options?.limit ?? 0) + moreLimit,
 				});
@@ -416,7 +412,7 @@ export class CommitsGitSubProvider implements GitCommitsSubProvider {
 			}
 
 			const lastCommit = last(log.commits.values());
-			const ref = lastCommit?.ref;
+			const sha = lastCommit?.ref;
 
 			// If we were asked for all refs, use the last commit timestamp (plus a second) as a cursor
 			let timestamp: number | undefined;
@@ -429,16 +425,15 @@ export class CommitsGitSubProvider implements GitCommitsSubProvider {
 			let moreLogCount;
 			let queryLimit = moreUntil == null ? moreLimit : 0;
 			do {
-				const moreLog = await this.getLog(log.repoPath, {
-					...options,
-					limit: queryLimit,
-					...(timestamp
-						? {
-								until: timestamp,
-								extraArgs: ['--boundary'],
-						  }
-						: { ref: moreUntil == null ? `${ref}^` : `${moreUntil}^..${ref}^` }),
-				});
+				const moreLog = await this.getLog(
+					log.repoPath,
+					timestamp ? rev : moreUntil == null ? `${sha}^` : `${moreUntil}^..${sha}^`,
+					{
+						...options,
+						limit: queryLimit,
+						...(timestamp ? { until: timestamp, extraArgs: ['--boundary'] } : undefined),
+					},
+				);
 				// If we can't find any more, assume we have everything
 				if (moreLog == null) return { ...log, hasMore: false, more: undefined };
 
@@ -456,7 +451,7 @@ export class CommitsGitSubProvider implements GitCommitsSubProvider {
 					continue;
 				}
 
-				if (timestamp != null && ref != null && !moreLog.commits.has(ref)) {
+				if (timestamp != null && sha != null && !moreLog.commits.has(sha)) {
 					debugger;
 				}
 
@@ -477,10 +472,10 @@ export class CommitsGitSubProvider implements GitCommitsSubProvider {
 						}
 						return moreLog.commits;
 					},
-					query: (limit: number | undefined) => this.getLog(log.repoPath, { ...options, limit: limit }),
+					query: (limit: number | undefined) => this.getLog(log.repoPath, rev, { ...options, limit: limit }),
 				};
 				if (mergedLog.hasMore) {
-					mergedLog.more = this.getLogMoreFn(mergedLog, options);
+					mergedLog.more = this.getLogMoreFn(mergedLog, rev, options);
 				}
 
 				return mergedLog;
@@ -492,13 +487,13 @@ export class CommitsGitSubProvider implements GitCommitsSubProvider {
 	async getLogForFile(
 		repoPath: string | undefined,
 		pathOrUri: string | Uri,
+		rev?: string | undefined,
 		options?: {
 			all?: boolean;
 			cursor?: string;
 			limit?: number;
 			ordering?: 'date' | 'author-date' | 'topo' | null;
 			range?: Range;
-			ref?: string;
 			renames?: boolean;
 			reverse?: boolean;
 			since?: string;
@@ -515,7 +510,7 @@ export class CommitsGitSubProvider implements GitCommitsSubProvider {
 			throw new Error(`File name cannot match the repository path; path=${relativePath}`);
 		}
 
-		const opts: typeof options & Parameters<CommitsGitSubProvider['getLogForFileCore']>[2] = {
+		const opts: typeof options & Parameters<CommitsGitSubProvider['getLogForFileCore']>[6] = {
 			reverse: false,
 			...options,
 		};
@@ -529,8 +524,8 @@ export class CommitsGitSubProvider implements GitCommitsSubProvider {
 		}
 
 		let key = 'log';
-		if (opts.ref != null) {
-			key += `:${opts.ref}`;
+		if (rev != null) {
+			key += `:${rev}`;
 		}
 
 		if (opts.all == null) {
@@ -571,7 +566,7 @@ export class CommitsGitSubProvider implements GitCommitsSubProvider {
 
 		const useCache = this.useCaching && opts.cursor == null && opts.range == null;
 
-		const doc = await this.container.documentTracker.getOrAdd(GitUri.fromFile(relativePath, repoPath, opts.ref));
+		const doc = await this.container.documentTracker.getOrAdd(GitUri.fromFile(relativePath, repoPath, rev));
 		if (useCache) {
 			if (doc.state != null) {
 				const cachedLog = doc.state.getLog(key);
@@ -580,20 +575,20 @@ export class CommitsGitSubProvider implements GitCommitsSubProvider {
 					return cachedLog.item;
 				}
 
-				if (opts.ref != null || (opts.limit != null && opts.limit !== 0)) {
+				if (rev != null || (opts.limit != null && opts.limit !== 0)) {
 					// Since we are looking for partial log, see if we have the log of the whole file
 					const cachedLog = doc.state.getLog(
 						`log${opts.renames ? ':follow' : ''}${opts.reverse ? ':reverse' : ''}`,
 					);
 					if (cachedLog != null) {
-						if (opts.ref == null) {
+						if (rev == null) {
 							Logger.debug(scope, `Cache hit: ~'${key}'`);
 							return cachedLog.item;
 						}
 
 						Logger.debug(scope, `Cache ?: '${key}'`);
 						let log = await cachedLog.item;
-						if (log != null && !log.hasMore && log.commits.has(opts.ref)) {
+						if (log != null && !log.hasMore && log.commits.has(rev)) {
 							Logger.debug(scope, `Cache hit: '${key}'`);
 
 							// Create a copy of the log starting at the requested commit
@@ -602,9 +597,9 @@ export class CommitsGitSubProvider implements GitCommitsSubProvider {
 							const commits = new Map(
 								filterMap<[string, GitCommit], [string, GitCommit]>(
 									log.commits.entries(),
-									([ref, c]) => {
+									([sha, c]) => {
 										if (skip) {
-											if (ref !== opts?.ref) return undefined;
+											if (sha !== rev) return undefined;
 											skip = false;
 										}
 
@@ -613,7 +608,7 @@ export class CommitsGitSubProvider implements GitCommitsSubProvider {
 											return undefined;
 										}
 
-										return [ref, c];
+										return [sha, c];
 									},
 								),
 							);
@@ -625,7 +620,7 @@ export class CommitsGitSubProvider implements GitCommitsSubProvider {
 								count: commits.size,
 								commits: commits,
 								query: (limit: number | undefined) =>
-									this.getLogForFile(repoPath, pathOrUri, { ...optsCopy, limit: limit }),
+									this.getLogForFile(repoPath, pathOrUri, rev, { ...optsCopy, limit: limit }),
 							};
 
 							return log;
@@ -639,7 +634,7 @@ export class CommitsGitSubProvider implements GitCommitsSubProvider {
 			doc.state ??= new GitDocumentState();
 		}
 
-		const promise = this.getLogForFileCore(repoPath, relativePath, opts, doc, key, scope);
+		const promise = this.getLogForFileCore(repoPath, relativePath, rev, doc, key, scope, opts);
 
 		if (useCache && doc.state != null) {
 			Logger.debug(scope, `Cache add: '${key}'`);
@@ -656,8 +651,11 @@ export class CommitsGitSubProvider implements GitCommitsSubProvider {
 	private async getLogForFileCore(
 		repoPath: string | undefined,
 		path: string,
+		rev: string | undefined,
+		document: TrackedGitDocument,
+		key: string,
+		scope: LogScope | undefined,
 		{
-			ref,
 			range,
 			...options
 		}: {
@@ -667,17 +665,13 @@ export class CommitsGitSubProvider implements GitCommitsSubProvider {
 			merges?: boolean;
 			ordering?: 'date' | 'author-date' | 'topo' | null;
 			range?: Range;
-			ref?: string;
 			renames?: boolean;
 			reverse?: boolean;
 			since?: string;
 			skip?: number;
 		},
-		document: TrackedGitDocument,
-		key: string,
-		scope: LogScope | undefined,
 	): Promise<GitLog | undefined> {
-		const paths = await (this.provider as any).isTrackedWithDetails(path, repoPath, ref);
+		const paths = await (this.provider as any).isTrackedWithDetails(path, repoPath, rev);
 		if (paths == null) {
 			Logger.log(scope, `Skipping log; '${path}' is not tracked`);
 			return emptyPromise as Promise<GitLog>;
@@ -690,7 +684,7 @@ export class CommitsGitSubProvider implements GitCommitsSubProvider {
 				range = new Range(range.end, range.start);
 			}
 
-			let data = await this.git.log__file(root, relativePath, ref, {
+			let data = await this.git.log__file(root, relativePath, rev, {
 				ordering: configuration.get('advanced.commitOrdering'),
 				...options,
 				startLine: range == null ? undefined : range.start.line + 1,
@@ -698,10 +692,10 @@ export class CommitsGitSubProvider implements GitCommitsSubProvider {
 			});
 
 			// If we didn't find any history from the working tree, check to see if the file was renamed
-			if (!data && ref == null) {
+			if (!data && rev == null) {
 				const status = await this.provider.status?.getStatusForFile(root, relativePath);
 				if (status?.originalPath != null) {
-					data = await this.git.log__file(root, status.originalPath, ref, {
+					data = await this.git.log__file(root, status.originalPath, rev, {
 						ordering: configuration.get('advanced.commitOrdering'),
 						...options,
 						startLine: range == null ? undefined : range.start.line + 1,
@@ -717,7 +711,7 @@ export class CommitsGitSubProvider implements GitCommitsSubProvider {
 				isFolderGlob(relativePath) ? LogType.Log : LogType.LogFile,
 				root,
 				relativePath,
-				ref,
+				rev,
 				await this.provider.getCurrentUser(root),
 				options.limit,
 				options.reverse ?? false,
@@ -725,11 +719,11 @@ export class CommitsGitSubProvider implements GitCommitsSubProvider {
 			);
 
 			if (log != null) {
-				const opts = { ...options, ref: ref, range: range };
+				const opts = { ...options, range: range };
 				log.query = (limit: number | undefined) =>
-					this.getLogForFile(repoPath, path, { ...opts, limit: limit });
+					this.getLogForFile(repoPath, path, rev, { ...opts, limit: limit });
 				if (log.hasMore) {
-					log.more = this.getLogForFileMoreFn(log, path, opts);
+					log.more = this.getLogForFileMoreFn(log, path, rev, opts);
 				}
 			}
 
@@ -756,12 +750,12 @@ export class CommitsGitSubProvider implements GitCommitsSubProvider {
 	private getLogForFileMoreFn(
 		log: GitLog,
 		relativePath: string,
+		rev: string | undefined,
 		options: {
 			all?: boolean;
 			limit?: number;
 			ordering?: 'date' | 'author-date' | 'topo' | null;
 			range?: Range;
-			ref?: string;
 			renames?: boolean;
 			reverse?: boolean;
 		},
@@ -777,9 +771,9 @@ export class CommitsGitSubProvider implements GitCommitsSubProvider {
 			moreLimit = moreLimit ?? configuration.get('advanced.maxSearchItems') ?? 0;
 
 			const commit = last(log.commits.values());
-			let ref;
+			let sha;
 			if (commit != null) {
-				ref = commit.ref;
+				sha = commit.ref;
 				// Check to make sure the filename hasn't changed and if it has use the previous
 				if (commit.file != null) {
 					const path = commit.file.originalPath ?? commit.file.path;
@@ -788,12 +782,16 @@ export class CommitsGitSubProvider implements GitCommitsSubProvider {
 					}
 				}
 			}
-			const moreLog = await this.getLogForFile(log.repoPath, relativePath, {
-				...options,
-				limit: moreUntil == null ? moreLimit : 0,
-				ref: options.all ? undefined : moreUntil == null ? `${ref}^` : `${moreUntil}^..${ref}^`,
-				skip: options.all ? log.count : undefined,
-			});
+			const moreLog = await this.getLogForFile(
+				log.repoPath,
+				relativePath,
+				options.all ? undefined : moreUntil == null ? `${sha}^` : `${moreUntil}^..${sha}^`,
+				{
+					...options,
+					limit: moreUntil == null ? moreLimit : 0,
+					skip: options.all ? log.count : undefined,
+				},
+			);
 			// If we can't find any more, assume we have everything
 			if (moreLog == null) return { ...log, hasMore: false, more: undefined };
 
@@ -808,7 +806,7 @@ export class CommitsGitSubProvider implements GitCommitsSubProvider {
 				limit: moreUntil == null ? (log.limit ?? 0) + moreLimit : undefined,
 				hasMore: moreUntil == null ? moreLog.hasMore : true,
 				query: (limit: number | undefined) =>
-					this.getLogForFile(log.repoPath, relativePath, { ...options, limit: limit }),
+					this.getLogForFile(log.repoPath, relativePath, rev, { ...options, limit: limit }),
 			};
 
 			if (options.renames) {
@@ -820,7 +818,7 @@ export class CommitsGitSubProvider implements GitCommitsSubProvider {
 			}
 
 			if (mergedLog.hasMore) {
-				mergedLog.more = this.getLogForFileMoreFn(mergedLog, relativePath, options);
+				mergedLog.more = this.getLogForFileMoreFn(mergedLog, relativePath, rev, options);
 			}
 
 			return mergedLog;
@@ -828,7 +826,7 @@ export class CommitsGitSubProvider implements GitCommitsSubProvider {
 	}
 
 	@log()
-	async getOldestUnpushedRefForFile(repoPath: string, uri: Uri): Promise<string | undefined> {
+	async getOldestUnpushedShaForFile(repoPath: string, uri: Uri): Promise<string | undefined> {
 		const [relativePath, root] = splitPath(uri, repoPath);
 
 		const data = await this.git.log__file(root, relativePath, '@{u}..', {
@@ -845,17 +843,17 @@ export class CommitsGitSubProvider implements GitCommitsSubProvider {
 	}
 
 	@log()
-	async hasCommitBeenPushed(repoPath: string, ref: string): Promise<boolean> {
+	async hasCommitBeenPushed(repoPath: string, rev: string): Promise<boolean> {
 		if (repoPath == null) return false;
 
-		return this.git.merge_base__is_ancestor(repoPath, ref, '@{u}');
+		return this.git.merge_base__is_ancestor(repoPath, rev, '@{u}');
 	}
 
 	@log()
-	async isAncestorOf(repoPath: string, ref1: string, ref2: string): Promise<boolean> {
+	async isAncestorOf(repoPath: string, rev1: string, rev2: string): Promise<boolean> {
 		if (repoPath == null) return false;
 
-		return this.git.merge_base__is_ancestor(repoPath, ref1, ref2);
+		return this.git.merge_base__is_ancestor(repoPath, rev1, rev2);
 	}
 
 	@log<CommitsGitSubProvider['searchCommits']>({

@@ -102,25 +102,25 @@ export class GutterChangesAnnotationProvider extends AnnotationProviderBase<Chan
 	override async onProvideAnnotation(context?: ChangesAnnotationContext, state?: AnnotationState): Promise<boolean> {
 		const scope = getLogScope();
 
-		let ref1 = this.trackedDocument.uri.sha;
-		let ref2 = context?.sha != null && context.sha !== ref1 ? `${context.sha}^` : undefined;
+		let rev1 = this.trackedDocument.uri.sha;
+		let rev2 = context?.sha != null && context.sha !== rev1 ? `${context.sha}^` : undefined;
 
 		let commit: GitCommit | undefined;
 
 		const commitsProvider = this.container.git.commits(this.trackedDocument.uri.repoPath!);
 
-		let localChanges = ref1 == null && ref2 == null;
+		let localChanges = rev1 == null && rev2 == null;
 		if (localChanges) {
-			let ref = await commitsProvider.getOldestUnpushedRefForFile(this.trackedDocument.uri);
-			if (ref != null) {
-				ref = `${ref}^`;
-				commit = await commitsProvider.getCommitForFile(this.trackedDocument.uri, { ref: ref });
+			let rev = await commitsProvider.getOldestUnpushedShaForFile(this.trackedDocument.uri);
+			if (rev != null) {
+				rev = `${rev}^`;
+				commit = await commitsProvider.getCommitForFile(this.trackedDocument.uri, rev);
 				if (commit != null) {
-					if (ref2 != null) {
-						ref2 = ref;
+					if (rev2 != null) {
+						rev2 = rev;
 					} else {
-						ref1 = ref;
-						ref2 = '';
+						rev1 = rev;
+						rev2 = '';
 					}
 				} else {
 					localChanges = false;
@@ -135,9 +135,9 @@ export class GutterChangesAnnotationProvider extends AnnotationProviderBase<Chan
 				);
 				if (commits?.length) {
 					commit = await commitsProvider.getCommitForFile(this.trackedDocument.uri);
-					ref1 = 'HEAD';
+					rev1 = 'HEAD';
 				} else if (this.trackedDocument.dirty) {
-					ref1 = 'HEAD';
+					rev1 = 'HEAD';
 				} else {
 					localChanges = false;
 				}
@@ -145,30 +145,30 @@ export class GutterChangesAnnotationProvider extends AnnotationProviderBase<Chan
 		}
 
 		if (!localChanges) {
-			commit = await commitsProvider.getCommitForFile(this.trackedDocument.uri, { ref: ref2 ?? ref1 });
+			commit = await commitsProvider.getCommitForFile(this.trackedDocument.uri, rev2 ?? rev1);
 
 			if (commit != null) {
-				if (ref2 != null) {
-					ref2 = commit.ref;
+				if (rev2 != null) {
+					rev2 = commit.ref;
 				} else {
-					ref1 = `${commit.ref}^`;
-					ref2 = commit.ref;
+					rev1 = `${commit.ref}^`;
+					rev2 = commit.ref;
 				}
 			}
 		}
 
 		const diffs = (
 			await Promise.allSettled(
-				ref2 == null && this.editor.document.isDirty
+				rev2 == null && this.editor.document.isDirty
 					? [
 							this.container.git.getDiffForFileContents(
 								this.trackedDocument.uri,
-								ref1!,
+								rev1!,
 								this.editor.document.getText(),
 							),
-							this.container.git.getDiffForFile(this.trackedDocument.uri, ref1, ref2),
+							this.container.git.getDiffForFile(this.trackedDocument.uri, rev1, rev2),
 					  ]
-					: [this.container.git.getDiffForFile(this.trackedDocument.uri, ref1, ref2)],
+					: [this.container.git.getDiffForFile(this.trackedDocument.uri, rev1, rev2)],
 			)
 		)
 			.map(d => getSettledValue(d))

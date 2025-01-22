@@ -31,7 +31,7 @@ export class PatchGitSubProvider implements GitPatchSubProvider {
 	@log()
 	async applyUnreachableCommitForPatch(
 		repoPath: string,
-		ref: string,
+		rev: string,
 		options?: {
 			branchName?: string;
 			createBranchIfNeeded?: boolean;
@@ -132,7 +132,7 @@ export class PatchGitSubProvider implements GitPatchSubProvider {
 
 		// Apply the patch using a cherry pick without committing
 		try {
-			await this.git.cherrypick(targetPath, ref, { noCommit: true, errors: GitErrorHandling.Throw });
+			await this.git.cherrypick(targetPath, rev, { noCommit: true, errors: GitErrorHandling.Throw });
 		} catch (ex) {
 			Logger.error(ex, scope);
 			if (ex instanceof CherryPickError) {

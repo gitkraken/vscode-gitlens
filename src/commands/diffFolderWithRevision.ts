@@ -52,9 +52,7 @@ export class DiffFolderWithRevisionCommand extends ActiveEditorCommand {
 			const log = commitsProvider
 				.getLogForFile(gitUri.fsPath)
 				.then(
-					log =>
-						log ??
-						(gitUri.sha ? commitsProvider.getLogForFile(gitUri.fsPath, { ref: gitUri.sha }) : undefined),
+					log => log ?? (gitUri.sha ? commitsProvider.getLogForFile(gitUri.fsPath, gitUri.sha) : undefined),
 				);
 
 			const relativePath = this.container.git.getRelativePath(uri, repoPath);

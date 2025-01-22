@@ -76,19 +76,19 @@ export class TagsGitSubProvider implements GitTagsSubProvider {
 	@log()
 	async getTagsWithCommit(
 		repoPath: string,
-		commit: string,
+		sha: string,
 		options?: { commitDate?: Date; mode?: 'contains' | 'pointsAt' },
 	): Promise<string[]> {
-		const data = await this.git.branchOrTag__containsOrPointsAt(repoPath, [commit], { type: 'tag', ...options });
+		const data = await this.git.branchOrTag__containsOrPointsAt(repoPath, [sha], { type: 'tag', ...options });
 		if (!data) return [];
 
 		return filterMap(data.split('\n'), b => b.trim() || undefined);
 	}
 
 	@log()
-	async createTag(repoPath: string, name: string, ref: string, message?: string): Promise<void> {
+	async createTag(repoPath: string, name: string, sha: string, message?: string): Promise<void> {
 		try {
-			await this.git.tag(repoPath, name, ref, ...(message != null && message.length > 0 ? ['-m', message] : []));
+			await this.git.tag(repoPath, name, sha, ...(message != null && message.length > 0 ? ['-m', message] : []));
 		} catch (ex) {
 			if (ex instanceof TagError) {
 				throw ex.WithTag(name).WithAction('create');

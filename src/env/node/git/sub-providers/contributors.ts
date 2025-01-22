@@ -26,11 +26,12 @@ export class ContributorsGitSubProvider implements GitContributorsSubProvider {
 	@log()
 	async getContributors(
 		repoPath: string,
-		options?: { all?: boolean; merges?: boolean | 'first-parent'; ref?: string; stats?: boolean },
+		rev?: string | undefined,
+		options?: { all?: boolean; merges?: boolean | 'first-parent'; stats?: boolean },
 	): Promise<GitContributor[]> {
 		if (repoPath == null) return [];
 
-		let key = options?.ref ?? '';
+		let key = rev ?? '';
 		if (options?.all) {
 			key += ':all';
 		}
@@ -64,7 +65,7 @@ export class ContributorsGitSubProvider implements GitContributorsSubProvider {
 						args.push('--all', '--single-worktree');
 					}
 
-					const data = await this.git.log(repoPath, { ref: options?.ref }, ...args);
+					const data = await this.git.log(repoPath, rev, undefined, ...args);
 
 					const contributors = new Map<string, GitContributor>();
 					const commits = parser.parse(data);

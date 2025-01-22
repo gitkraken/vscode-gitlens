@@ -113,10 +113,9 @@ export class TagNode extends ViewRefNode<'tag', ViewsWithTags, GitTagReference> 
 	private _log: GitLog | undefined;
 	private async getLog() {
 		if (this._log == null) {
-			this._log = await this.view.container.git.commits(this.uri.repoPath!).getLog({
-				limit: this.limit ?? this.view.config.defaultItemLimit,
-				ref: this.tag.name,
-			});
+			this._log = await this.view.container.git
+				.commits(this.uri.repoPath!)
+				.getLog(this.tag.name, { limit: this.limit ?? this.view.config.defaultItemLimit });
 		}
 
 		return this._log;

@@ -2521,7 +2521,7 @@ export class LocalGitProvider implements GitProvider, Disposable {
 		}
 
 		try {
-			const data = await this.git.log(repoPath, undefined, ...args);
+			const data = await this.git.log(repoPath, undefined, undefined, ...args);
 			if (data == null) return undefined;
 
 			const reflog = parseGitRefLog(this.container, data, repoPath, reflogCommands, limit, limit * 100);

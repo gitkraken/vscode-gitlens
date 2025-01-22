@@ -171,18 +171,18 @@ export class MergeGitCommand extends QuickCommand<State> {
 				context.selectedBranchOrTag != null &&
 				(context.pickCommit || context.pickCommitForItem || state.reference.ref === context.destination.ref)
 			) {
-				const ref = context.selectedBranchOrTag.ref;
+				const rev = context.selectedBranchOrTag.ref;
 
-				let log = context.cache.get(ref);
+				let log = context.cache.get(rev);
 				if (log == null) {
-					log = state.repo.git.commits().getLog({ ref: ref, merges: 'first-parent' });
-					context.cache.set(ref, log);
+					log = state.repo.git.commits().getLog(rev, { merges: 'first-parent' });
+					context.cache.set(rev, log);
 				}
 
 				const result: StepResult<GitReference> = yield* pickCommitStep(state as MergeStepState, context, {
 					ignoreFocusOut: true,
 					log: await log,
-					onDidLoadMore: log => context.cache.set(ref, Promise.resolve(log)),
+					onDidLoadMore: log => context.cache.set(rev, Promise.resolve(log)),
 					placeholder: (context, log) =>
 						log == null
 							? `No commits found on ${getReferenceLabel(context.selectedBranchOrTag, {

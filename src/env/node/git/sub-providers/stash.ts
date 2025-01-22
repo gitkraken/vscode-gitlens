@@ -286,8 +286,8 @@ export class StashGitSubProvider implements GitStashSubProvider {
 
 	@gate()
 	@log()
-	async deleteStash(repoPath: string, stashName: string, ref?: string): Promise<void> {
-		await this.git.stash__delete(repoPath, stashName, ref);
+	async deleteStash(repoPath: string, stashName: string, sha?: string): Promise<void> {
+		await this.git.stash__delete(repoPath, stashName, sha);
 		this.container.events.fire('git:repo:change', { repoPath: repoPath, changes: [RepositoryChange.Stash] });
 		this.container.events.fire('git:cache:reset', { repoPath: repoPath, caches: ['stashes'] });
 	}
@@ -297,11 +297,11 @@ export class StashGitSubProvider implements GitStashSubProvider {
 	async renameStash(
 		repoPath: string,
 		stashName: string,
-		ref: string,
+		sha: string,
 		message: string,
 		stashOnRef?: string,
 	): Promise<void> {
-		await this.git.stash__rename(repoPath, stashName, ref, message, stashOnRef);
+		await this.git.stash__rename(repoPath, stashName, sha, message, stashOnRef);
 		this.container.events.fire('git:repo:change', { repoPath: repoPath, changes: [RepositoryChange.Stash] });
 		this.container.events.fire('git:cache:reset', { repoPath: repoPath, caches: ['stashes'] });
 	}

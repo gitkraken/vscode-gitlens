@@ -117,7 +117,7 @@ export class DiffWithCommand extends GlCommandBase {
 				// Ensure that the file still exists in this commit
 				const status = await this.container.git
 					.commits(args.repoPath)
-					.getFileStatusForCommit(args.rhs.uri, args.rhs.sha);
+					.getCommitFileStatus(args.rhs.uri, args.rhs.sha);
 				if (status?.status === 'D') {
 					args.rhs.sha = deletedOrMissing;
 				} else {

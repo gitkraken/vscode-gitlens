@@ -73,10 +73,9 @@ export class FileRevisionAsCommitNode extends ViewRefFileNode<
 			// Try to get the commit directly from the multi-file commit
 			const commit = await this.commit.getCommitForFile(this.file);
 			if (commit == null) {
-				const log = await this.view.container.git.commits(this.repoPath).getLogForFile(this.file.path, {
-					limit: 2,
-					ref: this.commit.sha,
-				});
+				const log = await this.view.container.git
+					.commits(this.repoPath)
+					.getLogForFile(this.file.path, this.commit.sha, { limit: 2 });
 				if (log != null) {
 					this.commit = log.commits.get(this.commit.sha) ?? this.commit;
 				}

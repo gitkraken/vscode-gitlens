@@ -158,21 +158,21 @@ export class LogGitCommand extends QuickCommand<State> {
 			}
 
 			if (state.counter < 3 && context.selectedBranchOrTag != null) {
-				const ref = context.selectedBranchOrTag.ref;
+				const rev = context.selectedBranchOrTag.ref;
 
-				let log = context.cache.get(ref);
+				let log = context.cache.get(rev);
 				if (log == null) {
 					log =
 						state.fileName != null
-							? state.repo.git.commits().getLogForFile(state.fileName, { ref: ref })
-							: state.repo.git.commits().getLog({ ref: ref });
-					context.cache.set(ref, log);
+							? state.repo.git.commits().getLogForFile(state.fileName, rev)
+							: state.repo.git.commits().getLog(rev);
+					context.cache.set(rev, log);
 				}
 
 				const result = yield* pickCommitStep(state, context, {
 					ignoreFocusOut: true,
 					log: await log,
-					onDidLoadMore: log => context.cache.set(ref, Promise.resolve(log)),
+					onDidLoadMore: log => context.cache.set(rev, Promise.resolve(log)),
 					placeholder: (context, log) =>
 						log == null
 							? `No commits found in ${getReferenceLabel(context.selectedBranchOrTag, {
