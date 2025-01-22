@@ -8,6 +8,7 @@ import type { HostingIntegrationId } from '../../constants.integrations';
 import type { Container } from '../../container';
 import { executeCommand, registerCommand } from '../../system/-webview/command';
 import { configuration } from '../../system/-webview/configuration';
+import { once } from '../../system/event';
 import { groupByMap } from '../../system/iterable';
 import { wait } from '../../system/promise';
 import { pluralize } from '../../system/string';
@@ -41,10 +42,9 @@ export class LaunchpadIndicator implements Disposable {
 			provider.onDidRefresh(this.onLaunchpadRefreshed, this),
 			configuration.onDidChange(this.onConfigurationChanged, this),
 			container.integrations.onDidChangeConnectionState(this.onConnectedIntegrationsChanged, this),
+			once(container.onReady)(this.onReady, this),
 			...this.registerCommands(),
 		);
-
-		void this.onReady();
 	}
 
 	dispose() {
