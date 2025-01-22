@@ -52,6 +52,9 @@ export class GlActiveWork extends SignalWatcher(LitElement) {
 			.tooltip {
 				text-transform: none;
 			}
+			.uppercase {
+				text-transform: uppercase;
+			}
 		`,
 	];
 
@@ -109,7 +112,23 @@ export class GlActiveWork extends SignalWatcher(LitElement) {
 
 		return html`
 			<gl-section ?loading=${isFetching}>
-				<span slot="heading">${this.renderRepositoryIcon(repo.provider)} ${repo.name}</span>
+				<span slot="heading">
+					${this.renderRepositoryIcon(repo.provider)}
+					${when(
+						this._homeState.repositories.openCount > 1,
+						() =>
+							html`<gl-button
+								aria-busy="${ifDefined(isFetching)}"
+								?disabled=${isFetching}
+								class="section-heading-action"
+								appearance="toolbar"
+								tooltip="Change Repository"
+								@click=${(e: MouseEvent) => this.onChange(e)}
+								><span class="uppercase">${repo.name}</span><code-icon icon="chevron-down"></code-icon
+							></gl-button>`,
+						() => html`${repo.name}`,
+					)}
+				</span>
 				<span slot="heading-actions"
 					><gl-button
 						aria-busy="${ifDefined(isFetching)}"
@@ -132,20 +151,7 @@ export class GlActiveWork extends SignalWatcher(LitElement) {
 						href=${createCommandLink('gitlens.home.fetch', undefined)}
 						><code-icon icon="repo-fetch"></code-icon
 					></gl-button>
-					${when(
-						this._homeState.repositories.openCount > 1,
-						() =>
-							html`<gl-button
-								aria-busy="${ifDefined(isFetching)}"
-								?disabled=${isFetching}
-								class="section-heading-action"
-								appearance="toolbar"
-								tooltip="Change Repository"
-								@click=${(e: MouseEvent) => this.onChange(e)}
-								><code-icon icon="chevron-down"></code-icon
-							></gl-button>`,
-					)}</span
-				>
+				</span>
 				${activeBranches.map(branch => {
 					return this.renderRepoBranchCard(branch, repo.path, isFetching);
 				})}
