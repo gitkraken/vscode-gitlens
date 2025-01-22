@@ -213,16 +213,32 @@ export function disposableInterval(fn: (...args: any[]) => void, ms: number): Di
 	return disposable;
 }
 
-export async function sequentialize<T extends (...args: any[]) => unknown>(
+export async function runSequentially<T extends (...args: any[]) => unknown>(
 	fn: T,
-	argArray: Parameters<T>[],
+	arrayOfArgs: Parameters<T>[],
 	thisArg?: unknown,
 ): Promise<any> {
-	for (const args of argArray) {
+	for (const args of arrayOfArgs) {
 		try {
 			void (await fn.apply(thisArg, args));
 		} catch {}
 	}
+}
+
+export function sequentialize<T extends (...args: any[]) => Promise<any>>(fn: T): T {
+	let promise: Promise<unknown> | undefined;
+
+	return function (...args: any[]): Promise<any> {
+		// eslint-disable-next-line no-return-await, @typescript-eslint/no-unsafe-return
+		const run = async () => await fn(...args);
+		if (promise == null) {
+			promise = run();
+		} else {
+			promise = promise.then(run, run);
+		}
+
+		return promise;
+	} as T;
 }
 
 /**

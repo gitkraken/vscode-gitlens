@@ -51,7 +51,7 @@ import type { OpenWorkspaceLocation } from '../system/-webview/utils';
 import { openUrl, openWorkspace, revealInFileExplorer } from '../system/-webview/utils';
 import { filterMap } from '../system/array';
 import { log } from '../system/decorators/log';
-import { partial, sequentialize } from '../system/function';
+import { partial, runSequentially } from '../system/function';
 import { join, map } from '../system/iterable';
 import { DeepLinkActionType } from '../uris/deepLinks/deepLink';
 import type { LaunchpadItemNode } from './launchpadView';
@@ -122,7 +122,7 @@ export function registerViewCommand(
 						}
 
 						// Execute the command for each node sequentially
-						return sequentialize(
+						return runSequentially(
 							callback,
 							nodes.map<[ViewNode, ...any[]]>(n => [n, ...rest]),
 							thisArg,
