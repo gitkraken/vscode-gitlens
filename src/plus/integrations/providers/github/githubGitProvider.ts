@@ -10,7 +10,6 @@ import type {
 } from 'vscode';
 import { EventEmitter, FileType, Uri, window, workspace } from 'vscode';
 import { encodeUtf8Hex } from '@env/hex';
-import { isWeb } from '@env/platform';
 import { CharCode, Schemes } from '../../../../constants';
 import { HostingIntegrationId } from '../../../../constants.integrations';
 import type { Container } from '../../../../container';
@@ -1459,41 +1458,36 @@ export class GitHubGitProvider implements GitProvider, Disposable {
 
 	private _sessionPromise: Promise<AuthenticationSession> | undefined;
 	private async ensureSession(force: boolean = false, silent: boolean = false): Promise<AuthenticationSession> {
-		// never get silent in web environments, because we assume that we always have a github session there:
-		silent = silent && !isWeb;
 		if (force || this._sessionPromise == null) {
 			async function getSession(this: GitHubGitProvider): Promise<AuthenticationSession> {
 				let skip = this.container.storage.get(`provider:authentication:skip:${this.descriptor.id}`, false);
-				const authenticationProvider = await this.authenticationService.get(this.authenticationProviderId);
-				let options:
-					| { forceNewSession: true; createIfNeeded?: never; silent?: never }
-					| { forceNewSession?: never; createIfNeeded: true; silent?: never }
-					| { forceNewSession?: never; createIfNeeded?: never; silent: true } = isWeb
-					? { createIfNeeded: true }
-					: { silent: true };
 
 				try {
+					let session;
 					if (force) {
 						skip = false;
 						void this.container.storage.delete(`provider:authentication:skip:${this.descriptor.id}`);
-						options = { forceNewSession: true };
-					} else if (!skip && !silent) {
-						options = { createIfNeeded: true };
-					} else {
-						options = isWeb ? { createIfNeeded: true } : { silent: true };
-					}
 
-					const session = isWeb
-						? await getBuiltInIntegrationSession(
-								this.container,
-								HostingIntegrationId.GitHub,
-								this.authenticationDescriptor,
-								options,
-						  )
-						: await authenticationProvider.getSession(
-								this.authenticationDescriptor,
-								options.silent ? undefined : options,
-						  );
+						session = await getBuiltInIntegrationSession(
+							this.container,
+							HostingIntegrationId.GitHub,
+							this.authenticationDescriptor,
+							{ forceNewSession: true },
+						);
+					} else if (!skip && !silent) {
+						session = await getBuiltInIntegrationSession(
+							this.container,
+							HostingIntegrationId.GitHub,
+							this.authenticationDescriptor,
+							{ createIfNeeded: true },
+						);
+					} else {
+						session = await getBuiltInIntegrationSession(
+							this.container,
+							HostingIntegrationId.GitHub,
+							this.authenticationDescriptor,
+						);
+					}
 
 					if (session != null) return session;
 
