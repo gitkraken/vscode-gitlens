@@ -13,7 +13,7 @@ import type { GitTag } from '../git/models/tag';
 import type { BranchSortOptions, TagSortOptions } from '../git/utils/-webview/sorting';
 import { isBranchReference, isRevisionReference, isTagReference } from '../git/utils/reference.utils';
 import type { KeyboardScope } from '../system/-webview/keyboard';
-import { getQuickPickIgnoreFocusOut } from '../system/-webview/utils';
+import { getQuickPickIgnoreFocusOut } from '../system/-webview/vscode';
 import type { BranchQuickPickItem, RefQuickPickItem, TagQuickPickItem } from './items/gitWizard';
 import { createRefQuickPickItem } from './items/gitWizard';
 

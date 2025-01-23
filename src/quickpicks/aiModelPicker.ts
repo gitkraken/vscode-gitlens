@@ -5,7 +5,7 @@ import type { AIModels, AIProviders } from '../constants.ai';
 import { GlCommand } from '../constants.commands';
 import type { Container } from '../container';
 import { executeCommand } from '../system/-webview/command';
-import { getQuickPickIgnoreFocusOut } from '../system/-webview/utils';
+import { getQuickPickIgnoreFocusOut } from '../system/-webview/vscode';
 
 export interface ModelQuickPickItem extends QuickPickItem {
 	model: AIModel;

@@ -19,7 +19,7 @@ import { RepositoryChange, RepositoryChangeComparisonMode } from '../git/models/
 import { configuration } from '../system/-webview/configuration';
 import { setContext } from '../system/-webview/context';
 import { UriSet } from '../system/-webview/uriMap';
-import { findTextDocument, isVisibleDocument } from '../system/-webview/utils';
+import { findTextDocument, isVisibleDocument } from '../system/-webview/vscode';
 import { debug } from '../system/decorators/log';
 import { once } from '../system/event';
 import type { Deferrable } from '../system/function';

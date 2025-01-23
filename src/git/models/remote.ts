@@ -1,3 +1,4 @@
+/* eslint-disable @typescript-eslint/no-restricted-imports */ /* TODO need to deal with sharing rich class shapes to webviews */
 import type { Container } from '../../container';
 import type { HostingIntegration } from '../../plus/integrations/integration';
 import { memoize } from '../../system/decorators/-webview/memoize';

@@ -2,7 +2,7 @@ import type { Disposable, TextEditor, Uri } from 'vscode';
 import { window } from 'vscode';
 import { Container } from '../container';
 import type { Repository } from '../git/models/repository';
-import { getQuickPickIgnoreFocusOut } from '../system/-webview/utils';
+import { getQuickPickIgnoreFocusOut } from '../system/-webview/vscode';
 import { filterMap } from '../system/array';
 import { map } from '../system/iterable';
 import { CommandQuickPickItem } from './items/common';

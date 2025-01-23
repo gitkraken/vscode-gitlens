@@ -7,7 +7,7 @@ import type { GitLog } from '../git/models/log';
 import type { GitStash } from '../git/models/stash';
 import { configuration } from '../system/-webview/configuration';
 import type { KeyboardScope } from '../system/-webview/keyboard';
-import { getQuickPickIgnoreFocusOut } from '../system/-webview/utils';
+import { getQuickPickIgnoreFocusOut } from '../system/-webview/vscode';
 import { filterMap } from '../system/array';
 import { filter, map } from '../system/iterable';
 import { isPromise } from '../system/promise';

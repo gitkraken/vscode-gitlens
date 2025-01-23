@@ -14,7 +14,7 @@ import { assertsCommitHasFullDetails } from '../git/utils/commit.utils';
 import { showAIModelPicker } from '../quickpicks/aiModelPicker';
 import { configuration } from '../system/-webview/configuration';
 import type { Storage } from '../system/-webview/storage';
-import { supportedInVSCodeVersion } from '../system/-webview/utils';
+import { supportedInVSCodeVersion } from '../system/-webview/vscode';
 import { getSettledValue } from '../system/promise';
 import { getPossessiveForm } from '../system/string';
 import type { TelemetryService } from '../telemetry/telemetry';

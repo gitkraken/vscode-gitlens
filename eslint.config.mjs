@@ -252,6 +252,16 @@ export default ts.config(
 						'util',
 						'vm',
 						'zlib',
+						{
+							name: 'react-dom',
+							importNames: ['Container'],
+							message: 'Use our Container instead',
+						},
+						{
+							name: 'vscode',
+							importNames: ['CancellationError'],
+							message: 'Use our CancellationError instead',
+						},
 					],
 					patterns: [
 						{
@@ -259,14 +269,8 @@ export default ts.config(
 							message: 'Use @env/ instead',
 						},
 						{
-							group: ['react-dom'],
-							importNames: ['Container'],
-							message: 'Use our Container instead',
-						},
-						{
-							group: ['vscode'],
-							importNames: ['CancellationError'],
-							message: 'Use our CancellationError instead',
+							group: ['**/webview/**/*'],
+							message: "Can't use any `webview`-only modules in extension",
 						},
 					],
 				},
@@ -339,14 +343,14 @@ export default ts.config(
 			'@typescript-eslint/no-restricted-imports': [
 				'error',
 				{
-					patterns: [
+					paths: [
 						{
-							group: ['react-dom'],
+							name: 'react-dom',
 							importNames: ['Container'],
 							message: 'Use our Container instead',
 						},
 						{
-							group: ['vscode'],
+							name: 'vscode',
 							importNames: ['CancellationError'],
 							message: 'Use our CancellationError instead',
 						},
@@ -412,15 +416,23 @@ export default ts.config(
 			'@typescript-eslint/no-restricted-imports': [
 				'error',
 				{
+					paths: [
+						{
+							name: 'vscode',
+							message: "Can't use `vscode` in webviews",
+							allowTypeImports: true,
+						},
+					],
 					patterns: [
 						{
-							group: ['Container'],
+							group: ['container'],
+							importNames: ['Container'],
 							message: "Can't use `Container` in webviews",
 							allowTypeImports: true,
 						},
 						{
-							group: ['vscode'],
-							message: "Can't use `vscode` in webviews",
+							group: ['**/-webview/**/*'],
+							message: "Can't use any `-webview` modules in webviews",
 							allowTypeImports: true,
 						},
 					],

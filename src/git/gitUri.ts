@@ -5,7 +5,7 @@ import { Container } from '../container';
 import type { GitHubAuthorityMetadata } from '../plus/remotehub';
 import { formatPath } from '../system/-webview/formatPath';
 import { getBestPath, relativeDir, splitPath } from '../system/-webview/path';
-import { isVirtualUri } from '../system/-webview/utils';
+import { isVirtualUri } from '../system/-webview/vscode';
 import { UriComparer } from '../system/comparers';
 import { memoize } from '../system/decorators/-webview/memoize';
 import { debug } from '../system/decorators/log';

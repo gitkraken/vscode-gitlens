@@ -15,7 +15,7 @@ import { Container } from '../../container';
 import { showRevisionFilesPicker } from '../../quickpicks/revisionFilesPicker';
 import { executeCommand, executeCoreGitCommand, executeEditorCommand } from '../../system/-webview/command';
 import { configuration } from '../../system/-webview/configuration';
-import { findOrOpenEditor, findOrOpenEditors, openChangesEditor } from '../../system/-webview/utils';
+import { findOrOpenEditor, findOrOpenEditors, openChangesEditor } from '../../system/-webview/vscode';
 import { getSettledValue } from '../../system/promise';
 import type { ShowInCommitGraphCommandArgs } from '../../webviews/plus/graph/protocol';
 import { GitUri } from '../gitUri';

@@ -5,7 +5,7 @@ import { GlCommand } from '../constants.commands';
 import type { Container } from '../container';
 import { showGenericErrorMessage } from '../messages';
 import { command } from '../system/-webview/command';
-import { getEditorIfVisible, getOtherVisibleTextEditors, isTrackableTextEditor } from '../system/-webview/utils';
+import { getEditorIfVisible, getOtherVisibleTextEditors, isTrackableTextEditor } from '../system/-webview/vscode';
 import { Logger } from '../system/logger';
 import { ActiveEditorCommand, EditorCommand } from './commandBase';
 

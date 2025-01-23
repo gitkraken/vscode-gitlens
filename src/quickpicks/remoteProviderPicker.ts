@@ -14,7 +14,7 @@ import { getDefaultBranchName } from '../git/utils/-webview/branch.utils';
 import { getBranchNameWithoutRemote, getRemoteNameFromBranchName } from '../git/utils/branch.utils';
 import { getHighlanderProviders } from '../git/utils/remote.utils';
 import { getNameFromRemoteResource } from '../git/utils/remoteResource.utils';
-import { getQuickPickIgnoreFocusOut } from '../system/-webview/utils';
+import { getQuickPickIgnoreFocusOut } from '../system/-webview/vscode';
 import { filterMap } from '../system/array';
 import { getSettledValue } from '../system/promise';
 import { CommandQuickPickItem } from './items/common';

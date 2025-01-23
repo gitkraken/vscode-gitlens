@@ -94,8 +94,7 @@ import {
 import { asRepoComparisonKey } from '../../../repositories';
 import { TimedCancellationSource } from '../../../system/-webview/cancellation';
 import { configuration } from '../../../system/-webview/configuration';
-import { getBestPath, relative, splitPath } from '../../../system/-webview/path';
-import { isFolderUri } from '../../../system/-webview/utils';
+import { getBestPath, isFolderUri, relative, splitPath } from '../../../system/-webview/path';
 import { gate } from '../../../system/decorators/-webview/gate';
 import { debug, log } from '../../../system/decorators/log';
 import { debounce } from '../../../system/function';

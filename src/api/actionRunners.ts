@@ -6,7 +6,7 @@ import type { Container } from '../container';
 import { registerCommand } from '../system/-webview/command';
 import { configuration } from '../system/-webview/configuration';
 import { setContext } from '../system/-webview/context';
-import { getQuickPickIgnoreFocusOut } from '../system/-webview/utils';
+import { getQuickPickIgnoreFocusOut } from '../system/-webview/vscode';
 import { getScopedCounter } from '../system/counter';
 import { sortCompare } from '../system/string';
 import type { Action, ActionContext, ActionRunner } from './gitlens';

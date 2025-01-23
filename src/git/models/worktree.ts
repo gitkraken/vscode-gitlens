@@ -1,9 +1,9 @@
+/* eslint-disable @typescript-eslint/no-restricted-imports */ /* TODO need to deal with sharing rich class shapes to webviews */
 import type { Uri, WorkspaceFolder } from 'vscode';
-// eslint-disable-next-line @typescript-eslint/no-restricted-imports
 import { workspace } from 'vscode';
 import type { Container } from '../../container';
 import { relative } from '../../system/-webview/path';
-import { getWorkspaceFriendlyPath } from '../../system/-webview/utils';
+import { getWorkspaceFriendlyPath } from '../../system/-webview/vscode';
 import { formatDate, fromNow } from '../../system/date';
 import { memoize } from '../../system/decorators/-webview/memoize';
 import { normalizePath } from '../../system/path';

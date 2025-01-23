@@ -3,7 +3,7 @@ import { Disposable, Uri, workspace } from 'vscode';
 import { git, gitLogStreamTo } from '@env/providers';
 import type { LiveShare, SharedService } from '../@types/vsls';
 import type { Container } from '../container';
-import { isVslsRoot } from '../system/-webview/path';
+import { isVslsRoot } from '../system/-webview/path.vsls';
 import { debug, log } from '../system/decorators/log';
 import { join } from '../system/iterable';
 import { Logger } from '../system/logger';

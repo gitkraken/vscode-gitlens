@@ -2,7 +2,7 @@ import type { MessageItem } from 'vscode';
 import { window } from 'vscode';
 import { urls } from '../../../../constants';
 import type { Container } from '../../../../container';
-import { openUrl } from '../../../../system/-webview/utils';
+import { openUrl } from '../../../../system/-webview/vscode';
 
 export async function confirmDraftStorage(container: Container): Promise<boolean> {
 	if (container.storage.get('confirm:draft:storage', false)) return true;

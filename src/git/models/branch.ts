@@ -1,3 +1,4 @@
+/* eslint-disable @typescript-eslint/no-restricted-imports */ /* TODO need to deal with sharing rich class shapes to webviews */
 import type { EnrichedAutolink } from '../../autolinks';
 import type { Container } from '../../container';
 import { formatDate, fromNow } from '../../system/date';
