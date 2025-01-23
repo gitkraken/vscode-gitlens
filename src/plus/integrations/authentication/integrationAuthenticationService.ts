@@ -6,8 +6,8 @@ import type { Container } from '../../../container';
 import { gate } from '../../../system/decorators/-webview/gate';
 import { log } from '../../../system/decorators/log';
 import { supportedIntegrationIds } from '../providers/models';
-import type { IntegrationAuthenticationProvider } from './integrationAuthentication';
-import { BuiltInAuthenticationProvider } from './integrationAuthentication';
+import type { IntegrationAuthenticationProvider } from './integrationAuthenticationProvider';
+import { BuiltInAuthenticationProvider } from './integrationAuthenticationProvider';
 import type { ConfiguredIntegrationDescriptor } from './models';
 import { isSupportedCloudIntegrationId } from './models';
 

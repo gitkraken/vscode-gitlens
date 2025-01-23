@@ -16,7 +16,7 @@ import type { RepositoryMetadata } from '../../../git/models/repositoryMetadata'
 import type { PullRequestUrlIdentity } from '../../../git/utils/pullRequest.utils';
 import { log } from '../../../system/decorators/log';
 import { ensurePaidPlan } from '../../gk/utils/-webview/plus.utils';
-import type { IntegrationAuthenticationProviderDescriptor } from '../authentication/integrationAuthentication';
+import type { IntegrationAuthenticationProviderDescriptor } from '../authentication/integrationAuthenticationProvider';
 import type { IntegrationAuthenticationService } from '../authentication/integrationAuthenticationService';
 import type { RepositoryDescriptor, SupportedIntegrationIds } from '../integration';
 import { HostingIntegration } from '../integration';

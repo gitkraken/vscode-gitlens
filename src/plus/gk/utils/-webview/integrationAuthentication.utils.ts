@@ -3,7 +3,7 @@ import { wrapForForcedInsecureSSL } from '@env/fetch';
 import type { IntegrationId } from '../../../../constants.integrations';
 import type { Container } from '../../../../container';
 import { sequentialize } from '../../../../system/function';
-import type { IntegrationAuthenticationSessionDescriptor } from '../../../integrations/authentication/integrationAuthentication';
+import type { IntegrationAuthenticationSessionDescriptor } from '../../../integrations/authentication/integrationAuthenticationProvider';
 import type { ProviderAuthenticationSession } from '../../../integrations/authentication/models';
 
 export const getBuiltInIntegrationSession = sequentialize(
