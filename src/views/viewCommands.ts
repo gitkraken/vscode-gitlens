@@ -47,8 +47,8 @@ import {
 } from '../system/-webview/command';
 import { configuration } from '../system/-webview/configuration';
 import { setContext } from '../system/-webview/context';
-import type { OpenWorkspaceLocation } from '../system/-webview/utils';
-import { openUrl, openWorkspace, revealInFileExplorer } from '../system/-webview/utils';
+import type { OpenWorkspaceLocation } from '../system/-webview/vscode';
+import { openUrl, openWorkspace, revealInFileExplorer } from '../system/-webview/vscode';
 import { filterMap } from '../system/array';
 import { log } from '../system/decorators/log';
 import { partial, runSequentially } from '../system/function';

@@ -28,7 +28,7 @@ import type { GitCommit } from '../git/models/commit';
 import { RemoteResourceType } from '../git/models/remoteResource';
 import { createCommand, executeCoreCommand } from '../system/-webview/command';
 import { configuration } from '../system/-webview/configuration';
-import { isVirtualUri } from '../system/-webview/utils';
+import { isVirtualUri } from '../system/-webview/vscode';
 import { is, once } from '../system/function';
 import { filterMap, find, first, join, map } from '../system/iterable';
 import { getLoggableName, Logger } from '../system/logger';

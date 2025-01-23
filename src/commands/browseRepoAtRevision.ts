@@ -4,7 +4,7 @@ import type { Container } from '../container';
 import { GitUri } from '../git/gitUri';
 import { showGenericErrorMessage } from '../messages';
 import { command, executeCoreCommand } from '../system/-webview/command';
-import { openWorkspace } from '../system/-webview/utils';
+import { openWorkspace } from '../system/-webview/vscode';
 import { Logger } from '../system/logger';
 import { basename } from '../system/path';
 import { ActiveEditorCommand } from './commandBase';

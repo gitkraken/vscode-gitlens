@@ -38,7 +38,7 @@ import { parseGitRemoteUrl } from '../../../git/parsers/remoteParser';
 import { isUncommitted, isUncommittedStaged, shortenRevision } from '../../../git/utils/revision.utils';
 import { configuration } from '../../../system/-webview/configuration';
 import { splitPath } from '../../../system/-webview/path';
-import { getEditorCommand } from '../../../system/-webview/utils';
+import { getEditorCommand } from '../../../system/-webview/vscode';
 import { splitAt } from '../../../system/array';
 import { log } from '../../../system/decorators/log';
 import { join } from '../../../system/iterable';

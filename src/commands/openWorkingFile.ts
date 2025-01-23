@@ -6,7 +6,7 @@ import type { Container } from '../container';
 import { GitUri, isGitUri } from '../git/gitUri';
 import { showGenericErrorMessage } from '../messages';
 import { command } from '../system/-webview/command';
-import { findOrOpenEditor } from '../system/-webview/utils';
+import { findOrOpenEditor } from '../system/-webview/vscode';
 import { Logger } from '../system/logger';
 import { ActiveEditorCommand } from './commandBase';
 import { getCommandUri } from './commandBase.utils';

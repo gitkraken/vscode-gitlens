@@ -2,7 +2,7 @@ import { env, Range, Uri, window } from 'vscode';
 import { GlCommand } from '../constants.commands';
 import type { Container } from '../container';
 import { command } from '../system/-webview/command';
-import { openEditor } from '../system/-webview/utils';
+import { openEditor } from '../system/-webview/vscode';
 import { GlCommandBase } from './commandBase';
 
 @command()

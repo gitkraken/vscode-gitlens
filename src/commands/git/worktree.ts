@@ -36,7 +36,7 @@ import type { FlagsQuickPickItem } from '../../quickpicks/items/flags';
 import { createFlagsQuickPickItem } from '../../quickpicks/items/flags';
 import { configuration } from '../../system/-webview/configuration';
 import { isDescendant } from '../../system/-webview/path';
-import { getWorkspaceFriendlyPath, openWorkspace, revealInFileExplorer } from '../../system/-webview/utils';
+import { getWorkspaceFriendlyPath, openWorkspace, revealInFileExplorer } from '../../system/-webview/vscode';
 import { basename } from '../../system/path';
 import type { Deferred } from '../../system/promise';
 import { pluralize, truncateLeft } from '../../system/string';

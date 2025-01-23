@@ -3,11 +3,10 @@ import { isLinux, isWindows } from '@env/platform';
 
 export { basename, dirname, extname, join as joinPaths } from 'path';
 
-const slash = 47; //CharCode.Slash;
-
 const driveLetterNormalizeRegex = /(?<=^\/?)([A-Z])(?=:\/)/;
 const hasSchemeRegex = /^([a-zA-Z][\w+.-]+):/;
 const pathNormalizeRegex = /\\/g;
+const slash = 47;
 
 export function commonBase(s: string[], delimiter: string, ignoreCase?: boolean): string | undefined {
 	if (s.length === 0) return undefined;

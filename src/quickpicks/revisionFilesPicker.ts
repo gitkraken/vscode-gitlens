@@ -6,7 +6,7 @@ import type { GitRevisionReference } from '../git/models/reference';
 import type { GitTreeEntry } from '../git/models/tree';
 import type { KeyboardScope } from '../system/-webview/keyboard';
 import { splitPath } from '../system/-webview/path';
-import { getQuickPickIgnoreFocusOut } from '../system/-webview/utils';
+import { getQuickPickIgnoreFocusOut } from '../system/-webview/vscode';
 import { filterMap } from '../system/iterable';
 import type { QuickPickItemOfT } from './items/common';
 

@@ -8,7 +8,7 @@ import { createReference } from '../git/utils/reference.utils';
 import { showGenericErrorMessage } from '../messages';
 import { showRevisionFilesPicker } from '../quickpicks/revisionFilesPicker';
 import { command, executeCommand } from '../system/-webview/command';
-import { findOrOpenEditor } from '../system/-webview/utils';
+import { findOrOpenEditor } from '../system/-webview/vscode';
 import { Logger } from '../system/logger';
 import { ActiveEditorCommand } from './commandBase';
 import { getCommandUri } from './commandBase.utils';

@@ -5,7 +5,7 @@ import type { GitBlame } from '../git/models/blame';
 import type { GitDiffFile } from '../git/models/diff';
 import type { GitLog } from '../git/models/log';
 import { configuration } from '../system/-webview/configuration';
-import { getEditorIfVisible, isActiveDocument, isVisibleDocument } from '../system/-webview/utils';
+import { getEditorIfVisible, isActiveDocument, isVisibleDocument } from '../system/-webview/vscode';
 import { debug, logName } from '../system/decorators/log';
 import type { Deferrable } from '../system/function';
 import { debounce } from '../system/function';

@@ -1,4 +1,4 @@
-// eslint-disable-next-line @typescript-eslint/no-restricted-imports
+/* eslint-disable @typescript-eslint/no-restricted-imports */ /* TODO need to deal with sharing rich class shapes to webviews */
 import { Uri } from 'vscode';
 import type { EnrichedAutolink } from '../../autolinks';
 import { getAvatarUri, getCachedAvatarUri } from '../../avatars';

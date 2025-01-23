@@ -4,7 +4,7 @@ import { GlCommand } from '../constants.commands';
 import type { Source, Sources } from '../constants.telemetry';
 import type { Container } from '../container';
 import { command, executeCommand } from '../system/-webview/command';
-import { openUrl, openWalkthrough as openWalkthroughCore } from '../system/-webview/utils';
+import { openUrl, openWalkthrough as openWalkthroughCore } from '../system/-webview/vscode';
 import { GlCommandBase } from './commandBase';
 
 @command()

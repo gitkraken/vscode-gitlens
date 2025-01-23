@@ -9,7 +9,7 @@ import type { Repository } from '../git/models/repository';
 import { ensurePlusFeaturesEnabled } from '../plus/gk/utils/-webview/plus.utils';
 import { executeCommand } from '../system/-webview/command';
 import { configuration } from '../system/-webview/configuration';
-import { openUrl, openWorkspace } from '../system/-webview/utils';
+import { openUrl, openWorkspace } from '../system/-webview/vscode';
 import { gate } from '../system/decorators/-webview/gate';
 import { debug } from '../system/decorators/log';
 import { ViewNode } from './nodes/abstract/viewNode';

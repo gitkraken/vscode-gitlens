@@ -1,4 +1,4 @@
-import { Disposable, TreeItem, TreeItemCollapsibleState, Uri, window } from 'vscode';
+import { Disposable, TreeItem, TreeItemCollapsibleState, window } from 'vscode';
 import type { GitUri } from '../../git/gitUri';
 import type { GitBranch } from '../../git/models/branch';
 import type { GitLog } from '../../git/models/log';
@@ -6,6 +6,7 @@ import type { RepositoryChangeEvent, RepositoryFileSystemChangeEvent } from '../
 import { RepositoryChange, RepositoryChangeComparisonMode } from '../../git/models/repository';
 import { deletedOrMissing } from '../../git/models/revision';
 import { configuration } from '../../system/-webview/configuration';
+import { getFolderGlobUri } from '../../system/-webview/path';
 import { gate } from '../../system/decorators/-webview/gate';
 import { memoize } from '../../system/decorators/-webview/memoize';
 import { debug } from '../../system/decorators/log';
@@ -256,7 +257,7 @@ export class FileHistoryNode
 
 	@memoize()
 	private getPathOrGlob() {
-		return this.folder ? Uri.joinPath(this.uri, '*') : this.uri;
+		return this.folder ? getFolderGlobUri(this.uri) : this.uri;
 	}
 
 	get hasMore() {
