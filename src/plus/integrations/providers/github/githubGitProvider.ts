@@ -80,7 +80,7 @@ import { GitDocumentState } from '../../../../trackers/trackedDocument';
 import { getBuiltInIntegrationSession } from '../../../gk/utils/-webview/integrationAuthentication.utils';
 import type { GitHubAuthorityMetadata, Metadata, RemoteHubApi } from '../../../remotehub';
 import { getRemoteHubApi, HeadType, RepositoryRefType } from '../../../remotehub';
-import type { IntegrationAuthenticationSessionDescriptor } from '../../authentication/integrationAuthentication';
+import type { IntegrationAuthenticationSessionDescriptor } from '../../authentication/integrationAuthenticationProvider';
 import type { GitHubApi } from './github';
 import { fromCommitFileStatus } from './models';
 import { BranchesGitSubProvider } from './sub-providers/branches';

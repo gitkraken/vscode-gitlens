@@ -11,7 +11,7 @@ import type {
 	SearchedPullRequest,
 } from '../../../git/models/pullRequest';
 import type { RepositoryMetadata } from '../../../git/models/repositoryMetadata';
-import type { IntegrationAuthenticationProviderDescriptor } from '../authentication/integrationAuthentication';
+import type { IntegrationAuthenticationProviderDescriptor } from '../authentication/integrationAuthenticationProvider';
 import type { ResourceDescriptor } from '../integration';
 import { HostingIntegration } from '../integration';
 import { providersMetadata } from './models';

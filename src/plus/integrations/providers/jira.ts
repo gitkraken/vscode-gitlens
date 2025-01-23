@@ -6,7 +6,7 @@ import type { Issue, SearchedIssue } from '../../../git/models/issue';
 import type { IssueOrPullRequest } from '../../../git/models/issueOrPullRequest';
 import { filterMap, flatten } from '../../../system/iterable';
 import { Logger } from '../../../system/logger';
-import type { IntegrationAuthenticationProviderDescriptor } from '../authentication/integrationAuthentication';
+import type { IntegrationAuthenticationProviderDescriptor } from '../authentication/integrationAuthenticationProvider';
 import type { IssueResourceDescriptor } from '../integration';
 import { IssueIntegration } from '../integration';
 import { IssueFilter, providersMetadata, toAccount, toSearchedIssue } from './models';

@@ -36,7 +36,7 @@ import { isSubscriptionStatePaidOrTrial } from '../gk/utils/subscription.utils';
 import type {
 	IntegrationAuthenticationProviderDescriptor,
 	IntegrationAuthenticationSessionDescriptor,
-} from './authentication/integrationAuthentication';
+} from './authentication/integrationAuthenticationProvider';
 import type { IntegrationAuthenticationService } from './authentication/integrationAuthenticationService';
 import type { ProviderAuthenticationSession } from './authentication/models';
 import type {

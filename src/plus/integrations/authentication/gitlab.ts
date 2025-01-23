@@ -2,11 +2,11 @@ import type { Disposable, QuickInputButton } from 'vscode';
 import { env, ThemeIcon, Uri, window } from 'vscode';
 import { HostingIntegrationId, SelfHostedIntegrationId } from '../../../constants.integrations';
 import type { Container } from '../../../container';
-import type { IntegrationAuthenticationSessionDescriptor } from './integrationAuthentication';
+import type { IntegrationAuthenticationSessionDescriptor } from './integrationAuthenticationProvider';
 import {
 	CloudIntegrationAuthenticationProvider,
 	LocalIntegrationAuthenticationProvider,
-} from './integrationAuthentication';
+} from './integrationAuthenticationProvider';
 import type { IntegrationAuthenticationService } from './integrationAuthenticationService';
 import type { ProviderAuthenticationSession } from './models';
 

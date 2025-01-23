@@ -2,8 +2,8 @@ import type { Disposable, QuickInputButton } from 'vscode';
 import { env, ThemeIcon, Uri, window } from 'vscode';
 import { HostingIntegrationId } from '../../../constants.integrations';
 import { base64 } from '../../../system/string';
-import type { IntegrationAuthenticationSessionDescriptor } from './integrationAuthentication';
-import { LocalIntegrationAuthenticationProvider } from './integrationAuthentication';
+import type { IntegrationAuthenticationSessionDescriptor } from './integrationAuthenticationProvider';
+import { LocalIntegrationAuthenticationProvider } from './integrationAuthenticationProvider';
 import type { ProviderAuthenticationSession } from './models';
 
 export class BitbucketAuthenticationProvider extends LocalIntegrationAuthenticationProvider<HostingIntegrationId.Bitbucket> {

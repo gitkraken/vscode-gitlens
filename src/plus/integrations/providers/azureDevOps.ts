@@ -13,7 +13,7 @@ import type {
 } from '../../../git/models/pullRequest';
 import type { RepositoryMetadata } from '../../../git/models/repositoryMetadata';
 import { Logger } from '../../../system/logger';
-import type { IntegrationAuthenticationProviderDescriptor } from '../authentication/integrationAuthentication';
+import type { IntegrationAuthenticationProviderDescriptor } from '../authentication/integrationAuthenticationProvider';
 import type { ResourceDescriptor } from '../integration';
 import { HostingIntegration } from '../integration';
 import type { ProviderRepository } from './models';
