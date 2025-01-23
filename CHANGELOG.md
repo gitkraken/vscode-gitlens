@@ -148,6 +148,10 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/) and this p
 - Fixes [#3940](https://github.com/gitkraken/vscode-gitlens/issues/3940) - Commit Details: issue autolinks can disappear after enrichment
 - Fixes [#4035](https://github.com/gitkraken/vscode-gitlens/issues/4035) - Repo is lost when "Generate commit" is requested
 
+#### Added
+
+- Searches by URL for self hosted GitHub and GitLab on Launchpad
+
 ## [16.2.1] - 2025-01-21
 
 ### Fixed
