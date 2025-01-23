@@ -27,7 +27,7 @@ import { ServerConnection } from './plus/gk/serverConnection';
 import { SubscriptionService } from './plus/gk/subscriptionService';
 import { GraphStatusBarController } from './plus/graph/statusbar';
 import type { CloudIntegrationService } from './plus/integrations/authentication/cloudIntegrationService';
-import { IntegrationAuthenticationService } from './plus/integrations/authentication/integrationAuthentication';
+import { IntegrationAuthenticationService } from './plus/integrations/authentication/integrationAuthenticationService';
 import { IntegrationService } from './plus/integrations/integrationService';
 import type { GitHubApi } from './plus/integrations/providers/github/github';
 import type { GitLabApi } from './plus/integrations/providers/gitlab/gitlab';
@@ -297,7 +297,7 @@ export class Container {
 
 	@log()
 	private async registerGitProviders() {
-		const providers = await getSupportedGitProviders(this, this.authenticationService);
+		const providers = await getSupportedGitProviders(this);
 		for (const provider of providers) {
 			this._disposables.push(this._git.register(provider.descriptor.id, provider));
 		}
@@ -530,18 +530,11 @@ export class Container {
 		return this._context.extension.id;
 	}
 
-	private _authenticationService: IntegrationAuthenticationService | undefined;
-	private get authenticationService() {
-		if (this._authenticationService == null) {
-			this._disposables.push((this._authenticationService = new IntegrationAuthenticationService(this)));
-		}
-		return this._authenticationService;
-	}
-
 	private _integrations: IntegrationService | undefined;
 	get integrations(): IntegrationService {
 		if (this._integrations == null) {
-			this._disposables.push((this._integrations = new IntegrationService(this, this.authenticationService)));
+			const authService = new IntegrationAuthenticationService(this);
+			this._disposables.push(authService, (this._integrations = new IntegrationService(this, authService)));
 		}
 		return this._integrations;
 	}

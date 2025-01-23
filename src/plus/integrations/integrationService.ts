@@ -24,7 +24,7 @@ import { filter, filterMap, flatten, join } from '../../system/iterable';
 import { Logger } from '../../system/logger';
 import { getLogScope } from '../../system/logger.scope';
 import type { SubscriptionChangeEvent } from '../gk/subscriptionService';
-import type { IntegrationAuthenticationService } from './authentication/integrationAuthentication';
+import type { IntegrationAuthenticationService } from './authentication/integrationAuthenticationService';
 import type { ConfiguredIntegrationDescriptor } from './authentication/models';
 import {
 	CloudIntegrationAuthenticationUriPathPrefix,
@@ -461,6 +461,10 @@ export class IntegrationService implements Disposable {
 		return key == null ? this._connectedCache.size !== 0 : this._connectedCache.has(key);
 	}
 
+	getConfigured(id: SupportedIntegrationIds): ConfiguredIntegrationDescriptor[] {
+		return this.authenticationService.configured?.get(id) ?? [];
+	}
+
 	get(id: SupportedHostingIntegrationIds): Promise<HostingIntegration>;
 	get(id: SupportedIssueIntegrationIds): Promise<IssueIntegration>;
 	get(
@@ -489,10 +493,8 @@ export class IntegrationService implements Disposable {
 							return integration;
 						}
 
-						const existingConfigured = this.authenticationService.configured?.get(
-							SelfHostedIntegrationId.CloudGitHubEnterprise,
-						);
-						if (existingConfigured?.length) {
+						const existingConfigured = this.getConfigured(SelfHostedIntegrationId.CloudGitHubEnterprise);
+						if (existingConfigured.length) {
 							const { domain: configuredDomain } = existingConfigured[0];
 							if (configuredDomain == null) throw new Error(`Domain is required for '${id}' integration`);
 							integration = new (
@@ -547,10 +549,8 @@ export class IntegrationService implements Disposable {
 							return integration;
 						}
 
-						const existingConfigured = this.authenticationService.configured?.get(
-							SelfHostedIntegrationId.CloudGitLabSelfHosted,
-						);
-						if (existingConfigured?.length) {
+						const existingConfigured = this.getConfigured(SelfHostedIntegrationId.CloudGitLabSelfHosted);
+						if (existingConfigured.length) {
 							const { domain: configuredDomain } = existingConfigured[0];
 							if (configuredDomain == null) throw new Error(`Domain is required for '${id}' integration`);
 							integration = new (

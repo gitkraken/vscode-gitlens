@@ -35,9 +35,9 @@ import { getLogScope } from '../../system/logger.scope';
 import { isSubscriptionStatePaidOrTrial } from '../gk/utils/subscription.utils';
 import type {
 	IntegrationAuthenticationProviderDescriptor,
-	IntegrationAuthenticationService,
 	IntegrationAuthenticationSessionDescriptor,
 } from './authentication/integrationAuthentication';
+import type { IntegrationAuthenticationService } from './authentication/integrationAuthenticationService';
 import type { ProviderAuthenticationSession } from './authentication/models';
 import type {
 	GetIssuesOptions,

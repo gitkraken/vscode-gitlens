@@ -1,6 +1,7 @@
 /* eslint-disable @typescript-eslint/require-await */
 import type {
 	AuthenticationSession,
+	AuthenticationSessionsChangeEvent,
 	CancellationToken,
 	Disposable,
 	Event,
@@ -8,7 +9,7 @@ import type {
 	TextDocument,
 	WorkspaceFolder,
 } from 'vscode';
-import { EventEmitter, FileType, Uri, window, workspace } from 'vscode';
+import { authentication, EventEmitter, FileType, Uri, window, workspace } from 'vscode';
 import { encodeUtf8Hex } from '@env/hex';
 import { CharCode, Schemes } from '../../../../constants';
 import { HostingIntegrationId } from '../../../../constants.integrations';
@@ -79,10 +80,7 @@ import { GitDocumentState } from '../../../../trackers/trackedDocument';
 import { getBuiltInIntegrationSession } from '../../../gk/utils/-webview/integrationAuthentication.utils';
 import type { GitHubAuthorityMetadata, Metadata, RemoteHubApi } from '../../../remotehub';
 import { getRemoteHubApi, HeadType, RepositoryRefType } from '../../../remotehub';
-import type {
-	IntegrationAuthenticationService,
-	IntegrationAuthenticationSessionDescriptor,
-} from '../../authentication/integrationAuthentication';
+import type { IntegrationAuthenticationSessionDescriptor } from '../../authentication/integrationAuthentication';
 import type { GitHubApi } from './github';
 import { fromCommitFileStatus } from './models';
 import { BranchesGitSubProvider } from './sub-providers/branches';
@@ -142,23 +140,20 @@ export class GitHubGitProvider implements GitProvider, Disposable {
 	private readonly _cache: GitCache;
 	private readonly _disposables: Disposable[] = [];
 
-	constructor(
-		private readonly container: Container,
-		private readonly authenticationService: IntegrationAuthenticationService,
-	) {
+	constructor(private readonly container: Container) {
 		this._cache = new GitCache(this.container);
-		void authenticationService.get(this.authenticationProviderId).then(authProvider => {
-			this._disposables.push(authProvider.onDidChange(this.onAuthenticationSessionsChanged, this));
-		});
+		this._disposables.push(authentication.onDidChangeSessions(this.onAuthenticationSessionsChanged, this));
 	}
 
 	dispose() {
 		this._disposables.forEach(d => void d.dispose());
 	}
 
-	private onAuthenticationSessionsChanged() {
-		this._sessionPromise = undefined;
-		void this.ensureSession(false, true);
+	private onAuthenticationSessionsChanged(e: AuthenticationSessionsChangeEvent) {
+		if (e.provider.id === this.authenticationProviderId) {
+			this._sessionPromise = undefined;
+			void this.ensureSession(false, true);
+		}
 	}
 
 	private onRepositoryChanged(repo: Repository, e: RepositoryChangeEvent) {
