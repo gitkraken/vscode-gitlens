@@ -23,7 +23,6 @@ import { RepositoryFolderNode } from './nodes/abstract/repositoryFolderNode';
 import { ContextValues, ViewNode } from './nodes/abstract/viewNode';
 import { ComparePickerNode } from './nodes/comparePickerNode';
 import { CompareResultsNode, restoreComparisonCheckedFiles } from './nodes/compareResultsNode';
-import { FilesQueryFilter, ResultsFilesNode } from './nodes/resultsFilesNode';
 import { SearchResultsNode } from './nodes/searchResultsNode';
 import { disposeChildren, ViewBase } from './viewBase';
 import { registerViewCommand } from './viewCommands';
@@ -314,22 +313,6 @@ export class SearchAndCompareView extends ViewBase<
 			registerViewCommand(this.getQualifiedCommand('swapComparison'), this.swapComparison, this),
 			registerViewCommand(this.getQualifiedCommand('selectForCompare'), () => this.selectForCompare()),
 			registerViewCommand(this.getQualifiedCommand('compareWithSelected'), this.compareWithSelected, this),
-
-			registerViewCommand(
-				this.getQualifiedCommand('setFilesFilterOnLeft'),
-				n => this.setFilesFilter(n, FilesQueryFilter.Left),
-				this,
-			),
-			registerViewCommand(
-				this.getQualifiedCommand('setFilesFilterOnRight'),
-				n => this.setFilesFilter(n, FilesQueryFilter.Right),
-				this,
-			),
-			registerViewCommand(
-				this.getQualifiedCommand('setFilesFilterOff'),
-				n => this.setFilesFilter(n, undefined),
-				this,
-			),
 		];
 	}
 
@@ -536,12 +519,6 @@ export class SearchAndCompareView extends ViewBase<
 
 	private setShowAvatars(enabled: boolean) {
 		return configuration.updateEffective(`views.${this.configKey}.avatars` as const, enabled);
-	}
-
-	private setFilesFilter(node: ResultsFilesNode, filter: FilesQueryFilter | undefined) {
-		if (!(node instanceof ResultsFilesNode)) return;
-
-		node.filter = filter;
 	}
 
 	private swapComparison(node: CompareResultsNode) {

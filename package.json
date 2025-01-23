@@ -9039,20 +9039,6 @@
 				"icon": "$(compare-changes)"
 			},
 			{
-				"command": "gitlens.views.searchAndCompare.setFilesFilterOff",
-				"title": "Clear Filter"
-			},
-			{
-				"command": "gitlens.views.searchAndCompare.setFilesFilterOnLeft",
-				"title": "Show Left-side Files Only",
-				"enablement": "viewItem =~ /gitlens:results:files\\b(?!.*?\\b\\+filtered~left\\b)/"
-			},
-			{
-				"command": "gitlens.views.searchAndCompare.setFilesFilterOnRight",
-				"title": "Show Right-side Files Only",
-				"enablement": "viewItem =~ /gitlens:results:files\\b(?!.*?\\b\\+filtered~right\\b)/"
-			},
-			{
 				"command": "gitlens.views.searchAndCompare.setFilesLayoutToAuto",
 				"title": "View Files as Auto",
 				"icon": "$(list-tree)"
@@ -9122,6 +9108,20 @@
 				"command": "gitlens.views.setResultsCommitsFilterOff",
 				"title": "Clear Filter",
 				"icon": "$(filter-filled)"
+			},
+			{
+				"command": "gitlens.views.setResultsFilesFilterOff",
+				"title": "Clear Filter"
+			},
+			{
+				"command": "gitlens.views.setResultsFilesFilterOnLeft",
+				"title": "Show Left-side Files Only",
+				"enablement": "viewItem =~ /gitlens:results:files\\b(?!.*?\\b\\+filtered~left\\b)/"
+			},
+			{
+				"command": "gitlens.views.setResultsFilesFilterOnRight",
+				"title": "Show Right-side Files Only",
+				"enablement": "viewItem =~ /gitlens:results:files\\b(?!.*?\\b\\+filtered~right\\b)/"
 			},
 			{
 				"command": "gitlens.views.setShowRelativeDateMarkersOff",
@@ -12522,18 +12522,6 @@
 					"when": "false"
 				},
 				{
-					"command": "gitlens.views.searchAndCompare.setFilesFilterOff",
-					"when": "false"
-				},
-				{
-					"command": "gitlens.views.searchAndCompare.setFilesFilterOnLeft",
-					"when": "false"
-				},
-				{
-					"command": "gitlens.views.searchAndCompare.setFilesFilterOnRight",
-					"when": "false"
-				},
-				{
 					"command": "gitlens.views.searchAndCompare.setFilesLayoutToAuto",
 					"when": "false"
 				},
@@ -12591,6 +12579,18 @@
 				},
 				{
 					"command": "gitlens.views.setResultsCommitsFilterOff",
+					"when": "false"
+				},
+				{
+					"command": "gitlens.views.setResultsFilesFilterOff",
+					"when": "false"
+				},
+				{
+					"command": "gitlens.views.setResultsFilesFilterOnLeft",
+					"when": "false"
+				},
+				{
+					"command": "gitlens.views.setResultsFilesFilterOnRight",
 					"when": "false"
 				},
 				{
@@ -13444,61 +13444,61 @@
 			],
 			"gitlens/comparison/results/files/filter": [
 				{
-					"command": "gitlens.views.searchAndCompare.setFilesFilterOff",
+					"command": "gitlens.views.setResultsFilesFilterOff",
 					"when": "viewItem =~ /gitlens:results:files\\b(?=.*?\\b\\+filtered\\b)/",
 					"group": "navigation@1"
 				},
 				{
-					"command": "gitlens.views.searchAndCompare.setFilesFilterOnLeft",
+					"command": "gitlens.views.setResultsFilesFilterOnLeft",
 					"group": "navigation_1@1"
 				},
 				{
-					"command": "gitlens.views.searchAndCompare.setFilesFilterOnRight",
+					"command": "gitlens.views.setResultsFilesFilterOnRight",
 					"group": "navigation_1@2"
 				}
 			],
 			"gitlens/comparison/results/files/filter/inline": [
 				{
-					"command": "gitlens.views.searchAndCompare.setFilesFilterOff",
+					"command": "gitlens.views.setResultsFilesFilterOff",
 					"when": "viewItem =~ /gitlens:results:files\\b(?=.*?\\b\\+filtered\\b)/",
 					"group": "navigation@1"
 				},
 				{
-					"command": "gitlens.views.searchAndCompare.setFilesFilterOnLeft",
+					"command": "gitlens.views.setResultsFilesFilterOnLeft",
 					"group": "navigation_1@1"
 				},
 				{
-					"command": "gitlens.views.searchAndCompare.setFilesFilterOnRight",
+					"command": "gitlens.views.setResultsFilesFilterOnRight",
 					"group": "navigation_1@2"
 				}
 			],
 			"gitlens/comparison/results/files/filtered": [
 				{
-					"command": "gitlens.views.searchAndCompare.setFilesFilterOff",
+					"command": "gitlens.views.setResultsFilesFilterOff",
 					"when": "viewItem =~ /gitlens:results:files\\b(?=.*?\\b\\+filtered\\b)/",
 					"group": "navigation@1"
 				},
 				{
-					"command": "gitlens.views.searchAndCompare.setFilesFilterOnLeft",
+					"command": "gitlens.views.setResultsFilesFilterOnLeft",
 					"group": "navigation_1@1"
 				},
 				{
-					"command": "gitlens.views.searchAndCompare.setFilesFilterOnRight",
+					"command": "gitlens.views.setResultsFilesFilterOnRight",
 					"group": "navigation_1@2"
 				}
 			],
 			"gitlens/comparison/results/files/filtered/inline": [
 				{
-					"command": "gitlens.views.searchAndCompare.setFilesFilterOff",
+					"command": "gitlens.views.setResultsFilesFilterOff",
 					"when": "viewItem =~ /gitlens:results:files\\b(?=.*?\\b\\+filtered\\b)/",
 					"group": "navigation@1"
 				},
 				{
-					"command": "gitlens.views.searchAndCompare.setFilesFilterOnLeft",
+					"command": "gitlens.views.setResultsFilesFilterOnLeft",
 					"group": "navigation_1@1"
 				},
 				{
-					"command": "gitlens.views.searchAndCompare.setFilesFilterOnRight",
+					"command": "gitlens.views.setResultsFilesFilterOnRight",
 					"group": "navigation_1@2"
 				}
 			],
