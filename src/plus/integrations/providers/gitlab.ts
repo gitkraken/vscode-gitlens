@@ -438,7 +438,13 @@ abstract class GitLabIntegrationBase<
 	}
 
 	protected override getProviderPullRequestIdentityFromMaybeUrl(search: string): PullRequestUrlIdentity | undefined {
-		return getGitLabPullRequestIdentityFromMaybeUrl(search);
+		const identity = getGitLabPullRequestIdentityFromMaybeUrl(search);
+		if (identity == null) return undefined;
+
+		return {
+			...identity,
+			provider: this.id,
+		};
 	}
 }
 
