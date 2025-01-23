@@ -86,6 +86,7 @@ import type { RemoteNode } from './nodes/remoteNode';
 import type { RepositoryNode } from './nodes/repositoryNode';
 import type { ResultsFileNode } from './nodes/resultsFileNode';
 import type { ResultsFilesNode } from './nodes/resultsFilesNode';
+import { FilesQueryFilter } from './nodes/resultsFilesNode';
 import type { StashFileNode } from './nodes/stashFileNode';
 import type { StashNode } from './nodes/stashNode';
 import type { StatusFileNode } from './nodes/statusFileNode';
@@ -430,6 +431,22 @@ export class ViewCommands implements Disposable {
 			registerViewCommand(
 				'gitlens.views.setContributorsStatisticsOn',
 				() => this.setContributorsStatistics(true),
+				this,
+			),
+
+			registerViewCommand(
+				'gitlens.views.setResultsFilesFilterOnLeft',
+				n => this.setResultsFilesFilter(n, FilesQueryFilter.Left),
+				this,
+			),
+			registerViewCommand(
+				'gitlens.views.setResultsFilesFilterOnRight',
+				n => this.setResultsFilesFilter(n, FilesQueryFilter.Right),
+				this,
+			),
+			registerViewCommand(
+				'gitlens.views.setResultsFilesFilterOff',
+				n => this.setResultsFilesFilter(n, undefined),
 				this,
 			),
 		);
@@ -1713,6 +1730,13 @@ export class ViewCommands implements Disposable {
 		}
 
 		void node.triggerChange(true);
+	}
+
+	@log()
+	private setResultsFilesFilter(node: ResultsFilesNode, filter: FilesQueryFilter | undefined) {
+		if (!node.is('results-files')) return;
+
+		node.filter = filter;
 	}
 
 	@log()
