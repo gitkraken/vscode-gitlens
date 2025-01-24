@@ -1,6 +1,6 @@
 import type { CancellationToken } from 'vscode';
 import type { AIModel } from './aiProviderService';
-import { getMaxCharacters } from './aiProviderService';
+import { getMaxCharacters, getValidatedTemperature } from './aiProviderService';
 import type { ChatMessage } from './openAICompatibleProvider';
 import { OpenAICompatibleProvider } from './openAICompatibleProvider';
 
@@ -119,6 +119,7 @@ export class AnthropicProvider extends OpenAICompatibleProvider<typeof provider.
 				system: system.content,
 				stream: false,
 				max_tokens: Math.min(outputTokens, model.maxTokens.output),
+				temperature: model.temperature ?? getValidatedTemperature(),
 			};
 
 			const rsp = await this.fetchCore(model, apiKey, request, cancellation);

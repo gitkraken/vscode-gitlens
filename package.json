@@ -3897,6 +3897,18 @@
 							"preview"
 						]
 					},
+					"gitlens.ai.modelOptions.temperature": {
+						"type": "number",
+						"default": 0.7,
+						"minimum": 0,
+						"maximum": 2,
+						"markdownDescription": "Specifies the temperature, a measure of output randomness, to use for the AI model. Higher values result in more randomness, e.g. creativity, while lower values are more deterministic",
+						"scope": "window",
+						"order": 90,
+						"tags": [
+							"preview"
+						]
+					},
 					"gitlens.ai.explainChanges.customInstructions": {
 						"type": "string",
 						"default": null,

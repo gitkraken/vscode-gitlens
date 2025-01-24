@@ -45,6 +45,8 @@ export interface AIModel<
 
 	readonly default?: boolean;
 	readonly hidden?: boolean;
+
+	readonly temperature?: number;
 }
 
 interface AIProviderConstructor<Provider extends AIProviders = AIProviders> {
@@ -704,4 +706,8 @@ export function showDiffTruncationWarning(maxCodeCharacters: number, model: AIMo
 			model.provider.name,
 		)} limits.`,
 	);
+}
+
+export function getValidatedTemperature(): number {
+	return Math.max(0, Math.min(configuration.get('ai.modelOptions.temperature'), 2));
 }
