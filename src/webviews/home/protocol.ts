@@ -28,12 +28,11 @@ export interface State extends WebviewState {
 	integrations: IntegrationState[];
 	avatar?: string;
 	organizationsCount?: number;
-	walkthroughProgress: {
+	walkthroughProgress?: {
 		doneCount: number;
 		allCount: number;
 		progress: number;
 	};
-	showWalkthroughProgress?: boolean;
 	previewEnabled: boolean;
 	newInstall: boolean;
 }
