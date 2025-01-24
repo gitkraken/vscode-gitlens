@@ -66,8 +66,8 @@ export class GeminiProvider extends OpenAICompatibleProvider<typeof provider.id>
 		request: object,
 		cancellation: CancellationToken | undefined,
 	) {
-		if ('max_tokens' in request) {
-			const { max_tokens: _, ...rest } = request;
+		if ('max_completion_tokens' in request) {
+			const { max_completion_tokens: _, ...rest } = request;
 			request = rest;
 		}
 		return super.fetchCore(model, apiKey, request, cancellation);

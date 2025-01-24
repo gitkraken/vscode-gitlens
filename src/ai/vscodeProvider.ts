@@ -6,7 +6,7 @@ import { configuration } from '../system/-webview/configuration';
 import { sum } from '../system/iterable';
 import { capitalize, getPossessiveForm, interpolate } from '../system/string';
 import type { AIModel, AIProvider } from './aiProviderService';
-import { getMaxCharacters, showDiffTruncationWarning } from './aiProviderService';
+import { getMaxCharacters, getValidatedTemperature, showDiffTruncationWarning } from './aiProviderService';
 import {
 	explainChangesUserPrompt,
 	generateCloudPatchMessageUserPrompt,
@@ -20,6 +20,9 @@ type VSCodeAIModel = AIModel<typeof provider.id> & { vendor: string; selector: L
 export function isVSCodeAIModel(model: AIModel): model is AIModel<typeof provider.id> {
 	return model.provider.id === provider.id;
 }
+
+const accessJustification =
+	'GitLens leverages Copilot for AI-powered features to improve your workflow and development experience.';
 
 export class VSCodeAIProvider implements AIProvider<typeof provider.id> {
 	readonly id = provider.id;
@@ -85,7 +88,14 @@ export class VSCodeAIProvider implements AIProvider<typeof provider.id> {
 				reporting['input.length'] = (reporting['input.length'] ?? 0) + sum(messages, m => m.content.length);
 
 				try {
-					const rsp = await chatModel.sendRequest(messages, {}, cancellation);
+					const rsp = await chatModel.sendRequest(
+						messages,
+						{
+							justification: accessJustification,
+							modelOptions: { temperature: model.temperature ?? getValidatedTemperature() },
+						},
+						cancellation,
+					);
 
 					if (diff.length > maxCodeCharacters) {
 						showDiffTruncationWarning(maxCodeCharacters, model);
@@ -219,7 +229,14 @@ export class VSCodeAIProvider implements AIProvider<typeof provider.id> {
 				reporting['input.length'] = (reporting['input.length'] ?? 0) + sum(messages, m => m.content.length);
 
 				try {
-					const rsp = await chatModel.sendRequest(messages, {}, cancellation);
+					const rsp = await chatModel.sendRequest(
+						messages,
+						{
+							justification: accessJustification,
+							modelOptions: model.temperature != null ? { temperature: model.temperature } : undefined,
+						},
+						cancellation,
+					);
 
 					if (diff.length > maxCodeCharacters) {
 						showDiffTruncationWarning(maxCodeCharacters, model);
@@ -234,6 +251,10 @@ export class VSCodeAIProvider implements AIProvider<typeof provider.id> {
 				} catch (ex) {
 					debugger;
 					let message = ex instanceof Error ? ex.message : String(ex);
+
+					if (ex instanceof Error && 'code' in ex && ex.code === 'NoPermissions') {
+						throw new Error(`User denied access to ${model.provider.name}`);
+					}
 
 					if (ex instanceof Error && 'cause' in ex && ex.cause instanceof Error) {
 						message += `\n${ex.cause.message}`;

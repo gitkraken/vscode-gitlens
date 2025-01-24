@@ -8,7 +8,12 @@ import { configuration } from '../system/-webview/configuration';
 import { sum } from '../system/iterable';
 import { interpolate } from '../system/string';
 import type { AIModel, AIProvider } from './aiProviderService';
-import { getMaxCharacters, getOrPromptApiKey, showDiffTruncationWarning } from './aiProviderService';
+import {
+	getMaxCharacters,
+	getOrPromptApiKey,
+	getValidatedTemperature,
+	showDiffTruncationWarning,
+} from './aiProviderService';
 import {
 	explainChangesUserPrompt,
 	generateCloudPatchMessageUserPrompt,
@@ -215,7 +220,8 @@ export abstract class OpenAICompatibleProvider<T extends AIProviders> implements
 				model: model.id,
 				messages: messages(maxCodeCharacters, retries),
 				stream: false,
-				max_tokens: Math.min(outputTokens, model.maxTokens.output),
+				max_completion_tokens: Math.min(outputTokens, model.maxTokens.output),
+				temperature: model.temperature ?? getValidatedTemperature(),
 			};
 
 			const rsp = await this.fetchCore(model, apiKey, request, cancellation);
@@ -295,7 +301,7 @@ interface ChatCompletionRequest {
 
 	frequency_penalty?: number;
 	logit_bias?: Record<string, number>;
-	max_tokens?: number;
+	max_completion_tokens?: number;
 	n?: number;
 	presence_penalty?: number;
 	stop?: string | string[];
