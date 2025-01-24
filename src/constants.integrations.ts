@@ -29,6 +29,7 @@ export const supportedOrderedCloudIntegrationIds = [
 	SelfHostedIntegrationId.CloudGitHubEnterprise,
 	HostingIntegrationId.GitLab,
 	SelfHostedIntegrationId.CloudGitLabSelfHosted,
+	HostingIntegrationId.AzureDevOps,
 	IssueIntegrationId.Jira,
 ];
 
@@ -69,6 +70,12 @@ export const supportedCloudIntegrationDescriptors: IntegrationDescriptor[] = [
 		id: SelfHostedIntegrationId.CloudGitLabSelfHosted,
 		name: 'GitLab Self-Managed',
 		icon: 'gl-provider-gitlab',
+		supports: ['prs', 'issues'],
+	},
+	{
+		id: HostingIntegrationId.AzureDevOps,
+		name: 'Azure DevOps',
+		icon: 'gl-provider-azdo',
 		supports: ['prs', 'issues'],
 	},
 	{
