@@ -3862,7 +3862,7 @@
 							"null"
 						],
 						"default": null,
-						"pattern": "^((anthropic|github|google|huggingface|openai|xai):([\\w.-]+)|vscode)$",
+						"pattern": "^((anthropic|deepseek|github|google|huggingface|openai|xai):([\\w.-]+)|vscode)$",
 						"markdownDescription": "Specifies the AI model to use for GitLens' AI features. Should be formatted as `provider:model` (e.g. `openai:gpt-4o` or `anthropic:claude-3-5-sonnet-latest`), or `vscode` for models provided by the VS Code extension API (e.g. Copilot)",
 						"scope": "window",
 						"order": 10,

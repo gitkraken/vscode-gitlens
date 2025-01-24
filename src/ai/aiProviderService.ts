@@ -19,6 +19,7 @@ import { getSettledValue } from '../system/promise';
 import { getPossessiveForm } from '../system/string';
 import type { TelemetryService } from '../telemetry/telemetry';
 import { AnthropicProvider } from './anthropicProvider';
+import { DeepSeekProvider } from './deepSeekProvider';
 import { GeminiProvider } from './geminiProvider';
 import { GitHubModelsProvider } from './githubModelsProvider';
 import { HuggingFaceProvider } from './huggingFaceProvider';
@@ -57,6 +58,7 @@ const _supportedProviderTypes = new Map<AIProviders, AIProviderConstructor>([
 	...(supportedInVSCodeVersion('language-models') ? [['vscode', VSCodeAIProvider]] : ([] as any)),
 	['openai', OpenAIProvider],
 	['anthropic', AnthropicProvider],
+	['deepseek', DeepSeekProvider],
 	['gemini', GeminiProvider],
 	['github', GitHubModelsProvider],
 	['huggingface', HuggingFaceProvider],
