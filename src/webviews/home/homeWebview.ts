@@ -608,7 +608,7 @@ export class HomeWebviewProvider implements WebviewProvider<State, State, HomeWe
 	}
 
 	private getWalkthroughDismissed() {
-		return Boolean(this.container.storage.get('home:walkthrough:dismissed'));
+		return this.container.storage.get('home:walkthrough:dismissed') ?? false;
 	}
 
 	private getPreviewCollapsed() {
@@ -665,12 +665,13 @@ export class HomeWebviewProvider implements WebviewProvider<State, State, HomeWe
 			integrationBannerCollapsed: this.getIntegrationBannerCollapsed(),
 			integrations: integrations,
 			hasAnyIntegrationConnected: anyConnected,
-			walkthroughProgress: {
-				allCount: this.container.walkthrough.walkthroughSize,
-				doneCount: this.container.walkthrough.doneCount,
-				progress: this.container.walkthrough.progress,
-			},
-			showWalkthroughProgress: !this.getWalkthroughDismissed(),
+			walkthroughProgress: !this.getWalkthroughDismissed()
+				? {
+						allCount: this.container.walkthrough.walkthroughSize,
+						doneCount: this.container.walkthrough.doneCount,
+						progress: this.container.walkthrough.progress,
+				  }
+				: undefined,
 			previewEnabled: this.getPreviewEnabled(),
 			newInstall: getContext('gitlens:install:new', false),
 		};
