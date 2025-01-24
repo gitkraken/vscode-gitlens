@@ -1,5 +1,4 @@
-export const generateCommitMessageSystemPrompt = `You are an advanced AI programming assistant`;
-export const generateCommitMessageUserPrompt = `You are tasked with summarizing code changes into a concise but meaningful commit message. You will be provided with a code diff and optional additional context. Your goal is to analyze the changes and create a clear, informative commit message that accurately represents the modifications made to the code.
+export const generateCommitMessageUserPrompt = `You are an advanced AI programming assistant and are tasked with summarizing code changes into a concise but meaningful commit message. You will be provided with a code diff and optional additional context. Your goal is to analyze the changes and create a clear, informative commit message that accurately represents the modifications made to the code.
 
 First, examine the following code changes provided in Git diff format:
 <~~diff~~>
@@ -51,8 +50,7 @@ Fixes #789
 
 Now, based on the provided code diff and any additional context, create a concise but meaningful commit message following the instructions above.`;
 
-export const generateCloudPatchMessageSystemPrompt = `You are an advanced AI programming assistant`;
-export const generateCloudPatchMessageUserPrompt = `You are tasked with summarizing code changes into a concise and meaningful title and description. You will be provided with a code diff and optional additional context. Your goal is to analyze the changes and create a clear, informative title and description that accurately represents the modifications made to the code.
+export const generateCloudPatchMessageUserPrompt = `You are an advanced AI programming assistant and are tasked with summarizing code changes into a concise and meaningful title and description. You will be provided with a code diff and optional additional context. Your goal is to analyze the changes and create a clear, informative title and description that accurately represents the modifications made to the code.
 
 First, examine the following code changes provided in Git diff format:
 <~~diff~~>
@@ -99,8 +97,7 @@ Integrates JWT for secure token generation
 
 Now, based on the provided code diff and any additional context, create a concise but meaningful title and description following the instructions above.`;
 
-export const generateCodeSuggestMessageSystemPrompt = `You are an advanced AI programming assistant`;
-export const generateCodeSuggestMessageUserPrompt = `You are tasked with summarizing code changes into a concise and meaningful code review title and description. You will be provided with a code diff and optional additional context. Your goal is to analyze the changes and create a clear, informative code review title and description that accurately represents the modifications made to the code.
+export const generateCodeSuggestMessageUserPrompt = `You are an advanced AI programming assistant and are tasked with summarizing code changes into a concise and meaningful code review title and description. You will be provided with a code diff and optional additional context. Your goal is to analyze the changes and create a clear, informative code review title and description that accurately represents the modifications made to the code.
 
 First, examine the following code changes provided in Git diff format:
 <~~diff~~>
@@ -147,8 +144,7 @@ Integrates JWT for secure token generation
 
 Now, based on the provided code diff and any additional context, create a concise but meaningful code review title and description following the instructions above.`;
 
-export const explainChangesSystemPrompt = `You are an advanced AI programming assistant`;
-export const explainChangesUserPrompt = `You are tasked with creating clear, technical summaries of code changes that help reviewers understand the modifications and their implications. You will analyze a code diff and the author-provided message to produce a structured summary that captures the essential aspects of the changes.
+export const explainChangesUserPrompt = `You are an advanced AI programming assistant and are tasked with creating clear, technical summaries of code changes that help reviewers understand the modifications and their implications. You will analyze a code diff and the author-provided message to produce a structured summary that captures the essential aspects of the changes.
 
 First, examine the following code changes provided in Git diff format:
 <~~diff~~>

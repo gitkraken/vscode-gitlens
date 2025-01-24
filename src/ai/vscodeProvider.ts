@@ -8,13 +8,9 @@ import { capitalize, getPossessiveForm, interpolate } from '../system/string';
 import type { AIModel, AIProvider } from './aiProviderService';
 import { getMaxCharacters, showDiffTruncationWarning } from './aiProviderService';
 import {
-	explainChangesSystemPrompt,
 	explainChangesUserPrompt,
-	generateCloudPatchMessageSystemPrompt,
 	generateCloudPatchMessageUserPrompt,
-	generateCodeSuggestMessageSystemPrompt,
 	generateCodeSuggestMessageUserPrompt,
-	generateCommitMessageSystemPrompt,
 	generateCommitMessageUserPrompt,
 } from './prompts';
 
@@ -53,7 +49,6 @@ export class VSCodeAIProvider implements AIProvider<typeof provider.id> {
 		reporting: TelemetryEvents['ai/generate'],
 		promptConfig: {
 			type: 'commit' | 'cloud-patch' | 'code-suggestion';
-			systemPrompt: string;
 			userPrompt: string;
 			customInstructions?: string;
 		},
@@ -77,7 +72,6 @@ export class VSCodeAIProvider implements AIProvider<typeof provider.id> {
 		try {
 			while (true) {
 				const messages: LanguageModelChatMessage[] = [
-					LanguageModelChatMessage.User(promptConfig.systemPrompt),
 					LanguageModelChatMessage.User(
 						interpolate(promptConfig.userPrompt, {
 							diff: diff.substring(0, maxCodeCharacters),
@@ -151,13 +145,11 @@ export class VSCodeAIProvider implements AIProvider<typeof provider.id> {
 			codeSuggestion
 				? {
 						type: 'code-suggestion',
-						systemPrompt: generateCodeSuggestMessageSystemPrompt,
 						userPrompt: generateCodeSuggestMessageUserPrompt,
 						customInstructions: configuration.get('ai.generateCodeSuggestMessage.customInstructions'),
 				  }
 				: {
 						type: 'cloud-patch',
-						systemPrompt: generateCloudPatchMessageSystemPrompt,
 						userPrompt: generateCloudPatchMessageUserPrompt,
 						customInstructions: configuration.get('ai.generateCloudPatchMessage.customInstructions'),
 				  },
@@ -180,7 +172,6 @@ export class VSCodeAIProvider implements AIProvider<typeof provider.id> {
 			reporting,
 			{
 				type: 'commit',
-				systemPrompt: generateCommitMessageSystemPrompt,
 				userPrompt: generateCommitMessageUserPrompt,
 				customInstructions: configuration.get('ai.generateCommitMessage.customInstructions'),
 			},
@@ -216,11 +207,11 @@ export class VSCodeAIProvider implements AIProvider<typeof provider.id> {
 
 				const messages: LanguageModelChatMessage[] = [
 					LanguageModelChatMessage.User(
-						`${explainChangesSystemPrompt}.\n\n${interpolate(explainChangesUserPrompt, {
+						interpolate(explainChangesUserPrompt, {
 							diff: code,
 							message: message,
 							instructions: configuration.get('ai.explainChanges.customInstructions') ?? '',
-						})}`,
+						}),
 					),
 				];
 
