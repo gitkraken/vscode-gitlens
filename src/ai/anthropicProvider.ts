@@ -1,7 +1,7 @@
 import type { CancellationToken } from 'vscode';
 import type { AIModel } from './aiProviderService';
 import { getMaxCharacters } from './aiProviderService';
-import type { ChatMessage, SystemMessage } from './openAICompatibleProvider';
+import type { ChatMessage } from './openAICompatibleProvider';
 import { OpenAICompatibleProvider } from './openAICompatibleProvider';
 
 const provider = { id: 'anthropic', name: 'Anthropic' } as const;
@@ -102,7 +102,7 @@ export class AnthropicProvider extends OpenAICompatibleProvider<typeof provider.
 	override async fetch(
 		model: AIModel<typeof provider.id>,
 		apiKey: string,
-		messages: (maxCodeCharacters: number, retries: number) => [SystemMessage, ...ChatMessage[]],
+		messages: (maxCodeCharacters: number, retries: number) => ChatMessage[],
 		outputTokens: number,
 		cancellation: CancellationToken | undefined,
 	): Promise<[result: string, maxCodeCharacters: number]> {
