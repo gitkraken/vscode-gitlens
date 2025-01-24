@@ -246,7 +246,7 @@ export class AIProviderService implements Disposable {
 		};
 		const source: Parameters<TelemetryService['sendEvent']>[2] = { source: sourceContext.source };
 
-		const confirmed = await confirmAIProviderToS(model, this.container.storage);
+		const confirmed = await confirmAIProviderToS(this, model, this.container.storage);
 		if (!confirmed) {
 			this.container.telemetry.sendEvent('ai/generate', { ...payload, 'failed.reason': 'user-declined' }, source);
 
@@ -327,7 +327,7 @@ export class AIProviderService implements Disposable {
 		};
 		const source: Parameters<TelemetryService['sendEvent']>[2] = { source: sourceContext.source };
 
-		const confirmed = await confirmAIProviderToS(model, this.container.storage);
+		const confirmed = await confirmAIProviderToS(this, model, this.container.storage);
 		if (!confirmed) {
 			this.container.telemetry.sendEvent('ai/generate', { ...payload, 'failed.reason': 'user-declined' }, source);
 
@@ -427,7 +427,7 @@ export class AIProviderService implements Disposable {
 		};
 		const source: Parameters<TelemetryService['sendEvent']>[2] = { source: sourceContext.source };
 
-		const confirmed = await confirmAIProviderToS(model, this.container.storage);
+		const confirmed = await confirmAIProviderToS(this, model, this.container.storage);
 		if (!confirmed) {
 			this.container.telemetry.sendEvent('ai/explain', { ...payload, 'failed.reason': 'user-declined' }, source);
 
@@ -546,6 +546,7 @@ export class AIProviderService implements Disposable {
 }
 
 async function confirmAIProviderToS<Provider extends AIProviders>(
+	service: AIProviderService,
 	model: AIModel<Provider, AIModels<Provider>>,
 	storage: Storage,
 ): Promise<boolean> {
@@ -555,19 +556,27 @@ async function confirmAIProviderToS<Provider extends AIProviders>(
 	if (confirmed) return true;
 
 	const accept: MessageItem = { title: 'Continue' };
+	const switchModel: MessageItem = { title: 'Switch Model' };
 	const acceptWorkspace: MessageItem = { title: 'Always for this Workspace' };
 	const acceptAlways: MessageItem = { title: 'Always' };
 	const decline: MessageItem = { title: 'Cancel', isCloseAffordance: true };
+
 	const result = await window.showInformationMessage(
 		`GitLens AI features require sending a diff of the code changes to ${model.provider.name} for analysis. This may contain sensitive information.\n\nDo you want to continue?`,
 		{ modal: true },
 		accept,
+		switchModel,
 		acceptWorkspace,
 		acceptAlways,
 		decline,
 	);
 
 	if (result === accept) return true;
+
+	if (result === switchModel) {
+		void service.switchModel();
+		return false;
+	}
 
 	if (result === acceptWorkspace) {
 		void storage.storeWorkspace(`confirm:ai:tos:${model.provider.id}`, true).catch();
