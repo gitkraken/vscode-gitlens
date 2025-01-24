@@ -13,6 +13,12 @@ const models: GeminiModel[] = [
 		provider: provider,
 	},
 	{
+		id: 'gemini-2.0-flash-thinking-exp-01-21',
+		name: 'Gemini 2.0 Flash Thinking (Experimental)',
+		maxTokens: { input: 1048576, output: 8192 },
+		provider: provider,
+	},
+	{
 		id: 'gemini-exp-1206',
 		name: 'Gemini Experimental 1206',
 		maxTokens: { input: 2097152, output: 8192 },
