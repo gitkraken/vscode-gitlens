@@ -33,8 +33,8 @@ import { debug, log } from '../system/decorators/log';
 import type { Deferrable } from '../system/function';
 import { debounce } from '../system/function';
 import { count, filter, first, flatMap, groupByFilterMap, groupByMap, join, map, some, sum } from '../system/iterable';
-import { Logger } from '../system/logger';
-import { getLogScope, setLogScopeExit } from '../system/logger.scope';
+import { getLoggableName, Logger } from '../system/logger';
+import { getLogScope, setLogScopeExit, startLogScope } from '../system/logger.scope';
 import { getScheme, isAbsolute, maybeUri, normalizePath } from '../system/path';
 import type { Deferred } from '../system/promise';
 import { asSettled, defer, getDeferredPromiseIfPending, getSettledValue } from '../system/promise';
@@ -445,7 +445,8 @@ export class GitProviderService implements Disposable {
 			...disposables,
 			provider.onDidChange(() => {
 				this._etag = Date.now();
-				Logger.debug(`GitProvider(${id}).onDidChange()`);
+				using scope = startLogScope(`${getLoggableName(provider)}.onDidChange`, false);
+				Logger.debug(scope, '');
 
 				const { workspaceFolders } = workspace;
 				if (workspaceFolders?.length) {
@@ -454,7 +455,11 @@ export class GitProviderService implements Disposable {
 			}),
 			provider.onDidChangeRepository(async e => {
 				this._etag = Date.now();
-				Logger.debug(`GitProvider(${id}).onDidChangeRepository(e=${e.repository.toString()})`);
+				using scope = startLogScope(
+					`${getLoggableName(provider)}.onDidChangeRepository(e=${e.repository.toString()})`,
+					false,
+				);
+				Logger.debug(scope, '');
 
 				if (e.changed(RepositoryChange.Closed, RepositoryChangeComparisonMode.Any)) {
 					this.updateContext();
@@ -482,9 +487,11 @@ export class GitProviderService implements Disposable {
 			provider.onDidCloseRepository(e => {
 				this._etag = Date.now();
 				const repository = this._repositories.get(e.uri);
-				Logger.debug(
-					`GitProvider(${id}).onDidCloseRepository(e=${repository?.toString() ?? e.uri.toString()})`,
+				using scope = startLogScope(
+					`${getLoggableName(provider)}.onDidCloseRepository(e=${e.uri.toString()})`,
+					false,
 				);
+				Logger.debug(scope, `repository=${repository?.toString()}`);
 
 				if (repository != null) {
 					repository.closed = true;
@@ -493,7 +500,11 @@ export class GitProviderService implements Disposable {
 			provider.onDidOpenRepository(e => {
 				this._etag = Date.now();
 				const repository = this._repositories.get(e.uri);
-				Logger.debug(`GitProvider(${id}).onDidOpenRepository(e=${repository?.toString() ?? e.uri.toString()})`);
+				using scope = startLogScope(
+					`${getLoggableName(provider)}.onDidOpenRepository(e=${e.uri.toString()})`,
+					false,
+				);
+				Logger.debug(scope, `repository=${repository?.toString()}`);
 
 				if (repository != null) {
 					repository.closed = false;

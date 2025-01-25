@@ -13,7 +13,8 @@ import { memoize } from '../../system/decorators/-webview/memoize';
 import { debug } from '../../system/decorators/log';
 import { weakEvent } from '../../system/event';
 import { filterMap } from '../../system/iterable';
-import { Logger } from '../../system/logger';
+import { getLoggableName, Logger } from '../../system/logger';
+import { startLogScope } from '../../system/logger.scope';
 import type { FileHistoryView } from '../fileHistoryView';
 import type { LineHistoryView } from '../lineHistoryView';
 import { SubscribeableViewNode } from './abstract/subscribeableViewNode';
@@ -220,7 +221,8 @@ export class LineHistoryNode
 			return;
 		}
 
-		Logger.debug(`LineHistoryNode.onRepositoryChanged(${e.toString()}); triggering node refresh`);
+		using scope = startLogScope(`${getLoggableName(this)}.onRepositoryChanged(e=${e.toString()})`, false);
+		Logger.debug(scope, 'triggering node refresh');
 
 		void this.triggerChange(true);
 	}
@@ -228,7 +230,11 @@ export class LineHistoryNode
 	private onFileSystemChanged(e: RepositoryFileSystemChangeEvent) {
 		if (!e.uris.some(uri => uri.toString() === this.uri.toString())) return;
 
-		Logger.debug(`LineHistoryNode.onFileSystemChanged(${this.uri.toString(true)}); triggering node refresh`);
+		using scope = startLogScope(
+			`${getLoggableName(this)}.onFileSystemChanged(e=${this.uri.toString(true)})`,
+			false,
+		);
+		Logger.debug(scope, 'triggering node refresh');
 
 		void this.triggerChange(true);
 	}
