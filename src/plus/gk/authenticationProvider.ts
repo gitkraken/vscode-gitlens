@@ -9,8 +9,8 @@ import type { TrackingContext } from '../../constants.telemetry';
 import type { Container, Environment } from '../../container';
 import { CancellationError } from '../../errors';
 import { debug } from '../../system/decorators/log';
-import { Logger } from '../../system/logger';
-import { getLogScope, setLogScopeExit } from '../../system/logger.scope';
+import { getLoggableName, Logger } from '../../system/logger';
+import { getLogScope, setLogScopeExit, startLogScope } from '../../system/logger.scope';
 import { AuthenticationConnection } from './authenticationConnection';
 import type { ServerConnection } from './serverConnection';
 
@@ -203,6 +203,8 @@ export class AccountAuthenticationProvider implements AuthenticationProvider, Di
 	}
 
 	private async checkForUpdates() {
+		using scope = startLogScope(`${getLoggableName(this)}.checkForUpdates`, false);
+
 		const previousSessions = await this._sessionsPromise;
 		this._sessionsPromise = this.getSessionsFromStorage();
 		const storedSessions = await this._sessionsPromise;
@@ -225,7 +227,7 @@ export class AccountAuthenticationProvider implements AuthenticationProvider, Di
 		}
 
 		if (added.length || removed.length) {
-			Logger.debug(`Firing sessions changed event; added=${added.length}, removed=${removed.length}`);
+			Logger.debug(scope, `firing sessions changed event; added=${added.length}, removed=${removed.length}`);
 			this._onDidChangeSessions.fire({ added: added, removed: removed, changed: [] });
 		}
 	}
@@ -255,6 +257,8 @@ export class AccountAuthenticationProvider implements AuthenticationProvider, Di
 	}
 
 	private async getSessionsFromStorage(): Promise<AuthenticationSession[]> {
+		using scope = startLogScope(`${getLoggableName(this)}.getSessionsFromStorage`, false);
+
 		let storedSessions: StoredSession[];
 
 		try {
@@ -271,20 +275,20 @@ export class AccountAuthenticationProvider implements AuthenticationProvider, Di
 				throw ex;
 			}
 		} catch (ex) {
-			Logger.error(ex, 'Unable to read sessions from storage');
+			Logger.error(ex, scope, 'Unable to read sessions from storage');
 			return [];
 		}
 
 		const sessionPromises = storedSessions.map(async (session: StoredSession) => {
 			const scopesKey = getScopesKey(session.scopes);
 
-			Logger.debug(`Read session from storage with scopes=${scopesKey}`);
+			Logger.debug(scope, `read session from storage with scopes=${scopesKey}`);
 
 			let userInfo: { id: string; accountName: string } | undefined;
 			if (session.account == null) {
 				try {
 					userInfo = await this._authConnection.getAccountInfo(session.accessToken);
-					Logger.debug(`Verified session with scopes=${scopesKey}`);
+					Logger.debug(scope, `verified session with scopes=${scopesKey}`);
 				} catch (ex) {
 					// Remove sessions that return unauthorized response
 					if (ex.message === 'Unauthorized') return undefined;
@@ -310,7 +314,7 @@ export class AccountAuthenticationProvider implements AuthenticationProvider, Di
 			.map(p => (p as PromiseFulfilledResult<AuthenticationSession | undefined>).value)
 			.filter(<T>(p?: T): p is T => Boolean(p));
 
-		Logger.debug(`Found ${verifiedSessions.length} verified sessions`);
+		Logger.debug(scope, `found ${verifiedSessions.length} verified sessions`);
 		if (verifiedSessions.length !== storedSessions.length) {
 			await this.storeSessions(verifiedSessions);
 		}

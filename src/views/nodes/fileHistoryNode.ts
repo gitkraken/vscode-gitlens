@@ -12,7 +12,8 @@ import { memoize } from '../../system/decorators/-webview/memoize';
 import { debug } from '../../system/decorators/log';
 import { weakEvent } from '../../system/event';
 import { filterMap, flatMap, map, uniqueBy } from '../../system/iterable';
-import { Logger } from '../../system/logger';
+import { getLoggableName, Logger } from '../../system/logger';
+import { startLogScope } from '../../system/logger.scope';
 import { basename } from '../../system/path';
 import type { FileHistoryView } from '../fileHistoryView';
 import { SubscribeableViewNode } from './abstract/subscribeableViewNode';
@@ -217,7 +218,8 @@ export class FileHistoryNode
 			return;
 		}
 
-		Logger.debug(`FileHistoryNode.onRepositoryChanged(${e.toString()}); triggering node refresh`);
+		using scope = startLogScope(`${getLoggableName(this)}.onRepositoryChanged(e=${e.toString()})`, false);
+		Logger.debug(scope, 'triggering node refresh');
 
 		void this.triggerChange(true);
 	}
@@ -229,7 +231,11 @@ export class FileHistoryNode
 			return;
 		}
 
-		Logger.debug(`FileHistoryNode.onFileSystemChanged(${this.uri.toString(true)}); triggering node refresh`);
+		using scope = startLogScope(
+			`${getLoggableName(this)}.onFileSystemChanged(e=${this.uri.toString(true)})`,
+			false,
+		);
+		Logger.debug(scope, 'triggering node refresh');
 
 		void this.triggerChange(true);
 	}

@@ -19,7 +19,7 @@ import type { Deferrable } from '../../system/function';
 import { debounce } from '../../system/function';
 import { filter, groupByMap, join, min, some } from '../../system/iterable';
 import { getLoggableName, Logger } from '../../system/logger';
-import { getLogScope } from '../../system/logger.scope';
+import { getLogScope, startLogScope } from '../../system/logger.scope';
 import { updateRecordValue } from '../../system/object';
 import { basename, normalizePath } from '../../system/path';
 import type { GitProviderDescriptor, GitRepositoryProvider } from '../gitProvider';
@@ -351,7 +351,8 @@ export class Repository implements Disposable {
 		const changed = this._closed !== value;
 		this._closed = value;
 		if (changed) {
-			Logger.debug(`Repository(${this.id}).closed(${value})`);
+			using scope = startLogScope(`${getLoggableName(this)}.closed`, false);
+			Logger.debug(scope, `setting closed=${value}`);
 			this.fireChange(this._closed ? RepositoryChange.Closed : RepositoryChange.Opened);
 		}
 	}
@@ -942,7 +943,8 @@ export class Repository implements Disposable {
 
 		this._pendingRepoChange = undefined;
 
-		Logger.debug(`Repository(${this.id}) firing ${e.toString(true)}`);
+		using scope = startLogScope(`${getLoggableName(this)}.fireChangeCore`, false);
+		Logger.debug(scope, `firing ${e.toString(true)}`);
 		try {
 			this._onDidChange.fire(e);
 		} finally {
@@ -991,7 +993,8 @@ export class Repository implements Disposable {
 			e = { ...e, uris: uris };
 		}
 
-		Logger.debug(`Repository(${this.id}) firing fs changes=${e.uris.map(u => u.fsPath).join(', ')}`);
+		using scope = startLogScope(`${getLoggableName(this)}.fireChangeCore`, false);
+		Logger.debug(scope, `firing fs changes=${e.uris.map(u => u.fsPath).join(', ')}`);
 
 		this._onDidChangeFileSystem.fire(e);
 	}
