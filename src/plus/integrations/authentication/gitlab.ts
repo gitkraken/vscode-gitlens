@@ -2,6 +2,7 @@ import type { Disposable, QuickInputButton } from 'vscode';
 import { env, ThemeIcon, Uri, window } from 'vscode';
 import { HostingIntegrationId, SelfHostedIntegrationId } from '../../../constants.integrations';
 import type { Container } from '../../../container';
+import type { ConfiguredIntegrationService } from './configuredIntegrationService';
 import type { IntegrationAuthenticationSessionDescriptor } from './integrationAuthenticationProvider';
 import {
 	CloudIntegrationAuthenticationProvider,
@@ -16,13 +17,14 @@ export class GitLabLocalAuthenticationProvider extends LocalIntegrationAuthentic
 	constructor(
 		container: Container,
 		authenticationService: IntegrationAuthenticationService,
+		configuredIntegrationService: ConfiguredIntegrationService,
 		protected readonly authProviderId: GitLabId,
 	) {
-		super(container, authenticationService);
+		super(container, authenticationService, configuredIntegrationService);
 	}
 
 	override async createSession(
-		descriptor?: IntegrationAuthenticationSessionDescriptor,
+		descriptor: IntegrationAuthenticationSessionDescriptor,
 	): Promise<ProviderAuthenticationSession | undefined> {
 		const input = window.createInputBox();
 		input.ignoreFocusOut = true;
@@ -52,22 +54,20 @@ export class GitLabLocalAuthenticationProvider extends LocalIntegrationAuthentic
 					input.onDidTriggerButton(e => {
 						if (e === infoButton) {
 							void env.openExternal(
-								Uri.parse(
-									`https://${descriptor?.domain ?? 'gitlab.com'}/-/profile/personal_access_tokens`,
-								),
+								Uri.parse(`https://${descriptor.domain}/-/profile/personal_access_tokens`),
 							);
 						}
 					}),
 				);
 
 				input.password = true;
-				input.title = `GitLab Authentication${descriptor?.domain ? `  \u2022 ${descriptor.domain}` : ''}`;
-				input.placeholder = `Requires ${descriptor?.scopes.join(', ') ?? 'all'} scopes`;
+				input.title = `GitLab Authentication  \u2022 ${descriptor.domain}`;
+				input.placeholder = `Requires ${descriptor.scopes.join(', ')} scopes`;
 				input.prompt = `Paste your [GitLab Personal Access Token](https://${
-					descriptor?.domain ?? 'gitlab.com'
-				}/-/user_settings/personal_access_tokens?name=GitLens+Access+token&scopes=${
-					descriptor?.scopes.join(',') ?? 'all'
-				} "Get your GitLab Access Token")`;
+					descriptor.domain
+				}/-/user_settings/personal_access_tokens?name=GitLens+Access+token&scopes=${descriptor.scopes.join(
+					',',
+				)} "Get your GitLab Access Token")`;
 				input.buttons = [infoButton];
 
 				input.show();
@@ -80,7 +80,7 @@ export class GitLabLocalAuthenticationProvider extends LocalIntegrationAuthentic
 		if (!token) return undefined;
 
 		return {
-			id: this.getSessionId(descriptor),
+			id: this.configuredIntegrationService.getSessionId(descriptor),
 			accessToken: token,
 			scopes: descriptor?.scopes ?? [],
 			account: {
@@ -88,15 +88,12 @@ export class GitLabLocalAuthenticationProvider extends LocalIntegrationAuthentic
 				label: '',
 			},
 			cloud: false,
+			domain: descriptor.domain,
 		};
 	}
 }
 
 export class GitLabSelfHostedCloudAuthenticationProvider extends CloudIntegrationAuthenticationProvider<SelfHostedIntegrationId.CloudGitLabSelfHosted> {
-	protected override getCompletionInputTitle(): string {
-		throw new Error('Connect to GitLab Enterprise');
-	}
-
 	protected override get authProviderId(): SelfHostedIntegrationId.CloudGitLabSelfHosted {
 		return SelfHostedIntegrationId.CloudGitLabSelfHosted;
 	}
@@ -105,9 +102,5 @@ export class GitLabSelfHostedCloudAuthenticationProvider extends CloudIntegratio
 export class GitLabCloudAuthenticationProvider extends CloudIntegrationAuthenticationProvider<GitLabId> {
 	protected override get authProviderId(): GitLabId {
 		return HostingIntegrationId.GitLab;
-	}
-
-	protected override getCompletionInputTitle(): string {
-		return 'Connect to GitLab';
 	}
 }

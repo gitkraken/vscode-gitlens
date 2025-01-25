@@ -29,6 +29,7 @@ export const getBuiltInIntegrationSession = sequentialize(
 				return {
 					...session,
 					cloud: false,
+					domain: descriptor.domain,
 				};
 			},
 		),

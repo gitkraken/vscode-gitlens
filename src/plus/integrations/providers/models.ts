@@ -53,7 +53,7 @@ import {
 } from '../../../git/models/pullRequest';
 import type { ProviderReference } from '../../../git/models/remoteProvider';
 import type { EnrichableItem } from '../../launchpad/models/enrichedItem';
-import type { Integration } from '../integration';
+import type { Integration, IntegrationType } from '../integration';
 import { getEntityIdentifierInput } from './utils';
 
 export type ProviderAccount = Account;
@@ -351,6 +351,9 @@ export interface ProviderInfo extends ProviderMetadata {
 export interface ProviderMetadata {
 	domain: string;
 	id: IntegrationId;
+	name: string;
+	type: IntegrationType;
+	iconKey: string;
 	issuesPagingMode?: PagingMode;
 	pullRequestsPagingMode?: PagingMode;
 	scopes: string[];
@@ -365,6 +368,9 @@ export const providersMetadata: ProvidersMetadata = {
 	[HostingIntegrationId.GitHub]: {
 		domain: 'github.com',
 		id: HostingIntegrationId.GitHub,
+		name: 'GitHub',
+		type: 'hosting',
+		iconKey: HostingIntegrationId.GitHub,
 		issuesPagingMode: PagingMode.Repos,
 		pullRequestsPagingMode: PagingMode.Repos,
 		// Use 'username' property on account for PR filters
@@ -381,6 +387,9 @@ export const providersMetadata: ProvidersMetadata = {
 	[SelfHostedIntegrationId.CloudGitHubEnterprise]: {
 		domain: '',
 		id: SelfHostedIntegrationId.CloudGitHubEnterprise,
+		name: 'GitHub Enterprise',
+		type: 'hosting',
+		iconKey: SelfHostedIntegrationId.GitHubEnterprise,
 		issuesPagingMode: PagingMode.Repos,
 		pullRequestsPagingMode: PagingMode.Repos,
 		// Use 'username' property on account for PR filters
@@ -397,6 +406,9 @@ export const providersMetadata: ProvidersMetadata = {
 	[SelfHostedIntegrationId.GitHubEnterprise]: {
 		domain: '',
 		id: SelfHostedIntegrationId.GitHubEnterprise,
+		name: 'GitHub Enterprise',
+		type: 'hosting',
+		iconKey: SelfHostedIntegrationId.GitHubEnterprise,
 		issuesPagingMode: PagingMode.Repos,
 		pullRequestsPagingMode: PagingMode.Repos,
 		// Use 'username' property on account for PR filters
@@ -413,6 +425,9 @@ export const providersMetadata: ProvidersMetadata = {
 	[HostingIntegrationId.GitLab]: {
 		domain: 'gitlab.com',
 		id: HostingIntegrationId.GitLab,
+		name: 'GitLab',
+		type: 'hosting',
+		iconKey: HostingIntegrationId.GitLab,
 		issuesPagingMode: PagingMode.Repo,
 		pullRequestsPagingMode: PagingMode.Repo,
 		// Use 'username' property on account for PR filters
@@ -428,6 +443,9 @@ export const providersMetadata: ProvidersMetadata = {
 	[SelfHostedIntegrationId.CloudGitLabSelfHosted]: {
 		domain: '',
 		id: SelfHostedIntegrationId.CloudGitLabSelfHosted,
+		name: 'Self-Hosted',
+		type: 'hosting',
+		iconKey: SelfHostedIntegrationId.GitLabSelfHosted,
 		issuesPagingMode: PagingMode.Repo,
 		pullRequestsPagingMode: PagingMode.Repo,
 		// Use 'username' property on account for PR filters
@@ -443,6 +461,9 @@ export const providersMetadata: ProvidersMetadata = {
 	[SelfHostedIntegrationId.GitLabSelfHosted]: {
 		domain: '',
 		id: SelfHostedIntegrationId.GitLabSelfHosted,
+		name: 'Self-Hosted',
+		type: 'hosting',
+		iconKey: SelfHostedIntegrationId.GitLabSelfHosted,
 		issuesPagingMode: PagingMode.Repo,
 		pullRequestsPagingMode: PagingMode.Repo,
 		// Use 'username' property on account for PR filters
@@ -458,6 +479,9 @@ export const providersMetadata: ProvidersMetadata = {
 	[HostingIntegrationId.Bitbucket]: {
 		domain: 'bitbucket.org',
 		id: HostingIntegrationId.Bitbucket,
+		name: 'Bitbucket',
+		type: 'hosting',
+		iconKey: HostingIntegrationId.Bitbucket,
 		pullRequestsPagingMode: PagingMode.Repo,
 		// Use 'id' property on account for PR filters
 		supportedPullRequestFilters: [PullRequestFilter.Author],
@@ -466,6 +490,9 @@ export const providersMetadata: ProvidersMetadata = {
 	[HostingIntegrationId.AzureDevOps]: {
 		domain: 'dev.azure.com',
 		id: HostingIntegrationId.AzureDevOps,
+		name: 'Azure DevOps',
+		type: 'hosting',
+		iconKey: HostingIntegrationId.AzureDevOps,
 		issuesPagingMode: PagingMode.Project,
 		pullRequestsPagingMode: PagingMode.Repo,
 		// Use 'id' property on account for PR filters
@@ -477,6 +504,9 @@ export const providersMetadata: ProvidersMetadata = {
 	[IssueIntegrationId.Jira]: {
 		domain: 'atlassian.net',
 		id: IssueIntegrationId.Jira,
+		name: 'Jira',
+		type: 'issues',
+		iconKey: IssueIntegrationId.Jira,
 		scopes: [
 			'read:status:jira',
 			'read:application-role:jira',
@@ -518,6 +548,9 @@ export const providersMetadata: ProvidersMetadata = {
 	[IssueIntegrationId.Trello]: {
 		domain: 'trello.com',
 		id: IssueIntegrationId.Trello,
+		name: 'Trello',
+		type: 'issues',
+		iconKey: IssueIntegrationId.Trello,
 		scopes: [],
 	},
 };
