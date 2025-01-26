@@ -2,21 +2,21 @@ import type { Uri } from 'vscode';
 import type { LocalWorkspaceFileData } from './models/localWorkspace';
 import type { WorkspaceAutoAddSetting } from './models/workspaces';
 
-export interface WorkspacesPathMappingProvider {
-	getCloudWorkspaceRepoPath(cloudWorkspaceId: string, repoId: string): Promise<string | undefined>;
+export interface GkWorkspacesSharedStorageProvider {
+	getCloudWorkspaceRepositoryLocation(cloudWorkspaceId: string, repoId: string): Promise<string | undefined>;
 
-	getCloudWorkspaceCodeWorkspacePath(cloudWorkspaceId: string): Promise<string | undefined>;
+	getCloudWorkspaceCodeWorkspaceFileLocation(cloudWorkspaceId: string): Promise<string | undefined>;
 
-	removeCloudWorkspaceCodeWorkspaceFilePath(cloudWorkspaceId: string): Promise<void>;
+	removeCloudWorkspaceCodeWorkspaceFile(cloudWorkspaceId: string): Promise<void>;
 
-	writeCloudWorkspaceCodeWorkspaceFilePathToMap(
+	storeCloudWorkspaceCodeWorkspaceFileLocation(
 		cloudWorkspaceId: string,
 		codeWorkspaceFilePath: string,
 	): Promise<void>;
 
 	confirmCloudWorkspaceCodeWorkspaceFilePath(cloudWorkspaceId: string): Promise<boolean>;
 
-	writeCloudWorkspaceRepoDiskPathToMap(
+	storeCloudWorkspaceRepositoryLocation(
 		cloudWorkspaceId: string,
 		repoId: string,
 		repoLocalPath: string,
@@ -24,7 +24,7 @@ export interface WorkspacesPathMappingProvider {
 
 	getLocalWorkspaceData(): Promise<LocalWorkspaceFileData>;
 
-	writeCodeWorkspaceFile(
+	createOrUpdateCodeWorkspaceFile(
 		uri: Uri,
 		workspaceRepoFilePaths: string[],
 		options?: { workspaceId?: string; workspaceAutoAddSetting?: WorkspaceAutoAddSetting },

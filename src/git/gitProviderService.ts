@@ -679,7 +679,7 @@ export class GitProviderService implements Disposable {
 			if (added.length) {
 				this._etag = Date.now();
 				queueMicrotask(() => {
-					void this.addRepositoriesToPathMap(added);
+					void this.storeRepositoriesLocation(added);
 					// Defer the event trigger enough to let everything unwind
 					this.fireRepositoriesChanged(added);
 				});
@@ -2014,7 +2014,7 @@ export class GitProviderService implements Disposable {
 				if (added.length) {
 					this._etag = Date.now();
 					queueMicrotask(() => {
-						void this.addRepositoriesToPathMap(added);
+						void this.storeRepositoriesLocation(added);
 						// Send a notification that the repositories changed
 						this.fireRepositoriesChanged(added);
 					});
@@ -2033,11 +2033,11 @@ export class GitProviderService implements Disposable {
 
 	@gate()
 	@log()
-	async addRepositoriesToPathMap(repos: Repository[]): Promise<void> {
+	async storeRepositoriesLocation(repos: Repository[]): Promise<void> {
 		const scope = getLogScope();
 		for (const repo of repos) {
 			try {
-				await this.container.repositoryIdentity.addRepositoryToPathMap(repo);
+				await this.container.repositoryIdentity.storeRepositoryLocation(repo);
 			} catch (ex) {
 				Logger.error(ex, scope);
 			}

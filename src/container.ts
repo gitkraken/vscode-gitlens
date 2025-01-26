@@ -1,6 +1,11 @@
 import type { ConfigurationChangeEvent, Disposable, Event, ExtensionContext } from 'vscode';
 import { EventEmitter, ExtensionMode, Uri } from 'vscode';
-import { getSupportedGitProviders, getSupportedRepositoryPathMappingProvider } from '@env/providers';
+import {
+	getSharedGKStorageLocationProvider,
+	getSupportedGitProviders,
+	getSupportedRepositoryLocationProvider,
+	getSupportedWorkspacesStorageProvider,
+} from '@env/providers';
 import type { AIProviderService } from './ai/aiProviderService';
 import { FileAnnotationController } from './annotations/fileAnnotationController';
 import { LineAnnotationController } from './annotations/lineAnnotationController';
@@ -18,7 +23,7 @@ import { GlCommand } from './constants.commands';
 import { EventBus } from './eventBus';
 import { GitFileSystemProvider } from './git/fsProvider';
 import { GitProviderService } from './git/gitProviderService';
-import type { RepositoryPathMappingProvider } from './git/pathMapping/repositoryPathMappingProvider';
+import type { RepositoryLocationProvider } from './git/location/repositorylocationProvider';
 import { LineHoverController } from './hovers/lineHoverController';
 import { DraftService } from './plus/drafts/draftsService';
 import { AccountAuthenticationProvider } from './plus/gk/authenticationProvider';
@@ -35,6 +40,8 @@ import { EnrichmentService } from './plus/launchpad/enrichmentService';
 import { LaunchpadIndicator } from './plus/launchpad/launchpadIndicator';
 import { LaunchpadProvider } from './plus/launchpad/launchpadProvider';
 import { RepositoryIdentityService } from './plus/repos/repositoryIdentityService';
+import type { SharedGkStorageLocationProvider } from './plus/repos/sharedGkStorageLocationProvider';
+import { WorkspacesApi } from './plus/workspaces/workspacesApi';
 import { scheduleAddMissingCurrentWorkspaceRepos, WorkspacesService } from './plus/workspaces/workspacesService';
 import { StatusBarController } from './statusbar/statusBarController';
 import { executeCommand } from './system/-webview/command';
@@ -404,14 +411,6 @@ export class Container {
 		return this._drafts;
 	}
 
-	private _repositoryIdentity: RepositoryIdentityService | undefined;
-	get repositoryIdentity(): RepositoryIdentityService {
-		if (this._repositoryIdentity == null) {
-			this._disposables.push((this._repositoryIdentity = new RepositoryIdentityService(this, this._connection)));
-		}
-		return this._repositoryIdentity;
-	}
-
 	private readonly _codeLensController: GitCodeLensController;
 	get codeLens(): GitCodeLensController {
 		return this._codeLensController;
@@ -587,12 +586,33 @@ export class Container {
 		return this._rebaseEditor;
 	}
 
-	private _repositoryPathMapping: RepositoryPathMappingProvider | undefined;
-	get repositoryPathMapping(): RepositoryPathMappingProvider {
-		if (this._repositoryPathMapping == null) {
-			this._disposables.push((this._repositoryPathMapping = getSupportedRepositoryPathMappingProvider(this)));
+	private _repositoryIdentity: RepositoryIdentityService | undefined;
+	get repositoryIdentity(): RepositoryIdentityService {
+		if (this._repositoryIdentity == null) {
+			this._disposables.push(
+				(this._repositoryIdentity = new RepositoryIdentityService(this, this.repositoryLocator)),
+			);
 		}
-		return this._repositoryPathMapping;
+		return this._repositoryIdentity;
+	}
+
+	private _repositoryLocator: RepositoryLocationProvider | null | undefined;
+	get repositoryLocator(): RepositoryLocationProvider | undefined {
+		if (this._repositoryLocator === undefined) {
+			this._repositoryLocator = getSupportedRepositoryLocationProvider(this, this.sharedGkStorage!) ?? null;
+			if (this._repositoryLocator != null) {
+				this._disposables.push(this._repositoryLocator);
+			}
+		}
+		return this._repositoryLocator ?? undefined;
+	}
+
+	private _sharedGkStorage: SharedGkStorageLocationProvider | null | undefined;
+	private get sharedGkStorage(): SharedGkStorageLocationProvider | undefined {
+		if (this._sharedGkStorage === undefined) {
+			this._sharedGkStorage = getSharedGKStorageLocationProvider(this) ?? null;
+		}
+		return this._sharedGkStorage ?? undefined;
 	}
 
 	private readonly _statusBarController: StatusBarController;
@@ -648,7 +668,14 @@ export class Container {
 	private _workspaces: WorkspacesService | undefined;
 	get workspaces(): WorkspacesService {
 		if (this._workspaces == null) {
-			this._disposables.push((this._workspaces = new WorkspacesService(this, this._connection)));
+			this._disposables.push(
+				(this._workspaces = new WorkspacesService(
+					this,
+					new WorkspacesApi(this, this._connection),
+					getSupportedWorkspacesStorageProvider(this, this.sharedGkStorage!),
+					this.repositoryLocator,
+				)),
+			);
 		}
 		return this._workspaces;
 	}
