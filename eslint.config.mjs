@@ -212,6 +212,7 @@ export default ts.config(
 			'@typescript-eslint/no-inferrable-types': ['warn', { ignoreParameters: true, ignoreProperties: true }],
 			'@typescript-eslint/no-invalid-void-type': 'off',
 			'@typescript-eslint/no-misused-promises': ['error', { checksVoidReturn: false }],
+			'@typescript-eslint/no-misused-spread': 'off', // Too noisy
 			'@typescript-eslint/no-non-null-assertion': 'off',
 			'@typescript-eslint/no-redundant-type-constituents': 'off',
 			'@typescript-eslint/no-restricted-imports': [
