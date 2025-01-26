@@ -1,13 +1,22 @@
 import { Uri, workspace } from 'vscode';
+import type { Container } from '../../../container';
+import type { SharedGkStorageLocationProvider } from '../../../plus/repos/sharedGkStorageLocationProvider';
 import type { CloudWorkspacesPathMap } from '../../../plus/workspaces/models/cloudWorkspace';
 import type { LocalWorkspaceFileData } from '../../../plus/workspaces/models/localWorkspace';
 import type { CodeWorkspaceFileContents, WorkspaceAutoAddSetting } from '../../../plus/workspaces/models/workspaces';
-import type { WorkspacesPathMappingProvider } from '../../../plus/workspaces/workspacesPathMappingProvider';
+import type { GkWorkspacesSharedStorageProvider } from '../../../plus/workspaces/workspacesSharedStorageProvider';
+import { log } from '../../../system/decorators/log';
 import { Logger } from '../../../system/logger';
-import { getSharedLegacyLocalWorkspaceMappingFileUri, SharedGKDataFolderMapper } from './sharedGKDataFolder';
+import { getLogScope } from '../../../system/logger.scope';
+import { getGKDLocalWorkspaceMappingFileUri } from './localSharedGkStorageLocationProvider';
 
-export class WorkspacesLocalPathMappingProvider implements WorkspacesPathMappingProvider {
+export class LocalGkWorkspacesSharedStorageProvider implements GkWorkspacesSharedStorageProvider {
 	private _cloudWorkspacePathMap: CloudWorkspacesPathMap | undefined = undefined;
+
+	constructor(
+		private readonly container: Container,
+		private readonly sharedStorage: SharedGkStorageLocationProvider,
+	) {}
 
 	private async ensureCloudWorkspacePathMap(): Promise<void> {
 		if (this._cloudWorkspacePathMap == null) {
@@ -21,7 +30,7 @@ export class WorkspacesLocalPathMappingProvider implements WorkspacesPathMapping
 	}
 
 	private async loadCloudWorkspacePathMap(): Promise<void> {
-		const localFileUri = await SharedGKDataFolderMapper.getSharedCloudWorkspaceMappingFileUri();
+		const localFileUri = await this.sharedStorage.getSharedCloudWorkspaceMappingFileUri();
 		try {
 			const data = await workspace.fs.readFile(localFileUri);
 			this._cloudWorkspacePathMap = (JSON.parse(data.toString())?.workspaces ?? {}) as CloudWorkspacesPathMap;
@@ -30,20 +39,24 @@ export class WorkspacesLocalPathMappingProvider implements WorkspacesPathMapping
 		}
 	}
 
-	async getCloudWorkspaceRepoPath(cloudWorkspaceId: string, repoId: string): Promise<string | undefined> {
+	@log()
+	async getCloudWorkspaceRepositoryLocation(cloudWorkspaceId: string, repoId: string): Promise<string | undefined> {
 		const cloudWorkspacePathMap = await this.getCloudWorkspacePathMap();
 		return cloudWorkspacePathMap[cloudWorkspaceId]?.repoPaths?.[repoId];
 	}
 
-	async getCloudWorkspaceCodeWorkspacePath(cloudWorkspaceId: string): Promise<string | undefined> {
+	@log()
+	async getCloudWorkspaceCodeWorkspaceFileLocation(cloudWorkspaceId: string): Promise<string | undefined> {
 		const cloudWorkspacePathMap = await this.getCloudWorkspacePathMap();
 		return cloudWorkspacePathMap[cloudWorkspaceId]?.externalLinks?.['.code-workspace'];
 	}
 
-	async removeCloudWorkspaceCodeWorkspaceFilePath(cloudWorkspaceId: string): Promise<void> {
-		if (!(await SharedGKDataFolderMapper.acquireSharedFolderWriteLock())) {
-			return;
-		}
+	@log()
+	async removeCloudWorkspaceCodeWorkspaceFile(cloudWorkspaceId: string): Promise<void> {
+		const scope = getLogScope();
+
+		await using lock = await this.sharedStorage.acquireSharedStorageWriteLock();
+		if (lock == null) return;
 
 		await this.loadCloudWorkspacePathMap();
 
@@ -51,20 +64,20 @@ export class WorkspacesLocalPathMappingProvider implements WorkspacesPathMapping
 
 		delete this._cloudWorkspacePathMap[cloudWorkspaceId].externalLinks['.code-workspace'];
 
-		const localFileUri = await SharedGKDataFolderMapper.getSharedCloudWorkspaceMappingFileUri();
+		const localFileUri = await this.sharedStorage.getSharedCloudWorkspaceMappingFileUri();
 		const outputData = new Uint8Array(Buffer.from(JSON.stringify({ workspaces: this._cloudWorkspacePathMap })));
 		try {
 			await workspace.fs.writeFile(localFileUri, outputData);
-		} catch (error) {
-			Logger.error(error, 'writeCloudWorkspaceCodeWorkspaceFilePathToMap');
+		} catch (ex) {
+			Logger.error(ex, scope);
 		}
-		await SharedGKDataFolderMapper.releaseSharedFolderWriteLock();
 	}
 
+	@log()
 	async confirmCloudWorkspaceCodeWorkspaceFilePath(cloudWorkspaceId: string): Promise<boolean> {
-		const cloudWorkspacePathMap = await this.getCloudWorkspacePathMap();
-		const codeWorkspaceFilePath = cloudWorkspacePathMap[cloudWorkspaceId]?.externalLinks?.['.code-workspace'];
+		const codeWorkspaceFilePath = await this.getCloudWorkspaceCodeWorkspaceFileLocation(cloudWorkspaceId);
 		if (codeWorkspaceFilePath == null) return false;
+
 		try {
 			await workspace.fs.stat(Uri.file(codeWorkspaceFilePath));
 			return true;
@@ -73,14 +86,16 @@ export class WorkspacesLocalPathMappingProvider implements WorkspacesPathMapping
 		}
 	}
 
-	async writeCloudWorkspaceRepoDiskPathToMap(
+	@log()
+	async storeCloudWorkspaceRepositoryLocation(
 		cloudWorkspaceId: string,
 		repoId: string,
 		repoLocalPath: string,
 	): Promise<void> {
-		if (!(await SharedGKDataFolderMapper.acquireSharedFolderWriteLock())) {
-			return;
-		}
+		const scope = getLogScope();
+
+		await using lock = await this.sharedStorage.acquireSharedStorageWriteLock();
+		if (lock == null) return;
 
 		await this.loadCloudWorkspacePathMap();
 
@@ -98,23 +113,24 @@ export class WorkspacesLocalPathMappingProvider implements WorkspacesPathMapping
 
 		this._cloudWorkspacePathMap[cloudWorkspaceId].repoPaths[repoId] = repoLocalPath;
 
-		const localFileUri = await SharedGKDataFolderMapper.getSharedCloudWorkspaceMappingFileUri();
+		const localFileUri = await this.sharedStorage.getSharedCloudWorkspaceMappingFileUri();
 		const outputData = new Uint8Array(Buffer.from(JSON.stringify({ workspaces: this._cloudWorkspacePathMap })));
 		try {
 			await workspace.fs.writeFile(localFileUri, outputData);
-		} catch (error) {
-			Logger.error(error, 'writeCloudWorkspaceRepoDiskPathToMap');
+		} catch (ex) {
+			Logger.error(ex, scope);
 		}
-		await SharedGKDataFolderMapper.releaseSharedFolderWriteLock();
 	}
 
-	async writeCloudWorkspaceCodeWorkspaceFilePathToMap(
+	@log()
+	async storeCloudWorkspaceCodeWorkspaceFileLocation(
 		cloudWorkspaceId: string,
 		codeWorkspaceFilePath: string,
 	): Promise<void> {
-		if (!(await SharedGKDataFolderMapper.acquireSharedFolderWriteLock())) {
-			return;
-		}
+		const scope = getLogScope();
+
+		await using lock = await this.sharedStorage.acquireSharedStorageWriteLock();
+		if (lock == null) return;
 
 		await this.loadCloudWorkspacePathMap();
 
@@ -132,14 +148,13 @@ export class WorkspacesLocalPathMappingProvider implements WorkspacesPathMapping
 
 		this._cloudWorkspacePathMap[cloudWorkspaceId].externalLinks['.code-workspace'] = codeWorkspaceFilePath;
 
-		const localFileUri = await SharedGKDataFolderMapper.getSharedCloudWorkspaceMappingFileUri();
+		const localFileUri = await this.sharedStorage.getSharedCloudWorkspaceMappingFileUri();
 		const outputData = new Uint8Array(Buffer.from(JSON.stringify({ workspaces: this._cloudWorkspacePathMap })));
 		try {
 			await workspace.fs.writeFile(localFileUri, outputData);
-		} catch (error) {
-			Logger.error(error, 'writeCloudWorkspaceCodeWorkspaceFilePathToMap');
+		} catch (ex) {
+			Logger.error(ex, scope);
 		}
-		await SharedGKDataFolderMapper.releaseSharedFolderWriteLock();
 	}
 
 	// TODO@ramint: May want a file watcher on this file down the line
@@ -149,13 +164,13 @@ export class WorkspacesLocalPathMappingProvider implements WorkspacesPathMapping
 		let localFileUri;
 		let data;
 		try {
-			localFileUri = await SharedGKDataFolderMapper.getSharedLocalWorkspaceMappingFileUri();
+			localFileUri = await this.sharedStorage.getSharedLocalWorkspaceMappingFileUri();
 			data = await workspace.fs.readFile(localFileUri);
 			if (data?.length) return JSON.parse(data.toString()) as LocalWorkspaceFileData;
 		} catch (_ex) {
 			// Fall back to using legacy location for file
 			try {
-				localFileUri = getSharedLegacyLocalWorkspaceMappingFileUri();
+				localFileUri = getGKDLocalWorkspaceMappingFileUri();
 				data = await workspace.fs.readFile(localFileUri);
 				if (data?.length) return JSON.parse(data.toString()) as LocalWorkspaceFileData;
 			} catch (ex) {
@@ -166,7 +181,7 @@ export class WorkspacesLocalPathMappingProvider implements WorkspacesPathMapping
 		return { workspaces: {} };
 	}
 
-	async writeCodeWorkspaceFile(
+	async createOrUpdateCodeWorkspaceFile(
 		uri: Uri,
 		workspaceRepoFilePaths: string[],
 		options?: { workspaceId?: string; workspaceAutoAddSetting?: WorkspaceAutoAddSetting },
@@ -193,7 +208,7 @@ export class WorkspacesLocalPathMappingProvider implements WorkspacesPathMapping
 		try {
 			await workspace.fs.writeFile(uri, outputData);
 			if (options?.workspaceId != null) {
-				await this.writeCloudWorkspaceCodeWorkspaceFilePathToMap(options.workspaceId, uri.fsPath);
+				await this.storeCloudWorkspaceCodeWorkspaceFileLocation(options.workspaceId, uri.fsPath);
 			}
 		} catch (error) {
 			Logger.error(error, 'writeCodeWorkspaceFile');

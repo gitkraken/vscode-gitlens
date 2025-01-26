@@ -20147,8 +20147,7 @@
 		"react-dom": "16.8.4",
 		"signal-utils": "0.21.1",
 		"slug": "10.0.0",
-		"sortablejs": "1.15.0",
-		"xdg-basedir": "5.1.0"
+		"sortablejs": "1.15.0"
 	},
 	"devDependencies": {
 		"@eamodio/eslint-lite-webpack-plugin": "0.2.0",

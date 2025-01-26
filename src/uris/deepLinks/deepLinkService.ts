@@ -709,10 +709,9 @@ export class DeepLinkService implements Disposable {
 					}
 
 					if (!this._context.repo && state === DeepLinkServiceState.RepoMatch) {
-						matchingLocalRepoPaths = await this.container.repositoryPathMapping.getLocalRepoPaths({
-							remoteUrl: remoteUrlToSearch,
-						});
-						if (matchingLocalRepoPaths.length > 0) {
+						matchingLocalRepoPaths =
+							(await this.container.repositoryLocator?.getLocation(remoteUrlToSearch)) ?? [];
+						if (matchingLocalRepoPaths.length) {
 							for (const repo of this.container.git.repositories) {
 								if (
 									matchingLocalRepoPaths.some(
@@ -851,10 +850,7 @@ export class DeepLinkService implements Disposable {
 							repoOpenType !== 'workspace' &&
 							!matchingLocalRepoPaths.includes(this._context.repoOpenUri.fsPath)
 						) {
-							await this.container.repositoryPathMapping.writeLocalRepoPath(
-								{ remoteUrl: remoteUrl },
-								chosenRepo.uri.fsPath,
-							);
+							await this.container.repositoryLocator?.storeLocation(chosenRepo.uri.fsPath, remoteUrl);
 						}
 					}
 
