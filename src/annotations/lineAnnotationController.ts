@@ -5,6 +5,8 @@ import type { Container } from '../container';
 import { CommitFormatter } from '../git/formatters/commitFormatter';
 import type { PullRequest } from '../git/models/pullRequest';
 import { detailsMessage } from '../hovers/hovers';
+import { configuration } from '../system/-webview/configuration';
+import { isTrackableTextEditor } from '../system/-webview/vscode';
 import { debug, log } from '../system/decorators/log';
 import { once } from '../system/event';
 import { debounce } from '../system/function';
@@ -12,8 +14,6 @@ import { Logger } from '../system/logger';
 import { getLogScope, setLogScopeExit } from '../system/logger.scope';
 import type { MaybePausedResult } from '../system/promise';
 import { getSettledValue, pauseOnCancelOrTimeoutMap } from '../system/promise';
-import { configuration } from '../system/vscode/configuration';
-import { isTrackableTextEditor } from '../system/vscode/utils';
 import type { LinesChangeEvent, LineState } from '../trackers/lineTracker';
 import { getInlineDecoration } from './annotations';
 import type { BlameFontOptions } from './gutterBlameAnnotationProvider';
@@ -44,7 +44,7 @@ export class LineAnnotationController implements Disposable {
 		);
 	}
 
-	dispose() {
+	dispose(): void {
 		this.clearAnnotations(this._editor);
 
 		this.container.lineTracker.unsubscribe(this);
@@ -72,12 +72,12 @@ export class LineAnnotationController implements Disposable {
 	}
 
 	private _suspended: boolean = false;
-	get suspended() {
+	get suspended(): boolean {
 		return !this._enabled || this._suspended;
 	}
 
 	@log()
-	resume() {
+	resume(): boolean {
 		this.setLineTracker(true);
 
 		if (this._suspended) {
@@ -89,7 +89,7 @@ export class LineAnnotationController implements Disposable {
 	}
 
 	@log()
-	suspend() {
+	suspend(): boolean {
 		this.setLineTracker(false);
 
 		if (!this._suspended) {
@@ -123,7 +123,7 @@ export class LineAnnotationController implements Disposable {
 	}
 
 	@debug({ args: false, singleLine: true })
-	clear(editor: TextEditor | undefined) {
+	clear(editor: TextEditor | undefined): void {
 		this._cancellation?.cancel();
 		if (this._editor !== editor && this._editor != null) {
 			this.clearAnnotations(this._editor);
@@ -132,7 +132,7 @@ export class LineAnnotationController implements Disposable {
 	}
 
 	@log({ args: false })
-	async toggle(editor: TextEditor | undefined) {
+	async toggle(editor: TextEditor | undefined): Promise<void> {
 		this._enabled = !(this._enabled && !this.suspended);
 
 		if (this._enabled) {

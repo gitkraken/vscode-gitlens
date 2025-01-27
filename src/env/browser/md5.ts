@@ -209,7 +209,7 @@ function hexToBinary(hex: string) {
 	return String.fromCharCode(...bytes);
 }
 
-export function md5(s: string, encoding: 'base64' | 'hex' = 'hex') {
+export function md5(s: string, encoding: 'base64' | 'hex' = 'hex'): string {
 	const h = hex(md51(s));
 	// eslint-disable-next-line @typescript-eslint/no-deprecated
 	return encoding === 'hex' ? h : globalThis.btoa(hexToBinary(h));

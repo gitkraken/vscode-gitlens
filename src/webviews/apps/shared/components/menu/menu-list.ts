@@ -21,7 +21,7 @@ export class MenuList extends LitElement {
 		this.role = 'listbox';
 	}
 
-	override render() {
+	override render(): unknown {
 		return html`<slot></slot>`;
 	}
 }

@@ -36,7 +36,7 @@ export function createDirectiveQuickPickItem(
 		iconPath?: Uri | { light: Uri; dark: Uri } | ThemeIcon;
 		onDidSelect?: () => void | Promise<void>;
 	},
-) {
+): DirectiveQuickPickItem {
 	let label = options?.label;
 	let detail = options?.detail;
 	let description = options?.description;

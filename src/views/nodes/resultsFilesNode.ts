@@ -4,7 +4,7 @@ import { GitUri } from '../../git/gitUri';
 import type { GitFile } from '../../git/models/file';
 import type { FilesQueryResults } from '../../git/queryResults';
 import { makeHierarchical } from '../../system/array';
-import { gate } from '../../system/decorators/gate';
+import { gate } from '../../system/decorators/-webview/gate';
 import { debug } from '../../system/decorators/log';
 import { map } from '../../system/iterable';
 import { joinPaths, normalizePath } from '../../system/path';
@@ -199,7 +199,7 @@ export class ResultsFilesNode extends ViewNode<'results-files', ViewsWithCommits
 
 	@gate()
 	@debug()
-	override refresh(reset: boolean = false) {
+	override refresh(reset: boolean = false): void {
 		if (!reset) return;
 
 		this.deleteState('filter');
@@ -249,7 +249,7 @@ export class ResultsFilesNode extends ViewNode<'results-files', ViewsWithCommits
 				filterTo = new Set<string>(files.map(f => f.path));
 			}
 		} else {
-			const commit = await this.view.container.git.getCommit(this.uri.repoPath!, ref || 'HEAD');
+			const commit = await this.view.container.git.commits(this.uri.repoPath!).getCommit(ref || 'HEAD');
 			if (commit?.files != null) {
 				filterTo = new Set<string>(commit.files.map(f => f.path));
 			}

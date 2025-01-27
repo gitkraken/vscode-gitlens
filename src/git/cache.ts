@@ -1,9 +1,9 @@
 import { Disposable } from 'vscode';
 import type { Container } from '../container';
+import { configuration } from '../system/-webview/configuration';
 import { log } from '../system/decorators/log';
 import type { PromiseOrValue } from '../system/promise';
 import { PathTrie } from '../system/trie';
-import { configuration } from '../system/vscode/configuration';
 import type { GitCaches, GitDir, PagedResult } from './gitProvider';
 import type { GitBranch } from './models/branch';
 import type { GitContributor } from './models/contributor';
@@ -46,13 +46,13 @@ export class GitCache implements Disposable {
 		);
 	}
 
-	dispose() {
+	dispose(): void {
 		this.reset();
 		this._disposable.dispose();
 	}
 
 	private _useCaching: boolean = false;
-	get useCaching() {
+	get useCaching(): boolean {
 		return this._useCaching;
 	}
 
@@ -62,63 +62,63 @@ export class GitCache implements Disposable {
 	}
 
 	private _branchCache: Map<string, Promise<GitBranch | undefined>> | undefined;
-	get branch() {
+	get branch(): Map<string, Promise<GitBranch | undefined>> | undefined {
 		return this.useCaching ? (this._branchCache ??= new Map<string, Promise<GitBranch | undefined>>()) : undefined;
 	}
 
 	private _branchesCache: Map<string, Promise<PagedResult<GitBranch>>> | undefined;
-	get branches() {
+	get branches(): Map<string, Promise<PagedResult<GitBranch>>> | undefined {
 		return this.useCaching
 			? (this._branchesCache ??= new Map<string, Promise<PagedResult<GitBranch>>>())
 			: undefined;
 	}
 
 	private _contributorsCache: Map<string, Map<string, Promise<GitContributor[]>>> | undefined;
-	get contributors() {
+	get contributors(): Map<string, Map<string, Promise<GitContributor[]>>> | undefined {
 		return this.useCaching
 			? (this._contributorsCache ??= new Map<string, Map<string, Promise<GitContributor[]>>>())
 			: undefined;
 	}
 
 	private _pausedOperationStatusCache: Map<string, Promise<GitPausedOperationStatus | undefined>> | undefined;
-	get pausedOperationStatus() {
+	get pausedOperationStatus(): Map<string, Promise<GitPausedOperationStatus | undefined>> | undefined {
 		return this.useCaching
 			? (this._pausedOperationStatusCache ??= new Map<string, Promise<GitPausedOperationStatus | undefined>>())
 			: undefined;
 	}
 
 	private _remotesCache: Map<string, Promise<GitRemote[]>> | undefined;
-	get remotes() {
+	get remotes(): Map<string, Promise<GitRemote[]>> | undefined {
 		return this.useCaching ? (this._remotesCache ??= new Map<string, Promise<GitRemote[]>>()) : undefined;
 	}
 
 	private _repoInfoCache: Map<string, RepositoryInfo> | undefined;
-	get repoInfo() {
+	get repoInfo(): Map<string, RepositoryInfo> {
 		return (this._repoInfoCache ??= new Map<string, RepositoryInfo>());
 	}
 
 	private _stashesCache: Map<string, GitStash | null> | undefined;
-	get stashes() {
+	get stashes(): Map<string, GitStash | null> | undefined {
 		return this.useCaching ? (this._stashesCache ??= new Map<string, GitStash | null>()) : undefined;
 	}
 
 	private _tagsCache: Map<string, Promise<PagedResult<GitTag>>> | undefined;
-	get tags() {
+	get tags(): Map<string, Promise<PagedResult<GitTag>>> | undefined {
 		return this.useCaching ? (this._tagsCache ??= new Map<string, Promise<PagedResult<GitTag>>>()) : undefined;
 	}
 
 	private _trackedPaths = new PathTrie<PromiseOrValue<[string, string] | undefined>>();
-	get trackedPaths() {
+	get trackedPaths(): PathTrie<PromiseOrValue<[string, string] | undefined>> {
 		return this._trackedPaths;
 	}
 
 	private _worktreesCache: Map<string, Promise<GitWorktree[]>> | undefined;
-	get worktrees() {
+	get worktrees(): Map<string, Promise<GitWorktree[]>> | undefined {
 		return this.useCaching ? (this._worktreesCache ??= new Map<string, Promise<GitWorktree[]>>()) : undefined;
 	}
 
 	@log({ singleLine: true })
-	clearCaches(repoPath: string | undefined, ...caches: GitCaches[]) {
+	clearCaches(repoPath: string | undefined, ...caches: GitCaches[]): void {
 		const cachesToClear = new Set<Map<string, unknown> | PathTrie<unknown> | undefined>();
 
 		if (!caches.length || caches.includes('branches')) {
@@ -170,7 +170,7 @@ export class GitCache implements Disposable {
 	}
 
 	@log({ singleLine: true })
-	reset(onlyConfigControlledCaches: boolean = false) {
+	reset(onlyConfigControlledCaches: boolean = false): void {
 		this._branchCache?.clear();
 		this._branchCache = undefined;
 		this._branchesCache?.clear();

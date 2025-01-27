@@ -2,7 +2,7 @@ import type { TextEditor } from 'vscode';
 import { Disposable, TreeItem, TreeItemCollapsibleState, window, workspace } from 'vscode';
 import type { RepositoriesChangeEvent } from '../../git/gitProviderService';
 import { GitUri, unknownGitUri } from '../../git/gitUri';
-import { gate } from '../../system/decorators/gate';
+import { gate } from '../../system/decorators/-webview/gate';
 import { debug } from '../../system/decorators/log';
 import { weakEvent } from '../../system/event';
 import { debounce, szudzikPairing } from '../../system/function';
@@ -68,7 +68,7 @@ export class RepositoriesNode extends SubscribeableViewNode<
 
 	@gate()
 	@debug()
-	override async refresh(reset: boolean = false) {
+	override async refresh(reset: boolean = false): Promise<void> {
 		const hasChildren = this.children != null;
 		super.refresh(reset);
 		if (!hasChildren) return;
@@ -106,7 +106,7 @@ export class RepositoriesNode extends SubscribeableViewNode<
 	}
 
 	@debug()
-	protected subscribe() {
+	protected subscribe(): Disposable {
 		const subscriptions = [
 			weakEvent(this.view.container.git.onDidChangeRepositories, this.onRepositoriesChanged, this),
 		];

@@ -5,15 +5,15 @@ import type { GlCommands } from '../../../../constants.commands';
 import { GlCommand } from '../../../../constants.commands';
 import { proTrialLengthInDays, SubscriptionPlanId, SubscriptionState } from '../../../../constants.subscription';
 import type { Source } from '../../../../constants.telemetry';
-import type { Promo } from '../../../../plus/gk/account/promos';
-import { getApplicablePromo } from '../../../../plus/gk/account/promos';
-import type { Subscription } from '../../../../plus/gk/account/subscription';
+import type { Promo } from '../../../../plus/gk/models/promo';
+import type { Subscription } from '../../../../plus/gk/models/subscription';
+import { getApplicablePromo } from '../../../../plus/gk/utils/promo.utils';
 import {
 	getSubscriptionPlanName,
 	getSubscriptionTimeRemaining,
 	isSubscriptionPaid,
 	isSubscriptionStateTrial,
-} from '../../../../plus/gk/account/subscription';
+} from '../../../../plus/gk/utils/subscription.utils';
 import { pluralize } from '../../../../system/string';
 import type { GlPopover } from './overlays/popover';
 import { focusOutline } from './styles/lit/a11y.css';
@@ -153,7 +153,7 @@ export class GlFeatureBadge extends LitElement {
 		return this.subscription?.state;
 	}
 
-	override render() {
+	override render(): unknown {
 		return html`
 			<gl-popover placement=${this.placement} hoist>
 				<span slot="anchor" class="badge" tabindex="0">${this.renderBadge()}</span>

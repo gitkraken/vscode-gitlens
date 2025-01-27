@@ -1,3 +1,4 @@
+import type { Container } from '../../container';
 import { maybeStopWatch } from '../../system/stopwatch';
 import { GitTag } from '../models/tag';
 
@@ -16,7 +17,7 @@ export const parseGitTagsDefaultFormat = [
 	`${lb}s${rb}%(subject)`, // message
 ].join('');
 
-export function parseGitTags(data: string, repoPath: string): GitTag[] {
+export function parseGitTags(container: Container, data: string, repoPath: string): GitTag[] {
 	using sw = maybeStopWatch(`Git.parseTags(${repoPath})`, { log: false, logLevel: 'debug' });
 
 	const tags: GitTag[] = [];
@@ -41,6 +42,7 @@ export function parseGitTags(data: string, repoPath: string): GitTag[] {
 
 		tags.push(
 			new GitTag(
+				container,
 				repoPath,
 				name,
 				// Stops excessive memory usage -- https://bugs.chromium.org/p/v8/issues/detail?id=2869

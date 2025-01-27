@@ -3,7 +3,7 @@
 // don't require Container and can be tested.
 
 import { HostingIntegrationId } from '../../../../constants.integrations';
-import type { PullRequestUrlIdentity } from '../../../../git/models/pullRequest.utils';
+import type { PullRequestUrlIdentity } from '../../../../git/utils/pullRequest.utils';
 
 export function isMaybeGitHubPullRequestUrl(url: string): boolean {
 	if (url == null) return false;

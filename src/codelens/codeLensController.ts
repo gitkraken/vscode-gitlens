@@ -1,12 +1,12 @@
 import type { ConfigurationChangeEvent } from 'vscode';
 import { Disposable, languages } from 'vscode';
 import type { Container } from '../container';
+import { configuration } from '../system/-webview/configuration';
+import { setContext } from '../system/-webview/context';
 import { log } from '../system/decorators/log';
 import { once } from '../system/event';
 import { getLoggableName, Logger } from '../system/logger';
 import { getLogScope, setLogScopeExit, startLogScope } from '../system/logger.scope';
-import { configuration } from '../system/vscode/configuration';
-import { setContext } from '../system/vscode/context';
 import type { DocumentBlameStateChangeEvent, DocumentDirtyIdleTriggerEvent } from '../trackers/documentTracker';
 import type { GitCodeLensProvider } from './codeLensProvider';
 
@@ -23,7 +23,7 @@ export class GitCodeLensController implements Disposable {
 		);
 	}
 
-	dispose() {
+	dispose(): void {
 		this._providerDisposable?.dispose();
 		this._disposable?.dispose();
 	}
@@ -76,7 +76,7 @@ export class GitCodeLensController implements Disposable {
 	}
 
 	@log()
-	toggleCodeLens() {
+	toggleCodeLens(): void {
 		const scope = getLogScope();
 
 		if (!this._canToggle) {

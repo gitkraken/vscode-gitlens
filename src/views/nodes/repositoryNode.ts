@@ -3,20 +3,17 @@ import { GlyphChars } from '../../constants';
 import { Features } from '../../features';
 import type { GitUri } from '../../git/gitUri';
 import { GitBranch } from '../../git/models/branch';
-import { getHighlanderProviders } from '../../git/models/remote';
 import type { Repository, RepositoryChangeEvent, RepositoryFileSystemChangeEvent } from '../../git/models/repository';
 import { RepositoryChange, RepositoryChangeComparisonMode } from '../../git/models/repository';
-import { formatLastFetched, getLastFetchedUpdateInterval } from '../../git/models/repository.utils';
 import type { GitStatus } from '../../git/models/status';
-import { getRepositoryStatusIconPath } from '../../git/utils/vscode/icons';
-import type {
-	CloudWorkspace,
-	CloudWorkspaceRepositoryDescriptor,
-	LocalWorkspace,
-	LocalWorkspaceRepositoryDescriptor,
-} from '../../plus/workspaces/models';
+import { getRepositoryStatusIconPath } from '../../git/utils/-webview/icons';
+import { formatLastFetched } from '../../git/utils/-webview/repository.utils';
+import { getLastFetchedUpdateInterval } from '../../git/utils/fetch.utils';
+import { getHighlanderProviders } from '../../git/utils/remote.utils';
+import type { CloudWorkspace, CloudWorkspaceRepositoryDescriptor } from '../../plus/workspaces/models/cloudWorkspace';
+import type { LocalWorkspace, LocalWorkspaceRepositoryDescriptor } from '../../plus/workspaces/models/localWorkspace';
 import { findLastIndex } from '../../system/array';
-import { gate } from '../../system/decorators/gate';
+import { gate } from '../../system/decorators/-webview/gate';
 import { debug, log } from '../../system/decorators/log';
 import { weakEvent } from '../../system/event';
 import { disposableInterval } from '../../system/function';
@@ -317,23 +314,23 @@ export class RepositoryNode extends SubscribeableViewNode<'repository', ViewsWit
 	}
 
 	@log()
-	fetch(options: { all?: boolean; progress?: boolean; prune?: boolean; remote?: string } = {}) {
+	fetch(options: { all?: boolean; progress?: boolean; prune?: boolean; remote?: string }): Promise<void> {
 		return this.repo.fetch(options);
 	}
 
 	@log()
-	pull(options: { progress?: boolean; rebase?: boolean } = {}) {
+	pull(options: { progress?: boolean; rebase?: boolean }): Promise<void> {
 		return this.repo.pull(options);
 	}
 
 	@log()
-	push(options: { force?: boolean; progress?: boolean } = {}) {
+	push(options: { force?: boolean; progress?: boolean }): Promise<void> {
 		return this.repo.push(options);
 	}
 
 	@gate()
 	@debug()
-	override async refresh(reset: boolean = false) {
+	override async refresh(reset: boolean = false): Promise<void> {
 		super.refresh(reset);
 
 		if (reset) {
@@ -344,19 +341,19 @@ export class RepositoryNode extends SubscribeableViewNode<'repository', ViewsWit
 	}
 
 	@log()
-	async star() {
+	async star(): Promise<void> {
 		await this.repo.star();
 		void this.parent!.triggerChange();
 	}
 
 	@log()
-	async unstar() {
+	async unstar(): Promise<void> {
 		await this.repo.unstar();
 		void this.parent!.triggerChange();
 	}
 
 	@debug()
-	protected async subscribe() {
+	protected async subscribe(): Promise<Disposable> {
 		const lastFetched = (await this.repo?.getLastFetched()) ?? 0;
 
 		const disposables = [weakEvent(this.repo.onDidChange, this.onRepositoryChanged, this)];

@@ -3,10 +3,10 @@ import type { Container } from '../../container';
 import type { GitBranch } from '../../git/models/branch';
 import type { GitLog } from '../../git/models/log';
 import type { GitReference } from '../../git/models/reference';
-import { getReferenceLabel, isRevisionReference } from '../../git/models/reference.utils';
 import type { Repository } from '../../git/models/repository';
-import { createRevisionRange } from '../../git/models/revision.utils';
-import { isSubscriptionStatePaidOrTrial } from '../../plus/gk/account/subscription';
+import { getReferenceLabel, isRevisionReference } from '../../git/utils/reference.utils';
+import { createRevisionRange } from '../../git/utils/revision.utils';
+import { isSubscriptionStatePaidOrTrial } from '../../plus/gk/utils/subscription.utils';
 import { createQuickPickSeparator } from '../../quickpicks/items/common';
 import type { DirectiveQuickPickItem } from '../../quickpicks/items/directive';
 import { createDirectiveQuickPickItem, Directive } from '../../quickpicks/items/directive';
@@ -80,7 +80,7 @@ export class MergeGitCommand extends QuickCommand<State> {
 		return false;
 	}
 
-	execute(state: MergeStepState) {
+	private execute(state: MergeStepState) {
 		state.repo.merge(...state.flags, state.reference.ref);
 	}
 
@@ -171,18 +171,18 @@ export class MergeGitCommand extends QuickCommand<State> {
 				context.selectedBranchOrTag != null &&
 				(context.pickCommit || context.pickCommitForItem || state.reference.ref === context.destination.ref)
 			) {
-				const ref = context.selectedBranchOrTag.ref;
+				const rev = context.selectedBranchOrTag.ref;
 
-				let log = context.cache.get(ref);
+				let log = context.cache.get(rev);
 				if (log == null) {
-					log = this.container.git.getLog(state.repo.path, { ref: ref, merges: 'first-parent' });
-					context.cache.set(ref, log);
+					log = state.repo.git.commits().getLog(rev, { merges: 'first-parent' });
+					context.cache.set(rev, log);
 				}
 
 				const result: StepResult<GitReference> = yield* pickCommitStep(state as MergeStepState, context, {
 					ignoreFocusOut: true,
 					log: await log,
-					onDidLoadMore: log => context.cache.set(ref, Promise.resolve(log)),
+					onDidLoadMore: log => context.cache.set(rev, Promise.resolve(log)),
 					placeholder: (context, log) =>
 						log == null
 							? `No commits found on ${getReferenceLabel(context.selectedBranchOrTag, {
@@ -211,10 +211,9 @@ export class MergeGitCommand extends QuickCommand<State> {
 	}
 
 	private async *confirmStep(state: MergeStepState, context: Context): AsyncStepResultGenerator<Flags[]> {
-		const counts = await this.container.git.getLeftRightCommitCount(
-			state.repo.path,
-			createRevisionRange(context.destination.ref, state.reference.ref, '...'),
-		);
+		const counts = await state.repo.git
+			.commits()
+			.getLeftRightCommitCount(createRevisionRange(context.destination.ref, state.reference.ref, '...'));
 
 		const title = `Merge ${getReferenceLabel(state.reference, {
 			icon: false,

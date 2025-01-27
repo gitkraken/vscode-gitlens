@@ -11,9 +11,11 @@ import { InspectCommand } from '../../commands/inspect';
 import type { Container } from '../../container';
 import { emojify } from '../../emojis';
 import type { GitCommit } from '../../git/models/commit';
-import { createReference } from '../../git/models/reference.utils';
 import { RepositoryChange, RepositoryChangeComparisonMode } from '../../git/models/repository';
+import { createReference } from '../../git/utils/reference.utils';
 import { showRebaseSwitchToTextWarningMessage } from '../../messages';
+import { executeCoreCommand } from '../../system/-webview/command';
+import { configuration } from '../../system/-webview/configuration';
 import { getScopedCounter } from '../../system/counter';
 import { debug, log } from '../../system/decorators/log';
 import type { Deferrable } from '../../system/function';
@@ -21,8 +23,6 @@ import { debounce } from '../../system/function';
 import { join, map } from '../../system/iterable';
 import { Logger } from '../../system/logger';
 import { normalizePath } from '../../system/path';
-import { executeCoreCommand } from '../../system/vscode/command';
-import { configuration } from '../../system/vscode/configuration';
 import type { IpcMessage, WebviewFocusChangedParams } from '../protocol';
 import { WebviewFocusChangedCommand } from '../protocol';
 import { replaceWebviewHtmlTokens, resetContextKeys, setContextKeys } from '../webviewController';
@@ -109,7 +109,7 @@ export class RebaseEditorProvider implements CustomTextEditorProvider, Disposabl
 		this.ascending = configuration.get('rebaseEditor.ordering') === 'asc';
 	}
 
-	dispose() {
+	dispose(): void {
 		this._disposable.dispose();
 	}
 
@@ -131,7 +131,7 @@ export class RebaseEditorProvider implements CustomTextEditorProvider, Disposabl
 	}
 
 	private _disableAfterNextUse: boolean = false;
-	async enableForNextUse() {
+	async enableForNextUse(): Promise<void> {
 		if (!this.enabled) {
 			await this.setEnabled(true);
 			this._disableAfterNextUse = true;
@@ -165,7 +165,11 @@ export class RebaseEditorProvider implements CustomTextEditorProvider, Disposabl
 	}
 
 	@debug<RebaseEditorProvider['resolveCustomTextEditor']>({ args: { 1: false, 2: false } })
-	async resolveCustomTextEditor(document: TextDocument, panel: WebviewPanel, _token: CancellationToken) {
+	async resolveCustomTextEditor(
+		document: TextDocument,
+		panel: WebviewPanel,
+		_token: CancellationToken,
+	): Promise<void> {
 		void this.container.usage.track(`rebaseEditor:shown`).catch();
 
 		const repoPath = normalizePath(Uri.joinPath(document.uri, '..', '..', '..').fsPath);
@@ -590,8 +594,7 @@ async function loadRichCommitData(
 	context.commits = [];
 	context.authors = new Map<string, Author>();
 
-	const log = await container.git.richSearchCommits(
-		context.repoPath,
+	const log = await container.git.commits(context.repoPath).searchCommits(
 		{
 			query: `${onto ? `#:${onto} ` : ''}${join(
 				map(entries, e => `#:${e.sha}`),

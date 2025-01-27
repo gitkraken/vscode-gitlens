@@ -18,16 +18,17 @@ import type {
 	GitRevertStatus,
 } from '../../../../git/models/pausedOperationStatus';
 import type { GitBranchReference, GitTagReference } from '../../../../git/models/reference';
-import { createReference, getReferenceFromBranch } from '../../../../git/models/reference.utils';
-import type { GitStatusFile } from '../../../../git/models/status';
 import { GitStatus } from '../../../../git/models/status';
+import type { GitStatusFile } from '../../../../git/models/statusFile';
 import { parseGitStatus } from '../../../../git/parsers/statusParser';
-import { gate } from '../../../../system/decorators/gate';
+import { getReferenceFromBranch } from '../../../../git/utils/-webview/reference.utils';
+import { createReference } from '../../../../git/utils/reference.utils';
+import { configuration } from '../../../../system/-webview/configuration';
+import { splitPath } from '../../../../system/-webview/path';
+import { gate } from '../../../../system/decorators/-webview/gate';
 import { log } from '../../../../system/decorators/log';
 import { Logger } from '../../../../system/logger';
 import { getSettledValue } from '../../../../system/promise';
-import { configuration } from '../../../../system/vscode/configuration';
-import { splitPath } from '../../../../system/vscode/path';
 import type { Git } from '../git';
 import { GitErrors } from '../git';
 import type { LocalGitProvider } from '../localGitProvider';
@@ -132,7 +133,7 @@ export class StatusGitSubProvider implements GitStatusSubProvider {
 						const [branchResult, mergeBaseResult, possibleSourceBranchesResult] = await Promise.allSettled([
 							this.provider.branches.getBranch(repoPath),
 							this.provider.branches.getMergeBase(repoPath, 'MERGE_HEAD', 'HEAD'),
-							this.provider.branches.getBranchesForCommit(repoPath, ['MERGE_HEAD'], undefined, {
+							this.provider.branches.getBranchesWithCommits(repoPath, ['MERGE_HEAD'], undefined, {
 								all: true,
 								mode: 'pointsAt',
 							}),
@@ -223,11 +224,11 @@ export class StatusGitSubProvider implements GitStatusSubProvider {
 							rebaseHead != null
 								? this.provider.branches.getMergeBase(repoPath, rebaseHead, 'HEAD')
 								: this.provider.branches.getMergeBase(repoPath, onto, origHead),
-							this.provider.branches.getBranchesForCommit(repoPath, [onto], undefined, {
+							this.provider.branches.getBranchesWithCommits(repoPath, [onto], undefined, {
 								all: true,
 								mode: 'pointsAt',
 							}),
-							this.provider.getCommitTags(repoPath, onto, { mode: 'pointsAt' }),
+							this.provider.tags.getTagsWithCommit(repoPath, onto, { mode: 'pointsAt' }),
 						]);
 
 						const mergeBase = getSettledValue(mergeBaseResult);
@@ -470,12 +471,13 @@ export class StatusGitSubProvider implements GitStatusSubProvider {
 		const data = await this.git.status(repoPath, porcelainVersion, {
 			similarityThreshold: configuration.get('advanced.similarityThreshold') ?? undefined,
 		});
-		const status = parseGitStatus(data, repoPath, porcelainVersion);
+		const status = parseGitStatus(this.container, data, repoPath, porcelainVersion);
 
 		if (status?.detached) {
 			const pausedOpStatus = await this.getPausedOperationStatus(repoPath);
 			if (pausedOpStatus?.type === 'rebase') {
 				return new GitStatus(
+					this.container,
 					repoPath,
 					pausedOpStatus.incoming.name,
 					status.sha,

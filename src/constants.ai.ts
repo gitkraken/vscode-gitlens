@@ -10,8 +10,11 @@ export type AnthropicModels =
 	| 'claude-3-haiku-20240307'
 	| 'claude-2.1';
 
+export type DeepSeekModels = 'deepseek-chat' | 'deepseek-reasoner';
+
 export type GeminiModels =
 	| 'gemini-2.0-flash-exp'
+	| 'gemini-2.0-flash-thinking-exp-01-21'
 	| 'gemini-exp-1206'
 	| 'gemini-exp-1121'
 	| 'gemini-1.5-pro-latest'
@@ -65,25 +68,28 @@ export type VSCodeAIModels = `${string}:${string}`;
 
 export type xAIModels = 'grok-beta';
 
-export type AIProviders = 'anthropic' | 'gemini' | 'github' | 'huggingface' | 'openai' | 'vscode' | 'xai';
+export type AIProviders = 'anthropic' | 'deepseek' | 'gemini' | 'github' | 'huggingface' | 'openai' | 'vscode' | 'xai';
 export type AIModels<Provider extends AIProviders = AIProviders> = Provider extends 'anthropic'
 	? AnthropicModels
-	: Provider extends 'gemini'
-	  ? GeminiModels
-	  : Provider extends 'github'
-	    ? GitHubModels
-	    : Provider extends 'huggingface'
-	      ? HuggingFaceModels
-	      : Provider extends 'openai'
-	        ? OpenAIModels
-	        : Provider extends 'vscode'
-	          ? VSCodeAIModels
-	          : Provider extends 'xai'
-	            ? xAIModels
-	            : AnthropicModels | GeminiModels | OpenAIModels | xAIModels;
+	: Provider extends 'deepseek'
+	  ? DeepSeekModels
+	  : Provider extends 'gemini'
+	    ? GeminiModels
+	    : Provider extends 'github'
+	      ? GitHubModels
+	      : Provider extends 'huggingface'
+	        ? HuggingFaceModels
+	        : Provider extends 'openai'
+	          ? OpenAIModels
+	          : Provider extends 'vscode'
+	            ? VSCodeAIModels
+	            : Provider extends 'xai'
+	              ? xAIModels
+	              : AnthropicModels | GeminiModels | OpenAIModels | xAIModels;
 
 export type SupportedAIModels =
 	| `anthropic:${AIModels<'anthropic'>}`
+	| `deepseek:${AIModels<'deepseek'>}`
 	| `github:${AIModels<'github'>}`
 	| `google:${AIModels<'gemini'>}`
 	| `huggingface:${AIModels<'huggingface'>}`

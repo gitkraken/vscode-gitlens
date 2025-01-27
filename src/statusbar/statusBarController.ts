@@ -8,6 +8,9 @@ import type { Container } from '../container';
 import { CommitFormatter } from '../git/formatters/commitFormatter';
 import type { PullRequest } from '../git/models/pullRequest';
 import { detailsMessage } from '../hovers/hovers';
+import { createCommand } from '../system/-webview/command';
+import { configuration } from '../system/-webview/configuration';
+import { isTrackableTextEditor } from '../system/-webview/vscode';
 import { createMarkdownCommandLink } from '../system/commands';
 import { debug } from '../system/decorators/log';
 import { once } from '../system/event';
@@ -15,9 +18,6 @@ import { Logger } from '../system/logger';
 import { getLogScope, setLogScopeExit } from '../system/logger.scope';
 import type { MaybePausedResult } from '../system/promise';
 import { getSettledValue, pauseOnCancelOrTimeout } from '../system/promise';
-import { createCommand } from '../system/vscode/command';
-import { configuration } from '../system/vscode/configuration';
-import { isTrackableTextEditor } from '../system/vscode/utils';
 import type { LinesChangeEvent, LineState } from '../trackers/lineTracker';
 
 export class StatusBarController implements Disposable {
@@ -34,7 +34,7 @@ export class StatusBarController implements Disposable {
 		);
 	}
 
-	dispose() {
+	dispose(): void {
 		this.clearBlame();
 
 		this._statusBarBlame?.dispose();
@@ -199,7 +199,7 @@ export class StatusBarController implements Disposable {
 		}
 	}
 
-	clearBlame() {
+	clearBlame(): void {
 		this._selectedSha = undefined;
 		this._cancellation?.cancel();
 		this._statusBarBlame?.hide();

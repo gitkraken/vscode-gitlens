@@ -15,7 +15,7 @@ import {
 import type { PagedResult } from '../../../git/gitProvider';
 import type { PullRequest, PullRequestMergeMethod } from '../../../git/models/pullRequest';
 import { base64 } from '../../../system/string';
-import type { IntegrationAuthenticationService } from '../authentication/integrationAuthentication';
+import type { IntegrationAuthenticationService } from '../authentication/integrationAuthenticationService';
 import type {
 	GetAzureProjectsForResourceFn,
 	GetAzureResourcesForUserFn,

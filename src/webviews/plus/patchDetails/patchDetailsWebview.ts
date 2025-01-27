@@ -11,13 +11,16 @@ import { openChanges, openChangesWithWorking, openFile } from '../../../git/acti
 import { ApplyPatchCommitError, ApplyPatchCommitErrorReason } from '../../../git/errors';
 import type { RepositoriesChangeEvent } from '../../../git/gitProviderService';
 import type { GitCommit } from '../../../git/models/commit';
-import { GitFileChange } from '../../../git/models/file';
+import { GitFileChange } from '../../../git/models/fileChange';
 import type { PatchRevisionRange } from '../../../git/models/patch';
-import { createReference } from '../../../git/models/reference.utils';
 import type { Repository } from '../../../git/models/repository';
 import { isRepository } from '../../../git/models/repository';
+import type { GkRepositoryId } from '../../../git/models/repositoryIdentities';
 import { uncommitted, uncommittedStaged } from '../../../git/models/revision';
-import { shortenRevision } from '../../../git/models/revision.utils';
+import { createReference } from '../../../git/utils/reference.utils';
+import { shortenRevision } from '../../../git/utils/revision.utils';
+import { showPatchesView } from '../../../plus/drafts/actions';
+import { getDraftEntityIdentifier } from '../../../plus/drafts/draftsService';
 import type {
 	CreateDraftChange,
 	Draft,
@@ -28,26 +31,24 @@ import type {
 	DraftUser,
 	DraftVisibility,
 	LocalDraft,
-} from '../../../gk/models/drafts';
-import type { GkRepositoryId } from '../../../gk/models/repositoryIdentities';
-import { showPatchesView } from '../../../plus/drafts/actions';
-import { getDraftEntityIdentifier } from '../../../plus/drafts/draftsService';
-import type { OrganizationMember } from '../../../plus/gk/account/organization';
-import { confirmDraftStorage, ensureAccount } from '../../../plus/utils';
+} from '../../../plus/drafts/models/drafts';
+import { confirmDraftStorage } from '../../../plus/drafts/utils/-webview/drafts.utils';
+import type { OrganizationMember } from '../../../plus/gk/models/organization';
+import { ensureAccount } from '../../../plus/gk/utils/-webview/acount.utils';
 import { showNewOrSelectBranchPicker } from '../../../quickpicks/branchPicker';
 import { showOrganizationMembersPicker } from '../../../quickpicks/organizationMembersPicker';
 import { ReferencesQuickPickIncludes, showReferencePicker } from '../../../quickpicks/referencePicker';
-import { gate } from '../../../system/decorators/gate';
+import { executeCommand, registerCommand } from '../../../system/-webview/command';
+import { configuration } from '../../../system/-webview/configuration';
+import { getContext, onDidChangeContext, setContext } from '../../../system/-webview/context';
+import type { Serialized } from '../../../system/-webview/serialize';
+import { serialize } from '../../../system/-webview/serialize';
+import { gate } from '../../../system/decorators/-webview/gate';
 import { debug } from '../../../system/decorators/log';
 import type { Deferrable } from '../../../system/function';
 import { debounce } from '../../../system/function';
 import { find, some } from '../../../system/iterable';
 import { basename } from '../../../system/path';
-import { executeCommand, registerCommand } from '../../../system/vscode/command';
-import { configuration } from '../../../system/vscode/configuration';
-import { getContext, onDidChangeContext, setContext } from '../../../system/vscode/context';
-import type { Serialized } from '../../../system/vscode/serialize';
-import { serialize } from '../../../system/vscode/serialize';
 import { showInspectView } from '../../commitDetails/actions';
 import type { IpcCallMessageType, IpcMessage } from '../../protocol';
 import type { WebviewHost, WebviewProvider } from '../../webviewProvider';
@@ -158,7 +159,7 @@ export class PatchDetailsWebviewProvider
 		);
 	}
 
-	dispose() {
+	dispose(): void {
 		this._disposable.dispose();
 	}
 
@@ -229,7 +230,7 @@ export class PatchDetailsWebviewProvider
 		return commands;
 	}
 
-	onMessageReceived(e: IpcMessage) {
+	onMessageReceived(e: IpcMessage): void {
 		switch (true) {
 			case ApplyPatchCommand.is(e):
 				void this.applyPatch(e.params);
@@ -331,7 +332,7 @@ export class PatchDetailsWebviewProvider
 		this.updateState(true);
 	}
 
-	onVisibilityChanged(visible: boolean) {
+	onVisibilityChanged(visible: boolean): void {
 		// TODO@eamodio ugly -- clean this up later
 		this._context.create?.changes.forEach(c => (visible ? c.resume() : c.suspend()));
 
@@ -1369,6 +1370,7 @@ export class PatchDetailsWebviewProvider
 			return [
 				commit,
 				new GitFileChange(
+					this.container,
 					params.repoPath,
 					params.path,
 					params.status,
@@ -1408,7 +1410,7 @@ export class PatchDetailsWebviewProvider
 		if (change == null) return [undefined];
 
 		if (change.type === 'revision') {
-			const commit = await this.container.git.getCommit(file.repoPath, change.revision.to ?? uncommitted);
+			const commit = await this.container.git.commits(file.repoPath).getCommit(change.revision.to ?? uncommitted);
 			if (
 				change.revision.to === change.revision.from ||
 				(change.revision.from.length === change.revision.to.length + 1 &&
@@ -1420,7 +1422,7 @@ export class PatchDetailsWebviewProvider
 
 			return [commit, change.revision];
 		} else if (change.type === 'wip') {
-			return [await this.container.git.getCommit(file.repoPath, change.revision.to ?? uncommitted)];
+			return [await this.container.git.commits(file.repoPath).getCommit(change.revision.to ?? uncommitted)];
 		}
 
 		return [undefined];

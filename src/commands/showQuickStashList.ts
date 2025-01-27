@@ -1,8 +1,8 @@
 import { GlCommand } from '../constants.commands';
 import type { Container } from '../container';
 import { executeGitCommand } from '../git/actions';
-import { command } from '../system/vscode/command';
-import { GlCommandBase } from './base';
+import { command } from '../system/-webview/command';
+import { GlCommandBase } from './commandBase';
 
 export interface ShowQuickStashListCommandArgs {
 	repoPath?: string;
@@ -14,7 +14,7 @@ export class ShowQuickStashListCommand extends GlCommandBase {
 		super(GlCommand.ShowQuickStashList);
 	}
 
-	execute(args?: ShowQuickStashListCommandArgs) {
+	execute(args?: ShowQuickStashListCommandArgs): Promise<void> {
 		return executeGitCommand({
 			command: 'stash',
 			state: {

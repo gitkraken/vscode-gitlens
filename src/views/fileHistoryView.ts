@@ -3,9 +3,9 @@ import type { FileHistoryViewConfig } from '../config';
 import { GlCommand } from '../constants.commands';
 import type { Container } from '../container';
 import type { GitUri } from '../git/gitUri';
-import { executeCommand } from '../system/vscode/command';
-import { configuration } from '../system/vscode/configuration';
-import { setContext } from '../system/vscode/context';
+import { executeCommand } from '../system/-webview/command';
+import { configuration } from '../system/-webview/configuration';
+import { setContext } from '../system/-webview/context';
 import { FileHistoryTrackerNode } from './nodes/fileHistoryTrackerNode';
 import { LineHistoryTrackerNode } from './nodes/lineHistoryTrackerNode';
 import { ViewBase } from './viewBase';
@@ -106,7 +106,7 @@ export class FileHistoryView extends ViewBase<
 		];
 	}
 
-	protected override filterConfigurationChanged(e: ConfigurationChangeEvent) {
+	protected override filterConfigurationChanged(e: ConfigurationChangeEvent): boolean {
 		const changed = super.filterConfigurationChanged(e);
 		if (
 			!changed &&
@@ -127,7 +127,7 @@ export class FileHistoryView extends ViewBase<
 		return true;
 	}
 
-	async showHistoryForUri(uri: GitUri) {
+	async showHistoryForUri(uri: GitUri): Promise<void> {
 		this.setCursorFollowing(false);
 
 		const root = this.ensureRoot(true);

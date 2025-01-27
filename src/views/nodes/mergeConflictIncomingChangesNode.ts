@@ -7,9 +7,9 @@ import { GitUri } from '../../git/gitUri';
 import type { GitCommit } from '../../git/models/commit';
 import type { GitFile } from '../../git/models/file';
 import type { GitPausedOperationStatus } from '../../git/models/pausedOperationStatus';
-import { getReferenceLabel } from '../../git/models/reference.utils';
-import { createCommand, createCoreCommand } from '../../system/vscode/command';
-import { configuration } from '../../system/vscode/configuration';
+import { getReferenceLabel } from '../../git/utils/reference.utils';
+import { createCommand, createCoreCommand } from '../../system/-webview/command';
+import { configuration } from '../../system/-webview/configuration';
 import type { FileHistoryView } from '../fileHistoryView';
 import type { LineHistoryView } from '../lineHistoryView';
 import type { ViewsWithCommits } from '../viewBase';
@@ -35,7 +35,7 @@ export class MergeConflictIncomingChangesNode extends ViewNode<
 			const ref = this.status.type === 'rebase' ? this.status.steps.current.commit?.ref : this.status.HEAD.ref;
 			if (ref == null) return undefined;
 
-			this._commit = this.view.container.git.getCommit(this.status.repoPath, ref);
+			this._commit = this.view.container.git.commits(this.status.repoPath).getCommit(ref);
 		}
 		return this._commit;
 	}

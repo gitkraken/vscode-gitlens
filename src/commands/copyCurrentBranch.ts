@@ -5,9 +5,10 @@ import type { Container } from '../container';
 import { GitUri } from '../git/gitUri';
 import { showGenericErrorMessage } from '../messages';
 import { getBestRepositoryOrShowPicker } from '../quickpicks/repositoryPicker';
+import { command } from '../system/-webview/command';
 import { Logger } from '../system/logger';
-import { command } from '../system/vscode/command';
-import { ActiveEditorCommand, getCommandUri } from './base';
+import { ActiveEditorCommand } from './commandBase';
+import { getCommandUri } from './commandBase.utils';
 
 @command()
 export class CopyCurrentBranchCommand extends ActiveEditorCommand {
@@ -15,7 +16,7 @@ export class CopyCurrentBranchCommand extends ActiveEditorCommand {
 		super(GlCommand.CopyCurrentBranch);
 	}
 
-	async execute(editor?: TextEditor, uri?: Uri) {
+	async execute(editor?: TextEditor, uri?: Uri): Promise<void> {
 		uri = getCommandUri(uri, editor);
 
 		const gitUri = uri != null ? await GitUri.fromUri(uri) : undefined;

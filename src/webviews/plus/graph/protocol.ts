@@ -40,8 +40,8 @@ import type {
 	GitTagReference,
 } from '../../../git/models/reference';
 import type { ProviderReference } from '../../../git/models/remoteProvider';
-import type { GitSearchResultData } from '../../../git/search';
-import type { Subscription } from '../../../plus/gk/account/subscription';
+import type { GitGraphSearchResultData } from '../../../git/search';
+import type { Subscription } from '../../../plus/gk/models/subscription';
 import type { DateTimeFormat } from '../../../system/date';
 import type { WebviewItemContext, WebviewItemGroupContext } from '../../../system/webview';
 import type { IpcScope, WebviewState } from '../../protocol';
@@ -374,7 +374,7 @@ export interface SearchParams {
 	more?: boolean;
 }
 export interface GraphSearchResults {
-	ids?: Record<string, GitSearchResultData>;
+	ids?: Record<string, GitGraphSearchResultData>;
 	count: number;
 	paging?: { hasMore: boolean };
 }

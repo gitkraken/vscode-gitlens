@@ -4,8 +4,9 @@ import { TagError } from '../../../../git/errors';
 import type { GitTagsSubProvider, PagedResult, PagingOptions } from '../../../../git/gitProvider';
 import type { GitTag } from '../../../../git/models/tag';
 import { parseGitTags, parseGitTagsDefaultFormat } from '../../../../git/parsers/tagParser';
-import type { TagSortOptions } from '../../../../git/utils/vscode/sorting';
-import { sortTags } from '../../../../git/utils/vscode/sorting';
+import type { TagSortOptions } from '../../../../git/utils/-webview/sorting';
+import { sortTags } from '../../../../git/utils/-webview/sorting';
+import { filterMap } from '../../../../system/array';
 import { log } from '../../../../system/decorators/log';
 import type { Git } from '../git';
 
@@ -42,7 +43,7 @@ export class TagsGitSubProvider implements GitTagsSubProvider {
 			async function load(this: TagsGitSubProvider): Promise<PagedResult<GitTag>> {
 				try {
 					const data = await this.git.tag(repoPath, '-l', `--format=${parseGitTagsDefaultFormat}`);
-					return { values: parseGitTags(data, repoPath) };
+					return { values: parseGitTags(this.container, data, repoPath) };
 				} catch (_ex) {
 					this.cache.tags?.delete(repoPath);
 
@@ -73,12 +74,24 @@ export class TagsGitSubProvider implements GitTagsSubProvider {
 	}
 
 	@log()
-	async createTag(repoPath: string, name: string, ref: string, message?: string): Promise<void> {
+	async getTagsWithCommit(
+		repoPath: string,
+		sha: string,
+		options?: { commitDate?: Date; mode?: 'contains' | 'pointsAt' },
+	): Promise<string[]> {
+		const data = await this.git.branchOrTag__containsOrPointsAt(repoPath, [sha], { type: 'tag', ...options });
+		if (!data) return [];
+
+		return filterMap(data.split('\n'), b => b.trim() || undefined);
+	}
+
+	@log()
+	async createTag(repoPath: string, name: string, sha: string, message?: string): Promise<void> {
 		try {
-			await this.git.tag(repoPath, name, ref, ...(message != null && message.length > 0 ? ['-m', message] : []));
+			await this.git.tag(repoPath, name, sha, ...(message != null && message.length > 0 ? ['-m', message] : []));
 		} catch (ex) {
 			if (ex instanceof TagError) {
-				throw ex.WithTag(name).WithAction('create');
+				throw ex.withTag(name).withAction('create');
 			}
 
 			throw ex;
@@ -91,7 +104,7 @@ export class TagsGitSubProvider implements GitTagsSubProvider {
 			await this.git.tag(repoPath, '-d', name);
 		} catch (ex) {
 			if (ex instanceof TagError) {
-				throw ex.WithTag(name).WithAction('delete');
+				throw ex.withTag(name).withAction('delete');
 			}
 
 			throw ex;

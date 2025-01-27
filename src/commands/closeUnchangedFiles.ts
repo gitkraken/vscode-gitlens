@@ -4,10 +4,10 @@ import { GlCommand } from '../constants.commands';
 import type { Container } from '../container';
 import { showGenericErrorMessage } from '../messages';
 import { getRepositoryOrShowPicker } from '../quickpicks/repositoryPicker';
+import { command } from '../system/-webview/command';
 import { UriComparer } from '../system/comparers';
 import { Logger } from '../system/logger';
-import { command } from '../system/vscode/command';
-import { GlCommandBase } from './base';
+import { GlCommandBase } from './commandBase';
 
 export interface CloseUnchangedFilesCommandArgs {
 	uris?: Uri[];
@@ -19,7 +19,7 @@ export class CloseUnchangedFilesCommand extends GlCommandBase {
 		super(GlCommand.CloseUnchangedFiles);
 	}
 
-	async execute(args?: CloseUnchangedFilesCommandArgs) {
+	async execute(args?: CloseUnchangedFilesCommandArgs): Promise<void> {
 		args = { ...args };
 
 		try {

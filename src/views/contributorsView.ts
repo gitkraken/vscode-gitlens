@@ -8,12 +8,12 @@ import { GitUri } from '../git/gitUri';
 import type { GitContributor } from '../git/models/contributor';
 import type { RepositoryChangeEvent } from '../git/models/repository';
 import { RepositoryChange, RepositoryChangeComparisonMode } from '../git/models/repository';
-import { groupRepositories } from '../git/models/repository.utils';
-import { gate } from '../system/decorators/gate';
+import { groupRepositories } from '../git/utils/-webview/repository.utils';
+import { executeCommand } from '../system/-webview/command';
+import { configuration } from '../system/-webview/configuration';
+import { setContext } from '../system/-webview/context';
+import { gate } from '../system/decorators/-webview/gate';
 import { debug } from '../system/decorators/log';
-import { executeCommand } from '../system/vscode/command';
-import { configuration } from '../system/vscode/configuration';
-import { setContext } from '../system/vscode/context';
 import { RepositoriesSubscribeableNode } from './nodes/abstract/repositoriesSubscribeableNode';
 import { RepositoryFolderNode } from './nodes/abstract/repositoryFolderNode';
 import type { ViewNode } from './nodes/abstract/viewNode';
@@ -34,14 +34,14 @@ export class ContributorsRepositoryNode extends RepositoryFolderNode<Contributor
 	}
 
 	@debug()
-	protected override async subscribe() {
+	protected override async subscribe(): Promise<Disposable> {
 		return Disposable.from(
 			await super.subscribe(),
 			onDidFetchAvatar(e => this.child?.updateAvatar(e.email)),
 		);
 	}
 
-	protected changed(e: RepositoryChangeEvent) {
+	protected changed(e: RepositoryChangeEvent): boolean {
 		return e.changed(
 			RepositoryChange.Config,
 			RepositoryChange.Heads,
@@ -149,7 +149,7 @@ export class ContributorsView extends ViewBase<'contributors', ContributorsViewN
 		return this._state;
 	}
 
-	protected getRoot() {
+	protected getRoot(): ContributorsViewNode {
 		return new ContributorsViewNode(this);
 	}
 
@@ -222,7 +222,7 @@ export class ContributorsView extends ViewBase<'contributors', ContributorsViewN
 		];
 	}
 
-	protected override filterConfigurationChanged(e: ConfigurationChangeEvent) {
+	protected override filterConfigurationChanged(e: ConfigurationChangeEvent): boolean {
 		const changed = super.filterConfigurationChanged(e);
 		if (
 			!changed &&
@@ -243,7 +243,7 @@ export class ContributorsView extends ViewBase<'contributors', ContributorsViewN
 		return true;
 	}
 
-	findContributor(contributor: GitContributor, token?: CancellationToken) {
+	findContributor(contributor: GitContributor, token?: CancellationToken): Promise<ViewNode | undefined> {
 		const { repoPath, username, email, name } = contributor;
 
 		return this.findNode(
@@ -272,7 +272,7 @@ export class ContributorsView extends ViewBase<'contributors', ContributorsViewN
 	async revealRepository(
 		repoPath: string,
 		options?: { select?: boolean; focus?: boolean; expand?: boolean | number },
-	) {
+	): Promise<ViewNode | undefined> {
 		const node = await this.findNode(n => n instanceof RepositoryFolderNode && n.repoPath === repoPath, {
 			maxDepth: 1,
 			canTraverse: n => n instanceof ContributorsViewNode || n instanceof RepositoryFolderNode,
@@ -293,7 +293,7 @@ export class ContributorsView extends ViewBase<'contributors', ContributorsViewN
 			focus?: boolean;
 			expand?: boolean | number;
 		},
-	) {
+	): Promise<ViewNode | undefined> {
 		return window.withProgress(
 			{
 				location: ProgressLocation.Notification,

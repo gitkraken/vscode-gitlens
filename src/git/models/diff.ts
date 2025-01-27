@@ -1,4 +1,4 @@
-import type { GitFileChange } from './file';
+import type { GitFileChange } from './fileChange';
 
 export interface GitDiff {
 	readonly contents: string;

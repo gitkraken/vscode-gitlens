@@ -2,27 +2,27 @@ import type { SearchOperators, SearchOperatorsLongForm, SearchQuery } from '../c
 import { searchOperationRegex, searchOperatorsToLongFormMap } from '../constants.search';
 import type { StoredSearchQuery } from '../constants.storage';
 import type { GitRevisionReference } from './models/reference';
-import { isSha, shortenRevision } from './models/revision.utils';
 import type { GitUser } from './models/user';
+import { isSha, shortenRevision } from './utils/revision.utils';
 
-export interface GitSearchResultData {
+export interface GitGraphSearchResultData {
 	date: number;
 	i: number;
 }
-export type GitSearchResults = Map<string, GitSearchResultData>;
+export type GitGraphSearchResults = Map<string, GitGraphSearchResultData>;
 
-export interface GitSearch {
+export interface GitGraphSearch {
 	repoPath: string;
 	query: SearchQuery;
 	comparisonKey: string;
-	results: GitSearchResults;
+	results: GitGraphSearchResults;
 
 	readonly paging?: {
 		readonly limit: number | undefined;
 		readonly hasMore: boolean;
 	};
 
-	more?(limit: number): Promise<GitSearch>;
+	more?(limit: number): Promise<GitGraphSearch>;
 }
 
 export function getSearchQuery(search: StoredSearchQuery): SearchQuery {
@@ -43,7 +43,7 @@ export function getStoredSearchQuery(search: SearchQuery): StoredSearchQuery {
 	};
 }
 
-export function getSearchQueryComparisonKey(search: SearchQuery | StoredSearchQuery) {
+export function getSearchQueryComparisonKey(search: SearchQuery | StoredSearchQuery): string {
 	return `${'query' in search ? search.query : search.pattern}|${search.matchAll ? 'A' : ''}${
 		search.matchCase ? 'C' : ''
 	}${search.matchRegex ? 'R' : ''}`;
@@ -51,13 +51,13 @@ export function getSearchQueryComparisonKey(search: SearchQuery | StoredSearchQu
 
 export function createSearchQueryForCommit(ref: string): string;
 export function createSearchQueryForCommit(commit: GitRevisionReference): string;
-export function createSearchQueryForCommit(refOrCommit: string | GitRevisionReference) {
+export function createSearchQueryForCommit(refOrCommit: string | GitRevisionReference): string {
 	return `#:${typeof refOrCommit === 'string' ? shortenRevision(refOrCommit) : refOrCommit.name}`;
 }
 
 export function createSearchQueryForCommits(refs: string[]): string;
 export function createSearchQueryForCommits(commits: GitRevisionReference[]): string;
-export function createSearchQueryForCommits(refsOrCommits: (string | GitRevisionReference)[]) {
+export function createSearchQueryForCommits(refsOrCommits: (string | GitRevisionReference)[]): string {
 	return refsOrCommits.map(r => `#:${typeof r === 'string' ? shortenRevision(r) : r.name}`).join(' ');
 }
 

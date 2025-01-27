@@ -3,7 +3,7 @@ import type { FilesComparison } from '../../git/actions/commit';
 import { GitUri } from '../../git/gitUri';
 import type { GitBranch } from '../../git/models/branch';
 import type { GitFileWithCommit } from '../../git/models/file';
-import { createRevisionRange } from '../../git/models/revision.utils';
+import { createRevisionRange } from '../../git/utils/revision.utils';
 import { makeHierarchical } from '../../system/array';
 import { filter, flatMap, groupByMap, map } from '../../system/iterable';
 import { joinPaths, normalizePath } from '../../system/path';
@@ -53,13 +53,14 @@ export class BranchTrackingStatusFilesNode extends ViewNode<'tracking-status-fil
 	}
 
 	private async getGroupedFiles(): Promise<Map<string, GitFileWithCommit[]>> {
-		const log = await this.view.container.git.getLog(this.repoPath, {
-			limit: 0,
-			ref:
+		const log = await this.view.container.git
+			.commits(this.repoPath)
+			.getLog(
 				this.direction === 'behind'
 					? createRevisionRange(this.ref1, this.ref2, '..')
 					: createRevisionRange(this.ref2, this.ref1, '..'),
-		});
+				{ limit: 0 },
+			);
 		if (log == null) return new Map();
 
 		await Promise.allSettled(

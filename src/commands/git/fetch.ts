@@ -1,8 +1,8 @@
 import { GlyphChars } from '../../constants';
 import type { Container } from '../../container';
 import type { GitBranchReference } from '../../git/models/reference';
-import { getReferenceLabel, isBranchReference } from '../../git/models/reference.utils';
 import type { Repository } from '../../git/models/repository';
+import { getReferenceLabel, isBranchReference } from '../../git/utils/reference.utils';
 import type { FlagsQuickPickItem } from '../../quickpicks/items/flags';
 import { createFlagsQuickPickItem } from '../../quickpicks/items/flags';
 import { isStringArray } from '../../system/array';
@@ -58,7 +58,7 @@ export class FetchGitCommand extends QuickCommand<State> {
 		};
 	}
 
-	execute(state: FetchStepState) {
+	private execute(state: FetchStepState) {
 		if (isBranchReference(state.reference)) {
 			return state.repos[0].fetch({ branch: state.reference });
 		}

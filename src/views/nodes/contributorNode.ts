@@ -4,12 +4,12 @@ import { GlyphChars } from '../../constants';
 import type { GitUri } from '../../git/gitUri';
 import type { GitContributor } from '../../git/models/contributor';
 import type { GitLog } from '../../git/models/log';
+import { configuration } from '../../system/-webview/configuration';
 import { formatNumeric } from '../../system/date';
-import { gate } from '../../system/decorators/gate';
+import { gate } from '../../system/decorators/-webview/gate';
 import { debug } from '../../system/decorators/log';
 import { map } from '../../system/iterable';
 import { pluralize } from '../../system/string';
-import { configuration } from '../../system/vscode/configuration';
 import type { ContactPresence } from '../../vsls/vsls';
 import type { ViewsWithContributors } from '../viewBase';
 import type { ClipboardType, PageableViewNode } from './abstract/viewNode';
@@ -174,7 +174,7 @@ export class ContributorNode extends ViewNode<'contributor', ViewsWithContributo
 
 	@gate()
 	@debug()
-	override refresh(reset?: boolean) {
+	override refresh(reset?: boolean): void {
 		if (reset) {
 			this._log = undefined;
 		}
@@ -182,32 +182,28 @@ export class ContributorNode extends ViewNode<'contributor', ViewsWithContributo
 
 	private _log: GitLog | undefined;
 	private async getLog() {
-		if (this._log == null) {
-			this._log = await this.view.container.git.getLog(this.uri.repoPath!, {
-				all: this.options?.all,
-				ref: this.options?.ref,
-				limit: this.limit ?? this.view.config.defaultItemLimit,
-				merges: this.options?.showMergeCommits,
-				authors: [
-					{
-						name: this.contributor.name,
-						email: this.contributor.email,
-						username: this.contributor.username,
-						id: this.contributor.id,
-					},
-				],
-			});
-		}
-
+		this._log ??= await this.view.container.git.commits(this.uri.repoPath!).getLog(this.options?.ref, {
+			all: this.options?.all,
+			limit: this.limit ?? this.view.config.defaultItemLimit,
+			merges: this.options?.showMergeCommits,
+			authors: [
+				{
+					name: this.contributor.name,
+					email: this.contributor.email,
+					username: this.contributor.username,
+					id: this.contributor.id,
+				},
+			],
+		});
 		return this._log;
 	}
 
-	get hasMore() {
+	get hasMore(): boolean {
 		return this._log?.hasMore ?? true;
 	}
 
 	@gate()
-	async loadMore(limit?: number | { until?: any }) {
+	async loadMore(limit?: number | { until?: any }): Promise<void> {
 		let log = await window.withProgress(
 			{
 				location: { viewId: this.view.id },

@@ -1,44 +1,41 @@
 import type { CancellationToken, Event, MessageItem, QuickPickItem } from 'vscode';
 import { Disposable, EventEmitter, ProgressLocation, Uri, window, workspace } from 'vscode';
-import { getSupportedWorkspacesPathMappingProvider } from '@env/providers';
 import type { Container } from '../../container';
+import type { RepositoryLocationProvider } from '../../git/location/repositorylocationProvider';
 import type { GitRemote } from '../../git/models/remote';
 import { RemoteResourceType } from '../../git/models/remoteResource';
 import { Repository } from '../../git/models/repository';
 import { showRepositoriesPicker } from '../../quickpicks/repositoryPicker';
+import type { OpenWorkspaceLocation } from '../../system/-webview/vscode';
+import { openWorkspace } from '../../system/-webview/vscode';
 import { log } from '../../system/decorators/log';
 import { normalizePath } from '../../system/path';
-import type { OpenWorkspaceLocation } from '../../system/vscode/utils';
-import { openWorkspace } from '../../system/vscode/utils';
-import { isSubscriptionStatePaidOrTrial } from '../gk/account/subscription';
-import type { SubscriptionChangeEvent } from '../gk/account/subscriptionService';
-import type { ServerConnection } from '../gk/serverConnection';
+import type { SubscriptionChangeEvent } from '../gk/subscriptionService';
+import { isSubscriptionStatePaidOrTrial } from '../gk/utils/subscription.utils';
+import type { CloudWorkspaceData, CloudWorkspaceRepositoryDescriptor } from './models/cloudWorkspace';
+import {
+	CloudWorkspace,
+	CloudWorkspaceProviderInputType,
+	CloudWorkspaceProviderType,
+	cloudWorkspaceProviderTypeToRemoteProviderId,
+} from './models/cloudWorkspace';
+import type { LocalWorkspaceData, LocalWorkspaceRepositoryDescriptor } from './models/localWorkspace';
+import { LocalWorkspace } from './models/localWorkspace';
 import type {
 	AddWorkspaceRepoDescriptor,
-	CloudWorkspaceData,
-	CloudWorkspaceRepositoryDescriptor,
 	GetWorkspacesResponse,
 	LoadCloudWorkspacesResponse,
 	LoadLocalWorkspacesResponse,
-	LocalWorkspaceData,
-	LocalWorkspaceRepositoryDescriptor,
 	RemoteDescriptor,
 	RepositoryMatch,
 	WorkspaceAutoAddSetting,
 	WorkspaceRepositoriesByName,
 	WorkspaceRepositoryRelation,
 	WorkspacesResponse,
-} from './models';
-import {
-	CloudWorkspace,
-	CloudWorkspaceProviderInputType,
-	CloudWorkspaceProviderType,
-	cloudWorkspaceProviderTypeToRemoteProviderId,
-	LocalWorkspace,
-	WorkspaceAddRepositoriesChoice,
-} from './models';
-import { WorkspacesApi } from './workspacesApi';
-import type { WorkspacesPathMappingProvider } from './workspacesPathMappingProvider';
+} from './models/workspaces';
+import { WorkspaceAddRepositoriesChoice } from './models/workspaces';
+import type { WorkspacesApi } from './workspacesApi';
+import type { GkWorkspacesSharedStorageProvider } from './workspacesSharedStorageProvider';
 
 export class WorkspacesService implements Disposable {
 	private _onDidResetWorkspaces: EventEmitter<void> = new EventEmitter<void>();
@@ -49,18 +46,16 @@ export class WorkspacesService implements Disposable {
 	private _cloudWorkspaces: CloudWorkspace[] | undefined;
 	private _disposable: Disposable;
 	private _localWorkspaces: LocalWorkspace[] | undefined;
-	private _workspacesApi: WorkspacesApi;
-	private _workspacesPathProvider: WorkspacesPathMappingProvider;
 	private _currentWorkspaceId: string | undefined;
 	private _currentWorkspaceAutoAddSetting: WorkspaceAutoAddSetting = 'disabled';
 	private _currentWorkspace: CloudWorkspace | LocalWorkspace | undefined;
 
 	constructor(
 		private readonly container: Container,
-		private readonly connection: ServerConnection,
+		private readonly _api: WorkspacesApi,
+		private readonly _sharedStorage: GkWorkspacesSharedStorageProvider | undefined,
+		private readonly _repositoryLocator: RepositoryLocationProvider | undefined,
 	) {
-		this._workspacesApi = new WorkspacesApi(this.container, this.connection);
-		this._workspacesPathProvider = getSupportedWorkspacesPathMappingProvider();
 		this._currentWorkspaceId = getCurrentWorkspaceId();
 		this._currentWorkspaceAutoAddSetting =
 			workspace.getConfiguration('gitkraken')?.get<WorkspaceAutoAddSetting>('workspaceAutoAddSetting') ??
@@ -102,7 +97,7 @@ export class WorkspacesService implements Disposable {
 		const cloudWorkspaces: CloudWorkspace[] = [];
 		let workspaces: CloudWorkspaceData[] | undefined;
 		try {
-			const workspaceResponse: WorkspacesResponse | undefined = await this._workspacesApi.getWorkspaces({
+			const workspaceResponse: WorkspacesResponse | undefined = await this._api.getWorkspaces({
 				includeRepositories: !excludeRepositories,
 				includeOrganizations: true,
 			});
@@ -118,7 +113,7 @@ export class WorkspacesService implements Disposable {
 		const isPlusEnabled = isSubscriptionStatePaidOrTrial(subscription.state);
 		if (workspaces?.length) {
 			for (const workspace of workspaces) {
-				const localPath = await this._workspacesPathProvider.getCloudWorkspaceCodeWorkspacePath(workspace.id);
+				const localPath = await this._sharedStorage?.getCloudWorkspaceCodeWorkspaceFileLocation(workspace.id);
 				if (!isPlusEnabled && workspace.organization?.id) {
 					filteredSharedWorkspaceCount += 1;
 					continue;
@@ -168,7 +163,7 @@ export class WorkspacesService implements Disposable {
 	private async loadLocalWorkspaces(): Promise<LoadLocalWorkspacesResponse> {
 		const localWorkspaces: LocalWorkspace[] = [];
 		const workspaceFileData: LocalWorkspaceData =
-			(await this._workspacesPathProvider.getLocalWorkspaceData())?.workspaces || {};
+			(await this._sharedStorage?.getLocalWorkspaceData())?.workspaces || {};
 		for (const workspace of Object.values(workspaceFileData)) {
 			if (workspace.localId == null || workspace.name == null) continue;
 			localWorkspaces.push(
@@ -238,7 +233,7 @@ export class WorkspacesService implements Disposable {
 
 	async getCloudWorkspaceRepositories(workspaceId: string): Promise<CloudWorkspaceRepositoryDescriptor[]> {
 		// TODO@ramint Add error handling/logging when this is used.
-		const workspaceRepos = await this._workspacesApi.getWorkspaceRepositories(workspaceId);
+		const workspaceRepos = await this._api.getWorkspaceRepositories(workspaceId);
 		const descriptors = workspaceRepos?.data?.project?.provider_data?.repositories?.nodes;
 		return descriptors?.map(d => ({ ...d, workspaceId: workspaceId })) ?? [];
 	}
@@ -252,7 +247,7 @@ export class WorkspacesService implements Disposable {
 
 		if (currentWorkspace == null) {
 			try {
-				const workspaceData = await this._workspacesApi.getWorkspace(this._currentWorkspaceId, {
+				const workspaceData = await this._api.getWorkspace(this._currentWorkspaceId, {
 					includeRepositories: true,
 				});
 				if (workspaceData?.data?.project == null) return;
@@ -362,7 +357,7 @@ export class WorkspacesService implements Disposable {
 	}
 
 	@log()
-	resetWorkspaces(options?: { cloud?: boolean; local?: boolean }) {
+	resetWorkspaces(options?: { cloud?: boolean; local?: boolean }): void {
 		if (options?.cloud ?? true) {
 			this._cloudWorkspaces = undefined;
 		}
@@ -374,11 +369,11 @@ export class WorkspacesService implements Disposable {
 	}
 
 	async getCloudWorkspaceRepoPath(cloudWorkspaceId: string, repoId: string): Promise<string | undefined> {
-		return this._workspacesPathProvider.getCloudWorkspaceRepoPath(cloudWorkspaceId, repoId);
+		return this._sharedStorage?.getCloudWorkspaceRepositoryLocation(cloudWorkspaceId, repoId);
 	}
 
 	async updateCloudWorkspaceRepoLocalPath(workspaceId: string, repoId: string, localPath: string): Promise<void> {
-		await this._workspacesPathProvider.writeCloudWorkspaceRepoDiskPathToMap(workspaceId, repoId, localPath);
+		await this._sharedStorage?.storeCloudWorkspaceRepositoryLocation(workspaceId, repoId, localPath);
 	}
 
 	private async getRepositoriesInParentFolder(cancellation?: CancellationToken): Promise<Repository[] | undefined> {
@@ -485,7 +480,7 @@ export class WorkspacesService implements Disposable {
 		}
 
 		for (const remoteUrl of remoteUrls) {
-			await this.container.repositoryPathMapping.writeLocalRepoPath({ remoteUrl: remoteUrl }, repoPath);
+			await this._repositoryLocator?.storeLocation(repoPath, remoteUrl);
 		}
 
 		const workspace = this.getCloudWorkspace(workspaceId) ?? this.getLocalWorkspace(workspaceId);
@@ -499,17 +494,11 @@ export class WorkspacesService implements Disposable {
 			(descriptor.url != null ||
 				(descriptor.provider_organization_id != null && descriptor.name != null && provider != null))
 		) {
-			await this.container.repositoryPathMapping.writeLocalRepoPath(
-				{
-					remoteUrl: descriptor.url ?? undefined,
-					repoInfo: {
-						provider: provider,
-						owner: descriptor.provider_organization_id,
-						repoName: descriptor.name,
-					},
-				},
-				repoPath,
-			);
+			await this._repositoryLocator?.storeLocation(repoPath, descriptor.url ?? undefined, {
+				provider: provider,
+				owner: descriptor.provider_organization_id,
+				repoName: descriptor.name,
+			});
 		}
 
 		if (descriptor.id != null) {
@@ -715,7 +704,7 @@ export class WorkspacesService implements Disposable {
 
 		let createdProjectData: CloudWorkspaceData | null | undefined;
 		try {
-			const response = await this._workspacesApi.createWorkspace(createOptions);
+			const response = await this._api.createWorkspace(createOptions);
 			createdProjectData = response?.data?.create_project;
 		} catch {
 			return;
@@ -727,7 +716,7 @@ export class WorkspacesService implements Disposable {
 				this._cloudWorkspaces = [];
 			}
 
-			const localPath = await this._workspacesPathProvider.getCloudWorkspaceCodeWorkspacePath(
+			const localPath = await this._sharedStorage?.getCloudWorkspaceCodeWorkspaceFileLocation(
 				createdProjectData.id,
 			);
 
@@ -762,7 +751,7 @@ export class WorkspacesService implements Disposable {
 	}
 
 	@log()
-	async deleteCloudWorkspace(workspaceId: string) {
+	async deleteCloudWorkspace(workspaceId: string): Promise<void> {
 		const confirmation = await window.showWarningMessage(
 			`Are you sure you want to delete this workspace? This cannot be undone.`,
 			{ modal: true },
@@ -771,7 +760,7 @@ export class WorkspacesService implements Disposable {
 		);
 		if (confirmation == null || confirmation.title === 'Cancel') return;
 		try {
-			const response = await this._workspacesApi.deleteWorkspace(workspaceId);
+			const response = await this._api.deleteWorkspace(workspaceId);
 			if (response?.data?.delete_project?.id === workspaceId) {
 				// Remove the workspace from the local workspace list.
 				this._cloudWorkspaces = this._cloudWorkspaces?.filter(w => w.id !== workspaceId);
@@ -809,7 +798,7 @@ export class WorkspacesService implements Disposable {
 	async addCloudWorkspaceRepos(
 		workspaceId: string,
 		options?: { repos?: Repository[]; suppressNotifications?: boolean },
-	) {
+	): Promise<void> {
 		const workspace = this.getCloudWorkspace(workspaceId);
 		if (workspace == null) return;
 
@@ -938,7 +927,7 @@ export class WorkspacesService implements Disposable {
 			},
 			async () => {
 				try {
-					const response = await this._workspacesApi.addReposToWorkspace(
+					const response = await this._api.addReposToWorkspace(
 						workspaceId,
 						repoInputs.map(r => ({ owner: r.owner, repoName: r.repoName })),
 					);
@@ -977,7 +966,7 @@ export class WorkspacesService implements Disposable {
 	}
 
 	@log({ args: { 1: false } })
-	async removeCloudWorkspaceRepo(workspaceId: string, descriptor: CloudWorkspaceRepositoryDescriptor) {
+	async removeCloudWorkspaceRepo(workspaceId: string, descriptor: CloudWorkspaceRepositoryDescriptor): Promise<void> {
 		const workspace = this.getCloudWorkspace(workspaceId);
 		if (workspace == null) return;
 
@@ -989,7 +978,7 @@ export class WorkspacesService implements Disposable {
 		);
 		if (confirmation == null || confirmation.title === 'Cancel') return;
 		try {
-			const response = await this._workspacesApi.removeReposFromWorkspace(workspaceId, [
+			const response = await this._api.removeReposFromWorkspace(workspaceId, [
 				{ owner: descriptor.provider_organization_id, repoName: descriptor.name },
 			]);
 
@@ -1165,7 +1154,7 @@ export class WorkspacesService implements Disposable {
 
 		const newWorkspaceAutoAddSetting = await this.chooseCodeWorkspaceAutoAddSetting();
 
-		const created = await this._workspacesPathProvider.writeCodeWorkspaceFile(
+		const created = await this._sharedStorage?.createOrUpdateCodeWorkspaceFile(
 			newWorkspaceUri,
 			workspaceFolderPaths,
 			{
@@ -1242,12 +1231,9 @@ export class WorkspacesService implements Disposable {
 		const newWorkspaceAutoAddSetting = newWorkspaceAutoAddOption.option;
 
 		if (options?.current && workspace.workspaceFile != null) {
-			const updated = await this._workspacesPathProvider.updateCodeWorkspaceFileSettings(
-				workspace.workspaceFile,
-				{
-					workspaceAutoAddSetting: newWorkspaceAutoAddSetting,
-				},
-			);
+			const updated = await this._sharedStorage?.updateCodeWorkspaceFileSettings(workspace.workspaceFile, {
+				workspaceAutoAddSetting: newWorkspaceAutoAddSetting,
+			});
 			if (!updated) return this._currentWorkspaceAutoAddSetting;
 			this._currentWorkspaceAutoAddSetting = newWorkspaceAutoAddSetting;
 		}
@@ -1285,8 +1271,8 @@ export class WorkspacesService implements Disposable {
 			openLocation = openLocationChoice.location ?? 'newWindow';
 		}
 
-		if (!(await this._workspacesPathProvider.confirmCloudWorkspaceCodeWorkspaceFilePath(workspace.id))) {
-			await this._workspacesPathProvider.removeCloudWorkspaceCodeWorkspaceFilePath(workspace.id);
+		if (!(await this._sharedStorage?.confirmCloudWorkspaceCodeWorkspaceFilePath(workspace.id))) {
+			await this._sharedStorage?.removeCloudWorkspaceCodeWorkspaceFile(workspace.id);
 			workspace.setLocalPath(undefined);
 			const locateChoice = await window.showInformationMessage(
 				`The workspace file for ${workspace.name} could not be found. Would you like to locate it now?`,
@@ -1311,7 +1297,7 @@ export class WorkspacesService implements Disposable {
 
 			if (newPath == null) return;
 
-			await this._workspacesPathProvider.writeCloudWorkspaceCodeWorkspaceFilePathToMap(workspace.id, newPath);
+			await this._sharedStorage?.storeCloudWorkspaceCodeWorkspaceFileLocation(workspace.id, newPath);
 			workspace.setLocalPath(newPath);
 		}
 
@@ -1324,13 +1310,10 @@ export class WorkspacesService implements Disposable {
 		let repoLocalPath = await this.getCloudWorkspaceRepoPath(descriptor.workspaceId, descriptor.id);
 		if (repoLocalPath == null) {
 			repoLocalPath = (
-				await this.container.repositoryPathMapping.getLocalRepoPaths({
-					remoteUrl: descriptor.url ?? undefined,
-					repoInfo: {
-						repoName: descriptor.name,
-						provider: descriptor.provider ?? undefined,
-						owner: descriptor.provider_organization_id,
-					},
+				await this._repositoryLocator?.getLocation(descriptor.url ?? undefined, {
+					repoName: descriptor.name,
+					provider: descriptor.provider ?? undefined,
+					owner: descriptor.provider_organization_id,
 				})
 			)?.[0];
 		}
@@ -1355,7 +1338,7 @@ function getCurrentWorkspaceId(): string | undefined {
 	return workspace.getConfiguration('gitkraken')?.get<string>('workspaceId');
 }
 
-export function scheduleAddMissingCurrentWorkspaceRepos(container: Container) {
+export function scheduleAddMissingCurrentWorkspaceRepos(container: Container): void {
 	const currentWorkspaceId = getCurrentWorkspaceId();
 	if (currentWorkspaceId == null) return;
 

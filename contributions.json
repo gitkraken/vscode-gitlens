@@ -9930,99 +9930,6 @@
 				]
 			}
 		},
-		"gitlens.views.searchAndCompare.setFilesFilterOff": {
-			"label": "Clear Filter",
-			"menus": {
-				"gitlens/comparison/results/files/filter": [
-					{
-						"when": "viewItem =~ /gitlens:results:files\\b(?=.*?\\b\\+filtered\\b)/",
-						"group": "navigation",
-						"order": 1
-					}
-				],
-				"gitlens/comparison/results/files/filter/inline": [
-					{
-						"when": "viewItem =~ /gitlens:results:files\\b(?=.*?\\b\\+filtered\\b)/",
-						"group": "navigation",
-						"order": 1
-					}
-				],
-				"gitlens/comparison/results/files/filtered": [
-					{
-						"when": "viewItem =~ /gitlens:results:files\\b(?=.*?\\b\\+filtered\\b)/",
-						"group": "navigation",
-						"order": 1
-					}
-				],
-				"gitlens/comparison/results/files/filtered/inline": [
-					{
-						"when": "viewItem =~ /gitlens:results:files\\b(?=.*?\\b\\+filtered\\b)/",
-						"group": "navigation",
-						"order": 1
-					}
-				]
-			}
-		},
-		"gitlens.views.searchAndCompare.setFilesFilterOnLeft": {
-			"label": "Show Left-side Files Only",
-			"enablement": "viewItem =~ /gitlens:results:files\\b(?!.*?\\b\\+filtered~left\\b)/",
-			"menus": {
-				"gitlens/comparison/results/files/filter": [
-					{
-						"group": "navigation_1",
-						"order": 1
-					}
-				],
-				"gitlens/comparison/results/files/filter/inline": [
-					{
-						"group": "navigation_1",
-						"order": 1
-					}
-				],
-				"gitlens/comparison/results/files/filtered": [
-					{
-						"group": "navigation_1",
-						"order": 1
-					}
-				],
-				"gitlens/comparison/results/files/filtered/inline": [
-					{
-						"group": "navigation_1",
-						"order": 1
-					}
-				]
-			}
-		},
-		"gitlens.views.searchAndCompare.setFilesFilterOnRight": {
-			"label": "Show Right-side Files Only",
-			"enablement": "viewItem =~ /gitlens:results:files\\b(?!.*?\\b\\+filtered~right\\b)/",
-			"menus": {
-				"gitlens/comparison/results/files/filter": [
-					{
-						"group": "navigation_1",
-						"order": 2
-					}
-				],
-				"gitlens/comparison/results/files/filter/inline": [
-					{
-						"group": "navigation_1",
-						"order": 2
-					}
-				],
-				"gitlens/comparison/results/files/filtered": [
-					{
-						"group": "navigation_1",
-						"order": 2
-					}
-				],
-				"gitlens/comparison/results/files/filtered/inline": [
-					{
-						"group": "navigation_1",
-						"order": 2
-					}
-				]
-			}
-		},
 		"gitlens.views.searchAndCompare.setFilesLayoutToAuto": {
 			"label": "View Files as Auto",
 			"icon": "$(list-tree)",
@@ -10265,6 +10172,99 @@
 						"when": "viewItem =~ /gitlens:compare:(results(?!:)|branch)\\b(?=.*?\\b\\+filtered\\b)/ && !listMultiSelection",
 						"group": "7_gitlens_filter",
 						"order": 1
+					}
+				]
+			}
+		},
+		"gitlens.views.setResultsFilesFilterOff": {
+			"label": "Clear Filter",
+			"menus": {
+				"gitlens/comparison/results/files/filter": [
+					{
+						"when": "viewItem =~ /gitlens:results:files\\b(?=.*?\\b\\+filtered\\b)/",
+						"group": "navigation",
+						"order": 1
+					}
+				],
+				"gitlens/comparison/results/files/filter/inline": [
+					{
+						"when": "viewItem =~ /gitlens:results:files\\b(?=.*?\\b\\+filtered\\b)/",
+						"group": "navigation",
+						"order": 1
+					}
+				],
+				"gitlens/comparison/results/files/filtered": [
+					{
+						"when": "viewItem =~ /gitlens:results:files\\b(?=.*?\\b\\+filtered\\b)/",
+						"group": "navigation",
+						"order": 1
+					}
+				],
+				"gitlens/comparison/results/files/filtered/inline": [
+					{
+						"when": "viewItem =~ /gitlens:results:files\\b(?=.*?\\b\\+filtered\\b)/",
+						"group": "navigation",
+						"order": 1
+					}
+				]
+			}
+		},
+		"gitlens.views.setResultsFilesFilterOnLeft": {
+			"label": "Show Left-side Files Only",
+			"enablement": "viewItem =~ /gitlens:results:files\\b(?!.*?\\b\\+filtered~left\\b)/",
+			"menus": {
+				"gitlens/comparison/results/files/filter": [
+					{
+						"group": "navigation_1",
+						"order": 1
+					}
+				],
+				"gitlens/comparison/results/files/filter/inline": [
+					{
+						"group": "navigation_1",
+						"order": 1
+					}
+				],
+				"gitlens/comparison/results/files/filtered": [
+					{
+						"group": "navigation_1",
+						"order": 1
+					}
+				],
+				"gitlens/comparison/results/files/filtered/inline": [
+					{
+						"group": "navigation_1",
+						"order": 1
+					}
+				]
+			}
+		},
+		"gitlens.views.setResultsFilesFilterOnRight": {
+			"label": "Show Right-side Files Only",
+			"enablement": "viewItem =~ /gitlens:results:files\\b(?!.*?\\b\\+filtered~right\\b)/",
+			"menus": {
+				"gitlens/comparison/results/files/filter": [
+					{
+						"group": "navigation_1",
+						"order": 2
+					}
+				],
+				"gitlens/comparison/results/files/filter/inline": [
+					{
+						"group": "navigation_1",
+						"order": 2
+					}
+				],
+				"gitlens/comparison/results/files/filtered": [
+					{
+						"group": "navigation_1",
+						"order": 2
+					}
+				],
+				"gitlens/comparison/results/files/filtered/inline": [
+					{
+						"group": "navigation_1",
+						"order": 2
 					}
 				]
 			}
@@ -12658,12 +12658,8 @@
 					"when": "!gitlens:launchpad:connect && gitlens:plus:required && gitlens:plus:state == 4"
 				},
 				{
-					"contents": "Save 33% or more on your 1st seat of Pro.",
-					"when": "!gitlens:launchpad:connect && gitlens:plus:required && gitlens:plus:state == 4 && (gitlens:promo == pro50 || !gitlens:promo)"
-				},
-				{
-					"contents": "Get the gift of a better DevEx in 2025! Save up to 80% now",
-					"when": "!gitlens:launchpad:connect && gitlens:plus:required && gitlens:plus:state == 4 && gitlens:promo == gkholiday"
+					"contents": "Save 55% or more on your 1st seat of Pro.",
+					"when": "!gitlens:launchpad:connect && gitlens:plus:required && gitlens:plus:state == 4 && gitlens:promo == pro50"
 				},
 				{
 					"contents": "Your Pro trial has ended. Please upgrade for full access to Launchpad and other Pro features.",
@@ -12765,12 +12761,8 @@
 					"when": "gitlens:views:scm:grouped:view == launchpad && !gitlens:launchpad:connect && gitlens:plus:required && gitlens:plus:state == 4"
 				},
 				{
-					"contents": "Save 33% or more on your 1st seat of Pro.",
-					"when": "gitlens:views:scm:grouped:view == launchpad && !gitlens:launchpad:connect && gitlens:plus:required && gitlens:plus:state == 4 && (gitlens:promo == pro50 || !gitlens:promo)"
-				},
-				{
-					"contents": "Get the gift of a better DevEx in 2025! Save up to 80% now",
-					"when": "gitlens:views:scm:grouped:view == launchpad && !gitlens:launchpad:connect && gitlens:plus:required && gitlens:plus:state == 4 && gitlens:promo == gkholiday"
+					"contents": "Save 55% or more on your 1st seat of Pro.",
+					"when": "gitlens:views:scm:grouped:view == launchpad && !gitlens:launchpad:connect && gitlens:plus:required && gitlens:plus:state == 4 && gitlens:promo == pro50"
 				},
 				{
 					"contents": "Your Pro trial has ended. Please upgrade for full access to Launchpad and other Pro features.",
@@ -12817,12 +12809,8 @@
 					"when": "gitlens:views:scm:grouped:view == worktrees && gitlens:plus:required && gitlens:plus:state == 4"
 				},
 				{
-					"contents": "Save 33% or more on your 1st seat of Pro.",
-					"when": "gitlens:views:scm:grouped:view == worktrees && gitlens:plus:required && gitlens:plus:state == 4 && (gitlens:promo == pro50 || !gitlens:promo)"
-				},
-				{
-					"contents": "Get the gift of a better DevEx in 2025! Save up to 80% now",
-					"when": "gitlens:views:scm:grouped:view == worktrees && gitlens:plus:required && gitlens:plus:state == 4 && gitlens:promo == gkholiday"
+					"contents": "Save 55% or more on your 1st seat of Pro.",
+					"when": "gitlens:views:scm:grouped:view == worktrees && gitlens:plus:required && gitlens:plus:state == 4 && gitlens:promo == pro50"
 				},
 				{
 					"contents": "Your Pro trial has ended. Please upgrade for full access to Worktrees and other Pro features.",
@@ -12951,12 +12939,8 @@
 					"when": "gitlens:plus:required && gitlens:plus:state == 4"
 				},
 				{
-					"contents": "Save 33% or more on your 1st seat of Pro.",
-					"when": "gitlens:plus:required && gitlens:plus:state == 4 && (gitlens:promo == pro50 || !gitlens:promo)"
-				},
-				{
-					"contents": "Get the gift of a better DevEx in 2025! Save up to 80% now",
-					"when": "gitlens:plus:required && gitlens:plus:state == 4 && gitlens:promo == gkholiday"
+					"contents": "Save 55% or more on your 1st seat of Pro.",
+					"when": "gitlens:plus:required && gitlens:plus:state == 4 && gitlens:promo == pro50"
 				},
 				{
 					"contents": "Your Pro trial has ended. Please upgrade for full access to Worktrees and other Pro features.",

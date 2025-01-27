@@ -1,13 +1,17 @@
 import { ProgressLocation, window } from 'vscode';
 import type { Container } from '../../container';
-import { getNameWithoutRemote } from '../../git/models/branch.utils';
 import type { GitReference } from '../../git/models/reference';
-import { getReferenceLabel, getReferenceTypeLabel, isBranchReference } from '../../git/models/reference.utils';
 import type { Repository } from '../../git/models/repository';
+import {
+	getReferenceLabel,
+	getReferenceNameWithoutRemote,
+	getReferenceTypeLabel,
+	isBranchReference,
+} from '../../git/utils/reference.utils';
 import type { QuickPickItemOfT } from '../../quickpicks/items/common';
 import { createQuickPickSeparator } from '../../quickpicks/items/common';
+import { executeCommand } from '../../system/-webview/command';
 import { isStringArray } from '../../system/array';
-import { executeCommand } from '../../system/vscode/command';
 import type { ViewsWithRepositoryFolders } from '../../views/viewBase';
 import type { PartialStepState, StepGenerator, StepResultGenerator, StepSelection, StepState } from '../quickCommand';
 import { canPickStepContinue, endSteps, isCrossCommandReference, QuickCommand, StepResultBreak } from '../quickCommand';
@@ -81,7 +85,7 @@ export class SwitchGitCommand extends QuickCommand<State> {
 		return this._canConfirmOverride ?? true;
 	}
 
-	async execute(state: SwitchStepState) {
+	private async execute(state: SwitchStepState) {
 		await window.withProgress(
 			{
 				location: ProgressLocation.Notification,
@@ -104,11 +108,11 @@ export class SwitchGitCommand extends QuickCommand<State> {
 		}
 	}
 
-	override isMatch(key: string) {
+	override isMatch(key: string): boolean {
 		return super.isMatch(key) || key === 'checkout';
 	}
 
-	override isFuzzyMatch(name: string) {
+	override isFuzzyMatch(name: string): boolean {
 		return super.isFuzzyMatch(name) || name === 'checkout';
 	}
 
@@ -298,7 +302,7 @@ export class SwitchGitCommand extends QuickCommand<State> {
 							value:
 								state.createBranch ?? // if it's a remote branch, pre-fill the name
 								(isBranchReference(state.reference) && state.reference.remote
-									? getNameWithoutRemote(state.reference)
+									? getReferenceNameWithoutRemote(state.reference)
 									: undefined),
 						});
 

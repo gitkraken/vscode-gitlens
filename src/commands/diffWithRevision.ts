@@ -3,17 +3,18 @@ import { GlyphChars, quickPickTitleMaxChars } from '../constants';
 import { GlCommand } from '../constants.commands';
 import type { Container } from '../container';
 import { GitUri } from '../git/gitUri';
-import { shortenRevision } from '../git/models/revision.utils';
+import { shortenRevision } from '../git/utils/revision.utils';
 import { showGenericErrorMessage } from '../messages';
 import { showCommitPicker } from '../quickpicks/commitPicker';
 import { CommandQuickPickItem } from '../quickpicks/items/common';
 import type { DirectiveQuickPickItem } from '../quickpicks/items/directive';
 import { createDirectiveQuickPickItem, Directive } from '../quickpicks/items/directive';
+import { command, executeCommand } from '../system/-webview/command';
+import { splitPath } from '../system/-webview/path';
 import { Logger } from '../system/logger';
 import { pad } from '../system/string';
-import { command, executeCommand } from '../system/vscode/command';
-import { splitPath } from '../system/vscode/path';
-import { ActiveEditorCommand, getCommandUri } from './base';
+import { ActiveEditorCommand } from './commandBase';
+import { getCommandUri } from './commandBase.utils';
 import type { DiffWithCommandArgs } from './diffWith';
 import type { DiffWithRevisionFromCommandArgs } from './diffWithRevisionFrom';
 
@@ -40,14 +41,11 @@ export class DiffWithRevisionCommand extends ActiveEditorCommand {
 		}
 
 		try {
-			const log = this.container.git
-				.getLogForFile(gitUri.repoPath, gitUri.fsPath)
+			const commitsProvider = this.container.git.commits(gitUri.repoPath!);
+			const log = commitsProvider
+				.getLogForFile(gitUri.fsPath)
 				.then(
-					log =>
-						log ??
-						(gitUri.sha
-							? this.container.git.getLogForFile(gitUri.repoPath, gitUri.fsPath, { ref: gitUri.sha })
-							: undefined),
+					log => log ?? (gitUri.sha ? commitsProvider.getLogForFile(gitUri.fsPath, gitUri.sha) : undefined),
 				);
 
 			const title = `Open Changes with Revision${pad(GlyphChars.Dot, 2, 2)}`;

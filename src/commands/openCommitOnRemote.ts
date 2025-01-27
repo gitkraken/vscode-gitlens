@@ -4,23 +4,20 @@ import type { Container } from '../container';
 import { GitUri } from '../git/gitUri';
 import { RemoteResourceType } from '../git/models/remoteResource';
 import { deletedOrMissing } from '../git/models/revision';
-import { isUncommitted } from '../git/models/revision.utils';
+import { isUncommitted } from '../git/utils/revision.utils';
 import {
 	showCommitNotFoundWarningMessage,
 	showFileNotUnderSourceControlWarningMessage,
 	showGenericErrorMessage,
 } from '../messages';
 import { getBestRepositoryOrShowPicker } from '../quickpicks/repositoryPicker';
+import { command, executeCommand } from '../system/-webview/command';
 import { createMarkdownCommandLink } from '../system/commands';
 import { Logger } from '../system/logger';
-import { command, executeCommand } from '../system/vscode/command';
-import type { CommandContext } from './base';
-import {
-	ActiveEditorCommand,
-	getCommandUri,
-	isCommandContextGitTimelineItem,
-	isCommandContextViewNodeHasCommit,
-} from './base';
+import { ActiveEditorCommand } from './commandBase';
+import { getCommandUri } from './commandBase.utils';
+import type { CommandContext } from './commandContext';
+import { isCommandContextGitTimelineItem, isCommandContextViewNodeHasCommit } from './commandContext.utils';
 import type { OpenOnRemoteCommandArgs } from './openOnRemote';
 
 export interface OpenCommitOnRemoteCommandArgs {
@@ -42,7 +39,7 @@ export class OpenCommitOnRemoteCommand extends ActiveEditorCommand {
 		super([GlCommand.OpenCommitOnRemote, GlCommand.Deprecated_OpenCommitInRemote, GlCommand.CopyRemoteCommitUrl]);
 	}
 
-	protected override preExecute(context: CommandContext, args?: OpenCommitOnRemoteCommandArgs) {
+	protected override preExecute(context: CommandContext, args?: OpenCommitOnRemoteCommandArgs): Promise<void> {
 		let uri = context.uri;
 
 		if (context.type === 'editorLine') {
@@ -68,7 +65,7 @@ export class OpenCommitOnRemoteCommand extends ActiveEditorCommand {
 		return this.execute(context.editor, uri, args);
 	}
 
-	async execute(editor?: TextEditor, uri?: Uri, args?: OpenCommitOnRemoteCommandArgs) {
+	async execute(editor?: TextEditor, uri?: Uri, args?: OpenCommitOnRemoteCommandArgs): Promise<void> {
 		uri = getCommandUri(uri, editor);
 
 		let gitUri = uri != null ? await GitUri.fromUri(uri) : undefined;

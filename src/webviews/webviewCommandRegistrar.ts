@@ -1,7 +1,7 @@
 import type { Disposable } from 'vscode';
 import type { Commands } from '../constants.commands';
-import type { CommandCallback } from '../system/vscode/command';
-import { registerWebviewCommand } from '../system/vscode/command';
+import type { CommandCallback } from '../system/-webview/command';
+import { registerWebviewCommand } from '../system/-webview/command';
 import type { WebviewContext } from '../system/webview';
 import { isWebviewContext } from '../system/webview';
 import type { WebviewProvider } from './webviewProvider';
@@ -13,7 +13,7 @@ export class WebviewCommandRegistrar implements Disposable {
 		{ handlers: Map<string, { callback: CommandCallback; thisArg: any }>; subscription: Disposable }
 	>();
 
-	dispose() {
+	dispose(): void {
 		this._commandRegistrations.forEach(({ subscription }) => void subscription.dispose());
 	}
 
@@ -23,7 +23,7 @@ export class WebviewCommandRegistrar implements Disposable {
 		instanceId: string | undefined,
 		command: Commands,
 		callback: CommandCallback,
-	) {
+	): Disposable {
 		let registration = this._commandRegistrations.get(command);
 		if (registration == null) {
 			const handlers = new Map();

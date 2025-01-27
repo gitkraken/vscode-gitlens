@@ -6,12 +6,12 @@ import { GlCommand } from '../constants.commands';
 import type { Container } from '../container';
 import { unknownGitUri } from '../git/gitUri';
 import type { Repository } from '../git/models/repository';
-import { ensurePlusFeaturesEnabled } from '../plus/gk/utils';
-import { gate } from '../system/decorators/gate';
+import { ensurePlusFeaturesEnabled } from '../plus/gk/utils/-webview/plus.utils';
+import { executeCommand } from '../system/-webview/command';
+import { configuration } from '../system/-webview/configuration';
+import { openUrl, openWorkspace } from '../system/-webview/vscode';
+import { gate } from '../system/decorators/-webview/gate';
 import { debug } from '../system/decorators/log';
-import { executeCommand } from '../system/vscode/command';
-import { configuration } from '../system/vscode/configuration';
-import { openUrl, openWorkspace } from '../system/vscode/utils';
 import { ViewNode } from './nodes/abstract/viewNode';
 import { MessageNode } from './nodes/common';
 import { RepositoriesNode } from './nodes/repositoriesNode';
@@ -72,7 +72,7 @@ export class WorkspacesViewNode extends ViewNode<'workspaces', WorkspacesView> {
 
 	@gate()
 	@debug()
-	override refresh() {
+	override refresh(): void {
 		if (this._children == null) return;
 
 		disposeChildren(this._children);
@@ -91,12 +91,12 @@ export class WorkspacesView extends ViewBase<'workspaces', WorkspacesViewNode, W
 		this.disposables.push(container.workspaces.onDidResetWorkspaces(() => void this.refresh(true)));
 	}
 
-	override dispose() {
+	override dispose(): void {
 		this._disposable?.dispose();
 		super.dispose();
 	}
 
-	protected getRoot() {
+	protected getRoot(): WorkspacesViewNode {
 		return new WorkspacesViewNode(this);
 	}
 
@@ -105,7 +105,7 @@ export class WorkspacesView extends ViewBase<'workspaces', WorkspacesViewNode, W
 		return super.show(options);
 	}
 
-	async findWorkspaceNode(workspaceId: string, token?: CancellationToken) {
+	async findWorkspaceNode(workspaceId: string, token?: CancellationToken): Promise<ViewNode | undefined> {
 		return this.findNode((n: any) => n.workspace?.id === workspaceId, {
 			allowPaging: false,
 			maxDepth: 2,
@@ -125,7 +125,7 @@ export class WorkspacesView extends ViewBase<'workspaces', WorkspacesViewNode, W
 			focus?: boolean;
 			expand?: boolean | number;
 		},
-	) {
+	): Promise<ViewNode | undefined> {
 		return window.withProgress(
 			{
 				location: ProgressLocation.Notification,
@@ -313,7 +313,7 @@ export class WorkspacesView extends ViewBase<'workspaces', WorkspacesViewNode, W
 		];
 	}
 
-	protected override filterConfigurationChanged(e: ConfigurationChangeEvent) {
+	protected override filterConfigurationChanged(e: ConfigurationChangeEvent): boolean {
 		const changed = super.filterConfigurationChanged(e);
 		if (
 			!changed &&

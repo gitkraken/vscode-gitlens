@@ -4,7 +4,7 @@ import { getQueryDataFromScmGitUri } from '../@types/vscode.git.uri';
 import { GlyphChars, Schemes } from '../constants';
 import type { Colors } from '../constants.colors';
 import type { GitBranchStatus } from '../git/models/branch';
-import type { GitFileStatus } from '../git/models/file';
+import type { GitFileStatus } from '../git/models/fileStatus';
 import type { GitPausedOperation } from '../git/models/pausedOperationStatus';
 
 export class ViewFileDecorationProvider implements FileDecorationProvider, Disposable {

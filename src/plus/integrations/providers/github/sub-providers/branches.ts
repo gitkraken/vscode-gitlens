@@ -7,14 +7,14 @@ import type {
 	PagingOptions,
 } from '../../../../../git/gitProvider';
 import { GitBranch } from '../../../../../git/models/branch';
-import { createRevisionRange } from '../../../../../git/models/revision.utils';
-import type { BranchSortOptions } from '../../../../../git/utils/vscode/sorting';
-import { sortBranches, sortContributors } from '../../../../../git/utils/vscode/sorting';
-import { gate } from '../../../../../system/decorators/gate';
+import type { BranchSortOptions } from '../../../../../git/utils/-webview/sorting';
+import { sortBranches, sortContributors } from '../../../../../git/utils/-webview/sorting';
+import { createRevisionRange } from '../../../../../git/utils/revision.utils';
+import { configuration } from '../../../../../system/-webview/configuration';
+import { gate } from '../../../../../system/decorators/-webview/gate';
 import { log } from '../../../../../system/decorators/log';
 import { Logger } from '../../../../../system/logger';
 import { getLogScope } from '../../../../../system/logger.scope';
-import { configuration } from '../../../../../system/vscode/configuration';
 import { HeadType } from '../../../../remotehub';
 import type { GitHubGitProviderInternal } from '../githubGitProvider';
 import { stripOrigin } from '../githubGitProvider';
@@ -207,10 +207,11 @@ export class BranchesGitSubProvider implements GitBranchesSubProvider {
 			const mergeBase = await this.getMergeBase(repoPath, ref, baseOrTargetBranch);
 			if (mergeBase == null) return undefined;
 
-			const contributors = await this.provider.contributors.getContributors(repoPath, {
-				ref: createRevisionRange(mergeBase, ref, '..'),
-				stats: true,
-			});
+			const contributors = await this.provider.contributors.getContributors(
+				repoPath,
+				createRevisionRange(mergeBase, ref, '..'),
+				{ stats: true },
+			);
 
 			sortContributors(contributors, { orderBy: 'score:desc' });
 
@@ -266,9 +267,9 @@ export class BranchesGitSubProvider implements GitBranchesSubProvider {
 	}
 
 	@log()
-	async getBranchesForCommit(
+	async getBranchesWithCommits(
 		repoPath: string,
-		refs: string[],
+		shas: string[],
 		branch?: string | undefined,
 		options?:
 			| { all?: boolean; commitDate?: Date; mode?: 'contains' | 'pointsAt' }
@@ -284,21 +285,21 @@ export class BranchesGitSubProvider implements GitBranchesSubProvider {
 			let branches;
 
 			if (branch) {
-				branches = await github.getCommitOnBranch(
+				branches = await github.getBranchWithCommit(
 					session.accessToken,
 					metadata.repo.owner,
 					metadata.repo.name,
 					branch,
-					refs.map(stripOrigin),
+					shas.map(stripOrigin),
 					options?.mode ?? 'contains',
 					options?.commitDate,
 				);
 			} else {
-				branches = await github.getCommitBranches(
+				branches = await github.getBranchesWithCommits(
 					session.accessToken,
 					metadata.repo.owner,
 					metadata.repo.name,
-					refs.map(stripOrigin),
+					shas.map(stripOrigin),
 					options?.mode ?? 'contains',
 					options?.commitDate,
 				);

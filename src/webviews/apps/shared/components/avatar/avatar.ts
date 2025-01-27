@@ -55,7 +55,7 @@ export class GlAvatar extends LitElement {
 	@property()
 	href?: string;
 
-	override render() {
+	override render(): unknown {
 		if (this.name) {
 			return html`<gl-tooltip .content=${this.name}>${this.renderAvatar()}</gl-tooltip>`;
 		}

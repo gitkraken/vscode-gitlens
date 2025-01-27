@@ -5,10 +5,10 @@ import { Container } from '../../../container';
 import type { GitCommandOptions, GitSpawnOptions } from '../../../git/commandOptions';
 import type { GitProviderDescriptor } from '../../../git/gitProvider';
 import type { Repository } from '../../../git/models/repository';
+import { isFolderUri } from '../../../system/-webview/path';
+import { addVslsPrefixIfNeeded } from '../../../system/-webview/path.vsls';
 import { Logger } from '../../../system/logger';
 import { getLogScope } from '../../../system/logger.scope';
-import { addVslsPrefixIfNeeded } from '../../../system/vscode/path';
-import { isFolderUri } from '../../../system/vscode/utils';
 import { Git } from './git';
 import { LocalGitProvider } from './localGitProvider';
 

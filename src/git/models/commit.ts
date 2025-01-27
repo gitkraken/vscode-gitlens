@@ -1,3 +1,4 @@
+/* eslint-disable @typescript-eslint/no-restricted-imports */ /* TODO need to deal with sharing rich class shapes to webviews */
 import { Uri } from 'vscode';
 import type { EnrichedAutolink } from '../../autolinks';
 import { getAvatarUri, getCachedAvatarUri } from '../../avatars';
@@ -5,25 +6,34 @@ import type { GravatarDefaultStyle } from '../../config';
 import { GlyphChars } from '../../constants';
 import type { Container } from '../../container';
 import { formatDate, fromNow } from '../../system/date';
-import { gate } from '../../system/decorators/gate';
-import { memoize } from '../../system/decorators/memoize';
+import { gate } from '../../system/decorators/-webview/gate';
+import { memoize } from '../../system/decorators/-webview/memoize';
 import { getLoggableName } from '../../system/logger';
 import { getSettledValue } from '../../system/promise';
 import { pluralize } from '../../system/string';
 import type { PreviousLineComparisonUrisResult } from '../gitProvider';
 import { GitUri } from '../gitUri';
 import type { RemoteProvider } from '../remotes/remoteProvider';
-import { getChangedFilesCount } from './commit.utils';
+import { mapFilesWithStats } from '../utils/-webview/fileChange.utils';
+import { getChangedFilesCount } from '../utils/commit.utils';
+import { isSha, isUncommitted, isUncommittedParent, isUncommittedStaged } from '../utils/revision.utils';
 import type { GitFile } from './file';
-import { GitFileChange, mapFilesWithStats } from './file';
+import { GitFileChange } from './fileChange';
 import type { PullRequest } from './pullRequest';
-import type { GitReference, GitRevisionReference, GitStashReference } from './reference';
+import type { GitRevisionReference, GitStashReference } from './reference';
 import type { GitRemote } from './remote';
 import type { Repository } from './repository';
 import { uncommitted, uncommittedStaged } from './revision';
-import { isSha, isUncommitted, isUncommittedParent, isUncommittedStaged } from './revision.utils';
 
 const stashNumberRegex = /stash@{(\d+)}/;
+
+export function isCommit(commit: unknown): commit is GitCommit {
+	return commit instanceof GitCommit;
+}
+
+export function isStash(commit: unknown): commit is GitStashCommit {
+	return isCommit(commit) && commit.refType === 'stash' && Boolean(commit.stashName);
+}
 
 export class GitCommit implements GitRevisionReference {
 	private _stashUntrackedFilesLoaded = false;
@@ -240,9 +250,10 @@ export class GitCommit implements GitRevisionReference {
 			}
 			this._stashUntrackedFilesLoaded = true;
 		} else {
+			const commitsProvider = this.container.git.commits(this.repoPath);
 			const [commitResult, commitFilesStatsResult] = await Promise.allSettled([
-				this.container.git.getCommit(this.repoPath, this.sha),
-				options?.include?.stats ? this.container.git.getCommitFileStats(this.repoPath, this.sha) : undefined,
+				commitsProvider.getCommit(this.sha),
+				options?.include?.stats ? commitsProvider.getCommitFilesStats?.(this.sha) : undefined,
 				this.getPreviousSha(),
 			]);
 
@@ -256,7 +267,7 @@ export class GitCommit implements GitRevisionReference {
 
 			const commitFilesStats = getSettledValue(commitFilesStatsResult);
 			if (commitFilesStats?.length && this._files?.length) {
-				this._files = mapFilesWithStats(this._files, commitFilesStats);
+				this._files = mapFilesWithStats(this.container, this._files, commitFilesStats);
 			}
 		}
 
@@ -264,6 +275,7 @@ export class GitCommit implements GitRevisionReference {
 			const file = this._files.find(f => f.path === this._file!.path);
 			if (file != null) {
 				this._file = new GitFileChange(
+					this.container,
 					file.repoPath,
 					file.path,
 					file.status,
@@ -348,13 +360,13 @@ export class GitCommit implements GitRevisionReference {
 		return this._files?.find(f => f.path === relativePath);
 	}
 
-	formatDate(format?: string | null) {
+	formatDate(format?: string | null): string {
 		return this.container.CommitDateFormatting.dateSource === 'committed'
 			? this.committer.formatDate(format)
 			: this.author.formatDate(format);
 	}
 
-	formatDateFromNow(short?: boolean) {
+	formatDateFromNow(short?: boolean): string {
 		return this.container.CommitDateFormatting.dateSource === 'committed'
 			? this.committer.fromNow(short)
 			: this.author.fromNow(short);
@@ -598,7 +610,7 @@ export class GitCommit implements GitRevisionReference {
 
 	@gate()
 	async isPushed(): Promise<boolean> {
-		return this.container.git.hasCommitBeenPushed(this.repoPath, this.ref);
+		return this.container.git.commits(this.repoPath).hasCommitBeenPushed(this.ref);
 	}
 
 	with<T extends GitCommit>(changes: {
@@ -649,18 +661,6 @@ export class GitCommit implements GitRevisionReference {
 		if (change === undefined) return original;
 		return change !== null ? change : undefined;
 	}
-}
-
-export function isCommit(commit: any): commit is GitCommit {
-	return commit instanceof GitCommit;
-}
-
-export function isStash(commit: any): commit is GitStashCommit {
-	return commit instanceof GitCommit && commit.refType === 'stash' && Boolean(commit.stashName);
-}
-
-export function isOfCommitOrStashRefType(commit: GitReference | undefined): boolean {
-	return commit?.refType === 'revision' || commit?.refType === 'stash';
 }
 
 export interface GitCommitIdentityShape {
@@ -723,10 +723,4 @@ export interface GitStashCommit extends GitCommit {
 	readonly number: string;
 }
 
-type GitCommitWithFullDetails = GitCommit & SomeNonNullable<GitCommit, 'message' | 'files'>;
-
-export function assertsCommitHasFullDetails(commit: GitCommit): asserts commit is GitCommitWithFullDetails {
-	if (!commit.hasFullDetails()) {
-		throw new Error(`GitCommit(${commit.sha}) is not fully loaded`);
-	}
-}
+export type GitCommitWithFullDetails = GitCommit & SomeNonNullable<GitCommit, 'message' | 'files'>;

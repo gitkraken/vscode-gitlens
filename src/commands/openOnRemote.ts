@@ -2,18 +2,18 @@ import { GlyphChars } from '../constants';
 import { GlCommand } from '../constants.commands';
 import type { Container } from '../container';
 import type { GitRemote } from '../git/models/remote';
-import { getHighlanderProviders } from '../git/models/remote';
 import type { RemoteResource } from '../git/models/remoteResource';
 import { RemoteResourceType } from '../git/models/remoteResource';
-import { createRevisionRange, shortenRevision } from '../git/models/revision.utils';
 import type { RemoteProvider } from '../git/remotes/remoteProvider';
+import { getHighlanderProviders } from '../git/utils/remote.utils';
+import { createRevisionRange, shortenRevision } from '../git/utils/revision.utils';
 import { showGenericErrorMessage } from '../messages';
 import { showRemoteProviderPicker } from '../quickpicks/remoteProviderPicker';
+import { command } from '../system/-webview/command';
 import { ensureArray } from '../system/array';
 import { Logger } from '../system/logger';
 import { pad, splitSingle } from '../system/string';
-import { command } from '../system/vscode/command';
-import { GlCommandBase } from './base';
+import { GlCommandBase } from './commandBase';
 
 export type OpenOnRemoteCommandArgs =
 	| {
@@ -37,7 +37,7 @@ export class OpenOnRemoteCommand extends GlCommandBase {
 		super([GlCommand.OpenOnRemote, GlCommand.Deprecated_OpenInRemote]);
 	}
 
-	async execute(args?: OpenOnRemoteCommandArgs) {
+	async execute(args?: OpenOnRemoteCommandArgs): Promise<void> {
 		if (args?.resource == null) return;
 
 		let remotes =

@@ -7,5 +7,5 @@
 		"tsBuildInfoFile": "tsconfig.node.tsbuildinfo"
 	},
 	"include": ["src/**/*"],
-	"exclude": ["src/test/**/*", "src/webviews/apps/**/*", "src/env/browser/**/*"]
+	"exclude": ["**/webview/**/*", "src/test/**/*", "src/webviews/apps/**/*", "src/env/browser/**/*"]
 }

@@ -1,12 +1,14 @@
 import { Disposable, ViewColumn } from 'vscode';
 import { GlCommand } from '../../constants.commands';
-import { registerCommand } from '../../system/vscode/command';
+import { registerCommand } from '../../system/-webview/command';
 import type { WebviewPanelsProxy, WebviewsController } from '../webviewsController';
 import type { State } from './protocol';
 
 export type SettingsWebviewShowingArgs = [string];
 
-export function registerSettingsWebviewPanel(controller: WebviewsController) {
+export function registerSettingsWebviewPanel(
+	controller: WebviewsController,
+): WebviewPanelsProxy<'gitlens.settings', SettingsWebviewShowingArgs, State> {
 	return controller.registerWebviewPanel<'gitlens.settings', State, State, SettingsWebviewShowingArgs>(
 		{ id: GlCommand.ShowSettingsPage },
 		{
@@ -35,7 +37,7 @@ export function registerSettingsWebviewPanel(controller: WebviewsController) {
 
 export function registerSettingsWebviewCommands<T>(
 	panels: WebviewPanelsProxy<'gitlens.settings', SettingsWebviewShowingArgs, T>,
-) {
+): Disposable {
 	return Disposable.from(
 		...[
 			GlCommand.ShowSettingsPageAndJumpToFileAnnotations,

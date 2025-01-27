@@ -1,22 +1,24 @@
 import type { CancellationToken } from 'vscode';
+import type { Response } from '@env/fetch';
 import { fetch } from '@env/fetch';
 import type { AIProviders } from '../constants.ai';
 import type { TelemetryEvents } from '../constants.telemetry';
 import type { Container } from '../container';
 import { CancellationError } from '../errors';
+import { configuration } from '../system/-webview/configuration';
 import { sum } from '../system/iterable';
 import { interpolate } from '../system/string';
-import { configuration } from '../system/vscode/configuration';
 import type { AIModel, AIProvider } from './aiProviderService';
-import { getMaxCharacters, getOrPromptApiKey, showDiffTruncationWarning } from './aiProviderService';
 import {
-	explainChangesSystemPrompt,
+	getMaxCharacters,
+	getOrPromptApiKey,
+	getValidatedTemperature,
+	showDiffTruncationWarning,
+} from './aiProviderService';
+import {
 	explainChangesUserPrompt,
-	generateCloudPatchMessageSystemPrompt,
 	generateCloudPatchMessageUserPrompt,
-	generateCodeSuggestMessageSystemPrompt,
 	generateCodeSuggestMessageUserPrompt,
-	generateCommitMessageSystemPrompt,
 	generateCommitMessageUserPrompt,
 } from './prompts';
 
@@ -29,7 +31,7 @@ export interface AIProviderConfig {
 export abstract class OpenAICompatibleProvider<T extends AIProviders> implements AIProvider<T> {
 	constructor(protected readonly container: Container) {}
 
-	dispose() {}
+	dispose(): void {}
 
 	abstract readonly id: T;
 	abstract readonly name: string;
@@ -63,7 +65,6 @@ export abstract class OpenAICompatibleProvider<T extends AIProviders> implements
 		reporting: TelemetryEvents['ai/generate'],
 		promptConfig: {
 			type: 'commit' | 'cloud-patch' | 'code-suggestion';
-			systemPrompt: string;
 			userPrompt: string;
 			customInstructions?: string;
 		},
@@ -76,11 +77,7 @@ export abstract class OpenAICompatibleProvider<T extends AIProviders> implements
 			const [result, maxCodeCharacters] = await this.fetch(
 				model,
 				apiKey,
-				(max, retries): [SystemMessage, ...ChatMessage[]] => {
-					const system: SystemMessage = {
-						role: 'system',
-						content: promptConfig.systemPrompt,
-					};
+				(max, retries): ChatMessage[] => {
 					const messages: ChatMessage[] = [
 						{
 							role: 'user',
@@ -93,10 +90,9 @@ export abstract class OpenAICompatibleProvider<T extends AIProviders> implements
 					];
 
 					reporting['retry.count'] = retries;
-					reporting['input.length'] =
-						(reporting['input.length'] ?? 0) + sum([system, ...messages], m => m.content.length);
+					reporting['input.length'] = (reporting['input.length'] ?? 0) + sum(messages, m => m.content.length);
 
-					return [system, ...messages];
+					return messages;
 				},
 				4096,
 				options?.cancellation,
@@ -134,13 +130,11 @@ export abstract class OpenAICompatibleProvider<T extends AIProviders> implements
 			codeSuggestion
 				? {
 						type: 'code-suggestion',
-						systemPrompt: generateCodeSuggestMessageSystemPrompt,
 						userPrompt: generateCodeSuggestMessageUserPrompt,
 						customInstructions: configuration.get('ai.generateCodeSuggestMessage.customInstructions'),
 				  }
 				: {
 						type: 'cloud-patch',
-						systemPrompt: generateCloudPatchMessageSystemPrompt,
 						userPrompt: generateCloudPatchMessageUserPrompt,
 						customInstructions: configuration.get('ai.generateCloudPatchMessage.customInstructions'),
 				  },
@@ -160,7 +154,6 @@ export abstract class OpenAICompatibleProvider<T extends AIProviders> implements
 			reporting,
 			{
 				type: 'commit',
-				systemPrompt: generateCommitMessageSystemPrompt,
 				userPrompt: generateCommitMessageUserPrompt,
 				customInstructions: configuration.get('ai.generateCommitMessage.customInstructions'),
 			},
@@ -182,11 +175,7 @@ export abstract class OpenAICompatibleProvider<T extends AIProviders> implements
 			const [result, maxCodeCharacters] = await this.fetch(
 				model,
 				apiKey,
-				(max, retries): [SystemMessage, ...ChatMessage[]] => {
-					const system: SystemMessage = {
-						role: 'system',
-						content: explainChangesSystemPrompt,
-					};
+				(max, retries): ChatMessage[] => {
 					const messages: ChatMessage[] = [
 						{
 							role: 'user',
@@ -199,10 +188,9 @@ export abstract class OpenAICompatibleProvider<T extends AIProviders> implements
 					];
 
 					reporting['retry.count'] = retries;
-					reporting['input.length'] =
-						(reporting['input.length'] ?? 0) + sum([system, ...messages], m => m.content.length);
+					reporting['input.length'] = (reporting['input.length'] ?? 0) + sum(messages, m => m.content.length);
 
-					return [system, ...messages];
+					return messages;
 				},
 				4096,
 				options?.cancellation,
@@ -221,7 +209,7 @@ export abstract class OpenAICompatibleProvider<T extends AIProviders> implements
 	protected async fetch(
 		model: AIModel<T>,
 		apiKey: string,
-		messages: (maxCodeCharacters: number, retries: number) => [SystemMessage, ...ChatMessage[]],
+		messages: (maxCodeCharacters: number, retries: number) => ChatMessage[],
 		outputTokens: number,
 		cancellation: CancellationToken | undefined,
 	): Promise<[result: string, maxCodeCharacters: number]> {
@@ -233,7 +221,8 @@ export abstract class OpenAICompatibleProvider<T extends AIProviders> implements
 				model: model.id,
 				messages: messages(maxCodeCharacters, retries),
 				stream: false,
-				max_tokens: Math.min(outputTokens, model.maxTokens.output),
+				max_completion_tokens: Math.min(outputTokens, model.maxTokens.output),
+				temperature: model.temperature ?? getValidatedTemperature(),
 			};
 
 			const rsp = await this.fetchCore(model, apiKey, request, cancellation);
@@ -273,7 +262,7 @@ export abstract class OpenAICompatibleProvider<T extends AIProviders> implements
 		apiKey: string,
 		request: object,
 		cancellation: CancellationToken | undefined,
-	) {
+	): Promise<Response> {
 		let aborter: AbortController | undefined;
 		if (cancellation != null) {
 			aborter = new AbortController();
@@ -313,7 +302,7 @@ interface ChatCompletionRequest {
 
 	frequency_penalty?: number;
 	logit_bias?: Record<string, number>;
-	max_tokens?: number;
+	max_completion_tokens?: number;
 	n?: number;
 	presence_penalty?: number;
 	stop?: string | string[];

@@ -4,10 +4,11 @@ import type { Container } from '../container';
 import { GitUri } from '../git/gitUri';
 import type { GitCommit } from '../git/models/commit';
 import { showGenericErrorMessage } from '../messages';
+import { command, executeCommand } from '../system/-webview/command';
 import { Logger } from '../system/logger';
-import { command, executeCommand } from '../system/vscode/command';
-import type { CommandContext } from './base';
-import { ActiveEditorCommand, getCommandUri } from './base';
+import { ActiveEditorCommand } from './commandBase';
+import { getCommandUri } from './commandBase.utils';
+import type { CommandContext } from './commandContext';
 import type { DiffWithCommandArgs } from './diffWith';
 
 export interface DiffWithNextCommandArgs {
@@ -25,7 +26,7 @@ export class DiffWithNextCommand extends ActiveEditorCommand {
 		super([GlCommand.DiffWithNext, GlCommand.DiffWithNextInDiffLeft, GlCommand.DiffWithNextInDiffRight]);
 	}
 
-	protected override preExecute(context: CommandContext, args?: DiffWithNextCommandArgs) {
+	protected override preExecute(context: CommandContext, args?: DiffWithNextCommandArgs): Promise<void> {
 		if (context.command === GlCommand.DiffWithNextInDiffLeft) {
 			args = { ...args, inDiffLeftEditor: true };
 		}
@@ -33,7 +34,7 @@ export class DiffWithNextCommand extends ActiveEditorCommand {
 		return this.execute(context.editor, context.uri, args);
 	}
 
-	async execute(editor?: TextEditor, uri?: Uri, args?: DiffWithNextCommandArgs) {
+	async execute(editor?: TextEditor, uri?: Uri, args?: DiffWithNextCommandArgs): Promise<void> {
 		uri = getCommandUri(uri, editor);
 		if (uri == null) return;
 

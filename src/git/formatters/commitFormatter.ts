@@ -19,14 +19,14 @@ import { GlyphChars } from '../../constants';
 import { actionCommandPrefix, GlCommand } from '../../constants.commands';
 import { Container } from '../../container';
 import { emojify } from '../../emojis';
-import { arePlusFeaturesEnabled } from '../../plus/gk/utils';
+import { arePlusFeaturesEnabled } from '../../plus/gk/utils/-webview/plus.utils';
+import { configuration } from '../../system/-webview/configuration';
 import { createMarkdownCommandLink } from '../../system/commands';
 import { join, map } from '../../system/iterable';
 import { escapeMarkdown } from '../../system/markdown';
 import { isPromise } from '../../system/promise';
 import type { TokenOptions } from '../../system/string';
 import { encodeHtmlWeak, getSuperscript } from '../../system/string';
-import { configuration } from '../../system/vscode/configuration';
 import type { ContactPresence } from '../../vsls/vsls';
 import type { ShowInCommitGraphCommandArgs } from '../../webviews/plus/graph/protocol';
 import type { PreviousLineComparisonUrisResult } from '../gitProvider';
@@ -34,13 +34,13 @@ import type { GitCommit } from '../models/commit';
 import { isCommit, isStash } from '../models/commit';
 import type { PullRequest } from '../models/pullRequest';
 import { isPullRequest } from '../models/pullRequest';
-import { getReferenceFromRevision } from '../models/reference.utils';
 import type { GitRemote } from '../models/remote';
-import { getHighlanderProviders } from '../models/remote';
 import { uncommitted, uncommittedStaged } from '../models/revision';
-import { isUncommittedStaged, shortenRevision } from '../models/revision.utils';
 import type { RemoteProvider } from '../remotes/remoteProvider';
-import { getIssueOrPullRequestMarkdownIcon } from '../utils/vscode/icons';
+import { getIssueOrPullRequestMarkdownIcon } from '../utils/-webview/icons';
+import { getReferenceFromRevision } from '../utils/-webview/reference.utils';
+import { getHighlanderProviders } from '../utils/remote.utils';
+import { isUncommittedStaged, shortenRevision } from '../utils/revision.utils';
 import type { FormatOptions, RequiredTokenOptions } from './formatter';
 import { Formatter } from './formatter';
 
@@ -121,7 +121,7 @@ export class CommitFormatter extends Formatter<GitCommit, CommitFormatOptions> {
 	protected declare _options: RequiredTokenOptions<CommitFormatOptions> &
 		Required<Pick<CommitFormatOptions, 'outputFormat'>>;
 
-	override reset(item: GitCommit, options?: CommitFormatOptions) {
+	override reset(item: GitCommit, options?: CommitFormatOptions): void {
 		super.reset(item, options);
 		if (this._options.outputFormat == null) {
 			this._options.outputFormat = 'plaintext';

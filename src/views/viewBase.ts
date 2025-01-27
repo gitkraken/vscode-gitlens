@@ -35,14 +35,14 @@ import type { TreeViewCommandSuffixesByViewType } from '../constants.commands';
 import type { TrackedUsageFeatures } from '../constants.telemetry';
 import type { TreeViewIds, TreeViewTypes, WebviewViewTypes } from '../constants.views';
 import type { Container } from '../container';
+import { executeCoreCommand } from '../system/-webview/command';
+import { configuration } from '../system/-webview/configuration';
 import { debug, log } from '../system/decorators/log';
 import { once } from '../system/event';
 import { debounce } from '../system/function';
 import { Logger } from '../system/logger';
 import { getLogScope } from '../system/logger.scope';
 import { cancellable, isPromise } from '../system/promise';
-import { executeCoreCommand } from '../system/vscode/command';
-import { configuration } from '../system/vscode/configuration';
 import type { BranchesView } from './branchesView';
 import type { CommitsView } from './commitsView';
 import type { ContributorsView } from './contributorsView';
@@ -287,7 +287,7 @@ export abstract class ViewBase<
 		this.disposables.push(...this.registerCommands());
 	}
 
-	dispose() {
+	dispose(): void {
 		this._disposed = true;
 		this._nodeState?.dispose();
 		this._nodeState = undefined;
@@ -324,7 +324,7 @@ export abstract class ViewBase<
 		return true;
 	}
 
-	protected filterConfigurationChanged(e: ConfigurationChangeEvent) {
+	protected filterConfigurationChanged(e: ConfigurationChangeEvent): boolean {
 		if (!configuration.changed(e, 'views')) return false;
 
 		if (configuration.changed(e, `views.${this.configKey}` as const)) return true;
@@ -382,7 +382,9 @@ export abstract class ViewBase<
 		}
 	}
 
-	getQualifiedCommand(command: TreeViewCommandSuffixesByViewType<Type>) {
+	getQualifiedCommand(
+		command: TreeViewCommandSuffixesByViewType<Type>,
+	): `gitlens.views.${Type}.${TreeViewCommandSuffixesByViewType<Type>}` {
 		return `gitlens.views.${this.type}.${command}` as const;
 	}
 
@@ -394,7 +396,7 @@ export abstract class ViewBase<
 		}
 	}
 
-	protected initialize(options: { canSelectMany?: boolean; showCollapseAll?: boolean } = {}) {
+	protected initialize(options?: { canSelectMany?: boolean; showCollapseAll?: boolean }): void {
 		this.tree = window.createTreeView<ViewNode>(this.grouped ? 'gitlens.views.scm.grouped' : this.id, {
 			...options,
 			treeDataProvider: this,
@@ -427,7 +429,7 @@ export abstract class ViewBase<
 		}
 	}
 
-	protected ensureRoot(force: boolean = false) {
+	protected ensureRoot(force: boolean = false): RootNode {
 		if (this.root == null || force) {
 			this.root?.dispose();
 			this.root = this.getRoot();
@@ -466,7 +468,7 @@ export abstract class ViewBase<
 		return node.getTreeItem();
 	}
 
-	getViewDescription(count?: number) {
+	getViewDescription(count?: number): string | undefined {
 		return (
 			`${this.grouped ? `${this.name.toLocaleLowerCase()} ` : ''}${count != null ? `(${count})` : ''}` ||
 			undefined
@@ -477,15 +479,15 @@ export abstract class ViewBase<
 		return node.resolveTreeItem?.(item, token) ?? item;
 	}
 
-	protected onElementCollapsed(e: TreeViewExpansionEvent<ViewNode>) {
+	protected onElementCollapsed(e: TreeViewExpansionEvent<ViewNode>): void {
 		this._onDidChangeNodeCollapsibleState.fire({ ...e, state: TreeItemCollapsibleState.Collapsed });
 	}
 
-	protected onElementExpanded(e: TreeViewExpansionEvent<ViewNode>) {
+	protected onElementExpanded(e: TreeViewExpansionEvent<ViewNode>): void {
 		this._onDidChangeNodeCollapsibleState.fire({ ...e, state: TreeItemCollapsibleState.Expanded });
 	}
 
-	protected onCheckboxStateChanged(e: TreeCheckboxChangeEvent<ViewNode>) {
+	protected onCheckboxStateChanged(e: TreeCheckboxChangeEvent<ViewNode>): void {
 		try {
 			for (const [node, state] of e.items) {
 				if (node.id == null) {
@@ -500,12 +502,12 @@ export abstract class ViewBase<
 		}
 	}
 
-	protected onSelectionChanged(e: TreeViewSelectionChangeEvent<ViewNode>) {
+	protected onSelectionChanged(e: TreeViewSelectionChangeEvent<ViewNode>): void {
 		this._onDidChangeSelection.fire(e);
 		this.notifySelections();
 	}
 
-	protected onVisibilityChanged(e: TreeViewVisibilityChangeEvent) {
+	protected onVisibilityChanged(e: TreeViewVisibilityChangeEvent): void {
 		if (e.visible) {
 			void this.container.usage.track(`${this.trackingFeature}:shown`).catch();
 		}
@@ -698,7 +700,7 @@ export abstract class ViewBase<
 			focus?: boolean;
 			expand?: boolean | number;
 		},
-	) {
+	): Promise<void> {
 		// Not sure why I need to reveal each parent, but without it the node won't be revealed
 		const nodes: ViewNode[] = [];
 
@@ -720,7 +722,7 @@ export abstract class ViewBase<
 	}
 
 	@debug()
-	async refresh(reset: boolean = false) {
+	async refresh(reset: boolean = false): Promise<void> {
 		// If we are resetting, make sure to clear any saved node state
 		if (reset) {
 			this.nodeState.reset();
@@ -732,7 +734,7 @@ export abstract class ViewBase<
 	}
 
 	@debug<ViewBase<Type, RootNode, ViewConfig>['refreshNode']>({ args: { 0: n => n.toString() } })
-	async refreshNode(node: ViewNode, reset: boolean = false, force: boolean = false) {
+	async refreshNode(node: ViewNode, reset: boolean = false, force: boolean = false): Promise<void> {
 		const cancel = await node.refresh?.(reset);
 		if (!force && cancel === true) return;
 
@@ -747,7 +749,7 @@ export abstract class ViewBase<
 			focus?: boolean;
 			expand?: boolean | number;
 		},
-	) {
+	): Promise<void> {
 		if (this.tree == null) return;
 
 		try {
@@ -759,7 +761,7 @@ export abstract class ViewBase<
 	}
 
 	@log()
-	async show(options?: { preserveFocus?: boolean }) {
+	async show(options?: { preserveFocus?: boolean }): Promise<void> {
 		const scope = getLogScope();
 
 		try {
@@ -779,7 +781,7 @@ export abstract class ViewBase<
 	}
 
 	// @debug({ args: { 0: (n: ViewNode) => n.toString() }, singleLine: true })
-	getNodeLastKnownLimit(node: PageableViewNode) {
+	getNodeLastKnownLimit(node: PageableViewNode): number | undefined {
 		return this._lastKnownLimits.get(node.id);
 	}
 
@@ -791,7 +793,7 @@ export abstract class ViewBase<
 		limit: number | { until: string | undefined } | undefined,
 		previousNode?: ViewNode,
 		context?: Record<string, unknown>,
-	) {
+	): Promise<void> {
 		if (previousNode != null) {
 			await this.reveal(previousNode, { select: true });
 		}
@@ -804,12 +806,12 @@ export abstract class ViewBase<
 		args: { 0: n => n.toString() },
 		singleLine: true,
 	})
-	resetNodeLastKnownLimit(node: PageableViewNode) {
+	resetNodeLastKnownLimit(node: PageableViewNode): void {
 		this._lastKnownLimits.delete(node.id);
 	}
 
 	@debug<ViewBase<Type, RootNode, ViewConfig>['triggerNodeChange']>({ args: { 0: n => n?.toString() } })
-	triggerNodeChange(node?: ViewNode) {
+	triggerNodeChange(node?: ViewNode): void {
 		// Since the root node won't actually refresh, force everything
 		this._onDidChangeTreeData.fire(node != null && node !== this.root ? node : undefined);
 	}
@@ -890,14 +892,14 @@ export class ViewNodeState implements Disposable {
 	private _store: Map<string, Map<string, unknown>> | undefined;
 	private _stickyStore: Map<string, Map<string, unknown>> | undefined;
 
-	dispose() {
+	dispose(): void {
 		this.reset();
 
 		this._stickyStore?.clear();
 		this._stickyStore = undefined;
 	}
 
-	reset() {
+	reset(): void {
 		this._store?.clear();
 		this._store = undefined;
 	}
@@ -979,7 +981,7 @@ export class ViewNodeState implements Disposable {
 	}
 }
 
-export function disposeChildren(oldChildren: ViewNode[] | undefined, newChildren?: ViewNode[]) {
+export function disposeChildren(oldChildren: ViewNode[] | undefined, newChildren?: ViewNode[]): void {
 	if (!oldChildren?.length) return;
 
 	const children = newChildren?.length ? oldChildren.filter(c => !newChildren.includes(c)) : [...oldChildren];

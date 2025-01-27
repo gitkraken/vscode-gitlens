@@ -5,10 +5,10 @@ import type { Issue } from '../../git/models/issue';
 import type { MergeConflict } from '../../git/models/mergeConflict';
 import type { GitPausedOperationStatus } from '../../git/models/pausedOperationStatus';
 import type { GitBranchReference } from '../../git/models/reference';
-import type { Subscription } from '../../plus/gk/account/subscription';
+import type { Subscription } from '../../plus/gk/models/subscription';
 import type { LaunchpadSummaryResult } from '../../plus/launchpad/launchpadIndicator';
 import type { LaunchpadItem } from '../../plus/launchpad/launchpadProvider';
-import type { LaunchpadGroup } from '../../plus/launchpad/models';
+import type { LaunchpadGroup } from '../../plus/launchpad/models/launchpad';
 import type { IpcScope, WebviewState } from '../protocol';
 import { IpcCommand, IpcNotification, IpcRequest } from '../protocol';
 

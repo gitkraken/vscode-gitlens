@@ -7,10 +7,14 @@ import type { CommitSelectedEvent, FileSelectedEvent } from '../../../eventBus';
 import { PlusFeatures } from '../../../features';
 import type { RepositoriesChangeEvent } from '../../../git/gitProviderService';
 import { GitUri } from '../../../git/gitUri';
-import { getChangedFilesCount } from '../../../git/models/commit.utils';
 import type { RepositoryChangeEvent } from '../../../git/models/repository';
 import { RepositoryChange, RepositoryChangeComparisonMode } from '../../../git/models/repository';
-import type { SubscriptionChangeEvent } from '../../../plus/gk/account/subscriptionService';
+import { getChangedFilesCount } from '../../../git/utils/commit.utils';
+import type { SubscriptionChangeEvent } from '../../../plus/gk/subscriptionService';
+import { executeCommand, registerCommand } from '../../../system/-webview/command';
+import { configuration } from '../../../system/-webview/configuration';
+import { isFolderUri } from '../../../system/-webview/path';
+import { getTabUri } from '../../../system/-webview/vscode';
 import { createFromDateDelta } from '../../../system/date';
 import { debug } from '../../../system/decorators/log';
 import type { Deferrable } from '../../../system/function';
@@ -18,9 +22,6 @@ import { debounce } from '../../../system/function';
 import { filter } from '../../../system/iterable';
 import { flatten } from '../../../system/object';
 import { getSettledValue } from '../../../system/promise';
-import { executeCommand, registerCommand } from '../../../system/vscode/command';
-import { configuration } from '../../../system/vscode/configuration';
-import { getTabUri, isFolderUri } from '../../../system/vscode/utils';
 import { isViewFileNode } from '../../../views/nodes/abstract/viewFileNode';
 import { isViewNode } from '../../../views/nodes/abstract/viewNode';
 import type { IpcMessage } from '../../protocol';
@@ -79,7 +80,7 @@ export class TimelineWebviewProvider implements WebviewProvider<State, State, Ti
 		}
 	}
 
-	dispose() {
+	dispose(): void {
 		this._disposable.dispose();
 	}
 
@@ -180,7 +181,7 @@ export class TimelineWebviewProvider implements WebviewProvider<State, State, Ti
 		return commands;
 	}
 
-	onVisibilityChanged(visible: boolean) {
+	onVisibilityChanged(visible: boolean): void {
 		if (!visible) return;
 
 		if (this.host.isHost('view')) {
@@ -188,7 +189,7 @@ export class TimelineWebviewProvider implements WebviewProvider<State, State, Ti
 		}
 	}
 
-	async onMessageReceived(e: IpcMessage) {
+	async onMessageReceived(e: IpcMessage): Promise<void> {
 		switch (true) {
 			case OpenDataPointCommand.is(e): {
 				if (e.params.data == null || !e.params.data.selected || this._context.uri == null) return;
@@ -196,7 +197,7 @@ export class TimelineWebviewProvider implements WebviewProvider<State, State, Ti
 				const repository = this.container.git.getRepository(this._context.uri);
 				if (repository == null) return;
 
-				const commit = await repository.git.getCommit(e.params.data.id);
+				const commit = await repository.git.commits().getCommit(e.params.data.id);
 				if (commit == null) return;
 
 				this.container.events.fire(
@@ -351,9 +352,8 @@ export class TimelineWebviewProvider implements WebviewProvider<State, State, Ti
 
 		const [currentUserResult, logResult] = await Promise.allSettled([
 			this.container.git.getCurrentUser(repoPath),
-			this.container.git.getLogForFile(repoPath, gitUri.fsPath, {
+			this.container.git.commits(repoPath).getLogForFile(gitUri.fsPath, gitUri.sha, {
 				limit: 0,
-				ref: gitUri.sha,
 				since: getPeriodDate(period)?.toISOString(),
 			}),
 		]);

@@ -8,12 +8,12 @@ import { PlusFeatures } from '../features';
 import { GitUri } from '../git/gitUri';
 import type { RepositoryChangeEvent } from '../git/models/repository';
 import { RepositoryChange, RepositoryChangeComparisonMode } from '../git/models/repository';
-import { groupRepositories } from '../git/models/repository.utils';
 import type { GitWorktree } from '../git/models/worktree';
-import { ensurePlusFeaturesEnabled } from '../plus/gk/utils';
-import { gate } from '../system/decorators/gate';
-import { executeCommand } from '../system/vscode/command';
-import { configuration } from '../system/vscode/configuration';
+import { groupRepositories } from '../git/utils/-webview/repository.utils';
+import { ensurePlusFeaturesEnabled } from '../plus/gk/utils/-webview/plus.utils';
+import { executeCommand } from '../system/-webview/command';
+import { configuration } from '../system/-webview/configuration';
+import { gate } from '../system/decorators/-webview/gate';
 import { RepositoriesSubscribeableNode } from './nodes/abstract/repositoriesSubscribeableNode';
 import { RepositoryFolderNode } from './nodes/abstract/repositoryFolderNode';
 import type { ViewNode } from './nodes/abstract/viewNode';
@@ -31,7 +31,7 @@ export class WorktreesRepositoryNode extends RepositoryFolderNode<WorktreesView,
 		return this.child.getChildren();
 	}
 
-	protected changed(e: RepositoryChangeEvent) {
+	protected changed(e: RepositoryChangeEvent): boolean {
 		if (this.view.config.showStashes && e.changed(RepositoryChange.Stash, RepositoryChangeComparisonMode.Any)) {
 			return true;
 		}
@@ -130,7 +130,7 @@ export class WorktreesView extends ViewBase<'worktrees', WorktreesViewNode, Work
 		return super.show(options);
 	}
 
-	protected getRoot() {
+	protected getRoot(): WorktreesViewNode {
 		return new WorktreesViewNode(this);
 	}
 
@@ -192,7 +192,7 @@ export class WorktreesView extends ViewBase<'worktrees', WorktreesViewNode, Work
 		];
 	}
 
-	protected override filterConfigurationChanged(e: ConfigurationChangeEvent) {
+	protected override filterConfigurationChanged(e: ConfigurationChangeEvent): boolean {
 		const changed = super.filterConfigurationChanged(e);
 		if (
 			!changed &&
@@ -213,7 +213,7 @@ export class WorktreesView extends ViewBase<'worktrees', WorktreesViewNode, Work
 		return true;
 	}
 
-	findWorktree(worktree: GitWorktree, token?: CancellationToken) {
+	findWorktree(worktree: GitWorktree, token?: CancellationToken): Promise<ViewNode | undefined> {
 		const { repoPath, uri } = worktree;
 		const url = uri.toString();
 
@@ -236,7 +236,7 @@ export class WorktreesView extends ViewBase<'worktrees', WorktreesViewNode, Work
 	async revealRepository(
 		repoPath: string,
 		options?: { select?: boolean; focus?: boolean; expand?: boolean | number },
-	) {
+	): Promise<ViewNode | undefined> {
 		const node = await this.findNode(n => n instanceof RepositoryFolderNode && n.repoPath === repoPath, {
 			maxDepth: 1,
 			canTraverse: n => n instanceof WorktreesViewNode || n instanceof RepositoryFolderNode,
@@ -250,14 +250,14 @@ export class WorktreesView extends ViewBase<'worktrees', WorktreesViewNode, Work
 	}
 
 	@gate(() => '')
-	revealWorktree(
+	async revealWorktree(
 		worktree: GitWorktree,
 		options?: {
 			select?: boolean;
 			focus?: boolean;
 			expand?: boolean | number;
 		},
-	) {
+	): Promise<ViewNode | undefined> {
 		return window.withProgress(
 			{
 				location: ProgressLocation.Notification,

@@ -1,12 +1,17 @@
 import { QuickInputButtons } from 'vscode';
 import type { Container } from '../../container';
-import { addAssociatedIssueToBranch, getNameWithoutRemote } from '../../git/models/branch.utils';
 import type { IssueShape } from '../../git/models/issue';
 import type { GitBranchReference, GitReference } from '../../git/models/reference';
-import { getReferenceLabel, isBranchReference, isRevisionReference } from '../../git/models/reference.utils';
 import { Repository } from '../../git/models/repository';
 import type { GitWorktree } from '../../git/models/worktree';
-import { getWorktreesByBranch } from '../../git/models/worktree.utils';
+import { addAssociatedIssueToBranch } from '../../git/utils/-webview/branch.issue.utils';
+import { getWorktreesByBranch } from '../../git/utils/-webview/worktree.utils';
+import {
+	getReferenceLabel,
+	getReferenceNameWithoutRemote,
+	isBranchReference,
+	isRevisionReference,
+} from '../../git/utils/reference.utils';
 import { showGenericErrorMessage } from '../../messages';
 import { getIssueOwner } from '../../plus/integrations/providers/utils';
 import type { QuickPickItemOfT } from '../../quickpicks/items/common';
@@ -226,7 +231,7 @@ export class BranchGitCommand extends QuickCommand {
 			: super.canSkipConfirm;
 	}
 
-	override get skipConfirmKey() {
+	override get skipConfirmKey(): string {
 		return `${this.key}${this.subcommand == null ? '' : `-${this.subcommand}`}:${this.pickedVia}`;
 	}
 
@@ -382,7 +387,7 @@ export class BranchGitCommand extends QuickCommand {
 					value:
 						state.name ?? // if it's a remote branch, pre-fill the name
 						(isBranchReference(state.reference) && state.reference.remote
-							? getNameWithoutRemote(state.reference)
+							? getReferenceNameWithoutRemote(state.reference)
 							: undefined),
 				});
 				if (result === StepResultBreak) continue;

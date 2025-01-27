@@ -16,14 +16,14 @@ import type { GitUri } from '../git/gitUri';
 import { isGitUri } from '../git/gitUri';
 import type { RepositoryChangeEvent } from '../git/models/repository';
 import { RepositoryChange, RepositoryChangeComparisonMode } from '../git/models/repository';
+import { configuration } from '../system/-webview/configuration';
+import { setContext } from '../system/-webview/context';
+import { UriSet } from '../system/-webview/uriMap';
+import { findTextDocument, isVisibleDocument } from '../system/-webview/vscode';
 import { debug } from '../system/decorators/log';
 import { once } from '../system/event';
 import type { Deferrable } from '../system/function';
 import { debounce } from '../system/function';
-import { configuration } from '../system/vscode/configuration';
-import { setContext } from '../system/vscode/context';
-import { UriSet } from '../system/vscode/uriMap';
-import { findTextDocument, isVisibleDocument } from '../system/vscode/utils';
 import type { TrackedGitDocument } from './trackedDocument';
 import { createTrackedGitDocument } from './trackedDocument';
 
@@ -94,7 +94,7 @@ export class GitDocumentTracker implements Disposable {
 		this._dirtyIdleTriggerDelay = configuration.get('advanced.blame.delayAfterEdit');
 	}
 
-	dispose() {
+	dispose(): void {
 		this._disposable.dispose();
 
 		void this.clear();
@@ -339,7 +339,7 @@ export class GitDocumentTracker implements Disposable {
 	}
 
 	@debug()
-	async clear() {
+	async clear(): Promise<void> {
 		for (const d of this._documentMap.values()) {
 			(await d).dispose();
 		}
@@ -419,7 +419,7 @@ export class GitDocumentTracker implements Disposable {
 	private readonly _openUrisTracked = new UriSet();
 	private _updateContextDebounced: Deferrable<() => void> | undefined;
 
-	updateContext(uri: Uri, blameable: boolean, tracked: boolean) {
+	updateContext(uri: Uri, blameable: boolean, tracked: boolean): void {
 		let changed = false;
 
 		function updateContextCore(this: GitDocumentTracker, uri: Uri, blameable: boolean, tracked: boolean) {

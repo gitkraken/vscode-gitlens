@@ -5,22 +5,21 @@ import type { Sources } from '../../../constants.telemetry';
 import type { Container } from '../../../container';
 import type { Account } from '../../../git/models/author';
 import type { DefaultBranch } from '../../../git/models/defaultBranch';
-import type { Issue, IssueOrPullRequest, SearchedIssue } from '../../../git/models/issue';
+import type { Issue, SearchedIssue } from '../../../git/models/issue';
+import type { IssueOrPullRequest } from '../../../git/models/issueOrPullRequest';
 import type {
 	PullRequest,
 	PullRequestMergeMethod,
 	PullRequestState,
 	SearchedPullRequest,
 } from '../../../git/models/pullRequest';
-import type { PullRequestUrlIdentity } from '../../../git/models/pullRequest.utils';
 import type { RepositoryMetadata } from '../../../git/models/repositoryMetadata';
+import type { PullRequestUrlIdentity } from '../../../git/utils/pullRequest.utils';
 import { log } from '../../../system/decorators/log';
 import { uniqueBy } from '../../../system/iterable';
-import { ensurePaidPlan } from '../../utils';
-import type {
-	IntegrationAuthenticationProviderDescriptor,
-	IntegrationAuthenticationService,
-} from '../authentication/integrationAuthentication';
+import { ensurePaidPlan } from '../../gk/utils/-webview/plus.utils';
+import type { IntegrationAuthenticationProviderDescriptor } from '../authentication/integrationAuthenticationProvider';
+import type { IntegrationAuthenticationService } from '../authentication/integrationAuthenticationService';
 import type { RepositoryDescriptor } from '../integration';
 import { HostingIntegration } from '../integration';
 import { getGitLabPullRequestIdentityFromMaybeUrl } from './gitlab/gitlab.utils';

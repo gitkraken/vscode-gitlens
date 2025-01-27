@@ -9,9 +9,10 @@ import type { GitReference } from '../git/models/reference';
 import { showNoRepositoryWarningMessage } from '../messages';
 import { showStashPicker } from '../quickpicks/commitPicker';
 import { showReferencePicker } from '../quickpicks/referencePicker';
+import { command } from '../system/-webview/command';
 import { pad } from '../system/string';
-import { command } from '../system/vscode/command';
-import { ActiveEditorCommand, getCommandUri } from './base';
+import { ActiveEditorCommand } from './commandBase';
+import { getCommandUri } from './commandBase.utils';
 
 export interface OpenFileAtRevisionFromCommandArgs {
 	reference?: GitReference;
@@ -28,7 +29,7 @@ export class OpenFileAtRevisionFromCommand extends ActiveEditorCommand {
 		super(GlCommand.OpenFileAtRevisionFrom);
 	}
 
-	async execute(editor: TextEditor | undefined, uri?: Uri, args?: OpenFileAtRevisionFromCommandArgs) {
+	async execute(editor: TextEditor | undefined, uri?: Uri, args?: OpenFileAtRevisionFromCommandArgs): Promise<void> {
 		uri = getCommandUri(uri, editor);
 		if (uri == null) return;
 

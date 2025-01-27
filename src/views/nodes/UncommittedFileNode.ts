@@ -5,7 +5,7 @@ import { GlCommand } from '../../constants.commands';
 import { StatusFileFormatter } from '../../git/formatters/statusFormatter';
 import { GitUri } from '../../git/gitUri';
 import type { GitFile } from '../../git/models/file';
-import { getGitFileStatusIcon } from '../../git/models/file';
+import { getGitFileStatusIcon } from '../../git/utils/fileStatus.utils';
 import { dirname, joinPaths } from '../../system/path';
 import type { ViewsWithCommits } from '../viewBase';
 import { getFileTooltipMarkdown, ViewFileNode } from './abstract/viewFileNode';
@@ -54,7 +54,7 @@ export class UncommittedFileNode extends ViewFileNode<'uncommitted-file', ViewsW
 	}
 
 	private _description: string | undefined;
-	get description() {
+	get description(): string {
 		if (this._description == null) {
 			this._description = StatusFileFormatter.fromTemplate(
 				this.view.config.formats.files.description,
@@ -66,7 +66,7 @@ export class UncommittedFileNode extends ViewFileNode<'uncommitted-file', ViewsW
 	}
 
 	private _folderName: string | undefined;
-	get folderName() {
+	get folderName(): string {
 		if (this._folderName == null) {
 			this._folderName = dirname(this.uri.relativePath);
 		}
@@ -74,7 +74,7 @@ export class UncommittedFileNode extends ViewFileNode<'uncommitted-file', ViewsW
 	}
 
 	private _label: string | undefined;
-	get label() {
+	get label(): string {
 		if (this._label == null) {
 			this._label = StatusFileFormatter.fromTemplate(
 				`\${file}`,

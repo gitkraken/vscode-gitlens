@@ -6,6 +6,25 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/) and this p
 
 ## [Unreleased]
 
+### Added
+
+- Adds and expands AI model support for GitLens' AI features
+  - Adds DeepSeek V3 and R1 models &mdash; closes [#3943](https://github.com/gitkraken/vscode-gitlens/issues/3943)
+  - Adds the latest experimental Gemini 2.0 Flash Thinking model
+  - Adds a `gitlens.ai.modelOptions.temperature` setting to specify the temperature (randomness) for AI models
+  - Adds a _Switch Model_ button to the AI confirmation prompts
+
+### Fixed
+
+- Fixes [#3938](https://github.com/gitkraken/vscode-gitlens/issues/3938) - GitLens automatically initiating an external sign-in after install on vscode.dev
+
+## [16.2.1] - 2025-01-21
+
+### Fixed
+
+- Fixes [#3954](https://github.com/gitkraken/vscode-gitlens/issues/3954) - Graph breaks when opening in an editor tab
+- Fixes uncaught errors with cloud self-hosted integrations
+
 ## [16.2.0] - 2025-01-17
 
 ### Added
@@ -5936,7 +5955,8 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/) and this p
 
 - Initial release but still heavily a work in progress.
 
-[unreleased]: https://github.com/gitkraken/vscode-gitlens/compare/v16.2.0...HEAD
+[unreleased]: https://github.com/gitkraken/vscode-gitlens/compare/v16.2.1...HEAD
+[16.2.1]: https://github.com/gitkraken/vscode-gitlens/compare/v16.2.0...gitkraken:v16.2.1
 [16.2.0]: https://github.com/gitkraken/vscode-gitlens/compare/v16.1.1...gitkraken:v16.2.0
 [16.1.1]: https://github.com/gitkraken/vscode-gitlens/compare/v16.1.0...gitkraken:v16.1.1
 [16.1.0]: https://github.com/gitkraken/vscode-gitlens/compare/v16.0.4...gitkraken:v16.1.0

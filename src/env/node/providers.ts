@@ -1,14 +1,17 @@
 import type { Container } from '../../container';
 import type { GitCommandOptions } from '../../git/commandOptions';
 import type { GitProvider } from '../../git/gitProvider';
-import type { IntegrationAuthenticationService } from '../../plus/integrations/authentication/integrationAuthentication';
-import { configuration } from '../../system/vscode/configuration';
+import type { RepositoryLocationProvider } from '../../git/location/repositorylocationProvider';
+import type { SharedGkStorageLocationProvider } from '../../plus/repos/sharedGkStorageLocationProvider';
+import type { GkWorkspacesSharedStorageProvider } from '../../plus/workspaces/workspacesSharedStorageProvider';
+import { configuration } from '../../system/-webview/configuration';
 // import { GitHubGitProvider } from '../../plus/github/githubGitProvider';
 import { Git } from './git/git';
 import { LocalGitProvider } from './git/localGitProvider';
 import { VslsGit, VslsGitProvider } from './git/vslsGitProvider';
-import { RepositoryLocalPathMappingProvider } from './pathMapping/repositoryLocalPathMappingProvider';
-import { WorkspacesLocalPathMappingProvider } from './pathMapping/workspacesLocalPathMappingProvider';
+import { LocalRepositoryLocationProvider } from './gk/localRepositoryLocationProvider';
+import { LocalSharedGkStorageLocationProvider } from './gk/localSharedGkStorageLocationProvider';
+import { LocalGkWorkspacesSharedStorageProvider } from './gk/localWorkspacesSharedStorageProvider';
 
 let gitInstance: Git | undefined;
 function ensureGit() {
@@ -32,10 +35,7 @@ export function gitLogStreamTo(
 	return ensureGit().logStreamTo(repoPath, sha, limit, options, ...args);
 }
 
-export async function getSupportedGitProviders(
-	container: Container,
-	authenticationService: IntegrationAuthenticationService,
-): Promise<GitProvider[]> {
+export async function getSupportedGitProviders(container: Container): Promise<GitProvider[]> {
 	const git = ensureGit();
 
 	const providers: GitProvider[] = [
@@ -49,17 +49,27 @@ export async function getSupportedGitProviders(
 				await import(
 					/* webpackChunkName: "integrations" */ '../../plus/integrations/providers/github/githubGitProvider'
 				)
-			).GitHubGitProvider(container, authenticationService),
+			).GitHubGitProvider(container),
 		);
 	}
 
 	return providers;
 }
 
-export function getSupportedRepositoryPathMappingProvider(container: Container) {
-	return new RepositoryLocalPathMappingProvider(container);
+export function getSharedGKStorageLocationProvider(container: Container): SharedGkStorageLocationProvider {
+	return new LocalSharedGkStorageLocationProvider(container);
 }
 
-export function getSupportedWorkspacesPathMappingProvider() {
-	return new WorkspacesLocalPathMappingProvider();
+export function getSupportedRepositoryLocationProvider(
+	container: Container,
+	sharedStorage: SharedGkStorageLocationProvider,
+): RepositoryLocationProvider {
+	return new LocalRepositoryLocationProvider(container, sharedStorage);
+}
+
+export function getSupportedWorkspacesStorageProvider(
+	container: Container,
+	sharedStorage: SharedGkStorageLocationProvider,
+): GkWorkspacesSharedStorageProvider {
+	return new LocalGkWorkspacesSharedStorageProvider(container, sharedStorage);
 }

@@ -2,8 +2,8 @@ import type { SourceControl } from 'vscode';
 import { GlCommand } from '../constants.commands';
 import type { Container } from '../container';
 import { executeGitCommand } from '../git/actions';
-import { command } from '../system/vscode/command';
-import { GlCommandBase } from './base';
+import { command } from '../system/-webview/command';
+import { GlCommandBase } from './commandBase';
 
 @command()
 export class AddAuthorsCommand extends GlCommandBase {
@@ -11,7 +11,7 @@ export class AddAuthorsCommand extends GlCommandBase {
 		super(GlCommand.AddAuthors);
 	}
 
-	execute(sourceControl: SourceControl) {
+	execute(sourceControl: SourceControl): Promise<void> {
 		let repo;
 		if (sourceControl?.rootUri != null) {
 			repo = this.container.git.getRepository(sourceControl.rootUri);

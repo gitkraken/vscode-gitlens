@@ -1,7 +1,7 @@
 import { css, html, LitElement, nothing } from 'lit';
 import { customElement, property } from 'lit/decorators.js';
 import { ifDefined } from 'lit/directives/if-defined.js';
-import type { Promo } from '../../../../plus/gk/account/promos';
+import type { Promo } from '../../../../plus/gk/models/promo';
 import { typeCheck } from '../../../../system/function';
 
 @customElement('gl-promo')
@@ -55,11 +55,11 @@ export class GlPromo extends LitElement {
 	type: 'link' | 'info' = 'info';
 
 	@property({ reflect: true, type: Boolean, attribute: 'has-promo' })
-	get hasPromo() {
+	get hasPromo(): boolean {
 		return this.promo != null;
 	}
 
-	override render() {
+	override render(): unknown {
 		if (!this.promo) return;
 
 		const promoHtml = this.renderPromo(this.promo);
@@ -79,14 +79,9 @@ export class GlPromo extends LitElement {
 
 	private renderPromo(promo: Promo) {
 		switch (promo.key) {
-			case 'gkholiday':
-				return html`<span class="content${this.type === 'link' ? nothing : ' muted'}"
-					>Get the gift of a better DevEx in 2025! <b>Save up to 80% now</b></span
-				>`;
-
 			case 'pro50':
 				return html`<span class="content${this.type === 'link' ? nothing : ' muted'}"
-					><b>Save 33% or more</b> on your 1st seat of Pro</span
+					><b>Save 55% or more</b> on your 1st seat of Pro</span
 				>`;
 
 			default: {

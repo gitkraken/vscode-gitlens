@@ -5,11 +5,13 @@ import { openDirectoryCompare } from '../git/actions/commit';
 import { showGenericErrorMessage } from '../messages';
 import { showReferencePicker } from '../quickpicks/referencePicker';
 import { getBestRepositoryOrShowPicker } from '../quickpicks/repositoryPicker';
+import { command } from '../system/-webview/command';
 import { Logger } from '../system/logger';
-import { command } from '../system/vscode/command';
 import { CompareResultsNode } from '../views/nodes/compareResultsNode';
-import type { CommandContext } from './base';
-import { ActiveEditorCommand, getCommandUri, isCommandContextViewNodeHasRef } from './base';
+import { ActiveEditorCommand } from './commandBase';
+import { getCommandUri } from './commandBase.utils';
+import type { CommandContext } from './commandContext';
+import { isCommandContextViewNodeHasRef } from './commandContext.utils';
 
 export interface OpenDirectoryCompareCommandArgs {
 	ref1?: string;
@@ -27,7 +29,10 @@ export class OpenDirectoryCompareCommand extends ActiveEditorCommand {
 		]);
 	}
 
-	protected override async preExecute(context: CommandContext, args?: OpenDirectoryCompareCommandArgs) {
+	protected override async preExecute(
+		context: CommandContext,
+		args?: OpenDirectoryCompareCommandArgs,
+	): Promise<void> {
 		switch (context.command) {
 			case GlCommand.DiffDirectoryWithHead:
 				args = { ...args };
@@ -54,7 +59,7 @@ export class OpenDirectoryCompareCommand extends ActiveEditorCommand {
 		return this.execute(context.editor, context.uri, args);
 	}
 
-	async execute(editor?: TextEditor, uri?: Uri, args?: OpenDirectoryCompareCommandArgs) {
+	async execute(editor?: TextEditor, uri?: Uri, args?: OpenDirectoryCompareCommandArgs): Promise<void> {
 		uri = getCommandUri(uri, editor);
 		args = { ...args };
 

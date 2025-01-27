@@ -3,21 +3,21 @@ import { GlCommand } from '../constants.commands';
 import type { StoredNamedRef } from '../constants.storage';
 import type { Container } from '../container';
 import { GitUri } from '../git/gitUri';
-import { getBranchNameAndRemote } from '../git/models/branch.utils';
 import type { GitReference } from '../git/models/reference';
-import { createReference } from '../git/models/reference.utils';
+import { getBranchNameAndRemote } from '../git/utils/branch.utils';
+import { createReference } from '../git/utils/reference.utils';
 import { showGenericErrorMessage } from '../messages';
 import { ReferencesQuickPickIncludes, showReferencePicker } from '../quickpicks/referencePicker';
 import { showRemotePicker } from '../quickpicks/remotePicker';
 import { getBestRepositoryOrShowPicker } from '../quickpicks/repositoryPicker';
+import { command } from '../system/-webview/command';
 import { Logger } from '../system/logger';
 import { normalizePath } from '../system/path';
-import { command } from '../system/vscode/command';
 import { DeepLinkType, deepLinkTypeToString, refTypeToDeepLinkType } from '../uris/deepLinks/deepLink';
-import type { CommandContext } from './base';
+import { ActiveEditorCommand } from './commandBase';
+import { getCommandUri } from './commandBase.utils';
+import type { CommandContext } from './commandContext';
 import {
-	ActiveEditorCommand,
-	getCommandUri,
 	isCommandContextEditorLine,
 	isCommandContextViewNodeHasBranch,
 	isCommandContextViewNodeHasCommit,
@@ -25,7 +25,7 @@ import {
 	isCommandContextViewNodeHasRemote,
 	isCommandContextViewNodeHasTag,
 	isCommandContextViewNodeHasWorkspace,
-} from './base';
+} from './commandContext.utils';
 
 export interface CopyDeepLinkCommandArgs {
 	refOrRepoPath?: GitReference | string;
@@ -49,7 +49,7 @@ export class CopyDeepLinkCommand extends ActiveEditorCommand {
 		]);
 	}
 
-	protected override preExecute(context: CommandContext, args?: CopyDeepLinkCommandArgs) {
+	protected override preExecute(context: CommandContext, args?: CopyDeepLinkCommandArgs): Promise<void> {
 		if (args == null) {
 			if (isCommandContextViewNodeHasCommit(context)) {
 				args = { refOrRepoPath: context.node.commit };
@@ -80,7 +80,7 @@ export class CopyDeepLinkCommand extends ActiveEditorCommand {
 		return this.execute(context.editor, context.uri, args);
 	}
 
-	async execute(editor?: TextEditor, uri?: Uri, args?: CopyDeepLinkCommandArgs) {
+	async execute(editor?: TextEditor, uri?: Uri, args?: CopyDeepLinkCommandArgs): Promise<void> {
 		args = { ...args };
 
 		if (args.workspaceId != null) {
@@ -185,7 +185,7 @@ export class CopyFileDeepLinkCommand extends ActiveEditorCommand {
 		super([GlCommand.CopyDeepLinkToFile, GlCommand.CopyDeepLinkToFileAtRevision, GlCommand.CopyDeepLinkToLines]);
 	}
 
-	protected override preExecute(context: CommandContext, args?: CopyFileDeepLinkCommandArgs) {
+	protected override preExecute(context: CommandContext, args?: CopyFileDeepLinkCommandArgs): Promise<void> {
 		if (args == null) {
 			args = {};
 		}
@@ -212,7 +212,7 @@ export class CopyFileDeepLinkCommand extends ActiveEditorCommand {
 		return this.execute(context.editor, context.uri, args);
 	}
 
-	async execute(editor?: TextEditor, uri?: Uri, args?: CopyFileDeepLinkCommandArgs) {
+	async execute(editor?: TextEditor, uri?: Uri, args?: CopyFileDeepLinkCommandArgs): Promise<void> {
 		args = { ...args };
 
 		const type = DeepLinkType.File;

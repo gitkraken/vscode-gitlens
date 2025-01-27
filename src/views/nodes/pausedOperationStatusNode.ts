@@ -3,9 +3,9 @@ import type { Colors } from '../../constants.colors';
 import { GitUri } from '../../git/gitUri';
 import type { GitBranch } from '../../git/models/branch';
 import type { GitPausedOperationStatus } from '../../git/models/pausedOperationStatus';
-import { getReferenceLabel } from '../../git/models/reference.utils';
 import type { GitStatus } from '../../git/models/status';
 import { pausedOperationStatusStringsByType } from '../../git/utils/pausedOperationStatus.utils';
+import { getReferenceLabel } from '../../git/utils/reference.utils';
 import { pluralize } from '../../system/string';
 import type { ViewsWithCommits } from '../viewBase';
 import { createViewDecorationUri } from '../viewDecorationProvider';
@@ -46,7 +46,7 @@ export class PausedOperationStatusNode extends ViewNode<'paused-operation-status
 		if (revision != null) {
 			const commit =
 				revision != null
-					? await this.view.container.git.getCommit(this.pausedOpStatus.repoPath, revision.ref)
+					? await this.view.container.git.commits(this.pausedOpStatus.repoPath).getCommit(revision.ref)
 					: undefined;
 			if (commit != null) {
 				children.push(new RebaseCommitNode(this.view, this, commit));

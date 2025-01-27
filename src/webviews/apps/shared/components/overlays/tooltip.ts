@@ -67,7 +67,7 @@ export class GlTooltip extends LitElement {
 	hoist?: boolean;
 
 	private observer: MutationObserver | undefined;
-	override firstUpdated() {
+	override firstUpdated(): void {
 		this.observer = new MutationObserver(mutations => {
 			for (const mutation of mutations) {
 				if (mutation.type === 'attributes' && mutation.attributeName === 'data-current-placement') {
@@ -92,11 +92,12 @@ export class GlTooltip extends LitElement {
 		});
 	}
 
-	override disconnectedCallback() {
+	override disconnectedCallback(): void {
 		this.observer?.disconnect();
+		super.disconnectedCallback();
 	}
 
-	override render() {
+	override render(): unknown {
 		return html`<sl-tooltip
 			.placement=${this.placement}
 			?disabled=${this.disabled}

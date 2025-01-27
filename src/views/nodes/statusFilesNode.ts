@@ -3,7 +3,8 @@ import { GitUri } from '../../git/gitUri';
 import type { GitCommit } from '../../git/models/commit';
 import type { GitFileWithCommit } from '../../git/models/file';
 import type { GitLog } from '../../git/models/log';
-import type { GitStatus, GitStatusFile } from '../../git/models/status';
+import type { GitStatus } from '../../git/models/status';
+import type { GitStatusFile } from '../../git/models/statusFile';
 import { makeHierarchical } from '../../system/array';
 import { filter, flatMap, groupBy, map } from '../../system/iterable';
 import { joinPaths, normalizePath } from '../../system/path';
@@ -41,7 +42,7 @@ export class StatusFilesNode extends ViewNode<'status-files', ViewsWithWorkingTr
 
 		let log: GitLog | undefined;
 		if (this.range != null) {
-			log = await this.view.container.git.getLog(repoPath, { limit: 0, ref: this.range });
+			log = await this.view.container.git.commits(repoPath).getLog(this.range, { limit: 0 });
 			if (log != null) {
 				await Promise.allSettled(
 					map(

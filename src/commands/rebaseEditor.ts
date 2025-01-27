@@ -1,7 +1,7 @@
 import { GlCommand } from '../constants.commands';
 import type { Container } from '../container';
-import { command } from '../system/vscode/command';
-import { GlCommandBase } from './base';
+import { command } from '../system/-webview/command';
+import { GlCommandBase } from './commandBase';
 
 @command()
 export class DisableRebaseEditorCommand extends GlCommandBase {
@@ -9,7 +9,7 @@ export class DisableRebaseEditorCommand extends GlCommandBase {
 		super(GlCommand.DisableRebaseEditor);
 	}
 
-	execute() {
+	execute(): Promise<void> {
 		return this.container.rebaseEditor.setEnabled(false);
 	}
 }
@@ -20,7 +20,7 @@ export class EnableRebaseEditorCommand extends GlCommandBase {
 		super(GlCommand.EnableRebaseEditor);
 	}
 
-	execute() {
+	execute(): Promise<void> {
 		return this.container.rebaseEditor.setEnabled(true);
 	}
 }

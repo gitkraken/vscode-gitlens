@@ -81,7 +81,7 @@ export class Emitter<T> {
 		}
 	}
 
-	dispose() {
+	dispose(): void {
 		this.listeners?.clear();
 		this._deliveryQueue?.clear();
 		this._disposed = true;

@@ -6,19 +6,21 @@ import { StashApplyError, StashApplyErrorReason } from '../../../../git/errors';
 import type { GitStashSubProvider } from '../../../../git/gitProvider';
 import type { GitStashCommit } from '../../../../git/models/commit';
 import { GitCommit, GitCommitIdentity } from '../../../../git/models/commit';
-import type { GitFileStatus } from '../../../../git/models/file';
-import { GitFileChange, GitFileWorkingTreeStatus, mapFilesWithStats } from '../../../../git/models/file';
+import { GitFileChange } from '../../../../git/models/fileChange';
+import type { GitFileStatus } from '../../../../git/models/fileStatus';
+import { GitFileWorkingTreeStatus } from '../../../../git/models/fileStatus';
 import { RepositoryChange } from '../../../../git/models/repository';
 import type { GitStash } from '../../../../git/models/stash';
 import type { ParserWithFilesAndMaybeStats } from '../../../../git/parsers/logParser';
 import { createLogParserWithFiles, createLogParserWithFilesAndStats } from '../../../../git/parsers/logParser';
+import { mapFilesWithStats } from '../../../../git/utils/-webview/fileChange.utils';
+import { configuration } from '../../../../system/-webview/configuration';
+import { splitPath } from '../../../../system/-webview/path';
 import { countStringLength } from '../../../../system/array';
-import { gate } from '../../../../system/decorators/gate';
+import { gate } from '../../../../system/decorators/-webview/gate';
 import { log } from '../../../../system/decorators/log';
 import { min } from '../../../../system/iterable';
 import { getSettledValue } from '../../../../system/promise';
-import { configuration } from '../../../../system/vscode/configuration';
-import { splitPath } from '../../../../system/vscode/path';
 import type { Git } from '../git';
 import { maxGitCliLength } from '../git';
 import { RunError } from '../shell';
@@ -127,7 +129,14 @@ export class StashGitSubProvider implements GitStashSubProvider {
 						s.parents.split(' '),
 						message,
 						s.files?.map(
-							f => new GitFileChange(repoPath, f.path, f.status as GitFileStatus, f.originalPath),
+							f =>
+								new GitFileChange(
+									this.container,
+									repoPath,
+									f.path,
+									f.status as GitFileStatus,
+									f.originalPath,
+								),
 						) ?? [],
 						undefined,
 						[],
@@ -221,7 +230,7 @@ export class StashGitSubProvider implements GitStashSubProvider {
 		files ??= [];
 
 		if (stashFilesStatsResult.status === 'fulfilled' && stashFilesStatsResult.value != null) {
-			files = mapFilesWithStats(files, stashFilesStatsResult.value);
+			files = mapFilesWithStats(this.container, files, stashFilesStatsResult.value);
 		}
 
 		return files;
@@ -252,6 +261,7 @@ export class StashGitSubProvider implements GitStashSubProvider {
 				s.files?.map(
 					f =>
 						new GitFileChange(
+							this.container,
 							repoPath,
 							f.path,
 							(options?.untracked === 'only'
@@ -276,8 +286,8 @@ export class StashGitSubProvider implements GitStashSubProvider {
 
 	@gate()
 	@log()
-	async deleteStash(repoPath: string, stashName: string, ref?: string): Promise<void> {
-		await this.git.stash__delete(repoPath, stashName, ref);
+	async deleteStash(repoPath: string, stashName: string, sha?: string): Promise<void> {
+		await this.git.stash__delete(repoPath, stashName, sha);
 		this.container.events.fire('git:repo:change', { repoPath: repoPath, changes: [RepositoryChange.Stash] });
 		this.container.events.fire('git:cache:reset', { repoPath: repoPath, caches: ['stashes'] });
 	}
@@ -287,11 +297,11 @@ export class StashGitSubProvider implements GitStashSubProvider {
 	async renameStash(
 		repoPath: string,
 		stashName: string,
-		ref: string,
+		sha: string,
 		message: string,
 		stashOnRef?: string,
 	): Promise<void> {
-		await this.git.stash__rename(repoPath, stashName, ref, message, stashOnRef);
+		await this.git.stash__rename(repoPath, stashName, sha, message, stashOnRef);
 		this.container.events.fire('git:repo:change', { repoPath: repoPath, changes: [RepositoryChange.Stash] });
 		this.container.events.fire('git:cache:reset', { repoPath: repoPath, caches: ['stashes'] });
 	}

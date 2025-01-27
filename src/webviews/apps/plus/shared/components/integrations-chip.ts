@@ -7,7 +7,7 @@ import type {
 } from '../../../../../commands/cloudIntegrations';
 import type { IntegrationFeatures } from '../../../../../constants.integrations';
 import type { Source } from '../../../../../constants.telemetry';
-import { hasAccountFromSubscriptionState } from '../../../../../plus/gk/account/subscription';
+import { hasAccountFromSubscriptionState } from '../../../../../plus/gk/utils/subscription.utils';
 import { createCommandLink } from '../../../../../system/commands';
 import type { IntegrationState, State } from '../../../../home/protocol';
 import { stateContext } from '../../../home/context';
@@ -149,11 +149,11 @@ export class GLIntegrationsChip extends LitElement {
 		return this._state.integrations;
 	}
 
-	override focus() {
+	override focus(): void {
 		this._chip.focus();
 	}
 
-	override render() {
+	override render(): unknown {
 		const anyConnected = this.hasConnectedIntegrations;
 		const statusFilter = createIconBasedStatusFilter(this.integrations);
 		return html`<gl-popover placement="bottom" trigger="hover click focus" hoist>

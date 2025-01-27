@@ -4,11 +4,11 @@ import { md5 } from '@env/crypto';
 import type { StoredNamedRef } from '../../constants.storage';
 import type { FilesComparison } from '../../git/actions/commit';
 import { GitUri } from '../../git/gitUri';
-import { createRevisionRange, shortenRevision } from '../../git/models/revision.utils';
 import type { GitUser } from '../../git/models/user';
 import type { CommitsQueryResults, FilesQueryResults } from '../../git/queryResults';
 import { getAheadBehindFilesQuery, getCommitsQuery, getFilesQuery } from '../../git/queryResults';
-import { gate } from '../../system/decorators/gate';
+import { createRevisionRange, shortenRevision } from '../../git/utils/revision.utils';
+import { gate } from '../../system/decorators/-webview/gate';
 import { debug, log } from '../../system/decorators/log';
 import { weakEvent } from '../../system/event';
 import { pluralize } from '../../system/string';
@@ -127,7 +127,7 @@ export class CompareResultsNode extends SubscribeableViewNode<
 		}
 	}
 
-	dismiss() {
+	dismiss(): void {
 		void this.remove(true);
 	}
 
@@ -139,11 +139,11 @@ export class CompareResultsNode extends SubscribeableViewNode<
 			};
 			const behind = { ...this.behind, range: createRevisionRange(this.behind.ref1, this.behind.ref2, '..') };
 
-			const counts = await this.view.container.git.getLeftRightCommitCount(
-				this.repoPath,
-				createRevisionRange(behind.ref1 || 'HEAD', behind.ref2, '...'),
-				{ authors: this.filterByAuthors },
-			);
+			const counts = await this.view.container.git
+				.commits(this.repoPath)
+				.getLeftRightCommitCount(createRevisionRange(behind.ref1 || 'HEAD', behind.ref2, '...'), {
+					authors: this.filterByAuthors,
+				});
 
 			const branchesProvider = this.view.container.git.branches(this.repoPath);
 			const mergeBase =
@@ -254,13 +254,13 @@ export class CompareResultsNode extends SubscribeableViewNode<
 	}
 
 	@log()
-	clearReviewed() {
+	clearReviewed(): void {
 		resetComparisonCheckedFiles(this.view, this.getStorageId());
 		void this.store().catch();
 	}
 
 	@log()
-	async swap() {
+	async swap(): Promise<void> {
 		if (this._ref.ref === '') {
 			void window.showErrorMessage('Cannot swap comparisons with the working tree');
 			return;
@@ -322,7 +322,7 @@ export class CompareResultsNode extends SubscribeableViewNode<
 		return this.store(silent);
 	}
 
-	store(silent = false) {
+	store(silent = false): Promise<void> {
 		const storageId = this.getStorageId();
 		const checkedFiles = getComparisonCheckedFiles(this.view, storageId);
 
@@ -341,11 +341,11 @@ export class CompareResultsNode extends SubscribeableViewNode<
 	}
 }
 
-export function getComparisonStoragePrefix(storageId: string) {
+export function getComparisonStoragePrefix(storageId: string): string {
 	return `${storageId}|`;
 }
 
-export function getComparisonCheckedFiles(view: View, storageId: string) {
+export function getComparisonCheckedFiles(view: View, storageId: string): string[] {
 	const checkedFiles = [];
 
 	const checked = view.nodeState.get<TreeItemCheckboxState>(getComparisonStoragePrefix(storageId), 'checked');
@@ -357,11 +357,11 @@ export function getComparisonCheckedFiles(view: View, storageId: string) {
 	return checkedFiles;
 }
 
-export function resetComparisonCheckedFiles(view: View, storageId: string) {
+export function resetComparisonCheckedFiles(view: View, storageId: string): void {
 	view.nodeState.delete(getComparisonStoragePrefix(storageId), 'checked');
 }
 
-export function restoreComparisonCheckedFiles(view: View, checkedFiles: string[] | undefined) {
+export function restoreComparisonCheckedFiles(view: View, checkedFiles: string[] | undefined): void {
 	if (checkedFiles?.length) {
 		for (const id of checkedFiles) {
 			view.nodeState.storeState(id, 'checked', TreeItemCheckboxState.Checked, true);

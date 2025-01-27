@@ -1,8 +1,8 @@
 import type { Container } from '../../container';
 import type { GitContributor } from '../../git/models/contributor';
 import type { Repository } from '../../git/models/repository';
+import { executeCoreCommand } from '../../system/-webview/command';
 import { normalizePath } from '../../system/path';
-import { executeCoreCommand } from '../../system/vscode/command';
 import type { ViewsWithRepositoryFolders } from '../../views/viewBase';
 import type { PartialStepState, StepGenerator, StepState } from '../quickCommand';
 import { endSteps, QuickCommand, StepResultBreak } from '../quickCommand';
@@ -52,11 +52,11 @@ export class CoAuthorsGitCommand extends QuickCommand<State> {
 		};
 	}
 
-	override get canConfirm() {
+	override get canConfirm(): boolean {
 		return false;
 	}
 
-	async execute(state: CoAuthorStepState) {
+	private async execute(state: CoAuthorStepState) {
 		const repo = await this.container.git.getOrOpenScmRepository(state.repo.path);
 		if (repo == null) return;
 

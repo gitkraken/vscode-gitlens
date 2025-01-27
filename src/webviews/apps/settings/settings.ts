@@ -15,6 +15,7 @@ import {
 import { App } from '../shared/appBase';
 import { formatDate, setDefaultDateLocales } from '../shared/date';
 import { DOM } from '../shared/dom';
+import type { Disposable } from '../shared/events';
 import '../shared/components/feature-badge';
 import '../shared/components/gitlens-logo';
 
@@ -37,7 +38,7 @@ export class SettingsApp extends App<State> {
 		super('SettingsApp');
 	}
 
-	protected override onInitialize() {
+	protected override onInitialize(): void {
 		// Add scopes if available
 		const scopes = document.getElementById('scopes') as HTMLSelectElement;
 		if (scopes != null && this.state.scopes.length > 1) {
@@ -84,7 +85,7 @@ export class SettingsApp extends App<State> {
 		}
 	}
 
-	protected override onBind() {
+	protected override onBind(): Disposable[] {
 		const disposables = super.onBind?.() ?? [];
 
 		disposables.push(
@@ -136,7 +137,7 @@ export class SettingsApp extends App<State> {
 		return disposables;
 	}
 
-	protected override onMessageReceived(msg: IpcMessage) {
+	protected override onMessageReceived(msg: IpcMessage): void {
 		switch (true) {
 			case DidOpenAnchorNotification.is(msg):
 				this.scrollToAnchor(msg.params.anchor, msg.params.scrollBehavior);

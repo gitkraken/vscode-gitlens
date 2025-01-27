@@ -11,12 +11,12 @@ import type {
 } from '../git/models/reference';
 import type { GitRemote } from '../git/models/remote';
 import type { GitWorktree } from '../git/models/worktree';
+import { executeCommand, executeCoreCommand, registerCommand } from '../system/-webview/command';
+import { configuration } from '../system/-webview/configuration';
+import { getContext, setContext } from '../system/-webview/context';
 import { once } from '../system/function';
 import { first } from '../system/iterable';
 import { compare } from '../system/version';
-import { executeCommand, executeCoreCommand, registerCommand } from '../system/vscode/command';
-import { configuration } from '../system/vscode/configuration';
-import { getContext, setContext } from '../system/vscode/context';
 import {
 	registerCommitDetailsWebviewView,
 	registerGraphDetailsWebviewView,
@@ -33,6 +33,7 @@ import { DraftsView } from './draftsView';
 import { FileHistoryView } from './fileHistoryView';
 import { LaunchpadView } from './launchpadView';
 import { LineHistoryView } from './lineHistoryView';
+import type { ViewNode } from './nodes/abstract/viewNode';
 import { PullRequestView } from './pullRequestView';
 import { RemotesView } from './remotesView';
 import { RepositoriesView } from './repositoriesView';
@@ -62,7 +63,7 @@ export class Views implements Disposable {
 	private readonly _disposable: Disposable;
 
 	private _lastSelectedScmGroupedView: GroupableTreeViewTypes | undefined;
-	get lastSelectedScmGroupedView() {
+	get lastSelectedScmGroupedView(): GroupableTreeViewTypes | undefined {
 		if (!this._scmGroupedViews?.size) return undefined;
 
 		if (!this._lastSelectedScmGroupedView || !this._scmGroupedViews.has(this._lastSelectedScmGroupedView)) {
@@ -79,7 +80,7 @@ export class Views implements Disposable {
 
 	private _scmGroupedView: ScmGroupedView | undefined;
 	private _scmGroupedViews: Set<GroupableTreeViewTypes> | undefined;
-	get scmGroupedViews() {
+	get scmGroupedViews(): Set<GroupableTreeViewTypes> | undefined {
 		return this._scmGroupedViews;
 	}
 
@@ -128,7 +129,7 @@ export class Views implements Disposable {
 		}
 	}
 
-	dispose() {
+	dispose(): void {
 		this._scmGroupedView?.dispose();
 		this._branchesView?.dispose();
 		this._commitsView?.dispose();
@@ -564,7 +565,7 @@ export class Views implements Disposable {
 	}
 
 	private _commitDetailsView!: ReturnType<typeof registerCommitDetailsWebviewView>;
-	get commitDetails() {
+	get commitDetails(): ReturnType<typeof registerCommitDetailsWebviewView> {
 		return this._commitDetailsView;
 	}
 
@@ -584,17 +585,17 @@ export class Views implements Disposable {
 	}
 
 	private _graphView!: ReturnType<typeof registerGraphWebviewView>;
-	get graph() {
+	get graph(): ReturnType<typeof registerGraphWebviewView> {
 		return this._graphView;
 	}
 
 	private _graphDetailsView!: ReturnType<typeof registerGraphDetailsWebviewView>;
-	get graphDetails() {
+	get graphDetails(): ReturnType<typeof registerGraphDetailsWebviewView> {
 		return this._graphDetailsView;
 	}
 
 	private _homeView!: ReturnType<typeof registerHomeWebviewView>;
-	get home() {
+	get home(): ReturnType<typeof registerHomeWebviewView> {
 		return this._homeView;
 	}
 
@@ -609,7 +610,7 @@ export class Views implements Disposable {
 	// }
 
 	private _patchDetailsView!: ReturnType<typeof registerPatchDetailsWebviewView>;
-	get patchDetails() {
+	get patchDetails(): ReturnType<typeof registerPatchDetailsWebviewView> {
 		return this._patchDetailsView;
 	}
 
@@ -644,7 +645,7 @@ export class Views implements Disposable {
 	}
 
 	private _timelineView!: ReturnType<typeof registerTimelineWebviewView>;
-	get timeline() {
+	get timeline(): ReturnType<typeof registerTimelineWebviewView> {
 		return this._timelineView;
 	}
 
@@ -665,7 +666,7 @@ export class Views implements Disposable {
 			focus?: boolean;
 			expand?: boolean | number;
 		},
-	) {
+	): Promise<ViewNode | undefined> {
 		const branches = branch.remote ? this.remotes : this.branches;
 		const view = branches.canReveal ? branches : this.repositories;
 
@@ -681,7 +682,7 @@ export class Views implements Disposable {
 			focus?: boolean;
 			expand?: boolean | number;
 		},
-	) {
+	): Promise<ViewNode | undefined> {
 		const { commits } = this;
 		const view = commits.canReveal ? commits : this.repositories;
 
@@ -697,7 +698,7 @@ export class Views implements Disposable {
 			focus?: boolean;
 			expand?: boolean | number;
 		},
-	) {
+	): Promise<ViewNode | undefined> {
 		const { contributors } = this;
 		const view = contributors.canReveal ? contributors : this.repositories;
 
@@ -713,7 +714,7 @@ export class Views implements Disposable {
 			focus?: boolean;
 			expand?: boolean | number;
 		},
-	) {
+	): Promise<ViewNode | undefined> {
 		const { remotes } = this;
 		const view = remotes.canReveal ? remotes : this.repositories;
 
@@ -730,7 +731,7 @@ export class Views implements Disposable {
 			focus?: boolean;
 			expand?: boolean | number;
 		},
-	) {
+	): Promise<ViewNode | undefined> {
 		const view = useView == null || useView.canReveal === false ? this.repositories : useView;
 
 		const node = await view.revealRepository(repoPath, options);
@@ -745,7 +746,7 @@ export class Views implements Disposable {
 			focus?: boolean;
 			expand?: boolean | number;
 		},
-	) {
+	): Promise<ViewNode | undefined> {
 		const { stashes } = this;
 		const view = stashes.canReveal ? stashes : this.repositories;
 
@@ -761,7 +762,7 @@ export class Views implements Disposable {
 			focus?: boolean;
 			expand?: boolean | number;
 		},
-	) {
+	): Promise<ViewNode | undefined> {
 		const { tags } = this;
 		const view = tags.canReveal ? tags : this.repositories;
 
@@ -777,7 +778,7 @@ export class Views implements Disposable {
 			focus?: boolean;
 			expand?: boolean | number;
 		},
-	) {
+	): Promise<ViewNode | undefined> {
 		const { worktrees } = this;
 		const view = worktrees.canReveal ? worktrees : this.repositories;
 

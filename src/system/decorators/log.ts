@@ -41,18 +41,23 @@ export const LogInstanceNameFn = Symbol('logInstanceNameFn');
 
 export function logName<T>(fn: (c: T, name: string) => string) {
 	// eslint-disable-next-line @typescript-eslint/no-unsafe-function-type
-	return (target: Function) => {
+	return (target: Function): void => {
 		(target as any)[LogInstanceNameFn] = fn;
 	};
 }
 
-export function debug<T extends (...arg: any) => any>(options?: LogOptions<T>) {
+export function debug<T extends (...arg: any) => any>(
+	options?: LogOptions<T>,
+): (_target: any, key: string, descriptor: PropertyDescriptor & Record<string, any>) => void {
 	return log<T>(options, true);
 }
 
 type PromiseType<T> = T extends Promise<infer U> ? U : T;
 
-export function log<T extends (...arg: any) => any>(options?: LogOptions<T>, debug = false) {
+export function log<T extends (...arg: any) => any>(
+	options?: LogOptions<T>,
+	debug = false,
+): (_target: any, key: string, descriptor: PropertyDescriptor & Record<string, any>) => void {
 	let overrides: LogOptions<T>['args'] | undefined;
 	let ifFn: LogOptions<T>['if'] | undefined;
 	let enterFn: LogOptions<T>['enter'] | undefined;

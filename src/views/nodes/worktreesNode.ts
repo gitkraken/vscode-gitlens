@@ -3,7 +3,7 @@ import { GlyphChars } from '../../constants';
 import { PlusFeatures } from '../../features';
 import type { GitUri } from '../../git/gitUri';
 import type { Repository } from '../../git/models/repository';
-import { sortWorktrees } from '../../git/utils/vscode/sorting';
+import { sortWorktrees } from '../../git/utils/-webview/sorting';
 import { filterMap } from '../../system/array';
 import { debug } from '../../system/decorators/log';
 import { map } from '../../system/iterable';
@@ -83,7 +83,7 @@ export class WorktreesNode extends CacheableChildrenViewNode<'worktrees', ViewsW
 	}
 
 	@debug()
-	override refresh() {
+	override refresh(): void {
 		super.refresh(true);
 	}
 }

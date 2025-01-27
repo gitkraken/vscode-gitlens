@@ -9,10 +9,10 @@ import { GitUri } from '../../git/gitUri';
 import type { GitBranch } from '../../git/models/branch';
 import type { GitCommit } from '../../git/models/commit';
 import type { GitFile } from '../../git/models/file';
-import { getGitFileStatusIcon } from '../../git/models/file';
 import type { GitRevisionReference } from '../../git/models/reference';
+import { getGitFileStatusIcon } from '../../git/utils/fileStatus.utils';
+import { relativeDir } from '../../system/-webview/path';
 import { joinPaths } from '../../system/path';
-import { relativeDir } from '../../system/vscode/path';
 import type { ViewsWithCommits, ViewsWithStashes } from '../viewBase';
 import { createViewDecorationUri } from '../viewDecorationProvider';
 import { getFileTooltipMarkdown } from './abstract/viewFileNode';
@@ -67,10 +67,9 @@ export abstract class CommitFileNodeBase<
 			// Try to get the commit directly from the multi-file commit
 			const commit = await this.commit.getCommitForFile(this.file);
 			if (commit == null) {
-				const log = await this.view.container.git.getLogForFile(this.repoPath, this.file.path, {
-					limit: 2,
-					ref: this.commit.sha,
-				});
+				const log = await this.view.container.git
+					.commits(this.repoPath)
+					.getLogForFile(this.file.path, this.commit.sha, { limit: 2 });
 				if (log != null) {
 					this.commit = log.commits.get(this.commit.sha) ?? this.commit;
 				}
@@ -130,7 +129,7 @@ export abstract class CommitFileNodeBase<
 	}
 
 	private _folderName: string | undefined;
-	get folderName() {
+	get folderName(): string {
 		if (this._folderName === undefined) {
 			this._folderName = relativeDir(this.uri.relativePath);
 		}
@@ -138,7 +137,7 @@ export abstract class CommitFileNodeBase<
 	}
 
 	private _label: string | undefined;
-	get label() {
+	get label(): string {
 		if (this._label === undefined) {
 			this._label = StatusFileFormatter.fromTemplate(this.view.config.formats.files.label, this.file, {
 				relativePath: this.relativePath,

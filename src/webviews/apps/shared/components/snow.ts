@@ -59,18 +59,18 @@ export class GlSnow extends LitElement {
 
 	private _resizeObserver: ResizeObserver | undefined;
 
-	override connectedCallback() {
+	override connectedCallback(): void {
 		super.connectedCallback();
 		this._resizeObserver = new ResizeObserver(() => this.updateCanvasSize());
 		this._resizeObserver.observe(document.body);
 	}
 
-	override disconnectedCallback() {
+	override disconnectedCallback(): void {
 		super.disconnectedCallback();
 		this._resizeObserver?.disconnect();
 	}
 
-	override firstUpdated() {
+	override firstUpdated(): void {
 		this._canvas = this.shadowRoot?.querySelector('canvas.snow') ?? undefined;
 		this._ctx = this._canvas?.getContext('2d') ?? undefined;
 
@@ -80,7 +80,7 @@ export class GlSnow extends LitElement {
 		this.onToggle(this.snowing);
 	}
 
-	override render() {
+	override render(): unknown {
 		return html`
 			<canvas class="snow"></canvas>
 			<span

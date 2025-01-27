@@ -111,15 +111,15 @@ export class GlLaunchpad extends SignalWatcher(LitElement) {
 		return rsp;
 	});
 
-	get startWorkCommand() {
+	get startWorkCommand(): string {
 		return createCommandLink<undefined>('gitlens.home.startWork', undefined);
 	}
 
-	get createBranchCommand() {
+	get createBranchCommand(): string {
 		return createCommandLink<undefined>('gitlens.home.createBranch', undefined);
 	}
 
-	override connectedCallback() {
+	override connectedCallback(): void {
 		super.connectedCallback();
 
 		this._disposable.push(
@@ -135,13 +135,13 @@ export class GlLaunchpad extends SignalWatcher(LitElement) {
 		this._summaryState.run();
 	}
 
-	override disconnectedCallback() {
+	override disconnectedCallback(): void {
 		super.disconnectedCallback();
 
 		this._disposable.forEach(d => d.dispose());
 	}
 
-	override render() {
+	override render(): unknown {
 		return html`
 			<gl-section ?loading=${this._summaryState.computed.status === 'pending'}>
 				<span slot="heading">Launchpad</span>

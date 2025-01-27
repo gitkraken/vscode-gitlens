@@ -5,7 +5,7 @@ import type { TrackedUsage, TrackedUsageKeys } from './constants.telemetry';
 import type { GroupableTreeViewTypes } from './constants.views';
 import type { Environment } from './container';
 import type { FeaturePreviews } from './features';
-import type { Subscription } from './plus/gk/account/subscription';
+import type { Subscription } from './plus/gk/models/subscription';
 import type { Integration } from './plus/integrations/integration';
 import type { DeepLinkServiceState } from './uris/deepLinks/deepLink';
 

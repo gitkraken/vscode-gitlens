@@ -101,7 +101,7 @@ export class GlGraphMinimapContainer extends GlElement {
 	@query('#minimap')
 	private minimap: GlGraphMinimap | undefined;
 
-	override render() {
+	override render(): unknown {
 		if (this.disabled) return nothing;
 
 		return html`<gl-graph-minimap
@@ -115,12 +115,12 @@ export class GlGraphMinimapContainer extends GlElement {
 		></gl-graph-minimap>`;
 	}
 
-	select(date: number | Date | undefined, trackOnly: boolean = false) {
+	select(date: number | Date | undefined, trackOnly: boolean = false): void {
 		if (this.disabled) return;
 		this.minimap?.select(date, trackOnly);
 	}
 
-	unselect(date?: number | Date, focus: boolean = false) {
+	unselect(date?: number | Date, focus: boolean = false): void {
 		if (this.disabled) return;
 		this.minimap?.unselect(date, focus);
 	}

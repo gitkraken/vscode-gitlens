@@ -1,8 +1,9 @@
 import type { TextDocumentShowOptions } from 'vscode';
 import type { Config } from '../../../config';
-import type { GitFileChangeShape } from '../../../git/models/file';
+import type { GitFileChangeShape } from '../../../git/models/fileChange';
 import type { PatchRevisionRange } from '../../../git/models/patch';
 import type { Repository } from '../../../git/models/repository';
+import type { GkRepositoryId } from '../../../git/models/repositoryIdentities';
 import type {
 	Draft,
 	DraftArchiveReason,
@@ -14,11 +15,10 @@ import type {
 	DraftUser,
 	DraftVisibility,
 	LocalDraft,
-} from '../../../gk/models/drafts';
-import type { GkRepositoryId } from '../../../gk/models/repositoryIdentities';
-import type { OrganizationMember } from '../../../plus/gk/account/organization';
+} from '../../../plus/drafts/models/drafts';
+import type { OrganizationMember } from '../../../plus/gk/models/organization';
+import type { Serialized } from '../../../system/-webview/serialize';
 import type { DateTimeFormat } from '../../../system/date';
-import type { Serialized } from '../../../system/vscode/serialize';
 import type { IpcScope, WebviewState } from '../../protocol';
 import { IpcCommand, IpcNotification, IpcRequest } from '../../protocol';
 

@@ -1,3 +1,4 @@
+/* eslint-disable @typescript-eslint/no-restricted-imports */ /* TODO need to deal with sharing rich class shapes to webviews */
 import type { ConfigurationChangeEvent, Event, Uri, WorkspaceFolder } from 'vscode';
 import { Disposable, EventEmitter, ProgressLocation, RelativePattern, window, workspace } from 'vscode';
 import { md5, uuid } from '@env/crypto';
@@ -8,25 +9,25 @@ import type { FeatureAccess, PlusFeatures } from '../../features';
 import { showCreatePullRequestPrompt, showGenericErrorMessage } from '../../messages';
 import type { RepoComparisonKey } from '../../repositories';
 import { asRepoComparisonKey } from '../../repositories';
+import { executeActionCommand } from '../../system/-webview/command';
+import { configuration } from '../../system/-webview/configuration';
 import { getScopedCounter } from '../../system/counter';
-import { gate } from '../../system/decorators/gate';
+import { gate } from '../../system/decorators/-webview/gate';
+import { memoize } from '../../system/decorators/-webview/memoize';
 import { debug, log, logName } from '../../system/decorators/log';
-import { memoize } from '../../system/decorators/memoize';
 import type { Deferrable } from '../../system/function';
 import { debounce } from '../../system/function';
 import { filter, groupByMap, join, min, some } from '../../system/iterable';
 import { getLoggableName, Logger } from '../../system/logger';
-import { getLogScope } from '../../system/logger.scope';
+import { getLogScope, startLogScope } from '../../system/logger.scope';
 import { updateRecordValue } from '../../system/object';
 import { basename, normalizePath } from '../../system/path';
-import { executeActionCommand } from '../../system/vscode/command';
-import { configuration } from '../../system/vscode/configuration';
 import type { GitProviderDescriptor, GitRepositoryProvider } from '../gitProvider';
 import type { GitProviderService } from '../gitProviderService';
+import { getBranchNameWithoutRemote, getRemoteNameFromBranchName } from '../utils/branch.utils';
+import { getReferenceNameWithoutRemote, isBranchReference } from '../utils/reference.utils';
 import type { GitBranch } from './branch';
-import { getBranchNameWithoutRemote, getNameWithoutRemote, getRemoteNameFromBranchName } from './branch.utils';
 import type { GitBranchReference, GitReference } from './reference';
-import { isBranchReference } from './reference.utils';
 
 type GitProviderRepoKeys = keyof GitRepositoryProvider | 'supports';
 
@@ -96,7 +97,7 @@ export class RepositoryChangeEvent {
 			: `{ repository: ${this.repository?.name ?? ''}, changes: ${join(this._changes, ', ')} }`;
 	}
 
-	changed(...args: [...RepositoryChange[], RepositoryChangeComparisonMode]) {
+	changed(...args: [...RepositoryChange[], RepositoryChangeComparisonMode]): boolean {
 		const affected = args.slice(0, -1) as RepositoryChange[];
 		const mode = args[args.length - 1] as RepositoryChangeComparisonMode;
 
@@ -131,7 +132,7 @@ export class RepositoryChangeEvent {
 			: intersection.length === affected.length;
 	}
 
-	with(changes: RepositoryChange[]) {
+	with(changes: RepositoryChange[]): RepositoryChangeEvent {
 		return new RepositoryChangeEvent(this.repository, [...this._changes, ...changes]);
 	}
 }
@@ -174,7 +175,7 @@ export class Repository implements Disposable {
 	}
 
 	private _idHash: string | undefined;
-	get idHash() {
+	get idHash(): string {
 		if (this._idHash === undefined) {
 			this._idHash = md5(this.id);
 		}
@@ -332,7 +333,7 @@ export class Repository implements Disposable {
 		return Disposable.from(...disposables);
 	}
 
-	dispose() {
+	dispose(): void {
 		this.unWatchFileSystem(true);
 
 		this._disposable.dispose();
@@ -350,7 +351,8 @@ export class Repository implements Disposable {
 		const changed = this._closed !== value;
 		this._closed = value;
 		if (changed) {
-			Logger.debug(`Repository(${this.id}).closed(${value})`);
+			using scope = startLogScope(`${getLoggableName(this)}.closed`, false);
+			Logger.debug(scope, `setting closed=${value}`);
 			this.fireChange(this._closed ? RepositoryChange.Closed : RepositoryChange.Opened);
 		}
 	}
@@ -512,7 +514,10 @@ export class Repository implements Disposable {
 	}
 
 	@log()
-	branchDelete(branches: GitBranchReference | GitBranchReference[], options?: { force?: boolean; remote?: boolean }) {
+	branchDelete(
+		branches: GitBranchReference | GitBranchReference[],
+		options?: { force?: boolean; remote?: boolean },
+	): void {
 		if (!Array.isArray(branches)) {
 			branches = [branches];
 		}
@@ -549,17 +554,22 @@ export class Repository implements Disposable {
 			const branchesByOrigin = groupByMap(remoteBranches, b => getRemoteNameFromBranchName(b.name));
 
 			for (const [remote, branches] of branchesByOrigin.entries()) {
-				void this.runTerminalCommand('push', '-d', remote, ...branches.map(b => getNameWithoutRemote(b)));
+				void this.runTerminalCommand(
+					'push',
+					'-d',
+					remote,
+					...branches.map(b => getReferenceNameWithoutRemote(b)),
+				);
 			}
 		}
 	}
 
 	@log()
-	cherryPick(...args: string[]) {
+	cherryPick(...args: string[]): void {
 		void this.runTerminalCommand('cherry-pick', ...args);
 	}
 
-	containsUri(uri: Uri) {
+	containsUri(uri: Uri): boolean {
 		return this === this.container.git.getRepository(uri);
 	}
 
@@ -572,7 +582,7 @@ export class Repository implements Disposable {
 		prune?: boolean;
 		pull?: boolean;
 		remote?: string;
-	}) {
+	}): Promise<void> {
 		const { progress, ...opts } = { progress: true, ...options };
 		if (!progress) return this.fetchCore(opts);
 
@@ -648,13 +658,13 @@ export class Repository implements Disposable {
 	}
 
 	@log()
-	merge(...args: string[]) {
+	merge(...args: string[]): void {
 		void this.runTerminalCommand('merge', ...args);
 	}
 
 	@gate()
 	@log()
-	async pull(options?: { progress?: boolean; rebase?: boolean }) {
+	async pull(options?: { progress?: boolean; rebase?: boolean }): Promise<void> {
 		const { progress, ...opts } = { progress: true, ...options };
 		if (!progress) return this.pullCore(opts);
 
@@ -721,7 +731,7 @@ export class Repository implements Disposable {
 		progress?: boolean;
 		reference?: GitReference;
 		publish?: { remote: string };
-	}) {
+	}): Promise<void> {
 		const { progress, ...opts } = { progress: true, ...options };
 		if (!progress) return this.pushCore(opts);
 
@@ -756,14 +766,14 @@ export class Repository implements Disposable {
 	}
 
 	@log()
-	rebase(configs: string[] | undefined, ...args: string[]) {
+	rebase(configs: string[] | undefined, ...args: string[]): void {
 		void this.runTerminalCommand(
 			configs != null && configs.length !== 0 ? `${configs.join(' ')} rebase` : 'rebase',
 			...args,
 		);
 	}
 
-	resume() {
+	resume(): void {
 		if (!this._suspended) return;
 
 		this._suspended = false;
@@ -780,22 +790,22 @@ export class Repository implements Disposable {
 	}
 
 	@log()
-	revert(...args: string[]) {
+	revert(...args: string[]): void {
 		void this.runTerminalCommand('revert', ...args);
 	}
 
-	get starred() {
+	get starred(): boolean {
 		const starred = this.container.storage.getWorkspace('starred:repositories');
 		return starred != null && starred[this.id] === true;
 	}
 
-	star(branch?: GitBranch) {
+	star(branch?: GitBranch): Promise<void> {
 		return this.updateStarred(true, branch);
 	}
 
 	@gate()
 	@log()
-	async switch(ref: string, options?: { createBranch?: string | undefined; progress?: boolean }) {
+	async switch(ref: string, options?: { createBranch?: string | undefined; progress?: boolean }): Promise<void> {
 		const { progress, ...opts } = { progress: true, ...options };
 		if (!progress) return this.switchCore(ref, opts);
 
@@ -825,7 +835,7 @@ export class Repository implements Disposable {
 		return !(options?.validate ?? true) || this.containsUri(uri) ? uri : undefined;
 	}
 
-	unstar(branch?: GitBranch) {
+	unstar(branch?: GitBranch): Promise<void> {
 		return this.updateStarred(false, branch);
 	}
 
@@ -853,7 +863,7 @@ export class Repository implements Disposable {
 		return this._etagFileSystem;
 	}
 
-	suspend() {
+	suspend(): void {
 		this._suspended = true;
 	}
 
@@ -936,7 +946,8 @@ export class Repository implements Disposable {
 
 		this._pendingRepoChange = undefined;
 
-		Logger.debug(`Repository(${this.id}) firing ${e.toString(true)}`);
+		using scope = startLogScope(`${getLoggableName(this)}.fireChangeCore`, false);
+		Logger.debug(scope, `firing ${e.toString(true)}`);
 		try {
 			this._onDidChange.fire(e);
 		} finally {
@@ -985,7 +996,8 @@ export class Repository implements Disposable {
 			e = { ...e, uris: uris };
 		}
 
-		Logger.debug(`Repository(${this.id}) firing fs changes=${e.uris.map(u => u.fsPath).join(', ')}`);
+		using scope = startLogScope(`${getLoggableName(this)}.fireChangeCore`, false);
+		Logger.debug(scope, `firing fs changes=${e.uris.map(u => u.fsPath).join(', ')}`);
 
 		this._onDidChangeFileSystem.fire(e);
 	}

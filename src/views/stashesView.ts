@@ -5,13 +5,13 @@ import { GlCommand } from '../constants.commands';
 import type { Container } from '../container';
 import { GitUri } from '../git/gitUri';
 import type { GitStashReference } from '../git/models/reference';
-import { getReferenceLabel } from '../git/models/reference.utils';
 import type { RepositoryChangeEvent } from '../git/models/repository';
 import { RepositoryChange, RepositoryChangeComparisonMode } from '../git/models/repository';
-import { groupRepositories } from '../git/models/repository.utils';
-import { gate } from '../system/decorators/gate';
-import { executeCommand } from '../system/vscode/command';
-import { configuration } from '../system/vscode/configuration';
+import { groupRepositories } from '../git/utils/-webview/repository.utils';
+import { getReferenceLabel } from '../git/utils/reference.utils';
+import { executeCommand } from '../system/-webview/command';
+import { configuration } from '../system/-webview/configuration';
+import { gate } from '../system/decorators/-webview/gate';
 import { RepositoriesSubscribeableNode } from './nodes/abstract/repositoriesSubscribeableNode';
 import { RepositoryFolderNode } from './nodes/abstract/repositoryFolderNode';
 import type { ViewNode } from './nodes/abstract/viewNode';
@@ -28,7 +28,7 @@ export class StashesRepositoryNode extends RepositoryFolderNode<StashesView, Sta
 		return this.child.getChildren();
 	}
 
-	protected changed(e: RepositoryChangeEvent) {
+	protected changed(e: RepositoryChangeEvent): boolean {
 		return e.changed(RepositoryChange.Stash, RepositoryChange.Unknown, RepositoryChangeComparisonMode.Any);
 	}
 }
@@ -101,7 +101,7 @@ export class StashesView extends ViewBase<'stashes', StashesViewNode, StashesVie
 		return this.container.prereleaseOrDebugging;
 	}
 
-	protected getRoot() {
+	protected getRoot(): StashesViewNode {
 		return new StashesViewNode(this);
 	}
 
@@ -138,7 +138,7 @@ export class StashesView extends ViewBase<'stashes', StashesViewNode, StashesVie
 		];
 	}
 
-	protected override filterConfigurationChanged(e: ConfigurationChangeEvent) {
+	protected override filterConfigurationChanged(e: ConfigurationChangeEvent): boolean {
 		const changed = super.filterConfigurationChanged(e);
 		if (
 			!changed &&
@@ -158,7 +158,7 @@ export class StashesView extends ViewBase<'stashes', StashesViewNode, StashesVie
 		return true;
 	}
 
-	findStash(stash: GitStashReference, token?: CancellationToken) {
+	findStash(stash: GitStashReference, token?: CancellationToken): Promise<ViewNode | undefined> {
 		const { repoPath } = stash;
 
 		return this.findNode((n: any) => n.commit?.ref === stash.ref, {
@@ -180,7 +180,7 @@ export class StashesView extends ViewBase<'stashes', StashesViewNode, StashesVie
 	async revealRepository(
 		repoPath: string,
 		options?: { select?: boolean; focus?: boolean; expand?: boolean | number },
-	) {
+	): Promise<ViewNode | undefined> {
 		const node = await this.findNode(n => n instanceof RepositoryFolderNode && n.repoPath === repoPath, {
 			maxDepth: 1,
 			canTraverse: n => n instanceof StashesViewNode || n instanceof RepositoryFolderNode,
@@ -201,7 +201,7 @@ export class StashesView extends ViewBase<'stashes', StashesViewNode, StashesVie
 			focus?: boolean;
 			expand?: boolean | number;
 		},
-	) {
+	): Promise<ViewNode | undefined> {
 		return window.withProgress(
 			{
 				location: ProgressLocation.Notification,

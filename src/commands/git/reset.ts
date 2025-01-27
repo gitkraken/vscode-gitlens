@@ -2,8 +2,8 @@ import type { Container } from '../../container';
 import type { GitBranch } from '../../git/models/branch';
 import type { GitLog } from '../../git/models/log';
 import type { GitReference, GitRevisionReference, GitTagReference } from '../../git/models/reference';
-import { getReferenceLabel } from '../../git/models/reference.utils';
 import type { Repository } from '../../git/models/repository';
+import { getReferenceLabel } from '../../git/utils/reference.utils';
 import { showGenericErrorMessage } from '../../messages';
 import type { FlagsQuickPickItem } from '../../quickpicks/items/flags';
 import { createFlagsQuickPickItem } from '../../quickpicks/items/flags';
@@ -71,7 +71,7 @@ export class ResetGitCommand extends QuickCommand<State> {
 		return this._canSkipConfirm;
 	}
 
-	async execute(state: ResetStepState) {
+	private async execute(state: ResetStepState) {
 		try {
 			await state.repo.git.reset(
 				{
@@ -132,17 +132,17 @@ export class ResetGitCommand extends QuickCommand<State> {
 			context.title = `${this.title} ${getReferenceLabel(context.destination, { icon: false })}`;
 
 			if (state.counter < 2 || state.reference == null) {
-				const ref = context.destination.ref;
+				const rev = context.destination.ref;
 
-				let log = context.cache.get(ref);
+				let log = context.cache.get(rev);
 				if (log == null) {
-					log = this.container.git.getLog(state.repo.path, { ref: ref, merges: 'first-parent' });
-					context.cache.set(ref, log);
+					log = state.repo.git.commits().getLog(rev, { merges: 'first-parent' });
+					context.cache.set(rev, log);
 				}
 
 				const result: StepResult<GitReference> = yield* pickCommitStep(state as ResetStepState, context, {
 					log: await log,
-					onDidLoadMore: log => context.cache.set(ref, Promise.resolve(log)),
+					onDidLoadMore: log => context.cache.set(rev, Promise.resolve(log)),
 					placeholder: (context, log) =>
 						log == null
 							? `${context.destination.name} has no commits`

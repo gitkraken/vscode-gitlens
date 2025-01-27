@@ -20,40 +20,46 @@ import { openComparisonChanges } from '../../git/actions/commit';
 import * as RepoActions from '../../git/actions/repository';
 import type { BranchContributionsOverview } from '../../git/gitProvider';
 import type { GitBranch } from '../../git/models/branch';
-import { getAssociatedIssuesForBranch, getBranchTargetInfo } from '../../git/models/branch.utils';
-import type { GitFileChangeShape } from '../../git/models/file';
+import type { GitFileChangeShape } from '../../git/models/fileChange';
 import type { Issue } from '../../git/models/issue';
 import type { GitPausedOperationStatus } from '../../git/models/pausedOperationStatus';
 import type { PullRequest } from '../../git/models/pullRequest';
-import { getComparisonRefsForPullRequest } from '../../git/models/pullRequest';
-import { getReferenceFromBranch } from '../../git/models/reference.utils';
 import { RemoteResourceType } from '../../git/models/remoteResource';
 import type { Repository } from '../../git/models/repository';
 import { RepositoryChange, RepositoryChangeComparisonMode } from '../../git/models/repository';
 import { uncommitted } from '../../git/models/revision';
-import { createRevisionRange } from '../../git/models/revision.utils';
 import type { GitStatus } from '../../git/models/status';
 import type { GitWorktree } from '../../git/models/worktree';
-import { getOpenedWorktreesByBranch, groupWorktreesByBranch } from '../../git/models/worktree.utils';
-import { sortBranches } from '../../git/utils/vscode/sorting';
+import { getAssociatedIssuesForBranch } from '../../git/utils/-webview/branch.issue.utils';
+import { getBranchTargetInfo } from '../../git/utils/-webview/branch.utils';
+import { getReferenceFromBranch } from '../../git/utils/-webview/reference.utils';
+import { sortBranches } from '../../git/utils/-webview/sorting';
+import { getOpenedWorktreesByBranch, groupWorktreesByBranch } from '../../git/utils/-webview/worktree.utils';
+import { getComparisonRefsForPullRequest } from '../../git/utils/pullRequest.utils';
+import { createRevisionRange } from '../../git/utils/revision.utils';
 import { showPatchesView } from '../../plus/drafts/actions';
-import type { Subscription } from '../../plus/gk/account/subscription';
-import { isSubscriptionStatePaidOrTrial } from '../../plus/gk/account/subscription';
-import type { SubscriptionChangeEvent } from '../../plus/gk/account/subscriptionService';
+import type { Subscription } from '../../plus/gk/models/subscription';
+import type { SubscriptionChangeEvent } from '../../plus/gk/subscriptionService';
+import { isSubscriptionStatePaidOrTrial } from '../../plus/gk/utils/subscription.utils';
 import type { LaunchpadCategorizedResult } from '../../plus/launchpad/launchpadProvider';
 import { getLaunchpadItemGroups } from '../../plus/launchpad/launchpadProvider';
-import { getLaunchpadSummary } from '../../plus/launchpad/utils';
+import { getLaunchpadSummary } from '../../plus/launchpad/utils/-webview/launchpad.utils';
 import type { StartWorkCommandArgs } from '../../plus/startWork/startWork';
 import { showRepositoryPicker } from '../../quickpicks/repositoryPicker';
+import {
+	executeActionCommand,
+	executeCommand,
+	executeCoreCommand,
+	registerCommand,
+} from '../../system/-webview/command';
+import { configuration } from '../../system/-webview/configuration';
+import { getContext, onDidChangeContext } from '../../system/-webview/context';
+import { openUrl, openWorkspace } from '../../system/-webview/vscode';
 import { debug } from '../../system/decorators/log';
 import type { Deferrable } from '../../system/function';
 import { debounce } from '../../system/function';
 import { filterMap } from '../../system/iterable';
 import { getSettledValue } from '../../system/promise';
-import { executeActionCommand, executeCommand, executeCoreCommand, registerCommand } from '../../system/vscode/command';
-import { configuration } from '../../system/vscode/configuration';
-import { getContext, onDidChangeContext } from '../../system/vscode/context';
-import { openUrl, openWorkspace } from '../../system/vscode/utils';
 import type { ShowInCommitGraphCommandArgs } from '../plus/graph/protocol';
 import type { Change } from '../plus/patchDetails/protocol';
 import type { IpcMessage } from '../protocol';
@@ -145,7 +151,7 @@ export class HomeWebviewProvider implements WebviewProvider<State, State, HomeWe
 		);
 	}
 
-	dispose() {
+	dispose(): void {
 		this._disposable.dispose();
 	}
 
@@ -320,7 +326,7 @@ export class HomeWebviewProvider implements WebviewProvider<State, State, HomeWe
 		void this.host.notify(DidChangeOverviewFilter, { filter: this._overviewBranchFilter });
 	}
 
-	async onMessageReceived(e: IpcMessage) {
+	async onMessageReceived(e: IpcMessage): Promise<void> {
 		switch (true) {
 			case CollapseSectionCommand.is(e):
 				this.onCollapseSection(e.params);
@@ -357,17 +363,17 @@ export class HomeWebviewProvider implements WebviewProvider<State, State, HomeWe
 		return this.getState();
 	}
 
-	onRefresh() {
+	onRefresh(): void {
 		this.resetBranchOverview();
 		this.notifyDidChangeRepositories();
 	}
 
-	onReloaded() {
+	onReloaded(): void {
 		this.onRefresh();
 		this.notifyDidChangeProgress();
 	}
 
-	onReady() {
+	onReady(): void {
 		if (this._pendingFocusAccount === true) {
 			this._pendingFocusAccount = false;
 
@@ -375,7 +381,7 @@ export class HomeWebviewProvider implements WebviewProvider<State, State, HomeWe
 		}
 	}
 
-	onVisibilityChanged(visible: boolean) {
+	onVisibilityChanged(visible: boolean): void {
 		if (!visible) {
 			this.stopRepositorySubscription();
 
@@ -1460,13 +1466,11 @@ async function getBranchMergeTargetStatusInfo(
 	if (targetBranch == null) return undefined;
 
 	const [countsResult, conflictResult, mergedStatusResult] = await Promise.allSettled([
-		container.git.getLeftRightCommitCount(
-			branch.repoPath,
-			createRevisionRange(targetBranch.name, branch.ref, '...'),
-			{
+		container.git
+			.commits(branch.repoPath)
+			.getLeftRightCommitCount(createRevisionRange(targetBranch.name, branch.ref, '...'), {
 				excludeMerges: true,
-			},
-		),
+			}),
 		branchProvider.getPotentialMergeOrRebaseConflict?.(branch.name, targetBranch.name),
 		branchProvider.getBranchMergedStatus?.(branch, targetBranch),
 	]);

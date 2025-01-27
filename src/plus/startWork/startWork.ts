@@ -30,22 +30,22 @@ import type { IntegrationId } from '../../constants.integrations';
 import { HostingIntegrationId, IssueIntegrationId, SelfHostedIntegrationId } from '../../constants.integrations';
 import type { Source, Sources, StartWorkTelemetryContext, TelemetryEvents } from '../../constants.telemetry';
 import type { Container } from '../../container';
-import { addAssociatedIssueToBranch } from '../../git/models/branch.utils';
 import type { Issue, IssueShape, SearchedIssue } from '../../git/models/issue';
-import { getOrOpenIssueRepository } from '../../git/models/issue';
 import type { GitBranchReference } from '../../git/models/reference';
 import type { Repository } from '../../git/models/repository';
+import { addAssociatedIssueToBranch } from '../../git/utils/-webview/branch.issue.utils';
+import { getOrOpenIssueRepository } from '../../git/utils/-webview/issue.utils';
 import { showBranchPicker } from '../../quickpicks/branchPicker';
 import type { QuickPickItemOfT } from '../../quickpicks/items/common';
 import { createQuickPickItemOfT } from '../../quickpicks/items/common';
 import type { DirectiveQuickPickItem } from '../../quickpicks/items/directive';
 import { createDirectiveQuickPickItem, Directive } from '../../quickpicks/items/directive';
+import { executeCommand } from '../../system/-webview/command';
+import { configuration } from '../../system/-webview/configuration';
+import { openUrl } from '../../system/-webview/vscode';
 import { getScopedCounter } from '../../system/counter';
 import { fromNow } from '../../system/date';
 import { some } from '../../system/iterable';
-import { executeCommand } from '../../system/vscode/command';
-import { configuration } from '../../system/vscode/configuration';
-import { openUrl } from '../../system/vscode/utils';
 import { getIssueOwner } from '../integrations/providers/utils';
 
 export type StartWorkItem = {
@@ -316,6 +316,8 @@ export abstract class StartWorkBaseCommand extends QuickCommand<State> {
 
 	private async ensureIntegrationConnected(id: IntegrationId) {
 		const integration = await this.container.integrations.get(id);
+		if (integration == null) return false;
+
 		let connected = integration.maybeConnected ?? (await integration.isConnected());
 		if (!connected) {
 			connected = await integration.connect(this.overrides?.ownSource ?? 'startWork');
@@ -686,7 +688,7 @@ function repeatSpaces(count: number) {
 	return ' '.repeat(count);
 }
 
-export function getStartWorkItemIdHash(item: StartWorkItem) {
+export function getStartWorkItemIdHash(item: StartWorkItem): string {
 	return md5(item.item.issue.id);
 }
 
@@ -726,6 +728,10 @@ async function getConnectedIntegrations(container: Container): Promise<Map<Suppo
 	await Promise.allSettled(
 		supportedStartWorkIntegrations.map(async integrationId => {
 			const integration = await container.integrations.get(integrationId);
+			if (integration == null) {
+				connected.set(integrationId, false);
+				return;
+			}
 			const isConnected = integration.maybeConnected ?? (await integration.isConnected());
 			const hasAccess = isConnected && (await integration.access());
 			connected.set(integrationId, hasAccess);

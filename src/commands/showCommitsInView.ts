@@ -5,11 +5,12 @@ import { executeGitCommand } from '../git/actions';
 import { GitUri } from '../git/gitUri';
 import { createSearchQueryForCommits } from '../git/search';
 import { showFileNotUnderSourceControlWarningMessage, showGenericErrorMessage } from '../messages';
+import { command } from '../system/-webview/command';
 import { createMarkdownCommandLink } from '../system/commands';
 import { filterMap } from '../system/iterable';
 import { Logger } from '../system/logger';
-import { command } from '../system/vscode/command';
-import { ActiveEditorCommand, getCommandUri } from './base';
+import { ActiveEditorCommand } from './commandBase';
+import { getCommandUri } from './commandBase.utils';
 
 export interface ShowCommitsInViewCommandArgs {
 	refs?: string[];
@@ -29,7 +30,7 @@ export class ShowCommitsInViewCommand extends ActiveEditorCommand {
 		super(GlCommand.ShowCommitsInView);
 	}
 
-	async execute(editor?: TextEditor, uri?: Uri, args?: ShowCommitsInViewCommandArgs) {
+	async execute(editor?: TextEditor, uri?: Uri, args?: ShowCommitsInViewCommandArgs): Promise<void> {
 		args = { ...args };
 
 		if (args.refs == null) {

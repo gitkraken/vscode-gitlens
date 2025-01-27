@@ -2,16 +2,18 @@ import type { TextEditor, Uri } from 'vscode';
 import { GlCommand } from '../constants.commands';
 import type { Container } from '../container';
 import { GitUri } from '../git/gitUri';
-import { getBranchNameWithoutRemote, getRemoteNameFromBranchName } from '../git/models/branch.utils';
 import { RemoteResourceType } from '../git/models/remoteResource';
+import { getBranchNameWithoutRemote, getRemoteNameFromBranchName } from '../git/utils/branch.utils';
 import { showGenericErrorMessage } from '../messages';
 import { CommandQuickPickItem } from '../quickpicks/items/common';
 import { ReferencesQuickPickIncludes, showReferencePicker } from '../quickpicks/referencePicker';
 import { getBestRepositoryOrShowPicker } from '../quickpicks/repositoryPicker';
+import { command, executeCommand } from '../system/-webview/command';
 import { Logger } from '../system/logger';
-import { command, executeCommand } from '../system/vscode/command';
-import type { CommandContext } from './base';
-import { ActiveEditorCommand, getCommandUri, isCommandContextViewNodeHasBranch } from './base';
+import { ActiveEditorCommand } from './commandBase';
+import { getCommandUri } from './commandBase.utils';
+import type { CommandContext } from './commandContext';
+import { isCommandContextViewNodeHasBranch } from './commandContext.utils';
 import type { OpenOnRemoteCommandArgs } from './openOnRemote';
 
 export interface OpenBranchOnRemoteCommandArgs {
@@ -26,7 +28,7 @@ export class OpenBranchOnRemoteCommand extends ActiveEditorCommand {
 		super([GlCommand.OpenBranchOnRemote, GlCommand.Deprecated_OpenBranchInRemote, GlCommand.CopyRemoteBranchUrl]);
 	}
 
-	protected override preExecute(context: CommandContext, args?: OpenBranchOnRemoteCommandArgs) {
+	protected override preExecute(context: CommandContext, args?: OpenBranchOnRemoteCommandArgs): Promise<void> {
 		if (isCommandContextViewNodeHasBranch(context)) {
 			args = {
 				...args,
@@ -42,7 +44,7 @@ export class OpenBranchOnRemoteCommand extends ActiveEditorCommand {
 		return this.execute(context.editor, context.uri, args);
 	}
 
-	async execute(editor?: TextEditor, uri?: Uri, args?: OpenBranchOnRemoteCommandArgs) {
+	async execute(editor?: TextEditor, uri?: Uri, args?: OpenBranchOnRemoteCommandArgs): Promise<void> {
 		uri = getCommandUri(uri, editor);
 
 		const gitUri = uri != null ? await GitUri.fromUri(uri) : undefined;

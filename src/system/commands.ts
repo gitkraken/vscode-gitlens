@@ -1,6 +1,6 @@
 import type { Commands } from '../constants.commands';
 
-export function createCommandLink<T>(command: Commands, args?: T) {
+export function createCommandLink<T>(command: Commands, args?: T): string {
 	if (args == null) return `command:${command}`;
 
 	return `command:${command}?${encodeURIComponent(typeof args === 'string' ? args : JSON.stringify(args))}`;

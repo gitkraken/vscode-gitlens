@@ -5,10 +5,10 @@ import { GlyphChars } from '../../constants';
 import type { StoredBranchComparison, StoredBranchComparisons, StoredNamedRef } from '../../constants.storage';
 import type { GitUri } from '../../git/gitUri';
 import type { GitBranch } from '../../git/models/branch';
-import { createRevisionRange, shortenRevision } from '../../git/models/revision.utils';
 import type { GitUser } from '../../git/models/user';
 import type { CommitsQueryResults, FilesQueryResults } from '../../git/queryResults';
 import { getCommitsQuery, getFilesQuery } from '../../git/queryResults';
+import { createRevisionRange, shortenRevision } from '../../git/utils/revision.utils';
 import { CommandQuickPickItem } from '../../quickpicks/items/common';
 import { showReferencePicker } from '../../quickpicks/referencePicker';
 import { debug, log } from '../../system/decorators/log';
@@ -124,11 +124,11 @@ export class CompareBranchNode extends SubscribeableViewNode<
 			};
 			const behind = { ...this.behind, range: createRevisionRange(this.behind.ref1, this.behind.ref2, '..') };
 
-			const counts = await this.view.container.git.getLeftRightCommitCount(
-				this.branch.repoPath,
-				createRevisionRange(behind.ref1, behind.ref2, '...'),
-				{ authors: this.filterByAuthors },
-			);
+			const counts = await this.view.container.git
+				.commits(this.repoPath)
+				.getLeftRightCommitCount(createRevisionRange(behind.ref1, behind.ref2, '...'), {
+					authors: this.filterByAuthors,
+				});
 
 			const branchesProvider = this.view.container.git.branches(this.repoPath);
 			const mergeBase =
@@ -247,7 +247,7 @@ export class CompareBranchNode extends SubscribeableViewNode<
 	}
 
 	@log()
-	async clear() {
+	async clear(): Promise<void> {
 		this._compareWith = undefined;
 		await this.updateCompareWith(undefined);
 
@@ -256,13 +256,13 @@ export class CompareBranchNode extends SubscribeableViewNode<
 	}
 
 	@log()
-	clearReviewed() {
+	clearReviewed(): void {
 		void this.storeCompareWith(true).catch();
 		void this.triggerChange();
 	}
 
 	@log()
-	async edit() {
+	async edit(): Promise<void> {
 		const pick = await showReferencePicker(
 			this.branch.repoPath,
 			`Compare ${this.branch.name}${this.compareWithWorkingTree ? ' (working)' : ''} with`,
@@ -286,13 +286,13 @@ export class CompareBranchNode extends SubscribeableViewNode<
 	}
 
 	@debug()
-	override refresh(reset?: boolean) {
+	override refresh(reset?: boolean): void {
 		super.refresh(reset);
 		this.loadCompareWith();
 	}
 
 	@log()
-	async setComparisonType(comparisonType: Exclude<ViewShowBranchComparison, false>) {
+	async setComparisonType(comparisonType: Exclude<ViewShowBranchComparison, false>): Promise<void> {
 		if (this._compareWith != null) {
 			await this.updateCompareWith({ ...this._compareWith, type: comparisonType, checkedFiles: undefined });
 		} else {
@@ -304,7 +304,7 @@ export class CompareBranchNode extends SubscribeableViewNode<
 	}
 
 	@log()
-	async setDefaultCompareWith(compareWith: StoredBranchComparison) {
+	async setDefaultCompareWith(compareWith: StoredBranchComparison): Promise<void> {
 		if (this._compareWith != null) return;
 
 		await this.updateCompareWith(compareWith);

@@ -10,7 +10,7 @@ import type {
 	WebviewViewIds,
 	WebviewViewTypes,
 } from '../constants.views';
-import type { ConfigPath, ConfigPathValue, Path, PathValue } from '../system/vscode/configuration';
+import type { ConfigPath, ConfigPathValue, Path, PathValue } from '../system/-webview/configuration';
 
 export type IpcScope = 'core' | CustomEditorTypes | WebviewTypes | WebviewViewTypes;
 

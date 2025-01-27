@@ -1,23 +1,23 @@
 import type { Disposable } from 'vscode';
 import { Uri, window } from 'vscode';
 import type { Container } from '../../container';
+import type { RepositoryLocationProvider } from '../../git/location/repositorylocationProvider';
 import { RemoteResourceType } from '../../git/models/remoteResource';
 import type { Repository } from '../../git/models/repository';
-import { parseGitRemoteUrl } from '../../git/parsers/remoteParser';
 import type {
 	GkProviderId,
 	RepositoryIdentityDescriptor,
 	RepositoryIdentityProviderDescriptor,
-} from '../../gk/models/repositoryIdentities';
-import { missingRepositoryId } from '../../gk/models/repositoryIdentities';
+} from '../../git/models/repositoryIdentities';
+import { missingRepositoryId } from '../../git/models/repositoryIdentities';
+import { parseGitRemoteUrl } from '../../git/parsers/remoteParser';
 import { log } from '../../system/decorators/log';
 import { getSettledValue } from '../../system/promise';
-import type { ServerConnection } from '../gk/serverConnection';
 
 export class RepositoryIdentityService implements Disposable {
 	constructor(
 		private readonly container: Container,
-		private readonly connection: ServerConnection,
+		private readonly locator: RepositoryLocationProvider | undefined,
 	) {}
 
 	dispose(): void {}
@@ -30,12 +30,13 @@ export class RepositoryIdentityService implements Disposable {
 		return this.locateRepository(identity, options);
 	}
 
+	@log()
 	async getRepositoryIdentity<T extends string | GkProviderId>(
 		repository: Repository,
 	): Promise<RepositoryIdentityDescriptor<T>> {
 		const [bestRemotePromise, initialCommitShaPromise] = await Promise.allSettled([
-			this.container.git.remotes(repository.uri).getBestRemoteWithProvider(),
-			this.container.git.getFirstCommitSha(repository.uri),
+			repository.git.remotes().getBestRemoteWithProvider(),
+			repository.git.commits().getInitialCommitSha?.(),
 		]);
 		const bestRemote = getSettledValue(bestRemotePromise);
 
@@ -64,21 +65,20 @@ export class RepositoryIdentityService implements Disposable {
 
 		const matches =
 			hasRemoteUrl || hasProviderInfo
-				? await this.container.repositoryPathMapping.getLocalRepoPaths({
-						remoteUrl: identity.remote?.url,
-						repoInfo:
-							identity.provider != null
-								? {
-										provider: identity.provider.id,
-										owner: identity.provider.repoDomain,
-										repoName: identity.provider.repoName,
-								  }
-								: undefined,
-				  })
+				? await this.locator?.getLocation(
+						identity.remote?.url,
+						identity.provider != null
+							? {
+									provider: identity.provider.id,
+									owner: identity.provider.repoDomain,
+									repoName: identity.provider.repoName,
+							  }
+							: undefined,
+				  )
 				: [];
 
 		let foundRepo: Repository | undefined;
-		if (matches.length) {
+		if (matches?.length) {
 			for (const match of matches) {
 				const repo = this.container.git.getRepository(Uri.file(match));
 				if (repo != null) {
@@ -154,18 +154,19 @@ export class RepositoryIdentityService implements Disposable {
 				(await this.container.git.validateReference(locatedRepo.uri, identity.initialCommitSha))
 			) {
 				foundRepo = locatedRepo;
-				await this.addRepositoryToPathMap(foundRepo, identity);
+				await this.storeRepositoryLocation(foundRepo, identity);
 			}
 		}
 
 		return foundRepo;
 	}
 
-	async addRepositoryToPathMap<T extends string | GkProviderId>(
+	@log({ args: { 1: false } })
+	async storeRepositoryLocation<T extends string | GkProviderId>(
 		repo: Repository,
 		identity?: RepositoryIdentityDescriptor<T>,
-	) {
-		if (repo.virtual) return;
+	): Promise<void> {
+		if (repo.virtual || this.locator == null) return;
 
 		const [identityResult, remotesResult] = await Promise.allSettled([
 			identity == null ? this.getRepositoryIdentity<T>(repo) : undefined,
@@ -180,7 +181,7 @@ export class RepositoryIdentityService implements Disposable {
 		for (const remote of remotes) {
 			const remoteUrl = remote.provider?.url({ type: RemoteResourceType.Repo });
 			if (remoteUrl != null) {
-				await this.container.repositoryPathMapping.writeLocalRepoPath({ remoteUrl: remoteUrl }, repoPath);
+				await this.locator.storeLocation(repoPath, remoteUrl);
 			}
 		}
 
@@ -189,16 +190,11 @@ export class RepositoryIdentityService implements Disposable {
 			identity?.provider?.repoDomain != null &&
 			identity?.provider?.repoName != null
 		) {
-			await this.container.repositoryPathMapping.writeLocalRepoPath(
-				{
-					repoInfo: {
-						provider: identity.provider.id,
-						owner: identity.provider.repoDomain,
-						repoName: identity.provider.repoName,
-					},
-				},
-				repoPath,
-			);
+			await this.locator.storeLocation(repoPath, undefined, {
+				provider: identity.provider.id,
+				owner: identity.provider.repoDomain,
+				repoName: identity.provider.repoName,
+			});
 		}
 	}
 }

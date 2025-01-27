@@ -13,10 +13,10 @@ import { showContributorsPicker } from '../../quickpicks/contributorsPicker';
 import type { QuickPickItemOfT } from '../../quickpicks/items/common';
 import { ActionQuickPickItem } from '../../quickpicks/items/common';
 import { isDirectiveQuickPickItem } from '../../quickpicks/items/directive';
+import { configuration } from '../../system/-webview/configuration';
+import { getContext } from '../../system/-webview/context';
 import { first, join, map } from '../../system/iterable';
 import { pluralize } from '../../system/string';
-import { configuration } from '../../system/vscode/configuration';
-import { getContext } from '../../system/vscode/context';
 import { SearchResultsNode } from '../../views/nodes/searchResultsNode';
 import type { ViewsWithRepositoryFolders } from '../../views/viewBase';
 import type {
@@ -119,11 +119,11 @@ export class SearchGitCommand extends QuickCommand<State> {
 		return false;
 	}
 
-	override isMatch(key: string) {
+	override isMatch(key: string): boolean {
 		return super.isMatch(key) || key === 'grep';
 	}
 
-	override isFuzzyMatch(name: string) {
+	override isFuzzyMatch(name: string): boolean {
 		return super.isFuzzyMatch(name) || name === 'grep';
 	}
 
@@ -201,7 +201,7 @@ export class SearchGitCommand extends QuickCommand<State> {
 			const searchKey = getSearchQueryComparisonKey(search);
 
 			if (context.resultsPromise == null || context.resultsKey !== searchKey) {
-				context.resultsPromise = state.repo.git.richSearchCommits(search);
+				context.resultsPromise = state.repo.git.commits().searchCommits(search);
 				context.resultsKey = searchKey;
 			}
 

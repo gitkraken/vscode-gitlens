@@ -65,7 +65,7 @@ export class CommitStats extends LitElement {
 	@property()
 	symbol?: 'icons';
 
-	override render() {
+	override render(): unknown {
 		return statToSymbol.map(([key, value]) => this.renderStat(key, value));
 	}
 

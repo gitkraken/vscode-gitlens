@@ -1,7 +1,8 @@
+/* eslint-disable @typescript-eslint/no-restricted-imports */ /* TODO need to deal with sharing rich class shapes to webviews */
 import type { Container } from '../../container';
 import { formatDate, fromNow } from '../../system/date';
-import { memoize } from '../../system/decorators/memoize';
-import { shortenRevision } from './revision.utils';
+import { memoize } from '../../system/decorators/-webview/memoize';
+import { shortenRevision } from '../utils/revision.utils';
 
 export interface GitReflog {
 	readonly repoPath: string;
@@ -29,11 +30,11 @@ export class GitReflogRecord {
 	) {}
 
 	@memoize<GitReflogRecord['formatDate']>(format => format ?? 'MMMM Do, YYYY h:mma')
-	formatDate(format?: string | null) {
+	formatDate(format?: string | null): string {
 		return formatDate(this.date, format ?? 'MMMM Do, YYYY h:mma');
 	}
 
-	formatDateFromNow() {
+	formatDateFromNow(): string {
 		return fromNow(this.date);
 	}
 
@@ -44,7 +45,7 @@ export class GitReflogRecord {
 	}
 
 	@memoize()
-	get HEAD() {
+	get HEAD(): string {
 		if (this._selector == null || this._selector.length === 0) return '';
 
 		if (this._selector.startsWith('refs/heads')) {
@@ -58,25 +59,25 @@ export class GitReflogRecord {
 		return this._selector;
 	}
 
-	get previousSha() {
+	get previousSha(): string | undefined {
 		return this._previousSha;
 	}
 
 	@memoize()
-	get previousShortSha() {
+	get previousShortSha(): string {
 		return shortenRevision(this._previousSha);
 	}
 
-	get selector() {
+	get selector(): string {
 		return this._selector;
 	}
 
 	@memoize()
-	get shortSha() {
+	get shortSha(): string {
 		return shortenRevision(this.sha);
 	}
 
-	update(previousSha?: string, selector?: string) {
+	update(previousSha?: string, selector?: string): void {
 		if (previousSha !== undefined) {
 			this._previousSha = previousSha;
 		}

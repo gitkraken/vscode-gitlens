@@ -24,7 +24,7 @@ export class Checkbox extends GlElement {
 
 	_defaultChecked: boolean = false;
 	@property({ type: Boolean })
-	get defaultChecked() {
+	get defaultChecked(): boolean {
 		return this._defaultChecked;
 	}
 
@@ -36,19 +36,19 @@ export class Checkbox extends GlElement {
 		this._defaultChecked = this.checked;
 	}
 
-	handleChange(e: Event) {
+	private handleChange(e: Event) {
 		this.checked = (e.target as HTMLInputElement).checked;
 		const event = new CustomEvent('gl-change-value');
 		this.dispatchEvent(event);
 	}
 
-	renderCheck() {
+	private renderCheck() {
 		if (!this.checked) return undefined;
 
 		return html` <code-icon icon="check"></code-icon> `;
 	}
 
-	override render() {
+	override render(): unknown {
 		return html`<label ?aria-disabled=${this.disabled}
 			><input
 				class="input"

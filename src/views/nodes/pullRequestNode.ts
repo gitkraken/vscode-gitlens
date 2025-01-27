@@ -3,16 +3,13 @@ import { GitUri } from '../../git/gitUri';
 import { GitBranch } from '../../git/models/branch';
 import type { GitCommit } from '../../git/models/commit';
 import type { PullRequest } from '../../git/models/pullRequest';
-import {
-	ensurePullRequestRefs,
-	getComparisonRefsForPullRequest,
-	getOrOpenPullRequestRepository,
-} from '../../git/models/pullRequest';
 import type { GitBranchReference } from '../../git/models/reference';
 import type { Repository } from '../../git/models/repository';
-import { createRevisionRange } from '../../git/models/revision.utils';
 import { getAheadBehindFilesQuery, getCommitsQuery } from '../../git/queryResults';
-import { getIssueOrPullRequestMarkdownIcon, getIssueOrPullRequestThemeIcon } from '../../git/utils/vscode/icons';
+import { getIssueOrPullRequestMarkdownIcon, getIssueOrPullRequestThemeIcon } from '../../git/utils/-webview/icons';
+import { ensurePullRequestRefs, getOrOpenPullRequestRepository } from '../../git/utils/-webview/pullRequest.utils';
+import { getComparisonRefsForPullRequest } from '../../git/utils/pullRequest.utils';
+import { createRevisionRange } from '../../git/utils/revision.utils';
 import { pluralize } from '../../system/string';
 import type { ViewsWithCommits } from '../viewBase';
 import { CacheableChildrenViewNode } from './abstract/cacheableChildrenViewNode';
@@ -138,7 +135,7 @@ export async function getPullRequestChildren(
 	parent: ViewNode,
 	pullRequest: PullRequest,
 	repoOrPath?: Repository | string,
-) {
+): Promise<ViewNode[]> {
 	let repo: Repository | undefined;
 	if (repoOrPath == null) {
 		repo = await getOrOpenPullRequestRepository(view.container, pullRequest, { promptIfNeeded: true });
@@ -164,7 +161,6 @@ export async function getPullRequestChildren(
 	const refs = getComparisonRefsForPullRequest(repoPath, pullRequest.refs!);
 
 	const counts = await ensurePullRequestRefs(
-		view.container,
 		pullRequest,
 		repo,
 		{ promptMessage: `Unable to open details for PR #${pullRequest.id} because of a missing remote.` },
@@ -220,7 +216,7 @@ export async function getPullRequestChildren(
 export function getPullRequestTooltip(
 	pullRequest: PullRequest,
 	context?: { commit?: GitCommit; idPrefix?: string; codeSuggestionsCount?: number },
-) {
+): MarkdownString {
 	const tooltip = new MarkdownString('', true);
 	tooltip.supportHtml = true;
 	tooltip.isTrusted = true;

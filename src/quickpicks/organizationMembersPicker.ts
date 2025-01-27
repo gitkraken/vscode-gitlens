@@ -2,7 +2,7 @@ import type { Disposable } from 'vscode';
 import { window } from 'vscode';
 import { getAvatarUri } from '../avatars';
 import { ClearQuickInputButton } from '../commands/quickCommand.buttons';
-import type { OrganizationMember } from '../plus/gk/account/organization';
+import type { OrganizationMember } from '../plus/gk/models/organization';
 import { debounce } from '../system/function';
 import { defer } from '../system/promise';
 import { sortCompare } from '../system/string';

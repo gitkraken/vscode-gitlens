@@ -16,7 +16,7 @@ import {
 } from '../../../../errors';
 import type { Account } from '../../../../git/models/author';
 import type { DefaultBranch } from '../../../../git/models/defaultBranch';
-import type { IssueOrPullRequest } from '../../../../git/models/issue';
+import type { IssueOrPullRequest } from '../../../../git/models/issueOrPullRequest';
 import { PullRequest } from '../../../../git/models/pullRequest';
 import type { Provider } from '../../../../git/models/remoteProvider';
 import type { RepositoryMetadata } from '../../../../git/models/repositoryMetadata';
@@ -24,13 +24,13 @@ import {
 	showIntegrationRequestFailed500WarningMessage,
 	showIntegrationRequestTimedOutWarningMessage,
 } from '../../../../messages';
+import { configuration } from '../../../../system/-webview/configuration';
 import { debug } from '../../../../system/decorators/log';
 import { Logger } from '../../../../system/logger';
 import type { LogScope } from '../../../../system/logger.scope';
 import { getLogScope, setLogScopeExit } from '../../../../system/logger.scope';
 import { maybeStopWatch } from '../../../../system/stopwatch';
 import { equalsIgnoreCase } from '../../../../system/string';
-import { configuration } from '../../../../system/vscode/configuration';
 import type {
 	GitLabCommit,
 	GitLabIssue,

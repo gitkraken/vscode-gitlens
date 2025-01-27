@@ -3,14 +3,14 @@ import type { Colors } from '../../constants.colors';
 import type { FilesComparison } from '../../git/actions/commit';
 import { GitUri } from '../../git/gitUri';
 import type { GitBranch, GitTrackingState } from '../../git/models/branch';
-import { getRemoteNameFromBranchName } from '../../git/models/branch.utils';
 import type { GitLog } from '../../git/models/log';
 import type { GitRemote } from '../../git/models/remote';
-import { getHighlanderProviders } from '../../git/models/remote';
-import { createRevisionRange } from '../../git/models/revision.utils';
-import { getUpstreamStatus } from '../../git/models/status';
+import { getRemoteNameFromBranchName } from '../../git/utils/branch.utils';
+import { getHighlanderProviders } from '../../git/utils/remote.utils';
+import { createRevisionRange } from '../../git/utils/revision.utils';
+import { getUpstreamStatus } from '../../git/utils/status.utils';
 import { fromNow } from '../../system/date';
-import { gate } from '../../system/decorators/gate';
+import { gate } from '../../system/decorators/-webview/gate';
 import { debug } from '../../system/decorators/log';
 import { first, last, map } from '../../system/iterable';
 import { pluralize } from '../../system/string';
@@ -113,10 +113,9 @@ export class BranchTrackingStatusNode
 			const commit = commits[commits.length - 1];
 			const previousSha = await commit.getPreviousSha();
 			if (previousSha == null) {
-				const previousLog = await this.view.container.git.getLog(this.uri.repoPath!, {
-					limit: 2,
-					ref: commit.sha,
-				});
+				const previousLog = await this.view.container.git
+					.commits(this.uri.repoPath!)
+					.getLog(commit.sha, { limit: 2 });
 				if (previousLog != null) {
 					commits[commits.length - 1] = first(previousLog.commits.values())!;
 				}
@@ -333,7 +332,7 @@ export class BranchTrackingStatusNode
 
 	@gate()
 	@debug()
-	override refresh(reset?: boolean) {
+	override refresh(reset?: boolean): void {
 		if (reset) {
 			this._log = undefined;
 		}
@@ -349,21 +348,20 @@ export class BranchTrackingStatusNode
 					? createRevisionRange(this.status.upstream?.name, this.status.ref, '..')
 					: createRevisionRange(this.status.ref, this.status.upstream?.name, '..');
 
-			this._log = await this.view.container.git.getLog(this.uri.repoPath!, {
-				limit: this.limit ?? this.view.config.defaultItemLimit,
-				ref: range,
-			});
+			this._log = await this.view.container.git
+				.commits(this.uri.repoPath!)
+				.getLog(range, { limit: this.limit ?? this.view.config.defaultItemLimit });
 		}
 
 		return this._log;
 	}
 
-	get hasMore() {
+	get hasMore(): boolean {
 		return this._log?.hasMore ?? true;
 	}
 
 	@gate()
-	async loadMore(limit?: number | { until?: any }) {
+	async loadMore(limit?: number | { until?: any }): Promise<void> {
 		let log = await window.withProgress(
 			{
 				location: { viewId: this.view.id },

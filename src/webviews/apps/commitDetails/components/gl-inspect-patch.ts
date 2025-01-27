@@ -1,6 +1,6 @@
 import { css, html } from 'lit';
 import { customElement, property } from 'lit/decorators.js';
-import type { DraftVisibility } from '../../../../gk/models/drafts';
+import type { DraftVisibility } from '../../../../plus/drafts/models/drafts';
 import type { Preferences, State } from '../../../commitDetails/protocol';
 import type { Change, DraftUserSelection } from '../../../plus/patchDetails/protocol';
 import { GlElement } from '../../shared/components/element';
@@ -308,7 +308,7 @@ export class InspectPatch extends GlElement {
 		};
 	}
 
-	override render() {
+	override render(): unknown {
 		return html`<gl-patch-create
 			.state=${this.patchCreateState}
 			.generate=${this.generate}

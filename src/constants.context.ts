@@ -1,6 +1,7 @@
 import type { Uri } from 'vscode';
 import type { AnnotationStatus, Keys } from './constants';
-import type { PromoKeys, SubscriptionPlanId, SubscriptionState } from './constants.subscription';
+import type { PromoKeys } from './constants.promos';
+import type { SubscriptionPlanId, SubscriptionState } from './constants.subscription';
 import type { CustomEditorTypes, GroupableTreeViewTypes, WebviewTypes, WebviewViewTypes } from './constants.views';
 import type { WalkthroughContextKeys } from './telemetry/walkthroughStateProvider';
 

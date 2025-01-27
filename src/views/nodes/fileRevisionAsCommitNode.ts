@@ -10,11 +10,11 @@ import { GitUri } from '../../git/gitUri';
 import type { GitBranch } from '../../git/models/branch';
 import type { GitCommit } from '../../git/models/commit';
 import type { GitFile } from '../../git/models/file';
-import { getGitFileStatusIcon } from '../../git/models/file';
 import type { GitRevisionReference } from '../../git/models/reference';
+import { getGitFileStatusIcon } from '../../git/utils/fileStatus.utils';
+import { configuration } from '../../system/-webview/configuration';
 import { joinPaths } from '../../system/path';
 import { getSettledValue, pauseOnCancelOrTimeoutMapTuplePromise } from '../../system/promise';
-import { configuration } from '../../system/vscode/configuration';
 import type { FileHistoryView } from '../fileHistoryView';
 import type { LineHistoryView } from '../lineHistoryView';
 import type { ViewsWithCommits } from '../viewBase';
@@ -73,10 +73,9 @@ export class FileRevisionAsCommitNode extends ViewRefFileNode<
 			// Try to get the commit directly from the multi-file commit
 			const commit = await this.commit.getCommitForFile(this.file);
 			if (commit == null) {
-				const log = await this.view.container.git.getLogForFile(this.repoPath, this.file.path, {
-					limit: 2,
-					ref: this.commit.sha,
-				});
+				const log = await this.view.container.git
+					.commits(this.repoPath)
+					.getLogForFile(this.file.path, this.commit.sha, { limit: 2 });
 				if (log != null) {
 					this.commit = log.commits.get(this.commit.sha) ?? this.commit;
 				}
@@ -230,7 +229,7 @@ export async function getFileRevisionAsCommitTooltip(
 		getBranchAndTagTips?: (sha: string, options?: { compact?: boolean }) => string | undefined;
 		unpublished?: boolean;
 	},
-) {
+): Promise<string | undefined> {
 	const [remotesResult, _] = await Promise.allSettled([
 		container.git.remotes(commit.repoPath).getBestRemotesWithProviders(options?.cancellation),
 		commit.message == null ? commit.ensureFullDetails() : undefined,

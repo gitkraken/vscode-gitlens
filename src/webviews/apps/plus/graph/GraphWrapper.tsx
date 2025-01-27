@@ -24,8 +24,8 @@ import type { BranchGitCommandArgs } from '../../../../commands/git/branch';
 import type { DateStyle, GraphBranchesVisibility } from '../../../../config';
 import { GlCommand } from '../../../../constants.commands';
 import type { SearchQuery } from '../../../../constants.search';
-import type { Subscription } from '../../../../plus/gk/account/subscription';
-import { isSubscriptionPaid } from '../../../../plus/gk/account/subscription';
+import type { Subscription } from '../../../../plus/gk/models/subscription';
+import { isSubscriptionPaid } from '../../../../plus/gk/utils/subscription.utils';
 import type { LaunchpadCommandArgs } from '../../../../plus/launchpad/launchpad';
 import { createCommandLink } from '../../../../system/commands';
 import { filterMap, first, groupByFilterMap, join } from '../../../../system/iterable';
@@ -266,7 +266,7 @@ export function GraphWrapper({
 	onSearch,
 	onSearchPromise,
 	onSearchOpenInView,
-}: GraphWrapperProps) {
+}: GraphWrapperProps): React.JSX.Element {
 	const graphRef = useRef<GraphContainer>(null);
 
 	const [rows, setRows] = useState(state.rows ?? []);
@@ -1344,6 +1344,10 @@ export function GraphWrapper({
 								continueCommand="gitlens.graph.continuePausedOperation"
 								abortCommand="gitlens.graph.abortPausedOperation"
 								openEditorCommand="gitlens.graph.openRebaseEditor"
+								webviewCommandContext={{
+									webview: state.webviewId,
+									webviewInstance: state.webviewInstanceId,
+								}}
 							></GlMergeConflictWarning>
 						</div>
 					)}

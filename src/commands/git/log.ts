@@ -4,10 +4,10 @@ import { showDetailsView } from '../../git/actions/commit';
 import { GitCommit } from '../../git/models/commit';
 import type { GitLog } from '../../git/models/log';
 import type { GitReference } from '../../git/models/reference';
-import { getReferenceLabel, isRevisionRangeReference, isRevisionReference } from '../../git/models/reference.utils';
 import { Repository } from '../../git/models/repository';
+import { getReferenceLabel, isRevisionRangeReference, isRevisionReference } from '../../git/utils/reference.utils';
+import { formatPath } from '../../system/-webview/formatPath';
 import { pad } from '../../system/string';
-import { formatPath } from '../../system/vscode/formatPath';
 import type { ViewsWithRepositoryFolders } from '../../views/viewBase';
 import type { PartialStepState, StepGenerator, StepResult } from '../quickCommand';
 import { endSteps, QuickCommand, StepResultBreak } from '../quickCommand';
@@ -79,7 +79,7 @@ export class LogGitCommand extends QuickCommand<State> {
 		return false;
 	}
 
-	override isFuzzyMatch(name: string) {
+	override isFuzzyMatch(name: string): boolean {
 		return super.isFuzzyMatch(name) || name === 'log';
 	}
 
@@ -158,21 +158,21 @@ export class LogGitCommand extends QuickCommand<State> {
 			}
 
 			if (state.counter < 3 && context.selectedBranchOrTag != null) {
-				const ref = context.selectedBranchOrTag.ref;
+				const rev = context.selectedBranchOrTag.ref;
 
-				let log = context.cache.get(ref);
+				let log = context.cache.get(rev);
 				if (log == null) {
 					log =
 						state.fileName != null
-							? this.container.git.getLogForFile(state.repo.path, state.fileName, { ref: ref })
-							: this.container.git.getLog(state.repo.path, { ref: ref });
-					context.cache.set(ref, log);
+							? state.repo.git.commits().getLogForFile(state.fileName, rev)
+							: state.repo.git.commits().getLog(rev);
+					context.cache.set(rev, log);
 				}
 
 				const result = yield* pickCommitStep(state, context, {
 					ignoreFocusOut: true,
 					log: await log,
-					onDidLoadMore: log => context.cache.set(ref, Promise.resolve(log)),
+					onDidLoadMore: log => context.cache.set(rev, Promise.resolve(log)),
 					placeholder: (context, log) =>
 						log == null
 							? `No commits found in ${getReferenceLabel(context.selectedBranchOrTag, {
@@ -187,7 +187,7 @@ export class LogGitCommand extends QuickCommand<State> {
 			}
 
 			if (!(state.reference instanceof GitCommit) || state.reference.file != null) {
-				state.reference = await this.container.git.getCommit(state.repo.path, state.reference.ref);
+				state.reference = await state.repo.git.commits().getCommit(state.reference.ref);
 			}
 
 			let result: StepResult<ReturnType<typeof getSteps>>;

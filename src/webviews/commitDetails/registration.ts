@@ -1,11 +1,13 @@
 import type { CommitSelectedEvent } from '../../eventBus';
-import type { Serialized } from '../../system/vscode/serialize';
-import type { WebviewsController } from '../webviewsController';
+import type { Serialized } from '../../system/-webview/serialize';
+import type { WebviewsController, WebviewViewProxy } from '../webviewsController';
 import type { ShowWipArgs, State } from './protocol';
 
 export type CommitDetailsWebviewShowingArgs = [Partial<CommitSelectedEvent['data']> | ShowWipArgs];
 
-export function registerCommitDetailsWebviewView(controller: WebviewsController) {
+export function registerCommitDetailsWebviewView(
+	controller: WebviewsController,
+): WebviewViewProxy<'gitlens.views.commitDetails', CommitDetailsWebviewShowingArgs, Serialized<State>> {
 	return controller.registerWebviewView<
 		'gitlens.views.commitDetails',
 		State,
@@ -33,7 +35,9 @@ export function registerCommitDetailsWebviewView(controller: WebviewsController)
 	);
 }
 
-export function registerGraphDetailsWebviewView(controller: WebviewsController) {
+export function registerGraphDetailsWebviewView(
+	controller: WebviewsController,
+): WebviewViewProxy<'gitlens.views.graphDetails', CommitDetailsWebviewShowingArgs, Serialized<State>> {
 	return controller.registerWebviewView<
 		'gitlens.views.graphDetails',
 		State,

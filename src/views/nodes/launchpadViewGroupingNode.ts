@@ -1,6 +1,6 @@
 import type { TreeItem } from 'vscode';
 import { Disposable, TreeItemCollapsibleState } from 'vscode';
-import type { LaunchpadGroup } from '../../plus/launchpad/models';
+import type { LaunchpadGroup } from '../../plus/launchpad/models/launchpad';
 import type { TreeViewNodeCollapsibleStateChangeEvent, View } from '../viewBase';
 import type { ViewNode } from './abstract/viewNode';
 import { GroupingNode } from './groupingNode';
@@ -25,7 +25,7 @@ export class LaunchpadViewGroupingNode<TChild extends ViewNode = ViewNode> exten
 		);
 	}
 
-	override dispose() {
+	override dispose(): void {
 		super.dispose();
 		this.disposable?.dispose();
 	}

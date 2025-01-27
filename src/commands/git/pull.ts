@@ -2,8 +2,8 @@ import { GlyphChars } from '../../constants';
 import type { Container } from '../../container';
 import { isBranch } from '../../git/models/branch';
 import type { GitBranchReference } from '../../git/models/reference';
-import { getReferenceLabel, isBranchReference } from '../../git/models/reference.utils';
 import type { Repository } from '../../git/models/repository';
+import { getReferenceLabel, isBranchReference } from '../../git/utils/reference.utils';
 import { createDirectiveQuickPickItem, Directive } from '../../quickpicks/items/directive';
 import type { FlagsQuickPickItem } from '../../quickpicks/items/flags';
 import { createFlagsQuickPickItem } from '../../quickpicks/items/flags';
@@ -63,7 +63,7 @@ export class PullGitCommand extends QuickCommand<State> {
 		};
 	}
 
-	async execute(state: PullStepState) {
+	private async execute(state: PullStepState) {
 		if (isBranchReference(state.reference)) {
 			// Only resort to a branch fetch if the branch isn't the current one
 			if (!isBranch(state.reference) || !state.reference.current) {

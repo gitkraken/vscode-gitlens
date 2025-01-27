@@ -6,19 +6,20 @@ import { GlCommand } from '../constants.commands';
 import type { Container } from '../container';
 import { openFileAtRevision } from '../git/actions/commit';
 import { GitUri } from '../git/gitUri';
-import { shortenRevision } from '../git/models/revision.utils';
+import { shortenRevision } from '../git/utils/revision.utils';
 import { showCommitHasNoPreviousCommitWarningMessage, showGenericErrorMessage } from '../messages';
 import { showCommitPicker } from '../quickpicks/commitPicker';
 import { CommandQuickPickItem } from '../quickpicks/items/common';
 import type { DirectiveQuickPickItem } from '../quickpicks/items/directive';
 import { createDirectiveQuickPickItem, Directive } from '../quickpicks/items/directive';
+import { command } from '../system/-webview/command';
+import { splitPath } from '../system/-webview/path';
 import { createMarkdownCommandLink } from '../system/commands';
 import { Logger } from '../system/logger';
 import { pad } from '../system/string';
-import { command } from '../system/vscode/command';
-import { splitPath } from '../system/vscode/path';
-import type { CommandContext } from './base';
-import { ActiveEditorCommand, getCommandUri } from './base';
+import { ActiveEditorCommand } from './commandBase';
+import { getCommandUri } from './commandBase.utils';
+import type { CommandContext } from './commandContext';
 import type { OpenFileAtRevisionFromCommandArgs } from './openFileAtRevisionFrom';
 
 export interface OpenFileAtRevisionCommandArgs {
@@ -58,7 +59,7 @@ export class OpenFileAtRevisionCommand extends ActiveEditorCommand {
 		super([GlCommand.OpenFileAtRevision, GlCommand.OpenBlamePriorToChange]);
 	}
 
-	protected override async preExecute(context: CommandContext, args?: OpenFileAtRevisionCommandArgs) {
+	protected override async preExecute(context: CommandContext, args?: OpenFileAtRevisionCommandArgs): Promise<void> {
 		if (context.command === GlCommand.OpenBlamePriorToChange) {
 			args = { ...args, annotationType: 'blame' };
 			if (args.revisionUri == null && context.editor != null) {
@@ -101,7 +102,7 @@ export class OpenFileAtRevisionCommand extends ActiveEditorCommand {
 		return this.execute(context.editor, context.uri, args);
 	}
 
-	async execute(editor: TextEditor | undefined, uri?: Uri, args?: OpenFileAtRevisionCommandArgs) {
+	async execute(editor: TextEditor | undefined, uri?: Uri, args?: OpenFileAtRevisionCommandArgs): Promise<void> {
 		uri = getCommandUri(uri, editor);
 		if (uri == null) return;
 
@@ -114,15 +115,13 @@ export class OpenFileAtRevisionCommand extends ActiveEditorCommand {
 
 		try {
 			if (args.revisionUri == null) {
-				const log = this.container.git.getLogForFile(gitUri.repoPath, gitUri.fsPath).then(
-					log =>
-						log ??
-						(gitUri.sha
-							? this.container.git.getLogForFile(gitUri.repoPath, gitUri.fsPath, {
-									ref: gitUri.sha,
-							  })
-							: undefined),
-				);
+				const commitsProvider = this.container.git.commits(gitUri.repoPath!);
+				const log = commitsProvider
+					.getLogForFile(gitUri.fsPath)
+					.then(
+						log =>
+							log ?? (gitUri.sha ? commitsProvider.getLogForFile(gitUri.fsPath, gitUri.sha) : undefined),
+					);
 
 				const title = `Open ${args.annotationType === 'blame' ? 'Blame' : 'File'} at Revision${pad(
 					GlyphChars.Dot,

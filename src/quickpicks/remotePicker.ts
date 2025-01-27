@@ -2,7 +2,7 @@ import type { Disposable } from 'vscode';
 import { window } from 'vscode';
 import { SetRemoteAsDefaultQuickInputButton } from '../commands/quickCommand.buttons';
 import type { GitRemote } from '../git/models/remote';
-import { getQuickPickIgnoreFocusOut } from '../system/vscode/utils';
+import { getQuickPickIgnoreFocusOut } from '../system/-webview/vscode';
 import type { RemoteQuickPickItem } from './items/gitWizard';
 import { createRemoteQuickPickItem } from './items/gitWizard';
 

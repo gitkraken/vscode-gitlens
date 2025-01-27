@@ -1,7 +1,7 @@
 import type { StoredFeaturePreviewUsagePeriod } from './constants.storage';
 import { proFeaturePreviewUsageDurationInDays, proFeaturePreviewUsages } from './constants.subscription';
 import type { RepositoryVisibility } from './git/gitProvider';
-import type { RequiredSubscriptionPlans, Subscription } from './plus/gk/account/subscription';
+import type { RequiredSubscriptionPlans, Subscription } from './plus/gk/models/subscription';
 import { capitalize } from './system/string';
 
 export const enum Features {
@@ -53,7 +53,7 @@ export interface FeaturePreview {
 	usages: StoredFeaturePreviewUsagePeriod[];
 }
 
-export function getFeaturePreviewLabel(feature: FeaturePreviews) {
+export function getFeaturePreviewLabel(feature: FeaturePreviews): string {
 	switch (feature) {
 		case 'graph':
 			return 'Commit Graph';

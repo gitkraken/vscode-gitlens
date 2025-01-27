@@ -5,14 +5,14 @@ import { when } from 'lit/directives/when.js';
 import { urls } from '../../../../../constants';
 import { proTrialLengthInDays, SubscriptionPlanId, SubscriptionState } from '../../../../../constants.subscription';
 import type { Source } from '../../../../../constants.telemetry';
-import type { Promo } from '../../../../../plus/gk/account/promos';
-import { getApplicablePromo } from '../../../../../plus/gk/account/promos';
+import type { Promo } from '../../../../../plus/gk/models/promo';
+import { getApplicablePromo } from '../../../../../plus/gk/utils/promo.utils';
 import {
 	getSubscriptionPlanTier,
 	getSubscriptionStateName,
 	getSubscriptionTimeRemaining,
 	hasAccountFromSubscriptionState,
-} from '../../../../../plus/gk/account/subscription';
+} from '../../../../../plus/gk/utils/subscription.utils';
 import { createCommandLink } from '../../../../../system/commands';
 import { pluralize } from '../../../../../system/string';
 import type { State } from '../../../../home/protocol';
@@ -249,7 +249,7 @@ export class GLAccountChip extends LitElement {
 		return hasAccountFromSubscriptionState(this.subscriptionState);
 	}
 
-	get isReactivatedTrial() {
+	get isReactivatedTrial(): boolean {
 		return (
 			this.subscriptionState === SubscriptionState.ProTrial &&
 			(this.subscription?.plan.effective.trialReactivationCount ?? 0) > 0
@@ -281,11 +281,11 @@ export class GLAccountChip extends LitElement {
 		return getSubscriptionTimeRemaining(this.subscription, 'days') ?? 0;
 	}
 
-	override focus() {
+	override focus(): void {
 		this._chip.focus();
 	}
 
-	override render() {
+	override render(): unknown {
 		return html`<gl-popover placement="bottom" trigger="hover focus click" hoist>
 			<span id="chip" slot="anchor" class="chip" tabindex="0">
 				${this.accountAvatar
@@ -341,7 +341,7 @@ export class GLAccountChip extends LitElement {
 		</gl-popover>`;
 	}
 
-	show() {
+	show(): void {
 		void this._popover.show();
 		this.focus();
 	}

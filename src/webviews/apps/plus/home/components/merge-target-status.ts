@@ -202,7 +202,7 @@ export class GlMergeTargetStatus extends LitElement {
 
 	@state()
 	private _target: Awaited<GetOverviewBranch['mergeTarget']>;
-	get target() {
+	get target(): Awaited<GetOverviewBranch['mergeTarget']> {
 		return this._target;
 	}
 
@@ -253,7 +253,7 @@ export class GlMergeTargetStatus extends LitElement {
 		};
 	}
 
-	override render() {
+	override render(): unknown {
 		if (!this.status && !this.conflicts) return nothing;
 
 		let icon;

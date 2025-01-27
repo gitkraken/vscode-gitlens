@@ -7,9 +7,9 @@ import { sortCompare } from '../../system/string';
 import type { GitCache } from '../cache';
 import type { GitProvider, GitRemotesSubProvider } from '../gitProvider';
 import type { GitRemote } from '../models/remote';
-import { getDefaultRemoteOrHighlander } from '../models/remote';
 import { RepositoryChange } from '../models/repository';
 import type { RemoteProvider } from '../remotes/remoteProvider';
+import { getDefaultRemoteOrHighlander } from '../utils/remote.utils';
 
 export abstract class RemotesGitProviderBase implements GitRemotesSubProvider {
 	constructor(
@@ -184,7 +184,7 @@ export abstract class RemotesGitProviderBase implements GitRemotesSubProvider {
 	}
 
 	@log()
-	async setRemoteAsDefault(repoPath: string, name: string, value: boolean = true) {
+	async setRemoteAsDefault(repoPath: string, name: string, value: boolean = true): Promise<void> {
 		await this.container.storage.storeWorkspace('remote:default', value ? name : undefined);
 		this.container.events.fire('git:repo:change', {
 			repoPath: repoPath,

@@ -4,9 +4,9 @@ import { GlCommand } from '../constants.commands';
 import { SubscriptionState } from '../constants.subscription';
 import type { TrackedUsageKeys } from '../constants.telemetry';
 import type { Container } from '../container';
-import type { SubscriptionChangeEvent } from '../plus/gk/account/subscriptionService';
+import type { SubscriptionChangeEvent } from '../plus/gk/subscriptionService';
+import { setContext } from '../system/-webview/context';
 import { wait } from '../system/promise';
-import { setContext } from '../system/vscode/context';
 import type { UsageChangeEvent } from './usageTracker';
 
 export enum WalkthroughContextKeys {
@@ -220,11 +220,11 @@ export class WalkthroughStateProvider implements Disposable {
 		void setContext(`gitlens:walkthroughState:${key}`, true);
 	}
 
-	get doneCount() {
+	get doneCount(): number {
 		return this.completed.size;
 	}
 
-	get progress() {
+	get progress(): number {
 		return this.doneCount / this.walkthroughSize;
 	}
 

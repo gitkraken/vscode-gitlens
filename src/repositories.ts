@@ -4,9 +4,9 @@ import { Schemes } from './constants';
 import type { RevisionUriData } from './git/gitProvider';
 import { decodeGitLensRevisionUriAuthority } from './git/gitUri.authority';
 import type { Repository } from './git/models/repository';
+import { addVslsPrefixIfNeeded } from './system/-webview/path.vsls';
 import { normalizePath } from './system/path';
 import { UriTrie } from './system/trie';
-import { addVslsPrefixIfNeeded } from './system/vscode/path';
 
 const slash = 47; //CharCode.Slash;
 

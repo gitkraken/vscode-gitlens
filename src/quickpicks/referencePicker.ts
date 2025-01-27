@@ -9,11 +9,11 @@ import { showDetailsView } from '../git/actions/commit';
 import { reveal as revealTag } from '../git/actions/tag';
 import type { GitBranch } from '../git/models/branch';
 import type { GitReference } from '../git/models/reference';
-import { isBranchReference, isRevisionReference, isTagReference } from '../git/models/reference.utils';
 import type { GitTag } from '../git/models/tag';
-import type { BranchSortOptions, TagSortOptions } from '../git/utils/vscode/sorting';
-import type { KeyboardScope } from '../system/vscode/keyboard';
-import { getQuickPickIgnoreFocusOut } from '../system/vscode/utils';
+import type { BranchSortOptions, TagSortOptions } from '../git/utils/-webview/sorting';
+import { isBranchReference, isRevisionReference, isTagReference } from '../git/utils/reference.utils';
+import type { KeyboardScope } from '../system/-webview/keyboard';
+import { getQuickPickIgnoreFocusOut } from '../system/-webview/vscode';
 import type { BranchQuickPickItem, RefQuickPickItem, TagQuickPickItem } from './items/gitWizard';
 import { createRefQuickPickItem } from './items/gitWizard';
 

@@ -21,7 +21,7 @@ export class GitLensLogo extends LitElement {
 		`,
 	];
 
-	override render() {
+	override render(): unknown {
 		return html`<svg
 			alt="GitLens"
 			width="159"

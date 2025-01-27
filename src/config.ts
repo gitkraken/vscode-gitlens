@@ -222,6 +222,9 @@ interface AIConfig {
 		readonly customInstructions: string;
 	};
 	readonly model: SupportedAIModels | null;
+	readonly modelOptions: {
+		readonly temperature: number;
+	};
 	readonly openai: {
 		readonly url: string | null;
 	};

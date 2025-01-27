@@ -3,14 +3,14 @@ import { escapeMarkdown } from '../../system/markdown';
 import { basename } from '../../system/path';
 import type { TokenOptions } from '../../system/string';
 import type { GitFile, GitFileWithCommit } from '../models/file';
+import { isGitFileChange } from '../models/fileChange';
 import {
 	getGitFileFormattedDirectory,
 	getGitFileFormattedPath,
 	getGitFileOriginalRelativePath,
 	getGitFileRelativePath,
-	getGitFileStatusText,
-	isGitFileChange,
-} from '../models/file';
+} from '../utils/-webview/file.utils';
+import { getGitFileStatusText } from '../utils/fileStatus.utils';
 import type { FormatOptions } from './formatter';
 import { Formatter } from './formatter';
 
@@ -33,7 +33,7 @@ export interface StatusFormatOptions extends FormatOptions {
 }
 
 export class StatusFileFormatter extends Formatter<GitFile, StatusFormatOptions> {
-	get directory() {
+	get directory(): string {
 		const directory = escapeIfNeeded(
 			getGitFileFormattedDirectory(this._item, false, this._options.relativePath),
 			this._options.outputFormat,
@@ -41,12 +41,12 @@ export class StatusFileFormatter extends Formatter<GitFile, StatusFormatOptions>
 		return this._padOrTruncate(directory, this._options.tokenOptions.directory);
 	}
 
-	get file() {
+	get file(): string {
 		const file = escapeIfNeeded(basename(this._item.path), this._options.outputFormat);
 		return this._padOrTruncate(file, this._options.tokenOptions.file);
 	}
 
-	get filePath() {
+	get filePath(): string {
 		const filePath = escapeIfNeeded(
 			getGitFileFormattedPath(this._item, {
 				relativeTo: this._options.relativePath,
@@ -57,7 +57,7 @@ export class StatusFileFormatter extends Formatter<GitFile, StatusFormatOptions>
 		return this._padOrTruncate(filePath, this._options.tokenOptions.filePath);
 	}
 
-	get originalPath() {
+	get originalPath(): string {
 		const originalPath = escapeIfNeeded(
 			getGitFileOriginalRelativePath(this._item, this._options.relativePath),
 			this._options.outputFormat,
@@ -65,7 +65,7 @@ export class StatusFileFormatter extends Formatter<GitFile, StatusFormatOptions>
 		return this._padOrTruncate(originalPath, this._options.tokenOptions.originalPath);
 	}
 
-	get path() {
+	get path(): string {
 		const directory = escapeIfNeeded(
 			getGitFileRelativePath(this._item, this._options.relativePath),
 			this._options.outputFormat,
@@ -73,12 +73,12 @@ export class StatusFileFormatter extends Formatter<GitFile, StatusFormatOptions>
 		return this._padOrTruncate(directory, this._options.tokenOptions.path);
 	}
 
-	get status() {
+	get status(): string {
 		const status = getGitFileStatusText(this._item.status);
 		return this._padOrTruncate(status, this._options.tokenOptions.status);
 	}
 
-	get working() {
+	get working(): string {
 		let icon = '';
 		if (this._item.workingTreeStatus != null && this._item.indexStatus != null) {
 			icon = `${GlyphChars.Pencil}${GlyphChars.Space}${GlyphChars.SpaceThinnest}${GlyphChars.Check}`;

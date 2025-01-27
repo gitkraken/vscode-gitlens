@@ -1,4 +1,4 @@
-export function serialize(): (target: any, key: string, descriptor: PropertyDescriptor) => void {
+export function sequentialize(): (target: any, key: string, descriptor: PropertyDescriptor) => void {
 	return (_target: any, key: string, descriptor: PropertyDescriptor) => {
 		// eslint-disable-next-line @typescript-eslint/no-unsafe-function-type
 		let fn: Function | undefined;
@@ -9,7 +9,7 @@ export function serialize(): (target: any, key: string, descriptor: PropertyDesc
 		}
 		if (fn === undefined) throw new Error('Not supported');
 
-		const serializeKey = `$serialize$${key}`;
+		const serializeKey = `$sequentialize$${key}`;
 
 		descriptor.value = function (this: any, ...args: any[]) {
 			if (!Object.prototype.hasOwnProperty.call(this, serializeKey)) {

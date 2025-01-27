@@ -11,7 +11,7 @@ export class GlIndicator extends LitElement {
 	@property({ type: Boolean })
 	pulse = false;
 
-	override render() {
+	override render(): unknown {
 		return html`<slot class="indicator${this.pulse ? ' indicator--pulse' : ''}"></slot>`;
 	}
 }

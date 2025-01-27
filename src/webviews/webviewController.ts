@@ -1,19 +1,19 @@
-import type { ViewBadge, Webview, WebviewPanel, WebviewView, WindowState } from 'vscode';
+import type { Event, ViewBadge, Webview, WebviewPanel, WebviewView, WindowState } from 'vscode';
 import { CancellationTokenSource, Disposable, EventEmitter, Uri, ViewColumn, window, workspace } from 'vscode';
 import { getNonce } from '@env/crypto';
 import type { Commands } from '../constants.commands';
 import type { WebviewTelemetryContext } from '../constants.telemetry';
 import type { CustomEditorTypes, WebviewIds, WebviewTypes, WebviewViewIds, WebviewViewTypes } from '../constants.views';
 import type { Container } from '../container';
+import { executeCommand, executeCoreCommand } from '../system/-webview/command';
+import { setContext } from '../system/-webview/context';
 import { getScopedCounter } from '../system/counter';
 import { debug, logName } from '../system/decorators/log';
-import { serialize } from '../system/decorators/serialize';
+import { sequentialize } from '../system/decorators/serialize';
 import { getLoggableName, Logger } from '../system/logger';
 import { getLogScope, getNewLogScope, setLogScopeExit } from '../system/logger.scope';
 import { pauseOnCancelOrTimeout } from '../system/promise';
 import { maybeStopWatch, Stopwatch } from '../system/stopwatch';
-import { executeCommand, executeCoreCommand } from '../system/vscode/command';
-import { setContext } from '../system/vscode/context';
 import type { WebviewContext } from '../system/webview';
 import type {
 	IpcCallMessageType,
@@ -140,14 +140,14 @@ export class WebviewController<
 	}
 
 	private readonly _onDidDispose = new EventEmitter<void>();
-	get onDidDispose() {
+	get onDidDispose(): Event<void> {
 		return this._onDidDispose.event;
 	}
 
 	readonly id: ID;
 
 	private _ready: boolean = false;
-	get ready() {
+	get ready(): boolean {
 		return this._ready;
 	}
 
@@ -208,7 +208,7 @@ export class WebviewController<
 	}
 
 	private _disposed: boolean = false;
-	dispose() {
+	dispose(): void {
 		this._disposed = true;
 		this.cancellation?.cancel();
 		this.cancellation?.dispose();
@@ -223,7 +223,10 @@ export class WebviewController<
 		this.disposable?.dispose();
 	}
 
-	registerWebviewCommand<T extends Partial<WebviewContext>>(command: Commands, callback: WebviewCommandCallback<T>) {
+	registerWebviewCommand<T extends Partial<WebviewContext>>(
+		command: Commands,
+		callback: WebviewCommandCallback<T>,
+	): Disposable {
 		return this._commandRegistrar.registerCommand(this.provider, this.id, this.instanceId, command, callback);
 	}
 
@@ -258,7 +261,7 @@ export class WebviewController<
 		return type === 'editor' ? this._isInEditor : !this._isInEditor;
 	}
 
-	get active() {
+	get active(): boolean | undefined {
 		if ('active' in this.parent) {
 			return this._disposed ? false : this.parent.active;
 		}
@@ -302,7 +305,7 @@ export class WebviewController<
 		this.parent.title = value;
 	}
 
-	get visible() {
+	get visible(): boolean {
 		return this._disposed ? false : this.parent.visible;
 	}
 
@@ -539,12 +542,12 @@ export class WebviewController<
 		this.provider.onFocusChanged?.(focused);
 	}
 
-	getRootUri() {
+	getRootUri(): Uri {
 		return this.container.context.extensionUri;
 	}
 
 	private _webRoot: string | undefined;
-	getWebRoot() {
+	getWebRoot(): string {
 		if (this._webRoot == null) {
 			this._webRoot = this.asWebviewUri(this.getWebRootUri()).toString();
 		}
@@ -552,7 +555,7 @@ export class WebviewController<
 	}
 
 	private _webRootUri: Uri | undefined;
-	getWebRootUri() {
+	getWebRootUri(): Uri {
 		if (this._webRootUri == null) {
 			this._webRootUri = Uri.joinPath(this.getRootUri(), 'dist', 'webviews');
 		}
@@ -689,7 +692,7 @@ export class WebviewController<
 		}
 	}
 
-	@serialize()
+	@sequentialize()
 	@debug<WebviewController<ID, State>['postMessage']>({
 		args: false,
 		enter: m => `(${m.id}|${m.method}${m.completionId ? `+${m.completionId}` : ''})`,
@@ -750,7 +753,7 @@ export class WebviewController<
 		type: IpcNotification<any>,
 		mapping: Map<IpcNotification<any>, () => Promise<boolean>>,
 		thisArg: any,
-	) {
+	): void {
 		this.addPendingIpcNotificationCore(type, mapping.get(type)?.bind(thisArg));
 	}
 
@@ -769,11 +772,11 @@ export class WebviewController<
 		this._pendingIpcNotifications.set(type, { msg: msgOrFn, timestamp: Date.now() });
 	}
 
-	clearPendingIpcNotifications() {
+	clearPendingIpcNotifications(): void {
 		this._pendingIpcNotifications.clear();
 	}
 
-	sendPendingIpcNotifications() {
+	sendPendingIpcNotifications(): void {
 		if (
 			!this._ready ||
 			(this._pendingIpcNotifications.size === 0 && this._pendingIpcPromiseNotifications.size === 0)
@@ -810,7 +813,7 @@ export function replaceWebviewHtmlTokens<SerializedState>(
 	head?: string,
 	body?: string,
 	endOfBody?: string,
-) {
+): string {
 	return html.replace(
 		/#{(head|body|endOfBody|webviewId|webviewInstanceId|placement|cspSource|cspNonce|root|webroot|state)}/g,
 		(_substring: string, token: string) => {

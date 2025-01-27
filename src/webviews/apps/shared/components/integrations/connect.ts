@@ -41,15 +41,15 @@ export class GlConnect extends LitElement {
 	@property()
 	icon?: string;
 
-	get connectIntegrationUrl() {
+	get connectIntegrationUrl(): string | undefined {
 		return this.connectUrl ?? this.url;
 	}
 
-	get integrationLabel() {
+	get integrationLabel(): string {
 		return this.integration ?? this.label;
 	}
 
-	override render() {
+	override render(): unknown {
 		switch (this.type) {
 			case 'inline':
 				return this.renderInline();

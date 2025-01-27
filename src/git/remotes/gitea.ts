@@ -1,8 +1,8 @@
 import type { Range, Uri } from 'vscode';
 import type { AutolinkReference, DynamicAutolinkReference } from '../../autolinks';
-import type { GkProviderId } from '../../gk/models/repositoryIdentities';
 import type { Repository } from '../models/repository';
-import { isSha } from '../models/revision.utils';
+import type { GkProviderId } from '../models/repositoryIdentities';
+import { isSha } from '../utils/revision.utils';
 import type { RemoteProviderId } from './remoteProvider';
 import { RemoteProvider } from './remoteProvider';
 
@@ -38,7 +38,7 @@ export class GiteaRemote extends RemoteProvider {
 		return this._autolinks;
 	}
 
-	override get icon() {
+	override get icon(): string {
 		return 'gitea';
 	}
 
@@ -50,7 +50,7 @@ export class GiteaRemote extends RemoteProvider {
 		return undefined; // TODO@eamodio DRAFTS add this when supported by backend
 	}
 
-	get name() {
+	get name(): string {
 		return this.formatName('Gitea');
 	}
 

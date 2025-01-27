@@ -88,7 +88,7 @@ export class ShowGitCommand extends QuickCommand<State> {
 		};
 	}
 
-	override get canConfirm() {
+	override get canConfirm(): boolean {
 		return false;
 	}
 
@@ -141,7 +141,9 @@ export class ShowGitCommand extends QuickCommand<State> {
 				state.reference.file != null
 			) {
 				if (state.reference != null && !isCommit(state.reference)) {
-					state.reference = await this.container.git.getCommit(state.reference.repoPath, state.reference.ref);
+					state.reference = await this.container.git
+						.commits(state.reference.repoPath)
+						.getCommit(state.reference.ref);
 				}
 
 				if (state.counter < 2 || state.reference == null) {

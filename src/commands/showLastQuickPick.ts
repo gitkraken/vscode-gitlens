@@ -2,9 +2,9 @@ import { commands } from 'vscode';
 import { GlCommand } from '../constants.commands';
 import type { Container } from '../container';
 import { showGenericErrorMessage } from '../messages';
+import { command } from '../system/-webview/command';
 import { Logger } from '../system/logger';
-import { command } from '../system/vscode/command';
-import { getLastCommand, GlCommandBase } from './base';
+import { getLastCommand, GlCommandBase } from './commandBase';
 
 @command()
 export class ShowLastQuickPickCommand extends GlCommandBase {
@@ -12,7 +12,7 @@ export class ShowLastQuickPickCommand extends GlCommandBase {
 		super(GlCommand.ShowLastQuickPick);
 	}
 
-	execute() {
+	execute(): Thenable<unknown> {
 		const command = getLastCommand();
 		if (command === undefined) return Promise.resolve(undefined);
 

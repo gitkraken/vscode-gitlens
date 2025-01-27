@@ -23,7 +23,7 @@ import {
 	showGkRequestFailed500WarningMessage,
 	showGkRequestTimedOutWarningMessage,
 } from '../../messages';
-import { memoize } from '../../system/decorators/memoize';
+import { memoize } from '../../system/decorators/-webview/memoize';
 import { Logger } from '../../system/logger';
 import type { LogScope } from '../../system/logger.scope';
 import { getLogScope } from '../../system/logger.scope';
@@ -43,7 +43,7 @@ interface GKFetchOptions extends FetchOptions {
 export class ServerConnection implements Disposable {
 	constructor(private readonly container: Container) {}
 
-	dispose() {}
+	dispose(): void {}
 
 	@memoize()
 	private get baseGkApiUri(): Uri {
@@ -58,7 +58,7 @@ export class ServerConnection implements Disposable {
 		return Uri.parse('https://api.gitkraken.dev');
 	}
 
-	getGkApiUrl(...pathSegments: string[]) {
+	getGkApiUrl(...pathSegments: string[]): string {
 		return Uri.joinPath(this.baseGkApiUri, ...pathSegments).toString();
 	}
 
@@ -120,7 +120,12 @@ export class ServerConnection implements Disposable {
 		return this.gkFetch(this.getGkApiUrl(path), init, options);
 	}
 
-	async fetchGkApiGraphQL(path: string, request: GraphQLRequest, init?: RequestInit, options?: GKFetchOptions) {
+	async fetchGkApiGraphQL(
+		path: string,
+		request: GraphQLRequest,
+		init?: RequestInit,
+		options?: GKFetchOptions,
+	): Promise<Response> {
 		return this.fetchGkApi(
 			path,
 			{
@@ -352,6 +357,6 @@ export interface GraphQLRequest {
 	variables?: Record<string, unknown>;
 }
 
-export function getUrl(base: Uri, ...pathSegments: string[]) {
+export function getUrl(base: Uri, ...pathSegments: string[]): string {
 	return Uri.joinPath(base, ...pathSegments).toString();
 }

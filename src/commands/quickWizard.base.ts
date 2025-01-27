@@ -3,12 +3,12 @@ import { InputBoxValidationSeverity, QuickInputButtons, window } from 'vscode';
 import type { GlCommands } from '../constants.commands';
 import { Container } from '../container';
 import { Directive, isDirective, isDirectiveQuickPickItem } from '../quickpicks/items/directive';
+import { configuration } from '../system/-webview/configuration';
+import type { KeyMapping } from '../system/-webview/keyboard';
 import { log } from '../system/decorators/log';
 import type { Deferred } from '../system/promise';
 import { isPromise } from '../system/promise';
-import { configuration } from '../system/vscode/configuration';
-import type { KeyMapping } from '../system/vscode/keyboard';
-import { GlCommandBase } from './base';
+import { GlCommandBase } from './commandBase';
 import type { GitWizardCommandArgs } from './gitWizard';
 import type { CustomStep, QuickCommand, QuickInputStep, QuickPickStep, StepSelection } from './quickCommand';
 import { isCustomStep, isQuickCommand, isQuickInputStep, isQuickPickStep, StepResultBreak } from './quickCommand';
@@ -40,7 +40,7 @@ export abstract class QuickWizardCommandBase extends GlCommandBase {
 	}
 
 	@log({ args: false, scoped: true, singleLine: true, timed: false })
-	async execute(args?: QuickWizardCommandArgsWithCompletion) {
+	async execute(args?: QuickWizardCommandArgsWithCompletion): Promise<void> {
 		const rootStep = new QuickWizardRootStep(this.container, args);
 
 		const command = args?.command != null ? rootStep.find(args.command) : undefined;

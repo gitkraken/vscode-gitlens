@@ -50,7 +50,7 @@ export class SkeletonLoader extends LitElement {
 	@property({ type: Number })
 	lines = 1;
 
-	override render() {
+	override render(): unknown {
 		const style = `--skeleton-lines: ${this.lines};`;
 		return html`<div class="skeleton" style=${style}></div>`;
 	}

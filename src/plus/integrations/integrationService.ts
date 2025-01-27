@@ -1,7 +1,11 @@
 import type { AuthenticationSessionsChangeEvent, CancellationToken, Event } from 'vscode';
 import { authentication, Disposable, env, EventEmitter, ProgressLocation, Uri, window } from 'vscode';
 import { isWeb } from '@env/platform';
-import type { IntegrationId, SupportedCloudIntegrationIds } from '../../constants.integrations';
+import type {
+	CloudSelfHostedIntegrationId,
+	IntegrationId,
+	SupportedCloudIntegrationIds,
+} from '../../constants.integrations';
 import { HostingIntegrationId, IssueIntegrationId, SelfHostedIntegrationId } from '../../constants.integrations';
 import type { Source } from '../../constants.telemetry';
 import { sourceToContext } from '../../constants.telemetry';
@@ -11,16 +15,16 @@ import type { SearchedIssue } from '../../git/models/issue';
 import type { SearchedPullRequest } from '../../git/models/pullRequest';
 import type { GitRemote } from '../../git/models/remote';
 import type { RemoteProvider, RemoteProviderId } from '../../git/remotes/remoteProvider';
-import { gate } from '../../system/decorators/gate';
+import { configuration } from '../../system/-webview/configuration';
+import { openUrl } from '../../system/-webview/vscode';
+import { gate } from '../../system/decorators/-webview/gate';
 import { debug, log } from '../../system/decorators/log';
 import { promisifyDeferred, take } from '../../system/event';
 import { filter, filterMap, flatten, join } from '../../system/iterable';
 import { Logger } from '../../system/logger';
 import { getLogScope } from '../../system/logger.scope';
-import { configuration } from '../../system/vscode/configuration';
-import { openUrl } from '../../system/vscode/utils';
-import type { SubscriptionChangeEvent } from '../gk/account/subscriptionService';
-import type { IntegrationAuthenticationService } from './authentication/integrationAuthentication';
+import type { SubscriptionChangeEvent } from '../gk/subscriptionService';
+import type { IntegrationAuthenticationService } from './authentication/integrationAuthenticationService';
 import type { ConfiguredIntegrationDescriptor } from './authentication/models';
 import {
 	CloudIntegrationAuthenticationUriPathPrefix,
@@ -38,12 +42,13 @@ import type {
 	IntegrationType,
 	IssueIntegration,
 	ResourceDescriptor,
+	SupportedCloudSelfHostedIntegrationIds,
 	SupportedHostingIntegrationIds,
 	SupportedIntegrationIds,
 	SupportedIssueIntegrationIds,
 	SupportedSelfHostedIntegrationIds,
 } from './integration';
-import { isHostingIntegrationId, isSelfHostedIntegrationId } from './providers/models';
+import { isCloudSelfHostedIntegrationId, isHostingIntegrationId, isSelfHostedIntegrationId } from './providers/models';
 import type { ProvidersApi } from './providers/providersApi';
 import { isGitHubDotCom, isGitLabDotCom } from './providers/utils';
 
@@ -83,7 +88,7 @@ export class IntegrationService implements Disposable {
 		);
 	}
 
-	dispose() {
+	dispose(): void {
 		this._disposable?.dispose();
 	}
 
@@ -136,20 +141,17 @@ export class IntegrationService implements Disposable {
 
 	private async *getSupportedCloudIntegrations(domainsById: Map<IntegrationId, string>): AsyncIterable<Integration> {
 		for (const id of getSupportedCloudIntegrationIds()) {
-			if (
-				(id === SelfHostedIntegrationId.CloudGitHubEnterprise ||
-					id === SelfHostedIntegrationId.CloudGitLabSelfHosted) &&
-				!domainsById.has(id)
-			) {
-				try {
-					// Try getting whatever we have now because we will need to disconnect
-					yield this.get(id);
-				} catch {
-					// Ignore this exception and continue,
-					// because we probably haven't ever had an instance of this integration
+			if (isCloudSelfHostedIntegrationId(id) && !domainsById.has(id)) {
+				// Try getting whatever we have now because we will need to disconnect
+				const integration = await this.get(id, undefined);
+				if (integration != null) {
+					yield integration;
 				}
 			} else {
-				yield this.get(id, domainsById.get(id));
+				const integration = await this.get(id, domainsById.get(id));
+				if (integration != null) {
+					yield integration;
+				}
 			}
 		}
 	}
@@ -165,7 +167,7 @@ export class IntegrationService implements Disposable {
 		}
 	}
 
-	async manageCloudIntegrations(source: Source | undefined) {
+	async manageCloudIntegrations(source: Source | undefined): Promise<void> {
 		const scope = getLogScope();
 		if (this.container.telemetry.enabled) {
 			this.container.telemetry.sendEvent(
@@ -245,6 +247,8 @@ export class IntegrationService implements Disposable {
 			for (const integrationId of integrationIds) {
 				try {
 					const integration = await this.get(integrationId);
+					if (integration == null) continue;
+
 					if (integration.maybeConnected ?? (await integration.isConnected())) {
 						connectedIntegrations.add(integrationId);
 					}
@@ -368,6 +372,8 @@ export class IntegrationService implements Disposable {
 		if (integrationIds != null) {
 			for (const integrationId of integrationIds) {
 				const integration = await this.get(integrationId);
+				if (integration == null) continue;
+
 				const connected = integration.maybeConnected ?? (await integration.isConnected());
 				if (connected && !connectedIntegrations.has(integrationId)) {
 					return true;
@@ -455,19 +461,22 @@ export class IntegrationService implements Disposable {
 		return key == null ? this._connectedCache.size !== 0 : this._connectedCache.has(key);
 	}
 
-	get(
-		id:
-			| SupportedHostingIntegrationIds
-			| SelfHostedIntegrationId.CloudGitHubEnterprise
-			| SelfHostedIntegrationId.CloudGitLabSelfHosted,
-	): Promise<HostingIntegration>;
+	getConfigured(id: SupportedIntegrationIds): ConfiguredIntegrationDescriptor[] {
+		return this.authenticationService.configured?.get(id) ?? [];
+	}
+
+	get(id: SupportedHostingIntegrationIds): Promise<HostingIntegration>;
 	get(id: SupportedIssueIntegrationIds): Promise<IssueIntegration>;
-	get(id: SupportedSelfHostedIntegrationIds, domain: string): Promise<HostingIntegration>;
-	get(id: SupportedIntegrationIds, domain?: string): Promise<Integration>;
+	get(
+		id: SupportedHostingIntegrationIds | SupportedCloudSelfHostedIntegrationIds,
+		domain?: string,
+	): Promise<HostingIntegration | undefined>;
+	get(id: SupportedSelfHostedIntegrationIds, domain: string): Promise<HostingIntegration | undefined>;
+	get(id: SupportedIntegrationIds, domain?: string): Promise<Integration | undefined>;
 	async get(
 		id: SupportedHostingIntegrationIds | SupportedIssueIntegrationIds | SupportedSelfHostedIntegrationIds,
 		domain?: string,
-	): Promise<Integration> {
+	): Promise<Integration | undefined> {
 		let integration = this.getCached(id, domain);
 		if (integration == null) {
 			switch (id) {
@@ -484,10 +493,8 @@ export class IntegrationService implements Disposable {
 							return integration;
 						}
 
-						const existingConfigured = this.authenticationService.configured?.get(
-							SelfHostedIntegrationId.CloudGitHubEnterprise,
-						);
-						if (existingConfigured?.length) {
+						const existingConfigured = this.getConfigured(SelfHostedIntegrationId.CloudGitHubEnterprise);
+						if (existingConfigured.length) {
 							const { domain: configuredDomain } = existingConfigured[0];
 							if (configuredDomain == null) throw new Error(`Domain is required for '${id}' integration`);
 							integration = new (
@@ -504,7 +511,7 @@ export class IntegrationService implements Disposable {
 							break;
 						}
 
-						throw new Error(`Domain is required for '${id}' integration`);
+						return undefined;
 					}
 
 					integration = new (
@@ -542,10 +549,8 @@ export class IntegrationService implements Disposable {
 							return integration;
 						}
 
-						const existingConfigured = this.authenticationService.configured?.get(
-							SelfHostedIntegrationId.CloudGitLabSelfHosted,
-						);
-						if (existingConfigured?.length) {
+						const existingConfigured = this.getConfigured(SelfHostedIntegrationId.CloudGitLabSelfHosted);
+						if (existingConfigured.length) {
 							const { domain: configuredDomain } = existingConfigured[0];
 							if (configuredDomain == null) throw new Error(`Domain is required for '${id}' integration`);
 							integration = new (
@@ -562,7 +567,7 @@ export class IntegrationService implements Disposable {
 							break;
 						}
 
-						throw new Error(`Domain is required for '${id}' integration`);
+						return undefined;
 					}
 
 					integration = new (
@@ -825,25 +830,9 @@ export class IntegrationService implements Disposable {
 		args: { 0: integrationIds => (integrationIds?.length ? integrationIds.join(',') : '<undefined>') },
 	})
 	async getMyCurrentAccounts(
-		integrationIds: (
-			| HostingIntegrationId
-			| SelfHostedIntegrationId.CloudGitHubEnterprise
-			| SelfHostedIntegrationId.CloudGitLabSelfHosted
-		)[],
-	): Promise<
-		Map<
-			| HostingIntegrationId
-			| SelfHostedIntegrationId.CloudGitHubEnterprise
-			| SelfHostedIntegrationId.CloudGitLabSelfHosted,
-			Account
-		>
-	> {
-		const accounts = new Map<
-			| HostingIntegrationId
-			| SelfHostedIntegrationId.CloudGitHubEnterprise
-			| SelfHostedIntegrationId.CloudGitLabSelfHosted,
-			Account
-		>();
+		integrationIds: (HostingIntegrationId | CloudSelfHostedIntegrationId)[],
+	): Promise<Map<HostingIntegrationId | CloudSelfHostedIntegrationId, Account>> {
+		const accounts = new Map<HostingIntegrationId | CloudSelfHostedIntegrationId, Account>();
 		await Promise.allSettled(
 			integrationIds.map(async integrationId => {
 				const integration = await this.get(integrationId);
@@ -862,11 +851,7 @@ export class IntegrationService implements Disposable {
 		args: { 0: integrationIds => (integrationIds?.length ? integrationIds.join(',') : '<undefined>'), 1: false },
 	})
 	async getMyPullRequests(
-		integrationIds?: (
-			| HostingIntegrationId
-			| SelfHostedIntegrationId.CloudGitHubEnterprise
-			| SelfHostedIntegrationId.CloudGitLabSelfHosted
-		)[],
+		integrationIds?: (HostingIntegrationId | CloudSelfHostedIntegrationId)[],
 		cancellation?: CancellationToken,
 		silent?: boolean,
 	): Promise<IntegrationResult<SearchedPullRequest[] | undefined>> {

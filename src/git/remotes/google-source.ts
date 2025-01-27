@@ -1,5 +1,5 @@
 import type { AutolinkReference, DynamicAutolinkReference } from '../../autolinks';
-import type { GkProviderId } from '../../gk/models/repositoryIdentities';
+import type { GkProviderId } from '../models/repositoryIdentities';
 import { GerritRemote } from './gerrit';
 import type { RemoteProviderId } from './remoteProvider';
 
@@ -16,7 +16,7 @@ export class GoogleSourceRemote extends GerritRemote {
 		return undefined; // TODO@eamodio DRAFTS add this when supported by backend
 	}
 
-	override get name() {
+	override get name(): string {
 		return this.formatName('Google Source');
 	}
 

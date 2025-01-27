@@ -71,7 +71,7 @@ export class GlTrackingPill extends LitElement {
 	@property({ type: Boolean })
 	missingUpstream = false;
 
-	override render() {
+	override render(): unknown {
 		if (this.ahead === 0 && this.behind === 0 && this.working === 0) {
 			if (!this.alwaysShow) {
 				return nothing;

@@ -2,9 +2,9 @@ import { ThemeIcon, TreeItem, TreeItemCollapsibleState } from 'vscode';
 import type { GitUri } from '../../git/gitUri';
 import type { GitContributor } from '../../git/models/contributor';
 import type { Repository } from '../../git/models/repository';
-import { sortContributors } from '../../git/utils/vscode/sorting';
+import { sortContributors } from '../../git/utils/-webview/sorting';
+import { configuration } from '../../system/-webview/configuration';
 import { debug } from '../../system/decorators/log';
-import { configuration } from '../../system/vscode/configuration';
 import type { ViewsWithContributorsNode } from '../viewBase';
 import { CacheableChildrenViewNode } from './abstract/cacheableChildrenViewNode';
 import type { ViewNode } from './abstract/viewNode';
@@ -48,25 +48,24 @@ export class ContributorsNode extends CacheableChildrenViewNode<
 
 	async getChildren(): Promise<ViewNode[]> {
 		if (this.children == null) {
-			let ref = this.options?.ref;
-			const all = ref == null && (this.options?.all ?? configuration.get('views.contributors.showAllBranches'));
+			let rev = this.options?.ref;
+			const all = rev == null && (this.options?.all ?? configuration.get('views.contributors.showAllBranches'));
 
 			// If there is no ref and we aren't getting all branches, get the upstream of the current branch if there is one
-			if (ref == null && !all) {
+			if (rev == null && !all) {
 				try {
 					const branch = await this.view.container.git.branches(this.uri.repoPath!).getBranch();
 					if (branch?.upstream?.name != null && !branch.upstream.missing) {
-						ref = '@{u}';
+						rev = '@{u}';
 					}
 				} catch {}
 			}
 
 			const stats = this.options?.stats ?? configuration.get('views.contributors.showStatistics');
 
-			const contributors = await this.repo.git.contributors().getContributors({
+			const contributors = await this.repo.git.contributors().getContributors(rev, {
 				all: all,
 				merges: this.options?.showMergeCommits,
-				ref: ref,
 				stats: stats,
 			});
 			if (contributors.length === 0) return [new MessageNode(this.view, this, 'No contributors could be found.')];
@@ -78,7 +77,7 @@ export class ContributorsNode extends CacheableChildrenViewNode<
 				c =>
 					new ContributorNode(this.uri, this.view, this, c, {
 						all: all,
-						ref: ref,
+						ref: rev,
 						presence: presenceMap,
 						showMergeCommits: this.options?.showMergeCommits,
 					}),
@@ -100,7 +99,7 @@ export class ContributorsNode extends CacheableChildrenViewNode<
 		return item;
 	}
 
-	updateAvatar(email: string) {
+	updateAvatar(email: string): void {
 		if (this.children == null) return;
 
 		for (const child of this.children) {
@@ -111,7 +110,7 @@ export class ContributorsNode extends CacheableChildrenViewNode<
 	}
 
 	@debug()
-	override refresh() {
+	override refresh(): void {
 		super.refresh(true);
 	}
 

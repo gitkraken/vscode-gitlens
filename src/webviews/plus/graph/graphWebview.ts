@@ -2,7 +2,7 @@ import type { CancellationToken, ColorTheme, ConfigurationChangeEvent } from 'vs
 import { CancellationTokenSource, Disposable, env, Uri, window } from 'vscode';
 import type { CreatePullRequestActionContext, OpenPullRequestActionContext } from '../../../api/gitlens';
 import { getAvatarUri } from '../../../avatars';
-import { parseCommandContext } from '../../../commands/base';
+import { parseCommandContext } from '../../../commands/commandContext.utils';
 import type { CopyDeepLinkCommandArgs } from '../../../commands/copyDeepLink';
 import type { CopyMessageToClipboardCommandArgs } from '../../../commands/copyMessageToClipboard';
 import type { CopyShaToClipboardCommandArgs } from '../../../commands/copyShaToClipboard';
@@ -50,27 +50,12 @@ import * as WorktreeActions from '../../../git/actions/worktree';
 import { GitSearchError } from '../../../git/errors';
 import { CommitFormatter } from '../../../git/formatters/commitFormatter';
 import type { GitBranch } from '../../../git/models/branch';
-import {
-	getAssociatedIssuesForBranch,
-	getBranchId,
-	getBranchNameWithoutRemote,
-	getDefaultBranchName,
-	getLocalBranchByUpstream,
-	getRemoteNameFromBranchName,
-	getTargetBranchName,
-} from '../../../git/models/branch.utils';
 import type { GitCommit } from '../../../git/models/commit';
 import { isStash } from '../../../git/models/commit';
-import { splitCommitMessage } from '../../../git/models/commit.utils';
 import { GitContributor } from '../../../git/models/contributor';
 import type { GitGraph, GitGraphRowType } from '../../../git/models/graph';
 import type { IssueShape } from '../../../git/models/issue';
 import type { PullRequest } from '../../../git/models/pullRequest';
-import {
-	getComparisonRefsForPullRequest,
-	getRepositoryIdentityForPullRequest,
-	serializePullRequest,
-} from '../../../git/models/pullRequest';
 import type {
 	GitBranchReference,
 	GitReference,
@@ -78,7 +63,6 @@ import type {
 	GitStashReference,
 	GitTagReference,
 } from '../../../git/models/reference';
-import { createReference, getReferenceFromBranch, isGitReference } from '../../../git/models/reference.utils';
 import { RemoteResourceType } from '../../../git/models/remoteResource';
 import type {
 	Repository,
@@ -86,21 +70,47 @@ import type {
 	RepositoryFileSystemChangeEvent,
 } from '../../../git/models/repository';
 import { isRepository, RepositoryChange, RepositoryChangeComparisonMode } from '../../../git/models/repository';
-import { getLastFetchedUpdateInterval } from '../../../git/models/repository.utils';
 import { uncommitted } from '../../../git/models/revision';
-import { isSha, shortenRevision } from '../../../git/models/revision.utils';
-import { getWorktreesByBranch } from '../../../git/models/worktree.utils';
-import type { GitSearch } from '../../../git/search';
+import type { GitGraphSearch } from '../../../git/search';
 import { getSearchQueryComparisonKey, parseSearchQuery } from '../../../git/search';
-import { getRemoteIconUri } from '../../../git/utils/vscode/icons';
-import type { FeaturePreviewChangeEvent, SubscriptionChangeEvent } from '../../../plus/gk/account/subscriptionService';
+import { getAssociatedIssuesForBranch } from '../../../git/utils/-webview/branch.issue.utils';
+import { getDefaultBranchName, getTargetBranchName } from '../../../git/utils/-webview/branch.utils';
+import { getRemoteIconUri } from '../../../git/utils/-webview/icons';
+import { getReferenceFromBranch } from '../../../git/utils/-webview/reference.utils';
+import { getWorktreesByBranch } from '../../../git/utils/-webview/worktree.utils';
+import {
+	getBranchId,
+	getBranchNameWithoutRemote,
+	getLocalBranchByUpstream,
+	getRemoteNameFromBranchName,
+} from '../../../git/utils/branch.utils';
+import { splitCommitMessage } from '../../../git/utils/commit.utils';
+import { getLastFetchedUpdateInterval } from '../../../git/utils/fetch.utils';
+import {
+	getComparisonRefsForPullRequest,
+	getRepositoryIdentityForPullRequest,
+	serializePullRequest,
+} from '../../../git/utils/pullRequest.utils';
+import { createReference, isGitReference } from '../../../git/utils/reference.utils';
+import { isSha, shortenRevision } from '../../../git/utils/revision.utils';
+import type { FeaturePreviewChangeEvent, SubscriptionChangeEvent } from '../../../plus/gk/subscriptionService';
 import type { ConnectionStateChangeEvent } from '../../../plus/integrations/integrationService';
 import { remoteProviderIdToIntegrationId } from '../../../plus/integrations/integrationService';
 import { getPullRequestBranchDeepLink } from '../../../plus/launchpad/launchpadProvider';
 import type { AssociateIssueWithBranchCommandArgs } from '../../../plus/startWork/startWork';
 import { ReferencesQuickPickIncludes, showReferencePicker } from '../../../quickpicks/referencePicker';
 import { showRepositoryPicker } from '../../../quickpicks/repositoryPicker';
-import { gate } from '../../../system/decorators/gate';
+import {
+	executeActionCommand,
+	executeCommand,
+	executeCoreCommand,
+	registerCommand,
+} from '../../../system/-webview/command';
+import { configuration } from '../../../system/-webview/configuration';
+import { getContext, onDidChangeContext } from '../../../system/-webview/context';
+import type { OpenWorkspaceLocation } from '../../../system/-webview/vscode';
+import { isDarkTheme, isLightTheme, openUrl, openWorkspace } from '../../../system/-webview/vscode';
+import { gate } from '../../../system/decorators/-webview/gate';
 import { debug, log } from '../../../system/decorators/log';
 import type { Deferrable } from '../../../system/function';
 import { debounce, disposableInterval } from '../../../system/function';
@@ -112,16 +122,6 @@ import {
 	pauseOnCancelOrTimeoutMapTuplePromise,
 } from '../../../system/promise';
 import { Stopwatch } from '../../../system/stopwatch';
-import {
-	executeActionCommand,
-	executeCommand,
-	executeCoreCommand,
-	registerCommand,
-} from '../../../system/vscode/command';
-import { configuration } from '../../../system/vscode/configuration';
-import { getContext, onDidChangeContext } from '../../../system/vscode/context';
-import type { OpenWorkspaceLocation } from '../../../system/vscode/utils';
-import { isDarkTheme, isLightTheme, openUrl, openWorkspace } from '../../../system/vscode/utils';
 import { isWebviewItemContext, isWebviewItemGroupContext, serializeWebviewItemContext } from '../../../system/webview';
 import { DeepLinkActionType } from '../../../uris/deepLinks/deepLink';
 import { RepositoryFolderNode } from '../../../views/nodes/abstract/repositoryFolderNode';
@@ -302,7 +302,7 @@ export class GraphWebviewProvider implements WebviewProvider<State, State, Graph
 		[DidStartFeaturePreviewNotification, this.notifyDidStartFeaturePreview],
 	]);
 	private _refsMetadata: Map<string, GraphRefMetadata | null> | null | undefined;
-	private _search: GitSearch | undefined;
+	private _search: GitGraphSearch | undefined;
 	private _selectedId?: string;
 	private _selectedRows: GraphSelectedRows | undefined;
 	private _showDetailsView: Config['graph']['showDetailsView'];
@@ -346,7 +346,7 @@ export class GraphWebviewProvider implements WebviewProvider<State, State, Graph
 		);
 	}
 
-	dispose() {
+	dispose(): void {
 		this._disposable.dispose();
 	}
 
@@ -471,7 +471,7 @@ export class GraphWebviewProvider implements WebviewProvider<State, State, Graph
 		return [true, this.getShownTelemetryContext()];
 	}
 
-	onRefresh(force?: boolean) {
+	onRefresh(force?: boolean): void {
 		if (force) {
 			this.resetRepositoryState();
 		}
@@ -692,11 +692,10 @@ export class GraphWebviewProvider implements WebviewProvider<State, State, Graph
 			this.host.registerWebviewCommand('gitlens.graph.generateCommitMessage', this.generateCommitMessage),
 
 			this.host.registerWebviewCommand('gitlens.graph.compareSelectedCommits.multi', this.compareSelectedCommits),
-			// TODO@d13: convert to this.host.registerWebviewCommand
-			registerCommand('gitlens.graph.abortPausedOperation', this.abortPausedOperation, this),
-			registerCommand('gitlens.graph.continuePausedOperation', this.continuePausedOperation, this),
-			registerCommand('gitlens.graph.openRebaseEditor', this.openRebaseEditor, this),
-			registerCommand('gitlens.graph.skipPausedOperation', this.skipPausedOperation, this),
+			this.host.registerWebviewCommand('gitlens.graph.abortPausedOperation', this.abortPausedOperation),
+			this.host.registerWebviewCommand('gitlens.graph.continuePausedOperation', this.continuePausedOperation),
+			this.host.registerWebviewCommand('gitlens.graph.openRebaseEditor', this.openRebaseEditor),
+			this.host.registerWebviewCommand('gitlens.graph.skipPausedOperation', this.skipPausedOperation),
 		);
 
 		return commands;
@@ -739,7 +738,7 @@ export class GraphWebviewProvider implements WebviewProvider<State, State, Graph
 		}
 	}
 
-	onMessageReceived(e: IpcMessage) {
+	onMessageReceived(e: IpcMessage): void {
 		switch (true) {
 			case ChooseRepositoryCommand.is(e):
 				void this.onChooseRepository();
@@ -819,7 +818,7 @@ export class GraphWebviewProvider implements WebviewProvider<State, State, Graph
 		void this.host.respond(requestType, msg, counts);
 	}
 
-	updateGraphConfig(params: UpdateGraphConfigurationParams) {
+	private updateGraphConfig(params: UpdateGraphConfigurationParams) {
 		const config = this.getComponentConfig();
 
 		let key: keyof UpdateGraphConfigurationParams['changes'];
@@ -865,7 +864,7 @@ export class GraphWebviewProvider implements WebviewProvider<State, State, Graph
 		}
 	}
 
-	updateGraphSearchMode(params: UpdateGraphSearchModeParams) {
+	private updateGraphSearchMode(params: UpdateGraphSearchModeParams) {
 		void this.container.storage.store('graph:searchMode', params.searchMode).catch();
 	}
 
@@ -1112,7 +1111,7 @@ export class GraphWebviewProvider implements WebviewProvider<State, State, Graph
 				switch (msg.params.type) {
 					case 'work-dir-changes':
 						cache = false;
-						commit = await this.container.git.getCommit(this._graph.repoPath, uncommitted);
+						commit = await this.container.git.commits(this._graph.repoPath).getCommit(uncommitted);
 						break;
 					case 'stash-node': {
 						const gitStash = await this.container.git.stash(this._graph.repoPath)?.getStash();
@@ -1120,7 +1119,7 @@ export class GraphWebviewProvider implements WebviewProvider<State, State, Graph
 						break;
 					}
 					default: {
-						commit = await this.container.git.getCommit(this._graph.repoPath, msg.params.id);
+						commit = await this.container.git.commits(this._graph.repoPath).getCommit(msg.params.id);
 						break;
 					}
 				}
@@ -1485,7 +1484,7 @@ export class GraphWebviewProvider implements WebviewProvider<State, State, Graph
 	}
 
 	@log()
-	async onOpenPullRequestDetails(_params: OpenPullRequestDetailsParams) {
+	private async onOpenPullRequestDetails(_params: OpenPullRequestDetailsParams) {
 		// TODO: a hack for now, since we aren't using the params at all right now and always opening the current branch's PR
 		const repo = this.repository;
 		if (repo == null) return undefined;
@@ -1534,7 +1533,7 @@ export class GraphWebviewProvider implements WebviewProvider<State, State, Graph
 			return { results: undefined };
 		}
 
-		let search: GitSearch | undefined = this._search;
+		let search: GitGraphSearch | undefined = this._search;
 
 		if (e.more && search?.more != null && search.comparisonKey === getSearchQueryComparisonKey(e.search)) {
 			search = await search.more(e.limit ?? configuration.get('graph.searchItemLimit') ?? 100);
@@ -1569,7 +1568,7 @@ export class GraphWebviewProvider implements WebviewProvider<State, State, Graph
 			const cancellation = this.createCancellation('search');
 
 			try {
-				search = await this.repository.git.searchCommits(e.search, {
+				search = await this.repository.git.graph().searchGraph(e.search, {
 					limit: configuration.get('graph.searchItemLimit') ?? 100,
 					ordering: configuration.get('graph.commitOrdering'),
 					cancellation: cancellation.token,
@@ -1657,7 +1656,7 @@ export class GraphWebviewProvider implements WebviewProvider<State, State, Graph
 		});
 	}
 
-	async onChooseRef<T extends typeof ChooseRefRequest>(requestType: T, msg: IpcCallMessageType<T>) {
+	private async onChooseRef<T extends typeof ChooseRefRequest>(requestType: T, msg: IpcCallMessageType<T>) {
 		if (this.repository == null) {
 			return this.host.respond(requestType, msg, undefined);
 		}
@@ -2083,7 +2082,7 @@ export class GraphWebviewProvider implements WebviewProvider<State, State, Graph
 		}
 	}
 
-	private async ensureSearchStartsInRange(graph: GitGraph, search: GitSearch) {
+	private async ensureSearchStartsInRange(graph: GitGraph, search: GitGraphSearch) {
 		if (search.results.size === 0) return undefined;
 
 		let firstResult: string | undefined;
@@ -2508,25 +2507,20 @@ export class GraphWebviewProvider implements WebviewProvider<State, State, Graph
 		const limit = Math.max(defaultItemLimit, this._graph?.ids.size ?? defaultItemLimit);
 
 		const selectedId = this._selectedId;
-		const ref = selectedId == null || selectedId === uncommitted ? 'HEAD' : selectedId;
+		const rev = selectedId == null || selectedId === uncommitted ? 'HEAD' : selectedId;
 
 		const columns = this.getColumns();
 		const columnSettings = this.getColumnSettings(columns);
 
-		const dataPromise = this.container.git.getCommitsForGraph(
-			this.repository.uri,
-			uri => this.host.asWebviewUri(uri),
-			{
-				include: {
-					stats:
-						(configuration.get('graph.minimap.enabled') &&
-							configuration.get('graph.minimap.dataType') === 'lines') ||
-						!columnSettings.changes.isHidden,
-				},
-				limit: limit,
-				ref: ref,
+		const dataPromise = this.repository.git.graph().getGraph(rev, uri => this.host.asWebviewUri(uri), {
+			include: {
+				stats:
+					(configuration.get('graph.minimap.enabled') &&
+						configuration.get('graph.minimap.dataType') === 'lines') ||
+					!columnSettings.changes.isHidden,
 			},
-		);
+			limit: limit,
+		});
 
 		// Check for access and working tree stats
 		const promises = Promise.allSettled([
@@ -3045,7 +3039,7 @@ export class GraphWebviewProvider implements WebviewProvider<State, State, Graph
 		}
 	}
 
-	private async updateGraphWithMoreRows(graph: GitGraph, id: string | undefined, search?: GitSearch) {
+	private async updateGraphWithMoreRows(graph: GitGraph, id: string | undefined, search?: GitGraphSearch) {
 		const { defaultItemLimit, pageItemLimit } = configuration.get('graph');
 		const updatedGraph = await graph.more?.(pageItemLimit ?? defaultItemLimit, id);
 		if (updatedGraph != null) {
@@ -3824,7 +3818,7 @@ export class GraphWebviewProvider implements WebviewProvider<State, State, Graph
 	}
 
 	@log()
-	generateCommitMessage(item?: GraphItemContext) {
+	private generateCommitMessage(item?: GraphItemContext) {
 		const ref = this.getGraphItemRef(item);
 		if (ref == null) return Promise.resolve();
 
@@ -3877,7 +3871,7 @@ export class GraphWebviewProvider implements WebviewProvider<State, State, Graph
 		const commit = await this.getCommitFromGraphItemRef(item);
 		if (commit == null) return;
 
-		return openOnlyChangedFiles(commit);
+		return openOnlyChangedFiles(this.container, commit);
 	}
 
 	@log()
@@ -3942,7 +3936,7 @@ export class GraphWebviewProvider implements WebviewProvider<State, State, Graph
 			const { repoPath, name, email, current } = item.webviewItemValue;
 			return ContributorActions.addAuthors(
 				repoPath,
-				new GitContributor(repoPath, name, email, 0, undefined, undefined, current),
+				new GitContributor(repoPath, name, email, current ?? false, 0),
 			);
 		}
 
@@ -4005,10 +3999,10 @@ export class GraphWebviewProvider implements WebviewProvider<State, State, Graph
 
 	private getCommitFromGraphItemRef(item?: GraphItemContext): Promise<GitCommit | undefined> {
 		let ref: GitRevisionReference | GitStashReference | undefined = this.getGraphItemRef(item, 'revision');
-		if (ref != null) return this.container.git.getCommit(ref.repoPath, ref.ref);
+		if (ref != null) return this.container.git.commits(ref.repoPath).getCommit(ref.ref);
 
 		ref = this.getGraphItemRef(item, 'stash');
-		if (ref != null) return this.container.git.getCommit(ref.repoPath, ref.ref);
+		if (ref != null) return this.container.git.commits(ref.repoPath).getCommit(ref.ref);
 
 		return Promise.resolve(undefined);
 	}

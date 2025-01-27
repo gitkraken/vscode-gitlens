@@ -22,7 +22,7 @@ export class HomeStateProvider implements StateProvider<State> {
 	private readonly provider: ContextProvider<{ __context__: State }, ReactiveElementHost>;
 
 	private readonly _state: State;
-	get state() {
+	get state(): State {
 		return this._state;
 	}
 
@@ -90,7 +90,7 @@ export class HomeStateProvider implements StateProvider<State> {
 		});
 	}
 
-	dispose() {
+	dispose(): void {
 		this.disposable.dispose();
 	}
 }

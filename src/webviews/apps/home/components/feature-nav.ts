@@ -23,7 +23,7 @@ export class GlFeatureNav extends GlElement {
 	@state()
 	private _state!: State;
 
-	get orgAllowsDrafts() {
+	get orgAllowsDrafts(): boolean {
 		return this._state.orgSettings.drafts;
 	}
 
@@ -46,7 +46,7 @@ export class GlFeatureNav extends GlElement {
 		return true;
 	}
 
-	override render() {
+	override render(): unknown {
 		return html`
 			${when(
 				this.blockRepoFeatures,

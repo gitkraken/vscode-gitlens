@@ -12,11 +12,13 @@ import {
 	showGenericErrorMessage,
 	showLineUncommittedWarningMessage,
 } from '../messages';
+import { command } from '../system/-webview/command';
 import { createMarkdownCommandLink } from '../system/commands';
 import { Logger } from '../system/logger';
-import { command } from '../system/vscode/command';
-import type { CommandContext } from './base';
-import { ActiveEditorCachedCommand, getCommandUri, isCommandContextViewNodeHasCommit } from './base';
+import { ActiveEditorCachedCommand } from './commandBase';
+import { getCommandUri } from './commandBase.utils';
+import type { CommandContext } from './commandContext';
+import { isCommandContextViewNodeHasCommit } from './commandContext.utils';
 
 export interface ShowQuickCommitCommandArgs {
 	repoPath?: string;
@@ -39,7 +41,7 @@ export class ShowQuickCommitCommand extends ActiveEditorCachedCommand {
 		super([GlCommand.RevealCommitInView, GlCommand.ShowQuickCommit]);
 	}
 
-	protected override preExecute(context: CommandContext, args?: ShowQuickCommitCommandArgs) {
+	protected override preExecute(context: CommandContext, args?: ShowQuickCommitCommandArgs): Promise<void> {
 		if (context.command === GlCommand.RevealCommitInView) {
 			args = { ...args };
 			args.revealInView = true;
@@ -57,7 +59,7 @@ export class ShowQuickCommitCommand extends ActiveEditorCachedCommand {
 		return this.execute(context.editor, context.uri, args);
 	}
 
-	async execute(editor?: TextEditor, uri?: Uri, args?: ShowQuickCommitCommandArgs) {
+	async execute(editor?: TextEditor, uri?: Uri, args?: ShowQuickCommitCommandArgs): Promise<void> {
 		let gitUri;
 		let repoPath;
 		if (args?.commit == null) {
@@ -129,7 +131,7 @@ export class ShowQuickCommitCommand extends ActiveEditorCachedCommand {
 				}
 
 				if (args.repoLog == null) {
-					args.commit = await this.container.git.getCommit(repoPath, args.sha);
+					args.commit = await this.container.git.commits(repoPath).getCommit(args.sha);
 				}
 			}
 

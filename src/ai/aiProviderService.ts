@@ -5,19 +5,21 @@ import type { AIGenerateDraftEventData, Sources, TelemetryEvents } from '../cons
 import type { Container } from '../container';
 import { CancellationError } from '../errors';
 import type { GitCommit } from '../git/models/commit';
-import { assertsCommitHasFullDetails, isCommit } from '../git/models/commit';
+import { isCommit } from '../git/models/commit';
 import type { GitRevisionReference } from '../git/models/reference';
 import type { Repository } from '../git/models/repository';
 import { isRepository } from '../git/models/repository';
 import { uncommitted, uncommittedStaged } from '../git/models/revision';
+import { assertsCommitHasFullDetails } from '../git/utils/commit.utils';
 import { showAIModelPicker } from '../quickpicks/aiModelPicker';
+import { configuration } from '../system/-webview/configuration';
+import type { Storage } from '../system/-webview/storage';
+import { supportedInVSCodeVersion } from '../system/-webview/vscode';
 import { getSettledValue } from '../system/promise';
 import { getPossessiveForm } from '../system/string';
-import { configuration } from '../system/vscode/configuration';
-import type { Storage } from '../system/vscode/storage';
-import { supportedInVSCodeVersion } from '../system/vscode/utils';
 import type { TelemetryService } from '../telemetry/telemetry';
 import { AnthropicProvider } from './anthropicProvider';
+import { DeepSeekProvider } from './deepSeekProvider';
 import { GeminiProvider } from './geminiProvider';
 import { GitHubModelsProvider } from './githubModelsProvider';
 import { HuggingFaceProvider } from './huggingFaceProvider';
@@ -44,6 +46,8 @@ export interface AIModel<
 
 	readonly default?: boolean;
 	readonly hidden?: boolean;
+
+	readonly temperature?: number;
 }
 
 interface AIProviderConstructor<Provider extends AIProviders = AIProviders> {
@@ -54,6 +58,7 @@ const _supportedProviderTypes = new Map<AIProviders, AIProviderConstructor>([
 	...(supportedInVSCodeVersion('language-models') ? [['vscode', VSCodeAIProvider]] : ([] as any)),
 	['openai', OpenAIProvider],
 	['anthropic', AnthropicProvider],
+	['deepseek', DeepSeekProvider],
 	['gemini', GeminiProvider],
 	['github', GitHubModelsProvider],
 	['huggingface', HuggingFaceProvider],
@@ -93,11 +98,11 @@ export class AIProviderService implements Disposable {
 
 	constructor(private readonly container: Container) {}
 
-	dispose() {
+	dispose(): void {
 		this._provider?.dispose();
 	}
 
-	get currentProviderId() {
+	get currentProviderId(): AIProviders | undefined {
 		return this._provider?.id;
 	}
 
@@ -245,7 +250,7 @@ export class AIProviderService implements Disposable {
 		};
 		const source: Parameters<TelemetryService['sendEvent']>[2] = { source: sourceContext.source };
 
-		const confirmed = await confirmAIProviderToS(model, this.container.storage);
+		const confirmed = await confirmAIProviderToS(this, model, this.container.storage);
 		if (!confirmed) {
 			this.container.telemetry.sendEvent('ai/generate', { ...payload, 'failed.reason': 'user-declined' }, source);
 
@@ -326,7 +331,7 @@ export class AIProviderService implements Disposable {
 		};
 		const source: Parameters<TelemetryService['sendEvent']>[2] = { source: sourceContext.source };
 
-		const confirmed = await confirmAIProviderToS(model, this.container.storage);
+		const confirmed = await confirmAIProviderToS(this, model, this.container.storage);
 		if (!confirmed) {
 			this.container.telemetry.sendEvent('ai/generate', { ...payload, 'failed.reason': 'user-declined' }, source);
 
@@ -426,7 +431,7 @@ export class AIProviderService implements Disposable {
 		};
 		const source: Parameters<TelemetryService['sendEvent']>[2] = { source: sourceContext.source };
 
-		const confirmed = await confirmAIProviderToS(model, this.container.storage);
+		const confirmed = await confirmAIProviderToS(this, model, this.container.storage);
 		if (!confirmed) {
 			this.container.telemetry.sendEvent('ai/explain', { ...payload, 'failed.reason': 'user-declined' }, source);
 
@@ -435,7 +440,7 @@ export class AIProviderService implements Disposable {
 
 		const commit = isCommit(commitOrRevision)
 			? commitOrRevision
-			: await this.container.git.getCommit(commitOrRevision.repoPath, commitOrRevision.ref);
+			: await this.container.git.commits(commitOrRevision.repoPath).getCommit(commitOrRevision.ref);
 		if (commit == null) throw new Error('Unable to find commit');
 
 		if (!commit.hasFullDetails()) {
@@ -481,7 +486,7 @@ export class AIProviderService implements Disposable {
 		}
 	}
 
-	async reset(all?: boolean) {
+	async reset(all?: boolean): Promise<void> {
 		let { _provider: provider } = this;
 		if (provider == null) {
 			// If we have no provider, try to get the current model (which will load the provider)
@@ -535,16 +540,17 @@ export class AIProviderService implements Disposable {
 		}
 	}
 
-	supports(provider: AIProviders | string) {
+	supports(provider: AIProviders | string): boolean {
 		return _supportedProviderTypes.has(provider as AIProviders);
 	}
 
-	async switchModel() {
+	async switchModel(): Promise<void> {
 		void (await this.getModel({ force: true }));
 	}
 }
 
 async function confirmAIProviderToS<Provider extends AIProviders>(
+	service: AIProviderService,
 	model: AIModel<Provider, AIModels<Provider>>,
 	storage: Storage,
 ): Promise<boolean> {
@@ -554,19 +560,27 @@ async function confirmAIProviderToS<Provider extends AIProviders>(
 	if (confirmed) return true;
 
 	const accept: MessageItem = { title: 'Continue' };
+	const switchModel: MessageItem = { title: 'Switch Model' };
 	const acceptWorkspace: MessageItem = { title: 'Always for this Workspace' };
 	const acceptAlways: MessageItem = { title: 'Always' };
 	const decline: MessageItem = { title: 'Cancel', isCloseAffordance: true };
+
 	const result = await window.showInformationMessage(
 		`GitLens AI features require sending a diff of the code changes to ${model.provider.name} for analysis. This may contain sensitive information.\n\nDo you want to continue?`,
 		{ modal: true },
 		accept,
+		switchModel,
 		acceptWorkspace,
 		acceptAlways,
 		decline,
 	);
 
 	if (result === accept) return true;
+
+	if (result === switchModel) {
+		void service.switchModel();
+		return false;
+	}
 
 	if (result === acceptWorkspace) {
 		void storage.storeWorkspace(`confirm:ai:tos:${model.provider.id}`, true).catch();
@@ -688,10 +702,14 @@ function splitMessageIntoSummaryAndBody(message: string): AIResult {
 	};
 }
 
-export function showDiffTruncationWarning(maxCodeCharacters: number, model: AIModel) {
+export function showDiffTruncationWarning(maxCodeCharacters: number, model: AIModel): void {
 	void window.showWarningMessage(
 		`The diff of the changes had to be truncated to ${maxCodeCharacters} characters to fit within the ${getPossessiveForm(
 			model.provider.name,
 		)} limits.`,
 	);
+}
+
+export function getValidatedTemperature(): number {
+	return Math.max(0, Math.min(configuration.get('ai.modelOptions.temperature'), 2));
 }

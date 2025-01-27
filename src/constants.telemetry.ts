@@ -7,7 +7,7 @@ import type { SubscriptionState, SubscriptionStateString } from './constants.sub
 import type { CustomEditorTypes, TreeViewTypes, WebviewTypes, WebviewViewTypes } from './constants.views';
 import type { FeaturePreviews, FeaturePreviewStatus } from './features';
 import type { GitContributionTiers } from './git/models/contributor';
-import type { Subscription, SubscriptionAccount } from './plus/gk/account/subscription';
+import type { Subscription, SubscriptionAccount } from './plus/gk/models/subscription';
 import type { Flatten } from './system/object';
 import type { WalkthroughContextKeys } from './telemetry/walkthroughStateProvider';
 import type { GraphColumnConfig } from './webviews/plus/graph/protocol';

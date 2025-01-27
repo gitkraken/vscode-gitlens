@@ -3,12 +3,12 @@ import { Disposable, Uri, workspace } from 'vscode';
 import { git, gitLogStreamTo } from '@env/providers';
 import type { LiveShare, SharedService } from '../@types/vsls';
 import type { Container } from '../container';
+import { isVslsRoot } from '../system/-webview/path.vsls';
 import { debug, log } from '../system/decorators/log';
 import { join } from '../system/iterable';
 import { Logger } from '../system/logger';
 import { getLogScope } from '../system/logger.scope';
 import { normalizePath } from '../system/path';
-import { isVslsRoot } from '../system/vscode/path';
 import type {
 	GetRepositoriesForUriRequest,
 	GetRepositoriesForUriResponse,
@@ -55,7 +55,7 @@ export class VslsHostService implements Disposable {
 	static ServiceId = 'proxy';
 
 	@log()
-	static async share(api: LiveShare, container: Container) {
+	static async share(api: LiveShare, container: Container): Promise<VslsHostService> {
 		const service = await api.shareService(this.ServiceId);
 		if (service == null) {
 			throw new Error('Failed to share host service');
@@ -86,7 +86,7 @@ export class VslsHostService implements Disposable {
 		this.onWorkspaceFoldersChanged();
 	}
 
-	dispose() {
+	dispose(): void {
 		this._disposable.dispose();
 		void this._api.unshareService(VslsHostService.ServiceId);
 	}

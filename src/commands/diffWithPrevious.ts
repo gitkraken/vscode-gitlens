@@ -5,11 +5,12 @@ import { GitUri } from '../git/gitUri';
 import type { GitCommit } from '../git/models/commit';
 import { deletedOrMissing } from '../git/models/revision';
 import { showCommitHasNoPreviousCommitWarningMessage, showGenericErrorMessage } from '../messages';
+import { command, executeCommand } from '../system/-webview/command';
+import { findOrOpenEditor } from '../system/-webview/vscode';
 import { Logger } from '../system/logger';
-import { command, executeCommand } from '../system/vscode/command';
-import { findOrOpenEditor } from '../system/vscode/utils';
-import type { CommandContext } from './base';
-import { ActiveEditorCommand, getCommandUri } from './base';
+import { ActiveEditorCommand } from './commandBase';
+import { getCommandUri } from './commandBase.utils';
+import type { CommandContext } from './commandContext';
 import type { DiffWithCommandArgs } from './diffWith';
 
 export interface DiffWithPreviousCommandArgs {
@@ -31,7 +32,7 @@ export class DiffWithPreviousCommand extends ActiveEditorCommand {
 		]);
 	}
 
-	protected override preExecute(context: CommandContext, args?: DiffWithPreviousCommandArgs) {
+	protected override preExecute(context: CommandContext, args?: DiffWithPreviousCommandArgs): Promise<void> {
 		if (context.command === GlCommand.DiffWithPreviousInDiffRight) {
 			args = { ...args, inDiffRightEditor: true };
 		}
@@ -39,7 +40,7 @@ export class DiffWithPreviousCommand extends ActiveEditorCommand {
 		return this.execute(context.editor, context.uri, args);
 	}
 
-	async execute(editor?: TextEditor, uri?: Uri, args?: DiffWithPreviousCommandArgs) {
+	async execute(editor?: TextEditor, uri?: Uri, args?: DiffWithPreviousCommandArgs): Promise<void> {
 		args = { ...args };
 		if (args.uri == null) {
 			uri = getCommandUri(uri, editor);

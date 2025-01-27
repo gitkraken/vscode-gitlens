@@ -13,21 +13,23 @@ import { GlyphChars } from '../../constants';
 import { GlCommand } from '../../constants.commands';
 import { Container } from '../../container';
 import { showRevisionFilesPicker } from '../../quickpicks/revisionFilesPicker';
+import { executeCommand, executeCoreGitCommand, executeEditorCommand } from '../../system/-webview/command';
+import { configuration } from '../../system/-webview/configuration';
+import { findOrOpenEditor, findOrOpenEditors, openChangesEditor } from '../../system/-webview/vscode';
 import { getSettledValue } from '../../system/promise';
-import { executeCommand, executeCoreGitCommand, executeEditorCommand } from '../../system/vscode/command';
-import { configuration } from '../../system/vscode/configuration';
-import { findOrOpenEditor, findOrOpenEditors, openChangesEditor } from '../../system/vscode/utils';
+import type { ViewNode } from '../../views/nodes/abstract/viewNode';
 import type { ShowInCommitGraphCommandArgs } from '../../webviews/plus/graph/protocol';
 import { GitUri } from '../gitUri';
 import type { GitCommit } from '../models/commit';
 import { isCommit } from '../models/commit';
 import type { GitFile } from '../models/file';
-import { GitFileChange } from '../models/file';
+import { GitFileChange } from '../models/fileChange';
 import type { GitRevisionReference } from '../models/reference';
-import { createReference, getReferenceFromRevision, getReferenceLabel } from '../models/reference.utils';
 import { deletedOrMissing } from '../models/revision';
-import { createRevisionRange, isUncommitted, isUncommittedStaged, shortenRevision } from '../models/revision.utils';
 import { getAheadBehindFilesQuery } from '../queryResults';
+import { getReferenceFromRevision } from '../utils/-webview/reference.utils';
+import { createReference, getReferenceLabel } from '../utils/reference.utils';
+import { createRevisionRange, isUncommitted, isUncommittedStaged, shortenRevision } from '../utils/revision.utils';
 
 export type Ref = { repoPath: string; ref: string };
 export type RefRange = { repoPath: string; rhs: string; lhs: string };
@@ -44,7 +46,11 @@ const filesOpenThreshold = 10;
 const filesOpenDiffsThreshold = 10;
 const filesOpenMultiDiffThreshold = 50;
 
-export async function applyChanges(file: string | GitFile, rev1: GitRevisionReference, rev2?: GitRevisionReference) {
+export async function applyChanges(
+	file: string | GitFile,
+	rev1: GitRevisionReference,
+	rev2?: GitRevisionReference,
+): Promise<void> {
 	let create = false;
 	let ref1 = rev1.ref;
 	let ref2 = rev2?.ref;
@@ -80,7 +86,7 @@ export async function applyChanges(file: string | GitFile, rev1: GitRevisionRefe
 	}
 }
 
-export async function copyIdToClipboard(ref: Ref | GitCommit) {
+export async function copyIdToClipboard(ref: Ref | GitCommit): Promise<void> {
 	await env.clipboard.writeText(ref.ref);
 }
 
@@ -92,7 +98,7 @@ export async function copyMessageToClipboard(ref: Ref | GitCommit): Promise<void
 			await commit.ensureFullDetails();
 		}
 	} else {
-		commit = await Container.instance.git.getCommit(ref.repoPath, ref.ref);
+		commit = await Container.instance.git.commits(ref.repoPath).getCommit(ref.ref);
 		if (commit == null) return;
 	}
 
@@ -238,7 +244,7 @@ export async function openAllChangesInChangesEditor(
 
 export async function openAllChangesWithDiffTool(commit: GitCommit): Promise<void>;
 export async function openAllChangesWithDiffTool(files: GitFile[], ref: Ref): Promise<void>;
-export async function openAllChangesWithDiffTool(commitOrFiles: GitCommit | GitFile[], ref?: Ref) {
+export async function openAllChangesWithDiffTool(commitOrFiles: GitCommit | GitFile[], ref?: Ref): Promise<void> {
 	const { files } = await getChangesRefArgs(commitOrFiles, ref);
 
 	if (
@@ -269,7 +275,7 @@ export async function openAllChangesWithWorking(
 	commitOrFiles: GitCommit | GitFile[],
 	refOrOptions: Ref | (TextDocumentShowOptions & { title?: string }) | undefined,
 	maybeOptions?: TextDocumentShowOptions & { title?: string },
-) {
+): Promise<void> {
 	if (isCommit(commitOrFiles)) {
 		if (configuration.get('views.openChangesInMultiDiffEditor')) {
 			return openAllChangesInChangesEditor(commitOrFiles, refOrOptions as TextDocumentShowOptions | undefined);
@@ -307,7 +313,7 @@ export async function openAllChangesWithWorkingIndividually(
 	commitOrFiles: GitCommit | GitFile[],
 	refOrOptions: Ref | TextDocumentShowOptions | undefined,
 	maybeOptions?: TextDocumentShowOptions,
-) {
+): Promise<void> {
 	let { files, ref, options } = await getChangesRefArgs(commitOrFiles, refOrOptions, maybeOptions);
 
 	if (
@@ -346,7 +352,7 @@ export async function openChanges(
 	file: string | GitFile,
 	commitOrRefs: GitCommit | RefRange,
 	options?: TextDocumentShowOptions & { lhsTitle?: string; rhsTitle?: string },
-) {
+): Promise<void> {
 	const hasCommit = isCommit(commitOrRefs);
 
 	if (typeof file === 'string') {
@@ -395,7 +401,11 @@ export async function openChanges(
 
 export function openChangesWithDiffTool(file: string | GitFile, commit: GitCommit, tool?: string): Promise<void>;
 export function openChangesWithDiffTool(file: GitFile, ref: Ref, tool?: string): Promise<void>;
-export async function openChangesWithDiffTool(file: string | GitFile, commitOrRef: GitCommit | Ref, tool?: string) {
+export async function openChangesWithDiffTool(
+	file: string | GitFile,
+	commitOrRef: GitCommit | Ref,
+	tool?: string,
+): Promise<void> {
 	if (typeof file === 'string') {
 		if (!isCommit(commitOrRef)) throw new Error('Invalid arguments');
 
@@ -431,7 +441,7 @@ export async function openChangesWithWorking(
 	file: string | GitFile,
 	commitOrRef: GitCommit | Ref,
 	options?: TextDocumentShowOptions & { lhsTitle?: string },
-) {
+): Promise<void> {
 	if (typeof file === 'string') {
 		if (!isCommit(commitOrRef)) throw new Error('Invalid arguments');
 
@@ -545,7 +555,7 @@ export async function openFile(
 	fileOrUri: string | GitFile | Uri,
 	refOrOptions?: GitRevisionReference | TextDocumentShowOptions,
 	options?: TextDocumentShowOptions,
-) {
+): Promise<void> {
 	let uri;
 	if (fileOrUri instanceof Uri) {
 		uri = fileOrUri;
@@ -736,7 +746,7 @@ export async function openFilesAtRevision(
 	);
 }
 
-export async function restoreFile(file: string | GitFile, revision: GitRevisionReference) {
+export async function restoreFile(file: string | GitFile, revision: GitRevisionReference): Promise<void> {
 	let path;
 	let ref;
 	if (typeof file === 'string') {
@@ -770,7 +780,7 @@ export function reveal(
 		focus?: boolean;
 		expand?: boolean | number;
 	},
-) {
+): Promise<ViewNode | undefined> {
 	return Container.instance.views.revealCommit(commit, options);
 }
 
@@ -821,9 +831,9 @@ export async function showInCommitGraph(
 	}));
 }
 
-export async function openOnlyChangedFiles(commit: GitCommit): Promise<void>;
-export async function openOnlyChangedFiles(files: GitFile[]): Promise<void>;
-export async function openOnlyChangedFiles(commitOrFiles: GitCommit | GitFile[]): Promise<void> {
+export async function openOnlyChangedFiles(container: Container, commit: GitCommit): Promise<void>;
+export async function openOnlyChangedFiles(container: Container, files: GitFile[]): Promise<void>;
+export async function openOnlyChangedFiles(container: Container, commitOrFiles: GitCommit | GitFile[]): Promise<void> {
 	let files;
 	if (isCommit(commitOrFiles)) {
 		if (commitOrFiles.files == null) {
@@ -832,7 +842,7 @@ export async function openOnlyChangedFiles(commitOrFiles: GitCommit | GitFile[])
 
 		files = commitOrFiles.files ?? [];
 	} else {
-		files = commitOrFiles.map(f => new GitFileChange(f.repoPath!, f.path, f.status, f.originalPath));
+		files = commitOrFiles.map(f => new GitFileChange(container, f.repoPath!, f.path, f.status, f.originalPath));
 	}
 
 	if (
@@ -850,7 +860,7 @@ export async function openOnlyChangedFiles(commitOrFiles: GitCommit | GitFile[])
 	}));
 }
 
-export async function undoCommit(container: Container, commit: GitRevisionReference) {
+export async function undoCommit(container: Container, commit: GitRevisionReference): Promise<void> {
 	const repo = await container.git.getOrOpenScmRepository(commit.repoPath);
 	const scmCommit = await repo?.getCommit('HEAD');
 
@@ -976,18 +986,20 @@ export async function getOrderedComparisonRefs(
 	refA: string,
 	refB: string,
 ): Promise<[string, string]> {
+	const commitsProvider = container.git.commits(repoPath);
+
 	// Check the ancestry of refA and refB to determine which is the "newer" one
-	const ancestor = await container.git.isAncestorOf(repoPath, refA, refB);
+	const ancestor = await commitsProvider.isAncestorOf(refA, refB);
 	// If refB is an ancestor of refA, compare refA to refB (as refA is "newer")
 	if (ancestor) return [refB, refA];
 
-	const ancestor2 = await container.git.isAncestorOf(repoPath, refB, refA);
+	const ancestor2 = await commitsProvider.isAncestorOf(refB, refA);
 	// If refA is an ancestor of refB, compare refB to refA (as refB is "newer")
 	if (ancestor2) return [refA, refB];
 
 	const [commitRefAResult, commitRefBResult] = await Promise.allSettled([
-		container.git.getCommit(repoPath, refA),
-		container.git.getCommit(repoPath, refB),
+		commitsProvider.getCommit(refA),
+		commitsProvider.getCommit(refB),
 	]);
 
 	const commitRefA = getSettledValue(commitRefAResult);

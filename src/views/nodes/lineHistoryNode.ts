@@ -2,18 +2,19 @@ import { Disposable, Selection, TreeItem, TreeItemCollapsibleState, window } fro
 import type { GitUri } from '../../git/gitUri';
 import type { GitBranch } from '../../git/models/branch';
 import type { GitFile } from '../../git/models/file';
-import { GitFileIndexStatus } from '../../git/models/file';
+import { GitFileIndexStatus } from '../../git/models/fileStatus';
 import type { GitLog } from '../../git/models/log';
 import type { RepositoryChangeEvent, RepositoryFileSystemChangeEvent } from '../../git/models/repository';
 import { RepositoryChange, RepositoryChangeComparisonMode } from '../../git/models/repository';
 import { deletedOrMissing } from '../../git/models/revision';
-import { isUncommitted } from '../../git/models/revision.utils';
-import { gate } from '../../system/decorators/gate';
+import { isUncommitted } from '../../git/utils/revision.utils';
+import { gate } from '../../system/decorators/-webview/gate';
+import { memoize } from '../../system/decorators/-webview/memoize';
 import { debug } from '../../system/decorators/log';
-import { memoize } from '../../system/decorators/memoize';
 import { weakEvent } from '../../system/event';
 import { filterMap } from '../../system/iterable';
-import { Logger } from '../../system/logger';
+import { getLoggableName, Logger } from '../../system/logger';
+import { startLogScope } from '../../system/logger.scope';
 import type { FileHistoryView } from '../fileHistoryView';
 import type { LineHistoryView } from '../lineHistoryView';
 import { SubscribeableViewNode } from './abstract/subscribeableViewNode';
@@ -81,12 +82,7 @@ export class LineHistoryNode
 					: await this.view.container.git.getBlameForRange(this.uri, selection)
 				: undefined,
 			this.view.container.git.getBranchesAndTagsTipsLookup(this.uri.repoPath, this.branch?.name),
-			range
-				? this.view.container.git.getLogRefsOnly(this.uri.repoPath, {
-						limit: 0,
-						ref: range,
-				  })
-				: undefined,
+			range ? this.view.container.git.commits(this.uri.repoPath).getLogShasOnly(range, { limit: 0 }) : undefined,
 		]);
 
 		// Check for any uncommitted changes in the range
@@ -180,21 +176,21 @@ export class LineHistoryNode
 		return item;
 	}
 
-	get label() {
+	get label(): string {
 		return `${this.uri.fileName}${this.lines}${
 			this.uri.sha ? ` ${this.uri.sha === deletedOrMissing ? this.uri.shortSha : `(${this.uri.shortSha})`}` : ''
 		}`;
 	}
 
 	@memoize()
-	get lines() {
+	get lines(): string {
 		return this.selection.isSingleLine
 			? `:${this.selection.start.line + 1}`
 			: `:${this.selection.start.line + 1}-${this.selection.end.line + 1}`;
 	}
 
 	@debug()
-	protected subscribe() {
+	protected subscribe(): Disposable | undefined {
 		const repo = this.view.container.git.getRepository(this.uri);
 		if (repo == null) return undefined;
 
@@ -225,7 +221,8 @@ export class LineHistoryNode
 			return;
 		}
 
-		Logger.debug(`LineHistoryNode.onRepositoryChanged(${e.toString()}); triggering node refresh`);
+		using scope = startLogScope(`${getLoggableName(this)}.onRepositoryChanged(e=${e.toString()})`, false);
+		Logger.debug(scope, 'triggering node refresh');
 
 		void this.triggerChange(true);
 	}
@@ -233,14 +230,18 @@ export class LineHistoryNode
 	private onFileSystemChanged(e: RepositoryFileSystemChangeEvent) {
 		if (!e.uris.some(uri => uri.toString() === this.uri.toString())) return;
 
-		Logger.debug(`LineHistoryNode.onFileSystemChanged(${this.uri.toString(true)}); triggering node refresh`);
+		using scope = startLogScope(
+			`${getLoggableName(this)}.onFileSystemChanged(e=${this.uri.toString(true)})`,
+			false,
+		);
+		Logger.debug(scope, 'triggering node refresh');
 
 		void this.triggerChange(true);
 	}
 
 	@gate()
 	@debug()
-	override refresh(reset?: boolean) {
+	override refresh(reset?: boolean): void {
 		if (reset) {
 			this._log = undefined;
 		}
@@ -249,24 +250,25 @@ export class LineHistoryNode
 	private _log: GitLog | undefined;
 	private async getLog(selection?: Selection) {
 		if (this._log == null) {
-			this._log = await this.view.container.git.getLogForFile(this.uri.repoPath, this.uri, {
-				all: false,
-				limit: this.limit ?? this.view.config.pageItemLimit,
-				range: selection ?? this.selection,
-				ref: this.uri.sha,
-				renames: false,
-			});
+			this._log = await this.view.container.git
+				.commits(this.uri.repoPath!)
+				.getLogForFile(this.uri, this.uri.sha, {
+					all: false,
+					limit: this.limit ?? this.view.config.pageItemLimit,
+					range: selection ?? this.selection,
+					renames: false,
+				});
 		}
 
 		return this._log;
 	}
 
-	get hasMore() {
+	get hasMore(): boolean {
 		return this._log?.hasMore ?? true;
 	}
 
 	@gate()
-	async loadMore(limit?: number | { until?: any }) {
+	async loadMore(limit?: number | { until?: any }): Promise<void> {
 		let log = await window.withProgress(
 			{
 				location: { viewId: this.view.id },

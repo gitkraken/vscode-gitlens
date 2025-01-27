@@ -42,7 +42,7 @@ export class GlIntegrationBanner extends LitElement {
 	@query('gl-button')
 	private _button!: GlButton;
 
-	override render() {
+	override render(): unknown {
 		if (this.closed || this._state.hasAnyIntegrationConnected || this._state.integrationBannerCollapsed) {
 			return nothing;
 		}
@@ -78,7 +78,7 @@ export class GlIntegrationBanner extends LitElement {
 		});
 	}
 
-	override focus() {
+	override focus(): void {
 		this._button.focus();
 	}
 }

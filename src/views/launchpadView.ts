@@ -8,15 +8,16 @@ import type { Container } from '../container';
 import { AuthenticationRequiredError } from '../errors';
 import { PlusFeatures } from '../features';
 import { GitUri, unknownGitUri } from '../git/gitUri';
-import type { SubscriptionChangeEvent } from '../plus/gk/account/subscriptionService';
-import { ensurePlusFeaturesEnabled } from '../plus/gk/utils';
+import type { PullRequest } from '../git/models/pullRequest';
+import type { SubscriptionChangeEvent } from '../plus/gk/subscriptionService';
+import { ensurePlusFeaturesEnabled } from '../plus/gk/utils/-webview/plus.utils';
 import type { LaunchpadCommandArgs } from '../plus/launchpad/launchpad';
 import type { LaunchpadItem } from '../plus/launchpad/launchpadProvider';
 import { groupAndSortLaunchpadItems } from '../plus/launchpad/launchpadProvider';
-import type { LaunchpadGroup } from '../plus/launchpad/models';
-import { launchpadGroupIconMap, launchpadGroupLabelMap } from '../plus/launchpad/models';
-import { createCommand, executeCommand } from '../system/vscode/command';
-import { configuration } from '../system/vscode/configuration';
+import type { LaunchpadGroup } from '../plus/launchpad/models/launchpad';
+import { launchpadGroupIconMap, launchpadGroupLabelMap } from '../plus/launchpad/models/launchpad';
+import { createCommand, executeCommand } from '../system/-webview/command';
+import { configuration } from '../system/-webview/configuration';
 import { CacheableChildrenViewNode } from './nodes/abstract/cacheableChildrenViewNode';
 import type { ClipboardType, ViewNode } from './nodes/abstract/viewNode';
 import { ContextValues, getViewNodeId } from './nodes/abstract/viewNode';
@@ -62,7 +63,7 @@ export class LaunchpadItemNode extends CacheableChildrenViewNode<'launchpad-item
 		return this.item.url ?? this.item.underlyingPullRequest.url;
 	}
 
-	get pullRequest() {
+	get pullRequest(): PullRequest | undefined {
 		return this.item.type === 'pullrequest' ? this.item.underlyingPullRequest : undefined;
 	}
 
@@ -132,7 +133,7 @@ export class LaunchpadViewNode extends CacheableChildrenViewNode<
 		);
 	}
 
-	override dispose() {
+	override dispose(): void {
 		this.disposable?.dispose();
 		super.dispose();
 	}
@@ -143,7 +144,7 @@ export class LaunchpadViewNode extends CacheableChildrenViewNode<
 		}
 	}
 
-	override refresh() {
+	override refresh(): void {
 		if (this.children == null) return;
 
 		disposeChildren(this.children);
@@ -226,7 +227,7 @@ export class LaunchpadView extends ViewBase<'launchpad', LaunchpadViewNode, Laun
 		super(container, 'launchpad', 'Launchpad', 'launchpadView', grouped);
 	}
 
-	override dispose() {
+	override dispose(): void {
 		this._disposable?.dispose();
 		super.dispose();
 	}
@@ -236,7 +237,7 @@ export class LaunchpadView extends ViewBase<'launchpad', LaunchpadViewNode, Laun
 		return description ? `${description} \u00a0\u2022\u00a0 ${proBadge}` : proBadge;
 	}
 
-	protected getRoot() {
+	protected getRoot(): LaunchpadViewNode {
 		return new LaunchpadViewNode(this);
 	}
 
@@ -306,7 +307,7 @@ export class LaunchpadView extends ViewBase<'launchpad', LaunchpadViewNode, Laun
 		];
 	}
 
-	protected override filterConfigurationChanged(e: ConfigurationChangeEvent) {
+	protected override filterConfigurationChanged(e: ConfigurationChangeEvent): boolean {
 		const changed = super.filterConfigurationChanged(e);
 		if (
 			!changed &&

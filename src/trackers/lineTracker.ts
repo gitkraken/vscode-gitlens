@@ -2,11 +2,11 @@ import type { Event, Selection, TextEditor, TextEditorSelectionChangeEvent } fro
 import { Disposable, EventEmitter, window } from 'vscode';
 import type { Container } from '../container';
 import type { GitCommit } from '../git/models/commit';
+import { isTrackableTextEditor } from '../system/-webview/vscode';
 import { debug } from '../system/decorators/log';
 import type { Deferrable } from '../system/function';
 import { debounce } from '../system/function';
 import { getLogScope, setLogScopeExit } from '../system/logger.scope';
-import { isTrackableTextEditor } from '../system/vscode/utils';
 import type {
 	DocumentBlameStateChangeEvent,
 	DocumentContentChangeEvent,
@@ -50,7 +50,7 @@ export class LineTracker {
 		private readonly documentTracker: GitDocumentTracker,
 	) {}
 
-	dispose() {
+	dispose(): void {
 		for (const subscriber of this._subscriptions.keys()) {
 			this.unsubscribe(subscriber);
 		}
@@ -140,7 +140,7 @@ export class LineTracker {
 	}
 
 	private _suspended = false;
-	get suspended() {
+	get suspended(): boolean {
 		return this._suspended;
 	}
 
@@ -148,7 +148,7 @@ export class LineTracker {
 		return this._state.get(line);
 	}
 
-	resetState(line?: number) {
+	resetState(line?: number): void {
 		if (line != null) {
 			this._state.delete(line);
 			return;
@@ -157,7 +157,7 @@ export class LineTracker {
 		this._state.clear();
 	}
 
-	setState(line: number, state: LineState | undefined) {
+	setState(line: number, state: LineState | undefined): void {
 		this._state.set(line, state);
 	}
 
@@ -186,12 +186,12 @@ export class LineTracker {
 		return false;
 	}
 
-	refresh() {
+	refresh(): void {
 		this.notifyLinesChanged('editor');
 	}
 
 	@debug()
-	resume(options?: { force?: boolean; silent?: boolean }) {
+	resume(options?: { force?: boolean; silent?: boolean }): void {
 		if (!options?.force && !this._suspended) return;
 
 		this._suspended = false;
@@ -203,7 +203,7 @@ export class LineTracker {
 	}
 
 	@debug()
-	suspend(options?: { force?: boolean; silent?: boolean }) {
+	suspend(options?: { force?: boolean; silent?: boolean }): void {
 		if (!options?.force && this._suspended) return;
 
 		this._suspended = true;
@@ -215,7 +215,7 @@ export class LineTracker {
 		}
 	}
 
-	subscribed(subscriber: unknown) {
+	subscribed(subscriber: unknown): boolean {
 		return this._subscriptions.has(subscriber);
 	}
 
@@ -260,7 +260,7 @@ export class LineTracker {
 	}
 
 	@debug({ args: false, singleLine: true })
-	unsubscribe(subscriber: unknown) {
+	unsubscribe(subscriber: unknown): void {
 		const subs = this._subscriptions.get(subscriber);
 		if (subs == null) return;
 

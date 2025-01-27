@@ -6,16 +6,16 @@ import { reveal, showDetailsView } from '../../git/actions/stash';
 import { StashApplyError, StashApplyErrorReason, StashPushError, StashPushErrorReason } from '../../git/errors';
 import type { GitStashCommit } from '../../git/models/commit';
 import type { GitStashReference } from '../../git/models/reference';
-import { getReferenceLabel } from '../../git/models/reference.utils';
 import type { Repository } from '../../git/models/repository';
+import { getReferenceLabel } from '../../git/utils/reference.utils';
 import { showGenericErrorMessage } from '../../messages';
 import type { QuickPickItemOfT } from '../../quickpicks/items/common';
 import type { FlagsQuickPickItem } from '../../quickpicks/items/flags';
 import { createFlagsQuickPickItem } from '../../quickpicks/items/flags';
+import { getContext } from '../../system/-webview/context';
+import { formatPath } from '../../system/-webview/formatPath';
 import { Logger } from '../../system/logger';
 import { pad } from '../../system/string';
-import { getContext } from '../../system/vscode/context';
-import { formatPath } from '../../system/vscode/formatPath';
 import type { ViewsWithRepositoryFolders } from '../../views/viewBase';
 import type {
 	AsyncStepResultGenerator,
@@ -180,7 +180,7 @@ export class StashGitCommand extends QuickCommand<State> {
 		return this.subcommand === 'drop' ? false : super.canSkipConfirm;
 	}
 
-	override get skipConfirmKey() {
+	override get skipConfirmKey(): string {
 		return `${this.key}${this.subcommand == null ? '' : `-${this.subcommand}`}:${this.pickedVia}`;
 	}
 

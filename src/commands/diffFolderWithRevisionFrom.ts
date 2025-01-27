@@ -5,14 +5,15 @@ import { GlCommand } from '../constants.commands';
 import type { Container } from '../container';
 import { openFolderCompare } from '../git/actions/commit';
 import { GitUri } from '../git/gitUri';
-import { shortenRevision } from '../git/models/revision.utils';
+import { shortenRevision } from '../git/utils/revision.utils';
 import { showGenericErrorMessage } from '../messages';
 import { ReferencesQuickPickIncludes, showReferencePicker } from '../quickpicks/referencePicker';
 import { getBestRepositoryOrShowPicker } from '../quickpicks/repositoryPicker';
+import { command } from '../system/-webview/command';
 import { Logger } from '../system/logger';
 import { pad } from '../system/string';
-import { command } from '../system/vscode/command';
-import { ActiveEditorCommand, getCommandUri } from './base';
+import { ActiveEditorCommand } from './commandBase';
+import { getCommandUri } from './commandBase.utils';
 
 export interface DiffFolderWithRevisionFromCommandArgs {
 	uri?: Uri;

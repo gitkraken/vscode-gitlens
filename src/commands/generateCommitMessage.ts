@@ -6,10 +6,11 @@ import type { Container } from '../container';
 import { GitUri } from '../git/gitUri';
 import { showGenericErrorMessage } from '../messages';
 import { getBestRepositoryOrShowPicker } from '../quickpicks/repositoryPicker';
+import { command, executeCoreCommand } from '../system/-webview/command';
 import { Logger } from '../system/logger';
-import { command, executeCoreCommand } from '../system/vscode/command';
-import type { CommandContext } from './base';
-import { ActiveEditorCommand, getCommandUri } from './base';
+import { ActiveEditorCommand } from './commandBase';
+import { getCommandUri } from './commandBase.utils';
+import type { CommandContext } from './commandContext';
 
 export interface GenerateCommitMessageCommandArgs {
 	repoPath?: string;
@@ -22,7 +23,7 @@ export class GenerateCommitMessageCommand extends ActiveEditorCommand {
 		super([GlCommand.GenerateCommitMessage, GlCommand.GenerateCommitMessageScm]);
 	}
 
-	protected override preExecute(context: CommandContext, args?: GenerateCommitMessageCommandArgs) {
+	protected override preExecute(context: CommandContext, args?: GenerateCommitMessageCommandArgs): Promise<void> {
 		let source: Sources | undefined = args?.source;
 		if (source == null && context.command === GlCommand.GenerateCommitMessageScm) {
 			source = 'scm-input';
@@ -31,7 +32,7 @@ export class GenerateCommitMessageCommand extends ActiveEditorCommand {
 		return this.execute(context.editor, context.uri, { ...args, source: source });
 	}
 
-	async execute(editor?: TextEditor, uri?: Uri, args?: GenerateCommitMessageCommandArgs) {
+	async execute(editor?: TextEditor, uri?: Uri, args?: GenerateCommitMessageCommandArgs): Promise<void> {
 		args = { ...args };
 
 		let repository;

@@ -3,17 +3,17 @@ import type { Container } from '../../container';
 import type { GitBranch } from '../../git/models/branch';
 import type { GitLog } from '../../git/models/log';
 import type { GitReference } from '../../git/models/reference';
-import { getReferenceLabel, isRevisionReference } from '../../git/models/reference.utils';
 import type { Repository } from '../../git/models/repository';
-import { createRevisionRange } from '../../git/models/revision.utils';
-import { isSubscriptionStatePaidOrTrial } from '../../plus/gk/account/subscription';
+import { getReferenceLabel, isRevisionReference } from '../../git/utils/reference.utils';
+import { createRevisionRange } from '../../git/utils/revision.utils';
+import { isSubscriptionStatePaidOrTrial } from '../../plus/gk/utils/subscription.utils';
 import { createQuickPickSeparator } from '../../quickpicks/items/common';
 import type { DirectiveQuickPickItem } from '../../quickpicks/items/directive';
 import { createDirectiveQuickPickItem, Directive } from '../../quickpicks/items/directive';
 import type { FlagsQuickPickItem } from '../../quickpicks/items/flags';
 import { createFlagsQuickPickItem } from '../../quickpicks/items/flags';
+import { getEditorCommand } from '../../system/-webview/vscode';
 import { pluralize } from '../../system/string';
-import { getEditorCommand } from '../../system/vscode/utils';
 import type { ViewsWithRepositoryFolders } from '../../views/viewBase';
 import type {
 	AsyncStepResultGenerator,
@@ -82,7 +82,7 @@ export class RebaseGitCommand extends QuickCommand<State> {
 		return false;
 	}
 
-	async execute(state: RebaseStepState) {
+	private async execute(state: RebaseStepState) {
 		let configs: string[] | undefined;
 		if (state.flags.includes('--interactive')) {
 			await this.container.rebaseEditor.enableForNextUse();
@@ -181,18 +181,18 @@ export class RebaseGitCommand extends QuickCommand<State> {
 				context.selectedBranchOrTag != null &&
 				(context.pickCommit || context.pickCommitForItem || state.destination.ref === context.branch.ref)
 			) {
-				const ref = context.selectedBranchOrTag.ref;
+				const rev = context.selectedBranchOrTag.ref;
 
-				let log = context.cache.get(ref);
+				let log = context.cache.get(rev);
 				if (log == null) {
-					log = this.container.git.getLog(state.repo.path, { ref: ref, merges: 'first-parent' });
-					context.cache.set(ref, log);
+					log = state.repo.git.commits().getLog(rev, { merges: 'first-parent' });
+					context.cache.set(rev, log);
 				}
 
 				const result: StepResult<GitReference> = yield* pickCommitStep(state as RebaseStepState, context, {
 					ignoreFocusOut: true,
 					log: await log,
-					onDidLoadMore: log => context.cache.set(ref, Promise.resolve(log)),
+					onDidLoadMore: log => context.cache.set(rev, Promise.resolve(log)),
 					placeholder: (context, log) =>
 						log == null
 							? `No commits found on ${getReferenceLabel(context.selectedBranchOrTag, {
@@ -221,11 +221,11 @@ export class RebaseGitCommand extends QuickCommand<State> {
 	}
 
 	private async *confirmStep(state: RebaseStepState, context: Context): AsyncStepResultGenerator<Flags[]> {
-		const counts = await this.container.git.getLeftRightCommitCount(
-			state.repo.path,
-			createRevisionRange(state.destination.ref, context.branch.ref, '...'),
-			{ excludeMerges: true },
-		);
+		const counts = await state.repo.git
+			.commits()
+			.getLeftRightCommitCount(createRevisionRange(state.destination.ref, context.branch.ref, '...'), {
+				excludeMerges: true,
+			});
 
 		const title = `${context.title} ${getReferenceLabel(state.destination, { icon: false, label: false })}`;
 		const ahead = counts != null ? counts.right : 0;

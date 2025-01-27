@@ -1,7 +1,7 @@
 import { GlCommand } from '../constants.commands';
 import type { Container } from '../container';
-import { command } from '../system/vscode/command';
-import { GlCommandBase } from './base';
+import { command } from '../system/-webview/command';
+import { GlCommandBase } from './commandBase';
 
 @command()
 export class ToggleCodeLensCommand extends GlCommandBase {
@@ -9,7 +9,7 @@ export class ToggleCodeLensCommand extends GlCommandBase {
 		super(GlCommand.ToggleCodeLens);
 	}
 
-	execute() {
+	execute(): void {
 		this.container.codeLens.toggleCodeLens();
 	}
 }

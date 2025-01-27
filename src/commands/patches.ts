@@ -9,29 +9,28 @@ import type { IntegrationId } from '../constants.integrations';
 import type { Container } from '../container';
 import { CancellationError } from '../errors';
 import { ApplyPatchCommitError, ApplyPatchCommitErrorReason } from '../git/errors';
-import { splitCommitMessage } from '../git/models/commit.utils';
 import type { GitDiff } from '../git/models/diff';
 import type { Repository } from '../git/models/repository';
 import { uncommitted, uncommittedStaged } from '../git/models/revision';
-import { isSha, shortenRevision } from '../git/models/revision.utils';
-import type { Draft, LocalDraft } from '../gk/models/drafts';
+import { splitCommitMessage } from '../git/utils/commit.utils';
+import { isSha, shortenRevision } from '../git/utils/revision.utils';
 import { showPatchesView } from '../plus/drafts/actions';
 import type { ProviderAuth } from '../plus/drafts/draftsService';
+import type { Draft, LocalDraft } from '../plus/drafts/models/drafts';
 import { getProviderIdFromEntityIdentifier } from '../plus/integrations/providers/utils';
 import { getRepositoryOrShowPicker } from '../quickpicks/repositoryPicker';
+import { command } from '../system/-webview/command';
 import { map } from '../system/iterable';
 import { Logger } from '../system/logger';
-import { command } from '../system/vscode/command';
 import type { Change, CreateDraft } from '../webviews/plus/patchDetails/protocol';
-import type { CommandContext } from './base';
+import { ActiveEditorCommand, GlCommandBase } from './commandBase';
+import type { CommandContext } from './commandContext';
 import {
-	ActiveEditorCommand,
-	GlCommandBase,
 	isCommandContextViewNodeHasCommit,
 	isCommandContextViewNodeHasComparison,
 	isCommandContextViewNodeHasFileCommit,
 	isCommandContextViewNodeHasFileRefs,
-} from './base';
+} from './commandContext.utils';
 
 export interface CreatePatchCommandArgs {
 	to?: string;
@@ -165,7 +164,7 @@ export class CreatePatchCommand extends CreatePatchCommandBase {
 		super(container, GlCommand.CreatePatch);
 	}
 
-	async execute(args?: CreatePatchCommandArgs) {
+	async execute(args?: CreatePatchCommandArgs): Promise<void> {
 		const diff = await this.getDiff('Create Patch', args);
 		if (diff == null) return;
 
@@ -189,7 +188,7 @@ export class CopyPatchToClipboardCommand extends CreatePatchCommandBase {
 		super(container, GlCommand.CopyPatchToClipboard);
 	}
 
-	async execute(args?: CreatePatchCommandArgs) {
+	async execute(args?: CreatePatchCommandArgs): Promise<void> {
 		const diff = await this.getDiff('Copy as Patch', args);
 		if (diff == null) return;
 
@@ -206,7 +205,7 @@ export class ApplyPatchFromClipboardCommand extends GlCommandBase {
 		super([GlCommand.ApplyPatchFromClipboard, GlCommand.PastePatchFromClipboard]);
 	}
 
-	async execute() {
+	async execute(): Promise<void> {
 		const patch = await env.clipboard.readText();
 		let repo = this.container.git.highlander;
 
@@ -250,7 +249,7 @@ export class CreateCloudPatchCommand extends CreatePatchCommandBase {
 		super(container, [GlCommand.CreateCloudPatch, GlCommand.ShareAsCloudPatch]);
 	}
 
-	async execute(args?: CreatePatchCommandArgs) {
+	async execute(args?: CreatePatchCommandArgs): Promise<void> {
 		if (args?.repoPath == null) {
 			return showPatchesView({ mode: 'create' });
 		}
@@ -260,7 +259,7 @@ export class CreateCloudPatchCommand extends CreatePatchCommandBase {
 			return showPatchesView({ mode: 'create' });
 		}
 
-		const create = await createDraft(this.container, repo, args);
+		const create = await createDraft(repo, args);
 		if (create == null) {
 			return showPatchesView({ mode: 'create', create: { repositories: [repo] } });
 		}
@@ -274,7 +273,7 @@ export class OpenPatchCommand extends ActiveEditorCommand {
 		super(GlCommand.OpenPatch);
 	}
 
-	async execute(editor?: TextEditor) {
+	async execute(editor?: TextEditor): Promise<void> {
 		let document;
 		if (editor?.document?.languageId === 'diff') {
 			document = editor.document;
@@ -321,7 +320,7 @@ export class OpenCloudPatchCommand extends GlCommandBase {
 		super(GlCommand.OpenCloudPatch);
 	}
 
-	async execute(args?: OpenCloudPatchCommandArgs) {
+	async execute(args?: OpenCloudPatchCommandArgs): Promise<void> {
 		const type = args?.type === 'code_suggestion' ? 'Code Suggestion' : 'Cloud Patch';
 		if (args?.id == null && args?.draft == null) {
 			void window.showErrorMessage(`Cannot open ${type}; no patch or patch id provided`);
@@ -372,11 +371,7 @@ export class OpenCloudPatchCommand extends GlCommandBase {
 	}
 }
 
-async function createDraft(
-	container: Container,
-	repository: Repository,
-	args: CreatePatchCommandArgs,
-): Promise<CreateDraft | undefined> {
+async function createDraft(repository: Repository, args: CreatePatchCommandArgs): Promise<CreateDraft | undefined> {
 	if (args.to == null) return undefined;
 
 	const to = args.to ?? 'HEAD';
@@ -394,7 +389,9 @@ async function createDraft(
 
 	const create: CreateDraft = { changes: [change], title: args.title, description: args.description };
 
-	const commit = await container.git.getCommit(repository.uri, to);
+	const commitsProvider = repository.git.commits();
+
+	const commit = await commitsProvider.getCommit(to);
 	if (commit == null) return undefined;
 
 	if (args.from == null) {
@@ -402,23 +399,23 @@ async function createDraft(
 
 		change.files = [...commit.files];
 	} else {
-		const diff = await container.git.getDiff(repository.uri, to, args.from);
+		const diff = await repository.git.getDiff(to, args.from);
 		if (diff == null) return;
 
-		const result = await container.git.getDiffFiles(repository.uri, diff.contents);
+		const result = await repository.git.getDiffFiles(diff.contents);
 		if (result?.files == null) return;
 
 		change.files = result.files;
 
 		if (!isSha(args.to)) {
-			const commit = await container.git.getCommit(repository.uri, args.to);
+			const commit = await commitsProvider.getCommit(args.to);
 			if (commit != null) {
 				change.revision.to = commit.sha;
 			}
 		}
 
 		if (!isSha(args.from)) {
-			const commit = await container.git.getCommit(repository.uri, args.from);
+			const commit = await commitsProvider.getCommit(args.from);
 			if (commit != null) {
 				change.revision.from = commit.sha;
 			}

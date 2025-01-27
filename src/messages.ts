@@ -6,11 +6,11 @@ import { GlCommand } from './constants.commands';
 import type { BlameIgnoreRevsFileError } from './git/errors';
 import { BlameIgnoreRevsFileBadRevisionError } from './git/errors';
 import type { GitCommit } from './git/models/commit';
+import { executeCommand, executeCoreCommand } from './system/-webview/command';
+import { configuration } from './system/-webview/configuration';
+import { openUrl } from './system/-webview/vscode';
 import { createMarkdownCommandLink } from './system/commands';
 import { Logger } from './system/logger';
-import { executeCommand, executeCoreCommand } from './system/vscode/command';
-import { configuration } from './system/vscode/configuration';
-import { openUrl } from './system/vscode/utils';
 
 export function showBlameInvalidIgnoreRevsFileWarningMessage(
 	ex: BlameIgnoreRevsFileError | BlameIgnoreRevsFileBadRevisionError,
@@ -104,7 +104,7 @@ export function showFileNotUnderSourceControlWarningMessage(message: string): Pr
 	);
 }
 
-export function showGitDisabledErrorMessage() {
+export function showGitDisabledErrorMessage(): Promise<MessageItem | undefined> {
 	return showMessage(
 		'error',
 		'GitLens requires Git to be enabled. Please re-enable Git \u2014 set `git.enabled` to true and reload.',
@@ -112,14 +112,14 @@ export function showGitDisabledErrorMessage() {
 	);
 }
 
-export function showGitInvalidConfigErrorMessage() {
+export function showGitInvalidConfigErrorMessage(): Promise<MessageItem | undefined> {
 	return showMessage(
 		'error',
 		'GitLens is unable to use Git. Your Git configuration seems to be invalid. Please resolve any issues with your Git configuration and reload.',
 	);
 }
 
-export function showGitMissingErrorMessage() {
+export function showGitMissingErrorMessage(): Promise<MessageItem | undefined> {
 	return showMessage(
 		'error',
 		"GitLens was unable to find Git. Please make sure Git is installed. Also ensure that Git is either in the PATH, or that 'git.path' is pointed to its installed location.",
@@ -138,7 +138,7 @@ export function showGitVersionUnsupportedErrorMessage(
 	);
 }
 
-export async function showPreReleaseExpiredErrorMessage(version: string) {
+export async function showPreReleaseExpiredErrorMessage(version: string): Promise<void> {
 	const upgrade = { title: 'Upgrade' };
 	const switchToRelease = { title: 'Switch to Release Version' };
 	const result = await showMessage(
@@ -230,7 +230,7 @@ export function showIntegrationRequestTimedOutWarningMessage(providerName: strin
 	);
 }
 
-export async function showWhatsNewMessage(majorVersion: string) {
+export async function showWhatsNewMessage(majorVersion: string): Promise<void> {
 	const confirm = { title: 'OK', isCloseAffordance: true };
 	const releaseNotes = { title: 'View Release Notes' };
 	const result = await showMessage(

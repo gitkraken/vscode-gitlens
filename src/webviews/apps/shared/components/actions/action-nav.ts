@@ -16,15 +16,15 @@ export class ActionNav extends LitElement {
 	@queryAssignedElements({ flatten: true })
 	private actionNodes!: HTMLElement[];
 
-	override firstUpdated() {
+	override firstUpdated(): void {
 		this.role = 'navigation';
 	}
 
-	override disconnectedCallback() {
+	override disconnectedCallback(): void {
 		this._slotSubscriptionsDisposer?.();
 	}
 
-	override render() {
+	override render(): unknown {
 		return html`<slot @slotchange=${this.handleSlotChange}></slot>`;
 	}
 

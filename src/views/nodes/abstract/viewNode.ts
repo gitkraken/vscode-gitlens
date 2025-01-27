@@ -12,20 +12,22 @@ import type { GitRemote } from '../../../git/models/remote';
 import type { Repository } from '../../../git/models/repository';
 import type { GitTag } from '../../../git/models/tag';
 import type { GitWorktree } from '../../../git/models/worktree';
-import type { Draft } from '../../../gk/models/drafts';
+import type { Draft } from '../../../plus/drafts/models/drafts';
 import type { LaunchpadItem } from '../../../plus/launchpad/launchpadProvider';
-import type { LaunchpadGroup } from '../../../plus/launchpad/models';
+import type { LaunchpadGroup } from '../../../plus/launchpad/models/launchpad';
 import {
 	launchpadCategoryToGroupMap,
 	sharedCategoryToLaunchpadActionCategoryMap,
-} from '../../../plus/launchpad/models';
+} from '../../../plus/launchpad/models/launchpad';
 import type {
 	CloudWorkspace,
 	CloudWorkspaceRepositoryDescriptor,
+} from '../../../plus/workspaces/models/cloudWorkspace';
+import type {
 	LocalWorkspace,
 	LocalWorkspaceRepositoryDescriptor,
-} from '../../../plus/workspaces/models';
-import { gate } from '../../../system/decorators/gate';
+} from '../../../plus/workspaces/models/localWorkspace';
+import { gate } from '../../../system/decorators/-webview/gate';
 import { debug, logName } from '../../../system/decorators/log';
 import { is as isA } from '../../../system/function';
 import { getLoggableName } from '../../../system/logger';
@@ -277,7 +279,7 @@ export abstract class ViewNode<
 	protected _disposed = false;
 	// NOTE: @eamodio uncomment to track node leaks
 	// @debug()
-	dispose() {
+	dispose(): void {
 		this._disposed = true;
 		// NOTE: @eamodio uncomment to track node leaks
 		// this.view.unregisterNode(this);
@@ -292,11 +294,11 @@ export abstract class ViewNode<
 		return this._context ?? this.parent?.context ?? {};
 	}
 
-	protected updateContext(context: AmbientContext, reset: boolean = false) {
+	protected updateContext(context: AmbientContext, reset: boolean = false): void {
 		this._context = this.getNewContext(context, reset);
 	}
 
-	protected getNewContext(context: AmbientContext, reset: boolean = false) {
+	protected getNewContext(context: AmbientContext, reset: boolean = false): AmbientContext {
 		return { ...(reset ? this.parent?.context : this.context), ...context };
 	}
 

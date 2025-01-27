@@ -6,17 +6,18 @@ import type { Colors } from '../../constants.colors';
 import { GlCommand } from '../../constants.commands';
 import type { HostingIntegrationId } from '../../constants.integrations';
 import type { Container } from '../../container';
+import { executeCommand, registerCommand } from '../../system/-webview/command';
+import { configuration } from '../../system/-webview/configuration';
+import { once } from '../../system/event';
 import { groupByMap } from '../../system/iterable';
 import { wait } from '../../system/promise';
 import { pluralize } from '../../system/string';
-import { executeCommand, registerCommand } from '../../system/vscode/command';
-import { configuration } from '../../system/vscode/configuration';
 import type { ConnectionStateChangeEvent } from '../integrations/integrationService';
 import type { LaunchpadCommandArgs } from './launchpad';
 import type { LaunchpadItem, LaunchpadProvider, LaunchpadRefreshEvent } from './launchpadProvider';
 import { groupAndSortLaunchpadItems, supportedLaunchpadIntegrations } from './launchpadProvider';
-import type { LaunchpadGroup } from './models';
-import { launchpadGroupIconMap, launchpadPriorityGroups } from './models';
+import type { LaunchpadGroup } from './models/launchpad';
+import { launchpadGroupIconMap, launchpadPriorityGroups } from './models/launchpad';
 
 type LaunchpadIndicatorState = 'idle' | 'disconnected' | 'loading' | 'load' | 'failed';
 
@@ -41,13 +42,12 @@ export class LaunchpadIndicator implements Disposable {
 			provider.onDidRefresh(this.onLaunchpadRefreshed, this),
 			configuration.onDidChange(this.onConfigurationChanged, this),
 			container.integrations.onDidChangeConnectionState(this.onConnectedIntegrationsChanged, this),
+			once(container.onReady)(this.onReady, this),
 			...this.registerCommands(),
 		);
-
-		void this.onReady();
 	}
 
-	dispose() {
+	dispose(): void {
 		this.clearRefreshTimer();
 		this._statusBarLaunchpad?.dispose();
 		this._disposable.dispose();

@@ -45,14 +45,14 @@ import type { QuickPickItemOfT } from '../../quickpicks/items/common';
 import { createQuickPickItemOfT, createQuickPickSeparator } from '../../quickpicks/items/common';
 import type { DirectiveQuickPickItem } from '../../quickpicks/items/directive';
 import { createDirectiveQuickPickItem, Directive, isDirectiveQuickPickItem } from '../../quickpicks/items/directive';
+import { createAsyncDebouncer } from '../../system/-webview/asyncDebouncer';
+import { executeCommand } from '../../system/-webview/command';
+import { configuration } from '../../system/-webview/configuration';
+import { openUrl } from '../../system/-webview/vscode';
 import { getScopedCounter } from '../../system/counter';
 import { fromNow } from '../../system/date';
 import { some } from '../../system/iterable';
 import { interpolate, pluralize } from '../../system/string';
-import { createAsyncDebouncer } from '../../system/vscode/asyncDebouncer';
-import { executeCommand } from '../../system/vscode/command';
-import { configuration } from '../../system/vscode/configuration';
-import { openUrl } from '../../system/vscode/utils';
 import { ProviderBuildStatusState, ProviderPullRequestReviewState } from '../integrations/providers/models';
 import type { LaunchpadCategorizedResult, LaunchpadItem } from './launchpadProvider';
 import {
@@ -61,8 +61,8 @@ import {
 	groupAndSortLaunchpadItems,
 	supportedLaunchpadIntegrations,
 } from './launchpadProvider';
-import type { LaunchpadAction, LaunchpadGroup, LaunchpadTargetAction } from './models';
-import { actionGroupMap, launchpadGroupIconMap, launchpadGroupLabelMap, launchpadGroups } from './models';
+import type { LaunchpadAction, LaunchpadGroup, LaunchpadTargetAction } from './models/launchpad';
+import { actionGroupMap, launchpadGroupIconMap, launchpadGroupLabelMap, launchpadGroups } from './models/launchpad';
 
 export interface LaunchpadItemQuickPickItem extends QuickPickItem {
 	readonly type: 'item';
@@ -199,6 +199,8 @@ export class LaunchpadCommand extends QuickCommand<State> {
 
 	private async ensureIntegrationConnected(id: IntegrationId) {
 		const integration = await this.container.integrations.get(id);
+		if (integration == null) return false;
+
 		let connected = integration.maybeConnected ?? (await integration.isConnected());
 		if (!connected) {
 			connected = await integration.connect('launchpad');

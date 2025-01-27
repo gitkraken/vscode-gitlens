@@ -3,9 +3,9 @@ import { urls } from '../constants';
 import { GlCommand } from '../constants.commands';
 import type { Source, Sources } from '../constants.telemetry';
 import type { Container } from '../container';
-import { command, executeCommand } from '../system/vscode/command';
-import { openUrl, openWalkthrough as openWalkthroughCore } from '../system/vscode/utils';
-import { GlCommandBase } from './base';
+import { command, executeCommand } from '../system/-webview/command';
+import { openUrl, openWalkthrough as openWalkthroughCore } from '../system/-webview/vscode';
+import { GlCommandBase } from './commandBase';
 
 @command()
 export class GetStartedCommand extends GlCommandBase {
@@ -13,7 +13,7 @@ export class GetStartedCommand extends GlCommandBase {
 		super(GlCommand.GetStarted);
 	}
 
-	execute(extensionIdOrsource?: Sources) {
+	execute(extensionIdOrsource?: Sources): void {
 		// If the extensionIdOrsource is the same as the current extension, then it came from the extension content menu in the extension view, so don't pass the source
 		const source = extensionIdOrsource !== this.container.context.extension.id ? undefined : extensionIdOrsource;
 		openWalkthrough(this.container, source ? { source: source } : undefined);
@@ -30,7 +30,7 @@ export class OpenWalkthroughCommand extends GlCommandBase {
 		super(GlCommand.OpenWalkthrough);
 	}
 
-	execute(args?: OpenWalkthroughCommandArgs) {
+	execute(args?: OpenWalkthroughCommandArgs): void {
 		openWalkthrough(this.container, args);
 	}
 }
@@ -54,7 +54,7 @@ export class WalkthroughOpenWalkthroughCommand extends GlCommandBase {
 		super(GlCommand.WalkthroughOpenWalkthrough);
 	}
 
-	execute() {
+	execute(): void {
 		const command = GlCommand.OpenWalkthrough;
 		this.container.telemetry.sendEvent('walkthrough/action', {
 			type: 'command',
@@ -72,7 +72,7 @@ export class WalkthroughPlusUpgradeCommand extends GlCommandBase {
 		super(GlCommand.WalkthroughPlusUpgrade);
 	}
 
-	execute() {
+	execute(): void {
 		const command = GlCommand.PlusUpgrade;
 		this.container.telemetry.sendEvent('walkthrough/action', {
 			type: 'command',
@@ -90,7 +90,7 @@ export class WalkthroughOpenHelpCenterCommand extends GlCommandBase {
 		super(GlCommand.WalkthroughOpenHelpCenter);
 	}
 
-	execute() {
+	execute(): void {
 		const url = urls.helpCenter;
 		this.container.telemetry.sendEvent('walkthrough/action', {
 			type: 'url',
@@ -108,7 +108,7 @@ export class WalkthroughPlusSignUpCommand extends GlCommandBase {
 		super(GlCommand.WalkthroughPlusSignUp);
 	}
 
-	execute() {
+	execute(): void {
 		const command = GlCommand.PlusSignUp;
 		this.container.telemetry.sendEvent('walkthrough/action', {
 			type: 'command',
@@ -125,7 +125,7 @@ export class WalkthroughPlusReactivateCommand extends GlCommandBase {
 		super(GlCommand.WalkthroughPlusReactivate);
 	}
 
-	execute() {
+	execute(): void {
 		const command = GlCommand.PlusReactivateProTrial;
 		this.container.telemetry.sendEvent('walkthrough/action', {
 			type: 'command',
@@ -143,7 +143,7 @@ export class WalkthroughOpenCommunityVsProCommand extends GlCommandBase {
 		super(GlCommand.WalkthroughOpenCommunityVsPro);
 	}
 
-	execute() {
+	execute(): void {
 		const url = urls.communityVsPro;
 		this.container.telemetry.sendEvent('walkthrough/action', {
 			type: 'url',
@@ -161,7 +161,7 @@ export class WalkthroughShowGraphCommand extends GlCommandBase {
 		super(GlCommand.WalkthroughShowGraph);
 	}
 
-	execute() {
+	execute(): void {
 		const command = GlCommand.ShowGraph;
 		this.container.telemetry.sendEvent('walkthrough/action', {
 			type: 'command',
@@ -179,7 +179,7 @@ export class WalkthroughGitLensInspectCommand extends GlCommandBase {
 		super(GlCommand.WalkthroughGitLensInspect);
 	}
 
-	execute() {
+	execute(): void {
 		const command = GlCommand.ShowCommitDetailsView;
 		this.container.telemetry.sendEvent('walkthrough/action', {
 			type: 'command',
@@ -197,7 +197,7 @@ export class WalkthroughOpenInteractiveCodeHistoryCommand extends GlCommandBase 
 		super(GlCommand.WalkthroughOpenInteractiveCodeHistory);
 	}
 
-	execute() {
+	execute(): void {
 		const url = urls.interactiveCodeHistory;
 		this.container.telemetry.sendEvent('walkthrough/action', {
 			type: 'url',
@@ -215,7 +215,7 @@ export class WalkthroughShowLaunchpadCommand extends GlCommandBase {
 		super(GlCommand.WalkthroughShowLaunchpad);
 	}
 
-	execute() {
+	execute(): void {
 		const command = GlCommand.ShowLaunchpad;
 		this.container.telemetry.sendEvent('walkthrough/action', {
 			type: 'command',
@@ -233,7 +233,7 @@ export class WalkthroughWorktreeCreateCommand extends GlCommandBase {
 		super(GlCommand.WalkthroughWorktreeCreate);
 	}
 
-	execute() {
+	execute(): void {
 		const command = GlCommand.GitCommandsWorktreeCreate;
 		this.container.telemetry.sendEvent('walkthrough/action', {
 			type: 'command',
@@ -250,7 +250,7 @@ export class WalkthroughOpenDevExPlatformCommand extends GlCommandBase {
 		super(GlCommand.WalkthoughOpenDevExPlatform);
 	}
 
-	execute() {
+	execute(): void {
 		const url = urls.platform;
 		this.container.telemetry.sendEvent('walkthrough/action', {
 			type: 'url',
@@ -268,7 +268,7 @@ export class WalkthroughOpenAccelereatePrReviewsCommand extends GlCommandBase {
 		super(GlCommand.WalkthroughOpenAcceleratePrReviews);
 	}
 
-	execute() {
+	execute(): void {
 		const url = urls.acceleratePrReviews;
 		this.container.telemetry.sendEvent('walkthrough/action', {
 			type: 'url',
@@ -286,7 +286,7 @@ export class WalkthroughShowDraftsViewCommand extends GlCommandBase {
 		super(GlCommand.WalkthroughShowDraftsView);
 	}
 
-	execute() {
+	execute(): void {
 		const command = GlCommand.ShowDraftsView;
 		this.container.telemetry.sendEvent('walkthrough/action', {
 			type: 'command',
@@ -304,7 +304,7 @@ export class WalkthroughOpenStreamlineCollaboration extends GlCommandBase {
 		super(GlCommand.WalkthroughOpenStreamlineCollaboration);
 	}
 
-	execute() {
+	execute(): void {
 		const url = urls.streamlineCollaboration;
 		this.container.telemetry.sendEvent('walkthrough/action', {
 			type: 'url',
@@ -322,7 +322,7 @@ export class WalkthroughConnectIntegrationsCommand extends GlCommandBase {
 		super(GlCommand.WalkthroughConnectIntegrations);
 	}
 
-	execute() {
+	execute(): void {
 		const command = GlCommand.PlusConnectCloudIntegrations;
 		this.container.telemetry.sendEvent('walkthrough/action', {
 			type: 'command',
@@ -340,7 +340,7 @@ export class WalkthroughShowAutolinksCommand extends GlCommandBase {
 		super(GlCommand.WalkthroughShowAutolinks);
 	}
 
-	execute() {
+	execute(): void {
 		const command = GlCommand.ShowSettingsPageAndJumpToAutolinks;
 		this.container.telemetry.sendEvent('walkthrough/action', {
 			type: 'command',
@@ -358,7 +358,7 @@ export class WalkthroughOpenStartIntegrations extends GlCommandBase {
 		super(GlCommand.WalkthroughOpenStartIntegrations);
 	}
 
-	execute() {
+	execute(): void {
 		const url = urls.startIntegrations;
 		this.container.telemetry.sendEvent('walkthrough/action', {
 			type: 'url',

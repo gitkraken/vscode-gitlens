@@ -18,7 +18,7 @@ export class PrIcon extends LitElement {
 	@property({ attribute: 'pr-id' })
 	prId?: string;
 
-	get icon() {
+	get icon(): string {
 		let prIcon = this.draft ? 'git-pull-request-draft' : 'git-pull-request';
 		if (this.state) {
 			switch (this.state) {
@@ -33,7 +33,7 @@ export class PrIcon extends LitElement {
 		return prIcon;
 	}
 
-	get classes() {
+	get classes(): string {
 		if (!this.state || (this.draft && this.state === 'opened')) {
 			return 'pr-icon';
 		}
@@ -41,14 +41,14 @@ export class PrIcon extends LitElement {
 		return `pr-icon pr-icon--${this.state}`;
 	}
 
-	get label() {
+	get label(): string {
 		const type = this.draft ? 'Draft pull request' : 'Pull request';
 		if (!this.state) return type;
 
 		return `${type} ${this.prId ? `#${this.prId}` : ''} is ${this.state}`;
 	}
 
-	override render() {
+	override render(): unknown {
 		if (!this.state) {
 			return html`<code-icon
 				class=${this.classes}

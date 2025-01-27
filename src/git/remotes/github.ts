@@ -2,17 +2,17 @@ import type { Range } from 'vscode';
 import { Uri } from 'vscode';
 import type { Autolink, AutolinkReference, DynamicAutolinkReference, MaybeEnrichedAutolink } from '../../autolinks';
 import { GlyphChars } from '../../constants';
-import type { GkProviderId } from '../../gk/models/repositoryIdentities';
 import type { GitHubRepositoryDescriptor } from '../../plus/integrations/providers/github';
 import type { Brand, Unbrand } from '../../system/brand';
 import { fromNow } from '../../system/date';
-import { memoize } from '../../system/decorators/memoize';
+import { memoize } from '../../system/decorators/-webview/memoize';
 import { encodeUrl } from '../../system/encoding';
 import { escapeMarkdown, unescapeMarkdown } from '../../system/markdown';
 import { equalsIgnoreCase } from '../../system/string';
 import type { Repository } from '../models/repository';
-import { isSha } from '../models/revision.utils';
-import { getIssueOrPullRequestMarkdownIcon } from '../utils/vscode/icons';
+import type { GkProviderId } from '../models/repositoryIdentities';
+import { getIssueOrPullRequestMarkdownIcon } from '../utils/-webview/icons';
+import { isSha } from '../utils/revision.utils';
 import type { RemoteProviderId } from './remoteProvider';
 import { RemoteProvider } from './remoteProvider';
 
@@ -29,7 +29,7 @@ export class GitHubRemote extends RemoteProvider<GitHubRepositoryDescriptor> {
 		super(domain, path, protocol, name, custom);
 	}
 
-	get apiBaseUrl() {
+	get apiBaseUrl(): string {
 		return this.custom ? `${this.protocol}://${this.domain}/api/v3` : `https://api.${this.domain}`;
 	}
 
@@ -165,12 +165,12 @@ export class GitHubRemote extends RemoteProvider<GitHubRepositoryDescriptor> {
 		return this._autolinks;
 	}
 
-	override get avatarUri() {
+	override get avatarUri(): Uri {
 		const [owner] = this.splitPath();
 		return Uri.parse(`https://avatars.githubusercontent.com/${owner}`);
 	}
 
-	override get icon() {
+	override get icon(): string {
 		return 'github';
 	}
 
@@ -184,7 +184,7 @@ export class GitHubRemote extends RemoteProvider<GitHubRepositoryDescriptor> {
 			: 'github') satisfies Unbrand<GkProviderId> as Brand<GkProviderId>;
 	}
 
-	get name() {
+	get name(): string {
 		return this.formatName('GitHub');
 	}
 

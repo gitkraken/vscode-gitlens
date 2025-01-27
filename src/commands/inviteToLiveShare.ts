@@ -1,9 +1,11 @@
+import type { Uri } from 'vscode';
 import { GlCommand } from '../constants.commands';
 import type { Container } from '../container';
+import { command } from '../system/-webview/command';
 import { createMarkdownCommandLink } from '../system/commands';
-import { command } from '../system/vscode/command';
-import type { CommandContext } from './base';
-import { GlCommandBase, isCommandContextViewNodeHasContributor } from './base';
+import { GlCommandBase } from './commandBase';
+import type { CommandContext } from './commandContext';
+import { isCommandContextViewNodeHasContributor } from './commandContext.utils';
 
 export interface InviteToLiveShareCommandArgs {
 	email?: string;
@@ -23,7 +25,10 @@ export class InviteToLiveShareCommand extends GlCommandBase {
 		super(GlCommand.InviteToLiveShare);
 	}
 
-	protected override preExecute(context: CommandContext, args?: InviteToLiveShareCommandArgs) {
+	protected override preExecute(
+		context: CommandContext,
+		args?: InviteToLiveShareCommandArgs,
+	): Promise<boolean | Uri | null | undefined> {
 		if (isCommandContextViewNodeHasContributor(context)) {
 			args = { ...args };
 			args.email = context.node.contributor.email;
@@ -33,7 +38,7 @@ export class InviteToLiveShareCommand extends GlCommandBase {
 		return this.execute(args);
 	}
 
-	async execute(args?: InviteToLiveShareCommandArgs) {
+	async execute(args?: InviteToLiveShareCommandArgs): Promise<boolean | Uri | null | undefined> {
 		if (args?.email) {
 			const contact = await this.container.vsls.getContact(args.email);
 			if (contact != null) {

@@ -7,13 +7,14 @@ import { GlCommand } from '../constants.commands';
 import type { Container } from '../container';
 import { AuthenticationRequiredError } from '../errors';
 import { unknownGitUri } from '../git/gitUri';
-import type { Draft } from '../gk/models/drafts';
-import { ensurePlusFeaturesEnabled } from '../plus/gk/utils';
-import { gate } from '../system/decorators/gate';
+import type { Draft } from '../plus/drafts/models/drafts';
+import { ensurePlusFeaturesEnabled } from '../plus/gk/utils/-webview/plus.utils';
+import { executeCommand } from '../system/-webview/command';
+import { configuration } from '../system/-webview/configuration';
+import { gate } from '../system/decorators/-webview/gate';
 import { groupByFilterMap } from '../system/iterable';
-import { executeCommand } from '../system/vscode/command';
-import { configuration } from '../system/vscode/configuration';
 import { CacheableChildrenViewNode } from './nodes/abstract/cacheableChildrenViewNode';
+import type { ViewNode } from './nodes/abstract/viewNode';
 import { DraftNode } from './nodes/draftNode';
 import { GroupingNode } from './nodes/groupingNode';
 import { ViewBase } from './viewBase';
@@ -87,12 +88,12 @@ export class DraftsView extends ViewBase<'drafts', DraftsViewNode, DraftsViewCon
 		this.description = previewBadge;
 	}
 
-	override dispose() {
+	override dispose(): void {
 		this._disposable?.dispose();
 		super.dispose();
 	}
 
-	protected getRoot() {
+	protected getRoot(): DraftsViewNode {
 		return new DraftsViewNode(this);
 	}
 
@@ -164,7 +165,7 @@ export class DraftsView extends ViewBase<'drafts', DraftsViewNode, DraftsViewCon
 		];
 	}
 
-	async findDraft(draft: Draft, cancellation?: CancellationToken) {
+	async findDraft(draft: Draft, cancellation?: CancellationToken): Promise<ViewNode | undefined> {
 		return this.findNode((n: any) => n.draft?.id === draft.id, {
 			allowPaging: false,
 			maxDepth: 2,
@@ -185,7 +186,7 @@ export class DraftsView extends ViewBase<'drafts', DraftsViewNode, DraftsViewCon
 			focus?: boolean;
 			expand?: boolean | number;
 		},
-	) {
+	): Promise<ViewNode | undefined> {
 		const node = await this.findDraft(draft);
 		if (node == null) return undefined;
 

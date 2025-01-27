@@ -1,5 +1,5 @@
 /*global*/
-import type { Serialized } from '../../../system/vscode/serialize';
+import type { Serialized } from '../../../system/-webview/serialize';
 import type { State } from '../../commitDetails/protocol';
 import { App } from '../shared/appBase';
 import { DOM } from '../shared/dom';
@@ -13,7 +13,7 @@ export class CommitDetailsApp extends App<Serialized<State>> {
 		super('CommitDetailsApp');
 	}
 
-	override onInitialize() {
+	override onInitialize(): void {
 		const component = document.getElementById('app') as GlCommitDetailsApp;
 		component.state = this.state;
 		DOM.on<GlCommitDetailsApp, Serialized<State>>(component, 'state-changed', e => {

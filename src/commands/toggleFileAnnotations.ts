@@ -4,10 +4,10 @@ import type { ChangesAnnotationContext } from '../annotations/gutterChangesAnnot
 import { GlCommand } from '../constants.commands';
 import type { Container } from '../container';
 import { showGenericErrorMessage } from '../messages';
+import { command } from '../system/-webview/command';
+import { getEditorIfVisible, getOtherVisibleTextEditors, isTrackableTextEditor } from '../system/-webview/vscode';
 import { Logger } from '../system/logger';
-import { command } from '../system/vscode/command';
-import { getEditorIfVisible, getOtherVisibleTextEditors, isTrackableTextEditor } from '../system/vscode/utils';
-import { ActiveEditorCommand, EditorCommand } from './base';
+import { ActiveEditorCommand, EditorCommand } from './commandBase';
 
 @command()
 export class ClearFileAnnotationsCommand extends EditorCommand {

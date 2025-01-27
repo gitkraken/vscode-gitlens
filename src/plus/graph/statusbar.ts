@@ -2,11 +2,11 @@ import type { ConfigurationChangeEvent, StatusBarItem } from 'vscode';
 import { Disposable, MarkdownString, StatusBarAlignment, window } from 'vscode';
 import { GlCommand } from '../../constants.commands';
 import type { Container } from '../../container';
+import { configuration } from '../../system/-webview/configuration';
+import { getContext, onDidChangeContext } from '../../system/-webview/context';
 import { once } from '../../system/function';
-import { configuration } from '../../system/vscode/configuration';
-import { getContext, onDidChangeContext } from '../../system/vscode/context';
-import type { SubscriptionChangeEvent } from '../gk/account/subscriptionService';
-import { arePlusFeaturesEnabled } from '../gk/utils';
+import type { SubscriptionChangeEvent } from '../gk/subscriptionService';
+import { arePlusFeaturesEnabled } from '../gk/utils/-webview/plus.utils';
 
 export class GraphStatusBarController implements Disposable {
 	private readonly _disposable: Disposable;
@@ -25,7 +25,7 @@ export class GraphStatusBarController implements Disposable {
 		);
 	}
 
-	dispose() {
+	dispose(): void {
 		this._disposable.dispose();
 	}
 

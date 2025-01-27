@@ -6,51 +6,14 @@ import { log } from '../../system/decorators/log';
 import { Logger } from '../../system/logger';
 import { getLogScope } from '../../system/logger.scope';
 import type { ServerConnection } from '../gk/serverConnection';
-import { ensureAccount } from '../utils';
-
-export interface EnrichableItem {
-	type: EnrichedItemResponse['entityType'];
-	id: string;
-	provider: EnrichedItemResponse['provider'];
-	url: string;
-	expiresAt?: string;
-}
-
-export type EnrichedItem = {
-	id: string;
-	userId?: string;
-	type: EnrichedItemResponse['type'];
-
-	provider: EnrichedItemResponse['provider'];
-	entityType: EnrichedItemResponse['entityType'];
-	entityId: string;
-	entityUrl: string;
-
-	createdAt: string;
-	updatedAt: string;
-	expiresAt?: string;
-};
+import { ensureAccount } from '../gk/utils/-webview/acount.utils';
+import type { EnrichableItem, EnrichedItem, EnrichedItemResponse } from './models/enrichedItem';
 
 type EnrichedItemRequest = {
 	provider: EnrichedItemResponse['provider'];
 	entityType: EnrichedItemResponse['entityType'];
 	entityId: string;
 	entityUrl: string;
-	expiresAt?: string;
-};
-
-type EnrichedItemResponse = {
-	id: string;
-	userId?: string;
-	type: 'pin' | 'snooze';
-
-	provider: 'azure' | 'bitbucket' | 'github' | 'gitlab' | 'jira' | 'trello' | 'gitkraken';
-	entityType: 'issue' | 'pr';
-	entityId: string;
-	entityUrl: string;
-
-	createdAt: string;
-	updatedAt: string;
 	expiresAt?: string;
 };
 
