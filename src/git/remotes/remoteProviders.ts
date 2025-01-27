@@ -167,14 +167,14 @@ function getCustomProviderCreator(cfg: RemotesConfig) {
 	}
 }
 
-export function getRemoteProviderMatcher(
+export async function getRemoteProviderMatcher(
 	container: Container,
 	providers?: RemoteProviders,
-): (url: string, domain: string, path: string) => RemoteProvider | undefined {
+): Promise<(url: string, domain: string, path: string) => RemoteProvider | undefined> {
 	if (providers == null) {
 		providers = loadRemoteProviders(
 			configuration.get('remotes', null),
-			container.integrations.getConfiguredIntegrationDescriptors(),
+			await container.integrations.getConfigured(),
 		);
 	}
 
