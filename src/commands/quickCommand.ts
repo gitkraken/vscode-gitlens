@@ -170,7 +170,7 @@ export abstract class QuickCommand<State = any> implements QuickPickItem {
 	}
 
 	private _picked: boolean = false;
-	get picked() {
+	get picked(): boolean {
 		return this._picked;
 	}
 	set picked(value: boolean) {
@@ -181,7 +181,7 @@ export abstract class QuickCommand<State = any> implements QuickPickItem {
 	}
 
 	private _pickedVia: 'menu' | 'command' = 'menu';
-	get pickedVia() {
+	get pickedVia(): 'menu' | 'command' {
 		return this._pickedVia;
 	}
 	set pickedVia(value: 'menu' | 'command') {
@@ -196,7 +196,7 @@ export abstract class QuickCommand<State = any> implements QuickPickItem {
 		return this._currentStep;
 	}
 
-	confirm(override?: boolean) {
+	confirm(override?: boolean): boolean {
 		if (!this.canConfirm || !this.canSkipConfirm) return true;
 
 		return override != null
@@ -204,17 +204,17 @@ export abstract class QuickCommand<State = any> implements QuickPickItem {
 			: !configuration.get('gitCommands.skipConfirmations').includes(this.skipConfirmKey);
 	}
 
-	isMatch(key: string) {
+	isMatch(key: string): boolean {
 		return this.key === key;
 	}
 
-	isFuzzyMatch(name: string) {
+	isFuzzyMatch(name: string): boolean {
 		return this.label === name;
 	}
 
 	protected abstract steps(state: PartialStepState<State>): StepGenerator;
 
-	executeSteps() {
+	executeSteps(): StepGenerator {
 		// When we are chaining steps together, limit backward navigation to feel more natural
 		return this.steps(this.getStepState(true));
 	}
@@ -251,7 +251,7 @@ export abstract class QuickCommand<State = any> implements QuickPickItem {
 		return this.value;
 	}
 
-	protected canStepsContinue(state: PartialStepState) {
+	protected canStepsContinue(state: PartialStepState): boolean {
 		return state.counter >= (state.startingStep ?? 0);
 	}
 
@@ -283,7 +283,7 @@ export async function canInputStepContinue<T extends QuickInputStep>(
 	step: T,
 	state: PartialStepState,
 	value: Directive | StepItemType<T>,
-) {
+): Promise<boolean> {
 	if (!canStepContinue(step, state, value)) return false;
 
 	const [valid] = (await step.validate?.(value)) ?? [true];
@@ -391,7 +391,7 @@ export function createCustomStep<T>(step: Optional<CustomStep<T>, 'type'>): Cust
 	return { type: 'custom', ...step };
 }
 
-export function endSteps(state: PartialStepState) {
+export function endSteps(state: PartialStepState): void {
 	state.counter = -1;
 }
 

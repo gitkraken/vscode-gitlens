@@ -76,11 +76,11 @@ export class GlPreviewBanner extends LitElement {
 	@query('button')
 	private _button!: HTMLButtonElement;
 
-	get isNewInstall() {
+	get isNewInstall(): boolean {
 		return this._state.newInstall;
 	}
 
-	override render() {
+	override render(): unknown {
 		if (this._state.previewEnabled !== true) {
 			return html`
 				<gl-tooltip placement="bottom">
@@ -132,7 +132,7 @@ export class GlPreviewBanner extends LitElement {
 		});
 	}
 
-	override focus() {
+	override focus(): void {
 		this._button?.focus();
 	}
 }

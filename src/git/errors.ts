@@ -557,13 +557,13 @@ export class TagError extends Error {
 		Error.captureStackTrace?.(this, TagError);
 	}
 
-	WithTag(tag: string) {
+	withTag(tag: string): this {
 		this.tag = tag;
 		this.message = TagError.buildTagErrorMessage(this.reason, tag, this.action);
 		return this;
 	}
 
-	WithAction(action: string) {
+	withAction(action: string): this {
 		this.action = action;
 		this.message = TagError.buildTagErrorMessage(this.reason, this.tag, action);
 		return this;

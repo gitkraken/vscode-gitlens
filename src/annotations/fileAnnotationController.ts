@@ -81,7 +81,7 @@ export class FileAnnotationController implements Disposable {
 		this._toggleModes = new Map<FileAnnotationType, AnnotationsToggleMode>();
 	}
 
-	dispose() {
+	dispose(): void {
 		void this.clearAll();
 
 		Decorations.gutterBlameAnnotation?.dispose();
@@ -280,7 +280,7 @@ export class FileAnnotationController implements Disposable {
 	}
 
 	@log<FileAnnotationController['clear']>({ args: { 0: e => e?.document.uri.toString(true) } })
-	clear(editor: TextEditor | undefined) {
+	clear(editor: TextEditor | undefined): Promise<void> | undefined {
 		if (this.isInWindowToggle()) return this.clearAll();
 		if (editor == null) return;
 
@@ -288,7 +288,7 @@ export class FileAnnotationController implements Disposable {
 	}
 
 	@log()
-	async clearAll() {
+	async clearAll(): Promise<void> {
 		this._windowAnnotationType = undefined;
 
 		for (const [key] of this._annotationProviders) {
@@ -335,7 +335,10 @@ export class FileAnnotationController implements Disposable {
 	private readonly _annotatedUris = new UriSet();
 	private readonly _computingUris = new UriSet();
 
-	async onProviderEditorStatusChanged(editor: TextEditor | undefined, status: AnnotationStatus | undefined) {
+	async onProviderEditorStatusChanged(
+		editor: TextEditor | undefined,
+		status: AnnotationStatus | undefined,
+	): Promise<void> {
 		if (editor == null) return;
 
 		let changed = false;
@@ -530,13 +533,13 @@ export class FileAnnotationController implements Disposable {
 	}
 
 	@log()
-	nextChange() {
+	nextChange(): void {
 		const provider = this.getProvider(window.activeTextEditor);
 		provider?.nextChange?.();
 	}
 
 	@log()
-	previousChange() {
+	previousChange(): void {
 		const provider = this.getProvider(window.activeTextEditor);
 		provider?.previousChange?.();
 	}

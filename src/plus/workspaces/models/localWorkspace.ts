@@ -21,7 +21,7 @@ export class LocalWorkspace {
 		this._disposable = this.container.git.onDidChangeRepositories(this.resetRepositoriesByName, this);
 	}
 
-	dispose() {
+	dispose(): void {
 		this._disposable.dispose();
 	}
 
@@ -33,7 +33,7 @@ export class LocalWorkspace {
 		return this._localPath;
 	}
 
-	resetRepositoriesByName() {
+	resetRepositoriesByName(): void {
 		this._repositoriesByName = undefined;
 	}
 

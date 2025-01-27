@@ -135,7 +135,7 @@ export async function getPullRequestChildren(
 	parent: ViewNode,
 	pullRequest: PullRequest,
 	repoOrPath?: Repository | string,
-) {
+): Promise<ViewNode[]> {
 	let repo: Repository | undefined;
 	if (repoOrPath == null) {
 		repo = await getOrOpenPullRequestRepository(view.container, pullRequest, { promptIfNeeded: true });
@@ -216,7 +216,7 @@ export async function getPullRequestChildren(
 export function getPullRequestTooltip(
 	pullRequest: PullRequest,
 	context?: { commit?: GitCommit; idPrefix?: string; codeSuggestionsCount?: number },
-) {
+): MarkdownString {
 	const tooltip = new MarkdownString('', true);
 	tooltip.supportHtml = true;
 	tooltip.isTrusted = true;

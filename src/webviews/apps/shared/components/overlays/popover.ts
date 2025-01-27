@@ -202,7 +202,7 @@ export class GlPopover extends GlElement {
 	@property({ type: Boolean })
 	hoist = false;
 
-	get currentPlacement() {
+	get currentPlacement(): SlPopup['placement'] {
 		return (this.popup?.getAttribute('data-current-placement') ?? this.placement) as SlPopup['placement'];
 	}
 
@@ -217,7 +217,7 @@ export class GlPopover extends GlElement {
 		this.addEventListener('mouseout', this.handleMouseOut);
 	}
 
-	override disconnectedCallback() {
+	override disconnectedCallback(): void {
 		// Cleanup this event in case the popover is removed while open
 		this.closeWatcher?.destroy();
 		document.removeEventListener('focusin', this.handlePopupBlur);
@@ -227,7 +227,7 @@ export class GlPopover extends GlElement {
 		super.disconnectedCallback();
 	}
 
-	override firstUpdated() {
+	override firstUpdated(): void {
 		this.body.hidden = !this.open;
 
 		// If the popover is visible on init, update its position
@@ -237,7 +237,7 @@ export class GlPopover extends GlElement {
 		}
 	}
 
-	override render() {
+	override render(): unknown {
 		return html`<sl-popup
 			part="base"
 			exportparts="
@@ -276,7 +276,7 @@ export class GlPopover extends GlElement {
 
 	private _triggeredBy: TriggerType | undefined;
 	/** Shows the popover. */
-	async show(triggeredBy?: TriggerType) {
+	async show(triggeredBy?: TriggerType): Promise<void> {
 		if (this._triggeredBy == null || triggeredBy !== 'hover') {
 			this._triggeredBy = triggeredBy;
 		}
@@ -287,7 +287,7 @@ export class GlPopover extends GlElement {
 	}
 
 	/** Hides the popover */
-	async hide() {
+	async hide(): Promise<void> {
 		this._triggeredBy = undefined;
 		if (!this.open) return undefined;
 
@@ -399,7 +399,7 @@ export class GlPopover extends GlElement {
 	}
 
 	@observe('open', { afterFirstUpdate: true })
-	handleOpenChange() {
+	handleOpenChange(): void {
 		if (this.open) {
 			if (this.disabled) return;
 
@@ -444,7 +444,7 @@ export class GlPopover extends GlElement {
 	}
 
 	@observe(['distance', 'hoist', 'placement', 'skidding'])
-	async handleOptionsChange() {
+	async handleOptionsChange(): Promise<void> {
 		if (this.hasUpdated) {
 			await this.updateComplete;
 			this.popup.reposition();
@@ -452,7 +452,7 @@ export class GlPopover extends GlElement {
 	}
 
 	@observe('disabled')
-	handleDisabledChange() {
+	handleDisabledChange(): void {
 		if (this.disabled && this.open) {
 			void this.hide();
 		}

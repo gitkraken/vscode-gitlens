@@ -71,7 +71,7 @@ export class ResetGitCommand extends QuickCommand<State> {
 		return this._canSkipConfirm;
 	}
 
-	async execute(state: ResetStepState) {
+	private async execute(state: ResetStepState) {
 		try {
 			await state.repo.git.reset(
 				{

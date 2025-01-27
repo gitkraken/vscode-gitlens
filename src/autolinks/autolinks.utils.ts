@@ -141,19 +141,22 @@ function compareAutolinks(a: Autolink, b: Autolink): number {
 	);
 }
 
-function ensureCachedRegex(
+export function ensureCachedRegex(
 	ref: CacheableAutolinkReference,
 	outputFormat: 'html',
 ): asserts ref is RequireSome<CacheableAutolinkReference, 'messageHtmlRegex'>;
-function ensureCachedRegex(
+export function ensureCachedRegex(
 	ref: CacheableAutolinkReference,
 	outputFormat: 'markdown',
 ): asserts ref is RequireSome<CacheableAutolinkReference, 'messageMarkdownRegex'>;
-function ensureCachedRegex(
+export function ensureCachedRegex(
 	ref: CacheableAutolinkReference,
 	outputFormat: 'plaintext',
 ): asserts ref is RequireSome<CacheableAutolinkReference, 'messageRegex' | 'branchNameRegex'>;
-function ensureCachedRegex(ref: CacheableAutolinkReference, outputFormat: 'html' | 'markdown' | 'plaintext') {
+export function ensureCachedRegex(
+	ref: CacheableAutolinkReference,
+	outputFormat: 'html' | 'markdown' | 'plaintext',
+): boolean {
 	// Regexes matches the ref prefix followed by a token (e.g. #1234)
 	if (outputFormat === 'markdown' && ref.messageMarkdownRegex == null) {
 		// Extra `\\\\` in `\\\\\\[` is because the markdown is escaped
@@ -184,11 +187,9 @@ function ensureCachedRegex(ref: CacheableAutolinkReference, outputFormat: 'html'
 	return true;
 }
 
-export { ensureCachedRegex };
-
 export const numRegex = /<num>/g;
 
-export function getAutolinks(message: string, refsets: Readonly<RefSet[]>) {
+export function getAutolinks(message: string, refsets: Readonly<RefSet[]>): Map<string, Autolink> {
 	const autolinks = new Map<string, Autolink>();
 
 	let match;
@@ -230,7 +231,7 @@ export function getAutolinks(message: string, refsets: Readonly<RefSet[]>) {
 	return autolinks;
 }
 
-export function getBranchAutolinks(branchName: string, refsets: Readonly<RefSet[]>) {
+export function getBranchAutolinks(branchName: string, refsets: Readonly<RefSet[]>): Map<string, Autolink> {
 	const autolinks = new Map<string, Autolink>();
 
 	let match;

@@ -68,7 +68,7 @@ export class GitBranch implements GitBranchReference {
 			: this.formatDateFromNow();
 	}
 
-	get ref() {
+	get ref(): string {
 		return this.detached ? this.sha! : this.name;
 	}
 
@@ -169,16 +169,16 @@ export class GitBranch implements GitBranchReference {
 		return getUpstreamStatus(this.upstream, this.state, options);
 	}
 
-	get starred() {
+	get starred(): boolean {
 		const starred = this.container.storage.getWorkspace('starred:branches');
 		return starred !== undefined && starred[this.id] === true;
 	}
 
-	star() {
+	async star(): Promise<void> {
 		return this.container.git.getRepository(this.repoPath)?.star(this);
 	}
 
-	unstar() {
+	async unstar(): Promise<void> {
 		return this.container.git.getRepository(this.repoPath)?.unstar(this);
 	}
 }

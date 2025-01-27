@@ -70,7 +70,7 @@ export function findOrOpenEditors(uris: Uri[], options?: TextDocumentShowOptions
 	}
 }
 
-export function getEditorCommand() {
+export function getEditorCommand(): string {
 	let editor;
 	switch (env.appName) {
 		case 'Visual Studio Code - Insiders':
@@ -121,7 +121,7 @@ export function getOtherVisibleTextEditors(editor: TextEditor): TextEditor[] {
 	);
 }
 
-export function getQuickPickIgnoreFocusOut() {
+export function getQuickPickIgnoreFocusOut(): boolean {
 	return !configuration.get('advanced.quickPick.closeOnFocusOut');
 }
 
@@ -343,11 +343,11 @@ export function openWorkspace(
 	});
 }
 
-export async function revealInFileExplorer(uri: Uri) {
+export async function revealInFileExplorer(uri: Uri): Promise<void> {
 	void (await executeCoreCommand('revealFileInOS', uri));
 }
 
-export function supportedInVSCodeVersion(feature: 'language-models') {
+export function supportedInVSCodeVersion(feature: 'language-models'): boolean {
 	switch (feature) {
 		case 'language-models':
 			return satisfies(codeVersion, '>= 1.90-insider');

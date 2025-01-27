@@ -26,7 +26,7 @@ export class DiffWithNextCommand extends ActiveEditorCommand {
 		super([GlCommand.DiffWithNext, GlCommand.DiffWithNextInDiffLeft, GlCommand.DiffWithNextInDiffRight]);
 	}
 
-	protected override preExecute(context: CommandContext, args?: DiffWithNextCommandArgs) {
+	protected override preExecute(context: CommandContext, args?: DiffWithNextCommandArgs): Promise<void> {
 		if (context.command === GlCommand.DiffWithNextInDiffLeft) {
 			args = { ...args, inDiffLeftEditor: true };
 		}
@@ -34,7 +34,7 @@ export class DiffWithNextCommand extends ActiveEditorCommand {
 		return this.execute(context.editor, context.uri, args);
 	}
 
-	async execute(editor?: TextEditor, uri?: Uri, args?: DiffWithNextCommandArgs) {
+	async execute(editor?: TextEditor, uri?: Uri, args?: DiffWithNextCommandArgs): Promise<void> {
 		uri = getCommandUri(uri, editor);
 		if (uri == null) return;
 

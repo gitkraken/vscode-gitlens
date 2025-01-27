@@ -269,7 +269,7 @@ export async function activate(context: ExtensionContext): Promise<GitLensApi | 
 	return Promise.resolve(api);
 }
 
-export function deactivate() {
+export function deactivate(): void {
 	Logger.log('GitLens deactivating...');
 	Container.instance.deactivate();
 }

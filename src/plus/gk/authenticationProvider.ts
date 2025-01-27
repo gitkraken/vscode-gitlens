@@ -2,6 +2,7 @@ import type {
 	AuthenticationProvider,
 	AuthenticationProviderAuthenticationSessionsChangeEvent,
 	AuthenticationSession,
+	Event,
 } from 'vscode';
 import { Disposable, EventEmitter, window } from 'vscode';
 import { uuid } from '@env/crypto';
@@ -36,7 +37,7 @@ export interface AuthenticationProviderOptions {
 
 export class AccountAuthenticationProvider implements AuthenticationProvider, Disposable {
 	private _onDidChangeSessions = new EventEmitter<AuthenticationProviderAuthenticationSessionsChangeEvent>();
-	get onDidChangeSessions() {
+	get onDidChangeSessions(): Event<AuthenticationProviderAuthenticationSessionsChangeEvent> {
 		return this._onDidChangeSessions.event;
 	}
 
@@ -60,7 +61,7 @@ export class AccountAuthenticationProvider implements AuthenticationProvider, Di
 		);
 	}
 
-	dispose() {
+	dispose(): void {
 		this._disposable.dispose();
 	}
 
@@ -72,12 +73,12 @@ export class AccountAuthenticationProvider implements AuthenticationProvider, Di
 		return this._authConnection.abort();
 	}
 
-	public setOptionsForScopes(scopes: string[], options: AuthenticationProviderOptions) {
+	public setOptionsForScopes(scopes: string[], options: AuthenticationProviderOptions): void {
 		this._optionsByScope ??= new Map<string, AuthenticationProviderOptions>();
 		this._optionsByScope.set(getScopesKey(scopes), options);
 	}
 
-	public clearOptionsForScopes(scopes: string[]) {
+	public clearOptionsForScopes(scopes: string[]): void {
 		this._optionsByScope?.delete(getScopesKey(scopes));
 	}
 
@@ -142,7 +143,7 @@ export class AccountAuthenticationProvider implements AuthenticationProvider, Di
 	}
 
 	@debug()
-	public async removeSession(id: string) {
+	public async removeSession(id: string): Promise<void> {
 		const scope = getLogScope();
 
 		try {
@@ -167,7 +168,7 @@ export class AccountAuthenticationProvider implements AuthenticationProvider, Di
 	}
 
 	@debug()
-	public async removeSessionsByScopes(scopes?: string[]) {
+	public async removeSessionsByScopes(scopes?: string[]): Promise<void> {
 		const scope = getLogScope();
 
 		try {

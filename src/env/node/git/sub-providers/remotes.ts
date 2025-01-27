@@ -6,7 +6,7 @@ import type { GitRemote } from '../../../../git/models/remote';
 import { parseGitRemotes } from '../../../../git/parsers/remoteParser';
 import { getRemoteProviderMatcher, loadRemoteProviders } from '../../../../git/remotes/remoteProviders';
 import { RemotesGitProviderBase } from '../../../../git/sub-providers/remotes';
-import { sortRemotes } from '../../../../git/utils/remote.utils';
+import { sortRemotes } from '../../../../git/utils/-webview/sorting';
 import { configuration } from '../../../../system/-webview/configuration';
 import { gate } from '../../../../system/decorators/-webview/gate';
 import { log } from '../../../../system/decorators/log';

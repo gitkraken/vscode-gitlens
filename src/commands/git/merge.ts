@@ -80,7 +80,7 @@ export class MergeGitCommand extends QuickCommand<State> {
 		return false;
 	}
 
-	execute(state: MergeStepState) {
+	private execute(state: MergeStepState) {
 		state.repo.merge(...state.flags, state.reference.ref);
 	}
 

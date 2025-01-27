@@ -151,7 +151,7 @@ export class HomeWebviewProvider implements WebviewProvider<State, State, HomeWe
 		);
 	}
 
-	dispose() {
+	dispose(): void {
 		this._disposable.dispose();
 	}
 
@@ -326,7 +326,7 @@ export class HomeWebviewProvider implements WebviewProvider<State, State, HomeWe
 		void this.host.notify(DidChangeOverviewFilter, { filter: this._overviewBranchFilter });
 	}
 
-	async onMessageReceived(e: IpcMessage) {
+	async onMessageReceived(e: IpcMessage): Promise<void> {
 		switch (true) {
 			case CollapseSectionCommand.is(e):
 				this.onCollapseSection(e.params);
@@ -363,17 +363,17 @@ export class HomeWebviewProvider implements WebviewProvider<State, State, HomeWe
 		return this.getState();
 	}
 
-	onRefresh() {
+	onRefresh(): void {
 		this.resetBranchOverview();
 		this.notifyDidChangeRepositories();
 	}
 
-	onReloaded() {
+	onReloaded(): void {
 		this.onRefresh();
 		this.notifyDidChangeProgress();
 	}
 
-	onReady() {
+	onReady(): void {
 		if (this._pendingFocusAccount === true) {
 			this._pendingFocusAccount = false;
 
@@ -381,7 +381,7 @@ export class HomeWebviewProvider implements WebviewProvider<State, State, HomeWe
 		}
 	}
 
-	onVisibilityChanged(visible: boolean) {
+	onVisibilityChanged(visible: boolean): void {
 		if (!visible) {
 			this.stopRepositorySubscription();
 

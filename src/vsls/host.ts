@@ -55,7 +55,7 @@ export class VslsHostService implements Disposable {
 	static ServiceId = 'proxy';
 
 	@log()
-	static async share(api: LiveShare, container: Container) {
+	static async share(api: LiveShare, container: Container): Promise<VslsHostService> {
 		const service = await api.shareService(this.ServiceId);
 		if (service == null) {
 			throw new Error('Failed to share host service');
@@ -86,7 +86,7 @@ export class VslsHostService implements Disposable {
 		this.onWorkspaceFoldersChanged();
 	}
 
-	dispose() {
+	dispose(): void {
 		this._disposable.dispose();
 		void this._api.unshareService(VslsHostService.ServiceId);
 	}

@@ -27,7 +27,7 @@ export class DiffWithRevisionFromCommand extends ActiveEditorCommand {
 		super(GlCommand.DiffWithRevisionFrom);
 	}
 
-	async execute(editor?: TextEditor, uri?: Uri, args?: DiffWithRevisionFromCommandArgs) {
+	async execute(editor?: TextEditor, uri?: Uri, args?: DiffWithRevisionFromCommandArgs): Promise<void> {
 		uri = getCommandUri(uri, editor);
 		if (uri == null) return;
 

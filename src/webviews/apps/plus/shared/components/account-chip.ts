@@ -249,7 +249,7 @@ export class GLAccountChip extends LitElement {
 		return hasAccountFromSubscriptionState(this.subscriptionState);
 	}
 
-	get isReactivatedTrial() {
+	get isReactivatedTrial(): boolean {
 		return (
 			this.subscriptionState === SubscriptionState.ProTrial &&
 			(this.subscription?.plan.effective.trialReactivationCount ?? 0) > 0
@@ -281,11 +281,11 @@ export class GLAccountChip extends LitElement {
 		return getSubscriptionTimeRemaining(this.subscription, 'days') ?? 0;
 	}
 
-	override focus() {
+	override focus(): void {
 		this._chip.focus();
 	}
 
-	override render() {
+	override render(): unknown {
 		return html`<gl-popover placement="bottom" trigger="hover focus click" hoist>
 			<span id="chip" slot="anchor" class="chip" tabindex="0">
 				${this.accountAvatar
@@ -341,7 +341,7 @@ export class GLAccountChip extends LitElement {
 		</gl-popover>`;
 	}
 
-	show() {
+	show(): void {
 		void this._popover.show();
 		this.focus();
 	}

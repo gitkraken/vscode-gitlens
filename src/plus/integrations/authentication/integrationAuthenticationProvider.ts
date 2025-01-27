@@ -60,7 +60,7 @@ abstract class IntegrationAuthenticationProviderBase<ID extends IntegrationId = 
 		protected readonly authenticationService: IntegrationAuthenticationService,
 	) {}
 
-	dispose() {
+	dispose(): void {
 		this.disposables.forEach(d => void d.dispose());
 	}
 
@@ -223,11 +223,11 @@ abstract class IntegrationAuthenticationProviderBase<ID extends IntegrationId = 
 export abstract class LocalIntegrationAuthenticationProvider<
 	ID extends IntegrationId = IntegrationId,
 > extends IntegrationAuthenticationProviderBase<ID> {
-	protected override async deleteAllSecrets(sessionId: string) {
+	protected override async deleteAllSecrets(sessionId: string): Promise<void> {
 		await this.deleteSecret(this.getLocalSecretKey(sessionId), sessionId);
 	}
 
-	protected override async storeSession(sessionId: string, session: ProviderAuthenticationSession) {
+	protected override async storeSession(sessionId: string, session: ProviderAuthenticationSession): Promise<void> {
 		await this.writeSecret(this.getLocalSecretKey(sessionId), session);
 	}
 
@@ -244,7 +244,7 @@ export abstract class LocalIntegrationAuthenticationProvider<
 		storedSession: ProviderAuthenticationSession | undefined,
 		descriptor?: IntegrationAuthenticationSessionDescriptor,
 		options?: { createIfNeeded?: boolean; forceNewSession?: boolean; source?: Sources },
-	) {
+	): Promise<ProviderAuthenticationSession | undefined> {
 		if (!options?.createIfNeeded && !options?.forceNewSession) return storedSession;
 
 		return this.createSession(descriptor);
@@ -258,14 +258,14 @@ export abstract class CloudIntegrationAuthenticationProvider<
 		return `gitlens.integration.auth.cloud:${this.authProviderId}|${id}`;
 	}
 
-	protected override async deleteAllSecrets(sessionId: string) {
+	protected override async deleteAllSecrets(sessionId: string): Promise<void> {
 		await Promise.allSettled([
 			this.deleteSecret(this.getLocalSecretKey(sessionId), sessionId),
 			this.deleteSecret(this.getCloudSecretKey(sessionId), sessionId),
 		]);
 	}
 
-	protected override async storeSession(sessionId: string, session: ProviderAuthenticationSession) {
+	protected override async storeSession(sessionId: string, session: ProviderAuthenticationSession): Promise<void> {
 		await this.writeSecret(this.getCloudSecretKey(sessionId), session);
 	}
 

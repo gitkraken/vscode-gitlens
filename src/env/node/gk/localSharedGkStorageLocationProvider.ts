@@ -115,20 +115,20 @@ export class LocalSharedGkStorageLocationProvider implements SharedGkStorageLoca
 		return true;
 	}
 
-	async getSharedRepositoryLocationFileUri() {
+	async getSharedRepositoryLocationFileUri(): Promise<Uri> {
 		return this.getUri('repoMapping.json');
 	}
 
-	async getSharedCloudWorkspaceMappingFileUri() {
+	async getSharedCloudWorkspaceMappingFileUri(): Promise<Uri> {
 		return this.getUri('cloudWorkspaces.json');
 	}
 
-	async getSharedLocalWorkspaceMappingFileUri() {
+	async getSharedLocalWorkspaceMappingFileUri(): Promise<Uri> {
 		return this.getUri('localWorkspaces.json');
 	}
 }
 
-export function getGKDLocalWorkspaceMappingFileUri() {
+export function getGKDLocalWorkspaceMappingFileUri(): Uri {
 	return Uri.file(
 		join(
 			homedir(),

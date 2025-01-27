@@ -90,7 +90,7 @@ export class GlInspectNav extends LitElement {
 		return actions;
 	}
 
-	handleAction(e: Event) {
+	private handleAction(e: Event) {
 		const targetEl = e.target as HTMLElement;
 		const action = targetEl.dataset.action;
 		if (action == null) return;
@@ -103,11 +103,11 @@ export class GlInspectNav extends LitElement {
 		}
 	}
 
-	fireEvent(type: string, detail?: Record<string, unknown>) {
+	private fireEvent(type: string, detail?: Record<string, unknown>) {
 		this.dispatchEvent(new CustomEvent(`gl-${type}`, { detail: detail }));
 	}
 
-	override render() {
+	override render(): unknown {
 		const pinLabel = this.pinned
 			? html`Unpin this Commit<br />Restores Automatic Following`
 			: html`Pin this Commit<br />Suspends Automatic Following`;

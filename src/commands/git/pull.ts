@@ -63,7 +63,7 @@ export class PullGitCommand extends QuickCommand<State> {
 		};
 	}
 
-	async execute(state: PullStepState) {
+	private async execute(state: PullStepState) {
 		if (isBranchReference(state.reference)) {
 			// Only resort to a branch fetch if the branch isn't the current one
 			if (!isBranch(state.reference) || !state.reference.current) {

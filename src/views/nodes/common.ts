@@ -84,7 +84,7 @@ export abstract class PagerNode extends ViewNode<'pager'> {
 		super('pager', unknownGitUri, view, parent);
 	}
 
-	async loadAll() {
+	async loadAll(): Promise<void> {
 		const count = (await this.options?.getCount?.()) ?? 0;
 		return this.view.loadMoreNodeChildren(
 			this.parent! as ViewNode & PageableViewNode,
@@ -94,7 +94,7 @@ export abstract class PagerNode extends ViewNode<'pager'> {
 		);
 	}
 
-	loadMore() {
+	loadMore(): Promise<void> {
 		return this.view.loadMoreNodeChildren(
 			this.parent! as ViewNode & PageableViewNode,
 			this.options?.pageSize ?? configuration.get('views.pageItemLimit'),

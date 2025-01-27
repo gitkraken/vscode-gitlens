@@ -29,7 +29,10 @@ export class CopyMessageToClipboardCommand extends ActiveEditorCommand {
 		super(GlCommand.CopyMessageToClipboard);
 	}
 
-	protected override async preExecute(context: CommandContext, args?: CopyMessageToClipboardCommandArgs) {
+	protected override async preExecute(
+		context: CommandContext,
+		args?: CopyMessageToClipboardCommandArgs,
+	): Promise<void> {
 		if (isCommandContextViewNodeHasCommit(context)) {
 			args = { ...args };
 			args.sha = context.node.commit.sha;
@@ -55,7 +58,7 @@ export class CopyMessageToClipboardCommand extends ActiveEditorCommand {
 		return this.execute(context.editor, context.uri, args);
 	}
 
-	async execute(editor?: TextEditor, uri?: Uri, args?: CopyMessageToClipboardCommandArgs) {
+	async execute(editor?: TextEditor, uri?: Uri, args?: CopyMessageToClipboardCommandArgs): Promise<void> {
 		uri = getCommandUri(uri, editor);
 		args = { ...args };
 

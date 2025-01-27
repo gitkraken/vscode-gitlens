@@ -37,7 +37,7 @@ export class OpenOnRemoteCommand extends GlCommandBase {
 		super([GlCommand.OpenOnRemote, GlCommand.Deprecated_OpenInRemote]);
 	}
 
-	async execute(args?: OpenOnRemoteCommandArgs) {
+	async execute(args?: OpenOnRemoteCommandArgs): Promise<void> {
 		if (args?.resource == null) return;
 
 		let remotes =

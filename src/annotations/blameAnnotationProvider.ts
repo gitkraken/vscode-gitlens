@@ -36,7 +36,7 @@ export abstract class BlameAnnotationProviderBase extends AnnotationProviderBase
 		}
 	}
 
-	override clear() {
+	override clear(): Promise<void> {
 		if (this.hoverProviderDisposable != null) {
 			this.hoverProviderDisposable.dispose();
 			this.hoverProviderDisposable = undefined;
@@ -140,7 +140,7 @@ export abstract class BlameAnnotationProviderBase extends AnnotationProviderBase
 		};
 	}
 
-	registerHoverProviders(providers: { details: boolean; changes: boolean }) {
+	registerHoverProviders(providers: { details: boolean; changes: boolean }): void {
 		const cfg = configuration.get('hovers');
 		if (!cfg.enabled || !cfg.annotations.enabled || (!providers.details && !providers.changes)) {
 			return;

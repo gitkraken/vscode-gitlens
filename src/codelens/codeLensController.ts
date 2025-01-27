@@ -23,7 +23,7 @@ export class GitCodeLensController implements Disposable {
 		);
 	}
 
-	dispose() {
+	dispose(): void {
 		this._providerDisposable?.dispose();
 		this._disposable?.dispose();
 	}
@@ -76,7 +76,7 @@ export class GitCodeLensController implements Disposable {
 	}
 
 	@log()
-	toggleCodeLens() {
+	toggleCodeLens(): void {
 		const scope = getLogScope();
 
 		if (!this._canToggle) {

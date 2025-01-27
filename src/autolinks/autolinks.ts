@@ -45,7 +45,7 @@ export class Autolinks implements Disposable {
 		this.setAutolinksFromConfig();
 	}
 
-	dispose() {
+	dispose(): void {
 		this._disposable?.dispose();
 	}
 

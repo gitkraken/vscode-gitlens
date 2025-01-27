@@ -1,6 +1,7 @@
 import type { QuickInputButton, QuickPickItem } from 'vscode';
 import { ThemeIcon } from 'vscode';
 import type { GitWizardCommandArgs } from '../../commands/gitWizard';
+import type { StepGenerator } from '../../commands/quickCommand';
 import { getSteps } from '../../commands/quickWizard.utils';
 import { GlyphChars } from '../../constants';
 import { GlCommand } from '../../constants.commands';
@@ -30,7 +31,7 @@ export class GitWizardQuickPickItem extends CommandQuickPickItem<[GitWizardComma
 		super(labelOrItem, undefined, GlCommand.GitCommands, [args], { suppressKeyPress: true });
 	}
 
-	executeSteps(pickedVia: 'menu' | 'command') {
+	executeSteps(pickedVia: 'menu' | 'command'): StepGenerator {
 		return getSteps(Container.instance, this.args![0], pickedVia);
 	}
 }
@@ -156,7 +157,7 @@ export async function createCommitQuickPickItem<T extends GitCommit = GitCommit>
 	commit: T,
 	picked?: boolean,
 	options?: { alwaysShow?: boolean; buttons?: QuickInputButton[]; compact?: boolean; icon?: boolean | 'avatar' },
-) {
+): Promise<CommitQuickPickItem<GitStashCommit> | CommitQuickPickItem<T>> {
 	if (isStash(commit)) {
 		return createStashQuickPickItem(commit, picked, {
 			...options,
@@ -213,7 +214,7 @@ export function createStashQuickPickItem(
 	stash: GitStashCommit,
 	picked?: boolean,
 	options?: { alwaysShow?: boolean; buttons?: QuickInputButton[]; compact?: boolean; icon?: boolean },
-) {
+): CommitQuickPickItem<GitStashCommit> {
 	const number = stash.number == null ? '' : `${stash.number}: `;
 
 	if (options?.compact) {
@@ -337,7 +338,7 @@ export function createRemoteQuickPickItem(
 		type?: boolean;
 		upstream?: boolean;
 	},
-) {
+): RemoteQuickPickItem {
 	let description = '';
 	if (options?.type) {
 		description = 'remote';
@@ -375,7 +376,7 @@ export async function createRepositoryQuickPickItem(
 		fetched?: boolean;
 		status?: boolean;
 	},
-) {
+): Promise<RepositoryQuickPickItem> {
 	let repoStatus;
 	if (options?.branch || options?.status) {
 		repoStatus = await repository.git.status().getStatus();
@@ -443,7 +444,7 @@ export function createTagQuickPickItem(
 		ref?: boolean;
 		type?: boolean;
 	},
-) {
+): TagQuickPickItem {
 	let description = '';
 	if (options?.type) {
 		description = 'tag';

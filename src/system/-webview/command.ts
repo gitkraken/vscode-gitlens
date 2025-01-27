@@ -99,7 +99,10 @@ export function registerCommands(container: Container): Disposable[] {
 	return registrableCommands.map(c => new c(container));
 }
 
-export function executeActionCommand<T extends ActionContext>(action: Action<T>, args: Omit<T, 'type'>) {
+export function executeActionCommand<T extends ActionContext>(
+	action: Action<T>,
+	args: Omit<T, 'type'>,
+): Thenable<unknown> {
 	return commands.executeCommand(`${actionCommandPrefix}${action}`, { ...args, type: action });
 }
 
@@ -177,6 +180,6 @@ export function executeCoreGitCommand<T extends [...unknown[]] = [], U = any>(
 	return commands.executeCommand<U>(command, ...args);
 }
 
-export function executeEditorCommand<T>(command: GlCommands, uri: Uri | undefined, args: T) {
+export function executeEditorCommand<T>(command: GlCommands, uri: Uri | undefined, args: T): Thenable<unknown> {
 	return commands.executeCommand(command, uri, args);
 }

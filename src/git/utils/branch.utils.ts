@@ -35,7 +35,7 @@ export function getBranchNameWithoutRemote(name: string): string {
 	return name.substring(getRemoteNameSlashIndex(name) + 1);
 }
 
-export function getBranchTrackingWithoutRemote(ref: GitBranchReference) {
+export function getBranchTrackingWithoutRemote(ref: GitBranchReference): string | undefined {
 	return ref.upstream?.name.substring(getRemoteNameSlashIndex(ref.upstream.name) + 1);
 }
 
@@ -100,6 +100,6 @@ export function isDetachedHead(name: string): boolean {
 	return name.length ? detachedHEADRegex.test(name) : true;
 }
 
-export function isOfBranchRefType(branch: GitReference | undefined) {
+export function isOfBranchRefType(branch: GitReference | undefined): branch is GitBranchReference {
 	return branch?.refType === 'branch';
 }

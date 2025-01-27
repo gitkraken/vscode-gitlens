@@ -64,8 +64,12 @@ const defaultHeatmapColors = [
 	'#0a60f6',
 ];
 
-let heatmapColors: { hot: string[]; cold: string[] } | undefined;
-export function getHeatmapColors() {
+interface HeatmapColors {
+	hot: string[];
+	cold: string[];
+}
+let heatmapColors: HeatmapColors | undefined;
+export function getHeatmapColors(): HeatmapColors {
 	if (heatmapColors == null) {
 		const { coldColor, hotColor } = configuration.get('heatmap');
 
@@ -91,7 +95,7 @@ export function getHeatmapColors() {
 	return heatmapColors;
 }
 
-export function applyHeatmap(decoration: Partial<DecorationOptions>, date: Date, heatmap: ComputedHeatmap) {
+export function applyHeatmap(decoration: Partial<DecorationOptions>, date: Date, heatmap: ComputedHeatmap): void {
 	const [r, g, b, a] = getHeatmapColor(date, heatmap);
 	decoration.renderOptions!.before!.borderColor = `rgba(${r},${g},${b},${a})`;
 }
@@ -101,7 +105,7 @@ export function addOrUpdateGutterHeatmapDecoration(
 	heatmap: ComputedHeatmap,
 	range: Range,
 	map: Map<string, Decoration<Range[]>>,
-) {
+): TextEditorDecorationType {
 	const [r, g, b, a] = getHeatmapColor(date, heatmap);
 
 	const { fadeLines, locations } = configuration.get('heatmap');

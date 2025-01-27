@@ -73,7 +73,7 @@ export async function getWorktreeForBranch(
 export async function getWorktreesByBranch(
 	repos: Repository | Repository[] | undefined,
 	options?: { includeDefault?: boolean },
-) {
+): Promise<Map<string, GitWorktree>> {
 	const worktreesByBranch = new Map<string, GitWorktree>();
 	if (repos == null) return worktreesByBranch;
 
@@ -99,7 +99,7 @@ export async function getWorktreesByBranch(
 export function groupWorktreesByBranch(
 	worktrees: GitWorktree[],
 	options?: { includeDefault?: boolean; worktreesByBranch?: Map<string, GitWorktree> },
-) {
+): Map<string, GitWorktree> {
 	const worktreesByBranch = options?.worktreesByBranch ?? new Map<string, GitWorktree>();
 	if (worktrees == null) return worktreesByBranch;
 

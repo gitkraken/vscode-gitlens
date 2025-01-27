@@ -63,6 +63,7 @@ import {
 import type { IpcMessage, IpcNotification } from '../../../protocol';
 import { DidChangeHostWindowFocusNotification } from '../../../protocol';
 import { App } from '../../shared/appBase';
+import type { Disposable } from '../../shared/events';
 import type { ThemeChangeEvent } from '../../shared/theme';
 import { GraphWrapper } from './GraphWrapper';
 import './graph.scss';
@@ -88,7 +89,7 @@ export class GraphApp extends App<State> {
 	}
 
 	@log()
-	protected override onBind() {
+	protected override onBind(): Disposable[] {
 		const disposables = super.onBind?.() ?? [];
 		// disposables.push(DOM.on(window, 'keyup', e => this.onKeyUp(e)));
 
@@ -149,7 +150,7 @@ export class GraphApp extends App<State> {
 	// 	}
 	// }
 
-	protected override onMessageReceived(msg: IpcMessage) {
+	protected override onMessageReceived(msg: IpcMessage): void {
 		const scope = getLogScope();
 
 		switch (true) {
@@ -327,7 +328,7 @@ export class GraphApp extends App<State> {
 		}
 	}
 
-	protected override onThemeUpdated(e: ThemeChangeEvent) {
+	protected override onThemeUpdated(e: ThemeChangeEvent): void {
 		const rootStyle = document.documentElement.style;
 
 		const backgroundColor = Color.from(e.colors.background);
@@ -425,7 +426,7 @@ export class GraphApp extends App<State> {
 	}
 
 	@debug({ args: false, singleLine: true })
-	protected override setState(state: State, type?: IpcNotification<any> | InternalNotificationType) {
+	protected override setState(state: State, type?: IpcNotification<any> | InternalNotificationType): void {
 		const themingChanged = this.ensureTheming(state);
 
 		this.state = state;

@@ -20,7 +20,7 @@ export class OpenPullRequestOnRemoteCommand extends GlCommandBase {
 		super([GlCommand.OpenPullRequestOnRemote, GlCommand.CopyRemotePullRequestUrl]);
 	}
 
-	protected override preExecute(context: CommandContext, args?: OpenPullRequestOnRemoteCommandArgs) {
+	protected override preExecute(context: CommandContext, args?: OpenPullRequestOnRemoteCommandArgs): Promise<void> {
 		if (context.type === 'viewItem' && (context.node.is('pullrequest') || context.node.is('launchpad-item'))) {
 			args = {
 				...args,
@@ -32,7 +32,7 @@ export class OpenPullRequestOnRemoteCommand extends GlCommandBase {
 		return this.execute(args);
 	}
 
-	async execute(args?: OpenPullRequestOnRemoteCommandArgs) {
+	async execute(args?: OpenPullRequestOnRemoteCommandArgs): Promise<void> {
 		if (args?.pr == null) {
 			if (args?.repoPath == null || args?.ref == null) return;
 

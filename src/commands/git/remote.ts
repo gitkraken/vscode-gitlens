@@ -176,7 +176,7 @@ export class RemoteGitCommand extends QuickCommand<State> {
 		return this.subcommand === 'remove' || this.subcommand === 'prune' ? false : super.canSkipConfirm;
 	}
 
-	override get skipConfirmKey() {
+	override get skipConfirmKey(): string {
 		return `${this.key}${this.subcommand == null ? '' : `-${this.subcommand}`}:${this.pickedVia}`;
 	}
 

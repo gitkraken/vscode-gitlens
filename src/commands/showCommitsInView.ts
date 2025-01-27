@@ -30,7 +30,7 @@ export class ShowCommitsInViewCommand extends ActiveEditorCommand {
 		super(GlCommand.ShowCommitsInView);
 	}
 
-	async execute(editor?: TextEditor, uri?: Uri, args?: ShowCommitsInViewCommandArgs) {
+	async execute(editor?: TextEditor, uri?: Uri, args?: ShowCommitsInViewCommandArgs): Promise<void> {
 		args = { ...args };
 
 		if (args.refs == null) {

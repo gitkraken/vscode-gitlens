@@ -79,7 +79,7 @@ export class ResultsFileNode extends ViewRefFileNode<'results-file', View, State
 	}
 
 	private _description: string | undefined;
-	get description() {
+	get description(): string {
 		if (this._description === undefined) {
 			this._description = StatusFileFormatter.fromTemplate(
 				this.view.config.formats.files.description,
@@ -93,7 +93,7 @@ export class ResultsFileNode extends ViewRefFileNode<'results-file', View, State
 	}
 
 	private _folderName: string | undefined;
-	get folderName() {
+	get folderName(): string {
 		if (this._folderName === undefined) {
 			this._folderName = relativeDir(this.uri.relativePath);
 		}
@@ -101,7 +101,7 @@ export class ResultsFileNode extends ViewRefFileNode<'results-file', View, State
 	}
 
 	private _label: string | undefined;
-	get label() {
+	get label(): string {
 		if (this._label === undefined) {
 			this._label = StatusFileFormatter.fromTemplate(this.view.config.formats.files.label, this.file, {
 				relativePath: this.relativePath,

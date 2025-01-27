@@ -42,7 +42,7 @@ export class OpenFileOnRemoteCommand extends ActiveEditorCommand {
 		]);
 	}
 
-	protected override async preExecute(context: CommandContext, args?: OpenFileOnRemoteCommandArgs) {
+	protected override async preExecute(context: CommandContext, args?: OpenFileOnRemoteCommandArgs): Promise<void> {
 		let uri = context.uri;
 
 		if (context.type === 'editorLine') {
@@ -107,7 +107,7 @@ export class OpenFileOnRemoteCommand extends ActiveEditorCommand {
 		return this.execute(context.editor, uri, args);
 	}
 
-	async execute(editor?: TextEditor, uri?: Uri, args?: OpenFileOnRemoteCommandArgs) {
+	async execute(editor?: TextEditor, uri?: Uri, args?: OpenFileOnRemoteCommandArgs): Promise<void> {
 		uri = getCommandUri(uri, editor);
 		if (uri == null) return;
 

@@ -109,7 +109,7 @@ export class RebaseEditorProvider implements CustomTextEditorProvider, Disposabl
 		this.ascending = configuration.get('rebaseEditor.ordering') === 'asc';
 	}
 
-	dispose() {
+	dispose(): void {
 		this._disposable.dispose();
 	}
 
@@ -131,7 +131,7 @@ export class RebaseEditorProvider implements CustomTextEditorProvider, Disposabl
 	}
 
 	private _disableAfterNextUse: boolean = false;
-	async enableForNextUse() {
+	async enableForNextUse(): Promise<void> {
 		if (!this.enabled) {
 			await this.setEnabled(true);
 			this._disableAfterNextUse = true;
@@ -165,7 +165,11 @@ export class RebaseEditorProvider implements CustomTextEditorProvider, Disposabl
 	}
 
 	@debug<RebaseEditorProvider['resolveCustomTextEditor']>({ args: { 1: false, 2: false } })
-	async resolveCustomTextEditor(document: TextDocument, panel: WebviewPanel, _token: CancellationToken) {
+	async resolveCustomTextEditor(
+		document: TextDocument,
+		panel: WebviewPanel,
+		_token: CancellationToken,
+	): Promise<void> {
 		void this.container.usage.track(`rebaseEditor:shown`).catch();
 
 		const repoPath = normalizePath(Uri.joinPath(document.uri, '..', '..', '..').fsPath);

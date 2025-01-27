@@ -11,7 +11,7 @@ export class OpenFileFromRemoteCommand extends GlCommandBase {
 		super(GlCommand.OpenFileFromRemote);
 	}
 
-	async execute() {
+	async execute(): Promise<void> {
 		let clipboard: string | undefined = await env.clipboard.readText();
 		try {
 			Uri.parse(clipboard, true);

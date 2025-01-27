@@ -452,7 +452,7 @@ export class ViewCommands implements Disposable {
 		);
 	}
 
-	dispose() {
+	dispose(): void {
 		this._disposable.dispose();
 	}
 

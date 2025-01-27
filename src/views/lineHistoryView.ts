@@ -28,7 +28,7 @@ export class LineHistoryView extends ViewBase<'lineHistory', LineHistoryTrackerN
 		return false;
 	}
 
-	protected getRoot() {
+	protected getRoot(): LineHistoryTrackerNode {
 		return new LineHistoryTrackerNode(this);
 	}
 
@@ -56,7 +56,7 @@ export class LineHistoryView extends ViewBase<'lineHistory', LineHistoryTrackerN
 		];
 	}
 
-	protected override filterConfigurationChanged(e: ConfigurationChangeEvent) {
+	protected override filterConfigurationChanged(e: ConfigurationChangeEvent): boolean {
 		const changed = super.filterConfigurationChanged(e);
 		if (
 			!changed &&

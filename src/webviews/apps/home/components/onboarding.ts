@@ -30,7 +30,7 @@ export class GlOnboarding extends LitElement {
 	@query('#open-walkthrough')
 	private _openWalkthroughButton!: GlButton;
 
-	override render() {
+	override render(): unknown {
 		if (!this._state.showWalkthroughProgress) {
 			return undefined;
 		}

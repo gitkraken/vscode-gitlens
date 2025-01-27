@@ -42,7 +42,7 @@ export abstract class GlApp<
 	@property({ type: Object, noAccessor: true })
 	private bootstrap!: State;
 
-	get state() {
+	get state(): State {
 		return this._stateProvider.state;
 	}
 
@@ -53,9 +53,9 @@ export abstract class GlApp<
 	private _stateProvider!: StateProvider<State>;
 
 	protected abstract createStateProvider(state: State, ipc: HostIpc): StateProvider<State>;
-	protected onPersistState(_state: State) {}
+	protected onPersistState(_state: State): void {}
 
-	override connectedCallback() {
+	override connectedCallback(): void {
 		super.connectedCallback();
 
 		this._logger = new LoggerContext(this.name);
@@ -103,7 +103,7 @@ export abstract class GlApp<
 		}
 	}
 
-	override disconnectedCallback() {
+	override disconnectedCallback(): void {
 		super.disconnectedCallback();
 
 		this._logger.log('disconnected');
@@ -113,7 +113,7 @@ export abstract class GlApp<
 		this.disposables.forEach(d => d.dispose());
 	}
 
-	override render() {
+	override render(): unknown {
 		return html`<slot></slot>`;
 	}
 

@@ -209,7 +209,7 @@ export class ResultsCommitsNode<View extends ViewsWithCommits = ViewsWithCommits
 
 	@gate()
 	@debug()
-	override refresh(reset: boolean = false) {
+	override refresh(reset: boolean = false): void {
 		if (reset) {
 			this._commitsQueryResults = undefined;
 			this._commitsQueryResultsPromise = undefined;
@@ -244,7 +244,7 @@ export class ResultsCommitsNode<View extends ViewsWithCommits = ViewsWithCommits
 	}
 
 	private _hasMore = true;
-	get hasMore() {
+	get hasMore(): boolean {
 		return this._hasMore;
 	}
 

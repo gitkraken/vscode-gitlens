@@ -29,7 +29,7 @@ export class GitHubRemote extends RemoteProvider<GitHubRepositoryDescriptor> {
 		super(domain, path, protocol, name, custom);
 	}
 
-	get apiBaseUrl() {
+	get apiBaseUrl(): string {
 		return this.custom ? `${this.protocol}://${this.domain}/api/v3` : `https://api.${this.domain}`;
 	}
 
@@ -165,12 +165,12 @@ export class GitHubRemote extends RemoteProvider<GitHubRepositoryDescriptor> {
 		return this._autolinks;
 	}
 
-	override get avatarUri() {
+	override get avatarUri(): Uri {
 		const [owner] = this.splitPath();
 		return Uri.parse(`https://avatars.githubusercontent.com/${owner}`);
 	}
 
-	override get icon() {
+	override get icon(): string {
 		return 'github';
 	}
 
@@ -184,7 +184,7 @@ export class GitHubRemote extends RemoteProvider<GitHubRepositoryDescriptor> {
 			: 'github') satisfies Unbrand<GkProviderId> as Brand<GkProviderId>;
 	}
 
-	get name() {
+	get name(): string {
 		return this.formatName('GitHub');
 	}
 

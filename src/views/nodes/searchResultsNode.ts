@@ -78,7 +78,7 @@ export class SearchResultsNode extends ViewNode<'search-results', SearchAndCompa
 		return this._search;
 	}
 
-	dismiss() {
+	dismiss(): void {
 		void this.remove(true);
 	}
 
@@ -136,11 +136,11 @@ export class SearchResultsNode extends ViewNode<'search-results', SearchAndCompa
 		return item;
 	}
 
-	get hasMore() {
+	get hasMore(): boolean {
 		return this.ensureResults().hasMore;
 	}
 
-	async loadMore(limit?: number) {
+	async loadMore(limit?: number): Promise<void> {
 		return this.ensureResults().loadMore(limit);
 	}
 
@@ -157,7 +157,7 @@ export class SearchResultsNode extends ViewNode<'search-results', SearchAndCompa
 			resultsType?: { singular: string; plural: string };
 		};
 		log: Promise<GitLog | undefined> | GitLog | undefined;
-	}) {
+	}): Promise<void> {
 		if (search == null) {
 			await executeGitCommand({
 				command: 'search',
@@ -189,7 +189,7 @@ export class SearchResultsNode extends ViewNode<'search-results', SearchAndCompa
 
 	@gate()
 	@debug()
-	override refresh(reset: boolean = false) {
+	override refresh(reset: boolean = false): void {
 		this._resultsNode?.refresh(reset);
 	}
 

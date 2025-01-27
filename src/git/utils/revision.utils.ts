@@ -16,23 +16,25 @@ function isMatch(regex: RegExp, ref: string | undefined) {
 	return !ref ? false : regex.test(ref);
 }
 
-export function isSha(ref: string) {
+export function isSha(ref: string): boolean {
 	return isMatch(shaRegex, ref);
 }
 
-export function isShaLike(ref: string) {
+export function isShaLike(ref: string): boolean {
 	return isMatch(shaLikeRegex, ref);
 }
 
-export function isShaParent(ref: string) {
+export function isShaParent(ref: string): boolean {
 	return isMatch(shaParentRegex, ref);
 }
 
-export function isUncommitted(ref: string | undefined, exact: boolean = false) {
+export function isUncommitted(ref: string | undefined, exact: boolean = false): boolean {
 	return ref === uncommitted || ref === uncommittedStaged || (!exact && isMatch(uncommittedRegex, ref));
 }
 
-export function isUncommittedParent(ref: string | undefined) {
+export function isUncommittedParent(
+	ref: string | undefined,
+): ref is '0000000000000000000000000000000000000000^' | '0000000000000000000000000000000000000000:^' {
 	return ref === `${uncommitted}^` || ref === `${uncommittedStaged}^`;
 }
 
@@ -41,11 +43,11 @@ export function isUncommittedStaged(ref: string | undefined, exact: boolean = fa
 }
 
 let abbreviatedShaLength = 7;
-export function getAbbreviatedShaLength() {
+export function getAbbreviatedShaLength(): number {
 	return abbreviatedShaLength;
 }
 
-export function setAbbreviatedShaLength(length: number) {
+export function setAbbreviatedShaLength(length: number): void {
 	abbreviatedShaLength = length;
 }
 
@@ -55,7 +57,7 @@ export function shortenRevision(
 		force?: boolean;
 		strings?: { uncommitted?: string; uncommittedStaged?: string; working?: string };
 	},
-) {
+): string {
 	if (ref === deletedOrMissing) return '(deleted)';
 
 	if (!ref) return options?.strings?.working ?? '';

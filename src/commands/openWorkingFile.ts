@@ -24,7 +24,7 @@ export class OpenWorkingFileCommand extends ActiveEditorCommand {
 		super([GlCommand.OpenWorkingFile, GlCommand.OpenWorkingFileInDiffLeft, GlCommand.OpenWorkingFileInDiffRight]);
 	}
 
-	async execute(editor: TextEditor, uri?: Uri, args?: OpenWorkingFileCommandArgs) {
+	async execute(editor: TextEditor, uri?: Uri, args?: OpenWorkingFileCommandArgs): Promise<void> {
 		args = { ...args };
 		if (args.line == null) {
 			args.line = editor?.selection.active.line;

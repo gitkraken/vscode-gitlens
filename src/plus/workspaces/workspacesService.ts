@@ -357,7 +357,7 @@ export class WorkspacesService implements Disposable {
 	}
 
 	@log()
-	resetWorkspaces(options?: { cloud?: boolean; local?: boolean }) {
+	resetWorkspaces(options?: { cloud?: boolean; local?: boolean }): void {
 		if (options?.cloud ?? true) {
 			this._cloudWorkspaces = undefined;
 		}
@@ -751,7 +751,7 @@ export class WorkspacesService implements Disposable {
 	}
 
 	@log()
-	async deleteCloudWorkspace(workspaceId: string) {
+	async deleteCloudWorkspace(workspaceId: string): Promise<void> {
 		const confirmation = await window.showWarningMessage(
 			`Are you sure you want to delete this workspace? This cannot be undone.`,
 			{ modal: true },
@@ -798,7 +798,7 @@ export class WorkspacesService implements Disposable {
 	async addCloudWorkspaceRepos(
 		workspaceId: string,
 		options?: { repos?: Repository[]; suppressNotifications?: boolean },
-	) {
+	): Promise<void> {
 		const workspace = this.getCloudWorkspace(workspaceId);
 		if (workspace == null) return;
 
@@ -966,7 +966,7 @@ export class WorkspacesService implements Disposable {
 	}
 
 	@log({ args: { 1: false } })
-	async removeCloudWorkspaceRepo(workspaceId: string, descriptor: CloudWorkspaceRepositoryDescriptor) {
+	async removeCloudWorkspaceRepo(workspaceId: string, descriptor: CloudWorkspaceRepositoryDescriptor): Promise<void> {
 		const workspace = this.getCloudWorkspace(workspaceId);
 		if (workspace == null) return;
 
@@ -1338,7 +1338,7 @@ function getCurrentWorkspaceId(): string | undefined {
 	return workspace.getConfiguration('gitkraken')?.get<string>('workspaceId');
 }
 
-export function scheduleAddMissingCurrentWorkspaceRepos(container: Container) {
+export function scheduleAddMissingCurrentWorkspaceRepos(container: Container): void {
 	const currentWorkspaceId = getCurrentWorkspaceId();
 	if (currentWorkspaceId == null) return;
 

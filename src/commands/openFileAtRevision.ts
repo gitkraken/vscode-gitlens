@@ -59,7 +59,7 @@ export class OpenFileAtRevisionCommand extends ActiveEditorCommand {
 		super([GlCommand.OpenFileAtRevision, GlCommand.OpenBlamePriorToChange]);
 	}
 
-	protected override async preExecute(context: CommandContext, args?: OpenFileAtRevisionCommandArgs) {
+	protected override async preExecute(context: CommandContext, args?: OpenFileAtRevisionCommandArgs): Promise<void> {
 		if (context.command === GlCommand.OpenBlamePriorToChange) {
 			args = { ...args, annotationType: 'blame' };
 			if (args.revisionUri == null && context.editor != null) {
@@ -102,7 +102,7 @@ export class OpenFileAtRevisionCommand extends ActiveEditorCommand {
 		return this.execute(context.editor, context.uri, args);
 	}
 
-	async execute(editor: TextEditor | undefined, uri?: Uri, args?: OpenFileAtRevisionCommandArgs) {
+	async execute(editor: TextEditor | undefined, uri?: Uri, args?: OpenFileAtRevisionCommandArgs): Promise<void> {
 		uri = getCommandUri(uri, editor);
 		if (uri == null) return;
 

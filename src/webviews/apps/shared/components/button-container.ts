@@ -43,7 +43,7 @@ export class ButtonContainer extends LitElement {
 	@property({ reflect: true })
 	gap?: 'wide';
 
-	override render() {
+	override render(): unknown {
 		return html`<div class="group"><slot></slot></div>`;
 	}
 }

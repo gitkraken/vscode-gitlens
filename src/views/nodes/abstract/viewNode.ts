@@ -279,7 +279,7 @@ export abstract class ViewNode<
 	protected _disposed = false;
 	// NOTE: @eamodio uncomment to track node leaks
 	// @debug()
-	dispose() {
+	dispose(): void {
 		this._disposed = true;
 		// NOTE: @eamodio uncomment to track node leaks
 		// this.view.unregisterNode(this);
@@ -294,11 +294,11 @@ export abstract class ViewNode<
 		return this._context ?? this.parent?.context ?? {};
 	}
 
-	protected updateContext(context: AmbientContext, reset: boolean = false) {
+	protected updateContext(context: AmbientContext, reset: boolean = false): void {
 		this._context = this.getNewContext(context, reset);
 	}
 
-	protected getNewContext(context: AmbientContext, reset: boolean = false) {
+	protected getNewContext(context: AmbientContext, reset: boolean = false): AmbientContext {
 		return { ...(reset ? this.parent?.context : this.context), ...context };
 	}
 

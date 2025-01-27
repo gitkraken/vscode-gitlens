@@ -36,7 +36,7 @@ export class RemotesRepositoryNode extends RepositoryFolderNode<RemotesView, Rem
 		return this.child.getChildren();
 	}
 
-	protected changed(e: RepositoryChangeEvent) {
+	protected changed(e: RepositoryChangeEvent): boolean {
 		return e.changed(
 			RepositoryChange.Config,
 			RepositoryChange.Remotes,
@@ -115,7 +115,7 @@ export class RemotesView extends ViewBase<'remotes', RemotesViewNode, RemotesVie
 		return this.container.prereleaseOrDebugging;
 	}
 
-	protected getRoot() {
+	protected getRoot(): RemotesViewNode {
 		return new RemotesViewNode(this);
 	}
 
@@ -166,7 +166,7 @@ export class RemotesView extends ViewBase<'remotes', RemotesViewNode, RemotesVie
 		];
 	}
 
-	protected override filterConfigurationChanged(e: ConfigurationChangeEvent) {
+	protected override filterConfigurationChanged(e: ConfigurationChangeEvent): boolean {
 		const changed = super.filterConfigurationChanged(e);
 		if (
 			!changed &&
@@ -188,7 +188,7 @@ export class RemotesView extends ViewBase<'remotes', RemotesViewNode, RemotesVie
 		return true;
 	}
 
-	findBranch(branch: GitBranchReference, token?: CancellationToken) {
+	async findBranch(branch: GitBranchReference, token?: CancellationToken): Promise<ViewNode | undefined> {
 		if (!branch.remote) return undefined;
 
 		const { repoPath } = branch;
@@ -213,7 +213,10 @@ export class RemotesView extends ViewBase<'remotes', RemotesViewNode, RemotesVie
 		});
 	}
 
-	async findCommit(commit: GitCommit | { repoPath: string; ref: string }, token?: CancellationToken) {
+	async findCommit(
+		commit: GitCommit | { repoPath: string; ref: string },
+		token?: CancellationToken,
+	): Promise<ViewNode | undefined> {
 		const { repoPath } = commit;
 
 		// Get all the remote branches the commit is on
@@ -256,7 +259,7 @@ export class RemotesView extends ViewBase<'remotes', RemotesViewNode, RemotesVie
 		});
 	}
 
-	findRemote(remote: GitRemote, token?: CancellationToken) {
+	async findRemote(remote: GitRemote, token?: CancellationToken): Promise<ViewNode | undefined> {
 		const { repoPath } = remote;
 
 		return this.findNode((n: any) => n.remote?.name === remote.name, {
@@ -276,14 +279,14 @@ export class RemotesView extends ViewBase<'remotes', RemotesViewNode, RemotesVie
 	}
 
 	@gate(() => '')
-	revealBranch(
+	async revealBranch(
 		branch: GitBranchReference,
 		options?: {
 			select?: boolean;
 			focus?: boolean;
 			expand?: boolean | number;
 		},
-	) {
+	): Promise<ViewNode | undefined> {
 		return window.withProgress(
 			{
 				location: ProgressLocation.Notification,
@@ -312,7 +315,7 @@ export class RemotesView extends ViewBase<'remotes', RemotesViewNode, RemotesVie
 			focus?: boolean;
 			expand?: boolean | number;
 		},
-	) {
+	): Promise<ViewNode | undefined> {
 		return window.withProgress(
 			{
 				location: ProgressLocation.Notification,
@@ -334,14 +337,14 @@ export class RemotesView extends ViewBase<'remotes', RemotesViewNode, RemotesVie
 	}
 
 	@gate(() => '')
-	revealRemote(
+	async revealRemote(
 		remote: GitRemote,
 		options?: {
 			select?: boolean;
 			focus?: boolean;
 			expand?: boolean | number;
 		},
-	) {
+	): Promise<ViewNode | undefined> {
 		return window.withProgress(
 			{
 				location: ProgressLocation.Notification,
@@ -363,7 +366,7 @@ export class RemotesView extends ViewBase<'remotes', RemotesViewNode, RemotesVie
 	async revealRepository(
 		repoPath: string,
 		options?: { select?: boolean; focus?: boolean; expand?: boolean | number },
-	) {
+	): Promise<ViewNode | undefined> {
 		const node = await this.findNode(n => n instanceof RepositoryFolderNode && n.repoPath === repoPath, {
 			maxDepth: 1,
 			canTraverse: n => n instanceof RemotesViewNode || n instanceof RepositoryFolderNode,

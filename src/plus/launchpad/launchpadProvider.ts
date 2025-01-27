@@ -3,7 +3,7 @@ import type {
 	EnrichedItemsByUniqueId,
 	PullRequestWithUniqueID,
 } from '@gitkraken/provider-apis';
-import type { CancellationToken, ConfigurationChangeEvent } from 'vscode';
+import type { CancellationToken, ConfigurationChangeEvent, Event } from 'vscode';
 import { Disposable, env, EventEmitter, Uri, window } from 'vscode';
 import { md5 } from '@env/crypto';
 import { GlCommand } from '../../constants.commands';
@@ -137,12 +137,12 @@ export interface LaunchpadCategorizedTimings {
 
 export class LaunchpadProvider implements Disposable {
 	private readonly _onDidChange = new EventEmitter<void>();
-	get onDidChange() {
+	get onDidChange(): Event<void> {
 		return this._onDidChange.event;
 	}
 
 	private readonly _onDidRefresh = new EventEmitter<LaunchpadRefreshEvent>();
-	get onDidRefresh() {
+	get onDidRefresh(): Event<LaunchpadCategorizedResult> {
 		return this._onDidRefresh.event;
 	}
 
@@ -156,7 +156,7 @@ export class LaunchpadProvider implements Disposable {
 		);
 	}
 
-	dispose() {
+	dispose(): void {
 		this._disposable.dispose();
 	}
 
@@ -344,7 +344,7 @@ export class LaunchpadProvider implements Disposable {
 	}
 
 	@log()
-	refresh() {
+	refresh(): void {
 		this._prs = undefined;
 		this._enrichedItems = undefined;
 		this._codeSuggestions = undefined;
@@ -353,7 +353,7 @@ export class LaunchpadProvider implements Disposable {
 	}
 
 	@log<LaunchpadProvider['pin']>({ args: { 0: i => `${i.id} (${i.provider.name} ${i.type})` } })
-	async pin(item: LaunchpadItem) {
+	async pin(item: LaunchpadItem): Promise<void> {
 		item.viewer.pinned = true;
 		this._onDidChange.fire();
 
@@ -363,7 +363,7 @@ export class LaunchpadProvider implements Disposable {
 	}
 
 	@log<LaunchpadProvider['unpin']>({ args: { 0: i => `${i.id} (${i.provider.name} ${i.type})` } })
-	async unpin(item: LaunchpadItem) {
+	async unpin(item: LaunchpadItem): Promise<void> {
 		item.viewer.pinned = false;
 		this._onDidChange.fire();
 
@@ -376,7 +376,7 @@ export class LaunchpadProvider implements Disposable {
 	}
 
 	@log<LaunchpadProvider['snooze']>({ args: { 0: i => `${i.id} (${i.provider.name} ${i.type})` } })
-	async snooze(item: LaunchpadItem) {
+	async snooze(item: LaunchpadItem): Promise<void> {
 		item.viewer.snoozed = true;
 		this._onDidChange.fire();
 
@@ -386,7 +386,7 @@ export class LaunchpadProvider implements Disposable {
 	}
 
 	@log<LaunchpadProvider['unsnooze']>({ args: { 0: i => `${i.id} (${i.provider.name} ${i.type})` } })
-	async unsnooze(item: LaunchpadItem) {
+	async unsnooze(item: LaunchpadItem): Promise<void> {
 		item.viewer.snoozed = false;
 		this._onDidChange.fire();
 
@@ -425,7 +425,7 @@ export class LaunchpadProvider implements Disposable {
 	}
 
 	@log<LaunchpadProvider['openCodeSuggestion']>({ args: { 0: i => `${i.id} (${i.provider.name} ${i.type})` } })
-	openCodeSuggestion(item: LaunchpadItem, target: string) {
+	openCodeSuggestion(item: LaunchpadItem, target: string): void {
 		const draft = item.codeSuggestions?.value?.find(d => d.id === target);
 		if (draft == null) return;
 		this._codeSuggestions?.delete(item.uuid);
@@ -437,7 +437,7 @@ export class LaunchpadProvider implements Disposable {
 	}
 
 	@log()
-	openCodeSuggestionInBrowser(target: string) {
+	openCodeSuggestionInBrowser(target: string): void {
 		void openUrl(this.container.drafts.generateWebUrl(target));
 	}
 
@@ -474,7 +474,7 @@ export class LaunchpadProvider implements Disposable {
 	}
 
 	@log<LaunchpadProvider['openChanges']>({ args: { 0: i => `${i.id} (${i.provider.name} ${i.type})` } })
-	async openChanges(item: LaunchpadItem) {
+	async openChanges(item: LaunchpadItem): Promise<void> {
 		if (!item.openRepository?.localBranch?.current) return;
 
 		await this.switchTo(item);
@@ -493,7 +493,7 @@ export class LaunchpadProvider implements Disposable {
 	}
 
 	@log<LaunchpadProvider['openInGraph']>({ args: { 0: i => `${i.id} (${i.provider.name} ${i.type})` } })
-	async openInGraph(item: LaunchpadItem) {
+	async openInGraph(item: LaunchpadItem): Promise<void> {
 		const deepLinkUrl = this.getItemBranchDeepLink(item);
 		if (deepLinkUrl == null) return;
 
@@ -989,7 +989,7 @@ export function getLaunchpadItemGroups(item: LaunchpadItem): LaunchpadGroup[] {
 	return groups;
 }
 
-export function groupAndSortLaunchpadItems(items?: LaunchpadItem[]) {
+export function groupAndSortLaunchpadItems(items?: LaunchpadItem[]): Map<LaunchpadGroup, LaunchpadItem[]> {
 	if (items == null || items.length === 0) return new Map<LaunchpadGroup, LaunchpadItem[]>();
 	const grouped = new Map<LaunchpadGroup, LaunchpadItem[]>(launchpadGroups.map(g => [g, []]));
 
@@ -1011,7 +1011,7 @@ export function groupAndSortLaunchpadItems(items?: LaunchpadItem[]) {
 	return grouped;
 }
 
-export function countLaunchpadItemGroups(items?: LaunchpadItem[]) {
+export function countLaunchpadItemGroups(items?: LaunchpadItem[]): Map<LaunchpadGroup, number> {
 	if (items == null || items.length === 0) return new Map<LaunchpadGroup, number>();
 	const grouped = new Map<LaunchpadGroup, number>(launchpadGroups.map(g => [g, 0]));
 
@@ -1041,7 +1041,7 @@ export function countLaunchpadItemGroups(items?: LaunchpadItem[]) {
 	return grouped;
 }
 
-export function sortLaunchpadItems(items: LaunchpadItem[]) {
+export function sortLaunchpadItems(items: LaunchpadItem[]): LaunchpadItem[] {
 	return items.sort(
 		(a, b) =>
 			(a.viewer.pinned ? -1 : 1) - (b.viewer.pinned ? -1 : 1) ||
@@ -1065,7 +1065,7 @@ export function getPullRequestBranchDeepLink(
 	remoteUrl: string,
 	action?: DeepLinkActionType,
 	pr?: PullRequest,
-) {
+): Uri {
 	const schemeOverride = configuration.get('deepLinks.schemeOverride');
 	const scheme = typeof schemeOverride === 'string' ? schemeOverride : env.uriScheme;
 
@@ -1092,7 +1092,7 @@ export function getPullRequestBranchDeepLink(
 	);
 }
 
-export function getLaunchpadItemIdHash(item: LaunchpadItem) {
+export function getLaunchpadItemIdHash(item: LaunchpadItem): string {
 	return md5(item.uuid);
 }
 

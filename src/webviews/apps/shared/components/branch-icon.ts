@@ -69,7 +69,7 @@ export class GlBranchIcon extends LitElement {
 	@property({ type: Boolean })
 	worktree: boolean = false;
 
-	override render() {
+	override render(): unknown {
 		return html`<gl-tooltip placement="bottom"
 			>${this.renderIcon()}<span slot="content">${this.renderTooltipContent()}</span></gl-tooltip
 		>`;

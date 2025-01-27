@@ -159,7 +159,7 @@ export class PatchDetailsWebviewProvider
 		);
 	}
 
-	dispose() {
+	dispose(): void {
 		this._disposable.dispose();
 	}
 
@@ -230,7 +230,7 @@ export class PatchDetailsWebviewProvider
 		return commands;
 	}
 
-	onMessageReceived(e: IpcMessage) {
+	onMessageReceived(e: IpcMessage): void {
 		switch (true) {
 			case ApplyPatchCommand.is(e):
 				void this.applyPatch(e.params);
@@ -332,7 +332,7 @@ export class PatchDetailsWebviewProvider
 		this.updateState(true);
 	}
 
-	onVisibilityChanged(visible: boolean) {
+	onVisibilityChanged(visible: boolean): void {
 		// TODO@eamodio ugly -- clean this up later
 		this._context.create?.changes.forEach(c => (visible ? c.resume() : c.suspend()));
 

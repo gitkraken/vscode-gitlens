@@ -18,7 +18,7 @@ export const PushPullButton = ({
 	fetchedText: string | undefined;
 	branchName: string | undefined;
 	remote: ReactNode;
-}) => {
+}): React.JSX.Element | null => {
 	let isBehind = false;
 	let isAhead = false;
 	if (branchState) {

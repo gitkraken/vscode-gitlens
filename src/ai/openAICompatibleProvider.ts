@@ -1,4 +1,5 @@
 import type { CancellationToken } from 'vscode';
+import type { Response } from '@env/fetch';
 import { fetch } from '@env/fetch';
 import type { AIProviders } from '../constants.ai';
 import type { TelemetryEvents } from '../constants.telemetry';
@@ -30,7 +31,7 @@ export interface AIProviderConfig {
 export abstract class OpenAICompatibleProvider<T extends AIProviders> implements AIProvider<T> {
 	constructor(protected readonly container: Container) {}
 
-	dispose() {}
+	dispose(): void {}
 
 	abstract readonly id: T;
 	abstract readonly name: string;
@@ -261,7 +262,7 @@ export abstract class OpenAICompatibleProvider<T extends AIProviders> implements
 		apiKey: string,
 		request: object,
 		cancellation: CancellationToken | undefined,
-	) {
+	): Promise<Response> {
 		let aborter: AbortController | undefined;
 		if (cancellation != null) {
 			aborter = new AbortController();

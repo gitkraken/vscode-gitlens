@@ -87,11 +87,11 @@ const _cachedEventArgs = new Map<keyof CacheableEventsMapping, CacheableEventsMa
 export class EventBus implements Disposable {
 	private readonly _emitter = new EventEmitter<EventBusEvent>();
 
-	dispose() {
+	dispose(): void {
 		this._emitter.dispose();
 	}
 
-	fire<T extends keyof EventsMapping>(name: T, data: EventsMapping[T], options?: EventBusOptions) {
+	fire<T extends keyof EventsMapping>(name: T, data: EventsMapping[T], options?: EventBusOptions): void {
 		if (canCacheEventArgs(name)) {
 			_cachedEventArgs.set(name, data as CacheableEventsMapping[typeof name]);
 		}
@@ -102,7 +102,7 @@ export class EventBus implements Disposable {
 		});
 	}
 
-	fireAsync<T extends keyof EventsMapping>(name: T, data: EventsMapping[T], options?: EventBusOptions) {
+	fireAsync<T extends keyof EventsMapping>(name: T, data: EventsMapping[T], options?: EventBusOptions): void {
 		queueMicrotask(() => this.fire(name, data, options));
 	}
 
@@ -110,7 +110,7 @@ export class EventBus implements Disposable {
 		return _cachedEventArgs.get(name) as CacheableEventsMapping[T] | undefined;
 	}
 
-	on<T extends keyof EventsMapping>(name: T, handler: (e: EventBusEvent<T>) => void, thisArgs?: unknown) {
+	on<T extends keyof EventsMapping>(name: T, handler: (e: EventBusEvent<T>) => void, thisArgs?: unknown): Disposable {
 		return this._emitter.event(
 			// eslint-disable-next-line prefer-arrow-callback
 			function (e) {

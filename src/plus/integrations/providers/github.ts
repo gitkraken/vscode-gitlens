@@ -287,7 +287,7 @@ export class GitHubIntegration extends GitHubIntegrationBase<HostingIntegrationI
 
 	// This is a special case for GitHub because we use VSCode's GitHub session, and it can be disconnected
 	// outside of the extension.
-	override async refresh() {
+	override async refresh(): Promise<void> {
 		const authProvider = await this.authenticationService.get(this.authProvider.id);
 		const session = await authProvider.getSession(this.authProviderDescriptor);
 		if (session == null && this.maybeConnected) {

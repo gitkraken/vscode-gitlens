@@ -11,7 +11,7 @@ export class AddAuthorsCommand extends GlCommandBase {
 		super(GlCommand.AddAuthors);
 	}
 
-	execute(sourceControl: SourceControl) {
+	execute(sourceControl: SourceControl): Promise<void> {
 		let repo;
 		if (sourceControl?.rootUri != null) {
 			repo = this.container.git.getRepository(sourceControl.rootUri);

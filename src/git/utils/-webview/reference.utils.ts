@@ -1,10 +1,10 @@
 import type { GitBranch } from '../../models/branch';
 import type { GitCommit, GitStashCommit } from '../../models/commit';
-import type { GitRevisionReference } from '../../models/reference';
+import type { GitBranchReference, GitRevisionReference, GitTagReference } from '../../models/reference';
 import type { GitTag } from '../../models/tag';
-import { createReference } from "../reference.utils";
+import { createReference } from '../reference.utils';
 
-export function getReferenceFromBranch(branch: GitBranch) {
+export function getReferenceFromBranch(branch: GitBranch): GitBranchReference {
 	return createReference(branch.ref, branch.repoPath, {
 		id: branch.id,
 		refType: branch.refType,
@@ -17,7 +17,7 @@ export function getReferenceFromBranch(branch: GitBranch) {
 export function getReferenceFromRevision(
 	revision: GitCommit | GitStashCommit | GitRevisionReference,
 	options?: { excludeMessage?: boolean },
-) {
+): GitRevisionReference {
 	if (revision.refType === 'stash') {
 		return createReference(revision.ref, revision.repoPath, {
 			refType: revision.refType,
@@ -34,7 +34,7 @@ export function getReferenceFromRevision(
 	});
 }
 
-export function getReferenceFromTag(tag: GitTag) {
+export function getReferenceFromTag(tag: GitTag): GitTagReference {
 	return createReference(tag.ref, tag.repoPath, {
 		id: tag.id,
 		refType: tag.refType,

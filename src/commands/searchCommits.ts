@@ -25,7 +25,7 @@ export class SearchCommitsCommand extends GlCommandBase {
 		super([GlCommand.SearchCommits, GlCommand.SearchCommitsInView]);
 	}
 
-	protected override preExecute(context: CommandContext, args?: SearchCommitsCommandArgs) {
+	protected override preExecute(context: CommandContext, args?: SearchCommitsCommandArgs): Promise<void> {
 		if (context.command === GlCommand.SearchCommitsInView) {
 			args = { ...args };
 			args.showResultsInSideBar = true;
@@ -47,7 +47,7 @@ export class SearchCommitsCommand extends GlCommandBase {
 		return this.execute(args);
 	}
 
-	async execute(args?: SearchCommitsCommandArgs) {
+	async execute(args?: SearchCommitsCommandArgs): Promise<void> {
 		await executeGitCommand({
 			command: 'search',
 			prefillOnly: args?.prefillOnly,

@@ -173,7 +173,9 @@ export abstract class IntegrationBase<
 	}
 
 	protected _session: ProviderAuthenticationSession | null | undefined;
-	getSession(source: Sources) {
+	getSession(
+		source: Sources,
+	): ProviderAuthenticationSession | Promise<ProviderAuthenticationSession | undefined> | undefined {
 		if (this._session === undefined) {
 			return this.ensureSession({ createIfNeeded: false, source: source });
 		}
@@ -262,7 +264,7 @@ export abstract class IntegrationBase<
 		void (await this.ensureSession({ createIfNeeded: true, forceNewSession: true }));
 	}
 
-	refresh() {
+	refresh(): void {
 		void this.ensureSession({ createIfNeeded: false });
 	}
 

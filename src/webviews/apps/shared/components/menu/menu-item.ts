@@ -60,7 +60,7 @@ export class MenuItem extends LitElement {
 	@property({ reflect: true })
 	override role = 'option';
 
-	updateInteractiveState() {
+	updateInteractiveState(): void {
 		this.tabIndex = this.disabled ? -1 : this.role === 'option' ? 0 : -1;
 	}
 
@@ -70,7 +70,7 @@ export class MenuItem extends LitElement {
 		}
 	}
 
-	override render() {
+	override render(): unknown {
 		if (this.href) {
 			return html`<a href=${this.href}><slot></slot></a>`;
 		}

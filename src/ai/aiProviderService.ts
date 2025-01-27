@@ -98,11 +98,11 @@ export class AIProviderService implements Disposable {
 
 	constructor(private readonly container: Container) {}
 
-	dispose() {
+	dispose(): void {
 		this._provider?.dispose();
 	}
 
-	get currentProviderId() {
+	get currentProviderId(): AIProviders | undefined {
 		return this._provider?.id;
 	}
 
@@ -486,7 +486,7 @@ export class AIProviderService implements Disposable {
 		}
 	}
 
-	async reset(all?: boolean) {
+	async reset(all?: boolean): Promise<void> {
 		let { _provider: provider } = this;
 		if (provider == null) {
 			// If we have no provider, try to get the current model (which will load the provider)
@@ -540,11 +540,11 @@ export class AIProviderService implements Disposable {
 		}
 	}
 
-	supports(provider: AIProviders | string) {
+	supports(provider: AIProviders | string): boolean {
 		return _supportedProviderTypes.has(provider as AIProviders);
 	}
 
-	async switchModel() {
+	async switchModel(): Promise<void> {
 		void (await this.getModel({ force: true }));
 	}
 }
@@ -702,7 +702,7 @@ function splitMessageIntoSummaryAndBody(message: string): AIResult {
 	};
 }
 
-export function showDiffTruncationWarning(maxCodeCharacters: number, model: AIModel) {
+export function showDiffTruncationWarning(maxCodeCharacters: number, model: AIModel): void {
 	void window.showWarningMessage(
 		`The diff of the changes had to be truncated to ${maxCodeCharacters} characters to fit within the ${getPossessiveForm(
 			model.provider.name,

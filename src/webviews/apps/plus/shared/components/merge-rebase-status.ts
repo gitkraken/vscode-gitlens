@@ -105,7 +105,7 @@ export class GlMergeConflictWarning extends LitElement {
 		return createCommandLink(command as Commands, args);
 	}
 
-	override render() {
+	override render(): unknown {
 		if (this.pausedOpStatus == null) return nothing;
 
 		return html`

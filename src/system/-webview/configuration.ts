@@ -142,20 +142,26 @@ export class Configuration {
 			: e.affectsConfiguration(section, scope!);
 	}
 
-	inspect<S extends ConfigPath, V extends ConfigPathValue<S>>(section: S, scope?: ConfigurationScope | null) {
+	inspect<S extends ConfigPath, V extends ConfigPathValue<S>>(
+		section: S,
+		scope?: ConfigurationScope | null,
+	): InspectWorkspaceConfiguration<V> | undefined {
 		return workspace
 			.getConfiguration(extensionPrefix, scope)
 			.inspect<V>(section === undefined ? extensionPrefix : section);
 	}
 
-	inspectAny<S extends string, T>(section: S, scope?: ConfigurationScope | null) {
+	inspectAny<S extends string, T>(
+		section: S,
+		scope?: ConfigurationScope | null,
+	): InspectWorkspaceConfiguration<T> | undefined {
 		return workspace.getConfiguration(undefined, scope).inspect<T>(section);
 	}
 
 	inspectCore<S extends CoreConfigPath, V extends CoreConfigPathValue<S>>(
 		section: S,
 		scope?: ConfigurationScope | null,
-	) {
+	): InspectWorkspaceConfiguration<V> | undefined {
 		return workspace.getConfiguration(undefined, scope).inspect<V>(section);
 	}
 
@@ -358,6 +364,22 @@ export class Configuration {
 }
 
 export const configuration = new Configuration();
+
+interface InspectWorkspaceConfiguration<T> {
+	key: string;
+
+	defaultValue?: T;
+	globalValue?: T;
+	workspaceValue?: T;
+	workspaceFolderValue?: T;
+
+	defaultLanguageValue?: T;
+	globalLanguageValue?: T;
+	workspaceLanguageValue?: T;
+	workspaceFolderLanguageValue?: T;
+
+	languageIds?: string[];
+}
 
 type SubPath<T, Key extends keyof T> = Key extends string
 	? T[Key] extends Record<string, any>

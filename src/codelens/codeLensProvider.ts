@@ -85,7 +85,7 @@ export class GitCodeLensProvider implements CodeLensProvider {
 
 	constructor(private readonly container: Container) {}
 
-	reset() {
+	reset(): void {
 		this._onDidChangeCodeLenses.fire();
 	}
 

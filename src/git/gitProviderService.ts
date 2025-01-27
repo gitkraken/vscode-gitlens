@@ -268,7 +268,7 @@ export class GitProviderService implements Disposable {
 		this.updateContext();
 	}
 
-	dispose() {
+	dispose(): void {
 		this._disposable.dispose();
 		this._providers.clear();
 
@@ -310,7 +310,7 @@ export class GitProviderService implements Disposable {
 	}
 
 	@debug()
-	onSubscriptionChanged(e: SubscriptionChangeEvent) {
+	private onSubscriptionChanged(e: SubscriptionChangeEvent) {
 		this.clearAccessCache();
 		this._subscription = e.current;
 	}
@@ -560,7 +560,7 @@ export class GitProviderService implements Disposable {
 	}
 
 	@log({ singleLine: true })
-	async registrationComplete() {
+	async registrationComplete(): Promise<void> {
 		const scope = getLogScope();
 
 		let { workspaceFolders } = workspace;
@@ -1311,7 +1311,7 @@ export class GitProviderService implements Disposable {
 	}
 
 	@log()
-	getWorkingUri(repoPath: string | Uri, uri: Uri) {
+	getWorkingUri(repoPath: string | Uri, uri: Uri): Promise<Uri | undefined> {
 		const { provider, path } = this.getProvider(repoPath);
 		return provider.getWorkingUri(path, uri);
 	}
@@ -1381,7 +1381,7 @@ export class GitProviderService implements Disposable {
 		(repos, opts) => `${repos == null ? '' : repos.map(r => r.id).join(',')}|${JSON.stringify(opts)}`,
 	)
 	@log<GitProviderService['fetchAll']>({ args: { 0: repos => repos?.map(r => r.name).join(', ') } })
-	async fetchAll(repositories?: Repository[], options?: { all?: boolean; prune?: boolean }) {
+	async fetchAll(repositories?: Repository[], options?: { all?: boolean; prune?: boolean }): Promise<void> {
 		if (repositories == null) {
 			repositories = this.openRepositories;
 		}
@@ -1415,7 +1415,7 @@ export class GitProviderService implements Disposable {
 		(repos, opts) => `${repos == null ? '' : repos.map(r => r.id).join(',')}|${JSON.stringify(opts)}`,
 	)
 	@log<GitProviderService['pullAll']>({ args: { 0: repos => repos?.map(r => r.name).join(', ') } })
-	async pullAll(repositories?: Repository[], options?: { rebase?: boolean }) {
+	async pullAll(repositories?: Repository[], options?: { rebase?: boolean }): Promise<void> {
 		if (repositories == null) {
 			repositories = this.openRepositories;
 		}
@@ -1459,7 +1459,7 @@ export class GitProviderService implements Disposable {
 				remote: string;
 			};
 		},
-	) {
+	): Promise<void> {
 		if (repositories == null) {
 			repositories = this.openRepositories;
 		}
@@ -2208,7 +2208,7 @@ export class GitProviderService implements Disposable {
 		ref: string,
 		pathOrUri?: string | Uri,
 		options?: { timeout?: number },
-	) {
+	): Promise<string> {
 		if (pathOrUri != null && isUncommittedParent(ref)) {
 			ref = 'HEAD';
 		}

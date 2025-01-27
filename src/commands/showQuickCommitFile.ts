@@ -40,7 +40,7 @@ export class ShowQuickCommitFileCommand extends ActiveEditorCachedCommand {
 		super(GlCommand.ShowQuickCommitFile);
 	}
 
-	protected override async preExecute(context: CommandContext, args?: ShowQuickCommitFileCommandArgs) {
+	protected override async preExecute(context: CommandContext, args?: ShowQuickCommitFileCommandArgs): Promise<void> {
 		if (context.type === 'editorLine') {
 			args = { ...args, line: context.line };
 		}
@@ -56,7 +56,7 @@ export class ShowQuickCommitFileCommand extends ActiveEditorCachedCommand {
 		return this.execute(context.editor, context.uri, args);
 	}
 
-	async execute(editor?: TextEditor, uri?: Uri, args?: ShowQuickCommitFileCommandArgs) {
+	async execute(editor?: TextEditor, uri?: Uri, args?: ShowQuickCommitFileCommandArgs): Promise<void> {
 		uri = getCommandUri(uri, editor);
 		if (uri == null) return;
 
@@ -159,7 +159,7 @@ export class ShowQuickCommitRevisionCommand extends ActiveEditorCachedCommand {
 		]);
 	}
 
-	async execute(editor?: TextEditor, uri?: Uri) {
+	async execute(editor?: TextEditor, uri?: Uri): Promise<void> {
 		uri = getCommandUri(uri, editor);
 		if (uri == null) return;
 

@@ -67,7 +67,7 @@ export class ActionItem extends LitElement {
 	@query('a')
 	private defaultFocusEl!: HTMLAnchorElement;
 
-	override render() {
+	override render(): unknown {
 		return html`
 			<gl-tooltip hoist content="${this.label ?? nothing}">
 				<a
@@ -83,7 +83,7 @@ export class ActionItem extends LitElement {
 		`;
 	}
 
-	override focus(options?: FocusOptions) {
+	override focus(options?: FocusOptions): void {
 		this.defaultFocusEl.focus(options);
 	}
 }

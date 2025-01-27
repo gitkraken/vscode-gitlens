@@ -34,7 +34,7 @@ export class KeyboardScope implements Disposable {
 		args: false,
 		prefix: context => `${context.prefix}[${mappings.length}]`,
 	})
-	async dispose() {
+	async dispose(): Promise<void> {
 		const index = mappings.indexOf(this._mapping);
 
 		const scope = getLogScope();
@@ -49,7 +49,7 @@ export class KeyboardScope implements Disposable {
 	}
 
 	private _paused = true;
-	get paused() {
+	get paused(): boolean {
 		return this._paused;
 	}
 
@@ -57,7 +57,7 @@ export class KeyboardScope implements Disposable {
 		args: false,
 		prefix: (context, key) => `${context.prefix}[${mappings.length}](${key})`,
 	})
-	async clearKeyCommand(key: Keys) {
+	async clearKeyCommand(key: Keys): Promise<void> {
 		const scope = getLogScope();
 
 		const mapping = mappings[mappings.length - 1];
@@ -75,7 +75,7 @@ export class KeyboardScope implements Disposable {
 		args: false,
 		prefix: context => `${context.prefix}(paused=${context.instance._paused})`,
 	})
-	async pause(keys?: Keys[]) {
+	async pause(keys?: Keys[]): Promise<void> {
 		if (this._paused) return;
 
 		this._paused = true;
@@ -91,14 +91,14 @@ export class KeyboardScope implements Disposable {
 		args: false,
 		prefix: context => `${context.prefix}(paused=${context.instance._paused})`,
 	})
-	async resume() {
+	async resume(): Promise<void> {
 		if (!this._paused) return;
 
 		this._paused = false;
 		await this.updateKeyCommandsContext(this._mapping);
 	}
 
-	async start() {
+	async start(): Promise<void> {
 		await this.resume();
 	}
 
@@ -106,7 +106,7 @@ export class KeyboardScope implements Disposable {
 		args: false,
 		prefix: (context, key) => `${context.prefix}[${mappings.length}](${key})`,
 	})
-	async setKeyCommand(key: Keys, command: KeyCommand | (() => Promise<KeyCommand>)) {
+	async setKeyCommand(key: Keys, command: KeyCommand | (() => Promise<KeyCommand>)): Promise<void> {
 		const scope = getLogScope();
 
 		const mapping = mappings[mappings.length - 1];
@@ -139,7 +139,7 @@ export class Keyboard implements Disposable {
 		this._disposable = Disposable.from(...subscriptions);
 	}
 
-	dispose() {
+	dispose(): void {
 		this._disposable.dispose();
 	}
 

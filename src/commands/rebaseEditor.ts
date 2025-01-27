@@ -9,7 +9,7 @@ export class DisableRebaseEditorCommand extends GlCommandBase {
 		super(GlCommand.DisableRebaseEditor);
 	}
 
-	execute() {
+	execute(): Promise<void> {
 		return this.container.rebaseEditor.setEnabled(false);
 	}
 }
@@ -20,7 +20,7 @@ export class EnableRebaseEditorCommand extends GlCommandBase {
 		super(GlCommand.EnableRebaseEditor);
 	}
 
-	execute() {
+	execute(): Promise<void> {
 		return this.container.rebaseEditor.setEnabled(true);
 	}
 }

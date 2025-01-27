@@ -31,7 +31,7 @@ export class GitFileChange implements GitFileChangeShape {
 		public readonly staged?: boolean,
 	) {}
 
-	get hasConflicts() {
+	get hasConflicts(): boolean {
 		switch (this.status) {
 			case GitFileConflictStatus.AddedByThem:
 			case GitFileConflictStatus.AddedByUs:

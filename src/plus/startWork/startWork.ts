@@ -688,7 +688,7 @@ function repeatSpaces(count: number) {
 	return ' '.repeat(count);
 }
 
-export function getStartWorkItemIdHash(item: StartWorkItem) {
+export function getStartWorkItemIdHash(item: StartWorkItem): string {
 	return md5(item.item.issue.id);
 }
 

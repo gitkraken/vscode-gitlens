@@ -28,13 +28,13 @@ export class VSCodeAIProvider implements AIProvider<typeof provider.id> {
 	readonly id = provider.id;
 
 	private _name: string | undefined;
-	get name() {
+	get name(): string {
 		return this._name ?? provider.name;
 	}
 
 	constructor(private readonly container: Container) {}
 
-	dispose() {}
+	dispose(): void {}
 
 	async getModels(): Promise<readonly AIModel<typeof provider.id>[]> {
 		const models = await lm.selectChatModels();

@@ -51,7 +51,7 @@ export class GlGitStatus extends LitElement {
 	status?: GitFileStatus | 'T';
 
 	@state()
-	get statusName() {
+	get statusName(): string {
 		if (!this.status) return '';
 		return getGitFileStatusText(this.status);
 	}
@@ -67,7 +67,7 @@ export class GlGitStatus extends LitElement {
 		}
 	}
 
-	renderIgnored() {
+	private renderIgnored() {
 		return html`
 			<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="none" viewBox="0 0 16 16">
 				<path
@@ -80,7 +80,7 @@ export class GlGitStatus extends LitElement {
 		`;
 	}
 
-	renderUntracked() {
+	private renderUntracked() {
 		return html`
 			<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="none" viewBox="0 0 16 16">
 				<path
@@ -93,7 +93,7 @@ export class GlGitStatus extends LitElement {
 		`;
 	}
 
-	renderAdded() {
+	private renderAdded() {
 		return html`
 			<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="none" viewBox="0 0 16 16">
 				<path
@@ -106,7 +106,7 @@ export class GlGitStatus extends LitElement {
 		`;
 	}
 
-	renderDeleted() {
+	private renderDeleted() {
 		return html`
 			<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="none" viewBox="0 0 16 16">
 				<path
@@ -119,7 +119,7 @@ export class GlGitStatus extends LitElement {
 		`;
 	}
 
-	renderModified() {
+	private renderModified() {
 		return html`
 			<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="none" viewBox="0 0 16 16">
 				<path
@@ -132,7 +132,7 @@ export class GlGitStatus extends LitElement {
 		`;
 	}
 
-	renderRenamed() {
+	private renderRenamed() {
 		return html`
 			<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="none" viewBox="0 0 16 16">
 				<path
@@ -145,7 +145,7 @@ export class GlGitStatus extends LitElement {
 		`;
 	}
 
-	renderCopied() {
+	private renderCopied() {
 		return html`
 			<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="none" viewBox="0 0 16 16">
 				<path
@@ -158,7 +158,7 @@ export class GlGitStatus extends LitElement {
 		`;
 	}
 
-	renderConflict() {
+	private renderConflict() {
 		return html`
 			<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="none" viewBox="0 0 16 16">
 				<path
@@ -171,7 +171,7 @@ export class GlGitStatus extends LitElement {
 		`;
 	}
 
-	renderUnknown() {
+	private renderUnknown() {
 		return html`
 			<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="none" viewBox="0 0 16 16">
 				<path
@@ -184,7 +184,7 @@ export class GlGitStatus extends LitElement {
 		`;
 	}
 
-	override render() {
+	override render(): unknown {
 		switch (this.status) {
 			case '!':
 				return this.renderIgnored();

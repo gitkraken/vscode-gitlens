@@ -39,20 +39,20 @@ export class GlWipDetails extends GlDetailsBase {
 	generate?: GenerateState;
 
 	@state()
-	get inReview() {
+	get inReview(): boolean {
 		return this.draftState?.inReview ?? false;
 	}
 
-	get isUnpublished() {
+	get isUnpublished(): boolean {
 		const branch = this.wip?.branch;
 		return branch?.upstream == null || branch.upstream.missing === true;
 	}
 
-	get draftsEnabled() {
+	get draftsEnabled(): boolean {
 		return this.orgSettings?.drafts === true;
 	}
 
-	get filesCount() {
+	get filesCount(): number {
 		return this.files?.length ?? 0;
 	}
 
@@ -118,11 +118,11 @@ export class GlWipDetails extends GlDetailsBase {
 		}
 	}
 
-	override get filesChangedPaneLabel() {
+	override get filesChangedPaneLabel(): string {
 		return 'Working Changes';
 	}
 
-	renderSecondaryAction() {
+	private renderSecondaryAction() {
 		if (!this.draftsEnabled || this.inReview) return undefined;
 
 		let label = 'Share as Cloud Patch';
@@ -183,7 +183,7 @@ export class GlWipDetails extends GlDetailsBase {
 		</p>`;
 	}
 
-	renderPrimaryAction() {
+	private renderPrimaryAction() {
 		const canShare = this.draftsEnabled;
 		if (this.isUnpublished && canShare) {
 			return html`<p class="button-container">
@@ -221,7 +221,7 @@ export class GlWipDetails extends GlDetailsBase {
 		</p>`;
 	}
 
-	renderActions() {
+	private renderActions() {
 		const primaryAction = this.renderPrimaryAction();
 		const secondaryAction = this.renderSecondaryAction();
 		if (primaryAction == null && secondaryAction == null) return nothing;
@@ -229,7 +229,7 @@ export class GlWipDetails extends GlDetailsBase {
 		return html`<div class="section section--actions">${primaryAction}${secondaryAction}</div>`;
 	}
 
-	renderSuggestedChanges() {
+	private renderSuggestedChanges() {
 		if (this.codeSuggestions.length === 0) return nothing;
 		// src="${this.issue!.author.avatarUrl}"
 		// title="${this.issue!.author.name} (author)"
@@ -264,7 +264,7 @@ export class GlWipDetails extends GlDetailsBase {
 		`;
 	}
 
-	renderPullRequest() {
+	private renderPullRequest() {
 		if (this.wip?.pullRequest == null) return nothing;
 
 		return html`
@@ -310,7 +310,7 @@ export class GlWipDetails extends GlDetailsBase {
 		`;
 	}
 
-	renderIncomingOutgoing() {
+	private renderIncomingOutgoing() {
 		if (this.branchState == null || (this.branchState.ahead === 0 && this.branchState.behind === 0)) return nothing;
 
 		return html`
@@ -332,7 +332,7 @@ export class GlWipDetails extends GlDetailsBase {
 		`;
 	}
 
-	renderPatchCreation() {
+	private renderPatchCreation() {
 		if (!this.inReview) return nothing;
 
 		return html`<gl-inspect-patch
@@ -348,7 +348,7 @@ export class GlWipDetails extends GlDetailsBase {
 		></gl-inspect-patch>`;
 	}
 
-	override render() {
+	override render(): unknown {
 		if (this.wip == null) return nothing;
 
 		return html`
@@ -372,15 +372,15 @@ export class GlWipDetails extends GlDetailsBase {
 		return [openFile, { icon: 'plus', label: 'Stage changes', action: 'file-stage' }];
 	}
 
-	onDataActionClick(name: string) {
+	private onDataActionClick(name: string) {
 		void this.dispatchEvent(new CustomEvent('data-action', { detail: { name: name } }));
 	}
 
-	onToggleReviewMode(inReview: boolean) {
+	private onToggleReviewMode(inReview: boolean) {
 		this.dispatchEvent(new CustomEvent('draft-state-changed', { detail: { inReview: inReview } }));
 	}
 
-	onShowCodeSuggestion(id: string) {
+	private onShowCodeSuggestion(id: string) {
 		this.dispatchEvent(new CustomEvent('gl-show-code-suggestion', { detail: { id: id } }));
 	}
 }

@@ -50,7 +50,7 @@ export class OpenOrCreateWorktreeCommand extends GlCommandBase {
 		super(GlCommand.OpenOrCreateWorktreeForGHPR);
 	}
 
-	async execute(...args: [GHPRPullRequestNode | GHPRPullRequest, ...unknown[]]) {
+	async execute(...args: [GHPRPullRequestNode | GHPRPullRequest, ...unknown[]]): Promise<void> {
 		const [arg] = args;
 		let pr;
 		if ('pullRequestModel' in arg) {

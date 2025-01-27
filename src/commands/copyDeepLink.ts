@@ -49,7 +49,7 @@ export class CopyDeepLinkCommand extends ActiveEditorCommand {
 		]);
 	}
 
-	protected override preExecute(context: CommandContext, args?: CopyDeepLinkCommandArgs) {
+	protected override preExecute(context: CommandContext, args?: CopyDeepLinkCommandArgs): Promise<void> {
 		if (args == null) {
 			if (isCommandContextViewNodeHasCommit(context)) {
 				args = { refOrRepoPath: context.node.commit };
@@ -80,7 +80,7 @@ export class CopyDeepLinkCommand extends ActiveEditorCommand {
 		return this.execute(context.editor, context.uri, args);
 	}
 
-	async execute(editor?: TextEditor, uri?: Uri, args?: CopyDeepLinkCommandArgs) {
+	async execute(editor?: TextEditor, uri?: Uri, args?: CopyDeepLinkCommandArgs): Promise<void> {
 		args = { ...args };
 
 		if (args.workspaceId != null) {
@@ -185,7 +185,7 @@ export class CopyFileDeepLinkCommand extends ActiveEditorCommand {
 		super([GlCommand.CopyDeepLinkToFile, GlCommand.CopyDeepLinkToFileAtRevision, GlCommand.CopyDeepLinkToLines]);
 	}
 
-	protected override preExecute(context: CommandContext, args?: CopyFileDeepLinkCommandArgs) {
+	protected override preExecute(context: CommandContext, args?: CopyFileDeepLinkCommandArgs): Promise<void> {
 		if (args == null) {
 			args = {};
 		}
@@ -212,7 +212,7 @@ export class CopyFileDeepLinkCommand extends ActiveEditorCommand {
 		return this.execute(context.editor, context.uri, args);
 	}
 
-	async execute(editor?: TextEditor, uri?: Uri, args?: CopyFileDeepLinkCommandArgs) {
+	async execute(editor?: TextEditor, uri?: Uri, args?: CopyFileDeepLinkCommandArgs): Promise<void> {
 		args = { ...args };
 
 		const type = DeepLinkType.File;

@@ -47,7 +47,7 @@ export class LaunchpadIndicator implements Disposable {
 		);
 	}
 
-	dispose() {
+	dispose(): void {
 		this.clearRefreshTimer();
 		this._statusBarLaunchpad?.dispose();
 		this._disposable.dispose();

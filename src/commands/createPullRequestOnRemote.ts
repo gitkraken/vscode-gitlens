@@ -26,7 +26,7 @@ export class CreatePullRequestOnRemoteCommand extends GlCommandBase {
 		super(GlCommand.CreatePullRequestOnRemote);
 	}
 
-	async execute(args?: CreatePullRequestOnRemoteCommandArgs) {
+	async execute(args?: CreatePullRequestOnRemoteCommandArgs): Promise<void> {
 		let repo;
 		if (args?.repoPath != null) {
 			repo = this.container.git.getRepository(args.repoPath);

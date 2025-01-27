@@ -6,7 +6,7 @@ import { badgeBase } from './badges.css';
 export class Badge extends LitElement {
 	static override styles = [badgeBase];
 
-	override render() {
+	override render(): unknown {
 		return html`<slot class="badge" part="base"></slot>`;
 	}
 }

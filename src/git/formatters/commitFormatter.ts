@@ -121,7 +121,7 @@ export class CommitFormatter extends Formatter<GitCommit, CommitFormatOptions> {
 	protected declare _options: RequiredTokenOptions<CommitFormatOptions> &
 		Required<Pick<CommitFormatOptions, 'outputFormat'>>;
 
-	override reset(item: GitCommit, options?: CommitFormatOptions) {
+	override reset(item: GitCommit, options?: CommitFormatOptions): void {
 		super.reset(item, options);
 		if (this._options.outputFormat == null) {
 			this._options.outputFormat = 'plaintext';

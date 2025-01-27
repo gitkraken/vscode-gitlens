@@ -62,7 +62,7 @@ export class GLHomeHeader extends LitElement {
 	@query('gl-account-chip')
 	private accountChip!: GLAccountChip;
 
-	override render() {
+	override render(): unknown {
 		return html`<gl-promo-banner></gl-promo-banner>
 			<div class="container" tabindex="-1">
 				<span class="group"><gl-account-chip></gl-account-chip></span>
@@ -71,7 +71,7 @@ export class GLHomeHeader extends LitElement {
 			<gl-onboarding></gl-onboarding>`;
 	}
 
-	show() {
+	show(): void {
 		this.accountChip.show();
 	}
 }

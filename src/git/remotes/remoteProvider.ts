@@ -70,7 +70,7 @@ export abstract class RemoteProvider<T extends ResourceDescriptor = ResourceDesc
 	}
 
 	@memoize()
-	get remoteKey() {
+	get remoteKey(): string {
 		return this.domain ? `${this.domain}/${this.path}` : this.path;
 	}
 
@@ -162,7 +162,7 @@ export abstract class RemoteProvider<T extends ResourceDescriptor = ResourceDesc
 		return `${this.protocol}://${this.domain}/${this.path}`;
 	}
 
-	protected formatName(name: string) {
+	protected formatName(name: string): string {
 		if (this._name != null) {
 			return this._name;
 		}

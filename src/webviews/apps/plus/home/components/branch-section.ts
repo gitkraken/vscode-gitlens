@@ -48,7 +48,7 @@ export class GlSection extends LitElement {
 	@property({ attribute: 'heading-level' })
 	headingLevel: ARIAMixin['ariaLevel'] = '3';
 
-	override render() {
+	override render(): unknown {
 		return html`
 			<div class="section">
 				<header class="section__header">
@@ -78,12 +78,12 @@ export class GlBranchSection extends LitElement {
 	@queryAll('gl-branch-card')
 	private branchCards!: GlBranchCardBase[];
 
-	override connectedCallback() {
+	override connectedCallback(): void {
 		super.connectedCallback();
 		this.addEventListener('gl-branch-card-expand-toggled', this.onCardExpanded.bind(this));
 	}
 
-	override disconnectedCallback() {
+	override disconnectedCallback(): void {
 		super.disconnectedCallback();
 		this.removeEventListener('gl-branch-card-expand-toggled', this.onCardExpanded.bind(this));
 	}
@@ -114,7 +114,7 @@ export class GlBranchSection extends LitElement {
 		return `${this.label} (${this.branches.length})`;
 	}
 
-	override render() {
+	override render(): unknown {
 		return html`
 			<gl-section ?loading=${this.isFetching}>
 				<span slot="heading">${this.renderSectionLabel()}</span>

@@ -66,7 +66,7 @@ export class TagsNode extends CacheableChildrenViewNode<'tags', ViewsWithTagsNod
 	}
 
 	@debug()
-	override refresh() {
+	override refresh(): void {
 		super.refresh(true);
 	}
 }

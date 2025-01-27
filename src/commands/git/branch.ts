@@ -231,7 +231,7 @@ export class BranchGitCommand extends QuickCommand {
 			: super.canSkipConfirm;
 	}
 
-	override get skipConfirmKey() {
+	override get skipConfirmKey(): string {
 		return `${this.key}${this.subcommand == null ? '' : `-${this.subcommand}`}:${this.pickedVia}`;
 	}
 

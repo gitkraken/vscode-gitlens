@@ -58,7 +58,7 @@ export class FetchGitCommand extends QuickCommand<State> {
 		};
 	}
 
-	execute(state: FetchStepState) {
+	private execute(state: FetchStepState) {
 		if (isBranchReference(state.reference)) {
 			return state.repos[0].fetch({ branch: state.reference });
 		}

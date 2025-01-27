@@ -12,7 +12,7 @@ export class ShowLastQuickPickCommand extends GlCommandBase {
 		super(GlCommand.ShowLastQuickPick);
 	}
 
-	execute() {
+	execute(): Thenable<unknown> {
 		const command = getLastCommand();
 		if (command === undefined) return Promise.resolve(undefined);
 

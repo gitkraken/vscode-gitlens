@@ -119,7 +119,7 @@ export class Container {
 		dateFormat: undefined! as string | null,
 		dateStyle: undefined! as DateStyle,
 
-		reset: () => {
+		reset: (): void => {
 			this.BranchDateFormatting.dateFormat = configuration.get('defaultDateFormat');
 			this.BranchDateFormatting.dateStyle = configuration.get('defaultDateStyle');
 		},
@@ -130,7 +130,7 @@ export class Container {
 		dateSource: 'authored',
 		dateStyle: 'relative',
 
-		reset: () => {
+		reset: (): void => {
 			this.CommitDateFormatting.dateFormat = configuration.get('defaultDateFormat');
 			this.CommitDateFormatting.dateSource = configuration.get('defaultDateSource');
 			this.CommitDateFormatting.dateStyle = configuration.get('defaultDateStyle');
@@ -140,7 +140,7 @@ export class Container {
 	readonly CommitShaFormatting = {
 		length: 7,
 
-		reset: () => {
+		reset: (): void => {
 			// Don't allow shas to be shortened to less than 5 characters
 			this.CommitShaFormatting.length = Math.max(5, configuration.get('advanced.abbreviatedShaLength'));
 		},
@@ -150,7 +150,7 @@ export class Container {
 		dateFormat: null as string | null,
 		dateStyle: 'relative',
 
-		reset: () => {
+		reset: (): void => {
 			this.PullRequestDateFormatting.dateFormat = configuration.get('defaultDateFormat');
 			this.PullRequestDateFormatting.dateStyle = configuration.get('defaultDateStyle');
 		},
@@ -160,7 +160,7 @@ export class Container {
 		dateFormat: null as string | null,
 		dateStyle: 'relative',
 
-		reset: () => {
+		reset: (): void => {
 			this.TagDateFormatting.dateFormat = configuration.get('defaultDateFormat');
 			this.TagDateFormatting.dateStyle = configuration.get('defaultDateStyle');
 		},

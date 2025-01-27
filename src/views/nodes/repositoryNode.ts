@@ -314,23 +314,23 @@ export class RepositoryNode extends SubscribeableViewNode<'repository', ViewsWit
 	}
 
 	@log()
-	fetch(options: { all?: boolean; progress?: boolean; prune?: boolean; remote?: string } = {}) {
+	fetch(options: { all?: boolean; progress?: boolean; prune?: boolean; remote?: string }): Promise<void> {
 		return this.repo.fetch(options);
 	}
 
 	@log()
-	pull(options: { progress?: boolean; rebase?: boolean } = {}) {
+	pull(options: { progress?: boolean; rebase?: boolean }): Promise<void> {
 		return this.repo.pull(options);
 	}
 
 	@log()
-	push(options: { force?: boolean; progress?: boolean } = {}) {
+	push(options: { force?: boolean; progress?: boolean }): Promise<void> {
 		return this.repo.push(options);
 	}
 
 	@gate()
 	@debug()
-	override async refresh(reset: boolean = false) {
+	override async refresh(reset: boolean = false): Promise<void> {
 		super.refresh(reset);
 
 		if (reset) {
@@ -341,19 +341,19 @@ export class RepositoryNode extends SubscribeableViewNode<'repository', ViewsWit
 	}
 
 	@log()
-	async star() {
+	async star(): Promise<void> {
 		await this.repo.star();
 		void this.parent!.triggerChange();
 	}
 
 	@log()
-	async unstar() {
+	async unstar(): Promise<void> {
 		await this.repo.unstar();
 		void this.parent!.triggerChange();
 	}
 
 	@debug()
-	protected async subscribe() {
+	protected async subscribe(): Promise<Disposable> {
 		const lastFetched = (await this.repo?.getLastFetched()) ?? 0;
 
 		const disposables = [weakEvent(this.repo.onDidChange, this.onRepositoryChanged, this)];

@@ -53,6 +53,9 @@ export class LoggableScope implements Disposable {
 	}
 }
 
-export function maybeStartLoggableScope(prefix: string, options?: { debug?: boolean; enter?: string }) {
+export function maybeStartLoggableScope(
+	prefix: string,
+	options?: { debug?: boolean; enter?: string },
+): LoggableScope | undefined {
 	return Logger.enabled('error') ? new LoggableScope(prefix, options) : undefined;
 }

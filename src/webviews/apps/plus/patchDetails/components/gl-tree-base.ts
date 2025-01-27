@@ -1,3 +1,4 @@
+import type { TemplateResult } from 'lit';
 import { html, nothing } from 'lit';
 import type { GitFileChangeShape } from '../../../../../git/models/fileChange';
 import type { HierarchicalItem } from '../../../../../system/array';
@@ -20,7 +21,7 @@ export class GlTreeBase extends GlElement {
 	protected onTreeItemChecked?(_e: CustomEvent<TreeItemCheckedDetail>): void;
 	protected onTreeItemSelected?(_e: CustomEvent<TreeItemSelectionDetail>): void;
 
-	protected renderLoading() {
+	protected renderLoading(): TemplateResult {
 		return html`
 			<div class="section section--skeleton">
 				<skeleton-loader></skeleton-loader>
@@ -34,7 +35,7 @@ export class GlTreeBase extends GlElement {
 		`;
 	}
 
-	protected renderLayoutAction(layout: string) {
+	protected renderLayoutAction(layout: string): TemplateResult | typeof nothing {
 		if (!layout) return nothing;
 
 		let value = 'tree';
@@ -61,7 +62,7 @@ export class GlTreeBase extends GlElement {
 		return html`<action-item data-switch-value="${value}" label="${label}" icon="${icon}"></action-item>`;
 	}
 
-	protected renderTreeView(treeModel: TreeModel[], guides: 'none' | 'onHover' | 'always' = 'none') {
+	protected renderTreeView(treeModel: TreeModel[], guides: 'none' | 'onHover' | 'always' = 'none'): TemplateResult {
 		return html`<gl-tree-generator
 			.model=${treeModel}
 			.guides=${guides}

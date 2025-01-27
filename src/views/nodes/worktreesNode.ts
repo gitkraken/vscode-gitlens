@@ -83,7 +83,7 @@ export class WorktreesNode extends CacheableChildrenViewNode<'worktrees', ViewsW
 	}
 
 	@debug()
-	override refresh() {
+	override refresh(): void {
 		super.refresh(true);
 	}
 }

@@ -9,7 +9,7 @@ export class RefreshHoverCommand extends GlCommandBase {
 		super(GlCommand.RefreshHover);
 	}
 
-	async execute() {
+	async execute(): Promise<void> {
 		// TODO@eamodio figure out how to really refresh/update a hover
 		await executeCoreCommand('editor.action.showHover');
 	}

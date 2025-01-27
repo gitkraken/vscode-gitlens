@@ -71,7 +71,7 @@ export class GlTimelineChart extends GlElement {
 
 	@state()
 	private _data: Awaited<State['dataset']> | null = null;
-	get data() {
+	get data(): Awaited<State['dataset']> | null {
 		return this._data;
 	}
 
@@ -80,7 +80,7 @@ export class GlTimelineChart extends GlElement {
 
 	private _dataPromise!: NonNullable<State['dataset']>;
 	@property({ type: Object })
-	get dataPromise() {
+	get dataPromise(): NonNullable<State['dataset']> {
 		return this._dataPromise;
 	}
 	set dataPromise(value: NonNullable<State['dataset']>) {
@@ -130,7 +130,7 @@ export class GlTimelineChart extends GlElement {
 		super.update(changedProperties);
 	}
 
-	protected override render() {
+	protected override render(): unknown {
 		// Don't render anything if the data is still loading
 		if (this.data === null) return nothing;
 
@@ -141,13 +141,13 @@ export class GlTimelineChart extends GlElement {
 		return html`<div id="chart"></div>`;
 	}
 
-	reset() {
+	reset(): void {
 		// this._chart?.unselect();
 		this._chart?.unzoom();
 		this.zoomed = false;
 	}
 
-	zoom(factor: number) {
+	zoom(factor: number): void {
 		if (!this._chart) return;
 
 		const d = this._chart.zoom();
@@ -169,7 +169,7 @@ export class GlTimelineChart extends GlElement {
 	private _zoomedDomain: [string, string] | undefined;
 
 	@log({ args: false })
-	async updateChart(dataPromise: State['dataset']) {
+	async updateChart(dataPromise: State['dataset']): Promise<void> {
 		if (this._loading?.pending) return;
 
 		const abortController = this._abortController;

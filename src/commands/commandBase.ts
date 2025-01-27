@@ -25,7 +25,7 @@ export abstract class GlCommandBase implements Disposable {
 		this._disposable = Disposable.from(...subscriptions);
 	}
 
-	dispose() {
+	dispose(): void {
 		this._disposable.dispose();
 	}
 
@@ -68,7 +68,7 @@ export abstract class ActiveEditorCommand extends GlCommandBase {
 }
 
 let lastCommand: { command: string; args: any[] } | undefined = undefined;
-export function getLastCommand() {
+export function getLastCommand(): { command: string; args: any[] } | undefined {
 	return lastCommand;
 }
 
@@ -107,7 +107,7 @@ export abstract class EditorCommand implements Disposable {
 		this._disposable = Disposable.from(...subscriptions);
 	}
 
-	dispose() {
+	dispose(): void {
 		this._disposable.dispose();
 	}
 

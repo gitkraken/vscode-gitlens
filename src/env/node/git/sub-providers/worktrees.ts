@@ -144,7 +144,7 @@ export class WorktreesGitSubProvider implements GitWorktreesSubProvider {
 	}
 
 	@log()
-	async deleteWorktree(repoPath: string, path: string | Uri, options?: { force?: boolean }) {
+	async deleteWorktree(repoPath: string, path: string | Uri, options?: { force?: boolean }): Promise<void> {
 		const scope = getLogScope();
 
 		await this.git.ensureGitVersion(

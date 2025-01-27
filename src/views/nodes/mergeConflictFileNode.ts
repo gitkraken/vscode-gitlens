@@ -63,7 +63,7 @@ export class MergeConflictFileNode extends ViewFileNode<'conflict-file', ViewsWi
 	}
 
 	private _description: string | undefined;
-	get description() {
+	get description(): string {
 		if (this._description == null) {
 			this._description = StatusFileFormatter.fromTemplate(
 				this.view.config.formats.files.description,
@@ -77,7 +77,7 @@ export class MergeConflictFileNode extends ViewFileNode<'conflict-file', ViewsWi
 	}
 
 	private _folderName: string | undefined;
-	get folderName() {
+	get folderName(): string {
 		if (this._folderName == null) {
 			this._folderName = relativeDir(this.uri.relativePath);
 		}
@@ -85,7 +85,7 @@ export class MergeConflictFileNode extends ViewFileNode<'conflict-file', ViewsWi
 	}
 
 	private _label: string | undefined;
-	get label() {
+	get label(): string {
 		if (this._label == null) {
 			this._label = StatusFileFormatter.fromTemplate(this.view.config.formats.files.label, this.file, {
 				relativePath: this.relativePath,

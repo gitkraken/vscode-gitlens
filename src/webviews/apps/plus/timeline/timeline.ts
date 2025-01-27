@@ -28,10 +28,10 @@ export class GlTimelineApp extends GlApp<State> {
 	@query('#chart')
 	private _chart?: GlTimelineChart;
 
-	protected override createStateProvider(state: State, ipc: HostIpc) {
+	protected override createStateProvider(state: State, ipc: HostIpc): TimelineStateProvider {
 		return new TimelineStateProvider(this, state, ipc);
 	}
-	protected override onPersistState(state: State) {
+	protected override onPersistState(state: State): void {
 		this._ipc.setState({ period: state.period, uri: state.uri });
 	}
 
@@ -47,11 +47,11 @@ export class GlTimelineApp extends GlApp<State> {
 		super.disconnectedCallback();
 	}
 
-	get allowed() {
+	get allowed(): boolean | 'mixed' {
 		return this.state.access?.allowed ?? false;
 	}
 
-	get header() {
+	get header(): { title: string; description: string } {
 		let title = this.state.title;
 		let description;
 
@@ -69,33 +69,33 @@ export class GlTimelineApp extends GlApp<State> {
 
 	@state()
 	private _loading = true;
-	get loading() {
+	get loading(): boolean {
 		return this.state.dataset != null && this.uri != null && this._loading;
 	}
 
-	get period() {
+	get period(): Period {
 		return this.state.period;
 	}
 
-	get subscription() {
+	get subscription(): State['access']['subscription']['current'] | undefined {
 		return this.state.access?.subscription?.current;
 	}
 
-	get sha() {
+	get sha(): string | undefined {
 		return this.state.sha;
 	}
 
-	get uri() {
+	get uri(): string | undefined {
 		return this.state.uri;
 	}
 
-	get uriType() {
+	get uriType(): State['uriType'] {
 		return this.state.uriType;
 	}
 
 	@state()
 	private _zoomed = false;
-	get zoomed() {
+	get zoomed(): boolean {
 		return this._zoomed;
 	}
 
@@ -107,7 +107,7 @@ export class GlTimelineApp extends GlApp<State> {
 		super.willUpdate(changedProperties);
 	}
 
-	override render() {
+	override render(): unknown {
 		return html`
 			${this.allowed
 				? html`<gl-feature-gate

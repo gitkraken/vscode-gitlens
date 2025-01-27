@@ -5,6 +5,7 @@ import type { DiffWithPreviousCommandArgs } from '../../commands/diffWithPreviou
 import { GlCommand } from '../../constants.commands';
 import { StatusFileFormatter } from '../../git/formatters/statusFormatter';
 import { GitUri } from '../../git/gitUri';
+import type { GitCommit } from '../../git/models/commit';
 import type { GitFileWithCommit } from '../../git/models/file';
 import { isGitFileChange } from '../../git/models/fileChange';
 import { getGitFileStatusIcon } from '../../git/utils/fileStatus.utils';
@@ -141,7 +142,7 @@ export class StatusFileNode extends ViewFileNode<'status-file', ViewsWithCommits
 	}
 
 	private _description: string | undefined;
-	get description() {
+	get description(): string {
 		if (this._description == null) {
 			this._description = StatusFileFormatter.fromTemplate(
 				this.view.config.formats.files.description,
@@ -158,7 +159,7 @@ export class StatusFileNode extends ViewFileNode<'status-file', ViewsWithCommits
 	}
 
 	private _folderName: string | undefined;
-	get folderName() {
+	get folderName(): string {
 		if (this._folderName == null) {
 			this._folderName = relativeDir(this.uri.relativePath);
 		}
@@ -166,7 +167,7 @@ export class StatusFileNode extends ViewFileNode<'status-file', ViewsWithCommits
 	}
 
 	private _label: string | undefined;
-	get label() {
+	get label(): string {
 		if (this._label == null) {
 			this._label = StatusFileFormatter.fromTemplate(
 				this.view.config.formats.files.label,
@@ -182,7 +183,7 @@ export class StatusFileNode extends ViewFileNode<'status-file', ViewsWithCommits
 		return this._label;
 	}
 
-	get commit() {
+	get commit(): GitCommit {
 		return this._files[0]?.commit;
 	}
 

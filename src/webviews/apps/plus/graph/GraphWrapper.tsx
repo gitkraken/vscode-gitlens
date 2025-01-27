@@ -266,7 +266,7 @@ export function GraphWrapper({
 	onSearch,
 	onSearchPromise,
 	onSearchOpenInView,
-}: GraphWrapperProps) {
+}: GraphWrapperProps): React.JSX.Element {
 	const graphRef = useRef<GraphContainer>(null);
 
 	const [rows, setRows] = useState(state.rows ?? []);

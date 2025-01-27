@@ -184,7 +184,7 @@ export abstract class RemotesGitProviderBase implements GitRemotesSubProvider {
 	}
 
 	@log()
-	async setRemoteAsDefault(repoPath: string, name: string, value: boolean = true) {
+	async setRemoteAsDefault(repoPath: string, name: string, value: boolean = true): Promise<void> {
 		await this.container.storage.storeWorkspace('remote:default', value ? name : undefined);
 		this.container.events.fire('git:repo:change', {
 			repoPath: repoPath,

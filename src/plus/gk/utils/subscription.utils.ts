@@ -5,7 +5,7 @@ import type { PaidSubscriptionPlans, Subscription, SubscriptionPlan } from '../m
 
 export const SubscriptionUpdatedUriPathPrefix = 'did-update-subscription';
 
-export function getSubscriptionStateName(state: SubscriptionState, planId?: SubscriptionPlanId) {
+export function getSubscriptionStateName(state: SubscriptionState, planId?: SubscriptionPlanId): string {
 	switch (state) {
 		case SubscriptionState.Community:
 		case SubscriptionState.ProPreviewExpired:
@@ -123,11 +123,11 @@ export function getSubscriptionPlan(
 	};
 }
 
-export function getSubscriptionPlanName(id: SubscriptionPlanId) {
+export function getSubscriptionPlanName(id: SubscriptionPlanId): string {
 	return `GitLens ${getSubscriptionPlanTier(id)}`;
 }
 
-export function getSubscriptionPlanTier(id: SubscriptionPlanId) {
+export function getSubscriptionPlanTier(id: SubscriptionPlanId): 'Community' | 'Pro' | 'Teams' | 'Enterprise' {
 	switch (id) {
 		case SubscriptionPlanId.CommunityWithAccount:
 			return 'Community';

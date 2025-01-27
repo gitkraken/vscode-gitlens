@@ -360,13 +360,13 @@ export class GitCommit implements GitRevisionReference {
 		return this._files?.find(f => f.path === relativePath);
 	}
 
-	formatDate(format?: string | null) {
+	formatDate(format?: string | null): string {
 		return this.container.CommitDateFormatting.dateSource === 'committed'
 			? this.committer.formatDate(format)
 			: this.author.formatDate(format);
 	}
 
-	formatDateFromNow(short?: boolean) {
+	formatDateFromNow(short?: boolean): string {
 		return this.container.CommitDateFormatting.dateSource === 'committed'
 			? this.committer.fromNow(short)
 			: this.author.fromNow(short);

@@ -40,6 +40,7 @@ import type { IpcMessage } from '../../../protocol';
 import { ExecuteCommand } from '../../../protocol';
 import { App } from '../../shared/appBase';
 import { DOM } from '../../shared/dom';
+import type { Disposable } from '../../shared/events';
 import type {
 	ApplyPatchDetail,
 	DraftReasonEventDetail,
@@ -74,11 +75,11 @@ export class PatchDetailsApp extends App<Serialized<State>> {
 		super('PatchDetailsApp');
 	}
 
-	override onInitialize() {
+	override onInitialize(): void {
 		this.debouncedAttachState();
 	}
 
-	override onBind() {
+	override onBind(): Disposable[] {
 		const disposables = [
 			DOM.on('[data-switch-value]', 'click', e => this.onToggleFilesLayout(e)),
 			DOM.on('[data-action="ai-explain"]', 'click', e => this.onAIExplain(e)),
@@ -170,7 +171,7 @@ export class PatchDetailsApp extends App<Serialized<State>> {
 		return disposables;
 	}
 
-	protected override onMessageReceived(msg: IpcMessage) {
+	protected override onMessageReceived(msg: IpcMessage): void {
 		switch (true) {
 			// case DidChangeRichStateNotificationType.method:
 			// 	onIpc(DidChangeRichStateNotificationType, msg, params => {
@@ -356,7 +357,7 @@ export class PatchDetailsApp extends App<Serialized<State>> {
 		this.onCommandClickedCore('gitlens.switchAIModel');
 	}
 
-	async onAIExplain(_e: MouseEvent) {
+	private async onAIExplain(_e: MouseEvent) {
 		try {
 			const result = await this.sendRequest(ExplainRequest, undefined);
 

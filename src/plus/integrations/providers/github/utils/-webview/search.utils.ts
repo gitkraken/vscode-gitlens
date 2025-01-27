@@ -10,7 +10,7 @@ export async function getQueryArgsFromSearchQuery(
 	search: SearchQuery,
 	operations: Map<SearchOperators, Set<string>>,
 	repoPath: string,
-) {
+): Promise<string[]> {
 	const query = [];
 
 	for (const [op, values] of operations.entries()) {

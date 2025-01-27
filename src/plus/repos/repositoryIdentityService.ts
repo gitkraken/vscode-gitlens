@@ -165,7 +165,7 @@ export class RepositoryIdentityService implements Disposable {
 	async storeRepositoryLocation<T extends string | GkProviderId>(
 		repo: Repository,
 		identity?: RepositoryIdentityDescriptor<T>,
-	) {
+	): Promise<void> {
 		if (repo.virtual || this.locator == null) return;
 
 		const [identityResult, remotesResult] = await Promise.allSettled([

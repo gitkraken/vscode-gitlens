@@ -239,7 +239,7 @@ export class GlSearchInput extends GlElement {
 	@property({ type: Boolean }) matchCase = false;
 	@property({ type: Boolean }) matchRegex = true;
 
-	get matchCaseOverride() {
+	get matchCaseOverride(): boolean {
 		return this.matchRegex ? this.matchCase : true;
 	}
 
@@ -247,18 +247,18 @@ export class GlSearchInput extends GlElement {
 		this.input.focus(options);
 	}
 
-	handleFocus(_e: Event) {
+	private handleFocus(_e: Event) {
 		void this.popoverEl.hide();
 	}
 
-	handleClear(_e: Event) {
+	private handleClear(_e: Event) {
 		this.focus();
 		this.value = '';
 		this.debouncedOnSearchChanged();
 	}
 
 	private _updateHelpTextDebounced: Deferrable<GlSearchInput['updateHelpText']> | undefined;
-	updateHelpText() {
+	private updateHelpText() {
 		if (this._updateHelpTextDebounced == null) {
 			this._updateHelpTextDebounced = debounce(this.updateHelpTextCore.bind(this), 200);
 		}
@@ -266,7 +266,7 @@ export class GlSearchInput extends GlElement {
 		this._updateHelpTextDebounced();
 	}
 
-	updateHelpTextCore() {
+	private updateHelpTextCore() {
 		const cursor = this.input?.selectionStart;
 		const value = this.value;
 		if (cursor != null && value.length !== 0 && value.includes(':')) {
@@ -287,43 +287,43 @@ export class GlSearchInput extends GlElement {
 		this.helpType = undefined;
 	}
 
-	handleInputClick(_e: MouseEvent) {
+	private handleInputClick(_e: MouseEvent) {
 		this.updateHelpText();
 	}
 
-	handleInput(e: InputEvent) {
+	private handleInput(e: InputEvent) {
 		const value = (e.target as HTMLInputElement)?.value;
 		this.value = value;
 		this.updateHelpText();
 		this.debouncedOnSearchChanged();
 	}
 
-	handleMatchAll(_e: Event) {
+	private handleMatchAll(_e: Event) {
 		this.matchAll = !this.matchAll;
 		this.debouncedOnSearchChanged();
 	}
 
-	handleMatchCase(_e: Event) {
+	private handleMatchCase(_e: Event) {
 		this.matchCase = !this.matchCase;
 		this.debouncedOnSearchChanged();
 	}
 
-	handleMatchRegex(_e: Event) {
+	private handleMatchRegex(_e: Event) {
 		this.matchRegex = !this.matchRegex;
 		this.debouncedOnSearchChanged();
 	}
 
-	handleFilter(_e: Event) {
+	private handleFilter(_e: Event) {
 		this.filter = !this.filter;
 		this.emit('gl-search-modechange', { searchMode: this.filter ? 'filter' : 'normal' });
 		this.debouncedOnSearchChanged();
 	}
 
-	handleKeyup(_e: KeyboardEvent) {
+	private handleKeyup(_e: KeyboardEvent) {
 		this.updateHelpText();
 	}
 
-	handleShortcutKeys(e: KeyboardEvent) {
+	private handleShortcutKeys(e: KeyboardEvent) {
 		if (!['Enter', 'ArrowUp', 'ArrowDown'].includes(e.key) || e.ctrlKey || e.metaKey || e.altKey) return true;
 
 		e.preventDefault();
@@ -346,7 +346,7 @@ export class GlSearchInput extends GlElement {
 		return false;
 	}
 
-	handleInsertToken(token: string) {
+	private handleInsertToken(token: string) {
 		this.value += `${this.value.length > 0 ? ' ' : ''}${token}`;
 		window.requestAnimationFrame(() => {
 			this.updateHelpText();
@@ -371,13 +371,13 @@ export class GlSearchInput extends GlElement {
 	}
 	private debouncedOnSearchChanged = debounce(this.onSearchChanged.bind(this), 250);
 
-	setCustomValidity(errorMessage: string = '') {
+	setCustomValidity(errorMessage: string = ''): void {
 		this.errorMessage = errorMessage;
 	}
 
 	searchHistory: string[] = [];
 	searchHistoryPos = 0;
-	logSearch(query: SearchQuery) {
+	logSearch(query: SearchQuery): void {
 		const lastIndex = this.searchHistory.length - 1;
 
 		// prevent duplicate entries
@@ -389,7 +389,7 @@ export class GlSearchInput extends GlElement {
 		this.searchHistoryPos = this.searchHistory.length - 1;
 	}
 
-	override render() {
+	override render(): unknown {
 		return html`<div class="field">
 				<div class="controls controls__start">
 					<gl-button

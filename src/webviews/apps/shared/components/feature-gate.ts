@@ -120,7 +120,7 @@ export class GlFeatureGate extends LitElement {
 	@property({ type: String })
 	webroot?: string;
 
-	override render() {
+	override render(): unknown {
 		if (!this.visible || (this.state != null && isSubscriptionStatePaidOrTrial(this.state))) {
 			this.hidden = true;
 			return undefined;

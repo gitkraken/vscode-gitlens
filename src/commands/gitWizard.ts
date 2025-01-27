@@ -90,7 +90,7 @@ export class GitWizardCommand extends QuickWizardCommandBase {
 	protected override preExecute(
 		context: CommandContext,
 		args?: QuickWizardCommandArgsWithCompletion<GitWizardCommandArgs>,
-	) {
+	): Promise<void> {
 		switch (context.command) {
 			case GlCommand.GitCommandsBranch:
 				return this.execute({ command: 'branch', ...args });

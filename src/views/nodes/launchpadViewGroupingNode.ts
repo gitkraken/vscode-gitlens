@@ -25,7 +25,7 @@ export class LaunchpadViewGroupingNode<TChild extends ViewNode = ViewNode> exten
 		);
 	}
 
-	override dispose() {
+	override dispose(): void {
 		super.dispose();
 		this.disposable?.dispose();
 	}

@@ -35,7 +35,7 @@ export class GlHomeApp extends GlApp<State> {
 
 	private badgeSource = { source: 'home', detail: 'badge' };
 
-	protected override createStateProvider(state: State, ipc: HostIpc) {
+	protected override createStateProvider(state: State, ipc: HostIpc): HomeStateProvider {
 		this.disposables.push((this._overviewState = new OverviewState(ipc)));
 
 		return new HomeStateProvider(this, state, ipc);
@@ -55,7 +55,7 @@ export class GlHomeApp extends GlApp<State> {
 		);
 	}
 
-	override render() {
+	override render(): unknown {
 		return html`
 			<div class="home scrollable">
 				<gl-home-header class="home__header"></gl-home-header>

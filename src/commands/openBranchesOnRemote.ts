@@ -28,7 +28,7 @@ export class OpenBranchesOnRemoteCommand extends ActiveEditorCommand {
 		]);
 	}
 
-	protected override preExecute(context: CommandContext, args?: OpenBranchesOnRemoteCommandArgs) {
+	protected override preExecute(context: CommandContext, args?: OpenBranchesOnRemoteCommandArgs): Promise<void> {
 		if (isCommandContextViewNodeHasRemote(context)) {
 			args = { ...args, remote: context.node.remote.name };
 		}
@@ -40,7 +40,7 @@ export class OpenBranchesOnRemoteCommand extends ActiveEditorCommand {
 		return this.execute(context.editor, context.uri, args);
 	}
 
-	async execute(editor?: TextEditor, uri?: Uri, args?: OpenBranchesOnRemoteCommandArgs) {
+	async execute(editor?: TextEditor, uri?: Uri, args?: OpenBranchesOnRemoteCommandArgs): Promise<void> {
 		uri = getCommandUri(uri, editor);
 
 		const gitUri = uri != null ? await GitUri.fromUri(uri) : undefined;

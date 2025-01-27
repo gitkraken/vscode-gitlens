@@ -14,7 +14,7 @@ export class CopyRelativePathToClipboardCommand extends ActiveEditorCommand {
 		super(GlCommand.CopyRelativePathToClipboard);
 	}
 
-	protected override preExecute(context: CommandContext) {
+	protected override preExecute(context: CommandContext): Promise<void> {
 		if (isCommandContextViewNodeHasFileCommit(context)) {
 			return this.execute(context.editor, context.node.commit.file!.uri);
 		}
@@ -22,7 +22,7 @@ export class CopyRelativePathToClipboardCommand extends ActiveEditorCommand {
 		return this.execute(context.editor, context.uri);
 	}
 
-	async execute(editor?: TextEditor, uri?: Uri) {
+	async execute(editor?: TextEditor, uri?: Uri): Promise<void> {
 		uri = getCommandUri(uri, editor);
 		let relativePath = '';
 		if (uri != null) {
@@ -33,6 +33,5 @@ export class CopyRelativePathToClipboardCommand extends ActiveEditorCommand {
 		}
 
 		await env.clipboard.writeText(relativePath);
-		return undefined;
 	}
 }

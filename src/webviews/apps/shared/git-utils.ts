@@ -45,7 +45,7 @@ export function isRevisionRange(
 	}
 }
 
-export function isShaParent(ref: string) {
+export function isShaParent(ref: string): boolean {
 	return isMatch(shaParentRegex, ref);
 }
 
@@ -56,7 +56,7 @@ export function isStashReference(ref: GitReference | undefined): ref is GitStash
 export function getReferenceLabel(
 	refs: GitReference | undefined,
 	options?: { capitalize?: boolean; expand?: boolean; icon?: boolean; label?: boolean; quoted?: boolean } | false,
-) {
+): string {
 	if (refs == null) return '';
 
 	options =

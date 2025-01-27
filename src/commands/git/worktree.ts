@@ -256,7 +256,7 @@ export class WorktreeGitCommand extends QuickCommand<State> {
 		return this._canSkipConfirmOverride ?? this.subcommand === 'open';
 	}
 
-	override get skipConfirmKey() {
+	override get skipConfirmKey(): string {
 		return `${this.key}${this.subcommand == null ? '' : `-${this.subcommand}`}:${this.pickedVia}`;
 	}
 

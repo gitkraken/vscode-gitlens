@@ -36,7 +36,7 @@ export class GitTerminalLinkProvider implements Disposable, TerminalLinkProvider
 		this.disposable = window.registerTerminalLinkProvider(this);
 	}
 
-	dispose() {
+	dispose(): void {
 		this.disposable.dispose();
 	}
 

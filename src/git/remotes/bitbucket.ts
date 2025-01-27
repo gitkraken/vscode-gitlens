@@ -49,7 +49,7 @@ export class BitbucketRemote extends RemoteProvider {
 		return this._autolinks;
 	}
 
-	override get icon() {
+	override get icon(): string {
 		return 'bitbucket';
 	}
 
@@ -61,7 +61,7 @@ export class BitbucketRemote extends RemoteProvider {
 		return 'bitbucket' satisfies Unbrand<GkProviderId> as Brand<GkProviderId>;
 	}
 
-	get name() {
+	get name(): string {
 		return this.formatName('Bitbucket');
 	}
 

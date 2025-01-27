@@ -30,7 +30,7 @@ export class ToggleQuickInputButton implements QuickInputButton {
 		return this.getToggledState().tooltip;
 	}
 
-	get on() {
+	get on(): boolean {
 		return this._on;
 	}
 	set on(value: boolean) {

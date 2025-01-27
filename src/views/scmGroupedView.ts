@@ -25,11 +25,11 @@ export class ScmGroupedView implements Disposable {
 		this._view = this.setView(this.views.lastSelectedScmGroupedView!);
 	}
 
-	dispose() {
+	dispose(): void {
 		this._view?.dispose();
 	}
 
-	get view() {
+	get view(): TreeViewByType[GroupableTreeViewTypes] | undefined {
 		return this._view;
 	}
 

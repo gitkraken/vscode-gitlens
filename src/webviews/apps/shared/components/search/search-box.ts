@@ -152,7 +152,7 @@ export class GlSearchBox extends GlElement {
 	@property({ type: Boolean })
 	resultsLoaded = false;
 
-	get hasResults() {
+	get hasResults(): boolean {
 		return this.total > 1;
 	}
 
@@ -177,15 +177,15 @@ export class GlSearchBox extends GlElement {
 		this.searchInput?.focus(options);
 	}
 
-	navigate(direction: SearchNavigationEventDetail['direction']) {
+	navigate(direction: SearchNavigationEventDetail['direction']): void {
 		this.emit('gl-search-navigate', { direction: direction });
 	}
 
-	logSearch(query: SearchQuery) {
+	logSearch(query: SearchQuery): void {
 		this.searchInput?.logSearch(query);
 	}
 
-	handleShortcutKeys(e: KeyboardEvent) {
+	private handleShortcutKeys(e: KeyboardEvent) {
 		if (e.altKey) return;
 
 		if ((e.key === 'F3' && !e.ctrlKey && !e.metaKey) || (e.key === 'g' && e.metaKey && !e.ctrlKey && isMac)) {
@@ -205,17 +205,17 @@ export class GlSearchBox extends GlElement {
 		}
 	}
 
-	handlePrevious(e: MouseEvent) {
+	private handlePrevious(e: MouseEvent) {
 		e.stopImmediatePropagation();
 		this.navigate(e.shiftKey ? 'first' : 'previous');
 	}
 
-	handleNext(e: MouseEvent) {
+	private handleNext(e: MouseEvent) {
 		e.stopImmediatePropagation();
 		this.navigate(e.shiftKey ? 'last' : 'next');
 	}
 
-	handleOpenInView(e: Event) {
+	private handleOpenInView(e: Event) {
 		e.stopImmediatePropagation();
 		this.emit('gl-search-openinview');
 	}
@@ -258,7 +258,7 @@ export class GlSearchBox extends GlElement {
 		>`;
 	}
 
-	override render() {
+	override render(): unknown {
 		return html`<gl-search-input
 				id="search-input"
 				exportparts="search: search"

@@ -15,7 +15,10 @@ export async function executeGitCommand(args: GitWizardCommandArgs): Promise<voi
 	return deferred.promise;
 }
 
-export async function browseAtRevision(uri: Uri, options?: { before?: boolean; openInNewWindow?: boolean }) {
+export async function browseAtRevision(
+	uri: Uri,
+	options?: { before?: boolean; openInNewWindow?: boolean },
+): Promise<void> {
 	void (await executeEditorCommand<BrowseRepoAtRevisionCommandArgs>(GlCommand.BrowseRepoAtRevision, undefined, {
 		uri: uri,
 		before: options?.before,

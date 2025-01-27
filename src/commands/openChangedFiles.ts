@@ -20,7 +20,7 @@ export class OpenChangedFilesCommand extends GlCommandBase {
 		super(GlCommand.OpenChangedFiles);
 	}
 
-	async execute(args?: OpenChangedFilesCommandArgs) {
+	async execute(args?: OpenChangedFilesCommandArgs): Promise<void> {
 		args = { ...args };
 
 		try {
