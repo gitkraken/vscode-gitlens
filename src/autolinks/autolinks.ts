@@ -1,12 +1,13 @@
 import type { ConfigurationChangeEvent } from 'vscode';
 import { Disposable } from 'vscode';
 import { GlyphChars } from '../constants';
-import type { IntegrationId } from '../constants.integrations';
 import { IssueIntegrationId } from '../constants.integrations';
 import type { Container } from '../container';
 import type { GitRemote } from '../git/models/remote';
+import type { RemoteProviderId } from '../git/remotes/remoteProvider';
 import { getIssueOrPullRequestHtmlIcon, getIssueOrPullRequestMarkdownIcon } from '../git/utils/-webview/icons';
 import type { HostingIntegration, IssueIntegration } from '../plus/integrations/integration';
+import { remoteProviderIdToIntegrationId } from '../plus/integrations/integrationService';
 import { configuration } from '../system/-webview/configuration';
 import { fromNow } from '../system/date';
 import { debug } from '../system/decorators/log';
@@ -214,9 +215,9 @@ export class Autolinks implements Disposable {
 
 		const enrichedAutolinks = new Map<string, EnrichedAutolink>();
 		for (const [id, link] of messageOrAutolinks) {
-			let linkIntegration = link.provider
-				? await this.container.integrations.get(link.provider.id as IntegrationId)
-				: undefined;
+			const integrationId = link.provider ? remoteProviderIdToIntegrationId(link.provider.id) : undefined;
+			let linkIntegration =
+				integrationId != null ? await this.container.integrations.get(integrationId) : undefined;
 			if (linkIntegration != null) {
 				const connected = linkIntegration.maybeConnected ?? (await linkIntegration.isConnected());
 				if (!connected || !(await linkIntegration.access())) {
@@ -226,7 +227,7 @@ export class Autolinks implements Disposable {
 			const issueOrPullRequestPromise =
 				remote?.provider != null &&
 				integration != null &&
-				link.provider?.id === integration.id &&
+				integrationId === integration.id &&
 				link.provider?.domain === integration.domain
 					? integration.getIssueOrPullRequest(
 							link.descriptor ?? remote.provider.repoDesc,

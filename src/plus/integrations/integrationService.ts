@@ -1029,13 +1029,8 @@ export class IntegrationService implements Disposable {
 	}
 }
 
-export function remoteProviderIdToIntegrationId(
-	remoteProviderId: RemoteProviderId,
-): SupportedCloudIntegrationIds | undefined {
+export function remoteProviderIdToIntegrationId(remoteProviderId: unknown): SupportedCloudIntegrationIds | undefined {
 	switch (remoteProviderId) {
-		// TODO: Uncomment when we support these integrations
-		// case 'bitbucket':
-		// 	return HostingIntegrationId.Bitbucket;
 		case 'azure-devops':
 			return HostingIntegrationId.AzureDevOps;
 		case 'github':
