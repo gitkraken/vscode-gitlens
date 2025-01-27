@@ -418,6 +418,62 @@ export default ts.config(
 			},
 		},
 		rules: {
+			'@typescript-eslint/no-restricted-imports': [
+				'error',
+				{
+					paths: [
+						{
+							name: 'vscode',
+							message: "Can't use `vscode` in webviews",
+							allowTypeImports: true,
+						},
+					],
+					patterns: [
+						{
+							group: ['container'],
+							importNames: ['Container'],
+							message: "Can't use `Container` in webviews",
+							allowTypeImports: true,
+						},
+						{
+							group: ['**/-webview/**/*'],
+							message: "Can't use any `-webview` modules in webviews",
+							allowTypeImports: true,
+						},
+					],
+				},
+			],
+		},
+		settings: {
+			wc: {
+				elementBaseClasses: [
+					'LitElement', // Recognize `LitElement` as a Custom Element base class
+					'GlElement',
+				],
+			},
+		},
+	},
+	{
+		name: 'webviews-apps-only',
+		...litConfigs['flat/recommended'],
+		...wcConfigs['flat/recommended'],
+		files: ['src/webviews/apps/**/*'],
+		ignores: ['**/-webview/**/*'],
+		languageOptions: {
+			globals: {
+				...globals.browser,
+			},
+			parser: ts.parser,
+			parserOptions: {
+				ecmaVersion: 2022,
+				sourceType: 'module',
+				ecmaFeatures: {
+					impliedStrict: true,
+				},
+				projectService: true,
+			},
+		},
+		rules: {
 			'@typescript-eslint/explicit-module-boundary-types': 'off',
 			'@typescript-eslint/no-restricted-imports': [
 				'error',
