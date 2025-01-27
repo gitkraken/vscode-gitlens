@@ -12,9 +12,9 @@ export class BitbucketAuthenticationProvider extends LocalIntegrationAuthenticat
 	}
 
 	override async createSession(
-		descriptor?: IntegrationAuthenticationSessionDescriptor,
+		descriptor: IntegrationAuthenticationSessionDescriptor,
 	): Promise<ProviderAuthenticationSession | undefined> {
-		let bitbucketUsername: string | undefined = descriptor?.username as string | undefined;
+		let bitbucketUsername: string | undefined = descriptor.username as string | undefined;
 		if (!bitbucketUsername) {
 			const infoButton: QuickInputButton = {
 				iconPath: new ThemeIcon(`link-external`),
@@ -40,20 +40,14 @@ export class BitbucketAuthenticationProvider extends LocalIntegrationAuthenticat
 						}),
 						usernameInput.onDidTriggerButton(e => {
 							if (e === infoButton) {
-								void env.openExternal(
-									Uri.parse(`https://${descriptor?.domain ?? 'bitbucket.org'}/account/settings/`),
-								);
+								void env.openExternal(Uri.parse(`https://${descriptor.domain}/account/settings/`));
 							}
 						}),
 					);
 
-					usernameInput.title = `Bitbucket Authentication${
-						descriptor?.domain ? `  \u2022 ${descriptor.domain}` : ''
-					}`;
+					usernameInput.title = `Bitbucket Authentication  \u2022 ${descriptor.domain}`;
 					usernameInput.placeholder = 'Username';
-					usernameInput.prompt = `Enter your [Bitbucket Username](https://${
-						descriptor?.domain ?? 'bitbucket.org'
-					}/account/settings/ "Get your Bitbucket App Password")`;
+					usernameInput.prompt = `Enter your [Bitbucket Username](https://${descriptor.domain}/account/settings/ "Get your Bitbucket App Password")`;
 					usernameInput.show();
 				});
 			} finally {
@@ -92,22 +86,16 @@ export class BitbucketAuthenticationProvider extends LocalIntegrationAuthenticat
 					appPasswordInput.onDidTriggerButton(e => {
 						if (e === infoButton) {
 							void env.openExternal(
-								Uri.parse(
-									`https://${descriptor?.domain ?? 'bitbucket.org'}/account/settings/app-passwords/`,
-								),
+								Uri.parse(`https://${descriptor.domain}/account/settings/app-passwords/`),
 							);
 						}
 					}),
 				);
 
 				appPasswordInput.password = true;
-				appPasswordInput.title = `Bitbucket Authentication${
-					descriptor?.domain ? `  \u2022 ${descriptor.domain}` : ''
-				}`;
-				appPasswordInput.placeholder = `Requires ${descriptor?.scopes.join(', ') ?? 'all'} scopes`;
-				appPasswordInput.prompt = `Paste your [Bitbucket App Password](https://${
-					descriptor?.domain ?? 'bitbucket.org'
-				}/account/settings/app-passwords/ "Get your Bitbucket App Password")`;
+				appPasswordInput.title = `Bitbucket Authentication  \u2022 ${descriptor.domain}`;
+				appPasswordInput.placeholder = `Requires ${descriptor.scopes.join(', ')} scopes`;
+				appPasswordInput.prompt = `Paste your [Bitbucket App Password](https://${descriptor.domain}/account/settings/app-passwords/ "Get your Bitbucket App Password")`;
 				appPasswordInput.buttons = [infoButton];
 
 				appPasswordInput.show();
@@ -120,14 +108,15 @@ export class BitbucketAuthenticationProvider extends LocalIntegrationAuthenticat
 		if (!appPassword) return undefined;
 
 		return {
-			id: this.getSessionId(descriptor),
+			id: this.configuredIntegrationService.getSessionId(descriptor),
 			accessToken: base64(`${bitbucketUsername}:${appPassword}`),
-			scopes: descriptor?.scopes ?? [],
+			scopes: descriptor.scopes,
 			account: {
 				id: '',
 				label: '',
 			},
 			cloud: false,
+			domain: descriptor.domain,
 		};
 	}
 }

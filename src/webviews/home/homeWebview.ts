@@ -41,6 +41,7 @@ import { showPatchesView } from '../../plus/drafts/actions';
 import type { Subscription } from '../../plus/gk/models/subscription';
 import type { SubscriptionChangeEvent } from '../../plus/gk/subscriptionService';
 import { isSubscriptionStatePaidOrTrial } from '../../plus/gk/utils/subscription.utils';
+import { providersMetadata } from '../../plus/integrations/providers/models';
 import type { LaunchpadCategorizedResult } from '../../plus/launchpad/launchpadProvider';
 import { getLaunchpadItemGroups } from '../../plus/launchpad/launchpadProvider';
 import { getLaunchpadSummary } from '../../plus/launchpad/utils/-webview/launchpad.utils';
@@ -864,20 +865,25 @@ export class HomeWebviewProvider implements WebviewProvider<State, State, HomeWe
 
 	private async getIntegrationStates(force = false) {
 		if (force || this._integrationStates == null) {
-			const promises = filterMap(this.container.integrations.getLoaded(), async i =>
-				isSupportedCloudIntegrationId(i.id)
+			const promises = filterMap(await this.container.integrations.getConfigured(), i =>
+				isSupportedCloudIntegrationId(i.integrationId)
 					? ({
-							id: i.id,
-							name: i.name,
-							icon: `gl-provider-${i.icon}`,
-							connected: i.maybeConnected ?? (await i.isConnected()),
-							supports: i.type === 'hosting' ? ['prs', 'issues'] : i.type === 'issues' ? ['issues'] : [],
+							id: i.integrationId,
+							name: providersMetadata[i.integrationId].name,
+							icon: `gl-provider-${providersMetadata[i.integrationId].iconKey}`,
+							connected: true,
+							supports:
+								providersMetadata[i.integrationId].type === 'hosting'
+									? ['prs', 'issues']
+									: providersMetadata[i.integrationId].type === 'issues'
+									  ? ['issues']
+									  : [],
 					  } satisfies IntegrationState)
 					: undefined,
 			);
 
 			const integrationsResults = await Promise.allSettled(promises);
-			const integrations = [...filterMap(integrationsResults, r => getSettledValue(r))];
+			const integrations: IntegrationState[] = [...filterMap(integrationsResults, r => getSettledValue(r))];
 
 			this._defaultSupportedCloudIntegrations ??= supportedCloudIntegrationDescriptors.map(d => ({
 				...d,

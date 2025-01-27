@@ -12,9 +12,9 @@ export class AzureDevOpsAuthenticationProvider extends LocalIntegrationAuthentic
 	}
 
 	override async createSession(
-		descriptor?: IntegrationAuthenticationSessionDescriptor,
+		descriptor: IntegrationAuthenticationSessionDescriptor,
 	): Promise<ProviderAuthenticationSession | undefined> {
-		let azureOrganization: string | undefined = descriptor?.organization as string | undefined;
+		let azureOrganization: string | undefined = descriptor.organization as string | undefined;
 		if (!azureOrganization) {
 			const orgInput = window.createInputBox();
 			orgInput.ignoreFocusOut = true;
@@ -35,9 +35,7 @@ export class AzureDevOpsAuthenticationProvider extends LocalIntegrationAuthentic
 						}),
 					);
 
-					orgInput.title = `Azure DevOps Authentication${
-						descriptor?.domain ? `  \u2022 ${descriptor.domain}` : ''
-					}`;
+					orgInput.title = `Azure DevOps Authentication  \u2022 ${descriptor.domain}`;
 					orgInput.placeholder = 'Organization';
 					orgInput.prompt = 'Enter your Azure DevOps organization';
 					orgInput.show();
@@ -78,24 +76,16 @@ export class AzureDevOpsAuthenticationProvider extends LocalIntegrationAuthentic
 					tokenInput.onDidTriggerButton(e => {
 						if (e === infoButton) {
 							void env.openExternal(
-								Uri.parse(
-									`https://${
-										descriptor?.domain ?? 'dev.azure.com'
-									}/${azureOrganization}/_usersSettings/tokens`,
-								),
+								Uri.parse(`https://${descriptor.domain}/${azureOrganization}/_usersSettings/tokens`),
 							);
 						}
 					}),
 				);
 
 				tokenInput.password = true;
-				tokenInput.title = `Azure DevOps Authentication${
-					descriptor?.domain ? `  \u2022 ${descriptor.domain}` : ''
-				}`;
-				tokenInput.placeholder = `Requires ${descriptor?.scopes.join(', ') ?? 'all'} scopes`;
-				tokenInput.prompt = `Paste your [Azure DevOps Personal Access Token](https://${
-					descriptor?.domain ?? 'dev.azure.com'
-				}/${azureOrganization}/_usersSettings/tokens "Get your Azure DevOps Access Token")`;
+				tokenInput.title = `Azure DevOps Authentication  \u2022 ${descriptor.domain}`;
+				tokenInput.placeholder = `Requires ${descriptor.scopes.join(', ') ?? 'all'} scopes`;
+				tokenInput.prompt = `Paste your [Azure DevOps Personal Access Token](https://${descriptor.domain}/${azureOrganization}/_usersSettings/tokens "Get your Azure DevOps Access Token")`;
 				tokenInput.buttons = [infoButton];
 
 				tokenInput.show();
@@ -108,14 +98,15 @@ export class AzureDevOpsAuthenticationProvider extends LocalIntegrationAuthentic
 		if (!token) return undefined;
 
 		return {
-			id: this.getSessionId(descriptor),
+			id: this.configuredIntegrationService.getSessionId(descriptor),
 			accessToken: base64(`:${token}`),
-			scopes: descriptor?.scopes ?? [],
+			scopes: descriptor.scopes,
 			account: {
 				id: '',
 				label: '',
 			},
 			cloud: false,
+			domain: descriptor.domain,
 		};
 	}
 }

@@ -20,10 +20,11 @@ import { openUrl } from '../../system/-webview/vscode';
 import { gate } from '../../system/decorators/-webview/gate';
 import { debug, log } from '../../system/decorators/log';
 import { promisifyDeferred, take } from '../../system/event';
-import { filter, filterMap, flatten, join } from '../../system/iterable';
+import { filterMap, flatten, join } from '../../system/iterable';
 import { Logger } from '../../system/logger';
 import { getLogScope } from '../../system/logger.scope';
 import type { SubscriptionChangeEvent } from '../gk/subscriptionService';
+import type { ConfiguredIntegrationService } from './authentication/configuredIntegrationService';
 import type { IntegrationAuthenticationService } from './authentication/integrationAuthenticationService';
 import type { ConfiguredIntegrationDescriptor } from './authentication/models';
 import {
@@ -39,7 +40,6 @@ import type {
 	IntegrationBase,
 	IntegrationKey,
 	IntegrationResult,
-	IntegrationType,
 	IssueIntegration,
 	ResourceDescriptor,
 	SupportedCloudSelfHostedIntegrationIds,
@@ -75,6 +75,7 @@ export class IntegrationService implements Disposable {
 	constructor(
 		private readonly container: Container,
 		private readonly authenticationService: IntegrationAuthenticationService,
+		private readonly configuredIntegrationService: ConfiguredIntegrationService,
 	) {
 		this._disposable = Disposable.from(
 			configuration.onDidChange(e => {
@@ -461,8 +462,12 @@ export class IntegrationService implements Disposable {
 		return key == null ? this._connectedCache.size !== 0 : this._connectedCache.has(key);
 	}
 
-	getConfigured(id: SupportedIntegrationIds): ConfiguredIntegrationDescriptor[] {
-		return this.authenticationService.configured?.get(id) ?? [];
+	async getConfigured(
+		options?:
+			| { id?: HostingIntegrationId | IssueIntegrationId; domain?: never; type?: 'cloud' | 'local' }
+			| { id?: CloudSelfHostedIntegrationId | SelfHostedIntegrationId; domain?: string; type?: never },
+	): Promise<ConfiguredIntegrationDescriptor[]> {
+		return this.configuredIntegrationService.getConfigured(options);
 	}
 
 	get(id: SupportedHostingIntegrationIds): Promise<HostingIntegration>;
@@ -493,7 +498,9 @@ export class IntegrationService implements Disposable {
 							return integration;
 						}
 
-						const existingConfigured = this.getConfigured(SelfHostedIntegrationId.CloudGitHubEnterprise);
+						const existingConfigured = await this.getConfigured({
+							id: SelfHostedIntegrationId.CloudGitHubEnterprise,
+						});
 						if (existingConfigured.length) {
 							const { domain: configuredDomain } = existingConfigured[0];
 							if (configuredDomain == null) throw new Error(`Domain is required for '${id}' integration`);
@@ -549,7 +556,9 @@ export class IntegrationService implements Disposable {
 							return integration;
 						}
 
-						const existingConfigured = this.getConfigured(SelfHostedIntegrationId.CloudGitLabSelfHosted);
+						const existingConfigured = await this.getConfigured({
+							id: SelfHostedIntegrationId.CloudGitLabSelfHosted,
+						});
 						if (existingConfigured.length) {
 							const { domain: configuredDomain } = existingConfigured[0];
 							if (configuredDomain == null) throw new Error(`Domain is required for '${id}' integration`);
@@ -618,16 +627,6 @@ export class IntegrationService implements Disposable {
 		}
 
 		return integration;
-	}
-
-	getLoaded(): Iterable<Integration>;
-	getLoaded(type: 'issues'): Iterable<IssueIntegration>;
-	getLoaded(type: 'hosting'): Iterable<HostingIntegration>;
-	@log()
-	getLoaded(type?: IntegrationType): Iterable<Integration> {
-		if (type == null) return this._integrations.values();
-
-		return filter(this._integrations.values(), i => i.type === type);
 	}
 
 	private _providersApi: Promise<ProvidersApi> | undefined;
@@ -1023,17 +1022,6 @@ export class IntegrationService implements Disposable {
 		domain?: string,
 	): IntegrationKey {
 		return isSelfHostedIntegrationId(id) ? (`${id}:${domain}` as const) : id;
-	}
-
-	getConfiguredIntegrationDescriptors(id?: IntegrationId): ConfiguredIntegrationDescriptor[] {
-		const configured = this.authenticationService.configured;
-		if (id != null) return configured.get(id) ?? [];
-		const results = [];
-		for (const [, descriptors] of configured) {
-			results.push(...descriptors);
-		}
-
-		return results;
 	}
 }
 

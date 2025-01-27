@@ -32,6 +32,7 @@ import { ServerConnection } from './plus/gk/serverConnection';
 import { SubscriptionService } from './plus/gk/subscriptionService';
 import { GraphStatusBarController } from './plus/graph/statusbar';
 import type { CloudIntegrationService } from './plus/integrations/authentication/cloudIntegrationService';
+import { ConfiguredIntegrationService } from './plus/integrations/authentication/configuredIntegrationService';
 import { IntegrationAuthenticationService } from './plus/integrations/authentication/integrationAuthenticationService';
 import { IntegrationService } from './plus/integrations/integrationService';
 import type { GitHubApi } from './plus/integrations/providers/github/github';
@@ -532,8 +533,12 @@ export class Container {
 	private _integrations: IntegrationService | undefined;
 	get integrations(): IntegrationService {
 		if (this._integrations == null) {
-			const authService = new IntegrationAuthenticationService(this);
-			this._disposables.push(authService, (this._integrations = new IntegrationService(this, authService)));
+			const configuredIntegrationService = new ConfiguredIntegrationService(this);
+			const authService = new IntegrationAuthenticationService(this, configuredIntegrationService);
+			this._disposables.push(
+				authService,
+				(this._integrations = new IntegrationService(this, authService, configuredIntegrationService)),
+			);
 		}
 		return this._integrations;
 	}
