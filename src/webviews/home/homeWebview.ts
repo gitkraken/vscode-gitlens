@@ -141,6 +141,7 @@ export class HomeWebviewProvider implements WebviewProvider<State, State, HomeWe
 	private readonly _disposable: Disposable;
 	private _discovering: Promise<number | undefined> | undefined;
 	private _etag?: number;
+	private _etagSubscription?: number;
 	private _pendingFocusAccount = false;
 
 	constructor(
@@ -632,6 +633,8 @@ export class HomeWebviewProvider implements WebviewProvider<State, State, HomeWe
 	}
 
 	private async onSubscriptionChanged(e: SubscriptionChangeEvent) {
+		if (e.etag === this._etagSubscription) return;
+
 		await this.notifyDidChangeSubscription(e.current);
 
 		if (isSubscriptionStatePaidOrTrial(e.current.state) !== isSubscriptionStatePaidOrTrial(e.previous.state)) {
@@ -1021,6 +1024,7 @@ export class HomeWebviewProvider implements WebviewProvider<State, State, HomeWe
 
 	private async getSubscriptionState(subscription?: Subscription) {
 		subscription = await this.getSubscription(subscription);
+		this._etagSubscription = this.container.subscription.etag;
 
 		let avatar;
 		if (subscription.account?.email) {
