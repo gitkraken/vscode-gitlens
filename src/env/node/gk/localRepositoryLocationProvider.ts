@@ -14,7 +14,7 @@ export class LocalRepositoryLocationProvider implements RepositoryLocationProvid
 		private readonly sharedStorage: SharedGkStorageLocationProvider,
 	) {}
 
-	dispose() {}
+	dispose(): void {}
 
 	private _localRepoDataMap: LocalRepoDataMap | undefined = undefined;
 

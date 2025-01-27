@@ -43,7 +43,7 @@ export function getStoredSearchQuery(search: SearchQuery): StoredSearchQuery {
 	};
 }
 
-export function getSearchQueryComparisonKey(search: SearchQuery | StoredSearchQuery) {
+export function getSearchQueryComparisonKey(search: SearchQuery | StoredSearchQuery): string {
 	return `${'query' in search ? search.query : search.pattern}|${search.matchAll ? 'A' : ''}${
 		search.matchCase ? 'C' : ''
 	}${search.matchRegex ? 'R' : ''}`;
@@ -51,13 +51,13 @@ export function getSearchQueryComparisonKey(search: SearchQuery | StoredSearchQu
 
 export function createSearchQueryForCommit(ref: string): string;
 export function createSearchQueryForCommit(commit: GitRevisionReference): string;
-export function createSearchQueryForCommit(refOrCommit: string | GitRevisionReference) {
+export function createSearchQueryForCommit(refOrCommit: string | GitRevisionReference): string {
 	return `#:${typeof refOrCommit === 'string' ? shortenRevision(refOrCommit) : refOrCommit.name}`;
 }
 
 export function createSearchQueryForCommits(refs: string[]): string;
 export function createSearchQueryForCommits(commits: GitRevisionReference[]): string;
-export function createSearchQueryForCommits(refsOrCommits: (string | GitRevisionReference)[]) {
+export function createSearchQueryForCommits(refsOrCommits: (string | GitRevisionReference)[]): string {
 	return refsOrCommits.map(r => `#:${typeof r === 'string' ? shortenRevision(r) : r.name}`).join(' ');
 }
 

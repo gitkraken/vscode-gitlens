@@ -51,7 +51,7 @@ export class StashesNode extends CacheableChildrenViewNode<'stashes', ViewsWithS
 	}
 
 	@debug()
-	override refresh() {
+	override refresh(): void {
 		super.refresh(true);
 	}
 }

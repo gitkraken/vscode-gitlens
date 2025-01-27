@@ -14,7 +14,7 @@ export class ShowQuickStashListCommand extends GlCommandBase {
 		super(GlCommand.ShowQuickStashList);
 	}
 
-	execute(args?: ShowQuickStashListCommandArgs) {
+	execute(args?: ShowQuickStashListCommandArgs): Promise<void> {
 		return executeGitCommand({
 			command: 'stash',
 			state: {

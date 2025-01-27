@@ -332,7 +332,7 @@ export class BranchTrackingStatusNode
 
 	@gate()
 	@debug()
-	override refresh(reset?: boolean) {
+	override refresh(reset?: boolean): void {
 		if (reset) {
 			this._log = undefined;
 		}
@@ -356,12 +356,12 @@ export class BranchTrackingStatusNode
 		return this._log;
 	}
 
-	get hasMore() {
+	get hasMore(): boolean {
 		return this._log?.hasMore ?? true;
 	}
 
 	@gate()
-	async loadMore(limit?: number | { until?: any }) {
+	async loadMore(limit?: number | { until?: any }): Promise<void> {
 		let log = await window.withProgress(
 			{
 				location: { viewId: this.view.id },

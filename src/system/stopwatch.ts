@@ -22,7 +22,7 @@ export class Stopwatch implements Disposable {
 	private readonly logProvider: LogProvider;
 
 	private _time: [number, number];
-	get startTime() {
+	get startTime(): [number, number] {
 		return this._time;
 	}
 

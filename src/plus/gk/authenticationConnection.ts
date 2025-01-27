@@ -31,7 +31,7 @@ export class AuthenticationConnection implements Disposable {
 		private readonly connection: ServerConnection,
 	) {}
 
-	dispose() {}
+	dispose(): void {}
 
 	abort(): Promise<void> {
 		if (this._cancellationSource == null) return Promise.resolve();

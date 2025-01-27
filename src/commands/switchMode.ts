@@ -15,7 +15,7 @@ export class SwitchModeCommand extends GlCommandBase {
 	}
 
 	@log({ args: false, scoped: true, singleLine: true, timed: false })
-	async execute() {
+	async execute(): Promise<void> {
 		const scope = getLogScope();
 
 		const pick = await showModePicker();
@@ -49,7 +49,7 @@ export class ToggleReviewModeCommand extends GlCommandBase {
 	}
 
 	@log({ args: false, singleLine: true, timed: false })
-	async execute() {
+	async execute(): Promise<void> {
 		const modes = configuration.get('modes');
 		if (modes == null || !Object.keys(modes).includes('review')) return;
 
@@ -65,7 +65,7 @@ export class ToggleZenModeCommand extends GlCommandBase {
 	}
 
 	@log({ args: false, singleLine: true, timed: false })
-	async execute() {
+	async execute(): Promise<void> {
 		const modes = configuration.get('modes');
 		if (modes == null || !Object.keys(modes).includes('zen')) return;
 

@@ -44,7 +44,7 @@ export class LineAnnotationController implements Disposable {
 		);
 	}
 
-	dispose() {
+	dispose(): void {
 		this.clearAnnotations(this._editor);
 
 		this.container.lineTracker.unsubscribe(this);
@@ -72,12 +72,12 @@ export class LineAnnotationController implements Disposable {
 	}
 
 	private _suspended: boolean = false;
-	get suspended() {
+	get suspended(): boolean {
 		return !this._enabled || this._suspended;
 	}
 
 	@log()
-	resume() {
+	resume(): boolean {
 		this.setLineTracker(true);
 
 		if (this._suspended) {
@@ -89,7 +89,7 @@ export class LineAnnotationController implements Disposable {
 	}
 
 	@log()
-	suspend() {
+	suspend(): boolean {
 		this.setLineTracker(false);
 
 		if (!this._suspended) {
@@ -123,7 +123,7 @@ export class LineAnnotationController implements Disposable {
 	}
 
 	@debug({ args: false, singleLine: true })
-	clear(editor: TextEditor | undefined) {
+	clear(editor: TextEditor | undefined): void {
 		this._cancellation?.cancel();
 		if (this._editor !== editor && this._editor != null) {
 			this.clearAnnotations(this._editor);
@@ -132,7 +132,7 @@ export class LineAnnotationController implements Disposable {
 	}
 
 	@log({ args: false })
-	async toggle(editor: TextEditor | undefined) {
+	async toggle(editor: TextEditor | undefined): Promise<void> {
 		this._enabled = !(this._enabled && !this.suspended);
 
 		if (this._enabled) {

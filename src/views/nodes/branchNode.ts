@@ -105,7 +105,7 @@ export class BranchNode
 		};
 	}
 
-	override dispose() {
+	override dispose(): void {
 		super.dispose();
 		this.children = undefined;
 	}
@@ -436,18 +436,18 @@ export class BranchNode
 	}
 
 	@log()
-	async star() {
+	async star(): Promise<void> {
 		await this.branch.star();
 		void this.view.refresh(true);
 	}
 
 	@log()
-	async unstar() {
+	async unstar(): Promise<void> {
 		await this.branch.unstar();
 		void this.view.refresh(true);
 	}
 
-	override refresh(reset?: boolean) {
+	override refresh(reset?: boolean): void {
 		void super.refresh?.(reset);
 
 		this.children = undefined;
@@ -503,12 +503,12 @@ export class BranchNode
 		return this._log;
 	}
 
-	get hasMore() {
+	get hasMore(): boolean {
 		return this._log?.hasMore ?? true;
 	}
 
 	@gate()
-	async loadMore(limit?: number | { until?: any }) {
+	async loadMore(limit?: number | { until?: any }): Promise<void> {
 		let log = await window.withProgress(
 			{
 				location: { viewId: this.view.id },
@@ -800,7 +800,7 @@ export class CommitsCurrentBranchNode extends SubscribeableViewNode<'commits-cur
 		return this.branch.upstream?.missing || this.branch.detached ? undefined : this.repo?.getLastFetched();
 	}
 
-	protected async subscribe() {
+	protected async subscribe(): Promise<Disposable | undefined> {
 		const lastFetched = (await this.getLastFetched()) ?? 0;
 
 		const interval = getLastFetchedUpdateInterval(lastFetched);

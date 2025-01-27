@@ -34,11 +34,11 @@ export class RepositoryRefChangeset implements RepositoryChangeset {
 		this.expanded = expanded;
 	}
 
-	dispose() {}
+	dispose(): void {}
 
-	suspend() {}
+	suspend(): void {}
 
-	resume() {}
+	resume(): void {}
 
 	private _checked: Change['checked'] = false;
 	get checked(): Change['checked'] {
@@ -122,17 +122,17 @@ export class RepositoryWipChangeset implements RepositoryChangeset {
 		this.expanded = expanded;
 	}
 
-	dispose() {
+	dispose(): void {
 		this._disposable?.dispose();
 		this._disposable = undefined;
 	}
 
-	suspend() {
+	suspend(): void {
 		this._disposable?.dispose();
 		this._disposable = undefined;
 	}
 
-	resume() {
+	resume(): void {
 		this._files = undefined;
 		if (this._expanded) {
 			this.subscribe();

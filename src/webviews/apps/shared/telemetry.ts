@@ -6,7 +6,7 @@ export const telemetryEventName = 'gl-telemetry-fired';
 export function emitTelemetrySentEvent<T extends keyof TelemetryEvents>(
 	el: EventTarget,
 	params: TelemetrySendEventParams<T>,
-) {
+): void {
 	el.dispatchEvent(
 		new CustomEvent<TelemetrySendEventParams<T>>(telemetryEventName, {
 			bubbles: true,

@@ -30,7 +30,7 @@ export class FileHistoryTrackerNode extends SubscribeableViewNode<'file-history-
 		super('file-history-tracker', unknownGitUri, view);
 	}
 
-	override dispose() {
+	override dispose(): void {
 		super.dispose();
 		this.child = undefined;
 	}
@@ -98,7 +98,7 @@ export class FileHistoryTrackerNode extends SubscribeableViewNode<'file-history-
 
 	@gate()
 	@log()
-	async changeBase() {
+	async changeBase(): Promise<void> {
 		const pick = await showReferencePicker(
 			this.uri.repoPath!,
 			'Change File History Base',
@@ -125,7 +125,7 @@ export class FileHistoryTrackerNode extends SubscribeableViewNode<'file-history-
 
 	@gate()
 	@debug({ exit: true })
-	override async refresh(reset: boolean = false) {
+	override async refresh(reset: boolean = false): Promise<boolean> {
 		const scope = getLogScope();
 
 		if (!this.canSubscribe) return false;
@@ -196,7 +196,7 @@ export class FileHistoryTrackerNode extends SubscribeableViewNode<'file-history-
 	}
 
 	@log()
-	setEditorFollowing(enabled: boolean) {
+	setEditorFollowing(enabled: boolean): void {
 		if (enabled) {
 			this.setUri();
 			// Don't need to call triggerChange here, since canSubscribe will do it
@@ -209,13 +209,13 @@ export class FileHistoryTrackerNode extends SubscribeableViewNode<'file-history-
 	}
 
 	@log()
-	async showHistoryForUri(uri: GitUri) {
+	async showHistoryForUri(uri: GitUri): Promise<void> {
 		this.setUri(uri);
 		await this.triggerChange();
 	}
 
 	@debug()
-	protected subscribe() {
+	protected subscribe(): Disposable {
 		return Disposable.from(
 			weakEvent(window.onDidChangeActiveTextEditor, debounce(this.onActiveEditorChanged, 250), this),
 		);
@@ -242,7 +242,7 @@ export class FileHistoryTrackerNode extends SubscribeableViewNode<'file-history-
 		void this.triggerChange();
 	}
 
-	setUri(uri?: GitUri) {
+	setUri(uri?: GitUri): void {
 		this._uri = uri ?? unknownGitUri;
 		void setContext('gitlens:views:fileHistory:canPin', this.hasUri);
 	}

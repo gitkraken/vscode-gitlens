@@ -220,11 +220,11 @@ export class WalkthroughStateProvider implements Disposable {
 		void setContext(`gitlens:walkthroughState:${key}`, true);
 	}
 
-	get doneCount() {
+	get doneCount(): number {
 		return this.completed.size;
 	}
 
-	get progress() {
+	get progress(): number {
 		return this.doneCount / this.walkthroughSize;
 	}
 

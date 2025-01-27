@@ -70,7 +70,7 @@ export class CommitsRepositoryNode extends RepositoryFolderNode<CommitsView, Bra
 
 	@gate()
 	@debug()
-	override async refresh(reset: boolean = false) {
+	override async refresh(reset: boolean = false): Promise<void> {
 		if (reset) {
 			this.child = undefined;
 		} else {
@@ -81,7 +81,7 @@ export class CommitsRepositoryNode extends RepositoryFolderNode<CommitsView, Bra
 	}
 
 	@debug()
-	protected override async subscribe() {
+	protected override async subscribe(): Promise<Disposable> {
 		const lastFetched = (await this.repo?.getLastFetched()) ?? 0;
 
 		const interval = getLastFetchedUpdateInterval(lastFetched);
@@ -106,7 +106,7 @@ export class CommitsRepositoryNode extends RepositoryFolderNode<CommitsView, Bra
 		return super.subscribe();
 	}
 
-	protected changed(e: RepositoryChangeEvent) {
+	protected changed(e: RepositoryChangeEvent): boolean {
 		if (this.view.config.showStashes && e.changed(RepositoryChange.Stash, RepositoryChangeComparisonMode.Any)) {
 			return true;
 		}
@@ -242,7 +242,7 @@ export class CommitsView extends ViewBase<'commits', CommitsViewNode, CommitsVie
 		return this._state;
 	}
 
-	protected getRoot() {
+	protected getRoot(): CommitsViewNode {
 		return new CommitsViewNode(this);
 	}
 
@@ -324,7 +324,7 @@ export class CommitsView extends ViewBase<'commits', CommitsViewNode, CommitsVie
 		];
 	}
 
-	protected override filterConfigurationChanged(e: ConfigurationChangeEvent) {
+	protected override filterConfigurationChanged(e: ConfigurationChangeEvent): boolean {
 		const changed = super.filterConfigurationChanged(e);
 		if (
 			!changed &&
@@ -344,7 +344,10 @@ export class CommitsView extends ViewBase<'commits', CommitsViewNode, CommitsVie
 		return true;
 	}
 
-	async findCommit(commit: GitCommit | { repoPath: string; ref: string }, token?: CancellationToken) {
+	async findCommit(
+		commit: GitCommit | { repoPath: string; ref: string },
+		token?: CancellationToken,
+	): Promise<ViewNode | undefined> {
 		const { repoPath } = commit;
 
 		const branchesProvider = this.container.git.branches(commit.repoPath);
@@ -401,7 +404,7 @@ export class CommitsView extends ViewBase<'commits', CommitsViewNode, CommitsVie
 			focus?: boolean;
 			expand?: boolean | number;
 		},
-	) {
+	): Promise<ViewNode | undefined> {
 		return window.withProgress(
 			{
 				location: ProgressLocation.Notification,
@@ -426,7 +429,7 @@ export class CommitsView extends ViewBase<'commits', CommitsViewNode, CommitsVie
 	async revealRepository(
 		repoPath: string,
 		options?: { select?: boolean; focus?: boolean; expand?: boolean | number },
-	) {
+	): Promise<ViewNode | undefined> {
 		const node = await this.findNode(n => n instanceof RepositoryFolderNode && n.repoPath === repoPath, {
 			maxDepth: 1,
 			canTraverse: n => n instanceof CommitsViewNode || n instanceof RepositoryFolderNode,

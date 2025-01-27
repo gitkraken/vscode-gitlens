@@ -111,7 +111,7 @@ export class CodeIcon extends LitElement {
 	@property({ reflect: true })
 	rotate?: '45';
 
-	override updated(changedProperties: Map<string, unknown>) {
+	override updated(changedProperties: Map<string, unknown>): void {
 		if (changedProperties.has('size')) {
 			this.style.setProperty('--code-icon-size', `${this.size}px`);
 		}

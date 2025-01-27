@@ -119,11 +119,11 @@ export class SearchGitCommand extends QuickCommand<State> {
 		return false;
 	}
 
-	override isMatch(key: string) {
+	override isMatch(key: string): boolean {
 		return super.isMatch(key) || key === 'grep';
 	}
 
-	override isFuzzyMatch(name: string) {
+	override isFuzzyMatch(name: string): boolean {
 		return super.isFuzzyMatch(name) || name === 'grep';
 	}
 

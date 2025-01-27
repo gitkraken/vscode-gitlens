@@ -40,7 +40,7 @@ export abstract class QuickWizardCommandBase extends GlCommandBase {
 	}
 
 	@log({ args: false, scoped: true, singleLine: true, timed: false })
-	async execute(args?: QuickWizardCommandArgsWithCompletion) {
+	async execute(args?: QuickWizardCommandArgsWithCompletion): Promise<void> {
 		const rootStep = new QuickWizardRootStep(this.container, args);
 
 		const command = args?.command != null ? rootStep.find(args.command) : undefined;

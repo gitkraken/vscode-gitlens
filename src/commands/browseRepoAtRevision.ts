@@ -29,7 +29,7 @@ export class BrowseRepoAtRevisionCommand extends ActiveEditorCommand {
 		]);
 	}
 
-	protected override preExecute(context: CommandContext, args?: BrowseRepoAtRevisionCommandArgs) {
+	protected override preExecute(context: CommandContext, args?: BrowseRepoAtRevisionCommandArgs): Promise<void> {
 		switch (context.command) {
 			case GlCommand.BrowseRepoAtRevisionInNewWindow:
 				args = { ...args, before: false, openInNewWindow: true };
@@ -45,7 +45,7 @@ export class BrowseRepoAtRevisionCommand extends ActiveEditorCommand {
 		return this.execute(context.editor, context.uri, args);
 	}
 
-	async execute(editor: TextEditor | undefined, uri?: Uri, args?: BrowseRepoAtRevisionCommandArgs) {
+	async execute(editor: TextEditor | undefined, uri?: Uri, args?: BrowseRepoAtRevisionCommandArgs): Promise<void> {
 		args = { ...args };
 
 		try {

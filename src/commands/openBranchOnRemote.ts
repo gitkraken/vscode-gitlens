@@ -28,7 +28,7 @@ export class OpenBranchOnRemoteCommand extends ActiveEditorCommand {
 		super([GlCommand.OpenBranchOnRemote, GlCommand.Deprecated_OpenBranchInRemote, GlCommand.CopyRemoteBranchUrl]);
 	}
 
-	protected override preExecute(context: CommandContext, args?: OpenBranchOnRemoteCommandArgs) {
+	protected override preExecute(context: CommandContext, args?: OpenBranchOnRemoteCommandArgs): Promise<void> {
 		if (isCommandContextViewNodeHasBranch(context)) {
 			args = {
 				...args,
@@ -44,7 +44,7 @@ export class OpenBranchOnRemoteCommand extends ActiveEditorCommand {
 		return this.execute(context.editor, context.uri, args);
 	}
 
-	async execute(editor?: TextEditor, uri?: Uri, args?: OpenBranchOnRemoteCommandArgs) {
+	async execute(editor?: TextEditor, uri?: Uri, args?: OpenBranchOnRemoteCommandArgs): Promise<void> {
 		uri = getCommandUri(uri, editor);
 
 		const gitUri = uri != null ? await GitUri.fromUri(uri) : undefined;

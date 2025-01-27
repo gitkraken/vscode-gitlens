@@ -38,7 +38,7 @@ export class GiteaRemote extends RemoteProvider {
 		return this._autolinks;
 	}
 
-	override get icon() {
+	override get icon(): string {
 		return 'gitea';
 	}
 
@@ -50,7 +50,7 @@ export class GiteaRemote extends RemoteProvider {
 		return undefined; // TODO@eamodio DRAFTS add this when supported by backend
 	}
 
-	get name() {
+	get name(): string {
 		return this.formatName('Gitea');
 	}
 

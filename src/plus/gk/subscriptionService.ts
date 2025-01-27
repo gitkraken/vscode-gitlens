@@ -375,7 +375,7 @@ export class SubscriptionService implements Disposable {
 
 	@gate()
 	@log()
-	async continueFeaturePreview(feature: FeaturePreviews) {
+	async continueFeaturePreview(feature: FeaturePreviews): Promise<void> {
 		const preview = this.getStoredFeaturePreview(feature);
 		const status = getFeaturePreviewStatus(preview);
 
@@ -1653,7 +1653,7 @@ export class SubscriptionService implements Disposable {
 		);
 	}
 
-	onLoginUri(uri: Uri) {
+	private onLoginUri(uri: Uri): void {
 		const scope = getLogScope();
 		const queryParams = new URLSearchParams(uri.query);
 		const code = queryParams.get('code');

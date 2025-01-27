@@ -106,13 +106,13 @@ export class GlFeatureGatePlusState extends LitElement {
 	@property({ type: String })
 	webroot?: string;
 
-	protected override firstUpdated() {
+	protected override firstUpdated(): void {
 		if (this.appearance === 'alert') {
 			queueMicrotask(() => this.button.focus());
 		}
 	}
 
-	override render() {
+	override render(): unknown {
 		if (this.state == null) {
 			this.hidden = true;
 			return undefined;

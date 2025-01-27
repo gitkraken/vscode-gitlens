@@ -11,7 +11,7 @@ export class ResetViewsLayoutCommand extends GlCommandBase {
 		super(GlCommand.ResetViewsLayout);
 	}
 
-	async execute() {
+	async execute(): Promise<void> {
 		// Don't use this because it will forcibly show & expand every view
 		// for (const view of viewIds) {
 		// 	void (await executeCoreCommand(`gitlens.views.${view}.resetViewLocation`));

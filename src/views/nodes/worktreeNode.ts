@@ -369,7 +369,7 @@ export class WorktreeNode extends CacheableChildrenViewNode<'worktree', ViewsWit
 	}
 
 	@debug()
-	override refresh(reset?: boolean) {
+	override refresh(reset?: boolean): void {
 		super.refresh(true);
 
 		if (reset) {
@@ -412,12 +412,12 @@ export class WorktreeNode extends CacheableChildrenViewNode<'worktree', ViewsWit
 		return this._log;
 	}
 
-	get hasMore() {
+	get hasMore(): boolean {
 		return this._log?.hasMore ?? true;
 	}
 
 	@gate()
-	async loadMore(limit?: number | { until?: any }) {
+	async loadMore(limit?: number | { until?: any }): Promise<void> {
 		let log = await window.withProgress(
 			{
 				location: { viewId: this.view.id },

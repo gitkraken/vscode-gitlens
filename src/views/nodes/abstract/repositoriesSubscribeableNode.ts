@@ -19,7 +19,7 @@ export abstract class RepositoriesSubscribeableNode<
 		super('repositories', unknownGitUri, view);
 	}
 
-	override async getSplattedChild() {
+	override async getSplattedChild(): Promise<TChild | undefined> {
 		if (this.children == null) {
 			await this.getChildren();
 		}

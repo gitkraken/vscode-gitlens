@@ -21,7 +21,7 @@ export class OpenOnlyChangedFilesCommand extends GlCommandBase {
 		super(GlCommand.OpenOnlyChangedFiles);
 	}
 
-	async execute(args?: OpenOnlyChangedFilesCommandArgs) {
+	async execute(args?: OpenOnlyChangedFilesCommandArgs): Promise<void> {
 		args = { ...args };
 
 		try {

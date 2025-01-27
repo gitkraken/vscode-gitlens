@@ -25,7 +25,7 @@ export class GraphStatusBarController implements Disposable {
 		);
 	}
 
-	dispose() {
+	dispose(): void {
 		this._disposable.dispose();
 	}
 

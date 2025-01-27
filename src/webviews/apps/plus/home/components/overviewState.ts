@@ -52,13 +52,13 @@ export class OverviewState extends AsyncComputedState<Overview> {
 		});
 	}
 
-	dispose() {
+	dispose(): void {
 		this._disposable?.dispose();
 	}
 
 	filter = signalObject<Partial<OverviewFilters>>({});
 
-	async changeRepository() {
+	async changeRepository(): Promise<void> {
 		await this._ipc.sendRequest(ChangeOverviewRepository, undefined);
 		this.run(true);
 	}

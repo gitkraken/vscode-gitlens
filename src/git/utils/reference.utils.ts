@@ -8,7 +8,7 @@ import type {
 	GitTagReference,
 } from '../models/reference';
 import { getBranchNameWithoutRemote, getRemoteNameFromBranchName } from './branch.utils';
-import { isRevisionRange, isShaParent, shortenRevision } from "./revision.utils";
+import { isRevisionRange, isShaParent, shortenRevision } from './revision.utils';
 
 export function createReference(
 	ref: string,
@@ -96,7 +96,7 @@ export function createReference(
 export function getReferenceLabel(
 	refs: GitReference | GitReference[] | undefined,
 	options?: { capitalize?: boolean; expand?: boolean; icon?: boolean; label?: boolean; quoted?: boolean } | false,
-) {
+): string {
 	if (refs == null) return '';
 
 	options =
@@ -196,14 +196,14 @@ export function getReferenceLabel(
 	}
 }
 
-export function getReferenceNameWithoutRemote(ref: GitReference) {
+export function getReferenceNameWithoutRemote(ref: GitReference): string {
 	if (ref.refType === 'branch') {
 		return ref.remote ? getBranchNameWithoutRemote(ref.name) : ref.name;
 	}
 	return ref.name;
 }
 
-export function getReferenceTypeLabel(ref: GitReference | undefined) {
+export function getReferenceTypeLabel(ref: GitReference | undefined): 'Branch' | 'Tag' | 'Commit' {
 	switch (ref?.refType) {
 		case 'branch':
 			return 'Branch';

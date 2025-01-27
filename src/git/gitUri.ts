@@ -200,7 +200,7 @@ export class GitUri extends (Uri as any as UriEx) {
 	}
 
 	@memoize()
-	documentUri() {
+	documentUri(): Uri {
 		// TODO@eamodio which is correct?
 		return Uri.from({
 			scheme: this.scheme,
@@ -212,7 +212,7 @@ export class GitUri extends (Uri as any as UriEx) {
 		return Container.instance.git.getAbsoluteUri(this.fsPath, this.repoPath);
 	}
 
-	equals(uri: Uri | undefined) {
+	equals(uri: Uri | undefined): boolean {
 		if (!UriComparer.equals(this, uri)) return false;
 
 		return this.sha === (isGitUri(uri) ? uri.sha : undefined);
@@ -223,7 +223,7 @@ export class GitUri extends (Uri as any as UriEx) {
 	}
 
 	@memoize()
-	toFileUri() {
+	toFileUri(): Uri {
 		return Container.instance.git.getAbsoluteUri(this.fsPath, this.repoPath);
 	}
 
@@ -242,7 +242,7 @@ export class GitUri extends (Uri as any as UriEx) {
 			  });
 	}
 
-	static fromRepoPath(repoPath: string, ref?: string) {
+	static fromRepoPath(repoPath: string, ref?: string): GitUri {
 		return !ref
 			? new GitUri(Container.instance.git.getAbsoluteUri(repoPath, repoPath), repoPath)
 			: new GitUri(Container.instance.git.getAbsoluteUri(repoPath, repoPath), { repoPath: repoPath, sha: ref });

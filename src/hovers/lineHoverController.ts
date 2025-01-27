@@ -23,7 +23,7 @@ export class LineHoverController implements Disposable {
 		);
 	}
 
-	dispose() {
+	dispose(): void {
 		this.unregister();
 
 		this.container.lineTracker.unsubscribe(this);

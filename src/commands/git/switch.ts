@@ -85,7 +85,7 @@ export class SwitchGitCommand extends QuickCommand<State> {
 		return this._canConfirmOverride ?? true;
 	}
 
-	async execute(state: SwitchStepState) {
+	private async execute(state: SwitchStepState) {
 		await window.withProgress(
 			{
 				location: ProgressLocation.Notification,
@@ -108,11 +108,11 @@ export class SwitchGitCommand extends QuickCommand<State> {
 		}
 	}
 
-	override isMatch(key: string) {
+	override isMatch(key: string): boolean {
 		return super.isMatch(key) || key === 'checkout';
 	}
 
-	override isFuzzyMatch(name: string) {
+	override isFuzzyMatch(name: string): boolean {
 		return super.isFuzzyMatch(name) || name === 'checkout';
 	}
 

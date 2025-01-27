@@ -80,7 +80,7 @@ export class TimelineWebviewProvider implements WebviewProvider<State, State, Ti
 		}
 	}
 
-	dispose() {
+	dispose(): void {
 		this._disposable.dispose();
 	}
 
@@ -181,7 +181,7 @@ export class TimelineWebviewProvider implements WebviewProvider<State, State, Ti
 		return commands;
 	}
 
-	onVisibilityChanged(visible: boolean) {
+	onVisibilityChanged(visible: boolean): void {
 		if (!visible) return;
 
 		if (this.host.isHost('view')) {
@@ -189,7 +189,7 @@ export class TimelineWebviewProvider implements WebviewProvider<State, State, Ti
 		}
 	}
 
-	async onMessageReceived(e: IpcMessage) {
+	async onMessageReceived(e: IpcMessage): Promise<void> {
 		switch (true) {
 			case OpenDataPointCommand.is(e): {
 				if (e.params.data == null || !e.params.data.selected || this._context.uri == null) return;

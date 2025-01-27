@@ -68,7 +68,7 @@ export class ReflogNode
 	}
 
 	@debug()
-	override refresh(reset?: boolean) {
+	override refresh(reset?: boolean): void {
 		super.refresh(true);
 
 		if (reset) {
@@ -88,11 +88,11 @@ export class ReflogNode
 		return this._reflog;
 	}
 
-	get hasMore() {
+	get hasMore(): boolean {
 		return this._reflog?.hasMore ?? true;
 	}
 
-	async loadMore(limit?: number) {
+	async loadMore(limit?: number): Promise<void> {
 		let reflog = await this.getReflog();
 		if (!reflog?.hasMore) return;
 

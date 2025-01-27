@@ -17,6 +17,7 @@ import { executeCommand, executeCoreGitCommand, executeEditorCommand } from '../
 import { configuration } from '../../system/-webview/configuration';
 import { findOrOpenEditor, findOrOpenEditors, openChangesEditor } from '../../system/-webview/vscode';
 import { getSettledValue } from '../../system/promise';
+import type { ViewNode } from '../../views/nodes/abstract/viewNode';
 import type { ShowInCommitGraphCommandArgs } from '../../webviews/plus/graph/protocol';
 import { GitUri } from '../gitUri';
 import type { GitCommit } from '../models/commit';
@@ -45,7 +46,11 @@ const filesOpenThreshold = 10;
 const filesOpenDiffsThreshold = 10;
 const filesOpenMultiDiffThreshold = 50;
 
-export async function applyChanges(file: string | GitFile, rev1: GitRevisionReference, rev2?: GitRevisionReference) {
+export async function applyChanges(
+	file: string | GitFile,
+	rev1: GitRevisionReference,
+	rev2?: GitRevisionReference,
+): Promise<void> {
 	let create = false;
 	let ref1 = rev1.ref;
 	let ref2 = rev2?.ref;
@@ -81,7 +86,7 @@ export async function applyChanges(file: string | GitFile, rev1: GitRevisionRefe
 	}
 }
 
-export async function copyIdToClipboard(ref: Ref | GitCommit) {
+export async function copyIdToClipboard(ref: Ref | GitCommit): Promise<void> {
 	await env.clipboard.writeText(ref.ref);
 }
 
@@ -239,7 +244,7 @@ export async function openAllChangesInChangesEditor(
 
 export async function openAllChangesWithDiffTool(commit: GitCommit): Promise<void>;
 export async function openAllChangesWithDiffTool(files: GitFile[], ref: Ref): Promise<void>;
-export async function openAllChangesWithDiffTool(commitOrFiles: GitCommit | GitFile[], ref?: Ref) {
+export async function openAllChangesWithDiffTool(commitOrFiles: GitCommit | GitFile[], ref?: Ref): Promise<void> {
 	const { files } = await getChangesRefArgs(commitOrFiles, ref);
 
 	if (
@@ -270,7 +275,7 @@ export async function openAllChangesWithWorking(
 	commitOrFiles: GitCommit | GitFile[],
 	refOrOptions: Ref | (TextDocumentShowOptions & { title?: string }) | undefined,
 	maybeOptions?: TextDocumentShowOptions & { title?: string },
-) {
+): Promise<void> {
 	if (isCommit(commitOrFiles)) {
 		if (configuration.get('views.openChangesInMultiDiffEditor')) {
 			return openAllChangesInChangesEditor(commitOrFiles, refOrOptions as TextDocumentShowOptions | undefined);
@@ -308,7 +313,7 @@ export async function openAllChangesWithWorkingIndividually(
 	commitOrFiles: GitCommit | GitFile[],
 	refOrOptions: Ref | TextDocumentShowOptions | undefined,
 	maybeOptions?: TextDocumentShowOptions,
-) {
+): Promise<void> {
 	let { files, ref, options } = await getChangesRefArgs(commitOrFiles, refOrOptions, maybeOptions);
 
 	if (
@@ -347,7 +352,7 @@ export async function openChanges(
 	file: string | GitFile,
 	commitOrRefs: GitCommit | RefRange,
 	options?: TextDocumentShowOptions & { lhsTitle?: string; rhsTitle?: string },
-) {
+): Promise<void> {
 	const hasCommit = isCommit(commitOrRefs);
 
 	if (typeof file === 'string') {
@@ -396,7 +401,11 @@ export async function openChanges(
 
 export function openChangesWithDiffTool(file: string | GitFile, commit: GitCommit, tool?: string): Promise<void>;
 export function openChangesWithDiffTool(file: GitFile, ref: Ref, tool?: string): Promise<void>;
-export async function openChangesWithDiffTool(file: string | GitFile, commitOrRef: GitCommit | Ref, tool?: string) {
+export async function openChangesWithDiffTool(
+	file: string | GitFile,
+	commitOrRef: GitCommit | Ref,
+	tool?: string,
+): Promise<void> {
 	if (typeof file === 'string') {
 		if (!isCommit(commitOrRef)) throw new Error('Invalid arguments');
 
@@ -432,7 +441,7 @@ export async function openChangesWithWorking(
 	file: string | GitFile,
 	commitOrRef: GitCommit | Ref,
 	options?: TextDocumentShowOptions & { lhsTitle?: string },
-) {
+): Promise<void> {
 	if (typeof file === 'string') {
 		if (!isCommit(commitOrRef)) throw new Error('Invalid arguments');
 
@@ -546,7 +555,7 @@ export async function openFile(
 	fileOrUri: string | GitFile | Uri,
 	refOrOptions?: GitRevisionReference | TextDocumentShowOptions,
 	options?: TextDocumentShowOptions,
-) {
+): Promise<void> {
 	let uri;
 	if (fileOrUri instanceof Uri) {
 		uri = fileOrUri;
@@ -737,7 +746,7 @@ export async function openFilesAtRevision(
 	);
 }
 
-export async function restoreFile(file: string | GitFile, revision: GitRevisionReference) {
+export async function restoreFile(file: string | GitFile, revision: GitRevisionReference): Promise<void> {
 	let path;
 	let ref;
 	if (typeof file === 'string') {
@@ -771,7 +780,7 @@ export function reveal(
 		focus?: boolean;
 		expand?: boolean | number;
 	},
-) {
+): Promise<ViewNode | undefined> {
 	return Container.instance.views.revealCommit(commit, options);
 }
 
@@ -851,7 +860,7 @@ export async function openOnlyChangedFiles(container: Container, commitOrFiles: 
 	}));
 }
 
-export async function undoCommit(container: Container, commit: GitRevisionReference) {
+export async function undoCommit(container: Container, commit: GitRevisionReference): Promise<void> {
 	const repo = await container.git.getOrOpenScmRepository(commit.repoPath);
 	const scmCommit = await repo?.getCommit('HEAD');
 

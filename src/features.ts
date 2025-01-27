@@ -53,7 +53,7 @@ export interface FeaturePreview {
 	usages: StoredFeaturePreviewUsagePeriod[];
 }
 
-export function getFeaturePreviewLabel(feature: FeaturePreviews) {
+export function getFeaturePreviewLabel(feature: FeaturePreviews): string {
 	switch (feature) {
 		case 'graph':
 			return 'Commit Graph';

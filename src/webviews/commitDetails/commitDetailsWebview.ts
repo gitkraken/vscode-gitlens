@@ -213,7 +213,7 @@ export class CommitDetailsWebviewProvider
 		);
 	}
 
-	dispose() {
+	dispose(): void {
 		this._disposable.dispose();
 		this._lineTrackerDisposable?.dispose();
 		this._repositorySubscription?.subscription.dispose();
@@ -367,7 +367,7 @@ export class CommitDetailsWebviewProvider
 		return true;
 	}
 
-	async trackOpenReviewMode(source?: Sources) {
+	async trackOpenReviewMode(source?: Sources): Promise<void> {
 		if (this._context.wip?.pullRequest == null) return;
 
 		const provider = this._context.wip.pullRequest.provider.id;
@@ -405,7 +405,7 @@ export class CommitDetailsWebviewProvider
 		}
 	}
 
-	onMessageReceived(e: IpcMessage) {
+	onMessageReceived(e: IpcMessage): void {
 		switch (true) {
 			case OpenFileOnRemoteCommand.is(e):
 				void this.openFileOnRemote(e.params);
@@ -833,7 +833,7 @@ export class CommitDetailsWebviewProvider
 		void this.notifyDidChangeState(true);
 	}
 
-	onVisibilityChanged(visible: boolean) {
+	onVisibilityChanged(visible: boolean): void {
 		this.ensureTrackers();
 		if (!visible) return;
 
@@ -892,7 +892,7 @@ export class CommitDetailsWebviewProvider
 		this.updateHasAccount(e.current);
 	}
 
-	updateHasAccount(subscription: Subscription) {
+	private updateHasAccount(subscription: Subscription) {
 		const hasAccount = subscription.account != null;
 		if (this._context.hasAccount === hasAccount) return;
 
@@ -900,7 +900,7 @@ export class CommitDetailsWebviewProvider
 		void this.host.notify(DidChangeHasAccountNotification, { hasAccount: hasAccount });
 	}
 
-	onIntegrationConnectionStateChanged(e: ConnectionStateChangeEvent) {
+	private onIntegrationConnectionStateChanged(e: ConnectionStateChangeEvent) {
 		if (e.key === 'jira') {
 			const hasConnectedJira = e.reason === 'connected';
 			if (this._context.hasConnectedJira === hasConnectedJira) return;

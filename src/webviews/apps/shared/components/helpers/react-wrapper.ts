@@ -1,4 +1,4 @@
-import type { EventName, Options } from '@lit/react';
+import type { EventName, Options, ReactWebComponent } from '@lit/react';
 import { createComponent } from '@lit/react';
 import React from 'react';
 
@@ -11,7 +11,7 @@ type Opts<I extends HTMLElement, E extends EventNames = {}> = Omit<Options<I, E>
 export function reactWrapper<I extends HTMLElement, E extends EventNames = {}>(
 	elementClass: Constructor<I>,
 	options: Opts<I, E>,
-) {
+): ReactWebComponent<I, E> {
 	return createComponent<I, E>({
 		...options,
 		elementClass: elementClass,

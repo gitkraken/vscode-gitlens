@@ -146,7 +146,7 @@ import type { OpenWalkthroughCommandArgs } from './walkthroughs';
 export function appendReposToTitle<
 	State extends { repo: Repository } | { repos: Repository[] },
 	Context extends { repos: Repository[] },
->(title: string, state: State, context: Context, additionalContext?: string) {
+>(title: string, state: State, context: Context, additionalContext?: string): string {
 	if (context.repos.length === 1) {
 		return additionalContext
 			? `${title}${truncate(additionalContext, quickPickTitleMaxChars - title.length)}`
@@ -493,7 +493,7 @@ export function getValidateGitReferenceFn(
 	repos: Repository | Repository[] | undefined,
 	options?: { buttons?: QuickInputButton[]; ranges?: boolean },
 ) {
-	return async (quickpick: QuickPick<any>, value: string) => {
+	return async (quickpick: QuickPick<any>, value: string): Promise<boolean> => {
 		let inRefMode = false;
 		if (value.startsWith('#')) {
 			inRefMode = true;

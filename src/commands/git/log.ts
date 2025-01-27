@@ -79,7 +79,7 @@ export class LogGitCommand extends QuickCommand<State> {
 		return false;
 	}
 
-	override isFuzzyMatch(name: string) {
+	override isFuzzyMatch(name: string): boolean {
 		return super.isFuzzyMatch(name) || name === 'log';
 	}
 

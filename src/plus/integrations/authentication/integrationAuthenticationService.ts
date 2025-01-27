@@ -17,7 +17,7 @@ export class IntegrationAuthenticationService implements Disposable {
 
 	constructor(private readonly container: Container) {}
 
-	dispose() {
+	dispose(): void {
 		this.providers.forEach(p => void p.dispose());
 		this.providers.clear();
 	}
@@ -56,7 +56,7 @@ export class IntegrationAuthenticationService implements Disposable {
 		await this.container.storage.store('integrations:configured', configured);
 	}
 
-	async addConfigured(descriptor: ConfiguredIntegrationDescriptor) {
+	async addConfigured(descriptor: ConfiguredIntegrationDescriptor): Promise<void> {
 		const descriptors = this.configured.get(descriptor.integrationId) ?? [];
 		// Only add if one does not exist
 		if (descriptors.some(d => d.domain === descriptor.domain && d.integrationId === descriptor.integrationId)) {
@@ -67,7 +67,9 @@ export class IntegrationAuthenticationService implements Disposable {
 		await this.storeConfigured();
 	}
 
-	async removeConfigured(descriptor: Pick<ConfiguredIntegrationDescriptor, 'integrationId' | 'domain'>) {
+	async removeConfigured(
+		descriptor: Pick<ConfiguredIntegrationDescriptor, 'integrationId' | 'domain'>,
+	): Promise<void> {
 		const descriptors = this.configured.get(descriptor.integrationId);
 		if (descriptors == null) return;
 		const index = descriptors.findIndex(
@@ -86,7 +88,7 @@ export class IntegrationAuthenticationService implements Disposable {
 	}
 
 	@log()
-	async reset() {
+	async reset(): Promise<void> {
 		// TODO: This really isn't ideal, since it will only work for "cloud" providers as we won't have any more specific descriptors
 		await Promise.allSettled(
 			supportedIntegrationIds.map(async providerId => (await this.ensureProvider(providerId)).deleteSession()),

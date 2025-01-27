@@ -20,7 +20,7 @@ export interface HostIpcApi {
 declare function acquireVsCodeApi(): HostIpcApi;
 
 let _api: HostIpcApi | undefined;
-export function getHostIpcApi() {
+export function getHostIpcApi(): HostIpcApi {
 	return (_api ??= acquireVsCodeApi());
 }
 
@@ -48,7 +48,7 @@ export class HostIpc implements Disposable {
 		this._disposable = DOM.on(window, 'message', e => this.onMessageReceived(e));
 	}
 
-	dispose() {
+	dispose(): void {
 		this._disposable.dispose();
 	}
 
@@ -80,7 +80,7 @@ export class HostIpc implements Disposable {
 		this._onReceiveMessage.fire(msg);
 	}
 
-	replaceIpcPromisesWithPromises(data: unknown) {
+	replaceIpcPromisesWithPromises(data: unknown): void {
 		if (data == null || typeof data !== 'object') return;
 
 		for (const key in data) {
@@ -165,7 +165,7 @@ export class HostIpc implements Disposable {
 		return promise;
 	}
 
-	setState<T>(state: Partial<T>) {
+	setState<T>(state: Partial<T>): void {
 		this._api.setState(state);
 	}
 

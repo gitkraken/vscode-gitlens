@@ -29,7 +29,7 @@ export class TagsRepositoryNode extends RepositoryFolderNode<TagsView, TagsNode>
 		return this.child.getChildren();
 	}
 
-	protected changed(e: RepositoryChangeEvent) {
+	protected changed(e: RepositoryChangeEvent): boolean {
 		return e.changed(RepositoryChange.Tags, RepositoryChange.Unknown, RepositoryChangeComparisonMode.Any);
 	}
 }
@@ -102,7 +102,7 @@ export class TagsView extends ViewBase<'tags', TagsViewNode, TagsViewConfig> {
 		return this.container.prereleaseOrDebugging;
 	}
 
-	protected getRoot() {
+	protected getRoot(): TagsViewNode {
 		return new TagsViewNode(this);
 	}
 
@@ -143,7 +143,7 @@ export class TagsView extends ViewBase<'tags', TagsViewNode, TagsViewConfig> {
 		];
 	}
 
-	protected override filterConfigurationChanged(e: ConfigurationChangeEvent) {
+	protected override filterConfigurationChanged(e: ConfigurationChangeEvent): boolean {
 		const changed = super.filterConfigurationChanged(e);
 		if (
 			!changed &&
@@ -164,7 +164,7 @@ export class TagsView extends ViewBase<'tags', TagsViewNode, TagsViewConfig> {
 		return true;
 	}
 
-	findTag(tag: GitTagReference, token?: CancellationToken) {
+	findTag(tag: GitTagReference, token?: CancellationToken): Promise<ViewNode | undefined> {
 		const { repoPath } = tag;
 
 		return this.findNode((n: any) => n.tag?.ref === tag.ref, {
@@ -187,7 +187,7 @@ export class TagsView extends ViewBase<'tags', TagsViewNode, TagsViewConfig> {
 	async revealRepository(
 		repoPath: string,
 		options?: { select?: boolean; focus?: boolean; expand?: boolean | number },
-	) {
+	): Promise<ViewNode | undefined> {
 		const node = await this.findNode(n => n instanceof RepositoryFolderNode && n.repoPath === repoPath, {
 			maxDepth: 1,
 			canTraverse: n => n instanceof TagsViewNode || n instanceof RepositoryFolderNode,
@@ -201,14 +201,14 @@ export class TagsView extends ViewBase<'tags', TagsViewNode, TagsViewConfig> {
 	}
 
 	@gate(() => '')
-	revealTag(
+	async revealTag(
 		tag: GitTagReference,
 		options?: {
 			select?: boolean;
 			focus?: boolean;
 			expand?: boolean | number;
 		},
-	) {
+	): Promise<ViewNode | undefined> {
 		return window.withProgress(
 			{
 				location: ProgressLocation.Notification,

@@ -75,7 +75,7 @@ export class GlStatusNav extends LitElement {
 	@property({ type: Object })
 	preferences?: State['preferences'];
 
-	override render() {
+	override render(): unknown {
 		if (this.wip == null) return nothing;
 
 		const changes = this.wip.changes;
@@ -146,7 +146,7 @@ export class GlStatusNav extends LitElement {
 		`;
 	}
 
-	handleAction(e: MouseEvent, action: string) {
+	private handleAction(e: MouseEvent, action: string) {
 		const altKey = e instanceof MouseEvent ? e.altKey : false;
 		this.dispatchEvent(
 			new CustomEvent(`gl-branch-action`, {

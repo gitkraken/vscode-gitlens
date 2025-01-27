@@ -290,6 +290,6 @@ export function run<T extends number | string | Buffer>(
 	});
 }
 
-export async function fsExists(path: string) {
+export async function fsExists(path: string): Promise<boolean> {
 	return new Promise<boolean>(resolve => access(path, constants.F_OK, err => resolve(err == null)));
 }

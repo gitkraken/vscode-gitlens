@@ -29,7 +29,7 @@ export class OpenFileAtRevisionFromCommand extends ActiveEditorCommand {
 		super(GlCommand.OpenFileAtRevisionFrom);
 	}
 
-	async execute(editor: TextEditor | undefined, uri?: Uri, args?: OpenFileAtRevisionFromCommandArgs) {
+	async execute(editor: TextEditor | undefined, uri?: Uri, args?: OpenFileAtRevisionFromCommandArgs): Promise<void> {
 		uri = getCommandUri(uri, editor);
 		if (uri == null) return;
 

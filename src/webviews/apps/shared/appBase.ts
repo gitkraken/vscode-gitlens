@@ -144,7 +144,7 @@ export abstract class App<
 	private _inputFocused?: boolean;
 
 	private bindDisposables: Disposable[] | undefined;
-	protected bind() {
+	protected bind(): void {
 		document.querySelectorAll('a').forEach(a => {
 			if (a.href === a.title) {
 				a.removeAttribute('title');
@@ -206,7 +206,7 @@ export abstract class App<
 		return this._hostIpc.sendRequest(requestType, params);
 	}
 
-	protected setState(state: Partial<State>) {
+	protected setState(state: Partial<State>): void {
 		this._api.setState(state);
 	}
 }

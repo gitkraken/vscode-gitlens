@@ -27,7 +27,7 @@ export class ResetCommand extends GlCommandBase {
 	constructor(private readonly container: Container) {
 		super(GlCommand.Reset);
 	}
-	async execute() {
+	async execute(): Promise<void> {
 		type ResetQuickPickItem = QuickPickItemOfT<ResetType>;
 
 		const items: ResetQuickPickItem[] = [
@@ -218,7 +218,7 @@ export class ResetAIKeyCommand extends GlCommandBase {
 		super(GlCommand.ResetAIKey);
 	}
 
-	async execute() {
+	async execute(): Promise<void> {
 		await (await this.container.ai)?.reset();
 	}
 }

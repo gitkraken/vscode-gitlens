@@ -149,11 +149,11 @@ export class GLIntegrationsChip extends LitElement {
 		return this._state.integrations;
 	}
 
-	override focus() {
+	override focus(): void {
 		this._chip.focus();
 	}
 
-	override render() {
+	override render(): unknown {
 		const anyConnected = this.hasConnectedIntegrations;
 		const statusFilter = createIconBasedStatusFilter(this.integrations);
 		return html`<gl-popover placement="bottom" trigger="hover click focus" hoist>

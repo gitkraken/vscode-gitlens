@@ -40,7 +40,7 @@ export class ConnectRemoteProviderCommand extends GlCommandBase {
 		super(GlCommand.ConnectRemoteProvider);
 	}
 
-	protected override preExecute(context: CommandContext, args?: ConnectRemoteProviderCommandArgs) {
+	protected override preExecute(context: CommandContext, args?: ConnectRemoteProviderCommandArgs): Promise<any> {
 		if (isCommandContextViewNodeHasRemote(context)) {
 			args = { ...args, remote: context.node.remote.name, repoPath: context.node.remote.repoPath };
 		}
@@ -135,7 +135,7 @@ export class DisconnectRemoteProviderCommand extends GlCommandBase {
 		super(GlCommand.DisconnectRemoteProvider);
 	}
 
-	protected override preExecute(context: CommandContext, args?: DisconnectRemoteProviderCommandArgs) {
+	protected override preExecute(context: CommandContext, args?: DisconnectRemoteProviderCommandArgs): Promise<void> {
 		if (isCommandContextViewNodeHasRemote(context)) {
 			args = { ...args, remote: context.node.remote.name, repoPath: context.node.remote.repoPath };
 		}
@@ -143,7 +143,7 @@ export class DisconnectRemoteProviderCommand extends GlCommandBase {
 		return this.execute(args);
 	}
 
-	async execute(args?: DisconnectRemoteProviderCommandArgs): Promise<any> {
+	async execute(args?: DisconnectRemoteProviderCommandArgs): Promise<void> {
 		let remote: GitRemote<RemoteProvider> | undefined;
 		let repoPath;
 		if (args?.repoPath == null) {
@@ -156,7 +156,7 @@ export class DisconnectRemoteProviderCommand extends GlCommandBase {
 				}
 			}
 
-			if (repos.size === 0) return undefined;
+			if (repos.size === 0) return;
 			if (repos.size === 1) {
 				let repo;
 				[repo, remote] = first(repos)!;
@@ -167,7 +167,7 @@ export class DisconnectRemoteProviderCommand extends GlCommandBase {
 					'Choose which repository to disconnect from the remote provider',
 					[...repos.keys()],
 				);
-				if (pick == null) return undefined;
+				if (pick == null) return;
 
 				repoPath = pick.path;
 				remote = repos.get(pick)!;
@@ -178,14 +178,14 @@ export class DisconnectRemoteProviderCommand extends GlCommandBase {
 			remote = await this.container.git
 				.remotes(repoPath)
 				.getBestRemoteWithIntegration({ includeDisconnected: false });
-			if (remote == null) return undefined;
+			if (remote == null) return;
 		} else {
 			repoPath = args.repoPath;
 
 			remote = (await this.container.git.remotes(repoPath).getRemotesWithProviders()).find(
 				r => r.name === args.remote,
 			);
-			if (!remote?.hasIntegration()) return undefined;
+			if (!remote?.hasIntegration()) return;
 		}
 
 		const integration = await this.container.integrations.getByRemote(remote);

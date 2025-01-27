@@ -28,7 +28,7 @@ export class CopyShaToClipboardCommand extends ActiveEditorCommand {
 		super(GlCommand.CopyShaToClipboard);
 	}
 
-	protected override preExecute(context: CommandContext, args?: CopyShaToClipboardCommandArgs) {
+	protected override preExecute(context: CommandContext, args?: CopyShaToClipboardCommandArgs): Promise<void> {
 		if (isCommandContextViewNodeHasCommit(context)) {
 			args = { ...args };
 			args.sha = context.node.commit.sha;
@@ -50,7 +50,7 @@ export class CopyShaToClipboardCommand extends ActiveEditorCommand {
 		return this.execute(context.editor, context.uri, args);
 	}
 
-	async execute(editor?: TextEditor, uri?: Uri, args?: CopyShaToClipboardCommandArgs) {
+	async execute(editor?: TextEditor, uri?: Uri, args?: CopyShaToClipboardCommandArgs): Promise<void> {
 		uri = getCommandUri(uri, editor);
 		args = { ...args };
 

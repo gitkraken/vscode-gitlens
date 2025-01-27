@@ -29,7 +29,7 @@ export class OpenRevisionFileCommand extends ActiveEditorCommand {
 		]);
 	}
 
-	async execute(editor?: TextEditor, uri?: Uri, args?: OpenRevisionFileCommandArgs) {
+	async execute(editor?: TextEditor, uri?: Uri, args?: OpenRevisionFileCommandArgs): Promise<void> {
 		uri = getCommandUri(uri, editor);
 		if (uri == null) return;
 

@@ -53,7 +53,7 @@ export class RemotesNode extends CacheableChildrenViewNode<'remotes', ViewsWithR
 	}
 
 	@debug()
-	override refresh() {
+	override refresh(): void {
 		super.refresh(true);
 	}
 }

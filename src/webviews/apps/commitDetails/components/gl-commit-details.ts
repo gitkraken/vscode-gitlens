@@ -44,12 +44,12 @@ export class GlCommitDetails extends GlDetailsBase {
 	state?: Serialized<State>;
 
 	@state()
-	get isStash() {
+	get isStash(): boolean {
 		return this.state?.commit?.stashNumber != null;
 	}
 
 	@state()
-	get shortSha() {
+	get shortSha(): string {
 		return this.state?.commit?.shortSha ?? '';
 	}
 
@@ -86,7 +86,7 @@ export class GlCommitDetails extends GlDetailsBase {
 		return actions;
 	}
 
-	override updated(changedProperties: Map<string, any>) {
+	override updated(changedProperties: Map<string, any>): void {
 		if (changedProperties.has('explain')) {
 			this.explainBusy = false;
 			this.querySelector('[data-region="commit-explanation"]')?.scrollIntoView();
@@ -474,7 +474,7 @@ export class GlCommitDetails extends GlDetailsBase {
 		`;
 	}
 
-	override render() {
+	override render(): unknown {
 		if (this.state?.commit == null) {
 			return this.renderEmptyContent();
 		}
@@ -492,7 +492,7 @@ export class GlCommitDetails extends GlDetailsBase {
 		`;
 	}
 
-	onExplainChanges(e: MouseEvent | KeyboardEvent) {
+	private onExplainChanges(e: MouseEvent | KeyboardEvent) {
 		if (this.explainBusy === true || (e instanceof KeyboardEvent && e.key !== 'Enter')) {
 			e.preventDefault();
 			e.stopPropagation();

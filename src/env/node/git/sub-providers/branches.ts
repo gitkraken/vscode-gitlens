@@ -295,7 +295,12 @@ export class BranchesGitSubProvider implements GitBranchesSubProvider {
 	}
 
 	@log()
-	async getMergeBase(repoPath: string, ref1: string, ref2: string, options?: { forkPoint?: boolean }) {
+	async getMergeBase(
+		repoPath: string,
+		ref1: string,
+		ref2: string,
+		options?: { forkPoint?: boolean },
+	): Promise<string | undefined> {
 		const scope = getLogScope();
 
 		try {

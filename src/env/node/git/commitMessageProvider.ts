@@ -38,7 +38,7 @@ class AICommitMessageProvider implements CommitMessageProvider, Disposable {
 		}
 	}
 
-	dispose() {
+	dispose(): void {
 		this._subscription?.dispose();
 		this._disposable.dispose();
 	}

@@ -38,7 +38,7 @@ export class GlOverview extends SignalWatcher(LitElement) {
 	@consume({ context: overviewStateContext })
 	private _overviewState!: OverviewState;
 
-	override connectedCallback() {
+	override connectedCallback(): void {
 		super.connectedCallback();
 
 		if (this._homeState.repositories.openCount > 0) {
@@ -46,7 +46,7 @@ export class GlOverview extends SignalWatcher(LitElement) {
 		}
 	}
 
-	override render() {
+	override render(): unknown {
 		if (this._homeState.discovering) {
 			return this.renderLoader();
 		}

@@ -97,7 +97,7 @@ export class RepositoryChangeEvent {
 			: `{ repository: ${this.repository?.name ?? ''}, changes: ${join(this._changes, ', ')} }`;
 	}
 
-	changed(...args: [...RepositoryChange[], RepositoryChangeComparisonMode]) {
+	changed(...args: [...RepositoryChange[], RepositoryChangeComparisonMode]): boolean {
 		const affected = args.slice(0, -1) as RepositoryChange[];
 		const mode = args[args.length - 1] as RepositoryChangeComparisonMode;
 
@@ -132,7 +132,7 @@ export class RepositoryChangeEvent {
 			: intersection.length === affected.length;
 	}
 
-	with(changes: RepositoryChange[]) {
+	with(changes: RepositoryChange[]): RepositoryChangeEvent {
 		return new RepositoryChangeEvent(this.repository, [...this._changes, ...changes]);
 	}
 }
@@ -175,7 +175,7 @@ export class Repository implements Disposable {
 	}
 
 	private _idHash: string | undefined;
-	get idHash() {
+	get idHash(): string {
 		if (this._idHash === undefined) {
 			this._idHash = md5(this.id);
 		}
@@ -333,7 +333,7 @@ export class Repository implements Disposable {
 		return Disposable.from(...disposables);
 	}
 
-	dispose() {
+	dispose(): void {
 		this.unWatchFileSystem(true);
 
 		this._disposable.dispose();
@@ -514,7 +514,10 @@ export class Repository implements Disposable {
 	}
 
 	@log()
-	branchDelete(branches: GitBranchReference | GitBranchReference[], options?: { force?: boolean; remote?: boolean }) {
+	branchDelete(
+		branches: GitBranchReference | GitBranchReference[],
+		options?: { force?: boolean; remote?: boolean },
+	): void {
 		if (!Array.isArray(branches)) {
 			branches = [branches];
 		}
@@ -562,11 +565,11 @@ export class Repository implements Disposable {
 	}
 
 	@log()
-	cherryPick(...args: string[]) {
+	cherryPick(...args: string[]): void {
 		void this.runTerminalCommand('cherry-pick', ...args);
 	}
 
-	containsUri(uri: Uri) {
+	containsUri(uri: Uri): boolean {
 		return this === this.container.git.getRepository(uri);
 	}
 
@@ -579,7 +582,7 @@ export class Repository implements Disposable {
 		prune?: boolean;
 		pull?: boolean;
 		remote?: string;
-	}) {
+	}): Promise<void> {
 		const { progress, ...opts } = { progress: true, ...options };
 		if (!progress) return this.fetchCore(opts);
 
@@ -655,13 +658,13 @@ export class Repository implements Disposable {
 	}
 
 	@log()
-	merge(...args: string[]) {
+	merge(...args: string[]): void {
 		void this.runTerminalCommand('merge', ...args);
 	}
 
 	@gate()
 	@log()
-	async pull(options?: { progress?: boolean; rebase?: boolean }) {
+	async pull(options?: { progress?: boolean; rebase?: boolean }): Promise<void> {
 		const { progress, ...opts } = { progress: true, ...options };
 		if (!progress) return this.pullCore(opts);
 
@@ -728,7 +731,7 @@ export class Repository implements Disposable {
 		progress?: boolean;
 		reference?: GitReference;
 		publish?: { remote: string };
-	}) {
+	}): Promise<void> {
 		const { progress, ...opts } = { progress: true, ...options };
 		if (!progress) return this.pushCore(opts);
 
@@ -763,14 +766,14 @@ export class Repository implements Disposable {
 	}
 
 	@log()
-	rebase(configs: string[] | undefined, ...args: string[]) {
+	rebase(configs: string[] | undefined, ...args: string[]): void {
 		void this.runTerminalCommand(
 			configs != null && configs.length !== 0 ? `${configs.join(' ')} rebase` : 'rebase',
 			...args,
 		);
 	}
 
-	resume() {
+	resume(): void {
 		if (!this._suspended) return;
 
 		this._suspended = false;
@@ -787,22 +790,22 @@ export class Repository implements Disposable {
 	}
 
 	@log()
-	revert(...args: string[]) {
+	revert(...args: string[]): void {
 		void this.runTerminalCommand('revert', ...args);
 	}
 
-	get starred() {
+	get starred(): boolean {
 		const starred = this.container.storage.getWorkspace('starred:repositories');
 		return starred != null && starred[this.id] === true;
 	}
 
-	star(branch?: GitBranch) {
+	star(branch?: GitBranch): Promise<void> {
 		return this.updateStarred(true, branch);
 	}
 
 	@gate()
 	@log()
-	async switch(ref: string, options?: { createBranch?: string | undefined; progress?: boolean }) {
+	async switch(ref: string, options?: { createBranch?: string | undefined; progress?: boolean }): Promise<void> {
 		const { progress, ...opts } = { progress: true, ...options };
 		if (!progress) return this.switchCore(ref, opts);
 
@@ -832,7 +835,7 @@ export class Repository implements Disposable {
 		return !(options?.validate ?? true) || this.containsUri(uri) ? uri : undefined;
 	}
 
-	unstar(branch?: GitBranch) {
+	unstar(branch?: GitBranch): Promise<void> {
 		return this.updateStarred(false, branch);
 	}
 
@@ -860,7 +863,7 @@ export class Repository implements Disposable {
 		return this._etagFileSystem;
 	}
 
-	suspend() {
+	suspend(): void {
 		this._suspended = true;
 	}
 

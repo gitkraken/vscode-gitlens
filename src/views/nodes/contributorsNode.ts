@@ -99,7 +99,7 @@ export class ContributorsNode extends CacheableChildrenViewNode<
 		return item;
 	}
 
-	updateAvatar(email: string) {
+	updateAvatar(email: string): void {
 		if (this.children == null) return;
 
 		for (const child of this.children) {
@@ -110,7 +110,7 @@ export class ContributorsNode extends CacheableChildrenViewNode<
 	}
 
 	@debug()
-	override refresh() {
+	override refresh(): void {
 		super.refresh(true);
 	}
 

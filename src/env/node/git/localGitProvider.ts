@@ -185,7 +185,7 @@ export class LocalGitProvider implements GitProvider, Disposable {
 		this.git.setLocator(this.ensureGit.bind(this));
 	}
 
-	dispose() {
+	dispose(): void {
 		this._disposables.forEach(d => void d.dispose());
 	}
 
@@ -909,7 +909,7 @@ export class LocalGitProvider implements GitProvider, Disposable {
 	}
 
 	@log({ exit: true })
-	async getWorkingUri(repoPath: string, uri: Uri) {
+	async getWorkingUri(repoPath: string, uri: Uri): Promise<Uri | undefined> {
 		let relativePath = this.getRelativePath(uri, repoPath);
 
 		let data;
@@ -954,7 +954,7 @@ export class LocalGitProvider implements GitProvider, Disposable {
 	}
 
 	@log()
-	async applyChangesToWorkingFile(uri: GitUri, ref1?: string, ref2?: string) {
+	async applyChangesToWorkingFile(uri: GitUri, ref1?: string, ref2?: string): Promise<void> {
 		const scope = getLogScope();
 
 		ref1 = ref1 ?? uri.sha;
@@ -2623,7 +2623,7 @@ export class LocalGitProvider implements GitProvider, Disposable {
 		options?: {
 			filter?: { branches?: (b: GitBranch) => boolean; tags?: (t: GitTag) => boolean };
 		},
-	) {
+	): Promise<boolean> {
 		if (repoPath == null) return false;
 
 		const [{ values: branches }, { values: tags }] = await Promise.all([
@@ -2878,7 +2878,7 @@ export class LocalGitProvider implements GitProvider, Disposable {
 		ref: string,
 		pathOrUri?: string | Uri,
 		options?: { force?: boolean; timeout?: number },
-	) {
+	): Promise<string> {
 		if (
 			!ref ||
 			ref === deletedOrMissing ||

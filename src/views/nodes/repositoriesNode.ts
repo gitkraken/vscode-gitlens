@@ -68,7 +68,7 @@ export class RepositoriesNode extends SubscribeableViewNode<
 
 	@gate()
 	@debug()
-	override async refresh(reset: boolean = false) {
+	override async refresh(reset: boolean = false): Promise<void> {
 		const hasChildren = this.children != null;
 		super.refresh(reset);
 		if (!hasChildren) return;
@@ -106,7 +106,7 @@ export class RepositoriesNode extends SubscribeableViewNode<
 	}
 
 	@debug()
-	protected subscribe() {
+	protected subscribe(): Disposable {
 		const subscriptions = [
 			weakEvent(this.view.container.git.onDidChangeRepositories, this.onRepositoriesChanged, this),
 		];

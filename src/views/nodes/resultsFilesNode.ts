@@ -199,7 +199,7 @@ export class ResultsFilesNode extends ViewNode<'results-files', ViewsWithCommits
 
 	@gate()
 	@debug()
-	override refresh(reset: boolean = false) {
+	override refresh(reset: boolean = false): void {
 		if (!reset) return;
 
 		this.deleteState('filter');

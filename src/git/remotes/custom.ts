@@ -23,7 +23,7 @@ export class CustomRemote extends RemoteProvider {
 		return undefined;
 	}
 
-	get name() {
+	get name(): string {
 		return this.formatName('Custom');
 	}
 

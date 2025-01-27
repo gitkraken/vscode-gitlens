@@ -2,7 +2,7 @@
 import { resolveProp } from './resolver';
 
 export function memoize<T extends (...arg: any) => any>(resolver?: (...args: Parameters<T>) => string) {
-	return (_target: any, key: string, descriptor: PropertyDescriptor & Record<string, any>) => {
+	return (_target: any, key: string, descriptor: PropertyDescriptor & Record<string, any>): void => {
 		// eslint-disable-next-line @typescript-eslint/no-unsafe-function-type
 		let fn: Function | undefined;
 		let fnKey: string | undefined;

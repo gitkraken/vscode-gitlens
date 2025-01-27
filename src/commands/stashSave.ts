@@ -31,7 +31,7 @@ export class StashSaveCommand extends GlCommandBase {
 		super([GlCommand.StashSave, GlCommand.StashSaveFiles]);
 	}
 
-	protected override async preExecute(context: CommandContext, args?: StashSaveCommandArgs) {
+	protected override async preExecute(context: CommandContext, args?: StashSaveCommandArgs): Promise<void> {
 		if (isCommandContextViewNodeHasFile(context)) {
 			args = { ...args };
 			args.repoPath = context.node.file.repoPath ?? context.node.repoPath;
@@ -133,7 +133,7 @@ export class StashSaveCommand extends GlCommandBase {
 		return this.execute(args);
 	}
 
-	execute(args?: StashSaveCommandArgs) {
+	execute(args?: StashSaveCommandArgs): Promise<void> {
 		return push(
 			args?.repoPath,
 			args?.uris,

@@ -156,6 +156,10 @@ export default ts.config(
 				},
 			],
 			'@typescript-eslint/consistent-type-imports': ['error', { disallowTypeAnnotations: false }],
+			'@typescript-eslint/explicit-module-boundary-types': [
+				'error',
+				{ allowArgumentsExplicitlyTypedAsAny: true },
+			],
 			'@typescript-eslint/naming-convention': [
 				'error',
 				{
@@ -414,6 +418,7 @@ export default ts.config(
 			},
 		},
 		rules: {
+			'@typescript-eslint/explicit-module-boundary-types': 'off',
 			'@typescript-eslint/no-restricted-imports': [
 				'error',
 				{

@@ -52,11 +52,11 @@ export class CoAuthorsGitCommand extends QuickCommand<State> {
 		};
 	}
 
-	override get canConfirm() {
+	override get canConfirm(): boolean {
 		return false;
 	}
 
-	async execute(state: CoAuthorStepState) {
+	private async execute(state: CoAuthorStepState) {
 		const repo = await this.container.git.getOrOpenScmRepository(state.repo.path);
 		if (repo == null) return;
 

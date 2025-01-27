@@ -3,6 +3,7 @@ import type { WorktreeGitCommandArgs } from '../../commands/git/worktree';
 import { Container } from '../../container';
 import type { OpenWorkspaceLocation } from '../../system/-webview/vscode';
 import { defer } from '../../system/promise';
+import type { ViewNode } from '../../views/nodes/abstract/viewNode';
 import { executeGitCommand } from '../actions';
 import type { GitReference } from '../models/reference';
 import type { Repository } from '../models/repository';
@@ -13,7 +14,7 @@ export async function create(
 	uri?: Uri,
 	ref?: GitReference,
 	options?: { addRemote?: { name: string; url: string }; createBranch?: string; reveal?: boolean },
-) {
+): Promise<GitWorktree | undefined> {
 	const deferred = defer<GitWorktree | undefined>();
 
 	await executeGitCommand({
@@ -42,7 +43,7 @@ export function copyChangesToWorktree(
 	type: 'working-tree' | 'index',
 	repo?: string | Repository,
 	worktree?: GitWorktree,
-) {
+): Promise<void> {
 	return executeGitCommand({
 		command: 'worktree',
 		state: {
@@ -56,7 +57,10 @@ export function copyChangesToWorktree(
 	});
 }
 
-export function open(worktree: GitWorktree, options?: { location?: OpenWorkspaceLocation; openOnly?: boolean }) {
+export function open(
+	worktree: GitWorktree,
+	options?: { location?: OpenWorkspaceLocation; openOnly?: boolean },
+): Promise<void> {
 	return executeGitCommand({
 		command: 'worktree',
 		state: {
@@ -69,7 +73,7 @@ export function open(worktree: GitWorktree, options?: { location?: OpenWorkspace
 	});
 }
 
-export function remove(repo?: string | Repository, uris?: Uri[]) {
+export function remove(repo?: string | Repository, uris?: Uri[]): Promise<void> {
 	return executeGitCommand({
 		command: 'worktree',
 		state: { subcommand: 'delete', repo: repo, uris: uris },
@@ -79,7 +83,7 @@ export function remove(repo?: string | Repository, uris?: Uri[]) {
 export function reveal(
 	worktree: GitWorktree,
 	options?: { select?: boolean; focus?: boolean; expand?: boolean | number },
-) {
+): Promise<ViewNode | undefined> {
 	return Container.instance.views.revealWorktree(worktree, options);
 }
 

@@ -49,7 +49,7 @@ export class CommitNode extends ViewRefNode<'commit', ViewsWithCommits | FileHis
 		this._uniqueId = getViewNodeId(this.type, this.context);
 	}
 
-	override dispose() {
+	override dispose(): void {
 		super.dispose();
 		this.children = undefined;
 	}
@@ -213,7 +213,7 @@ export class CommitNode extends ViewRefNode<'commit', ViewsWithCommits | FileHis
 		};
 	}
 
-	override refresh(reset?: boolean) {
+	override refresh(reset?: boolean): void {
 		void super.refresh?.(reset);
 
 		this.children = undefined;

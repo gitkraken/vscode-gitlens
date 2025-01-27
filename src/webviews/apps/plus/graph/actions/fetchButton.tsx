@@ -15,7 +15,7 @@ export const FetchButton = ({
 	state: State;
 	fetchedText: string | undefined;
 	remote: ReactNode;
-}) => {
+}): React.JSX.Element => {
 	return (
 		<GlTooltip placement="bottom">
 			<a

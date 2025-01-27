@@ -10,7 +10,7 @@ export class EnableDebugLoggingCommand extends GlCommandBase {
 		super(GlCommand.EnableDebugLogging);
 	}
 
-	async execute() {
+	async execute(): Promise<void> {
 		await configuration.updateEffective('outputLevel', 'debug');
 	}
 }
@@ -21,7 +21,7 @@ export class DisableDebugLoggingCommand extends GlCommandBase {
 		super(GlCommand.DisableDebugLogging);
 	}
 
-	async execute() {
+	async execute(): Promise<void> {
 		await configuration.updateEffective('outputLevel', 'error');
 	}
 }

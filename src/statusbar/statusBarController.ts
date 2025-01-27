@@ -34,7 +34,7 @@ export class StatusBarController implements Disposable {
 		);
 	}
 
-	dispose() {
+	dispose(): void {
 		this.clearBlame();
 
 		this._statusBarBlame?.dispose();
@@ -199,7 +199,7 @@ export class StatusBarController implements Disposable {
 		}
 	}
 
-	clearBlame() {
+	clearBlame(): void {
 		this._selectedSha = undefined;
 		this._cancellation?.cancel();
 		this._statusBarBlame?.hide();

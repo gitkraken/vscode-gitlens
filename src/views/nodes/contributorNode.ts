@@ -174,7 +174,7 @@ export class ContributorNode extends ViewNode<'contributor', ViewsWithContributo
 
 	@gate()
 	@debug()
-	override refresh(reset?: boolean) {
+	override refresh(reset?: boolean): void {
 		if (reset) {
 			this._log = undefined;
 		}
@@ -198,12 +198,12 @@ export class ContributorNode extends ViewNode<'contributor', ViewsWithContributo
 		return this._log;
 	}
 
-	get hasMore() {
+	get hasMore(): boolean {
 		return this._log?.hasMore ?? true;
 	}
 
 	@gate()
-	async loadMore(limit?: number | { until?: any }) {
+	async loadMore(limit?: number | { until?: any }): Promise<void> {
 		let log = await window.withProgress(
 			{
 				location: { viewId: this.view.id },

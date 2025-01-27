@@ -37,7 +37,7 @@ export class ShowQuickFileHistoryCommand extends ActiveEditorCachedCommand {
 		]);
 	}
 
-	protected override preExecute(context: CommandContext, args?: ShowQuickFileHistoryCommandArgs) {
+	protected override preExecute(context: CommandContext, args?: ShowQuickFileHistoryCommandArgs): Promise<void> {
 		let uri = context.uri;
 		if (
 			context.command === GlCommand.OpenFileHistory ||
@@ -56,7 +56,7 @@ export class ShowQuickFileHistoryCommand extends ActiveEditorCachedCommand {
 		return this.execute(context.editor, uri, args);
 	}
 
-	async execute(editor?: TextEditor, uri?: Uri, args?: ShowQuickFileHistoryCommandArgs) {
+	async execute(editor?: TextEditor, uri?: Uri, args?: ShowQuickFileHistoryCommandArgs): Promise<void> {
 		uri = getCommandUri(uri, editor);
 		if (uri == null) return;
 

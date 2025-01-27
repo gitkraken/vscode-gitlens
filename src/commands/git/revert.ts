@@ -71,7 +71,7 @@ export class RevertGitCommand extends QuickCommand<State> {
 		return false;
 	}
 
-	execute(state: RevertStepState<State<GitRevisionReference[]>>) {
+	private execute(state: RevertStepState<State<GitRevisionReference[]>>) {
 		state.repo.revert(...state.flags, ...state.references.map(c => c.ref).reverse());
 	}
 

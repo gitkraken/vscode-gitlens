@@ -40,7 +40,7 @@ export class GutterChangesAnnotationProvider extends AnnotationProviderBase<Chan
 		return !(this.annotationContext?.sha !== context?.sha || this.annotationContext?.only !== context?.only);
 	}
 
-	override clear() {
+	override clear(): Promise<void> {
 		this.state = undefined;
 		if (this.hoverProviderDisposable != null) {
 			this.hoverProviderDisposable.dispose();
@@ -49,7 +49,7 @@ export class GutterChangesAnnotationProvider extends AnnotationProviderBase<Chan
 		return super.clear();
 	}
 
-	override nextChange() {
+	override nextChange(): void {
 		if (this.sortedHunkStarts == null) return;
 
 		let nextLine = -1;
@@ -74,7 +74,7 @@ export class GutterChangesAnnotationProvider extends AnnotationProviderBase<Chan
 		}
 	}
 
-	override previousChange() {
+	override previousChange(): void {
 		if (this.sortedHunkStarts == null) return;
 
 		let previousLine = -1;
@@ -261,7 +261,7 @@ export class GutterChangesAnnotationProvider extends AnnotationProviderBase<Chan
 		return true;
 	}
 
-	registerHoverProvider() {
+	registerHoverProvider(): void {
 		const cfg = configuration.get('hovers');
 		if (!cfg.enabled || !cfg.annotations.enabled) return;
 

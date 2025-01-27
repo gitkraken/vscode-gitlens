@@ -162,7 +162,7 @@ export class FileHistoryNode
 		return item;
 	}
 
-	get label() {
+	get label(): string {
 		// Check if this is a base folder
 		if (this.folder && this.uri.fileName === '') {
 			return `${basename(this.uri.path)}${
@@ -178,7 +178,7 @@ export class FileHistoryNode
 	}
 
 	@debug()
-	protected subscribe() {
+	protected subscribe(): Disposable | undefined {
 		const repo = this.view.container.git.getRepository(this.uri);
 		if (repo == null) return undefined;
 
@@ -242,7 +242,7 @@ export class FileHistoryNode
 
 	@gate()
 	@debug()
-	override refresh(reset?: boolean) {
+	override refresh(reset?: boolean): void {
 		if (reset) {
 			this._log = undefined;
 		}
@@ -266,12 +266,12 @@ export class FileHistoryNode
 		return this.folder ? getFolderGlobUri(this.uri) : this.uri;
 	}
 
-	get hasMore() {
+	get hasMore(): boolean {
 		return this._log?.hasMore ?? true;
 	}
 
 	@gate()
-	async loadMore(limit?: number | { until?: any }) {
+	async loadMore(limit?: number | { until?: any }): Promise<void> {
 		let log = await window.withProgress(
 			{
 				location: { viewId: this.view.id },

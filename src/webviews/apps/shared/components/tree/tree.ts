@@ -18,17 +18,17 @@ export class GlTree extends LitElement {
 	@queryAssignedElements({ flatten: true })
 	private treeItems!: GlTreeItem[];
 
-	override disconnectedCallback() {
+	override disconnectedCallback(): void {
 		super.disconnectedCallback();
 
 		this._slotSubscriptionsDisposer?.();
 	}
 
-	override firstUpdated() {
+	override firstUpdated(): void {
 		this.setAttribute('role', 'tree');
 	}
 
-	override render() {
+	override render(): unknown {
 		return html`<slot @slotchange=${this.handleSlotChange}></slot>`;
 	}
 

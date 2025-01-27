@@ -18,7 +18,7 @@ export class OpenCurrentBranchOnRemoteCommand extends ActiveEditorCommand {
 		super(GlCommand.OpenCurrentBranchOnRemote);
 	}
 
-	async execute(editor?: TextEditor, uri?: Uri) {
+	async execute(editor?: TextEditor, uri?: Uri): Promise<void> {
 		uri = getCommandUri(uri, editor);
 
 		const gitUri = uri != null ? await GitUri.fromUri(uri) : undefined;

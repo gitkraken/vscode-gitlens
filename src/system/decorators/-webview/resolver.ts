@@ -64,7 +64,7 @@ export function resolveProp<T extends (...arg: any) => any>(
 	key: string,
 	resolver: Resolver<T> | undefined,
 	...args: Parameters<T>
-) {
+): string {
 	if (args.length === 0) return key;
 
 	let resolved;

@@ -23,7 +23,7 @@ export class GenerateCommitMessageCommand extends ActiveEditorCommand {
 		super([GlCommand.GenerateCommitMessage, GlCommand.GenerateCommitMessageScm]);
 	}
 
-	protected override preExecute(context: CommandContext, args?: GenerateCommitMessageCommandArgs) {
+	protected override preExecute(context: CommandContext, args?: GenerateCommitMessageCommandArgs): Promise<void> {
 		let source: Sources | undefined = args?.source;
 		if (source == null && context.command === GlCommand.GenerateCommitMessageScm) {
 			source = 'scm-input';
@@ -32,7 +32,7 @@ export class GenerateCommitMessageCommand extends ActiveEditorCommand {
 		return this.execute(context.editor, context.uri, { ...args, source: source });
 	}
 
-	async execute(editor?: TextEditor, uri?: Uri, args?: GenerateCommitMessageCommandArgs) {
+	async execute(editor?: TextEditor, uri?: Uri, args?: GenerateCommitMessageCommandArgs): Promise<void> {
 		args = { ...args };
 
 		let repository;

@@ -38,7 +38,7 @@ export class CloudWorkspace {
 		this._disposable = this.container.git.onDidChangeRepositories(this.resetRepositoriesByName, this);
 	}
 
-	dispose() {
+	dispose(): void {
 		this._disposable.dispose();
 	}
 
@@ -50,7 +50,7 @@ export class CloudWorkspace {
 		return this._localPath;
 	}
 
-	resetRepositoriesByName() {
+	resetRepositoriesByName(): void {
 		this._repositoriesByName = undefined;
 	}
 

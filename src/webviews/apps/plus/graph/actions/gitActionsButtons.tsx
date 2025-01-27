@@ -14,7 +14,7 @@ export const GitActionsButtons = ({
 	branchName: string | undefined;
 	lastFetched: Date | undefined;
 	state: State;
-}) => {
+}): React.JSX.Element => {
 	const remote = branchState?.upstream ? <span className="md-code">{branchState?.upstream}</span> : 'remote';
 
 	const lastFetchedDate = lastFetched && new Date(lastFetched);

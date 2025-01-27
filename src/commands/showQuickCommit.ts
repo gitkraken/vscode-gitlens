@@ -41,7 +41,7 @@ export class ShowQuickCommitCommand extends ActiveEditorCachedCommand {
 		super([GlCommand.RevealCommitInView, GlCommand.ShowQuickCommit]);
 	}
 
-	protected override preExecute(context: CommandContext, args?: ShowQuickCommitCommandArgs) {
+	protected override preExecute(context: CommandContext, args?: ShowQuickCommitCommandArgs): Promise<void> {
 		if (context.command === GlCommand.RevealCommitInView) {
 			args = { ...args };
 			args.revealInView = true;
@@ -59,7 +59,7 @@ export class ShowQuickCommitCommand extends ActiveEditorCachedCommand {
 		return this.execute(context.editor, context.uri, args);
 	}
 
-	async execute(editor?: TextEditor, uri?: Uri, args?: ShowQuickCommitCommandArgs) {
+	async execute(editor?: TextEditor, uri?: Uri, args?: ShowQuickCommitCommandArgs): Promise<void> {
 		let gitUri;
 		let repoPath;
 		if (args?.commit == null) {

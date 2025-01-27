@@ -38,41 +38,41 @@ export class GitStatus {
 		return 'upToDate';
 	}
 
-	get hasChanges() {
+	get hasChanges(): boolean {
 		return this.files.length !== 0;
 	}
 
 	@memoize()
-	get hasConflicts() {
+	get hasConflicts(): boolean {
 		return this.files.some(f => f.conflicted);
 	}
 
 	@memoize()
-	get conflicts() {
+	get conflicts(): GitStatusFile[] {
 		return this.files.filter(f => f.conflicted);
 	}
 
 	@memoize()
-	get hasUntrackedChanges() {
+	get hasUntrackedChanges(): boolean {
 		return this.files.some(f => f.workingTreeStatus === GitFileWorkingTreeStatus.Untracked);
 	}
 
 	@memoize()
-	get untrackedChanges() {
+	get untrackedChanges(): GitStatusFile[] {
 		return this.files.filter(f => f.workingTreeStatus === GitFileWorkingTreeStatus.Untracked);
 	}
 
 	@memoize()
-	get hasWorkingTreeChanges() {
+	get hasWorkingTreeChanges(): boolean {
 		return this.files.some(f => f.workingTreeStatus != null);
 	}
 
 	@memoize()
-	get workingTreeChanges() {
+	get workingTreeChanges(): GitStatusFile[] {
 		return this.files.filter(f => f.workingTreeStatus != null);
 	}
 
-	get ref() {
+	get ref(): string {
 		return this.detached ? this.sha : this.branch;
 	}
 
@@ -175,7 +175,7 @@ export class GitStatus {
 	}
 
 	@memoize()
-	getDiffStatus() {
+	getDiffStatus(): { added: number; deleted: number; changed: number } {
 		const diff = {
 			added: 0,
 			deleted: 0,

@@ -249,7 +249,7 @@ export class BufferedLogChannel implements LogChannel {
 		return this.channel.name;
 	}
 
-	appendLine(value: string) {
+	appendLine(value: string): void {
 		this.buffer.push(value);
 
 		if (this.buffer.length >= maxBufferedLines) {
@@ -303,7 +303,7 @@ function toOrderedLevel(logLevel: LogLevel): OrderedLevel {
 }
 
 // eslint-disable-next-line @typescript-eslint/no-unsafe-function-type
-export function getLoggableName(instance: Function | object) {
+export function getLoggableName(instance: Function | object): string {
 	let ctor;
 	if (typeof instance === 'function') {
 		if (instance.prototype?.constructor == null) return instance.name;

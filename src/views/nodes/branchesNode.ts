@@ -128,7 +128,7 @@ export class BranchesNode extends CacheableChildrenViewNode<'branches', ViewsWit
 	}
 
 	@debug()
-	override refresh() {
+	override refresh(): void {
 		super.refresh(true);
 	}
 }

@@ -91,11 +91,11 @@ export class GitStatusFile implements GitFile {
 		}
 	}
 
-	get conflicted() {
+	get conflicted(): boolean {
 		return this.conflictStatus != null;
 	}
 
-	get staged() {
+	get staged(): boolean {
 		return this.indexStatus != null;
 	}
 
@@ -109,7 +109,7 @@ export class GitStatusFile implements GitFile {
 		return this.container.git.getAbsoluteUri(this.path, this.repoPath);
 	}
 
-	get wip() {
+	get wip(): boolean {
 		return this.workingTreeStatus != null;
 	}
 

@@ -65,7 +65,7 @@ export class PushGitCommand extends QuickCommand<State> {
 		};
 	}
 
-	execute(state: State<Repository[]>) {
+	private execute(state: State<Repository[]>) {
 		const index = state.flags.indexOf('--set-upstream');
 		if (index !== -1) {
 			return this.container.git.pushAll(state.repos, {

@@ -18,7 +18,7 @@ export class ManageCloudIntegrationsCommand extends GlCommandBase {
 		super(GlCommand.PlusManageCloudIntegrations);
 	}
 
-	async execute(args?: ManageCloudIntegrationsCommandArgs) {
+	async execute(args?: ManageCloudIntegrationsCommandArgs): Promise<void> {
 		await this.container.integrations.manageCloudIntegrations(
 			args?.source ? { source: args.source, detail: args?.detail } : undefined,
 		);
@@ -38,7 +38,7 @@ export class ConnectCloudIntegrationsCommand extends GlCommandBase {
 		super(GlCommand.PlusConnectCloudIntegrations);
 	}
 
-	async execute(args?: ConnectCloudIntegrationsCommandArgs) {
+	async execute(args?: ConnectCloudIntegrationsCommandArgs): Promise<void> {
 		await this.container.integrations.connectCloudIntegrations(
 			args?.integrationIds ? { integrationIds: args.integrationIds } : undefined,
 			args?.source ? { source: args.source, detail: args?.detail } : undefined,

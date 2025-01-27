@@ -5,7 +5,7 @@ import { RemoteResourceType } from '../models/remoteResource';
 // 		type: RemoteResourceType.Tag;
 // 		tag: string;
 //   };
-export function getNameFromRemoteResource(resource: RemoteResource) {
+export function getNameFromRemoteResource(resource: RemoteResource): string {
 	switch (resource.type) {
 		case RemoteResourceType.Branch:
 			return 'Branch';

@@ -9,7 +9,7 @@ export class ToggleCodeLensCommand extends GlCommandBase {
 		super(GlCommand.ToggleCodeLens);
 	}
 
-	execute() {
+	execute(): void {
 		this.container.codeLens.toggleCodeLens();
 	}
 }

@@ -23,7 +23,7 @@ export async function addAssociatedIssueToBranch(
 	options?: {
 		cancellation?: CancellationToken;
 	},
-) {
+): Promise<void> {
 	const { key, encoded } = await getConfigKeyAndEncodedAssociatedIssuesForBranch(container, branch);
 	if (options?.cancellation?.isCancellationRequested) return;
 	try {
@@ -87,7 +87,7 @@ export async function removeAssociatedIssueFromBranch(
 	options?: {
 		cancellation?: CancellationToken;
 	},
-) {
+): Promise<void> {
 	const { key, encoded } = await getConfigKeyAndEncodedAssociatedIssuesForBranch(container, branch);
 	if (options?.cancellation?.isCancellationRequested) return;
 	try {

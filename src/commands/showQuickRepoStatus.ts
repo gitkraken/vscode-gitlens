@@ -14,7 +14,7 @@ export class ShowQuickRepoStatusCommand extends GlCommandBase {
 		super(GlCommand.ShowQuickRepoStatus);
 	}
 
-	async execute(args?: ShowQuickRepoStatusCommandArgs) {
+	async execute(args?: ShowQuickRepoStatusCommandArgs): Promise<void> {
 		return executeGitCommand({
 			command: 'status',
 			state: {

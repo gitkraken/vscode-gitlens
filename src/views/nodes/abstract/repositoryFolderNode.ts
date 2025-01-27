@@ -49,7 +49,7 @@ export abstract class RepositoryFolderNode<
 		this._child = value;
 	}
 
-	override dispose() {
+	override dispose(): void {
 		super.dispose();
 		this.child = undefined;
 	}
@@ -161,7 +161,7 @@ export abstract class RepositoryFolderNode<
 		return item;
 	}
 
-	override async getSplattedChild() {
+	override async getSplattedChild(): Promise<TChild | undefined> {
 		if (this.child == null) {
 			await this.getChildren();
 		}
@@ -171,7 +171,7 @@ export abstract class RepositoryFolderNode<
 
 	@gate()
 	@debug()
-	override async refresh(reset: boolean = false) {
+	override async refresh(reset: boolean = false): Promise<void> {
 		super.refresh(reset);
 		await this.child?.triggerChange(reset, false, this);
 
@@ -179,13 +179,13 @@ export abstract class RepositoryFolderNode<
 	}
 
 	@log()
-	async star() {
+	async star(): Promise<void> {
 		await this.repo.star();
 		// void this.parent!.triggerChange();
 	}
 
 	@log()
-	async unstar() {
+	async unstar(): Promise<void> {
 		await this.repo.unstar();
 		// void this.parent!.triggerChange();
 	}

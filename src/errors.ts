@@ -171,11 +171,11 @@ export class OpenVirtualRepositoryError extends Error {
 }
 
 export class ProviderFetchError extends Error {
-	get status() {
+	get status(): number {
 		return this.response.status;
 	}
 
-	get statusText() {
+	get statusText(): string {
 		return this.response.statusText;
 	}
 

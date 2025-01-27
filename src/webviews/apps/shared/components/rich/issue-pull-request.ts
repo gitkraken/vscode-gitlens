@@ -102,7 +102,7 @@ export class IssuePullRequest extends GlElement {
 	@property({ type: Boolean })
 	details = false;
 
-	renderDate() {
+	private renderDate() {
 		if (!this.date) return nothing;
 
 		return html`<formatted-date
@@ -112,7 +112,7 @@ export class IssuePullRequest extends GlElement {
 		></formatted-date>`;
 	}
 
-	override render() {
+	override render(): unknown {
 		let icon;
 		let status;
 		switch (this.type) {

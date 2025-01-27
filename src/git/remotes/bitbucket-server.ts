@@ -64,7 +64,7 @@ export class BitbucketServerRemote extends RemoteProvider {
 		return super.splitPath();
 	}
 
-	override get icon() {
+	override get icon(): string {
 		return 'bitbucket';
 	}
 
@@ -76,7 +76,7 @@ export class BitbucketServerRemote extends RemoteProvider {
 		return 'bitbucketServer' satisfies Unbrand<GkProviderId> as Brand<GkProviderId>;
 	}
 
-	get name() {
+	get name(): string {
 		return this.formatName('Bitbucket Server');
 	}
 

@@ -39,7 +39,7 @@ export class GutterBlameAnnotationProvider extends BlameAnnotationProviderBase {
 		super(container, onDidChangeStatus, 'blame', editor, trackedDocument);
 	}
 
-	override async clear() {
+	override async clear(): Promise<void> {
 		await super.clear();
 
 		if (Decorations.gutterBlameHighlight != null) {

@@ -3,7 +3,7 @@ import { isPromise } from '../../promise';
 import { resolveProp } from './resolver';
 
 export function gate<T extends (...arg: any) => any>(resolver?: (...args: Parameters<T>) => string) {
-	return (_target: any, key: string, descriptor: PropertyDescriptor) => {
+	return (_target: any, key: string, descriptor: PropertyDescriptor): void => {
 		// eslint-disable-next-line @typescript-eslint/no-unsafe-function-type
 		let fn: Function | undefined;
 		if (typeof descriptor.value === 'function') {

@@ -142,7 +142,7 @@ export class RemoteNode extends ViewNode<'remote', ViewsWithRemotes> {
 	}
 
 	@log()
-	async setAsDefault(state: boolean = true) {
+	async setAsDefault(state: boolean = true): Promise<void> {
 		await this.remote.setAsDefault(state);
 		void this.triggerChange();
 	}

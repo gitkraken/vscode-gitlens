@@ -26,10 +26,8 @@ export function escapeMarkdown(s: string, options: { quoted?: boolean; inlineBac
 	return s.trim().replace(markdownQuotedRegex, '\t\\\n>  ');
 }
 
-/**
- * escapes markdown code blocks
- */
-export function escapeMarkdownCodeBlocks(s: string) {
+/** escapes markdown code blocks */
+export function escapeMarkdownCodeBlocks(s: string): string {
 	const tripleBackticks = '```';
 	const escapedTripleBackticks = '\\`\\`\\`';
 

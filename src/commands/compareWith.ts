@@ -26,7 +26,7 @@ export class CompareWithCommand extends ActiveEditorCommand {
 		]);
 	}
 
-	protected override preExecute(context: CommandContext, args?: CompareWithCommandArgs) {
+	protected override preExecute(context: CommandContext, args?: CompareWithCommandArgs): Promise<void> {
 		switch (context.command) {
 			case GlCommand.CompareWith:
 				args = { ...args };
@@ -48,7 +48,7 @@ export class CompareWithCommand extends ActiveEditorCommand {
 		return this.execute(context.editor, context.uri, args);
 	}
 
-	async execute(editor?: TextEditor, uri?: Uri, args?: CompareWithCommandArgs) {
+	async execute(editor?: TextEditor, uri?: Uri, args?: CompareWithCommandArgs): Promise<void> {
 		uri = getCommandUri(uri, editor);
 		args = { ...args };
 

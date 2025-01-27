@@ -50,11 +50,11 @@ export class CacheProvider implements Disposable {
 	// eslint-disable-next-line @typescript-eslint/no-useless-constructor
 	constructor(_container: Container) {}
 
-	dispose() {
+	dispose(): void {
 		this._cache.clear();
 	}
 
-	delete<T extends Cache>(cache: T, key: CacheKey<T>) {
+	delete<T extends Cache>(cache: T, key: CacheKey<T>): void {
 		this._cache.delete(`${cache}:${key}`);
 	}
 

@@ -153,7 +153,7 @@ export class GlFeatureBadge extends LitElement {
 		return this.subscription?.state;
 	}
 
-	override render() {
+	override render(): unknown {
 		return html`
 			<gl-popover placement=${this.placement} hoist>
 				<span slot="anchor" class="badge" tabindex="0">${this.renderBadge()}</span>

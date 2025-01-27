@@ -81,11 +81,11 @@ export class CherryPickGitCommand extends QuickCommand<State> {
 		return false;
 	}
 
-	execute(state: CherryPickStepState<State<GitReference[]>>) {
+	private execute(state: CherryPickStepState<State<GitReference[]>>) {
 		state.repo.cherryPick(...state.flags, ...state.references.map(c => c.ref).reverse());
 	}
 
-	override isFuzzyMatch(name: string) {
+	override isFuzzyMatch(name: string): boolean {
 		return super.isFuzzyMatch(name) || name === 'cherry';
 	}
 

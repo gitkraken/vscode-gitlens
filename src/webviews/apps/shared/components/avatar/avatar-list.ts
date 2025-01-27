@@ -20,7 +20,7 @@ export class GlAvatarList extends LitElement {
 	@property({ type: Array })
 	avatars: AvatarShape[] = [];
 
-	override render() {
+	override render(): unknown {
 		return html`<gl-avatar-group>${this.renderList()}</gl-avatar-group>`;
 	}
 
@@ -81,7 +81,7 @@ export class GlAvatarGroup extends LitElement {
 		`,
 	];
 
-	override render() {
+	override render(): unknown {
 		return html`<slot class="avatar-group" part="base"></slot>`;
 	}
 }

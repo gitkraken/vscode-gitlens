@@ -1,4 +1,5 @@
 import type { CancellationToken } from 'vscode';
+import type { Response } from '@env/fetch';
 import type { AIModel } from './aiProviderService';
 import { OpenAICompatibleProvider } from './openAICompatibleProvider';
 
@@ -71,7 +72,7 @@ export class GeminiProvider extends OpenAICompatibleProvider<typeof provider.id>
 		apiKey: string,
 		request: object,
 		cancellation: CancellationToken | undefined,
-	) {
+	): Promise<Response> {
 		if ('max_completion_tokens' in request) {
 			const { max_completion_tokens: _, ...rest } = request;
 			request = rest;

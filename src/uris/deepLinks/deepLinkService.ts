@@ -74,7 +74,7 @@ export class DeepLinkService implements Disposable {
 		void this.processPendingDeepLink(pendingDeepLink);
 	}
 
-	dispose() {
+	dispose(): void {
 		Disposable.from(...this._disposables).dispose();
 	}
 
@@ -124,7 +124,7 @@ export class DeepLinkService implements Disposable {
 		}
 	}
 
-	async processDeepLinkUri(uri: Uri, useProgress: boolean = true, repo?: Repository) {
+	async processDeepLinkUri(uri: Uri, useProgress: boolean = true, repo?: Repository): Promise<void> {
 		const link = parseDeepLinkUri(uri);
 		if (link == null) return;
 

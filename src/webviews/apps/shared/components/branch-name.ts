@@ -1,3 +1,4 @@
+import type { TemplateResult } from 'lit';
 import { css, html, LitElement } from 'lit';
 import { customElement, property } from 'lit/decorators.js';
 import './code-icon';
@@ -38,7 +39,7 @@ export class GlBranchName extends LitElement {
 	@property({ type: Boolean })
 	worktree = false;
 
-	override render() {
+	override render(): unknown {
 		return html`<span class="${this.worktree ? 'worktree' : 'branch'}"
 			><code-icon
 				class="icon"
@@ -56,6 +57,6 @@ declare global {
 	}
 }
 
-export function renderBranchName(name: string | undefined, worktree?: boolean) {
+export function renderBranchName(name: string | undefined, worktree?: boolean): TemplateResult {
 	return html`<gl-branch-name .name=${name} .size=${12} ?worktree=${worktree ?? false}></gl-branch-name>`;
 }

@@ -32,7 +32,7 @@ export class GitFileSystemProvider implements FileSystemProvider, Disposable {
 		);
 	}
 
-	dispose() {
+	dispose(): void {
 		this._disposable.dispose();
 	}
 

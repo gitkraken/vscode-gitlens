@@ -24,7 +24,7 @@ let defaultShortRelativeTimeFormat: InstanceType<typeof Intl.RelativeTimeFormat>
 
 const numberFormatCache = new Map<string | undefined, Intl.NumberFormat>();
 
-export function setDefaultDateLocales(locales: string | string[] | null | undefined) {
+export function setDefaultDateLocales(locales: string | string[] | null | undefined): void {
 	if (typeof locales === 'string') {
 		if (locales === 'system' || locales.trim().length === 0) {
 			defaultLocales = undefined;
@@ -135,7 +135,7 @@ export function formatDate(
 	format: 'full' | 'long' | 'medium' | 'short' | string | null | undefined,
 	locale?: string,
 	cache: boolean = true,
-) {
+): string {
 	format = format ?? undefined;
 
 	const key = `${locale ?? ''}:${format}`;

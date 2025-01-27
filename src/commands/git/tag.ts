@@ -144,7 +144,7 @@ export class TagGitCommand extends QuickCommand<State> {
 		return this.subcommand === 'delete' ? false : super.canSkipConfirm;
 	}
 
-	override get skipConfirmKey() {
+	override get skipConfirmKey(): string {
 		return `${this.key}${this.subcommand == null ? '' : `-${this.subcommand}`}:${this.pickedVia}`;
 	}
 

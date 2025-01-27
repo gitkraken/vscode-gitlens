@@ -15,7 +15,7 @@ export class OpenAssociatedPullRequestOnRemoteCommand extends ActiveEditorComman
 		super(GlCommand.OpenAssociatedPullRequestOnRemote);
 	}
 
-	async execute(editor?: TextEditor, uri?: Uri) {
+	async execute(editor?: TextEditor, uri?: Uri): Promise<void> {
 		uri = getCommandUri(uri, editor);
 
 		const gitUri = uri != null ? await GitUri.fromUri(uri) : undefined;

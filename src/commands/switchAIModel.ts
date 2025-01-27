@@ -9,7 +9,7 @@ export class SwitchAIModelCommand extends GlCommandBase {
 		super(GlCommand.SwitchAIModel);
 	}
 
-	async execute() {
+	async execute(): Promise<void> {
 		await (await this.container.ai)?.switchModel();
 	}
 }

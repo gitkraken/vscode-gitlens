@@ -14,12 +14,19 @@ import type { CommitNode } from '../../../views/nodes/commitNode';
 import { PullRequestNode } from '../../../views/nodes/pullRequestNode';
 import type { StashNode } from '../../../views/nodes/stashNode';
 import type { TagNode } from '../../../views/nodes/tagNode';
-import type { WebviewPanelShowCommandArgs, WebviewPanelsProxy, WebviewsController } from '../../webviewsController';
+import type {
+	WebviewPanelShowCommandArgs,
+	WebviewPanelsProxy,
+	WebviewsController,
+	WebviewViewProxy,
+} from '../../webviewsController';
 import type { ShowInCommitGraphCommandArgs, State } from './protocol';
 
 export type GraphWebviewShowingArgs = [Repository | { ref: GitReference }];
 
-export function registerGraphWebviewPanel(controller: WebviewsController) {
+export function registerGraphWebviewPanel(
+	controller: WebviewsController,
+): WebviewPanelsProxy<'gitlens.graph', GraphWebviewShowingArgs, State> {
 	return controller.registerWebviewPanel<'gitlens.graph', State, State, GraphWebviewShowingArgs>(
 		{ id: GlCommand.ShowGraphPage, options: { preserveInstance: true } },
 		{
@@ -45,7 +52,9 @@ export function registerGraphWebviewPanel(controller: WebviewsController) {
 	);
 }
 
-export function registerGraphWebviewView(controller: WebviewsController) {
+export function registerGraphWebviewView(
+	controller: WebviewsController,
+): WebviewViewProxy<'gitlens.views.graph', GraphWebviewShowingArgs, State> {
 	return controller.registerWebviewView<'gitlens.views.graph', State, State, GraphWebviewShowingArgs>(
 		{
 			id: 'gitlens.views.graph',
@@ -69,7 +78,7 @@ export function registerGraphWebviewView(controller: WebviewsController) {
 export function registerGraphWebviewCommands<T>(
 	container: Container,
 	panels: WebviewPanelsProxy<'gitlens.graph', GraphWebviewShowingArgs, T>,
-) {
+): Disposable {
 	return Disposable.from(
 		registerCommand(GlCommand.ShowGraph, (...args: unknown[]) => {
 			const [arg] = args;

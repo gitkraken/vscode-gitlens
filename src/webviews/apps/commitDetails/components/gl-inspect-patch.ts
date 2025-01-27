@@ -308,7 +308,7 @@ export class InspectPatch extends GlElement {
 		};
 	}
 
-	override render() {
+	override render(): unknown {
 		return html`<gl-patch-create
 			.state=${this.patchCreateState}
 			.generate=${this.generate}

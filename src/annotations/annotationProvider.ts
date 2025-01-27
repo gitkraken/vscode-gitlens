@@ -52,7 +52,7 @@ export abstract class AnnotationProviderBase<TContext extends AnnotationContext 
 		);
 	}
 
-	dispose() {
+	dispose(): void {
 		void this.clear();
 
 		this.disposable.dispose();
@@ -102,7 +102,7 @@ export abstract class AnnotationProviderBase<TContext extends AnnotationContext 
 		return true;
 	}
 
-	async clear() {
+	async clear(): Promise<void> {
 		if (this._computing?.pending) {
 			await this._computing.promise;
 		}
@@ -156,7 +156,7 @@ export abstract class AnnotationProviderBase<TContext extends AnnotationContext 
 
 	protected abstract onProvideAnnotation(context?: TContext, state?: AnnotationState): Promise<boolean>;
 
-	refresh(replaceDecorationTypes: Map<TextEditorDecorationType, TextEditorDecorationType | null>) {
+	refresh(replaceDecorationTypes: Map<TextEditorDecorationType, TextEditorDecorationType | null>): void {
 		if (this.editor == null || !this.decorations?.length) return;
 
 		const decorations = [];
@@ -175,7 +175,7 @@ export abstract class AnnotationProviderBase<TContext extends AnnotationContext 
 		this.setDecorations(this.decorations);
 	}
 
-	restore(editor: TextEditor, recompute?: boolean) {
+	restore(editor: TextEditor, recompute?: boolean): void {
 		// If the editor isn't disposed then we don't need to do anything
 		// Explicitly check for `false`
 		if ((this.editor as any)._disposed === false) return;
@@ -201,7 +201,7 @@ export abstract class AnnotationProviderBase<TContext extends AnnotationContext 
 	selection?(selection?: TContext['selection']): Promise<void>;
 	validate?(): boolean | Promise<boolean>;
 
-	protected setDecorations(decorations: Decoration[]) {
+	protected setDecorations(decorations: Decoration[]): void {
 		if (this.decorations?.length) {
 			// If we have no new decorations, just completely clear the old ones
 			if (!decorations?.length) {

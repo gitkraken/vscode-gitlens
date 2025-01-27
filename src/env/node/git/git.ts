@@ -390,11 +390,11 @@ export class Git {
 
 	// Git commands
 
-	add(repoPath: string | undefined, pathspecs: string[], ...args: string[]) {
+	add(repoPath: string | undefined, pathspecs: string[], ...args: string[]): Promise<string> {
 		return this.exec<string>({ cwd: repoPath }, 'add', ...args, '--', ...pathspecs);
 	}
 
-	apply(repoPath: string | undefined, patch: string, options: { allowConflicts?: boolean } = {}) {
+	apply(repoPath: string | undefined, patch: string, options: { allowConflicts?: boolean } = {}): Promise<string> {
 		const params = ['apply', '--whitespace=warn'];
 		if (options.allowConflicts) {
 			params.push('-3');
@@ -412,7 +412,7 @@ export class Git {
 			stdin?: string;
 		},
 		...args: string[]
-	) {
+	): Promise<string> {
 		return this.exec<string>(
 			{
 				cwd: repoPath,
@@ -440,7 +440,7 @@ export class Git {
 			startLine?: number;
 			endLine?: number;
 		},
-	) {
+	): Promise<string> {
 		const [file, root] = splitPath(fileName, repoPath, true);
 
 		const params = ['blame', '--root', '--incremental'];
@@ -549,11 +549,11 @@ export class Git {
 		}
 	}
 
-	branch(repoPath: string, ...args: string[]) {
+	branch(repoPath: string, ...args: string[]): Promise<string> {
 		return this.exec<string>({ cwd: repoPath }, 'branch', ...args);
 	}
 
-	branch__set_upstream(repoPath: string, branch: string, remote: string, remoteBranch: string) {
+	branch__set_upstream(repoPath: string, branch: string, remote: string, remoteBranch: string): Promise<string> {
 		return this.exec<string>({ cwd: repoPath }, 'branch', '--set-upstream-to', `${remote}/${remoteBranch}`, branch);
 	}
 
@@ -567,7 +567,7 @@ export class Git {
 			name?: string;
 			remotes?: boolean;
 		},
-	) {
+	): Promise<string> {
 		const params: string[] = [options?.type ?? 'branch'];
 		if (options?.all) {
 			params.push('-a');
@@ -596,7 +596,7 @@ export class Git {
 		return data.length ? parseInt(data.trim(), 10) : 0;
 	}
 
-	check_ignore(repoPath: string, ...files: string[]) {
+	check_ignore(repoPath: string, ...files: string[]): Promise<string> {
 		return this.exec<string>(
 			{ cwd: repoPath, errors: GitErrorHandling.Ignore, stdin: files.join('\0') },
 			'check-ignore',
@@ -605,11 +605,15 @@ export class Git {
 		);
 	}
 
-	check_mailmap(repoPath: string, author: string) {
+	check_mailmap(repoPath: string, author: string): Promise<string> {
 		return this.exec<string>({ cwd: repoPath, errors: GitErrorHandling.Ignore }, 'check-mailmap', author);
 	}
 
-	async check_ref_format(ref: string, repoPath?: string, options: { branch?: boolean } = { branch: true }) {
+	async check_ref_format(
+		ref: string,
+		repoPath?: string,
+		options: { branch?: boolean } = { branch: true },
+	): Promise<boolean> {
 		const params = ['check-ref-format'];
 		if (options.branch) {
 			params.push('--branch');
@@ -629,7 +633,11 @@ export class Git {
 		}
 	}
 
-	checkout(repoPath: string, ref: string, { createBranch, path }: { createBranch?: string; path?: string } = {}) {
+	checkout(
+		repoPath: string,
+		ref: string,
+		{ createBranch, path }: { createBranch?: string; path?: string } = {},
+	): Promise<string> {
 		const params = ['checkout'];
 		if (createBranch) {
 			params.push('-b', createBranch, ref, '--');
@@ -646,7 +654,11 @@ export class Git {
 		return this.exec<string>({ cwd: repoPath }, ...params);
 	}
 
-	async cherrypick(repoPath: string, sha: string, options: { noCommit?: boolean; errors?: GitErrorHandling } = {}) {
+	async cherrypick(
+		repoPath: string,
+		sha: string,
+		options: { noCommit?: boolean; errors?: GitErrorHandling } = {},
+	): Promise<void> {
 		const params = ['cherry-pick'];
 		if (options?.noCommit) {
 			params.push('-n');
@@ -689,7 +701,7 @@ export class Git {
 		return folderPath;
 	}
 
-	async config__get(key: string, repoPath?: string, options?: { local?: boolean }) {
+	async config__get(key: string, repoPath?: string, options?: { local?: boolean }): Promise<string | undefined> {
 		const data = await this.exec<string>(
 			{ cwd: repoPath ?? '', errors: GitErrorHandling.Ignore, local: options?.local },
 			'config',
@@ -699,7 +711,11 @@ export class Git {
 		return data.length === 0 ? undefined : data.trim();
 	}
 
-	async config__get_regex(pattern: string, repoPath?: string, options?: { local?: boolean }) {
+	async config__get_regex(
+		pattern: string,
+		repoPath?: string,
+		options?: { local?: boolean },
+	): Promise<string | undefined> {
 		const data = await this.exec<string>(
 			{ cwd: repoPath ?? '', errors: GitErrorHandling.Ignore, local: options?.local },
 			'config',
@@ -709,7 +725,7 @@ export class Git {
 		return data.length === 0 ? undefined : data.trim();
 	}
 
-	async config__set(key: string, value: string | undefined, repoPath?: string) {
+	async config__set(key: string, value: string | undefined, repoPath?: string): Promise<void> {
 		const params = ['config', '--local'];
 		if (value == null) {
 			params.push('--unset', key);
@@ -792,7 +808,7 @@ export class Git {
 			stdin?: string;
 		},
 		...args: string[]
-	) {
+	): Promise<string> {
 		return this.exec<string>(
 			{
 				cwd: repoPath,
@@ -873,7 +889,7 @@ export class Git {
 		ref1?: string,
 		ref2?: string,
 		options?: { filters?: GitDiffFilter[]; path?: string; similarityThreshold?: number },
-	) {
+	): Promise<string> {
 		const params = [
 			'diff',
 			'--name-status',
@@ -899,7 +915,7 @@ export class Git {
 		return this.exec<string>({ cwd: repoPath, configs: gitDiffDefaultConfigs }, ...params);
 	}
 
-	async diff__shortstat(repoPath: string, ref?: string) {
+	async diff__shortstat(repoPath: string, ref?: string): Promise<string | undefined> {
 		const params = ['diff', '--shortstat', '--no-ext-diff'];
 		if (ref) {
 			params.push(ref);
@@ -922,7 +938,7 @@ export class Git {
 		fileName: string,
 		tool: string,
 		options: { ref1?: string; ref2?: string; staged?: boolean } = {},
-	) {
+	): Promise<string> {
 		const params = ['difftool', '--no-prompt', `--tool=${tool}`];
 		if (options.staged) {
 			params.push('--staged');
@@ -937,7 +953,7 @@ export class Git {
 		return this.exec<string>({ cwd: repoPath }, ...params, '--', fileName);
 	}
 
-	difftool__dir_diff(repoPath: string, tool: string, ref1: string, ref2?: string) {
+	difftool__dir_diff(repoPath: string, tool: string, ref1: string, ref2?: string): Promise<string> {
 		const params = ['difftool', '--dir-diff', `--tool=${tool}`, ref1];
 		if (ref2) {
 			params.push(ref2);
@@ -1121,7 +1137,7 @@ export class Git {
 		}
 	}
 
-	for_each_ref__branch(repoPath: string, options: { all: boolean } = { all: false }) {
+	for_each_ref__branch(repoPath: string, options: { all: boolean } = { all: false }): Promise<string> {
 		const params = ['for-each-ref', `--format=${parseGitBranchesDefaultFormat}`, 'refs/heads'];
 		if (options.all) {
 			params.push('refs/remotes');
@@ -1140,7 +1156,7 @@ export class Git {
 			stdin?: string;
 		},
 		...args: string[]
-	) {
+	): Promise<string> {
 		return this.exec<string>(
 			{
 				cwd: repoPath,
@@ -1270,7 +1286,7 @@ export class Git {
 			startLine?: number;
 			endLine?: number;
 		} = {},
-	) {
+	): Promise<string> {
 		const [file, root] = splitPath(fileName, repoPath, true);
 
 		if (argsOrFormat == null) {
@@ -1360,7 +1376,7 @@ export class Git {
 			similarityThreshold?: number | null;
 			cancellation?: CancellationToken;
 		},
-	) {
+	): Promise<string | undefined> {
 		const params = [
 			'log',
 			`-M${options?.similarityThreshold == null ? '' : `${options?.similarityThreshold}%`}`,
@@ -1397,7 +1413,7 @@ export class Git {
 		ordering: 'date' | 'author-date' | 'topo' | null,
 		file?: string,
 		cancellation?: CancellationToken,
-	) {
+	): Promise<string | undefined> {
 		const params = ['log', '-n1', '--no-renames', '--format=%H', `--find-object=${oid}`, ref];
 
 		if (ordering) {
@@ -1420,7 +1436,10 @@ export class Git {
 		return data.length === 0 ? undefined : data.trim();
 	}
 
-	async log__recent(repoPath: string, ordering?: 'date' | 'author-date' | 'topo' | null) {
+	async log__recent(
+		repoPath: string,
+		ordering?: 'date' | 'author-date' | 'topo' | null,
+	): Promise<string | undefined> {
 		const params = ['log', '-n1', '--format=%H'];
 
 		if (ordering) {
@@ -1436,7 +1455,10 @@ export class Git {
 		return data.length === 0 ? undefined : data.trim();
 	}
 
-	async log__recent_committerdate(repoPath: string, ordering?: 'date' | 'author-date' | 'topo' | null) {
+	async log__recent_committerdate(
+		repoPath: string,
+		ordering?: 'date' | 'author-date' | 'topo' | null,
+	): Promise<string | undefined> {
 		const params = ['log', '-n1', '--format=%ct'];
 
 		if (ordering) {
@@ -1462,7 +1484,7 @@ export class Git {
 			shas?: Set<string>;
 			stdin?: string;
 		},
-	) {
+	): Promise<string> {
 		if (options?.shas != null) {
 			const stdin = join(options.shas, '\n');
 			return this.exec<string>(
@@ -1528,15 +1550,15 @@ export class Git {
 		return data.length === 0 ? undefined : data.trim();
 	}
 
-	ls_remote(repoPath: string, remote: string, ref?: string) {
+	ls_remote(repoPath: string, remote: string, ref?: string): Promise<string> {
 		return this.exec<string>({ cwd: repoPath }, 'ls-remote', remote, ref);
 	}
 
-	ls_remote__HEAD(repoPath: string, remote: string) {
+	ls_remote__HEAD(repoPath: string, remote: string): Promise<string> {
 		return this.exec<string>({ cwd: repoPath }, 'ls-remote', '--symref', remote, 'HEAD');
 	}
 
-	async ls_tree(repoPath: string, ref: string, path?: string) {
+	async ls_tree(repoPath: string, ref: string, path?: string): Promise<string | undefined> {
 		const params = ['ls-tree'];
 		if (path) {
 			params.push('-l', ref, '--', path);
@@ -1547,7 +1569,7 @@ export class Git {
 		return data.length === 0 ? undefined : data.trim();
 	}
 
-	merge_base(repoPath: string, rev1: string, rev2: string, options?: { forkPoint?: boolean }) {
+	merge_base(repoPath: string, rev1: string, rev2: string, options?: { forkPoint?: boolean }): Promise<string> {
 		const params = ['merge-base'];
 		if (options?.forkPoint) {
 			params.push('--fork-point');
@@ -1624,7 +1646,7 @@ export class Git {
 		return this.exec<string>({ cwd: repoPath }, 'remote', '-v');
 	}
 
-	remote__add(repoPath: string, name: string, url: string, options?: { fetch?: boolean }) {
+	remote__add(repoPath: string, name: string, url: string, options?: { fetch?: boolean }): Promise<string> {
 		const params = ['remote', 'add'];
 		if (options?.fetch) {
 			params.push('-f');
@@ -1632,11 +1654,11 @@ export class Git {
 		return this.exec<string>({ cwd: repoPath }, ...params, name, url);
 	}
 
-	remote__prune(repoPath: string, name: string) {
+	remote__prune(repoPath: string, name: string): Promise<string> {
 		return this.exec<string>({ cwd: repoPath }, 'remote', 'prune', name);
 	}
 
-	remote__remove(repoPath: string, name: string) {
+	remote__remove(repoPath: string, name: string): Promise<string> {
 		return this.exec<string>({ cwd: repoPath }, 'remote', 'remove', name);
 	}
 
@@ -1969,7 +1991,7 @@ export class Git {
 		repoPath: string,
 		options?: { cancellation?: CancellationToken; configs?: readonly string[] },
 		...args: string[]
-	) {
+	): Promise<string> {
 		return this.exec<string>(
 			{
 				cwd: repoPath,
@@ -2031,7 +2053,13 @@ export class Git {
 		return this.exec<string>({ cwd: repoPath }, 'stash', deleteAfter ? 'pop' : 'apply', stashName);
 	}
 
-	async stash__rename(repoPath: string, stashName: string, sha: string, message: string, stashOnRef?: string) {
+	async stash__rename(
+		repoPath: string,
+		stashName: string,
+		sha: string,
+		message: string,
+		stashOnRef?: string,
+	): Promise<string> {
 		await this.stash__delete(repoPath, stashName, sha);
 		return this.exec<string>(
 			{ cwd: repoPath },
@@ -2043,7 +2071,7 @@ export class Git {
 		);
 	}
 
-	async stash__delete(repoPath: string, stashName: string, sha?: string) {
+	async stash__delete(repoPath: string, stashName: string, sha?: string): Promise<string | undefined> {
 		if (!stashName) return undefined;
 
 		if (sha) {
@@ -2065,7 +2093,7 @@ export class Git {
 	stash__list(
 		repoPath: string,
 		{ args, similarityThreshold }: { args?: string[]; similarityThreshold?: number | null },
-	) {
+	): Promise<string> {
 		if (args == null) {
 			args = ['--name-status'];
 		}
@@ -2161,7 +2189,7 @@ export class Git {
 		}
 	}
 
-	stash(repoPath: string, ...args: string[]) {
+	stash(repoPath: string, ...args: string[]): Promise<string> {
 		return this.exec<string>({ cwd: repoPath }, 'stash', ...args);
 	}
 
@@ -2189,11 +2217,11 @@ export class Git {
 		);
 	}
 
-	symbolic_ref(repoPath: string, ref: string) {
+	symbolic_ref(repoPath: string, ref: string): Promise<string> {
 		return this.exec<string>({ cwd: repoPath }, 'symbolic-ref', '--short', ref);
 	}
 
-	async tag(repoPath: string, ...args: string[]) {
+	async tag(repoPath: string, ...args: string[]): Promise<string> {
 		try {
 			const output = await this.exec<string>({ cwd: repoPath }, 'tag', ...args);
 			return output;
@@ -2217,7 +2245,7 @@ export class Git {
 			detach,
 			force,
 		}: { commitish?: string; createBranch?: string; detach?: boolean; force?: boolean } = {},
-	) {
+	): Promise<string> {
 		const params = ['worktree', 'add'];
 		if (force) {
 			params.push('--force');
@@ -2235,11 +2263,11 @@ export class Git {
 		return this.exec<string>({ cwd: repoPath }, ...params);
 	}
 
-	worktree__list(repoPath: string) {
+	worktree__list(repoPath: string): Promise<string> {
 		return this.exec<string>({ cwd: repoPath }, 'worktree', 'list', '--porcelain');
 	}
 
-	worktree__remove(repoPath: string, worktree: string, { force }: { force?: boolean } = {}) {
+	worktree__remove(repoPath: string, worktree: string, { force }: { force?: boolean } = {}): Promise<string> {
 		const params = ['worktree', 'remove'];
 		if (force) {
 			params.push('--force');
@@ -2282,7 +2310,12 @@ export class Git {
 		}
 	}
 	@log()
-	async runGitCommandViaTerminal(cwd: string, command: string, args: string[], options?: { execute?: boolean }) {
+	async runGitCommandViaTerminal(
+		cwd: string,
+		command: string,
+		args: string[],
+		options?: { execute?: boolean },
+	): Promise<void> {
 		const scope = getLogScope();
 
 		const location = await this.getLocation();
@@ -2353,6 +2386,6 @@ export class Git {
 	}
 }
 
-export function getShaInLogRegex(sha: string) {
+export function getShaInLogRegex(sha: string): RegExp {
 	return new RegExp(`(?:^\x00*|\x00\x00)${sha}\x00`);
 }

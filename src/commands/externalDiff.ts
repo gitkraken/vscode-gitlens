@@ -33,7 +33,7 @@ export class ExternalDiffCommand extends GlCommandBase {
 		super([GlCommand.ExternalDiff, GlCommand.ExternalDiffAll]);
 	}
 
-	protected override async preExecute(context: CommandContext, args?: ExternalDiffCommandArgs) {
+	protected override async preExecute(context: CommandContext, args?: ExternalDiffCommandArgs): Promise<void> {
 		args = { ...args };
 
 		if (isCommandContextViewNodeHasFileCommit(context)) {
@@ -87,11 +87,11 @@ export class ExternalDiffCommand extends GlCommandBase {
 		if (context.command === GlCommand.ExternalDiffAll) {
 			if (args.files == null) {
 				const repository = await getRepositoryOrShowPicker('Open All Changes (difftool)');
-				if (repository == null) return undefined;
+				if (repository == null) return;
 
 				const status = await this.container.git.status(repository.uri).getStatus();
 				if (status == null) {
-					return window.showInformationMessage("The repository doesn't have any changes");
+					return void window.showInformationMessage("The repository doesn't have any changes");
 				}
 
 				args.files = [];
@@ -118,7 +118,7 @@ export class ExternalDiffCommand extends GlCommandBase {
 		);
 	}
 
-	async execute(args?: ExternalDiffCommandArgs) {
+	async execute(args?: ExternalDiffCommandArgs): Promise<void> {
 		args = { ...args };
 
 		try {

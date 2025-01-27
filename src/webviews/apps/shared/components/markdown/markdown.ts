@@ -95,7 +95,7 @@ export class GlMarkdown extends LitElement {
 	@property({ type: String })
 	private markdown = '';
 
-	override render() {
+	override render(): unknown {
 		return html`${this.markdown ? until(this.renderMarkdown(this.markdown), 'Loading...') : ''}`;
 	}
 

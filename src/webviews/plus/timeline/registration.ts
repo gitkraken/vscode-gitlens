@@ -5,12 +5,14 @@ import { registerCommand } from '../../../system/-webview/command';
 import { configuration } from '../../../system/-webview/configuration';
 import { getScmResourceFolderUri, isScmResourceState } from '../../../system/-webview/scm';
 import type { ViewFileNode } from '../../../views/nodes/abstract/viewFileNode';
-import type { WebviewPanelsProxy, WebviewsController } from '../../webviewsController';
+import type { WebviewPanelsProxy, WebviewsController, WebviewViewProxy } from '../../webviewsController';
 import type { State } from './protocol';
 
 export type TimelineWebviewShowingArgs = [Uri | ViewFileNode];
 
-export function registerTimelineWebviewPanel(controller: WebviewsController) {
+export function registerTimelineWebviewPanel(
+	controller: WebviewsController,
+): WebviewPanelsProxy<'gitlens.timeline', TimelineWebviewShowingArgs, State> {
 	return controller.registerWebviewPanel<'gitlens.timeline', State, State, TimelineWebviewShowingArgs>(
 		{ id: GlCommand.ShowTimelinePage, options: { preserveInstance: true } },
 		{
@@ -38,7 +40,9 @@ export function registerTimelineWebviewPanel(controller: WebviewsController) {
 	);
 }
 
-export function registerTimelineWebviewView(controller: WebviewsController) {
+export function registerTimelineWebviewView(
+	controller: WebviewsController,
+): WebviewViewProxy<'gitlens.views.timeline', TimelineWebviewShowingArgs, State> {
 	return controller.registerWebviewView<'gitlens.views.timeline', State, State, TimelineWebviewShowingArgs>(
 		{
 			id: 'gitlens.views.timeline',
@@ -63,7 +67,7 @@ export function registerTimelineWebviewView(controller: WebviewsController) {
 
 export function registerTimelineWebviewCommands<T>(
 	panels: WebviewPanelsProxy<'gitlens.timeline', TimelineWebviewShowingArgs, T>,
-) {
+): Disposable {
 	return Disposable.from(
 		registerCommand(GlCommand.ShowFileInTimeline, (...args: TimelineWebviewShowingArgs) => {
 			const [arg] = args;

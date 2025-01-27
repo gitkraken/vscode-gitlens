@@ -95,7 +95,7 @@ export class CommitIdentity extends LitElement {
 		return html`<code-icon icon="person" size="18"></code-icon>`;
 	}
 
-	override render() {
+	override render(): unknown {
 		return html`
 			<gl-tooltip>
 				${when(

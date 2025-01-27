@@ -92,7 +92,7 @@ export class AzureDevOpsRemote extends RemoteProvider {
 		return this._autolinks;
 	}
 
-	override get icon() {
+	override get icon(): string {
 		return 'azdo';
 	}
 
@@ -104,7 +104,7 @@ export class AzureDevOpsRemote extends RemoteProvider {
 		return 'azureDevops' satisfies Unbrand<GkProviderId> as Brand<GkProviderId>;
 	}
 
-	get name() {
+	get name(): string {
 		return 'Azure DevOps';
 	}
 

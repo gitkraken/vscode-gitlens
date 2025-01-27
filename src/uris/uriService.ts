@@ -42,12 +42,12 @@ export class UriService implements Disposable, UriHandler {
 		this._disposable = window.registerUriHandler(this);
 	}
 
-	dispose() {
+	dispose(): void {
 		this._disposable.dispose();
 	}
 
 	@log<UriHandler['handleUri']>({ args: { 0: u => u.with({ query: '' }).toString(true) } })
-	handleUri(uri: Uri) {
+	handleUri(uri: Uri): void {
 		const [, type] = uri.path.split('/');
 		if (type === AuthenticationUriPathPrefix) {
 			this._onDidReceiveAuthenticationUri.fire(uri);

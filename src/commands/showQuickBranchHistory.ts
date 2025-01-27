@@ -22,7 +22,7 @@ export class ShowQuickBranchHistoryCommand extends ActiveEditorCachedCommand {
 		super([GlCommand.ShowQuickBranchHistory, GlCommand.ShowQuickCurrentBranchHistory]);
 	}
 
-	protected override preExecute(context: CommandContext, args?: ShowQuickBranchHistoryCommandArgs) {
+	protected override preExecute(context: CommandContext, args?: ShowQuickBranchHistoryCommandArgs): Promise<void> {
 		if (context.command === GlCommand.ShowQuickCurrentBranchHistory) {
 			args = { ...args };
 			args.branch = 'HEAD';
@@ -31,7 +31,7 @@ export class ShowQuickBranchHistoryCommand extends ActiveEditorCachedCommand {
 		return this.execute(context.editor, context.uri, args);
 	}
 
-	async execute(editor?: TextEditor, uri?: Uri, args?: ShowQuickBranchHistoryCommandArgs) {
+	async execute(editor?: TextEditor, uri?: Uri, args?: ShowQuickBranchHistoryCommandArgs): Promise<void> {
 		uri = getCommandUri(uri, editor);
 
 		const gitUri = uri != null ? await GitUri.fromUri(uri) : undefined;

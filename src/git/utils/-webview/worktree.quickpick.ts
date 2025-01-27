@@ -6,7 +6,7 @@ import type { QuickPickItemOfT } from '../../../quickpicks/items/common';
 import { pad } from '../../../system/string';
 import type { GitStatus } from '../../models/status';
 import type { GitWorktree } from '../../models/worktree';
-import { shortenRevision } from "../revision.utils";
+import { shortenRevision } from '../revision.utils';
 import { getBranchIconPath } from './icons';
 
 export interface WorktreeQuickPickItem extends QuickPickItemOfT<GitWorktree> {
@@ -28,7 +28,7 @@ export function createWorktreeQuickPickItem(
 		type?: boolean;
 		status?: GitStatus;
 	},
-) {
+): WorktreeQuickPickItem {
 	let description = '';
 	let detail = '';
 	if (options?.type) {

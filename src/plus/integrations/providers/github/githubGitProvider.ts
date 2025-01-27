@@ -145,7 +145,7 @@ export class GitHubGitProvider implements GitProvider, Disposable {
 		this._disposables.push(authentication.onDidChangeSessions(this.onAuthenticationSessionsChanged, this));
 	}
 
-	dispose() {
+	dispose(): void {
 		this._disposables.forEach(d => void d.dispose());
 	}
 
@@ -391,7 +391,7 @@ export class GitHubGitProvider implements GitProvider, Disposable {
 	}
 
 	@log()
-	async getWorkingUri(repoPath: string, uri: Uri) {
+	async getWorkingUri(repoPath: string, uri: Uri): Promise<Uri> {
 		return this.createVirtualUri(repoPath, undefined, uri.path);
 	}
 
@@ -1186,7 +1186,7 @@ export class GitHubGitProvider implements GitProvider, Disposable {
 		options?: {
 			filter?: { branches?: (b: GitBranch) => boolean; tags?: (t: GitTag) => boolean };
 		},
-	) {
+	): Promise<boolean> {
 		const [{ values: branches }, { values: tags }] = await Promise.all([
 			this.branches.getBranches(repoPath, {
 				filter: options?.filter?.branches,
@@ -1226,7 +1226,7 @@ export class GitHubGitProvider implements GitProvider, Disposable {
 		ref: string,
 		pathOrUri?: string | Uri,
 		_options?: { force?: boolean; timeout?: number },
-	) {
+	): Promise<string> {
 		if (
 			!ref ||
 			ref === deletedOrMissing ||

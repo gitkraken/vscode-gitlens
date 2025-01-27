@@ -46,7 +46,7 @@ export class SettingsWebviewProvider implements WebviewProvider<State, State, Se
 		);
 	}
 
-	dispose() {
+	dispose(): void {
 		this._disposable.dispose();
 	}
 
@@ -56,11 +56,11 @@ export class SettingsWebviewProvider implements WebviewProvider<State, State, Se
 		};
 	}
 
-	onSubscriptionChanged(e: SubscriptionChangeEvent) {
+	private onSubscriptionChanged(e: SubscriptionChangeEvent) {
 		void this.host.notify(DidChangeAccountNotification, { hasAccount: e.current.account != null });
 	}
 
-	onIntegrationConnectionStateChanged(e: ConnectionStateChangeEvent) {
+	private onIntegrationConnectionStateChanged(e: ConnectionStateChangeEvent) {
 		if (e.key === 'jira') {
 			void this.host.notify(DidChangeConnectedJiraNotification, { hasConnectedJira: e.reason === 'connected' });
 		}
@@ -130,7 +130,7 @@ export class SettingsWebviewProvider implements WebviewProvider<State, State, Se
 		}
 	}
 
-	onReady() {
+	onReady(): void {
 		if (this._pendingJumpToAnchor != null) {
 			const anchor = this._pendingJumpToAnchor;
 			this._pendingJumpToAnchor = undefined;
@@ -139,7 +139,7 @@ export class SettingsWebviewProvider implements WebviewProvider<State, State, Se
 		}
 	}
 
-	async onMessageReceived(e: IpcMessage) {
+	async onMessageReceived(e: IpcMessage): Promise<void> {
 		if (e == null) return;
 
 		switch (true) {

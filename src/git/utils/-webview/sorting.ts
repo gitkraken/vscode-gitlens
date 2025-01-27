@@ -4,6 +4,7 @@ import { sortCompare } from '../../../system/string';
 import type { GitBranch } from '../../models/branch';
 import type { GitContributor } from '../../models/contributor';
 import { isContributor } from '../../models/contributor';
+import type { GitRemote } from '../../models/remote';
 import type { Repository } from '../../models/repository';
 import type { GitTag } from '../../models/tag';
 import type { GitWorktree } from '../../models/worktree';
@@ -19,7 +20,7 @@ export interface BranchSortOptions {
 	openedWorktreesByBranch?: Set<string>;
 }
 
-export function sortBranches(branches: GitBranch[], options?: BranchSortOptions) {
+export function sortBranches(branches: GitBranch[], options?: BranchSortOptions): GitBranch[] {
 	options = { current: true, groupByType: true, orderBy: configuration.get('sortBranchesBy'), ...options };
 
 	switch (options.orderBy) {
@@ -104,7 +105,7 @@ export function sortContributors(
 export function sortContributors(
 	contributors: GitContributor[] | ContributorQuickPickItem[],
 	options?: (ContributorSortOptions & { picked?: never }) | ContributorQuickPickSortOptions,
-) {
+): GitContributor[] | ContributorQuickPickItem[] {
 	options = { picked: true, current: true, orderBy: configuration.get('sortContributorsBy'), ...options };
 
 	const getContributor = (contributor: GitContributor | ContributorQuickPickItem): GitContributor => {
@@ -228,11 +229,21 @@ export function sortContributors(
 	}
 }
 
+export function sortRemotes<T extends GitRemote>(remotes: T[]): T[] {
+	return remotes.sort(
+		(a, b) =>
+			(a.default ? -1 : 1) - (b.default ? -1 : 1) ||
+			(a.name === 'origin' ? -1 : 1) - (b.name === 'origin' ? -1 : 1) ||
+			(a.name === 'upstream' ? -1 : 1) - (b.name === 'upstream' ? -1 : 1) ||
+			sortCompare(a.name, b.name),
+	);
+}
+
 export interface RepositoriesSortOptions {
 	orderBy?: RepositoriesSorting;
 }
 
-export function sortRepositories(repositories: Repository[], options?: RepositoriesSortOptions) {
+export function sortRepositories(repositories: Repository[], options?: RepositoriesSortOptions): Repository[] {
 	options = { orderBy: configuration.get('sortRepositoriesBy'), ...options };
 
 	switch (options.orderBy) {
@@ -267,7 +278,7 @@ export interface TagSortOptions {
 	orderBy?: TagSorting;
 }
 
-export function sortTags(tags: GitTag[], options?: TagSortOptions) {
+export function sortTags(tags: GitTag[], options?: TagSortOptions): GitTag[] {
 	options = { orderBy: configuration.get('sortTagsBy'), ...options };
 
 	switch (options.orderBy) {
@@ -292,7 +303,10 @@ export function sortWorktrees(
 	worktrees: WorktreeQuickPickItem[],
 	options?: WorktreeSortOptions,
 ): WorktreeQuickPickItem[];
-export function sortWorktrees(worktrees: GitWorktree[] | WorktreeQuickPickItem[], options?: WorktreeSortOptions) {
+export function sortWorktrees(
+	worktrees: GitWorktree[] | WorktreeQuickPickItem[],
+	options?: WorktreeSortOptions,
+): GitWorktree[] | WorktreeQuickPickItem[] {
 	options = { orderBy: configuration.get('sortBranchesBy'), ...options };
 
 	const getWorktree = (worktree: GitWorktree | WorktreeQuickPickItem): GitWorktree => {

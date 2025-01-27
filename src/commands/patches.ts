@@ -164,7 +164,7 @@ export class CreatePatchCommand extends CreatePatchCommandBase {
 		super(container, GlCommand.CreatePatch);
 	}
 
-	async execute(args?: CreatePatchCommandArgs) {
+	async execute(args?: CreatePatchCommandArgs): Promise<void> {
 		const diff = await this.getDiff('Create Patch', args);
 		if (diff == null) return;
 
@@ -188,7 +188,7 @@ export class CopyPatchToClipboardCommand extends CreatePatchCommandBase {
 		super(container, GlCommand.CopyPatchToClipboard);
 	}
 
-	async execute(args?: CreatePatchCommandArgs) {
+	async execute(args?: CreatePatchCommandArgs): Promise<void> {
 		const diff = await this.getDiff('Copy as Patch', args);
 		if (diff == null) return;
 
@@ -205,7 +205,7 @@ export class ApplyPatchFromClipboardCommand extends GlCommandBase {
 		super([GlCommand.ApplyPatchFromClipboard, GlCommand.PastePatchFromClipboard]);
 	}
 
-	async execute() {
+	async execute(): Promise<void> {
 		const patch = await env.clipboard.readText();
 		let repo = this.container.git.highlander;
 
@@ -249,7 +249,7 @@ export class CreateCloudPatchCommand extends CreatePatchCommandBase {
 		super(container, [GlCommand.CreateCloudPatch, GlCommand.ShareAsCloudPatch]);
 	}
 
-	async execute(args?: CreatePatchCommandArgs) {
+	async execute(args?: CreatePatchCommandArgs): Promise<void> {
 		if (args?.repoPath == null) {
 			return showPatchesView({ mode: 'create' });
 		}
@@ -273,7 +273,7 @@ export class OpenPatchCommand extends ActiveEditorCommand {
 		super(GlCommand.OpenPatch);
 	}
 
-	async execute(editor?: TextEditor) {
+	async execute(editor?: TextEditor): Promise<void> {
 		let document;
 		if (editor?.document?.languageId === 'diff') {
 			document = editor.document;
@@ -320,7 +320,7 @@ export class OpenCloudPatchCommand extends GlCommandBase {
 		super(GlCommand.OpenCloudPatch);
 	}
 
-	async execute(args?: OpenCloudPatchCommandArgs) {
+	async execute(args?: OpenCloudPatchCommandArgs): Promise<void> {
 		const type = args?.type === 'code_suggestion' ? 'Code Suggestion' : 'Cloud Patch';
 		if (args?.id == null && args?.draft == null) {
 			void window.showErrorMessage(`Cannot open ${type}; no patch or patch id provided`);

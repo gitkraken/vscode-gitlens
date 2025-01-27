@@ -19,7 +19,7 @@ export class CloseUnchangedFilesCommand extends GlCommandBase {
 		super(GlCommand.CloseUnchangedFiles);
 	}
 
-	async execute(args?: CloseUnchangedFilesCommandArgs) {
+	async execute(args?: CloseUnchangedFilesCommandArgs): Promise<void> {
 		args = { ...args };
 
 		try {

@@ -129,7 +129,7 @@ export class WebviewsController implements Disposable {
 		this.disposables.push((this._commandRegistrar = new WebviewCommandRegistrar()));
 	}
 
-	dispose() {
+	dispose(): void {
 		this.disposables.forEach(d => void d.dispose());
 	}
 

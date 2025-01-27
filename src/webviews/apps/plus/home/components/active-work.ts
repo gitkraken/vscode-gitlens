@@ -65,7 +65,7 @@ export class GlActiveWork extends SignalWatcher(LitElement) {
 	@consume({ context: overviewStateContext })
 	private _overviewState!: OverviewState;
 
-	override connectedCallback() {
+	override connectedCallback(): void {
 		super.connectedCallback();
 
 		if (this._homeState.repositories.openCount > 0) {
@@ -73,7 +73,7 @@ export class GlActiveWork extends SignalWatcher(LitElement) {
 		}
 	}
 
-	override render() {
+	override render(): unknown {
 		if (this._homeState.discovering) {
 			return this.renderLoader();
 		}
@@ -221,7 +221,7 @@ export class GlActiveBranchCard extends GlBranchCardBase {
 		this.toggleExpanded(true);
 	}
 
-	override render() {
+	override render(): unknown {
 		return html`
 			${this.renderBranchIndicator()}${this.renderBranchItem(
 				html`${this.renderBranchStateActions()}${this.renderBranchActions()}`,
@@ -368,7 +368,7 @@ export class GlActiveBranchCard extends GlBranchCardBase {
 		return wrappedActions();
 	}
 
-	protected renderBranchIndicator() {
+	protected renderBranchIndicator(): TemplateResult | undefined {
 		const wip = this.wip;
 		if (wip?.pausedOpStatus == null) return undefined;
 
@@ -378,11 +378,11 @@ export class GlActiveBranchCard extends GlBranchCardBase {
 		></gl-merge-rebase-status>`;
 	}
 
-	protected getBranchActions() {
+	protected getBranchActions(): TemplateResult[] {
 		return [];
 	}
 
-	protected getPrActions() {
+	protected getPrActions(): TemplateResult[] {
 		return [
 			html`<action-item
 				label="Open Pull Request Changes"

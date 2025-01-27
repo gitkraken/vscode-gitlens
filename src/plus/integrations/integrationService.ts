@@ -88,7 +88,7 @@ export class IntegrationService implements Disposable {
 		);
 	}
 
-	dispose() {
+	dispose(): void {
 		this._disposable?.dispose();
 	}
 
@@ -167,7 +167,7 @@ export class IntegrationService implements Disposable {
 		}
 	}
 
-	async manageCloudIntegrations(source: Source | undefined) {
+	async manageCloudIntegrations(source: Source | undefined): Promise<void> {
 		const scope = getLogScope();
 		if (this.container.telemetry.enabled) {
 			this.container.telemetry.sendEvent(
