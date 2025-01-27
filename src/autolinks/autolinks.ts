@@ -6,7 +6,9 @@ import { IssueIntegrationId } from '../constants.integrations';
 import type { Container } from '../container';
 import type { GitRemote } from '../git/models/remote';
 import { getIssueOrPullRequestHtmlIcon, getIssueOrPullRequestMarkdownIcon } from '../git/utils/-webview/icons';
-import type { HostingIntegration, IssueIntegration } from '../plus/integrations/integration';
+import type { HostingIntegration, Integration, IssueIntegration } from '../plus/integrations/integration';
+import { IntegrationBase } from '../plus/integrations/integration';
+import { remoteProviderIdToIntegrationId } from '../plus/integrations/integrationService';
 import { configuration } from '../system/-webview/configuration';
 import { fromNow } from '../system/date';
 import { debug } from '../system/decorators/log';
@@ -214,9 +216,26 @@ export class Autolinks implements Disposable {
 
 		const enrichedAutolinks = new Map<string, EnrichedAutolink>();
 		for (const [id, link] of messageOrAutolinks) {
-			let linkIntegration = link.provider
-				? await this.container.integrations.get(link.provider.id as IntegrationId)
-				: undefined;
+			let integrationId: IntegrationId | undefined;
+			let linkIntegration: Integration | undefined;
+			if (link.provider != null) {
+				// Try to make a smart choice
+				integrationId =
+					link.provider instanceof IntegrationBase
+						? link.provider.id
+						: remoteProviderIdToIntegrationId(link.provider.id);
+				if (integrationId == null) {
+					// Fall back to the old logic assuming that integration id might be saved as provider id.
+					// TODO: it should be removed when we put providers and integrations in order. Conversation: https://github.com/gitkraken/vscode-gitlens/pull/3996#discussion_r1936422826
+					integrationId = link.provider.id as IntegrationId;
+				}
+				try {
+					linkIntegration = await this.container.integrations.get(integrationId);
+				} catch (e) {
+					Logger.error(e, `Failed to get integration for ${link.provider.id}`);
+					linkIntegration = undefined;
+				}
+			}
 			if (linkIntegration != null) {
 				const connected = linkIntegration.maybeConnected ?? (await linkIntegration.isConnected());
 				if (!connected || !(await linkIntegration.access())) {
@@ -226,7 +245,7 @@ export class Autolinks implements Disposable {
 			const issueOrPullRequestPromise =
 				remote?.provider != null &&
 				integration != null &&
-				link.provider?.id === integration.id &&
+				integrationId === integration.id &&
 				link.provider?.domain === integration.domain
 					? integration.getIssueOrPullRequest(
 							link.descriptor ?? remote.provider.repoDesc,
