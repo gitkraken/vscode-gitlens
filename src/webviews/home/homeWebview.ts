@@ -25,7 +25,7 @@ import type { Issue } from '../../git/models/issue';
 import type { GitPausedOperationStatus } from '../../git/models/pausedOperationStatus';
 import type { PullRequest } from '../../git/models/pullRequest';
 import { RemoteResourceType } from '../../git/models/remoteResource';
-import type { Repository } from '../../git/models/repository';
+import type { Repository, RepositoryFileSystemChangeEvent } from '../../git/models/repository';
 import { RepositoryChange, RepositoryChangeComparisonMode } from '../../git/models/repository';
 import { uncommitted } from '../../git/models/revision';
 import type { GitStatus } from '../../git/models/status';
@@ -141,6 +141,8 @@ export class HomeWebviewProvider implements WebviewProvider<State, State, HomeWe
 	private readonly _disposable: Disposable;
 	private _discovering: Promise<number | undefined> | undefined;
 	private _etag?: number;
+	private _etagFileSystem?: number;
+	private _etagRepository?: number;
 	private _etagSubscription?: number;
 	private _pendingFocusAccount = false;
 
@@ -396,6 +398,21 @@ export class HomeWebviewProvider implements WebviewProvider<State, State, HomeWe
 		}
 	}
 
+	private hasRepositoryChanged(): boolean {
+		if (this._repositorySubscription?.repo != null) {
+			if (
+				this._repositorySubscription.repo.etag !== this._etagRepository ||
+				this._repositorySubscription.repo.etagFileSystem !== this._etagFileSystem
+			) {
+				return true;
+			}
+		} else if (this._etag !== this.container.git.etag) {
+			return true;
+		}
+
+		return false;
+	}
+
 	onVisibilityChanged(visible: boolean): void {
 		if (!visible) {
 			this.stopRepositorySubscription();
@@ -405,7 +422,10 @@ export class HomeWebviewProvider implements WebviewProvider<State, State, HomeWe
 
 		this.resumeRepositorySubscription();
 
-		if (this._discovering == null && this._etag !== this.container.git.etag) {
+		if (
+			this._discovering == null &&
+			(this.container.subscription.etag !== this._etagSubscription || this.hasRepositoryChanged())
+		) {
 			this.notifyDidChangeRepositories(true);
 		}
 	}
@@ -638,7 +658,7 @@ export class HomeWebviewProvider implements WebviewProvider<State, State, HomeWe
 		await this.notifyDidChangeSubscription(e.current);
 
 		if (isSubscriptionStatePaidOrTrial(e.current.state) !== isSubscriptionStatePaidOrTrial(e.previous.state)) {
-			this.onOverviewRepoChanged('repo');
+			this.onOverviewRepoChanged();
 		}
 	}
 
@@ -702,7 +722,7 @@ export class HomeWebviewProvider implements WebviewProvider<State, State, HomeWe
 		if (repo == null) return undefined;
 
 		const forceRepo = this._invalidateOverview === 'repo';
-		const forceWip = this._invalidateOverview !== undefined;
+		const forceWip = this._invalidateOverview === 'wip';
 		const branchesAndWorktrees = await this.getBranchesData(repo, forceRepo);
 
 		const { branches, worktreesByBranch } = branchesAndWorktrees;
@@ -718,14 +738,15 @@ export class HomeWebviewProvider implements WebviewProvider<State, State, HomeWe
 			this.container,
 			{
 				isActive: true,
-				forceStatus: forceWip ? true : undefined,
+				forceStatus: forceRepo || forceWip ? true : undefined,
 			},
 		);
 
-		// TODO: revisit invalidation
-		if (!forceRepo && forceWip) {
+		if (forceWip) {
 			this._invalidateOverview = undefined;
 		}
+
+		this._etagFileSystem = repo.etagFileSystem;
 
 		return {
 			repository: await this.formatRepository(repo),
@@ -881,7 +902,7 @@ export class HomeWebviewProvider implements WebviewProvider<State, State, HomeWe
 		return Disposable.from(
 			// TODO: advanced configuration for the watchFileSystem timing
 			repo.watchFileSystem(1000),
-			repo.onDidChangeFileSystem(() => this.onOverviewRepoChanged('wip')),
+			repo.onDidChangeFileSystem(e => this.onOverviewWipChanged(e, repo)),
 			repo.onDidChange(e => {
 				if (
 					e.changed(
@@ -895,26 +916,42 @@ export class HomeWebviewProvider implements WebviewProvider<State, State, HomeWe
 						RepositoryChangeComparisonMode.Any,
 					)
 				) {
-					this.onOverviewRepoChanged('repo');
+					this.onOverviewRepoChanged(repo);
 				}
 			}),
 		);
 	}
 
 	@debug()
-	private onOverviewRepoChanged(scope: 'repo' | 'wip') {
-		if (this._etag === this.container.git.etag) return;
+	private onOverviewWipChanged(e: RepositoryFileSystemChangeEvent, repository: Repository) {
+		if (e.repository?.path !== repository.path) return;
+		if (this._etagFileSystem === repository.etagFileSystem) return;
 
+		// if the repo is already marked invalid, we already need to recompute the whole overview
 		if (this._invalidateOverview !== 'repo') {
-			this._invalidateOverview = scope;
+			this._invalidateOverview = 'wip';
 		}
+
 		if (!this.host.visible) return;
 
-		if (scope === 'wip') {
-			void this.host.notify(DidChangeRepositoryWip, undefined);
-		} else {
-			this.notifyDidChangeRepositories();
+		void this.host.notify(DidChangeRepositoryWip, undefined);
+	}
+
+	@debug()
+	private onOverviewRepoChanged(repo?: Repository) {
+		if (repo != null) {
+			if (this._etagRepository === repo.etag) {
+				return;
+			}
+		} else if (this._etag === this.container.git.etag) {
+			return;
 		}
+
+		this._invalidateOverview = 'repo';
+
+		if (!this.host.visible) return;
+
+		this.notifyDidChangeRepositories();
 	}
 
 	private getSelectedRepository() {
@@ -928,7 +965,7 @@ export class HomeWebviewProvider implements WebviewProvider<State, State, HomeWe
 	private _invalidateOverview: 'repo' | 'wip' | undefined;
 	private readonly _repositoryBranches: Map<string, RepositoryBranchData> = new Map();
 	private async getBranchesData(repo: Repository, force = false) {
-		if (force || !this._repositoryBranches.has(repo.path)) {
+		if (force || !this._repositoryBranches.has(repo.path) || repo.etag !== this._etagRepository) {
 			const worktrees = (await repo.git.worktrees()?.getWorktrees()) ?? [];
 			const worktreesByBranch = groupWorktreesByBranch(worktrees, { includeDefault: true });
 			const [branchesResult] = await Promise.allSettled([
@@ -939,6 +976,7 @@ export class HomeWebviewProvider implements WebviewProvider<State, State, HomeWe
 			]);
 
 			const branches = getSettledValue(branchesResult)?.values ?? [];
+			this._etagRepository = repo.etag;
 
 			this._repositoryBranches.set(repo.path, {
 				repo: repo,
