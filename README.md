@@ -24,7 +24,7 @@ Install GitLens by clicking `Install` on the banner above, or from the Extension
 
 **GitLens Pro** takes your workflow to the next level by unlocking advanced features and seamless integrations:
 
-- **Accelerate PR reviews** with Launchpad, a clean and actionable PR hub built directly into VS Code.
+- **Accelerate PR reviews** and easily manage your end-to-end workflows with a clean and actionable PR, issue, and branch Home View built directly into VS Code.
 - **Manage commits effortlessly** using the Commit Graph, where you can execute advanced actions like rebase, merge, and more. With powerful search and filtering, quickly locate commits, branches, or files.
 - **Enhance collaboration** by integrating with platforms like GitHub, GitLab, and Bitbucket, reducing context switching. View and manage PRs directly in VS Code through Launchpad.
 
@@ -48,6 +48,22 @@ GitLens offers a wide range of features—here are the three most popular workfl
 - [**Accelerate PR Reviews**](#accelerate-pr-reviews) &mdash; Reduce context switching and manage all your PRs in one place. Prioritize tasks and identify bottlenecks right in VS Code with Launchpad when you integrate Github or other host providers. Work on multiple branches at once without disrupting your main workspace with Worktrees.
 
 - [**Streamline Collaboration**](#streamline-collaboration) &mdash; GitLens isn’t just for solo developers—it’s designed to enhance team collaboration. With Cloud Patches and Code Suggest, you can share and discuss suggested changes with any GitLens or GitKraken user, on multiple files and even PRs.
+
+## Home View - Your VS Code Workflow Hub
+
+Compact but powerful, the Home View lets you take your tasks and issues from code to merge. Start work on an issue and create PRs in one intelligent view. The perfect companion for developers looking to reduce tedious context switching and stay focused on their work in VS Code.
+
+## GitLens AI Integrations
+
+GitLens integrates with models such as OpenAI, Anthropic, DeepSeek, GitHub Copilot, Gemini and more.
+
+- 🧪**AI Generatated Commit Message** - Leverage more AI models to quickly generate commit messages for uncommitted work from Home View, or from the Source Control view's context menu.
+
+- 🧪**AI Explain Commit**
+Use the Explain panel on the Inspect view to leverage AI to help you understand the changes introduced by a commit.
+
+ Access these AI features by signing up for a free [GitKraken](https://gitkraken.dev/register?product=gitlens&source=marketing_page&redirect_uri=vscode%3A%2F%2Feamodio.gitlens%2Flogin&flow=gitlens_web&utm_source=gitlens-extension&utm_medium=readme-ai) account.
+
 
 # Interactive Code History
 
