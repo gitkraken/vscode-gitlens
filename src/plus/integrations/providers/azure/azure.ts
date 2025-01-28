@@ -27,6 +27,7 @@ import { Logger } from '../../../../system/logger';
 import type { LogScope } from '../../../../system/logger.scope';
 import { getLogScope } from '../../../../system/logger.scope';
 import { maybeStopWatch } from '../../../../system/stopwatch';
+import type { AzurePullRequest, WorkItem } from './models';
 
 export class AzureDevOpsApi implements Disposable {
 	private readonly _disposable: Disposable;
@@ -77,67 +78,8 @@ export class AzureDevOpsApi implements Disposable {
 		const [projectName, _, repoName] = repo.split('/');
 
 		try {
-			interface ResultAzureUser {
-				displayName: string;
-				url: string;
-				_links: {
-					avatar: {
-						href: string;
-					};
-				};
-				id: string;
-				uniqueName: string;
-				imageUrl: string;
-				descriptor: string;
-			}
-			interface WorkItemResult {
-				_links: {
-					fields: {
-						href: string;
-					};
-					html: {
-						href: string;
-					};
-					self: {
-						href: string;
-					};
-					workItemComments: {
-						href: string;
-					};
-					workItemRevisions: {
-						href: string;
-					};
-					workItemType: {
-						href: string;
-					};
-					workItemUpdates: {
-						href: string;
-					};
-				};
-				fields: {
-					'System.AreaPath': string;
-					'System.TeamProject': string;
-					'System.IterationPath': string;
-					'System.WorkItemType': string;
-					'System.State': string;
-					'System.Reason': string;
-					'System.CreatedDate': string;
-					'System.CreatedBy': ResultAzureUser;
-					'System.ChangedDate': string;
-					'System.ChangedBy': ResultAzureUser;
-					'System.CommentCount': number;
-					'System.Title': string;
-					'Microsoft.VSTS.Common.StateChangeDate': string;
-					'Microsoft.VSTS.Common.Priority': number;
-					'Microsoft.VSTS.Common.Severity': string;
-					'Microsoft.VSTS.Common.ValueArea': string;
-				};
-				id: number;
-				rev: number;
-				url: string;
-			}
 			// Try to get the Work item (wit) first with specific fields
-			const issueResult = await this.request<WorkItemResult>(
+			const issueResult = await this.request<WorkItem>(
 				provider,
 				token,
 				options?.baseUrl,
@@ -163,67 +105,7 @@ export class AzureDevOpsApi implements Disposable {
 				};
 			}
 
-			interface PullRequestResult {
-				repository: unknown;
-				pullRequestId: number;
-				codeReviewId: number;
-				status: string;
-				createdBy: ResultAzureUser;
-				creationDate: string;
-				closedDate: string;
-				title: string;
-				description: string;
-				sourceRefName: string;
-				targetRefName: string;
-				isDraft: boolean;
-				mergeId: string;
-				lastMergeSourceCommit: {
-					commitId: string;
-					url: string;
-				};
-				lastMergeTargetCommit: {
-					commitId: string;
-					url: string;
-				};
-				reviewers: unknown[];
-				url: string;
-				_links: {
-					self: {
-						href: string;
-					};
-					repository: {
-						href: string;
-					};
-					workItems: {
-						href: string;
-					};
-					sourceBranch: {
-						href: string;
-					};
-					targetBranch: {
-						href: string;
-					};
-					statuses: {
-						href: string;
-					};
-					sourceCommit: {
-						href: string;
-					};
-					targetCommit: {
-						href: string;
-					};
-					createdBy: {
-						href: string;
-					};
-					iterations: {
-						href: string;
-					};
-				};
-				supportsIterations: boolean;
-				artifactId: string;
-			}
-
-			const prResult = await this.request<PullRequestResult>(
+			const prResult = await this.request<AzurePullRequest>(
 				provider,
 				token,
 				options?.baseUrl,
