@@ -158,3 +158,8 @@ export class AzureDevOpsIntegration extends HostingIntegration<
 		return Promise.resolve(undefined);
 	}
 }
+
+const azureCloudDomainRegex = /^dev\.azure\.com$|\bvisualstudio\.com$/i;
+export function isAzureCloudDomain(domain: string | undefined): boolean {
+	return domain != null && azureCloudDomainRegex.test(domain);
+}
