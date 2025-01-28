@@ -90,6 +90,7 @@ export interface StartWorkOverrides {
 }
 
 export const supportedStartWorkIntegrations = [
+	HostingIntegrationId.AzureDevOps,
 	HostingIntegrationId.GitHub,
 	SelfHostedIntegrationId.CloudGitHubEnterprise,
 	HostingIntegrationId.GitLab,
