@@ -22,10 +22,12 @@ import { Logger } from '../../../../system/logger';
 import type { LogScope } from '../../../../system/logger.scope';
 import { getLogScope } from '../../../../system/logger.scope';
 import { maybeStopWatch } from '../../../../system/stopwatch';
-import type { WorkItem } from './models';
+import type { AzureWorkItemState, AzureWorkItemStateCategory, WorkItem } from './models';
+import { azureWorkItemsStateCategoryToState, isClosedAzureWorkItemStateCategory } from './models';
 
 export class AzureDevOpsApi implements Disposable {
 	private readonly _disposable: Disposable;
+	private _workItemStates: WorkItemStates = new WorkItemStates();
 
 	constructor(_container: Container) {
 		this._disposable = configuration.onDidChangeAny(e => {
@@ -54,8 +56,7 @@ export class AzureDevOpsApi implements Disposable {
 
 	private resetCaches(): void {
 		this._proxyAgent = null;
-		// this._defaults.clear();
-		// this._enterpriseVersions.clear();
+		this._workItemStates.clear();
 	}
 
 	@debug<AzureDevOpsApi['getIssueOrPullRequest']>({ args: { 0: p => p.name, 1: '<token>' } })
@@ -86,6 +87,18 @@ export class AzureDevOpsApi implements Disposable {
 			);
 
 			if (issueResult != null) {
+				const issueType = issueResult.fields['System.WorkItemType'];
+				const state = issueResult.fields['System.State'];
+				const stateCategory = await this.getWorkItemStateCategory(
+					issueType,
+					state,
+					provider,
+					token,
+					owner,
+					repo,
+					options,
+				);
+
 				return {
 					id: issueResult.id.toString(),
 					type: 'issue',
@@ -93,8 +106,8 @@ export class AzureDevOpsApi implements Disposable {
 					provider: provider,
 					createdDate: new Date(issueResult.fields['System.CreatedDate']),
 					updatedDate: new Date(issueResult.fields['System.ChangedDate']),
-					state: issueResult.fields['System.State'] === 'Closed' ? 'closed' : 'opened',
-					closed: issueResult.fields['System.State'] === 'Closed',
+					state: azureWorkItemsStateCategoryToState(stateCategory),
+					closed: isClosedAzureWorkItemStateCategory(stateCategory),
 					title: issueResult.fields['System.Title'],
 					url: issueResult._links.html.href,
 				};
@@ -104,6 +117,60 @@ export class AzureDevOpsApi implements Disposable {
 		} catch (ex) {
 			Logger.error(ex, scope);
 			return undefined;
+		}
+	}
+
+	public async getWorkItemStateCategory(
+		issueType: string,
+		state: string,
+		provider: Provider,
+		token: string,
+		owner: string,
+		repo: string,
+		options: {
+			baseUrl: string;
+		},
+	): Promise<AzureWorkItemStateCategory | undefined> {
+		const [projectName] = repo.split('/');
+		const project = `${owner}/${projectName}`;
+		const category = this._workItemStates.getStateCategory(project, issueType, state);
+		if (category != null) return category;
+
+		const states = await this.retrieveWorkItemTypeStates(issueType, provider, token, owner, repo, options);
+		this._workItemStates.saveTypeStates(project, issueType, states);
+
+		return this._workItemStates.getStateCategory(project, issueType, state);
+	}
+
+	private async retrieveWorkItemTypeStates(
+		workItemType: string,
+		provider: Provider,
+		token: string,
+		owner: string,
+		repo: string,
+		options: {
+			baseUrl: string;
+		},
+	): Promise<AzureWorkItemState[]> {
+		const scope = getLogScope();
+		const [projectName] = repo.split('/');
+
+		try {
+			const issueResult = await this.request<{ value: AzureWorkItemState[]; count: number }>(
+				provider,
+				token,
+				options?.baseUrl,
+				`${owner}/${projectName}/_apis/wit/workItemTypes/${workItemType}/states`,
+				{
+					method: 'GET',
+				},
+				scope,
+			);
+
+			return issueResult?.value ?? [];
+		} catch (ex) {
+			Logger.error(ex, scope);
+			return [];
 		}
 	}
 
@@ -225,5 +292,53 @@ export class AzureDevOpsApi implements Disposable {
 				`AzureDevOps request failed: ${(ex.response as any)?.errors?.[0]?.message ?? ex.message}`,
 			);
 		}
+	}
+}
+
+class WorkItemStates {
+	private readonly _categories = new Map<string, AzureWorkItemStateCategory>();
+	private readonly _types = new Map<string, AzureWorkItemState[]>();
+
+	// TODO@sergeibbb: we might need some logic for invalidating
+	public getStateCategory(
+		project: string,
+		workItemType: string,
+		stateName: string,
+	): AzureWorkItemStateCategory | undefined {
+		return this._categories.get(this.getStateKey(project, workItemType, stateName));
+	}
+
+	public clear(): void {
+		this._categories.clear();
+		this._types.clear();
+	}
+
+	public saveTypeStates(project: string, workItemType: string, states: AzureWorkItemState[]): void {
+		this.clearTypeStates(project, workItemType);
+		this._types.set(this.getTypeKey(project, workItemType), states);
+		for (const state of states) {
+			this._categories.set(this.getStateKey(project, workItemType, state.name), state.category);
+		}
+	}
+
+	public hasTypeStates(project: string, workItemType: string): boolean {
+		return this._types.has(this.getTypeKey(project, workItemType));
+	}
+
+	private clearTypeStates(project: string, workItemType: string): void {
+		const states = this._types.get(this.getTypeKey(project, workItemType));
+		if (states == null) return;
+		for (const state of states) {
+			this._categories.delete(this.getStateKey(project, workItemType, state.name));
+		}
+	}
+
+	private getStateKey(project: string, workItemType: string, stateName: string): string {
+		// By stringifying the pair as JSON we make sure that all possible special characters are escaped
+		return JSON.stringify([project, workItemType, stateName]);
+	}
+
+	private getTypeKey(project: string, workItemType: string): string {
+		return JSON.stringify([project, workItemType]);
 	}
 }

@@ -1,3 +1,26 @@
+import type { IssueOrPullRequestState } from '../../../../git/models/issueOrPullRequest';
+
+export type AzureWorkItemStateCategory = 'Proposed' | 'InProgress' | 'Resolved' | 'Completed' | 'Removed';
+
+export function isClosedAzureWorkItemStateCategory(category: AzureWorkItemStateCategory | undefined): boolean {
+	return category === 'Completed' || category === 'Resolved' || category === 'Removed';
+}
+
+export function azureWorkItemsStateCategoryToState(
+	category: AzureWorkItemStateCategory | undefined,
+): IssueOrPullRequestState {
+	switch (category) {
+		case 'Resolved':
+		case 'Completed':
+		case 'Removed':
+			return 'closed';
+		case 'Proposed':
+		case 'InProgress':
+		default:
+			return 'opened';
+	}
+}
+
 export interface AzureLink {
 	href: string;
 }
@@ -45,4 +68,10 @@ export interface WorkItem {
 	id: number;
 	rev: number;
 	url: string;
+}
+
+export interface AzureWorkItemState {
+	name: string;
+	color: string;
+	category: AzureWorkItemStateCategory;
 }
