@@ -75,3 +75,70 @@ export interface AzureWorkItemState {
 	color: string;
 	category: AzureWorkItemStateCategory;
 }
+
+export type AzurePullRequestStatus = 'abandoned' | 'active' | 'completed' | 'notSet';
+export function azurePullRequestStatusToState(status: AzurePullRequestStatus): IssueOrPullRequestState {
+	switch (status) {
+		case 'abandoned':
+			return 'closed';
+		case 'completed':
+			return 'merged';
+		case 'active':
+		case 'notSet':
+		default:
+			return 'opened';
+	}
+}
+export function isClosedAzurePullRequestStatus(status: AzurePullRequestStatus): boolean {
+	return azurePullRequestStatusToState(status) !== 'opened';
+}
+
+export function getPullRequestUrl(
+	baseUrl: string,
+	owner: string,
+	projectName: string,
+	repoName: string,
+	pullRequestId: number,
+): string {
+	return `${baseUrl}/${owner}/${projectName}/_git/${repoName}/pullrequest/${pullRequestId}`;
+}
+
+export interface AzurePullRequest {
+	repository: unknown;
+	pullRequestId: number;
+	codeReviewId: number;
+	status: AzurePullRequestStatus;
+	createdBy: AzureUser;
+	creationDate: string;
+	closedDate: string;
+	title: string;
+	description: string;
+	sourceRefName: string;
+	targetRefName: string;
+	isDraft: boolean;
+	mergeId: string;
+	lastMergeSourceCommit: {
+		commitId: string;
+		url: string;
+	};
+	lastMergeTargetCommit: {
+		commitId: string;
+		url: string;
+	};
+	reviewers: unknown[];
+	url: string;
+	_links: {
+		self: AzureLink;
+		repository: AzureLink;
+		workItems: AzureLink;
+		sourceBranch: AzureLink;
+		targetBranch: AzureLink;
+		statuses: AzureLink;
+		sourceCommit: AzureLink;
+		targetCommit: AzureLink;
+		createdBy: AzureLink;
+		iterations: AzureLink;
+	};
+	supportsIterations: boolean;
+	artifactId: string;
+}

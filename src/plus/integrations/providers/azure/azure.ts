@@ -22,8 +22,14 @@ import { Logger } from '../../../../system/logger';
 import type { LogScope } from '../../../../system/logger.scope';
 import { getLogScope } from '../../../../system/logger.scope';
 import { maybeStopWatch } from '../../../../system/stopwatch';
-import type { AzureWorkItemState, AzureWorkItemStateCategory, WorkItem } from './models';
-import { azureWorkItemsStateCategoryToState, isClosedAzureWorkItemStateCategory } from './models';
+import type { AzurePullRequest, AzureWorkItemState, AzureWorkItemStateCategory, WorkItem } from './models';
+import {
+	azurePullRequestStatusToState,
+	azureWorkItemsStateCategoryToState,
+	getPullRequestUrl,
+	isClosedAzurePullRequestStatus,
+	isClosedAzureWorkItemStateCategory,
+} from './models';
 
 export class AzureDevOpsApi implements Disposable {
 	private readonly _disposable: Disposable;
@@ -71,7 +77,7 @@ export class AzureDevOpsApi implements Disposable {
 		},
 	): Promise<IssueOrPullRequest | undefined> {
 		const scope = getLogScope();
-		const [projectName] = repo.split('/');
+		const [projectName, _, repoName] = repo.split('/');
 
 		try {
 			// Try to get the Work item (wit) first with specific fields
@@ -110,6 +116,39 @@ export class AzureDevOpsApi implements Disposable {
 					closed: isClosedAzureWorkItemStateCategory(stateCategory),
 					title: issueResult.fields['System.Title'],
 					url: issueResult._links.html.href,
+				};
+			}
+		} catch (ex) {
+			if (ex.original?.status !== 404) {
+				Logger.error(ex, scope);
+				return undefined;
+			}
+		}
+
+		try {
+			const prResult = await this.request<AzurePullRequest>(
+				provider,
+				token,
+				options?.baseUrl,
+				`${owner}/${projectName}/_apis/git/repositories/${repoName}/pullRequests/${id}`,
+				{
+					method: 'GET',
+				},
+				scope,
+			);
+
+			if (prResult != null) {
+				return {
+					id: prResult.pullRequestId.toString(),
+					type: 'pullrequest',
+					nodeId: prResult.pullRequestId.toString(), // prResult.artifactId maybe?
+					provider: provider,
+					createdDate: new Date(prResult.creationDate),
+					updatedDate: new Date(prResult.creationDate),
+					state: azurePullRequestStatusToState(prResult.status),
+					closed: isClosedAzurePullRequestStatus(prResult.status),
+					title: prResult.title,
+					url: getPullRequestUrl(options.baseUrl, owner, projectName, repoName, prResult.pullRequestId),
 				};
 			}
 
