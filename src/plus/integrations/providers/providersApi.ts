@@ -199,9 +199,6 @@ export class ProvidersApi {
 				getPullRequestsForReposFn: providerApis.bitbucket.getPullRequestsForRepos.bind(
 					providerApis.bitbucket,
 				) as GetPullRequestsForReposFn,
-				getPullRequestsForUserFn: providerApis.bitbucket.getPullRequestsForUser.bind(
-					providerApis.bitbucket,
-				) as GetPullRequestsForUserFn,
 				getPullRequestsForRepoFn: providerApis.bitbucket.getPullRequestsForRepo.bind(
 					providerApis.bitbucket,
 				) as GetPullRequestsForRepoFn,

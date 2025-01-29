@@ -2,7 +2,7 @@ import type {
 	CodeSuggestionsCountByPrUuid,
 	EnrichedItemsByUniqueId,
 	PullRequestWithUniqueID,
-} from '@gitkraken/provider-apis';
+} from '@gitkraken/provider-apis/providers';
 import type { CancellationToken, ConfigurationChangeEvent, Event } from 'vscode';
 import { Disposable, env, EventEmitter, Uri, window } from 'vscode';
 import { md5 } from '@env/crypto';
