@@ -35,7 +35,7 @@ import { GitProviderUtils } from '@gitkraken/provider-apis/provider-utils';
 import type { CloudSelfHostedIntegrationId, IntegrationId } from '../../../constants.integrations';
 import { HostingIntegrationId, IssueIntegrationId, SelfHostedIntegrationId } from '../../../constants.integrations';
 import type { Account as UserAccount } from '../../../git/models/author';
-import type { IssueMember, SearchedIssue } from '../../../git/models/issue';
+import type { IssueMember, IssueProject, SearchedIssue } from '../../../git/models/issue';
 import { RepositoryAccessLevel } from '../../../git/models/issue';
 import type {
 	PullRequestMember,
@@ -622,6 +622,7 @@ export function toSearchedIssue(
 				id: issue.project?.id ?? '',
 				name: issue.project?.name ?? '',
 				resourceId: issue.project?.resourceId ?? '',
+				resourceName: issue.project?.namespace ?? '',
 			},
 			repository:
 				issue.repository?.owner?.login != null
@@ -885,7 +886,11 @@ export function toProviderPullRequest(pr: PullRequest): ProviderPullRequest {
 	};
 }
 
-export function fromProviderPullRequest(pr: ProviderPullRequest, integration: Integration): PullRequest {
+export function fromProviderPullRequest(
+	pr: ProviderPullRequest,
+	integration: Integration,
+	options?: { project?: IssueProject },
+): PullRequest {
 	return new PullRequest(
 		integration,
 		fromProviderAccount(pr.author),
@@ -898,6 +903,7 @@ export function fromProviderPullRequest(pr: ProviderPullRequest, integration: In
 			repo: pr.repository.name,
 			// This has to be here until we can take this information from ProviderPullRequest:
 			accessLevel: RepositoryAccessLevel.Write,
+			id: pr.repository.id,
 		},
 		fromProviderPullRequestState(pr.state),
 		pr.createdDate,
@@ -941,6 +947,7 @@ export function fromProviderPullRequest(pr: ProviderPullRequest, integration: In
 		pr.headCommit?.buildStatuses?.[0]?.state
 			? fromProviderBuildStatusState[pr.headCommit.buildStatuses[0].state]
 			: undefined,
+		options?.project,
 	);
 }
 
