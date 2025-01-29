@@ -25,13 +25,13 @@ import type {
 	Trello,
 } from '@gitkraken/provider-apis';
 import {
-	EntityIdentifierUtils,
 	GitBuildStatusState,
-	GitProviderUtils,
 	GitPullRequestMergeableState,
 	GitPullRequestReviewState,
 	GitPullRequestState,
 } from '@gitkraken/provider-apis';
+import { EntityIdentifierUtils } from '@gitkraken/provider-apis/entity-identifiers';
+import { GitProviderUtils } from '@gitkraken/provider-apis/provider-utils';
 import type { CloudSelfHostedIntegrationId, IntegrationId } from '../../../constants.integrations';
 import { HostingIntegrationId, IssueIntegrationId, SelfHostedIntegrationId } from '../../../constants.integrations';
 import type { Account as UserAccount } from '../../../git/models/author';

@@ -1,5 +1,5 @@
 import type { EntityIdentifier } from '@gitkraken/provider-apis';
-import { EntityIdentifierUtils } from '@gitkraken/provider-apis';
+import { EntityIdentifierUtils } from '@gitkraken/provider-apis/entity-identifiers';
 import type { Disposable } from 'vscode';
 import type { HeadersInit } from '@env/fetch';
 import { getAvatarUri } from '../../avatars';
