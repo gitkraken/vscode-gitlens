@@ -913,10 +913,10 @@ export class ViewCommands implements Disposable {
 				if (remoteUrl != null) {
 					const deepLink = getPullRequestBranchDeepLink(
 						this.container,
+						pr,
 						node.branch.getNameWithoutRemote(),
 						remoteUrl,
 						DeepLinkActionType.SwitchToPullRequestWorktree,
-						pr,
 					);
 
 					return this.container.deepLinks.processDeepLinkUri(deepLink, false, node.repo);
@@ -942,10 +942,10 @@ export class ViewCommands implements Disposable {
 
 			const deepLink = getPullRequestBranchDeepLink(
 				this.container,
+				pr,
 				pr.refs.head.branch,
 				repoIdentity.remote.url,
 				DeepLinkActionType.SwitchToPullRequestWorktree,
-				pr,
 			);
 
 			const prRepo = await getOrOpenPullRequestRepository(this.container, pr, {

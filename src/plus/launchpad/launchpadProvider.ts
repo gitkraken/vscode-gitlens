@@ -516,10 +516,10 @@ export class LaunchpadProvider implements Disposable {
 
 		return getPullRequestBranchDeepLink(
 			this.container,
+			item.underlyingPullRequest,
 			branchName,
 			item.repoIdentity.remote.url,
 			action,
-			item.underlyingPullRequest,
 		);
 	}
 
@@ -1061,10 +1061,10 @@ function ensureRemoteUrl(url: string) {
 
 export function getPullRequestBranchDeepLink(
 	container: Container,
+	pr: PullRequest,
 	headRefBranchName: string,
 	remoteUrl: string,
 	action?: DeepLinkActionType,
-	pr?: PullRequest,
 ): Uri {
 	const schemeOverride = configuration.get('deepLinks.schemeOverride');
 	const scheme = typeof schemeOverride === 'string' ? schemeOverride : env.uriScheme;
@@ -1075,11 +1075,10 @@ export function getPullRequestBranchDeepLink(
 	if (action) {
 		searchParams.set('action', action);
 	}
-	if (pr) {
-		searchParams.set('prId', pr.id);
-		searchParams.set('prTitle', pr.title);
-	}
-	if (pr?.refs) {
+
+	searchParams.set('prId', pr.id);
+	searchParams.set('prTitle', pr.title);
+	if (pr.refs) {
 		searchParams.set('prBaseRef', pr.refs.base.sha);
 		searchParams.set('prHeadRef', pr.refs.head.sha);
 	}
