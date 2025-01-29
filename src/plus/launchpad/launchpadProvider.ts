@@ -51,7 +51,12 @@ import {
 	getActionablePullRequests,
 	toProviderPullRequestWithUniqueId,
 } from '../integrations/providers/models';
-import { convertRemoteProviderIdToEnrichProvider, isEnrichableRemoteProviderId } from './enrichmentService';
+import {
+	convertIntegrationIdToEnrichProvider,
+	convertRemoteProviderIdToEnrichProvider,
+	isEnrichableIntegrationId,
+	isEnrichableRemoteProviderId,
+} from './enrichmentService';
 import type { EnrichableItem, EnrichedItem } from './models/enrichedItem';
 import type { LaunchpadAction, LaunchpadActionCategory, LaunchpadGroup } from './models/launchpad';
 import {
@@ -112,6 +117,7 @@ export const supportedLaunchpadIntegrations: (HostingIntegrationId | CloudSelfHo
 	SelfHostedIntegrationId.CloudGitHubEnterprise,
 	HostingIntegrationId.GitLab,
 	SelfHostedIntegrationId.CloudGitLabSelfHosted,
+	HostingIntegrationId.AzureDevOps,
 ];
 type SupportedLaunchpadIntegrationIds = (typeof supportedLaunchpadIntegrations)[number];
 function isSupportedLaunchpadIntegrationId(id: string): id is SupportedLaunchpadIntegrationIds {
@@ -725,7 +731,10 @@ export class LaunchpadProvider implements Disposable {
 
 				const providerId = pr.pullRequest.provider.id;
 
-				if (!isSupportedLaunchpadIntegrationId(providerId) || !isEnrichableRemoteProviderId(providerId)) {
+				if (
+					!isSupportedLaunchpadIntegrationId(providerId) ||
+					(!isEnrichableRemoteProviderId(providerId) && !isEnrichableIntegrationId(providerId))
+				) {
 					Logger.warn(`Unsupported provider ${providerId}`);
 					return undefined;
 				}
@@ -734,7 +743,10 @@ export class LaunchpadProvider implements Disposable {
 					type: 'pr',
 					id: providerPr.uuid,
 					url: pr.pullRequest.url,
-					provider: convertRemoteProviderIdToEnrichProvider(providerId),
+					provider:
+						providerId === HostingIntegrationId.AzureDevOps
+							? convertIntegrationIdToEnrichProvider(providerId)
+							: convertRemoteProviderIdToEnrichProvider(providerId),
 				} satisfies EnrichableItem;
 
 				const repoIdentity = getRepositoryIdentityForPullRequest(pr.pullRequest);
@@ -1070,7 +1082,7 @@ export function getPullRequestBranchDeepLink(
 	const scheme = typeof schemeOverride === 'string' ? schemeOverride : env.uriScheme;
 
 	const searchParams = new URLSearchParams({
-		url: ensureRemoteUrl(remoteUrl),
+		url: pr.provider.id !== HostingIntegrationId.AzureDevOps ? ensureRemoteUrl(remoteUrl) : remoteUrl,
 	});
 	if (action) {
 		searchParams.set('action', action);
