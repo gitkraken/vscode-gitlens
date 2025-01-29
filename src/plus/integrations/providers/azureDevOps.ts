@@ -255,11 +255,13 @@ export class AzureDevOpsIntegration extends HostingIntegration<
 	}
 
 	protected override async getProviderIssueOrPullRequest(
-		_session: AuthenticationSession,
-		_repo: AzureRepositoryDescriptor,
-		_id: string,
+		{ accessToken }: AuthenticationSession,
+		repo: AzureRepositoryDescriptor,
+		id: string,
 	): Promise<IssueOrPullRequest | undefined> {
-		return Promise.resolve(undefined);
+		return (await this.container.azure)?.getIssueOrPullRequest(this, accessToken, repo.owner, repo.name, id, {
+			baseUrl: this.apiBaseUrl,
+		});
 	}
 
 	protected override async getProviderIssue(
