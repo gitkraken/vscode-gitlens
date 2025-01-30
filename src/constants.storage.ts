@@ -87,6 +87,10 @@ export type GlobalStorage = {
 	[key in `gk:${string}:organizations`]: Stored<StoredOrganization[]>;
 } & { [key in `jira:${string}:organizations`]: Stored<StoredJiraOrganization[] | undefined> } & {
 	[key in `jira:${string}:projects`]: Stored<StoredJiraProject[] | undefined>;
+} & { [key in `azure:${string}:account`]: Stored<StoredAzureAccount | undefined> } & {
+	[key in `azure:${string}:organizations`]: Stored<StoredAzureOrganization[] | undefined>;
+} & {
+	[key in `azure:${string}:projects`]: Stored<StoredAzureProject[] | undefined>;
 };
 
 export type StoredIntegrationConfigurations = Record<string, StoredConfiguredIntegrationDescriptor[] | undefined>;
@@ -201,6 +205,28 @@ export interface StoredJiraProject {
 	id: string;
 	name: string;
 	resourceId: string;
+}
+
+export interface StoredAzureAccount {
+	id: string;
+	name: string | undefined;
+	username: string | undefined;
+	email: string | undefined;
+	avatarUrl: string | undefined;
+}
+
+export interface StoredAzureOrganization {
+	key: string;
+	id: string;
+	name: string;
+}
+
+export interface StoredAzureProject {
+	key: string;
+	id: string;
+	name: string;
+	resourceId: string;
+	resourceName: string;
 }
 
 export interface StoredAvatar {
