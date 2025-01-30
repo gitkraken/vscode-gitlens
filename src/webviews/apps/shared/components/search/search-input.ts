@@ -394,7 +394,6 @@ export class GlSearchInput extends GlElement {
 				<div class="controls controls__start">
 					<gl-button
 						appearance="input"
-						role="checkbox"
 						aria-checked="${this.filter}"
 						tooltip="Filter Commits"
 						aria-label="Filter Commits"
@@ -547,7 +546,6 @@ export class GlSearchInput extends GlElement {
 				</gl-button>
 				<gl-button
 					appearance="input"
-					role="checkbox"
 					aria-checked="${this.matchAll}"
 					tooltip="Match All"
 					aria-label="Match All"
@@ -558,7 +556,6 @@ export class GlSearchInput extends GlElement {
 				</gl-button>
 				<gl-button
 					appearance="input"
-					role="checkbox"
 					aria-checked="${this.matchCaseOverride}"
 					tooltip="Match Case${this.matchCaseOverride && !this.matchCase
 						? ' (always on without regular expressions)'
@@ -574,7 +571,6 @@ export class GlSearchInput extends GlElement {
 				</gl-button>
 				<gl-button
 					appearance="input"
-					role="checkbox"
 					aria-checked="${this.matchRegex}"
 					tooltip="Use Regular Expression"
 					aria-label="Use Regular Expression"

@@ -339,14 +339,9 @@ button:not([disabled]),
 	}
 
 	&__indicator {
-		position: absolute;
-		bottom: 0.2rem;
-		right: 1.5rem;
-		display: block;
-		width: 0.8rem;
-		height: 0.8rem;
-		border-radius: 100%;
-		background-color: var(--vscode-progressBar-background);
+		margin-left: -0.2rem;
+		--gl-indicator-color: green;
+		--gl-indicator-size: 0.4rem;
 	}
 
 	&__small {
@@ -934,6 +929,18 @@ gl-feature-gate gl-feature-badge {
 	vertical-align: super;
 	margin-left: 0.4rem;
 	margin-right: 0.4rem;
+}
+
+gl-graph-app-wc {
+	display: flex;
+	flex-direction: column;
+	height: 100%;
+	overflow: hidden;
+}
+
+gl-graph-wrapper,
+web-graph {
+	display: contents;
 }
 
 .graph-app {

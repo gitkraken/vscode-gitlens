@@ -24,7 +24,12 @@
 		data-placement="#{placement}"
 		data-vscode-context='{ "preventDefaultContextMenuItems": true, "webview": "#{webviewId}", "webviewInstance": "#{webviewInstanceId}" }'
 	>
-		<div id="root" class="graph-app__container"></div>
+		<gl-graph-app
+			class="graph-app__container"
+			name="GraphView"
+			placement="#{placement}"
+			bootstrap="#{state}"
+		></gl-graph-app>
 		#{endOfBody}
 	</body>
 </html>

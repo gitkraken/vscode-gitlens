@@ -1,5 +1,6 @@
-import { signal } from '@lit-labs/signals';
+import { Signal, signal } from '@lit-labs/signals';
 import { AsyncComputed } from 'signal-utils/async-computed';
+import { signalObject } from 'signal-utils/object';
 import type { Deferrable } from '../../../../system/function';
 import { debounce } from '../../../../system/function';
 
@@ -116,3 +117,46 @@ export class AsyncComputedState<T, R = unknown> {
 		return renderAsyncComputed(this.computed, config);
 	}
 }
+
+export function signalState<T>(initialValue?: T) {
+	return (_target: any, _fieldName: string, targetFields: { get?: () => T; set?: (v: T) => void }) => {
+		if (targetFields.get && targetFields.set) {
+			const signal = new Signal.State(initialValue);
+			// eslint-disable-next-line @typescript-eslint/no-unsafe-return
+			return {
+				get: function () {
+					return signal.get();
+				},
+				set: function (value: any) {
+					signal.set(value);
+				},
+			} as any;
+		}
+		throw new Error(`@signal can only be used on accessors or getters`);
+	};
+}
+
+export const signalObjectState = <T extends Record<PropertyKey, unknown> | undefined>(
+	initialValue?: T,
+	options: { afterChange?: (target: any, value: T) => void } = {},
+) => {
+	return (target: any, _fieldName: string, targetFields: { get?: () => T; set?: (v: T) => void }) => {
+		if (targetFields.get && targetFields.set) {
+			const signal = signalObject(initialValue);
+			// eslint-disable-next-line @typescript-eslint/no-unsafe-return
+			return {
+				get: function () {
+					// I don't return {...signal} for optimization purpose
+					return signal;
+				},
+				set: function (value: any) {
+					Object.entries(value).forEach(([key, value]) => {
+						signal[key] = value;
+					});
+					options.afterChange?.(target, value);
+				},
+			} as any;
+		}
+		throw new Error(`@signal can only be used on accessors or getters`);
+	};
+};

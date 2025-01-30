@@ -17,13 +17,12 @@ import { createCommandLink } from '../../../../../system/commands';
 import { pluralize } from '../../../../../system/string';
 import type { State } from '../../../../home/protocol';
 import { stateContext } from '../../../home/context';
-import type { GlPopover } from '../../../shared/components/overlays/popover.react';
-import { elementBase, linkBase } from '../../../shared/components/styles/lit/base.css';
-import { chipStyles } from './chipStyles';
 import '../../../shared/components/button';
 import '../../../shared/components/button-container';
 import '../../../shared/components/code-icon';
-import '../../../shared/components/overlays/popover';
+import type { GlPopover } from '../../../shared/components/overlays/popover';
+import { elementBase, linkBase } from '../../../shared/components/styles/lit/base.css';
+import { chipStyles } from './chipStyles';
 
 @customElement('gl-account-chip')
 export class GLAccountChip extends LitElement {
@@ -224,14 +223,14 @@ export class GLAccountChip extends LitElement {
 	];
 
 	@query('#chip')
-	private _chip!: HTMLElement;
+	private readonly _chip!: HTMLElement;
 
 	@query('gl-popover')
-	private _popover!: GlPopover;
+	private readonly _popover!: GlPopover;
 
 	@consume<State>({ context: stateContext, subscribe: true })
 	@state()
-	private _state!: State;
+	private readonly _state!: State;
 
 	private get accountAvatar() {
 		return this.hasAccount && this._state.avatar;

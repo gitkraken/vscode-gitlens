@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useEffect, useState } from 'react';
 import { fromNow } from '../../../../../system/date';
 import type { BranchState, State } from '../../../../plus/graph/protocol';
 import { FetchButton } from './fetchButton';
@@ -18,7 +18,25 @@ export const GitActionsButtons = ({
 	const remote = branchState?.upstream ? <span className="md-code">{branchState?.upstream}</span> : 'remote';
 
 	const lastFetchedDate = lastFetched && new Date(lastFetched);
-	const fetchedText = lastFetchedDate && lastFetchedDate.getTime() !== 0 ? fromNow(lastFetchedDate) : undefined;
+	const [fetchedText, setFetchedText] = useState(
+		lastFetchedDate && lastFetchedDate.getTime() !== 0 ? fromNow(lastFetchedDate) : undefined,
+	);
+	useEffect(() => {
+		if (!lastFetchedDate) {
+			return;
+		}
+		const deltaSeconds = (new Date().getTime() - lastFetchedDate.getTime()) / 1000;
+		const delay = deltaSeconds < 60 ? 1000 : deltaSeconds < 60 * 60 ? 60000 : undefined;
+		if (!delay) {
+			return;
+		}
+		const timeout = setTimeout(() => {
+			setFetchedText(fromNow(lastFetchedDate));
+		}, delay);
+		return () => {
+			clearTimeout(timeout);
+		};
+	}, [lastFetchedDate]);
 
 	return (
 		<>
