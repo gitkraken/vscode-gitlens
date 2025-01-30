@@ -281,7 +281,16 @@ export class AzureDevOpsIntegration extends HostingIntegration<
 			include?: PullRequestState[];
 		},
 	): Promise<PullRequest | undefined> {
-		return Promise.resolve(undefined);
+		return (await this.container.azure)?.getPullRequestForBranch(
+			this,
+			_session.accessToken,
+			_repo.owner,
+			_repo.name,
+			_branch,
+			{
+				baseUrl: this.apiBaseUrl,
+			},
+		);
 	}
 
 	protected override async getProviderPullRequestForCommit(

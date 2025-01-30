@@ -257,6 +257,10 @@ export interface AzurePullRequest {
 	lastMergeTargetCommit: AzureGitCommitRef;
 	reviewers: AzureUserWithVote[];
 	url: string;
+	supportsIterations: boolean;
+}
+
+export interface AzurePullRequestWithLinks extends AzurePullRequest {
 	_links: {
 		self: AzureLink;
 		repository: AzureLink;
@@ -269,7 +273,6 @@ export interface AzurePullRequest {
 		createdBy: AzureLink;
 		iterations: AzureLink;
 	};
-	supportsIterations: boolean;
 	artifactId: string;
 	autoCompleteSetBy?: AzureUser;
 	commits?: AzureGitCommitRef[];

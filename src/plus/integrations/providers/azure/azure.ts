@@ -14,6 +14,7 @@ import {
 	RequestNotFoundError,
 } from '../../../../errors';
 import type { IssueOrPullRequest } from '../../../../git/models/issueOrPullRequest';
+import { PullRequest } from '../../../../git/models/pullRequest';
 import type { Provider } from '../../../../git/models/remoteProvider';
 import { showIntegrationRequestFailed500WarningMessage } from '../../../../messages';
 import { configuration } from '../../../../system/-webview/configuration';
@@ -22,7 +23,13 @@ import { Logger } from '../../../../system/logger';
 import type { LogScope } from '../../../../system/logger.scope';
 import { getLogScope } from '../../../../system/logger.scope';
 import { maybeStopWatch } from '../../../../system/stopwatch';
-import type { AzurePullRequest, AzureWorkItemState, AzureWorkItemStateCategory, WorkItem } from './models';
+import type {
+	AzurePullRequest,
+	AzurePullRequestWithLinks,
+	AzureWorkItemState,
+	AzureWorkItemStateCategory,
+	WorkItem,
+} from './models';
 import {
 	azurePullRequestStatusToState,
 	azureWorkItemsStateCategoryToState,
@@ -63,6 +70,61 @@ export class AzureDevOpsApi implements Disposable {
 	private resetCaches(): void {
 		this._proxyAgent = null;
 		this._workItemStates.clear();
+	}
+
+	@debug<AzureDevOpsApi['getPullRequestForBranch']>({ args: { 0: p => p.name, 1: '<token>' } })
+	public async getPullRequestForBranch(
+		provider: Provider,
+		token: string,
+		owner: string,
+		repo: string,
+		branch: string,
+		options: {
+			baseUrl: string;
+		},
+	): Promise<PullRequest | undefined> {
+		const scope = getLogScope();
+		const [projectName, _, repoName] = repo.split('/');
+
+		try {
+			const prResult = await this.request<{ value: AzurePullRequest[] }>(
+				provider,
+				token,
+				options?.baseUrl,
+				`${owner}/${projectName}/_apis/git/repositories/${repoName}/pullRequests`,
+				{
+					method: 'GET',
+				},
+				scope,
+			);
+
+			const pr = prResult?.value.find(pr => pr.sourceRefName.endsWith(branch));
+			if (pr == null) return undefined;
+
+			return new PullRequest(
+				provider,
+				{
+					id: pr.createdBy.id,
+					name: pr.createdBy.displayName,
+					avatarUrl: pr.createdBy.imageUrl,
+					url: pr.createdBy.url,
+				},
+				pr.pullRequestId.toString(),
+				pr.pullRequestId.toString(),
+				pr.title,
+				getPullRequestUrl(options.baseUrl, owner, projectName, repoName, pr.pullRequestId),
+				{
+					owner: owner,
+					repo: repo,
+				},
+				azurePullRequestStatusToState(pr.status),
+				new Date(pr.creationDate),
+				new Date(pr.creationDate),
+			);
+		} catch (ex) {
+			Logger.error(ex, scope);
+			return undefined;
+		}
 	}
 
 	@debug<AzureDevOpsApi['getIssueOrPullRequest']>({ args: { 0: p => p.name, 1: '<token>' } })
@@ -126,7 +188,7 @@ export class AzureDevOpsApi implements Disposable {
 		}
 
 		try {
-			const prResult = await this.request<AzurePullRequest>(
+			const prResult = await this.request<AzurePullRequestWithLinks>(
 				provider,
 				token,
 				options?.baseUrl,
