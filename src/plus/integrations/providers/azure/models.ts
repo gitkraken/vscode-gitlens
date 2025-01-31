@@ -133,6 +133,19 @@ export interface AzureProject {
 	lastUpdateTime: string;
 }
 
+export type AzureProjectState = 'createPending' | 'deleted' | 'deleting' | 'new' | 'unchanged' | 'wellFormed';
+export type AzureProjectVisibility = 'private' | 'public';
+
+export interface AzureProject {
+	id: string;
+	name: string;
+	url: string;
+	state: AzureProjectState;
+	revision: number;
+	visibility: AzureProjectVisibility;
+	lastUpdateTime: string;
+}
+
 export interface AzureRepository {
 	id: string;
 	name: string;
