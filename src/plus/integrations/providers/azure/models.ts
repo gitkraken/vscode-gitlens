@@ -37,6 +37,29 @@ export interface AzureUser {
 	descriptor: string;
 }
 
+export interface AzureUserWithVote extends AzureUser {
+	isFlagged: boolean;
+	isReapprove: boolean;
+	isRequired: boolean;
+}
+
+export interface AzureWorkItemCommentVersionRef {
+	commentId: number;
+	createdInRevision: number;
+	isDeleted: boolean;
+	text: string;
+	url: string;
+	version: number;
+}
+
+export interface AzureWorkItemRelation {
+	attributes: {
+		[key: string]: string;
+	};
+	relation: string;
+	url: string;
+}
+
 export interface WorkItem {
 	_links: {
 		fields: AzureLink;
@@ -68,6 +91,8 @@ export interface WorkItem {
 	id: number;
 	rev: number;
 	url: string;
+	commentVersionRef?: AzureWorkItemCommentVersionRef;
+	relations?: AzureWorkItemRelation[];
 }
 
 export interface AzureWorkItemState {
@@ -119,6 +144,100 @@ export interface AzureRepository {
 	isInMaintenance: boolean;
 }
 
+export type AzureProjectState = 'createPending' | 'deleted' | 'deleting' | 'new' | 'unchanged' | 'wellFormed';
+export type AzureProjectVisibility = 'private' | 'public';
+
+export interface AzureProject {
+	id: string;
+	name: string;
+	url: string;
+	state: AzureProjectState;
+	revision: number;
+	visibility: AzureProjectVisibility;
+	lastUpdateTime: string;
+}
+
+export interface AzureRepository {
+	id: string;
+	name: string;
+	url: string;
+	project: AzureProject;
+	size: number;
+	remoteUrl: string;
+	sshUrl: string;
+	webUrl: string;
+	isDisabled: boolean;
+	isInMaintenance: boolean;
+}
+
+export interface AzureGitCommitRef {
+	commitId: string;
+	url: string;
+}
+
+export interface AzureResourceRef {
+	id: string;
+	url: string;
+}
+
+export interface AzurePullRequestCompletionOptions {
+	autoCompleteIgnoreConflicts: number[];
+	bypassPolicy: boolean;
+	bypassReason: string;
+	deleteSourceBranch: boolean;
+	mergeCommitMessage: string;
+	mergeStrategy: 'noFastForward' | 'rebase' | 'rebaseMerge' | 'squash';
+	squashMerge: boolean;
+	transitionWorkItems: boolean;
+	triggeredByAutoComplete: boolean;
+}
+
+export interface AzureGitStatus {
+	context: {
+		name: string;
+		genre: string;
+	};
+	createdBy: AzureUser;
+	createDate: string;
+	description: string;
+	state: 'error' | 'failed' | 'notApplicable' | 'notSet' | 'pending' | 'succeeded';
+	targetUrl: string;
+	updateDate: string;
+}
+
+export interface AzureGitForkRef {
+	creator: AzureUser;
+	isLocked: boolean;
+	isLockedBy: AzureUser;
+	name: string;
+	objectId: string;
+	peeledObjectId: string;
+	repository: AzureRepository;
+	statuses: AzureGitStatus[];
+	url: string;
+}
+
+export interface AzureWebApiTagDefinition {
+	active: boolean;
+	id: string;
+	name: string;
+	url: string;
+}
+
+export interface AzureGitPullRequestMergeOptions {
+	conflictAuthorshipCommits: boolean;
+	detectRenameFalsePositives: boolean;
+	disableRenames: boolean;
+}
+
+export type AzurePullRequestAsyncStatus =
+	| 'conflicts'
+	| 'failure'
+	| 'notSet'
+	| 'queued'
+	| 'rejectedByPolicy'
+	| 'succeeded';
+
 export interface AzurePullRequest {
 	repository: AzureRepository;
 	pullRequestId: number;
@@ -126,22 +245,17 @@ export interface AzurePullRequest {
 	status: AzurePullRequestStatus;
 	createdBy: AzureUser;
 	creationDate: string;
-	closedDate: string;
+	closedDate?: string;
+	closedBy?: AzureUser; // Can be missed even if closedDate is presented.
 	title: string;
 	description: string;
 	sourceRefName: string;
 	targetRefName: string;
 	isDraft: boolean;
 	mergeId: string;
-	lastMergeSourceCommit: {
-		commitId: string;
-		url: string;
-	};
-	lastMergeTargetCommit: {
-		commitId: string;
-		url: string;
-	};
-	reviewers: unknown[];
+	lastMergeSourceCommit: AzureGitCommitRef;
+	lastMergeTargetCommit: AzureGitCommitRef;
+	reviewers: AzureUserWithVote[];
 	url: string;
 	_links: {
 		self: AzureLink;
@@ -157,6 +271,20 @@ export interface AzurePullRequest {
 	};
 	supportsIterations: boolean;
 	artifactId: string;
+	autoCompleteSetBy?: AzureUser;
+	commits?: AzureGitCommitRef[];
+	completionOptions?: AzurePullRequestCompletionOptions;
+	completionQueueTime?: string;
+	forkSource?: AzureGitForkRef;
+	hasMultipleMergeBases?: boolean;
+	labels?: AzureWebApiTagDefinition[];
+	lastMergeCommit?: AzureGitCommitRef;
+	mergeFailureMessage?: string;
+	mergeFailureType?: 'caseSensitive' | 'none' | 'objectTooLarge' | 'unknown';
+	mergeOptions?: AzureGitPullRequestMergeOptions;
+	mergeStatus?: AzurePullRequestAsyncStatus;
+	remoteUrl?: string;
+	workItemRefs?: AzureResourceRef[];
 }
 export function getAzureDevOpsOwner(url: URL): string {
 	return url.pathname.split('/')[1];
