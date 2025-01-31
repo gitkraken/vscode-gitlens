@@ -26,7 +26,7 @@ import type { AzurePullRequest, AzureWorkItemState, AzureWorkItemStateCategory, 
 import {
 	azurePullRequestStatusToState,
 	azureWorkItemsStateCategoryToState,
-	getPullRequestUrl,
+	getAzurePullRequestWebUrl,
 	isClosedAzurePullRequestStatus,
 	isClosedAzureWorkItemStateCategory,
 } from './models';
@@ -148,7 +148,7 @@ export class AzureDevOpsApi implements Disposable {
 					state: azurePullRequestStatusToState(prResult.status),
 					closed: isClosedAzurePullRequestStatus(prResult.status),
 					title: prResult.title,
-					url: getPullRequestUrl(options.baseUrl, owner, projectName, repoName, prResult.pullRequestId),
+					url: getAzurePullRequestWebUrl(prResult),
 				};
 			}
 

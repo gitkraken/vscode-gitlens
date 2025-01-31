@@ -93,18 +93,34 @@ export function isClosedAzurePullRequestStatus(status: AzurePullRequestStatus): 
 	return azurePullRequestStatusToState(status) !== 'opened';
 }
 
-export function getPullRequestUrl(
-	baseUrl: string,
-	owner: string,
-	projectName: string,
-	repoName: string,
-	pullRequestId: number,
-): string {
-	return `${baseUrl}/${owner}/${projectName}/_git/${repoName}/pullrequest/${pullRequestId}`;
+export type AzureProjectState = 'createPending' | 'deleted' | 'deleting' | 'new' | 'unchanged' | 'wellFormed';
+export type AzureProjectVisibility = 'private' | 'public';
+
+export interface AzureProject {
+	id: string;
+	name: string;
+	url: string;
+	state: AzureProjectState;
+	revision: number;
+	visibility: AzureProjectVisibility;
+	lastUpdateTime: string;
+}
+
+export interface AzureRepository {
+	id: string;
+	name: string;
+	url: string;
+	project: AzureProject;
+	size: number;
+	remoteUrl: string;
+	sshUrl: string;
+	webUrl: string;
+	isDisabled: boolean;
+	isInMaintenance: boolean;
 }
 
 export interface AzurePullRequest {
-	repository: unknown;
+	repository: AzureRepository;
 	pullRequestId: number;
 	codeReviewId: number;
 	status: AzurePullRequestStatus;
@@ -141,4 +157,22 @@ export interface AzurePullRequest {
 	};
 	supportsIterations: boolean;
 	artifactId: string;
+}
+export function getAzureDevOpsOwner(url: URL): string {
+	return url.pathname.split('/')[1];
+}
+export function getAzureRepo(pr: AzurePullRequest): string {
+	return `${pr.repository.project.name}/_git/${pr.repository.name}`;
+}
+
+export function getAzurePullRequestWebUrl(pr: AzurePullRequest): string {
+	const url = new URL(pr.url);
+	const baseUrl = new URL(url.origin).toString();
+	const repoPath = getAzureRepo(pr);
+	const isVSTS = url.hostname.endsWith('visualstudio.com');
+	if (isVSTS) {
+		return `${baseUrl}/${repoPath}/pullrequest/${pr.pullRequestId}`;
+	}
+	const owner = getAzureDevOpsOwner(url);
+	return `${baseUrl}/${owner}/${repoPath}/pullrequest/${pr.pullRequestId}`;
 }
