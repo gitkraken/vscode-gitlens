@@ -46,6 +46,7 @@ export interface IntegrationDescriptor {
 	name: string;
 	icon: string;
 	supports: IntegrationFeatures[];
+	requiresPro: boolean;
 }
 export const supportedCloudIntegrationDescriptors: IntegrationDescriptor[] = [
 	{
@@ -53,35 +54,41 @@ export const supportedCloudIntegrationDescriptors: IntegrationDescriptor[] = [
 		name: 'GitHub',
 		icon: 'gl-provider-github',
 		supports: ['prs', 'issues'],
+		requiresPro: false,
 	},
 	{
 		id: SelfHostedIntegrationId.CloudGitHubEnterprise,
 		name: 'GitHub Enterprise',
 		icon: 'gl-provider-github',
 		supports: ['prs', 'issues'],
+		requiresPro: true,
 	},
 	{
 		id: HostingIntegrationId.GitLab,
 		name: 'GitLab',
 		icon: 'gl-provider-gitlab',
 		supports: ['prs', 'issues'],
+		requiresPro: false,
 	},
 	{
 		id: SelfHostedIntegrationId.CloudGitLabSelfHosted,
 		name: 'GitLab Self-Managed',
 		icon: 'gl-provider-gitlab',
 		supports: ['prs', 'issues'],
+		requiresPro: true,
 	},
 	{
 		id: HostingIntegrationId.AzureDevOps,
 		name: 'Azure DevOps',
 		icon: 'gl-provider-azdo',
 		supports: ['prs', 'issues'],
+		requiresPro: true,
 	},
 	{
 		id: IssueIntegrationId.Jira,
 		name: 'Jira',
 		icon: 'gl-provider-jira',
 		supports: ['issues'],
+		requiresPro: true,
 	},
 ];
