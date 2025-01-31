@@ -7,7 +7,10 @@ import type {
 } from '../../../../../commands/cloudIntegrations';
 import type { IntegrationFeatures } from '../../../../../constants.integrations';
 import type { Source } from '../../../../../constants.telemetry';
-import { hasAccountFromSubscriptionState } from '../../../../../plus/gk/utils/subscription.utils';
+import {
+	hasAccountFromSubscriptionState,
+	isSubscriptionStatePaidOrTrial,
+} from '../../../../../plus/gk/utils/subscription.utils';
 import { createCommandLink } from '../../../../../system/commands';
 import type { IntegrationState, State } from '../../../../home/protocol';
 import { stateContext } from '../../../home/context';
@@ -18,6 +21,7 @@ import '../../../shared/components/button-container';
 import '../../../shared/components/code-icon';
 import '../../../shared/components/overlays/popover';
 import '../../../shared/components/overlays/tooltip';
+import '../../../shared/components/feature-badge';
 
 @customElement('gl-integrations-chip')
 export class GLIntegrationsChip extends LitElement {
@@ -67,11 +71,7 @@ export class GLIntegrationsChip extends LitElement {
 				color: var(--color-foreground--25);
 			}
 
-			.status--connected .status-indicator {
-				color: var(--status-color--connected);
-			}
-
-			.status--connected .status-indicator {
+			.status--connected:not(.is-locked) .status-indicator {
 				color: var(--status-color--connected);
 			}
 
@@ -96,16 +96,21 @@ export class GLIntegrationsChip extends LitElement {
 				color: var(--color-foreground--25);
 			}
 
-			.status--disconnected .integration__title {
-				color: var(--color-foreground--50);
+			.integration__title {
+				display: block;
+			}
+
+			.integration__title gl-feature-badge {
+				vertical-align: super;
 			}
 
 			.integration__details {
-				display: flex;
+				display: block;
 				color: var(--color-foreground--75);
 				font-size: 1rem;
 			}
 
+			.status--disconnected .integration__title,
 			.status--disconnected .integration__details {
 				color: var(--color-foreground--50);
 			}
@@ -139,6 +144,10 @@ export class GLIntegrationsChip extends LitElement {
 
 	private get hasAccount() {
 		return hasAccountFromSubscriptionState(this._state.subscription?.state);
+	}
+
+	private get isProAccount() {
+		return isSubscriptionStatePaidOrTrial(this._state.subscription?.state);
 	}
 
 	private get hasConnectedIntegrations() {
@@ -213,6 +222,15 @@ export class GLIntegrationsChip extends LitElement {
 	}
 
 	private renderIntegrationStatus(integration: IntegrationState, anyConnected: boolean) {
+		if (integration.requiresPro && !this.isProAccount) {
+			return html`<span
+				class="integration status--${integration.connected ? 'connected' : 'disconnected'} is-locked"
+				slot="anchor"
+				><code-icon icon="${integration.icon}"></code-icon
+				><code-icon class="status-indicator" icon="lock" size="12"></code-icon
+			></span>`;
+		}
+
 		return html`<span
 			class="integration status--${integration.connected ? 'connected' : 'disconnected'}"
 			slot="anchor"
@@ -227,30 +245,54 @@ export class GLIntegrationsChip extends LitElement {
 	}
 
 	private renderIntegrationRow(integration: IntegrationState) {
-		return html`<div class="integration-row status--${integration.connected ? 'connected' : 'disconnected'}">
+		const shouldLock = integration.requiresPro && !this.isProAccount;
+		return html`<div
+			class="integration-row status--${integration.connected ? 'connected' : 'disconnected'}${shouldLock
+				? ' is-locked'
+				: ''}"
+		>
 			<span slot="anchor"><code-icon class="integration__icon" icon="${integration.icon}"></code-icon></span>
 			<span>
-				<span class="integration__title">${integration.name}</span>
+				<span class="integration__title">
+					${integration.name}
+					${shouldLock
+						? html` <gl-feature-badge
+								placement="right"
+								.source=${{ source: 'account', detail: 'integrations' }}
+								cloud
+						  ></gl-feature-badge>`
+						: nothing}
+				</span>
 				<span class="integration__details">${getIntegrationDetails(integration)}</span>
 			</span>
 			<span class="integration__actions">
-				${integration.connected
-					? html`<gl-tooltip class="status-indicator status--connected" placement="bottom" content="Connected"
-							><code-icon class="status-indicator" icon="check"></code-icon
+				${shouldLock
+					? html`<gl-tooltip
+							class="status-indicator status--disconnected"
+							placement="bottom"
+							content="Unlock ${integration.name} features with GitLens Pro"
+							><code-icon class="status-indicator" icon="lock"></code-icon
 					  ></gl-tooltip>`
-					: html`<gl-button
-							appearance="toolbar"
-							href="${createCommandLink<ConnectCloudIntegrationsCommandArgs>(
-								'gitlens.plus.cloudIntegrations.connect',
-								{
-									integrationIds: [integration.id],
-									source: 'account',
-								},
-							)}"
-							tooltip="Connect ${integration.name}"
-							aria-label="Connect ${integration.name}"
-							><code-icon icon="plug"></code-icon
-					  ></gl-button>`}
+					: integration.connected
+					  ? html`<gl-tooltip
+								class="status-indicator status--connected"
+								placement="bottom"
+								content="Connected"
+								><code-icon class="status-indicator" icon="check"></code-icon
+					    ></gl-tooltip>`
+					  : html`<gl-button
+								appearance="toolbar"
+								href="${createCommandLink<ConnectCloudIntegrationsCommandArgs>(
+									'gitlens.plus.cloudIntegrations.connect',
+									{
+										integrationIds: [integration.id],
+										source: 'account',
+									},
+								)}"
+								tooltip="Connect ${integration.name}"
+								aria-label="Connect ${integration.name}"
+								><code-icon icon="plug"></code-icon
+					    ></gl-button>`}
 			</span>
 		</div>`;
 	}

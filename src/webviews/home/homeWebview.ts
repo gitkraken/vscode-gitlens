@@ -1006,6 +1006,9 @@ export class HomeWebviewProvider implements WebviewProvider<State, State, HomeWe
 									: providersMetadata[i.integrationId].type === 'issues'
 									  ? ['issues']
 									  : [],
+							requiresPro:
+								supportedCloudIntegrationDescriptors.find(item => item.id === i.integrationId)
+									?.requiresPro ?? false,
 					  } satisfies IntegrationState)
 					: undefined,
 			);
