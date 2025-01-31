@@ -475,6 +475,8 @@ export class DraftService implements Disposable {
 
 		const drafts = ((await rsp.json()) as Result).data;
 
+		if (drafts.length === 0) return [];
+
 		const [subscriptionResult, membersResult] = await Promise.allSettled([
 			this.container.subscription.getSubscription(),
 			this.container.organizations.getMembers(),
