@@ -223,24 +223,24 @@ export class GlCommitDetails extends GlDetailsBase {
 
 		if (this.state?.autolinkedIssues != null) {
 			for (const issue of this.state.autolinkedIssues) {
-				deduped.set(issue.id, { type: 'issue', value: issue });
 				if (issue.url != null) {
 					const autoLinkId = autolinkIdsByUrl.get(issue.url);
 					if (autoLinkId != null) {
 						deduped.delete(autoLinkId);
 					}
 				}
+				deduped.set(issue.id, { type: 'issue', value: issue });
 			}
 		}
 
 		if (this.state?.pullRequest != null) {
-			deduped.set(this.state.pullRequest.id, { type: 'pr', value: this.state.pullRequest });
 			if (this.state.pullRequest.url != null) {
 				const autoLinkId = autolinkIdsByUrl.get(this.state.pullRequest.url);
 				if (autoLinkId != null) {
 					deduped.delete(autoLinkId);
 				}
 			}
+			deduped.set(this.state.pullRequest.id, { type: 'pr', value: this.state.pullRequest });
 		}
 
 		const autolinks: Serialized<Autolink>[] = [];
