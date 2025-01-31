@@ -1,4 +1,6 @@
 import type { IssueOrPullRequestState } from '../../../../git/models/issueOrPullRequest';
+import { PullRequest } from '../../../../git/models/pullRequest';
+import type { Provider } from '../../../../git/models/remoteProvider';
 
 export type AzureWorkItemStateCategory = 'Proposed' | 'InProgress' | 'Resolved' | 'Completed' | 'Removed';
 
@@ -116,32 +118,6 @@ export function azurePullRequestStatusToState(status: AzurePullRequestStatus): I
 }
 export function isClosedAzurePullRequestStatus(status: AzurePullRequestStatus): boolean {
 	return azurePullRequestStatusToState(status) !== 'opened';
-}
-
-export type AzureProjectState = 'createPending' | 'deleted' | 'deleting' | 'new' | 'unchanged' | 'wellFormed';
-export type AzureProjectVisibility = 'private' | 'public';
-
-export interface AzureProject {
-	id: string;
-	name: string;
-	url: string;
-	state: AzureProjectState;
-	revision: number;
-	visibility: AzureProjectVisibility;
-	lastUpdateTime: string;
-}
-
-export interface AzureRepository {
-	id: string;
-	name: string;
-	url: string;
-	project: AzureProject;
-	size: number;
-	remoteUrl: string;
-	sshUrl: string;
-	webUrl: string;
-	isDisabled: boolean;
-	isInMaintenance: boolean;
 }
 
 export type AzureProjectState = 'createPending' | 'deleted' | 'deleting' | 'new' | 'unchanged' | 'wellFormed';
@@ -289,9 +265,18 @@ export interface AzurePullRequestWithLinks extends AzurePullRequest {
 	remoteUrl?: string;
 	workItemRefs?: AzureResourceRef[];
 }
+
+export function getVSTSOwner(url: URL): string {
+	return url.hostname.split('.')[0];
+}
 export function getAzureDevOpsOwner(url: URL): string {
 	return url.pathname.split('/')[1];
 }
+export function getAzureOwner(url: URL): string {
+	const isVSTS = url.hostname.endsWith('visualstudio.com');
+	return isVSTS ? getVSTSOwner(url) : getAzureDevOpsOwner(url);
+}
+
 export function getAzureRepo(pr: AzurePullRequest): string {
 	return `${pr.repository.project.name}/_git/${pr.repository.name}`;
 }
@@ -306,4 +291,28 @@ export function getAzurePullRequestWebUrl(pr: AzurePullRequest): string {
 	}
 	const owner = getAzureDevOpsOwner(url);
 	return `${baseUrl}/${owner}/${repoPath}/pullrequest/${pr.pullRequestId}`;
+}
+
+export function fromAzurePullRequest(pr: AzurePullRequest, provider: Provider): PullRequest {
+	const url = new URL(pr.url);
+	return new PullRequest(
+		provider,
+		{
+			id: pr.createdBy.id,
+			name: pr.createdBy.displayName,
+			avatarUrl: pr.createdBy.imageUrl,
+			url: pr.createdBy.url,
+		},
+		pr.pullRequestId.toString(),
+		pr.pullRequestId.toString(),
+		pr.title,
+		getAzurePullRequestWebUrl(pr),
+		{
+			owner: getAzureOwner(url),
+			repo: getAzureRepo(pr),
+		},
+		azurePullRequestStatusToState(pr.status),
+		new Date(pr.creationDate),
+		new Date(pr.creationDate),
+	);
 }

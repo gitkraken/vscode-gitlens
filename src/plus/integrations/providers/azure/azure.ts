@@ -14,7 +14,7 @@ import {
 	RequestNotFoundError,
 } from '../../../../errors';
 import type { IssueOrPullRequest } from '../../../../git/models/issueOrPullRequest';
-import { PullRequest } from '../../../../git/models/pullRequest';
+import type { PullRequest } from '../../../../git/models/pullRequest';
 import type { Provider } from '../../../../git/models/remoteProvider';
 import { showIntegrationRequestFailed500WarningMessage } from '../../../../messages';
 import { configuration } from '../../../../system/-webview/configuration';
@@ -33,6 +33,7 @@ import type {
 import {
 	azurePullRequestStatusToState,
 	azureWorkItemsStateCategoryToState,
+	fromAzurePullRequest,
 	getAzurePullRequestWebUrl,
 	isClosedAzurePullRequestStatus,
 	isClosedAzureWorkItemStateCategory,
@@ -101,26 +102,7 @@ export class AzureDevOpsApi implements Disposable {
 			const pr = prResult?.value.find(pr => pr.sourceRefName.endsWith(branch));
 			if (pr == null) return undefined;
 
-			return new PullRequest(
-				provider,
-				{
-					id: pr.createdBy.id,
-					name: pr.createdBy.displayName,
-					avatarUrl: pr.createdBy.imageUrl,
-					url: pr.createdBy.url,
-				},
-				pr.pullRequestId.toString(),
-				pr.pullRequestId.toString(),
-				pr.title,
-				getPullRequestUrl(options.baseUrl, owner, projectName, repoName, pr.pullRequestId),
-				{
-					owner: owner,
-					repo: repo,
-				},
-				azurePullRequestStatusToState(pr.status),
-				new Date(pr.creationDate),
-				new Date(pr.creationDate),
-			);
+			return fromAzurePullRequest(pr, provider);
 		} catch (ex) {
 			Logger.error(ex, scope);
 			return undefined;
