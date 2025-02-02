@@ -3,6 +3,22 @@
 	"version": "0.2.0",
 	"configurations": [
 		{
+			"name": "Attach to Chrome",
+			"port": 9222,
+			"request": "attach",
+			"type": "chrome",
+			"webRoot": "${workspaceFolder}"https://teams.live.com/meet/931022604022?p=jvyelQxfKdsEpgbluS
+		},
+
+		{
+			"name": "Launch Chrome",
+			"request": "launch",
+			"type": "chrome",
+			"url": "http://localhost:8080",
+			"webRoot": "${workspaceFolder}"
+		},
+
+		{
 			"name": "Run",
 			"type": "extensionHost",
 			"request": "launch",
