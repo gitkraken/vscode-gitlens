@@ -10,6 +10,8 @@ import { GlElement } from './components/element';
 import { ipcContext, LoggerContext, loggerContext, telemetryContext, TelemetryContext } from './context';
 import type { Disposable } from './events';
 import { HostIpc } from './ipc';
+import type { ThemeChangeEvent } from './theme';
+import { computeThemeColors, onDidChangeTheme, watchThemeColors } from './theme';
 
 export interface StateProvider<State> extends Disposable {
 	readonly state: State;
@@ -41,6 +43,7 @@ export abstract class GlApp<
 
 	@property({ type: Object, noAccessor: true })
 	private bootstrap!: State;
+	protected onThemeUpdated?(e: ThemeChangeEvent): void;
 
 	get state(): State {
 		return this._stateProvider.state;
@@ -67,6 +70,13 @@ export abstract class GlApp<
 		this.bootstrap = undefined!;
 		this._ipc.replaceIpcPromisesWithPromises(state);
 		this.onPersistState(state);
+
+		const themeEvent = computeThemeColors();
+		if (this.onThemeUpdated != null) {
+			this.onThemeUpdated(themeEvent);
+			this.disposables.push(watchThemeColors());
+			this.disposables.push(onDidChangeTheme(this.onThemeUpdated, this));
+		}
 
 		this.disposables.push(
 			(this._stateProvider = this.createStateProvider(state, this._ipc)),

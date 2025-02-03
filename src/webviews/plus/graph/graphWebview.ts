@@ -19,7 +19,6 @@ import type {
 } from '../../../config';
 import { GlyphChars } from '../../../constants';
 import { GlCommand } from '../../../constants.commands';
-import { HostingIntegrationId, IssueIntegrationId } from '../../../constants.integrations';
 import type { StoredGraphFilters, StoredGraphRefType } from '../../../constants.storage';
 import type { GraphShownTelemetryContext, GraphTelemetryContext, TelemetryEvents } from '../../../constants.telemetry';
 import type { Container } from '../../../container';
@@ -91,11 +90,10 @@ import {
 	getRepositoryIdentityForPullRequest,
 	serializePullRequest,
 } from '../../../git/utils/pullRequest.utils';
-import { createReference, isGitReference } from '../../../git/utils/reference.utils';
+import { createReference } from '../../../git/utils/reference.utils';
 import { isSha, shortenRevision } from '../../../git/utils/revision.utils';
 import type { FeaturePreviewChangeEvent, SubscriptionChangeEvent } from '../../../plus/gk/subscriptionService';
 import type { ConnectionStateChangeEvent } from '../../../plus/integrations/integrationService';
-import { remoteProviderIdToIntegrationId } from '../../../plus/integrations/integrationService';
 import { getPullRequestBranchDeepLink } from '../../../plus/launchpad/launchpadProvider';
 import type { AssociateIssueWithBranchCommandArgs } from '../../../plus/startWork/startWork';
 import { ReferencesQuickPickIncludes, showReferencePicker } from '../../../quickpicks/referencePicker';
@@ -122,13 +120,21 @@ import {
 	pauseOnCancelOrTimeoutMapTuplePromise,
 } from '../../../system/promise';
 import { Stopwatch } from '../../../system/stopwatch';
-import { isWebviewItemContext, isWebviewItemGroupContext, serializeWebviewItemContext } from '../../../system/webview';
+import { serializeWebviewItemContext } from '../../../system/webview';
 import { DeepLinkActionType } from '../../../uris/deepLinks/deepLink';
 import { RepositoryFolderNode } from '../../../views/nodes/abstract/repositoryFolderNode';
 import type { IpcCallMessageType, IpcMessage, IpcNotification } from '../../protocol';
 import type { WebviewHost, WebviewProvider, WebviewShowingArgs } from '../../webviewProvider';
 import type { WebviewPanelShowCommandArgs, WebviewShowOptions } from '../../webviewsController';
 import { isSerializedState } from '../../webviewsController';
+import {
+	formatRepositories,
+	hasGitReference,
+	isGraphItemRefContext,
+	isGraphItemRefGroupContext,
+	isGraphItemTypedContext,
+	toGraphIssueTrackerType,
+} from './graphWebviewUtils';
 import type {
 	BranchState,
 	DidChangeRefsVisibilityParams,
@@ -139,31 +145,20 @@ import type {
 	GetMissingAvatarsParams,
 	GetMissingRefsMetadataParams,
 	GetMoreRowsParams,
-	GraphBranchContextValue,
 	GraphColumnConfig,
 	GraphColumnName,
 	GraphColumnsConfig,
 	GraphColumnsSettings,
-	GraphCommitContextValue,
 	GraphComponentConfig,
-	GraphContributorContextValue,
 	GraphExcludedRef,
 	GraphExcludeRefs,
 	GraphExcludeTypes,
 	GraphHostingServiceType,
 	GraphIncludeOnlyRef,
 	GraphIncludeOnlyRefs,
-	GraphIssueContextValue,
-	GraphIssueTrackerType,
 	GraphItemContext,
-	GraphItemGroupContext,
-	GraphItemRefContext,
-	GraphItemRefGroupContext,
-	GraphItemTypedContext,
-	GraphItemTypedContextValue,
 	GraphMinimapMarkerTypes,
 	GraphMissingRefsMetadataType,
-	GraphPullRequestContextValue,
 	GraphPullRequestMetadata,
 	GraphRefMetadata,
 	GraphRefMetadataType,
@@ -171,10 +166,7 @@ import type {
 	GraphScrollMarkerTypes,
 	GraphSearchResults,
 	GraphSelectedRows,
-	GraphStashContextValue,
-	GraphTagContextValue,
 	GraphUpstreamMetadata,
-	GraphUpstreamStatusContextValue,
 	GraphWorkingTreeStats,
 	OpenPullRequestDetailsParams,
 	SearchOpenInViewParams,
@@ -1292,7 +1284,7 @@ export class GraphWebviewProvider implements WebviewProvider<State, State, Graph
 
 			if (branch == null) {
 				for (const type of missingTypes) {
-					(metadata as any)[type] = null;
+					metadata[type] = null;
 					this._refsMetadata.set(id, metadata);
 				}
 
@@ -1301,7 +1293,7 @@ export class GraphWebviewProvider implements WebviewProvider<State, State, Graph
 
 			for (const type of missingTypes) {
 				if (!supportedRefMetadataTypes.includes(type)) {
-					(metadata as any)[type] = null;
+					metadata[type] = null;
 					this._refsMetadata.set(id, metadata);
 
 					continue;
@@ -4113,121 +4105,3 @@ type GraphItemRefs<T> = {
 	active: T | undefined;
 	selection: T[];
 };
-
-async function formatRepositories(repositories: Repository[]): Promise<GraphRepository[]> {
-	if (repositories.length === 0) return Promise.resolve([]);
-
-	const result = await Promise.allSettled(
-		repositories.map<Promise<GraphRepository>>(async repo => {
-			const remotes = await repo.git.remotes().getBestRemotesWithProviders();
-			const remote = remotes.find(r => r.hasIntegration()) ?? remotes[0];
-
-			return {
-				formattedName: repo.formattedName,
-				id: repo.id,
-				name: repo.name,
-				path: repo.path,
-				provider: remote?.provider
-					? {
-							name: remote.provider.name,
-							integration: remote.hasIntegration()
-								? {
-										id: remoteProviderIdToIntegrationId(remote.provider.id)!,
-										connected: remote.maybeIntegrationConnected ?? false,
-								  }
-								: undefined,
-							icon: remote.provider.icon === 'remote' ? 'cloud' : remote.provider.icon,
-							url: remote.provider.url({ type: RemoteResourceType.Repo }),
-					  }
-					: undefined,
-				isVirtual: repo.provider.virtual,
-			};
-		}),
-	);
-	return result.map(r => getSettledValue(r)).filter(r => r != null);
-}
-
-function isGraphItemContext(item: unknown): item is GraphItemContext {
-	if (item == null) return false;
-
-	return isWebviewItemContext(item) && (item.webview === 'gitlens.graph' || item.webview === 'gitlens.views.graph');
-}
-
-function isGraphItemGroupContext(item: unknown): item is GraphItemGroupContext {
-	if (item == null) return false;
-
-	return (
-		isWebviewItemGroupContext(item) && (item.webview === 'gitlens.graph' || item.webview === 'gitlens.views.graph')
-	);
-}
-
-function isGraphItemTypedContext(
-	item: unknown,
-	type: 'contributor',
-): item is GraphItemTypedContext<GraphContributorContextValue>;
-function isGraphItemTypedContext(
-	item: unknown,
-	type: 'pullrequest',
-): item is GraphItemTypedContext<GraphPullRequestContextValue>;
-function isGraphItemTypedContext(
-	item: unknown,
-	type: 'upstreamStatus',
-): item is GraphItemTypedContext<GraphUpstreamStatusContextValue>;
-function isGraphItemTypedContext(item: unknown, type: 'issue'): item is GraphItemTypedContext<GraphIssueContextValue>;
-function isGraphItemTypedContext(
-	item: unknown,
-	type: GraphItemTypedContextValue['type'],
-): item is GraphItemTypedContext {
-	if (item == null) return false;
-
-	return isGraphItemContext(item) && typeof item.webviewItemValue === 'object' && item.webviewItemValue.type === type;
-}
-
-function isGraphItemRefGroupContext(item: unknown): item is GraphItemRefGroupContext {
-	if (item == null) return false;
-
-	return (
-		isGraphItemGroupContext(item) &&
-		typeof item.webviewItemGroupValue === 'object' &&
-		item.webviewItemGroupValue.type === 'refGroup'
-	);
-}
-
-function isGraphItemRefContext(item: unknown): item is GraphItemRefContext;
-function isGraphItemRefContext(item: unknown, refType: 'branch'): item is GraphItemRefContext<GraphBranchContextValue>;
-function isGraphItemRefContext(
-	item: unknown,
-	refType: 'revision',
-): item is GraphItemRefContext<GraphCommitContextValue>;
-function isGraphItemRefContext(item: unknown, refType: 'stash'): item is GraphItemRefContext<GraphStashContextValue>;
-function isGraphItemRefContext(item: unknown, refType: 'tag'): item is GraphItemRefContext<GraphTagContextValue>;
-function isGraphItemRefContext(item: unknown, refType?: GitReference['refType']): item is GraphItemRefContext {
-	if (item == null) return false;
-
-	return (
-		isGraphItemContext(item) &&
-		typeof item.webviewItemValue === 'object' &&
-		'ref' in item.webviewItemValue &&
-		(refType == null || item.webviewItemValue.ref.refType === refType)
-	);
-}
-
-export function hasGitReference(o: unknown): o is { ref: GitReference } {
-	if (o == null || typeof o !== 'object') return false;
-	if (!('ref' in o)) return false;
-
-	return isGitReference(o.ref);
-}
-
-function toGraphIssueTrackerType(id: string): GraphIssueTrackerType | undefined {
-	switch (id) {
-		case HostingIntegrationId.GitHub:
-			return 'github';
-		case HostingIntegrationId.GitLab:
-			return 'gitlab';
-		case IssueIntegrationId.Jira:
-			return 'jiraCloud';
-		default:
-			return undefined;
-	}
-}

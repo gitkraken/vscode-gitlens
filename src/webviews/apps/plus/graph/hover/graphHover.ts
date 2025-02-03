@@ -7,9 +7,8 @@ import { debounce } from '../../../../../system/function';
 import { getSettledValue, isPromise } from '../../../../../system/promise';
 import type { DidGetRowHoverParams } from '../../../../plus/graph/protocol';
 import { GlElement } from '../../../shared/components/element';
-import type { GlPopover } from '../../../shared/components/overlays/popover.react';
 import '../../../shared/components/markdown/markdown';
-import '../../../shared/components/overlays/popover';
+import type { GlPopover } from '../../../shared/components/overlays/popover';
 
 declare global {
 	interface HTMLElementTagNameMap {

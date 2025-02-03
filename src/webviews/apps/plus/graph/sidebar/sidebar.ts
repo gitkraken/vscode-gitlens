@@ -1,15 +1,17 @@
 import { consume } from '@lit/context';
 import { Task } from '@lit/task';
 import { css, html, LitElement, nothing } from 'lit';
-import { customElement, property } from 'lit/decorators.js';
+import { customElement } from 'lit/decorators.js';
 import { repeat } from 'lit/directives/repeat.js';
+import type { State } from '../../../../plus/graph/protocol';
 import { DidChangeNotification, GetCountsRequest } from '../../../../plus/graph/protocol';
+import '../../../shared/components/code-icon';
+import '../../../shared/components/overlays/tooltip';
 import { ipcContext } from '../../../shared/context';
 import type { Disposable } from '../../../shared/events';
 import type { HostIpc } from '../../../shared/ipc';
-import '../../../shared/components/code-icon';
-import '../../../shared/components/overlays/tooltip';
 import { emitTelemetrySentEvent } from '../../../shared/telemetry';
+import { stateContext } from '../context';
 
 interface Icon {
 	type: IconTypes;
@@ -72,16 +74,25 @@ export class GlGraphSideBar extends LitElement {
 		}
 	`;
 
-	@property({ type: Boolean })
-	enabled = true;
+	get enabled() {
+		return this._state.config?.sidebar;
+	}
 
-	@property({ type: Array })
-	include?: IconTypes[];
+	get include(): undefined | IconTypes[] {
+		const repo = this._state.repositories?.find(item => item.path === this._state.selectedRepository);
+		return repo?.isVirtual
+			? (['branches', 'remotes', 'tags'] as const)
+			: (['branches', 'remotes', 'tags', 'stashes', 'worktrees'] as const);
+	}
 
 	@consume({ context: ipcContext })
-	private _ipc!: HostIpc;
+	private readonly _ipc!: HostIpc;
+
+	@consume({ context: stateContext, subscribe: true })
+	private readonly _state!: State;
+
 	private _disposable: Disposable | undefined;
-	private _countsTask = new Task(this, {
+	private readonly _countsTask = new Task(this, {
 		args: () => [this.fetchCounts()],
 		task: ([counts]) => counts,
 		autoRun: false,
