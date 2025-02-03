@@ -82,6 +82,7 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/) and this p
 - Fixes intermittent issue with greater reliability of webview requests
 - Fixes an issue with autolink enrichment for issues
 - Fixes issues with incorrect aggregate contributor stats
+- Fixes [#3841](https://github.com/gitkraken/vscode-gitlens/issues/3841) - Inspect & Graph Details: issue autolinks rendering when autolinks enabled is false
 
 ## [16.1.1] - 2024-12-20
 
