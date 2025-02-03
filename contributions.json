@@ -629,6 +629,11 @@
 				]
 			}
 		},
+		"gitlens.copyRemoteTagUrl": {
+			"label": "Copy Remote Tag URL",
+			"icon": "$(copy)",
+			"commandPalette": "gitlens:repos:withRemotes"
+		},
 		"gitlens.copyShaToClipboard": {
 			"label": "Copy SHA",
 			"icon": "$(copy)",
@@ -3314,6 +3319,11 @@
 					}
 				]
 			}
+		},
+		"gitlens.openTagOnRemote": {
+			"label": "Open Tag on Remote",
+			"icon": "$(globe)",
+			"commandPalette": "gitlens:repos:withRemotes"
 		},
 		"gitlens.openWorkingFile": {
 			"label": "Open File",
@@ -6206,6 +6216,10 @@
 				]
 			}
 		},
+		"gitlens.views.copyRemoteTagUrl": {
+			"label": "Copy Remote Tag URL",
+			"icon": "$(copy)"
+		},
 		"gitlens.views.copyUrl": {
 			"label": "Copy URL",
 			"icon": "$(copy)",
@@ -7758,6 +7772,38 @@
 						"when": "viewItem =~ /gitlens:(pullrequest\\b(?=.*?\\b\\+refs\\b)|launchpad:item\\b(?=.*?\\b\\+pr\\b))/ && !listMultiSelection",
 						"group": "4_gitlens_compare",
 						"order": 1
+					}
+				]
+			}
+		},
+		"gitlens.views.openTagOnRemote": {
+			"label": "Open Tag on Remote",
+			"icon": "$(globe)",
+			"menus": {
+				"view/item/context": [
+					{
+						"when": "viewItem =~ /gitlens:tag\\b/ && gitlens:repos:withRemotes",
+						"group": "inline",
+						"order": 100,
+						"alt": "gitlens.views.copyRemoteTagUrl"
+					},
+					{
+						"when": "viewItem =~ /gitlens:tag\\b/ && !listMultiSelection && gitlens:repos:withRemotes",
+						"group": "3_gitlens_explore",
+						"order": 3
+					}
+				]
+			}
+		},
+		"gitlens.views.openTagOnRemote.multi": {
+			"label": "Open Tags on Remote",
+			"icon": "$(globe)",
+			"menus": {
+				"view/item/context": [
+					{
+						"when": "viewItem =~ /gitlens:tag\\b/ && listMultiSelection && gitlens:repos:withRemotes",
+						"group": "3_gitlens_explore",
+						"order": 3
 					}
 				]
 			}

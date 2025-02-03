@@ -23,8 +23,8 @@ export function getNameFromRemoteResource(resource: RemoteResource): string {
 			return 'Repository';
 		case RemoteResourceType.Revision:
 			return 'File';
-		// case RemoteResourceType.Tag:
-		// 	return 'Tag';
+		case RemoteResourceType.Tag:
+			return 'Tag';
 		default:
 			return '';
 	}

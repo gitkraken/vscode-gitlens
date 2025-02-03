@@ -31,6 +31,7 @@ export const enum GlCommand {
 	CopyRemoteBranchesUrl = 'gitlens.copyRemoteBranchesUrl',
 	CopyRemoteBranchUrl = 'gitlens.copyRemoteBranchUrl',
 	CopyRemoteCommitUrl = 'gitlens.copyRemoteCommitUrl',
+	CopyRemoteTagUrl = 'gitlens.copyRemoteTagUrl',
 	CopyRemoteComparisonUrl = 'gitlens.copyRemoteComparisonUrl',
 	CopyRemoteFileUrl = 'gitlens.copyRemoteFileUrlToClipboard',
 	CopyRemoteFileUrlWithoutRange = 'gitlens.copyRemoteFileUrlWithoutRange',
@@ -83,6 +84,7 @@ export const enum GlCommand {
 	OpenCurrentBranchOnRemote = 'gitlens.openCurrentBranchOnRemote',
 	OpenChangedFiles = 'gitlens.openChangedFiles',
 	OpenCommitOnRemote = 'gitlens.openCommitOnRemote',
+	OpenTagOnRemote = 'gitlens.openTagOnRemote',
 	OpenComparisonOnRemote = 'gitlens.openComparisonOnRemote',
 	OpenFileHistory = 'gitlens.openFileHistory',
 	OpenFileFromRemote = 'gitlens.openFileFromRemote',
@@ -581,6 +583,10 @@ export type TreeViewCommands = `gitlens.views.${
 	| 'copyRemoteCommitUrl.multi'
 	| 'openCommitOnRemote'
 	| 'openCommitOnRemote.multi'
+	| 'openTagOnRemote'
+	| 'openTagOnRemote.multi'
+	| 'copyRemoteTagUrl'
+	| 'copyRemoteTagUrl.multi'
 	| 'openChanges'
 	| 'openChangesWithWorking'
 	| 'openPreviousChangesWithWorking'
@@ -736,6 +742,8 @@ type GraphWebviewCommands = `graph.${
 	| 'cherryPick'
 	| 'copyRemoteCommitUrl'
 	| 'copyRemoteCommitUrl.multi'
+	| 'copyRemoteTagUrl'
+	| 'copyRemoteTagUrl.multi'
 	| 'openCommitOnRemote'
 	| 'openCommitOnRemote.multi'
 	| 'commitViaSCM'
