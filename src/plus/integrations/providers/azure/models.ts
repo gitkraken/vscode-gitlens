@@ -9,6 +9,8 @@ import {
 } from '../../../../git/models/pullRequest';
 import type { Provider } from '../../../../git/models/remoteProvider';
 
+const vstsHostnameRegex = /\.visualstudio\.com$/;
+
 export type AzureWorkItemStateCategory = 'Proposed' | 'InProgress' | 'Resolved' | 'Completed' | 'Removed';
 
 export function isClosedAzureWorkItemStateCategory(category: AzureWorkItemStateCategory | undefined): boolean {
@@ -289,7 +291,7 @@ export function getAzureDevOpsOwner(url: URL): string {
 	return url.pathname.split('/')[1];
 }
 export function getAzureOwner(url: URL): string {
-	const isVSTS = url.hostname.endsWith('visualstudio.com');
+	const isVSTS = vstsHostnameRegex.test(url.hostname);
 	return isVSTS ? getVSTSOwner(url) : getAzureDevOpsOwner(url);
 }
 
@@ -301,7 +303,7 @@ export function getAzurePullRequestWebUrl(pr: AzurePullRequest): string {
 	const url = new URL(pr.url);
 	const baseUrl = new URL(url.origin).toString();
 	const repoPath = getAzureRepo(pr);
-	const isVSTS = url.hostname.endsWith('visualstudio.com');
+	const isVSTS = vstsHostnameRegex.test(url.hostname);
 	if (isVSTS) {
 		return `${baseUrl}/${repoPath}/pullrequest/${pr.pullRequestId}`;
 	}
