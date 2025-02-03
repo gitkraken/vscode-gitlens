@@ -98,20 +98,9 @@ import { GitActionsButtons } from './actions/gitActionsButtons';
 import { GlGraphHover } from './hover/graphHover.react';
 import type { GraphMinimapDaySelectedEventDetail } from './minimap/minimap';
 import { GlGraphMinimapContainer } from './minimap/minimap-container.react';
+import { compareGraphRefOpts } from './refHelpers/compareGraphRefOpts';
+import { RemoteIcon } from './refHelpers/RemoteIcon';
 import { GlGraphSideBar } from './sidebar/sidebar.react';
-
-function getRemoteIcon(type: string | number) {
-	switch (type) {
-		case 'head':
-			return 'vm';
-		case 'remote':
-			return 'cloud';
-		case 'tag':
-			return 'tag';
-		default:
-			return '';
-	}
-}
 
 export interface GraphWrapperProps {
 	nonce?: string;
@@ -1406,33 +1395,39 @@ export function GraphWrapper({
 										<MenuLabel>Hidden Branches / Tags</MenuLabel>
 										{excludeRefsById &&
 											Object.keys(excludeRefsById).length &&
-											[...Object.values(excludeRefsById), null].map(ref =>
-												ref ? (
-													<MenuItem
-														// key prop is skipped intentionally. It allows me to not hide the dropdown after click (I don't know why)
-														onClick={event => {
-															handleOnToggleRefsVisibilityClick(event, [ref], true);
-														}}
-														className="flex-gap"
-													>
-														<CodeIcon icon={getRemoteIcon(ref.type)}></CodeIcon>
-														<span>{ref.name}</span>
-													</MenuItem>
-												) : (
-													// One more weird case. If I render it outside the listed items, the dropdown is hidden after click on the last item
-													<MenuItem
-														onClick={event => {
-															handleOnToggleRefsVisibilityClick(
-																event,
-																Object.values(excludeRefsById ?? {}),
-																true,
-															);
-														}}
-													>
-														Show All
-													</MenuItem>
-												),
-											)}
+											(
+												Object.values(excludeRefsById)
+													.slice()
+													.sort(compareGraphRefOpts) as Array<GraphRefOptData | null>
+											)
+												.concat(null)
+												.map(ref =>
+													ref ? (
+														<MenuItem
+															// key prop is skipped intentionally. It allows me to not hide the dropdown after click (I don't know why)
+															onClick={event => {
+																handleOnToggleRefsVisibilityClick(event, [ref], true);
+															}}
+															className="flex-gap"
+														>
+															<RemoteIcon refOptData={ref} />
+															<span>{ref.name}</span>
+														</MenuItem>
+													) : (
+														// One more weird case. If I render it outside the listed items, the dropdown is hidden after click on the last item
+														<MenuItem
+															onClick={event => {
+																handleOnToggleRefsVisibilityClick(
+																	event,
+																	Object.values(excludeRefsById ?? {}),
+																	true,
+																);
+															}}
+														>
+															Show All
+														</MenuItem>
+													),
+												)}
 									</div>
 								</GlPopover>
 							</div>
