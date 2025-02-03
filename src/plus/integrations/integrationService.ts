@@ -1029,7 +1029,9 @@ export class IntegrationService implements Disposable {
 	}
 }
 
-export function remoteProviderIdToIntegrationId(remoteProviderId: string): SupportedCloudIntegrationIds | undefined {
+export function remoteProviderIdToIntegrationId(
+	remoteProviderId: RemoteProviderId,
+): SupportedCloudIntegrationIds | undefined {
 	switch (remoteProviderId) {
 		case 'azure-devops':
 			return HostingIntegrationId.AzureDevOps;

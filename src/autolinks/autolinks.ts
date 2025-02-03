@@ -5,6 +5,7 @@ import type { IntegrationId } from '../constants.integrations';
 import { IssueIntegrationId } from '../constants.integrations';
 import type { Container } from '../container';
 import type { GitRemote } from '../git/models/remote';
+import type { RemoteProviderId } from '../git/remotes/remoteProvider';
 import { getIssueOrPullRequestHtmlIcon, getIssueOrPullRequestMarkdownIcon } from '../git/utils/-webview/icons';
 import type { HostingIntegration, Integration, IssueIntegration } from '../plus/integrations/integration';
 import { IntegrationBase } from '../plus/integrations/integration';
@@ -223,7 +224,10 @@ export class Autolinks implements Disposable {
 				integrationId =
 					link.provider instanceof IntegrationBase
 						? link.provider.id
-						: remoteProviderIdToIntegrationId(link.provider.id);
+						: // TODO: Tighten the typing on ProviderReference to be specific to a remote provider, and then have a separate "integration" property (on autolinks and elsewhere)
+						  // that is of a new type IntegrationReference specific to integrations. Otherwise, make remote provider ids line up directly with integration ids.
+						  // Either way, this converting/casting hackery needs to go away.
+						  remoteProviderIdToIntegrationId(link.provider.id as RemoteProviderId);
 				if (integrationId == null) {
 					// Fall back to the old logic assuming that integration id might be saved as provider id.
 					// TODO: it should be removed when we put providers and integrations in order. Conversation: https://github.com/gitkraken/vscode-gitlens/pull/3996#discussion_r1936422826
