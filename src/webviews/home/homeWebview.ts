@@ -24,6 +24,7 @@ import type { GitFileChangeShape } from '../../git/models/fileChange';
 import type { Issue } from '../../git/models/issue';
 import type { GitPausedOperationStatus } from '../../git/models/pausedOperationStatus';
 import type { PullRequest } from '../../git/models/pullRequest';
+import type { GitBranchReference } from '../../git/models/reference';
 import { RemoteResourceType } from '../../git/models/remoteResource';
 import type { Repository, RepositoryFileSystemChangeEvent } from '../../git/models/repository';
 import { RepositoryChange, RepositoryChangeComparisonMode } from '../../git/models/repository';
@@ -67,6 +68,7 @@ import type { IpcMessage } from '../protocol';
 import type { WebviewHost, WebviewProvider, WebviewShowingArgs } from '../webviewProvider';
 import type { WebviewShowOptions } from '../webviewsController';
 import type {
+	BranchIssueLink,
 	BranchRef,
 	CollapseSectionParams,
 	DidChangeRepositoriesParams,
@@ -332,6 +334,7 @@ export class HomeWebviewProvider implements WebviewProvider<State, State, HomeWe
 			registerCommand('gitlens.home.continuePausedOperation', this.continuePausedOperation, this),
 			registerCommand('gitlens.home.abortPausedOperation', this.abortPausedOperation, this),
 			registerCommand('gitlens.home.openRebaseEditor', this.openRebaseEditor, this),
+			registerCommand('gitlens.home.unlinkIssue', this.unlinkIssue, this),
 		];
 	}
 
@@ -543,6 +546,35 @@ export class HomeWebviewProvider implements WebviewProvider<State, State, HomeWe
 		void executeCoreCommand('vscode.openWith', rebaseTodoUri, 'gitlens.rebase', {
 			preview: false,
 		});
+	}
+
+	private async unlinkIssue({ issue, reference }: { reference: GitBranchReference; issue: BranchIssueLink }) {
+		const skipPrompt = this.container.storage.get('autolinks:branches:ignore:skipPrompt') || undefined;
+		const item =
+			skipPrompt ??
+			(await window.showWarningMessage(
+				`This action will unlink the issue ${issue.url} from the branch ${reference.name} forever`,
+				{
+					modal: true,
+				},
+				`OK`,
+				`OK, Don't ask again`,
+			));
+		if (!item) {
+			return;
+		}
+		if (item === `OK, Don't ask again`) {
+			void this.container.storage.store('autolinks:branches:ignore:skipPrompt', true);
+		}
+		const prev = this.container.storage.get('autolinks:branches:ignore') ?? {};
+		const refId = reference.id ?? `${reference.repoPath}/${reference.remote}/${reference.ref}`;
+		await this.container.storage
+			.store('autolinks:branches:ignore', {
+				...prev,
+				[refId]: [...(prev[refId] ?? []), issue.url],
+			})
+			.catch();
+		void this.host.notify(DidChangeRepositoryWip, undefined);
 	}
 
 	private async createCloudPatch(ref: BranchRef) {
@@ -1357,11 +1389,12 @@ function getOverviewBranchesCore(
 	for (const branch of branches) {
 		const wt = worktreesByBranch.get(branch.id);
 
+		const ignored = container.storage.get('autolinks:branches:ignore')?.[branch.id];
 		const timestamp = branch.date?.getTime();
 
 		if (isPro === true) {
 			prPromises.set(branch.id, getPullRequestInfo(container, branch, launchpadPromise));
-			autolinkPromises.set(branch.id, branch.getEnrichedAutolinks());
+			autolinkPromises.set(branch.id, branch.getEnrichedAutolinks(ignored));
 			issuePromises.set(
 				branch.id,
 				getAssociatedIssuesForBranch(container, branch).then(issues => issues.value),
@@ -1472,6 +1505,8 @@ async function getAutolinkIssuesInfo(links: Map<string, EnrichedAutolink> | unde
 				title: issue.title,
 				url: issue.url,
 				state: issue.state,
+				type: issue.type,
+				isAutolink: true,
 			};
 		}),
 	);

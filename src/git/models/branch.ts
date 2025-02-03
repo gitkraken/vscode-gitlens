@@ -4,6 +4,7 @@ import type { Container } from '../../container';
 import { formatDate, fromNow } from '../../system/date';
 import { memoize } from '../../system/decorators/-webview/memoize';
 import { debug } from '../../system/decorators/log';
+import { forEach } from '../../system/iterable';
 import { getLoggableName } from '../../system/logger';
 import type { MaybePausedResult } from '../../system/promise';
 import {
@@ -118,9 +119,17 @@ export class GitBranch implements GitBranchReference {
 	}
 
 	@memoize()
-	async getEnrichedAutolinks(): Promise<Map<string, EnrichedAutolink> | undefined> {
+	async getEnrichedAutolinks(ignoredLinks?: string[]): Promise<Map<string, EnrichedAutolink> | undefined> {
 		const remote = await this.container.git.remotes(this.repoPath).getBestRemoteWithProvider();
 		const branchAutolinks = await this.container.autolinks.getBranchAutolinks(this.name, remote);
+		if (ignoredLinks?.length) {
+			const ignoredMap = Object.fromEntries(ignoredLinks.map(x => [x, true]));
+			forEach(branchAutolinks, ([key, link]) => {
+				if (ignoredMap[link.url]) {
+					branchAutolinks.delete(key);
+				}
+			});
+		}
 		return this.container.autolinks.getEnrichedAutolinks(branchAutolinks, remote);
 	}
 
