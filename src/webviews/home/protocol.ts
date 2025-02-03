@@ -35,6 +35,7 @@ export interface State extends WebviewState {
 	};
 	previewEnabled: boolean;
 	newInstall: boolean;
+	amaBannerCollapsed: boolean;
 }
 
 export interface IntegrationState extends IntegrationDescriptor {

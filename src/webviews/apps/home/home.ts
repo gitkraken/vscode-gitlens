@@ -23,6 +23,7 @@ import '../plus/home/components/active-work';
 import '../plus/home/components/launchpad';
 import '../plus/home/components/overview';
 import './components/feature-nav';
+import './components/ama-banner';
 import './components/integration-banner';
 import './components/preview-banner';
 import './components/promo-banner';
@@ -68,6 +69,7 @@ export class GlHomeApp extends GlApp<State> {
 		return html`
 			<div class="home scrollable">
 				<gl-home-header class="home__header"></gl-home-header>
+				${when(this.state?.amaBannerCollapsed === false, () => html`<gl-ama-banner></gl-ama-banner>`)}
 				${when(!this.state?.previewEnabled, () => html`<gl-preview-banner></gl-preview-banner>`)}
 				<gl-repo-alerts class="home__alerts"></gl-repo-alerts>
 				<main class="home__main scrollable" id="main">
