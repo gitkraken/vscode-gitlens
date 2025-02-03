@@ -120,6 +120,8 @@ export const enum PullRequestMergeableState {
 	Unknown = 'Unknown',
 	Mergeable = 'Mergeable',
 	Conflicting = 'Conflicting',
+	FailingChecks = 'FailingChecks',
+	BlockedByPolicy = 'BlockedByPolicy',
 }
 
 export const enum PullRequestStatusCheckRollupState {
