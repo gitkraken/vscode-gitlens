@@ -366,7 +366,7 @@ export function createLogParserWithFilesAndStats<T extends Record<string, unknow
 		let fields: IterableIterator<string>;
 
 		for (const record of records) {
-			entry = {} as any;
+			entry = {} as unknown as ParsedEntryWithFilesAndStats<T>;
 			files = [];
 			fields = getLines(record, '\0');
 
@@ -898,12 +898,16 @@ function parseLogEntry(
 				repoPath!,
 				entry.sha!,
 
-				new GitCommitIdentity(entry.author!, entry.authorEmail, new Date((entry.authorDate! as any) * 1000)),
+				new GitCommitIdentity(
+					entry.author!,
+					entry.authorEmail,
+					new Date((entry.authorDate! as unknown as number) * 1000),
+				),
 
 				new GitCommitIdentity(
 					entry.committer!,
 					entry.committerEmail,
-					new Date((entry.committedDate! as any) * 1000),
+					new Date((entry.committedDate! as unknown as number) * 1000),
 				),
 				entry.summary?.split('\n', 1)[0] ?? '',
 				entry.parentShas ?? [],
