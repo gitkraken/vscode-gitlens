@@ -395,9 +395,9 @@ export function createLogParserWithFilesAndStats<T extends Record<string, unknow
 					// If we don't get a path it is likely a renamed file (because `-z` screws up the format)
 					if (!path) {
 						field = fields.next();
-						path = field.value.trim();
-						field = fields.next();
 						originalPath = field.value.trim();
+						field = fields.next();
+						path = field.value.trim();
 						status = 'R';
 					} else {
 						// Handle renamed files which show as path/to/file => new/path/to/file
