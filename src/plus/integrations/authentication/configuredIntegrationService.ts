@@ -1,7 +1,10 @@
+import type { Event } from 'vscode';
+import { EventEmitter } from 'vscode';
 import type { IntegrationId } from '../../../constants.integrations';
 import { HostingIntegrationId } from '../../../constants.integrations';
 import type { StoredConfiguredIntegrationDescriptor } from '../../../constants.storage';
 import type { Container } from '../../../container';
+import { debounce } from '../../../system/function';
 import { flatten } from '../../../system/iterable';
 import { getBuiltInIntegrationSession } from '../../gk/utils/-webview/integrationAuthentication.utils';
 import { isSelfHostedIntegrationId, providersMetadata } from '../providers/models';
@@ -24,7 +27,16 @@ interface StoredSession {
 
 export type ConfiguredIntegrationType = 'cloud' | 'local';
 
+export interface ConfiguredIntegrationsChangeEvent {
+	ids: IntegrationId[];
+}
+
 export class ConfiguredIntegrationService {
+	private readonly _onDidChange = new EventEmitter<ConfiguredIntegrationsChangeEvent>();
+	get onDidChange(): Event<ConfiguredIntegrationsChangeEvent> {
+		return this._onDidChange.event;
+	}
+
 	private _configured?: Map<IntegrationId, ConfiguredIntegrationDescriptor[]>;
 
 	constructor(private readonly container: Container) {}
@@ -165,6 +177,7 @@ export class ConfiguredIntegrationService {
 
 		descriptors.push(descriptor);
 		this.configured.set(descriptor.integrationId, descriptors);
+		this.queueDidChange(descriptor.integrationId);
 		await this.storeConfigured();
 	}
 
@@ -187,6 +200,7 @@ export class ConfiguredIntegrationService {
 		}
 
 		this.configured.set(id, descriptors ?? []);
+		this.queueDidChange(id);
 		await this.storeConfigured();
 	}
 
@@ -345,6 +359,18 @@ export class ConfiguredIntegrationService {
 
 	getSessionId(descriptor: IntegrationAuthenticationSessionDescriptor): string {
 		return descriptor.domain;
+	}
+
+	private changedIds = new Set<IntegrationId>();
+	private debouncedFireDidChange?: () => void;
+	private queueDidChange(id: IntegrationId) {
+		this.debouncedFireDidChange ??= debounce(() => {
+			this._onDidChange.fire({ ids: [...this.changedIds] });
+			this.changedIds.clear();
+		}, 300);
+
+		this.changedIds.add(id);
+		this.debouncedFireDidChange();
 	}
 }
 
