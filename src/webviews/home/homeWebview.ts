@@ -601,6 +601,12 @@ export class HomeWebviewProvider implements WebviewProvider<State, State, HomeWe
 		return this.container.storage.get('home:sections:collapsed')?.includes('newHomePreview') ?? false;
 	}
 
+	private getAmaBannerCollapsed() {
+		if (Date.now() >= new Date('2025-02-13T13:00:00-05:00').getTime()) return true;
+
+		return this.container.storage.get('home:sections:collapsed')?.includes('feb2025AmaBanner') ?? false;
+	}
+
 	private getIntegrationBannerCollapsed() {
 		return this.container.storage.get('home:sections:collapsed')?.includes('integrationBanner') ?? false;
 	}
@@ -659,6 +665,7 @@ export class HomeWebviewProvider implements WebviewProvider<State, State, HomeWe
 			showWalkthroughProgress: !this.getWalkthroughDismissed(),
 			previewEnabled: this.getPreviewEnabled(),
 			newInstall: getContext('gitlens:install:new', false),
+			amaBannerCollapsed: this.getAmaBannerCollapsed(),
 		};
 	}
 

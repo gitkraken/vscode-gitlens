@@ -140,6 +140,7 @@ export const cardStyles = css`
 		);
 	}
 
+	.card.is-info,
 	.card.is-branch-changes {
 		border-inline-start-color: var(--gl-card-indicator-border, color-mix(in lab, #1a79ff 80%, transparent));
 	}

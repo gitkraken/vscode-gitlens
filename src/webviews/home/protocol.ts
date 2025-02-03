@@ -36,6 +36,7 @@ export interface State extends WebviewState {
 	showWalkthroughProgress?: boolean;
 	previewEnabled: boolean;
 	newInstall: boolean;
+	amaBannerCollapsed: boolean;
 }
 
 export interface IntegrationState extends IntegrationDescriptor {
