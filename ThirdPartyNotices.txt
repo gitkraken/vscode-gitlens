@@ -28,8 +28,8 @@ This project incorporates components from the projects listed below.
 23. node-fetch version 2.7.0 (https://github.com/bitinn/node-fetch)
 24. os-browserify version 0.3.0 (https://github.com/CoderPuppy/os-browserify)
 25. path-browserify version 1.0.1 (https://github.com/browserify/path-browserify)
-26. react-dom version 16.8.4 (https://github.com/facebook/react)
-27. react version 16.8.4 (https://github.com/facebook/react)
+26. react-dom version 19.0.0 (https://github.com/facebook/react)
+27. react version 19.0.0 (https://github.com/facebook/react)
 28. signal-utils version 0.21.1 (https://github.com/proposal-signals/signal-utils)
 29. slug version 10.0.0 (https://github.com/Trott/slug)
 30. sortablejs version 1.15.0 (https://github.com/SortableJS/Sortable)
@@ -2129,7 +2129,7 @@ END OF  path-browserify NOTICES AND INFORMATION
 =========================================
 MIT License
 
-Copyright (c) Facebook, Inc. and its affiliates.
+Copyright (c) Meta Platforms, Inc. and affiliates.
 
 Permission is hereby granted, free of charge, to any person obtaining a copy
 of this software and associated documentation files (the "Software"), to deal
@@ -2156,7 +2156,7 @@ END OF  react-dom NOTICES AND INFORMATION
 =========================================
 MIT License
 
-Copyright (c) Facebook, Inc. and its affiliates.
+Copyright (c) Meta Platforms, Inc. and affiliates.
 
 Permission is hereby granted, free of charge, to any person obtaining a copy
 of this software and associated documentation files (the "Software"), to deal

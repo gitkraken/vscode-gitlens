@@ -20116,7 +20116,7 @@
 		"vscode:prepublish": "pnpm run bundle"
 	},
 	"dependencies": {
-		"@gitkraken/gitkraken-components": "10.7.0",
+		"@gitkraken/gitkraken-components": "11.0.0-vnext",
 		"@gitkraken/provider-apis": "0.26.1",
 		"@gitkraken/shared-web-components": "0.1.1-rc.15",
 		"@gk-nzaytsev/fast-string-truncated-width": "1.1.0",
@@ -20143,8 +20143,8 @@
 		"node-fetch": "2.7.0",
 		"os-browserify": "0.3.0",
 		"path-browserify": "1.0.1",
-		"react": "16.8.4",
-		"react-dom": "16.8.4",
+		"react": "19.0.0",
+		"react-dom": "19.0.0",
 		"signal-utils": "0.21.1",
 		"slug": "10.0.0",
 		"sortablejs": "1.15.0"
@@ -20158,8 +20158,8 @@
 		"@types/eslint__js": "8.42.3",
 		"@types/mocha": "10.0.10",
 		"@types/node": "18.15.13",
-		"@types/react": "17.0.83",
-		"@types/react-dom": "17.0.25",
+		"@types/react": "19.0.6",
+		"@types/react-dom": "19.0.3",
 		"@types/slug": "5.0.9",
 		"@types/sortablejs": "1.15.8",
 		"@types/vscode": "1.82.0",
