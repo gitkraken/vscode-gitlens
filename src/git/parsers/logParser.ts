@@ -587,7 +587,7 @@ export function parseGitLog(
 				break;
 
 			case 109: // 'm': // committer-mail
-				entry.committedDate = line.substring(4);
+				entry.committerEmail = line.substring(4);
 				break;
 
 			case 99: // 'c': // committer-date
@@ -844,16 +844,12 @@ function parseLogEntry(
 	stashes: Map<string, GitStashCommit> | undefined,
 ): void {
 	if (commit == null) {
-		if (entry.author != null) {
-			if (isUserMatch(currentUser, entry.author, entry.authorEmail)) {
-				entry.author = 'You';
-			}
+		if (entry.author != null && isUserMatch(currentUser, entry.author, entry.authorEmail)) {
+			entry.author = 'You';
 		}
 
-		if (entry.committer != null) {
-			if (isUserMatch(currentUser, entry.committer, entry.committerEmail)) {
-				entry.committer = 'You';
-			}
+		if (entry.committer != null && isUserMatch(currentUser, entry.committer, entry.committerEmail)) {
+			entry.committer = 'You';
 		}
 
 		const originalFileName = entry.originalPath ?? (relativeFileName !== entry.path ? entry.path : undefined);
