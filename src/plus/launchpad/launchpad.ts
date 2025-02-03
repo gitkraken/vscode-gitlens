@@ -321,7 +321,7 @@ export class LaunchpadCommand extends QuickCommand<State> {
 				opened = true;
 
 				const result = yield* this.pickLaunchpadItemStep(state, context, {
-					picked: state.item?.graphQLId,
+					picked: state.item?.graphQLId ?? state.item?.uuid,
 					selectTopItem: state.selectTopItem,
 				});
 				if (result === StepResultBreak) {
@@ -515,7 +515,12 @@ export class LaunchpadCommand extends QuickCommand<State> {
 						  ? Uri.parse(i.author.avatarUrl)
 						  : undefined,
 				item: i,
-				picked: i.graphQLId === picked || i.graphQLId === topItem?.graphQLId,
+				picked:
+					i.graphQLId != null
+						? i.graphQLId === picked || i.graphQLId === topItem?.graphQLId
+						: i.uuid != null
+						  ? i.uuid === picked || i.uuid === topItem?.uuid
+						  : false,
 				group: ui,
 			};
 		};
