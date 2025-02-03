@@ -273,24 +273,17 @@ export class AzureDevOpsIntegration extends HostingIntegration<
 	}
 
 	protected override async getProviderPullRequestForBranch(
-		_session: AuthenticationSession,
-		_repo: AzureRepositoryDescriptor,
-		_branch: string,
+		{ accessToken }: AuthenticationSession,
+		repo: AzureRepositoryDescriptor,
+		branch: string,
 		_options?: {
 			avatarSize?: number;
 			include?: PullRequestState[];
 		},
 	): Promise<PullRequest | undefined> {
-		return (await this.container.azure)?.getPullRequestForBranch(
-			this,
-			_session.accessToken,
-			_repo.owner,
-			_repo.name,
-			_branch,
-			{
-				baseUrl: this.apiBaseUrl,
-			},
-		);
+		return (await this.container.azure)?.getPullRequestForBranch(this, accessToken, repo.owner, repo.name, branch, {
+			baseUrl: this.apiBaseUrl,
+		});
 	}
 
 	protected override async getProviderPullRequestForCommit(

@@ -102,7 +102,7 @@ export class AzureDevOpsApi implements Disposable {
 			const pr = prResult?.value.find(pr => pr.sourceRefName.endsWith(branch));
 			if (pr == null) return undefined;
 
-			return fromAzurePullRequest(pr, provider);
+			return fromAzurePullRequest(pr, provider, owner, projectName);
 		} catch (ex) {
 			Logger.error(ex, scope);
 			return undefined;

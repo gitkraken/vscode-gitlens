@@ -1,5 +1,12 @@
+import { RepositoryAccessLevel } from '../../../../git/models/issue';
 import type { IssueOrPullRequestState } from '../../../../git/models/issueOrPullRequest';
-import { PullRequest } from '../../../../git/models/pullRequest';
+import type { PullRequestMember, PullRequestReviewer } from '../../../../git/models/pullRequest';
+import {
+	PullRequest,
+	PullRequestMergeableState,
+	PullRequestReviewDecision,
+	PullRequestReviewState,
+} from '../../../../git/models/pullRequest';
 import type { Provider } from '../../../../git/models/remoteProvider';
 
 export type AzureWorkItemStateCategory = 'Proposed' | 'InProgress' | 'Resolved' | 'Completed' | 'Removed';
@@ -36,14 +43,23 @@ export interface AzureUser {
 	id: string;
 	uniqueName: string;
 	imageUrl: string;
-	descriptor: string;
+	descriptor?: string;
 }
 
 export interface AzureUserWithVote extends AzureUser {
-	isFlagged: boolean;
-	isReapprove: boolean;
-	isRequired: boolean;
+	isFlagged?: boolean;
+	hasDeclined?: boolean;
+	isReapprove?: boolean;
+	isRequired?: boolean;
+	vote?: AzurePullRequestVote;
 }
+
+export type AzurePullRequestVote =
+	| 10 // approved
+	| 5 // approved with suggestions
+	| 0 // no vote
+	| -5 // waiting for author
+	| -10; // rejected
 
 export interface AzureWorkItemCommentVersionRef {
 	commentId: number;
@@ -118,19 +134,6 @@ export function azurePullRequestStatusToState(status: AzurePullRequestStatus): I
 }
 export function isClosedAzurePullRequestStatus(status: AzurePullRequestStatus): boolean {
 	return azurePullRequestStatusToState(status) !== 'opened';
-}
-
-export type AzureProjectState = 'createPending' | 'deleted' | 'deleting' | 'new' | 'unchanged' | 'wellFormed';
-export type AzureProjectVisibility = 'private' | 'public';
-
-export interface AzureProject {
-	id: string;
-	name: string;
-	url: string;
-	state: AzureProjectState;
-	revision: number;
-	visibility: AzureProjectVisibility;
-	lastUpdateTime: string;
 }
 
 export type AzureProjectState = 'createPending' | 'deleted' | 'deleting' | 'new' | 'unchanged' | 'wellFormed';
@@ -238,10 +241,13 @@ export interface AzurePullRequest {
 	closedBy?: AzureUser; // Can be missed even if closedDate is presented.
 	title: string;
 	description: string;
+	forkSource?: AzureGitForkRef;
 	sourceRefName: string;
 	targetRefName: string;
 	isDraft: boolean;
 	mergeId: string;
+	mergeStatus?: AzurePullRequestAsyncStatus;
+	lastMergeCommit?: AzureGitCommitRef;
 	lastMergeSourceCommit: AzureGitCommitRef;
 	lastMergeTargetCommit: AzureGitCommitRef;
 	reviewers: AzureUserWithVote[];
@@ -267,14 +273,11 @@ export interface AzurePullRequestWithLinks extends AzurePullRequest {
 	commits?: AzureGitCommitRef[];
 	completionOptions?: AzurePullRequestCompletionOptions;
 	completionQueueTime?: string;
-	forkSource?: AzureGitForkRef;
 	hasMultipleMergeBases?: boolean;
 	labels?: AzureWebApiTagDefinition[];
-	lastMergeCommit?: AzureGitCommitRef;
 	mergeFailureMessage?: string;
 	mergeFailureType?: 'caseSensitive' | 'none' | 'objectTooLarge' | 'unknown';
 	mergeOptions?: AzureGitPullRequestMergeOptions;
-	mergeStatus?: AzurePullRequestAsyncStatus;
 	remoteUrl?: string;
 	workItemRefs?: AzureResourceRef[];
 }
@@ -306,7 +309,91 @@ export function getAzurePullRequestWebUrl(pr: AzurePullRequest): string {
 	return `${baseUrl}/${owner}/${repoPath}/pullrequest/${pr.pullRequestId}`;
 }
 
-export function fromAzurePullRequest(pr: AzurePullRequest, provider: Provider): PullRequest {
+export function fromAzurePullRequestMergeStatusToMergeableState(
+	mergeStatus: AzurePullRequestAsyncStatus,
+): PullRequestMergeableState {
+	switch (mergeStatus) {
+		case 'conflicts':
+			return PullRequestMergeableState.Conflicting;
+		case 'failure':
+			return PullRequestMergeableState.FailingChecks;
+		case 'rejectedByPolicy':
+			return PullRequestMergeableState.BlockedByPolicy;
+		case 'succeeded':
+			return PullRequestMergeableState.Mergeable;
+		case 'notSet':
+		case 'queued':
+		default:
+			return PullRequestMergeableState.Unknown;
+	}
+}
+
+export function fromAzurePullRequestVoteToReviewState(vote: AzurePullRequestVote): PullRequestReviewState {
+	switch (vote) {
+		case 10:
+		case 5:
+			return PullRequestReviewState.Approved;
+		case 0:
+			return PullRequestReviewState.ReviewRequested;
+		case -5:
+		case -10:
+			return PullRequestReviewState.ChangesRequested;
+		default:
+			return PullRequestReviewState.ReviewRequested;
+	}
+}
+
+export function fromAzureUserWithVoteToReviewer(reviewer: AzureUserWithVote): PullRequestReviewer {
+	return {
+		isCodeOwner: undefined,
+		reviewer: {
+			avatarUrl: reviewer.imageUrl,
+			id: reviewer.id,
+			name: reviewer.displayName,
+			url: reviewer.url,
+		},
+		state: fromAzurePullRequestVoteToReviewState(reviewer.vote ?? 0),
+	};
+}
+
+export function getAzurePullRequestReviewDecision(
+	votes: AzurePullRequestVote[],
+): PullRequestReviewDecision | undefined {
+	const reviewStates = votes.map(vote => fromAzurePullRequestVoteToReviewState(vote));
+	if (reviewStates.includes(PullRequestReviewState.ChangesRequested)) {
+		return PullRequestReviewDecision.ChangesRequested;
+	}
+
+	if (reviewStates.includes(PullRequestReviewState.ReviewRequested)) {
+		return PullRequestReviewDecision.ReviewRequired;
+	}
+
+	if (reviewStates.includes(PullRequestReviewState.Approved)) {
+		return PullRequestReviewDecision.Approved;
+	}
+
+	return undefined;
+}
+
+export function fromAzureReviewerToPullRequestMember(reviewer: AzureUser): PullRequestMember {
+	return {
+		avatarUrl: reviewer.imageUrl,
+		id: reviewer.id,
+		name: reviewer.displayName,
+		url: reviewer.url,
+	};
+}
+
+function normalizeAzureBranchName(branchName: string): string {
+	return branchName.startsWith('refs/heads/') ? branchName.replace('refs/heads/', '') : branchName;
+}
+
+export function fromAzurePullRequest(
+	pr: AzurePullRequest,
+	provider: Provider,
+	orgName: string,
+	projectName: string,
+): PullRequest {
 	const url = new URL(pr.url);
 	return new PullRequest(
 		provider,
@@ -322,10 +409,52 @@ export function fromAzurePullRequest(pr: AzurePullRequest, provider: Provider): 
 		getAzurePullRequestWebUrl(pr),
 		{
 			owner: getAzureOwner(url),
-			repo: getAzureRepo(pr),
+			repo: pr.repository.name,
+			id: pr.repository.id,
+			// TODO: Remove this assumption once actual access level is available
+			accessLevel: RepositoryAccessLevel.Write,
 		},
 		azurePullRequestStatusToState(pr.status),
 		new Date(pr.creationDate),
-		new Date(pr.creationDate),
+		new Date(pr.closedDate || pr.creationDate),
+		pr.closedDate ? new Date(pr.closedDate) : undefined,
+		pr.closedDate && pr.status === 'completed' ? new Date(pr.closedDate) : undefined,
+		fromAzurePullRequestMergeStatusToMergeableState(pr.mergeStatus ?? 'notSet'),
+		undefined,
+		{
+			base: {
+				branch: pr.targetRefName ? normalizeAzureBranchName(pr.targetRefName) : '',
+				sha: pr.lastMergeTargetCommit?.commitId ?? '',
+				repo: pr.repository.name,
+				owner: getAzureOwner(url),
+				exists: pr.targetRefName != null,
+				url: pr.repository.webUrl,
+			},
+			head: {
+				branch: pr.sourceRefName ? normalizeAzureBranchName(pr.sourceRefName) : '',
+				sha: pr.lastMergeSourceCommit?.commitId ?? '',
+				repo: pr.forkSource?.repository != null ? pr.forkSource.repository.name : pr.repository.name,
+				owner: getAzureOwner(url),
+				exists: pr.sourceRefName != null,
+				url: pr.forkSource?.repository != null ? pr.forkSource.repository.webUrl : pr.repository.webUrl,
+			},
+			isCrossRepository: pr.forkSource != null,
+		},
+		pr.isDraft,
+		undefined,
+		undefined,
+		undefined,
+		undefined,
+		getAzurePullRequestReviewDecision(pr.reviewers?.filter(r => r.isRequired).map(r => r.vote ?? 0) ?? []),
+		pr.reviewers.filter(r => r.vote == null || r.vote === 0).map(r => fromAzureUserWithVoteToReviewer(r)),
+		pr.reviewers.filter(r => r.vote != null && r.vote !== 0).map(r => fromAzureUserWithVoteToReviewer(r)),
+		pr.reviewers.map(r => fromAzureReviewerToPullRequestMember(r)),
+		undefined,
+		{
+			id: pr.repository?.project?.id,
+			name: projectName,
+			resourceId: '', // TODO: This is a workaround until we can get the org id here.
+			resourceName: orgName,
+		},
 	);
 }
