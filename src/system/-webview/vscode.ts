@@ -8,6 +8,7 @@ import type {
 	WorkspaceFolder,
 } from 'vscode';
 import { version as codeVersion, ColorThemeKind, env, Uri, ViewColumn, window, workspace } from 'vscode';
+import { getExecPath } from '@env/execPath';
 import type { IconPath } from '../../@types/vscode.iconpath';
 import { imageMimetypes, Schemes, trackableSchemes } from '../../constants';
 import type { Container } from '../../container';
@@ -71,25 +72,8 @@ export function findOrOpenEditors(uris: Uri[], options?: TextDocumentShowOptions
 }
 
 export function getEditorCommand(): string {
-	let editor;
-	switch (env.appName) {
-		case 'Visual Studio Code - Insiders':
-			editor = 'code-insiders --wait --reuse-window';
-			break;
-		case 'Visual Studio Code - Exploration':
-			editor = 'code-exploration --wait --reuse-window';
-			break;
-		case 'VSCodium':
-			editor = 'codium --wait --reuse-window';
-			break;
-		case 'Cursor':
-			editor = 'cursor --wait --reuse-window';
-			break;
-		default:
-			editor = 'code --wait --reuse-window';
-			break;
-	}
-	return editor;
+	const escapedExecPath = getExecPath().replace(/([ ()])/gm, '\\$1');
+	return `${escapedExecPath} --wait --reuse-window`;
 }
 
 export function getEditorIfActive(document: TextDocument): TextEditor | undefined {

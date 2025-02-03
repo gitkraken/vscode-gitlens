@@ -9,7 +9,7 @@ export const isLinux = platform === 'linux';
 export const isMac = platform === 'darwin';
 export const isWindows = platform === 'win32';
 
-export function getPlatform(): string {
+export function getPlatform(): 'windows' | 'macOS' | 'linux' | 'web' | 'unknown' {
 	if (isWindows) return 'windows';
 	if (isMac) return 'macOS';
 	if (isLinux) return 'linux';
