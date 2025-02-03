@@ -8,26 +8,7 @@ export type OrganizationRole = 'owner' | 'admin' | 'billing' | 'user';
 
 export type OrganizationsResponse = Organization[];
 
-export interface FullOrganization {
-	readonly id: string;
-	readonly name: string;
-	readonly domain: string;
-	readonly updatedToNewRoles: boolean;
-	readonly memberCount: number;
-	readonly members: OrganizationMember[];
-	readonly connections: OrganizationConnection[];
-	readonly type: OrganizationType;
-	readonly isOnChargebee: boolean;
-}
-
-export enum OrganizationType {
-	Enterprise = 'ENTERPRISE',
-	Individual = 'INDIVIDUAL',
-	Pro = 'PRO',
-	Teams = 'TEAMS',
-}
-
-export type OrganizationConnection = Record<string, unknown>;
+export type OrganizationMemberStatus = 'activated' | 'pending';
 
 export interface OrganizationMember {
 	readonly id: string;
@@ -35,7 +16,7 @@ export interface OrganizationMember {
 	readonly name: string;
 	readonly username: string;
 	readonly role: OrganizationRole;
-	readonly licenseConsumption: Record<string, boolean>;
+	readonly status: OrganizationMemberStatus;
 }
 
 export interface OrganizationSettings {
