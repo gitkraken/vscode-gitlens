@@ -701,14 +701,17 @@ export const toProviderPullRequestMergeableState = {
 	[PullRequestMergeableState.Mergeable]: GitPullRequestMergeableState.Mergeable,
 	[PullRequestMergeableState.Conflicting]: GitPullRequestMergeableState.Conflicts,
 	[PullRequestMergeableState.Unknown]: GitPullRequestMergeableState.Unknown,
+	[PullRequestMergeableState.FailingChecks]: GitPullRequestMergeableState.FailingChecks,
+	[PullRequestMergeableState.BlockedByPolicy]: GitPullRequestMergeableState.Blocked,
 };
 
 export const fromProviderPullRequestMergeableState = {
 	[GitPullRequestMergeableState.Mergeable]: PullRequestMergeableState.Mergeable,
 	[GitPullRequestMergeableState.Conflicts]: PullRequestMergeableState.Conflicting,
+	[GitPullRequestMergeableState.Blocked]: PullRequestMergeableState.BlockedByPolicy,
+	[GitPullRequestMergeableState.FailingChecks]: PullRequestMergeableState.FailingChecks,
 	[GitPullRequestMergeableState.Unknown]: PullRequestMergeableState.Unknown,
 	[GitPullRequestMergeableState.Behind]: PullRequestMergeableState.Unknown,
-	[GitPullRequestMergeableState.Blocked]: PullRequestMergeableState.Unknown,
 	[GitPullRequestMergeableState.UnknownAndBlocked]: PullRequestMergeableState.Unknown,
 	[GitPullRequestMergeableState.Unstable]: PullRequestMergeableState.Unknown,
 };
@@ -870,16 +873,19 @@ export function toProviderPullRequest(pr: PullRequest): ProviderPullRequest {
 						],
 				  }
 				: null,
-		permissions: {
-			canMerge:
-				pr.viewerCanUpdate === true &&
-				pr.repository.accessLevel != null &&
-				pr.repository.accessLevel >= RepositoryAccessLevel.Write,
-			canMergeAndBypassProtections:
-				pr.viewerCanUpdate === true &&
-				pr.repository.accessLevel != null &&
-				pr.repository.accessLevel >= RepositoryAccessLevel.Admin,
-		},
+		permissions:
+			pr.viewerCanUpdate == null
+				? null
+				: {
+						canMerge:
+							pr.viewerCanUpdate === true &&
+							pr.repository.accessLevel != null &&
+							pr.repository.accessLevel >= RepositoryAccessLevel.Write,
+						canMergeAndBypassProtections:
+							pr.viewerCanUpdate === true &&
+							pr.repository.accessLevel != null &&
+							pr.repository.accessLevel >= RepositoryAccessLevel.Admin,
+				  },
 		mergeableState: pr.mergeableState
 			? toProviderPullRequestMergeableState[pr.mergeableState]
 			: GitPullRequestMergeableState.Unknown,

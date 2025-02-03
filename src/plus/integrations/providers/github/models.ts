@@ -296,6 +296,10 @@ export function toGitHubPullRequestMergeableState(
 			return 'MERGEABLE';
 		case PullRequestMergeableState.Conflicting:
 			return 'CONFLICTING';
+		case PullRequestMergeableState.FailingChecks:
+			return 'UNKNOWN';
+		case PullRequestMergeableState.BlockedByPolicy:
+			return 'UNKNOWN';
 		case PullRequestMergeableState.Unknown:
 			return 'UNKNOWN';
 	}
