@@ -41,6 +41,7 @@ import { showPatchesView } from '../../plus/drafts/actions';
 import type { Subscription } from '../../plus/gk/models/subscription';
 import type { SubscriptionChangeEvent } from '../../plus/gk/subscriptionService';
 import { isSubscriptionStatePaidOrTrial } from '../../plus/gk/utils/subscription.utils';
+import type { ConfiguredIntegrationsChangeEvent } from '../../plus/integrations/authentication/configuredIntegrationService';
 import { providersMetadata } from '../../plus/integrations/providers/models';
 import type { LaunchpadCategorizedResult } from '../../plus/launchpad/launchpadProvider';
 import { getLaunchpadItemGroups } from '../../plus/launchpad/launchpadProvider';
@@ -157,7 +158,7 @@ export class HomeWebviewProvider implements WebviewProvider<State, State, HomeWe
 				: emptyDisposable,
 			this.container.subscription.onDidChange(this.onSubscriptionChanged, this),
 			onDidChangeContext(this.onContextChanged, this),
-			this.container.integrations.onDidChangeConnectionState(this.onChangeConnectionState, this),
+			this.container.integrations.onDidChangeConfiguredIntegrations(this.onChangeConnectionState, this),
 			this.container.walkthrough.onProgressChanged(this.onWalkthroughChanged, this),
 			configuration.onDidChange(this.onDidChangeConfig, this),
 			this.container.launchpad.onDidChange(this.onDidLaunchpadChange, this),
@@ -217,7 +218,7 @@ export class HomeWebviewProvider implements WebviewProvider<State, State, HomeWe
 		this.notifyDidCompleteDiscoveringRepositories();
 	}
 
-	private onChangeConnectionState() {
+	private onChangeConnectionState(_e: ConfiguredIntegrationsChangeEvent) {
 		void this.notifyDidChangeIntegrations();
 	}
 

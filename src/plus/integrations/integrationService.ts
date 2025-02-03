@@ -24,7 +24,10 @@ import { filterMap, flatten, join } from '../../system/iterable';
 import { Logger } from '../../system/logger';
 import { getLogScope } from '../../system/logger.scope';
 import type { SubscriptionChangeEvent } from '../gk/subscriptionService';
-import type { ConfiguredIntegrationService } from './authentication/configuredIntegrationService';
+import type {
+	ConfiguredIntegrationsChangeEvent,
+	ConfiguredIntegrationService,
+} from './authentication/configuredIntegrationService';
 import type { IntegrationAuthenticationService } from './authentication/integrationAuthenticationService';
 import type { ConfiguredIntegrationDescriptor } from './authentication/models';
 import {
@@ -67,6 +70,10 @@ export class IntegrationService implements Disposable {
 	private readonly _onDidSyncCloudIntegrations = new EventEmitter<void>();
 	get onDidSyncCloudIntegrations(): Event<void> {
 		return this._onDidSyncCloudIntegrations.event;
+	}
+
+	get onDidChangeConfiguredIntegrations(): Event<ConfiguredIntegrationsChangeEvent> {
+		return this.configuredIntegrationService.onDidChange;
 	}
 
 	private readonly _connectedCache = new Set<string>();
