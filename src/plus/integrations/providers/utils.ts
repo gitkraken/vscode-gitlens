@@ -11,6 +11,7 @@ import { equalsIgnoreCase } from '../../../system/string';
 import type { LaunchpadItem } from '../../launchpad/launchpadProvider';
 import type { IssueResourceDescriptor, RepositoryDescriptor } from '../integration';
 import { isIssueResourceDescriptor, isRepositoryDescriptor } from '../integration';
+import type { AzureProjectInputDescriptor } from './azure/models';
 import type { GitConfigEntityIdentifier } from './models';
 import { isCloudSelfHostedIntegrationId } from './models';
 
@@ -109,6 +110,8 @@ export function getProviderIdFromEntityIdentifier(
 				: SelfHostedIntegrationId.GitLabSelfHosted;
 		case EntityIdentifierProviderType.Jira:
 			return IssueIntegrationId.Jira;
+		case EntityIdentifierProviderType.Azure:
+			return HostingIntegrationId.AzureDevOps;
 		default:
 			return undefined;
 	}
@@ -229,7 +232,8 @@ export async function getIssueFromGitConfigEntityIdentifier(
 		identifier.provider !== EntityIdentifierProviderType.Github &&
 		identifier.provider !== EntityIdentifierProviderType.Gitlab &&
 		identifier.provider !== EntityIdentifierProviderType.GithubEnterprise &&
-		identifier.provider !== EntityIdentifierProviderType.GitlabSelfHosted
+		identifier.provider !== EntityIdentifierProviderType.GitlabSelfHosted &&
+		identifier.provider !== EntityIdentifierProviderType.Azure
 	) {
 		return undefined;
 	}
@@ -255,7 +259,10 @@ export async function getIssueFromGitConfigEntityIdentifier(
 	);
 }
 
-export function getIssueOwner(issue: IssueShape): RepositoryDescriptor | IssueResourceDescriptor | undefined {
+export function getIssueOwner(
+	issue: IssueShape,
+): RepositoryDescriptor | IssueResourceDescriptor | AzureProjectInputDescriptor | undefined {
+	const isAzure = issue.provider.id === 'azure' || HostingIntegrationId.AzureDevOps || 'azure-devops';
 	return issue.repository
 		? {
 				key: `${issue.repository.owner}/${issue.repository.repo}`,
@@ -263,6 +270,11 @@ export function getIssueOwner(issue: IssueShape): RepositoryDescriptor | IssueRe
 				name: issue.repository.repo,
 		  }
 		: issue.project
-		  ? { key: issue.project.resourceId, id: issue.project.resourceId, name: issue.project.resourceId }
+		  ? {
+					key: isAzure ? issue.project.id : issue.project.resourceId,
+					id: isAzure ? issue.project.id : issue.project.resourceId,
+					owner: isAzure ? issue.project.resourceName : undefined,
+					name: isAzure ? issue.project.name : issue.project.resourceName,
+		    }
 		  : undefined;
 }

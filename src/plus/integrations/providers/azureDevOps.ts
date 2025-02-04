@@ -13,41 +13,19 @@ import type {
 import type { RepositoryMetadata } from '../../../git/models/repositoryMetadata';
 import { getSettledValue } from '../../../system/promise';
 import type { IntegrationAuthenticationProviderDescriptor } from '../authentication/integrationAuthenticationProvider';
-import type { ResourceDescriptor } from '../integration';
 import { HostingIntegration } from '../integration';
+import type {
+	AzureOrganizationDescriptor,
+	AzureProjectDescriptor,
+	AzureProjectInputDescriptor,
+	AzureRemoteRepositoryDescriptor,
+	AzureRepositoryDescriptor,
+} from './azure/models';
 import type { ProviderPullRequest } from './models';
-import { fromProviderPullRequest, providersMetadata } from './models';
+import { fromProviderIssue, fromProviderPullRequest, providersMetadata } from './models';
 
 const metadata = providersMetadata[HostingIntegrationId.AzureDevOps];
 const authProvider = Object.freeze({ id: metadata.id, scopes: metadata.scopes });
-
-interface AzureRepositoryDescriptor extends ResourceDescriptor {
-	owner: string;
-	name: string;
-}
-
-interface AzureOrganizationDescriptor extends ResourceDescriptor {
-	id: string;
-	name: string;
-}
-
-interface AzureProjectDescriptor extends ResourceDescriptor {
-	id: string;
-	name: string;
-	resourceId: string;
-	resourceName: string;
-}
-
-interface AzureRemoteRepositoryDescriptor extends ResourceDescriptor {
-	id: string;
-	nodeId?: string;
-	resourceName: string;
-	name: string;
-	projectName?: string;
-	url?: string;
-	cloneUrlHttps?: string;
-	cloneUrlSsh?: string;
-}
 
 export class AzureDevOpsIntegration extends HostingIntegration<
 	HostingIntegrationId.AzureDevOps,
@@ -265,11 +243,25 @@ export class AzureDevOpsIntegration extends HostingIntegration<
 	}
 
 	protected override async getProviderIssue(
-		_session: AuthenticationSession,
-		_repo: AzureRepositoryDescriptor,
-		_id: string,
+		session: AuthenticationSession,
+		project: AzureProjectInputDescriptor,
+		id: string,
 	): Promise<Issue | undefined> {
-		return Promise.resolve(undefined);
+		const user = await this.getProviderCurrentAccount(session);
+		if (user?.username == null) return undefined;
+
+		const orgs = await this.getProviderResourcesForUser(session);
+		if (orgs == null || orgs.length === 0) return undefined;
+
+		const projects = await this.getProviderProjectsForResources(session, orgs);
+		if (projects == null || projects.length === 0) return undefined;
+
+		const matchingProject = projects.find(p => p.resourceName === project.owner && p.name === project.name);
+		if (matchingProject == null) return undefined;
+
+		return (await this.container.azure)?.getIssue(this, session.accessToken, matchingProject, id, {
+			baseUrl: this.apiBaseUrl,
+		});
 	}
 
 	protected override async getProviderPullRequestForBranch(
@@ -358,10 +350,63 @@ export class AzureDevOpsIntegration extends HostingIntegration<
 	}
 
 	protected override async searchProviderMyIssues(
-		_session: AuthenticationSession,
+		session: AuthenticationSession,
 		_repos?: AzureRepositoryDescriptor[],
 	): Promise<SearchedIssue[] | undefined> {
-		return Promise.resolve(undefined);
+		const api = await this.getProvidersApi();
+
+		const user = await this.getProviderCurrentAccount(session);
+		if (user?.username == null) return undefined;
+
+		const orgs = await this.getProviderResourcesForUser(session);
+		if (orgs == null || orgs.length === 0) return undefined;
+
+		const projects = await this.getProviderProjectsForResources(session, orgs);
+		if (projects == null || projects.length === 0) return undefined;
+
+		const assignedIssues = (
+			await Promise.all(
+				projects.map(async p => {
+					const issuesResponse = (
+						await api.getIssuesForAzureProject(p.resourceName, p.name, {
+							accessToken: session.accessToken,
+							assigneeLogins: [user.username!],
+						})
+					).values;
+					return issuesResponse.map(i => fromProviderIssue(i, this, { project: p }));
+				}),
+			)
+		).flat();
+		const authoredIssues = (
+			await Promise.all(
+				projects.map(async p => {
+					const issuesResponse = (
+						await api.getIssuesForAzureProject(p.resourceName, p.name, {
+							accessToken: session.accessToken,
+							authorLogin: user.username!,
+						})
+					).values;
+					return issuesResponse.map(i => fromProviderIssue(i, this, { project: p }));
+				}),
+			)
+		).flat();
+		// TODO: Add mentioned issues
+		const issuesById = new Map<string, SearchedIssue>();
+
+		for (const issue of authoredIssues ?? []) {
+			issuesById.set(issue.id, { issue: issue, reasons: ['authored'] });
+		}
+
+		for (const issue of assignedIssues ?? []) {
+			const existing = issuesById.get(issue.id);
+			if (existing != null) {
+				existing.reasons.push('assigned');
+			} else {
+				issuesById.set(issue.id, { issue: issue, reasons: ['assigned'] });
+			}
+		}
+
+		return Array.from(issuesById.values());
 	}
 
 	protected override async providerOnConnect(): Promise<void> {
