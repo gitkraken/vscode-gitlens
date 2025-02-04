@@ -864,6 +864,13 @@ button:not([disabled]),
 			@include iconUtils.glicon('provider-jira');
 		}
 	}
+
+	&--issue-azureDevops {
+		&::before {
+			font-family: 'glicons';
+			@include iconUtils.glicon('provider-azdo');
+		}
+	}
 }
 
 .titlebar {

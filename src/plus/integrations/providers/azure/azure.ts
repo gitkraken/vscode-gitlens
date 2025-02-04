@@ -13,6 +13,7 @@ import {
 	RequestClientError,
 	RequestNotFoundError,
 } from '../../../../errors';
+import type { Issue } from '../../../../git/models/issue';
 import type { IssueOrPullRequest } from '../../../../git/models/issueOrPullRequest';
 import type { PullRequest } from '../../../../git/models/pullRequest';
 import type { Provider } from '../../../../git/models/remoteProvider';
@@ -24,6 +25,7 @@ import type { LogScope } from '../../../../system/logger.scope';
 import { getLogScope } from '../../../../system/logger.scope';
 import { maybeStopWatch } from '../../../../system/stopwatch';
 import type {
+	AzureProjectDescriptor,
 	AzurePullRequest,
 	AzurePullRequestWithLinks,
 	AzureWorkItemState,
@@ -34,6 +36,7 @@ import {
 	azurePullRequestStatusToState,
 	azureWorkItemsStateCategoryToState,
 	fromAzurePullRequest,
+	fromAzureWorkItem,
 	getAzurePullRequestWebUrl,
 	isClosedAzurePullRequestStatus,
 	isClosedAzureWorkItemStateCategory,
@@ -145,7 +148,7 @@ export class AzureDevOpsApi implements Disposable {
 					provider,
 					token,
 					owner,
-					repo,
+					projectName,
 					options,
 				);
 
@@ -203,23 +206,71 @@ export class AzureDevOpsApi implements Disposable {
 		}
 	}
 
-	public async getWorkItemStateCategory(
+	@debug<AzureDevOpsApi['getIssue']>({ args: { 0: p => p.name, 1: '<token>' } })
+	public async getIssue(
+		provider: Provider,
+		token: string,
+		project: AzureProjectDescriptor,
+		id: string,
+		options: {
+			baseUrl: string;
+		},
+	): Promise<Issue | undefined> {
+		const scope = getLogScope();
+
+		try {
+			// Try to get the Work item (wit) first with specific fields
+			const issueResult = await this.request<WorkItem>(
+				provider,
+				token,
+				options?.baseUrl,
+				`${project.resourceName}/${project.name}/_apis/wit/workItems/${id}`,
+				{
+					method: 'GET',
+				},
+				scope,
+			);
+
+			if (issueResult != null) {
+				const issueType = issueResult.fields['System.WorkItemType'];
+				const state = issueResult.fields['System.State'];
+				const stateCategory = await this.getWorkItemStateCategory(
+					issueType,
+					state,
+					provider,
+					token,
+					project.resourceName,
+					project.name,
+					options,
+				);
+				return fromAzureWorkItem(issueResult, provider, project, stateCategory);
+			}
+		} catch (ex) {
+			if (ex.original?.status !== 404) {
+				Logger.error(ex, scope);
+				return undefined;
+			}
+		}
+
+		return undefined;
+	}
+
+	async getWorkItemStateCategory(
 		issueType: string,
 		state: string,
 		provider: Provider,
 		token: string,
 		owner: string,
-		repo: string,
+		projectName: string,
 		options: {
 			baseUrl: string;
 		},
 	): Promise<AzureWorkItemStateCategory | undefined> {
-		const [projectName] = repo.split('/');
 		const project = `${owner}/${projectName}`;
 		const category = this._workItemStates.getStateCategory(project, issueType, state);
 		if (category != null) return category;
 
-		const states = await this.retrieveWorkItemTypeStates(issueType, provider, token, owner, repo, options);
+		const states = await this.retrieveWorkItemTypeStates(issueType, provider, token, owner, projectName, options);
 		this._workItemStates.saveTypeStates(project, issueType, states);
 
 		return this._workItemStates.getStateCategory(project, issueType, state);
@@ -230,13 +281,12 @@ export class AzureDevOpsApi implements Disposable {
 		provider: Provider,
 		token: string,
 		owner: string,
-		repo: string,
+		projectName: string,
 		options: {
 			baseUrl: string;
 		},
 	): Promise<AzureWorkItemState[]> {
 		const scope = getLogScope();
-		const [projectName] = repo.split('/');
 
 		try {
 			const issueResult = await this.request<{ value: AzureWorkItemState[]; count: number }>(

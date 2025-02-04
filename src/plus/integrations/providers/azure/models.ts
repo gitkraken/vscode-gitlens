@@ -1,4 +1,5 @@
-import { RepositoryAccessLevel } from '../../../../git/models/issue';
+import type { IssueMember } from '../../../../git/models/issue';
+import { Issue, RepositoryAccessLevel } from '../../../../git/models/issue';
 import type { IssueOrPullRequestState } from '../../../../git/models/issueOrPullRequest';
 import type { PullRequestMember, PullRequestReviewer } from '../../../../git/models/pullRequest';
 import {
@@ -8,8 +9,42 @@ import {
 	PullRequestReviewState,
 } from '../../../../git/models/pullRequest';
 import type { Provider } from '../../../../git/models/remoteProvider';
+import type { ResourceDescriptor } from '../../integration';
 
 const vstsHostnameRegex = /\.visualstudio\.com$/;
+
+export interface AzureRepositoryDescriptor extends ResourceDescriptor {
+	owner: string;
+	name: string;
+}
+
+export interface AzureOrganizationDescriptor extends ResourceDescriptor {
+	id: string;
+	name: string;
+}
+
+export interface AzureProjectDescriptor extends ResourceDescriptor {
+	id: string;
+	name: string;
+	resourceId: string;
+	resourceName: string;
+}
+
+export interface AzureRemoteRepositoryDescriptor extends ResourceDescriptor {
+	id: string;
+	nodeId?: string;
+	resourceName: string;
+	name: string;
+	projectName?: string;
+	url?: string;
+	cloneUrlHttps?: string;
+	cloneUrlSsh?: string;
+}
+
+export interface AzureProjectInputDescriptor extends ResourceDescriptor {
+	owner: string;
+	name: string;
+}
 
 export type AzureWorkItemStateCategory = 'Proposed' | 'InProgress' | 'Resolved' | 'Completed' | 'Removed';
 
@@ -91,18 +126,21 @@ export interface WorkItem {
 		workItemUpdates: AzureLink;
 	};
 	fields: {
-		// 'System.AreaPath': string;
-		// 'System.TeamProject': string;
+		//'System.AreaPath': string;
+		'System.TeamProject': string;
 		// 'System.IterationPath': string;
 		'System.WorkItemType': string;
 		'System.State': string;
 		// 'System.Reason': string;
+		'System.AssignedTo': AzureUser;
 		'System.CreatedDate': string;
-		// 'System.CreatedBy': AzureUser;
+		'System.CreatedBy': AzureUser;
 		'System.ChangedDate': string;
-		// 'System.ChangedBy': AzureUser;
-		// 'System.CommentCount': number;
+		'System.ChangedBy': AzureUser;
+		'System.CommentCount': number;
+		'System.Description': string;
 		'System.Title': string;
+		'Microsoft.VSTS.Common.ClosedDate': string;
 		// 'Microsoft.VSTS.Common.StateChangeDate': string;
 		// 'Microsoft.VSTS.Common.Priority': number;
 		// 'Microsoft.VSTS.Common.Severity': string;
@@ -390,6 +428,17 @@ function normalizeAzureBranchName(branchName: string): string {
 	return branchName.startsWith('refs/heads/') ? branchName.replace('refs/heads/', '') : branchName;
 }
 
+function fromAzureUserToMember(user: AzureUser, type: 'issue'): IssueMember;
+function fromAzureUserToMember(user: AzureUser, type: 'pullRequest'): PullRequestMember;
+function fromAzureUserToMember(user: AzureUser, _type: 'issue' | 'pullRequest'): PullRequestMember | IssueMember {
+	return {
+		avatarUrl: user.imageUrl,
+		id: user.id,
+		name: user.displayName,
+		url: user.url,
+	};
+}
+
 export function fromAzurePullRequest(
 	pr: AzurePullRequest,
 	provider: Provider,
@@ -399,12 +448,7 @@ export function fromAzurePullRequest(
 	const url = new URL(pr.url);
 	return new PullRequest(
 		provider,
-		{
-			id: pr.createdBy.id,
-			name: pr.createdBy.displayName,
-			avatarUrl: pr.createdBy.imageUrl,
-			url: pr.createdBy.url,
-		},
+		fromAzureUserToMember(pr.createdBy, 'pullRequest'),
 		pr.pullRequestId.toString(),
 		pr.pullRequestId.toString(),
 		pr.title,
@@ -458,5 +502,35 @@ export function fromAzurePullRequest(
 			resourceId: '', // TODO: This is a workaround until we can get the org id here.
 			resourceName: orgName,
 		},
+	);
+}
+
+export function fromAzureWorkItem(
+	workItem: WorkItem,
+	provider: Provider,
+	project: AzureProjectDescriptor,
+	stateCategory?: AzureWorkItemStateCategory,
+): Issue {
+	return new Issue(
+		provider,
+		workItem.id.toString(),
+		workItem.id.toString(),
+		workItem.fields['System.Title'],
+		workItem._links.html.href,
+		new Date(workItem.fields['System.CreatedDate']),
+		new Date(workItem.fields['System.ChangedDate']),
+		isClosedAzureWorkItemStateCategory(stateCategory),
+		azureWorkItemsStateCategoryToState(stateCategory),
+		fromAzureUserToMember(workItem.fields['System.CreatedBy'], 'issue'),
+		[fromAzureUserToMember(workItem.fields['System.AssignedTo'], 'issue')],
+		undefined,
+		workItem.fields['Microsoft.VSTS.Common.ClosedDate']
+			? new Date(workItem.fields['Microsoft.VSTS.Common.ClosedDate'])
+			: undefined,
+		undefined,
+		workItem.fields['System.CommentCount'],
+		undefined,
+		workItem.fields['System.Description'],
+		project,
 	);
 }

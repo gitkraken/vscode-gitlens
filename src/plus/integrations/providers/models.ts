@@ -13,10 +13,10 @@ import type {
 	GitMergeStrategy,
 	GitPullRequest,
 	GitRepository,
-	Issue,
 	Jira,
 	JiraProject,
 	JiraResource,
+	Issue as ProviderApiIssue,
 	PullRequestWithUniqueID,
 	RequestFunction,
 	RequestOptions,
@@ -36,7 +36,7 @@ import type { CloudSelfHostedIntegrationId, IntegrationId } from '../../../const
 import { HostingIntegrationId, IssueIntegrationId, SelfHostedIntegrationId } from '../../../constants.integrations';
 import type { Account as UserAccount } from '../../../git/models/author';
 import type { IssueMember, IssueProject, SearchedIssue } from '../../../git/models/issue';
-import { RepositoryAccessLevel } from '../../../git/models/issue';
+import { Issue, RepositoryAccessLevel } from '../../../git/models/issue';
 import type {
 	PullRequestMember,
 	PullRequestRefs,
@@ -61,7 +61,7 @@ export type ProviderReposInput = (string | number)[] | GetRepoInput[];
 export type ProviderRepoInput = GetRepoInput;
 export type ProviderPullRequest = GitPullRequest;
 export type ProviderRepository = GitRepository;
-export type ProviderIssue = Issue;
+export type ProviderIssue = ProviderApiIssue;
 export type ProviderEnterpriseOptions = EnterpriseOptions;
 export type ProviderJiraProject = JiraProject;
 export type ProviderJiraResource = JiraResource;
@@ -954,6 +954,47 @@ export function fromProviderPullRequest(
 			? fromProviderBuildStatusState[pr.headCommit.buildStatuses[0].state]
 			: undefined,
 		options?.project,
+	);
+}
+
+export function fromProviderIssue(
+	issue: ProviderIssue,
+	integration: Integration,
+	options?: { project?: IssueProject },
+): Issue {
+	return new Issue(
+		integration,
+		issue.id,
+		issue.graphQLId,
+		issue.title,
+		issue.url ?? '',
+		issue.createdDate,
+		issue.updatedDate ?? issue.closedDate ?? issue.createdDate,
+		issue.closedDate != null,
+		issue.closedDate != null ? 'closed' : 'opened',
+		fromProviderAccount(issue.author),
+		issue.assignees?.map(fromProviderAccount) ?? undefined,
+		undefined, // TODO: issue repo
+		issue.closedDate ?? undefined,
+		undefined,
+		issue.commentCount ?? undefined,
+		issue.upvoteCount ?? undefined,
+		issue.description ?? undefined,
+		options?.project != null
+			? {
+					id: options.project.id,
+					name: options.project.name,
+					resourceId: options.project.resourceId,
+					resourceName: options.project.resourceName,
+			  }
+			: issue.project?.id && issue.project?.resourceId && issue.project?.namespace
+			  ? {
+						id: issue.project.id,
+						name: issue.project.name,
+						resourceId: issue.project.resourceId,
+						resourceName: issue.project.namespace,
+			    }
+			  : undefined,
 	);
 }
 

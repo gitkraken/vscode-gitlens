@@ -724,12 +724,15 @@ export class IntegrationService implements Disposable {
 			id => id in HostingIntegrationId || id in SelfHostedIntegrationId,
 		) as SupportedHostingIntegrationIds[];
 		const openRemotesByIntegrationId = new Map<IntegrationId, ResourceDescriptor[]>();
+		let hasOpenAzureRepository = false;
 		for (const repository of this.container.git.openRepositories) {
 			const remotes = await repository.git.remotes().getRemotes();
-			if (remotes.length === 0) continue;
 			for (const remote of remotes) {
 				const remoteIntegration = await remote.getIntegration();
 				if (remoteIntegration == null) continue;
+				if (remoteIntegration.id === HostingIntegrationId.AzureDevOps) {
+					hasOpenAzureRepository = true;
+				}
 				for (const integrationId of hostingIntegrationIds?.length
 					? hostingIntegrationIds
 					: [...Object.values(HostingIntegrationId), ...Object.values(SelfHostedIntegrationId)]) {
@@ -760,20 +763,19 @@ export class IntegrationService implements Disposable {
 					...Object.values(SelfHostedIntegrationId),
 			  ]) {
 			const integration = await this.get(integrationId);
-			if (
-				integration == null ||
+			const isInvalidIntegration =
 				(options?.openRepositoriesOnly &&
+					integrationId !== HostingIntegrationId.AzureDevOps &&
 					(isHostingIntegrationId(integrationId) || isSelfHostedIntegrationId(integrationId)) &&
-					!openRemotesByIntegrationId.has(integrationId))
-			) {
+					!openRemotesByIntegrationId.has(integrationId)) ||
+				(integrationId === HostingIntegrationId.AzureDevOps && !hasOpenAzureRepository);
+			if (integration == null || isInvalidIntegration) {
 				continue;
 			}
 
 			integrations.set(
 				integration,
-				options?.openRepositoriesOnly &&
-					(isHostingIntegrationId(integrationId) || isSelfHostedIntegrationId(integrationId)) &&
-					openRemotesByIntegrationId.has(integrationId)
+				options?.openRepositoriesOnly && !isInvalidIntegration
 					? openRemotesByIntegrationId.get(integrationId)
 					: undefined,
 			);
