@@ -62,7 +62,7 @@ GitLens integrates with models such as OpenAI, Anthropic, DeepSeek, GitHub Copil
 - 🧪**AI Explain Commit**
 Use the Explain panel on the Inspect view to leverage AI to help you understand the changes introduced by a commit.
 
- Access to AI features simply require signing up for a free [GitKraken](https://gitkraken.dev/register?product=gitlens&source=marketing_page&redirect_uri=vscode%3A%2F%2Feamodio.gitlens%2Flogin&flow=gitlens_web&utm_source=gitlens-extension&utm_medium=readme-ai) account.
+ Access these AI features by signing up for a free [GitKraken](https://gitkraken.dev/register?product=gitlens&source=marketing_page&redirect_uri=vscode%3A%2F%2Feamodio.gitlens%2Flogin&flow=gitlens_web&utm_source=gitlens-extension&utm_medium=readme-ai) account.
 
 
 # Interactive Code History
