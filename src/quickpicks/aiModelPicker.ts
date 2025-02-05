@@ -1,7 +1,7 @@
 import type { Disposable, QuickInputButton, QuickPickItem } from 'vscode';
 import { QuickPickItemKind, ThemeIcon, window } from 'vscode';
 import type { AIModel } from '../ai/aiProviderService';
-import type { AIModels, AIProviders } from '../constants.ai';
+import type { AIProviders } from '../constants.ai';
 import { GlCommand } from '../constants.commands';
 import type { Container } from '../container';
 import { executeCommand } from '../system/-webview/command';
@@ -13,7 +13,7 @@ export interface ModelQuickPickItem extends QuickPickItem {
 
 export async function showAIModelPicker(
 	container: Container,
-	current?: { provider: AIProviders; model: AIModels },
+	current?: { provider: AIProviders; model: string },
 ): Promise<ModelQuickPickItem | undefined> {
 	const models = (await (await container.ai)?.getModels()) ?? [];
 

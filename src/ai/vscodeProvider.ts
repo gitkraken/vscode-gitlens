@@ -1,5 +1,6 @@
 import type { CancellationToken, LanguageModelChat, LanguageModelChatSelector } from 'vscode';
 import { CancellationTokenSource, LanguageModelChatMessage, lm } from 'vscode';
+import type { VSCodeAIModels } from '../constants.ai';
 import type { TelemetryEvents } from '../constants.telemetry';
 import type { Container } from '../container';
 import { configuration } from '../system/-webview/configuration';
@@ -17,7 +18,8 @@ import {
 const provider = { id: 'vscode', name: 'VS Code Provided' } as const;
 
 type VSCodeAIModel = AIModel<typeof provider.id> & { vendor: string; selector: LanguageModelChatSelector };
-export function isVSCodeAIModel(model: AIModel): model is AIModel<typeof provider.id> {
+
+export function isVSCodeAIModel(model: AIModel): model is AIModel<typeof provider.id, VSCodeAIModels> {
 	return model.provider.id === provider.id;
 }
 
