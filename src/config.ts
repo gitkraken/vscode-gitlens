@@ -626,6 +626,7 @@ export interface RemotesUrlsConfig {
 	readonly fileInCommit: string;
 	readonly fileLine: string;
 	readonly fileRange: string;
+	readonly avatar?: string;
 }
 
 interface StatusBarConfig {
