@@ -25,7 +25,7 @@ import { getSettledValue } from '../../system/promise';
 import type { OrganizationMember } from '../gk/models/organization';
 import type { SubscriptionAccount } from '../gk/models/subscription';
 import type { ServerConnection } from '../gk/serverConnection';
-import { providersMetadata } from '../integrations/providers/models';
+import { providersMetadata, supportsCodeSuggest } from '../integrations/providers/models';
 import { getEntityIdentifierInput } from '../integrations/providers/utils';
 import type { LaunchpadItem } from '../launchpad/launchpadProvider';
 import type {
@@ -832,6 +832,8 @@ export class DraftService implements Disposable {
 		repositoryOrIntegrationId: Repository | IntegrationId,
 		options?: { includeArchived?: boolean },
 	): Promise<Draft[]> {
+		if (!supportsCodeSuggest(item.provider)) return [];
+
 		const entityIdentifier = getEntityIdentifierInput(item);
 		const prEntityId = EntityIdentifierUtils.encode(entityIdentifier);
 		const providerAuth = await this.getProviderAuthFromRepoOrIntegrationId(repositoryOrIntegrationId);
@@ -855,9 +857,11 @@ export class DraftService implements Disposable {
 
 		type Result = { data: CodeSuggestionCountsResponse };
 
-		const prEntityIds = pullRequests.map(pr => {
-			return EntityIdentifierUtils.encode(getEntityIdentifierInput(pr));
-		});
+		const prEntityIds = pullRequests
+			.filter(pr => supportsCodeSuggest(pr.provider))
+			.map(pr => {
+				return EntityIdentifierUtils.encode(getEntityIdentifierInput(pr));
+			});
 
 		const body = JSON.stringify({
 			prEntityIds: prEntityIds,

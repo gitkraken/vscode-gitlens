@@ -52,9 +52,14 @@ import type {
 	SupportedSelfHostedIntegrationIds,
 } from './integration';
 import { isAzureCloudDomain } from './providers/azureDevOps';
-import { isCloudSelfHostedIntegrationId, isHostingIntegrationId, isSelfHostedIntegrationId } from './providers/models';
+import {
+	isCloudSelfHostedIntegrationId,
+	isGitHubDotCom,
+	isGitLabDotCom,
+	isHostingIntegrationId,
+	isSelfHostedIntegrationId,
+} from './providers/models';
 import type { ProvidersApi } from './providers/providersApi';
-import { isGitHubDotCom, isGitLabDotCom } from './providers/utils';
 
 export interface ConnectionStateChangeEvent {
 	key: string;
