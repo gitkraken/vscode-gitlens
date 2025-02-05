@@ -15,6 +15,7 @@ import { showAIModelPicker } from '../quickpicks/aiModelPicker';
 import { configuration } from '../system/-webview/configuration';
 import type { Storage } from '../system/-webview/storage';
 import { supportedInVSCodeVersion } from '../system/-webview/vscode';
+import { formatNumeric } from '../system/date';
 import { getSettledValue } from '../system/promise';
 import { getPossessiveForm } from '../system/string';
 import type { TelemetryService } from '../telemetry/telemetry';
@@ -704,9 +705,9 @@ function splitMessageIntoSummaryAndBody(message: string): AIResult {
 
 export function showDiffTruncationWarning(maxCodeCharacters: number, model: AIModel): void {
 	void window.showWarningMessage(
-		`The diff of the changes had to be truncated to ${maxCodeCharacters} characters to fit within the ${getPossessiveForm(
-			model.provider.name,
-		)} limits.`,
+		`The diff of the changes had to be truncated to ${formatNumeric(
+			maxCodeCharacters,
+		)} characters to fit within the ${getPossessiveForm(model.provider.name)} limits.`,
 	);
 }
 
