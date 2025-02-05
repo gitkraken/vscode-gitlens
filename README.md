@@ -51,7 +51,7 @@ GitLens offers a wide range of features—here are the three most popular workfl
 
 ## Home View - Your VS Code Workflow Hub
 
-Compact but powerful, the Home View lets you take your tasks and issues from code to merge. Start work on an issue or create PRs and new branches in one intelligent view. The perfect companion for developers looking to reduce tedious context switching and stay focused on their work in VS Code.
+Compact but powerful, the Home View lets you take your tasks and issues from code to merge. Start work on an issue and create PRs in one intelligent view. The perfect companion for developers looking to reduce tedious context switching and stay focused on their work in VS Code.
 
 ## GitLens AI Integrations
 
