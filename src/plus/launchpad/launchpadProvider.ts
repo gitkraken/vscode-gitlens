@@ -16,6 +16,7 @@ import type { Account } from '../../git/models/author';
 import type { GitBranch } from '../../git/models/branch';
 import type { PullRequest, SearchedPullRequest } from '../../git/models/pullRequest';
 import type { GitRemote } from '../../git/models/remote';
+import type { ProviderReference } from '../../git/models/remoteProvider';
 import type { Repository } from '../../git/models/repository';
 import { getOrOpenPullRequestRepository } from '../../git/utils/-webview/pullRequest.utils';
 import type { PullRequestUrlIdentity } from '../../git/utils/pullRequest.utils';
@@ -46,7 +47,11 @@ import type { ConnectionStateChangeEvent } from '../integrations/integrationServ
 import { isMaybeGitHubPullRequestUrl } from '../integrations/providers/github/github.utils';
 import { isMaybeGitLabPullRequestUrl } from '../integrations/providers/gitlab/gitlab.utils';
 import type { EnrichablePullRequest, ProviderActionablePullRequest } from '../integrations/providers/models';
-import { getActionablePullRequests, toProviderPullRequestWithUniqueId } from '../integrations/providers/models';
+import {
+	getActionablePullRequests,
+	supportsCodeSuggest,
+	toProviderPullRequestWithUniqueId,
+} from '../integrations/providers/models';
 import {
 	convertIntegrationIdToEnrichProvider,
 	convertRemoteProviderIdToEnrichProvider,
@@ -63,12 +68,26 @@ import {
 	sharedCategoryToLaunchpadActionCategoryMap,
 } from './models/launchpad';
 
-export function getSuggestedActions(category: LaunchpadActionCategory, isCurrentBranch: boolean): LaunchpadAction[] {
+export function getSuggestedActions(
+	category: LaunchpadActionCategory,
+	provider: ProviderReference,
+	isCurrentBranch: boolean,
+): LaunchpadAction[] {
 	const actions = [...prActionsMap.get(category)!];
 	if (isCurrentBranch) {
-		actions.push('show-overview', 'open-changes', 'code-suggest', 'open-in-graph');
+		actions.push('show-overview', 'open-changes');
+		if (supportsCodeSuggest(provider)) {
+			actions.push('code-suggest');
+		}
+
+		actions.push('open-in-graph');
 	} else {
-		actions.push('open-worktree', 'switch', 'switch-and-code-suggest', 'open-in-graph');
+		actions.push('open-worktree', 'switch');
+		if (supportsCodeSuggest(provider)) {
+			actions.push('switch-and-code-suggest');
+		}
+
+		actions.push('open-in-graph');
 	}
 	return actions;
 }
@@ -205,7 +224,9 @@ export class LaunchpadProvider implements Disposable {
 		if (prs?.value?.length && subscription?.account != null) {
 			try {
 				suggestionCounts = await withDurationAndSlowEventOnTimeout(
-					this.container.drafts.getCodeSuggestionCounts(prs.value.map(pr => pr.pullRequest)),
+					this.container.drafts.getCodeSuggestionCounts(
+						prs.value.map(pr => pr.pullRequest).filter(pr => supportsCodeSuggest(pr.provider)),
+					),
 					'getCodeSuggestionCounts',
 					this.container,
 				);
@@ -326,7 +347,7 @@ export class LaunchpadProvider implements Disposable {
 			this._codeSuggestions.get(item.uuid)!.expiresAt < Date.now()
 		) {
 			const providerId = item.provider.id;
-			if (!isSupportedLaunchpadIntegrationId(providerId)) {
+			if (!isSupportedLaunchpadIntegrationId(providerId) || !supportsCodeSuggest(item.provider)) {
 				return undefined;
 			}
 
@@ -790,6 +811,7 @@ export class LaunchpadProvider implements Disposable {
 
 					const suggestedActions = getSuggestedActions(
 						actionableCategory,
+						item.provider,
 						openRepository?.localBranch?.current ?? false,
 					);
 

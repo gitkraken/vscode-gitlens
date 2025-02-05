@@ -7,21 +7,12 @@ import type { Issue, IssueShape } from '../../../git/models/issue';
 import type { IssueOrPullRequest } from '../../../git/models/issueOrPullRequest';
 import type { PullRequest } from '../../../git/models/pullRequest';
 import { Logger } from '../../../system/logger';
-import { equalsIgnoreCase } from '../../../system/string';
 import type { LaunchpadItem } from '../../launchpad/launchpadProvider';
 import type { IssueResourceDescriptor, RepositoryDescriptor } from '../integration';
 import { isIssueResourceDescriptor, isRepositoryDescriptor } from '../integration';
 import type { AzureProjectInputDescriptor } from './azure/models';
 import type { GitConfigEntityIdentifier } from './models';
-import { isCloudSelfHostedIntegrationId } from './models';
-
-export function isGitHubDotCom(domain: string): boolean {
-	return equalsIgnoreCase(domain, 'github.com');
-}
-
-export function isGitLabDotCom(domain: string): boolean {
-	return equalsIgnoreCase(domain, 'gitlab.com');
-}
+import { isCloudSelfHostedIntegrationId, isGitHubDotCom, isGitLabDotCom } from './models';
 
 function isLaunchpadItem(item: IssueOrPullRequest | LaunchpadItem): item is LaunchpadItem {
 	return (item as LaunchpadItem).uuid !== undefined;

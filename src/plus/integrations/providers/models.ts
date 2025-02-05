@@ -53,6 +53,7 @@ import {
 	PullRequestStatusCheckRollupState,
 } from '../../../git/models/pullRequest';
 import type { ProviderReference } from '../../../git/models/remoteProvider';
+import { equalsIgnoreCase } from '../../../system/string';
 import type { EnrichableItem } from '../../launchpad/models/enrichedItem';
 import type { Integration, IntegrationType } from '../integration';
 import { getEntityIdentifierInput } from './utils';
@@ -1064,3 +1065,15 @@ export type GitConfigEntityIdentifier = AnyEntityIdentifierInput & {
 		isCloudEnterprise?: boolean;
 	};
 };
+
+export function isGitHubDotCom(domain: string): boolean {
+	return equalsIgnoreCase(domain, 'github.com');
+}
+
+export function isGitLabDotCom(domain: string): boolean {
+	return equalsIgnoreCase(domain, 'gitlab.com');
+}
+
+export function supportsCodeSuggest(provider: ProviderReference): boolean {
+	return isGitHubDotCom(provider.domain);
+}
