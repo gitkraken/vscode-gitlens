@@ -10,7 +10,7 @@ export const enum RemoteResourceType {
 	File = 'file',
 	Repo = 'repo',
 	Revision = 'revision',
-	// Tag = 'tag',
+	Tag = 'tag',
 }
 
 export type RemoteResource =
@@ -58,4 +58,8 @@ export type RemoteResource =
 			fileName: string;
 			range?: Range;
 			sha?: string;
+	  }
+	| {
+			type: RemoteResourceType.Tag;
+			tag: string;
 	  };

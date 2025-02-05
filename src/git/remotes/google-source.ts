@@ -40,4 +40,8 @@ export class GoogleSourceRemote extends GerritRemote {
 	protected override get baseReviewUrl(): string {
 		return `${this.protocol}://${this.reviewDomain}`;
 	}
+
+	protected override getUrlForTag(): string | undefined {
+		return undefined;
+	}
 }
