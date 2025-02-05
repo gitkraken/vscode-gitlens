@@ -246,7 +246,7 @@ export class Autolinks implements Disposable {
 					linkIntegration = undefined;
 				}
 			}
-			const issueOrPullRequestPromise =
+			let issueOrPullRequestPromise =
 				remote?.provider != null &&
 				integration != null &&
 				integrationId === integration.id &&
@@ -258,6 +258,13 @@ export class Autolinks implements Disposable {
 					: link.descriptor != null
 					  ? linkIntegration?.getIssueOrPullRequest(link.descriptor, this.getAutolinkEnrichableId(link))
 					  : undefined;
+			// we consider that all non-prefixed links are came from branch names and linked to issues
+			// skip if it's a PR link
+			if (!link.prefix) {
+				issueOrPullRequestPromise = issueOrPullRequestPromise?.then(x =>
+					x?.type === 'pullrequest' ? undefined : x,
+				);
+			}
 			enrichedAutolinks.set(id, [issueOrPullRequestPromise, link]);
 		}
 
