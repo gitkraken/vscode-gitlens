@@ -5,6 +5,7 @@ import type {
 	AzureDevOps,
 	AzureOrganization,
 	AzureProject,
+	AzureSetPullRequestInput,
 	Bitbucket,
 	EnterpriseOptions,
 	GetRepoInput,
@@ -262,6 +263,21 @@ export type MergePullRequestFn =
 					} | null;
 				} & SetPullRequestInput;
 				mergeStrategy?: GitMergeStrategy.Squash;
+			},
+			options?: EnterpriseOptions,
+	  ) => Promise<void>)
+	| ((
+			input: {
+				pullRequest: {
+					headRef: {
+						oid: string;
+					};
+				} & AzureSetPullRequestInput;
+				mergeStrategy?:
+					| GitMergeStrategy.MergeCommit
+					| GitMergeStrategy.Rebase
+					| GitMergeStrategy.RebaseThenMergeCommit
+					| GitMergeStrategy.Squash;
 			},
 			options?: EnterpriseOptions,
 	  ) => Promise<void>);

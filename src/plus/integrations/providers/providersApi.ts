@@ -233,6 +233,7 @@ export class ProvidersApi {
 				getReposForAzureProjectFn: providerApis.azureDevOps.getReposForAzureProject.bind(
 					providerApis.azureDevOps,
 				) as GetReposForAzureProjectFn,
+				mergePullRequestFn: providerApis.azureDevOps.mergePullRequest.bind(providerApis.azureDevOps),
 			},
 			[IssueIntegrationId.Jira]: {
 				...providersMetadata[IssueIntegrationId.Jira],
@@ -729,6 +730,10 @@ export class ProvidersApi {
 		const headRef = pr.refs?.head;
 		if (headRef == null) return false;
 
+		if (provider.id === HostingIntegrationId.AzureDevOps && pr.project == null) {
+			return false;
+		}
+
 		try {
 			await provider.mergePullRequestFn?.(
 				{
@@ -739,6 +744,7 @@ export class ProvidersApi {
 						repository: {
 							id: pr.repository.repo,
 							name: pr.repository.repo,
+							project: pr.project?.name ?? '',
 							owner: {
 								login: pr.repository.owner,
 							},

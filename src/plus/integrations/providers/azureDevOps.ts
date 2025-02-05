@@ -1,4 +1,5 @@
 import type { AuthenticationSession, CancellationToken } from 'vscode';
+import { window } from 'vscode';
 import { HostingIntegrationId } from '../../../constants.integrations';
 import type { Account } from '../../../git/models/author';
 import type { DefaultBranch } from '../../../git/models/defaultBranch';
@@ -194,13 +195,31 @@ export class AzureDevOpsIntegration extends HostingIntegration<
 	}
 
 	protected override async mergeProviderPullRequest(
-		_session: AuthenticationSession,
-		_pr: PullRequest,
-		_options?: {
+		{ accessToken }: AuthenticationSession,
+		pr: PullRequest,
+		options?: {
 			mergeMethod?: PullRequestMergeMethod;
 		},
 	): Promise<boolean> {
-		return Promise.resolve(false);
+		const api = await this.getProvidersApi();
+		if (pr.refs == null || pr.project == null) return false;
+
+		try {
+			const merged = await api.mergePullRequest(this.id, pr, {
+				...options,
+				accessToken: accessToken,
+			});
+			return merged;
+		} catch (ex) {
+			void this.showMergeErrorMessage(ex);
+			return false;
+		}
+	}
+
+	private async showMergeErrorMessage(ex: Error) {
+		await window.showErrorMessage(
+			`${ex.message}. Check branch policies, and ensure you have the necessary permissions to merge the pull request.`,
+		);
 	}
 
 	protected override async getProviderAccountForCommit(
