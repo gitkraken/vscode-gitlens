@@ -92,7 +92,7 @@ export class VSCodeAIProvider implements AIProvider<typeof provider.id> {
 						messages,
 						{
 							justification: accessJustification,
-							modelOptions: { temperature: model.temperature ?? getValidatedTemperature() },
+							modelOptions: { temperature: getValidatedTemperature(model.temperature) },
 						},
 						cancellation,
 					);

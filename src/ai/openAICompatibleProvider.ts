@@ -222,7 +222,7 @@ export abstract class OpenAICompatibleProvider<T extends AIProviders> implements
 				messages: messages(maxCodeCharacters, retries),
 				stream: false,
 				max_completion_tokens: Math.min(outputTokens, model.maxTokens.output),
-				temperature: model.temperature ?? getValidatedTemperature(),
+				temperature: getValidatedTemperature(model.temperature),
 			};
 
 			const rsp = await this.fetchCore(model, apiKey, request, cancellation);

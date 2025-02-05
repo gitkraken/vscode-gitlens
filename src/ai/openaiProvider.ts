@@ -11,12 +11,14 @@ const models: OpenAIModel[] = [
 		name: 'o1 preview',
 		maxTokens: { input: 128000, output: 32768 },
 		provider: provider,
+		temperature: null,
 	},
 	{
 		id: 'o1-preview-2024-09-12',
 		name: 'o1 preview',
 		maxTokens: { input: 128000, output: 32768 },
 		provider: provider,
+		temperature: null,
 		hidden: true,
 	},
 	{
@@ -24,12 +26,14 @@ const models: OpenAIModel[] = [
 		name: 'o1 mini',
 		maxTokens: { input: 128000, output: 65536 },
 		provider: provider,
+		temperature: null,
 	},
 	{
 		id: 'o1-mini-2024-09-12',
 		name: 'o1 mini',
 		maxTokens: { input: 128000, output: 65536 },
 		provider: provider,
+		temperature: null,
 		hidden: true,
 	},
 	{

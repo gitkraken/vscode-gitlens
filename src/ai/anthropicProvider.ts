@@ -7,7 +7,6 @@ import { OpenAICompatibleProvider } from './openAICompatibleProvider';
 const provider = { id: 'anthropic', name: 'Anthropic' } as const;
 
 type AnthropicModel = AIModel<typeof provider.id>;
-
 const models: AnthropicModel[] = [
 	{
 		id: 'claude-3-5-sonnet-latest',
@@ -119,7 +118,7 @@ export class AnthropicProvider extends OpenAICompatibleProvider<typeof provider.
 				system: system.content,
 				stream: false,
 				max_tokens: Math.min(outputTokens, model.maxTokens.output),
-				temperature: model.temperature ?? getValidatedTemperature(),
+				temperature: getValidatedTemperature(model.temperature),
 			};
 
 			const rsp = await this.fetchCore(model, apiKey, request, cancellation);
