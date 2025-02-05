@@ -51,6 +51,9 @@ export class GlPromo extends LitElement {
 	@property({ type: Object })
 	promo: Promo | undefined;
 
+	@property({ type: String })
+	source?: string;
+
 	@property({ reflect: true, type: String })
 	type: 'link' | 'info' = 'info';
 
@@ -59,17 +62,21 @@ export class GlPromo extends LitElement {
 		return this.promo != null;
 	}
 
-	override render() {
+	private get commandUrl() {
+		const command = this.promo?.command?.command ?? 'command:gitlens.plus.upgrade';
+		if (this.source == null) return command;
+
+		return `${command}?${encodeURIComponent(JSON.stringify({ source: this.source }))}`;
+	}
+
+	override render(): unknown {
 		if (!this.promo) return;
 
 		const promoHtml = this.renderPromo(this.promo);
 		if (!promoHtml) return;
 
 		if (this.type === 'link') {
-			return html`<a
-				class="link"
-				href="${this.promo.command?.command ?? 'command:gitlens.plus.upgrade'}"
-				title="${ifDefined(this.promo.command?.tooltip)}"
+			return html`<a class="link" href="${this.commandUrl}" title="${ifDefined(this.promo.command?.tooltip)}"
 				>${promoHtml}</a
 			>`;
 		}

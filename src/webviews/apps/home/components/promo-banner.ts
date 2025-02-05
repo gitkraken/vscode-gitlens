@@ -46,7 +46,13 @@ export class GlPromoBanner extends LitElement {
 		}
 
 		return html`
-			<gl-promo .promo=${this.promo} class="promo-banner promo-banner--eyebrow" id="promo" type="link"></gl-promo>
+			<gl-promo
+				.promo=${this.promo}
+				source="home"
+				class="promo-banner promo-banner--eyebrow"
+				id="promo"
+				type="link"
+			></gl-promo>
 		`;
 	}
 }

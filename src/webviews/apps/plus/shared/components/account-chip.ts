@@ -523,6 +523,6 @@ export class GLAccountChip extends LitElement {
 	}
 
 	private renderPromo(promo: Promo | undefined) {
-		return html`<gl-promo .promo=${promo}></gl-promo>`;
+		return html`<gl-promo .promo=${promo} source="account"></gl-promo>`;
 	}
 }
