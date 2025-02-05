@@ -522,7 +522,9 @@ export function fromAzureWorkItem(
 		isClosedAzureWorkItemStateCategory(stateCategory),
 		azureWorkItemsStateCategoryToState(stateCategory),
 		fromAzureUserToMember(workItem.fields['System.CreatedBy'], 'issue'),
-		[fromAzureUserToMember(workItem.fields['System.AssignedTo'], 'issue')],
+		workItem.fields['System.AssignedTo'] != null
+			? [fromAzureUserToMember(workItem.fields['System.AssignedTo'], 'issue')]
+			: [],
 		undefined,
 		workItem.fields['Microsoft.VSTS.Common.ClosedDate']
 			? new Date(workItem.fields['Microsoft.VSTS.Common.ClosedDate'])
