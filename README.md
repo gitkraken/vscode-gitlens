@@ -55,7 +55,7 @@ Compact but powerful, the Home View lets you take your tasks and issues from cod
 
 ## GitLens AI Integrations
 
-GitLens integrates with models such as OpenAI, Anthropic, GitHub Copilot, Gemini and more.
+GitLens integrates with models such as OpenAI, Anthropic, DeepSeek, GitHub Copilot, Gemini and more.
 
 - 🧪**AI Generatated Commit Message** - Use the Generate Commit Message command from the Source Control view's context menu to automatically generate a commit message for your staged changes by leveraging AI.
 
