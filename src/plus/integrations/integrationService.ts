@@ -24,7 +24,10 @@ import { filterMap, flatten, join } from '../../system/iterable';
 import { Logger } from '../../system/logger';
 import { getLogScope } from '../../system/logger.scope';
 import type { SubscriptionChangeEvent } from '../gk/subscriptionService';
-import type { ConfiguredIntegrationService } from './authentication/configuredIntegrationService';
+import type {
+	ConfiguredIntegrationsChangeEvent,
+	ConfiguredIntegrationService,
+} from './authentication/configuredIntegrationService';
 import type { IntegrationAuthenticationService } from './authentication/integrationAuthenticationService';
 import type { ConfiguredIntegrationDescriptor } from './authentication/models';
 import {
@@ -49,9 +52,14 @@ import type {
 	SupportedSelfHostedIntegrationIds,
 } from './integration';
 import { isAzureCloudDomain } from './providers/azureDevOps';
-import { isCloudSelfHostedIntegrationId, isHostingIntegrationId, isSelfHostedIntegrationId } from './providers/models';
+import {
+	isCloudSelfHostedIntegrationId,
+	isGitHubDotCom,
+	isGitLabDotCom,
+	isHostingIntegrationId,
+	isSelfHostedIntegrationId,
+} from './providers/models';
 import type { ProvidersApi } from './providers/providersApi';
-import { isGitHubDotCom, isGitLabDotCom } from './providers/utils';
 
 export interface ConnectionStateChangeEvent {
 	key: string;
@@ -67,6 +75,10 @@ export class IntegrationService implements Disposable {
 	private readonly _onDidSyncCloudIntegrations = new EventEmitter<void>();
 	get onDidSyncCloudIntegrations(): Event<void> {
 		return this._onDidSyncCloudIntegrations.event;
+	}
+
+	get onDidChangeConfiguredIntegrations(): Event<ConfiguredIntegrationsChangeEvent> {
+		return this.configuredIntegrationService.onDidChange;
 	}
 
 	private readonly _connectedCache = new Set<string>();
@@ -717,12 +729,15 @@ export class IntegrationService implements Disposable {
 			id => id in HostingIntegrationId || id in SelfHostedIntegrationId,
 		) as SupportedHostingIntegrationIds[];
 		const openRemotesByIntegrationId = new Map<IntegrationId, ResourceDescriptor[]>();
+		let hasOpenAzureRepository = false;
 		for (const repository of this.container.git.openRepositories) {
 			const remotes = await repository.git.remotes().getRemotes();
-			if (remotes.length === 0) continue;
 			for (const remote of remotes) {
 				const remoteIntegration = await remote.getIntegration();
 				if (remoteIntegration == null) continue;
+				if (remoteIntegration.id === HostingIntegrationId.AzureDevOps) {
+					hasOpenAzureRepository = true;
+				}
 				for (const integrationId of hostingIntegrationIds?.length
 					? hostingIntegrationIds
 					: [...Object.values(HostingIntegrationId), ...Object.values(SelfHostedIntegrationId)]) {
@@ -753,20 +768,19 @@ export class IntegrationService implements Disposable {
 					...Object.values(SelfHostedIntegrationId),
 			  ]) {
 			const integration = await this.get(integrationId);
-			if (
-				integration == null ||
+			const isInvalidIntegration =
 				(options?.openRepositoriesOnly &&
+					integrationId !== HostingIntegrationId.AzureDevOps &&
 					(isHostingIntegrationId(integrationId) || isSelfHostedIntegrationId(integrationId)) &&
-					!openRemotesByIntegrationId.has(integrationId))
-			) {
+					!openRemotesByIntegrationId.has(integrationId)) ||
+				(integrationId === HostingIntegrationId.AzureDevOps && !hasOpenAzureRepository);
+			if (integration == null || isInvalidIntegration) {
 				continue;
 			}
 
 			integrations.set(
 				integration,
-				options?.openRepositoriesOnly &&
-					(isHostingIntegrationId(integrationId) || isSelfHostedIntegrationId(integrationId)) &&
-					openRemotesByIntegrationId.has(integrationId)
+				options?.openRepositoriesOnly && !isInvalidIntegration
 					? openRemotesByIntegrationId.get(integrationId)
 					: undefined,
 			);
@@ -1033,9 +1047,6 @@ export function remoteProviderIdToIntegrationId(
 	remoteProviderId: RemoteProviderId,
 ): SupportedCloudIntegrationIds | undefined {
 	switch (remoteProviderId) {
-		// TODO: Uncomment when we support these integrations
-		// case 'bitbucket':
-		// 	return HostingIntegrationId.Bitbucket;
 		case 'azure-devops':
 			return HostingIntegrationId.AzureDevOps;
 		case 'github':

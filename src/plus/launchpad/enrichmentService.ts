@@ -1,4 +1,6 @@
 import type { CancellationToken, Disposable } from 'vscode';
+import type { IntegrationId } from '../../constants.integrations';
+import { HostingIntegrationId, IssueIntegrationId, SelfHostedIntegrationId } from '../../constants.integrations';
 import type { Container } from '../../container';
 import { AuthenticationRequiredError, CancellationError } from '../../errors';
 import type { RemoteProvider } from '../../git/remotes/remoteProvider';
@@ -186,6 +188,19 @@ const supportedRemoteProvidersToEnrich: Record<RemoteProvider['id'], EnrichedIte
 	'google-source': undefined,
 };
 
+const supportedIntegrationIdsToEnrich: Record<IntegrationId, EnrichedItemResponse['provider'] | undefined> = {
+	[HostingIntegrationId.AzureDevOps]: 'azure',
+	[HostingIntegrationId.GitLab]: 'gitlab',
+	[HostingIntegrationId.GitHub]: 'github',
+	[HostingIntegrationId.Bitbucket]: 'bitbucket',
+	[SelfHostedIntegrationId.CloudGitHubEnterprise]: 'github',
+	[SelfHostedIntegrationId.GitHubEnterprise]: 'github',
+	[SelfHostedIntegrationId.CloudGitLabSelfHosted]: 'gitlab',
+	[SelfHostedIntegrationId.GitLabSelfHosted]: 'gitlab',
+	[IssueIntegrationId.Jira]: 'jira',
+	[IssueIntegrationId.Trello]: 'trello',
+};
+
 export function convertRemoteProviderToEnrichProvider(provider: RemoteProvider): EnrichedItemResponse['provider'] {
 	return convertRemoteProviderIdToEnrichProvider(provider.id);
 }
@@ -198,4 +213,14 @@ export function convertRemoteProviderIdToEnrichProvider(id: RemoteProvider['id']
 
 export function isEnrichableRemoteProviderId(id: string): id is RemoteProvider['id'] {
 	return supportedRemoteProvidersToEnrich[id as RemoteProvider['id']] != null;
+}
+
+export function isEnrichableIntegrationId(id: IntegrationId): boolean {
+	return supportedIntegrationIdsToEnrich[id] != null;
+}
+
+export function convertIntegrationIdToEnrichProvider(id: IntegrationId): EnrichedItemResponse['provider'] {
+	const enrichProvider = supportedIntegrationIdsToEnrich[id];
+	if (enrichProvider == null) throw new Error(`Unknown integration id '${id}'`);
+	return enrichProvider;
 }

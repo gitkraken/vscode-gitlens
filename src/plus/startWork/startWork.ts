@@ -19,6 +19,7 @@ import {
 } from '../../commands/quickCommand';
 import {
 	ConnectIntegrationButton,
+	OpenOnAzureDevOpsQuickInputButton,
 	OpenOnGitHubQuickInputButton,
 	OpenOnGitLabQuickInputButton,
 	OpenOnJiraQuickInputButton,
@@ -94,6 +95,7 @@ export const supportedStartWorkIntegrations = [
 	SelfHostedIntegrationId.CloudGitHubEnterprise,
 	HostingIntegrationId.GitLab,
 	SelfHostedIntegrationId.CloudGitLabSelfHosted,
+	HostingIntegrationId.AzureDevOps,
 	IssueIntegrationId.Jira,
 ];
 export type SupportedStartWorkIntegrationIds = (typeof supportedStartWorkIntegrations)[number];
@@ -481,6 +483,7 @@ export abstract class StartWorkBaseCommand extends QuickCommand<State> {
 			},
 			onDidClickItemButton: (_quickpick, button, { item }) => {
 				switch (button) {
+					case OpenOnAzureDevOpsQuickInputButton:
 					case OpenOnGitHubQuickInputButton:
 					case OpenOnGitLabQuickInputButton:
 					case OpenOnJiraQuickInputButton:
@@ -710,6 +713,8 @@ function buildItemTelemetryData(item: StartWorkItem) {
 
 function getOpenOnWebQuickInputButton(integrationId: string): QuickInputButton | undefined {
 	switch (integrationId) {
+		case HostingIntegrationId.AzureDevOps:
+			return OpenOnAzureDevOpsQuickInputButton;
 		case HostingIntegrationId.GitHub:
 		case SelfHostedIntegrationId.CloudGitHubEnterprise:
 			return OpenOnGitHubQuickInputButton;

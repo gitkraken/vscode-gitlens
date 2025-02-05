@@ -1,6 +1,6 @@
 import type { Config, GraphBranchesVisibility, GraphConfig } from './config';
 import type { WalkthroughSteps } from './constants';
-import type { AIModels, AIProviders } from './constants.ai';
+import type { AIProviders } from './constants.ai';
 import type { GlCommand } from './constants.commands';
 import type { IntegrationId, SupportedCloudIntegrationIds } from './constants.integrations';
 import type { SubscriptionState, SubscriptionStateString } from './constants.subscription';
@@ -297,7 +297,7 @@ interface ActivateEvent extends ConfigEventData {
 }
 
 interface AIEventDataBase {
-	'model.id': AIModels;
+	'model.id': string;
 	'model.provider.id': AIProviders;
 	'model.provider.name': string;
 	'retry.count': number;

@@ -332,7 +332,7 @@ export class JiraIntegration extends IssueIntegration<IssueIntegrationId.Jira> {
 			const projects = this._projects.get(projectKey);
 			if (projects == null) {
 				this._projects.set(projectKey, [project]);
-			} else {
+			} else if (!projects.some(p => p.id === project.id)) {
 				projects.push(project);
 			}
 		}

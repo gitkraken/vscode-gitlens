@@ -14,6 +14,10 @@ const filePaths = [
 	path.join(__dirname, 'src/constants.telemetry.ts'),
 ];
 
+const interfaceCache = new Map();
+const intersectionTypeCache = new Map();
+const unionTypeCache = new Map();
+
 const program = ts.createProgram(filePaths, {});
 const typeChecker = program.getTypeChecker();
 
@@ -108,58 +112,62 @@ function expandType(file, type, indent = '', isRoot = true, prefix = '') {
 	let result = '';
 
 	if (type.isClassOrInterface() || (type.symbol && type.symbol.flags & ts.SymbolFlags.TypeLiteral)) {
-		const properties = typeChecker.getPropertiesOfType(type);
-		if (!properties?.length) {
-			result = '{}';
-		} else {
-			/** @type {Prop[]} */
-			let expandedProps = properties.map(prop => {
-				const propType = typeChecker.getTypeOfSymbolAtLocation(prop, file);
-				const jsDocTags = getJSDocTags(prop);
-				let propString = '';
-				if (jsDocTags.deprecated) {
-					propString += `${indent}  // @deprecated: ${jsDocTags.deprecated}\n`;
+		result = interfaceCache.get(type);
+		if (result == null) {
+			const properties = typeChecker.getPropertiesOfType(type);
+			if (!properties?.length) {
+				result = '{}';
+			} else {
+				/** @type {Prop[]} */
+				let expandedProps = properties.map(prop => {
+					const propType = typeChecker.getTypeOfSymbolAtLocation(prop, file);
+					const jsDocTags = getJSDocTags(prop);
+					let propString = '';
+					if (jsDocTags.deprecated) {
+						propString += `${indent}  // @deprecated: ${jsDocTags.deprecated}\n`;
+					}
+
+					const name = `${prefix}${prop.name}`;
+					const valueType = expandType(file, propType, indent + '  ', false, prefix);
+					propString += `${indent}  '${name}': ${valueType}`;
+
+					/** @type {number | undefined} */
+					let order = Number(jsDocTags.order);
+					if (isNaN(order)) {
+						order = undefined;
+					}
+
+					return {
+						name: name,
+						result: propString,
+						hidden: !valueType,
+						index: order,
+					};
+				});
+
+				const indexInfos = typeChecker.getIndexInfosOfType(type);
+				if (indexInfos.length) {
+					expandedProps.push(
+						...indexInfos.map(indexInfo => {
+							const keyType = typeChecker.typeToString(indexInfo.keyType);
+							const name = `${prefix}${keyType.substring(1, keyType.length - 1)}`;
+							const valueType = expandType(file, indexInfo.type, indent + '  ', false, prefix);
+							return {
+								name: name,
+								result: `${indent}  [\`${name}\`]: ${valueType}`,
+								hidden: !valueType,
+							};
+						}),
+					);
 				}
 
-				const name = `${prefix}${prop.name}`;
-				const valueType = expandType(file, propType, indent + '  ', false, prefix);
-				propString += `${indent}  '${name}': ${valueType}`;
-
-				/** @type {number | undefined} */
-				let order = Number(jsDocTags.order);
-				if (isNaN(order)) {
-					order = undefined;
-				}
-
-				return {
-					name: name,
-					result: propString,
-					hidden: !valueType,
-					index: order,
-				};
-			});
-
-			const indexInfos = typeChecker.getIndexInfosOfType(type);
-			if (indexInfos.length) {
-				expandedProps.push(
-					...indexInfos.map(indexInfo => {
-						const keyType = typeChecker.typeToString(indexInfo.keyType);
-						const name = `${prefix}${keyType.substring(1, keyType.length - 1)}`;
-						const valueType = expandType(file, indexInfo.type, indent + '  ', false, prefix);
-						return {
-							name: name,
-							result: `${indent}  [\`${name}\`]: ${valueType}`,
-							hidden: !valueType,
-						};
-					}),
-				);
+				result = `{\n${expandedProps
+					.filter(t => !Boolean(t.hidden))
+					.sort(sortProps)
+					.map(t => t.result)
+					.join(',\n')}\n${indent}}`;
 			}
-
-			result = `{\n${expandedProps
-				.filter(t => !Boolean(t.hidden))
-				.sort(sortProps)
-				.map(t => t.result)
-				.join(',\n')}\n${indent}}`;
+			interfaceCache.set(type, result);
 		}
 	} else if (type.isUnion()) {
 		if (isRoot) {
@@ -167,74 +175,83 @@ function expandType(file, type, indent = '', isRoot = true, prefix = '') {
 				.map(t => `\`\`\`typescript\n${expandType(file, t, '', false, prefix)}\n\`\`\``)
 				.join('\n\nor\n\n');
 		} else {
-			const types = type.types
-				.map(t => expandType(file, t, indent, false, prefix))
-				.filter(t => Boolean(t))
-				.join(' | ')
-				.replaceAll(/false \| true/g, 'boolean');
-			result = types.includes('\n') ? `(${types})` : types;
+			result = unionTypeCache.get(type);
+			if (result == null) {
+				const types = type.types
+					.map(t => expandType(file, t, indent, false, prefix))
+					.filter(t => Boolean(t))
+					.join(' | ')
+					.replaceAll(/false \| true/g, 'boolean');
+				result = types.includes('\n') ? `(${types})` : types;
+
+				unionTypeCache.set(type, result);
+			}
 		}
 	} else if (type.isIntersection()) {
-		const mergedProperties = new Map();
-		/** @type {Map<string, Prop>} */
-		const indexInfos = new Map();
-		for (const t of [type, ...type.types]) {
-			for (const prop of typeChecker.getPropertiesOfType(t)) {
-				mergedProperties.set(prop.name, prop);
+		result = intersectionTypeCache.get(type);
+		if (result == null) {
+			const mergedProperties = new Map();
+			/** @type {Map<string, Prop>} */
+			const indexInfos = new Map();
+			for (const t of [type, ...type.types]) {
+				for (const prop of typeChecker.getPropertiesOfType(t)) {
+					mergedProperties.set(prop.name, prop);
+				}
+
+				for (const indexInfo of typeChecker.getIndexInfosOfType(t)) {
+					const keyType = typeChecker.typeToString(indexInfo.keyType);
+					const name = `${prefix}${keyType.substring(1, keyType.length - 1)}`;
+					const valueType = expandType(file, indexInfo.type, indent + '  ', false, prefix);
+					indexInfos.set(name, {
+						name: name,
+						result: `${indent}  [\`${name}\`]: ${valueType}`,
+						hidden: !valueType,
+					});
+				}
 			}
 
-			for (const indexInfo of typeChecker.getIndexInfosOfType(t)) {
-				const keyType = typeChecker.typeToString(indexInfo.keyType);
-				const name = `${prefix}${keyType.substring(1, keyType.length - 1)}`;
-				const valueType = expandType(file, indexInfo.type, indent + '  ', false, prefix);
-				indexInfos.set(name, {
-					name: name,
-					result: `${indent}  [\`${name}\`]: ${valueType}`,
-					hidden: !valueType,
+			if (mergedProperties.size) {
+				/** @type {Prop[]} */
+				const expandedProps = [...mergedProperties].map(([, prop]) => {
+					const propType = typeChecker.getTypeOfSymbolAtLocation(prop, file);
+					const jsDocTags = getJSDocTags(prop);
+					let propString = '';
+					if (jsDocTags.deprecated) {
+						propString += `${indent}  // @deprecated: ${jsDocTags.deprecated}\n`;
+					}
+
+					const name = `${prefix}${prop.name}`;
+					const valueType = expandType(file, propType, indent + '  ', false, prefix);
+					propString += `${indent}  '${name}': ${valueType}`;
+
+					/** @type {number | undefined} */
+					let order = Number(jsDocTags.order);
+					if (isNaN(order)) {
+						order = undefined;
+					}
+
+					return {
+						name: name,
+						result: propString,
+						hidden: !valueType,
+						index: order,
+					};
 				});
-			}
-		}
 
-		if (mergedProperties.size) {
-			/** @type {Prop[]} */
-			const expandedProps = [...mergedProperties].map(([, prop]) => {
-				const propType = typeChecker.getTypeOfSymbolAtLocation(prop, file);
-				const jsDocTags = getJSDocTags(prop);
-				let propString = '';
-				if (jsDocTags.deprecated) {
-					propString += `${indent}  // @deprecated: ${jsDocTags.deprecated}\n`;
+				if (indexInfos.size) {
+					expandedProps.push(...indexInfos.values());
 				}
 
-				const name = `${prefix}${prop.name}`;
-				const valueType = expandType(file, propType, indent + '  ', false, prefix);
-				propString += `${indent}  '${name}': ${valueType}`;
-
-				/** @type {number | undefined} */
-				let order = Number(jsDocTags.order);
-				if (isNaN(order)) {
-					order = undefined;
-				}
-
-				return {
-					name: name,
-					result: propString,
-					hidden: !valueType,
-					index: order,
-				};
-			});
-
-			if (indexInfos.size) {
-				expandedProps.push(...indexInfos.values());
+				result = `{\n${expandedProps
+					.filter(t => !Boolean(t.hidden))
+					.sort(sortProps)
+					.map(t => t.result)
+					.join(',\n')}\n${indent}}`;
+			} else {
+				const types = type.types.map(t => expandType(file, t, indent, false, prefix)).join(' & ');
+				result = types.includes('\n') ? `(${types})` : types;
 			}
-
-			result = `{\n${expandedProps
-				.filter(t => !Boolean(t.hidden))
-				.sort(sortProps)
-				.map(t => t.result)
-				.join(',\n')}\n${indent}}`;
-		} else {
-			const types = type.types.map(t => expandType(file, t, indent, false, prefix)).join(' & ');
-			result = types.includes('\n') ? `(${types})` : types;
+			intersectionTypeCache.set(type, result);
 		}
 	} else if (type.isStringLiteral()) {
 		result = `'${type.value}'`;

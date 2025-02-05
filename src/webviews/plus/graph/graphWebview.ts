@@ -3886,10 +3886,10 @@ export class GraphWebviewProvider implements WebviewProvider<State, State, Graph
 				if (remoteUrl != null) {
 					const deepLink = getPullRequestBranchDeepLink(
 						this.container,
+						pr,
 						branch.getNameWithoutRemote(),
 						remoteUrl,
 						DeepLinkActionType.SwitchToPullRequestWorktree,
-						pr,
 					);
 
 					return this.container.deepLinks.processDeepLinkUri(deepLink, false, repo);
@@ -4227,6 +4227,11 @@ function toGraphIssueTrackerType(id: string): GraphIssueTrackerType | undefined 
 			return 'gitlab';
 		case IssueIntegrationId.Jira:
 			return 'jiraCloud';
+		case HostingIntegrationId.AzureDevOps:
+		case 'azure':
+		case 'azure-devops':
+			// TODO: Remove the casting once this is officially recognized by the component
+			return 'azureDevops' as GraphIssueTrackerType;
 		default:
 			return undefined;
 	}

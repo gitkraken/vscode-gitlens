@@ -1,4 +1,4 @@
-import type { GitBlame } from '@gitkraken/provider-apis';
+import type { GitBlame } from '@gitkraken/provider-apis/providers';
 import type { Range, Uri } from 'vscode';
 import type { SearchQuery } from '../../../../../constants.search';
 import type { Container } from '../../../../../container';

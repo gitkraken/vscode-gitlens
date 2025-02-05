@@ -3,18 +3,16 @@ import { SignalWatcher } from '@lit-labs/signals';
 import { css, html, LitElement, nothing } from 'lit';
 import { customElement, state } from 'lit/decorators.js';
 import { when } from 'lit/directives/when.js';
-import type { GetOverviewResponse, OverviewRecentThreshold, State } from '../../../../home/protocol';
+import type { GetInactiveOverviewResponse, OverviewRecentThreshold, State } from '../../../../home/protocol';
 import { SetOverviewFilter } from '../../../../home/protocol';
 import { stateContext } from '../../../home/context';
 import { ipcContext } from '../../../shared/context';
 import type { HostIpc } from '../../../shared/ipc';
 import { linkStyles } from '../../shared/components/vscode.css';
-import type { OverviewState } from './overviewState';
-import { overviewStateContext } from './overviewState';
+import type { InactiveOverviewState } from './overviewState';
+import { inactiveOverviewStateContext } from './overviewState';
 import '../../../shared/components/skeleton-loader';
 import './branch-threshold-filter';
-
-type Overview = GetOverviewResponse;
 
 export const overviewTagName = 'gl-overview';
 
@@ -35,14 +33,14 @@ export class GlOverview extends SignalWatcher(LitElement) {
 	@state()
 	private _homeState!: State;
 
-	@consume({ context: overviewStateContext })
-	private _overviewState!: OverviewState;
+	@consume({ context: inactiveOverviewStateContext })
+	private _inactiveOverviewState!: InactiveOverviewState;
 
 	override connectedCallback(): void {
 		super.connectedCallback();
 
 		if (this._homeState.repositories.openCount > 0) {
-			this._overviewState.run();
+			this._inactiveOverviewState.run();
 		}
 	}
 
@@ -55,7 +53,7 @@ export class GlOverview extends SignalWatcher(LitElement) {
 			return nothing;
 		}
 
-		return this._overviewState.render({
+		return this._inactiveOverviewState.render({
 			pending: () => this.renderPending(),
 			complete: summary => this.renderComplete(summary),
 			error: () => html`<span>Error</span>`,
@@ -72,26 +70,26 @@ export class GlOverview extends SignalWatcher(LitElement) {
 	}
 
 	private renderPending() {
-		if (this._overviewState.state == null) {
+		if (this._inactiveOverviewState.state == null) {
 			return this.renderLoader();
 		}
-		return this.renderComplete(this._overviewState.state, true);
+		return this.renderComplete(this._inactiveOverviewState.state, true);
 	}
 
 	@consume({ context: ipcContext })
 	private readonly _ipc!: HostIpc;
 
 	private onChangeRecentThresholdFilter(e: CustomEvent<{ threshold: OverviewRecentThreshold }>) {
-		if (!this._overviewState.filter.stale || !this._overviewState.filter.recent) {
+		if (!this._inactiveOverviewState.filter.stale || !this._inactiveOverviewState.filter.recent) {
 			return;
 		}
 		this._ipc.sendCommand(SetOverviewFilter, {
-			stale: this._overviewState.filter.stale,
-			recent: { ...this._overviewState.filter.recent, threshold: e.detail.threshold },
+			stale: this._inactiveOverviewState.filter.stale,
+			recent: { ...this._inactiveOverviewState.filter.recent, threshold: e.detail.threshold },
 		});
 	}
 
-	private renderComplete(overview: Overview, isFetching = false) {
+	private renderComplete(overview: GetInactiveOverviewResponse, isFetching = false) {
 		if (overview == null) return nothing;
 		const { repository } = overview;
 		return html`
@@ -99,7 +97,7 @@ export class GlOverview extends SignalWatcher(LitElement) {
 				label="recent"
 				.isFetching=${isFetching}
 				.repo=${repository.path}
-				.branches=${repository.branches.recent}
+				.branches=${overview.recent}
 			>
 				<gl-branch-threshold-filter
 					slot="heading-actions"
@@ -113,16 +111,16 @@ export class GlOverview extends SignalWatcher(LitElement) {
 						label: string;
 					}[]}
 					.disabled=${isFetching}
-					.value=${this._overviewState.filter.recent?.threshold}
+					.value=${this._inactiveOverviewState.filter.recent?.threshold}
 				></gl-branch-threshold-filter>
 			</gl-branch-section>
 			${when(
-				this._overviewState.filter.stale?.show === true,
+				this._inactiveOverviewState.filter.stale?.show === true && overview.stale,
 				() => html`
 					<gl-branch-section
 						label="stale"
 						.repo=${repository.path}
-						.branches=${repository.branches.stale}
+						.branches=${overview.stale!}
 					></gl-branch-section>
 				`,
 			)}

@@ -8,14 +8,39 @@ const provider = { id: 'gemini', name: 'Google' } as const;
 type GeminiModel = AIModel<typeof provider.id>;
 const models: GeminiModel[] = [
 	{
-		id: 'gemini-2.0-flash-exp',
-		name: 'Gemini 2.0 Flash (Experimental)',
+		id: 'gemini-2.0-flash',
+		name: 'Gemini 2.0 Flash',
 		maxTokens: { input: 1048576, output: 8192 },
+		provider: provider,
+	},
+	{
+		id: 'gemini-2.0-flash-001',
+		name: 'Gemini 2.0 Flash',
+		maxTokens: { input: 1048576, output: 8192 },
+		provider: provider,
+		hidden: true,
+	},
+	{
+		id: 'gemini-2.0-flash-lite-preview-02-05',
+		name: 'Gemini 2.0 Flash-Lite (Preview)',
+		maxTokens: { input: 1048576, output: 8192 },
+		provider: provider,
+	},
+	{
+		id: 'gemini-2.0-pro-exp-02-05',
+		name: 'Gemini 2.0 Pro (Experimental)',
+		maxTokens: { input: 2097152, output: 8192 },
 		provider: provider,
 	},
 	{
 		id: 'gemini-2.0-flash-thinking-exp-01-21',
 		name: 'Gemini 2.0 Flash Thinking (Experimental)',
+		maxTokens: { input: 1048576, output: 8192 },
+		provider: provider,
+	},
+	{
+		id: 'gemini-2.0-flash-exp',
+		name: 'Gemini 2.0 Flash (Experimental)',
 		maxTokens: { input: 1048576, output: 8192 },
 		provider: provider,
 	},

@@ -1,6 +1,6 @@
 import type { CancellationToken, Disposable, MessageItem, ProgressOptions, QuickInputButton } from 'vscode';
 import { env, ThemeIcon, Uri, window } from 'vscode';
-import type { AIModels, AIProviders, SupportedAIModels, VSCodeAIModels } from '../constants.ai';
+import type { AIProviders, SupportedAIModels, VSCodeAIModels } from '../constants.ai';
 import type { AIGenerateDraftEventData, Sources, TelemetryEvents } from '../constants.telemetry';
 import type { Container } from '../container';
 import { CancellationError } from '../errors';
@@ -15,6 +15,7 @@ import { showAIModelPicker } from '../quickpicks/aiModelPicker';
 import { configuration } from '../system/-webview/configuration';
 import type { Storage } from '../system/-webview/storage';
 import { supportedInVSCodeVersion } from '../system/-webview/vscode';
+import { formatNumeric } from '../system/date';
 import { getSettledValue } from '../system/promise';
 import { getPossessiveForm } from '../system/string';
 import type { TelemetryService } from '../telemetry/telemetry';
@@ -32,10 +33,7 @@ export interface AIResult {
 	body: string;
 }
 
-export interface AIModel<
-	Provider extends AIProviders = AIProviders,
-	Model extends AIModels<Provider> = AIModels<Provider>,
-> {
+export interface AIModel<Provider extends AIProviders = AIProviders, Model extends string = string> {
 	readonly id: Model;
 	readonly name: string;
 	readonly maxTokens: { input: number; output: number };
@@ -47,45 +45,46 @@ export interface AIModel<
 	readonly default?: boolean;
 	readonly hidden?: boolean;
 
-	readonly temperature?: number;
+	readonly temperature?: number | null;
 }
 
 interface AIProviderConstructor<Provider extends AIProviders = AIProviders> {
 	new (container: Container): AIProvider<Provider>;
 }
 
+// Order matters for sorting the picker
 const _supportedProviderTypes = new Map<AIProviders, AIProviderConstructor>([
 	...(supportedInVSCodeVersion('language-models') ? [['vscode', VSCodeAIProvider]] : ([] as any)),
 	['openai', OpenAIProvider],
 	['anthropic', AnthropicProvider],
-	['deepseek', DeepSeekProvider],
 	['gemini', GeminiProvider],
+	['deepseek', DeepSeekProvider],
+	['xai', xAIProvider],
 	['github', GitHubModelsProvider],
 	['huggingface', HuggingFaceProvider],
-	['xai', xAIProvider],
 ]);
 
 export interface AIProvider<Provider extends AIProviders = AIProviders> extends Disposable {
 	readonly id: Provider;
 	readonly name: string;
 
-	getModels(): Promise<readonly AIModel<Provider, AIModels<Provider>>[]>;
+	getModels(): Promise<readonly AIModel<Provider>[]>;
 
 	explainChanges(
-		model: AIModel<Provider, AIModels<Provider>>,
+		model: AIModel<Provider>,
 		message: string,
 		diff: string,
 		reporting: TelemetryEvents['ai/explain'],
 		options?: { cancellation?: CancellationToken },
 	): Promise<string | undefined>;
 	generateCommitMessage(
-		model: AIModel<Provider, AIModels<Provider>>,
+		model: AIModel<Provider>,
 		diff: string,
 		reporting: TelemetryEvents['ai/generate'],
 		options?: { cancellation?: CancellationToken; context?: string },
 	): Promise<string | undefined>;
 	generateDraftMessage(
-		model: AIModel<Provider, AIModels<Provider>>,
+		model: AIModel<Provider>,
 		diff: string,
 		reporting: TelemetryEvents['ai/generate'],
 		options?: { cancellation?: CancellationToken; context?: string; codeSuggestion?: boolean },
@@ -106,10 +105,10 @@ export class AIProviderService implements Disposable {
 		return this._provider?.id;
 	}
 
-	private getConfiguredModel(): { provider: AIProviders; model: AIModels } | undefined {
+	private getConfiguredModel(): { provider: AIProviders; model: string } | undefined {
 		const qualifiedModelId = configuration.get('ai.model') ?? undefined;
 		if (qualifiedModelId != null) {
-			let [providerId, modelId] = qualifiedModelId.split(':') as [AIProviders, AIModels];
+			let [providerId, modelId] = qualifiedModelId.split(':') as [AIProviders, string];
 			if (providerId != null && this.supports(providerId)) {
 				if (modelId != null) {
 					return { provider: providerId, model: modelId };
@@ -149,10 +148,10 @@ export class AIProviderService implements Disposable {
 	}
 
 	private getOrUpdateModel(model: AIModel): Promise<AIModel | undefined>;
-	private getOrUpdateModel<T extends AIProviders>(providerId: T, modelId: AIModels<T>): Promise<AIModel | undefined>;
+	private getOrUpdateModel<T extends AIProviders>(providerId: T, modelId: string): Promise<AIModel | undefined>;
 	private async getOrUpdateModel(
 		modelOrProviderId: AIModel | AIProviders,
-		modelId?: AIModels,
+		modelId?: string,
 	): Promise<AIModel | undefined> {
 		let providerId: AIProviders;
 		let model: AIModel | undefined;
@@ -551,7 +550,7 @@ export class AIProviderService implements Disposable {
 
 async function confirmAIProviderToS<Provider extends AIProviders>(
 	service: AIProviderService,
-	model: AIModel<Provider, AIModels<Provider>>,
+	model: AIModel<Provider>,
 	storage: Storage,
 ): Promise<boolean> {
 	const confirmed =
@@ -595,9 +594,9 @@ async function confirmAIProviderToS<Provider extends AIProviders>(
 	return false;
 }
 
-export function getMaxCharacters(model: AIModel, outputLength: number): number {
+export function getMaxCharacters(model: AIModel, outputLength: number, overrideInputTokens?: number): number {
 	const tokensPerCharacter = 3.1;
-	const max = model.maxTokens.input * tokensPerCharacter - outputLength / tokensPerCharacter;
+	const max = (overrideInputTokens ?? model.maxTokens.input) * tokensPerCharacter - outputLength / tokensPerCharacter;
 	return Math.floor(max - max * 0.1);
 }
 
@@ -704,12 +703,14 @@ function splitMessageIntoSummaryAndBody(message: string): AIResult {
 
 export function showDiffTruncationWarning(maxCodeCharacters: number, model: AIModel): void {
 	void window.showWarningMessage(
-		`The diff of the changes had to be truncated to ${maxCodeCharacters} characters to fit within the ${getPossessiveForm(
-			model.provider.name,
-		)} limits.`,
+		`The diff of the changes had to be truncated to ${formatNumeric(
+			maxCodeCharacters,
+		)} characters to fit within the ${getPossessiveForm(model.provider.name)} limits.`,
 	);
 }
 
-export function getValidatedTemperature(): number {
+export function getValidatedTemperature(modelTemperature?: number | null): number | undefined {
+	if (modelTemperature === null) return undefined;
+	if (modelTemperature != null) return modelTemperature;
 	return Math.max(0, Math.min(configuration.get('ai.modelOptions.temperature'), 2));
 }

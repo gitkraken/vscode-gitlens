@@ -2,7 +2,7 @@ import type {
 	CodeSuggestionsCountByPrUuid,
 	EnrichedItemsByUniqueId,
 	PullRequestWithUniqueID,
-} from '@gitkraken/provider-apis';
+} from '@gitkraken/provider-apis/providers';
 import type { CancellationToken, ConfigurationChangeEvent, Event } from 'vscode';
 import { Disposable, env, EventEmitter, Uri, window } from 'vscode';
 import { md5 } from '@env/crypto';
@@ -16,6 +16,7 @@ import type { Account } from '../../git/models/author';
 import type { GitBranch } from '../../git/models/branch';
 import type { PullRequest, SearchedPullRequest } from '../../git/models/pullRequest';
 import type { GitRemote } from '../../git/models/remote';
+import type { ProviderReference } from '../../git/models/remoteProvider';
 import type { Repository } from '../../git/models/repository';
 import { getOrOpenPullRequestRepository } from '../../git/utils/-webview/pullRequest.utils';
 import type { PullRequestUrlIdentity } from '../../git/utils/pullRequest.utils';
@@ -47,11 +48,16 @@ import { isMaybeGitHubPullRequestUrl } from '../integrations/providers/github/gi
 import { isMaybeGitLabPullRequestUrl } from '../integrations/providers/gitlab/gitlab.utils';
 import type { EnrichablePullRequest, ProviderActionablePullRequest } from '../integrations/providers/models';
 import {
-	fromProviderPullRequest,
 	getActionablePullRequests,
+	supportsCodeSuggest,
 	toProviderPullRequestWithUniqueId,
 } from '../integrations/providers/models';
-import { convertRemoteProviderIdToEnrichProvider, isEnrichableRemoteProviderId } from './enrichmentService';
+import {
+	convertIntegrationIdToEnrichProvider,
+	convertRemoteProviderIdToEnrichProvider,
+	isEnrichableIntegrationId,
+	isEnrichableRemoteProviderId,
+} from './enrichmentService';
 import type { EnrichableItem, EnrichedItem } from './models/enrichedItem';
 import type { LaunchpadAction, LaunchpadActionCategory, LaunchpadGroup } from './models/launchpad';
 import {
@@ -62,12 +68,26 @@ import {
 	sharedCategoryToLaunchpadActionCategoryMap,
 } from './models/launchpad';
 
-export function getSuggestedActions(category: LaunchpadActionCategory, isCurrentBranch: boolean): LaunchpadAction[] {
+export function getSuggestedActions(
+	category: LaunchpadActionCategory,
+	provider: ProviderReference,
+	isCurrentBranch: boolean,
+): LaunchpadAction[] {
 	const actions = [...prActionsMap.get(category)!];
 	if (isCurrentBranch) {
-		actions.push('show-overview', 'open-changes', 'code-suggest', 'open-in-graph');
+		actions.push('show-overview', 'open-changes');
+		if (supportsCodeSuggest(provider)) {
+			actions.push('code-suggest');
+		}
+
+		actions.push('open-in-graph');
 	} else {
-		actions.push('open-worktree', 'switch', 'switch-and-code-suggest', 'open-in-graph');
+		actions.push('open-worktree', 'switch');
+		if (supportsCodeSuggest(provider)) {
+			actions.push('switch-and-code-suggest');
+		}
+
+		actions.push('open-in-graph');
 	}
 	return actions;
 }
@@ -112,6 +132,7 @@ export const supportedLaunchpadIntegrations: (HostingIntegrationId | CloudSelfHo
 	SelfHostedIntegrationId.CloudGitHubEnterprise,
 	HostingIntegrationId.GitLab,
 	SelfHostedIntegrationId.CloudGitLabSelfHosted,
+	HostingIntegrationId.AzureDevOps,
 ];
 type SupportedLaunchpadIntegrationIds = (typeof supportedLaunchpadIntegrations)[number];
 function isSupportedLaunchpadIntegrationId(id: string): id is SupportedLaunchpadIntegrationIds {
@@ -203,7 +224,9 @@ export class LaunchpadProvider implements Disposable {
 		if (prs?.value?.length && subscription?.account != null) {
 			try {
 				suggestionCounts = await withDurationAndSlowEventOnTimeout(
-					this.container.drafts.getCodeSuggestionCounts(prs.value.map(pr => pr.pullRequest)),
+					this.container.drafts.getCodeSuggestionCounts(
+						prs.value.map(pr => pr.pullRequest).filter(pr => supportsCodeSuggest(pr.provider)),
+					),
 					'getCodeSuggestionCounts',
 					this.container,
 				);
@@ -324,7 +347,7 @@ export class LaunchpadProvider implements Disposable {
 			this._codeSuggestions.get(item.uuid)!.expiresAt < Date.now()
 		) {
 			const providerId = item.provider.id;
-			if (!isSupportedLaunchpadIntegrationId(providerId)) {
+			if (!isSupportedLaunchpadIntegrationId(providerId) || !supportsCodeSuggest(item.provider)) {
 				return undefined;
 			}
 
@@ -400,7 +423,7 @@ export class LaunchpadProvider implements Disposable {
 
 	@log<LaunchpadProvider['merge']>({ args: { 0: i => `${i.id} (${i.provider.name} ${i.type})` } })
 	async merge(item: LaunchpadItem): Promise<void> {
-		if (item.graphQLId == null || item.headRef?.oid == null) return;
+		if (item.headRef?.oid == null) return;
 		const integrationId = item.provider.id;
 		if (!isSupportedLaunchpadIntegrationId(integrationId)) return;
 		const confirm = await window.showQuickPick(['Merge', 'Cancel'], {
@@ -412,8 +435,7 @@ export class LaunchpadProvider implements Disposable {
 		const integration = await this.container.integrations.get(integrationId);
 		if (integration == null) return;
 
-		const pr: PullRequest = fromProviderPullRequest(item, integration);
-		await integration.mergePullRequest(pr);
+		await integration.mergePullRequest(item.underlyingPullRequest);
 		this.refresh();
 	}
 
@@ -516,10 +538,10 @@ export class LaunchpadProvider implements Disposable {
 
 		return getPullRequestBranchDeepLink(
 			this.container,
+			item.underlyingPullRequest,
 			branchName,
 			item.repoIdentity.remote.url,
 			action,
-			item.underlyingPullRequest,
 		);
 	}
 
@@ -725,7 +747,10 @@ export class LaunchpadProvider implements Disposable {
 
 				const providerId = pr.pullRequest.provider.id;
 
-				if (!isSupportedLaunchpadIntegrationId(providerId) || !isEnrichableRemoteProviderId(providerId)) {
+				if (
+					!isSupportedLaunchpadIntegrationId(providerId) ||
+					(!isEnrichableRemoteProviderId(providerId) && !isEnrichableIntegrationId(providerId))
+				) {
 					Logger.warn(`Unsupported provider ${providerId}`);
 					return undefined;
 				}
@@ -734,7 +759,10 @@ export class LaunchpadProvider implements Disposable {
 					type: 'pr',
 					id: providerPr.uuid,
 					url: pr.pullRequest.url,
-					provider: convertRemoteProviderIdToEnrichProvider(providerId),
+					provider:
+						providerId === HostingIntegrationId.AzureDevOps
+							? convertIntegrationIdToEnrichProvider(providerId)
+							: convertRemoteProviderIdToEnrichProvider(providerId),
 				} satisfies EnrichableItem;
 
 				const repoIdentity = getRepositoryIdentityForPullRequest(pr.pullRequest);
@@ -783,6 +811,7 @@ export class LaunchpadProvider implements Disposable {
 
 					const suggestedActions = getSuggestedActions(
 						actionableCategory,
+						item.provider,
 						openRepository?.localBranch?.current ?? false,
 					);
 
@@ -1061,25 +1090,24 @@ function ensureRemoteUrl(url: string) {
 
 export function getPullRequestBranchDeepLink(
 	container: Container,
+	pr: PullRequest,
 	headRefBranchName: string,
 	remoteUrl: string,
 	action?: DeepLinkActionType,
-	pr?: PullRequest,
 ): Uri {
 	const schemeOverride = configuration.get('deepLinks.schemeOverride');
 	const scheme = typeof schemeOverride === 'string' ? schemeOverride : env.uriScheme;
 
 	const searchParams = new URLSearchParams({
-		url: ensureRemoteUrl(remoteUrl),
+		url: pr.provider.id !== HostingIntegrationId.AzureDevOps ? ensureRemoteUrl(remoteUrl) : remoteUrl,
 	});
 	if (action) {
 		searchParams.set('action', action);
 	}
-	if (pr) {
-		searchParams.set('prId', pr.id);
-		searchParams.set('prTitle', pr.title);
-	}
-	if (pr?.refs) {
+
+	searchParams.set('prId', pr.id);
+	searchParams.set('prTitle', pr.title);
+	if (pr.refs) {
 		searchParams.set('prBaseRef', pr.refs.base.sha);
 		searchParams.set('prHeadRef', pr.refs.head.sha);
 	}

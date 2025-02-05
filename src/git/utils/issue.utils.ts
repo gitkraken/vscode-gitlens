@@ -58,6 +58,7 @@ export function serializeIssue(value: IssueShape): IssueShape {
 						id: value.project.id,
 						name: value.project.name,
 						resourceId: value.project.resourceId,
+						resourceName: value.project.resourceName,
 				  },
 		assignees: value.assignees.map(assignee => ({
 			id: assignee.id,

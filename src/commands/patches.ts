@@ -1,4 +1,4 @@
-import { EntityIdentifierUtils } from '@gitkraken/provider-apis';
+import { EntityIdentifierUtils } from '@gitkraken/provider-apis/entity-identifiers';
 import type { TextEditor } from 'vscode';
 import { env, Uri, window, workspace } from 'vscode';
 import type { ScmResource } from '../@types/vscode.git.resources';

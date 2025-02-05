@@ -1,35 +1,10 @@
+import { fetch } from '@env/fetch';
 import type { AIModel } from './aiProviderService';
 import { OpenAICompatibleProvider } from './openAICompatibleProvider';
 
 const provider = { id: 'huggingface', name: 'Hugging Face' } as const;
 
 type HuggingFaceModel = AIModel<typeof provider.id>;
-const models: HuggingFaceModel[] = [
-	{
-		id: 'meta-llama/Llama-3.2-11B-Vision-Instruct',
-		name: 'Meta Llama 3.2 11B Vision',
-		maxTokens: { input: 131072, output: 4096 },
-		provider: provider,
-	},
-	{
-		id: 'Qwen/Qwen2.5-72B-Instruct',
-		name: 'Qwen 2.5 72B',
-		maxTokens: { input: 131072, output: 4096 },
-		provider: provider,
-	},
-	{
-		id: 'NousResearch/Hermes-3-Llama-3.1-8B',
-		name: 'Nous Research Hermes 3',
-		maxTokens: { input: 131072, output: 4096 },
-		provider: provider,
-	},
-	{
-		id: 'mistralai/Mistral-Nemo-Instruct-2407',
-		name: 'Mistral Nemo',
-		maxTokens: { input: 131072, output: 4096 },
-		provider: provider,
-	},
-];
 
 export class HuggingFaceProvider extends OpenAICompatibleProvider<typeof provider.id> {
 	readonly id = provider.id;
@@ -39,8 +14,44 @@ export class HuggingFaceProvider extends OpenAICompatibleProvider<typeof provide
 		keyValidator: /(?:hf_)?[a-zA-Z0-9]{32,}/,
 	};
 
-	getModels(): Promise<readonly AIModel<typeof provider.id>[]> {
-		return Promise.resolve(models);
+	async getModels(): Promise<readonly AIModel<typeof provider.id>[]> {
+		const apiKey = await this.getApiKey();
+
+		const query = new URLSearchParams({
+			filter: 'text-generation,conversational',
+			inference: 'warm',
+			sort: 'trendingScore',
+			limit: '30',
+		});
+		const rsp = await fetch(`https://huggingface.co/api/models?${query.toString()}`, {
+			headers: {
+				Accept: 'application/json',
+				'Content-Type': 'application/json',
+				Authorization: apiKey != null ? `Bearer ${apiKey}` : undefined!,
+			},
+			method: 'GET',
+		});
+
+		interface ModelsResponseResult {
+			id: string;
+		}
+
+		type ModelsResponse = ModelsResponseResult[];
+
+		const results: ModelsResponse = await rsp.json();
+
+		const models = results.map(
+			r =>
+				({
+					id: r.id,
+					name: r.id.split('/').pop()!,
+					maxTokens: { input: 4096, output: 4096 },
+					provider: provider,
+					temperature: null,
+				}) satisfies HuggingFaceModel,
+		);
+
+		return models;
 	}
 
 	protected getUrl(model: AIModel<typeof provider.id>): string {

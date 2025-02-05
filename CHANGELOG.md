@@ -10,13 +10,20 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/) and this p
 
 - Adds and expands AI model support for GitLens' AI features
   - Adds DeepSeek V3 and R1 models &mdash; closes [#3943](https://github.com/gitkraken/vscode-gitlens/issues/3943)
-  - Adds the latest experimental Gemini 2.0 Flash Thinking model
-  - Adds a `gitlens.ai.modelOptions.temperature` setting to specify the temperature (randomness) for AI models
+  - Adds o3-mini and o1 OpenAI models
+  - Adds Gemini 2.0 Flash, Gemini 2.0 Flash-Lite, Gemini 2.0 Pro, and Gemini 2.0 Flash Thinking models
+  - Adds dynamic model loading for GitHub Models and HuggingFace models
+  - Adds a `gitlens.ai.modelOptions.temperature` setting to specify the temperature (randomness) for AI models that support it
   - Adds a _Switch Model_ button to the AI confirmation prompts
+
+### Changed
+
+- Improves performance of updates to active and recent branches on the _Home_ view
 
 ### Fixed
 
 - Fixes [#3938](https://github.com/gitkraken/vscode-gitlens/issues/3938) - GitLens automatically initiating an external sign-in after install on vscode.dev
+- Fixes [#3946](https://github.com/gitkraken/vscode-gitlens/issues/3946) - Home View doesn't update repo state changes made when hidden
 
 ## [16.2.1] - 2025-01-21
 
