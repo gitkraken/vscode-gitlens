@@ -16,7 +16,7 @@ export const promos: Promo[] = [
 			SubscriptionState.ProTrialReactivationEligible,
 		],
 		command: { tooltip: 'Save 55% or more on your 1st seat of Pro.' },
-		locations: ['account', 'badge', 'gate'],
+		locations: ['home', 'account', 'badge', 'gate'],
 		quickpick: {
 			detail: '$(star-full) Save 55% or more on your 1st seat of Pro',
 		},
