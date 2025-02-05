@@ -7,6 +7,28 @@ const provider = { id: 'openai', name: 'OpenAI' } as const;
 type OpenAIModel = AIModel<typeof provider.id>;
 const models: OpenAIModel[] = [
 	{
+		id: 'o3-mini',
+		name: 'o3 mini',
+		maxTokens: { input: 200000, output: 100000 },
+		provider: provider,
+		temperature: null,
+	},
+	{
+		id: 'o1',
+		name: 'o1',
+		maxTokens: { input: 200000, output: 100000 },
+		provider: provider,
+		temperature: null,
+	},
+	{
+		id: 'o1-2024-12-17',
+		name: 'o1',
+		maxTokens: { input: 200000, output: 100000 },
+		provider: provider,
+		temperature: null,
+		hidden: true,
+	},
+	{
 		id: 'o1-preview',
 		name: 'o1 preview',
 		maxTokens: { input: 128000, output: 32768 },

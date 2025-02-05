@@ -10,8 +10,10 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/) and this p
 
 - Adds and expands AI model support for GitLens' AI features
   - Adds DeepSeek V3 and R1 models &mdash; closes [#3943](https://github.com/gitkraken/vscode-gitlens/issues/3943)
+  - Adds o3-mini and o1 OpenAI models
   - Adds the latest experimental Gemini 2.0 Flash Thinking model
-  - Adds a `gitlens.ai.modelOptions.temperature` setting to specify the temperature (randomness) for AI models
+  - Adds dynamic model loading for GitHub Models and HuggingFace models
+  - Adds a `gitlens.ai.modelOptions.temperature` setting to specify the temperature (randomness) for AI models that support it
   - Adds a _Switch Model_ button to the AI confirmation prompts
 
 ### Changed
