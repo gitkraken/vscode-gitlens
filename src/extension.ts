@@ -1,6 +1,7 @@
 import type { ExtensionContext } from 'vscode';
 import { version as codeVersion, env, ExtensionMode, Uri, window, workspace } from 'vscode';
 import { hrtime } from '@env/hrtime';
+import { loggingJsonReplacer } from '@env/json';
 import { isWeb } from '@env/platform';
 import { Api } from './api/api';
 import type { CreatePullRequestActionContext, GitLensApi, OpenPullRequestActionContext } from './api/gitlens';
@@ -97,6 +98,7 @@ export async function activate(context: ExtensionContext): Promise<GitLensApi | 
 
 				return undefined;
 			},
+			sanitizer: loggingJsonReplacer,
 		},
 		logLevel,
 		context.extensionMode === ExtensionMode.Development,
