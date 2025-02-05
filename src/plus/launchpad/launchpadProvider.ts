@@ -46,11 +46,7 @@ import type { ConnectionStateChangeEvent } from '../integrations/integrationServ
 import { isMaybeGitHubPullRequestUrl } from '../integrations/providers/github/github.utils';
 import { isMaybeGitLabPullRequestUrl } from '../integrations/providers/gitlab/gitlab.utils';
 import type { EnrichablePullRequest, ProviderActionablePullRequest } from '../integrations/providers/models';
-import {
-	fromProviderPullRequest,
-	getActionablePullRequests,
-	toProviderPullRequestWithUniqueId,
-} from '../integrations/providers/models';
+import { getActionablePullRequests, toProviderPullRequestWithUniqueId } from '../integrations/providers/models';
 import {
 	convertIntegrationIdToEnrichProvider,
 	convertRemoteProviderIdToEnrichProvider,
@@ -406,7 +402,7 @@ export class LaunchpadProvider implements Disposable {
 
 	@log<LaunchpadProvider['merge']>({ args: { 0: i => `${i.id} (${i.provider.name} ${i.type})` } })
 	async merge(item: LaunchpadItem): Promise<void> {
-		if (item.graphQLId == null || item.headRef?.oid == null) return;
+		if (item.headRef?.oid == null) return;
 		const integrationId = item.provider.id;
 		if (!isSupportedLaunchpadIntegrationId(integrationId)) return;
 		const confirm = await window.showQuickPick(['Merge', 'Cancel'], {
@@ -418,8 +414,7 @@ export class LaunchpadProvider implements Disposable {
 		const integration = await this.container.integrations.get(integrationId);
 		if (integration == null) return;
 
-		const pr: PullRequest = fromProviderPullRequest(item, integration);
-		await integration.mergePullRequest(pr);
+		await integration.mergePullRequest(item.underlyingPullRequest);
 		this.refresh();
 	}
 
