@@ -84,6 +84,7 @@ function getExtensionConfig(target, mode, env) {
 		new CleanPlugin({ cleanOnceBeforeBuildPatterns: ['!dist/webviews/**'] }),
 		new DefinePlugin({
 			DEBUG: mode === 'development',
+			GL_PROMO_URI: `"${process.env['GL_PROMO_URI']}"`,
 		}),
 		new ForkTsCheckerPlugin({
 			async: false,
@@ -322,6 +323,7 @@ function getWebviewsConfig(mode, env) {
 		),
 		new DefinePlugin({
 			DEBUG: mode === 'development',
+			GL_PROMO_URI: `"${process.env['GL_PROMO_URI']}"`,
 		}),
 		new ForkTsCheckerPlugin({
 			async: false,

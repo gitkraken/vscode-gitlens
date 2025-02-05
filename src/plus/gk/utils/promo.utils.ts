@@ -1,16 +1,17 @@
 import type { PromoKeys } from '../../../constants.promos';
-import { promos } from '../../../constants.promos';
+import type { SubscriptionState } from '../../../constants.subscription';
 import type { Promo, PromoLocation } from '../models/promo';
 
-export function getApplicablePromo(
-	state: number | undefined,
+export const pickApplicablePromo = (
+	promoList: Promo[] | undefined,
+	subscriptionState: SubscriptionState | undefined,
 	location?: PromoLocation,
 	key?: PromoKeys,
-): Promo | undefined {
-	if (state == null) return undefined;
+): Promo | undefined => {
+	if (subscriptionState == null || !promoList) return undefined;
 
-	for (const promo of promos) {
-		if ((key == null || key === promo.key) && isPromoApplicable(promo, state)) {
+	for (const promo of promoList) {
+		if ((key == null || key === promo.key) && isPromoApplicable(promo, subscriptionState)) {
 			if (location == null || promo.locations == null || promo.locations.includes(location)) {
 				return promo;
 			}
@@ -20,7 +21,7 @@ export function getApplicablePromo(
 	}
 
 	return undefined;
-}
+};
 
 function isPromoApplicable(promo: Promo, state: number): boolean {
 	const now = Date.now();

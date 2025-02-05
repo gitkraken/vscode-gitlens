@@ -83,7 +83,8 @@ export class GlPromo extends LitElement {
 				return html`<span class="content${this.type === 'link' ? nothing : ' muted'}"
 					><b>Save 55% or more</b> on your 1st seat of Pro</span
 				>`;
-
+			case 'gkholiday':
+				return nothing;
 			default: {
 				debugger;
 				typeCheck<never>(promo.key);

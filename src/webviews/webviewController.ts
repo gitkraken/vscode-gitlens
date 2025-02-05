@@ -5,6 +5,8 @@ import type { Commands } from '../constants.commands';
 import type { WebviewTelemetryContext } from '../constants.telemetry';
 import type { CustomEditorTypes, WebviewIds, WebviewTypes, WebviewViewIds, WebviewViewTypes } from '../constants.views';
 import type { Container } from '../container';
+import type { PromoProvider } from '../plus/gk/account/promos';
+import { promoProvider } from '../plus/gk/account/promos';
 import { executeCommand, executeCoreCommand } from '../system/-webview/command';
 import { setContext } from '../system/-webview/context';
 import { getScopedCounter } from '../system/counter';
@@ -29,6 +31,7 @@ import type {
 import {
 	DidChangeHostWindowFocusNotification,
 	DidChangeWebviewFocusNotification,
+	DidPromoInitialized,
 	ExecuteCommand,
 	ipcPromiseSettled,
 	TelemetrySendEventCommand,
@@ -129,6 +132,7 @@ export class WebviewController<
 	): Promise<WebviewController<ID, State, SerializedState, ShowingArgs>> {
 		const controller = new WebviewController<ID, State, SerializedState, ShowingArgs>(
 			container,
+			promoProvider,
 			commandRegistrar,
 			descriptor,
 			instanceId,
@@ -162,6 +166,8 @@ export class WebviewController<
 
 	private constructor(
 		private readonly container: Container,
+		private readonly promoProvider: PromoProvider,
+
 		private readonly _commandRegistrar: WebviewCommandRegistrar,
 		private readonly descriptor: GetWebviewDescriptor<ID>,
 		public readonly instanceId: string | undefined,
@@ -448,6 +454,9 @@ export class WebviewController<
 				this._ready = true;
 				this.sendPendingIpcNotifications();
 				this.provider.onReady?.();
+				void this.promoProvider.getPromoList().then(promo => {
+					void this.notify(DidPromoInitialized, { promo: promo });
+				});
 
 				break;
 
