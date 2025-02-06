@@ -2378,7 +2378,7 @@ export class Git {
 	private logCore(message: string, ex?: Error | undefined): void {
 		if (!Logger.enabled(ex != null ? 'error' : 'debug')) return;
 
-		this._gitOutput ??= window.createOutputChannel('GitLens (Git)');
+		this._gitOutput ??= window.createOutputChannel('GitLens (Git)', { log: true });
 		this._gitOutput.appendLine(`${Logger.timestamp} ${message}${ex != null ? ` ${GlyphChars.Dot} FAILED` : ''}`);
 		if (ex != null) {
 			this._gitOutput.appendLine(`\n${String(ex)}\n`);
