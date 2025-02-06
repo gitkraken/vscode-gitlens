@@ -1,9 +1,14 @@
 import type { Disposable as CoreDisposable } from 'vscode';
+import { once } from './function';
 
 export type UnifiedDisposable = Disposable & CoreDisposable;
 export type UnifiedAsyncDisposable = { dispose: () => Promise<void> } & AsyncDisposable;
 
-export function createDisposable(dispose: () => void): UnifiedDisposable {
+export function createDisposable(dispose: () => void, options?: { once: boolean }): UnifiedDisposable {
+	if (options?.once) {
+		dispose = once(dispose);
+	}
+
 	return {
 		dispose: dispose,
 		[Symbol.dispose]: dispose,
