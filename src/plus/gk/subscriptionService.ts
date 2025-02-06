@@ -62,6 +62,7 @@ import { getLogScope, setLogScopeExit } from '../../system/logger.scope';
 import { flatten } from '../../system/object';
 import { pauseOnCancelOrTimeout } from '../../system/promise';
 import { pluralize } from '../../system/string';
+import { createDisposable } from '../../system/unifiedDisposable';
 import { satisfies } from '../../system/version';
 import { LoginUriPathPrefix } from './authenticationConnection';
 import { authenticationProviderScopes } from './authenticationProvider';
@@ -871,9 +872,22 @@ export class SubscriptionService implements Disposable {
 
 		if (!(await ensurePlusFeaturesEnabled())) return;
 
-		if (this.container.telemetry.enabled) {
-			this.container.telemetry.sendEvent('subscription/action', { action: 'upgrade' }, source);
-		}
+		let aborted = false;
+		using telemetry = this.container.telemetry.enabled
+			? createDisposable(
+					() => {
+						this.container.telemetry.sendEvent(
+							'subscription/action',
+							{
+								action: 'upgrade',
+								aborted: aborted,
+							},
+							source,
+						);
+					},
+					{ once: true },
+			  )
+			: undefined;
 
 		if (this._subscription.account != null) {
 			// Do a pre-check-in to see if we've already upgraded to a paid plan.
@@ -910,26 +924,33 @@ export class SubscriptionService implements Disposable {
 
 		try {
 			if (hasAccount) {
-				const token = await this.container.accountAuthentication.getExchangeToken(
-					SubscriptionUpdatedUriPathPrefix,
-				);
-				query.set('token', token);
-			} else {
+				try {
+					const token = await this.container.accountAuthentication.getExchangeToken(
+						SubscriptionUpdatedUriPathPrefix,
+					);
+					query.set('token', token);
+				} catch (ex) {
+					Logger.error(ex, scope);
+				}
+			}
+
+			if (!query.has('token')) {
 				const successUri = await env.asExternalUri(
 					Uri.parse(`${env.uriScheme}://${this.container.context.extension.id}/${LoginUriPathPrefix}`),
 				);
 				query.set('success_uri', successUri.toString(true));
 			}
-
-			if (!(await openUrl(this.container.getGkDevUri('purchase/checkout', query.toString()).toString(true)))) {
-				return;
-			}
 		} catch (ex) {
 			Logger.error(ex, scope);
-			if (!(await openUrl(this.container.getGkDevUri('purchase/checkout', query.toString()).toString(true)))) {
-				return;
-			}
 		}
+
+		aborted = !(await openUrl(this.container.getGkDevUri('purchase/checkout', query.toString()).toString(true)));
+
+		if (aborted) {
+			return;
+		}
+
+		telemetry?.dispose();
 
 		const completionPromises = [new Promise<boolean>(resolve => setTimeout(() => resolve(false), 5 * 60 * 1000))];
 
