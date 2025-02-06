@@ -1,6 +1,7 @@
 import { css, html, LitElement, nothing } from 'lit';
 import { customElement, property } from 'lit/decorators.js';
 import { ifDefined } from 'lit/directives/if-defined.js';
+import type { Source, Sources } from '../../../../constants.telemetry';
 import type { Promo } from '../../../../plus/gk/models/promo';
 import { typeCheck } from '../../../../system/function';
 
@@ -52,7 +53,7 @@ export class GlPromo extends LitElement {
 	promo: Promo | undefined;
 
 	@property({ type: String })
-	source?: string;
+	source?: Sources;
 
 	@property({ reflect: true, type: String })
 	type: 'link' | 'info' = 'info';
@@ -66,7 +67,9 @@ export class GlPromo extends LitElement {
 		const command = this.promo?.command?.command ?? 'command:gitlens.plus.upgrade';
 		if (this.source == null) return command;
 
-		return `${command}?${encodeURIComponent(JSON.stringify({ source: this.source }))}`;
+		return `${command}?${encodeURIComponent(
+			JSON.stringify({ source: this.source, detail: 'promo' } satisfies Source),
+		)}`;
 	}
 
 	override render(): unknown {
