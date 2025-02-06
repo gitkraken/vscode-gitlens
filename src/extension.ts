@@ -45,7 +45,7 @@ export async function activate(context: ExtensionContext): Promise<GitLensApi | 
 		{
 			name: 'GitLens',
 			createChannel: function (name: string) {
-				const channel = new BufferedLogChannel(window.createOutputChannel(name), 500);
+				const channel = new BufferedLogChannel(window.createOutputChannel(name, { log: true }), 500);
 				context.subscriptions.push(channel);
 
 				if (logLevel === 'error' || logLevel === 'warn') {
