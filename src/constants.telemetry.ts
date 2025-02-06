@@ -784,8 +784,11 @@ type SubscriptionActionEventData =
 				| 'reactivate'
 				| 'resend-verification'
 				| 'pricing'
-				| 'start-preview-trial'
-				| 'upgrade';
+				| 'start-preview-trial';
+	  }
+	| {
+			action: 'upgrade';
+			aborted: boolean;
 	  }
 	| {
 			action: 'visibility';
