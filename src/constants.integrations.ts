@@ -72,7 +72,7 @@ export const supportedCloudIntegrationDescriptors: IntegrationDescriptor[] = [
 	},
 	{
 		id: SelfHostedIntegrationId.CloudGitLabSelfHosted,
-		name: 'GitLab Self-Managed',
+		name: 'GitLab Self-Hosted',
 		icon: 'gl-provider-gitlab',
 		supports: ['prs', 'issues'],
 		requiresPro: true,
