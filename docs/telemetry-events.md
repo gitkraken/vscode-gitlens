@@ -160,6 +160,23 @@ or
 }
 ```
 
+or
+
+```typescript
+{
+  'duration': number,
+  'failed.error': string,
+  'failed.reason': 'user-declined' | 'user-cancelled' | 'error',
+  'input.length': number,
+  'model.id': string,
+  'model.provider.id': 'anthropic' | 'deepseek' | 'gemini' | 'github' | 'huggingface' | 'openai' | 'vscode' | 'xai',
+  'model.provider.name': string,
+  'output.length': number,
+  'retry.count': number,
+  'type': 'stashMessage'
+}
+```
+
 ### associateIssueWithBranch/action
 
 > Sent when the user chooses to manage integrations
