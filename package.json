@@ -3939,6 +3939,16 @@
 							"preview"
 						]
 					},
+					"gitlens.ai.generateStashMessage.customInstructions": {
+						"type": "string",
+						"default": null,
+						"markdownDescription": "Specifies custom instructions to provide to the AI provider when generating a stash message",
+						"scope": "window",
+						"order": 220,
+						"tags": [
+							"preview"
+						]
+					},
 					"gitlens.ai.generateCloudPatchMessage.customInstructions": {
 						"type": "string",
 						"default": null,

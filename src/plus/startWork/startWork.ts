@@ -310,7 +310,7 @@ export abstract class StartWorkBaseCommand extends QuickCommand<State> {
 			const resume = step.freeze?.();
 			const chosenIntegrationId = selection[0].item;
 			const connected = await this.ensureIntegrationConnected(chosenIntegrationId);
-			return { connected: connected ? chosenIntegrationId : false, resume: () => resume?.[Symbol.dispose]() };
+			return { connected: connected ? chosenIntegrationId : false, resume: () => resume?.dispose() };
 		}
 
 		return StepResultBreak;
@@ -389,7 +389,7 @@ export abstract class StartWorkBaseCommand extends QuickCommand<State> {
 			if (step.quickpick) {
 				step.quickpick.placeholder = previousPlaceholder;
 			}
-			return { connected: connected, resume: () => resume?.[Symbol.dispose]() };
+			return { connected: connected, resume: () => resume?.dispose() };
 		}
 
 		return StepResultBreak;

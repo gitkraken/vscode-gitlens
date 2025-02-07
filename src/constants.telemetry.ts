@@ -322,7 +322,11 @@ export interface AIGenerateDraftEventData extends AIEventDataBase {
 	draftType: 'patch' | 'stash' | 'suggested_pr_change';
 }
 
-type AIGenerateEvent = AIGenerateCommitEventData | AIGenerateDraftEventData;
+export interface AIGenerateStashEventData extends AIEventDataBase {
+	type: 'stashMessage';
+}
+
+type AIGenerateEvent = AIGenerateCommitEventData | AIGenerateDraftEventData | AIGenerateStashEventData;
 
 interface CloudIntegrationsConnectingEvent {
 	'integration.ids': string | undefined;

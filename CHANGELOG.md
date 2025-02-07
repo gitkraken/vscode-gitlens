@@ -8,6 +8,7 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/) and this p
 
 ### Added
 
+- Adds new AI-powered ability to generate a stash message from the changes in the _Stash_ commands
 - Adds and expands AI model support for GitLens' AI features
   - Adds DeepSeek V3 and R1 models &mdash; closes [#3943](https://github.com/gitkraken/vscode-gitlens/issues/3943)
   - Adds o3-mini and o1 OpenAI models

@@ -5,7 +5,7 @@ import type { TelemetryEvents } from '../constants.telemetry';
 import type { Container } from '../container';
 import { configuration } from '../system/-webview/configuration';
 import { sum } from '../system/iterable';
-import { capitalize, getPossessiveForm, interpolate } from '../system/string';
+import { capitalize, interpolate } from '../system/string';
 import type { AIModel, AIProvider } from './aiProviderService';
 import { getMaxCharacters, getValidatedTemperature, showDiffTruncationWarning } from './aiProviderService';
 import {
@@ -13,6 +13,7 @@ import {
 	generateCloudPatchMessageUserPrompt,
 	generateCodeSuggestMessageUserPrompt,
 	generateCommitMessageUserPrompt,
+	generateStashMessageUserPrompt,
 } from './prompts';
 
 const provider = { id: 'vscode', name: 'VS Code Provided' } as const;
@@ -53,7 +54,7 @@ export class VSCodeAIProvider implements AIProvider<typeof provider.id> {
 		diff: string,
 		reporting: TelemetryEvents['ai/generate'],
 		promptConfig: {
-			type: 'commit' | 'cloud-patch' | 'code-suggestion';
+			type: 'commit' | 'cloud-patch' | 'code-suggestion' | 'stash';
 			userPrompt: string;
 			customInstructions?: string;
 		},
@@ -114,6 +115,10 @@ export class VSCodeAIProvider implements AIProvider<typeof provider.id> {
 
 					let message = ex instanceof Error ? ex.message : String(ex);
 
+					if (ex instanceof Error && 'code' in ex && ex.code === 'NoPermissions') {
+						throw new Error(`User denied access to ${model.provider.name}`);
+					}
+
 					if (ex instanceof Error && 'cause' in ex && ex.cause instanceof Error) {
 						message += `\n${ex.cause.message}`;
 
@@ -124,8 +129,8 @@ export class VSCodeAIProvider implements AIProvider<typeof provider.id> {
 					}
 
 					throw new Error(
-						`Unable to generate ${promptConfig.type} message: (${getPossessiveForm(model.provider.name)}:${
-							ex.code
+						`Unable to generate ${promptConfig.type} message: (${model.provider.name}${
+							ex.code ? `:${ex.code}` : ''
 						}) ${message}`,
 					);
 				}
@@ -186,6 +191,28 @@ export class VSCodeAIProvider implements AIProvider<typeof provider.id> {
 				type: 'commit',
 				userPrompt: generateCommitMessageUserPrompt,
 				customInstructions: configuration.get('ai.generateCommitMessage.customInstructions'),
+			},
+			options,
+		);
+	}
+
+	async generateStashMessage(
+		model: VSCodeAIModel,
+		diff: string,
+		reporting: TelemetryEvents['ai/generate'],
+		options?: {
+			cancellation?: CancellationToken | undefined;
+			context?: string | undefined;
+		},
+	): Promise<string | undefined> {
+		return this.generateMessage(
+			model,
+			diff,
+			reporting,
+			{
+				type: 'stash',
+				userPrompt: generateStashMessageUserPrompt,
+				customInstructions: configuration.get('ai.generateStashMessage.customInstructions'),
 			},
 			options,
 		);
@@ -268,7 +295,7 @@ export class VSCodeAIProvider implements AIProvider<typeof provider.id> {
 					}
 
 					throw new Error(
-						`Unable to explain changes: (${getPossessiveForm(model.provider.name)}:${ex.code}) ${message}`,
+						`Unable to explain changes: (${model.provider.name}${ex.code ? `:${ex.code}` : ''}) ${message}`,
 					);
 				}
 			}
