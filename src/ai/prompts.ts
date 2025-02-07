@@ -32,9 +32,8 @@ To create an effective commit message, follow these steps:
    - Focus on the "why" rather than the "what" of the changes.
 5. If the changes are related to a specific issue or ticket, include the reference (e.g., "Fixes #123" or "Relates to JIRA-456") at the end of the commit message.
 
-Don't over explain and write your commit message summary inside <summary> tags and your commit message body inside <body> tags and include no other text.
+Don't over explain and write your commit message summary inside <summary> tags and your commit message body inside <body> tags and include no other text:
 
-Example format:
 <summary>
 Implements user authentication feature
 </summary>
@@ -48,7 +47,35 @@ Fixes #789
 
 \${instructions}
 
-Now, based on the provided code diff and any additional context, create a concise but meaningful commit message following the instructions above.`;
+Based on the provided code diff and any additional context, create a concise but meaningful commit message following the instructions above.`;
+
+export const generateStashMessageUserPrompt = `You are an advanced AI programming assistant and are tasked with creating a concise but descriptive stash message. You will be provided with a code diff of uncommitted changes. Your goal is to analyze the changes and create a clear, single-line stash message that accurately represents the work in progress being stashed.
+
+First, examine the following code changes provided in Git diff format:
+<~~diff~~>
+\${diff}
+</~~diff~~>
+
+To create an effective stash message, follow these steps:
+
+1. Analyze the changes and focus on:
+   - The primary feature or bug fix was being worked on
+   - The overall intent of the changes
+   - Any notable file or areas being modified
+2. Create a single-line message that:
+   - Briefly describes the changes being stashed but must be descriptive enough to identify later
+   - Prioritizes the most significant change if multiple changes are present. If multiple related changes are significant, try to summarize them concisely
+   - Use a future-oriented manner, third-person singular present tense (e.g., 'Fixes', 'Updates', 'Improves', 'Adds', 'Removes')
+
+Write your stash message inside <summary> tags and include no other text:
+
+<summary>
+Adds new awesome feature
+</summary>
+
+\${instructions}
+
+Based on the provided code diff, create a concise but descriptive stash message following the instructions above.`;
 
 export const generateCloudPatchMessageUserPrompt = `You are an advanced AI programming assistant and are tasked with summarizing code changes into a concise and meaningful title and description. You will be provided with a code diff and optional additional context. Your goal is to analyze the changes and create a clear, informative title and description that accurately represents the modifications made to the code.
 
@@ -81,9 +108,8 @@ To create an effective title and description, follow these steps:
    - Add line breaks for readability and to separate independent ideas
    - Focus on the "why" rather than the "what" of the changes.
 
-Write your title inside <summary> tags and your description inside <body> tags and include no other text.
+Write your title inside <summary> tags and your description inside <body> tags and include no other text:
 
-Example format:
 <summary>
 Implements user authentication feature
 </summary>
@@ -95,7 +121,7 @@ Integrates JWT for secure token generation
 
 \${instructions}
 
-Now, based on the provided code diff and any additional context, create a concise but meaningful title and description following the instructions above.`;
+Based on the provided code diff and any additional context, create a concise but meaningful title and description following the instructions above.`;
 
 export const generateCodeSuggestMessageUserPrompt = `You are an advanced AI programming assistant and are tasked with summarizing code changes into a concise and meaningful code review title and description. You will be provided with a code diff and optional additional context. Your goal is to analyze the changes and create a clear, informative code review title and description that accurately represents the modifications made to the code.
 
@@ -128,9 +154,8 @@ To create an effective title and description, follow these steps:
    - Add line breaks for readability and to separate independent ideas
    - Focus on the "why" rather than the "what" of the changes.
 
-Write your title inside <summary> tags and your description inside <body> tags and include no other text.
+Write your title inside <summary> tags and your description inside <body> tags and include no other text:
 
-Example format:
 <summary>
 Implements user authentication feature
 </summary>
@@ -142,7 +167,7 @@ Integrates JWT for secure token generation
 
 \${instructions}
 
-Now, based on the provided code diff and any additional context, create a concise but meaningful code review title and description following the instructions above.`;
+Based on the provided code diff and any additional context, create a concise but meaningful code review title and description following the instructions above.`;
 
 export const explainChangesUserPrompt = `You are an advanced AI programming assistant and are tasked with creating clear, technical summaries of code changes that help reviewers understand the modifications and their implications. You will analyze a code diff and the author-provided message to produce a structured summary that captures the essential aspects of the changes.
 

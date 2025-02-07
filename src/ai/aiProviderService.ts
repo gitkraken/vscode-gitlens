@@ -8,7 +8,6 @@ import type { GitCommit } from '../git/models/commit';
 import { isCommit } from '../git/models/commit';
 import type { GitRevisionReference } from '../git/models/reference';
 import type { Repository } from '../git/models/repository';
-import { isRepository } from '../git/models/repository';
 import { uncommitted, uncommittedStaged } from '../git/models/revision';
 import { assertsCommitHasFullDetails } from '../git/utils/commit.utils';
 import { showAIModelPicker } from '../quickpicks/aiModelPicker';
@@ -16,6 +15,7 @@ import { configuration } from '../system/-webview/configuration';
 import type { Storage } from '../system/-webview/storage';
 import { supportedInVSCodeVersion } from '../system/-webview/vscode';
 import { formatNumeric } from '../system/date';
+import type { Deferred } from '../system/promise';
 import { getSettledValue } from '../system/promise';
 import { getPossessiveForm } from '../system/string';
 import type { TelemetryService } from '../telemetry/telemetry';
@@ -83,6 +83,12 @@ export interface AIProvider<Provider extends AIProviders = AIProviders> extends 
 		reporting: TelemetryEvents['ai/generate'],
 		options?: { cancellation?: CancellationToken; context?: string },
 	): Promise<string | undefined>;
+	generateStashMessage(
+		model: AIModel<Provider>,
+		diff: string,
+		reporting: TelemetryEvents['ai/generate'],
+		options?: { cancellation?: CancellationToken; context?: string },
+	): Promise<string | undefined>;
 	generateDraftMessage(
 		model: AIModel<Provider>,
 		diff: string,
@@ -132,7 +138,7 @@ export class AIProviderService implements Disposable {
 		return models.flatMap(m => getSettledValue(m, []));
 	}
 
-	private async getModel(options?: { force?: boolean; silent?: boolean }): Promise<AIModel | undefined> {
+	async getModel(options?: { force?: boolean; silent?: boolean }): Promise<AIModel | undefined> {
 		const cfg = this.getConfiguredModel();
 		if (!options?.force && cfg?.provider != null && cfg?.model != null) {
 			const model = await this.getOrUpdateModel(cfg.provider, cfg.model);
@@ -213,32 +219,23 @@ export class AIProviderService implements Disposable {
 	}
 
 	async generateCommitMessage(
-		changes: string[],
+		changesOrRepo: string | string[] | Repository,
 		sourceContext: { source: Sources },
-		options?: { cancellation?: CancellationToken; context?: string; progress?: ProgressOptions },
-	): Promise<AIResult | undefined>;
-	async generateCommitMessage(
-		repoPath: Uri,
-		sourceContext: { source: Sources },
-		options?: { cancellation?: CancellationToken; context?: string; progress?: ProgressOptions },
-	): Promise<AIResult | undefined>;
-	async generateCommitMessage(
-		repository: Repository,
-		sourceContext: { source: Sources },
-		options?: { cancellation?: CancellationToken; context?: string; progress?: ProgressOptions },
-	): Promise<AIResult | undefined>;
-	async generateCommitMessage(
-		changesOrRepoOrPath: string[] | Repository | Uri,
-		sourceContext: { source: Sources },
-		options?: { cancellation?: CancellationToken; context?: string; progress?: ProgressOptions },
+		options?: {
+			cancellation?: CancellationToken;
+			context?: string;
+			generating?: Deferred<AIModel>;
+			progress?: ProgressOptions;
+		},
 	): Promise<AIResult | undefined> {
-		const changes: string | undefined = await this.getChanges(changesOrRepoOrPath);
+		const changes: string | undefined = await this.getChanges(changesOrRepo);
 		if (changes == null) return undefined;
 
-		const model = await this.getModel();
-		if (model == null) return undefined;
-
-		const provider = this._provider!;
+		const { confirmed, model } = await getModelAndConfirmAIProviderToS(this, this.container.storage);
+		if (model == null) {
+			options?.generating?.cancel();
+			return undefined;
+		}
 
 		const payload: TelemetryEvents['ai/generate'] = {
 			type: 'commitMessage',
@@ -249,10 +246,10 @@ export class AIProviderService implements Disposable {
 		};
 		const source: Parameters<TelemetryService['sendEvent']>[2] = { source: sourceContext.source };
 
-		const confirmed = await confirmAIProviderToS(this, model, this.container.storage);
 		if (!confirmed) {
 			this.container.telemetry.sendEvent('ai/generate', { ...payload, 'failed.reason': 'user-declined' }, source);
 
+			options?.generating?.cancel();
 			return undefined;
 		}
 
@@ -263,13 +260,15 @@ export class AIProviderService implements Disposable {
 				source,
 			);
 
+			options?.generating?.cancel();
 			return undefined;
 		}
 
-		const promise = provider.generateCommitMessage(model, changes, payload, {
+		const promise = this._provider!.generateCommitMessage(model, changes, payload, {
 			cancellation: options?.cancellation,
 			context: options?.context,
 		});
+		options?.generating?.fulfill(model);
 
 		const start = Date.now();
 		try {
@@ -303,22 +302,24 @@ export class AIProviderService implements Disposable {
 	}
 
 	async generateDraftMessage(
-		changesOrRepoOrPath: string[] | Repository | Uri,
+		changesOrRepo: string | string[] | Repository,
 		sourceContext: { source: Sources; type: AIGenerateDraftEventData['draftType'] },
 		options?: {
 			cancellation?: CancellationToken;
 			context?: string;
+			generating?: Deferred<AIModel>;
 			progress?: ProgressOptions;
 			codeSuggestion?: boolean;
 		},
 	): Promise<AIResult | undefined> {
-		const changes: string | undefined = await this.getChanges(changesOrRepoOrPath);
+		const changes: string | undefined = await this.getChanges(changesOrRepo);
 		if (changes == null) return undefined;
 
-		const model = await this.getModel();
-		if (model == null) return undefined;
-
-		const provider = this._provider!;
+		const { confirmed, model } = await getModelAndConfirmAIProviderToS(this, this.container.storage);
+		if (model == null) {
+			options?.generating?.cancel();
+			return undefined;
+		}
 
 		const payload: TelemetryEvents['ai/generate'] = {
 			type: 'draftMessage',
@@ -330,10 +331,10 @@ export class AIProviderService implements Disposable {
 		};
 		const source: Parameters<TelemetryService['sendEvent']>[2] = { source: sourceContext.source };
 
-		const confirmed = await confirmAIProviderToS(this, model, this.container.storage);
 		if (!confirmed) {
 			this.container.telemetry.sendEvent('ai/generate', { ...payload, 'failed.reason': 'user-declined' }, source);
 
+			options?.generating?.cancel();
 			return undefined;
 		}
 
@@ -344,14 +345,16 @@ export class AIProviderService implements Disposable {
 				source,
 			);
 
+			options?.generating?.cancel();
 			return undefined;
 		}
 
-		const promise = provider.generateDraftMessage(model, changes, payload, {
+		const promise = this._provider!.generateDraftMessage(model, changes, payload, {
 			cancellation: options?.cancellation,
 			context: options?.context,
 			codeSuggestion: options?.codeSuggestion,
 		});
+		options?.generating?.fulfill(model);
 
 		const start = Date.now();
 		try {
@@ -381,22 +384,105 @@ export class AIProviderService implements Disposable {
 		}
 	}
 
+	async generateStashMessage(
+		changesOrRepo: string | string[] | Repository,
+		sourceContext: { source: Sources },
+		options?: {
+			cancellation?: CancellationToken;
+			context?: string;
+			generating?: Deferred<AIModel>;
+			progress?: ProgressOptions;
+		},
+	): Promise<AIResult | undefined> {
+		const changes: string | undefined = await this.getChanges(changesOrRepo);
+		if (changes == null) {
+			options?.generating?.cancel();
+			return undefined;
+		}
+
+		const { confirmed, model } = await getModelAndConfirmAIProviderToS(this, this.container.storage);
+		if (model == null) {
+			options?.generating?.cancel();
+			return undefined;
+		}
+
+		const payload: TelemetryEvents['ai/generate'] = {
+			type: 'stashMessage',
+			'model.id': model.id,
+			'model.provider.id': model.provider.id,
+			'model.provider.name': model.provider.name,
+			'retry.count': 0,
+		};
+		const source: Parameters<TelemetryService['sendEvent']>[2] = { source: sourceContext.source };
+
+		if (!confirmed) {
+			this.container.telemetry.sendEvent('ai/generate', { ...payload, 'failed.reason': 'user-declined' }, source);
+
+			options?.generating?.cancel();
+			return undefined;
+		}
+
+		if (options?.cancellation?.isCancellationRequested) {
+			this.container.telemetry.sendEvent(
+				'ai/generate',
+				{ ...payload, 'failed.reason': 'user-cancelled' },
+				source,
+			);
+
+			options?.generating?.cancel();
+			return undefined;
+		}
+
+		const promise = this._provider!.generateStashMessage(model, changes, payload, {
+			cancellation: options?.cancellation,
+			context: options?.context,
+		});
+		options?.generating?.fulfill(model);
+
+		const start = Date.now();
+		try {
+			const result = await (options?.progress != null
+				? window.withProgress(
+						{ ...options.progress, title: `Generating stash message with ${model.name}...` },
+						() => promise,
+				  )
+				: promise);
+
+			payload['output.length'] = result?.length;
+			this.container.telemetry.sendEvent('ai/generate', { ...payload, duration: Date.now() - start }, source);
+
+			if (result == null) return undefined;
+			return parseResult(result);
+		} catch (ex) {
+			this.container.telemetry.sendEvent(
+				'ai/generate',
+				{
+					...payload,
+					duration: Date.now() - start,
+					...(ex instanceof CancellationError
+						? { 'failed.reason': 'user-cancelled' }
+						: { 'failed.reason': 'error', 'failed.error': String(ex) }),
+				},
+				source,
+			);
+
+			throw ex;
+		}
+	}
+
 	private async getChanges(
-		changesOrRepoOrPath: string[] | Repository | Uri,
+		changesOrRepo: string | string[] | Repository,
 		options?: { cancellation?: CancellationToken; context?: string; progress?: ProgressOptions },
 	): Promise<string | undefined> {
 		let changes: string;
-		if (Array.isArray(changesOrRepoOrPath)) {
-			changes = changesOrRepoOrPath.join('\n');
+		if (typeof changesOrRepo === 'string') {
+			changes = changesOrRepo;
+		} else if (Array.isArray(changesOrRepo)) {
+			changes = changesOrRepo.join('\n');
 		} else {
-			const repository = isRepository(changesOrRepoOrPath)
-				? changesOrRepoOrPath
-				: this.container.git.getRepository(changesOrRepoOrPath);
-			if (repository == null) throw new Error('Unable to find repository');
-
-			let diff = await this.container.git.getDiff(repository.uri, uncommittedStaged);
+			let diff = await this.container.git.getDiff(changesOrRepo.uri, uncommittedStaged);
 			if (!diff?.contents) {
-				diff = await this.container.git.getDiff(repository.uri, uncommitted);
+				diff = await this.container.git.getDiff(changesOrRepo.uri, uncommitted);
 				if (!diff?.contents) throw new Error('No changes to generate a commit message from.');
 			}
 			if (options?.cancellation?.isCancellationRequested) return undefined;
@@ -415,10 +501,8 @@ export class AIProviderService implements Disposable {
 		const diff = await this.container.git.getDiff(commitOrRevision.repoPath, commitOrRevision.ref);
 		if (!diff?.contents) throw new Error('No changes found to explain.');
 
-		const model = await this.getModel();
+		const { confirmed, model } = await getModelAndConfirmAIProviderToS(this, this.container.storage);
 		if (model == null) return undefined;
-
-		const provider = this._provider!;
 
 		const payload: TelemetryEvents['ai/explain'] = {
 			type: 'change',
@@ -430,7 +514,6 @@ export class AIProviderService implements Disposable {
 		};
 		const source: Parameters<TelemetryService['sendEvent']>[2] = { source: sourceContext.source };
 
-		const confirmed = await confirmAIProviderToS(this, model, this.container.storage);
 		if (!confirmed) {
 			this.container.telemetry.sendEvent('ai/explain', { ...payload, 'failed.reason': 'user-declined' }, source);
 
@@ -453,7 +536,7 @@ export class AIProviderService implements Disposable {
 			return undefined;
 		}
 
-		const promise = provider.explainChanges(model, commit.message, diff.contents, payload, {
+		const promise = this._provider!.explainChanges(model, commit.message, diff.contents, payload, {
 			cancellation: options?.cancellation,
 		});
 
@@ -543,55 +626,59 @@ export class AIProviderService implements Disposable {
 		return _supportedProviderTypes.has(provider as AIProviders);
 	}
 
-	async switchModel(): Promise<void> {
-		void (await this.getModel({ force: true }));
+	switchModel(): Promise<AIModel | undefined> {
+		return this.getModel({ force: true });
 	}
 }
 
-async function confirmAIProviderToS<Provider extends AIProviders>(
+async function getModelAndConfirmAIProviderToS(
 	service: AIProviderService,
-	model: AIModel<Provider>,
 	storage: Storage,
-): Promise<boolean> {
-	const confirmed =
-		storage.get(`confirm:ai:tos:${model.provider.id}`, false) ||
-		storage.getWorkspace(`confirm:ai:tos:${model.provider.id}`, false);
-	if (confirmed) return true;
+): Promise<{ confirmed: boolean; model: AIModel | undefined }> {
+	let model = await service.getModel();
+	while (true) {
+		if (model == null) return { confirmed: false, model: model };
 
-	const accept: MessageItem = { title: 'Continue' };
-	const switchModel: MessageItem = { title: 'Switch Model' };
-	const acceptWorkspace: MessageItem = { title: 'Always for this Workspace' };
-	const acceptAlways: MessageItem = { title: 'Always' };
-	const decline: MessageItem = { title: 'Cancel', isCloseAffordance: true };
+		const confirmed =
+			storage.get(`confirm:ai:tos:${model.provider.id}`, false) ||
+			storage.getWorkspace(`confirm:ai:tos:${model.provider.id}`, false);
+		if (confirmed) return { confirmed: true, model: model };
 
-	const result = await window.showInformationMessage(
-		`GitLens AI features require sending a diff of the code changes to ${model.provider.name} for analysis. This may contain sensitive information.\n\nDo you want to continue?`,
-		{ modal: true },
-		accept,
-		switchModel,
-		acceptWorkspace,
-		acceptAlways,
-		decline,
-	);
+		const accept: MessageItem = { title: 'Continue' };
+		const switchModel: MessageItem = { title: 'Switch Model' };
+		const acceptWorkspace: MessageItem = { title: 'Always for this Workspace' };
+		const acceptAlways: MessageItem = { title: 'Always' };
+		const decline: MessageItem = { title: 'Cancel', isCloseAffordance: true };
 
-	if (result === accept) return true;
+		const result = await window.showInformationMessage(
+			`GitLens AI features require sending a diff of the code changes to ${model.provider.name} for analysis. This may contain sensitive information.\n\nDo you want to continue?`,
+			{ modal: true },
+			accept,
+			switchModel,
+			acceptWorkspace,
+			acceptAlways,
+			decline,
+		);
 
-	if (result === switchModel) {
-		void service.switchModel();
-		return false;
+		if (result === switchModel) {
+			model = await service.switchModel();
+			continue;
+		}
+
+		if (result === accept) return { confirmed: true, model: model };
+
+		if (result === acceptWorkspace) {
+			void storage.storeWorkspace(`confirm:ai:tos:${model.provider.id}`, true).catch();
+			return { confirmed: true, model: model };
+		}
+
+		if (result === acceptAlways) {
+			void storage.store(`confirm:ai:tos:${model.provider.id}`, true).catch();
+			return { confirmed: true, model: model };
+		}
+
+		return { confirmed: false, model: model };
 	}
-
-	if (result === acceptWorkspace) {
-		void storage.storeWorkspace(`confirm:ai:tos:${model.provider.id}`, true).catch();
-		return true;
-	}
-
-	if (result === acceptAlways) {
-		void storage.store(`confirm:ai:tos:${model.provider.id}`, true).catch();
-		return true;
-	}
-
-	return false;
 }
 
 export function getMaxCharacters(model: AIModel, outputLength: number, overrideInputTokens?: number): number {

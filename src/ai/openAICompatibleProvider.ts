@@ -20,6 +20,7 @@ import {
 	generateCloudPatchMessageUserPrompt,
 	generateCodeSuggestMessageUserPrompt,
 	generateCommitMessageUserPrompt,
+	generateStashMessageUserPrompt,
 } from './prompts';
 
 export interface AIProviderConfig {
@@ -64,7 +65,7 @@ export abstract class OpenAICompatibleProvider<T extends AIProviders> implements
 		diff: string,
 		reporting: TelemetryEvents['ai/generate'],
 		promptConfig: {
-			type: 'commit' | 'cloud-patch' | 'code-suggestion';
+			type: 'commit' | 'cloud-patch' | 'code-suggestion' | 'stash';
 			userPrompt: string;
 			customInstructions?: string;
 		},
@@ -156,6 +157,25 @@ export abstract class OpenAICompatibleProvider<T extends AIProviders> implements
 				type: 'commit',
 				userPrompt: generateCommitMessageUserPrompt,
 				customInstructions: configuration.get('ai.generateCommitMessage.customInstructions'),
+			},
+			options,
+		);
+	}
+
+	async generateStashMessage(
+		model: AIModel<T>,
+		diff: string,
+		reporting: TelemetryEvents['ai/generate'],
+		options?: { cancellation?: CancellationToken; context?: string },
+	): Promise<string | undefined> {
+		return this.generateMessage(
+			model,
+			diff,
+			reporting,
+			{
+				type: 'stash',
+				userPrompt: generateStashMessageUserPrompt,
+				customInstructions: configuration.get('ai.generateStashMessage.customInstructions'),
 			},
 			options,
 		);

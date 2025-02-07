@@ -215,6 +215,9 @@ interface AIConfig {
 		readonly customInstructions: string;
 		readonly enabled: boolean;
 	};
+	readonly generateStashMessage: {
+		readonly customInstructions: string;
+	};
 	readonly generateCloudPatchMessage: {
 		readonly customInstructions: string;
 	};
