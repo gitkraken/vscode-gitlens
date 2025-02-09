@@ -68,11 +68,11 @@ import { LoginUriPathPrefix } from './authenticationConnection';
 import { authenticationProviderScopes } from './authenticationProvider';
 import type { GKCheckInResponse } from './models/checkin';
 import type { Organization } from './models/organization';
+import type { Promo } from './models/promo';
 import type { Subscription } from './models/subscription';
 import type { ServerConnection } from './serverConnection';
 import { ensurePlusFeaturesEnabled } from './utils/-webview/plus.utils';
 import { getSubscriptionFromCheckIn } from './utils/checkin.utils';
-import { getApplicablePromo } from './utils/promo.utils';
 import {
 	assertSubscriptionState,
 	computeSubscriptionState,
@@ -873,6 +873,8 @@ export class SubscriptionService implements Disposable {
 		if (!(await ensurePlusFeaturesEnabled())) return;
 
 		let aborted = false;
+		const promo = await this.container.productConfig.getApplicablePromo(this._subscription.state);
+
 		using telemetry = this.container.telemetry.enabled
 			? createDisposable(
 					() => {
@@ -881,6 +883,8 @@ export class SubscriptionService implements Disposable {
 							{
 								action: 'upgrade',
 								aborted: aborted,
+								'promo.key': promo?.key,
+								'promo.code': promo?.code,
 							},
 							source,
 						);
@@ -889,7 +893,8 @@ export class SubscriptionService implements Disposable {
 			  )
 			: undefined;
 
-		if (this._subscription.account != null) {
+		const hasAccount = this._subscription.account != null;
+		if (hasAccount) {
 			// Do a pre-check-in to see if we've already upgraded to a paid plan.
 			try {
 				const session = await this.ensureSession(false, source);
@@ -905,11 +910,8 @@ export class SubscriptionService implements Disposable {
 		query.set('source', 'gitlens');
 		query.set('product', 'gitlens');
 
-		const hasAccount = this._subscription.account != null;
-
-		const promoCode = getApplicablePromo(this._subscription.state)?.code;
-		if (promoCode != null) {
-			query.set('promoCode', promoCode);
+		if (promo?.code != null) {
+			query.set('promoCode', promo.code);
 		}
 
 		const activeOrgId = this._subscription.activeOrganization?.id;
@@ -1396,8 +1398,9 @@ export class SubscriptionService implements Disposable {
 		subscription.state = computeSubscriptionState(subscription);
 		assertSubscriptionState(subscription);
 
-		const promo = getApplicablePromo(subscription.state);
-		void setContext('gitlens:promo', promo?.key);
+		void setContext('gitlens:promo', undefined);
+		const promoPromise = this.container.productConfig.getApplicablePromo(subscription.state).catch(() => undefined);
+		void promoPromise.then(promo => void setContext('gitlens:promo', promo?.key));
 
 		const previous = this._subscription as typeof this._subscription | undefined; // Can be undefined here, since we call this in the constructor
 		// Check the previous and new subscriptions are exactly the same
@@ -1411,8 +1414,8 @@ export class SubscriptionService implements Disposable {
 			return;
 		}
 
-		queueMicrotask(() => {
-			let data = flattenSubscription(subscription, undefined, this.getFeaturePreviews());
+		queueMicrotask(async () => {
+			let data = flattenSubscription(subscription, undefined, this.getFeaturePreviews(), await promoPromise);
 			this.container.telemetry.setGlobalAttributes(data);
 
 			data = {
@@ -1738,6 +1741,7 @@ function flattenSubscription(
 	subscription: Optional<Subscription, 'state'> | undefined,
 	prefix?: string,
 	featurePreviews?: FeaturePreview[] | undefined,
+	promo?: Promo | undefined,
 ): SubscriptionEventDataWithPrevious {
 	if (subscription == null) return {};
 
@@ -1760,6 +1764,8 @@ function flattenSubscription(
 		...flatten(subscription.previewTrial, `${prefix ? `${prefix}.` : ''}subscription.previewTrial`, {
 			skipPaths: ['actual.name', 'effective.name'],
 		}),
+		'subscription.promo.key': promo?.key,
+		'subscription.promo.code': promo?.code,
 		'subscription.state': state,
 		'subscription.stateString': getSubscriptionStateString(state),
 		...flattenedFeaturePreviews,

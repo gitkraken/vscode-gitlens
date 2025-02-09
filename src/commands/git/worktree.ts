@@ -309,7 +309,7 @@ export class WorktreeGitCommand extends QuickCommand<State> {
 			}
 			assertStateStepRepository(state);
 
-			const result = yield* ensureAccessStep(state, context, PlusFeatures.Worktrees);
+			const result = yield* ensureAccessStep(this.container, state, context, PlusFeatures.Worktrees);
 			if (result === StepResultBreak) continue;
 
 			switch (state.subcommand) {

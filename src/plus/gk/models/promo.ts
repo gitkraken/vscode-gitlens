@@ -1,7 +1,7 @@
-import type { PromoKeys } from '../../../constants.promos';
 import type { SubscriptionState } from '../../../constants.subscription';
 
 export type PromoLocation = 'account' | 'badge' | 'gate' | 'home';
+export type PromoKeys = 'pro50' | (string & {});
 
 export interface Promo {
 	readonly key: PromoKeys;
@@ -10,10 +10,20 @@ export interface Promo {
 	readonly expiresOn?: number;
 	readonly startsOn?: number;
 
-	readonly command?: {
-		command?: `command:${string}`;
-		tooltip: string;
-	};
 	readonly locations?: PromoLocation[];
-	readonly quickpick: { detail: string };
+	readonly content?: {
+		readonly quickpick: { readonly detail: string };
+		readonly webview?: {
+			readonly info?: {
+				readonly html?: string;
+			};
+			readonly link?: {
+				readonly html: string;
+				readonly title: string;
+				readonly command?: `command:${string}`;
+			};
+		};
+	};
+
+	readonly percentile?: number;
 }

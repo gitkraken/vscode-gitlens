@@ -12,7 +12,9 @@ import type {
 	WebviewFocusChangedParams,
 } from '../../protocol';
 import { DidChangeWebviewFocusNotification, WebviewFocusChangedCommand, WebviewReadyCommand } from '../../protocol';
-import { ipcContext, loggerContext, LoggerContext, telemetryContext, TelemetryContext } from './context';
+import { ipcContext } from './contexts/ipc';
+import { loggerContext, LoggerContext } from './contexts/logger';
+import { telemetryContext, TelemetryContext } from './contexts/telemetry';
 import { DOM } from './dom';
 import type { Disposable } from './events';
 import type { HostIpcApi } from './ipc';

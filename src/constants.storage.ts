@@ -1,6 +1,7 @@
 import type { GraphBranchesVisibility, ViewShowBranchComparison } from './config';
 import type { AIProviders } from './constants.ai';
 import type { IntegrationId } from './constants.integrations';
+import type { SubscriptionState } from './constants.subscription';
 import type { TrackedUsage, TrackedUsageKeys } from './constants.telemetry';
 import type { GroupableTreeViewTypes } from './constants.views';
 import type { Environment } from './container';
@@ -69,6 +70,7 @@ export type GlobalStorage = {
 	version: string;
 	// Keep the pre-release version separate from the released version
 	preVersion: string;
+	'product:config': Stored<StoredProductConfig>;
 	'confirm:draft:storage': boolean;
 	'home:sections:collapsed': string[];
 	'home:walkthrough:dismissed': boolean;
@@ -101,6 +103,20 @@ export interface StoredConfiguredIntegrationDescriptor {
 	domain?: string;
 	expiresAt?: string;
 	scopes: string;
+}
+
+export interface StoredProductConfig {
+	promos: StoredPromo[];
+}
+
+export interface StoredPromo {
+	key: string;
+	code?: string;
+	locations?: ('account' | 'badge' | 'gate' | 'home')[];
+	states?: SubscriptionState[];
+	expiresOn?: number;
+	startsOn?: number;
+	percentile?: number;
 }
 
 export type DeprecatedWorkspaceStorage = {
