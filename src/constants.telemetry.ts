@@ -182,6 +182,9 @@ export interface TelemetryEvents extends WebviewShowAbortedEvents, WebviewShownE
 	/** Sent when a PR review was started in the inspect overview */
 	openReviewMode: OpenReviewModeEvent;
 
+	/** Sent when fetching the product config fails */
+	'productConfig/failed': ProductConfigFailedEvent;
+
 	/** Sent when the "context" of the workspace changes (e.g. repo added, integration connected, etc) */
 	'providers/context': void;
 
@@ -288,7 +291,7 @@ interface AccountValidationFailedEvent {
 	'account.id': string;
 	exception: string;
 	code: string | undefined;
-	statusCode: string | undefined;
+	statusCode: number | undefined;
 }
 
 interface ActivateEvent extends ConfigEventData {
@@ -658,6 +661,13 @@ interface OpenReviewModeEvent {
 	source: Sources;
 }
 
+interface ProductConfigFailedEvent {
+	reason: 'fetch' | 'validation';
+	json: string | undefined;
+	exception?: string;
+	statusCode?: number | undefined;
+}
+
 interface ProvidersRegistrationCompleteEvent {
 	'config.git.autoRepositoryDetection': boolean | 'subFolders' | 'openEditors' | undefined;
 }
@@ -769,9 +779,10 @@ export interface SubscriptionPreviousEventData
 		Partial<Flatten<NonNullable<Subscription['previewTrial']>, 'previous.subscription.previewTrial', true>> {}
 
 export interface SubscriptionEventData extends Partial<SubscriptionCurrentEventData> {
+	'subscription.promo.key'?: string;
+	'subscription.promo.code'?: string;
 	'subscription.state'?: SubscriptionState;
 	'subscription.stateString'?: SubscriptionStateString;
-	'subscription.status'?: SubscriptionStateString;
 }
 
 type SubscriptionActionEventData =
@@ -789,6 +800,8 @@ type SubscriptionActionEventData =
 	| {
 			action: 'upgrade';
 			aborted: boolean;
+			'promo.key'?: string;
+			'promo.code'?: string;
 	  }
 	| {
 			action: 'visibility';

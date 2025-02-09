@@ -28,6 +28,7 @@ import { LineHoverController } from './hovers/lineHoverController';
 import { DraftService } from './plus/drafts/draftsService';
 import { AccountAuthenticationProvider } from './plus/gk/authenticationProvider';
 import { OrganizationService } from './plus/gk/organizationService';
+import { ProductConfigProvider } from './plus/gk/productConfigProvider';
 import { ServerConnection } from './plus/gk/serverConnection';
 import { SubscriptionService } from './plus/gk/subscriptionService';
 import { GraphStatusBarController } from './plus/graph/statusbar';
@@ -607,6 +608,12 @@ export class Container {
 	@memoize()
 	get prereleaseOrDebugging(): boolean {
 		return this._prerelease || this.debugging;
+	}
+
+	private _productConfig: ProductConfigProvider | undefined;
+	get productConfig(): ProductConfigProvider {
+		this._productConfig ??= new ProductConfigProvider(this, this._connection);
+		return this._productConfig;
 	}
 
 	private readonly _rebaseEditor: RebaseEditorProvider;

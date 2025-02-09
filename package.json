@@ -19526,7 +19526,12 @@
 			},
 			{
 				"view": "gitlens.views.launchpad",
-				"contents": "Save 55% or more on your 1st seat of Pro.",
+				"contents": "Limited-time sale on GitLens Pro.",
+				"when": "!gitlens:launchpad:connect && gitlens:plus:required && gitlens:plus:state == 4 && gitlens:promo && gitlens:promo != pro50"
+			},
+			{
+				"view": "gitlens.views.launchpad",
+				"contents": "Save 33% or more on GitLens Pro.",
 				"when": "!gitlens:launchpad:connect && gitlens:plus:required && gitlens:plus:state == 4 && gitlens:promo == pro50"
 			},
 			{
@@ -19581,7 +19586,12 @@
 			},
 			{
 				"view": "gitlens.views.scm.grouped",
-				"contents": "Save 55% or more on your 1st seat of Pro.",
+				"contents": "Limited-time sale on GitLens Pro.",
+				"when": "gitlens:views:scm:grouped:view == launchpad && !gitlens:launchpad:connect && gitlens:plus:required && gitlens:plus:state == 4 && gitlens:promo && gitlens:promo != pro50"
+			},
+			{
+				"view": "gitlens.views.scm.grouped",
+				"contents": "Save 33% or more on GitLens Pro.",
 				"when": "gitlens:views:scm:grouped:view == launchpad && !gitlens:launchpad:connect && gitlens:plus:required && gitlens:plus:state == 4 && gitlens:promo == pro50"
 			},
 			{
@@ -19641,7 +19651,12 @@
 			},
 			{
 				"view": "gitlens.views.scm.grouped",
-				"contents": "Save 55% or more on your 1st seat of Pro.",
+				"contents": "Limited-time sale on GitLens Pro.",
+				"when": "gitlens:views:scm:grouped:view == worktrees && gitlens:plus:required && gitlens:plus:state == 4 && gitlens:promo && gitlens:promo != pro50"
+			},
+			{
+				"view": "gitlens.views.scm.grouped",
+				"contents": "Save 33% or more on GitLens Pro.",
 				"when": "gitlens:views:scm:grouped:view == worktrees && gitlens:plus:required && gitlens:plus:state == 4 && gitlens:promo == pro50"
 			},
 			{
@@ -19724,7 +19739,12 @@
 			},
 			{
 				"view": "gitlens.views.worktrees",
-				"contents": "Save 55% or more on your 1st seat of Pro.",
+				"contents": "Limited-time sale on GitLens Pro.",
+				"when": "gitlens:plus:required && gitlens:plus:state == 4 && gitlens:promo && gitlens:promo != pro50"
+			},
+			{
+				"view": "gitlens.views.worktrees",
+				"contents": "Save 33% or more on GitLens Pro.",
 				"when": "gitlens:plus:required && gitlens:plus:state == 4 && gitlens:promo == pro50"
 			},
 			{

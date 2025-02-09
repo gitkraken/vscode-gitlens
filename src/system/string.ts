@@ -183,6 +183,24 @@ export function* getLines(data: string | string[], char: string = '\n'): Iterabl
 	}
 }
 
+/**
+ * Groups a value into a percentile group (1-100)
+ * @param value The value group by (e.g., machine ID)
+ * @returns A number between 1-100 representing the percentile group
+ */
+export function getPercentileGroup(value: string): number {
+	// Simple hash function
+	let hash = 0;
+	for (let i = 0; i < value.length; i++) {
+		hash = (hash << 5) - hash + value.charCodeAt(i);
+		hash = hash & hash; // Convert to 32-bit integer
+	}
+
+	// Convert hash to a number between 1-100
+	const percentile = Math.abs(hash % 100) + 1;
+	return percentile;
+}
+
 export function getPossessiveForm(name: string): string {
 	return name.endsWith('s') ? `${name}'` : `${name}'s`;
 }

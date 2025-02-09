@@ -6,7 +6,7 @@ import { when } from 'lit/directives/when.js';
 import type { GetInactiveOverviewResponse, OverviewRecentThreshold, State } from '../../../../home/protocol';
 import { SetOverviewFilter } from '../../../../home/protocol';
 import { stateContext } from '../../../home/context';
-import { ipcContext } from '../../../shared/context';
+import { ipcContext } from '../../../shared/contexts/ipc';
 import type { HostIpc } from '../../../shared/ipc';
 import { linkStyles } from '../../shared/components/vscode.css';
 import type { InactiveOverviewState } from './overviewState';
