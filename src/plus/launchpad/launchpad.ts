@@ -290,7 +290,7 @@ export class LaunchpadCommand extends QuickCommand<State> {
 				newlyConnected = Boolean(connected);
 			}
 
-			const result = yield* ensureAccessStep(state, context, PlusFeatures.Launchpad);
+			const result = yield* ensureAccessStep(this.container, state, context, PlusFeatures.Launchpad);
 			if (result === StepResultBreak) continue;
 
 			await updateContextItems(this.container, context, { force: newlyConnected });

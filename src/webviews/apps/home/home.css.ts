@@ -72,7 +72,7 @@ export const homeStyles = css`
 		padding: 0.4rem;
 	}
 
-	.home__aux:has(gl-promo-banner:not([has-promo]):only-child) {
+	.home__aux:has(gl-promo-banner:has(gl-promo:not([has-promo])):only-child) {
 		display: none;
 	}
 

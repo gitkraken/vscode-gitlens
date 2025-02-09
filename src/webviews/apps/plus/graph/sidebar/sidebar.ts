@@ -4,7 +4,7 @@ import { css, html, LitElement, nothing } from 'lit';
 import { customElement, property } from 'lit/decorators.js';
 import { repeat } from 'lit/directives/repeat.js';
 import { DidChangeNotification, GetCountsRequest } from '../../../../plus/graph/protocol';
-import { ipcContext } from '../../../shared/context';
+import { ipcContext } from '../../../shared/contexts/ipc';
 import type { Disposable } from '../../../shared/events';
 import type { HostIpc } from '../../../shared/ipc';
 import '../../../shared/components/code-icon';

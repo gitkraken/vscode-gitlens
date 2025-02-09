@@ -27,6 +27,7 @@ import type {
 	WebviewState,
 } from './protocol';
 import {
+	ApplicablePromoRequest,
 	DidChangeHostWindowFocusNotification,
 	DidChangeWebviewFocusNotification,
 	ExecuteCommand,
@@ -440,7 +441,7 @@ export class WebviewController<
 	@debug<WebviewController<ID, State>['onMessageReceivedCore']>({
 		args: { 0: e => (e != null ? `${e.id}, method=${e.method}` : '<undefined>') },
 	})
-	private onMessageReceivedCore(e: IpcMessage) {
+	private async onMessageReceivedCore(e: IpcMessage) {
 		if (e == null) return;
 
 		switch (true) {
@@ -464,6 +465,15 @@ export class WebviewController<
 				}
 				break;
 
+			case ApplicablePromoRequest.is(e): {
+				const subscription = await this.container.subscription.getSubscription();
+				const promo = await this.container.productConfig.getApplicablePromo(
+					subscription.state,
+					e.params.location,
+				);
+				void this.respond(ApplicablePromoRequest, e, { promo: promo });
+				break;
+			}
 			case TelemetrySendEventCommand.is(e):
 				this.container.telemetry.sendEvent(
 					e.params.name,

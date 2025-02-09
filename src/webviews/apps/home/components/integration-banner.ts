@@ -4,7 +4,7 @@ import { customElement, query, state } from 'lit/decorators.js';
 import type { State } from '../../../home/protocol';
 import { CollapseSectionCommand } from '../../../home/protocol';
 import type { GlButton } from '../../shared/components/button';
-import { ipcContext } from '../../shared/context';
+import { ipcContext } from '../../shared/contexts/ipc';
 import type { HostIpc } from '../../shared/ipc';
 import { stateContext } from '../context';
 import '../../shared/components/button';

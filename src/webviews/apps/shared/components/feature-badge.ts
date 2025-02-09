@@ -1,3 +1,4 @@
+import { consume } from '@lit/context';
 import type { TemplateResult } from 'lit';
 import { css, html, LitElement, nothing, unsafeCSS } from 'lit';
 import { customElement, property } from 'lit/decorators.js';
@@ -5,9 +6,7 @@ import type { GlCommands } from '../../../../constants.commands';
 import { GlCommand } from '../../../../constants.commands';
 import { proTrialLengthInDays, SubscriptionPlanId, SubscriptionState } from '../../../../constants.subscription';
 import type { Source } from '../../../../constants.telemetry';
-import type { Promo } from '../../../../plus/gk/models/promo';
 import type { Subscription } from '../../../../plus/gk/models/subscription';
-import { getApplicablePromo } from '../../../../plus/gk/utils/promo.utils';
 import {
 	getSubscriptionPlanName,
 	getSubscriptionTimeRemaining,
@@ -15,6 +14,8 @@ import {
 	isSubscriptionStateTrial,
 } from '../../../../plus/gk/utils/subscription.utils';
 import { pluralize } from '../../../../system/string';
+import type { PromosContext } from '../contexts/promos';
+import { promosContext } from '../contexts/promos';
 import type { GlPopover } from './overlays/popover';
 import { focusOutline } from './styles/lit/a11y.css';
 import { elementBase, linkBase } from './styles/lit/base.css';
@@ -136,6 +137,9 @@ export class GlFeatureBadge extends LitElement {
 
 	@property({ type: Boolean })
 	preview: boolean = false;
+
+	@consume({ context: promosContext })
+	private promos!: PromosContext;
 
 	@property({ type: Object })
 	source?: Source;
@@ -330,8 +334,6 @@ export class GlFeatureBadge extends LitElement {
 	}
 
 	private renderUpgradeActions(leadin?: TemplateResult) {
-		const promo = getApplicablePromo(this.state, 'badge');
-
 		return html`<div class="actions">
 			${leadin ?? nothing}
 			<gl-button
@@ -340,12 +342,15 @@ export class GlFeatureBadge extends LitElement {
 				href="${generateCommandLink(GlCommand.PlusUpgrade, this.source)}"
 				>Upgrade to Pro</gl-button
 			>
-			${this.renderPromo(promo)}
+			${this.renderPromo()}
 		</div>`;
 	}
 
-	private renderPromo(promo: Promo | undefined) {
-		return html`<gl-promo .promo=${promo} .source=${this.source}></gl-promo>`;
+	private renderPromo() {
+		return html`<gl-promo
+			.promoPromise=${this.promos.getApplicablePromo('badge')}
+			.source=${this.source}
+		></gl-promo>`;
 	}
 }
 

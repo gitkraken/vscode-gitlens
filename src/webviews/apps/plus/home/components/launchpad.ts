@@ -10,7 +10,7 @@ import type { GetLaunchpadSummaryResponse, State } from '../../../../home/protoc
 import { DidChangeLaunchpad, GetLaunchpadSummary } from '../../../../home/protocol';
 import { stateContext } from '../../../home/context';
 import { AsyncComputedState } from '../../../shared/components/signal-utils';
-import { ipcContext } from '../../../shared/context';
+import { ipcContext } from '../../../shared/contexts/ipc';
 import type { Disposable } from '../../../shared/events';
 import type { HostIpc } from '../../../shared/ipc';
 import { linkStyles } from '../../shared/components/vscode.css';
