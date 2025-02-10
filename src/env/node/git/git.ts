@@ -38,7 +38,7 @@ import { parseGitRemoteUrl } from '../../../git/parsers/remoteParser';
 import { isUncommitted, isUncommittedStaged, shortenRevision } from '../../../git/utils/revision.utils';
 import { configuration } from '../../../system/-webview/configuration';
 import { splitPath } from '../../../system/-webview/path';
-import { getEditorCommand } from '../../../system/-webview/vscode';
+import { getHostEditorCommand } from '../../../system/-webview/vscode';
 import { splitAt } from '../../../system/array';
 import { log } from '../../../system/decorators/log';
 import { join } from '../../../system/iterable';
@@ -2322,7 +2322,7 @@ export class Git {
 		const git = normalizePath(location.path ?? 'git');
 
 		const coreEditorConfig = configuration.get('terminal.overrideGitEditor')
-			? `-c "core.editor=${getEditorCommand()}" `
+			? `-c "core.editor=${await getHostEditorCommand()}" `
 			: '';
 
 		const parsedArgs = args.map(arg => (arg.startsWith('#') || /['();$|>&<]/.test(arg) ? `"${arg}"` : arg));
@@ -2378,7 +2378,7 @@ export class Git {
 	private logCore(message: string, ex?: Error | undefined): void {
 		if (!Logger.enabled(ex != null ? 'error' : 'debug')) return;
 
-		this._gitOutput ??= window.createOutputChannel('GitLens (Git)');
+		this._gitOutput ??= window.createOutputChannel('GitLens (Git)', { log: true });
 		this._gitOutput.appendLine(`${Logger.timestamp} ${message}${ex != null ? ` ${GlyphChars.Dot} FAILED` : ''}`);
 		if (ex != null) {
 			this._gitOutput.appendLine(`\n${String(ex)}\n`);

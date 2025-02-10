@@ -388,6 +388,7 @@ export const deepLinkStateTransitionTable: Record<string, Record<string, DeepLin
 	[DeepLinkServiceState.EnsureRemoteMatch]: {
 		[DeepLinkServiceAction.DeepLinkErrored]: DeepLinkServiceState.Idle,
 		[DeepLinkServiceAction.DeepLinkCancelled]: DeepLinkServiceState.Idle,
+		[DeepLinkServiceAction.RemoteMatchUnneeded]: DeepLinkServiceState.GoToTarget,
 		[DeepLinkServiceAction.RemoteMatched]: DeepLinkServiceState.GoToTarget,
 	},
 	[DeepLinkServiceState.GoToTarget]: {

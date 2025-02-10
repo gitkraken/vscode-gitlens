@@ -460,7 +460,7 @@ export const providersMetadata: ProvidersMetadata = {
 	[SelfHostedIntegrationId.CloudGitLabSelfHosted]: {
 		domain: '',
 		id: SelfHostedIntegrationId.CloudGitLabSelfHosted,
-		name: 'Self-Hosted',
+		name: 'GitLab Self-Hosted',
 		type: 'hosting',
 		iconKey: SelfHostedIntegrationId.GitLabSelfHosted,
 		issuesPagingMode: PagingMode.Repo,
@@ -478,7 +478,7 @@ export const providersMetadata: ProvidersMetadata = {
 	[SelfHostedIntegrationId.GitLabSelfHosted]: {
 		domain: '',
 		id: SelfHostedIntegrationId.GitLabSelfHosted,
-		name: 'Self-Hosted',
+		name: 'GitLab Self-Hosted',
 		type: 'hosting',
 		iconKey: SelfHostedIntegrationId.GitLabSelfHosted,
 		issuesPagingMode: PagingMode.Repo,

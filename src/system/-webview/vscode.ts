@@ -8,16 +8,20 @@ import type {
 	WorkspaceFolder,
 } from 'vscode';
 import { version as codeVersion, ColorThemeKind, env, Uri, ViewColumn, window, workspace } from 'vscode';
+import { getPlatform } from '@env/platform';
 import type { IconPath } from '../../@types/vscode.iconpath';
 import { imageMimetypes, Schemes, trackableSchemes } from '../../constants';
 import type { Container } from '../../container';
 import { isGitUri } from '../../git/gitUri';
 import { Logger } from '../logger';
-import { extname, normalizePath } from '../path';
+import { extname, joinPaths, normalizePath } from '../path';
+import { getDistributionGroup } from '../string';
 import { satisfies } from '../version';
 import { executeCoreCommand } from './command';
 import { configuration } from './configuration';
 import { relative } from './path';
+
+export const deviceCohortGroup = getDistributionGroup(env.machineId);
 
 export function findTextDocument(uri: Uri): TextDocument | undefined {
 	const normalizedUri = uri.toString();
@@ -70,26 +74,81 @@ export function findOrOpenEditors(uris: Uri[], options?: TextDocumentShowOptions
 	}
 }
 
-export function getEditorCommand(): string {
-	let editor;
+let _hostExecutablePath: string | undefined;
+export async function getHostExecutablePath(): Promise<string> {
+	if (_hostExecutablePath != null) return _hostExecutablePath;
+
+	const platform = getPlatform();
+
+	let app: string;
 	switch (env.appName) {
+		case 'Visual Studio Code':
+			app = 'code';
+			break;
 		case 'Visual Studio Code - Insiders':
-			editor = 'code-insiders --wait --reuse-window';
+			app = 'code-insiders';
 			break;
 		case 'Visual Studio Code - Exploration':
-			editor = 'code-exploration --wait --reuse-window';
+			app = 'code-exploration';
 			break;
 		case 'VSCodium':
-			editor = 'codium --wait --reuse-window';
+			app = 'codium';
 			break;
 		case 'Cursor':
-			editor = 'cursor --wait --reuse-window';
+			app = 'cursor';
+			break;
+		case 'Windsurf':
+			app = 'windsurf';
+			break;
+		default: {
+			try {
+				const bytes = await workspace.fs.readFile(Uri.file(joinPaths(env.appRoot, 'product.json')));
+				const product = JSON.parse(new TextDecoder().decode(bytes));
+				app = product.applicationName;
+			} catch {
+				app = 'code';
+			}
+
+			break;
+		}
+	}
+
+	_hostExecutablePath = app;
+	if (env.remoteName) return app;
+
+	async function checkPath(path: string) {
+		try {
+			await workspace.fs.stat(Uri.file(path));
+			return path;
+		} catch {
+			return undefined;
+		}
+	}
+
+	switch (platform) {
+		case 'windows':
+		case 'linux':
+			_hostExecutablePath =
+				(await checkPath(joinPaths(env.appRoot, '..', '..', 'bin', app))) ??
+				(await checkPath(joinPaths(env.appRoot, 'bin', app))) ??
+				app;
+			break;
+		case 'macOS':
+			_hostExecutablePath =
+				(await checkPath(joinPaths(env.appRoot, 'bin', app))) ??
+				(await checkPath(joinPaths(env.appRoot, '..', '..', 'bin', app))) ??
+				app;
 			break;
 		default:
-			editor = 'code --wait --reuse-window';
-			break;
+			throw new Error(`Unsupported platform: ${platform}`);
 	}
-	return editor;
+
+	return _hostExecutablePath;
+}
+
+export async function getHostEditorCommand(): Promise<string> {
+	const path = normalizePath(await getHostExecutablePath()).replace(/ /g, '\\ ');
+	return `${path} --wait --reuse-window`;
 }
 
 export function getEditorIfActive(document: TextDocument): TextEditor | undefined {

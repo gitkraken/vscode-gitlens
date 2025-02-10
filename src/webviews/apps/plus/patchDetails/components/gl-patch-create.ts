@@ -8,9 +8,9 @@ import type { ViewFilesLayout } from '../../../../../config';
 import { urls } from '../../../../../constants';
 import type { GitFileChangeShape } from '../../../../../git/models/fileChange';
 import type { DraftRole, DraftVisibility } from '../../../../../plus/drafts/models/drafts';
-import type { Serialized } from '../../../../../system/-webview/serialize';
 import { debounce } from '../../../../../system/function';
 import { flatCount } from '../../../../../system/iterable';
+import type { Serialized } from '../../../../../system/serialize';
 import type {
 	Change,
 	DraftUserSelection,

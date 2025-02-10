@@ -192,9 +192,8 @@ export class DeepLinkService implements Disposable {
 		repoPath: string | undefined,
 		remoteUrl: string | undefined,
 		repoId: string | undefined,
-		isPending?: boolean,
 	): Promise<void> {
-		if (repoPath != null && isPending) {
+		if (repoPath != null) {
 			const repoOpenUri = maybeUri(repoPath) ? Uri.parse(repoPath) : repoPath;
 			try {
 				const openRepo = await this.container.git.getOrOpenRepository(repoOpenUri, { detectNested: false });
@@ -263,7 +262,6 @@ export class DeepLinkService implements Disposable {
 			this._context.repoPath,
 			this._context.remoteUrl,
 			this._context.mainId,
-			true,
 		);
 
 		const action = this.getServiceActionFromPendingContext();

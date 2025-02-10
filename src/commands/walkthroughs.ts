@@ -79,7 +79,7 @@ export class WalkthroughPlusUpgradeCommand extends GlCommandBase {
 			name: 'plus/upgrade',
 			command: command,
 		});
-		executeCommand(command);
+		executeCommand(command, { source: 'walkthrough' });
 	}
 }
 

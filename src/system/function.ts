@@ -155,17 +155,17 @@ export function is<T extends object>(o: object, propOrMatcher?: keyof T | ((o: a
 	return value === undefined ? (o as any)[propOrMatcher] !== undefined : (o as any)[propOrMatcher] === value;
 }
 
-export function once<T extends (...args: any[]) => any>(fn: T): T {
+export function once<T extends (...args: any[]) => unknown>(fn: T): T {
 	let result: ReturnType<T>;
 	let called = false;
 
-	return function (this: any, ...args: Parameters<T>): ReturnType<T> {
+	return function (this: unknown, ...args: Parameters<T>): ReturnType<T> {
 		if (!called) {
 			called = true;
-			result = fn.apply(this, args);
+			result = fn.apply(this, args) as ReturnType<T>;
 			fn = undefined!;
 		}
-		// eslint-disable-next-line @typescript-eslint/no-unsafe-return
+
 		return result;
 	} as T;
 }

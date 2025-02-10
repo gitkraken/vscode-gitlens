@@ -1,3 +1,4 @@
+import { consume } from '@lit/context';
 import { css, html, LitElement, nothing } from 'lit';
 import { customElement, property, query } from 'lit/decorators.js';
 import { urls } from '../../../../../constants';
@@ -11,10 +12,10 @@ import {
 import type { Source } from '../../../../../constants.telemetry';
 import type { FeaturePreview } from '../../../../../features';
 import { getFeaturePreviewStatus } from '../../../../../features';
-import type { Promo } from '../../../../../plus/gk/models/promo';
-import { getApplicablePromo } from '../../../../../plus/gk/utils/promo.utils';
 import { pluralize } from '../../../../../system/string';
 import type { GlButton } from '../../../shared/components/button';
+import type { PromosContext } from '../../../shared/contexts/promos';
+import { promosContext } from '../../../shared/contexts/promos';
 import { linkStyles } from './vscode.css';
 import '../../../shared/components/button';
 import '../../../shared/components/promo';
@@ -97,6 +98,9 @@ export class GlFeatureGatePlusState extends LitElement {
 	@property()
 	featureWithArticleIfNeeded?: string;
 
+	@consume({ context: promosContext })
+	private promos!: PromosContext;
+
 	@property({ type: Object })
 	source?: Source;
 
@@ -120,7 +124,6 @@ export class GlFeatureGatePlusState extends LitElement {
 
 		this.hidden = false;
 		const appearance = (this.appearance ?? 'alert') === 'alert' ? 'alert' : nothing;
-		const promo = this.state ? getApplicablePromo(this.state, 'gate') : undefined;
 
 		switch (this.state) {
 			case SubscriptionState.VerificationRequired:
@@ -207,7 +210,7 @@ export class GlFeatureGatePlusState extends LitElement {
 							></span
 						>
 					</p>
-					<p>${this.renderPromo(promo)}</p>`;
+					<p>${this.renderPromo()}</p>`;
 
 			case SubscriptionState.ProTrialReactivationEligible:
 				return html`<slot name="feature"></slot>
@@ -323,8 +326,11 @@ export class GlFeatureGatePlusState extends LitElement {
 		}
 	}
 
-	private renderPromo(promo: Promo | undefined) {
-		return html`<gl-promo .promo=${promo}></gl-promo>`;
+	private renderPromo() {
+		return html`<gl-promo
+			.promoPromise=${this.promos.getApplicablePromo('gate')}
+			.source=${this.source}
+		></gl-promo>`;
 	}
 }
 

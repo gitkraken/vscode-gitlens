@@ -15,7 +15,9 @@ export interface LogChannelProvider {
 	readonly name: string;
 	createChannel(name: string): LogChannel;
 	toLoggable?(o: unknown): string | undefined;
-	sanitize?: (key: string, value: any) => any;
+
+	sanitizeKeys?: Set<string>;
+	sanitizer?: (key: string, value: unknown) => unknown;
 }
 
 export interface LogChannel {
@@ -25,17 +27,21 @@ export interface LogChannel {
 	show?(preserveFocus?: boolean): void;
 }
 
-const sanitizedKeys = new Set<string>(['accessToken', 'password', 'token']);
-const defaultSanitize = function (key: string, value: any): any {
-	return sanitizedKeys.has(key) ? `<${value}>` : value;
-};
+const defaultSanitizeKeys = ['accessToken', 'password', 'token'];
 
 export const Logger = new (class Logger {
 	private output: LogChannel | undefined;
-	private provider: LogChannelProvider | undefined;
+	private provider: RequireSome<LogChannelProvider, 'sanitizeKeys'> | undefined;
 
 	configure(provider: LogChannelProvider, logLevel: LogLevel, debugging: boolean = false) {
-		this.provider = provider;
+		if (provider.sanitizeKeys != null) {
+			for (const key of defaultSanitizeKeys) {
+				provider.sanitizeKeys.add(key);
+			}
+		} else {
+			provider.sanitizeKeys = new Set(defaultSanitizeKeys);
+		}
+		this.provider = provider as RequireSome<LogChannelProvider, 'sanitizeKeys'>;
 
 		this._isDebugging = debugging;
 		this.logLevel = logLevel;
@@ -197,21 +203,30 @@ export const Logger = new (class Logger {
 		this.output?.show?.(preserveFocus);
 	}
 
-	toLoggable(o: any, sanitize?: ((key: string, value: any) => any) | undefined): string {
+	toLoggable(o: any, sanitizer?: ((key: string, value: unknown) => unknown) | undefined): string {
 		if (typeof o !== 'object') return String(o);
 
-		sanitize ??= this.provider!.sanitize ?? defaultSanitize;
-
 		if (Array.isArray(o)) {
-			return `[${o.map(i => this.toLoggable(i, sanitize)).join(', ')}]`;
+			return `[${o.map(i => this.toLoggable(i, sanitizer)).join(', ')}]`;
 		}
 
 		const loggable = this.provider!.toLoggable?.(o);
 		if (loggable != null) return loggable;
 
 		try {
-			return JSON.stringify(o, sanitize);
+			return JSON.stringify(o, (key: string, value: unknown): unknown => {
+				if (this.provider!.sanitizeKeys.has(key)) return `<${key}>`;
+
+				if (sanitizer != null) {
+					value = sanitizer(key, value);
+				}
+				if (this.provider?.sanitizer != null) {
+					value = this.provider.sanitizer(key, value);
+				}
+				return value;
+			});
 		} catch {
+			debugger;
 			return '<error>';
 		}
 	}

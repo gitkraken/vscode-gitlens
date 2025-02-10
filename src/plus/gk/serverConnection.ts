@@ -62,6 +62,10 @@ export class ServerConnection implements Disposable {
 		return Uri.joinPath(this.baseGkApiUri, ...pathSegments).toString();
 	}
 
+	getGkConfigUrl(...pathSegments: string[]): string {
+		return Uri.joinPath(Uri.parse('https://configs.gitkraken.dev'), 'gitlens', ...pathSegments).toString();
+	}
+
 	@memoize()
 	get userAgent(): string {
 		// TODO@eamodio figure out standardized format/structure for our user agents
@@ -118,6 +122,10 @@ export class ServerConnection implements Disposable {
 
 	async fetchGkApi(path: string, init?: RequestInit, options?: GKFetchOptions): Promise<Response> {
 		return this.gkFetch(this.getGkApiUrl(path), init, options);
+	}
+
+	async fetchGkConfig(path: string, init?: RequestInit, options?: FetchOptions): Promise<Response> {
+		return this.fetch(this.getGkConfigUrl(path), init, options);
 	}
 
 	async fetchGkApiGraphQL(

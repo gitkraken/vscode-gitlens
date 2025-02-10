@@ -62,16 +62,17 @@ import { getLogScope, setLogScopeExit } from '../../system/logger.scope';
 import { flatten } from '../../system/object';
 import { pauseOnCancelOrTimeout } from '../../system/promise';
 import { pluralize } from '../../system/string';
+import { createDisposable } from '../../system/unifiedDisposable';
 import { satisfies } from '../../system/version';
 import { LoginUriPathPrefix } from './authenticationConnection';
 import { authenticationProviderScopes } from './authenticationProvider';
 import type { GKCheckInResponse } from './models/checkin';
 import type { Organization } from './models/organization';
+import type { Promo } from './models/promo';
 import type { Subscription } from './models/subscription';
 import type { ServerConnection } from './serverConnection';
 import { ensurePlusFeaturesEnabled } from './utils/-webview/plus.utils';
 import { getSubscriptionFromCheckIn } from './utils/checkin.utils';
-import { getApplicablePromo } from './utils/promo.utils';
 import {
 	assertSubscriptionState,
 	computeSubscriptionState,
@@ -871,11 +872,29 @@ export class SubscriptionService implements Disposable {
 
 		if (!(await ensurePlusFeaturesEnabled())) return;
 
-		if (this.container.telemetry.enabled) {
-			this.container.telemetry.sendEvent('subscription/action', { action: 'upgrade' }, source);
-		}
+		let aborted = false;
+		const promo = await this.container.productConfig.getApplicablePromo(this._subscription.state);
 
-		if (this._subscription.account != null) {
+		using telemetry = this.container.telemetry.enabled
+			? createDisposable(
+					() => {
+						this.container.telemetry.sendEvent(
+							'subscription/action',
+							{
+								action: 'upgrade',
+								aborted: aborted,
+								'promo.key': promo?.key,
+								'promo.code': promo?.code,
+							},
+							source,
+						);
+					},
+					{ once: true },
+			  )
+			: undefined;
+
+		const hasAccount = this._subscription.account != null;
+		if (hasAccount) {
 			// Do a pre-check-in to see if we've already upgraded to a paid plan.
 			try {
 				const session = await this.ensureSession(false, source);
@@ -891,11 +910,8 @@ export class SubscriptionService implements Disposable {
 		query.set('source', 'gitlens');
 		query.set('product', 'gitlens');
 
-		const hasAccount = this._subscription.account != null;
-
-		const promoCode = getApplicablePromo(this._subscription.state)?.code;
-		if (promoCode != null) {
-			query.set('promoCode', promoCode);
+		if (promo?.code != null) {
+			query.set('promoCode', promo.code);
 		}
 
 		const activeOrgId = this._subscription.activeOrganization?.id;
@@ -910,26 +926,33 @@ export class SubscriptionService implements Disposable {
 
 		try {
 			if (hasAccount) {
-				const token = await this.container.accountAuthentication.getExchangeToken(
-					SubscriptionUpdatedUriPathPrefix,
-				);
-				query.set('token', token);
-			} else {
+				try {
+					const token = await this.container.accountAuthentication.getExchangeToken(
+						SubscriptionUpdatedUriPathPrefix,
+					);
+					query.set('token', token);
+				} catch (ex) {
+					Logger.error(ex, scope);
+				}
+			}
+
+			if (!query.has('token')) {
 				const successUri = await env.asExternalUri(
 					Uri.parse(`${env.uriScheme}://${this.container.context.extension.id}/${LoginUriPathPrefix}`),
 				);
 				query.set('success_uri', successUri.toString(true));
 			}
-
-			if (!(await openUrl(this.container.getGkDevUri('purchase/checkout', query.toString()).toString(true)))) {
-				return;
-			}
 		} catch (ex) {
 			Logger.error(ex, scope);
-			if (!(await openUrl(this.container.getGkDevUri('purchase/checkout', query.toString()).toString(true)))) {
-				return;
-			}
 		}
+
+		aborted = !(await openUrl(this.container.getGkDevUri('purchase/checkout', query.toString()).toString(true)));
+
+		if (aborted) {
+			return;
+		}
+
+		telemetry?.dispose();
 
 		const completionPromises = [new Promise<boolean>(resolve => setTimeout(() => resolve(false), 5 * 60 * 1000))];
 
@@ -1375,8 +1398,9 @@ export class SubscriptionService implements Disposable {
 		subscription.state = computeSubscriptionState(subscription);
 		assertSubscriptionState(subscription);
 
-		const promo = getApplicablePromo(subscription.state);
-		void setContext('gitlens:promo', promo?.key);
+		void setContext('gitlens:promo', undefined);
+		const promoPromise = this.container.productConfig.getApplicablePromo(subscription.state).catch(() => undefined);
+		void promoPromise.then(promo => void setContext('gitlens:promo', promo?.key));
 
 		const previous = this._subscription as typeof this._subscription | undefined; // Can be undefined here, since we call this in the constructor
 		// Check the previous and new subscriptions are exactly the same
@@ -1390,8 +1414,8 @@ export class SubscriptionService implements Disposable {
 			return;
 		}
 
-		queueMicrotask(() => {
-			let data = flattenSubscription(subscription, undefined, this.getFeaturePreviews());
+		queueMicrotask(async () => {
+			let data = flattenSubscription(subscription, undefined, this.getFeaturePreviews(), await promoPromise);
 			this.container.telemetry.setGlobalAttributes(data);
 
 			data = {
@@ -1717,6 +1741,7 @@ function flattenSubscription(
 	subscription: Optional<Subscription, 'state'> | undefined,
 	prefix?: string,
 	featurePreviews?: FeaturePreview[] | undefined,
+	promo?: Promo | undefined,
 ): SubscriptionEventDataWithPrevious {
 	if (subscription == null) return {};
 
@@ -1739,6 +1764,8 @@ function flattenSubscription(
 		...flatten(subscription.previewTrial, `${prefix ? `${prefix}.` : ''}subscription.previewTrial`, {
 			skipPaths: ['actual.name', 'effective.name'],
 		}),
+		'subscription.promo.key': promo?.key,
+		'subscription.promo.code': promo?.code,
 		'subscription.state': state,
 		'subscription.stateString': getSubscriptionStateString(state),
 		...flattenedFeaturePreviews,

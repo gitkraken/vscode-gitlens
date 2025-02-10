@@ -28,6 +28,7 @@
   'global.cloudIntegrations.connected.count': number,
   'global.cloudIntegrations.connected.ids': string,
   'global.debugging': boolean,
+  'global.device.cohort': number,
   'global.enabled': boolean,
   'global.folders.count': number,
   'global.folders.schemes': string,
@@ -67,9 +68,10 @@
   'global.subscription.featurePreviews.graph.status': 'eligible' | 'active' | 'expired',
   'global.subscription.previewTrial.expiresOn': string,
   'global.subscription.previewTrial.startedOn': string,
+  'global.subscription.promo.code': string,
+  'global.subscription.promo.key': string,
   'global.subscription.state': -1 | 0 | 1 | 2 | 3 | 4 | 5 | 6,
   'global.subscription.stateString': 'verification' | 'free' | 'preview' | 'preview-expired' | 'trial' | 'trial-expired' | 'trial-reactivation-eligible' | 'paid' | 'unknown',
-  'global.subscription.status': 'verification' | 'free' | 'preview' | 'preview-expired' | 'trial' | 'trial-expired' | 'trial-reactivation-eligible' | 'paid' | 'unknown',
   'global.upgrade': boolean,
   'global.upgradedFrom': string,
   'global.workspace.isTrusted': boolean
@@ -87,7 +89,7 @@
   'account.id': string,
   'code': string,
   'exception': string,
-  'statusCode': string
+  'statusCode': number
 }
 ```
 
@@ -157,6 +159,23 @@ or
   'output.length': number,
   'retry.count': number,
   'type': 'draftMessage'
+}
+```
+
+or
+
+```typescript
+{
+  'duration': number,
+  'failed.error': string,
+  'failed.reason': 'user-declined' | 'user-cancelled' | 'error',
+  'input.length': number,
+  'model.id': string,
+  'model.provider.id': 'anthropic' | 'deepseek' | 'gemini' | 'github' | 'huggingface' | 'openai' | 'vscode' | 'xai',
+  'model.provider.name': string,
+  'output.length': number,
+  'retry.count': number,
+  'type': 'stashMessage'
 }
 ```
 
@@ -1440,6 +1459,19 @@ void
 }
 ```
 
+### productConfig/failed
+
+> Sent when fetching the product config fails
+
+```typescript
+{
+  'exception': string,
+  'json': string,
+  'reason': 'fetch' | 'validation',
+  'statusCode': number
+}
+```
+
 ### providers/context
 
 > Sent when the "context" of the workspace changes (e.g. repo added, integration connected, etc)
@@ -1702,9 +1734,10 @@ void
   'subscription.featurePreviews.graph.status': 'eligible' | 'active' | 'expired',
   'subscription.previewTrial.expiresOn': string,
   'subscription.previewTrial.startedOn': string,
+  'subscription.promo.code': string,
+  'subscription.promo.key': string,
   'subscription.state': -1 | 0 | 1 | 2 | 3 | 4 | 5 | 6,
-  'subscription.stateString': 'verification' | 'free' | 'preview' | 'preview-expired' | 'trial' | 'trial-expired' | 'trial-reactivation-eligible' | 'paid' | 'unknown',
-  'subscription.status': 'verification' | 'free' | 'preview' | 'preview-expired' | 'trial' | 'trial-expired' | 'trial-reactivation-eligible' | 'paid' | 'unknown'
+  'subscription.stateString': 'verification' | 'free' | 'preview' | 'preview-expired' | 'trial' | 'trial-expired' | 'trial-reactivation-eligible' | 'paid' | 'unknown'
 }
 ```
 
@@ -1714,7 +1747,18 @@ void
 
 ```typescript
 {
-  'action': 'manage' | 'sign-up' | 'sign-in' | 'sign-out' | 'reactivate' | 'resend-verification' | 'pricing' | 'start-preview-trial' | 'upgrade'
+  'action': 'manage' | 'sign-up' | 'sign-in' | 'sign-out' | 'reactivate' | 'resend-verification' | 'pricing' | 'start-preview-trial'
+}
+```
+
+or
+
+```typescript
+{
+  'aborted': boolean,
+  'action': 'upgrade',
+  'promo.code': string,
+  'promo.key': string
 }
 ```
 
@@ -1792,9 +1836,10 @@ or
   'subscription.featurePreviews.graph.status': 'eligible' | 'active' | 'expired',
   'subscription.previewTrial.expiresOn': string,
   'subscription.previewTrial.startedOn': string,
+  'subscription.promo.code': string,
+  'subscription.promo.key': string,
   'subscription.state': -1 | 0 | 1 | 2 | 3 | 4 | 5 | 6,
-  'subscription.stateString': 'verification' | 'free' | 'preview' | 'preview-expired' | 'trial' | 'trial-expired' | 'trial-reactivation-eligible' | 'paid' | 'unknown',
-  'subscription.status': 'verification' | 'free' | 'preview' | 'preview-expired' | 'trial' | 'trial-expired' | 'trial-reactivation-eligible' | 'paid' | 'unknown'
+  'subscription.stateString': 'verification' | 'free' | 'preview' | 'preview-expired' | 'trial' | 'trial-expired' | 'trial-reactivation-eligible' | 'paid' | 'unknown'
 }
 ```
 

@@ -295,7 +295,11 @@ export abstract class QuickWizardCommandBase extends GlCommandBase {
 
 				disposables.push(
 					scope,
-					input.onDidHide(() => resolve(undefined)),
+					input.onDidHide(() => {
+						if (step.frozen) return;
+
+						resolve(undefined);
+					}),
 					input.onDidTriggerButton(async e => {
 						if (e === QuickInputButtons.Back) {
 							void goBack();
@@ -379,6 +383,8 @@ export abstract class QuickWizardCommandBase extends GlCommandBase {
 						debugger;
 					}
 				}
+
+				step.onDidActivate?.(input);
 			});
 		} finally {
 			input.dispose();

@@ -1,8 +1,9 @@
 import { css, html, LitElement, nothing } from 'lit';
 import { customElement, property } from 'lit/decorators.js';
 import { ifDefined } from 'lit/directives/if-defined.js';
+import { unsafeHTML } from 'lit/directives/unsafe-html.js';
+import { until } from 'lit/directives/until.js';
 import type { Promo } from '../../../../plus/gk/models/promo';
-import { typeCheck } from '../../../../system/function';
 
 @customElement('gl-promo')
 export class GlPromo extends LitElement {
@@ -49,46 +50,54 @@ export class GlPromo extends LitElement {
 	];
 
 	@property({ type: Object })
-	promo: Promo | undefined;
+	promoPromise!: Promise<Promo | undefined>;
+
+	@property({ type: String })
+	source?: string;
 
 	@property({ reflect: true, type: String })
 	type: 'link' | 'info' = 'info';
 
-	@property({ reflect: true, type: Boolean, attribute: 'has-promo' })
-	get hasPromo(): boolean {
-		return this.promo != null;
-	}
-
 	override render(): unknown {
-		if (!this.promo) return;
-
-		const promoHtml = this.renderPromo(this.promo);
-		if (!promoHtml) return;
-
-		if (this.type === 'link') {
-			return html`<a
-				class="link"
-				href="${this.promo.command?.command ?? 'command:gitlens.plus.upgrade'}"
-				title="${ifDefined(this.promo.command?.tooltip)}"
-				>${promoHtml}</a
-			>`;
-		}
-
-		return html`<p class="promo">${promoHtml}</p>`;
+		return html`${until(
+			this.promoPromise.then(promo => this.renderPromo(promo)),
+			nothing,
+		)}`;
 	}
 
-	private renderPromo(promo: Promo) {
-		switch (promo.key) {
-			case 'pro50':
-				return html`<span class="content${this.type === 'link' ? nothing : ' muted'}"
-					><b>Save 55% or more</b> on your 1st seat of Pro</span
-				>`;
+	private renderPromo(promo: Promo | undefined) {
+		if (!promo?.content?.webview) return;
 
-			default: {
-				debugger;
-				typeCheck<never>(promo.key);
-				return nothing;
-			}
+		const content = promo.content.webview;
+		switch (this.type) {
+			case 'info':
+				if (content.info) {
+					this.setAttribute('has-promo', '');
+					return html`<p class="promo">${unsafeHTML(content.info.html)}</p>`;
+				}
+				break;
+
+			case 'link':
+				if (content.link) {
+					this.setAttribute('has-promo', '');
+					return html`<a
+						class="link"
+						href="${this.getCommandUrl(promo)}"
+						title="${ifDefined(content.link.title)}"
+						>${unsafeHTML(content.link.html)}</a
+					>`;
+				}
+				break;
 		}
+
+		this.removeAttribute('has-promo');
+		return nothing;
+	}
+
+	private getCommandUrl(promo: Promo | undefined) {
+		const command = promo?.content?.webview?.link?.command ?? 'command:gitlens.plus.upgrade';
+		if (this.source == null) return command;
+
+		return `${command}?${encodeURIComponent(JSON.stringify({ source: this.source }))}`;
 	}
 }

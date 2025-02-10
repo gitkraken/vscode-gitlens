@@ -17,8 +17,8 @@ import type {
 	LocalDraft,
 } from '../../../plus/drafts/models/drafts';
 import type { OrganizationMember } from '../../../plus/gk/models/organization';
-import type { Serialized } from '../../../system/-webview/serialize';
 import type { DateTimeFormat } from '../../../system/date';
+import type { Serialized } from '../../../system/serialize';
 import type { IpcScope, WebviewState } from '../../protocol';
 import { IpcCommand, IpcNotification, IpcRequest } from '../../protocol';
 

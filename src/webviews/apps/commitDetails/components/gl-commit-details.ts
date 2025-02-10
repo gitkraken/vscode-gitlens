@@ -10,7 +10,7 @@ import type {
 import type { IssueIntegrationId, SupportedCloudIntegrationIds } from '../../../../constants.integrations';
 import type { IssueOrPullRequest } from '../../../../git/models/issueOrPullRequest';
 import type { PullRequestShape } from '../../../../git/models/pullRequest';
-import type { Serialized } from '../../../../system/-webview/serialize';
+import type { Serialized } from '../../../../system/serialize';
 import type { State } from '../../../commitDetails/protocol';
 import { messageHeadlineSplitterToken } from '../../../commitDetails/protocol';
 import type { TreeItemAction, TreeItemBase } from '../../shared/components/tree/base';

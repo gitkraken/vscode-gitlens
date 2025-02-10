@@ -15,8 +15,6 @@ export class HuggingFaceProvider extends OpenAICompatibleProvider<typeof provide
 	};
 
 	async getModels(): Promise<readonly AIModel<typeof provider.id>[]> {
-		const apiKey = await this.getApiKey();
-
 		const query = new URLSearchParams({
 			filter: 'text-generation,conversational',
 			inference: 'warm',
@@ -27,7 +25,6 @@ export class HuggingFaceProvider extends OpenAICompatibleProvider<typeof provide
 			headers: {
 				Accept: 'application/json',
 				'Content-Type': 'application/json',
-				Authorization: apiKey != null ? `Bearer ${apiKey}` : undefined!,
 			},
 			method: 'GET',
 		});

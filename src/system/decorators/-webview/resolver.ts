@@ -1,31 +1,15 @@
 import { Uri } from 'vscode';
+import { loggingJsonReplacer } from '@env/json';
 import { isContainer } from '../../../container';
 import { isBranch } from '../../../git/models/branch';
 import { isCommit } from '../../../git/models/commit';
+import { isRepository } from '../../../git/models/repository';
 import { isTag } from '../../../git/models/tag';
 import { isViewNode } from '../../../views/nodes/abstract/viewNode';
 
-function replacer(key: string, value: any): any {
-	if (key === '' || value == null || typeof value !== 'object') return value;
-
-	if (value instanceof Error) return String(value);
-	if (value instanceof Uri) {
-		if ('sha' in value && typeof value.sha === 'string' && value.sha) {
-			return `${value.sha}:${value.toString()}`;
-		}
-		return value.toString();
-	}
-	if (isBranch(value) || isCommit(value) || isTag(value) || isViewNode(value)) {
-		return value.toString();
-	}
-	if (isContainer(value)) return '<container>';
-
-	return value;
-}
-
-export function defaultResolver(...args: any[]): string {
+export function defaultResolver(...args: unknown[]): string {
 	if (args.length === 0) return '';
-	if (args.length > 1) return JSON.stringify(args, replacer);
+	if (args.length > 1) return JSON.stringify(args, loggingJsonReplacer);
 
 	const [arg] = args;
 	if (arg == null) return '';
@@ -49,12 +33,12 @@ export function defaultResolver(...args: any[]): string {
 				}
 				return arg.toString();
 			}
-			if (isBranch(arg) || isCommit(arg) || isTag(arg) || isViewNode(arg)) {
+			if (isRepository(arg) || isBranch(arg) || isCommit(arg) || isTag(arg) || isViewNode(arg)) {
 				return arg.toString();
 			}
 			if (isContainer(arg)) return '<container>';
 
-			return JSON.stringify(arg, replacer);
+			return JSON.stringify(arg, loggingJsonReplacer);
 	}
 }
 

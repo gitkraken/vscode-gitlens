@@ -6,7 +6,6 @@ import { once } from '../../system/function';
 import { Logger } from '../../system/logger';
 import { getLogScope } from '../../system/logger.scope';
 import type {
-	FullOrganization,
 	Organization,
 	OrganizationMember,
 	OrganizationSettings,
@@ -20,8 +19,8 @@ const organizationsCacheExpiration = 24 * 60 * 60 * 1000; // 1 day
 export class OrganizationService implements Disposable {
 	private _disposable: Disposable;
 	private _organizations: Organization[] | null | undefined;
-	private _fullOrganizations: Map<FullOrganization['id'], FullOrganization> | undefined;
-	private _organizationSettings: Map<FullOrganization['id'], OrganizationSettings> | undefined;
+	private _organizationSettings: Map<Organization['id'], OrganizationSettings> | undefined;
+	private _organizationMembers: Map<Organization['id'], OrganizationMember[]> | undefined;
 
 	constructor(
 		private readonly container: Container,
@@ -147,43 +146,34 @@ export class OrganizationService implements Disposable {
 	}
 
 	@gate()
-	private async getFullOrganization(
-		id: string,
-		options?: { force?: boolean },
-	): Promise<FullOrganization | undefined> {
-		if (!this._fullOrganizations?.has(id) || options?.force === true) {
-			const rsp = await this.connection.fetchGkApi(`organization/${id}`, { method: 'GET' });
+	async getMembers(id?: string | undefined, options?: { force?: boolean }): Promise<OrganizationMember[]> {
+		if (id == null) {
+			id = await this.getActiveOrganizationId();
+			if (id == null) return [];
+		}
+
+		if (!this._organizationMembers?.has(id) || options?.force === true) {
+			type MemberResponse = {
+				members: OrganizationMember[];
+			};
+			const rsp = await this.connection.fetchGkApi(`organization/${id}/members`, { method: 'GET' });
 			if (!rsp.ok) {
 				Logger.error(
 					'',
 					getLogScope(),
-					`Unable to get organization; status=(${rsp.status}): ${rsp.statusText}`,
+					`Unable to get organization members; status=(${rsp.status}): ${rsp.statusText}`,
 				);
-				return undefined;
+				return [];
 			}
 
-			const organization = (await rsp.json()) as FullOrganization;
-			if (this._fullOrganizations == null) {
-				this._fullOrganizations = new Map();
-			}
-			organization.members.sort((a, b) => (a.name ?? a.username).localeCompare(b.name ?? b.username));
-			this._fullOrganizations.set(id, organization);
-		}
-		return this._fullOrganizations.get(id);
-	}
+			const members: OrganizationMember[] = ((await rsp.json()) as MemberResponse).members;
+			sortOrgMembers(members);
 
-	@gate()
-	async getMembers(
-		organizationId?: string | undefined,
-		options?: { force?: boolean },
-	): Promise<OrganizationMember[]> {
-		if (organizationId == null) {
-			organizationId = await this.getActiveOrganizationId();
-			if (organizationId == null) return [];
+			this._organizationMembers ??= new Map();
+			this._organizationMembers.set(id, members);
 		}
 
-		const organization = await this.getFullOrganization(organizationId, options);
-		return organization?.members ?? [];
+		return this._organizationMembers.get(id) ?? [];
 	}
 
 	async getMemberById(id: string, organizationId: string): Promise<OrganizationMember | undefined> {
@@ -244,4 +234,8 @@ export class OrganizationService implements Disposable {
 		}
 		return this._organizationSettings.get(id);
 	}
+}
+
+function sortOrgMembers(members: OrganizationMember[]): OrganizationMember[] {
+	return members.sort((a, b) => (a.name ?? a.username).localeCompare(b.name ?? b.username));
 }

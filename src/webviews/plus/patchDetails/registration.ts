@@ -4,7 +4,7 @@ import type { Sources } from '../../../constants.telemetry';
 import { executeCommand } from '../../../system/-webview/command';
 import { configuration } from '../../../system/-webview/configuration';
 import { setContext } from '../../../system/-webview/context';
-import type { Serialized } from '../../../system/-webview/serialize';
+import type { Serialized } from '../../../system/serialize';
 import type {
 	WebviewPanelShowCommandArgs,
 	WebviewPanelsProxy,

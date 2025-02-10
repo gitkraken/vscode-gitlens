@@ -1,6 +1,7 @@
 import type { ExtensionContext } from 'vscode';
 import { version as codeVersion, env, ExtensionMode, Uri, window, workspace } from 'vscode';
 import { hrtime } from '@env/hrtime';
+import { loggingJsonReplacer } from '@env/json';
 import { isWeb } from '@env/platform';
 import { Api } from './api/api';
 import type { CreatePullRequestActionContext, GitLensApi, OpenPullRequestActionContext } from './api/gitlens';
@@ -24,7 +25,7 @@ import { executeCommand, registerCommands } from './system/-webview/command';
 import { configuration, Configuration } from './system/-webview/configuration';
 import { setContext } from './system/-webview/context';
 import { Storage } from './system/-webview/storage';
-import { isTextDocument, isTextEditor, isWorkspaceFolder } from './system/-webview/vscode';
+import { deviceCohortGroup, isTextDocument, isTextEditor, isWorkspaceFolder } from './system/-webview/vscode';
 import { setDefaultDateLocales } from './system/date';
 import { once } from './system/event';
 import { BufferedLogChannel, getLoggableName, Logger } from './system/logger';
@@ -44,7 +45,7 @@ export async function activate(context: ExtensionContext): Promise<GitLensApi | 
 		{
 			name: 'GitLens',
 			createChannel: function (name: string) {
-				const channel = new BufferedLogChannel(window.createOutputChannel(name), 500);
+				const channel = new BufferedLogChannel(window.createOutputChannel(name, { log: true }), 500);
 				context.subscriptions.push(channel);
 
 				if (logLevel === 'error' || logLevel === 'warn') {
@@ -97,6 +98,7 @@ export async function activate(context: ExtensionContext): Promise<GitLensApi | 
 
 				return undefined;
 			},
+			sanitizer: loggingJsonReplacer,
 		},
 		logLevel,
 		context.extensionMode === ExtensionMode.Development,
@@ -235,6 +237,7 @@ export async function activate(context: ExtensionContext): Promise<GitLensApi | 
 
 	container.telemetry.setGlobalAttributes({
 		debugging: container.debugging,
+		'device.cohort': deviceCohortGroup,
 		prerelease: prerelease,
 		install: previousVersion == null,
 		upgrade: previousVersion != null && gitlensVersion !== previousVersion,
