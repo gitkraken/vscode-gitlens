@@ -5,8 +5,6 @@ import { when } from 'lit/directives/when.js';
 import { urls } from '../../../../../constants';
 import { proTrialLengthInDays, SubscriptionPlanId, SubscriptionState } from '../../../../../constants.subscription';
 import type { Source } from '../../../../../constants.telemetry';
-import type { Promo } from '../../../../../plus/gk/models/promo';
-import { getApplicablePromo } from '../../../../../plus/gk/utils/promo.utils';
 import {
 	getSubscriptionPlanTier,
 	getSubscriptionStateName,
@@ -19,6 +17,8 @@ import type { State } from '../../../../home/protocol';
 import { stateContext } from '../../../home/context';
 import type { GlPopover } from '../../../shared/components/overlays/popover.react';
 import { elementBase, linkBase } from '../../../shared/components/styles/lit/base.css';
+import type { PromosContext } from '../../../shared/contexts/promos';
+import { promosContext } from '../../../shared/contexts/promos';
 import { chipStyles } from './chipStyles';
 import '../../../shared/components/button';
 import '../../../shared/components/button-container';
@@ -267,6 +267,9 @@ export class GLAccountChip extends LitElement {
 		return getSubscriptionPlanTier(this.planId);
 	}
 
+	@consume({ context: promosContext })
+	private promos!: PromosContext;
+
 	private get subscription() {
 		return this._state.subscription;
 	}
@@ -396,8 +399,6 @@ export class GLAccountChip extends LitElement {
 	}
 
 	private renderAccountState() {
-		const promo = getApplicablePromo(this.subscriptionState, 'account');
-
 		switch (this.subscriptionState) {
 			case SubscriptionState.Paid:
 				return html`<div class="account-status">${this.renderIncludesDevEx()}</div> `;
@@ -450,7 +451,7 @@ export class GLAccountChip extends LitElement {
 							>Upgrade to Pro</gl-button
 						>
 					</button-container>
-					${this.renderPromo(promo)} ${this.renderIncludesDevEx()}
+					${this.renderPromo()} ${this.renderIncludesDevEx()}
 				</div>`;
 			}
 
@@ -467,7 +468,7 @@ export class GLAccountChip extends LitElement {
 							>Upgrade to Pro</gl-button
 						>
 					</button-container>
-					${this.renderPromo(promo)} ${this.renderIncludesDevEx()}
+					${this.renderPromo()} ${this.renderIncludesDevEx()}
 				</div>`;
 
 			case SubscriptionState.ProTrialReactivationEligible:
@@ -522,7 +523,7 @@ export class GLAccountChip extends LitElement {
 		return html`<p>Includes access to <a href="${urls.platform}">GitKraken's DevEx platform</a></p>`;
 	}
 
-	private renderPromo(promo: Promo | undefined) {
-		return html`<gl-promo .promo=${promo}></gl-promo>`;
+	private renderPromo() {
+		return html`<gl-promo .promoPromise=${this.promos.getApplicablePromo('account')} source="account"></gl-promo>`;
 	}
 }

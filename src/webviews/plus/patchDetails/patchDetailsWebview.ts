@@ -41,14 +41,14 @@ import { ReferencesQuickPickIncludes, showReferencePicker } from '../../../quick
 import { executeCommand, registerCommand } from '../../../system/-webview/command';
 import { configuration } from '../../../system/-webview/configuration';
 import { getContext, onDidChangeContext, setContext } from '../../../system/-webview/context';
-import type { Serialized } from '../../../system/-webview/serialize';
-import { serialize } from '../../../system/-webview/serialize';
 import { gate } from '../../../system/decorators/-webview/gate';
 import { debug } from '../../../system/decorators/log';
 import type { Deferrable } from '../../../system/function';
 import { debounce } from '../../../system/function';
 import { find, some } from '../../../system/iterable';
 import { basename } from '../../../system/path';
+import type { Serialized } from '../../../system/serialize';
+import { serialize } from '../../../system/serialize';
 import { showInspectView } from '../../commitDetails/actions';
 import type { IpcCallMessageType, IpcMessage } from '../../protocol';
 import type { WebviewHost, WebviewProvider } from '../../webviewProvider';

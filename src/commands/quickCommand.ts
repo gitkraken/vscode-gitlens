@@ -1,4 +1,4 @@
-import type { InputBox, QuickInputButton, QuickPick, QuickPickItem } from 'vscode';
+import type { InputBox, QuickInput, QuickInputButton, QuickPick, QuickPickItem } from 'vscode';
 import type { Keys } from '../constants';
 import type { GlCommands } from '../constants.commands';
 import type { Container } from '../container';
@@ -6,6 +6,8 @@ import { createQuickPickSeparator } from '../quickpicks/items/common';
 import type { DirectiveQuickPickItem } from '../quickpicks/items/directive';
 import { createDirectiveQuickPickItem, Directive, isDirective } from '../quickpicks/items/directive';
 import { configuration } from '../system/-webview/configuration';
+import type { UnifiedDisposable } from '../system/unifiedDisposable';
+import { createDisposable } from '../system/unifiedDisposable';
 
 export interface CustomStep<T = unknown> {
 	type: 'custom';
@@ -35,6 +37,11 @@ export interface QuickInputStep<T extends string = string> {
 	title?: string;
 	value?: T;
 
+	input?: QuickInput;
+	freeze?: () => UnifiedDisposable;
+	frozen?: boolean;
+
+	onDidActivate?(input: QuickInput): void;
 	onDidClickButton?(input: InputBox, button: QuickInputButton): boolean | void | Promise<boolean | void>;
 	onDidPressKey?(quickpick: InputBox, key: Keys): void | Promise<void>;
 	validate?(value: T | undefined): [boolean, T | undefined] | Promise<[boolean, T | undefined]>;
@@ -67,7 +74,7 @@ export interface QuickPickStep<T extends QuickPickItem = QuickPickItem> {
 	selectValueWhenShown?: boolean;
 
 	quickpick?: QuickPick<DirectiveQuickPickItem | T>;
-	freeze?: () => Disposable;
+	freeze?: () => UnifiedDisposable;
 	frozen?: boolean;
 
 	onDidActivate?(quickpick: QuickPick<DirectiveQuickPickItem | T>): void;
@@ -358,8 +365,27 @@ export function createConfirmStep<T extends QuickPickItem, Context extends { tit
 }
 
 export function createInputStep<T extends string>(step: Optional<QuickInputStep<T>, 'type'>): QuickInputStep<T> {
+	const original = step.onDidActivate;
 	// Make sure any input steps won't close on focus loss
-	return { type: 'input', ...step, ignoreFocusOut: true };
+	step = { type: 'input' as const, ...step, ignoreFocusOut: true };
+	step.onDidActivate = input => {
+		step.input = input;
+		step.freeze = () => {
+			input.enabled = false;
+			step.frozen = true;
+			return createDisposable(
+				() => {
+					step.frozen = false;
+					input.enabled = true;
+					input.show();
+				},
+				{ once: true },
+			);
+		};
+		original?.(input);
+	};
+
+	return step as QuickInputStep<T>;
 }
 
 export function createPickStep<T extends QuickPickItem>(step: Optional<QuickPickStep<T>, 'type'>): QuickPickStep<T> {
@@ -372,14 +398,15 @@ export function createPickStep<T extends QuickPickItem>(step: Optional<QuickPick
 			const originalFocusOut = qp.ignoreFocusOut;
 			qp.ignoreFocusOut = true;
 			step.frozen = true;
-			return {
-				[Symbol.dispose]: () => {
+			return createDisposable(
+				() => {
 					step.frozen = false;
 					qp.enabled = true;
 					qp.ignoreFocusOut = originalFocusOut;
 					qp.show();
 				},
-			};
+				{ once: true },
+			);
 		};
 		original?.(qp);
 	};

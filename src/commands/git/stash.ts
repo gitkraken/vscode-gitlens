@@ -1,5 +1,6 @@
-import type { QuickPickItem, Uri } from 'vscode';
-import { QuickInputButtons, window } from 'vscode';
+import type { QuickInputButton, QuickPickItem, Uri } from 'vscode';
+import { InputBoxValidationSeverity, QuickInputButtons, ThemeIcon, window } from 'vscode';
+import type { AIModel } from '../../ai/aiProviderService';
 import { GlyphChars } from '../../constants';
 import type { Container } from '../../container';
 import { reveal, showDetailsView } from '../../git/actions/stash';
@@ -7,6 +8,7 @@ import { StashApplyError, StashApplyErrorReason, StashPushError, StashPushErrorR
 import type { GitStashCommit } from '../../git/models/commit';
 import type { GitStashReference } from '../../git/models/reference';
 import type { Repository } from '../../git/models/repository';
+import { uncommitted, uncommittedStaged } from '../../git/models/revision';
 import { getReferenceLabel } from '../../git/utils/reference.utils';
 import { showGenericErrorMessage } from '../../messages';
 import type { QuickPickItemOfT } from '../../quickpicks/items/common';
@@ -14,7 +16,9 @@ import type { FlagsQuickPickItem } from '../../quickpicks/items/flags';
 import { createFlagsQuickPickItem } from '../../quickpicks/items/flags';
 import { getContext } from '../../system/-webview/context';
 import { formatPath } from '../../system/-webview/formatPath';
-import { Logger } from '../../system/logger';
+import { getLoggableName, Logger } from '../../system/logger';
+import { startLogScope } from '../../system/logger.scope';
+import { defer } from '../../system/promise';
 import { pad } from '../../system/string';
 import type { ViewsWithRepositoryFolders } from '../../views/viewBase';
 import type {
@@ -609,6 +613,13 @@ export class StashGitCommand extends QuickCommand<State> {
 		state: PushStepState,
 		context: Context,
 	): AsyncStepResultGenerator<string> {
+		using scope = startLogScope(`${getLoggableName(this)}.pushCommandInputMessageStep`, false);
+
+		const generateMessageButton: QuickInputButton = {
+			iconPath: new ThemeIcon('sparkle'),
+			tooltip: 'Generate Stash Message',
+		};
+
 		const step = createInputStep({
 			title: appendReposToTitle(
 				context.title,
@@ -625,13 +636,62 @@ export class StashGitCommand extends QuickCommand<State> {
 			placeholder: 'Please provide a stash message',
 			value: state.message,
 			prompt: 'Enter stash message',
-		});
+			buttons: [QuickInputButtons.Back, generateMessageButton],
+			onDidClickButton: async (input, button) => {
+				if (button === generateMessageButton) {
+					using resume = step.freeze?.();
 
+					try {
+						const diff = await state.repo.git.getDiff(
+							state.flags.includes('--staged') ? uncommittedStaged : uncommitted,
+							undefined,
+							state.uris?.length ? { uris: state.uris } : undefined,
+						);
+						if (!diff?.contents) {
+							void window.showInformationMessage('No changes to generate a stash message from.');
+						}
+
+						const generating = defer<AIModel>();
+						generating.promise.then(
+							m => {
+								input.validationMessage = {
+									severity: InputBoxValidationSeverity.Info,
+									message: `$(loading~spin) Generating stash message with ${m.name}...`,
+								};
+								resume?.dispose();
+							},
+							() => {
+								input.validationMessage = undefined;
+								resume?.dispose();
+							},
+						);
+
+						const result = await (
+							await this.container.ai
+						)?.generateStashMessage(diff!.contents, { source: 'quick-wizard' }, { generating: generating });
+
+						input.validationMessage = undefined;
+
+						const message = result?.summary;
+						if (message != null) {
+							state.message = message;
+							input.value = message;
+						}
+					} catch (ex) {
+						Logger.error(ex, scope, 'generateStashMessage');
+						if (ex instanceof Error && ex.message.startsWith('No changes')) {
+							void window.showInformationMessage('No changes to generate a stash message from.');
+						} else {
+							void showGenericErrorMessage(ex.message);
+						}
+					}
+				}
+			},
+		});
 		const value: StepSelection<typeof step> = yield step;
 		if (!canStepContinue(step, state, value) || !(await canInputStepContinue(step, state, value))) {
 			return StepResultBreak;
 		}
-
 		return value;
 	}
 

@@ -2,7 +2,7 @@
 import { Container } from '../../container';
 import { formatDate, fromNow } from '../../system/date';
 import { memoize } from '../../system/decorators/-webview/memoize';
-import type { IssueRepository } from './issue';
+import type { IssueProject, IssueRepository } from './issue';
 import type { IssueOrPullRequest, IssueOrPullRequestState as PullRequestState } from './issueOrPullRequest';
 import type { ProviderReference } from './remoteProvider';
 import type { RepositoryIdentityDescriptor } from './repositoryIdentities';
@@ -24,6 +24,7 @@ export interface PullRequestShape extends IssueOrPullRequest {
 	readonly reviewDecision?: PullRequestReviewDecision;
 	readonly reviewRequests?: PullRequestReviewer[];
 	readonly assignees?: PullRequestMember[];
+	readonly project?: IssueProject;
 }
 
 export class PullRequest implements PullRequestShape {
@@ -55,6 +56,7 @@ export class PullRequest implements PullRequestShape {
 		public readonly latestReviews?: PullRequestReviewer[],
 		public readonly assignees?: PullRequestMember[],
 		public readonly statusCheckRollupState?: PullRequestStatusCheckRollupState,
+		public readonly project?: IssueProject,
 	) {}
 
 	get closed(): boolean {
@@ -118,6 +120,8 @@ export const enum PullRequestMergeableState {
 	Unknown = 'Unknown',
 	Mergeable = 'Mergeable',
 	Conflicting = 'Conflicting',
+	FailingChecks = 'FailingChecks',
+	BlockedByPolicy = 'BlockedByPolicy',
 }
 
 export const enum PullRequestStatusCheckRollupState {

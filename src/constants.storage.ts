@@ -1,6 +1,7 @@
 import type { GraphBranchesVisibility, ViewShowBranchComparison } from './config';
 import type { AIProviders } from './constants.ai';
 import type { IntegrationId } from './constants.integrations';
+import type { SubscriptionState } from './constants.subscription';
 import type { TrackedUsage, TrackedUsageKeys } from './constants.telemetry';
 import type { GroupableTreeViewTypes } from './constants.views';
 import type { Environment } from './container';
@@ -69,6 +70,7 @@ export type GlobalStorage = {
 	version: string;
 	// Keep the pre-release version separate from the released version
 	preVersion: string;
+	'product:config': Stored<StoredProductConfig>;
 	'confirm:draft:storage': boolean;
 	'home:sections:collapsed': string[];
 	'home:walkthrough:dismissed': boolean;
@@ -87,6 +89,10 @@ export type GlobalStorage = {
 	[key in `gk:${string}:organizations`]: Stored<StoredOrganization[]>;
 } & { [key in `jira:${string}:organizations`]: Stored<StoredJiraOrganization[] | undefined> } & {
 	[key in `jira:${string}:projects`]: Stored<StoredJiraProject[] | undefined>;
+} & { [key in `azure:${string}:account`]: Stored<StoredAzureAccount | undefined> } & {
+	[key in `azure:${string}:organizations`]: Stored<StoredAzureOrganization[] | undefined>;
+} & {
+	[key in `azure:${string}:projects`]: Stored<StoredAzureProject[] | undefined>;
 };
 
 export type StoredIntegrationConfigurations = Record<string, StoredConfiguredIntegrationDescriptor[] | undefined>;
@@ -97,6 +103,20 @@ export interface StoredConfiguredIntegrationDescriptor {
 	domain?: string;
 	expiresAt?: string;
 	scopes: string;
+}
+
+export interface StoredProductConfig {
+	promos: StoredPromo[];
+}
+
+export interface StoredPromo {
+	key: string;
+	code?: string;
+	locations?: ('account' | 'badge' | 'gate' | 'home')[];
+	states?: SubscriptionState[];
+	expiresOn?: number;
+	startsOn?: number;
+	percentile?: number;
 }
 
 export type DeprecatedWorkspaceStorage = {
@@ -201,6 +221,28 @@ export interface StoredJiraProject {
 	id: string;
 	name: string;
 	resourceId: string;
+}
+
+export interface StoredAzureAccount {
+	id: string;
+	name: string | undefined;
+	username: string | undefined;
+	email: string | undefined;
+	avatarUrl: string | undefined;
+}
+
+export interface StoredAzureOrganization {
+	key: string;
+	id: string;
+	name: string;
+}
+
+export interface StoredAzureProject {
+	key: string;
+	id: string;
+	name: string;
+	resourceId: string;
+	resourceName: string;
 }
 
 export interface StoredAvatar {

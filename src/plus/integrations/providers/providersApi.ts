@@ -199,9 +199,6 @@ export class ProvidersApi {
 				getPullRequestsForReposFn: providerApis.bitbucket.getPullRequestsForRepos.bind(
 					providerApis.bitbucket,
 				) as GetPullRequestsForReposFn,
-				getPullRequestsForUserFn: providerApis.bitbucket.getPullRequestsForUser.bind(
-					providerApis.bitbucket,
-				) as GetPullRequestsForUserFn,
 				getPullRequestsForRepoFn: providerApis.bitbucket.getPullRequestsForRepo.bind(
 					providerApis.bitbucket,
 				) as GetPullRequestsForRepoFn,
@@ -236,6 +233,7 @@ export class ProvidersApi {
 				getReposForAzureProjectFn: providerApis.azureDevOps.getReposForAzureProject.bind(
 					providerApis.azureDevOps,
 				) as GetReposForAzureProjectFn,
+				mergePullRequestFn: providerApis.azureDevOps.mergePullRequest.bind(providerApis.azureDevOps),
 			},
 			[IssueIntegrationId.Jira]: {
 				...providersMetadata[IssueIntegrationId.Jira],
@@ -300,10 +298,7 @@ export class ProvidersApi {
 		provider: ProviderInfo,
 		options?: { createSessionIfNeeded?: boolean },
 	): Promise<string | undefined> {
-		const providerDescriptor =
-			provider.domain == null || provider.scopes == null
-				? undefined
-				: { domain: provider.domain, scopes: provider.scopes };
+		const providerDescriptor = { domain: provider.domain, scopes: provider.scopes };
 		try {
 			const authProvider = await this.authenticationService.get(provider.id);
 			return (
@@ -735,6 +730,10 @@ export class ProvidersApi {
 		const headRef = pr.refs?.head;
 		if (headRef == null) return false;
 
+		if (provider.id === HostingIntegrationId.AzureDevOps && pr.project == null) {
+			return false;
+		}
+
 		try {
 			await provider.mergePullRequestFn?.(
 				{
@@ -745,6 +744,7 @@ export class ProvidersApi {
 						repository: {
 							id: pr.repository.repo,
 							name: pr.repository.repo,
+							project: pr.project?.name ?? '',
 							owner: {
 								login: pr.repository.owner,
 							},

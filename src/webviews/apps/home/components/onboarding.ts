@@ -5,7 +5,7 @@ import { createCommandLink } from '../../../../system/commands';
 import type { State } from '../../../home/protocol';
 import { DismissWalkthroughSection } from '../../../home/protocol';
 import type { GlButton } from '../../shared/components/button';
-import { ipcContext } from '../../shared/context';
+import { ipcContext } from '../../shared/contexts/ipc';
 import type { HostIpc } from '../../shared/ipc';
 import { stateContext } from '../context';
 import { homeBaseStyles, walkthroughProgressStyles } from '../home.css';
@@ -31,7 +31,7 @@ export class GlOnboarding extends LitElement {
 	private _openWalkthroughButton!: GlButton;
 
 	override render(): unknown {
-		if (!this._state.showWalkthroughProgress) {
+		if (this._state.walkthroughProgress == null) {
 			return undefined;
 		}
 
@@ -71,7 +71,7 @@ export class GlOnboarding extends LitElement {
 	}
 
 	private onDismissWalkthrough() {
-		this._state.showWalkthroughProgress = false;
+		this._state.walkthroughProgress = undefined;
 		this.requestUpdate();
 		this._ipc.sendCommand(DismissWalkthroughSection);
 	}

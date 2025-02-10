@@ -12,14 +12,15 @@ import { configuration } from '../../../system/-webview/configuration';
 export interface ProviderAuthenticationSession extends AuthenticationSession {
 	readonly cloud: boolean;
 	readonly expiresAt?: Date;
+	readonly domain: string;
 }
 
 export interface ConfiguredIntegrationDescriptor {
 	readonly cloud: boolean;
 	readonly integrationId: IntegrationId;
+	readonly scopes: string;
 	readonly domain?: string;
 	readonly expiresAt?: string | Date;
-	readonly scopes: string;
 }
 
 export interface CloudIntegrationAuthenticationSession {

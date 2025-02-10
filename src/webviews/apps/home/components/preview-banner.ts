@@ -5,7 +5,7 @@ import type { State } from '../../../home/protocol';
 import { CollapseSectionCommand, TogglePreviewEnabledCommand } from '../../../home/protocol';
 import { focusOutline } from '../../shared/components/styles/lit/a11y.css';
 import { linkBase } from '../../shared/components/styles/lit/base.css';
-import { ipcContext } from '../../shared/context';
+import { ipcContext } from '../../shared/contexts/ipc';
 import type { HostIpc } from '../../shared/ipc';
 import { stateContext } from '../context';
 import '../../shared/components/button-container';

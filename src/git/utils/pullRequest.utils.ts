@@ -137,6 +137,14 @@ export function serializePullRequest(value: PullRequest): PullRequestShape {
 		reviewDecision: value.reviewDecision,
 		reviewRequests: value.reviewRequests,
 		assignees: value.assignees,
+		project: value.project
+			? {
+					id: value.project.id,
+					name: value.project.name,
+					resourceId: value.project.resourceId,
+					resourceName: value.project.resourceName,
+			  }
+			: undefined,
 	};
 	return serialized;
 }

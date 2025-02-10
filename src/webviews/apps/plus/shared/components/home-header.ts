@@ -47,7 +47,7 @@ export class GLHomeHeader extends LitElement {
 				margin: 0 0.2rem 0.6rem;
 			}
 
-			gl-promo-banner:not([has-promo]) {
+			gl-promo-banner:has(gl-promo:not([has-promo])) {
 				display: none;
 			}
 

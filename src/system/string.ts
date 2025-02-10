@@ -183,6 +183,24 @@ export function* getLines(data: string | string[], char: string = '\n'): Iterabl
 	}
 }
 
+/**
+ * Distributes a value into one of 100 groups based on a hash of the value
+ * @param value The value to distribute (e.g., machine ID)
+ * @returns A number between 1-100 representing the distribution group
+ */
+export function getDistributionGroup(value: string): number {
+	// Simple hash function
+	let hash = 0;
+	for (let i = 0; i < value.length; i++) {
+		hash = (hash << 5) - hash + value.charCodeAt(i);
+		hash = hash & hash; // Convert to 32-bit integer
+	}
+
+	// Convert hash to a number between 1-100
+	const group = Math.abs(hash % 100) + 1;
+	return group;
+}
+
 export function getPossessiveForm(name: string): string {
 	return name.endsWith('s') ? `${name}'` : `${name}'s`;
 }

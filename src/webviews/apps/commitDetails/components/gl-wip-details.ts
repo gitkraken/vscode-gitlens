@@ -4,6 +4,7 @@ import { css, html, nothing } from 'lit';
 import { customElement, property, state } from 'lit/decorators.js';
 import { repeat } from 'lit/directives/repeat.js';
 import { when } from 'lit/directives/when.js';
+import { equalsIgnoreCase } from '../../../../system/string';
 import type { DraftState, State, Wip } from '../../../commitDetails/protocol';
 import type { TreeItemAction, TreeItemBase } from '../../shared/components/tree/base';
 import type { File } from './gl-details-base';
@@ -128,7 +129,7 @@ export class GlWipDetails extends GlDetailsBase {
 		let label = 'Share as Cloud Patch';
 		let action = 'create-patch';
 		const pr = this.wip?.pullRequest;
-		if (pr != null && pr.state === 'opened') {
+		if (pr != null && pr.state === 'opened' && equalsIgnoreCase(pr.provider.domain, 'github.com')) {
 			// const isMe = pr.author.name.endsWith('(you)');
 			// if (isMe) {
 			// 	label = 'Share with PR Participants';

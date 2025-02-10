@@ -1,5 +1,5 @@
 import type { EntityIdentifier } from '@gitkraken/provider-apis';
-import { EntityIdentifierUtils } from '@gitkraken/provider-apis';
+import { EntityIdentifierUtils } from '@gitkraken/provider-apis/entity-identifiers';
 import type { Disposable } from 'vscode';
 import type { HeadersInit } from '@env/fetch';
 import { getAvatarUri } from '../../avatars';
@@ -25,7 +25,7 @@ import { getSettledValue } from '../../system/promise';
 import type { OrganizationMember } from '../gk/models/organization';
 import type { SubscriptionAccount } from '../gk/models/subscription';
 import type { ServerConnection } from '../gk/serverConnection';
-import { providersMetadata } from '../integrations/providers/models';
+import { providersMetadata, supportsCodeSuggest } from '../integrations/providers/models';
 import { getEntityIdentifierInput } from '../integrations/providers/utils';
 import type { LaunchpadItem } from '../launchpad/launchpadProvider';
 import type {
@@ -475,6 +475,8 @@ export class DraftService implements Disposable {
 
 		const drafts = ((await rsp.json()) as Result).data;
 
+		if (drafts.length === 0) return [];
+
 		const [subscriptionResult, membersResult] = await Promise.allSettled([
 			this.container.subscription.getSubscription(),
 			this.container.organizations.getMembers(),
@@ -729,7 +731,7 @@ export class DraftService implements Disposable {
 		} else if (data.provider?.repoName != null) {
 			name = data.provider.repoName;
 		} else if (data.remote?.url != null && data.remote?.domain != null && data.remote?.path != null) {
-			const matcher = getRemoteProviderMatcher(this.container);
+			const matcher = await getRemoteProviderMatcher(this.container);
 			const provider = matcher(data.remote.url, data.remote.domain, data.remote.path);
 			name = provider?.repoName ?? data.remote.path;
 		} else {
@@ -830,6 +832,8 @@ export class DraftService implements Disposable {
 		repositoryOrIntegrationId: Repository | IntegrationId,
 		options?: { includeArchived?: boolean },
 	): Promise<Draft[]> {
+		if (!supportsCodeSuggest(item.provider)) return [];
+
 		const entityIdentifier = getEntityIdentifierInput(item);
 		const prEntityId = EntityIdentifierUtils.encode(entityIdentifier);
 		const providerAuth = await this.getProviderAuthFromRepoOrIntegrationId(repositoryOrIntegrationId);
@@ -853,9 +857,11 @@ export class DraftService implements Disposable {
 
 		type Result = { data: CodeSuggestionCountsResponse };
 
-		const prEntityIds = pullRequests.map(pr => {
-			return EntityIdentifierUtils.encode(getEntityIdentifierInput(pr));
-		});
+		const prEntityIds = pullRequests
+			.filter(pr => supportsCodeSuggest(pr.provider))
+			.map(pr => {
+				return EntityIdentifierUtils.encode(getEntityIdentifierInput(pr));
+			});
 
 		const body = JSON.stringify({
 			prEntityIds: prEntityIds,

@@ -28,12 +28,15 @@ import { LineHoverController } from './hovers/lineHoverController';
 import { DraftService } from './plus/drafts/draftsService';
 import { AccountAuthenticationProvider } from './plus/gk/authenticationProvider';
 import { OrganizationService } from './plus/gk/organizationService';
+import { ProductConfigProvider } from './plus/gk/productConfigProvider';
 import { ServerConnection } from './plus/gk/serverConnection';
 import { SubscriptionService } from './plus/gk/subscriptionService';
 import { GraphStatusBarController } from './plus/graph/statusbar';
 import type { CloudIntegrationService } from './plus/integrations/authentication/cloudIntegrationService';
+import { ConfiguredIntegrationService } from './plus/integrations/authentication/configuredIntegrationService';
 import { IntegrationAuthenticationService } from './plus/integrations/authentication/integrationAuthenticationService';
 import { IntegrationService } from './plus/integrations/integrationService';
+import type { AzureDevOpsApi } from './plus/integrations/providers/azure/azure';
 import type { GitHubApi } from './plus/integrations/providers/github/github';
 import type { GitLabApi } from './plus/integrations/providers/gitlab/gitlab';
 import { EnrichmentService } from './plus/launchpad/enrichmentService';
@@ -476,6 +479,28 @@ export class Container {
 		return this._git;
 	}
 
+	private _azure: Promise<AzureDevOpsApi | undefined> | undefined;
+	get azure(): Promise<AzureDevOpsApi | undefined> {
+		if (this._azure == null) {
+			async function load(this: Container) {
+				try {
+					const azure = new (
+						await import(/* webpackChunkName: "integrations" */ './plus/integrations/providers/azure/azure')
+					).AzureDevOpsApi(this);
+					this._disposables.push(azure);
+					return azure;
+				} catch (ex) {
+					Logger.error(ex);
+					return undefined;
+				}
+			}
+
+			this._azure = load.call(this);
+		}
+
+		return this._azure;
+	}
+
 	private _github: Promise<GitHubApi | undefined> | undefined;
 	get github(): Promise<GitHubApi | undefined> {
 		if (this._github == null) {
@@ -532,8 +557,12 @@ export class Container {
 	private _integrations: IntegrationService | undefined;
 	get integrations(): IntegrationService {
 		if (this._integrations == null) {
-			const authService = new IntegrationAuthenticationService(this);
-			this._disposables.push(authService, (this._integrations = new IntegrationService(this, authService)));
+			const configuredIntegrationService = new ConfiguredIntegrationService(this);
+			const authService = new IntegrationAuthenticationService(this, configuredIntegrationService);
+			this._disposables.push(
+				authService,
+				(this._integrations = new IntegrationService(this, authService, configuredIntegrationService)),
+			);
 		}
 		return this._integrations;
 	}
@@ -579,6 +608,12 @@ export class Container {
 	@memoize()
 	get prereleaseOrDebugging(): boolean {
 		return this._prerelease || this.debugging;
+	}
+
+	private _productConfig: ProductConfigProvider | undefined;
+	get productConfig(): ProductConfigProvider {
+		this._productConfig ??= new ProductConfigProvider(this, this._connection);
+		return this._productConfig;
 	}
 
 	private readonly _rebaseEditor: RebaseEditorProvider;

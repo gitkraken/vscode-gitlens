@@ -20,6 +20,7 @@ import {
 	generateCloudPatchMessageUserPrompt,
 	generateCodeSuggestMessageUserPrompt,
 	generateCommitMessageUserPrompt,
+	generateStashMessageUserPrompt,
 } from './prompts';
 
 export interface AIProviderConfig {
@@ -64,7 +65,7 @@ export abstract class OpenAICompatibleProvider<T extends AIProviders> implements
 		diff: string,
 		reporting: TelemetryEvents['ai/generate'],
 		promptConfig: {
-			type: 'commit' | 'cloud-patch' | 'code-suggestion';
+			type: 'commit' | 'cloud-patch' | 'code-suggestion' | 'stash';
 			userPrompt: string;
 			customInstructions?: string;
 		},
@@ -161,6 +162,25 @@ export abstract class OpenAICompatibleProvider<T extends AIProviders> implements
 		);
 	}
 
+	async generateStashMessage(
+		model: AIModel<T>,
+		diff: string,
+		reporting: TelemetryEvents['ai/generate'],
+		options?: { cancellation?: CancellationToken; context?: string },
+	): Promise<string | undefined> {
+		return this.generateMessage(
+			model,
+			diff,
+			reporting,
+			{
+				type: 'stash',
+				userPrompt: generateStashMessageUserPrompt,
+				customInstructions: configuration.get('ai.generateStashMessage.customInstructions'),
+			},
+			options,
+		);
+	}
+
 	async explainChanges(
 		model: AIModel<T>,
 		message: string,
@@ -222,39 +242,50 @@ export abstract class OpenAICompatibleProvider<T extends AIProviders> implements
 				messages: messages(maxCodeCharacters, retries),
 				stream: false,
 				max_completion_tokens: Math.min(outputTokens, model.maxTokens.output),
-				temperature: model.temperature ?? getValidatedTemperature(),
+				temperature: getValidatedTemperature(model.temperature),
 			};
 
 			const rsp = await this.fetchCore(model, apiKey, request, cancellation);
 			if (!rsp.ok) {
-				if (rsp.status === 404) {
-					throw new Error(`Your API key doesn't seem to have access to the selected '${model.id}' model`);
-				}
-				if (rsp.status === 429) {
-					throw new Error(
-						`(${this.name}:${rsp.status}) Too many requests (rate limit exceeded) or your API key is associated with an expired trial`,
-					);
-				}
-
-				let json;
-				try {
-					json = (await rsp.json()) as { error?: { code: string; message: string } } | undefined;
-				} catch {}
-
-				debugger;
-
-				if (retries++ < 2 && json?.error?.code === 'context_length_exceeded') {
-					maxCodeCharacters -= 500 * retries;
+				const result = await this.handleFetchFailure(rsp, model, retries, maxCodeCharacters);
+				if (result.retry) {
+					maxCodeCharacters = result.maxCodeCharacters;
+					retries++;
 					continue;
 				}
-
-				throw new Error(`(${this.name}:${rsp.status}) ${json?.error?.message || rsp.statusText}`);
 			}
 
 			const data: ChatCompletionResponse = await rsp.json();
 			const result = data.choices[0].message.content?.trim() ?? '';
 			return [result, maxCodeCharacters];
 		}
+	}
+
+	protected async handleFetchFailure(
+		rsp: Response,
+		model: AIModel<T>,
+		retries: number,
+		maxCodeCharacters: number,
+	): Promise<{ retry: boolean; maxCodeCharacters: number }> {
+		if (rsp.status === 404) {
+			throw new Error(`Your API key doesn't seem to have access to the selected '${model.id}' model`);
+		}
+		if (rsp.status === 429) {
+			throw new Error(
+				`(${this.name}:${rsp.status}) Too many requests (rate limit exceeded) or your account is out of funds`,
+			);
+		}
+
+		let json;
+		try {
+			json = (await rsp.json()) as { error?: { code: string; message: string } } | undefined;
+		} catch {}
+
+		if (retries < 2 && json?.error?.code === 'context_length_exceeded') {
+			return { retry: true, maxCodeCharacters: maxCodeCharacters - 500 };
+		}
+
+		throw new Error(`(${this.name}:${rsp.status}) ${json?.error?.message || rsp.statusText}`);
 	}
 
 	protected async fetchCore(

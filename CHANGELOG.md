@@ -8,15 +8,30 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/) and this p
 
 ### Added
 
+- Adds richer support for Azure DevOps &mdash; closes [#3902](https://github.com/gitkraken/vscode-gitlens/issues/3902)
+  - Adds integration status and connection flows to the _Home_ view; closes [#3976](https://github.com/gitkraken/vscode-gitlens/issues/3976)
+  - Adds autolinks, issues and pull requests in the _Commit Graph_ and _Home_ view; closes [#3977](https://github.com/gitkraken/vscode-gitlens/issues/3977)
+  - Adds pull request support in _Launchpad_ &mdash; closes [#3978](https://github.com/gitkraken/vscode-gitlens/issues/3978)
+  - Adds issue support to _Start Work_; closes [#3979](https://github.com/gitkraken/vscode-gitlens/issues/3979)
+- Adds new AI-powered ability to generate a stash message from the changes in the _Stash_ commands
 - Adds and expands AI model support for GitLens' AI features
   - Adds DeepSeek V3 and R1 models &mdash; closes [#3943](https://github.com/gitkraken/vscode-gitlens/issues/3943)
-  - Adds the latest experimental Gemini 2.0 Flash Thinking model
-  - Adds a `gitlens.ai.modelOptions.temperature` setting to specify the temperature (randomness) for AI models
+  - Adds o3-mini and o1 OpenAI models
+  - Adds Gemini 2.0 Flash, Gemini 2.0 Flash-Lite, Gemini 2.0 Pro, and Gemini 2.0 Flash Thinking models
+  - Adds dynamic model loading for GitHub Models and HuggingFace models
+  - Adds a `gitlens.ai.modelOptions.temperature` setting to specify the temperature (randomness) for AI models that support it
   - Adds a _Switch Model_ button to the AI confirmation prompts
+- Adds Windsurf support &mdash; closes [#3969](https://github.com/gitkraken/vscode-gitlens/issues/3969)
+
+### Changed
+
+- Improves performance of updates to active and recent branches on the _Home_ view
 
 ### Fixed
 
+- Fixes [#3952](https://github.com/gitkraken/vscode-gitlens/issues/3952) - Interactive rebase doesn't work in GL without VS Code added to path
 - Fixes [#3938](https://github.com/gitkraken/vscode-gitlens/issues/3938) - GitLens automatically initiating an external sign-in after install on vscode.dev
+- Fixes [#3946](https://github.com/gitkraken/vscode-gitlens/issues/3946) - Home View doesn't update repo state changes made when hidden
 
 ## [16.2.1] - 2025-01-21
 

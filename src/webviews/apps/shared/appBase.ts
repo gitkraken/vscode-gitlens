@@ -12,7 +12,10 @@ import type {
 	WebviewFocusChangedParams,
 } from '../../protocol';
 import { DidChangeWebviewFocusNotification, WebviewFocusChangedCommand, WebviewReadyCommand } from '../../protocol';
-import { ipcContext, loggerContext, LoggerContext, telemetryContext, TelemetryContext } from './context';
+import { ipcContext } from './contexts/ipc';
+import { loggerContext, LoggerContext } from './contexts/logger';
+import { PromosContext, promosContext } from './contexts/promos';
+import { telemetryContext, TelemetryContext } from './contexts/telemetry';
 import { DOM } from './dom';
 import type { Disposable } from './events';
 import type { HostIpcApi } from './ipc';
@@ -30,6 +33,7 @@ export abstract class App<
 	private readonly _api: HostIpcApi;
 	private readonly _hostIpc: HostIpc;
 	private readonly _logger: LoggerContext;
+	private readonly _promos: PromosContext;
 	protected readonly _telemetry: TelemetryContext;
 
 	protected state: State;
@@ -56,6 +60,9 @@ export abstract class App<
 		this._hostIpc = new HostIpc(this.appName);
 		disposables.push(this._hostIpc);
 
+		this._promos = new PromosContext(this._hostIpc);
+		disposables.push(this._promos);
+
 		this._telemetry = new TelemetryContext(this._hostIpc);
 		disposables.push(this._telemetry);
 
@@ -63,6 +70,10 @@ export abstract class App<
 		new ContextProvider(document.body, {
 			context: loggerContext,
 			initialValue: this._logger,
+		});
+		new ContextProvider(document.body, {
+			context: promosContext,
+			initialValue: this._promos,
 		});
 		new ContextProvider(document.body, {
 			context: telemetryContext,

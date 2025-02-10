@@ -1,4 +1,4 @@
-import { EntityIdentifierUtils } from '@gitkraken/provider-apis';
+import { EntityIdentifierUtils } from '@gitkraken/provider-apis/entity-identifiers';
 import type { CancellationToken, ConfigurationChangeEvent, TextDocumentShowOptions } from 'vscode';
 import { CancellationTokenSource, Disposable, env, Uri, window } from 'vscode';
 import type { MaybeEnrichedAutolink } from '../../autolinks';
@@ -47,6 +47,7 @@ import type { Subscription } from '../../plus/gk/models/subscription';
 import type { SubscriptionChangeEvent } from '../../plus/gk/subscriptionService';
 import { ensureAccount } from '../../plus/gk/utils/-webview/acount.utils';
 import type { ConnectionStateChangeEvent } from '../../plus/integrations/integrationService';
+import { supportsCodeSuggest } from '../../plus/integrations/providers/models';
 import { getEntityIdentifierInput } from '../../plus/integrations/providers/utils';
 import {
 	executeCommand,
@@ -56,8 +57,6 @@ import {
 } from '../../system/-webview/command';
 import { configuration } from '../../system/-webview/configuration';
 import { getContext, onDidChangeContext } from '../../system/-webview/context';
-import type { Serialized } from '../../system/-webview/serialize';
-import { serialize } from '../../system/-webview/serialize';
 import { debug } from '../../system/decorators/log';
 import type { Deferrable } from '../../system/function';
 import { debounce } from '../../system/function';
@@ -66,6 +65,8 @@ import { Logger } from '../../system/logger';
 import { getLogScope } from '../../system/logger.scope';
 import { MRU } from '../../system/mru';
 import { getSettledValue, pauseOnCancelOrTimeoutMapTuplePromise } from '../../system/promise';
+import type { Serialized } from '../../system/serialize';
+import { serialize } from '../../system/serialize';
 import type { LinesChangeEvent } from '../../trackers/lineTracker';
 import type { ShowInCommitGraphCommandArgs } from '../plus/graph/protocol';
 import type { Change } from '../plus/patchDetails/protocol';
@@ -1342,7 +1343,7 @@ export class CommitDetailsWebviewProvider
 		});
 
 		let codeSuggestions: Draft[] = [];
-		if (pullRequest != null) {
+		if (pullRequest != null && supportsCodeSuggest(pullRequest.provider)) {
 			const results = await this.getCodeSuggestions(pullRequest, repository);
 			if (results.length) {
 				codeSuggestions = results;
@@ -1363,7 +1364,7 @@ export class CommitDetailsWebviewProvider
 	}
 
 	private async getCodeSuggestions(pullRequest: PullRequest, repository: Repository): Promise<Draft[]> {
-		if (!(await this.canAccessDrafts())) return [];
+		if (!(await this.canAccessDrafts()) || !supportsCodeSuggest(pullRequest.provider)) return [];
 
 		const results = await this.container.drafts.getCodeSuggestions(pullRequest, repository);
 
@@ -1391,7 +1392,9 @@ export class CommitDetailsWebviewProvider
 		const wip = this._context.wip;
 		const { pullRequest, repo } = wip;
 
-		wip.codeSuggestions = await this.getCodeSuggestions(pullRequest!, repo);
+		wip.codeSuggestions = supportsCodeSuggest(pullRequest!.provider)
+			? await this.getCodeSuggestions(pullRequest!, repo)
+			: [];
 
 		if (this._pendingContext == null) {
 			const success = await this.host.notify(

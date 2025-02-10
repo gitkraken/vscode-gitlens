@@ -6,7 +6,12 @@ import { customElement, query } from 'lit/decorators.js';
 import { when } from 'lit/directives/when.js';
 import type { State } from '../../home/protocol';
 import { DidFocusAccount } from '../../home/protocol';
-import { OverviewState, overviewStateContext } from '../plus/home/components/overviewState';
+import {
+	ActiveOverviewState,
+	activeOverviewStateContext,
+	InactiveOverviewState,
+	inactiveOverviewStateContext,
+} from '../plus/home/components/overviewState';
 import type { GLHomeHeader } from '../plus/shared/components/home-header';
 import { GlApp } from '../shared/app';
 import { scrollableBase } from '../shared/components/styles/lit/base.css';
@@ -18,6 +23,7 @@ import '../plus/home/components/active-work';
 import '../plus/home/components/launchpad';
 import '../plus/home/components/overview';
 import './components/feature-nav';
+import './components/ama-banner';
 import './components/integration-banner';
 import './components/preview-banner';
 import './components/promo-banner';
@@ -27,8 +33,11 @@ import './components/repo-alerts';
 export class GlHomeApp extends GlApp<State> {
 	static override styles = [homeBaseStyles, scrollableBase, homeStyles];
 
-	@provide({ context: overviewStateContext })
-	private _overviewState!: OverviewState;
+	@provide({ context: activeOverviewStateContext })
+	private _activeOverviewState!: ActiveOverviewState;
+
+	@provide({ context: inactiveOverviewStateContext })
+	private _inactiveOverviewState!: InactiveOverviewState;
 
 	@query('gl-home-header')
 	private _header!: GLHomeHeader;
@@ -36,7 +45,8 @@ export class GlHomeApp extends GlApp<State> {
 	private badgeSource = { source: 'home', detail: 'badge' };
 
 	protected override createStateProvider(state: State, ipc: HostIpc): HomeStateProvider {
-		this.disposables.push((this._overviewState = new OverviewState(ipc)));
+		this.disposables.push((this._activeOverviewState = new ActiveOverviewState(ipc)));
+		this.disposables.push((this._inactiveOverviewState = new InactiveOverviewState(ipc)));
 
 		return new HomeStateProvider(this, state, ipc);
 	}
@@ -59,6 +69,7 @@ export class GlHomeApp extends GlApp<State> {
 		return html`
 			<div class="home scrollable">
 				<gl-home-header class="home__header"></gl-home-header>
+				${when(this.state?.amaBannerCollapsed === false, () => html`<gl-ama-banner></gl-ama-banner>`)}
 				${when(!this.state?.previewEnabled, () => html`<gl-preview-banner></gl-preview-banner>`)}
 				<gl-repo-alerts class="home__alerts"></gl-repo-alerts>
 				<main class="home__main scrollable" id="main">

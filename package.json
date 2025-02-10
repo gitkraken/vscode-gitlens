@@ -3939,6 +3939,16 @@
 							"preview"
 						]
 					},
+					"gitlens.ai.generateStashMessage.customInstructions": {
+						"type": "string",
+						"default": null,
+						"markdownDescription": "Specifies custom instructions to provide to the AI provider when generating a stash message",
+						"scope": "window",
+						"order": 220,
+						"tags": [
+							"preview"
+						]
+					},
 					"gitlens.ai.generateCloudPatchMessage.customInstructions": {
 						"type": "string",
 						"default": null,
@@ -19516,7 +19526,12 @@
 			},
 			{
 				"view": "gitlens.views.launchpad",
-				"contents": "Save 55% or more on your 1st seat of Pro.",
+				"contents": "Limited-time sale on GitLens Pro.",
+				"when": "!gitlens:launchpad:connect && gitlens:plus:required && gitlens:plus:state == 4 && gitlens:promo && gitlens:promo != pro50"
+			},
+			{
+				"view": "gitlens.views.launchpad",
+				"contents": "Save 33% or more on GitLens Pro.",
 				"when": "!gitlens:launchpad:connect && gitlens:plus:required && gitlens:plus:state == 4 && gitlens:promo == pro50"
 			},
 			{
@@ -19571,7 +19586,12 @@
 			},
 			{
 				"view": "gitlens.views.scm.grouped",
-				"contents": "Save 55% or more on your 1st seat of Pro.",
+				"contents": "Limited-time sale on GitLens Pro.",
+				"when": "gitlens:views:scm:grouped:view == launchpad && !gitlens:launchpad:connect && gitlens:plus:required && gitlens:plus:state == 4 && gitlens:promo && gitlens:promo != pro50"
+			},
+			{
+				"view": "gitlens.views.scm.grouped",
+				"contents": "Save 33% or more on GitLens Pro.",
 				"when": "gitlens:views:scm:grouped:view == launchpad && !gitlens:launchpad:connect && gitlens:plus:required && gitlens:plus:state == 4 && gitlens:promo == pro50"
 			},
 			{
@@ -19631,7 +19651,12 @@
 			},
 			{
 				"view": "gitlens.views.scm.grouped",
-				"contents": "Save 55% or more on your 1st seat of Pro.",
+				"contents": "Limited-time sale on GitLens Pro.",
+				"when": "gitlens:views:scm:grouped:view == worktrees && gitlens:plus:required && gitlens:plus:state == 4 && gitlens:promo && gitlens:promo != pro50"
+			},
+			{
+				"view": "gitlens.views.scm.grouped",
+				"contents": "Save 33% or more on GitLens Pro.",
 				"when": "gitlens:views:scm:grouped:view == worktrees && gitlens:plus:required && gitlens:plus:state == 4 && gitlens:promo == pro50"
 			},
 			{
@@ -19714,7 +19739,12 @@
 			},
 			{
 				"view": "gitlens.views.worktrees",
-				"contents": "Save 55% or more on your 1st seat of Pro.",
+				"contents": "Limited-time sale on GitLens Pro.",
+				"when": "gitlens:plus:required && gitlens:plus:state == 4 && gitlens:promo && gitlens:promo != pro50"
+			},
+			{
+				"view": "gitlens.views.worktrees",
+				"contents": "Save 33% or more on GitLens Pro.",
 				"when": "gitlens:plus:required && gitlens:plus:state == 4 && gitlens:promo == pro50"
 			},
 			{
@@ -20117,7 +20147,7 @@
 	},
 	"dependencies": {
 		"@gitkraken/gitkraken-components": "10.7.0",
-		"@gitkraken/provider-apis": "0.25.7",
+		"@gitkraken/provider-apis": "0.26.2",
 		"@gitkraken/shared-web-components": "0.1.1-rc.15",
 		"@gk-nzaytsev/fast-string-truncated-width": "1.1.0",
 		"@lit-labs/signals": "0.1.1",
@@ -20152,7 +20182,7 @@
 	"devDependencies": {
 		"@eamodio/eslint-lite-webpack-plugin": "0.2.0",
 		"@eslint/js": "9.19.0",
-		"@playwright/test": "1.50.0",
+		"@playwright/test": "1.50.1",
 		"@swc/core": "1.10.4",
 		"@twbs/fantasticon": "3.0.0",
 		"@types/eslint__js": "8.42.3",
@@ -20163,11 +20193,11 @@
 		"@types/slug": "5.0.9",
 		"@types/sortablejs": "1.15.8",
 		"@types/vscode": "1.82.0",
-		"@typescript-eslint/parser": "8.21.0",
+		"@typescript-eslint/parser": "8.22.0",
 		"@vscode/test-cli": "^0.0.10",
 		"@vscode/test-electron": "2.4.1",
-		"@vscode/test-web": "0.0.65",
-		"@vscode/vsce": "3.2.1",
+		"@vscode/test-web": "0.0.66",
+		"@vscode/vsce": "3.2.2",
 		"cheerio": "1.0.0-rc.12",
 		"circular-dependency-plugin": "5.2.2",
 		"clean-webpack-plugin": "4.0.0",
@@ -20197,7 +20227,7 @@
 		"mini-css-extract-plugin": "2.9.2",
 		"mocha": "10.8.2",
 		"ovsx": "0.10.1",
-		"playwright": "1.50.0",
+		"playwright": "1.50.1",
 		"prettier": "3.1.0",
 		"regex-to-strings": "2.1.0",
 		"sass": "1.83.4",
@@ -20208,7 +20238,7 @@
 		"terser-webpack-plugin": "5.3.11",
 		"ts-loader": "9.5.2",
 		"typescript": "5.7.3",
-		"typescript-eslint": "8.21.0",
+		"typescript-eslint": "8.22.0",
 		"webpack": "5.97.1",
 		"webpack-bundle-analyzer": "4.10.2",
 		"webpack-cli": "6.0.1",

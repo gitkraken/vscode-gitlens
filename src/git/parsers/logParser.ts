@@ -366,7 +366,7 @@ export function createLogParserWithFilesAndStats<T extends Record<string, unknow
 		let fields: IterableIterator<string>;
 
 		for (const record of records) {
-			entry = {} as any;
+			entry = {} as unknown as ParsedEntryWithFilesAndStats<T>;
 			files = [];
 			fields = getLines(record, '\0');
 
@@ -395,9 +395,9 @@ export function createLogParserWithFilesAndStats<T extends Record<string, unknow
 					// If we don't get a path it is likely a renamed file (because `-z` screws up the format)
 					if (!path) {
 						field = fields.next();
-						path = field.value.trim();
-						field = fields.next();
 						originalPath = field.value.trim();
+						field = fields.next();
+						path = field.value.trim();
 						status = 'R';
 					} else {
 						// Handle renamed files which show as path/to/file => new/path/to/file
@@ -587,7 +587,7 @@ export function parseGitLog(
 				break;
 
 			case 109: // 'm': // committer-mail
-				entry.committedDate = line.substring(4);
+				entry.committerEmail = line.substring(4);
 				break;
 
 			case 99: // 'c': // committer-date
@@ -844,16 +844,12 @@ function parseLogEntry(
 	stashes: Map<string, GitStashCommit> | undefined,
 ): void {
 	if (commit == null) {
-		if (entry.author != null) {
-			if (isUserMatch(currentUser, entry.author, entry.authorEmail)) {
-				entry.author = 'You';
-			}
+		if (entry.author != null && isUserMatch(currentUser, entry.author, entry.authorEmail)) {
+			entry.author = 'You';
 		}
 
-		if (entry.committer != null) {
-			if (isUserMatch(currentUser, entry.committer, entry.committerEmail)) {
-				entry.committer = 'You';
-			}
+		if (entry.committer != null && isUserMatch(currentUser, entry.committer, entry.committerEmail)) {
+			entry.committer = 'You';
 		}
 
 		const originalFileName = entry.originalPath ?? (relativeFileName !== entry.path ? entry.path : undefined);
@@ -898,12 +894,16 @@ function parseLogEntry(
 				repoPath!,
 				entry.sha!,
 
-				new GitCommitIdentity(entry.author!, entry.authorEmail, new Date((entry.authorDate! as any) * 1000)),
+				new GitCommitIdentity(
+					entry.author!,
+					entry.authorEmail,
+					new Date((entry.authorDate! as unknown as number) * 1000),
+				),
 
 				new GitCommitIdentity(
 					entry.committer!,
 					entry.committerEmail,
-					new Date((entry.committedDate! as any) * 1000),
+					new Date((entry.committedDate! as unknown as number) * 1000),
 				),
 				entry.summary?.split('\n', 1)[0] ?? '',
 				entry.parentShas ?? [],

@@ -847,14 +847,14 @@ button:not([disabled]),
 	&--issue-github {
 		&::before {
 			font-family: codicon;
-			@include iconUtils.codicon('github-inverted');
+			@include iconUtils.codicon('issues');
 		}
 	}
 
 	&--issue-gitlab {
 		&::before {
-			font-family: 'glicons';
-			@include iconUtils.glicon('provider-gitlab');
+			font-family: codicon;
+			@include iconUtils.codicon('issues');
 		}
 	}
 
@@ -862,6 +862,13 @@ button:not([disabled]),
 		&::before {
 			font-family: 'glicons';
 			@include iconUtils.glicon('provider-jira');
+		}
+	}
+
+	&--issue-azureDevops {
+		&::before {
+			font-family: codicon;
+			@include iconUtils.codicon('issues');
 		}
 	}
 }

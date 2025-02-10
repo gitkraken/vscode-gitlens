@@ -28,6 +28,7 @@
   'global.cloudIntegrations.connected.count': number,
   'global.cloudIntegrations.connected.ids': string,
   'global.debugging': boolean,
+  'global.device.cohort': number,
   'global.enabled': boolean,
   'global.folders.count': number,
   'global.folders.schemes': string,
@@ -67,9 +68,10 @@
   'global.subscription.featurePreviews.graph.status': 'eligible' | 'active' | 'expired',
   'global.subscription.previewTrial.expiresOn': string,
   'global.subscription.previewTrial.startedOn': string,
+  'global.subscription.promo.code': string,
+  'global.subscription.promo.key': string,
   'global.subscription.state': -1 | 0 | 1 | 2 | 3 | 4 | 5 | 6,
   'global.subscription.stateString': 'verification' | 'free' | 'preview' | 'preview-expired' | 'trial' | 'trial-expired' | 'trial-reactivation-eligible' | 'paid' | 'unknown',
-  'global.subscription.status': 'verification' | 'free' | 'preview' | 'preview-expired' | 'trial' | 'trial-expired' | 'trial-reactivation-eligible' | 'paid' | 'unknown',
   'global.upgrade': boolean,
   'global.upgradedFrom': string,
   'global.workspace.isTrusted': boolean
@@ -87,7 +89,7 @@
   'account.id': string,
   'code': string,
   'exception': string,
-  'statusCode': string
+  'statusCode': number
 }
 ```
 
@@ -114,7 +116,7 @@
   'failed.error': string,
   'failed.reason': 'user-declined' | 'user-cancelled' | 'error',
   'input.length': number,
-  'model.id': 'claude-3-5-sonnet-latest' | 'claude-3-5-sonnet-20241022' | 'claude-3-5-sonnet-20240620' | 'claude-3-5-haiku-20241022' | 'claude-3-5-haiku-latest' | 'claude-3-opus-latest' | 'claude-3-opus-20240229' | 'claude-3-sonnet-20240229' | 'claude-3-haiku-20240307' | 'claude-2.1' | 'deepseek-chat' | 'deepseek-reasoner' | 'gemini-2.0-flash-exp' | 'gemini-2.0-flash-thinking-exp-01-21' | 'gemini-exp-1206' | 'gemini-exp-1121' | 'gemini-1.5-pro-latest' | 'gemini-1.5-flash-latest' | 'gemini-1.5-flash-8b' | 'gemini-1.0-pro' | 'gpt-4o' | 'gpt-4o-mini' | 'o1-preview' | 'o1-mini' | 'Phi-3.5-MoE-instruct' | 'Phi-3.5-mini-instruct' | 'AI21-Jamba-1.5-Large' | 'AI21-Jamba-1.5-Mini' | 'meta-llama/Llama-3.2-11B-Vision-Instruct' | 'Qwen/Qwen2.5-72B-Instruct' | 'NousResearch/Hermes-3-Llama-3.1-8B' | 'mistralai/Mistral-Nemo-Instruct-2407' | 'microsoft/Phi-3.5-mini-instruct' | 'o1-preview-2024-09-12' | 'o1-mini-2024-09-12' | 'gpt-4o-2024-08-06' | 'gpt-4o-2024-05-13' | 'chatgpt-4o-latest' | 'gpt-4o-mini-2024-07-18' | 'gpt-4-turbo' | 'gpt-4-turbo-2024-04-09' | 'gpt-4-turbo-preview' | 'gpt-4-0125-preview' | 'gpt-4-1106-preview' | 'gpt-4' | 'gpt-4-0613' | 'gpt-4-32k' | 'gpt-4-32k-0613' | 'gpt-3.5-turbo' | 'gpt-3.5-turbo-0125' | 'gpt-3.5-turbo-1106' | 'gpt-3.5-turbo-16k' | `${string}:${string}` | 'grok-beta',
+  'model.id': string,
   'model.provider.id': 'anthropic' | 'deepseek' | 'gemini' | 'github' | 'huggingface' | 'openai' | 'vscode' | 'xai',
   'model.provider.name': string,
   'output.length': number,
@@ -133,7 +135,7 @@
   'failed.error': string,
   'failed.reason': 'user-declined' | 'user-cancelled' | 'error',
   'input.length': number,
-  'model.id': 'claude-3-5-sonnet-latest' | 'claude-3-5-sonnet-20241022' | 'claude-3-5-sonnet-20240620' | 'claude-3-5-haiku-20241022' | 'claude-3-5-haiku-latest' | 'claude-3-opus-latest' | 'claude-3-opus-20240229' | 'claude-3-sonnet-20240229' | 'claude-3-haiku-20240307' | 'claude-2.1' | 'deepseek-chat' | 'deepseek-reasoner' | 'gemini-2.0-flash-exp' | 'gemini-2.0-flash-thinking-exp-01-21' | 'gemini-exp-1206' | 'gemini-exp-1121' | 'gemini-1.5-pro-latest' | 'gemini-1.5-flash-latest' | 'gemini-1.5-flash-8b' | 'gemini-1.0-pro' | 'gpt-4o' | 'gpt-4o-mini' | 'o1-preview' | 'o1-mini' | 'Phi-3.5-MoE-instruct' | 'Phi-3.5-mini-instruct' | 'AI21-Jamba-1.5-Large' | 'AI21-Jamba-1.5-Mini' | 'meta-llama/Llama-3.2-11B-Vision-Instruct' | 'Qwen/Qwen2.5-72B-Instruct' | 'NousResearch/Hermes-3-Llama-3.1-8B' | 'mistralai/Mistral-Nemo-Instruct-2407' | 'microsoft/Phi-3.5-mini-instruct' | 'o1-preview-2024-09-12' | 'o1-mini-2024-09-12' | 'gpt-4o-2024-08-06' | 'gpt-4o-2024-05-13' | 'chatgpt-4o-latest' | 'gpt-4o-mini-2024-07-18' | 'gpt-4-turbo' | 'gpt-4-turbo-2024-04-09' | 'gpt-4-turbo-preview' | 'gpt-4-0125-preview' | 'gpt-4-1106-preview' | 'gpt-4' | 'gpt-4-0613' | 'gpt-4-32k' | 'gpt-4-32k-0613' | 'gpt-3.5-turbo' | 'gpt-3.5-turbo-0125' | 'gpt-3.5-turbo-1106' | 'gpt-3.5-turbo-16k' | `${string}:${string}` | 'grok-beta',
+  'model.id': string,
   'model.provider.id': 'anthropic' | 'deepseek' | 'gemini' | 'github' | 'huggingface' | 'openai' | 'vscode' | 'xai',
   'model.provider.name': string,
   'output.length': number,
@@ -151,12 +153,29 @@ or
   'failed.error': string,
   'failed.reason': 'user-declined' | 'user-cancelled' | 'error',
   'input.length': number,
-  'model.id': 'claude-3-5-sonnet-latest' | 'claude-3-5-sonnet-20241022' | 'claude-3-5-sonnet-20240620' | 'claude-3-5-haiku-20241022' | 'claude-3-5-haiku-latest' | 'claude-3-opus-latest' | 'claude-3-opus-20240229' | 'claude-3-sonnet-20240229' | 'claude-3-haiku-20240307' | 'claude-2.1' | 'deepseek-chat' | 'deepseek-reasoner' | 'gemini-2.0-flash-exp' | 'gemini-2.0-flash-thinking-exp-01-21' | 'gemini-exp-1206' | 'gemini-exp-1121' | 'gemini-1.5-pro-latest' | 'gemini-1.5-flash-latest' | 'gemini-1.5-flash-8b' | 'gemini-1.0-pro' | 'gpt-4o' | 'gpt-4o-mini' | 'o1-preview' | 'o1-mini' | 'Phi-3.5-MoE-instruct' | 'Phi-3.5-mini-instruct' | 'AI21-Jamba-1.5-Large' | 'AI21-Jamba-1.5-Mini' | 'meta-llama/Llama-3.2-11B-Vision-Instruct' | 'Qwen/Qwen2.5-72B-Instruct' | 'NousResearch/Hermes-3-Llama-3.1-8B' | 'mistralai/Mistral-Nemo-Instruct-2407' | 'microsoft/Phi-3.5-mini-instruct' | 'o1-preview-2024-09-12' | 'o1-mini-2024-09-12' | 'gpt-4o-2024-08-06' | 'gpt-4o-2024-05-13' | 'chatgpt-4o-latest' | 'gpt-4o-mini-2024-07-18' | 'gpt-4-turbo' | 'gpt-4-turbo-2024-04-09' | 'gpt-4-turbo-preview' | 'gpt-4-0125-preview' | 'gpt-4-1106-preview' | 'gpt-4' | 'gpt-4-0613' | 'gpt-4-32k' | 'gpt-4-32k-0613' | 'gpt-3.5-turbo' | 'gpt-3.5-turbo-0125' | 'gpt-3.5-turbo-1106' | 'gpt-3.5-turbo-16k' | `${string}:${string}` | 'grok-beta',
+  'model.id': string,
   'model.provider.id': 'anthropic' | 'deepseek' | 'gemini' | 'github' | 'huggingface' | 'openai' | 'vscode' | 'xai',
   'model.provider.name': string,
   'output.length': number,
   'retry.count': number,
   'type': 'draftMessage'
+}
+```
+
+or
+
+```typescript
+{
+  'duration': number,
+  'failed.error': string,
+  'failed.reason': 'user-declined' | 'user-cancelled' | 'error',
+  'input.length': number,
+  'model.id': string,
+  'model.provider.id': 'anthropic' | 'deepseek' | 'gemini' | 'github' | 'huggingface' | 'openai' | 'vscode' | 'xai',
+  'model.provider.name': string,
+  'output.length': number,
+  'retry.count': number,
+  'type': 'stashMessage'
 }
 ```
 
@@ -1440,6 +1459,19 @@ void
 }
 ```
 
+### productConfig/failed
+
+> Sent when fetching the product config fails
+
+```typescript
+{
+  'exception': string,
+  'json': string,
+  'reason': 'fetch' | 'validation',
+  'statusCode': number
+}
+```
+
 ### providers/context
 
 > Sent when the "context" of the workspace changes (e.g. repo added, integration connected, etc)
@@ -1702,9 +1734,10 @@ void
   'subscription.featurePreviews.graph.status': 'eligible' | 'active' | 'expired',
   'subscription.previewTrial.expiresOn': string,
   'subscription.previewTrial.startedOn': string,
+  'subscription.promo.code': string,
+  'subscription.promo.key': string,
   'subscription.state': -1 | 0 | 1 | 2 | 3 | 4 | 5 | 6,
-  'subscription.stateString': 'verification' | 'free' | 'preview' | 'preview-expired' | 'trial' | 'trial-expired' | 'trial-reactivation-eligible' | 'paid' | 'unknown',
-  'subscription.status': 'verification' | 'free' | 'preview' | 'preview-expired' | 'trial' | 'trial-expired' | 'trial-reactivation-eligible' | 'paid' | 'unknown'
+  'subscription.stateString': 'verification' | 'free' | 'preview' | 'preview-expired' | 'trial' | 'trial-expired' | 'trial-reactivation-eligible' | 'paid' | 'unknown'
 }
 ```
 
@@ -1714,7 +1747,18 @@ void
 
 ```typescript
 {
-  'action': 'manage' | 'sign-up' | 'sign-in' | 'sign-out' | 'reactivate' | 'resend-verification' | 'pricing' | 'start-preview-trial' | 'upgrade'
+  'action': 'manage' | 'sign-up' | 'sign-in' | 'sign-out' | 'reactivate' | 'resend-verification' | 'pricing' | 'start-preview-trial'
+}
+```
+
+or
+
+```typescript
+{
+  'aborted': boolean,
+  'action': 'upgrade',
+  'promo.code': string,
+  'promo.key': string
 }
 ```
 
@@ -1792,9 +1836,10 @@ or
   'subscription.featurePreviews.graph.status': 'eligible' | 'active' | 'expired',
   'subscription.previewTrial.expiresOn': string,
   'subscription.previewTrial.startedOn': string,
+  'subscription.promo.code': string,
+  'subscription.promo.key': string,
   'subscription.state': -1 | 0 | 1 | 2 | 3 | 4 | 5 | 6,
-  'subscription.stateString': 'verification' | 'free' | 'preview' | 'preview-expired' | 'trial' | 'trial-expired' | 'trial-reactivation-eligible' | 'paid' | 'unknown',
-  'subscription.status': 'verification' | 'free' | 'preview' | 'preview-expired' | 'trial' | 'trial-expired' | 'trial-reactivation-eligible' | 'paid' | 'unknown'
+  'subscription.stateString': 'verification' | 'free' | 'preview' | 'preview-expired' | 'trial' | 'trial-expired' | 'trial-reactivation-eligible' | 'paid' | 'unknown'
 }
 ```
 

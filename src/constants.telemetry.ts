@@ -1,6 +1,6 @@
 import type { Config, GraphBranchesVisibility, GraphConfig } from './config';
 import type { WalkthroughSteps } from './constants';
-import type { AIModels, AIProviders } from './constants.ai';
+import type { AIProviders } from './constants.ai';
 import type { GlCommand } from './constants.commands';
 import type { IntegrationId, SupportedCloudIntegrationIds } from './constants.integrations';
 import type { SubscriptionState, SubscriptionStateString } from './constants.subscription';
@@ -26,6 +26,8 @@ export interface TelemetryGlobalContext extends SubscriptionEventData {
 	'cloudIntegrations.connected.count': number;
 	'cloudIntegrations.connected.ids': string;
 	debugging: boolean;
+	/** Cohort number between 1 and 100 to use for percentage-based rollouts */
+	'device.cohort': number;
 	enabled: boolean;
 	prerelease: boolean;
 	install: boolean;
@@ -182,6 +184,9 @@ export interface TelemetryEvents extends WebviewShowAbortedEvents, WebviewShownE
 	/** Sent when a PR review was started in the inspect overview */
 	openReviewMode: OpenReviewModeEvent;
 
+	/** Sent when fetching the product config fails */
+	'productConfig/failed': ProductConfigFailedEvent;
+
 	/** Sent when the "context" of the workspace changes (e.g. repo added, integration connected, etc) */
 	'providers/context': void;
 
@@ -288,7 +293,7 @@ interface AccountValidationFailedEvent {
 	'account.id': string;
 	exception: string;
 	code: string | undefined;
-	statusCode: string | undefined;
+	statusCode: number | undefined;
 }
 
 interface ActivateEvent extends ConfigEventData {
@@ -297,7 +302,7 @@ interface ActivateEvent extends ConfigEventData {
 }
 
 interface AIEventDataBase {
-	'model.id': AIModels;
+	'model.id': string;
 	'model.provider.id': AIProviders;
 	'model.provider.name': string;
 	'retry.count': number;
@@ -322,7 +327,11 @@ export interface AIGenerateDraftEventData extends AIEventDataBase {
 	draftType: 'patch' | 'stash' | 'suggested_pr_change';
 }
 
-type AIGenerateEvent = AIGenerateCommitEventData | AIGenerateDraftEventData;
+export interface AIGenerateStashEventData extends AIEventDataBase {
+	type: 'stashMessage';
+}
+
+type AIGenerateEvent = AIGenerateCommitEventData | AIGenerateDraftEventData | AIGenerateStashEventData;
 
 interface CloudIntegrationsConnectingEvent {
 	'integration.ids': string | undefined;
@@ -654,6 +663,13 @@ interface OpenReviewModeEvent {
 	source: Sources;
 }
 
+interface ProductConfigFailedEvent {
+	reason: 'fetch' | 'validation';
+	json: string | undefined;
+	exception?: string;
+	statusCode?: number | undefined;
+}
+
 interface ProvidersRegistrationCompleteEvent {
 	'config.git.autoRepositoryDetection': boolean | 'subFolders' | 'openEditors' | undefined;
 }
@@ -765,9 +781,10 @@ export interface SubscriptionPreviousEventData
 		Partial<Flatten<NonNullable<Subscription['previewTrial']>, 'previous.subscription.previewTrial', true>> {}
 
 export interface SubscriptionEventData extends Partial<SubscriptionCurrentEventData> {
+	'subscription.promo.key'?: string;
+	'subscription.promo.code'?: string;
 	'subscription.state'?: SubscriptionState;
 	'subscription.stateString'?: SubscriptionStateString;
-	'subscription.status'?: SubscriptionStateString;
 }
 
 type SubscriptionActionEventData =
@@ -780,8 +797,13 @@ type SubscriptionActionEventData =
 				| 'reactivate'
 				| 'resend-verification'
 				| 'pricing'
-				| 'start-preview-trial'
-				| 'upgrade';
+				| 'start-preview-trial';
+	  }
+	| {
+			action: 'upgrade';
+			aborted: boolean;
+			'promo.key'?: string;
+			'promo.code'?: string;
 	  }
 	| {
 			action: 'visibility';

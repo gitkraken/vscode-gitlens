@@ -1,5 +1,5 @@
 import type { CommitSelectedEvent } from '../../eventBus';
-import type { Serialized } from '../../system/-webview/serialize';
+import type { Serialized } from '../../system/serialize';
 import type { WebviewsController, WebviewViewProxy } from '../webviewsController';
 import type { ShowWipArgs, State } from './protocol';
 
