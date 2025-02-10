@@ -1,11 +1,10 @@
-import { env } from 'vscode';
 import { SubscriptionState } from '../../constants.subscription';
 import type { Container } from '../../container';
+import { deviceCohortGroup } from '../../system/-webview/vscode';
 import type { Lazy } from '../../system/lazy';
 import { lazy } from '../../system/lazy';
 import { getLoggableName, Logger } from '../../system/logger';
 import { startLogScope } from '../../system/logger.scope';
-import { getPercentileGroup } from '../../system/string';
 import type { Validator } from '../../system/validation';
 import { createValidator, Is } from '../../system/validation';
 import type { Promo, PromoLocation } from './models/promo';
@@ -211,6 +210,6 @@ function isPromoApplicable(promo: Promo, state: number): boolean {
 		(promo.states == null || promo.states.includes(state)) &&
 		(promo.expiresOn == null || promo.expiresOn > now) &&
 		(promo.startsOn == null || promo.startsOn < now) &&
-		(promo.percentile == null || getPercentileGroup(env.machineId) <= promo.percentile)
+		(promo.percentile == null || deviceCohortGroup <= promo.percentile)
 	);
 }

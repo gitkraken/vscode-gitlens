@@ -28,6 +28,7 @@
   'global.cloudIntegrations.connected.count': number,
   'global.cloudIntegrations.connected.ids': string,
   'global.debugging': boolean,
+  'global.device.cohort': number,
   'global.enabled': boolean,
   'global.folders.count': number,
   'global.folders.schemes': string,
