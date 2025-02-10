@@ -8,6 +8,11 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/) and this p
 
 ### Added
 
+- Adds richer support for Azure DevOps &mdash; closes [#3902](https://github.com/gitkraken/vscode-gitlens/issues/3902)
+  - Adds integration status and connection flows to the _Home_ view; closes [#3976](https://github.com/gitkraken/vscode-gitlens/issues/3976)
+  - Adds autolinks, issues and pull requests in the _Commit Graph_ and _Home_ view; closes [#3977](https://github.com/gitkraken/vscode-gitlens/issues/3977)
+  - Adds pull request support in _Launchpad_ &mdash; closes [#3978](https://github.com/gitkraken/vscode-gitlens/issues/3978)
+  - Adds issue support to _Start Work_; closes [#3979](https://github.com/gitkraken/vscode-gitlens/issues/3979)
 - Adds new AI-powered ability to generate a stash message from the changes in the _Stash_ commands
 - Adds and expands AI model support for GitLens' AI features
   - Adds DeepSeek V3 and R1 models &mdash; closes [#3943](https://github.com/gitkraken/vscode-gitlens/issues/3943)
