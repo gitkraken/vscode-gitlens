@@ -25,7 +25,7 @@ import { executeCommand, registerCommands } from './system/-webview/command';
 import { configuration, Configuration } from './system/-webview/configuration';
 import { setContext } from './system/-webview/context';
 import { Storage } from './system/-webview/storage';
-import { isTextDocument, isTextEditor, isWorkspaceFolder } from './system/-webview/vscode';
+import { deviceCohortGroup, isTextDocument, isTextEditor, isWorkspaceFolder } from './system/-webview/vscode';
 import { setDefaultDateLocales } from './system/date';
 import { once } from './system/event';
 import { BufferedLogChannel, getLoggableName, Logger } from './system/logger';
@@ -237,6 +237,7 @@ export async function activate(context: ExtensionContext): Promise<GitLensApi | 
 
 	container.telemetry.setGlobalAttributes({
 		debugging: container.debugging,
+		'device.cohort': deviceCohortGroup,
 		prerelease: prerelease,
 		install: previousVersion == null,
 		upgrade: previousVersion != null && gitlensVersion !== previousVersion,
