@@ -147,7 +147,7 @@ export async function getHostExecutablePath(): Promise<string> {
 }
 
 export async function getHostEditorCommand(): Promise<string> {
-	const path = normalizePath(await getHostExecutablePath()).replace(/ /g, '\\ ');
+	const path = normalizePath(await getHostExecutablePath()).replace(/\\/g, '\\\\').replace(/ /g, '\\ ');
 	return `${path} --wait --reuse-window`;
 }
 
