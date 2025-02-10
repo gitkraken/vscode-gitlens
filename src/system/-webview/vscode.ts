@@ -15,10 +15,13 @@ import type { Container } from '../../container';
 import { isGitUri } from '../../git/gitUri';
 import { Logger } from '../logger';
 import { extname, joinPaths, normalizePath } from '../path';
+import { getDistributionGroup } from '../string';
 import { satisfies } from '../version';
 import { executeCoreCommand } from './command';
 import { configuration } from './configuration';
 import { relative } from './path';
+
+export const deviceCohortGroup = getDistributionGroup(env.machineId);
 
 export function findTextDocument(uri: Uri): TextDocument | undefined {
 	const normalizedUri = uri.toString();

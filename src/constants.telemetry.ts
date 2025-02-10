@@ -26,6 +26,8 @@ export interface TelemetryGlobalContext extends SubscriptionEventData {
 	'cloudIntegrations.connected.count': number;
 	'cloudIntegrations.connected.ids': string;
 	debugging: boolean;
+	/** Cohort number between 1 and 100 to use for percentage-based rollouts */
+	'device.cohort': number;
 	enabled: boolean;
 	prerelease: boolean;
 	install: boolean;
