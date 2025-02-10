@@ -1,3 +1,4 @@
+import type { TemplateResult } from 'lit';
 import { css, html, LitElement, nothing } from 'lit';
 import { customElement, property, query } from 'lit/decorators.js';
 import { focusOutline } from '../styles/lit/a11y.css';
@@ -27,16 +28,16 @@ export class ActionItem extends LitElement {
 			cursor: pointer;
 		}
 
-		:host(:focus-within) {
-			${focusOutline}
-		}
-
 		:host(:hover) {
 			background-color: var(--vscode-toolbar-hoverBackground);
 		}
-
-		:host(:active) {
+		:host(:active),
+		:host([selected]) {
 			background-color: var(--vscode-toolbar-activeBackground);
+		}
+
+		:host(:focus-within) {
+			${focusOutline}
 		}
 
 		:host([disabled]) {
@@ -62,25 +63,31 @@ export class ActionItem extends LitElement {
 	icon = '';
 
 	@property({ type: Boolean })
+	selected = false;
+
+	@property({ type: Boolean })
 	disabled = false;
 
 	@query('a')
 	private defaultFocusEl!: HTMLAnchorElement;
 
-	override render(): unknown {
-		return html`
-			<gl-tooltip hoist content="${this.label ?? nothing}">
-				<a
-					role="${!this.href ? 'button' : nothing}"
-					type="${!this.href ? 'button' : nothing}"
-					aria-label="${this.label ?? nothing}"
-					?disabled=${this.disabled}
-					href=${this.href ?? nothing}
-				>
-					<code-icon icon="${this.icon}"></code-icon>
-				</a>
-			</gl-tooltip>
-		`;
+	private renderButtonContent(): TemplateResult {
+		return html`<a
+			role="${!this.href ? 'button' : nothing}"
+			type="${!this.href ? 'button' : nothing}"
+			aria-label="${this.label ?? nothing}"
+			?disabled=${this.disabled}
+			href=${this.href ?? nothing}
+		>
+			<code-icon icon="${this.icon}"></code-icon>
+		</a>`;
+	}
+
+	override render() {
+		if (this.selected) {
+			return this.renderButtonContent();
+		}
+		return html` <gl-tooltip hoist content="${this.label ?? nothing}">${this.renderButtonContent()}</gl-tooltip> `;
 	}
 
 	override focus(options?: FocusOptions): void {

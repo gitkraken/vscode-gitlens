@@ -16,22 +16,22 @@ import { createCommandLink } from '../../../../../system/commands';
 import { fromNow } from '../../../../../system/date';
 import { interpolate, pluralize } from '../../../../../system/string';
 import type { BranchRef, GetOverviewBranch, OpenInGraphParams } from '../../../../home/protocol';
-import { renderBranchName } from '../../../shared/components/branch-name';
-import type { GlCard } from '../../../shared/components/card/card';
-import { GlElement, observe } from '../../../shared/components/element';
-import { srOnlyStyles } from '../../../shared/components/styles/lit/a11y.css';
-import { linkStyles } from '../../shared/components/vscode.css';
-import '../../../shared/components/code-icon';
+import '../../../shared/components/actions/action-list';
+import type { ActionList } from '../../../shared/components/actions/action-list';
 import '../../../shared/components/avatar/avatar';
 import '../../../shared/components/avatar/avatar-list';
+import '../../../shared/components/branch-icon';
+import { renderBranchName } from '../../../shared/components/branch-name';
+import type { GlCard } from '../../../shared/components/card/card';
+import '../../../shared/components/code-icon';
 import '../../../shared/components/commit/commit-stats';
+import { GlElement, observe } from '../../../shared/components/element';
 import '../../../shared/components/formatted-date';
 import '../../../shared/components/pills/tracking';
 import '../../../shared/components/rich/issue-icon';
 import '../../../shared/components/rich/pr-icon';
-import '../../../shared/components/actions/action-item';
-import '../../../shared/components/actions/action-nav';
-import '../../../shared/components/branch-icon';
+import { srOnlyStyles } from '../../../shared/components/styles/lit/a11y.css';
+import { linkStyles } from '../../shared/components/vscode.css';
 import './merge-target-status';
 
 export const branchCardStyles = css`
@@ -74,11 +74,6 @@ export const branchCardStyles = css`
 		flex-direction: row;
 		justify-content: flex-end;
 		font-size: 0.9em;
-	}
-
-	/* :empty selector doesn't work with lit */
-	.branch-item__actions:not(:has(*)) {
-		display: none;
 	}
 
 	.branch-item__icon {
@@ -412,6 +407,10 @@ export abstract class GlBranchCardBase extends GlElement {
 		this.attachFocusListener();
 	}
 
+	static get OpenContextMenuEvent(): CustomEvent<{ items: (typeof ActionList.ItemProps)[]; branchRefs: BranchRef }> {
+		throw new Error('type field OpenContextMenuEvent cannot be used as a value');
+	}
+
 	get branchRef(): BranchRef {
 		return {
 			repoPath: this.repo,
@@ -607,20 +606,38 @@ export abstract class GlBranchCardBase extends GlElement {
 		>`;
 	}
 
-	protected abstract getBranchActions(): TemplateResult[];
-	protected renderBranchActions(): TemplateResult | NothingType {
+	protected renderActions(actions: (typeof ActionList.ItemProps)[]) {
+		return html`<action-list
+			limit=${3}
+			class="branch-item__actions"
+			@open-actions-menu=${(e: typeof ActionList.OpenContextMenuEvent) => {
+				const ev = new CustomEvent('open-actions-menu', {
+					detail: { items: e.detail.items, branchRefs: this.branchRef },
+				}) satisfies typeof GlBranchCard.OpenContextMenuEvent;
+				this.dispatchEvent(ev);
+			}}
+			@close-actions-menu=${() => {
+				const ev = new CustomEvent('close-actions-menu');
+				this.dispatchEvent(ev);
+			}}
+			.items=${actions}
+		></action-list>`;
+	}
+
+	protected abstract getBranchActions(): (typeof ActionList.ItemProps)[];
+	protected renderBranchActions() {
 		const actions = this.getBranchActions?.();
 		if (!actions?.length) return nothing;
 
-		return html`<action-nav>${actions}</action-nav>`;
+		return this.renderActions(actions);
 	}
 
-	protected abstract getPrActions(): TemplateResult[];
+	protected abstract getPrActions(): (typeof ActionList.ItemProps)[];
 	protected renderPrActions(): TemplateResult | NothingType {
 		const actions = this.getPrActions?.();
 		if (!actions?.length) return nothing;
 
-		return html`<action-nav>${actions}</action-nav>`;
+		return this.renderActions(actions);
 	}
 
 	protected createCommandLink<T>(command: Commands, args?: T | any): string {
@@ -847,66 +864,76 @@ export class GlBranchCard extends GlBranchCardBase {
 		`;
 	}
 
-	protected getBranchActions(): TemplateResult[] {
-		const actions = [];
+	protected getBranchActions(): (typeof ActionList.ItemProps)[] {
+		const actions: (typeof ActionList.ItemProps)[] = [];
 
 		if (this.branch.worktree) {
-			actions.push(
-				html`<action-item
-					label="Open Worktree"
-					icon="browser"
-					href=${this.createCommandLink('gitlens.home.openWorktree')}
-				></action-item>`,
-			);
+			actions.push({
+				label: 'Open Worktree',
+				icon: 'browser',
+				href: this.createCommandLink('gitlens.home.openWorktree'),
+				modifiers: [
+					{
+						key: 'alt',
+						label: 'Open Worktree in New Window',
+						href: this.createCommandLink('gitlens.home.openWorktreeInNewWindow'),
+						icon: 'empty-window',
+					},
+				],
+			});
 		} else {
-			actions.push(
-				html`<action-item
-					label="Switch to Branch..."
-					icon="gl-switch"
-					href=${this.createCommandLink('gitlens.home.switchToBranch')}
-				></action-item>`,
-			);
+			actions.push({
+				label: 'Switch to Branch...',
+				icon: 'gl-switch',
+				href: this.createCommandLink('gitlens.home.switchToBranch'),
+			});
 		}
 
 		// branch actions
-		actions.push(
-			html`<action-item
-				label="Fetch"
-				icon="repo-fetch"
-				href=${this.createCommandLink('gitlens.home.fetch')}
-			></action-item>`,
-		);
-		actions.push(
-			html`<action-item
-				label="Open in Commit Graph"
-				icon="gl-graph"
-				href=${createCommandLink('gitlens.home.openInGraph', {
-					...this.branchRef,
-					type: 'branch',
-				} satisfies OpenInGraphParams)}
-			></action-item>`,
-		);
+		actions.push({
+			label: 'Fetch',
+			icon: 'repo-fetch',
+			href: this.createCommandLink('gitlens.home.fetch'),
+			modifiers: this.branch.upstream && [
+				{
+					key: 'alt',
+					label: 'Pull',
+					icon: 'repo-pull',
+					href: this.createCommandLink('gitlens.home.pull'),
+				},
+			],
+		});
+		actions.push({
+			label: 'Open in Commit Graph',
+			icon: 'gl-graph',
+			href: createCommandLink('gitlens.home.openInGraph', {
+				...this.branchRef,
+				type: 'branch',
+			} satisfies OpenInGraphParams),
+		});
 
 		return actions;
 	}
 
-	protected getPrActions(): TemplateResult[] {
+	protected getPrActions(): (typeof ActionList.ItemProps)[] {
 		return [
-			html`<action-item
-				label="Open Pull Request Changes"
-				icon="request-changes"
-				href=${this.createCommandLink('gitlens.home.openPullRequestChanges')}
-			></action-item>`,
-			html`<action-item
-				label="Compare Pull Request"
-				icon="git-compare"
-				href=${this.createCommandLink('gitlens.home.openPullRequestComparison')}
-			></action-item>`,
-			html`<action-item
-				label="Open Pull Request Details"
-				icon="eye"
-				href=${this.createCommandLink('gitlens.home.openPullRequestDetails')}
-			></action-item>`,
+			{
+				label: 'Open Pull Request Changes',
+				icon: 'request-changes',
+				href: this.createCommandLink('gitlens.home.openPullRequestChanges'),
+			},
+
+			{
+				label: 'Compare Pull Request',
+				icon: 'git-compare',
+				href: this.createCommandLink('gitlens.home.openPullRequestComparison'),
+			},
+
+			{
+				label: 'Open Pull Request Details',
+				icon: 'eye',
+				href: this.createCommandLink('gitlens.home.openPullRequestDetails'),
+			},
 		];
 	}
 
