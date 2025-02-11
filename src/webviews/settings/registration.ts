@@ -1,4 +1,5 @@
 import { Disposable, ViewColumn } from 'vscode';
+import type { GlCommands } from '../../constants.commands';
 import { GlCommand } from '../../constants.commands';
 import { registerCommand } from '../../system/-webview/command';
 import type { WebviewPanelsProxy, WebviewsController } from '../webviewsController';
@@ -39,23 +40,25 @@ export function registerSettingsWebviewCommands<T>(
 	panels: WebviewPanelsProxy<'gitlens.settings', SettingsWebviewShowingArgs, T>,
 ): Disposable {
 	return Disposable.from(
-		...[
-			GlCommand.ShowSettingsPageAndJumpToFileAnnotations,
-			GlCommand.ShowSettingsPageAndJumpToBranchesView,
-			GlCommand.ShowSettingsPageAndJumpToCommitsView,
-			GlCommand.ShowSettingsPageAndJumpToContributorsView,
-			GlCommand.ShowSettingsPageAndJumpToFileHistoryView,
-			GlCommand.ShowSettingsPageAndJumpToLineHistoryView,
-			GlCommand.ShowSettingsPageAndJumpToRemotesView,
-			GlCommand.ShowSettingsPageAndJumpToRepositoriesView,
-			GlCommand.ShowSettingsPageAndJumpToSearchAndCompareView,
-			GlCommand.ShowSettingsPageAndJumpToStashesView,
-			GlCommand.ShowSettingsPageAndJumpToTagsView,
-			GlCommand.ShowSettingsPageAndJumpToWorkTreesView,
-			GlCommand.ShowSettingsPageAndJumpToViews,
-			GlCommand.ShowSettingsPageAndJumpToCommitGraph,
-			GlCommand.ShowSettingsPageAndJumpToAutolinks,
-		].map(c => {
+		...(
+			[
+				GlCommand.ShowSettingsPageAndJumpToFileAnnotations,
+				GlCommand.ShowSettingsPageAndJumpToBranchesView,
+				GlCommand.ShowSettingsPageAndJumpToCommitsView,
+				GlCommand.ShowSettingsPageAndJumpToContributorsView,
+				GlCommand.ShowSettingsPageAndJumpToFileHistoryView,
+				GlCommand.ShowSettingsPageAndJumpToLineHistoryView,
+				GlCommand.ShowSettingsPageAndJumpToRemotesView,
+				GlCommand.ShowSettingsPageAndJumpToRepositoriesView,
+				GlCommand.ShowSettingsPageAndJumpToSearchAndCompareView,
+				GlCommand.ShowSettingsPageAndJumpToStashesView,
+				GlCommand.ShowSettingsPageAndJumpToTagsView,
+				GlCommand.ShowSettingsPageAndJumpToWorkTreesView,
+				GlCommand.ShowSettingsPageAndJumpToViews,
+				GlCommand.ShowSettingsPageAndJumpToCommitGraph,
+				GlCommand.ShowSettingsPageAndJumpToAutolinks,
+			] satisfies GlCommands[]
+		).map(c => {
 			// The show and jump commands are structured to have a ! separating the base command from the anchor
 			let anchor: string | undefined;
 			const match = /.*?!(.*)/.exec(c);
