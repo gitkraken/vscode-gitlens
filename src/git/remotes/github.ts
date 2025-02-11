@@ -1,6 +1,11 @@
 import type { Range } from 'vscode';
 import { Uri } from 'vscode';
-import type { Autolink, AutolinkReference, DynamicAutolinkReference, MaybeEnrichedAutolink } from '../../autolinks';
+import type {
+	Autolink,
+	AutolinkReference,
+	DynamicAutolinkReference,
+	MaybeEnrichedAutolink,
+} from '../../autolinks/models/autolinks';
 import { GlyphChars } from '../../constants';
 import type { GitHubRepositoryDescriptor } from '../../plus/integrations/providers/github';
 import type { Brand, Unbrand } from '../../system/brand';

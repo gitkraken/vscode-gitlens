@@ -1,5 +1,5 @@
 import type { Range, Uri } from 'vscode';
-import type { AutolinkReference, DynamicAutolinkReference } from '../../autolinks';
+import type { AutolinkReference, DynamicAutolinkReference } from '../../autolinks/models/autolinks';
 import type { RemotesUrlsConfig } from '../../config';
 import { getTokensFromTemplate, interpolate } from '../../system/string';
 import type { Repository } from '../models/repository';
