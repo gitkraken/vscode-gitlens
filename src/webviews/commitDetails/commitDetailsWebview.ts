@@ -155,6 +155,7 @@ interface Context {
 	preferences: Preferences;
 
 	commit: GitCommit | undefined;
+	autolinksEnabled: boolean;
 	richStateLoaded: boolean;
 	formattedMessage: string | undefined;
 	autolinkedIssues: IssueOrPullRequest[] | undefined;
@@ -196,6 +197,7 @@ export class CommitDetailsWebviewProvider
 			preferences: this.getPreferences(),
 
 			commit: undefined,
+			autolinksEnabled: false,
 			richStateLoaded: false,
 			formattedMessage: undefined,
 			autolinkedIssues: undefined,
@@ -1241,6 +1243,7 @@ export class CommitDetailsWebviewProvider
 			pinned: current.pinned,
 			preferences: current.preferences,
 			includeRichContent: current.richStateLoaded,
+			autolinksEnabled: current.autolinksEnabled,
 			autolinkedIssues: current.autolinkedIssues?.map(serializeIssueOrPullRequest),
 			pullRequest: current.pullRequest != null ? serializePullRequest(current.pullRequest) : undefined,
 			wip: serializeWipContext(wip),
@@ -1422,10 +1425,10 @@ export class CommitDetailsWebviewProvider
 
 		if (cancellation.isCancellationRequested) return;
 
+		const autolinksEnabled = configuration.get('views.commitDetails.autolinks.enabled');
 		const [enrichedAutolinksResult, prResult] =
-			remote?.provider != null
+			remote?.provider != null && autolinksEnabled
 				? await Promise.allSettled([
-						configuration.get('views.commitDetails.autolinks.enabled') &&
 						configuration.get('views.commitDetails.autolinks.enhanced')
 							? pauseOnCancelOrTimeoutMapTuplePromise(commit.getEnrichedAutolinks(remote))
 							: undefined,
@@ -1443,6 +1446,7 @@ export class CommitDetailsWebviewProvider
 		const formattedMessage = this.getFormattedMessage(commit, remote, enrichedAutolinks);
 
 		this.updatePendingContext({
+			autolinksEnabled: autolinksEnabled,
 			richStateLoaded: true,
 			formattedMessage: formattedMessage,
 			autolinkedIssues:

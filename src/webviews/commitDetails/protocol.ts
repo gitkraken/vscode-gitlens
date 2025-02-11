@@ -102,6 +102,7 @@ export interface State extends WebviewState {
 	includeRichContent?: boolean;
 
 	commit?: CommitDetails;
+	autolinksEnabled: boolean;
 	autolinkedIssues?: IssueOrPullRequest[];
 	pullRequest?: PullRequestShape;
 	wip?: Wip;
