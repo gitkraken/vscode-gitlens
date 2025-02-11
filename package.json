@@ -20099,6 +20099,8 @@
 		"extract:contributions": "node --experimental-strip-types ./scripts/generateContributions.mts --extract",
 		"// Generates contributions in contributions.json into package.json": "//",
 		"generate:contributions": "node --experimental-strip-types ./scripts/generateContributions.mts",
+		"// Generates command types from contributions.json into src/constants.commands.generated.ts": "//",
+		"generate:commandTypes": "node --experimental-strip-types ./scripts/generateCommandTypes.mts",
 		"// Generates docs/telemetry-events.md": "//",
 		"generate:docs:telemetry": "node ./scripts/generateTelemetryDocs.mjs",
 		"generate:emoji": "node ./scripts/generateEmojiShortcodeMap.mjs",

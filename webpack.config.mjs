@@ -120,6 +120,7 @@ function getExtensionConfig(target, mode, env) {
 		plugins.push(
 			new GenerateContributionsPlugin(),
 			new ExtractContributionsPlugin(),
+			new GenerateCommandTypesPlugin(),
 			new DocsPlugin(),
 			new LicensesPlugin(),
 			new FantasticonPlugin({
@@ -826,6 +827,20 @@ class FileGeneratorPlugin {
 			}
 
 			callback();
+		});
+	}
+}
+
+class GenerateCommandTypesPlugin extends FileGeneratorPlugin {
+	constructor() {
+		super({
+			pluginName: 'commandTypes',
+			pathsToWatch: [path.join(__dirname, 'contributions.json')],
+			command: {
+				name: "'src/constants.commands.generated.ts' command types",
+				command: pkgMgr,
+				args: ['run', 'generate:commandTypes'],
+			},
 		});
 	}
 }
