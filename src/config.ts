@@ -155,6 +155,7 @@ export const enum StatusBarCommand {
 export type SuppressedMessages =
 	| 'suppressCommitHasNoPreviousCommitWarning'
 	| 'suppressCommitNotFoundWarning'
+	| 'suppressTagNotFoundWarning'
 	| 'suppressCreatePullRequestPrompt'
 	| 'suppressDebugLoggingWarning'
 	| 'suppressFileNotUnderSourceControlWarning'
@@ -629,6 +630,7 @@ export interface RemotesUrlsConfig {
 	readonly fileInCommit: string;
 	readonly fileLine: string;
 	readonly fileRange: string;
+	readonly tag: string;
 }
 
 interface StatusBarConfig {

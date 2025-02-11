@@ -206,4 +206,8 @@ export class AzureDevOpsRemote extends RemoteProvider {
 		if (branch) return this.encodeUrl(`${this.baseUrl}/?path=/${fileName}&version=GB${branch}&_a=contents${line}`);
 		return this.encodeUrl(`${this.baseUrl}?path=/${fileName}${line}`);
 	}
+
+	protected override getUrlForTag(tag: string): string {
+		return this.encodeUrl(`${this.baseUrl}?version=GT${tag}`);
+	}
 }

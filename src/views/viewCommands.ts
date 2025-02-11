@@ -270,6 +270,22 @@ export class ViewCommands implements Disposable {
 				(n, nodes) => this.openCommitOnRemote(n, nodes),
 				this,
 			),
+			registerViewCommand('gitlens.views.openTagOnRemote', (n, nodes) => this.openTagOnRemote(n, nodes), this),
+			registerViewCommand(
+				'gitlens.views.openTagOnRemote.multi',
+				(n, nodes) => this.openTagOnRemote(n, nodes),
+				this,
+			),
+			registerViewCommand(
+				'gitlens.views.copyRemoteTagUrl',
+				(n, nodes) => this.openTagOnRemote(n, nodes, true),
+				this,
+			),
+			registerViewCommand(
+				'gitlens.views.copyRemoteTagUrl.multi',
+				(n, nodes) => this.openTagOnRemote(n, nodes, true),
+				this,
+			),
 
 			registerViewCommand('gitlens.views.openChanges', this.openChanges, this),
 			registerViewCommand('gitlens.views.openChangesWithWorking', this.openChangesWithWorking, this),
@@ -1437,6 +1453,17 @@ export class ViewCommands implements Disposable {
 		return executeCommand<OpenOnRemoteCommandArgs>(GlCommand.OpenOnRemote, {
 			repoPath: refs[0].repoPath,
 			resource: refs.map(r => ({ type: RemoteResourceType.Commit, sha: r.ref })),
+			clipboard: clipboard,
+		});
+	}
+
+	@log()
+	private openTagOnRemote(node: ViewRefNode, nodes?: ViewRefNode[], clipboard?: boolean) {
+		const refs = nodes?.length ? nodes.map(n => n.ref) : [node.ref];
+
+		return executeCommand<OpenOnRemoteCommandArgs>(GlCommand.OpenOnRemote, {
+			repoPath: refs[0].repoPath,
+			resource: refs.map(r => ({ type: RemoteResourceType.Tag, tag: r.name })),
 			clipboard: clipboard,
 		});
 	}

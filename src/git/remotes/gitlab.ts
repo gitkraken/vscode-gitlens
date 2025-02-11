@@ -392,4 +392,8 @@ export class GitLabRemote extends RemoteProvider<GitLabRepositoryDescriptor> {
 		if (branch) return `${this.encodeUrl(`${this.baseUrl}/-/blob/${branch}/${fileName}`)}${line}`;
 		return `${this.encodeUrl(`${this.baseUrl}?path=${fileName}`)}${line}`;
 	}
+
+	protected override getUrlForTag(tag: string): string {
+		return this.encodeUrl(`${this.baseUrl}/-/tags/${tag}`);
+	}
 }

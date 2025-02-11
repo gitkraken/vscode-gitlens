@@ -130,4 +130,8 @@ export class CustomRemote extends RemoteProvider {
 
 		return context;
 	}
+
+	protected override getUrlForTag(tag: string): string {
+		return this.getUrl(this.urls.tag, this.getContext({ tag: tag }));
+	}
 }

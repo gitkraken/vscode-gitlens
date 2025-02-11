@@ -196,13 +196,13 @@ export class OpenOnRemoteCommand extends GlCommandBase {
 					break;
 				}
 
-				// case RemoteResourceType.Tag: {
-				// 	title = getTitlePrefix('Tag');
-				// 	if (resources.length === 1) {
-				// 		title += `${pad(GlyphChars.Dot, 2, 2)}${args.resource.tag}`;
-				// 	}
-				// 	break;
-				// }
+				case RemoteResourceType.Tag: {
+					title = getTitlePrefix('Tag');
+					if (resources.length === 1) {
+						title += `${pad(GlyphChars.Dot, 2, 2)}${resource.tag}`;
+					}
+					break;
+				}
 			}
 
 			const pick = await showRemoteProviderPicker(title, placeholder, resources, remotes, options);

@@ -33,6 +33,7 @@ import './commands/openBranchOnRemote';
 import './commands/openCurrentBranchOnRemote';
 import './commands/openChangedFiles';
 import './commands/openCommitOnRemote';
+import './commands/openTagOnRemote';
 import './commands/openComparisonOnRemote';
 import './commands/openFileFromRemote';
 import './commands/openFileOnRemote';
