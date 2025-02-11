@@ -637,6 +637,8 @@ export class StashGitCommand extends QuickCommand<State> {
 			value: state.message,
 			prompt: 'Enter stash message',
 			buttons: [QuickInputButtons.Back, generateMessageButton],
+			// Needed to clear any validation errors because of AI generation
+			validate: (_value: string | undefined): [boolean, string | undefined] => [true, undefined],
 			onDidClickButton: async (input, button) => {
 				if (button === generateMessageButton) {
 					using resume = step.freeze?.();
@@ -649,6 +651,7 @@ export class StashGitCommand extends QuickCommand<State> {
 						);
 						if (!diff?.contents) {
 							void window.showInformationMessage('No changes to generate a stash message from.');
+							return;
 						}
 
 						const generating = defer<AIModel>();
@@ -668,7 +671,7 @@ export class StashGitCommand extends QuickCommand<State> {
 
 						const result = await (
 							await this.container.ai
-						)?.generateStashMessage(diff!.contents, { source: 'quick-wizard' }, { generating: generating });
+						)?.generateStashMessage(diff.contents, { source: 'quick-wizard' }, { generating: generating });
 
 						input.validationMessage = undefined;
 
@@ -679,11 +682,11 @@ export class StashGitCommand extends QuickCommand<State> {
 						}
 					} catch (ex) {
 						Logger.error(ex, scope, 'generateStashMessage');
-						if (ex instanceof Error && ex.message.startsWith('No changes')) {
-							void window.showInformationMessage('No changes to generate a stash message from.');
-						} else {
-							void showGenericErrorMessage(ex.message);
-						}
+
+						input.validationMessage = {
+							severity: InputBoxValidationSeverity.Error,
+							message: ex.message,
+						};
 					}
 				}
 			},

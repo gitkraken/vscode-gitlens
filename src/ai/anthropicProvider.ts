@@ -128,7 +128,7 @@ export class AnthropicProvider extends OpenAICompatibleProvider<typeof provider.
 				}
 				if (rsp.status === 429) {
 					throw new Error(
-						`(${this.name}:${rsp.status}) Too many requests (rate limit exceeded) or your API key is associated with an expired trial`,
+						`(${this.name}) ${rsp.status}: Too many requests (rate limit exceeded) or your API key is associated with an expired trial`,
 					);
 				}
 
@@ -148,7 +148,7 @@ export class AnthropicProvider extends OpenAICompatibleProvider<typeof provider.
 					continue;
 				}
 
-				throw new Error(`(${this.name}:${rsp.status}) ${json?.error?.message || rsp.statusText})`);
+				throw new Error(`(${this.name}) ${rsp.status}: ${json?.error?.message || rsp.statusText})`);
 			}
 
 			const data: AnthropicMessageResponse = await rsp.json();
