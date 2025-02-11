@@ -1,6 +1,6 @@
 import type { CancellationToken, Event, MessageItem } from 'vscode';
 import { EventEmitter, window } from 'vscode';
-import type { AutolinkReference, DynamicAutolinkReference } from '../../autolinks';
+import type { AutolinkReference, DynamicAutolinkReference } from '../../autolinks/models/autolinks';
 import type {
 	CloudSelfHostedIntegrationId,
 	IntegrationId,

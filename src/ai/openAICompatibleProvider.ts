@@ -272,7 +272,7 @@ export abstract class OpenAICompatibleProvider<T extends AIProviders> implements
 		}
 		if (rsp.status === 429) {
 			throw new Error(
-				`(${this.name}:${rsp.status}) Too many requests (rate limit exceeded) or your account is out of funds`,
+				`(${this.name}) ${rsp.status}: Too many requests (rate limit exceeded) or your account is out of funds`,
 			);
 		}
 
@@ -285,7 +285,7 @@ export abstract class OpenAICompatibleProvider<T extends AIProviders> implements
 			return { retry: true, maxCodeCharacters: maxCodeCharacters - 500 };
 		}
 
-		throw new Error(`(${this.name}:${rsp.status}) ${json?.error?.message || rsp.statusText}`);
+		throw new Error(`(${this.name}) ${rsp.status}: ${json?.error?.message || rsp.statusText}`);
 	}
 
 	protected async fetchCore(

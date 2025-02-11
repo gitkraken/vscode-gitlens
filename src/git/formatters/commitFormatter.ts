@@ -5,7 +5,7 @@ import type {
 	HoverCommandsActionContext,
 	OpenPullRequestActionContext,
 } from '../../api/gitlens';
-import type { MaybeEnrichedAutolink } from '../../autolinks';
+import type { MaybeEnrichedAutolink } from '../../autolinks/models/autolinks';
 import { getPresenceDataUri } from '../../avatars';
 import { DiffWithCommand } from '../../commands/diffWith';
 import { InspectCommand } from '../../commands/inspect';

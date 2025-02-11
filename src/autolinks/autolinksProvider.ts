@@ -7,6 +7,7 @@ import type { Container } from '../container';
 import type { GitRemote } from '../git/models/remote';
 import type { RemoteProviderId } from '../git/remotes/remoteProvider';
 import { getIssueOrPullRequestHtmlIcon, getIssueOrPullRequestMarkdownIcon } from '../git/utils/-webview/icons';
+import type { ConfiguredIntegrationsChangeEvent } from '../plus/integrations/authentication/configuredIntegrationService';
 import type { HostingIntegration, Integration, IssueIntegration } from '../plus/integrations/integration';
 import { IntegrationBase } from '../plus/integrations/integration';
 import { remoteProviderIdToIntegrationId } from '../plus/integrations/integrationService';
@@ -18,6 +19,7 @@ import { join, map } from '../system/iterable';
 import { Logger } from '../system/logger';
 import { escapeMarkdown } from '../system/markdown';
 import { getSettledValue, isPromise } from '../system/promise';
+import { PromiseCache } from '../system/promiseCache';
 import { capitalize, encodeHtmlWeak, getSuperscript } from '../system/string';
 import type {
 	Autolink,
@@ -26,7 +28,7 @@ import type {
 	EnrichedAutolink,
 	MaybeEnrichedAutolink,
 	RefSet,
-} from './autolinks.utils';
+} from './models/autolinks';
 import {
 	ensureCachedRegex,
 	getAutolinks,
@@ -34,16 +36,20 @@ import {
 	isDynamic,
 	numRegex,
 	supportedAutolinkIntegrations,
-} from './autolinks.utils';
+} from './utils/-webview/autolinks.utils';
 
 const emptyAutolinkMap = Object.freeze(new Map<string, Autolink>());
 
-export class Autolinks implements Disposable {
-	protected _disposable: Disposable | undefined;
+export class AutolinksProvider implements Disposable {
+	private _disposable: Disposable | undefined;
 	private _references: CacheableAutolinkReference[] = [];
+	private _refsetCache = new PromiseCache<string | undefined, RefSet[]>({ accessTTL: 1000 * 60 * 60 });
 
 	constructor(private readonly container: Container) {
-		this._disposable = Disposable.from(configuration.onDidChange(this.onConfigurationChanged, this));
+		this._disposable = Disposable.from(
+			configuration.onDidChange(this.onConfigurationChanged, this),
+			container.integrations.onDidChangeConfiguredIntegrations(this.onConfiguredIntegrationsChanged, this),
+		);
 
 		this.setAutolinksFromConfig();
 	}
@@ -55,7 +61,12 @@ export class Autolinks implements Disposable {
 	private onConfigurationChanged(e?: ConfigurationChangeEvent) {
 		if (configuration.changed(e, 'autolinks')) {
 			this.setAutolinksFromConfig();
+			this._refsetCache.clear();
 		}
+	}
+
+	private onConfiguredIntegrationsChanged(_e: ConfiguredIntegrationsChangeEvent) {
+		this._refsetCache.clear();
 	}
 
 	private setAutolinksFromConfig() {
@@ -118,57 +129,40 @@ export class Autolinks implements Disposable {
 	}
 
 	/** Collects custom-configured autolink references into @param refsets */
-	private collectCustomAutolinks(
-		remote: GitRemote | undefined,
-		refsets: RefSet[],
-		options?: { excludeCustom?: boolean },
-	): void {
-		if (this._references.length && (remote?.provider == null || !options?.excludeCustom)) {
+	private collectCustomAutolinks(refsets: RefSet[]): void {
+		if (this._references.length) {
 			refsets.push([undefined, this._references]);
 		}
 	}
 
-	private async getRefSets(remote?: GitRemote, options?: { excludeCustom?: boolean }) {
-		const refsets: RefSet[] = [];
+	private async getRefSets(remote?: GitRemote) {
+		return this._refsetCache.get(remote?.remoteKey, async () => {
+			const refsets: RefSet[] = [];
 
-		await this.collectIntegrationAutolinks(remote, refsets);
-		this.collectRemoteAutolinks(remote, refsets);
-		this.collectCustomAutolinks(remote, refsets, options);
+			await this.collectIntegrationAutolinks(remote, refsets);
+			this.collectRemoteAutolinks(remote, refsets);
+			this.collectCustomAutolinks(refsets);
 
-		return refsets;
+			return refsets;
+		});
 	}
 
 	/** @returns A sorted list of autolinks. the first match is the most relevant */
-	async getBranchAutolinks(
-		branchName: string,
-		remote?: GitRemote,
-		options?: { excludeCustom?: boolean },
-	): Promise<Map<string, Autolink>> {
-		const refsets = await this.getRefSets(remote, options);
+	async getBranchAutolinks(branchName: string, remote?: GitRemote): Promise<Map<string, Autolink>> {
+		const refsets = await this.getRefSets(remote);
 		if (refsets.length === 0) return emptyAutolinkMap;
 
 		return getBranchAutolinks(branchName, refsets);
 	}
 
-	async getAutolinks(message: string, remote?: GitRemote): Promise<Map<string, Autolink>>;
-	async getAutolinks(
-		message: string,
-		remote: GitRemote,
-		// eslint-disable-next-line @typescript-eslint/unified-signatures
-		options?: { excludeCustom?: boolean },
-	): Promise<Map<string, Autolink>>;
-	@debug<Autolinks['getAutolinks']>({
+	@debug<AutolinksProvider['getAutolinks']>({
 		args: {
 			0: '<message>',
 			1: false,
 		},
 	})
-	async getAutolinks(
-		message: string,
-		remote?: GitRemote,
-		options?: { excludeCustom?: boolean },
-	): Promise<Map<string, Autolink>> {
-		const refsets = await this.getRefSets(remote, options);
+	async getAutolinks(message: string, remote?: GitRemote): Promise<Map<string, Autolink>> {
+		const refsets = await this.getRefSets(remote);
 		if (refsets.length === 0) return emptyAutolinkMap;
 
 		return getAutolinks(message, refsets);
@@ -191,7 +185,7 @@ export class Autolinks implements Disposable {
 		autolinks: Map<string, Autolink>,
 		remote: GitRemote | undefined,
 	): Promise<Map<string, EnrichedAutolink> | undefined>;
-	@debug<Autolinks['getEnrichedAutolinks']>({
+	@debug<AutolinksProvider['getEnrichedAutolinks']>({
 		args: {
 			0: messageOrAutolinks =>
 				typeof messageOrAutolinks === 'string' ? '<message>' : `autolinks=${messageOrAutolinks.size}`,
@@ -264,7 +258,7 @@ export class Autolinks implements Disposable {
 		return enrichedAutolinks;
 	}
 
-	@debug<Autolinks['linkify']>({
+	@debug<AutolinksProvider['linkify']>({
 		args: {
 			0: '<text>',
 			2: remotes => remotes?.length,

@@ -1,7 +1,7 @@
 import type { ConfigurationChangeEvent } from 'vscode';
 import { Disposable, Uri, window, workspace } from 'vscode';
 import type { CreatePullRequestActionContext } from '../../api/gitlens';
-import type { EnrichedAutolink } from '../../autolinks';
+import type { EnrichedAutolink } from '../../autolinks/models/autolinks';
 import { getAvatarUriFromGravatarEmail } from '../../avatars';
 import type { BranchGitCommandArgs } from '../../commands/git/branch';
 import type { OpenPullRequestOnRemoteCommandArgs } from '../../commands/openPullRequestOnRemote';
