@@ -15,7 +15,7 @@ import type { AssociateIssueWithBranchCommandArgs } from '../../../../../plus/st
 import { createCommandLink } from '../../../../../system/commands';
 import { fromNow } from '../../../../../system/date';
 import { interpolate, pluralize } from '../../../../../system/string';
-import type { BranchRef, GetOverviewBranch, OpenInGraphParams } from '../../../../home/protocol';
+import type { BranchIssueLink, BranchRef, GetOverviewBranch, OpenInGraphParams } from '../../../../home/protocol';
 import { renderBranchName } from '../../../shared/components/branch-name';
 import type { GlCard } from '../../../shared/components/card/card';
 import { GlElement, observe } from '../../../shared/components/element';
@@ -58,6 +58,25 @@ export const branchCardStyles = css`
 		flex-direction: column;
 		gap: 0.4rem;
 	}
+
+	.branch-item__unplug {
+		padding: 0.2em;
+		margin-block: -0.2em;
+		opacity: 0;
+		border-radius: 3px;
+	}
+
+	.branch-item__section:hover .branch-item__unplug,
+	.branch-item__section:focus-within .branch-item__unplug {
+		opacity: 1;
+	}
+
+	.branch-item__unplug:hover,
+	.branch-item__unplug:focus {
+		background-color: var(--vscode-toolbar-hoverBackground);
+		outline: 1px dashed var(--vscode-toolbar-hoverOutline);
+	}
+
 	.branch-item__section > * {
 		margin-block: 0;
 	}
@@ -499,19 +518,47 @@ export abstract class GlBranchCardBase extends GlElement {
 		this.toggleExpanded(true);
 	}
 
-	protected renderIssues(): TemplateResult | NothingType {
+	private getIssues(): BranchIssueLink[] {
 		const { autolinks, issues } = this;
-		const issuesSource = issues?.length ? issues : autolinks;
-		if (!issuesSource?.length) return nothing;
+		const issuesMap: Record<string, BranchIssueLink> = {};
+		autolinks?.map(autolink => {
+			if (autolink.type !== 'issue') {
+				return;
+			}
+			issuesMap[autolink.url] = autolink;
+		});
+		issues?.map(issue => {
+			issuesMap[issue.url] = issue;
+		});
+		return Object.values(issuesMap);
+	}
 
+	protected renderIssues(issues: BranchIssueLink[]) {
+		if (!issues.length) return nothing;
 		return html`
-			${issuesSource.map(issue => {
+			${issues.map(issue => {
 				return html`
 					<p class="branch-item__grouping">
 						<span class="branch-item__icon">
 							<issue-icon state=${issue.state} issue-id=${issue.id}></issue-icon>
 						</span>
 						<a href=${issue.url} class="branch-item__name branch-item__name--secondary">${issue.title}</a>
+						${when(
+							issue.isAutolink && this.expanded,
+							() => html`
+								<gl-tooltip>
+									<a
+										class="branch-item__unplug"
+										href=${createCommandLink('gitlens.home.unlinkIssue', {
+											issue: issue,
+											reference: this.branch.reference,
+										})}
+										><code-icon icon="gl-unplug"></code-icon
+									></a>
+									<div slot="content">Unlink automatically linked issue</div>
+								</gl-tooltip>
+							`,
+						)}
 						<span class="branch-item__identifier">#${issue.id}</span>
 					</p>
 				`;
@@ -791,7 +838,7 @@ export abstract class GlBranchCardBase extends GlElement {
 	}
 
 	protected renderIssuesItem(): TemplateResult | NothingType {
-		const issues = [...(this.issues ?? []), ...(this.autolinks ?? [])];
+		const issues = this.getIssues();
 		if (!issues.length) {
 			if (!this.expanded) return nothing;
 
@@ -821,7 +868,7 @@ export abstract class GlBranchCardBase extends GlElement {
 
 		return html`
 			<gl-work-item ?expanded=${this.expanded} ?nested=${!this.branch.opened} .indicator=${indicator}>
-				<div class="branch-item__section">${this.renderIssues()}</div>
+				<div class="branch-item__section">${this.renderIssues(issues)}</div>
 			</gl-work-item>
 		`;
 	}

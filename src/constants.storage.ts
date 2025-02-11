@@ -81,6 +81,8 @@ export type GlobalStorage = {
 	'graph:searchMode': StoredGraphSearchMode;
 	'views:scm:grouped:welcome:dismissed': boolean;
 	'integrations:configured': StoredIntegrationConfigurations;
+	'autolinks:branches:ignore': IgnoredBranchesAutolinks;
+	'autolinks:branches:ignore:skipPrompt': boolean | undefined;
 } & { [key in `plus:preview:${FeaturePreviews}:usages`]: StoredFeaturePreviewUsagePeriod[] } & {
 	[key in `confirm:ai:tos:${AIProviders}`]: boolean;
 } & {
@@ -96,6 +98,8 @@ export type GlobalStorage = {
 };
 
 export type StoredIntegrationConfigurations = Record<string, StoredConfiguredIntegrationDescriptor[] | undefined>;
+
+export type IgnoredBranchesAutolinks = Record<string, string[] | undefined>;
 
 export interface StoredConfiguredIntegrationDescriptor {
 	cloud: boolean;
