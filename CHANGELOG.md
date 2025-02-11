@@ -6,6 +6,10 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/) and this p
 
 ## [Unreleased]
 
+### Fixed
+
+- Fixes [#3841](https://github.com/gitkraken/vscode-gitlens/issues/3841) - Inspect & Graph Details: autolinks rendering when enabled setting is false
+
 ## [16.3.0] - 2025-02-11
 
 ### Added
