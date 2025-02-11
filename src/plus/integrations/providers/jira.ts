@@ -1,5 +1,5 @@
 import type { AuthenticationSession, CancellationToken } from 'vscode';
-import type { AutolinkReference, DynamicAutolinkReference } from '../../../autolinks';
+import type { AutolinkReference, DynamicAutolinkReference } from '../../../autolinks/models/autolinks';
 import { IssueIntegrationId } from '../../../constants.integrations';
 import type { Account } from '../../../git/models/author';
 import type { Issue, SearchedIssue } from '../../../git/models/issue';

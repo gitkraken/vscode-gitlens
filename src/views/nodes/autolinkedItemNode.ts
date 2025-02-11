@@ -1,5 +1,5 @@
 import { MarkdownString, ThemeIcon, TreeItem, TreeItemCollapsibleState } from 'vscode';
-import type { Autolink } from '../../autolinks';
+import type { Autolink } from '../../autolinks/models/autolinks';
 import { GitUri } from '../../git/gitUri';
 import type { IssueOrPullRequest } from '../../git/models/issueOrPullRequest';
 import { getIssueOrPullRequestMarkdownIcon, getIssueOrPullRequestThemeIcon } from '../../git/utils/-webview/icons';

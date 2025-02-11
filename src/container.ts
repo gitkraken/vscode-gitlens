@@ -10,7 +10,7 @@ import type { AIProviderService } from './ai/aiProviderService';
 import { FileAnnotationController } from './annotations/fileAnnotationController';
 import { LineAnnotationController } from './annotations/lineAnnotationController';
 import { ActionRunners } from './api/actionRunners';
-import { Autolinks } from './autolinks';
+import { AutolinksProvider } from './autolinks/autolinksProvider';
 import { setDefaultGravatarsStyle } from './avatars';
 import { CacheProvider } from './cache';
 import { GitCodeLensController } from './codelens/codeLensController';
@@ -365,10 +365,10 @@ export class Container {
 		return this._ai;
 	}
 
-	private _autolinks: Autolinks | undefined;
-	get autolinks(): Autolinks {
+	private _autolinks: AutolinksProvider | undefined;
+	get autolinks(): AutolinksProvider {
 		if (this._autolinks == null) {
-			this._disposables.push((this._autolinks = new Autolinks(this)));
+			this._disposables.push((this._autolinks = new AutolinksProvider(this)));
 		}
 
 		return this._autolinks;
