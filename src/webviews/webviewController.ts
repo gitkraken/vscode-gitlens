@@ -1,7 +1,7 @@
 import type { Event, ViewBadge, Webview, WebviewPanel, WebviewView, WindowState } from 'vscode';
 import { CancellationTokenSource, Disposable, EventEmitter, Uri, ViewColumn, window, workspace } from 'vscode';
 import { getNonce } from '@env/crypto';
-import type { Commands } from '../constants.commands';
+import type { WebviewCommands, WebviewViewCommands } from '../constants.commands';
 import type { WebviewTelemetryContext } from '../constants.telemetry';
 import type { CustomEditorTypes, WebviewIds, WebviewTypes, WebviewViewIds, WebviewViewTypes } from '../constants.views';
 import type { Container } from '../container';
@@ -225,7 +225,7 @@ export class WebviewController<
 	}
 
 	registerWebviewCommand<T extends Partial<WebviewContext>>(
-		command: Commands,
+		command: WebviewCommands | WebviewViewCommands,
 		callback: WebviewCommandCallback<T>,
 	): Disposable {
 		return this._commandRegistrar.registerCommand(this.provider, this.id, this.instanceId, command, callback);

@@ -3,7 +3,14 @@ import { commands } from 'vscode';
 import type { Action, ActionContext } from '../../api/gitlens';
 import type { GlCommandBase } from '../../commands/commandBase';
 import type { CodeLensCommand } from '../../config';
-import type { Commands, CoreCommands, CoreGitCommands, GlCommands } from '../../constants.commands';
+import type {
+	Commands,
+	CoreCommands,
+	CoreGitCommands,
+	GlCommands,
+	WebviewCommands,
+	WebviewViewCommands,
+} from '../../constants.commands';
 import { actionCommandPrefix, GlCommand } from '../../constants.commands';
 import { Container } from '../../container';
 import { isWebviewContext } from '../webview';
@@ -61,7 +68,11 @@ export function registerCommand(command: Commands, callback: CommandCallback, th
 	);
 }
 
-export function registerWebviewCommand(command: Commands, callback: CommandCallback, thisArg?: any): Disposable {
+export function registerWebviewCommand(
+	command: WebviewCommands | WebviewViewCommands,
+	callback: CommandCallback,
+	thisArg?: any,
+): Disposable {
 	return commands.registerCommand(
 		command,
 		function (this: any, ...args) {
