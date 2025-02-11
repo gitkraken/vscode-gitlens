@@ -20206,7 +20206,7 @@
 		"css-loader": "7.1.2",
 		"css-minimizer-webpack-plugin": "7.0.0",
 		"cssnano-preset-advanced": "7.0.6",
-		"esbuild": "0.24.2",
+		"esbuild": "0.25.0",
 		"esbuild-loader": "4.2.2",
 		"esbuild-node-externals": "1.16.0",
 		"esbuild-sass-plugin": "3.3.1",
@@ -20246,7 +20246,7 @@
 		"webpack-require-from": "1.8.6"
 	},
 	"resolutions": {
-		"esbuild": "0.24.2",
+		"esbuild": "0.25.0",
 		"iconv-lite": "0.6.3",
 		"node-fetch": "2.7.0",
 		"semver-regex": "4.0.5"
