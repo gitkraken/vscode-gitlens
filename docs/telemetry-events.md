@@ -28,6 +28,7 @@
   'global.cloudIntegrations.connected.count': number,
   'global.cloudIntegrations.connected.ids': string,
   'global.debugging': boolean,
+  // Cohort number between 1 and 100 to use for percentage-based rollouts
   'global.device.cohort': number,
   'global.enabled': boolean,
   'global.folders.count': number,
@@ -419,9 +420,12 @@ or
 
 ```typescript
 {
+  // Named for compatibility with other GK surfaces
   'draftId': string,
   'provider': string,
+  // Named for compatibility with other GK surfaces
   'reason': 'committed' | 'rejected' | 'accepted',
+  // Named for compatibility with other GK surfaces
   'repoPrivacy': 'private' | 'public' | 'local',
   'repository.visibility': 'private' | 'public' | 'local'
 }
@@ -433,12 +437,17 @@ or
 
 ```typescript
 {
+  // Named for compatibility with other GK surfaces
   'draftId': string,
+  // Named for compatibility with other GK surfaces
   'draftPrivacy': 'private' | 'public' | 'invite_only' | 'provider_access',
+  // Named for compatibility with other GK surfaces
   'filesChanged': number,
   'provider': string,
+  // Named for compatibility with other GK surfaces
   'repoPrivacy': 'private' | 'public' | 'local',
   'repository.visibility': 'private' | 'public' | 'local',
+  // Named for compatibility with other GK surfaces
   'source': 'reviewMode'
 }
 ```
@@ -449,11 +458,15 @@ or
 
 ```typescript
 {
+  // Named for compatibility with other GK surfaces
   'draftId': string,
+  // Named for compatibility with other GK surfaces
   'draftPrivacy': 'private' | 'public' | 'invite_only' | 'provider_access',
   'provider': string,
+  // Named for compatibility with other GK surfaces
   'repoPrivacy': 'private' | 'public' | 'local',
   'repository.visibility': 'private' | 'public' | 'local',
+  // Named for compatibility with other GK surfaces
   'source': string
 }
 ```
@@ -1443,8 +1456,10 @@ void
 {
   'filesChanged': number,
   'provider': string,
+  // Provided for compatibility with other GK surfaces
   'repoPrivacy': 'private' | 'public' | 'local',
   'repository.visibility': 'private' | 'public' | 'local',
+  // Provided for compatibility with other GK surfaces
   'source': 'account' | 'subscription' | 'graph' | 'patchDetails' | 'settings' | 'timeline' | 'home' | 'view' | 'code-suggest' | 'associateIssueWithBranch' | 'cloud-patches' | 'commandPalette' | 'deeplink' | 'inspect' | 'inspect-overview' | 'integrations' | 'launchpad' | 'launchpad-indicator' | 'launchpad-view' | 'notification' | 'prompt' | 'quick-wizard' | 'remoteProvider' | 'startWork' | 'trial-indicator' | 'scm-input' | 'walkthrough' | 'whatsnew' | 'worktrees'
 }
 ```
@@ -1772,9 +1787,12 @@ or
 
 ```typescript
 {
+  // `true` if the user cancels the VS Code prompt to open the browser
   'aborted': boolean,
   'action': 'upgrade',
+  // Promo discount code associated with the upgrade
   'promo.code': string,
+  // Promo key (identifier) associated with the upgrade
   'promo.key': string
 }
 ```

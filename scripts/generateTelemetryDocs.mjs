@@ -121,8 +121,14 @@ function expandType(file, type, indent = '', isRoot = true, prefix = '') {
 				/** @type {Prop[]} */
 				let expandedProps = properties.map(prop => {
 					const propType = typeChecker.getTypeOfSymbolAtLocation(prop, file);
-					const jsDocTags = getJSDocTags(prop);
 					let propString = '';
+
+					const propDocs = prop.getDocumentationComment(typeChecker);
+					if (propDocs.length > 0) {
+						propString += `${indent}  // ${propDocs.map(doc => doc.text).join(' ')}\n`;
+					}
+
+					const jsDocTags = getJSDocTags(prop);
 					if (jsDocTags.deprecated) {
 						propString += `${indent}  // @deprecated: ${jsDocTags.deprecated}\n`;
 					}
@@ -152,6 +158,7 @@ function expandType(file, type, indent = '', isRoot = true, prefix = '') {
 							const keyType = typeChecker.typeToString(indexInfo.keyType);
 							const name = `${prefix}${keyType.substring(1, keyType.length - 1)}`;
 							const valueType = expandType(file, indexInfo.type, indent + '  ', false, prefix);
+
 							return {
 								name: name,
 								result: `${indent}  [\`${name}\`]: ${valueType}`,
@@ -214,8 +221,14 @@ function expandType(file, type, indent = '', isRoot = true, prefix = '') {
 				/** @type {Prop[]} */
 				const expandedProps = [...mergedProperties].map(([, prop]) => {
 					const propType = typeChecker.getTypeOfSymbolAtLocation(prop, file);
-					const jsDocTags = getJSDocTags(prop);
 					let propString = '';
+
+					const propDocs = prop.getDocumentationComment(typeChecker);
+					if (propDocs.length > 0) {
+						propString += `${indent}  // ${propDocs.map(doc => doc.text).join(' ')}\n`;
+					}
+
+					const jsDocTags = getJSDocTags(prop);
 					if (jsDocTags.deprecated) {
 						propString += `${indent}  // @deprecated: ${jsDocTags.deprecated}\n`;
 					}
