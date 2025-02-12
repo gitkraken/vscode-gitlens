@@ -220,3 +220,48 @@ Guidelines:
 \${instructions}
 
 Based on the provided code diff and message, create a focused technical summary following the format above.`;
+
+export const generateChangelogUserPrompt = `You are an expert at creating changelogs in the "Keep a Changelog" format (https://keepachangelog.com). Your task is to create a set of clear, informative changelog entries.
+
+First, carefully examine the following JSON data containing commit messages and associated issues. The data is structured as an array of "change" objects. Each "change" contains a \`message\` (the commit message) and an \`issues\` array. The \`issues\` array contains objects representing associated issues, each with an \`id\`, \`url\`, and optional \`title\`.
+
+<~~data~~>
+\${data}
+</~~data~~>
+
+Guidelines for creating the changelog:
+
+1. Analyze the commit messages and associated issue titles (if available) to understand the changes made. Be sure to read every commit message and associated issue titles to understand the purpose of each change.
+2. Group changes into these categories (only include categories with actual changes):
+   - Added: New features or capabilities
+   - Changed: Changes to existing functionality
+   - Deprecated: Features that will be removed in upcoming releases
+   - Removed: Features that were removed
+   - Fixed: Bug fixes
+   - Security: Security-related changes
+3. Order entries by importance within each category
+4. Write a clear, concise, user-friendly descriptions for each change that focuses on the impact to users
+   - Follow the example structure below of the Keep a Changelog format for each entry
+   - Start with a third-person singular present tense verb (e.g., "Adds", "Changes", "Improves", "Removes", "Deprecates", "Fixes", etc.)
+   - Avoid technical implementation details unless directly relevant to users
+   - Combine related changes into single entries when appropriate, grouping the associated issues together as well
+   - Focus on the what and why, not the how. One sentence is often sufficient, though bullets can be used for multiple related points
+5. Prioritize user-facing changes. If a commit message describes internal refactoring or implementation details, try to infer the user-facing impact (if any) from the issue titles or other commits. If there's no user-facing impact, and no clear external benefit, omit the change
+6. Use Markdown headings, links, and bullet points, adhering to Keep a Changelog structure
+7. Provide only the changelog entry—no additional text or commentary outside of the changelog
+
+Example output structure:
+
+### Added
+- Adds brief description of the added feature ([#Issue-ID](Issue-URL))
+
+### Changed
+- Changes brief description of how something changed ([#Issue-ID](Issue-URL))
+- Improves brief description of how something improved ([#Issue-ID](Issue-URL))
+
+### Fixed
+- Fixes Issue Title or brief description if no title ([#Issue-ID](Issue-URL))
+
+\${instructions}
+
+Based on the provided commit messages and associated issues, create a set of markdown changelog entries following the instructions above. Do not include any explanatory text or metadata`;

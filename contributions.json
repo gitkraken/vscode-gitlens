@@ -6881,6 +6881,24 @@
 				]
 			}
 		},
+		"gitlens.views.generateChangelog": {
+			"label": "Generate Changelog",
+			"icon": "$(sparkle)",
+			"menus": {
+				"view/item/context": [
+					{
+						"when": "viewItem =~ /gitlens:compare:results:commits\\b/",
+						"group": "inline",
+						"order": 98
+					},
+					{
+						"when": "viewItem =~ /gitlens:compare:results:commits\\b/ && !listMultiSelection",
+						"group": "4_gitlens_actions",
+						"order": 2
+					}
+				]
+			}
+		},
 		"gitlens.views.graph.openInTab": {
 			"label": "Open in Editor",
 			"icon": "$(link-external)",

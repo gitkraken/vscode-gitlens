@@ -1,5 +1,5 @@
 import type { TextDocumentShowOptions } from 'vscode';
-import { Disposable, env, Uri, window, workspace } from 'vscode';
+import { Disposable, env, ProgressLocation, Uri, window, workspace } from 'vscode';
 import { getTempFile } from '@env/platform';
 import type { CreatePullRequestActionContext, OpenPullRequestActionContext } from '../api/gitlens';
 import type { DiffWithCommandArgs } from '../commands/diffWith';
@@ -53,6 +53,7 @@ import { filterMap } from '../system/array';
 import { log } from '../system/decorators/log';
 import { partial, runSequentially } from '../system/function';
 import { join, map } from '../system/iterable';
+import { lazy } from '../system/lazy';
 import { DeepLinkActionType } from '../uris/deepLinks/deepLink';
 import type { LaunchpadItemNode } from './launchpadView';
 import type { RepositoryFolderNode } from './nodes/abstract/repositoryFolderNode';
@@ -84,6 +85,7 @@ import type { PausedOperationStatusNode } from './nodes/pausedOperationStatusNod
 import type { PullRequestNode } from './nodes/pullRequestNode';
 import type { RemoteNode } from './nodes/remoteNode';
 import type { RepositoryNode } from './nodes/repositoryNode';
+import type { ResultsCommitsNode } from './nodes/resultsCommitsNode';
 import type { ResultsFileNode } from './nodes/resultsFileNode';
 import type { ResultsFilesNode } from './nodes/resultsFilesNode';
 import { FilesQueryFilter } from './nodes/resultsFilesNode';
@@ -449,6 +451,8 @@ export class ViewCommands implements Disposable {
 				n => this.setResultsFilesFilter(n, undefined),
 				this,
 			),
+
+			registerViewCommand('gitlens.views.generateChangelog', this.generateChangelog, this),
 		);
 	}
 
@@ -1748,6 +1752,21 @@ export class ViewCommands implements Disposable {
 			branch: node.ref,
 			source: 'view',
 		});
+	}
+
+	@log()
+	private async generateChangelog(node: ResultsCommitsNode) {
+		if (!node.is('results-commits')) return;
+
+		const changes = lazy(() => node.getChangesForChangelog());
+		const changelog = await (
+			await this.container.ai
+		)?.generateChangelog(changes, { source: 'view' }, { progress: { location: ProgressLocation.Notification } });
+		if (changelog == null) return;
+
+		// open an untitled editor
+		const document = await workspace.openTextDocument({ language: 'markdown', content: changelog });
+		await window.showTextDocument(document);
 	}
 }
 

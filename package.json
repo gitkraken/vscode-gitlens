@@ -3919,6 +3919,16 @@
 							"preview"
 						]
 					},
+					"gitlens.ai.generateChangelog.customInstructions": {
+						"type": "string",
+						"default": null,
+						"markdownDescription": "Specifies custom instructions to provide to the AI provider when generating a changelog from a set of changes",
+						"scope": "window",
+						"order": 110,
+						"tags": [
+							"preview"
+						]
+					},
 					"gitlens.ai.generateCommitMessage.customInstructions": {
 						"type": "string",
 						"default": null,
@@ -8170,6 +8180,11 @@
 				"title": "Show Merge Commits"
 			},
 			{
+				"command": "gitlens.views.generateChangelog",
+				"title": "Generate Changelog",
+				"icon": "$(sparkle)"
+			},
+			{
 				"command": "gitlens.views.graph.openInTab",
 				"title": "Open in Editor",
 				"icon": "$(link-external)"
@@ -11789,6 +11804,10 @@
 				},
 				{
 					"command": "gitlens.views.fileHistory.setShowMergeCommitsOn",
+					"when": "false"
+				},
+				{
+					"command": "gitlens.views.generateChangelog",
 					"when": "false"
 				},
 				{
@@ -15922,6 +15941,11 @@
 					"group": "2_gitlens_quickopen@2"
 				},
 				{
+					"command": "gitlens.views.generateChangelog",
+					"when": "viewItem =~ /gitlens:compare:results:commits\\b/",
+					"group": "inline@98"
+				},
+				{
 					"command": "gitlens.openComparisonOnRemote",
 					"when": "viewItem =~ /gitlens:compare:results:commits\\b/ && gitlens:repos:withRemotes",
 					"group": "inline@99",
@@ -15931,6 +15955,11 @@
 					"command": "gitlens.openComparisonOnRemote",
 					"when": "viewItem =~ /gitlens:compare:results:commits\\b/ && !listMultiSelection && gitlens:repos:withRemotes",
 					"group": "3_gitlens_explore@0"
+				},
+				{
+					"command": "gitlens.views.generateChangelog",
+					"when": "viewItem =~ /gitlens:compare:results:commits\\b/ && !listMultiSelection",
+					"group": "4_gitlens_actions@2"
 				},
 				{
 					"command": "gitlens.inviteToLiveShare",
