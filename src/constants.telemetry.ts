@@ -789,7 +789,9 @@ export interface SubscriptionPreviousEventData
 		Partial<Flatten<NonNullable<Subscription['previewTrial']>, 'previous.subscription.previewTrial', true>> {}
 
 export interface SubscriptionEventData extends Partial<SubscriptionCurrentEventData> {
+	/** Promo key (identifier) associated with the upgrade */
 	'subscription.promo.key'?: string;
+	/** Promo discount code associated with the upgrade */
 	'subscription.promo.code'?: string;
 	'subscription.state'?: SubscriptionState;
 	'subscription.stateString'?: SubscriptionStateString;

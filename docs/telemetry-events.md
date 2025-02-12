@@ -69,7 +69,9 @@
   'global.subscription.featurePreviews.graph.status': 'eligible' | 'active' | 'expired',
   'global.subscription.previewTrial.expiresOn': string,
   'global.subscription.previewTrial.startedOn': string,
+  // Promo discount code associated with the upgrade
   'global.subscription.promo.code': string,
+  // Promo key (identifier) associated with the upgrade
   'global.subscription.promo.key': string,
   'global.subscription.state': -1 | 0 | 1 | 2 | 3 | 4 | 5 | 6,
   'global.subscription.stateString': 'verification' | 'free' | 'preview' | 'preview-expired' | 'trial' | 'trial-expired' | 'trial-reactivation-eligible' | 'paid' | 'unknown',
@@ -1766,7 +1768,9 @@ void
   'subscription.featurePreviews.graph.status': 'eligible' | 'active' | 'expired',
   'subscription.previewTrial.expiresOn': string,
   'subscription.previewTrial.startedOn': string,
+  // Promo discount code associated with the upgrade
   'subscription.promo.code': string,
+  // Promo key (identifier) associated with the upgrade
   'subscription.promo.key': string,
   'subscription.state': -1 | 0 | 1 | 2 | 3 | 4 | 5 | 6,
   'subscription.stateString': 'verification' | 'free' | 'preview' | 'preview-expired' | 'trial' | 'trial-expired' | 'trial-reactivation-eligible' | 'paid' | 'unknown'
@@ -1871,7 +1875,9 @@ or
   'subscription.featurePreviews.graph.status': 'eligible' | 'active' | 'expired',
   'subscription.previewTrial.expiresOn': string,
   'subscription.previewTrial.startedOn': string,
+  // Promo discount code associated with the upgrade
   'subscription.promo.code': string,
+  // Promo key (identifier) associated with the upgrade
   'subscription.promo.key': string,
   'subscription.state': -1 | 0 | 1 | 2 | 3 | 4 | 5 | 6,
   'subscription.stateString': 'verification' | 'free' | 'preview' | 'preview-expired' | 'trial' | 'trial-expired' | 'trial-reactivation-eligible' | 'paid' | 'unknown'
