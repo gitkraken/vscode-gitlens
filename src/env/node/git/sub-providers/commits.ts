@@ -314,7 +314,7 @@ export class CommitsGitSubProvider implements GitCommitsSubProvider {
 			return log;
 		} catch (ex) {
 			Logger.error(ex, scope);
-			debugger;
+			//debugger;
 			return undefined;
 		}
 	}

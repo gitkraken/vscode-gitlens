@@ -1136,7 +1136,7 @@ export class CommitDetailsWebviewProvider
 
 			params = { result: result };
 		} catch (ex) {
-			debugger;
+			//debugger;
 			params = { error: { message: ex.message } };
 		}
 

@@ -77,6 +77,7 @@ export interface AIProvider<Provider extends AIProviders = AIProviders> extends 
 	getModels(): Promise<readonly AIModel<Provider>[]>;
 
 	explainChanges(
+		sha: string,
 		model: AIModel<Provider>,
 		message: string,
 		diff: string,
@@ -615,7 +616,7 @@ export class AIProviderService implements Disposable {
 			return undefined;
 		}
 
-		const promise = this._provider!.explainChanges(model, commit.message, diff.contents, payload, {
+		const promise = this._provider!.explainChanges(commitOrRevision.sha, model, commit.message, diff.contents, payload, {
 			cancellation: options?.cancellation,
 		});
 

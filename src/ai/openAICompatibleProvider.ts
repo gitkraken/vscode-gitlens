@@ -229,6 +229,7 @@ export abstract class OpenAICompatibleProvider<T extends AIProviders> implements
 	}
 
 	async explainChanges(
+		sha: string,
 		model: AIModel<T>,
 		message: string,
 		diff: string,
@@ -256,6 +257,7 @@ export abstract class OpenAICompatibleProvider<T extends AIProviders> implements
 
 					reporting['retry.count'] = retries;
 					reporting['input.length'] = (reporting['input.length'] ?? 0) + sum(messages, m => m.content.length);
+					messages[0].content = `${sha}:${messages[0].content}`;
 
 					return messages;
 				},
@@ -292,6 +294,12 @@ export abstract class OpenAICompatibleProvider<T extends AIProviders> implements
 				temperature: getValidatedTemperature(model.temperature),
 			};
 
+			const colonIndex = request.messages[0].content.indexOf(':');
+			const sha = request.messages[0].content.substring(0, colonIndex);
+			const message = request.messages[0].content.substring(colonIndex + 1);
+
+			request.messages[0].content = message;
+
 			const rsp = await this.fetchCore(model, apiKey, request, cancellation);
 			if (!rsp.ok) {
 				const result = await this.handleFetchFailure(rsp, model, retries, maxCodeCharacters);
@@ -303,6 +311,7 @@ export abstract class OpenAICompatibleProvider<T extends AIProviders> implements
 			}
 
 			const data: ChatCompletionResponse = await rsp.json();
+			console.log(`ANALYSIS,${sha},${message.length},${data.usage.prompt_tokens},${data.usage.completion_tokens},${data.usage.total_tokens}`);
 			const result = data.choices[0].message.content?.trim() ?? '';
 			return [result, maxCodeCharacters];
 		}
@@ -347,7 +356,8 @@ export abstract class OpenAICompatibleProvider<T extends AIProviders> implements
 			cancellation.onCancellationRequested(() => aborter?.abort());
 		}
 
-		const url = this.getUrl(model);
+		let url = this.getUrl(model);
+//		url = `https://generativelanguage.googleapis.com/v1beta/models/${model.id}:countTokens?key=${apiKey}`;
 		try {
 			return await fetch(url, {
 				headers: {

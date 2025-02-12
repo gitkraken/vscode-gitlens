@@ -311,6 +311,7 @@ export class VSCodeAIProvider implements AIProvider<typeof provider.id> {
 	}
 
 	async explainChanges(
+		sha: string,
 		model: VSCodeAIModel,
 		message: string,
 		diff: string,
