@@ -809,8 +809,11 @@ type SubscriptionActionEventData =
 	  }
 	| {
 			action: 'upgrade';
+			/** `true` if the user cancels the VS Code prompt to open the browser */
 			aborted: boolean;
+			/** Promo key (identifier) associated with the upgrade */
 			'promo.key'?: string;
+			/** Promo discount code associated with the upgrade */
 			'promo.code'?: string;
 	  }
 	| {
