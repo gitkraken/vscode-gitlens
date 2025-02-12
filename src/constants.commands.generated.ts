@@ -294,6 +294,7 @@ export type ContributedCommands =
 	| 'gitlens.views.fileHistory.setShowAvatarsOn'
 	| 'gitlens.views.fileHistory.setShowMergeCommitsOff'
 	| 'gitlens.views.fileHistory.setShowMergeCommitsOn'
+	| 'gitlens.views.generateChangelog'
 	| 'gitlens.views.graph.openInTab'
 	| 'gitlens.views.graph.refresh'
 	| 'gitlens.views.graphDetails.refresh'

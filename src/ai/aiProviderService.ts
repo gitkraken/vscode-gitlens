@@ -15,6 +15,7 @@ import { configuration } from '../system/-webview/configuration';
 import type { Storage } from '../system/-webview/storage';
 import { supportedInVSCodeVersion } from '../system/-webview/vscode';
 import { formatNumeric } from '../system/date';
+import type { Lazy } from '../system/lazy';
 import type { Deferred } from '../system/promise';
 import { getSettledValue } from '../system/promise';
 import { getPossessiveForm } from '../system/string';
@@ -31,6 +32,11 @@ import { xAIProvider } from './xaiProvider';
 export interface AIResult {
 	summary: string;
 	body: string;
+}
+
+export interface AIGenerateChangelogChange {
+	message: string;
+	issues: { id: string; url: string; title: string | undefined }[];
 }
 
 export interface AIModel<Provider extends AIProviders = AIProviders, Model extends string = string> {
@@ -94,6 +100,12 @@ export interface AIProvider<Provider extends AIProviders = AIProviders> extends 
 		diff: string,
 		reporting: TelemetryEvents['ai/generate'],
 		options?: { cancellation?: CancellationToken; context?: string; codeSuggestion?: boolean },
+	): Promise<string | undefined>;
+	generateChangelog(
+		model: AIModel<Provider>,
+		changes: AIGenerateChangelogChange[],
+		reporting: TelemetryEvents['ai/generate'],
+		options?: { cancellation?: CancellationToken },
 	): Promise<string | undefined>;
 }
 
@@ -231,7 +243,7 @@ export class AIProviderService implements Disposable {
 		const changes: string | undefined = await this.getChanges(changesOrRepo);
 		if (changes == null) return undefined;
 
-		const { confirmed, model } = await getModelAndConfirmAIProviderToS(this, this.container.storage);
+		const { confirmed, model } = await getModelAndConfirmAIProviderToS('diff', this, this.container.storage);
 		if (model == null) {
 			options?.generating?.cancel();
 			return undefined;
@@ -315,7 +327,7 @@ export class AIProviderService implements Disposable {
 		const changes: string | undefined = await this.getChanges(changesOrRepo);
 		if (changes == null) return undefined;
 
-		const { confirmed, model } = await getModelAndConfirmAIProviderToS(this, this.container.storage);
+		const { confirmed, model } = await getModelAndConfirmAIProviderToS('diff', this, this.container.storage);
 		if (model == null) {
 			options?.generating?.cancel();
 			return undefined;
@@ -400,7 +412,7 @@ export class AIProviderService implements Disposable {
 			return undefined;
 		}
 
-		const { confirmed, model } = await getModelAndConfirmAIProviderToS(this, this.container.storage);
+		const { confirmed, model } = await getModelAndConfirmAIProviderToS('diff', this, this.container.storage);
 		if (model == null) {
 			options?.generating?.cancel();
 			return undefined;
@@ -470,6 +482,73 @@ export class AIProviderService implements Disposable {
 		}
 	}
 
+	async generateChangelog(
+		changes: Lazy<Promise<AIGenerateChangelogChange[]>>,
+		sourceContext: { source: Sources },
+		options?: { cancellation?: CancellationToken; progress?: ProgressOptions },
+	): Promise<string | undefined> {
+		const { confirmed, model } = await getModelAndConfirmAIProviderToS('data', this, this.container.storage);
+		if (model == null) return undefined;
+
+		const payload: TelemetryEvents['ai/generate'] = {
+			type: 'changelog',
+			'model.id': model.id,
+			'model.provider.id': model.provider.id,
+			'model.provider.name': model.provider.name,
+			'retry.count': 0,
+		};
+		const source: Parameters<TelemetryService['sendEvent']>[2] = { source: sourceContext.source };
+
+		if (!confirmed) {
+			this.container.telemetry.sendEvent('ai/generate', { ...payload, 'failed.reason': 'user-declined' }, source);
+			return undefined;
+		}
+
+		if (options?.cancellation?.isCancellationRequested) {
+			this.container.telemetry.sendEvent(
+				'ai/generate',
+				{ ...payload, 'failed.reason': 'user-cancelled' },
+				source,
+			);
+			return undefined;
+		}
+
+		const promise = changes.value.then(changes =>
+			this._provider!.generateChangelog(model, changes, payload, {
+				cancellation: options?.cancellation,
+			}),
+		);
+
+		const start = Date.now();
+		try {
+			const result = await (options?.progress != null
+				? window.withProgress(
+						{ ...options.progress, title: `Generating changelog with ${model.name}...` },
+						() => promise,
+				  )
+				: promise);
+
+			payload['output.length'] = result?.length;
+			this.container.telemetry.sendEvent('ai/generate', { ...payload, duration: Date.now() - start }, source);
+
+			return result;
+		} catch (ex) {
+			this.container.telemetry.sendEvent(
+				'ai/generate',
+				{
+					...payload,
+					duration: Date.now() - start,
+					...(ex instanceof CancellationError
+						? { 'failed.reason': 'user-cancelled' }
+						: { 'failed.reason': 'error', 'failed.error': String(ex) }),
+				},
+				source,
+			);
+
+			throw ex;
+		}
+	}
+
 	private async getChanges(
 		changesOrRepo: string | string[] | Repository,
 		options?: { cancellation?: CancellationToken; context?: string; progress?: ProgressOptions },
@@ -501,7 +580,7 @@ export class AIProviderService implements Disposable {
 		const diff = await this.container.git.getDiff(commitOrRevision.repoPath, commitOrRevision.ref);
 		if (!diff?.contents) throw new Error('No changes found to explain.');
 
-		const { confirmed, model } = await getModelAndConfirmAIProviderToS(this, this.container.storage);
+		const { confirmed, model } = await getModelAndConfirmAIProviderToS('diff', this, this.container.storage);
 		if (model == null) return undefined;
 
 		const payload: TelemetryEvents['ai/explain'] = {
@@ -632,6 +711,7 @@ export class AIProviderService implements Disposable {
 }
 
 async function getModelAndConfirmAIProviderToS(
+	confirmationType: 'data' | 'diff',
 	service: AIProviderService,
 	storage: Storage,
 ): Promise<{ confirmed: boolean; model: AIModel | undefined }> {
@@ -651,7 +731,11 @@ async function getModelAndConfirmAIProviderToS(
 		const decline: MessageItem = { title: 'Cancel', isCloseAffordance: true };
 
 		const result = await window.showInformationMessage(
-			`GitLens AI features require sending a diff of the code changes to ${model.provider.name} for analysis. This may contain sensitive information.\n\nDo you want to continue?`,
+			`GitLens AI features require sending ${
+				confirmationType === 'data' ? 'data' : 'a diff of the code changes'
+			} to ${
+				model.provider.name
+			} for analysis. This may contain sensitive information.\n\nDo you want to continue?`,
 			{ modal: true },
 			accept,
 			switchModel,
@@ -791,6 +875,14 @@ function splitMessageIntoSummaryAndBody(message: string): AIResult {
 export function showDiffTruncationWarning(maxCodeCharacters: number, model: AIModel): void {
 	void window.showWarningMessage(
 		`The diff of the changes had to be truncated to ${formatNumeric(
+			maxCodeCharacters,
+		)} characters to fit within the ${getPossessiveForm(model.provider.name)} limits.`,
+	);
+}
+
+export function showPromptTruncationWarning(maxCodeCharacters: number, model: AIModel): void {
+	void window.showWarningMessage(
+		`The prompt had to be truncated to ${formatNumeric(
 			maxCodeCharacters,
 		)} characters to fit within the ${getPossessiveForm(model.provider.name)} limits.`,
 	);

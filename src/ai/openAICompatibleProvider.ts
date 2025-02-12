@@ -8,15 +8,17 @@ import { CancellationError } from '../errors';
 import { configuration } from '../system/-webview/configuration';
 import { sum } from '../system/iterable';
 import { interpolate } from '../system/string';
-import type { AIModel, AIProvider } from './aiProviderService';
+import type { AIGenerateChangelogChange, AIModel, AIProvider } from './aiProviderService';
 import {
 	getMaxCharacters,
 	getOrPromptApiKey,
 	getValidatedTemperature,
 	showDiffTruncationWarning,
+	showPromptTruncationWarning,
 } from './aiProviderService';
 import {
 	explainChangesUserPrompt,
+	generateChangelogUserPrompt,
 	generateCloudPatchMessageUserPrompt,
 	generateCodeSuggestMessageUserPrompt,
 	generateCommitMessageUserPrompt,
@@ -179,6 +181,51 @@ export abstract class OpenAICompatibleProvider<T extends AIProviders> implements
 			},
 			options,
 		);
+	}
+
+	async generateChangelog(
+		model: AIModel<T>,
+		changes: AIGenerateChangelogChange[],
+		reporting: TelemetryEvents['ai/generate'],
+		options?: { cancellation?: CancellationToken },
+	): Promise<string | undefined> {
+		const apiKey = await this.getApiKey();
+		if (apiKey == null) return undefined;
+
+		try {
+			const data = JSON.stringify(changes);
+
+			const [result, maxCodeCharacters] = await this.fetch(
+				model,
+				apiKey,
+				(max, retries): ChatMessage[] => {
+					const messages: ChatMessage[] = [
+						{
+							role: 'user',
+							content: interpolate(generateChangelogUserPrompt, {
+								data: data.substring(0, max),
+								instructions: configuration.get('ai.generateChangelog.customInstructions') ?? '',
+							}),
+						},
+					];
+
+					reporting['retry.count'] = retries;
+					reporting['input.length'] = (reporting['input.length'] ?? 0) + sum(messages, m => m.content.length);
+
+					return messages;
+				},
+				4096,
+				options?.cancellation,
+			);
+
+			if (data.length > maxCodeCharacters) {
+				showPromptTruncationWarning(maxCodeCharacters, model);
+			}
+
+			return result;
+		} catch (ex) {
+			throw new Error(`Unable to generate changelog: ${ex.message}`);
+		}
 	}
 
 	async explainChanges(

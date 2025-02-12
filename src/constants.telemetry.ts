@@ -331,7 +331,15 @@ export interface AIGenerateStashEventData extends AIEventDataBase {
 	type: 'stashMessage';
 }
 
-type AIGenerateEvent = AIGenerateCommitEventData | AIGenerateDraftEventData | AIGenerateStashEventData;
+export interface AIGenerateChangelogEventData extends AIEventDataBase {
+	type: 'changelog';
+}
+
+type AIGenerateEvent =
+	| AIGenerateCommitEventData
+	| AIGenerateDraftEventData
+	| AIGenerateStashEventData
+	| AIGenerateChangelogEventData;
 
 interface CloudIntegrationsConnectingEvent {
 	'integration.ids': string | undefined;
