@@ -30,6 +30,7 @@ export const supportedOrderedCloudIntegrationIds = [
 	HostingIntegrationId.GitLab,
 	SelfHostedIntegrationId.CloudGitLabSelfHosted,
 	HostingIntegrationId.AzureDevOps,
+	HostingIntegrationId.Bitbucket,
 	IssueIntegrationId.Jira,
 ];
 
@@ -83,6 +84,13 @@ export const supportedCloudIntegrationDescriptors: IntegrationDescriptor[] = [
 		icon: 'gl-provider-azdo',
 		supports: ['prs', 'issues'],
 		requiresPro: true,
+	},
+	{
+		id: HostingIntegrationId.Bitbucket,
+		name: 'Bitbucket',
+		icon: 'gl-provider-bitbucket',
+		supports: ['prs'],
+		requiresPro: false,
 	},
 	{
 		id: IssueIntegrationId.Jira,
