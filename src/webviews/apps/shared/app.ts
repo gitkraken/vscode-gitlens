@@ -1,4 +1,5 @@
 import { provide } from '@lit/context';
+import type { ReactiveControllerHost } from 'lit';
 import { html, LitElement } from 'lit';
 import { property } from 'lit/decorators.js';
 import type { CustomEditorIds, WebviewIds, WebviewViewIds } from '../../../constants.views';
@@ -13,6 +14,8 @@ import { promosContext, PromosContext } from './contexts/promos';
 import { telemetryContext, TelemetryContext } from './contexts/telemetry';
 import type { Disposable } from './events';
 import { HostIpc } from './ipc';
+
+export type ReactiveElementHost = ReactiveControllerHost & HTMLElement;
 
 export interface StateProvider<State> extends Disposable {
 	readonly state: State;
