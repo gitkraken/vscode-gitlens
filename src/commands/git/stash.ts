@@ -671,9 +671,11 @@ export class StashGitCommand extends QuickCommand<State> {
 							},
 						);
 
-						const result = await (
-							await this.container.ai
-						)?.generateStashMessage(diff.contents, { source: 'quick-wizard' }, { generating: generating });
+						const result = await this.container.ai.generateStashMessage(
+							diff.contents,
+							{ source: 'quick-wizard' },
+							{ generating: generating },
+						);
 
 						input.validationMessage = undefined;
 
