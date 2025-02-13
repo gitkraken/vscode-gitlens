@@ -1,6 +1,5 @@
-import type { CancellationToken, LanguageModelChat, LanguageModelChatSelector } from 'vscode';
-import { CancellationTokenSource, LanguageModelChatMessage, lm } from 'vscode';
-import type { VSCodeAIModels } from '../constants.ai';
+import type { CancellationToken, Disposable, Event, LanguageModelChat, LanguageModelChatSelector } from 'vscode';
+import { CancellationTokenSource, EventEmitter, LanguageModelChatMessage, lm } from 'vscode';
 import type { TelemetryEvents } from '../constants.telemetry';
 import type { Container } from '../container';
 import { configuration } from '../system/-webview/configuration';
@@ -26,10 +25,6 @@ const provider = { id: 'vscode', name: 'VS Code Provided' } as const;
 
 type VSCodeAIModel = AIModel<typeof provider.id> & { vendor: string; selector: LanguageModelChatSelector };
 
-export function isVSCodeAIModel(model: AIModel): model is AIModel<typeof provider.id, VSCodeAIModels> {
-	return model.provider.id === provider.id;
-}
-
 const accessJustification =
 	'GitLens leverages Copilot for AI-powered features to improve your workflow and development experience.';
 
@@ -41,9 +36,20 @@ export class VSCodeAIProvider implements AIProvider<typeof provider.id> {
 		return this._name ?? provider.name;
 	}
 
-	constructor(private readonly container: Container) {}
+	private _onDidChange = new EventEmitter<void>();
+	get onDidChange(): Event<void> {
+		return this._onDidChange.event;
+	}
 
-	dispose(): void {}
+	private readonly _disposable: Disposable;
+
+	constructor(private readonly container: Container) {
+		this._disposable = lm.onDidChangeChatModels(() => this._onDidChange.fire());
+	}
+
+	dispose(): void {
+		this._disposable.dispose();
+	}
 
 	async getModels(): Promise<readonly AIModel<typeof provider.id>[]> {
 		const models = await lm.selectChatModels();
