@@ -180,7 +180,7 @@ const subcommandToTitleMap = new Map<State['subcommand'] | undefined, string>([
 	['create', `Create Worktree`],
 	['delete', `Delete Worktrees`],
 	['open', `Open Worktree`],
-	['copy-changes', 'Copy Changes to'],
+	['copy-changes', 'Copy Changes to Worktree'],
 ]);
 function getTitle(subcommand: State['subcommand'] | undefined, suffix?: string) {
 	return `${subcommandToTitleMap.get(subcommand)}${suffix ?? ''}`;
@@ -1153,12 +1153,15 @@ export class WorktreeGitCommand extends QuickCommand<State> {
 				let placeholder;
 				switch (state.changes.type) {
 					case 'index':
+						context.title = state?.overrides?.title ?? 'Copy Staged Changes to Worktree';
 						placeholder = 'Choose a worktree to copy your staged changes to';
 						break;
 					case 'working-tree':
+						context.title = state?.overrides?.title ?? 'Copy Working Changes to Worktree';
 						placeholder = 'Choose a worktree to copy your working changes to';
 						break;
 					default:
+						context.title = state?.overrides?.title ?? 'Copy Changes to Worktree';
 						placeholder = 'Choose a worktree to copy changes to';
 						break;
 				}
@@ -1193,9 +1196,9 @@ export class WorktreeGitCommand extends QuickCommand<State> {
 			}
 
 			if (!isSha(state.changes.baseSha)) {
-				const commit = await state.repo.git.commits().getCommit(state.changes.baseSha);
-				if (commit != null) {
-					state.changes.baseSha = commit.sha;
+				const sha = await state.repo.git.resolveReference(state.changes.baseSha, undefined, { force: true });
+				if (sha != null) {
+					state.changes.baseSha = sha;
 				}
 			}
 
@@ -1207,7 +1210,7 @@ export class WorktreeGitCommand extends QuickCommand<State> {
 			endSteps(state);
 
 			try {
-				const patchProvider = this.container.git.patch(state.worktree.repoPath);
+				const patchProvider = this.container.git.patch(state.worktree.uri);
 				const commit = await patchProvider?.createUnreachableCommitForPatch(
 					state.changes.contents,
 					state.changes.baseSha,
