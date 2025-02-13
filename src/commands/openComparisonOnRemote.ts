@@ -19,7 +19,7 @@ export interface OpenComparisonOnRemoteCommandArgs {
 @command()
 export class OpenComparisonOnRemoteCommand extends GlCommandBase {
 	constructor(private readonly container: Container) {
-		super([GlCommand.OpenComparisonOnRemote, GlCommand.CopyRemoteComparisonUrl]);
+		super(['gitlens.openComparisonOnRemote', GlCommand.CopyRemoteComparisonUrl]);
 	}
 
 	protected override preExecute(context: CommandContext, args?: OpenComparisonOnRemoteCommandArgs): Promise<void> {

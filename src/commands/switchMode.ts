@@ -1,5 +1,4 @@
 import { ConfigurationTarget } from 'vscode';
-import { GlCommand } from '../constants.commands';
 import type { Container } from '../container';
 import { showModePicker } from '../quickpicks/modePicker';
 import { command } from '../system/-webview/command';
@@ -11,7 +10,7 @@ import { GlCommandBase } from './commandBase';
 @command()
 export class SwitchModeCommand extends GlCommandBase {
 	constructor(private readonly container: Container) {
-		super(GlCommand.SwitchMode);
+		super('gitlens.switchMode');
 	}
 
 	@log({ args: false, scoped: true, singleLine: true, timed: false })
@@ -45,7 +44,7 @@ export class SwitchModeCommand extends GlCommandBase {
 @command()
 export class ToggleReviewModeCommand extends GlCommandBase {
 	constructor(private readonly container: Container) {
-		super(GlCommand.ToggleReviewMode);
+		super('gitlens.toggleReviewMode');
 	}
 
 	@log({ args: false, singleLine: true, timed: false })
@@ -61,7 +60,7 @@ export class ToggleReviewModeCommand extends GlCommandBase {
 @command()
 export class ToggleZenModeCommand extends GlCommandBase {
 	constructor(private readonly container: Container) {
-		super(GlCommand.ToggleZenMode);
+		super('gitlens.toggleZenMode');
 	}
 
 	@log({ args: false, singleLine: true, timed: false })

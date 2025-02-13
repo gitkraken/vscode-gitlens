@@ -144,7 +144,6 @@ export type ContributedCommands =
 	| 'gitlens.openWorkingFileInDiffRight'
 	| 'gitlens.plus.cloudIntegrations.connect'
 	| 'gitlens.scm.generateCommitMessage'
-	| 'gitlens.showFileHistoryInView'
 	| 'gitlens.showFolderInTimeline'
 	| 'gitlens.showInCommitGraph'
 	| 'gitlens.showInCommitGraphView'

@@ -26,7 +26,7 @@ export interface DiffFolderWithRevisionCommandArgs {
 @command()
 export class DiffFolderWithRevisionCommand extends ActiveEditorCommand {
 	constructor(private readonly container: Container) {
-		super(GlCommand.DiffFolderWithRevision);
+		super('gitlens.diffFolderWithRevision');
 	}
 
 	async execute(editor?: TextEditor, uri?: Uri, args?: DiffFolderWithRevisionCommandArgs): Promise<any> {

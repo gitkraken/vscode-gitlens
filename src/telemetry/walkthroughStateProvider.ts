@@ -74,7 +74,7 @@ const walkthroughRequiredMapping: Readonly<Map<WalkthroughContextKeys, Walkthrou
 			usage: [
 				'launchpadView:shown',
 				'worktreesView:shown',
-				`command:${GlCommand.ShowLaunchpad}:executed`,
+				`command:${'gitlens.showLaunchpad' satisfies GlCommands}:executed`,
 				`command:${GlCommand.ShowLaunchpadView}:executed`,
 				`command:${GlCommand.GitCommandsWorktree}:executed`,
 				`command:${GlCommand.GitCommandsWorktreeCreate}:executed`,
@@ -95,7 +95,7 @@ const walkthroughRequiredMapping: Readonly<Map<WalkthroughContextKeys, Walkthrou
 				`command:${GlCommand.ShowDraftsView}:executed`,
 				`command:${GlCommand.ShowPatchDetailsPage}:executed`,
 				`command:${GlCommand.CreateCloudPatch}:executed`,
-				`command:${GlCommand.CreatePatch}:executed`,
+				`command:${'gitlens.createPatch' satisfies GlCommands}:executed`,
 			],
 		},
 	],

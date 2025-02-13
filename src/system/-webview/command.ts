@@ -4,7 +4,6 @@ import type { Action, ActionContext } from '../../api/gitlens';
 import type { GlCommandBase } from '../../commands/commandBase';
 import type { CodeLensCommand } from '../../config';
 import type {
-	Commands,
 	CoreCommands,
 	CoreGitCommands,
 	GlCommands,
@@ -26,7 +25,7 @@ export function command(): ClassDecorator {
 	};
 }
 
-export function registerCommand(command: Commands, callback: CommandCallback, thisArg?: any): Disposable {
+export function registerCommand(command: GlCommands, callback: CommandCallback, thisArg?: any): Disposable {
 	return commands.registerCommand(
 		command,
 		function (this: any, ...args) {
@@ -118,7 +117,7 @@ export function executeActionCommand<T extends ActionContext>(
 }
 
 export function createCommand<T extends unknown[]>(
-	command: Commands | CodeLensCommand,
+	command: GlCommands | CodeLensCommand,
 	title: string,
 	...args: T
 ): Command {
@@ -129,10 +128,10 @@ export function createCommand<T extends unknown[]>(
 	};
 }
 
-export function executeCommand<U = any>(command: Commands): Thenable<U>;
-export function executeCommand<T = unknown, U = any>(command: Commands, arg: T): Thenable<U>;
-export function executeCommand<T extends [...unknown[]] = [], U = any>(command: Commands, ...args: T): Thenable<U>;
-export function executeCommand<T extends [...unknown[]] = [], U = any>(command: Commands, ...args: T): Thenable<U> {
+export function executeCommand<U = any>(command: GlCommands): Thenable<U>;
+export function executeCommand<T = unknown, U = any>(command: GlCommands, arg: T): Thenable<U>;
+export function executeCommand<T extends [...unknown[]] = [], U = any>(command: GlCommands, ...args: T): Thenable<U>;
+export function executeCommand<T extends [...unknown[]] = [], U = any>(command: GlCommands, ...args: T): Thenable<U> {
 	return commands.executeCommand<U>(command, ...args);
 }
 

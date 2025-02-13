@@ -19,7 +19,6 @@ import type { DateStyle, FileAnnotationType, Mode } from './config';
 import { fromOutputLevel } from './config';
 import { extensionPrefix } from './constants';
 import type { GlCommands } from './constants.commands';
-import { GlCommand } from './constants.commands';
 import { EventBus } from './eventBus';
 import { GitFileSystemProvider } from './git/fsProvider';
 import { GitProviderService } from './git/gitProviderService';
@@ -727,13 +726,13 @@ export class Container {
 			let command: GlCommands | undefined;
 			switch (mode.annotations) {
 				case 'blame':
-					command = GlCommand.ToggleFileBlame;
+					command = 'gitlens.toggleFileBlame';
 					break;
 				case 'changes':
-					command = GlCommand.ToggleFileChanges;
+					command = 'gitlens.toggleFileChanges';
 					break;
 				case 'heatmap':
-					command = GlCommand.ToggleFileHeatmap;
+					command = 'gitlens.toggleFileHeatmap';
 					break;
 			}
 

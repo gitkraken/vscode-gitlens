@@ -1,5 +1,6 @@
 import type { GitTimelineItem, SourceControl, TextEditor } from 'vscode';
 import { Uri, window } from 'vscode';
+import type { GlCommands } from '../constants.commands';
 import type { StoredNamedRef } from '../constants.storage';
 import type { GitBranch } from '../git/models/branch';
 import { isBranch } from '../git/models/branch';
@@ -157,7 +158,7 @@ export interface CommandContextParsingOptions {
 }
 
 export function parseCommandContext(
-	command: string,
+	command: GlCommands,
 	options?: CommandContextParsingOptions,
 	...args: any[]
 ): [CommandContext | CommandContext[], any[]] {

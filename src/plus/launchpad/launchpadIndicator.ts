@@ -3,10 +3,9 @@ import { Disposable, MarkdownString, StatusBarAlignment, ThemeColor, window } fr
 import type { OpenWalkthroughCommandArgs } from '../../commands/walkthroughs';
 import { proBadge } from '../../constants';
 import type { Colors } from '../../constants.colors';
-import { GlCommand } from '../../constants.commands';
 import type { HostingIntegrationId } from '../../constants.integrations';
 import type { Container } from '../../container';
-import { executeCommand, registerCommand } from '../../system/-webview/command';
+import { createCommand, executeCommand, registerCommand } from '../../system/-webview/command';
 import { configuration } from '../../system/-webview/configuration';
 import { once } from '../../system/event';
 import { groupByMap } from '../../system/iterable';
@@ -303,16 +302,14 @@ export class LaunchpadIndicator implements Disposable {
 
 	private updateStatusBarCommand() {
 		const labelType = configuration.get('launchpad.indicator.label') ?? 'item';
-		this._statusBarLaunchpad.command = {
-			title: 'Open Launchpad',
-			command: GlCommand.ShowLaunchpad,
-			arguments: [
-				{
-					source: 'launchpad-indicator',
-					state: { selectTopItem: labelType === 'item' },
-				} satisfies Omit<LaunchpadCommandArgs, 'command'>,
-			],
-		};
+		this._statusBarLaunchpad.command = createCommand<[Omit<LaunchpadCommandArgs, 'command'>]>(
+			'gitlens.showLaunchpad',
+			'Open Launchpad',
+			{
+				source: 'launchpad-indicator',
+				state: { selectTopItem: labelType === 'item' },
+			} satisfies Omit<LaunchpadCommandArgs, 'command'>,
+		);
 	}
 
 	private updateStatusBarWithItems(tooltip: MarkdownString, categorizedItems: LaunchpadItem[] | undefined) {

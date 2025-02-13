@@ -25,7 +25,11 @@ export interface OpenBranchOnRemoteCommandArgs {
 @command()
 export class OpenBranchOnRemoteCommand extends ActiveEditorCommand {
 	constructor(private readonly container: Container) {
-		super([GlCommand.OpenBranchOnRemote, GlCommand.Deprecated_OpenBranchInRemote, GlCommand.CopyRemoteBranchUrl]);
+		super([
+			GlCommand.OpenBranchOnRemote,
+			/** @deprecated */ 'gitlens.openBranchInRemote',
+			GlCommand.CopyRemoteBranchUrl,
+		]);
 	}
 
 	protected override preExecute(context: CommandContext, args?: OpenBranchOnRemoteCommandArgs): Promise<void> {

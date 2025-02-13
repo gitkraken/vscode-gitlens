@@ -153,9 +153,9 @@ export class ShowQuickCommitFileCommand extends ActiveEditorCachedCommand {
 export class ShowQuickCommitRevisionCommand extends ActiveEditorCachedCommand {
 	constructor(private readonly container: Container) {
 		super([
-			GlCommand.ShowQuickCommitRevision,
-			GlCommand.ShowQuickCommitRevisionInDiffLeft,
-			GlCommand.ShowQuickCommitRevisionInDiffRight,
+			'gitlens.showQuickRevisionDetails',
+			'gitlens.showQuickRevisionDetailsInDiffLeft',
+			'gitlens.showQuickRevisionDetailsInDiffRight',
 		]);
 	}
 

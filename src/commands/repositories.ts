@@ -1,4 +1,3 @@
-import { GlCommand } from '../constants.commands';
 import type { Container } from '../container';
 import { executeGitCommand } from '../git/actions';
 import { command } from '../system/-webview/command';
@@ -7,7 +6,7 @@ import { GlCommandBase } from './commandBase';
 @command()
 export class FetchRepositoriesCommand extends GlCommandBase {
 	constructor(private readonly container: Container) {
-		super(GlCommand.FetchRepositories);
+		super('gitlens.fetchRepositories');
 	}
 
 	async execute(): Promise<void> {
@@ -21,7 +20,7 @@ export class FetchRepositoriesCommand extends GlCommandBase {
 @command()
 export class PullRepositoriesCommand extends GlCommandBase {
 	constructor(private readonly container: Container) {
-		super(GlCommand.PullRepositories);
+		super('gitlens.pullRepositories');
 	}
 
 	async execute(): Promise<void> {
@@ -35,7 +34,7 @@ export class PullRepositoriesCommand extends GlCommandBase {
 @command()
 export class PushRepositoriesCommand extends GlCommandBase {
 	constructor(private readonly container: Container) {
-		super(GlCommand.PushRepositories);
+		super('gitlens.pushRepositories');
 	}
 
 	async execute(): Promise<void> {

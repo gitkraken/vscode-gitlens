@@ -121,14 +121,14 @@ export function registerGraphWebviewCommands<T>(
 				void executeCommand(GlCommand.ShowGraphView);
 			});
 		}),
-		registerCommand(GlCommand.ToggleGraph, (...args: any[]) => {
+		registerCommand('gitlens.toggleGraph', (...args: any[]) => {
 			if (getContext('gitlens:webviewView:graph:visible')) {
 				void executeCoreCommand('workbench.action.closePanel');
 			} else {
 				void executeCommand(GlCommand.ShowGraphView, ...args);
 			}
 		}),
-		registerCommand(GlCommand.ToggleMaximizedGraph, (...args: any[]) => {
+		registerCommand('gitlens.toggleMaximizedGraph', (...args: any[]) => {
 			if (getContext('gitlens:webviewView:graph:visible')) {
 				void executeCoreCommand('workbench.action.toggleMaximizedPanel');
 			} else {

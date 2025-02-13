@@ -4,7 +4,7 @@ import type { GitWizardCommandArgs } from '../commands/gitWizard';
 import type { InspectCommandArgs } from '../commands/inspect';
 import type { ShowQuickBranchHistoryCommandArgs } from '../commands/showQuickBranchHistory';
 import type { ShowQuickCommitCommandArgs } from '../commands/showQuickCommit';
-import type { Commands } from '../constants.commands';
+import type { GlCommands } from '../constants.commands';
 import { GlCommand } from '../constants.commands';
 import type { Container } from '../container';
 import type { PagedResult } from '../git/gitProvider';
@@ -24,7 +24,7 @@ const shaRegex = /^[0-9a-f]{7,40}$/;
 
 interface GitTerminalLink<T = object> extends TerminalLink {
 	command: {
-		command: Commands;
+		command: GlCommands;
 		args: T;
 	};
 }

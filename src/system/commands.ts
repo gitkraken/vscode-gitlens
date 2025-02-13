@@ -1,12 +1,12 @@
-import type { Commands } from '../constants.commands';
+import type { GlCommands } from '../constants.commands';
 
-export function createCommandLink<T>(command: Commands, args?: T): string {
+export function createCommandLink<T>(command: GlCommands, args?: T): string {
 	if (args == null) return `command:${command}`;
 
 	return `command:${command}?${encodeURIComponent(typeof args === 'string' ? args : JSON.stringify(args))}`;
 }
 
-export function createMarkdownCommandLink<T>(command: Commands, args: T): string {
+export function createMarkdownCommandLink<T>(command: GlCommands, args: T): string {
 	if (args == null) return `command:${command}`;
 
 	// Since we are using the command in a markdown link, we need to escape ()'s so they don't get interpreted as markdown

@@ -7220,10 +7220,6 @@
 				"category": "GitLens"
 			},
 			{
-				"command": "gitlens.showFileHistoryInView",
-				"title": "Open File History"
-			},
-			{
 				"command": "gitlens.showFileHistoryView",
 				"title": "Show File History View",
 				"category": "GitLens"
@@ -11037,10 +11033,6 @@
 				{
 					"command": "gitlens.showDraftsView",
 					"when": "gitlens:enabled && gitlens:gk:organization:drafts:enabled"
-				},
-				{
-					"command": "gitlens.showFileHistoryInView",
-					"when": "false"
 				},
 				{
 					"command": "gitlens.showFileHistoryView",

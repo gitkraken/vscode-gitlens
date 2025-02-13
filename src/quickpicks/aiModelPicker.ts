@@ -2,7 +2,6 @@ import type { Disposable, QuickInputButton, QuickPickItem } from 'vscode';
 import { QuickPickItemKind, ThemeIcon, window } from 'vscode';
 import type { AIModel } from '../ai/aiProviderService';
 import type { AIProviders } from '../constants.ai';
-import { GlCommand } from '../constants.commands';
 import type { Container } from '../container';
 import { executeCommand } from '../system/-webview/command';
 import { getQuickPickIgnoreFocusOut } from '../system/-webview/vscode';
@@ -60,7 +59,7 @@ export async function showAIModelPicker(
 				}),
 				quickpick.onDidTriggerButton(e => {
 					if (e === ResetAIKeyButton) {
-						void executeCommand(GlCommand.ResetAIKey);
+						void executeCommand('gitlens.resetAIKey');
 					}
 				}),
 			);

@@ -15,7 +15,7 @@ import type { OpenOnRemoteCommandArgs } from './openOnRemote';
 @command()
 export class OpenCurrentBranchOnRemoteCommand extends ActiveEditorCommand {
 	constructor(private readonly container: Container) {
-		super(GlCommand.OpenCurrentBranchOnRemote);
+		super('gitlens.openCurrentBranchOnRemote');
 	}
 
 	async execute(editor?: TextEditor, uri?: Uri): Promise<void> {

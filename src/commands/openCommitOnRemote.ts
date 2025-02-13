@@ -36,7 +36,11 @@ export class OpenCommitOnRemoteCommand extends ActiveEditorCommand {
 	}
 
 	constructor(private readonly container: Container) {
-		super([GlCommand.OpenCommitOnRemote, GlCommand.Deprecated_OpenCommitInRemote, GlCommand.CopyRemoteCommitUrl]);
+		super([
+			GlCommand.OpenCommitOnRemote,
+			/** @deprecated */ 'gitlens.openCommitInRemote',
+			GlCommand.CopyRemoteCommitUrl,
+		]);
 	}
 
 	protected override preExecute(context: CommandContext, args?: OpenCommitOnRemoteCommandArgs): Promise<void> {

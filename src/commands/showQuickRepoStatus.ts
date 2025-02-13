@@ -1,4 +1,3 @@
-import { GlCommand } from '../constants.commands';
 import type { Container } from '../container';
 import { executeGitCommand } from '../git/actions';
 import { command } from '../system/-webview/command';
@@ -11,7 +10,7 @@ export interface ShowQuickRepoStatusCommandArgs {
 @command()
 export class ShowQuickRepoStatusCommand extends GlCommandBase {
 	constructor(private readonly container: Container) {
-		super(GlCommand.ShowQuickRepoStatus);
+		super('gitlens.showQuickRepoStatus');
 	}
 
 	async execute(args?: ShowQuickRepoStatusCommandArgs): Promise<void> {

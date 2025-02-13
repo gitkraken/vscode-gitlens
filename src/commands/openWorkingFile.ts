@@ -1,7 +1,6 @@
 import type { TextDocumentShowOptions, TextEditor, Uri } from 'vscode';
 import { Range, window } from 'vscode';
 import type { FileAnnotationType } from '../config';
-import { GlCommand } from '../constants.commands';
 import type { Container } from '../container';
 import { GitUri, isGitUri } from '../git/gitUri';
 import { showGenericErrorMessage } from '../messages';
@@ -21,7 +20,7 @@ export interface OpenWorkingFileCommandArgs {
 @command()
 export class OpenWorkingFileCommand extends ActiveEditorCommand {
 	constructor(private readonly container: Container) {
-		super([GlCommand.OpenWorkingFile, GlCommand.OpenWorkingFileInDiffLeft, GlCommand.OpenWorkingFileInDiffRight]);
+		super(['gitlens.openWorkingFile', 'gitlens.openWorkingFileInDiffLeft', 'gitlens.openWorkingFileInDiffRight']);
 	}
 
 	async execute(editor: TextEditor, uri?: Uri, args?: OpenWorkingFileCommandArgs): Promise<void> {

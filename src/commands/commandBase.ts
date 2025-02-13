@@ -36,7 +36,7 @@ export abstract class GlCommandBase implements Disposable {
 
 	abstract execute(...args: any[]): any;
 
-	protected _execute(command: string, ...args: any[]): Promise<unknown> {
+	protected _execute(command: GlCommands, ...args: any[]): Promise<unknown> {
 		const [context, rest] = parseCommandContext(command, { ...this.contextParsingOptions }, ...args);
 
 		// If there an array of contexts, then we want to execute the command for each
@@ -60,7 +60,7 @@ export abstract class ActiveEditorCommand extends GlCommandBase {
 		return this.execute(context.editor, context.uri, ...args);
 	}
 
-	protected override _execute(command: string, ...args: any[]): any {
+	protected override _execute(command: GlCommands, ...args: any[]): any {
 		return super._execute(command, undefined, ...args);
 	}
 
@@ -73,7 +73,7 @@ export function getLastCommand(): { command: string; args: any[] } | undefined {
 }
 
 export abstract class ActiveEditorCachedCommand extends ActiveEditorCommand {
-	protected override _execute(command: string, ...args: any[]): any {
+	protected override _execute(command: GlCommands, ...args: any[]): any {
 		lastCommand = {
 			command: command,
 			args: args,

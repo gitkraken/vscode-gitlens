@@ -1,6 +1,5 @@
 import type { Uri } from 'vscode';
 import { TabInputCustom, TabInputNotebook, TabInputNotebookDiff, TabInputText, TabInputTextDiff, window } from 'vscode';
-import { GlCommand } from '../constants.commands';
 import type { Container } from '../container';
 import { showGenericErrorMessage } from '../messages';
 import { getRepositoryOrShowPicker } from '../quickpicks/repositoryPicker';
@@ -16,7 +15,7 @@ export interface CloseUnchangedFilesCommandArgs {
 @command()
 export class CloseUnchangedFilesCommand extends GlCommandBase {
 	constructor(private readonly container: Container) {
-		super(GlCommand.CloseUnchangedFiles);
+		super('gitlens.closeUnchangedFiles');
 	}
 
 	async execute(args?: CloseUnchangedFilesCommandArgs): Promise<void> {

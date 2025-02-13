@@ -1,5 +1,4 @@
 import { commands } from 'vscode';
-import { GlCommand } from '../constants.commands';
 import type { Container } from '../container';
 import { showGenericErrorMessage } from '../messages';
 import { command } from '../system/-webview/command';
@@ -9,7 +8,7 @@ import { getLastCommand, GlCommandBase } from './commandBase';
 @command()
 export class ShowLastQuickPickCommand extends GlCommandBase {
 	constructor(private readonly container: Container) {
-		super(GlCommand.ShowLastQuickPick);
+		super('gitlens.showLastQuickPick');
 	}
 
 	execute(): Thenable<unknown> {

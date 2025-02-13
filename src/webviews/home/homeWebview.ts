@@ -493,7 +493,7 @@ export class HomeWebviewProvider implements WebviewProvider<State, State, HomeWe
 
 	private startWork() {
 		this.container.telemetry.sendEvent('home/startWork');
-		void executeCommand<StartWorkCommandArgs>(GlCommand.StartWork, {
+		void executeCommand<StartWorkCommandArgs>('gitlens.startWork', {
 			command: 'startWork',
 			source: 'home',
 		});

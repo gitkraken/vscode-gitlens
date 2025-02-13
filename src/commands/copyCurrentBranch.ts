@@ -1,6 +1,5 @@
 import type { TextEditor, Uri } from 'vscode';
 import { env } from 'vscode';
-import { GlCommand } from '../constants.commands';
 import type { Container } from '../container';
 import { GitUri } from '../git/gitUri';
 import { showGenericErrorMessage } from '../messages';
@@ -13,7 +12,7 @@ import { getCommandUri } from './commandBase.utils';
 @command()
 export class CopyCurrentBranchCommand extends ActiveEditorCommand {
 	constructor(private readonly container: Container) {
-		super(GlCommand.CopyCurrentBranch);
+		super('gitlens.copyCurrentBranch');
 	}
 
 	async execute(editor?: TextEditor, uri?: Uri): Promise<void> {

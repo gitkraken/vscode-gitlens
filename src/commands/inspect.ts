@@ -36,7 +36,7 @@ export class InspectCommand extends ActiveEditorCommand {
 	}
 
 	constructor(private readonly container: Container) {
-		super([GlCommand.ShowCommitInView, GlCommand.ShowInDetailsView, GlCommand.ShowLineCommitInView]);
+		super([GlCommand.ShowCommitInView, GlCommand.ShowInDetailsView, 'gitlens.showLineCommitInView']);
 	}
 
 	protected override preExecute(context: CommandContext, args?: InspectCommandArgs): Promise<void> {

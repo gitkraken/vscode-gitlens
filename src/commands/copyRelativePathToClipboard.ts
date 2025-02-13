@@ -1,6 +1,5 @@
 import type { TextEditor, Uri } from 'vscode';
 import { env } from 'vscode';
-import { GlCommand } from '../constants.commands';
 import type { Container } from '../container';
 import { command } from '../system/-webview/command';
 import { ActiveEditorCommand } from './commandBase';
@@ -11,7 +10,7 @@ import { isCommandContextViewNodeHasFileCommit } from './commandContext.utils';
 @command()
 export class CopyRelativePathToClipboardCommand extends ActiveEditorCommand {
 	constructor(private readonly container: Container) {
-		super(GlCommand.CopyRelativePathToClipboard);
+		super('gitlens.copyRelativePathToClipboard');
 	}
 
 	protected override preExecute(context: CommandContext): Promise<void> {

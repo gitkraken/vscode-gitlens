@@ -12,7 +12,7 @@ import type { OpenPullRequestOnRemoteCommandArgs } from './openPullRequestOnRemo
 @command()
 export class OpenAssociatedPullRequestOnRemoteCommand extends ActiveEditorCommand {
 	constructor(private readonly container: Container) {
-		super(GlCommand.OpenAssociatedPullRequestOnRemote);
+		super('gitlens.openAssociatedPullRequestOnRemote');
 	}
 
 	async execute(editor?: TextEditor, uri?: Uri): Promise<void> {

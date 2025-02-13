@@ -1,6 +1,5 @@
 import { Disposable, Uri, window } from 'vscode';
 import { proBadge } from '../../../constants';
-import { GlCommand } from '../../../constants.commands';
 import type { TimelineShownTelemetryContext, TimelineTelemetryContext } from '../../../constants.telemetry';
 import type { Container } from '../../../container';
 import type { CommitSelectedEvent, FileSelectedEvent } from '../../../eventBus';
@@ -170,7 +169,7 @@ export class TimelineWebviewProvider implements WebviewProvider<State, State, Ti
 					() => {
 						if (this._context.uri == null) return;
 
-						void executeCommand(GlCommand.ShowFileInTimeline, this._context.uri);
+						void executeCommand('gitlens.showFileInTimeline', this._context.uri);
 						this.container.telemetry.sendEvent('timeline/action/openInEditor', this.getTelemetryContext());
 					},
 					this,

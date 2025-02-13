@@ -31,9 +31,9 @@ export class ShowQuickFileHistoryCommand extends ActiveEditorCachedCommand {
 		super([
 			GlCommand.OpenFileHistory,
 			GlCommand.OpenFolderHistory,
-			GlCommand.ShowQuickFileHistory,
-			GlCommand.QuickOpenFileHistory,
-			GlCommand.Deprecated_ShowFileHistoryInView,
+			'gitlens.showQuickFileHistory',
+			'gitlens.quickOpenFileHistory',
+			/** @deprecated */ 'gitlens.showFileHistoryInView',
 		]);
 	}
 
@@ -41,7 +41,7 @@ export class ShowQuickFileHistoryCommand extends ActiveEditorCachedCommand {
 		let uri = context.uri;
 		if (
 			context.command === GlCommand.OpenFileHistory ||
-			context.command === GlCommand.Deprecated_ShowFileHistoryInView
+			context.command === /** @deprecated */ 'gitlens.showFileHistoryInView'
 		) {
 			args = { ...args };
 			args.showInSideBar = true;

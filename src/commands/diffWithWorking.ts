@@ -25,7 +25,7 @@ export interface DiffWithWorkingCommandArgs {
 @command()
 export class DiffWithWorkingCommand extends ActiveEditorCommand {
 	constructor(private readonly container: Container) {
-		super([GlCommand.DiffWithWorking, GlCommand.DiffWithWorkingInDiffLeft, GlCommand.DiffWithWorkingInDiffRight]);
+		super(['gitlens.diffWithWorking', 'gitlens.diffWithWorkingInDiffLeft', 'gitlens.diffWithWorkingInDiffRight']);
 	}
 
 	async execute(editor?: TextEditor, uri?: Uri, args?: DiffWithWorkingCommandArgs): Promise<any> {

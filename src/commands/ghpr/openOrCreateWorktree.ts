@@ -1,6 +1,5 @@
 import type { Uri } from 'vscode';
 import { window } from 'vscode';
-import { GlCommand } from '../../constants.commands';
 import type { Container } from '../../container';
 import { create as createWorktree, open as openWorktree } from '../../git/actions/worktree';
 import type { GitBranchReference } from '../../git/models/reference';
@@ -47,7 +46,7 @@ export interface GHPRPullRequest {
 @command()
 export class OpenOrCreateWorktreeCommand extends GlCommandBase {
 	constructor(private readonly container: Container) {
-		super(GlCommand.OpenOrCreateWorktreeForGHPR);
+		super('gitlens.ghpr.views.openOrCreateWorktree');
 	}
 
 	async execute(...args: [GHPRPullRequestNode | GHPRPullRequest, ...unknown[]]): Promise<void> {
