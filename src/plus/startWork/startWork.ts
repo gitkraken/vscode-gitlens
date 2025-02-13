@@ -2,6 +2,7 @@ import slug from 'slug';
 import type { QuickInputButton, QuickPick, QuickPickItem } from 'vscode';
 import { Uri } from 'vscode';
 import { md5 } from '@env/crypto';
+import type { ManageCloudIntegrationsCommandArgs } from '../../commands/cloudIntegrations';
 import type {
 	AsyncStepResultGenerator,
 	PartialStepState,
@@ -26,7 +27,6 @@ import {
 } from '../../commands/quickCommand.buttons';
 import { getSteps } from '../../commands/quickWizard.utils';
 import { proBadge } from '../../constants';
-import { GlCommand } from '../../constants.commands';
 import type { IntegrationId } from '../../constants.integrations';
 import { HostingIntegrationId, IssueIntegrationId, SelfHostedIntegrationId } from '../../constants.integrations';
 import type { Source, Sources, StartWorkTelemetryContext, TelemetryEvents } from '../../constants.telemetry';
@@ -514,7 +514,9 @@ export abstract class StartWorkBaseCommand extends QuickCommand<State> {
 			return StepResultBreak;
 		} else if (isManageIntegrationsItem(element)) {
 			this.sendActionTelemetry('manage', context);
-			executeCommand(GlCommand.PlusManageCloudIntegrations, { source: this.overrides?.ownSource ?? 'startWork' });
+			executeCommand<ManageCloudIntegrationsCommandArgs>('gitlens.plus.cloudIntegrations.manage', {
+				source: { source: this.overrides?.ownSource ?? 'startWork' },
+			});
 			endSteps(state);
 			return StepResultBreak;
 		}

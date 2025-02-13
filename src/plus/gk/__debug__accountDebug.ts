@@ -1,6 +1,5 @@
 import type { Disposable } from 'vscode';
 import { ThemeIcon, window } from 'vscode';
-import { GlCommand } from '../../constants.commands';
 import {
 	proFeaturePreviewUsages,
 	proTrialLengthInDays,
@@ -77,7 +76,7 @@ class AccountDebug {
 		private readonly service: SubscriptionServiceFacade,
 	) {
 		this.container.context.subscriptions.push(
-			registerCommand(GlCommand.PlusSimulateSubscription, () => this.showSimulator()),
+			registerCommand('gitlens.plus.simulateSubscription', () => this.showSimulator()),
 		);
 	}
 

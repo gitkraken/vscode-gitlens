@@ -199,7 +199,7 @@ export class GLIntegrationsChip extends LitElement {
 						<gl-button
 							appearance="toolbar"
 							href="${createCommandLink<ManageCloudIntegrationsCommandArgs>('gitlens.plus.cloudIntegrations.manage', {
-								source: 'home',
+								source: { source: 'home' },
 							})}"
 							tooltip="Manage Integrations"
 							aria-label="Manage Integrations"
@@ -220,7 +220,7 @@ export class GLIntegrationsChip extends LitElement {
 											'gitlens.plus.cloudIntegrations.connect',
 											{
 												integrationIds: this.integrations.map(i => i.id),
-												source: 'home',
+												source: { source: 'home', detail: 'integrations' },
 											},
 										)}"
 										>Connect Integrations</gl-button
@@ -270,7 +270,7 @@ export class GLIntegrationsChip extends LitElement {
 					${showProBadge
 						? html` <gl-feature-badge
 								placement="right"
-								.source=${{ source: 'account', detail: 'integrations' }}
+								.source=${{ source: 'account', detail: 'integrations' } as const}
 								cloud
 						  ></gl-feature-badge>`
 						: nothing}
@@ -301,7 +301,7 @@ export class GLIntegrationsChip extends LitElement {
 									'gitlens.plus.cloudIntegrations.connect',
 									{
 										integrationIds: [integration.id],
-										source: 'account',
+										source: { source: 'account', detail: 'integrations' },
 									},
 								)}"
 								tooltip="Connect ${integration.name}"

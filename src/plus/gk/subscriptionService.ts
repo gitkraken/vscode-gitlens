@@ -23,7 +23,7 @@ import { getPlatform } from '@env/platform';
 import type { OpenWalkthroughCommandArgs } from '../../commands/walkthroughs';
 import { urls } from '../../constants';
 import type { CoreColors } from '../../constants.colors';
-import { GlCommand } from '../../constants.commands';
+import type { GlCommands } from '../../constants.commands';
 import type { StoredFeaturePreviewUsagePeriod } from '../../constants.storage';
 import {
 	proFeaturePreviewUsageDurationInDays,
@@ -51,6 +51,7 @@ import { executeCommand, registerCommand } from '../../system/-webview/command';
 import { configuration } from '../../system/-webview/configuration';
 import { setContext } from '../../system/-webview/context';
 import { openUrl } from '../../system/-webview/vscode';
+import { createCommandLink } from '../../system/commands';
 import { createFromDateDelta, fromNow } from '../../system/date';
 import { gate } from '../../system/decorators/-webview/gate';
 import { debug, log } from '../../system/decorators/log';
@@ -339,24 +340,24 @@ export class SubscriptionService implements Disposable {
 
 	private registerCommands(): Disposable[] {
 		return [
-			registerCommand(GlCommand.PlusLogin, (src?: Source) => this.loginOrSignUp(false, src)),
-			registerCommand(GlCommand.PlusSignUp, (src?: Source) => this.loginOrSignUp(true, src)),
-			registerCommand(GlCommand.PlusLogout, (src?: Source) => this.logout(src)),
-			registerCommand(GlCommand.GKSwitchOrganization, (src?: Source) => this.switchOrganization(src)),
+			registerCommand('gitlens.plus.login', (src?: Source) => this.loginOrSignUp(false, src)),
+			registerCommand('gitlens.plus.signUp', (src?: Source) => this.loginOrSignUp(true, src)),
+			registerCommand('gitlens.plus.logout', (src?: Source) => this.logout(src)),
+			registerCommand('gitlens.gk.switchOrganization', (src?: Source) => this.switchOrganization(src)),
 
-			registerCommand(GlCommand.PlusManage, (src?: Source) => this.manage(src)),
-			registerCommand(GlCommand.PlusShowPlans, (src?: Source) => this.showPlans(src)),
-			registerCommand(GlCommand.PlusStartPreviewTrial, (src?: Source) => this.startPreviewTrial(src)),
-			registerCommand(GlCommand.PlusReactivateProTrial, (src?: Source) => this.reactivateProTrial(src)),
-			registerCommand(GlCommand.PlusResendVerification, (src?: Source) => this.resendVerification(src)),
-			registerCommand(GlCommand.PlusUpgrade, (src?: Source) => this.upgrade(src)),
+			registerCommand('gitlens.plus.manage', (src?: Source) => this.manage(src)),
+			registerCommand('gitlens.plus.showPlans', (src?: Source) => this.showPlans(src)),
+			registerCommand('gitlens.plus.startPreviewTrial', (src?: Source) => this.startPreviewTrial(src)),
+			registerCommand('gitlens.plus.reactivateProTrial', (src?: Source) => this.reactivateProTrial(src)),
+			registerCommand('gitlens.plus.resendVerification', (src?: Source) => this.resendVerification(src)),
+			registerCommand('gitlens.plus.upgrade', (src?: Source) => this.upgrade(src)),
 
-			registerCommand(GlCommand.PlusHide, (src?: Source) => this.setProFeaturesVisibility(false, src)),
-			registerCommand(GlCommand.PlusRestore, (src?: Source) => this.setProFeaturesVisibility(true, src)),
+			registerCommand('gitlens.plus.hide', (src?: Source) => this.setProFeaturesVisibility(false, src)),
+			registerCommand('gitlens.plus.restore', (src?: Source) => this.setProFeaturesVisibility(true, src)),
 
-			registerCommand(GlCommand.PlusValidate, (src?: Source) => this.validate({ force: true }, src)),
+			registerCommand('gitlens.plus.validate', (src?: Source) => this.validate({ force: true }, src)),
 
-			registerCommand(GlCommand.PlusContinueFeaturePreview, ({ feature }: { feature: FeaturePreviews }) =>
+			registerCommand('gitlens.plus.continueFeaturePreview', ({ feature }: { feature: FeaturePreviews }) =>
 				this.continueFeaturePreview(feature),
 			),
 		];
@@ -797,7 +798,7 @@ export class SubscriptionService implements Disposable {
 		if (silent && !configuration.get('plusFeatures.enabled', undefined, true)) return;
 
 		if (!this.container.views.home.visible) {
-			await executeCommand(GlCommand.ShowAccountView);
+			await executeCommand('gitlens.showAccountView');
 		}
 	}
 
@@ -855,7 +856,10 @@ export class SubscriptionService implements Disposable {
 			const result = await window.showInformationMessage(
 				`You can now preview local Pro features for ${
 					days < 1 ? '1 day' : pluralize('day', days)
-				}, or for full access to all GitLens Pro features, [start your free ${proTrialLengthInDays}-day Pro trial](command:gitlens.plus.signUp "Try GitLens Pro") — no credit card required.`,
+				}, or for full access to all GitLens Pro features, [start your free ${proTrialLengthInDays}-day Pro trial](${createCommandLink<Source>(
+					'gitlens.plus.signUp',
+					source,
+				)} "Try GitLens Pro") — no credit card required.`,
 				confirm,
 				learn,
 			);
@@ -1587,7 +1591,7 @@ export class SubscriptionService implements Disposable {
 
 		this._statusBarSubscription.name = 'GitLens Pro';
 		this._statusBarSubscription.text = '$(gitlens-gitlens)';
-		this._statusBarSubscription.command = GlCommand.ShowAccountView;
+		this._statusBarSubscription.command = 'gitlens.showAccountView' satisfies GlCommands;
 		this._statusBarSubscription.backgroundColor = undefined;
 
 		if (account?.verified === false) {

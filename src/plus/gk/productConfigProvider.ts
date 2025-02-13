@@ -1,3 +1,4 @@
+import type { GlCommands } from '../../constants.commands';
 import { SubscriptionState } from '../../constants.subscription';
 import type { Container } from '../../container';
 import { deviceCohortGroup } from '../../system/-webview/vscode';
@@ -152,13 +153,13 @@ function createConfigValidator(): Validator<ConfigJson> {
 		html: Is.Optional(Is.String),
 	});
 
-	const isCommandPattern = (value: unknown): value is `command:${string}` =>
-		typeof value === 'string' && value.startsWith('command:');
+	const isCommandPattern = (value: unknown): value is GlCommands =>
+		typeof value === 'string' && value.startsWith('gitlens.');
 
 	const isWebviewLink = createValidator({
 		html: Is.String,
 		title: Is.String,
-		command: Is.Optional((value): value is `command:${string}` => isCommandPattern(value)),
+		command: Is.Optional((value): value is GlCommands => isCommandPattern(value)),
 	});
 
 	const isWebview = createValidator({

@@ -10,6 +10,7 @@ import type {
 import type { IssueIntegrationId, SupportedCloudIntegrationIds } from '../../../../constants.integrations';
 import type { IssueOrPullRequest } from '../../../../git/models/issueOrPullRequest';
 import type { PullRequestShape } from '../../../../git/models/pullRequest';
+import { createCommandLink } from '../../../../system/commands';
 import type { Serialized } from '../../../../system/serialize';
 import type { State } from '../../../commitDetails/protocol';
 import { messageHeadlineSplitterToken } from '../../../commitDetails/protocol';
@@ -175,15 +176,18 @@ export class GlCommitDetails extends GlDetailsBase {
 		const { hasAccount, hasConnectedJira } = this.state;
 
 		let message = html`<a
-				href="command:gitlens.plus.cloudIntegrations.connect?${encodeURIComponent(
-					JSON.stringify({
+				href="${createCommandLink<ConnectCloudIntegrationsCommandArgs>(
+					'gitlens.plus.cloudIntegrations.connect',
+					{
 						integrationIds: ['jira' as IssueIntegrationId.Jira] as SupportedCloudIntegrationIds[],
-						source: 'inspect',
-						detail: {
-							action: 'connect',
-							integration: 'jira',
+						source: {
+							source: 'inspect',
+							detail: {
+								action: 'connect',
+								integration: 'jira',
+							},
 						},
-					} satisfies ConnectCloudIntegrationsCommandArgs),
+					},
 				)}"
 				>Connect to Jira Cloud</a
 			>
@@ -263,25 +267,26 @@ export class GlCommitDetails extends GlDetailsBase {
 
 		const { hasAccount, hasConnectedJira } = this.state ?? {};
 		const jiraIntegrationLink = hasConnectedJira
-			? `command:gitlens.plus.cloudIntegrations.manage?${encodeURIComponent(
-					JSON.stringify({
+			? createCommandLink<ManageCloudIntegrationsCommandArgs>('gitlens.plus.cloudIntegrations.manage', {
+					source: {
 						source: 'inspect',
 						detail: {
 							action: 'connect',
 							integration: 'jira',
 						},
-					} satisfies ManageCloudIntegrationsCommandArgs),
-			  )}`
-			: `command:gitlens.plus.cloudIntegrations.connect?${encodeURIComponent(
-					JSON.stringify({
-						integrationIds: ['jira' as IssueIntegrationId.Jira] as SupportedCloudIntegrationIds[],
+					},
+			  })
+			: createCommandLink<ConnectCloudIntegrationsCommandArgs>('gitlens.plus.cloudIntegrations.connect', {
+					integrationIds: ['jira' as IssueIntegrationId.Jira] as SupportedCloudIntegrationIds[],
+					source: {
 						source: 'inspect',
 						detail: {
 							action: 'connect',
 							integration: 'jira',
 						},
-					} satisfies ConnectCloudIntegrationsCommandArgs),
-			  )}`;
+					},
+			  });
+
 		return html`
 			<webview-pane
 				collapsable

@@ -1,3 +1,4 @@
+import type { GlCommands } from '../../../constants.commands';
 import type { SubscriptionState } from '../../../constants.subscription';
 
 export type PromoLocation = 'account' | 'badge' | 'gate' | 'home';
@@ -20,7 +21,7 @@ export interface Promo {
 			readonly link?: {
 				readonly html: string;
 				readonly title: string;
-				readonly command?: `command:${string}`;
+				readonly command?: GlCommands;
 			};
 		};
 	};

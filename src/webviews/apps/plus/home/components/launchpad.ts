@@ -3,6 +3,7 @@ import { signal, SignalWatcher } from '@lit-labs/signals';
 import type { TemplateResult } from 'lit';
 import { css, html, LitElement, nothing } from 'lit';
 import { customElement, state } from 'lit/decorators.js';
+import type { ConnectCloudIntegrationsCommandArgs } from '../../../../../commands/cloudIntegrations';
 import type { LaunchpadCommandArgs } from '../../../../../plus/launchpad/launchpad';
 import { createCommandLink } from '../../../../../system/commands';
 import { pluralize } from '../../../../../system/string';
@@ -167,7 +168,10 @@ export class GlLaunchpad extends SignalWatcher(LitElement) {
 				<li>
 					<a
 						class="launchpad-action"
-						href="command:gitlens.plus.cloudIntegrations.connect?%7B%22source%22%3A%22home%22%7D"
+						href="${createCommandLink<ConnectCloudIntegrationsCommandArgs>(
+							'gitlens.plus.cloudIntegrations.connect',
+							{ source: { source: 'home' } },
+						)}"
 					>
 						<code-icon class="launchpad-action__icon" icon="plug"></code-icon>
 						<span>Connect to see PRs and Issue here</span>
