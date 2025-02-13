@@ -169,7 +169,7 @@ export class ResetCommand extends GlCommandBase {
 				break;
 
 			case 'ai':
-				await (await this.container.ai)?.reset(true);
+				await this.container.ai.reset(true);
 				break;
 
 			case 'avatars':
@@ -218,6 +218,6 @@ export class ResetAIKeyCommand extends GlCommandBase {
 	}
 
 	async execute(): Promise<void> {
-		await (await this.container.ai)?.reset();
+		await this.container.ai.reset();
 	}
 }

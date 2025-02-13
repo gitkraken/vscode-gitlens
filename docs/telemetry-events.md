@@ -110,7 +110,7 @@
 
 ### ai/explain
 
-> Sent when explaining changes from wip, commits, stashes, patches,etc.
+> Sent when explaining changes from wip, commits, stashes, patches, etc.
 
 ```typescript
 {
@@ -196,6 +196,26 @@ or
   'output.length': number,
   'retry.count': number,
   'type': 'changelog'
+}
+```
+
+### ai/switchModel
+
+> Sent when switching ai models
+
+```typescript
+{
+  'model.id': string,
+  'model.provider.id': 'anthropic' | 'deepseek' | 'gemini' | 'github' | 'huggingface' | 'openai' | 'vscode' | 'xai',
+  'model.provider.name': string
+}
+```
+
+or
+
+```typescript
+{
+  'failed': true
 }
 ```
 

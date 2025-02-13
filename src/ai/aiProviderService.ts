@@ -1,7 +1,7 @@
-import type { CancellationToken, Disposable, MessageItem, ProgressOptions, QuickInputButton } from 'vscode';
-import { env, ThemeIcon, Uri, window } from 'vscode';
+import type { CancellationToken, Disposable, Event, MessageItem, ProgressOptions, QuickInputButton } from 'vscode';
+import { env, EventEmitter, ThemeIcon, Uri, window } from 'vscode';
 import type { AIProviders, SupportedAIModels, VSCodeAIModels } from '../constants.ai';
-import type { AIGenerateDraftEventData, Sources, TelemetryEvents } from '../constants.telemetry';
+import type { AIGenerateDraftEventData, Source, TelemetryEvents } from '../constants.telemetry';
 import type { Container } from '../container';
 import { CancellationError } from '../errors';
 import type { GitCommit } from '../git/models/commit';
@@ -15,37 +15,36 @@ import { configuration } from '../system/-webview/configuration';
 import type { Storage } from '../system/-webview/storage';
 import { supportedInVSCodeVersion } from '../system/-webview/vscode';
 import { formatNumeric } from '../system/date';
+import { debounce } from '../system/function';
+import { map } from '../system/iterable';
 import type { Lazy } from '../system/lazy';
+import { lazy } from '../system/lazy';
 import type { Deferred } from '../system/promise';
 import { getSettledValue } from '../system/promise';
 import { getPossessiveForm } from '../system/string';
-import type { TelemetryService } from '../telemetry/telemetry';
-import { AnthropicProvider } from './anthropicProvider';
-import { DeepSeekProvider } from './deepSeekProvider';
-import { GeminiProvider } from './geminiProvider';
-import { GitHubModelsProvider } from './githubModelsProvider';
-import { HuggingFaceProvider } from './huggingFaceProvider';
-import { OpenAIProvider } from './openaiProvider';
-import { isVSCodeAIModel, VSCodeAIProvider } from './vscodeProvider';
-import { xAIProvider } from './xaiProvider';
 
 export interface AIResult {
-	summary: string;
-	body: string;
+	readonly summary: string;
+	readonly body: string;
 }
 
 export interface AIGenerateChangelogChange {
-	message: string;
-	issues: { id: string; url: string; title: string | undefined }[];
+	readonly message: string;
+	readonly issues: readonly { readonly id: string; readonly url: string; readonly title: string | undefined }[];
+}
+
+export interface AIModelDescriptor<Provider extends AIProviders = AIProviders, Model extends string = string> {
+	readonly provider: Provider;
+	readonly model: Model;
 }
 
 export interface AIModel<Provider extends AIProviders = AIProviders, Model extends string = string> {
 	readonly id: Model;
 	readonly name: string;
-	readonly maxTokens: { input: number; output: number };
+	readonly maxTokens: { readonly input: number; readonly output: number };
 	readonly provider: {
-		id: Provider;
-		name: string;
+		readonly id: Provider;
+		readonly name: string;
 	};
 
 	readonly default?: boolean;
@@ -59,20 +58,38 @@ interface AIProviderConstructor<Provider extends AIProviders = AIProviders> {
 }
 
 // Order matters for sorting the picker
-const _supportedProviderTypes = new Map<AIProviders, AIProviderConstructor>([
-	...(supportedInVSCodeVersion('language-models') ? [['vscode', VSCodeAIProvider]] : ([] as any)),
-	['openai', OpenAIProvider],
-	['anthropic', AnthropicProvider],
-	['gemini', GeminiProvider],
-	['deepseek', DeepSeekProvider],
-	['xai', xAIProvider],
-	['github', GitHubModelsProvider],
-	['huggingface', HuggingFaceProvider],
+const _supportedProviderTypes = new Map<AIProviders, Lazy<Promise<AIProviderConstructor>>>([
+	...(supportedInVSCodeVersion('language-models')
+		? [
+				[
+					'vscode',
+					lazy(async () => (await import(/* webpackChunkName: "ai" */ './vscodeProvider')).VSCodeAIProvider),
+				],
+		  ]
+		: ([] as any)),
+	['openai', lazy(async () => (await import(/* webpackChunkName: "ai" */ './openaiProvider')).OpenAIProvider)],
+	[
+		'anthropic',
+		lazy(async () => (await import(/* webpackChunkName: "ai" */ './anthropicProvider')).AnthropicProvider),
+	],
+	['gemini', lazy(async () => (await import(/* webpackChunkName: "ai" */ './geminiProvider')).GeminiProvider)],
+	['deepseek', lazy(async () => (await import(/* webpackChunkName: "ai" */ './deepSeekProvider')).DeepSeekProvider)],
+	['xai', lazy(async () => (await import(/* webpackChunkName: "ai" */ './xaiProvider')).XAIProvider)],
+	[
+		'github',
+		lazy(async () => (await import(/* webpackChunkName: "ai" */ './githubModelsProvider')).GitHubModelsProvider),
+	],
+	[
+		'huggingface',
+		lazy(async () => (await import(/* webpackChunkName: "ai" */ './huggingFaceProvider')).HuggingFaceProvider),
+	],
 ]);
 
 export interface AIProvider<Provider extends AIProviders = AIProviders> extends Disposable {
 	readonly id: Provider;
 	readonly name: string;
+
+	onDidChange?: Event<void>;
 
 	getModels(): Promise<readonly AIModel<Provider>[]>;
 
@@ -109,9 +126,19 @@ export interface AIProvider<Provider extends AIProviders = AIProviders> extends 
 	): Promise<string | undefined>;
 }
 
+export interface AIModelChangeEvent {
+	readonly model: AIModel | undefined;
+}
+
 export class AIProviderService implements Disposable {
-	private _provider: AIProvider | undefined;
 	private _model: AIModel | undefined;
+	private _provider: AIProvider | undefined;
+	private _providerDisposable: Disposable | undefined;
+
+	private readonly _onDidChangeModel = new EventEmitter<AIModelChangeEvent>();
+	get onDidChangeModel(): Event<AIModelChangeEvent> {
+		return this._onDidChangeModel.event;
+	}
 
 	constructor(private readonly container: Container) {}
 
@@ -123,7 +150,7 @@ export class AIProviderService implements Disposable {
 		return this._provider?.id;
 	}
 
-	private getConfiguredModel(): { provider: AIProviders; model: string } | undefined {
+	private getConfiguredModel(): AIModelDescriptor | undefined {
 		const qualifiedModelId = configuration.get('ai.model') ?? undefined;
 		if (qualifiedModelId != null) {
 			let [providerId, modelId] = qualifiedModelId.split(':') as [AIProviders, string];
@@ -145,12 +172,23 @@ export class AIProviderService implements Disposable {
 	}
 
 	async getModels(): Promise<readonly AIModel[]> {
-		const providers = [..._supportedProviderTypes.values()].map(p => new p(this.container));
-		const models = await Promise.allSettled(providers.map(p => p.getModels()));
-		return models.flatMap(m => getSettledValue(m, []));
+		const modelResults = await Promise.allSettled(
+			map(_supportedProviderTypes.values(), t =>
+				t.value.then(async t => {
+					const p = new t(this.container);
+					try {
+						return await p.getModels();
+					} finally {
+						p.dispose();
+					}
+				}),
+			),
+		);
+
+		return modelResults.flatMap(m => getSettledValue(m, []));
 	}
 
-	async getModel(options?: { force?: boolean; silent?: boolean }): Promise<AIModel | undefined> {
+	async getModel(options?: { force?: boolean; silent?: boolean }, source?: Source): Promise<AIModel | undefined> {
 		const cfg = this.getConfiguredModel();
 		if (!options?.force && cfg?.provider != null && cfg?.model != null) {
 			const model = await this.getOrUpdateModel(cfg.provider, cfg.model);
@@ -162,7 +200,21 @@ export class AIProviderService implements Disposable {
 		const pick = await showAIModelPicker(this.container, cfg);
 		if (pick == null) return undefined;
 
-		return this.getOrUpdateModel(pick.model);
+		const model = await this.getOrUpdateModel(pick.model);
+
+		this.container.telemetry.sendEvent(
+			'ai/switchModel',
+			model != null
+				? {
+						'model.id': model.id,
+						'model.provider.id': model.provider.id,
+						'model.provider.name': model.provider.name,
+				  }
+				: { failed: true },
+			source,
+		);
+
+		return model;
 	}
 
 	private getOrUpdateModel(model: AIModel): Promise<AIModel | undefined>;
@@ -184,9 +236,10 @@ export class AIProviderService implements Disposable {
 
 		if (providerId !== this._provider?.id) {
 			changed = true;
+			this._providerDisposable?.dispose();
 			this._provider?.dispose();
 
-			const type = _supportedProviderTypes.get(providerId);
+			const type = await _supportedProviderTypes.get(providerId)?.value;
 			if (type == null) {
 				this._provider = undefined;
 				this._model = undefined;
@@ -195,6 +248,17 @@ export class AIProviderService implements Disposable {
 			}
 
 			this._provider = new type(this.container);
+			this._providerDisposable = this._provider?.onDidChange?.(
+				debounce(async () => {
+					if (this._model != null) return;
+
+					const model = await this.getModel({ silent: true });
+					if (model == null) return;
+
+					this._onDidChangeModel.fire({ model: this._model });
+				}, 250),
+				this,
+			);
 		}
 
 		if (model == null) {
@@ -203,7 +267,8 @@ export class AIProviderService implements Disposable {
 			} else {
 				changed = true;
 
-				model = (await this._provider.getModels())?.find(m => m.id === modelId);
+				const models = await this._provider.getModels();
+				model = models?.find(m => m.id === modelId);
 				if (model == null) {
 					this._model = undefined;
 
@@ -213,6 +278,8 @@ export class AIProviderService implements Disposable {
 		} else if (model.id !== this._model?.id) {
 			changed = true;
 		}
+
+		this._model = model;
 
 		if (changed) {
 			if (isVSCodeAIModel(model)) {
@@ -224,15 +291,15 @@ export class AIProviderService implements Disposable {
 					`${model.provider.id}:${model.id}` as SupportedAIModels,
 				);
 			}
+			this._onDidChangeModel.fire({ model: model });
 		}
 
-		this._model = model;
 		return model;
 	}
 
 	async generateCommitMessage(
 		changesOrRepo: string | string[] | Repository,
-		sourceContext: { source: Sources },
+		source: Source,
 		options?: {
 			cancellation?: CancellationToken;
 			context?: string;
@@ -243,7 +310,12 @@ export class AIProviderService implements Disposable {
 		const changes: string | undefined = await this.getChanges(changesOrRepo);
 		if (changes == null) return undefined;
 
-		const { confirmed, model } = await getModelAndConfirmAIProviderToS('diff', this, this.container.storage);
+		const { confirmed, model } = await getModelAndConfirmAIProviderToS(
+			'diff',
+			source,
+			this,
+			this.container.storage,
+		);
 		if (model == null) {
 			options?.generating?.cancel();
 			return undefined;
@@ -256,7 +328,6 @@ export class AIProviderService implements Disposable {
 			'model.provider.name': model.provider.name,
 			'retry.count': 0,
 		};
-		const source: Parameters<TelemetryService['sendEvent']>[2] = { source: sourceContext.source };
 
 		if (!confirmed) {
 			this.container.telemetry.sendEvent('ai/generate', { ...payload, 'failed.reason': 'user-declined' }, source);
@@ -315,7 +386,7 @@ export class AIProviderService implements Disposable {
 
 	async generateDraftMessage(
 		changesOrRepo: string | string[] | Repository,
-		sourceContext: { source: Sources; type: AIGenerateDraftEventData['draftType'] },
+		sourceContext: Source & { type: AIGenerateDraftEventData['draftType'] },
 		options?: {
 			cancellation?: CancellationToken;
 			context?: string;
@@ -327,21 +398,27 @@ export class AIProviderService implements Disposable {
 		const changes: string | undefined = await this.getChanges(changesOrRepo);
 		if (changes == null) return undefined;
 
-		const { confirmed, model } = await getModelAndConfirmAIProviderToS('diff', this, this.container.storage);
+		const { confirmed, model } = await getModelAndConfirmAIProviderToS(
+			'diff',
+			sourceContext,
+			this,
+			this.container.storage,
+		);
 		if (model == null) {
 			options?.generating?.cancel();
 			return undefined;
 		}
 
+		const { type, ...source } = sourceContext;
+
 		const payload: TelemetryEvents['ai/generate'] = {
 			type: 'draftMessage',
-			draftType: sourceContext.type,
+			draftType: type,
 			'model.id': model.id,
 			'model.provider.id': model.provider.id,
 			'model.provider.name': model.provider.name,
 			'retry.count': 0,
 		};
-		const source: Parameters<TelemetryService['sendEvent']>[2] = { source: sourceContext.source };
 
 		if (!confirmed) {
 			this.container.telemetry.sendEvent('ai/generate', { ...payload, 'failed.reason': 'user-declined' }, source);
@@ -398,7 +475,7 @@ export class AIProviderService implements Disposable {
 
 	async generateStashMessage(
 		changesOrRepo: string | string[] | Repository,
-		sourceContext: { source: Sources },
+		source: Source,
 		options?: {
 			cancellation?: CancellationToken;
 			context?: string;
@@ -412,7 +489,12 @@ export class AIProviderService implements Disposable {
 			return undefined;
 		}
 
-		const { confirmed, model } = await getModelAndConfirmAIProviderToS('diff', this, this.container.storage);
+		const { confirmed, model } = await getModelAndConfirmAIProviderToS(
+			'diff',
+			source,
+			this,
+			this.container.storage,
+		);
 		if (model == null) {
 			options?.generating?.cancel();
 			return undefined;
@@ -425,7 +507,6 @@ export class AIProviderService implements Disposable {
 			'model.provider.name': model.provider.name,
 			'retry.count': 0,
 		};
-		const source: Parameters<TelemetryService['sendEvent']>[2] = { source: sourceContext.source };
 
 		if (!confirmed) {
 			this.container.telemetry.sendEvent('ai/generate', { ...payload, 'failed.reason': 'user-declined' }, source);
@@ -484,10 +565,15 @@ export class AIProviderService implements Disposable {
 
 	async generateChangelog(
 		changes: Lazy<Promise<AIGenerateChangelogChange[]>>,
-		sourceContext: { source: Sources },
+		source: Source,
 		options?: { cancellation?: CancellationToken; progress?: ProgressOptions },
 	): Promise<string | undefined> {
-		const { confirmed, model } = await getModelAndConfirmAIProviderToS('data', this, this.container.storage);
+		const { confirmed, model } = await getModelAndConfirmAIProviderToS(
+			'data',
+			source,
+			this,
+			this.container.storage,
+		);
 		if (model == null) return undefined;
 
 		const payload: TelemetryEvents['ai/generate'] = {
@@ -497,7 +583,6 @@ export class AIProviderService implements Disposable {
 			'model.provider.name': model.provider.name,
 			'retry.count': 0,
 		};
-		const source: Parameters<TelemetryService['sendEvent']>[2] = { source: sourceContext.source };
 
 		if (!confirmed) {
 			this.container.telemetry.sendEvent('ai/generate', { ...payload, 'failed.reason': 'user-declined' }, source);
@@ -575,24 +660,30 @@ export class AIProviderService implements Disposable {
 
 	async explainCommit(
 		commitOrRevision: GitRevisionReference | GitCommit,
-		sourceContext: { source: Sources; type: TelemetryEvents['ai/explain']['changeType'] },
+		sourceContext: Source & { type: TelemetryEvents['ai/explain']['changeType'] },
 		options?: { cancellation?: CancellationToken; progress?: ProgressOptions },
 	): Promise<AIResult | undefined> {
 		const diff = await this.container.git.diff(commitOrRevision.repoPath).getDiff?.(commitOrRevision.ref);
 		if (!diff?.contents) throw new Error('No changes found to explain.');
 
-		const { confirmed, model } = await getModelAndConfirmAIProviderToS('diff', this, this.container.storage);
+		const { confirmed, model } = await getModelAndConfirmAIProviderToS(
+			'diff',
+			sourceContext,
+			this,
+			this.container.storage,
+		);
 		if (model == null) return undefined;
+
+		const { type, ...source } = sourceContext;
 
 		const payload: TelemetryEvents['ai/explain'] = {
 			type: 'change',
-			changeType: sourceContext.type,
+			changeType: type,
 			'model.id': model.id,
 			'model.provider.id': model.provider.id,
 			'model.provider.name': model.provider.name,
 			'retry.count': 0,
 		};
-		const source: Parameters<TelemetryService['sendEvent']>[2] = { source: sourceContext.source };
 
 		if (!confirmed) {
 			this.container.telemetry.sendEvent('ai/explain', { ...payload, 'failed.reason': 'user-declined' }, source);
@@ -706,17 +797,18 @@ export class AIProviderService implements Disposable {
 		return _supportedProviderTypes.has(provider as AIProviders);
 	}
 
-	switchModel(): Promise<AIModel | undefined> {
-		return this.getModel({ force: true });
+	switchModel(source?: Source): Promise<AIModel | undefined> {
+		return this.getModel({ force: true }, source);
 	}
 }
 
 async function getModelAndConfirmAIProviderToS(
 	confirmationType: 'data' | 'diff',
+	source: Source,
 	service: AIProviderService,
 	storage: Storage,
 ): Promise<{ confirmed: boolean; model: AIModel | undefined }> {
-	let model = await service.getModel();
+	let model = await service.getModel(undefined, source);
 	while (true) {
 		if (model == null) return { confirmed: false, model: model };
 
@@ -746,7 +838,7 @@ async function getModelAndConfirmAIProviderToS(
 		);
 
 		if (result === switchModel) {
-			model = await service.switchModel();
+			model = await service.switchModel(source);
 			continue;
 		}
 
@@ -893,4 +985,8 @@ export function getValidatedTemperature(modelTemperature?: number | null): numbe
 	if (modelTemperature === null) return undefined;
 	if (modelTemperature != null) return modelTemperature;
 	return Math.max(0, Math.min(configuration.get('ai.modelOptions.temperature'), 2));
+}
+
+function isVSCodeAIModel(model: AIModel): model is AIModel<'vscode', VSCodeAIModels> {
+	return model.provider.id === 'vscode';
 }

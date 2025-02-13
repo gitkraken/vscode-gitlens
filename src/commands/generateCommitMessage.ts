@@ -55,9 +55,7 @@ export class GenerateCommitMessageCommand extends ActiveEditorCommand {
 
 		try {
 			const currentMessage = scmRepo.inputBox.value;
-			const message = await (
-				await this.container.ai
-			)?.generateCommitMessage(
+			const message = await this.container.ai.generateCommitMessage(
 				repository,
 				{ source: args?.source ?? 'commandPalette' },
 				{

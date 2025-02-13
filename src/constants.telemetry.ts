@@ -57,28 +57,31 @@ export interface TelemetryEvents extends WebviewShowAbortedEvents, WebviewShownE
 	/** Sent when GitLens is activated */
 	activate: ActivateEvent;
 
-	/** Sent when explaining changes from wip, commits, stashes, patches,etc. */
+	/** Sent when explaining changes from wip, commits, stashes, patches, etc. */
 	'ai/explain': AIExplainEvent;
 
 	/** Sent when generating summaries from commits, stashes, patches, etc. */
 	'ai/generate': AIGenerateEvent;
 
-	/** Sent when connecting to one or more cloud-based integrations*/
+	/** Sent when switching ai models */
+	'ai/switchModel': AISwitchModelEvent;
+
+	/** Sent when connecting to one or more cloud-based integrations */
 	'cloudIntegrations/connecting': CloudIntegrationsConnectingEvent;
 
-	/** Sent when connected to one or more cloud-based integrations from gkdev*/
+	/** Sent when connected to one or more cloud-based integrations from gkdev */
 	'cloudIntegrations/connected': CloudIntegrationsConnectedEvent;
 
-	/** Sent when disconnecting a provider from the api fails*/
+	/** Sent when disconnecting a provider from the api fails */
 	'cloudIntegrations/disconnect/failed': CloudIntegrationsDisconnectFailedEvent;
 
-	/** Sent when getting connected providers from the api fails*/
+	/** Sent when getting connected providers from the api fails */
 	'cloudIntegrations/getConnections/failed': CloudIntegrationsGetConnectionsFailedEvent;
 
-	/** Sent when getting a provider token from the api fails*/
+	/** Sent when getting a provider token from the api fails */
 	'cloudIntegrations/getConnection/failed': CloudIntegrationsGetConnectionFailedEvent;
 
-	/** Sent when refreshing a provider token from the api fails*/
+	/** Sent when refreshing a provider token from the api fails */
 	'cloudIntegrations/refreshConnection/failed': CloudIntegrationsRefreshConnectionFailedEvent;
 
 	/** Sent when a cloud-based hosting provider is connected */
@@ -340,6 +343,14 @@ type AIGenerateEvent =
 	| AIGenerateDraftEventData
 	| AIGenerateStashEventData
 	| AIGenerateChangelogEventData;
+
+export type AISwitchModelEvent =
+	| {
+			'model.id': string;
+			'model.provider.id': AIProviders;
+			'model.provider.name': string;
+	  }
+	| { failed: true };
 
 interface CloudIntegrationsConnectingEvent {
 	'integration.ids': string | undefined;
