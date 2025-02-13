@@ -6,6 +6,7 @@ import type { Source, Sources } from '../constants.telemetry';
 import type { Container } from '../container';
 import { command, executeCommand } from '../system/-webview/command';
 import { openUrl, openWalkthrough as openWalkthroughCore } from '../system/-webview/vscode';
+import type { ConnectCloudIntegrationsCommandArgs } from './cloudIntegrations';
 import { GlCommandBase } from './commandBase';
 
 @command()
@@ -72,7 +73,7 @@ export class WalkthroughPlusUpgradeCommand extends GlCommandBase {
 	}
 
 	execute(): void {
-		const command = GlCommand.PlusUpgrade;
+		const command: GlCommands = 'gitlens.plus.upgrade';
 		this.container.telemetry.sendEvent('walkthrough/action', {
 			type: 'command',
 			name: 'plus/upgrade',
@@ -108,7 +109,7 @@ export class WalkthroughPlusSignUpCommand extends GlCommandBase {
 	}
 
 	execute(): void {
-		const command = GlCommand.PlusSignUp;
+		const command: GlCommands = 'gitlens.plus.signUp';
 		this.container.telemetry.sendEvent('walkthrough/action', {
 			type: 'command',
 			name: 'plus/sign-up',
@@ -125,7 +126,7 @@ export class WalkthroughPlusReactivateCommand extends GlCommandBase {
 	}
 
 	execute(): void {
-		const command = GlCommand.PlusReactivateProTrial;
+		const command: GlCommands = 'gitlens.plus.reactivateProTrial';
 		this.container.telemetry.sendEvent('walkthrough/action', {
 			type: 'command',
 			name: 'plus/reactivate',
@@ -322,13 +323,15 @@ export class WalkthroughConnectIntegrationsCommand extends GlCommandBase {
 	}
 
 	execute(): void {
-		const command = GlCommand.PlusConnectCloudIntegrations;
+		const command: GlCommands = 'gitlens.plus.cloudIntegrations.connect';
 		this.container.telemetry.sendEvent('walkthrough/action', {
 			type: 'command',
 			name: 'connect/integrations',
 			command: command,
 		});
-		executeCommand(command);
+		executeCommand<ConnectCloudIntegrationsCommandArgs>(command, {
+			source: { source: 'walkthrough' },
+		});
 	}
 }
 

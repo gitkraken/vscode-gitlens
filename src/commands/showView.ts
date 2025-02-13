@@ -11,7 +11,7 @@ import type { CommandContext } from './commandContext';
 export class ShowViewCommand extends GlCommandBase {
 	constructor(private readonly container: Container) {
 		super([
-			GlCommand.ShowAccountView,
+			'gitlens.showAccountView',
 			GlCommand.ShowBranchesView,
 			GlCommand.ShowCommitDetailsView,
 			GlCommand.ShowCommitsView,
@@ -56,7 +56,7 @@ export class ShowViewCommand extends GlCommandBase {
 	async execute(context: CommandContext, ...args: unknown[]): Promise<void> {
 		const command = context.command;
 		switch (command) {
-			case GlCommand.ShowAccountView:
+			case 'gitlens.showAccountView':
 				return this.container.views.home.show(
 					undefined,
 					...([{ focusAccount: true }, ...args] as HomeWebviewShowingArgs),

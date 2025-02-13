@@ -2,6 +2,10 @@ import { consume } from '@lit/context';
 import { css, html } from 'lit';
 import { customElement, property, state } from 'lit/decorators.js';
 import { when } from 'lit/directives/when.js';
+import type {
+	ConnectCloudIntegrationsCommandArgs,
+	ManageCloudIntegrationsCommandArgs,
+} from '../../../../commands/cloudIntegrations';
 import type { OpenWalkthroughCommandArgs } from '../../../../commands/walkthroughs';
 import type { Source } from '../../../../constants.telemetry';
 import { createCommandLink } from '../../../../system/commands';
@@ -75,7 +79,10 @@ export class GlFeatureNav extends GlElement {
 						<div class="nav-list__item" data-integrations="none">
 							<a
 								class="nav-list__link"
-								href="command:gitlens.plus.cloudIntegrations.connect?%7B%22source%22%3A%22home%22%7D"
+								href="${createCommandLink<ConnectCloudIntegrationsCommandArgs>(
+									'gitlens.plus.cloudIntegrations.connect',
+									{ source: { source: 'home', detail: 'old-home' } },
+								)}"
 								aria-label="Connect an Integration on GitKraken.dev"
 								><code-icon class="nav-list__icon" icon="gl-unplug"></code-icon
 								><gl-tooltip
@@ -91,7 +98,12 @@ export class GlFeatureNav extends GlElement {
 						<div class="nav-list__item" data-integrations="connected">
 							<a
 								class="nav-list__link"
-								href="command:gitlens.plus.cloudIntegrations.manage?%7B%22source%22%3A%22home%22%7D"
+								href="${createCommandLink<ManageCloudIntegrationsCommandArgs>(
+									'gitlens.plus.cloudIntegrations.manage',
+									{
+										source: { source: 'home', detail: 'old-home' },
+									},
+								)}"
 								aria-label="Manage Integrations on GitKraken.dev"
 								><code-icon class="nav-list__icon" icon="settings"></code-icon
 								><gl-tooltip
@@ -188,7 +200,7 @@ export class GlFeatureNav extends GlElement {
 								class="nav-list__link${this.blockRepoFeatures ? ' is-disabled' : ''}"
 								href="${createCommandLink<OpenWalkthroughCommandArgs>('gitlens.openWalkthrough', {
 									step: 'streamline-collaboration',
-									source: { source: 'home' },
+									source: { source: 'home', detail: 'old-home' },
 								})}"
 								data-requires="repo"
 								data-org-requires="drafts"

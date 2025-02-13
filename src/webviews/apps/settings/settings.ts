@@ -3,6 +3,7 @@ import './settings.scss';
 import type { ConnectCloudIntegrationsCommandArgs } from '../../../commands/cloudIntegrations';
 import type { AutolinkConfig } from '../../../config';
 import type { IssueIntegrationId, SupportedCloudIntegrationIds } from '../../../constants.integrations';
+import { createCommandLink } from '../../../system/commands';
 import type { IpcMessage, UpdateConfigurationParams } from '../../protocol';
 import { DidChangeConfigurationNotification, UpdateConfigurationCommand } from '../../protocol';
 import type { State } from '../../settings/protocol';
@@ -804,15 +805,18 @@ export class SettingsApp extends App<State> {
 		if ($root == null) return;
 
 		const { hasAccount, hasConnectedJira } = this.state;
-		let message = `<a href="command:gitlens.plus.cloudIntegrations.connect?${encodeURIComponent(
-			JSON.stringify({
+		let message = `<a href="${createCommandLink<ConnectCloudIntegrationsCommandArgs>(
+			'gitlens.plus.cloudIntegrations.connect',
+			{
 				integrationIds: ['jira' as IssueIntegrationId.Jira] as SupportedCloudIntegrationIds[],
-				source: 'settings',
-				detail: {
-					action: 'connect',
-					integration: 'jira',
+				source: {
+					source: 'settings',
+					detail: {
+						action: 'connect',
+						integration: 'jira',
+					},
 				},
-			} satisfies ConnectCloudIntegrationsCommandArgs),
+			},
 		)}">Connect to Jira Cloud</a> &mdash; ${
 			hasAccount ? '' : 'sign up and '
 		}get access to automatic rich Jira autolinks.`;

@@ -3,7 +3,10 @@ import { customElement, property } from 'lit/decorators.js';
 import { ifDefined } from 'lit/directives/if-defined.js';
 import { unsafeHTML } from 'lit/directives/unsafe-html.js';
 import { until } from 'lit/directives/until.js';
+import type { GlCommands } from '../../../../constants.commands';
+import type { Source } from '../../../../constants.telemetry';
 import type { Promo } from '../../../../plus/gk/models/promo';
+import { createCommandLink } from '../../../../system/commands';
 
 @customElement('gl-promo')
 export class GlPromo extends LitElement {
@@ -52,8 +55,8 @@ export class GlPromo extends LitElement {
 	@property({ type: Object })
 	promoPromise!: Promise<Promo | undefined>;
 
-	@property({ type: String })
-	source?: string;
+	@property({ type: Object })
+	source?: Source;
 
 	@property({ reflect: true, type: String })
 	type: 'link' | 'info' = 'info';
@@ -95,9 +98,11 @@ export class GlPromo extends LitElement {
 	}
 
 	private getCommandUrl(promo: Promo | undefined) {
-		const command = promo?.content?.webview?.link?.command ?? 'command:gitlens.plus.upgrade';
-		if (this.source == null) return command;
+		let command: GlCommands | undefined;
+		if (promo?.content?.webview?.link?.command?.startsWith('command:')) {
+			command = promo.content.webview.link.command.substring('command:'.length) as GlCommands;
+		}
 
-		return `${command}?${encodeURIComponent(JSON.stringify({ source: this.source }))}`;
+		return createCommandLink<Source>(command ?? 'gitlens.plus.upgrade', this.source);
 	}
 }

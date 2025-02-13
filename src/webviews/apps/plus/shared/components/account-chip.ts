@@ -524,6 +524,9 @@ export class GLAccountChip extends LitElement {
 	}
 
 	private renderPromo() {
-		return html`<gl-promo .promoPromise=${this.promos.getApplicablePromo('account')} source="account"></gl-promo>`;
+		return html`<gl-promo
+			.promoPromise=${this.promos.getApplicablePromo('account')}
+			.source="${{ source: 'account' } as const}"
+		></gl-promo>`;
 	}
 }

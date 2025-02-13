@@ -1,7 +1,7 @@
 import type { Config, GraphBranchesVisibility, GraphConfig } from './config';
 import type { WalkthroughSteps } from './constants';
 import type { AIProviders } from './constants.ai';
-import type { GlCommand } from './constants.commands';
+import type { GlCommands } from './constants.commands';
 import type { IntegrationId, SupportedCloudIntegrationIds } from './constants.integrations';
 import type { SubscriptionState, SubscriptionStateString } from './constants.subscription';
 import type { CustomEditorTypes, TreeViewTypes, WebviewTypes, WebviewViewTypes } from './constants.views';
@@ -440,7 +440,7 @@ interface CommandEventData {
 }
 
 interface GitCommandEventData {
-	command: GlCommand.GitCommands;
+	command: Extract<GlCommands, 'gitlens.gitCommands'>;
 	'context.mode'?: string;
 	'context.submode'?: string;
 	webview?: string;

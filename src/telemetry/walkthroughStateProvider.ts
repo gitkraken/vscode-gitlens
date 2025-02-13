@@ -1,5 +1,6 @@
 import type { Event } from 'vscode';
 import { Disposable, EventEmitter } from 'vscode';
+import type { GlCommands } from '../constants.commands';
 import { GlCommand } from '../constants.commands';
 import { SubscriptionState } from '../constants.subscription';
 import type { TrackedUsageKeys } from '../constants.telemetry';
@@ -31,8 +32,8 @@ const triedProStates: Readonly<SubscriptionState[]> = [
 ];
 
 const tryProCommands: Readonly<TrackedUsageKeys[]> = [
-	`command:${GlCommand.PlusStartPreviewTrial}:executed`,
-	`command:${GlCommand.PlusReactivateProTrial}:executed`,
+	`command:${'gitlens.plus.startPreviewTrial' satisfies GlCommands}:executed`,
+	`command:${'gitlens.plus.reactivateProTrial' satisfies GlCommands}:executed`,
 ];
 
 const walkthroughRequiredMapping: Readonly<Map<WalkthroughContextKeys, WalkthroughUsage>> = new Map<
@@ -102,8 +103,8 @@ const walkthroughRequiredMapping: Readonly<Map<WalkthroughContextKeys, Walkthrou
 		WalkthroughContextKeys.Integrations,
 		{
 			usage: [
-				`command:${GlCommand.PlusConnectCloudIntegrations}:executed`,
-				`command:${GlCommand.PlusManageCloudIntegrations}:executed`,
+				`command:${'gitlens.plus.cloudIntegrations.connect' satisfies GlCommands}:executed`,
+				`command:${'gitlens.plus.cloudIntegrations.manage' satisfies GlCommands}:executed`,
 			],
 		},
 	],

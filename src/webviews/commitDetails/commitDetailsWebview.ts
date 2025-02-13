@@ -7,7 +7,6 @@ import { getAvatarUri } from '../../avatars';
 import type { CopyMessageToClipboardCommandArgs } from '../../commands/copyMessageToClipboard';
 import type { CopyShaToClipboardCommandArgs } from '../../commands/copyShaToClipboard';
 import type { OpenPullRequestOnRemoteCommandArgs } from '../../commands/openPullRequestOnRemote';
-import { GlCommand } from '../../constants.commands';
 import type { ContextKeys } from '../../constants.context';
 import { IssueIntegrationId } from '../../constants.integrations';
 import type { InspectTelemetryContext, Sources } from '../../constants.telemetry';
@@ -451,8 +450,8 @@ export class CommitDetailsWebviewProvider
 
 						void executeCommand<ShowInCommitGraphCommandArgs>(
 							this.options.attachedTo === 'graph'
-								? GlCommand.ShowInCommitGraphView
-								: GlCommand.ShowInCommitGraph,
+								? 'gitlens.showInCommitGraphView'
+								: 'gitlens.showInCommitGraph',
 							{ ref: ref },
 						);
 						break;
@@ -469,7 +468,7 @@ export class CommitDetailsWebviewProvider
 						if (this._context.commit != null) {
 							if (e.params.alt) {
 								void executeCommand<CopyMessageToClipboardCommandArgs>(
-									GlCommand.CopyMessageToClipboard,
+									'gitlens.copyMessageToClipboard',
 									{
 										message: this._context.commit.message,
 									},
@@ -477,7 +476,7 @@ export class CommitDetailsWebviewProvider
 							} else if (isStash(this._context.commit)) {
 								void env.clipboard.writeText(this._context.commit.stashName);
 							} else {
-								void executeCommand<CopyShaToClipboardCommandArgs>(GlCommand.CopyShaToClipboard, {
+								void executeCommand<CopyShaToClipboardCommandArgs>('gitlens.copyShaToClipboard', {
 									sha: this._context.commit.sha,
 								});
 							}
@@ -803,7 +802,7 @@ export class CommitDetailsWebviewProvider
 		const {
 			pr: { url },
 		} = this.pullRequestContext;
-		return executeCommand<OpenPullRequestOnRemoteCommandArgs, void>(GlCommand.OpenPullRequestOnRemote, {
+		return executeCommand<OpenPullRequestOnRemoteCommandArgs, void>('gitlens.openPullRequestOnRemote', {
 			pr: { url: url },
 			clipboard: clipboard,
 		});
