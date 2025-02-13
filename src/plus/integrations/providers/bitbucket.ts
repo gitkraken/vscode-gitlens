@@ -137,3 +137,8 @@ export class BitbucketIntegration extends HostingIntegration<
 		return Promise.resolve(undefined);
 	}
 }
+
+const bitbucketCloudDomainRegex = /^bitbucket\.org$/i;
+export function isBitbucketCloudDomain(domain: string | undefined): boolean {
+	return domain != null && bitbucketCloudDomainRegex.test(domain);
+}

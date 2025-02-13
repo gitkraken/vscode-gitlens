@@ -52,6 +52,7 @@ import type {
 	SupportedSelfHostedIntegrationIds,
 } from './integration';
 import { isAzureCloudDomain } from './providers/azureDevOps';
+import { isBitbucketCloudDomain } from './providers/bitbucket';
 import {
 	isCloudSelfHostedIntegrationId,
 	isGitHubDotCom,
@@ -680,12 +681,14 @@ export class IntegrationService implements Disposable {
 		const get = getOrGetCached.bind(this);
 
 		switch (remote.provider.id) {
-			// TODO: Uncomment when we support these integrations
-			// case 'bitbucket':
-			// 	return get(HostingIntegrationId.Bitbucket) as RT;
 			case 'azure-devops':
 				if (isAzureCloudDomain(remote.provider.domain)) {
 					return get(HostingIntegrationId.AzureDevOps) as RT;
+				}
+				return (getOrGetCached === this.get ? Promise.resolve(undefined) : undefined) as RT;
+			case 'bitbucket':
+				if (isBitbucketCloudDomain(remote.provider.domain)) {
+					return get(HostingIntegrationId.Bitbucket) as RT;
 				}
 				return (getOrGetCached === this.get ? Promise.resolve(undefined) : undefined) as RT;
 			case 'github':
@@ -1049,6 +1052,8 @@ export function remoteProviderIdToIntegrationId(
 	switch (remoteProviderId) {
 		case 'azure-devops':
 			return HostingIntegrationId.AzureDevOps;
+		case 'bitbucket':
+			return HostingIntegrationId.Bitbucket;
 		case 'github':
 			return HostingIntegrationId.GitHub;
 		case 'gitlab':
