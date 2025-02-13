@@ -436,30 +436,30 @@ export class SubscriptionService implements Disposable {
 		switch (subscription.state) {
 			case SubscriptionState.VerificationRequired:
 			case SubscriptionState.Community:
-				void executeCommand<OpenWalkthroughCommandArgs>(GlCommand.OpenWalkthrough, {
-					...source,
+				void executeCommand<OpenWalkthroughCommandArgs>('gitlens.openWalkthrough', {
 					step: 'get-started-community',
+					source: source,
 				});
 				break;
 			case SubscriptionState.ProTrial:
 			case SubscriptionState.ProPreview:
-				void executeCommand<OpenWalkthroughCommandArgs>(GlCommand.OpenWalkthrough, {
-					...source,
+				void executeCommand<OpenWalkthroughCommandArgs>('gitlens.openWalkthrough', {
 					step: 'welcome-in-trial',
+					source: source,
 				});
 				break;
 			case SubscriptionState.ProTrialReactivationEligible:
 			case SubscriptionState.ProTrialExpired:
 			case SubscriptionState.ProPreviewExpired:
-				void executeCommand<OpenWalkthroughCommandArgs>(GlCommand.OpenWalkthrough, {
-					...source,
+				void executeCommand<OpenWalkthroughCommandArgs>('gitlens.openWalkthrough', {
 					step: 'welcome-in-trial-expired',
+					source: source,
 				});
 				break;
 			case SubscriptionState.Paid:
-				void executeCommand<OpenWalkthroughCommandArgs>(GlCommand.OpenWalkthrough, {
-					...source,
+				void executeCommand<OpenWalkthroughCommandArgs>('gitlens.openWalkthrough', {
 					step: 'welcome-paid',
+					source: source,
 				});
 				break;
 		}
