@@ -197,8 +197,8 @@ export const alertStyles = css`
 
 export const navListStyles = css`
 	.nav-list {
-		margin-left: -2rem;
-		margin-right: -2rem;
+		margin-left: -1.2rem;
+		margin-right: -1.2rem;
 		display: flex;
 		flex-direction: column;
 		gap: 0.1rem;
@@ -274,7 +274,7 @@ export const navListStyles = css`
 	.nav-list__access {
 		flex: none;
 		position: relative;
-		left: 1.5rem;
+		left: 1.2rem;
 		font-size: x-small;
 		outline: none;
 		white-space: nowrap;
