@@ -3,6 +3,7 @@ import { CancellationTokenSource, Disposable, MarkdownString, StatusBarAlignment
 import type { ToggleFileChangesAnnotationCommandArgs } from '../commands/toggleFileAnnotations';
 import { StatusBarCommand } from '../config';
 import { GlyphChars } from '../constants';
+import type { GlCommands } from '../constants.commands';
 import { GlCommand } from '../constants.commands';
 import type { Container } from '../container';
 import { CommitFormatter } from '../git/formatters/commitFormatter';
@@ -72,7 +73,7 @@ export class StatusBarController implements Disposable {
 						alignment === StatusBarAlignment.Right ? 999 : 1,
 					);
 				this._statusBarMode.name = 'GitLens Modes';
-				this._statusBarMode.command = GlCommand.SwitchMode;
+				this._statusBarMode.command = 'gitlens.switchMode' satisfies GlCommands;
 				this._statusBarMode.text = mode.statusBarItemName;
 				this._statusBarMode.tooltip = new MarkdownString(
 					`**${mode.statusBarItemName}** ${GlyphChars.Dash} ${mode.description}\n\n---\n\nClick to Switch GitLens Modes`,
@@ -167,14 +168,16 @@ export class StatusBarController implements Disposable {
 					if (!status?.blameable) return;
 
 					statusBarItem.tooltip = new MarkdownString();
-					statusBarItem.tooltip.isTrusted = { enabledCommands: [GlCommand.ShowSettingsPage] };
+					statusBarItem.tooltip.isTrusted = {
+						enabledCommands: ['gitlens.showSettingsPage' satisfies GlCommands],
+					};
 
 					if (doc.canDirtyIdle) {
 						statusBarItem.text = '$(watch) Blame Paused';
 						statusBarItem.tooltip.appendMarkdown(
 							`Blame will resume after a [${configuration.get(
 								'advanced.blame.delayAfterEdit',
-							)} ms delay](${createMarkdownCommandLink<[undefined, string]>(GlCommand.ShowSettingsPage, [
+							)} ms delay](${createMarkdownCommandLink<[undefined, string]>('gitlens.showSettingsPage', [
 								undefined,
 								'advanced.blame.delayAfterEdit',
 							])} 'Change the after edit delay') to limit the performance impact because there are unsaved changes`,
@@ -185,7 +188,7 @@ export class StatusBarController implements Disposable {
 							`Blame will resume after saving because there are unsaved changes and the file is over the [${configuration.get(
 								'advanced.blame.sizeThresholdAfterEdit',
 							)} line threshold](${createMarkdownCommandLink<[undefined, string]>(
-								GlCommand.ShowSettingsPage,
+								'gitlens.showSettingsPage',
 								[undefined, 'advanced.blame.sizeThresholdAfterEdit'],
 							)} 'Change the after edit line threshold') to limit the performance impact`,
 						);
@@ -300,7 +303,7 @@ export class StatusBarController implements Disposable {
 			case StatusBarCommand.ToggleFileChanges: {
 				if (commit.file != null) {
 					this._statusBarBlame.command = createCommand<[Uri, ToggleFileChangesAnnotationCommandArgs]>(
-						GlCommand.ToggleFileChanges,
+						'gitlens.toggleFileChanges',
 						'Toggle File Changes',
 						commit.file.uri,
 						{
@@ -315,7 +318,7 @@ export class StatusBarController implements Disposable {
 			case StatusBarCommand.ToggleFileChangesOnly: {
 				if (commit.file != null) {
 					this._statusBarBlame.command = createCommand<[Uri, ToggleFileChangesAnnotationCommandArgs]>(
-						GlCommand.ToggleFileChanges,
+						'gitlens.toggleFileChanges',
 						'Toggle File Changes',
 						commit.file.uri,
 						{

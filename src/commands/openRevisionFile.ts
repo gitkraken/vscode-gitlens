@@ -1,6 +1,5 @@
 import type { TextDocumentShowOptions, TextEditor, Uri } from 'vscode';
 import type { FileAnnotationType } from '../config';
-import { GlCommand } from '../constants.commands';
 import type { Container } from '../container';
 import { openFileAtRevision } from '../git/actions/commit';
 import { GitUri } from '../git/gitUri';
@@ -23,9 +22,9 @@ export interface OpenRevisionFileCommandArgs {
 export class OpenRevisionFileCommand extends ActiveEditorCommand {
 	constructor(private readonly container: Container) {
 		super([
-			GlCommand.OpenRevisionFile,
-			GlCommand.OpenRevisionFileInDiffLeft,
-			GlCommand.OpenRevisionFileInDiffRight,
+			'gitlens.openRevisionFile',
+			'gitlens.openRevisionFileInDiffLeft',
+			'gitlens.openRevisionFileInDiffRight',
 		]);
 	}
 

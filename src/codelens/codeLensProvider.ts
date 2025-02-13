@@ -760,7 +760,7 @@ function applyToggleFileBlameCommand<T extends GitRecentChangeCodeLens | GitAuth
 	title: string,
 	lens: T,
 ): T {
-	lens.command = createCommand<[Uri]>(GlCommand.ToggleFileBlame, title, lens.uri!.toFileUri());
+	lens.command = createCommand<[Uri]>('gitlens.toggleFileBlame', title, lens.uri!.toFileUri());
 	return lens;
 }
 
@@ -771,7 +771,7 @@ function applyToggleFileChangesCommand<T extends GitRecentChangeCodeLens | GitAu
 	only?: boolean,
 ): T {
 	lens.command = createCommand<[Uri, ToggleFileChangesAnnotationCommandArgs]>(
-		GlCommand.ToggleFileChanges,
+		'gitlens.toggleFileChanges',
 		title,
 		lens.uri!.toFileUri(),
 		{
@@ -786,7 +786,7 @@ function applyToggleFileHeatmapCommand<T extends GitRecentChangeCodeLens | GitAu
 	title: string,
 	lens: T,
 ): T {
-	lens.command = createCommand<[Uri]>(GlCommand.ToggleFileHeatmap, title, lens.uri!.toFileUri());
+	lens.command = createCommand<[Uri]>('gitlens.toggleFileHeatmap', title, lens.uri!.toFileUri());
 	return lens;
 }
 

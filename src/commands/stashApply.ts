@@ -1,4 +1,3 @@
-import { GlCommand } from '../constants.commands';
 import type { Container } from '../container';
 import { apply, pop } from '../git/actions/stash';
 import type { GitStashCommit } from '../git/models/commit';
@@ -20,7 +19,7 @@ export interface StashApplyCommandArgs {
 @command()
 export class StashApplyCommand extends GlCommandBase {
 	constructor(private readonly container: Container) {
-		super(GlCommand.StashApply);
+		super('gitlens.stashApply');
 	}
 
 	protected override async preExecute(context: CommandContext, args?: StashApplyCommandArgs): Promise<void> {

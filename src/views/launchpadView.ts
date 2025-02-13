@@ -96,7 +96,7 @@ export class LaunchpadItemNode extends CacheableChildrenViewNode<'launchpad-item
 		}`;
 		item.iconPath = lpi.author?.avatarUrl != null ? Uri.parse(lpi.author.avatarUrl) : undefined;
 		item.command = createCommand<[Omit<LaunchpadCommandArgs, 'command'>]>(
-			GlCommand.ShowLaunchpad,
+			'gitlens.showLaunchpad',
 			'Open in Launchpad',
 			{
 				source: 'launchpad-view',

@@ -91,7 +91,7 @@ export async function showGenericErrorMessage(message: string): Promise<void> {
 		);
 
 		if (result != null) {
-			void executeCommand(GlCommand.EnableDebugLogging);
+			void executeCommand('gitlens.enableDebugLogging');
 		}
 	}
 }

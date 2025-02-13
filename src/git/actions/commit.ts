@@ -570,7 +570,7 @@ export async function openFile(
 
 	options = { preserveFocus: true, preview: false, ...options };
 
-	void (await executeEditorCommand<OpenWorkingFileCommandArgs>(GlCommand.OpenWorkingFile, undefined, {
+	void (await executeEditorCommand<OpenWorkingFileCommandArgs>('gitlens.openWorkingFile', undefined, {
 		uri: uri,
 		showOptions: options,
 	}));

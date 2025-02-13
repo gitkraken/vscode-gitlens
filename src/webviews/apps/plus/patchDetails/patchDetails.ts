@@ -1,7 +1,7 @@
 /*global*/
 import type { TextDocumentShowOptions } from 'vscode';
 import type { ViewFilesLayout } from '../../../../config';
-import type { Commands } from '../../../../constants.commands';
+import type { GlCommands } from '../../../../constants.commands';
 import type { DraftPatchFileChange, DraftVisibility } from '../../../../plus/drafts/models/drafts';
 import { debounce } from '../../../../system/function';
 import type { Serialized } from '../../../../system/serialize';
@@ -346,8 +346,8 @@ export class PatchDetailsApp extends App<Serialized<State>> {
 		this.sendCommand(SelectPatchRepoCommand, undefined);
 	}
 
-	private onCommandClickedCore(action?: Commands | `command:${Commands}`) {
-		const command = (action?.startsWith('command:') ? action.slice(8) : action) as Commands | undefined;
+	private onCommandClickedCore(action?: GlCommands | `command:${GlCommands}`) {
+		const command = (action?.startsWith('command:') ? action.slice(8) : action) as GlCommands | undefined;
 		if (command == null) return;
 
 		this.sendCommand(ExecuteCommand, { command: command });

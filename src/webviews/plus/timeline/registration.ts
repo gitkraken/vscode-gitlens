@@ -1,6 +1,5 @@
 import type { Uri } from 'vscode';
 import { Disposable, ViewColumn } from 'vscode';
-import { GlCommand } from '../../../constants.commands';
 import { registerCommand } from '../../../system/-webview/command';
 import { configuration } from '../../../system/-webview/configuration';
 import { getScmResourceFolderUri, isScmResourceState } from '../../../system/-webview/scm';
@@ -14,7 +13,7 @@ export function registerTimelineWebviewPanel(
 	controller: WebviewsController,
 ): WebviewPanelsProxy<'gitlens.timeline', TimelineWebviewShowingArgs, State> {
 	return controller.registerWebviewPanel<'gitlens.timeline', State, State, TimelineWebviewShowingArgs>(
-		{ id: GlCommand.ShowTimelinePage, options: { preserveInstance: true } },
+		{ id: 'gitlens.showTimelinePage', options: { preserveInstance: true } },
 		{
 			id: 'gitlens.timeline',
 			fileName: 'timeline.html',
@@ -69,14 +68,14 @@ export function registerTimelineWebviewCommands<T>(
 	panels: WebviewPanelsProxy<'gitlens.timeline', TimelineWebviewShowingArgs, T>,
 ): Disposable {
 	return Disposable.from(
-		registerCommand(GlCommand.ShowFileInTimeline, (...args: TimelineWebviewShowingArgs) => {
+		registerCommand('gitlens.showFileInTimeline', (...args: TimelineWebviewShowingArgs) => {
 			const [arg] = args;
 			if (isScmResourceState(arg)) {
 				args = [arg.resourceUri];
 			}
 			return void panels.show(undefined, ...args);
 		}),
-		registerCommand(GlCommand.ShowFolderInTimeline, (...args: TimelineWebviewShowingArgs) => {
+		registerCommand('gitlens.showFolderInTimeline', (...args: TimelineWebviewShowingArgs) => {
 			const uri = getScmResourceFolderUri(args);
 			if (uri != null) {
 				args = [uri];

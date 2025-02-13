@@ -3,7 +3,7 @@ import { css, html, LitElement, nothing } from 'lit';
 import { customElement, property, state } from 'lit/decorators.js';
 import { classMap } from 'lit/directives/class-map.js';
 import { when } from 'lit/directives/when.js';
-import type { Commands } from '../../../../../constants.commands';
+import type { GlCommands } from '../../../../../constants.commands';
 import type { LaunchpadCommandArgs } from '../../../../../plus/launchpad/launchpad';
 import {
 	actionGroupMap,
@@ -623,7 +623,7 @@ export abstract class GlBranchCardBase extends GlElement {
 		return html`<action-nav>${actions}</action-nav>`;
 	}
 
-	protected createCommandLink<T>(command: Commands, args?: T | any): string {
+	protected createCommandLink<T>(command: GlCommands, args?: T | any): string {
 		return createCommandLink<T>(command, args ?? this.branchRef);
 	}
 

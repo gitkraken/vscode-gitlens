@@ -210,7 +210,7 @@ export async function activate(context: ExtensionContext): Promise<GitLensApi | 
 
 				if (!container.prereleaseOrDebugging) {
 					if (await showDebugLoggingWarningMessage()) {
-						void executeCommand(GlCommand.DisableDebugLogging);
+						void executeCommand('gitlens.disableDebugLogging');
 					}
 				}
 			}, 60000);

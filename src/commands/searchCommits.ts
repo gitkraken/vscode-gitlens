@@ -22,7 +22,7 @@ export interface SearchCommitsCommandArgs {
 @command()
 export class SearchCommitsCommand extends GlCommandBase {
 	constructor(private readonly container: Container) {
-		super([GlCommand.SearchCommits, GlCommand.SearchCommitsInView]);
+		super(['gitlens.showCommitSearch', GlCommand.SearchCommitsInView]);
 	}
 
 	protected override preExecute(context: CommandContext, args?: SearchCommitsCommandArgs): Promise<void> {

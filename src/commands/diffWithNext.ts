@@ -23,11 +23,11 @@ export interface DiffWithNextCommandArgs {
 @command()
 export class DiffWithNextCommand extends ActiveEditorCommand {
 	constructor(private readonly container: Container) {
-		super([GlCommand.DiffWithNext, GlCommand.DiffWithNextInDiffLeft, GlCommand.DiffWithNextInDiffRight]);
+		super(['gitlens.diffWithNext', 'gitlens.diffWithNextInDiffLeft', 'gitlens.diffWithNextInDiffRight']);
 	}
 
 	protected override preExecute(context: CommandContext, args?: DiffWithNextCommandArgs): Promise<void> {
-		if (context.command === GlCommand.DiffWithNextInDiffLeft) {
+		if (context.command === 'gitlens.diffWithNextInDiffLeft') {
 			args = { ...args, inDiffLeftEditor: true };
 		}
 

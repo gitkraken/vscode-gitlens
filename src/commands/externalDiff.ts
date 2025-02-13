@@ -2,7 +2,6 @@ import type { SourceControlResourceState } from 'vscode';
 import { env, Uri, window } from 'vscode';
 import type { ScmResource } from '../@types/vscode.git.resources';
 import { ScmResourceGroupType, ScmStatus } from '../@types/vscode.git.resources.enums';
-import { GlCommand } from '../constants.commands';
 import type { Container } from '../container';
 import { GitUri } from '../git/gitUri';
 import { isUncommitted } from '../git/utils/revision.utils';
@@ -30,7 +29,7 @@ export interface ExternalDiffCommandArgs {
 @command()
 export class ExternalDiffCommand extends GlCommandBase {
 	constructor(private readonly container: Container) {
-		super([GlCommand.ExternalDiff, GlCommand.ExternalDiffAll]);
+		super(['gitlens.externalDiff', 'gitlens.externalDiffAll']);
 	}
 
 	protected override async preExecute(context: CommandContext, args?: ExternalDiffCommandArgs): Promise<void> {
@@ -84,7 +83,7 @@ export class ExternalDiffCommand extends GlCommandBase {
 			}
 		}
 
-		if (context.command === GlCommand.ExternalDiffAll) {
+		if (context.command === 'gitlens.externalDiffAll') {
 			if (args.files == null) {
 				const repository = await getRepositoryOrShowPicker('Open All Changes (difftool)');
 				if (repository == null) return;

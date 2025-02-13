@@ -1,7 +1,6 @@
 import type { TextEditor, TextEditorEdit, Uri } from 'vscode';
 import type { AnnotationContext } from '../annotations/annotationProvider';
 import type { ChangesAnnotationContext } from '../annotations/gutterChangesAnnotationProvider';
-import { GlCommand } from '../constants.commands';
 import type { Container } from '../container';
 import { showGenericErrorMessage } from '../messages';
 import { command } from '../system/-webview/command';
@@ -12,7 +11,7 @@ import { ActiveEditorCommand, EditorCommand } from './commandBase';
 @command()
 export class ClearFileAnnotationsCommand extends EditorCommand {
 	constructor(private readonly container: Container) {
-		super([GlCommand.ClearFileAnnotations, GlCommand.ComputingFileAnnotations]);
+		super(['gitlens.clearFileAnnotations', 'gitlens.computingFileAnnotations']);
 	}
 
 	async execute(editor: TextEditor | undefined, _edit: TextEditorEdit, uri?: Uri): Promise<void> {
@@ -61,7 +60,7 @@ export type ToggleFileAnnotationCommandArgs =
 @command()
 export class ToggleFileBlameCommand extends ActiveEditorCommand {
 	constructor(private readonly container: Container) {
-		super([GlCommand.ToggleFileBlame, GlCommand.ToggleFileBlameInDiffLeft, GlCommand.ToggleFileBlameInDiffRight]);
+		super(['gitlens.toggleFileBlame', 'gitlens.toggleFileBlameInDiffLeft', 'gitlens.toggleFileBlameInDiffRight']);
 	}
 
 	execute(editor: TextEditor, uri?: Uri, args?: ToggleFileBlameAnnotationCommandArgs): Promise<void> {
@@ -75,7 +74,7 @@ export class ToggleFileBlameCommand extends ActiveEditorCommand {
 @command()
 export class ToggleFileChangesCommand extends ActiveEditorCommand {
 	constructor(private readonly container: Container) {
-		super(GlCommand.ToggleFileChanges);
+		super('gitlens.toggleFileChanges');
 	}
 
 	execute(editor: TextEditor, uri?: Uri, args?: ToggleFileChangesAnnotationCommandArgs): Promise<void> {
@@ -90,9 +89,9 @@ export class ToggleFileChangesCommand extends ActiveEditorCommand {
 export class ToggleFileHeatmapCommand extends ActiveEditorCommand {
 	constructor(private readonly container: Container) {
 		super([
-			GlCommand.ToggleFileHeatmap,
-			GlCommand.ToggleFileHeatmapInDiffLeft,
-			GlCommand.ToggleFileHeatmapInDiffRight,
+			'gitlens.toggleFileHeatmap',
+			'gitlens.toggleFileHeatmapInDiffLeft',
+			'gitlens.toggleFileHeatmapInDiffRight',
 		]);
 	}
 

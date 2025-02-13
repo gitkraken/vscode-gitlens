@@ -21,8 +21,8 @@ export class CompareWithCommand extends ActiveEditorCommand {
 			GlCommand.CompareWith,
 			GlCommand.CompareHeadWith,
 			GlCommand.CompareWorkingWith,
-			GlCommand.Deprecated_DiffHeadWith,
-			GlCommand.Deprecated_DiffWorkingWith,
+			/** @deprecated */ 'gitlens.diffHeadWith',
+			/** @deprecated */ 'gitlens.diffWorkingWith',
 		]);
 	}
 
@@ -33,13 +33,13 @@ export class CompareWithCommand extends ActiveEditorCommand {
 				break;
 
 			case GlCommand.CompareHeadWith:
-			case GlCommand.Deprecated_DiffHeadWith:
+			case /** @deprecated */ 'gitlens.diffHeadWith':
 				args = { ...args };
 				args.ref1 = 'HEAD';
 				break;
 
 			case GlCommand.CompareWorkingWith:
-			case GlCommand.Deprecated_DiffWorkingWith:
+			case /** @deprecated */ 'gitlens.diffWorkingWith':
 				args = { ...args };
 				args.ref1 = '';
 				break;

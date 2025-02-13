@@ -1,7 +1,6 @@
 import type { Uri } from 'vscode';
 import type { ScmResource } from '../@types/vscode.git.resources';
 import { ScmResourceGroupType, ScmStatus } from '../@types/vscode.git.resources.enums';
-import { GlCommand } from '../constants.commands';
 import type { Container } from '../container';
 import { Features } from '../features';
 import { push } from '../git/actions/stash';
@@ -28,7 +27,7 @@ export interface StashSaveCommandArgs {
 @command()
 export class StashSaveCommand extends GlCommandBase {
 	constructor(private readonly container: Container) {
-		super([GlCommand.StashSave, GlCommand.StashSaveFiles]);
+		super(['gitlens.stashSave', 'gitlens.stashSaveFiles']);
 	}
 
 	protected override async preExecute(context: CommandContext, args?: StashSaveCommandArgs): Promise<void> {

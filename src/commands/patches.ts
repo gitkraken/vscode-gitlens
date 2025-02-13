@@ -161,7 +161,7 @@ abstract class CreatePatchCommandBase extends GlCommandBase {
 @command()
 export class CreatePatchCommand extends CreatePatchCommandBase {
 	constructor(container: Container) {
-		super(container, GlCommand.CreatePatch);
+		super(container, 'gitlens.createPatch');
 	}
 
 	async execute(args?: CreatePatchCommandArgs): Promise<void> {
@@ -185,7 +185,7 @@ export class CreatePatchCommand extends CreatePatchCommandBase {
 @command()
 export class CopyPatchToClipboardCommand extends CreatePatchCommandBase {
 	constructor(container: Container) {
-		super(container, GlCommand.CopyPatchToClipboard);
+		super(container, 'gitlens.copyPatchToClipboard');
 	}
 
 	async execute(args?: CreatePatchCommandArgs): Promise<void> {
@@ -202,7 +202,7 @@ export class CopyPatchToClipboardCommand extends CreatePatchCommandBase {
 @command()
 export class ApplyPatchFromClipboardCommand extends GlCommandBase {
 	constructor(private readonly container: Container) {
-		super([GlCommand.ApplyPatchFromClipboard, GlCommand.PastePatchFromClipboard]);
+		super(['gitlens.applyPatchFromClipboard', 'gitlens.pastePatchFromClipboard']);
 	}
 
 	async execute(): Promise<void> {
@@ -246,7 +246,7 @@ export class ApplyPatchFromClipboardCommand extends GlCommandBase {
 @command()
 export class CreateCloudPatchCommand extends CreatePatchCommandBase {
 	constructor(container: Container) {
-		super(container, [GlCommand.CreateCloudPatch, GlCommand.ShareAsCloudPatch]);
+		super(container, [GlCommand.CreateCloudPatch, 'gitlens.shareAsCloudPatch']);
 	}
 
 	async execute(args?: CreatePatchCommandArgs): Promise<void> {
@@ -270,7 +270,7 @@ export class CreateCloudPatchCommand extends CreatePatchCommandBase {
 @command()
 export class OpenPatchCommand extends ActiveEditorCommand {
 	constructor(private readonly container: Container) {
-		super(GlCommand.OpenPatch);
+		super('gitlens.openPatch');
 	}
 
 	async execute(editor?: TextEditor): Promise<void> {

@@ -518,7 +518,10 @@ export class CommitFormatter extends Formatter<GitCommit, CommitFormatOptions> {
 					pr.state
 				}, ${pr.formatDateFromNow()}")`;
 			} else if (isPromise(pr)) {
-				commands += `${separator}[$(git-pull-request) PR $(loading~spin)](command:${GlCommand.RefreshHover} "Searching for a Pull Request (if any) that introduced this commit...")`;
+				commands += `${separator}[$(git-pull-request) PR $(loading~spin)](${createMarkdownCommandLink(
+					'gitlens.refreshHover',
+					undefined,
+				)} "Searching for a Pull Request (if any) that introduced this commit...")`;
 			}
 		} else if (remotes != null) {
 			const [remote] = remotes;
@@ -814,7 +817,10 @@ export class CommitFormatter extends Formatter<GitCommit, CommitFormatOptions> {
 		} else if (isPromise(pr)) {
 			text =
 				this._options.outputFormat === 'markdown'
-					? `[PR $(loading~spin)](command:${GlCommand.RefreshHover} "Searching for a Pull Request (if any) that introduced this commit...")`
+					? `[PR $(loading~spin)](${createMarkdownCommandLink(
+							'gitlens.refreshHover',
+							undefined,
+					  )} "Searching for a Pull Request (if any) that introduced this commit...")`
 					: this._options?.pullRequestPendingMessage ?? '';
 		} else {
 			return this._padOrTruncate('', this._options.tokenOptions.pullRequest);

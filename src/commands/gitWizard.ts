@@ -83,7 +83,7 @@ export class GitWizardCommand extends QuickWizardCommandBase {
 			GlCommand.GitCommandsWorktreeDelete,
 			GlCommand.GitCommandsWorktreeOpen,
 
-			GlCommand.CopyWorkingChangesToWorktree,
+			'gitlens.copyWorkingChangesToWorktree',
 		]);
 	}
 
@@ -156,7 +156,7 @@ export class GitWizardCommand extends QuickWizardCommandBase {
 			case GlCommand.GitCommandsWorktreeOpen:
 				return this.execute({ command: 'worktree', state: { subcommand: 'open' } });
 
-			case GlCommand.CopyWorkingChangesToWorktree:
+			case 'gitlens.copyWorkingChangesToWorktree':
 				return this.execute({
 					command: 'worktree',
 					state: { subcommand: 'copy-changes', changes: { type: 'working-tree' } },

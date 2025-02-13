@@ -1,5 +1,4 @@
 import type { TextEditor, Uri } from 'vscode';
-import { GlCommand } from '../constants.commands';
 import type { StoredNamedRef } from '../constants.storage';
 import type { Container } from '../container';
 import { GitUri } from '../git/gitUri';
@@ -40,12 +39,12 @@ export interface CopyDeepLinkCommandArgs {
 export class CopyDeepLinkCommand extends ActiveEditorCommand {
 	constructor(private readonly container: Container) {
 		super([
-			GlCommand.CopyDeepLinkToBranch,
-			GlCommand.CopyDeepLinkToCommit,
-			GlCommand.CopyDeepLinkToRepo,
-			GlCommand.CopyDeepLinkToTag,
-			GlCommand.CopyDeepLinkToComparison,
-			GlCommand.CopyDeepLinkToWorkspace,
+			'gitlens.copyDeepLinkToBranch',
+			'gitlens.copyDeepLinkToCommit',
+			'gitlens.copyDeepLinkToRepo',
+			'gitlens.copyDeepLinkToTag',
+			'gitlens.copyDeepLinkToComparison',
+			'gitlens.copyDeepLinkToWorkspace',
 		]);
 	}
 
@@ -60,7 +59,7 @@ export class CopyDeepLinkCommand extends ActiveEditorCommand {
 					compareWithRef: context.node.compareWithRef,
 				};
 			} else if (isCommandContextViewNodeHasBranch(context)) {
-				if (context.command === GlCommand.CopyDeepLinkToRepo) {
+				if (context.command === 'gitlens.copyDeepLinkToRepo') {
 					args = {
 						refOrRepoPath: context.node.branch.repoPath,
 						remote: context.node.branch.getRemoteName(),
@@ -182,7 +181,7 @@ export interface CopyFileDeepLinkCommandArgs {
 @command()
 export class CopyFileDeepLinkCommand extends ActiveEditorCommand {
 	constructor(private readonly container: Container) {
-		super([GlCommand.CopyDeepLinkToFile, GlCommand.CopyDeepLinkToFileAtRevision, GlCommand.CopyDeepLinkToLines]);
+		super(['gitlens.copyDeepLinkToFile', 'gitlens.copyDeepLinkToFileAtRevision', 'gitlens.copyDeepLinkToLines']);
 	}
 
 	protected override preExecute(context: CommandContext, args?: CopyFileDeepLinkCommandArgs): Promise<void> {
@@ -190,11 +189,11 @@ export class CopyFileDeepLinkCommand extends ActiveEditorCommand {
 			args = {};
 		}
 
-		if (args.ref == null && context.command === GlCommand.CopyDeepLinkToFileAtRevision) {
+		if (args.ref == null && context.command === 'gitlens.copyDeepLinkToFileAtRevision') {
 			args.chooseRef = true;
 		}
 
-		if (args.lines == null && context.command === GlCommand.CopyDeepLinkToLines) {
+		if (args.lines == null && context.command === 'gitlens.copyDeepLinkToLines') {
 			let lines: number[] | undefined;
 			if (isCommandContextEditorLine(context) && context.line != null) {
 				lines = [context.line + 1];

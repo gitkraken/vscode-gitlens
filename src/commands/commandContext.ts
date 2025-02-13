@@ -6,6 +6,7 @@ import type {
 	TextEditor,
 	Uri,
 } from 'vscode';
+import type { GlCommands } from '../constants.commands';
 import type { ViewNode } from '../views/nodes/abstract/viewNode';
 
 export type CommandContext =
@@ -22,7 +23,7 @@ export type CommandContext =
 	| CommandViewNodesContext;
 
 export interface CommandContextBase {
-	command: string;
+	command: GlCommands;
 	editor?: TextEditor;
 	uri?: Uri;
 

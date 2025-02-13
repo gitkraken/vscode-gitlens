@@ -1,7 +1,6 @@
 import type { QuickInputButton, QuickPick, QuickPickItem } from 'vscode';
 import { ThemeIcon } from 'vscode';
 import { GlyphChars, quickPickTitleMaxChars } from '../constants';
-import { GlCommand } from '../constants.commands';
 import { Container } from '../container';
 import type { FeatureAccess, RepoFeatureAccess } from '../features';
 import { PlusFeatures } from '../features';
@@ -994,7 +993,7 @@ export function* pickBranchOrTagStepMultiRepo<
 		label: 'Choose a Pull Request...',
 		iconPath: new ThemeIcon('git-pull-request'),
 		alwaysShow: true,
-		item: createCrossCommandReference<Partial<LaunchpadCommandArgs>>(GlCommand.ShowLaunchpad, {
+		item: createCrossCommandReference<Partial<LaunchpadCommandArgs>>('gitlens.showLaunchpad', {
 			source: 'quick-wizard',
 		}),
 	};
@@ -2624,7 +2623,7 @@ function getShowRepositoryStatusStepItems<
 
 	if (context.status.files.length) {
 		items.push(
-			new CommandQuickPickItem('Close Unchanged Files', new ThemeIcon('x'), GlCommand.CloseUnchangedFiles),
+			new CommandQuickPickItem('Close Unchanged Files', new ThemeIcon('x'), 'gitlens.closeUnchangedFiles'),
 		);
 	}
 

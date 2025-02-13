@@ -947,7 +947,7 @@ export class LaunchpadProvider implements Disposable {
 
 	private registerCommands(): Disposable[] {
 		return [
-			registerCommand(GlCommand.ToggleLaunchpadIndicator, () => {
+			registerCommand('gitlens.launchpad.indicator.toggle', () => {
 				const enabled = configuration.get('launchpad.indicator.enabled') ?? false;
 				void configuration.updateEffective('launchpad.indicator.enabled', !enabled);
 			}),

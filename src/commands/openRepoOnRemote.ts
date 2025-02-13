@@ -21,7 +21,11 @@ export interface OpenRepoOnRemoteCommandArgs {
 @command()
 export class OpenRepoOnRemoteCommand extends ActiveEditorCommand {
 	constructor(private readonly container: Container) {
-		super([GlCommand.OpenRepoOnRemote, GlCommand.Deprecated_OpenRepoInRemote, GlCommand.CopyRemoteRepositoryUrl]);
+		super([
+			'gitlens.openRepoOnRemote',
+			/** @deprecated */ 'gitlens.openRepoInRemote',
+			GlCommand.CopyRemoteRepositoryUrl,
+		]);
 	}
 
 	protected override preExecute(context: CommandContext, args?: OpenRepoOnRemoteCommandArgs): Promise<void> {

@@ -34,7 +34,7 @@ export class OpenFileOnRemoteCommand extends ActiveEditorCommand {
 	constructor(private readonly container: Container) {
 		super([
 			GlCommand.OpenFileOnRemote,
-			GlCommand.Deprecated_OpenFileInRemote,
+			/** @deprecated */ 'gitlens.openFileInRemote',
 			GlCommand.CopyRemoteFileUrl,
 			GlCommand.CopyRemoteFileUrlWithoutRange,
 			GlCommand.OpenFileOnRemoteFrom,

@@ -1,7 +1,7 @@
 import { css, html, LitElement, nothing } from 'lit';
 import { customElement, property } from 'lit/decorators.js';
 import { when } from 'lit/directives/when.js';
-import type { Commands } from '../../../../../constants.commands';
+import type { GlCommands } from '../../../../../constants.commands';
 import type { GitPausedOperationStatus } from '../../../../../git/models/pausedOperationStatus';
 import { pausedOperationStatusStringsByType } from '../../../../../git/utils/pausedOperationStatus.utils';
 import { createCommandLink } from '../../../../../system/commands';
@@ -78,19 +78,19 @@ export class GlMergeConflictWarning extends LitElement {
 	webviewCommandContext?: { webview: string; webviewInstance: string | undefined };
 
 	private get onSkipUrl() {
-		return this.createCommandLink(this.skipCommand as Commands, this.pausedOpStatus);
+		return this.createCommandLink(this.skipCommand as GlCommands, this.pausedOpStatus);
 	}
 
 	private get onContinueUrl() {
-		return this.createCommandLink(this.continueCommand as Commands, this.pausedOpStatus);
+		return this.createCommandLink(this.continueCommand as GlCommands, this.pausedOpStatus);
 	}
 
 	private get onAbortUrl() {
-		return this.createCommandLink(this.abortCommand as Commands, this.pausedOpStatus);
+		return this.createCommandLink(this.abortCommand as GlCommands, this.pausedOpStatus);
 	}
 
 	private get onOpenEditorUrl() {
-		return this.createCommandLink(this.openEditorCommand as Commands, this.pausedOpStatus);
+		return this.createCommandLink(this.openEditorCommand as GlCommands, this.pausedOpStatus);
 	}
 
 	private createCommandLink(command: string, args?: any) {
@@ -102,7 +102,7 @@ export class GlMergeConflictWarning extends LitElement {
 			}
 		}
 
-		return createCommandLink(command as Commands, args);
+		return createCommandLink(command as GlCommands, args);
 	}
 
 	override render(): unknown {

@@ -9,7 +9,7 @@ import type { OpenFileAtRevisionCommandArgs } from '../commands/openFileAtRevisi
 import type { OpenOnRemoteCommandArgs } from '../commands/openOnRemote';
 import type { ViewShowBranchComparison } from '../config';
 import { GlyphChars } from '../constants';
-import type { Commands } from '../constants.commands';
+import type { GlCommands } from '../constants.commands';
 import { GlCommand } from '../constants.commands';
 import type { Container } from '../container';
 import { browseAtRevision, executeGitCommand } from '../git/actions';
@@ -104,7 +104,7 @@ interface CompareSelectedInfo {
 }
 
 export function registerViewCommand(
-	command: Commands,
+	command: GlCommands,
 	callback: (...args: any[]) => unknown,
 	thisArg?: any,
 	multiselect: boolean | 'sequential' = false,
@@ -151,7 +151,7 @@ export class ViewCommands implements Disposable {
 			registerViewCommand('gitlens.views.clearComparison', n => this.clearComparison(n), this),
 			registerViewCommand('gitlens.views.clearReviewed', n => this.clearReviewed(n), this),
 			registerViewCommand(GlCommand.ViewsCopy, partial(copyNode, 'text'), this, true),
-			registerViewCommand(GlCommand.ViewsCopyAsMarkdown, partial(copyNode, 'markdown'), this, true),
+			registerViewCommand('gitlens.views.copyAsMarkdown', partial(copyNode, 'markdown'), this, true),
 			registerViewCommand(GlCommand.ViewsCopyUrl, copyNodeUrl, this),
 			registerViewCommand(`${GlCommand.ViewsCopyUrl}.multi`, copyNodeUrl, this, true),
 			registerViewCommand(GlCommand.ViewsOpenUrl, openNodeUrl, this),
@@ -1747,7 +1747,7 @@ export class ViewCommands implements Disposable {
 	private async associateIssueWithBranch(node: BranchNode) {
 		if (!node.is('branch')) return Promise.resolve();
 
-		executeCommand<AssociateIssueWithBranchCommandArgs>(GlCommand.AssociateIssueWithBranch, {
+		executeCommand<AssociateIssueWithBranchCommandArgs>('gitlens.associateIssueWithBranch', {
 			command: 'associateIssueWithBranch',
 			branch: node.ref,
 			source: 'view',

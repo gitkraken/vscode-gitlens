@@ -3682,9 +3682,6 @@
 			"label": "Show Cloud Patches View",
 			"commandPalette": "gitlens:enabled && gitlens:gk:organization:drafts:enabled"
 		},
-		"gitlens.showFileHistoryInView": {
-			"label": "Open File History"
-		},
 		"gitlens.showFileHistoryView": {
 			"label": "Show File History View",
 			"commandPalette": "gitlens:enabled"

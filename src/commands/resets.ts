@@ -1,7 +1,6 @@
 import type { MessageItem } from 'vscode';
 import { ConfigurationTarget, window } from 'vscode';
 import { resetAvatarCache } from '../avatars';
-import { GlCommand } from '../constants.commands';
 import type { Container } from '../container';
 import type { QuickPickItemOfT } from '../quickpicks/items/common';
 import { createQuickPickSeparator } from '../quickpicks/items/common';
@@ -25,7 +24,7 @@ type ResetType = 'all' | (typeof resetTypes)[number];
 @command()
 export class ResetCommand extends GlCommandBase {
 	constructor(private readonly container: Container) {
-		super(GlCommand.Reset);
+		super('gitlens.reset');
 	}
 	async execute(): Promise<void> {
 		type ResetQuickPickItem = QuickPickItemOfT<ResetType>;
@@ -215,7 +214,7 @@ export class ResetCommand extends GlCommandBase {
 @command()
 export class ResetAIKeyCommand extends GlCommandBase {
 	constructor(private readonly container: Container) {
-		super(GlCommand.ResetAIKey);
+		super('gitlens.resetAIKey');
 	}
 
 	async execute(): Promise<void> {

@@ -3,7 +3,7 @@ import { html, LitElement, nothing } from 'lit';
 import { customElement, property, state } from 'lit/decorators.js';
 import { when } from 'lit/directives/when.js';
 import type { ViewFilesLayout } from '../../../../config';
-import type { Commands } from '../../../../constants.commands';
+import type { GlCommands } from '../../../../constants.commands';
 import type { Serialized } from '../../../../system/serialize';
 import { pluralize } from '../../../../system/string';
 import type { DraftState, ExecuteCommitActionsParams, Mode, State } from '../../../commitDetails/protocol';
@@ -584,8 +584,8 @@ export class GlCommitDetailsApp extends LitElement {
 		this._hostIpc.sendCommand(CreatePatchFromWipCommand, { changes: this.state.wip.changes, checked: checked });
 	}
 
-	private onCommandClickedCore(action?: Commands | `command:${Commands}`) {
-		const command = (action?.startsWith('command:') ? action.slice(8) : action) as Commands | undefined;
+	private onCommandClickedCore(action?: GlCommands | `command:${GlCommands}`) {
+		const command = (action?.startsWith('command:') ? action.slice(8) : action) as GlCommands | undefined;
 		if (command == null) return;
 
 		this._hostIpc.sendCommand(ExecuteCommand, { command: command });

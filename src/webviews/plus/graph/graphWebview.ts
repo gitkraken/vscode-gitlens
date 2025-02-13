@@ -3199,7 +3199,7 @@ export class GraphWebviewProvider implements WebviewProvider<State, State, Graph
 	private associateIssueWithBranch(item?: GraphItemContext) {
 		if (isGraphItemRefContext(item, 'branch')) {
 			const { ref } = item.webviewItemValue;
-			return executeCommand<AssociateIssueWithBranchCommandArgs>(GlCommand.AssociateIssueWithBranch, {
+			return executeCommand<AssociateIssueWithBranchCommandArgs>('gitlens.associateIssueWithBranch', {
 				command: 'associateIssueWithBranch',
 				branch: ref,
 				source: 'graph',
@@ -3381,7 +3381,7 @@ export class GraphWebviewProvider implements WebviewProvider<State, State, Graph
 	private copyDeepLinkToBranch(item?: GraphItemContext) {
 		if (isGraphItemRefContext(item, 'branch')) {
 			const { ref } = item.webviewItemValue;
-			return executeCommand<CopyDeepLinkCommandArgs>(GlCommand.CopyDeepLinkToBranch, { refOrRepoPath: ref });
+			return executeCommand<CopyDeepLinkCommandArgs>('gitlens.copyDeepLinkToBranch', { refOrRepoPath: ref });
 		}
 
 		return Promise.resolve();
@@ -3392,7 +3392,7 @@ export class GraphWebviewProvider implements WebviewProvider<State, State, Graph
 		const ref = this.getGraphItemRef(item, 'revision');
 		if (ref == null) return Promise.resolve();
 
-		return executeCommand<CopyDeepLinkCommandArgs>(GlCommand.CopyDeepLinkToCommit, { refOrRepoPath: ref });
+		return executeCommand<CopyDeepLinkCommandArgs>('gitlens.copyDeepLinkToCommit', { refOrRepoPath: ref });
 	}
 
 	@log()
@@ -3401,7 +3401,7 @@ export class GraphWebviewProvider implements WebviewProvider<State, State, Graph
 			const { ref } = item.webviewItemValue;
 			if (!ref.remote) return Promise.resolve();
 
-			return executeCommand<CopyDeepLinkCommandArgs>(GlCommand.CopyDeepLinkToRepo, {
+			return executeCommand<CopyDeepLinkCommandArgs>('gitlens.copyDeepLinkToRepo', {
 				refOrRepoPath: ref.repoPath,
 				remote: getRemoteNameFromBranchName(ref.name),
 			});
@@ -3414,7 +3414,7 @@ export class GraphWebviewProvider implements WebviewProvider<State, State, Graph
 	private copyDeepLinkToTag(item?: GraphItemContext) {
 		if (isGraphItemRefContext(item, 'tag')) {
 			const { ref } = item.webviewItemValue;
-			return executeCommand<CopyDeepLinkCommandArgs>(GlCommand.CopyDeepLinkToTag, { refOrRepoPath: ref });
+			return executeCommand<CopyDeepLinkCommandArgs>('gitlens.copyDeepLinkToTag', { refOrRepoPath: ref });
 		}
 
 		return Promise.resolve();
