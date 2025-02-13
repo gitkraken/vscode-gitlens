@@ -267,10 +267,9 @@ export class LaunchpadView extends ViewBase<'launchpad', LaunchpadViewNode, Laun
 			registerViewCommand(
 				this.getQualifiedCommand('info'),
 				() =>
-					executeCommand<OpenWalkthroughCommandArgs>(GlCommand.OpenWalkthrough, {
+					executeCommand<OpenWalkthroughCommandArgs>('gitlens.openWalkthrough', {
 						step: 'accelerate-pr-reviews',
-						source: 'launchpad-view',
-						detail: 'info',
+						source: { source: 'launchpad-view', detail: 'info' },
 					}),
 				this,
 			),

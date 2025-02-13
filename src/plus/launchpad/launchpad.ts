@@ -36,7 +36,6 @@ import {
 import { ensureAccessStep } from '../../commands/quickCommand.steps';
 import type { OpenWalkthroughCommandArgs } from '../../commands/walkthroughs';
 import { proBadge, urls } from '../../constants';
-import { GlCommand } from '../../constants.commands';
 import type { IntegrationId } from '../../constants.integrations';
 import { HostingIntegrationId, SelfHostedIntegrationId } from '../../constants.integrations';
 import type { LaunchpadTelemetryContext, Source, Sources, TelemetryEvents } from '../../constants.telemetry';
@@ -1181,10 +1180,9 @@ export class LaunchpadCommand extends QuickCommand<State> {
 						detail: 'Click to learn more about Launchpad',
 						iconPath: new ThemeIcon('rocket'),
 						onDidSelect: () =>
-							void executeCommand<OpenWalkthroughCommandArgs>(GlCommand.OpenWalkthrough, {
+							void executeCommand<OpenWalkthroughCommandArgs>('gitlens.openWalkthrough', {
 								step: 'accelerate-pr-reviews',
-								source: 'launchpad',
-								detail: 'info',
+								source: { source: 'launchpad', detail: 'info' },
 							}),
 					}),
 					createQuickPickSeparator(),
@@ -1257,10 +1255,9 @@ export class LaunchpadCommand extends QuickCommand<State> {
 								detail: 'Click to learn more about Launchpad',
 								iconPath: new ThemeIcon('rocket'),
 								onDidSelect: () =>
-									void executeCommand<OpenWalkthroughCommandArgs>(GlCommand.OpenWalkthrough, {
+									void executeCommand<OpenWalkthroughCommandArgs>('gitlens.openWalkthrough', {
 										step: 'accelerate-pr-reviews',
-										source: 'launchpad',
-										detail: 'info',
+										source: { source: 'launchpad', detail: 'info' },
 									}),
 							}),
 							createQuickPickSeparator(),

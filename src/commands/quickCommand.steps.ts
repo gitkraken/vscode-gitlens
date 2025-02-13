@@ -2695,10 +2695,9 @@ export async function* ensureAccessStep<
 					detail: 'Click to learn more about Launchpad',
 					iconPath: new ThemeIcon('rocket'),
 					onDidSelect: () =>
-						void executeCommand<OpenWalkthroughCommandArgs>(GlCommand.OpenWalkthrough, {
+						void executeCommand<OpenWalkthroughCommandArgs>('gitlens.openWalkthrough', {
 							step: 'accelerate-pr-reviews',
-							source: 'launchpad',
-							detail: 'info',
+							source: { source: 'launchpad', detail: 'info' },
 						}),
 				}),
 				createQuickPickSeparator(),
