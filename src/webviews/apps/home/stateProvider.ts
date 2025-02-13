@@ -1,5 +1,4 @@
 import { ContextProvider } from '@lit/context';
-import type { ReactiveControllerHost } from 'lit';
 import type { State } from '../../home/protocol';
 import {
 	DidChangeIntegrationsConnections,
@@ -10,12 +9,10 @@ import {
 	DidChangeWalkthroughProgress,
 	DidCompleteDiscoveringRepositories,
 } from '../../home/protocol';
-import type { StateProvider } from '../shared/app';
+import type { ReactiveElementHost, StateProvider } from '../shared/app';
 import type { Disposable } from '../shared/events';
 import type { HostIpc } from '../shared/ipc';
 import { stateContext } from './context';
-
-type ReactiveElementHost = Partial<ReactiveControllerHost> & HTMLElement;
 
 export class HomeStateProvider implements StateProvider<State> {
 	private readonly disposable: Disposable;
@@ -84,7 +81,7 @@ export class HomeStateProvider implements StateProvider<State> {
 					this._state.timestamp = Date.now();
 
 					this.provider.setValue(this._state, true);
-					host.requestUpdate?.();
+					host.requestUpdate();
 					break;
 			}
 		});

@@ -1,13 +1,10 @@
 import { ContextProvider } from '@lit/context';
-import type { ReactiveControllerHost } from 'lit';
 import type { State } from '../../../plus/timeline/protocol';
 import { DidChangeNotification } from '../../../plus/timeline/protocol';
-import type { StateProvider } from '../../shared/app';
+import type { ReactiveElementHost, StateProvider } from '../../shared/app';
 import type { Disposable } from '../../shared/events';
 import type { HostIpc } from '../../shared/ipc';
 import { stateContext } from './context';
-
-type ReactiveElementHost = ReactiveControllerHost & HTMLElement;
 
 export class TimelineStateProvider implements StateProvider<State> {
 	private readonly disposable: Disposable;
