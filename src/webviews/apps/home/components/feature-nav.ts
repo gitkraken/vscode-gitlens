@@ -2,7 +2,9 @@ import { consume } from '@lit/context';
 import { css, html } from 'lit';
 import { customElement, property, state } from 'lit/decorators.js';
 import { when } from 'lit/directives/when.js';
+import type { OpenWalkthroughCommandArgs } from '../../../../commands/walkthroughs';
 import type { Source } from '../../../../constants.telemetry';
+import { createCommandLink } from '../../../../system/commands';
 import type { State } from '../../../home/protocol';
 import { GlElement } from '../../shared/components/element';
 import { linkBase } from '../../shared/components/styles/lit/base.css';
@@ -184,7 +186,10 @@ export class GlFeatureNav extends GlElement {
 						<div class="nav-list__item">
 							<a
 								class="nav-list__link${this.blockRepoFeatures ? ' is-disabled' : ''}"
-								href="command:gitlens.openWalkthrough?%7B%22step%22%3A%22code-collab%22,%22source%22%3A%22home%22%7D"
+								href="${createCommandLink<OpenWalkthroughCommandArgs>('gitlens.openWalkthrough', {
+									step: 'streamline-collaboration',
+									source: { source: 'home' },
+								})}"
 								data-requires="repo"
 								data-org-requires="drafts"
 								aria-label="Open Code Suggest walkthrough"

@@ -1,5 +1,6 @@
 import type { WalkthroughSteps } from '../constants';
 import { urls } from '../constants';
+import type { GlCommands } from '../constants.commands';
 import { GlCommand } from '../constants.commands';
 import type { Source, Sources } from '../constants.telemetry';
 import type { Container } from '../container';
@@ -16,18 +17,20 @@ export class GetStartedCommand extends GlCommandBase {
 	execute(extensionIdOrsource?: Sources): void {
 		// If the extensionIdOrsource is the same as the current extension, then it came from the extension content menu in the extension view, so don't pass the source
 		const source = extensionIdOrsource !== this.container.context.extension.id ? undefined : extensionIdOrsource;
-		openWalkthrough(this.container, source ? { source: source } : undefined);
+		openWalkthrough(this.container, source ? { source: { source: source } } : undefined);
 	}
 }
 
-export interface OpenWalkthroughCommandArgs extends Source {
+export interface OpenWalkthroughCommandArgs {
 	step?: WalkthroughSteps | undefined;
+	source?: Source;
+	detail?: string | undefined;
 }
 
 @command()
 export class OpenWalkthroughCommand extends GlCommandBase {
 	constructor(private readonly container: Container) {
-		super(GlCommand.OpenWalkthrough);
+		super('gitlens.openWalkthrough');
 	}
 
 	execute(args?: OpenWalkthroughCommandArgs): void {
@@ -37,11 +40,7 @@ export class OpenWalkthroughCommand extends GlCommandBase {
 
 function openWalkthrough(container: Container, args?: OpenWalkthroughCommandArgs) {
 	if (container.telemetry.enabled) {
-		container.telemetry.sendEvent(
-			'walkthrough',
-			{ step: args?.step },
-			args?.source ? { source: args.source, detail: args?.detail } : undefined,
-		);
+		container.telemetry.sendEvent('walkthrough', { step: args?.step }, args?.source);
 	}
 
 	void openWalkthroughCore(container.context.extension.id, 'welcome', args?.step, false);
@@ -55,13 +54,13 @@ export class WalkthroughOpenWalkthroughCommand extends GlCommandBase {
 	}
 
 	execute(): void {
-		const command = GlCommand.OpenWalkthrough;
+		const command: GlCommands = 'gitlens.openWalkthrough';
 		this.container.telemetry.sendEvent('walkthrough/action', {
 			type: 'command',
 			name: 'open/walkthrough',
 			command: command,
 		});
-		executeCommand(command);
+		executeCommand<OpenWalkthroughCommandArgs>(command, { source: { source: 'walkthrough' } });
 	}
 }
 
@@ -79,7 +78,7 @@ export class WalkthroughPlusUpgradeCommand extends GlCommandBase {
 			name: 'plus/upgrade',
 			command: command,
 		});
-		executeCommand(command, { source: 'walkthrough' });
+		executeCommand<Source>(command, { source: 'walkthrough' });
 	}
 }
 
@@ -115,7 +114,7 @@ export class WalkthroughPlusSignUpCommand extends GlCommandBase {
 			name: 'plus/sign-up',
 			command: command,
 		});
-		executeCommand(command);
+		executeCommand<Source>(command, { source: 'walkthrough' });
 	}
 }
 
@@ -132,7 +131,7 @@ export class WalkthroughPlusReactivateCommand extends GlCommandBase {
 			name: 'plus/reactivate',
 			command: command,
 		});
-		executeCommand(command);
+		executeCommand<Source>(command, { source: 'walkthrough' });
 	}
 }
 

@@ -120,10 +120,9 @@ export class DraftsView extends ViewBase<'drafts', DraftsViewNode, DraftsViewCon
 			registerViewCommand(
 				this.getQualifiedCommand('info'),
 				() =>
-					executeCommand<OpenWalkthroughCommandArgs>(GlCommand.OpenWalkthrough, {
+					executeCommand<OpenWalkthroughCommandArgs>('gitlens.openWalkthrough', {
 						step: 'streamline-collaboration',
-						source: 'cloud-patches',
-						detail: 'info',
+						source: { source: 'cloud-patches', detail: 'info' },
 					}),
 				this,
 			),

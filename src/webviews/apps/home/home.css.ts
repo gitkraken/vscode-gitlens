@@ -342,6 +342,8 @@ export const walkthroughProgressStyles = css`
 	}
 	.walkthrough-progress__button {
 		--button-padding: 1px 2px 0px 2px;
+		position: absolute;
+		right: 0.4rem;
 	}
 	.walkthrough-progress__bar::-webkit-progress-bar {
 		border-radius: 2px;

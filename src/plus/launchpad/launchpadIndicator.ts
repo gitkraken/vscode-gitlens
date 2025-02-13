@@ -540,10 +540,9 @@ export class LaunchpadIndicator implements Disposable {
 				this.storeFirstInteractionIfNeeded();
 				switch (action) {
 					case 'info': {
-						void executeCommand<OpenWalkthroughCommandArgs>(GlCommand.OpenWalkthrough, {
+						void executeCommand<OpenWalkthroughCommandArgs>('gitlens.openWalkthrough', {
 							step: 'accelerate-pr-reviews',
-							source: 'launchpad-indicator',
-							detail: 'info',
+							source: { source: 'launchpad-indicator', detail: 'info' },
 						});
 						break;
 					}
