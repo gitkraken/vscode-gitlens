@@ -322,3 +322,8 @@ export interface BranchRef {
 	branchId: string;
 	branchName: string;
 }
+
+export interface BranchAndTargetRefs extends BranchRef {
+	mergeTargetId: string;
+	mergeTargetName: string;
+}
