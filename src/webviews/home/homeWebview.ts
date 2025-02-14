@@ -68,6 +68,7 @@ import type { IpcMessage } from '../protocol';
 import type { WebviewHost, WebviewProvider, WebviewShowingArgs } from '../webviewProvider';
 import type { WebviewShowOptions } from '../webviewsController';
 import type {
+	BranchAndTargetRefs,
 	BranchRef,
 	CollapseSectionParams,
 	DidChangeRepositoriesParams,
@@ -1167,8 +1168,8 @@ export class HomeWebviewProvider implements WebviewProvider<State, State, HomeWe
 		});
 	}
 
-	private mergeTargetCompare(ref: BranchRef & { mergeTargetId: string }) {
-		return this.container.views.searchAndCompare.compare(ref.repoPath, ref.branchId, ref.mergeTargetId);
+	private mergeTargetCompare(ref: BranchAndTargetRefs) {
+		return this.container.views.searchAndCompare.compare(ref.repoPath, ref.branchName, ref.mergeTargetName);
 	}
 
 	private async pullRequestCompare(ref: BranchRef) {
