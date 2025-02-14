@@ -55,10 +55,10 @@ export class BitbucketServerRemote extends RemoteProvider {
 	}
 
 	protected override splitPath(): [string, string] {
-		if (this.path.startsWith('scm/')) {
+		if (this.path.startsWith('scm/') && this.path.indexOf('/') !== this.path.lastIndexOf('/')) {
 			const path = this.path.replace('scm/', '');
 			const index = path.indexOf('/');
-			return [this.path.substring(0, index), this.path.substring(index + 1)];
+			return [path.substring(0, index), path.substring(index + 1)];
 		}
 
 		return super.splitPath();
