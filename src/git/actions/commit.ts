@@ -415,16 +415,14 @@ export async function openChangesWithDiffTool(
 		file = f;
 	}
 
-	return Container.instance.git.openDiffTool(
-		commitOrRef.repoPath,
-		GitUri.fromFile(file, file.repoPath ?? commitOrRef.repoPath),
-		{
+	return Container.instance.git
+		.diff(commitOrRef.repoPath)
+		.openDiffTool?.(GitUri.fromFile(file, file.repoPath ?? commitOrRef.repoPath), {
 			ref1: isUncommitted(commitOrRef.ref) ? '' : `${commitOrRef.ref}^`,
 			ref2: isUncommitted(commitOrRef.ref) ? '' : commitOrRef.ref,
 			staged: isUncommittedStaged(commitOrRef.ref) || file.indexStatus != null,
 			tool: tool,
-		},
-	);
+		});
 }
 
 export async function openChangesWithWorking(
@@ -496,7 +494,7 @@ export async function openDirectoryCompare(
 	ref2: string | undefined,
 	tool?: string,
 ): Promise<void> {
-	return Container.instance.git.openDirectoryCompare(repoPath, ref, ref2, tool);
+	return Container.instance.git.diff(repoPath).openDirectoryCompare?.(ref, ref2, tool);
 }
 
 export async function openDirectoryCompareWithPrevious(ref: Ref | GitCommit): Promise<void> {
@@ -526,7 +524,7 @@ export async function openFolderCompare(
 
 	const relativePath = git.getRelativePath(pathOrUri, refs.repoPath);
 
-	const files = await git.getDiffStatus(refs.repoPath, comparison, undefined, { path: relativePath });
+	const files = await git.diff(refs.repoPath).getDiffStatus(comparison, undefined, { path: relativePath });
 	if (files == null) {
 		void window.showWarningMessage(
 			`No changes in '${relativePath}' between ${shortenRevision(refs.lhs, {

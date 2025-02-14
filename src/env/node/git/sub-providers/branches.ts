@@ -487,7 +487,7 @@ export class BranchesGitSubProvider implements GitBranchesSubProvider {
 	async setBaseBranchName(repoPath: string, ref: string, base: string): Promise<void> {
 		const mergeBaseConfigKey: GitConfigKeys = `branch.${ref}.gk-merge-base`;
 
-		await this.provider.setConfig(repoPath, mergeBaseConfigKey, base);
+		await this.provider.config.setConfig(repoPath, mergeBaseConfigKey, base);
 	}
 
 	private async getBaseBranchFromReflog(
@@ -546,7 +546,7 @@ export class BranchesGitSubProvider implements GitBranchesSubProvider {
 	async getTargetBranchName(repoPath: string, ref: string): Promise<string | undefined> {
 		const targetBaseConfigKey: GitConfigKeys = `branch.${ref}.gk-target-base`;
 
-		let target = await this.provider.getConfig(repoPath, targetBaseConfigKey);
+		let target = await this.provider.config.getConfig(repoPath, targetBaseConfigKey);
 		if (target != null) {
 			target = await this.getValidatedBranchName(repoPath, target);
 		}
@@ -557,7 +557,7 @@ export class BranchesGitSubProvider implements GitBranchesSubProvider {
 	async setTargetBranchName(repoPath: string, ref: string, target: string): Promise<void> {
 		const targetBaseConfigKey: GitConfigKeys = `branch.${ref}.gk-target-base`;
 
-		await this.provider.setConfig(repoPath, targetBaseConfigKey, target);
+		await this.provider.config.setConfig(repoPath, targetBaseConfigKey, target);
 	}
 
 	@log()

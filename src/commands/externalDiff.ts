@@ -151,7 +151,8 @@ export class ExternalDiffCommand extends GlCommandBase {
 			}
 
 			const tool =
-				configuration.get('advanced.externalDiffTool') || (await this.container.git.getDiffTool(repoPath));
+				configuration.get('advanced.externalDiffTool') ||
+				(await this.container.git.diff(repoPath).getDiffTool?.());
 			if (!tool) {
 				const viewDocs = 'View Git Docs';
 				const result = await window.showWarningMessage(
@@ -168,7 +169,7 @@ export class ExternalDiffCommand extends GlCommandBase {
 			}
 
 			for (const file of args.files) {
-				void this.container.git.openDiffTool(repoPath, file.uri, {
+				void this.container.git.diff(repoPath).openDiffTool?.(file.uri, {
 					ref1: file.ref1,
 					ref2: file.ref2,
 					staged: file.staged,

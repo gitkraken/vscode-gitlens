@@ -105,10 +105,9 @@ export class BranchTrackingStatusFilesNode extends ViewNode<'tracking-status-fil
 	}
 
 	async getTreeItem(): Promise<TreeItem> {
-		const stats = await this.view.container.git.getChangedFilesCount(
-			this.repoPath,
-			this.direction === 'behind' ? `${this.ref1}...${this.ref2}` : `${this.ref2}...`,
-		);
+		const stats = await this.view.container.git
+			.diff(this.repoPath)
+			.getChangedFilesCount(this.direction === 'behind' ? `${this.ref1}...${this.ref2}` : `${this.ref2}...`);
 		const files = stats?.files ?? 0;
 
 		const label = `${pluralize('file', files)} changed`;

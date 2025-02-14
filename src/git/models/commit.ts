@@ -555,12 +555,13 @@ export class GitCommit implements GitRevisionReference {
 		ref?: string,
 	): Promise<PreviousLineComparisonUrisResult | undefined> {
 		return this.file != null
-			? this.container.git.getPreviousComparisonUrisForLine(
-					this.repoPath,
-					this.file.uri,
-					editorLine,
-					ref ?? (this.sha === uncommitted ? undefined : this.sha),
-			  )
+			? this.container.git
+					.diff(this.repoPath)
+					.getPreviousComparisonUrisForLine(
+						this.file.uri,
+						editorLine,
+						ref ?? (this.sha === uncommitted ? undefined : this.sha),
+					)
 			: Promise.resolve(undefined);
 	}
 
@@ -573,11 +574,12 @@ export class GitCommit implements GitRevisionReference {
 						return this.file.previousSha;
 					}
 
-					const sha = await this.container.git.resolveReference(
-						this.repoPath,
-						isUncommitted(this.sha, true) ? 'HEAD' : `${this.sha}^`,
-						this.file.originalPath ?? this.file.path,
-					);
+					const sha = await this.container.git
+						.refs(this.repoPath)
+						.resolveReference(
+							isUncommitted(this.sha, true) ? 'HEAD' : `${this.sha}^`,
+							this.file.originalPath ?? this.file.path,
+						);
 
 					this._resolvedPreviousSha = sha;
 					return sha;
@@ -589,10 +591,9 @@ export class GitCommit implements GitRevisionReference {
 					return parent;
 				}
 
-				const sha = await this.container.git.resolveReference(
-					this.repoPath,
-					isUncommitted(this.sha, true) ? 'HEAD' : `${this.sha}^`,
-				);
+				const sha = await this.container.git
+					.refs(this.repoPath)
+					.resolveReference(isUncommitted(this.sha, true) ? 'HEAD' : `${this.sha}^`);
 
 				this._resolvedPreviousSha = sha;
 				return sha;

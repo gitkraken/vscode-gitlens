@@ -537,7 +537,7 @@ export class HomeWebviewProvider implements WebviewProvider<State, State, HomeWe
 	private async openRebaseEditor(pausedOpArgs: GitPausedOperationStatus) {
 		if (pausedOpArgs.type !== 'rebase') return;
 
-		const gitDir = await this.container.git.getGitDir(pausedOpArgs.repoPath);
+		const gitDir = await this.container.git.config(pausedOpArgs.repoPath).getGitDir?.();
 		if (gitDir == null) return;
 
 		const rebaseTodoUri = Uri.joinPath(gitDir.uri, 'rebase-merge', 'git-rebase-todo');

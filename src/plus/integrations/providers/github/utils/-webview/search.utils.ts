@@ -22,7 +22,7 @@ export async function getQueryArgsFromSearchQuery(
 			case 'author:': {
 				let currentUser: GitUser | undefined;
 				if (values.has('@me')) {
-					currentUser = await provider.getCurrentUser(repoPath);
+					currentUser = await provider.config.getCurrentUser(repoPath);
 				}
 
 				for (let value of values) {

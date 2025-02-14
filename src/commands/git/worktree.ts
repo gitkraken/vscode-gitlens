@@ -435,7 +435,7 @@ export class WorktreeGitCommand extends QuickCommand<State> {
 			if (state.flags.includes('-b')) {
 				let createBranchOverride: string | undefined;
 				if (state.createBranch != null) {
-					let valid = await this.container.git.validateBranchOrTagName(state.repo.path, state.createBranch);
+					let valid = await state.repo.git.refs().validateBranchOrTagName(state.createBranch);
 					if (valid) {
 						const alreadyExists = await state.repo.git.branches().getBranch(state.createBranch);
 						valid = alreadyExists == null;
@@ -1179,11 +1179,11 @@ export class WorktreeGitCommand extends QuickCommand<State> {
 			}
 
 			if (!state.changes.contents || !state.changes.baseSha) {
-				const diff = await state.repo.git.getDiff(
-					state.changes.type === 'index' ? uncommittedStaged : uncommitted,
-					'HEAD',
-					{ includeUntracked: state.changes.type !== 'index' },
-				);
+				const diff = await state.repo.git
+					.diff()
+					.getDiff?.(state.changes.type === 'index' ? uncommittedStaged : uncommitted, 'HEAD', {
+						includeUntracked: state.changes.type !== 'index',
+					});
 				if (!diff?.contents) {
 					void window.showErrorMessage(`No changes to copy`);
 
@@ -1196,7 +1196,9 @@ export class WorktreeGitCommand extends QuickCommand<State> {
 			}
 
 			if (!isSha(state.changes.baseSha)) {
-				const sha = await state.repo.git.resolveReference(state.changes.baseSha, undefined, { force: true });
+				const sha = await state.repo.git
+					.refs()
+					.resolveReference(state.changes.baseSha, undefined, { force: true });
 				if (sha != null) {
 					state.changes.baseSha = sha;
 				}
@@ -1261,7 +1263,7 @@ export class WorktreeGitCommand extends QuickCommand<State> {
 		state: CopyChangesStepState,
 		context: Context,
 	): AsyncStepResultGenerator<void> {
-		const files = await this.container.git.getDiffFiles(state.repo.uri, state.changes.contents!);
+		const files = await state.repo.git.diff().getDiffFiles?.(state.changes.contents!);
 		const count = files?.files.length ?? 0;
 
 		const confirmations = [];

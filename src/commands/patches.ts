@@ -145,14 +145,15 @@ abstract class CreatePatchCommandBase extends GlCommandBase {
 		repo ??= await getRepositoryOrShowPicker(title);
 		if (repo == null) return;
 
-		return this.container.git.getDiff(
-			repo.uri,
-			args?.to ?? uncommitted,
-			args?.from ?? 'HEAD',
-			args?.uris?.length
-				? { uris: args.uris }
-				: { includeUntracked: args?.to != null || args?.to === uncommitted },
-		);
+		return repo.git
+			.diff()
+			.getDiff?.(
+				args?.to ?? uncommitted,
+				args?.from ?? 'HEAD',
+				args?.uris?.length
+					? { uris: args.uris }
+					: { includeUntracked: args?.to != null || args?.to === uncommitted },
+			);
 	}
 
 	abstract override execute(args?: CreatePatchCommandArgs): Promise<void>;
@@ -399,10 +400,10 @@ async function createDraft(repository: Repository, args: CreatePatchCommandArgs)
 
 		change.files = [...commit.files];
 	} else {
-		const diff = await repository.git.getDiff(to, args.from);
+		const diff = await repository.git.diff().getDiff?.(to, args.from);
 		if (diff == null) return;
 
-		const result = await repository.git.getDiffFiles(diff.contents);
+		const result = await repository.git.diff().getDiffFiles?.(diff.contents);
 		if (result?.files == null) return;
 
 		change.files = result.files;

@@ -49,7 +49,7 @@ export class ContributorsGitSubProvider implements GitContributorsSubProvider {
 			async function load(this: ContributorsGitSubProvider) {
 				try {
 					repoPath = normalizePath(repoPath);
-					const currentUser = await this.provider.getCurrentUser(repoPath);
+					const currentUser = await this.provider.config.getCurrentUser(repoPath);
 					const parser = getContributorsParser(options?.stats);
 
 					const args = [...parser.arguments, '--full-history', '--use-mailmap'];

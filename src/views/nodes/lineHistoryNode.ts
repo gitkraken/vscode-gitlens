@@ -115,7 +115,7 @@ export class LineHistoryNode
 						workingTreeStatus: status?.workingTreeStatus,
 					};
 
-					const currentUser = await this.view.container.git.getCurrentUser(this.uri.repoPath);
+					const currentUser = await this.view.container.git.config(this.uri.repoPath).getCurrentUser();
 					const pseudoCommits = status?.getPseudoCommits(this.view.container, currentUser);
 					if (pseudoCommits != null) {
 						for (const commit of pseudoCommits.reverse()) {

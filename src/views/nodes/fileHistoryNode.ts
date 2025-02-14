@@ -71,7 +71,7 @@ export class FileHistoryNode
 			this.uri.sha == null
 				? this.view.container.git.status(this.uri.repoPath).getStatusForFiles?.(this.getPathOrGlob())
 				: undefined,
-			this.uri.sha == null ? this.view.container.git.getCurrentUser(this.uri.repoPath) : undefined,
+			this.uri.sha == null ? this.view.container.git.config(this.uri.repoPath).getCurrentUser() : undefined,
 			this.view.container.git.getBranchesAndTagsTipsLookup(this.uri.repoPath, this.branch?.name),
 			range ? this.view.container.git.commits(this.uri.repoPath).getLogShasOnly(range, { limit: 0 }) : undefined,
 		]);

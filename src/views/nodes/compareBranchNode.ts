@@ -321,13 +321,12 @@ export class CompareBranchNode extends SubscribeableViewNode<
 	private async getAheadFilesQuery(): Promise<FilesQueryResults> {
 		const comparison = createRevisionRange(this._compareWith?.ref || 'HEAD', this.branch.ref || 'HEAD', '...');
 
+		const diffProvider = this.view.container.git.diff(this.repoPath);
 		const [filesResult, workingFilesResult, statsResult, workingStatsResult] = await Promise.allSettled([
-			this.view.container.git.getDiffStatus(this.repoPath, comparison),
-			this.compareWithWorkingTree ? this.view.container.git.getDiffStatus(this.repoPath, 'HEAD') : undefined,
-			this.view.container.git.getChangedFilesCount(this.repoPath, comparison),
-			this.compareWithWorkingTree
-				? this.view.container.git.getChangedFilesCount(this.repoPath, 'HEAD')
-				: undefined,
+			diffProvider.getDiffStatus(comparison),
+			this.compareWithWorkingTree ? diffProvider.getDiffStatus('HEAD') : undefined,
+			diffProvider.getChangedFilesCount(comparison),
+			this.compareWithWorkingTree ? diffProvider.getChangedFilesCount('HEAD') : undefined,
 		]);
 
 		let files = getSettledValue(filesResult) ?? [];
@@ -375,9 +374,10 @@ export class CompareBranchNode extends SubscribeableViewNode<
 	private async getBehindFilesQuery(): Promise<FilesQueryResults> {
 		const comparison = createRevisionRange(this.branch.ref, this._compareWith?.ref || 'HEAD', '...');
 
+		const diffProvider = this.view.container.git.diff(this.repoPath);
 		const [filesResult, statsResult] = await Promise.allSettled([
-			this.view.container.git.getDiffStatus(this.repoPath, comparison),
-			this.view.container.git.getChangedFilesCount(this.repoPath, comparison),
+			diffProvider.getDiffStatus(comparison),
+			diffProvider.getChangedFilesCount(comparison),
 		]);
 
 		const files = getSettledValue(filesResult) ?? [];

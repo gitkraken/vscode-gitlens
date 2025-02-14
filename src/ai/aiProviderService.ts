@@ -559,9 +559,10 @@ export class AIProviderService implements Disposable {
 		} else if (Array.isArray(changesOrRepo)) {
 			changes = changesOrRepo.join('\n');
 		} else {
-			let diff = await this.container.git.getDiff(changesOrRepo.uri, uncommittedStaged);
+			const diffProvider = this.container.git.diff(changesOrRepo.uri);
+			let diff = await diffProvider.getDiff?.(uncommittedStaged);
 			if (!diff?.contents) {
-				diff = await this.container.git.getDiff(changesOrRepo.uri, uncommitted);
+				diff = await diffProvider.getDiff?.(uncommitted);
 				if (!diff?.contents) throw new Error('No changes to generate a commit message from.');
 			}
 			if (options?.cancellation?.isCancellationRequested) return undefined;
@@ -577,7 +578,7 @@ export class AIProviderService implements Disposable {
 		sourceContext: { source: Sources; type: TelemetryEvents['ai/explain']['changeType'] },
 		options?: { cancellation?: CancellationToken; progress?: ProgressOptions },
 	): Promise<AIResult | undefined> {
-		const diff = await this.container.git.getDiff(commitOrRevision.repoPath, commitOrRevision.ref);
+		const diff = await this.container.git.diff(commitOrRevision.repoPath).getDiff?.(commitOrRevision.ref);
 		if (!diff?.contents) throw new Error('No changes found to explain.');
 
 		const { confirmed, model } = await getModelAndConfirmAIProviderToS('diff', this, this.container.storage);

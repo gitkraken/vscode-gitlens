@@ -25,51 +25,34 @@ import { Features } from '../../../../features';
 import { GitCache } from '../../../../git/cache';
 import type {
 	GitProvider,
-	NextComparisonUrisResult,
-	PreviousComparisonUrisResult,
-	PreviousLineComparisonUrisResult,
 	RepositoryCloseEvent,
 	RepositoryOpenEvent,
 	RepositoryVisibility,
 	ScmRepository,
 } from '../../../../git/gitProvider';
-import { GitUri } from '../../../../git/gitUri';
+import type { GitUri } from '../../../../git/gitUri';
 import { decodeRemoteHubAuthority } from '../../../../git/gitUri.authority';
 import type { GitBlame, GitBlameAuthor, GitBlameLine } from '../../../../git/models/blame';
-import type { GitBranch } from '../../../../git/models/branch';
 import type { GitCommitLine } from '../../../../git/models/commit';
 import { GitCommit, GitCommitIdentity } from '../../../../git/models/commit';
-import type { GitDiffFile, GitDiffFilter, GitDiffLine, GitDiffShortStat } from '../../../../git/models/diff';
-import type { GitFile } from '../../../../git/models/file';
+import type { GitDiffFile, GitDiffLine } from '../../../../git/models/diff';
 import { GitFileChange } from '../../../../git/models/fileChange';
 import { GitFileIndexStatus } from '../../../../git/models/fileStatus';
 import type { GitLog } from '../../../../git/models/log';
 import type { GitReference } from '../../../../git/models/reference';
-import type { GitReflog } from '../../../../git/models/reflog';
 import type { GitRemote } from '../../../../git/models/remote';
 import type { RepositoryChangeEvent } from '../../../../git/models/repository';
 import { Repository } from '../../../../git/models/repository';
 import type { GitRevisionRange } from '../../../../git/models/revision';
-import { deletedOrMissing, uncommitted } from '../../../../git/models/revision';
-import type { GitTag } from '../../../../git/models/tag';
+import { deletedOrMissing } from '../../../../git/models/revision';
 import type { GitTreeEntry } from '../../../../git/models/tree';
-import type { GitUser } from '../../../../git/models/user';
-import { getChangedFilesCount } from '../../../../git/utils/commit.utils';
 import { getVisibilityCacheKey } from '../../../../git/utils/remote.utils';
-import {
-	createRevisionRange,
-	getRevisionRangeParts,
-	isRevisionRange,
-	isSha,
-	isShaLike,
-	isUncommitted,
-} from '../../../../git/utils/revision.utils';
+import { isRevisionRange, isSha } from '../../../../git/utils/revision.utils';
 import { configuration } from '../../../../system/-webview/configuration';
 import { setContext } from '../../../../system/-webview/context';
 import { relative } from '../../../../system/-webview/path';
 import { gate } from '../../../../system/decorators/-webview/gate';
 import { debug, log } from '../../../../system/decorators/log';
-import { union } from '../../../../system/iterable';
 import { Logger } from '../../../../system/logger';
 import type { LogScope } from '../../../../system/logger.scope';
 import { getLogScope } from '../../../../system/logger.scope';
@@ -82,11 +65,13 @@ import type { GitHubAuthorityMetadata, Metadata, RemoteHubApi } from '../../../r
 import { getRemoteHubApi, HeadType, RepositoryRefType } from '../../../remotehub';
 import type { IntegrationAuthenticationSessionDescriptor } from '../../authentication/integrationAuthenticationProvider';
 import type { GitHubApi } from './github';
-import { fromCommitFileStatus } from './models';
 import { BranchesGitSubProvider } from './sub-providers/branches';
 import { CommitsGitSubProvider } from './sub-providers/commits';
+import { ConfigGitSubProvider } from './sub-providers/config';
 import { ContributorsGitSubProvider } from './sub-providers/contributors';
+import { DiffGitSubProvider } from './sub-providers/diff';
 import { GraphGitSubProvider } from './sub-providers/graph';
+import { RefsGitSubProvider } from './sub-providers/refs';
 import { RemotesGitSubProvider } from './sub-providers/remotes';
 import { StatusGitSubProvider } from './sub-providers/status';
 import { TagsGitSubProvider } from './sub-providers/tags';
@@ -94,10 +79,6 @@ import { TagsGitSubProvider } from './sub-providers/tags';
 const emptyPromise: Promise<GitBlame | GitDiffFile | GitLog | undefined> = Promise.resolve(undefined);
 
 const githubAuthenticationScopes = ['repo', 'read:user', 'user:email'];
-
-// Since negative lookbehind isn't supported in all browsers, this leaves out the negative lookbehind condition `(?<!\.lock)` to ensure the branch name doesn't end with `.lock`
-// eslint-disable-next-line no-control-regex
-const validBranchOrTagRegex = /^[^/](?!.*\/\.)(?!.*\.\.)(?!.*\/\/)(?!.*@\{)[^\x00-\x1F\x7F ~^:?*[\\]+[^./]$/;
 
 export type GitHubGitProviderInternal = Omit<GitHubGitProvider, 'ensureRepositoryContext'> & {
 	ensureRepositoryContext: GitHubGitProvider['ensureRepositoryContext'];
@@ -761,50 +742,6 @@ export class GitHubGitProvider implements GitProvider, Disposable {
 	}
 
 	@log()
-	async getChangedFilesCount(repoPath: string, ref?: string): Promise<GitDiffShortStat | undefined> {
-		// TODO@eamodio if there is no ref we can't return anything, until we can get at the change store from RemoteHub
-		if (!ref) return undefined;
-
-		const commit = await this.commits.getCommit(repoPath, ref);
-		if (commit?.stats == null) return undefined;
-
-		const { stats } = commit;
-
-		const changedFiles = getChangedFilesCount(stats.files);
-		return { additions: stats.additions, deletions: stats.deletions, files: changedFiles };
-	}
-
-	@gate()
-	@log()
-	async getCurrentUser(repoPath: string): Promise<GitUser | undefined> {
-		if (!repoPath) return undefined;
-
-		const scope = getLogScope();
-
-		const repo = this._cache.repoInfo.get(repoPath);
-
-		let user = repo?.user;
-		if (user != null) return user;
-		// If we found the repo, but no user data was found just return
-		if (user === null) return undefined;
-
-		try {
-			const { metadata, github, session } = await this.ensureRepositoryContext(repoPath);
-			user = await github.getCurrentUser(session.accessToken, metadata.repo.owner, metadata.repo.name);
-
-			this._cache.repoInfo.set(repoPath, { ...repo, user: user ?? null });
-			return user;
-		} catch (ex) {
-			Logger.error(ex, scope);
-			debugger;
-
-			// Mark it so we won't bother trying again
-			this._cache.repoInfo.set(repoPath, { ...repo, user: null });
-			return undefined;
-		}
-	}
-
-	@log()
 	async getDiffForFile(_uri: GitUri, _ref1: string | undefined, _ref2?: string): Promise<GitDiffFile | undefined> {
 		return undefined;
 	}
@@ -828,286 +765,7 @@ export class GitHubGitProvider implements GitProvider, Disposable {
 		return undefined;
 	}
 
-	@log()
-	async getDiffStatus(
-		repoPath: string,
-		ref1OrRange: string | GitRevisionRange,
-		ref2?: string,
-		_options?: { filters?: GitDiffFilter[]; path?: string; similarityThreshold?: number },
-	): Promise<GitFile[] | undefined> {
-		if (repoPath == null) return undefined;
-
-		const scope = getLogScope();
-
-		const { metadata, github, session } = await this.ensureRepositoryContext(repoPath);
-
-		let range: GitRevisionRange;
-		if (isRevisionRange(ref1OrRange)) {
-			range = ref1OrRange;
-
-			if (!isRevisionRange(ref1OrRange, 'qualified')) {
-				const parts = getRevisionRangeParts(ref1OrRange);
-				range = createRevisionRange(parts?.left || 'HEAD', parts?.right || 'HEAD', parts?.notation ?? '...');
-			}
-		} else {
-			range = createRevisionRange(ref1OrRange || 'HEAD', ref2 || 'HEAD', '...');
-		}
-
-		let range2: GitRevisionRange | undefined;
-		// GitHub doesn't support the `..` range notation, so we will need to do some extra work
-		if (isRevisionRange(range, 'qualified-double-dot')) {
-			const parts = getRevisionRangeParts(range)!;
-
-			range = createRevisionRange(parts.left, parts.right, '...');
-			range2 = createRevisionRange(parts.right, parts.left, '...');
-		}
-
-		try {
-			let result = await github.getComparison(
-				session.accessToken,
-				metadata.repo.owner,
-				metadata.repo.name,
-				stripOrigin(range),
-			);
-
-			const files1 = result?.files;
-
-			let files = files1;
-			if (range2) {
-				result = await github.getComparison(
-					session.accessToken,
-					metadata.repo.owner,
-					metadata.repo.name,
-					stripOrigin(range2),
-				);
-
-				const files2 = result?.files;
-
-				files = [...new Set(union(files1, files2))];
-			}
-
-			return files?.map(
-				f =>
-					new GitFileChange(
-						this.container,
-						repoPath,
-						f.filename ?? '',
-						fromCommitFileStatus(f.status) ?? GitFileIndexStatus.Modified,
-						f.previous_filename,
-						undefined,
-						// If we need to get a 2nd range, don't include the stats because they won't be correct (for files that overlap)
-						range2
-							? undefined
-							: {
-									additions: f.additions ?? 0,
-									deletions: f.deletions ?? 0,
-									changes: f.changes ?? 0,
-							  },
-					),
-			);
-		} catch (ex) {
-			Logger.error(ex, scope);
-			debugger;
-			return undefined;
-		}
-	}
-
 	async getLastFetchedTimestamp(_repoPath: string): Promise<number | undefined> {
-		return undefined;
-	}
-
-	@log()
-	async getNextComparisonUris(
-		repoPath: string,
-		uri: Uri,
-		ref: string | undefined,
-		skip: number = 0,
-	): Promise<NextComparisonUrisResult | undefined> {
-		// If we have no ref there is no next commit
-		if (!ref) return undefined;
-
-		const scope = getLogScope();
-
-		try {
-			const context = await this.ensureRepositoryContext(repoPath);
-			if (context == null) return undefined;
-
-			const { metadata, github, remotehub, session } = context;
-			const relativePath = this.getRelativePath(uri, remotehub.getProviderRootUri(uri));
-			const revision = (await metadata.getRevision()).revision;
-
-			if (ref === 'HEAD') {
-				ref = revision;
-			}
-
-			const refs = await github.getNextCommitRefs(
-				session.accessToken,
-				metadata.repo.owner,
-				metadata.repo.name,
-				revision,
-				relativePath,
-				stripOrigin(ref),
-			);
-
-			return {
-				current:
-					skip === 0
-						? GitUri.fromFile(relativePath, repoPath, ref)
-						: new GitUri(await this.getBestRevisionUri(repoPath, relativePath, refs[skip - 1])),
-				next: new GitUri(await this.getBestRevisionUri(repoPath, relativePath, refs[skip])),
-			};
-		} catch (ex) {
-			Logger.error(ex, scope);
-			debugger;
-
-			throw ex;
-		}
-	}
-
-	@log()
-	async getPreviousComparisonUris(
-		repoPath: string,
-		uri: Uri,
-		ref: string | undefined,
-		skip: number = 0,
-	): Promise<PreviousComparisonUrisResult | undefined> {
-		if (ref === deletedOrMissing) return undefined;
-
-		const scope = getLogScope();
-
-		if (ref === uncommitted) {
-			ref = undefined;
-		}
-
-		try {
-			const context = await this.ensureRepositoryContext(repoPath);
-			if (context == null) return undefined;
-
-			const { metadata, github, remotehub, session } = context;
-			const relativePath = this.getRelativePath(uri, remotehub.getProviderRootUri(uri));
-
-			const offset = ref != null ? 1 : 0;
-
-			const result = await github.getCommitRefs(
-				session.accessToken,
-				metadata.repo.owner,
-				metadata.repo.name,
-				stripOrigin(!ref || ref === 'HEAD' ? (await metadata.getRevision()).revision : ref),
-				{
-					path: relativePath,
-					first: offset + skip + 1,
-				},
-			);
-			if (result == null) return undefined;
-
-			// If we are at a commit, diff commit with previous
-			const current =
-				skip === 0
-					? GitUri.fromFile(relativePath, repoPath, ref)
-					: new GitUri(
-							await this.getBestRevisionUri(
-								repoPath,
-								relativePath,
-								result.values[offset + skip - 1]?.oid ?? deletedOrMissing,
-							),
-					  );
-			if (current == null || current.sha === deletedOrMissing) return undefined;
-
-			return {
-				current: current,
-				previous: new GitUri(
-					await this.getBestRevisionUri(
-						repoPath,
-						relativePath,
-						result.values[offset + skip]?.oid ?? deletedOrMissing,
-					),
-				),
-			};
-		} catch (ex) {
-			Logger.error(ex, scope);
-			debugger;
-
-			throw ex;
-		}
-	}
-
-	@log()
-	async getPreviousComparisonUrisForLine(
-		repoPath: string,
-		uri: Uri,
-		editorLine: number, // 0-based, Git is 1-based
-		ref: string | undefined,
-		skip: number = 0,
-	): Promise<PreviousLineComparisonUrisResult | undefined> {
-		if (ref === deletedOrMissing) return undefined;
-
-		const scope = getLogScope();
-
-		try {
-			const context = await this.ensureRepositoryContext(repoPath);
-			if (context == null) return undefined;
-
-			const { remotehub } = context;
-
-			let relativePath = this.getRelativePath(uri, remotehub.getProviderRootUri(uri));
-
-			// FYI, GitHub doesn't currently support returning the original line number, nor the previous sha, so this is untrustworthy
-
-			let current = GitUri.fromFile(relativePath, repoPath, ref);
-			let currentLine = editorLine;
-			let previous;
-			let previousLine = editorLine;
-			let nextLine = editorLine;
-
-			for (let i = 0; i < Math.max(0, skip) + 2; i++) {
-				const blameLine = await this.getBlameForLine(previous ?? current, nextLine, undefined, {
-					forceSingleLine: true,
-				});
-				if (blameLine == null) break;
-
-				// Diff with line ref with previous
-				ref = blameLine.commit.sha;
-				relativePath = blameLine.commit.file?.path ?? blameLine.commit.file?.originalPath ?? relativePath;
-				nextLine = blameLine.line.originalLine - 1;
-
-				const gitUri = GitUri.fromFile(relativePath, repoPath, ref);
-				if (previous == null) {
-					previous = gitUri;
-					previousLine = nextLine;
-				} else {
-					current = previous;
-					currentLine = previousLine;
-					previous = gitUri;
-					previousLine = nextLine;
-				}
-			}
-
-			if (current == null) return undefined;
-
-			return {
-				current: current,
-				previous: previous,
-				line: (currentLine ?? editorLine) + 1, // 1-based
-			};
-		} catch (ex) {
-			Logger.error(ex, scope);
-			debugger;
-
-			throw ex;
-		}
-	}
-
-	@log()
-	async getIncomingActivity(
-		_repoPath: string,
-		_options?: {
-			all?: boolean;
-			branch?: string;
-			limit?: number;
-			ordering?: 'date' | 'author-date' | 'topo' | null;
-			skip?: number;
-		},
-	): Promise<GitReflog | undefined> {
 		return undefined;
 	}
 
@@ -1180,27 +838,6 @@ export class GitHubGitProvider implements GitProvider, Disposable {
 		return [];
 	}
 
-	@log()
-	async hasBranchOrTag(
-		repoPath: string | undefined,
-		options?: {
-			filter?: { branches?: (b: GitBranch) => boolean; tags?: (t: GitTag) => boolean };
-		},
-	): Promise<boolean> {
-		const [{ values: branches }, { values: tags }] = await Promise.all([
-			this.branches.getBranches(repoPath, {
-				filter: options?.filter?.branches,
-				sort: false,
-			}),
-			this.tags.getTags(repoPath, {
-				filter: options?.filter?.tags,
-				sort: false,
-			}),
-		]);
-
-		return branches.length !== 0 || tags.length !== 0;
-	}
-
 	isTrackable(uri: Uri): boolean {
 		return this.supportedSchemes.has(uri.scheme);
 	}
@@ -1218,58 +855,6 @@ export class GitHubGitProvider implements GitProvider, Disposable {
 		const providerUri = uri.with({ scheme: Schemes.GitHub });
 		const stats = await workspace.fs.stat(providerUri);
 		return stats != null;
-	}
-
-	@log()
-	async resolveReference(
-		repoPath: string,
-		ref: string,
-		pathOrUri?: string | Uri,
-		_options?: { force?: boolean; timeout?: number },
-	): Promise<string> {
-		if (
-			!ref ||
-			ref === deletedOrMissing ||
-			(pathOrUri == null && isSha(ref)) ||
-			(pathOrUri != null && isUncommitted(ref))
-		) {
-			return ref;
-		}
-
-		let relativePath;
-		if (pathOrUri != null) {
-			relativePath = this.getRelativePath(pathOrUri, repoPath);
-		} else if (!isShaLike(ref) || ref.endsWith('^3')) {
-			// If it doesn't look like a sha at all (e.g. branch name) or is a stash ref (^3) don't try to resolve it
-			return ref;
-		}
-
-		const context = await this.ensureRepositoryContext(repoPath);
-		if (context == null) return ref;
-
-		const { metadata, github, session } = context;
-
-		const resolved = await github.resolveReference(
-			session.accessToken,
-			metadata.repo.owner,
-			metadata.repo.name,
-			stripOrigin(ref),
-			relativePath,
-		);
-
-		if (resolved != null) return resolved;
-
-		return relativePath ? deletedOrMissing : ref;
-	}
-
-	@log()
-	async validateBranchOrTagName(ref: string, _repoPath?: string): Promise<boolean> {
-		return validBranchOrTagRegex.test(ref);
-	}
-
-	@log()
-	async validateReference(_repoPath: string, _ref: string): Promise<boolean> {
-		return true;
 	}
 
 	private _branches: BranchesGitSubProvider | undefined;
@@ -1290,6 +875,15 @@ export class GitHubGitProvider implements GitProvider, Disposable {
 		));
 	}
 
+	private _config: ConfigGitSubProvider | undefined;
+	get config(): ConfigGitSubProvider {
+		return (this._config ??= new ConfigGitSubProvider(
+			this.container,
+			this._cache,
+			this as unknown as GitHubGitProviderInternal,
+		));
+	}
+
 	private _contributors: ContributorsGitSubProvider | undefined;
 	get contributors(): ContributorsGitSubProvider {
 		return (this._contributors ??= new ContributorsGitSubProvider(
@@ -1299,9 +893,27 @@ export class GitHubGitProvider implements GitProvider, Disposable {
 		));
 	}
 
+	private _diff: DiffGitSubProvider | undefined;
+	get diff(): DiffGitSubProvider {
+		return (this._diff ??= new DiffGitSubProvider(
+			this.container,
+			this._cache,
+			this as unknown as GitHubGitProviderInternal,
+		));
+	}
+
 	private _graph: GraphGitSubProvider | undefined;
 	get graph(): GraphGitSubProvider {
 		return (this._graph ??= new GraphGitSubProvider(
+			this.container,
+			this._cache,
+			this as unknown as GitHubGitProviderInternal,
+		));
+	}
+
+	private _refs: RefsGitSubProvider | undefined;
+	get refs(): RefsGitSubProvider {
+		return (this._refs ??= new RefsGitSubProvider(
 			this.container,
 			this._cache,
 			this as unknown as GitHubGitProviderInternal,

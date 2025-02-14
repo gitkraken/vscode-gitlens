@@ -232,7 +232,7 @@ export class DeepLinkService implements Disposable {
 			if (repoId != null && repoId !== missingRepositoryId) {
 				// Repo ID can be any valid SHA in the repo, though standard practice is to use the
 				// first commit SHA.
-				if (await this.container.git.validateReference(repo.path, repoId)) {
+				if (await repo.git.refs().validateReference(repoId)) {
 					this._context.repo = repo;
 					return;
 				}
@@ -316,7 +316,7 @@ export class DeepLinkService implements Disposable {
 		const { repo } = this._context;
 		if (!repo) return undefined;
 
-		if (await repo.git.validateReference(targetId)) {
+		if (await repo.git.refs().validateReference(targetId)) {
 			return repo.git.commits().getCommit(targetId);
 		}
 
@@ -339,7 +339,7 @@ export class DeepLinkService implements Disposable {
 	private async getShaForCommit(targetId: string): Promise<string | undefined> {
 		const { repo } = this._context;
 		if (!repo) return undefined;
-		if (await this.container.git.validateReference(repo.path, targetId)) {
+		if (await repo.git.refs().validateReference(targetId)) {
 			return targetId;
 		}
 

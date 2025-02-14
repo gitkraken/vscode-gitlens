@@ -132,15 +132,12 @@ export interface BranchContributionsOverview extends GitCommitStats<number> {
 }
 
 export interface GitRepositoryProvider {
-	reset?(repoPath: string, ref: string, options?: { hard?: boolean } | { soft?: boolean }): Promise<void>;
-
 	checkout?(
 		repoPath: string,
 		ref: string,
 		options?: { createBranch?: string | undefined } | { path?: string | undefined },
 	): Promise<void>;
 	excludeIgnoredUris(repoPath: string, uris: Uri[]): Promise<Uri[]>;
-
 	fetch?(
 		repoPath: string,
 		options?: {
@@ -167,90 +164,12 @@ export interface GitRepositoryProvider {
 			publish?: { remote: string };
 		},
 	): Promise<void>;
+	reset?(repoPath: string, ref: string, options?: { hard?: boolean } | { soft?: boolean }): Promise<void>;
 
-	getChangedFilesCount(repoPath: string, ref?: string): Promise<GitDiffShortStat | undefined>;
-	getConfig?(repoPath: string, key: GitConfigKeys): Promise<string | undefined>;
-	setConfig?(repoPath: string, key: GitConfigKeys, value: string | undefined): Promise<void>;
-	getCurrentUser(repoPath: string): Promise<GitUser | undefined>;
-	getDiff?(
-		repoPath: string | Uri,
-		to: string,
-		from?: string,
-		options?:
-			| { context?: number; includeUntracked?: never; uris?: never }
-			| { context?: number; includeUntracked?: never; uris: Uri[] }
-			| { context?: number; includeUntracked: boolean; uris?: never },
-	): Promise<GitDiff | undefined>;
-	getDiffFiles?(repoPath: string | Uri, contents: string): Promise<GitDiffFiles | undefined>;
-	getDiffStatus(
-		repoPath: string,
-		ref1OrRange: string | GitRevisionRange,
-		ref2?: string,
-		options?: { filters?: GitDiffFilter[]; path?: string; similarityThreshold?: number },
-	): Promise<GitFile[] | undefined>;
-	getGitDir?(repoPath: string): Promise<GitDir | undefined>;
 	getLastFetchedTimestamp(repoPath: string): Promise<number | undefined>;
-
-	getNextComparisonUris(
-		repoPath: string,
-		uri: Uri,
-		ref: string | undefined,
-		skip?: number,
-	): Promise<NextComparisonUrisResult | undefined>;
-	getPreviousComparisonUris(
-		repoPath: string,
-		uri: Uri,
-		ref: string | undefined,
-		skip?: number,
-	): Promise<PreviousComparisonUrisResult | undefined>;
-	getPreviousComparisonUrisForLine(
-		repoPath: string,
-		uri: Uri,
-		editorLine: number,
-		ref: string | undefined,
-		skip?: number,
-	): Promise<PreviousLineComparisonUrisResult | undefined>;
-	getIncomingActivity(
-		repoPath: string,
-		options?: {
-			all?: boolean | undefined;
-			branch?: string | undefined;
-			limit?: number | undefined;
-			ordering?: 'date' | 'author-date' | 'topo' | null | undefined;
-			skip?: number | undefined;
-		},
-	): Promise<GitReflog | undefined>;
 	getRevisionContent(repoPath: string, path: string, ref: string): Promise<Uint8Array | undefined>;
 	getTreeEntryForRevision(repoPath: string, path: string, ref: string): Promise<GitTreeEntry | undefined>;
 	getTreeForRevision(repoPath: string, ref: string): Promise<GitTreeEntry[]>;
-	hasBranchOrTag(
-		repoPath: string | undefined,
-		options?: {
-			filter?:
-				| { branches?: ((b: GitBranch) => boolean) | undefined; tags?: ((t: GitTag) => boolean) | undefined }
-				| undefined;
-		},
-	): Promise<boolean>;
-
-	getDiffTool?(repoPath?: string): Promise<string | undefined>;
-	openDiffTool?(
-		repoPath: string,
-		uri: Uri,
-		options?: {
-			ref1?: string | undefined;
-			ref2?: string | undefined;
-			staged?: boolean | undefined;
-			tool?: string | undefined;
-		},
-	): Promise<void>;
-	openDirectoryCompare?(repoPath: string, ref1: string, ref2?: string, tool?: string): Promise<void>;
-
-	resolveReference(
-		repoPath: string,
-		ref: string,
-		pathOrUri?: string | Uri,
-		options?: { force?: boolean; timeout?: number | undefined },
-	): Promise<string>;
 
 	runGitCommandViaTerminal?(
 		repoPath: string,
@@ -259,14 +178,14 @@ export interface GitRepositoryProvider {
 		options?: { execute?: boolean },
 	): Promise<void>;
 
-	validateBranchOrTagName(repoPath: string, ref: string): Promise<boolean>;
-	validateReference(repoPath: string, ref: string): Promise<boolean>;
-
 	branches: GitBranchesSubProvider;
 	commits: GitCommitsSubProvider;
+	config: GitConfigSubProvider;
 	contributors: GitContributorsSubProvider;
+	diff: GitDiffSubProvider;
 	graph: GitGraphSubProvider;
 	patch?: GitPatchSubProvider;
+	refs: GitRefsSubProvider;
 	remotes: GitRemotesSubProvider;
 	staging?: GitStagingSubProvider;
 	stash?: GitStashSubProvider;
@@ -345,6 +264,16 @@ export interface GitCommitsSubProvider {
 		rev?: string | undefined,
 		options?: { firstIfNotFound?: boolean | undefined },
 	): Promise<GitCommit | undefined>;
+	getIncomingActivity?(
+		repoPath: string,
+		options?: {
+			all?: boolean | undefined;
+			branch?: string | undefined;
+			limit?: number | undefined;
+			ordering?: 'date' | 'author-date' | 'topo' | null | undefined;
+			skip?: number | undefined;
+		},
+	): Promise<GitReflog | undefined>;
 	getInitialCommitSha?(repoPath: string): Promise<string | undefined>;
 	getLeftRightCommitCount(
 		repoPath: string,
@@ -407,6 +336,13 @@ export interface GitCommitsSubProvider {
 	): Promise<GitLog | undefined>;
 }
 
+export interface GitConfigSubProvider {
+	getConfig?(repoPath: string, key: GitConfigKeys): Promise<string | undefined>;
+	setConfig?(repoPath: string, key: GitConfigKeys, value: string | undefined): Promise<void>;
+	getCurrentUser(repoPath: string): Promise<GitUser | undefined>;
+	getGitDir?(repoPath: string): Promise<GitDir | undefined>;
+}
+
 export interface GitContributorsSubProvider {
 	getContributorsStats(
 		repoPath: string,
@@ -421,6 +357,57 @@ export interface GitContributorsSubProvider {
 			stats?: boolean | undefined;
 		},
 	): Promise<GitContributor[]>;
+}
+
+export interface GitDiffSubProvider {
+	getChangedFilesCount(repoPath: string, ref?: string): Promise<GitDiffShortStat | undefined>;
+	getDiff?(
+		repoPath: string | Uri,
+		to: string,
+		from?: string,
+		options?:
+			| { context?: number; includeUntracked?: never; uris?: never }
+			| { context?: number; includeUntracked?: never; uris: Uri[] }
+			| { context?: number; includeUntracked: boolean; uris?: never },
+	): Promise<GitDiff | undefined>;
+	getDiffFiles?(repoPath: string | Uri, contents: string): Promise<GitDiffFiles | undefined>;
+	getDiffStatus(
+		repoPath: string,
+		ref1OrRange: string | GitRevisionRange,
+		ref2?: string,
+		options?: { filters?: GitDiffFilter[]; path?: string; similarityThreshold?: number },
+	): Promise<GitFile[] | undefined>;
+	getDiffTool?(repoPath?: string): Promise<string | undefined>;
+	getNextComparisonUris(
+		repoPath: string,
+		uri: Uri,
+		ref: string | undefined,
+		skip?: number,
+	): Promise<NextComparisonUrisResult | undefined>;
+	getPreviousComparisonUris(
+		repoPath: string,
+		uri: Uri,
+		ref: string | undefined,
+		skip?: number,
+	): Promise<PreviousComparisonUrisResult | undefined>;
+	getPreviousComparisonUrisForLine(
+		repoPath: string,
+		uri: Uri,
+		editorLine: number,
+		ref: string | undefined,
+		skip?: number,
+	): Promise<PreviousLineComparisonUrisResult | undefined>;
+	openDiffTool?(
+		repoPath: string,
+		uri: Uri,
+		options?: {
+			ref1?: string | undefined;
+			ref2?: string | undefined;
+			staged?: boolean | undefined;
+			tool?: string | undefined;
+		},
+	): Promise<void>;
+	openDirectoryCompare?(repoPath: string, ref1: string, ref2?: string, tool?: string): Promise<void>;
 }
 
 export interface GitGraphSubProvider {
@@ -462,6 +449,25 @@ export interface GitPatchSubProvider {
 		message: string,
 	): Promise<GitCommit | undefined>;
 	validatePatch(repoPath: string | undefined, contents: string): Promise<boolean>;
+}
+
+export interface GitRefsSubProvider {
+	hasBranchOrTag(
+		repoPath: string | undefined,
+		options?: {
+			filter?:
+				| { branches?: ((b: GitBranch) => boolean) | undefined; tags?: ((t: GitTag) => boolean) | undefined }
+				| undefined;
+		},
+	): Promise<boolean>;
+	resolveReference(
+		repoPath: string,
+		ref: string,
+		pathOrUri?: string | Uri,
+		options?: { force?: boolean; timeout?: number | undefined },
+	): Promise<string>;
+	validateBranchOrTagName(repoPath: string, ref: string): Promise<boolean>;
+	validateReference(repoPath: string, ref: string): Promise<boolean>;
 }
 
 export interface GitRemotesSubProvider {
@@ -596,9 +602,12 @@ export interface GitWorktreesSubProvider {
 export type GitSubProvider =
 	| GitBranchesSubProvider
 	| GitCommitsSubProvider
+	| GitConfigSubProvider
 	| GitContributorsSubProvider
+	| GitDiffSubProvider
 	| GitGraphSubProvider
 	| GitPatchSubProvider
+	| GitRefsSubProvider
 	| GitRemotesSubProvider
 	| GitStagingSubProvider
 	| GitStashSubProvider

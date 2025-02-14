@@ -176,7 +176,7 @@ export class DraftService implements Disposable {
 					throw new Error(`No contents found for ${patch.baseCommitSha}`);
 				}
 
-				const diffFiles = await this.container.git.getDiffFiles(repository.path, contents);
+				const diffFiles = await repository.git.diff().getDiffFiles?.(contents);
 				const files = diffFiles?.files.map(f => ({ ...f, gkRepositoryId: patch.gitRepositoryId })) ?? [];
 
 				// Upload patch to returned S3 url
@@ -259,11 +259,11 @@ export class DraftService implements Disposable {
 						.then(b => (b != null ? [b.name] : undefined))
 				: change.repository.git.branches().getBranchesWithCommits([change.revision.to, change.revision.from]),
 			change.contents == null
-				? change.repository.git.getDiff(change.revision.to, change.revision.from)
+				? change.repository.git.diff().getDiff?.(change.revision.to, change.revision.from)
 				: undefined,
 			change.repository.git.commits().getInitialCommitSha?.(),
 			change.repository.git.remotes().getBestRemoteWithProvider(),
-			change.repository.git.getCurrentUser(),
+			change.repository.git.config().getCurrentUser(),
 		]);
 
 		const firstSha = getSettledValue(firstShaResult);
@@ -577,7 +577,7 @@ export class DraftService implements Disposable {
 			repoPath = repositoryOrIdentity.path;
 		}
 
-		const diffFiles = await this.container.git.getDiffFiles(repoPath, contents);
+		const diffFiles = await this.container.git.diff(repoPath).getDiffFiles?.(contents);
 		const files = diffFiles?.files.map(f => ({ ...f, gkRepositoryId: patch.gkRepositoryId })) ?? [];
 
 		return {
