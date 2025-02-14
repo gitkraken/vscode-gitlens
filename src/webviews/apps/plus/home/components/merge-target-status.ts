@@ -2,7 +2,7 @@ import { css, html, LitElement, nothing } from 'lit';
 import { customElement, property, state } from 'lit/decorators.js';
 import { createCommandLink } from '../../../../../system/commands';
 import { pluralize } from '../../../../../system/string';
-import type { BranchRef, GetOverviewBranch } from '../../../../home/protocol';
+import type { BranchAndTargetRefs, BranchRef, GetOverviewBranch } from '../../../../home/protocol';
 import { renderBranchName } from '../../../shared/components/branch-name';
 import { elementBase, linkBase, scrollableBase } from '../../../shared/components/styles/lit/base.css';
 import { chipStyles } from '../../shared/components/chipStyles';
@@ -414,19 +414,27 @@ export class GlMergeTargetStatus extends LitElement {
 	}
 
 	private renderActions() {
+		const branchRef = this.branchRef;
+		const targetRef = this.targetBranchRef;
+
 		return html`<span class="header__actions"
-			><gl-button
-				href="${createCommandLink('gitlens.home.openMergeTargetComparison', {
-					...this.branchRef,
-					mergeTargetId: this.targetBranchRef?.branchId,
-				})}"
+			>${branchRef && targetRef
+				? html`<gl-button
+						href="${createCommandLink<BranchAndTargetRefs>('gitlens.home.openMergeTargetComparison', {
+							...branchRef,
+							mergeTargetId: targetRef.branchId,
+							mergeTargetName: targetRef.branchName,
+						})}"
+						appearance="toolbar"
+						><code-icon icon="git-compare"></code-icon>
+						<span slot="tooltip"
+							>Compare Branch with Merge Target<br />${renderBranchName(this.branch.name)}
+							&leftrightarrow; ${renderBranchName(this.target?.name)}</span
+						>
+				  </gl-button>`
+				: nothing}<gl-button
+				href="${createCommandLink('gitlens.home.fetch', this.targetBranchRef)}"
 				appearance="toolbar"
-				><code-icon icon="git-compare"></code-icon>
-				<span slot="tooltip"
-					>Compare Branch with Merge Target<br />${renderBranchName(this.branch.name)} &leftrightarrow;
-					${renderBranchName(this.target?.name)}</span
-				> </gl-button
-			><gl-button href="${createCommandLink('gitlens.home.fetch', this.targetBranchRef)}" appearance="toolbar"
 				><code-icon icon="repo-fetch"></code-icon>
 				<span slot="tooltip">Fetch Merge Target<br />${renderBranchName(this.target?.name)}</span>
 			</gl-button></span
