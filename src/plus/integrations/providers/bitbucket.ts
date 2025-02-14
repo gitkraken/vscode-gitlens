@@ -91,15 +91,24 @@ export class BitbucketIntegration extends HostingIntegration<
 	}
 
 	protected override async getProviderPullRequestForBranch(
-		_session: AuthenticationSession,
-		_repo: BitbucketRepositoryDescriptor,
-		_branch: string,
+		{ accessToken }: AuthenticationSession,
+		repo: BitbucketRepositoryDescriptor,
+		branch: string,
 		_options?: {
 			avatarSize?: number;
 			include?: PullRequestState[];
 		},
 	): Promise<PullRequest | undefined> {
-		return Promise.resolve(undefined);
+		return (await this.container.bitbucket)?.getPullRequestForBranch(
+			this,
+			accessToken,
+			repo.owner,
+			repo.name,
+			branch,
+			{
+				baseUrl: this.apiBaseUrl,
+			},
+		);
 	}
 
 	protected override async getProviderPullRequestForCommit(

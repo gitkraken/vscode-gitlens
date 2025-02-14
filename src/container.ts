@@ -36,6 +36,7 @@ import { ConfiguredIntegrationService } from './plus/integrations/authentication
 import { IntegrationAuthenticationService } from './plus/integrations/authentication/integrationAuthenticationService';
 import { IntegrationService } from './plus/integrations/integrationService';
 import type { AzureDevOpsApi } from './plus/integrations/providers/azure/azure';
+import type { BitbucketApi } from './plus/integrations/providers/bitbucket/bitbucket';
 import type { GitHubApi } from './plus/integrations/providers/github/github';
 import type { GitLabApi } from './plus/integrations/providers/gitlab/gitlab';
 import { EnrichmentService } from './plus/launchpad/enrichmentService';
@@ -485,6 +486,30 @@ export class Container {
 		}
 
 		return this._azure;
+	}
+
+	private _bitbucket: Promise<BitbucketApi | undefined> | undefined;
+	get bitbucket(): Promise<BitbucketApi | undefined> {
+		if (this._bitbucket == null) {
+			async function load(this: Container) {
+				try {
+					const bitbucket = new (
+						await import(
+							/* webpackChunkName: "integrations" */ './plus/integrations/providers/bitbucket/bitbucket'
+						)
+					).BitbucketApi(this);
+					this._disposables.push(bitbucket);
+					return bitbucket;
+				} catch (ex) {
+					Logger.error(ex);
+					return undefined;
+				}
+			}
+
+			this._bitbucket = load.call(this);
+		}
+
+		return this._bitbucket;
 	}
 
 	private _github: Promise<GitHubApi | undefined> | undefined;
