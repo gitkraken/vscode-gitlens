@@ -86,7 +86,7 @@ export class BranchTrackingStatusNode
 			const ref = this.options?.unpublishedCommits != null ? last(this.options.unpublishedCommits) : undefined;
 			if (ref == null) return undefined;
 
-			const resolved = await this.view.container.git.resolveReference(this.repoPath, `${ref}^`);
+			const resolved = await this.view.container.git.refs(this.repoPath).resolveReference(`${ref}^`);
 			return {
 				...comparison,
 				ref1: resolved,

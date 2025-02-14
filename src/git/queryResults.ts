@@ -28,11 +28,12 @@ export async function getAheadBehindFilesQuery(
 	comparison: string,
 	compareWithWorkingTree: boolean,
 ): Promise<FilesQueryResults> {
+	const diffProvider = container.git.diff(repoPath);
 	const [filesResult, workingFilesResult, statsResult, workingStatsResult] = await Promise.allSettled([
-		container.git.getDiffStatus(repoPath, comparison),
-		compareWithWorkingTree ? container.git.getDiffStatus(repoPath, 'HEAD') : undefined,
-		container.git.getChangedFilesCount(repoPath, comparison),
-		compareWithWorkingTree ? container.git.getChangedFilesCount(repoPath, 'HEAD') : undefined,
+		diffProvider.getDiffStatus(comparison),
+		compareWithWorkingTree ? diffProvider.getDiffStatus('HEAD') : undefined,
+		diffProvider.getChangedFilesCount(comparison),
+		compareWithWorkingTree ? diffProvider.getChangedFilesCount('HEAD') : undefined,
 	]);
 
 	let files = getSettledValue(filesResult) ?? [];
@@ -117,9 +118,10 @@ export async function getFilesQuery(
 		comparison = `${ref2}..${ref1}`;
 	}
 
+	const diffProvider = container.git.diff(repoPath);
 	const [filesResult, statsResult] = await Promise.allSettled([
-		container.git.getDiffStatus(repoPath, comparison),
-		container.git.getChangedFilesCount(repoPath, comparison),
+		diffProvider.getDiffStatus(comparison),
+		diffProvider.getChangedFilesCount(comparison),
 	]);
 
 	const files = getSettledValue(filesResult) ?? [];

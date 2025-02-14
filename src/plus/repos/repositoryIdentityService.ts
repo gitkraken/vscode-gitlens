@@ -112,7 +112,7 @@ export class RepositoryIdentityService implements Disposable {
 				if (!options?.skipRefValidation && hasInitialCommitSha) {
 					// Repo ID can be any valid SHA in the repo, though standard practice is to use the
 					// first commit SHA.
-					if (await this.container.git.validateReference(repo.uri, identity.initialCommitSha)) {
+					if (await repo.git.refs().validateReference(identity.initialCommitSha)) {
 						foundRepo = repo;
 						break;
 					}
@@ -151,7 +151,7 @@ export class RepositoryIdentityService implements Disposable {
 			if (locatedRepo == null) return undefined;
 			if (
 				identity.initialCommitSha == null ||
-				(await this.container.git.validateReference(locatedRepo.uri, identity.initialCommitSha))
+				(await locatedRepo.git.refs().validateReference(identity.initialCommitSha))
 			) {
 				foundRepo = locatedRepo;
 				await this.storeRepositoryLocation(foundRepo, identity);

@@ -168,7 +168,7 @@ export class GitTerminalLinkProvider implements Disposable, TerminalLinkProvider
 				continue;
 			}
 
-			if (await this.container.git.validateReference(repoPath, ref)) {
+			if (await this.container.git.refs(repoPath).validateReference(ref)) {
 				const link: GitTerminalLink<ShowQuickCommitCommandArgs | InspectCommandArgs> = {
 					startIndex: match.index,
 					length: ref.length,

@@ -12,6 +12,7 @@ import type { GitFile } from '../../../../git/models/file';
 import { GitFileChange } from '../../../../git/models/fileChange';
 import type { GitFileStatus } from '../../../../git/models/fileStatus';
 import type { GitLog } from '../../../../git/models/log';
+import type { GitReflog } from '../../../../git/models/reflog';
 import type { GitRevisionRange } from '../../../../git/models/revision';
 import { deletedOrMissing } from '../../../../git/models/revision';
 import type { GitUser } from '../../../../git/models/user';
@@ -24,6 +25,7 @@ import {
 	parseGitLogAllFormat,
 	parseGitLogDefaultFormat,
 } from '../../../../git/parsers/logParser';
+import { parseGitRefLog, parseGitRefLogDefaultFormat } from '../../../../git/parsers/reflogParser';
 import { getGitArgsFromSearchQuery } from '../../../../git/search';
 import { isRevisionRange, isSha, isUncommitted } from '../../../../git/utils/revision.utils';
 import { configuration } from '../../../../system/-webview/configuration';
@@ -41,6 +43,7 @@ import { gitLogDefaultConfigsWithFiles } from '../git';
 import type { LocalGitProvider } from '../localGitProvider';
 
 const emptyPromise: Promise<GitBlame | GitDiffFile | GitLog | undefined> = Promise.resolve(undefined);
+const reflogCommands = ['merge', 'pull'];
 
 export class CommitsGitSubProvider implements GitCommitsSubProvider {
 	constructor(
@@ -145,6 +148,95 @@ export class CommitsGitSubProvider implements GitCommitsSubProvider {
 			Logger.error(ex, scope);
 			return undefined;
 		}
+	}
+
+	@log()
+	async getIncomingActivity(
+		repoPath: string,
+		options?: {
+			all?: boolean;
+			branch?: string;
+			limit?: number;
+			ordering?: 'date' | 'author-date' | 'topo' | null;
+			skip?: number;
+		},
+	): Promise<GitReflog | undefined> {
+		const scope = getLogScope();
+
+		const args = ['--walk-reflogs', `--format=${parseGitRefLogDefaultFormat}`, '--date=iso8601'];
+
+		const ordering = options?.ordering ?? configuration.get('advanced.commitOrdering');
+		if (ordering) {
+			args.push(`--${ordering}-order`);
+		}
+
+		if (options?.all) {
+			args.push('--all');
+		}
+
+		// Pass a much larger limit to reflog, because we aggregate the data and we won't know how many lines we'll need
+		const limit = (options?.limit ?? configuration.get('advanced.maxListItems') ?? 0) * 100;
+		if (limit) {
+			args.push(`-n${limit}`);
+		}
+
+		if (options?.skip) {
+			args.push(`--skip=${options.skip}`);
+		}
+
+		try {
+			const data = await this.git.log(repoPath, undefined, undefined, ...args);
+			if (data == null) return undefined;
+
+			const reflog = parseGitRefLog(this.container, data, repoPath, reflogCommands, limit, limit * 100);
+			if (reflog?.hasMore) {
+				reflog.more = this.getReflogMoreFn(reflog, options);
+			}
+
+			return reflog;
+		} catch (ex) {
+			Logger.error(ex, scope);
+			return undefined;
+		}
+	}
+
+	private getReflogMoreFn(
+		reflog: GitReflog,
+		options?: {
+			all?: boolean;
+			branch?: string;
+			limit?: number;
+			ordering?: 'date' | 'author-date' | 'topo' | null;
+			skip?: number;
+		},
+	): (limit: number) => Promise<GitReflog> {
+		return async (limit: number | undefined) => {
+			limit = limit ?? configuration.get('advanced.maxSearchItems') ?? 0;
+
+			const moreLog = await this.getIncomingActivity(reflog.repoPath, {
+				...options,
+				limit: limit,
+				skip: reflog.total,
+			});
+			if (moreLog == null) {
+				// If we can't find any more, assume we have everything
+				return { ...reflog, hasMore: false, more: undefined };
+			}
+
+			const mergedLog: GitReflog = {
+				repoPath: reflog.repoPath,
+				records: [...reflog.records, ...moreLog.records],
+				count: reflog.count + moreLog.count,
+				total: reflog.total + moreLog.total,
+				limit: (reflog.limit ?? 0) + limit,
+				hasMore: moreLog.hasMore,
+			};
+			if (mergedLog.hasMore) {
+				mergedLog.more = this.getReflogMoreFn(mergedLog, options);
+			}
+
+			return mergedLog;
+		};
 	}
 
 	@log({ exit: true })
@@ -290,7 +382,7 @@ export class CommitsGitSubProvider implements GitCommitsSubProvider {
 				repoPath,
 				undefined,
 				rev,
-				await this.provider.getCurrentUser(repoPath),
+				await this.provider.config.getCurrentUser(repoPath),
 				limit,
 				false,
 				undefined,
@@ -712,7 +804,7 @@ export class CommitsGitSubProvider implements GitCommitsSubProvider {
 				root,
 				relativePath,
 				rev,
-				await this.provider.getCurrentUser(root),
+				await this.provider.config.getCurrentUser(root),
 				options.limit,
 				options.reverse ?? false,
 				range,
@@ -875,7 +967,7 @@ export class CommitsGitSubProvider implements GitCommitsSubProvider {
 			const limit = options?.limit ?? configuration.get('advanced.maxSearchItems') ?? 0;
 			const similarityThreshold = configuration.get('advanced.similarityThreshold');
 
-			const currentUser = await this.provider.getCurrentUser(repoPath);
+			const currentUser = await this.provider.config.getCurrentUser(repoPath);
 
 			const { args, files, shas } = getGitArgsFromSearchQuery(search, currentUser);
 

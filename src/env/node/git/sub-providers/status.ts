@@ -47,7 +47,7 @@ export class StatusGitSubProvider implements GitStatusSubProvider {
 		let status = this.cache.pausedOperationStatus?.get(repoPath);
 		if (status == null) {
 			async function getCore(this: StatusGitSubProvider): Promise<GitPausedOperationStatus | undefined> {
-				const gitDir = await this.provider.getGitDir(repoPath);
+				const gitDir = await this.provider.config.getGitDir(repoPath);
 
 				type Operation = 'cherry-pick' | 'merge' | 'rebase-apply' | 'rebase-merge' | 'revert';
 				const operation = await new Promise<Operation | undefined>((resolve, _) => {

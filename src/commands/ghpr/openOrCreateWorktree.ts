@@ -136,11 +136,12 @@ export class OpenOrCreateWorktreeCommand extends GlCommandBase {
 
 			// Save the PR number in the branch config
 			// https://github.com/Microsoft/vscode-pull-request-github/blob/0c556c48c69a3df2f9cf9a45ed2c40909791b8ab/src/github/pullRequestGitHelper.ts#L18
-			void this.container.git.setConfig(
-				repo.path,
-				`branch.${localBranchName}.github-pr-owner-number`,
-				`${rootOwner}#${rootRepository}#${number}`,
-			);
+			void repo.git
+				.config()
+				.setConfig?.(
+					`branch.${localBranchName}.github-pr-owner-number`,
+					`${rootOwner}#${rootRepository}#${number}`,
+				);
 		} catch (ex) {
 			Logger.error(ex, 'CreateWorktreeCommand', 'Unable to create worktree');
 			void window.showErrorMessage(`Unable to create worktree for ${remoteOwner}:${ref}`);

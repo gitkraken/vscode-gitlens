@@ -76,7 +76,7 @@ export class GraphGitSubProvider implements GitGraphSubProvider {
 				this.provider.branches.getBranches(repoPath, { filter: b => b.remote }),
 				this.provider.remotes.getRemotes(repoPath),
 				this.provider.tags.getTags(repoPath),
-				this.provider.getCurrentUser(repoPath),
+				this.provider.config.getCurrentUser(repoPath),
 			]);
 
 		const avatars = new Map<string, string>();

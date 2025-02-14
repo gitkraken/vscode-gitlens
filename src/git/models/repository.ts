@@ -221,20 +221,23 @@ export class Repository implements Disposable {
 		}
 
 		// Update the name if it is a worktree
-		void this.git.getGitDir().then(gd => {
-			if (gd?.commonUri == null) return;
+		void this.git
+			.config()
+			.getGitDir?.()
+			.then(gd => {
+				if (gd?.commonUri == null) return;
 
-			let path = gd.commonUri.path;
-			if (path.endsWith('/.git')) {
-				path = path.substring(0, path.length - 5);
-			}
+				let path = gd.commonUri.path;
+				if (path.endsWith('/.git')) {
+					path = path.substring(0, path.length - 5);
+				}
 
-			this._commonRepositoryName = basename(path);
-			const prefix = `${this._commonRepositoryName}: `;
-			if (!this._name.startsWith(prefix)) {
-				this._name = `${prefix}${this._name}`;
-			}
-		});
+				this._commonRepositoryName = basename(path);
+				const prefix = `${this._commonRepositoryName}: `;
+				if (!this._name.startsWith(prefix)) {
+					this._name = `${prefix}${this._name}`;
+				}
+			});
 
 		this.index = folder?.index ?? container.git.repositoryCount;
 
@@ -320,7 +323,7 @@ export class Repository implements Disposable {
 			return watcher;
 		}
 
-		const gitDir = await this.git.getGitDir();
+		const gitDir = await this.git.config().getGitDir?.();
 		if (gitDir != null) {
 			if (gitDir?.commonUri == null) {
 				watch.call(this, gitDir.uri, dotGitWatcherGlobCombined);
@@ -618,7 +621,7 @@ export class Repository implements Disposable {
 	@gate()
 	@log({ exit: true })
 	async getCommonRepository(): Promise<Repository | undefined> {
-		const gitDir = await this.git.getGitDir();
+		const gitDir = await this.git.config().getGitDir?.();
 		if (gitDir?.commonUri == null) return this;
 
 		// If the repository isn't already opened, then open it as a "closed" repo (won't show up in the UI)
@@ -631,7 +634,7 @@ export class Repository implements Disposable {
 
 	@log({ exit: true })
 	async getCommonRepositoryUri(): Promise<Uri | undefined> {
-		const gitDir = await this.git.getGitDir();
+		const gitDir = await this.git.config().getGitDir?.();
 		if (gitDir?.commonUri?.path.endsWith('/.git')) {
 			return gitDir.commonUri.with({
 				path: gitDir.commonUri.path.substring(0, gitDir.commonUri.path.length - 5),

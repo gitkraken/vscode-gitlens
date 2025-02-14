@@ -45,8 +45,7 @@ export class DiffWithNextCommand extends ActiveEditorCommand {
 
 		const gitUri = args.commit?.getGitUri() ?? (await GitUri.fromUri(uri));
 		try {
-			const diffUris = await this.container.git.getNextComparisonUris(
-				gitUri.repoPath!,
+			const diffUris = await this.container.git.diff(gitUri.repoPath!).getNextComparisonUris(
 				gitUri,
 				gitUri.sha,
 				// If we are in the left-side of the diff editor, we need to skip forward 1 more revision

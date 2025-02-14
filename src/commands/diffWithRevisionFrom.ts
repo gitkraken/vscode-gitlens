@@ -85,7 +85,9 @@ export class DiffWithRevisionFromCommand extends ActiveEditorCommand {
 		let renamedTitle: string | undefined;
 
 		// Check to see if this file has been renamed
-		const files = await this.container.git.getDiffStatus(gitUri.repoPath, 'HEAD', ref, { filters: ['R', 'C'] });
+		const files = await this.container.git
+			.diff(gitUri.repoPath)
+			.getDiffStatus('HEAD', ref, { filters: ['R', 'C'] });
 		if (files != null) {
 			const rename = files.find(s => s.path === path);
 			if (rename?.originalPath != null) {

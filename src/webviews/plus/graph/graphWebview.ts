@@ -432,7 +432,7 @@ export class GraphWebviewProvider implements WebviewProvider<State, State, Graph
 
 			let id = arg.ref.ref;
 			if (!isSha(id)) {
-				id = await this.container.git.resolveReference(arg.ref.repoPath, id, undefined, {
+				id = await this.container.git.refs(arg.ref.repoPath).resolveReference(id, undefined, {
 					force: true,
 				});
 			}
@@ -3258,7 +3258,7 @@ export class GraphWebviewProvider implements WebviewProvider<State, State, Graph
 
 		let sha = ref.ref;
 		if (!isSha(sha)) {
-			sha = await this.container.git.resolveReference(ref.repoPath, sha, undefined, { force: true });
+			sha = await this.container.git.refs(ref.repoPath).resolveReference(sha, undefined, { force: true });
 		}
 
 		return executeCommand<CopyShaToClipboardCommandArgs, void>(GlCommand.CopyShaToClipboard, {
@@ -3320,7 +3320,7 @@ export class GraphWebviewProvider implements WebviewProvider<State, State, Graph
 	private async abortPausedOperation(_item?: GraphItemContext) {
 		if (this.repository == null) return;
 
-		const abortPausedOperation = this.container.git.status(this.repository.path).abortPausedOperation;
+		const abortPausedOperation = this.repository.git.status().abortPausedOperation;
 		if (abortPausedOperation == null) return;
 
 		try {
@@ -3334,10 +3334,10 @@ export class GraphWebviewProvider implements WebviewProvider<State, State, Graph
 	private async continuePausedOperation(_item?: GraphItemContext) {
 		if (this.repository == null) return;
 
-		const status = await this.container.git.status(this.repository.path).getPausedOperationStatus?.();
+		const status = await this.repository.git.status().getPausedOperationStatus?.();
 		if (status == null || status.type === 'revert') return;
 
-		const continuePausedOperation = this.container.git.status(status.repoPath).continuePausedOperation;
+		const continuePausedOperation = this.repository.git.status().continuePausedOperation;
 		if (continuePausedOperation == null) return;
 
 		try {
@@ -3351,10 +3351,10 @@ export class GraphWebviewProvider implements WebviewProvider<State, State, Graph
 	private async openRebaseEditor(_item?: GraphItemContext) {
 		if (this.repository == null) return;
 
-		const status = await this.container.git.status(this.repository.path).getPausedOperationStatus?.();
+		const status = await this.repository.git.status().getPausedOperationStatus?.();
 		if (status == null || status.type !== 'rebase') return;
 
-		const gitDir = await this.container.git.getGitDir(this.repository.path);
+		const gitDir = await this.repository.git.config().getGitDir?.();
 		if (gitDir == null) return;
 
 		const rebaseTodoUri = Uri.joinPath(gitDir.uri, 'rebase-merge', 'git-rebase-todo');

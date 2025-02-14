@@ -100,10 +100,9 @@ export class StatusFilesNode extends ViewNode<'status-files', ViewsWithWorkingTr
 		if (this.range != null) {
 			if (this.status.upstream != null && this.status.state.ahead > 0) {
 				if (files > 0) {
-					const aheadFiles = await this.view.container.git.getDiffStatus(
-						this.repoPath,
-						`${this.status.upstream?.name}...`,
-					);
+					const aheadFiles = await this.view.container.git
+						.diff(this.repoPath)
+						.getDiffStatus(`${this.status.upstream?.name}...`);
 
 					if (aheadFiles != null) {
 						const uniques = new Set();
@@ -117,10 +116,9 @@ export class StatusFilesNode extends ViewNode<'status-files', ViewsWithWorkingTr
 						files = uniques.size;
 					}
 				} else {
-					const stats = await this.view.container.git.getChangedFilesCount(
-						this.repoPath,
-						`${this.status.upstream?.name}...`,
-					);
+					const stats = await this.view.container.git
+						.diff(this.repoPath)
+						.getChangedFilesCount(`${this.status.upstream?.name}...`);
 					if (stats != null) {
 						files += stats.files;
 					} else {

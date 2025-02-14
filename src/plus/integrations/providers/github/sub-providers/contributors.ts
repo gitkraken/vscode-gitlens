@@ -30,7 +30,7 @@ export class ContributorsGitSubProvider implements GitContributorsSubProvider {
 			const { metadata, github, session } = await this.provider.ensureRepositoryContext(repoPath);
 
 			const results = await github.getContributors(session.accessToken, metadata.repo.owner, metadata.repo.name);
-			const currentUser = await this.provider.getCurrentUser(repoPath);
+			const currentUser = await this.provider.config.getCurrentUser(repoPath);
 
 			const contributors = [];
 			for (const c of results) {

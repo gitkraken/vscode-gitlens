@@ -469,7 +469,7 @@ export class CommitsView extends ViewBase<'commits', CommitsViewNode, CommitsVie
 
 			let authors = this.state.filterCommits.get(repo.id);
 			if (authors == null) {
-				const current = await this.container.git.getCurrentUser(repo.uri);
+				const current = await repo.git.config().getCurrentUser();
 				authors = current != null ? [current] : undefined;
 			}
 

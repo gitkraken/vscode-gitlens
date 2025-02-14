@@ -780,7 +780,7 @@ export class ViewCommands implements Disposable {
 	private async openPausedOperationInRebaseEditor(node: PausedOperationStatusNode) {
 		if (!node.is('paused-operation-status') || node.pausedOpStatus.type !== 'rebase') return;
 
-		const gitDir = await this.container.git.getGitDir(node.repoPath);
+		const gitDir = await this.container.git.config(node.repoPath).getGitDir?.();
 		if (gitDir == null) return;
 
 		const rebaseTodoUri = Uri.joinPath(gitDir.uri, 'rebase-merge', 'git-rebase-todo');
@@ -1703,7 +1703,7 @@ export class ViewCommands implements Disposable {
 		if (filter) {
 			let authors = node.getState('filterCommits');
 			if (authors == null) {
-				const current = await this.container.git.getCurrentUser(repo.uri);
+				const current = await repo.git.config().getCurrentUser();
 				authors = current != null ? [current] : undefined;
 			}
 
