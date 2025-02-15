@@ -10,9 +10,9 @@ import { isSha } from '../git/utils/revision.utils';
 import { showGenericErrorMessage } from '../messages';
 import { showReferencePicker } from '../quickpicks/referencePicker';
 import { command, executeCommand } from '../system/-webview/command';
-import { UriComparer } from '../system/comparers';
 import { Logger } from '../system/logger';
 import { pad, splitSingle } from '../system/string';
+import { uriEquals } from '../system/uri';
 import { StatusFileNode } from '../views/nodes/statusFileNode';
 import { ActiveEditorCommand } from './commandBase';
 import { getCommandUri } from './commandBase.utils';
@@ -121,7 +121,7 @@ export class OpenFileOnRemoteCommand extends ActiveEditorCommand {
 
 			let range: Range | undefined;
 			if (args.range) {
-				if (editor != null && UriComparer.equals(editor.document.uri, uri)) {
+				if (editor != null && uriEquals(editor.document.uri, uri)) {
 					range = new Range(
 						editor.selection.start.with({ line: editor.selection.start.line + 1 }),
 						editor.selection.end.with({

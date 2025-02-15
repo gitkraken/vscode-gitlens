@@ -8,7 +8,6 @@ import { showReferencePicker } from '../../quickpicks/referencePicker';
 import { setContext } from '../../system/-webview/context';
 import { isFolderUri } from '../../system/-webview/path';
 import { isVirtualUri } from '../../system/-webview/vscode';
-import { UriComparer } from '../../system/comparers';
 import { gate } from '../../system/decorators/-webview/gate';
 import { debug, log } from '../../system/decorators/log';
 import { weakEvent } from '../../system/event';
@@ -16,6 +15,7 @@ import type { Deferrable } from '../../system/function';
 import { debounce } from '../../system/function';
 import { Logger } from '../../system/logger';
 import { getLogScope, setLogScopeExit } from '../../system/logger.scope';
+import { uriEquals } from '../../system/uri';
 import type { FileHistoryView } from '../fileHistoryView';
 import { SubscribeableViewNode } from './abstract/subscribeableViewNode';
 import type { ViewNode } from './abstract/viewNode';
@@ -170,7 +170,7 @@ export class FileHistoryTrackerNode extends SubscribeableViewNode<'file-history-
 			}
 		}
 
-		if (this.hasUri && UriComparer.equals(uri ?? gitUri, this.uri)) {
+		if (this.hasUri && uriEquals(uri ?? gitUri, this.uri)) {
 			return true;
 		}
 
