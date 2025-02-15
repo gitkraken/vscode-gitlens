@@ -27,6 +27,7 @@ import {
 } from '../../../../git/parsers/logParser';
 import { parseGitRefLog, parseGitRefLogDefaultFormat } from '../../../../git/parsers/reflogParser';
 import { getGitArgsFromSearchQuery } from '../../../../git/search';
+import { createUncommittedChangesCommit } from '../../../../git/utils/-webview/commit.utils';
 import { isRevisionRange, isSha, isUncommitted } from '../../../../git/utils/revision.utils';
 import { configuration } from '../../../../system/-webview/configuration';
 import { splitPath } from '../../../../system/-webview/path';
@@ -59,6 +60,15 @@ export class CommitsGitSubProvider implements GitCommitsSubProvider {
 
 	@log()
 	async getCommit(repoPath: string, rev: string): Promise<GitCommit | undefined> {
+		if (isUncommitted(rev, true)) {
+			return createUncommittedChangesCommit(
+				this.container,
+				repoPath,
+				rev,
+				await this.provider.config.getCurrentUser(repoPath),
+			);
+		}
+
 		const log = await this.getLog(repoPath, rev, { limit: 2 });
 		if (log == null) return undefined;
 
