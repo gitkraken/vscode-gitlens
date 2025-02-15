@@ -6,7 +6,7 @@ import {
 	getSupportedRepositoryLocationProvider,
 	getSupportedWorkspacesStorageProvider,
 } from '@env/providers';
-import type { AIProviderService } from './ai/aiProviderService';
+import { AIProviderService } from './ai/aiProviderService';
 import { FileAnnotationController } from './annotations/fileAnnotationController';
 import { LineAnnotationController } from './annotations/lineAnnotationController';
 import { ActionRunners } from './api/actionRunners';
@@ -343,23 +343,10 @@ export class Container {
 		return this._actionRunners;
 	}
 
-	private _ai: Promise<AIProviderService | undefined> | undefined;
-	get ai(): Promise<AIProviderService | undefined> {
+	private _ai: AIProviderService | undefined;
+	get ai(): AIProviderService {
 		if (this._ai == null) {
-			async function load(this: Container) {
-				try {
-					const ai = new (
-						await import(/* webpackChunkName: "ai" */ './ai/aiProviderService')
-					).AIProviderService(this);
-					this._disposables.push(ai);
-					return ai;
-				} catch (ex) {
-					Logger.error(ex);
-					return undefined;
-				}
-			}
-
-			this._ai = load.call(this);
+			this._disposables.push((this._ai = new AIProviderService(this)));
 		}
 		return this._ai;
 	}

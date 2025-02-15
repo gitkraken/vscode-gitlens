@@ -1126,9 +1126,7 @@ export class CommitDetailsWebviewProvider
 	private async explainRequest<T extends typeof ExplainRequest>(requestType: T, msg: IpcCallMessageType<T>) {
 		let params: DidExplainParams;
 		try {
-			const result = await (
-				await this.container.ai
-			)?.explainCommit(
+			const result = await this.container.ai.explainCommit(
 				this._context.commit!,
 				{ source: 'inspect', type: isStash(this._context.commit) ? 'stash' : 'commit' },
 				{ progress: { location: { viewId: this.host.id } } },
@@ -1162,9 +1160,7 @@ export class CommitDetailsWebviewProvider
 			// const commit = await this.getOrCreateCommitForPatch(patch.gkRepositoryId);
 			// if (commit == null) throw new Error('Unable to find commit');
 
-			const message = await (
-				await this.container.ai
-			)?.generateDraftMessage(
+			const message = await this.container.ai.generateDraftMessage(
 				repo,
 				{ source: 'inspect', type: 'suggested_pr_change' },
 				{ progress: { location: { viewId: this.host.id } } },

@@ -70,6 +70,7 @@ export class HomeStateProvider implements StateProvider<State> {
 				case DidChangeIntegrationsConnections.is(msg):
 					this._state.hasAnyIntegrationConnected = msg.params.hasAnyIntegrationConnected;
 					this._state.integrations = msg.params.integrations;
+					this._state.ai = msg.params.ai;
 					this._state.timestamp = Date.now();
 
 					this.provider.setValue(this._state, true);

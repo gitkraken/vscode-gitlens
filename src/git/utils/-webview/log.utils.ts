@@ -42,7 +42,7 @@ export async function getChangesForChangelog(container: Container, log: GitLog):
 	}
 
 	for (const change of changes) {
-		change.issues.push(
+		(change.issues as Mutable<typeof change.issues>).push(
 			...map(change.links, ([key, link]) => {
 				const issue = issues.get(key);
 				return {

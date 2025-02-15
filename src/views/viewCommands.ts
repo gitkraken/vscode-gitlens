@@ -1759,9 +1759,11 @@ export class ViewCommands implements Disposable {
 		if (!node.is('results-commits')) return;
 
 		const changes = lazy(() => node.getChangesForChangelog());
-		const changelog = await (
-			await this.container.ai
-		)?.generateChangelog(changes, { source: 'view' }, { progress: { location: ProgressLocation.Notification } });
+		const changelog = await this.container.ai.generateChangelog(
+			changes,
+			{ source: 'view' },
+			{ progress: { location: ProgressLocation.Notification } },
+		);
 		if (changelog == null) return;
 
 		// open an untitled editor

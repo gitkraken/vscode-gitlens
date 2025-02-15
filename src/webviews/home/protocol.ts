@@ -1,3 +1,4 @@
+import type { AIModel } from '../../ai/aiProviderService';
 import type { IntegrationDescriptor } from '../../constants.integrations';
 import type { GitBranchMergedStatus } from '../../git/gitProvider';
 import type { GitBranchStatus, GitTrackingState } from '../../git/models/branch';
@@ -26,6 +27,7 @@ export interface State extends WebviewState {
 	integrationBannerCollapsed: boolean;
 	hasAnyIntegrationConnected: boolean;
 	integrations: IntegrationState[];
+	ai: { model: AIModel | undefined };
 	avatar?: string;
 	organizationsCount?: number;
 	walkthroughProgress?: {
@@ -287,6 +289,7 @@ export const DidChangeWalkthroughProgress = new IpcNotification<DidChangeProgres
 export interface DidChangeIntegrationsParams {
 	hasAnyIntegrationConnected: boolean;
 	integrations: IntegrationState[];
+	ai: { model: AIModel | undefined };
 }
 export const DidChangeIntegrationsConnections = new IpcNotification<DidChangeIntegrationsParams>(
 	scope,

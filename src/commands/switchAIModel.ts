@@ -1,3 +1,4 @@
+import type { Source } from '../constants.telemetry';
 import type { Container } from '../container';
 import { command } from '../system/-webview/command';
 import { GlCommandBase } from './commandBase';
@@ -8,7 +9,7 @@ export class SwitchAIModelCommand extends GlCommandBase {
 		super('gitlens.switchAIModel');
 	}
 
-	async execute(): Promise<void> {
-		await (await this.container.ai)?.switchModel();
+	async execute(source?: Source): Promise<void> {
+		await this.container.ai.switchModel(source);
 	}
 }

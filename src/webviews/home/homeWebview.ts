@@ -1,5 +1,6 @@
 import type { ConfigurationChangeEvent } from 'vscode';
 import { Disposable, Uri, window, workspace } from 'vscode';
+import type { AIModelChangeEvent } from '../../ai/aiProviderService';
 import type { CreatePullRequestActionContext } from '../../api/gitlens';
 import type { EnrichedAutolink } from '../../autolinks/models/autolinks';
 import { getAvatarUriFromGravatarEmail } from '../../avatars';
@@ -159,10 +160,11 @@ export class HomeWebviewProvider implements WebviewProvider<State, State, HomeWe
 				: emptyDisposable,
 			this.container.subscription.onDidChange(this.onSubscriptionChanged, this),
 			onDidChangeContext(this.onContextChanged, this),
-			this.container.integrations.onDidChangeConfiguredIntegrations(this.onChangeConnectionState, this),
+			this.container.integrations.onDidChangeConfiguredIntegrations(this.onIntegrationsChanged, this),
 			this.container.walkthrough.onProgressChanged(this.onWalkthroughChanged, this),
 			configuration.onDidChange(this.onDidChangeConfig, this),
 			this.container.launchpad.onDidChange(this.onDidLaunchpadChange, this),
+			this.container.ai.onDidChangeModel(this.onAIModelChanged, this),
 		);
 	}
 
@@ -219,7 +221,11 @@ export class HomeWebviewProvider implements WebviewProvider<State, State, HomeWe
 		this.notifyDidCompleteDiscoveringRepositories();
 	}
 
-	private onChangeConnectionState(_e: ConfiguredIntegrationsChangeEvent) {
+	private onAIModelChanged(_e: AIModelChangeEvent) {
+		void this.notifyDidChangeIntegrations();
+	}
+
+	private onIntegrationsChanged(_e: ConfiguredIntegrationsChangeEvent) {
 		void this.notifyDidChangeIntegrations();
 	}
 
@@ -671,9 +677,10 @@ export class HomeWebviewProvider implements WebviewProvider<State, State, HomeWe
 	}
 
 	private async getState(subscription?: Subscription): Promise<State> {
-		const [subResult, integrationResult] = await Promise.allSettled([
+		const [subResult, integrationResult, aiModelResult] = await Promise.allSettled([
 			this.getSubscriptionState(subscription),
 			this.getIntegrationStates(true),
+			this.container.ai.getModel({ silent: true }),
 		]);
 
 		if (subResult.status === 'rejected') {
@@ -682,6 +689,7 @@ export class HomeWebviewProvider implements WebviewProvider<State, State, HomeWe
 
 		const integrations = getSettledValue(integrationResult) ?? [];
 		const anyConnected = integrations.some(i => i.connected);
+		const ai = { model: getSettledValue(aiModelResult) };
 
 		return {
 			...this.host.baseWebviewState,
@@ -695,6 +703,7 @@ export class HomeWebviewProvider implements WebviewProvider<State, State, HomeWe
 			previewCollapsed: this.getPreviewCollapsed(),
 			integrationBannerCollapsed: this.getIntegrationBannerCollapsed(),
 			integrations: integrations,
+			ai: ai,
 			hasAnyIntegrationConnected: anyConnected,
 			walkthroughProgress: !this.getWalkthroughDismissed()
 				? {
@@ -1138,8 +1147,15 @@ export class HomeWebviewProvider implements WebviewProvider<State, State, HomeWe
 
 	private async notifyDidChangeIntegrations() {
 		// force rechecking
-		const integrations = await this.getIntegrationStates(true);
+		const [integrationResult, aiModelResult] = await Promise.allSettled([
+			this.getIntegrationStates(true),
+			this.container.ai.getModel({ silent: true }),
+		]);
+
+		const integrations = getSettledValue(integrationResult) ?? [];
 		const anyConnected = integrations.some(i => i.connected);
+		const ai = { model: getSettledValue(aiModelResult) };
+
 		if (anyConnected) {
 			this.onCollapseSection({
 				section: 'integrationBanner',
@@ -1149,6 +1165,7 @@ export class HomeWebviewProvider implements WebviewProvider<State, State, HomeWe
 		void this.host.notify(DidChangeIntegrationsConnections, {
 			hasAnyIntegrationConnected: anyConnected,
 			integrations: integrations,
+			ai: ai,
 		});
 	}
 

@@ -37,7 +37,7 @@ export class GLIntegrationsChip extends LitElement {
 		chipStyles,
 		css`
 			.chip {
-				gap: 0.8rem;
+				gap: 0.6rem;
 				padding: 0.2rem 0.4rem 0.4rem 0.4rem;
 				align-items: baseline;
 			}
@@ -91,6 +91,11 @@ export class GLIntegrationsChip extends LitElement {
 				display: flex;
 				gap: 1rem;
 				align-items: center;
+			}
+
+			.integration-row--ai {
+				border-top: 1px solid var(--color-foreground--25);
+				padding-top: 0.6rem;
 			}
 
 			.status--disconnected .integration__icon {
@@ -165,6 +170,10 @@ export class GLIntegrationsChip extends LitElement {
 		return this.hasAccount && this.integrations.some(i => i.connected);
 	}
 
+	private get ai() {
+		return this._state.ai;
+	}
+
 	private get integrations() {
 		return this._state.integrations;
 	}
@@ -175,12 +184,13 @@ export class GLIntegrationsChip extends LitElement {
 
 	override render(): unknown {
 		const anyConnected = this.hasConnectedIntegrations;
-		const statusFilter = createIconBasedStatusFilter(this.integrations);
+		const statusFilter = createStatusIconFilter(this.integrations);
+
 		return html`<gl-popover placement="bottom" trigger="hover click focus" hoist>
 			<span slot="anchor" class="chip" tabindex="0"
 				>${!anyConnected ? html`<span class="chip__label">Connect</span>` : ''}${this.integrations
 					.filter(statusFilter)
-					.map(i => this.renderIntegrationStatus(i, anyConnected))}</span
+					.map(i => this.renderIntegrationStatus(i))}${this.renderAIStatus()}</span
 			>
 			<div slot="content" class="content">
 				<div class="header">
@@ -227,32 +237,25 @@ export class GLIntegrationsChip extends LitElement {
 									>
 								</button-container>`
 						: this.integrations.map(i => this.renderIntegrationRow(i))
-				}</div>
+				}${this.renderAIRow()}</div>
 			</div>
 		</gl-popover>`;
 	}
 
-	private renderIntegrationStatus(integration: IntegrationState, anyConnected: boolean) {
+	private renderIntegrationStatus(integration: IntegrationState) {
 		if (integration.requiresPro && !this.isProAccount) {
 			return html`<span
 				class="integration status--${integration.connected ? 'connected' : 'disconnected'} is-locked"
 				slot="anchor"
 				><code-icon icon="${integration.icon}"></code-icon
-				><code-icon class="status-indicator" icon="lock" size="12"></code-icon
 			></span>`;
 		}
 
 		return html`<span
 			class="integration status--${integration.connected ? 'connected' : 'disconnected'}"
 			slot="anchor"
-			><code-icon icon="${integration.icon}"></code-icon>${anyConnected
-				? html`<code-icon
-						class="status-indicator"
-						icon="${integration.connected ? 'check' : 'gl-unplug'}"
-						size="12"
-				  ></code-icon>`
-				: nothing}</span
-		>`;
+			><code-icon icon="${integration.icon}"></code-icon
+		></span>`;
 	}
 
 	private renderIntegrationRow(integration: IntegrationState) {
@@ -270,7 +273,7 @@ export class GLIntegrationsChip extends LitElement {
 					${showProBadge
 						? html` <gl-feature-badge
 								placement="right"
-								.source=${{ source: 'account', detail: 'integrations' } as const}
+								.source=${{ source: 'home', detail: 'integrations' } as const}
 								cloud
 						  ></gl-feature-badge>`
 						: nothing}
@@ -282,7 +285,8 @@ export class GLIntegrationsChip extends LitElement {
 					? html`<gl-button
 							appearance="toolbar"
 							href="${createCommandLink<Source>('gitlens.plus.upgrade', {
-								source: 'account',
+								source: 'home',
+								detail: 'integrations',
 							})}"
 							tooltip="Unlock ${integration.name} features with GitLens Pro"
 							aria-label="Unlock ${integration.name} features with GitLens Pro"
@@ -301,7 +305,7 @@ export class GLIntegrationsChip extends LitElement {
 									'gitlens.plus.cloudIntegrations.connect',
 									{
 										integrationIds: [integration.id],
-										source: { source: 'account', detail: 'integrations' },
+										source: { source: 'home', detail: 'integrations' },
 									},
 								)}"
 								tooltip="Connect ${integration.name}"
@@ -311,11 +315,66 @@ export class GLIntegrationsChip extends LitElement {
 			</span>
 		</div>`;
 	}
+
+	private renderAIStatus() {
+		return html`<span
+			class="integration status--${this.ai?.model != null ? 'connected' : 'disconnected'}"
+			slot="anchor"
+		>
+			<code-icon icon="${this.ai?.model != null ? 'sparkle-filled' : 'sparkle'}"></code-icon>
+		</span>`;
+	}
+
+	private renderAIRow() {
+		const { model } = this.ai;
+
+		const connected = model != null;
+		const showLock = false;
+		const showProBadge = false;
+		const icon = connected ? 'sparkle-filled' : 'sparkle'; // TODO: Provider?
+
+		return html`<div
+			class="integration-row integration-row--ai status--${connected ? 'connected' : 'disconnected'}${showLock
+				? ' is-locked'
+				: ''}"
+		>
+			<span class="integration__icon"><code-icon icon="${icon}"></code-icon></span>
+			<span class="integration__content">
+				<span class="integration__title">
+					<span>${model?.name ?? 'AI'}</span>
+					${showProBadge
+						? html` <gl-feature-badge
+								placement="right"
+								.source=${{ source: 'home', detail: 'integrations' } as const}
+								cloud
+						  ></gl-feature-badge>`
+						: nothing}
+				</span>
+				${model?.provider
+					? html`<span class="integration__details">AI Provider: ${model.provider.name}</span>`
+					: nothing}
+			</span>
+			<span class="integration__actions">
+				<gl-button
+					appearance="toolbar"
+					href="${createCommandLink<Source>('gitlens.switchAIModel', {
+						source: 'home',
+						detail: 'integrations',
+					})}"
+					tooltip="Switch AI Model"
+					aria-label="Switch AI Model"
+					><code-icon icon="arrow-swap"></code-icon
+				></gl-button>
+			</span>
+		</div>`;
+	}
 }
+
 const featureMap = new Map<IntegrationFeatures, string>([
-	['prs', 'Pull Requests'],
-	['issues', 'Issues'],
+	['prs', 'pull requests'],
+	['issues', 'issues'],
 ]);
+
 function getIntegrationDetails(integration: IntegrationState): string {
 	const features = integration.supports.map(feature => featureMap.get(feature)!);
 
@@ -323,32 +382,19 @@ function getIntegrationDetails(integration: IntegrationState): string {
 	if (features.length === 1) return `Supports ${features[0]}`;
 
 	const last = features.pop();
-	return `Supports ${features.join(', ')} and ${last}`;
+	return `Supports ${features.join(', ')}, and ${last}`;
 }
 
-function createIconBasedStatusFilter(integrations: IntegrationState[]) {
-	const nothing = -1;
-	const icons = integrations.reduce<{
-		[key: string]: undefined | { connectedIndex: number; firstIndex: number };
-	}>((icons, i, index) => {
-		const state = icons[i.icon];
-		if (!state) {
-			icons[i.icon] = { connectedIndex: i.connected ? index : nothing, firstIndex: index };
-		} else if (i.connected && state.connectedIndex === nothing) {
-			state.connectedIndex = index;
-		}
-		return icons;
-	}, {});
+function createStatusIconFilter(integrations: IntegrationState[]) {
+	const groupedIconMap = new Map<string, IntegrationState>();
 
-	// This filter returns true or false to allow or decline the integration.
-	// If nothing is connected with the same icon then allows the first one.
-	// If any connected then allows the first connected.
-	return function filter(i: IntegrationState, index: number) {
-		const state = icons[i.icon];
-		if (state === undefined) return true;
-		if (state.connectedIndex !== nothing) {
-			return state.connectedIndex === index;
+	// Group the integrations by icon, and if one is connected
+	for (const integration of integrations) {
+		const existing = groupedIconMap.get(integration.icon);
+		if (!existing || (integration.connected && !existing.connected)) {
+			groupedIconMap.set(integration.icon, integration);
 		}
-		return state.firstIndex === index;
-	};
+	}
+
+	return (integration: IntegrationState) => groupedIconMap.get(integration.icon) === integration;
 }

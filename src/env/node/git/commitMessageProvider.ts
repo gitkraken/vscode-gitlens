@@ -49,9 +49,7 @@ class AICommitMessageProvider implements CommitMessageProvider, Disposable {
 
 		const currentMessage = repository.inputBox.value;
 		try {
-			const message = await (
-				await this.container.ai
-			)?.generateCommitMessage(
+			const message = await this.container.ai.generateCommitMessage(
 				changes,
 				{ source: 'scm-input' },
 				{
