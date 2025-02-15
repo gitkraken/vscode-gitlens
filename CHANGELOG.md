@@ -8,6 +8,7 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/) and this p
 
 ### Fixed
 
+- Fixes regression where hovering over the Graph WIP row doesn't show up anymore ([#4062](https://github.com/gitkraken/vscode-gitlens/issues/4062))
 - Fixes Inspect & Graph Details: autolinks rendering when enabled setting is false ([#3841](https://github.com/gitkraken/vscode-gitlens/issues/3841))
 - Fixes comparison with Merge Target on Home fails to open a valid comparison ([#4060](https://github.com/gitkraken/vscode-gitlens/issues/4060))
 
