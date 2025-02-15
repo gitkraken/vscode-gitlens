@@ -2,9 +2,10 @@
 import type { Uri } from 'vscode';
 import type { Container } from '../../container';
 import { memoize } from '../../system/decorators/-webview/memoize';
+import { createUncommittedChangesCommit } from '../utils/-webview/commit.utils';
 import { getGitFileFormattedDirectory, getGitFileFormattedPath } from '../utils/-webview/file.utils';
 import { getGitFileStatusText } from '../utils/fileStatus.utils';
-import { GitCommit, GitCommitIdentity } from './commit';
+import type { GitCommit } from './commit';
 import type { GitFile } from './file';
 import { GitFileChange } from './fileChange';
 import type { GitFileStatus } from './fileStatus';
@@ -140,19 +141,10 @@ export class GitStatusFile implements GitFile {
 				false,
 			);
 			return [
-				new GitCommit(
-					container,
-					this.repoPath,
-					uncommitted,
-					new GitCommitIdentity('You', user?.email ?? undefined, now),
-					new GitCommitIdentity('You', user?.email ?? undefined, now),
-					'Uncommitted changes',
-					['HEAD'],
-					'Uncommitted changes',
-					{ file: file, files: [file] },
-					undefined,
-					[],
-				),
+				createUncommittedChangesCommit(container, this.repoPath, uncommitted, user, {
+					files: { file: file, files: [file] },
+					parents: ['HEAD'],
+				}),
 			];
 		}
 
@@ -172,19 +164,10 @@ export class GitStatusFile implements GitFile {
 				false,
 			);
 			commits.push(
-				new GitCommit(
-					container,
-					this.repoPath,
-					uncommitted,
-					new GitCommitIdentity('You', user?.email ?? undefined, now),
-					new GitCommitIdentity('You', user?.email ?? undefined, now),
-					'Uncommitted changes',
-					[previousSha],
-					'Uncommitted changes',
-					{ file: file, files: [file] },
-					undefined,
-					[],
-				),
+				createUncommittedChangesCommit(container, this.repoPath, uncommitted, user, {
+					files: { file: file, files: [file] },
+					parents: [previousSha],
+				}),
 			);
 
 			// Decrements the date to guarantee the staged entry (if exists) will be sorted after the working entry (most recent first)
@@ -203,19 +186,10 @@ export class GitStatusFile implements GitFile {
 				true,
 			);
 			commits.push(
-				new GitCommit(
-					container,
-					this.repoPath,
-					uncommittedStaged,
-					new GitCommitIdentity('You', user?.email ?? undefined, now),
-					new GitCommitIdentity('You', user?.email ?? undefined, now),
-					'Uncommitted changes',
-					['HEAD'],
-					'Uncommitted changes',
-					{ file: file, files: [file] },
-					undefined,
-					[],
-				),
+				createUncommittedChangesCommit(container, this.repoPath, uncommittedStaged, user, {
+					files: { file: file, files: [file] },
+					parents: ['HEAD'],
+				}),
 			);
 		}
 

@@ -15,6 +15,7 @@ import type { GitRevisionRange } from '../../../../../git/models/revision';
 import { deletedOrMissing } from '../../../../../git/models/revision';
 import type { GitUser } from '../../../../../git/models/user';
 import { parseSearchQuery } from '../../../../../git/search';
+import { createUncommittedChangesCommit } from '../../../../../git/utils/-webview/commit.utils';
 import { createRevisionRange, isUncommitted } from '../../../../../git/utils/revision.utils';
 import { log } from '../../../../../system/decorators/log';
 import { filterMap, first, last, some } from '../../../../../system/iterable';
@@ -45,6 +46,15 @@ export class CommitsGitSubProvider implements GitCommitsSubProvider {
 		const scope = getLogScope();
 
 		try {
+			if (isUncommitted(rev, true)) {
+				return createUncommittedChangesCommit(
+					this.container,
+					repoPath,
+					rev,
+					await this.provider.getCurrentUser(repoPath),
+				);
+			}
+
 			const { metadata, github, session } = await this.provider.ensureRepositoryContext(repoPath);
 
 			const commit = await github.getCommit(
