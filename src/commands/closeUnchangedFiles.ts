@@ -4,8 +4,8 @@ import type { Container } from '../container';
 import { showGenericErrorMessage } from '../messages';
 import { getRepositoryOrShowPicker } from '../quickpicks/repositoryPicker';
 import { command } from '../system/-webview/command';
-import { UriComparer } from '../system/comparers';
 import { Logger } from '../system/logger';
+import { uriEquals } from '../system/uri';
 import { GlCommandBase } from './commandBase';
 
 export interface CloseUnchangedFilesCommandArgs {
@@ -46,12 +46,12 @@ export class CloseUnchangedFilesCommand extends GlCommandBase {
 						tab.input instanceof TabInputNotebook
 					) {
 						const inputUri = tab.input.uri;
-						if (hasNoChangedFiles || !args.uris.some(uri => UriComparer.equals(uri, inputUri))) {
+						if (hasNoChangedFiles || !args.uris.some(uri => uriEquals(uri, inputUri))) {
 							void window.tabGroups.close(tab, true);
 						}
 					} else if (tab.input instanceof TabInputTextDiff || tab.input instanceof TabInputNotebookDiff) {
 						const inputUri = tab.input.modified;
-						if (hasNoChangedFiles || !args.uris.some(uri => UriComparer.equals(uri, inputUri))) {
+						if (hasNoChangedFiles || !args.uris.some(uri => uriEquals(uri, inputUri))) {
 							void window.tabGroups.close(tab, true);
 						}
 					}

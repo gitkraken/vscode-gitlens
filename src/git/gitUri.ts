@@ -6,10 +6,10 @@ import type { GitHubAuthorityMetadata } from '../plus/remotehub';
 import { formatPath } from '../system/-webview/formatPath';
 import { getBestPath, relativeDir, splitPath } from '../system/-webview/path';
 import { isVirtualUri } from '../system/-webview/vscode';
-import { UriComparer } from '../system/comparers';
 import { memoize } from '../system/decorators/-webview/memoize';
 import { debug } from '../system/decorators/log';
 import { basename, normalizePath } from '../system/path';
+import { uriEquals } from '../system/uri';
 import type { RevisionUriData } from './gitProvider';
 import { decodeGitLensRevisionUriAuthority, decodeRemoteHubAuthority } from './gitUri.authority';
 import type { GitFile } from './models/file';
@@ -213,7 +213,7 @@ export class GitUri extends (Uri as any as UriEx) {
 	}
 
 	equals(uri: Uri | undefined): boolean {
-		if (!UriComparer.equals(this, uri)) return false;
+		if (!uriEquals(this, uri)) return false;
 
 		return this.sha === (isGitUri(uri) ? uri.sha : undefined);
 	}
