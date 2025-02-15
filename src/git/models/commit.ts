@@ -334,16 +334,6 @@ export class GitCommit implements GitRevisionReference {
 	}
 
 	async findFile(
-		path: string,
-		staged?: boolean,
-		options?: { include?: { stats?: boolean } },
-	): Promise<GitFileChange | undefined>;
-	async findFile(
-		uri: Uri,
-		staged?: boolean,
-		options?: { include?: { stats?: boolean } },
-	): Promise<GitFileChange | undefined>;
-	async findFile(
 		pathOrUri: string | Uri,
 		staged?: boolean,
 		options?: { include?: { stats?: boolean } },
