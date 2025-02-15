@@ -334,7 +334,7 @@ export async function openAllChangesWithWorkingIndividually(
 }
 
 export async function openChanges(
-	file: string | GitFile,
+	file: string | Uri | GitFile,
 	commit: GitCommit,
 	options?: TextDocumentShowOptions,
 ): Promise<void>;
@@ -349,13 +349,13 @@ export async function openChanges(
 	options?: TextDocumentShowOptions & { lhsTitle?: string; rhsTitle?: string },
 ): Promise<void>;
 export async function openChanges(
-	file: string | GitFile,
+	file: string | Uri | GitFile,
 	commitOrRefs: GitCommit | RefRange,
 	options?: TextDocumentShowOptions & { lhsTitle?: string; rhsTitle?: string },
 ): Promise<void> {
 	const hasCommit = isCommit(commitOrRefs);
 
-	if (typeof file === 'string') {
+	if (typeof file === 'string' || file instanceof Uri) {
 		if (!hasCommit) throw new Error('Invalid arguments');
 
 		const f = await commitOrRefs.findFile(file);
