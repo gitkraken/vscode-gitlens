@@ -3771,6 +3771,10 @@
 										"fileRange": {
 											"type": "string",
 											"markdownDescription": "Specifies the format of a range in a file URL for the custom remote service\n\nAvailable tokens\\\n`${start}` &mdash; starting line\\\n`${end}` &mdash; ending line"
+										},
+										"avatar": {
+											"type": "string",
+											"markdownDescription": "Specifies the format of a avatar url for the custom remote service\n\nAvailable tokens\\\n`${email}` &mdash; contributor email\\\n`${name}` &mdash; email local-part\\\n`${domain}` &mdash; email domain\\\n`${size}` &mdash; avatar size"
 										}
 									},
 									"additionalProperties": false
