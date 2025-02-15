@@ -498,11 +498,6 @@ export class WebviewController<
 
 	@debug()
 	private onParentVisibilityChanged(visible: boolean, active?: boolean, forceReload?: boolean) {
-		if (forceReload) {
-			void this.refresh();
-			return;
-		}
-
 		if (this.descriptor.webviewHostOptions?.retainContextWhenHidden !== true) {
 			if (visible) {
 				if (this._ready) {
@@ -516,6 +511,8 @@ export class WebviewController<
 			} else {
 				this._ready = false;
 			}
+		} else if (forceReload) {
+			void this.refresh();
 		}
 
 		if (visible) {
