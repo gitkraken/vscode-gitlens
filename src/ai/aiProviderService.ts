@@ -767,8 +767,8 @@ async function getModelAndConfirmAIProviderToS(
 }
 
 export function getMaxCharacters(model: AIModel, outputLength: number, overrideInputTokens?: number): number {
-	const tokensPerCharacter = 3.1;
-	const max = (overrideInputTokens ?? model.maxTokens.input) * tokensPerCharacter - outputLength / tokensPerCharacter;
+	const charactersPerToken = 3.1;
+	const max = (overrideInputTokens ?? model.maxTokens.input) * charactersPerToken - outputLength / charactersPerToken;
 	return Math.floor(max - max * 0.1);
 }
 
