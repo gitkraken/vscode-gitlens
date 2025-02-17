@@ -72,6 +72,17 @@ interface BitbucketPullRequestCommit {
 	};
 }
 
+export type BitbucketIssueState =
+	| 'submitted'
+	| 'new'
+	| 'open'
+	| 'resolved'
+	| 'on hold'
+	| 'invalid'
+	| 'duplicate'
+	| 'wontfix'
+	| 'closed';
+
 export interface BitbucketPullRequest {
 	type: 'pullrequest';
 	id: number;
@@ -121,6 +132,26 @@ export interface BitbucketPullRequest {
 	};
 }
 
+export interface BitbucketIssue {
+	type: string;
+	id: number;
+	title: string;
+	reporter: BitbucketUser;
+	assignee?: BitbucketUser;
+	state: BitbucketIssueState;
+	created_on: string;
+	updated_on: string;
+	repository: BitbucketRepository;
+	links: {
+		self: BitbucketLink;
+		html: BitbucketLink;
+		comments: BitbucketLink;
+		attachments: BitbucketLink;
+		watch: BitbucketLink;
+		vote: BitbucketLink;
+	};
+}
+
 export function bitbucketPullRequestStateToState(state: BitbucketPullRequestState): IssueOrPullRequestState {
 	switch (state) {
 		case 'DECLINED':
@@ -129,6 +160,23 @@ export function bitbucketPullRequestStateToState(state: BitbucketPullRequestStat
 		case 'MERGED':
 			return 'merged';
 		case 'OPEN':
+		default:
+			return 'opened';
+	}
+}
+
+export function bitbucketIssueStateToState(state: BitbucketIssueState): IssueOrPullRequestState {
+	switch (state) {
+		case 'resolved':
+		case 'invalid':
+		case 'duplicate':
+		case 'wontfix':
+		case 'closed':
+			return 'closed';
+		case 'submitted':
+		case 'new':
+		case 'open':
+		case 'on hold':
 		default:
 			return 'opened';
 	}
