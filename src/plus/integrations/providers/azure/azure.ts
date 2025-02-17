@@ -376,22 +376,22 @@ export class AzureDevOpsApi implements Disposable {
 				throw new RequestNotFoundError(ex);
 			case 401: // Unauthorized
 				throw new AuthenticationError('azureDevOps', AuthenticationErrorReason.Unauthorized, ex);
-			// TODO: Learn the Azure API docs and put it in order:
-			// case 403: // Forbidden
-			// 	if (ex.message.includes('rate limit')) {
-			// 		let resetAt: number | undefined;
+			case 403: // Forbidden
+				// TODO: Learn the Azure API docs and put it in order:
+				// 	if (ex.message.includes('rate limit')) {
+				// 		let resetAt: number | undefined;
 
-			// 		const reset = ex.response?.headers?.get('x-ratelimit-reset');
-			// 		if (reset != null) {
-			// 			resetAt = parseInt(reset, 10);
-			// 			if (Number.isNaN(resetAt)) {
-			// 				resetAt = undefined;
-			// 			}
-			// 		}
+				// 		const reset = ex.response?.headers?.get('x-ratelimit-reset');
+				// 		if (reset != null) {
+				// 			resetAt = parseInt(reset, 10);
+				// 			if (Number.isNaN(resetAt)) {
+				// 				resetAt = undefined;
+				// 			}
+				// 		}
 
-			// 		throw new RequestRateLimitError(ex, token, resetAt);
-			// 	}
-			// 	throw new AuthenticationError('azure', AuthenticationErrorReason.Forbidden, ex);
+				// 		throw new RequestRateLimitError(ex, token, resetAt);
+				// 	}
+				throw new AuthenticationError('azure', AuthenticationErrorReason.Forbidden, ex);
 			case 500: // Internal Server Error
 				Logger.error(ex, scope);
 				if (ex.response != null) {
