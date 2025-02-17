@@ -3,7 +3,7 @@ import { HostingIntegrationId } from '../../../constants.integrations';
 import type { Account } from '../../../git/models/author';
 import type { DefaultBranch } from '../../../git/models/defaultBranch';
 import type { Issue, IssueShape } from '../../../git/models/issue';
-import type { IssueOrPullRequest } from '../../../git/models/issueOrPullRequest';
+import type { IssueOrPullRequest, IssueOrPullRequestType } from '../../../git/models/issueOrPullRequest';
 import type { PullRequest, PullRequestMergeMethod, PullRequestState } from '../../../git/models/pullRequest';
 import type { RepositoryMetadata } from '../../../git/models/repositoryMetadata';
 import type { IntegrationAuthenticationProviderDescriptor } from '../authentication/integrationAuthenticationProvider';
@@ -78,9 +78,11 @@ export class BitbucketIntegration extends HostingIntegration<
 		{ accessToken }: AuthenticationSession,
 		repo: BitbucketRepositoryDescriptor,
 		id: string,
+		type: undefined | IssueOrPullRequestType,
 	): Promise<IssueOrPullRequest | undefined> {
 		return (await this.container.bitbucket)?.getIssueOrPullRequest(this, accessToken, repo.owner, repo.name, id, {
 			baseUrl: this.apiBaseUrl,
+			type: type,
 		});
 	}
 
