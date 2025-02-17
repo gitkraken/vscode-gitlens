@@ -13,10 +13,12 @@ import {
 	RequestClientError,
 	RequestNotFoundError,
 } from '../../../../errors';
+import type { IssueOrPullRequest } from '../../../../git/models/issueOrPullRequest';
 import type { PullRequest } from '../../../../git/models/pullRequest';
 import type { Provider } from '../../../../git/models/remoteProvider';
 import { showIntegrationRequestFailed500WarningMessage } from '../../../../messages';
 import { configuration } from '../../../../system/-webview/configuration';
+import { debug } from '../../../../system/decorators/log';
 import { Logger } from '../../../../system/logger';
 import type { LogScope } from '../../../../system/logger.scope';
 import { getLogScope } from '../../../../system/logger.scope';
@@ -56,6 +58,7 @@ export class BitbucketApi implements Disposable {
 		this._proxyAgent = null;
 	}
 
+	@debug<BitbucketApi['getPullRequestForBranch']>({ args: { 0: p => p.name, 1: '<token>' } })
 	public async getPullRequestForBranch(
 		provider: Provider,
 		token: string,
@@ -88,6 +91,36 @@ export class BitbucketApi implements Disposable {
 			return undefined;
 		}
 		return fromBitbucketPullRequest(response.values[0], provider);
+	}
+
+	@debug<BitbucketApi['getIssueOrPullRequest']>({ args: { 0: p => p.name, 1: '<token>' } })
+	public async getIssueOrPullRequest(
+		provider: Provider,
+		token: string,
+		owner: string,
+		repo: string,
+		id: string,
+		options: {
+			baseUrl: string;
+		},
+	): Promise<IssueOrPullRequest | undefined> {
+		const scope = getLogScope();
+
+		const response = await this.request<BitbucketPullRequest>(
+			provider,
+			token,
+			options.baseUrl,
+			`repositories/${owner}/${repo}/pullrequests/${id}?fields=*`,
+			{
+				method: 'GET',
+			},
+			scope,
+		);
+
+		if (!response) {
+			return undefined;
+		}
+		return fromBitbucketPullRequest(response, provider);
 	}
 
 	private async request<T>(
