@@ -248,9 +248,12 @@ export class AutolinksProvider implements Disposable {
 					? integration.getIssueOrPullRequest(
 							link.descriptor ?? remote.provider.repoDesc,
 							this.getAutolinkEnrichableId(link),
+							{ type: link.type },
 					  )
 					: link.descriptor != null
-					  ? linkIntegration?.getIssueOrPullRequest(link.descriptor, this.getAutolinkEnrichableId(link))
+					  ? linkIntegration?.getIssueOrPullRequest(link.descriptor, this.getAutolinkEnrichableId(link), {
+								type: link.type,
+					    })
 					  : undefined;
 			enrichedAutolinks.set(id, [issueOrPullRequestPromise, link]);
 		}
