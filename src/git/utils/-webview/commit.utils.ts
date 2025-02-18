@@ -9,6 +9,7 @@ export function createUncommittedChangesCommit(
 	container: Container,
 	repoPath: string,
 	sha: string,
+	now: Date,
 	user: GitUser | undefined,
 	options?: {
 		files?: GitFileChange | GitFileChange[] | { file?: GitFileChange; files?: GitFileChange[] } | undefined;
@@ -16,7 +17,6 @@ export function createUncommittedChangesCommit(
 		stats?: GitCommitStats;
 	},
 ): GitCommit {
-	const now = new Date();
 	return new GitCommit(
 		container,
 		repoPath,

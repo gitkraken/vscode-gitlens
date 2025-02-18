@@ -65,6 +65,7 @@ export class CommitsGitSubProvider implements GitCommitsSubProvider {
 				this.container,
 				repoPath,
 				rev,
+				new Date(),
 				await this.provider.config.getCurrentUser(repoPath),
 			);
 		}
