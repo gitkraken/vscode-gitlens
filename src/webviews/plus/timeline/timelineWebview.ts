@@ -239,7 +239,7 @@ export class TimelineWebviewProvider implements WebviewProvider<State, State, Ti
 		}
 	}
 
-	@debug()
+	@debug({ args: false })
 	private onTabsChanged() {
 		this.updateUri(this.activeTabUri);
 	}
