@@ -2197,6 +2197,7 @@ export class Git {
 		repoPath: string,
 		porcelainVersion: number = 1,
 		options?: { similarityThreshold?: number },
+		...pathspecs: string[]
 	): Promise<string> {
 		const params = [
 			'status',
@@ -2214,6 +2215,7 @@ export class Git {
 			{ cwd: repoPath, configs: gitStatusDefaultConfigs, env: { GIT_OPTIONAL_LOCKS: '0' } },
 			...params,
 			'--',
+			...pathspecs,
 		);
 	}
 
