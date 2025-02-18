@@ -6,7 +6,7 @@
 	"engines": {
 		"node": ">= 22.12.0",
 		"pnpm": ">= 10.0.0",
-		"vscode": "^1.82.0"
+		"vscode": "^1.92.0"
 	},
 	"license": "SEE LICENSE IN LICENSE",
 	"publisher": "eamodio",
@@ -20210,13 +20210,13 @@
 		"@twbs/fantasticon": "3.0.0",
 		"@types/eslint__js": "8.42.3",
 		"@types/mocha": "10.0.10",
-		"@types/node": "18.15.13",
+		"@types/node": "20.14.15",
 		"@types/react": "17.0.83",
 		"@types/react-dom": "17.0.25",
 		"@types/slug": "5.0.9",
 		"@types/sortablejs": "1.15.8",
-		"@types/vscode": "1.82.0",
-		"@typescript-eslint/parser": "8.24.0",
+		"@types/vscode": "1.92.0",
+		"@typescript-eslint/parser": "8.24.1",
 		"@vscode/test-cli": "^0.0.10",
 		"@vscode/test-electron": "2.4.1",
 		"@vscode/test-web": "0.0.66",
@@ -20229,12 +20229,12 @@
 		"css-loader": "7.1.2",
 		"css-minimizer-webpack-plugin": "7.0.0",
 		"cssnano-preset-advanced": "7.0.6",
-		"esbuild": "0.24.2",
+		"esbuild": "0.25.0",
 		"esbuild-loader": "4.3.0",
 		"esbuild-node-externals": "1.18.0",
 		"esbuild-sass-plugin": "3.3.1",
 		"eslint": "9.20.1",
-		"eslint-import-resolver-oxc": "0.10.1",
+		"eslint-import-resolver-oxc": "0.11.0",
 		"eslint-plugin-anti-trojan-source": "1.1.1",
 		"eslint-plugin-import-x": "4.6.1",
 		"eslint-plugin-lit": "1.15.0",
@@ -20261,7 +20261,7 @@
 		"terser-webpack-plugin": "5.3.11",
 		"ts-loader": "9.5.2",
 		"typescript": "5.8.1-rc",
-		"typescript-eslint": "8.24.0",
+		"typescript-eslint": "8.24.1",
 		"webpack": "5.98.0",
 		"webpack-bundle-analyzer": "4.10.2",
 		"webpack-cli": "6.0.1",
@@ -20269,7 +20269,7 @@
 		"webpack-require-from": "1.8.6"
 	},
 	"resolutions": {
-		"esbuild": "0.24.2",
+		"esbuild": "0.25.0",
 		"iconv-lite": "0.6.3",
 		"node-fetch": "2.7.0",
 		"semver-regex": "4.0.5"

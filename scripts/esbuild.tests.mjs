@@ -37,7 +37,7 @@ async function buildTests(target, mode) {
 		platform: target === 'webworker' ? 'browser' : target,
 		plugins: [nodeExternalsPlugin()],
 		sourcemap: mode !== 'production',
-		target: ['es2022', 'chrome102', 'node16.14.2'],
+		target: ['es2023', 'chrome124', 'node20.14.0'],
 		treeShaking: true,
 		tsconfig: target === 'webworker' ? 'tsconfig.test.browser.json' : 'tsconfig.test.json',
 	};
