@@ -127,7 +127,7 @@ export class GitStatusFile implements GitFile {
 	}
 
 	getPseudoCommits(container: Container, user: GitUser | undefined): GitCommit[] {
-		const now = new Date();
+		let now = new Date();
 
 		if (this.conflicted) {
 			const file = new GitFileChange(
@@ -141,7 +141,7 @@ export class GitStatusFile implements GitFile {
 				false,
 			);
 			return [
-				createUncommittedChangesCommit(container, this.repoPath, uncommitted, user, {
+				createUncommittedChangesCommit(container, this.repoPath, uncommitted, now, user, {
 					files: { file: file, files: [file] },
 					parents: ['HEAD'],
 				}),
@@ -164,14 +164,14 @@ export class GitStatusFile implements GitFile {
 				false,
 			);
 			commits.push(
-				createUncommittedChangesCommit(container, this.repoPath, uncommitted, user, {
+				createUncommittedChangesCommit(container, this.repoPath, uncommitted, now, user, {
 					files: { file: file, files: [file] },
 					parents: [previousSha],
 				}),
 			);
 
 			// Decrements the date to guarantee the staged entry (if exists) will be sorted after the working entry (most recent first)
-			now.setMilliseconds(now.getMilliseconds() - 1);
+			now = new Date(now.getTime() - 60000);
 		}
 
 		if (staged) {
@@ -186,7 +186,7 @@ export class GitStatusFile implements GitFile {
 				true,
 			);
 			commits.push(
-				createUncommittedChangesCommit(container, this.repoPath, uncommittedStaged, user, {
+				createUncommittedChangesCommit(container, this.repoPath, uncommittedStaged, now, user, {
 					files: { file: file, files: [file] },
 					parents: ['HEAD'],
 				}),
