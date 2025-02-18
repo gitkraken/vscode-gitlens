@@ -246,7 +246,7 @@ function getExtensionConfig(target, mode, env) {
 								options: {
 									format: 'esm',
 									implementation: esbuild,
-									target: ['es2022', 'chrome114', 'node18.15.0'],
+									target: ['es2023', 'chrome124', 'node20.14.0'],
 									tsconfig: tsConfigPath,
 								},
 						  }
@@ -508,7 +508,7 @@ function getWebviewsConfig(mode, env) {
 								options: {
 									format: 'esm',
 									implementation: esbuild,
-									target: ['es2021', 'chrome114'],
+									target: ['es2023', 'chrome124'],
 									tsconfig: tsConfigPath,
 								},
 						  }
