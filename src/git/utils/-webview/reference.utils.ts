@@ -1,8 +1,26 @@
 import type { GitBranch } from '../../models/branch';
+import { isBranch } from '../../models/branch';
 import type { GitCommit, GitStashCommit } from '../../models/commit';
-import type { GitBranchReference, GitRevisionReference, GitTagReference } from '../../models/reference';
+import { isCommit } from '../../models/commit';
+import type { GitBranchReference, GitReference, GitRevisionReference, GitTagReference } from '../../models/reference';
 import type { GitTag } from '../../models/tag';
+import { isTag } from '../../models/tag';
 import { createReference } from '../reference.utils';
+
+export function getReference(ref: GitReference): GitReference;
+export function getReference(ref: GitReference | undefined): GitReference | undefined;
+export function getReference(ref: GitReference | undefined): GitReference | undefined {
+	if (ref == null) return undefined;
+
+	switch (ref.refType) {
+		case 'branch':
+			return isBranch(ref) ? getReferenceFromBranch(ref) : ref;
+		case 'tag':
+			return isTag(ref) ? getReferenceFromTag(ref) : ref;
+		default:
+			return isCommit(ref) ? getReferenceFromRevision(ref) : ref;
+	}
+}
 
 export function getReferenceFromBranch(branch: GitBranch): GitBranchReference {
 	return createReference(branch.ref, branch.repoPath, {

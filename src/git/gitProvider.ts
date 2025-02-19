@@ -256,6 +256,11 @@ export interface GitCommitsSubProvider {
 		rev?: string | undefined,
 		options?: { firstIfNotFound?: boolean | undefined },
 	): Promise<GitCommit | undefined>;
+	getCommitsForFile?(
+		repoPath: string,
+		uri: Uri,
+		options?: { all?: boolean; excludeReachableFrom?: string },
+	): Promise<string[]>;
 	getIncomingActivity?(
 		repoPath: string,
 		options?: {

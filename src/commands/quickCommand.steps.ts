@@ -286,19 +286,22 @@ export async function getWorktrees(
 export async function getBranchesAndOrTags(
 	repos: Repository | Repository[] | undefined,
 	include: ('tags' | 'branches')[],
-	{
-		buttons,
-		filter,
-		picked,
-		sort,
-	}: {
+	options?: {
 		buttons?: QuickInputButton[];
 		filter?: { branches?: (b: GitBranch) => boolean; tags?: (t: GitTag) => boolean };
 		picked?: string | string[];
 		sort?: boolean | { branches?: BranchSortOptions; tags?: TagSortOptions };
-	} = {},
+	},
 ): Promise<(BranchQuickPickItem | TagQuickPickItem)[]> {
 	if (repos == null) return [];
+
+	let buttons: NonNullable<typeof options>['buttons'];
+	let filter: NonNullable<typeof options>['filter'];
+	let picked: NonNullable<typeof options>['picked'];
+	let sort: NonNullable<typeof options>['sort'];
+	if (options != null) {
+		({ buttons, filter, picked, sort } = options);
+	}
 
 	let worktreesByBranch: Map<string, GitWorktree> | undefined;
 

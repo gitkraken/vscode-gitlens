@@ -653,7 +653,10 @@ export class CommitsGitSubProvider implements GitCommitsSubProvider {
 
 		const scope = getLogScope();
 
-		const relativePath = this.provider.getRelativePath(pathOrUri, repoPath);
+		let relativePath = this.provider.getRelativePath(pathOrUri, repoPath);
+		if (relativePath.endsWith('/*')) {
+			relativePath = relativePath.slice(0, -2);
+		}
 
 		if (repoPath != null && repoPath === relativePath) {
 			throw new Error(`File name cannot match the repository path; path=${relativePath}`);
@@ -989,6 +992,28 @@ export class CommitsGitSubProvider implements GitCommitsSubProvider {
 		// -2 to skip the ending null
 		const index = data.lastIndexOf('\0', data.length - 2);
 		return index === -1 ? undefined : data.slice(index + 1, data.length - 2);
+	}
+
+	@log()
+	async getCommitsForFile(
+		repoPath: string,
+		uri: Uri,
+		options?: { all?: boolean; excludeReachableFrom?: string },
+	): Promise<string[]> {
+		const path = this.provider.getRelativePath(uri, repoPath);
+		const data = (
+			await this.git.exec(
+				{ cwd: repoPath },
+				'rev-list',
+				options?.all ? '--all' : undefined,
+				options?.excludeReachableFrom ? `^${options.excludeReachableFrom}` : undefined,
+				'--',
+				path,
+			)
+		)?.trim();
+		if (!data) return [];
+
+		return data.split('\n').filter(Boolean);
 	}
 
 	@log()
