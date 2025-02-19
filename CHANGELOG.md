@@ -8,6 +8,7 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/) and this p
 
 ### Fixed
 
+- Fixes Generate Commit Message Error - Anthropic ([#4071](https://github.com/gitkraken/vscode-gitlens/issues/4071))
 - Fixes Settings editor breaking when dragging it to a new tab group ([#4061](https://github.com/gitkraken/vscode-gitlens/issues/4061))
 - Fixes regression where hovering over the Graph WIP row doesn't show up anymore ([#4062](https://github.com/gitkraken/vscode-gitlens/issues/4062))
 - Fixes Inspect & Graph Details: autolinks rendering when enabled setting is false ([#3841](https://github.com/gitkraken/vscode-gitlens/issues/3841))

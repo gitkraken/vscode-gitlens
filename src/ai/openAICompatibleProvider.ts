@@ -303,7 +303,7 @@ export abstract class OpenAICompatibleProvider<T extends AIProviders> implements
 			}
 
 			const data: ChatCompletionResponse = await rsp.json();
-			const result = data.choices[0].message.content?.trim() ?? '';
+			const result = data.choices?.[0].message.content?.trim() ?? data.content?.[0]?.text?.trim() ?? '';
 			return [result, maxCodeCharacters];
 		}
 	}
@@ -378,24 +378,23 @@ interface ChatCompletionRequest {
 	model: string;
 	messages: ChatMessage<Role>[];
 
-	frequency_penalty?: number;
-	logit_bias?: Record<string, number>;
+	/** @deprecated */
+	max_tokens?: number;
 	max_completion_tokens?: number;
-	n?: number;
-	presence_penalty?: number;
-	stop?: string | string[];
+	metadata?: Record<string, string>;
 	stream?: boolean;
 	temperature?: number;
 	top_p?: number;
-	user?: string;
+
+	/** Not supported by many models/providers */
+	reasoning_effort?: 'low' | 'medium' | 'high';
 }
 
 interface ChatCompletionResponse {
 	id: string;
-	object: 'chat.completion';
-	created: number;
 	model: string;
-	choices: {
+	/** OpenAI compatible output */
+	choices?: {
 		index: number;
 		message: {
 			role: Role;
@@ -404,9 +403,15 @@ interface ChatCompletionResponse {
 		};
 		finish_reason: string;
 	}[];
+	/** Anthropic compatible output */
+	content?: { type: 'text'; text: string }[];
 	usage: {
-		prompt_tokens: number;
-		completion_tokens: number;
-		total_tokens: number;
+		input_tokens?: number;
+		prompt_tokens?: number;
+
+		completion_tokens?: number;
+		output_tokens?: number;
+
+		total_tokens?: number;
 	};
 }

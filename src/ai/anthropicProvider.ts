@@ -1,7 +1,6 @@
 import type { CancellationToken } from 'vscode';
+import type { Response } from '@env/fetch';
 import type { AIModel } from './aiProviderService';
-import { getMaxCharacters, getValidatedTemperature } from './aiProviderService';
-import type { ChatMessage } from './openAICompatibleProvider';
 import { OpenAICompatibleProvider } from './openAICompatibleProvider';
 
 const provider = { id: 'anthropic', name: 'Anthropic' } as const;
@@ -98,66 +97,50 @@ export class AnthropicProvider extends OpenAICompatibleProvider<typeof provider.
 		};
 	}
 
-	override async fetch(
+	protected override fetchCore(
 		model: AIModel<typeof provider.id>,
 		apiKey: string,
-		messages: (maxCodeCharacters: number, retries: number) => ChatMessage[],
-		outputTokens: number,
+		request: object,
 		cancellation: CancellationToken | undefined,
-	): Promise<[result: string, maxCodeCharacters: number]> {
-		let retries = 0;
-		let maxCodeCharacters = getMaxCharacters(model, 2600);
-
-		while (true) {
-			// Split the system message from the rest of the messages
-			const [system, ...msgs] = messages(maxCodeCharacters, retries);
-
-			const request: AnthropicMessageRequest = {
-				model: model.id,
-				messages: msgs,
-				system: system.content,
-				stream: false,
-				max_tokens: Math.min(outputTokens, model.maxTokens.output),
-				temperature: getValidatedTemperature(model.temperature),
-			};
-
-			const rsp = await this.fetchCore(model, apiKey, request, cancellation);
-			if (!rsp.ok) {
-				if (rsp.status === 404) {
-					throw new Error(`Your API key doesn't seem to have access to the selected '${model.id}' model`);
-				}
-				if (rsp.status === 429) {
-					throw new Error(
-						`(${this.name}) ${rsp.status}: Too many requests (rate limit exceeded) or your API key is associated with an expired trial`,
-					);
-				}
-
-				let json;
-				try {
-					json = (await rsp.json()) as AnthropicError | undefined;
-				} catch {}
-
-				debugger;
-
-				if (
-					retries++ < 2 &&
-					json?.error?.type === 'invalid_request_error' &&
-					json?.error?.message?.includes('prompt is too long')
-				) {
-					maxCodeCharacters -= 500 * retries;
-					continue;
-				}
-
-				throw new Error(`(${this.name}) ${rsp.status}: ${json?.error?.message || rsp.statusText})`);
-			}
-
-			const data: AnthropicMessageResponse = await rsp.json();
-			const result = data.content
-				.map(c => c.text)
-				.join('\n')
-				.trim();
-			return [result, maxCodeCharacters];
+	): Promise<Response> {
+		if ('max_completion_tokens' in request) {
+			const { max_completion_tokens: max, ...rest } = request;
+			request = max ? { max_tokens: max, ...rest } : rest;
 		}
+		return super.fetchCore(model, apiKey, request, cancellation);
+	}
+
+	protected override async handleFetchFailure(
+		rsp: Response,
+		model: AIModel<typeof provider.id>,
+		retries: number,
+		maxCodeCharacters: number,
+	): Promise<{ retry: boolean; maxCodeCharacters: number }> {
+		if (rsp.status === 404) {
+			throw new Error(`Your API key doesn't seem to have access to the selected '${model.id}' model`);
+		}
+		if (rsp.status === 429) {
+			throw new Error(
+				`(${this.name}) ${rsp.status}: Too many requests (rate limit exceeded) or your account is out of funds`,
+			);
+		}
+
+		let json;
+		try {
+			json = (await rsp.json()) as AnthropicError | undefined;
+		} catch {}
+
+		debugger;
+
+		if (
+			retries++ < 2 &&
+			json?.error?.type === 'invalid_request_error' &&
+			json?.error?.message?.includes('prompt is too long')
+		) {
+			return { retry: true, maxCodeCharacters: maxCodeCharacters - 500 * retries };
+		}
+
+		throw new Error(`(${this.name}) ${rsp.status}: ${json?.error?.message || rsp.statusText})`);
 	}
 }
 
@@ -173,33 +156,5 @@ interface AnthropicError {
 			| 'api_error'
 			| 'overloaded_error';
 		message: string;
-	};
-}
-
-interface AnthropicMessageRequest {
-	model: AnthropicModel['id'];
-	messages: ChatMessage[];
-	system?: string;
-
-	max_tokens: number;
-	metadata?: object;
-	stop_sequences?: string[];
-	stream?: boolean;
-	temperature?: number;
-	top_p?: number;
-	top_k?: number;
-}
-
-interface AnthropicMessageResponse {
-	id: string;
-	type: 'message';
-	role: 'assistant';
-	content: { type: 'text'; text: string }[];
-	model: string;
-	stop_reason: 'end_turn' | 'max_tokens' | 'stop_sequence';
-	stop_sequence: string | null;
-	usage: {
-		input_tokens: number;
-		output_tokens: number;
 	};
 }
