@@ -321,6 +321,8 @@ export class HomeWebviewProvider implements WebviewProvider<State, State, HomeWe
 				(src?: Source) => this.container.subscription.validate({ force: true }, src),
 				this,
 			),
+			registerCommand('gitlens.home.deleteBranchOrWorktree', this.deleteBranchOrWorktree, this),
+			registerCommand('gitlens.home.pushBranch', this.pushBranch, this),
 			registerCommand('gitlens.home.openMergeTargetComparison', this.mergeTargetCompare, this),
 			registerCommand('gitlens.home.openPullRequestChanges', this.pullRequestChanges, this),
 			registerCommand('gitlens.home.openPullRequestComparison', this.pullRequestCompare, this),
@@ -1183,6 +1185,25 @@ export class HomeWebviewProvider implements WebviewProvider<State, State, HomeWe
 		void this.host.notify(DidChangeOrgSettings, {
 			orgSettings: this.getOrgSettings(),
 		});
+	}
+
+	private deleteBranchOrWorktree(ref: BranchRef) {
+		const repo = this._repositoryBranches.get(ref.repoPath);
+		const branch = repo?.branches.find(b => b.id === ref.branchId);
+		if (branch == null) return;
+
+		void executeGitCommand({
+			command: 'branch',
+			state: {
+				subcommand: 'delete',
+				repo: ref.repoPath,
+				references: branch,
+			},
+		});
+	}
+
+	private pushBranch(_ref: BranchRef) {
+		// TODO
 	}
 
 	private mergeTargetCompare(ref: BranchAndTargetRefs) {
