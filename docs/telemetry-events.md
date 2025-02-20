@@ -1906,7 +1906,7 @@ or
 
 ### timeline/action/openInEditor
 
-> Sent when the user changes the period (timeframe) on the visual file history
+> Sent when the user changes the period (timeframe) on the Visual History
 
 ```typescript
 {
@@ -1920,7 +1920,7 @@ or
 
 ### timeline/commit/selected
 
-> Sent when the user selects (clicks on) a commit on the visual file history
+> Sent when the user selects (clicks on) a commit on the Visual History
 
 ```typescript
 {
@@ -1934,7 +1934,7 @@ or
 
 ### timeline/editor/changed
 
-> Sent when the editor changes on the visual file history
+> Sent when the editor changes on the Visual History
 
 ```typescript
 {
@@ -1948,7 +1948,7 @@ or
 
 ### timeline/period/changed
 
-> Sent when the user changes the period (timeframe) on the visual file history
+> Sent when the user changes the period (timeframe) on the Visual History
 
 ```typescript
 {
@@ -1977,7 +1977,7 @@ or
 
 ### timeline/shown
 
-> Sent when the Commit Graph is shown
+> Sent when the Visual History is shown
 
 ```typescript
 {

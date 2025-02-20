@@ -253,15 +253,15 @@ export interface TelemetryEvents extends WebviewShowAbortedEvents, WebviewShownE
 	/** Sent when the subscription changes */
 	'subscription/changed': SubscriptionEventDataWithPrevious;
 
-	/** Sent when the Commit Graph is shown */
+	/** Sent when the Visual History is shown */
 	'timeline/shown': TimelineShownEvent;
-	/** Sent when the user changes the period (timeframe) on the visual file history */
+	/** Sent when the user changes the period (timeframe) on the Visual History */
 	'timeline/action/openInEditor': TimelineContextEventData;
-	/** Sent when the editor changes on the visual file history */
+	/** Sent when the editor changes on the Visual History */
 	'timeline/editor/changed': TimelineContextEventData;
-	/** Sent when the user changes the period (timeframe) on the visual file history */
+	/** Sent when the user changes the period (timeframe) on the Visual History */
 	'timeline/period/changed': TimelinePeriodChangedEvent;
-	/** Sent when the user selects (clicks on) a commit on the visual file history */
+	/** Sent when the user selects (clicks on) a commit on the Visual History */
 	'timeline/commit/selected': TimelineContextEventData;
 
 	/** Sent when a "tracked feature" is interacted with, today that is only when webview/webviewView/custom editor is shown */
