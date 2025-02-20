@@ -13,6 +13,9 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/) and this p
 - Fixes regression where hovering over the Graph WIP row doesn't show up anymore ([#4062](https://github.com/gitkraken/vscode-gitlens/issues/4062))
 - Fixes Inspect & Graph Details: autolinks rendering when enabled setting is false ([#3841](https://github.com/gitkraken/vscode-gitlens/issues/3841))
 - Fixes comparison with Merge Target on Home fails to open a valid comparison ([#4060](https://github.com/gitkraken/vscode-gitlens/issues/4060))
+- Fixes closing the walkthrough on Home from opening the walkthrough ([#4050](https://github.com/gitkraken/vscode-gitlens/issues/4050))
+- Fixes horizontal scrollbar from showing up on the old Home view ([#4051](https://github.com/gitkraken/vscode-gitlens/issues/4051))
+- Fixes a failure when copying changes to a worktree ([#4049](https://github.com/gitkraken/vscode-gitlens/issues/4049))
 
 ## [16.3.0] - 2025-02-11
 
