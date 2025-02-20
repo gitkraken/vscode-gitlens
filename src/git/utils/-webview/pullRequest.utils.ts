@@ -10,7 +10,7 @@ import { createRevisionRange } from '../revision.utils';
 export async function ensurePullRequestRefs(
 	pr: PullRequest,
 	repo: Repository,
-	options?: { promptMessage?: string },
+	options?: { silent?: true; promptMessage?: never } | { silent?: never; promptMessage?: string },
 	refs?: PullRequestComparisonRefs,
 ): Promise<LeftRightCommitCountResult | undefined> {
 	if (pr.refs == null) return undefined;
@@ -32,7 +32,7 @@ export async function ensurePullRequestRefs(
 export async function ensurePullRequestRemote(
 	pr: PullRequest,
 	repo: Repository,
-	options?: { promptMessage?: string },
+	options?: { silent?: true; promptMessage?: never } | { silent?: never; promptMessage?: string },
 ): Promise<boolean> {
 	const identity = getRepositoryIdentityForPullRequest(pr);
 	if (identity.remote.url == null) return false;
@@ -51,20 +51,22 @@ export async function ensurePullRequestRemote(
 
 	const confirm = { title: 'Add Remote' };
 	const cancel = { title: 'Cancel', isCloseAffordance: true };
-	const result = await window.showInformationMessage(
-		`${
-			options?.promptMessage ?? `Unable to find a remote for PR #${pr.id}.`
-		}\nWould you like to add a remote for '${identity.provider.repoDomain}?`,
-		{ modal: true },
-		confirm,
-		cancel,
-	);
+	if (!options?.silent) {
+		const result = await window.showInformationMessage(
+			`${
+				options?.promptMessage ?? `Unable to find a remote for PR #${pr.id}.`
+			}\nWould you like to add a remote for '${identity.provider.repoDomain}?`,
+			{ modal: true },
+			confirm,
+			cancel,
+		);
 
-	if (result === confirm) {
-		await repo.git
-			.remotes()
-			.addRemoteWithResult?.(identity.provider.repoDomain, identity.remote.url, { fetch: true });
-		return true;
+		if (result === confirm) {
+			await repo.git
+				.remotes()
+				.addRemoteWithResult?.(identity.provider.repoDomain, identity.remote.url, { fetch: true });
+			return true;
+		}
 	}
 
 	return false;

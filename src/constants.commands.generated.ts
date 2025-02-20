@@ -176,6 +176,7 @@ export type ContributedCommands =
 	| 'gitlens.views.addAuthor'
 	| 'gitlens.views.addAuthor.multi'
 	| 'gitlens.views.addAuthors'
+	| 'gitlens.views.addPullRequestRemote'
 	| 'gitlens.views.addRemote'
 	| 'gitlens.views.applyChanges'
 	| 'gitlens.views.associateIssueWithBranch'

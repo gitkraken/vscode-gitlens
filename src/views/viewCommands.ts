@@ -22,7 +22,9 @@ import * as StashActions from '../git/actions/stash';
 import * as TagActions from '../git/actions/tag';
 import * as WorktreeActions from '../git/actions/worktree';
 import { GitUri } from '../git/gitUri';
+import type { PullRequest } from '../git/models/pullRequest';
 import { RemoteResourceType } from '../git/models/remoteResource';
+import type { Repository } from '../git/models/repository';
 import { deletedOrMissing } from '../git/models/revision';
 import {
 	ensurePullRequestRefs,
@@ -237,6 +239,8 @@ export class ViewCommands implements Disposable {
 			registerViewCommand('gitlens.views.addAuthors', this.addAuthors, this),
 			registerViewCommand('gitlens.views.addAuthor', this.addAuthor, this),
 			registerViewCommand('gitlens.views.addAuthor.multi', this.addAuthor, this, true),
+
+			registerViewCommand('gitlens.views.addPullRequestRemote', this.addPullRequestRemote, this),
 
 			registerViewCommand(
 				'gitlens.views.openBranchOnRemote',
@@ -479,6 +483,16 @@ export class ViewCommands implements Disposable {
 	@log()
 	private addRemote(node?: ViewNode) {
 		return RemoteActions.add(getNodeRepoPath(node));
+	}
+
+	@log()
+	private async addPullRequestRemote(node: ViewNode, pr: PullRequest, repo: Repository) {
+		const identity = getRepositoryIdentityForPullRequest(pr);
+		if (identity.remote?.url == null) return;
+		await repo.git
+			.remotes()
+			.addRemoteWithResult?.(identity.provider.repoDomain, identity.remote.url, { fetch: true });
+		return node.view.refreshNode(node, true);
 	}
 
 	@log()

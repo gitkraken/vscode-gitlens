@@ -7630,6 +7630,12 @@
 				"icon": "$(person-add)"
 			},
 			{
+				"command": "gitlens.views.addPullRequestRemote",
+				"title": "Add Pull Request Remote",
+				"icon": "$(add)",
+				"enablement": "!operationInProgress"
+			},
+			{
 				"command": "gitlens.views.addRemote",
 				"title": "Add Remote...",
 				"icon": "$(add)",
@@ -11328,6 +11334,10 @@
 				},
 				{
 					"command": "gitlens.views.addAuthors",
+					"when": "false"
+				},
+				{
+					"command": "gitlens.views.addPullRequestRemote",
 					"when": "false"
 				},
 				{
