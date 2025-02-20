@@ -22,6 +22,8 @@ export class ActionNav extends LitElement {
 
 	override disconnectedCallback(): void {
 		this._slotSubscriptionsDisposer?.();
+
+		super.disconnectedCallback();
 	}
 
 	override render(): unknown {

@@ -45,16 +45,12 @@ export class GlAmaBanner extends LitElement {
 	override render() {
 		if (this.closed || this._state.amaBannerCollapsed === true) return nothing;
 
+		const url =
+			'https://www.gitkraken.com/lp/gitlensama?utm_source=githubdiscussion&utm_medium=hyperlink&utm_campaign=GLAMA&utm_id=GLAMA';
 		return html`
 			<gl-card indicator="info">
 				<h4>Live AMA w/ the creator of GitLens</h4>
-				<p>
-					Feb 13 @ 1pm EST &mdash;
-					<a
-						href="https://www.gitkraken.com/lp/gitlensama?utm_source=githubdisucssion&utm_medium=hyperlink&utm_campaign=GLAMA&utm_id=GLAMA"
-						>Register now</a
-					>
-				</p>
+				<p>Feb 13 @ 1pm EST &mdash; <a href="${url}">Register now</a></p>
 				<gl-button slot="actions" appearance="toolbar" tooltip="Dismiss" @click=${() => this.onClose()}
 					><code-icon icon="close"></code-icon
 				></gl-button>

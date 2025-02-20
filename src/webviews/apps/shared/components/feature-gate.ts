@@ -121,17 +121,16 @@ export class GlFeatureGate extends LitElement {
 	webroot?: string;
 
 	override render(): unknown {
-		if (!this.visible || (this.state != null && isSubscriptionStatePaidOrTrial(this.state))) {
-			this.hidden = true;
-			return undefined;
-		}
+		const hidden = !this.visible || (this.state != null && isSubscriptionStatePaidOrTrial(this.state));
+		// eslint-disable-next-line lit/no-this-assign-in-render
+		this.hidden = hidden;
+
+		if (hidden) return undefined;
 
 		const appearance =
 			this.appearance ?? (document.body.getAttribute('data-placement') ?? 'editor') === 'editor'
 				? 'alert'
 				: 'welcome';
-
-		this.hidden = false;
 
 		return html`
 			<section>
