@@ -28,6 +28,18 @@ export function createAsyncDisposable(
 	};
 }
 
-export function mixinDisposable<T extends object>(obj: T, dispose: () => void): T & UnifiedDisposable {
-	return { ...obj, ...createDisposable(dispose) };
+export function mixinDisposable<T extends object>(
+	obj: T,
+	dispose: () => void,
+	options?: { once?: boolean },
+): T & UnifiedDisposable {
+	return { ...obj, ...createDisposable(dispose, options) };
+}
+
+export function mixinAsyncDisposable<T extends object>(
+	obj: T,
+	dispose: () => Promise<any>,
+	options?: { once?: boolean },
+): T & UnifiedAsyncDisposable {
+	return { ...obj, ...createAsyncDisposable(dispose, options) };
 }

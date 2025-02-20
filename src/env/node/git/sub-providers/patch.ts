@@ -1,5 +1,3 @@
-import { promises as fs } from 'fs';
-import { tmpdir } from 'os';
 import { window } from 'vscode';
 import type { Container } from '../../../../container';
 import { CancellationError } from '../../../../errors';
@@ -17,7 +15,6 @@ import type { GitCommit } from '../../../../git/models/commit';
 import { log } from '../../../../system/decorators/log';
 import { Logger } from '../../../../system/logger';
 import { getLogScope } from '../../../../system/logger.scope';
-import { joinPaths } from '../../../../system/path';
 import type { Git } from '../git';
 import type { LocalGitProvider } from '../localGitProvider';
 
@@ -175,40 +172,10 @@ export class PatchGitSubProvider implements GitPatchSubProvider {
 		}
 
 		// Create a temporary index file
-		const tempDir = await fs.mkdtemp(joinPaths(tmpdir(), 'gl-'));
-		const tempIndex = joinPaths(tempDir, 'index');
+		await using disposableIndex = await this.provider.staging!.createTemporaryIndex(repoPath, baseRef);
+		const { env } = disposableIndex;
 
 		try {
-			// Tell Git to use our soon to be created index file
-			const env = { GIT_INDEX_FILE: tempIndex };
-
-			// Create the temp index file from a base ref/sha
-
-			// Get the tree of the base
-			const newIndex = await this.git.exec<string>(
-				{
-					cwd: repoPath,
-					env: env,
-				},
-				'ls-tree',
-				'-z',
-				'-r',
-				'--full-name',
-				baseRef,
-			);
-
-			// Write the tree to our temp index
-			await this.git.exec<string>(
-				{
-					cwd: repoPath,
-					env: env,
-					stdin: newIndex,
-				},
-				'update-index',
-				'-z',
-				'--index-info',
-			);
-
 			// Apply the patch to our temp index, without touching the working directory
 			await this.git.apply2(repoPath, { env: env, stdin: contents }, '--cached');
 
@@ -245,13 +212,6 @@ export class PatchGitSubProvider implements GitPatchSubProvider {
 			debugger;
 
 			throw ex;
-		} finally {
-			// Delete the temporary index file
-			try {
-				await fs.rm(tempDir, { recursive: true });
-			} catch (_ex) {
-				debugger;
-			}
 		}
 	}
 
