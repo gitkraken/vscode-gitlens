@@ -12,6 +12,8 @@ import noSrcImports from './scripts/eslint-rules/no-src-imports.js';
 export default ts.config(
 	js.configs.recommended,
 	...ts.configs.strictTypeChecked,
+	litConfigs['flat/recommended'],
+	wcConfigs['flat/recommended'],
 	{
 		ignores: ['*', '*/', '!src/', '!tests/', 'src/@types/', 'src/test/**/*'],
 	},
@@ -22,11 +24,7 @@ export default ts.config(
 		plugins: {
 			'import-x': importX,
 			'anti-trojan-source': antiTrojanSource,
-			'@gitlens': {
-				rules: {
-					'no-src-imports': noSrcImports,
-				},
-			},
+			'@gitlens': { rules: { 'no-src-imports': noSrcImports } },
 		},
 		rules: {
 			'@gitlens/no-src-imports': 'error',
@@ -328,16 +326,12 @@ export default ts.config(
 		files: ['src/**/*'],
 		ignores: ['**/webview/**/*', 'src/test/**/*', 'src/webviews/apps/**/*', 'src/env/browser/**/*'],
 		languageOptions: {
-			globals: {
-				...globals.node,
-			},
+			globals: { ...globals.node },
 			parser: ts.parser,
 			parserOptions: {
-				ecmaVersion: 2022,
+				ecmaVersion: 2023,
 				sourceType: 'module',
-				ecmaFeatures: {
-					impliedStrict: true,
-				},
+				ecmaFeatures: { impliedStrict: true },
 				projectService: true,
 			},
 		},
@@ -369,24 +363,18 @@ export default ts.config(
 		files: ['src/**/*'],
 		ignores: ['**/webview/**/*', 'src/test/**/*', 'src/webviews/apps/**/*', 'src/env/node/**/*'],
 		languageOptions: {
-			globals: {
-				...globals.worker,
-			},
+			globals: { ...globals.worker },
 			parser: ts.parser,
 			parserOptions: {
-				ecmaVersion: 2022,
+				ecmaVersion: 2023,
 				sourceType: 'module',
-				ecmaFeatures: {
-					impliedStrict: true,
-				},
+				ecmaFeatures: { impliedStrict: true },
 				projectService: true,
 			},
 		},
 	},
 	{
 		name: 'webviews',
-		...litConfigs['flat/recommended'],
-		...wcConfigs['flat/recommended'],
 		// Keep in sync with `src/webviews/apps/tsconfig.json`
 		files: [
 			'src/webviews/apps/**/*',
@@ -404,16 +392,12 @@ export default ts.config(
 		],
 		ignores: ['**/-webview/**/*'],
 		languageOptions: {
-			globals: {
-				...globals.browser,
-			},
+			globals: { ...globals.browser },
 			parser: ts.parser,
 			parserOptions: {
-				ecmaVersion: 2022,
+				ecmaVersion: 2023,
 				sourceType: 'module',
-				ecmaFeatures: {
-					impliedStrict: true,
-				},
+				ecmaFeatures: { impliedStrict: true },
 				projectService: true,
 			},
 		},
@@ -457,23 +441,27 @@ export default ts.config(
 		name: 'webviews-apps-only',
 		...litConfigs['flat/recommended'],
 		...wcConfigs['flat/recommended'],
+		...wcConfigs['flat/best-practice'],
 		files: ['src/webviews/apps/**/*'],
 		ignores: ['**/-webview/**/*'],
 		languageOptions: {
-			globals: {
-				...globals.browser,
-			},
+			globals: { ...globals.browser },
 			parser: ts.parser,
 			parserOptions: {
-				ecmaVersion: 2022,
+				ecmaVersion: 2023,
 				sourceType: 'module',
-				ecmaFeatures: {
-					impliedStrict: true,
-				},
+				ecmaFeatures: { impliedStrict: true },
 				projectService: true,
 			},
 		},
 		rules: {
+			// 'lit/quoted-expressions': 'error',
+			'lit/lifecycle-super': 'error',
+			'lit/no-legacy-imports': 'error',
+			'lit/no-native-attributes': 'error',
+			'lit/no-template-bind': 'error',
+			// 'lit/no-template-map': 'warn', // Want to enable this, but it's too noisy right now
+			'lit/no-this-assign-in-render': 'error',
 			'@typescript-eslint/explicit-module-boundary-types': 'off',
 			'@typescript-eslint/no-restricted-imports': [
 				'error',
@@ -514,16 +502,12 @@ export default ts.config(
 		name: 'tests:e2e',
 		files: ['tests/**/*'],
 		languageOptions: {
-			globals: {
-				...globals.node,
-			},
+			globals: { ...globals.node },
 			parser: ts.parser,
 			parserOptions: {
-				ecmaVersion: 2022,
+				ecmaVersion: 2023,
 				sourceType: 'module',
-				ecmaFeatures: {
-					impliedStrict: true,
-				},
+				ecmaFeatures: { impliedStrict: true },
 				projectService: true,
 			},
 		},

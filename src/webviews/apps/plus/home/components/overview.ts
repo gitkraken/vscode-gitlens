@@ -79,7 +79,7 @@ export class GlOverview extends SignalWatcher(LitElement) {
 	@consume({ context: ipcContext })
 	private readonly _ipc!: HostIpc;
 
-	private onChangeRecentThresholdFilter(e: CustomEvent<{ threshold: OverviewRecentThreshold }>) {
+	private readonly onChangeRecentThresholdFilter = (e: CustomEvent<{ threshold: OverviewRecentThreshold }>) => {
 		if (!this._inactiveOverviewState.filter.stale || !this._inactiveOverviewState.filter.recent) {
 			return;
 		}
@@ -87,7 +87,7 @@ export class GlOverview extends SignalWatcher(LitElement) {
 			stale: this._inactiveOverviewState.filter.stale,
 			recent: { ...this._inactiveOverviewState.filter.recent, threshold: e.detail.threshold },
 		});
-	}
+	};
 
 	private renderComplete(overview: GetInactiveOverviewResponse, isFetching = false) {
 		if (overview == null) return nothing;
@@ -101,7 +101,7 @@ export class GlOverview extends SignalWatcher(LitElement) {
 			>
 				<gl-branch-threshold-filter
 					slot="heading-actions"
-					@gl-change=${this.onChangeRecentThresholdFilter.bind(this)}
+					@gl-change=${this.onChangeRecentThresholdFilter}
 					.options=${[
 						{ value: 'OneDay', label: '1 day' },
 						{ value: 'OneWeek', label: '1 week' },

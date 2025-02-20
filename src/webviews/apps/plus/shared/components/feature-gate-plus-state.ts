@@ -117,12 +117,11 @@ export class GlFeatureGatePlusState extends LitElement {
 	}
 
 	override render(): unknown {
-		if (this.state == null) {
-			this.hidden = true;
-			return undefined;
-		}
+		const hidden = this.state == null;
+		// eslint-disable-next-line lit/no-this-assign-in-render
+		this.hidden = hidden;
+		if (hidden) return undefined;
 
-		this.hidden = false;
 		const appearance = (this.appearance ?? 'alert') === 'alert' ? 'alert' : undefined;
 
 		switch (this.state) {

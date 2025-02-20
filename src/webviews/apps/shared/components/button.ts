@@ -212,6 +212,7 @@ export class GlButton extends LitElement {
 	href?: string;
 
 	@property({ reflect: true })
+	// eslint-disable-next-line lit/no-native-attributes
 	override get role(): 'link' | 'button' {
 		return this.href ? 'link' : 'button';
 	}
