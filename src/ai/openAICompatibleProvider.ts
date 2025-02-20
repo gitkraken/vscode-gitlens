@@ -378,8 +378,9 @@ interface ChatCompletionRequest {
 	model: string;
 	messages: ChatMessage<Role>[];
 
-	/** @deprecated */
+	/** @deprecated but used by Anthropic & Gemini */
 	max_tokens?: number;
+	/** Currently can't be used for Anthropic & Gemini */
 	max_completion_tokens?: number;
 	metadata?: Record<string, string>;
 	stream?: boolean;
@@ -403,15 +404,16 @@ interface ChatCompletionResponse {
 		};
 		finish_reason: string;
 	}[];
-	/** Anthropic compatible output */
+	/** Anthropic output */
 	content?: { type: 'text'; text: string }[];
 	usage: {
-		input_tokens?: number;
+		/** OpenAI compatible */
 		prompt_tokens?: number;
-
 		completion_tokens?: number;
-		output_tokens?: number;
-
 		total_tokens?: number;
+
+		/** Anthropic */
+		input_tokens?: number;
+		output_tokens?: number;
 	};
 }
