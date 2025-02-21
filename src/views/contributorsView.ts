@@ -141,7 +141,7 @@ export class ContributorsView extends ViewBase<'contributors', ContributorsViewN
 	}
 
 	override get canSelectMany(): boolean {
-		return this.container.prereleaseOrDebugging;
+		return configuration.get('views.multiselect');
 	}
 
 	private readonly _state: ContributorsViewState = { hideMergeCommits: true };

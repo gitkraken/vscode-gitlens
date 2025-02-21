@@ -31,7 +31,7 @@ export class FileHistoryView extends ViewBase<
 	}
 
 	override get canSelectMany(): boolean {
-		return this.container.prereleaseOrDebugging;
+		return configuration.get('views.multiselect');
 	}
 
 	protected override get showCollapseAll(): boolean {

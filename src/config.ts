@@ -373,6 +373,7 @@ export interface GraphConfig {
 		readonly dataType: 'commits' | 'lines';
 		readonly additionalTypes: GraphMinimapMarkersAdditionalTypes[];
 	};
+	readonly multiselect: boolean;
 	readonly onlyFollowFirstParent: boolean;
 	readonly pageItemLimit: number;
 	readonly pullRequests: {
@@ -690,6 +691,7 @@ export interface ViewsCommonConfig {
 			readonly tooltip: string;
 		};
 	};
+	readonly multiselect: boolean;
 	readonly openChangesInMultiDiffEditor: boolean;
 	readonly pageItemLimit: number;
 	readonly scm: {
