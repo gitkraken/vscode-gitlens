@@ -27,6 +27,7 @@ export type ContributedCommands =
 	| 'gitlens.graph.addAuthor'
 	| 'gitlens.graph.associateIssueWithBranch'
 	| 'gitlens.graph.cherryPick'
+	| 'gitlens.graph.cherryPick.multi'
 	| 'gitlens.graph.columnAuthorOff'
 	| 'gitlens.graph.columnAuthorOn'
 	| 'gitlens.graph.columnChangesOff'

@@ -532,6 +532,7 @@ export class GraphWebviewProvider implements WebviewProvider<State, State, Graph
 			this.host.registerWebviewCommand('gitlens.graph.hideTag', this.hideRef),
 
 			this.host.registerWebviewCommand('gitlens.graph.cherryPick', this.cherryPick),
+			this.host.registerWebviewCommand('gitlens.graph.cherryPick.multi', this.cherryPick),
 			this.host.registerWebviewCommand<GraphItemContext>('gitlens.graph.copyRemoteCommitUrl', item =>
 				this.openCommitOnRemote(item, true),
 			),
@@ -3211,10 +3212,10 @@ export class GraphWebviewProvider implements WebviewProvider<State, State, Graph
 
 	@log()
 	private cherryPick(item?: GraphItemContext) {
-		const ref = this.getGraphItemRef(item, 'revision');
-		if (ref == null) return Promise.resolve();
+		const { selection } = this.getGraphItemRefs(item, 'revision');
+		if (selection == null) return Promise.resolve();
 
-		return RepoActions.cherryPick(ref.repoPath, ref);
+		return RepoActions.cherryPick(selection[0].repoPath, selection);
 	}
 
 	@log()
