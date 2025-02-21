@@ -24,6 +24,30 @@ interface BitbucketUser {
 	};
 }
 
+interface BitbucketWorkspace {
+	type: 'workspace';
+	uuid: string;
+	name: string;
+	slug: string;
+	links: {
+		self: BitbucketLink;
+		html: BitbucketLink;
+		avatar: BitbucketLink;
+	};
+}
+
+interface BitbucketProject {
+	type: 'project';
+	key: string;
+	uuid: string;
+	name: string;
+	links: {
+		self: BitbucketLink;
+		html: BitbucketLink;
+		avatar: BitbucketLink;
+	};
+}
+
 interface BitbucketPullRequestParticipant {
 	type: 'participant';
 	user: BitbucketUser;
@@ -33,15 +57,28 @@ interface BitbucketPullRequestParticipant {
 	participated_on: null | string;
 }
 
-interface BitbucketRepository {
+export interface BitbucketRepository {
 	type: 'repository';
 	uuid: string;
 	full_name: string;
 	name: string;
+	slug: string;
 	description?: string;
+	is_private: boolean;
+	parent: null | BitbucketRepository;
+	scm: 'git';
+	owner: BitbucketUser;
+	workspace: BitbucketWorkspace;
+	project: BitbucketProject;
+	created_on: string;
+	updated_on: string;
+	size: number;
+	language: string;
+	has_issues: boolean;
+	has_wiki: boolean;
+	fork_policy: 'allow_forks' | 'no_public_forks' | 'no_forks';
+	website: string;
 	mainbranch?: BitbucketBranch;
-	parent?: BitbucketRepository;
-	owner?: BitbucketUser;
 	links: {
 		self: BitbucketLink;
 		html: BitbucketLink;
