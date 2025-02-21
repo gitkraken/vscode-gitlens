@@ -7,6 +7,7 @@ import type {
 	AzureProject,
 	AzureSetPullRequestInput,
 	Bitbucket,
+	BitbucketWorkspaceStub,
 	EnterpriseOptions,
 	GetRepoInput,
 	GitHub,
@@ -69,6 +70,7 @@ export type ProviderJiraProject = JiraProject;
 export type ProviderJiraResource = JiraResource;
 export type ProviderAzureProject = AzureProject;
 export type ProviderAzureResource = AzureOrganization;
+export type ProviderBitbucketResource = BitbucketWorkspaceStub;
 export const ProviderPullRequestReviewState = GitPullRequestReviewState;
 export const ProviderBuildStatusState = GitBuildStatusState;
 export type ProviderRequestFunction = RequestFunction;
@@ -336,6 +338,10 @@ export type GetAzureProjectsForResourceFn = (
 	input: { namespace: string; cursor?: string },
 	options?: EnterpriseOptions,
 ) => Promise<{ data: AzureProject[]; pageInfo?: PageInfo }>;
+export type GetBitbucketResourcesForUserFn = (
+	input: { userId: string },
+	options?: EnterpriseOptions,
+) => Promise<{ data: BitbucketWorkspaceStub[] }>;
 export type GetIssuesForProjectFn = Jira['getIssuesForProject'];
 export type GetIssuesForResourceForCurrentUserFn = (
 	input: { resourceId: string },
@@ -357,6 +363,7 @@ export interface ProviderInfo extends ProviderMetadata {
 	getCurrentUserForResourceFn?: GetCurrentUserForResourceFn;
 	getJiraResourcesForCurrentUserFn?: GetJiraResourcesForCurrentUserFn;
 	getAzureResourcesForUserFn?: GetAzureResourcesForUserFn;
+	getBitbucketResourcesForUserFn?: GetBitbucketResourcesForUserFn;
 	getJiraProjectsForResourcesFn?: GetJiraProjectsForResourcesFn;
 	getAzureProjectsForResourceFn?: GetAzureProjectsForResourceFn;
 	getIssuesForProjectFn?: GetIssuesForProjectFn;
