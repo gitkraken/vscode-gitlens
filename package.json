@@ -6387,6 +6387,11 @@
 				"enablement": "!operationInProgress"
 			},
 			{
+				"command": "gitlens.graph.cherryPick.multi",
+				"title": "Cherry Pick Commits...",
+				"enablement": "!operationInProgress"
+			},
+			{
 				"command": "gitlens.graph.columnAuthorOff",
 				"title": "Hide Author Column",
 				"enablement": "webviewItemValue =~ /\\bcolumns:canHide\\b/"
@@ -10390,6 +10395,10 @@
 				},
 				{
 					"command": "gitlens.graph.cherryPick",
+					"when": "false"
+				},
+				{
+					"command": "gitlens.graph.cherryPick.multi",
 					"when": "false"
 				},
 				{
@@ -18603,7 +18612,7 @@
 				},
 				{
 					"command": "gitlens.graph.cherryPick",
-					"when": "webviewItem =~ /gitlens:commit\\b(?!.*?\\b\\+current\\b)/ && !listMultiSelection && !gitlens:hasVirtualFolders && !gitlens:readonly && !gitlens:untrusted",
+					"when": "webviewItem =~ /gitlens:commit\\b(?!.*?\\b\\+(current|rebase)\\b)/ && !listMultiSelection && !gitlens:hasVirtualFolders && !gitlens:readonly && !gitlens:untrusted",
 					"group": "1_gitlens_actions@1"
 				},
 				{
@@ -18880,6 +18889,11 @@
 					"command": "gitlens.graph.hideRefGroup",
 					"when": "webviewItemGroup =~ /gitlens:refGroup\\b(?!.*?\\b\\+current\\b)/",
 					"group": "8_gitlens_actions@12"
+				},
+				{
+					"command": "gitlens.graph.cherryPick.multi",
+					"when": "webviewItems =~ /gitlens:commit\\b(?!.*?\\b\\+(current|rebase)\\b)/ && listMultiSelection && !gitlens:hasVirtualFolders && !gitlens:readonly && !gitlens:untrusted",
+					"group": "1_gitlens_actions@1"
 				},
 				{
 					"command": "gitlens.graph.openCommitOnRemote.multi",
