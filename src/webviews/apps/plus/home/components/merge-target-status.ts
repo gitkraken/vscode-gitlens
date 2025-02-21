@@ -301,6 +301,24 @@ export class GlMergeTargetStatus extends LitElement {
 							${this.mergedStatus.confidence !== 'highest' ? 'likely ' : ''}been merged into its merge
 							target's local branch ${renderBranchName(this.mergedStatus.localBranchOnly.name)}.
 						</p>
+						<div class="button-container">
+							<gl-button
+								full
+								href="${createCommandLink('gitlens.home.pushBranch', {
+									repoPath: this.branch.repoPath,
+									branchId: this.mergedStatus.localBranchOnly.id!,
+									branchName: this.mergedStatus.localBranchOnly.name,
+								} satisfies BranchRef)}"
+								>Push ${renderBranchName(this.mergedStatus.localBranchOnly.name)}</gl-button
+							>
+							<gl-button
+								full
+								appearance="secondary"
+								href="${createCommandLink('gitlens.home.deleteBranchOrWorktree', this.branchRef)}"
+								>Delete ${this.branch.worktree ? 'Worktree' : 'Branch'}
+								${renderBranchName(this.branch.name, this.branch.worktree != null)}</gl-button
+							>
+						</div>
 					</div>`;
 			}
 
@@ -318,6 +336,14 @@ export class GlMergeTargetStatus extends LitElement {
 						${this.mergedStatus.confidence !== 'highest' ? 'likely ' : ''}been merged into its merge target
 						${target}.
 					</p>
+					<div class="button-container">
+						<gl-button
+							full
+							href="${createCommandLink('gitlens.home.deleteBranchOrWorktree', this.branchRef)}"
+							>Delete ${this.branch.worktree ? 'Worktree' : 'Branch'}
+							${renderBranchName(this.branch.name, this.branch.worktree != null)}</gl-button
+						>
+					</div>
 				</div>`;
 		}
 
