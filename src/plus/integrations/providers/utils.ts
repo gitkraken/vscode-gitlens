@@ -62,6 +62,8 @@ export function getEntityIdentifierInput(entity: Issue | PullRequest | Launchpad
 		if (entityType === EntityType.PullRequest && repoId == null) {
 			throw new Error('Azure PRs must have a repository ID to be encoded');
 		}
+	} else if (provider === EntityIdentifierProviderType.Bitbucket) {
+		repoId = isLaunchpadItem(entity) ? entity.underlyingPullRequest?.repository.id : entity.repository?.id;
 	}
 
 	let entityId = isLaunchpadItem(entity) ? entity.graphQLId! : entity.nodeId!;
@@ -124,6 +126,8 @@ function fromStringToEntityIdentifierProviderType(str: string): EntityIdentifier
 		case 'azureDevOps':
 		case 'azure-devops':
 			return EntityIdentifierProviderType.Azure;
+		case 'bitbucket':
+			return EntityIdentifierProviderType.Bitbucket;
 		default:
 			throw new Error(`Unknown provider type '${str}'`);
 	}

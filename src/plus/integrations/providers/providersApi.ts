@@ -19,6 +19,7 @@ import type { IntegrationAuthenticationService } from '../authentication/integra
 import type {
 	GetAzureProjectsForResourceFn,
 	GetAzureResourcesForUserFn,
+	GetBitbucketResourcesForUserFn,
 	GetCurrentUserFn,
 	GetCurrentUserForInstanceFn,
 	GetIssueFn,
@@ -40,6 +41,7 @@ import type {
 	ProviderAccount,
 	ProviderAzureProject,
 	ProviderAzureResource,
+	ProviderBitbucketResource,
 	ProviderInfo,
 	ProviderIssue,
 	ProviderJiraProject,
@@ -196,6 +198,9 @@ export class ProvidersApi {
 				getCurrentUserFn: providerApis.bitbucket.getCurrentUser.bind(
 					providerApis.bitbucket,
 				) as GetCurrentUserFn,
+				getBitbucketResourcesForUserFn: providerApis.bitbucket.getWorkspacesForUser.bind(
+					providerApis.bitbucket,
+				) as GetBitbucketResourcesForUserFn,
 				getPullRequestsForReposFn: providerApis.bitbucket.getPullRequestsForRepos.bind(
 					providerApis.bitbucket,
 				) as GetPullRequestsForReposFn,
@@ -528,6 +533,27 @@ export class ProvidersApi {
 		} catch (e) {
 			return this.handleProviderError<ProviderAzureResource[] | undefined>(
 				HostingIntegrationId.AzureDevOps,
+				token,
+				e,
+			);
+		}
+	}
+
+	async getBitbucketResourcesForUser(
+		userId: string,
+		options?: { accessToken?: string },
+	): Promise<ProviderBitbucketResource[] | undefined> {
+		const { provider, token } = await this.ensureProviderTokenAndFunction(
+			HostingIntegrationId.Bitbucket,
+			'getBitbucketResourcesForUserFn',
+			options?.accessToken,
+		);
+
+		try {
+			return (await provider.getBitbucketResourcesForUserFn?.({ userId: userId }, { token: token }))?.data;
+		} catch (e) {
+			return this.handleProviderError<ProviderBitbucketResource[] | undefined>(
+				HostingIntegrationId.Bitbucket,
 				token,
 				e,
 			);
