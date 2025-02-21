@@ -152,6 +152,11 @@ export const OpenOnAzureDevOpsQuickInputButton: QuickInputButton = {
 	tooltip: 'Open on Azure DevOps',
 };
 
+export const OpenOnBitbucketQuickInputButton: QuickInputButton = {
+	iconPath: new ThemeIcon('globe'),
+	tooltip: 'Open on Bitbucket',
+};
+
 export const OpenOnWebQuickInputButton: QuickInputButton = {
 	iconPath: new ThemeIcon('globe'),
 	tooltip: 'Open on gitkraken.dev',

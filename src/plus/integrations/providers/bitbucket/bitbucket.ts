@@ -16,6 +16,7 @@ import {
 import type { IssueOrPullRequest, IssueOrPullRequestType } from '../../../../git/models/issueOrPullRequest';
 import type { PullRequest } from '../../../../git/models/pullRequest';
 import type { Provider } from '../../../../git/models/remoteProvider';
+import type { RepositoryMetadata } from '../../../../git/models/repositoryMetadata';
 import { showIntegrationRequestFailed500WarningMessage } from '../../../../messages';
 import { configuration } from '../../../../system/-webview/configuration';
 import { debug } from '../../../../system/decorators/log';
@@ -23,7 +24,7 @@ import { Logger } from '../../../../system/logger';
 import type { LogScope } from '../../../../system/logger.scope';
 import { getLogScope } from '../../../../system/logger.scope';
 import { maybeStopWatch } from '../../../../system/stopwatch';
-import type { BitbucketIssue, BitbucketPullRequest } from './models';
+import type { BitbucketIssue, BitbucketPullRequest, BitbucketRepository } from './models';
 import { bitbucketIssueStateToState, fromBitbucketPullRequest } from './models';
 
 export class BitbucketApi implements Disposable {
@@ -163,6 +164,61 @@ export class BitbucketApi implements Disposable {
 		}
 
 		return undefined;
+	}
+
+	@debug<BitbucketApi['getRepositoriesForWorkspace']>({ args: { 0: p => p.name, 1: '<token>' } })
+	async getRepositoriesForWorkspace(
+		provider: Provider,
+		token: string,
+		workspace: string,
+		options: {
+			baseUrl: string;
+		},
+	): Promise<RepositoryMetadata[] | undefined> {
+		const scope = getLogScope();
+
+		try {
+			interface BitbucketRepositoriesResponse {
+				size: number;
+				page: number;
+				pagelen: number;
+				next?: string;
+				previous?: string;
+				values: BitbucketRepository[];
+			}
+
+			const response = await this.request<BitbucketRepositoriesResponse>(
+				provider,
+				token,
+				options.baseUrl,
+				`repositories/${workspace}?role=contributor&fields=%2Bvalues.parent.workspace`, // field=+<field> must be encoded as field=%2B<field>
+				{
+					method: 'GET',
+				},
+				scope,
+			);
+
+			if (response) {
+				return response.values.map(repo => {
+					return {
+						provider: provider,
+						owner: repo.workspace.slug,
+						name: repo.slug,
+						isFork: Boolean(repo.parent),
+						parent: repo.parent
+							? {
+									owner: repo.parent.workspace.slug,
+									name: repo.parent.slug,
+							  }
+							: undefined,
+					};
+				});
+			}
+			return undefined;
+		} catch (ex) {
+			Logger.error(ex, scope);
+			return undefined;
+		}
 	}
 
 	private async request<T>(
