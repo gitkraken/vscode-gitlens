@@ -1,4 +1,5 @@
 import type { AuthenticationSession, CancellationToken } from 'vscode';
+import { md5 } from '@env/crypto';
 import { HostingIntegrationId } from '../../../constants.integrations';
 import type { Account } from '../../../git/models/author';
 import type { DefaultBranch } from '../../../git/models/defaultBranch';
@@ -28,6 +29,7 @@ interface BitbucketWorkspaceDescriptor extends ResourceDescriptor {
 }
 
 interface BitbucketRemoteRepositoryDescriptor extends ResourceDescriptor {
+	resourceId: string;
 	owner: string;
 	name: string;
 	cloneUrlHttps?: string;
@@ -238,6 +240,7 @@ export class BitbucketIntegration extends HostingIntegration<
 						`${accessToken}:${resource.id}`,
 						resourceRepos.map(r => ({
 							id: `${r.owner}/${r.name}`,
+							resourceId: r.owner,
 							owner: r.owner,
 							name: r.name,
 							key: `${r.owner}/${r.name}`,
@@ -298,6 +301,77 @@ export class BitbucketIntegration extends HostingIntegration<
 	): PullRequest {
 		remotePullRequest.graphQLId = remotePullRequest.id;
 		return fromProviderPullRequest(remotePullRequest, this);
+	}
+
+	protected override async providerOnConnect(): Promise<void> {
+		if (this._session == null) return;
+
+		const accountStorageKey = md5(this._session.accessToken);
+
+		const storedAccount = this.container.storage.get(`bitbucket:${accountStorageKey}:account`);
+		const storedWorkspaces = this.container.storage.get(`bitbucket:${accountStorageKey}:workspaces`);
+		const storedRepositories = this.container.storage.get(`bitbucket:${accountStorageKey}:repositories`);
+
+		let account: Account | undefined = storedAccount?.data ? { ...storedAccount.data, provider: this } : undefined;
+		let workspaces = storedWorkspaces?.data?.map(o => ({ ...o }));
+		let repositories = storedRepositories?.data?.map(p => ({ ...p }));
+
+		if (storedAccount == null) {
+			account = await this.getProviderCurrentAccount(this._session);
+			if (account != null) {
+				// Clear all other stored workspaces and repositories and accounts when our session changes
+				await this.container.storage.deleteWithPrefix('bitbucket');
+				await this.container.storage.store(`bitbucket:${accountStorageKey}:account`, {
+					v: 1,
+					timestamp: Date.now(),
+					data: {
+						id: account.id,
+						name: account.name,
+						email: account.email,
+						avatarUrl: account.avatarUrl,
+						username: account.username,
+					},
+				});
+			}
+		}
+		this._accounts ??= new Map<string, Account | undefined>();
+		this._accounts.set(this._session.accessToken, account);
+
+		if (storedWorkspaces == null) {
+			workspaces = await this.getProviderResourcesForUser(this._session, true);
+			await this.container.storage.store(`bitbucket:${accountStorageKey}:workspaces`, {
+				v: 1,
+				timestamp: Date.now(),
+				data: workspaces,
+			});
+		}
+		this._workspaces ??= new Map<string, BitbucketWorkspaceDescriptor[] | undefined>();
+		this._workspaces.set(this._session.accessToken, workspaces);
+
+		if (storedRepositories == null && workspaces?.length) {
+			repositories = await this.getProviderProjectsForResources(this._session, workspaces);
+			await this.container.storage.store(`bitbucket:${accountStorageKey}:repositories`, {
+				v: 1,
+				timestamp: Date.now(),
+				data: repositories,
+			});
+		}
+		this._repositories ??= new Map<string, BitbucketRemoteRepositoryDescriptor[] | undefined>();
+		for (const repository of repositories ?? []) {
+			const resourceKey = `${this._session.accessToken}:${repository.resourceId}`;
+			const repos = this._repositories.get(resourceKey);
+			if (repos == null) {
+				this._repositories.set(resourceKey, [repository]);
+			} else if (!repos.some(r => r.key === repository.key)) {
+				repos.push(repository);
+			}
+		}
+	}
+
+	protected override providerOnDisconnect(): void {
+		this._accounts = undefined;
+		this._workspaces = undefined;
+		this._repositories = undefined;
 	}
 }
 
