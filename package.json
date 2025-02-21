@@ -13245,12 +13245,12 @@
 				},
 				{
 					"submenu": "gitlens/explorer/file/history",
-					"when": "!explorerResourceIsRoot && !explorerResourceIsFolder && gitlens:enabled && config.gitlens.menus.explorer.history",
+					"when": "!explorerResourceIsRoot && !explorerResourceIsFolder && gitlens:enabled && config.gitlens.menus.explorer.history && !listMultiSelection",
 					"group": "4_timeline@0"
 				},
 				{
 					"submenu": "gitlens/explorer/folder/history",
-					"when": "(explorerResourceIsRoot || explorerResourceIsFolder) && gitlens:enabled && config.gitlens.menus.explorer.history",
+					"when": "(explorerResourceIsRoot || explorerResourceIsFolder) && gitlens:enabled && !listMultiSelection && config.gitlens.menus.explorer.history",
 					"group": "4_timeline@0"
 				},
 				{
@@ -16247,7 +16247,7 @@
 				},
 				{
 					"submenu": "gitlens/explorer/folder/history",
-					"when": "viewItem =~ /gitlens:folder\\b/",
+					"when": "viewItem =~ /gitlens:folder\\b/ && !listMultiSelection",
 					"group": "4_timeline@1"
 				},
 				{

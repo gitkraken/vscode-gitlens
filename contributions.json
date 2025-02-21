@@ -12062,7 +12062,7 @@
 			"menus": {
 				"explorer/context": [
 					{
-						"when": "!explorerResourceIsRoot && !explorerResourceIsFolder && gitlens:enabled && config.gitlens.menus.explorer.history",
+						"when": "!explorerResourceIsRoot && !explorerResourceIsFolder && gitlens:enabled && config.gitlens.menus.explorer.history && !listMultiSelection",
 						"group": "4_timeline",
 						"order": 0
 					}
@@ -12074,14 +12074,14 @@
 			"menus": {
 				"explorer/context": [
 					{
-						"when": "(explorerResourceIsRoot || explorerResourceIsFolder) && gitlens:enabled && config.gitlens.menus.explorer.history",
+						"when": "(explorerResourceIsRoot || explorerResourceIsFolder) && gitlens:enabled && !listMultiSelection && config.gitlens.menus.explorer.history",
 						"group": "4_timeline",
 						"order": 0
 					}
 				],
 				"view/item/context": [
 					{
-						"when": "viewItem =~ /gitlens:folder\\b/",
+						"when": "viewItem =~ /gitlens:folder\\b/ && !listMultiSelection",
 						"group": "4_timeline",
 						"order": 1
 					}
