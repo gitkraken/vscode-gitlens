@@ -182,6 +182,8 @@ type InternalPlusCommands =
 	| 'gitlens.plus.showPlans'
 	| 'gitlens.plus.validate';
 
+type InternalPullRequestViewCommands = 'gitlens.views.addPullRequestRemote';
+
 type InternalScmGroupedViewCommands =
 	| 'gitlens.views.scm.grouped.welcome.dismiss'
 	| 'gitlens.views.scm.grouped.welcome.restore';
@@ -221,6 +223,7 @@ type InternalGlCommands =
 	| InternalHomeWebviewViewCommands
 	| InternalLaunchPadCommands
 	| InternalPlusCommands
+	| InternalPullRequestViewCommands
 	| InternalScmGroupedViewCommands
 	| InternalSearchAndCompareViewCommands
 	| InternalTimelineWebviewViewCommands

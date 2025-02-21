@@ -109,7 +109,7 @@ export type LaunchpadItem = LaunchpadPullRequest & {
 
 export type OpenRepository = {
 	repo: Repository;
-	remote: GitRemote;
+	remote?: GitRemote;
 	localBranch?: GitBranch;
 };
 
@@ -551,12 +551,16 @@ export class LaunchpadProvider implements Disposable {
 	): Promise<OpenRepository | undefined> {
 		if (pr.repoIdentity.remote.url == null) return undefined;
 
-		const match =
-			matchingRemoteMap.get(pr.repoIdentity.remote.url) ??
-			(pr.underlyingPullRequest?.refs?.base?.url
-				? matchingRemoteMap.get(pr.underlyingPullRequest.refs.base.url)
-				: undefined);
-		if (match == null) return undefined;
+		let match = matchingRemoteMap.get(pr.repoIdentity.remote.url);
+		if (match == null) {
+			if (pr.underlyingPullRequest?.refs?.base?.url == null) return undefined;
+
+			match = matchingRemoteMap.get(pr.underlyingPullRequest.refs.base.url);
+			if (match == null) return undefined;
+
+			const [repo] = match;
+			return { repo: repo };
+		}
 
 		const [repo, remote] = match;
 
