@@ -662,7 +662,9 @@ export class GraphGitSubProvider implements GitGraphSubProvider {
 		try {
 			const refAndDateParser = getRefAndDateParser();
 
-			const currentUser = search.query.includes('@me') ? await this.provider.config.getCurrentUser(repoPath) : undefined;
+			const currentUser = search.query.includes('@me')
+				? await this.provider.config.getCurrentUser(repoPath)
+				: undefined;
 
 			const { args: searchArgs, files, shas } = getGitArgsFromSearchQuery(search, currentUser);
 			if (shas?.size) {

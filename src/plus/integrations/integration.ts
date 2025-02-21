@@ -15,7 +15,7 @@ import type { PagedResult } from '../../git/gitProvider';
 import type { Account, UnidentifiedAuthor } from '../../git/models/author';
 import type { DefaultBranch } from '../../git/models/defaultBranch';
 import type { Issue, SearchedIssue } from '../../git/models/issue';
-import type { IssueOrPullRequest } from '../../git/models/issueOrPullRequest';
+import type { IssueOrPullRequest, IssueOrPullRequestType } from '../../git/models/issueOrPullRequest';
 import type {
 	PullRequest,
 	PullRequestMergeMethod,
@@ -455,7 +455,7 @@ export abstract class IntegrationBase<
 	async getIssueOrPullRequest(
 		resource: T,
 		id: string,
-		options?: { expiryOverride?: boolean | number },
+		options?: { expiryOverride?: boolean | number; type?: IssueOrPullRequestType },
 	): Promise<IssueOrPullRequest | undefined> {
 		const scope = getLogScope();
 
@@ -469,7 +469,12 @@ export abstract class IntegrationBase<
 			() => ({
 				value: (async () => {
 					try {
-						const result = await this.getProviderIssueOrPullRequest(this._session!, resource, id);
+						const result = await this.getProviderIssueOrPullRequest(
+							this._session!,
+							resource,
+							id,
+							options?.type,
+						);
 						this.resetRequestExceptionCount();
 						return result;
 					} catch (ex) {
@@ -486,6 +491,7 @@ export abstract class IntegrationBase<
 		session: ProviderAuthenticationSession,
 		resource: T,
 		id: string,
+		type: undefined | IssueOrPullRequestType,
 	): Promise<IssueOrPullRequest | undefined>;
 
 	@debug()

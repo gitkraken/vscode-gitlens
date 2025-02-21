@@ -3,7 +3,7 @@ import { HostingIntegrationId } from '../../../constants.integrations';
 import type { Account } from '../../../git/models/author';
 import type { DefaultBranch } from '../../../git/models/defaultBranch';
 import type { Issue, SearchedIssue } from '../../../git/models/issue';
-import type { IssueOrPullRequest } from '../../../git/models/issueOrPullRequest';
+import type { IssueOrPullRequest, IssueOrPullRequestType } from '../../../git/models/issueOrPullRequest';
 import type {
 	PullRequest,
 	PullRequestMergeMethod,
@@ -80,11 +80,15 @@ export class BitbucketIntegration extends HostingIntegration<
 	}
 
 	protected override async getProviderIssueOrPullRequest(
-		_session: AuthenticationSession,
-		_repo: BitbucketRepositoryDescriptor,
-		_id: string,
+		{ accessToken }: AuthenticationSession,
+		repo: BitbucketRepositoryDescriptor,
+		id: string,
+		type: undefined | IssueOrPullRequestType,
 	): Promise<IssueOrPullRequest | undefined> {
-		return Promise.resolve(undefined);
+		return (await this.container.bitbucket)?.getIssueOrPullRequest(this, accessToken, repo.owner, repo.name, id, {
+			baseUrl: this.apiBaseUrl,
+			type: type,
+		});
 	}
 
 	protected override async getProviderIssue(
@@ -96,15 +100,24 @@ export class BitbucketIntegration extends HostingIntegration<
 	}
 
 	protected override async getProviderPullRequestForBranch(
-		_session: AuthenticationSession,
-		_repo: BitbucketRepositoryDescriptor,
-		_branch: string,
+		{ accessToken }: AuthenticationSession,
+		repo: BitbucketRepositoryDescriptor,
+		branch: string,
 		_options?: {
 			avatarSize?: number;
 			include?: PullRequestState[];
 		},
 	): Promise<PullRequest | undefined> {
-		return Promise.resolve(undefined);
+		return (await this.container.bitbucket)?.getPullRequestForBranch(
+			this,
+			accessToken,
+			repo.owner,
+			repo.name,
+			branch,
+			{
+				baseUrl: this.apiBaseUrl,
+			},
+		);
 	}
 
 	protected override async getProviderPullRequestForCommit(

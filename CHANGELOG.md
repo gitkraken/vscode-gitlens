@@ -37,6 +37,7 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/) and this p
   - Adds a _Switch Model_ button to the AI confirmation prompts
 - Adds Windsurf support &mdash; closes [#3969](https://github.com/gitkraken/vscode-gitlens/issues/3969)
 - Adds "pro" indicators for applicable integrations &mdash; closes [#3972](https://github.com/gitkraken/vscode-gitlens/issues/3972)
+- Adds integration with Bitbucket Cloud by showing enrichhed links to PRs and issues [#4045](https://github.com/gitkraken/vscode-gitlens/issues/4045)
 
 ### Changed
 
