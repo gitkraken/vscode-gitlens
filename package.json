@@ -954,6 +954,13 @@
 						"scope": "window",
 						"order": 2
 					},
+					"gitlens.graph.multiselect": {
+						"type": "boolean",
+						"default": false,
+						"markdownDescription": "Specifies whether to allow selecting multiple commits in the _Commit Graph_",
+						"scope": "window",
+						"order": 10
+					},
 					"gitlens.graph.minimap.enabled": {
 						"type": "boolean",
 						"default": true,
@@ -1547,47 +1554,54 @@
 						"scope": "window",
 						"order": 4
 					},
+					"gitlens.views.multiselect": {
+						"type": "boolean",
+						"default": false,
+						"markdownDescription": "Specifies whether to allow selecting multiple items in the views",
+						"scope": "window",
+						"order": 5
+					},
 					"gitlens.views.showCurrentBranchOnTop": {
 						"type": "boolean",
 						"default": true,
 						"markdownDescription": "Specifies whether to always show the current branch at the top of the views",
 						"scope": "window",
-						"order": 5
+						"order": 6
 					},
 					"gitlens.views.showComparisonContributors": {
 						"type": "boolean",
 						"default": true,
 						"markdownDescription": "Specifies whether to show a _Contributors_ section on comparison results in the views",
 						"scope": "window",
-						"order": 6
+						"order": 10
 					},
 					"gitlens.views.showContributorsStatistics": {
 						"type": "boolean",
 						"default": false,
 						"markdownDescription": "Specifies whether to show contributor statistics in _Contributors_ sections in the views. This can take a while to compute depending on the repository size",
 						"scope": "window",
-						"order": 7
+						"order": 11
 					},
 					"gitlens.views.showRelativeDateMarkers": {
 						"type": "boolean",
 						"default": true,
 						"markdownDescription": "Specifies whether to show relative date markers (_Less than a week ago_, _Over a week ago_, _Over a month ago_, etc) on revision (commit) histories in the views",
 						"scope": "window",
-						"order": 8
+						"order": 12
 					},
 					"gitlens.views.defaultItemLimit": {
 						"type": "number",
 						"default": 10,
 						"markdownDescription": "Specifies the default number of items to show in a view list. Use 0 to specify no limit",
 						"scope": "window",
-						"order": 10
+						"order": 20
 					},
 					"gitlens.views.pageItemLimit": {
 						"type": "number",
 						"default": 40,
 						"markdownDescription": "Specifies the number of items to show in a each page when paginating a view list. Use 0 to specify no limit",
 						"scope": "window",
-						"order": 11
+						"order": 21
 					},
 					"gitlens.views.formats.commits.label": {
 						"type": "string",
