@@ -93,6 +93,10 @@ export type GlobalStorage = {
 	[key in `azure:${string}:organizations`]: Stored<StoredAzureOrganization[] | undefined>;
 } & {
 	[key in `azure:${string}:projects`]: Stored<StoredAzureProject[] | undefined>;
+} & { [key in `bitbucket:${string}:account`]: Stored<StoredBitbucketAccount | undefined> } & {
+	[key in `bitbucket:${string}:workspaces`]: Stored<StoredBitbucketWorkspace[] | undefined>;
+} & {
+	[key in `bitbucket:${string}:repositories`]: Stored<StoredBitbucketRepository[] | undefined>;
 };
 
 export type StoredIntegrationConfigurations = Record<string, StoredConfiguredIntegrationDescriptor[] | undefined>;
@@ -243,6 +247,28 @@ export interface StoredAzureProject {
 	name: string;
 	resourceId: string;
 	resourceName: string;
+}
+
+export interface StoredBitbucketAccount {
+	id: string;
+	name: string | undefined;
+	username: string | undefined;
+	email: string | undefined;
+	avatarUrl: string | undefined;
+}
+
+export interface StoredBitbucketWorkspace {
+	key: string;
+	id: string;
+	name: string;
+	slug: string;
+}
+
+export interface StoredBitbucketRepository {
+	key: string;
+	owner: string;
+	name: string;
+	resourceId: string;
 }
 
 export interface StoredAvatar {
