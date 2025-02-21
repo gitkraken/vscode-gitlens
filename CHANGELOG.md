@@ -6,6 +6,8 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/) and this p
 
 ## [Unreleased]
 
+## [16.3.2] - 2025-02-21
+
 ## [16.3.1] - 2025-02-20
 
 ### Fixed
@@ -5988,7 +5990,8 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/) and this p
 
 - Initial release but still heavily a work in progress.
 
-[unreleased]: https://github.com/gitkraken/vscode-gitlens/compare/v16.3.1...HEAD
+[unreleased]: https://github.com/gitkraken/vscode-gitlens/compare/v16.3.2...HEAD
+[16.3.2]: https://github.com/gitkraken/vscode-gitlens/compare/v16.3.1...gitkraken:v16.3.2
 [16.3.1]: https://github.com/gitkraken/vscode-gitlens/compare/v16.3.0...gitkraken:v16.3.1
 [16.3.0]: https://github.com/gitkraken/vscode-gitlens/compare/v16.2.1...gitkraken:v16.3.0
 [16.2.1]: https://github.com/gitkraken/vscode-gitlens/compare/v16.2.0...gitkraken:v16.2.1
