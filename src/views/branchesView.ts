@@ -130,7 +130,7 @@ export class BranchesView extends ViewBase<'branches', BranchesViewNode, Branche
 	}
 
 	override get canSelectMany(): boolean {
-		return this.container.prereleaseOrDebugging;
+		return configuration.get('views.multiselect');
 	}
 
 	protected getRoot(): BranchesViewNode {

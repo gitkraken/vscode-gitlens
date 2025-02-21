@@ -122,7 +122,7 @@ export class WorktreesView extends ViewBase<'worktrees', WorktreesViewNode, Work
 	}
 
 	override get canSelectMany(): boolean {
-		return this.container.prereleaseOrDebugging;
+		return configuration.get('views.multiselect');
 	}
 
 	override async show(options?: { preserveFocus?: boolean | undefined }): Promise<void> {
