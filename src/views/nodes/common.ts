@@ -51,8 +51,10 @@ export class CommandMessageNode extends MessageNode {
 		description?: string,
 		tooltip?: string,
 		iconPath?: TreeItem['iconPath'],
+		contextValue?: string,
+		resourceUri?: Uri,
 	) {
-		super(view, parent, message, description, tooltip, iconPath);
+		super(view, parent, message, description, tooltip, iconPath, contextValue, resourceUri);
 	}
 
 	override getTreeItem(): TreeItem | Promise<TreeItem> {
