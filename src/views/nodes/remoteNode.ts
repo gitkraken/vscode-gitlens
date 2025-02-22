@@ -130,7 +130,7 @@ export class RemoteNode extends ViewNode<'remote', ViewsWithRemotes> {
 		if (this.remote.default) {
 			item.contextValue += '+default';
 		}
-		item.resourceUri = createViewDecorationUri('remote', { default: this.remote.default });
+		item.resourceUri = createViewDecorationUri('remote', { state: this.remote.default ? 'default' : undefined });
 
 		for (const { type, url } of this.remote.urls) {
 			tooltip += `\\\n${url} (${type})`;

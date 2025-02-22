@@ -1,4 +1,5 @@
-import { MarkdownString, TreeItem, TreeItemCollapsibleState } from 'vscode';
+import { MarkdownString, ThemeColor, ThemeIcon, TreeItem, TreeItemCollapsibleState } from 'vscode';
+import type { Colors } from '../../constants.colors';
 import { GitUri } from '../../git/gitUri';
 import { GitBranch } from '../../git/models/branch';
 import type { GitCommit } from '../../git/models/commit';
@@ -20,6 +21,7 @@ import { createRevisionRange } from '../../git/utils/revision.utils';
 import { createCommand } from '../../system/-webview/command';
 import { pluralize } from '../../system/string';
 import type { ViewsWithCommits } from '../viewBase';
+import { createViewDecorationUri } from '../viewDecorationProvider';
 import { CacheableChildrenViewNode } from './abstract/cacheableChildrenViewNode';
 import type { ClipboardType, ViewNode } from './abstract/viewNode';
 import { ContextValues, getViewNodeId } from './abstract/viewNode';
@@ -180,7 +182,15 @@ export async function getPullRequestChildren(
 					pullRequest,
 					repo,
 				),
-				`Missing remote '${identity.provider.repoDomain}'. Click to add.`,
+				`Unable to find a remote for '${identity.provider.repoDomain}'`,
+				undefined,
+				`Click to add a remote for '${identity.provider.repoDomain}'`,
+				new ThemeIcon(
+					'question',
+					new ThemeColor('gitlens.decorations.workspaceRepoMissingForegroundColor' satisfies Colors),
+				),
+				undefined,
+				createViewDecorationUri('remote', { state: 'missing' }),
 			),
 		];
 	}

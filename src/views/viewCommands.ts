@@ -489,10 +489,9 @@ export class ViewCommands implements Disposable {
 	private async addPullRequestRemote(node: ViewNode, pr: PullRequest, repo: Repository) {
 		const identity = getRepositoryIdentityForPullRequest(pr);
 		if (identity.remote?.url == null) return;
-		await repo.git
-			.remotes()
-			.addRemoteWithResult?.(identity.provider.repoDomain, identity.remote.url, { fetch: true });
-		return node.view.refreshNode(node, true);
+
+		await repo.git.remotes().addRemote?.(identity.provider.repoDomain, identity.remote.url, { fetch: true });
+		return node.triggerChange(true);
 	}
 
 	@log()

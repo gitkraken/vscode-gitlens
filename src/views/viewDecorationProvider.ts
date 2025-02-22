@@ -207,17 +207,25 @@ function getCommitFileStatusDecoration(uri: Uri, _token: CancellationToken): Fil
 }
 
 interface RemoteViewDecoration {
-	default?: boolean;
+	state?: 'default' | 'missing';
 }
 
 function getRemoteDecoration(uri: Uri, _token: CancellationToken): FileDecoration | undefined {
 	const state = getViewDecoration<'remote'>(uri);
 
-	if (state?.default) {
-		return {
-			badge: GlyphChars.Check,
-			tooltip: 'Default Remote',
-		};
+	switch (state?.state) {
+		case 'default':
+			return {
+				badge: GlyphChars.Check,
+				tooltip: 'Default Remote',
+			};
+
+		case 'missing':
+			return {
+				badge: '?',
+				color: new ThemeColor('gitlens.decorations.workspaceRepoMissingForegroundColor' satisfies Colors),
+				tooltip: '',
+			};
 	}
 
 	return undefined;
