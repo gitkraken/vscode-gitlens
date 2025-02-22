@@ -4817,6 +4817,11 @@
 				]
 			}
 		},
+		"gitlens.views.addPullRequestRemote": {
+			"label": "Add Pull Request Remote",
+			"icon": "$(add)",
+			"enablement": "!operationInProgress"
+		},
 		"gitlens.views.addRemote": {
 			"label": "Add Remote...",
 			"icon": "$(add)",
