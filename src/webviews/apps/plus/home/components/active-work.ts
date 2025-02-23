@@ -399,4 +399,8 @@ export class GlActiveBranchCard extends GlBranchCardBase {
 			></action-item>`,
 		];
 	}
+
+	protected getCollapsedActions(): TemplateResult[] {
+		return [];
+	}
 }
