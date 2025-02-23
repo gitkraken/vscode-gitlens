@@ -69,8 +69,8 @@ export class GlHomeApp extends GlApp<State> {
 		return html`
 			<div class="home scrollable">
 				<gl-home-header class="home__header"></gl-home-header>
-				${when(this.state?.amaBannerCollapsed === false, () => html`<gl-ama-banner></gl-ama-banner>`)}
 				${when(!this.state?.previewEnabled, () => html`<gl-preview-banner></gl-preview-banner>`)}
+				${when(this.state?.amaBannerCollapsed === false, () => html`<gl-ama-banner></gl-ama-banner>`)}
 				<gl-repo-alerts class="home__alerts"></gl-repo-alerts>
 				<main class="home__main scrollable" id="main">
 					${when(
