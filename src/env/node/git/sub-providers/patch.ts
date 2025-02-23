@@ -16,6 +16,7 @@ import { log } from '../../../../system/decorators/log';
 import { Logger } from '../../../../system/logger';
 import { getLogScope } from '../../../../system/logger.scope';
 import type { Git } from '../git';
+import { gitLogDefaultConfigs } from '../git';
 import type { LocalGitProvider } from '../localGitProvider';
 
 export class PatchGitSubProvider implements GitPatchSubProvider {
@@ -177,11 +178,16 @@ export class PatchGitSubProvider implements GitPatchSubProvider {
 
 		try {
 			// Apply the patch to our temp index, without touching the working directory
-			await this.git.apply2(repoPath, { env: env, stdin: contents }, '--cached');
+			await this.git.exec(
+				{ cwd: repoPath, configs: gitLogDefaultConfigs, env: env, stdin: contents },
+				'apply',
+				'--cached',
+				'-',
+			);
 
 			// Create a new tree from our patched index
 			const tree = (
-				await this.git.exec<string>(
+				await this.git.exec(
 					{
 						cwd: repoPath,
 						env: env,
@@ -192,7 +198,7 @@ export class PatchGitSubProvider implements GitPatchSubProvider {
 
 			// Create new commit from the tree
 			const sha = (
-				await this.git.exec<string>(
+				await this.git.exec(
 					{
 						cwd: repoPath,
 						env: env,
@@ -218,7 +224,12 @@ export class PatchGitSubProvider implements GitPatchSubProvider {
 	@log({ args: { 1: false } })
 	async validatePatch(repoPath: string | undefined, contents: string): Promise<boolean> {
 		try {
-			await this.git.apply2(repoPath!, { stdin: contents }, '--check');
+			await this.git.exec(
+				{ cwd: repoPath, configs: gitLogDefaultConfigs, stdin: contents },
+				'apply',
+				'--check',
+				'-',
+			);
 			return true;
 		} catch (ex) {
 			if (ex instanceof Error && ex.message) {

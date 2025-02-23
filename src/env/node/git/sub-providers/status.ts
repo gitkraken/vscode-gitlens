@@ -97,7 +97,7 @@ export class StatusGitSubProvider implements GitStatusSubProvider {
 				switch (operation) {
 					case 'cherry-pick': {
 						const cherryPickHead = (
-							await this.git.exec<string>(
+							await this.git.exec(
 								{ cwd: repoPath, errors: GitErrorHandling.Ignore },
 								'rev-parse',
 								'--quiet',
@@ -120,7 +120,7 @@ export class StatusGitSubProvider implements GitStatusSubProvider {
 					}
 					case 'merge': {
 						const mergeHead = (
-							await this.git.exec<string>(
+							await this.git.exec(
 								{ cwd: repoPath, errors: GitErrorHandling.Ignore },
 								'rev-parse',
 								'--quiet',
@@ -161,7 +161,7 @@ export class StatusGitSubProvider implements GitStatusSubProvider {
 					}
 					case 'revert': {
 						const revertHead = (
-							await this.git.exec<string>(
+							await this.git.exec(
 								{ cwd: repoPath, errors: GitErrorHandling.Ignore },
 								'rev-parse',
 								'--quiet',
@@ -194,7 +194,7 @@ export class StatusGitSubProvider implements GitStatusSubProvider {
 							stepsTotalResult,
 							stepsMessageResult,
 						] = await Promise.allSettled([
-							this.git.exec<string>(
+							this.git.exec(
 								{ cwd: repoPath, errors: GitErrorHandling.Ignore },
 								'rev-parse',
 								'--quiet',

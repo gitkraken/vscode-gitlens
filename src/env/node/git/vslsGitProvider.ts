@@ -17,11 +17,11 @@ export class VslsGit extends Git {
 		super();
 	}
 
-	override async exec<TOut extends string | Buffer>(options: GitCommandOptions, ...args: any[]): Promise<TOut> {
+	override async exec<T extends string | Buffer>(options: GitCommandOptions, ...args: any[]): Promise<T> {
 		if (options.local) {
 			// Since we will have a live share path here, just blank it out
 			options.cwd = '';
-			return this.localGit.exec<TOut>(options, ...args);
+			return this.localGit.exec<T>(options, ...args);
 		}
 
 		const guest = await Container.instance.vsls.guest();
@@ -30,7 +30,7 @@ export class VslsGit extends Git {
 			throw new Error('No guest');
 		}
 
-		return guest.git<TOut>(options, ...args);
+		return guest.git<T>(options, ...args);
 	}
 
 	override spawn(_options: GitSpawnOptions, ..._args: any[]): Promise<ChildProcess> {

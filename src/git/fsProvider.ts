@@ -73,7 +73,7 @@ export class GitFileSystemProvider implements FileSystemProvider, Disposable {
 
 		if (ref === deletedOrMissing) return emptyArray;
 
-		const data = await this.container.git.getRevisionContent(repoPath, path, ref);
+		const data = await this.container.git.revision(repoPath).getRevisionContent(ref, path);
 		return data != null ? data : emptyArray;
 	}
 
@@ -113,7 +113,7 @@ export class GitFileSystemProvider implements FileSystemProvider, Disposable {
 				};
 			}
 
-			treeItem = await this.container.git.getTreeEntryForRevision(repoPath, path, ref);
+			treeItem = await this.container.git.revision(repoPath).getTreeEntryForRevision(ref, path);
 		}
 
 		if (treeItem == null) throw FileSystemError.FileNotFound(uri);
@@ -140,7 +140,7 @@ export class GitFileSystemProvider implements FileSystemProvider, Disposable {
 
 	private async createSearchTree(ref: string, repoPath: string) {
 		const searchTree = TernarySearchTree.forPaths<GitTreeEntry>();
-		const trees = await this.container.git.getTreeForRevision(repoPath, ref);
+		const trees = await this.container.git.revision(repoPath).getTreeForRevision(ref);
 
 		// Add a fake root folder so that searches will work
 		searchTree.set('~', { ref: '', oid: '', path: '~', size: 0, type: 'tree' });

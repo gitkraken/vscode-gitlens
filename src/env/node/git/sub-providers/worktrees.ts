@@ -4,6 +4,7 @@ import { homedir } from 'os';
 import { Uri } from 'vscode';
 import type { Container } from '../../../../container';
 import type { GitCache } from '../../../../git/cache';
+import { GitErrorHandling } from '../../../../git/commandOptions';
 import {
 	WorktreeCreateError,
 	WorktreeCreateErrorReason,
@@ -41,7 +42,17 @@ export class WorktreesGitSubProvider implements GitWorktreesSubProvider {
 		const scope = getLogScope();
 
 		try {
-			await this.git.worktree__add(repoPath, path, options);
+			await this.git.exec(
+				{ cwd: repoPath },
+				'worktree',
+				'add',
+				options?.force ? '--force' : undefined,
+				...(options?.createBranch ? ['-b', options.createBranch] : []),
+				options?.detach ? '--detach' : undefined,
+				path,
+				options?.commitish || undefined,
+			);
+
 			this.container.events.fire('git:cache:reset', {
 				repoPath: repoPath,
 				caches: options?.createBranch ? ['branches', 'worktrees'] : ['worktrees'],
@@ -91,7 +102,7 @@ export class WorktreesGitSubProvider implements GitWorktreesSubProvider {
 			async function load(this: WorktreesGitSubProvider) {
 				try {
 					const [data, branches] = await Promise.all([
-						this.git.worktree__list(repoPath),
+						this.git.exec({ cwd: repoPath }, 'worktree', 'list', '--porcelain'),
 						this.provider.branches.getBranches(repoPath),
 					]);
 
@@ -155,7 +166,13 @@ export class WorktreesGitSubProvider implements GitWorktreesSubProvider {
 
 		path = normalizePath(typeof path === 'string' ? path : path.fsPath);
 		try {
-			await this.git.worktree__remove(repoPath, path, options);
+			await this.git.exec(
+				{ cwd: repoPath, errors: GitErrorHandling.Throw },
+				'worktree',
+				'remove',
+				options?.force ? '--force' : undefined,
+				path,
+			);
 		} catch (ex) {
 			Logger.error(ex, scope);
 
