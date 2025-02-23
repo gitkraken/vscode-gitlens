@@ -144,6 +144,10 @@ export class GLIntegrationsChip extends LitElement {
 			p {
 				margin: 0;
 			}
+
+			gl-popover::part(body) {
+				--max-width: 90vw;
+			}
 		`,
 	];
 
