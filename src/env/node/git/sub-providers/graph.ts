@@ -662,13 +662,15 @@ export class GraphGitSubProvider implements GitGraphSubProvider {
 		try {
 			const refAndDateParser = getRefAndDateParser();
 
-			const currentUser = search.query.includes('@me') ? await this.provider.config.getCurrentUser(repoPath) : undefined;
+			const currentUser = search.query.includes('@me')
+				? await this.provider.config.getCurrentUser(repoPath)
+				: undefined;
 
 			const { args: searchArgs, files, shas } = getGitArgsFromSearchQuery(search, currentUser);
 			if (shas?.size) {
-				const data = await this.git.show(
-					repoPath,
-					{ cancellation: options?.cancellation },
+				const data = await this.git.exec(
+					{ cwd: repoPath, cancellation: options?.cancellation, configs: gitLogDefaultConfigs },
+					'show',
 					'-s',
 					...refAndDateParser.arguments,
 					...shas.values(),

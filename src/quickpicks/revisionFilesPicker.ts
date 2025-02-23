@@ -81,7 +81,7 @@ export async function showRevisionFilesPicker(
 		quickpick.busy = true;
 		quickpick.show();
 
-		const tree = await container.git.getTreeForRevision(repoPath, ref);
+		const tree = await container.git.revision(repoPath).getTreeForRevision(ref);
 		const items: RevisionQuickPickItem[] = [
 			...filterMap(tree, file => {
 				// Exclude directories

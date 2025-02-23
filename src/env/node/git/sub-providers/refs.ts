@@ -1,6 +1,7 @@
 import type { Uri } from 'vscode';
 import type { Container } from '../../../../container';
 import type { GitCache } from '../../../../git/cache';
+import { GitErrorHandling } from '../../../../git/commandOptions';
 import type { GitRefsSubProvider } from '../../../../git/gitProvider';
 import type { GitBranch } from '../../../../git/models/branch';
 import { deletedOrMissing } from '../../../../git/models/revision';
@@ -97,8 +98,18 @@ export class RefsGitSubProvider implements GitRefsSubProvider {
 	}
 
 	@log()
-	validateBranchOrTagName(repoPath: string, ref: string): Promise<boolean> {
-		return this.git.check_ref_format(ref, repoPath);
+	async validateBranchOrTagName(repoPath: string, ref: string): Promise<boolean> {
+		try {
+			const data = await this.git.exec(
+				{ cwd: repoPath, errors: GitErrorHandling.Throw },
+				'check-ref-format',
+				'--branch',
+				ref,
+			);
+			return Boolean(data.trim());
+		} catch {
+			return false;
+		}
 	}
 
 	@log()

@@ -31,7 +31,7 @@ import { log } from '../../../../system/decorators/log';
 import { Logger } from '../../../../system/logger';
 import { getLogScope } from '../../../../system/logger.scope';
 import type { Git } from '../git';
-import { GitErrors } from '../git';
+import { gitDiffDefaultConfigs, GitErrors, gitLogDefaultConfigs } from '../git';
 import type { LocalGitProvider } from '../localGitProvider';
 
 export class DiffGitSubProvider implements GitDiffSubProvider {
@@ -44,10 +44,28 @@ export class DiffGitSubProvider implements GitDiffSubProvider {
 
 	@log()
 	async getChangedFilesCount(repoPath: string, ref?: string): Promise<GitDiffShortStat | undefined> {
-		const data = await this.git.diff__shortstat(repoPath, ref);
-		if (!data) return undefined;
+		const scope = getLogScope();
 
-		return parseGitDiffShortStat(data);
+		try {
+			const data = await this.git.exec(
+				{ cwd: repoPath, configs: gitDiffDefaultConfigs },
+				'diff',
+				'--shortstat',
+				'--no-ext-diff',
+				ref ? ref : undefined,
+				'--',
+			);
+			if (!data) return undefined;
+			return parseGitDiffShortStat(data);
+		} catch (ex) {
+			const msg: string = ex?.toString() ?? '';
+			if (GitErrors.noMergeBase.test(msg)) {
+				return undefined;
+			}
+
+			Logger.error(scope, ex);
+			throw ex;
+		}
 	}
 
 	@log()
@@ -61,19 +79,19 @@ export class DiffGitSubProvider implements GitDiffSubProvider {
 			| { context?: number; includeUntracked: boolean; uris?: never },
 	): Promise<GitDiff | undefined> {
 		const scope = getLogScope();
-		const params = [`-U${options?.context ?? 3}`];
+		const args = [`-U${options?.context ?? 3}`];
 
 		if (to === uncommitted) {
 			if (from != null) {
-				params.push(from);
+				args.push(from);
 			} else {
 				// Get only unstaged changes
 				from = 'HEAD';
 			}
 		} else if (to === uncommittedStaged) {
-			params.push('--staged');
+			args.push('--staged');
 			if (from != null) {
-				params.push(from);
+				args.push(from);
 			} else {
 				// Get only staged changes
 				from = 'HEAD';
@@ -81,21 +99,21 @@ export class DiffGitSubProvider implements GitDiffSubProvider {
 		} else if (from == null) {
 			if (to === '' || to.toUpperCase() === 'HEAD') {
 				from = 'HEAD';
-				params.push(from);
+				args.push(from);
 			} else {
 				from = `${to}^`;
-				params.push(from, to);
+				args.push(from, to);
 			}
 		} else if (to === '') {
-			params.push(from);
+			args.push(from);
 		} else {
-			params.push(from, to);
+			args.push(from, to);
 		}
 
 		let untrackedPaths: string[] | undefined;
 
 		if (options?.uris) {
-			params.push('--', ...options.uris.map(u => u.fsPath));
+			args.push('--', ...options.uris.map(u => u.fsPath));
 		} else if (options?.includeUntracked && to === uncommitted) {
 			const status = await this.provider.status?.getStatus(repoPath);
 			untrackedPaths = status?.untrackedChanges.map(f => f.path);
@@ -106,7 +124,12 @@ export class DiffGitSubProvider implements GitDiffSubProvider {
 
 		let data;
 		try {
-			data = await this.git.diff2(repoPath, { errors: GitErrorHandling.Throw }, ...params);
+			data = await this.git.exec(
+				{ cwd: repoPath, configs: gitLogDefaultConfigs, errors: GitErrorHandling.Throw },
+				'diff',
+				...args,
+				args.includes('--') ? undefined : '--',
+			);
 		} catch (ex) {
 			debugger;
 			Logger.error(ex, scope);
@@ -123,7 +146,16 @@ export class DiffGitSubProvider implements GitDiffSubProvider {
 
 	@log({ args: { 1: false } })
 	async getDiffFiles(repoPath: string, contents: string): Promise<GitDiffFiles | undefined> {
-		const data = await this.git.apply2(repoPath, { stdin: contents }, '--numstat', '--summary', '-z');
+		// const data = await this.git.apply2(repoPath, { stdin: contents }, '--numstat', '--summary', '-z');
+		const data = await this.git.exec(
+			{ cwd: repoPath, configs: gitLogDefaultConfigs, stdin: contents },
+			'apply',
+			'--numstat',
+			'--summary',
+			'-z',
+			'-',
+		);
+
 		if (!data) return undefined;
 
 		const files = parseGitApplyFiles(this.container, data, repoPath);
@@ -140,10 +172,21 @@ export class DiffGitSubProvider implements GitDiffSubProvider {
 		options?: { filters?: GitDiffFilter[]; path?: string; similarityThreshold?: number },
 	): Promise<GitFile[] | undefined> {
 		try {
-			const data = await this.git.diff__name_status(repoPath, ref1OrRange, ref2, {
-				similarityThreshold: configuration.get('advanced.similarityThreshold') ?? undefined,
-				...options,
-			});
+			const similarityThreshold =
+				options?.similarityThreshold ?? configuration.get('advanced.similarityThreshold') ?? undefined;
+			const data = await this.git.exec(
+				{ cwd: repoPath, configs: gitDiffDefaultConfigs },
+				'diff',
+				'--name-status',
+				`-M${similarityThreshold == null ? '' : `${similarityThreshold}%`}`,
+				'--no-ext-diff',
+				'-z',
+				options?.filters?.length ? `--diff-filter=${options.filters.join('')}` : undefined,
+				ref1OrRange ? ref1OrRange : undefined,
+				ref2 ? ref2 : undefined,
+				'--',
+				options?.path ? options.path : undefined,
+			);
 			if (!data) return undefined;
 
 			const files = parseGitDiffNameStatusFiles(data, repoPath);
@@ -519,7 +562,17 @@ export class DiffGitSubProvider implements GitDiffSubProvider {
 				Logger.log(scope, `Using tool=${tool}`);
 			}
 
-			await this.git.difftool(root, relativePath, tool, options);
+			await this.git.exec(
+				{ cwd: root },
+				'difftool',
+				'--no-prompt',
+				`--tool=${tool}`,
+				options?.staged ? '--staged' : undefined,
+				options?.ref1 ? options.ref1 : undefined,
+				options?.ref2 ? options.ref2 : undefined,
+				'--',
+				relativePath,
+			);
 		} catch (ex) {
 			const msg: string = ex?.toString() ?? '';
 			if (msg === 'No diff tool found' || /Unknown .+? tool/.test(msg)) {
@@ -556,7 +609,7 @@ export class DiffGitSubProvider implements GitDiffSubProvider {
 				Logger.log(scope, `Using tool=${tool}`);
 			}
 
-			await this.git.difftool__dir_diff(repoPath, tool, ref1, ref2);
+			await this.git.exec({ cwd: repoPath }, 'difftool', '--dir-diff', `--tool=${tool}`, ref1, ref2);
 		} catch (ex) {
 			const msg: string = ex?.toString() ?? '';
 			if (msg === 'No diff tool found' || /Unknown .+? tool/.test(msg)) {

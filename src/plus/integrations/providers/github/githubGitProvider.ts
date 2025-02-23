@@ -9,7 +9,7 @@ import type {
 	TextDocument,
 	WorkspaceFolder,
 } from 'vscode';
-import { authentication, EventEmitter, FileType, Uri, window, workspace } from 'vscode';
+import { authentication, EventEmitter, Uri, window, workspace } from 'vscode';
 import { encodeUtf8Hex } from '@env/hex';
 import { CharCode, Schemes } from '../../../../constants';
 import { HostingIntegrationId } from '../../../../constants.integrations';
@@ -45,7 +45,6 @@ import type { RepositoryChangeEvent } from '../../../../git/models/repository';
 import { Repository } from '../../../../git/models/repository';
 import type { GitRevisionRange } from '../../../../git/models/revision';
 import { deletedOrMissing } from '../../../../git/models/revision';
-import type { GitTreeEntry } from '../../../../git/models/tree';
 import { getVisibilityCacheKey } from '../../../../git/utils/remote.utils';
 import { isRevisionRange, isSha } from '../../../../git/utils/revision.utils';
 import { configuration } from '../../../../system/-webview/configuration';
@@ -73,6 +72,7 @@ import { DiffGitSubProvider } from './sub-providers/diff';
 import { GraphGitSubProvider } from './sub-providers/graph';
 import { RefsGitSubProvider } from './sub-providers/refs';
 import { RemotesGitSubProvider } from './sub-providers/remotes';
+import { RevisionGitSubProvider } from './sub-providers/revision';
 import { StatusGitSubProvider } from './sub-providers/status';
 import { TagsGitSubProvider } from './sub-providers/tags';
 
@@ -80,8 +80,13 @@ const emptyPromise: Promise<GitBlame | GitDiffFile | GitLog | undefined> = Promi
 
 const githubAuthenticationScopes = ['repo', 'read:user', 'user:email'];
 
-export type GitHubGitProviderInternal = Omit<GitHubGitProvider, 'ensureRepositoryContext'> & {
+export type GitHubGitProviderInternal = Omit<
+	GitHubGitProvider,
+	'ensureRepositoryContext' | 'createProviderUri' | 'createVirtualUri'
+> & {
 	ensureRepositoryContext: GitHubGitProvider['ensureRepositoryContext'];
+	createProviderUri: GitHubGitProvider['createProviderUri'];
+	createVirtualUri: GitHubGitProvider['createVirtualUri'];
 };
 
 export class GitHubGitProvider implements GitProvider, Disposable {
@@ -769,75 +774,6 @@ export class GitHubGitProvider implements GitProvider, Disposable {
 		return undefined;
 	}
 
-	@log()
-	async getRevisionContent(repoPath: string, path: string, ref: string): Promise<Uint8Array | undefined> {
-		const uri = ref ? this.createProviderUri(repoPath, ref, path) : this.createVirtualUri(repoPath, ref, path);
-		return workspace.fs.readFile(uri);
-	}
-
-	@log()
-	async getTreeEntryForRevision(repoPath: string, path: string, ref: string): Promise<GitTreeEntry | undefined> {
-		if (repoPath == null || !path) return undefined;
-
-		if (ref === 'HEAD') {
-			const context = await this.ensureRepositoryContext(repoPath);
-			if (context == null) return undefined;
-
-			const revision = await context.metadata.getRevision();
-			ref = revision?.revision;
-		}
-
-		const uri = ref ? this.createProviderUri(repoPath, ref, path) : this.createVirtualUri(repoPath, ref, path);
-
-		const stats = await workspace.fs.stat(uri);
-		if (stats == null) return undefined;
-
-		return {
-			ref: ref,
-			oid: '',
-			path: this.getRelativePath(uri, repoPath),
-			size: stats.size,
-			type: (stats.type & FileType.Directory) === FileType.Directory ? 'tree' : 'blob',
-		};
-	}
-
-	@log()
-	async getTreeForRevision(repoPath: string, ref: string): Promise<GitTreeEntry[]> {
-		if (repoPath == null) return [];
-
-		if (ref === 'HEAD') {
-			const context = await this.ensureRepositoryContext(repoPath);
-			if (context == null) return [];
-
-			const revision = await context.metadata.getRevision();
-			ref = revision?.revision;
-		}
-
-		const baseUri = ref ? this.createProviderUri(repoPath, ref) : this.createVirtualUri(repoPath, ref);
-
-		const entries = await workspace.fs.readDirectory(baseUri);
-		if (entries == null) return [];
-
-		const result: GitTreeEntry[] = [];
-		for (const [path, type] of entries) {
-			const uri = this.getAbsoluteUri(path, baseUri);
-
-			// TODO:@eamodio do we care about size?
-			// const stats = await workspace.fs.stat(uri);
-
-			result.push({
-				ref: ref,
-				oid: '',
-				path: this.getRelativePath(path, uri),
-				size: 0, // stats?.size,
-				type: (type & FileType.Directory) === FileType.Directory ? 'tree' : 'blob',
-			});
-		}
-
-		// TODO@eamodio: Implement this
-		return [];
-	}
-
 	isTrackable(uri: Uri): boolean {
 		return this.supportedSchemes.has(uri.scheme);
 	}
@@ -925,6 +861,14 @@ export class GitHubGitProvider implements GitProvider, Disposable {
 		return (this._remotes ??= new RemotesGitSubProvider(
 			this.container,
 			this._cache,
+			this as unknown as GitHubGitProviderInternal,
+		));
+	}
+
+	private _revision: RevisionGitSubProvider | undefined;
+	get revision(): RevisionGitSubProvider {
+		return (this._revision ??= new RevisionGitSubProvider(
+			this.container,
 			this as unknown as GitHubGitProviderInternal,
 		));
 	}

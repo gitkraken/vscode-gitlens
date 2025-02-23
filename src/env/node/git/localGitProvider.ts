@@ -11,6 +11,7 @@ import { GlyphChars, Schemes } from '../../../constants';
 import type { Container } from '../../../container';
 import { Features } from '../../../features';
 import { GitCache } from '../../../git/cache';
+import { GitErrorHandling } from '../../../git/commandOptions';
 import {
 	BlameIgnoreRevsFileBadRevisionError,
 	BlameIgnoreRevsFileError,
@@ -42,11 +43,9 @@ import { RemoteResourceType } from '../../../git/models/remoteResource';
 import type { RepositoryChangeEvent } from '../../../git/models/repository';
 import { Repository, RepositoryChange, RepositoryChangeComparisonMode } from '../../../git/models/repository';
 import { deletedOrMissing } from '../../../git/models/revision';
-import type { GitTreeEntry } from '../../../git/models/tree';
 import { parseGitBlame } from '../../../git/parsers/blameParser';
 import { parseGitFileDiff } from '../../../git/parsers/diffParser';
 import { parseGitLogSimpleFormat, parseGitLogSimpleRenamed } from '../../../git/parsers/logParser';
-import { parseGitLsFiles, parseGitTree } from '../../../git/parsers/treeParser';
 import { getBranchNameAndRemote, getBranchTrackingWithoutRemote } from '../../../git/utils/branch.utils';
 import { isBranchReference } from '../../../git/utils/reference.utils';
 import { getVisibilityCacheKey } from '../../../git/utils/remote.utils';
@@ -65,7 +64,7 @@ import { getBestPath, isFolderUri, relative, splitPath } from '../../../system/-
 import { gate } from '../../../system/decorators/-webview/gate';
 import { debug, log } from '../../../system/decorators/log';
 import { debounce } from '../../../system/function';
-import { first } from '../../../system/iterable';
+import { first, join } from '../../../system/iterable';
 import { Logger } from '../../../system/logger';
 import type { LogScope } from '../../../system/logger.scope';
 import { getLogScope, setLogScopeExit } from '../../../system/logger.scope';
@@ -89,6 +88,7 @@ import { GraphGitSubProvider } from './sub-providers/graph';
 import { PatchGitSubProvider } from './sub-providers/patch';
 import { RefsGitSubProvider } from './sub-providers/refs';
 import { RemotesGitSubProvider } from './sub-providers/remotes';
+import { RevisionGitSubProvider } from './sub-providers/revision';
 import { StagingGitSubProvider } from './sub-providers/staging';
 import { StashGitSubProvider } from './sub-providers/stash';
 import { StatusGitSubProvider } from './sub-providers/status';
@@ -935,7 +935,7 @@ export class LocalGitProvider implements GitProvider, Disposable {
 		let patch;
 		try {
 			patch = await this.git.diff(root, relativePath, ref1, ref2);
-			void (await this.git.apply(root, patch));
+			void (await this.git.exec({ cwd: root, stdin: patch }, 'apply', '--whitespace=warn'));
 		} catch (ex) {
 			const msg: string = ex?.toString() ?? '';
 			if (patch && /patch does not apply/i.test(msg)) {
@@ -949,7 +949,7 @@ export class LocalGitProvider implements GitProvider, Disposable {
 
 				if (result.title === 'Yes') {
 					try {
-						void (await this.git.apply(root, patch, { allowConflicts: true }));
+						void (await this.git.exec({ cwd: root, stdin: patch }, 'apply', '--whitespace=warn', '--3way'));
 
 						return;
 					} catch (e) {
@@ -1007,7 +1007,12 @@ export class LocalGitProvider implements GitProvider, Disposable {
 	async excludeIgnoredUris(repoPath: string, uris: Uri[]): Promise<Uri[]> {
 		const paths = new Map<string, Uri>(uris.map(u => [normalizePath(u.fsPath), u]));
 
-		const data = await this.git.check_ignore(repoPath, ...paths.keys());
+		const data = await this.git.exec(
+			{ cwd: repoPath, errors: GitErrorHandling.Ignore, stdin: join(paths.keys(), '\0') },
+			'check-ignore',
+			'-z',
+			'--stdin',
+		);
 		if (data == null) return uris;
 
 		const ignored = data.split('\0').filter(<T>(i?: T): i is T => Boolean(i));
@@ -1134,11 +1139,12 @@ export class LocalGitProvider implements GitProvider, Disposable {
 
 			// Since Git can't setup remote tracking when publishing a new branch to a specific commit, do it now
 			if (setUpstream != null) {
-				await this.git.branch__set_upstream(
-					repoPath,
+				await this.git.exec(
+					{ cwd: repoPath },
+					'branch',
+					'--set-upstream-to',
+					`${setUpstream.remote}/${setUpstream.remoteBranch}`,
 					setUpstream.branch,
-					setUpstream.remote,
-					setUpstream.remoteBranch,
 				);
 			}
 
@@ -1898,49 +1904,6 @@ export class LocalGitProvider implements GitProvider, Disposable {
 		return undefined;
 	}
 
-	@gate()
-	@log()
-	getRevisionContent(repoPath: string, path: string, ref: string): Promise<Uint8Array | undefined> {
-		const [relativePath, root] = splitPath(path, repoPath);
-
-		return this.git.show__content<Buffer>(root, relativePath, ref, { encoding: 'buffer' }) as Promise<
-			Uint8Array | undefined
-		>;
-	}
-
-	@log()
-	async getTreeEntryForRevision(repoPath: string, path: string, ref: string): Promise<GitTreeEntry | undefined> {
-		if (repoPath == null || !path) return undefined;
-
-		const [relativePath, root] = splitPath(path, repoPath);
-
-		if (isUncommittedStaged(ref)) {
-			const data = await this.git.ls_files(root, relativePath, { ref: ref });
-			const [result] = parseGitLsFiles(data);
-			if (result == null) return undefined;
-
-			const size = await this.git.cat_file__size(repoPath, result.oid);
-			return {
-				ref: ref,
-				oid: result.oid,
-				path: relativePath,
-				size: size,
-				type: 'blob',
-			};
-		}
-
-		const data = await this.git.ls_tree(root, ref, relativePath);
-		return parseGitTree(data, ref)[0];
-	}
-
-	@log()
-	async getTreeForRevision(repoPath: string, ref: string): Promise<GitTreeEntry[]> {
-		if (repoPath == null) return [];
-
-		const data = await this.git.ls_tree(repoPath, ref);
-		return parseGitTree(data, ref);
-	}
-
 	hasUnsafeRepositories(): boolean {
 		return this.unsafePaths.size !== 0;
 	}
@@ -2049,10 +2012,10 @@ export class LocalGitProvider implements GitProvider, Disposable {
 				}
 
 				if (!tracked && ref && !isUncommitted(ref)) {
-					tracked = Boolean(await this.git.ls_files(repoPath, relativePath, { ref: ref }));
+					tracked = Boolean(await this.git.ls_files(repoPath, relativePath, { rev: ref }));
 					// If we still haven't found this file, make sure it wasn't deleted in that ref (i.e. check the previous)
 					if (!tracked) {
-						tracked = Boolean(await this.git.ls_files(repoPath, relativePath, { ref: `${ref}^` }));
+						tracked = Boolean(await this.git.ls_files(repoPath, relativePath, { rev: `${ref}^` }));
 					}
 				}
 
@@ -2146,6 +2109,11 @@ export class LocalGitProvider implements GitProvider, Disposable {
 	private _remotes: RemotesGitSubProvider | undefined;
 	get remotes(): RemotesGitSubProvider {
 		return (this._remotes ??= new RemotesGitSubProvider(this.container, this.git, this._cache, this));
+	}
+
+	private _revision: RevisionGitSubProvider | undefined;
+	get revision(): RevisionGitSubProvider {
+		return (this._revision ??= new RevisionGitSubProvider(this.container, this.git, this._cache, this));
 	}
 
 	private _staging: StagingGitSubProvider | undefined;

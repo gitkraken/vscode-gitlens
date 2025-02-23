@@ -149,17 +149,16 @@ export class ContributorsGitSubProvider implements GitContributorsSubProvider {
 
 		const scope = getLogScope();
 
-		const args = ['shortlog', '-s', '--all'];
-		if (!options?.merges) {
-			args.push('--no-merges');
-		}
-		if (options?.since) {
-			args.push(`--since=${options.since}`);
-		}
-
 		try {
-			const data = await this.git.exec<string>({ cwd: repoPath }, ...args);
-			if (data == null) return undefined;
+			const data = await this.git.exec(
+				{ cwd: repoPath },
+				'shortlog',
+				'-s',
+				'--all',
+				!options?.merges ? '--no-merges' : undefined,
+				options?.since ? `--since=${options.since}` : undefined,
+			);
+			if (!data) return undefined;
 
 			const contributions = data
 				.split('\n')

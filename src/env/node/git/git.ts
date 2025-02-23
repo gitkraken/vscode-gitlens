@@ -30,18 +30,13 @@ import {
 } from '../../../git/errors';
 import type { GitDir } from '../../../git/gitProvider';
 import type { GitDiffFilter } from '../../../git/models/diff';
-import type { GitRevisionRange } from '../../../git/models/revision';
-import type { GitUser } from '../../../git/models/user';
-import { parseGitBranchesDefaultFormat } from '../../../git/parsers/branchParser';
 import { parseGitLogAllFormat, parseGitLogDefaultFormat } from '../../../git/parsers/logParser';
 import { parseGitRemoteUrl } from '../../../git/parsers/remoteParser';
 import { isUncommitted, isUncommittedStaged, shortenRevision } from '../../../git/utils/revision.utils';
 import { configuration } from '../../../system/-webview/configuration';
 import { splitPath } from '../../../system/-webview/path';
 import { getHostEditorCommand } from '../../../system/-webview/vscode';
-import { splitAt } from '../../../system/array';
 import { log } from '../../../system/decorators/log';
-import { join } from '../../../system/iterable';
 import { Logger } from '../../../system/logger';
 import { slowCallWarningThreshold } from '../../../system/logger.constants';
 import { getLoggableScopeBlockOverride, getLogScope } from '../../../system/logger.scope';
@@ -57,7 +52,7 @@ const emptyArray = Object.freeze([]) as unknown as any[];
 const emptyObj = Object.freeze({});
 
 const gitBranchDefaultConfigs = Object.freeze(['-c', 'color.branch=false']);
-const gitDiffDefaultConfigs = Object.freeze(['-c', 'color.diff=false']);
+export const gitDiffDefaultConfigs = Object.freeze(['-c', 'color.diff=false']);
 export const gitLogDefaultConfigs = Object.freeze(['-c', 'log.showSignature=false']);
 export const gitLogDefaultConfigsWithFiles = Object.freeze([
 	'-c',
@@ -198,14 +193,16 @@ export class Git {
 	/** Map of running git commands -- avoids running duplicate overlaping commands */
 	private readonly pendingCommands = new Map<string, Promise<string | Buffer>>();
 
-	async exec(options: ExitCodeOnlyGitCommandOptions, ...args: any[]): Promise<number>;
-	async exec<T extends string | Buffer>(options: GitCommandOptions, ...args: any[]): Promise<T>;
-	async exec<T extends string | Buffer>(options: GitCommandOptions, ...args: any[]): Promise<T> {
+	async exec(options: ExitCodeOnlyGitCommandOptions, ...args: unknown[]): Promise<number>;
+	async exec(options: GitCommandOptions, ...args: unknown[]): Promise<string>;
+	async exec<T extends string | Buffer>(options: GitCommandOptions, ...args: unknown[]): Promise<T>;
+	async exec<T extends string | Buffer>(options: GitCommandOptions, ...args: unknown[]): Promise<T> {
 		if (!workspace.isTrusted) throw new WorkspaceUntrustedError();
 
 		const start = hrtime();
 
 		const { configs, correlationKey, errors: errorHandling, encoding, ...opts } = options;
+		args = args.filter(a => a != null);
 
 		const runOpts: RunOptions = {
 			...opts,
@@ -390,44 +387,6 @@ export class Git {
 
 	// Git commands
 
-	add(repoPath: string | undefined, pathspecs: string[], ...args: string[]): Promise<string> {
-		return this.exec<string>({ cwd: repoPath }, 'add', ...args, '--', ...pathspecs);
-	}
-
-	apply(repoPath: string | undefined, patch: string, options: { allowConflicts?: boolean } = {}): Promise<string> {
-		const params = ['apply', '--whitespace=warn'];
-		if (options.allowConflicts) {
-			params.push('-3');
-		}
-		return this.exec<string>({ cwd: repoPath, stdin: patch }, ...params);
-	}
-
-	async apply2(
-		repoPath: string,
-		options?: {
-			cancellation?: CancellationToken;
-			configs?: readonly string[];
-			errors?: GitErrorHandling;
-			env?: Record<string, unknown>;
-			stdin?: string;
-		},
-		...args: string[]
-	): Promise<string> {
-		return this.exec<string>(
-			{
-				cwd: repoPath,
-				cancellation: options?.cancellation,
-				configs: options?.configs ?? gitLogDefaultConfigs,
-				env: options?.env,
-				errors: options?.errors,
-				stdin: options?.stdin,
-			},
-			'apply',
-			...args,
-			...(options?.stdin ? ['-'] : emptyArray),
-		);
-	}
-
 	private readonly ignoreRevsFileMap = new Map<string, boolean>();
 
 	async blame(
@@ -526,7 +485,7 @@ export class Git {
 		}
 
 		try {
-			const blame = await this.exec<string>(
+			const blame = await this.exec(
 				{ cwd: root, stdin: stdin, correlationKey: options?.correlationKey },
 				...params,
 				'--',
@@ -547,14 +506,6 @@ export class Git {
 
 			throw ex;
 		}
-	}
-
-	branch(repoPath: string, ...args: string[]): Promise<string> {
-		return this.exec<string>({ cwd: repoPath }, 'branch', ...args);
-	}
-
-	branch__set_upstream(repoPath: string, branch: string, remote: string, remoteBranch: string): Promise<string> {
-		return this.exec<string>({ cwd: repoPath }, 'branch', '--set-upstream-to', `${remote}/${remoteBranch}`, branch);
 	}
 
 	branchOrTag__containsOrPointsAt(
@@ -585,52 +536,10 @@ export class Git {
 			params.push(options.name);
 		}
 
-		return this.exec<string>(
+		return this.exec(
 			{ cwd: repoPath, configs: gitBranchDefaultConfigs, errors: GitErrorHandling.Ignore },
 			...params,
 		);
-	}
-
-	async cat_file__size(repoPath: string, oid: string): Promise<number> {
-		const data = await this.exec<string>({ cwd: repoPath }, 'cat-file', '-s', oid);
-		return data.length ? parseInt(data.trim(), 10) : 0;
-	}
-
-	check_ignore(repoPath: string, ...files: string[]): Promise<string> {
-		return this.exec<string>(
-			{ cwd: repoPath, errors: GitErrorHandling.Ignore, stdin: files.join('\0') },
-			'check-ignore',
-			'-z',
-			'--stdin',
-		);
-	}
-
-	check_mailmap(repoPath: string, author: string): Promise<string> {
-		return this.exec<string>({ cwd: repoPath, errors: GitErrorHandling.Ignore }, 'check-mailmap', author);
-	}
-
-	async check_ref_format(
-		ref: string,
-		repoPath?: string,
-		options: { branch?: boolean } = { branch: true },
-	): Promise<boolean> {
-		const params = ['check-ref-format'];
-		if (options.branch) {
-			params.push('--branch');
-		} else {
-			params.push('--normalize');
-		}
-
-		try {
-			const data = await this.exec<string>(
-				{ cwd: repoPath ?? '', errors: GitErrorHandling.Throw },
-				...params,
-				ref,
-			);
-			return Boolean(data.trim());
-		} catch {
-			return false;
-		}
 	}
 
 	checkout(
@@ -651,7 +560,7 @@ export class Git {
 			}
 		}
 
-		return this.exec<string>({ cwd: repoPath }, ...params);
+		return this.exec({ cwd: repoPath }, ...params);
 	}
 
 	async cherrypick(
@@ -666,7 +575,7 @@ export class Git {
 		params.push(sha);
 
 		try {
-			await this.exec<string>({ cwd: repoPath, errors: options?.errors }, ...params);
+			await this.exec({ cwd: repoPath, errors: options?.errors }, ...params);
 		} catch (ex) {
 			const msg: string = ex?.toString() ?? '';
 			let reason: CherryPickErrorReason = CherryPickErrorReason.Other;
@@ -696,13 +605,13 @@ export class Git {
 			folderPath = joinPath(parentPath, `${remotePath}-${count}`);
 		}
 
-		await this.exec<string>({ cwd: parentPath }, 'clone', url, folderPath);
+		await this.exec({ cwd: parentPath }, 'clone', url, folderPath);
 
 		return folderPath;
 	}
 
 	async config__get(key: string, repoPath?: string, options?: { local?: boolean }): Promise<string | undefined> {
-		const data = await this.exec<string>(
+		const data = await this.exec(
 			{ cwd: repoPath ?? '', errors: GitErrorHandling.Ignore, local: options?.local },
 			'config',
 			'--get',
@@ -716,23 +625,13 @@ export class Git {
 		repoPath?: string,
 		options?: { local?: boolean },
 	): Promise<string | undefined> {
-		const data = await this.exec<string>(
+		const data = await this.exec(
 			{ cwd: repoPath ?? '', errors: GitErrorHandling.Ignore, local: options?.local },
 			'config',
 			'--get-regex',
 			pattern,
 		);
 		return data.length === 0 ? undefined : data.trim();
-	}
-
-	async config__set(key: string, value: string | undefined, repoPath?: string): Promise<void> {
-		const params = ['config', '--local'];
-		if (value == null) {
-			params.push('--unset', key);
-		} else {
-			params.push(key, value);
-		}
-		await this.exec<string>({ cwd: repoPath ?? '', local: true }, ...params);
 	}
 
 	async diff(
@@ -774,7 +673,7 @@ export class Git {
 		}
 
 		try {
-			return await this.exec<string>(
+			return await this.exec(
 				{
 					cwd: repoPath,
 					configs: gitDiffDefaultConfigs,
@@ -797,31 +696,6 @@ export class Git {
 
 			throw ex;
 		}
-	}
-
-	async diff2(
-		repoPath: string,
-		options?: {
-			cancellation?: CancellationToken;
-			configs?: readonly string[];
-			errors?: GitErrorHandling;
-			stdin?: string;
-		},
-		...args: string[]
-	): Promise<string> {
-		return this.exec<string>(
-			{
-				cwd: repoPath,
-				cancellation: options?.cancellation,
-				configs: options?.configs ?? gitLogDefaultConfigs,
-				errors: options?.errors,
-				stdin: options?.stdin,
-			},
-			'diff',
-			...(options?.stdin ? ['--stdin'] : emptyArray),
-			...args,
-			...(!args.includes('--') ? ['--'] : emptyArray),
-		);
 	}
 
 	async diff__contents(
@@ -852,7 +726,7 @@ export class Git {
 		params.push('--no-index');
 
 		try {
-			return await this.exec<string>(
+			return await this.exec(
 				{
 					cwd: repoPath,
 					configs: gitDiffDefaultConfigs,
@@ -882,84 +756,6 @@ export class Git {
 
 			throw ex;
 		}
-	}
-
-	diff__name_status(
-		repoPath: string,
-		ref1?: string,
-		ref2?: string,
-		options?: { filters?: GitDiffFilter[]; path?: string; similarityThreshold?: number },
-	): Promise<string> {
-		const params = [
-			'diff',
-			'--name-status',
-			`-M${options?.similarityThreshold == null ? '' : `${options?.similarityThreshold}%`}`,
-			'--no-ext-diff',
-			'-z',
-		];
-		if (options?.filters?.length) {
-			params.push(`--diff-filter=${options.filters.join('')}`);
-		}
-		if (ref1) {
-			params.push(ref1);
-		}
-		if (ref2) {
-			params.push(ref2);
-		}
-
-		params.push('--');
-		if (options?.path) {
-			params.push(options.path);
-		}
-
-		return this.exec<string>({ cwd: repoPath, configs: gitDiffDefaultConfigs }, ...params);
-	}
-
-	async diff__shortstat(repoPath: string, ref?: string): Promise<string | undefined> {
-		const params = ['diff', '--shortstat', '--no-ext-diff'];
-		if (ref) {
-			params.push(ref);
-		}
-
-		try {
-			return await this.exec<string>({ cwd: repoPath, configs: gitDiffDefaultConfigs }, ...params, '--');
-		} catch (ex) {
-			const msg: string = ex?.toString() ?? '';
-			if (GitErrors.noMergeBase.test(msg)) {
-				return undefined;
-			}
-
-			throw ex;
-		}
-	}
-
-	difftool(
-		repoPath: string,
-		fileName: string,
-		tool: string,
-		options: { ref1?: string; ref2?: string; staged?: boolean } = {},
-	): Promise<string> {
-		const params = ['difftool', '--no-prompt', `--tool=${tool}`];
-		if (options.staged) {
-			params.push('--staged');
-		}
-		if (options.ref1) {
-			params.push(options.ref1);
-		}
-		if (options.ref2) {
-			params.push(options.ref2);
-		}
-
-		return this.exec<string>({ cwd: repoPath }, ...params, '--', fileName);
-	}
-
-	difftool__dir_diff(repoPath: string, tool: string, ref1: string, ref2?: string): Promise<string> {
-		const params = ['difftool', '--dir-diff', `--tool=${tool}`, ref1];
-		if (ref2) {
-			params.push(ref2);
-		}
-
-		return this.exec<string>({ cwd: repoPath }, ...params);
 	}
 
 	async fetch(
@@ -994,7 +790,7 @@ export class Git {
 		}
 
 		try {
-			void (await this.exec<string>({ cwd: repoPath }, ...params));
+			void (await this.exec({ cwd: repoPath }, ...params));
 		} catch (ex) {
 			const msg: string = ex?.toString() ?? '';
 			let reason: FetchErrorReason = FetchErrorReason.Other;
@@ -1051,7 +847,7 @@ export class Git {
 		}
 
 		try {
-			void (await this.exec<string>({ cwd: repoPath }, ...params));
+			void (await this.exec({ cwd: repoPath }, ...params));
 		} catch (ex) {
 			const msg: string = ex?.toString() ?? '';
 			let reason: PushErrorReason = PushErrorReason.Other;
@@ -1098,7 +894,7 @@ export class Git {
 		}
 
 		try {
-			void (await this.exec<string>({ cwd: repoPath }, ...params));
+			void (await this.exec({ cwd: repoPath }, ...params));
 		} catch (ex) {
 			const msg: string = ex?.toString() ?? '';
 			let reason: PullErrorReason = PullErrorReason.Other;
@@ -1137,15 +933,6 @@ export class Git {
 		}
 	}
 
-	for_each_ref__branch(repoPath: string, options: { all: boolean } = { all: false }): Promise<string> {
-		const params = ['for-each-ref', `--format=${parseGitBranchesDefaultFormat}`, 'refs/heads'];
-		if (options.all) {
-			params.push('refs/remotes');
-		}
-
-		return this.exec<string>({ cwd: repoPath }, ...params);
-	}
-
 	log(
 		repoPath: string,
 		rev?: string,
@@ -1157,7 +944,7 @@ export class Git {
 		},
 		...args: string[]
 	): Promise<string> {
-		return this.exec<string>(
+		return this.exec(
 			{
 				cwd: repoPath,
 				cancellation: options?.cancellation,
@@ -1364,7 +1151,7 @@ export class Git {
 			params.push('--', file);
 		}
 
-		return this.exec<string>({ cwd: root, configs: gitLogDefaultConfigs }, ...params);
+		return this.exec({ cwd: root, configs: gitLogDefaultConfigs }, ...params);
 	}
 
 	async log__file_recent(
@@ -1392,7 +1179,7 @@ export class Git {
 			params.push(options?.ref);
 		}
 
-		const data = await this.exec<string>(
+		const data = await this.exec(
 			{
 				cancellation: options?.cancellation,
 				cwd: repoPath,
@@ -1405,265 +1192,27 @@ export class Git {
 		);
 		return data.length === 0 ? undefined : data.trim();
 	}
-
-	async log__find_object(
-		repoPath: string,
-		oid: string,
-		ref: string,
-		ordering: 'date' | 'author-date' | 'topo' | null,
-		file?: string,
-		cancellation?: CancellationToken,
-	): Promise<string | undefined> {
-		const params = ['log', '-n1', '--no-renames', '--format=%H', `--find-object=${oid}`, ref];
-
-		if (ordering) {
-			params.push(`--${ordering}-order`);
-		}
-
-		if (file) {
-			params.push('--', file);
-		}
-
-		const data = await this.exec<string>(
-			{
-				cancellation: cancellation,
-				cwd: repoPath,
-				configs: gitLogDefaultConfigs,
-				errors: GitErrorHandling.Ignore,
-			},
-			...params,
-		);
-		return data.length === 0 ? undefined : data.trim();
-	}
-
-	async log__recent(
-		repoPath: string,
-		ordering?: 'date' | 'author-date' | 'topo' | null,
-	): Promise<string | undefined> {
-		const params = ['log', '-n1', '--format=%H'];
-
-		if (ordering) {
-			params.push(`--${ordering}-order`);
-		}
-
-		const data = await this.exec<string>(
-			{ cwd: repoPath, configs: gitLogDefaultConfigs, errors: GitErrorHandling.Ignore },
-			...params,
-			'--',
-		);
-
-		return data.length === 0 ? undefined : data.trim();
-	}
-
-	async log__recent_committerdate(
-		repoPath: string,
-		ordering?: 'date' | 'author-date' | 'topo' | null,
-	): Promise<string | undefined> {
-		const params = ['log', '-n1', '--format=%ct'];
-
-		if (ordering) {
-			params.push(`--${ordering}-order`);
-		}
-
-		const data = await this.exec<string>(
-			{ cwd: repoPath, configs: gitLogDefaultConfigs, errors: GitErrorHandling.Ignore },
-			...params,
-			'--',
-		);
-
-		return data.length === 0 ? undefined : data.trim();
-	}
-
-	log__search(
-		repoPath: string,
-		search: string[] = emptyArray,
-		options?: {
-			limit?: number;
-			ordering?: 'date' | 'author-date' | 'topo' | null;
-			skip?: number;
-			shas?: Set<string>;
-			stdin?: string;
-		},
-	): Promise<string> {
-		if (options?.shas != null) {
-			const stdin = join(options.shas, '\n');
-			return this.exec<string>(
-				{ cwd: repoPath, stdin: stdin },
-				'show',
-				'--stdin',
-				'--name-status',
-				`--format=${parseGitLogDefaultFormat}`,
-				'--use-mailmap',
-			);
-		}
-
-		let files;
-		[search, files] = splitAt(search, search.indexOf('--'));
-
-		return this.exec<string>(
-			{ cwd: repoPath, configs: ['-C', repoPath, ...gitLogDefaultConfigs], stdin: options?.stdin },
-			'log',
-			...(options?.stdin ? ['--stdin'] : emptyArray),
-			'--name-status',
-			`--format=${parseGitLogDefaultFormat}`,
-			'--use-mailmap',
-			...search,
-			...(options?.ordering ? [`--${options.ordering}-order`] : emptyArray),
-			...(options?.limit ? [`-n${options.limit + 1}`] : emptyArray),
-			...(options?.skip ? [`--skip=${options.skip}`] : emptyArray),
-			...files,
-		);
-	}
-
-	//  log__shortstat(repoPath: string, options: { ref?: string }) {
-	//     const params = ['log', '--shortstat', '--oneline'];
-	//     if (options.ref && !isUncommittedStaged(options.ref)) {
-	//         params.push(options.ref);
-	//     }
-	//     return this.git<string>({ cwd: repoPath, configs: gitLogDefaultConfigs }, ...params, '--');
-	// }
 
 	async ls_files(
 		repoPath: string,
 		fileName: string,
-		options?: { ref?: string; untracked?: boolean },
+		options?: { rev?: string; untracked?: boolean },
 	): Promise<string | undefined> {
 		const params = ['ls-files'];
-		if (options?.ref) {
-			if (!isUncommitted(options.ref)) {
-				params.push(`--with-tree=${options.ref}`);
-			} else if (isUncommittedStaged(options.ref)) {
+		if (options?.rev) {
+			if (!isUncommitted(options.rev)) {
+				params.push(`--with-tree=${options.rev}`);
+			} else if (isUncommittedStaged(options.rev)) {
 				params.push('--stage');
 			}
 		}
 
-		if (!options?.ref && options?.untracked) {
+		if (!options?.rev && options?.untracked) {
 			params.push('-o');
 		}
 
-		const data = await this.exec<string>(
-			{ cwd: repoPath, errors: GitErrorHandling.Ignore },
-			...params,
-			'--',
-			fileName,
-		);
+		const data = await this.exec({ cwd: repoPath, errors: GitErrorHandling.Ignore }, ...params, '--', fileName);
 		return data.length === 0 ? undefined : data.trim();
-	}
-
-	ls_remote(repoPath: string, remote: string, ref?: string): Promise<string> {
-		return this.exec<string>({ cwd: repoPath }, 'ls-remote', remote, ref);
-	}
-
-	ls_remote__HEAD(repoPath: string, remote: string): Promise<string> {
-		return this.exec<string>({ cwd: repoPath }, 'ls-remote', '--symref', remote, 'HEAD');
-	}
-
-	async ls_tree(repoPath: string, ref: string, path?: string): Promise<string | undefined> {
-		const params = ['ls-tree'];
-		if (path) {
-			params.push('-l', ref, '--', path);
-		} else {
-			params.push('-lrt', ref, '--');
-		}
-		const data = await this.exec<string>({ cwd: repoPath, errors: GitErrorHandling.Ignore }, ...params);
-		return data.length === 0 ? undefined : data.trim();
-	}
-
-	merge_base(repoPath: string, rev1: string, rev2: string, options?: { forkPoint?: boolean }): Promise<string> {
-		const params = ['merge-base'];
-		if (options?.forkPoint) {
-			params.push('--fork-point');
-		}
-
-		return this.exec<string>({ cwd: repoPath }, ...params, rev1, rev2);
-	}
-
-	async merge_base__is_ancestor(repoPath: string, rev1: string, rev2: string): Promise<boolean> {
-		const params = ['merge-base', '--is-ancestor'];
-		const exitCode = await this.exec({ cwd: repoPath, exitCodeOnly: true }, ...params, rev1, rev2);
-		return exitCode === 0;
-	}
-
-	async merge_tree(repoPath: string, branch: string, target: string, ...args: string[]): Promise<string> {
-		try {
-			return await this.exec<string>(
-				{ cwd: repoPath, errors: GitErrorHandling.Throw },
-				'merge-tree',
-				...args,
-				branch,
-				target,
-			);
-		} catch (ex) {
-			const msg: string = ex?.toString() ?? '';
-
-			if (GitErrors.notAValidObjectName.test(msg)) {
-				throw new Error(
-					`'${target}' or '${branch}' not found - ensure the branches exist and are fully qualified (e.g. 'refs/heads/main')`,
-				);
-			}
-			if (GitErrors.badRevision.test(msg)) {
-				throw new Error(`Invalid branch name: ${msg.slice(msg.indexOf("'"))}`);
-			}
-			if (GitErrors.noMergeBase.test(msg)) {
-				throw new Error(`Unable to merge '${branch}' and '${target}' as they have no common ancestor`);
-			}
-
-			if (ex instanceof RunError) return ex.stdout;
-
-			debugger;
-			return '';
-		}
-	}
-
-	reflog(
-		repoPath: string,
-		options?: {
-			cancellation?: CancellationToken;
-			configs?: readonly string[];
-			ref?: string;
-			errors?: GitErrorHandling;
-			stdin?: string;
-		},
-		...args: string[]
-	): Promise<string> {
-		return this.exec<string>(
-			{
-				cwd: repoPath,
-				cancellation: options?.cancellation,
-				configs: options?.configs ?? gitLogDefaultConfigs,
-				errors: options?.errors,
-				stdin: options?.stdin,
-			},
-			'reflog',
-			...(options?.stdin ? ['--stdin'] : emptyArray),
-			...args,
-			...(options?.ref && !isUncommittedStaged(options.ref) ? [options.ref] : emptyArray),
-			...(!args.includes('--') ? ['--'] : emptyArray),
-		);
-	}
-
-	remote(repoPath: string): Promise<string> {
-		return this.exec<string>({ cwd: repoPath }, 'remote', '-v');
-	}
-
-	remote__add(repoPath: string, name: string, url: string, options?: { fetch?: boolean }): Promise<string> {
-		const params = ['remote', 'add'];
-		if (options?.fetch) {
-			params.push('-f');
-		}
-		return this.exec<string>({ cwd: repoPath }, ...params, name, url);
-	}
-
-	remote__prune(repoPath: string, name: string): Promise<string> {
-		return this.exec<string>({ cwd: repoPath }, 'remote', 'prune', name);
-	}
-
-	remote__remove(repoPath: string, name: string): Promise<string> {
-		return this.exec<string>({ cwd: repoPath }, 'remote', 'remove', name);
-	}
-
-	remote__get_url(repoPath: string, remote: string): Promise<string> {
-		return this.exec<string>({ cwd: repoPath }, 'remote', 'get-url', remote);
 	}
 
 	async reset(
@@ -1682,7 +1231,7 @@ export class Git {
 			if (options?.ref) {
 				flags.push(options.ref);
 			}
-			await this.exec<string>({ cwd: repoPath }, 'reset', '-q', ...flags, '--', ...pathspecs);
+			await this.exec({ cwd: repoPath }, 'reset', '-q', ...flags, '--', ...pathspecs);
 		} catch (ex) {
 			const msg: string = ex?.toString() ?? '';
 			for (const [error, reason] of resetErrorAndReason) {
@@ -1695,99 +1244,12 @@ export class Git {
 		}
 	}
 
-	async rev_list(
-		repoPath: string,
-		ref: string,
-		options?: { all?: boolean; maxParents?: number; since?: string },
-	): Promise<string[] | undefined> {
-		const params = ['rev-list'];
-		if (options?.all) {
-			params.push('--all');
-		}
-
-		if (options?.maxParents != null) {
-			params.push(`--max-parents=${options.maxParents}`);
-		}
-
-		if (options?.since) {
-			params.push(`--since="${options.since}"`, '--date-order');
-		}
-
-		const rawData = await this.exec<string>(
-			{ cwd: repoPath, errors: GitErrorHandling.Ignore },
-			...params,
-			ref,
-			'--',
-		);
-		const data = rawData.trim().split('\n');
-		if (data.length === 0) return undefined;
-
-		return data;
-	}
-
-	async rev_list__count(repoPath: string, ref: string, all?: boolean): Promise<number | undefined> {
-		const params = ['rev-list', '--count'];
-		if (all) {
-			params.push('--all');
-		}
-
-		let data = await this.exec<string>({ cwd: repoPath, errors: GitErrorHandling.Ignore }, ...params, ref, '--');
-		data = data.trim();
-		if (data.length === 0) return undefined;
-
-		const result = parseInt(data, 10);
-		return isNaN(result) ? undefined : result;
-	}
-
-	async rev_list__left_right(
-		repoPath: string,
-		range: GitRevisionRange,
-		authors?: GitUser[] | undefined,
-		excludeMerges?: boolean,
-	): Promise<{ left: number; right: number } | undefined> {
-		const params = ['rev-list', '--left-right', '--count'];
-
-		if (authors?.length) {
-			params.push(...authors.map(a => `--author=^${a.name} <${a.email}>$`));
-		}
-
-		if (excludeMerges) {
-			params.push('--no-merges');
-		}
-
-		const data = await this.exec<string>(
-			{ cwd: repoPath, errors: GitErrorHandling.Ignore },
-			...params,
-			range,
-			'--',
-		);
-		if (data.length === 0) return undefined;
-
-		const parts = data.split('\t');
-		if (parts.length !== 2) return undefined;
-
-		const [left, right] = parts;
-		const result = {
-			left: parseInt(left, 10),
-			right: parseInt(right, 10),
-		};
-
-		if (isNaN(result.left) || isNaN(result.right)) return undefined;
-
-		return result;
-	}
-
-	async rev_parse(repoPath: string, ref: string): Promise<string | undefined> {
-		const data = await this.exec<string>({ cwd: repoPath, errors: GitErrorHandling.Ignore }, 'rev-parse', ref);
-		return data.length === 0 ? undefined : data.trim();
-	}
-
 	async rev_parse__currentBranch(
 		repoPath: string,
 		ordering: 'date' | 'author-date' | 'topo' | null,
 	): Promise<[string, string | undefined] | undefined> {
 		try {
-			const data = await this.exec<string>(
+			const data = await this.exec(
 				{ cwd: repoPath, errors: GitErrorHandling.Throw },
 				'rev-parse',
 				'--abbrev-ref',
@@ -1805,17 +1267,22 @@ export class Git {
 				}
 
 				try {
-					const data = await this.symbolic_ref(repoPath, 'HEAD');
+					const data = await this.exec({ cwd: repoPath }, 'symbolic-ref', '--short', 'HEAD');
 					if (data != null) return [data.trim(), undefined];
 				} catch {}
 
 				try {
-					const data = await this.symbolic_ref(repoPath, 'refs/remotes/origin/HEAD');
+					const data = await this.exec(
+						{ cwd: repoPath },
+						'symbolic-ref',
+						'--short',
+						'refs/remotes/origin/HEAD',
+					);
 					if (data != null) return [data.trim().substring('origin/'.length), undefined];
 				} catch (ex) {
 					if (/is not a symbolic ref/.test(ex.stderr)) {
 						try {
-							const data = await this.ls_remote__HEAD(repoPath, 'origin');
+							const data = await this.exec({ cwd: repoPath }, 'ls-remote', '--symref', 'origin', 'HEAD');
 							if (data != null) {
 								const match = /ref:\s(\S+)\s+HEAD/m.exec(data);
 								if (match != null) {
@@ -1850,8 +1317,17 @@ export class Git {
 			}
 
 			if (GitWarnings.headNotABranch.test(msg)) {
-				const sha = await this.log__recent(repoPath, ordering);
-				if (sha === undefined) return undefined;
+				const sha = (
+					await this.exec(
+						{ cwd: repoPath, configs: gitLogDefaultConfigs, errors: GitErrorHandling.Ignore },
+						'log',
+						'-n1',
+						'--format=%H',
+						ordering ? `--${ordering}-order` : undefined,
+						'--',
+					)
+				)?.trim();
+				if (!sha) return undefined;
 
 				return [`(HEAD detached at ${shortenRevision(sha)})`, sha];
 			}
@@ -1862,13 +1338,13 @@ export class Git {
 	}
 
 	async rev_parse__git_dir(cwd: string): Promise<{ path: string; commonPath?: string } | undefined> {
-		const data = await this.exec<string>(
+		const data = await this.exec(
 			{ cwd: cwd, errors: GitErrorHandling.Ignore },
 			'rev-parse',
 			'--git-dir',
 			'--git-common-dir',
 		);
-		if (data.length === 0) return undefined;
+		if (!data?.length) return undefined;
 
 		// Keep trailing spaces which are part of the directory name
 		let [dotGitPath, commonDotGitPath] = data.split('\n').map(r => r.trimStart());
@@ -1899,7 +1375,7 @@ export class Git {
 			// Check if the folder is a bare clone: if it has a file named HEAD && `rev-parse --show-cdup` is empty
 			try {
 				accessSync(joinPaths(cwd, 'HEAD'));
-				data = await this.exec<string>(
+				data = await this.exec(
 					{ cwd: cwd, errors: GitErrorHandling.Throw, configs: ['-C', cwd] },
 					'rev-parse',
 					'--show-cdup',
@@ -1914,11 +1390,7 @@ export class Git {
 		}
 
 		try {
-			data = await this.exec<string>(
-				{ cwd: cwd, errors: GitErrorHandling.Throw },
-				'rev-parse',
-				'--show-toplevel',
-			);
+			data = await this.exec({ cwd: cwd, errors: GitErrorHandling.Throw }, 'rev-parse', '--show-toplevel');
 			// Make sure to normalize: https://github.com/git-for-windows/git/issues/2478
 			// Keep trailing spaces which are part of the directory name
 			return data.length === 0
@@ -1941,7 +1413,7 @@ export class Git {
 			const inDotGit = /this operation must be run in a work tree/.test(ex.stderr);
 			// Check if we are in a bare clone
 			if (inDotGit && workspace.isTrusted) {
-				data = await this.exec<string>(
+				data = await this.exec(
 					{ cwd: cwd, errors: GitErrorHandling.Ignore },
 					'rev-parse',
 					'--is-bare-repository',
@@ -1979,7 +1451,7 @@ export class Git {
 			params.push('--end-of-options');
 		}
 
-		const data = await this.exec<string>(
+		const data = await this.exec(
 			{ cwd: repoPath, errors: GitErrorHandling.Ignore },
 			...params,
 			fileName ? `${ref}:./${fileName}` : `${ref}^{commit}`,
@@ -1987,31 +1459,14 @@ export class Git {
 		return data.length === 0 ? undefined : data.trim();
 	}
 
-	show(
-		repoPath: string,
-		options?: { cancellation?: CancellationToken; configs?: readonly string[] },
-		...args: string[]
-	): Promise<string> {
-		return this.exec<string>(
-			{
-				cwd: repoPath,
-				cancellation: options?.cancellation,
-				configs: options?.configs ?? gitLogDefaultConfigs,
-			},
-			'show',
-			...args,
-			...(!args.includes('--') ? ['--'] : emptyArray),
-		);
-	}
-
-	async show__content<TOut extends string | Buffer>(
+	async show__content<T extends string | Buffer>(
 		repoPath: string | undefined,
 		fileName: string,
 		ref: string,
 		options?: {
 			encoding?: 'binary' | 'ascii' | 'utf8' | 'utf16le' | 'ucs2' | 'base64' | 'latin1' | 'hex' | 'buffer';
 		},
-	): Promise<TOut | undefined> {
+	): Promise<T | undefined> {
 		const [file, root] = splitPath(fileName, repoPath, true);
 
 		if (isUncommittedStaged(ref)) {
@@ -2028,12 +1483,12 @@ export class Git {
 		const args = ref.endsWith(':') ? `${ref}./${file}` : `${ref}:./${file}`;
 
 		try {
-			const data = await this.exec<TOut>(opts, 'show', '--textconv', args, '--');
+			const data = await this.exec<T>(opts, 'show', '--textconv', args, '--');
 			return data;
 		} catch (ex) {
 			const msg: string = ex?.toString() ?? '';
 			if (ref === ':' && GitErrors.badRevision.test(msg)) {
-				return this.show__content<TOut>(repoPath, fileName, 'HEAD:', options);
+				return this.show__content<T>(repoPath, fileName, 'HEAD:', options);
 			}
 
 			if (
@@ -2044,86 +1499,8 @@ export class Git {
 				return undefined;
 			}
 
-			return defaultExceptionHandler(ex, opts.cwd) as TOut;
+			return defaultExceptionHandler(ex, opts.cwd) as T;
 		}
-	}
-
-	stash__apply(repoPath: string, stashName: string, deleteAfter: boolean): Promise<string | undefined> {
-		if (!stashName) return Promise.resolve(undefined);
-		return this.exec<string>({ cwd: repoPath }, 'stash', deleteAfter ? 'pop' : 'apply', stashName);
-	}
-
-	async stash__rename(
-		repoPath: string,
-		stashName: string,
-		sha: string,
-		message: string,
-		stashOnRef?: string,
-	): Promise<string> {
-		await this.stash__delete(repoPath, stashName, sha);
-		return this.exec<string>(
-			{ cwd: repoPath },
-			'stash',
-			'store',
-			'-m',
-			stashOnRef ? `On ${stashOnRef}: ${message}` : message,
-			sha,
-		);
-	}
-
-	async stash__delete(repoPath: string, stashName: string, sha?: string): Promise<string | undefined> {
-		if (!stashName) return undefined;
-
-		if (sha) {
-			const stashSha = await this.exec<string>(
-				{ cwd: repoPath, errors: GitErrorHandling.Ignore },
-				'show',
-				'--format=%H',
-				'--no-patch',
-				stashName,
-			);
-			if (stashSha?.trim() !== sha) {
-				throw new Error('Unable to delete stash; mismatch with stash number');
-			}
-		}
-
-		return this.exec<string>({ cwd: repoPath }, 'stash', 'drop', stashName);
-	}
-
-	stash__list(
-		repoPath: string,
-		{ args, similarityThreshold }: { args?: string[]; similarityThreshold?: number | null },
-	): Promise<string> {
-		if (args == null) {
-			args = ['--name-status'];
-		}
-
-		return this.exec<string>(
-			{ cwd: repoPath },
-			'stash',
-			'list',
-			...args,
-			`-M${similarityThreshold == null ? '' : `${similarityThreshold}%`}`,
-		);
-	}
-
-	async stash__create(repoPath: string): Promise<string | undefined> {
-		const params = ['stash', 'create'];
-
-		const data = await this.exec<string>({ cwd: repoPath }, ...params);
-		return data?.trim() || undefined;
-	}
-
-	async stash__store(repoPath: string, sha: string, message?: string): Promise<void> {
-		const params = ['stash', 'store'];
-
-		if (message) {
-			params.push('-m', message);
-		}
-
-		params.push(sha);
-
-		await this.exec<string>({ cwd: repoPath }, ...params);
 	}
 
 	async stash__push(
@@ -2172,7 +1549,7 @@ export class Git {
 		}
 
 		try {
-			const data = await this.exec<string>({ cwd: repoPath, stdin: stdin }, ...params);
+			const data = await this.exec({ cwd: repoPath, stdin: stdin }, ...params);
 			if (data.includes('No local changes to save')) {
 				throw new StashPushError(StashPushErrorReason.NothingToSave);
 				return;
@@ -2187,10 +1564,6 @@ export class Git {
 			}
 			throw ex;
 		}
-	}
-
-	stash(repoPath: string, ...args: string[]): Promise<string> {
-		return this.exec<string>({ cwd: repoPath }, 'stash', ...args);
 	}
 
 	async status(
@@ -2211,7 +1584,7 @@ export class Git {
 			);
 		}
 
-		return this.exec<string>(
+		return this.exec(
 			{ cwd: repoPath, configs: gitStatusDefaultConfigs, env: { GIT_OPTIONAL_LOCKS: '0' } },
 			...params,
 			'--',
@@ -2219,14 +1592,10 @@ export class Git {
 		);
 	}
 
-	symbolic_ref(repoPath: string, ref: string): Promise<string> {
-		return this.exec<string>({ cwd: repoPath }, 'symbolic-ref', '--short', ref);
-	}
-
 	async tag(repoPath: string, ...args: string[]): Promise<string> {
 		try {
-			const output = await this.exec<string>({ cwd: repoPath }, 'tag', ...args);
-			return output;
+			const data = await this.exec({ cwd: repoPath }, 'tag', ...args);
+			return data;
 		} catch (ex) {
 			const msg: string = ex?.toString() ?? '';
 			for (const [error, reason] of tagErrorAndReason) {
@@ -2236,47 +1605,6 @@ export class Git {
 			}
 			throw new TagError(TagErrorReason.Other, ex);
 		}
-	}
-
-	worktree__add(
-		repoPath: string,
-		path: string,
-		{
-			commitish,
-			createBranch,
-			detach,
-			force,
-		}: { commitish?: string; createBranch?: string; detach?: boolean; force?: boolean } = {},
-	): Promise<string> {
-		const params = ['worktree', 'add'];
-		if (force) {
-			params.push('--force');
-		}
-		if (createBranch) {
-			params.push('-b', createBranch);
-		}
-		if (detach) {
-			params.push('--detach');
-		}
-		params.push(path);
-		if (commitish) {
-			params.push(commitish);
-		}
-		return this.exec<string>({ cwd: repoPath }, ...params);
-	}
-
-	worktree__list(repoPath: string): Promise<string> {
-		return this.exec<string>({ cwd: repoPath }, 'worktree', 'list', '--porcelain');
-	}
-
-	worktree__remove(repoPath: string, worktree: string, { force }: { force?: boolean } = {}): Promise<string> {
-		const params = ['worktree', 'remove'];
-		if (force) {
-			params.push('--force');
-		}
-		params.push(worktree);
-
-		return this.exec<string>({ cwd: repoPath, errors: GitErrorHandling.Throw }, ...params);
 	}
 
 	async readDotGitFile(

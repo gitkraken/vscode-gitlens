@@ -168,10 +168,6 @@ export interface GitRepositoryProvider {
 	reset?(repoPath: string, ref: string, options?: { hard?: boolean } | { soft?: boolean }): Promise<void>;
 
 	getLastFetchedTimestamp(repoPath: string): Promise<number | undefined>;
-	getRevisionContent(repoPath: string, path: string, ref: string): Promise<Uint8Array | undefined>;
-	getTreeEntryForRevision(repoPath: string, path: string, ref: string): Promise<GitTreeEntry | undefined>;
-	getTreeForRevision(repoPath: string, ref: string): Promise<GitTreeEntry[]>;
-
 	runGitCommandViaTerminal?(
 		repoPath: string,
 		command: string,
@@ -188,6 +184,7 @@ export interface GitRepositoryProvider {
 	patch?: GitPatchSubProvider;
 	refs: GitRefsSubProvider;
 	remotes: GitRemotesSubProvider;
+	revision: GitRevisionSubProvider;
 	staging?: GitStagingSubProvider;
 	stash?: GitStashSubProvider;
 	status: GitStatusSubProvider;
@@ -522,6 +519,12 @@ export interface GitRemotesSubProvider {
 	setRemoteAsDefault(repoPath: string, name: string, value?: boolean): Promise<void>;
 }
 
+export interface GitRevisionSubProvider {
+	getRevisionContent(repoPath: string, rev: string, path: string): Promise<Uint8Array | undefined>;
+	getTreeEntryForRevision(repoPath: string, rev: string, path: string): Promise<GitTreeEntry | undefined>;
+	getTreeForRevision(repoPath: string, rev: string): Promise<GitTreeEntry[]>;
+}
+
 export interface DisposableTemporaryGitIndex extends UnifiedAsyncDisposable {
 	path: string;
 	env: { GIT_INDEX_FILE: string };
@@ -616,6 +619,7 @@ export type GitSubProvider =
 	| GitPatchSubProvider
 	| GitRefsSubProvider
 	| GitRemotesSubProvider
+	| GitRevisionSubProvider
 	| GitStagingSubProvider
 	| GitStashSubProvider
 	| GitStatusSubProvider

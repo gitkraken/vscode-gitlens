@@ -39,7 +39,7 @@ export class StagingGitSubProvider implements GitStagingSubProvider {
 			// Create the temp index file from a base ref/sha
 
 			// Get the tree of the base
-			const newIndex = await this.git.exec<string>(
+			const newIndex = await this.git.exec(
 				{
 					cwd: repoPath,
 					env: env,
@@ -52,7 +52,7 @@ export class StagingGitSubProvider implements GitStagingSubProvider {
 			);
 
 			// Write the tree to our temp index
-			await this.git.exec<string>(
+			await this.git.exec(
 				{
 					cwd: repoPath,
 					env: env,
@@ -81,11 +81,9 @@ export class StagingGitSubProvider implements GitStagingSubProvider {
 
 	@log()
 	async stageFile(repoPath: string, pathOrUri: string | Uri, options?: { intentToAdd?: boolean }): Promise<void> {
-		await this.git.add(
-			repoPath,
-			[typeof pathOrUri === 'string' ? pathOrUri : splitPath(pathOrUri, repoPath)[0]],
-			options?.intentToAdd ? '-N' : '-A',
-		);
+		await this.git.exec({ cwd: repoPath }, 'add', options?.intentToAdd ? '-N' : '-A', '--', [
+			typeof pathOrUri === 'string' ? pathOrUri : splitPath(pathOrUri, repoPath)[0],
+		]);
 	}
 
 	@log()
@@ -94,10 +92,12 @@ export class StagingGitSubProvider implements GitStagingSubProvider {
 		pathOrUri: string[] | Uri[],
 		options?: { intentToAdd?: boolean },
 	): Promise<void> {
-		await this.git.add(
-			repoPath,
-			pathOrUri.map(p => (typeof p === 'string' ? p : splitPath(p, repoPath)[0])),
+		await this.git.exec(
+			{ cwd: repoPath },
+			'add',
 			options?.intentToAdd ? '-N' : '-A',
+			'--',
+			pathOrUri.map(p => (typeof p === 'string' ? p : splitPath(p, repoPath)[0])),
 		);
 	}
 
@@ -107,11 +107,9 @@ export class StagingGitSubProvider implements GitStagingSubProvider {
 		directoryOrUri: string | Uri,
 		options?: { intentToAdd?: boolean },
 	): Promise<void> {
-		await this.git.add(
-			repoPath,
-			[typeof directoryOrUri === 'string' ? directoryOrUri : splitPath(directoryOrUri, repoPath)[0]],
-			options?.intentToAdd ? '-N' : '-A',
-		);
+		await this.git.exec({ cwd: repoPath }, 'add', options?.intentToAdd ? '-N' : '-A', '--', [
+			typeof directoryOrUri === 'string' ? directoryOrUri : splitPath(directoryOrUri, repoPath)[0],
+		]);
 	}
 
 	@log()
