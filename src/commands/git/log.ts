@@ -164,7 +164,7 @@ export class LogGitCommand extends QuickCommand<State> {
 				if (log == null) {
 					log =
 						state.fileName != null
-							? state.repo.git.commits().getLogForFile(state.fileName, rev)
+							? state.repo.git.commits().getLogForPath(state.fileName, rev)
 							: state.repo.git.commits().getLog(rev);
 					context.cache.set(rev, log);
 				}

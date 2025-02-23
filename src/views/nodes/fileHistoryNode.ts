@@ -253,7 +253,7 @@ export class FileHistoryNode
 		if (this._log == null) {
 			this._log = await this.view.container.git
 				.commits(this.uri.repoPath!)
-				.getLogForFile(this.getPathOrGlob(), this.uri.sha, {
+				.getLogForPath(this.getPathOrGlob(), this.uri.sha, {
 					limit: this.limit ?? this.view.config.pageItemLimit,
 				});
 		}

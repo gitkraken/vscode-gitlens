@@ -111,7 +111,7 @@ export class GutterChangesAnnotationProvider extends AnnotationProviderBase<Chan
 
 		let localChanges = rev1 == null && rev2 == null;
 		if (localChanges) {
-			let rev = await commitsProvider.getOldestUnpushedShaForFile(this.trackedDocument.uri);
+			let rev = await commitsProvider.getOldestUnpushedShaForPath(this.trackedDocument.uri);
 			if (rev != null) {
 				rev = `${rev}^`;
 				commit = await commitsProvider.getCommitForFile(this.trackedDocument.uri, rev);

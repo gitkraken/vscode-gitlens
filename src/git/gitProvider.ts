@@ -300,7 +300,7 @@ export interface GitCommitsSubProvider {
 			since?: string | undefined;
 		},
 	): Promise<Set<string> | undefined>;
-	getLogForFile(
+	getLogForPath(
 		repoPath: string,
 		pathOrUri: string | Uri,
 		rev?: string | undefined,
@@ -316,7 +316,7 @@ export interface GitCommitsSubProvider {
 			skip?: number | undefined;
 		},
 	): Promise<GitLog | undefined>;
-	getOldestUnpushedShaForFile(repoPath: string, uri: Uri): Promise<string | undefined>;
+	getOldestUnpushedShaForPath(repoPath: string, pathOrUri: string | Uri): Promise<string | undefined>;
 	isAncestorOf(repoPath: string, rev1: string, rev2: string): Promise<boolean>;
 	hasCommitBeenPushed(repoPath: string, rev: string): Promise<boolean>;
 	searchCommits(

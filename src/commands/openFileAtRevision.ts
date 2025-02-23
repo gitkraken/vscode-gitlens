@@ -117,10 +117,10 @@ export class OpenFileAtRevisionCommand extends ActiveEditorCommand {
 			if (args.revisionUri == null) {
 				const commitsProvider = this.container.git.commits(gitUri.repoPath!);
 				const log = commitsProvider
-					.getLogForFile(gitUri.fsPath)
+					.getLogForPath(gitUri.fsPath)
 					.then(
 						log =>
-							log ?? (gitUri.sha ? commitsProvider.getLogForFile(gitUri.fsPath, gitUri.sha) : undefined),
+							log ?? (gitUri.sha ? commitsProvider.getLogForPath(gitUri.fsPath, gitUri.sha) : undefined),
 					);
 
 				const title = `Open ${args.annotationType === 'blame' ? 'Blame' : 'File'} at Revision${pad(

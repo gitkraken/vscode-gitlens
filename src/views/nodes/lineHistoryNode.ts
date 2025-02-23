@@ -252,7 +252,7 @@ export class LineHistoryNode
 		if (this._log == null) {
 			this._log = await this.view.container.git
 				.commits(this.uri.repoPath!)
-				.getLogForFile(this.uri, this.uri.sha, {
+				.getLogForPath(this.uri, this.uri.sha, {
 					all: false,
 					limit: this.limit ?? this.view.config.pageItemLimit,
 					range: selection ?? this.selection,
