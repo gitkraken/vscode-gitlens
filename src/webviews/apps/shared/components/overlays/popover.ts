@@ -3,6 +3,7 @@ import { css, html, LitElement } from 'lit';
 import { customElement, property, query } from 'lit/decorators.js';
 import { parseDuration, waitForEvent } from '../../dom';
 import { GlElement, observe } from '../element';
+import { scrollableBase } from '../styles/lit/base.css';
 import '@shoelace-style/shoelace/dist/components/popup/popup.js';
 
 // Adapted from shoelace tooltip
@@ -63,102 +64,105 @@ export class GlPopover extends GlElement {
 		delegatesFocus: true,
 	};
 
-	static override styles = css`
-		:host {
-			--hide-delay: 0ms;
-			--show-delay: 500ms;
+	static override styles = [
+		scrollableBase,
+		css`
+			:host {
+				--hide-delay: 0ms;
+				--show-delay: 500ms;
 
-			display: contents;
-		}
+				display: contents;
+			}
 
-		.popover {
-			--arrow-size: var(--sl-tooltip-arrow-size);
-			--arrow-color: var(--sl-tooltip-background-color);
-		}
+			.popover {
+				--arrow-size: var(--sl-tooltip-arrow-size);
+				--arrow-color: var(--sl-tooltip-background-color);
+			}
 
-		.popover::part(popup) {
-			z-index: var(--sl-z-index-tooltip);
-		}
+			.popover::part(popup) {
+				z-index: var(--sl-z-index-tooltip);
+			}
 
-		.popover::part(arrow) {
-			border: 1px solid var(--gl-tooltip-border-color);
-			z-index: 1;
-		}
+			.popover::part(arrow) {
+				border: 1px solid var(--gl-tooltip-border-color);
+				z-index: 1;
+			}
 
-		.popover[placement^='top']::part(popup) {
-			transform-origin: bottom;
-		}
+			.popover[placement^='top']::part(popup) {
+				transform-origin: bottom;
+			}
 
-		.popover[placement^='bottom']::part(popup) {
-			transform-origin: top;
-		}
+			.popover[placement^='bottom']::part(popup) {
+				transform-origin: top;
+			}
 
-		.popover[placement^='left']::part(popup) {
-			transform-origin: right;
-		}
+			.popover[placement^='left']::part(popup) {
+				transform-origin: right;
+			}
 
-		.popover[placement^='right']::part(popup) {
-			transform-origin: left;
-		}
+			.popover[placement^='right']::part(popup) {
+				transform-origin: left;
+			}
 
-		.popover[data-current-placement^='top']::part(arrow) {
-			border-top-width: 0;
-			border-left-width: 0;
-			clip-path: polygon(0 50%, 100% 0, 100% 100%, 0 100%);
-		}
+			.popover[data-current-placement^='top']::part(arrow) {
+				border-top-width: 0;
+				border-left-width: 0;
+				clip-path: polygon(0 50%, 100% 0, 100% 100%, 0 100%);
+			}
 
-		.popover[data-current-placement^='bottom']::part(arrow) {
-			border-bottom-width: 0;
-			border-right-width: 0;
-			clip-path: polygon(0 0, 100% 0, 100% 50%, 0 100%);
-		}
+			.popover[data-current-placement^='bottom']::part(arrow) {
+				border-bottom-width: 0;
+				border-right-width: 0;
+				clip-path: polygon(0 0, 100% 0, 100% 50%, 0 100%);
+			}
 
-		.popover[data-current-placement^='left']::part(arrow) {
-			border-bottom-width: 0;
-			border-left-width: 0;
-			clip-path: polygon(0 0, 100% 0, 100% 100%, 70% 100%, 0 30%);
-		}
+			.popover[data-current-placement^='left']::part(arrow) {
+				border-bottom-width: 0;
+				border-left-width: 0;
+				clip-path: polygon(0 0, 100% 0, 100% 100%, 70% 100%, 0 30%);
+			}
 
-		.popover[data-current-placement^='right']::part(arrow) {
-			border-top-width: 0;
-			border-right-width: 0;
-			clip-path: polygon(0 0, 0 100%, 100% 100%, 100% 70%, 30% 0);
-		}
+			.popover[data-current-placement^='right']::part(arrow) {
+				border-top-width: 0;
+				border-right-width: 0;
+				clip-path: polygon(0 0, 0 100%, 100% 100%, 100% 70%, 30% 0);
+			}
 
-		.popover__body {
-			display: block;
-			width: fit-content;
-			border: 1px solid var(--gl-tooltip-border-color);
-			border-radius: var(--sl-tooltip-border-radius);
-			box-shadow: 0 2px 8px var(--gl-tooltip-shadow);
-			background-color: var(--sl-tooltip-background-color);
-			font-family: var(--sl-tooltip-font-family);
-			font-size: var(--sl-tooltip-font-size);
-			font-weight: var(--sl-tooltip-font-weight);
-			line-height: var(--sl-tooltip-line-height);
-			text-align: start;
-			white-space: normal;
-			color: var(--sl-tooltip-color);
-			padding: var(--sl-tooltip-padding);
-			user-select: none;
-			-webkit-user-select: none;
-			max-width: min(var(--auto-size-available-width), var(--max-width, 70vw));
-			/* max-height: var(--auto-size-available-height);
+			.popover__body {
+				display: block;
+				width: fit-content;
+				border: 1px solid var(--gl-tooltip-border-color);
+				border-radius: var(--sl-tooltip-border-radius);
+				box-shadow: 0 2px 8px var(--gl-tooltip-shadow);
+				background-color: var(--sl-tooltip-background-color);
+				font-family: var(--sl-tooltip-font-family);
+				font-size: var(--sl-tooltip-font-size);
+				font-weight: var(--sl-tooltip-font-weight);
+				line-height: var(--sl-tooltip-line-height);
+				text-align: start;
+				white-space: normal;
+				color: var(--sl-tooltip-color);
+				padding: var(--sl-tooltip-padding);
+				user-select: none;
+				-webkit-user-select: none;
+				max-width: min(var(--auto-size-available-width), var(--max-width, 70vw));
+				/* max-height: var(--auto-size-available-height);
 			overflow: auto; */
-			pointer-events: all;
-		}
+				pointer-events: all;
+			}
 
-		.popover[data-current-placement^='top'] .popover__body,
-		.popover[data-current-placement^='bottom'] .popover__body {
-			width: max-content;
-		}
+			.popover[data-current-placement^='top'] .popover__body,
+			.popover[data-current-placement^='bottom'] .popover__body {
+				width: max-content;
+			}
 
-		/* .popover::part(hover-bridge) {
+			/* .popover::part(hover-bridge) {
 			background: tomato;
 			opacity: 1;
 			z-index: 10000000000;
 		} */
-	`;
+		`,
+	];
 
 	private closeWatcher!: CloseWatcher | null;
 	private hoverTimeout!: ReturnType<typeof setTimeout>;
@@ -265,7 +269,7 @@ export class GlPopover extends GlElement {
 			<div
 				part="body"
 				id="popover"
-				class="popover__body"
+				class="popover__body scrollable"
 				role="tooltip"
 				aria-live=${this.open ? 'polite' : 'off'}
 			>

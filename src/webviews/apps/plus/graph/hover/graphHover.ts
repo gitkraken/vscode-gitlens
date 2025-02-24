@@ -28,7 +28,15 @@ type Anchor = string | HTMLElement | { getBoundingClientRect: () => Omit<DOMRect
 
 @customElement('gl-graph-hover')
 export class GlGraphHover extends GlElement {
-	static override styles = css``;
+	static override styles = css`
+		gl-popover::part(body) {
+			--max-width: min(92vw, 45rem);
+			max-height: 50vh;
+			width: clamp(min(30rem, 92vw), min-content, max-content);
+			overflow-x: hidden;
+			overflow-y: auto;
+		}
+	`;
 
 	@property({ type: Object })
 	anchor?: Anchor;
