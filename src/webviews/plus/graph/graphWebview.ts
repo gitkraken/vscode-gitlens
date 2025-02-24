@@ -453,8 +453,7 @@ export class GraphWebviewProvider implements WebviewProvider<State, State, Graph
 			}
 
 			if (this.repository == null && this.container.git.repositoryCount > 1) {
-				const [contexts] = parseCommandContext(GlCommand.ShowGraph, undefined, ...args);
-				const context = Array.isArray(contexts) ? contexts[0] : contexts;
+				const [context] = parseCommandContext(GlCommand.ShowGraph, undefined, ...args);
 
 				if (context.type === 'scm' && context.scm.rootUri != null) {
 					this.repository = this.container.git.getRepository(context.scm.rootUri);

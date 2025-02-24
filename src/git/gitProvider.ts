@@ -363,10 +363,7 @@ export interface GitDiffSubProvider {
 		repoPath: string | Uri,
 		to: string,
 		from?: string,
-		options?:
-			| { context?: number; includeUntracked?: never; uris?: never }
-			| { context?: number; includeUntracked?: never; uris: Uri[] }
-			| { context?: number; includeUntracked: boolean; uris?: never },
+		options?: { context?: number; includeUntracked?: boolean; uris?: Uri[] },
 	): Promise<GitDiff | undefined>;
 	getDiffFiles?(repoPath: string | Uri, contents: string): Promise<GitDiffFiles | undefined>;
 	getDiffStatus(

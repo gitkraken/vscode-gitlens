@@ -394,7 +394,7 @@
 						"order": 97
 					},
 					{
-						"when": "viewItem =~ /gitlens:file(\\b(?=.*?\\b\\+committed\\b)|:results)/ && !listMultiSelection && !gitlens:hasVirtualFolders && !gitlens:untrusted",
+						"when": "viewItem =~ /gitlens:file(\\b(?=.*?\\b\\+committed\\b)|:results)/ && !gitlens:hasVirtualFolders && !gitlens:untrusted",
 						"group": "7_gitlens_cutcopypaste",
 						"order": 3
 					}
