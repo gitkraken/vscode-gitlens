@@ -665,16 +665,15 @@ export function parseGitLog(
 					line = next.value;
 					if (line === '</s>') break;
 
-					if (entry.summary === undefined) {
+					if (entry.summary == null) {
 						entry.summary = line;
 					} else {
 						entry.summary += `\n${line}`;
 					}
 				}
 
-				// Remove the trailing newline
-				if (entry.summary != null && entry.summary.charCodeAt(entry.summary.length - 1) === 10) {
-					entry.summary = entry.summary.slice(0, -1);
+				if (entry.summary != null) {
+					entry.summary = entry.summary.trim();
 				}
 				break;
 
