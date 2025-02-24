@@ -80,10 +80,17 @@ export class BitbucketIntegration extends HostingIntegration<
 		id: string,
 		type: undefined | IssueOrPullRequestType,
 	): Promise<IssueOrPullRequest | undefined> {
-		return (await this.container.bitbucket)?.getIssueOrPullRequest(this, accessToken, repo.owner, repo.name, id, {
-			baseUrl: this.apiBaseUrl,
-			type: type,
-		});
+		return (await this.container.bitbucket)?.getIssueOrPullRequest(
+			this,
+			accessToken,
+			repo.owner,
+			repo.name,
+			id,
+			this.apiBaseUrl,
+			{
+				type: type,
+			},
+		);
 	}
 
 	protected override async getProviderIssue(
@@ -109,9 +116,7 @@ export class BitbucketIntegration extends HostingIntegration<
 			repo.owner,
 			repo.name,
 			branch,
-			{
-				baseUrl: this.apiBaseUrl,
-			},
+			this.apiBaseUrl,
 		);
 	}
 
