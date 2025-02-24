@@ -5,7 +5,7 @@ import { isBranch } from '../../../git/models/branch';
 import { isCommit } from '../../../git/models/commit';
 import { isRepository } from '../../../git/models/repository';
 import { isTag } from '../../../git/models/tag';
-import { isViewNode } from '../../../views/nodes/abstract/viewNode';
+import { isViewNode } from '../../../views/nodes/utils/-webview/node.utils';
 
 export function defaultResolver(...args: unknown[]): string {
 	if (args.length === 0) return '';
