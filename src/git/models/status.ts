@@ -5,6 +5,7 @@ import { pluralize } from '../../system/string';
 import { formatDetachedHeadName, getRemoteNameFromBranchName, isDetachedHead } from '../utils/branch.utils';
 import { getUpstreamStatus } from '../utils/status.utils';
 import type { GitBranchStatus, GitTrackingState } from './branch';
+import type { GitDiffFileStats } from './diff';
 import { GitFileConflictStatus, GitFileIndexStatus, GitFileWorkingTreeStatus } from './fileStatus';
 import type { GitRemote } from './remote';
 import type { GitStatusFile } from './statusFile';
@@ -175,7 +176,7 @@ export class GitStatus {
 	}
 
 	@memoize()
-	getDiffStatus(): { added: number; deleted: number; changed: number } {
+	getDiffStatus(): GitDiffFileStats {
 		const diff = {
 			added: 0,
 			deleted: 0,

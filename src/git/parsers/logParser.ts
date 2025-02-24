@@ -227,7 +227,7 @@ export function createLogParser<
 	}
 
 	function* parse(data: string | string[]): Generator<T & TAdditional> {
-		let entry: T & TAdditional = {} as any;
+		let entry = {} as unknown as T & TAdditional;
 		let fieldCount = 0;
 		let field;
 
@@ -251,7 +251,7 @@ export function createLogParser<
 				options?.parseEntry?.(fields, entry);
 				yield entry;
 
-				entry = {} as any;
+				entry = {} as unknown as T & TAdditional;
 			}
 		}
 	}
@@ -302,7 +302,7 @@ export function createLogParserWithFiles<T extends Record<string, unknown>>(
 		let fields: IterableIterator<string>;
 
 		for (const record of records) {
-			entry = {} as any;
+			entry = {} as unknown as ParsedEntryWithFiles<T>;
 			files = [];
 			fields = iterateByDelimiter(record, '\0');
 
