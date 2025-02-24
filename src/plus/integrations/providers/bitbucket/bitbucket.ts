@@ -221,6 +221,39 @@ export class BitbucketApi implements Disposable {
 		}
 	}
 
+	async getUsersPullRequestsForRepo(
+		provider: Provider,
+		token: string,
+		userUuid: string,
+		owner: string,
+		repo: string,
+		baseUrl: string,
+	): Promise<PullRequest[] | undefined> {
+		const scope = getLogScope();
+
+		const query = encodeURIComponent(`reviewers.uuid="${userUuid}" OR author.uuid="${userUuid}"`);
+		const response = await this.request<{
+			values: BitbucketPullRequest[];
+			pagelen: number;
+			size: number;
+			page: number;
+		}>(
+			provider,
+			token,
+			baseUrl,
+			`repositories/${owner}/${repo}/pullrequests?q=${query}&state=OPEN&fields=%2Bvalues.reviewers,%2Bvalues.participants`,
+			{
+				method: 'GET',
+			},
+			scope,
+		);
+
+		if (!response?.values?.length) {
+			return undefined;
+		}
+		return response.values.map(pr => fromBitbucketPullRequest(pr, provider));
+	}
+
 	private async request<T>(
 		provider: Provider,
 		token: string,
