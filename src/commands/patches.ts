@@ -2,7 +2,7 @@ import { EntityIdentifierUtils } from '@gitkraken/provider-apis/entity-identifie
 import type { TextEditor } from 'vscode';
 import { env, Uri, window, workspace } from 'vscode';
 import type { ScmResource } from '../@types/vscode.git.resources';
-import { ScmResourceGroupType } from '../@types/vscode.git.resources.enums';
+import { ScmResourceGroupType, ScmStatus } from '../@types/vscode.git.resources.enums';
 import type { GlCommands } from '../constants.commands';
 import { GlCommand } from '../constants.commands';
 import type { IntegrationId } from '../constants.integrations';
@@ -22,6 +22,7 @@ import { getRepositoryOrShowPicker } from '../quickpicks/repositoryPicker';
 import { command } from '../system/-webview/command';
 import { map } from '../system/iterable';
 import { Logger } from '../system/logger';
+import { isViewRefFileNode } from '../views/nodes/utils/-webview/node.utils';
 import type { Change, CreateDraft } from '../webviews/plus/patchDetails/protocol';
 import { ActiveEditorCommand, GlCommandBase } from './commandBase';
 import type { CommandContext } from './commandContext';
@@ -37,6 +38,8 @@ export interface CreatePatchCommandArgs {
 	from?: string;
 	repoPath?: string;
 	uris?: Uri[];
+
+	includeUntracked?: boolean;
 
 	title?: string;
 	description?: string;
@@ -56,10 +59,13 @@ abstract class CreatePatchCommandBase extends GlCommandBase {
 				const resourcesByGroup = new Map<ScmResourceGroupType, ScmResource[]>();
 				const uris = new Set<string>();
 
+				let includeUntracked = false;
+
 				let repo;
 				for (const resource of context.scmResourceStates as ScmResource[]) {
 					repo ??= await this.container.git.getOrOpenRepository(resource.resourceUri);
 
+					includeUntracked = includeUntracked || resource.type === ScmStatus.UNTRACKED;
 					uris.add(resource.resourceUri.toString());
 
 					let groupResources = resourcesByGroup.get(resource.resourceGroupType!);
@@ -81,6 +87,7 @@ abstract class CreatePatchCommandBase extends GlCommandBase {
 					from: 'HEAD',
 					uris: [...map(uris, u => Uri.parse(u))],
 					title: to === uncommittedStaged ? 'Staged Changes' : 'Uncommitted Changes',
+					includeUntracked: includeUntracked ? true : undefined,
 				};
 			} else if (context.type === 'scm-groups') {
 				const group = context.scmResourceGroups[0];
@@ -131,6 +138,22 @@ abstract class CreatePatchCommandBase extends GlCommandBase {
 						uris: [context.node.uri],
 					};
 				}
+			} else if (context.type === 'viewItems') {
+				if (isViewRefFileNode(context.node)) {
+					args = {
+						repoPath: context.node.repoPath,
+						to: context.node.ref.sha,
+						from: `${context.node.ref.sha}^`,
+						uris: [context.node.uri],
+						title: `Changes (partial) in ${shortenRevision(context.node.ref.sha)}`,
+					};
+
+					for (const node of context.nodes) {
+						if (isViewRefFileNode(node) && node !== context.node && node.ref.sha === args.to) {
+							args.uris!.push(node.uri);
+						}
+					}
+				}
 			}
 		}
 
@@ -147,13 +170,10 @@ abstract class CreatePatchCommandBase extends GlCommandBase {
 
 		return repo.git
 			.diff()
-			.getDiff?.(
-				args?.to ?? uncommitted,
-				args?.from ?? 'HEAD',
-				args?.uris?.length
-					? { uris: args.uris }
-					: { includeUntracked: args?.to != null || args?.to === uncommitted },
-			);
+			.getDiff?.(args?.to ?? uncommitted, args?.from ?? 'HEAD', {
+				includeUntracked: args?.includeUntracked ?? (args?.to != null || args?.to === uncommitted),
+				uris: args?.uris,
+			});
 	}
 
 	abstract override execute(args?: CreatePatchCommandArgs): Promise<void>;

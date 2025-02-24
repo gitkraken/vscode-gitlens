@@ -73,10 +73,7 @@ export class DiffGitSubProvider implements GitDiffSubProvider {
 		repoPath: string,
 		to: string,
 		from?: string,
-		options?:
-			| { context?: number; includeUntracked?: never; uris?: never }
-			| { context?: number; includeUntracked?: never; uris: Uri[] }
-			| { context?: number; includeUntracked: boolean; uris?: never },
+		options?: { context?: number; includeUntracked: boolean; uris?: Uri[] },
 	): Promise<GitDiff | undefined> {
 		const scope = getLogScope();
 		const args = [`-U${options?.context ?? 3}`];
@@ -110,15 +107,27 @@ export class DiffGitSubProvider implements GitDiffSubProvider {
 			args.push(from, to);
 		}
 
+		let paths: Set<string> | undefined;
 		let untrackedPaths: string[] | undefined;
 
 		if (options?.uris) {
-			args.push('--', ...options.uris.map(u => u.fsPath));
-		} else if (options?.includeUntracked && to === uncommitted) {
+			paths = new Set<string>(options.uris.map(u => this.provider.getRelativePath(u, repoPath)));
+			args.push('--', ...paths);
+		}
+
+		if (options?.includeUntracked && to === uncommitted) {
 			const status = await this.provider.status?.getStatus(repoPath);
+
 			untrackedPaths = status?.untrackedChanges.map(f => f.path);
+
 			if (untrackedPaths?.length) {
-				await this.provider.staging?.stageFiles(repoPath, untrackedPaths, { intentToAdd: true });
+				if (paths?.size) {
+					untrackedPaths = untrackedPaths.filter(p => paths.has(p));
+				}
+
+				if (untrackedPaths.length) {
+					await this.provider.staging?.stageFiles(repoPath, untrackedPaths, { intentToAdd: true });
+				}
 			}
 		}
 
@@ -135,7 +144,7 @@ export class DiffGitSubProvider implements GitDiffSubProvider {
 			Logger.error(ex, scope);
 			return undefined;
 		} finally {
-			if (untrackedPaths != null) {
+			if (untrackedPaths?.length) {
 				await this.provider.staging?.unstageFiles(repoPath, untrackedPaths);
 			}
 		}
