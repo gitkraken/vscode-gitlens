@@ -165,8 +165,19 @@ export class HostIpc implements Disposable {
 		return promise;
 	}
 
-	setState<T>(state: Partial<T>): void {
+	setPersistedState<T>(state: Partial<T>): void {
 		this._api.setState(state);
+	}
+
+	updatePersistedState<T>(update: Partial<T>): void {
+		let state = this._api.getState() as Partial<T> | undefined;
+		if (state != null && typeof state === 'object') {
+			state = { ...state, ...update };
+			this._api.setState(state);
+		} else {
+			state = update;
+		}
+		this.setPersistedState(state);
 	}
 
 	@debug<HostIpc['postMessage']>({ args: { 0: e => `${e.id}, method=${e.method}` } })

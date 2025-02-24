@@ -32,7 +32,7 @@ export class GlTimelineApp extends GlApp<State> {
 		return new TimelineStateProvider(this, state, ipc);
 	}
 	protected override onPersistState(state: State): void {
-		this._ipc.setState({ period: state.period, uri: state.uri });
+		this._ipc.setPersistedState({ period: state.period, uri: state.uri });
 	}
 
 	override connectedCallback(): void {
