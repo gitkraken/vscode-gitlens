@@ -132,6 +132,7 @@ export const branchCardStyles = css`
 
 	.branch-item__collapsed-actions {
 		position: absolute;
+		z-index: var(--gl-branch-card-actions-zindex, 2);
 		right: 0.4rem;
 		bottom: 0.4rem;
 		padding: 0.2rem 0.4rem;
