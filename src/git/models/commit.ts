@@ -17,6 +17,7 @@ import type { RemoteProvider } from '../remotes/remoteProvider';
 import { mapFilesWithStats } from '../utils/-webview/fileChange.utils';
 import { getChangedFilesCount } from '../utils/commit.utils';
 import { isSha, isUncommitted, isUncommittedParent, isUncommittedStaged } from '../utils/revision.utils';
+import type { GitDiffFileStats } from './diff';
 import type { GitFile } from './file';
 import { GitFileChange } from './fileChange';
 import type { PullRequest } from './pullRequest';
@@ -698,11 +699,7 @@ export interface GitCommitLine {
 	line: number;
 }
 
-export interface GitCommitStats<
-	Files extends number | { added: number; deleted: number; changed: number } =
-		| number
-		| { added: number; deleted: number; changed: number },
-> {
+export interface GitCommitStats<Files extends number | GitDiffFileStats = number | GitDiffFileStats> {
 	readonly files: Files;
 	readonly additions: number;
 	readonly deletions: number;

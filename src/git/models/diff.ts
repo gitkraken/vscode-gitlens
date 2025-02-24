@@ -45,4 +45,10 @@ export interface GitDiffFiles {
 	readonly files: GitFileChange[];
 }
 
+export interface GitDiffFileStats {
+	readonly added: number;
+	readonly deleted: number;
+	readonly changed: number;
+}
+
 export type GitDiffFilter = 'A' | 'C' | 'D' | 'M' | 'R' | 'T' | 'U' | 'X' | 'B' | '*';
