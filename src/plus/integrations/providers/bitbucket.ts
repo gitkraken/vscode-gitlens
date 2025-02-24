@@ -7,6 +7,7 @@ import type { Issue, IssueShape } from '../../../git/models/issue';
 import type { IssueOrPullRequest, IssueOrPullRequestType } from '../../../git/models/issueOrPullRequest';
 import type { PullRequest, PullRequestMergeMethod, PullRequestState } from '../../../git/models/pullRequest';
 import type { RepositoryMetadata } from '../../../git/models/repositoryMetadata';
+import { getSettledValue } from '../../../system/promise';
 import type { IntegrationAuthenticationProviderDescriptor } from '../authentication/integrationAuthenticationProvider';
 import type { ProviderAuthenticationSession } from '../authentication/models';
 import { HostingIntegration } from '../integration';
@@ -15,8 +16,7 @@ import type {
 	BitbucketRepositoryDescriptor,
 	BitbucketWorkspaceDescriptor,
 } from './bitbucket/models';
-import type { ProviderPullRequest } from './models';
-import { fromProviderPullRequest, providersMetadata } from './models';
+import { providersMetadata } from './models';
 
 const metadata = providersMetadata[HostingIntegrationId.Bitbucket];
 const authProvider = Object.freeze({ id: metadata.id, scopes: metadata.scopes });
@@ -246,7 +246,6 @@ export class BitbucketIntegration extends HostingIntegration<
 		session: ProviderAuthenticationSession,
 		repos?: BitbucketRepositoryDescriptor[],
 	): Promise<PullRequest[] | undefined> {
-		const api = await this.getProvidersApi();
 		if (repos != null) {
 			// TODO: implement repos version
 			return undefined;
@@ -261,14 +260,24 @@ export class BitbucketIntegration extends HostingIntegration<
 		const allBitbucketRepos = await this.getProviderProjectsForResources(session, workspaces);
 		if (allBitbucketRepos == null || allBitbucketRepos.length === 0) return undefined;
 
-		const prs = await api.getPullRequestsForRepos(
-			HostingIntegrationId.Bitbucket,
-			allBitbucketRepos.map(repo => ({ namespace: repo.owner, name: repo.name })),
-			{
-				accessToken: session.accessToken,
-			},
+		const api = await this.container.bitbucket;
+		if (!api) return undefined;
+		const prsResult = await Promise.allSettled(
+			allBitbucketRepos.map(repo =>
+				api.getUsersPullRequestsForRepo(
+					this,
+					session.accessToken,
+					user.id,
+					repo.owner,
+					repo.name,
+					this.apiBaseUrl,
+				),
+			),
 		);
-		return prs.values.map(pr => this.fromBitbucketProviderPullRequest(pr));
+		return prsResult
+			.map(r => getSettledValue(r))
+			.filter(r => r != null)
+			.flat();
 	}
 
 	protected override async searchProviderMyIssues(
@@ -276,14 +285,6 @@ export class BitbucketIntegration extends HostingIntegration<
 		_repos?: BitbucketRepositoryDescriptor[],
 	): Promise<IssueShape[] | undefined> {
 		return Promise.resolve(undefined);
-	}
-
-	private fromBitbucketProviderPullRequest(
-		remotePullRequest: ProviderPullRequest,
-		//		repoDescriptors: BitbucketRemoteRepositoryDescriptor[],
-	): PullRequest {
-		remotePullRequest.graphQLId = remotePullRequest.id;
-		return fromProviderPullRequest(remotePullRequest, this);
 	}
 
 	protected override async providerOnConnect(): Promise<void> {
