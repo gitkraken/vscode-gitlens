@@ -1,5 +1,5 @@
 import { map } from '../../system/iterable';
-import { getLines } from '../../system/string';
+import { iterateByDelimiter } from '../../system/string';
 import type { MergeConflictFile } from '../models/mergeConflict';
 
 export interface GitMergeConflict {
@@ -8,7 +8,7 @@ export interface GitMergeConflict {
 }
 
 export function parseMergeTreeConflict(data: string): GitMergeConflict {
-	const lines = getLines(data, '\0');
+	const lines = iterateByDelimiter(data, '\0');
 	const treeOid = lines.next();
 	if (treeOid.done) return { treeOid: treeOid.value, conflicts: [] };
 
