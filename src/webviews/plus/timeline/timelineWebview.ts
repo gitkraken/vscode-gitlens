@@ -21,8 +21,7 @@ import { debounce } from '../../../system/function';
 import { filter } from '../../../system/iterable';
 import { flatten } from '../../../system/object';
 import { getSettledValue } from '../../../system/promise';
-import { isViewFileNode } from '../../../views/nodes/abstract/viewFileNode';
-import { isViewNode } from '../../../views/nodes/abstract/viewNode';
+import { isViewFileOrFolderNode } from '../../../views/nodes/utils/-webview/node.utils';
 import type { IpcMessage } from '../../protocol';
 import type { WebviewHost, WebviewProvider, WebviewShowingArgs } from '../../webviewProvider';
 import type { WebviewShowOptions } from '../../webviewsController';
@@ -94,7 +93,7 @@ export class TimelineWebviewProvider implements WebviewProvider<State, State, Ti
 		if (arg != null) {
 			if (arg instanceof Uri) {
 				uri = arg;
-			} else if (isViewFileNode(arg)) {
+			} else if (isViewFileOrFolderNode(arg)) {
 				uri = arg.uri;
 			} else if (isSerializedState<State>(arg) && arg.state.uri != null) {
 				uri = Uri.parse(arg.state.uri);
@@ -127,7 +126,7 @@ export class TimelineWebviewProvider implements WebviewProvider<State, State, Ti
 		if (arg != null) {
 			if (arg instanceof Uri) {
 				uri = arg;
-			} else if (isViewNode(arg) && (arg.type === 'folder' || isViewFileNode(arg))) {
+			} else if (isViewFileOrFolderNode(arg)) {
 				uri = arg.uri;
 			} else if (isSerializedState<State>(arg)) {
 				this._context.period = arg.state.period;

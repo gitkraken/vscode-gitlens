@@ -31,10 +31,6 @@ export abstract class ViewFileNode<
 	}
 }
 
-export function isViewFileNode(node: unknown): node is ViewFileNode {
-	return node instanceof ViewFileNode;
-}
-
 export function getFileTooltip(
 	file: GitFile | GitStatusFile,
 	suffix?: string,

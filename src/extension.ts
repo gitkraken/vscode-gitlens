@@ -32,7 +32,7 @@ import { BufferedLogChannel, getLoggableName, Logger } from './system/logger';
 import { flatten } from './system/object';
 import { Stopwatch } from './system/stopwatch';
 import { compare, fromString, satisfies } from './system/version';
-import { isViewNode } from './views/nodes/abstract/viewNode';
+import { isViewNode } from './views/nodes/utils/-webview/node.utils';
 import './commands';
 
 export async function activate(context: ExtensionContext): Promise<GitLensApi | undefined> {
