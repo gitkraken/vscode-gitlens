@@ -1165,10 +1165,15 @@ export class HomeWebviewProvider implements WebviewProvider<State, State, HomeWe
 		});
 	}
 
-	private deleteBranchOrWorktree(ref: BranchRef) {
+	private async deleteBranchOrWorktree(ref: BranchRef, mergeTarget?: BranchRef) {
 		const repo = this._repositoryBranches.get(ref.repoPath);
 		const branch = repo?.branches.find(b => b.id === ref.branchId);
 		if (branch == null) return;
+		if (branch.current) {
+			if (mergeTarget != null) {
+				await this.container.git.checkout(ref.repoPath, mergeTarget.branchName);
+			}
+		}
 
 		void executeGitCommand({
 			command: 'branch',
@@ -1180,8 +1185,16 @@ export class HomeWebviewProvider implements WebviewProvider<State, State, HomeWe
 		});
 	}
 
-	private pushBranch(_ref: BranchRef) {
-		// TODO
+	private pushBranch(ref: BranchRef) {
+		void this.container.git.push(ref.repoPath, {
+			reference: {
+				name: ref.branchName,
+				ref: ref.branchId,
+				refType: 'branch',
+				remote: false,
+				repoPath: ref.repoPath,
+			},
+		});
 	}
 
 	private mergeTargetCompare(ref: BranchAndTargetRefs) {
