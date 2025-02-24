@@ -1,6 +1,6 @@
 import type { Container } from '../../container';
 import { maybeStopWatch } from '../../system/stopwatch';
-import { getLines } from '../../system/string';
+import { iterateByDelimiter } from '../../system/string';
 import type { GitBlame, GitBlameAuthor } from '../models/blame';
 import type { GitCommitLine } from '../models/commit';
 import { GitCommit, GitCommitIdentity } from '../models/commit';
@@ -55,7 +55,7 @@ export function parseGitBlame(
 	let line: string;
 	let lineParts: string[];
 
-	for (line of getLines(data)) {
+	for (line of iterateByDelimiter(data)) {
 		lineParts = line.split(' ');
 		if (lineParts.length < 2) continue;
 

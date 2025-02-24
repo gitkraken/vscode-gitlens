@@ -2,7 +2,7 @@ import { Uri } from 'vscode';
 import type { Container } from '../../container';
 import { normalizePath } from '../../system/path';
 import { maybeStopWatch } from '../../system/stopwatch';
-import { getLines } from '../../system/string';
+import { iterateByDelimiter } from '../../system/string';
 import type { GitBranch } from '../models/branch';
 import { GitWorktree } from '../models/worktree';
 
@@ -40,7 +40,7 @@ export function parseGitWorktrees(
 	let prunable: string;
 	let main = true; // the first worktree is the main worktree
 
-	for (line of getLines(data)) {
+	for (line of iterateByDelimiter(data)) {
 		index = line.indexOf(' ');
 		if (index === -1) {
 			key = line;

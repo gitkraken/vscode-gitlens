@@ -140,49 +140,6 @@ export function getDurationMilliseconds(start: [number, number]): number {
 	return secs * 1000 + Math.floor(nanosecs / 1000000);
 }
 
-export function* getLines(data: string | string[], char: string = '\n'): IterableIterator<string> {
-	if (typeof data === 'string') {
-		let i = 0;
-		while (i < data.length) {
-			let j = data.indexOf(char, i);
-			if (j === -1) {
-				j = data.length;
-			}
-
-			yield data.substring(i, j);
-			i = j + 1;
-		}
-
-		return;
-	}
-
-	let count = 0;
-	let leftover: string | undefined;
-	for (let s of data) {
-		count++;
-		if (leftover) {
-			s = leftover + s;
-			leftover = undefined;
-		}
-
-		let i = 0;
-		while (i < s.length) {
-			let j = s.indexOf(char, i);
-			if (j === -1) {
-				if (count === data.length) {
-					j = s.length;
-				} else {
-					leftover = s.substring(i);
-					break;
-				}
-			}
-
-			yield s.substring(i, j);
-			i = j + 1;
-		}
-	}
-}
-
 /**
  * Distributes a value into one of 100 groups based on a hash of the value
  * @param value The value to distribute (e.g., machine ID)
@@ -427,6 +384,88 @@ export function getTokensFromTemplateRegex(template: string): TokenMatch[] {
 
 	templateTokenMap.set(template, tokens);
 	return tokens;
+}
+
+export function* iterateByDelimiter(data: string, delimiter: string = '\n'): IterableIterator<string> {
+	let i = 0;
+	while (i < data.length) {
+		let j = data.indexOf(delimiter, i);
+		if (j === -1) {
+			j = data.length;
+		}
+
+		yield data.substring(i, j);
+		i = j + 1;
+	}
+}
+
+export function* iterateByDelimiters(
+	data: string | string[],
+	primaryDelimiter: string,
+	secondaryDelimiter?: string,
+): IterableIterator<string> {
+	if (typeof data === 'string') {
+		let i = 0;
+		let primaryIndex;
+		let secondaryIndex;
+		while (i < data.length) {
+			let j = data.length;
+
+			primaryIndex = data.indexOf(primaryDelimiter, i);
+			if (primaryIndex !== -1) {
+				j = primaryIndex;
+			}
+
+			if (secondaryDelimiter != null) {
+				secondaryIndex = data.indexOf(secondaryDelimiter, i);
+				if (secondaryIndex !== -1 && secondaryIndex < j) {
+					j = secondaryIndex;
+				}
+			}
+
+			yield data.substring(i, j);
+			i = j + 1;
+		}
+
+		return;
+	}
+
+	let count = 0;
+	let leftover: string | undefined;
+	for (let s of data) {
+		count++;
+		if (leftover) {
+			s = leftover + s;
+			leftover = undefined;
+		}
+
+		let i = 0;
+		let primaryIndex;
+		let secondaryIndex;
+		while (i < s.length) {
+			let j = s.length;
+
+			primaryIndex = s.indexOf(primaryDelimiter, i);
+			if (primaryIndex !== -1) {
+				j = primaryIndex;
+			}
+
+			if (secondaryDelimiter != null) {
+				secondaryIndex = s.indexOf(secondaryDelimiter, i);
+				if (secondaryIndex !== -1 && secondaryIndex < j) {
+					j = secondaryIndex;
+				}
+			}
+
+			if (j === s.length && count !== data.length) {
+				leftover = s.substring(i);
+				break;
+			}
+
+			yield s.substring(i, j);
+			i = j + 1;
+		}
+	}
 }
 
 export function interpolate(template: string, context: object | undefined): string {
