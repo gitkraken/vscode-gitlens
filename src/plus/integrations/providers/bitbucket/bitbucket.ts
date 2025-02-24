@@ -65,9 +65,7 @@ export class BitbucketApi implements Disposable {
 		owner: string,
 		repo: string,
 		branch: string,
-		options: {
-			baseUrl: string;
-		},
+		baseUrl: string,
 	): Promise<PullRequest | undefined> {
 		const scope = getLogScope();
 
@@ -79,7 +77,7 @@ export class BitbucketApi implements Disposable {
 		}>(
 			provider,
 			token,
-			options.baseUrl,
+			baseUrl,
 			`repositories/${owner}/${repo}/pullrequests?q=source.branch.name="${branch}"&fields=%2Bvalues.reviewers,%2Bvalues.participants`,
 			{
 				method: 'GET',
@@ -100,8 +98,8 @@ export class BitbucketApi implements Disposable {
 		owner: string,
 		repo: string,
 		id: string,
-		options: {
-			baseUrl: string;
+		baseUrl: string,
+		options?: {
 			type?: IssueOrPullRequestType;
 		},
 	): Promise<IssueOrPullRequest | undefined> {
@@ -112,7 +110,7 @@ export class BitbucketApi implements Disposable {
 				const prResponse = await this.request<BitbucketPullRequest>(
 					provider,
 					token,
-					options.baseUrl,
+					baseUrl,
 					`repositories/${owner}/${repo}/pullrequests/${id}?fields=%2Bvalues.reviewers,%2Bvalues.participants`,
 					{
 						method: 'GET',
@@ -136,7 +134,7 @@ export class BitbucketApi implements Disposable {
 				const issueResponse = await this.request<BitbucketIssue>(
 					provider,
 					token,
-					options.baseUrl,
+					baseUrl,
 					`repositories/${owner}/${repo}/issues/${id}`,
 					{
 						method: 'GET',
@@ -172,8 +170,8 @@ export class BitbucketApi implements Disposable {
 		token: string,
 		baseUrl: string,
 		route: string,
-		options: { method: RequestInit['method'] } & Record<string, unknown>,
-		scope: LogScope | undefined,
+		options?: { method: RequestInit['method'] } & Record<string, unknown>,
+		scope?: LogScope | undefined,
 		cancellation?: CancellationToken | undefined,
 	): Promise<T | undefined> {
 		const url = `${baseUrl}/${route}`;
