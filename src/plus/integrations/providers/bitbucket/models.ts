@@ -242,7 +242,8 @@ export function fromBitbucketPullRequest(pr: BitbucketPullRequest, provider: Pro
 		getBitbucketReviewDecision(pr),
 		pr.participants // reviewRequests:PullRequestReviewer[]
 			?.filter(prt => prt.role === 'REVIEWER')
-			.map(prt => fromBitbucketParticipantToReviewer(prt, pr.closed_by, pr.state)),
+			.map(prt => fromBitbucketParticipantToReviewer(prt, pr.closed_by, pr.state))
+			.filter(rv => rv.state === PullRequestReviewState.Pending),
 		pr.participants // latestReviews:PullRequestReviewer[]
 			?.filter(prt => prt.participated_on != null)
 			.map(prt => fromBitbucketParticipantToReviewer(prt, pr.closed_by, pr.state)),
