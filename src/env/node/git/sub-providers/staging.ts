@@ -97,7 +97,7 @@ export class StagingGitSubProvider implements GitStagingSubProvider {
 			'add',
 			options?.intentToAdd ? '-N' : '-A',
 			'--',
-			pathOrUri.map(p => (typeof p === 'string' ? p : splitPath(p, repoPath)[0])),
+			...pathOrUri.map(p => (typeof p === 'string' ? p : splitPath(p, repoPath)[0])),
 		);
 	}
 
