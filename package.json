@@ -20253,7 +20253,7 @@
 		"@types/slug": "5.0.9",
 		"@types/sortablejs": "1.15.8",
 		"@types/vscode": "1.92.0",
-		"@typescript-eslint/parser": "8.24.1",
+		"@typescript-eslint/parser": "8.25.0",
 		"@vscode/test-cli": "^0.0.10",
 		"@vscode/test-electron": "2.4.1",
 		"@vscode/test-web": "0.0.66",
@@ -20290,7 +20290,7 @@
 		"playwright": "1.50.1",
 		"prettier": "3.1.0",
 		"regex-to-strings": "2.1.0",
-		"sass": "1.85.0",
+		"sass": "1.85.1",
 		"sass-loader": "16.0.5",
 		"schema-utils": "4.3.0",
 		"sharp": "0.33.5",
@@ -20298,7 +20298,7 @@
 		"terser-webpack-plugin": "5.3.11",
 		"ts-loader": "9.5.2",
 		"typescript": "5.8.1-rc",
-		"typescript-eslint": "8.24.1",
+		"typescript-eslint": "8.25.0",
 		"webpack": "5.98.0",
 		"webpack-bundle-analyzer": "4.10.2",
 		"webpack-cli": "6.0.1",
@@ -20311,5 +20311,5 @@
 		"node-fetch": "2.7.0",
 		"semver-regex": "4.0.5"
 	},
-	"packageManager": "pnpm@10.4.1"
+	"packageManager": "pnpm@10.5.0"
 }
