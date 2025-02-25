@@ -31,10 +31,8 @@ import { executeGitCommand } from '../../../git/actions';
 import * as BranchActions from '../../../git/actions/branch';
 import {
 	getOrderedComparisonRefs,
-	openAllChanges,
-	openAllChangesIndividually,
-	openAllChangesWithWorking,
-	openAllChangesWithWorkingIndividually,
+	openCommitChanges,
+	openCommitChangesWithWorking,
 	openComparisonChanges,
 	openFiles,
 	openFilesAtRevision,
@@ -3841,10 +3839,7 @@ export class GraphWebviewProvider implements WebviewProvider<State, State, Graph
 		const commit = await this.getCommitFromGraphItemRef(item);
 		if (commit == null) return;
 
-		if (individually) {
-			return openAllChangesIndividually(commit);
-		}
-		return openAllChanges(commit);
+		return openCommitChanges(this.container, commit, individually);
 	}
 
 	@log()
@@ -3852,10 +3847,7 @@ export class GraphWebviewProvider implements WebviewProvider<State, State, Graph
 		const commit = await this.getCommitFromGraphItemRef(item);
 		if (commit == null) return;
 
-		if (individually) {
-			return openAllChangesWithWorkingIndividually(commit);
-		}
-		return openAllChangesWithWorking(commit);
+		return openCommitChangesWithWorking(this.container, commit, individually);
 	}
 
 	@log()

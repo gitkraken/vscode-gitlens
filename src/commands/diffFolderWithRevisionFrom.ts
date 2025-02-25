@@ -95,7 +95,7 @@ export class DiffFolderWithRevisionFromCommand extends ActiveEditorCommand {
 				}
 			}
 
-			void openFolderCompare(uri, { repoPath: repoPath, lhs: args.lhs, rhs: args.rhs });
+			void openFolderCompare(this.container, uri, { repoPath: repoPath, lhs: args.lhs, rhs: args.rhs });
 		} catch (ex) {
 			Logger.error(ex, 'DiffFolderWithRevisionFromCommand');
 			void showGenericErrorMessage('Unable to open comparison');

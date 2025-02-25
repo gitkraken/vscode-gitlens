@@ -1432,19 +1432,18 @@ export class ViewCommands implements Disposable {
 				options = { ...options, title: comparison.title };
 			}
 
-			return (individually ? CommitActions.openAllChangesIndividually : CommitActions.openAllChanges)(
+			return CommitActions.openMultipleChanges(
+				this.container,
 				comparison.files,
 				{ repoPath: comparison.repoPath, lhs: comparison.ref1, rhs: comparison.ref2 },
+				individually,
 				options,
 			);
 		}
 
 		if (!node.isAny('commit', 'stash')) return undefined;
 
-		return (individually ? CommitActions.openAllChangesIndividually : CommitActions.openAllChanges)(
-			node.commit,
-			options,
-		);
+		return CommitActions.openCommitChanges(this.container, node.commit, individually, options);
 	}
 
 	@log()
@@ -1526,18 +1525,18 @@ export class ViewCommands implements Disposable {
 			const comparison = await node.getFilesComparison();
 			if (!comparison?.files.length) return undefined;
 
-			return (
-				individually
-					? CommitActions.openAllChangesWithWorkingIndividually
-					: CommitActions.openAllChangesWithWorking
-			)(comparison.files, { repoPath: comparison.repoPath, ref: comparison.ref1 || comparison.ref2 }, options);
+			return CommitActions.openMultipleChangesWithWorking(
+				this.container,
+				comparison.files,
+				{ repoPath: comparison.repoPath, ref: comparison.ref1 || comparison.ref2 },
+				individually,
+				options,
+			);
 		}
 
 		if (!node.isAny('commit', 'stash')) return undefined;
 
-		return (
-			individually ? CommitActions.openAllChangesWithWorkingIndividually : CommitActions.openAllChangesWithWorking
-		)(node.commit, options);
+		return CommitActions.openCommitChangesWithWorking(this.container, node.commit, individually, options);
 	}
 
 	@log()
