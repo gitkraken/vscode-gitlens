@@ -38,6 +38,7 @@ export class LaunchpadIndicator implements Disposable {
 	) {
 		this._disposable = Disposable.from(
 			window.onDidChangeWindowState(this.onWindowStateChanged, this),
+			provider.onDidChange(this.onLaunchpadChanged, this),
 			provider.onDidRefresh(this.onLaunchpadRefreshed, this),
 			configuration.onDidChange(this.onConfigurationChanged, this),
 			container.integrations.onDidChangeConnectionState(this.onConnectedIntegrationsChanged, this),
@@ -128,6 +129,24 @@ export class LaunchpadIndicator implements Disposable {
 		}
 
 		this.updateStatusBarState('load', e.items);
+	}
+
+	private async onLaunchpadChanged() {
+		this._hasRefreshed = false;
+		if (!this.pollingEnabled) {
+			this.updateStatusBarState('idle');
+
+			return;
+		}
+
+		const items = await this.provider.getCategorizedItems();
+		if (items.error != null) {
+			this.updateStatusBarState('failed');
+
+			return;
+		}
+
+		this.updateStatusBarState('load', items.items);
 	}
 
 	private async onReady(): Promise<void> {
