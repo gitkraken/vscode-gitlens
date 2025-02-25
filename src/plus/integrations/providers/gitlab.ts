@@ -5,14 +5,9 @@ import type { Sources } from '../../../constants.telemetry';
 import type { Container } from '../../../container';
 import type { Account } from '../../../git/models/author';
 import type { DefaultBranch } from '../../../git/models/defaultBranch';
-import type { Issue, SearchedIssue } from '../../../git/models/issue';
+import type { Issue, IssueShape } from '../../../git/models/issue';
 import type { IssueOrPullRequest } from '../../../git/models/issueOrPullRequest';
-import type {
-	PullRequest,
-	PullRequestMergeMethod,
-	PullRequestState,
-	SearchedPullRequest,
-} from '../../../git/models/pullRequest';
+import type { PullRequest, PullRequestMergeMethod, PullRequestState } from '../../../git/models/pullRequest';
 import type { RepositoryMetadata } from '../../../git/models/repositoryMetadata';
 import type { PullRequestUrlIdentity } from '../../../git/utils/pullRequest.utils';
 import { log } from '../../../system/decorators/log';
@@ -24,8 +19,7 @@ import type { RepositoryDescriptor } from '../integration';
 import { HostingIntegration } from '../integration';
 import { getGitLabPullRequestIdentityFromMaybeUrl } from './gitlab/gitlab.utils';
 import { fromGitLabMergeRequestProvidersApi } from './gitlab/models';
-import type { ProviderPullRequest } from './models';
-import { ProviderPullRequestReviewState, providersMetadata, toSearchedIssue } from './models';
+import { ProviderPullRequestReviewState, providersMetadata, toIssueShape } from './models';
 import type { ProvidersApi } from './providersApi';
 
 const metadata = providersMetadata[HostingIntegrationId.GitLab];
@@ -138,7 +132,7 @@ abstract class GitLabIntegrationBase<
 				baseUrl: isEnterprise ? `https://${this.domain}` : undefined,
 			},
 		);
-		const issue = apiResult != null ? toSearchedIssue(apiResult, this)?.issue : undefined;
+		const issue = apiResult != null ? toIssueShape(apiResult, this) : undefined;
 		return issue != null ? { ...issue, type: 'issue' } : undefined;
 	}
 
@@ -216,7 +210,7 @@ abstract class GitLabIntegrationBase<
 	protected override async searchProviderMyPullRequests(
 		{ accessToken }: AuthenticationSession,
 		repos?: GitLabRepositoryDescriptor[],
-	): Promise<SearchedPullRequest[] | undefined> {
+	): Promise<PullRequest[] | undefined> {
 		const api = await this.getProvidersApi();
 		const isEnterprise =
 			this.id === SelfHostedIntegrationId.GitLabSelfHosted ||
@@ -250,64 +244,35 @@ abstract class GitLabIntegrationBase<
 			prs = apiResult.values;
 		}
 
-		const toQueryResult = (pr: ProviderPullRequest, reason?: string): SearchedPullRequest => {
-			return {
-				pullRequest: fromGitLabMergeRequestProvidersApi(pr, this),
-				reasons: reason ? [reason] : [],
-			};
-		};
-
-		function uniqueWithReasons<T extends { reasons: string[] }>(items: T[], lookup: (item: T) => unknown): T[] {
-			return [
-				...uniqueBy(items, lookup, (original, current) => {
-					if (current.reasons.length !== 0) {
-						original.reasons.push(...current.reasons);
-					}
-					return original;
-				}),
-			];
-		}
-
-		const results: SearchedPullRequest[] = uniqueWithReasons(
+		const results: IterableIterator<PullRequest> = uniqueBy(
 			[
-				...prs.flatMap(pr => {
-					const result: SearchedPullRequest[] = [];
-					if (pr.assignees?.some(a => a.username === username)) {
-						result.push(toQueryResult(pr, 'assigned'));
-					}
-
-					if (
-						pr.reviews?.some(
+				...prs
+					.filter(pr => {
+						const isAssignee = pr.assignees?.some(a => a.username === username);
+						const isRequestedReviewer = pr.reviews?.some(
 							review =>
 								review.reviewer?.username === username ||
 								review.state === ProviderPullRequestReviewState.ReviewRequested,
-						)
-					) {
-						result.push(toQueryResult(pr, 'review-requested'));
-					}
+						);
+						const isAuthor = pr.author?.username === username;
+						// It seems like GitLab doesn't give us mentioned PRs.
+						// const isMentioned = ???;
 
-					if (pr.author?.username === username) {
-						result.push(toQueryResult(pr, 'authored'));
-					}
-
-					// It seems like GitLab doesn't give us mentioned PRs.
-					// if (???) {
-					// 	return toQueryResult(pr, 'mentioned');
-					// }
-
-					return result;
-				}),
+						return isAssignee || isRequestedReviewer || isAuthor;
+					})
+					.map(pr => fromGitLabMergeRequestProvidersApi(pr, this)),
 			],
-			r => r.pullRequest.url,
+			r => r.url,
+			(original, _current) => original,
 		);
 
-		return results;
+		return [...results];
 	}
 
 	protected override async searchProviderMyIssues(
 		{ accessToken }: AuthenticationSession,
 		repos?: GitLabRepositoryDescriptor[],
-	): Promise<SearchedIssue[] | undefined> {
+	): Promise<IssueShape[] | undefined> {
 		const api = await this.container.gitlab;
 		const providerApi = await this.getProvidersApi();
 		const isEnterprise =
@@ -334,8 +299,8 @@ abstract class GitLabIntegrationBase<
 		});
 
 		return apiResult.values
-			.map(issue => toSearchedIssue(issue, this))
-			.filter((result): result is SearchedIssue => result != null);
+			.map(issue => toIssueShape(issue, this))
+			.filter((result): result is IssueShape => result != null);
 	}
 
 	protected override async searchProviderPullRequests(

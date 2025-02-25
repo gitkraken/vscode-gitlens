@@ -4,14 +4,9 @@ import type { Sources } from '../../../constants.telemetry';
 import type { Container } from '../../../container';
 import type { Account, UnidentifiedAuthor } from '../../../git/models/author';
 import type { DefaultBranch } from '../../../git/models/defaultBranch';
-import type { Issue, SearchedIssue } from '../../../git/models/issue';
+import type { Issue, IssueShape } from '../../../git/models/issue';
 import type { IssueOrPullRequest } from '../../../git/models/issueOrPullRequest';
-import type {
-	PullRequest,
-	PullRequestMergeMethod,
-	PullRequestState,
-	SearchedPullRequest,
-} from '../../../git/models/pullRequest';
+import type { PullRequest, PullRequestMergeMethod, PullRequestState } from '../../../git/models/pullRequest';
 import type { RepositoryMetadata } from '../../../git/models/repositoryMetadata';
 import type { PullRequestUrlIdentity } from '../../../git/utils/pullRequest.utils';
 import { log } from '../../../system/decorators/log';
@@ -190,7 +185,7 @@ abstract class GitHubIntegrationBase<ID extends SupportedIntegrationIds> extends
 		repos?: GitHubRepositoryDescriptor[],
 		cancellation?: CancellationToken,
 		silent?: boolean,
-	): Promise<SearchedPullRequest[] | undefined> {
+	): Promise<PullRequest[] | undefined> {
 		return (await this.container.github)?.searchMyPullRequests(
 			this,
 			accessToken,
@@ -207,7 +202,7 @@ abstract class GitHubIntegrationBase<ID extends SupportedIntegrationIds> extends
 		{ accessToken }: AuthenticationSession,
 		repos?: GitHubRepositoryDescriptor[],
 		cancellation?: CancellationToken,
-	): Promise<SearchedIssue[] | undefined> {
+	): Promise<IssueShape[] | undefined> {
 		return (await this.container.github)?.searchMyIssues(
 			this,
 			accessToken,

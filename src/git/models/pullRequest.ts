@@ -185,8 +185,3 @@ export type PullRequestRepositoryIdentityDescriptor = RequireSomeWithProps<
 	'id' | 'domain' | 'repoDomain' | 'repoName'
 > &
 	RequireSomeWithProps<RequireSome<RepositoryIdentityDescriptor<string>, 'remote'>, 'remote', 'domain'>;
-
-export interface SearchedPullRequest {
-	pullRequest: PullRequest;
-	reasons: string[];
-}
