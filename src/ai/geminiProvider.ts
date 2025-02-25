@@ -22,10 +22,24 @@ const models: GeminiModel[] = [
 		hidden: true,
 	},
 	{
+		id: 'gemini-2.0-flash-lite',
+		name: 'Gemini 2.0 Flash-Lite',
+		maxTokens: { input: 1048576, output: 8192 },
+		provider: provider,
+	},
+	{
+		id: 'gemini-2.0-flash-lite-001',
+		name: 'Gemini 2.0 Flash-Lite',
+		maxTokens: { input: 1048576, output: 8192 },
+		provider: provider,
+		hidden: true,
+	},
+	{
 		id: 'gemini-2.0-flash-lite-preview-02-05',
 		name: 'Gemini 2.0 Flash-Lite (Preview)',
 		maxTokens: { input: 1048576, output: 8192 },
 		provider: provider,
+		hidden: true,
 	},
 	{
 		id: 'gemini-2.0-pro-exp-02-05',
