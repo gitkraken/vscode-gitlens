@@ -76,11 +76,6 @@ export interface IssueRepository {
 	id?: string;
 }
 
-export interface SearchedIssue {
-	issue: IssueShape;
-	reasons: string[];
-}
-
 export type IssueRepositoryIdentityDescriptor = RequireSomeWithProps<
 	RequireSome<RepositoryIdentityDescriptor<string>, 'provider'>,
 	'provider',

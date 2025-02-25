@@ -36,7 +36,7 @@ import { GitProviderUtils } from '@gitkraken/provider-apis/provider-utils';
 import type { CloudSelfHostedIntegrationId, IntegrationId } from '../../../constants.integrations';
 import { HostingIntegrationId, IssueIntegrationId, SelfHostedIntegrationId } from '../../../constants.integrations';
 import type { Account as UserAccount } from '../../../git/models/author';
-import type { IssueMember, IssueProject, SearchedIssue } from '../../../git/models/issue';
+import type { IssueMember, IssueProject, IssueShape } from '../../../git/models/issue';
 import { Issue, RepositoryAccessLevel } from '../../../git/models/issue';
 import type {
 	PullRequestMember,
@@ -594,65 +594,52 @@ export function getReasonsForUserIssue(issue: ProviderIssue, userLogin: string):
 	return reasons;
 }
 
-export function toSearchedIssue(
-	issue: ProviderIssue,
-	provider: ProviderReference,
-	filterUsed?: IssueFilter,
-	userLogin?: string,
-): SearchedIssue | undefined {
+export function toIssueShape(issue: ProviderIssue, provider: ProviderReference): IssueShape | undefined {
 	// TODO: Add some protections/baselines rather than killing the transformation here
 	if (issue.updatedDate == null || issue.author == null || issue.url == null) return undefined;
 
 	return {
-		reasons:
-			filterUsed != null
-				? [issueFilterToReason(filterUsed)]
-				: userLogin != null
-				  ? getReasonsForUserIssue(issue, userLogin)
-				  : [],
-		issue: {
-			type: 'issue',
-			provider: provider,
-			id: issue.number,
-			nodeId: issue.graphQLId ?? issue.id,
-			title: issue.title,
-			url: issue.url,
-			createdDate: issue.createdDate,
-			updatedDate: issue.updatedDate,
-			closedDate: issue.closedDate ?? undefined,
-			closed: issue.closedDate != null,
-			state: issue.closedDate != null ? 'closed' : 'opened',
-			author: {
-				id: issue.author.id ?? '',
-				name: issue.author.name ?? '',
-				avatarUrl: issue.author.avatarUrl ?? undefined,
-				url: issue.author.url ?? undefined,
-			},
-			assignees:
-				issue.assignees?.map(assignee => ({
-					id: assignee.id ?? '',
-					name: assignee.name ?? '',
-					avatarUrl: assignee.avatarUrl ?? undefined,
-					url: assignee.url ?? undefined,
-				})) ?? [],
-			project: {
-				id: issue.project?.id ?? '',
-				name: issue.project?.name ?? '',
-				resourceId: issue.project?.resourceId ?? '',
-				resourceName: issue.project?.namespace ?? '',
-			},
-			repository:
-				issue.repository?.owner?.login != null
-					? {
-							owner: issue.repository.owner.login,
-							repo: issue.repository.name,
-					  }
-					: undefined,
-			labels: issue.labels.map(label => ({ color: label.color ?? undefined, name: label.name })),
-			commentsCount: issue.commentCount ?? undefined,
-			thumbsUpCount: issue.upvoteCount ?? undefined,
-			body: issue.description ?? undefined,
+		type: 'issue',
+		provider: provider,
+		id: issue.number,
+		nodeId: issue.graphQLId ?? issue.id,
+		title: issue.title,
+		url: issue.url,
+		createdDate: issue.createdDate,
+		updatedDate: issue.updatedDate,
+		closedDate: issue.closedDate ?? undefined,
+		closed: issue.closedDate != null,
+		state: issue.closedDate != null ? 'closed' : 'opened',
+		author: {
+			id: issue.author.id ?? '',
+			name: issue.author.name ?? '',
+			avatarUrl: issue.author.avatarUrl ?? undefined,
+			url: issue.author.url ?? undefined,
 		},
+		assignees:
+			issue.assignees?.map(assignee => ({
+				id: assignee.id ?? '',
+				name: assignee.name ?? '',
+				avatarUrl: assignee.avatarUrl ?? undefined,
+				url: assignee.url ?? undefined,
+			})) ?? [],
+		project: {
+			id: issue.project?.id ?? '',
+			name: issue.project?.name ?? '',
+			resourceId: issue.project?.resourceId ?? '',
+			resourceName: issue.project?.namespace ?? '',
+		},
+		repository:
+			issue.repository?.owner?.login != null
+				? {
+						owner: issue.repository.owner.login,
+						repo: issue.repository.name,
+				  }
+				: undefined,
+		labels: issue.labels.map(label => ({ color: label.color ?? undefined, name: label.name })),
+		commentsCount: issue.commentCount ?? undefined,
+		thumbsUpCount: issue.upvoteCount ?? undefined,
+		body: issue.description ?? undefined,
 	};
 }
 

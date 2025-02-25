@@ -3,14 +3,9 @@ import { window } from 'vscode';
 import { HostingIntegrationId } from '../../../constants.integrations';
 import type { Account } from '../../../git/models/author';
 import type { DefaultBranch } from '../../../git/models/defaultBranch';
-import type { Issue, SearchedIssue } from '../../../git/models/issue';
+import type { Issue, IssueShape } from '../../../git/models/issue';
 import type { IssueOrPullRequest } from '../../../git/models/issueOrPullRequest';
-import type {
-	PullRequest,
-	PullRequestMergeMethod,
-	PullRequestState,
-	SearchedPullRequest,
-} from '../../../git/models/pullRequest';
+import type { PullRequest, PullRequestMergeMethod, PullRequestState } from '../../../git/models/pullRequest';
 import type { RepositoryMetadata } from '../../../git/models/repositoryMetadata';
 import { getSettledValue } from '../../../system/promise';
 import type { IntegrationAuthenticationProviderDescriptor } from '../authentication/integrationAuthenticationProvider';
@@ -316,7 +311,7 @@ export class AzureDevOpsIntegration extends HostingIntegration<
 	protected override async searchProviderMyPullRequests(
 		session: AuthenticationSession,
 		repos?: AzureRepositoryDescriptor[],
-	): Promise<SearchedPullRequest[] | undefined> {
+	): Promise<PullRequest[] | undefined> {
 		const api = await this.getProvidersApi();
 		if (repos != null) {
 			// TODO: implement repos version
@@ -351,17 +346,15 @@ export class AzureDevOpsIntegration extends HostingIntegration<
 				authorLogin: user.username,
 			})
 		)?.map(pr => this.fromAzureProviderPullRequest(pr, repoDescriptors, projects));
-		const prsById = new Map<string, SearchedPullRequest>();
+		const prsById = new Map<string, PullRequest>();
 		for (const pr of authoredPrs ?? []) {
-			prsById.set(pr.id, { pullRequest: pr, reasons: ['authored'] });
+			prsById.set(pr.id, pr);
 		}
 
 		for (const pr of assignedPrs ?? []) {
 			const existing = prsById.get(pr.id);
-			if (existing != null) {
-				existing.reasons.push('assigned');
-			} else {
-				prsById.set(pr.id, { pullRequest: pr, reasons: ['assigned'] });
+			if (existing == null) {
+				prsById.set(pr.id, pr);
 			}
 		}
 
@@ -371,7 +364,7 @@ export class AzureDevOpsIntegration extends HostingIntegration<
 	protected override async searchProviderMyIssues(
 		session: AuthenticationSession,
 		_repos?: AzureRepositoryDescriptor[],
-	): Promise<SearchedIssue[] | undefined> {
+	): Promise<IssueShape[] | undefined> {
 		const api = await this.getProvidersApi();
 
 		const user = await this.getProviderCurrentAccount(session);
@@ -410,18 +403,16 @@ export class AzureDevOpsIntegration extends HostingIntegration<
 			)
 		).flat();
 		// TODO: Add mentioned issues
-		const issuesById = new Map<string, SearchedIssue>();
+		const issuesById = new Map<string, IssueShape>();
 
 		for (const issue of authoredIssues ?? []) {
-			issuesById.set(issue.id, { issue: issue, reasons: ['authored'] });
+			issuesById.set(issue.id, issue);
 		}
 
 		for (const issue of assignedIssues ?? []) {
 			const existing = issuesById.get(issue.id);
-			if (existing != null) {
-				existing.reasons.push('assigned');
-			} else {
-				issuesById.set(issue.id, { issue: issue, reasons: ['assigned'] });
+			if (existing == null) {
+				issuesById.set(issue.id, issue);
 			}
 		}
 

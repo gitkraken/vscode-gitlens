@@ -14,7 +14,7 @@ import { CancellationError } from '../../errors';
 import { openComparisonChanges } from '../../git/actions/commit';
 import type { Account } from '../../git/models/author';
 import type { GitBranch } from '../../git/models/branch';
-import type { PullRequest, SearchedPullRequest } from '../../git/models/pullRequest';
+import type { PullRequest } from '../../git/models/pullRequest';
 import type { GitRemote } from '../../git/models/remote';
 import type { ProviderReference } from '../../git/models/remoteProvider';
 import type { Repository } from '../../git/models/repository';
@@ -121,7 +121,7 @@ type CachedLaunchpadPromise<T> = {
 const cacheExpiration = 1000 * 60 * 30; // 30 minutes
 
 type PullRequestsWithSuggestionCounts = {
-	prs: IntegrationResult<SearchedPullRequest[] | undefined> | undefined;
+	prs: IntegrationResult<PullRequest[] | undefined> | undefined;
 	suggestionCounts: TimedResult<CodeSuggestionCounts | undefined> | undefined;
 };
 
@@ -225,7 +225,7 @@ export class LaunchpadProvider implements Disposable {
 			try {
 				suggestionCounts = await withDurationAndSlowEventOnTimeout(
 					this.container.drafts.getCodeSuggestionCounts(
-						prs.value.map(pr => pr.pullRequest).filter(pr => supportsCodeSuggest(pr.provider)),
+						prs.value.filter(pr => supportsCodeSuggest(pr.provider)),
 					),
 					'getCodeSuggestionCounts',
 					this.container,
@@ -244,14 +244,14 @@ export class LaunchpadProvider implements Disposable {
 			search,
 			connectedIntegrations,
 		);
-		const result: { readonly value: SearchedPullRequest[]; duration: number } = {
+		const result: { readonly value: PullRequest[]; duration: number } = {
 			value: [],
 			duration: 0,
 		};
 
 		const findByPrIdentity = async (
 			integration: HostingIntegration,
-		): Promise<undefined | TimedResult<SearchedPullRequest[] | undefined>> => {
+		): Promise<undefined | TimedResult<PullRequest[] | undefined>> => {
 			const { provider, ownerAndRepo, prNumber } = prUrlIdentity ?? {};
 			const providerMatch = provider == null || provider === integration.id;
 			if (providerMatch && prNumber != null && ownerAndRepo != null) {
@@ -267,7 +267,7 @@ export class LaunchpadProvider implements Disposable {
 					this.container,
 				);
 				if (pr?.value != null) {
-					return { value: [{ pullRequest: pr.value, reasons: [] }], duration: pr.duration };
+					return { value: [pr.value], duration: pr.duration };
 				}
 			}
 			return undefined;
@@ -275,14 +275,14 @@ export class LaunchpadProvider implements Disposable {
 
 		const findByQuery = async (
 			integration: HostingIntegration,
-		): Promise<undefined | TimedResult<SearchedPullRequest[] | undefined>> => {
+		): Promise<undefined | TimedResult<PullRequest[] | undefined>> => {
 			const prs = await withDurationAndSlowEventOnTimeout(
 				integration?.searchPullRequests(search, undefined, cancellation),
 				'searchPullRequests',
 				this.container,
 			);
 			if (prs != null) {
-				return { value: prs.value?.map(pr => ({ pullRequest: pr, reasons: [] })), duration: prs.duration };
+				return { value: prs.value, duration: prs.duration };
 			}
 			return undefined;
 		};
@@ -644,14 +644,12 @@ export class LaunchpadProvider implements Disposable {
 	@gate<LaunchpadProvider['getCategorizedItems']>(
 		o =>
 			`${o?.force ?? false}|${
-				o?.search != null && typeof o.search !== 'string'
-					? o.search.map(s => s.pullRequest.url).join(',')
-					: o?.search
+				o?.search != null && typeof o.search !== 'string' ? o.search.map(pr => pr.url).join(',') : o?.search
 			}`,
 	)
 	@log<LaunchpadProvider['getCategorizedItems']>({ args: { 0: o => `force=${o?.force}`, 1: false } })
 	async getCategorizedItems(
-		options?: { force?: boolean; search?: string | SearchedPullRequest[] },
+		options?: { force?: boolean; search?: string | PullRequest[] },
 		cancellation?: CancellationToken,
 	): Promise<LaunchpadCategorizedResult> {
 		const scope = getLogScope();
@@ -735,7 +733,7 @@ export class LaunchpadProvider implements Disposable {
 				: prs.value.filter(
 						pr =>
 							!ignoredRepositories.has(
-								`${pr.pullRequest.repository.owner.toLowerCase()}/${pr.pullRequest.repository.repo.toLowerCase()}`,
+								`${pr.repository.owner.toLowerCase()}/${pr.repository.repo.toLowerCase()}`,
 							),
 				  );
 
@@ -747,9 +745,9 @@ export class LaunchpadProvider implements Disposable {
 				await this.container.integrations.getMyCurrentAccounts(supportedLaunchpadIntegrations);
 
 			const inputPrs: (EnrichablePullRequest | undefined)[] = filteredPrs.map(pr => {
-				const providerPr = toProviderPullRequestWithUniqueId(pr.pullRequest);
+				const providerPr = toProviderPullRequestWithUniqueId(pr);
 
-				const providerId = pr.pullRequest.provider.id;
+				const providerId = pr.provider.id;
 
 				if (
 					!isSupportedLaunchpadIntegrationId(providerId) ||
@@ -762,24 +760,24 @@ export class LaunchpadProvider implements Disposable {
 				const enrichable = {
 					type: 'pr',
 					id: providerPr.uuid,
-					url: pr.pullRequest.url,
+					url: pr.url,
 					provider:
 						providerId === HostingIntegrationId.AzureDevOps
 							? convertIntegrationIdToEnrichProvider(providerId)
 							: convertRemoteProviderIdToEnrichProvider(providerId),
 				} satisfies EnrichableItem;
 
-				const repoIdentity = getRepositoryIdentityForPullRequest(pr.pullRequest);
+				const repoIdentity = getRepositoryIdentityForPullRequest(pr);
 
 				return {
 					...providerPr,
 					type: 'pullrequest',
 					uuid: providerPr.uuid,
-					provider: pr.pullRequest.provider,
+					provider: pr.provider,
 					enrichable: enrichable,
 					repoIdentity: repoIdentity,
-					refs: pr.pullRequest.refs,
-					underlyingPullRequest: pr.pullRequest,
+					refs: pr.refs,
+					underlyingPullRequest: pr,
 				} satisfies EnrichablePullRequest;
 			}) satisfies (EnrichablePullRequest | undefined)[];
 

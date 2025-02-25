@@ -19,9 +19,9 @@ import {
 import type { PagedResult, RepositoryVisibility } from '../../../../git/gitProvider';
 import type { Account, UnidentifiedAuthor } from '../../../../git/models/author';
 import type { DefaultBranch } from '../../../../git/models/defaultBranch';
-import type { Issue, SearchedIssue } from '../../../../git/models/issue';
+import type { Issue, IssueShape } from '../../../../git/models/issue';
 import type { IssueOrPullRequest } from '../../../../git/models/issueOrPullRequest';
-import type { PullRequest, SearchedPullRequest } from '../../../../git/models/pullRequest';
+import type { PullRequest } from '../../../../git/models/pullRequest';
 import { PullRequestMergeMethod } from '../../../../git/models/pullRequest';
 import type { Provider } from '../../../../git/models/remoteProvider';
 import type { RepositoryMetadata } from '../../../../git/models/repositoryMetadata';
@@ -2904,7 +2904,7 @@ export class GitHubApi implements Disposable {
 			silent?: boolean;
 		},
 		cancellation?: CancellationToken,
-	): Promise<SearchedPullRequest[]> {
+	): Promise<PullRequest[]> {
 		const scope = getLogScope();
 
 		const limit = Math.min(100, configuration.get('launchpad.experimental.queryLimit') ?? 100);
@@ -2981,7 +2981,7 @@ export class GitHubApi implements Disposable {
 
 			const viewer = rsp.viewer.login;
 
-			function toQueryResult(pr: GitHubPullRequest): SearchedPullRequest {
+			function toQueryResult(pr: GitHubPullRequest): PullRequest {
 				const reasons = [];
 				if (pr.author.login === viewer) {
 					reasons.push('authored');
@@ -2996,13 +2996,10 @@ export class GitHubApi implements Disposable {
 					reasons.push('mentioned');
 				}
 
-				return {
-					pullRequest: fromGitHubPullRequest(pr, provider),
-					reasons: reasons,
-				};
+				return fromGitHubPullRequest(pr, provider);
 			}
 
-			const results: SearchedPullRequest[] = rsp.search.nodes.map(pr => toQueryResult(pr));
+			const results: PullRequest[] = rsp.search.nodes.map(pr => toQueryResult(pr));
 			return results;
 		} catch (ex) {
 			throw this.handleException(ex, provider, scope, options?.silent);
@@ -3022,7 +3019,7 @@ export class GitHubApi implements Disposable {
 			includeBody?: boolean;
 		},
 		cancellation?: CancellationToken,
-	): Promise<SearchedIssue[] | undefined> {
+	): Promise<IssueShape[] | undefined> {
 		const scope = getLogScope();
 
 		interface SearchResult {
@@ -3102,24 +3099,18 @@ export class GitHubApi implements Disposable {
 				cancellation,
 			);
 
-			function toQueryResult(issue: GitHubIssue, reason?: string): SearchedIssue {
-				return {
-					issue: fromGitHubIssue(issue, provider),
-					reasons: reason ? [reason] : [],
-				};
+			function toQueryResult(issue: GitHubIssue): IssueShape {
+				return fromGitHubIssue(issue, provider);
 			}
 
 			if (rsp == null) return [];
 
-			const results: SearchedIssue[] = uniqueWithReasons(
-				[
-					...rsp.assigned.nodes.map(pr => toQueryResult(pr, 'assigned')),
-					...rsp.mentioned.nodes.map(pr => toQueryResult(pr, 'mentioned')),
-					...rsp.authored.nodes.map(pr => toQueryResult(pr, 'authored')),
-				],
-				r => r.issue.url,
+			const results: IterableIterator<IssueShape> = uniqueBy(
+				[...rsp.assigned.nodes, ...rsp.mentioned.nodes, ...rsp.authored.nodes].map(toQueryResult),
+				r => r.url,
+				(original, _current) => original,
 			);
-			return results;
+			return [...results];
 		} catch (ex) {
 			throw this.handleException(ex, provider, scope);
 		}
@@ -3254,15 +3245,4 @@ export class GitHubApi implements Disposable {
 
 function isGitHubDotCom(options?: { baseUrl?: string }) {
 	return options?.baseUrl == null || options.baseUrl === 'https://api.github.com';
-}
-
-function uniqueWithReasons<T extends { reasons: string[] }>(items: T[], lookup: (item: T) => unknown): T[] {
-	return [
-		...uniqueBy(items, lookup, (original, current) => {
-			if (current.reasons.length !== 0) {
-				original.reasons.push(...current.reasons);
-			}
-			return original;
-		}),
-	];
 }
