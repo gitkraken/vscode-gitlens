@@ -396,7 +396,13 @@ export class BranchesGitSubProvider implements GitBranchesSubProvider {
 			// Cherry-pick detection (handles cherry-picks, rebases, etc)
 			let data = await this.git.exec({ cwd: repoPath }, 'cherry', '--abbrev', '-v', into.name, branch.name);
 			// Check if there are no lines or all lines startwith a `-` (i.e. likely merged)
-			if (!data || data.split('\n').every(l => l.startsWith('-'))) {
+			if (
+				!data ||
+				data
+					.trim()
+					.split('\n')
+					.every(l => l.startsWith('-'))
+			) {
 				return { merged: true, confidence: 'high' };
 			}
 
