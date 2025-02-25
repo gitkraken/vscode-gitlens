@@ -2,14 +2,9 @@ import type { AuthenticationSession, CancellationToken } from 'vscode';
 import { HostingIntegrationId } from '../../../constants.integrations';
 import type { Account } from '../../../git/models/author';
 import type { DefaultBranch } from '../../../git/models/defaultBranch';
-import type { Issue, SearchedIssue } from '../../../git/models/issue';
+import type { Issue, IssueShape } from '../../../git/models/issue';
 import type { IssueOrPullRequest } from '../../../git/models/issueOrPullRequest';
-import type {
-	PullRequest,
-	PullRequestMergeMethod,
-	PullRequestState,
-	SearchedPullRequest,
-} from '../../../git/models/pullRequest';
+import type { PullRequest, PullRequestMergeMethod, PullRequestState } from '../../../git/models/pullRequest';
 import type { RepositoryMetadata } from '../../../git/models/repositoryMetadata';
 import type { IntegrationAuthenticationProviderDescriptor } from '../authentication/integrationAuthenticationProvider';
 import type { ResourceDescriptor } from '../integration';
@@ -126,14 +121,14 @@ export class BitbucketIntegration extends HostingIntegration<
 	protected override async searchProviderMyPullRequests(
 		_session: AuthenticationSession,
 		_repos?: BitbucketRepositoryDescriptor[],
-	): Promise<SearchedPullRequest[] | undefined> {
+	): Promise<PullRequest[] | undefined> {
 		return Promise.resolve(undefined);
 	}
 
 	protected override async searchProviderMyIssues(
 		_session: AuthenticationSession,
 		_repos?: BitbucketRepositoryDescriptor[],
-	): Promise<SearchedIssue[] | undefined> {
+	): Promise<IssueShape[] | undefined> {
 		return Promise.resolve(undefined);
 	}
 }

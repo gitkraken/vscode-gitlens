@@ -1590,7 +1590,7 @@ async function getLaunchpadItemInfo(
 	let lpi = result.items.find(i => i.url === pr.url);
 	if (lpi == null) {
 		// result = await container.launchpad.getCategorizedItems({ search: pr.url });
-		result = await container.launchpad.getCategorizedItems({ search: [{ pullRequest: pr, reasons: [] }] });
+		result = await container.launchpad.getCategorizedItems({ search: [pr] });
 		if (result.error != null) return undefined;
 
 		lpi = result.items.find(i => i.url === pr.url);

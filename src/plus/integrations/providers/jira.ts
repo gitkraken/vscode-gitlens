@@ -2,14 +2,14 @@ import type { AuthenticationSession, CancellationToken } from 'vscode';
 import type { AutolinkReference, DynamicAutolinkReference } from '../../../autolinks/models/autolinks';
 import { IssueIntegrationId } from '../../../constants.integrations';
 import type { Account } from '../../../git/models/author';
-import type { Issue, SearchedIssue } from '../../../git/models/issue';
+import type { Issue, IssueShape } from '../../../git/models/issue';
 import type { IssueOrPullRequest } from '../../../git/models/issueOrPullRequest';
 import { filterMap, flatten } from '../../../system/iterable';
 import { Logger } from '../../../system/logger';
 import type { IntegrationAuthenticationProviderDescriptor } from '../authentication/integrationAuthenticationProvider';
 import type { IssueResourceDescriptor } from '../integration';
 import { IssueIntegration } from '../integration';
-import { IssueFilter, providersMetadata, toAccount, toSearchedIssue } from './models';
+import { IssueFilter, providersMetadata, toAccount, toIssueShape } from './models';
 
 const metadata = providersMetadata[IssueIntegrationId.Jira];
 const authProvider = Object.freeze({ id: metadata.id, scopes: metadata.scopes });
@@ -166,7 +166,7 @@ export class JiraIntegration extends IssueIntegration<IssueIntegrationId.Jira> {
 		{ accessToken }: AuthenticationSession,
 		project: JiraProjectDescriptor,
 		options?: { user: string; filters: IssueFilter[] },
-	): Promise<SearchedIssue[] | undefined> {
+	): Promise<IssueShape[] | undefined> {
 		let results;
 
 		const api = await this.getProvidersApi();
@@ -174,7 +174,7 @@ export class JiraIntegration extends IssueIntegration<IssueIntegrationId.Jira> {
 		const getSearchedUserIssuesForFilter = async (
 			user: string,
 			filter: IssueFilter,
-		): Promise<SearchedIssue[] | undefined> => {
+		): Promise<IssueShape[] | undefined> => {
 			const results = await api.getIssuesForProject(this.id, project.name, project.resourceId, {
 				authorLogin: filter === IssueFilter.Author ? user : undefined,
 				assigneeLogins: filter === IssueFilter.Assignee ? [user] : undefined,
@@ -183,8 +183,8 @@ export class JiraIntegration extends IssueIntegration<IssueIntegrationId.Jira> {
 			});
 
 			return results
-				?.map(issue => toSearchedIssue(issue, this, filter))
-				.filter((result): result is SearchedIssue => result !== undefined);
+				?.map(issue => toIssueShape(issue, this))
+				.filter((result): result is IssueShape => result !== undefined);
 		};
 
 		if (options?.user != null && options.filters.length > 0) {
@@ -200,13 +200,10 @@ export class JiraIntegration extends IssueIntegration<IssueIntegrationId.Jira> {
 				),
 			];
 
-			const resultsById = new Map<string, SearchedIssue>();
-			for (const result of results) {
-				if (resultsById.has(result.issue.id)) {
-					const existing = resultsById.get(result.issue.id)!;
-					existing.reasons = [...existing.reasons, ...result.reasons];
-				} else {
-					resultsById.set(result.issue.id, result);
+			const resultsById = new Map<string, IssueShape>();
+			for (const resultIssue of results) {
+				if (!resultsById.has(resultIssue.id)) {
+					resultsById.set(resultIssue.id, resultIssue);
 				}
 			}
 
@@ -217,24 +214,23 @@ export class JiraIntegration extends IssueIntegration<IssueIntegrationId.Jira> {
 			accessToken: accessToken,
 		});
 		return results
-			?.map(issue => toSearchedIssue(issue, this))
-			.filter((result): result is SearchedIssue => result !== undefined);
+			?.map(issue => toIssueShape(issue, this))
+			.filter((result): result is IssueShape => result !== undefined);
 	}
 
 	protected override async searchProviderMyIssues(
 		session: AuthenticationSession,
 		resources?: JiraOrganizationDescriptor[],
 		_cancellation?: CancellationToken,
-	): Promise<SearchedIssue[] | undefined> {
+	): Promise<IssueShape[] | undefined> {
 		const myResources = resources ?? (await this.getProviderResourcesForUser(session));
 		if (!myResources) return undefined;
 
 		const api = await this.getProvidersApi();
 
-		const results: SearchedIssue[] = [];
+		const results: IssueShape[] = [];
 		for (const resource of myResources) {
 			try {
-				const userLogin = (await this.getProviderAccountForResource(session, resource))?.username;
 				let cursor = undefined;
 				let hasMore = false;
 				let requestCount = 0;
@@ -247,8 +243,8 @@ export class JiraIntegration extends IssueIntegration<IssueIntegrationId.Jira> {
 					hasMore = resourceIssues.paging?.more ?? false;
 					cursor = resourceIssues.paging?.cursor;
 					const formattedIssues = resourceIssues.values
-						.map(issue => toSearchedIssue(issue, this, undefined, userLogin))
-						.filter((result): result is SearchedIssue => result != null);
+						.map(issue => toIssueShape(issue, this))
+						.filter((result): result is IssueShape => result != null);
 					if (formattedIssues.length > 0) {
 						results.push(...formattedIssues);
 					}
@@ -269,13 +265,12 @@ export class JiraIntegration extends IssueIntegration<IssueIntegrationId.Jira> {
 		id: string,
 	): Promise<IssueOrPullRequest | undefined> {
 		const api = await this.getProvidersApi();
-		const userLogin = (await this.getProviderAccountForResource(session, resource))?.username;
 		const issue = await api.getIssue(
 			this.id,
 			{ resourceId: resource.id, number: id },
 			{ accessToken: session.accessToken },
 		);
-		return issue != null ? toSearchedIssue(issue, this, undefined, userLogin)?.issue : undefined;
+		return issue != null ? toIssueShape(issue, this) : undefined;
 	}
 
 	protected override async getProviderIssue(
@@ -284,13 +279,12 @@ export class JiraIntegration extends IssueIntegration<IssueIntegrationId.Jira> {
 		id: string,
 	): Promise<Issue | undefined> {
 		const api = await this.getProvidersApi();
-		const userLogin = (await this.getProviderAccountForResource(session, resource))?.username;
 		const apiResult = await api.getIssue(
 			this.id,
 			{ resourceId: resource.id, number: id },
 			{ accessToken: session.accessToken },
 		);
-		const issue = apiResult != null ? toSearchedIssue(apiResult, this, undefined, userLogin)?.issue : undefined;
+		const issue = apiResult != null ? toIssueShape(apiResult, this) : undefined;
 		return issue != null ? { ...issue, type: 'issue' } : undefined;
 	}
 
