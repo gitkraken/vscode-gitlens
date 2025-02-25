@@ -168,12 +168,10 @@ abstract class CreatePatchCommandBase extends GlCommandBase {
 		repo ??= await getRepositoryOrShowPicker(title);
 		if (repo == null) return;
 
-		return repo.git
-			.diff()
-			.getDiff?.(args?.to ?? uncommitted, args?.from ?? 'HEAD', {
-				includeUntracked: args?.includeUntracked ?? (args?.to != null || args?.to === uncommitted),
-				uris: args?.uris,
-			});
+		return repo.git.diff().getDiff?.(args?.to ?? uncommitted, args?.from ?? 'HEAD', {
+			includeUntracked: args?.includeUntracked ?? (args?.to != null || args?.to === uncommitted),
+			uris: args?.uris,
+		});
 	}
 
 	abstract override execute(args?: CreatePatchCommandArgs): Promise<void>;
