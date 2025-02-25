@@ -1,4 +1,4 @@
-import type { TextDocumentShowOptions, TextEditor } from 'vscode';
+import type { TextDocumentShowOptions, TextEditor, ViewColumn } from 'vscode';
 import { env, Range, Uri, window, workspace } from 'vscode';
 import type { DiffWithCommandArgs } from '../../commands/diffWith';
 import type { DiffWithPreviousCommandArgs } from '../../commands/diffWithPrevious';
@@ -33,6 +33,8 @@ import { createRevisionRange, isUncommitted, isUncommittedStaged, shortenRevisio
 
 export type Ref = { repoPath: string; ref: string };
 export type RefRange = { repoPath: string; rhs: string; lhs: string };
+
+type ShowOptions = TextDocumentShowOptions & { sourceViewColumn?: ViewColumn; title?: string };
 
 export interface FilesComparison {
 	files: GitFile[];
@@ -106,49 +108,32 @@ export async function copyMessageToClipboard(ref: Ref | GitCommit): Promise<void
 	await env.clipboard.writeText(message);
 }
 
-export async function openAllChanges(
+export async function openCommitChanges(
+	container: Container,
 	commit: GitCommit,
-	options?: TextDocumentShowOptions & { title?: string },
-): Promise<void>;
-export async function openAllChanges(
-	files: GitFile[],
-	refs: RefRange,
-	options?: TextDocumentShowOptions & { title?: string },
-): Promise<void>;
-export async function openAllChanges(
-	commitOrFiles: GitCommit | GitFile[],
-	refsOrOptions: RefRange | (TextDocumentShowOptions & { title?: string }) | undefined,
-	maybeOptions?: TextDocumentShowOptions & { title?: string },
+	openIndividually: boolean | undefined,
+	options?: ShowOptions,
+	filter?: (file: GitFileChange) => boolean,
 ): Promise<void> {
-	if (isCommit(commitOrFiles)) {
-		if (configuration.get('views.openChangesInMultiDiffEditor')) {
-			return openAllChangesInChangesEditor(commitOrFiles, refsOrOptions as TextDocumentShowOptions | undefined);
-		}
-		return openAllChangesIndividually(commitOrFiles, refsOrOptions as TextDocumentShowOptions | undefined);
+	const { files, refs } = await getCommitChangesArgs(commit, filter);
+
+	openIndividually ??= !configuration.get('views.openChangesInMultiDiffEditor');
+	if (!options?.title) {
+		options = {
+			...options,
+			title: `Changes in ${shortenRevision(commit.sha, { strings: { working: 'Working Tree' } })}`,
+		};
 	}
 
-	if (configuration.get('views.openChangesInMultiDiffEditor')) {
-		return openAllChangesInChangesEditor(commitOrFiles, refsOrOptions as RefRange, maybeOptions);
-	}
-	return openAllChangesIndividually(commitOrFiles, refsOrOptions as RefRange, maybeOptions);
+	return openMultipleChanges(container, files, refs, openIndividually, options);
 }
 
-export async function openAllChangesIndividually(commit: GitCommit, options?: TextDocumentShowOptions): Promise<void>;
-export async function openAllChangesIndividually(
-	files: GitFile[],
-	refs: RefRange,
-	options?: TextDocumentShowOptions,
-): Promise<void>;
-export async function openAllChangesIndividually(
-	commitOrFiles: GitCommit | GitFile[],
-	refsOrOptions: RefRange | TextDocumentShowOptions | undefined,
-	maybeOptions?: TextDocumentShowOptions,
-): Promise<void> {
-	let { files, refs, options } = await getChangesRefsArgs(commitOrFiles, refsOrOptions, maybeOptions);
+export async function openCommitChangesInDiffTool(commit: GitCommit): Promise<void> {
+	const { files } = await getCommitChangesArgs(commit);
 
 	if (
 		!(await confirmOpenIfNeeded(files, {
-			message: `Are you sure you want to open the changes for each of the ${files.length} files?`,
+			message: `Are you sure you want to externally open the changes for each of the ${files.length} files?`,
 			confirmButton: 'Open Changes',
 			threshold: filesOpenDiffsThreshold,
 		}))
@@ -156,62 +141,74 @@ export async function openAllChangesIndividually(
 		return;
 	}
 
-	options = { preserveFocus: true, preview: false, ...options };
-
 	for (const file of files) {
-		await openChanges(file, refs, options);
+		void openChangesInDiffTool(file, commit);
 	}
 }
 
-export async function openAllChangesInChangesEditor(
+export async function openCommitChangesWithWorking(
+	container: Container,
 	commit: GitCommit,
-	options?: TextDocumentShowOptions & { title?: string },
-): Promise<void>;
-export async function openAllChangesInChangesEditor(
-	files: GitFile[],
-	refs: RefRange,
-	options?: TextDocumentShowOptions & { title?: string },
-): Promise<void>;
-export async function openAllChangesInChangesEditor(
-	commitOrFiles: GitCommit | GitFile[],
-	refsOrOptions: RefRange | (TextDocumentShowOptions & { title?: string }) | undefined,
-	maybeOptions?: TextDocumentShowOptions & { title?: string },
+	openIndividually: boolean | undefined,
+	options?: ShowOptions,
+	filter?: (file: GitFileChange) => boolean,
 ): Promise<void> {
-	if (!configuration.getCore('multiDiffEditor.experimental.enabled')) {
-		void window.showErrorMessage(
-			`Enable the multi-diff editor by setting 'multiDiffEditor.experimental.enabled' to use this command`,
-		);
-		return;
-	}
+	const { files } = await getCommitChangesArgs(commit, filter);
+	openIndividually ??= !configuration.get('views.openChangesInMultiDiffEditor');
+	return openMultipleChangesWithWorking(container, files, commit, openIndividually, options);
+}
 
-	let title;
-	if (maybeOptions != null) {
-		({ title, ...maybeOptions } = maybeOptions);
-	}
-
-	const { commit, files, refs, options } = await getChangesRefsArgs(commitOrFiles, refsOrOptions, maybeOptions);
-
-	if (title == null) {
-		if (commit != null) {
-			title = `Changes in ${shortenRevision(refs.rhs, { strings: { working: 'Working Tree' } })}`;
-		} else {
-			title = `Changes between ${shortenRevision(refs.lhs, { strings: { working: 'Working Tree' } })} ${
-				GlyphChars.ArrowLeftRightLong
-			} ${shortenRevision(refs.rhs, { strings: { working: 'Working Tree' } })}`;
+export async function openMultipleChanges(
+	container: Container,
+	files: GitFile[] | readonly GitFile[],
+	refs: RefRange,
+	openIndividually: boolean | undefined,
+	options?: ShowOptions,
+): Promise<void> {
+	openIndividually ??= !configuration.get('views.openChangesInMultiDiffEditor');
+	if (openIndividually) {
+		if (
+			!(await confirmOpenIfNeeded(files, {
+				message: `Are you sure you want to open the changes for each of the ${files.length} files?`,
+				confirmButton: 'Open Changes',
+				threshold: filesOpenDiffsThreshold,
+			}))
+		) {
+			return;
 		}
+
+		options = { preserveFocus: true, preview: false, ...options };
+
+		for (const file of files) {
+			if (refs.rhs === '') {
+				await openChangesWithWorking(file, { repoPath: refs.repoPath, ref: refs.lhs }, options);
+			} else {
+				await openChanges(file, refs, options);
+			}
+		}
+
+		return;
 	}
 
 	if (
 		!(await confirmOpenIfNeeded(files, {
 			message: `Are you sure you want to view the changes for all ${files.length} files?`,
-			confirmButton: 'View All Changes',
+			confirmButton: 'View Changes',
 			threshold: filesOpenMultiDiffThreshold,
 		}))
 	) {
 		return;
 	}
 
-	const { git } = Container.instance;
+	let title;
+	if (options != null) {
+		({ title, ...options } = options);
+	}
+	title ??= `Changes between ${shortenRevision(refs.lhs, { strings: { working: 'Working Tree' } })} ${
+		GlyphChars.ArrowLeftRightLong
+	} ${shortenRevision(refs.rhs, { strings: { working: 'Working Tree' } })}`;
+
+	const { git } = container;
 
 	const resources: Parameters<typeof openChangesEditor>[0] = [];
 	for (const file of files) {
@@ -242,95 +239,20 @@ export async function openAllChangesInChangesEditor(
 	await openChangesEditor(resources, title, options);
 }
 
-export async function openAllChangesWithDiffTool(commit: GitCommit): Promise<void>;
-export async function openAllChangesWithDiffTool(files: GitFile[], ref: Ref): Promise<void>;
-export async function openAllChangesWithDiffTool(commitOrFiles: GitCommit | GitFile[], ref?: Ref): Promise<void> {
-	const { files } = await getChangesRefArgs(commitOrFiles, ref);
-
-	if (
-		!(await confirmOpenIfNeeded(files, {
-			message: `Are you sure you want to externally open the changes for each of the ${files.length} files?`,
-			confirmButton: 'Open Changes',
-			threshold: filesOpenDiffsThreshold,
-		}))
-	) {
-		return;
-	}
-
-	for (const file of files) {
-		void openChangesWithDiffTool(file, ref!);
-	}
-}
-
-export async function openAllChangesWithWorking(
-	commit: GitCommit,
-	options?: TextDocumentShowOptions & { title?: string },
-): Promise<void>;
-export async function openAllChangesWithWorking(
-	files: GitFile[],
+export async function openMultipleChangesWithWorking(
+	container: Container,
+	files: GitFile[] | readonly GitFile[],
 	ref: Ref,
-	options?: TextDocumentShowOptions & { title?: string },
-): Promise<void>;
-export async function openAllChangesWithWorking(
-	commitOrFiles: GitCommit | GitFile[],
-	refOrOptions: Ref | (TextDocumentShowOptions & { title?: string }) | undefined,
-	maybeOptions?: TextDocumentShowOptions & { title?: string },
+	openIndividually: boolean | undefined,
+	options?: ShowOptions,
 ): Promise<void> {
-	if (isCommit(commitOrFiles)) {
-		if (configuration.get('views.openChangesInMultiDiffEditor')) {
-			return openAllChangesInChangesEditor(commitOrFiles, refOrOptions as TextDocumentShowOptions | undefined);
-		}
-		return openAllChangesWithWorkingIndividually(
-			commitOrFiles,
-			refOrOptions as TextDocumentShowOptions | undefined,
-		);
-	}
-
-	if (configuration.get('views.openChangesInMultiDiffEditor')) {
-		return openAllChangesInChangesEditor(
-			commitOrFiles,
-			{
-				repoPath: (refOrOptions as Ref).repoPath,
-				lhs: (refOrOptions as Ref).ref,
-				rhs: '',
-			},
-			maybeOptions,
-		);
-	}
-	return openAllChangesWithWorkingIndividually(commitOrFiles, refOrOptions as Ref, maybeOptions);
-}
-
-export async function openAllChangesWithWorkingIndividually(
-	commit: GitCommit,
-	options?: TextDocumentShowOptions,
-): Promise<void>;
-export async function openAllChangesWithWorkingIndividually(
-	files: GitFile[],
-	ref: Ref,
-	options?: TextDocumentShowOptions,
-): Promise<void>;
-export async function openAllChangesWithWorkingIndividually(
-	commitOrFiles: GitCommit | GitFile[],
-	refOrOptions: Ref | TextDocumentShowOptions | undefined,
-	maybeOptions?: TextDocumentShowOptions,
-): Promise<void> {
-	let { files, ref, options } = await getChangesRefArgs(commitOrFiles, refOrOptions, maybeOptions);
-
-	if (
-		!(await confirmOpenIfNeeded(files, {
-			message: `Are you sure you want to open the changes for each of the ${files.length} files?`,
-			confirmButton: 'Open Changes',
-			threshold: filesOpenDiffsThreshold,
-		}))
-	) {
-		return;
-	}
-
-	options = { preserveFocus: true, preview: false, ...options };
-
-	for (const file of files) {
-		await openChangesWithWorking(file, ref, options);
-	}
+	return openMultipleChanges(
+		container,
+		files,
+		{ repoPath: ref.repoPath, lhs: ref.ref, rhs: '' },
+		openIndividually,
+		options,
+	);
 }
 
 export async function openChanges(
@@ -399,9 +321,9 @@ export async function openChanges(
 	}));
 }
 
-export function openChangesWithDiffTool(file: string | GitFile, commit: GitCommit, tool?: string): Promise<void>;
-export function openChangesWithDiffTool(file: GitFile, ref: Ref, tool?: string): Promise<void>;
-export async function openChangesWithDiffTool(
+export function openChangesInDiffTool(file: string | GitFile, commit: GitCommit, tool?: string): Promise<void>;
+export function openChangesInDiffTool(file: GitFile, ref: Ref, tool?: string): Promise<void>;
+export async function openChangesInDiffTool(
 	file: string | GitFile,
 	commitOrRef: GitCommit | Ref,
 	tool?: string,
@@ -426,7 +348,7 @@ export async function openChangesWithDiffTool(
 }
 
 export async function openChangesWithWorking(
-	file: string | GitFile,
+	file: string | Uri | GitFile,
 	commit: GitCommit,
 	options?: TextDocumentShowOptions & { lhsTitle?: string },
 ): Promise<void>;
@@ -436,11 +358,11 @@ export async function openChangesWithWorking(
 	options?: TextDocumentShowOptions & { lhsTitle?: string },
 ): Promise<void>;
 export async function openChangesWithWorking(
-	file: string | GitFile,
+	file: string | Uri | GitFile,
 	commitOrRef: GitCommit | Ref,
 	options?: TextDocumentShowOptions & { lhsTitle?: string },
 ): Promise<void> {
-	if (typeof file === 'string') {
+	if (typeof file === 'string' || file instanceof Uri) {
 		if (!isCommit(commitOrRef)) throw new Error('Invalid arguments');
 
 		const f = await commitOrRef.findFile(file);
@@ -473,7 +395,7 @@ export async function openChangesWithWorking(
 export async function openComparisonChanges(
 	container: Container,
 	refs: RefRange,
-	options?: TextDocumentShowOptions & { title?: string },
+	options?: ShowOptions,
 ): Promise<void> {
 	refs.lhs = refs.lhs || 'HEAD';
 	refs.rhs = refs.rhs || 'HEAD';
@@ -485,7 +407,7 @@ export async function openComparisonChanges(
 		refs.rhs === '',
 	);
 
-	await openAllChangesInChangesEditor(files ?? [], refs, options);
+	await openMultipleChanges(container, files ?? [], refs, false, options);
 }
 
 export async function openDirectoryCompare(
@@ -506,11 +428,12 @@ export async function openDirectoryCompareWithWorking(ref: Ref | GitCommit): Pro
 }
 
 export async function openFolderCompare(
+	container: Container,
 	pathOrUri: string | Uri,
 	refs: RefRange,
 	options?: TextDocumentShowOptions,
 ): Promise<void> {
-	const { git } = Container.instance;
+	const { git } = container;
 
 	let comparison;
 	if (refs.lhs === '') {
@@ -540,7 +463,7 @@ export async function openFolderCompare(
 		strings: { working: 'Working Tree' },
 	})} ${GlyphChars.ArrowLeftRightLong} ${shortenRevision(refs.rhs, { strings: { working: 'Working Tree' } })}`;
 
-	return openAllChangesInChangesEditor(files, refs, { ...options, title: title });
+	return openMultipleChanges(container, files, refs, false, { ...options, title: title });
 }
 
 export async function openFile(uri: Uri, options?: TextDocumentShowOptions): Promise<void>;
@@ -974,6 +897,24 @@ async function getChangesRefsArgs(
 				commitOrFiles.resolvedPreviousSha ??
 				(await commitOrFiles.getPreviousSha()) ??
 				commitOrFiles.unresolvedPreviousSha,
+		},
+	};
+}
+
+async function getCommitChangesArgs(
+	commit: GitCommit,
+	filter?: (file: GitFileChange) => boolean,
+): Promise<{ files: readonly GitFile[]; refs: RefRange }> {
+	if (commit.files == null) {
+		await commit.ensureFullDetails();
+	}
+
+	return {
+		files: (filter != null ? commit.files?.filter(filter) : commit.files) ?? [],
+		refs: {
+			repoPath: commit.repoPath,
+			rhs: commit.sha,
+			lhs: commit.resolvedPreviousSha ?? (await commit.getPreviousSha()) ?? commit.unresolvedPreviousSha,
 		},
 	};
 }

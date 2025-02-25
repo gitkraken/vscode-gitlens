@@ -67,7 +67,7 @@ export class DiffFolderWithRevisionCommand extends ActiveEditorCommand {
 			});
 			if (pick == null) return;
 
-			void openFolderCompare(uri, { repoPath: repoPath, lhs: pick.ref, rhs: gitUri.sha ?? '' });
+			void openFolderCompare(this.container, uri, { repoPath: repoPath, lhs: pick.ref, rhs: gitUri.sha ?? '' });
 		} catch (ex) {
 			Logger.error(ex, 'DiffFolderWithRevisionCommand');
 			void showGenericErrorMessage('Unable to open comparison');

@@ -2193,7 +2193,7 @@
 			"menus": {
 				"gitlens/graph/commit/changes": [
 					{
-						"when": "config.gitlens.views.openChangesInMultiDiffEditor && config.multiDiffEditor.experimental.enabled",
+						"when": "config.gitlens.views.openChangesInMultiDiffEditor",
 						"group": "1_gitlens",
 						"order": 2
 					}
@@ -2231,7 +2231,7 @@
 			"menus": {
 				"gitlens/graph/commit/changes": [
 					{
-						"when": "config.gitlens.views.openChangesInMultiDiffEditor && config.multiDiffEditor.experimental.enabled",
+						"when": "config.gitlens.views.openChangesInMultiDiffEditor",
 						"group": "1_gitlens",
 						"order": 4
 					}
@@ -2329,7 +2329,7 @@
 			"menus": {
 				"webview/context": [
 					{
-						"when": "webviewItem =~ /gitlens:pullrequest\\b(?=.*?\\b\\+refs\\b)/ && config.multiDiffEditor.experimental.enabled",
+						"when": "webviewItem =~ /gitlens:pullrequest\\b(?=.*?\\b\\+refs\\b)/",
 						"group": "1_gitlens_actions",
 						"order": 1
 					}
@@ -7415,7 +7415,7 @@
 				],
 				"view/item/context": [
 					{
-						"when": "viewItem =~ /gitlens:(compare:results(?!:)\\b(?!.*?\\b\\+filtered\\b)|commit|stash|results:files|status-branch:files|status:upstream:(ahead|behind))\\b/ && config.gitlens.views.openChangesInMultiDiffEditor && config.multiDiffEditor.experimental.enabled && !listMultiSelection",
+						"when": "viewItem =~ /gitlens:(compare:results(?!:)\\b(?!.*?\\b\\+filtered\\b)|commit|stash|results:files|status-branch:files|status:upstream:(ahead|behind))\\b/ && config.gitlens.views.openChangesInMultiDiffEditor && !listMultiSelection",
 						"group": "inline",
 						"order": 90,
 						"alt": "gitlens.views.openChangedFileDiffsWithWorking"
@@ -7428,7 +7428,7 @@
 			"menus": {
 				"gitlens/commit/changes": [
 					{
-						"when": "config.gitlens.views.openChangesInMultiDiffEditor && config.multiDiffEditor.experimental.enabled",
+						"when": "config.gitlens.views.openChangesInMultiDiffEditor",
 						"group": "1_gitlens",
 						"order": 2
 					}
@@ -7465,7 +7465,7 @@
 			"menus": {
 				"gitlens/commit/changes": [
 					{
-						"when": "config.gitlens.views.openChangesInMultiDiffEditor && config.multiDiffEditor.experimental.enabled",
+						"when": "config.gitlens.views.openChangesInMultiDiffEditor",
 						"group": "1_gitlens",
 						"order": 4
 					}
@@ -7770,12 +7770,12 @@
 			"menus": {
 				"view/item/context": [
 					{
-						"when": "viewItem =~ /gitlens:(pullrequest\\b(?=.*?\\b\\+refs\\b)|launchpad:item\\b(?=.*?\\b\\+pr\\b))/ && config.multiDiffEditor.experimental.enabled",
+						"when": "viewItem =~ /gitlens:(pullrequest\\b(?=.*?\\b\\+refs\\b)|launchpad:item\\b(?=.*?\\b\\+pr\\b))/",
 						"group": "inline",
 						"order": 2
 					},
 					{
-						"when": "viewItem =~ /gitlens:(pullrequest\\b(?=.*?\\b\\+refs\\b)|launchpad:item\\b(?=.*?\\b\\+pr\\b))/ && config.multiDiffEditor.experimental.enabled && !listMultiSelection",
+						"when": "viewItem =~ /gitlens:(pullrequest\\b(?=.*?\\b\\+refs\\b)|launchpad:item\\b(?=.*?\\b\\+pr\\b))/ && !listMultiSelection",
 						"group": "2_gitlens_quickopen",
 						"order": 1
 					}

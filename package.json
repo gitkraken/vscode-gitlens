@@ -13333,7 +13333,7 @@
 				},
 				{
 					"command": "gitlens.views.openChangedFileDiffsIndividually",
-					"when": "config.gitlens.views.openChangesInMultiDiffEditor && config.multiDiffEditor.experimental.enabled",
+					"when": "config.gitlens.views.openChangesInMultiDiffEditor",
 					"group": "1_gitlens@2"
 				},
 				{
@@ -13342,7 +13342,7 @@
 				},
 				{
 					"command": "gitlens.views.openChangedFileDiffsWithWorkingIndividually",
-					"when": "config.gitlens.views.openChangesInMultiDiffEditor && config.multiDiffEditor.experimental.enabled",
+					"when": "config.gitlens.views.openChangesInMultiDiffEditor",
 					"group": "1_gitlens@4"
 				},
 				{
@@ -13866,7 +13866,7 @@
 				},
 				{
 					"command": "gitlens.graph.openChangedFileDiffsIndividually",
-					"when": "config.gitlens.views.openChangesInMultiDiffEditor && config.multiDiffEditor.experimental.enabled",
+					"when": "config.gitlens.views.openChangesInMultiDiffEditor",
 					"group": "1_gitlens@2"
 				},
 				{
@@ -13876,7 +13876,7 @@
 				},
 				{
 					"command": "gitlens.graph.openChangedFileDiffsWithWorkingIndividually",
-					"when": "config.gitlens.views.openChangesInMultiDiffEditor && config.multiDiffEditor.experimental.enabled",
+					"when": "config.gitlens.views.openChangesInMultiDiffEditor",
 					"group": "1_gitlens@4"
 				},
 				{
@@ -15688,7 +15688,7 @@
 				},
 				{
 					"command": "gitlens.views.openChangedFileDiffs",
-					"when": "viewItem =~ /gitlens:(compare:results(?!:)\\b(?!.*?\\b\\+filtered\\b)|commit|stash|results:files|status-branch:files|status:upstream:(ahead|behind))\\b/ && config.gitlens.views.openChangesInMultiDiffEditor && config.multiDiffEditor.experimental.enabled && !listMultiSelection",
+					"when": "viewItem =~ /gitlens:(compare:results(?!:)\\b(?!.*?\\b\\+filtered\\b)|commit|stash|results:files|status-branch:files|status:upstream:(ahead|behind))\\b/ && config.gitlens.views.openChangesInMultiDiffEditor && !listMultiSelection",
 					"group": "inline@90",
 					"alt": "gitlens.views.openChangedFileDiffsWithWorking"
 				},
@@ -16273,7 +16273,7 @@
 				},
 				{
 					"command": "gitlens.views.openPullRequestChanges",
-					"when": "viewItem =~ /gitlens:(pullrequest\\b(?=.*?\\b\\+refs\\b)|launchpad:item\\b(?=.*?\\b\\+pr\\b))/ && config.multiDiffEditor.experimental.enabled",
+					"when": "viewItem =~ /gitlens:(pullrequest\\b(?=.*?\\b\\+refs\\b)|launchpad:item\\b(?=.*?\\b\\+pr\\b))/",
 					"group": "inline@2"
 				},
 				{
@@ -16294,7 +16294,7 @@
 				},
 				{
 					"command": "gitlens.views.openPullRequestChanges",
-					"when": "viewItem =~ /gitlens:(pullrequest\\b(?=.*?\\b\\+refs\\b)|launchpad:item\\b(?=.*?\\b\\+pr\\b))/ && config.multiDiffEditor.experimental.enabled && !listMultiSelection",
+					"when": "viewItem =~ /gitlens:(pullrequest\\b(?=.*?\\b\\+refs\\b)|launchpad:item\\b(?=.*?\\b\\+pr\\b))/ && !listMultiSelection",
 					"group": "2_gitlens_quickopen@1"
 				},
 				{
@@ -18802,7 +18802,7 @@
 				},
 				{
 					"command": "gitlens.graph.openPullRequestChanges",
-					"when": "webviewItem =~ /gitlens:pullrequest\\b(?=.*?\\b\\+refs\\b)/ && config.multiDiffEditor.experimental.enabled",
+					"when": "webviewItem =~ /gitlens:pullrequest\\b(?=.*?\\b\\+refs\\b)/",
 					"group": "1_gitlens_actions@1"
 				},
 				{

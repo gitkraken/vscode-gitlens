@@ -328,9 +328,21 @@ export async function openEditor(
 export async function openChangesEditor(
 	resources: { uri: Uri; lhs: Uri | undefined; rhs: Uri | undefined }[],
 	title: string,
-	_options?: TextDocumentShowOptions,
+	options?: TextDocumentShowOptions & { sourceViewColumn?: ViewColumn },
 ): Promise<void> {
 	try {
+		if (options?.viewColumn === ViewColumn.Beside) {
+			let column = (options?.sourceViewColumn ?? window.tabGroups.activeTabGroup?.viewColumn ?? 0) + 1;
+			if (column > ViewColumn.Nine) {
+				column = ViewColumn.One;
+			}
+
+			if (window.tabGroups.all.some(g => g.viewColumn === column)) {
+				await executeCoreCommand('workbench.action.focusRightGroup' as any);
+			} else {
+				await executeCoreCommand('workbench.action.newGroupRight' as any);
+			}
+		}
 		await executeCoreCommand(
 			'vscode.changes',
 			title,
@@ -338,6 +350,7 @@ export async function openChangesEditor(
 		);
 	} catch (ex) {
 		Logger.error(ex, 'openChangesEditor');
+		debugger;
 	}
 }
 
@@ -351,6 +364,7 @@ export async function openDiffEditor(
 		await executeCoreCommand('vscode.diff', lhs, rhs, title, options);
 	} catch (ex) {
 		Logger.error(ex, 'openDiffEditor');
+		debugger;
 	}
 }
 

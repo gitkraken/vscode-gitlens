@@ -1026,11 +1026,6 @@ export type CoreConfig = {
 		readonly proxySupport: 'fallback' | 'off' | 'on' | 'override';
 		readonly proxyStrictSSL: boolean;
 	};
-	readonly multiDiffEditor: {
-		readonly experimental: {
-			readonly enabled: boolean;
-		};
-	};
 	readonly search: {
 		readonly exclude: Record<string, boolean>;
 	};
