@@ -8,10 +8,30 @@ const provider = { id: 'anthropic', name: 'Anthropic' } as const;
 type AnthropicModel = AIModel<typeof provider.id>;
 const models: AnthropicModel[] = [
 	{
+		id: 'claude-3-7-sonnet-latest',
+		name: 'Claude 3.7 Sonnet',
+		maxTokens: { input: 204800, output: 8192 },
+		provider: provider,
+	},
+	{
+		id: 'claude-3-7-sonnet-20250219',
+		name: 'Claude 3.7 Sonnet',
+		maxTokens: { input: 204800, output: 8192 },
+		provider: provider,
+		hidden: true,
+	},
+	{
 		id: 'claude-3-5-sonnet-latest',
 		name: 'Claude 3.5 Sonnet',
 		maxTokens: { input: 204800, output: 8192 },
 		provider: provider,
+	},
+	{
+		id: 'claude-3-5-sonnet-20241022',
+		name: 'Claude 3.5 Sonnet',
+		maxTokens: { input: 204800, output: 8192 },
+		provider: provider,
+		hidden: true,
 	},
 	{
 		id: 'claude-3-5-sonnet-20240620',
@@ -25,6 +45,7 @@ const models: AnthropicModel[] = [
 		name: 'Claude 3.5 Haiku',
 		maxTokens: { input: 204800, output: 8192 },
 		provider: provider,
+		default: true,
 	},
 	{
 		id: 'claude-3-5-haiku-20241022',
@@ -47,8 +68,22 @@ const models: AnthropicModel[] = [
 		hidden: true,
 	},
 	{
+		id: 'claude-3-sonnet-latest',
+		name: 'Claude 3 Sonnet',
+		maxTokens: { input: 204800, output: 4096 },
+		provider: provider,
+		hidden: true,
+	},
+	{
 		id: 'claude-3-sonnet-20240229',
 		name: 'Claude 3 Sonnet',
+		maxTokens: { input: 204800, output: 4096 },
+		provider: provider,
+		hidden: true,
+	},
+	{
+		id: 'claude-3-haiku-latest',
+		name: 'Claude 3 Haiku',
 		maxTokens: { input: 204800, output: 4096 },
 		provider: provider,
 	},
@@ -57,13 +92,14 @@ const models: AnthropicModel[] = [
 		name: 'Claude 3 Haiku',
 		maxTokens: { input: 204800, output: 4096 },
 		provider: provider,
-		default: true,
+		hidden: true,
 	},
 	{
 		id: 'claude-2.1',
 		name: 'Claude 2.1',
 		maxTokens: { input: 204800, output: 4096 },
 		provider: provider,
+		hidden: true,
 	},
 ];
 

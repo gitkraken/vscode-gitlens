@@ -14,6 +14,14 @@ const models: OpenAIModel[] = [
 		temperature: null,
 	},
 	{
+		id: 'o3-mini-2025-01-31',
+		name: 'o3 mini',
+		maxTokens: { input: 200000, output: 100000 },
+		provider: provider,
+		temperature: null,
+		hidden: true,
+	},
+	{
 		id: 'o1',
 		name: 'o1',
 		maxTokens: { input: 200000, output: 100000 },
@@ -34,6 +42,7 @@ const models: OpenAIModel[] = [
 		maxTokens: { input: 128000, output: 32768 },
 		provider: provider,
 		temperature: null,
+		hidden: true,
 	},
 	{
 		id: 'o1-preview-2024-09-12',
@@ -64,6 +73,13 @@ const models: OpenAIModel[] = [
 		maxTokens: { input: 128000, output: 16384 },
 		provider: provider,
 		default: true,
+	},
+	{
+		id: 'gpt-4o-2024-11-20',
+		name: 'GPT-4o',
+		maxTokens: { input: 128000, output: 16384 },
+		provider: provider,
+		hidden: true,
 	},
 	{
 		id: 'gpt-4o-2024-08-06',
@@ -104,6 +120,7 @@ const models: OpenAIModel[] = [
 		name: 'GPT-4 Turbo',
 		maxTokens: { input: 128000, output: 4096 },
 		provider: provider,
+		hidden: true,
 	},
 	{
 		id: 'gpt-4-turbo-2024-04-09',
@@ -117,6 +134,7 @@ const models: OpenAIModel[] = [
 		name: 'GPT-4 Turbo preview',
 		maxTokens: { input: 128000, output: 4096 },
 		provider: provider,
+		hidden: true,
 	},
 	{
 		id: 'gpt-4-0125-preview',
@@ -137,6 +155,7 @@ const models: OpenAIModel[] = [
 		name: 'GPT-4',
 		maxTokens: { input: 8192, output: 4096 },
 		provider: provider,
+		hidden: true,
 	},
 	{
 		id: 'gpt-4-0613',
@@ -164,6 +183,7 @@ const models: OpenAIModel[] = [
 		name: 'GPT-3.5 Turbo',
 		maxTokens: { input: 16385, output: 4096 },
 		provider: provider,
+		hidden: true,
 	},
 	{
 		id: 'gpt-3.5-turbo-0125',
