@@ -10,31 +10,16 @@ import type { RepositoryMetadata } from '../../../git/models/repositoryMetadata'
 import { getSettledValue } from '../../../system/promise';
 import type { IntegrationAuthenticationProviderDescriptor } from '../authentication/integrationAuthenticationProvider';
 import type { ProviderAuthenticationSession } from '../authentication/models';
-import type { ResourceDescriptor } from '../integration';
 import { HostingIntegration } from '../integration';
+import type {
+	BitbucketRemoteRepositoryDescriptor,
+	BitbucketRepositoryDescriptor,
+	BitbucketWorkspaceDescriptor,
+} from './bitbucket/models';
 import { providersMetadata } from './models';
 
 const metadata = providersMetadata[HostingIntegrationId.Bitbucket];
 const authProvider = Object.freeze({ id: metadata.id, scopes: metadata.scopes });
-
-interface BitbucketRepositoryDescriptor extends ResourceDescriptor {
-	owner: string;
-	name: string;
-}
-
-interface BitbucketWorkspaceDescriptor extends ResourceDescriptor {
-	id: string;
-	name: string;
-	slug: string;
-}
-
-interface BitbucketRemoteRepositoryDescriptor extends ResourceDescriptor {
-	resourceId: string;
-	owner: string;
-	name: string;
-	cloneUrlHttps?: string;
-	cloneUrlSsh?: string;
-}
 
 export class BitbucketIntegration extends HostingIntegration<
 	HostingIntegrationId.Bitbucket,

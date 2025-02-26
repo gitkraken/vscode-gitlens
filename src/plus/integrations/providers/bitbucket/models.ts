@@ -3,6 +3,26 @@ import type { IssueOrPullRequestState } from '../../../../git/models/issueOrPull
 import type { PullRequestMember, PullRequestReviewer } from '../../../../git/models/pullRequest';
 import { PullRequest, PullRequestReviewDecision, PullRequestReviewState } from '../../../../git/models/pullRequest';
 import type { Provider } from '../../../../git/models/remoteProvider';
+import type { ResourceDescriptor } from '../../integration';
+
+export interface BitbucketRepositoryDescriptor extends ResourceDescriptor {
+	owner: string;
+	name: string;
+}
+
+export interface BitbucketWorkspaceDescriptor extends ResourceDescriptor {
+	id: string;
+	name: string;
+	slug: string;
+}
+
+export interface BitbucketRemoteRepositoryDescriptor extends ResourceDescriptor {
+	resourceId: string;
+	owner: string;
+	name: string;
+	cloneUrlHttps?: string;
+	cloneUrlSsh?: string;
+}
 
 export type BitbucketPullRequestState = 'OPEN' | 'DECLINED' | 'MERGED' | 'SUPERSEDED';
 
