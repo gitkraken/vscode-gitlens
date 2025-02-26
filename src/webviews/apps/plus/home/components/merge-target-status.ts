@@ -1,6 +1,5 @@
 import { css, html, LitElement, nothing } from 'lit';
 import { customElement, property, state } from 'lit/decorators.js';
-import { merge } from '../../../../../git/actions/repository';
 import { createCommandLink } from '../../../../../system/commands';
 import { pluralize } from '../../../../../system/string';
 import type { BranchAndTargetRefs, BranchRef, GetOverviewBranch } from '../../../../home/protocol';
@@ -292,6 +291,7 @@ export class GlMergeTargetStatus extends LitElement {
 					repoPath: this.branch.repoPath,
 					branchId: this.mergedStatus.localBranchOnly.id!,
 					branchName: this.mergedStatus.localBranchOnly.name,
+					branchUpstreamName: this.mergedStatus.localBranchOnly.upstream?.name,
 				};
 				return html`<div class="header">
 						<span class="header__title"
@@ -323,7 +323,10 @@ export class GlMergeTargetStatus extends LitElement {
 									this.branchRef,
 									mergeTargetRef,
 								])}"
-								>Delete ${this.branch.worktree ? 'Worktree' : 'Branch'}
+								>Delete
+								${this.branch.worktree != null && !this.branch.worktree.isDefault
+									? 'Worktree'
+									: 'Branch'}
 								${renderBranchName(this.branch.name, this.branch.worktree != null)}</gl-button
 							>
 						</div>
@@ -348,7 +351,8 @@ export class GlMergeTargetStatus extends LitElement {
 						<gl-button
 							full
 							href="${createCommandLink('gitlens.home.deleteBranchOrWorktree', this.branchRef)}"
-							>Delete ${this.branch.worktree ? 'Worktree' : 'Branch'}
+							>Delete
+							${this.branch.worktree != null && !this.branch.worktree.isDefault ? 'Worktree' : 'Branch'}
 							${renderBranchName(this.branch.name, this.branch.worktree != null)}</gl-button
 						>
 					</div>

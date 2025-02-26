@@ -1193,6 +1193,12 @@ export class HomeWebviewProvider implements WebviewProvider<State, State, HomeWe
 				refType: 'branch',
 				remote: false,
 				repoPath: ref.repoPath,
+				upstream: ref.branchUpstreamName
+					? {
+							name: ref.branchUpstreamName,
+							missing: false,
+					  }
+					: undefined,
 			},
 		});
 	}
@@ -1432,7 +1438,7 @@ function getOverviewBranchesCore(
 			state: branch.state,
 			status: branch.status,
 			upstream: branch.upstream,
-			worktree: wt ? { name: wt.name, uri: wt.uri.toString() } : undefined,
+			worktree: wt ? { name: wt.name, uri: wt.uri.toString(), isDefault: wt.isDefault } : undefined,
 		});
 	}
 
