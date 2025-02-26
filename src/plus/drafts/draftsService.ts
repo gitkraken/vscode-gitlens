@@ -453,20 +453,13 @@ export class DraftService implements Disposable {
 
 		let headers;
 		if (options?.providerAuth) {
-			headers = {
-				'Provider-Auth': Buffer.from(JSON.stringify(options.providerAuth)).toString('base64'),
-			};
+			headers = { 'Provider-Auth': Buffer.from(JSON.stringify(options.providerAuth)).toString('base64') };
 		}
 
 		const rsp = await this.connection.fetchGkApi(
 			'/v1/drafts',
-			{
-				method: 'GET',
-				headers: headers,
-			},
-			{
-				query: queryStrings.length ? queryStrings.join('&') : undefined,
-			},
+			{ method: 'GET', headers: headers },
+			{ query: queryStrings.length ? queryStrings.join('&') : undefined },
 		);
 
 		if (!rsp.ok) {
@@ -870,13 +863,8 @@ export class DraftService implements Disposable {
 		try {
 			const rsp = await this.connection.fetchGkApi(
 				'v1/drafts/counts',
-				{
-					method: 'POST',
-					body: body,
-				},
-				{
-					query: 'type=suggested_pr_change',
-				},
+				{ method: 'POST', body: body },
+				{ query: 'type=suggested_pr_change' },
 			);
 
 			if (!rsp.ok) {
@@ -896,7 +884,7 @@ export class DraftService implements Disposable {
 	generateWebUrl(draft: Draft): string;
 	generateWebUrl(draftOrDraftId: Draft | string): string {
 		const id = typeof draftOrDraftId === 'string' ? draftOrDraftId : draftOrDraftId.id;
-		return this.container.generateWebGkDevUrl(`/drafts/${id}`);
+		return this.container.urls.getGkDevUrl(['drafts', id]);
 	}
 }
 

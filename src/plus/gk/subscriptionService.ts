@@ -635,10 +635,10 @@ export class SubscriptionService implements Disposable {
 
 		try {
 			const exchangeToken = await this.container.accountAuthentication.getExchangeToken();
-			await openUrl(this.container.getGkDevUri('account', `token=${exchangeToken}`).toString(true));
+			await openUrl(this.container.urls.getGkDevUrl('account', `token=${exchangeToken}`));
 		} catch (ex) {
 			Logger.error(ex, scope);
-			await openUrl(this.container.getGkDevUri('account').toString(true));
+			await openUrl(this.container.urls.getGkDevUrl('account'));
 		}
 	}
 
@@ -950,7 +950,7 @@ export class SubscriptionService implements Disposable {
 			Logger.error(ex, scope);
 		}
 
-		aborted = !(await openUrl(this.container.getGkDevUri('purchase/checkout', query.toString()).toString(true)));
+		aborted = !(await openUrl(this.container.urls.getGkDevUrl('purchase/checkout', query)));
 
 		if (aborted) {
 			return;

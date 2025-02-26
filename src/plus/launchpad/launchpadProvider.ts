@@ -523,7 +523,7 @@ export class LaunchpadProvider implements Disposable {
 	}
 
 	generateWebUrl(): string {
-		return this.container.generateWebGkDevUrl('/launchpad');
+		return this.container.urls.getGkDevUrl('launchpad');
 	}
 
 	private getItemBranchDeepLink(item: LaunchpadItem, action?: DeepLinkActionType): Uri | undefined {

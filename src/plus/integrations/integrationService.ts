@@ -201,20 +201,12 @@ export class IntegrationService implements Disposable {
 
 		try {
 			const exchangeToken = await this.container.accountAuthentication.getExchangeToken();
-			if (
-				!(await openUrl(
-					this.container
-						.getGkDevUri('settings/integrations', `source=gitlens&token=${exchangeToken}`)
-						.toString(true),
-				))
-			) {
+			if (!(await openUrl(this.container.urls.getGkDevUrl('settings/integrations', `token=${exchangeToken}`)))) {
 				return;
 			}
 		} catch (ex) {
 			Logger.error(ex, scope);
-			if (
-				!(await openUrl(this.container.getGkDevUri('settings/integrations', 'source=gitlens').toString(true)))
-			) {
+			if (!(await openUrl(this.container.urls.getGkDevUrl('settings/integrations')))) {
 				return;
 			}
 		}
@@ -322,12 +314,12 @@ export class IntegrationService implements Disposable {
 				query += `&redirect_uri=${encodeURIComponent(callbackUri.toString(true))}`;
 			}
 
-			if (!(await openUrl(this.container.getGkDevUri('connect', query).toString(true)))) {
+			if (!(await openUrl(this.container.urls.getGkDevUrl('connect', query)))) {
 				return false;
 			}
 		} catch (ex) {
 			Logger.error(ex, scope);
-			if (!(await openUrl(this.container.getGkDevUri('connect', baseQuery).toString(true)))) {
+			if (!(await openUrl(this.container.urls.getGkDevUrl('connect', baseQuery)))) {
 				return false;
 			}
 		}
