@@ -285,14 +285,25 @@ export class GlMergeTargetStatus extends LitElement {
 	private renderContent() {
 		const target = renderBranchName(this.target?.name);
 
+		const mergeTargetRef =
+			this.mergedStatus?.merged && this.mergedStatus.localBranchOnly
+				? {
+						repoPath: this.branch.repoPath,
+						branchId: this.mergedStatus.localBranchOnly.id!,
+						branchName: this.mergedStatus.localBranchOnly.name,
+						branchUpstreamName: this.mergedStatus.localBranchOnly.upstream?.name,
+				  }
+				: this.target
+				  ? {
+							repoPath: this.target.repoPath,
+							branchId: this.target.id,
+							branchName: this.target.name,
+							branchUpstreamName: undefined,
+				    }
+				  : undefined;
+
 		if (this.mergedStatus?.merged) {
 			if (this.mergedStatus.localBranchOnly) {
-				const mergeTargetRef = {
-					repoPath: this.branch.repoPath,
-					branchId: this.mergedStatus.localBranchOnly.id!,
-					branchName: this.mergedStatus.localBranchOnly.name,
-					branchUpstreamName: this.mergedStatus.localBranchOnly.upstream?.name,
-				};
 				return html`<div class="header">
 						<span class="header__title"
 							><code-icon icon="git-merge"></code-icon> Branch
@@ -312,7 +323,7 @@ export class GlMergeTargetStatus extends LitElement {
 								full
 								href="${createCommandLink(
 									'gitlens.home.pushBranch',
-									mergeTargetRef satisfies BranchRef,
+									mergeTargetRef! satisfies BranchRef,
 								)}"
 								>Push ${renderBranchName(this.mergedStatus.localBranchOnly.name)}</gl-button
 							>
@@ -350,7 +361,10 @@ export class GlMergeTargetStatus extends LitElement {
 					<div class="button-container">
 						<gl-button
 							full
-							href="${createCommandLink('gitlens.home.deleteBranchOrWorktree', this.branchRef)}"
+							href="${createCommandLink('gitlens.home.deleteBranchOrWorktree', [
+								this.branchRef,
+								mergeTargetRef,
+							])}"
 							>Delete
 							${this.branch.worktree != null && !this.branch.worktree.isDefault ? 'Worktree' : 'Branch'}
 							${renderBranchName(this.branch.name, this.branch.worktree != null)}</gl-button

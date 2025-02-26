@@ -36,6 +36,7 @@ import { getBranchTargetInfo } from '../../git/utils/-webview/branch.utils';
 import { getReferenceFromBranch } from '../../git/utils/-webview/reference.utils';
 import { sortBranches } from '../../git/utils/-webview/sorting';
 import { getOpenedWorktreesByBranch, groupWorktreesByBranch } from '../../git/utils/-webview/worktree.utils';
+import { getBranchNameWithoutRemote } from '../../git/utils/branch.utils';
 import { getComparisonRefsForPullRequest } from '../../git/utils/pullRequest.utils';
 import { createRevisionRange } from '../../git/utils/revision.utils';
 import { showPatchesView } from '../../plus/drafts/actions';
@@ -1169,9 +1170,10 @@ export class HomeWebviewProvider implements WebviewProvider<State, State, HomeWe
 		const repo = this._repositoryBranches.get(ref.repoPath);
 		const branch = repo?.branches.find(b => b.id === ref.branchId);
 		if (branch == null) return;
-		if (branch.current) {
+		if (branch.current && mergeTarget != null) {
 			if (mergeTarget != null) {
-				await this.container.git.checkout(ref.repoPath, mergeTarget.branchName);
+				const mergeTargetLocalBranch = getBranchNameWithoutRemote(mergeTarget.branchName);
+				await this.container.git.checkout(ref.repoPath, mergeTargetLocalBranch);
 			}
 		}
 
