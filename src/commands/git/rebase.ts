@@ -40,7 +40,7 @@ interface Context {
 	title: string;
 }
 
-type Flags = '--interactive';
+type Flags = '--interactive' | '--autosquash';
 
 interface State {
 	repo: string | Repository;
@@ -253,14 +253,14 @@ export class RebaseGitCommand extends QuickCommand<State> {
 		}
 
 		const items: FlagsQuickPickItem<Flags>[] = [
-			createFlagsQuickPickItem<Flags>(state.flags, ['--interactive'], {
+			createFlagsQuickPickItem<Flags>(state.flags, ['--interactive', '--autosquash'], {
 				label: `Interactive ${this.title}`,
 				description: '--interactive',
 				detail: `Will interactively update ${getReferenceLabel(context.branch, {
 					label: false,
 				})} by applying ${pluralize('commit', ahead)} on top of ${getReferenceLabel(state.destination, {
 					label: false,
-				})}`,
+				})} and auto-squash any fixup commits`,
 				picked: behind === 0,
 			}),
 		];
