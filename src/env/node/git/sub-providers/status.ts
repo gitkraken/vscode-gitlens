@@ -494,13 +494,13 @@ export class StatusGitSubProvider implements GitStatusSubProvider {
 	@gate()
 	@log()
 	async getStatusForFile(repoPath: string, pathOrUri: string | Uri): Promise<GitStatusFile | undefined> {
-		const files = await this.getStatusForFiles(repoPath, pathOrUri);
+		const files = await this.getStatusForPath(repoPath, pathOrUri);
 		return files?.[0];
 	}
 
 	@gate()
 	@log()
-	async getStatusForFiles(repoPath: string, pathOrGlob: string | Uri): Promise<GitStatusFile[] | undefined> {
+	async getStatusForPath(repoPath: string, pathOrGlob: string | Uri): Promise<GitStatusFile[] | undefined> {
 		const [relativePath] = splitPath(pathOrGlob, repoPath);
 
 		const porcelainVersion = (await this.git.isAtLeastVersion('2.11')) ? 2 : 1;
