@@ -52,7 +52,7 @@ export class ContributorsGitSubProvider implements GitContributorsSubProvider {
 					const currentUser = await this.provider.config.getCurrentUser(repoPath);
 					const parser = getContributorsParser(options?.stats);
 
-					const args = [...parser.arguments, '--full-history', '--use-mailmap'];
+					const args = [...parser.arguments, '--use-mailmap'];
 
 					const merges = options?.merges ?? true;
 					if (merges) {

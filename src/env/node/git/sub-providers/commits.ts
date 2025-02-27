@@ -344,7 +344,7 @@ export class CommitsGitSubProvider implements GitCommitsSubProvider {
 			];
 
 			if (options?.status !== false) {
-				args.push('--name-status', '--full-history');
+				args.push('--name-status');
 			}
 			if (options?.all) {
 				args.push('--all');
@@ -487,7 +487,7 @@ export class CommitsGitSubProvider implements GitCommitsSubProvider {
 
 		try {
 			const parser = createLogParserSingle('%H');
-			const args = [...parser.arguments, '--full-history'];
+			const args = [...parser.arguments];
 
 			const ordering = options?.ordering ?? configuration.get('advanced.commitOrdering');
 			if (ordering) {
