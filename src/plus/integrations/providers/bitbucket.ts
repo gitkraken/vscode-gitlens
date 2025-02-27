@@ -240,10 +240,32 @@ export class BitbucketIntegration extends HostingIntegration<
 	}
 
 	protected override async searchProviderMyIssues(
-		_session: AuthenticationSession,
-		_repos?: BitbucketRepositoryDescriptor[],
+		session: AuthenticationSession,
+		repos?: BitbucketRepositoryDescriptor[],
 	): Promise<IssueShape[] | undefined> {
-		return Promise.resolve(undefined);
+		if (repos == null || repos.length === 0) return undefined;
+
+		const user = await this.getProviderCurrentAccount(session);
+		if (user?.username == null) return undefined;
+
+		const workspaces = await this.getProviderResourcesForUser(session);
+		if (workspaces == null || workspaces.length === 0) return undefined;
+
+		const api = await this.container.bitbucket;
+		if (!api) return undefined;
+		const issueResult = await flatSettled(
+			repos.map(repo => {
+				return api.getUsersIssuesForRepo(
+					this,
+					session.accessToken,
+					user.id,
+					repo.owner,
+					repo.name,
+					this.apiBaseUrl,
+				);
+			}),
+		);
+		return issueResult;
 	}
 
 	protected override async providerOnConnect(): Promise<void> {

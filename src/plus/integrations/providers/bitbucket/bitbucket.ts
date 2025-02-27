@@ -13,6 +13,7 @@ import {
 	RequestClientError,
 	RequestNotFoundError,
 } from '../../../../errors';
+import type { Issue } from '../../../../git/models/issue';
 import type { IssueOrPullRequest, IssueOrPullRequestType } from '../../../../git/models/issueOrPullRequest';
 import type { PullRequest } from '../../../../git/models/pullRequest';
 import type { Provider } from '../../../../git/models/remoteProvider';
@@ -25,7 +26,7 @@ import type { LogScope } from '../../../../system/logger.scope';
 import { getLogScope } from '../../../../system/logger.scope';
 import { maybeStopWatch } from '../../../../system/stopwatch';
 import type { BitbucketIssue, BitbucketPullRequest, BitbucketRepository } from './models';
-import { bitbucketIssueStateToState, fromBitbucketPullRequest } from './models';
+import { bitbucketIssueStateToState, fromBitbucketIssue, fromBitbucketPullRequest } from './models';
 
 export class BitbucketApi implements Disposable {
 	private readonly _disposable: Disposable;
@@ -90,6 +91,73 @@ export class BitbucketApi implements Disposable {
 			return undefined;
 		}
 		return fromBitbucketPullRequest(response.values[0], provider);
+	}
+
+	@debug<BitbucketApi['getUsersIssuesForRepo']>({ args: { 0: p => p.name, 1: '<token>' } })
+	async getUsersIssuesForRepo(
+		provider: Provider,
+		token: string,
+		userUuid: string,
+		owner: string,
+		repo: string,
+		baseUrl: string,
+	): Promise<Issue[] | undefined> {
+		const scope = getLogScope();
+		const query = encodeURIComponent(`assignee.uuid="${userUuid}" OR reporter.uuid="${userUuid}"`);
+
+		const response = await this.request<{
+			values: BitbucketIssue[];
+			pagelen: number;
+			size: number;
+			page: number;
+		}>(
+			provider,
+			token,
+			baseUrl,
+			`repositories/${owner}/${repo}/issues?q=${query}`,
+			{
+				method: 'GET',
+			},
+			scope,
+		);
+
+		if (!response?.values?.length) {
+			return undefined;
+		}
+		return response.values.map(issue => fromBitbucketIssue(issue, provider));
+	}
+
+	@debug<BitbucketApi['getIssue']>({ args: { 0: p => p.name, 1: '<token>' } })
+	async getIssue(
+		provider: Provider,
+		token: string,
+		owner: string,
+		repo: string,
+		id: string,
+		baseUrl: string,
+	): Promise<Issue | undefined> {
+		const scope = getLogScope();
+
+		try {
+			const response = await this.request<BitbucketIssue>(
+				provider,
+				token,
+				baseUrl,
+				`repositories/${owner}/${repo}/issues/${id}`,
+				{
+					method: 'GET',
+				},
+				scope,
+			);
+
+			if (response) {
+				return fromBitbucketIssue(response, provider);
+			}
+			return undefined;
+		} catch (ex) {
+			Logger.error(ex, scope);
+			return undefined;
+		}
 	}
 
 	@debug<BitbucketApi['getIssueOrPullRequest']>({ args: { 0: p => p.name, 1: '<token>' } })
