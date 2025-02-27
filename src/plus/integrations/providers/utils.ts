@@ -105,6 +105,8 @@ export function getProviderIdFromEntityIdentifier(
 			return IssueIntegrationId.Jira;
 		case EntityIdentifierProviderType.Azure:
 			return HostingIntegrationId.AzureDevOps;
+		case EntityIdentifierProviderType.Bitbucket:
+			return HostingIntegrationId.Bitbucket;
 		default:
 			return undefined;
 	}
@@ -228,6 +230,7 @@ export async function getIssueFromGitConfigEntityIdentifier(
 		identifier.provider !== EntityIdentifierProviderType.Gitlab &&
 		identifier.provider !== EntityIdentifierProviderType.GithubEnterprise &&
 		identifier.provider !== EntityIdentifierProviderType.GitlabSelfHosted &&
+		identifier.provider !== EntityIdentifierProviderType.Bitbucket &&
 		identifier.provider !== EntityIdentifierProviderType.Azure
 	) {
 		return undefined;

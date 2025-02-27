@@ -97,11 +97,18 @@ export class BitbucketIntegration extends HostingIntegration<
 	}
 
 	protected override async getProviderIssue(
-		_session: AuthenticationSession,
-		_repo: BitbucketRepositoryDescriptor,
-		_id: string,
+		{ accessToken }: AuthenticationSession,
+		repo: BitbucketRepositoryDescriptor,
+		id: string,
 	): Promise<Issue | undefined> {
-		return Promise.resolve(undefined);
+		return (await this.container.bitbucket)?.getIssue(
+			this,
+			accessToken,
+			repo.owner,
+			repo.name,
+			id,
+			this.apiBaseUrl,
+		);
 	}
 
 	protected override async getProviderPullRequestForBranch(
