@@ -15,7 +15,7 @@ export default ts.config(
 	litConfigs['flat/recommended'],
 	wcConfigs['flat/recommended'],
 	{
-		ignores: ['*', '*/', '!src/', '!tests/', 'src/@types/', 'src/test/**/*'],
+		ignores: ['*', '*/', '!src/', '!tests/', 'src/@types/'],
 	},
 	{
 		linterOptions: {
@@ -324,7 +324,7 @@ export default ts.config(
 	{
 		name: 'extension:node',
 		files: ['src/**/*'],
-		ignores: ['**/webview/**/*', 'src/test/**/*', 'src/webviews/apps/**/*', 'src/env/browser/**/*'],
+		ignores: ['src/**/webview/**/*', 'src/webviews/apps/**/*', 'src/env/browser/**/*'],
 		languageOptions: {
 			globals: { ...globals.node },
 			parser: ts.parser,
@@ -361,7 +361,7 @@ export default ts.config(
 	{
 		name: 'extension:browser',
 		files: ['src/**/*'],
-		ignores: ['**/webview/**/*', 'src/test/**/*', 'src/webviews/apps/**/*', 'src/env/node/**/*'],
+		ignores: ['src/**/webview/**/*', 'src/webviews/apps/**/*', 'src/env/node/**/*'],
 		languageOptions: {
 			globals: { ...globals.worker },
 			parser: ts.parser,
@@ -517,7 +517,7 @@ export default ts.config(
 	},
 	{
 		name: 'tests:unit',
-		files: ['**/__tests__/**', 'src/test/suite/**'],
+		files: ['src/**/__tests__/**/*'],
 		rules: {
 			'no-restricted-imports': 'off',
 			'@typescript-eslint/no-restricted-imports': 'off',

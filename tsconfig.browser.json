@@ -9,5 +9,5 @@
 		"tsBuildInfoFile": "tsconfig.browser.tsbuildinfo"
 	},
 	"include": ["src/**/*"],
-	"exclude": ["**/webview/**/*", "src/test/**/*", "src/webviews/apps/**/*", "src/env/node/**/*"]
+	"exclude": ["src/**/__tests__/**/*", "src/**/webview/**/*", "src/webviews/apps/**/*", "src/env/node/**/*"]
 }
