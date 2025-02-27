@@ -358,7 +358,12 @@ export interface GitContributorsSubProvider {
 }
 
 export interface GitDiffSubProvider {
-	getChangedFilesCount(repoPath: string, ref?: string): Promise<GitDiffShortStat | undefined>;
+	getChangedFilesCount(
+		repoPath: string,
+		to?: string,
+		from?: string,
+		options?: { uris?: Uri[] },
+	): Promise<GitDiffShortStat | undefined>;
 	getDiff?(
 		repoPath: string | Uri,
 		to: string,
