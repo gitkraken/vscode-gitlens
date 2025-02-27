@@ -22,8 +22,8 @@ import { UriSet } from '../system/-webview/uriMap';
 import { findTextDocument, isVisibleDocument } from '../system/-webview/vscode';
 import { debug } from '../system/decorators/log';
 import { once } from '../system/event';
-import type { Deferrable } from '../system/function';
-import { debounce } from '../system/function';
+import type { Deferrable } from '../system/function/debounce';
+import { debounce } from '../system/function/debounce';
 import type { TrackedGitDocument } from './trackedDocument';
 import { createTrackedGitDocument } from './trackedDocument';
 
@@ -193,10 +193,8 @@ export class GitDocumentTracker implements Disposable {
 
 		let debouncedChange = this.debouncedTextDocumentChanges.get(e.document);
 		if (debouncedChange == null) {
-			debouncedChange = debounce(
-				e => this.onTextDocumentChangedCore(e),
-				50,
-				([prev]: [TextDocumentChangeEvent], [next]: [TextDocumentChangeEvent]) => {
+			debouncedChange = debounce(e => this.onTextDocumentChangedCore(e), 50, {
+				aggregator: ([prev]: [TextDocumentChangeEvent], [next]: [TextDocumentChangeEvent]) => {
 					return [
 						{
 							...next,
@@ -205,7 +203,7 @@ export class GitDocumentTracker implements Disposable {
 						} satisfies TextDocumentChangeEvent,
 					];
 				},
-			);
+			});
 			this.debouncedTextDocumentChanges.set(e.document, debouncedChange);
 		}
 

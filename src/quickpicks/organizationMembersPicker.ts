@@ -3,7 +3,7 @@ import { window } from 'vscode';
 import { getAvatarUri } from '../avatars';
 import { ClearQuickInputButton } from '../commands/quickCommand.buttons';
 import type { OrganizationMember } from '../plus/gk/models/organization';
-import { debounce } from '../system/function';
+import { debounce } from '../system/function/debounce';
 import { defer } from '../system/promise';
 import { sortCompare } from '../system/string';
 import type { QuickPickItemOfT } from './items/common';

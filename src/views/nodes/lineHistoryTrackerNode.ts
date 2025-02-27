@@ -10,7 +10,7 @@ import { setContext } from '../../system/-webview/context';
 import { gate } from '../../system/decorators/-webview/gate';
 import { debug, log } from '../../system/decorators/log';
 import { weakEvent } from '../../system/event';
-import { debounce } from '../../system/function';
+import { debounce } from '../../system/function/debounce';
 import { Logger } from '../../system/logger';
 import { getLogScope, setLogScopeExit } from '../../system/logger.scope';
 import { uriEquals } from '../../system/uri';

@@ -63,7 +63,7 @@ import { configuration } from '../../../system/-webview/configuration';
 import { getBestPath, isFolderUri, relative, splitPath } from '../../../system/-webview/path';
 import { gate } from '../../../system/decorators/-webview/gate';
 import { debug, log } from '../../../system/decorators/log';
-import { debounce } from '../../../system/function';
+import { debounce } from '../../../system/function/debounce';
 import { first, join } from '../../../system/iterable';
 import { Logger } from '../../../system/logger';
 import type { LogScope } from '../../../system/logger.scope';

@@ -39,7 +39,7 @@ import { executeCoreCommand } from '../system/-webview/command';
 import { configuration } from '../system/-webview/configuration';
 import { debug, log } from '../system/decorators/log';
 import { once } from '../system/event';
-import { debounce } from '../system/function';
+import { debounce } from '../system/function/debounce';
 import { Logger } from '../system/logger';
 import { getLogScope } from '../system/logger.scope';
 import { cancellable, isPromise } from '../system/promise';

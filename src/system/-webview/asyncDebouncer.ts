@@ -1,7 +1,7 @@
 import type { CancellationToken, Disposable as CodeDisposable } from 'vscode';
 import { CancellationTokenSource } from 'vscode';
 import { CancellationError } from '../../errors';
-import type { Deferrable } from '../function';
+import type { Deferrable } from '../function/debounce';
 import type { Deferred } from '../promise';
 import { defer } from '../promise';
 
@@ -10,8 +10,8 @@ export interface AsyncTask<T> {
 }
 
 /**
- * This is similar to `src/system/function.ts: debounce` but it's for async tasks.
- * The old `debounce` function does not awaits for promises, so it's not suitable for async tasks.
+ * This is similar to `src/system/function/debounce.ts` but it's for async tasks.
+ * The old `debounce` function does not await for promises, so it's not suitable for async tasks.
  *
  * This function cannot be part of `src/system/function.ts` because it relies on `CancellationTokenSource` from `vscode`.
  *

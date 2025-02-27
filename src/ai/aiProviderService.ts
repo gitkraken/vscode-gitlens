@@ -15,7 +15,7 @@ import { configuration } from '../system/-webview/configuration';
 import type { Storage } from '../system/-webview/storage';
 import { supportedInVSCodeVersion } from '../system/-webview/vscode';
 import { formatNumeric } from '../system/date';
-import { debounce } from '../system/function';
+import { debounce } from '../system/function/debounce';
 import { map } from '../system/iterable';
 import type { Lazy } from '../system/lazy';
 import { lazy } from '../system/lazy';
