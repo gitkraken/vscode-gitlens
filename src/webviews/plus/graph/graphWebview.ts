@@ -980,7 +980,7 @@ export class GraphWebviewProvider implements WebviewProvider<State, State, Graph
 
 	@debug({ args: false })
 	private onRepositoryFileSystemChanged(e: RepositoryFileSystemChangeEvent) {
-		if (e.repository?.path !== this.repository?.path) return;
+		if (e.repository.id !== this.repository?.id) return;
 		void this.notifyDidChangeWorkingTree();
 	}
 

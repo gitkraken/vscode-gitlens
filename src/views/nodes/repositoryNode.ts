@@ -394,7 +394,7 @@ export class RepositoryNode extends SubscribeableViewNode<'repository', ViewsWit
 	@debug<RepositoryNode['onFileSystemChanged']>({
 		args: {
 			0: e =>
-				`{ repository: ${e.repository?.name ?? ''}, uris(${e.uris.length}): [${e.uris
+				`{ repository: ${e.repository.name ?? ''}, uris(${e.uris.length}): [${e.uris
 					.slice(0, 1)
 					.map(u => u.fsPath)
 					.join(', ')}${e.uris.length > 1 ? ', ...' : ''}] }`,

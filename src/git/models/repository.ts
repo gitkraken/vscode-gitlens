@@ -138,7 +138,7 @@ export class RepositoryChangeEvent {
 }
 
 export interface RepositoryFileSystemChangeEvent {
-	readonly repository?: Repository;
+	readonly repository: Repository;
 	readonly uris: Uri[];
 }
 
