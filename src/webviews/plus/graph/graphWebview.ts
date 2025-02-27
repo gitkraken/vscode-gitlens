@@ -4225,6 +4225,9 @@ function toGraphIssueTrackerType(id: string): GraphIssueTrackerType | undefined 
 		case 'azure-devops':
 			// TODO: Remove the casting once this is officially recognized by the component
 			return 'azureDevops' as GraphIssueTrackerType;
+		case 'bitbucket':
+			// TODO: Remove the casting once this is officially recognized by the component
+			return HostingIntegrationId.Bitbucket as GraphIssueTrackerType;
 		default:
 			return undefined;
 	}

@@ -184,6 +184,7 @@ const createIconElements = (): Record<string, ReactElement> => {
 		'issue-gitlab',
 		'issue-jiraCloud',
 		'issue-azureDevops',
+		'issue-bitbucket',
 	];
 
 	const miniIconList = ['upstream-ahead', 'upstream-behind'];
