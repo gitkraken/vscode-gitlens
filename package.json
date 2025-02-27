@@ -20153,7 +20153,7 @@
 		"build:extension:browser": "webpack --mode development --config-name extension:webworker",
 		"build:webviews": "webpack --mode development --config-name webviews",
 		"build:icons": "pnpm run icons:svgo && pnpm fantasticon && pnpm run icons:apply && pnpm run icons:export",
-		"build:tests": "node ./scripts/esbuild.tests.mjs --mode development",
+		"build:tests": "node ./scripts/esbuild.tests.mjs",
 		"// Extracts the contributions from package.json into contributions.json": "//",
 		"extract:contributions": "node --experimental-strip-types ./scripts/generateContributions.mts --extract",
 		"// Generates contributions in contributions.json into package.json": "//",

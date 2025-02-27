@@ -16,7 +16,6 @@ patches/**
 resources/**
 scripts/**
 src/**
-test/**
 tests/**
 **/*.map
 **/*.pdn

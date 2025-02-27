@@ -8,7 +8,7 @@
 		"isolatedModules": true,
 		"lib": ["es2023"],
 		"module": "esnext",
-		"moduleResolution": "Bundler",
+		"moduleResolution": "bundler",
 		"noFallthroughCasesInSwitch": true,
 		"noImplicitOverride": true,
 		"noImplicitReturns": true,

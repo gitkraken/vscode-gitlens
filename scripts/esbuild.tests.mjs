@@ -10,35 +10,28 @@ const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.join(path.dirname(__filename), '..');
 
 const args = process.argv.slice(2);
-
-let index = args.indexOf('--mode');
-const mode = (index >= 0 ? args[index + 1] : undefined) || 'none';
-
 const watch = args.includes('--watch');
 
 /**
  * @param { 'node' | 'webworker' } target
- * @param { 'production' | 'development' | 'none' } mode
  */
-async function buildTests(target, mode) {
+async function buildTests(target) {
 	/** @type BuildOptions | WatchOptions */
 	const config = {
 		bundle: true,
-		entryPoints: ['src/test/suite/index.ts', 'src/**/*.test.ts'],
+		entryPoints: ['src/**/__tests__/**/*.test.ts'],
 		entryNames: '[name]',
-		drop: ['debugger'],
 		external: ['vscode'],
 		format: 'cjs',
 		logLevel: 'info',
 		mainFields: target === 'webworker' ? ['browser', 'module', 'main'] : ['module', 'main'],
 		metafile: false,
-		minify: mode === 'production',
+		minify: false,
 		outdir: target === 'webworker' ? 'out/tests/browser' : 'out/tests',
 		platform: target === 'webworker' ? 'browser' : target,
 		plugins: [nodeExternalsPlugin()],
-		sourcemap: mode !== 'production',
+		sourcemap: true,
 		target: ['es2023', 'chrome124', 'node20.14.0'],
-		treeShaking: true,
 		tsconfig: target === 'webworker' ? 'tsconfig.test.browser.json' : 'tsconfig.test.json',
 	};
 
@@ -66,7 +59,7 @@ async function buildTests(target, mode) {
 }
 
 try {
-	await Promise.allSettled([buildTests('node', mode)]);
+	await Promise.allSettled([buildTests('node')]);
 } catch (ex) {
 	console.error(ex);
 	process.exit(1);
