@@ -871,6 +871,13 @@ button:not([disabled]),
 			@include iconUtils.codicon('issues');
 		}
 	}
+
+	&--issue-bitbucket {
+		&::before {
+			font-family: codicon;
+			@include iconUtils.codicon('issues');
+		}
+	}
 }
 
 .titlebar {
