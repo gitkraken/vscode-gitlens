@@ -1,6 +1,7 @@
 import type { Chart, DataItem, RegionOptions } from 'billboard.js';
 import { css, html } from 'lit';
 import { customElement, property, query } from 'lit/decorators.js';
+import type { ChartInternal, ChartWithInternal } from '../../../../../@types/bb';
 import { debug } from '../../../../../system/decorators/log';
 import { debounce } from '../../../../../system/function';
 import { first, flatMap, groupByMap, map, union } from '../../../../../system/iterable';
@@ -564,10 +565,16 @@ export class GlGraphMinimap extends GlElement {
 		this._loadTimer = setTimeout(() => this.loadChart(), 150);
 	}
 
-	private getInternalChart(): any {
+	private getInternalChart(): ChartInternal | undefined {
 		try {
-			return (this._chart as any)?.internal;
+			const internal = (this._chart as unknown as ChartWithInternal)?.internal;
+			if (this._chart != null && internal == null) {
+				debugger;
+			}
+
+			return internal;
 		} catch {
+			debugger;
 			return undefined;
 		}
 	}
@@ -579,7 +586,7 @@ export class GlGraphMinimap extends GlElement {
 			return;
 		}
 
-		const d = this.getData(date);
+		const d = this.getDataPoint(date);
 		if (d == null) return;
 
 		const internal = this.getInternalChart();
@@ -589,9 +596,12 @@ export class GlGraphMinimap extends GlElement {
 
 		if (!trackOnly) {
 			const { index } = d;
-			this._chart.$.main.selectAll(`.bb-shape-${index}`).each(function (d2) {
-				internal.toggleShape?.(this, d2, index);
-			});
+
+			if (index != null) {
+				this._chart.$.main.selectAll(`.bb-shape-${index}`).each(function (d2) {
+					internal.toggleShape?.(this, d2, index);
+				});
+			}
 		}
 	}
 
@@ -612,15 +622,15 @@ export class GlGraphMinimap extends GlElement {
 		}
 	}
 
-	private getData(date: number | Date): DataItem | undefined {
-		date = new Date(date).setHours(0, 0, 0, 0);
+	private getDataPoint(date: number | Date): DataItem | undefined {
+		const timestamp = new Date(date).setHours(0, 0, 0, 0);
 		return this._chart
 			?.data()[0]
-			?.values.find(v => (typeof v.x === 'number' ? v.x : (v.x as any as Date).getTime()) === date);
+			?.values.find(v => (typeof v.x === 'number' ? v.x : (v.x as unknown as Date).getTime()) === timestamp);
 	}
 
 	private getIndex(date: number | Date): number | undefined {
-		return this.getData(date)?.index;
+		return this.getDataPoint(date)?.index;
 	}
 
 	private getMarkerRegions() {
