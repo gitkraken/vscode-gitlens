@@ -144,15 +144,6 @@ async function buildGraphWebview(mode) {
 		entryNames: '[dir]/graph',
 		alias: {
 			'@env': path.resolve(__dirname, 'src', 'env', 'browser'),
-			tslib: path.resolve(__dirname, 'node_modules/tslib/tslib.es6.js'),
-			'@microsoft/fast-foundation': path.resolve(
-				__dirname,
-				'node_modules/@microsoft/fast-foundation/dist/esm/index.js',
-			),
-			'@microsoft/fast-react-wrapper': path.resolve(
-				__dirname,
-				'node_modules/@microsoft/fast-react-wrapper/dist/esm/index.js',
-			),
 		},
 		drop: ['debugger'],
 		external: ['vscode'],
