@@ -942,7 +942,7 @@ export class HomeWebviewProvider implements WebviewProvider<State, State, HomeWe
 
 	@debug()
 	private onOverviewWipChanged(e: RepositoryFileSystemChangeEvent, repository: Repository) {
-		if (e.repository?.path !== repository.path) return;
+		if (e.repository.id !== repository.id) return;
 		if (this._etagFileSystem === repository.etagFileSystem) return;
 
 		// if the repo is already marked invalid, we already need to recompute the whole overview
