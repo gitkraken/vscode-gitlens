@@ -71,6 +71,7 @@ export function computeSubscriptionState(subscription: Optional<Subscription, 's
 			}
 
 			case SubscriptionPlanId.Pro:
+			case SubscriptionPlanId.Advanced:
 			case SubscriptionPlanId.Teams:
 			case SubscriptionPlanId.Enterprise:
 				return SubscriptionState.Paid;
@@ -94,6 +95,7 @@ export function computeSubscriptionState(subscription: Optional<Subscription, 's
 				? SubscriptionState.ProPreview
 				: SubscriptionState.ProTrial;
 
+		case SubscriptionPlanId.Advanced:
 		case SubscriptionPlanId.Teams:
 		case SubscriptionPlanId.Enterprise:
 			return SubscriptionState.Paid;
@@ -127,14 +129,18 @@ export function getSubscriptionPlanName(id: SubscriptionPlanId): string {
 	return `GitLens ${getSubscriptionPlanTier(id)}`;
 }
 
-export function getSubscriptionPlanTier(id: SubscriptionPlanId): 'Community' | 'Pro' | 'Teams' | 'Enterprise' {
+export function getSubscriptionPlanTier(
+	id: SubscriptionPlanId,
+): 'Community' | 'Pro' | 'Advanced' | 'Business' | 'Enterprise' {
 	switch (id) {
 		case SubscriptionPlanId.CommunityWithAccount:
 			return 'Community';
 		case SubscriptionPlanId.Pro:
 			return 'Pro';
+		case SubscriptionPlanId.Advanced:
+			return 'Advanced';
 		case SubscriptionPlanId.Teams:
-			return 'Teams';
+			return 'Business';
 		case SubscriptionPlanId.Enterprise:
 			return 'Enterprise';
 		case SubscriptionPlanId.Community:
@@ -147,8 +153,9 @@ const plansPriority = new Map<SubscriptionPlanId | undefined, number>([
 	[SubscriptionPlanId.Community, 0],
 	[SubscriptionPlanId.CommunityWithAccount, 1],
 	[SubscriptionPlanId.Pro, 2],
-	[SubscriptionPlanId.Teams, 3],
-	[SubscriptionPlanId.Enterprise, 4],
+	[SubscriptionPlanId.Advanced, 3],
+	[SubscriptionPlanId.Teams, 4],
+	[SubscriptionPlanId.Enterprise, 5],
 ]);
 
 export function getSubscriptionPlanPriority(id: SubscriptionPlanId | undefined): number {
