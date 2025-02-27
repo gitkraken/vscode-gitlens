@@ -71,8 +71,8 @@ export async function applyChanges(
 			} catch {
 				create = true;
 
-				ref2 = ref1;
-				ref1 = `${ref1}^`;
+				// If restoring a deleted file (e.g. a newly added file), swap the refs to restore from the previous commit
+				[ref1, ref2] = [ref2 === '' ? 'HEAD' : ref2 ?? `${ref1}^`, ref1];
 			}
 		}
 	}
