@@ -332,6 +332,6 @@ export class GitUri extends (Uri as any as UriEx) {
 
 export const unknownGitUri = Object.freeze(new GitUri());
 
-export function isGitUri(uri: any): uri is GitUri {
+export function isGitUri(uri: unknown): uri is GitUri {
 	return uri instanceof GitUri;
 }

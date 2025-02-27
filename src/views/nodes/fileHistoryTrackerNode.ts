@@ -2,6 +2,7 @@ import type { TextEditor } from 'vscode';
 import { Disposable, TreeItem, TreeItemCollapsibleState, window } from 'vscode';
 import type { GitCommitish } from '../../git/gitUri';
 import { GitUri, unknownGitUri } from '../../git/gitUri';
+import { ensureWorkingUri } from '../../git/gitUri.utils';
 import { isBranchReference } from '../../git/utils/reference.utils';
 import { isSha } from '../../git/utils/revision.utils';
 import { showReferencePicker } from '../../quickpicks/referencePicker';
@@ -161,14 +162,8 @@ export class FileHistoryTrackerNode extends SubscribeableViewNode<'file-history-
 
 		let gitUri = await GitUri.fromUri(editor.document.uri);
 
-		let uri;
-		if (gitUri.sha != null) {
-			// If we have a sha, normalize the history to the working file (so we get a full history all the time)
-			const workingUri = await this.view.container.git.getWorkingUri(gitUri.repoPath!, gitUri);
-			if (workingUri != null) {
-				uri = workingUri;
-			}
-		}
+		// If we have a sha, normalize the history to the working file (so we get a full history all the time)
+		const uri = await ensureWorkingUri(this.view.container, gitUri);
 
 		if (this.hasUri && uriEquals(uri ?? gitUri, this.uri)) {
 			return true;
