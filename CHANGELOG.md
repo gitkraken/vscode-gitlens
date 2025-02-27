@@ -19,6 +19,7 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/) and this p
 
 ### Fixed
 
+- Fixes avoid eagerly getting "full" commit details for inline blame ([#4115])(https://github.com/gitkraken/vscode-gitlens/issues/4115))
 - Fixes large commit messages work poorly on Commit Graph ([#4100](https://github.com/gitkraken/vscode-gitlens/issues/4100))
 
 ## [16.3.2] - 2025-02-21

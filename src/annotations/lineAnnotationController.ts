@@ -238,26 +238,6 @@ export class LineAnnotationController implements Disposable {
 
 		let uncommittedOnly = true;
 
-		const commitPromises = new Map<string, Promise<void>>();
-		const lines = new Map<number, LineState>();
-		for (const selection of selections) {
-			const state = this.container.lineTracker.getState(selection.active);
-			if (state?.commit == null) {
-				Logger.debug(scope, `Line ${selection.active} returned no commit`);
-				continue;
-			}
-
-			if (state.commit.message == null && !commitPromises.has(state.commit.ref)) {
-				commitPromises.set(state.commit.ref, state.commit.ensureFullDetails());
-			}
-			lines.set(selection.active, state);
-			if (!state.commit.isUncommitted) {
-				uncommittedOnly = false;
-			}
-		}
-
-		const repoPath = trackedDocument.uri.repoPath;
-
 		let hoverOptions: RequireSome<Parameters<typeof detailsMessage>[4], 'autolinks' | 'pullRequests'> | undefined;
 		// Live Share (vsls schemes) don't support `languages.registerHoverProvider` so we'll need to add them to the decoration directly
 		if (editor.document.uri.scheme === Schemes.Vsls || editor.document.uri.scheme === Schemes.VslsScc) {
@@ -269,6 +249,27 @@ export class LineAnnotationController implements Disposable {
 				pullRequests: hoverCfg.pullRequests.enabled,
 			};
 		}
+
+		const commitPromises = new Map<string, Promise<void>>();
+		const lines = new Map<number, LineState>();
+		for (const selection of selections) {
+			const state = this.container.lineTracker.getState(selection.active);
+			if (state?.commit == null) {
+				Logger.debug(scope, `Line ${selection.active} returned no commit`);
+				continue;
+			}
+
+			// Only ensure the full details if we have to add the hover eagerly (Live Share) and we don't have a message
+			if (hoverOptions != null && state.commit.message == null && !commitPromises.has(state.commit.ref)) {
+				commitPromises.set(state.commit.ref, state.commit.ensureFullDetails());
+			}
+			lines.set(selection.active, state);
+			if (!state.commit.isUncommitted) {
+				uncommittedOnly = false;
+			}
+		}
+
+		const repoPath = trackedDocument.uri.repoPath;
 
 		const getPullRequests =
 			!uncommittedOnly &&
