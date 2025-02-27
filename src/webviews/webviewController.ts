@@ -159,7 +159,10 @@ export class WebviewController<
 	private /*readonly*/ provider!: WebviewProvider<State, SerializedState, ShowingArgs>;
 	private readonly webview: Webview;
 
-	private viewColumn: ViewColumn | undefined;
+	private _viewColumn: ViewColumn | undefined;
+	get viewColumn(): ViewColumn | undefined {
+		return this._viewColumn;
+	}
 
 	private constructor(
 		private readonly container: Container,
@@ -198,7 +201,7 @@ export class WebviewController<
 								active,
 								this.viewColumn != null && this.viewColumn !== viewColumn,
 							);
-							this.viewColumn = viewColumn;
+							this._viewColumn = viewColumn;
 					  })
 					: parent.onDidChangeVisibility(() => this.onParentVisibilityChanged(this.visible, this.active)),
 				parent.onDidDispose(this.onParentDisposed, this),

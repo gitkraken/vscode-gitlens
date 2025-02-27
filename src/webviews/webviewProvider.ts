@@ -1,4 +1,4 @@
-import type { Disposable, Uri, ViewBadge } from 'vscode';
+import type { Disposable, Uri, ViewBadge, ViewColumn } from 'vscode';
 import type { WebviewCommands, WebviewViewCommands } from '../constants.commands';
 import type { WebviewTelemetryContext } from '../constants.telemetry';
 import type { WebviewIds, WebviewViewIds } from '../constants.views';
@@ -65,6 +65,7 @@ export interface WebviewHost<ID extends WebviewIds | WebviewViewIds> {
 
 	readonly active: boolean | undefined;
 	readonly ready: boolean;
+	readonly viewColumn: ViewColumn | undefined;
 	readonly visible: boolean;
 	readonly baseWebviewState: WebviewState;
 	readonly cspNonce: string;
