@@ -2,15 +2,15 @@
 import type { Uri } from 'vscode';
 import type { Container } from '../../container';
 import { memoize } from '../../system/decorators/-webview/memoize';
-import { createUncommittedChangesCommit } from '../utils/-webview/commit.utils';
 import { getGitFileFormattedDirectory, getGitFileFormattedPath } from '../utils/-webview/file.utils';
+import { getPseudoCommits } from '../utils/-webview/statusFile.utils';
 import { getGitFileStatusText } from '../utils/fileStatus.utils';
 import type { GitCommit } from './commit';
 import type { GitFile } from './file';
 import { GitFileChange } from './fileChange';
 import type { GitFileStatus } from './fileStatus';
 import { GitFileConflictStatus, GitFileIndexStatus, GitFileWorkingTreeStatus } from './fileStatus';
-import { uncommitted, uncommittedStaged } from './revision';
+import { uncommittedStaged } from './revision';
 import type { GitUser } from './user';
 
 export class GitStatusFile implements GitFile {
@@ -127,73 +127,7 @@ export class GitStatusFile implements GitFile {
 	}
 
 	getPseudoCommits(container: Container, user: GitUser | undefined): GitCommit[] {
-		let now = new Date();
-
-		if (this.conflicted) {
-			const file = new GitFileChange(
-				container,
-				this.repoPath,
-				this.path,
-				this.status,
-				this.originalPath,
-				'HEAD',
-				undefined,
-				false,
-			);
-			return [
-				createUncommittedChangesCommit(container, this.repoPath, uncommitted, now, user, {
-					files: { file: file, files: [file] },
-					parents: ['HEAD'],
-				}),
-			];
-		}
-
-		const commits: GitCommit[] = [];
-		const staged = this.staged;
-
-		if (this.wip) {
-			const previousSha = staged ? uncommittedStaged : 'HEAD';
-			const file = new GitFileChange(
-				this.container,
-				this.repoPath,
-				this.path,
-				this.workingTreeStatus ?? this.status,
-				this.originalPath,
-				previousSha,
-				undefined,
-				false,
-			);
-			commits.push(
-				createUncommittedChangesCommit(container, this.repoPath, uncommitted, now, user, {
-					files: { file: file, files: [file] },
-					parents: [previousSha],
-				}),
-			);
-
-			// Decrements the date to guarantee the staged entry (if exists) will be sorted after the working entry (most recent first)
-			now = new Date(now.getTime() - 60000);
-		}
-
-		if (staged) {
-			const file = new GitFileChange(
-				this.container,
-				this.repoPath,
-				this.path,
-				this.indexStatus ?? this.status,
-				this.originalPath,
-				'HEAD',
-				undefined,
-				true,
-			);
-			commits.push(
-				createUncommittedChangesCommit(container, this.repoPath, uncommittedStaged, now, user, {
-					files: { file: file, files: [file] },
-					parents: ['HEAD'],
-				}),
-			);
-		}
-
-		return commits;
+		return getPseudoCommits(container, [this], user);
 	}
 
 	getPseudoFileChanges(): GitFileChange[] {
