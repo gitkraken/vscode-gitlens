@@ -63,6 +63,7 @@ import type { Deferrable } from '../../system/function/debounce';
 import { debounce } from '../../system/function/debounce';
 import { filterMap } from '../../system/iterable';
 import { getSettledValue } from '../../system/promise';
+import { SubscriptionManager } from '../../system/subscriptionManager';
 import type { ShowInCommitGraphCommandArgs } from '../plus/graph/protocol';
 import type { Change } from '../plus/patchDetails/protocol';
 import type { IpcMessage } from '../protocol';
@@ -115,10 +116,6 @@ const emptyDisposable = Object.freeze({
 	},
 });
 
-interface RepositorySubscription {
-	repo: Repository;
-	subscription?: Disposable;
-}
 interface RepositoryBranchData {
 	repo: Repository;
 	branches: GitBranch[];
@@ -407,10 +404,10 @@ export class HomeWebviewProvider implements WebviewProvider<State, State, HomeWe
 	}
 
 	private hasRepositoryChanged(): boolean {
-		if (this._repositorySubscription?.repo != null) {
+		if (this._repositorySubscription?.source != null) {
 			if (
-				this._repositorySubscription.repo.etag !== this._etagRepository ||
-				this._repositorySubscription.repo.etagFileSystem !== this._etagFileSystem
+				this._repositorySubscription.source.etag !== this._etagRepository ||
+				this._repositorySubscription.source.etagFileSystem !== this._etagFileSystem
 			) {
 				return true;
 			}
@@ -423,12 +420,12 @@ export class HomeWebviewProvider implements WebviewProvider<State, State, HomeWe
 
 	onVisibilityChanged(visible: boolean): void {
 		if (!visible) {
-			this.stopRepositorySubscription();
+			this._repositorySubscription?.pause();
 
 			return;
 		}
 
-		this.resumeRepositorySubscription();
+		this._repositorySubscription?.resume();
 
 		if (
 			this._discovering == null &&
@@ -860,7 +857,7 @@ export class HomeWebviewProvider implements WebviewProvider<State, State, HomeWe
 		};
 	}
 
-	private _repositorySubscription: RepositorySubscription | undefined;
+	private _repositorySubscription: SubscriptionManager<Repository> | undefined;
 	private selectRepository(repoPath?: string) {
 		let repo: Repository | undefined;
 		if (repoPath != null) {
@@ -872,48 +869,29 @@ export class HomeWebviewProvider implements WebviewProvider<State, State, HomeWe
 			}
 		}
 
-		if (this._repositorySubscription != null) {
-			this._repositorySubscription.subscription?.dispose();
-			this._repositorySubscription = undefined;
-		}
+		this._repositorySubscription?.dispose();
+		this._repositorySubscription = undefined;
+
 		if (repo != null) {
-			this._repositorySubscription = {
-				repo: repo,
-				subscription: this.subscribeToRepository(repo),
-			};
+			this._repositorySubscription = new SubscriptionManager(repo, r => this.subscribeToRepository(r));
+			// Start the subscription immediately if webview is visible
+			if (this.host.visible) {
+				this._repositorySubscription.start();
+			}
 		}
 
 		return repo;
-	}
-
-	private stopRepositorySubscription() {
-		if (this._repositorySubscription != null) {
-			this._repositorySubscription.subscription?.dispose();
-			this._repositorySubscription.subscription = undefined;
-		}
-	}
-
-	private resumeRepositorySubscription(force = false) {
-		if (this._repositorySubscription == null) {
-			return;
-		}
-
-		if (force || this._repositorySubscription.subscription == null) {
-			this._repositorySubscription.subscription?.dispose();
-			this._repositorySubscription.subscription = undefined;
-			this._repositorySubscription.subscription = this.subscribeToRepository(this._repositorySubscription.repo);
-		}
 	}
 
 	private resetBranchOverview() {
 		this._repositoryBranches.clear();
 
 		if (!this.host.visible) {
-			this.stopRepositorySubscription();
+			this._repositorySubscription?.pause();
 			return;
 		}
 
-		this.resumeRepositorySubscription(true);
+		this._repositorySubscription?.resume();
 	}
 
 	private subscribeToRepository(repo: Repository): Disposable {
@@ -977,7 +955,7 @@ export class HomeWebviewProvider implements WebviewProvider<State, State, HomeWe
 			this.selectRepository();
 		}
 
-		return this._repositorySubscription?.repo;
+		return this._repositorySubscription?.source;
 	}
 
 	private _invalidateOverview: 'repo' | 'wip' | undefined;
