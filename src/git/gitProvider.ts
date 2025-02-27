@@ -559,7 +559,7 @@ export interface GitStashSubProvider {
 export interface GitStatusSubProvider {
 	getStatus(repoPath: string | undefined): Promise<GitStatus | undefined>;
 	getStatusForFile?(repoPath: string, uri: Uri): Promise<GitStatusFile | undefined>;
-	getStatusForFiles?(repoPath: string, pathOrGlob: Uri): Promise<GitStatusFile[] | undefined>;
+	getStatusForPath?(repoPath: string, pathOrGlob: Uri): Promise<GitStatusFile[] | undefined>;
 
 	getPausedOperationStatus?(repoPath: string): Promise<GitPausedOperationStatus | undefined>;
 	abortPausedOperation?(repoPath: string, options?: { quit?: boolean }): Promise<void>;
