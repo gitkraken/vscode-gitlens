@@ -8,7 +8,7 @@ import type { ViewFilesLayout } from '../../../../../config';
 import { urls } from '../../../../../constants';
 import type { GitFileChangeShape } from '../../../../../git/models/fileChange';
 import type { DraftRole, DraftVisibility } from '../../../../../plus/drafts/models/drafts';
-import { debounce } from '../../../../../system/function';
+import { debounce } from '../../../../../system/function/debounce';
 import { flatCount } from '../../../../../system/iterable';
 import type { Serialized } from '../../../../../system/serialize';
 import type {

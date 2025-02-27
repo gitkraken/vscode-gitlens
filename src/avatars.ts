@@ -7,7 +7,7 @@ import type { CommitAuthor } from './git/models/author';
 import { getGitHubNoReplyAddressParts } from './git/remotes/github';
 import { configuration } from './system/-webview/configuration';
 import { getContext } from './system/-webview/context';
-import { debounce } from './system/function';
+import { debounce } from './system/function/debounce';
 import { filterMap } from './system/iterable';
 import { base64, equalsIgnoreCase } from './system/string';
 import type { ContactPresenceStatus } from './vsls/vsls';

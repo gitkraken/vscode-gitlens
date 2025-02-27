@@ -110,8 +110,9 @@ import type { OpenWorkspaceLocation } from '../../../system/-webview/vscode';
 import { isDarkTheme, isLightTheme, openUrl, openWorkspace } from '../../../system/-webview/vscode';
 import { gate } from '../../../system/decorators/-webview/gate';
 import { debug, log } from '../../../system/decorators/log';
-import type { Deferrable } from '../../../system/function';
-import { debounce, disposableInterval } from '../../../system/function';
+import { disposableInterval } from '../../../system/function';
+import type { Deferrable } from '../../../system/function/debounce';
+import { debounce } from '../../../system/function/debounce';
 import { count, find, last, map } from '../../../system/iterable';
 import { flatten, updateRecordValue } from '../../../system/object';
 import {

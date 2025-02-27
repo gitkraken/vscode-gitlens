@@ -4,7 +4,7 @@ import type { IntegrationId } from '../../../constants.integrations';
 import { HostingIntegrationId } from '../../../constants.integrations';
 import type { StoredConfiguredIntegrationDescriptor } from '../../../constants.storage';
 import type { Container } from '../../../container';
-import { debounce } from '../../../system/function';
+import { debounce } from '../../../system/function/debounce';
 import { flatten } from '../../../system/iterable';
 import { getBuiltInIntegrationSession } from '../../gk/utils/-webview/integrationAuthentication.utils';
 import { isSelfHostedIntegrationId, providersMetadata } from '../providers/models';

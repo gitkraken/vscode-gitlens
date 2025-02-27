@@ -1,7 +1,7 @@
 /*global window document*/
 import { ContextProvider } from '@lit/context';
 import type { CustomEditorIds, WebviewIds, WebviewViewIds } from '../../../constants.views';
-import { debounce } from '../../../system/function';
+import { debounce } from '../../../system/function/debounce';
 import type { LogScope } from '../../../system/logger.scope';
 import type {
 	IpcCallParamsType,

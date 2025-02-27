@@ -3,7 +3,7 @@ import type { TextDocumentShowOptions } from 'vscode';
 import type { ViewFilesLayout } from '../../../../config';
 import type { GlCommands } from '../../../../constants.commands';
 import type { DraftPatchFileChange, DraftVisibility } from '../../../../plus/drafts/models/drafts';
-import { debounce } from '../../../../system/function';
+import { debounce } from '../../../../system/function/debounce';
 import type { Serialized } from '../../../../system/serialize';
 import type { State, SwitchModeParams } from '../../../plus/patchDetails/protocol';
 import {

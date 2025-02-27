@@ -104,7 +104,7 @@ import { configuration } from '../system/-webview/configuration';
 import { formatPath } from '../system/-webview/formatPath';
 import { getIconPathUris, openWorkspace } from '../system/-webview/vscode';
 import { filterMap, intersection, isStringArray } from '../system/array';
-import { debounce } from '../system/function';
+import { debounce } from '../system/function/debounce';
 import { first, map } from '../system/iterable';
 import { Logger } from '../system/logger';
 import { getSettledValue } from '../system/promise';

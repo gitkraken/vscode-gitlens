@@ -9,7 +9,7 @@ import { configuration } from '../system/-webview/configuration';
 import { isTrackableTextEditor } from '../system/-webview/vscode';
 import { debug, log } from '../system/decorators/log';
 import { once } from '../system/event';
-import { debounce } from '../system/function';
+import { debounce } from '../system/function/debounce';
 import { Logger } from '../system/logger';
 import { getLogScope, setLogScopeExit } from '../system/logger.scope';
 import type { MaybePausedResult } from '../system/promise';

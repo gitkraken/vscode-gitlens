@@ -33,8 +33,8 @@ import { UriSet } from '../system/-webview/uriMap';
 import { isTrackableTextEditor } from '../system/-webview/vscode';
 import { debug, log } from '../system/decorators/log';
 import { once } from '../system/event';
-import type { Deferrable } from '../system/function';
-import { debounce } from '../system/function';
+import type { Deferrable } from '../system/function/debounce';
+import { debounce } from '../system/function/debounce';
 import { find } from '../system/iterable';
 import { basename } from '../system/path';
 import type {

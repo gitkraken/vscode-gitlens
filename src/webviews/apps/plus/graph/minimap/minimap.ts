@@ -3,7 +3,7 @@ import { css, html } from 'lit';
 import { customElement, property, query } from 'lit/decorators.js';
 import type { ChartInternal, ChartWithInternal } from '../../../../../@types/bb';
 import { debug } from '../../../../../system/decorators/log';
-import { debounce } from '../../../../../system/function';
+import { debounce } from '../../../../../system/function/debounce';
 import { first, flatMap, groupByMap, map, union } from '../../../../../system/iterable';
 import { capitalize, pluralize } from '../../../../../system/string';
 import { GlElement, observe } from '../../../shared/components/element';

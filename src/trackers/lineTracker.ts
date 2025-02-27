@@ -4,8 +4,8 @@ import type { Container } from '../container';
 import type { GitCommit } from '../git/models/commit';
 import { isTrackableTextEditor } from '../system/-webview/vscode';
 import { debug } from '../system/decorators/log';
-import type { Deferrable } from '../system/function';
-import { debounce } from '../system/function';
+import type { Deferrable } from '../system/function/debounce';
+import { debounce } from '../system/function/debounce';
 import { getLogScope, setLogScopeExit } from '../system/logger.scope';
 import type {
 	DocumentBlameStateChangeEvent,
