@@ -219,22 +219,31 @@ export class GitCommit implements GitRevisionReference {
 
 		// If the commit is "uncommitted", then have the files list be all uncommitted files
 		if (this.isUncommitted) {
-			const repository = this.container.git.getRepository(this.repoPath);
-			this._etagFileSystem = repository?.etagFileSystem;
+			const repo = this.container.git.getRepository(this.repoPath);
+			this._etagFileSystem = repo?.etagFileSystem;
 
 			if (this._etagFileSystem != null) {
-				const status = await this.container.git.status(this.repoPath).getStatus();
+				const status = await repo?.git.status().getStatus();
 				if (status != null) {
 					this._files = status.files.flatMap(f => f.getPseudoFileChanges());
+					if (isUncommittedStaged(this.sha)) {
+						this._files = this._files.filter(f => f.staged);
+					}
 				}
-				this._etagFileSystem = repository?.etagFileSystem;
+				this._etagFileSystem = repo?.etagFileSystem;
 			}
 
 			if (this._files == null) {
 				this._files = this.file != null ? [this.file] : [];
 			}
 
-			this._recomputeStats = true;
+			if (options?.include?.stats) {
+				const stats = await repo?.git.diff().getChangedFilesCount(this.sha);
+				this._stats = stats;
+				this._recomputeStats = false;
+			} else {
+				this._recomputeStats = true;
+			}
 
 			return;
 		}
@@ -612,10 +621,11 @@ export class GitCommit implements GitRevisionReference {
 		lines?: GitCommitLine[];
 		stats?: GitCommitStats;
 	}): T {
-		let files;
+		let files: { file?: GitFileChange; files?: GitFileChange[] } | undefined = {
+			file: this._file,
+			files: this._files,
+		};
 		if (changes.files != null) {
-			files = { file: this._file, files: this._files };
-
 			if (changes.files.file != null) {
 				files.file = changes.files.file;
 			} else if (changes.files.file === null) {
