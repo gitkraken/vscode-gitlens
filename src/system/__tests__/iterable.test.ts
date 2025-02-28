@@ -1,5 +1,4 @@
 import * as assert from 'assert';
-import { suite, test } from 'mocha';
 import { join } from '../iterable';
 
 suite('Iterable Test Suite', () => {

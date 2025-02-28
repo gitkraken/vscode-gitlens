@@ -1,5 +1,4 @@
 import * as assert from 'assert';
-import { suite, test } from 'mocha';
 import { splitPath } from '../-webview/path';
 
 const smallDiskNameRegex = /^[a-z]:\//gm;

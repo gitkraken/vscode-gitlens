@@ -1,5 +1,4 @@
 import * as assert from 'assert';
-import { suite, test } from 'mocha';
 import { getGitLabPullRequestIdentityFromMaybeUrl, isMaybeGitLabPullRequestUrl } from '../gitlab.utils';
 
 suite('Test GitLab PR URL parsing to identity: getPullRequestIdentityFromMaybeUrl()', () => {

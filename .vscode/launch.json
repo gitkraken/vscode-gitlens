@@ -108,12 +108,14 @@
 			"name": "Run Tests",
 			"type": "extensionHost",
 			"request": "launch",
+			"runtimeExecutable": "${execPath}",
 			"args": [
 				"--profile-temp",
 				"--extensionDevelopmentPath=${workspaceFolder}",
-				"--extensionTestsPath=${workspaceFolder}/out/test/suite/index"
+				"--extensionTestsPath=${workspaceFolder}/out/tests"
 			],
-			"outFiles": ["${workspaceFolder}/out/test/**/*.js", "${workspaceFolder}/dist/**/*.js"],
+			"outFiles": ["${workspaceFolder}/out/tests/*.test.js"],
+			"preLaunchTask": "npm: build:tests",
 			"presentation": {
 				"group": "2_run_tests",
 				"order": 2

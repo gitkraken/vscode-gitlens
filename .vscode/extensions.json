@@ -5,7 +5,9 @@
 		"dbaeumer.vscode-eslint",
 		"amodio.tsl-problem-matcher",
 		"esbenp.prettier-vscode",
-		"joyceerhl.github-graphql-nb",
-		"ms-vscode.vscode-github-issue-notebooks"
+		"ms-fast.fast-tagged-templates",
+		"runem.lit-plugin",
+		"ms-vscode.extension-test-runner",
+		"ms-playwright.playwright"
 	]
 }
