@@ -16,13 +16,6 @@ export interface BitbucketWorkspaceDescriptor extends ResourceDescriptor {
 	slug: string;
 }
 
-export interface BitbucketRemoteRepositoryDescriptor extends ResourceDescriptor {
-	owner: string;
-	name: string;
-	cloneUrlHttps?: string;
-	cloneUrlSsh?: string;
-}
-
 export type BitbucketPullRequestState = 'OPEN' | 'DECLINED' | 'MERGED' | 'SUPERSEDED';
 
 interface BitbucketLink {
