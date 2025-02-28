@@ -12,6 +12,7 @@ import { getBranchIconPath } from '../../git/utils/-webview/icons';
 import { getHighlanderProviderName } from '../../git/utils/remote.utils';
 import { shortenRevision } from '../../git/utils/revision.utils';
 import { getContext } from '../../system/-webview/context';
+import { getBestPath } from '../../system/-webview/path';
 import { gate } from '../../system/decorators/-webview/gate';
 import { debug } from '../../system/decorators/log';
 import { map } from '../../system/iterable';
@@ -44,7 +45,7 @@ export class WorktreeNode extends CacheableChildrenViewNode<'worktree', ViewsWit
 	constructor(
 		uri: GitUri,
 		view: ViewsWithWorktrees,
-		protected override readonly parent: ViewNode,
+		public override parent: ViewNode,
 		public readonly worktree: GitWorktree,
 		private readonly worktreeStatus: { status: GitStatus | undefined; missing: boolean } | undefined,
 	) {
@@ -65,6 +66,21 @@ export class WorktreeNode extends CacheableChildrenViewNode<'worktree', ViewsWit
 
 	get repoPath(): string {
 		return this.uri.repoPath!;
+	}
+
+	compacted: boolean = false;
+
+	private get avoidCompacting(): boolean {
+		return this.worktree.isDefault || this.worktree.opened;
+	}
+
+	get treeHierarchy(): string[] {
+		// If this is a branch worktree, use the branch name for the hierarchy
+		if (this.worktree.type === 'branch' && !this.avoidCompacting) {
+			return this.worktree.branch?.getNameWithoutRemote().split('/') || [this.worktree.name];
+		}
+		// For other types of worktrees or those that shouldn't be compacted, use the worktree name
+		return [this.worktree.name];
 	}
 
 	async getChildren(): Promise<ViewNode[]> {
@@ -219,6 +235,8 @@ export class WorktreeNode extends CacheableChildrenViewNode<'worktree', ViewsWit
 			this.worktree.friendlyPath
 		}\`](command:gitlens.views.revealWorktreeInExplorer?%22${this.worktree.uri.toString()}%22 "Reveal in Explorer")`;
 
+		const { viewAs } = this.view.config.worktrees;
+
 		switch (this.worktree.type) {
 			case 'bare':
 				icon = new ThemeIcon('folder');
@@ -273,8 +291,16 @@ export class WorktreeNode extends CacheableChildrenViewNode<'worktree', ViewsWit
 							}
 
 							description = `${branch.getTrackingStatus({
-								empty: pad(arrows, 0, 2),
-								suffix: pad(arrows, 2, 2),
+								empty: `${viewAs !== 'name' ? ` ${branch.getNameWithoutRemote()}` : ''}${pad(
+									arrows,
+									viewAs !== 'name' ? 2 : 0,
+									2,
+								)}`,
+								suffix: `${viewAs !== 'name' ? ` ${branch.getNameWithoutRemote()}` : ''}${pad(
+									arrows,
+									2,
+									2,
+								)}`,
 							})}${branch.upstream.name}`;
 
 							tooltip.appendMarkdown(
@@ -350,7 +376,27 @@ export class WorktreeNode extends CacheableChildrenViewNode<'worktree', ViewsWit
 			tooltip.appendMarkdown(`\n\n${GlyphChars.Warning} Unable to locate worktree path`);
 		}
 
-		const item = new TreeItem(this.worktree.name, TreeItemCollapsibleState.Collapsed);
+		let label: string;
+		switch (viewAs) {
+			case 'path':
+				label = getBestPath(this.worktree.uri);
+				break;
+			case 'relativePath':
+				label = this.worktree.friendlyPath;
+				break;
+			case 'name':
+			default:
+				// Use basename for display if we're using tree layout and the node is compacted
+				label =
+					this.view.config.files.layout === 'tree' && this.compacted && !this.avoidCompacting
+						? this.worktree.type === 'branch' && this.worktree.branch
+							? this.worktree.branch.getBasename()
+							: this.worktree.name
+						: this.worktree.name;
+				break;
+		}
+
+		const item = new TreeItem(label, TreeItemCollapsibleState.Collapsed);
 		item.id = this.id;
 		item.description = description;
 		item.contextValue = `${ContextValues.Worktree}${this.worktree.isDefault ? '+default' : ''}${

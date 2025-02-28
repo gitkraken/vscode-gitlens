@@ -2261,6 +2261,23 @@
 						"scope": "window",
 						"order": 100
 					},
+					"gitlens.views.repositories.worktrees.viewAs": {
+						"type": "string",
+						"default": "name",
+						"enum": [
+							"name",
+							"path",
+							"relativePath"
+						],
+						"enumDescriptions": [
+							"Displays worktree name",
+							"Displays worktree path",
+							"Displays worktree relative path"
+						],
+						"markdownDescription": "Specifies how the _Repositories_ view will display worktrees",
+						"scope": "window",
+						"order": 75
+					},
 					"gitlens.views.repositories.enabled": {
 						"deprecationMessage": "Deprecated. This setting is no longer used",
 						"markdownDeprecationMessage": "Deprecated. This setting is no longer used"
@@ -2867,6 +2884,38 @@
 						"scope": "window",
 						"order": 32
 					},
+					"gitlens.views.worktrees.worktrees.viewAs": {
+						"type": "string",
+						"default": "name",
+						"enum": [
+							"name",
+							"path",
+							"relativePath"
+						],
+						"enumDescriptions": [
+							"Displays worktree name",
+							"Displays worktree path",
+							"Displays worktree relative path"
+						],
+						"markdownDescription": "Specifies how the _Worktrees_ view will display worktrees",
+						"scope": "window",
+						"order": 33
+					},
+					"gitlens.views.worktrees.branches.layout": {
+						"type": "string",
+						"default": "tree",
+						"enum": [
+							"list",
+							"tree"
+						],
+						"enumDescriptions": [
+							"Displays worktree branches as a list",
+							"Displays worktree branches as a tree when branch names contain slashes `/`"
+						],
+						"markdownDescription": "Specifies how the _Worktrees_ view will display worktree branches",
+						"scope": "window",
+						"order": 35
+					},
 					"gitlens.views.worktrees.files.layout": {
 						"type": "string",
 						"default": "auto",
@@ -3355,6 +3404,23 @@
 						"markdownDescription": "Specifies how the _Cloud Workspaces_ view will display branches",
 						"scope": "window",
 						"order": 70
+					},
+					"gitlens.views.workspaces.worktrees.viewAs": {
+						"type": "string",
+						"default": "name",
+						"enum": [
+							"name",
+							"path",
+							"relativePath"
+						],
+						"enumDescriptions": [
+							"Displays worktree name",
+							"Displays worktree path",
+							"Displays worktree relative path"
+						],
+						"markdownDescription": "Specifies how the _Cloud Workspaces_ view will display worktrees",
+						"scope": "window",
+						"order": 75
 					},
 					"gitlens.views.workspaces.files.layout": {
 						"type": "string",
@@ -9512,6 +9578,16 @@
 				"icon": "$(list-flat)"
 			},
 			{
+				"command": "gitlens.views.worktrees.setLayoutToList",
+				"title": "View as List",
+				"icon": "$(list-tree)"
+			},
+			{
+				"command": "gitlens.views.worktrees.setLayoutToTree",
+				"title": "View as Tree",
+				"icon": "$(list-flat)"
+			},
+			{
 				"command": "gitlens.views.worktrees.setShowAvatarsOff",
 				"title": "Hide Avatars"
 			},
@@ -12920,6 +12996,14 @@
 					"when": "false"
 				},
 				{
+					"command": "gitlens.views.worktrees.setLayoutToList",
+					"when": "false"
+				},
+				{
+					"command": "gitlens.views.worktrees.setLayoutToTree",
+					"when": "false"
+				},
+				{
 					"command": "gitlens.views.worktrees.setShowAvatarsOff",
 					"when": "false"
 				},
@@ -14879,6 +14963,16 @@
 					"command": "gitlens.showSettingsPage!tags-view",
 					"when": "gitlens:views:scm:grouped:view == tags && view == gitlens.views.scm.grouped",
 					"group": "9_gitlens@1"
+				},
+				{
+					"command": "gitlens.views.worktrees.setLayoutToList",
+					"when": "gitlens:views:scm:grouped:view == worktrees && view == gitlens.views.scm.grouped && config.gitlens.views.worktrees.branches.layout == tree",
+					"group": "3_gitlens@0"
+				},
+				{
+					"command": "gitlens.views.worktrees.setLayoutToTree",
+					"when": "gitlens:views:scm:grouped:view == worktrees && view == gitlens.views.scm.grouped && config.gitlens.views.worktrees.branches.layout == list",
+					"group": "3_gitlens@0"
 				},
 				{
 					"command": "gitlens.views.worktrees.setFilesLayoutToAuto",
@@ -18362,6 +18456,16 @@
 					"command": "gitlens.views.title.createWorktree",
 					"when": "view == gitlens.views.worktrees",
 					"group": "navigation@10"
+				},
+				{
+					"command": "gitlens.views.worktrees.setLayoutToList",
+					"when": "view == gitlens.views.worktrees && config.gitlens.views.worktrees.branches.layout == tree",
+					"group": "navigation@50"
+				},
+				{
+					"command": "gitlens.views.worktrees.setLayoutToTree",
+					"when": "view == gitlens.views.worktrees && config.gitlens.views.worktrees.branches.layout == list",
+					"group": "navigation@50"
 				},
 				{
 					"command": "gitlens.views.worktrees.refresh",

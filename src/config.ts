@@ -902,6 +902,9 @@ export interface RepositoriesViewConfig {
 	readonly showTags: boolean;
 	readonly showUpstreamStatus: boolean;
 	readonly showWorktrees: boolean;
+	readonly worktrees: {
+		readonly viewAs: ViewWorktreesViewAs;
+	};
 }
 
 export interface SearchAndCompareViewConfig {
@@ -927,8 +930,13 @@ export interface TagsViewConfig {
 	readonly reveal: boolean;
 }
 
+export type ViewWorktreesViewAs = 'name' | 'path' | 'relativePath';
+
 export interface WorktreesViewConfig {
 	readonly avatars: boolean;
+	readonly branches: {
+		readonly layout: ViewBranchesLayout;
+	};
 	readonly files: ViewsFilesConfig;
 	readonly pullRequests: {
 		readonly enabled: boolean;
@@ -938,6 +946,9 @@ export interface WorktreesViewConfig {
 	readonly reveal: boolean;
 	readonly showBranchComparison: false | Extract<ViewShowBranchComparison, 'branch'>;
 	readonly showStashes: boolean;
+	readonly worktrees: {
+		readonly viewAs: ViewWorktreesViewAs;
+	};
 }
 
 export interface WorkspacesViewConfig {
@@ -965,6 +976,9 @@ export interface WorkspacesViewConfig {
 	readonly showTags: boolean;
 	readonly showUpstreamStatus: boolean;
 	readonly showWorktrees: boolean;
+	readonly worktrees: {
+		readonly viewAs: ViewWorktreesViewAs;
+	};
 }
 
 export interface ViewsFilesConfig {

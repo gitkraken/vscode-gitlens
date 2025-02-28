@@ -566,6 +566,8 @@ export type ContributedCommands =
 	| 'gitlens.views.worktrees.setFilesLayoutToAuto'
 	| 'gitlens.views.worktrees.setFilesLayoutToList'
 	| 'gitlens.views.worktrees.setFilesLayoutToTree'
+	| 'gitlens.views.worktrees.setLayoutToList'
+	| 'gitlens.views.worktrees.setLayoutToTree'
 	| 'gitlens.views.worktrees.setShowAvatarsOff'
 	| 'gitlens.views.worktrees.setShowAvatarsOn'
 	| 'gitlens.views.worktrees.setShowBranchComparisonOff'

@@ -11649,6 +11649,46 @@
 				]
 			}
 		},
+		"gitlens.views.worktrees.setLayoutToList": {
+			"label": "View as List",
+			"icon": "$(list-tree)",
+			"menus": {
+				"gitlens/views/grouped/more": [
+					{
+						"when": "gitlens:views:scm:grouped:view == worktrees && view == gitlens.views.scm.grouped && config.gitlens.views.worktrees.branches.layout == tree",
+						"group": "3_gitlens",
+						"order": 0
+					}
+				],
+				"view/title": [
+					{
+						"when": "view == gitlens.views.worktrees && config.gitlens.views.worktrees.branches.layout == tree",
+						"group": "navigation",
+						"order": 50
+					}
+				]
+			}
+		},
+		"gitlens.views.worktrees.setLayoutToTree": {
+			"label": "View as Tree",
+			"icon": "$(list-flat)",
+			"menus": {
+				"gitlens/views/grouped/more": [
+					{
+						"when": "gitlens:views:scm:grouped:view == worktrees && view == gitlens.views.scm.grouped && config.gitlens.views.worktrees.branches.layout == list",
+						"group": "3_gitlens",
+						"order": 0
+					}
+				],
+				"view/title": [
+					{
+						"when": "view == gitlens.views.worktrees && config.gitlens.views.worktrees.branches.layout == list",
+						"group": "navigation",
+						"order": 50
+					}
+				]
+			}
+		},
 		"gitlens.views.worktrees.setShowAvatarsOff": {
 			"label": "Hide Avatars",
 			"menus": {
