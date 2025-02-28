@@ -23,7 +23,7 @@ import {
 	parseGitLogSimpleFormat,
 	parseGitLogSimpleRenamed,
 } from '../../../../git/parsers/logParser';
-import { isUncommittedStaged } from '../../../../git/utils/revision.utils';
+import { isRevisionRange, isUncommittedStaged } from '../../../../git/utils/revision.utils';
 import { showGenericErrorMessage } from '../../../../messages';
 import { configuration } from '../../../../system/-webview/configuration';
 import { splitPath } from '../../../../system/-webview/path';
@@ -53,7 +53,12 @@ export class DiffGitSubProvider implements GitDiffSubProvider {
 
 		const args: string[] = [];
 		if (to != null) {
-			prepareToFromDiffArgs(to, from, args);
+			// Handle revision ranges specially if there is no `from`, otherwise `prepareToFromDiffArgs` will duplicate the range
+			if (isRevisionRange(to) && from == null) {
+				args.push(to);
+			} else {
+				prepareToFromDiffArgs(to, from, args);
+			}
 		}
 
 		try {
