@@ -5,7 +5,6 @@ import { Schemes } from '../../constants';
 import { commonBaseIndex, isFolderGlob, normalizePath } from '../path';
 
 const hasSchemeRegex = /^([a-zA-Z][\w+.-]+):/;
-const slash = 47;
 
 export function getBestPath(uri: Uri): string;
 export function getBestPath(pathOrUri: string | Uri): string;
