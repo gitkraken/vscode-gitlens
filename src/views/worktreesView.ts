@@ -1,6 +1,6 @@
 import type { CancellationToken, ConfigurationChangeEvent, Disposable } from 'vscode';
 import { ProgressLocation, TreeItem, TreeItemCollapsibleState, window } from 'vscode';
-import type { ViewFilesLayout, WorktreesViewConfig } from '../config';
+import type { ViewBranchesLayout, ViewFilesLayout, WorktreesViewConfig } from '../config';
 import { proBadge } from '../constants';
 import { GlCommand } from '../constants.commands';
 import type { Container } from '../container';
@@ -149,6 +149,8 @@ export class WorktreesView extends ViewBase<'worktrees', WorktreesViewNode, Work
 				},
 				this,
 			),
+			registerViewCommand(this.getQualifiedCommand('setLayoutToList'), () => this.setLayout('list'), this),
+			registerViewCommand(this.getQualifiedCommand('setLayoutToTree'), () => this.setLayout('tree'), this),
 			registerViewCommand(
 				this.getQualifiedCommand('setFilesLayoutToAuto'),
 				() => this.setFilesLayout('auto'),
@@ -273,6 +275,10 @@ export class WorktreesView extends ViewBase<'worktrees', WorktreesViewNode, Work
 				return node;
 			},
 		);
+	}
+
+	private setLayout(layout: ViewBranchesLayout) {
+		return configuration.updateEffective(`views.${this.configKey}.branches.layout` as const, layout);
 	}
 
 	private setFilesLayout(layout: ViewFilesLayout) {

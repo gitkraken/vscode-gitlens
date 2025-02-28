@@ -5,13 +5,14 @@ import type { View } from '../viewBase';
 import { ContextValues, getViewNodeId, ViewNode } from './abstract/viewNode';
 import type { BranchNode } from './branchNode';
 import type { TagNode } from './tagNode';
+import type { WorktreeNode } from './worktreeNode';
 
 export class BranchOrTagFolderNode extends ViewNode<'branch-tag-folder'> {
 	constructor(
 		view: View,
 		protected override readonly parent: ViewNode,
-		public readonly folderType: 'branch' | 'remote-branch' | 'tag',
-		public readonly root: HierarchicalItem<BranchNode | TagNode>,
+		public readonly folderType: 'branch' | 'remote-branch' | 'tag' | 'worktree',
+		public readonly root: HierarchicalItem<BranchNode | TagNode | WorktreeNode>,
 		public readonly repoPath: string,
 		public readonly folderName: string,
 		public readonly relativePath: string | undefined,
@@ -33,12 +34,16 @@ export class BranchOrTagFolderNode extends ViewNode<'branch-tag-folder'> {
 	getChildren(): ViewNode[] {
 		if (this.root.descendants === undefined || this.root.children === undefined) return [];
 
-		const children: (BranchOrTagFolderNode | BranchNode | TagNode)[] = [];
+		const children: (BranchOrTagFolderNode | BranchNode | TagNode | WorktreeNode)[] = [];
 
 		for (const folder of this.root.children.values()) {
 			if (folder.value === undefined) {
-				// If the folder contains the current branch, expand it by default
-				const expand = folder.descendants?.some(n => n.is('branch') && (n.current || n.worktree?.opened));
+				// If the folder contains the current branch or an active worktree, expand it by default
+				const expand = folder.descendants?.some(
+					n =>
+						(n.is('branch') && (n.current || n.worktree?.opened)) ||
+						(n.is('worktree') && n.worktree?.opened),
+				);
 				children.push(
 					new BranchOrTagFolderNode(
 						this.view,

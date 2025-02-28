@@ -321,6 +321,7 @@ export function sortWorktrees(
 
 				return (
 					(a.opened ? -1 : 1) - (b.opened ? -1 : 1) ||
+					(a.isDefault ? -1 : 1) - (b.isDefault ? -1 : 1) ||
 					(a.hasChanges === null ? 0 : a.hasChanges ? -1 : 1) -
 						(b.hasChanges === null ? 0 : b.hasChanges ? -1 : 1) ||
 					(a.date == null ? -1 : a.date.getTime()) - (b.date == null ? -1 : b.date.getTime()) ||
@@ -334,6 +335,7 @@ export function sortWorktrees(
 
 				return (
 					(a.opened ? -1 : 1) - (b.opened ? -1 : 1) ||
+					(a.isDefault ? -1 : 1) - (b.isDefault ? -1 : 1) ||
 					(a.hasChanges === null ? 0 : a.hasChanges ? -1 : 1) -
 						(b.hasChanges === null ? 0 : b.hasChanges ? -1 : 1) ||
 					(a.name === 'main' ? -1 : 1) - (b.name === 'main' ? -1 : 1) ||
@@ -349,6 +351,7 @@ export function sortWorktrees(
 
 				return (
 					(a.opened ? -1 : 1) - (b.opened ? -1 : 1) ||
+					(a.isDefault ? -1 : 1) - (b.isDefault ? -1 : 1) ||
 					(a.hasChanges === null ? 0 : a.hasChanges ? -1 : 1) -
 						(b.hasChanges === null ? 0 : b.hasChanges ? -1 : 1) ||
 					(a.name === 'main' ? -1 : 1) - (b.name === 'main' ? -1 : 1) ||
@@ -365,6 +368,7 @@ export function sortWorktrees(
 
 				return (
 					(a.opened ? -1 : 1) - (b.opened ? -1 : 1) ||
+					(a.isDefault ? -1 : 1) - (b.isDefault ? -1 : 1) ||
 					(b.date == null ? -1 : b.date.getTime()) - (a.date == null ? -1 : a.date.getTime()) ||
 					(a.hasChanges === null ? 0 : a.hasChanges ? -1 : 1) -
 						(b.hasChanges === null ? 0 : b.hasChanges ? -1 : 1) ||

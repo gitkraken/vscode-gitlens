@@ -4,7 +4,7 @@ import { PlusFeatures } from '../../features';
 import type { GitUri } from '../../git/gitUri';
 import type { Repository } from '../../git/models/repository';
 import { sortWorktrees } from '../../git/utils/-webview/sorting';
-import { filterMap } from '../../system/array';
+import { filterMap, makeHierarchical } from '../../system/array';
 import { debug } from '../../system/decorators/log';
 import { map } from '../../system/iterable';
 import { Logger } from '../../system/logger';
@@ -12,10 +12,11 @@ import type { ViewsWithWorktreesNode } from '../viewBase';
 import { CacheableChildrenViewNode } from './abstract/cacheableChildrenViewNode';
 import type { ViewNode } from './abstract/viewNode';
 import { ContextValues, getViewNodeId } from './abstract/viewNode';
+import { BranchOrTagFolderNode } from './branchOrTagFolderNode';
 import { MessageNode } from './common';
 import { WorktreeNode } from './worktreeNode';
 
-export class WorktreesNode extends CacheableChildrenViewNode<'worktrees', ViewsWithWorktreesNode, WorktreeNode> {
+export class WorktreesNode extends CacheableChildrenViewNode<'worktrees', ViewsWithWorktreesNode> {
 	constructor(
 		uri: GitUri,
 		view: ViewsWithWorktreesNode,
@@ -44,7 +45,7 @@ export class WorktreesNode extends CacheableChildrenViewNode<'worktrees', ViewsW
 			const worktrees = await this.repo.git.worktrees()?.getWorktrees();
 			if (!worktrees?.length) return [new MessageNode(this.view, this, 'No worktrees could be found.')];
 
-			this.children = filterMap(
+			const worktreeNodes = filterMap(
 				await Promise.allSettled(
 					map(sortWorktrees(worktrees), async w => {
 						let status;
@@ -60,6 +61,33 @@ export class WorktreesNode extends CacheableChildrenViewNode<'worktrees', ViewsW
 				),
 				r => (r.status === 'fulfilled' ? r.value : undefined),
 			);
+
+			if (this.view.config.branches.layout === 'list' || this.view.config.worktrees.viewAs !== 'name') {
+				this.children = worktreeNodes;
+				return worktreeNodes;
+			}
+
+			const hierarchy = makeHierarchical(
+				worktreeNodes,
+				n => n.treeHierarchy,
+				(...paths) => paths.join('/'),
+				this.view.config.files.compact,
+				w => {
+					w.compacted = true;
+					return true;
+				},
+			);
+
+			const root = new BranchOrTagFolderNode(
+				this.view,
+				this,
+				'worktree',
+				hierarchy,
+				this.repo.path,
+				'',
+				undefined,
+			);
+			this.children = root.getChildren();
 		}
 
 		return this.children;
