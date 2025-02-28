@@ -1,6 +1,5 @@
 import * as assert from 'assert';
 import { basename } from 'path';
-import { before, suite, test } from 'mocha';
 import { Uri } from 'vscode';
 import { isLinux } from '../../env/node/platform';
 import { normalizeRepoUri } from '../../repositories';
@@ -33,7 +32,7 @@ suite.skip('PathEntryTrie Test Suite', () => {
 
 	const trie = new PathEntryTrie<Repo | File>();
 
-	before(() => {
+	suiteSetup(() => {
 		trie.set(repoGL.fsPath, repoGL);
 		trie.set(repoNested.fsPath, repoNested);
 		trie.set(repoVSC.fsPath, repoVSC);
@@ -346,7 +345,7 @@ suite.skip('UriEntryTrie Test Suite', () => {
 		assert.strictEqual(actual?.value?.uri.toString(), expected.toString());
 	}
 
-	before(() => {
+	suiteSetup(() => {
 		trie.set(repoGL.uri, repoGL);
 		trie.set(repoNested.uri, repoNested);
 		trie.set(repoGLvfs.uri, repoGLvfs);
@@ -830,7 +829,7 @@ suite.skip('UriTrie(Repositories) Test Suite', () => {
 		}
 	}
 
-	before(() => {
+	suiteSetup(() => {
 		trie.set(repoGL.uri, repoGL);
 		trie.set(repoNested.uri, repoNested);
 		trie.set(repoGLvfs.uri, repoGLvfs);

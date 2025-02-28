@@ -92,6 +92,16 @@
 		},
 		{
 			"type": "npm",
+			"script": "build:tests",
+			"group": {
+				"kind": "build"
+			},
+			"presentation": {
+				"group": "build"
+			}
+		},
+		{
+			"type": "npm",
 			"script": "watch:tests",
 			"group": "build",
 			"isBackground": true,

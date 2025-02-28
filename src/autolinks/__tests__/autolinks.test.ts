@@ -1,5 +1,4 @@
 import * as assert from 'assert';
-import { suite, test } from 'mocha';
 import { map } from '../../system/iterable';
 import type { Autolink, RefSet } from '../models/autolinks';
 import { getAutolinks, getBranchAutolinks } from '../utils/-webview/autolinks.utils';

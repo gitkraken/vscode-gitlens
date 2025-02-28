@@ -1,5 +1,4 @@
 import * as assert from 'assert';
-import { suite, test } from 'mocha';
 import { Color, formatRGB, formatRGBA, mix, opacity } from '../color';
 
 suite('Color Test Suite', () => {

@@ -1,5 +1,4 @@
 import * as assert from 'assert';
-import { suite, test } from 'mocha';
 import { getPullRequestIdentityFromMaybeUrl } from '../pullRequest.utils';
 
 suite('Test PR URL parsing to identity: getPullRequestIdentityFromMaybeUrl()', () => {

@@ -1,5 +1,4 @@
 import * as assert from 'assert';
-import { suite, test } from 'mocha';
 import * as sinon from 'sinon';
 import { debounce } from '../debounce';
 

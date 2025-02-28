@@ -1,5 +1,4 @@
 import * as assert from 'assert';
-import { suite, test } from 'mocha';
 //import { getGitHubPullRequestIdentityFromMaybeUrl } from '../github/models';
 import { getGitHubPullRequestIdentityFromMaybeUrl, isMaybeGitHubPullRequestUrl } from '../github.utils';
 
