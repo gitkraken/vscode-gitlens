@@ -7,6 +7,7 @@
 		"incremental": true,
 		"isolatedModules": true,
 		"lib": ["es2023"],
+		"libReplacement": false,
 		"module": "esnext",
 		"moduleResolution": "bundler",
 		"noFallthroughCasesInSwitch": true,
