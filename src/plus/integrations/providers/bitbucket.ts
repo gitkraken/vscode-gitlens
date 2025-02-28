@@ -96,11 +96,18 @@ export class BitbucketIntegration extends HostingIntegration<
 	}
 
 	protected override async getProviderIssue(
-		_session: AuthenticationSession,
-		_repo: BitbucketRepositoryDescriptor,
-		_id: string,
+		{ accessToken }: AuthenticationSession,
+		repo: BitbucketRepositoryDescriptor,
+		id: string,
 	): Promise<Issue | undefined> {
-		return Promise.resolve(undefined);
+		return (await this.container.bitbucket)?.getIssue(
+			this,
+			accessToken,
+			repo.owner,
+			repo.name,
+			id,
+			this.apiBaseUrl,
+		);
 	}
 
 	protected override async getProviderPullRequestForBranch(
@@ -283,10 +290,39 @@ export class BitbucketIntegration extends HostingIntegration<
 	}
 
 	protected override async searchProviderMyIssues(
-		_session: AuthenticationSession,
-		_repos?: BitbucketRepositoryDescriptor[],
+		session: AuthenticationSession,
+		requestedRepositories?: BitbucketRepositoryDescriptor[],
 	): Promise<IssueShape[] | undefined> {
-		return Promise.resolve(undefined);
+		let repoPaths: undefined | Map<string, boolean> = undefined;
+		if (requestedRepositories != null) {
+			repoPaths = new Map<string, boolean>();
+			for (const repo of requestedRepositories) {
+				repoPaths.set(`${repo.owner}/${repo.name}`, true);
+			}
+		}
+
+		const user = await this.getProviderCurrentAccount(session);
+		if (user?.username == null) return undefined;
+
+		const workspaces = await this.getProviderResourcesForUser(session);
+		if (workspaces == null || workspaces.length === 0) return undefined;
+
+		const repos = (await this.getProviderProjectsForResources(session, workspaces))?.filter(
+			r => repoPaths === undefined || repoPaths.has(`${r.owner}/${r.name}`),
+		);
+		if (repos == null || repos.length === 0) return undefined;
+
+		const api = await this.container.bitbucket;
+		if (!api) return undefined;
+		const issueResult = await Promise.allSettled(
+			repos.map(repo =>
+				api.getUsersIssuesForRepo(this, session.accessToken, user.id, repo.owner, repo.name, this.apiBaseUrl),
+			),
+		);
+		return issueResult
+			.map(r => getSettledValue(r))
+			.filter(r => r != null)
+			.flat();
 	}
 
 	protected override async providerOnConnect(): Promise<void> {
