@@ -1,4 +1,5 @@
 import type { AuthenticationSession, CancellationToken } from 'vscode';
+import { md5 } from '@env/crypto';
 import { HostingIntegrationId } from '../../../constants.integrations';
 import type { Account } from '../../../git/models/author';
 import type { DefaultBranch } from '../../../git/models/defaultBranch';
@@ -6,18 +7,19 @@ import type { Issue, IssueShape } from '../../../git/models/issue';
 import type { IssueOrPullRequest, IssueOrPullRequestType } from '../../../git/models/issueOrPullRequest';
 import type { PullRequest, PullRequestMergeMethod, PullRequestState } from '../../../git/models/pullRequest';
 import type { RepositoryMetadata } from '../../../git/models/repositoryMetadata';
+import { getSettledValue } from '../../../system/promise';
 import type { IntegrationAuthenticationProviderDescriptor } from '../authentication/integrationAuthenticationProvider';
-import type { ResourceDescriptor } from '../integration';
+import type { ProviderAuthenticationSession } from '../authentication/models';
 import { HostingIntegration } from '../integration';
+import type {
+	BitbucketRemoteRepositoryDescriptor,
+	BitbucketRepositoryDescriptor,
+	BitbucketWorkspaceDescriptor,
+} from './bitbucket/models';
 import { providersMetadata } from './models';
 
 const metadata = providersMetadata[HostingIntegrationId.Bitbucket];
 const authProvider = Object.freeze({ id: metadata.id, scopes: metadata.scopes });
-
-interface BitbucketRepositoryDescriptor extends ResourceDescriptor {
-	owner: string;
-	name: string;
-}
 
 export class BitbucketIntegration extends HostingIntegration<
 	HostingIntegrationId.Bitbucket,
@@ -136,11 +138,148 @@ export class BitbucketIntegration extends HostingIntegration<
 		return Promise.resolve(undefined);
 	}
 
+	private _accounts: Map<string, Account | undefined> | undefined;
+	protected override async getProviderCurrentAccount({
+		accessToken,
+	}: AuthenticationSession): Promise<Account | undefined> {
+		this._accounts ??= new Map<string, Account | undefined>();
+
+		const cachedAccount = this._accounts.get(accessToken);
+		if (cachedAccount == null) {
+			const api = await this.getProvidersApi();
+			const user = await api.getCurrentUser(this.id, { accessToken: accessToken });
+			this._accounts.set(
+				accessToken,
+				user
+					? {
+							provider: this,
+							id: user.id,
+							name: user.name ?? undefined,
+							email: user.email ?? undefined,
+							avatarUrl: user.avatarUrl ?? undefined,
+							username: user.username ?? undefined,
+					  }
+					: undefined,
+			);
+		}
+
+		return this._accounts.get(accessToken);
+	}
+
+	private _workspaces: Map<string, BitbucketWorkspaceDescriptor[] | undefined> | undefined;
+	private async getProviderResourcesForUser(
+		session: AuthenticationSession,
+		force: boolean = false,
+	): Promise<BitbucketWorkspaceDescriptor[] | undefined> {
+		this._workspaces ??= new Map<string, BitbucketWorkspaceDescriptor[] | undefined>();
+		const { accessToken } = session;
+		const cachedResources = this._workspaces.get(accessToken);
+
+		if (cachedResources == null || force) {
+			const api = await this.getProvidersApi();
+			const account = await this.getProviderCurrentAccount(session);
+			if (account?.id == null) return undefined;
+
+			const resources = await api.getBitbucketResourcesForUser(account.id, { accessToken: accessToken });
+			this._workspaces.set(
+				accessToken,
+				resources != null ? resources.map(r => ({ ...r, key: r.id })) : undefined,
+			);
+		}
+
+		return this._workspaces.get(accessToken);
+	}
+
+	private _repositories: Map<string, BitbucketRemoteRepositoryDescriptor[] | undefined> | undefined;
+	private async getProviderProjectsForResources(
+		{ accessToken }: AuthenticationSession,
+		resources: BitbucketWorkspaceDescriptor[],
+		force: boolean = false,
+	): Promise<BitbucketRemoteRepositoryDescriptor[] | undefined> {
+		this._repositories ??= new Map<string, BitbucketRemoteRepositoryDescriptor[] | undefined>();
+		let resourcesWithoutRepositories: BitbucketWorkspaceDescriptor[] = [];
+		if (force) {
+			resourcesWithoutRepositories = resources;
+		} else {
+			for (const resource of resources) {
+				const resourceKey = `${accessToken}:${resource.id}`;
+				const cachedRepositories = this._repositories.get(resourceKey);
+				if (cachedRepositories == null) {
+					resourcesWithoutRepositories.push(resource);
+				}
+			}
+		}
+
+		const cachedRepos = this._repositories;
+		if (resourcesWithoutRepositories.length > 0) {
+			const api = await this.container.bitbucket;
+			if (api == null) return undefined;
+			await Promise.allSettled(
+				resourcesWithoutRepositories.map(async resource => {
+					const resourceRepos = await api.getRepositoriesForWorkspace(this, accessToken, resource.slug, {
+						baseUrl: this.apiBaseUrl,
+					});
+
+					if (resourceRepos == null) return undefined;
+					cachedRepos.set(
+						`${accessToken}:${resource.id}`,
+						resourceRepos.map(r => ({
+							id: `${r.owner}/${r.name}`,
+							resourceId: r.owner,
+							owner: r.owner,
+							name: r.name,
+							key: `${r.owner}/${r.name}`,
+						})),
+					);
+				}),
+			);
+		}
+
+		return resources.reduce<BitbucketRemoteRepositoryDescriptor[]>((resultRepos, resource) => {
+			const resourceRepos = cachedRepos.get(`${accessToken}:${resource.id}`);
+			if (resourceRepos != null) {
+				resultRepos.push(...resourceRepos);
+			}
+			return resultRepos;
+		}, []);
+	}
+
 	protected override async searchProviderMyPullRequests(
-		_session: AuthenticationSession,
-		_repos?: BitbucketRepositoryDescriptor[],
+		session: ProviderAuthenticationSession,
+		requestedRepositories?: BitbucketRepositoryDescriptor[],
 	): Promise<PullRequest[] | undefined> {
-		return Promise.resolve(undefined);
+		if (requestedRepositories != null) {
+			// TODO: implement repos version
+			return undefined;
+		}
+
+		const user = await this.getProviderCurrentAccount(session);
+		if (user?.username == null) return undefined;
+
+		const workspaces = await this.getProviderResourcesForUser(session);
+		if (workspaces == null || workspaces.length === 0) return undefined;
+
+		const repos = await this.getProviderProjectsForResources(session, workspaces);
+		if (repos == null || repos.length === 0) return undefined;
+
+		const api = await this.container.bitbucket;
+		if (!api) return undefined;
+		const prsResult = await Promise.allSettled(
+			repos.map(repo =>
+				api.getUsersPullRequestsForRepo(
+					this,
+					session.accessToken,
+					user.id,
+					repo.owner,
+					repo.name,
+					this.apiBaseUrl,
+				),
+			),
+		);
+		return prsResult
+			.map(r => getSettledValue(r))
+			.filter(r => r != null)
+			.flat();
 	}
 
 	protected override async searchProviderMyIssues(
@@ -148,6 +287,77 @@ export class BitbucketIntegration extends HostingIntegration<
 		_repos?: BitbucketRepositoryDescriptor[],
 	): Promise<IssueShape[] | undefined> {
 		return Promise.resolve(undefined);
+	}
+
+	protected override async providerOnConnect(): Promise<void> {
+		if (this._session == null) return;
+
+		const accountStorageKey = md5(this._session.accessToken);
+
+		const storedAccount = this.container.storage.get(`bitbucket:${accountStorageKey}:account`);
+		const storedWorkspaces = this.container.storage.get(`bitbucket:${accountStorageKey}:workspaces`);
+		const storedRepositories = this.container.storage.get(`bitbucket:${accountStorageKey}:repositories`);
+
+		let account: Account | undefined = storedAccount?.data ? { ...storedAccount.data, provider: this } : undefined;
+		let workspaces = storedWorkspaces?.data?.map(o => ({ ...o }));
+		let repositories = storedRepositories?.data?.map(p => ({ ...p }));
+
+		if (storedAccount == null) {
+			account = await this.getProviderCurrentAccount(this._session);
+			if (account != null) {
+				// Clear all other stored workspaces and repositories and accounts when our session changes
+				await this.container.storage.deleteWithPrefix('bitbucket');
+				await this.container.storage.store(`bitbucket:${accountStorageKey}:account`, {
+					v: 1,
+					timestamp: Date.now(),
+					data: {
+						id: account.id,
+						name: account.name,
+						email: account.email,
+						avatarUrl: account.avatarUrl,
+						username: account.username,
+					},
+				});
+			}
+		}
+		this._accounts ??= new Map<string, Account | undefined>();
+		this._accounts.set(this._session.accessToken, account);
+
+		if (storedWorkspaces == null) {
+			workspaces = await this.getProviderResourcesForUser(this._session, true);
+			await this.container.storage.store(`bitbucket:${accountStorageKey}:workspaces`, {
+				v: 1,
+				timestamp: Date.now(),
+				data: workspaces,
+			});
+		}
+		this._workspaces ??= new Map<string, BitbucketWorkspaceDescriptor[] | undefined>();
+		this._workspaces.set(this._session.accessToken, workspaces);
+
+		if (storedRepositories == null && workspaces?.length) {
+			repositories = await this.getProviderProjectsForResources(this._session, workspaces);
+			await this.container.storage.store(`bitbucket:${accountStorageKey}:repositories`, {
+				v: 1,
+				timestamp: Date.now(),
+				data: repositories,
+			});
+		}
+		this._repositories ??= new Map<string, BitbucketRemoteRepositoryDescriptor[] | undefined>();
+		for (const repository of repositories ?? []) {
+			const resourceKey = `${this._session.accessToken}:${repository.resourceId}`;
+			const repos = this._repositories.get(resourceKey);
+			if (repos == null) {
+				this._repositories.set(resourceKey, [repository]);
+			} else if (!repos.some(r => r.key === repository.key)) {
+				repos.push(repository);
+			}
+		}
+	}
+
+	protected override providerOnDisconnect(): void {
+		this._accounts = undefined;
+		this._workspaces = undefined;
+		this._repositories = undefined;
 	}
 }
 
