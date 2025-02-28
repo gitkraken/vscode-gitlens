@@ -14,6 +14,7 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/) and this p
 - Adds integration with Bitbucket Cloud ([#3916](https://github.com/gitkraken/vscode-gitlens/issues/3916))
   - shows enriched links to PRs and issues [#4045](https://github.com/gitkraken/vscode-gitlens/issues/4045)
   - shows Bitbucket PRs in Launchpad [#4046](https://github.com/gitkraken/vscode-gitlens/issues/4046)
+  - supports Bitbucket issues in Start Work and lets associate issues with branches [#4047](https://github.com/gitkraken/vscode-gitlens/issues/4047)
 - Adds ability to control how worktrees are displayed in the views
   - Adds a `gitlens.views.worktrees.worktrees.viewAs` setting to specify whether to show worktrees by name, path, or relative path
   - Adds a `gitlens.views.worktrees.branches.layout` setting to specify whether to show branch worktrees as a list or tree, similar to branches
