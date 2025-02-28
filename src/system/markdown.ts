@@ -1,4 +1,4 @@
-const escapeMarkdownRegex = /[\\*_{}[\]()#+\-.!]/g;
+const escapeMarkdownRegex = /[\\*_{}[\](#+\-.!]/g;
 const unescapeMarkdownRegex = /\\([\\`*_{}[\]()#+\-.!])/g;
 
 const escapeMarkdownHeaderRegex = /^===/gm;
