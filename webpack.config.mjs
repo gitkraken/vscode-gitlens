@@ -64,7 +64,8 @@ export default function (env, argv) {
 	return [
 		getExtensionConfig('node', mode, env),
 		getExtensionConfig('webworker', mode, env),
-		getWebviewsConfig(mode, env),
+		getWebviewsCommonConfig(mode, env),
+		...getWebviewsConfigs(mode, env),
 	];
 }
 
@@ -200,6 +201,7 @@ function getExtensionConfig(target, mode, env) {
 					terserOptions: {
 						compress: {
 							drop_debugger: true,
+							drop_console: true,
 							ecma: 2020,
 							// Keep the class names otherwise @log won't provide a useful name
 							keep_classnames: true,
@@ -302,11 +304,33 @@ function getExtensionConfig(target, mode, env) {
 /**
  * @param { 'production' | 'development' | 'none' } mode
  * @param {{ analyzeBundle?: boolean; analyzeDeps?: boolean; esbuild?: boolean; skipLint?: boolean }} env
+ * @returns { WebpackConfig[] }
+ */
+function getWebviewsConfigs(mode, env) {
+	return [
+		getWebviewConfig(
+			{
+				commitDetails: { entry: './commitDetails/commitDetails.ts' },
+				graph: { entry: './plus/graph/graph.tsx', plus: true },
+				home: { entry: './home/home.ts' },
+				rebase: { entry: './rebase/rebase.ts' },
+				settings: { entry: './settings/settings.ts' },
+				timeline: { entry: './plus/timeline/timeline.ts', plus: true },
+				patchDetails: { entry: './plus/patchDetails/patchDetails.ts', plus: true },
+			},
+			mode,
+			env,
+		),
+	];
+}
+
+/**
+ * @param { 'production' | 'development' | 'none' } mode
+ * @param {{ analyzeBundle?: boolean; analyzeDeps?: boolean; esbuild?: boolean; skipLint?: boolean }} env
  * @returns { WebpackConfig }
  */
-function getWebviewsConfig(mode, env) {
+function getWebviewsCommonConfig(mode, env) {
 	const basePath = path.join(__dirname, 'src', 'webviews', 'apps');
-	const tsConfigPath = path.join(basePath, 'tsconfig.json');
 
 	/** @type WebpackConfig['plugins'] | any */
 	const plugins = [
@@ -321,29 +345,6 @@ function getWebviewsConfig(mode, env) {
 				  }
 				: undefined,
 		),
-		new DefinePlugin({
-			DEBUG: mode === 'development',
-		}),
-		new ForkTsCheckerPlugin({
-			async: false,
-			formatter: 'basic',
-			typescript: {
-				configFile: tsConfigPath,
-			},
-		}),
-		new WebpackRequireFromPlugin({
-			variableName: 'webpackResourceBasePath',
-		}),
-		new MiniCssExtractPlugin({ filename: '[name].css' }),
-		getHtmlPlugin('commitDetails', false, mode, env),
-		getHtmlPlugin('graph', true, mode, env),
-		getHtmlPlugin('home', false, mode, env),
-		getHtmlPlugin('rebase', false, mode, env),
-		getHtmlPlugin('settings', false, mode, env),
-		getHtmlPlugin('timeline', true, mode, env),
-		getHtmlPlugin('patchDetails', true, mode, env),
-		getCspHtmlPlugin(mode, env),
-		// new InlineChunkHtmlPlugin(HtmlPlugin, mode === 'production' ? ['\\.css$'] : []),
 		new CopyPlugin({
 			patterns: [
 				{
@@ -379,6 +380,68 @@ function getWebviewsConfig(mode, env) {
 		);
 	}
 
+	return {
+		name: 'webviews:common',
+		context: basePath,
+		entry: {},
+		mode: mode,
+		target: 'web',
+		output: {
+			path: path.join(__dirname, 'dist', 'webviews'),
+			publicPath: '#{root}/dist/webviews/',
+		},
+		plugins: plugins,
+		infrastructureLogging:
+			mode === 'production'
+				? undefined
+				: {
+						level: 'log', // enables logging required for problem matchers
+				  },
+		stats: {
+			preset: 'errors-warnings',
+			assets: true,
+			assetsSort: 'name',
+			assetsSpace: 100,
+			colors: true,
+			env: true,
+			errorsCount: true,
+			excludeAssets: [/\.(ttf|webp)/],
+			warningsCount: true,
+			timings: true,
+		},
+	};
+}
+
+/**
+ * @param {{ [key:string]: {entry: string; plus?: boolean }}} webviews
+ * @param { 'production' | 'development' | 'none' } mode
+ * @param {{ analyzeBundle?: boolean; analyzeDeps?: boolean; esbuild?: boolean; skipLint?: boolean }} env
+ * @returns { WebpackConfig }
+ */
+function getWebviewConfig(webviews, mode, env) {
+	const basePath = path.join(__dirname, 'src', 'webviews', 'apps');
+	const tsConfigPath = path.join(basePath, 'tsconfig.json');
+
+	/** @type WebpackConfig['plugins'] | any */
+	const plugins = [
+		new DefinePlugin({
+			DEBUG: mode === 'development',
+		}),
+		new ForkTsCheckerPlugin({
+			async: false,
+			formatter: 'basic',
+			typescript: {
+				configFile: tsConfigPath,
+			},
+		}),
+		new WebpackRequireFromPlugin({
+			variableName: 'webpackResourceBasePath',
+		}),
+		new MiniCssExtractPlugin({ filename: '[name].css' }),
+		...Object.entries(webviews).map(([name, config]) => getHtmlPlugin(name, Boolean(config.plus), mode, env)),
+		getCspHtmlPlugin(mode, env),
+	];
+
 	const imageGeneratorConfig = getImageMinimizerConfig(mode, env);
 
 	if (mode !== 'production') {
@@ -388,6 +451,16 @@ function getWebviewsConfig(mode, env) {
 				generator: [imageGeneratorConfig],
 			}),
 		);
+	}
+
+	let name = '';
+	let filePrefix = '';
+	if (Object.keys(webviews).length > 1) {
+		name = 'webviews';
+		filePrefix = 'webviews';
+	} else {
+		name = `webviews:${Object.keys(webviews)[0]}`;
+		filePrefix = `webviews-${Object.keys(webviews)[0]}`;
 	}
 
 	if (env.analyzeBundle) {
@@ -401,24 +474,16 @@ function getWebviewsConfig(mode, env) {
 				analyzerMode: 'static',
 				generateStatsFile: true,
 				openAnalyzer: false,
-				reportFilename: path.join(out, 'webview-bundle-report.html'),
-				statsFilename: path.join(out, 'stats.json'),
+				reportFilename: path.join(out, `${filePrefix}-bundle-report.html`),
+				statsFilename: path.join(out, `${filePrefix}-stats.json`),
 			}),
 		);
 	}
 
 	return {
-		name: 'webviews',
+		name: name,
 		context: basePath,
-		entry: {
-			commitDetails: './commitDetails/commitDetails.ts',
-			graph: './plus/graph/graph.tsx',
-			home: './home/home.ts',
-			rebase: './rebase/rebase.ts',
-			settings: './settings/settings.ts',
-			timeline: './plus/timeline/timeline.ts',
-			patchDetails: './plus/patchDetails/patchDetails.ts',
-		},
+		entry: Object.fromEntries(Object.entries(webviews).map(([name, { entry }]) => [name, entry])),
 		mode: mode,
 		target: 'web',
 		devtool: mode === 'production' && !env.analyzeBundle ? false : 'source-map',
@@ -437,8 +502,7 @@ function getWebviewsConfig(mode, env) {
 				mode === 'production'
 					? [
 							new TerserPlugin({
-								// Terser seems better than SWC for minifying the webviews (esm?)
-								// minify: TerserPlugin.swcMinify,
+								minify: TerserPlugin.swcMinify,
 								extractComments: false,
 								parallel: true,
 								terserOptions: {
