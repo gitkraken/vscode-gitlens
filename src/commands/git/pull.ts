@@ -183,8 +183,10 @@ export class PullGitCommand extends QuickCommand<State> {
 						createFlagsQuickPickItem<Flags>(state.flags, [], {
 							label: this.title,
 							detail: `Will pull${
-								branch.state.behind
-									? ` ${pluralize('commit', branch.state.behind)} into ${getReferenceLabel(branch)}`
+								branch.upstream.state.behind
+									? ` ${pluralize('commit', branch.upstream.state.behind)} into ${getReferenceLabel(
+											branch,
+									  )}`
 									: ` into ${getReferenceLabel(branch)}`
 							}`,
 						}),
@@ -200,10 +202,9 @@ export class PullGitCommand extends QuickCommand<State> {
 				lastFetchedOn = `${pad(GlyphChars.Dot, 2, 2)}Last fetched ${fromNow(new Date(lastFetched))}`;
 			}
 
-			const pullDetails =
-				status?.state.behind != null
-					? ` ${pluralize('commit', status.state.behind)} into $(repo) ${repo.formattedName}`
-					: ` into $(repo) ${repo.formattedName}`;
+			const pullDetails = status?.upstream?.state.behind
+				? ` ${pluralize('commit', status.upstream.state.behind)} into $(repo) ${repo.formattedName}`
+				: ` into $(repo) ${repo.formattedName}`;
 
 			step = this.createConfirmStep(
 				appendReposToTitle(`Confirm ${context.title}`, state, context, lastFetchedOn),

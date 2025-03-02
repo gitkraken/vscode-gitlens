@@ -2520,28 +2520,28 @@ function getShowRepositoryStatusStepItems<
 	}
 
 	if (context.status.upstream) {
-		if (context.status.state.ahead === 0 && context.status.state.behind === 0) {
+		if (context.status.upstream.state.ahead === 0 && context.status.upstream.state.behind === 0) {
 			items.push(
 				createDirectiveQuickPickItem(Directive.Noop, true, {
 					label: `$(git-branch) ${context.status.branch} is up to date with $(git-branch) ${context.status.upstream?.name}`,
 					detail: workingTreeStatus,
 				}),
 			);
-		} else if (context.status.state.ahead !== 0 && context.status.state.behind !== 0) {
+		} else if (context.status.upstream.state.ahead !== 0 && context.status.upstream.state.behind !== 0) {
 			items.push(
 				createDirectiveQuickPickItem(Directive.Noop, true, {
 					label: `$(git-branch) ${context.status.branch} has diverged from $(git-branch) ${context.status.upstream?.name}`,
 					detail: workingTreeStatus,
 				}),
 			);
-		} else if (context.status.state.ahead !== 0) {
+		} else if (context.status.upstream.state.ahead !== 0) {
 			items.push(
 				createDirectiveQuickPickItem(Directive.Noop, true, {
 					label: `$(git-branch) ${context.status.branch} is ahead of $(git-branch) ${context.status.upstream?.name}`,
 					detail: workingTreeStatus,
 				}),
 			);
-		} else if (context.status.state.behind !== 0) {
+		} else if (context.status.upstream.state.behind !== 0) {
 			items.push(
 				createDirectiveQuickPickItem(Directive.Noop, true, {
 					label: `$(git-branch) ${context.status.branch} is behind $(git-branch) ${context.status.upstream?.name}`,
@@ -2550,10 +2550,10 @@ function getShowRepositoryStatusStepItems<
 			);
 		}
 
-		if (context.status.state.behind !== 0) {
+		if (context.status.upstream.state.behind !== 0) {
 			items.push(
 				new GitWizardQuickPickItem(
-					`$(cloud-download) ${pluralize('commit', context.status.state.behind)} behind`,
+					`$(cloud-download) ${pluralize('commit', context.status.upstream.state.behind)} behind`,
 					{
 						command: 'log',
 						state: {
@@ -2568,18 +2568,21 @@ function getShowRepositoryStatusStepItems<
 			);
 		}
 
-		if (context.status.state.ahead !== 0) {
+		if (context.status.upstream.state.ahead !== 0) {
 			items.push(
-				new GitWizardQuickPickItem(`$(cloud-upload) ${pluralize('commit', context.status.state.ahead)} ahead`, {
-					command: 'log',
-					state: {
-						repo: state.repo,
-						reference: createReference(
-							createRevisionRange(context.status.upstream?.name, context.status.ref, '..'),
-							state.repo.path,
-						),
+				new GitWizardQuickPickItem(
+					`$(cloud-upload) ${pluralize('commit', context.status.upstream.state.ahead)} ahead`,
+					{
+						command: 'log',
+						state: {
+							repo: state.repo,
+							reference: createReference(
+								createRevisionRange(context.status.upstream?.name, context.status.ref, '..'),
+								state.repo.path,
+							),
+						},
 					},
-				}),
+				),
 			);
 		}
 	} else {

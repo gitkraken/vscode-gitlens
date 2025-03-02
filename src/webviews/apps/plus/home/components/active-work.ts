@@ -228,7 +228,7 @@ export class GlActiveBranchCard extends GlBranchCardBase {
 	}
 
 	private renderBranchStateActions() {
-		const { name, state, upstream } = this.branch;
+		const { name, upstream } = this.branch;
 
 		const actions: TemplateResult[] = [];
 
@@ -289,9 +289,9 @@ export class GlActiveBranchCard extends GlBranchCardBase {
 			return wrappedActions();
 		}
 
-		if (state?.ahead || state?.behind) {
-			const isAhead = state.ahead > 0;
-			const isBehind = state.behind > 0;
+		if (upstream?.state?.ahead || upstream?.state?.behind) {
+			const isAhead = Boolean(upstream.state.ahead);
+			const isBehind = Boolean(upstream.state.behind);
 			if (isAhead && isBehind) {
 				const pullTooltip = upstream?.name ? `Pull from ${upstream.name}` : 'Pull';
 				const forcePushTooltip = upstream?.name ? `Force Push to ${upstream.name}` : 'Force Push';
@@ -304,7 +304,11 @@ export class GlActiveBranchCard extends GlBranchCardBase {
 						appearance="secondary"
 						tooltip=${pullTooltip}
 						><code-icon icon="repo-pull" slot="prefix"></code-icon> Pull
-						<gl-tracking-pill .ahead=${state.ahead} .behind=${state.behind} slot="suffix"></gl-tracking-pill
+						<gl-tracking-pill
+							.ahead=${upstream.state.ahead}
+							.behind=${upstream.state.behind}
+							slot="suffix"
+						></gl-tracking-pill
 					></gl-button>
 					<gl-button
 						aria-busy=${ifDefined(isFetching)}
@@ -333,7 +337,11 @@ export class GlActiveBranchCard extends GlBranchCardBase {
 						appearance="secondary"
 						tooltip=${tooltip}
 						><code-icon icon="repo-pull" slot="prefix"></code-icon> Pull
-						<gl-tracking-pill .ahead=${state.ahead} .behind=${state.behind} slot="suffix"></gl-tracking-pill
+						<gl-tracking-pill
+							.ahead=${upstream.state.ahead}
+							.behind=${upstream.state.behind}
+							slot="suffix"
+						></gl-tracking-pill
 					></gl-button>
 				`);
 
@@ -352,8 +360,8 @@ export class GlActiveBranchCard extends GlBranchCardBase {
 						tooltip=${tooltip}
 						><code-icon icon="repo-push" slot="prefix"></code-icon> Push
 						<gl-tracking-pill
-							.ahead=${state.ahead}
-							.behind=${state.behind}
+							.ahead=${upstream.state.ahead}
+							.behind=${upstream.state.behind}
 							slot="suffix"
 						></gl-tracking-pill>
 					</gl-button>

@@ -43,13 +43,13 @@ export function createWorktreeQuickPickItem(
 				status += GlyphChars.Warning;
 				blank += 3;
 			} else {
-				if (options.status.state.behind) {
+				if (options.status.upstream?.state.behind) {
 					status += GlyphChars.ArrowDown;
 				} else {
 					blank += 2;
 				}
 
-				if (options.status.state.ahead) {
+				if (options.status.upstream?.state.ahead) {
 					status += GlyphChars.ArrowUp;
 				} else {
 					blank += 2;

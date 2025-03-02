@@ -1366,15 +1366,15 @@ export class GraphWebviewProvider implements WebviewProvider<State, State, Graph
 					const upstreamMetadata: GraphUpstreamMetadata = {
 						name: getBranchNameWithoutRemote(upstream.name),
 						owner: getRemoteNameFromBranchName(upstream.name),
-						ahead: branch.state.ahead,
-						behind: branch.state.behind,
+						ahead: branch.upstream?.state.ahead ?? 0,
+						behind: branch.upstream?.state.behind ?? 0,
 						context: serializeWebviewItemContext<GraphItemContext>({
 							webviewItem: 'gitlens:upstreamStatus',
 							webviewItemValue: {
 								type: 'upstreamStatus',
 								ref: getReferenceFromBranch(branch),
-								ahead: branch.state.ahead,
-								behind: branch.state.behind,
+								ahead: branch.upstream?.state.ahead ?? 0,
+								behind: branch.upstream?.state.behind ?? 0,
 							},
 						}),
 					};
@@ -2556,7 +2556,7 @@ export class GraphWebviewProvider implements WebviewProvider<State, State, Graph
 
 		const branch = getSettledValue(branchResult);
 		if (branch != null) {
-			branchState = { ...branch.state };
+			branchState = { ...(branch.upstream?.state ?? { ahead: 0, behind: 0 }) };
 
 			const worktreesByBranch = data?.worktreesByBranch ?? (await getWorktreesByBranch(this.repository));
 			branchState.worktree = worktreesByBranch?.has(branch.id) ?? false;

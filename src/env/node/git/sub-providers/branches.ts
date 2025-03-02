@@ -102,9 +102,7 @@ export class BranchesGitSubProvider implements GitBranchesSubProvider {
 			true,
 			committerDate != null ? new Date(Number(committerDate) * 1000) : undefined,
 			data[1],
-			upstream ? { name: upstream, missing: false } : undefined,
-			undefined,
-			undefined,
+			upstream ? { name: upstream, missing: false, state: { ahead: 0, behind: 0 } } : undefined,
 			undefined,
 			rebaseStatus != null,
 		);

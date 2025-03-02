@@ -67,9 +67,11 @@ export function parseGitBranches(container: Container, data: string, repoPath: s
 				// Stops excessive memory usage -- https://bugs.chromium.org/p/v8/issues/detail?id=2869
 				upstream == null || upstream.length === 0
 					? undefined
-					: { name: ` ${upstream}`.substring(1), missing: Boolean(missing) },
-				Number(ahead) || 0,
-				Number(behind) || 0,
+					: {
+							name: ` ${upstream}`.substring(1),
+							missing: Boolean(missing),
+							state: { ahead: Number(ahead) || 0, behind: Number(behind) || 0 },
+					  },
 			),
 		);
 	} while (true);

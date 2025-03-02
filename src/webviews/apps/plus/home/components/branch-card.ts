@@ -550,8 +550,10 @@ export abstract class GlBranchCardBase extends GlElement {
 
 	protected renderTracking(showWip = false): TemplateResult | NothingType {
 		if (this.branch.upstream == null) return nothing;
-		const ahead = this.branch.state.ahead ?? 0;
-		const behind = this.branch.state.behind ?? 0;
+
+		const { state } = this.branch.upstream;
+		// const ahead = this.branch.state.ahead ?? 0;
+		// const behind = this.branch.state.behind ?? 0;
 
 		let working = 0;
 		let wipTooltip;
@@ -568,23 +570,21 @@ export abstract class GlBranchCardBase extends GlElement {
 		}
 
 		let tooltip;
-		if (this.branch.upstream?.missing) {
+		if (this.branch.upstream.missing) {
 			tooltip = html`${renderBranchName(this.branch.name)} is missing its upstream
 			${renderBranchName(this.branch.upstream.name)}`;
 		} else {
-			let ahead = false;
 			const status: string[] = [];
-			if (this.branch.state.behind) {
-				status.push(`${pluralize('commit', this.branch.state.behind)} behind`);
+			if (state.behind) {
+				status.push(`${pluralize('commit', state.behind)} behind`);
 			}
-			if (this.branch.state.ahead) {
-				ahead = true;
-				status.push(`${pluralize('commit', this.branch.state.ahead)} ahead`);
+			if (state.ahead) {
+				status.push(`${pluralize('commit', state.ahead)} ahead of`);
 			}
 
 			if (status.length) {
-				tooltip = html`${renderBranchName(this.branch.name)} is ${status.join(', ')}${ahead ? ' of' : ''}
-				${renderBranchName(this.branch.upstream?.name)}`;
+				tooltip = html`${renderBranchName(this.branch.name)} is
+				${status.join(', ')}${renderBranchName(this.branch.upstream?.name)}`;
 			} else {
 				tooltip = html`${renderBranchName(this.branch.name)} is up to date with
 				${renderBranchName(this.branch.upstream?.name)}`;
@@ -597,8 +597,8 @@ export abstract class GlBranchCardBase extends GlElement {
 				colorized
 				outlined
 				always-show
-				ahead=${ahead}
-				behind=${behind}
+				ahead=${state.ahead}
+				behind=${state.behind}
 				working=${working}
 				?missingUpstream=${this.branch.upstream?.missing ?? false}
 			></gl-tracking-pill>

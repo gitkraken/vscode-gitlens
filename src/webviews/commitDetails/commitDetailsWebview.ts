@@ -1995,8 +1995,8 @@ function serializeBranch(branch?: GitBranch): GitBranchShape | undefined {
 		repoPath: branch.repoPath,
 		upstream: branch.upstream,
 		tracking: {
-			ahead: branch.state.ahead,
-			behind: branch.state.behind,
+			ahead: branch.upstream?.state.ahead ?? 0,
+			behind: branch.upstream?.state.behind ?? 0,
 		},
 	};
 }

@@ -79,8 +79,7 @@ function parseStatusV1(container: Container, lines: string[], repoPath: string):
 		branch ?? '',
 		'',
 		files,
-		state,
-		upstream ? { name: upstream, missing: missing } : undefined,
+		upstream ? { name: upstream, missing: missing, state: state } : undefined,
 	);
 }
 
@@ -145,8 +144,7 @@ function parseStatusV2(container: Container, lines: string[], repoPath: string):
 		branch ?? '',
 		sha ?? '',
 		files,
-		state,
-		upstream ? { name: upstream, missing: missing } : undefined,
+		upstream ? { name: upstream, missing: missing, state: state } : undefined,
 	);
 }
 

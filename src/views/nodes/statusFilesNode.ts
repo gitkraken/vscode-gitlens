@@ -98,7 +98,7 @@ export class StatusFilesNode extends ViewNode<'status-files', ViewsWithWorkingTr
 			this.view.type === 'worktrees' || this.view.config.includeWorkingTree ? this.status.files.length : 0;
 
 		if (this.range != null) {
-			if (this.status.upstream != null && this.status.state.ahead > 0) {
+			if (this.status.upstream?.state.ahead) {
 				if (files > 0) {
 					const aheadFiles = await this.view.container.git
 						.diff(this.repoPath)
