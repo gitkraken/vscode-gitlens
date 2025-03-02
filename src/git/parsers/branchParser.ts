@@ -44,13 +44,13 @@ export function parseGitBranches(container: Container, data: string, repoPath: s
 
 		if (name.startsWith('refs/remotes/')) {
 			// Strip off refs/remotes/
-			name = name.substr(13);
+			name = name.substring(13);
 			if (name.endsWith('/HEAD')) continue;
 
 			remote = true;
 		} else {
 			// Strip off refs/heads/
-			name = name.substr(11);
+			name = name.substring(11);
 			remote = false;
 		}
 
@@ -63,11 +63,11 @@ export function parseGitBranches(container: Container, data: string, repoPath: s
 				current.charCodeAt(0) === 42, // '*',
 				date ? new Date(date) : undefined,
 				// Stops excessive memory usage -- https://bugs.chromium.org/p/v8/issues/detail?id=2869
-				ref == null || ref.length === 0 ? undefined : ` ${ref}`.substr(1),
+				ref == null || ref.length === 0 ? undefined : ` ${ref}`.substring(1),
 				// Stops excessive memory usage -- https://bugs.chromium.org/p/v8/issues/detail?id=2869
 				upstream == null || upstream.length === 0
 					? undefined
-					: { name: ` ${upstream}`.substr(1), missing: Boolean(missing) },
+					: { name: ` ${upstream}`.substring(1), missing: Boolean(missing) },
 				Number(ahead) || 0,
 				Number(behind) || 0,
 			),

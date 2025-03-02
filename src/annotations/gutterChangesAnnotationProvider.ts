@@ -4,7 +4,7 @@ import type { Container } from '../container';
 import type { GitCommit } from '../git/models/commit';
 import type { GitDiffFile } from '../git/models/diff';
 import { localChangesMessage } from '../hovers/hovers';
-import { configuration } from '../system/configuration';
+import { configuration } from '../system/-webview/configuration';
 import { log } from '../system/decorators/log';
 import { getLogScope } from '../system/logger.scope';
 import { getSettledValue } from '../system/promise';
@@ -40,7 +40,7 @@ export class GutterChangesAnnotationProvider extends AnnotationProviderBase<Chan
 		return !(this.annotationContext?.sha !== context?.sha || this.annotationContext?.only !== context?.only);
 	}
 
-	override clear() {
+	override clear(): Promise<void> {
 		this.state = undefined;
 		if (this.hoverProviderDisposable != null) {
 			this.hoverProviderDisposable.dispose();
@@ -49,7 +49,7 @@ export class GutterChangesAnnotationProvider extends AnnotationProviderBase<Chan
 		return super.clear();
 	}
 
-	override nextChange() {
+	override nextChange(): void {
 		if (this.sortedHunkStarts == null) return;
 
 		let nextLine = -1;
@@ -74,7 +74,7 @@ export class GutterChangesAnnotationProvider extends AnnotationProviderBase<Chan
 		}
 	}
 
-	override previousChange() {
+	override previousChange(): void {
 		if (this.sortedHunkStarts == null) return;
 
 		let previousLine = -1;
@@ -102,51 +102,42 @@ export class GutterChangesAnnotationProvider extends AnnotationProviderBase<Chan
 	override async onProvideAnnotation(context?: ChangesAnnotationContext, state?: AnnotationState): Promise<boolean> {
 		const scope = getLogScope();
 
-		let ref1 = this.trackedDocument.uri.sha;
-		let ref2 = context?.sha != null && context.sha !== ref1 ? `${context.sha}^` : undefined;
+		let rev1 = this.trackedDocument.uri.sha;
+		let rev2 = context?.sha != null && context.sha !== rev1 ? `${context.sha}^` : undefined;
 
 		let commit: GitCommit | undefined;
 
-		let localChanges = ref1 == null && ref2 == null;
+		const commitsProvider = this.container.git.commits(this.trackedDocument.uri.repoPath!);
+
+		let localChanges = rev1 == null && rev2 == null;
 		if (localChanges) {
-			let ref = await this.container.git.getOldestUnpushedRefForFile(
-				this.trackedDocument.uri.repoPath!,
-				this.trackedDocument.uri,
-			);
-			if (ref != null) {
-				ref = `${ref}^`;
-				commit = await this.container.git.getCommitForFile(
-					this.trackedDocument.uri.repoPath,
-					this.trackedDocument.uri,
-					{ ref: ref },
-				);
+			let rev = await commitsProvider.getOldestUnpushedShaForFile(this.trackedDocument.uri);
+			if (rev != null) {
+				rev = `${rev}^`;
+				commit = await commitsProvider.getCommitForFile(this.trackedDocument.uri, rev);
 				if (commit != null) {
-					if (ref2 != null) {
-						ref2 = ref;
+					if (rev2 != null) {
+						rev2 = rev;
 					} else {
-						ref1 = ref;
-						ref2 = '';
+						rev1 = rev;
+						rev2 = '';
 					}
 				} else {
 					localChanges = false;
 				}
 			} else {
-				const status = await this.container.git.getStatusForFile(
-					this.trackedDocument.uri.repoPath!,
-					this.trackedDocument.uri,
-				);
+				const status = await this.container.git
+					.status(this.trackedDocument.uri.repoPath!)
+					.getStatusForFile?.(this.trackedDocument.uri);
 				const commits = status?.getPseudoCommits(
 					this.container,
-					await this.container.git.getCurrentUser(this.trackedDocument.uri.repoPath!),
+					await this.container.git.config(this.trackedDocument.uri.repoPath!).getCurrentUser(),
 				);
 				if (commits?.length) {
-					commit = await this.container.git.getCommitForFile(
-						this.trackedDocument.uri.repoPath,
-						this.trackedDocument.uri,
-					);
-					ref1 = 'HEAD';
+					commit = await commitsProvider.getCommitForFile(this.trackedDocument.uri);
+					rev1 = 'HEAD';
 				} else if (this.trackedDocument.dirty) {
-					ref1 = 'HEAD';
+					rev1 = 'HEAD';
 				} else {
 					localChanges = false;
 				}
@@ -154,36 +145,30 @@ export class GutterChangesAnnotationProvider extends AnnotationProviderBase<Chan
 		}
 
 		if (!localChanges) {
-			commit = await this.container.git.getCommitForFile(
-				this.trackedDocument.uri.repoPath,
-				this.trackedDocument.uri,
-				{
-					ref: ref2 ?? ref1,
-				},
-			);
+			commit = await commitsProvider.getCommitForFile(this.trackedDocument.uri, rev2 ?? rev1);
 
 			if (commit != null) {
-				if (ref2 != null) {
-					ref2 = commit.ref;
+				if (rev2 != null) {
+					rev2 = commit.ref;
 				} else {
-					ref1 = `${commit.ref}^`;
-					ref2 = commit.ref;
+					rev1 = `${commit.ref}^`;
+					rev2 = commit.ref;
 				}
 			}
 		}
 
 		const diffs = (
 			await Promise.allSettled(
-				ref2 == null && this.editor.document.isDirty
+				rev2 == null && this.editor.document.isDirty
 					? [
 							this.container.git.getDiffForFileContents(
 								this.trackedDocument.uri,
-								ref1!,
+								rev1!,
 								this.editor.document.getText(),
 							),
-							this.container.git.getDiffForFile(this.trackedDocument.uri, ref1, ref2),
+							this.container.git.getDiffForFile(this.trackedDocument.uri, rev1, rev2),
 					  ]
-					: [this.container.git.getDiffForFile(this.trackedDocument.uri, ref1, ref2)],
+					: [this.container.git.getDiffForFile(this.trackedDocument.uri, rev1, rev2)],
 			)
 		)
 			.map(d => getSettledValue(d))
@@ -276,7 +261,7 @@ export class GutterChangesAnnotationProvider extends AnnotationProviderBase<Chan
 		return true;
 	}
 
-	registerHoverProvider() {
+	registerHoverProvider(): void {
 		const cfg = configuration.get('hovers');
 		if (!cfg.enabled || !cfg.annotations.enabled) return;
 

@@ -1,13 +1,13 @@
 import { CharCode } from '../constants';
 
-export function opacity(color: string, percentage: number) {
+export function opacity(color: string, percentage: number): string {
 	const rgba = Color.from(color);
 	if (rgba == null) return color;
 
 	return rgba.transparent(percentage / 100).toString();
 }
 
-export function mix(color1: string, color2: string, percentage: number) {
+export function mix(color1: string, color2: string, percentage: number): string {
 	const rgba1 = Color.from(color1);
 	const rgba2 = Color.from(color2);
 	if (rgba1 == null || rgba2 == null) return color1;
@@ -30,7 +30,7 @@ export function scale(value1: string, value2: string, steps: number): string[] {
 	return colors;
 }
 
-export function toRgba(color: string) {
+export function toRgba(color: string): number[] | null {
 	const result = parseColor(color);
 	if (result == null) return null;
 
@@ -515,7 +515,7 @@ export class Color {
 		return new Color(new RGBA(r, g, b, a));
 	}
 
-	mix(color: Color, factor: number) {
+	mix(color: Color, factor: number): Color {
 		return mixColors(this, color, factor);
 	}
 
@@ -659,7 +659,7 @@ export function format(color: Color): string {
 	return formatRGBA(color);
 }
 
-const cssColorRegex = /^((?:rgb|hsl)a?)\((-?\d+%?)[,\s]+(-?\d+%?)[,\s]+(-?\d+%?)[,\s]*(-?[\d.]+%?)?\)$/i;
+const cssColorRegex = /^((?:rgb|hsl)a?)\((-?\d+(?:%|deg)?)[,\s]+(-?\d+%?)[,\s]+(-?\d+%?)[,\s]*(-?[\d.]+%?)?\)$/i;
 export function parseColor(value: string): Color | null {
 	value = value.trim();
 

@@ -1,19 +1,23 @@
 import type { TextEditor, Uri } from 'vscode';
-import { Commands } from '../constants';
+import { GlCommand } from '../constants.commands';
 import type { Container } from '../container';
 import { showDetailsView } from '../git/actions/commit';
 import { GitUri } from '../git/gitUri';
 import type { GitRevisionReference } from '../git/models/reference';
-import { createReference, getReferenceFromRevision } from '../git/models/reference';
+import { getReferenceFromRevision } from '../git/utils/-webview/reference.utils';
+import { createReference } from '../git/utils/reference.utils';
 import {
 	showFileNotUnderSourceControlWarningMessage,
 	showGenericErrorMessage,
 	showLineUncommittedWarningMessage,
 } from '../messages';
-import { command } from '../system/command';
+import { command } from '../system/-webview/command';
+import { createMarkdownCommandLink } from '../system/commands';
 import { Logger } from '../system/logger';
-import type { CommandContext } from './base';
-import { ActiveEditorCommand, getCommandUri, isCommandContextViewNodeHasCommit } from './base';
+import { ActiveEditorCommand } from './commandBase';
+import { getCommandUri } from './commandBase.utils';
+import type { CommandContext } from './commandContext';
+import { isCommandContextViewNodeHasCommit } from './commandContext.utils';
 
 export interface InspectCommandArgs {
 	ref?: GitRevisionReference;
@@ -21,21 +25,21 @@ export interface InspectCommandArgs {
 
 @command()
 export class InspectCommand extends ActiveEditorCommand {
-	static getMarkdownCommandArgs(sha: string, repoPath: string): string;
-	static getMarkdownCommandArgs(args: InspectCommandArgs): string;
-	static getMarkdownCommandArgs(argsOrSha: InspectCommandArgs | string, repoPath?: string): string {
+	static createMarkdownCommandLink(sha: string, repoPath: string): string;
+	static createMarkdownCommandLink(args: InspectCommandArgs): string;
+	static createMarkdownCommandLink(argsOrSha: InspectCommandArgs | string, repoPath?: string): string {
 		const args =
 			typeof argsOrSha === 'string'
 				? { ref: createReference(argsOrSha, repoPath!, { refType: 'revision' }), repoPath: repoPath }
 				: argsOrSha;
-		return super.getMarkdownCommandArgsCore<InspectCommandArgs>(Commands.ShowCommitInView, args);
+		return createMarkdownCommandLink<InspectCommandArgs>(GlCommand.ShowCommitInView, args);
 	}
 
 	constructor(private readonly container: Container) {
-		super([Commands.ShowCommitInView, Commands.ShowInDetailsView, Commands.ShowLineCommitInView]);
+		super([GlCommand.ShowCommitInView, GlCommand.ShowInDetailsView, 'gitlens.showLineCommitInView']);
 	}
 
-	protected override preExecute(context: CommandContext, args?: InspectCommandArgs) {
+	protected override preExecute(context: CommandContext, args?: InspectCommandArgs): Promise<void> {
 		if (context.type === 'viewItem') {
 			args = { ...args };
 			if (isCommandContextViewNodeHasCommit(context)) {
@@ -46,7 +50,7 @@ export class InspectCommand extends ActiveEditorCommand {
 		return this.execute(context.editor, context.uri, args);
 	}
 
-	async execute(editor?: TextEditor, uri?: Uri, args?: InspectCommandArgs) {
+	async execute(editor?: TextEditor, uri?: Uri, args?: InspectCommandArgs): Promise<void> {
 		args = { ...args };
 
 		if (args.ref == null) {

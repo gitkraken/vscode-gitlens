@@ -1,15 +1,15 @@
 import type { ConfigurationChangeEvent, Disposable } from 'vscode';
 import { TreeItem, TreeItemCollapsibleState } from 'vscode';
 import type { PullRequestViewConfig, ViewFilesLayout } from '../config';
-import { Commands } from '../constants';
+import { GlCommand } from '../constants.commands';
 import type { Container } from '../container';
 import { unknownGitUri } from '../git/gitUri';
 import type { GitBranch } from '../git/models/branch';
 import type { GitCommit } from '../git/models/commit';
 import type { PullRequest } from '../git/models/pullRequest';
-import { executeCommand } from '../system/command';
-import { configuration } from '../system/configuration';
-import { setContext } from '../system/context';
+import { executeCommand } from '../system/-webview/command';
+import { configuration } from '../system/-webview/configuration';
+import { setContext } from '../system/-webview/context';
 import { ViewNode } from './nodes/abstract/viewNode';
 import { PullRequestNode } from './nodes/pullRequestNode';
 import { ViewBase } from './viewBase';
@@ -31,7 +31,10 @@ export class PullRequestViewNode extends ViewNode<'pullrequest', PullRequestView
 		return item;
 	}
 
-	async setPullRequest(pr: PullRequest | undefined, branchOrCommitOrRepoPath: GitBranch | GitCommit | string) {
+	async setPullRequest(
+		pr: PullRequest | undefined,
+		branchOrCommitOrRepoPath: GitBranch | GitCommit | string,
+	): Promise<void> {
 		if (pr != null) {
 			this.child = new PullRequestNode(this.view, this, pr, branchOrCommitOrRepoPath, { expand: true });
 			this.view.description = `${pr.repository.owner}/${pr.repository.repo}#${pr.id}`;
@@ -64,11 +67,14 @@ export class PullRequestView extends ViewBase<'pullRequest', PullRequestViewNode
 		return false;
 	}
 
-	close() {
+	close(): void {
 		this.setVisible(false);
 	}
 
-	async showPullRequest(pr: PullRequest | undefined, branchOrCommitOrRepoPath: GitBranch | GitCommit | string) {
+	async showPullRequest(
+		pr: PullRequest | undefined,
+		branchOrCommitOrRepoPath: GitBranch | GitCommit | string,
+	): Promise<void> {
 		if (pr != null) {
 			this.description = `${pr.repository.owner}/${pr.repository.repo}#${pr.id}`;
 			this.setVisible(true);
@@ -87,16 +93,15 @@ export class PullRequestView extends ViewBase<'pullRequest', PullRequestViewNode
 		void setContext('gitlens:views:pullRequest:visible', visible);
 	}
 
-	protected getRoot() {
+	protected getRoot(): PullRequestViewNode {
 		return new PullRequestViewNode(this);
 	}
 
 	protected registerCommands(): Disposable[] {
-		void this.container.viewCommands;
 		return [
 			registerViewCommand(
 				this.getQualifiedCommand('copy'),
-				() => executeCommand(Commands.ViewsCopy, this.activeSelection, this.selection),
+				() => executeCommand(GlCommand.ViewsCopy, this.activeSelection, this.selection),
 				this,
 			),
 			registerViewCommand(this.getQualifiedCommand('refresh'), () => this.refresh(true), this),
@@ -121,7 +126,7 @@ export class PullRequestView extends ViewBase<'pullRequest', PullRequestViewNode
 		];
 	}
 
-	protected override filterConfigurationChanged(e: ConfigurationChangeEvent) {
+	protected override filterConfigurationChanged(e: ConfigurationChangeEvent): boolean {
 		const changed = super.filterConfigurationChanged(e);
 		if (
 			!changed &&
@@ -131,8 +136,7 @@ export class PullRequestView extends ViewBase<'pullRequest', PullRequestViewNode
 			!configuration.changed(e, 'defaultDateSource') &&
 			!configuration.changed(e, 'defaultDateStyle') &&
 			!configuration.changed(e, 'defaultGravatarsStyle') &&
-			!configuration.changed(e, 'defaultTimeFormat') &&
-			!configuration.changed(e, 'plusFeatures.enabled')
+			!configuration.changed(e, 'defaultTimeFormat')
 		) {
 			return false;
 		}

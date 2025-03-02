@@ -1,8 +1,12 @@
 import { ThemeIcon, TreeItem, TreeItemCollapsibleState } from 'vscode';
 import { GitUri } from '../../git/gitUri';
+import type { GitBranch } from '../../git/models/branch';
 import type { Repository } from '../../git/models/repository';
+import { getOpenedWorktreesByBranch } from '../../git/utils/-webview/worktree.utils';
+import { getLocalBranchUpstreamNames } from '../../git/utils/branch.utils';
 import { makeHierarchical } from '../../system/array';
 import { debug } from '../../system/decorators/log';
+import { PageableResult } from '../../system/paging';
 import type { ViewsWithBranchesNode } from '../viewBase';
 import { CacheableChildrenViewNode } from './abstract/cacheableChildrenViewNode';
 import type { ViewNode } from './abstract/viewNode';
@@ -34,39 +38,63 @@ export class BranchesNode extends CacheableChildrenViewNode<'branches', ViewsWit
 
 	async getChildren(): Promise<ViewNode[]> {
 		if (this.children == null) {
-			const branches = await this.repo.getBranches({
-				// only show local branches
-				filter: b => !b.remote,
-				sort: { current: false },
-			});
-			if (branches.values.length === 0) return [new MessageNode(this.view, this, 'No branches could be found.')];
+			const showRemoteBranches = this.view.type === 'branches' && this.view.config.showRemoteBranches;
+			const defaultRemote = showRemoteBranches
+				? (await this.repo.git.remotes().getDefaultRemote())?.name
+				: undefined;
 
-			// if (configuration.get('views.collapseWorktreesWhenPossible')) {
-			// 	sortBranches(branches.values, {
-			// 		current: true,
-			// 		openWorktreeBranches: this.context.openWorktreeBranches,
-			// 	});
-			// }
+			const options: Parameters<ReturnType<typeof this.repo.git.branches>['getBranches']>['0'] = {
+				// only show local branches or remote branches for the default remote
+				filter: b =>
+					!b.remote || (showRemoteBranches && defaultRemote != null && b.getRemoteName() === defaultRemote),
+				sort: this.view.config.showCurrentBranchOnTop
+					? {
+							current: true,
+							groupByType: defaultRemote == null,
+							openedWorktreesByBranch: getOpenedWorktreesByBranch(this.context.worktreesByBranch),
+					  }
+					: { current: false, groupByType: defaultRemote == null },
+			};
 
-			// TODO@eamodio handle paging
-			const branchNodes = branches.values.map(
-				b =>
+			const branches = new PageableResult<GitBranch>(p =>
+				this.repo.git.branches().getBranches({ ...options, paging: p }),
+			);
+
+			let localUpstreamNames: Set<string> | undefined;
+			// Filter out remote branches that have a local branch
+			if (defaultRemote != null) {
+				localUpstreamNames = await getLocalBranchUpstreamNames(branches);
+			}
+
+			const branchNodes: BranchNode[] = [];
+
+			for await (const branch of branches.values()) {
+				if (branch.remote && localUpstreamNames?.has(branch.name)) continue;
+
+				branchNodes.push(
 					new BranchNode(
-						GitUri.fromRepoPath(this.uri.repoPath!, b.ref),
+						GitUri.fromRepoPath(this.uri.repoPath!, branch.ref),
 						this.view,
 						this,
 						this.repo,
-						b,
+						branch,
 						false,
 						{
 							showComparison:
 								this.view.type === 'repositories'
 									? this.view.config.branches.showBranchComparison
 									: this.view.config.showBranchComparison,
+							showStashes: this.view.config.showStashes,
 						},
 					),
-			);
-			if (this.view.config.branches.layout === 'list') return branchNodes;
+				);
+			}
+
+			if (branchNodes.length === 0) return [new MessageNode(this.view, this, 'No branches could be found.')];
+			if (this.view.config.branches.layout === 'list') {
+				this.children = branchNodes;
+				return branchNodes;
+			}
 
 			const hierarchy = makeHierarchical(
 				branchNodes,
@@ -90,7 +118,7 @@ export class BranchesNode extends CacheableChildrenViewNode<'branches', ViewsWit
 		const item = new TreeItem('Branches', TreeItemCollapsibleState.Collapsed);
 		item.id = this.id;
 		item.contextValue = ContextValues.Branches;
-		if (await this.repo.hasRemotes()) {
+		if ((await this.repo.git.remotes().getRemotes()).length) {
 			item.contextValue += '+remotes';
 		}
 		// TODO@axosoft-ramint Temporary workaround, remove when our git commands work on closed repos.
@@ -103,7 +131,7 @@ export class BranchesNode extends CacheableChildrenViewNode<'branches', ViewsWit
 	}
 
 	@debug()
-	override refresh() {
+	override refresh(): void {
 		super.refresh(true);
 	}
 }

@@ -1,39 +1,42 @@
 import type { CancellationToken, Event, MessageItem } from 'vscode';
 import { EventEmitter, window } from 'vscode';
-import type { DynamicAutolinkReference } from '../../annotations/autolinks';
-import type { AutolinkReference } from '../../config';
-import type { Container } from '../../container';
-import { AuthenticationError, CancellationError, ProviderRequestClientError } from '../../errors';
-import type { PagedResult } from '../../git/gitProvider';
-import type { Account } from '../../git/models/author';
-import type { DefaultBranch } from '../../git/models/defaultBranch';
-import type { IssueOrPullRequest, SearchedIssue } from '../../git/models/issue';
+import type { AutolinkReference, DynamicAutolinkReference } from '../../autolinks/models/autolinks';
 import type {
-	PullRequest,
-	PullRequestMergeMethod,
-	PullRequestState,
-	SearchedPullRequest,
-} from '../../git/models/pullRequest';
+	CloudSelfHostedIntegrationId,
+	IntegrationId,
+	IssueIntegrationId,
+	SelfHostedIntegrationId,
+} from '../../constants.integrations';
+import { HostingIntegrationId } from '../../constants.integrations';
+import type { Sources } from '../../constants.telemetry';
+import type { Container } from '../../container';
+import { AuthenticationError, CancellationError, RequestClientError } from '../../errors';
+import type { PagedResult } from '../../git/gitProvider';
+import type { Account, UnidentifiedAuthor } from '../../git/models/author';
+import type { DefaultBranch } from '../../git/models/defaultBranch';
+import type { Issue, IssueShape } from '../../git/models/issue';
+import type { IssueOrPullRequest, IssueOrPullRequestType } from '../../git/models/issueOrPullRequest';
+import type { PullRequest, PullRequestMergeMethod, PullRequestState } from '../../git/models/pullRequest';
 import type { RepositoryMetadata } from '../../git/models/repositoryMetadata';
+import type { PullRequestUrlIdentity } from '../../git/utils/pullRequest.utils';
 import { showIntegrationDisconnectedTooManyFailedRequestsWarningMessage } from '../../messages';
-import { configuration } from '../../system/configuration';
-import { gate } from '../../system/decorators/gate';
+import { configuration } from '../../system/-webview/configuration';
+import { gate } from '../../system/decorators/-webview/gate';
 import { debug, log } from '../../system/decorators/log';
+import { first } from '../../system/iterable';
 import { Logger } from '../../system/logger';
 import type { LogScope } from '../../system/logger.scope';
 import { getLogScope } from '../../system/logger.scope';
+import { isSubscriptionStatePaidOrTrial } from '../gk/utils/subscription.utils';
 import type {
 	IntegrationAuthenticationProviderDescriptor,
-	IntegrationAuthenticationService,
 	IntegrationAuthenticationSessionDescriptor,
-} from './authentication/integrationAuthentication';
-import { CloudIntegrationAuthenticationProvider } from './authentication/integrationAuthentication';
+} from './authentication/integrationAuthenticationProvider';
+import type { IntegrationAuthenticationService } from './authentication/integrationAuthenticationService';
 import type { ProviderAuthenticationSession } from './authentication/models';
 import type {
 	GetIssuesOptions,
 	GetPullRequestsOptions,
-	IntegrationId,
-	IssueIntegrationId,
 	PagedProjectInput,
 	PagedRepoInput,
 	ProviderAccount,
@@ -41,9 +44,8 @@ import type {
 	ProviderPullRequest,
 	ProviderRepoInput,
 	ProviderReposInput,
-	SelfHostedIntegrationId,
 } from './providers/models';
-import { HostingIntegrationId, IssueFilter, PagingMode, PullRequestFilter } from './providers/models';
+import { IssueFilter, PagingMode, PullRequestFilter } from './providers/models';
 import type { ProvidersApi } from './providers/providersApi';
 
 export type IntegrationResult<T> =
@@ -53,6 +55,7 @@ export type IntegrationResult<T> =
 
 export type SupportedIntegrationIds = IntegrationId;
 export type SupportedHostingIntegrationIds = HostingIntegrationId;
+export type SupportedCloudSelfHostedIntegrationIds = CloudSelfHostedIntegrationId;
 export type SupportedIssueIntegrationIds = IssueIntegrationId;
 export type SupportedSelfHostedIntegrationIds = SelfHostedIntegrationId;
 
@@ -69,6 +72,38 @@ export type IntegrationKeyById<T extends SupportedIntegrationIds> = T extends Su
 export type IntegrationType = 'issues' | 'hosting';
 
 export type ResourceDescriptor = { key: string } & Record<string, unknown>;
+
+export type IssueResourceDescriptor = ResourceDescriptor & {
+	id: string;
+	name: string;
+};
+
+export type RepositoryDescriptor = ResourceDescriptor & {
+	owner: string;
+	name: string;
+};
+
+export function isIssueResourceDescriptor(resource: ResourceDescriptor): resource is IssueResourceDescriptor {
+	return (
+		'key' in resource &&
+		resource.key != null &&
+		'id' in resource &&
+		resource.id != null &&
+		'name' in resource &&
+		resource.name != null
+	);
+}
+
+export function isRepositoryDescriptor(resource: ResourceDescriptor): resource is RepositoryDescriptor {
+	return (
+		'key' in resource &&
+		resource.key != null &&
+		'owner' in resource &&
+		resource.owner != null &&
+		'name' in resource &&
+		resource.name != null
+	);
+}
 
 export function isHostingIntegration(integration: Integration): integration is HostingIntegration {
 	return integration.type === 'hosting';
@@ -108,6 +143,11 @@ export abstract class IntegrationBase<
 		return this.id;
 	}
 
+	async access(): Promise<boolean> {
+		const subscription = await this.container.subscription.getSubscription();
+		return isSubscriptionStatePaidOrTrial(subscription.state);
+	}
+
 	autolinks():
 		| (AutolinkReference | DynamicAutolinkReference)[]
 		| Promise<(AutolinkReference | DynamicAutolinkReference)[]> {
@@ -128,19 +168,20 @@ export abstract class IntegrationBase<
 	}
 
 	protected _session: ProviderAuthenticationSession | null | undefined;
-	getSession() {
+	getSession(
+		source: Sources,
+	): ProviderAuthenticationSession | Promise<ProviderAuthenticationSession | undefined> | undefined {
 		if (this._session === undefined) {
-			return this.ensureSession(false);
+			return this.ensureSession({ createIfNeeded: false, source: source });
 		}
 		return this._session ?? undefined;
 	}
 
 	@log()
-	async connect(): Promise<boolean> {
+	async connect(source: Sources): Promise<boolean> {
 		try {
-			const session = await this.ensureSession(true);
-			return Boolean(session);
-		} catch (ex) {
+			return Boolean(await this.ensureSession({ createIfNeeded: true, source: source }));
+		} catch (_ex) {
 			return false;
 		}
 	}
@@ -149,11 +190,7 @@ export abstract class IntegrationBase<
 
 	@gate()
 	@log()
-	async disconnect(options?: {
-		silent?: boolean;
-		currentSessionOnly?: boolean;
-		cloudSessionOnly?: boolean;
-	}): Promise<void> {
+	async disconnect(options?: { silent?: boolean; currentSessionOnly?: boolean }): Promise<void> {
 		if (options?.currentSessionOnly && this._session === null) return;
 
 		const connected = this._session != null;
@@ -190,32 +227,17 @@ export abstract class IntegrationBase<
 
 		if (signOut) {
 			const authProvider = await this.authenticationService.get(this.authProvider.id);
-			if (options?.cloudSessionOnly && authProvider instanceof CloudIntegrationAuthenticationProvider) {
-				void authProvider.deleteCloudSession(this.authProviderDescriptor);
-			} else {
-				void authProvider.deleteSession(this.authProviderDescriptor);
-			}
+			void authProvider.deleteSession(this.authProviderDescriptor);
 		}
 
 		this.resetRequestExceptionCount();
 		this._session = null;
 
-		if (connected && options?.cloudSessionOnly) {
-			const authProvider = await this.authenticationService.get(this.authProvider.id);
-			this._session = await authProvider.getSession(this.authProviderDescriptor, {
-				createIfNeeded: false,
-				forceNewSession: false,
-			});
-		}
-
-		if (this._session != null) {
-			return;
-		}
-
 		if (connected) {
-			// Don't store the disconnected flag if this only for this current VS Code session (will be re-connected on next restart)
-			if (!options?.currentSessionOnly) {
-				void this.container.storage.storeWorkspace(this.connectedKey, false);
+			// Don't store the disconnected flag if silently disconnecting or disconnecting this only for
+			// this current VS Code session (will be re-connected on next restart)
+			if (!options?.currentSessionOnly && !options?.silent) {
+				void this.container.storage.storeWorkspace(this.connectedKey, false).catch();
 			}
 
 			this._onDidChange.fire();
@@ -234,11 +256,11 @@ export abstract class IntegrationBase<
 		if (this._session === undefined) return;
 
 		this._session = undefined;
-		void (await this.ensureSession(true, true));
+		void (await this.ensureSession({ createIfNeeded: true, forceNewSession: true }));
 	}
 
-	refresh() {
-		void this.ensureSession(false);
+	refresh(): void {
+		void this.ensureSession({ createIfNeeded: false });
 	}
 
 	private requestExceptionCount = 0;
@@ -247,12 +269,53 @@ export abstract class IntegrationBase<
 		this.requestExceptionCount = 0;
 	}
 
+	async reset(): Promise<void> {
+		await this.disconnect({ silent: true });
+		await this.container.storage.deleteWorkspace(this.connectedKey);
+	}
+
+	@log()
+	async syncCloudConnection(state: 'connected' | 'disconnected', forceSync: boolean): Promise<void> {
+		if (this._session?.cloud === false) return;
+
+		switch (state) {
+			case 'connected':
+				if (forceSync) {
+					// Reset our stored session so that we get a new one from the cloud
+					const authProvider = await this.authenticationService.get(this.authProvider.id);
+					await authProvider.deleteSession(this.authProviderDescriptor);
+					// Reset the session and clear our "stay disconnected" flag
+					this._session = undefined;
+					await this.container.storage.deleteWorkspace(this.connectedKey);
+				} else {
+					// Only sync if we're not connected and not disabled and don't have pending errors
+					if (
+						this._session != null ||
+						this.requestExceptionCount > 0 ||
+						this.container.storage.getWorkspace(this.connectedKey) === false
+					) {
+						return;
+					}
+
+					forceSync = true;
+				}
+
+				// sync option, rather than createIfNeeded, makes sure we don't call connectCloudIntegrations and open a gkdev window
+				// if there was no session or some problem fetching/refreshing the existing session from the cloud api
+				await this.ensureSession({ sync: forceSync });
+				break;
+			case 'disconnected':
+				await this.disconnect({ silent: true });
+				break;
+		}
+	}
+
 	protected handleProviderException<T>(ex: Error, scope: LogScope | undefined, defaultValue: T): T {
 		if (ex instanceof CancellationError) return defaultValue;
 
 		Logger.error(ex, scope);
 
-		if (ex instanceof AuthenticationError || ex instanceof ProviderRequestClientError) {
+		if (ex instanceof AuthenticationError || ex instanceof RequestClientError) {
 			this.trackRequestException();
 		}
 		return defaultValue;
@@ -271,18 +334,30 @@ export abstract class IntegrationBase<
 	@gate()
 	@debug({ exit: true })
 	async isConnected(): Promise<boolean> {
-		return (await this.getSession()) != null;
+		return (await this.getSession('integrations')) != null;
 	}
 
 	@gate()
 	private async ensureSession(
-		createIfNeeded: boolean,
-		forceNewSession: boolean = false,
+		options:
+			| {
+					createIfNeeded?: boolean;
+					forceNewSession?: boolean;
+					sync?: never;
+					source?: Sources;
+			  }
+			| {
+					createIfNeeded?: never;
+					forceNewSession?: never;
+					sync: boolean;
+					source?: Sources;
+			  },
 	): Promise<ProviderAuthenticationSession | undefined> {
+		const { createIfNeeded, forceNewSession, source, sync } = options;
 		if (this._session != null) return this._session;
 		if (!configuration.get('integrations.enabled')) return undefined;
 
-		if (createIfNeeded) {
+		if (createIfNeeded || sync) {
 			await this.container.storage.deleteWorkspace(this.connectedKey);
 		} else if (this.container.storage.getWorkspace(this.connectedKey) === false) {
 			return undefined;
@@ -291,10 +366,16 @@ export abstract class IntegrationBase<
 		let session: ProviderAuthenticationSession | undefined | null;
 		try {
 			const authProvider = await this.authenticationService.get(this.authProvider.id);
-			session = await authProvider.getSession(this.authProviderDescriptor, {
-				createIfNeeded: createIfNeeded,
-				forceNewSession: forceNewSession,
-			});
+			session = await authProvider.getSession(
+				this.authProviderDescriptor,
+				sync
+					? { sync: sync, source: source }
+					: {
+							createIfNeeded: createIfNeeded,
+							forceNewSession: forceNewSession,
+							source: source,
+					  },
+			);
 		} catch (ex) {
 			await this.container.storage.deleteWorkspace(this.connectedKey);
 
@@ -305,7 +386,7 @@ export abstract class IntegrationBase<
 			session = null;
 		}
 
-		if (session === undefined && !createIfNeeded) {
+		if (session === undefined && !createIfNeeded && !sync) {
 			await this.container.storage.deleteWorkspace(this.connectedKey);
 		}
 
@@ -332,16 +413,16 @@ export abstract class IntegrationBase<
 	async searchMyIssues(
 		resource?: ResourceDescriptor,
 		cancellation?: CancellationToken,
-	): Promise<SearchedIssue[] | undefined>;
+	): Promise<IssueShape[] | undefined>;
 	async searchMyIssues(
 		resources?: ResourceDescriptor[],
 		cancellation?: CancellationToken,
-	): Promise<SearchedIssue[] | undefined>;
+	): Promise<IssueShape[] | undefined>;
 	@debug()
 	async searchMyIssues(
 		resources?: ResourceDescriptor | ResourceDescriptor[],
 		cancellation?: CancellationToken,
-	): Promise<SearchedIssue[] | undefined> {
+	): Promise<IssueShape[] | undefined> {
 		const scope = getLogScope();
 		const connected = this.maybeConnected ?? (await this.isConnected());
 		if (!connected) return undefined;
@@ -355,7 +436,7 @@ export abstract class IntegrationBase<
 			this.resetRequestExceptionCount();
 			return issues;
 		} catch (ex) {
-			return this.handleProviderException<SearchedIssue[] | undefined>(ex, scope, undefined);
+			return this.handleProviderException<IssueShape[] | undefined>(ex, scope, undefined);
 		}
 	}
 
@@ -363,13 +444,13 @@ export abstract class IntegrationBase<
 		session: ProviderAuthenticationSession,
 		resources?: ResourceDescriptor[],
 		cancellation?: CancellationToken,
-	): Promise<SearchedIssue[] | undefined>;
+	): Promise<IssueShape[] | undefined>;
 
 	@debug()
 	async getIssueOrPullRequest(
 		resource: T,
 		id: string,
-		options?: { expiryOverride?: boolean | number },
+		options?: { expiryOverride?: boolean | number; type?: IssueOrPullRequestType },
 	): Promise<IssueOrPullRequest | undefined> {
 		const scope = getLogScope();
 
@@ -383,7 +464,12 @@ export abstract class IntegrationBase<
 			() => ({
 				value: (async () => {
 					try {
-						const result = await this.getProviderIssueOrPullRequest(this._session!, resource, id);
+						const result = await this.getProviderIssueOrPullRequest(
+							this._session!,
+							resource,
+							id,
+							options?.type,
+						);
 						this.resetRequestExceptionCount();
 						return result;
 					} catch (ex) {
@@ -400,7 +486,45 @@ export abstract class IntegrationBase<
 		session: ProviderAuthenticationSession,
 		resource: T,
 		id: string,
+		type: undefined | IssueOrPullRequestType,
 	): Promise<IssueOrPullRequest | undefined>;
+
+	@debug()
+	async getIssue(
+		resource: T,
+		id: string,
+		options?: { expiryOverride?: boolean | number },
+	): Promise<Issue | undefined> {
+		const scope = getLogScope();
+
+		const connected = this.maybeConnected ?? (await this.isConnected());
+		if (!connected) return undefined;
+
+		const issue = this.container.cache.getIssue(
+			id,
+			resource,
+			this,
+			() => ({
+				value: (async () => {
+					try {
+						const result = await this.getProviderIssue(this._session!, resource, id);
+						this.resetRequestExceptionCount();
+						return result;
+					} catch (ex) {
+						return this.handleProviderException<Issue | undefined>(ex, scope, undefined);
+					}
+				})(),
+			}),
+			options,
+		);
+		return issue;
+	}
+
+	protected abstract getProviderIssue(
+		session: ProviderAuthenticationSession,
+		resource: T,
+		id: string,
+	): Promise<Issue | undefined>;
 
 	async getCurrentAccount(options?: {
 		avatarSize?: number;
@@ -413,7 +537,7 @@ export abstract class IntegrationBase<
 
 		const { expiryOverride, ...opts } = options ?? {};
 
-		const currentAccount = this.container.cache.getCurrentAccount(
+		const currentAccount = await this.container.cache.getCurrentAccount(
 			this,
 			() => ({
 				value: (async () => {
@@ -443,7 +567,7 @@ export abstract class IntegrationBase<
 		const connected = this.maybeConnected ?? (await this.isConnected());
 		if (!connected) return undefined;
 
-		const pr = this.container.cache.getPullRequest(id, resource, this, () => ({
+		const pr = await this.container.cache.getPullRequest(id, resource, this, () => ({
 			value: (async () => {
 				try {
 					const result = await this.getProviderPullRequest?.(this._session!, resource, id);
@@ -537,7 +661,7 @@ export abstract class IssueIntegration<
 	async getIssuesForProject(
 		project: T,
 		options?: { user?: string; filters?: IssueFilter[] },
-	): Promise<SearchedIssue[] | undefined> {
+	): Promise<IssueShape[] | undefined> {
 		const connected = this.maybeConnected ?? (await this.isConnected());
 		if (!connected) return undefined;
 
@@ -546,7 +670,7 @@ export abstract class IssueIntegration<
 			this.resetRequestExceptionCount();
 			return issues;
 		} catch (ex) {
-			return this.handleProviderException<SearchedIssue[] | undefined>(ex, undefined, undefined);
+			return this.handleProviderException<IssueShape[] | undefined>(ex, undefined, undefined);
 		}
 	}
 
@@ -554,7 +678,7 @@ export abstract class IssueIntegration<
 		session: ProviderAuthenticationSession,
 		project: T,
 		options?: { user?: string; filters?: IssueFilter[] },
-	): Promise<SearchedIssue[] | undefined>;
+	): Promise<IssueShape[] | undefined>;
 }
 
 export abstract class HostingIntegration<
@@ -603,7 +727,7 @@ export abstract class HostingIntegration<
 		options?: {
 			avatarSize?: number;
 		},
-	): Promise<Account | undefined> {
+	): Promise<Account | UnidentifiedAuthor | undefined> {
 		const scope = getLogScope();
 
 		const connected = this.maybeConnected ?? (await this.isConnected());
@@ -625,32 +749,41 @@ export abstract class HostingIntegration<
 		options?: {
 			avatarSize?: number;
 		},
-	): Promise<Account | undefined>;
+	): Promise<Account | UnidentifiedAuthor | undefined>;
 
 	@debug()
-	async getDefaultBranch(repo: T): Promise<DefaultBranch | undefined> {
+	async getDefaultBranch(
+		repo: T,
+		options?: { cancellation?: CancellationToken; expiryOverride?: boolean | number },
+	): Promise<DefaultBranch | undefined> {
 		const scope = getLogScope();
 
 		const connected = this.maybeConnected ?? (await this.isConnected());
 		if (!connected) return undefined;
 
-		const defaultBranch = this.container.cache.getRepositoryDefaultBranch(repo, this, () => ({
-			value: (async () => {
-				try {
-					const result = await this.getProviderDefaultBranch(this._session!, repo);
-					this.resetRequestExceptionCount();
-					return result;
-				} catch (ex) {
-					return this.handleProviderException<DefaultBranch | undefined>(ex, scope, undefined);
-				}
-			})(),
-		}));
+		const defaultBranch = this.container.cache.getRepositoryDefaultBranch(
+			repo,
+			this,
+			() => ({
+				value: (async () => {
+					try {
+						const result = await this.getProviderDefaultBranch(this._session!, repo, options?.cancellation);
+						this.resetRequestExceptionCount();
+						return result;
+					} catch (ex) {
+						return this.handleProviderException<DefaultBranch | undefined>(ex, scope, undefined);
+					}
+				})(),
+			}),
+			{ expiryOverride: options?.expiryOverride },
+		);
 		return defaultBranch;
 	}
 
 	protected abstract getProviderDefaultBranch(
 		{ accessToken }: ProviderAuthenticationSession,
 		repo: T,
+		cancellation?: CancellationToken,
 	): Promise<DefaultBranch | undefined>;
 
 	@debug()
@@ -693,7 +826,7 @@ export abstract class HostingIntegration<
 	): Promise<RepositoryMetadata | undefined>;
 
 	async mergePullRequest(
-		pr: PullRequest | { id: string; headRefSha: string },
+		pr: PullRequest,
 		options?: {
 			mergeMethod?: PullRequestMergeMethod;
 		},
@@ -714,7 +847,7 @@ export abstract class HostingIntegration<
 
 	protected abstract mergeProviderPullRequest(
 		session: ProviderAuthenticationSession,
-		pr: PullRequest | { id: string; headRefSha: string },
+		pr: PullRequest,
 		options?: {
 			mergeMethod?: PullRequestMergeMethod;
 		},
@@ -844,7 +977,7 @@ export abstract class HostingIntegration<
 				return undefined;
 			}
 
-			const organization: string = organizations.values().next().value;
+			const organization: string = first(organizations.values())!;
 
 			if (options?.filters != null) {
 				if (!api.providerSupportsIssueFilters(providerId, options.filters)) {
@@ -1055,7 +1188,7 @@ export abstract class HostingIntegration<
 					return undefined;
 				}
 
-				const organization: string = organizations.values().next().value;
+				const organization: string = first(organizations.values())!;
 				try {
 					userAccount = await api.getCurrentUserForInstance(providerId, organization);
 				} catch (ex) {
@@ -1146,7 +1279,7 @@ export abstract class HostingIntegration<
 		}
 
 		try {
-			return api.getPullRequestsForRepos(providerId, reposOrRepoIds, {
+			return await api.getPullRequestsForRepos(providerId, reposOrRepoIds, {
 				...getPullRequestsOptions,
 				cursor: options?.cursor,
 				baseUrl: options?.customUrl,
@@ -1161,18 +1294,18 @@ export abstract class HostingIntegration<
 		repo?: T,
 		cancellation?: CancellationToken,
 		silent?: boolean,
-	): Promise<IntegrationResult<SearchedPullRequest[] | undefined>>;
+	): Promise<IntegrationResult<PullRequest[] | undefined>>;
 	async searchMyPullRequests(
 		repos?: T[],
 		cancellation?: CancellationToken,
 		silent?: boolean,
-	): Promise<IntegrationResult<SearchedPullRequest[] | undefined>>;
+	): Promise<IntegrationResult<PullRequest[] | undefined>>;
 	@debug()
 	async searchMyPullRequests(
 		repos?: T | T[],
 		cancellation?: CancellationToken,
 		silent?: boolean,
-	): Promise<IntegrationResult<SearchedPullRequest[] | undefined>> {
+	): Promise<IntegrationResult<PullRequest[] | undefined>> {
 		const scope = getLogScope();
 		const connected = this.maybeConnected ?? (await this.isConnected());
 		if (!connected) return undefined;
@@ -1197,7 +1330,7 @@ export abstract class HostingIntegration<
 		repos?: T[],
 		cancellation?: CancellationToken,
 		silent?: boolean,
-	): Promise<SearchedPullRequest[] | undefined>;
+	): Promise<PullRequest[] | undefined>;
 
 	async searchPullRequests(
 		searchQuery: string,
@@ -1239,4 +1372,10 @@ export abstract class HostingIntegration<
 		repos?: T[],
 		cancellation?: CancellationToken,
 	): Promise<PullRequest[] | undefined>;
+
+	getPullRequestIdentityFromMaybeUrl(search: string): PullRequestUrlIdentity | undefined {
+		return this.getProviderPullRequestIdentityFromMaybeUrl?.(search);
+	}
+
+	protected getProviderPullRequestIdentityFromMaybeUrl?(search: string): PullRequestUrlIdentity | undefined;
 }

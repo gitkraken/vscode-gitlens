@@ -12,7 +12,9 @@ import type {
 	DraftPatchFileChange,
 	DraftRole,
 	DraftVisibility,
-} from '../../../../../gk/models/drafts';
+} from '../../../../../plus/drafts/models/drafts';
+import { makeHierarchical } from '../../../../../system/array';
+import { flatCount } from '../../../../../system/iterable';
 import type {
 	CloudDraftDetails,
 	DraftDetails,
@@ -20,9 +22,7 @@ import type {
 	ExecuteFileActionParams,
 	PatchDetails,
 	State,
-} from '../../../../../plus/webviews/patchDetails/protocol';
-import { makeHierarchical } from '../../../../../system/array';
-import { flatCount } from '../../../../../system/iterable';
+} from '../../../../plus/patchDetails/protocol';
 import type {
 	TreeItemActionDetail,
 	TreeItemBase,
@@ -38,6 +38,7 @@ import '../../../shared/components/button-container';
 import '../../../shared/components/button';
 import '../../../shared/components/code-icon';
 import '../../../shared/components/commit/commit-identity';
+import '../../../shared/components/markdown/markdown';
 import '../../../shared/components/tree/tree-generator';
 import '../../../shared/components/webview-pane';
 
@@ -47,7 +48,7 @@ const BesideViewColumn = -2; /*ViewColumn.Beside*/
 interface ExplainState {
 	cancelled?: boolean;
 	error?: { message: string };
-	summary?: string;
+	result?: { summary: string; body: string };
 }
 
 export interface ApplyPatchDetail {
@@ -116,11 +117,11 @@ export class GlDraftDetails extends GlTreeBase {
 		return this.state.draft;
 	}
 
-	get isCodeSuggestion() {
+	get isCodeSuggestion(): boolean {
 		return this.cloudDraft?.type === 'suggested_pr_change';
 	}
 
-	get canSubmit() {
+	get canSubmit(): boolean {
 		return this.selectedPatches.length > 0;
 		// return this.state.draft?.repoPath != null && this.state.draft?.baseRef != null;
 	}
@@ -131,7 +132,7 @@ export class GlDraftDetails extends GlTreeBase {
 		defineGkElement(Avatar, Button, Popover, Menu, MenuItem);
 	}
 
-	override updated(changedProperties: Map<string, any>) {
+	override updated(changedProperties: Map<string, any>): void {
 		if (changedProperties.has('explain')) {
 			this.explainBusy = false;
 			this.querySelector('[data-region="ai-explanation"]')?.scrollIntoView();
@@ -193,6 +194,9 @@ export class GlDraftDetails extends GlTreeBase {
 	private renderExplainAi() {
 		if (this.state?.orgSettings.ai === false) return undefined;
 
+		const markdown =
+			this.explain?.result != null ? `${this.explain.result.summary}\n\n${this.explain.result.body}` : undefined;
+
 		// TODO: add loading and response states
 		return html`
 			<webview-pane collapsable data-region="explain-pane">
@@ -218,46 +222,39 @@ export class GlDraftDetails extends GlTreeBase {
 							>
 						</span>
 					</p>
-					${when(
-						this.explain,
-						() => html`
-							<div
-								class="ai-content${this.explain?.error ? ' has-error' : ''}"
-								data-region="ai-explanation"
-							>
-								${when(
-									this.explain?.error,
-									() =>
-										html`<p class="ai-content__summary scrollable">
-											${this.explain!.error!.message ?? 'Error retrieving content'}
-										</p>`,
-								)}
-								${when(
-									this.explain?.summary,
-									() => html`<p class="ai-content__summary scrollable">${this.explain!.summary}</p>`,
-								)}
-							</div>
-						`,
-					)}
+					${markdown
+						? html`<div class="ai-content" data-region="commit-explanation">
+								<gl-markdown
+									class="ai-content__summary scrollable"
+									markdown="${markdown}"
+								></gl-markdown>
+						  </div>`
+						: this.explain?.error
+						  ? html`<div class="ai-content has-error" data-region="commit-explanation">
+									<p class="ai-content__summary scrollable">
+										${this.explain.error.message ?? 'Error retrieving content'}
+									</p>
+						    </div>`
+						  : undefined}
 				</div>
 			</webview-pane>
 		`;
 	}
 
 	// private renderCommitStats() {
-	// 	if (this.state?.draft?.stats?.changedFiles == null) {
+	// 	if (this.state?.draft?.stats?.files == null) {
 	// 		return undefined;
 	// 	}
 
-	// 	if (typeof this.state.draft.stats.changedFiles === 'number') {
+	// 	if (typeof this.state.draft.stats.files === 'number') {
 	// 		return html`<commit-stats
 	// 			.added=${undefined}
-	// 			modified="${this.state.draft.stats.changedFiles}"
+	// 			modified="${this.state.draft.stats.files}"
 	// 			.removed=${undefined}
 	// 		></commit-stats>`;
 	// 	}
 
-	// 	const { added, deleted, changed } = this.state.draft.stats.changedFiles;
+	// 	const { added, deleted, changed } = this.state.draft.stats.files;
 	// 	return html`<commit-stats added="${added}" modified="${changed}" removed="${deleted}"></commit-stats>`;
 	// }
 
@@ -318,7 +315,7 @@ export class GlDraftDetails extends GlTreeBase {
 		return models;
 	}
 
-	renderUserSelection(userSelection: DraftUserSelection, role: DraftRole) {
+	private renderUserSelection(userSelection: DraftUserSelection, role: DraftRole) {
 		if (userSelection.change === 'delete') return undefined;
 
 		const selectionRole = userSelection.pendingRole ?? userSelection.user!.role;
@@ -379,7 +376,7 @@ export class GlDraftDetails extends GlTreeBase {
 		`;
 	}
 
-	renderUserSelectionList(draft: CloudDraftDetails, includeOwner = false) {
+	private renderUserSelectionList(draft: CloudDraftDetails, includeOwner = false) {
 		if (!draft.userSelections?.length) return undefined;
 
 		let userSelections = draft.userSelections;
@@ -400,7 +397,7 @@ export class GlDraftDetails extends GlTreeBase {
 		`;
 	}
 
-	renderPatchPermissions() {
+	private renderPatchPermissions() {
 		const draft = this.cloudDraft;
 		if (draft == null) return undefined;
 
@@ -492,7 +489,7 @@ export class GlDraftDetails extends GlTreeBase {
 		`;
 	}
 
-	renderCodeSuggectionActions() {
+	private renderCodeSuggectionActions() {
 		if (
 			!this.isCodeSuggestion ||
 			this.cloudDraft == null ||
@@ -516,7 +513,7 @@ export class GlDraftDetails extends GlTreeBase {
 		`;
 	}
 
-	renderPatches() {
+	private renderPatches() {
 		// // const path = this.state.draft?.repoPath;
 		// const repo = this.state.draft?.repoName;
 		// const base = this.state.draft?.baseRef;
@@ -591,7 +588,7 @@ export class GlDraftDetails extends GlTreeBase {
 		`;
 	}
 
-	renderActionbar() {
+	private renderActionbar() {
 		const draft = this.state?.draft;
 		if (draft == null) return undefined;
 
@@ -634,7 +631,7 @@ export class GlDraftDetails extends GlTreeBase {
 		`;
 	}
 
-	renderDraftInfo() {
+	private renderDraftInfo() {
 		if (this.state.draft?.title == null) return nothing;
 
 		let badge = undefined;
@@ -649,7 +646,7 @@ export class GlDraftDetails extends GlTreeBase {
 		`;
 	}
 
-	override render() {
+	override render(): unknown {
 		if (this.state?.draft == null) {
 			return html` <div class="commit-detail-panel scrollable">${this.renderEmptyContent()}</div>`;
 		}
@@ -667,7 +664,7 @@ export class GlDraftDetails extends GlTreeBase {
 		`;
 	}
 
-	protected override createRenderRoot() {
+	protected override createRenderRoot(): HTMLElement {
 		return this;
 	}
 
@@ -696,7 +693,7 @@ export class GlDraftDetails extends GlTreeBase {
 		this.emit('gl-patch-details-update-permissions');
 	}
 
-	onExplainChanges(e: MouseEvent | KeyboardEvent) {
+	private onExplainChanges(e: MouseEvent | KeyboardEvent) {
 		if (this.explainBusy === true || (e instanceof KeyboardEvent && e.key !== 'Enter')) {
 			e.preventDefault();
 			e.stopPropagation();
@@ -706,7 +703,7 @@ export class GlDraftDetails extends GlTreeBase {
 		this.explainBusy = true;
 	}
 
-	override onTreeItemActionClicked(e: CustomEvent<TreeItemActionDetail>) {
+	override onTreeItemActionClicked(e: CustomEvent<TreeItemActionDetail>): void {
 		if (!e.detail.context || !e.detail.action) return;
 
 		const action = e.detail.action;
@@ -731,40 +728,40 @@ export class GlDraftDetails extends GlTreeBase {
 		}
 	}
 
-	fireFileEvent(name: string, file: DraftPatchFileChange, showOptions?: TextDocumentShowOptions) {
+	fireFileEvent(name: string, file: DraftPatchFileChange, showOptions?: TextDocumentShowOptions): void {
 		const event = new CustomEvent(name, {
 			detail: { ...file, showOptions: showOptions },
 		});
 		this.dispatchEvent(event);
 	}
 
-	onCompareWorking(e: CustomEvent<TreeItemActionDetail>) {
+	private onCompareWorking(e: CustomEvent<TreeItemActionDetail>) {
 		if (!e.detail.context) return;
 
 		const [file] = e.detail.context;
 		this.emit('gl-patch-file-compare-working', {
 			...file,
 			showOptions: {
-				preview: false,
+				preview: !e.detail.dblClick,
 				viewColumn: e.detail.altKey ? BesideViewColumn : undefined,
 			},
 		});
 	}
 
-	onOpenFile(e: CustomEvent<TreeItemActionDetail>) {
+	private onOpenFile(e: CustomEvent<TreeItemActionDetail>) {
 		if (!e.detail.context) return;
 
 		const [file] = e.detail.context;
 		this.emit('gl-patch-file-open', {
 			...file,
 			showOptions: {
-				preview: false,
+				preview: !e.detail.dblClick,
 				viewColumn: e.detail.altKey ? BesideViewColumn : undefined,
 			},
 		});
 	}
 
-	override onTreeItemChecked(e: CustomEvent<TreeItemCheckedDetail>) {
+	override onTreeItemChecked(e: CustomEvent<TreeItemCheckedDetail>): void {
 		if (!e.detail.context) return;
 
 		const [gkRepositoryId] = e.detail.context;
@@ -789,7 +786,7 @@ export class GlDraftDetails extends GlTreeBase {
 		this.dispatchEvent(event);
 	}
 
-	override onTreeItemSelected(e: CustomEvent<TreeItemSelectionDetail>) {
+	override onTreeItemSelected(e: CustomEvent<TreeItemSelectionDetail>): void {
 		const { node, context } = e.detail;
 		if (node.branch === true || context == null) return;
 
@@ -797,7 +794,7 @@ export class GlDraftDetails extends GlTreeBase {
 		this.emit('gl-patch-file-compare-previous', { ...file });
 	}
 
-	onApplyPatch(e?: MouseEvent | KeyboardEvent, target: 'current' | 'branch' | 'worktree' = 'current') {
+	private onApplyPatch(_e?: MouseEvent | KeyboardEvent, target: 'current' | 'branch' | 'worktree' = 'current') {
 		if (this.canSubmit === false) {
 			this.validityMessage = 'Please select changes to apply';
 			return;
@@ -812,11 +809,11 @@ export class GlDraftDetails extends GlTreeBase {
 		});
 	}
 
-	onArchiveDraft(reason: DraftReasonEventDetail['reason']) {
+	private onArchiveDraft(reason: DraftReasonEventDetail['reason']) {
 		this.emit('gl-draft-archive', { reason: reason });
 	}
 
-	onSelectApplyOption(e: CustomEvent<{ target: MenuItem }>) {
+	private onSelectApplyOption(e: CustomEvent<{ target: MenuItem }>) {
 		if (this.canSubmit === false) {
 			this.validityMessage = 'Please select changes to apply';
 			return;
@@ -828,7 +825,7 @@ export class GlDraftDetails extends GlTreeBase {
 		}
 	}
 
-	onChangePatchBase(_e?: MouseEvent | KeyboardEvent) {
+	private onChangePatchBase(_e?: MouseEvent | KeyboardEvent) {
 		const evt = new CustomEvent<ChangePatchBaseDetail>('change-patch-base', {
 			detail: {
 				draft: this.state.draft!,
@@ -837,7 +834,7 @@ export class GlDraftDetails extends GlTreeBase {
 		this.dispatchEvent(evt);
 	}
 
-	onSelectPatchRepo(_e?: MouseEvent | KeyboardEvent) {
+	private onSelectPatchRepo(_e?: MouseEvent | KeyboardEvent) {
 		const evt = new CustomEvent<SelectPatchRepoDetail>('select-patch-repo', {
 			detail: {
 				draft: this.state.draft!,
@@ -846,17 +843,17 @@ export class GlDraftDetails extends GlTreeBase {
 		this.dispatchEvent(evt);
 	}
 
-	onShowInGraph(_e?: MouseEvent | KeyboardEvent) {
+	private onShowInGraph(_e?: MouseEvent | KeyboardEvent) {
 		this.emit('gl-patch-details-graph-show-patch', { draft: this.state.draft! });
 	}
 
-	onCopyCloudLink() {
+	private onCopyCloudLink() {
 		this.emit('gl-patch-details-copy-cloud-link', { draft: this.state.draft! });
 		this._copiedLink = true;
 		setTimeout(() => (this._copiedLink = false), 1000);
 	}
 
-	onShareLocalPatch() {
+	private onShareLocalPatch() {
 		this.emit('gl-patch-details-share-local-patch', { draft: this.state.draft! });
 	}
 
@@ -924,7 +921,10 @@ export class GlDraftDetails extends GlTreeBase {
 	// 	];
 	// }
 
-	override getFileActions(_file: DraftPatchFileChange, _options?: Partial<TreeItemBase>) {
+	override getFileActions(
+		_file: DraftPatchFileChange,
+		_options?: Partial<TreeItemBase>,
+	): { icon: string; label: string; action: string }[] {
 		return [
 			{
 				icon: 'go-to-file',

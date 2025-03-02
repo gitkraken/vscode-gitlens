@@ -3,6 +3,7 @@ import type {
 	ConfigurationChangeEvent,
 	Event,
 	Progress,
+	TabChangeEvent,
 	TextDocument,
 	TextEditor,
 	TextEditorDecorationType,
@@ -21,31 +22,28 @@ import {
 	workspace,
 } from 'vscode';
 import type { AnnotationsToggleMode, FileAnnotationType } from '../config';
-import type { Colors, CoreColors } from '../constants';
+import type { AnnotationStatus } from '../constants';
+import type { Colors, CoreColors } from '../constants.colors';
 import type { Container } from '../container';
-import { registerCommand } from '../system/command';
-import { configuration } from '../system/configuration';
-import { setContext } from '../system/context';
+import { registerCommand } from '../system/-webview/command';
+import { configuration } from '../system/-webview/configuration';
+import { setContext } from '../system/-webview/context';
+import type { KeyboardScope } from '../system/-webview/keyboard';
+import { UriSet } from '../system/-webview/uriMap';
+import { isTrackableTextEditor } from '../system/-webview/vscode';
 import { debug, log } from '../system/decorators/log';
 import { once } from '../system/event';
-import type { Deferrable } from '../system/function';
-import { debounce } from '../system/function';
+import type { Deferrable } from '../system/function/debounce';
+import { debounce } from '../system/function/debounce';
 import { find } from '../system/iterable';
-import type { KeyboardScope } from '../system/keyboard';
 import { basename } from '../system/path';
-import { isTextEditor } from '../system/utils';
 import type {
 	DocumentBlameStateChangeEvent,
 	DocumentDirtyIdleTriggerEvent,
 	DocumentDirtyStateChangeEvent,
 } from '../trackers/documentTracker';
-import type {
-	AnnotationContext,
-	AnnotationProviderBase,
-	AnnotationStatus,
-	TextEditorCorrelationKey,
-} from './annotationProvider';
-import { getEditorCorrelationKey } from './annotationProvider';
+import type { AnnotationContext, AnnotationProviderBase, TextEditorCorrelationKey } from './annotationProvider';
+import { getEditorCorrelationKey, getEditorCorrelationKeyFromTab } from './annotationProvider';
 import type { ChangesAnnotationContext } from './gutterChangesAnnotationProvider';
 
 export const Decorations = {
@@ -83,7 +81,7 @@ export class FileAnnotationController implements Disposable {
 		this._toggleModes = new Map<FileAnnotationType, AnnotationsToggleMode>();
 	}
 
-	dispose() {
+	dispose(): void {
 		void this.clearAll();
 
 		Decorations.gutterBlameAnnotation?.dispose();
@@ -169,7 +167,7 @@ export class FileAnnotationController implements Disposable {
 	}
 
 	private async onActiveTextEditorChanged(editor: TextEditor | undefined) {
-		if (editor != null && !isTextEditor(editor)) return;
+		if (editor != null && !isTrackableTextEditor(editor)) return;
 
 		this._editor = editor;
 		// Logger.log('AnnotationController.onActiveTextEditorChanged', editor && editor.document.uri.fsPath);
@@ -230,6 +228,12 @@ export class FileAnnotationController implements Disposable {
 		}
 	}
 
+	private onTabsChanged(e: TabChangeEvent) {
+		for (const tab of e.closed) {
+			void this.clearCore(getEditorCorrelationKeyFromTab(tab));
+		}
+	}
+
 	private onTextDocumentClosed(document: TextDocument) {
 		if (!this.container.git.isTrackable(document.uri)) return;
 
@@ -276,14 +280,15 @@ export class FileAnnotationController implements Disposable {
 	}
 
 	@log<FileAnnotationController['clear']>({ args: { 0: e => e?.document.uri.toString(true) } })
-	clear(editor: TextEditor) {
+	clear(editor: TextEditor | undefined): Promise<void> | undefined {
 		if (this.isInWindowToggle()) return this.clearAll();
+		if (editor == null) return;
 
 		return this.clearCore(getEditorCorrelationKey(editor), true);
 	}
 
 	@log()
-	async clearAll() {
+	async clearAll(): Promise<void> {
 		this._windowAnnotationType = undefined;
 
 		for (const [key] of this._annotationProviders) {
@@ -327,44 +332,74 @@ export class FileAnnotationController implements Disposable {
 		debouncedRestore(editor);
 	}
 
-	private readonly _annotatedUris = new Set<string>();
-	private readonly _computingUris = new Set<string>();
+	private readonly _annotatedUris = new UriSet();
+	private readonly _computingUris = new UriSet();
 
-	async onProviderEditorStatusChanged(editor: TextEditor | undefined, status: AnnotationStatus | undefined) {
+	async onProviderEditorStatusChanged(
+		editor: TextEditor | undefined,
+		status: AnnotationStatus | undefined,
+	): Promise<void> {
 		if (editor == null) return;
 
+		let changed = false;
 		let windowStatus;
 
 		if (this.isInWindowToggle()) {
 			windowStatus = status;
+
+			changed = Boolean(this._annotatedUris.size || this._computingUris.size);
 			this._annotatedUris.clear();
 			this._computingUris.clear();
 		} else {
 			windowStatus = undefined;
-			const uri = editor.document.uri.toString();
 
+			const uri = editor.document.uri;
 			switch (status) {
 				case 'computing':
-					this._annotatedUris.add(uri);
-					this._computingUris.add(uri);
-					break;
-				case 'computed':
-					this._annotatedUris.add(uri);
-					this._computingUris.delete(uri);
-					break;
-				default:
-					this._annotatedUris.delete(uri);
-					this._computingUris.delete(uri);
-					break;
-			}
+					if (!this._annotatedUris.has(uri)) {
+						this._annotatedUris.add(uri);
+						changed = true;
+					}
 
-			const provider = this.getProvider(editor);
-			if (provider == null) {
-				this._annotatedUris.delete(uri);
-			} else {
-				this._annotatedUris.add(uri);
+					if (!this._computingUris.has(uri)) {
+						this._computingUris.add(uri);
+						changed = true;
+					}
+
+					break;
+				case 'computed': {
+					const provider = this.getProvider(editor);
+					if (provider == null) {
+						if (this._annotatedUris.has(uri)) {
+							this._annotatedUris.delete(uri);
+							changed = true;
+						}
+					} else if (!this._annotatedUris.has(uri)) {
+						this._annotatedUris.add(uri);
+						changed = true;
+					}
+
+					if (this._computingUris.has(uri)) {
+						this._computingUris.delete(uri);
+						changed = true;
+					}
+					break;
+				}
+				default:
+					if (this._annotatedUris.has(uri)) {
+						this._annotatedUris.delete(uri);
+						changed = true;
+					}
+
+					if (this._computingUris.has(uri)) {
+						this._computingUris.delete(uri);
+						changed = true;
+					}
+					break;
 			}
 		}
+
+		if (!changed) return;
 
 		await Promise.allSettled([
 			setContext('gitlens:window:annotated', windowStatus),
@@ -498,13 +533,13 @@ export class FileAnnotationController implements Disposable {
 	}
 
 	@log()
-	nextChange() {
+	nextChange(): void {
 		const provider = this.getProvider(window.activeTextEditor);
 		provider?.nextChange?.();
 	}
 
 	@log()
-	previousChange() {
+	previousChange(): void {
 		const provider = this.getProvider(window.activeTextEditor);
 		provider?.previousChange?.();
 	}
@@ -663,6 +698,7 @@ export class FileAnnotationController implements Disposable {
 			window.onDidChangeActiveTextEditor(debounce(this.onActiveTextEditorChanged, 50), this),
 			window.onDidChangeTextEditorViewColumn(this.onTextEditorViewColumnChanged, this),
 			window.onDidChangeVisibleTextEditors(debounce(this.onVisibleTextEditorsChanged, 50), this),
+			window.tabGroups.onDidChangeTabs(this.onTabsChanged, this),
 			workspace.onDidCloseTextDocument(this.onTextDocumentClosed, this),
 			this.container.documentTracker.onDidChangeBlameState(this.onBlameStateChanged, this),
 			this.container.documentTracker.onDidChangeDirtyState(this.onDirtyStateChanged, this),

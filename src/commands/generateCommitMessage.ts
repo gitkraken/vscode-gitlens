@@ -1,25 +1,41 @@
 import type { TextEditor, Uri } from 'vscode';
 import { ProgressLocation, window } from 'vscode';
-import { Commands } from '../constants';
+import { GlCommand } from '../constants.commands';
+import type { Sources } from '../constants.telemetry';
 import type { Container } from '../container';
 import { GitUri } from '../git/gitUri';
 import { showGenericErrorMessage } from '../messages';
 import { getBestRepositoryOrShowPicker } from '../quickpicks/repositoryPicker';
-import { command, executeCoreCommand } from '../system/command';
+import { command, executeCoreCommand } from '../system/-webview/command';
 import { Logger } from '../system/logger';
-import { ActiveEditorCommand, getCommandUri } from './base';
+import { ActiveEditorCommand } from './commandBase';
+import { getCommandUri } from './commandBase.utils';
+import type { CommandContext } from './commandContext';
 
 export interface GenerateCommitMessageCommandArgs {
-	repoPath?: string;
+	repoPath?: string | Uri;
+	source?: Sources;
 }
 
 @command()
 export class GenerateCommitMessageCommand extends ActiveEditorCommand {
 	constructor(private readonly container: Container) {
-		super(Commands.GenerateCommitMessage);
+		super([GlCommand.GenerateCommitMessage, GlCommand.GenerateCommitMessageScm]);
 	}
 
-	async execute(editor?: TextEditor, uri?: Uri, args?: GenerateCommitMessageCommandArgs) {
+	protected override preExecute(context: CommandContext, args?: GenerateCommitMessageCommandArgs): Promise<void> {
+		let source: Sources | undefined = args?.source;
+		if (source == null && context.command === GlCommand.GenerateCommitMessageScm) {
+			source = 'scm-input';
+			if (context.type === 'scm' && context.scm.rootUri != null) {
+				args = { ...args, repoPath: context.scm.rootUri };
+			}
+		}
+
+		return this.execute(context.editor, context.uri, { ...args, source: source });
+	}
+
+	async execute(editor?: TextEditor, uri?: Uri, args?: GenerateCommitMessageCommandArgs): Promise<void> {
 		args = { ...args };
 
 		let repository;
@@ -39,11 +55,9 @@ export class GenerateCommitMessageCommand extends ActiveEditorCommand {
 
 		try {
 			const currentMessage = scmRepo.inputBox.value;
-			const message = await (
-				await this.container.ai
-			)?.generateCommitMessage(
+			const message = await this.container.ai.generateCommitMessage(
 				repository,
-				{ source: 'commandPalette' },
+				{ source: args?.source ?? 'commandPalette' },
 				{
 					context: currentMessage,
 					progress: { location: ProgressLocation.Notification, title: 'Generating commit message...' },
@@ -52,7 +66,9 @@ export class GenerateCommitMessageCommand extends ActiveEditorCommand {
 			if (message == null) return;
 
 			void executeCoreCommand('workbench.view.scm');
-			scmRepo.inputBox.value = currentMessage ? `${currentMessage}\n\n${message}` : message;
+			scmRepo.inputBox.value = `${currentMessage ? `${currentMessage}\n\n` : ''}${message.summary}\n\n${
+				message.body
+			}`;
 		} catch (ex) {
 			Logger.error(ex, 'GenerateCommitMessageCommand');
 

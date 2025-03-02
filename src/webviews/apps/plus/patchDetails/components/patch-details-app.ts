@@ -2,7 +2,7 @@ import { Badge, defineGkElement, Menu, MenuItem, Popover } from '@gitkraken/shar
 import { html } from 'lit';
 import { customElement, property } from 'lit/decorators.js';
 import { when } from 'lit/directives/when.js';
-import type { DraftDetails, Mode, State } from '../../../../../plus/webviews/patchDetails/protocol';
+import type { DraftDetails, Mode, State } from '../../../../plus/patchDetails/protocol';
 import { GlElement } from '../../../shared/components/element';
 import type { PatchDetailsApp } from '../patchDetails';
 import './gl-draft-details';
@@ -11,7 +11,7 @@ import './gl-patch-create';
 interface ExplainState {
 	cancelled?: boolean;
 	error?: { message: string };
-	summary?: string;
+	result?: { summary: string; body: string };
 }
 
 interface GenerateState {
@@ -64,7 +64,7 @@ export class GlPatchDetailsApp extends GlElement {
 		defineGkElement(Badge, Popover, Menu, MenuItem);
 	}
 
-	get wipChangesCount() {
+	get wipChangesCount(): number {
 		if (this.state?.create == null) return 0;
 
 		return Object.values(this.state.create.changes).reduce((a, c) => {
@@ -108,13 +108,13 @@ export class GlPatchDetailsApp extends GlElement {
 		rootStyle.setProperty('--gitlens-tree-indent', `${this.indentPreference}px`);
 	}
 
-	override updated(changedProperties: Map<string | number | symbol, unknown>) {
+	override updated(changedProperties: Map<string | number | symbol, unknown>): void {
 		if (changedProperties.has('state')) {
 			this.updateDocumentProperties();
 		}
 	}
 
-	override render() {
+	override render(): unknown {
 		return html`
 			<div class="commit-detail-panel scrollable">
 				<main id="main" tabindex="-1">
@@ -140,7 +140,7 @@ export class GlPatchDetailsApp extends GlElement {
 	// 	this.fireEvent('gl-patch-details-copy-cloud-link');
 	// }
 
-	protected override createRenderRoot() {
+	protected override createRenderRoot(): HTMLElement {
 		return this;
 	}
 }

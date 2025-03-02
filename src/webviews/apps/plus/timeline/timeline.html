@@ -11,7 +11,7 @@
 			@font-face {
 				font-family: 'glicons';
 				font-display: block;
-				src: url('#{root}/dist/glicons.woff2?6ae679c0cde70af8c802b5257e2354a4') format('woff2');
+				src: url('#{root}/dist/glicons.woff2?888557bf00e2cc234c92d4643f1f0051') format('woff2');
 			}
 		</style>
 		<script type="application/javascript" nonce="#{cspNonce}">
@@ -24,57 +24,6 @@
 		data-placement="#{placement}"
 		data-vscode-context='{ "webview": "#{webviewId}", "webviewInstance": "#{webviewInstanceId}" }'
 	>
-		<gl-feature-gate id="subscription-gate" class="scrollable" featureWithArticleIfNeeded="Visual File History"
-			><p slot="feature">
-				<a href="https://help.gitkraken.com/gitlens/gitlens-features/#visual-file-history-%e2%9c%a8"
-					>Visual File History</a
-				>
-				<gl-feature-badge></gl-feature-badge>
-				&mdash; visualize the evolution of a file and quickly identify when the most impactful changes were made
-				and by whom.
-			</p></gl-feature-gate
-		>
-		<div class="container">
-			<progress-indicator id="spinner" position="top" active="true"></progress-indicator>
-			<section id="header" class="header">
-				<div class="header--context">
-					<h2 data-bind="title"></h2>
-					<h2 data-bind="sha"></h2>
-					<h2 data-bind="description"></h2>
-				</div>
-				<div class="toolbox">
-					<div class="select-container">
-						<label for="periods">Timeframe</label>
-						<vscode-dropdown id="periods" name="periods" position="below">
-							<vscode-option value="7|D">1 week</vscode-option>
-							<vscode-option value="1|M">1 month</vscode-option>
-							<vscode-option value="3|M" selected="true">3 months</vscode-option>
-							<vscode-option value="6|M">6 months</vscode-option>
-							<vscode-option value="9|M">9 months</vscode-option>
-							<vscode-option value="1|Y">1 year</vscode-option>
-							<vscode-option value="2|Y">2 years</vscode-option>
-							<vscode-option value="4|Y">4 years</vscode-option>
-							<vscode-option value="all">Full history</vscode-option>
-						</vscode-dropdown>
-					</div>
-					<gl-button
-						appearance="toolbar"
-						data-placement-visible="view"
-						href="command:gitlens.views.timeline.openInTab"
-						tooltip="Open in Editor"
-						aria-label="Open in Editor"
-					>
-						<code-icon icon="link-external"></code-icon>
-					</gl-button>
-					<gl-feature-badge placement="bottom"></gl-feature-badge>
-				</div>
-			</section>
-			<section id="content">
-				<div id="empty" hidden></div>
-				<div id="chart"></div>
-			</section>
-			<section id="footer"></section>
-		</div>
-		#{endOfBody}
+		<gl-timeline-app name="TimelineView" placement="#{placement}" bootstrap="#{state}"></gl-timeline-app>
 	</body>
 </html>

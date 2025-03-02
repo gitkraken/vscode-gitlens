@@ -1,5 +1,5 @@
 import type { Range, TextEditor, Uri } from 'vscode';
-import { Commands } from '../constants';
+import { GlCommand } from '../constants.commands';
 import type { Container } from '../container';
 import { executeGitCommand } from '../git/actions';
 import { GitUri } from '../git/gitUri';
@@ -8,9 +8,11 @@ import type { GitLog } from '../git/models/log';
 import type { GitReference } from '../git/models/reference';
 import type { GitTag } from '../git/models/tag';
 import type { CommandQuickPickItem } from '../quickpicks/items/common';
-import { command } from '../system/command';
-import type { CommandContext } from './base';
-import { ActiveEditorCachedCommand, getCommandUri } from './base';
+import { command } from '../system/-webview/command';
+import { getScmResourceFolderUri } from '../system/-webview/scm';
+import { ActiveEditorCachedCommand } from './commandBase';
+import { getCommandUri } from './commandBase.utils';
+import type { CommandContext } from './commandContext';
 
 export interface ShowQuickFileHistoryCommandArgs {
 	reference?: GitBranch | GitTag | GitReference;
@@ -27,35 +29,41 @@ export interface ShowQuickFileHistoryCommandArgs {
 export class ShowQuickFileHistoryCommand extends ActiveEditorCachedCommand {
 	constructor(private readonly container: Container) {
 		super([
-			Commands.OpenFileHistory,
-			Commands.OpenFolderHistory,
-			Commands.ShowQuickFileHistory,
-			Commands.QuickOpenFileHistory,
-			Commands.Deprecated_ShowFileHistoryInView,
+			GlCommand.OpenFileHistory,
+			GlCommand.OpenFolderHistory,
+			'gitlens.showQuickFileHistory',
+			'gitlens.quickOpenFileHistory',
+			/** @deprecated */ 'gitlens.showFileHistoryInView',
 		]);
 	}
 
-	protected override preExecute(context: CommandContext, args?: ShowQuickFileHistoryCommandArgs) {
+	protected override preExecute(context: CommandContext, args?: ShowQuickFileHistoryCommandArgs): Promise<void> {
+		let uri = context.uri;
 		if (
-			context.command === Commands.OpenFileHistory ||
-			context.command === Commands.OpenFolderHistory ||
-			context.command === Commands.Deprecated_ShowFileHistoryInView
+			context.command === GlCommand.OpenFileHistory ||
+			context.command === /** @deprecated */ 'gitlens.showFileHistoryInView'
 		) {
 			args = { ...args };
 			args.showInSideBar = true;
+		} else if (context.command === GlCommand.OpenFolderHistory) {
+			args = { ...args };
+			args.showInSideBar = true;
+			if (context.type === 'scm-states') {
+				uri = getScmResourceFolderUri(context.args) ?? context.uri;
+			}
 		}
 
-		return this.execute(context.editor, context.uri, args);
+		return this.execute(context.editor, uri, args);
 	}
 
-	async execute(editor?: TextEditor, uri?: Uri, args?: ShowQuickFileHistoryCommandArgs) {
+	async execute(editor?: TextEditor, uri?: Uri, args?: ShowQuickFileHistoryCommandArgs): Promise<void> {
 		uri = getCommandUri(uri, editor);
 		if (uri == null) return;
 
 		const gitUri = await GitUri.fromUri(uri);
 
 		if (args?.showInSideBar) {
-			await this.container.fileHistoryView.showHistoryForUri(gitUri);
+			await this.container.views.fileHistory.showHistoryForUri(gitUri);
 
 			return;
 		}

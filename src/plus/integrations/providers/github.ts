@@ -1,21 +1,22 @@
 import type { AuthenticationSession, CancellationToken } from 'vscode';
-import { authentication } from 'vscode';
+import { HostingIntegrationId, SelfHostedIntegrationId } from '../../../constants.integrations';
+import type { Sources } from '../../../constants.telemetry';
 import type { Container } from '../../../container';
-import type { Account } from '../../../git/models/author';
+import type { Account, UnidentifiedAuthor } from '../../../git/models/author';
 import type { DefaultBranch } from '../../../git/models/defaultBranch';
-import type { IssueOrPullRequest, SearchedIssue } from '../../../git/models/issue';
-import type { PullRequestMergeMethod, PullRequestState, SearchedPullRequest } from '../../../git/models/pullRequest';
-import { PullRequest } from '../../../git/models/pullRequest';
+import type { Issue, IssueShape } from '../../../git/models/issue';
+import type { IssueOrPullRequest } from '../../../git/models/issueOrPullRequest';
+import type { PullRequest, PullRequestMergeMethod, PullRequestState } from '../../../git/models/pullRequest';
 import type { RepositoryMetadata } from '../../../git/models/repositoryMetadata';
+import type { PullRequestUrlIdentity } from '../../../git/utils/pullRequest.utils';
 import { log } from '../../../system/decorators/log';
-import { ensurePaidPlan } from '../../utils';
-import type {
-	IntegrationAuthenticationProviderDescriptor,
-	IntegrationAuthenticationService,
-} from '../authentication/integrationAuthentication';
-import type { SupportedIntegrationIds } from '../integration';
+import { ensurePaidPlan } from '../../gk/utils/-webview/plus.utils';
+import type { IntegrationAuthenticationProviderDescriptor } from '../authentication/integrationAuthenticationProvider';
+import type { IntegrationAuthenticationService } from '../authentication/integrationAuthenticationService';
+import type { RepositoryDescriptor, SupportedIntegrationIds } from '../integration';
 import { HostingIntegration } from '../integration';
-import { HostingIntegrationId, providersMetadata, SelfHostedIntegrationId } from './models';
+import { getGitHubPullRequestIdentityFromMaybeUrl } from './github/github.utils';
+import { providersMetadata } from './models';
 import type { ProvidersApi } from './providersApi';
 
 const metadata = providersMetadata[HostingIntegrationId.GitHub];
@@ -29,12 +30,13 @@ const enterpriseAuthProvider: IntegrationAuthenticationProviderDescriptor = Obje
 	id: enterpriseMetadata.id,
 	scopes: enterpriseMetadata.scopes,
 });
+const cloudEnterpriseMetadata = providersMetadata[SelfHostedIntegrationId.CloudGitHubEnterprise];
+const cloudEnterpriseAuthProvider: IntegrationAuthenticationProviderDescriptor = Object.freeze({
+	id: cloudEnterpriseMetadata.id,
+	scopes: cloudEnterpriseMetadata.scopes,
+});
 
-export type GitHubRepositoryDescriptor = {
-	key: string;
-	owner: string;
-	name: string;
-};
+export type GitHubRepositoryDescriptor = RepositoryDescriptor;
 
 abstract class GitHubIntegrationBase<ID extends SupportedIntegrationIds> extends HostingIntegration<
 	ID,
@@ -49,7 +51,7 @@ abstract class GitHubIntegrationBase<ID extends SupportedIntegrationIds> extends
 		options?: {
 			avatarSize?: number;
 		},
-	): Promise<Account | undefined> {
+	): Promise<Account | UnidentifiedAuthor | undefined> {
 		return (await this.container.github)?.getAccountForCommit(this, accessToken, repo.owner, repo.name, ref, {
 			...options,
 			baseUrl: this.apiBaseUrl,
@@ -94,6 +96,17 @@ abstract class GitHubIntegrationBase<ID extends SupportedIntegrationIds> extends
 				baseUrl: this.apiBaseUrl,
 			},
 		);
+	}
+
+	protected override async getProviderIssue(
+		{ accessToken }: AuthenticationSession,
+		repo: GitHubRepositoryDescriptor,
+		id: string,
+	): Promise<Issue | undefined> {
+		return (await this.container.github)?.getIssue(this, accessToken, repo.owner, repo.name, Number(id), {
+			baseUrl: this.apiBaseUrl,
+			includeBody: true,
+		});
 	}
 
 	protected override async getProviderPullRequest(
@@ -172,7 +185,7 @@ abstract class GitHubIntegrationBase<ID extends SupportedIntegrationIds> extends
 		repos?: GitHubRepositoryDescriptor[],
 		cancellation?: CancellationToken,
 		silent?: boolean,
-	): Promise<SearchedPullRequest[] | undefined> {
+	): Promise<PullRequest[] | undefined> {
 		return (await this.container.github)?.searchMyPullRequests(
 			this,
 			accessToken,
@@ -189,13 +202,14 @@ abstract class GitHubIntegrationBase<ID extends SupportedIntegrationIds> extends
 		{ accessToken }: AuthenticationSession,
 		repos?: GitHubRepositoryDescriptor[],
 		cancellation?: CancellationToken,
-	): Promise<SearchedIssue[] | undefined> {
+	): Promise<IssueShape[] | undefined> {
 		return (await this.container.github)?.searchMyIssues(
 			this,
 			accessToken,
 			{
 				repos: repos?.map(r => `${r.owner}/${r.name}`),
 				baseUrl: this.apiBaseUrl,
+				includeBody: true,
 			},
 			cancellation,
 		);
@@ -221,17 +235,18 @@ abstract class GitHubIntegrationBase<ID extends SupportedIntegrationIds> extends
 
 	protected override async mergeProviderPullRequest(
 		{ accessToken }: AuthenticationSession,
-		pr: PullRequest | { id: string; headRefSha: string },
+		pr: PullRequest,
 		options?: {
 			mergeMethod?: PullRequestMergeMethod;
 		},
 	): Promise<boolean> {
-		const id = pr instanceof PullRequest ? pr.nodeId : pr.id;
-		const headRefSha = pr instanceof PullRequest ? pr.refs?.head?.sha : pr.headRefSha;
+		const id = pr.nodeId;
+		const headRefSha = pr.refs?.head?.sha;
 		if (id == null || headRefSha == null) return false;
 		return (
 			(await this.container.github)?.mergePullRequest(this, accessToken, id, headRefSha, {
 				mergeMethod: options?.mergeMethod,
+				baseUrl: this.apiBaseUrl,
 			}) ?? false
 		);
 	}
@@ -260,22 +275,36 @@ export class GitHubIntegration extends GitHubIntegrationBase<HostingIntegrationI
 		return 'https://api.github.com';
 	}
 
-	// TODO: This is a special case for GitHub because we use VSCode's GitHub session, and it can be disconnected
-	// outside of the extension. Remove this once we use our own GitHub auth provider.
-	override async refresh() {
-		const session = await authentication.getSession(this.authProvider.id, this.authProvider.scopes);
+	override access(): Promise<boolean> {
+		// Always allow GitHub cloud integration access
+		return Promise.resolve(true);
+	}
+
+	// This is a special case for GitHub because we use VSCode's GitHub session, and it can be disconnected
+	// outside of the extension.
+	override async refresh(): Promise<void> {
+		const authProvider = await this.authenticationService.get(this.authProvider.id);
+		const session = await authProvider.getSession(this.authProviderDescriptor);
 		if (session == null && this.maybeConnected) {
-			void this.disconnect();
+			void this.disconnect({ silent: true });
 		} else {
+			if (session?.accessToken !== this._session?.accessToken) {
+				this._session = undefined;
+			}
 			super.refresh();
 		}
 	}
+
+	protected override getProviderPullRequestIdentityFromMaybeUrl(search: string): PullRequestUrlIdentity | undefined {
+		return getGitHubPullRequestIdentityFromMaybeUrl(search);
+	}
 }
 
-export class GitHubEnterpriseIntegration extends GitHubIntegrationBase<SelfHostedIntegrationId.GitHubEnterprise> {
-	readonly authProvider = enterpriseAuthProvider;
-	readonly id = SelfHostedIntegrationId.GitHubEnterprise;
-	protected readonly key = `${this.id}:${this.domain}` as const;
+export class GitHubEnterpriseIntegration extends GitHubIntegrationBase<
+	SelfHostedIntegrationId.GitHubEnterprise | SelfHostedIntegrationId.CloudGitHubEnterprise
+> {
+	readonly authProvider;
+	protected readonly key;
 	readonly name = 'GitHub Enterprise';
 	get domain(): string {
 		return this._domain;
@@ -290,12 +319,16 @@ export class GitHubEnterpriseIntegration extends GitHubIntegrationBase<SelfHoste
 		authenticationService: IntegrationAuthenticationService,
 		getProvidersApi: () => Promise<ProvidersApi>,
 		private readonly _domain: string,
+		readonly id: SelfHostedIntegrationId.GitHubEnterprise | SelfHostedIntegrationId.CloudGitHubEnterprise,
 	) {
 		super(container, authenticationService, getProvidersApi);
+		this.key = `${this.id}:${this.domain}` as const;
+		this.authProvider =
+			this.id === SelfHostedIntegrationId.GitHubEnterprise ? enterpriseAuthProvider : cloudEnterpriseAuthProvider;
 	}
 
 	@log()
-	override async connect(): Promise<boolean> {
+	override async connect(source: Sources): Promise<boolean> {
 		if (
 			!(await ensurePaidPlan(this.container, `Rich integration with ${this.name} is a Pro feature.`, {
 				source: 'integrations',
@@ -305,6 +338,6 @@ export class GitHubEnterpriseIntegration extends GitHubIntegrationBase<SelfHoste
 			return false;
 		}
 
-		return super.connect();
+		return super.connect(source);
 	}
 }

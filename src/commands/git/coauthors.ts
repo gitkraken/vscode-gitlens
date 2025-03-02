@@ -1,7 +1,7 @@
 import type { Container } from '../../container';
 import type { GitContributor } from '../../git/models/contributor';
 import type { Repository } from '../../git/models/repository';
-import { executeCoreCommand } from '../../system/command';
+import { executeCoreCommand } from '../../system/-webview/command';
 import { normalizePath } from '../../system/path';
 import type { ViewsWithRepositoryFolders } from '../../views/viewBase';
 import type { PartialStepState, StepGenerator, StepState } from '../quickCommand';
@@ -52,11 +52,11 @@ export class CoAuthorsGitCommand extends QuickCommand<State> {
 		};
 	}
 
-	override get canConfirm() {
+	override get canConfirm(): boolean {
 		return false;
 	}
 
-	async execute(state: CoAuthorStepState) {
+	private async execute(state: CoAuthorStepState) {
 		const repo = await this.container.git.getOrOpenScmRepository(state.repo.path);
 		if (repo == null) return;
 
@@ -64,7 +64,7 @@ export class CoAuthorsGitCommand extends QuickCommand<State> {
 
 		const index = message.indexOf('Co-authored-by: ');
 		if (index !== -1) {
-			message = message.substring(0, index - 1).trimRight();
+			message = message.substring(0, index - 1).trimEnd();
 		}
 
 		if (state.contributors != null && !Array.isArray(state.contributors)) {
@@ -92,7 +92,7 @@ export class CoAuthorsGitCommand extends QuickCommand<State> {
 		const context: Context = {
 			repos: this.container.git.openRepositories,
 			activeRepo: undefined,
-			associatedView: this.container.contributorsView,
+			associatedView: this.container.views.contributors,
 			title: this.title,
 		};
 

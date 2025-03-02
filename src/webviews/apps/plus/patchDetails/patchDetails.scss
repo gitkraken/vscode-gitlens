@@ -1,4 +1,5 @@
 @use '../../shared/styles/details-base';
+@use '../../shared/styles/utils';
 
 body {
 	--gk-menu-border-color: var(--vscode-menu-border);
@@ -48,19 +49,19 @@ gk-menu-item {
 		color: var(--vscode-foreground);
 		text-decoration: none;
 
-		.vscode-dark & {
+		@include utils.dark-theme($selectorPostfix: ' &') {
 			background-color: var(--color-background--lighten-15);
 		}
-		.vscode-light & {
+		@include utils.light-theme($selectorPostfix: ' &') {
 			background-color: var(--color-background--darken-15);
 		}
 	}
 
 	&.is-active {
-		.vscode-dark & {
+		@include utils.dark-theme($selectorPostfix: ' &') {
 			background-color: var(--color-background--lighten-10);
 		}
-		.vscode-light & {
+		@include utils.light-theme($selectorPostfix: ' &') {
 			background-color: var(--color-background--darken-10);
 		}
 	}

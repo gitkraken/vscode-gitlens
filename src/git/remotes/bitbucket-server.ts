@@ -1,10 +1,9 @@
 import type { Range, Uri } from 'vscode';
-import type { DynamicAutolinkReference } from '../../annotations/autolinks';
-import type { AutolinkReference } from '../../config';
-import type { GkProviderId } from '../../gk/models/repositoryIdentities';
+import type { AutolinkReference, DynamicAutolinkReference } from '../../autolinks/models/autolinks';
 import type { Brand, Unbrand } from '../../system/brand';
-import { isSha } from '../models/reference';
 import type { Repository } from '../models/repository';
+import type { GkProviderId } from '../models/repositoryIdentities';
+import { isSha } from '../utils/revision.utils';
 import type { RemoteProviderId } from './remoteProvider';
 import { RemoteProvider } from './remoteProvider';
 
@@ -16,13 +15,20 @@ export class BitbucketServerRemote extends RemoteProvider {
 		super(domain, path, protocol, name, custom);
 	}
 
+	protected override get issueLinkPattern(): string {
+		return `${this.baseUrl}/issues/<num>`;
+	}
+
 	private _autolinks: (AutolinkReference | DynamicAutolinkReference)[] | undefined;
 	override get autolinks(): (AutolinkReference | DynamicAutolinkReference)[] {
 		if (this._autolinks === undefined) {
 			this._autolinks = [
+				...super.autolinks,
 				{
 					prefix: 'issue #',
-					url: `${this.baseUrl}/issues/<num>`,
+					url: this.issueLinkPattern,
+					alphanumeric: false,
+					ignoreCase: true,
 					title: `Open Issue #<num> on ${this.name}`,
 
 					type: 'issue',
@@ -30,6 +36,7 @@ export class BitbucketServerRemote extends RemoteProvider {
 				},
 				{
 					prefix: 'pull request #',
+					alphanumeric: false,
 					ignoreCase: true,
 					url: `${this.baseUrl}/pull-requests/<num>`,
 					title: `Open Pull Request #<num> on ${this.name}`,
@@ -57,7 +64,7 @@ export class BitbucketServerRemote extends RemoteProvider {
 		return super.splitPath();
 	}
 
-	override get icon() {
+	override get icon(): string {
 		return 'bitbucket';
 	}
 
@@ -69,7 +76,7 @@ export class BitbucketServerRemote extends RemoteProvider {
 		return 'bitbucketServer' satisfies Unbrand<GkProviderId> as Brand<GkProviderId>;
 	}
 
-	get name() {
+	get name(): string {
 		return this.formatName('Bitbucket Server');
 	}
 
@@ -106,7 +113,7 @@ export class BitbucketServerRemote extends RemoteProvider {
 		if (index !== -1) {
 			const sha = path.substring(1, index);
 			if (isSha(sha)) {
-				const uri = repository.toAbsoluteUri(path.substr(index), { validate: options?.validate });
+				const uri = repository.toAbsoluteUri(path.substring(index), { validate: options?.validate });
 				if (uri != null) return { uri: uri, startLine: startLine, endLine: endLine };
 			}
 		}
@@ -119,11 +126,11 @@ export class BitbucketServerRemote extends RemoteProvider {
 			index = path.lastIndexOf('/', index - 1);
 			branch = path.substring(1, index);
 
-			possibleBranches.set(branch, path.substr(index));
+			possibleBranches.set(branch, path.substring(index));
 		} while (index > 0);
 
 		if (possibleBranches.size !== 0) {
-			const { values: branches } = await repository.getBranches({
+			const { values: branches } = await repository.git.branches().getBranches({
 				filter: b => b.remote && possibleBranches.has(b.getNameWithoutRemote()),
 			});
 			for (const branch of branches) {

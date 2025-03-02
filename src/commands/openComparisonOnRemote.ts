@@ -1,11 +1,11 @@
-import { Commands } from '../constants';
+import { GlCommand } from '../constants.commands';
 import type { Container } from '../container';
 import { RemoteResourceType } from '../git/models/remoteResource';
 import { showGenericErrorMessage } from '../messages';
-import { command, executeCommand } from '../system/command';
+import { command, executeCommand } from '../system/-webview/command';
 import { Logger } from '../system/logger';
-import type { CommandContext } from './base';
-import { Command } from './base';
+import { GlCommandBase } from './commandBase';
+import type { CommandContext } from './commandContext';
 import type { OpenOnRemoteCommandArgs } from './openOnRemote';
 
 export interface OpenComparisonOnRemoteCommandArgs {
@@ -17,21 +17,28 @@ export interface OpenComparisonOnRemoteCommandArgs {
 }
 
 @command()
-export class OpenComparisonOnRemoteCommand extends Command {
+export class OpenComparisonOnRemoteCommand extends GlCommandBase {
 	constructor(private readonly container: Container) {
-		super([Commands.OpenComparisonOnRemote, Commands.CopyRemoteComparisonUrl]);
+		super(['gitlens.openComparisonOnRemote', GlCommand.CopyRemoteComparisonUrl]);
 	}
 
-	protected override preExecute(context: CommandContext, args?: OpenComparisonOnRemoteCommandArgs) {
+	protected override preExecute(context: CommandContext, args?: OpenComparisonOnRemoteCommandArgs): Promise<void> {
 		if (context.type === 'viewItem') {
-			if (context.node.is('results-commits')) {
+			if (context.node.isAny('results-commits')) {
 				args = {
 					...args,
 					repoPath: context.node.repoPath,
-					ref1: context.node.ref1,
-					ref2: context.node.ref2,
+					ref1: context.node.ref1 || 'HEAD',
+					ref2: context.node.ref2 || 'HEAD',
 				};
 			} else if (context.node.is('compare-results')) {
+				args = {
+					...args,
+					repoPath: context.node.repoPath,
+					ref1: context.node.ahead.ref1,
+					ref2: context.node.ahead.ref2,
+				};
+			} else if (context.node.is('compare-branch')) {
 				args = {
 					...args,
 					repoPath: context.node.repoPath,
@@ -41,18 +48,18 @@ export class OpenComparisonOnRemoteCommand extends Command {
 			}
 		}
 
-		if (context.command === Commands.CopyRemoteBranchesUrl) {
+		if (context.command === GlCommand.CopyRemoteComparisonUrl) {
 			args = { ...args, clipboard: true };
 		}
 
 		return this.execute(args);
 	}
 
-	async execute(args?: OpenComparisonOnRemoteCommandArgs) {
+	async execute(args?: OpenComparisonOnRemoteCommandArgs): Promise<void> {
 		if (args?.repoPath == null || args.ref1 == null || args.ref2 == null) return;
 
 		try {
-			void (await executeCommand<OpenOnRemoteCommandArgs>(Commands.OpenOnRemote, {
+			void (await executeCommand<OpenOnRemoteCommandArgs>(GlCommand.OpenOnRemote, {
 				resource: {
 					type: RemoteResourceType.Comparison,
 					base: args.ref1,

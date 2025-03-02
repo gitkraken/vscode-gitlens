@@ -7,14 +7,15 @@ import { Container } from '../container';
 import { reveal as revealBranch } from '../git/actions/branch';
 import { showDetailsView } from '../git/actions/commit';
 import { reveal as revealTag } from '../git/actions/tag';
-import type { BranchSortOptions, GitBranch } from '../git/models/branch';
+import type { GitBranch } from '../git/models/branch';
 import type { GitReference } from '../git/models/reference';
-import { isBranchReference, isRevisionReference, isTagReference } from '../git/models/reference';
-import type { GitTag, TagSortOptions } from '../git/models/tag';
-import type { KeyboardScope } from '../system/keyboard';
-import { getQuickPickIgnoreFocusOut } from '../system/utils';
-import type { BranchQuickPickItem, RefQuickPickItem, TagQuickPickItem } from './items/gitCommands';
-import { createRefQuickPickItem } from './items/gitCommands';
+import type { GitTag } from '../git/models/tag';
+import type { BranchSortOptions, TagSortOptions } from '../git/utils/-webview/sorting';
+import { isBranchReference, isRevisionReference, isTagReference } from '../git/utils/reference.utils';
+import type { KeyboardScope } from '../system/-webview/keyboard';
+import { getQuickPickIgnoreFocusOut } from '../system/-webview/vscode';
+import type { BranchQuickPickItem, RefQuickPickItem, TagQuickPickItem } from './items/gitWizard';
+import { createRefQuickPickItem } from './items/gitWizard';
 
 export type ReferencesQuickPickItem = BranchQuickPickItem | TagQuickPickItem | RefQuickPickItem;
 
@@ -25,7 +26,6 @@ export const enum ReferencesQuickPickIncludes {
 	HEAD = 1 << 3,
 
 	BranchesAndTags = Branches | Tags,
-	// eslint-disable-next-line @typescript-eslint/prefer-literal-enum-member
 	All = Branches | Tags | WorkingTree | HEAD,
 }
 

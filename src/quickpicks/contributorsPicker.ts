@@ -3,13 +3,15 @@ import { window } from 'vscode';
 import { ClearQuickInputButton } from '../commands/quickCommand.buttons';
 import { GlyphChars, quickPickTitleMaxChars } from '../constants';
 import type { Container } from '../container';
-import type { ContributorQuickPickItem, GitContributor } from '../git/models/contributor';
-import { createContributorQuickPickItem, sortContributors } from '../git/models/contributor';
+import type { GitContributor } from '../git/models/contributor';
 import type { Repository } from '../git/models/repository';
-import { debounce } from '../system/function';
+import type { ContributorQuickPickItem } from '../git/utils/-webview/contributor.quickpick';
+import { createContributorQuickPickItem } from '../git/utils/-webview/contributor.quickpick';
+import { sortContributors } from '../git/utils/-webview/sorting';
+import { getQuickPickIgnoreFocusOut } from '../system/-webview/vscode';
+import { debounce } from '../system/function/debounce';
 import { defer } from '../system/promise';
 import { pad, truncate } from '../system/string';
-import { getQuickPickIgnoreFocusOut } from '../system/utils';
 
 export async function showContributorsPicker(
 	container: Container,
@@ -78,7 +80,7 @@ export async function showContributorsPicker(
 		quickpick.busy = true;
 		quickpick.show();
 
-		const contributors = await repository.getContributors();
+		const contributors = await repository.git.contributors().getContributors();
 		if (!deferred.pending) return;
 
 		const items = await Promise.all(

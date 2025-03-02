@@ -32,7 +32,7 @@ export class RemotesNode extends CacheableChildrenViewNode<'remotes', ViewsWithR
 
 	async getChildren(): Promise<ViewNode[]> {
 		if (this.children == null) {
-			const remotes = await this.repo.getRemotes({ sort: true });
+			const remotes = await this.repo.git.remotes().getRemotes({ sort: true });
 			if (remotes.length === 0) {
 				return [new MessageNode(this.view, this, 'No remotes could be found')];
 			}
@@ -53,7 +53,7 @@ export class RemotesNode extends CacheableChildrenViewNode<'remotes', ViewsWithR
 	}
 
 	@debug()
-	override refresh() {
+	override refresh(): void {
 		super.refresh(true);
 	}
 }

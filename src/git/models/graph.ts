@@ -7,10 +7,10 @@ import type {
 	RowStats,
 	Tag,
 } from '@gitkraken/gitkraken-components';
-import type { GkProviderId } from '../../gk/models/repositoryIdentities';
-import type { Brand, Unbrand } from '../../system/brand';
 import type { GitBranch } from './branch';
+import type { GitStashCommit } from './commit';
 import type { GitRemote } from './remote';
+import type { GitWorktree } from './worktree';
 
 export type GitGraphHostingServiceType = HostingServiceType;
 
@@ -49,6 +49,10 @@ export interface GitGraph {
 	readonly branches: Map<string, GitBranch>;
 	readonly remotes: Map<string, GitRemote>;
 	readonly downstreams: Map<string, string[]>;
+	readonly stashes: Map<string, GitStashCommit> | undefined;
+	readonly worktrees: GitWorktree[] | undefined;
+	readonly worktreesByBranch: Map<string, GitWorktree> | undefined;
+
 	/** The rows for the set of commits requested */
 	readonly rows: GitGraphRow[];
 	readonly id?: string;
@@ -66,44 +70,3 @@ export interface GitGraph {
 }
 
 export type GitGraphRowsStats = Map<string, GitGraphRowStats>;
-
-export function convertHostingServiceTypeToGkProviderId(type: GitGraphHostingServiceType): GkProviderId | undefined {
-	switch (type) {
-		case 'github':
-			return 'github' satisfies Unbrand<GkProviderId> as Brand<GkProviderId>;
-		case 'githubEnterprise':
-			return 'githubEnterprise' satisfies Unbrand<GkProviderId> as Brand<GkProviderId>;
-		case 'gitlab':
-			return 'gitlab' satisfies Unbrand<GkProviderId> as Brand<GkProviderId>;
-		case 'gitlabSelfHosted':
-			return 'gitlabSelfHosted' satisfies Unbrand<GkProviderId> as Brand<GkProviderId>;
-		case 'bitbucket':
-			return 'bitbucket' satisfies Unbrand<GkProviderId> as Brand<GkProviderId>;
-		case 'bitbucketServer':
-			return 'bitbucketServer' satisfies Unbrand<GkProviderId> as Brand<GkProviderId>;
-		case 'azureDevops':
-			return 'azureDevops' satisfies Unbrand<GkProviderId> as Brand<GkProviderId>;
-		default:
-			return undefined;
-	}
-}
-
-export function getGkProviderThemeIconString(
-	providerIdOrHostingType: GkProviderId | GitGraphHostingServiceType | undefined,
-): string {
-	switch (providerIdOrHostingType) {
-		case 'azureDevops':
-			return 'gitlens-provider-azdo';
-		case 'bitbucket':
-		case 'bitbucketServer':
-			return 'gitlens-provider-bitbucket';
-		case 'github':
-		case 'githubEnterprise':
-			return 'gitlens-provider-github';
-		case 'gitlab':
-		case 'gitlabSelfHosted':
-			return 'gitlens-provider-gitlab';
-		default:
-			return 'cloud';
-	}
-}

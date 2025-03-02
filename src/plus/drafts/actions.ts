@@ -1,9 +1,9 @@
 import type { MessageItem } from 'vscode';
 import { window } from 'vscode';
 import { Container } from '../../container';
-import { configuration } from '../../system/configuration';
+import { configuration } from '../../system/-webview/configuration';
+import type { ShowCreateDraft, ShowViewDraft } from '../../webviews/plus/patchDetails/registration';
 import type { WebviewViewShowOptions } from '../../webviews/webviewsController';
-import type { ShowCreateDraft, ShowViewDraft } from '../webviews/patchDetails/registration';
 
 type ShowCreateOrOpen = ShowCreateDraft | ShowViewDraft;
 
@@ -25,5 +25,5 @@ export async function showPatchesView(createOrOpen: ShowCreateOrOpen, options?: 
 	if (createOrOpen.mode === 'create') {
 		options = { ...options, preserveFocus: false, preserveVisibility: false };
 	}
-	return Container.instance.patchDetailsView.show(options, createOrOpen);
+	return Container.instance.views.patchDetails.show(options, createOrOpen);
 }

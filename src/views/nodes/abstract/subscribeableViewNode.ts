@@ -1,8 +1,8 @@
 import type { TreeViewVisibilityChangeEvent } from 'vscode';
 import { Disposable } from 'vscode';
-import type { TreeViewSubscribableNodeTypes } from '../../../constants';
+import type { TreeViewSubscribableNodeTypes } from '../../../constants.views';
 import type { GitUri } from '../../../git/gitUri';
-import { gate } from '../../../system/decorators/gate';
+import { gate } from '../../../system/decorators/-webview/gate';
 import { debug } from '../../../system/decorators/log';
 import { weakEvent } from '../../../system/event';
 import type { View } from '../../viewBase';
@@ -50,7 +50,7 @@ export abstract class SubscribeableViewNode<
 		this.disposable = Disposable.from(...disposables);
 	}
 
-	override dispose() {
+	override dispose(): void {
 		super.dispose();
 		void this.unsubscribe();
 		this.disposable?.dispose();
@@ -113,7 +113,7 @@ export abstract class SubscribeableViewNode<
 	}
 
 	@debug()
-	protected onAutoRefreshChanged() {
+	protected onAutoRefreshChanged(): void {
 		this.onVisibilityChanged({ visible: this.view.visible });
 	}
 
@@ -133,7 +133,7 @@ export abstract class SubscribeableViewNode<
 	// 	}
 	// }
 	@debug()
-	protected onVisibilityChanged(e: TreeViewVisibilityChangeEvent) {
+	protected onVisibilityChanged(e: TreeViewVisibilityChangeEvent): void {
 		void this.ensureSubscription();
 
 		if (e.visible) {
@@ -143,7 +143,7 @@ export abstract class SubscribeableViewNode<
 
 	@gate()
 	@debug()
-	async ensureSubscription() {
+	async ensureSubscription(): Promise<void> {
 		// We only need to subscribe if we are visible and if auto-refresh enabled (when supported)
 		if (!this.canSubscribe || !this.view.visible || (canAutoRefreshView(this.view) && !this.view.autoRefresh)) {
 			await this.unsubscribe();
@@ -160,7 +160,7 @@ export abstract class SubscribeableViewNode<
 
 	@gate()
 	@debug()
-	async resetSubscription() {
+	async resetSubscription(): Promise<void> {
 		await this.unsubscribe();
 		await this.ensureSubscription();
 	}

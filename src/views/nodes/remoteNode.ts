@@ -1,12 +1,13 @@
-import { ThemeIcon, TreeItem, TreeItemCollapsibleState, Uri } from 'vscode';
+import { MarkdownString, ThemeIcon, TreeItem, TreeItemCollapsibleState } from 'vscode';
 import { GlyphChars } from '../../constants';
 import { GitUri } from '../../git/gitUri';
 import type { GitRemote } from '../../git/models/remote';
-import { getRemoteUpstreamDescription } from '../../git/models/remote';
 import type { Repository } from '../../git/models/repository';
+import { getRemoteUpstreamDescription } from '../../git/utils/remote.utils';
 import { makeHierarchical } from '../../system/array';
 import { log } from '../../system/decorators/log';
 import type { ViewsWithRemotes } from '../viewBase';
+import { createViewDecorationUri } from '../viewDecorationProvider';
 import { ContextValues, getViewNodeId, ViewNode } from './abstract/viewNode';
 import { BranchNode } from './branchNode';
 import { BranchOrTagFolderNode } from './branchOrTagFolderNode';
@@ -39,7 +40,7 @@ export class RemoteNode extends ViewNode<'remote', ViewsWithRemotes> {
 	}
 
 	async getChildren(): Promise<ViewNode[]> {
-		const branches = await this.repo.getBranches({
+		const branches = await this.repo.git.branches().getBranches({
 			// only show remote branches for this remote
 			filter: b => b.remote && b.name.startsWith(this.remote.name),
 			sort: true,
@@ -51,6 +52,7 @@ export class RemoteNode extends ViewNode<'remote', ViewsWithRemotes> {
 			b =>
 				new BranchNode(GitUri.fromRepoPath(this.uri.repoPath!, b.ref), this.view, this, this.repo, b, false, {
 					showComparison: false,
+					showStashes: false,
 					showTracking: false,
 				}),
 		);
@@ -85,6 +87,7 @@ export class RemoteNode extends ViewNode<'remote', ViewsWithRemotes> {
 		item.id = this.id;
 		item.description = getRemoteUpstreamDescription(this.remote);
 
+		let tooltip;
 		if (this.remote.provider != null) {
 			const { provider } = this.remote;
 
@@ -107,33 +110,39 @@ export class RemoteNode extends ViewNode<'remote', ViewsWithRemotes> {
 				const connected = integration?.maybeConnected ?? (await integration?.isConnected());
 
 				item.contextValue = `${ContextValues.Remote}${connected ? '+connected' : '+disconnected'}`;
-				item.tooltip = `${this.remote.name} (${provider.name} ${GlyphChars.Dash} ${
+				tooltip = `\`${this.remote.name}\` \u00a0(${provider.name} ${GlyphChars.Dash} _${
 					connected ? 'connected' : 'not connected'
-				})\n${provider.displayPath}\n`;
+				}${this.remote.default ? ', default' : ''}_) \n\n${provider.displayPath}`;
 			} else {
 				item.contextValue = ContextValues.Remote;
-				item.tooltip = `${this.remote.name} (${provider.name})\n${provider.displayPath}\n`;
+				tooltip = `\`${this.remote.name}\` \u00a0(${provider.name}${
+					this.remote.default ? ', default' : ''
+				}) \n\n${provider.displayPath}`;
 			}
 		} else {
 			item.contextValue = ContextValues.Remote;
 			item.iconPath = new ThemeIcon('cloud');
-			item.tooltip = `${this.remote.name} (${this.remote.domain})\n${this.remote.path}\n`;
+			tooltip = `\`${this.remote.name}\` \u00a0(${this.remote.domain}${
+				this.remote.default ? ', default' : ''
+			}) \n\n${this.remote.path}`;
 		}
 
 		if (this.remote.default) {
 			item.contextValue += '+default';
-			item.resourceUri = Uri.parse('gitlens-view://remote/default');
 		}
+		item.resourceUri = createViewDecorationUri('remote', { state: this.remote.default ? 'default' : undefined });
 
 		for (const { type, url } of this.remote.urls) {
-			item.tooltip += `\n${url} (${type})`;
+			tooltip += `\\\n${url} (${type})`;
 		}
+
+		item.tooltip = new MarkdownString(tooltip, true);
 
 		return item;
 	}
 
 	@log()
-	async setAsDefault(state: boolean = true) {
+	async setAsDefault(state: boolean = true): Promise<void> {
 		await this.remote.setAsDefault(state);
 		void this.triggerChange();
 	}

@@ -1,16 +1,17 @@
-import { Commands } from '../constants';
+import { GlCommand } from '../constants.commands';
 import type { Container } from '../container';
 import type { GitCommit } from '../git/models/commit';
 import type { GitRemote } from '../git/models/remote';
 import { isRemote } from '../git/models/remote';
 import type { Repository } from '../git/models/repository';
 import type { RemoteProvider } from '../git/remotes/remoteProvider';
-import { isSupportedCloudIntegrationId } from '../plus/integrations/authentication/models';
 import { showRepositoryPicker } from '../quickpicks/repositoryPicker';
-import { command } from '../system/command';
+import { command } from '../system/-webview/command';
+import { createMarkdownCommandLink } from '../system/commands';
 import { first } from '../system/iterable';
-import type { CommandContext } from './base';
-import { Command, isCommandContextViewNodeHasRemote } from './base';
+import { GlCommandBase } from './commandBase';
+import type { CommandContext } from './commandContext';
+import { isCommandContextViewNodeHasRemote } from './commandContext.utils';
 
 export interface ConnectRemoteProviderCommandArgs {
 	remote: string;
@@ -18,10 +19,10 @@ export interface ConnectRemoteProviderCommandArgs {
 }
 
 @command()
-export class ConnectRemoteProviderCommand extends Command {
-	static getMarkdownCommandArgs(args: ConnectRemoteProviderCommandArgs): string;
-	static getMarkdownCommandArgs(remote: GitRemote): string;
-	static getMarkdownCommandArgs(argsOrRemote: ConnectRemoteProviderCommandArgs | GitRemote): string {
+export class ConnectRemoteProviderCommand extends GlCommandBase {
+	static createMarkdownCommandLink(args: ConnectRemoteProviderCommandArgs): string;
+	static createMarkdownCommandLink(remote: GitRemote): string;
+	static createMarkdownCommandLink(argsOrRemote: ConnectRemoteProviderCommandArgs | GitRemote): string {
 		let args: ConnectRemoteProviderCommandArgs | GitCommit;
 		if (isRemote(argsOrRemote)) {
 			args = {
@@ -32,14 +33,14 @@ export class ConnectRemoteProviderCommand extends Command {
 			args = argsOrRemote;
 		}
 
-		return super.getMarkdownCommandArgsCore<ConnectRemoteProviderCommandArgs>(Commands.ConnectRemoteProvider, args);
+		return createMarkdownCommandLink<ConnectRemoteProviderCommandArgs>(GlCommand.ConnectRemoteProvider, args);
 	}
 
 	constructor(private readonly container: Container) {
-		super(Commands.ConnectRemoteProvider);
+		super(GlCommand.ConnectRemoteProvider);
 	}
 
-	protected override preExecute(context: CommandContext, args?: ConnectRemoteProviderCommandArgs) {
+	protected override preExecute(context: CommandContext, args?: ConnectRemoteProviderCommandArgs): Promise<any> {
 		if (isCommandContextViewNodeHasRemote(context)) {
 			args = { ...args, remote: context.node.remote.name, repoPath: context.node.remote.repoPath };
 		}
@@ -55,7 +56,7 @@ export class ConnectRemoteProviderCommand extends Command {
 			const repos = new Map<Repository, GitRemote<RemoteProvider>>();
 
 			for (const repo of this.container.git.openRepositories) {
-				const remote = await repo.getBestRemoteWithIntegration({ includeDisconnected: true });
+				const remote = await repo.git.remotes().getBestRemoteWithIntegration({ includeDisconnected: true });
 				if (remote?.provider != null) {
 					repos.set(repo, remote);
 				}
@@ -80,12 +81,14 @@ export class ConnectRemoteProviderCommand extends Command {
 		} else if (args?.remote == null) {
 			repoPath = args.repoPath;
 
-			remote = await this.container.git.getBestRemoteWithIntegration(repoPath, { includeDisconnected: true });
+			remote = await this.container.git
+				.remotes(repoPath)
+				.getBestRemoteWithIntegration({ includeDisconnected: true });
 			if (remote == null) return false;
 		} else {
 			repoPath = args.repoPath;
 
-			remotes = await this.container.git.getRemotesWithProviders(repoPath);
+			remotes = await this.container.git.remotes(repoPath).getRemotesWithProviders();
 			remote = remotes.find(r => r.name === args.remote) as GitRemote<RemoteProvider> | undefined;
 			if (!remote?.hasIntegration()) return false;
 		}
@@ -93,30 +96,11 @@ export class ConnectRemoteProviderCommand extends Command {
 		const integration = await this.container.integrations.getByRemote(remote);
 		if (integration == null) return false;
 
-		// Some integrations does not require managmement of Cloud Integrations (e.g. GitHub that can take a built-in VS Code session),
-		// therefore we try to connect them right away.
-		// Only if our attempt fails, we fall to manageCloudIntegrations flow.
-		let connected = await integration.connect();
-
-		if (!connected) {
-			if (isSupportedCloudIntegrationId(integration.id)) {
-				await this.container.integrations.manageCloudIntegrations(
-					{ integrationId: integration.id, skipIfConnected: true },
-					{
-						source: 'remoteProvider',
-						detail: {
-							action: 'connect',
-							integration: integration.id,
-						},
-					},
-				);
-				connected = await integration.connect();
-			}
-		}
+		const connected = await integration.connect('remoteProvider');
 
 		if (
 			connected &&
-			!(remotes ?? (await this.container.git.getRemotesWithProviders(repoPath))).some(r => r.default)
+			!(remotes ?? (await this.container.git.remotes(repoPath).getRemotesWithProviders())).some(r => r.default)
 		) {
 			await remote.setAsDefault(true);
 		}
@@ -130,10 +114,10 @@ export interface DisconnectRemoteProviderCommandArgs {
 }
 
 @command()
-export class DisconnectRemoteProviderCommand extends Command {
-	static getMarkdownCommandArgs(args: DisconnectRemoteProviderCommandArgs): string;
-	static getMarkdownCommandArgs(remote: GitRemote): string;
-	static getMarkdownCommandArgs(argsOrRemote: DisconnectRemoteProviderCommandArgs | GitRemote): string {
+export class DisconnectRemoteProviderCommand extends GlCommandBase {
+	static createMarkdownCommandLink(args: DisconnectRemoteProviderCommandArgs): string;
+	static createMarkdownCommandLink(remote: GitRemote): string;
+	static createMarkdownCommandLink(argsOrRemote: DisconnectRemoteProviderCommandArgs | GitRemote): string {
 		let args: DisconnectRemoteProviderCommandArgs | GitCommit;
 		if (isRemote(argsOrRemote)) {
 			args = {
@@ -144,17 +128,14 @@ export class DisconnectRemoteProviderCommand extends Command {
 			args = argsOrRemote;
 		}
 
-		return super.getMarkdownCommandArgsCore<DisconnectRemoteProviderCommandArgs>(
-			Commands.DisconnectRemoteProvider,
-			args,
-		);
+		return createMarkdownCommandLink<DisconnectRemoteProviderCommandArgs>(GlCommand.DisconnectRemoteProvider, args);
 	}
 
 	constructor(private readonly container: Container) {
-		super(Commands.DisconnectRemoteProvider);
+		super(GlCommand.DisconnectRemoteProvider);
 	}
 
-	protected override preExecute(context: CommandContext, args?: ConnectRemoteProviderCommandArgs) {
+	protected override preExecute(context: CommandContext, args?: DisconnectRemoteProviderCommandArgs): Promise<void> {
 		if (isCommandContextViewNodeHasRemote(context)) {
 			args = { ...args, remote: context.node.remote.name, repoPath: context.node.remote.repoPath };
 		}
@@ -162,20 +143,20 @@ export class DisconnectRemoteProviderCommand extends Command {
 		return this.execute(args);
 	}
 
-	async execute(args?: DisconnectRemoteProviderCommandArgs): Promise<any> {
+	async execute(args?: DisconnectRemoteProviderCommandArgs): Promise<void> {
 		let remote: GitRemote<RemoteProvider> | undefined;
 		let repoPath;
 		if (args?.repoPath == null) {
 			const repos = new Map<Repository, GitRemote<RemoteProvider>>();
 
 			for (const repo of this.container.git.openRepositories) {
-				const remote = await repo.getBestRemoteWithIntegration({ includeDisconnected: false });
+				const remote = await repo.git.remotes().getBestRemoteWithIntegration({ includeDisconnected: false });
 				if (remote != null) {
 					repos.set(repo, remote);
 				}
 			}
 
-			if (repos.size === 0) return undefined;
+			if (repos.size === 0) return;
 			if (repos.size === 1) {
 				let repo;
 				[repo, remote] = first(repos)!;
@@ -186,7 +167,7 @@ export class DisconnectRemoteProviderCommand extends Command {
 					'Choose which repository to disconnect from the remote provider',
 					[...repos.keys()],
 				);
-				if (pick == null) return undefined;
+				if (pick == null) return;
 
 				repoPath = pick.path;
 				remote = repos.get(pick)!;
@@ -194,13 +175,17 @@ export class DisconnectRemoteProviderCommand extends Command {
 		} else if (args?.remote == null) {
 			repoPath = args.repoPath;
 
-			remote = await this.container.git.getBestRemoteWithIntegration(repoPath, { includeDisconnected: false });
-			if (remote == null) return undefined;
+			remote = await this.container.git
+				.remotes(repoPath)
+				.getBestRemoteWithIntegration({ includeDisconnected: false });
+			if (remote == null) return;
 		} else {
 			repoPath = args.repoPath;
 
-			remote = (await this.container.git.getRemotesWithProviders(repoPath)).find(r => r.name === args.remote);
-			if (!remote?.hasIntegration()) return undefined;
+			remote = (await this.container.git.remotes(repoPath).getRemotesWithProviders()).find(
+				r => r.name === args.remote,
+			);
+			if (!remote?.hasIntegration()) return;
 		}
 
 		const integration = await this.container.integrations.getByRemote(remote);

@@ -2,26 +2,27 @@
 	"extends": "../../../tsconfig.base.json",
 	"compilerOptions": {
 		"jsx": "react",
-		"lib": ["dom", "dom.iterable", "es2022", "esnext.disposable"],
+		"lib": ["dom", "dom.iterable", "es2023"],
 		"outDir": "../../",
 		"paths": {
 			"@env/*": ["src/env/browser/*"]
 		},
 		"useDefineForClassFields": false // Needed for lit decorators https://github.com/lit/lit/issues/3278 https://lit.dev/docs/tools/publishing/#publishing-modern-javascript
 	},
+	// Keep in sync with `src/eslint.config.mjs`
 	"include": [
 		"**/*",
-		"../../plus/gk/**/*",
-		"../../plus/webviews/**/*",
-		"../../@types/**/*",
-		"../protocol.ts",
 		"../**/protocol.ts",
+		"../../**/models/**/*.ts",
+		"../../**/utils/**/*.ts",
+		"../../@types/**/*",
 		"../../config.ts",
 		"../../constants.ts",
+		"../../constants.*.ts",
+		"../../env/browser/**/*",
 		"../../features.ts",
-		"../../subscription.ts",
-		"../../system/**/*",
-		"../../env/browser/**/*"
+		"../../system/**/*.ts",
+		"../../**/webview/**/*"
 	],
-	"exclude": ["node_modules", "test"]
+	"exclude": ["src/**/__tests__/**/*", "src/**/-webview/**/*"]
 }

@@ -1,5 +1,6 @@
 import type { QuickPickItem, ThemeIcon, Uri } from 'vscode';
-import type { Subscription } from '../../plus/gk/account/subscription';
+import { proPreviewLengthInDays, proTrialLengthInDays } from '../../constants.subscription';
+import { pluralize } from '../../system/string';
 
 export enum Directive {
 	Back,
@@ -31,13 +32,14 @@ export function createDirectiveQuickPickItem(
 		label?: string;
 		description?: string;
 		detail?: string;
+		buttons?: QuickPickItem['buttons'];
 		iconPath?: Uri | { light: Uri; dark: Uri } | ThemeIcon;
-		subscription?: Subscription;
 		onDidSelect?: () => void | Promise<void>;
 	},
-) {
+): DirectiveQuickPickItem {
 	let label = options?.label;
 	let detail = options?.detail;
+	let description = options?.description;
 	if (label == null) {
 		switch (directive) {
 			case Directive.Back:
@@ -60,11 +62,14 @@ export function createDirectiveQuickPickItem(
 				break;
 			case Directive.StartPreview:
 				label = 'Continue';
-				detail = 'Continuing gives you 3 days to preview this and other local Pro features';
+				detail = `Continuing gives you ${proPreviewLengthInDays} days to preview this and other local Pro features`;
 				break;
 			case Directive.StartProTrial:
-				label = 'Start Pro Trial';
-				detail = 'Start your free 7-day Pro trial for full access to Pro features';
+				label = 'Try GitLens Pro';
+				detail = `Get ${pluralize(
+					'day',
+					proTrialLengthInDays,
+				)} of GitLens Pro for free — no credit card required.`;
 				break;
 			case Directive.RequiresVerification:
 				label = 'Resend Email';
@@ -72,16 +77,21 @@ export function createDirectiveQuickPickItem(
 				break;
 			case Directive.RequiresPaidSubscription:
 				label = 'Upgrade to Pro';
-				detail = 'Upgrading to a paid plan is required to use this Pro feature';
+				if (detail != null) {
+					description ??= ' \u2014\u00a0\u00a0 GitLens Pro is required to use this feature';
+				} else {
+					detail = 'Upgrading to GitLens Pro is required to use this feature';
+				}
 				break;
 		}
 	}
 
 	const item: DirectiveQuickPickItem = {
 		label: label,
-		description: options?.description,
+		description: description,
 		detail: detail,
 		iconPath: options?.iconPath,
+		buttons: options?.buttons,
 		alwaysShow: true,
 		picked: picked,
 		directive: directive,

@@ -1,6 +1,6 @@
 import type { CancellationToken, TextDocument } from 'vscode';
 import { MarkdownString } from 'vscode';
-import type { EnrichedAutolink } from '../annotations/autolinks';
+import type { EnrichedAutolink } from '../autolinks/models/autolinks';
 import { DiffWithCommand } from '../commands/diffWith';
 import { ShowQuickCommitCommand } from '../commands/showQuickCommit';
 import { GlyphChars } from '../constants';
@@ -8,19 +8,14 @@ import type { Container } from '../container';
 import { CommitFormatter } from '../git/formatters/commitFormatter';
 import { GitUri } from '../git/gitUri';
 import type { GitCommit } from '../git/models/commit';
-import { uncommittedStaged } from '../git/models/constants';
 import type { GitDiffHunk, GitDiffLine } from '../git/models/diff';
 import type { PullRequest } from '../git/models/pullRequest';
-import { isUncommittedStaged, shortenRevision } from '../git/models/reference';
 import type { GitRemote } from '../git/models/remote';
+import { uncommittedStaged } from '../git/models/revision';
 import type { RemoteProvider } from '../git/remotes/remoteProvider';
-import { configuration } from '../system/configuration';
-import {
-	cancellable,
-	getSettledValue,
-	pauseOnCancelOrTimeout,
-	pauseOnCancelOrTimeoutMapTuplePromise,
-} from '../system/promise';
+import { isUncommittedStaged, shortenRevision } from '../git/utils/revision.utils';
+import { configuration } from '../system/-webview/configuration';
+import { getSettledValue, pauseOnCancelOrTimeout, pauseOnCancelOrTimeoutMapTuplePromise } from '../system/promise';
 
 export async function changesMessage(
 	container: Container,
@@ -82,7 +77,7 @@ export async function changesMessage(
 		const compareUris = await commit.getPreviousComparisonUrisForLine(editorLine, documentRef);
 		if (compareUris?.previous == null) return undefined;
 
-		message = `[$(compare-changes)](${DiffWithCommand.getMarkdownCommandArgs({
+		message = `[$(compare-changes)](${DiffWithCommand.createMarkdownCommandLink({
 			lhs: {
 				sha: compareUris.previous.sha ?? '',
 				uri: compareUris.previous.documentUri(),
@@ -102,7 +97,7 @@ export async function changesMessage(
 				  })}_ &nbsp;${GlyphChars.ArrowLeftRightLong}&nbsp; `
 				: `  &nbsp;[$(git-commit) ${shortenRevision(
 						compareUris.previous.sha || '',
-				  )}](${ShowQuickCommitCommand.getMarkdownCommandArgs(
+				  )}](${ShowQuickCommitCommand.createMarkdownCommandLink(
 						compareUris.previous.sha || '',
 				  )} "Show Commit") &nbsp;${GlyphChars.ArrowLeftRightLong}&nbsp; `;
 
@@ -115,9 +110,14 @@ export async function changesMessage(
 				  })}_`
 				: `[$(git-commit) ${shortenRevision(
 						compareUris.current.sha || '',
-				  )}](${ShowQuickCommitCommand.getMarkdownCommandArgs(compareUris.current.sha || '')} "Show Commit")`;
+				  )}](${ShowQuickCommitCommand.createMarkdownCommandLink(
+						compareUris.current.sha || '',
+				  )} "Show Commit")`;
 	} else {
-		message = `[$(compare-changes)](${DiffWithCommand.getMarkdownCommandArgs(commit, editorLine)} "Open Changes")`;
+		message = `[$(compare-changes)](${DiffWithCommand.createMarkdownCommandLink(
+			commit,
+			editorLine,
+		)} "Open Changes")`;
 
 		if (previousSha === null) {
 			previousSha = await commit.getPreviousSha();
@@ -125,12 +125,12 @@ export async function changesMessage(
 		if (previousSha) {
 			previous = `  &nbsp;[$(git-commit) ${shortenRevision(
 				previousSha,
-			)}](${ShowQuickCommitCommand.getMarkdownCommandArgs(previousSha)} "Show Commit") &nbsp;${
+			)}](${ShowQuickCommitCommand.createMarkdownCommandLink(previousSha)} "Show Commit") &nbsp;${
 				GlyphChars.ArrowLeftRightLong
 			}&nbsp;`;
 		}
 
-		current = `[$(git-commit) ${commit.shortSha}](${ShowQuickCommitCommand.getMarkdownCommandArgs(
+		current = `[$(git-commit) ${commit.shortSha}](${ShowQuickCommitCommand.createMarkdownCommandLink(
 			commit.sha,
 		)} "Show Commit")`;
 	}
@@ -161,7 +161,7 @@ export async function localChangesMessage(
 		const file = await fromCommit.findFile(uri);
 		if (file == null) return undefined;
 
-		message = `[$(compare-changes)](${DiffWithCommand.getMarkdownCommandArgs({
+		message = `[$(compare-changes)](${DiffWithCommand.createMarkdownCommandLink({
 			lhs: {
 				sha: fromCommit.sha,
 				uri: GitUri.fromFile(file, uri.repoPath!, undefined, true).toFileUri(),
@@ -174,7 +174,7 @@ export async function localChangesMessage(
 			line: editorLine,
 		})} "Open Changes")`;
 
-		previous = `[$(git-commit) ${fromCommit.shortSha}](${ShowQuickCommitCommand.getMarkdownCommandArgs(
+		previous = `[$(git-commit) ${fromCommit.shortSha}](${ShowQuickCommitCommand.createMarkdownCommandLink(
 			fromCommit.sha,
 		)} "Show Commit")`;
 
@@ -212,7 +212,7 @@ export async function detailsMessage(
 	}>,
 ): Promise<MarkdownString | undefined> {
 	const remotesResult = await pauseOnCancelOrTimeout(
-		options?.remotes ?? container.git.getBestRemotesWithProviders(commit.repoPath),
+		options?.remotes ?? container.git.remotes(commit.repoPath).getBestRemotesWithProviders(),
 		options?.cancellation,
 		options?.timeout,
 	);
@@ -261,8 +261,12 @@ export async function detailsMessage(
 						options?.timeout,
 				  )
 				: undefined,
-			container.vsls.enabled
-				? cancellable(container.vsls.getContactPresence(commit.author.email), 250, options?.cancellation)
+			container.vsls.active
+				? pauseOnCancelOrTimeout(
+						container.vsls.getContactPresence(commit.author.email),
+						options?.cancellation,
+						Math.min(options?.timeout ?? 250, 250),
+				  )
 				: undefined,
 			commit.isUncommitted ? commit.getPreviousComparisonUrisForLine(editorLine, uri.sha) : undefined,
 			commit.message == null ? commit.ensureFullDetails() : undefined,
@@ -285,7 +289,7 @@ export async function detailsMessage(
 		getBranchAndTagTips: options?.getBranchAndTagTips,
 		messageAutolinks: options?.autolinks || (options?.autolinks !== false && cfg.autolinks.enabled),
 		pullRequest: pr?.value,
-		presence: presence,
+		presence: presence?.value,
 		previousLineComparisonUris: previousLineComparisonUris,
 		outputFormat: 'markdown',
 		remotes: remotes,

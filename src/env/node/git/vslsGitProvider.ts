@@ -1,13 +1,14 @@
 import type { ChildProcess } from 'child_process';
-import { FileType, Uri, workspace } from 'vscode';
+import { Uri } from 'vscode';
 import { Schemes } from '../../../constants';
 import { Container } from '../../../container';
 import type { GitCommandOptions, GitSpawnOptions } from '../../../git/commandOptions';
 import type { GitProviderDescriptor } from '../../../git/gitProvider';
 import type { Repository } from '../../../git/models/repository';
+import { isFolderUri } from '../../../system/-webview/path';
+import { addVslsPrefixIfNeeded } from '../../../system/-webview/path.vsls';
 import { Logger } from '../../../system/logger';
 import { getLogScope } from '../../../system/logger.scope';
-import { addVslsPrefixIfNeeded } from '../../../system/path';
 import { Git } from './git';
 import { LocalGitProvider } from './localGitProvider';
 
@@ -16,11 +17,11 @@ export class VslsGit extends Git {
 		super();
 	}
 
-	override async git<TOut extends string | Buffer>(options: GitCommandOptions, ...args: any[]): Promise<TOut> {
+	override async exec<T extends string | Buffer>(options: GitCommandOptions, ...args: any[]): Promise<T> {
 		if (options.local) {
 			// Since we will have a live share path here, just blank it out
 			options.cwd = '';
-			return this.localGit.git<TOut>(options, ...args);
+			return this.localGit.exec<T>(options, ...args);
 		}
 
 		const guest = await Container.instance.vsls.guest();
@@ -29,11 +30,10 @@ export class VslsGit extends Git {
 			throw new Error('No guest');
 		}
 
-		return guest.git<TOut>(options, ...args);
+		return guest.git<T>(options, ...args);
 	}
 
-	// eslint-disable-next-line @typescript-eslint/require-await
-	override async gitSpawn(_options: GitSpawnOptions, ..._args: any[]): Promise<ChildProcess> {
+	override spawn(_options: GitSpawnOptions, ..._args: any[]): Promise<ChildProcess> {
 		debugger;
 		throw new Error('Git spawn not supported in Live Share');
 	}
@@ -107,8 +107,7 @@ export class VslsGitProvider extends LocalGitProvider {
 		let repoPath: string | undefined;
 		try {
 			if (isDirectory == null) {
-				const stats = await workspace.fs.stat(uri);
-				isDirectory = (stats.type & FileType.Directory) === FileType.Directory;
+				isDirectory = await isFolderUri(uri);
 			}
 
 			// If the uri isn't a directory, go up one level

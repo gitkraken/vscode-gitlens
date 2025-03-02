@@ -1,31 +1,55 @@
-import type { CancellationToken, LanguageModelChat, LanguageModelChatSelector } from 'vscode';
-import { CancellationTokenSource, LanguageModelChatMessage, lm, window } from 'vscode';
+import type { CancellationToken, Disposable, Event, LanguageModelChat, LanguageModelChatSelector } from 'vscode';
+import { CancellationTokenSource, EventEmitter, LanguageModelChatMessage, lm } from 'vscode';
+import type { TelemetryEvents } from '../constants.telemetry';
 import type { Container } from '../container';
-import { configuration } from '../system/configuration';
-import { capitalize } from '../system/string';
-import type { AIModel, AIProvider } from './aiProviderService';
-import { getMaxCharacters } from './aiProviderService';
-import { cloudPatchMessageSystemPrompt, codeSuggestMessageSystemPrompt, commitMessageSystemPrompt } from './prompts';
+import { configuration } from '../system/-webview/configuration';
+import { sum } from '../system/iterable';
+import { capitalize, interpolate } from '../system/string';
+import type { AIGenerateChangelogChange, AIModel, AIProvider } from './aiProviderService';
+import {
+	getMaxCharacters,
+	getValidatedTemperature,
+	showDiffTruncationWarning,
+	showPromptTruncationWarning,
+} from './aiProviderService';
+import {
+	explainChangesUserPrompt,
+	generateChangelogUserPrompt,
+	generateCloudPatchMessageUserPrompt,
+	generateCodeSuggestMessageUserPrompt,
+	generateCommitMessageUserPrompt,
+	generateStashMessageUserPrompt,
+} from './prompts';
 
 const provider = { id: 'vscode', name: 'VS Code Provided' } as const;
 
-export type VSCodeAIModels = `${string}:${string}`;
 type VSCodeAIModel = AIModel<typeof provider.id> & { vendor: string; selector: LanguageModelChatSelector };
-export function isVSCodeAIModel(model: AIModel): model is AIModel<typeof provider.id> {
-	return model.provider.id === provider.id;
-}
+
+const accessJustification =
+	'GitLens leverages Copilot for AI-powered features to improve your workflow and development experience.';
 
 export class VSCodeAIProvider implements AIProvider<typeof provider.id> {
 	readonly id = provider.id;
 
 	private _name: string | undefined;
-	get name() {
+	get name(): string {
 		return this._name ?? provider.name;
 	}
 
-	constructor(private readonly container: Container) {}
+	private _onDidChange = new EventEmitter<void>();
+	get onDidChange(): Event<void> {
+		return this._onDidChange.event;
+	}
 
-	dispose() {}
+	private readonly _disposable: Disposable;
+
+	constructor(private readonly container: Container) {
+		this._disposable = lm.onDidChangeChatModels(() => this._onDidChange.fire());
+	}
+
+	dispose(): void {
+		this._disposable.dispose();
+	}
 
 	async getModels(): Promise<readonly AIModel<typeof provider.id>[]> {
 		const models = await lm.selectChatModels();
@@ -40,10 +64,11 @@ export class VSCodeAIProvider implements AIProvider<typeof provider.id> {
 	async generateMessage(
 		model: VSCodeAIModel,
 		diff: string,
+		reporting: TelemetryEvents['ai/generate'],
 		promptConfig: {
-			systemPrompt: string;
-			customPrompt: string;
-			contextName: string;
+			type: 'commit' | 'cloud-patch' | 'code-suggestion' | 'stash';
+			userPrompt: string;
+			customInstructions?: string;
 		},
 		options?: { cancellation?: CancellationToken; context?: string },
 	): Promise<string | undefined> {
@@ -64,32 +89,31 @@ export class VSCodeAIProvider implements AIProvider<typeof provider.id> {
 
 		try {
 			while (true) {
-				const code = diff.substring(0, maxCodeCharacters);
-
 				const messages: LanguageModelChatMessage[] = [
-					LanguageModelChatMessage.User(promptConfig.systemPrompt),
 					LanguageModelChatMessage.User(
-						`Here is the code diff to use to generate the ${promptConfig.contextName}:\n\n${code}`,
+						interpolate(promptConfig.userPrompt, {
+							diff: diff.substring(0, maxCodeCharacters),
+							context: options?.context ?? '',
+							instructions: promptConfig.customInstructions ?? '',
+						}),
 					),
-					...(options?.context
-						? [
-								LanguageModelChatMessage.User(
-									`Here is additional context which should be taken into account when generating the ${promptConfig.contextName}:\n\n${options.context}`,
-								),
-						  ]
-						: []),
-					LanguageModelChatMessage.User(promptConfig.customPrompt),
 				];
 
+				reporting['retry.count'] = retries;
+				reporting['input.length'] = (reporting['input.length'] ?? 0) + sum(messages, m => m.content.length);
+
 				try {
-					const rsp = await chatModel.sendRequest(messages, {}, cancellation);
+					const rsp = await chatModel.sendRequest(
+						messages,
+						{
+							justification: accessJustification,
+							modelOptions: { temperature: getValidatedTemperature(model.temperature) },
+						},
+						cancellation,
+					);
 
 					if (diff.length > maxCodeCharacters) {
-						void window.showWarningMessage(
-							`The diff of the changes had to be truncated to ${maxCodeCharacters} characters to fit within ${getPossessiveForm(
-								model.provider.name,
-							)} limits.`,
-						);
+						showDiffTruncationWarning(maxCodeCharacters, model);
 					}
 
 					let message = '';
@@ -103,6 +127,10 @@ export class VSCodeAIProvider implements AIProvider<typeof provider.id> {
 
 					let message = ex instanceof Error ? ex.message : String(ex);
 
+					if (ex instanceof Error && 'code' in ex && ex.code === 'NoPermissions') {
+						throw new Error(`User denied access to ${model.provider.name}`);
+					}
+
 					if (ex instanceof Error && 'cause' in ex && ex.cause instanceof Error) {
 						message += `\n${ex.cause.message}`;
 
@@ -113,8 +141,8 @@ export class VSCodeAIProvider implements AIProvider<typeof provider.id> {
 					}
 
 					throw new Error(
-						`Unable to generate commit message: (${getPossessiveForm(model.provider.name)}:${
-							ex.code
+						`Unable to generate ${promptConfig.type} message: (${model.provider.name}${
+							ex.code ? `:${ex.code}` : ''
 						}) ${message}`,
 					);
 				}
@@ -127,70 +155,85 @@ export class VSCodeAIProvider implements AIProvider<typeof provider.id> {
 	async generateDraftMessage(
 		model: VSCodeAIModel,
 		diff: string,
+		reporting: TelemetryEvents['ai/generate'],
 		options?: {
 			cancellation?: CancellationToken | undefined;
 			context?: string | undefined;
 			codeSuggestion?: boolean | undefined;
 		},
 	): Promise<string | undefined> {
-		let customPrompt =
-			options?.codeSuggestion === true
-				? configuration.get('experimental.generateCodeSuggestionMessagePrompt')
-				: configuration.get('experimental.generateCloudPatchMessagePrompt');
-		if (!customPrompt.endsWith('.')) {
-			customPrompt += '.';
+		let codeSuggestion;
+		if (options != null) {
+			({ codeSuggestion, ...options } = options ?? {});
 		}
 
 		return this.generateMessage(
 			model,
 			diff,
-			{
-				systemPrompt:
-					options?.codeSuggestion === true ? codeSuggestMessageSystemPrompt : cloudPatchMessageSystemPrompt,
-				customPrompt: customPrompt,
-				contextName:
-					options?.codeSuggestion === true
-						? 'code suggestion title and description'
-						: 'cloud patch title and description',
-			},
-			options != null
+			reporting,
+			codeSuggestion
 				? {
-						cancellation: options.cancellation,
-						context: options.context,
+						type: 'code-suggestion',
+						userPrompt: generateCodeSuggestMessageUserPrompt,
+						customInstructions: configuration.get('ai.generateCodeSuggestMessage.customInstructions'),
 				  }
-				: undefined,
+				: {
+						type: 'cloud-patch',
+						userPrompt: generateCloudPatchMessageUserPrompt,
+						customInstructions: configuration.get('ai.generateCloudPatchMessage.customInstructions'),
+				  },
+			options,
 		);
 	}
 
 	async generateCommitMessage(
 		model: VSCodeAIModel,
 		diff: string,
+		reporting: TelemetryEvents['ai/generate'],
 		options?: {
 			cancellation?: CancellationToken | undefined;
 			context?: string | undefined;
 		},
 	): Promise<string | undefined> {
-		let customPrompt = configuration.get('experimental.generateCommitMessagePrompt');
-		if (!customPrompt.endsWith('.')) {
-			customPrompt += '.';
-		}
-
 		return this.generateMessage(
 			model,
 			diff,
+			reporting,
 			{
-				systemPrompt: commitMessageSystemPrompt,
-				customPrompt: customPrompt,
-				contextName: 'commit message',
+				type: 'commit',
+				userPrompt: generateCommitMessageUserPrompt,
+				customInstructions: configuration.get('ai.generateCommitMessage.customInstructions'),
 			},
 			options,
 		);
 	}
 
-	async explainChanges(
+	async generateStashMessage(
 		model: VSCodeAIModel,
-		message: string,
 		diff: string,
+		reporting: TelemetryEvents['ai/generate'],
+		options?: {
+			cancellation?: CancellationToken | undefined;
+			context?: string | undefined;
+		},
+	): Promise<string | undefined> {
+		return this.generateMessage(
+			model,
+			diff,
+			reporting,
+			{
+				type: 'stash',
+				userPrompt: generateStashMessageUserPrompt,
+				customInstructions: configuration.get('ai.generateStashMessage.customInstructions'),
+			},
+			options,
+		);
+	}
+
+	async generateChangelog(
+		model: VSCodeAIModel,
+		changes: AIGenerateChangelogChange[],
+		reporting: TelemetryEvents['ai/generate'],
 		options?: { cancellation?: CancellationToken },
 	): Promise<string | undefined> {
 		const chatModel = await this.getChatModel(model);
@@ -210,46 +253,47 @@ export class VSCodeAIProvider implements AIProvider<typeof provider.id> {
 
 		try {
 			while (true) {
-				const code = diff.substring(0, maxCodeCharacters);
+				const data = JSON.stringify(changes);
 
 				const messages: LanguageModelChatMessage[] = [
-					LanguageModelChatMessage.User(`You are an advanced AI programming assistant tasked with summarizing code changes into an explanation that is both easy to understand and meaningful. Construct an explanation that:
-- Concisely synthesizes meaningful information from the provided code diff
-- Incorporates any additional context provided by the user to understand the rationale behind the code changes
-- Places the emphasis on the 'why' of the change, clarifying its benefits or addressing the problem that necessitated the change, beyond just detailing the 'what' has changed
-
-Do not make any assumptions or invent details that are not supported by the code diff or the user-provided context.`),
 					LanguageModelChatMessage.User(
-						`Here is additional context provided by the author of the changes, which should provide some explanation to why these changes where made. Please strongly consider this information when generating your explanation:\n\n${message}`,
-					),
-					LanguageModelChatMessage.User(
-						`Now, kindly explain the following code diff in a way that would be clear to someone reviewing or trying to understand these changes:\n\n${code}`,
-					),
-					LanguageModelChatMessage.User(
-						'Remember to frame your explanation in a way that is suitable for a reviewer to quickly grasp the essence of the changes, the issues they resolve, and their implications on the codebase.',
+						interpolate(generateChangelogUserPrompt, {
+							data: data.substring(0, maxCodeCharacters),
+							instructions: configuration.get('ai.generateChangelog.customInstructions') ?? '',
+						}),
 					),
 				];
 
+				reporting['retry.count'] = retries;
+				reporting['input.length'] = (reporting['input.length'] ?? 0) + sum(messages, m => m.content.length);
+
 				try {
-					const rsp = await chatModel.sendRequest(messages, {}, cancellation);
+					const rsp = await chatModel.sendRequest(
+						messages,
+						{
+							justification: accessJustification,
+							modelOptions: model.temperature != null ? { temperature: model.temperature } : undefined,
+						},
+						cancellation,
+					);
 
-					if (diff.length > maxCodeCharacters) {
-						void window.showWarningMessage(
-							`The diff of the changes had to be truncated to ${maxCodeCharacters} characters to fit within ${getPossessiveForm(
-								model.provider.name,
-							)} limits.`,
-						);
+					if (data.length > maxCodeCharacters) {
+						showPromptTruncationWarning(maxCodeCharacters, model);
 					}
 
-					let summary = '';
+					let result = '';
 					for await (const fragment of rsp.text) {
-						summary += fragment;
+						result += fragment;
 					}
 
-					return summary.trim();
+					return result.trim();
 				} catch (ex) {
 					debugger;
 					let message = ex instanceof Error ? ex.message : String(ex);
+
+					if (ex instanceof Error && 'code' in ex && ex.code === 'NoPermissions') {
+						throw new Error(`User denied access to ${model.provider.name}`);
+					}
 
 					if (ex instanceof Error && 'cause' in ex && ex.cause instanceof Error) {
 						message += `\n${ex.cause.message}`;
@@ -261,7 +305,93 @@ Do not make any assumptions or invent details that are not supported by the code
 					}
 
 					throw new Error(
-						`Unable to explain changes: (${getPossessiveForm(model.provider.name)}:${ex.code}) ${message}`,
+						`Unable to generate changelog: (${model.provider.name}${
+							ex.code ? `:${ex.code}` : ''
+						}) ${message}`,
+					);
+				}
+			}
+		} finally {
+			cancellationSource?.dispose();
+		}
+	}
+
+	async explainChanges(
+		model: VSCodeAIModel,
+		message: string,
+		diff: string,
+		reporting: TelemetryEvents['ai/explain'],
+		options?: { cancellation?: CancellationToken },
+	): Promise<string | undefined> {
+		const chatModel = await this.getChatModel(model);
+		if (chatModel == null) return undefined;
+
+		let cancellation;
+		let cancellationSource;
+		if (options?.cancellation == null) {
+			cancellationSource = new CancellationTokenSource();
+			cancellation = cancellationSource.token;
+		} else {
+			cancellation = options.cancellation;
+		}
+
+		let retries = 0;
+		let maxCodeCharacters = getMaxCharacters(model, 3000) - 1000;
+
+		try {
+			while (true) {
+				const messages: LanguageModelChatMessage[] = [
+					LanguageModelChatMessage.User(
+						interpolate(explainChangesUserPrompt, {
+							diff: diff.substring(0, maxCodeCharacters),
+							message: message,
+							instructions: configuration.get('ai.explainChanges.customInstructions') ?? '',
+						}),
+					),
+				];
+
+				reporting['retry.count'] = retries;
+				reporting['input.length'] = (reporting['input.length'] ?? 0) + sum(messages, m => m.content.length);
+
+				try {
+					const rsp = await chatModel.sendRequest(
+						messages,
+						{
+							justification: accessJustification,
+							modelOptions: model.temperature != null ? { temperature: model.temperature } : undefined,
+						},
+						cancellation,
+					);
+
+					if (diff.length > maxCodeCharacters) {
+						showDiffTruncationWarning(maxCodeCharacters, model);
+					}
+
+					let result = '';
+					for await (const fragment of rsp.text) {
+						result += fragment;
+					}
+
+					return result.trim();
+				} catch (ex) {
+					debugger;
+					let message = ex instanceof Error ? ex.message : String(ex);
+
+					if (ex instanceof Error && 'code' in ex && ex.code === 'NoPermissions') {
+						throw new Error(`User denied access to ${model.provider.name}`);
+					}
+
+					if (ex instanceof Error && 'cause' in ex && ex.cause instanceof Error) {
+						message += `\n${ex.cause.message}`;
+
+						if (retries++ < 2 && ex.cause.message.includes('exceeds token limit')) {
+							maxCodeCharacters -= 500 * retries;
+							continue;
+						}
+					}
+
+					throw new Error(
+						`Unable to explain changes: (${model.provider.name}${ex.code ? `:${ex.code}` : ''}) ${message}`,
 					);
 				}
 			}
@@ -280,11 +410,7 @@ function getModelFromChatModel(model: LanguageModelChat): VSCodeAIModel {
 			vendor: model.vendor,
 			family: model.family,
 		},
-		maxTokens: model.maxInputTokens,
+		maxTokens: { input: model.maxInputTokens, output: 4096 },
 		provider: { id: provider.id, name: capitalize(model.vendor) },
 	};
-}
-
-function getPossessiveForm(name: string) {
-	return name.endsWith('s') ? `${name}'` : `${name}'s`;
 }

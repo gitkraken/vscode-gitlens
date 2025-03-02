@@ -1,18 +1,20 @@
 import type { TextDocumentShowOptions, TextEditor } from 'vscode';
 import { FileType, Uri, workspace } from 'vscode';
-import { Commands, GlyphChars } from '../constants';
+import { GlyphChars } from '../constants';
+import { GlCommand } from '../constants.commands';
 import type { Container } from '../container';
 import { openFolderCompare } from '../git/actions/commit';
 import { GitUri } from '../git/gitUri';
-import { shortenRevision } from '../git/models/reference';
+import { shortenRevision } from '../git/utils/revision.utils';
 import { showGenericErrorMessage } from '../messages';
 import { showCommitPicker } from '../quickpicks/commitPicker';
 import { CommandQuickPickItem } from '../quickpicks/items/common';
 import { getBestRepositoryOrShowPicker } from '../quickpicks/repositoryPicker';
-import { command } from '../system/command';
+import { command } from '../system/-webview/command';
 import { Logger } from '../system/logger';
 import { pad } from '../system/string';
-import { ActiveEditorCommand, getCommandUri } from './base';
+import { ActiveEditorCommand } from './commandBase';
+import { getCommandUri } from './commandBase.utils';
 
 export interface DiffFolderWithRevisionCommandArgs {
 	uri?: Uri;
@@ -24,7 +26,7 @@ export interface DiffFolderWithRevisionCommandArgs {
 @command()
 export class DiffFolderWithRevisionCommand extends ActiveEditorCommand {
 	constructor(private readonly container: Container) {
-		super(Commands.DiffFolderWithRevision);
+		super('gitlens.diffFolderWithRevision');
 	}
 
 	async execute(editor?: TextEditor, uri?: Uri, args?: DiffFolderWithRevisionCommandArgs): Promise<any> {
@@ -46,14 +48,11 @@ export class DiffFolderWithRevisionCommand extends ActiveEditorCommand {
 				?.path;
 			if (!repoPath) return;
 
-			const log = this.container.git
-				.getLogForFile(gitUri.repoPath, gitUri.fsPath)
+			const commitsProvider = this.container.git.commits(repoPath);
+			const log = commitsProvider
+				.getLogForFile(gitUri.fsPath)
 				.then(
-					log =>
-						log ??
-						(gitUri.sha
-							? this.container.git.getLogForFile(gitUri.repoPath, gitUri.fsPath, { ref: gitUri.sha })
-							: undefined),
+					log => log ?? (gitUri.sha ? commitsProvider.getLogForFile(gitUri.fsPath, gitUri.sha) : undefined),
 				);
 
 			const relativePath = this.container.git.getRelativePath(uri, repoPath);
@@ -63,12 +62,12 @@ export class DiffFolderWithRevisionCommand extends ActiveEditorCommand {
 			const pick = await showCommitPicker(log, title, 'Choose a commit to compare with', {
 				picked: gitUri.sha,
 				showOtherReferences: [
-					CommandQuickPickItem.fromCommand('Choose a Branch or Tag...', Commands.DiffFolderWithRevisionFrom),
+					CommandQuickPickItem.fromCommand('Choose a Branch or Tag...', GlCommand.DiffFolderWithRevisionFrom),
 				],
 			});
 			if (pick == null) return;
 
-			void openFolderCompare(uri, { repoPath: repoPath, lhs: pick.ref, rhs: gitUri.sha ?? '' });
+			void openFolderCompare(this.container, uri, { repoPath: repoPath, lhs: pick.ref, rhs: gitUri.sha ?? '' });
 		} catch (ex) {
 			Logger.error(ex, 'DiffFolderWithRevisionCommand');
 			void showGenericErrorMessage('Unable to open comparison');

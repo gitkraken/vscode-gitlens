@@ -1,9 +1,10 @@
 import { Container } from '../../container';
+import type { ViewNode } from '../../views/nodes/abstract/viewNode';
 import { executeGitCommand } from '../actions';
 import type { GitReference, GitTagReference } from '../models/reference';
 import type { Repository } from '../models/repository';
 
-export function create(repo?: string | Repository, ref?: GitReference, name?: string) {
+export function create(repo?: string | Repository, ref?: GitReference, name?: string): Promise<void> {
 	return executeGitCommand({
 		command: 'tag',
 		state: {
@@ -15,7 +16,7 @@ export function create(repo?: string | Repository, ref?: GitReference, name?: st
 	});
 }
 
-export function remove(repo?: string | Repository, refs?: GitTagReference | GitTagReference[]) {
+export function remove(repo?: string | Repository, refs?: GitTagReference | GitTagReference[]): Promise<void> {
 	return executeGitCommand({
 		command: 'tag',
 		state: {
@@ -26,20 +27,13 @@ export function remove(repo?: string | Repository, refs?: GitTagReference | GitT
 	});
 }
 
-export async function reveal(
+export function reveal(
 	tag: GitTagReference,
 	options?: {
 		select?: boolean;
 		focus?: boolean;
 		expand?: boolean | number;
 	},
-) {
-	const view = Container.instance.tagsView;
-	const node = view.canReveal
-		? await view.revealTag(tag, options)
-		: await Container.instance.repositoriesView.revealTag(tag, options);
-	if (node == null) {
-		void view.show({ preserveFocus: !options?.focus });
-	}
-	return node;
+): Promise<ViewNode | undefined> {
+	return Container.instance.views.revealTag(tag, options);
 }

@@ -54,7 +54,7 @@ export class GlTreeGenerator extends GlElement {
 		return this._model;
 	}
 
-	private renderIcon(icon?: string | { type: 'status'; name: string }) {
+	private renderIcon(icon?: string | { type: 'status'; name: GlGitStatus['status'] }) {
 		if (icon == null) return nothing;
 
 		if (typeof icon === 'string') {
@@ -65,7 +65,7 @@ export class GlTreeGenerator extends GlElement {
 			return nothing;
 		}
 
-		return html`<gl-git-status slot="icon" .status=${icon.name as GlGitStatus['status']}></gl-git-status>`;
+		return html`<gl-git-status slot="icon" .status=${icon.name}></gl-git-status>`;
 	}
 
 	private renderActions(model: TreeModelFlat) {
@@ -78,6 +78,7 @@ export class GlTreeGenerator extends GlElement {
 				.icon=${action.icon}
 				.label=${action.label}
 				@click=${(e: MouseEvent) => this.onTreeItemActionClicked(e, model, action)}
+				@dblclick=${(e: MouseEvent) => this.onTreeItemActionDblClicked(e, model, action)}
 			></action-item>`;
 		});
 	}
@@ -136,7 +137,7 @@ export class GlTreeGenerator extends GlElement {
 		return nodes?.map(node => this.renderTreeItem(node));
 	}
 
-	override render() {
+	override render(): unknown {
 		return html`<gl-tree>${this.renderTree(this.treeItems)}</gl-tree>`;
 	}
 
@@ -165,6 +166,19 @@ export class GlTreeGenerator extends GlElement {
 			context: model.context,
 			action: action,
 			dblClick: false,
+			altKey: e.altKey,
+			ctrlKey: e.ctrlKey,
+			metaKey: e.metaKey,
+		});
+	}
+
+	private onTreeItemActionDblClicked(e: MouseEvent, model: TreeModelFlat, action: TreeItemAction) {
+		e.stopPropagation();
+		this.emit('gl-tree-generated-item-action-clicked', {
+			node: model,
+			context: model.context,
+			action: action,
+			dblClick: true,
 			altKey: e.altKey,
 			ctrlKey: e.ctrlKey,
 			metaKey: e.metaKey,

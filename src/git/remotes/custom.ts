@@ -1,8 +1,9 @@
 import type { Range, Uri } from 'vscode';
+import type { AutolinkReference, DynamicAutolinkReference } from '../../autolinks/models/autolinks';
 import type { RemotesUrlsConfig } from '../../config';
-import type { GkProviderId } from '../../gk/models/repositoryIdentities';
 import { getTokensFromTemplate, interpolate } from '../../system/string';
 import type { Repository } from '../models/repository';
+import type { GkProviderId } from '../models/repositoryIdentities';
 import type { RemoteProviderId } from './remoteProvider';
 import { RemoteProvider } from './remoteProvider';
 
@@ -22,8 +23,16 @@ export class CustomRemote extends RemoteProvider {
 		return undefined;
 	}
 
-	get name() {
+	get name(): string {
 		return this.formatName('Custom');
+	}
+
+	protected override get issueLinkPattern(): string {
+		throw new Error('unsupported');
+	}
+
+	override get autolinks(): (AutolinkReference | DynamicAutolinkReference)[] {
+		return [];
 	}
 
 	getLocalInfoFromRemoteUri(

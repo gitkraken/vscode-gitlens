@@ -1,23 +1,31 @@
-import type { AuthenticationSession, Disposable, QuickInputButton } from 'vscode';
+import type { Disposable, QuickInputButton } from 'vscode';
 import { env, ThemeIcon, Uri, window } from 'vscode';
+import { HostingIntegrationId, SelfHostedIntegrationId } from '../../../constants.integrations';
 import type { Container } from '../../../container';
-import type { HostingIntegrationId, SelfHostedIntegrationId } from '../providers/models';
-import type { IntegrationAuthenticationSessionDescriptor } from './integrationAuthentication';
-import { LocalIntegrationAuthenticationProvider } from './integrationAuthentication';
+import type { ConfiguredIntegrationService } from './configuredIntegrationService';
+import type { IntegrationAuthenticationSessionDescriptor } from './integrationAuthenticationProvider';
+import {
+	CloudIntegrationAuthenticationProvider,
+	LocalIntegrationAuthenticationProvider,
+} from './integrationAuthenticationProvider';
+import type { IntegrationAuthenticationService } from './integrationAuthenticationService';
+import type { ProviderAuthenticationSession } from './models';
 
 type GitLabId = HostingIntegrationId.GitLab | SelfHostedIntegrationId.GitLabSelfHosted;
 
-export class GitLabAuthenticationProvider extends LocalIntegrationAuthenticationProvider<GitLabId> {
+export class GitLabLocalAuthenticationProvider extends LocalIntegrationAuthenticationProvider<GitLabId> {
 	constructor(
 		container: Container,
+		authenticationService: IntegrationAuthenticationService,
+		configuredIntegrationService: ConfiguredIntegrationService,
 		protected readonly authProviderId: GitLabId,
 	) {
-		super(container);
+		super(container, authenticationService, configuredIntegrationService);
 	}
 
 	override async createSession(
-		descriptor?: IntegrationAuthenticationSessionDescriptor,
-	): Promise<AuthenticationSession | undefined> {
+		descriptor: IntegrationAuthenticationSessionDescriptor,
+	): Promise<ProviderAuthenticationSession | undefined> {
 		const input = window.createInputBox();
 		input.ignoreFocusOut = true;
 
@@ -46,22 +54,20 @@ export class GitLabAuthenticationProvider extends LocalIntegrationAuthentication
 					input.onDidTriggerButton(e => {
 						if (e === infoButton) {
 							void env.openExternal(
-								Uri.parse(
-									`https://${descriptor?.domain ?? 'gitlab.com'}/-/profile/personal_access_tokens`,
-								),
+								Uri.parse(`https://${descriptor.domain}/-/profile/personal_access_tokens`),
 							);
 						}
 					}),
 				);
 
 				input.password = true;
-				input.title = `GitLab Authentication${descriptor?.domain ? `  \u2022 ${descriptor.domain}` : ''}`;
-				input.placeholder = `Requires ${descriptor?.scopes.join(', ') ?? 'all'} scopes`;
+				input.title = `GitLab Authentication  \u2022 ${descriptor.domain}`;
+				input.placeholder = `Requires ${descriptor.scopes.join(', ')} scopes`;
 				input.prompt = `Paste your [GitLab Personal Access Token](https://${
-					descriptor?.domain ?? 'gitlab.com'
-				}/-/user_settings/personal_access_tokens?name=GitLens+Access+token&scopes=${
-					descriptor?.scopes.join(',') ?? 'all'
-				} "Get your GitLab Access Token")`;
+					descriptor.domain
+				}/-/user_settings/personal_access_tokens?name=GitLens+Access+token&scopes=${descriptor.scopes.join(
+					',',
+				)} "Get your GitLab Access Token")`;
 				input.buttons = [infoButton];
 
 				input.show();
@@ -74,13 +80,27 @@ export class GitLabAuthenticationProvider extends LocalIntegrationAuthentication
 		if (!token) return undefined;
 
 		return {
-			id: this.getSessionId(descriptor),
+			id: this.configuredIntegrationService.getSessionId(descriptor),
 			accessToken: token,
 			scopes: descriptor?.scopes ?? [],
 			account: {
 				id: '',
 				label: '',
 			},
+			cloud: false,
+			domain: descriptor.domain,
 		};
+	}
+}
+
+export class GitLabSelfHostedCloudAuthenticationProvider extends CloudIntegrationAuthenticationProvider<SelfHostedIntegrationId.CloudGitLabSelfHosted> {
+	protected override get authProviderId(): SelfHostedIntegrationId.CloudGitLabSelfHosted {
+		return SelfHostedIntegrationId.CloudGitLabSelfHosted;
+	}
+}
+
+export class GitLabCloudAuthenticationProvider extends CloudIntegrationAuthenticationProvider<GitLabId> {
+	protected override get authProviderId(): GitLabId {
+		return HostingIntegrationId.GitLab;
 	}
 }

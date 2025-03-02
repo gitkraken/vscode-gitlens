@@ -1,9 +1,8 @@
 import type { CancellationToken, ConfigurationChangeEvent, Disposable, Event } from 'vscode';
 import { EventEmitter, ProgressLocation, window } from 'vscode';
 import type { RepositoriesViewConfig, ViewBranchesLayout, ViewFilesLayout } from '../config';
-import { Commands } from '../constants';
+import { GlCommand } from '../constants.commands';
 import type { Container } from '../container';
-import { getRemoteNameFromBranchName } from '../git/models/branch';
 import type { GitCommit } from '../git/models/commit';
 import { isCommit } from '../git/models/commit';
 import type { GitContributor } from '../git/models/contributor';
@@ -13,13 +12,15 @@ import type {
 	GitStashReference,
 	GitTagReference,
 } from '../git/models/reference';
-import { getReferenceLabel } from '../git/models/reference';
 import type { GitRemote } from '../git/models/remote';
 import type { GitWorktree } from '../git/models/worktree';
-import { executeCommand } from '../system/command';
-import { configuration } from '../system/configuration';
-import { setContext } from '../system/context';
-import { gate } from '../system/decorators/gate';
+import { getRemoteNameFromBranchName } from '../git/utils/branch.utils';
+import { getReferenceLabel } from '../git/utils/reference.utils';
+import { executeCommand } from '../system/-webview/command';
+import { configuration } from '../system/-webview/configuration';
+import { setContext } from '../system/-webview/context';
+import { gate } from '../system/decorators/-webview/gate';
+import type { ViewNode } from './nodes/abstract/viewNode';
 import { BranchesNode } from './nodes/branchesNode';
 import { BranchNode } from './nodes/branchNode';
 import { BranchOrTagFolderNode } from './nodes/branchOrTagFolderNode';
@@ -42,8 +43,8 @@ import { registerViewCommand } from './viewCommands';
 export class RepositoriesView extends ViewBase<'repositories', RepositoriesNode, RepositoriesViewConfig> {
 	protected readonly configKey = 'repositories';
 
-	constructor(container: Container) {
-		super(container, 'repositories', 'Repositories', 'repositoriesView');
+	constructor(container: Container, grouped?: boolean) {
+		super(container, 'repositories', 'Repositories', 'repositoriesView', grouped);
 	}
 
 	private _onDidChangeAutoRefresh = new EventEmitter<void>();
@@ -51,17 +52,15 @@ export class RepositoriesView extends ViewBase<'repositories', RepositoriesNode,
 		return this._onDidChangeAutoRefresh.event;
 	}
 
-	protected getRoot() {
+	protected getRoot(): RepositoriesNode {
 		return new RepositoriesNode(this);
 	}
 
 	protected registerCommands(): Disposable[] {
-		void this.container.viewCommands;
-
 		return [
 			registerViewCommand(
 				this.getQualifiedCommand('copy'),
-				() => executeCommand(Commands.ViewsCopy, this.activeSelection, this.selection),
+				() => executeCommand(GlCommand.ViewsCopy, this.activeSelection, this.selection),
 				this,
 			),
 			registerViewCommand(
@@ -237,7 +236,7 @@ export class RepositoriesView extends ViewBase<'repositories', RepositoriesNode,
 		];
 	}
 
-	protected override filterConfigurationChanged(e: ConfigurationChangeEvent) {
+	protected override filterConfigurationChanged(e: ConfigurationChangeEvent): boolean {
 		const changed = super.filterConfigurationChanged(e);
 		if (
 			!changed &&
@@ -258,7 +257,8 @@ export class RepositoriesView extends ViewBase<'repositories', RepositoriesNode,
 
 		return true;
 	}
-	protected override onConfigurationChanged(e: ConfigurationChangeEvent) {
+
+	protected override onConfigurationChanged(e: ConfigurationChangeEvent): void {
 		if (configuration.changed(e, `views.${this.configKey}.autoRefresh` as const)) {
 			void this.setAutoRefresh(configuration.get('views.repositories.autoRefresh'));
 		}
@@ -266,11 +266,11 @@ export class RepositoriesView extends ViewBase<'repositories', RepositoriesNode,
 		super.onConfigurationChanged(e);
 	}
 
-	get autoRefresh() {
+	get autoRefresh(): boolean {
 		return this.config.autoRefresh && this.container.storage.getWorkspace('views:repositories:autoRefresh', true);
 	}
 
-	findBranch(branch: GitBranchReference, token?: CancellationToken) {
+	findBranch(branch: GitBranchReference, token?: CancellationToken): Promise<ViewNode | undefined> {
 		const { repoPath } = branch;
 
 		if (branch.remote) {
@@ -319,16 +319,20 @@ export class RepositoriesView extends ViewBase<'repositories', RepositoriesNode,
 		});
 	}
 
-	async findCommit(commit: GitCommit | { repoPath: string; ref: string }, token?: CancellationToken) {
+	async findCommit(
+		commit: GitCommit | { repoPath: string; ref: string },
+		token?: CancellationToken,
+	): Promise<ViewNode | undefined> {
 		const { repoPath } = commit;
 
 		// Get all the branches the commit is on
-		let branches = await this.container.git.getCommitBranches(
-			commit.repoPath,
-			commit.ref,
-			undefined,
-			isCommit(commit) ? { commitDate: commit.committer.date } : undefined,
-		);
+		let branches = await this.container.git
+			.branches(commit.repoPath)
+			.getBranchesWithCommits(
+				[commit.ref],
+				undefined,
+				isCommit(commit) ? { commitDate: commit.committer.date } : undefined,
+			);
 		if (branches.length !== 0) {
 			return this.findNode((n: any) => n.commit?.ref === commit.ref, {
 				allowPaging: true,
@@ -357,12 +361,13 @@ export class RepositoriesView extends ViewBase<'repositories', RepositoriesNode,
 		}
 
 		// If we didn't find the commit on any local branches, check remote branches
-		branches = await this.container.git.getCommitBranches(
-			commit.repoPath,
-			commit.ref,
-			undefined,
-			isCommit(commit) ? { commitDate: commit.committer.date, remotes: true } : { remotes: true },
-		);
+		branches = await this.container.git
+			.branches(commit.repoPath)
+			.getBranchesWithCommits(
+				[commit.ref],
+				undefined,
+				isCommit(commit) ? { commitDate: commit.committer.date, remotes: true } : { remotes: true },
+			);
 		if (branches.length === 0) return undefined;
 
 		const remotes = branches.map(b => b.split('/', 1)[0]);
@@ -392,7 +397,7 @@ export class RepositoriesView extends ViewBase<'repositories', RepositoriesNode,
 		});
 	}
 
-	findContributor(contributor: GitContributor, token?: CancellationToken) {
+	findContributor(contributor: GitContributor, token?: CancellationToken): Promise<ViewNode | undefined> {
 		const { repoPath, username, email, name } = contributor;
 
 		return this.findNode(
@@ -418,7 +423,7 @@ export class RepositoriesView extends ViewBase<'repositories', RepositoriesNode,
 		);
 	}
 
-	findRemote(remote: GitRemote, token?: CancellationToken) {
+	findRemote(remote: GitRemote, token?: CancellationToken): Promise<ViewNode | undefined> {
 		const { repoPath } = remote;
 
 		return this.findNode((n: any) => n.remote?.name === remote.name, {
@@ -438,7 +443,7 @@ export class RepositoriesView extends ViewBase<'repositories', RepositoriesNode,
 		});
 	}
 
-	findStash(stash: GitStashReference, token?: CancellationToken) {
+	findStash(stash: GitStashReference, token?: CancellationToken): Promise<ViewNode | undefined> {
 		const { repoPath } = stash;
 
 		return this.findNode((n: any) => n.commit?.ref === stash.ref, {
@@ -457,7 +462,7 @@ export class RepositoriesView extends ViewBase<'repositories', RepositoriesNode,
 		});
 	}
 
-	findTag(tag: GitTagReference, token?: CancellationToken) {
+	findTag(tag: GitTagReference, token?: CancellationToken): Promise<ViewNode | undefined> {
 		const { repoPath } = tag;
 
 		return this.findNode((n: any) => n.tag?.ref === tag.ref, {
@@ -477,7 +482,7 @@ export class RepositoriesView extends ViewBase<'repositories', RepositoriesNode,
 		});
 	}
 
-	findWorktree(worktree: GitWorktree, token?: CancellationToken) {
+	findWorktree(worktree: GitWorktree, token?: CancellationToken): Promise<ViewNode | undefined> {
 		const { repoPath, uri } = worktree;
 		const url = uri.toString();
 
@@ -498,14 +503,14 @@ export class RepositoriesView extends ViewBase<'repositories', RepositoriesNode,
 	}
 
 	@gate(() => '')
-	revealBranch(
+	async revealBranch(
 		branch: GitBranchReference,
 		options?: {
 			select?: boolean;
 			focus?: boolean;
 			expand?: boolean | number;
 		},
-	) {
+	): Promise<ViewNode | undefined> {
 		return window.withProgress(
 			{
 				location: ProgressLocation.Notification,
@@ -515,7 +520,7 @@ export class RepositoriesView extends ViewBase<'repositories', RepositoriesNode,
 				})} in the Repositories view...`,
 				cancellable: true,
 			},
-			async (progress, token) => {
+			async (_progress, token) => {
 				const node = await this.findBranch(branch, token);
 				if (node == null) return undefined;
 
@@ -534,7 +539,7 @@ export class RepositoriesView extends ViewBase<'repositories', RepositoriesNode,
 			focus?: boolean;
 			expand?: boolean | number;
 		},
-	) {
+	): Promise<ViewNode | undefined> {
 		const node = await this.findNode(n => n instanceof BranchesNode && n.repoPath === repoPath, {
 			maxDepth: 2,
 			canTraverse: n => {
@@ -564,7 +569,7 @@ export class RepositoriesView extends ViewBase<'repositories', RepositoriesNode,
 			focus?: boolean;
 			expand?: boolean | number;
 		},
-	) {
+	): Promise<ViewNode | undefined> {
 		return window.withProgress(
 			{
 				location: ProgressLocation.Notification,
@@ -574,7 +579,7 @@ export class RepositoriesView extends ViewBase<'repositories', RepositoriesNode,
 				})} in the Repositories view...`,
 				cancellable: true,
 			},
-			async (progress, token) => {
+			async (_progress, token) => {
 				const node = await this.findCommit(commit, token);
 				if (node == null) return undefined;
 
@@ -593,14 +598,14 @@ export class RepositoriesView extends ViewBase<'repositories', RepositoriesNode,
 			focus?: boolean;
 			expand?: boolean | number;
 		},
-	) {
+	): Promise<ViewNode | undefined> {
 		return window.withProgress(
 			{
 				location: ProgressLocation.Notification,
 				title: `Revealing contributor '${contributor.name} in the Repositories view...`,
 				cancellable: true,
 			},
-			async (progress, token) => {
+			async (_progress, token) => {
 				const node = await this.findContributor(contributor, token);
 				if (node == null) return undefined;
 
@@ -612,21 +617,21 @@ export class RepositoriesView extends ViewBase<'repositories', RepositoriesNode,
 	}
 
 	@gate(() => '')
-	revealRemote(
+	async revealRemote(
 		remote: GitRemote,
 		options?: {
 			select?: boolean;
 			focus?: boolean;
 			expand?: boolean | number;
 		},
-	) {
+	): Promise<ViewNode | undefined> {
 		return window.withProgress(
 			{
 				location: ProgressLocation.Notification,
 				title: `Revealing remote '${remote.name}' in the side bar...`,
 				cancellable: true,
 			},
-			async (progress, token) => {
+			async (_progress, token) => {
 				const node = await this.findRemote(remote, token);
 				if (node == null) return undefined;
 
@@ -645,7 +650,7 @@ export class RepositoriesView extends ViewBase<'repositories', RepositoriesNode,
 			focus?: boolean;
 			expand?: boolean | number;
 		},
-	) {
+	): Promise<ViewNode | undefined> {
 		const node = await this.findNode(n => n instanceof RepositoryNode && n.repoPath === repoPath, {
 			maxDepth: 1,
 			canTraverse: n => n instanceof RepositoriesNode,
@@ -666,7 +671,7 @@ export class RepositoriesView extends ViewBase<'repositories', RepositoriesNode,
 			focus?: boolean;
 			expand?: boolean | number;
 		},
-	) {
+	): Promise<ViewNode | undefined> {
 		return window.withProgress(
 			{
 				location: ProgressLocation.Notification,
@@ -676,7 +681,7 @@ export class RepositoriesView extends ViewBase<'repositories', RepositoriesNode,
 				})} in the Repositories view...`,
 				cancellable: true,
 			},
-			async (progress, token) => {
+			async (_progress, token) => {
 				const node = await this.findStash(stash, token);
 				if (node !== undefined) {
 					await this.reveal(node, options);
@@ -695,7 +700,7 @@ export class RepositoriesView extends ViewBase<'repositories', RepositoriesNode,
 			focus?: boolean;
 			expand?: boolean | number;
 		},
-	) {
+	): Promise<ViewNode | undefined> {
 		const node = await this.findNode(n => n instanceof StashesNode && n.repoPath === repoPath, {
 			maxDepth: 2,
 			canTraverse: n => {
@@ -718,14 +723,14 @@ export class RepositoriesView extends ViewBase<'repositories', RepositoriesNode,
 	}
 
 	@gate(() => '')
-	revealTag(
+	async revealTag(
 		tag: GitTagReference,
 		options?: {
 			select?: boolean;
 			focus?: boolean;
 			expand?: boolean | number;
 		},
-	) {
+	): Promise<ViewNode | undefined> {
 		return window.withProgress(
 			{
 				location: ProgressLocation.Notification,
@@ -735,7 +740,7 @@ export class RepositoriesView extends ViewBase<'repositories', RepositoriesNode,
 				})} in the Repositories view...`,
 				cancellable: true,
 			},
-			async (progress, token) => {
+			async (_progress, token) => {
 				const node = await this.findTag(tag, token);
 				if (node == null) return undefined;
 
@@ -754,7 +759,7 @@ export class RepositoriesView extends ViewBase<'repositories', RepositoriesNode,
 			focus?: boolean;
 			expand?: boolean | number;
 		},
-	) {
+	): Promise<ViewNode | undefined> {
 		const node = await this.findNode(n => n instanceof TagsNode && n.repoPath === repoPath, {
 			maxDepth: 2,
 			canTraverse: n => {
@@ -777,21 +782,21 @@ export class RepositoriesView extends ViewBase<'repositories', RepositoriesNode,
 	}
 
 	@gate(() => '')
-	revealWorktree(
+	async revealWorktree(
 		worktree: GitWorktree,
 		options?: {
 			select?: boolean;
 			focus?: boolean;
 			expand?: boolean | number;
 		},
-	) {
+	): Promise<ViewNode | undefined> {
 		return window.withProgress(
 			{
 				location: ProgressLocation.Notification,
 				title: `Revealing worktree '${worktree.name}' in the side bar...`,
 				cancellable: true,
 			},
-			async (progress, token) => {
+			async (_progress, token) => {
 				const node = await this.findWorktree(worktree, token);
 				if (node == null) return undefined;
 
@@ -810,7 +815,7 @@ export class RepositoriesView extends ViewBase<'repositories', RepositoriesNode,
 			focus?: boolean;
 			expand?: boolean | number;
 		},
-	) {
+	): Promise<ViewNode | undefined> {
 		const node = await this.findNode(n => n instanceof WorktreesNode && n.repoPath === repoPath, {
 			maxDepth: 2,
 			canTraverse: n => {
@@ -872,7 +877,7 @@ export class RepositoriesView extends ViewBase<'repositories', RepositoriesNode,
 		);
 	}
 
-	toggleSection(
+	async toggleSection(
 		key:
 			| 'showBranches'
 			| 'showCommits'
@@ -884,11 +889,11 @@ export class RepositoriesView extends ViewBase<'repositories', RepositoriesNode,
 			| 'showWorktrees'
 			| 'showUpstreamStatus',
 		enabled: boolean,
-	) {
+	): Promise<void> {
 		return configuration.updateEffective(`views.${this.configKey}.${key}` as const, enabled);
 	}
 
-	toggleSectionByNode(
+	async toggleSectionByNode(
 		node:
 			| BranchesNode
 			| BranchNode
@@ -901,7 +906,7 @@ export class RepositoriesView extends ViewBase<'repositories', RepositoriesNode,
 			| TagsNode
 			| WorktreesNode,
 		enabled: boolean,
-	) {
+	): Promise<void> {
 		if (node instanceof BranchesNode) {
 			return configuration.updateEffective(`views.${this.configKey}.showBranches` as const, enabled);
 		}

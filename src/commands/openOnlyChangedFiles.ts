@@ -1,27 +1,27 @@
 import type { Uri } from 'vscode';
 import { TabInputCustom, TabInputNotebook, TabInputNotebookDiff, TabInputText, TabInputTextDiff, window } from 'vscode';
-import { Commands } from '../constants';
+import { GlCommand } from '../constants.commands';
 import type { Container } from '../container';
 import { showGenericErrorMessage } from '../messages';
 import { getRepositoryOrShowPicker } from '../quickpicks/repositoryPicker';
+import { command } from '../system/-webview/command';
+import { findOrOpenEditors } from '../system/-webview/vscode';
 import { filterMap } from '../system/array';
-import { command } from '../system/command';
-import { UriComparer } from '../system/comparers';
 import { Logger } from '../system/logger';
-import { findOrOpenEditors } from '../system/utils';
-import { Command } from './base';
+import { uriEquals } from '../system/uri';
+import { GlCommandBase } from './commandBase';
 
 export interface OpenOnlyChangedFilesCommandArgs {
 	uris?: Uri[];
 }
 
 @command()
-export class OpenOnlyChangedFilesCommand extends Command {
+export class OpenOnlyChangedFilesCommand extends GlCommandBase {
 	constructor(private readonly container: Container) {
-		super(Commands.OpenOnlyChangedFiles);
+		super(GlCommand.OpenOnlyChangedFiles);
 	}
 
-	async execute(args?: OpenOnlyChangedFilesCommandArgs) {
+	async execute(args?: OpenOnlyChangedFilesCommandArgs): Promise<void> {
 		args = { ...args };
 
 		try {
@@ -29,7 +29,7 @@ export class OpenOnlyChangedFilesCommand extends Command {
 				const repository = await getRepositoryOrShowPicker('Open Changed & Close Unchanged Files');
 				if (repository == null) return;
 
-				const status = await this.container.git.getStatusForRepo(repository.uri);
+				const status = await this.container.git.status(repository.uri).getStatus();
 				if (status == null) {
 					void window.showWarningMessage('Unable to open changed & close unchanged files');
 
@@ -65,7 +65,7 @@ export class OpenOnlyChangedFilesCommand extends Command {
 
 					if (inputUri == null) continue;
 					// eslint-disable-next-line no-loop-func
-					matchingUri = args.uris.find(uri => UriComparer.equals(uri, inputUri));
+					matchingUri = args.uris.find(uri => uriEquals(uri, inputUri));
 					if (matchingUri != null) {
 						openUris.delete(matchingUri);
 					} else {

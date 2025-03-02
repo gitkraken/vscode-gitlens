@@ -12,7 +12,7 @@ jobs:
             issues: write
             pull-requests: write
         steps:
-            - uses: actions/stale@v5
+            - uses: actions/stale@v9
               with:
                   repo-token: ${{ secrets.GITHUB_TOKEN }}
                   days-before-close: 7
@@ -23,3 +23,4 @@ jobs:
                   stale-issue-label: 'inactive'
                   stale-issue-message: 'This issue needs more information and has not had recent activity. Please provide the missing information or it will be closed in 7 days. Thanks!'
                   labels-to-add-when-unstale: 'triage'
+                  labels-to-remove-when-unstale: 'needs-more-info'

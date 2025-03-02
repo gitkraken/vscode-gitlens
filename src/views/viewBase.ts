@@ -16,7 +16,9 @@ import type {
 	BranchesViewConfig,
 	CommitsViewConfig,
 	ContributorsViewConfig,
+	DraftsViewConfig,
 	FileHistoryViewConfig,
+	LaunchpadViewConfig,
 	LineHistoryViewConfig,
 	PullRequestViewConfig,
 	RemotesViewConfig,
@@ -29,22 +31,24 @@ import type {
 	WorktreesViewConfig,
 } from '../config';
 import { viewsCommonConfigKeys, viewsConfigKeys } from '../config';
-import type { TreeViewCommandSuffixesByViewType, TreeViewIds, TreeViewTypes } from '../constants';
+import type { TreeViewCommandSuffixesByViewType } from '../constants.commands';
+import type { TrackedUsageFeatures } from '../constants.telemetry';
+import type { TreeViewIds, TreeViewTypes, WebviewViewTypes } from '../constants.views';
 import type { Container } from '../container';
-import { executeCoreCommand } from '../system/command';
-import { configuration } from '../system/configuration';
+import { executeCoreCommand } from '../system/-webview/command';
+import { configuration } from '../system/-webview/configuration';
 import { debug, log } from '../system/decorators/log';
 import { once } from '../system/event';
-import { debounce } from '../system/function';
+import { debounce } from '../system/function/debounce';
 import { Logger } from '../system/logger';
 import { getLogScope } from '../system/logger.scope';
 import { cancellable, isPromise } from '../system/promise';
-import type { TrackedUsageFeatures } from '../telemetry/usageTracker';
 import type { BranchesView } from './branchesView';
 import type { CommitsView } from './commitsView';
 import type { ContributorsView } from './contributorsView';
 import type { DraftsView } from './draftsView';
 import type { FileHistoryView } from './fileHistoryView';
+import type { LaunchpadView } from './launchpadView';
 import type { LineHistoryView } from './lineHistoryView';
 import type { PageableViewNode, ViewNode } from './nodes/abstract/viewNode';
 import { isPageableViewNode } from './nodes/abstract/viewNode';
@@ -63,6 +67,7 @@ export type View =
 	| ContributorsView
 	| DraftsView
 	| FileHistoryView
+	| LaunchpadView
 	| LineHistoryView
 	| PullRequestView
 	| RemotesView
@@ -73,18 +78,70 @@ export type View =
 	| WorkspacesView
 	| WorktreesView;
 
+// prettier-ignore
+export type TreeViewByType = {
+	[T in TreeViewTypes]: T extends 'branches'
+		? BranchesView
+		: T extends 'commits'
+		? CommitsView
+		: T extends 'contributors'
+		? ContributorsView
+		: T extends 'drafts'
+		? DraftsView
+		: T extends 'fileHistory'
+		? FileHistoryView
+		: T extends 'launchpad'
+		? LaunchpadView
+		: T extends 'lineHistory'
+		? LineHistoryView
+		: T extends 'pullRequest'
+		? PullRequestView
+		: T extends 'remotes'
+		? RemotesView
+		: T extends 'repositories'
+		? RepositoriesView
+		: T extends 'searchAndCompare'
+		? SearchAndCompareView
+		: T extends 'stashes'
+		? StashesView
+		: T extends 'tags'
+		? TagsView
+		: T extends 'workspaces'
+		? WorkspacesView
+		: T extends 'worktrees'
+		? WorktreesView
+		: View;
+};
+
+// prettier-ignore
+export type WebviewViewByType = {
+	[T in WebviewViewTypes]: T extends 'commitDetails'
+		? CommitsView
+		: T extends 'graph'
+		? CommitsView
+		: T extends 'graphDetails'
+		? CommitsView
+		: T extends 'home'
+		? CommitsView
+		: T extends 'patchDetails'
+		? CommitsView
+		: T extends 'timeline'
+		? CommitsView
+		: View;
+};
+
 export type ViewsWithBranches = BranchesView | CommitsView | RemotesView | RepositoriesView | WorkspacesView;
 export type ViewsWithBranchesNode = BranchesView | RepositoriesView | WorkspacesView;
 export type ViewsWithCommits = Exclude<View, LineHistoryView | StashesView>;
-export type ViewsWithContributors = ContributorsView | RepositoriesView | WorkspacesView;
-export type ViewsWithContributorsNode = ContributorsView | RepositoriesView | WorkspacesView;
+export type ViewsWithContributors = ViewsWithCommits;
+export type ViewsWithContributorsNode = ViewsWithCommits;
 export type ViewsWithRemotes = RemotesView | RepositoriesView | WorkspacesView;
 export type ViewsWithRemotesNode = RemotesView | RepositoriesView | WorkspacesView;
 export type ViewsWithRepositories = RepositoriesView | WorkspacesView;
 export type ViewsWithRepositoriesNode = RepositoriesView | WorkspacesView;
 export type ViewsWithRepositoryFolders = Exclude<
 	View,
-	DraftsView | FileHistoryView | LineHistoryView | PullRequestView | RepositoriesView | WorkspacesView
+	DraftsView | FileHistoryView | LaunchpadView | LineHistoryView | PullRequestView | RepositoriesView | WorkspacesView
 >;
 export type ViewsWithStashes = StashesView | ViewsWithCommits;
 export type ViewsWithStashesNode = RepositoriesView | StashesView | WorkspacesView;
@@ -103,9 +160,11 @@ export abstract class ViewBase<
 		RootNode extends ViewNode,
 		ViewConfig extends
 			| BranchesViewConfig
-			| ContributorsViewConfig
-			| FileHistoryViewConfig
 			| CommitsViewConfig
+			| ContributorsViewConfig
+			| DraftsViewConfig
+			| FileHistoryViewConfig
+			| LaunchpadViewConfig
 			| LineHistoryViewConfig
 			| PullRequestViewConfig
 			| RemotesViewConfig
@@ -117,6 +176,19 @@ export abstract class ViewBase<
 	>
 	implements TreeDataProvider<ViewNode>, Disposable
 {
+	is<T extends keyof TreeViewByType>(type: T): this is TreeViewByType[T] {
+		return this.type === (type as unknown as Type);
+	}
+
+	isAny<T extends (keyof TreeViewByType)[]>(...types: T): this is TreeViewByType[T[number]] {
+		return types.includes(this.type as unknown as T[number]);
+	}
+
+	private _disposed: boolean = false;
+	get disposed(): boolean {
+		return this._disposed;
+	}
+
 	get id(): TreeViewIds<Type> {
 		return `gitlens.views.${this.type}`;
 	}
@@ -160,7 +232,9 @@ export abstract class ViewBase<
 		public readonly type: Type,
 		public readonly name: string,
 		private readonly trackingFeature: TrackedUsageFeatures,
+		public readonly grouped?: boolean,
 	) {
+		this.description = this.getViewDescription();
 		this.disposables.push(once(container.onReady)(this.onReady, this));
 
 		if (this.container.debugging || configuration.get('debug')) {
@@ -213,14 +287,19 @@ export abstract class ViewBase<
 		this.disposables.push(...this.registerCommands());
 	}
 
-	dispose() {
+	dispose(): void {
+		this._disposed = true;
 		this._nodeState?.dispose();
 		this._nodeState = undefined;
+		this.root?.dispose();
 		Disposable.from(...this.disposables).dispose();
 	}
 
 	private onReady() {
-		this.initialize({ canSelectMany: this.canSelectMany, showCollapseAll: this.showCollapseAll });
+		this.initialize({
+			canSelectMany: this.canSelectMany,
+			showCollapseAll: this.grouped ? false : this.showCollapseAll,
+		});
 		queueMicrotask(() => this.onConfigurationChanged());
 	}
 
@@ -245,12 +324,17 @@ export abstract class ViewBase<
 		return true;
 	}
 
-	protected filterConfigurationChanged(e: ConfigurationChangeEvent) {
+	protected filterConfigurationChanged(e: ConfigurationChangeEvent): boolean {
 		if (!configuration.changed(e, 'views')) return false;
 
 		if (configuration.changed(e, `views.${this.configKey}` as const)) return true;
-		for (const key of viewsCommonConfigKeys) {
-			if (configuration.changed(e, `views.${key}` as const)) return true;
+		if (
+			configuration.changed(
+				e,
+				viewsCommonConfigKeys.map(k => `views.${k}` as const),
+			)
+		) {
+			return true;
 		}
 
 		return false;
@@ -298,7 +382,9 @@ export abstract class ViewBase<
 		}
 	}
 
-	getQualifiedCommand(command: TreeViewCommandSuffixesByViewType<Type>) {
+	getQualifiedCommand(
+		command: TreeViewCommandSuffixesByViewType<Type>,
+	): `gitlens.views.${Type}.${TreeViewCommandSuffixesByViewType<Type>}` {
 		return `gitlens.views.${this.type}.${command}` as const;
 	}
 
@@ -310,8 +396,8 @@ export abstract class ViewBase<
 		}
 	}
 
-	protected initialize(options: { canSelectMany?: boolean; showCollapseAll?: boolean } = {}) {
-		this.tree = window.createTreeView<ViewNode>(this.id, {
+	protected initialize(options?: { canSelectMany?: boolean; showCollapseAll?: boolean }): void {
+		this.tree = window.createTreeView<ViewNode>(this.grouped ? 'gitlens.views.scm.grouped' : this.id, {
 			...options,
 			treeDataProvider: this,
 		});
@@ -343,8 +429,9 @@ export abstract class ViewBase<
 		}
 	}
 
-	protected ensureRoot(force: boolean = false) {
+	protected ensureRoot(force: boolean = false): RootNode {
 		if (this.root == null || force) {
+			this.root?.dispose();
 			this.root = this.getRoot();
 		}
 
@@ -381,19 +468,26 @@ export abstract class ViewBase<
 		return node.getTreeItem();
 	}
 
+	getViewDescription(count?: number): string | undefined {
+		return (
+			`${this.grouped ? `${this.name.toLocaleLowerCase()} ` : ''}${count != null ? `(${count})` : ''}` ||
+			undefined
+		);
+	}
+
 	resolveTreeItem(item: TreeItem, node: ViewNode, token: CancellationToken): TreeItem | Promise<TreeItem> {
 		return node.resolveTreeItem?.(item, token) ?? item;
 	}
 
-	protected onElementCollapsed(e: TreeViewExpansionEvent<ViewNode>) {
+	protected onElementCollapsed(e: TreeViewExpansionEvent<ViewNode>): void {
 		this._onDidChangeNodeCollapsibleState.fire({ ...e, state: TreeItemCollapsibleState.Collapsed });
 	}
 
-	protected onElementExpanded(e: TreeViewExpansionEvent<ViewNode>) {
+	protected onElementExpanded(e: TreeViewExpansionEvent<ViewNode>): void {
 		this._onDidChangeNodeCollapsibleState.fire({ ...e, state: TreeItemCollapsibleState.Expanded });
 	}
 
-	protected onCheckboxStateChanged(e: TreeCheckboxChangeEvent<ViewNode>) {
+	protected onCheckboxStateChanged(e: TreeCheckboxChangeEvent<ViewNode>): void {
 		try {
 			for (const [node, state] of e.items) {
 				if (node.id == null) {
@@ -408,14 +502,14 @@ export abstract class ViewBase<
 		}
 	}
 
-	protected onSelectionChanged(e: TreeViewSelectionChangeEvent<ViewNode>) {
+	protected onSelectionChanged(e: TreeViewSelectionChangeEvent<ViewNode>): void {
 		this._onDidChangeSelection.fire(e);
 		this.notifySelections();
 	}
 
-	protected onVisibilityChanged(e: TreeViewVisibilityChangeEvent) {
+	protected onVisibilityChanged(e: TreeViewVisibilityChangeEvent): void {
 		if (e.visible) {
-			void this.container.usage.track(`${this.trackingFeature}:shown`);
+			void this.container.usage.track(`${this.trackingFeature}:shown`).catch();
 		}
 
 		this._onDidChangeVisibility.fire(e);
@@ -606,7 +700,7 @@ export abstract class ViewBase<
 			focus?: boolean;
 			expand?: boolean | number;
 		},
-	) {
+	): Promise<void> {
 		// Not sure why I need to reveal each parent, but without it the node won't be revealed
 		const nodes: ViewNode[] = [];
 
@@ -628,7 +722,7 @@ export abstract class ViewBase<
 	}
 
 	@debug()
-	async refresh(reset: boolean = false) {
+	async refresh(reset: boolean = false): Promise<void> {
 		// If we are resetting, make sure to clear any saved node state
 		if (reset) {
 			this.nodeState.reset();
@@ -640,7 +734,7 @@ export abstract class ViewBase<
 	}
 
 	@debug<ViewBase<Type, RootNode, ViewConfig>['refreshNode']>({ args: { 0: n => n.toString() } })
-	async refreshNode(node: ViewNode, reset: boolean = false, force: boolean = false) {
+	async refreshNode(node: ViewNode, reset: boolean = false, force: boolean = false): Promise<void> {
 		const cancel = await node.refresh?.(reset);
 		if (!force && cancel === true) return;
 
@@ -655,29 +749,39 @@ export abstract class ViewBase<
 			focus?: boolean;
 			expand?: boolean | number;
 		},
-	) {
+	): Promise<void> {
 		if (this.tree == null) return;
 
 		try {
 			await this.tree.reveal(node, options);
 		} catch (ex) {
 			Logger.error(ex);
+			debugger;
 		}
 	}
 
 	@log()
-	async show(options?: { preserveFocus?: boolean }) {
+	async show(options?: { preserveFocus?: boolean }): Promise<void> {
 		const scope = getLogScope();
 
 		try {
-			void (await executeCoreCommand(`${this.id}.focus`, options));
+			const command = `${this.grouped ? 'gitlens.views.scm.grouped' : this.id}.focus` as const;
+			// If we haven't been initialized, the focus command will show the view, but won't focus it, so wait until it's initialized and then focus again
+			if (!this.initialized) {
+				void executeCoreCommand(command, options);
+				await new Promise<void>(resolve => {
+					void once(this._onDidInitialize.event)(() => resolve(), this);
+				});
+			}
+
+			void (await executeCoreCommand(command, options));
 		} catch (ex) {
 			Logger.error(ex, scope);
 		}
 	}
 
 	// @debug({ args: { 0: (n: ViewNode) => n.toString() }, singleLine: true })
-	getNodeLastKnownLimit(node: PageableViewNode) {
+	getNodeLastKnownLimit(node: PageableViewNode): number | undefined {
 		return this._lastKnownLimits.get(node.id);
 	}
 
@@ -689,7 +793,7 @@ export abstract class ViewBase<
 		limit: number | { until: string | undefined } | undefined,
 		previousNode?: ViewNode,
 		context?: Record<string, unknown>,
-	) {
+	): Promise<void> {
 		if (previousNode != null) {
 			await this.reveal(previousNode, { select: true });
 		}
@@ -702,12 +806,12 @@ export abstract class ViewBase<
 		args: { 0: n => n.toString() },
 		singleLine: true,
 	})
-	resetNodeLastKnownLimit(node: PageableViewNode) {
+	resetNodeLastKnownLimit(node: PageableViewNode): void {
 		this._lastKnownLimits.delete(node.id);
 	}
 
 	@debug<ViewBase<Type, RootNode, ViewConfig>['triggerNodeChange']>({ args: { 0: n => n?.toString() } })
-	triggerNodeChange(node?: ViewNode) {
+	triggerNodeChange(node?: ViewNode): void {
 		// Since the root node won't actually refresh, force everything
 		this._onDidChangeTreeData.fire(node != null && node !== this.root ? node : undefined);
 	}
@@ -788,14 +892,14 @@ export class ViewNodeState implements Disposable {
 	private _store: Map<string, Map<string, unknown>> | undefined;
 	private _stickyStore: Map<string, Map<string, unknown>> | undefined;
 
-	dispose() {
+	dispose(): void {
 		this.reset();
 
 		this._stickyStore?.clear();
 		this._stickyStore = undefined;
 	}
 
-	reset() {
+	reset(): void {
 		this._store?.clear();
 		this._store = undefined;
 	}
@@ -877,7 +981,7 @@ export class ViewNodeState implements Disposable {
 	}
 }
 
-export function disposeChildren(oldChildren: ViewNode[] | undefined, newChildren?: ViewNode[]) {
+export function disposeChildren(oldChildren: ViewNode[] | undefined, newChildren?: ViewNode[]): void {
 	if (!oldChildren?.length) return;
 
 	const children = newChildren?.length ? oldChildren.filter(c => !newChildren.includes(c)) : [...oldChildren];

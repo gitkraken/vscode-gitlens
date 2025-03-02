@@ -1,0 +1,20 @@
+name: Unit tests
+
+on:
+    pull_request:
+        branches: ['*']
+        types:
+            - opened
+            - reopened
+            - synchronize
+            - ready_for_review
+
+jobs:
+    test:
+        name: Run unit tests
+        runs-on: ubuntu-latest
+        if: ${{ !github.event.pull_request.draft }}
+        steps:
+            - name: Checkout
+              uses: actions/checkout@v3
+            - run: cd tests/docker && ./run-e2e-test-local.sh

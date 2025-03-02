@@ -1,20 +1,19 @@
-import { Commands } from '../constants';
 import type { Container } from '../container';
 import { executeGitCommand } from '../git/actions';
-import { command } from '../system/command';
-import { Command } from './base';
+import { command } from '../system/-webview/command';
+import { GlCommandBase } from './commandBase';
 
 export interface ShowQuickStashListCommandArgs {
 	repoPath?: string;
 }
 
 @command()
-export class ShowQuickStashListCommand extends Command {
+export class ShowQuickStashListCommand extends GlCommandBase {
 	constructor(private readonly container: Container) {
-		super(Commands.ShowQuickStashList);
+		super('gitlens.showQuickStashList');
 	}
 
-	execute(args?: ShowQuickStashListCommandArgs) {
+	execute(args?: ShowQuickStashListCommandArgs): Promise<void> {
 		return executeGitCommand({
 			command: 'stash',
 			state: {

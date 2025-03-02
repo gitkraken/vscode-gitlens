@@ -1,11 +1,11 @@
 import type { CancellationToken, ConfigurationChangeEvent, Position, TextDocument, TextEditor, Uri } from 'vscode';
 import { Disposable, Hover, languages, Range, window } from 'vscode';
 import type { Container } from '../container';
-import { UriComparer } from '../system/comparers';
-import { configuration } from '../system/configuration';
+import { configuration } from '../system/-webview/configuration';
 import { debug } from '../system/decorators/log';
 import { once } from '../system/event';
 import { Logger } from '../system/logger';
+import { uriEquals } from '../system/uri';
 import type { LinesChangeEvent } from '../trackers/lineTracker';
 import { changesMessage, detailsMessage } from './hovers';
 
@@ -23,7 +23,7 @@ export class LineHoverController implements Disposable {
 		);
 	}
 
-	dispose() {
+	dispose(): void {
 		this.unregister();
 
 		this.container.lineTracker.unsubscribe(this);
@@ -191,7 +191,7 @@ export class LineHoverController implements Disposable {
 	}
 
 	private isRegistered(uri: Uri | undefined) {
-		return this._hoverProviderDisposable != null && UriComparer.equals(this._uri, uri);
+		return this._hoverProviderDisposable != null && uriEquals(this._uri, uri);
 	}
 
 	private register(editor: TextEditor | undefined) {

@@ -1,8 +1,9 @@
 /*global document IntersectionObserver*/
 import './settings.scss';
-import type { ManageCloudIntegrationsCommandArgs } from '../../../commands/cloudIntegrations';
-import type { AutolinkReference } from '../../../config';
-import type { IssueIntegrationId } from '../../../plus/integrations/providers/models';
+import type { ConnectCloudIntegrationsCommandArgs } from '../../../commands/cloudIntegrations';
+import type { AutolinkConfig } from '../../../config';
+import type { IssueIntegrationId, SupportedCloudIntegrationIds } from '../../../constants.integrations';
+import { createCommandLink } from '../../../system/commands';
 import type { IpcMessage, UpdateConfigurationParams } from '../../protocol';
 import { DidChangeConfigurationNotification, UpdateConfigurationCommand } from '../../protocol';
 import type { State } from '../../settings/protocol';
@@ -15,9 +16,9 @@ import {
 import { App } from '../shared/appBase';
 import { formatDate, setDefaultDateLocales } from '../shared/date';
 import { DOM } from '../shared/dom';
-// import { Snow } from '../shared/snow';
+import type { Disposable } from '../shared/events';
 import '../shared/components/feature-badge';
-import '../welcome/components/gitlens-logo';
+import '../shared/components/gitlens-logo';
 
 const topOffset = 83;
 const offset = (new Date().getTimezoneOffset() / 60) * 100;
@@ -38,7 +39,7 @@ export class SettingsApp extends App<State> {
 		super('SettingsApp');
 	}
 
-	protected override onInitialize() {
+	protected override onInitialize(): void {
 		// Add scopes if available
 		const scopes = document.getElementById('scopes') as HTMLSelectElement;
 		if (scopes != null && this.state.scopes.length > 1) {
@@ -85,32 +86,32 @@ export class SettingsApp extends App<State> {
 		}
 	}
 
-	protected override onBind() {
+	protected override onBind(): Disposable[] {
 		const disposables = super.onBind?.() ?? [];
 
 		disposables.push(
-			DOM.on('input[type=checkbox][data-setting]', 'change', (e, target: HTMLInputElement) =>
+			DOM.on('input[type=checkbox][data-setting]', 'change', (_e, target: HTMLInputElement) =>
 				this.onInputChecked(target),
 			),
 			DOM.on(
 				'input[type=text][data-setting], input[type=number][data-setting], input:not([type])[data-setting]',
 				'blur',
-				(e, target: HTMLInputElement) => this.onInputBlurred(target),
+				(_e, target: HTMLInputElement) => this.onInputBlurred(target),
 			),
 			DOM.on(
 				'input[type=text][data-setting], input[type=number][data-setting], input:not([type])[data-setting]',
 				'focus',
-				(e, target: HTMLInputElement) => this.onInputFocused(target),
+				(_e, target: HTMLInputElement) => this.onInputFocused(target),
 			),
 			DOM.on(
 				'input[type=text][data-setting][data-setting-preview], input[type=number][data-setting][data-setting-preview]',
 				'input',
-				(e, target: HTMLInputElement) => this.onInputChanged(target),
+				(_e, target: HTMLInputElement) => this.onInputChanged(target),
 			),
-			DOM.on('button[data-setting-clear]', 'click', (e, target: HTMLButtonElement) =>
+			DOM.on('button[data-setting-clear]', 'click', (_e, target: HTMLButtonElement) =>
 				this.onButtonClicked(target),
 			),
-			DOM.on('select[data-setting]', 'change', (e, target: HTMLSelectElement) => this.onInputSelected(target)),
+			DOM.on('select[data-setting]', 'change', (_e, target: HTMLSelectElement) => this.onInputSelected(target)),
 			DOM.on('.token[data-token]', 'mousedown', (e, target: HTMLElement) => this.onTokenMouseDown(target, e)),
 			DOM.on('.section--collapsible>.section__header', 'click', (e, target: HTMLInputElement) =>
 				this.onSectionHeaderClicked(target, e),
@@ -137,7 +138,7 @@ export class SettingsApp extends App<State> {
 		return disposables;
 	}
 
-	protected override onMessageReceived(msg: IpcMessage) {
+	protected override onMessageReceived(msg: IpcMessage): void {
 		switch (true) {
 			case DidOpenAnchorNotification.is(msg):
 				this.scrollToAnchor(msg.params.anchor, msg.params.scrollBehavior);
@@ -391,7 +392,7 @@ export class SettingsApp extends App<State> {
 		const token = `\${${element.dataset.token}}`;
 		let selectionStart = input.selectionStart;
 		if (selectionStart != null) {
-			input.value = `${input.value.substring(0, selectionStart)}${token}${input.value.substr(
+			input.value = `${input.value.substring(0, selectionStart)}${token}${input.value.substring(
 				input.selectionEnd ?? selectionStart,
 			)}`;
 
@@ -773,7 +774,7 @@ export class SettingsApp extends App<State> {
 		const href = element.getAttribute('href');
 		if (href == null) return;
 
-		const anchor = href.substr(1);
+		const anchor = href.substring(1);
 		this.scrollToAnchor(anchor, 'smooth');
 
 		e.stopPropagation();
@@ -804,15 +805,18 @@ export class SettingsApp extends App<State> {
 		if ($root == null) return;
 
 		const { hasAccount, hasConnectedJira } = this.state;
-		let message = `<a href="command:gitlens.plus.cloudIntegrations.manage?${encodeURIComponent(
-			JSON.stringify({
-				integrationId: 'jira' as IssueIntegrationId.Jira,
-				source: 'settings',
-				detail: {
-					action: 'connect',
-					integration: 'jira',
+		let message = `<a href="${createCommandLink<ConnectCloudIntegrationsCommandArgs>(
+			'gitlens.plus.cloudIntegrations.connect',
+			{
+				integrationIds: ['jira' as IssueIntegrationId.Jira] as SupportedCloudIntegrationIds[],
+				source: {
+					source: 'settings',
+					detail: {
+						action: 'connect',
+						integration: 'jira',
+					},
 				},
-			} satisfies ManageCloudIntegrationsCommandArgs),
+			},
 		)}">Connect to Jira Cloud</a> &mdash; ${
 			hasAccount ? '' : 'sign up and '
 		}get access to automatic rich Jira autolinks.`;
@@ -836,7 +840,7 @@ export class SettingsApp extends App<State> {
 			</div>
 		`;
 
-		const autolinkTemplate = (index: number, autolink?: AutolinkReference, isNew = false, renderHelp = true) => `
+		const autolinkTemplate = (index: number, autolink?: AutolinkConfig, isNew = false, renderHelp = true) => `
 			<div class="setting${isNew ? ' hidden" data-region="autolink' : ''}">
 				<div class="setting__group">
 					<div class="setting__input setting__input--short setting__input--with-actions">
@@ -1014,4 +1018,3 @@ function fromCheckboxValue(elementValue: unknown) {
 }
 
 new SettingsApp();
-// requestAnimationFrame(() => new Snow());

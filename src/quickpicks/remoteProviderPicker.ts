@@ -3,17 +3,20 @@ import { env, ThemeIcon, Uri, window } from 'vscode';
 import type { OpenOnRemoteCommandArgs } from '../commands/openOnRemote';
 import { SetRemoteAsDefaultQuickInputButton } from '../commands/quickCommand.buttons';
 import type { Keys } from '../constants';
-import { Commands, GlyphChars } from '../constants';
+import { GlyphChars } from '../constants';
+import { GlCommand } from '../constants.commands';
 import { Container } from '../container';
-import { getBranchNameWithoutRemote, getRemoteNameFromBranchName } from '../git/models/branch';
 import type { GitRemote } from '../git/models/remote';
-import { getHighlanderProviders } from '../git/models/remote';
 import type { RemoteResource } from '../git/models/remoteResource';
-import { getNameFromRemoteResource, RemoteResourceType } from '../git/models/remoteResource';
+import { RemoteResourceType } from '../git/models/remoteResource';
 import type { RemoteProvider } from '../git/remotes/remoteProvider';
+import { getDefaultBranchName } from '../git/utils/-webview/branch.utils';
+import { getBranchNameWithoutRemote, getRemoteNameFromBranchName } from '../git/utils/branch.utils';
+import { getHighlanderProviders } from '../git/utils/remote.utils';
+import { getNameFromRemoteResource } from '../git/utils/remoteResource.utils';
+import { getQuickPickIgnoreFocusOut } from '../system/-webview/vscode';
 import { filterMap } from '../system/array';
 import { getSettledValue } from '../system/promise';
-import { getQuickPickIgnoreFocusOut } from '../system/utils';
 import { CommandQuickPickItem } from './items/common';
 
 export class ConfigureCustomRemoteProviderCommandQuickPickItem extends CommandQuickPickItem {
@@ -56,14 +59,9 @@ export class CopyOrOpenRemoteCommandQuickPickItem extends CommandQuickPickItem {
 				} else if (resource.type === RemoteResourceType.CreatePullRequest) {
 					let branch = resource.base.branch;
 					if (branch == null) {
-						branch = await Container.instance.git.getDefaultBranchName(
-							this.remote.repoPath,
-							this.remote.name,
-						);
-						if (branch == null && this.remote.hasIntegration()) {
-							const provider = await Container.instance.integrations.getByRemote(this.remote);
-							const defaultBranch = await provider?.getDefaultBranch?.(this.remote.provider.repoDesc);
-							branch = defaultBranch?.name;
+						branch = await getDefaultBranchName(Container.instance, this.remote.repoPath, this.remote.name);
+						if (branch) {
+							branch = getBranchNameWithoutRemote(branch);
 						}
 					}
 
@@ -81,10 +79,12 @@ export class CopyOrOpenRemoteCommandQuickPickItem extends CommandQuickPickItem {
 					// turn this into a `Revision` request
 					const { branchOrTag } = resource;
 					const [branches, tags] = await Promise.allSettled([
-						Container.instance.git.getBranches(this.remote.repoPath, {
+						Container.instance.git.branches(this.remote.repoPath).getBranches({
 							filter: b => b.name === branchOrTag || b.getNameWithoutRemote() === branchOrTag,
 						}),
-						Container.instance.git.getTags(this.remote.repoPath, { filter: t => t.name === branchOrTag }),
+						Container.instance.git
+							.tags(this.remote.repoPath)
+							.getTags({ filter: t => t.name === branchOrTag }),
 					]);
 
 					const sha = getSettledValue(branches)?.values[0]?.sha ?? getSettledValue(tags)?.values[0]?.sha;
@@ -118,7 +118,7 @@ export class CopyRemoteResourceCommandQuickPickItem extends CommandQuickPickItem
 		const label = `Copy Link to ${getNameFromRemoteResource(resource)} for ${
 			providers?.length ? providers[0].name : 'Remote'
 		}${providers?.length === 1 ? '' : GlyphChars.Ellipsis}`;
-		super(label, new ThemeIcon('copy'), Commands.OpenOnRemote, [commandArgs]);
+		super(label, new ThemeIcon('copy'), GlCommand.OpenOnRemote, [commandArgs]);
 	}
 
 	override async onDidPressKey(key: Keys): Promise<void> {
@@ -142,7 +142,7 @@ export class OpenRemoteResourceCommandQuickPickItem extends CommandQuickPickItem
 					: `${providers?.length ? providers[0].name : 'Remote'}${GlyphChars.Ellipsis}`
 			}`,
 			new ThemeIcon('link-external'),
-			Commands.OpenOnRemote,
+			GlCommand.OpenOnRemote,
 			[commandArgs],
 		);
 	}

@@ -1,4 +1,7 @@
+import type { TimeInput } from '@opentelemetry/api';
 import type { Config } from '../config';
+import type { GlCommands } from '../constants.commands';
+import type { Source, TelemetryEvents, TelemetryEventsFromWebviewApp } from '../constants.telemetry';
 import type {
 	CustomEditorIds,
 	CustomEditorTypes,
@@ -6,8 +9,9 @@ import type {
 	WebviewTypes,
 	WebviewViewIds,
 	WebviewViewTypes,
-} from '../constants';
-import type { ConfigPath, ConfigPathValue, Path, PathValue } from '../system/configuration';
+} from '../constants.views';
+import type { Promo, PromoLocation } from '../plus/gk/models/promo';
+import type { ConfigPath, ConfigPathValue, Path, PathValue } from '../system/-webview/configuration';
 
 export type IpcScope = 'core' | CustomEditorTypes | WebviewTypes | WebviewViewTypes;
 
@@ -77,10 +81,21 @@ export interface WebviewFocusChangedParams {
 export const WebviewFocusChangedCommand = new IpcCommand<WebviewFocusChangedParams>('core', 'webview/focus/changed');
 
 export interface ExecuteCommandParams {
-	command: string;
+	command: GlCommands;
 	args?: [];
 }
 export const ExecuteCommand = new IpcCommand<ExecuteCommandParams>('core', 'command/execute');
+
+export interface ApplicablePromoRequestParams {
+	location?: PromoLocation;
+}
+export interface ApplicablePromoResponse {
+	promo: Promo | undefined;
+}
+export const ApplicablePromoRequest = new IpcRequest<ApplicablePromoRequestParams, ApplicablePromoResponse>(
+	'core',
+	'promos/applicable',
+);
 
 export interface UpdateConfigurationParams {
 	changes: {
@@ -92,7 +107,37 @@ export interface UpdateConfigurationParams {
 }
 export const UpdateConfigurationCommand = new IpcCommand<UpdateConfigurationParams>('core', 'configuration/update');
 
+export interface TelemetrySendEventParams<T extends keyof TelemetryEvents = keyof TelemetryEvents> {
+	name: T;
+	data: TelemetryEventsFromWebviewApp[T];
+	source?: Source;
+	startTime?: TimeInput;
+	endTime?: TimeInput;
+}
+export const TelemetrySendEventCommand = new IpcCommand<TelemetrySendEventParams>('core', 'telemetry/sendEvent');
+
 // NOTIFICATIONS
+
+export interface IpcPromise {
+	__ipc: 'promise';
+	id: string;
+	method: string;
+}
+
+export function isIpcPromise(value: unknown): value is IpcPromise {
+	return (
+		value != null &&
+		typeof value === 'object' &&
+		'__ipc' in value &&
+		value.__ipc === 'promise' &&
+		'id' in value &&
+		typeof value.id === 'string' &&
+		'method' in value &&
+		typeof value.method === 'string'
+	);
+}
+
+export const ipcPromiseSettled = new IpcNotification<PromiseSettledResult<unknown>>('core', 'ipc/promise/settled');
 
 export interface DidChangeHostWindowFocusParams {
 	focused: boolean;
@@ -105,7 +150,7 @@ export const DidChangeHostWindowFocusNotification = new IpcNotification<DidChang
 export interface DidChangeWebviewFocusParams {
 	focused: boolean;
 }
-export const DidChangeWebviewFocusNotfication = new IpcCommand<DidChangeWebviewFocusParams>(
+export const DidChangeWebviewFocusNotification = new IpcCommand<DidChangeWebviewFocusParams>(
 	'core',
 	'webview/focus/didChange',
 );
@@ -141,7 +186,7 @@ export function isCustomConfigKey(key: string): key is CustomConfigPath {
 }
 
 export function assertsConfigKeyValue<T extends ConfigPath>(
-	key: T,
+	_key: T,
 	value: unknown,
 ): asserts value is ConfigPathValue<T> {
 	// Noop

@@ -1,50 +1,39 @@
 import type { CancellationToken, Command, Disposable, Event, TreeItem } from 'vscode';
-import type { TreeViewNodeTypes } from '../../../constants';
+import type { TreeViewNodeTypes } from '../../../constants.views';
 import type { GitUri } from '../../../git/gitUri';
 import type { GitBranch } from '../../../git/models/branch';
 import type { GitCommit } from '../../../git/models/commit';
 import type { GitContributor } from '../../../git/models/contributor';
 import type { GitFile } from '../../../git/models/file';
+import type { GitPausedOperation } from '../../../git/models/pausedOperationStatus';
 import type { PullRequest } from '../../../git/models/pullRequest';
 import type { GitReflogRecord } from '../../../git/models/reflog';
 import type { GitRemote } from '../../../git/models/remote';
 import type { Repository } from '../../../git/models/repository';
 import type { GitTag } from '../../../git/models/tag';
 import type { GitWorktree } from '../../../git/models/worktree';
-import type { Draft } from '../../../gk/models/drafts';
+import type { Draft } from '../../../plus/drafts/models/drafts';
+import type { LaunchpadItem } from '../../../plus/launchpad/launchpadProvider';
+import type { LaunchpadGroup } from '../../../plus/launchpad/models/launchpad';
+import {
+	launchpadCategoryToGroupMap,
+	sharedCategoryToLaunchpadActionCategoryMap,
+} from '../../../plus/launchpad/models/launchpad';
 import type {
 	CloudWorkspace,
 	CloudWorkspaceRepositoryDescriptor,
+} from '../../../plus/workspaces/models/cloudWorkspace';
+import type {
 	LocalWorkspace,
 	LocalWorkspaceRepositoryDescriptor,
-} from '../../../plus/workspaces/models';
-import { gate } from '../../../system/decorators/gate';
+} from '../../../plus/workspaces/models/localWorkspace';
+import { gate } from '../../../system/decorators/-webview/gate';
 import { debug, logName } from '../../../system/decorators/log';
 import { is as isA } from '../../../system/function';
 import { getLoggableName } from '../../../system/logger';
 import type { View } from '../../viewBase';
-import type { BranchNode } from '../branchNode';
-import type { BranchTrackingStatusFilesNode } from '../branchTrackingStatusFilesNode';
-import type { BranchTrackingStatus, BranchTrackingStatusNode } from '../branchTrackingStatusNode';
-import type { CodeSuggestionsNode } from '../codeSuggestionsNode';
-import type { CommitFileNode } from '../commitFileNode';
-import type { CommitNode } from '../commitNode';
-import type { CompareBranchNode } from '../compareBranchNode';
-import type { CompareResultsNode } from '../compareResultsNode';
-import type { FileRevisionAsCommitNode } from '../fileRevisionAsCommitNode';
-import type { FolderNode } from '../folderNode';
-import type { LineHistoryTrackerNode } from '../lineHistoryTrackerNode';
-import type { MergeConflictFileNode } from '../mergeConflictFileNode';
-import type { RepositoryNode } from '../repositoryNode';
-import type { ResultsCommitsNode } from '../resultsCommitsNode';
-import type { ResultsFileNode } from '../resultsFileNode';
-import type { ResultsFilesNode } from '../resultsFilesNode';
-import type { StashFileNode } from '../stashFileNode';
-import type { StashNode } from '../stashNode';
-import type { StatusFileNode } from '../statusFileNode';
-import type { TagNode } from '../tagNode';
-import type { UncommittedFileNode } from '../UncommittedFileNode';
-import type { RepositoryFolderNode } from './repositoryFolderNode';
+import type { BranchTrackingStatus } from '../branchTrackingStatusNode';
+import type { TreeViewNodesByType } from '../utils/-webview/node.utils';
 
 export const enum ContextValues {
 	ActiveFileHistory = 'gitlens:history:active:file',
@@ -53,6 +42,7 @@ export const enum ContextValues {
 	AutolinkedItem = 'gitlens:autolinked:item',
 	Branch = 'gitlens:branch',
 	Branches = 'gitlens:branches',
+	BranchOrTagFolder = 'gitlens:pseudo:folder',
 	BranchStatusAheadOfUpstream = 'gitlens:status-branch:upstream:ahead',
 	BranchStatusBehindUpstream = 'gitlens:status-branch:upstream:behind',
 	BranchStatusMissingUpstream = 'gitlens:status-branch:upstream:missing',
@@ -62,6 +52,7 @@ export const enum ContextValues {
 	CodeSuggestions = 'gitlens:drafts:code-suggestions',
 	Commit = 'gitlens:commit',
 	Commits = 'gitlens:commits',
+	CommitsCurrentBranch = 'gitlens:commits:current-branch',
 	Compare = 'gitlens:compare',
 	CompareBranch = 'gitlens:compare:branch',
 	ComparePicker = 'gitlens:compare:picker',
@@ -76,15 +67,18 @@ export const enum ContextValues {
 	FileHistory = 'gitlens:history:file',
 	Folder = 'gitlens:folder',
 	Grouping = 'gitlens:grouping',
+	LaunchpadItem = 'gitlens:launchpad:item',
 	LineHistory = 'gitlens:history:line',
-	Merge = 'gitlens:merge',
 	MergeConflictCurrentChanges = 'gitlens:merge-conflict:current',
 	MergeConflictIncomingChanges = 'gitlens:merge-conflict:incoming',
 	Message = 'gitlens:message',
 	MessageSignIn = 'gitlens:message:signin',
 	Pager = 'gitlens:pager',
+	PausedOperationCherryPick = 'gitlens:paused-operation:cherry-pick',
+	PausedOperationMerge = 'gitlens:paused-operation:merge',
+	PausedOperationRebase = 'gitlens:paused-operation:rebase',
+	PausedOperationRevert = 'gitlens:paused-operation:revert',
 	PullRequest = 'gitlens:pullrequest',
-	Rebase = 'gitlens:rebase',
 	Reflog = 'gitlens:reflog',
 	ReflogRecord = 'gitlens:reflog-record',
 	Remote = 'gitlens:remote',
@@ -127,20 +121,22 @@ export interface AmbientContext {
 	readonly contributor?: GitContributor;
 	readonly draft?: Draft;
 	readonly file?: GitFile;
+	readonly launchpadGroup?: LaunchpadGroup;
+	readonly launchpadItem?: LaunchpadItem;
+	readonly pausedOperation?: GitPausedOperation;
 	readonly pullRequest?: PullRequest;
 	readonly reflog?: GitReflogRecord;
 	readonly remote?: GitRemote;
 	readonly repository?: Repository;
 	readonly root?: boolean;
 	readonly searchId?: string;
-	readonly status?: 'merging' | 'rebasing';
 	readonly storedComparisonId?: string;
 	readonly tag?: GitTag;
 	readonly workspace?: CloudWorkspace | LocalWorkspace;
 	readonly wsRepositoryDescriptor?: CloudWorkspaceRepositoryDescriptor | LocalWorkspaceRepositoryDescriptor;
 	readonly worktree?: GitWorktree;
 
-	readonly openWorktreeBranches?: Set<string>;
+	readonly worktreesByBranch?: Map<string, GitWorktree>;
 }
 
 export function getViewNodeId(type: string, context: AmbientContext): string {
@@ -175,11 +171,21 @@ export function getViewNodeId(type: string, context: AmbientContext): string {
 	if (context.branchStatusUpstreamType != null) {
 		uniqueness += `/branch-status-direction/${context.branchStatusUpstreamType}`;
 	}
+	if (context.launchpadGroup != null) {
+		uniqueness += `/lp/${context.launchpadGroup}`;
+		if (context.launchpadItem != null) {
+			uniqueness += `/${context.launchpadItem.type}/${context.launchpadItem.uuid}`;
+		}
+	} else if (context.launchpadItem != null) {
+		uniqueness += `/lp/${launchpadCategoryToGroupMap.get(
+			sharedCategoryToLaunchpadActionCategoryMap.get(context.launchpadItem.suggestedActionCategory)!,
+		)}/${context.launchpadItem.type}/${context.launchpadItem.uuid}`;
+	}
 	if (context.pullRequest != null) {
 		uniqueness += `/pr/${context.pullRequest.id}`;
 	}
-	if (context.status != null) {
-		uniqueness += `/status/${context.status}`;
+	if (context.pausedOperation != null) {
+		uniqueness += `/paused-operation/${context.pausedOperation}`;
 	}
 	if (context.reflog != null) {
 		uniqueness += `/reflog/${context.reflog.sha}+${context.reflog.selector}+${context.reflog.command}+${
@@ -251,7 +257,7 @@ export abstract class ViewNode<
 	protected _disposed = false;
 	// NOTE: @eamodio uncomment to track node leaks
 	// @debug()
-	dispose() {
+	dispose(): void {
 		this._disposed = true;
 		// NOTE: @eamodio uncomment to track node leaks
 		// this.view.unregisterNode(this);
@@ -266,11 +272,11 @@ export abstract class ViewNode<
 		return this._context ?? this.parent?.context ?? {};
 	}
 
-	protected updateContext(context: AmbientContext, reset: boolean = false) {
+	protected updateContext(context: AmbientContext, reset: boolean = false): void {
 		this._context = this.getNewContext(context, reset);
 	}
 
-	protected getNewContext(context: AmbientContext, reset: boolean = false) {
+	protected getNewContext(context: AmbientContext, reset: boolean = false): AmbientContext {
 		return { ...(reset ? this.parent?.context : this.context), ...context };
 	}
 
@@ -384,60 +390,4 @@ export function canViewDismissNode(view: View): view is View & { dismissNode(nod
 
 export function getNodeRepoPath(node?: ViewNode): string | undefined {
 	return canGetNodeRepoPath(node) ? node.repoPath : undefined;
-}
-
-// prettier-ignore
-type TreeViewNodesByType = {
-	[T in TreeViewNodeTypes]: T extends 'branch'
-		? BranchNode
-		: T extends 'commit'
-		? CommitNode
-		: T extends 'commit-file'
-		? CommitFileNode
-		: T extends 'compare-branch'
-		? CompareBranchNode
-		: T extends 'compare-results'
-		? CompareResultsNode
-		: T extends 'conflict-file'
-		? MergeConflictFileNode
-		: T extends 'drafts-code-suggestions'
-		? CodeSuggestionsNode
-		: T extends 'file-commit'
-		? FileRevisionAsCommitNode
-		: T extends 'folder'
-		? FolderNode
-		: T extends 'line-history-tracker'
-		? LineHistoryTrackerNode
-		: T extends 'repository'
-		? RepositoryNode
-		: T extends 'repo-folder'
-		? RepositoryFolderNode
-		: T extends 'results-commits'
-		? ResultsCommitsNode
-		: T extends 'results-file'
-		? ResultsFileNode
-		: T extends 'results-files'
-		? ResultsFilesNode
-		: T extends 'stash'
-		? StashNode
-		: T extends 'stash-file'
-		? StashFileNode
-		: T extends 'status-file'
-		? StatusFileNode
-		: T extends 'tag'
-		? TagNode
-		: T extends 'tracking-status'
-		? BranchTrackingStatusNode
-		: T extends 'tracking-status-files'
-		? BranchTrackingStatusFilesNode
-		: T extends 'uncommitted-file'
-		? UncommittedFileNode
-		: ViewNode<T>;
-};
-
-export function isViewNode(node: unknown): node is ViewNode;
-export function isViewNode<T extends keyof TreeViewNodesByType>(node: unknown, type: T): node is TreeViewNodesByType[T];
-export function isViewNode<T extends keyof TreeViewNodesByType>(node: unknown, type?: T): node is ViewNode {
-	if (node == null) return false;
-	return node instanceof ViewNode ? type == null || node.type === type : false;
 }

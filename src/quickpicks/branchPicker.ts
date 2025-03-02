@@ -3,19 +3,22 @@ import { window } from 'vscode';
 import { getBranches } from '../commands/quickCommand.steps';
 import type { GitBranch } from '../git/models/branch';
 import type { Repository } from '../git/models/repository';
-import { getQuickPickIgnoreFocusOut } from '../system/utils';
-import type { BranchQuickPickItem } from './items/gitCommands';
+import { getQuickPickIgnoreFocusOut } from '../system/-webview/vscode';
+import type { BranchQuickPickItem } from './items/gitWizard';
 
 export async function showBranchPicker(
 	title: string | undefined,
 	placeholder?: string,
-	repository?: Repository,
+	repository?: Repository | Repository[],
+	options?: {
+		filter?: (b: GitBranch) => boolean;
+	},
 ): Promise<GitBranch | undefined> {
 	if (repository == null) {
 		return undefined;
 	}
 
-	const items: BranchQuickPickItem[] = await getBranches(repository, {});
+	const items: BranchQuickPickItem[] = await getBranches(repository, options ?? {});
 	if (items.length === 0) return undefined;
 
 	const quickpick = window.createQuickPick<BranchQuickPickItem>();
@@ -100,12 +103,12 @@ export async function showNewOrSelectBranchPicker(
 
 	// TODO: needs updating
 	const createNewBranch = {
-		label: 'Create new branch',
+		label: 'Create New Branch',
 		description:
 			'Creates a branch to apply the Cloud Patch to. (Typing an existing branch name will use that branch.)',
 	};
 	const selectExistingBranch = {
-		label: 'Select existing branch',
+		label: 'Select Existing Branch',
 		description: 'Selects an existing branch to apply the Cloud Patch to.',
 	};
 
@@ -128,7 +131,7 @@ export async function showNewOrSelectBranchPicker(
 			);
 
 			quickpick.title = title;
-			quickpick.placeholder = 'Select a branch option';
+			quickpick.placeholder = 'Choose a branch option';
 			quickpick.matchOnDescription = true;
 			quickpick.matchOnDetail = true;
 			quickpick.items = items;
@@ -137,9 +140,9 @@ export async function showNewOrSelectBranchPicker(
 		});
 
 		if (pick === createNewBranch) {
-			return showNewBranchPicker(title, 'Enter a name for the new branch', repository);
+			return await showNewBranchPicker(title, 'Enter a name for the new branch', repository);
 		} else if (pick === selectExistingBranch) {
-			return showBranchPicker(title, 'Select an existing branch', repository);
+			return await showBranchPicker(title, 'Choose an existing branch', repository);
 		}
 
 		return undefined;

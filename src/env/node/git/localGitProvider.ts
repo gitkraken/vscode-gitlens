@@ -1,51 +1,28 @@
-import { promises as fs, readdir, realpath } from 'fs';
-import { homedir, hostname, tmpdir, userInfo } from 'os';
-import path, { resolve as resolvePath } from 'path';
-import { env as process_env } from 'process';
-import type { CancellationToken, Event, TextDocument, WorkspaceFolder } from 'vscode';
-import { Disposable, env, EventEmitter, extensions, FileType, Range, Uri, window, workspace } from 'vscode';
+import { readdir, realpath } from 'fs';
+import { resolve as resolvePath } from 'path';
+import type { CancellationToken, Disposable, Event, Range, TextDocument, WorkspaceFolder } from 'vscode';
+import { EventEmitter, extensions, Uri, window, workspace } from 'vscode';
 import { md5 } from '@env/crypto';
 import { fetch, getProxyAgent } from '@env/fetch';
 import { hrtime } from '@env/hrtime';
 import { isLinux, isWindows } from '@env/platform';
 import type { GitExtension, API as ScmGitApi } from '../../../@types/vscode.git';
-import { getCachedAvatarUri } from '../../../avatars';
 import { GlyphChars, Schemes } from '../../../constants';
 import type { Container } from '../../../container';
-import { emojify } from '../../../emojis';
-import { CancellationError } from '../../../errors';
 import { Features } from '../../../features';
+import { GitCache } from '../../../git/cache';
 import { GitErrorHandling } from '../../../git/commandOptions';
 import {
-	ApplyPatchCommitError,
-	ApplyPatchCommitErrorReason,
 	BlameIgnoreRevsFileBadRevisionError,
 	BlameIgnoreRevsFileError,
-	CherryPickError,
-	CherryPickErrorReason,
 	FetchError,
-	GitSearchError,
 	PullError,
 	PushError,
 	PushErrorReason,
-	StashApplyError,
-	StashApplyErrorReason,
-	StashPushError,
-	WorktreeCreateError,
-	WorktreeCreateErrorReason,
-	WorktreeDeleteError,
-	WorktreeDeleteErrorReason,
 } from '../../../git/errors';
 import type {
-	GitCaches,
-	GitDir,
 	GitProvider,
 	GitProviderDescriptor,
-	NextComparisonUrisResult,
-	PagedResult,
-	PagingOptions,
-	PreviousComparisonUrisResult,
-	PreviousLineComparisonUrisResult,
 	RepositoryCloseEvent,
 	RepositoryInitWatcher,
 	RepositoryOpenEvent,
@@ -53,106 +30,26 @@ import type {
 	RevisionUriData,
 	ScmRepository,
 } from '../../../git/gitProvider';
-import { encodeGitLensRevisionUriAuthority, GitUri, isGitUri } from '../../../git/gitUri';
-import type { GitBlame, GitBlameAuthor, GitBlameLine, GitBlameLines } from '../../../git/models/blame';
-import type { BranchSortOptions } from '../../../git/models/branch';
-import {
-	getBranchId,
-	getBranchNameAndRemote,
-	getBranchNameWithoutRemote,
-	getRemoteNameFromBranchName,
-	GitBranch,
-	isDetachedHead,
-	sortBranches,
-} from '../../../git/models/branch';
-import type { GitStashCommit } from '../../../git/models/commit';
-import { GitCommit, GitCommitIdentity } from '../../../git/models/commit';
-import { deletedOrMissing, uncommitted, uncommittedStaged } from '../../../git/models/constants';
-import { GitContributor } from '../../../git/models/contributor';
-import type {
-	GitDiff,
-	GitDiffFile,
-	GitDiffFiles,
-	GitDiffFilter,
-	GitDiffLine,
-	GitDiffShortStat,
-} from '../../../git/models/diff';
-import type { GitFile, GitFileStatus } from '../../../git/models/file';
-import { GitFileChange } from '../../../git/models/file';
-import type {
-	GitGraph,
-	GitGraphRow,
-	GitGraphRowContexts,
-	GitGraphRowHead,
-	GitGraphRowRemoteHead,
-	GitGraphRowsStats,
-	GitGraphRowStats,
-	GitGraphRowTag,
-} from '../../../git/models/graph';
+import type { GitUri } from '../../../git/gitUri';
+import { isGitUri } from '../../../git/gitUri';
+import { encodeGitLensRevisionUriAuthority } from '../../../git/gitUri.authority';
+import type { GitBlame, GitBlameAuthor, GitBlameLine } from '../../../git/models/blame';
+import type { GitCommit } from '../../../git/models/commit';
+import type { GitDiffFile, GitDiffLine } from '../../../git/models/diff';
 import type { GitLog } from '../../../git/models/log';
-import type { GitMergeStatus } from '../../../git/models/merge';
-import type { GitRebaseStatus } from '../../../git/models/rebase';
-import type { GitBranchReference, GitReference, GitTagReference } from '../../../git/models/reference';
-import {
-	createReference,
-	getBranchTrackingWithoutRemote,
-	getReferenceFromBranch,
-	isBranchReference,
-	isRevisionRange,
-	isSha,
-	isShaLike,
-	isUncommitted,
-	isUncommittedStaged,
-	shortenRevision,
-} from '../../../git/models/reference';
-import type { GitReflog } from '../../../git/models/reflog';
+import type { GitBranchReference, GitReference } from '../../../git/models/reference';
 import type { GitRemote } from '../../../git/models/remote';
-import { getRemoteIconUri, getVisibilityCacheKey, sortRemotes } from '../../../git/models/remote';
 import { RemoteResourceType } from '../../../git/models/remoteResource';
 import type { RepositoryChangeEvent } from '../../../git/models/repository';
 import { Repository, RepositoryChange, RepositoryChangeComparisonMode } from '../../../git/models/repository';
-import type { GitStash } from '../../../git/models/stash';
-import type { GitStatusFile } from '../../../git/models/status';
-import { GitStatus } from '../../../git/models/status';
-import type { GitTag, TagSortOptions } from '../../../git/models/tag';
-import { getTagId, sortTags } from '../../../git/models/tag';
-import type { GitTreeEntry } from '../../../git/models/tree';
-import type { GitUser } from '../../../git/models/user';
-import { isUserMatch } from '../../../git/models/user';
-import type { GitWorktree } from '../../../git/models/worktree';
+import { deletedOrMissing } from '../../../git/models/revision';
 import { parseGitBlame } from '../../../git/parsers/blameParser';
-import { parseGitBranches } from '../../../git/parsers/branchParser';
-import {
-	parseGitApplyFiles,
-	parseGitDiffNameStatusFiles,
-	parseGitDiffShortStat,
-	parseGitFileDiff,
-} from '../../../git/parsers/diffParser';
-import {
-	createLogParserSingle,
-	createLogParserWithFiles,
-	getContributorsParser,
-	getGraphParser,
-	getGraphStatsParser,
-	getRefAndDateParser,
-	getRefParser,
-	LogType,
-	parseGitLog,
-	parseGitLogAllFormat,
-	parseGitLogDefaultFormat,
-	parseGitLogSimple,
-	parseGitLogSimpleFormat,
-	parseGitLogSimpleRenamed,
-} from '../../../git/parsers/logParser';
-import { parseGitRefLog } from '../../../git/parsers/reflogParser';
-import { parseGitRemotes } from '../../../git/parsers/remoteParser';
-import { parseGitStatus } from '../../../git/parsers/statusParser';
-import { parseGitTags } from '../../../git/parsers/tagParser';
-import { parseGitLsFiles, parseGitTree } from '../../../git/parsers/treeParser';
-import { parseGitWorktrees } from '../../../git/parsers/worktreeParser';
-import { getRemoteProviderMatcher, loadRemoteProviders } from '../../../git/remotes/remoteProviders';
-import type { GitSearch, GitSearchResultData, GitSearchResults, SearchQuery } from '../../../git/search';
-import { getGitArgsFromSearchQuery, getSearchQueryComparisonKey } from '../../../git/search';
+import { parseGitFileDiff } from '../../../git/parsers/diffParser';
+import { parseGitLogSimpleFormat, parseGitLogSimpleRenamed } from '../../../git/parsers/logParser';
+import { getBranchNameAndRemote, getBranchTrackingWithoutRemote } from '../../../git/utils/branch.utils';
+import { isBranchReference } from '../../../git/utils/reference.utils';
+import { getVisibilityCacheKey } from '../../../git/utils/remote.utils';
+import { isUncommitted, isUncommittedStaged, shortenRevision } from '../../../git/utils/revision.utils';
 import {
 	showBlameInvalidIgnoreRevsFileWarningMessage,
 	showGenericErrorMessage,
@@ -161,60 +58,44 @@ import {
 	showGitMissingErrorMessage,
 	showGitVersionUnsupportedErrorMessage,
 } from '../../../messages';
-import type {
-	GraphBranchContextValue,
-	GraphItemContext,
-	GraphItemRefContext,
-	GraphItemRefGroupContext,
-	GraphTagContextValue,
-} from '../../../plus/webviews/graph/protocol';
-import { countStringLength, filterMap } from '../../../system/array';
-import { TimedCancellationSource } from '../../../system/cancellation';
-import { configuration } from '../../../system/configuration';
-import { gate } from '../../../system/decorators/gate';
+import { asRepoComparisonKey } from '../../../repositories';
+import { configuration } from '../../../system/-webview/configuration';
+import { getBestPath, isFolderUri, relative, splitPath } from '../../../system/-webview/path';
+import { gate } from '../../../system/decorators/-webview/gate';
 import { debug, log } from '../../../system/decorators/log';
-import { debounce } from '../../../system/function';
-import { filterMap as filterMapIterable, find, first, join, last, map, some } from '../../../system/iterable';
+import { debounce } from '../../../system/function/debounce';
+import { first, join } from '../../../system/iterable';
 import { Logger } from '../../../system/logger';
 import type { LogScope } from '../../../system/logger.scope';
-import { getLogScope } from '../../../system/logger.scope';
-import {
-	commonBaseIndex,
-	dirname,
-	getBestPath,
-	isAbsolute,
-	isFolderGlob,
-	joinPaths,
-	maybeUri,
-	normalizePath,
-	pathEquals,
-	relative,
-	splitPath,
-} from '../../../system/path';
-import type { PromiseOrValue } from '../../../system/promise';
+import { getLogScope, setLogScopeExit } from '../../../system/logger.scope';
+import { commonBaseIndex, dirname, isAbsolute, maybeUri, normalizePath, pathEquals } from '../../../system/path';
 import { any, asSettled, getSettledValue } from '../../../system/promise';
-import { equalsIgnoreCase, getDurationMilliseconds, interpolate, splitSingle } from '../../../system/string';
-import { PathTrie } from '../../../system/trie';
+import { equalsIgnoreCase, getDurationMilliseconds, splitSingle } from '../../../system/string';
 import { compare, fromString } from '../../../system/version';
-import { serializeWebviewItemContext } from '../../../system/webview';
-import type { CachedBlame, CachedDiff, CachedLog, TrackedGitDocument } from '../../../trackers/trackedDocument';
+import type { CachedBlame, CachedDiff, TrackedGitDocument } from '../../../trackers/trackedDocument';
 import { GitDocumentState } from '../../../trackers/trackedDocument';
 import { registerCommitMessageProvider } from './commitMessageProvider';
 import type { Git, PushForceOptions } from './git';
-import {
-	getShaInLogRegex,
-	GitErrors,
-	gitLogDefaultConfigs,
-	gitLogDefaultConfigsWithFiles,
-	maxGitCliLength,
-} from './git';
 import type { GitLocation } from './locator';
 import { findGitPath, InvalidGitConfigError, UnableToFindGitError } from './locator';
-import { CancelledRunError, fsExists, RunError } from './shell';
+import { fsExists } from './shell';
+import { BranchesGitSubProvider } from './sub-providers/branches';
+import { CommitsGitSubProvider } from './sub-providers/commits';
+import { ConfigGitSubProvider } from './sub-providers/config';
+import { ContributorsGitSubProvider } from './sub-providers/contributors';
+import { DiffGitSubProvider } from './sub-providers/diff';
+import { GraphGitSubProvider } from './sub-providers/graph';
+import { PatchGitSubProvider } from './sub-providers/patch';
+import { RefsGitSubProvider } from './sub-providers/refs';
+import { RemotesGitSubProvider } from './sub-providers/remotes';
+import { RevisionGitSubProvider } from './sub-providers/revision';
+import { StagingGitSubProvider } from './sub-providers/staging';
+import { StashGitSubProvider } from './sub-providers/stash';
+import { StatusGitSubProvider } from './sub-providers/status';
+import { TagsGitSubProvider } from './sub-providers/tags';
+import { WorktreesGitSubProvider } from './sub-providers/worktrees';
 
-const emptyArray = Object.freeze([]) as unknown as any[];
 const emptyPromise: Promise<GitBlame | GitDiffFile | GitLog | undefined> = Promise.resolve(undefined);
-const emptyPagedResult: PagedResult<any> = Object.freeze({ values: [] });
 const slash = 47;
 
 const RepoSearchWarnings = {
@@ -222,18 +103,6 @@ const RepoSearchWarnings = {
 };
 
 const driveLetterRegex = /(?<=^\/?)([a-zA-Z])(?=:\/)/;
-const userConfigRegex = /^user\.(name|email) (.*)$/gm;
-const mappedAuthorRegex = /(.+)\s<(.+)>/;
-const stashSummaryRegex =
-	// eslint-disable-next-line no-control-regex
-	/(?:(?:(?<wip>WIP) on|On) (?<onref>[^/](?!.*\/\.)(?!.*\.\.)(?!.*\/\/)(?!.*@\{)[^\x00-\x1F\x7F ~^:?*[\\]+[^./]):\s*)?(?<summary>.*)$/s;
-
-const reflogCommands = ['merge', 'pull'];
-
-interface RepositoryInfo {
-	gitDir?: GitDir;
-	user?: GitUser | null;
-}
 
 export class LocalGitProvider implements GitProvider, Disposable {
 	readonly descriptor: GitProviderDescriptor = { id: 'git', name: 'Git', virtual: false };
@@ -248,6 +117,11 @@ export class LocalGitProvider implements GitProvider, Disposable {
 	private _onDidChange = new EventEmitter<void>();
 	get onDidChange(): Event<void> {
 		return this._onDidChange.event;
+	}
+
+	private _onWillChangeRepository = new EventEmitter<RepositoryChangeEvent>();
+	get onWillChangeRepository(): Event<RepositoryChangeEvent> {
+		return this._onWillChangeRepository.event;
 	}
 
 	private _onDidChangeRepository = new EventEmitter<RepositoryChangeEvent>();
@@ -265,39 +139,19 @@ export class LocalGitProvider implements GitProvider, Disposable {
 		return this._onDidOpenRepository.event;
 	}
 
-	private readonly _branchesCache = new Map<string, Promise<PagedResult<GitBranch>>>();
-	private readonly _contributorsCache = new Map<string, Map<string, Promise<GitContributor[]>>>();
-	private readonly _mergeStatusCache = new Map<string, Promise<GitMergeStatus | undefined>>();
-	private readonly _rebaseStatusCache = new Map<string, Promise<GitRebaseStatus | undefined>>();
-	private readonly _remotesCache = new Map<string, Promise<GitRemote[]>>();
-	private readonly _repoInfoCache = new Map<string, RepositoryInfo>();
-	private readonly _stashesCache = new Map<string, GitStash | null>();
-	private readonly _tagsCache = new Map<string, Promise<PagedResult<GitTag>>>();
-	private readonly _trackedPaths = new PathTrie<PromiseOrValue<[string, string] | undefined>>();
-	private readonly _worktreesCache = new Map<string, Promise<GitWorktree[]>>();
-
+	private readonly _cache: GitCache;
 	private _disposables: Disposable[] = [];
 
 	constructor(
 		protected readonly container: Container,
 		protected readonly git: Git,
 	) {
+		this._cache = new GitCache(this.container);
 		this.git.setLocator(this.ensureGit.bind(this));
-
-		this._disposables.push(
-			configuration.onDidChange(e => {
-				if (configuration.changed(e, 'remotes')) {
-					this.resetCaches(undefined, 'remotes');
-				}
-			}, this),
-			this.container.events.on('git:cache:reset', e =>
-				this.resetCaches(e.data.repoPath, ...(e.data.caches ?? emptyArray)),
-			),
-		);
 	}
 
-	dispose() {
-		Disposable.from(...this._disposables).dispose();
+	dispose(): void {
+		this._disposables.forEach(d => void d.dispose());
 	}
 
 	private get useCaching() {
@@ -306,43 +160,51 @@ export class LocalGitProvider implements GitProvider, Disposable {
 
 	private onRepositoryChanged(repo: Repository, e: RepositoryChangeEvent) {
 		if (e.changed(RepositoryChange.Config, RepositoryChangeComparisonMode.Any)) {
-			this._repoInfoCache.delete(repo.path);
+			this._cache.repoInfo?.delete(repo.path);
 		}
 
 		if (e.changed(RepositoryChange.Heads, RepositoryChange.Remotes, RepositoryChangeComparisonMode.Any)) {
-			this._branchesCache.delete(repo.path);
-			this._contributorsCache.delete(repo.path);
+			this._cache.branch?.delete(repo.path);
+			this._cache.branches?.delete(repo.path);
+			this._cache.contributors?.delete(repo.path);
+			this._cache.worktrees?.delete(repo.path);
 		}
 
 		if (e.changed(RepositoryChange.Remotes, RepositoryChange.RemoteProviders, RepositoryChangeComparisonMode.Any)) {
-			this._remotesCache.delete(repo.path);
+			this._cache.remotes?.delete(repo.path);
+			this._cache.bestRemotes?.delete(repo.path);
 		}
 
 		if (e.changed(RepositoryChange.Index, RepositoryChange.Unknown, RepositoryChangeComparisonMode.Any)) {
-			this._trackedPaths.clear();
+			this._cache.trackedPaths.clear();
 		}
 
-		if (e.changed(RepositoryChange.Merge, RepositoryChangeComparisonMode.Any)) {
-			this._mergeStatusCache.delete(repo.path);
-		}
-
-		if (e.changed(RepositoryChange.Rebase, RepositoryChangeComparisonMode.Any)) {
-			this._rebaseStatusCache.delete(repo.path);
+		if (
+			e.changed(
+				RepositoryChange.CherryPick,
+				RepositoryChange.Merge,
+				RepositoryChange.Rebase,
+				RepositoryChange.Revert,
+				RepositoryChangeComparisonMode.Any,
+			)
+		) {
+			this._cache.branch?.delete(repo.path);
+			this._cache.pausedOperationStatus?.delete(repo.path);
 		}
 
 		if (e.changed(RepositoryChange.Stash, RepositoryChangeComparisonMode.Any)) {
-			this._stashesCache.delete(repo.path);
+			this._cache.stashes?.delete(repo.path);
 		}
 
 		if (e.changed(RepositoryChange.Tags, RepositoryChangeComparisonMode.Any)) {
-			this._tagsCache.delete(repo.path);
+			this._cache.tags?.delete(repo.path);
 		}
 
 		if (e.changed(RepositoryChange.Worktrees, RepositoryChangeComparisonMode.Any)) {
-			this._worktreesCache.delete(repo.path);
+			this._cache.worktrees?.delete(repo.path);
 		}
 
-		this._onDidChangeRepository.fire(e);
+		this._onWillChangeRepository.fire(e);
 	}
 
 	private _gitLocator: Promise<GitLocation> | undefined;
@@ -374,14 +236,19 @@ export class LocalGitProvider implements GitProvider, Disposable {
 			registerCommitMessageProvider(this.container, scmGit);
 
 			// Find env to pass to Git
-			for (const v of Object.values(scmGit.git)) {
-				if (v != null && typeof v === 'object' && 'git' in v) {
-					for (const vv of Object.values(v.git)) {
-						if (vv != null && typeof vv === 'object' && 'GIT_ASKPASS' in vv) {
-							Logger.debug(scope, 'Found built-in Git env');
+			if ('env' in scmGit.git) {
+				Logger.debug(scope, 'Found built-in Git env');
+				this.git.setEnv(scmGit.git.env as Record<string, unknown>);
+			} else {
+				for (const v of Object.values(scmGit.git)) {
+					if (v != null && typeof v === 'object' && 'git' in v) {
+						for (const vv of Object.values(v.git)) {
+							if (vv != null && typeof vv === 'object' && 'GIT_ASKPASS' in vv) {
+								Logger.debug(scope, 'Found built-in Git env');
 
-							this.git.setEnv(vv);
-							break;
+								this.git.setEnv(vv);
+								break;
+							}
 						}
 					}
 				}
@@ -414,7 +281,10 @@ export class LocalGitProvider implements GitProvider, Disposable {
 		}
 		void subscribeToScmOpenCloseRepository.call(this);
 
-		const potentialGitPaths = configuration.getCore('git.path') ?? this.container.storage.getWorkspace('gitPath');
+		const canCacheGitPath = configuration.get('advanced.caching.gitPath');
+		const potentialGitPaths =
+			configuration.getCore('git.path') ??
+			(canCacheGitPath ? this.container.storage.getWorkspace('gitPath') : undefined);
 
 		const start = hrtime();
 
@@ -437,12 +307,21 @@ export class LocalGitProvider implements GitProvider, Disposable {
 
 		const location = await any<GitLocation>(findGitPromise, findGitFromSCMPromise);
 		// Save the found git path, but let things settle first to not impact startup performance
-		setTimeout(() => void this.container.storage.storeWorkspace('gitPath', location.path), 1000);
+		setTimeout(
+			() =>
+				void this.container.storage
+					.storeWorkspace('gitPath', canCacheGitPath ? location.path : undefined)
+					.catch(),
+			1000,
+		);
 
 		if (scope != null) {
-			scope.exitDetails = ` ${GlyphChars.Dot} Git (${location.version}) found in ${
-				location.path === 'git' ? 'PATH' : location.path
-			}`;
+			setLogScopeExit(
+				scope,
+				` ${GlyphChars.Dot} Git (${location.version}) found in ${
+					location.path === 'git' ? 'PATH' : location.path
+				}`,
+			);
 		} else {
 			Logger.log(
 				scope,
@@ -493,7 +372,7 @@ export class LocalGitProvider implements GitProvider, Disposable {
 			}
 
 			if (!options?.silent && repositories.length > 0) {
-				this._trackedPaths.clear();
+				this._cache.trackedPaths.clear();
 			}
 
 			return repositories;
@@ -528,7 +407,10 @@ export class LocalGitProvider implements GitProvider, Disposable {
 		const opened = [
 			new Repository(
 				this.container,
-				this.onRepositoryChanged.bind(this),
+				{
+					onDidRepositoryChange: this._onDidChangeRepository,
+					onRepositoryChanged: this.onRepositoryChanged.bind(this),
+				},
 				this.descriptor,
 				folder ?? workspace.getWorkspaceFolder(uri),
 				uri,
@@ -544,7 +426,10 @@ export class LocalGitProvider implements GitProvider, Disposable {
 			opened.push(
 				new Repository(
 					this.container,
-					this.onRepositoryChanged.bind(this),
+					{
+						onDidRepositoryChange: this._onDidChangeRepository,
+						onRepositoryChanged: this.onRepositoryChanged.bind(this),
+					},
 					this.descriptor,
 					folder ?? workspace.getWorkspaceFolder(canonicalUri),
 					canonicalUri,
@@ -561,10 +446,7 @@ export class LocalGitProvider implements GitProvider, Disposable {
 	@debug({ singleLine: true })
 	openRepositoryInitWatcher(): RepositoryInitWatcher {
 		const watcher = workspace.createFileSystemWatcher('**/.git', false, true, true);
-		return {
-			onDidCreate: watcher.onDidCreate,
-			dispose: () => void watcher.dispose(),
-		};
+		return { onDidCreate: watcher.onDidCreate, dispose: watcher.dispose };
 	}
 
 	private _supportedFeatures = new Map<Features, boolean>();
@@ -592,7 +474,7 @@ export class LocalGitProvider implements GitProvider, Disposable {
 
 	@debug<LocalGitProvider['visibility']>({ exit: r => `returned ${r[0]}` })
 	async visibility(repoPath: string): Promise<[visibility: RepositoryVisibility, cacheKey: string | undefined]> {
-		const remotes = await this.getRemotes(repoPath, { sort: true });
+		const remotes = await this.remotes.getRemotes(repoPath, { sort: true });
 		if (remotes.length === 0) return ['local', undefined];
 
 		let local = true;
@@ -704,6 +586,26 @@ export class LocalGitProvider implements GitProvider, Disposable {
 		let rootPath;
 		let canonicalRootPath;
 
+		function maybeAddRepo(this: LocalGitProvider, uri: Uri, folder: WorkspaceFolder | undefined, root: boolean) {
+			const comparisonId = asRepoComparisonKey(uri);
+			if (repositories.some(r => r.id === comparisonId)) {
+				Logger.log(scope, `found ${root ? 'root ' : ''}repository in '${uri.fsPath}'; skipping - duplicate`);
+				return;
+			}
+
+			const repo = this.container.git.getRepository(uri);
+			if (repo != null) {
+				if (repo.closed && silent === false) {
+					repo.closed = false;
+				}
+				Logger.log(scope, `found ${root ? 'root ' : ''}repository in '${uri.fsPath}'; skipping - already open`);
+				return;
+			}
+
+			Logger.log(scope, `found ${root ? 'root ' : ''}repository in '${uri.fsPath}'`);
+			repositories.push(...this.openRepository(folder, uri, root, undefined, silent));
+		}
+
 		const uri = await this.findRepositoryUri(rootUri, true);
 		if (uri != null) {
 			rootPath = normalizePath(uri.fsPath);
@@ -713,8 +615,7 @@ export class LocalGitProvider implements GitProvider, Disposable {
 				canonicalRootPath = normalizePath(canonicalUri.fsPath);
 			}
 
-			Logger.log(scope, `found root repository in '${uri.fsPath}'`);
-			repositories.push(...this.openRepository(folder, uri, true, undefined, silent));
+			maybeAddRepo.call(this, uri, folder, true);
 		}
 
 		if (depth <= 0 || cancellation?.isCancellationRequested) return repositories;
@@ -771,8 +672,7 @@ export class LocalGitProvider implements GitProvider, Disposable {
 			const rp = await this.findRepositoryUri(Uri.file(p), true);
 			if (rp == null) continue;
 
-			Logger.log(scope, `found repository in '${rp.fsPath}'`);
-			repositories.push(...this.openRepository(folder, rp, false, undefined, silent));
+			maybeAddRepo.call(this, rp, folder, false);
 		}
 
 		return repositories;
@@ -974,7 +874,7 @@ export class LocalGitProvider implements GitProvider, Disposable {
 	}
 
 	@log({ exit: true })
-	async getWorkingUri(repoPath: string, uri: Uri) {
+	async getWorkingUri(repoPath: string, uri: Uri): Promise<Uri | undefined> {
 		let relativePath = this.getRelativePath(uri, repoPath);
 
 		let data;
@@ -1019,25 +919,7 @@ export class LocalGitProvider implements GitProvider, Disposable {
 	}
 
 	@log()
-	async addRemote(repoPath: string, name: string, url: string, options?: { fetch?: boolean }): Promise<void> {
-		await this.git.remote__add(repoPath, name, url, options);
-		this.container.events.fire('git:cache:reset', { repoPath: repoPath, caches: ['remotes'] });
-	}
-
-	@log()
-	async pruneRemote(repoPath: string, name: string): Promise<void> {
-		await this.git.remote__prune(repoPath, name);
-		this.container.events.fire('git:cache:reset', { repoPath: repoPath, caches: ['remotes'] });
-	}
-
-	@log()
-	async removeRemote(repoPath: string, name: string): Promise<void> {
-		await this.git.remote__remove(repoPath, name);
-		this.container.events.fire('git:cache:reset', { repoPath: repoPath, caches: ['remotes'] });
-	}
-
-	@log()
-	async applyChangesToWorkingFile(uri: GitUri, ref1?: string, ref2?: string) {
+	async applyChangesToWorkingFile(uri: GitUri, ref1?: string, ref2?: string): Promise<void> {
 		const scope = getLogScope();
 
 		ref1 = ref1 ?? uri.sha;
@@ -1053,7 +935,7 @@ export class LocalGitProvider implements GitProvider, Disposable {
 		let patch;
 		try {
 			patch = await this.git.diff(root, relativePath, ref1, ref2);
-			void (await this.git.apply(root, patch));
+			void (await this.git.exec({ cwd: root, stdin: patch }, 'apply', '--whitespace=warn'));
 		} catch (ex) {
 			const msg: string = ex?.toString() ?? '';
 			if (patch && /patch does not apply/i.test(msg)) {
@@ -1067,7 +949,7 @@ export class LocalGitProvider implements GitProvider, Disposable {
 
 				if (result.title === 'Yes') {
 					try {
-						void (await this.git.apply(root, patch, { allowConflicts: true }));
+						void (await this.git.exec({ cwd: root, stdin: patch }, 'apply', '--whitespace=warn', '--3way'));
 
 						return;
 					} catch (e) {
@@ -1079,138 +961,6 @@ export class LocalGitProvider implements GitProvider, Disposable {
 
 			Logger.error(ex, scope);
 			void showGenericErrorMessage('Unable to apply changes');
-		}
-	}
-
-	@log()
-	async applyUnreachableCommitForPatch(
-		repoPath: string,
-		ref: string,
-		options?: {
-			branchName?: string;
-			createBranchIfNeeded?: boolean;
-			createWorktreePath?: string;
-			stash?: boolean | 'prompt';
-		},
-	): Promise<void> {
-		const scope = getLogScope();
-
-		if (options?.stash) {
-			// Stash any changes first
-			const status = await this.getStatusForRepo(repoPath);
-			if (status?.files?.length) {
-				if (options.stash === 'prompt') {
-					const confirm = { title: 'Stash Changes' };
-					const cancel = { title: 'Cancel', isCloseAffordance: true };
-					const result = await window.showWarningMessage(
-						'You have changes in your working tree.\nDo you want to stash them before applying the patch?',
-						{ modal: true },
-						confirm,
-						cancel,
-					);
-
-					if (result !== confirm) throw new CancellationError();
-				}
-
-				try {
-					await this.git.stash__push(repoPath, undefined, { includeUntracked: true });
-				} catch (ex) {
-					Logger.error(ex, scope);
-					throw new ApplyPatchCommitError(
-						ApplyPatchCommitErrorReason.StashFailed,
-						`Unable to apply patch; failed stashing working changes changes${
-							ex instanceof StashPushError ? `: ${ex.message}` : ''
-						}`,
-						ex,
-					);
-				}
-			}
-		}
-
-		let targetPath = repoPath;
-		const currentBranch = await this.getBranch(repoPath);
-		const branchExists =
-			options?.branchName == null ||
-			currentBranch?.name === options.branchName ||
-			(await this.getBranches(repoPath, { filter: b => b.name === options.branchName }))?.values?.length > 0;
-		const shouldCreate = options?.branchName != null && !branchExists && options.createBranchIfNeeded;
-
-		// TODO: Worktree creation should ideally be handled before calling this, and then
-		// applyPatchCommit should be pointing to the worktree path. If done here, the newly created
-		// worktree cannot be opened and we cannot handle issues elegantly.
-		if (options?.createWorktreePath != null) {
-			if (options?.branchName === null || options.branchName === currentBranch?.name) {
-				throw new ApplyPatchCommitError(
-					ApplyPatchCommitErrorReason.CreateWorktreeFailed,
-					'Unable to apply patch; failed creating worktree',
-				);
-			}
-
-			try {
-				await this.createWorktree(repoPath, options.createWorktreePath, {
-					commitish: options?.branchName != null && branchExists ? options.branchName : currentBranch?.name,
-					createBranch: shouldCreate ? options.branchName : undefined,
-				});
-			} catch (ex) {
-				Logger.error(ex, scope);
-				throw new ApplyPatchCommitError(
-					ApplyPatchCommitErrorReason.CreateWorktreeFailed,
-					`Unable to apply patch; failed creating worktree${
-						ex instanceof WorktreeCreateError ? `: ${ex.message}` : ''
-					}`,
-					ex,
-				);
-			}
-
-			const worktree = await this.container.git.getWorktree(
-				repoPath,
-				w => normalizePath(w.uri.fsPath) === normalizePath(options.createWorktreePath!),
-			);
-			if (worktree == null) {
-				throw new ApplyPatchCommitError(
-					ApplyPatchCommitErrorReason.CreateWorktreeFailed,
-					'Unable to apply patch; failed creating worktree',
-				);
-			}
-
-			targetPath = worktree.uri.fsPath;
-		}
-
-		if (options?.branchName != null && currentBranch?.name !== options.branchName) {
-			const checkoutRef = shouldCreate ? currentBranch?.ref ?? 'HEAD' : options.branchName;
-			await this.checkout(targetPath, checkoutRef, {
-				createBranch: shouldCreate ? options.branchName : undefined,
-			});
-		}
-
-		// Apply the patch using a cherry pick without committing
-		try {
-			await this.git.cherrypick(targetPath, ref, { noCommit: true, errors: GitErrorHandling.Throw });
-		} catch (ex) {
-			Logger.error(ex, scope);
-			if (ex instanceof CherryPickError) {
-				if (ex.reason === CherryPickErrorReason.Conflicts) {
-					throw new ApplyPatchCommitError(
-						ApplyPatchCommitErrorReason.AppliedWithConflicts,
-						`Patch applied with conflicts`,
-						ex,
-					);
-				}
-
-				if (ex.reason === CherryPickErrorReason.AbortedWouldOverwrite) {
-					throw new ApplyPatchCommitError(
-						ApplyPatchCommitErrorReason.ApplyAbortedWouldOverwrite,
-						`Unable to apply patch as some local changes would be overwritten`,
-						ex,
-					);
-				}
-			}
-
-			throw new ApplyPatchCommitError(
-				ApplyPatchCommitErrorReason.ApplyFailed,
-				`Unable to apply patch${ex instanceof CherryPickError ? `: ${ex.message}` : ''}`,
-				ex,
-			);
 		}
 	}
 
@@ -1244,7 +994,7 @@ export class LocalGitProvider implements GitProvider, Disposable {
 		const scope = getLogScope();
 
 		try {
-			return this.git.clone(url, parentPath);
+			return await this.git.clone(url, parentPath);
 		} catch (ex) {
 			Logger.error(ex, scope);
 			void showGenericErrorMessage(`Unable to clone '${url}'`);
@@ -1253,146 +1003,16 @@ export class LocalGitProvider implements GitProvider, Disposable {
 		return undefined;
 	}
 
-	@log({ args: { 1: '<contents>', 3: '<message>' } })
-	async createUnreachableCommitForPatch(
-		repoPath: string,
-		contents: string,
-		baseRef: string,
-		message: string,
-	): Promise<GitCommit | undefined> {
-		const scope = getLogScope();
-
-		// Create a temporary index file
-		const tempDir = await fs.mkdtemp(path.join(tmpdir(), 'gl-'));
-		const tempIndex = joinPaths(tempDir, 'index');
-
-		try {
-			// Tell Git to use our soon to be created index file
-			const env = { GIT_INDEX_FILE: tempIndex };
-
-			// Create the temp index file from a base ref/sha
-
-			// Get the tree of the base
-			const newIndex = await this.git.git<string>(
-				{
-					cwd: repoPath,
-					env: env,
-				},
-				'ls-tree',
-				'-z',
-				'-r',
-				'--full-name',
-				baseRef,
-			);
-
-			// Write the tree to our temp index
-			await this.git.git<string>(
-				{
-					cwd: repoPath,
-					env: env,
-					stdin: newIndex,
-				},
-				'update-index',
-				'-z',
-				'--index-info',
-			);
-
-			// Apply the patch to our temp index, without touching the working directory
-			await this.git.apply2(repoPath, { env: env, stdin: contents }, '--cached');
-
-			// Create a new tree from our patched index
-			const tree = (
-				await this.git.git<string>(
-					{
-						cwd: repoPath,
-						env: env,
-					},
-					'write-tree',
-				)
-			)?.trim();
-
-			// Create new commit from the tree
-			const sha = (
-				await this.git.git<string>(
-					{
-						cwd: repoPath,
-						env: env,
-					},
-					'commit-tree',
-					tree,
-					'-p',
-					baseRef,
-					'-m',
-					message,
-				)
-			)?.trim();
-
-			return this.getCommit(repoPath, sha);
-		} catch (ex) {
-			Logger.error(ex, scope);
-			debugger;
-
-			throw ex;
-		} finally {
-			// Delete the temporary index file
-			try {
-				await fs.rm(tempDir, { recursive: true });
-			} catch (ex) {
-				debugger;
-			}
-		}
-	}
-
-	@log({ singleLine: true })
-	private resetCaches(repoPath: string | undefined, ...caches: GitCaches[]) {
-		const cachesToClear = [];
-
-		if (!caches.length || caches.includes('branches')) {
-			cachesToClear.push(this._branchesCache);
-		}
-
-		if (!caches.length || caches.includes('contributors')) {
-			cachesToClear.push(this._contributorsCache);
-		}
-
-		if (!caches.length || caches.includes('remotes')) {
-			cachesToClear.push(this._remotesCache);
-		}
-
-		if (!caches.length || caches.includes('stashes')) {
-			cachesToClear.push(this._stashesCache);
-		}
-
-		if (!caches.length || caches.includes('status')) {
-			cachesToClear.push(this._mergeStatusCache, this._rebaseStatusCache);
-		}
-
-		if (!caches.length || caches.includes('tags')) {
-			cachesToClear.push(this._tagsCache);
-		}
-
-		if (!caches.length || caches.includes('worktrees')) {
-			cachesToClear.push(this._worktreesCache);
-		}
-
-		if (!caches.length) {
-			cachesToClear.push(this._trackedPaths, this._repoInfoCache);
-		}
-
-		for (const cache of cachesToClear) {
-			if (repoPath != null) {
-				cache.delete(repoPath);
-			} else {
-				cache.clear();
-			}
-		}
-	}
-
 	@log<LocalGitProvider['excludeIgnoredUris']>({ args: { 1: uris => uris.length } })
 	async excludeIgnoredUris(repoPath: string, uris: Uri[]): Promise<Uri[]> {
 		const paths = new Map<string, Uri>(uris.map(u => [normalizePath(u.fsPath), u]));
 
-		const data = await this.git.check_ignore(repoPath, ...paths.keys());
+		const data = await this.git.exec(
+			{ cwd: repoPath, errors: GitErrorHandling.Ignore, stdin: join(paths.keys(), '\0') },
+			'check-ignore',
+			'-z',
+			'--stdin',
+		);
 		if (data == null) return uris;
 
 		const ignored = data.split('\0').filter(<T>(i?: T): i is T => Boolean(i));
@@ -1466,7 +1086,7 @@ export class LocalGitProvider implements GitProvider, Disposable {
 			}
 			upstreamName = getBranchTrackingWithoutRemote(options.reference);
 		} else {
-			const branch = await this.getBranch(repoPath);
+			const branch = await this.branches.getBranch(repoPath);
 			if (branch == null) return;
 
 			branchName =
@@ -1519,11 +1139,12 @@ export class LocalGitProvider implements GitProvider, Disposable {
 
 			// Since Git can't setup remote tracking when publishing a new branch to a specific commit, do it now
 			if (setUpstream != null) {
-				await this.git.branch__set_upstream(
-					repoPath,
+				await this.git.exec(
+					{ cwd: repoPath },
+					'branch',
+					'--set-upstream-to',
+					`${setUpstream.remote}/${setUpstream.remoteBranch}`,
 					setUpstream.branch,
-					setUpstream.remote,
-					setUpstream.remoteBranch,
 				);
 			}
 
@@ -1568,8 +1189,7 @@ export class LocalGitProvider implements GitProvider, Disposable {
 		let repoPath: string | undefined;
 		try {
 			if (isDirectory == null) {
-				const stats = await workspace.fs.stat(uri);
-				isDirectory = (stats.type & FileType.Directory) === FileType.Directory;
+				isDirectory = await isFolderUri(uri);
 			}
 
 			// If the uri isn't a directory, go up one level
@@ -1670,15 +1290,6 @@ export class LocalGitProvider implements GitProvider, Disposable {
 		}
 	}
 
-	@log<LocalGitProvider['getAheadBehindCommitCount']>({ args: { 1: refs => refs.join(',') } })
-	getAheadBehindCommitCount(
-		repoPath: string,
-		refs: string[],
-		options?: { authors?: GitUser[] | undefined },
-	): Promise<{ ahead: number; behind: number } | undefined> {
-		return this.git.rev_list__left_right(repoPath, refs, options?.authors);
-	}
-
 	@gate<LocalGitProvider['getBlame']>((u, d) => `${u.toString()}|${d?.isDirty}`)
 	@log<LocalGitProvider['getBlame']>({ args: { 1: d => d?.isDirty } })
 	async getBlame(uri: GitUri, document?: TextDocument | undefined): Promise<GitBlame | undefined> {
@@ -1741,7 +1352,7 @@ export class LocalGitProvider implements GitProvider, Disposable {
 					args: configuration.get('advanced.blame.customArguments'),
 					ignoreWhitespace: configuration.get('blame.ignoreWhitespace'),
 				}),
-				this.getCurrentUser(root),
+				this.config.getCurrentUser(root),
 				workspace.fs.stat(uri),
 			]);
 
@@ -1758,7 +1369,7 @@ export class LocalGitProvider implements GitProvider, Disposable {
 
 			// Trap and cache expected blame errors
 			if (document.state != null) {
-				const msg = ex?.toString() ?? '';
+				const msg: string = ex?.toString() ?? '';
 				Logger.debug(scope, `Cache replace (with empty promise): '${key}'; reason=${msg}`);
 
 				const value: CachedBlame = {
@@ -1837,7 +1448,7 @@ export class LocalGitProvider implements GitProvider, Disposable {
 					correlationKey: `:${key}`,
 					ignoreWhitespace: configuration.get('blame.ignoreWhitespace'),
 				}),
-				this.getCurrentUser(root),
+				this.config.getCurrentUser(root),
 				workspace.fs.stat(uri),
 			]);
 
@@ -1854,7 +1465,7 @@ export class LocalGitProvider implements GitProvider, Disposable {
 
 			// Trap and cache expected blame errors
 			if (document.state != null) {
-				const msg = ex?.toString() ?? '';
+				const msg: string = ex?.toString() ?? '';
 				Logger.debug(scope, `Cache replace (with empty promise): '${key}'; reason=${msg}`);
 
 				const value: CachedBlame = {
@@ -1922,7 +1533,7 @@ export class LocalGitProvider implements GitProvider, Disposable {
 					startLine: lineToBlame,
 					endLine: lineToBlame,
 				}),
-				this.getCurrentUser(root),
+				this.config.getCurrentUser(root),
 				workspace.fs.stat(uri),
 			]);
 
@@ -1990,7 +1601,7 @@ export class LocalGitProvider implements GitProvider, Disposable {
 					startLine: lineToBlame,
 					endLine: lineToBlame,
 				}),
-				this.getCurrentUser(root),
+				this.config.getCurrentUser(root),
 				workspace.fs.stat(uri),
 			]);
 
@@ -2014,7 +1625,7 @@ export class LocalGitProvider implements GitProvider, Disposable {
 	}
 
 	@log()
-	async getBlameForRange(uri: GitUri, range: Range): Promise<GitBlameLines | undefined> {
+	async getBlameForRange(uri: GitUri, range: Range): Promise<GitBlame | undefined> {
 		const blame = await this.getBlame(uri);
 		if (blame == null) return undefined;
 
@@ -2022,7 +1633,7 @@ export class LocalGitProvider implements GitProvider, Disposable {
 	}
 
 	@log<LocalGitProvider['getBlameForRangeContents']>({ args: { 2: '<contents>' } })
-	async getBlameForRangeContents(uri: GitUri, range: Range, contents: string): Promise<GitBlameLines | undefined> {
+	async getBlameForRangeContents(uri: GitUri, range: Range, contents: string): Promise<GitBlame | undefined> {
 		const blame = await this.getBlameContents(uri, contents);
 		if (blame == null) return undefined;
 
@@ -2030,11 +1641,11 @@ export class LocalGitProvider implements GitProvider, Disposable {
 	}
 
 	@log<LocalGitProvider['getBlameRange']>({ args: { 0: '<blame>' } })
-	getBlameRange(blame: GitBlame, uri: GitUri, range: Range): GitBlameLines | undefined {
-		if (blame.lines.length === 0) return { allLines: blame.lines, ...blame };
+	getBlameRange(blame: GitBlame, uri: GitUri, range: Range): GitBlame | undefined {
+		if (blame.lines.length === 0) return blame;
 
 		if (range.start.line === 0 && range.end.line === blame.lines.length - 1) {
-			return { allLines: blame.lines, ...blame };
+			return blame;
 		}
 
 		const lines = blame.lines.slice(range.start.line, range.end.line + 1);
@@ -2073,1010 +1684,6 @@ export class LocalGitProvider implements GitProvider, Disposable {
 			authors: sortedAuthors,
 			commits: commits,
 			lines: lines,
-			allLines: blame.lines,
-		};
-	}
-
-	@gate()
-	@log()
-	async getBranch(repoPath: string): Promise<GitBranch | undefined> {
-		let {
-			values: [branch],
-		} = await this.getBranches(repoPath, { filter: b => b.current });
-		if (branch != null) return branch;
-
-		const commitOrdering = configuration.get('advanced.commitOrdering');
-
-		const data = await this.git.rev_parse__currentBranch(repoPath, commitOrdering);
-		if (data == null) return undefined;
-
-		const [name, upstream] = data[0].split('\n');
-		if (isDetachedHead(name)) {
-			const [rebaseStatusResult, committerDateResult] = await Promise.allSettled([
-				this.getRebaseStatus(repoPath),
-				this.git.log__recent_committerdate(repoPath, commitOrdering),
-			]);
-
-			const committerDate = getSettledValue(committerDateResult);
-
-			branch = new GitBranch(
-				this.container,
-				repoPath,
-				getSettledValue(rebaseStatusResult)?.incoming.name ?? name,
-				false,
-				true,
-				committerDate != null ? new Date(Number(committerDate) * 1000) : undefined,
-				data[1],
-				upstream ? { name: upstream, missing: false } : undefined,
-				undefined,
-				undefined,
-				undefined,
-				rebaseStatusResult != null,
-			);
-		}
-
-		return branch;
-	}
-
-	@log({ args: { 1: false } })
-	async getBranches(
-		repoPath: string | undefined,
-		options?: {
-			filter?: (b: GitBranch) => boolean;
-			paging?: PagingOptions;
-			sort?: boolean | BranchSortOptions;
-		},
-	): Promise<PagedResult<GitBranch>> {
-		if (repoPath == null) return emptyPagedResult;
-
-		let resultsPromise = this.useCaching ? this._branchesCache.get(repoPath) : undefined;
-		if (resultsPromise == null) {
-			async function load(this: LocalGitProvider): Promise<PagedResult<GitBranch>> {
-				try {
-					const data = await this.git.for_each_ref__branch(repoPath!, { all: true });
-					// If we don't get any data, assume the repo doesn't have any commits yet so check if we have a current branch
-					if (data == null || data.length === 0) {
-						let current;
-
-						const commitOrdering = configuration.get('advanced.commitOrdering');
-
-						const data = await this.git.rev_parse__currentBranch(repoPath!, commitOrdering);
-						if (data != null) {
-							const [name, upstream] = data[0].split('\n');
-							const [rebaseStatus, committerDate] = await Promise.all([
-								isDetachedHead(name) ? this.getRebaseStatus(repoPath!) : undefined,
-								this.git.log__recent_committerdate(repoPath!, commitOrdering),
-							]);
-
-							current = new GitBranch(
-								this.container,
-								repoPath!,
-								rebaseStatus?.incoming.name ?? name,
-								false,
-								true,
-								committerDate != null ? new Date(Number(committerDate) * 1000) : undefined,
-								data[1],
-								{ name: upstream, missing: false },
-								undefined,
-								undefined,
-								undefined,
-								rebaseStatus != null,
-							);
-						}
-
-						return current != null ? { values: [current] } : emptyPagedResult;
-					}
-
-					return { values: parseGitBranches(this.container, data, repoPath!) };
-				} catch (ex) {
-					this._branchesCache.delete(repoPath!);
-
-					return emptyPagedResult;
-				}
-			}
-
-			resultsPromise = load.call(this);
-
-			if (this.useCaching && options?.paging?.cursor == null) {
-				this._branchesCache.set(repoPath, resultsPromise);
-			}
-		}
-
-		let result = await resultsPromise;
-		if (options?.filter != null) {
-			result = {
-				...result,
-				values: result.values.filter(options.filter),
-			};
-		}
-
-		if (options?.sort) {
-			sortBranches(result.values, typeof options.sort === 'boolean' ? undefined : options.sort);
-		}
-
-		return result;
-	}
-
-	@log()
-	async getChangedFilesCount(repoPath: string, ref?: string): Promise<GitDiffShortStat | undefined> {
-		const data = await this.git.diff__shortstat(repoPath, ref);
-		if (!data) return undefined;
-
-		return parseGitDiffShortStat(data);
-	}
-
-	@log()
-	async getCommit(repoPath: string, ref: string): Promise<GitCommit | undefined> {
-		const log = await this.getLog(repoPath, { limit: 2, ref: ref });
-		if (log == null) return undefined;
-
-		return log.commits.get(ref) ?? first(log.commits.values());
-	}
-
-	@log()
-	async getCommitBranches(
-		repoPath: string,
-		refs: string[],
-		branch?: string | undefined,
-		options?:
-			| { all?: boolean; commitDate?: Date; mode?: 'contains' | 'pointsAt' }
-			| { commitDate?: Date; mode?: 'contains' | 'pointsAt'; remotes?: boolean },
-	): Promise<string[]> {
-		if (branch != null) {
-			const data = await this.git.branchOrTag__containsOrPointsAt(repoPath, refs, {
-				type: 'branch',
-				mode: 'contains',
-				name: branch,
-			});
-			return data ? [data?.trim()] : [];
-		}
-
-		const data = await this.git.branchOrTag__containsOrPointsAt(repoPath, refs, { type: 'branch', ...options });
-		if (!data) return [];
-
-		return filterMap(data.split('\n'), b => b.trim() || undefined);
-	}
-
-	@log({ exit: true })
-	getCommitCount(repoPath: string, ref: string): Promise<number | undefined> {
-		return this.git.rev_list__count(repoPath, ref);
-	}
-
-	@log()
-	async getCommitForFile(
-		repoPath: string | undefined,
-		uri: Uri,
-		options?: { ref?: string; firstIfNotFound?: boolean; range?: Range },
-	): Promise<GitCommit | undefined> {
-		const scope = getLogScope();
-
-		const [relativePath, root] = splitPath(uri, repoPath);
-
-		try {
-			const log = await this.getLogForFile(root, relativePath, {
-				limit: 2,
-				ref: options?.ref,
-				range: options?.range,
-			});
-			if (log == null) return undefined;
-
-			let commit;
-			if (options?.ref) {
-				const commit = log.commits.get(options.ref);
-				if (commit == null && !options?.firstIfNotFound) {
-					// If the ref isn't a valid sha we will never find it, so let it fall through so we return the first
-					if (isSha(options.ref) || isUncommitted(options.ref)) return undefined;
-				}
-			}
-
-			return commit ?? first(log.commits.values());
-		} catch (ex) {
-			Logger.error(ex, scope);
-			return undefined;
-		}
-	}
-
-	@log()
-	async getCommitsForGraph(
-		repoPath: string,
-		asWebviewUri: (uri: Uri) => Uri,
-		options?: {
-			branch?: string;
-			include?: { stats?: boolean };
-			limit?: number;
-			ref?: string;
-		},
-	): Promise<GitGraph> {
-		const defaultLimit = options?.limit ?? configuration.get('graph.defaultItemLimit') ?? 5000;
-		const defaultPageLimit = configuration.get('graph.pageItemLimit') ?? 1000;
-		const ordering = configuration.get('graph.commitOrdering', undefined, 'date');
-		const onlyFollowFirstParent = configuration.get('graph.onlyFollowFirstParent', undefined, false);
-
-		const deferStats = options?.include?.stats; // && defaultLimit > 1000;
-
-		const parser = getGraphParser(options?.include?.stats && !deferStats);
-		const refParser = getRefParser();
-		const statsParser = getGraphStatsParser();
-
-		const [refResult, stashResult, branchesResult, remotesResult, currentUserResult] = await Promise.allSettled([
-			this.git.log(repoPath, undefined, ...refParser.arguments, '-n1', options?.ref ?? 'HEAD'),
-			this.getStash(repoPath),
-			this.getBranches(repoPath),
-			this.getRemotes(repoPath),
-			this.getCurrentUser(repoPath),
-		]);
-
-		const branches = getSettledValue(branchesResult)?.values;
-		const branchMap = branches != null ? new Map(branches.map(r => [r.name, r])) : new Map<string, GitBranch>();
-		const headBranch = branches?.find(b => b.current);
-		const headRefUpstreamName = headBranch?.upstream?.name;
-
-		const currentUser = getSettledValue(currentUserResult);
-
-		const remotes = getSettledValue(remotesResult);
-		const remoteMap = remotes != null ? new Map(remotes.map(r => [r.name, r])) : new Map<string, GitRemote>();
-		const selectSha = first(refParser.parse(getSettledValue(refResult) ?? ''));
-
-		const downstreamMap = new Map<string, string[]>();
-
-		let stdin: string | undefined;
-		// TODO@eamodio this is insanity -- there *HAS* to be a better way to get git log to return stashes
-		const stash = getSettledValue(stashResult);
-		if (stash != null && stash.commits.size !== 0) {
-			stdin = join(
-				map(stash.commits.values(), c => c.sha.substring(0, 9)),
-				'\n',
-			);
-		}
-
-		const useAvatars = configuration.get('graph.avatars', undefined, true);
-
-		const avatars = new Map<string, string>();
-		const ids = new Set<string>();
-		const reachableFromHEAD = new Set<string>();
-		const remappedIds = new Map<string, string>();
-		let total = 0;
-		let iterations = 0;
-		let pendingRowsStatsCount = 0;
-
-		async function getCommitsForGraphCore(
-			this: LocalGitProvider,
-			limit: number,
-			sha?: string,
-			cursor?: { sha: string; skip: number },
-		): Promise<GitGraph> {
-			const startTotal = total;
-
-			iterations++;
-
-			let log: string | string[] | undefined;
-			let nextPageLimit = limit;
-			let size;
-
-			do {
-				const args = [...parser.arguments, `--${ordering}-order`, '--all'];
-				if (onlyFollowFirstParent) {
-					args.push('--first-parent');
-				}
-				if (cursor?.skip) {
-					args.push(`--skip=${cursor.skip}`);
-				}
-
-				let data;
-				if (sha) {
-					[data, limit] = await this.git.logStreamTo(
-						repoPath,
-						sha,
-						limit,
-						stdin ? { stdin: stdin } : undefined,
-						...args,
-					);
-				} else {
-					args.push(`-n${nextPageLimit + 1}`);
-
-					data = await this.git.log(repoPath, stdin ? { stdin: stdin } : undefined, ...args);
-
-					if (cursor) {
-						if (!getShaInLogRegex(cursor.sha).test(data)) {
-							// If we didn't find any new commits, we must have them all so return that we have everything
-							if (size === data.length) {
-								return {
-									repoPath: repoPath,
-									avatars: avatars,
-									ids: ids,
-									includes: options?.include,
-									branches: branchMap,
-									remotes: remoteMap,
-									downstreams: downstreamMap,
-									rows: [],
-								};
-							}
-
-							size = data.length;
-							nextPageLimit = (nextPageLimit === 0 ? defaultPageLimit : nextPageLimit) * 2;
-							cursor.skip -= Math.floor(cursor.skip * 0.1);
-
-							continue;
-						}
-					}
-				}
-
-				if (!data) {
-					return {
-						repoPath: repoPath,
-						avatars: avatars,
-						ids: ids,
-						includes: options?.include,
-						branches: branchMap,
-						remotes: remoteMap,
-						downstreams: downstreamMap,
-						rows: [],
-					};
-				}
-
-				log = data;
-				if (limit !== 0) {
-					limit = nextPageLimit;
-				}
-
-				break;
-			} while (true);
-
-			const rows: GitGraphRow[] = [];
-
-			let avatarUri: Uri | undefined;
-			let avatarUrl: string | undefined;
-			let branch: GitBranch | undefined;
-			let branchId: string;
-			let branchName: string;
-			let context:
-				| GraphItemRefContext<GraphBranchContextValue>
-				| GraphItemRefContext<GraphTagContextValue>
-				| undefined;
-			let contexts: GitGraphRowContexts | undefined;
-			let group;
-			let groupName;
-			const groupedRefs = new Map<
-				string,
-				{ head?: boolean; local?: GitBranchReference; remotes?: GitBranchReference[] }
-			>();
-			let head = false;
-			let isCurrentUser = false;
-			let refHead: GitGraphRowHead;
-			let refHeads: GitGraphRowHead[];
-			let refRemoteHead: GitGraphRowRemoteHead;
-			let refRemoteHeads: GitGraphRowRemoteHead[];
-			let refTag: GitGraphRowTag;
-			let refTags: GitGraphRowTag[];
-			let parent: string;
-			let parents: string[];
-			let remote: GitRemote | undefined;
-			let remoteBranchId: string;
-			let remoteName: string;
-			let stashCommit: GitStashCommit | undefined;
-			let stats: GitGraphRowsStats | undefined;
-			let tagId: string;
-			let tagName: string;
-			let tip: string;
-
-			let count = 0;
-
-			const commits = parser.parse(log);
-			for (const commit of commits) {
-				count++;
-				if (ids.has(commit.sha)) continue;
-
-				total++;
-				if (remappedIds.has(commit.sha)) continue;
-
-				ids.add(commit.sha);
-
-				refHeads = [];
-				refRemoteHeads = [];
-				refTags = [];
-				contexts = {};
-
-				if (commit.tips) {
-					groupedRefs.clear();
-
-					for (tip of commit.tips.split(', ')) {
-						head = false;
-						if (tip === 'refs/stash') continue;
-
-						if (tip.startsWith('tag: ')) {
-							tagName = tip.substring(5);
-							tagId = getTagId(repoPath, tagName);
-							context = {
-								webviewItem: 'gitlens:tag',
-								webviewItemValue: {
-									type: 'tag',
-									ref: createReference(tagName, repoPath, {
-										id: tagId,
-										refType: 'tag',
-										name: tagName,
-									}),
-								},
-							};
-
-							refTag = {
-								id: tagId,
-								name: tagName,
-								// Not currently used, so don't bother looking it up
-								annotated: true,
-								context: serializeWebviewItemContext<GraphItemRefContext>(context),
-							};
-							refTags.push(refTag);
-
-							continue;
-						}
-
-						if (tip.startsWith('HEAD')) {
-							head = true;
-							reachableFromHEAD.add(commit.sha);
-
-							if (tip !== 'HEAD') {
-								tip = tip.substring(8);
-							}
-						}
-
-						remoteName = getRemoteNameFromBranchName(tip);
-						if (remoteName) {
-							remote = remoteMap.get(remoteName);
-							if (remote != null) {
-								branchName = getBranchNameWithoutRemote(tip);
-								if (branchName === 'HEAD') continue;
-
-								remoteBranchId = getBranchId(repoPath, true, tip);
-								avatarUrl = (
-									(useAvatars ? remote.provider?.avatarUri : undefined) ??
-									getRemoteIconUri(this.container, remote, asWebviewUri)
-								)?.toString(true);
-								context = {
-									webviewItem: 'gitlens:branch+remote',
-									webviewItemValue: {
-										type: 'branch',
-										ref: createReference(tip, repoPath, {
-											id: remoteBranchId,
-											refType: 'branch',
-											name: tip,
-											remote: true,
-											upstream: { name: remote.name, missing: false },
-										}),
-									},
-								};
-
-								refRemoteHead = {
-									id: remoteBranchId,
-									name: branchName,
-									owner: remote.name,
-									url: remote.url,
-									avatarUrl: avatarUrl,
-									context: serializeWebviewItemContext<GraphItemRefContext>(context),
-									current: tip === headRefUpstreamName,
-									hostingServiceType: remote.provider?.gkProviderId,
-								};
-								refRemoteHeads.push(refRemoteHead);
-
-								group = groupedRefs.get(branchName);
-								if (group == null) {
-									group = { remotes: [] };
-									groupedRefs.set(branchName, group);
-								}
-								if (group.remotes == null) {
-									group.remotes = [];
-								}
-								group.remotes.push(context.webviewItemValue.ref);
-
-								continue;
-							}
-						}
-
-						branch = branchMap.get(tip);
-						branchId = branch?.id ?? getBranchId(repoPath, false, tip);
-						context = {
-							webviewItem: `gitlens:branch${head ? '+current' : ''}${
-								branch?.upstream != null ? '+tracking' : ''
-							}`,
-							webviewItemValue: {
-								type: 'branch',
-								ref: createReference(tip, repoPath, {
-									id: branchId,
-									refType: 'branch',
-									name: tip,
-									remote: false,
-									upstream: branch?.upstream,
-								}),
-							},
-						};
-
-						refHead = {
-							id: branchId,
-							name: tip,
-							isCurrentHead: head,
-							context: serializeWebviewItemContext<GraphItemRefContext>(context),
-							upstream:
-								branch?.upstream != null
-									? {
-											name: branch.upstream.name,
-											id: getBranchId(repoPath, true, branch.upstream.name),
-									  }
-									: undefined,
-						};
-						refHeads.push(refHead);
-						if (branch?.upstream?.name != null) {
-							// Add the branch name (tip) to the upstream name entry in the downstreams map
-							let downstreams = downstreamMap.get(branch.upstream.name);
-							if (downstreams == null) {
-								downstreams = [];
-								downstreamMap.set(branch.upstream.name, downstreams);
-							}
-
-							downstreams.push(tip);
-						}
-
-						group = groupedRefs.get(tip);
-						if (group == null) {
-							group = {};
-							groupedRefs.set(tip, group);
-						}
-
-						if (head) {
-							group.head = true;
-						}
-						group.local = context.webviewItemValue.ref;
-					}
-
-					for ([groupName, group] of groupedRefs) {
-						if (
-							group.remotes != null &&
-							((group.local != null && group.remotes.length > 0) || group.remotes.length > 1)
-						) {
-							if (contexts.refGroups == null) {
-								contexts.refGroups = {};
-							}
-							contexts.refGroups[groupName] = serializeWebviewItemContext<GraphItemRefGroupContext>({
-								webviewItemGroup: `gitlens:refGroup${group.head ? '+current' : ''}`,
-								webviewItemGroupValue: {
-									type: 'refGroup',
-									refs: group.local != null ? [group.local, ...group.remotes] : group.remotes,
-								},
-							});
-						}
-					}
-				}
-
-				stashCommit = stash?.commits.get(commit.sha);
-
-				parents = commit.parents ? commit.parents.split(' ') : [];
-				if (reachableFromHEAD.has(commit.sha)) {
-					for (parent of parents) {
-						reachableFromHEAD.add(parent);
-					}
-				}
-
-				// Remove the second & third parent, if exists, from each stash commit as it is a Git implementation for the index and untracked files
-				if (stashCommit != null && parents.length > 1) {
-					// Remap the "index commit" (e.g. contains staged files) of the stash
-					remappedIds.set(parents[1], commit.sha);
-					// Remap the "untracked commit" (e.g. contains untracked files) of the stash
-					remappedIds.set(parents[2], commit.sha);
-					parents.splice(1, 2);
-				}
-
-				if (stashCommit == null && !avatars.has(commit.authorEmail)) {
-					avatarUri = getCachedAvatarUri(commit.authorEmail);
-					if (avatarUri != null) {
-						avatars.set(commit.authorEmail, avatarUri.toString(true));
-					}
-				}
-
-				isCurrentUser = isUserMatch(currentUser, commit.author, commit.authorEmail);
-
-				if (stashCommit != null) {
-					contexts.row = serializeWebviewItemContext<GraphItemRefContext>({
-						webviewItem: 'gitlens:stash',
-						webviewItemValue: {
-							type: 'stash',
-							ref: createReference(commit.sha, repoPath, {
-								refType: 'stash',
-								name: stashCommit.name,
-								message: stashCommit.message,
-								number: stashCommit.number,
-							}),
-						},
-					});
-				} else {
-					contexts.row = serializeWebviewItemContext<GraphItemRefContext>({
-						webviewItem: `gitlens:commit${head ? '+HEAD' : ''}${
-							reachableFromHEAD.has(commit.sha) ? '+current' : ''
-						}`,
-						webviewItemValue: {
-							type: 'commit',
-							ref: createReference(commit.sha, repoPath, {
-								refType: 'revision',
-								message: commit.message,
-							}),
-						},
-					});
-
-					contexts.avatar = serializeWebviewItemContext<GraphItemContext>({
-						webviewItem: `gitlens:contributor${isCurrentUser ? '+current' : ''}`,
-						webviewItemValue: {
-							type: 'contributor',
-							repoPath: repoPath,
-							name: commit.author,
-							email: commit.authorEmail,
-							current: isCurrentUser,
-						},
-					});
-				}
-
-				rows.push({
-					sha: commit.sha,
-					parents: onlyFollowFirstParent ? [parents[0]] : parents,
-					author: isCurrentUser ? 'You' : commit.author,
-					email: commit.authorEmail,
-					date: Number(ordering === 'author-date' ? commit.authorDate : commit.committerDate) * 1000,
-					message: emojify(commit.message.trim()),
-					// TODO: review logic for stash, wip, etc
-					type: stashCommit != null ? 'stash-node' : parents.length > 1 ? 'merge-node' : 'commit-node',
-					heads: refHeads,
-					remotes: refRemoteHeads,
-					tags: refTags,
-					contexts: contexts,
-				});
-
-				if (commit.stats != null) {
-					if (stats == null) {
-						stats = new Map<string, GitGraphRowStats>();
-					}
-					stats.set(commit.sha, commit.stats);
-				}
-			}
-
-			const startingCursor = cursor?.sha;
-			const lastSha = last(ids);
-			cursor =
-				lastSha != null
-					? {
-							sha: lastSha,
-							skip: total - iterations,
-					  }
-					: undefined;
-
-			let rowsStatsDeferred: GitGraph['rowsStatsDeferred'];
-
-			if (deferStats) {
-				if (stats == null) {
-					stats = new Map<string, GitGraphRowStats>();
-				}
-				pendingRowsStatsCount++;
-
-				// eslint-disable-next-line no-async-promise-executor
-				const promise = new Promise<void>(async resolve => {
-					try {
-						const args = [...statsParser.arguments];
-						if (startTotal === 0) {
-							args.push(`-n${total}`);
-						} else {
-							args.push(`-n${total - startTotal}`, `--skip=${startTotal}`);
-						}
-						args.push(`--${ordering}-order`, '--all');
-
-						const statsData = await this.git.log(repoPath, stdin ? { stdin: stdin } : undefined, ...args);
-						if (statsData) {
-							const commitStats = statsParser.parse(statsData);
-							for (const stat of commitStats) {
-								stats!.set(stat.sha, stat.stats);
-							}
-						}
-					} finally {
-						pendingRowsStatsCount--;
-						resolve();
-					}
-				});
-
-				rowsStatsDeferred = {
-					isLoaded: () => pendingRowsStatsCount === 0,
-					promise: promise,
-				};
-			}
-
-			return {
-				repoPath: repoPath,
-				avatars: avatars,
-				ids: ids,
-				includes: options?.include,
-				remappedIds: remappedIds,
-				branches: branchMap,
-				remotes: remoteMap,
-				downstreams: downstreamMap,
-				rows: rows,
-				id: sha,
-				rowsStats: stats,
-				rowsStatsDeferred: rowsStatsDeferred,
-
-				paging: {
-					limit: limit === 0 ? count : limit,
-					startingCursor: startingCursor,
-					hasMore: limit !== 0 && count > limit,
-				},
-				more: async (limit: number, sha?: string): Promise<GitGraph | undefined> =>
-					getCommitsForGraphCore.call(this, limit, sha, cursor),
-			};
-		}
-
-		return getCommitsForGraphCore.call(this, defaultLimit, selectSha);
-	}
-
-	@log()
-	async getCommitTags(
-		repoPath: string,
-		ref: string,
-		options?: { commitDate?: Date; mode?: 'contains' | 'pointsAt' },
-	): Promise<string[]> {
-		const data = await this.git.branchOrTag__containsOrPointsAt(repoPath, [ref], { type: 'tag', ...options });
-		if (!data) return [];
-
-		return filterMap(data.split('\n'), b => b.trim() || undefined);
-	}
-
-	getConfig(repoPath: string, key: string): Promise<string | undefined> {
-		return this.git.config__get(key, repoPath);
-	}
-
-	setConfig(repoPath: string, key: string, value: string | undefined): Promise<void> {
-		return this.git.config__set(key, value, repoPath);
-	}
-
-	@log()
-	async getContributors(
-		repoPath: string,
-		options?: { all?: boolean; merges?: boolean | 'first-parent'; ref?: string; stats?: boolean },
-	): Promise<GitContributor[]> {
-		if (repoPath == null) return [];
-
-		let key = options?.ref ?? '';
-		if (options?.all) {
-			key += ':all';
-		}
-		if (options?.merges) {
-			key += `:merges:${options.merges}`;
-		}
-		if (options?.stats) {
-			key += ':stats';
-		}
-
-		const contributorsCache = this.useCaching ? this._contributorsCache.get(repoPath) : undefined;
-
-		let contributors = contributorsCache?.get(key);
-		if (contributors == null) {
-			async function load(this: LocalGitProvider) {
-				try {
-					repoPath = normalizePath(repoPath);
-					const currentUser = await this.getCurrentUser(repoPath);
-					const parser = getContributorsParser(options?.stats);
-
-					const args = [...parser.arguments, '--full-history', '--use-mailmap'];
-
-					const merges = options?.merges ?? true;
-					if (merges) {
-						args.push(merges === 'first-parent' ? '--first-parent' : '--no-min-parents');
-					} else {
-						args.push('--no-merges');
-					}
-
-					if (options?.all) {
-						args.push('--all', '--single-worktree');
-					}
-
-					const data = await this.git.log(repoPath, { ref: options?.ref }, ...args);
-
-					const contributors = new Map<string, GitContributor>();
-
-					const commits = parser.parse(data);
-					for (const c of commits) {
-						const key = `${c.author}|${c.email}`;
-						let contributor = contributors.get(key);
-						if (contributor == null) {
-							contributor = new GitContributor(
-								repoPath,
-								c.author,
-								c.email,
-								1,
-								new Date(Number(c.date) * 1000),
-								isUserMatch(currentUser, c.author, c.email),
-								c.stats,
-							);
-							contributors.set(key, contributor);
-						} else {
-							(contributor as PickMutable<GitContributor, 'count'>).count++;
-							const date = new Date(Number(c.date) * 1000);
-							if (date > contributor.date!) {
-								(contributor as PickMutable<GitContributor, 'date'>).date = date;
-							}
-						}
-					}
-
-					return [...contributors.values()];
-				} catch (ex) {
-					contributorsCache?.delete(key);
-
-					return [];
-				}
-			}
-
-			contributors = load.call(this);
-
-			if (this.useCaching) {
-				if (contributorsCache == null) {
-					this._contributorsCache.set(repoPath, new Map([[key, contributors]]));
-				} else {
-					contributorsCache.set(key, contributors);
-				}
-			}
-		}
-
-		return contributors;
-	}
-
-	@gate()
-	@log()
-	async getCurrentUser(repoPath: string): Promise<GitUser | undefined> {
-		if (!repoPath) return undefined;
-
-		const scope = getLogScope();
-
-		const repo = this._repoInfoCache.get(repoPath);
-
-		let user = repo?.user;
-		if (user != null) return user;
-		// If we found the repo, but no user data was found just return
-		if (user === null) return undefined;
-
-		user = { name: undefined, email: undefined };
-
-		try {
-			const data = await this.git.config__get_regex('^user\\.', repoPath, { local: true });
-			if (data) {
-				let key: string;
-				let value: string;
-
-				let match;
-				do {
-					match = userConfigRegex.exec(data);
-					if (match == null) break;
-
-					[, key, value] = match;
-					// Stops excessive memory usage -- https://bugs.chromium.org/p/v8/issues/detail?id=2869
-					user[key as 'name' | 'email'] = ` ${value}`.substr(1);
-				} while (true);
-			} else {
-				user.name =
-					process_env.GIT_AUTHOR_NAME || process_env.GIT_COMMITTER_NAME || userInfo()?.username || undefined;
-				if (!user.name) {
-					// If we found no user data, mark it so we won't bother trying again
-					this._repoInfoCache.set(repoPath, { ...repo, user: null });
-					return undefined;
-				}
-
-				user.email =
-					process_env.GIT_AUTHOR_EMAIL ||
-					process_env.GIT_COMMITTER_EMAIL ||
-					process_env.EMAIL ||
-					`${user.name}@${hostname()}`;
-			}
-
-			const author = `${user.name} <${user.email}>`;
-			// Check if there is a mailmap for the current user
-			const mappedAuthor = await this.git.check_mailmap(repoPath, author);
-			if (mappedAuthor != null && mappedAuthor.length !== 0 && author !== mappedAuthor) {
-				const match = mappedAuthorRegex.exec(mappedAuthor);
-				if (match != null) {
-					[, user.name, user.email] = match;
-				}
-			}
-
-			this._repoInfoCache.set(repoPath, { ...repo, user: user });
-			return user;
-		} catch (ex) {
-			Logger.error(ex, scope);
-			debugger;
-
-			// Mark it so we won't bother trying again
-			this._repoInfoCache.set(repoPath, { ...repo, user: null });
-			return undefined;
-		}
-	}
-
-	@log({ exit: true })
-	async getDefaultBranchName(repoPath: string | undefined, remote?: string): Promise<string | undefined> {
-		if (repoPath == null) return undefined;
-
-		if (!remote) {
-			try {
-				const data = await this.git.symbolic_ref(repoPath, 'HEAD');
-				if (data != null) return data.trim();
-			} catch {}
-		}
-
-		remote = remote ?? 'origin';
-		try {
-			const data = await this.git.ls_remote__HEAD(repoPath, remote);
-			if (data == null) return undefined;
-
-			const match = /ref:\s(\S+)\s+HEAD/m.exec(data);
-			if (match == null) return undefined;
-
-			const [, branch] = match;
-			return branch.substr('refs/heads/'.length);
-		} catch {
-			return undefined;
-		}
-	}
-
-	@log()
-	async getDiff(
-		repoPath: string,
-		to: string,
-		from?: string,
-		options?: { context?: number; uris?: Uri[] },
-	): Promise<GitDiff | undefined> {
-		const scope = getLogScope();
-		const params = [`-U${options?.context ?? 3}`];
-
-		if (to === uncommitted) {
-			if (from != null) {
-				params.push(from);
-			} else {
-				// Get only unstaged changes
-				from = 'HEAD';
-			}
-		} else if (to === uncommittedStaged) {
-			params.push('--staged');
-			if (from != null) {
-				params.push(from);
-			} else {
-				// Get only staged changes
-				from = 'HEAD';
-			}
-		} else if (from == null) {
-			if (to === '' || to.toUpperCase() === 'HEAD') {
-				from = 'HEAD';
-				params.push(from);
-			} else {
-				from = `${to}^`;
-				params.push(from, to);
-			}
-		} else {
-			params.push(from, to);
-		}
-
-		if (options?.uris) {
-			params.push('--', ...options.uris.map(u => u.fsPath));
-		}
-
-		let data;
-		try {
-			data = await this.git.diff2(repoPath, { errors: GitErrorHandling.Throw }, ...params);
-		} catch (ex) {
-			debugger;
-			Logger.error(ex, scope);
-			return undefined;
-		}
-
-		const diff: GitDiff = { contents: data, from: from, to: to };
-		return diff;
-	}
-
-	@log({ args: { 1: false } })
-	async getDiffFiles(repoPath: string, contents: string): Promise<GitDiffFiles | undefined> {
-		const data = await this.git.apply2(repoPath, { stdin: contents }, '--numstat', '--summary', '-z');
-		if (!data) return undefined;
-
-		const files = parseGitApplyFiles(data, repoPath);
-		return {
-			files: files,
 		};
 	}
 
@@ -3157,7 +1764,7 @@ export class LocalGitProvider implements GitProvider, Disposable {
 		} catch (ex) {
 			// Trap and cache expected diff errors
 			if (document.state != null) {
-				const msg = ex?.toString() ?? '';
+				const msg: string = ex?.toString() ?? '';
 				Logger.debug(scope, `Cache replace (with empty promise): '${key}'`);
 
 				const value: CachedDiff = {
@@ -3242,7 +1849,7 @@ export class LocalGitProvider implements GitProvider, Disposable {
 		} catch (ex) {
 			// Trap and cache expected diff errors
 			if (document.state != null) {
-				const msg = ex?.toString() ?? '';
+				const msg: string = ex?.toString() ?? '';
 				Logger.debug(scope, `Cache replace (with empty promise): '${key}'`);
 
 				const value: CachedDiff = {
@@ -3280,1652 +1887,21 @@ export class LocalGitProvider implements GitProvider, Disposable {
 				hunk: hunk,
 				line: hunkLine,
 			};
-		} catch (ex) {
+		} catch (_ex) {
 			return undefined;
 		}
-	}
-
-	@log()
-	async getDiffStatus(
-		repoPath: string,
-		ref1?: string,
-		ref2?: string,
-		options?: { filters?: GitDiffFilter[]; path?: string; similarityThreshold?: number },
-	): Promise<GitFile[] | undefined> {
-		try {
-			const data = await this.git.diff__name_status(repoPath, ref1, ref2, {
-				similarityThreshold: configuration.get('advanced.similarityThreshold') ?? undefined,
-				...options,
-			});
-			if (!data) return undefined;
-
-			const files = parseGitDiffNameStatusFiles(data, repoPath);
-			return files == null || files.length === 0 ? undefined : files;
-		} catch (ex) {
-			return undefined;
-		}
-	}
-
-	@log()
-	async getFileStatusForCommit(repoPath: string, uri: Uri, ref: string): Promise<GitFile | undefined> {
-		if (ref === deletedOrMissing || isUncommitted(ref)) return undefined;
-
-		const [relativePath, root] = splitPath(uri, repoPath);
-
-		const data = await this.git.show__name_status(root, relativePath, ref);
-		if (!data) return undefined;
-
-		const files = parseGitDiffNameStatusFiles(data, repoPath);
-		if (files == null || files.length === 0) return undefined;
-
-		return files[0];
-	}
-
-	@log({ exit: true })
-	async getFirstCommitSha(repoPath: string): Promise<string | undefined> {
-		const data = await this.git.rev_list(repoPath, 'HEAD', { maxParents: 0 });
-		return data?.[0];
-	}
-
-	@gate()
-	@debug<LocalGitProvider['getGitDir']>({
-		exit: r => `returned ${r.uri.toString(true)}, commonUri=${r.commonUri?.toString(true)}`,
-	})
-	async getGitDir(repoPath: string): Promise<GitDir> {
-		const repo = this._repoInfoCache.get(repoPath);
-		if (repo?.gitDir != null) return repo.gitDir;
-
-		const gitDirPaths = await this.git.rev_parse__git_dir(repoPath);
-
-		let gitDir: GitDir;
-		if (gitDirPaths != null) {
-			gitDir = {
-				uri: Uri.file(gitDirPaths.path),
-				commonUri: gitDirPaths.commonPath != null ? Uri.file(gitDirPaths.commonPath) : undefined,
-			};
-		} else {
-			gitDir = {
-				uri: this.getAbsoluteUri('.git', repoPath),
-			};
-		}
-		this._repoInfoCache.set(repoPath, { ...repo, gitDir: gitDir });
-
-		return gitDir;
 	}
 
 	@debug()
 	async getLastFetchedTimestamp(repoPath: string): Promise<number | undefined> {
 		try {
-			const gitDir = await this.getGitDir(repoPath);
+			const gitDir = await this.config.getGitDir(repoPath);
 			const stats = await workspace.fs.stat(Uri.joinPath(gitDir.uri, 'FETCH_HEAD'));
 			// If the file is empty, assume the fetch failed, and don't update the timestamp
 			if (stats.size > 0) return stats.mtime;
 		} catch {}
 
 		return undefined;
-	}
-
-	@log()
-	async getLog(
-		repoPath: string,
-		options?: {
-			all?: boolean;
-			authors?: GitUser[];
-			cursor?: string;
-			limit?: number;
-			merges?: boolean | 'first-parent';
-			ordering?: 'date' | 'author-date' | 'topo' | null;
-			ref?: string;
-			status?: null | 'name-status' | 'numstat' | 'stat';
-			since?: number | string;
-			until?: number | string;
-			extraArgs?: string[];
-			stdin?: string;
-		},
-	): Promise<GitLog | undefined> {
-		const scope = getLogScope();
-
-		try {
-			const limit = options?.limit ?? configuration.get('advanced.maxListItems') ?? 0;
-			const similarityThreshold = configuration.get('advanced.similarityThreshold');
-			const args = [
-				`--format=${options?.all ? parseGitLogAllFormat : parseGitLogDefaultFormat}`,
-				`-M${similarityThreshold == null ? '' : `${similarityThreshold}%`}`,
-			];
-
-			if (options?.status !== null) {
-				args.push(`--${options?.status ?? 'name-status'}`, '--full-history');
-			}
-			if (options?.all) {
-				args.push('--all');
-			}
-
-			const merges = options?.merges ?? true;
-			if (merges) {
-				if (limit <= 2) {
-					// Ensure we return the merge commit files when we are asking for a specific ref
-					args.push('-m');
-				}
-				args.push(merges === 'first-parent' ? '--first-parent' : '--no-min-parents');
-			} else {
-				args.push('--no-merges');
-			}
-
-			const ordering = options?.ordering ?? configuration.get('advanced.commitOrdering');
-			if (ordering) {
-				args.push(`--${ordering}-order`);
-			}
-			if (options?.authors?.length) {
-				args.push('--use-mailmap', ...options.authors.map(a => `--author=^${a.name} <${a.email}>$`));
-			}
-
-			let hasMoreOverride;
-
-			if (options?.since) {
-				hasMoreOverride = true;
-				args.push(`--since="${options.since}"`);
-			}
-			if (options?.until) {
-				hasMoreOverride = true;
-				args.push(`--until="${options.until}"`);
-			}
-			if (options?.extraArgs?.length) {
-				if (
-					options.extraArgs.some(
-						arg => arg.startsWith('-n') || arg.startsWith('--until=') || arg.startsWith('--since='),
-					)
-				) {
-					hasMoreOverride = true;
-				}
-				args.push(...options.extraArgs);
-			}
-
-			if (limit) {
-				hasMoreOverride = undefined;
-				args.push(`-n${limit + 1}`);
-			}
-
-			const data = await this.git.log(
-				repoPath,
-				{ configs: gitLogDefaultConfigsWithFiles, ref: options?.ref, stdin: options?.stdin },
-				...args,
-			);
-
-			// const parser = GitLogParser.defaultParser;
-
-			// const data = await this.git.log2(repoPath, options?.ref, {
-			// 	...options,
-			// 	// args: parser.arguments,
-			// 	limit: limit,
-			// 	merges: options?.merges == null ? true : options.merges,
-			// 	ordering: options?.ordering ?? configuration.get('advanced.commitOrdering'),
-			// 	similarityThreshold: configuration.get('advanced.similarityThreshold'),
-			// });
-
-			// const commits = [];
-			// const entries = parser.parse(data);
-			// for (const entry of entries) {
-			// 	commits.push(
-			// 		new GitCommit2(
-			// 			repoPath,
-			// 			entry.sha,
-			// 			new GitCommitIdentity(
-			// 				entry.author,
-			// 				entry.authorEmail,
-			// 				new Date((entry.authorDate as any) * 1000),
-			// 			),
-			// 			new GitCommitIdentity(
-			// 				entry.committer,
-			// 				entry.committerEmail,
-			// 				new Date((entry.committerDate as any) * 1000),
-			// 			),
-			// 			entry.message.split('\n', 1)[0],
-			// 			entry.parents.split(' '),
-			// 			entry.message,
-			// 			entry.files.map(f => new GitFileChange(repoPath, f.path, f.status as any, f.originalPath)),
-			// 			[],
-			// 		),
-			// 	);
-			// }
-
-			const log = parseGitLog(
-				this.container,
-				data,
-				LogType.Log,
-				repoPath,
-				undefined,
-				options?.ref,
-				await this.getCurrentUser(repoPath),
-				limit,
-				false,
-				undefined,
-				undefined,
-				hasMoreOverride,
-			);
-
-			if (log != null) {
-				log.query = (limit: number | undefined) => this.getLog(repoPath, { ...options, limit: limit });
-				if (log.hasMore) {
-					let opts;
-					if (options != null) {
-						let _;
-						({ extraArgs: _, ...opts } = options);
-					}
-					log.more = this.getLogMoreFn(log, opts);
-				}
-			}
-
-			return log;
-		} catch (ex) {
-			Logger.error(ex, scope);
-			debugger;
-			return undefined;
-		}
-	}
-
-	@log()
-	async getLogRefsOnly(
-		repoPath: string,
-		options?: {
-			authors?: GitUser[];
-			cursor?: string;
-			limit?: number;
-			merges?: boolean | 'first-parent';
-			ordering?: 'date' | 'author-date' | 'topo' | null;
-			ref?: string;
-			since?: string;
-		},
-	): Promise<Set<string> | undefined> {
-		const scope = getLogScope();
-
-		const limit = options?.limit ?? configuration.get('advanced.maxListItems') ?? 0;
-
-		try {
-			const parser = createLogParserSingle('%H');
-			const args = [...parser.arguments, '--full-history'];
-
-			const ordering = options?.ordering ?? configuration.get('advanced.commitOrdering');
-			if (ordering) {
-				args.push(`--${ordering}-order`);
-			}
-
-			if (limit) {
-				args.push(`-n${limit + 1}`);
-			}
-
-			if (options?.since) {
-				args.push(`--since="${options.since}"`);
-			}
-
-			const merges = options?.merges ?? true;
-			if (merges) {
-				args.push(merges === 'first-parent' ? '--first-parent' : '--no-min-parents');
-			} else {
-				args.push('--no-merges');
-			}
-
-			if (options?.authors?.length) {
-				if (!args.includes('--use-mailmap')) {
-					args.push('--use-mailmap');
-				}
-				args.push(...options.authors.map(a => `--author=^${a.name} <${a.email}>$`));
-			}
-
-			const data = await this.git.log(repoPath, { ref: options?.ref }, ...args);
-
-			const commits = new Set(parser.parse(data));
-			return commits;
-		} catch (ex) {
-			Logger.error(ex, scope);
-			debugger;
-			return undefined;
-		}
-	}
-
-	private getLogMoreFn(
-		log: GitLog,
-		options?: {
-			all?: boolean;
-			authors?: GitUser[];
-			limit?: number;
-			merges?: boolean;
-			ordering?: 'date' | 'author-date' | 'topo' | null;
-			ref?: string;
-		},
-	): (limit: number | { until: string } | undefined) => Promise<GitLog> {
-		return async (limit: number | { until: string } | undefined) => {
-			const moreUntil = limit != null && typeof limit === 'object' ? limit.until : undefined;
-			let moreLimit = typeof limit === 'number' ? limit : undefined;
-
-			if (moreUntil && some(log.commits.values(), c => c.ref === moreUntil)) {
-				return log;
-			}
-
-			moreLimit = moreLimit ?? configuration.get('advanced.maxSearchItems') ?? 0;
-
-			// If the log is for a range, then just get everything prior + more
-			if (isRevisionRange(log.sha)) {
-				const moreLog = await this.getLog(log.repoPath, {
-					...options,
-					limit: moreLimit === 0 ? 0 : (options?.limit ?? 0) + moreLimit,
-				});
-				// If we can't find any more, assume we have everything
-				if (moreLog == null) return { ...log, hasMore: false, more: undefined };
-
-				return moreLog;
-			}
-
-			const lastCommit = last(log.commits.values());
-			const ref = lastCommit?.ref;
-
-			// If we were asked for all refs, use the last commit timestamp (plus a second) as a cursor
-			let timestamp: number | undefined;
-			if (options?.all) {
-				const date = lastCommit?.committer.date;
-				// Git only allows 1-second precision, so round up to the nearest second
-				timestamp = date != null ? Math.ceil(date.getTime() / 1000) + 1 : undefined;
-			}
-
-			let moreLogCount;
-			let queryLimit = moreUntil == null ? moreLimit : 0;
-			do {
-				const moreLog = await this.getLog(log.repoPath, {
-					...options,
-					limit: queryLimit,
-					...(timestamp
-						? {
-								until: timestamp,
-								extraArgs: ['--boundary'],
-						  }
-						: { ref: moreUntil == null ? `${ref}^` : `${moreUntil}^..${ref}^` }),
-				});
-				// If we can't find any more, assume we have everything
-				if (moreLog == null) return { ...log, hasMore: false, more: undefined };
-
-				const currentCount = log.commits.size;
-				const commits = new Map([...log.commits, ...moreLog.commits]);
-
-				if (currentCount === commits.size && queryLimit !== 0) {
-					// If we didn't find any new commits, we must have them all so return that we have everything
-					if (moreLogCount === moreLog.commits.size) {
-						return { ...log, hasMore: false, more: undefined };
-					}
-
-					moreLogCount = moreLog.commits.size;
-					queryLimit = queryLimit * 2;
-					continue;
-				}
-
-				if (timestamp != null && ref != null && !moreLog.commits.has(ref)) {
-					debugger;
-				}
-
-				const mergedLog: GitLog = {
-					repoPath: log.repoPath,
-					commits: commits,
-					sha: log.sha,
-					range: undefined,
-					count: commits.size,
-					limit: moreUntil == null ? (log.limit ?? 0) + moreLimit : undefined,
-					hasMore: moreUntil == null ? moreLog.hasMore : true,
-					startingCursor: last(log.commits)?.[0],
-					endingCursor: moreLog.endingCursor,
-					pagedCommits: () => {
-						// Remove any duplicates
-						for (const sha of log.commits.keys()) {
-							moreLog.commits.delete(sha);
-						}
-						return moreLog.commits;
-					},
-					query: (limit: number | undefined) => this.getLog(log.repoPath, { ...options, limit: limit }),
-				};
-				if (mergedLog.hasMore) {
-					mergedLog.more = this.getLogMoreFn(mergedLog, options);
-				}
-
-				return mergedLog;
-			} while (true);
-		};
-	}
-
-	@log()
-	async getLogForFile(
-		repoPath: string | undefined,
-		pathOrUri: string | Uri,
-		options?: {
-			all?: boolean;
-			cursor?: string;
-			force?: boolean | undefined;
-			limit?: number;
-			ordering?: 'date' | 'author-date' | 'topo' | null;
-			range?: Range;
-			ref?: string;
-			renames?: boolean;
-			reverse?: boolean;
-			since?: string;
-			skip?: number;
-		},
-	): Promise<GitLog | undefined> {
-		if (repoPath == null) return undefined;
-
-		const scope = getLogScope();
-
-		const relativePath = this.getRelativePath(pathOrUri, repoPath);
-
-		if (repoPath != null && repoPath === relativePath) {
-			throw new Error(`File name cannot match the repository path; path=${relativePath}`);
-		}
-
-		const opts: typeof options & Parameters<LocalGitProvider['getLogForFileCore']>[2] = {
-			reverse: false,
-			...options,
-		};
-
-		if (opts.renames == null) {
-			opts.renames = configuration.get('advanced.fileHistoryFollowsRenames');
-		}
-
-		if (opts.merges == null) {
-			opts.merges = configuration.get('advanced.fileHistoryShowMergeCommits');
-		}
-
-		let key = 'log';
-		if (opts.ref != null) {
-			key += `:${opts.ref}`;
-		}
-
-		if (opts.all == null) {
-			opts.all = configuration.get('advanced.fileHistoryShowAllBranches');
-		}
-		if (opts.all) {
-			key += ':all';
-		}
-
-		opts.limit = opts.limit ?? configuration.get('advanced.maxListItems') ?? 0;
-		if (opts.limit) {
-			key += `:n${opts.limit}`;
-		}
-
-		if (opts.merges) {
-			key += ':merges';
-		}
-
-		if (opts.renames) {
-			key += ':follow';
-		}
-
-		if (opts.reverse) {
-			key += ':reverse';
-		}
-
-		if (opts.since) {
-			key += `:since=${opts.since}`;
-		}
-
-		if (opts.skip) {
-			key += `:skip${opts.skip}`;
-		}
-
-		const doc = await this.container.documentTracker.getOrAdd(GitUri.fromFile(relativePath, repoPath, opts.ref));
-		if (!opts.force && this.useCaching && opts.range == null) {
-			if (doc.state != null) {
-				const cachedLog = doc.state.getLog(key);
-				if (cachedLog != null) {
-					Logger.debug(scope, `Cache hit: '${key}'`);
-					return cachedLog.item;
-				}
-
-				if (opts.ref != null || (opts.limit != null && opts.limit !== 0)) {
-					// Since we are looking for partial log, see if we have the log of the whole file
-					const cachedLog = doc.state.getLog(
-						`log${opts.renames ? ':follow' : ''}${opts.reverse ? ':reverse' : ''}`,
-					);
-					if (cachedLog != null) {
-						if (opts.ref == null) {
-							Logger.debug(scope, `Cache hit: ~'${key}'`);
-							return cachedLog.item;
-						}
-
-						Logger.debug(scope, `Cache ?: '${key}'`);
-						let log = await cachedLog.item;
-						if (log != null && !log.hasMore && log.commits.has(opts.ref)) {
-							Logger.debug(scope, `Cache hit: '${key}'`);
-
-							// Create a copy of the log starting at the requested commit
-							let skip = true;
-							let i = 0;
-							const commits = new Map(
-								filterMapIterable<[string, GitCommit], [string, GitCommit]>(
-									log.commits.entries(),
-									([ref, c]) => {
-										if (skip) {
-											if (ref !== opts?.ref) return undefined;
-											skip = false;
-										}
-
-										i++;
-										if (opts?.limit != null && i > opts.limit) {
-											return undefined;
-										}
-
-										return [ref, c];
-									},
-								),
-							);
-
-							const optsCopy = { ...opts };
-							log = {
-								...log,
-								limit: optsCopy.limit,
-								count: commits.size,
-								commits: commits,
-								query: (limit: number | undefined) =>
-									this.getLogForFile(repoPath, pathOrUri, { ...optsCopy, limit: limit }),
-							};
-
-							return log;
-						}
-					}
-				}
-			}
-
-			Logger.debug(scope, `Cache miss: '${key}'`);
-
-			doc.state ??= new GitDocumentState();
-		}
-
-		const promise = this.getLogForFileCore(repoPath, relativePath, opts, doc, key, scope);
-
-		if (doc.state != null && opts.range == null) {
-			Logger.debug(scope, `Cache add: '${key}'`);
-
-			const value: CachedLog = {
-				item: promise as Promise<GitLog>,
-			};
-			doc.state.setLog(key, value);
-		}
-
-		return promise;
-	}
-
-	private async getLogForFileCore(
-		repoPath: string | undefined,
-		path: string,
-		{
-			ref,
-			range,
-			...options
-		}: {
-			all?: boolean;
-			cursor?: string;
-			limit?: number;
-			merges?: boolean;
-			ordering?: 'date' | 'author-date' | 'topo' | null;
-			range?: Range;
-			ref?: string;
-			renames?: boolean;
-			reverse?: boolean;
-			since?: string;
-			skip?: number;
-		},
-		document: TrackedGitDocument,
-		key: string,
-		scope: LogScope | undefined,
-	): Promise<GitLog | undefined> {
-		const paths = await this.isTrackedWithDetails(path, repoPath, ref);
-		if (paths == null) {
-			Logger.log(scope, `Skipping log; '${path}' is not tracked`);
-			return emptyPromise as Promise<GitLog>;
-		}
-
-		const [relativePath, root] = paths;
-
-		try {
-			if (range != null && range.start.line > range.end.line) {
-				range = new Range(range.end, range.start);
-			}
-
-			let data = await this.git.log__file(root, relativePath, ref, {
-				ordering: configuration.get('advanced.commitOrdering'),
-				...options,
-				startLine: range == null ? undefined : range.start.line + 1,
-				endLine: range == null ? undefined : range.end.line + 1,
-			});
-
-			// If we didn't find any history from the working tree, check to see if the file was renamed
-			if (!data && ref == null) {
-				const status = await this.getStatusForFile(root, relativePath);
-				if (status?.originalPath != null) {
-					data = await this.git.log__file(root, status.originalPath, ref, {
-						ordering: configuration.get('advanced.commitOrdering'),
-						...options,
-						startLine: range == null ? undefined : range.start.line + 1,
-						endLine: range == null ? undefined : range.end.line + 1,
-					});
-				}
-			}
-
-			const log = parseGitLog(
-				this.container,
-				data,
-				// If this is the log of a folder, parse it as a normal log rather than a file log
-				isFolderGlob(relativePath) ? LogType.Log : LogType.LogFile,
-				root,
-				relativePath,
-				ref,
-				await this.getCurrentUser(root),
-				options.limit,
-				options.reverse ?? false,
-				range,
-			);
-
-			if (log != null) {
-				const opts = { ...options, ref: ref, range: range };
-				log.query = (limit: number | undefined) =>
-					this.getLogForFile(repoPath, path, { ...opts, limit: limit });
-				if (log.hasMore) {
-					log.more = this.getLogForFileMoreFn(log, path, opts);
-				}
-			}
-
-			return log;
-		} catch (ex) {
-			// Trap and cache expected log errors
-			if (document.state != null && range == null && !options.reverse) {
-				const msg: string = ex?.toString() ?? '';
-				Logger.debug(scope, `Cache replace (with empty promise): '${key}'`);
-
-				const value: CachedLog = {
-					item: emptyPromise as Promise<GitLog>,
-					errorMessage: msg,
-				};
-				document.state.setLog(key, value);
-
-				return emptyPromise as Promise<GitLog>;
-			}
-
-			return undefined;
-		}
-	}
-
-	private getLogForFileMoreFn(
-		log: GitLog,
-		relativePath: string,
-		options: {
-			all?: boolean;
-			limit?: number;
-			ordering?: 'date' | 'author-date' | 'topo' | null;
-			range?: Range;
-			ref?: string;
-			renames?: boolean;
-			reverse?: boolean;
-		},
-	): (limit: number | { until: string } | undefined) => Promise<GitLog> {
-		return async (limit: number | { until: string } | undefined) => {
-			const moreUntil = limit != null && typeof limit === 'object' ? limit.until : undefined;
-			let moreLimit = typeof limit === 'number' ? limit : undefined;
-
-			if (moreUntil && some(log.commits.values(), c => c.ref === moreUntil)) {
-				return log;
-			}
-
-			moreLimit = moreLimit ?? configuration.get('advanced.maxSearchItems') ?? 0;
-
-			const commit = last(log.commits.values());
-			let ref;
-			if (commit != null) {
-				ref = commit.ref;
-				// Check to make sure the filename hasn't changed and if it has use the previous
-				if (commit.file != null) {
-					const path = commit.file.originalPath ?? commit.file.path;
-					if (path !== relativePath) {
-						relativePath = path;
-					}
-				}
-			}
-			const moreLog = await this.getLogForFile(log.repoPath, relativePath, {
-				...options,
-				limit: moreUntil == null ? moreLimit : 0,
-				ref: options.all ? undefined : moreUntil == null ? `${ref}^` : `${moreUntil}^..${ref}^`,
-				skip: options.all ? log.count : undefined,
-			});
-			// If we can't find any more, assume we have everything
-			if (moreLog == null) return { ...log, hasMore: false, more: undefined };
-
-			const commits = new Map([...log.commits, ...moreLog.commits]);
-
-			const mergedLog: GitLog = {
-				repoPath: log.repoPath,
-				commits: commits,
-				sha: log.sha,
-				range: log.range,
-				count: commits.size,
-				limit: moreUntil == null ? (log.limit ?? 0) + moreLimit : undefined,
-				hasMore: moreUntil == null ? moreLog.hasMore : true,
-				query: (limit: number | undefined) =>
-					this.getLogForFile(log.repoPath, relativePath, { ...options, limit: limit }),
-			};
-
-			if (options.renames) {
-				const renamed = find(
-					moreLog.commits.values(),
-					c => Boolean(c.file?.originalPath) && c.file?.originalPath !== relativePath,
-				);
-				relativePath = renamed?.file?.originalPath ?? relativePath;
-			}
-
-			if (mergedLog.hasMore) {
-				mergedLog.more = this.getLogForFileMoreFn(mergedLog, relativePath, options);
-			}
-
-			return mergedLog;
-		};
-	}
-
-	@log()
-	async getMergeBase(repoPath: string, ref1: string, ref2: string, options?: { forkPoint?: boolean }) {
-		const scope = getLogScope();
-
-		try {
-			const data = await this.git.merge_base(repoPath, ref1, ref2, options);
-			if (data == null) return undefined;
-
-			return data.split('\n')[0].trim() || undefined;
-		} catch (ex) {
-			Logger.error(ex, scope);
-			return undefined;
-		}
-	}
-
-	@log()
-	async getMergeStatus(repoPath: string): Promise<GitMergeStatus | undefined> {
-		let status = this.useCaching ? this._mergeStatusCache.get(repoPath) : undefined;
-		if (status == null) {
-			async function getCore(this: LocalGitProvider): Promise<GitMergeStatus | undefined> {
-				const merge = await this.git.rev_parse__verify(repoPath, 'MERGE_HEAD');
-				if (merge == null) return undefined;
-
-				const [branchResult, mergeBaseResult, possibleSourceBranchesResult] = await Promise.allSettled([
-					this.getBranch(repoPath),
-					this.getMergeBase(repoPath, 'MERGE_HEAD', 'HEAD'),
-					this.getCommitBranches(repoPath, ['MERGE_HEAD'], undefined, { all: true, mode: 'pointsAt' }),
-				]);
-
-				const branch = getSettledValue(branchResult);
-				const mergeBase = getSettledValue(mergeBaseResult);
-				const possibleSourceBranches = getSettledValue(possibleSourceBranchesResult);
-
-				return {
-					type: 'merge',
-					repoPath: repoPath,
-					mergeBase: mergeBase,
-					HEAD: createReference(merge, repoPath, { refType: 'revision' }),
-					current: getReferenceFromBranch(branch!),
-					incoming:
-						possibleSourceBranches?.length === 1
-							? createReference(possibleSourceBranches[0], repoPath, {
-									refType: 'branch',
-									name: possibleSourceBranches[0],
-									remote: false,
-							  })
-							: undefined,
-				} satisfies GitMergeStatus;
-			}
-
-			status = getCore.call(this);
-			if (this.useCaching) {
-				this._mergeStatusCache.set(repoPath, status);
-			}
-		}
-
-		return status;
-	}
-
-	@log()
-	async getRebaseStatus(repoPath: string): Promise<GitRebaseStatus | undefined> {
-		let status = this.useCaching ? this._rebaseStatusCache.get(repoPath) : undefined;
-		if (status == null) {
-			async function getCore(this: LocalGitProvider): Promise<GitRebaseStatus | undefined> {
-				const gitDir = await this.getGitDir(repoPath);
-				const [rebaseMergeHeadResult, rebaseApplyHeadResult] = await Promise.allSettled([
-					this.git.readDotGitFile(gitDir, ['rebase-merge', 'head-name']),
-					this.git.readDotGitFile(gitDir, ['rebase-apply', 'head-name']),
-				]);
-				const rebaseMergeHead = getSettledValue(rebaseMergeHeadResult);
-				const rebaseApplyHead = getSettledValue(rebaseApplyHeadResult);
-
-				let branch = rebaseApplyHead ?? rebaseMergeHead;
-				if (branch == null) return undefined;
-
-				const path = rebaseApplyHead != null ? 'rebase-apply' : 'rebase-merge';
-
-				const [
-					rebaseHeadResult,
-					origHeadResult,
-					ontoResult,
-					stepsNumberResult,
-					stepsTotalResult,
-					stepsMessageResult,
-				] = await Promise.allSettled([
-					this.git.rev_parse__verify(repoPath, 'REBASE_HEAD'),
-					this.git.readDotGitFile(gitDir, [path, 'orig-head']),
-					this.git.readDotGitFile(gitDir, [path, 'onto']),
-					this.git.readDotGitFile(gitDir, [path, 'msgnum'], { numeric: true }),
-					this.git.readDotGitFile(gitDir, [path, 'end'], { numeric: true }),
-					this.git
-						.readDotGitFile(gitDir, [path, 'message'], { throw: true })
-						.catch(() => this.git.readDotGitFile(gitDir, [path, 'message-squashed'])),
-				]);
-
-				const origHead = getSettledValue(origHeadResult);
-				const onto = getSettledValue(ontoResult);
-				if (origHead == null || onto == null) return undefined;
-
-				let mergeBase;
-				const rebaseHead = getSettledValue(rebaseHeadResult);
-				if (rebaseHead != null) {
-					mergeBase = await this.getMergeBase(repoPath, rebaseHead, 'HEAD');
-				} else {
-					mergeBase = await this.getMergeBase(repoPath, onto, origHead);
-				}
-
-				if (branch.startsWith('refs/heads/')) {
-					branch = branch.substr(11).trim();
-				}
-
-				const [branchTipsResult, tagTipsResult] = await Promise.allSettled([
-					this.getCommitBranches(repoPath, [onto], undefined, { all: true, mode: 'pointsAt' }),
-					this.getCommitTags(repoPath, onto, { mode: 'pointsAt' }),
-				]);
-
-				const branchTips = getSettledValue(branchTipsResult);
-				const tagTips = getSettledValue(tagTipsResult);
-
-				let ontoRef: GitBranchReference | GitTagReference | undefined;
-				if (branchTips != null) {
-					for (const ref of branchTips) {
-						if (ref.startsWith('(no branch, rebasing')) continue;
-
-						ontoRef = createReference(ref, repoPath, {
-							refType: 'branch',
-							name: ref,
-							remote: false,
-						});
-						break;
-					}
-				}
-				if (ontoRef == null && tagTips != null) {
-					for (const ref of tagTips) {
-						if (ref.startsWith('(no branch, rebasing')) continue;
-
-						ontoRef = createReference(ref, repoPath, {
-							refType: 'tag',
-							name: ref,
-						});
-						break;
-					}
-				}
-
-				return {
-					type: 'rebase',
-					repoPath: repoPath,
-					mergeBase: mergeBase,
-					HEAD: createReference(rebaseHead ?? origHead, repoPath, { refType: 'revision' }),
-					onto: createReference(onto, repoPath, { refType: 'revision' }),
-					current: ontoRef,
-					incoming: createReference(branch, repoPath, {
-						refType: 'branch',
-						name: branch,
-						remote: false,
-					}),
-					steps: {
-						current: {
-							number: getSettledValue(stepsNumberResult) ?? 0,
-							commit:
-								rebaseHead != null
-									? createReference(rebaseHead, repoPath, {
-											refType: 'revision',
-											message: getSettledValue(stepsMessageResult),
-									  })
-									: undefined,
-						},
-						total: getSettledValue(stepsTotalResult) ?? 0,
-					},
-				} satisfies GitRebaseStatus;
-			}
-
-			status = getCore.call(this);
-			if (this.useCaching) {
-				this._rebaseStatusCache.set(repoPath, status);
-			}
-		}
-
-		return status;
-	}
-
-	@log()
-	async getNextComparisonUris(
-		repoPath: string,
-		uri: Uri,
-		ref: string | undefined,
-		skip: number = 0,
-	): Promise<NextComparisonUrisResult | undefined> {
-		// If we have no ref (or staged ref) there is no next commit
-		if (!ref) return undefined;
-
-		const relativePath = this.getRelativePath(uri, repoPath);
-
-		if (isUncommittedStaged(ref)) {
-			return {
-				current: GitUri.fromFile(relativePath, repoPath, ref),
-				next: GitUri.fromFile(relativePath, repoPath, undefined),
-			};
-		}
-
-		const next = await this.getNextUri(repoPath, uri, ref, skip);
-		if (next == null) {
-			const status = await this.getStatusForFile(repoPath, uri);
-			if (status != null) {
-				// If the file is staged, diff with the staged version
-				if (status.indexStatus != null) {
-					return {
-						current: GitUri.fromFile(relativePath, repoPath, ref),
-						next: GitUri.fromFile(relativePath, repoPath, uncommittedStaged),
-					};
-				}
-			}
-
-			return {
-				current: GitUri.fromFile(relativePath, repoPath, ref),
-				next: GitUri.fromFile(relativePath, repoPath, undefined),
-			};
-		}
-
-		return {
-			current:
-				skip === 0
-					? GitUri.fromFile(relativePath, repoPath, ref)
-					: (await this.getNextUri(repoPath, uri, ref, skip - 1))!,
-			next: next,
-		};
-	}
-
-	@log()
-	private async getNextUri(
-		repoPath: string,
-		uri: Uri,
-		ref?: string,
-		skip: number = 0,
-		// editorLine?: number
-	): Promise<GitUri | undefined> {
-		// If we have no ref (or staged ref) there is no next commit
-		if (!ref || isUncommittedStaged(ref)) return undefined;
-
-		let filters: GitDiffFilter[] | undefined;
-		if (ref === deletedOrMissing) {
-			// If we are trying to move next from a deleted or missing ref then get the first commit
-			ref = undefined;
-			filters = ['A'];
-		}
-
-		const relativePath = this.getRelativePath(uri, repoPath);
-		let data = await this.git.log__file(repoPath, relativePath, ref, {
-			argsOrFormat: parseGitLogSimpleFormat,
-			fileMode: 'simple',
-			filters: filters,
-			limit: skip + 1,
-			ordering: configuration.get('advanced.commitOrdering'),
-			reverse: true,
-			// startLine: editorLine != null ? editorLine + 1 : undefined,
-		});
-		if (data == null || data.length === 0) return undefined;
-
-		const [nextRef, file, status] = parseGitLogSimple(data, skip);
-		// If the file was deleted, check for a possible rename
-		if (status === 'D') {
-			data = await this.git.log__file(repoPath, '.', nextRef, {
-				argsOrFormat: parseGitLogSimpleFormat,
-				fileMode: 'simple',
-				filters: ['R', 'C'],
-				limit: 1,
-				ordering: configuration.get('advanced.commitOrdering'),
-				// startLine: editorLine != null ? editorLine + 1 : undefined
-			});
-			if (data == null || data.length === 0) {
-				return GitUri.fromFile(file ?? relativePath, repoPath, nextRef);
-			}
-
-			const [nextRenamedRef, renamedFile] = parseGitLogSimpleRenamed(data, file ?? relativePath);
-			return GitUri.fromFile(
-				renamedFile ?? file ?? relativePath,
-				repoPath,
-				nextRenamedRef ?? nextRef ?? deletedOrMissing,
-			);
-		}
-
-		return GitUri.fromFile(file ?? relativePath, repoPath, nextRef);
-	}
-
-	@log()
-	async getOldestUnpushedRefForFile(repoPath: string, uri: Uri): Promise<string | undefined> {
-		const [relativePath, root] = splitPath(uri, repoPath);
-
-		const data = await this.git.log__file(root, relativePath, '@{u}..', {
-			argsOrFormat: ['-z', '--format=%H'],
-			fileMode: 'none',
-			ordering: configuration.get('advanced.commitOrdering'),
-			renames: true,
-		});
-		if (!data) return undefined;
-
-		// -2 to skip the ending null
-		const index = data.lastIndexOf('\0', data.length - 2);
-		return index === -1 ? undefined : data.slice(index + 1, data.length - 2);
-	}
-
-	@log()
-	async getPreviousComparisonUris(
-		repoPath: string,
-		uri: Uri,
-		ref: string | undefined,
-		skip: number = 0,
-	): Promise<PreviousComparisonUrisResult | undefined> {
-		if (ref === deletedOrMissing) return undefined;
-
-		const relativePath = this.getRelativePath(uri, repoPath);
-
-		// If we are at the working tree (i.e. no ref), we need to dig deeper to figure out where to go
-		if (!ref) {
-			// First, check the file status to see if there is anything staged
-			const status = await this.getStatusForFile(repoPath, uri);
-			if (status != null) {
-				// If the file is staged with working changes, diff working with staged (index)
-				// If the file is staged without working changes, diff staged with HEAD
-				if (status.indexStatus != null) {
-					// Backs up to get to HEAD
-					if (status.workingTreeStatus == null) {
-						skip++;
-					}
-
-					if (skip === 0) {
-						// Diff working with staged
-						return {
-							current: GitUri.fromFile(relativePath, repoPath, undefined),
-							previous: GitUri.fromFile(relativePath, repoPath, uncommittedStaged),
-						};
-					}
-
-					return {
-						// Diff staged with HEAD (or prior if more skips)
-						current: GitUri.fromFile(relativePath, repoPath, uncommittedStaged),
-						previous: await this.getPreviousUri(repoPath, uri, ref, skip - 1),
-					};
-				} else if (status.workingTreeStatus != null) {
-					if (skip === 0) {
-						return {
-							current: GitUri.fromFile(relativePath, repoPath, undefined),
-							previous: await this.getPreviousUri(repoPath, uri, undefined, skip),
-						};
-					}
-				}
-			} else if (skip === 0) {
-				skip++;
-			}
-		}
-		// If we are at the index (staged), diff staged with HEAD
-		else if (isUncommittedStaged(ref)) {
-			const current =
-				skip === 0
-					? GitUri.fromFile(relativePath, repoPath, ref)
-					: (await this.getPreviousUri(repoPath, uri, undefined, skip - 1))!;
-			if (current == null || current.sha === deletedOrMissing) return undefined;
-
-			return {
-				current: current,
-				previous: await this.getPreviousUri(repoPath, uri, undefined, skip),
-			};
-		}
-
-		// If we are at a commit, diff commit with previous
-		const current =
-			skip === 0
-				? GitUri.fromFile(relativePath, repoPath, ref)
-				: (await this.getPreviousUri(repoPath, uri, ref, skip - 1))!;
-		if (current == null || current.sha === deletedOrMissing) return undefined;
-
-		return {
-			current: current,
-			previous: await this.getPreviousUri(repoPath, uri, ref, skip),
-		};
-	}
-
-	@log()
-	async getPreviousComparisonUrisForLine(
-		repoPath: string,
-		uri: Uri,
-		editorLine: number, // 0-based, Git is 1-based
-		ref: string | undefined,
-		skip: number = 0,
-	): Promise<PreviousLineComparisonUrisResult | undefined> {
-		if (ref === deletedOrMissing) return undefined;
-
-		let relativePath = this.getRelativePath(uri, repoPath);
-
-		let previous;
-
-		// If we are at the working tree (i.e. no ref), we need to dig deeper to figure out where to go
-		if (!ref) {
-			// First, check the blame on the current line to see if there are any working/staged changes
-			const gitUri = new GitUri(uri, repoPath);
-
-			const document = await workspace.openTextDocument(uri);
-			const blameLine = document.isDirty
-				? await this.getBlameForLineContents(gitUri, editorLine, document.getText())
-				: await this.getBlameForLine(gitUri, editorLine);
-			if (blameLine == null) return undefined;
-
-			// If line is uncommitted, we need to dig deeper to figure out where to go (because blame can't be trusted)
-			if (blameLine.commit.isUncommitted) {
-				// Check the file status to see if there is anything staged
-				const status = await this.getStatusForFile(repoPath, uri);
-				if (status != null) {
-					// If the file is staged, diff working with staged (index)
-					// If the file is not staged, diff working with HEAD
-					if (status.indexStatus != null) {
-						// Diff working with staged
-						return {
-							current: GitUri.fromFile(relativePath, repoPath, undefined),
-							previous: GitUri.fromFile(relativePath, repoPath, uncommittedStaged),
-							line: editorLine,
-						};
-					}
-				}
-
-				// Diff working with HEAD (or prior if more skips)
-				return {
-					current: GitUri.fromFile(relativePath, repoPath, undefined),
-					previous: await this.getPreviousUri(repoPath, uri, undefined, skip, editorLine),
-					line: editorLine,
-				};
-			}
-
-			// If line is committed, diff with line ref with previous
-			ref = blameLine.commit.sha;
-			relativePath = blameLine.commit.file?.path ?? blameLine.commit.file?.originalPath ?? relativePath;
-			uri = this.getAbsoluteUri(relativePath, repoPath);
-			editorLine = blameLine.line.originalLine - 1;
-
-			if (skip === 0 && blameLine.commit.file?.previousSha) {
-				previous = GitUri.fromFile(relativePath, repoPath, blameLine.commit.file.previousSha);
-			}
-		} else {
-			if (isUncommittedStaged(ref)) {
-				const current =
-					skip === 0
-						? GitUri.fromFile(relativePath, repoPath, ref)
-						: (await this.getPreviousUri(repoPath, uri, undefined, skip - 1, editorLine))!;
-				if (current.sha === deletedOrMissing) return undefined;
-
-				return {
-					current: current,
-					previous: await this.getPreviousUri(repoPath, uri, undefined, skip, editorLine),
-					line: editorLine,
-				};
-			}
-
-			const gitUri = new GitUri(uri, { repoPath: repoPath, sha: ref });
-			const blameLine = await this.getBlameForLine(gitUri, editorLine);
-			if (blameLine == null) return undefined;
-
-			// Diff with line ref with previous
-			ref = blameLine.commit.sha;
-			relativePath = blameLine.commit.file?.path ?? blameLine.commit.file?.originalPath ?? relativePath;
-			uri = this.getAbsoluteUri(relativePath, repoPath);
-			editorLine = blameLine.line.originalLine - 1;
-
-			if (skip === 0 && blameLine.commit.file?.previousSha) {
-				previous = GitUri.fromFile(relativePath, repoPath, blameLine.commit.file.previousSha);
-			}
-		}
-
-		const current =
-			skip === 0
-				? GitUri.fromFile(relativePath, repoPath, ref)
-				: (await this.getPreviousUri(repoPath, uri, ref, skip - 1, editorLine))!;
-		if (current.sha === deletedOrMissing) return undefined;
-
-		return {
-			current: current,
-			previous: previous ?? (await this.getPreviousUri(repoPath, uri, ref, skip, editorLine)),
-			line: editorLine,
-		};
-	}
-
-	@log()
-	private async getPreviousUri(
-		repoPath: string,
-		uri: Uri,
-		ref?: string,
-		skip: number = 0,
-		editorLine?: number,
-	): Promise<GitUri | undefined> {
-		if (ref === deletedOrMissing) return undefined;
-
-		const scope = getLogScope();
-
-		if (ref === uncommitted) {
-			ref = undefined;
-		}
-
-		const relativePath = this.getRelativePath(uri, repoPath);
-
-		// TODO: Add caching
-		let data;
-		try {
-			data = await this.git.log__file(repoPath, relativePath, ref, {
-				argsOrFormat: parseGitLogSimpleFormat,
-				fileMode: 'simple',
-				limit: skip + 2,
-				ordering: configuration.get('advanced.commitOrdering'),
-				startLine: editorLine != null ? editorLine + 1 : undefined,
-			});
-		} catch (ex) {
-			const msg: string = ex?.toString() ?? '';
-			// If the line count is invalid just fallback to the most recent commit
-			if ((ref == null || isUncommittedStaged(ref)) && GitErrors.invalidLineCount.test(msg)) {
-				if (ref == null) {
-					const status = await this.getStatusForFile(repoPath, uri);
-					if (status?.indexStatus != null) {
-						return GitUri.fromFile(relativePath, repoPath, uncommittedStaged);
-					}
-				}
-
-				ref = await this.git.log__file_recent(repoPath, relativePath, {
-					ordering: configuration.get('advanced.commitOrdering'),
-				});
-				return GitUri.fromFile(relativePath, repoPath, ref ?? deletedOrMissing);
-			}
-
-			Logger.error(ex, scope);
-			throw ex;
-		}
-		if (data == null || data.length === 0) return undefined;
-
-		const [previousRef, file] = parseGitLogSimple(data, skip, ref);
-		// If the previous ref matches the ref we asked for assume we are at the end of the history
-		if (ref != null && ref === previousRef) return undefined;
-
-		return GitUri.fromFile(file ?? relativePath, repoPath, previousRef ?? deletedOrMissing);
-	}
-
-	@log()
-	async getIncomingActivity(
-		repoPath: string,
-		options?: {
-			all?: boolean;
-			branch?: string;
-			limit?: number;
-			ordering?: 'date' | 'author-date' | 'topo' | null;
-			skip?: number;
-		},
-	): Promise<GitReflog | undefined> {
-		const scope = getLogScope();
-
-		const limit = options?.limit ?? configuration.get('advanced.maxListItems') ?? 0;
-		try {
-			// Pass a much larger limit to reflog, because we aggregate the data and we won't know how many lines we'll need
-			const data = await this.git.reflog(repoPath, {
-				ordering: configuration.get('advanced.commitOrdering'),
-				...options,
-				limit: limit * 100,
-			});
-			if (data == null) return undefined;
-
-			const reflog = parseGitRefLog(data, repoPath, reflogCommands, limit, limit * 100);
-			if (reflog?.hasMore) {
-				reflog.more = this.getReflogMoreFn(reflog, options);
-			}
-
-			return reflog;
-		} catch (ex) {
-			Logger.error(ex, scope);
-			return undefined;
-		}
-	}
-
-	private getReflogMoreFn(
-		reflog: GitReflog,
-		options?: {
-			all?: boolean;
-			branch?: string;
-			limit?: number;
-			ordering?: 'date' | 'author-date' | 'topo' | null;
-			skip?: number;
-		},
-	): (limit: number) => Promise<GitReflog> {
-		return async (limit: number | undefined) => {
-			limit = limit ?? configuration.get('advanced.maxSearchItems') ?? 0;
-
-			const moreLog = await this.getIncomingActivity(reflog.repoPath, {
-				...options,
-				limit: limit,
-				skip: reflog.total,
-			});
-			if (moreLog == null) {
-				// If we can't find any more, assume we have everything
-				return { ...reflog, hasMore: false, more: undefined };
-			}
-
-			const mergedLog: GitReflog = {
-				repoPath: reflog.repoPath,
-				records: [...reflog.records, ...moreLog.records],
-				count: reflog.count + moreLog.count,
-				total: reflog.total + moreLog.total,
-				limit: (reflog.limit ?? 0) + limit,
-				hasMore: moreLog.hasMore,
-			};
-			if (mergedLog.hasMore) {
-				mergedLog.more = this.getReflogMoreFn(mergedLog, options);
-			}
-
-			return mergedLog;
-		};
-	}
-
-	@log({ args: { 1: false } })
-	async getRemotes(repoPath: string | undefined, options?: { sort?: boolean }): Promise<GitRemote[]> {
-		if (repoPath == null) return [];
-
-		const scope = getLogScope();
-
-		let remotesPromise = this.useCaching ? this._remotesCache.get(repoPath) : undefined;
-		if (remotesPromise == null) {
-			async function load(this: LocalGitProvider): Promise<GitRemote[]> {
-				const providers = loadRemoteProviders(
-					configuration.get('remotes', this.container.git.getRepository(repoPath!)?.folder?.uri ?? null),
-				);
-
-				try {
-					const data = await this.git.remote(repoPath!);
-					const remotes = parseGitRemotes(
-						this.container,
-						data,
-						repoPath!,
-						getRemoteProviderMatcher(this.container, providers),
-					);
-					return remotes;
-				} catch (ex) {
-					this._remotesCache.delete(repoPath!);
-					Logger.error(ex, scope);
-					return [];
-				}
-			}
-
-			remotesPromise = load.call(this);
-
-			if (this.useCaching) {
-				this._remotesCache.set(repoPath, remotesPromise);
-			}
-		}
-
-		const remotes = await remotesPromise;
-		if (options?.sort) {
-			sortRemotes(remotes);
-		}
-
-		return remotes;
-	}
-
-	@gate()
-	@log()
-	getRevisionContent(repoPath: string, path: string, ref: string): Promise<Uint8Array | undefined> {
-		const [relativePath, root] = splitPath(path, repoPath);
-
-		return this.git.show<Buffer>(root, relativePath, ref, { encoding: 'buffer' });
-	}
-
-	@gate()
-	@log()
-	async getStash(repoPath: string | undefined): Promise<GitStash | undefined> {
-		if (repoPath == null) return undefined;
-
-		let stash = this.useCaching ? this._stashesCache.get(repoPath) : undefined;
-		if (stash === undefined) {
-			const parser = createLogParserWithFiles<{
-				sha: string;
-				date: string;
-				committedDate: string;
-				parents: string;
-				stashName: string;
-				summary: string;
-			}>({
-				sha: '%H',
-				date: '%at',
-				committedDate: '%ct',
-				parents: '%P',
-				stashName: '%gd',
-				summary: '%gs',
-			});
-			const data = await this.git.stash__list(repoPath, {
-				args: parser.arguments,
-				similarityThreshold: configuration.get('advanced.similarityThreshold'),
-			});
-
-			const commits = new Map<string, GitStashCommit>();
-
-			const stashes = parser.parse(data);
-			for (const s of stashes) {
-				let onRef;
-				let summary;
-				let message;
-
-				const match = stashSummaryRegex.exec(s.summary);
-				if (match?.groups != null) {
-					onRef = match.groups.onref;
-					summary = match.groups.summary.trim();
-
-					if (summary.length === 0) {
-						message = 'WIP';
-					} else if (match.groups.wip) {
-						message = `WIP: ${summary}`;
-					} else {
-						message = summary;
-					}
-				} else {
-					message = s.summary.trim();
-				}
-
-				commits.set(
-					s.sha,
-					new GitCommit(
-						this.container,
-						repoPath,
-						s.sha,
-						new GitCommitIdentity('You', undefined, new Date((s.date as any) * 1000)),
-						new GitCommitIdentity('You', undefined, new Date((s.committedDate as any) * 1000)),
-						message.split('\n', 1)[0] ?? '',
-						s.parents.split(' '),
-						message,
-						s.files?.map(
-							f => new GitFileChange(repoPath, f.path, f.status as GitFileStatus, f.originalPath),
-						) ?? [],
-						undefined,
-						[],
-						undefined,
-						s.stashName,
-						onRef,
-					) as GitStashCommit,
-				);
-			}
-
-			stash = { repoPath: repoPath, commits: commits };
-
-			if (this.useCaching) {
-				this._stashesCache.set(repoPath, stash ?? null);
-			}
-		}
-
-		return stash ?? undefined;
-	}
-
-	@log()
-	async getStatusForFile(repoPath: string, pathOrUri: string | Uri): Promise<GitStatusFile | undefined> {
-		const status = await this.getStatusForRepo(repoPath);
-		if (!status?.files.length) return undefined;
-
-		const [relativePath] = splitPath(pathOrUri, repoPath);
-		const file = status.files.find(f => f.path === relativePath);
-		return file;
-	}
-
-	@log()
-	async getStatusForFiles(repoPath: string, pathOrGlob: Uri): Promise<GitStatusFile[] | undefined> {
-		let [relativePath] = splitPath(pathOrGlob, repoPath);
-		if (!relativePath.endsWith('/*')) {
-			return this.getStatusForFile(repoPath, pathOrGlob).then(f => (f != null ? [f] : undefined));
-		}
-
-		relativePath = relativePath.substring(0, relativePath.length - 1);
-		const status = await this.getStatusForRepo(repoPath);
-		if (!status?.files.length) return undefined;
-
-		const files = status.files.filter(f => f.path.startsWith(relativePath));
-		return files;
-	}
-
-	@log()
-	async getStatusForRepo(repoPath: string | undefined): Promise<GitStatus | undefined> {
-		if (repoPath == null) return undefined;
-
-		const porcelainVersion = (await this.git.isAtLeastVersion('2.11')) ? 2 : 1;
-
-		const data = await this.git.status(repoPath, porcelainVersion, {
-			similarityThreshold: configuration.get('advanced.similarityThreshold') ?? undefined,
-		});
-		const status = parseGitStatus(data, repoPath, porcelainVersion);
-
-		if (status?.detached) {
-			const rebaseStatus = await this.getRebaseStatus(repoPath);
-			if (rebaseStatus != null) {
-				return new GitStatus(
-					repoPath,
-					rebaseStatus.incoming.name,
-					status.sha,
-					status.files,
-					status.state,
-					status.upstream,
-					true,
-				);
-			}
-		}
-		return status;
-	}
-
-	@log({ args: { 1: false } })
-	async getTags(
-		repoPath: string | undefined,
-		options?: {
-			filter?: (t: GitTag) => boolean;
-			paging?: PagingOptions;
-			sort?: boolean | TagSortOptions;
-		},
-	): Promise<PagedResult<GitTag>> {
-		if (repoPath == null) return emptyPagedResult;
-
-		let resultsPromise = this.useCaching ? this._tagsCache.get(repoPath) : undefined;
-		if (resultsPromise == null) {
-			async function load(this: LocalGitProvider): Promise<PagedResult<GitTag>> {
-				try {
-					const data = await this.git.tag(repoPath!);
-					return { values: parseGitTags(data, repoPath!) };
-				} catch (ex) {
-					this._tagsCache.delete(repoPath!);
-
-					return emptyPagedResult;
-				}
-			}
-
-			resultsPromise = load.call(this);
-
-			if (this.useCaching && options?.paging?.cursor == null) {
-				this._tagsCache.set(repoPath, resultsPromise);
-			}
-		}
-
-		let result = await resultsPromise;
-		if (options?.filter != null) {
-			result = {
-				...result,
-				values: result.values.filter(options.filter),
-			};
-		}
-
-		if (options?.sort) {
-			sortTags(result.values, typeof options.sort === 'boolean' ? undefined : options.sort);
-		}
-
-		return result;
-	}
-
-	@log()
-	async getTreeEntryForRevision(repoPath: string, path: string, ref: string): Promise<GitTreeEntry | undefined> {
-		if (repoPath == null || !path) return undefined;
-
-		const [relativePath, root] = splitPath(path, repoPath);
-
-		if (isUncommittedStaged(ref)) {
-			const data = await this.git.ls_files(root, relativePath, { ref: ref });
-			const [result] = parseGitLsFiles(data);
-			if (result == null) return undefined;
-
-			const size = await this.git.cat_file__size(repoPath, result.oid);
-			return {
-				ref: ref,
-				oid: result.oid,
-				path: relativePath,
-				size: size,
-				type: 'blob',
-			};
-		}
-
-		const data = await this.git.ls_tree(root, ref, relativePath);
-		return parseGitTree(data, ref)[0];
-	}
-
-	@log()
-	async getTreeForRevision(repoPath: string, ref: string): Promise<GitTreeEntry[]> {
-		if (repoPath == null) return [];
-
-		const data = await this.git.ls_tree(repoPath, ref);
-		return parseGitTree(data, ref);
-	}
-
-	@log({ args: { 1: false } })
-	async hasBranchOrTag(
-		repoPath: string | undefined,
-		options?: {
-			filter?: { branches?: (b: GitBranch) => boolean; tags?: (t: GitTag) => boolean };
-		},
-	) {
-		const [{ values: branches }, { values: tags }] = await Promise.all([
-			this.getBranches(repoPath, {
-				filter: options?.filter?.branches,
-				sort: false,
-			}),
-			this.getTags(repoPath, {
-				filter: options?.filter?.tags,
-				sort: false,
-			}),
-		]);
-
-		return branches.length !== 0 || tags.length !== 0;
-	}
-
-	@log()
-	async hasCommitBeenPushed(repoPath: string, ref: string): Promise<boolean> {
-		if (repoPath == null) return false;
-
-		return this.git.merge_base__is_ancestor(repoPath, ref, '@{u}');
 	}
 
 	hasUnsafeRepositories(): boolean {
@@ -4984,14 +1960,14 @@ export class LocalGitProvider implements GitProvider, Disposable {
 		let key = path;
 		key = `${ref ?? ''}:${key.startsWith('/') ? key : `/${key}`}`;
 
-		let tracked = this._trackedPaths.get(key);
+		let tracked = this._cache.trackedPaths.get(key);
 		if (tracked != null) return tracked;
 
 		tracked = this.isTrackedCore(path, relativePath, repoPath ?? '', ref, repository);
-		this._trackedPaths.set(key, tracked);
+		this._cache.trackedPaths.set(key, tracked);
 
 		tracked = await tracked;
-		this._trackedPaths.set(key, tracked);
+		this._cache.trackedPaths.set(key, tracked);
 		return tracked;
 	}
 
@@ -5036,10 +2012,10 @@ export class LocalGitProvider implements GitProvider, Disposable {
 				}
 
 				if (!tracked && ref && !isUncommitted(ref)) {
-					tracked = Boolean(await this.git.ls_files(repoPath, relativePath, { ref: ref }));
+					tracked = Boolean(await this.git.ls_files(repoPath, relativePath, { rev: ref }));
 					// If we still haven't found this file, make sure it wasn't deleted in that ref (i.e. check the previous)
 					if (!tracked) {
-						tracked = Boolean(await this.git.ls_files(repoPath, relativePath, { ref: `${ref}^` }));
+						tracked = Boolean(await this.git.ls_files(repoPath, relativePath, { rev: `${ref}^` }));
 					}
 				}
 
@@ -5073,418 +2049,8 @@ export class LocalGitProvider implements GitProvider, Disposable {
 	}
 
 	@log()
-	async getDiffTool(repoPath?: string): Promise<string | undefined> {
-		return (
-			(await this.git.config__get('diff.guitool', repoPath, { local: true })) ??
-			this.git.config__get('diff.tool', repoPath, { local: true })
-		);
-	}
-
-	@log()
-	async openDiffTool(
-		repoPath: string,
-		uri: Uri,
-		options?: { ref1?: string; ref2?: string; staged?: boolean; tool?: string },
-	): Promise<void> {
-		const scope = getLogScope();
-		const [relativePath, root] = splitPath(uri, repoPath);
-
-		try {
-			let tool = options?.tool;
-			if (!tool) {
-				const scope = getLogScope();
-
-				tool = configuration.get('advanced.externalDiffTool') || (await this.getDiffTool(root));
-				if (tool == null) throw new Error('No diff tool found');
-
-				Logger.log(scope, `Using tool=${tool}`);
-			}
-
-			await this.git.difftool(root, relativePath, tool, options);
-		} catch (ex) {
-			const msg: string = ex?.toString() ?? '';
-			if (msg === 'No diff tool found' || /Unknown .+? tool/.test(msg)) {
-				const viewDocs = 'View Git Docs';
-				const result = await window.showWarningMessage(
-					'Unable to open changes because the specified diff tool cannot be found or no Git diff tool is configured',
-					viewDocs,
-				);
-				if (result === viewDocs) {
-					void env.openExternal(
-						Uri.parse('https://git-scm.com/docs/git-config#Documentation/git-config.txt-difftool'),
-					);
-				}
-
-				return;
-			}
-
-			Logger.error(ex, scope);
-			void showGenericErrorMessage('Unable to open compare');
-		}
-	}
-
-	@log()
-	async openDirectoryCompare(repoPath: string, ref1: string, ref2?: string, tool?: string): Promise<void> {
-		const scope = getLogScope();
-
-		try {
-			if (!tool) {
-				const scope = getLogScope();
-
-				tool = configuration.get('advanced.externalDirectoryDiffTool') || (await this.getDiffTool(repoPath));
-				if (tool == null) throw new Error('No diff tool found');
-
-				Logger.log(scope, `Using tool=${tool}`);
-			}
-
-			await this.git.difftool__dir_diff(repoPath, tool, ref1, ref2);
-		} catch (ex) {
-			const msg: string = ex?.toString() ?? '';
-			if (msg === 'No diff tool found' || /Unknown .+? tool/.test(msg)) {
-				const viewDocs = 'View Git Docs';
-				const result = await window.showWarningMessage(
-					'Unable to open directory compare because the specified diff tool cannot be found or no Git diff tool is configured',
-					viewDocs,
-				);
-				if (result === viewDocs) {
-					void env.openExternal(
-						Uri.parse('https://git-scm.com/docs/git-config#Documentation/git-config.txt-difftool'),
-					);
-				}
-
-				return;
-			}
-
-			Logger.error(ex, scope);
-			void showGenericErrorMessage('Unable to open directory compare');
-		}
-	}
-
-	@log()
-	async resolveReference(
-		repoPath: string,
-		ref: string,
-		pathOrUri?: string | Uri,
-		options?: { force?: boolean; timeout?: number },
-	) {
-		if (
-			!ref ||
-			ref === deletedOrMissing ||
-			(pathOrUri == null && isSha(ref)) ||
-			(pathOrUri != null && isUncommitted(ref))
-		) {
-			return ref;
-		}
-
-		if (pathOrUri == null) {
-			// If it doesn't look like a sha at all (e.g. branch name) or is a stash ref (^3) don't try to resolve it
-			if ((!options?.force && !isShaLike(ref)) || ref.endsWith('^3')) return ref;
-
-			return (await this.git.rev_parse__verify(repoPath, ref)) ?? ref;
-		}
-
-		const relativePath = this.getRelativePath(pathOrUri, repoPath);
-
-		let cancellation: TimedCancellationSource | undefined;
-		if (options?.timeout != null) {
-			cancellation = new TimedCancellationSource(options.timeout);
-		}
-
-		const [verifiedResult, resolvedResult] = await Promise.allSettled([
-			this.git.rev_parse__verify(repoPath, ref, relativePath),
-			this.git.log__file_recent(repoPath, relativePath, {
-				ref: ref,
-				cancellation: cancellation?.token,
-			}),
-		]);
-
-		const verified = getSettledValue(verifiedResult);
-		if (verified == null) return deletedOrMissing;
-
-		const resolved = getSettledValue(resolvedResult);
-
-		const cancelled = cancellation?.token.isCancellationRequested;
-		cancellation?.dispose();
-
-		return cancelled ? ref : resolved ?? ref;
-	}
-
-	@log<LocalGitProvider['richSearchCommits']>({
-		args: {
-			1: s =>
-				`[${s.matchAll ? 'A' : ''}${s.matchCase ? 'C' : ''}${s.matchRegex ? 'R' : ''}]: ${
-					s.query.length > 500 ? `${s.query.substring(0, 500)}...` : s.query
-				}`,
-		},
-	})
-	async richSearchCommits(
-		repoPath: string,
-		search: SearchQuery,
-		options?: { limit?: number; ordering?: 'date' | 'author-date' | 'topo' | null; skip?: number },
-	): Promise<GitLog | undefined> {
-		search = { matchAll: false, matchCase: false, matchRegex: true, ...search };
-
-		try {
-			const limit = options?.limit ?? configuration.get('advanced.maxSearchItems') ?? 0;
-			const similarityThreshold = configuration.get('advanced.similarityThreshold');
-
-			const currentUser = await this.getCurrentUser(repoPath);
-
-			const { args, files, shas } = getGitArgsFromSearchQuery(search, currentUser);
-
-			args.push(`-M${similarityThreshold == null ? '' : `${similarityThreshold}%`}`, '--');
-			if (files.length !== 0) {
-				args.push(...files);
-			}
-
-			let stashes: Map<string, GitStashCommit> | undefined;
-			let stdin: string | undefined;
-			if (shas == null) {
-				const stash = await this.getStash(repoPath);
-				// TODO@eamodio this is insanity -- there *HAS* to be a better way to get git log to return stashes
-				if (stash?.commits.size) {
-					stashes = new Map();
-					for (const commit of stash.commits.values()) {
-						stashes.set(commit.sha, commit);
-						for (const p of commit.parents) {
-							stashes.set(p, commit);
-						}
-					}
-
-					stdin = join(
-						map(stash.commits.values(), c => c.sha.substring(0, 9)),
-						'\n',
-					);
-				}
-			}
-
-			const data = await this.git.log__search(repoPath, shas?.size ? undefined : args, {
-				ordering: configuration.get('advanced.commitOrdering'),
-				...options,
-				limit: limit,
-				shas: shas,
-				stdin: stdin,
-			});
-			const log = parseGitLog(
-				this.container,
-				data,
-				LogType.Log,
-				repoPath,
-				undefined,
-				undefined,
-				currentUser,
-				limit,
-				false,
-				undefined,
-				stashes,
-			);
-
-			if (log != null) {
-				function richSearchCommitsCore(
-					this: LocalGitProvider,
-					log: GitLog,
-				): (limit: number | undefined) => Promise<GitLog> {
-					return async (limit: number | undefined) => {
-						limit = limit ?? configuration.get('advanced.maxSearchItems') ?? 0;
-
-						const moreLog = await this.richSearchCommits(log.repoPath, search, {
-							...options,
-							limit: limit,
-							skip: log.count,
-						});
-						// If we can't find any more, assume we have everything
-						if (moreLog == null) return { ...log, hasMore: false, more: undefined };
-
-						const commits = new Map([...log.commits, ...moreLog.commits]);
-
-						const mergedLog: GitLog = {
-							repoPath: log.repoPath,
-							commits: commits,
-							sha: log.sha,
-							range: log.range,
-							count: commits.size,
-							limit: (log.limit ?? 0) + limit,
-							hasMore: moreLog.hasMore,
-							query: (limit: number | undefined) =>
-								this.richSearchCommits(log.repoPath, search, { ...options, limit: limit }),
-						};
-						if (mergedLog.hasMore) {
-							mergedLog.more = richSearchCommitsCore.call(this, mergedLog);
-						}
-
-						return mergedLog;
-					};
-				}
-
-				log.query = (limit: number | undefined) =>
-					this.richSearchCommits(repoPath, search, { ...options, limit: limit });
-				if (log.hasMore) {
-					log.more = richSearchCommitsCore.call(this, log);
-				}
-			}
-
-			return log;
-		} catch (ex) {
-			return undefined;
-		}
-	}
-
-	@log()
-	async searchCommits(
-		repoPath: string,
-		search: SearchQuery,
-		options?: {
-			cancellation?: CancellationToken;
-			limit?: number;
-			ordering?: 'date' | 'author-date' | 'topo';
-		},
-	): Promise<GitSearch> {
-		search = { matchAll: false, matchCase: false, matchRegex: true, ...search };
-
-		const comparisonKey = getSearchQueryComparisonKey(search);
-		try {
-			const refAndDateParser = getRefAndDateParser();
-
-			const currentUser = search.query.includes('@me') ? await this.getCurrentUser(repoPath) : undefined;
-
-			const { args: searchArgs, files, shas } = getGitArgsFromSearchQuery(search, currentUser);
-			if (shas?.size) {
-				const data = await this.git.show2(
-					repoPath,
-					{ cancellation: options?.cancellation },
-					'-s',
-					...refAndDateParser.arguments,
-					...shas.values(),
-					...searchArgs,
-					'--',
-				);
-
-				let i = 0;
-				const results: GitSearchResults = new Map<string, GitSearchResultData>(
-					map(refAndDateParser.parse(data), c => [
-						c.sha,
-						{
-							i: i++,
-							date: Number(options?.ordering === 'author-date' ? c.authorDate : c.committerDate) * 1000,
-						},
-					]),
-				);
-
-				return {
-					repoPath: repoPath,
-					query: search,
-					comparisonKey: comparisonKey,
-					results: results,
-				};
-			}
-
-			const limit = options?.limit ?? configuration.get('advanced.maxSearchItems') ?? 0;
-			const similarityThreshold = configuration.get('advanced.similarityThreshold');
-
-			const stash = await this.getStash(repoPath);
-			let stdin: string | undefined;
-			// TODO@eamodio this is insanity -- there *HAS* to be a better way to get git log to return stashes
-			if (stash?.commits.size) {
-				stdin = join(
-					map(stash.commits.values(), c => c.sha.substring(0, 9)),
-					'\n',
-				);
-			}
-
-			const args = [
-				...refAndDateParser.arguments,
-				`-M${similarityThreshold == null ? '' : `${similarityThreshold}%`}`,
-				'--use-mailmap',
-			];
-
-			const results: GitSearchResults = new Map<string, GitSearchResultData>();
-			let total = 0;
-
-			async function searchForCommitsCore(
-				this: LocalGitProvider,
-				limit: number,
-				cursor?: { sha: string; skip: number },
-			): Promise<GitSearch> {
-				if (options?.cancellation?.isCancellationRequested) {
-					return { repoPath: repoPath, query: search, comparisonKey: comparisonKey, results: results };
-				}
-
-				let data;
-				try {
-					data = await this.git.log(
-						repoPath,
-						{
-							cancellation: options?.cancellation,
-							configs: ['-C', repoPath, ...gitLogDefaultConfigs],
-							errors: GitErrorHandling.Throw,
-							stdin: stdin,
-						},
-						...args,
-						...searchArgs,
-						...(options?.ordering ? [`--${options.ordering}-order`] : emptyArray),
-						...(limit ? [`-n${limit + 1}`] : emptyArray),
-						...(cursor?.skip ? [`--skip=${cursor.skip}`] : emptyArray),
-						'--',
-						...files,
-					);
-				} catch (ex) {
-					if (ex instanceof CancelledRunError || options?.cancellation?.isCancellationRequested) {
-						return { repoPath: repoPath, query: search, comparisonKey: comparisonKey, results: results };
-					}
-
-					throw new GitSearchError(ex);
-				}
-
-				if (options?.cancellation?.isCancellationRequested) {
-					return { repoPath: repoPath, query: search, comparisonKey: comparisonKey, results: results };
-				}
-
-				let count = total;
-
-				for (const r of refAndDateParser.parse(data)) {
-					if (results.has(r.sha)) {
-						limit--;
-						continue;
-					}
-					results.set(r.sha, {
-						i: total++,
-						date: Number(options?.ordering === 'author-date' ? r.authorDate : r.committerDate) * 1000,
-					});
-				}
-
-				count = total - count;
-				const lastSha = last(results)?.[0];
-				cursor =
-					lastSha != null
-						? {
-								sha: lastSha,
-								skip: total,
-						  }
-						: undefined;
-
-				return {
-					repoPath: repoPath,
-					query: search,
-					comparisonKey: comparisonKey,
-					results: results,
-					paging:
-						limit !== 0 && count > limit
-							? {
-									limit: limit,
-									hasMore: true,
-							  }
-							: undefined,
-					more: async (limit: number): Promise<GitSearch> => searchForCommitsCore.call(this, limit, cursor),
-				};
-			}
-
-			return searchForCommitsCore.call(this, limit);
-		} catch (ex) {
-			if (ex instanceof GitSearchError) {
-				throw ex;
-			}
-			throw new GitSearchError(ex);
-		}
+	async reset(repoPath: string, ref: string, options?: { hard?: boolean } | { soft?: boolean }): Promise<void> {
+		await this.git.reset(repoPath, [], { ...options, ref: ref });
 	}
 
 	@log({ args: { 2: false } })
@@ -5500,280 +2066,78 @@ export class LocalGitProvider implements GitProvider, Disposable {
 		// setTimeout(() => this.fireChange(RepositoryChange.Unknown), 2500);
 	}
 
-	@log()
-	validateBranchOrTagName(repoPath: string, ref: string): Promise<boolean> {
-		return this.git.check_ref_format(ref, repoPath);
+	private _branches: BranchesGitSubProvider | undefined;
+	get branches(): BranchesGitSubProvider {
+		return (this._branches ??= new BranchesGitSubProvider(this.container, this.git, this._cache, this));
 	}
 
-	@log({ args: { 1: false } })
-	async validatePatch(repoPath: string | undefined, contents: string): Promise<boolean> {
-		try {
-			await this.git.apply2(repoPath!, { stdin: contents }, '--check');
-			return true;
-		} catch (ex) {
-			if (ex instanceof Error && ex.message) {
-				if (ex.message.includes('No valid patches in input')) {
-					return false;
-				}
-
-				return true;
-			}
-
-			return false;
-		}
+	private _commits: CommitsGitSubProvider | undefined;
+	get commits(): CommitsGitSubProvider {
+		return (this._commits ??= new CommitsGitSubProvider(this.container, this.git, this._cache, this));
 	}
 
-	@log()
-	async validateReference(repoPath: string, ref: string): Promise<boolean> {
-		if (ref == null || ref.length === 0) return false;
-		if (ref === deletedOrMissing || isUncommitted(ref)) return true;
-
-		return (await this.git.rev_parse__verify(repoPath, ref)) != null;
+	private _config: ConfigGitSubProvider | undefined;
+	get config(): ConfigGitSubProvider {
+		return (this._config ??= new ConfigGitSubProvider(this.container, this.git, this._cache, this));
 	}
 
-	@log()
-	async stageFile(repoPath: string, pathOrUri: string | Uri): Promise<void> {
-		await this.git.add(repoPath, typeof pathOrUri === 'string' ? pathOrUri : splitPath(pathOrUri, repoPath)[0]);
+	private _contributors: ContributorsGitSubProvider | undefined;
+	get contributors(): ContributorsGitSubProvider {
+		return (this._contributors ??= new ContributorsGitSubProvider(this.container, this.git, this._cache, this));
 	}
 
-	@log()
-	async stageDirectory(repoPath: string, directoryOrUri: string | Uri): Promise<void> {
-		await this.git.add(
-			repoPath,
-			typeof directoryOrUri === 'string' ? directoryOrUri : splitPath(directoryOrUri, repoPath)[0],
-		);
+	private _diff: DiffGitSubProvider | undefined;
+	get diff(): DiffGitSubProvider {
+		return (this._diff ??= new DiffGitSubProvider(this.container, this.git, this._cache, this));
 	}
 
-	@log()
-	async unstageFile(repoPath: string, pathOrUri: string | Uri): Promise<void> {
-		await this.git.reset(repoPath, typeof pathOrUri === 'string' ? pathOrUri : splitPath(pathOrUri, repoPath)[0]);
+	private _graph: GraphGitSubProvider | undefined;
+	get graph(): GraphGitSubProvider {
+		return (this._graph ??= new GraphGitSubProvider(this.container, this.git, this._cache, this));
 	}
 
-	@log()
-	async unstageDirectory(repoPath: string, directoryOrUri: string | Uri): Promise<void> {
-		await this.git.reset(
-			repoPath,
-			typeof directoryOrUri === 'string' ? directoryOrUri : splitPath(directoryOrUri, repoPath)[0],
-		);
+	private _patch: PatchGitSubProvider | undefined;
+	get patch(): PatchGitSubProvider | undefined {
+		return (this._patch ??= new PatchGitSubProvider(this.container, this.git, this));
 	}
 
-	@log()
-	async stashApply(repoPath: string, stashName: string, options?: { deleteAfter?: boolean }): Promise<void> {
-		try {
-			await this.git.stash__apply(repoPath, stashName, Boolean(options?.deleteAfter));
-		} catch (ex) {
-			if (ex instanceof Error) {
-				const msg: string = ex.message ?? '';
-				if (msg.includes('Your local changes to the following files would be overwritten by merge')) {
-					throw new StashApplyError(StashApplyErrorReason.WorkingChanges, ex);
-				}
-
-				if (
-					(msg.includes('Auto-merging') && msg.includes('CONFLICT')) ||
-					(ex instanceof RunError &&
-						((ex.stdout.includes('Auto-merging') && ex.stdout.includes('CONFLICT')) ||
-							ex.stdout.includes('needs merge')))
-				) {
-					void window.showInformationMessage('Stash applied with conflicts');
-
-					return;
-				}
-
-				throw new StashApplyError(`Unable to apply stash \u2014 ${msg.trim().replace(/\n+?/g, '; ')}`, ex);
-			}
-
-			throw new StashApplyError(`Unable to apply stash \u2014 ${String(ex)}`, ex);
-		}
+	private _refs: RefsGitSubProvider | undefined;
+	get refs(): RefsGitSubProvider {
+		return (this._refs ??= new RefsGitSubProvider(this.container, this.git, this._cache, this));
 	}
 
-	@log()
-	async stashDelete(repoPath: string, stashName: string, ref?: string): Promise<void> {
-		await this.git.stash__delete(repoPath, stashName, ref);
-		this.container.events.fire('git:cache:reset', { repoPath: repoPath, caches: ['stashes'] });
+	private _remotes: RemotesGitSubProvider | undefined;
+	get remotes(): RemotesGitSubProvider {
+		return (this._remotes ??= new RemotesGitSubProvider(this.container, this.git, this._cache, this));
 	}
 
-	@log()
-	async stashRename(
-		repoPath: string,
-		stashName: string,
-		ref: string,
-		message: string,
-		stashOnRef?: string,
-	): Promise<void> {
-		await this.git.stash__rename(repoPath, stashName, ref, message, stashOnRef);
-		this.container.events.fire('git:cache:reset', { repoPath: repoPath, caches: ['stashes'] });
+	private _revision: RevisionGitSubProvider | undefined;
+	get revision(): RevisionGitSubProvider {
+		return (this._revision ??= new RevisionGitSubProvider(this.container, this.git, this._cache, this));
 	}
 
-	@log<LocalGitProvider['stashSave']>({ args: { 2: uris => uris?.length } })
-	async stashSave(
-		repoPath: string,
-		message?: string,
-		uris?: Uri[],
-		options?: { includeUntracked?: boolean; keepIndex?: boolean; onlyStaged?: boolean },
-	): Promise<void> {
-		try {
-			if (!uris?.length) {
-				await this.git.stash__push(repoPath, message, options);
-				return;
-			}
-
-			await this.ensureGitVersion(
-				'2.13.2',
-				'Stashing individual files',
-				' Please retry by stashing everything or install a more recent version of Git and try again.',
-			);
-
-			const pathspecs = uris.map(u => `./${splitPath(u, repoPath)[0]}`);
-
-			const stdinVersion = '2.30.0';
-			let stdin = await this.git.isAtLeastVersion(stdinVersion);
-			if (stdin && options?.onlyStaged && uris.length) {
-				// Since Git doesn't support --staged with --pathspec-from-file try to pass them in directly
-				stdin = false;
-			}
-
-			// If we don't support stdin, then error out if we are over the maximum allowed git cli length
-			if (!stdin && countStringLength(pathspecs) > maxGitCliLength) {
-				await this.ensureGitVersion(
-					stdinVersion,
-					`Stashing so many files (${pathspecs.length}) at once`,
-					' Please retry by stashing fewer files or install a more recent version of Git and try again.',
-				);
-			}
-
-			await this.git.stash__push(repoPath, message, {
-				...options,
-				pathspecs: pathspecs,
-				stdin: stdin,
-			});
-		} finally {
-			this.container.events.fire('git:cache:reset', { repoPath: repoPath, caches: ['stashes', 'status'] });
-		}
+	private _staging: StagingGitSubProvider | undefined;
+	get staging(): StagingGitSubProvider | undefined {
+		return (this._staging ??= new StagingGitSubProvider(this.container, this.git));
 	}
 
-	@log()
-	async stashSaveSnapshot(repoPath: string, message?: string): Promise<void> {
-		const id = await this.git.stash__create(repoPath);
-		if (id == null) return;
-
-		await this.git.stash__store(repoPath, id, message);
-		this.container.events.fire('git:cache:reset', { repoPath: repoPath, caches: ['stashes'] });
+	private _stash: StashGitSubProvider | undefined;
+	get stash(): StashGitSubProvider {
+		return (this._stash ??= new StashGitSubProvider(this.container, this.git, this._cache));
 	}
 
-	@log()
-	async createWorktree(
-		repoPath: string,
-		path: string,
-		options?: { commitish?: string; createBranch?: string; detach?: boolean; force?: boolean },
-	) {
-		const scope = getLogScope();
-
-		try {
-			await this.git.worktree__add(repoPath, path, options);
-			this.container.events.fire('git:cache:reset', { repoPath: repoPath, caches: ['worktrees'] });
-			if (options?.createBranch) {
-				this.container.events.fire('git:cache:reset', { repoPath: repoPath, caches: ['branches'] });
-			}
-		} catch (ex) {
-			Logger.error(ex, scope);
-
-			const msg = String(ex);
-
-			if (GitErrors.alreadyCheckedOut.test(msg)) {
-				throw new WorktreeCreateError(WorktreeCreateErrorReason.AlreadyCheckedOut, ex);
-			}
-
-			if (GitErrors.alreadyExists.test(msg)) {
-				throw new WorktreeCreateError(WorktreeCreateErrorReason.AlreadyExists, ex);
-			}
-
-			throw new WorktreeCreateError(undefined, ex);
-		}
+	private _status: StatusGitSubProvider | undefined;
+	get status(): StatusGitSubProvider {
+		return (this._status ??= new StatusGitSubProvider(this.container, this.git, this._cache, this));
 	}
 
-	@log()
-	async getWorktrees(repoPath: string): Promise<GitWorktree[]> {
-		await this.ensureGitVersion(
-			'2.7.6',
-			'Displaying worktrees',
-			' Please install a more recent version of Git and try again.',
-		);
-
-		let worktrees = this.useCaching ? this._worktreesCache.get(repoPath) : undefined;
-		if (worktrees == null) {
-			async function load(this: LocalGitProvider) {
-				try {
-					const [data, branches] = await Promise.all([
-						this.git.worktree__list(repoPath),
-						this.getBranches(repoPath),
-					]);
-
-					return parseGitWorktrees(this.container, data, repoPath, branches.values);
-				} catch (ex) {
-					this._worktreesCache.delete(repoPath);
-
-					throw ex;
-				}
-			}
-
-			worktrees = load.call(this);
-
-			if (this.useCaching) {
-				this._worktreesCache.set(repoPath, worktrees);
-			}
-		}
-
-		return worktrees;
+	private _tags: TagsGitSubProvider | undefined;
+	get tags(): TagsGitSubProvider {
+		return (this._tags ??= new TagsGitSubProvider(this.container, this.git, this._cache));
 	}
-
-	@log()
-	// eslint-disable-next-line @typescript-eslint/require-await
-	async getWorktreesDefaultUri(repoPath: string): Promise<Uri | undefined> {
-		let location = configuration.get('worktrees.defaultLocation');
-		if (location == null) return undefined;
-
-		if (location.startsWith('~')) {
-			location = joinPaths(homedir(), location.slice(1));
-		}
-
-		const folder = this.container.git.getRepository(repoPath)?.folder;
-		location = interpolate(location, {
-			userHome: homedir(),
-			workspaceFolder: folder?.uri.fsPath,
-			workspaceFolderBasename: folder?.name,
-		});
-
-		return this.getAbsoluteUri(location, repoPath);
-	}
-
-	@log()
-	async deleteWorktree(repoPath: string, path: string, options?: { force?: boolean }) {
-		const scope = getLogScope();
-
-		await this.ensureGitVersion(
-			'2.17.0',
-			'Deleting worktrees',
-			' Please install a more recent version of Git and try again.',
-		);
-
-		try {
-			await this.git.worktree__remove(repoPath, normalizePath(path), options);
-			this.container.events.fire('git:cache:reset', { repoPath: repoPath, caches: ['worktrees'] });
-		} catch (ex) {
-			Logger.error(ex, scope);
-
-			const msg = String(ex);
-
-			if (GitErrors.mainWorkingTree.test(msg)) {
-				throw new WorktreeDeleteError(WorktreeDeleteErrorReason.MainWorkingTree, ex);
-			}
-
-			if (GitErrors.uncommittedChanges.test(msg)) {
-				throw new WorktreeDeleteError(WorktreeDeleteErrorReason.HasChanges, ex);
-			}
-
-			throw new WorktreeDeleteError(undefined, ex);
-		}
+	private _worktrees: WorktreesGitSubProvider | undefined;
+	get worktrees(): WorktreesGitSubProvider {
+		return (this._worktrees ??= new WorktreesGitSubProvider(this.container, this.git, this._cache, this));
 	}
 
 	private _scmGitApi: Promise<ScmGitApi | undefined> | undefined;
@@ -5860,14 +2224,6 @@ export class LocalGitProvider implements GitProvider, Disposable {
 			Logger.error(ex, scope);
 			return undefined;
 		}
-	}
-
-	private async ensureGitVersion(version: string, prefix: string, suffix: string): Promise<void> {
-		if (await this.git.isAtLeastVersion(version)) return;
-
-		throw new Error(
-			`${prefix} requires a newer version of Git (>= ${version}) than is currently installed (${await this.git.version()}).${suffix}`,
-		);
 	}
 }
 

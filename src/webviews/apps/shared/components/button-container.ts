@@ -8,6 +8,8 @@ export class ButtonContainer extends LitElement {
 		elementBase,
 		css`
 			:host {
+				--button-group-gap: 0.4rem;
+				--button-group-wide-gap: 1rem;
 				display: block;
 				max-width: 30rem;
 				margin-right: auto;
@@ -24,9 +26,13 @@ export class ButtonContainer extends LitElement {
 
 			.group {
 				display: inline-flex;
-				gap: 0.4rem;
+				gap: var(--button-group-gap);
 				width: 100%;
 				max-width: 30rem;
+			}
+
+			:host([gap='wide']) .group {
+				gap: var(--button-group-wide-gap);
 			}
 		`,
 	];
@@ -34,7 +40,10 @@ export class ButtonContainer extends LitElement {
 	@property({ type: Boolean })
 	editor = false;
 
-	override render() {
+	@property({ reflect: true })
+	gap?: 'wide';
+
+	override render(): unknown {
 		return html`<div class="group"><slot></slot></div>`;
 	}
 }

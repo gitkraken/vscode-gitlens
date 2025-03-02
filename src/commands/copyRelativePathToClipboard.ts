@@ -1,18 +1,19 @@
 import type { TextEditor, Uri } from 'vscode';
 import { env } from 'vscode';
-import { Commands } from '../constants';
 import type { Container } from '../container';
-import { command } from '../system/command';
-import type { CommandContext } from './base';
-import { ActiveEditorCommand, getCommandUri, isCommandContextViewNodeHasFileCommit } from './base';
+import { command } from '../system/-webview/command';
+import { ActiveEditorCommand } from './commandBase';
+import { getCommandUri } from './commandBase.utils';
+import type { CommandContext } from './commandContext';
+import { isCommandContextViewNodeHasFileCommit } from './commandContext.utils';
 
 @command()
 export class CopyRelativePathToClipboardCommand extends ActiveEditorCommand {
 	constructor(private readonly container: Container) {
-		super(Commands.CopyRelativePathToClipboard);
+		super('gitlens.copyRelativePathToClipboard');
 	}
 
-	protected override preExecute(context: CommandContext) {
+	protected override preExecute(context: CommandContext): Promise<void> {
 		if (isCommandContextViewNodeHasFileCommit(context)) {
 			return this.execute(context.editor, context.node.commit.file!.uri);
 		}
@@ -20,7 +21,7 @@ export class CopyRelativePathToClipboardCommand extends ActiveEditorCommand {
 		return this.execute(context.editor, context.uri);
 	}
 
-	async execute(editor?: TextEditor, uri?: Uri) {
+	async execute(editor?: TextEditor, uri?: Uri): Promise<void> {
 		uri = getCommandUri(uri, editor);
 		let relativePath = '';
 		if (uri != null) {
@@ -31,6 +32,5 @@ export class CopyRelativePathToClipboardCommand extends ActiveEditorCommand {
 		}
 
 		await env.clipboard.writeText(relativePath);
-		return undefined;
 	}
 }

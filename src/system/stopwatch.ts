@@ -22,14 +22,14 @@ export class Stopwatch implements Disposable {
 	private readonly logProvider: LogProvider;
 
 	private _time: [number, number];
-	get startTime() {
+	get startTime(): [number, number] {
 		return this._time;
 	}
 
 	private _stopped = false;
 
 	constructor(scope: string | LogScope | undefined, options?: StopwatchOptions, ...params: any[]) {
-		this.logScope = scope != null && typeof scope !== 'string' ? scope : getNewLogScope(scope ?? '');
+		this.logScope = scope != null && typeof scope !== 'string' ? scope : getNewLogScope(scope ?? '', false);
 
 		let logOptions: StopwatchLogOptions | undefined;
 		if (typeof options?.log === 'boolean') {

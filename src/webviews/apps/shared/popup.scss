@@ -1,3 +1,5 @@
+@use './styles/utils';
+
 .popup {
 	box-shadow: 0px 0px 28px 0 rgba(0, 0, 0, 0.5);
 	cursor: default;
@@ -19,20 +21,20 @@
 		top: -24px;
 		z-index: 1001;
 
-		.vscode-light & {
+		@include utils.light-theme($selectorPostfix: ' &') {
 			border-bottom-color: var(--color-background--darken-05);
 		}
 
-		.vscode-dark & {
+		@include utils.dark-theme($selectorPostfix: ' &') {
 			border-bottom-color: var(--color-background--lighten-075);
 		}
 	}
 
-	.vscode-light & {
+	@include utils.light-theme($selectorPostfix: ' &') {
 		background: var(--color-background--darken-05);
 	}
 
-	.vscode-dark & {
+	@include utils.dark-theme($selectorPostfix: ' &') {
 		background: var(--color-background--lighten-075);
 	}
 }
@@ -64,11 +66,11 @@
 	table-layout: fixed;
 
 	& tr:nth-child(even) {
-		.vscode-light & {
+		@include utils.light-theme($selectorPostfix: ' &') {
 			background-color: rgba(0, 0, 0, 0.05);
 		}
 
-		.vscode-dark & {
+		@include utils.dark-theme($selectorPostfix: ' &') {
 			background-color: rgba(255, 255, 255, 0.04);
 		}
 	}
@@ -108,7 +110,7 @@
 		content: '}';
 	}
 
-	.vscode-light & {
+	@include utils.light-theme($selectorPostfix: ' &') {
 		background: var(--color-link-foreground--lighten-20);
 		border-bottom-color: var(--color-link-foreground--lighten-20);
 	}

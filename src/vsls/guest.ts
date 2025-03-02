@@ -12,7 +12,7 @@ import { GetRepositoriesForUriRequestType, GitCommandRequestType, GitLogStreamTo
 
 export class VslsGuestService implements Disposable {
 	@log()
-	static async connect(api: LiveShare, container: Container) {
+	static async connect(api: LiveShare, container: Container): Promise<VslsGuestService | undefined> {
 		const scope = getLogScope();
 
 		try {
@@ -37,7 +37,7 @@ export class VslsGuestService implements Disposable {
 		this.onAvailabilityChanged(_service.isServiceAvailable);
 	}
 
-	dispose() {
+	dispose(): void {
 		// nothing to dispose
 	}
 

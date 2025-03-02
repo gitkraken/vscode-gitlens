@@ -68,7 +68,7 @@ export class ReflogNode
 	}
 
 	@debug()
-	override refresh(reset?: boolean) {
+	override refresh(reset?: boolean): void {
 		super.refresh(true);
 
 		if (reset) {
@@ -79,7 +79,7 @@ export class ReflogNode
 	private _reflog: GitReflog | undefined;
 	private async getReflog() {
 		if (this._reflog === undefined) {
-			this._reflog = await this.view.container.git.getIncomingActivity(this.repo.path, {
+			this._reflog = await this.repo.git.commits().getIncomingActivity?.({
 				all: true,
 				limit: this.limit ?? this.view.config.defaultItemLimit,
 			});
@@ -88,11 +88,11 @@ export class ReflogNode
 		return this._reflog;
 	}
 
-	get hasMore() {
+	get hasMore(): boolean {
 		return this._reflog?.hasMore ?? true;
 	}
 
-	async loadMore(limit?: number) {
+	async loadMore(limit?: number): Promise<void> {
 		let reflog = await this.getReflog();
 		if (!reflog?.hasMore) return;
 

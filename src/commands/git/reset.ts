@@ -1,11 +1,13 @@
 import type { Container } from '../../container';
 import type { GitBranch } from '../../git/models/branch';
 import type { GitLog } from '../../git/models/log';
-import type { GitReference, GitRevisionReference } from '../../git/models/reference';
-import { getReferenceLabel } from '../../git/models/reference';
+import type { GitReference, GitRevisionReference, GitTagReference } from '../../git/models/reference';
 import type { Repository } from '../../git/models/repository';
+import { getReferenceLabel } from '../../git/utils/reference.utils';
+import { showGenericErrorMessage } from '../../messages';
 import type { FlagsQuickPickItem } from '../../quickpicks/items/flags';
 import { createFlagsQuickPickItem } from '../../quickpicks/items/flags';
+import { Logger } from '../../system/logger';
 import type { ViewsWithRepositoryFolders } from '../../views/viewBase';
 import type {
 	PartialStepState,
@@ -31,7 +33,7 @@ type Flags = '--hard' | '--soft';
 
 interface State {
 	repo: string | Repository;
-	reference: GitRevisionReference;
+	reference: GitRevisionReference | GitTagReference;
 	flags: Flags[];
 }
 
@@ -69,14 +71,25 @@ export class ResetGitCommand extends QuickCommand<State> {
 		return this._canSkipConfirm;
 	}
 
-	execute(state: ResetStepState) {
-		state.repo.reset(...state.flags, state.reference.ref);
+	private async execute(state: ResetStepState) {
+		try {
+			await state.repo.git.reset(
+				{
+					hard: state.flags.includes('--hard'),
+					soft: state.flags.includes('--soft'),
+				},
+				state.reference.ref,
+			);
+		} catch (ex) {
+			Logger.error(ex, this.title);
+			void showGenericErrorMessage(ex.message);
+		}
 	}
 
 	protected async *steps(state: PartialStepState<State>): StepGenerator {
 		const context: Context = {
 			repos: this.container.git.openRepositories,
-			associatedView: this.container.commitsView,
+			associatedView: this.container.views.commits,
 			cache: new Map<string, Promise<GitLog | undefined>>(),
 			destination: undefined!,
 			title: this.title,
@@ -110,7 +123,7 @@ export class ResetGitCommand extends QuickCommand<State> {
 			}
 
 			if (context.destination == null) {
-				const branch = await state.repo.getBranch();
+				const branch = await state.repo.git.branches().getBranch();
 				if (branch == null) break;
 
 				context.destination = branch;
@@ -119,17 +132,17 @@ export class ResetGitCommand extends QuickCommand<State> {
 			context.title = `${this.title} ${getReferenceLabel(context.destination, { icon: false })}`;
 
 			if (state.counter < 2 || state.reference == null) {
-				const ref = context.destination.ref;
+				const rev = context.destination.ref;
 
-				let log = context.cache.get(ref);
+				let log = context.cache.get(rev);
 				if (log == null) {
-					log = this.container.git.getLog(state.repo.path, { ref: ref, merges: 'first-parent' });
-					context.cache.set(ref, log);
+					log = state.repo.git.commits().getLog(rev, { merges: 'first-parent' });
+					context.cache.set(rev, log);
 				}
 
 				const result: StepResult<GitReference> = yield* pickCommitStep(state as ResetStepState, context, {
 					log: await log,
-					onDidLoadMore: log => context.cache.set(ref, Promise.resolve(log)),
+					onDidLoadMore: log => context.cache.set(rev, Promise.resolve(log)),
 					placeholder: (context, log) =>
 						log == null
 							? `${context.destination.name} has no commits`
@@ -156,7 +169,7 @@ export class ResetGitCommand extends QuickCommand<State> {
 			}
 
 			endSteps(state);
-			this.execute(state as ResetStepState);
+			await this.execute(state as ResetStepState);
 		}
 
 		return state.counter < 0 ? StepResultBreak : undefined;

@@ -1,14 +1,16 @@
 import { Disposable, ViewColumn } from 'vscode';
-import { Commands } from '../../constants';
-import { registerCommand } from '../../system/command';
+import type { GlCommands } from '../../constants.commands';
+import { registerCommand } from '../../system/-webview/command';
 import type { WebviewPanelsProxy, WebviewsController } from '../webviewsController';
 import type { State } from './protocol';
 
 export type SettingsWebviewShowingArgs = [string];
 
-export function registerSettingsWebviewPanel(controller: WebviewsController) {
-	return controller.registerWebviewPanel<State, State, SettingsWebviewShowingArgs>(
-		{ id: Commands.ShowSettingsPage },
+export function registerSettingsWebviewPanel(
+	controller: WebviewsController,
+): WebviewPanelsProxy<'gitlens.settings', SettingsWebviewShowingArgs, State> {
+	return controller.registerWebviewPanel<'gitlens.settings', State, State, SettingsWebviewShowingArgs>(
+		{ id: 'gitlens.showSettingsPage' },
 		{
 			id: 'gitlens.settings',
 			fileName: 'settings.html',
@@ -16,6 +18,7 @@ export function registerSettingsWebviewPanel(controller: WebviewsController) {
 			title: 'GitLens Settings',
 			contextKeyPrefix: `gitlens:webview:settings`,
 			trackingFeature: 'settingsWebview',
+			type: 'settings',
 			plusFeature: false,
 			column: ViewColumn.Active,
 			webviewHostOptions: {
@@ -32,25 +35,29 @@ export function registerSettingsWebviewPanel(controller: WebviewsController) {
 	);
 }
 
-export function registerSettingsWebviewCommands<T>(panels: WebviewPanelsProxy<SettingsWebviewShowingArgs, T>) {
+export function registerSettingsWebviewCommands<T>(
+	panels: WebviewPanelsProxy<'gitlens.settings', SettingsWebviewShowingArgs, T>,
+): Disposable {
 	return Disposable.from(
-		...[
-			Commands.ShowSettingsPageAndJumpToFileAnnotations,
-			Commands.ShowSettingsPageAndJumpToBranchesView,
-			Commands.ShowSettingsPageAndJumpToCommitsView,
-			Commands.ShowSettingsPageAndJumpToContributorsView,
-			Commands.ShowSettingsPageAndJumpToFileHistoryView,
-			Commands.ShowSettingsPageAndJumpToLineHistoryView,
-			Commands.ShowSettingsPageAndJumpToRemotesView,
-			Commands.ShowSettingsPageAndJumpToRepositoriesView,
-			Commands.ShowSettingsPageAndJumpToSearchAndCompareView,
-			Commands.ShowSettingsPageAndJumpToStashesView,
-			Commands.ShowSettingsPageAndJumpToTagsView,
-			Commands.ShowSettingsPageAndJumpToWorkTreesView,
-			Commands.ShowSettingsPageAndJumpToViews,
-			Commands.ShowSettingsPageAndJumpToCommitGraph,
-			Commands.ShowSettingsPageAndJumpToAutolinks,
-		].map(c => {
+		...(
+			[
+				'gitlens.showSettingsPage!file-annotations',
+				'gitlens.showSettingsPage!branches-view',
+				'gitlens.showSettingsPage!commits-view',
+				'gitlens.showSettingsPage!contributors-view',
+				'gitlens.showSettingsPage!file-history-view',
+				'gitlens.showSettingsPage!line-history-view',
+				'gitlens.showSettingsPage!remotes-view',
+				'gitlens.showSettingsPage!repositories-view',
+				'gitlens.showSettingsPage!search-compare-view',
+				'gitlens.showSettingsPage!stashes-view',
+				'gitlens.showSettingsPage!tags-view',
+				'gitlens.showSettingsPage!worktrees-view',
+				'gitlens.showSettingsPage!views',
+				'gitlens.showSettingsPage!commit-graph',
+				'gitlens.showSettingsPage!autolinks',
+			] satisfies GlCommands[]
+		).map(c => {
 			// The show and jump commands are structured to have a ! separating the base command from the anchor
 			let anchor: string | undefined;
 			const match = /.*?!(.*)/.exec(c);

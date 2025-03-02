@@ -1,34 +1,78 @@
-import type { AuthenticationSession, Disposable, QuickInputButton } from 'vscode';
+import type { Disposable, QuickInputButton } from 'vscode';
 import { authentication, env, ThemeIcon, Uri, window } from 'vscode';
 import { wrapForForcedInsecureSSL } from '@env/fetch';
-import { HostingIntegrationId, SelfHostedIntegrationId } from '../providers/models';
-import type { IntegrationAuthenticationSessionDescriptor } from './integrationAuthentication';
+import { HostingIntegrationId, SelfHostedIntegrationId } from '../../../constants.integrations';
+import type { Sources } from '../../../constants.telemetry';
+import type { Container } from '../../../container';
+import type { ConfiguredIntegrationService } from './configuredIntegrationService';
+import type { IntegrationAuthenticationSessionDescriptor } from './integrationAuthenticationProvider';
 import {
 	CloudIntegrationAuthenticationProvider,
 	LocalIntegrationAuthenticationProvider,
-} from './integrationAuthentication';
+} from './integrationAuthenticationProvider';
+import type { IntegrationAuthenticationService } from './integrationAuthenticationService';
+import type { ProviderAuthenticationSession } from './models';
 
 export class GitHubAuthenticationProvider extends CloudIntegrationAuthenticationProvider<HostingIntegrationId.GitHub> {
+	constructor(
+		container: Container,
+		authenticationService: IntegrationAuthenticationService,
+		configuredIntegrationService: ConfiguredIntegrationService,
+	) {
+		super(container, authenticationService, configuredIntegrationService);
+		this.disposables.push(
+			authentication.onDidChangeSessions(e => {
+				if (e.provider.id === this.authProviderId) {
+					this.fireDidChange();
+				}
+			}),
+		);
+	}
+
 	protected override get authProviderId(): HostingIntegrationId.GitHub {
 		return HostingIntegrationId.GitHub;
 	}
 
-	override async getBuiltInExistingSession(
-		descriptor?: IntegrationAuthenticationSessionDescriptor,
-	): Promise<AuthenticationSession | undefined> {
-		if (descriptor == null) return undefined;
-
+	private async getBuiltInExistingSession(
+		descriptor: IntegrationAuthenticationSessionDescriptor,
+		forceNewSession?: boolean,
+	): Promise<ProviderAuthenticationSession | undefined> {
 		return wrapForForcedInsecureSSL(
 			this.container.integrations.ignoreSSLErrors({ id: this.authProviderId, domain: descriptor?.domain }),
-			() =>
-				authentication.getSession(this.authProviderId, descriptor.scopes, {
-					silent: true,
-				}),
+			async () => {
+				const session = await authentication.getSession(this.authProviderId, descriptor.scopes, {
+					forceNewSession: forceNewSession ? true : undefined,
+					silent: forceNewSession ? undefined : true,
+				});
+				if (session == null) return undefined;
+				return {
+					...session,
+					cloud: false,
+					domain: descriptor.domain,
+				};
+			},
 		);
 	}
 
-	protected override getCompletionInputTitle(): string {
-		return 'Connect to GitHub';
+	public override async getSession(
+		descriptor: IntegrationAuthenticationSessionDescriptor,
+		options?: { createIfNeeded?: boolean; forceNewSession?: boolean; source?: Sources },
+	): Promise<ProviderAuthenticationSession | undefined> {
+		let vscodeSession = await this.getBuiltInExistingSession(descriptor);
+
+		if (vscodeSession != null && options?.forceNewSession) {
+			vscodeSession = await this.getBuiltInExistingSession(descriptor, true);
+		}
+
+		if (vscodeSession != null) return vscodeSession;
+
+		return super.getSession(descriptor, options);
+	}
+}
+
+export class GitHubEnterpriseCloudAuthenticationProvider extends CloudIntegrationAuthenticationProvider<SelfHostedIntegrationId.CloudGitHubEnterprise> {
+	protected override get authProviderId(): SelfHostedIntegrationId.CloudGitHubEnterprise {
+		return SelfHostedIntegrationId.CloudGitHubEnterprise;
 	}
 }
 
@@ -38,8 +82,8 @@ export class GitHubEnterpriseAuthenticationProvider extends LocalIntegrationAuth
 	}
 
 	override async createSession(
-		descriptor?: IntegrationAuthenticationSessionDescriptor,
-	): Promise<AuthenticationSession | undefined> {
+		descriptor: IntegrationAuthenticationSessionDescriptor,
+	): Promise<ProviderAuthenticationSession | undefined> {
 		const input = window.createInputBox();
 		input.ignoreFocusOut = true;
 
@@ -67,19 +111,15 @@ export class GitHubEnterpriseAuthenticationProvider extends LocalIntegrationAuth
 					}),
 					input.onDidTriggerButton(e => {
 						if (e === infoButton) {
-							void env.openExternal(
-								Uri.parse(`https://${descriptor?.domain ?? 'github.com'}/settings/tokens`),
-							);
+							void env.openExternal(Uri.parse(`https://${descriptor.domain}/settings/tokens`));
 						}
 					}),
 				);
 
 				input.password = true;
-				input.title = `GitHub Authentication${descriptor?.domain ? `  \u2022 ${descriptor.domain}` : ''}`;
-				input.placeholder = `Requires a classic token with ${descriptor?.scopes.join(', ') ?? 'all'} scopes`;
-				input.prompt = `Paste your [GitHub Personal Access Token](https://${
-					descriptor?.domain ?? 'github.com'
-				}/settings/tokens "Get your GitHub Access Token")`;
+				input.title = `GitHub Authentication  \u2022 ${descriptor.domain}`;
+				input.placeholder = `Requires a classic token with ${descriptor.scopes.join(', ')} scopes`;
+				input.prompt = `Paste your [GitHub Personal Access Token](https://${descriptor.domain}/settings/tokens "Get your GitHub Access Token")`;
 
 				input.buttons = [infoButton];
 
@@ -93,13 +133,15 @@ export class GitHubEnterpriseAuthenticationProvider extends LocalIntegrationAuth
 		if (!token) return undefined;
 
 		return {
-			id: this.getSessionId(descriptor),
+			id: this.configuredIntegrationService.getSessionId(descriptor),
 			accessToken: token,
 			scopes: descriptor?.scopes ?? [],
 			account: {
 				id: '',
 				label: '',
 			},
+			cloud: false,
+			domain: descriptor.domain,
 		};
 	}
 }

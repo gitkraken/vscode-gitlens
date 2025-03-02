@@ -1,19 +1,18 @@
 import { ProgressLocation, window } from 'vscode';
 import type { Container } from '../../container';
 import type { GitReference } from '../../git/models/reference';
+import type { Repository } from '../../git/models/repository';
 import {
-	getNameWithoutRemote,
 	getReferenceLabel,
+	getReferenceNameWithoutRemote,
 	getReferenceTypeLabel,
 	isBranchReference,
-} from '../../git/models/reference';
-import type { Repository } from '../../git/models/repository';
+} from '../../git/utils/reference.utils';
 import type { QuickPickItemOfT } from '../../quickpicks/items/common';
 import { createQuickPickSeparator } from '../../quickpicks/items/common';
+import { executeCommand } from '../../system/-webview/command';
 import { isStringArray } from '../../system/array';
-import { executeCommand } from '../../system/command';
 import type { ViewsWithRepositoryFolders } from '../../views/viewBase';
-import { getSteps } from '../gitCommands.utils';
 import type { PartialStepState, StepGenerator, StepResultGenerator, StepSelection, StepState } from '../quickCommand';
 import { canPickStepContinue, endSteps, isCrossCommandReference, QuickCommand, StepResultBreak } from '../quickCommand';
 import {
@@ -22,6 +21,7 @@ import {
 	pickBranchOrTagStepMultiRepo,
 	pickRepositoriesStep,
 } from '../quickCommand.steps';
+import { getSteps } from '../quickWizard.utils';
 
 interface Context {
 	repos: Repository[];
@@ -34,6 +34,7 @@ interface Context {
 
 interface State {
 	repos: string | string[] | Repository | Repository[];
+	onWorkspaceChanging?: ((isNewWorktree?: boolean) => Promise<void>) | ((isNewWorktree?: boolean) => void);
 	reference: GitReference;
 	createBranch?: string;
 	fastForwardTo?: GitReference;
@@ -84,13 +85,15 @@ export class SwitchGitCommand extends QuickCommand<State> {
 		return this._canConfirmOverride ?? true;
 	}
 
-	async execute(state: SwitchStepState) {
+	private async execute(state: SwitchStepState) {
 		await window.withProgress(
 			{
 				location: ProgressLocation.Notification,
-				title: `Switching ${
+				title: `${
+					isBranchReference(state.reference) || state.createBranch ? 'Switching to' : 'Checking out'
+				} ${getReferenceLabel(state.reference, { icon: false, label: false })} in ${
 					state.repos.length === 1 ? state.repos[0].formattedName : `${state.repos.length} repos`
-				} to ${state.reference.name}`,
+				}`,
 			},
 			() =>
 				Promise.all(
@@ -105,18 +108,18 @@ export class SwitchGitCommand extends QuickCommand<State> {
 		}
 	}
 
-	override isMatch(key: string) {
+	override isMatch(key: string): boolean {
 		return super.isMatch(key) || key === 'checkout';
 	}
 
-	override isFuzzyMatch(name: string) {
+	override isFuzzyMatch(name: string): boolean {
 		return super.isFuzzyMatch(name) || name === 'checkout';
 	}
 
 	protected async *steps(state: PartialStepState<State>): StepGenerator {
 		const context: Context = {
 			repos: this.container.git.openRepositories,
-			associatedView: this.container.commitsView,
+			associatedView: this.container.views.commits,
 			canSwitchToLocalBranch: undefined,
 			promptToCreateBranch: false,
 			showTags: false,
@@ -168,7 +171,7 @@ export class SwitchGitCommand extends QuickCommand<State> {
 					continue;
 				}
 
-				if (typeof result == 'string') {
+				if (typeof result === 'string') {
 					yield* getSteps(
 						this.container,
 						{
@@ -202,11 +205,10 @@ export class SwitchGitCommand extends QuickCommand<State> {
 			if (isBranchReference(state.reference) && !state.reference.remote) {
 				state.createBranch = undefined;
 
-				const worktree = await this.container.git.getWorktree(
-					state.reference.repoPath,
-					w => w.branch?.name === state.reference!.name,
-				);
-				if (worktree != null && !worktree.main) {
+				const worktree = await this.container.git
+					.worktrees(state.reference.repoPath)
+					?.getWorktree(w => w.branch?.name === state.reference!.name);
+				if (worktree != null && !worktree.isDefault) {
 					if (state.fastForwardTo != null) {
 						state.repos[0].merge('--ff-only', state.fastForwardTo.ref);
 					}
@@ -237,6 +239,7 @@ export class SwitchGitCommand extends QuickCommand<State> {
 												})} is linked to a worktree`,
 										  },
 								},
+								onWorkspaceChanging: state.onWorkspaceChanging,
 								repo: state.repos[0],
 								skipWorktreeConfirmations: state.skipWorktreeConfirmations,
 							},
@@ -250,7 +253,7 @@ export class SwitchGitCommand extends QuickCommand<State> {
 				}
 			} else if (isBranchReference(state.reference) && state.reference.remote) {
 				// See if there is a local branch that tracks the remote branch
-				const { values: branches } = await this.container.git.getBranches(state.reference.repoPath, {
+				const { values: branches } = await this.container.git.branches(state.reference.repoPath).getBranches({
 					filter: b => b.upstream?.name === state.reference!.name,
 					sort: { orderBy: 'date:desc' },
 				});
@@ -269,7 +272,10 @@ export class SwitchGitCommand extends QuickCommand<State> {
 				}
 			}
 
-			if (this.confirm(context.promptToCreateBranch || context.canSwitchToLocalBranch ? true : state.confirm)) {
+			if (
+				state.skipWorktreeConfirmations ||
+				this.confirm(context.promptToCreateBranch || context.canSwitchToLocalBranch ? true : state.confirm)
+			) {
 				const result = yield* this.confirmStep(state as SwitchStepState, context);
 				if (result === StepResultBreak) continue;
 
@@ -288,12 +294,16 @@ export class SwitchGitCommand extends QuickCommand<State> {
 						this._canConfirmOverride = false;
 
 						const result = yield* inputBranchNameStep(state as SwitchStepState, context, {
-							titleContext: ` from ${getReferenceLabel(state.reference, {
+							title: `${context.title} from ${getReferenceLabel(state.reference, {
 								capitalize: true,
 								icon: false,
 								label: state.reference.refType !== 'branch',
 							})}`,
-							value: state.createBranch ?? getNameWithoutRemote(state.reference),
+							value:
+								state.createBranch ?? // if it's a remote branch, pre-fill the name
+								(isBranchReference(state.reference) && state.reference.remote
+									? getReferenceNameWithoutRemote(state.reference)
+									: undefined),
 						});
 
 						this._canConfirmOverride = undefined;
@@ -319,6 +329,7 @@ export class SwitchGitCommand extends QuickCommand<State> {
 									createBranch:
 										result === 'switchToNewBranchViaWorktree' ? state.createBranch : undefined,
 									repo: state.repos[0],
+									onWorkspaceChanging: state.onWorkspaceChanging,
 									skipWorktreeConfirmations: state.skipWorktreeConfirmations,
 								},
 							},
@@ -341,6 +352,7 @@ export class SwitchGitCommand extends QuickCommand<State> {
 
 	private *confirmStep(state: SwitchStepState, context: Context): StepResultGenerator<ConfirmationChoice> {
 		const isLocalBranch = isBranchReference(state.reference) && !state.reference.remote;
+		const isRemoteBranch = isBranchReference(state.reference) && state.reference.remote;
 
 		type StepType = QuickPickItemOfT<ConfirmationChoice>;
 		if (state.skipWorktreeConfirmations && state.repos.length === 1) {
@@ -354,6 +366,18 @@ export class SwitchGitCommand extends QuickCommand<State> {
 		}
 
 		const confirmations: StepType[] = [];
+
+		if (!isBranchReference(state.reference)) {
+			confirmations.push({
+				label: `Checkout to ${getReferenceTypeLabel(state.reference)}`,
+				description: '(detached)',
+				detail: `Will checkout to ${getReferenceLabel(state.reference)}${
+					state.repos.length > 1 ? ` in ${state.repos.length} repos` : ''
+				}`,
+				item: 'switch',
+			});
+		}
+
 		if (!state.createBranch) {
 			if (context.canSwitchToLocalBranch != null) {
 				confirmations.push(createQuickPickSeparator('Local'));
@@ -389,19 +413,35 @@ export class SwitchGitCommand extends QuickCommand<State> {
 		}
 
 		if (!isLocalBranch || state.createBranch || context.promptToCreateBranch) {
-			if (confirmations.length) {
-				confirmations.push(createQuickPickSeparator('Remote'));
+			if (isRemoteBranch) {
+				if (confirmations.length) {
+					confirmations.push(createQuickPickSeparator('Remote'));
+				}
+				confirmations.push({
+					label: 'Create & Switch to New Local Branch',
+					description: '',
+					detail: `Will create and switch to a new local branch${
+						state.createBranch ? ` named ${state.createBranch}` : ''
+					} from ${getReferenceLabel(state.reference)}${
+						state.repos.length > 1 ? ` in ${state.repos.length} repos` : ''
+					}`,
+					item: 'switchToNewBranch',
+				});
+			} else {
+				if (confirmations.length) {
+					confirmations.push(createQuickPickSeparator('Branch'));
+				}
+				confirmations.push({
+					label: `Create & Switch to New Branch from ${getReferenceTypeLabel(state.reference)}`,
+					description: '',
+					detail: `Will create and switch to a new branch${
+						state.createBranch ? ` named ${state.createBranch}` : ''
+					} from ${getReferenceLabel(state.reference)}${
+						state.repos.length > 1 ? ` in ${state.repos.length} repos` : ''
+					}`,
+					item: 'switchToNewBranch',
+				});
 			}
-			confirmations.push({
-				label: `Switch to New Local Branch`,
-				description: '',
-				detail: `Will create and switch to a new local branch${
-					state.createBranch ? ` named ${state.createBranch}` : ''
-				} from ${getReferenceLabel(state.reference)}${
-					state.repos.length > 1 ? ` in ${state.repos.length} repos` : ''
-				}`,
-				item: 'switchToNewBranch',
-			});
 		}
 
 		if (state.repos.length === 1) {
@@ -422,7 +462,7 @@ export class SwitchGitCommand extends QuickCommand<State> {
 					detail: `Will create a new worktree for local ${getReferenceLabel(context.canSwitchToLocalBranch)}`,
 					item: 'switchToLocalBranchViaWorktree',
 				});
-			} else {
+			} else if (isRemoteBranch) {
 				confirmations.push({
 					label: `Create Worktree for New Local Branch...`,
 					description: 'avoids modifying your working tree',
@@ -433,30 +473,30 @@ export class SwitchGitCommand extends QuickCommand<State> {
 					}`,
 					item: 'switchToNewBranchViaWorktree',
 				});
+			} else {
+				confirmations.push({
+					label: `Create Worktree for New Branch from ${getReferenceTypeLabel(state.reference)}...`,
+					description: 'avoids modifying your working tree',
+					detail: `Will create a new worktree for a new branch${
+						state.createBranch ? ` named ${state.createBranch}` : ''
+					} from ${getReferenceLabel(state.reference)}${
+						state.repos.length > 1 ? ` in ${state.repos.length} repos` : ''
+					}`,
+					item: 'switchToNewBranchViaWorktree',
+				});
 			}
 		}
 
-		if (!isLocalBranch) {
+		if (isRemoteBranch && !state.createBranch) {
 			if (confirmations.length) {
-				confirmations.push(createQuickPickSeparator());
+				confirmations.push(createQuickPickSeparator('Checkout'));
 			}
-			if (!isBranchReference(state.reference)) {
-				confirmations.push({
-					label: `Checkout to ${getReferenceTypeLabel(state.reference)}`,
-					description: '(detached)',
-					detail: `Will checkout to ${getReferenceLabel(state.reference)}${
-						state.repos.length > 1 ? ` in ${state.repos.length} repos` : ''
-					}`,
-					item: 'switch',
-				});
-			} else if (!state.createBranch) {
-				confirmations.push({
-					label: `Checkout to Remote Branch`,
-					description: '(detached)',
-					detail: `Will checkout to ${getReferenceLabel(state.reference)}`,
-					item: 'switch',
-				});
-			}
+			confirmations.push({
+				label: `Checkout to Remote Branch`,
+				description: '(detached)',
+				detail: `Will checkout to ${getReferenceLabel(state.reference)}`,
+				item: 'switch',
+			});
 		}
 
 		const step = this.createConfirmStep(

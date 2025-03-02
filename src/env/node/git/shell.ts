@@ -1,4 +1,4 @@
-import type { ExecException } from 'child_process';
+import type { ExecFileException } from 'child_process';
 import { exec, execFile } from 'child_process';
 import type { Stats } from 'fs';
 import { access, constants, existsSync, statSync } from 'fs';
@@ -160,7 +160,7 @@ const bufferExceededRegex = /stdout maxBuffer( length)? exceeded/;
 
 export class RunError extends Error {
 	constructor(
-		private readonly original: ExecException,
+		private readonly original: ExecFileException,
 		public readonly stdout: string,
 		public readonly stderr: string,
 	) {
@@ -179,8 +179,8 @@ export class RunError extends Error {
 		return this.original.killed;
 	}
 
-	get code(): number | undefined {
-		return this.original.code;
+	get code(): string | number | undefined {
+		return this.original.code ?? undefined;
 	}
 
 	get signal(): NodeJS.Signals | undefined {
@@ -227,14 +227,17 @@ export function run<T extends number | string | Buffer>(
 	encoding: BufferEncoding | 'buffer' | string,
 	options?: RunOptions & { exitCodeOnly?: boolean },
 ): Promise<T> {
-	const { stdin, stdinEncoding, ...opts }: RunOptions = { maxBuffer: 1000 * 1024 * 1024, ...options };
+	const { cancellation, exitCodeOnly, stdin, stdinEncoding, ...opts }: RunOptions & { exitCodeOnly?: boolean } = {
+		maxBuffer: 1000 * 1024 * 1024,
+		...options,
+	};
 
 	let killed = false;
 	return new Promise<T>((resolve, reject) => {
-		const proc = execFile(command, args, opts, async (error: ExecException | null, stdout, stderr) => {
+		const proc = execFile(command, args, opts, async (error: ExecFileException | null, stdout, stderr) => {
 			if (killed) return;
 
-			if (options?.exitCodeOnly) {
+			if (exitCodeOnly) {
 				resolve((error?.code ?? proc.exitCode) as T);
 
 				return;
@@ -273,11 +276,11 @@ export function run<T extends number | string | Buffer>(
 			}
 		});
 
-		options?.cancellation?.onCancellationRequested(() => {
+		cancellation?.onCancellationRequested(() => {
 			const success = proc.kill();
 			killed = true;
 
-			if (options?.exitCodeOnly) {
+			if (exitCodeOnly) {
 				resolve(0 as T);
 			} else {
 				reject(new CancelledRunError(command, success));
@@ -290,6 +293,6 @@ export function run<T extends number | string | Buffer>(
 	});
 }
 
-export async function fsExists(path: string) {
+export async function fsExists(path: string): Promise<boolean> {
 	return new Promise<boolean>(resolve => access(path, constants.F_OK, err => resolve(err == null)));
 }

@@ -61,16 +61,16 @@ export class GlTreeItem extends GlElement {
 	@query('#button')
 	buttonEl!: HTMLButtonElement;
 
-	get isHidden() {
+	get isHidden(): boolean {
 		return this.parentExpanded === false || (!this.branch && !this.expanded);
 	}
 
-	override connectedCallback() {
+	override connectedCallback(): void {
 		super.connectedCallback();
 		this.addEventListener('click', this.onComponentClickBound);
 	}
 
-	override disconnectedCallback() {
+	override disconnectedCallback(): void {
 		super.disconnectedCallback();
 		this.removeEventListener('click', this.onComponentClickBound);
 	}
@@ -110,11 +110,11 @@ export class GlTreeItem extends GlElement {
 		}
 	}
 
-	override firstUpdated() {
+	override firstUpdated(): void {
 		this.role = 'treeitem';
 	}
 
-	override updated(changedProperties: Map<string, any>) {
+	override updated(changedProperties: Map<string, any>): void {
 		this.updateAttrs(changedProperties);
 	}
 
@@ -164,7 +164,7 @@ export class GlTreeItem extends GlElement {
 		return html`<slot name="decorations" class="decorations"></slot>`;
 	}
 
-	override render() {
+	override render(): unknown {
 		return html`
 			${this.renderBranching()}${this.renderCheckbox()}
 			<button
@@ -207,19 +207,19 @@ export class GlTreeItem extends GlElement {
 		}
 	}
 
-	select() {
+	select(): void {
 		this.selectCore(undefined, true);
 	}
 
-	deselect() {
+	deselect(): void {
 		this.selected = false;
 	}
 
-	override focus() {
+	override focus(): void {
 		this.buttonEl.focus();
 	}
 
-	onButtonClick(e: MouseEvent) {
+	private onButtonClick(e: MouseEvent) {
 		console.log('onButtonClick', e);
 		e.stopPropagation();
 		this.selectCore({
@@ -228,7 +228,7 @@ export class GlTreeItem extends GlElement {
 		});
 	}
 
-	onButtonDblClick(e: MouseEvent) {
+	private onButtonDblClick(e: MouseEvent) {
 		console.log('onButtonDblClick', e);
 		e.stopPropagation();
 		this.selectCore({
@@ -239,12 +239,12 @@ export class GlTreeItem extends GlElement {
 		});
 	}
 
-	onCheckboxClick(e: Event) {
+	private onCheckboxClick(e: Event) {
 		console.log('onCheckboxClick', e);
 		e.stopPropagation();
 	}
 
-	onCheckboxChange(e: Event) {
+	private onCheckboxChange(e: Event) {
 		console.log('onCheckboxChange', e);
 		e.preventDefault();
 		e.stopPropagation();

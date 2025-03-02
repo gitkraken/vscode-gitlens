@@ -1,18 +1,17 @@
 import type { Uri } from 'vscode';
 import { window } from 'vscode';
-import { Commands } from '../../constants';
 import type { Container } from '../../container';
 import { create as createWorktree, open as openWorktree } from '../../git/actions/worktree';
-import { getLocalBranchByUpstream } from '../../git/models/branch';
 import type { GitBranchReference } from '../../git/models/reference';
-import { createReference, getReferenceFromBranch } from '../../git/models/reference';
 import type { GitRemote } from '../../git/models/remote';
-import { getWorktreeForBranch } from '../../git/models/worktree';
 import { parseGitRemoteUrl } from '../../git/parsers/remoteParser';
-import { command } from '../../system/command';
+import { getReferenceFromBranch } from '../../git/utils/-webview/reference.utils';
+import { getWorktreeForBranch } from '../../git/utils/-webview/worktree.utils';
+import { createReference } from '../../git/utils/reference.utils';
+import { command } from '../../system/-webview/command';
 import { Logger } from '../../system/logger';
 import { waitUntilNextTick } from '../../system/promise';
-import { Command } from '../base';
+import { GlCommandBase } from '../commandBase';
 
 interface GHPRPullRequestNode {
 	readonly pullRequestModel: GHPRPullRequest;
@@ -45,12 +44,12 @@ export interface GHPRPullRequest {
 }
 
 @command()
-export class OpenOrCreateWorktreeCommand extends Command {
+export class OpenOrCreateWorktreeCommand extends GlCommandBase {
 	constructor(private readonly container: Container) {
-		super(Commands.OpenOrCreateWorktreeForGHPR);
+		super('gitlens.ghpr.views.openOrCreateWorktree');
 	}
 
-	async execute(...args: [GHPRPullRequestNode | GHPRPullRequest, ...unknown[]]) {
+	async execute(...args: [GHPRPullRequestNode | GHPRPullRequest, ...unknown[]]): Promise<void> {
 		const [arg] = args;
 		let pr;
 		if ('pullRequestModel' in arg) {
@@ -86,7 +85,7 @@ export class OpenOrCreateWorktreeCommand extends Command {
 		const remoteUrl = remoteUri.toString();
 		const [, remoteDomain, remotePath] = parseGitRemoteUrl(remoteUrl);
 
-		const remotes = await repo.getRemotes({ filter: r => r.matches(remoteDomain, remotePath) });
+		const remotes = await repo.git.remotes().getRemotes({ filter: r => r.matches(remoteDomain, remotePath) });
 		const remote = remotes[0] as GitRemote | undefined;
 
 		let addRemote: { name: string; url: string } | undefined;
@@ -113,7 +112,7 @@ export class OpenOrCreateWorktreeCommand extends Command {
 		let branchRef: GitBranchReference;
 		let createBranch: string | undefined;
 
-		const localBranch = await getLocalBranchByUpstream(repo, remoteBranchName);
+		const localBranch = await repo.git.branches().getLocalBranchByUpstream?.(remoteBranchName);
 		if (localBranch != null) {
 			branchRef = getReferenceFromBranch(localBranch);
 			// TODO@eamodio check if we are behind and if so ask the user to fast-forward
@@ -137,11 +136,12 @@ export class OpenOrCreateWorktreeCommand extends Command {
 
 			// Save the PR number in the branch config
 			// https://github.com/Microsoft/vscode-pull-request-github/blob/0c556c48c69a3df2f9cf9a45ed2c40909791b8ab/src/github/pullRequestGitHelper.ts#L18
-			void this.container.git.setConfig(
-				repo.path,
-				`branch.${localBranchName}.github-pr-owner-number`,
-				`${rootOwner}#${rootRepository}#${number}`,
-			);
+			void repo.git
+				.config()
+				.setConfig?.(
+					`branch.${localBranchName}.github-pr-owner-number`,
+					`${rootOwner}#${rootRepository}#${number}`,
+				);
 		} catch (ex) {
 			Logger.error(ex, 'CreateWorktreeCommand', 'Unable to create worktree');
 			void window.showErrorMessage(`Unable to create worktree for ${remoteOwner}:${ref}`);

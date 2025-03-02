@@ -22,7 +22,7 @@ export class GutterHeatmapBlameAnnotationProvider extends BlameAnnotationProvide
 	}
 
 	@log()
-	override async onProvideAnnotation(context?: AnnotationContext, state?: AnnotationState): Promise<boolean> {
+	override async onProvideAnnotation(_context?: AnnotationContext, state?: AnnotationState): Promise<boolean> {
 		const scope = getLogScope();
 
 		const blame = await this.getBlame(state?.recompute);

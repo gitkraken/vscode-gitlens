@@ -6,7 +6,7 @@ import { GitUri } from '../git/gitUri';
 import type { GitBlame } from '../git/models/blame';
 import type { GitCommit } from '../git/models/commit';
 import { changesMessage, detailsMessage } from '../hovers/hovers';
-import { configuration } from '../system/configuration';
+import { configuration } from '../system/-webview/configuration';
 import { log } from '../system/decorators/log';
 import type { TrackedGitDocument } from '../trackers/trackedDocument';
 import type { DidChangeStatusCallback } from './annotationProvider';
@@ -36,7 +36,7 @@ export abstract class BlameAnnotationProviderBase extends AnnotationProviderBase
 		}
 	}
 
-	override clear() {
+	override clear(): Promise<void> {
 		if (this.hoverProviderDisposable != null) {
 			this.hoverProviderDisposable.dispose();
 			this.hoverProviderDisposable = undefined;
@@ -140,7 +140,7 @@ export abstract class BlameAnnotationProviderBase extends AnnotationProviderBase
 		};
 	}
 
-	registerHoverProviders(providers: { details: boolean; changes: boolean }) {
+	registerHoverProviders(providers: { details: boolean; changes: boolean }): void {
 		const cfg = configuration.get('hovers');
 		if (!cfg.enabled || !cfg.annotations.enabled || (!providers.details && !providers.changes)) {
 			return;

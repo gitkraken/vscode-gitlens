@@ -1,10 +1,14 @@
-@mixin scrollableBase() {
+@mixin scrollbarFix() {
 	// This @supports selector is a temporary fix for https://github.com/microsoft/vscode/issues/213045#issuecomment-2211442905
 	@supports selector(::-webkit-scrollbar) {
 		html {
 			scrollbar-color: unset;
 		}
 	}
+}
+
+@mixin scrollableBase() {
+	@include scrollbarFix();
 
 	body {
 		&.scrollable,

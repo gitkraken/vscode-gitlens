@@ -1,9 +1,26 @@
 import type { AuthenticationSession } from 'vscode';
-import type { IntegrationId } from '../providers/models';
-import { HostingIntegrationId, IssueIntegrationId, SelfHostedIntegrationId } from '../providers/models';
+import type { IntegrationId, SupportedCloudIntegrationIds } from '../../../constants.integrations';
+import {
+	HostingIntegrationId,
+	IssueIntegrationId,
+	SelfHostedIntegrationId,
+	supportedOrderedCloudIntegrationIds,
+	supportedOrderedCloudIssueIntegrationIds,
+} from '../../../constants.integrations';
+import { configuration } from '../../../system/-webview/configuration';
 
 export interface ProviderAuthenticationSession extends AuthenticationSession {
+	readonly cloud: boolean;
 	readonly expiresAt?: Date;
+	readonly domain: string;
+}
+
+export interface ConfiguredIntegrationDescriptor {
+	readonly cloud: boolean;
+	readonly integrationId: IntegrationId;
+	readonly scopes: string;
+	readonly domain?: string;
+	readonly expiresAt?: string | Date;
 }
 
 export interface CloudIntegrationAuthenticationSession {
@@ -24,17 +41,28 @@ export interface CloudIntegrationConnection {
 	domain: string;
 }
 
-export type CloudIntegrationType = 'jira' | 'trello' | 'gitlab' | 'github' | 'bitbucket' | 'azure';
+export type CloudIntegrationType =
+	| 'jira'
+	| 'trello'
+	| 'gitlab'
+	| 'github'
+	| 'bitbucket'
+	| 'azure'
+	| 'githubEnterprise'
+	| 'gitlabSelfHosted';
 
 export type CloudIntegrationAuthType = 'oauth' | 'pat';
 
 export const CloudIntegrationAuthenticationUriPathPrefix = 'did-authenticate-cloud-integration';
 
-export const supportedCloudIntegrationIds = [IssueIntegrationId.Jira];
-export type SupportedCloudIntegrationIds = (typeof supportedCloudIntegrationIds)[number];
+export function getSupportedCloudIntegrationIds(): SupportedCloudIntegrationIds[] {
+	return configuration.get('cloudIntegrations.enabled', undefined, true)
+		? supportedOrderedCloudIntegrationIds
+		: supportedOrderedCloudIssueIntegrationIds;
+}
 
 export function isSupportedCloudIntegrationId(id: string): id is SupportedCloudIntegrationIds {
-	return supportedCloudIntegrationIds.includes(id as SupportedCloudIntegrationIds);
+	return getSupportedCloudIntegrationIds().includes(id as SupportedCloudIntegrationIds);
 }
 
 export const toIntegrationId: { [key in CloudIntegrationType]: IntegrationId } = {
@@ -42,6 +70,8 @@ export const toIntegrationId: { [key in CloudIntegrationType]: IntegrationId } =
 	trello: IssueIntegrationId.Trello,
 	gitlab: HostingIntegrationId.GitLab,
 	github: HostingIntegrationId.GitHub,
+	githubEnterprise: SelfHostedIntegrationId.CloudGitHubEnterprise,
+	gitlabSelfHosted: SelfHostedIntegrationId.CloudGitLabSelfHosted,
 	bitbucket: HostingIntegrationId.Bitbucket,
 	azure: HostingIntegrationId.AzureDevOps,
 };
@@ -53,6 +83,8 @@ export const toCloudIntegrationType: { [key in IntegrationId]: CloudIntegrationT
 	[HostingIntegrationId.GitHub]: 'github',
 	[HostingIntegrationId.Bitbucket]: 'bitbucket',
 	[HostingIntegrationId.AzureDevOps]: 'azure',
+	[SelfHostedIntegrationId.CloudGitHubEnterprise]: 'githubEnterprise',
+	[SelfHostedIntegrationId.CloudGitLabSelfHosted]: 'gitlabSelfHosted',
 	[SelfHostedIntegrationId.GitHubEnterprise]: undefined,
 	[SelfHostedIntegrationId.GitLabSelfHosted]: undefined,
 };

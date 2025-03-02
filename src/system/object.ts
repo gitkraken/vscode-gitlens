@@ -48,7 +48,7 @@ type FlattenJoin<T extends object, P extends string | undefined> = {
 		    };
 }[keyof T];
 
-type Flatten<
+export type Flatten<
 	T extends object | null | undefined,
 	P extends string | undefined,
 	JoinArrays extends boolean,
@@ -108,6 +108,10 @@ export function flatten<T extends object | null | undefined, P extends string | 
 	const flattened: Record<string, any> = Object.create(null);
 	flattenCore(flattened, prefix ?? '', o);
 	return flattened as Flatten<T, P, NonNullable<O['joinArrays']> extends true ? true : false>;
+}
+
+export function entries<TKey extends PropertyKey, TVal>(o: Partial<Record<TKey, TVal>>): [TKey, TVal][] {
+	return Object.entries(o) as [TKey, TVal][];
 }
 
 export function paths(o: Record<string, any>, path?: string): string[] {

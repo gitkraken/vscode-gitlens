@@ -2,14 +2,15 @@ import type {
 	WidthOptions as StringWidthOptions,
 	TruncationOptions as StringWidthTruncationOptions,
 	Result as TruncatedStringWidthResult,
-} from 'fast-string-truncated-width';
-import getTruncatedStringWidth from 'fast-string-truncated-width';
+} from '@gk-nzaytsev/fast-string-truncated-width';
+import getTruncatedStringWidth from '@gk-nzaytsev/fast-string-truncated-width';
 import { hrtime } from '@env/hrtime';
 import { CharCode } from '../constants';
+import { getNumericFormat } from './date';
 
 export { fromBase64, base64 } from '@env/base64';
 
-export function capitalize(s: string) {
+export function capitalize(s: string): string {
 	return `${s[0].toLocaleUpperCase()}${s.slice(1)}`;
 }
 
@@ -130,88 +131,35 @@ export function encodeHtmlWeak(s: string | undefined): string | undefined {
 	});
 }
 
-const escapeMarkdownRegex = /[\\`*_{}[\]()#+\-.!]/g;
-const unescapeMarkdownRegex = /\\([\\`*_{}[\]()#+\-.!])/g;
-
-const escapeMarkdownHeaderRegex = /^===/gm;
-const unescapeMarkdownHeaderRegex = /^\u200b===/gm;
-
-// const sampleMarkdown = '## message `not code` *not important* _no underline_ \n> don\'t quote me \n- don\'t list me \n+ don\'t list me \n1. don\'t list me \nnot h1 \n=== \nnot h2 \n---\n***\n---\n___';
-const markdownQuotedRegex = /\r?\n/g;
-
-export function escapeMarkdown(s: string, options: { quoted?: boolean } = {}): string {
-	s = s
-		// Escape markdown
-		.replace(escapeMarkdownRegex, '\\$&')
-		// Escape markdown header (since the above regex won't match it)
-		.replace(escapeMarkdownHeaderRegex, '\u200b===');
-
-	if (!options.quoted) return s;
-
-	// Keep under the same block-quote but with line breaks
-	return s.trim().replace(markdownQuotedRegex, '\t\\\n>  ');
-}
-
-export function unescapeMarkdown(s: string): string {
-	return (
-		s
-			// Unescape markdown
-			.replace(unescapeMarkdownRegex, '$1')
-			// Unescape markdown header
-			.replace(unescapeMarkdownHeaderRegex, '===')
-	);
-}
-
-export function escapeRegex(s: string) {
+export function escapeRegex(s: string): string {
 	return s.replace(/[-[\]{}()*+?.,\\^$|#\s]/g, '\\$&');
 }
 
-export function getDurationMilliseconds(start: [number, number]) {
+export function getDurationMilliseconds(start: [number, number]): number {
 	const [secs, nanosecs] = hrtime(start);
 	return secs * 1000 + Math.floor(nanosecs / 1000000);
 }
 
-export function* getLines(data: string | string[], char: string = '\n'): IterableIterator<string> {
-	if (typeof data === 'string') {
-		let i = 0;
-		while (i < data.length) {
-			let j = data.indexOf(char, i);
-			if (j === -1) {
-				j = data.length;
-			}
-
-			yield data.substring(i, j);
-			i = j + 1;
-		}
-
-		return;
+/**
+ * Distributes a value into one of 100 groups based on a hash of the value
+ * @param value The value to distribute (e.g., machine ID)
+ * @returns A number between 1-100 representing the distribution group
+ */
+export function getDistributionGroup(value: string): number {
+	// Simple hash function
+	let hash = 0;
+	for (let i = 0; i < value.length; i++) {
+		hash = (hash << 5) - hash + value.charCodeAt(i);
+		hash = hash & hash; // Convert to 32-bit integer
 	}
 
-	let count = 0;
-	let leftover: string | undefined;
-	for (let s of data) {
-		count++;
-		if (leftover) {
-			s = leftover + s;
-			leftover = undefined;
-		}
+	// Convert hash to a number between 1-100
+	const group = Math.abs(hash % 100) + 1;
+	return group;
+}
 
-		let i = 0;
-		while (i < s.length) {
-			let j = s.indexOf(char, i);
-			if (j === -1) {
-				if (count === data.length) {
-					j = s.length;
-				} else {
-					leftover = s.substring(i);
-					break;
-				}
-			}
-
-			yield s.substring(i, j);
-			i = j + 1;
-		}
-	}
+export function getPossessiveForm(name: string): string {
+	return name.endsWith('s') ? `${name}'` : `${name}'s`;
 }
 
 const defaultTruncationOptions: StringWidthTruncationOptions = {
@@ -251,7 +199,7 @@ export function getWidth(s: string): number {
 
 const superscripts = ['\u00B9', '\u00B2', '\u00B3', '\u2074', '\u2075', '\u2076', '\u2077', '\u2078', '\u2079'];
 
-export function getSuperscript(num: number) {
+export function getSuperscript(num: number): string {
 	return superscripts[num - 1] ?? '';
 }
 
@@ -438,6 +386,88 @@ export function getTokensFromTemplateRegex(template: string): TokenMatch[] {
 	return tokens;
 }
 
+export function* iterateByDelimiter(data: string, delimiter: string = '\n'): IterableIterator<string> {
+	let i = 0;
+	while (i < data.length) {
+		let j = data.indexOf(delimiter, i);
+		if (j === -1) {
+			j = data.length;
+		}
+
+		yield data.substring(i, j);
+		i = j + 1;
+	}
+}
+
+export function* iterateByDelimiters(
+	data: string | string[],
+	primaryDelimiter: string,
+	secondaryDelimiter?: string,
+): IterableIterator<string> {
+	if (typeof data === 'string') {
+		let i = 0;
+		let primaryIndex;
+		let secondaryIndex;
+		while (i < data.length) {
+			let j = data.length;
+
+			primaryIndex = data.indexOf(primaryDelimiter, i);
+			if (primaryIndex !== -1) {
+				j = primaryIndex;
+			}
+
+			if (secondaryDelimiter != null) {
+				secondaryIndex = data.indexOf(secondaryDelimiter, i);
+				if (secondaryIndex !== -1 && secondaryIndex < j) {
+					j = secondaryIndex;
+				}
+			}
+
+			yield data.substring(i, j);
+			i = j + 1;
+		}
+
+		return;
+	}
+
+	let count = 0;
+	let leftover: string | undefined;
+	for (let s of data) {
+		count++;
+		if (leftover) {
+			s = leftover + s;
+			leftover = undefined;
+		}
+
+		let i = 0;
+		let primaryIndex;
+		let secondaryIndex;
+		while (i < s.length) {
+			let j = s.length;
+
+			primaryIndex = s.indexOf(primaryDelimiter, i);
+			if (primaryIndex !== -1) {
+				j = primaryIndex;
+			}
+
+			if (secondaryDelimiter != null) {
+				secondaryIndex = s.indexOf(secondaryDelimiter, i);
+				if (secondaryIndex !== -1 && secondaryIndex < j) {
+					j = secondaryIndex;
+				}
+			}
+
+			if (j === s.length && count !== data.length) {
+				leftover = s.substring(i);
+				break;
+			}
+
+			yield s.substring(i, j);
+			i = j + 1;
+		}
+	}
+}
+
 export function interpolate(template: string, context: object | undefined): string {
 	if (template == null || template.length === 0) return template;
 	if (context == null) return template.replace(tokenSanitizeRegex, '');
@@ -495,11 +525,19 @@ export function isUpperAsciiLetter(code: number): boolean {
 	return code >= CharCode.A && code <= CharCode.Z;
 }
 
-export function pad(s: string, before: number = 0, after: number = 0, padding: string = '\u00a0') {
+export function pad(s: string, before: number = 0, after: number = 0, padding: string = '\u00a0'): string {
 	if (before === 0 && after === 0) return s;
 
 	return `${before === 0 ? '' : padding.repeat(before)}${s}${after === 0 ? '' : padding.repeat(after)}`;
 }
+
+export function padOrTruncateEnd(s: string, maxLength: number, fillString?: string): string {
+	if (s.length === maxLength) return s;
+	if (s.length > maxLength) return s.substring(0, maxLength);
+	return s.padEnd(maxLength, fillString);
+}
+
+let numericFormat: ReturnType<typeof getNumericFormat> | undefined;
 
 export function pluralize(
 	s: string,
@@ -508,7 +546,7 @@ export function pluralize(
 		/** Controls the character/string between the count and the string */
 		infix?: string;
 		/** Formats the count */
-		format?: (count: number) => string | undefined;
+		format?: false | ((count: number) => string | undefined);
 		/** Controls if only the string should be included */
 		only?: boolean;
 		/** Controls the plural version of the string */
@@ -516,32 +554,47 @@ export function pluralize(
 		/** Controls the string for a zero value */
 		zero?: string;
 	},
-) {
-	if (options == null) return `${count} ${s}${count === 1 ? '' : 's'}`;
+): string {
+	if (options == null) {
+		numericFormat ??= getNumericFormat();
+		return `${numericFormat(count)} ${s}${count === 1 ? '' : 's'}`;
+	}
 
 	const suffix = count === 1 ? s : options.plural ?? `${s}s`;
 	if (options.only) return suffix;
 
-	return `${count === 0 ? options.zero ?? count : options.format?.(count) ?? count}${options.infix ?? ' '}${suffix}`;
+	let result;
+	if (count === 0) {
+		result = options.zero ?? count;
+	} else if (options.format === false) {
+		result = count;
+	} else if (options.format != null) {
+		result = options.format(count);
+	} else {
+		numericFormat ??= getNumericFormat();
+		result = numericFormat(count);
+	}
+
+	return `${result}${options.infix ?? ' '}${suffix}`;
 }
 
 // Removes \ / : * ? " < > | and C0 and C1 control codes
 // eslint-disable-next-line no-control-regex
 const illegalCharsForFSRegex = /[\\/:*?"<>|\x00-\x1f\x80-\x9f]/g;
 
-export function sanitizeForFileSystem(s: string, replacement: string = '_') {
+export function sanitizeForFileSystem(s: string, replacement: string = '_'): string {
 	if (!s) return s;
 	return s.replace(illegalCharsForFSRegex, replacement);
 }
 
-export function splitLast(s: string, splitter: string) {
+export function splitLast(s: string, splitter: string): string[] {
 	const index = s.lastIndexOf(splitter);
 	if (index === -1) return [s];
 
-	return [s.substr(index), s.substring(0, index - 1)];
+	return [s.substring(index), s.substring(0, index - 1)];
 }
 
-export function splitSingle(s: string, splitter: string) {
+export function splitSingle(s: string, splitter: string): string[] {
 	const index = s.indexOf(splitter);
 	if (index === -1) return [s];
 
@@ -550,7 +603,7 @@ export function splitSingle(s: string, splitter: string) {
 	return rest != null ? [start, rest] : [start];
 }
 
-export function truncate(s: string, truncateTo: number, ellipsis: string = '\u2026', width?: number) {
+export function truncate(s: string, truncateTo: number, ellipsis: string = '\u2026', width?: number): string {
 	if (!s) return s;
 	if (truncateTo <= 1) return ellipsis;
 
@@ -572,7 +625,7 @@ export function truncate(s: string, truncateTo: number, ellipsis: string = '\u20
 	return `${s.substring(0, chars)}${ellipsis}`;
 }
 
-export function truncateLeft(s: string, truncateTo: number, ellipsis: string = '\u2026', width?: number) {
+export function truncateLeft(s: string, truncateTo: number, ellipsis: string = '\u2026', width?: number): string {
 	if (!s) return s;
 	if (truncateTo <= 1) return ellipsis;
 
@@ -594,7 +647,7 @@ export function truncateLeft(s: string, truncateTo: number, ellipsis: string = '
 	return `${ellipsis}${s.substring(s.length - chars)}`;
 }
 
-export function truncateMiddle(s: string, truncateTo: number, ellipsis: string = '\u2026') {
+export function truncateMiddle(s: string, truncateTo: number, ellipsis: string = '\u2026'): string {
 	if (!s) return s;
 	if (truncateTo <= 1) return ellipsis;
 
@@ -606,189 +659,118 @@ export function truncateMiddle(s: string, truncateTo: number, ellipsis: string =
 
 // Below adapted from https://github.com/pieroxy/lz-string
 
-const keyStrBase64 = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/=';
-const baseReverseDic: Record<string, Record<string, number>> = {};
-function getBaseValue(alphabet: string, character: string | number) {
-	if (!baseReverseDic[alphabet]) {
-		baseReverseDic[alphabet] = {};
-		for (let i = 0; i < alphabet.length; i++) {
-			baseReverseDic[alphabet][alphabet.charAt(i)] = i;
-		}
-	}
-	return baseReverseDic[alphabet][character];
-}
+// Pre-computed from:
+// const base64ReverseMap = new Uint8Array(123);
+// const base64Chars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/=';
+// for (let i = 0; i < base64Chars.length; i++) {
+// 	base64ReverseMap[base64Chars.charCodeAt(i)] = i;
+// }
 
-export function decompressFromBase64LZString(input: string | undefined) {
+const base64ReverseMap = new Uint8Array([
+	0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+	0, 0, 0, 0, 62, 0, 0, 0, 63, 52, 53, 54, 55, 56, 57, 58, 59, 60, 61, 0, 0, 0, 64, 0, 0, 0, 0, 1, 2, 3, 4, 5, 6, 7,
+	8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 21, 22, 23, 24, 25, 0, 0, 0, 0, 0, 0, 26, 27, 28, 29, 30, 31, 32,
+	33, 34, 35, 36, 37, 38, 39, 40, 41, 42, 43, 44, 45, 46, 47, 48, 49, 50, 51,
+]);
+
+export function decompressFromBase64LZString(input: string | undefined): string {
 	if (input == null || input === '') return '';
-	return (
-		_decompressLZString(input.length, 32, (index: number) => getBaseValue(keyStrBase64, input.charAt(index))) ?? ''
-	);
+
+	const result = _decompressLZString(input, 32) ?? '';
+	return result;
 }
 
-function _decompressLZString(length: number, resetValue: any, getNextValue: (index: number) => number) {
-	const dictionary = [];
-	let next;
-	let enlargeIn = 4;
-	let dictSize = 4;
-	let numBits = 3;
-	let entry: any = '';
-	const result = [];
-	let i;
-	let w: any;
-	let bits;
-	let resb;
-	let maxpower;
-	let power;
-	let c;
-	const data = { val: getNextValue(0), position: resetValue, index: 1 };
+function _decompressLZString(input: string, resetValue: number) {
+	const dictionary = new Array<string>(4096);
+	dictionary[0] = '0';
+	dictionary[1] = '1';
+	dictionary[2] = '2';
 
-	for (i = 0; i < 3; i += 1) {
-		dictionary[i] = i;
-	}
+	const result: string[] = [];
+	const length = input.length;
 
-	bits = 0;
-	maxpower = Math.pow(2, 2);
-	power = 1;
-	while (power != maxpower) {
-		resb = data.val & data.position;
-		data.position >>= 1;
-		if (data.position == 0) {
-			data.position = resetValue;
-			data.val = getNextValue(data.index++);
-		}
-		bits |= (resb > 0 ? 1 : 0) * power;
-		power <<= 1;
-	}
+	let val = base64ReverseMap[input.charCodeAt(0)];
+	let position = resetValue;
+	let index = 1;
 
-	const fromCharCode = String.fromCharCode;
+	function readBits(maxpower: number): number {
+		let bits = 0;
+		let power = 1;
+		do {
+			bits |= Number((val & position) > 0) * power;
+			power <<= 1;
 
-	// eslint-disable-next-line @typescript-eslint/no-unused-vars
-	switch ((next = bits)) {
-		case 0:
-			bits = 0;
-			maxpower = Math.pow(2, 8);
-			power = 1;
-			while (power != maxpower) {
-				resb = data.val & data.position;
-				data.position >>= 1;
-				if (data.position == 0) {
-					data.position = resetValue;
-					data.val = getNextValue(data.index++);
-				}
-				bits |= (resb > 0 ? 1 : 0) * power;
-				power <<= 1;
+			position >>= 1;
+			if (position === 0) {
+				position = resetValue;
+				val = base64ReverseMap[input.charCodeAt(index++)];
 			}
-			c = fromCharCode(bits);
+		} while (power !== maxpower);
+
+		return bits;
+	}
+
+	let c = readBits(4);
+
+	switch (c) {
+		case 0:
+			c = readBits(256);
 			break;
 		case 1:
-			bits = 0;
-			maxpower = Math.pow(2, 16);
-			power = 1;
-			while (power != maxpower) {
-				resb = data.val & data.position;
-				data.position >>= 1;
-				if (data.position == 0) {
-					data.position = resetValue;
-					data.val = getNextValue(data.index++);
-				}
-				bits |= (resb > 0 ? 1 : 0) * power;
-				power <<= 1;
-			}
-			c = fromCharCode(bits);
+			c = readBits(65536);
 			break;
 		case 2:
 			return '';
 	}
-	dictionary[3] = c;
-	w = c;
-	result.push(c);
-	while (true) {
-		if (data.index > length) {
-			return '';
-		}
 
-		bits = 0;
-		maxpower = Math.pow(2, numBits);
-		power = 1;
-		while (power != maxpower) {
-			resb = data.val & data.position;
-			data.position >>= 1;
-			if (data.position == 0) {
-				data.position = resetValue;
-				data.val = getNextValue(data.index++);
-			}
-			bits |= (resb > 0 ? 1 : 0) * power;
-			power <<= 1;
-		}
+	let w = String.fromCharCode(c);
+	dictionary[3] = w;
+	result.push(w);
 
-		switch ((c = bits)) {
+	let dictSize = 4;
+	let enlargeIn = 4;
+	let numBits = 3;
+
+	while (index <= length) {
+		c = readBits(1 << numBits);
+
+		switch (c) {
 			case 0:
-				bits = 0;
-				maxpower = Math.pow(2, 8);
-				power = 1;
-				while (power != maxpower) {
-					resb = data.val & data.position;
-					data.position >>= 1;
-					if (data.position == 0) {
-						data.position = resetValue;
-						data.val = getNextValue(data.index++);
-					}
-					bits |= (resb > 0 ? 1 : 0) * power;
-					power <<= 1;
-				}
-
-				dictionary[dictSize++] = fromCharCode(bits);
-				c = dictSize - 1;
+				c = readBits(256);
+				dictionary[dictSize] = String.fromCharCode(c);
+				c = dictSize++;
 				enlargeIn--;
 				break;
 			case 1:
-				bits = 0;
-				maxpower = Math.pow(2, 16);
-				power = 1;
-				while (power != maxpower) {
-					resb = data.val & data.position;
-					data.position >>= 1;
-					if (data.position == 0) {
-						data.position = resetValue;
-						data.val = getNextValue(data.index++);
-					}
-					bits |= (resb > 0 ? 1 : 0) * power;
-					power <<= 1;
-				}
-				dictionary[dictSize++] = fromCharCode(bits);
-				c = dictSize - 1;
+				c = readBits(65536);
+				dictionary[dictSize] = String.fromCharCode(c);
+				c = dictSize++;
 				enlargeIn--;
 				break;
 			case 2:
 				return result.join('');
 		}
 
-		if (enlargeIn == 0) {
-			enlargeIn = Math.pow(2, numBits);
-			numBits++;
+		if (enlargeIn === 0) {
+			enlargeIn = 1 << numBits++;
 		}
 
-		if (dictionary[c]) {
-			entry = dictionary[c]!;
-		} else if (c === dictSize) {
-			// eslint-disable-next-line @typescript-eslint/restrict-plus-operands
-			entry = w + w.charAt(0);
-		} else {
-			return undefined;
+		let entry = dictionary[c];
+		if (entry === undefined) {
+			if (c !== dictSize) return undefined;
+
+			entry = w + w[0];
 		}
+
 		result.push(entry);
-
-		// Add w+entry[0] to the dictionary.
-
-		// eslint-disable-next-line @typescript-eslint/restrict-plus-operands
-		dictionary[dictSize++] = w + entry.charAt(0);
+		dictionary[dictSize++] = w + entry[0];
 		enlargeIn--;
-
 		w = entry;
 
-		if (enlargeIn == 0) {
-			enlargeIn = Math.pow(2, numBits);
-			numBits++;
+		if (enlargeIn === 0) {
+			enlargeIn = 1 << numBits++;
 		}
 	}
+
+	return undefined;
 }

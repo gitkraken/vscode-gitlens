@@ -6,8 +6,8 @@ import type { Container } from '../container';
 import type { CommitFormatOptions } from '../git/formatters/commitFormatter';
 import { CommitFormatter } from '../git/formatters/commitFormatter';
 import type { GitCommit } from '../git/models/commit';
+import { configuration } from '../system/-webview/configuration';
 import { filterMap } from '../system/array';
-import { configuration } from '../system/configuration';
 import { log } from '../system/decorators/log';
 import { first } from '../system/iterable';
 import { getLogScope } from '../system/logger.scope';
@@ -39,7 +39,7 @@ export class GutterBlameAnnotationProvider extends BlameAnnotationProviderBase {
 		super(container, onDidChangeStatus, 'blame', editor, trackedDocument);
 	}
 
-	override async clear() {
+	override async clear(): Promise<void> {
 		await super.clear();
 
 		if (Decorations.gutterBlameHighlight != null) {
@@ -50,7 +50,7 @@ export class GutterBlameAnnotationProvider extends BlameAnnotationProviderBase {
 	}
 
 	@log()
-	override async onProvideAnnotation(context?: AnnotationContext, state?: AnnotationState): Promise<boolean> {
+	override async onProvideAnnotation(_context?: AnnotationContext, state?: AnnotationState): Promise<boolean> {
 		const scope = getLogScope();
 
 		const blame = await this.getBlame(state?.recompute);
@@ -71,7 +71,7 @@ export class GutterBlameAnnotationProvider extends BlameAnnotationProviderBase {
 
 		let getBranchAndTagTips;
 		if (CommitFormatter.has(cfg.format, 'tips')) {
-			getBranchAndTagTips = await this.container.git.getBranchesAndTagsTipsFn(blame.repoPath);
+			getBranchAndTagTips = await this.container.git.getBranchesAndTagsTipsLookup(blame.repoPath);
 		}
 
 		const options: CommitFormatOptions = {

@@ -19,7 +19,7 @@ export class WebviewPaneGroup extends LitElement {
 		}
 	`;
 
-	override render() {
+	override render(): unknown {
 		return html`<slot></slot>`;
 	}
 }

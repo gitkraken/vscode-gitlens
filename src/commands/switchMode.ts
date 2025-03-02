@@ -1,21 +1,20 @@
 import { ConfigurationTarget } from 'vscode';
-import { Commands } from '../constants';
 import type { Container } from '../container';
 import { showModePicker } from '../quickpicks/modePicker';
-import { command } from '../system/command';
-import { configuration } from '../system/configuration';
+import { command } from '../system/-webview/command';
+import { configuration } from '../system/-webview/configuration';
 import { log } from '../system/decorators/log';
 import { getLogScope, setLogScopeExit } from '../system/logger.scope';
-import { Command } from './base';
+import { GlCommandBase } from './commandBase';
 
 @command()
-export class SwitchModeCommand extends Command {
+export class SwitchModeCommand extends GlCommandBase {
 	constructor(private readonly container: Container) {
-		super(Commands.SwitchMode);
+		super('gitlens.switchMode');
 	}
 
 	@log({ args: false, scoped: true, singleLine: true, timed: false })
-	async execute() {
+	async execute(): Promise<void> {
 		const scope = getLogScope();
 
 		const pick = await showModePicker();
@@ -43,13 +42,13 @@ export class SwitchModeCommand extends Command {
 }
 
 @command()
-export class ToggleReviewModeCommand extends Command {
+export class ToggleReviewModeCommand extends GlCommandBase {
 	constructor(private readonly container: Container) {
-		super(Commands.ToggleReviewMode);
+		super('gitlens.toggleReviewMode');
 	}
 
 	@log({ args: false, singleLine: true, timed: false })
-	async execute() {
+	async execute(): Promise<void> {
 		const modes = configuration.get('modes');
 		if (modes == null || !Object.keys(modes).includes('review')) return;
 
@@ -59,13 +58,13 @@ export class ToggleReviewModeCommand extends Command {
 }
 
 @command()
-export class ToggleZenModeCommand extends Command {
+export class ToggleZenModeCommand extends GlCommandBase {
 	constructor(private readonly container: Container) {
-		super(Commands.ToggleZenMode);
+		super('gitlens.toggleZenMode');
 	}
 
 	@log({ args: false, singleLine: true, timed: false })
-	async execute() {
+	async execute(): Promise<void> {
 		const modes = configuration.get('modes');
 		if (modes == null || !Object.keys(modes).includes('zen')) return;
 

@@ -3,7 +3,7 @@ import type { FilesComparison } from '../../git/actions/commit';
 import { GitUri } from '../../git/gitUri';
 import type { GitBranch } from '../../git/models/branch';
 import type { GitFileWithCommit } from '../../git/models/file';
-import { createRevisionRange } from '../../git/models/reference';
+import { createRevisionRange } from '../../git/utils/revision.utils';
 import { makeHierarchical } from '../../system/array';
 import { filter, flatMap, groupByMap, map } from '../../system/iterable';
 import { joinPaths, normalizePath } from '../../system/path';
@@ -53,10 +53,14 @@ export class BranchTrackingStatusFilesNode extends ViewNode<'tracking-status-fil
 	}
 
 	private async getGroupedFiles(): Promise<Map<string, GitFileWithCommit[]>> {
-		const log = await this.view.container.git.getLog(this.repoPath, {
-			limit: 0,
-			ref: createRevisionRange(this.ref2, this.ref1, this.direction === 'behind' ? '...' : '..'),
-		});
+		const log = await this.view.container.git
+			.commits(this.repoPath)
+			.getLog(
+				this.direction === 'behind'
+					? createRevisionRange(this.ref1, this.ref2, '..')
+					: createRevisionRange(this.ref2, this.ref1, '..'),
+				{ limit: 0 },
+			);
 		if (log == null) return new Map();
 
 		await Promise.allSettled(
@@ -80,18 +84,7 @@ export class BranchTrackingStatusFilesNode extends ViewNode<'tracking-status-fil
 		const files = await this.getGroupedFiles();
 
 		let children: FileNode[] = [
-			...map(
-				files.values(),
-				files =>
-					new StatusFileNode(
-						this.view,
-						this,
-						files[files.length - 1],
-						this.repoPath,
-						files.map(s => s.commit),
-						this.direction,
-					),
-			),
+			...map(files.values(), files => new StatusFileNode(this.view, this, this.repoPath, files, this.direction)),
 		];
 
 		if (this.view.config.files.layout !== 'list') {
@@ -112,11 +105,10 @@ export class BranchTrackingStatusFilesNode extends ViewNode<'tracking-status-fil
 	}
 
 	async getTreeItem(): Promise<TreeItem> {
-		const stats = await this.view.container.git.getChangedFilesCount(
-			this.repoPath,
-			this.direction === 'behind' ? `${this.ref1}...${this.ref2}` : `${this.ref2}...`,
-		);
-		const files = stats?.changedFiles ?? 0;
+		const stats = await this.view.container.git
+			.diff(this.repoPath)
+			.getChangedFilesCount(this.direction === 'behind' ? `${this.ref1}...${this.ref2}` : `${this.ref2}...`);
+		const files = stats?.files ?? 0;
 
 		const label = `${pluralize('file', files)} changed`;
 		const item = new TreeItem(label, TreeItemCollapsibleState.Collapsed);

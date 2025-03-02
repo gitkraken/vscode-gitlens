@@ -1,20 +1,21 @@
 import type { TextEditor, Uri } from 'vscode';
-import { Commands } from '../constants';
+import { GlCommand } from '../constants.commands';
 import type { Container } from '../container';
 import { GitUri } from '../git/gitUri';
 import { getRepositoryOrShowPicker } from '../quickpicks/repositoryPicker';
-import { command, executeCommand } from '../system/command';
+import { command, executeCommand } from '../system/-webview/command';
 import { Logger } from '../system/logger';
-import { ActiveEditorCommand, getCommandUri } from './base';
+import { ActiveEditorCommand } from './commandBase';
+import { getCommandUri } from './commandBase.utils';
 import type { OpenPullRequestOnRemoteCommandArgs } from './openPullRequestOnRemote';
 
 @command()
 export class OpenAssociatedPullRequestOnRemoteCommand extends ActiveEditorCommand {
 	constructor(private readonly container: Container) {
-		super(Commands.OpenAssociatedPullRequestOnRemote);
+		super('gitlens.openAssociatedPullRequestOnRemote');
 	}
 
-	async execute(editor?: TextEditor, uri?: Uri) {
+	async execute(editor?: TextEditor, uri?: Uri): Promise<void> {
 		uri = getCommandUri(uri, editor);
 
 		const gitUri = uri != null ? await GitUri.fromUri(uri) : undefined;
@@ -36,11 +37,11 @@ export class OpenAssociatedPullRequestOnRemoteCommand extends ActiveEditorComman
 		} else {
 			try {
 				const repo = await getRepositoryOrShowPicker('Open Associated Pull Request', undefined, undefined, {
-					filter: async r => (await this.container.git.getBestRemoteWithIntegration(r.uri)) != null,
+					filter: async r => (await this.container.git.remotes(r.uri).getBestRemoteWithIntegration()) != null,
 				});
 				if (repo == null) return;
 
-				const branch = await repo?.getBranch();
+				const branch = await repo?.git.branches().getBranch();
 				const pr = await branch?.getAssociatedPullRequest({ expiryOverride: true });
 
 				args =
@@ -53,6 +54,6 @@ export class OpenAssociatedPullRequestOnRemoteCommand extends ActiveEditorComman
 			}
 		}
 
-		await executeCommand<OpenPullRequestOnRemoteCommandArgs>(Commands.OpenPullRequestOnRemote, args);
+		await executeCommand<OpenPullRequestOnRemoteCommandArgs>(GlCommand.OpenPullRequestOnRemote, args);
 	}
 }

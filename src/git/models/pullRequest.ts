@@ -1,70 +1,16 @@
+/* eslint-disable @typescript-eslint/no-restricted-imports */ /* TODO need to deal with sharing rich class shapes to webviews */
 import { Container } from '../../container';
 import { formatDate, fromNow } from '../../system/date';
-import { memoize } from '../../system/decorators/memoize';
-import type { IssueOrPullRequest, IssueRepository, IssueOrPullRequestState as PullRequestState } from './issue';
-import { shortenRevision } from './reference';
+import { memoize } from '../../system/decorators/-webview/memoize';
+import type { IssueProject, IssueRepository } from './issue';
+import type { IssueOrPullRequest, IssueOrPullRequestState as PullRequestState } from './issueOrPullRequest';
 import type { ProviderReference } from './remoteProvider';
+import type { RepositoryIdentityDescriptor } from './repositoryIdentities';
 
 export type { PullRequestState };
 
-export const enum PullRequestReviewDecision {
-	Approved = 'Approved',
-	ChangesRequested = 'ChangesRequested',
-	ReviewRequired = 'ReviewRequired',
-}
-
-export const enum PullRequestMergeableState {
-	Unknown = 'Unknown',
-	Mergeable = 'Mergeable',
-	Conflicting = 'Conflicting',
-}
-
-export const enum PullRequestStatusCheckRollupState {
-	Success = 'success',
-	Pending = 'pending',
-	Failed = 'failed',
-}
-
-export const enum PullRequestMergeMethod {
-	Merge = 'merge',
-	Squash = 'squash',
-	Rebase = 'rebase',
-}
-
-export const enum PullRequestReviewState {
-	Approved = 'APPROVED',
-	ChangesRequested = 'CHANGES_REQUESTED',
-	Commented = 'COMMENTED',
-	Dismissed = 'DISMISSED',
-	Pending = 'PENDING',
-	ReviewRequested = 'REVIEW_REQUESTED',
-}
-
-export interface PullRequestRef {
-	owner: string;
-	repo: string;
-	branch: string;
-	sha: string;
-	exists: boolean;
-	url: string;
-}
-
-export interface PullRequestRefs {
-	base: PullRequestRef;
-	head: PullRequestRef;
-	isCrossRepository: boolean;
-}
-
-export interface PullRequestMember {
-	name: string;
-	avatarUrl?: string;
-	url?: string;
-}
-
-export interface PullRequestReviewer {
-	isCodeOwner?: boolean;
-	reviewer: PullRequestMember;
-	state: PullRequestReviewState;
+export function isPullRequest(pr: unknown): pr is PullRequest {
+	return pr instanceof PullRequest;
 }
 
 export interface PullRequestShape extends IssueOrPullRequest {
@@ -78,69 +24,7 @@ export interface PullRequestShape extends IssueOrPullRequest {
 	readonly reviewDecision?: PullRequestReviewDecision;
 	readonly reviewRequests?: PullRequestReviewer[];
 	readonly assignees?: PullRequestMember[];
-}
-
-export interface SearchedPullRequest {
-	pullRequest: PullRequest;
-	reasons: string[];
-}
-
-export function serializePullRequest(value: PullRequest): PullRequestShape {
-	const serialized: PullRequestShape = {
-		type: value.type,
-		provider: {
-			id: value.provider.id,
-			name: value.provider.name,
-			domain: value.provider.domain,
-			icon: value.provider.icon,
-		},
-		id: value.id,
-		nodeId: value.nodeId,
-		title: value.title,
-		url: value.url,
-		createdDate: value.createdDate,
-		updatedDate: value.updatedDate,
-		closedDate: value.closedDate,
-		closed: value.closed,
-		author: {
-			name: value.author.name,
-			avatarUrl: value.author.avatarUrl,
-			url: value.author.url,
-		},
-		state: value.state,
-		mergedDate: value.mergedDate,
-		mergeableState: value.mergeableState,
-		refs: value.refs
-			? {
-					head: {
-						exists: value.refs.head.exists,
-						owner: value.refs.head.owner,
-						repo: value.refs.head.repo,
-						sha: value.refs.head.sha,
-						branch: value.refs.head.branch,
-						url: value.refs.head.url,
-					},
-					base: {
-						exists: value.refs.base.exists,
-						owner: value.refs.base.owner,
-						repo: value.refs.base.repo,
-						sha: value.refs.base.sha,
-						branch: value.refs.base.branch,
-						url: value.refs.base.url,
-					},
-					isCrossRepository: value.refs.isCrossRepository,
-			  }
-			: undefined,
-		isDraft: value.isDraft,
-		additions: value.additions,
-		deletions: value.deletions,
-		commentsCount: value.commentsCount,
-		thumbsUpCount: value.thumbsUpCount,
-		reviewDecision: value.reviewDecision,
-		reviewRequests: value.reviewRequests,
-		assignees: value.assignees,
-	};
-	return serialized;
+	readonly project?: IssueProject;
 }
 
 export class PullRequest implements PullRequestShape {
@@ -148,11 +32,7 @@ export class PullRequest implements PullRequestShape {
 
 	constructor(
 		public readonly provider: ProviderReference,
-		public readonly author: {
-			readonly name: string;
-			readonly avatarUrl?: string;
-			readonly url?: string;
-		},
+		public readonly author: PullRequestMember,
 		public readonly id: string,
 		public readonly nodeId: string | undefined,
 		public readonly title: string,
@@ -176,6 +56,7 @@ export class PullRequest implements PullRequestShape {
 		public readonly latestReviews?: PullRequestReviewer[],
 		public readonly assignees?: PullRequestMember[],
 		public readonly statusCheckRollupState?: PullRequestStatusCheckRollupState,
+		public readonly project?: IssueProject,
 	) {}
 
 	get closed(): boolean {
@@ -189,48 +70,79 @@ export class PullRequest implements PullRequestShape {
 	}
 
 	@memoize<PullRequest['formatDate']>(format => format ?? 'MMMM Do, YYYY h:mma')
-	formatDate(format?: string | null) {
+	formatDate(format?: string | null): string {
 		return formatDate(this.mergedDate ?? this.closedDate ?? this.updatedDate, format ?? 'MMMM Do, YYYY h:mma');
 	}
 
-	formatDateFromNow() {
+	formatDateFromNow(): string {
 		return fromNow(this.mergedDate ?? this.closedDate ?? this.updatedDate);
 	}
 
 	@memoize<PullRequest['formatClosedDate']>(format => format ?? 'MMMM Do, YYYY h:mma')
-	formatClosedDate(format?: string | null) {
+	formatClosedDate(format?: string | null): string {
 		if (this.closedDate == null) return '';
 		return formatDate(this.closedDate, format ?? 'MMMM Do, YYYY h:mma');
 	}
 
-	formatClosedDateFromNow() {
+	formatClosedDateFromNow(): string {
 		if (this.closedDate == null) return '';
 		return fromNow(this.closedDate);
 	}
 
 	@memoize<PullRequest['formatMergedDate']>(format => format ?? 'MMMM Do, YYYY h:mma')
-	formatMergedDate(format?: string | null) {
+	formatMergedDate(format?: string | null): string {
 		if (this.mergedDate == null) return '';
 		return formatDate(this.mergedDate, format ?? 'MMMM Do, YYYY h:mma') ?? '';
 	}
 
-	formatMergedDateFromNow() {
+	formatMergedDateFromNow(): string {
 		if (this.mergedDate == null) return '';
 		return fromNow(this.mergedDate);
 	}
 
 	@memoize<PullRequest['formatUpdatedDate']>(format => format ?? 'MMMM Do, YYYY h:mma')
-	formatUpdatedDate(format?: string | null) {
+	formatUpdatedDate(format?: string | null): string {
 		return formatDate(this.updatedDate, format ?? 'MMMM Do, YYYY h:mma') ?? '';
 	}
 
-	formatUpdatedDateFromNow() {
+	formatUpdatedDateFromNow(): string {
 		return fromNow(this.updatedDate);
 	}
 }
 
-export function isPullRequest(pr: any): pr is PullRequest {
-	return pr instanceof PullRequest;
+export const enum PullRequestReviewDecision {
+	Approved = 'Approved',
+	ChangesRequested = 'ChangesRequested',
+	ReviewRequired = 'ReviewRequired',
+}
+
+export const enum PullRequestMergeableState {
+	Unknown = 'Unknown',
+	Mergeable = 'Mergeable',
+	Conflicting = 'Conflicting',
+	FailingChecks = 'FailingChecks',
+	BlockedByPolicy = 'BlockedByPolicy',
+}
+
+export const enum PullRequestStatusCheckRollupState {
+	Success = 'success',
+	Pending = 'pending',
+	Failed = 'failed',
+}
+
+export const enum PullRequestMergeMethod {
+	Merge = 'merge',
+	Squash = 'squash',
+	Rebase = 'rebase',
+}
+
+export const enum PullRequestReviewState {
+	Approved = 'APPROVED',
+	ChangesRequested = 'CHANGES_REQUESTED',
+	Commented = 'COMMENTED',
+	Dismissed = 'DISMISSED',
+	Pending = 'PENDING',
+	ReviewRequested = 'REVIEW_REQUESTED',
 }
 
 export interface PullRequestComparisonRefs {
@@ -239,24 +151,37 @@ export interface PullRequestComparisonRefs {
 	head: { ref: string; label: string };
 }
 
-export async function getComparisonRefsForPullRequest(
-	container: Container,
-	repoPath: string,
-	prRefs: PullRequestRefs,
-): Promise<PullRequestComparisonRefs> {
-	const refs: PullRequestComparisonRefs = {
-		repoPath: repoPath,
-		base: { ref: prRefs.base.sha, label: `${prRefs.base.branch} (${shortenRevision(prRefs.base.sha)})` },
-		head: { ref: prRefs.head.sha, label: prRefs.head.branch },
-	};
-
-	// Find the merge base to show a more accurate comparison for the PR
-	const mergeBase =
-		(await container.git.getMergeBase(refs.repoPath, refs.base.ref, refs.head.ref, { forkPoint: true })) ??
-		(await container.git.getMergeBase(refs.repoPath, refs.base.ref, refs.head.ref));
-	if (mergeBase != null) {
-		refs.base = { ref: mergeBase, label: `${prRefs.base.branch} (${shortenRevision(mergeBase)})` };
-	}
-
-	return refs;
+export interface PullRequestMember {
+	id: string;
+	name: string;
+	avatarUrl?: string;
+	url?: string;
 }
+
+export interface PullRequestRef {
+	owner: string;
+	repo: string;
+	branch: string;
+	sha: string;
+	exists: boolean;
+	url: string;
+}
+
+export interface PullRequestRefs {
+	base: PullRequestRef;
+	head: PullRequestRef;
+	isCrossRepository: boolean;
+}
+
+export interface PullRequestReviewer {
+	isCodeOwner?: boolean;
+	reviewer: PullRequestMember;
+	state: PullRequestReviewState;
+}
+
+export type PullRequestRepositoryIdentityDescriptor = RequireSomeWithProps<
+	RequireSome<RepositoryIdentityDescriptor<string>, 'provider'>,
+	'provider',
+	'id' | 'domain' | 'repoDomain' | 'repoName'
+> &
+	RequireSomeWithProps<RequireSome<RepositoryIdentityDescriptor<string>, 'remote'>, 'remote', 'domain'>;

@@ -20,6 +20,7 @@ export const baseStyles = css`
 		text-transform: uppercase;
 		color: var(--gl-pill-foreground, var(--vscode-foreground));
 		background-color: var(--gl-pill-background, var(--vscode-editorWidget-background));
+		white-space: nowrap;
 	}
 
 	.pill--outlined {

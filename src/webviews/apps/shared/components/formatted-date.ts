@@ -15,9 +15,12 @@ export class FormattedDate extends LitElement {
 	@property({ converter: dateConverter(), reflect: true })
 	date = new Date();
 
-	override render() {
+	@property()
+	tooltip = '';
+
+	override render(): unknown {
 		const formattedDate = formatDate(this.date, this.format ?? 'MMMM Do, YYYY h:mma');
-		return html`<gl-tooltip content="${formattedDate}"
+		return html`<gl-tooltip content="${this.tooltip} ${formattedDate}"
 			><time datetime="${this.date.toISOString()}"
 				>${this.dateStyle === 'relative' ? fromNow(this.date) : formattedDate}</time
 			></gl-tooltip

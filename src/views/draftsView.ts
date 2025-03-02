@@ -2,17 +2,19 @@ import type { CancellationToken, TreeViewVisibilityChangeEvent } from 'vscode';
 import { Disposable, TreeItem, TreeItemCollapsibleState, window } from 'vscode';
 import type { OpenWalkthroughCommandArgs } from '../commands/walkthroughs';
 import type { DraftsViewConfig } from '../config';
-import { Commands, previewBadge } from '../constants';
+import { previewBadge } from '../constants';
+import { GlCommand } from '../constants.commands';
 import type { Container } from '../container';
 import { AuthenticationRequiredError } from '../errors';
 import { unknownGitUri } from '../git/gitUri';
-import type { Draft } from '../gk/models/drafts';
-import { ensurePlusFeaturesEnabled } from '../plus/gk/utils';
-import { executeCommand } from '../system/command';
-import { configuration } from '../system/configuration';
-import { gate } from '../system/decorators/gate';
+import type { Draft } from '../plus/drafts/models/drafts';
+import { ensurePlusFeaturesEnabled } from '../plus/gk/utils/-webview/plus.utils';
+import { executeCommand } from '../system/-webview/command';
+import { configuration } from '../system/-webview/configuration';
+import { gate } from '../system/decorators/-webview/gate';
 import { groupByFilterMap } from '../system/iterable';
 import { CacheableChildrenViewNode } from './nodes/abstract/cacheableChildrenViewNode';
+import type { ViewNode } from './nodes/abstract/viewNode';
 import { DraftNode } from './nodes/draftNode';
 import { GroupingNode } from './nodes/groupingNode';
 import { ViewBase } from './viewBase';
@@ -86,12 +88,12 @@ export class DraftsView extends ViewBase<'drafts', DraftsViewNode, DraftsViewCon
 		this.description = previewBadge;
 	}
 
-	override dispose() {
+	override dispose(): void {
 		this._disposable?.dispose();
 		super.dispose();
 	}
 
-	protected getRoot() {
+	protected getRoot(): DraftsViewNode {
 		return new DraftsViewNode(this);
 	}
 
@@ -114,29 +116,26 @@ export class DraftsView extends ViewBase<'drafts', DraftsViewNode, DraftsViewCon
 	}
 
 	protected registerCommands(): Disposable[] {
-		void this.container.viewCommands;
-
 		return [
 			registerViewCommand(
 				this.getQualifiedCommand('info'),
 				() =>
-					executeCommand<OpenWalkthroughCommandArgs>(Commands.OpenWalkthrough, {
-						step: 'code-collab',
-						source: 'cloud-patches',
-						detail: 'info',
+					executeCommand<OpenWalkthroughCommandArgs>('gitlens.openWalkthrough', {
+						step: 'streamline-collaboration',
+						source: { source: 'cloud-patches', detail: 'info' },
 					}),
 				this,
 			),
 			registerViewCommand(
 				this.getQualifiedCommand('copy'),
-				() => executeCommand(Commands.ViewsCopy, this.activeSelection, this.selection),
+				() => executeCommand(GlCommand.ViewsCopy, this.activeSelection, this.selection),
 				this,
 			),
 			registerViewCommand(this.getQualifiedCommand('refresh'), () => this.refresh(true), this),
 			registerViewCommand(
 				this.getQualifiedCommand('create'),
 				async () => {
-					await executeCommand(Commands.CreateCloudPatch);
+					await executeCommand(GlCommand.CreateCloudPatch);
 					void this.ensureRoot().triggerChange(true);
 				},
 				this,
@@ -165,7 +164,7 @@ export class DraftsView extends ViewBase<'drafts', DraftsViewNode, DraftsViewCon
 		];
 	}
 
-	async findDraft(draft: Draft, cancellation?: CancellationToken) {
+	async findDraft(draft: Draft, cancellation?: CancellationToken): Promise<ViewNode | undefined> {
 		return this.findNode((n: any) => n.draft?.id === draft.id, {
 			allowPaging: false,
 			maxDepth: 2,
@@ -186,7 +185,7 @@ export class DraftsView extends ViewBase<'drafts', DraftsViewNode, DraftsViewCon
 			focus?: boolean;
 			expand?: boolean | number;
 		},
-	) {
+	): Promise<ViewNode | undefined> {
 		const node = await this.findDraft(draft);
 		if (node == null) return undefined;
 

@@ -1,8 +1,7 @@
 import * as process from 'process';
-import * as url from 'url';
 import { HttpsProxyAgent } from 'https-proxy-agent';
 import fetch from 'node-fetch';
-import { configuration } from '../../system/configuration';
+import { configuration } from '../../system/-webview/configuration';
 import { Logger } from '../../system/logger';
 
 export { fetch };
@@ -28,8 +27,13 @@ export function getProxyAgent(strictSSL?: boolean): HttpsProxyAgent | undefined 
 
 	if (proxyUrl) {
 		Logger.debug(`Using https proxy: ${proxyUrl}`);
+		const proxyURL = new URL(proxyUrl);
 		return new HttpsProxyAgent({
-			...url.parse(proxyUrl),
+			host: proxyURL.hostname,
+			port: proxyURL.port,
+			protocol: proxyURL.protocol,
+			auth: proxyURL.username || proxyURL.password ? `${proxyURL.username}:${proxyURL.password}` : undefined,
+			path: proxyURL.pathname,
 			rejectUnauthorized: strictSSL,
 		});
 	}

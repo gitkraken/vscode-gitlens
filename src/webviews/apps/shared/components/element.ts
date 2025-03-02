@@ -23,9 +23,10 @@ type Observer = {
 	afterFirstUpdate?: boolean;
 };
 
+// eslint-disable-next-line @typescript-eslint/no-unsafe-function-type
 const observersForClass = new WeakMap<Function, Observer[]>();
 export function observe<T extends GlElement>(keys: keyof T | (keyof T)[], options?: { afterFirstUpdate?: boolean }) {
-	return function (target: T, _propertyKey: string, descriptor: PropertyDescriptor) {
+	return function (target: T, _propertyKey: string, descriptor: PropertyDescriptor): void {
 		let observers = observersForClass.get(target.constructor);
 		if (observers == null) {
 			observersForClass.set(target.constructor, (observers = []));
@@ -83,7 +84,7 @@ export abstract class GlElement extends LitElement {
 		return event as CustomEventType<T>;
 	}
 
-	override update(changedProperties: PropertyValues) {
+	override update(changedProperties: PropertyValues): void {
 		// Use this line when we switch to native decorators
 		// const meta = (this.constructor as typeof GlElement)[Symbol.metadata];
 		const observers = observersForClass.get(this.constructor); //meta);

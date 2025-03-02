@@ -1,21 +1,9 @@
 import type { Disposable, Event } from 'vscode';
 import { EventEmitter } from 'vscode';
-import type { CustomEditorTypes, TreeViewTypes, WebviewTypes, WebviewViewTypes } from '../constants';
+import type { TrackedUsage, TrackedUsageKeys } from '../constants.telemetry';
 import type { Container } from '../container';
+import type { Storage } from '../system/-webview/storage';
 import { updateRecordValue } from '../system/object';
-import type { Storage } from '../system/storage';
-
-export interface TrackedUsage {
-	count: number;
-	firstUsedAt: number;
-	lastUsedAt: number;
-}
-
-export type TrackedUsageFeatures =
-	| `${WebviewTypes}Webview`
-	| `${TreeViewTypes | WebviewViewTypes}View`
-	| `${CustomEditorTypes}Editor`;
-export type TrackedUsageKeys = `${TrackedUsageFeatures}:shown`;
 
 export type UsageChangeEvent = {
 	/**
@@ -40,6 +28,10 @@ export class UsageTracker implements Disposable {
 
 	get(key: TrackedUsageKeys): TrackedUsage | undefined {
 		return this.storage.get('usages')?.[key];
+	}
+
+	isUsed(key: TrackedUsageKeys): boolean {
+		return Boolean(this.get(key)?.firstUsedAt);
 	}
 
 	async reset(key?: TrackedUsageKeys): Promise<void> {
@@ -70,7 +62,7 @@ export class UsageTracker implements Disposable {
 		let usage = usages[key];
 		if (usage == null) {
 			usage = {
-				count: 0,
+				count: 1,
 				firstUsedAt: usedAt,
 				lastUsedAt: usedAt,
 			};

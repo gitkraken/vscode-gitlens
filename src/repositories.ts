@@ -2,12 +2,11 @@ import type { Uri } from 'vscode';
 import { isLinux } from '@env/platform';
 import { Schemes } from './constants';
 import type { RevisionUriData } from './git/gitProvider';
-import { decodeGitLensRevisionUriAuthority } from './git/gitUri';
+import { decodeGitLensRevisionUriAuthority } from './git/gitUri.authority';
 import type { Repository } from './git/models/repository';
-import { addVslsPrefixIfNeeded, normalizePath } from './system/path';
+import { addVslsPrefixIfNeeded } from './system/-webview/path.vsls';
+import { normalizePath } from './system/path';
 import { UriTrie } from './system/trie';
-// TODO@eamodio don't import from string here since it will break the tests because of ESM dependencies
-// import { CharCode } from './string';
 
 const slash = 47; //CharCode.Slash;
 

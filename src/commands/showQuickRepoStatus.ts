@@ -1,20 +1,19 @@
-import { Commands } from '../constants';
 import type { Container } from '../container';
 import { executeGitCommand } from '../git/actions';
-import { command } from '../system/command';
-import { Command } from './base';
+import { command } from '../system/-webview/command';
+import { GlCommandBase } from './commandBase';
 
 export interface ShowQuickRepoStatusCommandArgs {
 	repoPath?: string;
 }
 
 @command()
-export class ShowQuickRepoStatusCommand extends Command {
+export class ShowQuickRepoStatusCommand extends GlCommandBase {
 	constructor(private readonly container: Container) {
-		super(Commands.ShowQuickRepoStatus);
+		super('gitlens.showQuickRepoStatus');
 	}
 
-	async execute(args?: ShowQuickRepoStatusCommandArgs) {
+	async execute(args?: ShowQuickRepoStatusCommandArgs): Promise<void> {
 		return executeGitCommand({
 			command: 'status',
 			state: {

@@ -30,7 +30,7 @@ export class FolderNode extends ViewNode<'folder', ViewsWithCommits | StashesVie
 		public readonly relativePath: string | undefined,
 		private readonly containsWorkingFiles?: boolean,
 	) {
-		super('folder', GitUri.fromRepoPath(repoPath), view, parent);
+		super('folder', GitUri.fromFile(relativePath ?? folderName, repoPath), view, parent);
 
 		this._uniqueId = getViewNodeId(`${this.type}+${relativePath ?? folderName}`, this.context);
 	}

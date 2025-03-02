@@ -22,7 +22,7 @@ export class MenuLabel extends LitElement {
 		`,
 	];
 
-	override render() {
+	override render(): unknown {
 		return html`<slot></slot>`;
 	}
 }

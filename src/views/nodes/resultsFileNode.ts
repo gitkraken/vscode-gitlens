@@ -1,15 +1,17 @@
 import type { Command } from 'vscode';
 import { TreeItem, TreeItemCheckboxState, TreeItemCollapsibleState } from 'vscode';
 import type { DiffWithCommandArgs } from '../../commands/diffWith';
-import { Commands } from '../../constants';
+import { GlCommand } from '../../constants.commands';
 import { StatusFileFormatter } from '../../git/formatters/statusFormatter';
 import { GitUri } from '../../git/gitUri';
 import type { GitFile } from '../../git/models/file';
-import { getGitFileStatusIcon } from '../../git/models/file';
 import type { GitRevisionReference } from '../../git/models/reference';
-import { createReference } from '../../git/models/reference';
-import { joinPaths, relativeDir } from '../../system/path';
+import { getGitFileStatusIcon } from '../../git/utils/fileStatus.utils';
+import { createReference } from '../../git/utils/reference.utils';
+import { relativeDir } from '../../system/-webview/path';
+import { joinPaths } from '../../system/path';
 import type { View } from '../viewBase';
+import { getFileTooltipMarkdown } from './abstract/viewFileNode';
 import type { ViewNode } from './abstract/viewNode';
 import { ContextValues, getViewNodeId } from './abstract/viewNode';
 import { ViewRefFileNode } from './abstract/viewRefNode';
@@ -58,10 +60,7 @@ export class ResultsFileNode extends ViewRefFileNode<'results-file', View, State
 		const item = new TreeItem(this.label, TreeItemCollapsibleState.None);
 		item.contextValue = ContextValues.ResultsFile;
 		item.description = this.description;
-		item.tooltip = StatusFileFormatter.fromTemplate(
-			`\${file}\n\${directory}/\n\n\${status}\${ (originalPath)}`,
-			this.file,
-		);
+		item.tooltip = getFileTooltipMarkdown(this.file);
 
 		const statusIcon = getGitFileStatusIcon(this.file.status);
 		item.iconPath = {
@@ -80,7 +79,7 @@ export class ResultsFileNode extends ViewRefFileNode<'results-file', View, State
 	}
 
 	private _description: string | undefined;
-	get description() {
+	get description(): string {
 		if (this._description === undefined) {
 			this._description = StatusFileFormatter.fromTemplate(
 				this.view.config.formats.files.description,
@@ -94,7 +93,7 @@ export class ResultsFileNode extends ViewRefFileNode<'results-file', View, State
 	}
 
 	private _folderName: string | undefined;
-	get folderName() {
+	get folderName(): string {
 		if (this._folderName === undefined) {
 			this._folderName = relativeDir(this.uri.relativePath);
 		}
@@ -102,13 +101,17 @@ export class ResultsFileNode extends ViewRefFileNode<'results-file', View, State
 	}
 
 	private _label: string | undefined;
-	get label() {
+	get label(): string {
 		if (this._label === undefined) {
 			this._label = StatusFileFormatter.fromTemplate(this.view.config.formats.files.label, this.file, {
 				relativePath: this.relativePath,
 			});
 		}
 		return this._label;
+	}
+
+	get priority(): number {
+		return 0;
 	}
 
 	private _relativePath: string | undefined;
@@ -119,10 +122,6 @@ export class ResultsFileNode extends ViewRefFileNode<'results-file', View, State
 		this._relativePath = value;
 		this._label = undefined;
 		this._description = undefined;
-	}
-
-	get priority(): number {
-		return 0;
 	}
 
 	override getCommand(): Command | undefined {
@@ -151,7 +150,7 @@ export class ResultsFileNode extends ViewRefFileNode<'results-file', View, State
 		};
 		return {
 			title: 'Open Changes',
-			command: Commands.DiffWith,
+			command: GlCommand.DiffWith,
 			arguments: [commandArgs],
 		};
 	}

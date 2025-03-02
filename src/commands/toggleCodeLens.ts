@@ -1,15 +1,14 @@
-import { Commands } from '../constants';
 import type { Container } from '../container';
-import { command } from '../system/command';
-import { Command } from './base';
+import { command } from '../system/-webview/command';
+import { GlCommandBase } from './commandBase';
 
 @command()
-export class ToggleCodeLensCommand extends Command {
+export class ToggleCodeLensCommand extends GlCommandBase {
 	constructor(private readonly container: Container) {
-		super(Commands.ToggleCodeLens);
+		super('gitlens.toggleCodeLens');
 	}
 
-	execute() {
+	execute(): void {
 		this.container.codeLens.toggleCodeLens();
 	}
 }

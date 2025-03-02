@@ -1,11 +1,11 @@
 import type { Disposable, Uri } from 'vscode';
 import { EventEmitter } from 'vscode';
-import type { ViewsConfigKeys } from './config';
-import type { CustomEditorIds, WebviewIds, WebviewViewIds } from './constants';
+import type { CustomEditorIds, ViewIds, WebviewIds } from './constants.views';
 import type { GitCaches } from './git/gitProvider';
 import type { GitCommit } from './git/models/commit';
 import type { GitRevisionReference } from './git/models/reference';
-import type { Draft, LocalDraft } from './gk/models/drafts';
+import type { RepositoryChange } from './git/models/repository';
+import type { Draft, LocalDraft } from './plus/drafts/models/drafts';
 
 export type CommitSelectedEvent = EventBusEvent<'commit:selected'>;
 interface CommitSelectedEventArgs {
@@ -36,11 +36,27 @@ interface GitCacheResetEventArgs {
 	readonly caches?: GitCaches[];
 }
 
+/**
+ *  Out-of-band event to ensure @type {import('./git/models/repository').Repository} fires its change event
+ *  Should only be listened to by @type {import('./git/models/repository').Repository}
+ */
+export type GitRepoChangeEvent = EventBusEvent<'git:repo:change'>;
+interface GitRepoChangeEventArgs {
+	readonly repoPath: string;
+	readonly changes: RepositoryChange[];
+}
+
 type EventsMapping = {
 	'commit:selected': CommitSelectedEventArgs;
 	'draft:selected': DraftSelectedEventArgs;
 	'file:selected': FileSelectedEventArgs;
+
 	'git:cache:reset': GitCacheResetEventArgs;
+	/**
+	 *  Out-of-band event to ensure @type {import('./git/models/repository').Repository} fires its change event
+	 *  Should only be listened to by @type {import('./git/models/repository').Repository}
+	 */
+	'git:repo:change': GitRepoChangeEventArgs;
 };
 
 interface EventBusEvent<T extends keyof EventsMapping = keyof EventsMapping> {
@@ -49,7 +65,7 @@ interface EventBusEvent<T extends keyof EventsMapping = keyof EventsMapping> {
 	source?: EventBusSource | undefined;
 }
 
-export type EventBusSource = CustomEditorIds | WebviewIds | WebviewViewIds | `gitlens.views.${ViewsConfigKeys}`;
+export type EventBusSource = CustomEditorIds | ViewIds | WebviewIds;
 
 export type EventBusOptions = {
 	source?: EventBusSource;
@@ -71,11 +87,11 @@ const _cachedEventArgs = new Map<keyof CacheableEventsMapping, CacheableEventsMa
 export class EventBus implements Disposable {
 	private readonly _emitter = new EventEmitter<EventBusEvent>();
 
-	dispose() {
+	dispose(): void {
 		this._emitter.dispose();
 	}
 
-	fire<T extends keyof EventsMapping>(name: T, data: EventsMapping[T], options?: EventBusOptions) {
+	fire<T extends keyof EventsMapping>(name: T, data: EventsMapping[T], options?: EventBusOptions): void {
 		if (canCacheEventArgs(name)) {
 			_cachedEventArgs.set(name, data as CacheableEventsMapping[typeof name]);
 		}
@@ -86,7 +102,7 @@ export class EventBus implements Disposable {
 		});
 	}
 
-	fireAsync<T extends keyof EventsMapping>(name: T, data: EventsMapping[T], options?: EventBusOptions) {
+	fireAsync<T extends keyof EventsMapping>(name: T, data: EventsMapping[T], options?: EventBusOptions): void {
 		queueMicrotask(() => this.fire(name, data, options));
 	}
 
@@ -94,7 +110,7 @@ export class EventBus implements Disposable {
 		return _cachedEventArgs.get(name) as CacheableEventsMapping[T] | undefined;
 	}
 
-	on<T extends keyof EventsMapping>(name: T, handler: (e: EventBusEvent<T>) => void, thisArgs?: unknown) {
+	on<T extends keyof EventsMapping>(name: T, handler: (e: EventBusEvent<T>) => void, thisArgs?: unknown): Disposable {
 		return this._emitter.event(
 			// eslint-disable-next-line prefer-arrow-callback
 			function (e) {

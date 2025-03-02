@@ -4,10 +4,10 @@ import type { Keys } from '../constants';
 import type { Container } from '../container';
 import type { GitRevisionReference } from '../git/models/reference';
 import type { GitTreeEntry } from '../git/models/tree';
+import type { KeyboardScope } from '../system/-webview/keyboard';
+import { splitPath } from '../system/-webview/path';
+import { getQuickPickIgnoreFocusOut } from '../system/-webview/vscode';
 import { filterMap } from '../system/iterable';
-import type { KeyboardScope } from '../system/keyboard';
-import { splitPath } from '../system/path';
-import { getQuickPickIgnoreFocusOut } from '../system/utils';
 import type { QuickPickItemOfT } from './items/common';
 
 export type RevisionQuickPickItem = QuickPickItemOfT<GitTreeEntry>;
@@ -81,7 +81,7 @@ export async function showRevisionFilesPicker(
 		quickpick.busy = true;
 		quickpick.show();
 
-		const tree = await container.git.getTreeForRevision(repoPath, ref);
+		const tree = await container.git.revision(repoPath).getTreeForRevision(ref);
 		const items: RevisionQuickPickItem[] = [
 			...filterMap(tree, file => {
 				// Exclude directories

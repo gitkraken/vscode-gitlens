@@ -1,45 +1,26 @@
-import type { BranchSorting } from '../../config';
+/* eslint-disable @typescript-eslint/no-restricted-imports */ /* TODO need to deal with sharing rich class shapes to webviews */
+import type { EnrichedAutolink } from '../../autolinks/models/autolinks';
 import type { Container } from '../../container';
-import { configuration } from '../../system/configuration';
 import { formatDate, fromNow } from '../../system/date';
+import { memoize } from '../../system/decorators/-webview/memoize';
 import { debug } from '../../system/decorators/log';
-import { memoize } from '../../system/decorators/memoize';
 import { getLoggableName } from '../../system/logger';
-import { PageableResult } from '../../system/paging';
-import { sortCompare } from '../../system/string';
+import type { MaybePausedResult } from '../../system/promise';
+import {
+	formatDetachedHeadName,
+	getBranchId,
+	getBranchTrackingWithoutRemote,
+	getRemoteNameFromBranchName,
+	getRemoteNameSlashIndex,
+	isDetachedHead,
+} from '../utils/branch.utils';
+import { getUpstreamStatus } from '../utils/status.utils';
 import type { PullRequest, PullRequestState } from './pullRequest';
-import type { GitBranchReference, GitReference } from './reference';
-import { getBranchTrackingWithoutRemote, shortenRevision } from './reference';
+import type { GitBranchReference } from './reference';
 import type { GitRemote } from './remote';
-import type { Repository } from './repository';
-import { getUpstreamStatus } from './status';
 
-const detachedHEADRegex = /^(HEAD|\(.*\))$/;
-
-export interface GitTrackingState {
-	ahead: number;
-	behind: number;
-}
-
-export type GitBranchStatus =
-	| 'ahead'
-	| 'behind'
-	| 'diverged'
-	| 'local'
-	| 'missingUpstream'
-	| 'remote'
-	| 'upToDate'
-	| 'unpublished';
-
-export interface BranchSortOptions {
-	current?: boolean;
-	missingUpstream?: boolean;
-	orderBy?: BranchSorting;
-	openWorktreeBranches?: string[];
-}
-
-export function getBranchId(repoPath: string, remote: boolean, name: string): string {
-	return `${repoPath}|${remote ? 'remotes/' : 'heads/'}${name}`;
+export function isBranch(branch: unknown): branch is GitBranch {
+	return branch instanceof GitBranch;
 }
 
 export class GitBranch implements GitBranchReference {
@@ -87,8 +68,19 @@ export class GitBranch implements GitBranchReference {
 			: this.formatDateFromNow();
 	}
 
-	get ref() {
+	get ref(): string {
 		return this.detached ? this.sha! : this.name;
+	}
+
+	get status(): GitBranchStatus {
+		if (this.remote) return 'remote';
+		if (this.upstream == null) return this.detached ? 'detached' : 'local';
+
+		if (this.upstream.missing) return 'missingUpstream';
+		if (this.state.ahead && this.state.behind) return 'diverged';
+		if (this.state.ahead) return 'ahead';
+		if (this.state.behind) return 'behind';
+		return 'upToDate';
 	}
 
 	@memoize<GitBranch['formatDate']>(format => format ?? 'MMMM Do, YYYY h:mma')
@@ -109,11 +101,27 @@ export class GitBranch implements GitBranchReference {
 		const remote = await this.getRemote();
 		if (remote?.provider == null) return undefined;
 
-		return (await this.container.integrations.getByRemote(remote))?.getPullRequestForBranch(
+		const integration = await this.container.integrations.getByRemote(remote);
+		if (integration == null) return undefined;
+
+		if (this.upstream?.missing) {
+			if (!this.sha) return undefined;
+
+			return integration?.getPullRequestForCommit(remote.provider.repoDesc, this.sha);
+		}
+
+		return integration?.getPullRequestForBranch(
 			remote.provider.repoDesc,
 			this.getTrackingWithoutRemote() ?? this.getNameWithoutRemote(),
 			options,
 		);
+	}
+
+	@memoize()
+	async getEnrichedAutolinks(): Promise<Map<string, EnrichedAutolink> | undefined> {
+		const remote = await this.container.git.remotes(this.repoPath).getBestRemoteWithProvider();
+		const branchAutolinks = await this.container.autolinks.getBranchAutolinks(this.name, remote);
+		return this.container.autolinks.getEnrichedAutolinks(branchAutolinks, remote);
 	}
 
 	@memoize()
@@ -138,8 +146,7 @@ export class GitBranch implements GitBranchReference {
 		const remoteName = this.getRemoteName();
 		if (remoteName == null) return undefined;
 
-		const remotes = await this.container.git.getRemotes(this.repoPath);
-		return remotes.length ? remotes.find(r => r.name === remoteName) : undefined;
+		return this.container.git.remotes(this.repoPath).getRemote(remoteName);
 	}
 
 	@memoize()
@@ -148,23 +155,6 @@ export class GitBranch implements GitBranchReference {
 		if (this.upstream != null) return getRemoteNameFromBranchName(this.upstream.name);
 
 		return undefined;
-	}
-
-	@memoize()
-	async getStatus(): Promise<GitBranchStatus> {
-		if (this.remote) return 'remote';
-
-		if (this.upstream != null) {
-			if (this.upstream.missing) return 'missingUpstream';
-			if (this.state.ahead && this.state.behind) return 'diverged';
-			if (this.state.ahead) return 'ahead';
-			if (this.state.behind) return 'behind';
-			return 'upToDate';
-		}
-
-		// If there are any remotes then say this is unpublished, otherwise local
-		const remotes = await this.container.git.getRemotes(this.repoPath);
-		return remotes.length ? 'unpublished' : 'local';
 	}
 
 	getTrackingStatus(options?: {
@@ -179,160 +169,37 @@ export class GitBranch implements GitBranchReference {
 		return getUpstreamStatus(this.upstream, this.state, options);
 	}
 
-	get starred() {
+	get starred(): boolean {
 		const starred = this.container.storage.getWorkspace('starred:branches');
 		return starred !== undefined && starred[this.id] === true;
 	}
 
-	star() {
+	async star(): Promise<void> {
 		return this.container.git.getRepository(this.repoPath)?.star(this);
 	}
 
-	unstar() {
+	async unstar(): Promise<void> {
 		return this.container.git.getRepository(this.repoPath)?.unstar(this);
 	}
 }
 
-export function formatDetachedHeadName(sha: string): string {
-	return `(${shortenRevision(sha)}...)`;
+export interface GitTrackingState {
+	ahead: number;
+	behind: number;
 }
 
-export function getRemoteNameSlashIndex(name: string): number {
-	return name.startsWith('remotes/') ? name.indexOf('/', 8) : name.indexOf('/');
-}
+export type GitBranchStatus =
+	| 'local'
+	| 'detached'
+	| 'ahead'
+	| 'behind'
+	| 'diverged'
+	| 'upToDate'
+	| 'missingUpstream'
+	| 'remote';
 
-export function getBranchNameAndRemote(ref: GitBranchReference): [name: string, remote: string | undefined] {
-	if (ref.remote) {
-		const index = getRemoteNameSlashIndex(ref.name);
-		if (index === -1) return [ref.name, undefined];
-
-		return [ref.name.substring(index + 1), ref.name.substring(0, index)];
-	}
-
-	if (ref.upstream?.name != null) {
-		const index = getRemoteNameSlashIndex(ref.upstream.name);
-		if (index === -1) return [ref.name, undefined];
-
-		return [ref.name, ref.upstream.name.substring(0, index)];
-	}
-
-	return [ref.name, undefined];
-}
-
-export function getBranchNameWithoutRemote(name: string): string {
-	return name.substring(getRemoteNameSlashIndex(name) + 1);
-}
-
-export function getRemoteNameFromBranchName(name: string): string {
-	return name.substring(0, getRemoteNameSlashIndex(name));
-}
-
-export function isBranch(branch: any): branch is GitBranch {
-	return branch instanceof GitBranch;
-}
-
-export function isDetachedHead(name: string): boolean {
-	// If there is whitespace in the name assume this is not a valid branch name
-	// Deals with detached HEAD states
-	name = name.trim();
-	return name.length ? detachedHEADRegex.test(name) : true;
-}
-
-export function isOfBranchRefType(branch: GitReference | undefined) {
-	return branch?.refType === 'branch';
-}
-
-export function sortBranches(branches: GitBranch[], options?: BranchSortOptions) {
-	options = { current: true, orderBy: configuration.get('sortBranchesBy'), ...options };
-
-	switch (options.orderBy) {
-		case 'date:asc':
-			return branches.sort(
-				(a, b) =>
-					(options.missingUpstream ? (a.upstream?.missing ? -1 : 1) - (b.upstream?.missing ? -1 : 1) : 0) ||
-					(options.current ? (a.current ? -1 : 1) - (b.current ? -1 : 1) : 0) ||
-					(options.openWorktreeBranches
-						? (options.openWorktreeBranches.includes(a.name) ? -1 : 1) -
-						  (options.openWorktreeBranches.includes(b.name) ? -1 : 1)
-						: 0) ||
-					(a.starred ? -1 : 1) - (b.starred ? -1 : 1) ||
-					(b.remote ? -1 : 1) - (a.remote ? -1 : 1) ||
-					(a.date == null ? -1 : a.date.getTime()) - (b.date == null ? -1 : b.date.getTime()) ||
-					sortCompare(a.name, b.name),
-			);
-		case 'name:asc':
-			return branches.sort(
-				(a, b) =>
-					(options.missingUpstream ? (a.upstream?.missing ? -1 : 1) - (b.upstream?.missing ? -1 : 1) : 0) ||
-					(options.current ? (a.current ? -1 : 1) - (b.current ? -1 : 1) : 0) ||
-					(options.openWorktreeBranches
-						? (options.openWorktreeBranches.includes(a.name) ? -1 : 1) -
-						  (options.openWorktreeBranches.includes(b.name) ? -1 : 1)
-						: 0) ||
-					(a.starred ? -1 : 1) - (b.starred ? -1 : 1) ||
-					(a.name === 'main' ? -1 : 1) - (b.name === 'main' ? -1 : 1) ||
-					(a.name === 'master' ? -1 : 1) - (b.name === 'master' ? -1 : 1) ||
-					(a.name === 'develop' ? -1 : 1) - (b.name === 'develop' ? -1 : 1) ||
-					(b.remote ? -1 : 1) - (a.remote ? -1 : 1) ||
-					sortCompare(a.name, b.name),
-			);
-		case 'name:desc':
-			return branches.sort(
-				(a, b) =>
-					(options.missingUpstream ? (a.upstream?.missing ? -1 : 1) - (b.upstream?.missing ? -1 : 1) : 0) ||
-					(options.current ? (a.current ? -1 : 1) - (b.current ? -1 : 1) : 0) ||
-					(options.openWorktreeBranches
-						? (options.openWorktreeBranches.includes(a.name) ? -1 : 1) -
-						  (options.openWorktreeBranches.includes(b.name) ? -1 : 1)
-						: 0) ||
-					(a.starred ? -1 : 1) - (b.starred ? -1 : 1) ||
-					(a.name === 'main' ? -1 : 1) - (b.name === 'main' ? -1 : 1) ||
-					(a.name === 'master' ? -1 : 1) - (b.name === 'master' ? -1 : 1) ||
-					(a.name === 'develop' ? -1 : 1) - (b.name === 'develop' ? -1 : 1) ||
-					(b.remote ? -1 : 1) - (a.remote ? -1 : 1) ||
-					sortCompare(b.name, a.name),
-			);
-		case 'date:desc':
-		default:
-			return branches.sort(
-				(a, b) =>
-					(options.missingUpstream ? (a.upstream?.missing ? -1 : 1) - (b.upstream?.missing ? -1 : 1) : 0) ||
-					(options.current ? (a.current ? -1 : 1) - (b.current ? -1 : 1) : 0) ||
-					(options.openWorktreeBranches
-						? (options.openWorktreeBranches.includes(a.name) ? -1 : 1) -
-						  (options.openWorktreeBranches.includes(b.name) ? -1 : 1)
-						: 0) ||
-					(a.starred ? -1 : 1) - (b.starred ? -1 : 1) ||
-					(b.remote ? -1 : 1) - (a.remote ? -1 : 1) ||
-					(b.date == null ? -1 : b.date.getTime()) - (a.date == null ? -1 : a.date.getTime()) ||
-					sortCompare(b.name, a.name),
-			);
-	}
-}
-
-export async function getLocalBranchByUpstream(
-	repo: Repository,
-	remoteBranchName: string,
-	branches?: PageableResult<GitBranch> | Map<unknown, GitBranch>,
-): Promise<GitBranch | undefined> {
-	let qualifiedRemoteBranchName;
-	if (remoteBranchName.startsWith('remotes/')) {
-		qualifiedRemoteBranchName = remoteBranchName;
-		remoteBranchName = remoteBranchName.substring(8);
-	} else {
-		qualifiedRemoteBranchName = `remotes/${remoteBranchName}`;
-	}
-
-	branches ??= new PageableResult<GitBranch>(p => repo.getBranches(p != null ? { paging: p } : undefined));
-	for await (const branch of branches.values()) {
-		if (
-			!branch.remote &&
-			branch.upstream?.name != null &&
-			(branch.upstream.name === remoteBranchName || branch.upstream.name === qualifiedRemoteBranchName)
-		) {
-			return branch;
-		}
-	}
-
-	return undefined;
+export interface BranchTargetInfo {
+	baseBranch: string | undefined;
+	defaultBranch: string | undefined;
+	targetBranch: MaybePausedResult<string | undefined>;
 }

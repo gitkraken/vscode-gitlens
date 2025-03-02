@@ -2,8 +2,8 @@ import type { Container } from '../../container';
 import type { GitBranch } from '../../git/models/branch';
 import type { GitLog } from '../../git/models/log';
 import type { GitRevisionReference } from '../../git/models/reference';
-import { getReferenceLabel } from '../../git/models/reference';
 import type { Repository } from '../../git/models/repository';
+import { getReferenceLabel } from '../../git/utils/reference.utils';
 import type { FlagsQuickPickItem } from '../../quickpicks/items/flags';
 import { createFlagsQuickPickItem } from '../../quickpicks/items/flags';
 import type { ViewsWithRepositoryFolders } from '../../views/viewBase';
@@ -71,14 +71,14 @@ export class RevertGitCommand extends QuickCommand<State> {
 		return false;
 	}
 
-	execute(state: RevertStepState<State<GitRevisionReference[]>>) {
+	private execute(state: RevertStepState<State<GitRevisionReference[]>>) {
 		state.repo.revert(...state.flags, ...state.references.map(c => c.ref).reverse());
 	}
 
 	protected async *steps(state: PartialStepState<State>): StepGenerator {
 		const context: Context = {
 			repos: this.container.git.openRepositories,
-			associatedView: this.container.commitsView,
+			associatedView: this.container.views.commits,
 			cache: new Map<string, Promise<GitLog | undefined>>(),
 			destination: undefined!,
 			title: this.title,
@@ -116,19 +116,19 @@ export class RevertGitCommand extends QuickCommand<State> {
 			}
 
 			if (context.destination == null) {
-				const branch = await state.repo.getBranch();
+				const branch = await state.repo.git.branches().getBranch();
 				if (branch == null) break;
 
 				context.destination = branch;
 			}
 
 			if (state.counter < 2 || state.references == null || state.references.length === 0) {
-				const ref = context.destination.ref;
+				const rev = context.destination.ref;
 
-				let log = context.cache.get(ref);
+				let log = context.cache.get(rev);
 				if (log == null) {
-					log = this.container.git.getLog(state.repo.path, { ref: ref, merges: 'first-parent' });
-					context.cache.set(ref, log);
+					log = state.repo.git.commits().getLog(rev, { merges: 'first-parent' });
+					context.cache.set(rev, log);
 				}
 
 				const result: StepResult<GitRevisionReference[]> = yield* pickCommitsStep(
@@ -136,7 +136,7 @@ export class RevertGitCommand extends QuickCommand<State> {
 					context,
 					{
 						log: await log,
-						onDidLoadMore: log => context.cache.set(ref, Promise.resolve(log)),
+						onDidLoadMore: log => context.cache.set(rev, Promise.resolve(log)),
 						placeholder: (context, log) =>
 							log == null ? `${context.destination.name} has no commits` : 'Choose commits to revert',
 						picked: state.references?.map(r => r.ref),

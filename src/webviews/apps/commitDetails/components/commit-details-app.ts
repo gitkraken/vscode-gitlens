@@ -3,6 +3,7 @@ import { html, LitElement, nothing } from 'lit';
 import { customElement, property, state } from 'lit/decorators.js';
 import { when } from 'lit/directives/when.js';
 import type { ViewFilesLayout } from '../../../../config';
+import type { GlCommands } from '../../../../constants.commands';
 import type { Serialized } from '../../../../system/serialize';
 import { pluralize } from '../../../../system/string';
 import type { DraftState, ExecuteCommitActionsParams, Mode, State } from '../../../commitDetails/protocol';
@@ -47,8 +48,8 @@ import { ExecuteCommand } from '../../../protocol';
 import type { CreatePatchMetadataEventDetail } from '../../plus/patchDetails/components/gl-patch-create';
 import type { IssuePullRequest } from '../../shared/components/rich/issue-pull-request';
 import type { WebviewPane, WebviewPaneExpandedChangeEventDetail } from '../../shared/components/webview-pane';
-import type { Disposable } from '../../shared/dom';
 import { DOM } from '../../shared/dom';
+import type { Disposable } from '../../shared/events';
 import { assertsSerialized, HostIpc } from '../../shared/ipc';
 import type { GlCommitDetails } from './gl-commit-details';
 import type { FileChangeListItemDetail } from './gl-details-base';
@@ -69,7 +70,7 @@ export const uncommittedSha = '0000000000000000000000000000000000000000';
 interface ExplainState {
 	cancelled?: boolean;
 	error?: { message: string };
-	summary?: string;
+	result?: { summary: string; body: string };
 }
 
 @customElement('gl-commit-details-app')
@@ -87,16 +88,16 @@ export class GlCommitDetailsApp extends LitElement {
 	draftState: DraftState = { inReview: false };
 
 	@state()
-	get isUncommitted() {
+	get isUncommitted(): boolean {
 		return this.state?.commit?.sha === uncommittedSha;
 	}
 
-	get hasCommit() {
+	get hasCommit(): boolean {
 		return this.state?.commit != null;
 	}
 
 	@state()
-	get isStash() {
+	get isStash(): boolean {
 		return this.state?.commit?.stashNumber != null;
 	}
 
@@ -180,16 +181,16 @@ export class GlCommitDetailsApp extends LitElement {
 		rootStyle.setProperty('--gitlens-tree-indent', `${this.indentPreference}px`);
 	}
 
-	override updated(changedProperties: Map<string | number | symbol, unknown>) {
+	override updated(changedProperties: Map<string | number | symbol, unknown>): void {
 		if (changedProperties.has('state')) {
 			this.updateDocumentProperties();
-			if (this.state?.inReview != null && this.state.inReview != this.draftState.inReview) {
+			if (this.state?.inReview != null && this.state.inReview !== this.draftState.inReview) {
 				this.draftState.inReview = this.state.inReview;
 			}
 		}
 	}
 
-	override connectedCallback() {
+	override connectedCallback(): void {
 		super.connectedCallback();
 
 		this._hostIpc = new HostIpc('commit-details');
@@ -349,14 +350,14 @@ export class GlCommitDetailsApp extends LitElement {
 		}
 	}
 
-	override disconnectedCallback() {
+	override disconnectedCallback(): void {
 		this._disposables.forEach(d => d.dispose());
 		this._disposables = [];
 
 		super.disconnectedCallback();
 	}
 
-	renderTopInspect() {
+	private renderTopInspect() {
 		if (this.state?.commit == null) return nothing;
 
 		return html`<gl-inspect-nav
@@ -368,7 +369,7 @@ export class GlCommitDetailsApp extends LitElement {
 		></gl-inspect-nav>`;
 	}
 
-	renderTopWip() {
+	private renderTopWip() {
 		if (this.state?.wip == null) return nothing;
 
 		return html`<gl-status-nav .wip=${this.state.wip} .preferences=${this.state.preferences}></gl-status-nav>`;
@@ -403,7 +404,7 @@ export class GlCommitDetailsApp extends LitElement {
 		// )}
 	}
 
-	renderWipTooltipContent() {
+	private renderWipTooltipContent() {
 		if (this.wipStatus == null) return 'Overview';
 
 		return html`
@@ -443,7 +444,7 @@ export class GlCommitDetailsApp extends LitElement {
 		`;
 	}
 
-	renderTopSection() {
+	private renderTopSection() {
 		const isWip = this.state?.mode === 'wip';
 
 		return html`
@@ -491,7 +492,7 @@ export class GlCommitDetailsApp extends LitElement {
 		`;
 	}
 
-	override render() {
+	override render(): unknown {
 		const wip = this.state?.wip;
 
 		return html`
@@ -528,7 +529,7 @@ export class GlCommitDetailsApp extends LitElement {
 		`;
 	}
 
-	protected override createRenderRoot() {
+	protected override createRenderRoot(): HTMLElement {
 		return this;
 	}
 
@@ -583,8 +584,8 @@ export class GlCommitDetailsApp extends LitElement {
 		this._hostIpc.sendCommand(CreatePatchFromWipCommand, { changes: this.state.wip.changes, checked: checked });
 	}
 
-	private onCommandClickedCore(action?: string) {
-		const command = action?.startsWith('command:') ? action.slice(8) : action;
+	private onCommandClickedCore(action?: GlCommands | `command:${GlCommands}`) {
+		const command = (action?.startsWith('command:') ? action.slice(8) : action) as GlCommands | undefined;
 		if (command == null) return;
 
 		this._hostIpc.sendCommand(ExecuteCommand, { command: command });
@@ -594,17 +595,15 @@ export class GlCommitDetailsApp extends LitElement {
 		this.onCommandClickedCore('gitlens.switchAIModel');
 	}
 
-	async onExplainCommit(_e: MouseEvent) {
+	private async onExplainCommit(_e: MouseEvent) {
 		try {
 			const result = await this._hostIpc.sendRequest(ExplainRequest, undefined);
 			if (result.error) {
 				this.explain = { error: { message: result.error.message ?? 'Error retrieving content' } };
-			} else if (result.summary) {
-				this.explain = { summary: result.summary };
 			} else {
-				this.explain = undefined;
+				this.explain = result;
 			}
-		} catch (ex) {
+		} catch (_ex) {
 			this.explain = { error: { message: 'Error retrieving content' } };
 		}
 	}
@@ -632,7 +631,7 @@ export class GlCommitDetailsApp extends LitElement {
 			} else {
 				this.generate = undefined;
 			}
-		} catch (ex) {
+		} catch (_ex) {
 			this.generate = { error: { message: 'Error retrieving content' } };
 		}
 		this.requestUpdate('generate');

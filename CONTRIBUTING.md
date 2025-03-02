@@ -19,15 +19,15 @@ git clone https://github.com/gitkraken/vscode-gitlens.git
 Prerequisites
 
 - [Git](https://git-scm.com/), `>= 2.7.2`
-- [NodeJS](https://nodejs.org/), `>= 20`
-- [yarn](https://yarnpkg.com/), `>= 1.22.22`
+- [NodeJS](https://nodejs.org/), `>= 22.12.0`
+- [pnpm](https://pnpm.io/), `>= 10.x` (install using [corepack](https://nodejs.org/docs/latest-v20.x/api/corepack.html))
 
 ### Dependencies
 
 From a terminal, where you have cloned the repository, execute the following command to install the required dependencies:
 
 ```
-yarn
+pnpm install
 ```
 
 ### Build
@@ -35,7 +35,7 @@ yarn
 From a terminal, where you have cloned the repository, execute the following command to re-build the project from scratch:
 
 ```
-yarn run rebuild
+pnpm run rebuild
 ```
 
 👉 **NOTE!** This will run a complete rebuild of the project.
@@ -43,7 +43,7 @@ yarn run rebuild
 Or to just run a quick build, use:
 
 ```
-yarn run build
+pnpm run build
 ```
 
 ### Watch
@@ -51,7 +51,7 @@ yarn run build
 During development you can use a watcher to make builds on changes quick and easy. From a terminal, where you have cloned the repository, execute the following command:
 
 ```
-yarn run watch
+pnpm run watch
 ```
 
 Or use the provided `watch` task in VS Code, execute the following from the command palette (be sure there is no `>` at the start):
@@ -68,7 +68,7 @@ This will first do an initial full build and then watch for file changes, compil
 
 ### Formatting
 
-This project uses [prettier](https://prettier.io/) for code formatting. You can run prettier across the code by calling `yarn run pretty` from a terminal.
+This project uses [prettier](https://prettier.io/) for code formatting. You can run prettier across the code by calling `pnpm run pretty` from a terminal.
 
 To format the code as you make changes you can install the [Prettier - Code formatter](https://marketplace.visualstudio.com/items/esbenp.prettier-vscode) extension.
 
@@ -80,7 +80,7 @@ Add the following to your User Settings to run prettier:
 
 ### Linting
 
-This project uses [ESLint](https://eslint.org/) for code linting. You can run ESLint across the code by calling `yarn run lint` from a terminal. Warnings from ESLint show up in the `Errors and Warnings` quick box and you can navigate to them from inside VS Code.
+This project uses [ESLint](https://eslint.org/) for code linting. You can run ESLint across the code by calling `pnpm run lint` from a terminal. Warnings from ESLint show up in the `Errors and Warnings` quick box and you can navigate to them from inside VS Code.
 
 To lint the code as you make changes you can install the [ESLint](https://marketplace.visualstudio.com/items?itemName=dbaeumer.vscode-eslint) extension.
 
@@ -89,13 +89,13 @@ To lint the code as you make changes you can install the [ESLint](https://market
 To generate a production bundle (without packaging) run the following from a terminal:
 
 ```
-yarn run bundle
+pnpm run bundle
 ```
 
 To generate a VSIX (installation package) run the following from a terminal:
 
 ```
-yarn run package
+pnpm run package
 ```
 
 ### Debugging
@@ -198,17 +198,17 @@ Before publishing a new release, do the following:
 3. Ensure all items in the `{major}.{minor}` GitHub milestone are closed and verified or moved into one of the above milestones
 4. Close the `{major}.{minor}` and `{major}.{minor-1}-patch` GitHub milestones
 
-Then, use the [prep-release](scripts/prep-release.js) script to prepare a new release. The script updates the [package.json](package.json) and [CHANGELOG.md](CHANGELOG.md) appropriately, commits the changes as `Bumps to v{major}.{minor}.{patch}`, and creates a `v{major}.{minor}.{patch}` tag which when pushed will trigger the CI to publish a release.
+Then, use the [prep-release](scripts/prep-release.mjs) script to prepare a new release. The script updates the [package.json](package.json) and [CHANGELOG.md](CHANGELOG.md) appropriately, commits the changes as `Bumps to v{major}.{minor}.{patch}`, and creates a `v{major}.{minor}.{patch}` tag which when pushed will trigger the CI to publish a release.
 
 1. Ensure you are on the `main` branch and have a clean working tree
 2. Ensure the [CHANGELOG.md](CHANGELOG.md) has been updated with the release notes
-3. Run `yarn run prep-release` and enter the desired `{major}.{minor}.{patch}` version when prompted
+3. Run `pnpm run prep-release` and enter the desired `{major}.{minor}.{patch}` version when prompted
 4. Review the `Bumps to v{major}.{minor}.{patch}` commit
 5. Run `git push --follow-tags` to push the commit and tag
 
 Pushing the `v{major}.{minor}.{patch}` tag will trigger the [Publish Stable workflow](.github/workflows/cd-stable.yml) to automatically package the extension, create a [GitHub release](https://github.com/gitkraken/vscode-gitlens/releases/latest), and deploy it to the [VS Marketplace](https://marketplace.visualstudio.com/items?itemName=eamodio.gitlens).
 
-If the action fails and retries are unsuccessful, the VSIX can be built locally with `yarn package` and uploaded manually to the marketplace. A GitHub release can also be [created manually](https://github.com/gitkraken/vscode-gitlens/releases/new) using `v{major}.{minor}.{patch}` as the title and the notes from the [CHANGELOG.md](CHANGELOG.md) with the VSIX attached.
+If the action fails and retries are unsuccessful, the VSIX can be built locally with `pnpm run package` and uploaded manually to the marketplace. A GitHub release can also be [created manually](https://github.com/gitkraken/vscode-gitlens/releases/new) using `v{major}.{minor}.{patch}` as the title and the notes from the [CHANGELOG.md](CHANGELOG.md) with the VSIX attached.
 
 #### Preparing a Patch Release
 
@@ -240,8 +240,8 @@ To add new icons to the GL Icons font follow the steps below:
 - Optimize and build the icons by running the following from a terminal:
 
   ```
-  yarn run icons:svgo
-  yarn run build:icons
+  pnpm run icons:svgo
+  pnpm run build:icons
 
   ```
 

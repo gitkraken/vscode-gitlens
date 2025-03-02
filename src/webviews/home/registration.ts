@@ -1,17 +1,22 @@
-import type { WebviewsController } from '../webviewsController';
+import type { WebviewsController, WebviewViewProxy } from '../webviewsController';
 import type { State } from './protocol';
 
-export function registerHomeWebviewView(controller: WebviewsController) {
-	return controller.registerWebviewView<State>(
+export type HomeWebviewShowingArgs = [{ focusAccount: boolean }];
+
+export function registerHomeWebviewView(
+	controller: WebviewsController,
+): WebviewViewProxy<'gitlens.views.home', HomeWebviewShowingArgs, State> {
+	return controller.registerWebviewView<'gitlens.views.home', State, State, HomeWebviewShowingArgs>(
 		{
 			id: 'gitlens.views.home',
 			fileName: 'home.html',
 			title: 'Home',
 			contextKeyPrefix: `gitlens:webviewView:home`,
 			trackingFeature: 'homeView',
+			type: 'home',
 			plusFeature: false,
 			webviewHostOptions: {
-				retainContextWhenHidden: false,
+				retainContextWhenHidden: true,
 			},
 		},
 		async (container, host) => {

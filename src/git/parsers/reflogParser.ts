@@ -1,3 +1,4 @@
+import type { Container } from '../../container';
 import { maybeStopWatch } from '../../system/stopwatch';
 import type { GitReflog } from '../models/reflog';
 import { GitReflogRecord } from '../models/reflog';
@@ -18,6 +19,7 @@ export const parseGitRefLogDefaultFormat = [
 ].join('');
 
 export function parseGitRefLog(
+	container: Container,
 	data: string,
 	repoPath: string,
 	commands: string[],
@@ -67,7 +69,7 @@ export function parseGitRefLog(
 				if (
 					head != null &&
 					headDate === recordDate &&
-					headSha == record.sha &&
+					headSha === record.sha &&
 					reflogHEADRegex.test(record.selector)
 				) {
 					record.update(sha, head);
@@ -94,18 +96,19 @@ export function parseGitRefLog(
 
 		if (commands.includes(command)) {
 			record = new GitReflogRecord(
+				container,
 				repoPath,
 				// Stops excessive memory usage -- https://bugs.chromium.org/p/v8/issues/detail?id=2869
-				` ${sha}`.substr(1),
+				` ${sha}`.substring(1),
 				// Stops excessive memory usage -- https://bugs.chromium.org/p/v8/issues/detail?id=2869
-				` ${selector}`.substr(1),
+				` ${selector}`.substring(1),
 				new Date(date),
 				// Stops excessive memory usage -- https://bugs.chromium.org/p/v8/issues/detail?id=2869
-				` ${command}`.substr(1),
+				` ${command}`.substring(1),
 				// Stops excessive memory usage -- https://bugs.chromium.org/p/v8/issues/detail?id=2869
-				commandArgs == null || commandArgs.length === 0 ? undefined : commandArgs.substr(1),
+				commandArgs == null || commandArgs.length === 0 ? undefined : commandArgs.substring(1),
 				// Stops excessive memory usage -- https://bugs.chromium.org/p/v8/issues/detail?id=2869
-				details == null || details.length === 0 ? undefined : details.substr(1),
+				details == null || details.length === 0 ? undefined : details.substring(1),
 			);
 			recordDate = date;
 		}

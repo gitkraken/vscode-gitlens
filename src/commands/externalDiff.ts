@@ -2,18 +2,18 @@ import type { SourceControlResourceState } from 'vscode';
 import { env, Uri, window } from 'vscode';
 import type { ScmResource } from '../@types/vscode.git.resources';
 import { ScmResourceGroupType, ScmStatus } from '../@types/vscode.git.resources.enums';
-import { Commands } from '../constants';
 import type { Container } from '../container';
 import { GitUri } from '../git/gitUri';
-import { isUncommitted } from '../git/models/reference';
+import { isUncommitted } from '../git/utils/revision.utils';
 import { showGenericErrorMessage } from '../messages';
 import { getRepositoryOrShowPicker } from '../quickpicks/repositoryPicker';
+import { command } from '../system/-webview/command';
+import { configuration } from '../system/-webview/configuration';
 import { filterMap } from '../system/array';
-import { command } from '../system/command';
-import { configuration } from '../system/configuration';
 import { Logger } from '../system/logger';
-import type { CommandContext } from './base';
-import { Command, isCommandContextViewNodeHasFileCommit, isCommandContextViewNodeHasFileRefs } from './base';
+import { GlCommandBase } from './commandBase';
+import type { CommandContext } from './commandContext';
+import { isCommandContextViewNodeHasFileCommit, isCommandContextViewNodeHasFileRefs } from './commandContext.utils';
 
 interface ExternalDiffFile {
 	uri: Uri;
@@ -27,12 +27,12 @@ export interface ExternalDiffCommandArgs {
 }
 
 @command()
-export class ExternalDiffCommand extends Command {
+export class ExternalDiffCommand extends GlCommandBase {
 	constructor(private readonly container: Container) {
-		super([Commands.ExternalDiff, Commands.ExternalDiffAll]);
+		super(['gitlens.externalDiff', 'gitlens.externalDiffAll']);
 	}
 
-	protected override async preExecute(context: CommandContext, args?: ExternalDiffCommandArgs) {
+	protected override async preExecute(context: CommandContext, args?: ExternalDiffCommandArgs): Promise<void> {
 		args = { ...args };
 
 		if (isCommandContextViewNodeHasFileCommit(context)) {
@@ -83,14 +83,14 @@ export class ExternalDiffCommand extends Command {
 			}
 		}
 
-		if (context.command === Commands.ExternalDiffAll) {
+		if (context.command === 'gitlens.externalDiffAll') {
 			if (args.files == null) {
 				const repository = await getRepositoryOrShowPicker('Open All Changes (difftool)');
-				if (repository == null) return undefined;
+				if (repository == null) return;
 
-				const status = await this.container.git.getStatusForRepo(repository.uri);
+				const status = await this.container.git.status(repository.uri).getStatus();
 				if (status == null) {
-					return window.showInformationMessage("The repository doesn't have any changes");
+					return void window.showInformationMessage("The repository doesn't have any changes");
 				}
 
 				args.files = [];
@@ -117,7 +117,7 @@ export class ExternalDiffCommand extends Command {
 		);
 	}
 
-	async execute(args?: ExternalDiffCommandArgs) {
+	async execute(args?: ExternalDiffCommandArgs): Promise<void> {
 		args = { ...args };
 
 		try {
@@ -130,7 +130,7 @@ export class ExternalDiffCommand extends Command {
 				if (!repoPath) return;
 
 				const uri = editor.document.uri;
-				const status = await this.container.git.getStatusForFile(repoPath, uri);
+				const status = await this.container.git.status(repoPath).getStatusForFile?.(uri);
 				if (status == null) {
 					void window.showInformationMessage("The current file doesn't have any changes");
 
@@ -151,7 +151,8 @@ export class ExternalDiffCommand extends Command {
 			}
 
 			const tool =
-				configuration.get('advanced.externalDiffTool') || (await this.container.git.getDiffTool(repoPath));
+				configuration.get('advanced.externalDiffTool') ||
+				(await this.container.git.diff(repoPath).getDiffTool?.());
 			if (!tool) {
 				const viewDocs = 'View Git Docs';
 				const result = await window.showWarningMessage(
@@ -168,7 +169,7 @@ export class ExternalDiffCommand extends Command {
 			}
 
 			for (const file of args.files) {
-				void this.container.git.openDiffTool(repoPath, file.uri, {
+				void this.container.git.diff(repoPath).openDiffTool?.(file.uri, {
 					ref1: file.ref1,
 					ref2: file.ref2,
 					staged: file.staged,

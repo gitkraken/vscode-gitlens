@@ -1,25 +1,20 @@
-import type { QuickInputButton, Uri, WorkspaceFolder } from 'vscode';
-import { ThemeIcon, workspace } from 'vscode';
-import type { BranchSorting } from '../../config';
-import { GlyphChars } from '../../constants';
-import { Container } from '../../container';
-import type { QuickPickItemOfT } from '../../quickpicks/items/common';
-import { configuration } from '../../system/configuration';
+/* eslint-disable @typescript-eslint/no-restricted-imports */ /* TODO need to deal with sharing rich class shapes to webviews */
+import type { Uri, WorkspaceFolder } from 'vscode';
+import { workspace } from 'vscode';
+import type { Container } from '../../container';
+import { relative } from '../../system/-webview/path';
+import { getWorkspaceFriendlyPath } from '../../system/-webview/vscode';
 import { formatDate, fromNow } from '../../system/date';
-import { memoize } from '../../system/decorators/memoize';
-import { PageableResult } from '../../system/paging';
-import { normalizePath, relative } from '../../system/path';
-import { pad, sortCompare } from '../../system/string';
-import { getWorkspaceFriendlyPath } from '../../system/utils';
+import { memoize } from '../../system/decorators/-webview/memoize';
+import { normalizePath } from '../../system/path';
+import { shortenRevision } from '../utils/revision.utils';
 import type { GitBranch } from './branch';
-import { shortenRevision } from './reference';
-import type { Repository } from './repository';
 import type { GitStatus } from './status';
 
 export class GitWorktree {
 	constructor(
 		private readonly container: Container,
-		public readonly main: boolean,
+		public readonly isDefault: boolean,
 		public readonly type: 'bare' | 'branch' | 'detached',
 		public readonly repoPath: string,
 		public readonly uri: Uri,
@@ -90,7 +85,7 @@ export class GitWorktree {
 			// eslint-disable-next-line no-async-promise-executor
 			this._statusPromise = new Promise(async (resolve, reject) => {
 				try {
-					const status = await Container.instance.git.getStatusForRepo(this.uri.fsPath);
+					const status = await this.container.git.status(this.uri.fsPath).getStatus();
 					this._status = status;
 					resolve(status);
 				} catch (ex) {
@@ -103,230 +98,6 @@ export class GitWorktree {
 	}
 }
 
-export interface WorktreeQuickPickItem extends QuickPickItemOfT<GitWorktree> {
-	readonly opened: boolean;
-	readonly hasChanges: boolean | undefined;
-}
-
-export function createWorktreeQuickPickItem(
-	worktree: GitWorktree,
-	picked?: boolean,
-	missing?: boolean,
-	options?: {
-		alwaysShow?: boolean;
-		buttons?: QuickInputButton[];
-		checked?: boolean;
-		includeStatus?: boolean;
-		message?: boolean;
-		path?: boolean;
-		type?: boolean;
-		status?: GitStatus;
-	},
-) {
-	let description = '';
-	let detail = '';
-	if (options?.type) {
-		description = 'worktree';
-	}
-
-	if (options?.includeStatus) {
-		let status = '';
-		let blank = 0;
-		if (options?.status != null) {
-			if (options.status.upstream?.missing) {
-				status += GlyphChars.Warning;
-				blank += 3;
-			} else {
-				if (options.status.state.behind) {
-					status += GlyphChars.ArrowDown;
-				} else {
-					blank += 2;
-				}
-
-				if (options.status.state.ahead) {
-					status += GlyphChars.ArrowUp;
-				} else {
-					blank += 2;
-				}
-
-				if (options.status.hasChanges) {
-					status += '\u00B1';
-				} else {
-					blank += 2;
-				}
-			}
-		} else {
-			blank += 6;
-		}
-
-		if (blank > 0) {
-			status += ' '.repeat(blank);
-		}
-
-		const formattedDate = worktree.formattedDate;
-		if (formattedDate) {
-			if (description) {
-				description += `  ${GlyphChars.Dot}  ${worktree.formattedDate}`;
-			} else {
-				description = formattedDate;
-			}
-		}
-
-		if (status) {
-			detail += detail ? `  ${GlyphChars.Dot}  ${status}` : status;
-		}
-	}
-
-	let iconPath;
-	let label;
-	switch (worktree.type) {
-		case 'bare':
-			label = '(bare)';
-			iconPath = new ThemeIcon('folder');
-			break;
-		case 'branch':
-			label = worktree.branch?.name ?? 'unknown';
-			iconPath = new ThemeIcon('git-branch');
-			break;
-		case 'detached':
-			label = shortenRevision(worktree.sha);
-			iconPath = new ThemeIcon('git-commit');
-			break;
-	}
-
-	const item: WorktreeQuickPickItem = {
-		label: options?.checked ? `${label}${pad('$(check)', 2)}` : label,
-		description: description ? ` ${description}` : undefined,
-		detail: options?.path
-			? `${detail ? `${detail}  ` : ''}${missing ? `${GlyphChars.Warning} (missing)` : '$(folder)'} ${
-					worktree.friendlyPath
-			  }`
-			: detail,
-		alwaysShow: options?.alwaysShow,
-		buttons: options?.buttons,
-		picked: picked,
-		item: worktree,
-		opened: worktree.opened,
-		hasChanges: options?.status?.hasChanges,
-		iconPath: iconPath,
-	};
-
-	return item;
-}
-
-export async function getWorktreeForBranch(
-	repo: Repository,
-	branchName: string,
-	upstreamNames: string | string[],
-	worktrees?: GitWorktree[],
-	branches?: PageableResult<GitBranch> | Map<unknown, GitBranch>,
-): Promise<GitWorktree | undefined> {
-	if (upstreamNames != null && !Array.isArray(upstreamNames)) {
-		upstreamNames = [upstreamNames];
-	}
-
-	worktrees ??= await repo.getWorktrees();
-	for (const worktree of worktrees) {
-		if (worktree.branch?.name === branchName) return worktree;
-
-		if (upstreamNames == null || worktree.branch == null) continue;
-
-		branches ??= new PageableResult<GitBranch>(p => repo.getBranches(p != null ? { paging: p } : undefined));
-		for await (const branch of branches.values()) {
-			if (branch.name === worktree.branch.name) {
-				if (
-					branch.upstream?.name != null &&
-					(upstreamNames.includes(branch.upstream.name) ||
-						(branch.upstream.name.startsWith('remotes/') &&
-							upstreamNames.includes(branch.upstream.name.substring(8))))
-				) {
-					return worktree;
-				}
-
-				break;
-			}
-		}
-	}
-
-	return undefined;
-}
-
 export function isWorktree(worktree: any): worktree is GitWorktree {
 	return worktree instanceof GitWorktree;
-}
-
-export interface WorktreeSortOptions {
-	orderBy?: BranchSorting;
-}
-export function sortWorktrees(worktrees: GitWorktree[], options?: WorktreeSortOptions): GitWorktree[];
-export function sortWorktrees(
-	worktrees: WorktreeQuickPickItem[],
-	options?: WorktreeSortOptions,
-): WorktreeQuickPickItem[];
-export function sortWorktrees(worktrees: GitWorktree[] | WorktreeQuickPickItem[], options?: WorktreeSortOptions) {
-	options = { orderBy: configuration.get('sortBranchesBy'), ...options };
-
-	const getWorktree = (worktree: GitWorktree | WorktreeQuickPickItem): GitWorktree => {
-		return isWorktree(worktree) ? worktree : worktree.item;
-	};
-
-	switch (options.orderBy) {
-		case 'date:asc':
-			return worktrees.sort((a, b) => {
-				a = getWorktree(a);
-				b = getWorktree(b);
-
-				return (
-					(a.opened ? -1 : 1) - (b.opened ? -1 : 1) ||
-					(a.hasChanges === null ? 0 : a.hasChanges ? -1 : 1) -
-						(b.hasChanges === null ? 0 : b.hasChanges ? -1 : 1) ||
-					(a.date == null ? -1 : a.date.getTime()) - (b.date == null ? -1 : b.date.getTime()) ||
-					sortCompare(a.name, b.name)
-				);
-			});
-		case 'name:asc':
-			return worktrees.sort((a, b) => {
-				a = getWorktree(a);
-				b = getWorktree(b);
-
-				return (
-					(a.opened ? -1 : 1) - (b.opened ? -1 : 1) ||
-					(a.hasChanges === null ? 0 : a.hasChanges ? -1 : 1) -
-						(b.hasChanges === null ? 0 : b.hasChanges ? -1 : 1) ||
-					(a.name === 'main' ? -1 : 1) - (b.name === 'main' ? -1 : 1) ||
-					(a.name === 'master' ? -1 : 1) - (b.name === 'master' ? -1 : 1) ||
-					(a.name === 'develop' ? -1 : 1) - (b.name === 'develop' ? -1 : 1) ||
-					sortCompare(a.name, b.name)
-				);
-			});
-		case 'name:desc':
-			return worktrees.sort((a, b) => {
-				a = getWorktree(a);
-				b = getWorktree(b);
-
-				return (
-					(a.opened ? -1 : 1) - (b.opened ? -1 : 1) ||
-					(a.hasChanges === null ? 0 : a.hasChanges ? -1 : 1) -
-						(b.hasChanges === null ? 0 : b.hasChanges ? -1 : 1) ||
-					(a.name === 'main' ? -1 : 1) - (b.name === 'main' ? -1 : 1) ||
-					(a.name === 'master' ? -1 : 1) - (b.name === 'master' ? -1 : 1) ||
-					(a.name === 'develop' ? -1 : 1) - (b.name === 'develop' ? -1 : 1) ||
-					sortCompare(b.name, a.name)
-				);
-			});
-		case 'date:desc':
-		default:
-			return worktrees.sort((a, b) => {
-				a = getWorktree(a);
-				b = getWorktree(b);
-
-				return (
-					(a.opened ? -1 : 1) - (b.opened ? -1 : 1) ||
-					(b.date == null ? -1 : b.date.getTime()) - (a.date == null ? -1 : a.date.getTime()) ||
-					(a.hasChanges === null ? 0 : a.hasChanges ? -1 : 1) -
-						(b.hasChanges === null ? 0 : b.hasChanges ? -1 : 1) ||
-					sortCompare(b.name, a.name)
-				);
-			});
-	}
 }

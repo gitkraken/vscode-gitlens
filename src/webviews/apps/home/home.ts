@@ -1,212 +1,90 @@
 /*global*/
 import './home.scss';
-import type { Disposable } from 'vscode';
+import { provide } from '@lit/context';
+import { html } from 'lit';
+import { customElement, query } from 'lit/decorators.js';
+import { when } from 'lit/directives/when.js';
 import type { State } from '../../home/protocol';
+import { DidFocusAccount } from '../../home/protocol';
 import {
-	CollapseSectionCommand,
-	DidChangeOrgSettings,
-	DidChangeRepositories,
-	DidChangeSubscription,
-} from '../../home/protocol';
-import type { IpcMessage } from '../../protocol';
-import { ExecuteCommand } from '../../protocol';
-import { App } from '../shared/appBase';
-import type { GlFeatureBadge } from '../shared/components/feature-badge';
-import { DOM } from '../shared/dom';
-import '../shared/components/button';
-import '../shared/components/code-icon';
-import '../shared/components/feature-badge';
-import '../shared/components/overlays/tooltip';
+	ActiveOverviewState,
+	activeOverviewStateContext,
+	InactiveOverviewState,
+	inactiveOverviewStateContext,
+} from '../plus/home/components/overviewState';
+import type { GLHomeHeader } from '../plus/shared/components/home-header';
+import { GlApp } from '../shared/app';
+import { scrollableBase } from '../shared/components/styles/lit/base.css';
+import type { HostIpc } from '../shared/ipc';
+import { homeBaseStyles, homeStyles } from './home.css';
+import { HomeStateProvider } from './stateProvider';
+import '../plus/shared/components/home-header';
+import '../plus/home/components/active-work';
+import '../plus/home/components/launchpad';
+import '../plus/home/components/overview';
+import './components/feature-nav';
+import './components/ama-banner';
+import './components/integration-banner';
+import './components/preview-banner';
+import './components/promo-banner';
+import './components/repo-alerts';
 
-export class HomeApp extends App<State> {
-	constructor() {
-		super('HomeApp');
+@customElement('gl-home-app')
+export class GlHomeApp extends GlApp<State> {
+	static override styles = [homeBaseStyles, scrollableBase, homeStyles];
+
+	@provide({ context: activeOverviewStateContext })
+	private _activeOverviewState!: ActiveOverviewState;
+
+	@provide({ context: inactiveOverviewStateContext })
+	private _inactiveOverviewState!: InactiveOverviewState;
+
+	@query('gl-home-header')
+	private _header!: GLHomeHeader;
+
+	private badgeSource = { source: 'home', detail: 'badge' };
+
+	protected override createStateProvider(state: State, ipc: HostIpc): HomeStateProvider {
+		this.disposables.push((this._activeOverviewState = new ActiveOverviewState(ipc)));
+		this.disposables.push((this._inactiveOverviewState = new InactiveOverviewState(ipc)));
+
+		return new HomeStateProvider(this, state, ipc);
 	}
 
-	private get blockRepoFeatures() {
-		const {
-			repositories: { openCount, hasUnsafe, trusted },
-		} = this.state;
-		return !trusted || openCount === 0 || hasUnsafe;
-	}
+	override connectedCallback(): void {
+		super.connectedCallback();
 
-	protected override onInitialize() {
-		this.state = this.getState() ?? this.state;
-		this.updateState();
-	}
-
-	protected override onBind(): Disposable[] {
-		const disposables = super.onBind?.() ?? [];
-
-		disposables.push(
-			DOM.on('[data-action]', 'click', (e, target: HTMLElement) => this.onDataActionClicked(e, target)),
-			DOM.on('[data-requires="repo"]', 'click', (e, target: HTMLElement) => this.onRepoFeatureClicked(e, target)),
-			DOM.on('[data-section-toggle]', 'click', (e, target: HTMLElement) =>
-				this.onSectionToggleClicked(e, target),
-			),
-			DOM.on('[data-section-expand]', 'click', (e, target: HTMLElement) =>
-				this.onSectionExpandClicked(e, target),
-			),
+		this.disposables.push(
+			this._ipc.onReceiveMessage(msg => {
+				switch (true) {
+					case DidFocusAccount.is(msg):
+						this._header.show();
+						break;
+				}
+			}),
 		);
-
-		return disposables;
 	}
 
-	protected override onMessageReceived(msg: IpcMessage) {
-		switch (true) {
-			case DidChangeRepositories.is(msg):
-				this.state.repositories = msg.params;
-				this.state.timestamp = Date.now();
-				this.setState(this.state);
-				this.updateNoRepo();
-				break;
-
-			case DidChangeSubscription.is(msg):
-				this.state.promoStates = msg.params.promoStates;
-				this.state.subscription = msg.params.subscription;
-				this.setState(this.state);
-				this.updatePromos();
-				this.updateSourceAndSubscription();
-
-				break;
-
-			case DidChangeOrgSettings.is(msg):
-				this.state.orgSettings = msg.params.orgSettings;
-				this.setState(this.state);
-				this.updateOrgSettings();
-				break;
-
-			default:
-				super.onMessageReceived?.(msg);
-				break;
-		}
-	}
-
-	private onRepoFeatureClicked(e: MouseEvent, _target: HTMLElement) {
-		if (this.blockRepoFeatures) {
-			e.preventDefault();
-			e.stopPropagation();
-			return false;
-		}
-
-		return true;
-	}
-
-	private onDataActionClicked(_e: MouseEvent, target: HTMLElement) {
-		const action = target.dataset.action;
-		this.onActionClickedCore(action);
-	}
-
-	private onActionClickedCore(action?: string) {
-		if (action?.startsWith('command:')) {
-			this.sendCommand(ExecuteCommand, { command: action.slice(8) });
-		}
-	}
-
-	private onSectionToggleClicked(e: MouseEvent, target: HTMLElement) {
-		e.stopImmediatePropagation();
-		const section = target.dataset.sectionToggle;
-		if (section !== 'walkthrough') {
-			return;
-		}
-
-		this.updateCollapsedSections(!this.state.walkthroughCollapsed);
-	}
-
-	private onSectionExpandClicked(e: MouseEvent, target: HTMLElement) {
-		const section = target.dataset.sectionExpand;
-		if (section !== 'walkthrough') {
-			return;
-		}
-		this.updateCollapsedSections(false);
-	}
-
-	private updateNoRepo() {
-		const {
-			repositories: { openCount, hasUnsafe, trusted },
-		} = this.state;
-
-		const header = document.getElementById('header')!;
-		if (!trusted) {
-			header.hidden = false;
-			setElementVisibility('untrusted-alert', true);
-			setElementVisibility('no-repo-alert', false);
-			setElementVisibility('unsafe-repo-alert', false);
-
-			return;
-		}
-
-		setElementVisibility('untrusted-alert', false);
-
-		const noRepos = openCount === 0;
-		setElementVisibility('no-repo-alert', noRepos && !hasUnsafe);
-		setElementVisibility('unsafe-repo-alert', hasUnsafe);
-		header.hidden = !noRepos && !hasUnsafe;
-	}
-
-	private updatePromos() {
-		const {
-			promoStates: { hs2023, pro50 },
-		} = this.state;
-
-		setElementVisibility('promo-hs2023', hs2023);
-		setElementVisibility('promo-pro50', pro50);
-	}
-
-	private updateOrgSettings() {
-		const {
-			orgSettings: { drafts },
-		} = this.state;
-
-		for (const el of document.querySelectorAll<HTMLElement>('[data-org-requires="drafts"]')) {
-			setElementVisibility(el, drafts);
-		}
-	}
-
-	private updateSourceAndSubscription() {
-		const { subscription } = this.state;
-		const els = document.querySelectorAll<GlFeatureBadge>('gl-feature-badge');
-		for (const el of els) {
-			el.source = { source: 'home', detail: 'badge' };
-			el.subscription = subscription;
-		}
-	}
-
-	private updateCollapsedSections(toggle = this.state.walkthroughCollapsed) {
-		this.state.walkthroughCollapsed = toggle;
-		this.setState({ walkthroughCollapsed: toggle });
-		document.getElementById('section-walkthrough')!.classList.toggle('is-collapsed', toggle);
-		this.sendCommand(CollapseSectionCommand, {
-			section: 'walkthrough',
-			collapsed: toggle,
-		});
-	}
-
-	private updateState() {
-		this.updateNoRepo();
-		this.updatePromos();
-		this.updateSourceAndSubscription();
-		this.updateOrgSettings();
-		this.updateCollapsedSections();
+	override render(): unknown {
+		return html`
+			<div class="home scrollable">
+				<gl-home-header class="home__header"></gl-home-header>
+				${when(!this.state?.previewEnabled, () => html`<gl-preview-banner></gl-preview-banner>`)}
+				${when(this.state?.amaBannerCollapsed === false, () => html`<gl-ama-banner></gl-ama-banner>`)}
+				<gl-repo-alerts class="home__alerts"></gl-repo-alerts>
+				<main class="home__main scrollable" id="main">
+					${when(
+						this.state?.previewEnabled === true,
+						() => html`
+							<gl-preview-banner></gl-preview-banner>
+							<gl-active-work></gl-active-work>
+							<gl-launchpad></gl-launchpad>
+							<gl-overview></gl-overview>
+						`,
+						() => html`<gl-feature-nav .badgeSource=${this.badgeSource}></gl-feature-nav>`,
+					)}
+				</main>
+			</div>
+		`;
 	}
 }
-
-function setElementVisibility(elementOrId: string | HTMLElement | null | undefined, visible: boolean) {
-	let el;
-	if (typeof elementOrId === 'string') {
-		el = document.getElementById(elementOrId);
-	} else {
-		el = elementOrId;
-	}
-	if (el == null) return;
-
-	if (visible) {
-		el.removeAttribute('aria-hidden');
-		el.removeAttribute('hidden');
-	} else {
-		el.setAttribute('aria-hidden', '');
-		el?.setAttribute('hidden', '');
-	}
-}
-
-new HomeApp();

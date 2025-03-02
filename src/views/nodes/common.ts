@@ -1,8 +1,8 @@
-import type { Command } from 'vscode';
+import type { Command, Uri } from 'vscode';
 import { TreeItem, TreeItemCollapsibleState } from 'vscode';
 import { GlyphChars } from '../../constants';
 import { unknownGitUri } from '../../git/gitUri';
-import { configuration } from '../../system/configuration';
+import { configuration } from '../../system/-webview/configuration';
 import type { View } from '../viewBase';
 import type { PageableViewNode } from './abstract/viewNode';
 import { ContextValues, ViewNode } from './abstract/viewNode';
@@ -11,11 +11,12 @@ export class MessageNode extends ViewNode<'message'> {
 	constructor(
 		view: View,
 		protected override readonly parent: ViewNode,
-		private readonly _message: string,
-		private readonly _description?: string,
-		private readonly _tooltip?: string,
-		private readonly _iconPath?: TreeItem['iconPath'],
-		private readonly _contextValue?: string,
+		private readonly message: string,
+		private readonly description?: string,
+		private readonly tooltip?: string,
+		private readonly iconPath?: TreeItem['iconPath'],
+		private readonly contextValue?: string,
+		private readonly resourceUri?: Uri,
 	) {
 		super('message', unknownGitUri, view, parent);
 	}
@@ -25,12 +26,19 @@ export class MessageNode extends ViewNode<'message'> {
 	}
 
 	getTreeItem(): TreeItem | Promise<TreeItem> {
-		const item = new TreeItem(this._message, TreeItemCollapsibleState.None);
-		item.contextValue = this._contextValue ?? ContextValues.Message;
-		item.description = this._description;
-		item.tooltip = this._tooltip;
-		item.iconPath = this._iconPath;
+		const item = new TreeItem(this.message, TreeItemCollapsibleState.None);
+		item.contextValue = this.contextValue ?? ContextValues.Message;
+		item.description = this.description;
+		item.tooltip = this.tooltip;
+		item.iconPath = this.iconPath;
+		item.resourceUri = this.resourceUri;
 		return item;
+	}
+}
+
+export class GroupedHeaderNode extends MessageNode {
+	constructor(view: View, parent: ViewNode, description?: string, label?: string) {
+		super(view, parent, label ?? view.name, description, view.name, undefined, `gitlens:views:${view.type}`);
 	}
 }
 
@@ -43,8 +51,10 @@ export class CommandMessageNode extends MessageNode {
 		description?: string,
 		tooltip?: string,
 		iconPath?: TreeItem['iconPath'],
+		contextValue?: string,
+		resourceUri?: Uri,
 	) {
-		super(view, parent, message, description, tooltip, iconPath);
+		super(view, parent, message, description, tooltip, iconPath, contextValue, resourceUri);
 	}
 
 	override getTreeItem(): TreeItem | Promise<TreeItem> {
@@ -76,7 +86,7 @@ export abstract class PagerNode extends ViewNode<'pager'> {
 		super('pager', unknownGitUri, view, parent);
 	}
 
-	async loadAll() {
+	async loadAll(): Promise<void> {
 		const count = (await this.options?.getCount?.()) ?? 0;
 		return this.view.loadMoreNodeChildren(
 			this.parent! as ViewNode & PageableViewNode,
@@ -86,7 +96,7 @@ export abstract class PagerNode extends ViewNode<'pager'> {
 		);
 	}
 
-	loadMore() {
+	loadMore(): Promise<void> {
 		return this.view.loadMoreNodeChildren(
 			this.parent! as ViewNode & PageableViewNode,
 			this.options?.pageSize ?? configuration.get('views.pageItemLimit'),

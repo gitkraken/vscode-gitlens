@@ -1,8 +1,10 @@
+import type { Container } from '../../container';
 import { joinPaths, normalizePath } from '../../system/path';
 import { maybeStopWatch } from '../../system/stopwatch';
 import type { GitDiffFile, GitDiffHunk, GitDiffHunkLine, GitDiffShortStat } from '../models/diff';
-import type { GitFile, GitFileStatus } from '../models/file';
-import { GitFileChange } from '../models/file';
+import type { GitFile } from '../models/file';
+import { GitFileChange } from '../models/fileChange';
+import type { GitFileStatus } from '../models/fileStatus';
 
 const shortStatDiffRegex = /(\d+)\s+files? changed(?:,\s+(\d+)\s+insertions?\(\+\))?(?:,\s+(\d+)\s+deletions?\(-\))?/;
 
@@ -149,12 +151,14 @@ export function parseGitDiffNameStatusFiles(data: string, repoPath: string): Git
 			status = '?';
 		}
 
-		files.push({
-			status: status as GitFileStatus,
-			path: fields[++i],
-			originalPath: status.startsWith('R') || status.startsWith('C') ? fields[++i] : undefined,
-			repoPath: repoPath,
-		});
+		let originalPath;
+		// Renamed files are old followed by the new path
+		if (status === 'R' || status === 'C') {
+			originalPath = fields[++i];
+		}
+		const path = fields[++i];
+
+		files.push({ status: status as GitFileStatus, path: path, originalPath: originalPath, repoPath: repoPath });
 	}
 
 	sw?.stop({ suffix: ` parsed ${files.length} files` });
@@ -162,7 +166,7 @@ export function parseGitDiffNameStatusFiles(data: string, repoPath: string): Git
 	return files;
 }
 
-export function parseGitApplyFiles(data: string, repoPath: string): GitFileChange[] {
+export function parseGitApplyFiles(container: Container, data: string, repoPath: string): GitFileChange[] {
 	using sw = maybeStopWatch('Git.parseApplyFiles', { log: false, logLevel: 'debug' });
 	if (!data) return [];
 
@@ -179,7 +183,7 @@ export function parseGitApplyFiles(data: string, repoPath: string): GitFileChang
 		const [insertions, deletions, path] = line.split('\t');
 		files.set(
 			normalizePath(path),
-			new GitFileChange(repoPath, path, 'M' as GitFileStatus, undefined, undefined, {
+			new GitFileChange(container, repoPath, path, 'M' as GitFileStatus, undefined, undefined, {
 				changes: 0,
 				additions: parseInt(insertions, 10),
 				deletions: parseInt(deletions, 10),
@@ -191,7 +195,7 @@ export function parseGitApplyFiles(data: string, repoPath: string): GitFileChang
 		line = line.trim();
 		if (!line) continue;
 
-		const match = /(rename) (.*?)\{(.+?)\s+=>\s+(.+?)\}(?: \(\d+%\))|(create|delete) mode \d+ (.+)/.exec(line);
+		const match = /(rename) (.*?)\{?([^{]+?)\s+=>\s+(.+?)\}?(?: \(\d+%\))|(create|delete) mode \d+ (.+)/.exec(line);
 		if (match == null) continue;
 
 		let [, rename, renameRoot, renameOriginalPath, renamePath, createOrDelete, createOrDeletePath] = match;
@@ -204,6 +208,7 @@ export function parseGitApplyFiles(data: string, repoPath: string): GitFileChang
 			files.set(
 				renamePath,
 				new GitFileChange(
+					container,
 					repoPath,
 					renamePath,
 					'R' as GitFileStatus,
@@ -217,6 +222,7 @@ export function parseGitApplyFiles(data: string, repoPath: string): GitFileChang
 			files.set(
 				createOrDeletePath,
 				new GitFileChange(
+					container,
 					repoPath,
 					file.path,
 					(createOrDelete === 'create' ? 'A' : 'D') as GitFileStatus,
@@ -243,13 +249,13 @@ export function parseGitDiffShortStat(data: string): GitDiffShortStat | undefine
 	const [, files, insertions, deletions] = match;
 
 	const diffShortStat: GitDiffShortStat = {
-		changedFiles: files == null ? 0 : parseInt(files, 10),
+		files: files == null ? 0 : parseInt(files, 10),
 		additions: insertions == null ? 0 : parseInt(insertions, 10),
 		deletions: deletions == null ? 0 : parseInt(deletions, 10),
 	};
 
 	sw?.stop({
-		suffix: ` parsed ${diffShortStat.changedFiles} files, +${diffShortStat.additions} -${diffShortStat.deletions}`,
+		suffix: ` parsed ${diffShortStat.files} files, +${diffShortStat.additions} -${diffShortStat.deletions}`,
 	});
 
 	return diffShortStat;

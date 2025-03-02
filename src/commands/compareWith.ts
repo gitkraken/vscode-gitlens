@@ -1,12 +1,13 @@
 import type { TextEditor, Uri } from 'vscode';
-import { Commands } from '../constants';
+import { GlCommand } from '../constants.commands';
 import type { Container } from '../container';
 import { showGenericErrorMessage } from '../messages';
 import { getBestRepositoryOrShowPicker } from '../quickpicks/repositoryPicker';
-import { command } from '../system/command';
+import { command } from '../system/-webview/command';
 import { Logger } from '../system/logger';
-import type { CommandContext } from './base';
-import { ActiveEditorCommand, getCommandUri } from './base';
+import { ActiveEditorCommand } from './commandBase';
+import { getCommandUri } from './commandBase.utils';
+import type { CommandContext } from './commandContext';
 
 export interface CompareWithCommandArgs {
 	ref1?: string;
@@ -17,28 +18,28 @@ export interface CompareWithCommandArgs {
 export class CompareWithCommand extends ActiveEditorCommand {
 	constructor(private readonly container: Container) {
 		super([
-			Commands.CompareWith,
-			Commands.CompareHeadWith,
-			Commands.CompareWorkingWith,
-			Commands.Deprecated_DiffHeadWith,
-			Commands.Deprecated_DiffWorkingWith,
+			GlCommand.CompareWith,
+			GlCommand.CompareHeadWith,
+			GlCommand.CompareWorkingWith,
+			/** @deprecated */ 'gitlens.diffHeadWith',
+			/** @deprecated */ 'gitlens.diffWorkingWith',
 		]);
 	}
 
-	protected override preExecute(context: CommandContext, args?: CompareWithCommandArgs) {
+	protected override preExecute(context: CommandContext, args?: CompareWithCommandArgs): Promise<void> {
 		switch (context.command) {
-			case Commands.CompareWith:
+			case GlCommand.CompareWith:
 				args = { ...args };
 				break;
 
-			case Commands.CompareHeadWith:
-			case Commands.Deprecated_DiffHeadWith:
+			case GlCommand.CompareHeadWith:
+			case /** @deprecated */ 'gitlens.diffHeadWith':
 				args = { ...args };
 				args.ref1 = 'HEAD';
 				break;
 
-			case Commands.CompareWorkingWith:
-			case Commands.Deprecated_DiffWorkingWith:
+			case GlCommand.CompareWorkingWith:
+			case /** @deprecated */ 'gitlens.diffWorkingWith':
 				args = { ...args };
 				args.ref1 = '';
 				break;
@@ -47,7 +48,7 @@ export class CompareWithCommand extends ActiveEditorCommand {
 		return this.execute(context.editor, context.uri, args);
 	}
 
-	async execute(editor?: TextEditor, uri?: Uri, args?: CompareWithCommandArgs) {
+	async execute(editor?: TextEditor, uri?: Uri, args?: CompareWithCommandArgs): Promise<void> {
 		uri = getCommandUri(uri, editor);
 		args = { ...args };
 
@@ -72,9 +73,9 @@ export class CompareWithCommand extends ActiveEditorCommand {
 			if (!repoPath) return;
 
 			if (args.ref1 != null && args.ref2 != null) {
-				await this.container.searchAndCompareView.compare(repoPath, args.ref1, args.ref2);
+				await this.container.views.searchAndCompare.compare(repoPath, args.ref1, args.ref2);
 			} else {
-				this.container.searchAndCompareView.selectForCompare(repoPath, args.ref1, { prompt: true });
+				this.container.views.searchAndCompare.selectForCompare(repoPath, args.ref1, { prompt: true });
 			}
 		} catch (ex) {
 			Logger.error(ex, 'CompareWithCommmand');

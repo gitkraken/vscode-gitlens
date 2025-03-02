@@ -1,6 +1,9 @@
-import type { TreeViewFileNodeTypes } from '../../../constants';
+import { MarkdownString } from 'vscode';
+import type { TreeViewFileNodeTypes } from '../../../constants.views';
+import { StatusFileFormatter } from '../../../git/formatters/statusFormatter';
 import type { GitUri } from '../../../git/gitUri';
 import type { GitFile } from '../../../git/models/file';
+import type { GitStatusFile } from '../../../git/models/statusFile';
 import type { View } from '../../viewBase';
 import { ViewNode } from './viewNode';
 
@@ -28,6 +31,23 @@ export abstract class ViewFileNode<
 	}
 }
 
-export function isViewFileNode(node: unknown): node is ViewFileNode {
-	return node instanceof ViewFileNode;
+export function getFileTooltip(
+	file: GitFile | GitStatusFile,
+	suffix?: string,
+	outputFormat?: 'markdown' | 'plaintext',
+): string {
+	return StatusFileFormatter.fromTemplate(
+		`\${status${suffix ? `' ${suffix}'` : ''}} $(file) \${filePath}\${  ←  originalPath}\${'\\\n'changesDetail}`,
+		file,
+		{
+			outputFormat: outputFormat ?? 'markdown',
+		},
+	);
+}
+
+export function getFileTooltipMarkdown(file: GitFile | GitStatusFile, suffix?: string): MarkdownString {
+	const tooltip = new MarkdownString(getFileTooltip(file, suffix, 'markdown'), true);
+	tooltip.supportHtml = true;
+	tooltip.isTrusted = true;
+	return tooltip;
 }

@@ -8,13 +8,13 @@ import type {
 } from 'vscode';
 import { OverviewRulerLane, ThemeColor, Uri, window } from 'vscode';
 import type { Config } from '../config';
-import type { Colors } from '../constants';
 import { GlyphChars } from '../constants';
+import type { Colors } from '../constants.colors';
 import type { CommitFormatOptions } from '../git/formatters/commitFormatter';
 import { CommitFormatter } from '../git/formatters/commitFormatter';
 import type { GitCommit } from '../git/models/commit';
+import { configuration } from '../system/-webview/configuration';
 import { scale, toRgba } from '../system/color';
-import { configuration } from '../system/configuration';
 import { getWidth, interpolate, pad } from '../system/string';
 import type { BlameFontOptions } from './gutterBlameAnnotationProvider';
 
@@ -64,8 +64,12 @@ const defaultHeatmapColors = [
 	'#0a60f6',
 ];
 
-let heatmapColors: { hot: string[]; cold: string[] } | undefined;
-export function getHeatmapColors() {
+interface HeatmapColors {
+	hot: string[];
+	cold: string[];
+}
+let heatmapColors: HeatmapColors | undefined;
+export function getHeatmapColors(): HeatmapColors {
 	if (heatmapColors == null) {
 		const { coldColor, hotColor } = configuration.get('heatmap');
 
@@ -91,7 +95,7 @@ export function getHeatmapColors() {
 	return heatmapColors;
 }
 
-export function applyHeatmap(decoration: Partial<DecorationOptions>, date: Date, heatmap: ComputedHeatmap) {
+export function applyHeatmap(decoration: Partial<DecorationOptions>, date: Date, heatmap: ComputedHeatmap): void {
 	const [r, g, b, a] = getHeatmapColor(date, heatmap);
 	decoration.renderOptions!.before!.borderColor = `rgba(${r},${g},${b},${a})`;
 }
@@ -101,7 +105,7 @@ export function addOrUpdateGutterHeatmapDecoration(
 	heatmap: ComputedHeatmap,
 	range: Range,
 	map: Map<string, Decoration<Range[]>>,
-) {
+): TextEditorDecorationType {
 	const [r, g, b, a] = getHeatmapColor(date, heatmap);
 
 	const { fadeLines, locations } = configuration.get('heatmap');

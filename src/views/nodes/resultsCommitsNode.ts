@@ -1,9 +1,12 @@
 import { TreeItem, TreeItemCollapsibleState } from 'vscode';
+import type { AIGenerateChangelogChange } from '../../ai/aiProviderService';
 import { GitUri } from '../../git/gitUri';
 import { isStash } from '../../git/models/commit';
+import type { GitRevisionRange } from '../../git/models/revision';
 import type { CommitsQueryResults, FilesQueryResults } from '../../git/queryResults';
-import { configuration } from '../../system/configuration';
-import { gate } from '../../system/decorators/gate';
+import { getChangesForChangelog } from '../../git/utils/-webview/log.utils';
+import { configuration } from '../../system/-webview/configuration';
+import { gate } from '../../system/decorators/-webview/gate';
 import { debug } from '../../system/decorators/log';
 import { map } from '../../system/iterable';
 import type { Deferred } from '../../system/promise';
@@ -14,6 +17,7 @@ import { ContextValues, getViewNodeId, ViewNode } from './abstract/viewNode';
 import { AutolinkedItemsNode } from './autolinkedItemsNode';
 import { CommitNode } from './commitNode';
 import { LoadMoreNode, MessageNode } from './common';
+import { ContributorsNode } from './contributorsNode';
 import { insertDateMarkers } from './helpers';
 import { ResultsFilesNode } from './resultsFilesNode';
 import { StashNode } from './stashNode';
@@ -39,7 +43,7 @@ export class ResultsCommitsNode<View extends ViewsWithCommits = ViewsWithCommits
 		private _label: string,
 		private readonly _results: {
 			query: (limit: number | undefined) => Promise<CommitsQueryResults>;
-			comparison?: { ref1: string; ref2: string };
+			comparison?: { ref1: string; ref2: string; range: GitRevisionRange };
 			deferred?: boolean;
 			direction?: 'ahead' | 'behind';
 			files?: {
@@ -94,7 +98,7 @@ export class ResultsCommitsNode<View extends ViewsWithCommits = ViewsWithCommits
 		}
 
 		const [getBranchAndTagTips] = await Promise.all([
-			this.view.container.git.getBranchesAndTagsTipsFn(this.uri.repoPath),
+			this.view.container.git.getBranchesAndTagsTipsLookup(this.uri.repoPath),
 		]);
 
 		const children: ViewNode[] = [];
@@ -102,6 +106,22 @@ export class ResultsCommitsNode<View extends ViewsWithCommits = ViewsWithCommits
 			children.push(new AutolinkedItemsNode(this.view, this, this.uri.repoPath!, log, this._expandAutolinks));
 		}
 		this._expandAutolinks = false;
+
+		if (this._results.comparison?.range && this.view.config.showComparisonContributors) {
+			children.push(
+				new ContributorsNode(
+					this.uri,
+					this.view,
+					this,
+					this.view.container.git.getRepository(this.uri.repoPath!)!,
+					{
+						icon: false,
+						ref: this._results.comparison?.range,
+						stats: this.view.config.showContributorsStatistics,
+					},
+				),
+			);
+		}
 
 		const { files } = this._results;
 		// Can't support showing files when commits are filtered
@@ -191,7 +211,7 @@ export class ResultsCommitsNode<View extends ViewsWithCommits = ViewsWithCommits
 
 	@gate()
 	@debug()
-	override refresh(reset: boolean = false) {
+	override refresh(reset: boolean = false): void {
 		if (reset) {
 			this._commitsQueryResults = undefined;
 			this._commitsQueryResultsPromise = undefined;
@@ -226,7 +246,7 @@ export class ResultsCommitsNode<View extends ViewsWithCommits = ViewsWithCommits
 	}
 
 	private _hasMore = true;
-	get hasMore() {
+	get hasMore(): boolean {
 		return this._hasMore;
 	}
 
@@ -243,5 +263,12 @@ export class ResultsCommitsNode<View extends ViewsWithCommits = ViewsWithCommits
 		this.limit = results.log?.count;
 
 		void this.triggerChange(false);
+	}
+
+	async getChangesForChangelog(): Promise<AIGenerateChangelogChange[]> {
+		const { log } = await this.getCommitsQueryResults();
+		if (log == null) return [];
+
+		return getChangesForChangelog(this.view.container, log);
 	}
 }

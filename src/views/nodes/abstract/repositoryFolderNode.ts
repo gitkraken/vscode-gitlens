@@ -2,10 +2,11 @@ import type { Disposable } from 'vscode';
 import { MarkdownString, TreeItem, TreeItemCollapsibleState } from 'vscode';
 import { GlyphChars } from '../../../constants';
 import type { GitUri } from '../../../git/gitUri';
-import { getHighlanderProviders } from '../../../git/models/remote';
-import type { RepositoryChangeEvent } from '../../../git/models/repository';
-import { Repository, RepositoryChange, RepositoryChangeComparisonMode } from '../../../git/models/repository';
-import { gate } from '../../../system/decorators/gate';
+import type { Repository, RepositoryChangeEvent } from '../../../git/models/repository';
+import { RepositoryChange, RepositoryChangeComparisonMode } from '../../../git/models/repository';
+import { formatLastFetched } from '../../../git/utils/-webview/repository.utils';
+import { getHighlanderProviders } from '../../../git/utils/remote.utils';
+import { gate } from '../../../system/decorators/-webview/gate';
 import { debug, log } from '../../../system/decorators/log';
 import { weakEvent } from '../../../system/event';
 import { basename } from '../../../system/path';
@@ -48,7 +49,7 @@ export abstract class RepositoryFolderNode<
 		this._child = value;
 	}
 
-	override dispose() {
+	override dispose(): void {
 		super.dispose();
 		this.child = undefined;
 	}
@@ -68,7 +69,7 @@ export abstract class RepositoryFolderNode<
 	async getTreeItem(): Promise<TreeItem> {
 		this.splatted = false;
 
-		const branch = await this.repo.getBranch();
+		const branch = await this.repo.git.branches().getBranch();
 		const ahead = (branch?.state.ahead ?? 0) > 0;
 		const behind = (branch?.state.behind ?? 0) > 0;
 
@@ -111,13 +112,13 @@ export abstract class RepositoryFolderNode<
 				}
 			}
 			if (lastFetched) {
-				item.description = `${item.description ?? ''}Last fetched ${Repository.formatLastFetched(lastFetched)}`;
+				item.description = `${item.description ?? ''}Last fetched ${formatLastFetched(lastFetched)}`;
 			}
 
 			let providerName;
 			if (branch.upstream != null) {
 				const providers = getHighlanderProviders(
-					await this.view.container.git.getRemotesWithProviders(branch.repoPath),
+					await this.view.container.git.remotes(branch.repoPath).getRemotesWithProviders(),
 				);
 				providerName = providers?.length ? providers[0].name : undefined;
 			} else {
@@ -128,10 +129,7 @@ export abstract class RepositoryFolderNode<
 			item.tooltip = new MarkdownString(
 				`${this.repo.formattedName ?? this.uri.repoPath ?? ''}${
 					lastFetched
-						? `${pad(GlyphChars.Dash, 2, 2)}Last fetched ${Repository.formatLastFetched(
-								lastFetched,
-								false,
-						  )}`
+						? `${pad(GlyphChars.Dash, 2, 2)}Last fetched ${formatLastFetched(lastFetched, false)}`
 						: ''
 				}${this.repo.formattedName ? `\n${this.uri.repoPath}` : ''}\n\nCurrent branch $(git-branch) ${
 					branch.name
@@ -163,7 +161,7 @@ export abstract class RepositoryFolderNode<
 		return item;
 	}
 
-	override async getSplattedChild() {
+	override async getSplattedChild(): Promise<TChild | undefined> {
 		if (this.child == null) {
 			await this.getChildren();
 		}
@@ -173,7 +171,7 @@ export abstract class RepositoryFolderNode<
 
 	@gate()
 	@debug()
-	override async refresh(reset: boolean = false) {
+	override async refresh(reset: boolean = false): Promise<void> {
 		super.refresh(reset);
 		await this.child?.triggerChange(reset, false, this);
 
@@ -181,13 +179,13 @@ export abstract class RepositoryFolderNode<
 	}
 
 	@log()
-	async star() {
+	async star(): Promise<void> {
 		await this.repo.star();
 		// void this.parent!.triggerChange();
 	}
 
 	@log()
-	async unstar() {
+	async unstar(): Promise<void> {
 		await this.repo.unstar();
 		// void this.parent!.triggerChange();
 	}

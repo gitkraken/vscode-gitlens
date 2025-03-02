@@ -1,19 +1,18 @@
 import type { Uri } from 'vscode';
 import type { ScmResource } from '../@types/vscode.git.resources';
 import { ScmResourceGroupType, ScmStatus } from '../@types/vscode.git.resources.enums';
-import { Commands } from '../constants';
 import type { Container } from '../container';
 import { Features } from '../features';
 import { push } from '../git/actions/stash';
 import { GitUri } from '../git/gitUri';
-import { command } from '../system/command';
-import type { CommandContext } from './base';
+import { command } from '../system/-webview/command';
+import { GlCommandBase } from './commandBase';
+import type { CommandContext } from './commandContext';
 import {
-	Command,
 	isCommandContextViewNodeHasFile,
 	isCommandContextViewNodeHasRepoPath,
 	isCommandContextViewNodeHasRepository,
-} from './base';
+} from './commandContext.utils';
 
 export interface StashSaveCommandArgs {
 	message?: string;
@@ -26,12 +25,12 @@ export interface StashSaveCommandArgs {
 }
 
 @command()
-export class StashSaveCommand extends Command {
+export class StashSaveCommand extends GlCommandBase {
 	constructor(private readonly container: Container) {
-		super([Commands.StashSave, Commands.StashSaveFiles]);
+		super(['gitlens.stashSave', 'gitlens.stashSaveFiles']);
 	}
 
-	protected override async preExecute(context: CommandContext, args?: StashSaveCommandArgs) {
+	protected override async preExecute(context: CommandContext, args?: StashSaveCommandArgs): Promise<void> {
 		if (isCommandContextViewNodeHasFile(context)) {
 			args = { ...args };
 			args.repoPath = context.node.file.repoPath ?? context.node.repoPath;
@@ -78,7 +77,7 @@ export class StashSaveCommand extends Command {
 			const repo = await this.container.git.getOrOpenRepository(uris[0]);
 
 			args.repoPath = repo?.path;
-			args.onlyStaged = repo != null && hasOnlyStaged ? await repo.supports(Features.StashOnlyStaged) : false;
+			args.onlyStaged = repo != null && hasOnlyStaged ? await repo.git.supports(Features.StashOnlyStaged) : false;
 			if (args.keepStaged == null && !hasStaged) {
 				args.keepStaged = true;
 			}
@@ -117,7 +116,7 @@ export class StashSaveCommand extends Command {
 			const repo = await this.container.git.getOrOpenRepository(uris[0]);
 
 			args.repoPath = repo?.path;
-			args.onlyStaged = repo != null && hasOnlyStaged ? await repo.supports(Features.StashOnlyStaged) : false;
+			args.onlyStaged = repo != null && hasOnlyStaged ? await repo.git.supports(Features.StashOnlyStaged) : false;
 			if (args.keepStaged == null && !hasStaged) {
 				args.keepStaged = true;
 			}
@@ -133,7 +132,7 @@ export class StashSaveCommand extends Command {
 		return this.execute(args);
 	}
 
-	execute(args?: StashSaveCommandArgs) {
+	execute(args?: StashSaveCommandArgs): Promise<void> {
 		return push(
 			args?.repoPath,
 			args?.uris,

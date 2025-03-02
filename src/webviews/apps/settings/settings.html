@@ -16,14 +16,6 @@
 		data-placement="#{placement}"
 		data-vscode-context='{ "webview": "#{webviewId}", "webviewInstance": "#{webviewInstanceId}" }'
 	>
-		<!-- <canvas class="snow"></canvas>
-		<img
-			class="snow__trigger snow__trigger--fixed-right snow__trigger--flipped"
-			title="Let it snow — Happy Holidays!"
-			alt="Let it snow — Happy Holidays!"
-			src="#{root}/images/snowman.png"
-		/> -->
-
 		<div class="container">
 			<header>
 				<h1 class="brand"><gitlens-logo></gitlens-logo> <small>Git Supercharged</small></h1>
@@ -399,6 +391,14 @@
 					<tr>
 						<td>Commit Author</td>
 						<td><span class="token" data-token="author">author</span></td>
+					</tr>
+					<tr>
+						<td>Commit Author First Name</td>
+						<td><span class="token" data-token="authorFirst">authorFirst</span></td>
+					</tr>
+					<tr>
+						<td>Commit Author Last Name</td>
+						<td><span class="token" data-token="authorLast">authorLast</span></td>
 					</tr>
 					<tr>
 						<td>Commit Author (except you)</td>

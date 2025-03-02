@@ -3,8 +3,8 @@ import { MarkdownString, ThemeIcon, TreeItem, TreeItemCollapsibleState } from 'v
 import { CommitFormatter } from '../../git/formatters/commitFormatter';
 import type { GitStashCommit } from '../../git/models/commit';
 import type { GitStashReference } from '../../git/models/reference';
+import { configuration } from '../../system/-webview/configuration';
 import { makeHierarchical } from '../../system/array';
-import { configuration } from '../../system/configuration';
 import { joinPaths, normalizePath } from '../../system/path';
 import { getSettledValue, pauseOnCancelOrTimeoutMapTuplePromise } from '../../system/promise';
 import { sortCompare } from '../../system/string';
@@ -43,7 +43,7 @@ export class StashNode extends ViewRefNode<'stash', ViewsWithStashes, GitStashRe
 
 	async getChildren(): Promise<ViewNode[]> {
 		// Ensure we have checked for untracked files (inside the getCommitsForFiles call)
-		const commits = await this.commit.getCommitsForFiles();
+		const commits = await this.commit.getCommitsForFiles({ include: { stats: true } });
 		let children: FileNode[] = commits.map(c => new StashFileNode(this.view, this, c.file!, c as GitStashCommit));
 
 		if (this.view.config.files.layout !== 'list') {
@@ -92,8 +92,8 @@ export class StashNode extends ViewRefNode<'stash', ViewsWithStashes, GitStashRe
 
 	private async getTooltip(cancellation: CancellationToken) {
 		const [remotesResult, _] = await Promise.allSettled([
-			this.view.container.git.getBestRemotesWithProviders(this.commit.repoPath, cancellation),
-			this.commit.message == null ? this.commit.ensureFullDetails() : undefined,
+			this.view.container.git.remotes(this.commit.repoPath).getBestRemotesWithProviders(cancellation),
+			this.commit.ensureFullDetails({ include: { stats: true } }),
 		]);
 
 		if (cancellation.isCancellationRequested) return undefined;

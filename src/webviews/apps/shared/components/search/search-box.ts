@@ -3,17 +3,17 @@ import { css, html } from 'lit';
 import { customElement, property, query } from 'lit/decorators.js';
 import type { Disposable } from 'vscode';
 import { isMac } from '@env/platform';
-import type { SearchQuery } from '../../../../../git/search';
+import type { SearchQuery } from '../../../../../constants.search';
 import { pluralize } from '../../../../../system/string';
 import { DOM } from '../../dom';
 import { GlElement } from '../element';
-import type { GlSearchInput, SearchNavigationEventDetail } from './search-input';
+import type { GlSearchInput, SearchModeChangeEventDetail, SearchNavigationEventDetail } from './search-input';
 import '../code-icon';
 import '../overlays/tooltip';
 import '../progress';
 import './search-input';
 
-export { SearchNavigationEventDetail };
+export { SearchModeChangeEventDetail, SearchNavigationEventDetail };
 
 declare global {
 	interface HTMLElementTagNameMap {
@@ -114,12 +114,6 @@ export class GlSearchBox extends GlElement {
 	errorMessage = '';
 
 	@property({ type: String })
-	label = 'Search';
-
-	@property({ type: String })
-	placeholder = 'Search commits (↑↓ for history), e.g. "Updates dependencies" author:eamodio';
-
-	@property({ type: String })
 	value = '';
 
 	@property({ type: Boolean })
@@ -130,6 +124,9 @@ export class GlSearchBox extends GlElement {
 
 	@property({ type: Boolean })
 	matchRegex = true;
+
+	@property({ type: Boolean })
+	filter = false;
 
 	@property({ type: Number })
 	total = 0;
@@ -155,7 +152,7 @@ export class GlSearchBox extends GlElement {
 	@property({ type: Boolean })
 	resultsLoaded = false;
 
-	get hasResults() {
+	get hasResults(): boolean {
 		return this.total > 1;
 	}
 
@@ -180,15 +177,15 @@ export class GlSearchBox extends GlElement {
 		this.searchInput?.focus(options);
 	}
 
-	navigate(direction: SearchNavigationEventDetail['direction']) {
+	navigate(direction: SearchNavigationEventDetail['direction']): void {
 		this.emit('gl-search-navigate', { direction: direction });
 	}
 
-	logSearch(query: SearchQuery) {
+	logSearch(query: SearchQuery): void {
 		this.searchInput?.logSearch(query);
 	}
 
-	handleShortcutKeys(e: KeyboardEvent) {
+	private handleShortcutKeys(e: KeyboardEvent) {
 		if (e.altKey) return;
 
 		if ((e.key === 'F3' && !e.ctrlKey && !e.metaKey) || (e.key === 'g' && e.metaKey && !e.ctrlKey && isMac)) {
@@ -208,17 +205,17 @@ export class GlSearchBox extends GlElement {
 		}
 	}
 
-	handlePrevious(e: MouseEvent) {
+	private handlePrevious(e: MouseEvent) {
 		e.stopImmediatePropagation();
 		this.navigate(e.shiftKey ? 'first' : 'previous');
 	}
 
-	handleNext(e: MouseEvent) {
+	private handleNext(e: MouseEvent) {
 		e.stopImmediatePropagation();
 		this.navigate(e.shiftKey ? 'last' : 'next');
 	}
 
-	handleOpenInView(e: Event) {
+	private handleOpenInView(e: Event) {
 		e.stopImmediatePropagation();
 		this.emit('gl-search-openinview');
 	}
@@ -261,12 +258,12 @@ export class GlSearchBox extends GlElement {
 		>`;
 	}
 
-	override render() {
+	override render(): unknown {
 		return html`<gl-search-input
 				id="search-input"
+				exportparts="search: search"
 				.errorMessage="${this.errorMessage}"
-				.label="${this.label}"
-				.placeholder="${this.placeholder}"
+				.filter=${this.filter}
 				.matchAll="${this.matchAll}"
 				.matchCase="${this.matchCase}"
 				.matchRegex="${this.matchRegex}"

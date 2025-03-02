@@ -1,4 +1,4 @@
-import type { TreeViewNodeTypes } from '../../../constants';
+import type { TreeViewNodeTypes } from '../../../constants.views';
 import { debug } from '../../../system/decorators/log';
 import type { View } from '../../viewBase';
 import { disposeChildren } from '../../viewBase';
@@ -21,13 +21,13 @@ export abstract class CacheableChildrenViewNode<
 		this._children = value;
 	}
 
-	override dispose() {
+	override dispose(): void {
 		super.dispose();
 		this.children = undefined;
 	}
 
 	@debug()
-	override refresh(reset: boolean = false) {
+	override refresh(reset: boolean = false): void {
 		if (reset) {
 			this.children = undefined;
 		}

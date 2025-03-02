@@ -1,22 +1,22 @@
 import { Uri } from 'vscode';
-import { decodeUtf8Hex, encodeUtf8Hex } from '@env/hex';
 import { getQueryDataFromScmGitUri } from '../@types/vscode.git.uri';
 import { Schemes } from '../constants';
 import { Container } from '../container';
 import type { GitHubAuthorityMetadata } from '../plus/remotehub';
-import { UriComparer } from '../system/comparers';
+import { formatPath } from '../system/-webview/formatPath';
+import { getBestPath, relativeDir, splitPath } from '../system/-webview/path';
+import { isVirtualUri } from '../system/-webview/vscode';
+import { memoize } from '../system/decorators/-webview/memoize';
 import { debug } from '../system/decorators/log';
-import { memoize } from '../system/decorators/memoize';
-import { formatPath } from '../system/formatPath';
-import { basename, getBestPath, normalizePath, relativeDir, splitPath } from '../system/path';
-// import { CharCode } from '../system/string';
-import { isVirtualUri } from '../system/utils';
+import { basename, normalizePath } from '../system/path';
+import { uriEquals } from '../system/uri';
 import type { RevisionUriData } from './gitProvider';
-import { uncommittedStaged } from './models/constants';
+import { decodeGitLensRevisionUriAuthority, decodeRemoteHubAuthority } from './gitUri.authority';
 import type { GitFile } from './models/file';
-import { isUncommitted, isUncommittedStaged, shortenRevision } from './models/reference';
+import { uncommittedStaged } from './models/revision';
+import { isUncommitted, isUncommittedStaged, shortenRevision } from './utils/revision.utils';
 
-const slash = 47; //CharCode.Slash;
+const slash = 47; //slash;
 
 export interface GitCommitish {
 	fileName?: string;
@@ -92,7 +92,7 @@ export class GitUri extends (Uri as any as UriEx) {
 			const [, owner, repo] = uri.path.split('/', 3);
 			this.repoPath = uri.with({ path: `/${owner}/${repo}` }).toString();
 
-			const data = decodeRemoteHubAuthority<GitHubAuthorityMetadata>(uri);
+			const data = decodeRemoteHubAuthority<GitHubAuthorityMetadata>(uri.authority);
 
 			let ref = data.metadata?.ref?.id;
 			if (commitOrRepoPath != null && typeof commitOrRepoPath !== 'string') {
@@ -200,7 +200,7 @@ export class GitUri extends (Uri as any as UriEx) {
 	}
 
 	@memoize()
-	documentUri() {
+	documentUri(): Uri {
 		// TODO@eamodio which is correct?
 		return Uri.from({
 			scheme: this.scheme,
@@ -212,8 +212,8 @@ export class GitUri extends (Uri as any as UriEx) {
 		return Container.instance.git.getAbsoluteUri(this.fsPath, this.repoPath);
 	}
 
-	equals(uri: Uri | undefined) {
-		if (!UriComparer.equals(this, uri)) return false;
+	equals(uri: Uri | undefined): boolean {
+		if (!uriEquals(this, uri)) return false;
 
 		return this.sha === (isGitUri(uri) ? uri.sha : undefined);
 	}
@@ -223,7 +223,7 @@ export class GitUri extends (Uri as any as UriEx) {
 	}
 
 	@memoize()
-	toFileUri() {
+	toFileUri(): Uri {
 		return Container.instance.git.getAbsoluteUri(this.fsPath, this.repoPath);
 	}
 
@@ -242,7 +242,7 @@ export class GitUri extends (Uri as any as UriEx) {
 			  });
 	}
 
-	static fromRepoPath(repoPath: string, ref?: string) {
+	static fromRepoPath(repoPath: string, ref?: string): GitUri {
 		return !ref
 			? new GitUri(Container.instance.git.getAbsoluteUri(repoPath, repoPath), repoPath)
 			: new GitUri(Container.instance.git.getAbsoluteUri(repoPath, repoPath), { repoPath: repoPath, sha: ref });
@@ -332,28 +332,6 @@ export class GitUri extends (Uri as any as UriEx) {
 
 export const unknownGitUri = Object.freeze(new GitUri());
 
-export function isGitUri(uri: any): uri is GitUri {
+export function isGitUri(uri: unknown): uri is GitUri {
 	return uri instanceof GitUri;
-}
-
-export function decodeGitLensRevisionUriAuthority<T>(authority: string): T {
-	return JSON.parse(decodeUtf8Hex(authority)) as T;
-}
-
-export function encodeGitLensRevisionUriAuthority<T>(metadata: T): string {
-	return encodeUtf8Hex(JSON.stringify(metadata));
-}
-
-function decodeRemoteHubAuthority<T>(uri: Uri): { scheme: string; metadata: T | undefined } {
-	const [scheme, encoded] = uri.authority.split('+');
-
-	let metadata: T | undefined;
-	if (encoded) {
-		try {
-			const data = JSON.parse(decodeUtf8Hex(encoded));
-			metadata = data as T;
-		} catch {}
-	}
-
-	return { scheme: scheme, metadata: metadata };
 }

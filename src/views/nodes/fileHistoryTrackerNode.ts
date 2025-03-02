@@ -1,19 +1,22 @@
 import type { TextEditor } from 'vscode';
-import { Disposable, FileType, TreeItem, TreeItemCollapsibleState, window, workspace } from 'vscode';
+import { Disposable, TreeItem, TreeItemCollapsibleState, window } from 'vscode';
 import type { GitCommitish } from '../../git/gitUri';
 import { GitUri, unknownGitUri } from '../../git/gitUri';
-import { isBranchReference, isSha } from '../../git/models/reference';
+import { ensureWorkingUri } from '../../git/gitUri.utils';
+import { isBranchReference } from '../../git/utils/reference.utils';
+import { isSha } from '../../git/utils/revision.utils';
 import { showReferencePicker } from '../../quickpicks/referencePicker';
-import { UriComparer } from '../../system/comparers';
-import { setContext } from '../../system/context';
-import { gate } from '../../system/decorators/gate';
+import { setContext } from '../../system/-webview/context';
+import { isFolderUri } from '../../system/-webview/path';
+import { isVirtualUri } from '../../system/-webview/vscode';
+import { gate } from '../../system/decorators/-webview/gate';
 import { debug, log } from '../../system/decorators/log';
 import { weakEvent } from '../../system/event';
-import type { Deferrable } from '../../system/function';
-import { debounce } from '../../system/function';
+import type { Deferrable } from '../../system/function/debounce';
+import { debounce } from '../../system/function/debounce';
 import { Logger } from '../../system/logger';
 import { getLogScope, setLogScopeExit } from '../../system/logger.scope';
-import { isVirtualUri } from '../../system/utils';
+import { uriEquals } from '../../system/uri';
 import type { FileHistoryView } from '../fileHistoryView';
 import { SubscribeableViewNode } from './abstract/subscribeableViewNode';
 import type { ViewNode } from './abstract/viewNode';
@@ -28,7 +31,7 @@ export class FileHistoryTrackerNode extends SubscribeableViewNode<'file-history-
 		super('file-history-tracker', unknownGitUri, view);
 	}
 
-	override dispose() {
+	override dispose(): void {
 		super.dispose();
 		this.child = undefined;
 	}
@@ -61,26 +64,15 @@ export class FileHistoryTrackerNode extends SubscribeableViewNode<'file-history-
 				sha: this._base ?? this.uri.sha,
 			};
 			const fileUri = new GitUri(this.uri, commitish);
-
-			let folder = false;
-			try {
-				const stats = await workspace.fs.stat(this.uri);
-				if ((stats.type & FileType.Directory) === FileType.Directory) {
-					folder = true;
-				}
-			} catch {}
+			const folder = await isFolderUri(this.uri);
 
 			this.view.title = folder ? 'Folder History' : 'File History';
 
 			let branch;
 			if (!commitish.sha || commitish.sha === 'HEAD') {
-				branch = await this.view.container.git.getBranch(this.uri.repoPath);
+				branch = await this.view.container.git.branches(commitish.repoPath).getBranch();
 			} else if (!isSha(commitish.sha)) {
-				({
-					values: [branch],
-				} = await this.view.container.git.getBranches(this.uri.repoPath, {
-					filter: b => b.name === commitish.sha,
-				}));
+				branch = await this.view.container.git.branches(commitish.repoPath).getBranch(commitish.sha);
 			}
 			this.child = new FileHistoryNode(fileUri, this.view, this, folder, branch);
 		}
@@ -102,12 +94,12 @@ export class FileHistoryTrackerNode extends SubscribeableViewNode<'file-history-
 	}
 
 	get hasUri(): boolean {
-		return this._uri != unknownGitUri && this._uri.repoPath != null;
+		return this._uri !== unknownGitUri && this._uri.repoPath != null;
 	}
 
 	@gate()
 	@log()
-	async changeBase() {
+	async changeBase(): Promise<void> {
 		const pick = await showReferencePicker(
 			this.uri.repoPath!,
 			'Change File History Base',
@@ -121,7 +113,7 @@ export class FileHistoryTrackerNode extends SubscribeableViewNode<'file-history-
 		if (pick == null) return;
 
 		if (isBranchReference(pick)) {
-			const branch = await this.view.container.git.getBranch(this.uri.repoPath);
+			const branch = await this.view.container.git.branches(this.uri.repoPath!).getBranch();
 			this._base = branch?.name === pick.name ? undefined : pick.ref;
 		} else {
 			this._base = pick.ref;
@@ -134,7 +126,7 @@ export class FileHistoryTrackerNode extends SubscribeableViewNode<'file-history-
 
 	@gate()
 	@debug({ exit: true })
-	override async refresh(reset: boolean = false) {
+	override async refresh(reset: boolean = false): Promise<boolean> {
 		const scope = getLogScope();
 
 		if (!this.canSubscribe) return false;
@@ -170,16 +162,10 @@ export class FileHistoryTrackerNode extends SubscribeableViewNode<'file-history-
 
 		let gitUri = await GitUri.fromUri(editor.document.uri);
 
-		let uri;
-		if (gitUri.sha != null) {
-			// If we have a sha, normalize the history to the working file (so we get a full history all the time)
-			const workingUri = await this.view.container.git.getWorkingUri(gitUri.repoPath!, gitUri);
-			if (workingUri != null) {
-				uri = workingUri;
-			}
-		}
+		// If we have a sha, normalize the history to the working file (so we get a full history all the time)
+		const uri = await ensureWorkingUri(this.view.container, gitUri);
 
-		if (this.hasUri && UriComparer.equals(uri ?? gitUri, this.uri)) {
+		if (this.hasUri && uriEquals(uri ?? gitUri, this.uri)) {
 			return true;
 		}
 
@@ -205,7 +191,7 @@ export class FileHistoryTrackerNode extends SubscribeableViewNode<'file-history-
 	}
 
 	@log()
-	setEditorFollowing(enabled: boolean) {
+	setEditorFollowing(enabled: boolean): void {
 		if (enabled) {
 			this.setUri();
 			// Don't need to call triggerChange here, since canSubscribe will do it
@@ -218,13 +204,13 @@ export class FileHistoryTrackerNode extends SubscribeableViewNode<'file-history-
 	}
 
 	@log()
-	async showHistoryForUri(uri: GitUri) {
+	async showHistoryForUri(uri: GitUri): Promise<void> {
 		this.setUri(uri);
 		await this.triggerChange();
 	}
 
 	@debug()
-	protected subscribe() {
+	protected subscribe(): Disposable {
 		return Disposable.from(
 			weakEvent(window.onDidChangeActiveTextEditor, debounce(this.onActiveEditorChanged, 250), this),
 		);
@@ -251,7 +237,7 @@ export class FileHistoryTrackerNode extends SubscribeableViewNode<'file-history-
 		void this.triggerChange();
 	}
 
-	setUri(uri?: GitUri) {
+	setUri(uri?: GitUri): void {
 		this._uri = uri ?? unknownGitUri;
 		void setContext('gitlens:views:fileHistory:canPin', this.hasUri);
 	}

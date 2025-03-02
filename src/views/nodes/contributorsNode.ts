@@ -1,9 +1,9 @@
 import { ThemeIcon, TreeItem, TreeItemCollapsibleState } from 'vscode';
 import type { GitUri } from '../../git/gitUri';
 import type { GitContributor } from '../../git/models/contributor';
-import { sortContributors } from '../../git/models/contributor';
 import type { Repository } from '../../git/models/repository';
-import { configuration } from '../../system/configuration';
+import { sortContributors } from '../../git/utils/-webview/sorting';
+import { configuration } from '../../system/-webview/configuration';
 import { debug } from '../../system/decorators/log';
 import type { ViewsWithContributorsNode } from '../viewBase';
 import { CacheableChildrenViewNode } from './abstract/cacheableChildrenViewNode';
@@ -24,7 +24,13 @@ export class ContributorsNode extends CacheableChildrenViewNode<
 		view: ViewsWithContributorsNode,
 		protected override readonly parent: ViewNode,
 		public readonly repo: Repository,
-		private readonly options?: { all?: boolean; showMergeCommits?: boolean; stats?: boolean },
+		private readonly options?: {
+			all?: boolean;
+			icon?: boolean;
+			ref?: string;
+			showMergeCommits?: boolean;
+			stats?: boolean;
+		},
 	) {
 		super('contributors', uri, view, parent);
 
@@ -42,37 +48,36 @@ export class ContributorsNode extends CacheableChildrenViewNode<
 
 	async getChildren(): Promise<ViewNode[]> {
 		if (this.children == null) {
-			const all = this.options?.all ?? configuration.get('views.contributors.showAllBranches');
+			let rev = this.options?.ref;
+			const all = rev == null && (this.options?.all ?? configuration.get('views.contributors.showAllBranches'));
 
-			let ref: string | undefined;
-			// If we aren't getting all branches, get the upstream of the current branch if there is one
-			if (!all) {
+			// If there is no ref and we aren't getting all branches, get the upstream of the current branch if there is one
+			if (rev == null && !all) {
 				try {
-					const branch = await this.view.container.git.getBranch(this.uri.repoPath);
+					const branch = await this.view.container.git.branches(this.uri.repoPath!).getBranch();
 					if (branch?.upstream?.name != null && !branch.upstream.missing) {
-						ref = '@{u}';
+						rev = '@{u}';
 					}
 				} catch {}
 			}
 
 			const stats = this.options?.stats ?? configuration.get('views.contributors.showStatistics');
 
-			const contributors = await this.repo.getContributors({
+			const contributors = await this.repo.git.contributors().getContributors(rev, {
 				all: all,
 				merges: this.options?.showMergeCommits,
-				ref: ref,
 				stats: stats,
 			});
 			if (contributors.length === 0) return [new MessageNode(this.view, this, 'No contributors could be found.')];
 
 			sortContributors(contributors);
-			const presenceMap = this.view.container.vsls.enabled ? await this.getPresenceMap(contributors) : undefined;
+			const presenceMap = this.view.container.vsls.active ? await this.getPresenceMap(contributors) : undefined;
 
 			this.children = contributors.map(
 				c =>
 					new ContributorNode(this.uri, this.view, this, c, {
 						all: all,
-						ref: ref,
+						ref: rev,
 						presence: presenceMap,
 						showMergeCommits: this.options?.showMergeCommits,
 					}),
@@ -88,11 +93,13 @@ export class ContributorsNode extends CacheableChildrenViewNode<
 		const item = new TreeItem('Contributors', TreeItemCollapsibleState.Collapsed);
 		item.id = this.id;
 		item.contextValue = ContextValues.Contributors;
-		item.iconPath = new ThemeIcon('organization');
+		if (this.options?.icon !== false) {
+			item.iconPath = new ThemeIcon('organization');
+		}
 		return item;
 	}
 
-	updateAvatar(email: string) {
+	updateAvatar(email: string): void {
 		if (this.children == null) return;
 
 		for (const child of this.children) {
@@ -103,7 +110,7 @@ export class ContributorsNode extends CacheableChildrenViewNode<
 	}
 
 	@debug()
-	override refresh() {
+	override refresh(): void {
 		super.refresh(true);
 	}
 

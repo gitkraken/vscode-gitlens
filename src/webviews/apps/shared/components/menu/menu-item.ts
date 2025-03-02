@@ -37,6 +37,17 @@ export class MenuItem extends LitElement {
 				color: var(--vscode-menu-selectionForeground);
 				background-color: var(--vscode-menu-background);
 			}
+
+			:host([href]) {
+				padding-inline: 0;
+			}
+
+			a {
+				display: block;
+				color: inherit;
+				text-decoration: none;
+				padding: 0 0.6rem;
+			}
 		`,
 	];
 
@@ -44,9 +55,13 @@ export class MenuItem extends LitElement {
 	disabled = false;
 
 	@property({ reflect: true })
+	href?: string;
+
+	@property({ reflect: true })
+	// eslint-disable-next-line lit/no-native-attributes
 	override role = 'option';
 
-	updateInteractiveState() {
+	updateInteractiveState(): void {
 		this.tabIndex = this.disabled ? -1 : this.role === 'option' ? 0 : -1;
 	}
 
@@ -56,7 +71,10 @@ export class MenuItem extends LitElement {
 		}
 	}
 
-	override render() {
+	override render(): unknown {
+		if (this.href) {
+			return html`<a href=${this.href}><slot></slot></a>`;
+		}
 		return html`<slot></slot>`;
 	}
 }

@@ -1,11 +1,10 @@
 import type { Disposable, QuickInputButton, QuickPickItem } from 'vscode';
 import { QuickPickItemKind, ThemeIcon, window } from 'vscode';
-import type { AIModel } from '../ai/aiProviderService';
-import type { AIModels, AIProviders } from '../constants';
-import { Commands } from '../constants';
+import type { AIModel, AIModelDescriptor } from '../ai/aiProviderService';
+import type { AIProviders } from '../constants.ai';
 import type { Container } from '../container';
-import { executeCommand } from '../system/command';
-import { getQuickPickIgnoreFocusOut } from '../system/utils';
+import { executeCommand } from '../system/-webview/command';
+import { getQuickPickIgnoreFocusOut } from '../system/-webview/vscode';
 
 export interface ModelQuickPickItem extends QuickPickItem {
 	model: AIModel;
@@ -13,9 +12,9 @@ export interface ModelQuickPickItem extends QuickPickItem {
 
 export async function showAIModelPicker(
 	container: Container,
-	current?: { provider: AIProviders; model: AIModels },
+	current?: AIModelDescriptor,
 ): Promise<ModelQuickPickItem | undefined> {
-	const models = (await (await container.ai)?.getModels()) ?? [];
+	const models = (await container.ai.getModels()) ?? [];
 
 	const items: ModelQuickPickItem[] = [];
 
@@ -33,7 +32,7 @@ export async function showAIModelPicker(
 		items.push({
 			label: m.name,
 			iconPath: picked ? new ThemeIcon('check') : new ThemeIcon('blank'),
-			// description: m.provider.name,
+			// description: ` ~${formatNumeric(m.maxTokens)} tokens`,
 			model: m,
 			picked: picked,
 		} satisfies ModelQuickPickItem);
@@ -60,13 +59,13 @@ export async function showAIModelPicker(
 				}),
 				quickpick.onDidTriggerButton(e => {
 					if (e === ResetAIKeyButton) {
-						void executeCommand(Commands.ResetAIKey);
+						void executeCommand('gitlens.resetAIKey');
 					}
 				}),
 			);
 
-			quickpick.title = 'Choose AI Model';
-			quickpick.placeholder = 'Select an AI model to use for experimental AI features';
+			quickpick.title = 'Select AI Model';
+			quickpick.placeholder = 'Choose an AI model to use';
 			quickpick.matchOnDescription = true;
 			quickpick.matchOnDetail = true;
 			quickpick.buttons = [ResetAIKeyButton];

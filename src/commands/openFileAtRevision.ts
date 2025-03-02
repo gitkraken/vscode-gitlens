@@ -1,22 +1,25 @@
 import type { TextDocumentShowOptions, TextEditor } from 'vscode';
 import { Uri } from 'vscode';
 import type { FileAnnotationType } from '../config';
-import { Commands, GlyphChars, quickPickTitleMaxChars } from '../constants';
+import { GlyphChars, quickPickTitleMaxChars } from '../constants';
+import { GlCommand } from '../constants.commands';
 import type { Container } from '../container';
 import { openFileAtRevision } from '../git/actions/commit';
 import { GitUri } from '../git/gitUri';
-import { shortenRevision } from '../git/models/reference';
+import { shortenRevision } from '../git/utils/revision.utils';
 import { showCommitHasNoPreviousCommitWarningMessage, showGenericErrorMessage } from '../messages';
 import { showCommitPicker } from '../quickpicks/commitPicker';
 import { CommandQuickPickItem } from '../quickpicks/items/common';
 import type { DirectiveQuickPickItem } from '../quickpicks/items/directive';
 import { createDirectiveQuickPickItem, Directive } from '../quickpicks/items/directive';
-import { command } from '../system/command';
+import { command } from '../system/-webview/command';
+import { splitPath } from '../system/-webview/path';
+import { createMarkdownCommandLink } from '../system/commands';
 import { Logger } from '../system/logger';
-import { splitPath } from '../system/path';
 import { pad } from '../system/string';
-import type { CommandContext } from './base';
-import { ActiveEditorCommand, getCommandUri } from './base';
+import { ActiveEditorCommand } from './commandBase';
+import { getCommandUri } from './commandBase.utils';
+import type { CommandContext } from './commandContext';
 import type { OpenFileAtRevisionFromCommandArgs } from './openFileAtRevisionFrom';
 
 export interface OpenFileAtRevisionCommandArgs {
@@ -29,9 +32,9 @@ export interface OpenFileAtRevisionCommandArgs {
 
 @command()
 export class OpenFileAtRevisionCommand extends ActiveEditorCommand {
-	static getMarkdownCommandArgs(args: OpenFileAtRevisionCommandArgs): string;
-	static getMarkdownCommandArgs(revisionUri: Uri, annotationType?: FileAnnotationType, line?: number): string;
-	static getMarkdownCommandArgs(
+	static createMarkdownCommandLink(args: OpenFileAtRevisionCommandArgs): string;
+	static createMarkdownCommandLink(revisionUri: Uri, annotationType?: FileAnnotationType, line?: number): string;
+	static createMarkdownCommandLink(
 		argsOrUri: OpenFileAtRevisionCommandArgs | Uri,
 		annotationType?: FileAnnotationType,
 		line?: number,
@@ -49,15 +52,15 @@ export class OpenFileAtRevisionCommand extends ActiveEditorCommand {
 			args = argsOrUri;
 		}
 
-		return super.getMarkdownCommandArgsCore<OpenFileAtRevisionCommandArgs>(Commands.OpenFileAtRevision, args);
+		return createMarkdownCommandLink<OpenFileAtRevisionCommandArgs>(GlCommand.OpenFileAtRevision, args);
 	}
 
 	constructor(private readonly container: Container) {
-		super([Commands.OpenFileAtRevision, Commands.OpenBlamePriorToChange]);
+		super([GlCommand.OpenFileAtRevision, GlCommand.OpenBlamePriorToChange]);
 	}
 
-	protected override async preExecute(context: CommandContext, args?: OpenFileAtRevisionCommandArgs) {
-		if (context.command === Commands.OpenBlamePriorToChange) {
+	protected override async preExecute(context: CommandContext, args?: OpenFileAtRevisionCommandArgs): Promise<void> {
+		if (context.command === GlCommand.OpenBlamePriorToChange) {
 			args = { ...args, annotationType: 'blame' };
 			if (args.revisionUri == null && context.editor != null) {
 				const editorLine = context.editor.selection.active.line;
@@ -99,7 +102,7 @@ export class OpenFileAtRevisionCommand extends ActiveEditorCommand {
 		return this.execute(context.editor, context.uri, args);
 	}
 
-	async execute(editor: TextEditor | undefined, uri?: Uri, args?: OpenFileAtRevisionCommandArgs) {
+	async execute(editor: TextEditor | undefined, uri?: Uri, args?: OpenFileAtRevisionCommandArgs): Promise<void> {
 		uri = getCommandUri(uri, editor);
 		if (uri == null) return;
 
@@ -112,15 +115,13 @@ export class OpenFileAtRevisionCommand extends ActiveEditorCommand {
 
 		try {
 			if (args.revisionUri == null) {
-				const log = this.container.git.getLogForFile(gitUri.repoPath, gitUri.fsPath).then(
-					log =>
-						log ??
-						(gitUri.sha
-							? this.container.git.getLogForFile(gitUri.repoPath, gitUri.fsPath, {
-									ref: gitUri.sha,
-							  })
-							: undefined),
-				);
+				const commitsProvider = this.container.git.commits(gitUri.repoPath!);
+				const log = commitsProvider
+					.getLogForFile(gitUri.fsPath)
+					.then(
+						log =>
+							log ?? (gitUri.sha ? commitsProvider.getLogForFile(gitUri.fsPath, gitUri.sha) : undefined),
+					);
 
 				const title = `Open ${args.annotationType === 'blame' ? 'Blame' : 'File'} at Revision${pad(
 					GlyphChars.Dot,
@@ -141,7 +142,7 @@ export class OpenFileAtRevisionCommand extends ActiveEditorCommand {
 									getState: async () => {
 										const items: (CommandQuickPickItem | DirectiveQuickPickItem)[] = [];
 
-										const status = await this.container.git.getStatusForRepo(gitUri.repoPath);
+										const status = await this.container.git.status(gitUri.repoPath!).getStatus();
 										if (status != null) {
 											for (const f of status.files) {
 												if (f.workingTreeStatus === '?' || f.workingTreeStatus === '!') {
@@ -157,7 +158,7 @@ export class OpenFileAtRevisionCommand extends ActiveEditorCommand {
 															description: description,
 														},
 														undefined,
-														Commands.OpenFileAtRevision,
+														GlCommand.OpenFileAtRevision,
 														[this.container.git.getAbsoluteUri(f.path, gitUri.repoPath)],
 													),
 												);
@@ -191,7 +192,7 @@ export class OpenFileAtRevisionCommand extends ActiveEditorCommand {
 						picked: gitUri.sha,
 						keyboard: {
 							keys: ['right', 'alt+right', 'ctrl+right'],
-							onDidPressKey: async (key, item) => {
+							onDidPressKey: async (_key, item) => {
 								await openFileAtRevision(item.item.file!, item.item, {
 									annotationType: args.annotationType,
 									line: args.line,
@@ -203,12 +204,12 @@ export class OpenFileAtRevisionCommand extends ActiveEditorCommand {
 						showOtherReferences: [
 							CommandQuickPickItem.fromCommand<[Uri]>(
 								'Choose a Branch or Tag...',
-								Commands.OpenFileAtRevisionFrom,
+								GlCommand.OpenFileAtRevisionFrom,
 								[uri],
 							),
 							CommandQuickPickItem.fromCommand<[Uri, OpenFileAtRevisionFromCommandArgs]>(
 								'Choose a Stash...',
-								Commands.OpenFileAtRevisionFrom,
+								GlCommand.OpenFileAtRevisionFrom,
 								[uri, { stash: true }],
 							),
 						],

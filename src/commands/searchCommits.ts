@@ -1,12 +1,13 @@
-import { Commands } from '../constants';
+import { GlCommand } from '../constants.commands';
+import type { SearchQuery } from '../constants.search';
 import type { Container } from '../container';
 import { executeGitCommand } from '../git/actions';
-import type { SearchQuery } from '../git/search';
-import { command } from '../system/command';
-import { configuration } from '../system/configuration';
+import { command } from '../system/-webview/command';
+import { configuration } from '../system/-webview/configuration';
 import { SearchResultsNode } from '../views/nodes/searchResultsNode';
-import type { CommandContext } from './base';
-import { Command, isCommandContextViewNodeHasRepository } from './base';
+import { GlCommandBase } from './commandBase';
+import type { CommandContext } from './commandContext';
+import { isCommandContextViewNodeHasRepository } from './commandContext.utils';
 
 export interface SearchCommitsCommandArgs {
 	search?: Partial<SearchQuery>;
@@ -19,13 +20,13 @@ export interface SearchCommitsCommandArgs {
 }
 
 @command()
-export class SearchCommitsCommand extends Command {
+export class SearchCommitsCommand extends GlCommandBase {
 	constructor(private readonly container: Container) {
-		super([Commands.SearchCommits, Commands.SearchCommitsInView]);
+		super(['gitlens.showCommitSearch', GlCommand.SearchCommitsInView]);
 	}
 
-	protected override preExecute(context: CommandContext, args?: SearchCommitsCommandArgs) {
-		if (context.command === Commands.SearchCommitsInView) {
+	protected override preExecute(context: CommandContext, args?: SearchCommitsCommandArgs): Promise<void> {
+		if (context.command === GlCommand.SearchCommitsInView) {
 			args = { ...args };
 			args.showResultsInSideBar = true;
 		} else if (context.type === 'viewItem') {
@@ -46,7 +47,7 @@ export class SearchCommitsCommand extends Command {
 		return this.execute(args);
 	}
 
-	async execute(args?: SearchCommitsCommandArgs) {
+	async execute(args?: SearchCommitsCommandArgs): Promise<void> {
 		await executeGitCommand({
 			command: 'search',
 			prefillOnly: args?.prefillOnly,

@@ -1,5 +1,4 @@
-import type { Event } from 'vscode';
-import { Disposable } from 'vscode';
+import type { Disposable, Event } from 'vscode';
 import type { Deferred } from './promise';
 
 export function once<T>(event: Event<T>): Event<T> {
@@ -90,7 +89,7 @@ export function promisifyDeferred<T, U>(
 			disposable.dispose();
 			return value;
 		},
-		reason => {
+		(reason: unknown) => {
 			disposable.dispose();
 			throw reason;
 		},
@@ -127,7 +126,23 @@ export function weakEvent<T, U extends object>(
 	if (alsoDisposeOnReleaseOrDispose == null) {
 		disposable = d;
 	} else {
-		disposable = Disposable.from(d, ...alsoDisposeOnReleaseOrDispose);
+		disposable = disposableFrom(d, ...alsoDisposeOnReleaseOrDispose);
 	}
 	return disposable;
+}
+
+function disposableFrom(...inDisposables: { dispose(): any }[]): Disposable {
+	let disposables: ReadonlyArray<{ dispose(): any }> | undefined = inDisposables;
+	return {
+		dispose: function () {
+			if (disposables) {
+				for (const disposable of disposables) {
+					if (disposable && typeof disposable.dispose === 'function') {
+						disposable.dispose();
+					}
+				}
+				disposables = undefined;
+			}
+		},
+	};
 }

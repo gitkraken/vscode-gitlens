@@ -1,24 +1,39 @@
-import type { Source } from '../constants';
-import { Commands } from '../constants';
+import type { SupportedCloudIntegrationIds } from '../constants.integrations';
+import type { Source } from '../constants.telemetry';
 import type { Container } from '../container';
-import type { SupportedCloudIntegrationIds } from '../plus/integrations/authentication/models';
-import { command } from '../system/command';
-import { Command } from './base';
+import { command } from '../system/-webview/command';
+import { GlCommandBase } from './commandBase';
 
-export interface ManageCloudIntegrationsCommandArgs extends Source {
-	integrationId?: SupportedCloudIntegrationIds;
+export interface ManageCloudIntegrationsCommandArgs {
+	source?: Source;
+}
+
+export interface ConnectCloudIntegrationsCommandArgs {
+	integrationIds?: SupportedCloudIntegrationIds[];
+	source?: Source;
 }
 
 @command()
-export class ManageCloudIntegrationsCommand extends Command {
+export class ManageCloudIntegrationsCommand extends GlCommandBase {
 	constructor(private readonly container: Container) {
-		super(Commands.PlusManageCloudIntegrations);
+		super('gitlens.plus.cloudIntegrations.manage');
 	}
 
-	async execute(args?: ManageCloudIntegrationsCommandArgs) {
-		await this.container.integrations.manageCloudIntegrations(
-			args?.integrationId ? { integrationId: args.integrationId } : undefined,
-			args?.source ? { source: args.source, detail: args?.detail } : undefined,
+	async execute(args?: ManageCloudIntegrationsCommandArgs): Promise<void> {
+		await this.container.integrations.manageCloudIntegrations(args?.source);
+	}
+}
+
+@command()
+export class ConnectCloudIntegrationsCommand extends GlCommandBase {
+	constructor(private readonly container: Container) {
+		super('gitlens.plus.cloudIntegrations.connect');
+	}
+
+	async execute(args?: ConnectCloudIntegrationsCommandArgs): Promise<void> {
+		await this.container.integrations.connectCloudIntegrations(
+			args?.integrationIds ? { integrationIds: args.integrationIds } : undefined,
+			args?.source,
 		);
 	}
 }

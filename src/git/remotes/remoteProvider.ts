@@ -1,17 +1,16 @@
 import type { Range, Uri } from 'vscode';
 import { env } from 'vscode';
-import type { DynamicAutolinkReference } from '../../annotations/autolinks';
-import type { AutolinkReference } from '../../config';
-import type { GkProviderId } from '../../gk/models/repositoryIdentities';
+import type { AutolinkReference, DynamicAutolinkReference } from '../../autolinks/models/autolinks';
 import type { ResourceDescriptor } from '../../plus/integrations/integration';
-import { memoize } from '../../system/decorators/memoize';
+import { openUrl } from '../../system/-webview/vscode';
+import { memoize } from '../../system/decorators/-webview/memoize';
 import { encodeUrl } from '../../system/encoding';
 import { getSettledValue } from '../../system/promise';
-import { openUrl } from '../../system/utils';
 import type { ProviderReference } from '../models/remoteProvider';
 import type { RemoteResource } from '../models/remoteResource';
 import { RemoteResourceType } from '../models/remoteResource';
 import type { Repository } from '../models/repository';
+import type { GkProviderId } from '../models/repositoryIdentities';
 
 export type RemoteProviderId =
 	| 'azure-devops'
@@ -21,6 +20,8 @@ export type RemoteProviderId =
 	| 'gerrit'
 	| 'gitea'
 	| 'github'
+	| 'cloud-github-enterprise'
+	| 'cloud-gitlab-self-hosted'
 	| 'gitlab'
 	| 'google-source';
 
@@ -37,8 +38,19 @@ export abstract class RemoteProvider<T extends ResourceDescriptor = ResourceDesc
 		this._name = name;
 	}
 
+	protected abstract get issueLinkPattern(): string;
+
 	get autolinks(): (AutolinkReference | DynamicAutolinkReference)[] {
-		return [];
+		return [
+			{
+				url: this.issueLinkPattern,
+				prefix: '',
+				title: `Open Issue #<num> on ${this.name}`,
+				referenceType: 'branch',
+				alphanumeric: false,
+				ignoreCase: true,
+			},
+		];
 	}
 
 	get avatarUri(): Uri | undefined {
@@ -58,12 +70,25 @@ export abstract class RemoteProvider<T extends ResourceDescriptor = ResourceDesc
 	}
 
 	@memoize()
-	get remoteKey() {
+	get remoteKey(): string {
 		return this.domain ? `${this.domain}/${this.path}` : this.path;
 	}
 
 	get repoDesc(): T {
 		return { owner: this.owner, name: this.repoName } as unknown as T;
+	}
+
+	get providerDesc():
+		| {
+				id: GkProviderId;
+				repoDomain: string;
+				repoName: string;
+				repoOwnerDomain?: string;
+		  }
+		| undefined {
+		if (this.gkProviderId == null || this.owner == null || this.repoName == null) return undefined;
+
+		return { id: this.gkProviderId, repoDomain: this.owner, repoName: this.repoName };
 	}
 
 	get repoName(): string | undefined {
@@ -137,7 +162,7 @@ export abstract class RemoteProvider<T extends ResourceDescriptor = ResourceDesc
 		return `${this.protocol}://${this.domain}/${this.path}`;
 	}
 
-	protected formatName(name: string) {
+	protected formatName(name: string): string {
 		if (this._name != null) {
 			return this._name;
 		}
@@ -192,8 +217,4 @@ export abstract class RemoteProvider<T extends ResourceDescriptor = ResourceDesc
 		}
 		return urls;
 	}
-}
-
-export function getRemoteProviderThemeIconString(provider: RemoteProvider | undefined): string {
-	return provider != null ? `gitlens-provider-${provider.icon}` : 'cloud';
 }

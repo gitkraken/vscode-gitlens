@@ -13,7 +13,7 @@ export class CommitDetailsApp extends App<Serialized<State>> {
 		super('CommitDetailsApp');
 	}
 
-	override onInitialize() {
+	override onInitialize(): void {
 		const component = document.getElementById('app') as GlCommitDetailsApp;
 		component.state = this.state;
 		DOM.on<GlCommitDetailsApp, Serialized<State>>(component, 'state-changed', e => {

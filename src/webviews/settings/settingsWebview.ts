@@ -1,16 +1,18 @@
 import type { ConfigurationChangeEvent, ViewColumn } from 'vscode';
 import { ConfigurationTarget, Disposable, workspace } from 'vscode';
 import { extensionPrefix } from '../../constants';
+import { IssueIntegrationId } from '../../constants.integrations';
+import type { WebviewTelemetryContext } from '../../constants.telemetry';
 import type { Container } from '../../container';
 import { CommitFormatter } from '../../git/formatters/commitFormatter';
 import { GitCommit, GitCommitIdentity } from '../../git/models/commit';
-import { GitFileChange, GitFileIndexStatus } from '../../git/models/file';
+import { GitFileChange } from '../../git/models/fileChange';
+import { GitFileIndexStatus } from '../../git/models/fileStatus';
 import { PullRequest } from '../../git/models/pullRequest';
-import type { SubscriptionChangeEvent } from '../../plus/gk/account/subscriptionService';
+import type { SubscriptionChangeEvent } from '../../plus/gk/subscriptionService';
 import type { ConnectionStateChangeEvent } from '../../plus/integrations/integrationService';
-import { IssueIntegrationId } from '../../plus/integrations/providers/models';
-import type { ConfigPath, CoreConfigPath } from '../../system/configuration';
-import { configuration } from '../../system/configuration';
+import type { ConfigPath, CoreConfigPath } from '../../system/-webview/configuration';
+import { configuration } from '../../system/-webview/configuration';
 import { map } from '../../system/iterable';
 import type { CustomConfigPath, IpcMessage } from '../protocol';
 import {
@@ -35,7 +37,7 @@ export class SettingsWebviewProvider implements WebviewProvider<State, State, Se
 
 	constructor(
 		protected readonly container: Container,
-		protected readonly host: WebviewHost,
+		protected readonly host: WebviewHost<'gitlens.settings'>,
 	) {
 		this._disposable = Disposable.from(
 			configuration.onDidChangeAny(this.onAnyConfigurationChanged, this),
@@ -44,15 +46,21 @@ export class SettingsWebviewProvider implements WebviewProvider<State, State, Se
 		);
 	}
 
-	dispose() {
+	dispose(): void {
 		this._disposable.dispose();
 	}
 
-	onSubscriptionChanged(e: SubscriptionChangeEvent) {
+	getTelemetryContext(): WebviewTelemetryContext {
+		return {
+			...this.host.getTelemetryContext(),
+		};
+	}
+
+	private onSubscriptionChanged(e: SubscriptionChangeEvent) {
 		void this.host.notify(DidChangeAccountNotification, { hasAccount: e.current.account != null });
 	}
 
-	onIntegrationConnectionStateChanged(e: ConnectionStateChangeEvent) {
+	private onIntegrationConnectionStateChanged(e: ConnectionStateChangeEvent) {
 		if (e.key === 'jira') {
 			void this.host.notify(DidChangeConnectedJiraNotification, { hasConnectedJira: e.reason === 'connected' });
 		}
@@ -95,7 +103,7 @@ export class SettingsWebviewProvider implements WebviewProvider<State, State, Se
 		loading: boolean,
 		_options: { column?: ViewColumn; preserveFocus?: boolean },
 		...args: SettingsWebviewShowingArgs
-	): boolean | Promise<boolean> {
+	): [boolean, Record<`context.${string}`, string | number | boolean> | undefined] {
 		const anchor = args[0];
 		if (anchor && typeof anchor === 'string') {
 			if (!loading && this.host.ready && this.host.visible) {
@@ -106,13 +114,13 @@ export class SettingsWebviewProvider implements WebviewProvider<State, State, Se
 							scrollBehavior: 'smooth',
 						}),
 				);
-				return true;
+				return [true, undefined];
 			}
 
 			this._pendingJumpToAnchor = anchor;
 		}
 
-		return true;
+		return [true, undefined];
 	}
 
 	onActiveChanged(active: boolean): void {
@@ -122,7 +130,7 @@ export class SettingsWebviewProvider implements WebviewProvider<State, State, Se
 		}
 	}
 
-	onReady() {
+	onReady(): void {
 		if (this._pendingJumpToAnchor != null) {
 			const anchor = this._pendingJumpToAnchor;
 			this._pendingJumpToAnchor = undefined;
@@ -131,7 +139,7 @@ export class SettingsWebviewProvider implements WebviewProvider<State, State, Se
 		}
 	}
 
-	async onMessageReceived(e: IpcMessage) {
+	async onMessageReceived(e: IpcMessage): Promise<void> {
 		if (e == null) return;
 
 		switch (true) {
@@ -196,6 +204,7 @@ export class SettingsWebviewProvider implements WebviewProvider<State, State, Se
 							['3ac1d3f51d7cf5f438cc69f25f6740536ad80fef'],
 							e.params.type === 'commit-uncommitted' ? 'Uncommitted changes' : 'Supercharged',
 							new GitFileChange(
+								this.container,
 								'~/code/eamodio/vscode-gitlens-demo',
 								'code.ts',
 								GitFileIndexStatus.Modified,
@@ -219,6 +228,7 @@ export class SettingsWebviewProvider implements WebviewProvider<State, State, Se
 							pr = new PullRequest(
 								{ id: 'github', name: 'GitHub', domain: 'github.com', icon: 'github' },
 								{
+									id: 'eamodio',
 									name: 'Eric Amodio',
 									avatarUrl: 'https://avatars1.githubusercontent.com/u/641685?s=32&v=4',
 									url: 'https://github.com/eamodio',

@@ -44,10 +44,9 @@
 	"[html][javascript][json][jsonc][markdown][scss][svg][typescript][typescriptreact]": {
 		"editor.defaultFormatter": "esbenp.prettier-vscode"
 	},
-	"npm.packageManager": "yarn",
 	"search.exclude": {
 		"**/dist": true
 	},
 	"typescript.preferences.importModuleSpecifier": "project-relative",
-	"typescript.tsdk": "node_modules\\typescript\\lib"
+	"typescript.tsdk": "node_modules/typescript/lib"
 }

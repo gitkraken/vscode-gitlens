@@ -2,11 +2,15 @@ import { html, nothing } from 'lit';
 import { customElement, property, state } from 'lit/decorators.js';
 import { unsafeHTML } from 'lit/directives/unsafe-html.js';
 import { when } from 'lit/directives/when.js';
-import type { Autolink } from '../../../../annotations/autolinks';
-import type { ManageCloudIntegrationsCommandArgs } from '../../../../commands/cloudIntegrations';
-import type { IssueOrPullRequest } from '../../../../git/models/issue';
+import type { Autolink } from '../../../../autolinks/models/autolinks';
+import type {
+	ConnectCloudIntegrationsCommandArgs,
+	ManageCloudIntegrationsCommandArgs,
+} from '../../../../commands/cloudIntegrations';
+import type { IssueIntegrationId, SupportedCloudIntegrationIds } from '../../../../constants.integrations';
+import type { IssueOrPullRequest } from '../../../../git/models/issueOrPullRequest';
 import type { PullRequestShape } from '../../../../git/models/pullRequest';
-import type { IssueIntegrationId } from '../../../../plus/integrations/providers/models';
+import { createCommandLink } from '../../../../system/commands';
 import type { Serialized } from '../../../../system/serialize';
 import type { State } from '../../../commitDetails/protocol';
 import { messageHeadlineSplitterToken } from '../../../commitDetails/protocol';
@@ -14,22 +18,23 @@ import type { TreeItemAction, TreeItemBase } from '../../shared/components/tree/
 import { uncommittedSha } from './commit-details-app';
 import type { File } from './gl-details-base';
 import { GlDetailsBase } from './gl-details-base';
-import '../../shared/components/button';
-import '../../shared/components/code-icon';
-import '../../shared/components/skeleton-loader';
-import '../../shared/components/webview-pane';
 import '../../shared/components/actions/action-item';
 import '../../shared/components/actions/action-nav';
+import '../../shared/components/button';
+import '../../shared/components/code-icon';
 import '../../shared/components/commit/commit-identity';
 import '../../shared/components/commit/commit-stats';
+import '../../shared/components/markdown/markdown';
 import '../../shared/components/overlays/popover';
 import '../../shared/components/overlays/tooltip';
 import '../../shared/components/rich/issue-pull-request';
+import '../../shared/components/skeleton-loader';
+import '../../shared/components/webview-pane';
 
 interface ExplainState {
 	cancelled?: boolean;
 	error?: { message: string };
-	summary?: string;
+	result?: { summary: string; body: string };
 }
 
 @customElement('gl-commit-details')
@@ -40,12 +45,12 @@ export class GlCommitDetails extends GlDetailsBase {
 	state?: Serialized<State>;
 
 	@state()
-	get isStash() {
+	get isStash(): boolean {
 		return this.state?.commit?.stashNumber != null;
 	}
 
 	@state()
-	get shortSha() {
+	get shortSha(): string {
 		return this.state?.commit?.shortSha ?? '';
 	}
 
@@ -82,7 +87,7 @@ export class GlCommitDetails extends GlDetailsBase {
 		return actions;
 	}
 
-	override updated(changedProperties: Map<string, any>) {
+	override updated(changedProperties: Map<string, any>): void {
 		if (changedProperties.has('explain')) {
 			this.explainBusy = false;
 			this.querySelector('[data-region="commit-explanation"]')?.scrollIntoView();
@@ -171,15 +176,18 @@ export class GlCommitDetails extends GlDetailsBase {
 		const { hasAccount, hasConnectedJira } = this.state;
 
 		let message = html`<a
-				href="command:gitlens.plus.cloudIntegrations.manage?${encodeURIComponent(
-					JSON.stringify({
-						integrationId: 'jira' as IssueIntegrationId.Jira,
-						source: 'inspect',
-						detail: {
-							action: 'connect',
-							integration: 'jira',
+				href="${createCommandLink<ConnectCloudIntegrationsCommandArgs>(
+					'gitlens.plus.cloudIntegrations.connect',
+					{
+						integrationIds: ['jira' as IssueIntegrationId.Jira] as SupportedCloudIntegrationIds[],
+						source: {
+							source: 'inspect',
+							detail: {
+								action: 'connect',
+								integration: 'jira',
+							},
 						},
-					} satisfies ManageCloudIntegrationsCommandArgs),
+					},
 				)}"
 				>Connect to Jira Cloud</a
 			>
@@ -199,7 +207,7 @@ export class GlCommitDetails extends GlDetailsBase {
 	}
 
 	private renderAutoLinks() {
-		if (this.isUncommitted) return undefined;
+		if (!this.state?.autolinksEnabled || this.isUncommitted) return undefined;
 
 		const deduped = new Map<
 			string,
@@ -208,19 +216,34 @@ export class GlCommitDetails extends GlDetailsBase {
 			| { type: 'pr'; value: Serialized<PullRequestShape> }
 		>();
 
+		const autolinkIdsByUrl = new Map<string, string>();
+
 		if (this.state?.commit?.autolinks != null) {
 			for (const autolink of this.state.commit.autolinks) {
 				deduped.set(autolink.id, { type: 'autolink', value: autolink });
+				autolinkIdsByUrl.set(autolink.url, autolink.id);
 			}
 		}
 
 		if (this.state?.autolinkedIssues != null) {
 			for (const issue of this.state.autolinkedIssues) {
+				if (issue.url != null) {
+					const autoLinkId = autolinkIdsByUrl.get(issue.url);
+					if (autoLinkId != null) {
+						deduped.delete(autoLinkId);
+					}
+				}
 				deduped.set(issue.id, { type: 'issue', value: issue });
 			}
 		}
 
 		if (this.state?.pullRequest != null) {
+			if (this.state.pullRequest.url != null) {
+				const autoLinkId = autolinkIdsByUrl.get(this.state.pullRequest.url);
+				if (autoLinkId != null) {
+					deduped.delete(autoLinkId);
+				}
+			}
 			deduped.set(this.state.pullRequest.id, { type: 'pr', value: this.state.pullRequest });
 		}
 
@@ -243,16 +266,26 @@ export class GlCommitDetails extends GlDetailsBase {
 		}
 
 		const { hasAccount, hasConnectedJira } = this.state ?? {};
-		const jiraIntegrationLink = `command:gitlens.plus.cloudIntegrations.manage?${encodeURIComponent(
-			JSON.stringify({
-				integrationId: 'jira' as IssueIntegrationId.Jira,
-				source: 'inspect',
-				detail: {
-					action: 'connect',
-					integration: 'jira',
-				},
-			} satisfies ManageCloudIntegrationsCommandArgs),
-		)}`;
+		const jiraIntegrationLink = hasConnectedJira
+			? createCommandLink<ManageCloudIntegrationsCommandArgs>('gitlens.plus.cloudIntegrations.manage', {
+					source: {
+						source: 'inspect',
+						detail: {
+							action: 'connect',
+							integration: 'jira',
+						},
+					},
+			  })
+			: createCommandLink<ConnectCloudIntegrationsCommandArgs>('gitlens.plus.cloudIntegrations.connect', {
+					integrationIds: ['jira' as IssueIntegrationId.Jira] as SupportedCloudIntegrationIds[],
+					source: {
+						source: 'inspect',
+						detail: {
+							action: 'connect',
+							integration: 'jira',
+						},
+					},
+			  });
 
 		return html`
 			<webview-pane
@@ -399,6 +432,9 @@ export class GlCommitDetails extends GlDetailsBase {
 	private renderExplainAi() {
 		if (this.state?.orgSettings.ai === false) return undefined;
 
+		const markdown =
+			this.explain?.result != null ? `${this.explain.result.summary}\n\n${this.explain.result.body}` : undefined;
+
 		// TODO: add loading and response states
 		return html`
 			<webview-pane collapsable data-region="explain-pane">
@@ -424,33 +460,26 @@ export class GlCommitDetails extends GlDetailsBase {
 							>
 						</span>
 					</p>
-					${when(
-						this.explain,
-						() => html`
-							<div
-								class="ai-content${this.explain?.error ? ' has-error' : ''}"
-								data-region="commit-explanation"
-							>
-								${when(
-									this.explain?.error,
-									() =>
-										html`<p class="ai-content__summary scrollable">
-											${this.explain!.error!.message ?? 'Error retrieving content'}
-										</p>`,
-								)}
-								${when(
-									this.explain?.summary,
-									() => html`<p class="ai-content__summary scrollable">${this.explain!.summary}</p>`,
-								)}
-							</div>
-						`,
-					)}
+					${markdown
+						? html`<div class="ai-content" data-region="commit-explanation">
+								<gl-markdown
+									class="ai-content__summary scrollable"
+									markdown="${markdown}"
+								></gl-markdown>
+						  </div>`
+						: this.explain?.error
+						  ? html`<div class="ai-content has-error" data-region="commit-explanation">
+									<p class="ai-content__summary scrollable">
+										${this.explain.error.message ?? 'Error retrieving content'}
+									</p>
+						    </div>`
+						  : undefined}
 				</div>
 			</webview-pane>
 		`;
 	}
 
-	override render() {
+	override render(): unknown {
 		if (this.state?.commit == null) {
 			return this.renderEmptyContent();
 		}
@@ -468,7 +497,7 @@ export class GlCommitDetails extends GlDetailsBase {
 		`;
 	}
 
-	onExplainChanges(e: MouseEvent | KeyboardEvent) {
+	private onExplainChanges(e: MouseEvent | KeyboardEvent) {
 		if (this.explainBusy === true || (e instanceof KeyboardEvent && e.key !== 'Enter')) {
 			e.preventDefault();
 			e.stopPropagation();
@@ -479,13 +508,13 @@ export class GlCommitDetails extends GlDetailsBase {
 	}
 
 	private renderCommitStats(stats?: NonNullable<NonNullable<typeof this.state>['commit']>['stats']) {
-		if (stats?.changedFiles == null) return undefined;
+		if (stats?.files == null) return undefined;
 
-		if (typeof stats.changedFiles === 'number') {
-			return html`<commit-stats added="?" modified="${stats.changedFiles}" removed="?"></commit-stats>`;
+		if (typeof stats.files === 'number') {
+			return html`<commit-stats added="?" modified="${stats.files}" removed="?"></commit-stats>`;
 		}
 
-		const { added, deleted, changed } = stats.changedFiles;
+		const { added, deleted, changed } = stats.files;
 		return html`<commit-stats added="${added}" modified="${changed}" removed="${deleted}"></commit-stats>`;
 	}
 
@@ -509,20 +538,17 @@ export class GlCommitDetails extends GlDetailsBase {
 		});
 
 		if (!this.isStash) {
-			actions.push(
-				{
-					icon: 'globe',
-					label: 'Open on remote',
-					action: 'file-open-on-remote',
-				},
-				{
-					icon: 'ellipsis',
-					label: 'Show more actions',
-					action: 'file-more-actions',
-				},
-			);
+			actions.push({
+				icon: 'globe',
+				label: 'Open on remote',
+				action: 'file-open-on-remote',
+			});
 		}
-
+		actions.push({
+			icon: 'ellipsis',
+			label: 'Show more actions',
+			action: 'file-more-actions',
+		});
 		return actions;
 	}
 }

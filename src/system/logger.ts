@@ -1,6 +1,7 @@
 import { LogInstanceNameFn } from './decorators/log';
 import type { LogLevel } from './logger.constants';
 import type { LogScope } from './logger.scope';
+import { padOrTruncateEnd } from './string';
 
 const enum OrderedLevel {
 	Off = 0,
@@ -14,6 +15,9 @@ export interface LogChannelProvider {
 	readonly name: string;
 	createChannel(name: string): LogChannel;
 	toLoggable?(o: unknown): string | undefined;
+
+	sanitizeKeys?: Set<string>;
+	sanitizer?: (key: string, value: unknown) => unknown;
 }
 
 export interface LogChannel {
@@ -23,12 +27,21 @@ export interface LogChannel {
 	show?(preserveFocus?: boolean): void;
 }
 
+const defaultSanitizeKeys = ['accessToken', 'password', 'token'];
+
 export const Logger = new (class Logger {
 	private output: LogChannel | undefined;
-	private provider: LogChannelProvider | undefined;
+	private provider: RequireSome<LogChannelProvider, 'sanitizeKeys'> | undefined;
 
 	configure(provider: LogChannelProvider, logLevel: LogLevel, debugging: boolean = false) {
-		this.provider = provider;
+		if (provider.sanitizeKeys != null) {
+			for (const key of defaultSanitizeKeys) {
+				provider.sanitizeKeys.add(key);
+			}
+		} else {
+			provider.sanitizeKeys = new Set(defaultSanitizeKeys);
+		}
+		this.provider = provider as RequireSome<LogChannelProvider, 'sanitizeKeys'>;
 
 		this._isDebugging = debugging;
 		this.logLevel = logLevel;
@@ -81,7 +94,7 @@ export const Logger = new (class Logger {
 		}
 
 		if (this.isDebugging) {
-			console.log(this.timestamp, `[${this.provider!.name}]`, message ?? '', ...params);
+			console.log(`[${padOrTruncateEnd(this.provider!.name, 13)}]`, this.timestamp, message ?? '', ...params);
 		}
 
 		if (this.output == null || this.level < OrderedLevel.Debug) return;
@@ -112,15 +125,27 @@ export const Logger = new (class Logger {
 
 		if (this.isDebugging) {
 			if (ex != null) {
-				console.error(this.timestamp, `[${this.provider!.name}]`, message ?? '', ...params, ex);
+				console.error(
+					`[${padOrTruncateEnd(this.provider!.name, 13)}]`,
+					this.timestamp,
+					message ?? '',
+					...params,
+					ex,
+				);
 			} else {
-				console.error(this.timestamp, `[${this.provider!.name}]`, message ?? '', ...params);
+				console.error(
+					`[${padOrTruncateEnd(this.provider!.name, 13)}]`,
+					this.timestamp,
+					message ?? '',
+					...params,
+				);
 			}
 		}
 
 		if (this.output == null || this.level < OrderedLevel.Error) return;
 		this.output.appendLine(
 			`${this.timestamp} ${message ?? ''}${this.toLoggableParams(false, params)}${
+				// eslint-disable-next-line @typescript-eslint/no-base-to-string
 				ex != null ? `\n${String(ex)}` : ''
 			}`,
 		);
@@ -143,7 +168,7 @@ export const Logger = new (class Logger {
 		}
 
 		if (this.isDebugging) {
-			console.log(this.timestamp, `[${this.provider!.name}]`, message ?? '', ...params);
+			console.log(`[${padOrTruncateEnd(this.provider!.name, 13)}]`, this.timestamp, message ?? '', ...params);
 		}
 
 		if (this.output == null || this.level < OrderedLevel.Info) return;
@@ -178,19 +203,30 @@ export const Logger = new (class Logger {
 		this.output?.show?.(preserveFocus);
 	}
 
-	toLoggable(o: any, sanitize?: ((key: string, value: any) => any) | undefined): string {
+	toLoggable(o: any, sanitizer?: ((key: string, value: unknown) => unknown) | undefined): string {
 		if (typeof o !== 'object') return String(o);
 
 		if (Array.isArray(o)) {
-			return `[${o.map(i => this.toLoggable(i, sanitize)).join(', ')}]`;
+			return `[${o.map(i => this.toLoggable(i, sanitizer)).join(', ')}]`;
 		}
 
 		const loggable = this.provider!.toLoggable?.(o);
 		if (loggable != null) return loggable;
 
 		try {
-			return JSON.stringify(o, sanitize);
+			return JSON.stringify(o, (key: string, value: unknown): unknown => {
+				if (this.provider!.sanitizeKeys.has(key)) return `<${key}>`;
+
+				if (sanitizer != null) {
+					value = sanitizer(key, value);
+				}
+				if (this.provider?.sanitizer != null) {
+					value = this.provider.sanitizer(key, value);
+				}
+				return value;
+			});
 		} catch {
+			debugger;
 			return '<error>';
 		}
 	}
@@ -205,6 +241,8 @@ export const Logger = new (class Logger {
 	}
 })();
 
+const maxBufferedLines = 100;
+
 export class BufferedLogChannel implements LogChannel {
 	private readonly buffer: string[] = [];
 	private bufferTimer: ReturnType<typeof setTimeout> | undefined;
@@ -218,6 +256,7 @@ export class BufferedLogChannel implements LogChannel {
 		clearInterval(this.bufferTimer);
 		this.bufferTimer = undefined;
 
+		this.flush();
 		this.channel.dispose();
 	}
 
@@ -225,9 +264,14 @@ export class BufferedLogChannel implements LogChannel {
 		return this.channel.name;
 	}
 
-	appendLine(value: string) {
+	appendLine(value: string): void {
 		this.buffer.push(value);
-		this.bufferTimer ??= setInterval(() => this.flush(), this.interval);
+
+		if (this.buffer.length >= maxBufferedLines) {
+			this.flush();
+		} else {
+			this.bufferTimer ??= setInterval(() => this.flush(), this.interval);
+		}
 	}
 
 	show(preserveFocus?: boolean): void {
@@ -240,7 +284,8 @@ export class BufferedLogChannel implements LogChannel {
 		if (this.buffer.length) {
 			this._emptyCounter = 0;
 
-			const value = this.buffer.join('\n');
+			let value = this.buffer.join('\n');
+			value += '\n';
 			this.buffer.length = 0;
 
 			this.channel.append(value);
@@ -272,7 +317,8 @@ function toOrderedLevel(logLevel: LogLevel): OrderedLevel {
 	}
 }
 
-export function getLoggableName(instance: Function | object) {
+// eslint-disable-next-line @typescript-eslint/no-unsafe-function-type
+export function getLoggableName(instance: Function | object): string {
 	let ctor;
 	if (typeof instance === 'function') {
 		if (instance.prototype?.constructor == null) return instance.name;
@@ -286,7 +332,7 @@ export function getLoggableName(instance: Function | object) {
 
 	// Strip webpack module name (since I never name classes with an _)
 	const index = name.indexOf('_');
-	name = index === -1 ? name : name.substr(index + 1);
+	name = index === -1 ? name : name.substring(index + 1);
 
 	if (ctor?.[LogInstanceNameFn] != null) {
 		name = ctor[LogInstanceNameFn](instance, name);
@@ -305,7 +351,7 @@ export const defaultLogProvider: LogProvider = {
 	log: (logLevel: LogLevel, scope: LogScope | undefined, message: string, ...params: any[]) => {
 		switch (logLevel) {
 			case 'error':
-				Logger.error('', scope, message, ...params);
+				Logger.error(undefined, scope, message, ...params);
 				break;
 			case 'warn':
 				Logger.warn(scope, message, ...params);

@@ -5,7 +5,7 @@ import type { GitRevisionReference } from '../../git/models/reference';
 import { Repository } from '../../git/models/repository';
 import { CommitFilesQuickPickItem } from '../../quickpicks/items/commits';
 import { CommandQuickPickItem } from '../../quickpicks/items/common';
-import { GitCommandQuickPickItem } from '../../quickpicks/items/gitCommands';
+import { GitWizardQuickPickItem } from '../../quickpicks/items/gitWizard';
 import type { ViewsWithRepositoryFolders } from '../../views/viewBase';
 import type { PartialStepState, StepGenerator } from '../quickCommand';
 import { endSteps, QuickCommand, StepResultBreak } from '../quickCommand';
@@ -88,7 +88,7 @@ export class ShowGitCommand extends QuickCommand<State> {
 		};
 	}
 
-	override get canConfirm() {
+	override get canConfirm(): boolean {
 		return false;
 	}
 
@@ -105,7 +105,7 @@ export class ShowGitCommand extends QuickCommand<State> {
 	protected async *steps(state: PartialStepState<State>): StepGenerator {
 		const context: Context = {
 			repos: this.container.git.openRepositories,
-			associatedView: this.container.commitsView,
+			associatedView: this.container.views.commits,
 			title: this.title,
 		};
 
@@ -141,7 +141,9 @@ export class ShowGitCommand extends QuickCommand<State> {
 				state.reference.file != null
 			) {
 				if (state.reference != null && !isCommit(state.reference)) {
-					state.reference = await this.container.git.getCommit(state.reference.repoPath, state.reference.ref);
+					state.reference = await this.container.git
+						.commits(state.reference.repoPath)
+						.getCommit(state.reference.ref);
 				}
 
 				if (state.counter < 2 || state.reference == null) {
@@ -181,7 +183,7 @@ export class ShowGitCommand extends QuickCommand<State> {
 				const result = yield* showCommitOrStashStep(state, context);
 				if (result === StepResultBreak) continue;
 
-				if (result instanceof GitCommandQuickPickItem) {
+				if (result instanceof GitWizardQuickPickItem) {
 					const r = yield* result.executeSteps(this.pickedVia);
 					state.counter--;
 					if (r === StepResultBreak) {
@@ -227,7 +229,7 @@ export class ShowGitCommand extends QuickCommand<State> {
 				continue;
 			}
 
-			if (result instanceof GitCommandQuickPickItem) {
+			if (result instanceof GitWizardQuickPickItem) {
 				yield* result.executeSteps(this.pickedVia);
 				state.counter--;
 

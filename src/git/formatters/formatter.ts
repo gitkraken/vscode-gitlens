@@ -30,7 +30,7 @@ export abstract class Formatter<Item = any, Options extends FormatOptions = Form
 		this.reset(item, options);
 	}
 
-	reset(item: Item, options?: Options) {
+	reset(item: Item, options?: Options): void {
 		this._item = item;
 		this.collapsableWhitespace = 0;
 
@@ -53,7 +53,7 @@ export abstract class Formatter<Item = any, Options extends FormatOptions = Form
 
 	private collapsableWhitespace: number = 0;
 
-	protected _padOrTruncate(s: string, options: TokenOptions | undefined) {
+	protected _padOrTruncate(s: string, options: TokenOptions | undefined): string {
 		if (s == null || s.length === 0) return s;
 
 		// NOTE: the collapsable whitespace logic relies on the javascript template evaluation to be left to right

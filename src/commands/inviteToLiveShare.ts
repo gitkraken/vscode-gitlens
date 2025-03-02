@@ -1,28 +1,34 @@
-import { Commands } from '../constants';
+import type { Uri } from 'vscode';
+import { GlCommand } from '../constants.commands';
 import type { Container } from '../container';
-import { command } from '../system/command';
-import type { CommandContext } from './base';
-import { Command, isCommandContextViewNodeHasContributor } from './base';
+import { command } from '../system/-webview/command';
+import { createMarkdownCommandLink } from '../system/commands';
+import { GlCommandBase } from './commandBase';
+import type { CommandContext } from './commandContext';
+import { isCommandContextViewNodeHasContributor } from './commandContext.utils';
 
 export interface InviteToLiveShareCommandArgs {
 	email?: string;
 }
 
 @command()
-export class InviteToLiveShareCommand extends Command {
-	static getMarkdownCommandArgs(args: InviteToLiveShareCommandArgs): string;
-	static getMarkdownCommandArgs(email: string | undefined): string;
-	static getMarkdownCommandArgs(argsOrEmail: InviteToLiveShareCommandArgs | string | undefined): string {
+export class InviteToLiveShareCommand extends GlCommandBase {
+	static createMarkdownCommandLink(args: InviteToLiveShareCommandArgs): string;
+	static createMarkdownCommandLink(email: string | undefined): string;
+	static createMarkdownCommandLink(argsOrEmail: InviteToLiveShareCommandArgs | string | undefined): string {
 		const args =
 			argsOrEmail === undefined || typeof argsOrEmail === 'string' ? { email: argsOrEmail } : argsOrEmail;
-		return super.getMarkdownCommandArgsCore<InviteToLiveShareCommandArgs>(Commands.InviteToLiveShare, args);
+		return createMarkdownCommandLink<InviteToLiveShareCommandArgs>(GlCommand.InviteToLiveShare, args);
 	}
 
 	constructor(private readonly container: Container) {
-		super(Commands.InviteToLiveShare);
+		super(GlCommand.InviteToLiveShare);
 	}
 
-	protected override preExecute(context: CommandContext, args?: InviteToLiveShareCommandArgs) {
+	protected override preExecute(
+		context: CommandContext,
+		args?: InviteToLiveShareCommandArgs,
+	): Promise<boolean | Uri | null | undefined> {
 		if (isCommandContextViewNodeHasContributor(context)) {
 			args = { ...args };
 			args.email = context.node.contributor.email;
@@ -32,7 +38,7 @@ export class InviteToLiveShareCommand extends Command {
 		return this.execute(args);
 	}
 
-	async execute(args?: InviteToLiveShareCommandArgs) {
+	async execute(args?: InviteToLiveShareCommandArgs): Promise<boolean | Uri | null | undefined> {
 		if (args?.email) {
 			const contact = await this.container.vsls.getContact(args.email);
 			if (contact != null) {

@@ -1,15 +1,15 @@
 import type { CancellationToken, Command } from 'vscode';
 import { MarkdownString, ThemeIcon, TreeItem, TreeItemCollapsibleState } from 'vscode';
 import type { DiffWithCommandArgs } from '../../commands/diffWith';
-import { Commands, GlyphChars } from '../../constants';
+import { GlyphChars } from '../../constants';
+import { GlCommand } from '../../constants.commands';
 import { GitUri } from '../../git/gitUri';
 import type { GitCommit } from '../../git/models/commit';
 import type { GitFile } from '../../git/models/file';
-import type { GitMergeStatus } from '../../git/models/merge';
-import type { GitRebaseStatus } from '../../git/models/rebase';
-import { getReferenceLabel } from '../../git/models/reference';
-import { createCommand, createCoreCommand } from '../../system/command';
-import { configuration } from '../../system/configuration';
+import type { GitPausedOperationStatus } from '../../git/models/pausedOperationStatus';
+import { getReferenceLabel } from '../../git/utils/reference.utils';
+import { createCommand, createCoreCommand } from '../../system/-webview/command';
+import { configuration } from '../../system/-webview/configuration';
 import type { FileHistoryView } from '../fileHistoryView';
 import type { LineHistoryView } from '../lineHistoryView';
 import type { ViewsWithCommits } from '../viewBase';
@@ -23,7 +23,7 @@ export class MergeConflictCurrentChangesNode extends ViewNode<
 	constructor(
 		view: ViewsWithCommits | FileHistoryView | LineHistoryView,
 		protected override readonly parent: ViewNode,
-		private readonly status: GitMergeStatus | GitRebaseStatus,
+		private readonly status: GitPausedOperationStatus,
 		private readonly file: GitFile,
 	) {
 		super('conflict-current-changes', GitUri.fromFile(file, status.repoPath, 'HEAD'), view, parent);
@@ -31,9 +31,7 @@ export class MergeConflictCurrentChangesNode extends ViewNode<
 
 	private _commit: Promise<GitCommit | undefined> | undefined;
 	private async getCommit(): Promise<GitCommit | undefined> {
-		if (this._commit == null) {
-			this._commit = this.view.container.git.getCommit(this.status.repoPath, 'HEAD');
-		}
+		this._commit ??= this.view.container.git.commits(this.status.repoPath).getCommit('HEAD');
 		return this._commit;
 	}
 
@@ -67,7 +65,7 @@ export class MergeConflictCurrentChangesNode extends ViewNode<
 			);
 		}
 
-		return createCommand<[DiffWithCommandArgs]>(Commands.DiffWith, 'Open Changes', {
+		return createCommand<[DiffWithCommandArgs]>(GlCommand.DiffWith, 'Open Changes', {
 			lhs: {
 				sha: this.status.mergeBase,
 				uri: GitUri.fromFile(this.file, this.status.repoPath, undefined, true),

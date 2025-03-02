@@ -1,18 +1,17 @@
 import { commands } from 'vscode';
-import { Commands } from '../constants';
 import type { Container } from '../container';
 import { showGenericErrorMessage } from '../messages';
-import { command } from '../system/command';
+import { command } from '../system/-webview/command';
 import { Logger } from '../system/logger';
-import { Command, getLastCommand } from './base';
+import { getLastCommand, GlCommandBase } from './commandBase';
 
 @command()
-export class ShowLastQuickPickCommand extends Command {
+export class ShowLastQuickPickCommand extends GlCommandBase {
 	constructor(private readonly container: Container) {
-		super(Commands.ShowLastQuickPick);
+		super('gitlens.showLastQuickPick');
 	}
 
-	execute() {
+	execute(): Thenable<unknown> {
 		const command = getLastCommand();
 		if (command === undefined) return Promise.resolve(undefined);
 

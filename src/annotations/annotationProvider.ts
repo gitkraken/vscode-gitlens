@@ -1,14 +1,14 @@
-import type { TextEditor, TextEditorDecorationType, TextEditorSelectionChangeEvent } from 'vscode';
+import type { Tab, TextEditor, TextEditorDecorationType, TextEditorSelectionChangeEvent } from 'vscode';
 import { Disposable, window } from 'vscode';
 import type { FileAnnotationType } from '../config';
+import type { AnnotationStatus } from '../constants';
 import type { Container } from '../container';
+import { getTabUri } from '../system/-webview/vscode';
 import { Logger } from '../system/logger';
 import type { Deferred } from '../system/promise';
 import { defer } from '../system/promise';
 import type { TrackedGitDocument } from '../trackers/trackedDocument';
 import type { Decoration } from './annotations';
-
-export type AnnotationStatus = 'computing' | 'computed';
 
 export interface AnnotationContext {
 	selection?: { sha?: string; line?: never } | { sha?: never; line?: number } | false;
@@ -19,9 +19,14 @@ export interface AnnotationState {
 	restoring?: boolean;
 }
 
-export type TextEditorCorrelationKey = string;
+export type TextEditorCorrelationKey = `${string}|${number}`;
 export function getEditorCorrelationKey(editor: TextEditor | undefined): TextEditorCorrelationKey {
-	return `${editor?.document.uri.toString()}|${editor?.viewColumn}`;
+	return `${editor?.document.uri.toString()}|${editor?.viewColumn ?? 0}`;
+}
+
+export function getEditorCorrelationKeyFromTab(tab: Tab): TextEditorCorrelationKey {
+	const uri = getTabUri(tab);
+	return `${uri?.toString()}|${tab.group.viewColumn}`;
 }
 
 export type DidChangeStatusCallback = (e: { editor?: TextEditor; status?: AnnotationStatus }) => void;
@@ -47,7 +52,7 @@ export abstract class AnnotationProviderBase<TContext extends AnnotationContext 
 		);
 	}
 
-	dispose() {
+	dispose(): void {
 		void this.clear();
 
 		this.disposable.dispose();
@@ -97,7 +102,7 @@ export abstract class AnnotationProviderBase<TContext extends AnnotationContext 
 		return true;
 	}
 
-	async clear() {
+	async clear(): Promise<void> {
 		if (this._computing?.pending) {
 			await this._computing.promise;
 		}
@@ -151,7 +156,7 @@ export abstract class AnnotationProviderBase<TContext extends AnnotationContext 
 
 	protected abstract onProvideAnnotation(context?: TContext, state?: AnnotationState): Promise<boolean>;
 
-	refresh(replaceDecorationTypes: Map<TextEditorDecorationType, TextEditorDecorationType | null>) {
+	refresh(replaceDecorationTypes: Map<TextEditorDecorationType, TextEditorDecorationType | null>): void {
 		if (this.editor == null || !this.decorations?.length) return;
 
 		const decorations = [];
@@ -170,7 +175,7 @@ export abstract class AnnotationProviderBase<TContext extends AnnotationContext 
 		this.setDecorations(this.decorations);
 	}
 
-	restore(editor: TextEditor, recompute?: boolean) {
+	restore(editor: TextEditor, recompute?: boolean): void {
 		// If the editor isn't disposed then we don't need to do anything
 		// Explicitly check for `false`
 		if ((this.editor as any)._disposed === false) return;
@@ -196,7 +201,7 @@ export abstract class AnnotationProviderBase<TContext extends AnnotationContext 
 	selection?(selection?: TContext['selection']): Promise<void>;
 	validate?(): boolean | Promise<boolean>;
 
-	protected setDecorations(decorations: Decoration[]) {
+	protected setDecorations(decorations: Decoration[]): void {
 		if (this.decorations?.length) {
 			// If we have no new decorations, just completely clear the old ones
 			if (!decorations?.length) {

@@ -2,8 +2,6 @@ import type { Uri } from 'vscode';
 import { isLinux } from '@env/platform';
 import { filterMap } from './iterable';
 import { normalizePath as _normalizePath } from './path';
-// TODO@eamodio don't import from string here since it will break the tests because of ESM dependencies
-// import { CharCode } from './string';
 
 const slash = 47; //CharCode.Slash;
 

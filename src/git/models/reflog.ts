@@ -1,7 +1,8 @@
-import { Container } from '../../container';
+/* eslint-disable @typescript-eslint/no-restricted-imports */ /* TODO need to deal with sharing rich class shapes to webviews */
+import type { Container } from '../../container';
 import { formatDate, fromNow } from '../../system/date';
-import { memoize } from '../../system/decorators/memoize';
-import { shortenRevision } from './reference';
+import { memoize } from '../../system/decorators/-webview/memoize';
+import { shortenRevision } from '../utils/revision.utils';
 
 export interface GitReflog {
 	readonly repoPath: string;
@@ -18,6 +19,7 @@ export class GitReflogRecord {
 	private _previousSha: string | undefined;
 
 	constructor(
+		private readonly container: Container,
 		public readonly repoPath: string,
 		public readonly sha: string,
 		private _selector: string,
@@ -28,54 +30,54 @@ export class GitReflogRecord {
 	) {}
 
 	@memoize<GitReflogRecord['formatDate']>(format => format ?? 'MMMM Do, YYYY h:mma')
-	formatDate(format?: string | null) {
+	formatDate(format?: string | null): string {
 		return formatDate(this.date, format ?? 'MMMM Do, YYYY h:mma');
 	}
 
-	formatDateFromNow() {
+	formatDateFromNow(): string {
 		return fromNow(this.date);
 	}
 
 	get formattedDate(): string {
-		return Container.instance.CommitDateFormatting.dateStyle === 'absolute'
-			? this.formatDate(Container.instance.CommitDateFormatting.dateFormat)
+		return this.container.CommitDateFormatting.dateStyle === 'absolute'
+			? this.formatDate(this.container.CommitDateFormatting.dateFormat)
 			: this.formatDateFromNow();
 	}
 
 	@memoize()
-	get HEAD() {
+	get HEAD(): string {
 		if (this._selector == null || this._selector.length === 0) return '';
 
 		if (this._selector.startsWith('refs/heads')) {
-			return this._selector.substr(11);
+			return this._selector.substring(11);
 		}
 
 		if (this._selector.startsWith('refs/remotes')) {
-			return this._selector.substr(13);
+			return this._selector.substring(13);
 		}
 
 		return this._selector;
 	}
 
-	get previousSha() {
+	get previousSha(): string | undefined {
 		return this._previousSha;
 	}
 
 	@memoize()
-	get previousShortSha() {
+	get previousShortSha(): string {
 		return shortenRevision(this._previousSha);
 	}
 
-	get selector() {
+	get selector(): string {
 		return this._selector;
 	}
 
 	@memoize()
-	get shortSha() {
+	get shortSha(): string {
 		return shortenRevision(this.sha);
 	}
 
-	update(previousSha?: string, selector?: string) {
+	update(previousSha?: string, selector?: string): void {
 		if (previousSha !== undefined) {
 			this._previousSha = previousSha;
 		}

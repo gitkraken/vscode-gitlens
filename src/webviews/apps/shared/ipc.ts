@@ -1,10 +1,12 @@
 /*global window */
 import { getScopedCounter } from '../../../system/counter';
 import { debug, logName } from '../../../system/decorators/log';
+import { Logger } from '../../../system/logger';
 import { getLogScope, getNewLogScope } from '../../../system/logger.scope';
 import type { Serialized } from '../../../system/serialize';
 import { maybeStopWatch } from '../../../system/stopwatch';
 import type { IpcCallParamsType, IpcCallResponseParamsType, IpcCommand, IpcMessage, IpcRequest } from '../../protocol';
+import { ipcPromiseSettled, isIpcPromise } from '../../protocol';
 import { DOM } from './dom';
 import type { Disposable, Event } from './events';
 import { Emitter } from './events';
@@ -18,7 +20,7 @@ export interface HostIpcApi {
 declare function acquireVsCodeApi(): HostIpcApi;
 
 let _api: HostIpcApi | undefined;
-export function getHostIpcApi() {
+export function getHostIpcApi(): HostIpcApi {
 	return (_api ??= acquireVsCodeApi());
 }
 
@@ -46,7 +48,7 @@ export class HostIpc implements Disposable {
 		this._disposable = DOM.on(window, 'message', e => this.onMessageReceived(e));
 	}
 
-	dispose() {
+	dispose(): void {
 		this._disposable.dispose();
 	}
 
@@ -65,6 +67,8 @@ export class HostIpc implements Disposable {
 			sw?.stop();
 		}
 
+		this.replaceIpcPromisesWithPromises(msg.params);
+
 		// If we have a completionId, then this is a response to a request and it should be handled directly
 		if (msg.completionId != null) {
 			const queueKey = getQueueKey(msg.method, msg.completionId);
@@ -76,8 +80,23 @@ export class HostIpc implements Disposable {
 		this._onReceiveMessage.fire(msg);
 	}
 
+	replaceIpcPromisesWithPromises(data: unknown): void {
+		if (data == null || typeof data !== 'object') return;
+
+		for (const key in data) {
+			const value = (data as Record<string, unknown>)[key];
+			if (isIpcPromise(value)) {
+				(data as Record<string, unknown>)[key] = this.getResponsePromise(value.method, value.id);
+			} else {
+				this.replaceIpcPromisesWithPromises(value);
+			}
+		}
+	}
+
+	sendCommand<T extends IpcCommand>(commandType: T, params?: never): void;
+	sendCommand<T extends IpcCommand<unknown>>(commandType: T, params: IpcCallParamsType<T>): void;
 	@debug<HostIpc['sendCommand']>({ args: { 0: c => c.method, 1: false } })
-	sendCommand<T extends IpcCommand<unknown>>(commandType: T, params: IpcCallParamsType<T>): void {
+	sendCommand<T extends IpcCommand | IpcCommand<unknown>>(commandType: T, params?: IpcCallParamsType<T>): void {
 		const id = nextIpcId();
 		// this.log(`${this.appName}.sendCommand(${id}): name=${command.method}`);
 
@@ -97,28 +116,7 @@ export class HostIpc implements Disposable {
 		const id = nextIpcId();
 		// this.log(`${this.appName}.sendCommandWithCompletion(${id}): name=${command.method}`);
 
-		const promise = new Promise<IpcCallResponseParamsType<T>>((resolve, reject) => {
-			const queueKey = getQueueKey(requestType.response.method, id);
-			let timeout: ReturnType<typeof setTimeout> | undefined;
-
-			function dispose(this: HostIpc) {
-				clearTimeout(timeout);
-				timeout = undefined;
-				this._pendingHandlers.delete(queueKey);
-			}
-
-			timeout = setTimeout(() => {
-				dispose.call(this);
-				debugger;
-				reject(new Error(`Timed out waiting for completion of ${queueKey}`));
-			}, 60000);
-
-			this._pendingHandlers.set(queueKey, msg => {
-				dispose.call(this);
-				queueMicrotask(() => resolve(msg.params));
-			});
-		});
-
+		const promise = this.getResponsePromise(requestType.response.method, id);
 		this.postMessage({
 			id: id,
 			scope: requestType.scope,
@@ -129,8 +127,57 @@ export class HostIpc implements Disposable {
 		return promise;
 	}
 
-	setState<T>(state: Partial<T>) {
+	private getResponsePromise<T extends IpcRequest<unknown, unknown>>(method: string, id: string) {
+		const promise = new Promise<IpcCallResponseParamsType<T>>((resolve, reject) => {
+			const queueKey = getQueueKey(method, id);
+			let timeout: ReturnType<typeof setTimeout> | undefined;
+
+			function dispose(this: HostIpc) {
+				clearTimeout(timeout);
+				timeout = undefined;
+				this._pendingHandlers.delete(queueKey);
+			}
+
+			timeout = setTimeout(
+				() => {
+					dispose.call(this);
+					debugger;
+					reject(new Error(`Timed out waiting for completion of ${queueKey}`));
+				},
+				(Logger.isDebugging ? 60 : 5) * 60 * 1000,
+			);
+
+			this._pendingHandlers.set(queueKey, msg => {
+				dispose.call(this);
+
+				if (msg.method === ipcPromiseSettled.method) {
+					const params = msg.params as PromiseSettledResult<unknown>;
+					if (params.status === 'rejected') {
+						queueMicrotask(() => reject(new Error(params.reason)));
+					} else {
+						queueMicrotask(() => resolve(params.value));
+					}
+				} else {
+					queueMicrotask(() => resolve(msg.params));
+				}
+			});
+		});
+		return promise;
+	}
+
+	setPersistedState<T>(state: Partial<T>): void {
 		this._api.setState(state);
+	}
+
+	updatePersistedState<T>(update: Partial<T>): void {
+		let state = this._api.getState() as Partial<T> | undefined;
+		if (state != null && typeof state === 'object') {
+			state = { ...state, ...update };
+			this._api.setState(state);
+		} else {
+			state = update;
+		}
+		this.setPersistedState(state);
 	}
 
 	@debug<HostIpc['postMessage']>({ args: { 0: e => `${e.id}, method=${e.method}` } })
