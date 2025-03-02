@@ -27,8 +27,6 @@ export class GitBranch implements GitBranchReference {
 	readonly refType = 'branch';
 	readonly detached: boolean;
 	readonly id: string;
-	readonly upstream?: { name: string; missing: boolean };
-	readonly state: GitTrackingState;
 
 	constructor(
 		private readonly container: Container,
@@ -38,9 +36,7 @@ export class GitBranch implements GitBranchReference {
 		public readonly current: boolean,
 		public readonly date: Date | undefined,
 		public readonly sha?: string,
-		upstream?: { name: string; missing: boolean },
-		ahead: number = 0,
-		behind: number = 0,
+		public readonly upstream?: GitTrackingUpstream,
 		detached: boolean = false,
 		public readonly rebasing: boolean = false,
 	) {
@@ -51,11 +47,7 @@ export class GitBranch implements GitBranchReference {
 			this.name = formatDetachedHeadName(this.sha!);
 		}
 
-		this.upstream = upstream?.name == null || upstream.name.length === 0 ? undefined : upstream;
-		this.state = {
-			ahead: ahead,
-			behind: behind,
-		};
+		this.upstream = upstream?.name ? upstream : undefined;
 	}
 
 	toString(): string {
@@ -77,9 +69,9 @@ export class GitBranch implements GitBranchReference {
 		if (this.upstream == null) return this.detached ? 'detached' : 'local';
 
 		if (this.upstream.missing) return 'missingUpstream';
-		if (this.state.ahead && this.state.behind) return 'diverged';
-		if (this.state.ahead) return 'ahead';
-		if (this.state.behind) return 'behind';
+		if (this.upstream.state.ahead && this.upstream.state.behind) return 'diverged';
+		if (this.upstream.state.ahead) return 'ahead';
+		if (this.upstream.state.behind) return 'behind';
 		return 'upToDate';
 	}
 
@@ -166,7 +158,7 @@ export class GitBranch implements GitBranchReference {
 		separator?: string;
 		suffix?: string;
 	}): string {
-		return getUpstreamStatus(this.upstream, this.state, options);
+		return getUpstreamStatus(this.upstream, options);
 	}
 
 	get starred(): boolean {
@@ -184,8 +176,14 @@ export class GitBranch implements GitBranchReference {
 }
 
 export interface GitTrackingState {
-	ahead: number;
-	behind: number;
+	readonly ahead: number;
+	readonly behind: number;
+}
+
+export interface GitTrackingUpstream {
+	readonly name: string;
+	readonly missing: boolean;
+	readonly state: GitTrackingState;
 }
 
 export type GitBranchStatus =

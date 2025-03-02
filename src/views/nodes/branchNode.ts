@@ -286,25 +286,24 @@ export class BranchNode
 				const status = {
 					ref: branch.ref,
 					repoPath: branch.repoPath,
-					state: branch.state,
 					upstream: branch.upstream,
 				};
 
-				if (branch.upstream != null) {
-					if (this.root && branch.upstream.missing) {
+				if (status.upstream != null) {
+					if (this.root && status.upstream.missing) {
 						children.push(
 							new BranchTrackingStatusNode(this.view, this, branch, status, 'missing', this.root),
 						);
-					} else if (this.root && !status.state.behind && !status.state.ahead) {
+					} else if (this.root && !status.upstream.state.behind && !status.upstream.state.ahead) {
 						children.push(new BranchTrackingStatusNode(this.view, this, branch, status, 'same', this.root));
 					} else {
-						if (status.state.behind) {
+						if (status.upstream.state.behind) {
 							children.push(
 								new BranchTrackingStatusNode(this.view, this, branch, status, 'behind', this.root),
 							);
 						}
 
-						if (status.state.ahead) {
+						if (status.upstream.state.ahead) {
 							children.push(
 								new BranchTrackingStatusNode(this.view, this, branch, status, 'ahead', this.root, {
 									unpublishedCommits: unpublishedCommits,
@@ -488,8 +487,9 @@ export class BranchNode
 					? this.view.config.pageItemLimit
 					: this.view.config.defaultItemLimit);
 			// Try to show more commits if they are unpublished
-			if (limit !== 0 && this.branch.state.ahead > limit) {
-				limit = Math.min(this.branch.state.ahead + 1, limit * 2);
+			const ahead = this.branch.upstream?.state.ahead ?? 0;
+			if (limit !== 0 && ahead > limit) {
+				limit = Math.min(ahead + 1, limit * 2);
 			}
 
 			this._log = await this.view.container.git.commits(this.uri.repoPath!).getLog(this.ref.ref, {

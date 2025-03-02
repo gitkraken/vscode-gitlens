@@ -2,7 +2,7 @@ import { MarkdownString, ThemeColor, ThemeIcon, TreeItem, TreeItemCollapsibleSta
 import type { Colors } from '../../constants.colors';
 import type { FilesComparison } from '../../git/actions/commit';
 import { GitUri } from '../../git/gitUri';
-import type { GitBranch, GitTrackingState } from '../../git/models/branch';
+import type { GitBranch, GitTrackingUpstream } from '../../git/models/branch';
 import type { GitLog } from '../../git/models/log';
 import type { GitRemote } from '../../git/models/remote';
 import { getRemoteNameFromBranchName } from '../../git/utils/branch.utils';
@@ -25,8 +25,7 @@ import { insertDateMarkers } from './helpers';
 export interface BranchTrackingStatus {
 	ref: string;
 	repoPath: string;
-	state: GitTrackingState;
-	upstream?: { name: string; missing: boolean };
+	upstream?: GitTrackingUpstream;
 }
 
 export class BranchTrackingStatusNode
@@ -101,7 +100,14 @@ export class BranchTrackingStatusNode
 	}
 
 	async getChildren(): Promise<ViewNode[]> {
-		if (this.upstreamType === 'same' || this.upstreamType === 'missing' || this.upstreamType === 'none') return [];
+		if (
+			this.status.upstream == null ||
+			this.upstreamType === 'same' ||
+			this.upstreamType === 'missing' ||
+			this.upstreamType === 'none'
+		) {
+			return [];
+		}
 
 		const log = await this.getLog();
 		if (log == null) return [];
@@ -127,12 +133,7 @@ export class BranchTrackingStatusNode
 		const children = [];
 
 		let showFiles = true;
-		if (
-			!this.options?.showAheadCommits &&
-			this.upstreamType === 'ahead' &&
-			this.status.upstream &&
-			this.status.state.ahead > 0
-		) {
+		if (!this.options?.showAheadCommits && this.upstreamType === 'ahead' && this.status.upstream.state.ahead) {
 			showFiles = false;
 			// TODO@eamodio fix this
 			children.push(
@@ -182,23 +183,19 @@ export class BranchTrackingStatusNode
 		}
 
 		function getBranchStatus(this: BranchTrackingStatusNode, remote: GitRemote | undefined) {
-			return `$(git-branch) \`${this.branch.name}\` is ${getUpstreamStatus(
-				this.status.upstream,
-				this.status.state,
-				{
-					empty: this.status.upstream!.missing
-						? `missing upstream $(git-branch) \`${this.status.upstream!.name}\``
-						: `up to date with $(git-branch) \`${this.status.upstream!.name}\`${
-								remote?.provider?.name ? ` on ${remote.provider.name}` : ''
-						  }`,
-					expand: true,
-					icons: true,
-					separator: ', ',
-					suffix: ` $(git-branch) \`${this.status.upstream!.name}\`${
-						remote?.provider?.name ? ` on ${remote.provider.name}` : ''
-					}`,
-				},
-			)}`;
+			return `$(git-branch) \`${this.branch.name}\` is ${getUpstreamStatus(this.status.upstream, {
+				empty: this.status.upstream!.missing
+					? `missing upstream $(git-branch) \`${this.status.upstream!.name}\``
+					: `up to date with $(git-branch) \`${this.status.upstream!.name}\`${
+							remote?.provider?.name ? ` on ${remote.provider.name}` : ''
+					  }`,
+				expand: true,
+				icons: true,
+				separator: ', ',
+				suffix: ` $(git-branch) \`${this.status.upstream!.name}\`${
+					remote?.provider?.name ? ` on ${remote.provider.name}` : ''
+				}`,
+			})}`;
 		}
 
 		let label;
@@ -212,10 +209,10 @@ export class BranchTrackingStatusNode
 				const remote = await this.branch.getRemote();
 
 				label = 'Outgoing';
-				description = `${pluralize('commit', this.status.state.ahead)} to push to ${
+				description = `${pluralize('commit', this.status.upstream!.state.ahead)} to push to ${
 					remote?.name ?? getRemoteNameFromBranchName(this.status.upstream!.name)
 				}`;
-				tooltip = `${pluralize('commit', this.status.state.ahead)} to push to \`${
+				tooltip = `${pluralize('commit', this.status.upstream!.state.ahead)} to push to \`${
 					this.status.upstream!.name
 				}\`${remote?.provider?.name ? ` on ${remote?.provider.name}` : ''}\\\n${getBranchStatus.call(
 					this,
@@ -237,10 +234,10 @@ export class BranchTrackingStatusNode
 				const remote = await this.branch.getRemote();
 
 				label = 'Incoming';
-				description = `${pluralize('commit', this.status.state.behind)} to pull from ${
+				description = `${pluralize('commit', this.status.upstream!.state.behind)} to pull from ${
 					remote?.name ?? getRemoteNameFromBranchName(this.status.upstream!.name)
 				}`;
-				tooltip = `${pluralize('commit', this.status.state.behind)} to pull from \`${
+				tooltip = `${pluralize('commit', this.status.upstream!.state.behind)} to pull from \`${
 					this.status.upstream!.name
 				}\`${remote?.provider?.name ? ` on ${remote.provider.name}` : ''}\\\n${getBranchStatus.call(
 					this,

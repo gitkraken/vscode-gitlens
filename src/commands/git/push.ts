@@ -231,7 +231,7 @@ export class PushGitCommand extends QuickCommand<State> {
 								{ placeholder: 'Cannot publish; No remotes found' },
 							);
 						}
-					} else if (branch != null && branch?.state.behind > 0) {
+					} else if (branch?.upstream?.state.behind) {
 						step = this.createConfirmStep(
 							appendReposToTitle(`Confirm ${context.title}`, state, context),
 							[
@@ -254,11 +254,13 @@ export class PushGitCommand extends QuickCommand<State> {
 											: useForceWithLease
 											  ? ' (with lease)'
 											  : ''
-									} ${branch?.state.ahead ? ` ${pluralize('commit', branch.state.ahead)}` : ''}${
-										branch.getRemoteName() ? ` to ${branch.getRemoteName()}` : ''
-									}${
-										branch != null && branch.state.behind > 0
-											? `, overwriting ${pluralize('commit', branch.state.behind)}${
+									} ${
+										branch?.upstream.state.ahead
+											? ` ${pluralize('commit', branch.upstream.state.ahead)}`
+											: ''
+									}${branch.getRemoteName() ? ` to ${branch.getRemoteName()}` : ''}${
+										branch != null && branch.upstream.state.behind > 0
+											? `, overwriting ${pluralize('commit', branch.upstream.state.behind)}${
 													branch?.getRemoteName() ? ` on ${branch.getRemoteName()}` : ''
 											  }`
 											: ''
@@ -269,16 +271,20 @@ export class PushGitCommand extends QuickCommand<State> {
 								label: `Cancel ${this.title}`,
 								detail: `Cannot push; ${getReferenceLabel(
 									branch,
-								)} is behind ${branch.getRemoteName()} by ${pluralize('commit', branch.state.behind)}`,
+								)} is behind ${branch.getRemoteName()} by ${pluralize(
+									'commit',
+									branch.upstream.state.behind,
+								)}`,
 							}),
 						);
-					} else if (branch != null && branch?.state.ahead > 0) {
+					} else if (branch?.upstream?.state.ahead) {
 						step = this.createConfirmStep(appendReposToTitle(`Confirm ${context.title}`, state, context), [
 							createFlagsQuickPickItem<Flags>(state.flags, [branch.getRemoteName()!], {
 								label: this.title,
-								detail: `Will push ${pluralize('commit', branch.state.ahead)} from ${getReferenceLabel(
-									branch,
-								)} to ${branch.getRemoteName()}`,
+								detail: `Will push ${pluralize(
+									'commit',
+									branch.upstream.state.ahead,
+								)} from ${getReferenceLabel(branch)} to ${branch.getRemoteName()}`,
 							}),
 						]);
 					} else {
@@ -304,7 +310,7 @@ export class PushGitCommand extends QuickCommand<State> {
 					repoPath: repo.path,
 				};
 
-				if (status?.state.ahead === 0) {
+				if (status?.upstream?.state.ahead === 0) {
 					if (!isBranchReference(state.reference) && status.upstream == null) {
 						let pushDetails;
 
@@ -376,22 +382,22 @@ export class PushGitCommand extends QuickCommand<State> {
 					let pushDetails;
 					if (state.reference != null) {
 						pushDetails = `${
-							status?.state.ahead
+							status?.upstream?.state.ahead
 								? ` commits up to and including ${getReferenceLabel(state.reference, {
 										label: false,
 								  })}`
 								: ''
 						}${status?.upstream ? ` to ${getRemoteNameFromBranchName(status.upstream?.name)}` : ''}`;
 					} else {
-						pushDetails = `${status?.state.ahead ? ` ${pluralize('commit', status.state.ahead)}` : ''}${
-							status?.upstream ? ` to ${getRemoteNameFromBranchName(status.upstream?.name)}` : ''
-						}`;
+						pushDetails = `${
+							status?.upstream?.state.ahead ? ` ${pluralize('commit', status.upstream.state.ahead)}` : ''
+						}${status?.upstream ? ` to ${getRemoteNameFromBranchName(status.upstream?.name)}` : ''}`;
 					}
 
 					step = this.createConfirmStep(
 						appendReposToTitle(`Confirm ${context.title}`, state, context, lastFetchedOn),
 						[
-							...(status?.state.behind
+							...(status?.upstream?.state.behind
 								? []
 								: [
 										createFlagsQuickPickItem<Flags>(state.flags, [], {
@@ -419,8 +425,8 @@ export class PushGitCommand extends QuickCommand<State> {
 										  ? ' (with lease)'
 										  : ''
 								} ${pushDetails}${
-									status != null && status.state.behind > 0
-										? `, overwriting ${pluralize('commit', status.state.behind)}${
+									status?.upstream?.state.behind
+										? `, overwriting ${pluralize('commit', status.upstream.state.behind)}${
 												status?.upstream
 													? ` on ${getRemoteNameFromBranchName(status.upstream?.name)}`
 													: ''
@@ -429,12 +435,12 @@ export class PushGitCommand extends QuickCommand<State> {
 								}`,
 							}),
 						],
-						status?.state.behind
+						status?.upstream?.state.behind
 							? createDirectiveQuickPickItem(Directive.Cancel, true, {
 									label: `Cancel ${this.title}`,
 									detail: `Cannot push; ${getReferenceLabel(branch)} is behind${
 										status?.upstream ? ` ${getRemoteNameFromBranchName(status.upstream?.name)}` : ''
-									} by ${pluralize('commit', status.state.behind)}`,
+									} by ${pluralize('commit', status.upstream.state.behind)}`,
 							  })
 							: undefined,
 					);

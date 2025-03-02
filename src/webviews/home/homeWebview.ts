@@ -1395,7 +1395,6 @@ function getOverviewBranchesCore(
 			name: branch.name,
 			opened: isActive,
 			timestamp: timestamp,
-			state: branch.state,
 			status: branch.status,
 			upstream: branch.upstream,
 			worktree: wt ? { name: wt.name, uri: wt.uri.toString() } : undefined,

@@ -63,8 +63,6 @@ export class BranchesGitSubProvider implements GitBranchesSubProvider {
 								undefined,
 								revision.revision,
 								undefined,
-								undefined,
-								undefined,
 								true,
 							);
 					}
@@ -117,6 +115,7 @@ export class BranchesGitSubProvider implements GitBranchesSubProvider {
 							new GitBranch(container, repoPath!, branch.name, false, current, date, ref, {
 								name: `origin/${branch.name}`,
 								missing: false,
+								state: { ahead: 0, behind: 0 },
 							}),
 							new GitBranch(container, repoPath!, `origin/${branch.name}`, true, false, date, ref),
 						);

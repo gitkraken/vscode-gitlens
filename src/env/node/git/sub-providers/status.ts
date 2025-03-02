@@ -482,7 +482,6 @@ export class StatusGitSubProvider implements GitStatusSubProvider {
 					pausedOpStatus.incoming.name,
 					status.sha,
 					status.files,
-					status.state,
 					status.upstream,
 					true,
 				);

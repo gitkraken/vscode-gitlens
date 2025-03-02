@@ -70,8 +70,8 @@ export abstract class RepositoryFolderNode<
 		this.splatted = false;
 
 		const branch = await this.repo.git.branches().getBranch();
-		const ahead = (branch?.state.ahead ?? 0) > 0;
-		const behind = (branch?.state.behind ?? 0) > 0;
+		const ahead = Boolean(branch?.upstream?.state.ahead);
+		const behind = Boolean(branch?.upstream?.state.behind);
 
 		const expand = ahead || behind || this.repo.starred || this.view.container.git.isRepositoryForEditor(this.repo);
 
