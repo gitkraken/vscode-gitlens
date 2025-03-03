@@ -1,7 +1,12 @@
 import { RepositoryAccessLevel } from '../../../../git/models/issue';
 import type { IssueOrPullRequestState } from '../../../../git/models/issueOrPullRequest';
 import type { PullRequestMember, PullRequestReviewer } from '../../../../git/models/pullRequest';
-import { PullRequest, PullRequestReviewDecision, PullRequestReviewState } from '../../../../git/models/pullRequest';
+import {
+	PullRequest,
+	PullRequestMergeableState,
+	PullRequestReviewDecision,
+	PullRequestReviewState,
+} from '../../../../git/models/pullRequest';
 import type { Provider } from '../../../../git/models/remoteProvider';
 import type { ResourceDescriptor } from '../../integration';
 
@@ -259,7 +264,7 @@ export function fromBitbucketParticipantToReviewer(
 			    ? PullRequestReviewState.Commented
 			    : prt.user.uuid === closedBy?.uuid && prState === 'DECLINED'
 			      ? PullRequestReviewState.Dismissed
-			      : PullRequestReviewState.Pending,
+			      : PullRequestReviewState.ReviewRequested,
 	};
 }
 
@@ -310,7 +315,8 @@ export function fromBitbucketPullRequest(pr: BitbucketPullRequest, provider: Pro
 		new Date(pr.updated_on),
 		pr.closed_by ? new Date(pr.updated_on) : undefined,
 		pr.state === 'MERGED' ? new Date(pr.updated_on) : undefined,
-		undefined, // mergeableState
+		// TODO: Remove this assumption once actual mergeable state is available
+		PullRequestMergeableState.Mergeable, // mergeableState
 		undefined, // viewerCanUpdate
 		{
 			base: {
@@ -340,7 +346,7 @@ export function fromBitbucketPullRequest(pr: BitbucketPullRequest, provider: Pro
 		pr.participants // reviewRequests:PullRequestReviewer[]
 			?.filter(prt => prt.role === 'REVIEWER')
 			.map(prt => fromBitbucketParticipantToReviewer(prt, pr.closed_by, pr.state))
-			.filter(rv => rv.state === PullRequestReviewState.Pending),
+			.filter(rv => rv.state === PullRequestReviewState.ReviewRequested),
 		pr.participants // latestReviews:PullRequestReviewer[]
 			?.filter(prt => prt.participated_on != null)
 			.map(prt => fromBitbucketParticipantToReviewer(prt, pr.closed_by, pr.state)),
