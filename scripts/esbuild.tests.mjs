@@ -20,7 +20,7 @@ async function buildTests(target) {
 	const config = {
 		bundle: true,
 		entryPoints: ['src/**/__tests__/**/*.test.ts'],
-		entryNames: '[name]',
+		entryNames: '[dir]/[name]',
 		external: ['vscode'],
 		format: 'cjs',
 		logLevel: 'info',
