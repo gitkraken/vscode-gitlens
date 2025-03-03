@@ -140,8 +140,8 @@ export class BranchesGitSubProvider implements GitBranchesSubProvider {
 						{ cwd: repoPath },
 						'for-each-ref',
 						...parser.arguments,
-						'refs/heads',
-						'refs/remotes',
+						'refs/heads/',
+						'refs/remotes/',
 					);
 					// If we don't get any data, assume the repo doesn't have any commits yet so check if we have a current branch
 					if (!data?.length) {
