@@ -57,11 +57,11 @@ export class BranchesGitSubProvider implements GitBranchesSubProvider {
 							return new GitBranch(
 								this.container,
 								repoPath,
-								revision.name,
-								false,
+								`refs/heads/${revision.name}`,
 								true,
 								undefined,
 								revision.revision,
+								undefined,
 								undefined,
 								true,
 							);
@@ -112,12 +112,12 @@ export class BranchesGitSubProvider implements GitBranchesSubProvider {
 						const ref = branch.target.oid;
 
 						branches.push(
-							new GitBranch(container, repoPath!, branch.name, false, current, date, ref, {
+							new GitBranch(container, repoPath!, `refs/heads/${branch.name}`, current, date, ref, {
 								name: `origin/${branch.name}`,
 								missing: false,
 								state: { ahead: 0, behind: 0 },
 							}),
-							new GitBranch(container, repoPath!, `origin/${branch.name}`, true, false, date, ref),
+							new GitBranch(container, repoPath!, `refs/remotes/origin/${branch.name}`, false, date, ref),
 						);
 					}
 

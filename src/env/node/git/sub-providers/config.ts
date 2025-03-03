@@ -7,6 +7,7 @@ import type { GitCache } from '../../../../git/cache';
 import { GitErrorHandling } from '../../../../git/commandOptions';
 import type { GitConfigSubProvider, GitDir } from '../../../../git/gitProvider';
 import type { GitUser } from '../../../../git/models/user';
+import { getBestPath } from '../../../../system/-webview/path';
 import { gate } from '../../../../system/decorators/-webview/gate';
 import { debug, log } from '../../../../system/decorators/log';
 import { Logger } from '../../../../system/logger';
@@ -110,6 +111,13 @@ export class ConfigGitSubProvider implements GitConfigSubProvider {
 			this.cache.repoInfo?.set(repoPath, { ...repo, user: null });
 			return undefined;
 		}
+	}
+
+	@gate()
+	@debug<NonNullable<ConfigGitSubProvider>['getDefaultWorktreePath']>({ exit: r => `returned ${r}` })
+	async getDefaultWorktreePath(repoPath: string): Promise<string | undefined> {
+		const gitDir = await this.getGitDir(repoPath);
+		return getBestPath(Uri.joinPath(gitDir.commonUri ?? gitDir.uri, '..'));
 	}
 
 	@gate()
