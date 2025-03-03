@@ -52,7 +52,7 @@ export class TagsGitSubProvider implements GitTagsSubProvider {
 						{ cwd: repoPath },
 						'for-each-ref',
 						...parser.arguments,
-						'refs/tags',
+						'refs/tags/',
 					);
 
 					if (!data?.length) return emptyPagedResult;
