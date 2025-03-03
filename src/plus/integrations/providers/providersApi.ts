@@ -36,6 +36,7 @@ import type {
 	GetReposForAzureProjectFn,
 	GetReposOptions,
 	IssueFilter,
+	MergePullRequestFn,
 	PageInfo,
 	PagingMode,
 	ProviderAccount,
@@ -207,6 +208,9 @@ export class ProvidersApi {
 				getPullRequestsForRepoFn: providerApis.bitbucket.getPullRequestsForRepo.bind(
 					providerApis.bitbucket,
 				) as GetPullRequestsForRepoFn,
+				mergePullRequestFn: providerApis.bitbucket.mergePullRequest.bind(
+					providerApis.bitbucket,
+				) as MergePullRequestFn,
 			},
 			[HostingIntegrationId.AzureDevOps]: {
 				...providersMetadata[HostingIntegrationId.AzureDevOps],
