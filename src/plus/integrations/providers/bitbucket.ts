@@ -35,13 +35,17 @@ export class BitbucketIntegration extends HostingIntegration<
 	}
 
 	protected override async mergeProviderPullRequest(
-		_session: AuthenticationSession,
-		_pr: PullRequest,
-		_options?: {
+		{ accessToken }: AuthenticationSession,
+		pr: PullRequest,
+		options?: {
 			mergeMethod?: PullRequestMergeMethod;
 		},
 	): Promise<boolean> {
-		return Promise.resolve(false);
+		const api = await this.getProvidersApi();
+		return api.mergePullRequest(this.id, pr, {
+			accessToken: accessToken,
+			mergeMethod: options?.mergeMethod,
+		});
 	}
 
 	protected override async getProviderAccountForCommit(
