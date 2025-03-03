@@ -5,7 +5,6 @@
 		"dbaeumer.vscode-eslint",
 		"amodio.tsl-problem-matcher",
 		"esbenp.prettier-vscode",
-		"ms-fast.fast-tagged-templates",
 		"runem.lit-plugin",
 		"ms-vscode.extension-test-runner",
 		"ms-playwright.playwright"
