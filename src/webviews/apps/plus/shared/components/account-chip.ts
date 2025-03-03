@@ -15,7 +15,7 @@ import { createCommandLink } from '../../../../../system/commands';
 import { pluralize } from '../../../../../system/string';
 import type { State } from '../../../../home/protocol';
 import { stateContext } from '../../../home/context';
-import type { GlPopover } from '../../../shared/components/overlays/popover.react';
+import type { GlPopover } from '../../../shared/components/overlays/popover';
 import { elementBase, linkBase } from '../../../shared/components/styles/lit/base.css';
 import type { PromosContext } from '../../../shared/contexts/promos';
 import { promosContext } from '../../../shared/contexts/promos';
