@@ -338,6 +338,7 @@ export interface GitConfigSubProvider {
 	getConfig?(repoPath: string, key: GitConfigKeys): Promise<string | undefined>;
 	setConfig?(repoPath: string, key: GitConfigKeys, value: string | undefined): Promise<void>;
 	getCurrentUser(repoPath: string): Promise<GitUser | undefined>;
+	getDefaultWorktreePath?(repoPath: string): Promise<string | undefined>;
 	getGitDir?(repoPath: string): Promise<GitDir | undefined>;
 }
 

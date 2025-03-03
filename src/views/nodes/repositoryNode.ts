@@ -81,15 +81,17 @@ export class RepositoryNode extends SubscribeableViewNode<'repository', ViewsWit
 
 			const status = await this._status;
 			if (status != null) {
+				const defaultWorktreePath = await this.repo.git.config().getDefaultWorktreePath?.();
+
 				const branch = new GitBranch(
 					this.view.container,
 					status.repoPath,
-					status.branch,
-					false,
+					`refs/heads/${status.branch}`,
 					true,
 					undefined,
 					status.sha,
 					status.upstream,
+					{ path: status.repoPath, isDefault: status.repoPath === defaultWorktreePath },
 					status.detached,
 					status.rebasing,
 				);

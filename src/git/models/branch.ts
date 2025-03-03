@@ -13,6 +13,7 @@ import {
 	getRemoteNameFromBranchName,
 	getRemoteNameSlashIndex,
 	isDetachedHead,
+	parseRefName,
 } from '../utils/branch.utils';
 import { getUpstreamStatus } from '../utils/status.utils';
 import type { PullRequest, PullRequestState } from './pullRequest';
@@ -28,23 +29,35 @@ export class GitBranch implements GitBranchReference {
 	readonly detached: boolean;
 	readonly id: string;
 
+	private readonly _name: string;
+	get name(): string {
+		return this._name;
+	}
+
+	private readonly _remote: boolean;
+	get remote(): boolean {
+		return this._remote;
+	}
+
 	constructor(
 		private readonly container: Container,
 		public readonly repoPath: string,
-		public readonly name: string,
-		public readonly remote: boolean,
+		public readonly refName: string,
 		public readonly current: boolean,
 		public readonly date: Date | undefined,
 		public readonly sha?: string,
 		public readonly upstream?: GitTrackingUpstream,
+		public readonly worktree?: { path: string; isDefault: boolean },
 		detached: boolean = false,
 		public readonly rebasing: boolean = false,
 	) {
-		this.id = getBranchId(repoPath, remote, name);
+		({ name: this._name, remote: this._remote } = parseRefName(refName));
 
-		this.detached = detached || (this.current ? isDetachedHead(name) : false);
+		this.id = getBranchId(repoPath, this._remote, this._name);
+
+		this.detached = detached || (this.current ? isDetachedHead(this._name) : false);
 		if (this.detached) {
-			this.name = formatDetachedHeadName(this.sha!);
+			this._name = formatDetachedHeadName(this.sha!);
 		}
 
 		this.upstream = upstream?.name ? upstream : undefined;
