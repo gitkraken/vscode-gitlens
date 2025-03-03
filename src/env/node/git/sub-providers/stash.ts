@@ -179,7 +179,7 @@ export class StashGitSubProvider implements GitStashSubProvider {
 				'--',
 			);
 
-			const ancestors = data?.trim().split('\n')?.[0];
+			const ancestors = data?.trim().split('\n');
 			if (ancestors?.length && (ancestors.length !== 1 || ancestors[0])) {
 				const reachableCommits = new Set(ancestors);
 
