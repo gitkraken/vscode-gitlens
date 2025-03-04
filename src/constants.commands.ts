@@ -148,6 +148,8 @@ type InternalGraphWebviewCommands =
 	| 'gitlens.graph.skipPausedOperation';
 
 type InternalHomeWebviewCommands =
+	| 'gitlens.home.deleteBranchOrWorktree'
+	| 'gitlens.home.pushBranch'
 	| 'gitlens.home.openMergeTargetComparison'
 	| 'gitlens.home.openPullRequestChanges'
 	| 'gitlens.home.openPullRequestComparison'
