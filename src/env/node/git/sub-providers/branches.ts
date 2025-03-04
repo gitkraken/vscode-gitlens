@@ -420,10 +420,37 @@ export class BranchesGitSubProvider implements GitBranchesSubProvider {
 			} catch {}
 
 			// Cherry-pick detection (handles cherry-picks, rebases, etc)
-			const data = await this.git.exec({ cwd: repoPath }, 'cherry', '--abbrev', '-v', into.name, branch.name);
+			let data = await this.git.exec({ cwd: repoPath }, 'cherry', '--abbrev', '-v', into.name, branch.name);
 			// Check if there are no lines or all lines startwith a `-` (i.e. likely merged)
-			if (!data || data.split('\n').every(l => l.startsWith('-'))) {
+			if (
+				!data ||
+				data
+					.trim()
+					.split('\n')
+					.every(l => l.startsWith('-'))
+			) {
 				return { merged: true, confidence: 'high' };
+			}
+
+			// Attempt to detect squash merges by checking if the diff of the branch can be cleanly removed from the target
+			const mergeBase = await this.getMergeBase(repoPath, into.name, branch.name);
+			data = await this.git.exec<string>({ cwd: repoPath }, 'diff', mergeBase, branch.name);
+			if (data?.length) {
+				// Create a temporary index file
+				await using disposableIndex = await this.provider.staging!.createTemporaryIndex(repoPath, into.name);
+				const { env } = disposableIndex;
+
+				data = await this.git.exec<string>(
+					{ cwd: repoPath, env: env, stdin: data },
+					'apply',
+					'--cached',
+					'--reverse',
+					'--check',
+					'-',
+				);
+				if (!data?.trim().length) {
+					return { merged: true, confidence: 'medium' };
+				}
 			}
 
 			return { merged: false };

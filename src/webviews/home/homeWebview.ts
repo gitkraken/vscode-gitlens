@@ -35,6 +35,7 @@ import { getBranchTargetInfo } from '../../git/utils/-webview/branch.utils';
 import { getReferenceFromBranch } from '../../git/utils/-webview/reference.utils';
 import { sortBranches } from '../../git/utils/-webview/sorting';
 import { getOpenedWorktreesByBranch, groupWorktreesByBranch } from '../../git/utils/-webview/worktree.utils';
+import { getBranchNameWithoutRemote } from '../../git/utils/branch.utils';
 import { getComparisonRefsForPullRequest } from '../../git/utils/pullRequest.utils';
 import { createRevisionRange } from '../../git/utils/revision.utils';
 import type { AIModelChangeEvent } from '../../plus/ai/aiProviderService';
@@ -318,6 +319,8 @@ export class HomeWebviewProvider implements WebviewProvider<State, State, HomeWe
 				(src?: Source) => this.container.subscription.validate({ force: true }, src),
 				this,
 			),
+			registerCommand('gitlens.home.deleteBranchOrWorktree', this.deleteBranchOrWorktree, this),
+			registerCommand('gitlens.home.pushBranch', this.pushBranch, this),
 			registerCommand('gitlens.home.openMergeTargetComparison', this.mergeTargetCompare, this),
 			registerCommand('gitlens.home.openPullRequestChanges', this.pullRequestChanges, this),
 			registerCommand('gitlens.home.openPullRequestComparison', this.pullRequestCompare, this),
@@ -1167,6 +1170,45 @@ export class HomeWebviewProvider implements WebviewProvider<State, State, HomeWe
 		});
 	}
 
+	private async deleteBranchOrWorktree(ref: BranchRef, mergeTarget?: BranchRef) {
+		const repo = this._repositoryBranches.get(ref.repoPath);
+		const branch = repo?.branches.find(b => b.id === ref.branchId);
+		if (branch == null) return;
+		if (branch.current && mergeTarget != null) {
+			if (mergeTarget != null) {
+				const mergeTargetLocalBranch = getBranchNameWithoutRemote(mergeTarget.branchName);
+				await this.container.git.checkout(ref.repoPath, mergeTargetLocalBranch);
+			}
+		}
+
+		void executeGitCommand({
+			command: 'branch',
+			state: {
+				subcommand: 'delete',
+				repo: ref.repoPath,
+				references: branch,
+			},
+		});
+	}
+
+	private pushBranch(ref: BranchRef) {
+		void this.container.git.push(ref.repoPath, {
+			reference: {
+				name: ref.branchName,
+				ref: ref.branchId,
+				refType: 'branch',
+				remote: false,
+				repoPath: ref.repoPath,
+				upstream: ref.branchUpstreamName
+					? {
+							name: ref.branchUpstreamName,
+							missing: false,
+					  }
+					: undefined,
+			},
+		});
+	}
+
 	private mergeTargetCompare(ref: BranchAndTargetRefs) {
 		return this.container.views.searchAndCompare.compare(ref.repoPath, ref.branchName, ref.mergeTargetName);
 	}
@@ -1401,7 +1443,7 @@ function getOverviewBranchesCore(
 			timestamp: timestamp,
 			status: branch.status,
 			upstream: branch.upstream,
-			worktree: wt ? { name: wt.name, uri: wt.uri.toString() } : undefined,
+			worktree: wt ? { name: wt.name, uri: wt.uri.toString(), isDefault: wt.isDefault } : undefined,
 		});
 	}
 
