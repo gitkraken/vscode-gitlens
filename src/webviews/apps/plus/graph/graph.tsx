@@ -134,7 +134,9 @@ export class GraphApp extends App<State> {
 				$root,
 			);
 			disposables.push({
-				dispose: () => unmountComponentAtNode($root),
+				dispose: () => {
+					unmountComponentAtNode($root);
+				},
 			});
 		}
 
