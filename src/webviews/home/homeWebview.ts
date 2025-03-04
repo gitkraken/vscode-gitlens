@@ -1,5 +1,5 @@
 import type { ConfigurationChangeEvent } from 'vscode';
-import { Disposable, Uri, window, workspace } from 'vscode';
+import { Disposable, env, Uri, window, workspace } from 'vscode';
 import type { AIModelChangeEvent } from '../../ai/aiProviderService';
 import type { CreatePullRequestActionContext } from '../../api/gitlens';
 import type { EnrichedAutolink } from '../../autolinks/models/autolinks';
@@ -65,6 +65,8 @@ import { debounce } from '../../system/function/debounce';
 import { filterMap } from '../../system/iterable';
 import { getSettledValue } from '../../system/promise';
 import { SubscriptionManager } from '../../system/subscriptionManager';
+import type { UriTypes } from '../../uris/deepLinks/deepLink';
+import { DeepLinkServiceState, DeepLinkType } from '../../uris/deepLinks/deepLink';
 import type { ShowInCommitGraphCommandArgs } from '../plus/graph/protocol';
 import type { Change } from '../plus/patchDetails/protocol';
 import type { IpcMessage } from '../protocol';
@@ -1169,22 +1171,63 @@ export class HomeWebviewProvider implements WebviewProvider<State, State, HomeWe
 	private async deleteBranchOrWorktree(ref: BranchRef, mergeTarget?: BranchRef) {
 		const repo = this._repositoryBranches.get(ref.repoPath);
 		const branch = repo?.branches.find(b => b.id === ref.branchId);
+		const worktree = branch ? repo?.worktreesByBranch.get(branch.id) : undefined;
 		if (branch == null) return;
-		if (branch.current && mergeTarget != null) {
-			if (mergeTarget != null) {
-				const mergeTargetLocalBranch = getBranchNameWithoutRemote(mergeTarget.branchName);
-				await this.container.git.checkout(ref.repoPath, mergeTargetLocalBranch);
-			}
-		}
+		if (branch.current && mergeTarget != null && (!worktree || worktree.isDefault)) {
+			const mergeTargetLocalBranchName = getBranchNameWithoutRemote(mergeTarget.branchName);
+			const confirm = await window.showWarningMessage(
+				`The merge target branch ${mergeTargetLocalBranchName} will be checked out before deleting the current branch ${branch.name}.`,
+				{ title: 'Proceed' },
+				{ title: 'Cancel' },
+			);
 
-		void executeGitCommand({
-			command: 'branch',
-			state: {
-				subcommand: 'delete',
-				repo: ref.repoPath,
-				references: branch,
-			},
-		});
+			if (confirm == null || confirm.title !== 'Proceed') return;
+			await this.container.git.checkout(ref.repoPath, mergeTargetLocalBranchName);
+
+			void executeGitCommand({
+				command: 'branch',
+				state: {
+					subcommand: 'delete',
+					repo: ref.repoPath,
+					references: branch,
+				},
+			});
+		} else if (repo != null && branch != null && worktree != null && !worktree.isDefault) {
+			const defaultWorktree = [...repo.worktreesByBranch.values()].find(w => w.isDefault);
+			if (defaultWorktree == null) return;
+
+			const confirm = await window.showWarningMessage(
+				`You will be returned to the default worktree before deleting the worktree for ${branch.name}.`,
+				{ title: 'Proceed' },
+				{ title: 'Cancel' },
+			);
+
+			if (confirm == null || confirm.title !== 'Proceed') return;
+			const schemeOverride = configuration.get('deepLinks.schemeOverride');
+			const scheme = typeof schemeOverride === 'string' ? schemeOverride : env.uriScheme;
+			const deleteBranchDeepLink = {
+				url: `${scheme}://${this.container.context.extension.id}/${'link' satisfies UriTypes}/${
+					DeepLinkType.Repository
+				}/-/${DeepLinkType.Branch}/${encodeURIComponent(branch.name)}?path=${encodeURIComponent(
+					branch.repoPath,
+				)}&action=delete-branch`,
+				repoPath: branch.repoPath,
+				useProgress: false,
+				state: DeepLinkServiceState.GoToTarget,
+			};
+
+			void executeGitCommand({
+				command: 'worktree',
+				state: {
+					subcommand: 'open',
+					repo: defaultWorktree.repoPath,
+					worktree: defaultWorktree,
+					onWorkspaceChanging: async (_isNewWorktree?: boolean) =>
+						this.container.storage.store('deepLinks:pending', deleteBranchDeepLink),
+					worktreeDefaultOpen: 'current',
+				},
+			});
+		}
 	}
 
 	private pushBranch(ref: BranchRef) {
