@@ -240,6 +240,9 @@ export class GlMergeTargetStatus extends LitElement {
 			repoPath: this.branch.repoPath,
 			branchId: this.branch.id,
 			branchName: this.branch.name,
+			worktree: this.branch.worktree
+				? { name: this.branch.worktree.name, isDefault: this.branch.worktree.isDefault }
+				: undefined,
 		};
 	}
 

@@ -466,7 +466,7 @@ export class LaunchpadProvider implements Disposable {
 	@log<LaunchpadProvider['switchTo']>({ args: { 0: i => `${i.id} (${i.provider.name} ${i.type})` } })
 	async switchTo(
 		item: LaunchpadItem,
-		options?: { skipWorktreeConfirmations?: boolean; startCodeSuggestion?: boolean },
+		options?: { openInWorktree?: boolean; startCodeSuggestion?: boolean },
 	): Promise<void> {
 		if (item.openRepository?.localBranch?.current) {
 			void showInspectView({
@@ -482,7 +482,7 @@ export class LaunchpadProvider implements Disposable {
 			item,
 			options?.startCodeSuggestion
 				? DeepLinkActionType.SwitchToAndSuggestPullRequest
-				: options?.skipWorktreeConfirmations
+				: options?.openInWorktree
 				  ? DeepLinkActionType.SwitchToPullRequestWorktree
 				  : DeepLinkActionType.SwitchToPullRequest,
 		);

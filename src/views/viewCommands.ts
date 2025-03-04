@@ -945,7 +945,7 @@ export class ViewCommands implements Disposable {
 				state: {
 					repos: node.repo,
 					reference: node.branch,
-					skipWorktreeConfirmations: true,
+					worktreeDefaultOpen: 'new',
 				},
 			});
 		}

@@ -322,6 +322,10 @@ export interface BranchRef {
 	branchId: string;
 	branchName: string;
 	branchUpstreamName?: string;
+	worktree?: {
+		name: string;
+		isDefault: boolean;
+	};
 }
 
 export interface BranchAndTargetRefs extends BranchRef {
