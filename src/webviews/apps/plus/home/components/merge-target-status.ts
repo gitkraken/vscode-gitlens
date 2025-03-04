@@ -276,7 +276,7 @@ export class GlMergeTargetStatus extends LitElement {
 		return html`<gl-popover placement="bottom" trigger="hover click focus" hoist>
 			<span slot="anchor" class="chip status--${status}" tabindex="0"
 				><code-icon class="icon" icon="gl-merge-target" size="18"></code-icon
-				></code-icon><code-icon class="status-indicator icon--${status}" icon="${icon}" size="12"></code-icon>
+				><code-icon class="status-indicator icon--${status}" icon="${icon}" size="12"></code-icon>
 			</span>
 			<div slot="content" class="content">${this.renderContent()}</div>
 		</gl-popover>`;
