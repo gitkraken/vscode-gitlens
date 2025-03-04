@@ -322,6 +322,24 @@ function getWebviewsConfigs(mode, env) {
 			mode,
 			env,
 		),
+		getWebviewConfig(
+			{
+				'graph-next': { entry: './plus/graph-next/graph.ts', plus: true },
+			},
+			{
+				alias: {
+					'@gitkraken/gitkraken-components': path.resolve(
+						__dirname,
+						'node_modules',
+						'@gitkraken/gitkraken-components-next',
+					),
+					react: path.resolve(__dirname, 'node_modules', 'react-next'),
+					'react-dom': path.resolve(__dirname, 'node_modules', 'react-dom-next'),
+				},
+			},
+			mode,
+			env,
+		),
 	];
 }
 
