@@ -181,6 +181,7 @@ export interface GetOverviewBranch {
 	worktree?: {
 		name: string;
 		uri: string;
+		isDefault: boolean;
 	};
 }
 
@@ -320,6 +321,7 @@ export interface BranchRef {
 	repoPath: string;
 	branchId: string;
 	branchName: string;
+	branchUpstreamName?: string;
 }
 
 export interface BranchAndTargetRefs extends BranchRef {
