@@ -3891,7 +3891,7 @@ export class GraphWebviewProvider implements WebviewProvider<State, State, Graph
 				state: {
 					repos: ref.repoPath,
 					reference: ref,
-					skipWorktreeConfirmations: true,
+					worktreeDefaultOpen: 'new',
 				},
 			});
 		}
