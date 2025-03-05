@@ -38,13 +38,11 @@ export class ScmGroupedView implements Disposable {
 			type = this.views.scmGroupedViews?.size ? (first(this.views.scmGroupedViews) as T) : undefined!;
 		}
 
-		if (this._view?.type === type) {
-			this.views.lastSelectedScmGroupedView = type;
-			return this._view as TreeViewByType[T];
+		if (this._view?.type !== type) {
+			this._view?.dispose();
+			this._view = this.getView(type);
 		}
 
-		this._view?.dispose();
-		this._view = this.getView(type);
 		if (focus) {
 			void this._view.show({ preserveFocus: false });
 		}
