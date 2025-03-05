@@ -315,9 +315,9 @@ export function* skip<T>(source: Iterable<T> | IterableIterator<T>, count: numbe
 	}
 }
 
-export function some<T>(source: Iterable<T> | IterableIterator<T>, predicate: (item: T) => boolean): boolean {
+export function some<T>(source: Iterable<T> | IterableIterator<T>, predicate?: (item: T) => boolean): boolean {
 	for (const item of source) {
-		if (predicate(item)) return true;
+		if (predicate == null || predicate(item)) return true;
 	}
 	return false;
 }
