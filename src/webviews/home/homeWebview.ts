@@ -1181,8 +1181,8 @@ export class HomeWebviewProvider implements WebviewProvider<State, State, HomeWe
 			const mergeTargetLocalBranchName = getBranchNameWithoutRemote(mergeTarget.branchName);
 			const confirm = await window.showWarningMessage(
 				`The merge target branch ${mergeTargetLocalBranchName} will be checked out before deleting the current branch ${branch.name}.`,
+				{ modal: true },
 				{ title: 'Proceed' },
-				{ title: 'Cancel' },
 			);
 
 			if (confirm == null || confirm.title !== 'Proceed') return;
@@ -1197,13 +1197,14 @@ export class HomeWebviewProvider implements WebviewProvider<State, State, HomeWe
 				},
 			});
 		} else if (repo != null && branch != null && worktree != null && !worktree.isDefault) {
+			const commonRepo = await repo.repo.getCommonRepository();
 			const defaultWorktree = [...repo.worktreesByBranch.values()].find(w => w.isDefault);
-			if (defaultWorktree == null) return;
+			if (defaultWorktree == null || commonRepo == null) return;
 
 			const confirm = await window.showWarningMessage(
 				`You will be returned to the default worktree before deleting the worktree for ${branch.name}.`,
+				{ modal: true },
 				{ title: 'Proceed' },
-				{ title: 'Cancel' },
 			);
 
 			if (confirm == null || confirm.title !== 'Proceed') return;
@@ -1213,9 +1214,9 @@ export class HomeWebviewProvider implements WebviewProvider<State, State, HomeWe
 				url: `${scheme}://${this.container.context.extension.id}/${'link' satisfies UriTypes}/${
 					DeepLinkType.Repository
 				}/-/${DeepLinkType.Branch}/${encodeURIComponent(branch.name)}?path=${encodeURIComponent(
-					branch.repoPath,
+					commonRepo.path,
 				)}&action=delete-branch`,
-				repoPath: branch.repoPath,
+				repoPath: commonRepo.path,
 				useProgress: false,
 				state: DeepLinkServiceState.GoToTarget,
 			};
