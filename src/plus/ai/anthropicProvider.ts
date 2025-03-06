@@ -1,6 +1,6 @@
 import type { CancellationToken } from 'vscode';
 import type { Response } from '@env/fetch';
-import type { AIModel } from './aiProviderService';
+import type { AIActionType, AIModel } from './models/model';
 import { OpenAICompatibleProvider } from './openAICompatibleProvider';
 
 const provider = { id: 'anthropic', name: 'Anthropic' } as const;
@@ -119,7 +119,8 @@ export class AnthropicProvider extends OpenAICompatibleProvider<typeof provider.
 		return 'https://api.anthropic.com/v1/messages';
 	}
 
-	protected override getHeaders(
+	protected override getHeaders<TAction extends AIActionType>(
+		_action: TAction,
 		_model: AIModel<typeof provider.id>,
 		_url: string,
 		apiKey: string,
@@ -133,7 +134,8 @@ export class AnthropicProvider extends OpenAICompatibleProvider<typeof provider.
 		};
 	}
 
-	protected override fetchCore(
+	protected override fetchCore<TAction extends AIActionType>(
+		action: TAction,
 		model: AIModel<typeof provider.id>,
 		apiKey: string,
 		request: object,
@@ -143,11 +145,12 @@ export class AnthropicProvider extends OpenAICompatibleProvider<typeof provider.
 			const { max_completion_tokens: max, ...rest } = request;
 			request = max ? { max_tokens: max, ...rest } : rest;
 		}
-		return super.fetchCore(model, apiKey, request, cancellation);
+		return super.fetchCore(action, model, apiKey, request, cancellation);
 	}
 
-	protected override async handleFetchFailure(
+	protected override async handleFetchFailure<TAction extends AIActionType>(
 		rsp: Response,
+		_action: TAction,
 		model: AIModel<typeof provider.id>,
 		retries: number,
 		maxCodeCharacters: number,

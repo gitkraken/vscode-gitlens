@@ -1,8 +1,8 @@
 import type { Response } from '@env/fetch';
 import { fetch } from '@env/fetch';
-import type { AIModel } from './aiProviderService';
-import { getMaxCharacters } from './aiProviderService';
+import type { AIActionType, AIModel } from './models/model';
 import { OpenAICompatibleProvider } from './openAICompatibleProvider';
+import { getMaxCharacters } from './utils/-webview/ai.utils';
 
 const provider = { id: 'github', name: 'GitHub Models' } as const;
 
@@ -41,11 +41,11 @@ export class GitHubModelsProvider extends OpenAICompatibleProvider<typeof provid
 		const result: ModelsResponse = await rsp.json();
 
 		const models = result.results.map(
-			r =>
+			m =>
 				({
-					id: r.name as any,
-					name: r.friendly_name,
-					maxTokens: { input: r.max_input_tokens, output: r.max_output_tokens },
+					id: m.name,
+					name: m.friendly_name,
+					maxTokens: { input: m.max_input_tokens, output: m.max_output_tokens },
 					provider: provider,
 					temperature: null,
 				}) satisfies GitHubModelsModel,
@@ -60,6 +60,7 @@ export class GitHubModelsProvider extends OpenAICompatibleProvider<typeof provid
 
 	override async handleFetchFailure(
 		rsp: Response,
+		action: AIActionType,
 		model: AIModel<typeof provider.id>,
 		retries: number,
 		maxCodeCharacters: number,
@@ -79,6 +80,6 @@ export class GitHubModelsProvider extends OpenAICompatibleProvider<typeof provid
 			}
 		}
 
-		return super.handleFetchFailure(rsp, model, retries, maxCodeCharacters);
+		return super.handleFetchFailure(rsp, action, model, retries, maxCodeCharacters);
 	}
 }

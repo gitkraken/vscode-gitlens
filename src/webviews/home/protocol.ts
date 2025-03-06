@@ -1,4 +1,3 @@
-import type { AIModel } from '../../ai/aiProviderService';
 import type { IntegrationDescriptor } from '../../constants.integrations';
 import type { GitBranchMergedStatus } from '../../git/gitProvider';
 import type { GitBranchStatus, GitTrackingState, GitTrackingUpstream } from '../../git/models/branch';
@@ -7,6 +6,7 @@ import type { Issue } from '../../git/models/issue';
 import type { MergeConflict } from '../../git/models/mergeConflict';
 import type { GitPausedOperationStatus } from '../../git/models/pausedOperationStatus';
 import type { GitBranchReference } from '../../git/models/reference';
+import type { AIModel } from '../../plus/ai/models/model';
 import type { Subscription } from '../../plus/gk/models/subscription';
 import type { LaunchpadSummaryResult } from '../../plus/launchpad/launchpadIndicator';
 import type { LaunchpadItem } from '../../plus/launchpad/launchpadProvider';
