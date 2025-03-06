@@ -1,11 +1,11 @@
-import { html, LitElement, nothing } from 'lit';
-import { customElement, property, state } from 'lit/decorators.js';
+import { css, html, LitElement, nothing } from 'lit';
+import { customElement, property } from 'lit/decorators.js';
 import { fromNow } from '../../../../../system/date';
 import { pluralize } from '../../../../../system/string';
 import { createWebviewCommandLink } from '../../../../../system/webview';
 import type { BranchState, State } from '../../../../plus/graph/protocol';
 import { inlineCode } from '../../../shared/components/styles/lit/base.css';
-import { actionButton, linkBase, ruleBase } from '../graph.css';
+import { actionButton, linkBase, ruleBase } from '../styles/graph.css';
 import '../../../shared/components/code-icon';
 import '../../../shared/components/overlays/tooltip';
 
@@ -23,7 +23,6 @@ export class GitActionsButtons extends LitElement {
 	@property({ type: Object })
 	state!: State;
 
-	@state()
 	private get fetchedText() {
 		if (!this.lastFetched) return undefined;
 
@@ -105,7 +104,29 @@ export class GlFetchButton extends LitElement {
 
 @customElement('gl-push-pull-button')
 export class PushPullButton extends LitElement {
-	static override styles = [linkBase, inlineCode, actionButton, ruleBase];
+	static override styles = [
+		linkBase,
+		inlineCode,
+		actionButton,
+		ruleBase,
+		css`
+			.pill {
+				display: inline-block;
+				padding: 0.2rem 0.5rem;
+				border-radius: 0.5rem;
+				font-size: 1rem;
+				font-weight: 500;
+				line-height: 1.2;
+				text-transform: uppercase;
+				color: var(--vscode-foreground);
+				background-color: var(--vscode-editorWidget-background);
+			}
+			.pill code-icon {
+				font-size: inherit !important;
+				line-height: inherit !important;
+			}
+		`,
+	];
 
 	@property({ type: Object })
 	branchState?: BranchState;

@@ -42,12 +42,15 @@ import type { CustomEventType } from '../../shared/components/element';
 import type { RadioGroup } from '../../shared/components/radio/radio-group';
 import type { GlSearchBox } from '../../shared/components/search/search-box';
 import type { SearchNavigationEventDetail } from '../../shared/components/search/search-input';
+import { inlineCode } from '../../shared/components/styles/lit/base.css';
 import { ipcContext } from '../../shared/contexts/ipc';
 import type { TelemetryContext } from '../../shared/contexts/telemetry';
 import { telemetryContext } from '../../shared/contexts/telemetry';
 import { emitTelemetrySentEvent } from '../../shared/telemetry';
 import { stateContext } from './context';
 import { graphStateContext } from './stateProvider';
+import { actionButton, linkBase, ruleBase } from './styles/graph.css';
+import { graphHeaderControlStyles, progressStyles, repoHeaderStyles, titlebarStyles } from './styles/header.css';
 import '@shoelace-style/shoelace/dist/components/option/option.js';
 import '@shoelace-style/shoelace/dist/components/select/select.js';
 import '../../shared/components/button';
@@ -100,10 +103,21 @@ function getSearchResultIdByIndex(results: GraphSearchResults, index: number): s
 
 @customElement('gl-graph-header')
 export class GlGraphHeader extends SignalWatcher(LitElement) {
+	static override styles = [
+		inlineCode,
+		linkBase,
+		ruleBase,
+		actionButton,
+		titlebarStyles,
+		repoHeaderStyles,
+		graphHeaderControlStyles,
+		progressStyles,
+	];
+
 	// FIXME: remove light DOM
-	protected override createRenderRoot(): HTMLElement | DocumentFragment {
-		return this;
-	}
+	// protected override createRenderRoot(): HTMLElement | DocumentFragment {
+	// 	return this;
+	// }
 
 	@consume({ context: ipcContext })
 	_ipc!: typeof ipcContext.__context__;
@@ -711,7 +725,7 @@ export class GlGraphHeader extends SignalWatcher(LitElement) {
 										Switch to Another Branch...
 										<hr />
 										<code-icon icon="git-branch" aria-hidden="true"></code-icon>
-										<span class="md-code">${this.hostState.branch?.name}</span>${when(
+										<span class="inline-code">${this.hostState.branch?.name}</span>${when(
 											this.hostState.branchState?.worktree,
 											() => html`<i> (in a worktree)</i> `,
 										)}
@@ -756,7 +770,7 @@ export class GlGraphHeader extends SignalWatcher(LitElement) {
 						<span slot="content">
 							Create New Branch from
 							<code-icon icon="git-branch"></code-icon>
-							<span class="md-code">${this.hostState.branch?.name}</span>
+							<span class="inline-code">${this.hostState.branch?.name}</span>
 						</span>
 					</gl-tooltip>
 					<gl-tooltip placement="bottom">
