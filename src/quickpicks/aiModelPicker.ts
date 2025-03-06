@@ -1,8 +1,8 @@
 import type { Disposable, QuickInputButton, QuickPickItem } from 'vscode';
 import { QuickPickItemKind, ThemeIcon, window } from 'vscode';
-import type { AIModel, AIModelDescriptor } from '../ai/aiProviderService';
 import type { AIProviders } from '../constants.ai';
 import type { Container } from '../container';
+import type { AIModel, AIModelDescriptor } from '../plus/ai/models/model';
 import { executeCommand } from '../system/-webview/command';
 import { getQuickPickIgnoreFocusOut } from '../system/-webview/vscode';
 

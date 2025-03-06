@@ -1,5 +1,5 @@
-import { configuration } from '../system/-webview/configuration';
-import type { AIModel } from './aiProviderService';
+import { configuration } from '../../system/-webview/configuration';
+import type { AIActionType, AIModel } from './models/model';
 import { OpenAICompatibleProvider } from './openAICompatibleProvider';
 
 const provider = { id: 'openai', name: 'OpenAI' } as const;
@@ -224,11 +224,12 @@ export class OpenAIProvider extends OpenAICompatibleProvider<typeof provider.id>
 		return configuration.get('ai.openai.url') || 'https://api.openai.com/v1/chat/completions';
 	}
 
-	protected override getHeaders(
+	protected override getHeaders<TAction extends AIActionType>(
+		action: TAction,
 		model: AIModel<typeof provider.id>,
 		url: string,
 		apiKey: string,
-	): Record<string, string> {
+	): Record<string, string> | Promise<Record<string, string>> {
 		if (url.includes('.azure.com')) {
 			return {
 				Accept: 'application/json',
@@ -237,6 +238,6 @@ export class OpenAIProvider extends OpenAICompatibleProvider<typeof provider.id>
 			};
 		}
 
-		return super.getHeaders(model, url, apiKey);
+		return super.getHeaders(action, model, url, apiKey);
 	}
 }

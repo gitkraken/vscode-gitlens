@@ -6,7 +6,6 @@ import {
 	getSupportedRepositoryLocationProvider,
 	getSupportedWorkspacesStorageProvider,
 } from '@env/providers';
-import { AIProviderService } from './ai/aiProviderService';
 import { FileAnnotationController } from './annotations/fileAnnotationController';
 import { LineAnnotationController } from './annotations/lineAnnotationController';
 import { ActionRunners } from './api/actionRunners';
@@ -24,6 +23,7 @@ import { GitFileSystemProvider } from './git/fsProvider';
 import { GitProviderService } from './git/gitProviderService';
 import type { RepositoryLocationProvider } from './git/location/repositorylocationProvider';
 import { LineHoverController } from './hovers/lineHoverController';
+import { AIProviderService } from './plus/ai/aiProviderService';
 import { DraftService } from './plus/drafts/draftsService';
 import { AccountAuthenticationProvider } from './plus/gk/authenticationProvider';
 import { OrganizationService } from './plus/gk/organizationService';
@@ -349,7 +349,7 @@ export class Container {
 	private _ai: AIProviderService | undefined;
 	get ai(): AIProviderService {
 		if (this._ai == null) {
-			this._disposables.push((this._ai = new AIProviderService(this)));
+			this._disposables.push((this._ai = new AIProviderService(this, this._connection)));
 		}
 		return this._ai;
 	}

@@ -1,6 +1,5 @@
 import type { QuickInputButton, QuickPickItem, Uri } from 'vscode';
 import { InputBoxValidationSeverity, QuickInputButtons, ThemeIcon, window } from 'vscode';
-import type { AIModel } from '../../ai/aiProviderService';
 import { GlyphChars } from '../../constants';
 import type { Container } from '../../container';
 import { reveal, showDetailsView } from '../../git/actions/stash';
@@ -11,6 +10,7 @@ import type { Repository } from '../../git/models/repository';
 import { uncommitted, uncommittedStaged } from '../../git/models/revision';
 import { getReferenceLabel } from '../../git/utils/reference.utils';
 import { showGenericErrorMessage } from '../../messages';
+import type { AIModel } from '../../plus/ai/models/model';
 import type { QuickPickItemOfT } from '../../quickpicks/items/common';
 import type { FlagsQuickPickItem } from '../../quickpicks/items/flags';
 import { createFlagsQuickPickItem } from '../../quickpicks/items/flags';

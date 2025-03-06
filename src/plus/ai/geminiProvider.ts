@@ -1,6 +1,6 @@
 import type { CancellationToken } from 'vscode';
 import type { Response } from '@env/fetch';
-import type { AIModel } from './aiProviderService';
+import type { AIActionType, AIModel } from './models/model';
 import { OpenAICompatibleProvider } from './openAICompatibleProvider';
 
 const provider = { id: 'gemini', name: 'Google' } as const;
@@ -109,6 +109,7 @@ export class GeminiProvider extends OpenAICompatibleProvider<typeof provider.id>
 	}
 
 	protected override fetchCore(
+		action: AIActionType,
 		model: AIModel<typeof provider.id>,
 		apiKey: string,
 		request: object,
@@ -118,6 +119,6 @@ export class GeminiProvider extends OpenAICompatibleProvider<typeof provider.id>
 			const { max_completion_tokens: max, ...rest } = request;
 			request = max ? { max_tokens: max, ...rest } : rest;
 		}
-		return super.fetchCore(model, apiKey, request, cancellation);
+		return super.fetchCore(action, model, apiKey, request, cancellation);
 	}
 }

@@ -1,6 +1,5 @@
 import type { ConfigurationChangeEvent } from 'vscode';
 import { Disposable, Uri, window, workspace } from 'vscode';
-import type { AIModelChangeEvent } from '../../ai/aiProviderService';
 import type { CreatePullRequestActionContext } from '../../api/gitlens';
 import type { EnrichedAutolink } from '../../autolinks/models/autolinks';
 import { getAvatarUriFromGravatarEmail } from '../../avatars';
@@ -38,6 +37,7 @@ import { sortBranches } from '../../git/utils/-webview/sorting';
 import { getOpenedWorktreesByBranch, groupWorktreesByBranch } from '../../git/utils/-webview/worktree.utils';
 import { getComparisonRefsForPullRequest } from '../../git/utils/pullRequest.utils';
 import { createRevisionRange } from '../../git/utils/revision.utils';
+import type { AIModelChangeEvent } from '../../plus/ai/aiProviderService';
 import { showPatchesView } from '../../plus/drafts/actions';
 import type { Subscription } from '../../plus/gk/models/subscription';
 import type { SubscriptionChangeEvent } from '../../plus/gk/subscriptionService';
