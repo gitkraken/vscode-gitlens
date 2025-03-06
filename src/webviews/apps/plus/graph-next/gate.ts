@@ -1,5 +1,5 @@
 import { consume } from '@lit/context';
-import { html } from 'lit';
+import { css, html } from 'lit';
 import { customElement, state } from 'lit/decorators.js';
 import { ifDefined } from 'lit/directives/if-defined.js';
 import { createWebviewCommandLink } from '../../../../system/webview';
@@ -11,7 +11,13 @@ import '../../shared/components/feature-gate';
 
 @customElement('gl-graph-gate')
 export class GlGraphGate extends GlElement {
-	static override styles = [];
+	static override styles = css`
+		gl-feature-gate gl-feature-badge {
+			vertical-align: super;
+			margin-left: 0.4rem;
+			margin-right: 0.4rem;
+		}
+	`;
 
 	@consume({ context: stateContext, subscribe: true })
 	@state()

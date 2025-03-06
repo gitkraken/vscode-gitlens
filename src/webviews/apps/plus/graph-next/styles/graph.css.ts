@@ -1,5 +1,5 @@
 import { css } from 'lit';
-import { focusOutline } from '../../shared/components/styles/lit/a11y.css';
+import { focusOutline } from '../../../shared/components/styles/lit/a11y.css';
 
 export const linkBase = css`
 	a {
