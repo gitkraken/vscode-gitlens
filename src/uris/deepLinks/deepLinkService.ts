@@ -183,6 +183,13 @@ export class DeepLinkService implements Disposable {
 						return DeepLinkServiceAction.DeepLinkResolved;
 				}
 			}
+			case DeepLinkServiceState.GoToTarget: {
+				if (this._context.action === DeepLinkActionType.DeleteBranch) {
+					return DeepLinkServiceAction.DeleteBranch;
+				}
+
+				return DeepLinkServiceAction.DeepLinkErrored;
+			}
 			default:
 				return DeepLinkServiceAction.DeepLinkErrored;
 		}
@@ -1105,6 +1112,11 @@ export class DeepLinkService implements Disposable {
 								this._context.action === DeepLinkActionType.SwitchToAndSuggestPullRequest
 							) {
 								action = DeepLinkServiceAction.OpenSwitch;
+							} else if (
+								targetType === DeepLinkType.Branch &&
+								this._context.action === DeepLinkActionType.DeleteBranch
+							) {
+								action = DeepLinkServiceAction.DeleteBranch;
 							} else {
 								action = DeepLinkServiceAction.OpenGraph;
 							}
@@ -1344,8 +1356,10 @@ export class DeepLinkService implements Disposable {
 								repos: repo,
 								reference: ref,
 								onWorkspaceChanging: onWorkspaceChanging,
-								skipWorktreeConfirmations:
-									this._context.action === DeepLinkActionType.SwitchToPullRequestWorktree,
+								worktreeDefaultOpen:
+									this._context.action === DeepLinkActionType.SwitchToPullRequestWorktree
+										? 'new'
+										: undefined,
 							},
 						});
 
@@ -1459,6 +1473,38 @@ export class DeepLinkService implements Disposable {
 					}
 
 					await executeCommand(command, { source: 'deeplink' });
+					action = DeepLinkServiceAction.DeepLinkResolved;
+					break;
+				}
+				case DeepLinkServiceState.DeleteBranch: {
+					if (!targetId || (!repo && !repoPath)) {
+						action = DeepLinkServiceAction.DeepLinkErrored;
+						message = 'Missing workspace id.';
+						break;
+					}
+
+					const repository = repo ?? this.container.git.getRepository(repoPath!);
+					if (!repository) {
+						action = DeepLinkServiceAction.DeepLinkErrored;
+						message = 'No matching repository found.';
+						break;
+					}
+
+					const branch = await repository.git.branches().getBranch(targetId);
+					if (!branch) {
+						action = DeepLinkServiceAction.DeepLinkErrored;
+						message = 'No matching branch found.';
+						break;
+					}
+
+					void executeGitCommand({
+						command: 'branch',
+						state: {
+							subcommand: 'delete',
+							repo: repoPath || repo!.uri.fsPath,
+							references: branch,
+						},
+					});
 					action = DeepLinkServiceAction.DeepLinkResolved;
 					break;
 				}

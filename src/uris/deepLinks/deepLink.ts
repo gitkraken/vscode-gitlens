@@ -45,6 +45,7 @@ export const DeepLinkCommandTypeToCommand = new Map<DeepLinkCommandType, GlComma
 ]);
 
 export enum DeepLinkActionType {
+	DeleteBranch = 'delete-branch',
 	Switch = 'switch',
 	SwitchToPullRequest = 'switch-to-pr',
 	SwitchToPullRequestWorktree = 'switch-to-pr-worktree',
@@ -245,6 +246,7 @@ export const enum DeepLinkServiceState {
 	SwitchToRef,
 	RunCommand,
 	OpenAllPrChanges,
+	DeleteBranch,
 }
 
 export const enum DeepLinkServiceAction {
@@ -278,6 +280,7 @@ export const enum DeepLinkServiceAction {
 	OpenInspect,
 	OpenSwitch,
 	OpenAllPrChanges,
+	DeleteBranch,
 }
 
 export type DeepLinkRepoOpenType = 'clone' | 'folder' | 'workspace' | 'current';
@@ -396,6 +399,7 @@ export const deepLinkStateTransitionTable: Record<string, Record<string, DeepLin
 		[DeepLinkServiceAction.OpenFile]: DeepLinkServiceState.OpenFile,
 		[DeepLinkServiceAction.OpenSwitch]: DeepLinkServiceState.SwitchToRef,
 		[DeepLinkServiceAction.OpenComparison]: DeepLinkServiceState.OpenComparison,
+		[DeepLinkServiceAction.DeleteBranch]: DeepLinkServiceState.DeleteBranch,
 		[DeepLinkServiceAction.DeepLinkErrored]: DeepLinkServiceState.Idle,
 		[DeepLinkServiceAction.DeepLinkCancelled]: DeepLinkServiceState.Idle,
 	},
@@ -442,6 +446,11 @@ export const deepLinkStateTransitionTable: Record<string, Record<string, DeepLin
 		[DeepLinkServiceAction.DeepLinkCancelled]: DeepLinkServiceState.Idle,
 	},
 	[DeepLinkServiceState.RunCommand]: {
+		[DeepLinkServiceAction.DeepLinkResolved]: DeepLinkServiceState.Idle,
+		[DeepLinkServiceAction.DeepLinkErrored]: DeepLinkServiceState.Idle,
+		[DeepLinkServiceAction.DeepLinkCancelled]: DeepLinkServiceState.Idle,
+	},
+	[DeepLinkServiceState.DeleteBranch]: {
 		[DeepLinkServiceAction.DeepLinkResolved]: DeepLinkServiceState.Idle,
 		[DeepLinkServiceAction.DeepLinkErrored]: DeepLinkServiceState.Idle,
 		[DeepLinkServiceAction.DeepLinkCancelled]: DeepLinkServiceState.Idle,
