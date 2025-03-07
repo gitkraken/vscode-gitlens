@@ -1,7 +1,8 @@
 import type { RemotesConfig } from '../../config';
-import { SelfHostedIntegrationId } from '../../constants.integrations';
+import { IntegrationId, SelfHostedIntegrationId } from '../../constants.integrations';
 import type { Container } from '../../container';
 import type { ConfiguredIntegrationDescriptor } from '../../plus/integrations/authentication/models';
+import type { RepositoryDescriptor, ResourceDescriptor } from '../../plus/integrations/integration';
 import { isCloudSelfHostedIntegrationId } from '../../plus/integrations/providers/models';
 import { configuration } from '../../system/-webview/configuration';
 import { Logger } from '../../system/logger';
@@ -76,6 +77,12 @@ const builtInProviders: RemoteProviders = [
 	},
 ];
 
+const cloudRemotesMap: { [key: string]: typeof GitHubRemote | typeof GitLabRemote | typeof BitbucketRemote } = {
+	[SelfHostedIntegrationId.CloudGitHubEnterprise]: GitHubRemote,
+	[SelfHostedIntegrationId.CloudGitLabSelfHosted]: GitLabRemote,
+	[SelfHostedIntegrationId.BitbucketServer]: BitbucketRemote,
+};
+
 export function loadRemoteProviders(
 	cfg: RemotesConfig[] | null | undefined,
 	configuredIntegrations?: ConfiguredIntegrationDescriptor[],
@@ -107,10 +114,8 @@ export function loadRemoteProviders(
 		for (const ci of configuredIntegrations) {
 			if (isCloudSelfHostedIntegrationId(ci.integrationId) && ci.domain) {
 				const matcher = ci.domain.toLocaleLowerCase();
-				const providerCreator = (_container: Container, domain: string, path: string) =>
-					ci.integrationId === SelfHostedIntegrationId.CloudGitHubEnterprise
-						? new GitHubRemote(domain, path)
-						: new GitLabRemote(domain, path);
+				const providerCreator = (_container: Container, domain: string, path: string): RemoteProvider =>
+					new cloudRemotesMap[ci.integrationId](domain, path);
 				const provider = {
 					custom: false,
 					matcher: matcher,
