@@ -989,25 +989,29 @@ export class HomeWebviewProvider implements WebviewProvider<State, State, HomeWe
 
 	private async getIntegrationStates(force = false) {
 		if (force || this._integrationStates == null) {
-			const promises = filterMap(await this.container.integrations.getConfigured(), i =>
-				isSupportedCloudIntegrationId(i.integrationId)
-					? ({
-							id: i.integrationId,
-							name: providersMetadata[i.integrationId].name,
-							icon: `gl-provider-${providersMetadata[i.integrationId].iconKey}`,
-							connected: true,
-							supports:
-								providersMetadata[i.integrationId].type === 'hosting'
-									? ['prs', 'issues']
-									: providersMetadata[i.integrationId].type === 'issues'
-									  ? ['issues']
-									  : [],
-							requiresPro:
-								supportedCloudIntegrationDescriptors.find(item => item.id === i.integrationId)
-									?.requiresPro ?? false,
-					  } satisfies IntegrationState)
-					: undefined,
-			);
+			const promises = filterMap(await this.container.integrations.getConfigured(), i => {
+				if (!isSupportedCloudIntegrationId(i.integrationId)) {
+					return undefined;
+				}
+				const supportedCloudDescriptor = supportedCloudIntegrationDescriptors.find(
+					item => item.id === i.integrationId,
+				);
+				return {
+					id: i.integrationId,
+					name: providersMetadata[i.integrationId].name,
+					icon: `gl-provider-${providersMetadata[i.integrationId].iconKey}`,
+					connected: true,
+					supports:
+						supportedCloudDescriptor?.supports != null
+							? supportedCloudDescriptor.supports
+							: providersMetadata[i.integrationId].type === 'hosting'
+							  ? ['prs', 'issues']
+							  : providersMetadata[i.integrationId].type === 'issues'
+							    ? ['issues']
+							    : [],
+					requiresPro: supportedCloudDescriptor?.requiresPro ?? false,
+				} satisfies IntegrationState;
+			});
 
 			const integrationsResults = await Promise.allSettled(promises);
 			const integrations: IntegrationState[] = [...filterMap(integrationsResults, r => getSettledValue(r))];
