@@ -289,37 +289,6 @@ export class BitbucketApi implements Disposable {
 		}
 	}
 
-	async getPullRequestsForWorkspaceAuthoredByUser(
-		provider: Provider,
-		token: string,
-		userUuid: string,
-		workspace: string,
-		baseUrl: string,
-	): Promise<PullRequest[] | undefined> {
-		const scope = getLogScope();
-
-		const response = await this.request<{
-			values: BitbucketPullRequest[];
-			pagelen: number;
-			size: number;
-			page: number;
-		}>(
-			provider,
-			token,
-			baseUrl,
-			`workspaces/${workspace}/pullrequests/${userUuid}?state=OPEN&fields=%2Bvalues.reviewers,%2Bvalues.participants`,
-			{
-				method: 'GET',
-			},
-			scope,
-		);
-
-		if (!response?.values?.length) {
-			return undefined;
-		}
-		return response.values.map(pr => fromBitbucketPullRequest(pr, provider));
-	}
-
 	async getUsersReviewingPullRequestsForRepo(
 		provider: Provider,
 		token: string,

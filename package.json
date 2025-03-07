@@ -21476,7 +21476,7 @@
 	"dependencies": {
 		"@gitkraken/gitkraken-components": "10.7.0",
 		"@gitkraken/gitkraken-components-next": "npm:@gitkraken/gitkraken-components@11.0.0-vnext.3",
-		"@gitkraken/provider-apis": "0.26.2",
+		"@gitkraken/provider-apis": "v0.28.2",
 		"@gitkraken/shared-web-components": "0.1.1-rc.15",
 		"@gk-nzaytsev/fast-string-truncated-width": "1.1.0",
 		"@lit-labs/signals": "0.1.2",

@@ -19,6 +19,7 @@ import type { IntegrationAuthenticationService } from '../authentication/integra
 import type {
 	GetAzureProjectsForResourceFn,
 	GetAzureResourcesForUserFn,
+	GetBitbucketPullRequestsAuthoredByUserForWorkspaceFn,
 	GetBitbucketResourcesForUserFn,
 	GetCurrentUserFn,
 	GetCurrentUserForInstanceFn,
@@ -202,6 +203,10 @@ export class ProvidersApi {
 				getBitbucketResourcesForUserFn: providerApis.bitbucket.getWorkspacesForUser.bind(
 					providerApis.bitbucket,
 				) as GetBitbucketResourcesForUserFn,
+				getBitbucketPullRequestsAuthoredByUserForWorkspaceFn:
+					providerApis.bitbucket.getPullRequestsForUserAndWorkspace.bind(
+						providerApis.bitbucket,
+					) as GetBitbucketPullRequestsAuthoredByUserForWorkspaceFn,
 				getPullRequestsForReposFn: providerApis.bitbucket.getPullRequestsForRepos.bind(
 					providerApis.bitbucket,
 				) as GetPullRequestsForReposFn,
@@ -561,6 +566,29 @@ export class ProvidersApi {
 				token,
 				e,
 			);
+		}
+	}
+
+	async getBitbucketPullRequestsAuthoredByUserForWorkspace(
+		userId: string,
+		workspaceSlug: string,
+		options?: { accessToken?: string },
+	): Promise<ProviderPullRequest[] | undefined> {
+		const { provider, token } = await this.ensureProviderTokenAndFunction(
+			HostingIntegrationId.Bitbucket,
+			'getBitbucketPullRequestsAuthoredByUserForWorkspaceFn',
+			options?.accessToken,
+		);
+
+		try {
+			return (
+				await provider.getBitbucketPullRequestsAuthoredByUserForWorkspaceFn?.(
+					{ userId: userId, workspaceSlug: workspaceSlug },
+					{ token: token },
+				)
+			)?.data;
+		} catch (e) {
+			return this.handleProviderError(HostingIntegrationId.Bitbucket, token, e);
 		}
 	}
 
