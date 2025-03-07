@@ -18,6 +18,7 @@ import type {
 	Jira,
 	JiraProject,
 	JiraResource,
+	NumberedPageInput,
 	Issue as ProviderApiIssue,
 	PullRequestWithUniqueID,
 	RequestFunction,
@@ -342,6 +343,19 @@ export type GetBitbucketResourcesForUserFn = (
 	input: { userId: string },
 	options?: EnterpriseOptions,
 ) => Promise<{ data: BitbucketWorkspaceStub[] }>;
+export type GetBitbucketPullRequestsAuthoredByUserForWorkspaceFn = (
+	input: {
+		userId: string;
+		workspaceSlug: string;
+	} & NumberedPageInput,
+	options?: EnterpriseOptions,
+) => Promise<{
+	pageInfo: {
+		hasNextPage: boolean;
+		nextPage: number | null;
+	};
+	data: GitPullRequest[];
+}>;
 export type GetIssuesForProjectFn = Jira['getIssuesForProject'];
 export type GetIssuesForResourceForCurrentUserFn = (
 	input: { resourceId: string },
@@ -364,6 +378,7 @@ export interface ProviderInfo extends ProviderMetadata {
 	getJiraResourcesForCurrentUserFn?: GetJiraResourcesForCurrentUserFn;
 	getAzureResourcesForUserFn?: GetAzureResourcesForUserFn;
 	getBitbucketResourcesForUserFn?: GetBitbucketResourcesForUserFn;
+	getBitbucketPullRequestsAuthoredByUserForWorkspaceFn?: GetBitbucketPullRequestsAuthoredByUserForWorkspaceFn;
 	getJiraProjectsForResourcesFn?: GetJiraProjectsForResourcesFn;
 	getAzureProjectsForResourceFn?: GetAzureProjectsForResourceFn;
 	getIssuesForProjectFn?: GetIssuesForProjectFn;
@@ -912,7 +927,7 @@ export function fromProviderPullRequest(
 		integration,
 		fromProviderAccount(pr.author),
 		pr.id,
-		pr.graphQLId,
+		pr.graphQLId || pr.id,
 		pr.title,
 		pr.url ?? '',
 		{

@@ -13,7 +13,7 @@ import type { IntegrationAuthenticationProviderDescriptor } from '../authenticat
 import type { ProviderAuthenticationSession } from '../authentication/models';
 import { HostingIntegration } from '../integration';
 import type { BitbucketRepositoryDescriptor, BitbucketWorkspaceDescriptor } from './bitbucket/models';
-import { providersMetadata } from './models';
+import { fromProviderPullRequest, providersMetadata } from './models';
 
 const metadata = providersMetadata[HostingIntegrationId.Bitbucket];
 const authProvider = Object.freeze({ id: metadata.id, scopes: metadata.scopes });
@@ -218,24 +218,38 @@ export class BitbucketIntegration extends HostingIntegration<
 		const workspaces = await this.getProviderResourcesForUser(session);
 		if (workspaces == null || workspaces.length === 0) return undefined;
 
+		const providersApi = await this.getProvidersApi();
 		const api = await this.container.bitbucket;
-		if (!api) return undefined;
+		if (!providersApi && !api) {
+			return undefined;
+		}
 
-		const authoredPrs = workspaces.map(ws =>
-			api.getPullRequestsForWorkspaceAuthoredByUser(this, session.accessToken, user.id, ws.slug, this.apiBaseUrl),
-		);
+		const authoredPrs = providersApi
+			? workspaces.map(async ws => {
+					const prs = await providersApi.getBitbucketPullRequestsAuthoredByUserForWorkspace(
+						user.id,
+						ws.slug,
+						{
+							accessToken: session.accessToken,
+						},
+					);
+					return prs?.map(pr => fromProviderPullRequest(pr, this));
+			  })
+			: [];
 
-		const reviewingPrs = workspaceRepos.map(repo => {
-			const [owner, name] = repo.split('/');
-			return api.getUsersReviewingPullRequestsForRepo(
-				this,
-				session.accessToken,
-				user.id,
-				owner,
-				name,
-				this.apiBaseUrl,
-			);
-		});
+		const reviewingPrs = api
+			? workspaceRepos.map(repo => {
+					const [owner, name] = repo.split('/');
+					return api.getUsersReviewingPullRequestsForRepo(
+						this,
+						session.accessToken,
+						user.id,
+						owner,
+						name,
+						this.apiBaseUrl,
+					);
+			  })
+			: [];
 
 		return [
 			...uniqueBy(
