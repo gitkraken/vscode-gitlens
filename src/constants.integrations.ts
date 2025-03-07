@@ -89,7 +89,7 @@ export const supportedCloudIntegrationDescriptors: IntegrationDescriptor[] = [
 		id: HostingIntegrationId.Bitbucket,
 		name: 'Bitbucket',
 		icon: 'gl-provider-bitbucket',
-		supports: ['prs'],
+		supports: ['prs', 'issues'],
 		requiresPro: false,
 	},
 	{
