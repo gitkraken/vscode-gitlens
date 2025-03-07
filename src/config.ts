@@ -698,6 +698,7 @@ export interface ViewsCommonConfig {
 		grouped: {
 			readonly default: GroupableTreeViewTypes;
 			readonly views: Record<GroupableTreeViewTypes, boolean>;
+			readonly hiddenViews: Record<GroupableTreeViewTypes, boolean>;
 		};
 	};
 	readonly showComparisonContributors: boolean;

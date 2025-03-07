@@ -164,6 +164,12 @@ export class Views implements Disposable {
 			registerCommand('gitlens.views.scm.grouped.branches.regroup', () =>
 				this.toggleScmViewGrouping('branches', true),
 			),
+			registerCommand('gitlens.views.scm.grouped.branches.visibility.hide', () =>
+				this.toggleScmViewVisibility('branches', false),
+			),
+			registerCommand('gitlens.views.scm.grouped.branches.visibility.show', () =>
+				this.toggleScmViewVisibility('branches', true),
+			),
 			registerCommand('gitlens.views.scm.grouped.branches.setAsDefault', () =>
 				this.setAsScmGroupedDefaultView('branches'),
 			),
@@ -173,6 +179,12 @@ export class Views implements Disposable {
 			),
 			registerCommand('gitlens.views.scm.grouped.commits.regroup', () =>
 				this.toggleScmViewGrouping('commits', true),
+			),
+			registerCommand('gitlens.views.scm.grouped.commits.visibility.hide', () =>
+				this.toggleScmViewVisibility('commits', false),
+			),
+			registerCommand('gitlens.views.scm.grouped.commits.visibility.show', () =>
+				this.toggleScmViewVisibility('commits', true),
 			),
 			registerCommand('gitlens.views.scm.grouped.commits.setAsDefault', () =>
 				this.setAsScmGroupedDefaultView('commits'),
@@ -186,6 +198,12 @@ export class Views implements Disposable {
 			registerCommand('gitlens.views.scm.grouped.contributors.regroup', () =>
 				this.toggleScmViewGrouping('contributors', true),
 			),
+			registerCommand('gitlens.views.scm.grouped.contributors.visibility.hide', () =>
+				this.toggleScmViewVisibility('contributors', false),
+			),
+			registerCommand('gitlens.views.scm.grouped.contributors.visibility.show', () =>
+				this.toggleScmViewVisibility('contributors', true),
+			),
 			registerCommand('gitlens.views.scm.grouped.contributors.setAsDefault', () =>
 				this.setAsScmGroupedDefaultView('contributors'),
 			),
@@ -196,6 +214,12 @@ export class Views implements Disposable {
 			registerCommand('gitlens.views.scm.grouped.launchpad.regroup', () =>
 				this.toggleScmViewGrouping('launchpad', true),
 			),
+			registerCommand('gitlens.views.scm.grouped.launchpad.visibility.hide', () =>
+				this.toggleScmViewVisibility('launchpad', false),
+			),
+			registerCommand('gitlens.views.scm.grouped.launchpad.visibility.show', () =>
+				this.toggleScmViewVisibility('launchpad', true),
+			),
 			registerCommand('gitlens.views.scm.grouped.launchpad.setAsDefault', () =>
 				this.setAsScmGroupedDefaultView('launchpad'),
 			),
@@ -205,6 +229,12 @@ export class Views implements Disposable {
 			),
 			registerCommand('gitlens.views.scm.grouped.remotes.regroup', () =>
 				this.toggleScmViewGrouping('remotes', true),
+			),
+			registerCommand('gitlens.views.scm.grouped.remotes.visibility.hide', () =>
+				this.toggleScmViewVisibility('remotes', false),
+			),
+			registerCommand('gitlens.views.scm.grouped.remotes.visibility.show', () =>
+				this.toggleScmViewVisibility('remotes', true),
 			),
 			registerCommand('gitlens.views.scm.grouped.remotes.setAsDefault', () =>
 				this.setAsScmGroupedDefaultView('remotes'),
@@ -218,6 +248,12 @@ export class Views implements Disposable {
 			registerCommand('gitlens.views.scm.grouped.repositories.regroup', () =>
 				this.toggleScmViewGrouping('repositories', true),
 			),
+			registerCommand('gitlens.views.scm.grouped.repositories.visibility.hide', () =>
+				this.toggleScmViewVisibility('repositories', false),
+			),
+			registerCommand('gitlens.views.scm.grouped.repositories.visibility.show', () =>
+				this.toggleScmViewVisibility('repositories', true),
+			),
 			registerCommand('gitlens.views.scm.grouped.repositories.setAsDefault', () =>
 				this.setAsScmGroupedDefaultView('repositories'),
 			),
@@ -230,6 +266,12 @@ export class Views implements Disposable {
 			registerCommand('gitlens.views.scm.grouped.searchAndCompare.regroup', () =>
 				this.toggleScmViewGrouping('searchAndCompare', true),
 			),
+			registerCommand('gitlens.views.scm.grouped.searchAndCompare.visibility.hide', () =>
+				this.toggleScmViewVisibility('searchAndCompare', false),
+			),
+			registerCommand('gitlens.views.scm.grouped.searchAndCompare.visibility.show', () =>
+				this.toggleScmViewVisibility('searchAndCompare', true),
+			),
 			registerCommand('gitlens.views.scm.grouped.searchAndCompare.setAsDefault', () =>
 				this.setAsScmGroupedDefaultView('searchAndCompare'),
 			),
@@ -240,12 +282,24 @@ export class Views implements Disposable {
 			registerCommand('gitlens.views.scm.grouped.stashes.regroup', () =>
 				this.toggleScmViewGrouping('stashes', true),
 			),
+			registerCommand('gitlens.views.scm.grouped.stashes.visibility.hide', () =>
+				this.toggleScmViewVisibility('stashes', false),
+			),
+			registerCommand('gitlens.views.scm.grouped.stashes.visibility.show', () =>
+				this.toggleScmViewVisibility('stashes', true),
+			),
 			registerCommand('gitlens.views.scm.grouped.stashes.setAsDefault', () =>
 				this.setAsScmGroupedDefaultView('stashes'),
 			),
 			registerCommand('gitlens.views.tags.regroup', () => this.toggleScmViewGrouping('tags', true)),
 			registerCommand('gitlens.views.scm.grouped.tags.detach', () => this.toggleScmViewGrouping('tags', false)),
 			registerCommand('gitlens.views.scm.grouped.tags.regroup', () => this.toggleScmViewGrouping('tags', true)),
+			registerCommand('gitlens.views.scm.grouped.tags.visibility.hide', () =>
+				this.toggleScmViewVisibility('tags', false),
+			),
+			registerCommand('gitlens.views.scm.grouped.tags.visibility.show', () =>
+				this.toggleScmViewVisibility('tags', true),
+			),
 			registerCommand('gitlens.views.scm.grouped.tags.setAsDefault', () =>
 				this.setAsScmGroupedDefaultView('tags'),
 			),
@@ -255,6 +309,12 @@ export class Views implements Disposable {
 			),
 			registerCommand('gitlens.views.scm.grouped.worktrees.regroup', () =>
 				this.toggleScmViewGrouping('worktrees', true),
+			),
+			registerCommand('gitlens.views.scm.grouped.worktrees.visibility.hide', () =>
+				this.toggleScmViewVisibility('worktrees', false),
+			),
+			registerCommand('gitlens.views.scm.grouped.worktrees.visibility.show', () =>
+				this.toggleScmViewVisibility('worktrees', true),
 			),
 			registerCommand('gitlens.views.scm.grouped.worktrees.setAsDefault', () =>
 				this.setAsScmGroupedDefaultView('worktrees'),
@@ -462,6 +522,16 @@ export class Views implements Disposable {
 
 		// Show the view after the configuration change has been applied
 		setTimeout(() => executeCoreCommand(`gitlens.views.${grouped ? 'scm.grouped' : type}.focus`), 1);
+	}
+
+	private toggleScmViewVisibility(type: GroupableTreeViewTypes, visible: boolean) {
+		const hiddenViews = configuration.get(`views.scm.grouped.hiddenViews`);
+		hiddenViews[type] = !visible;
+		configuration.updateEffective(`views.scm.grouped.hiddenViews`, hiddenViews);
+
+		if (visible) {
+			void this.container.views.showView(type);
+		}
 	}
 
 	private updateScmGroupedViewsRegistration(bypassWelcomeView?: boolean) {
