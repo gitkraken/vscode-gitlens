@@ -21445,7 +21445,7 @@
 	"devDependencies": {
 		"@eamodio/eslint-lite-webpack-plugin": "0.2.0",
 		"@eslint/js": "9.21.0",
-		"@playwright/test": "1.50.1",
+		"@playwright/test": "1.51.0",
 		"@swc/core": "1.11.7",
 		"@twbs/fantasticon": "3.1.0",
 		"@types/mocha": "10.0.10",
@@ -21467,7 +21467,7 @@
 		"copy-webpack-plugin": "13.0.0",
 		"csp-html-webpack-plugin": "5.1.0",
 		"css-loader": "7.1.2",
-		"css-minimizer-webpack-plugin": "7.0.0",
+		"css-minimizer-webpack-plugin": "7.0.2",
 		"cssnano-preset-advanced": "7.0.6",
 		"esbuild": "0.25.0",
 		"esbuild-loader": "4.3.0",
@@ -21489,7 +21489,7 @@
 		"lz-string": "1.5.0",
 		"mini-css-extract-plugin": "2.9.2",
 		"ovsx": "0.10.1",
-		"playwright": "1.50.1",
+		"playwright": "1.51.0",
 		"prettier": "3.1.0",
 		"regex-to-strings": "2.1.0",
 		"sass": "1.85.1",
@@ -21498,7 +21498,7 @@
 		"sharp": "0.33.5",
 		"sinon": "19.0.2",
 		"svgo": "3.3.2",
-		"terser-webpack-plugin": "5.3.12",
+		"terser-webpack-plugin": "5.3.14",
 		"ts-loader": "9.5.2",
 		"typescript": "5.8.2",
 		"typescript-eslint": "8.26.0",
@@ -21514,5 +21514,5 @@
 		"node-fetch": "2.7.0",
 		"semver-regex": "4.0.5"
 	},
-	"packageManager": "pnpm@10.5.2"
+	"packageManager": "pnpm@10.6.0"
 }
