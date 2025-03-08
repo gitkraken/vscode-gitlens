@@ -1,6 +1,7 @@
 import type { ConfigurationChangeEvent, Disposable, Event, ExtensionContext } from 'vscode';
 import { EventEmitter, ExtensionMode } from 'vscode';
 import {
+	getGkCliIntegrationProvider,
 	getSharedGKStorageLocationProvider,
 	getSupportedGitProviders,
 	getSupportedRepositoryLocationProvider,
@@ -254,6 +255,11 @@ export class Container {
 
 		if (configuration.get('terminalLinks.enabled')) {
 			this._disposables.push((this._terminalLinks = new GitTerminalLinkProvider(this)));
+		}
+
+		const cliIntegration = getGkCliIntegrationProvider(this);
+		if (cliIntegration != null) {
+			this._disposables.push(cliIntegration);
 		}
 
 		this._disposables.push(
