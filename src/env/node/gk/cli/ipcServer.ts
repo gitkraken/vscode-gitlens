@@ -81,11 +81,18 @@ export class IpcServer<Request = unknown, Response = void> implements Disposable
 			const data = JSON.parse(Buffer.concat(chunks).toString('utf8'));
 			try {
 				const result = await handler(data);
-				res.writeHead(200);
-				if (result != null && typeof result === 'string') {
+				if (result == null) {
+					res.writeHead(200);
+					res.end();
+					return;
+				}
+
+				if (typeof result === 'string') {
+					res.writeHead(200);
 					res.end(result);
 				} else {
-					res.end();
+					res.writeHead(200);
+					res.end(JSON.stringify(result));
 				}
 			} catch (ex) {
 				Logger.error(ex, 'IPC handler error', data);

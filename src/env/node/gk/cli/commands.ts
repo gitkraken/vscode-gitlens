@@ -1,3 +1,4 @@
+/* eslint-disable @typescript-eslint/require-await */
 import type { Disposable } from 'vscode';
 import type { CompareWithCommandArgs } from '../../../../commands/compareWith';
 import type { Container } from '../../../../container';
@@ -67,7 +68,7 @@ export class CliCommandHandlers implements Disposable {
 		_request: CliCommandRequest,
 		repo?: Repository | undefined,
 	): Promise<CliCommandResponse> {
-		return cherryPick(repo);
+		void cherryPick(repo);
 	}
 
 	@command('compare')
@@ -76,51 +77,48 @@ export class CliCommandHandlers implements Disposable {
 		repo?: Repository | undefined,
 	): Promise<CliCommandResponse> {
 		if (!repo || !_request.args?.length) {
-			await executeCommand('gitlens.compareWith');
+			void executeCommand('gitlens.compareWith');
 			return;
 		}
 
 		const [ref1, ref2] = _request.args;
 		if (!ref1 || !ref2) {
-			await executeCommand('gitlens.compareWith');
+			void executeCommand('gitlens.compareWith');
 			return;
 		}
 
 		if (ref1) {
 			if (!(await repo.git.refs().validateReference(ref1))) {
-				// TODO: Send an error back to the CLI?
-				await executeCommand('gitlens.compareWith');
-				return;
+				void executeCommand('gitlens.compareWith');
+				return { stderr: `${ref1} is an invalid reference` };
 			}
 		}
 
 		if (ref2) {
 			if (!(await repo.git.refs().validateReference(ref2))) {
-				// TODO: Send an error back to the CLI?
-				await executeCommand<CompareWithCommandArgs>('gitlens.compareWith', { ref1: ref1 });
-				return;
+				void executeCommand<CompareWithCommandArgs>('gitlens.compareWith', { ref1: ref1 });
+				return { stderr: `${ref2} is an invalid reference` };
 			}
 		}
 
-		await executeCommand<CompareWithCommandArgs>('gitlens.compareWith', { ref1: ref1, ref2: ref2 });
+		void executeCommand<CompareWithCommandArgs>('gitlens.compareWith', { ref1: ref1, ref2: ref2 });
 	}
 
 	@command('graph')
 	async handleGraphCommand(request: CliCommandRequest, repo?: Repository | undefined): Promise<CliCommandResponse> {
 		if (!repo || !request.args?.length) {
-			await executeCommand('gitlens.showGraphView');
+			void executeCommand('gitlens.showGraphView');
 			return;
 		}
 
 		const [ref] = request.args;
 		const reference = await repo.git.refs().getReference(ref);
 		if (ref && !reference) {
-			// TODO: Send an error back to the CLI?
-			await executeCommand('gitlens.showInCommitGraph', repo);
-			return;
+			void executeCommand('gitlens.showInCommitGraph', repo);
+			return { stderr: `${ref} is an invalid reference` };
 		}
 
-		await executeCommand('gitlens.showInCommitGraph', { ref: reference });
+		void executeCommand('gitlens.showInCommitGraph', { ref: reference });
 	}
 
 	@command('merge')
@@ -129,10 +127,12 @@ export class CliCommandHandlers implements Disposable {
 
 		const [ref] = request.args;
 		const reference = await repo.git.refs().getReference(ref);
+
+		void merge(repo, reference);
+
 		if (ref && !reference) {
-			// TODO: Send an error back to the CLI?
+			return { stderr: `${ref} is an invalid reference` };
 		}
-		return merge(repo, reference);
 	}
 
 	@command('rebase')
@@ -141,10 +141,11 @@ export class CliCommandHandlers implements Disposable {
 
 		const [ref] = request.args;
 		const reference = await repo.git.refs().getReference(ref);
-		if (ref && !reference) {
-			// TODO: Send an error back to the CLI?
-		}
 
-		return rebase(repo, reference);
+		void rebase(repo, reference);
+
+		if (ref && !reference) {
+			return { stderr: `${ref} is an invalid reference` };
+		}
 	}
 }
