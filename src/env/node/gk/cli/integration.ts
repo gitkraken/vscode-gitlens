@@ -3,14 +3,14 @@ import { Disposable } from 'vscode';
 import type { Container } from '../../../../container';
 import { configuration } from '../../../../system/-webview/configuration';
 import { CliCommandHandlers } from './commands';
-import type { IpcServer } from './server';
-import { createIpcServer } from './server';
+import type { IpcServer } from './ipcServer';
+import { createIpcServer } from './ipcServer';
 
 export interface CliCommandRequest {
 	cwd?: string;
 	args?: string[];
 }
-export type CliCommandResponse = string | void;
+export type CliCommandResponse = { stdout?: string; stderr?: string } | void;
 export type CliIpcServer = IpcServer<CliCommandRequest, CliCommandResponse>;
 
 export class GkCliIntegrationProvider implements Disposable {
