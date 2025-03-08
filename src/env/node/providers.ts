@@ -9,6 +9,7 @@ import { configuration } from '../../system/-webview/configuration';
 import { Git } from './git/git';
 import { LocalGitProvider } from './git/localGitProvider';
 import { VslsGit, VslsGitProvider } from './git/vslsGitProvider';
+import { GkCliIntegrationProvider } from './gk/cli/integration';
 import { LocalRepositoryLocationProvider } from './gk/localRepositoryLocationProvider';
 import { LocalSharedGkStorageLocationProvider } from './gk/localSharedGkStorageLocationProvider';
 import { LocalGkWorkspacesSharedStorageProvider } from './gk/localWorkspacesSharedStorageProvider';
@@ -72,4 +73,8 @@ export function getSupportedWorkspacesStorageProvider(
 	sharedStorage: SharedGkStorageLocationProvider,
 ): GkWorkspacesSharedStorageProvider {
 	return new LocalGkWorkspacesSharedStorageProvider(container, sharedStorage);
+}
+
+export function getGkCliIntegrationProvider(container: Container): GkCliIntegrationProvider {
+	return new GkCliIntegrationProvider(container);
 }

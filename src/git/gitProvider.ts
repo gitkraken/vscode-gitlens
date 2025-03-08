@@ -453,6 +453,7 @@ export interface GitPatchSubProvider {
 }
 
 export interface GitRefsSubProvider {
+	getReference(repoPath: string, ref: string): Promise<GitReference | undefined>;
 	hasBranchOrTag(
 		repoPath: string | undefined,
 		options?: {

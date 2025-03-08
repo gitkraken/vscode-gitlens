@@ -43,3 +43,7 @@ export function getSupportedWorkspacesStorageProvider(
 ): GkWorkspacesSharedStorageProvider | undefined {
 	return undefined;
 }
+
+export function getGkCliIntegrationProvider(_container: Container): undefined {
+	return undefined;
+}

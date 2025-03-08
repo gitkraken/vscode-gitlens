@@ -352,6 +352,13 @@ interface GitCommandsConfig {
 
 interface GitKrakenConfig {
 	readonly activeOrganizationId: string | null;
+	readonly cli: GitKrakenCliConfig;
+}
+
+interface GitKrakenCliConfig {
+	readonly integration: {
+		readonly enabled: boolean;
+	};
 }
 
 export interface GraphConfig {

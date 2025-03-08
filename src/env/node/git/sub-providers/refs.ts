@@ -4,8 +4,10 @@ import type { GitCache } from '../../../../git/cache';
 import { GitErrorHandling } from '../../../../git/commandOptions';
 import type { GitRefsSubProvider } from '../../../../git/gitProvider';
 import type { GitBranch } from '../../../../git/models/branch';
+import type { GitReference } from '../../../../git/models/reference';
 import { deletedOrMissing } from '../../../../git/models/revision';
 import type { GitTag } from '../../../../git/models/tag';
+import { createReference } from '../../../../git/utils/reference.utils';
 import { isSha, isShaLike, isUncommitted, isUncommittedParent } from '../../../../git/utils/revision.utils';
 import { TimedCancellationSource } from '../../../../system/-webview/cancellation';
 import { log } from '../../../../system/decorators/log';
@@ -20,6 +22,37 @@ export class RefsGitSubProvider implements GitRefsSubProvider {
 		private readonly cache: GitCache,
 		private readonly provider: LocalGitProvider,
 	) {}
+
+	@log()
+	async getReference(repoPath: string, ref: string): Promise<GitReference | undefined> {
+		if (!ref || ref === deletedOrMissing) return undefined;
+
+		if (!(await this.validateReference(repoPath, ref))) return undefined;
+
+		if (ref !== 'HEAD' && !isShaLike(ref)) {
+			const branch = await this.provider.branches.getBranch(repoPath, ref);
+			if (branch != null) {
+				return createReference(branch.ref, repoPath, {
+					id: branch.id,
+					refType: 'branch',
+					name: branch.name,
+					remote: branch.remote,
+					upstream: branch.upstream,
+				});
+			}
+
+			const tag = await this.provider.tags.getTag(repoPath, ref);
+			if (tag != null) {
+				return createReference(tag.ref, repoPath, {
+					id: tag.id,
+					refType: 'tag',
+					name: tag.name,
+				});
+			}
+		}
+
+		return createReference(ref, repoPath, { refType: 'revision' });
+	}
 
 	@log({ args: { 1: false } })
 	async hasBranchOrTag(
