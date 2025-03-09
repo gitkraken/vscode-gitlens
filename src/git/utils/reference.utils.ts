@@ -24,11 +24,6 @@ export function createReference(
 export function createReference(
 	ref: string,
 	repoPath: string,
-	options?: { refType: 'revision'; name?: string; message?: string },
-): GitRevisionReference;
-export function createReference(
-	ref: string,
-	repoPath: string,
 	options: { refType: 'stash'; name: string; number: string | undefined; message?: string; stashOnRef?: string },
 ): GitStashReference;
 export function createReference(
@@ -36,6 +31,11 @@ export function createReference(
 	repoPath: string,
 	options: { refType: 'tag'; name: string; id?: string },
 ): GitTagReference;
+export function createReference(
+	ref: string,
+	repoPath: string,
+	options?: { refType: 'revision'; name?: string; message?: string },
+): GitRevisionReference;
 export function createReference(
 	ref: string,
 	repoPath: string,
@@ -87,7 +87,7 @@ export function createReference(
 				repoPath: repoPath,
 				ref: ref,
 				sha: ref,
-				name: options.name ?? shortenRevision(ref, { force: true, strings: { working: 'Working Tree' } }),
+				name: options.name ?? shortenRevision(ref, { strings: { working: 'Working Tree' } }),
 				message: options.message,
 			};
 	}
