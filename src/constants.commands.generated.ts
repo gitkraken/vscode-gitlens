@@ -333,6 +333,7 @@ export type ContributedCommands =
 	| 'gitlens.views.loadAllChildren'
 	| 'gitlens.views.loadMoreChildren'
 	| 'gitlens.views.mergeBranchInto'
+	| 'gitlens.views.mergeChangesWithWorking'
 	| 'gitlens.views.openBranchOnRemote'
 	| 'gitlens.views.openBranchOnRemote.multi'
 	| 'gitlens.views.openChangedFileDiffs'

@@ -7683,6 +7683,23 @@
 				]
 			}
 		},
+		"gitlens.views.mergeChangesWithWorking": {
+			"label": "Merge Changes (Manually)...",
+			"menus": {
+				"view/item/context": [
+					{
+						"when": "viewItem =~ /gitlens:file\\b(?=.*?\\b\\+stashed\\b)/ && !listMultiSelection",
+						"group": "1_gitlens_actions",
+						"order": 2
+					},
+					{
+						"when": "viewItem =~ /gitlens:file\\b((?=.*?\\b\\+committed\\b)|:results\\b)/ && !listMultiSelection",
+						"group": "8_gitlens_actions",
+						"order": 2
+					}
+				]
+			}
+		},
 		"gitlens.views.openBranchOnRemote": {
 			"label": "Open Branch on Remote",
 			"icon": "$(globe)",
@@ -9538,12 +9555,12 @@
 					{
 						"when": "viewItem =~ /gitlens:file\\b(?=.*?\\b\\+stashed\\b)/ && !listMultiSelection && !gitlens:hasVirtualFolders && !gitlens:readonly && !gitlens:untrusted",
 						"group": "1_gitlens_actions",
-						"order": 2
+						"order": 3
 					},
 					{
 						"when": "viewItem =~ /gitlens:file\\b((?=.*?\\b\\+committed\\b)|:results\\b)/ && !listMultiSelection && !gitlens:hasVirtualFolders && !gitlens:readonly && !gitlens:untrusted",
 						"group": "8_gitlens_actions",
-						"order": 2
+						"order": 3
 					}
 				]
 			}

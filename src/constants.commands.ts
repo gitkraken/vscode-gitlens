@@ -233,6 +233,7 @@ export type GlCommands = ContributedCommands | InternalGlCommands | GlCommandsDe
 export type GlPaletteCommands = ContributedPaletteCommands;
 
 export type CoreCommands =
+	| '_open.mergeEditor'
 	| 'cursorMove'
 	| 'editor.action.showHover'
 	| 'editor.action.showReferences'

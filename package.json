@@ -8529,6 +8529,10 @@
 				"enablement": "!operationInProgress"
 			},
 			{
+				"command": "gitlens.views.mergeChangesWithWorking",
+				"title": "Merge Changes (Manually)..."
+			},
+			{
 				"command": "gitlens.views.openBranchOnRemote",
 				"title": "Open Branch on Remote",
 				"icon": "$(globe)"
@@ -12272,6 +12276,10 @@
 				},
 				{
 					"command": "gitlens.views.mergeBranchInto",
+					"when": "false"
+				},
+				{
+					"command": "gitlens.views.mergeChangesWithWorking",
 					"when": "false"
 				},
 				{
@@ -16792,9 +16800,14 @@
 					"group": "1_gitlens_actions@2"
 				},
 				{
+					"command": "gitlens.views.mergeChangesWithWorking",
+					"when": "viewItem =~ /gitlens:file\\b(?=.*?\\b\\+stashed\\b)/ && !listMultiSelection",
+					"group": "1_gitlens_actions@2"
+				},
+				{
 					"command": "gitlens.views.restore",
 					"when": "viewItem =~ /gitlens:file\\b(?=.*?\\b\\+stashed\\b)/ && !listMultiSelection && !gitlens:hasVirtualFolders && !gitlens:readonly && !gitlens:untrusted",
-					"group": "1_gitlens_actions@2"
+					"group": "1_gitlens_actions@3"
 				},
 				{
 					"command": "gitlens.views.openChanges",
@@ -16883,9 +16896,14 @@
 					"group": "8_gitlens_actions@1"
 				},
 				{
+					"command": "gitlens.views.mergeChangesWithWorking",
+					"when": "viewItem =~ /gitlens:file\\b((?=.*?\\b\\+committed\\b)|:results\\b)/ && !listMultiSelection",
+					"group": "8_gitlens_actions@2"
+				},
+				{
 					"command": "gitlens.views.restore",
 					"when": "viewItem =~ /gitlens:file\\b((?=.*?\\b\\+committed\\b)|:results\\b)/ && !listMultiSelection && !gitlens:hasVirtualFolders && !gitlens:readonly && !gitlens:untrusted",
-					"group": "8_gitlens_actions@2"
+					"group": "8_gitlens_actions@3"
 				},
 				{
 					"command": "gitlens.views.stageDirectory",
