@@ -338,9 +338,9 @@ export async function openChangesEditor(
 			}
 
 			if (window.tabGroups.all.some(g => g.viewColumn === column)) {
-				await executeCoreCommand('workbench.action.focusRightGroup' as any);
+				await executeCoreCommand('workbench.action.focusRightGroup');
 			} else {
-				await executeCoreCommand('workbench.action.newGroupRight' as any);
+				await executeCoreCommand('workbench.action.newGroupRight');
 			}
 		}
 		await executeCoreCommand(
