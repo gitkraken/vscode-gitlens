@@ -252,7 +252,7 @@ export class BranchesGitSubProvider implements GitBranchesSubProvider {
 				if (baseOrTargetBranch == null) return undefined;
 			}
 
-			const mergeBase = await this.getMergeBase(repoPath, ref, baseOrTargetBranch);
+			const mergeBase = await this.provider.refs.getMergeBase(repoPath, ref, baseOrTargetBranch);
 			if (mergeBase == null) return undefined;
 
 			const contributors = await this.provider.contributors.getContributors(
@@ -361,32 +361,6 @@ export class BranchesGitSubProvider implements GitBranchesSubProvider {
 		} catch {}
 
 		return undefined;
-	}
-
-	@log()
-	async getMergeBase(
-		repoPath: string,
-		ref1: string,
-		ref2: string,
-		options?: { forkPoint?: boolean },
-	): Promise<string | undefined> {
-		const scope = getLogScope();
-
-		try {
-			const data = await this.git.exec(
-				{ cwd: repoPath },
-				'merge-base',
-				options?.forkPoint ? '--fork-point' : undefined,
-				ref1,
-				ref2,
-			);
-			if (!data) return undefined;
-
-			return data.split('\n')[0].trim() || undefined;
-		} catch (ex) {
-			Logger.error(ex, scope);
-			return undefined;
-		}
 	}
 
 	@log()

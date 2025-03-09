@@ -130,11 +130,11 @@ export class CompareBranchNode extends SubscribeableViewNode<
 					authors: this.filterByAuthors,
 				});
 
-			const branchesProvider = this.view.container.git.branches(this.repoPath);
+			const refsProvider = this.view.container.git.refs(this.repoPath);
 			const mergeBase =
-				(await branchesProvider.getMergeBase(behind.ref1, behind.ref2, {
+				(await refsProvider.getMergeBase(behind.ref1, behind.ref2, {
 					forkPoint: true,
-				})) ?? (await branchesProvider.getMergeBase(behind.ref1, behind.ref2));
+				})) ?? (await refsProvider.getMergeBase(behind.ref1, behind.ref2));
 
 			const children: ViewNode[] = [
 				new ResultsCommitsNode(
