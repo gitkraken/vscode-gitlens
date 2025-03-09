@@ -7829,6 +7829,18 @@
 				]
 			}
 		},
+		"gitlens.views.openChangesWithMergeBase": {
+			"label": "Open Changes with Common Base",
+			"menus": {
+				"gitlens/commit/file/changes": [
+					{
+						"when": "viewItem =~ /gitlens:file:results\\b/",
+						"group": "1_gitlens",
+						"order": 2
+					}
+				]
+			}
+		},
 		"gitlens.views.openChangesWithWorking": {
 			"label": "Open Changes with Working File",
 			"icon": "$(gitlens-compare-ref-working)",

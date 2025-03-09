@@ -343,6 +343,7 @@ export type ContributedCommands =
 	| 'gitlens.views.openChangedFileRevisions'
 	| 'gitlens.views.openChangedFiles'
 	| 'gitlens.views.openChanges'
+	| 'gitlens.views.openChangesWithMergeBase'
 	| 'gitlens.views.openChangesWithWorking'
 	| 'gitlens.views.openCommitOnRemote'
 	| 'gitlens.views.openCommitOnRemote.multi'

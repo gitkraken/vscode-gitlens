@@ -8575,6 +8575,10 @@
 				"icon": "$(compare-changes)"
 			},
 			{
+				"command": "gitlens.views.openChangesWithMergeBase",
+				"title": "Open Changes with Common Base"
+			},
+			{
 				"command": "gitlens.views.openChangesWithWorking",
 				"title": "Open Changes with Working File",
 				"icon": "$(gitlens-compare-ref-working)"
@@ -12311,6 +12315,10 @@
 					"when": "false"
 				},
 				{
+					"command": "gitlens.views.openChangesWithMergeBase",
+					"when": "false"
+				},
+				{
 					"command": "gitlens.views.openChangesWithWorking",
 					"when": "false"
 				},
@@ -13823,6 +13831,11 @@
 					"command": "gitlens.views.highlightRevisionChanges",
 					"when": "viewItem =~ /gitlens:file\\b((?=.*?\\b\\+committed\\b)|:results)/",
 					"group": "2_gitlens@2"
+				},
+				{
+					"command": "gitlens.views.openChangesWithMergeBase",
+					"when": "viewItem =~ /gitlens:file:results\\b/",
+					"group": "1_gitlens@2"
 				}
 			],
 			"gitlens/commit/file/commit": [
