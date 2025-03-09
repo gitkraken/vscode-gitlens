@@ -56,6 +56,7 @@ import { log } from '../system/decorators/log';
 import { partial, runSequentially } from '../system/function';
 import { join, map } from '../system/iterable';
 import { lazy } from '../system/lazy';
+import { basename } from '../system/path';
 import { DeepLinkActionType } from '../uris/deepLinks/deepLink';
 import type { LaunchpadItemNode } from './launchpadView';
 import type { RepositoryFolderNode } from './nodes/abstract/repositoryFolderNode';
@@ -278,6 +279,7 @@ export class ViewCommands implements Disposable {
 			),
 
 			registerViewCommand('gitlens.views.openChanges', this.openChanges, this),
+			registerViewCommand('gitlens.views.openChangesWithMergeBase', this.openChangesWithMergeBase, this),
 			registerViewCommand('gitlens.views.openChangesWithWorking', this.openChangesWithWorking, this),
 			registerViewCommand(
 				'gitlens.views.openPreviousChangesWithWorking',
@@ -1534,6 +1536,24 @@ export class ViewCommands implements Disposable {
 		if (!node.isAny('commit', 'stash')) return undefined;
 
 		return CommitActions.openCommitChangesWithWorking(this.container, node.commit, individually, options);
+	}
+
+	@log()
+	private async openChangesWithMergeBase(node: ResultsFileNode) {
+		if (!node.is('results-file')) return Promise.resolve();
+
+		const mergeBase = await this.container.git.refs(node.repoPath).getMergeBase(node.ref1, node.ref2 || 'HEAD');
+		if (mergeBase == null) return Promise.resolve();
+
+		return CommitActions.openChanges(
+			node.file,
+			{ repoPath: node.repoPath, lhs: mergeBase, rhs: node.ref1 },
+			{
+				preserveFocus: true,
+				preview: true,
+				lhsTitle: `${basename(node.uri.fsPath)} (Base)`,
+			},
+		);
 	}
 
 	@log()
