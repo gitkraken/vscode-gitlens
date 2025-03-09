@@ -1575,7 +1575,7 @@ export class ViewCommands implements Disposable {
 
 		return CommitActions.openChangesWithWorking(node.file, {
 			repoPath: node.repoPath,
-			ref: node.is('results-file') ? node.ref2 : node.ref.ref,
+			ref: node.is('results-file') && node.ref2 !== '' ? node.ref2 : node.ref.ref,
 		});
 	}
 
@@ -1585,7 +1585,7 @@ export class ViewCommands implements Disposable {
 
 		return CommitActions.openChangesWithWorking(node.file, {
 			repoPath: node.repoPath,
-			ref: node.is('results-file') ? node.ref1 : `${node.ref.ref}^`,
+			ref: node.is('results-file') && node.ref2 !== '' ? node.ref1 : `${node.ref.ref}^`,
 		});
 	}
 
