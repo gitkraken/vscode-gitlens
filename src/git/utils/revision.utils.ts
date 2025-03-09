@@ -54,21 +54,17 @@ export function setAbbreviatedShaLength(length: number): void {
 export function shortenRevision(
 	ref: string | undefined,
 	options?: {
-		force?: boolean;
 		strings?: { uncommitted?: string; uncommittedStaged?: string; working?: string };
 	},
 ): string {
 	if (ref === deletedOrMissing) return '(deleted)';
-
 	if (!ref) return options?.strings?.working ?? '';
 	if (isUncommitted(ref)) {
 		return isUncommittedStaged(ref)
 			? options?.strings?.uncommittedStaged ?? 'Index'
 			: options?.strings?.uncommitted ?? 'Working Tree';
 	}
-
-	if (isRevisionRange(ref)) return ref;
-	if (!options?.force && !isShaLike(ref)) return ref;
+	if (isRevisionRange(ref) || !isShaLike(ref)) return ref;
 
 	// Don't allow shas to be shortened to less than 5 characters
 	const len = Math.max(5, getAbbreviatedShaLength());
