@@ -7837,7 +7837,7 @@
 					{
 						"when": "viewItem =~ /gitlens:file\\b(?!.*?\\b\\+conflicted\\b)/",
 						"group": "1_gitlens",
-						"order": 2
+						"order": 1
 					}
 				],
 				"view/item/context": [
@@ -8058,7 +8058,7 @@
 					{
 						"when": "viewItem =~ /gitlens:file\\b(?!.*?\\b\\+(conflicted|stashed|staged|unstaged)\\b)/",
 						"group": "1_gitlens",
-						"order": 1
+						"order": 2
 					}
 				]
 			}
