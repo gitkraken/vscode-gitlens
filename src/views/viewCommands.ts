@@ -49,14 +49,15 @@ import {
 } from '../system/-webview/command';
 import { configuration } from '../system/-webview/configuration';
 import { setContext } from '../system/-webview/context';
-import type { OpenWorkspaceLocation } from '../system/-webview/vscode';
-import { openUrl, openWorkspace, revealInFileExplorer } from '../system/-webview/vscode';
+import type { MergeEditorInputs, OpenWorkspaceLocation } from '../system/-webview/vscode';
+import { openMergeEditor, openUrl, openWorkspace, revealInFileExplorer } from '../system/-webview/vscode';
 import { filterMap } from '../system/array';
 import { log } from '../system/decorators/log';
 import { partial, runSequentially } from '../system/function';
 import { join, map } from '../system/iterable';
 import { lazy } from '../system/lazy';
 import { basename } from '../system/path';
+import { getSettledValue } from '../system/promise';
 import { DeepLinkActionType } from '../uris/deepLinks/deepLink';
 import type { LaunchpadItemNode } from './launchpadView';
 import type { RepositoryFolderNode } from './nodes/abstract/repositoryFolderNode';
@@ -281,6 +282,7 @@ export class ViewCommands implements Disposable {
 			registerViewCommand('gitlens.views.openChanges', this.openChanges, this),
 			registerViewCommand('gitlens.views.openChangesWithMergeBase', this.openChangesWithMergeBase, this),
 			registerViewCommand('gitlens.views.openChangesWithWorking', this.openChangesWithWorking, this),
+			registerViewCommand('gitlens.views.mergeChangesWithWorking', this.mergeChangesWithWorking, this),
 			registerViewCommand(
 				'gitlens.views.openPreviousChangesWithWorking',
 				this.openPreviousChangesWithWorking,
@@ -1536,6 +1538,48 @@ export class ViewCommands implements Disposable {
 		if (!node.isAny('commit', 'stash')) return undefined;
 
 		return CommitActions.openCommitChangesWithWorking(this.container, node.commit, individually, options);
+	}
+
+	private async mergeChangesWithWorking(node: ViewRefFileNode) {
+		if (!(node instanceof ViewRefFileNode)) return Promise.resolve();
+
+		const repo = this.container.git.getRepository(node.repoPath);
+		if (repo == null) return Promise.resolve();
+
+		const nodeUri = await this.container.git.getBestRevisionUri(node.repoPath, node.file.path, node.ref.ref);
+		if (nodeUri == null) return Promise.resolve();
+
+		const [mergeBaseResult, workingUriResult] = await Promise.allSettled([
+			repo.git.refs().getMergeBase(node.ref.ref, 'HEAD'),
+			this.container.git.getWorkingUri(node.repoPath, node.uri),
+		]);
+
+		const workingUri = getSettledValue(workingUriResult);
+		if (workingUri == null) {
+			void window.showWarningMessage('Unable to open the merge editor, no working file found');
+			return Promise.resolve();
+		}
+
+		const mergeBase = getSettledValue(mergeBaseResult);
+		const baseUri =
+			mergeBase != null
+				? await this.container.git.getBestRevisionUri(node.repoPath, node.file.path, mergeBase)
+				: undefined;
+
+		const inputs: MergeEditorInputs = {
+			base: baseUri ?? nodeUri,
+			input1: {
+				uri: nodeUri,
+				title: node.ref.name,
+			},
+			input2: {
+				uri: workingUri,
+				title: 'Working Tree',
+			},
+			output: workingUri,
+		};
+
+		return openMergeEditor(inputs);
 	}
 
 	@log()
