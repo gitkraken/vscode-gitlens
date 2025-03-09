@@ -203,7 +203,7 @@ export class BranchesGitSubProvider implements GitBranchesSubProvider {
 			const baseOrTargetBranch = await this.getDefaultBranchName(repoPath);
 			if (baseOrTargetBranch == null) return undefined;
 
-			const mergeBase = await this.getMergeBase(repoPath, ref, baseOrTargetBranch);
+			const mergeBase = await this.provider.refs.getMergeBase(repoPath, ref, baseOrTargetBranch);
 			if (mergeBase == null) return undefined;
 
 			const contributors = await this.provider.contributors.getContributors(
@@ -321,34 +321,6 @@ export class BranchesGitSubProvider implements GitBranchesSubProvider {
 		try {
 			const { metadata, github, session } = await this.provider.ensureRepositoryContext(repoPath);
 			return await github.getDefaultBranchName(session.accessToken, metadata.repo.owner, metadata.repo.name);
-		} catch (ex) {
-			Logger.error(ex, scope);
-			debugger;
-			return undefined;
-		}
-	}
-
-	@log()
-	async getMergeBase(
-		repoPath: string,
-		ref1: string,
-		ref2: string,
-		_options?: { forkPoint?: boolean },
-	): Promise<string | undefined> {
-		if (repoPath == null) return undefined;
-
-		const scope = getLogScope();
-
-		const { metadata, github, session } = await this.provider.ensureRepositoryContext(repoPath);
-
-		try {
-			const result = await github.getComparison(
-				session.accessToken,
-				metadata.repo.owner,
-				metadata.repo.name,
-				createRevisionRange(stripOrigin(ref1), stripOrigin(ref2), '...'),
-			);
-			return result?.merge_base_commit?.sha;
 		} catch (ex) {
 			Logger.error(ex, scope);
 			debugger;

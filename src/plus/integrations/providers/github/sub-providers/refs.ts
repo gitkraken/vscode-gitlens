@@ -7,8 +7,16 @@ import type { GitReference } from '../../../../../git/models/reference';
 import { deletedOrMissing } from '../../../../../git/models/revision';
 import type { GitTag } from '../../../../../git/models/tag';
 import { createReference } from '../../../../../git/utils/reference.utils';
-import { isSha, isShaLike, isUncommitted, isUncommittedParent } from '../../../../../git/utils/revision.utils';
+import {
+	createRevisionRange,
+	isSha,
+	isShaLike,
+	isUncommitted,
+	isUncommittedParent,
+} from '../../../../../git/utils/revision.utils';
 import { log } from '../../../../../system/decorators/log';
+import { Logger } from '../../../../../system/logger';
+import { getLogScope } from '../../../../../system/logger.scope';
 import type { GitHubGitProviderInternal } from '../githubGitProvider';
 import { stripOrigin } from '../githubGitProvider';
 
@@ -22,6 +30,34 @@ export class RefsGitSubProvider implements GitRefsSubProvider {
 		private readonly cache: GitCache,
 		private readonly provider: GitHubGitProviderInternal,
 	) {}
+
+	@log()
+	async getMergeBase(
+		repoPath: string,
+		ref1: string,
+		ref2: string,
+		_options?: { forkPoint?: boolean },
+	): Promise<string | undefined> {
+		if (repoPath == null) return undefined;
+
+		const scope = getLogScope();
+
+		const { metadata, github, session } = await this.provider.ensureRepositoryContext(repoPath);
+
+		try {
+			const result = await github.getComparison(
+				session.accessToken,
+				metadata.repo.owner,
+				metadata.repo.name,
+				createRevisionRange(stripOrigin(ref1), stripOrigin(ref2), '...'),
+			);
+			return result?.merge_base_commit?.sha;
+		} catch (ex) {
+			Logger.error(ex, scope);
+			debugger;
+			return undefined;
+		}
+	}
 
 	@log()
 	async getReference(repoPath: string, ref: string): Promise<GitReference | undefined> {

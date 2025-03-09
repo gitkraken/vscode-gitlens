@@ -3717,11 +3717,10 @@ export class GraphWebviewProvider implements WebviewProvider<State, State, Graph
 		const ref = this.getGraphItemRef(item);
 		if (ref == null) return Promise.resolve();
 
-		const branchesProvider = this.container.git.branches(ref.repoPath);
-		const branch = await branchesProvider.getBranch();
+		const branch = await this.container.git.branches(ref.repoPath).getBranch();
 		if (branch == null) return undefined;
 
-		const commonAncestor = await branchesProvider.getMergeBase(branch.ref, ref.ref);
+		const commonAncestor = await this.container.git.refs(ref.repoPath).getMergeBase(branch.ref, ref.ref);
 		if (commonAncestor == null) return undefined;
 
 		return this.container.views.searchAndCompare.compare(ref.repoPath, '', {
@@ -3752,11 +3751,10 @@ export class GraphWebviewProvider implements WebviewProvider<State, State, Graph
 		const ref = this.getGraphItemRef(item);
 		if (ref == null) return Promise.resolve();
 
-		const branchesProvider = this.container.git.branches(ref.repoPath);
-		const branch = await branchesProvider.getBranch();
+		const branch = await this.container.git.branches(ref.repoPath).getBranch();
 		if (branch == null) return undefined;
 
-		const commonAncestor = await branchesProvider.getMergeBase(branch.ref, ref.ref);
+		const commonAncestor = await this.container.git.refs(ref.repoPath).getMergeBase(branch.ref, ref.ref);
 		if (commonAncestor == null) return undefined;
 
 		return this.container.views.searchAndCompare.compare(ref.repoPath, ref.ref, {
@@ -3770,11 +3768,10 @@ export class GraphWebviewProvider implements WebviewProvider<State, State, Graph
 		const ref = this.getGraphItemRef(item);
 		if (ref == null) return Promise.resolve();
 
-		const branchesProvider = this.container.git.branches(ref.repoPath);
-		const branch = await branchesProvider.getBranch();
+		const branch = await this.container.git.branches(ref.repoPath).getBranch();
 		if (branch == null) return undefined;
 
-		const commonAncestor = await branchesProvider.getMergeBase(branch.ref, ref.ref);
+		const commonAncestor = await this.container.git.refs(ref.repoPath).getMergeBase(branch.ref, ref.ref);
 		if (commonAncestor == null) return undefined;
 
 		return openComparisonChanges(

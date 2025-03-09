@@ -11,6 +11,8 @@ import { createReference } from '../../../../git/utils/reference.utils';
 import { isSha, isShaLike, isUncommitted, isUncommittedParent } from '../../../../git/utils/revision.utils';
 import { TimedCancellationSource } from '../../../../system/-webview/cancellation';
 import { log } from '../../../../system/decorators/log';
+import { Logger } from '../../../../system/logger';
+import { getLogScope } from '../../../../system/logger.scope';
 import { getSettledValue } from '../../../../system/promise';
 import type { Git } from '../git';
 import type { LocalGitProvider } from '../localGitProvider';
@@ -22,6 +24,32 @@ export class RefsGitSubProvider implements GitRefsSubProvider {
 		private readonly cache: GitCache,
 		private readonly provider: LocalGitProvider,
 	) {}
+
+	@log()
+	async getMergeBase(
+		repoPath: string,
+		ref1: string,
+		ref2: string,
+		options?: { forkPoint?: boolean },
+	): Promise<string | undefined> {
+		const scope = getLogScope();
+
+		try {
+			const data = await this.git.exec(
+				{ cwd: repoPath },
+				'merge-base',
+				options?.forkPoint ? '--fork-point' : undefined,
+				ref1,
+				ref2,
+			);
+			if (!data) return undefined;
+
+			return data.split('\n')[0].trim() || undefined;
+		} catch (ex) {
+			Logger.error(ex, scope);
+			return undefined;
+		}
+	}
 
 	@log()
 	async getReference(repoPath: string, ref: string): Promise<GitReference | undefined> {

@@ -218,12 +218,6 @@ export interface GitBranchesSubProvider {
 			| { commitDate?: Date; mode?: 'contains' | 'pointsAt'; remotes?: boolean },
 	): Promise<string[]>;
 	getDefaultBranchName(repoPath: string | undefined, remote?: string): Promise<string | undefined>;
-	getMergeBase(
-		repoPath: string,
-		ref1: string,
-		ref2: string,
-		options?: { forkPoint?: boolean | undefined },
-	): Promise<string | undefined>;
 
 	createBranch?(repoPath: string, name: string, sha: string): Promise<void>;
 	/**
@@ -453,6 +447,12 @@ export interface GitPatchSubProvider {
 }
 
 export interface GitRefsSubProvider {
+	getMergeBase(
+		repoPath: string,
+		ref1: string,
+		ref2: string,
+		options?: { forkPoint?: boolean | undefined },
+	): Promise<string | undefined>;
 	getReference(repoPath: string, ref: string): Promise<GitReference | undefined>;
 	hasBranchOrTag(
 		repoPath: string | undefined,
