@@ -26,12 +26,14 @@ import {
 	OpenOnGitLabQuickInputButton,
 	OpenOnJiraQuickInputButton,
 } from '../../commands/quickCommand.buttons';
+import { ensureAccessStep } from '../../commands/quickCommand.steps';
 import { getSteps } from '../../commands/quickWizard.utils';
 import { proBadge } from '../../constants';
 import type { IntegrationId } from '../../constants.integrations';
 import { HostingIntegrationId, IssueIntegrationId, SelfHostedIntegrationId } from '../../constants.integrations';
 import type { Source, Sources, StartWorkTelemetryContext, TelemetryEvents } from '../../constants.telemetry';
 import type { Container } from '../../container';
+import { PlusFeatures } from '../../features';
 import type { Issue, IssueShape } from '../../git/models/issue';
 import type { GitBranchReference } from '../../git/models/reference';
 import type { Repository } from '../../git/models/repository';
@@ -212,6 +214,18 @@ export abstract class StartWorkBaseCommand extends QuickCommand<State> {
 				if (!connected) {
 					continue;
 				}
+			}
+
+			let plusFeature: PlusFeatures | undefined;
+			if (this.key === 'startWork') {
+				plusFeature = PlusFeatures.StartWork;
+			} else if (this.key === 'associateIssueWithBranch') {
+				plusFeature = PlusFeatures.AssociateIssueWithBranch;
+			}
+
+			if (plusFeature != null) {
+				const result = yield* ensureAccessStep(this.container, state, context, plusFeature);
+				if (result === StepResultBreak) continue;
 			}
 
 			if (state.counter < 1 || state.item == null) {

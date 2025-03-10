@@ -41,6 +41,8 @@ export const enum PlusFeatures {
 	Worktrees = 'worktrees',
 	Graph = 'graph',
 	Launchpad = 'launchpad',
+	StartWork = 'startWork',
+	AssociateIssueWithBranch = 'associateIssueWithBranch',
 }
 
 export type FeaturePreviews = 'graph';
