@@ -956,7 +956,7 @@
 					},
 					"gitlens.graph.multiselect": {
 						"type": "boolean",
-						"default": false,
+						"default": true,
 						"markdownDescription": "Specifies whether to allow selecting multiple commits in the _Commit Graph_",
 						"scope": "window",
 						"order": 10
@@ -1627,7 +1627,7 @@
 					},
 					"gitlens.views.multiselect": {
 						"type": "boolean",
-						"default": false,
+						"default": true,
 						"markdownDescription": "Specifies whether to allow selecting multiple items in the views",
 						"scope": "window",
 						"order": 6
