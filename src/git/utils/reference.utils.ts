@@ -203,14 +203,29 @@ export function getReferenceNameWithoutRemote(ref: GitReference): string {
 	return ref.name;
 }
 
-export function getReferenceTypeLabel(ref: GitReference | undefined): 'Branch' | 'Tag' | 'Commit' {
+export function getReferenceTypeLabel(ref: GitReference | undefined): 'Branch' | 'Commit' | 'Stash' | 'Tag' {
 	switch (ref?.refType) {
 		case 'branch':
 			return 'Branch';
+		case 'stash':
+			return 'Stash';
 		case 'tag':
 			return 'Tag';
 		default:
 			return 'Commit';
+	}
+}
+
+export function getReferenceTypeIcon(ref: GitReference | undefined): string {
+	switch (ref?.refType) {
+		case 'branch':
+			return 'git-branch';
+		case 'tag':
+			return 'tag';
+		case 'stash':
+			return 'archive';
+		default:
+			return 'git-commit';
 	}
 }
 

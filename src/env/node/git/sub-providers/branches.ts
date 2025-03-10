@@ -533,7 +533,7 @@ export class BranchesGitSubProvider implements GitBranchesSubProvider {
 				}
 
 				if (mergeBase != null) {
-					const branch = await this.getValidatedBranchName(repoPath, mergeBase);
+					const branch = await this.provider.refs.getSymbolicReferenceName(repoPath, mergeBase);
 					if (branch != null) {
 						if (update) {
 							void this.setBaseBranchName(repoPath, ref, branch);
@@ -577,11 +577,11 @@ export class BranchesGitSubProvider implements GitBranchesSubProvider {
 				let name: string | undefined = match[1];
 				if (name !== 'HEAD') {
 					if (options?.upstream) {
-						const upstream = await this.getValidatedBranchName(repoPath, `${name}@{u}`);
+						const upstream = await this.provider.refs.getSymbolicReferenceName(repoPath, `${name}@{u}`);
 						if (upstream) return upstream;
 					}
 
-					name = await this.getValidatedBranchName(repoPath, name);
+					name = await this.provider.refs.getSymbolicReferenceName(repoPath, name);
 					if (name) return name;
 				}
 			}
@@ -601,11 +601,11 @@ export class BranchesGitSubProvider implements GitBranchesSubProvider {
 			if (match != null && match.length === 2) {
 				let name: string | undefined = match[1];
 				if (options?.upstream) {
-					const upstream = await this.getValidatedBranchName(repoPath, `${name}@{u}`);
+					const upstream = await this.provider.refs.getSymbolicReferenceName(repoPath, `${name}@{u}`);
 					if (upstream) return upstream;
 				}
 
-				name = await this.getValidatedBranchName(repoPath, name);
+				name = await this.provider.refs.getSymbolicReferenceName(repoPath, name);
 				if (name) return name;
 			}
 		} catch {}
@@ -619,7 +619,7 @@ export class BranchesGitSubProvider implements GitBranchesSubProvider {
 
 		let target = await this.provider.config.getConfig(repoPath, targetBaseConfigKey);
 		if (target != null) {
-			target = await this.getValidatedBranchName(repoPath, target);
+			target = await this.provider.refs.getSymbolicReferenceName(repoPath, target);
 		}
 		return target?.trim() || undefined;
 	}
@@ -634,18 +634,5 @@ export class BranchesGitSubProvider implements GitBranchesSubProvider {
 	@log()
 	async renameBranch(repoPath: string, oldName: string, newName: string): Promise<void> {
 		await this.git.exec({ cwd: repoPath }, 'branch', '-m', oldName, newName);
-	}
-
-	private async getValidatedBranchName(repoPath: string, name: string): Promise<string | undefined> {
-		const data = await this.git.exec(
-			{ cwd: repoPath, errors: GitErrorHandling.Ignore },
-			'rev-parse',
-			'--verify',
-			'--quiet',
-			'--symbolic-full-name',
-			'--abbrev-ref',
-			name,
-		);
-		return data?.trim() || undefined;
 	}
 }

@@ -32,6 +32,11 @@ export class RefsGitSubProvider implements GitRefsSubProvider {
 	) {}
 
 	@log()
+	checkIfCouldBeValidBranchOrTagName(ref: string, _repoPath?: string): Promise<boolean> {
+		return Promise.resolve(validBranchOrTagRegex.test(ref));
+	}
+
+	@log()
 	async getMergeBase(
 		repoPath: string,
 		ref1: string,
@@ -63,7 +68,7 @@ export class RefsGitSubProvider implements GitRefsSubProvider {
 	async getReference(repoPath: string, ref: string): Promise<GitReference | undefined> {
 		if (!ref || ref === deletedOrMissing) return undefined;
 
-		if (!(await this.validateReference(repoPath, ref))) return undefined;
+		if (!(await this.isValidReference(repoPath, ref))) return undefined;
 
 		if (ref !== 'HEAD' && !isShaLike(ref)) {
 			const branch = await this.provider.branches.getBranch(repoPath, ref);
@@ -112,6 +117,11 @@ export class RefsGitSubProvider implements GitRefsSubProvider {
 	}
 
 	@log()
+	isValidReference(_repoPath: string, _ref: string, _pathOrUri?: string | Uri): Promise<boolean> {
+		return Promise.resolve(true);
+	}
+
+	@log()
 	async resolveReference(
 		repoPath: string,
 		ref: string,
@@ -155,15 +165,5 @@ export class RefsGitSubProvider implements GitRefsSubProvider {
 		if (resolved != null) return resolved;
 
 		return relativePath ? deletedOrMissing : ref;
-	}
-
-	@log()
-	validateBranchOrTagName(ref: string, _repoPath?: string): Promise<boolean> {
-		return Promise.resolve(validBranchOrTagRegex.test(ref));
-	}
-
-	@log()
-	validateReference(_repoPath: string, _ref: string): Promise<boolean> {
-		return Promise.resolve(true);
 	}
 }

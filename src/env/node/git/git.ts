@@ -1444,21 +1444,6 @@ export class Git {
 		}
 	}
 
-	async rev_parse__verify(repoPath: string, ref: string, fileName?: string): Promise<string | undefined> {
-		const params = ['rev-parse', '--verify'];
-
-		if (await this.isAtLeastVersion('2.30')) {
-			params.push('--end-of-options');
-		}
-
-		const data = await this.exec(
-			{ cwd: repoPath, errors: GitErrorHandling.Ignore },
-			...params,
-			fileName ? `${ref}:./${fileName}` : `${ref}^{commit}`,
-		);
-		return data.length === 0 ? undefined : data.trim();
-	}
-
 	async show__content<T extends string | Buffer>(
 		repoPath: string | undefined,
 		fileName: string,

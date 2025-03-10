@@ -88,14 +88,14 @@ export class CliCommandHandlers implements Disposable {
 		}
 
 		if (ref1) {
-			if (!(await repo.git.refs().validateReference(ref1))) {
+			if (!(await repo.git.refs().isValidReference(ref1))) {
 				void executeCommand('gitlens.compareWith');
 				return { stderr: `'${ref1}' is an invalid reference` };
 			}
 		}
 
 		if (ref2) {
-			if (!(await repo.git.refs().validateReference(ref2))) {
+			if (!(await repo.git.refs().isValidReference(ref2))) {
 				void executeCommand<CompareWithCommandArgs>('gitlens.compareWith', { ref1: ref1 });
 				return { stderr: `'${ref2}' is an invalid reference` };
 			}

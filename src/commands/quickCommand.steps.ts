@@ -517,7 +517,7 @@ export function getValidateGitReferenceFn(
 			return true;
 		}
 
-		if (!(await repos.git.refs().validateReference(value))) {
+		if (!(await repos.git.refs().isValidReference(value))) {
 			if (inRefMode) {
 				quickpick.items = [
 					createDirectiveQuickPickItem(Directive.Back, true, {
@@ -573,7 +573,7 @@ export async function* inputBranchNameStep<
 			if (value.length === 0) return [false, 'Please enter a valid branch name'];
 
 			if ('repo' in state) {
-				const valid = await state.repo.git.refs().validateBranchOrTagName(value);
+				const valid = await state.repo.git.refs().checkIfCouldBeValidBranchOrTagName(value);
 				if (!valid) {
 					return [false, `'${value}' isn't a valid branch name`];
 				}
@@ -589,7 +589,7 @@ export async function* inputBranchNameStep<
 			let valid = true;
 
 			for (const repo of state.repos) {
-				valid = await repo.git.refs().validateBranchOrTagName(value);
+				valid = await repo.git.refs().checkIfCouldBeValidBranchOrTagName(value);
 				if (!valid) {
 					return [false, `'${value}' isn't a valid branch name`];
 				}
@@ -706,14 +706,14 @@ export async function* inputTagNameStep<
 			if (value.length === 0) return [false, 'Please enter a valid tag name'];
 
 			if ('repo' in state) {
-				const valid = await state.repo.git.refs().validateBranchOrTagName(value);
+				const valid = await state.repo.git.refs().checkIfCouldBeValidBranchOrTagName(value);
 				return [valid, valid ? undefined : `'${value}' isn't a valid tag name`];
 			}
 
 			let valid = true;
 
 			for (const repo of state.repos) {
-				valid = await repo.git.refs().validateBranchOrTagName(value);
+				valid = await repo.git.refs().checkIfCouldBeValidBranchOrTagName(value);
 				if (!valid) {
 					return [false, `'${value}' isn't a valid branch name`];
 				}
