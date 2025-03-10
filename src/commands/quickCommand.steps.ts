@@ -2705,6 +2705,28 @@ export async function* ensureAccessStep<
 				createQuickPickSeparator(),
 			);
 			break;
+		case PlusFeatures.StartWork:
+			directives.splice(
+				0,
+				0,
+				createDirectiveQuickPickItem(Directive.Noop, undefined, {
+					label: 'Start work on an issue from your connected integrations',
+					iconPath: new ThemeIcon('issues'),
+				}),
+				createQuickPickSeparator(),
+			);
+			break;
+		case PlusFeatures.AssociateIssueWithBranch:
+			directives.splice(
+				0,
+				0,
+				createDirectiveQuickPickItem(Directive.Noop, undefined, {
+					label: 'Connect your branches to their associated issues in Home view',
+					iconPath: new ThemeIcon('issues'),
+				}),
+				createQuickPickSeparator(),
+			);
+			break;
 		case PlusFeatures.Worktrees:
 			directives.splice(
 				0,
