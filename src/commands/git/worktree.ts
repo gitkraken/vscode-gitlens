@@ -435,7 +435,7 @@ export class WorktreeGitCommand extends QuickCommand<State> {
 			if (state.flags.includes('-b')) {
 				let createBranchOverride: string | undefined;
 				if (state.createBranch != null) {
-					let valid = await state.repo.git.refs().validateBranchOrTagName(state.createBranch);
+					let valid = await state.repo.git.refs().checkIfCouldBeValidBranchOrTagName(state.createBranch);
 					if (valid) {
 						const alreadyExists = await state.repo.git.branches().getBranch(state.createBranch);
 						valid = alreadyExists == null;

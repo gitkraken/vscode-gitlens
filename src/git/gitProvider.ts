@@ -447,6 +447,7 @@ export interface GitPatchSubProvider {
 }
 
 export interface GitRefsSubProvider {
+	checkIfCouldBeValidBranchOrTagName(repoPath: string, ref: string): Promise<boolean>;
 	getMergeBase(
 		repoPath: string,
 		ref1: string,
@@ -454,6 +455,7 @@ export interface GitRefsSubProvider {
 		options?: { forkPoint?: boolean | undefined },
 	): Promise<string | undefined>;
 	getReference(repoPath: string, ref: string): Promise<GitReference | undefined>;
+	getSymbolicReferenceName?(repoPath: string, ref: string): Promise<string | undefined>;
 	hasBranchOrTag(
 		repoPath: string | undefined,
 		options?: {
@@ -462,14 +464,13 @@ export interface GitRefsSubProvider {
 				| undefined;
 		},
 	): Promise<boolean>;
+	isValidReference(repoPath: string, ref: string, pathOrUri?: string | Uri): Promise<boolean>;
 	resolveReference(
 		repoPath: string,
 		ref: string,
 		pathOrUri?: string | Uri,
 		options?: { force?: boolean; timeout?: number | undefined },
 	): Promise<string>;
-	validateBranchOrTagName(repoPath: string, ref: string): Promise<boolean>;
-	validateReference(repoPath: string, ref: string): Promise<boolean>;
 }
 
 export interface GitRemotesSubProvider {
