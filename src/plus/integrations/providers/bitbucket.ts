@@ -207,9 +207,18 @@ export class BitbucketIntegration extends HostingIntegration<
 			return undefined;
 		}
 
+		const api = await this.getProvidersApi();
+		if (!api) {
+			return undefined;
+		}
+
 		const remotes = await flatSettled(this.container.git.openRepositories.map(r => r.git.remotes().getRemotes()));
 		const workspaceRepos = await nonnullSettled(
-			remotes.map(async r => ((await r.getIntegration())?.id === this.id ? r.path : undefined)),
+			remotes.map(async r => {
+				const integration = await r.getIntegration();
+				const [namespace, name] = r.path.split('/');
+				return integration?.id === this.id ? { name: name, namespace: namespace } : undefined;
+			}),
 		);
 
 		const user = await this.getProviderCurrentAccount(session);
@@ -218,42 +227,23 @@ export class BitbucketIntegration extends HostingIntegration<
 		const workspaces = await this.getProviderResourcesForUser(session);
 		if (workspaces == null || workspaces.length === 0) return undefined;
 
-		const providersApi = await this.getProvidersApi();
-		const api = await this.container.bitbucket;
-		if (!providersApi && !api) {
-			return undefined;
-		}
-
-		const authoredPrs = providersApi
-			? workspaces.map(async ws => {
-					const prs = await providersApi.getBitbucketPullRequestsAuthoredByUserForWorkspace(
-						user.id,
-						ws.slug,
-						{
-							accessToken: session.accessToken,
-						},
-					);
-					return prs?.map(pr => fromProviderPullRequest(pr, this));
-			  })
-			: [];
+		const authoredPrs = workspaces.map(async ws => {
+			const prs = await api.getBitbucketPullRequestsAuthoredByUserForWorkspace(user.id, ws.slug, {
+				accessToken: session.accessToken,
+			});
+			return prs?.map(pr => fromProviderPullRequest(pr, this));
+		});
 
 		const reviewingPrs = api
-			? workspaceRepos.map(repo => {
-					const [owner, name] = repo.split('/');
-					return api.getUsersReviewingPullRequestsForRepo(
-						this,
-						session.accessToken,
-						user.id,
-						owner,
-						name,
-						this.apiBaseUrl,
-					);
-			  })
-			: [];
+			.getPullRequestsForRepos(this.id, workspaceRepos, {
+				query: `state="OPEN" AND reviewers.uuid="${user.id}"`,
+				accessToken: session.accessToken,
+			})
+			.then(r => r.values?.map(pr => fromProviderPullRequest(pr, this)));
 
 		return [
 			...uniqueBy(
-				await flatSettled([...authoredPrs, ...reviewingPrs]),
+				await flatSettled([...authoredPrs, reviewingPrs]),
 				pr => pr.url,
 				(orig, _cur) => orig,
 			),
@@ -344,7 +334,7 @@ export function isBitbucketCloudDomain(domain: string | undefined): boolean {
 	return domain != null && bitbucketCloudDomainRegex.test(domain);
 }
 
-type MaybePromiseArr<T> = Promise<T | undefined>[] | (T | undefined)[];
+type MaybePromiseArr<T> = (Promise<T | undefined> | T | undefined)[];
 
 async function nonnullSettled<T>(arr: MaybePromiseArr<T>): Promise<T[]> {
 	const all = await Promise.allSettled(arr);
