@@ -919,6 +919,7 @@ or
   'context.config.dateStyle': 'absolute' | 'relative',
   'context.config.defaultItemLimit': number,
   'context.config.dimMergeCommits': boolean,
+  'context.config.experimental.renderer.enabled': boolean,
   'context.config.highlightRowsOnRefHover': boolean,
   'context.config.issues.enabled': boolean,
   'context.config.layout': 'editor' | 'panel',

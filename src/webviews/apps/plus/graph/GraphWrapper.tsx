@@ -73,7 +73,7 @@ import {
 import type { IpcNotification } from '../../../protocol';
 import { DidChangeHostWindowFocusNotification } from '../../../protocol';
 import { GlButton } from '../../shared/components/button.react';
-import { GlCheckbox } from '../../shared/components/checkbox';
+import { GlCheckbox } from '../../shared/components/checkbox/checkbox.react';
 import { CodeIcon } from '../../shared/components/code-icon.react';
 import { GlIndicator } from '../../shared/components/indicators/indicator.react';
 import { GlMarkdown } from '../../shared/components/markdown/markdown.react';
