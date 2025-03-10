@@ -1549,6 +1549,12 @@ export class ViewCommands implements Disposable {
 		const nodeUri = await this.container.git.getBestRevisionUri(node.repoPath, node.file.path, node.ref.ref);
 		if (nodeUri == null) return Promise.resolve();
 
+		const input1: MergeEditorInputs['input1'] = {
+			uri: nodeUri,
+			title: `Incoming`,
+			detail: ` ${node.ref.name}`,
+		};
+
 		const [mergeBaseResult, workingUriResult] = await Promise.allSettled([
 			repo.git.refs().getMergeBase(node.ref.ref, 'HEAD'),
 			this.container.git.getWorkingUri(node.repoPath, node.uri),
@@ -1560,6 +1566,20 @@ export class ViewCommands implements Disposable {
 			return Promise.resolve();
 		}
 
+		const input2: MergeEditorInputs['input2'] = {
+			uri: workingUri,
+			title: 'Current',
+			detail: ' Working Tree',
+		};
+
+		const headUri = await this.container.git.getBestRevisionUri(node.repoPath, node.file.path, 'HEAD');
+		if (headUri != null) {
+			const branch = await repo.git.branches().getBranch?.();
+
+			input2.uri = headUri;
+			input2.detail = ` ${branch?.name || 'HEAD'}`;
+		}
+
 		const mergeBase = getSettledValue(mergeBaseResult);
 		const baseUri =
 			mergeBase != null
@@ -1568,14 +1588,8 @@ export class ViewCommands implements Disposable {
 
 		const inputs: MergeEditorInputs = {
 			base: baseUri ?? nodeUri,
-			input1: {
-				uri: nodeUri,
-				title: node.ref.name,
-			},
-			input2: {
-				uri: workingUri,
-				title: 'Working Tree',
-			},
+			input1: input1,
+			input2: input2,
 			output: workingUri,
 		};
 
