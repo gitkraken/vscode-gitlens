@@ -152,6 +152,7 @@ export interface GetPullRequestsOptions {
 	assigneeLogins?: string[];
 	reviewRequestedLogin?: string;
 	mentionLogin?: string;
+	query?: string;
 	cursor?: string; // stringified JSON object of type { type: 'cursor' | 'page'; value: string | number } | {}
 	baseUrl?: string;
 }
