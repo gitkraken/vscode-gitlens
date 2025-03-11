@@ -391,7 +391,7 @@ export class LaunchpadCommand extends QuickCommand<State> {
 						void this.container.launchpad.switchTo(state.item);
 						break;
 					case 'open-worktree':
-						void this.container.launchpad.switchTo(state.item, { skipWorktreeConfirmations: true });
+						void this.container.launchpad.switchTo(state.item, { openInWorktree: true });
 						break;
 					case 'switch-and-code-suggest':
 					case 'code-suggest':
@@ -900,7 +900,7 @@ export class LaunchpadCommand extends QuickCommand<State> {
 
 					case OpenWorktreeInNewWindowQuickInputButton:
 						this.sendItemActionTelemetry('open-worktree', item, group, context);
-						await this.container.launchpad.switchTo(item, { skipWorktreeConfirmations: true });
+						await this.container.launchpad.switchTo(item, { openInWorktree: true });
 						break;
 				}
 

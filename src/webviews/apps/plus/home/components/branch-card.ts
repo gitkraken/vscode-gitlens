@@ -416,6 +416,9 @@ export abstract class GlBranchCardBase extends GlElement {
 			repoPath: this.repo,
 			branchId: this.branch.id,
 			branchName: this.branch.name,
+			worktree: this.branch.worktree
+				? { name: this.branch.worktree.name, isDefault: this.branch.worktree.isDefault }
+				: undefined,
 		};
 	}
 

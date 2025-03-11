@@ -103,7 +103,7 @@ interface CreateState {
 	};
 
 	onWorkspaceChanging?: ((isNewWorktree?: boolean) => Promise<void>) | ((isNewWorktree?: boolean) => void);
-	skipWorktreeConfirmations?: boolean;
+	worktreeDefaultOpen?: 'new' | 'current';
 }
 
 type DeleteFlags = '--force' | '--delete-branches';
@@ -141,7 +141,7 @@ interface OpenState {
 
 	onWorkspaceChanging?: ((isNewWorktree?: boolean) => Promise<void>) | ((isNewWorktree?: boolean) => void);
 	isNewWorktree?: boolean;
-	skipWorktreeConfirmations?: boolean;
+	worktreeDefaultOpen?: 'new' | 'current';
 }
 
 interface CopyChangesState {
@@ -632,7 +632,7 @@ export class WorktreeGitCommand extends QuickCommand<State> {
 						openOnly: true,
 						overrides: { disallowBack: true },
 						isNewWorktree: true,
-						skipWorktreeConfirmations: state.skipWorktreeConfirmations,
+						worktreeDefaultOpen: state.worktreeDefaultOpen,
 						onWorkspaceChanging: state.onWorkspaceChanging,
 					} satisfies OpenStepState,
 					context,
@@ -739,7 +739,7 @@ export class WorktreeGitCommand extends QuickCommand<State> {
 
 		const confirmations: StepType[] = [];
 		if (!createDirectlyInFolder) {
-			if (state.skipWorktreeConfirmations) {
+			if (state.worktreeDefaultOpen) {
 				return [defaultOption.context, defaultOption.item];
 			}
 
@@ -1101,15 +1101,21 @@ export class WorktreeGitCommand extends QuickCommand<State> {
 			detail: 'Will open the worktree in a new window',
 		});
 
-		if (state.skipWorktreeConfirmations) {
+		const currentWindowItem = createFlagsQuickPickItem<OpenFlags>(state.flags, [], {
+			label: 'Open Worktree',
+			detail: 'Will open the worktree in the current window',
+		});
+
+		if (state.worktreeDefaultOpen === 'new') {
 			return newWindowItem.item;
 		}
 
+		if (state.worktreeDefaultOpen === 'current') {
+			return currentWindowItem.item;
+		}
+
 		const confirmations: StepType[] = [
-			createFlagsQuickPickItem<OpenFlags>(state.flags, [], {
-				label: 'Open Worktree',
-				detail: 'Will open the worktree in the current window',
-			}),
+			currentWindowItem,
 			newWindowItem,
 			createFlagsQuickPickItem<OpenFlags>(state.flags, ['--add-to-workspace'], {
 				label: `Add Worktree to Workspace`,
