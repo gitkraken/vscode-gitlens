@@ -47,6 +47,7 @@ export type CloudIntegrationType =
 	| 'gitlab'
 	| 'github'
 	| 'bitbucket'
+	| 'bitbucketServer'
 	| 'azure'
 	| 'githubEnterprise'
 	| 'gitlabSelfHosted';
@@ -73,6 +74,7 @@ export const toIntegrationId: { [key in CloudIntegrationType]: IntegrationId } =
 	githubEnterprise: SelfHostedIntegrationId.CloudGitHubEnterprise,
 	gitlabSelfHosted: SelfHostedIntegrationId.CloudGitLabSelfHosted,
 	bitbucket: HostingIntegrationId.Bitbucket,
+	bitbucketServer: SelfHostedIntegrationId.BitbucketServer,
 	azure: HostingIntegrationId.AzureDevOps,
 };
 
@@ -85,6 +87,7 @@ export const toCloudIntegrationType: { [key in IntegrationId]: CloudIntegrationT
 	[HostingIntegrationId.AzureDevOps]: 'azure',
 	[SelfHostedIntegrationId.CloudGitHubEnterprise]: 'githubEnterprise',
 	[SelfHostedIntegrationId.CloudGitLabSelfHosted]: 'gitlabSelfHosted',
+	[SelfHostedIntegrationId.BitbucketServer]: 'bitbucketServer',
 	[SelfHostedIntegrationId.GitHubEnterprise]: undefined,
 	[SelfHostedIntegrationId.GitLabSelfHosted]: undefined,
 };
