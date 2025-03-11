@@ -107,6 +107,10 @@ export function getProviderIdFromEntityIdentifier(
 			return HostingIntegrationId.AzureDevOps;
 		case EntityIdentifierProviderType.Bitbucket:
 			return HostingIntegrationId.Bitbucket;
+		case EntityIdentifierProviderType.BitbucketServer:
+			return isGitConfigEntityIdentifier(entityIdentifier) && entityIdentifier.metadata.isCloudEnterprise
+				? SelfHostedIntegrationId.BitbucketServer
+				: undefined;
 		default:
 			return undefined;
 	}
@@ -130,6 +134,8 @@ function fromStringToEntityIdentifierProviderType(str: string): EntityIdentifier
 			return EntityIdentifierProviderType.Azure;
 		case 'bitbucket':
 			return EntityIdentifierProviderType.Bitbucket;
+		case 'bitbucket-server':
+			return EntityIdentifierProviderType.BitbucketServer;
 		default:
 			throw new Error(`Unknown provider type '${str}'`);
 	}
@@ -231,6 +237,7 @@ export async function getIssueFromGitConfigEntityIdentifier(
 		identifier.provider !== EntityIdentifierProviderType.GithubEnterprise &&
 		identifier.provider !== EntityIdentifierProviderType.GitlabSelfHosted &&
 		identifier.provider !== EntityIdentifierProviderType.Bitbucket &&
+		identifier.provider !== EntityIdentifierProviderType.BitbucketServer &&
 		identifier.provider !== EntityIdentifierProviderType.Azure
 	) {
 		return undefined;
