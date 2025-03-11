@@ -614,6 +614,47 @@ export class IntegrationService implements Disposable {
 						await import(/* webpackChunkName: "integrations" */ './providers/bitbucket')
 					).BitbucketIntegration(this.container, this.authenticationService, this.getProvidersApi.bind(this));
 					break;
+				case SelfHostedIntegrationId.BitbucketServer:
+					if (domain == null) {
+						integration = this.findCachedById(id);
+						if (integration != null) {
+							// return immediately in order to not to cache it after the "switch" block:
+							return integration;
+						}
+
+						const existingConfigured = await this.getConfigured({
+							id: SelfHostedIntegrationId.BitbucketServer,
+						});
+						if (existingConfigured.length) {
+							const { domain: configuredDomain } = existingConfigured[0];
+							if (configuredDomain == null) {
+								throw new Error(`Domain is required for '${id}' integration`);
+							}
+							integration = new (
+								await import(/* webpackChunkName: "integrations" */ './providers/bitbucket-server')
+							).BitbucketServerIntegration(
+								this.container,
+								this.authenticationService,
+								this.getProvidersApi.bind(this),
+								configuredDomain,
+							);
+							// assign domain because it's part of caching key:
+							domain = configuredDomain;
+							break;
+						}
+
+						return undefined;
+					}
+
+					integration = new (
+						await import(/* webpackChunkName: "integrations" */ './providers/bitbucket-server')
+					).BitbucketServerIntegration(
+						this.container,
+						this.authenticationService,
+						this.getProvidersApi.bind(this),
+						domain,
+					);
+					break;
 				case HostingIntegrationId.AzureDevOps:
 					integration = new (
 						await import(/* webpackChunkName: "integrations" */ './providers/azureDevOps')
@@ -683,6 +724,11 @@ export class IntegrationService implements Disposable {
 			case 'bitbucket':
 				if (isBitbucketCloudDomain(remote.provider.domain)) {
 					return get(HostingIntegrationId.Bitbucket) as RT;
+				}
+				return (getOrGetCached === this.get ? Promise.resolve(undefined) : undefined) as RT;
+			case 'bitbucket-server':
+				if (!isBitbucketCloudDomain(remote.provider.domain)) {
+					return get(SelfHostedIntegrationId.BitbucketServer) as RT;
 				}
 				return (getOrGetCached === this.get ? Promise.resolve(undefined) : undefined) as RT;
 			case 'github':
