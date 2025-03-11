@@ -1,5 +1,5 @@
 import type { ConfigurationChangeEvent } from 'vscode';
-import { Disposable, Uri, window, workspace } from 'vscode';
+import { Disposable, env, Uri, window, workspace } from 'vscode';
 import type { CreatePullRequestActionContext } from '../../api/gitlens';
 import type { EnrichedAutolink } from '../../autolinks/models/autolinks';
 import { getAvatarUriFromGravatarEmail } from '../../avatars';
@@ -35,6 +35,7 @@ import { getBranchTargetInfo } from '../../git/utils/-webview/branch.utils';
 import { getReferenceFromBranch } from '../../git/utils/-webview/reference.utils';
 import { sortBranches } from '../../git/utils/-webview/sorting';
 import { getOpenedWorktreesByBranch, groupWorktreesByBranch } from '../../git/utils/-webview/worktree.utils';
+import { getBranchNameWithoutRemote } from '../../git/utils/branch.utils';
 import { getComparisonRefsForPullRequest } from '../../git/utils/pullRequest.utils';
 import { createRevisionRange } from '../../git/utils/revision.utils';
 import type { AIModelChangeEvent } from '../../plus/ai/aiProviderService';
@@ -64,6 +65,8 @@ import { debounce } from '../../system/function/debounce';
 import { filterMap } from '../../system/iterable';
 import { getSettledValue } from '../../system/promise';
 import { SubscriptionManager } from '../../system/subscriptionManager';
+import type { UriTypes } from '../../uris/deepLinks/deepLink';
+import { DeepLinkServiceState, DeepLinkType } from '../../uris/deepLinks/deepLink';
 import type { ShowInCommitGraphCommandArgs } from '../plus/graph/protocol';
 import type { Change } from '../plus/patchDetails/protocol';
 import type { IpcMessage } from '../protocol';
@@ -318,6 +321,8 @@ export class HomeWebviewProvider implements WebviewProvider<State, State, HomeWe
 				(src?: Source) => this.container.subscription.validate({ force: true }, src),
 				this,
 			),
+			registerCommand('gitlens.home.deleteBranchOrWorktree', this.deleteBranchOrWorktree, this),
+			registerCommand('gitlens.home.pushBranch', this.pushBranch, this),
 			registerCommand('gitlens.home.openMergeTargetComparison', this.mergeTargetCompare, this),
 			registerCommand('gitlens.home.openPullRequestChanges', this.pullRequestChanges, this),
 			registerCommand('gitlens.home.openPullRequestComparison', this.pullRequestCompare, this),
@@ -1167,6 +1172,94 @@ export class HomeWebviewProvider implements WebviewProvider<State, State, HomeWe
 		});
 	}
 
+	private async deleteBranchOrWorktree(ref: BranchRef, mergeTarget?: BranchRef) {
+		const repo = this._repositoryBranches.get(ref.repoPath);
+		let branch = repo?.branches.find(b => b.id === ref.branchId);
+		if (branch == null) {
+			branch = await repo?.repo.git.branches().getBranch(ref.branchId);
+		}
+
+		const worktree = branch ? repo?.worktreesByBranch.get(branch.id) : undefined;
+		if (branch == null) return;
+
+		if (branch.current && mergeTarget != null && (!worktree || worktree.isDefault)) {
+			const mergeTargetLocalBranchName = getBranchNameWithoutRemote(mergeTarget.branchName);
+			const confirm = await window.showWarningMessage(
+				`Before deleting the current branch '${branch.name}', you will be switched to '${mergeTargetLocalBranchName}'.`,
+				{ modal: true },
+				{ title: 'Continue' },
+			);
+
+			if (confirm == null || confirm.title !== 'Continue') return;
+
+			await this.container.git.checkout(ref.repoPath, mergeTargetLocalBranchName);
+
+			void executeGitCommand({
+				command: 'branch',
+				state: {
+					subcommand: 'delete',
+					repo: ref.repoPath,
+					references: branch,
+				},
+			});
+		} else if (repo != null && branch != null && worktree != null && !worktree.isDefault) {
+			const commonRepo = await repo.repo.getCommonRepository();
+			const defaultWorktree = [...repo.worktreesByBranch.values()].find(w => w.isDefault);
+			if (defaultWorktree == null || commonRepo == null) return;
+
+			const confirm = await window.showWarningMessage(
+				`Before deleting the worktree for '${branch.name}', you will be switched to the default worktree.`,
+				{ modal: true },
+				{ title: 'Continue' },
+			);
+
+			if (confirm == null || confirm.title !== 'Continue') return;
+
+			const schemeOverride = configuration.get('deepLinks.schemeOverride');
+			const scheme = typeof schemeOverride === 'string' ? schemeOverride : env.uriScheme;
+			const deleteBranchDeepLink = {
+				url: `${scheme}://${this.container.context.extension.id}/${'link' satisfies UriTypes}/${
+					DeepLinkType.Repository
+				}/-/${DeepLinkType.Branch}/${encodeURIComponent(branch.name)}?path=${encodeURIComponent(
+					commonRepo.path,
+				)}&action=delete-branch`,
+				repoPath: commonRepo.path,
+				useProgress: false,
+				state: DeepLinkServiceState.GoToTarget,
+			};
+
+			void executeGitCommand({
+				command: 'worktree',
+				state: {
+					subcommand: 'open',
+					repo: defaultWorktree.repoPath,
+					worktree: defaultWorktree,
+					onWorkspaceChanging: async (_isNewWorktree?: boolean) =>
+						this.container.storage.store('deepLinks:pending', deleteBranchDeepLink),
+					worktreeDefaultOpen: 'current',
+				},
+			});
+		}
+	}
+
+	private pushBranch(ref: BranchRef) {
+		void this.container.git.push(ref.repoPath, {
+			reference: {
+				name: ref.branchName,
+				ref: ref.branchId,
+				refType: 'branch',
+				remote: false,
+				repoPath: ref.repoPath,
+				upstream: ref.branchUpstreamName
+					? {
+							name: ref.branchUpstreamName,
+							missing: false,
+					  }
+					: undefined,
+			},
+		});
+	}
+
 	private mergeTargetCompare(ref: BranchAndTargetRefs) {
 		return this.container.views.searchAndCompare.compare(ref.repoPath, ref.branchName, ref.mergeTargetName);
 	}
@@ -1401,7 +1494,7 @@ function getOverviewBranchesCore(
 			timestamp: timestamp,
 			status: branch.status,
 			upstream: branch.upstream,
-			worktree: wt ? { name: wt.name, uri: wt.uri.toString() } : undefined,
+			worktree: wt ? { name: wt.name, uri: wt.uri.toString(), isDefault: wt.isDefault } : undefined,
 		});
 	}
 
