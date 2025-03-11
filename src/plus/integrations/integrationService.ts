@@ -964,9 +964,9 @@ export class IntegrationService implements Disposable {
 		return this.getMyPullRequestsCore(integrations);
 	}
 
-	isMaybeConnected(remote: GitRemote): boolean {
+	isMaybeConnected(remote: GitRemote): boolean | undefined {
 		if (remote.provider?.id != null && this.supports(remote.provider.id)) {
-			return this.getByRemoteCached(remote)?.maybeConnected ?? false;
+			return this.getByRemoteCached(remote)?.maybeConnected;
 		}
 		return false;
 	}
