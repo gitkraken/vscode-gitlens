@@ -6,6 +6,8 @@ import type { TelemetryEvents } from '../../constants.telemetry';
 import type { Container } from '../../container';
 import { CancellationError } from '../../errors';
 import { sum } from '../../system/iterable';
+import { getLoggableName, Logger } from '../../system/logger';
+import { startLogScope } from '../../system/logger.scope';
 import type { ServerConnection } from '../gk/serverConnection';
 import type { AIActionType, AIModel } from './models/model';
 import type { PromptTemplate, PromptTemplateContext } from './models/promptTemplates';
@@ -77,12 +79,15 @@ export abstract class OpenAICompatibleProvider<T extends AIProviders> implements
 		reporting: TelemetryEvents['ai/generate' | 'ai/explain'],
 		options?: { cancellation?: CancellationToken; outputTokens?: number },
 	): Promise<string | undefined> {
+		using scope = startLogScope(`${getLoggableName(this)}.sendRequest`, false);
+
 		const apiKey = await this.getApiKey();
 		if (apiKey == null) return undefined;
 
 		const prompt = await this.getPromptTemplate(action, model);
 		if (prompt == null) {
 			debugger;
+			Logger.error(undefined, scope, `Unable to find prompt template for '${action}'`);
 			return undefined;
 		}
 
@@ -112,7 +117,8 @@ export abstract class OpenAICompatibleProvider<T extends AIProviders> implements
 
 			return result;
 		} catch (ex) {
-			throw new Error(`Unable to ${prompt.name}: ${ex.message}`);
+			Logger.error(ex, scope, `Unable to ${prompt.name}: (${model.provider.name})`);
+			throw new Error(`Unable to ${prompt.name}: (${model.provider.name}) ${ex.message}`);
 		}
 	}
 

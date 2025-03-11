@@ -4023,10 +4023,24 @@
 							"null"
 						],
 						"default": null,
-						"pattern": "^((anthropic|deepseek|github|google|huggingface|openai|xai):([\\w.-]+)|vscode)$",
-						"markdownDescription": "Specifies the AI model to use for GitLens' AI features. Should be formatted as `provider:model` (e.g. `openai:gpt-4o` or `anthropic:claude-3-5-sonnet-latest`), or `vscode` for models provided by the VS Code extension API (e.g. Copilot)",
+						"pattern": "^((anthropic|deepseek|github|google|huggingface|openai|xai):([\\w.-]+)|gitkraken|vscode)$",
+						"markdownDescription": "Specifies the AI provider and model to use for GitLens' AI features. Should be formatted as `provider:model` (e.g. `openai:gpt-4o` or `anthropic:claude-3-5-sonnet-latest`), `gitkraken` for GitKraken AI provided models, or `vscode` for models provided by the VS Code extension API (e.g. Copilot)",
 						"scope": "window",
 						"order": 10,
+						"tags": [
+							"preview"
+						]
+					},
+					"gitlens.ai.gitkraken.model": {
+						"type": [
+							"string",
+							"null"
+						],
+						"default": null,
+						"pattern": "^(.*):(.*)$",
+						"markdownDescription": "Specifies the GitKraken AI provided model to use for GitLens' AI features, formatted as `provider:model`",
+						"scope": "window",
+						"order": 5,
 						"tags": [
 							"preview"
 						]
@@ -4038,7 +4052,7 @@
 						],
 						"default": null,
 						"pattern": "^(.*):(.*)$",
-						"markdownDescription": "Specifies the VS Code provided model to use for GitLens' AI features, formatted as `vendor:family`",
+						"markdownDescription": "Specifies the VS Code provided model to use for GitLens' AI features, formatted as `provider:model`",
 						"scope": "window",
 						"order": 20,
 						"tags": [
