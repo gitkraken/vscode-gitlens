@@ -162,7 +162,7 @@ export class GlBranchIcon extends LitElement {
 				tooltip = html`${branchName} is up to date with ${upstream}`;
 				break;
 			case 'local':
-				tooltip = html`${branchName} is a local branch which has't been published`;
+				tooltip = html`${branchName} is a local branch which hasn't been published`;
 				break;
 			case 'remote':
 				tooltip = html`${branchName} is a remote branch`;
