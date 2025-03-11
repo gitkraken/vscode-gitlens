@@ -1049,6 +1049,7 @@ export function remoteProviderIdToIntegrationId(
 		case 'gitlab':
 			return HostingIntegrationId.GitLab;
 		case 'bitbucket-server':
+			return SelfHostedIntegrationId.BitbucketServer;
 		default:
 			return undefined;
 	}

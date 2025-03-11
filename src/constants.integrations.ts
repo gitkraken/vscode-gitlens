@@ -6,6 +6,7 @@ export enum HostingIntegrationId {
 }
 
 export enum SelfHostedIntegrationId {
+	BitbucketServer = 'bitbucket-server',
 	GitHubEnterprise = 'github-enterprise',
 	CloudGitHubEnterprise = 'cloud-github-enterprise',
 	CloudGitLabSelfHosted = 'cloud-gitlab-self-hosted',
@@ -14,6 +15,7 @@ export enum SelfHostedIntegrationId {
 
 export type CloudSelfHostedIntegrationId =
 	| SelfHostedIntegrationId.CloudGitHubEnterprise
+	| SelfHostedIntegrationId.BitbucketServer
 	| SelfHostedIntegrationId.CloudGitLabSelfHosted;
 
 export enum IssueIntegrationId {
@@ -31,6 +33,7 @@ export const supportedOrderedCloudIntegrationIds = [
 	SelfHostedIntegrationId.CloudGitLabSelfHosted,
 	HostingIntegrationId.AzureDevOps,
 	HostingIntegrationId.Bitbucket,
+	SelfHostedIntegrationId.BitbucketServer,
 	IssueIntegrationId.Jira,
 ];
 
@@ -91,6 +94,13 @@ export const supportedCloudIntegrationDescriptors: IntegrationDescriptor[] = [
 		icon: 'gl-provider-bitbucket',
 		supports: ['prs', 'issues'],
 		requiresPro: false,
+	},
+	{
+		id: SelfHostedIntegrationId.BitbucketServer,
+		name: 'Bitbucket Data Center',
+		icon: 'gl-provider-bitbucket',
+		supports: ['prs'],
+		requiresPro: true,
 	},
 	{
 		id: IssueIntegrationId.Jira,
