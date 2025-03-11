@@ -433,7 +433,7 @@ export class BranchesGitSubProvider implements GitBranchesSubProvider {
 			}
 
 			// Attempt to detect squash merges by checking if the diff of the branch can be cleanly removed from the target
-			const mergeBase = await this.getMergeBase(repoPath, into.name, branch.name);
+			const mergeBase = await this.provider.refs.getMergeBase(repoPath, into.name, branch.name);
 			data = await this.git.exec<string>({ cwd: repoPath }, 'diff', mergeBase, branch.name);
 			if (data?.length) {
 				// Create a temporary index file
