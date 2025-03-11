@@ -7,6 +7,7 @@ import type {
 	AzureProject,
 	AzureSetPullRequestInput,
 	Bitbucket,
+	BitbucketServer,
 	BitbucketWorkspaceStub,
 	EnterpriseOptions,
 	GetRepoInput,
@@ -83,6 +84,7 @@ const selfHostedIntegrationIds: SelfHostedIntegrationId[] = [
 	SelfHostedIntegrationId.GitHubEnterprise,
 	SelfHostedIntegrationId.CloudGitLabSelfHosted,
 	SelfHostedIntegrationId.GitLabSelfHosted,
+	SelfHostedIntegrationId.BitbucketServer,
 ] as const;
 
 export const supportedIntegrationIds: IntegrationId[] = [
@@ -109,7 +111,11 @@ export function isHostingIntegrationId(id: IntegrationId): id is HostingIntegrat
 }
 
 export function isCloudSelfHostedIntegrationId(id: IntegrationId): id is CloudSelfHostedIntegrationId {
-	return id === SelfHostedIntegrationId.CloudGitHubEnterprise || id === SelfHostedIntegrationId.CloudGitLabSelfHosted;
+	return (
+		id === SelfHostedIntegrationId.CloudGitHubEnterprise ||
+		id === SelfHostedIntegrationId.CloudGitLabSelfHosted ||
+		id === SelfHostedIntegrationId.BitbucketServer
+	);
 }
 
 export const enum PullRequestFilter {
@@ -357,6 +363,16 @@ export type GetBitbucketPullRequestsAuthoredByUserForWorkspaceFn = (
 	};
 	data: GitPullRequest[];
 }>;
+export type GetBitbucketServerPullRequestsForCurrentUserFn = (
+	input: NumberedPageInput,
+	options?: EnterpriseOptions,
+) => Promise<{
+	pageInfo: {
+		hasNextPage: boolean;
+		nextPage: number | null;
+	};
+	data: GitPullRequest[];
+}>;
 export type GetIssuesForProjectFn = Jira['getIssuesForProject'];
 export type GetIssuesForResourceForCurrentUserFn = (
 	input: { resourceId: string },
@@ -364,7 +380,7 @@ export type GetIssuesForResourceForCurrentUserFn = (
 ) => Promise<{ data: ProviderIssue[] }>;
 
 export interface ProviderInfo extends ProviderMetadata {
-	provider: GitHub | GitLab | Bitbucket | Jira | Trello | AzureDevOps;
+	provider: GitHub | GitLab | Bitbucket | BitbucketServer | Jira | Trello | AzureDevOps;
 	getPullRequestsForReposFn?: GetPullRequestsForReposFn;
 	getPullRequestsForRepoFn?: GetPullRequestsForRepoFn;
 	getPullRequestsForUserFn?: GetPullRequestsForUserFn;
@@ -380,6 +396,7 @@ export interface ProviderInfo extends ProviderMetadata {
 	getAzureResourcesForUserFn?: GetAzureResourcesForUserFn;
 	getBitbucketResourcesForUserFn?: GetBitbucketResourcesForUserFn;
 	getBitbucketPullRequestsAuthoredByUserForWorkspaceFn?: GetBitbucketPullRequestsAuthoredByUserForWorkspaceFn;
+	getBitbucketServerPullRequestsForCurrentUserFn?: GetBitbucketServerPullRequestsForCurrentUserFn;
 	getJiraProjectsForResourcesFn?: GetJiraProjectsForResourcesFn;
 	getAzureProjectsForResourceFn?: GetAzureProjectsForResourceFn;
 	getIssuesForProjectFn?: GetIssuesForProjectFn;
@@ -526,6 +543,15 @@ export const providersMetadata: ProvidersMetadata = {
 		// Use 'id' property on account for PR filters
 		supportedPullRequestFilters: [PullRequestFilter.Author],
 		scopes: ['account:read', 'repository:read', 'pullrequest:read', 'issue:read'],
+	},
+	[SelfHostedIntegrationId.BitbucketServer]: {
+		domain: '',
+		id: SelfHostedIntegrationId.BitbucketServer,
+		name: 'Bitbucket Data Center',
+		type: 'hosting',
+		iconKey: SelfHostedIntegrationId.BitbucketServer,
+		supportedPullRequestFilters: [PullRequestFilter.Author, PullRequestFilter.ReviewRequested],
+		scopes: ['Project (Read)', 'Repository (Write)'],
 	},
 	[HostingIntegrationId.AzureDevOps]: {
 		domain: 'dev.azure.com',
