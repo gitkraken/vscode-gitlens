@@ -1,4 +1,5 @@
 import { css } from 'lit';
+import { focusOutline } from '../../../shared/components/styles/lit/a11y.css';
 
 export const chipStyles = css`
 	:host {
@@ -15,9 +16,8 @@ export const chipStyles = css`
 		cursor: pointer;
 	}
 
-	.chip:focus,
-	.chip:focus-within {
-		outline: 1px solid var(--vscode-focusBorder);
+	.chip:focus-visible {
+		${focusOutline}
 	}
 
 	.content {

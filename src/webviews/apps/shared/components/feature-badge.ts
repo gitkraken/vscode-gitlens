@@ -61,7 +61,7 @@ export class GlFeatureBadge extends LitElement {
 				white-space: nowrap;
 			}
 
-			.badge:focus {
+			.badge:focus-visible {
 				${unsafeCSS(focusOutline)}
 			}
 

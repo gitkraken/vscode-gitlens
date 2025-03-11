@@ -12,7 +12,7 @@ export const srOnlyStyles = css`
 
 export const srOnly = css`
 	.sr-only,
-	.sr-only-focusable:not(:active):not(:focus):not(:focus-within) {
+	.sr-only-focusable:not(:active):not(:focus-visible):not(:focus-within) {
 		${srOnlyStyles}
 	}
 `;
@@ -25,4 +25,10 @@ export const focusOutline = css`
 export const focusOutlineButton = css`
 	outline: 1px solid var(--color-focus-border);
 	outline-offset: 2px;
+`;
+
+export const focusableBaseStyles = css`
+	:focus-visible {
+		${focusOutline}
+	}
 `;
