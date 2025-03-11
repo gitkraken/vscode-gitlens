@@ -29,8 +29,8 @@ export class GkCliIntegrationProvider implements Disposable {
 	}
 
 	private onConfigurationChanged(e?: ConfigurationChangeEvent): void {
-		if (e == null || configuration.changed(e, 'gitKraken.cli.integration.enabled')) {
-			if (!configuration.get('gitKraken.cli.integration.enabled')) {
+		if (e == null || configuration.changed(e, 'gitkraken.cli.integration.enabled')) {
+			if (!configuration.get('gitkraken.cli.integration.enabled')) {
 				this.stop();
 			} else {
 				void this.start();

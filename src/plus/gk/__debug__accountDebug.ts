@@ -10,9 +10,9 @@ import type { Container } from '../../container';
 import type { QuickPickItemOfT } from '../../quickpicks/items/common';
 import { createQuickPickSeparator } from '../../quickpicks/items/common';
 import { registerCommand } from '../../system/-webview/command';
-import { configuration } from '../../system/-webview/configuration';
 import type { GKCheckInResponse, GKLicenses, GKLicenseType, GKUser } from './models/checkin';
 import type { SubscriptionService } from './subscriptionService';
+import { getConfiguredActiveOrganizationId } from './utils/-webview/subscription.utils';
 import { getSubscriptionFromCheckIn } from './utils/checkin.utils';
 import { getPreviewSubscription } from './utils/subscription.utils';
 
@@ -308,7 +308,7 @@ class AccountDebug {
 			(await this.container.organizations.getOrganizations({
 				userId: subscription.account.id,
 			})) ?? [];
-		let activeOrganizationId = configuration.get('gitKraken.activeOrganizationId') ?? undefined;
+		let activeOrganizationId = getConfiguredActiveOrganizationId();
 		if (activeOrganizationId === '' || (activeOrganizationId == null && organizations.length === 1)) {
 			activeOrganizationId = organizations[0].id;
 		}

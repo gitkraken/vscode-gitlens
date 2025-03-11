@@ -3990,7 +3990,7 @@
 						"scope": "window",
 						"order": 20
 					},
-					"gitlens.gitKraken.cli.integration.enabled": {
+					"gitlens.gitkraken.cli.integration.enabled": {
 						"type": "boolean",
 						"default": false,
 						"markdownDescription": "Specifies whether to enable experimental integration with the GitKraken CLI",
@@ -4903,7 +4903,7 @@
 				"title": "GitKraken",
 				"order": 9000,
 				"properties": {
-					"gitlens.gitKraken.activeOrganizationId": {
+					"gitlens.gitkraken.activeOrganizationId": {
 						"type": "string",
 						"markdownDescription": "Specifies the ID of the user's active GitKraken organization in GitLens",
 						"scope": "window",
