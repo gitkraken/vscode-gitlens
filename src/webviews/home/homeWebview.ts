@@ -1174,18 +1174,24 @@ export class HomeWebviewProvider implements WebviewProvider<State, State, HomeWe
 
 	private async deleteBranchOrWorktree(ref: BranchRef, mergeTarget?: BranchRef) {
 		const repo = this._repositoryBranches.get(ref.repoPath);
-		const branch = repo?.branches.find(b => b.id === ref.branchId);
+		let branch = repo?.branches.find(b => b.id === ref.branchId);
+		if (branch == null) {
+			branch = await repo?.repo.git.branches().getBranch(ref.branchId);
+		}
+
 		const worktree = branch ? repo?.worktreesByBranch.get(branch.id) : undefined;
 		if (branch == null) return;
+
 		if (branch.current && mergeTarget != null && (!worktree || worktree.isDefault)) {
 			const mergeTargetLocalBranchName = getBranchNameWithoutRemote(mergeTarget.branchName);
 			const confirm = await window.showWarningMessage(
-				`The merge target branch ${mergeTargetLocalBranchName} will be checked out before deleting the current branch ${branch.name}.`,
+				`Before deleting the current branch '${branch.name}', you will be switched to '${mergeTargetLocalBranchName}'.`,
 				{ modal: true },
-				{ title: 'Proceed' },
+				{ title: 'Continue' },
 			);
 
-			if (confirm == null || confirm.title !== 'Proceed') return;
+			if (confirm == null || confirm.title !== 'Continue') return;
+
 			await this.container.git.checkout(ref.repoPath, mergeTargetLocalBranchName);
 
 			void executeGitCommand({
@@ -1202,12 +1208,13 @@ export class HomeWebviewProvider implements WebviewProvider<State, State, HomeWe
 			if (defaultWorktree == null || commonRepo == null) return;
 
 			const confirm = await window.showWarningMessage(
-				`You will be returned to the default worktree before deleting the worktree for ${branch.name}.`,
+				`Before deleting the worktree for '${branch.name}', you will be switched to the default worktree.`,
 				{ modal: true },
-				{ title: 'Proceed' },
+				{ title: 'Continue' },
 			);
 
-			if (confirm == null || confirm.title !== 'Proceed') return;
+			if (confirm == null || confirm.title !== 'Continue') return;
+
 			const schemeOverride = configuration.get('deepLinks.schemeOverride');
 			const scheme = typeof schemeOverride === 'string' ? schemeOverride : env.uriScheme;
 			const deleteBranchDeepLink = {
