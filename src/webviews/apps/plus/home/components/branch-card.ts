@@ -496,8 +496,9 @@ export abstract class GlBranchCardBase extends GlElement {
 		}
 	}
 
-	private onFocus() {
-		if (this.expanded) return;
+	private onFocus(e: FocusEvent) {
+		const actionElement = e.composedPath().some(el => (el as HTMLElement).matches?.('action-item') ?? false);
+		if (actionElement || this.expanded) return;
 		this.toggleExpanded(true);
 	}
 
