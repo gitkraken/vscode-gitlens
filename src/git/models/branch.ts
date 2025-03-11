@@ -19,6 +19,7 @@ import { getUpstreamStatus } from '../utils/status.utils';
 import type { PullRequest, PullRequestState } from './pullRequest';
 import type { GitBranchReference } from './reference';
 import type { GitRemote } from './remote';
+import type { GitWorktree } from './worktree';
 
 export function isBranch(branch: unknown): branch is GitBranch {
 	return branch instanceof GitBranch;
@@ -172,6 +173,14 @@ export class GitBranch implements GitBranchReference {
 		suffix?: string;
 	}): string {
 		return getUpstreamStatus(this.upstream, options);
+	}
+
+	@debug()
+	async getWorktree(): Promise<GitWorktree | undefined> {
+		if (this.worktree == null) return undefined;
+
+		const worktreePath = this.worktree.path;
+		return this.container.git.worktrees(this.repoPath)?.getWorktree(wt => wt.path === worktreePath);
 	}
 
 	get starred(): boolean {
