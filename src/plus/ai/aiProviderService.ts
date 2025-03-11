@@ -1,6 +1,7 @@
 import type { CancellationToken, Disposable, Event, MessageItem, ProgressOptions } from 'vscode';
 import { env, EventEmitter, window } from 'vscode';
-import type { AIProviders, SupportedAIModels, VSCodeAIModels } from '../../constants.ai';
+import type { AIPrimaryProviders, AIProviderAndModel, AIProviders, SupportedAIModels } from '../../constants.ai';
+import { primaryAIProviders } from '../../constants.ai';
 import type { AIGenerateDraftEventData, Source, TelemetryEvents } from '../../constants.telemetry';
 import type { Container } from '../../container';
 import { CancellationError } from '../../errors';
@@ -41,6 +42,17 @@ interface AIProviderConstructor<Provider extends AIProviders = AIProviders> {
 
 // Order matters for sorting the picker
 const _supportedProviderTypes = new Map<AIProviders, Lazy<Promise<AIProviderConstructor>>>([
+	...(configuration.getAny('gitkraken.ai.enabled', undefined, false)
+		? [
+				[
+					'gitkraken',
+					lazy(
+						async () =>
+							(await import(/* webpackChunkName: "ai" */ './gitkrakenProvider')).GitKrakenProvider,
+					),
+				],
+		  ]
+		: []),
 	...(supportedInVSCodeVersion('language-models')
 		? [
 				[
@@ -105,10 +117,10 @@ export class AIProviderService implements Disposable {
 		if (providerId != null && this.supports(providerId)) {
 			if (modelId != null) {
 				return { provider: providerId, model: modelId };
-			} else if (providerId === 'vscode') {
-				modelId = configuration.get('ai.vscode.model') as VSCodeAIModels;
+			} else if (isPrimaryAIProvider(providerId)) {
+				modelId = configuration.get(`ai.${providerId}.model`) ?? undefined;
 				if (modelId != null) {
-					// Model ids are in the form of `vendor:family`
+					// Model ids are in the form of `provider:model`
 					if (/^(.+):(.+)$/.test(modelId)) {
 						return { provider: providerId, model: modelId };
 					}
@@ -119,19 +131,26 @@ export class AIProviderService implements Disposable {
 		return undefined;
 	}
 
-	async getModels(): Promise<readonly AIModel[]> {
-		const modelResults = await Promise.allSettled(
-			map(_supportedProviderTypes.values(), t =>
-				t.value.then(async t => {
-					const p = new t(this.container, this.connection);
-					try {
-						return await p.getModels();
-					} finally {
-						p.dispose();
-					}
-				}),
-			),
-		);
+	async getModels(providerId?: AIProviders): Promise<readonly AIModel[]> {
+		const loadModels = async (type: Lazy<Promise<AIProviderConstructor>>) => {
+			return type.value.then(async t => {
+				const p = new t(this.container, this.connection);
+				try {
+					return await p.getModels();
+				} finally {
+					p.dispose();
+				}
+			});
+		};
+
+		if (providerId != null && this.supports(providerId)) {
+			const type = _supportedProviderTypes.get(providerId);
+			if (type == null) return [];
+
+			return loadModels(type);
+		}
+
+		const modelResults = await Promise.allSettled(map(_supportedProviderTypes.values(), t => loadModels(t)));
 
 		return modelResults.flatMap(m => getSettledValue(m, []));
 	}
@@ -230,9 +249,9 @@ export class AIProviderService implements Disposable {
 		this._model = model;
 
 		if (changed) {
-			if (isVSCodeAIModel(model)) {
-				await configuration.updateEffective(`ai.model`, 'vscode');
-				await configuration.updateEffective(`ai.vscode.model`, model.id);
+			if (isPrimaryAIProviderModel(model)) {
+				await configuration.updateEffective(`ai.model`, model.provider.id);
+				await configuration.updateEffective(`ai.${model.provider.id}.model`, model.id);
 			} else {
 				await configuration.updateEffective(
 					`ai.model`,
@@ -709,6 +728,10 @@ function splitMessageIntoSummaryAndBody(message: string): AIResult {
 	};
 }
 
-function isVSCodeAIModel(model: AIModel): model is AIModel<'vscode', VSCodeAIModels> {
-	return model.provider.id === 'vscode';
+function isPrimaryAIProvider(provider: AIProviders): provider is AIPrimaryProviders {
+	return primaryAIProviders.includes(provider as AIPrimaryProviders);
+}
+
+function isPrimaryAIProviderModel(model: AIModel): model is AIModel<AIPrimaryProviders, AIProviderAndModel> {
+	return isPrimaryAIProvider(model.provider.id);
 }

@@ -1,4 +1,4 @@
-import type { SupportedAIModels, VSCodeAIModels } from './constants.ai';
+import type { AIProviderAndModel, SupportedAIModels } from './constants.ai';
 import type { GroupableTreeViewTypes } from './constants.views';
 import type { DateTimeFormat } from './system/date';
 import type { LogLevel } from './system/logger.constants';
@@ -227,6 +227,9 @@ interface AIConfig {
 	readonly generateCodeSuggestMessage: {
 		readonly customInstructions: string;
 	};
+	readonly gitkraken: {
+		readonly model: AIProviderAndModel | null;
+	};
 	readonly model: SupportedAIModels | null;
 	readonly modelOptions: {
 		readonly temperature: number;
@@ -235,7 +238,7 @@ interface AIConfig {
 		readonly url: string | null;
 	};
 	readonly vscode: {
-		readonly model: VSCodeAIModels | null;
+		readonly model: AIProviderAndModel | null;
 	};
 }
 

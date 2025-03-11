@@ -3,6 +3,8 @@ import { CancellationTokenSource, EventEmitter, LanguageModelChatMessage, lm } f
 import type { TelemetryEvents } from '../../constants.telemetry';
 import type { Container } from '../../container';
 import { sum } from '../../system/iterable';
+import { getLoggableName, Logger } from '../../system/logger';
+import { startLogScope } from '../../system/logger.scope';
 import { capitalize } from '../../system/string';
 import type { ServerConnection } from '../gk/serverConnection';
 import type { AIActionType, AIModel } from './models/model';
@@ -65,6 +67,8 @@ export class VSCodeAIProvider implements AIProvider<typeof provider.id> {
 		reporting: TelemetryEvents['ai/generate' | 'ai/explain'],
 		options?: { cancellation?: CancellationToken; outputTokens?: number },
 	): Promise<string | undefined> {
+		using scope = startLogScope(`${getLoggableName(this)}.sendRequest`, false);
+
 		const chatModel = await this.getChatModel(model);
 		if (chatModel == null) return undefined;
 
@@ -80,6 +84,7 @@ export class VSCodeAIProvider implements AIProvider<typeof provider.id> {
 		const prompt = await this.getPromptTemplate(action, model);
 		if (prompt == null) {
 			debugger;
+			Logger.error(undefined, scope, `Unable to find prompt template for '${action}'`);
 			return undefined;
 		}
 
@@ -122,6 +127,7 @@ export class VSCodeAIProvider implements AIProvider<typeof provider.id> {
 					let message = ex instanceof Error ? ex.message : String(ex);
 
 					if (ex instanceof Error && 'code' in ex && ex.code === 'NoPermissions') {
+						Logger.error(ex, scope, `User denied access to ${model.provider.name}`);
 						throw new Error(`User denied access to ${model.provider.name}`);
 					}
 
@@ -134,6 +140,7 @@ export class VSCodeAIProvider implements AIProvider<typeof provider.id> {
 						}
 					}
 
+					Logger.error(ex, scope, `Unable to ${prompt.name}: (${model.provider.name})`);
 					throw new Error(
 						`Unable to ${prompt.name}: (${model.provider.name}${ex.code ? `:${ex.code}` : ''}) ${message}`,
 					);
