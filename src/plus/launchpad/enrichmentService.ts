@@ -197,6 +197,7 @@ const supportedIntegrationIdsToEnrich: Record<IntegrationId, EnrichedItemRespons
 	[SelfHostedIntegrationId.GitHubEnterprise]: 'github',
 	[SelfHostedIntegrationId.CloudGitLabSelfHosted]: 'gitlab',
 	[SelfHostedIntegrationId.GitLabSelfHosted]: 'gitlab',
+	[SelfHostedIntegrationId.BitbucketServer]: 'bitbucket',
 	[IssueIntegrationId.Jira]: 'jira',
 	[IssueIntegrationId.Trello]: 'trello',
 };
