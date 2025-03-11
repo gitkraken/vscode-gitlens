@@ -95,7 +95,7 @@ export type GlobalStorage = {
 	[key in `azure:${string}:projects`]: Stored<StoredAzureProject[] | undefined>;
 } & { [key in `bitbucket:${string}:account`]: Stored<StoredBitbucketAccount | undefined> } & {
 	[key in `bitbucket:${string}:workspaces`]: Stored<StoredBitbucketWorkspace[] | undefined>;
-};
+} & { [key in `bitbucket-server:${string}:account`]: Stored<StoredBitbucketAccount | undefined> };
 
 export type StoredIntegrationConfigurations = Record<string, StoredConfiguredIntegrationDescriptor[] | undefined>;
 
