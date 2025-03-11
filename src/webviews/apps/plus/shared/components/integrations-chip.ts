@@ -345,7 +345,7 @@ export class GLIntegrationsChip extends LitElement {
 			<span class="integration__icon"><code-icon icon="${icon}"></code-icon></span>
 			<span class="integration__content">
 				<span class="integration__title">
-					<span>${model?.name ?? 'AI'}</span>
+					<span>${model?.provider.name ?? 'AI'}</span>
 					${showProBadge
 						? html` <gl-feature-badge
 								placement="right"
@@ -354,9 +354,7 @@ export class GLIntegrationsChip extends LitElement {
 						  ></gl-feature-badge>`
 						: nothing}
 				</span>
-				${model?.provider
-					? html`<span class="integration__details">AI Provider: ${model.provider.name}</span>`
-					: nothing}
+				${model?.name ? html`<span class="integration__details">${model.name}</span>` : nothing}
 			</span>
 			<span class="integration__actions">
 				<gl-button
