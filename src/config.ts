@@ -25,7 +25,7 @@ export interface Config {
 	readonly detectNestedRepositories: boolean;
 	readonly fileAnnotations: FileAnnotationsConfig;
 	readonly gitCommands: GitCommandsConfig;
-	readonly gitKraken: GitKrakenConfig;
+	readonly gitkraken: GitKrakenConfig;
 	readonly graph: GraphConfig;
 	readonly heatmap: HeatmapConfig;
 	readonly home: HomeConfig;
