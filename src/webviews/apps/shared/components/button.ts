@@ -252,7 +252,7 @@ export class GlButton extends LitElement {
 		if (this.href != null) {
 			return html`<a
 				class="control"
-				tabindex="${this.disabled === false ? 0 : -1}"
+				tabindex="${ifDefined(this.disabled === false ? undefined : -1)}"
 				href=${this.href}
 				@keypress=${(e: KeyboardEvent) => this.onLinkKeypress(e)}
 				><slot name="prefix"></slot><slot class="label"></slot><slot name="suffix"></slot
