@@ -132,7 +132,7 @@ export abstract class RemoteProvider<T extends ResourceDescriptor = ResourceDesc
 				return this.getUrlForComparison(resource.base, resource.compare, resource.notation ?? '...');
 			}
 			case RemoteResourceType.CreatePullRequest: {
-				return this.getUrlForCreatePullRequest?.(resource.base, resource.compare);
+				return this.getUrlForCreatePullRequest(resource.base, resource.compare);
 			}
 			case RemoteResourceType.File:
 				return this.getUrlForFile(
@@ -190,7 +190,7 @@ export abstract class RemoteProvider<T extends ResourceDescriptor = ResourceDesc
 		return Promise.resolve(true);
 	}
 
-	protected getUrlForCreatePullRequest?(
+	protected abstract getUrlForCreatePullRequest(
 		base: { branch?: string; remote: { path: string; url: string } },
 		head: { branch: string; remote: { path: string; url: string } },
 		options?: { title?: string; description?: string },

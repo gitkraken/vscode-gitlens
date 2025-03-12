@@ -193,6 +193,16 @@ export class GerritRemote extends RemoteProvider {
 		return this.encodeUrl(`${this.baseReviewUrl}/q/${base}${notation}${head}`);
 	}
 
+	protected override getUrlForCreatePullRequest(
+		base: { branch?: string; remote: { path: string; url: string } },
+		head: { branch: string; remote: { path: string; url: string } },
+		_options?: { title?: string; description?: string },
+	): string | undefined {
+		const query = new URLSearchParams({ sourceBranch: head.branch, targetBranch: base.branch ?? '' });
+
+		return this.encodeUrl(`${this.baseReviewUrl}/createPullRequest?${query.toString()}`);
+	}
+
 	protected getUrlForFile(fileName: string, branch?: string, sha?: string, range?: Range): string {
 		const line = range != null ? `#${range.start.line}` : '';
 
