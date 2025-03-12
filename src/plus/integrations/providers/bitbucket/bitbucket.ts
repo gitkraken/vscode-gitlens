@@ -25,6 +25,10 @@ import { Logger } from '../../../../system/logger';
 import type { LogScope } from '../../../../system/logger.scope';
 import { getLogScope } from '../../../../system/logger.scope';
 import { maybeStopWatch } from '../../../../system/stopwatch';
+import type { Integration } from '../../integration';
+import type { BitbucketServerPullRequest } from '../bitbucket-server/models';
+import { normalizeBitbucketServerPullRequest } from '../bitbucket-server/models';
+import { fromProviderPullRequest } from '../models';
 import type { BitbucketIssue, BitbucketPullRequest, BitbucketRepository } from './models';
 import { bitbucketIssueStateToState, fromBitbucketIssue, fromBitbucketPullRequest } from './models';
 
@@ -91,6 +95,43 @@ export class BitbucketApi implements Disposable {
 			return undefined;
 		}
 		return fromBitbucketPullRequest(response.values[0], provider);
+	}
+
+	@debug<BitbucketApi['getServerPullRequestForBranch']>({ args: { 0: p => p.name, 1: '<token>' } })
+	public async getServerPullRequestForBranch(
+		provider: Provider,
+		token: string,
+		owner: string,
+		repo: string,
+		branch: string,
+		baseUrl: string,
+		integration: Integration,
+	): Promise<PullRequest | undefined> {
+		const scope = getLogScope();
+
+		const response = await this.request<{
+			values: BitbucketServerPullRequest[];
+			pagelen: number;
+			size: number;
+			page: number;
+		}>(
+			provider,
+			token,
+			baseUrl,
+			`projects/${owner}/repos/${repo}/pull-requests?at=refs/heads/${branch}&direction=OUTGOING&state=ALL`,
+			{
+				method: 'GET',
+			},
+			scope,
+		);
+
+		if (!response?.values?.length) {
+			return undefined;
+		}
+
+		const providersPr = normalizeBitbucketServerPullRequest(response.values[0]);
+		const gitlensPr = fromProviderPullRequest(providersPr, integration);
+		return gitlensPr;
 	}
 
 	@debug<BitbucketApi['getUsersIssuesForRepo']>({ args: { 0: p => p.name, 1: '<token>' } })

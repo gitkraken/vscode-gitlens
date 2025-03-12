@@ -57,6 +57,7 @@ export class BitbucketServerIntegration extends HostingIntegration<
 		return api.mergePullRequest(this.id, pr, {
 			accessToken: accessToken,
 			mergeMethod: options?.mergeMethod,
+			baseUrl: this.apiBaseUrl,
 		});
 	}
 
@@ -120,15 +121,27 @@ export class BitbucketServerIntegration extends HostingIntegration<
 	}
 
 	protected override async getProviderPullRequestForBranch(
-		_session: AuthenticationSession,
-		_repo: BitbucketRepositoryDescriptor,
-		_branch: string,
+		{ accessToken }: AuthenticationSession,
+		repo: BitbucketRepositoryDescriptor,
+		branch: string,
 		_options?: {
 			avatarSize?: number;
 			include?: PullRequestState[];
 		},
 	): Promise<PullRequest | undefined> {
-		return Promise.resolve(undefined);
+		const integration = await this.container.integrations.get(this.id);
+		if (!integration) {
+			return undefined;
+		}
+		return (await this.container.bitbucket)?.getServerPullRequestForBranch(
+			this,
+			accessToken,
+			repo.owner,
+			repo.name,
+			branch,
+			this.apiBaseUrl,
+			integration,
+		);
 	}
 
 	protected override async getProviderPullRequestForCommit(
@@ -189,7 +202,9 @@ export class BitbucketServerIntegration extends HostingIntegration<
 		if (!api || !integration) {
 			return undefined;
 		}
-		const prs = await api.getBitbucketServerPullRequestsForCurrentUser({ accessToken: session.accessToken });
+		const prs = await api.getBitbucketServerPullRequestsForCurrentUser(this.apiBaseUrl, {
+			accessToken: session.accessToken,
+		});
 		return prs?.map(pr => fromProviderPullRequest(pr, integration));
 	}
 
