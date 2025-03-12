@@ -31,11 +31,11 @@ import type { CustomEventType } from '../../../shared/components/element';
 import { ipcContext } from '../../../shared/contexts/ipc';
 import type { TelemetryContext } from '../../../shared/contexts/telemetry';
 import { telemetryContext } from '../../../shared/contexts/telemetry';
+import type { GlGraphHover } from '../../graph/hover/graphHover';
 import { stateContext } from '../context';
-import type { GlGraphHover } from '../hover/graphHover';
 import { graphStateContext } from '../stateProvider';
 import { GraphWrapperReact } from './graph-wrapper.react';
-import '../hover/graphHover';
+import '../../graph/hover/graphHover';
 
 const WebGraph = r2wc(GraphWrapperReact, {
 	props: {
@@ -263,7 +263,7 @@ export class GLGraphWrapper extends SignalWatcher(LitElement) {
 
 	private ref?: GraphContainer;
 
-	@query('gl-graph-hover-next#commit-hover')
+	@query('gl-graph-hover#commit-hover')
 	private readonly graphHover!: GlGraphHover;
 
 	resetHover() {
@@ -275,7 +275,7 @@ export class GLGraphWrapper extends SignalWatcher(LitElement) {
 	}
 
 	override render() {
-		return html`<gl-graph-hover-next id="commit-hover" distance=${0} skidding=${15}></gl-graph-hover-next
+		return html`<gl-graph-hover id="commit-hover" distance=${0} skidding=${15}></gl-graph-hover
 			><web-graph
 				nonce=${ifDefined(this.hostState.nonce)}
 				activeRow=${ifDefined(this.graphAppState.activeRow)}

@@ -7,9 +7,9 @@ import { DidChangeNotification, GetCountsRequest } from '../../../../plus/graph/
 import { ipcContext } from '../../../shared/contexts/ipc';
 import type { Disposable } from '../../../shared/events';
 import type { HostIpc } from '../../../shared/ipc';
+import { emitTelemetrySentEvent } from '../../../shared/telemetry';
 import '../../../shared/components/code-icon';
 import '../../../shared/components/overlays/tooltip';
-import { emitTelemetrySentEvent } from '../../../shared/telemetry';
 
 interface Icon {
 	type: IconTypes;
