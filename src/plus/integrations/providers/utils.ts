@@ -62,7 +62,10 @@ export function getEntityIdentifierInput(entity: Issue | PullRequest | Launchpad
 		if (entityType === EntityType.PullRequest && repoId == null) {
 			throw new Error('Azure PRs must have a repository ID to be encoded');
 		}
-	} else if (provider === EntityIdentifierProviderType.Bitbucket) {
+	} else if (
+		provider === EntityIdentifierProviderType.Bitbucket ||
+		provider === EntityIdentifierProviderType.BitbucketServer
+	) {
 		repoId = isLaunchpadItem(entity) ? entity.underlyingPullRequest?.repository.id : entity.repository?.id;
 	}
 
