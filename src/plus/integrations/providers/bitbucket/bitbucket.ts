@@ -275,6 +275,45 @@ export class BitbucketApi implements Disposable {
 		return undefined;
 	}
 
+	@debug<BitbucketApi['getServerPullRequestById']>({ args: { 0: p => p.name, 1: '<token>' } })
+	public async getServerPullRequestById(
+		provider: Provider,
+		token: string,
+		owner: string,
+		repo: string,
+		id: string,
+		baseUrl: string,
+		integration: Integration,
+	): Promise<IssueOrPullRequest | undefined> {
+		const scope = getLogScope();
+
+		try {
+			const prResponse = await this.request<BitbucketServerPullRequest>(
+				provider,
+				token,
+				baseUrl,
+				`projects/${owner}/repos/${repo}/pull-requests/${id}`,
+				{
+					method: 'GET',
+				},
+				scope,
+			);
+
+			if (prResponse) {
+				const providersPr = normalizeBitbucketServerPullRequest(prResponse);
+				const gitlensPr = fromProviderPullRequest(providersPr, integration);
+				return gitlensPr;
+			}
+		} catch (ex) {
+			if (ex.original?.status !== 404) {
+				Logger.error(ex, scope);
+				return undefined;
+			}
+		}
+
+		return undefined;
+	}
+
 	@debug<BitbucketApi['getRepositoriesForWorkspace']>({ args: { 0: p => p.name, 1: '<token>' } })
 	async getRepositoriesForWorkspace(
 		provider: Provider,
