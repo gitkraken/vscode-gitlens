@@ -248,7 +248,7 @@ export class GlActiveBranchCard extends GlBranchCardBase {
 				<gl-button
 					aria-busy=${ifDefined(isFetching)}
 					?disabled=${isFetching}
-					href=${this.createCommandLink('gitlens.generateCommitMessage', {
+					href=${this.createCommandLink('gitlens.ai.generateCommitMessage', {
 						repoPath: this.repo,
 						source: 'home',
 					})}

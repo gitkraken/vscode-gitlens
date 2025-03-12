@@ -32,14 +32,16 @@ export interface OpenFileOnRemoteCommandArgs {
 @command()
 export class OpenFileOnRemoteCommand extends ActiveEditorCommand {
 	constructor(private readonly container: Container) {
-		super([
-			GlCommand.OpenFileOnRemote,
-			/** @deprecated */ 'gitlens.openFileInRemote',
-			GlCommand.CopyRemoteFileUrl,
-			GlCommand.CopyRemoteFileUrlWithoutRange,
-			GlCommand.OpenFileOnRemoteFrom,
-			GlCommand.CopyRemoteFileUrlFrom,
-		]);
+		super(
+			[
+				'gitlens.openFileOnRemote',
+				'gitlens.copyRemoteFileUrlToClipboard',
+				'gitlens.copyRemoteFileUrlWithoutRange',
+				'gitlens.openFileOnRemoteFrom',
+				'gitlens.copyRemoteFileUrlFrom',
+			],
+			['gitlens.openFileInRemote'],
+		);
 	}
 
 	protected override async preExecute(context: CommandContext, args?: OpenFileOnRemoteCommandArgs): Promise<void> {
@@ -49,7 +51,7 @@ export class OpenFileOnRemoteCommand extends ActiveEditorCommand {
 			args = { ...args, line: context.line, range: true };
 		}
 
-		if (context.command === GlCommand.CopyRemoteFileUrlWithoutRange) {
+		if (context.command === 'gitlens.copyRemoteFileUrlWithoutRange') {
 			args = { ...args, range: false };
 		}
 
@@ -57,9 +59,9 @@ export class OpenFileOnRemoteCommand extends ActiveEditorCommand {
 			args = { ...args, range: false };
 
 			if (
-				context.command === GlCommand.CopyRemoteFileUrl ||
-				context.command === GlCommand.CopyRemoteFileUrlWithoutRange ||
-				context.command === GlCommand.CopyRemoteFileUrlFrom
+				context.command === 'gitlens.copyRemoteFileUrlToClipboard' ||
+				context.command === 'gitlens.copyRemoteFileUrlWithoutRange' ||
+				context.command === 'gitlens.copyRemoteFileUrlFrom'
 			) {
 				// If it is a StatusFileNode then don't include the sha, since it hasn't been pushed yet
 				args.sha = context.node instanceof StatusFileNode ? undefined : context.node.commit.sha;
@@ -75,9 +77,9 @@ export class OpenFileOnRemoteCommand extends ActiveEditorCommand {
 		}
 
 		if (
-			context.command === GlCommand.CopyRemoteFileUrl ||
-			context.command === GlCommand.CopyRemoteFileUrlWithoutRange ||
-			context.command === GlCommand.CopyRemoteFileUrlFrom
+			context.command === 'gitlens.copyRemoteFileUrlToClipboard' ||
+			context.command === 'gitlens.copyRemoteFileUrlWithoutRange' ||
+			context.command === 'gitlens.copyRemoteFileUrlFrom'
 		) {
 			args = { ...args, clipboard: true };
 			if (args.sha == null) {
@@ -100,7 +102,7 @@ export class OpenFileOnRemoteCommand extends ActiveEditorCommand {
 			}
 		}
 
-		if (context.command === GlCommand.OpenFileOnRemoteFrom || context.command === GlCommand.CopyRemoteFileUrlFrom) {
+		if (context.command === 'gitlens.openFileOnRemoteFrom' || context.command === 'gitlens.copyRemoteFileUrlFrom') {
 			args = { ...args, pickBranchOrTag: true, range: false }; // Override range since it can be wrong at a different commit
 		}
 

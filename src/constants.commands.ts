@@ -21,15 +21,8 @@ export const enum GlCommand {
 	CompareWorkingWith = 'gitlens.compareWorkingWith',
 	ConnectRemoteProvider = 'gitlens.connectRemoteProvider',
 	CopyMessageToClipboard = 'gitlens.copyMessageToClipboard',
-	CopyRemoteBranchesUrl = 'gitlens.copyRemoteBranchesUrl',
-	CopyRemoteBranchUrl = 'gitlens.copyRemoteBranchUrl',
-	CopyRemoteCommitUrl = 'gitlens.copyRemoteCommitUrl',
 	CopyRemoteComparisonUrl = 'gitlens.copyRemoteComparisonUrl',
-	CopyRemoteFileUrl = 'gitlens.copyRemoteFileUrlToClipboard',
-	CopyRemoteFileUrlWithoutRange = 'gitlens.copyRemoteFileUrlWithoutRange',
-	CopyRemoteFileUrlFrom = 'gitlens.copyRemoteFileUrlFrom',
 	CopyRemotePullRequestUrl = 'gitlens.copyRemotePullRequestUrl',
-	CopyRemoteRepositoryUrl = 'gitlens.copyRemoteRepositoryUrl',
 	CopyShaToClipboard = 'gitlens.copyShaToClipboard',
 	CreateCloudPatch = 'gitlens.createCloudPatch',
 	CreatePullRequestOnRemote = 'gitlens.createPullRequestOnRemote',
@@ -42,19 +35,11 @@ export const enum GlCommand {
 	DiffWithWorking = 'gitlens.diffWithWorking',
 	DiffLineWithWorking = 'gitlens.diffLineWithWorking',
 	DisconnectRemoteProvider = 'gitlens.disconnectRemoteProvider',
-	GenerateCommitMessage = 'gitlens.generateCommitMessage',
-	GenerateCommitMessageScm = 'gitlens.scm.generateCommitMessage',
 	InviteToLiveShare = 'gitlens.inviteToLiveShare',
 	OpenBlamePriorToChange = 'gitlens.openBlamePriorToChange',
-	OpenBranchOnRemote = 'gitlens.openBranchOnRemote',
 	OpenChangedFiles = 'gitlens.openChangedFiles',
-	OpenCommitOnRemote = 'gitlens.openCommitOnRemote',
-	OpenFileHistory = 'gitlens.openFileHistory',
-	OpenFileOnRemote = 'gitlens.openFileOnRemote',
-	OpenFileOnRemoteFrom = 'gitlens.openFileOnRemoteFrom',
 	OpenFileAtRevision = 'gitlens.openFileRevision',
 	OpenFileAtRevisionFrom = 'gitlens.openFileRevisionFrom',
-	OpenFolderHistory = 'gitlens.openFolderHistory',
 	OpenOnRemote = 'gitlens.openOnRemote',
 	OpenCloudPatch = 'gitlens.openCloudPatch',
 	OpenPullRequestOnRemote = 'gitlens.openPullRequestOnRemote',
@@ -130,7 +115,11 @@ export const enum GlCommand {
 	ViewsOpenUrl = 'gitlens.views.openUrl',
 }
 
-type GlCommandsDeprecated =
+export type GlCommandsDeprecated =
+	/** @deprecated use `gitlens.ai.generateCommitMessage` */
+	| 'gitlens.generateCommitMessage'
+	/** @deprecated use `gitlens.scm.ai.generateCommitMessage` */
+	| 'gitlens.scm.generateCommitMessage'
 	| 'gitlens.diffHeadWith'
 	| 'gitlens.diffWorkingWith'
 	| 'gitlens.openBranchesInRemote'
@@ -231,7 +220,7 @@ type InternalGlCommands =
 	| InternalTimelineWebviewViewCommands
 	| InternalWalkthroughCommands;
 
-export type GlCommands = ContributedCommands | InternalGlCommands | GlCommandsDeprecated;
+export type GlCommands = ContributedCommands | InternalGlCommands; // | GlCommandsDeprecated;
 export type GlPaletteCommands = ContributedPaletteCommands;
 
 export type CoreCommands =

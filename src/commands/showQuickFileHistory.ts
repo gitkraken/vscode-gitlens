@@ -1,5 +1,4 @@
 import type { Range, TextEditor, Uri } from 'vscode';
-import { GlCommand } from '../constants.commands';
 import type { Container } from '../container';
 import { executeGitCommand } from '../git/actions';
 import { GitUri } from '../git/gitUri';
@@ -28,24 +27,26 @@ export interface ShowQuickFileHistoryCommandArgs {
 @command()
 export class ShowQuickFileHistoryCommand extends ActiveEditorCachedCommand {
 	constructor(private readonly container: Container) {
-		super([
-			GlCommand.OpenFileHistory,
-			GlCommand.OpenFolderHistory,
-			'gitlens.showQuickFileHistory',
-			'gitlens.quickOpenFileHistory',
-			/** @deprecated */ 'gitlens.showFileHistoryInView',
-		]);
+		super(
+			[
+				'gitlens.openFileHistory',
+				'gitlens.openFolderHistory',
+				'gitlens.showQuickFileHistory',
+				'gitlens.quickOpenFileHistory',
+			],
+			['gitlens.showFileHistoryInView'],
+		);
 	}
 
 	protected override preExecute(context: CommandContext, args?: ShowQuickFileHistoryCommandArgs): Promise<void> {
 		let uri = context.uri;
 		if (
-			context.command === GlCommand.OpenFileHistory ||
+			context.command === 'gitlens.openFileHistory' ||
 			context.command === /** @deprecated */ 'gitlens.showFileHistoryInView'
 		) {
 			args = { ...args };
 			args.showInSideBar = true;
-		} else if (context.command === GlCommand.OpenFolderHistory) {
+		} else if (context.command === 'gitlens.openFolderHistory') {
 			args = { ...args };
 			args.showInSideBar = true;
 			if (context.type === 'scm-states') {

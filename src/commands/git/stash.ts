@@ -638,7 +638,9 @@ export class StashGitCommand extends QuickCommand<State> {
 			placeholder: 'Please provide a stash message',
 			value: state.message,
 			prompt: 'Enter stash message',
-			buttons: [QuickInputButtons.Back, generateMessageButton],
+			buttons: getContext('gitlens:gk:organization:ai:enabled')
+				? [QuickInputButtons.Back, generateMessageButton]
+				: [QuickInputButtons.Back],
 			// Needed to clear any validation errors because of AI generation
 			validate: (_value: string | undefined): [boolean, string | undefined] => [true, undefined],
 			onDidClickButton: async (input, button) => {

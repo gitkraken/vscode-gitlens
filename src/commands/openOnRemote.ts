@@ -34,7 +34,7 @@ export type OpenOnRemoteCommandArgs =
 @command()
 export class OpenOnRemoteCommand extends GlCommandBase {
 	constructor(private readonly container: Container) {
-		super([GlCommand.OpenOnRemote, /** @deprecated */ 'gitlens.openInRemote']);
+		super([GlCommand.OpenOnRemote], ['gitlens.openInRemote']);
 	}
 
 	async execute(args?: OpenOnRemoteCommandArgs): Promise<void> {

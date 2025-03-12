@@ -23,6 +23,10 @@
 				]
 			}
 		},
+		"gitlens.ai.generateCommitMessage": {
+			"label": "Generate Commit Message...",
+			"commandPalette": "gitlens:enabled && !gitlens:readonly && !gitlens:untrusted && !gitlens:hasVirtualFolders && gitlens:gk:organization:ai:enabled && config.gitlens.ai.generateCommitMessage.enabled"
+		},
 		"gitlens.annotations.nextChange": {
 			"label": "Next Change",
 			"icon": "$(arrow-down)"
@@ -1267,10 +1271,6 @@
 				]
 			}
 		},
-		"gitlens.generateCommitMessage": {
-			"label": "Generate Commit Message...",
-			"commandPalette": "gitlens:enabled && !gitlens:readonly && !gitlens:untrusted && !gitlens:hasVirtualFolders && gitlens:gk:organization:ai:enabled && config.gitlens.ai.generateCommitMessage.enabled"
-		},
 		"gitlens.getStarted": {
 			"label": "Get Started",
 			"commandPalette": true,
@@ -1452,6 +1452,18 @@
 					{
 						"when": "webviewItem =~ /gitlens:contributor\\b(?!.*?\\b\\+current\\b)/ && !gitlens:hasVirtualFolders && !gitlens:readonly && !gitlens:untrusted",
 						"group": "1_gitlens_actions",
+						"order": 2
+					}
+				]
+			}
+		},
+		"gitlens.graph.ai.generateCommitMessage": {
+			"label": "Generate Commit Message...",
+			"menus": {
+				"webview/context": [
+					{
+						"when": "webviewItem == gitlens:wip && config.gitlens.ai.generateCommitMessage.enabled && !listMultiSelection && gitlens:gk:organization:ai:enabled && !gitlens:hasVirtualFolders && !gitlens:readonly && !gitlens:untrusted",
+						"group": "1_gitlens",
 						"order": 2
 					}
 				]
@@ -2074,18 +2086,6 @@
 						"when": "webviewItem =~ /gitlens:upstreamStatus\\b/",
 						"group": "1_gitlens_actions",
 						"order": 3
-					}
-				]
-			}
-		},
-		"gitlens.graph.generateCommitMessage": {
-			"label": "Generate Commit Message...",
-			"menus": {
-				"webview/context": [
-					{
-						"when": "webviewItem == gitlens:wip && config.gitlens.ai.generateCommitMessage.enabled && !listMultiSelection && gitlens:gk:organization:ai:enabled && !gitlens:hasVirtualFolders && !gitlens:readonly && !gitlens:untrusted",
-						"group": "1_gitlens",
-						"order": 2
 					}
 				]
 			}
@@ -3581,7 +3581,7 @@
 				]
 			}
 		},
-		"gitlens.scm.generateCommitMessage": {
+		"gitlens.scm.ai.generateCommitMessage": {
 			"label": "Generate Commit Message with GitLens...",
 			"menus": {
 				"git.commit": [
@@ -4901,6 +4901,24 @@
 						"when": "view == gitlens.views.remotes && !gitlens:hasVirtualFolders && !gitlens:readonly && !gitlens:untrusted",
 						"group": "navigation",
 						"order": 1
+					}
+				]
+			}
+		},
+		"gitlens.views.ai.generateChangelog": {
+			"label": "Generate Changelog",
+			"icon": "$(sparkle)",
+			"menus": {
+				"view/item/context": [
+					{
+						"when": "viewItem =~ /gitlens:compare:results:commits\\b/ && gitlens:gk:organization:ai:enabled",
+						"group": "inline",
+						"order": 98
+					},
+					{
+						"when": "viewItem =~ /gitlens:compare:results:commits\\b/ && !listMultiSelection && gitlens:gk:organization:ai:enabled",
+						"group": "4_gitlens_actions",
+						"order": 2
 					}
 				]
 			}
@@ -7170,24 +7188,6 @@
 					{
 						"when": "view == gitlens.views.fileHistory && !config.gitlens.advanced.fileHistoryShowMergeCommits && !gitlens:views:fileHistory:cursorFollowing",
 						"group": "3_gitlens",
-						"order": 2
-					}
-				]
-			}
-		},
-		"gitlens.views.generateChangelog": {
-			"label": "Generate Changelog",
-			"icon": "$(sparkle)",
-			"menus": {
-				"view/item/context": [
-					{
-						"when": "viewItem =~ /gitlens:compare:results:commits\\b/",
-						"group": "inline",
-						"order": 98
-					},
-					{
-						"when": "viewItem =~ /gitlens:compare:results:commits\\b/ && !listMultiSelection",
-						"group": "4_gitlens_actions",
 						"order": 2
 					}
 				]
