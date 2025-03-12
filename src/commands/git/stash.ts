@@ -19,7 +19,7 @@ import { formatPath } from '../../system/-webview/formatPath';
 import { getLoggableName, Logger } from '../../system/logger';
 import { startLogScope } from '../../system/logger.scope';
 import { defer } from '../../system/promise';
-import { pad } from '../../system/string';
+import { pad, pluralize } from '../../system/string';
 import type { ViewsWithRepositoryFolders } from '../../views/viewBase';
 import type {
 	AsyncStepResultGenerator,
@@ -111,9 +111,6 @@ const subcommandToTitleMap = new Map<State['subcommand'], string>([
 	['rename', 'Rename'],
 ]);
 function getTitle(title: string, subcommand: State['subcommand'] | undefined) {
-	if (subcommand === 'drop') {
-		title = 'Stashes';
-	}
 	return subcommand == null ? title : `${subcommandToTitleMap.get(subcommand)} ${title}`;
 }
 
@@ -441,6 +438,11 @@ export class StashGitCommand extends QuickCommand<State> {
 
 				state.references = result;
 			}
+
+			context.title = getTitle(
+				pluralize('Stash', state.references.length, { only: true, plural: 'Stashes' }),
+				state.subcommand,
+			);
 
 			const result = yield* this.dropCommandConfirmStep(state, context);
 			if (result === StepResultBreak) continue;
