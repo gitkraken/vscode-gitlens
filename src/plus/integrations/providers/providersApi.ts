@@ -817,6 +817,7 @@ export class ProvidersApi {
 								login: pr.repository.owner,
 							},
 						},
+						version: pr.version,
 					},
 					...options,
 				},

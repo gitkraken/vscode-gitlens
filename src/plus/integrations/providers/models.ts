@@ -260,6 +260,7 @@ export type MergePullRequestFn =
 					headRef: {
 						oid: string | null;
 					} | null;
+					version?: number; // Used by BitbucketServer
 				} & SetPullRequestInput;
 				mergeStrategy?: GitMergeStrategy;
 			},
@@ -992,6 +993,7 @@ export function fromProviderPullRequest(
 			? fromProviderBuildStatusState[pr.headCommit.buildStatuses[0].state]
 			: undefined,
 		options?.project,
+		pr.version,
 	);
 }
 
