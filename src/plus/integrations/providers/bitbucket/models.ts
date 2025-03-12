@@ -1,8 +1,26 @@
-import { RepositoryAccessLevel } from '../../../../git/models/issue';
+import type { IssueRepository } from '../../../../git/models/issue';
+import { Issue, RepositoryAccessLevel } from '../../../../git/models/issue';
 import type { IssueOrPullRequestState } from '../../../../git/models/issueOrPullRequest';
 import type { PullRequestMember, PullRequestReviewer } from '../../../../git/models/pullRequest';
-import { PullRequest, PullRequestReviewDecision, PullRequestReviewState } from '../../../../git/models/pullRequest';
+import {
+	PullRequest,
+	PullRequestMergeableState,
+	PullRequestReviewDecision,
+	PullRequestReviewState,
+} from '../../../../git/models/pullRequest';
 import type { Provider } from '../../../../git/models/remoteProvider';
+import type { ResourceDescriptor } from '../../integration';
+
+export interface BitbucketRepositoryDescriptor extends ResourceDescriptor {
+	owner: string;
+	name: string;
+}
+
+export interface BitbucketWorkspaceDescriptor extends ResourceDescriptor {
+	id: string;
+	name: string;
+	slug: string;
+}
 
 export type BitbucketPullRequestState = 'OPEN' | 'DECLINED' | 'MERGED' | 'SUPERSEDED';
 
@@ -24,6 +42,30 @@ interface BitbucketUser {
 	};
 }
 
+interface BitbucketWorkspace {
+	type: 'workspace';
+	uuid: string;
+	name: string;
+	slug: string;
+	links: {
+		self: BitbucketLink;
+		html: BitbucketLink;
+		avatar: BitbucketLink;
+	};
+}
+
+interface BitbucketProject {
+	type: 'project';
+	key: string;
+	uuid: string;
+	name: string;
+	links: {
+		self: BitbucketLink;
+		html: BitbucketLink;
+		avatar: BitbucketLink;
+	};
+}
+
 interface BitbucketPullRequestParticipant {
 	type: 'participant';
 	user: BitbucketUser;
@@ -33,15 +75,28 @@ interface BitbucketPullRequestParticipant {
 	participated_on: null | string;
 }
 
-interface BitbucketRepository {
+export interface BitbucketRepository {
 	type: 'repository';
 	uuid: string;
 	full_name: string;
 	name: string;
+	slug: string;
 	description?: string;
+	is_private: boolean;
+	parent: null | BitbucketRepository;
+	scm: 'git';
+	owner: BitbucketUser;
+	workspace: BitbucketWorkspace;
+	project: BitbucketProject;
+	created_on: string;
+	updated_on: string;
+	size: number;
+	language: string;
+	has_issues: boolean;
+	has_wiki: boolean;
+	fork_policy: 'allow_forks' | 'no_public_forks' | 'no_forks';
+	website: string;
 	mainbranch?: BitbucketBranch;
-	parent?: BitbucketRepository;
-	owner?: BitbucketUser;
 	links: {
 		self: BitbucketLink;
 		html: BitbucketLink;
@@ -142,6 +197,12 @@ export interface BitbucketIssue {
 	created_on: string;
 	updated_on: string;
 	repository: BitbucketRepository;
+	votes?: number;
+	content: {
+		raw: string;
+		markup: string;
+		html: string;
+	};
 	links: {
 		self: BitbucketLink;
 		html: BitbucketLink;
@@ -186,6 +247,10 @@ export function isClosedBitbucketPullRequestState(state: BitbucketPullRequestSta
 	return bitbucketPullRequestStateToState(state) !== 'opened';
 }
 
+export function isClosedBitbucketIssueState(state: BitbucketIssueState): boolean {
+	return bitbucketIssueStateToState(state) !== 'opened';
+}
+
 export function fromBitbucketUser(user: BitbucketUser): PullRequestMember {
 	return {
 		avatarUrl: user.links.avatar.href,
@@ -210,7 +275,7 @@ export function fromBitbucketParticipantToReviewer(
 			    ? PullRequestReviewState.Commented
 			    : prt.user.uuid === closedBy?.uuid && prState === 'DECLINED'
 			      ? PullRequestReviewState.Dismissed
-			      : PullRequestReviewState.Pending,
+			      : PullRequestReviewState.ReviewRequested,
 	};
 }
 
@@ -241,6 +306,46 @@ function getBitbucketReviewDecision(pr: BitbucketPullRequest): PullRequestReview
 	return PullRequestReviewDecision.ReviewRequired; // nobody has reviewed yet.
 }
 
+function fromBitbucketRepository(repo: BitbucketRepository): IssueRepository {
+	return {
+		owner: repo.full_name.split('/')[0],
+		repo: repo.name,
+		id: repo.uuid,
+		// TODO: Remove this assumption once actual access level is available
+		accessLevel: RepositoryAccessLevel.Write,
+	};
+}
+
+export function fromBitbucketIssue(issue: BitbucketIssue, provider: Provider): Issue {
+	return new Issue(
+		provider,
+		issue.id.toString(),
+		issue.id.toString(),
+		issue.title,
+		issue.links.html.href,
+		new Date(issue.created_on),
+		new Date(issue.updated_on),
+		isClosedBitbucketIssueState(issue.state),
+		bitbucketIssueStateToState(issue.state),
+		fromBitbucketUser(issue.reporter),
+		issue.assignee ? [fromBitbucketUser(issue.assignee)] : [],
+		fromBitbucketRepository(issue.repository),
+		undefined, // closedDate
+		undefined, // labels
+		undefined, // commentsCount
+		issue.votes, // thumbsUpCount
+		issue.content.html, // body
+		!issue.repository?.project
+			? undefined
+			: {
+					id: issue.repository.project.uuid,
+					name: issue.repository.project.name,
+					resourceId: issue.repository.project.uuid,
+					resourceName: issue.repository.project.name,
+			  },
+	);
+}
+
 export function fromBitbucketPullRequest(pr: BitbucketPullRequest, provider: Provider): PullRequest {
 	return new PullRequest(
 		provider,
@@ -249,19 +354,14 @@ export function fromBitbucketPullRequest(pr: BitbucketPullRequest, provider: Pro
 		pr.id.toString(),
 		pr.title,
 		pr.links.html.href,
-		{
-			owner: pr.destination.repository.full_name.split('/')[0],
-			repo: pr.destination.repository.name,
-			id: pr.destination.repository.uuid,
-			// TODO: Remove this assumption once actual access level is available
-			accessLevel: RepositoryAccessLevel.Write,
-		},
+		fromBitbucketRepository(pr.destination.repository),
 		bitbucketPullRequestStateToState(pr.state),
 		new Date(pr.created_on),
 		new Date(pr.updated_on),
 		pr.closed_by ? new Date(pr.updated_on) : undefined,
 		pr.state === 'MERGED' ? new Date(pr.updated_on) : undefined,
-		undefined, // mergeableState
+		// TODO: Remove this assumption once actual mergeable state is available
+		PullRequestMergeableState.Mergeable, // mergeableState
 		undefined, // viewerCanUpdate
 		{
 			base: {
@@ -291,7 +391,7 @@ export function fromBitbucketPullRequest(pr: BitbucketPullRequest, provider: Pro
 		pr.participants // reviewRequests:PullRequestReviewer[]
 			?.filter(prt => prt.role === 'REVIEWER')
 			.map(prt => fromBitbucketParticipantToReviewer(prt, pr.closed_by, pr.state))
-			.filter(rv => rv.state === PullRequestReviewState.Pending),
+			.filter(rv => rv.state === PullRequestReviewState.ReviewRequested),
 		pr.participants // latestReviews:PullRequestReviewer[]
 			?.filter(prt => prt.participated_on != null)
 			.map(prt => fromBitbucketParticipantToReviewer(prt, pr.closed_by, pr.state)),

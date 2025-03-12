@@ -1,5 +1,5 @@
 import { fetch } from '@env/fetch';
-import type { AIModel } from './aiProviderService';
+import type { AIModel } from './models/model';
 import { OpenAICompatibleProvider } from './openAICompatibleProvider';
 
 const provider = { id: 'huggingface', name: 'Hugging Face' } as const;

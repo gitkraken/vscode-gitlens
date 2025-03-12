@@ -1366,15 +1366,15 @@ export class GraphWebviewProvider implements WebviewProvider<State, State, Graph
 					const upstreamMetadata: GraphUpstreamMetadata = {
 						name: getBranchNameWithoutRemote(upstream.name),
 						owner: getRemoteNameFromBranchName(upstream.name),
-						ahead: branch.state.ahead,
-						behind: branch.state.behind,
+						ahead: branch.upstream?.state.ahead ?? 0,
+						behind: branch.upstream?.state.behind ?? 0,
 						context: serializeWebviewItemContext<GraphItemContext>({
 							webviewItem: 'gitlens:upstreamStatus',
 							webviewItemValue: {
 								type: 'upstreamStatus',
 								ref: getReferenceFromBranch(branch),
-								ahead: branch.state.ahead,
-								behind: branch.state.behind,
+								ahead: branch.upstream?.state.ahead ?? 0,
+								behind: branch.upstream?.state.behind ?? 0,
 							},
 						}),
 					};
@@ -2556,7 +2556,7 @@ export class GraphWebviewProvider implements WebviewProvider<State, State, Graph
 
 		const branch = getSettledValue(branchResult);
 		if (branch != null) {
-			branchState = { ...branch.state };
+			branchState = { ...(branch.upstream?.state ?? { ahead: 0, behind: 0 }) };
 
 			const worktreesByBranch = data?.worktreesByBranch ?? (await getWorktreesByBranch(this.repository));
 			branchState.worktree = worktreesByBranch?.has(branch.id) ?? false;
@@ -3717,11 +3717,10 @@ export class GraphWebviewProvider implements WebviewProvider<State, State, Graph
 		const ref = this.getGraphItemRef(item);
 		if (ref == null) return Promise.resolve();
 
-		const branchesProvider = this.container.git.branches(ref.repoPath);
-		const branch = await branchesProvider.getBranch();
+		const branch = await this.container.git.branches(ref.repoPath).getBranch();
 		if (branch == null) return undefined;
 
-		const commonAncestor = await branchesProvider.getMergeBase(branch.ref, ref.ref);
+		const commonAncestor = await this.container.git.refs(ref.repoPath).getMergeBase(branch.ref, ref.ref);
 		if (commonAncestor == null) return undefined;
 
 		return this.container.views.searchAndCompare.compare(ref.repoPath, '', {
@@ -3752,11 +3751,10 @@ export class GraphWebviewProvider implements WebviewProvider<State, State, Graph
 		const ref = this.getGraphItemRef(item);
 		if (ref == null) return Promise.resolve();
 
-		const branchesProvider = this.container.git.branches(ref.repoPath);
-		const branch = await branchesProvider.getBranch();
+		const branch = await this.container.git.branches(ref.repoPath).getBranch();
 		if (branch == null) return undefined;
 
-		const commonAncestor = await branchesProvider.getMergeBase(branch.ref, ref.ref);
+		const commonAncestor = await this.container.git.refs(ref.repoPath).getMergeBase(branch.ref, ref.ref);
 		if (commonAncestor == null) return undefined;
 
 		return this.container.views.searchAndCompare.compare(ref.repoPath, ref.ref, {
@@ -3770,11 +3768,10 @@ export class GraphWebviewProvider implements WebviewProvider<State, State, Graph
 		const ref = this.getGraphItemRef(item);
 		if (ref == null) return Promise.resolve();
 
-		const branchesProvider = this.container.git.branches(ref.repoPath);
-		const branch = await branchesProvider.getBranch();
+		const branch = await this.container.git.branches(ref.repoPath).getBranch();
 		if (branch == null) return undefined;
 
-		const commonAncestor = await branchesProvider.getMergeBase(branch.ref, ref.ref);
+		const commonAncestor = await this.container.git.refs(ref.repoPath).getMergeBase(branch.ref, ref.ref);
 		if (commonAncestor == null) return undefined;
 
 		return openComparisonChanges(
@@ -3894,7 +3891,7 @@ export class GraphWebviewProvider implements WebviewProvider<State, State, Graph
 				state: {
 					repos: ref.repoPath,
 					reference: ref,
-					skipWorktreeConfirmations: true,
+					worktreeDefaultOpen: 'new',
 				},
 			});
 		}
@@ -4225,6 +4222,9 @@ function toGraphIssueTrackerType(id: string): GraphIssueTrackerType | undefined 
 		case 'azure-devops':
 			// TODO: Remove the casting once this is officially recognized by the component
 			return 'azureDevops' as GraphIssueTrackerType;
+		case 'bitbucket':
+			// TODO: Remove the casting once this is officially recognized by the component
+			return HostingIntegrationId.Bitbucket as GraphIssueTrackerType;
 		default:
 			return undefined;
 	}

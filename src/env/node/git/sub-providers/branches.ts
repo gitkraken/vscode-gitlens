@@ -12,12 +12,17 @@ import type {
 import { GitBranch } from '../../../../git/models/branch';
 import type { MergeConflict } from '../../../../git/models/mergeConflict';
 import type { GitBranchReference } from '../../../../git/models/reference';
-import { parseGitBranches, parseGitBranchesDefaultFormat } from '../../../../git/parsers/branchParser';
 import { parseMergeTreeConflict } from '../../../../git/parsers/mergeTreeParser';
+import { getBranchParser } from '../../../../git/parsers/refParser';
 import { getReferenceFromBranch } from '../../../../git/utils/-webview/reference.utils';
 import type { BranchSortOptions } from '../../../../git/utils/-webview/sorting';
 import { sortBranches, sortContributors } from '../../../../git/utils/-webview/sorting';
-import { getLocalBranchByUpstream, isDetachedHead } from '../../../../git/utils/branch.utils';
+import {
+	getLocalBranchByUpstream,
+	isDetachedHead,
+	isRemoteHEAD,
+	parseUpstream,
+} from '../../../../git/utils/branch.utils';
 import { createRevisionRange } from '../../../../git/utils/revision.utils';
 import { configuration } from '../../../../system/-webview/configuration';
 import { filterMap } from '../../../../system/array';
@@ -26,7 +31,9 @@ import { log } from '../../../../system/decorators/log';
 import { Logger } from '../../../../system/logger';
 import { getLogScope } from '../../../../system/logger.scope';
 import { PageableResult } from '../../../../system/paging';
+import { normalizePath } from '../../../../system/path';
 import { getSettledValue } from '../../../../system/promise';
+import { maybeStopWatch } from '../../../../system/stopwatch';
 import type { Git } from '../git';
 import { GitErrors, gitLogDefaultConfigs } from '../git';
 import type { LocalGitProvider } from '../localGitProvider';
@@ -76,7 +83,7 @@ export class BranchesGitSubProvider implements GitBranchesSubProvider {
 
 		const [name, upstream] = data[0].split('\n');
 
-		const [pausedOpStatusResult, committerDateResult] = await Promise.allSettled([
+		const [pausedOpStatusResult, committerDateResult, defaultWorktreePathResult] = await Promise.allSettled([
 			isDetachedHead(name) ? this.provider.status?.getPausedOperationStatus(repoPath) : undefined,
 			this.git
 				.exec(
@@ -88,23 +95,23 @@ export class BranchesGitSubProvider implements GitBranchesSubProvider {
 					'--',
 				)
 				.then(data => (!data.length ? undefined : data.trim())),
+			this.provider.config.getDefaultWorktreePath?.(repoPath),
 		]);
 
 		const committerDate = getSettledValue(committerDateResult);
 		const pausedOpStatus = getSettledValue(pausedOpStatusResult);
 		const rebaseStatus = pausedOpStatus?.type === 'rebase' ? pausedOpStatus : undefined;
+		const defaultWorktreePath = getSettledValue(defaultWorktreePathResult);
 
 		return new GitBranch(
 			this.container,
 			repoPath,
-			rebaseStatus?.incoming.name ?? name,
-			false,
+			rebaseStatus?.incoming.name ?? `refs/heads/${name}`,
 			true,
 			committerDate != null ? new Date(Number(committerDate) * 1000) : undefined,
 			data[1],
-			upstream ? { name: upstream, missing: false } : undefined,
-			undefined,
-			undefined,
+			upstream ? { name: upstream, missing: false, state: { ahead: 0, behind: 0 } } : undefined,
+			{ path: repoPath, isDefault: repoPath === defaultWorktreePath },
 			undefined,
 			rebaseStatus != null,
 		);
@@ -121,16 +128,20 @@ export class BranchesGitSubProvider implements GitBranchesSubProvider {
 	): Promise<PagedResult<GitBranch>> {
 		if (repoPath == null) return emptyPagedResult;
 
+		const scope = getLogScope();
+
 		let resultsPromise = this.cache.branches?.get(repoPath);
 		if (resultsPromise == null) {
 			async function load(this: BranchesGitSubProvider): Promise<PagedResult<GitBranch>> {
 				try {
+					const parser = getBranchParser();
+
 					const data = await this.git.exec(
 						{ cwd: repoPath },
 						'for-each-ref',
-						`--format=${parseGitBranchesDefaultFormat}`,
-						'refs/heads',
-						'refs/remotes',
+						...parser.arguments,
+						'refs/heads/',
+						'refs/remotes/',
 					);
 					// If we don't get any data, assume the repo doesn't have any commits yet so check if we have a current branch
 					if (!data?.length) {
@@ -138,11 +149,52 @@ export class BranchesGitSubProvider implements GitBranchesSubProvider {
 						return current != null ? { values: [current] } : emptyPagedResult;
 					}
 
-					const branches = parseGitBranches(this.container, data, repoPath);
+					const defaultWorktreePath = await this.provider.config.getDefaultWorktreePath?.(repoPath);
+
+					using sw = maybeStopWatch(scope, { log: false, logLevel: 'debug' });
+
+					const branches: GitBranch[] = [];
+
+					let hasCurrent = false;
+
+					for (const entry of parser.parse(data)) {
+						// Skip HEAD refs in remote branches
+						if (isRemoteHEAD(entry.name)) continue;
+
+						const upstream = parseUpstream(entry.upstream, entry.upstreamTracking);
+
+						const current = entry.current === '*';
+						if (current) {
+							hasCurrent = true;
+						}
+
+						const worktreePath = normalizePath(entry.worktreePath);
+
+						branches.push(
+							new GitBranch(
+								this.container,
+								repoPath,
+								entry.name,
+								current,
+								entry.date ? new Date(entry.date) : undefined,
+								entry.sha,
+								upstream,
+								worktreePath
+									? {
+											path: worktreePath,
+											isDefault: worktreePath === defaultWorktreePath,
+									  }
+									: undefined,
+							),
+						);
+					}
+
+					sw?.stop({ suffix: ` parsed ${branches.length} branches` });
+
 					if (!branches.length) return emptyPagedResult;
 
 					// If we don't have a current branch, check if we can find it another way (likely detached head)
-					if (!branches.some(b => b.current)) {
+					if (!hasCurrent) {
 						const current = await this.getCurrentBranch(repoPath);
 						if (current != null) {
 							// replace the current branch if it already exists and add it first if not
@@ -200,7 +252,7 @@ export class BranchesGitSubProvider implements GitBranchesSubProvider {
 				if (baseOrTargetBranch == null) return undefined;
 			}
 
-			const mergeBase = await this.getMergeBase(repoPath, ref, baseOrTargetBranch);
+			const mergeBase = await this.provider.refs.getMergeBase(repoPath, ref, baseOrTargetBranch);
 			if (mergeBase == null) return undefined;
 
 			const contributors = await this.provider.contributors.getContributors(
@@ -312,32 +364,6 @@ export class BranchesGitSubProvider implements GitBranchesSubProvider {
 	}
 
 	@log()
-	async getMergeBase(
-		repoPath: string,
-		ref1: string,
-		ref2: string,
-		options?: { forkPoint?: boolean },
-	): Promise<string | undefined> {
-		const scope = getLogScope();
-
-		try {
-			const data = await this.git.exec(
-				{ cwd: repoPath },
-				'merge-base',
-				options?.forkPoint ? '--fork-point' : undefined,
-				ref1,
-				ref2,
-			);
-			if (!data) return undefined;
-
-			return data.split('\n')[0].trim() || undefined;
-		} catch (ex) {
-			Logger.error(ex, scope);
-			return undefined;
-		}
-	}
-
-	@log()
 	async createBranch(repoPath: string, name: string, sha: string): Promise<void> {
 		await this.git.exec({ cwd: repoPath }, 'branch', name, sha);
 	}
@@ -394,10 +420,37 @@ export class BranchesGitSubProvider implements GitBranchesSubProvider {
 			} catch {}
 
 			// Cherry-pick detection (handles cherry-picks, rebases, etc)
-			const data = await this.git.exec({ cwd: repoPath }, 'cherry', '--abbrev', '-v', into.name, branch.name);
+			let data = await this.git.exec({ cwd: repoPath }, 'cherry', '--abbrev', '-v', into.name, branch.name);
 			// Check if there are no lines or all lines startwith a `-` (i.e. likely merged)
-			if (!data || data.split('\n').every(l => l.startsWith('-'))) {
+			if (
+				!data ||
+				data
+					.trim()
+					.split('\n')
+					.every(l => l.startsWith('-'))
+			) {
 				return { merged: true, confidence: 'high' };
+			}
+
+			// Attempt to detect squash merges by checking if the diff of the branch can be cleanly removed from the target
+			const mergeBase = await this.provider.refs.getMergeBase(repoPath, into.name, branch.name);
+			data = await this.git.exec<string>({ cwd: repoPath }, 'diff', mergeBase, branch.name);
+			if (data?.length) {
+				// Create a temporary index file
+				await using disposableIndex = await this.provider.staging!.createTemporaryIndex(repoPath, into.name);
+				const { env } = disposableIndex;
+
+				data = await this.git.exec<string>(
+					{ cwd: repoPath, env: env, stdin: data },
+					'apply',
+					'--cached',
+					'--reverse',
+					'--check',
+					'-',
+				);
+				if (!data?.trim().length) {
+					return { merged: true, confidence: 'medium' };
+				}
 			}
 
 			return { merged: false };
@@ -507,7 +560,7 @@ export class BranchesGitSubProvider implements GitBranchesSubProvider {
 				}
 
 				if (mergeBase != null) {
-					const branch = await this.getValidatedBranchName(repoPath, mergeBase);
+					const branch = await this.provider.refs.getSymbolicReferenceName(repoPath, mergeBase);
 					if (branch != null) {
 						if (update) {
 							void this.setBaseBranchName(repoPath, ref, branch);
@@ -551,11 +604,11 @@ export class BranchesGitSubProvider implements GitBranchesSubProvider {
 				let name: string | undefined = match[1];
 				if (name !== 'HEAD') {
 					if (options?.upstream) {
-						const upstream = await this.getValidatedBranchName(repoPath, `${name}@{u}`);
+						const upstream = await this.provider.refs.getSymbolicReferenceName(repoPath, `${name}@{u}`);
 						if (upstream) return upstream;
 					}
 
-					name = await this.getValidatedBranchName(repoPath, name);
+					name = await this.provider.refs.getSymbolicReferenceName(repoPath, name);
 					if (name) return name;
 				}
 			}
@@ -575,11 +628,11 @@ export class BranchesGitSubProvider implements GitBranchesSubProvider {
 			if (match != null && match.length === 2) {
 				let name: string | undefined = match[1];
 				if (options?.upstream) {
-					const upstream = await this.getValidatedBranchName(repoPath, `${name}@{u}`);
+					const upstream = await this.provider.refs.getSymbolicReferenceName(repoPath, `${name}@{u}`);
 					if (upstream) return upstream;
 				}
 
-				name = await this.getValidatedBranchName(repoPath, name);
+				name = await this.provider.refs.getSymbolicReferenceName(repoPath, name);
 				if (name) return name;
 			}
 		} catch {}
@@ -593,7 +646,7 @@ export class BranchesGitSubProvider implements GitBranchesSubProvider {
 
 		let target = await this.provider.config.getConfig(repoPath, targetBaseConfigKey);
 		if (target != null) {
-			target = await this.getValidatedBranchName(repoPath, target);
+			target = await this.provider.refs.getSymbolicReferenceName(repoPath, target);
 		}
 		return target?.trim() || undefined;
 	}
@@ -608,18 +661,5 @@ export class BranchesGitSubProvider implements GitBranchesSubProvider {
 	@log()
 	async renameBranch(repoPath: string, oldName: string, newName: string): Promise<void> {
 		await this.git.exec({ cwd: repoPath }, 'branch', '-m', oldName, newName);
-	}
-
-	private async getValidatedBranchName(repoPath: string, name: string): Promise<string | undefined> {
-		const data = await this.git.exec(
-			{ cwd: repoPath, errors: GitErrorHandling.Ignore },
-			'rev-parse',
-			'--verify',
-			'--quiet',
-			'--symbolic-full-name',
-			'--abbrev-ref',
-			name,
-		);
-		return data?.trim() || undefined;
 	}
 }

@@ -222,11 +222,13 @@ export function createLogParser<
 	}
 
 	const args = ['-z', `--format=${format}`];
-	if (options?.additionalArgs != null && options.additionalArgs.length > 0) {
+	if (options?.additionalArgs?.length) {
 		args.push(...options.additionalArgs);
 	}
 
 	function* parse(data: string | string[]): Generator<T & TAdditional> {
+		if (!data) return;
+
 		let entry = {} as unknown as T & TAdditional;
 		let fieldCount = 0;
 		let field;

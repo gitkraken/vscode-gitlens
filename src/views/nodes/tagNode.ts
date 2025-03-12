@@ -83,9 +83,7 @@ export class TagNode extends ViewRefNode<'tag', ViewsWithTags, GitTagReference> 
 		item.id = this.id;
 		item.contextValue = ContextValues.Tag;
 		item.description = emojify(this.tag.message);
-		item.tooltip = `${this.tag.name}${pad(GlyphChars.Dash, 2, 2)}${shortenRevision(this.tag.sha, {
-			force: true,
-		})}${
+		item.tooltip = `${this.tag.name}${pad(GlyphChars.Dash, 2, 2)}${shortenRevision(this.tag.sha)}${
 			this.tag.date != null
 				? `\n${this.tag.formatDateFromNow()} (${this.tag.formatDate(
 						this.view.container.TagDateFormatting.dateFormat,

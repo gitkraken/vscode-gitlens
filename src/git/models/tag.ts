@@ -3,7 +3,7 @@ import type { Container } from '../../container';
 import { formatDate, fromNow } from '../../system/date';
 import { memoize } from '../../system/decorators/-webview/memoize';
 import { getLoggableName } from '../../system/logger';
-import { getTagId } from '../utils/tag.utils';
+import { getTagId, parseRefName } from '../utils/tag.utils';
 import type { GitTagReference } from './reference';
 
 export function isTag(tag: unknown): tag is GitTag {
@@ -14,16 +14,23 @@ export class GitTag implements GitTagReference {
 	readonly refType = 'tag';
 	readonly id: string;
 
+	private readonly _name: string;
+	get name(): string {
+		return this._name;
+	}
+
 	constructor(
 		private readonly container: Container,
 		public readonly repoPath: string,
-		public readonly name: string,
+		public readonly refName: string,
 		public readonly sha: string,
 		public readonly message: string,
 		public readonly date: Date | undefined,
 		public readonly commitDate: Date | undefined,
 	) {
-		this.id = getTagId(repoPath, name);
+		({ name: this._name } = parseRefName(refName));
+
+		this.id = getTagId(repoPath, this._name);
 	}
 
 	toString(): string {

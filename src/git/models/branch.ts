@@ -13,11 +13,13 @@ import {
 	getRemoteNameFromBranchName,
 	getRemoteNameSlashIndex,
 	isDetachedHead,
+	parseRefName,
 } from '../utils/branch.utils';
 import { getUpstreamStatus } from '../utils/status.utils';
 import type { PullRequest, PullRequestState } from './pullRequest';
 import type { GitBranchReference } from './reference';
 import type { GitRemote } from './remote';
+import type { GitWorktree } from './worktree';
 
 export function isBranch(branch: unknown): branch is GitBranch {
 	return branch instanceof GitBranch;
@@ -27,35 +29,39 @@ export class GitBranch implements GitBranchReference {
 	readonly refType = 'branch';
 	readonly detached: boolean;
 	readonly id: string;
-	readonly upstream?: { name: string; missing: boolean };
-	readonly state: GitTrackingState;
+
+	private readonly _name: string;
+	get name(): string {
+		return this._name;
+	}
+
+	private readonly _remote: boolean;
+	get remote(): boolean {
+		return this._remote;
+	}
 
 	constructor(
 		private readonly container: Container,
 		public readonly repoPath: string,
-		public readonly name: string,
-		public readonly remote: boolean,
+		public readonly refName: string,
 		public readonly current: boolean,
 		public readonly date: Date | undefined,
 		public readonly sha?: string,
-		upstream?: { name: string; missing: boolean },
-		ahead: number = 0,
-		behind: number = 0,
+		public readonly upstream?: GitTrackingUpstream,
+		public readonly worktree?: { path: string; isDefault: boolean },
 		detached: boolean = false,
 		public readonly rebasing: boolean = false,
 	) {
-		this.id = getBranchId(repoPath, remote, name);
+		({ name: this._name, remote: this._remote } = parseRefName(refName));
 
-		this.detached = detached || (this.current ? isDetachedHead(name) : false);
+		this.id = getBranchId(repoPath, this._remote, this._name);
+
+		this.detached = detached || (this.current ? isDetachedHead(this._name) : false);
 		if (this.detached) {
-			this.name = formatDetachedHeadName(this.sha!);
+			this._name = formatDetachedHeadName(this.sha!);
 		}
 
-		this.upstream = upstream?.name == null || upstream.name.length === 0 ? undefined : upstream;
-		this.state = {
-			ahead: ahead,
-			behind: behind,
-		};
+		this.upstream = upstream?.name ? upstream : undefined;
 	}
 
 	toString(): string {
@@ -77,9 +83,9 @@ export class GitBranch implements GitBranchReference {
 		if (this.upstream == null) return this.detached ? 'detached' : 'local';
 
 		if (this.upstream.missing) return 'missingUpstream';
-		if (this.state.ahead && this.state.behind) return 'diverged';
-		if (this.state.ahead) return 'ahead';
-		if (this.state.behind) return 'behind';
+		if (this.upstream.state.ahead && this.upstream.state.behind) return 'diverged';
+		if (this.upstream.state.ahead) return 'ahead';
+		if (this.upstream.state.behind) return 'behind';
 		return 'upToDate';
 	}
 
@@ -166,7 +172,15 @@ export class GitBranch implements GitBranchReference {
 		separator?: string;
 		suffix?: string;
 	}): string {
-		return getUpstreamStatus(this.upstream, this.state, options);
+		return getUpstreamStatus(this.upstream, options);
+	}
+
+	@debug()
+	async getWorktree(): Promise<GitWorktree | undefined> {
+		if (this.worktree == null) return undefined;
+
+		const worktreePath = this.worktree.path;
+		return this.container.git.worktrees(this.repoPath)?.getWorktree(wt => wt.path === worktreePath);
 	}
 
 	get starred(): boolean {
@@ -184,8 +198,14 @@ export class GitBranch implements GitBranchReference {
 }
 
 export interface GitTrackingState {
-	ahead: number;
-	behind: number;
+	readonly ahead: number;
+	readonly behind: number;
+}
+
+export interface GitTrackingUpstream {
+	readonly name: string;
+	readonly missing: boolean;
+	readonly state: GitTrackingState;
 }
 
 export type GitBranchStatus =

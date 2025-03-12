@@ -4,11 +4,15 @@ import type { GitCache } from '../../../../git/cache';
 import { GitErrorHandling } from '../../../../git/commandOptions';
 import type { GitRefsSubProvider } from '../../../../git/gitProvider';
 import type { GitBranch } from '../../../../git/models/branch';
+import type { GitReference } from '../../../../git/models/reference';
 import { deletedOrMissing } from '../../../../git/models/revision';
 import type { GitTag } from '../../../../git/models/tag';
+import { createReference } from '../../../../git/utils/reference.utils';
 import { isSha, isShaLike, isUncommitted, isUncommittedParent } from '../../../../git/utils/revision.utils';
 import { TimedCancellationSource } from '../../../../system/-webview/cancellation';
 import { log } from '../../../../system/decorators/log';
+import { Logger } from '../../../../system/logger';
+import { getLogScope } from '../../../../system/logger.scope';
 import { getSettledValue } from '../../../../system/promise';
 import type { Git } from '../git';
 import type { LocalGitProvider } from '../localGitProvider';
@@ -20,6 +24,95 @@ export class RefsGitSubProvider implements GitRefsSubProvider {
 		private readonly cache: GitCache,
 		private readonly provider: LocalGitProvider,
 	) {}
+
+	@log()
+	async checkIfCouldBeValidBranchOrTagName(repoPath: string, ref: string): Promise<boolean> {
+		try {
+			const data = await this.git.exec(
+				{ cwd: repoPath, errors: GitErrorHandling.Throw },
+				'check-ref-format',
+				'--branch',
+				ref,
+			);
+			return Boolean(data.trim());
+		} catch {
+			return false;
+		}
+	}
+
+	@log()
+	async getMergeBase(
+		repoPath: string,
+		ref1: string,
+		ref2: string,
+		options?: { forkPoint?: boolean },
+	): Promise<string | undefined> {
+		const scope = getLogScope();
+
+		try {
+			const data = await this.git.exec(
+				{ cwd: repoPath },
+				'merge-base',
+				options?.forkPoint ? '--fork-point' : undefined,
+				ref1,
+				ref2,
+			);
+			if (!data) return undefined;
+
+			return data.split('\n')[0].trim() || undefined;
+		} catch (ex) {
+			Logger.error(ex, scope);
+			return undefined;
+		}
+	}
+
+	@log()
+	async getReference(repoPath: string, ref: string): Promise<GitReference | undefined> {
+		if (!ref || ref === deletedOrMissing) return undefined;
+
+		if (!(await this.isValidReference(repoPath, ref))) return undefined;
+
+		if (ref !== 'HEAD' && !isShaLike(ref)) {
+			const branch = await this.provider.branches.getBranch(repoPath, ref);
+			if (branch != null) {
+				return createReference(branch.ref, repoPath, {
+					id: branch.id,
+					refType: 'branch',
+					name: branch.name,
+					remote: branch.remote,
+					upstream: branch.upstream,
+				});
+			}
+
+			const tag = await this.provider.tags.getTag(repoPath, ref);
+			if (tag != null) {
+				return createReference(tag.ref, repoPath, {
+					id: tag.id,
+					refType: 'tag',
+					name: tag.name,
+				});
+			}
+		}
+
+		return createReference(ref, repoPath, { refType: 'revision' });
+	}
+
+	@log()
+	async getSymbolicReferenceName(repoPath: string, ref: string): Promise<string | undefined> {
+		const supportsEndOfOptions = await this.git.isAtLeastVersion('2.30');
+
+		const data = await this.git.exec(
+			{ cwd: repoPath, errors: GitErrorHandling.Ignore },
+			'rev-parse',
+			'--verify',
+			'--quiet',
+			'--symbolic-full-name',
+			'--abbrev-ref',
+			supportsEndOfOptions ? '--end-of-options' : undefined,
+			ref,
+		);
+		return data?.trim() || undefined;
+	}
 
 	@log({ args: { 1: false } })
 	async hasBranchOrTag(
@@ -42,6 +135,12 @@ export class RefsGitSubProvider implements GitRefsSubProvider {
 		]);
 
 		return branches.length !== 0 || tags.length !== 0;
+	}
+
+	@log()
+	async isValidReference(repoPath: string, ref: string, pathOrUri?: string | Uri): Promise<boolean> {
+		const relativePath = pathOrUri ? this.provider.getRelativePath(pathOrUri, repoPath) : undefined;
+		return Boolean((await this.validateReference(repoPath, ref, relativePath))?.length);
 	}
 
 	@log()
@@ -68,7 +167,7 @@ export class RefsGitSubProvider implements GitRefsSubProvider {
 			// If it doesn't look like a sha at all (e.g. branch name) or is a stash ref (^3) don't try to resolve it
 			if ((!options?.force && !isShaLike(ref)) || ref.endsWith('^3')) return ref;
 
-			return (await this.git.rev_parse__verify(repoPath, ref)) ?? ref;
+			return (await this.validateReference(repoPath, ref)) ?? ref;
 		}
 
 		const relativePath = this.provider.getRelativePath(pathOrUri, repoPath);
@@ -79,7 +178,7 @@ export class RefsGitSubProvider implements GitRefsSubProvider {
 		}
 
 		const [verifiedResult, resolvedResult] = await Promise.allSettled([
-			this.git.rev_parse__verify(repoPath, ref, relativePath),
+			this.validateReference(repoPath, ref, relativePath),
 			this.git.log__file_recent(repoPath, relativePath, {
 				ref: ref,
 				cancellation: cancellation?.token,
@@ -87,7 +186,7 @@ export class RefsGitSubProvider implements GitRefsSubProvider {
 		]);
 
 		const verified = getSettledValue(verifiedResult);
-		if (verified == null) return deletedOrMissing;
+		if (!verified) return deletedOrMissing;
 
 		const resolved = getSettledValue(resolvedResult);
 
@@ -97,26 +196,19 @@ export class RefsGitSubProvider implements GitRefsSubProvider {
 		return cancelled ? ref : resolved ?? ref;
 	}
 
-	@log()
-	async validateBranchOrTagName(repoPath: string, ref: string): Promise<boolean> {
-		try {
-			const data = await this.git.exec(
-				{ cwd: repoPath, errors: GitErrorHandling.Throw },
-				'check-ref-format',
-				'--branch',
-				ref,
-			);
-			return Boolean(data.trim());
-		} catch {
-			return false;
-		}
-	}
+	private async validateReference(repoPath: string, ref: string, relativePath?: string): Promise<string | undefined> {
+		if (!ref) return undefined;
+		if (ref === deletedOrMissing || isUncommitted(ref)) return ref;
 
-	@log()
-	async validateReference(repoPath: string, ref: string): Promise<boolean> {
-		if (ref == null || ref.length === 0) return false;
-		if (ref === deletedOrMissing || isUncommitted(ref)) return true;
+		const supportsEndOfOptions = await this.git.isAtLeastVersion('2.30');
 
-		return (await this.git.rev_parse__verify(repoPath, ref)) != null;
+		const data = await this.git.exec(
+			{ cwd: repoPath, errors: GitErrorHandling.Ignore },
+			'rev-parse',
+			'--verify',
+			supportsEndOfOptions ? '--end-of-options' : undefined,
+			relativePath ? `${ref}:./${relativePath}` : `${ref}^{commit}`,
+		);
+		return data?.trim() || undefined;
 	}
 }

@@ -133,6 +133,7 @@ export const supportedLaunchpadIntegrations: (HostingIntegrationId | CloudSelfHo
 	HostingIntegrationId.GitLab,
 	SelfHostedIntegrationId.CloudGitLabSelfHosted,
 	HostingIntegrationId.AzureDevOps,
+	HostingIntegrationId.Bitbucket,
 ];
 type SupportedLaunchpadIntegrationIds = (typeof supportedLaunchpadIntegrations)[number];
 function isSupportedLaunchpadIntegrationId(id: string): id is SupportedLaunchpadIntegrationIds {
@@ -466,7 +467,7 @@ export class LaunchpadProvider implements Disposable {
 	@log<LaunchpadProvider['switchTo']>({ args: { 0: i => `${i.id} (${i.provider.name} ${i.type})` } })
 	async switchTo(
 		item: LaunchpadItem,
-		options?: { skipWorktreeConfirmations?: boolean; startCodeSuggestion?: boolean },
+		options?: { openInWorktree?: boolean; startCodeSuggestion?: boolean },
 	): Promise<void> {
 		if (item.openRepository?.localBranch?.current) {
 			void showInspectView({
@@ -482,7 +483,7 @@ export class LaunchpadProvider implements Disposable {
 			item,
 			options?.startCodeSuggestion
 				? DeepLinkActionType.SwitchToAndSuggestPullRequest
-				: options?.skipWorktreeConfirmations
+				: options?.openInWorktree
 				  ? DeepLinkActionType.SwitchToPullRequestWorktree
 				  : DeepLinkActionType.SwitchToPullRequest,
 		);
@@ -749,10 +750,15 @@ export class LaunchpadProvider implements Disposable {
 
 				const providerId = pr.provider.id;
 
-				if (
-					!isSupportedLaunchpadIntegrationId(providerId) ||
-					(!isEnrichableRemoteProviderId(providerId) && !isEnrichableIntegrationId(providerId))
-				) {
+				const enrichProviderId = !isSupportedLaunchpadIntegrationId(providerId)
+					? undefined
+					: isEnrichableIntegrationId(providerId)
+					  ? convertIntegrationIdToEnrichProvider(providerId)
+					  : isEnrichableRemoteProviderId(providerId)
+					    ? convertRemoteProviderIdToEnrichProvider(providerId)
+					    : undefined;
+
+				if (!enrichProviderId) {
 					Logger.warn(`Unsupported provider ${providerId}`);
 					return undefined;
 				}
@@ -761,10 +767,7 @@ export class LaunchpadProvider implements Disposable {
 					type: 'pr',
 					id: providerPr.uuid,
 					url: pr.url,
-					provider:
-						providerId === HostingIntegrationId.AzureDevOps
-							? convertIntegrationIdToEnrichProvider(providerId)
-							: convertRemoteProviderIdToEnrichProvider(providerId),
+					provider: enrichProviderId,
 				} satisfies EnrichableItem;
 
 				const repoIdentity = getRepositoryIdentityForPullRequest(pr);

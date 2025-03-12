@@ -338,9 +338,9 @@ export async function openChangesEditor(
 			}
 
 			if (window.tabGroups.all.some(g => g.viewColumn === column)) {
-				await executeCoreCommand('workbench.action.focusRightGroup' as any);
+				await executeCoreCommand('workbench.action.focusRightGroup');
 			} else {
-				await executeCoreCommand('workbench.action.newGroupRight' as any);
+				await executeCoreCommand('workbench.action.newGroupRight');
 			}
 		}
 		await executeCoreCommand(
@@ -364,6 +364,39 @@ export async function openDiffEditor(
 		await executeCoreCommand('vscode.diff', lhs, rhs, title, options);
 	} catch (ex) {
 		Logger.error(ex, 'openDiffEditor');
+		debugger;
+	}
+}
+
+type MergeEditorInputData = { uri: Uri; title?: string; detail?: string; description?: string };
+export type MergeEditorInputs = {
+	base: Uri;
+	input1: MergeEditorInputData;
+	input2: MergeEditorInputData;
+	output: Uri;
+};
+
+export async function openMergeEditor(
+	inputs: MergeEditorInputs,
+	options?: TextDocumentShowOptions & { sourceViewColumn?: ViewColumn },
+): Promise<void> {
+	try {
+		if (options?.viewColumn === ViewColumn.Beside) {
+			let column = (options?.sourceViewColumn ?? window.tabGroups.activeTabGroup?.viewColumn ?? 0) + 1;
+			if (column > ViewColumn.Nine) {
+				column = ViewColumn.One;
+			}
+
+			if (window.tabGroups.all.some(g => g.viewColumn === column)) {
+				await executeCoreCommand('workbench.action.focusRightGroup');
+			} else {
+				await executeCoreCommand('workbench.action.newGroupRight');
+			}
+		}
+
+		await executeCoreCommand('_open.mergeEditor', inputs);
+	} catch (ex) {
+		Logger.error(ex, 'openMergeEditor');
 		debugger;
 	}
 }

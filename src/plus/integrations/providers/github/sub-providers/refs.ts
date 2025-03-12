@@ -3,10 +3,20 @@ import type { Container } from '../../../../../container';
 import type { GitCache } from '../../../../../git/cache';
 import type { GitRefsSubProvider } from '../../../../../git/gitProvider';
 import type { GitBranch } from '../../../../../git/models/branch';
+import type { GitReference } from '../../../../../git/models/reference';
 import { deletedOrMissing } from '../../../../../git/models/revision';
 import type { GitTag } from '../../../../../git/models/tag';
-import { isSha, isShaLike, isUncommitted, isUncommittedParent } from '../../../../../git/utils/revision.utils';
+import { createReference } from '../../../../../git/utils/reference.utils';
+import {
+	createRevisionRange,
+	isSha,
+	isShaLike,
+	isUncommitted,
+	isUncommittedParent,
+} from '../../../../../git/utils/revision.utils';
 import { log } from '../../../../../system/decorators/log';
+import { Logger } from '../../../../../system/logger';
+import { getLogScope } from '../../../../../system/logger.scope';
 import type { GitHubGitProviderInternal } from '../githubGitProvider';
 import { stripOrigin } from '../githubGitProvider';
 
@@ -20,6 +30,70 @@ export class RefsGitSubProvider implements GitRefsSubProvider {
 		private readonly cache: GitCache,
 		private readonly provider: GitHubGitProviderInternal,
 	) {}
+
+	@log()
+	checkIfCouldBeValidBranchOrTagName(ref: string, _repoPath?: string): Promise<boolean> {
+		return Promise.resolve(validBranchOrTagRegex.test(ref));
+	}
+
+	@log()
+	async getMergeBase(
+		repoPath: string,
+		ref1: string,
+		ref2: string,
+		_options?: { forkPoint?: boolean },
+	): Promise<string | undefined> {
+		if (repoPath == null) return undefined;
+
+		const scope = getLogScope();
+
+		const { metadata, github, session } = await this.provider.ensureRepositoryContext(repoPath);
+
+		try {
+			const result = await github.getComparison(
+				session.accessToken,
+				metadata.repo.owner,
+				metadata.repo.name,
+				createRevisionRange(stripOrigin(ref1), stripOrigin(ref2), '...'),
+			);
+			return result?.merge_base_commit?.sha;
+		} catch (ex) {
+			Logger.error(ex, scope);
+			debugger;
+			return undefined;
+		}
+	}
+
+	@log()
+	async getReference(repoPath: string, ref: string): Promise<GitReference | undefined> {
+		if (!ref || ref === deletedOrMissing) return undefined;
+
+		if (!(await this.isValidReference(repoPath, ref))) return undefined;
+
+		if (ref !== 'HEAD' && !isShaLike(ref)) {
+			const branch = await this.provider.branches.getBranch(repoPath, ref);
+			if (branch != null) {
+				return createReference(branch.ref, repoPath, {
+					id: branch.id,
+					refType: 'branch',
+					name: branch.name,
+					remote: branch.remote,
+					upstream: branch.upstream,
+				});
+			}
+
+			const tag = await this.provider.tags.getTag(repoPath, ref);
+			if (tag != null) {
+				return createReference(tag.ref, repoPath, {
+					id: tag.id,
+					refType: 'tag',
+					name: tag.name,
+				});
+			}
+		}
+
+		return createReference(ref, repoPath, { refType: 'revision' });
+	}
 
 	@log()
 	async hasBranchOrTag(
@@ -40,6 +114,11 @@ export class RefsGitSubProvider implements GitRefsSubProvider {
 		]);
 
 		return branches.length !== 0 || tags.length !== 0;
+	}
+
+	@log()
+	isValidReference(_repoPath: string, _ref: string, _pathOrUri?: string | Uri): Promise<boolean> {
+		return Promise.resolve(true);
 	}
 
 	@log()
@@ -86,15 +165,5 @@ export class RefsGitSubProvider implements GitRefsSubProvider {
 		if (resolved != null) return resolved;
 
 		return relativePath ? deletedOrMissing : ref;
-	}
-
-	@log()
-	validateBranchOrTagName(ref: string, _repoPath?: string): Promise<boolean> {
-		return Promise.resolve(validBranchOrTagRegex.test(ref));
-	}
-
-	@log()
-	validateReference(_repoPath: string, _ref: string): Promise<boolean> {
-		return Promise.resolve(true);
 	}
 }

@@ -74,6 +74,7 @@ import type { Promo } from './models/promo';
 import type { Subscription } from './models/subscription';
 import type { ServerConnection } from './serverConnection';
 import { ensurePlusFeaturesEnabled } from './utils/-webview/plus.utils';
+import { getConfiguredActiveOrganizationId, updateActiveOrganizationId } from './utils/-webview/subscription.utils';
 import { getSubscriptionFromCheckIn } from './utils/checkin.utils';
 import {
 	assertSubscriptionState,
@@ -1174,12 +1175,12 @@ export class SubscriptionService implements Disposable {
 			Logger.error(ex, scope);
 			organizations = [];
 		}
-		let chosenOrganizationId: string | undefined = configuration.get('gitKraken.activeOrganizationId') ?? undefined;
+		let chosenOrganizationId = getConfiguredActiveOrganizationId();
 		if (chosenOrganizationId === '') {
 			chosenOrganizationId = undefined;
 		} else if (chosenOrganizationId != null && !organizations.some(o => o.id === chosenOrganizationId)) {
 			chosenOrganizationId = undefined;
-			void configuration.updateEffective('gitKraken.activeOrganizationId', undefined);
+			void updateActiveOrganizationId(undefined);
 		}
 		const subscription = getSubscriptionFromCheckIn(data, organizations, chosenOrganizationId);
 		this._lastValidatedDate = new Date();
@@ -1668,8 +1669,8 @@ export class SubscriptionService implements Disposable {
 
 		const organizationSubscription = getSubscriptionFromCheckIn(checkInData, organizations, pick.org.id);
 
-		if (configuration.get('gitKraken.activeOrganizationId') !== pick.org.id) {
-			await configuration.updateEffective('gitKraken.activeOrganizationId', pick.org.id);
+		if (getConfiguredActiveOrganizationId() !== pick.org.id) {
+			await updateActiveOrganizationId(pick.org.id);
 		}
 
 		this.changeSubscription(

@@ -856,6 +856,10 @@ export class DraftService implements Disposable {
 				return EntityIdentifierUtils.encode(getEntityIdentifierInput(pr));
 			});
 
+		if (prEntityIds.length === 0) {
+			return {};
+		}
+
 		const body = JSON.stringify({
 			prEntityIds: prEntityIds,
 		});

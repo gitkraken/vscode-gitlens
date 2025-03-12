@@ -240,6 +240,9 @@ export class GlMergeTargetStatus extends LitElement {
 			repoPath: this.branch.repoPath,
 			branchId: this.branch.id,
 			branchName: this.branch.name,
+			worktree: this.branch.worktree
+				? { name: this.branch.worktree.name, isDefault: this.branch.worktree.isDefault }
+				: undefined,
 		};
 	}
 
@@ -276,7 +279,7 @@ export class GlMergeTargetStatus extends LitElement {
 		return html`<gl-popover placement="bottom" trigger="hover click focus" hoist>
 			<span slot="anchor" class="chip status--${status}" tabindex="0"
 				><code-icon class="icon" icon="gl-merge-target" size="18"></code-icon
-				></code-icon><code-icon class="status-indicator icon--${status}" icon="${icon}" size="12"></code-icon>
+				><code-icon class="status-indicator icon--${status}" icon="${icon}" size="12"></code-icon>
 			</span>
 			<div slot="content" class="content">${this.renderContent()}</div>
 		</gl-popover>`;
@@ -284,6 +287,23 @@ export class GlMergeTargetStatus extends LitElement {
 
 	private renderContent() {
 		const target = renderBranchName(this.target?.name);
+
+		const mergeTargetRef =
+			this.mergedStatus?.merged && this.mergedStatus.localBranchOnly
+				? {
+						repoPath: this.branch.repoPath,
+						branchId: this.mergedStatus.localBranchOnly.id!,
+						branchName: this.mergedStatus.localBranchOnly.name,
+						branchUpstreamName: this.mergedStatus.localBranchOnly.upstream?.name,
+				  }
+				: this.target
+				  ? {
+							repoPath: this.target.repoPath,
+							branchId: this.target.id,
+							branchName: this.target.name,
+							branchUpstreamName: undefined,
+				    }
+				  : undefined;
 
 		if (this.mergedStatus?.merged) {
 			if (this.mergedStatus.localBranchOnly) {
@@ -301,6 +321,29 @@ export class GlMergeTargetStatus extends LitElement {
 							${this.mergedStatus.confidence !== 'highest' ? 'likely ' : ''}been merged into its merge
 							target's local branch ${renderBranchName(this.mergedStatus.localBranchOnly.name)}.
 						</p>
+						<div class="button-container">
+							<gl-button
+								full
+								href="${createCommandLink(
+									'gitlens.home.pushBranch',
+									mergeTargetRef! satisfies BranchRef,
+								)}"
+								>Push ${renderBranchName(this.mergedStatus.localBranchOnly.name)}</gl-button
+							>
+							<gl-button
+								full
+								appearance="secondary"
+								href="${createCommandLink('gitlens.home.deleteBranchOrWorktree', [
+									this.branchRef,
+									mergeTargetRef,
+								])}"
+								>Delete
+								${this.branch.worktree != null && !this.branch.worktree.isDefault
+									? 'Worktree'
+									: 'Branch'}
+								${renderBranchName(this.branch.name, this.branch.worktree != null)}</gl-button
+							>
+						</div>
 					</div>`;
 			}
 
@@ -318,6 +361,18 @@ export class GlMergeTargetStatus extends LitElement {
 						${this.mergedStatus.confidence !== 'highest' ? 'likely ' : ''}been merged into its merge target
 						${target}.
 					</p>
+					<div class="button-container">
+						<gl-button
+							full
+							href="${createCommandLink('gitlens.home.deleteBranchOrWorktree', [
+								this.branchRef,
+								mergeTargetRef,
+							])}"
+							>Delete
+							${this.branch.worktree != null && !this.branch.worktree.isDefault ? 'Worktree' : 'Branch'}
+							${renderBranchName(this.branch.name, this.branch.worktree != null)}</gl-button
+						>
+					</div>
 				</div>`;
 		}
 

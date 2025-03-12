@@ -218,12 +218,6 @@ export interface GitBranchesSubProvider {
 			| { commitDate?: Date; mode?: 'contains' | 'pointsAt'; remotes?: boolean },
 	): Promise<string[]>;
 	getDefaultBranchName(repoPath: string | undefined, remote?: string): Promise<string | undefined>;
-	getMergeBase(
-		repoPath: string,
-		ref1: string,
-		ref2: string,
-		options?: { forkPoint?: boolean | undefined },
-	): Promise<string | undefined>;
 
 	createBranch?(repoPath: string, name: string, sha: string): Promise<void>;
 	/**
@@ -338,6 +332,7 @@ export interface GitConfigSubProvider {
 	getConfig?(repoPath: string, key: GitConfigKeys): Promise<string | undefined>;
 	setConfig?(repoPath: string, key: GitConfigKeys, value: string | undefined): Promise<void>;
 	getCurrentUser(repoPath: string): Promise<GitUser | undefined>;
+	getDefaultWorktreePath?(repoPath: string): Promise<string | undefined>;
 	getGitDir?(repoPath: string): Promise<GitDir | undefined>;
 }
 
@@ -452,6 +447,15 @@ export interface GitPatchSubProvider {
 }
 
 export interface GitRefsSubProvider {
+	checkIfCouldBeValidBranchOrTagName(repoPath: string, ref: string): Promise<boolean>;
+	getMergeBase(
+		repoPath: string,
+		ref1: string,
+		ref2: string,
+		options?: { forkPoint?: boolean | undefined },
+	): Promise<string | undefined>;
+	getReference(repoPath: string, ref: string): Promise<GitReference | undefined>;
+	getSymbolicReferenceName?(repoPath: string, ref: string): Promise<string | undefined>;
 	hasBranchOrTag(
 		repoPath: string | undefined,
 		options?: {
@@ -460,14 +464,13 @@ export interface GitRefsSubProvider {
 				| undefined;
 		},
 	): Promise<boolean>;
+	isValidReference(repoPath: string, ref: string, pathOrUri?: string | Uri): Promise<boolean>;
 	resolveReference(
 		repoPath: string,
 		ref: string,
 		pathOrUri?: string | Uri,
 		options?: { force?: boolean; timeout?: number | undefined },
 	): Promise<string>;
-	validateBranchOrTagName(repoPath: string, ref: string): Promise<boolean>;
-	validateReference(repoPath: string, ref: string): Promise<boolean>;
 }
 
 export interface GitRemotesSubProvider {

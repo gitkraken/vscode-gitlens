@@ -1,4 +1,4 @@
-import type { AIModel } from './aiProviderService';
+import type { AIModel } from './models/model';
 import { OpenAICompatibleProvider } from './openAICompatibleProvider';
 
 const provider = { id: 'deepseek', name: 'DeepSeek' } as const;

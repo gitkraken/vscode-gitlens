@@ -57,12 +57,10 @@ export class BranchesGitSubProvider implements GitBranchesSubProvider {
 							return new GitBranch(
 								this.container,
 								repoPath,
-								revision.name,
-								false,
+								`refs/heads/${revision.name}`,
 								true,
 								undefined,
 								revision.revision,
-								undefined,
 								undefined,
 								undefined,
 								true,
@@ -114,11 +112,12 @@ export class BranchesGitSubProvider implements GitBranchesSubProvider {
 						const ref = branch.target.oid;
 
 						branches.push(
-							new GitBranch(container, repoPath!, branch.name, false, current, date, ref, {
+							new GitBranch(container, repoPath!, `refs/heads/${branch.name}`, current, date, ref, {
 								name: `origin/${branch.name}`,
 								missing: false,
+								state: { ahead: 0, behind: 0 },
 							}),
-							new GitBranch(container, repoPath!, `origin/${branch.name}`, true, false, date, ref),
+							new GitBranch(container, repoPath!, `refs/remotes/origin/${branch.name}`, false, date, ref),
 						);
 					}
 
@@ -204,7 +203,7 @@ export class BranchesGitSubProvider implements GitBranchesSubProvider {
 			const baseOrTargetBranch = await this.getDefaultBranchName(repoPath);
 			if (baseOrTargetBranch == null) return undefined;
 
-			const mergeBase = await this.getMergeBase(repoPath, ref, baseOrTargetBranch);
+			const mergeBase = await this.provider.refs.getMergeBase(repoPath, ref, baseOrTargetBranch);
 			if (mergeBase == null) return undefined;
 
 			const contributors = await this.provider.contributors.getContributors(
@@ -322,34 +321,6 @@ export class BranchesGitSubProvider implements GitBranchesSubProvider {
 		try {
 			const { metadata, github, session } = await this.provider.ensureRepositoryContext(repoPath);
 			return await github.getDefaultBranchName(session.accessToken, metadata.repo.owner, metadata.repo.name);
-		} catch (ex) {
-			Logger.error(ex, scope);
-			debugger;
-			return undefined;
-		}
-	}
-
-	@log()
-	async getMergeBase(
-		repoPath: string,
-		ref1: string,
-		ref2: string,
-		_options?: { forkPoint?: boolean },
-	): Promise<string | undefined> {
-		if (repoPath == null) return undefined;
-
-		const scope = getLogScope();
-
-		const { metadata, github, session } = await this.provider.ensureRepositoryContext(repoPath);
-
-		try {
-			const result = await github.getComparison(
-				session.accessToken,
-				metadata.repo.owner,
-				metadata.repo.name,
-				createRevisionRange(stripOrigin(ref1), stripOrigin(ref2), '...'),
-			);
-			return result?.merge_base_commit?.sha;
 		} catch (ex) {
 			Logger.error(ex, scope);
 			debugger;

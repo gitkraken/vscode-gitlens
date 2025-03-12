@@ -1,5 +1,5 @@
 import type { PageableResult } from '../../system/paging';
-import type { GitBranch } from '../models/branch';
+import type { GitBranch, GitTrackingUpstream } from '../models/branch';
 import type { GitBranchReference, GitReference } from '../models/reference';
 import { shortenRevision } from './revision.utils';
 
@@ -102,4 +102,50 @@ export function isDetachedHead(name: string): boolean {
 
 export function isOfBranchRefType(branch: GitReference | undefined): branch is GitBranchReference {
 	return branch?.refType === 'branch';
+}
+
+const localBranchesPrefixRegex = /^(refs\/)?heads\//i;
+const remoteBranchesPrefixRegex = /^(refs\/)?remotes\//i;
+
+export function isRemoteBranch(refName: string): boolean {
+	return remoteBranchesPrefixRegex.test(refName);
+}
+
+export function isRemoteHEAD(refName: string): boolean {
+	return /^(refs\/)?remotes\/(.*\/)HEAD$/i.test(refName);
+}
+
+export function parseRefName(refName: string): { name: string; remote: boolean } {
+	const remote = isRemoteBranch(refName);
+
+	let name;
+	if (remote) {
+		// Strip off refs/remotes/
+		name = refName.replace(remoteBranchesPrefixRegex, '');
+	} else {
+		// Strip off refs/heads/
+		name = refName.replace(localBranchesPrefixRegex, '');
+	}
+
+	return { name: name, remote: remote };
+}
+
+export function parseUpstream(upstream: string, tracking: string): GitTrackingUpstream | undefined {
+	if (!upstream) return undefined;
+
+	const { name } = parseRefName(upstream);
+
+	const match = /(?:\[(?:ahead ([0-9]+))?[,\s]*(?:behind ([0-9]+))?]|\[(gone)])/.exec(tracking);
+	if (match == null) {
+		return { name: name, missing: false, state: { ahead: 0, behind: 0 } };
+	}
+
+	const ahead = match[1] == null ? 0 : Number(match[1]);
+	const behind = match[2] == null ? 0 : Number(match[2]);
+
+	return {
+		name: name,
+		missing: match[3] != null,
+		state: { ahead: isNaN(ahead) ? 0 : ahead, behind: isNaN(behind) ? 0 : behind },
+	};
 }

@@ -148,6 +148,8 @@ type InternalGraphWebviewCommands =
 	| 'gitlens.graph.skipPausedOperation';
 
 type InternalHomeWebviewCommands =
+	| 'gitlens.home.deleteBranchOrWorktree'
+	| 'gitlens.home.pushBranch'
 	| 'gitlens.home.openMergeTargetComparison'
 	| 'gitlens.home.openPullRequestChanges'
 	| 'gitlens.home.openPullRequestComparison'
@@ -233,6 +235,7 @@ export type GlCommands = ContributedCommands | InternalGlCommands | GlCommandsDe
 export type GlPaletteCommands = ContributedPaletteCommands;
 
 export type CoreCommands =
+	| '_open.mergeEditor'
 	| 'cursorMove'
 	| 'editor.action.showHover'
 	| 'editor.action.showReferences'
@@ -257,7 +260,9 @@ export type CoreCommands =
 	| 'workbench.action.closeActiveEditor'
 	| 'workbench.action.closeAllEditors'
 	| 'workbench.action.closePanel'
+	| 'workbench.action.focusRightGroup'
 	| 'workbench.action.nextEditor'
+	| 'workbench.action.newGroupRight'
 	| 'workbench.action.openWalkthrough'
 	| 'workbench.action.toggleMaximizedPanel'
 	| 'workbench.extensions.action.switchToRelease'

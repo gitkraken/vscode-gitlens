@@ -926,9 +926,7 @@ export class Repository implements Disposable {
 
 		this._updatedAt = Date.now();
 
-		if (this._fireChangeDebounced == null) {
-			this._fireChangeDebounced = debounce(this.fireChangeCore.bind(this), defaultRepositoryChangeDelay);
-		}
+		this._fireChangeDebounced ??= debounce(this.fireChangeCore.bind(this), defaultRepositoryChangeDelay);
 
 		this._pendingRepoChange = this._pendingRepoChange?.with(changes) ?? new RepositoryChangeEvent(this, changes);
 
@@ -964,17 +962,9 @@ export class Repository implements Disposable {
 
 		this._updatedAt = Date.now();
 
-		if (this._fireFileSystemChangeDebounced == null) {
-			this._fireFileSystemChangeDebounced = debounce(
-				this.fireFileSystemChangeCore.bind(this),
-				this._fsChangeDelay,
-			);
-		}
+		this._fireFileSystemChangeDebounced ??= debounce(this.fireFileSystemChangeCore.bind(this), this._fsChangeDelay);
 
-		if (this._pendingFileSystemChange == null) {
-			this._pendingFileSystemChange = { repository: this, uris: [] };
-		}
-
+		this._pendingFileSystemChange ??= { repository: this, uris: [] };
 		const e = this._pendingFileSystemChange;
 		e.uris.push(uri);
 

@@ -38,7 +38,7 @@ export class CreatePullRequestOnRemoteCommand extends GlCommandBase {
 			const branch = await repo.git.branches().getBranch();
 			if (branch?.upstream == null) {
 				void window.showErrorMessage(
-					`Unable to create a pull request for branch \`${branch?.name}\` because it has no upstream branch`,
+					`Unable to create a pull request for branch \`${branch?.name}\` as it hasn't been published to a remote.`,
 				);
 				return;
 			}
@@ -52,7 +52,12 @@ export class CreatePullRequestOnRemoteCommand extends GlCommandBase {
 		}
 
 		const compareRemote = await repo.git.remotes().getRemote(args.remote);
-		if (compareRemote?.provider == null) return;
+		if (compareRemote?.provider == null) {
+			void window.showErrorMessage(
+				`Unable to create a pull request for branch \`${args.compare}\` because it is not associated with a supported remote provider.`,
+			);
+			return;
+		}
 
 		const providerId = compareRemote.provider.id;
 		const remotes = (await repo.git.remotes().getRemotes({

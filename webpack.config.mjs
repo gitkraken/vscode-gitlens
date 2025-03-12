@@ -318,6 +318,7 @@ function getWebviewsConfigs(mode, env) {
 				timeline: { entry: './plus/timeline/timeline.ts', plus: true },
 				patchDetails: { entry: './plus/patchDetails/patchDetails.ts', plus: true },
 			},
+			{},
 			mode,
 			env,
 		),
@@ -413,12 +414,13 @@ function getWebviewsCommonConfig(mode, env) {
 }
 
 /**
- * @param {{ [key:string]: {entry: string; plus?: boolean }}} webviews
+ * @param {{ [key:string]: {entry: string; plus?: boolean; alias?: { [key:string]: string } }}} webviews
+ * @param {{ alias?: { [key:string]: string }}} overrides
  * @param { 'production' | 'development' | 'none' } mode
  * @param {{ analyzeBundle?: boolean; analyzeDeps?: boolean; esbuild?: boolean; skipLint?: boolean }} env
  * @returns { WebpackConfig }
  */
-function getWebviewConfig(webviews, mode, env) {
+function getWebviewConfig(webviews, overrides, mode, env) {
 	const basePath = path.join(__dirname, 'src', 'webviews', 'apps');
 	const tsConfigPath = path.join(basePath, 'tsconfig.json');
 
@@ -614,6 +616,7 @@ function getWebviewConfig(webviews, mode, env) {
 				'@env': path.resolve(__dirname, 'src', 'env', 'browser'),
 				react: path.resolve(__dirname, 'node_modules', 'react'),
 				'react-dom': path.resolve(__dirname, 'node_modules', 'react-dom'),
+				...overrides.alias,
 			},
 			extensions: ['.ts', '.tsx', '.js', '.jsx', '.json'],
 			modules: [basePath, 'node_modules'],

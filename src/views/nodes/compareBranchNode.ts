@@ -1,10 +1,11 @@
-import type { Disposable, TreeCheckboxChangeEvent } from 'vscode';
-import { ThemeIcon, TreeItem, TreeItemCollapsibleState } from 'vscode';
+import type { TreeCheckboxChangeEvent } from 'vscode';
+import { Disposable, ThemeIcon, TreeItem, TreeItemCollapsibleState } from 'vscode';
 import type { ViewShowBranchComparison } from '../../config';
 import { GlyphChars } from '../../constants';
 import type { StoredBranchComparison, StoredBranchComparisons, StoredNamedRef } from '../../constants.storage';
 import type { GitUri } from '../../git/gitUri';
 import type { GitBranch } from '../../git/models/branch';
+import type { RepositoryFileSystemChangeEvent } from '../../git/models/repository';
 import type { GitUser } from '../../git/models/user';
 import type { CommitsQueryResults, FilesQueryResults } from '../../git/queryResults';
 import { getCommitsQuery, getFilesQuery } from '../../git/queryResults';
@@ -104,7 +105,24 @@ export class CompareBranchNode extends SubscribeableViewNode<
 	}
 
 	protected override subscribe(): Disposable | Promise<Disposable | undefined> | undefined {
-		return weakEvent(this.view.onDidChangeNodesCheckedState, this.onNodesCheckedStateChanged, this);
+		const subscriptions: Disposable[] = [
+			weakEvent(this.view.onDidChangeNodesCheckedState, this.onNodesCheckedStateChanged, this),
+		];
+
+		if (this.compareWithWorkingTree) {
+			const repo = this.view.container.git.getRepository(this.uri);
+			if (repo != null) {
+				subscriptions.push(
+					weakEvent(repo.onDidChangeFileSystem, this.onFileSystemChanged, this, [repo.watchFileSystem()]),
+				);
+			}
+		}
+
+		return Disposable.from(...subscriptions);
+	}
+
+	private onFileSystemChanged(_e: RepositoryFileSystemChangeEvent) {
+		void this.triggerChange(true);
 	}
 
 	private onNodesCheckedStateChanged(e: TreeCheckboxChangeEvent<ViewNode>) {
@@ -130,11 +148,11 @@ export class CompareBranchNode extends SubscribeableViewNode<
 					authors: this.filterByAuthors,
 				});
 
-			const branchesProvider = this.view.container.git.branches(this.repoPath);
+			const refsProvider = this.view.container.git.refs(this.repoPath);
 			const mergeBase =
-				(await branchesProvider.getMergeBase(behind.ref1, behind.ref2, {
+				(await refsProvider.getMergeBase(behind.ref1, behind.ref2, {
 					forkPoint: true,
-				})) ?? (await branchesProvider.getMergeBase(behind.ref1, behind.ref2));
+				})) ?? (await refsProvider.getMergeBase(behind.ref1, behind.ref2));
 
 			const children: ViewNode[] = [
 				new ResultsCommitsNode(

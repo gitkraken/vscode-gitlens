@@ -49,13 +49,15 @@ import {
 } from '../system/-webview/command';
 import { configuration } from '../system/-webview/configuration';
 import { setContext } from '../system/-webview/context';
-import type { OpenWorkspaceLocation } from '../system/-webview/vscode';
-import { openUrl, openWorkspace, revealInFileExplorer } from '../system/-webview/vscode';
+import type { MergeEditorInputs, OpenWorkspaceLocation } from '../system/-webview/vscode';
+import { openMergeEditor, openUrl, openWorkspace, revealInFileExplorer } from '../system/-webview/vscode';
 import { filterMap } from '../system/array';
 import { log } from '../system/decorators/log';
 import { partial, runSequentially } from '../system/function';
 import { join, map } from '../system/iterable';
 import { lazy } from '../system/lazy';
+import { basename } from '../system/path';
+import { getSettledValue } from '../system/promise';
 import { DeepLinkActionType } from '../uris/deepLinks/deepLink';
 import type { LaunchpadItemNode } from './launchpadView';
 import type { RepositoryFolderNode } from './nodes/abstract/repositoryFolderNode';
@@ -278,7 +280,9 @@ export class ViewCommands implements Disposable {
 			),
 
 			registerViewCommand('gitlens.views.openChanges', this.openChanges, this),
+			registerViewCommand('gitlens.views.openChangesWithMergeBase', this.openChangesWithMergeBase, this),
 			registerViewCommand('gitlens.views.openChangesWithWorking', this.openChangesWithWorking, this),
+			registerViewCommand('gitlens.views.mergeChangesWithWorking', this.mergeChangesWithWorking, this),
 			registerViewCommand(
 				'gitlens.views.openPreviousChangesWithWorking',
 				this.openPreviousChangesWithWorking,
@@ -945,7 +949,7 @@ export class ViewCommands implements Disposable {
 				state: {
 					repos: node.repo,
 					reference: node.branch,
-					skipWorktreeConfirmations: true,
+					worktreeDefaultOpen: 'new',
 				},
 			});
 		}
@@ -1271,11 +1275,10 @@ export class ViewCommands implements Disposable {
 	private async compareWithMergeBase(node: BranchNode) {
 		if (!node.is('branch')) return Promise.resolve();
 
-		const branchesProvider = this.container.git.branches(node.repoPath);
-		const branch = await branchesProvider.getBranch();
+		const branch = await this.container.git.branches(node.repoPath).getBranch();
 		if (branch == null) return undefined;
 
-		const commonAncestor = await branchesProvider.getMergeBase(branch.ref, node.ref.ref);
+		const commonAncestor = await this.container.git.refs(node.repoPath).getMergeBase(branch.ref, node.ref.ref);
 		if (commonAncestor == null) return undefined;
 
 		return this.container.views.searchAndCompare.compare(node.repoPath, node.ref.ref, {
@@ -1288,11 +1291,10 @@ export class ViewCommands implements Disposable {
 	private async openChangedFileDiffsWithMergeBase(node: BranchNode) {
 		if (!node.is('branch')) return Promise.resolve();
 
-		const branchesProvider = this.container.git.branches(node.repoPath);
-		const branch = await branchesProvider.getBranch();
+		const branch = await this.container.git.branches(node.repoPath).getBranch();
 		if (branch == null) return undefined;
 
-		const commonAncestor = await branchesProvider.getMergeBase(branch.ref, node.ref.ref);
+		const commonAncestor = await this.container.git.refs(node.repoPath).getMergeBase(branch.ref, node.ref.ref);
 		if (commonAncestor == null) return undefined;
 
 		return CommitActions.openComparisonChanges(
@@ -1328,11 +1330,10 @@ export class ViewCommands implements Disposable {
 	private async compareAncestryWithWorking(node: BranchNode) {
 		if (!node.is('branch')) return undefined;
 
-		const branchesProvider = this.container.git.branches(node.repoPath);
-		const branch = await branchesProvider.getBranch();
+		const branch = await this.container.git.branches(node.repoPath).getBranch();
 		if (branch == null) return undefined;
 
-		const commonAncestor = await branchesProvider.getMergeBase(branch.ref, node.ref.ref);
+		const commonAncestor = await this.container.git.refs(node.repoPath).getMergeBase(branch.ref, node.ref.ref);
 		if (commonAncestor == null) return undefined;
 
 		return this.container.views.searchAndCompare.compare(node.repoPath, '', {
@@ -1539,6 +1540,80 @@ export class ViewCommands implements Disposable {
 		return CommitActions.openCommitChangesWithWorking(this.container, node.commit, individually, options);
 	}
 
+	private async mergeChangesWithWorking(node: ViewRefFileNode) {
+		if (!(node instanceof ViewRefFileNode)) return Promise.resolve();
+
+		const repo = this.container.git.getRepository(node.repoPath);
+		if (repo == null) return Promise.resolve();
+
+		const nodeUri = await this.container.git.getBestRevisionUri(node.repoPath, node.file.path, node.ref.ref);
+		if (nodeUri == null) return Promise.resolve();
+
+		const input1: MergeEditorInputs['input1'] = {
+			uri: nodeUri,
+			title: `Incoming`,
+			detail: ` ${node.ref.name}`,
+		};
+
+		const [mergeBaseResult, workingUriResult] = await Promise.allSettled([
+			repo.git.refs().getMergeBase(node.ref.ref, 'HEAD'),
+			this.container.git.getWorkingUri(node.repoPath, node.uri),
+		]);
+
+		const workingUri = getSettledValue(workingUriResult);
+		if (workingUri == null) {
+			void window.showWarningMessage('Unable to open the merge editor, no working file found');
+			return Promise.resolve();
+		}
+
+		const input2: MergeEditorInputs['input2'] = {
+			uri: workingUri,
+			title: 'Current',
+			detail: ' Working Tree',
+		};
+
+		const headUri = await this.container.git.getBestRevisionUri(node.repoPath, node.file.path, 'HEAD');
+		if (headUri != null) {
+			const branch = await repo.git.branches().getBranch?.();
+
+			input2.uri = headUri;
+			input2.detail = ` ${branch?.name || 'HEAD'}`;
+		}
+
+		const mergeBase = getSettledValue(mergeBaseResult);
+		const baseUri =
+			mergeBase != null
+				? await this.container.git.getBestRevisionUri(node.repoPath, node.file.path, mergeBase)
+				: undefined;
+
+		const inputs: MergeEditorInputs = {
+			base: baseUri ?? nodeUri,
+			input1: input1,
+			input2: input2,
+			output: workingUri,
+		};
+
+		return openMergeEditor(inputs);
+	}
+
+	@log()
+	private async openChangesWithMergeBase(node: ResultsFileNode) {
+		if (!node.is('results-file')) return Promise.resolve();
+
+		const mergeBase = await this.container.git.refs(node.repoPath).getMergeBase(node.ref1, node.ref2 || 'HEAD');
+		if (mergeBase == null) return Promise.resolve();
+
+		return CommitActions.openChanges(
+			node.file,
+			{ repoPath: node.repoPath, lhs: mergeBase, rhs: node.ref1 },
+			{
+				preserveFocus: true,
+				preview: true,
+				lhsTitle: `${basename(node.uri.fsPath)} (Base)`,
+			},
+		);
+	}
+
 	@log()
 	private async openChangesWithWorking(node: ViewRefFileNode | MergeConflictFileNode | StatusFileNode) {
 		if (node.is('status-file')) {
@@ -1578,7 +1653,7 @@ export class ViewCommands implements Disposable {
 
 		return CommitActions.openChangesWithWorking(node.file, {
 			repoPath: node.repoPath,
-			ref: node.is('results-file') ? node.ref2 : node.ref.ref,
+			ref: node.is('results-file') && node.ref2 !== '' ? node.ref2 : node.ref.ref,
 		});
 	}
 
@@ -1588,7 +1663,7 @@ export class ViewCommands implements Disposable {
 
 		return CommitActions.openChangesWithWorking(node.file, {
 			repoPath: node.repoPath,
-			ref: node.is('results-file') ? node.ref1 : `${node.ref.ref}^`,
+			ref: node.is('results-file') && node.ref2 !== '' ? node.ref1 : `${node.ref.ref}^`,
 		});
 	}
 

@@ -23,6 +23,7 @@ import {
 	LearnAboutProQuickInputButton,
 	MergeQuickInputButton,
 	OpenOnAzureDevOpsQuickInputButton,
+	OpenOnBitbucketQuickInputButton,
 	OpenOnGitHubQuickInputButton,
 	OpenOnGitLabQuickInputButton,
 	OpenOnWebQuickInputButton,
@@ -390,7 +391,7 @@ export class LaunchpadCommand extends QuickCommand<State> {
 						void this.container.launchpad.switchTo(state.item);
 						break;
 					case 'open-worktree':
-						void this.container.launchpad.switchTo(state.item, { skipWorktreeConfirmations: true });
+						void this.container.launchpad.switchTo(state.item, { openInWorktree: true });
 						break;
 					case 'switch-and-code-suggest':
 					case 'code-suggest':
@@ -835,6 +836,7 @@ export class LaunchpadCommand extends QuickCommand<State> {
 					case OpenOnGitHubQuickInputButton:
 					case OpenOnGitLabQuickInputButton:
 					case OpenOnAzureDevOpsQuickInputButton:
+					case OpenOnBitbucketQuickInputButton:
 						this.sendItemActionTelemetry('soft-open', item, group, context);
 						this.container.launchpad.open(item);
 						break;
@@ -898,7 +900,7 @@ export class LaunchpadCommand extends QuickCommand<State> {
 
 					case OpenWorktreeInNewWindowQuickInputButton:
 						this.sendItemActionTelemetry('open-worktree', item, group, context);
-						await this.container.launchpad.switchTo(item, { skipWorktreeConfirmations: true });
+						await this.container.launchpad.switchTo(item, { openInWorktree: true });
 						break;
 				}
 
@@ -1102,6 +1104,7 @@ export class LaunchpadCommand extends QuickCommand<State> {
 						case OpenOnGitHubQuickInputButton:
 						case OpenOnGitLabQuickInputButton:
 						case OpenOnAzureDevOpsQuickInputButton:
+						case OpenOnBitbucketQuickInputButton:
 							this.sendItemActionTelemetry('soft-open', state.item, state.item.group, context);
 							this.container.launchpad.open(state.item);
 							break;
@@ -1593,6 +1596,8 @@ function getOpenOnGitProviderQuickInputButton(integrationId: string): QuickInput
 			return OpenOnGitHubQuickInputButton;
 		case HostingIntegrationId.AzureDevOps:
 			return OpenOnAzureDevOpsQuickInputButton;
+		case HostingIntegrationId.Bitbucket:
+			return OpenOnBitbucketQuickInputButton;
 		default:
 			return undefined;
 	}
@@ -1615,6 +1620,8 @@ function getIntegrationTitle(integrationId: string): string {
 			return 'GitHub';
 		case HostingIntegrationId.AzureDevOps:
 			return 'Azure DevOps';
+		case HostingIntegrationId.Bitbucket:
+			return 'Bitbucket';
 		default:
 			return integrationId;
 	}

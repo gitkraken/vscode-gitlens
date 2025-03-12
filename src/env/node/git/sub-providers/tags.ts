@@ -2,12 +2,14 @@ import type { Container } from '../../../../container';
 import type { GitCache } from '../../../../git/cache';
 import { TagError } from '../../../../git/errors';
 import type { GitTagsSubProvider, PagedResult, PagingOptions } from '../../../../git/gitProvider';
-import type { GitTag } from '../../../../git/models/tag';
-import { parseGitTags, parseGitTagsDefaultFormat } from '../../../../git/parsers/tagParser';
+import { GitTag } from '../../../../git/models/tag';
+import { getTagParser } from '../../../../git/parsers/refParser';
 import type { TagSortOptions } from '../../../../git/utils/-webview/sorting';
 import { sortTags } from '../../../../git/utils/-webview/sorting';
 import { filterMap } from '../../../../system/array';
 import { log } from '../../../../system/decorators/log';
+import { getLogScope } from '../../../../system/logger.scope';
+import { maybeStopWatch } from '../../../../system/stopwatch';
 import type { Git } from '../git';
 
 const emptyPagedResult: PagedResult<any> = Object.freeze({ values: [] });
@@ -38,12 +40,44 @@ export class TagsGitSubProvider implements GitTagsSubProvider {
 	): Promise<PagedResult<GitTag>> {
 		if (repoPath == null) return emptyPagedResult;
 
+		const scope = getLogScope();
+
 		let resultsPromise = this.cache.tags?.get(repoPath);
 		if (resultsPromise == null) {
 			async function load(this: TagsGitSubProvider): Promise<PagedResult<GitTag>> {
 				try {
-					const data = await this.git.tag(repoPath, '-l', `--format=${parseGitTagsDefaultFormat}`);
-					return { values: parseGitTags(this.container, data, repoPath) };
+					const parser = getTagParser();
+
+					const data = await this.git.exec(
+						{ cwd: repoPath },
+						'for-each-ref',
+						...parser.arguments,
+						'refs/tags/',
+					);
+
+					if (!data?.length) return emptyPagedResult;
+
+					using sw = maybeStopWatch(scope, { log: false, logLevel: 'debug' });
+
+					const tags: GitTag[] = [];
+
+					for (const entry of parser.parse(data)) {
+						tags.push(
+							new GitTag(
+								this.container,
+								repoPath,
+								entry.name,
+								entry.sha,
+								entry.message,
+								entry.date ? new Date(entry.date) : undefined,
+								entry.commitDate ? new Date(entry.commitDate) : undefined,
+							),
+						);
+					}
+
+					sw?.stop({ suffix: ` parsed ${tags.length} tags` });
+
+					return { values: tags };
 				} catch (_ex) {
 					this.cache.tags?.delete(repoPath);
 

@@ -19,6 +19,7 @@ import type { IntegrationAuthenticationService } from '../authentication/integra
 import type {
 	GetAzureProjectsForResourceFn,
 	GetAzureResourcesForUserFn,
+	GetBitbucketResourcesForUserFn,
 	GetCurrentUserFn,
 	GetCurrentUserForInstanceFn,
 	GetIssueFn,
@@ -35,11 +36,13 @@ import type {
 	GetReposForAzureProjectFn,
 	GetReposOptions,
 	IssueFilter,
+	MergePullRequestFn,
 	PageInfo,
 	PagingMode,
 	ProviderAccount,
 	ProviderAzureProject,
 	ProviderAzureResource,
+	ProviderBitbucketResource,
 	ProviderInfo,
 	ProviderIssue,
 	ProviderJiraProject,
@@ -196,12 +199,18 @@ export class ProvidersApi {
 				getCurrentUserFn: providerApis.bitbucket.getCurrentUser.bind(
 					providerApis.bitbucket,
 				) as GetCurrentUserFn,
+				getBitbucketResourcesForUserFn: providerApis.bitbucket.getWorkspacesForUser.bind(
+					providerApis.bitbucket,
+				) as GetBitbucketResourcesForUserFn,
 				getPullRequestsForReposFn: providerApis.bitbucket.getPullRequestsForRepos.bind(
 					providerApis.bitbucket,
 				) as GetPullRequestsForReposFn,
 				getPullRequestsForRepoFn: providerApis.bitbucket.getPullRequestsForRepo.bind(
 					providerApis.bitbucket,
 				) as GetPullRequestsForRepoFn,
+				mergePullRequestFn: providerApis.bitbucket.mergePullRequest.bind(
+					providerApis.bitbucket,
+				) as MergePullRequestFn,
 			},
 			[HostingIntegrationId.AzureDevOps]: {
 				...providersMetadata[HostingIntegrationId.AzureDevOps],
@@ -528,6 +537,27 @@ export class ProvidersApi {
 		} catch (e) {
 			return this.handleProviderError<ProviderAzureResource[] | undefined>(
 				HostingIntegrationId.AzureDevOps,
+				token,
+				e,
+			);
+		}
+	}
+
+	async getBitbucketResourcesForUser(
+		userId: string,
+		options?: { accessToken?: string },
+	): Promise<ProviderBitbucketResource[] | undefined> {
+		const { provider, token } = await this.ensureProviderTokenAndFunction(
+			HostingIntegrationId.Bitbucket,
+			'getBitbucketResourcesForUserFn',
+			options?.accessToken,
+		);
+
+		try {
+			return (await provider.getBitbucketResourcesForUserFn?.({ userId: userId }, { token: token }))?.data;
+		} catch (e) {
+			return this.handleProviderError<ProviderBitbucketResource[] | undefined>(
+				HostingIntegrationId.Bitbucket,
 				token,
 				e,
 			);

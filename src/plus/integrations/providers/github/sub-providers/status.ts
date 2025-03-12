@@ -29,9 +29,8 @@ export class StatusGitSubProvider implements GitStatusSubProvider {
 			revision.name,
 			revision.revision,
 			[],
-			{ ahead: 0, behind: 0 },
 			revision.type === HeadType.Branch || revision.type === HeadType.RemoteBranch
-				? { name: `origin/${revision.name}`, missing: false }
+				? { name: `origin/${revision.name}`, missing: false, state: { ahead: 0, behind: 0 } }
 				: undefined,
 		);
 	}

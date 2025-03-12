@@ -81,17 +81,17 @@ export class RepositoryNode extends SubscribeableViewNode<'repository', ViewsWit
 
 			const status = await this._status;
 			if (status != null) {
+				const defaultWorktreePath = await this.repo.git.config().getDefaultWorktreePath?.();
+
 				const branch = new GitBranch(
 					this.view.container,
 					status.repoPath,
-					status.branch,
-					false,
+					`refs/heads/${status.branch}`,
 					true,
 					undefined,
 					status.sha,
 					status.upstream,
-					status.state.ahead,
-					status.state.behind,
+					{ path: status.repoPath, isDefault: status.repoPath === defaultWorktreePath },
 					status.detached,
 					status.rebasing,
 				);
@@ -101,16 +101,16 @@ export class RepositoryNode extends SubscribeableViewNode<'repository', ViewsWit
 					children.push(new PausedOperationStatusNode(this.view, this, branch, pausedOpStatus, status, true));
 				} else if (this.view.config.showUpstreamStatus) {
 					if (status.upstream) {
-						if (!status.state.behind && !status.state.ahead) {
+						if (!status.upstream.state.behind && !status.upstream.state.ahead) {
 							children.push(new BranchTrackingStatusNode(this.view, this, branch, status, 'same', true));
 						} else {
-							if (status.state.behind) {
+							if (status.upstream.state.behind) {
 								children.push(
 									new BranchTrackingStatusNode(this.view, this, branch, status, 'behind', true),
 								);
 							}
 
-							if (status.state.ahead) {
+							if (status.upstream.state.ahead) {
 								children.push(
 									new BranchTrackingStatusNode(this.view, this, branch, status, 'ahead', true, {
 										showAheadCommits: true,
@@ -266,10 +266,10 @@ export class RepositoryNode extends SubscribeableViewNode<'repository', ViewsWit
 					suffix: ` $(git-branch) ${status.upstream.name}${providerName ? ` on ${providerName}` : ''}`,
 				})}`;
 
-				if (status.state.behind) {
+				if (status.upstream.state.behind) {
 					contextValue += '+behind';
 				}
-				if (status.state.ahead) {
+				if (status.upstream.state.ahead) {
 					contextValue += '+ahead';
 				}
 			}
@@ -407,7 +407,7 @@ export class RepositoryNode extends SubscribeableViewNode<'repository', ViewsWit
 			const status = await this._status;
 
 			let index = this.children.findIndex(c => c.type === 'status-files');
-			if (status !== undefined && (status.state.ahead || status.files.length !== 0)) {
+			if (status !== undefined && (status.upstream?.state.ahead || status.files.length !== 0)) {
 				let deleteCount = 1;
 				if (index === -1) {
 					index = findLastIndex(this.children, c => c.type === 'tracking-status' || c.type === 'branch');

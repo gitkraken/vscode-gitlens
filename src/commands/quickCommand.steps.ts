@@ -517,7 +517,7 @@ export function getValidateGitReferenceFn(
 			return true;
 		}
 
-		if (!(await repos.git.refs().validateReference(value))) {
+		if (!(await repos.git.refs().isValidReference(value))) {
 			if (inRefMode) {
 				quickpick.items = [
 					createDirectiveQuickPickItem(Directive.Back, true, {
@@ -573,7 +573,7 @@ export async function* inputBranchNameStep<
 			if (value.length === 0) return [false, 'Please enter a valid branch name'];
 
 			if ('repo' in state) {
-				const valid = await state.repo.git.refs().validateBranchOrTagName(value);
+				const valid = await state.repo.git.refs().checkIfCouldBeValidBranchOrTagName(value);
 				if (!valid) {
 					return [false, `'${value}' isn't a valid branch name`];
 				}
@@ -589,7 +589,7 @@ export async function* inputBranchNameStep<
 			let valid = true;
 
 			for (const repo of state.repos) {
-				valid = await repo.git.refs().validateBranchOrTagName(value);
+				valid = await repo.git.refs().checkIfCouldBeValidBranchOrTagName(value);
 				if (!valid) {
 					return [false, `'${value}' isn't a valid branch name`];
 				}
@@ -706,14 +706,14 @@ export async function* inputTagNameStep<
 			if (value.length === 0) return [false, 'Please enter a valid tag name'];
 
 			if ('repo' in state) {
-				const valid = await state.repo.git.refs().validateBranchOrTagName(value);
+				const valid = await state.repo.git.refs().checkIfCouldBeValidBranchOrTagName(value);
 				return [valid, valid ? undefined : `'${value}' isn't a valid tag name`];
 			}
 
 			let valid = true;
 
 			for (const repo of state.repos) {
-				valid = await repo.git.refs().validateBranchOrTagName(value);
+				valid = await repo.git.refs().checkIfCouldBeValidBranchOrTagName(value);
 				if (!valid) {
 					return [false, `'${value}' isn't a valid branch name`];
 				}
@@ -2520,28 +2520,28 @@ function getShowRepositoryStatusStepItems<
 	}
 
 	if (context.status.upstream) {
-		if (context.status.state.ahead === 0 && context.status.state.behind === 0) {
+		if (context.status.upstream.state.ahead === 0 && context.status.upstream.state.behind === 0) {
 			items.push(
 				createDirectiveQuickPickItem(Directive.Noop, true, {
 					label: `$(git-branch) ${context.status.branch} is up to date with $(git-branch) ${context.status.upstream?.name}`,
 					detail: workingTreeStatus,
 				}),
 			);
-		} else if (context.status.state.ahead !== 0 && context.status.state.behind !== 0) {
+		} else if (context.status.upstream.state.ahead !== 0 && context.status.upstream.state.behind !== 0) {
 			items.push(
 				createDirectiveQuickPickItem(Directive.Noop, true, {
 					label: `$(git-branch) ${context.status.branch} has diverged from $(git-branch) ${context.status.upstream?.name}`,
 					detail: workingTreeStatus,
 				}),
 			);
-		} else if (context.status.state.ahead !== 0) {
+		} else if (context.status.upstream.state.ahead !== 0) {
 			items.push(
 				createDirectiveQuickPickItem(Directive.Noop, true, {
 					label: `$(git-branch) ${context.status.branch} is ahead of $(git-branch) ${context.status.upstream?.name}`,
 					detail: workingTreeStatus,
 				}),
 			);
-		} else if (context.status.state.behind !== 0) {
+		} else if (context.status.upstream.state.behind !== 0) {
 			items.push(
 				createDirectiveQuickPickItem(Directive.Noop, true, {
 					label: `$(git-branch) ${context.status.branch} is behind $(git-branch) ${context.status.upstream?.name}`,
@@ -2550,10 +2550,10 @@ function getShowRepositoryStatusStepItems<
 			);
 		}
 
-		if (context.status.state.behind !== 0) {
+		if (context.status.upstream.state.behind !== 0) {
 			items.push(
 				new GitWizardQuickPickItem(
-					`$(cloud-download) ${pluralize('commit', context.status.state.behind)} behind`,
+					`$(cloud-download) ${pluralize('commit', context.status.upstream.state.behind)} behind`,
 					{
 						command: 'log',
 						state: {
@@ -2568,18 +2568,21 @@ function getShowRepositoryStatusStepItems<
 			);
 		}
 
-		if (context.status.state.ahead !== 0) {
+		if (context.status.upstream.state.ahead !== 0) {
 			items.push(
-				new GitWizardQuickPickItem(`$(cloud-upload) ${pluralize('commit', context.status.state.ahead)} ahead`, {
-					command: 'log',
-					state: {
-						repo: state.repo,
-						reference: createReference(
-							createRevisionRange(context.status.upstream?.name, context.status.ref, '..'),
-							state.repo.path,
-						),
+				new GitWizardQuickPickItem(
+					`$(cloud-upload) ${pluralize('commit', context.status.upstream.state.ahead)} ahead`,
+					{
+						command: 'log',
+						state: {
+							repo: state.repo,
+							reference: createReference(
+								createRevisionRange(context.status.upstream?.name, context.status.ref, '..'),
+								state.repo.path,
+							),
+						},
 					},
-				}),
+				),
 			);
 		}
 	} else {
@@ -2698,6 +2701,28 @@ export async function* ensureAccessStep<
 							step: 'accelerate-pr-reviews',
 							source: { source: 'launchpad', detail: 'info' },
 						}),
+				}),
+				createQuickPickSeparator(),
+			);
+			break;
+		case PlusFeatures.StartWork:
+			directives.splice(
+				0,
+				0,
+				createDirectiveQuickPickItem(Directive.Noop, undefined, {
+					label: 'Start work on an issue from your connected integrations',
+					iconPath: new ThemeIcon('issues'),
+				}),
+				createQuickPickSeparator(),
+			);
+			break;
+		case PlusFeatures.AssociateIssueWithBranch:
+			directives.splice(
+				0,
+				0,
+				createDirectiveQuickPickItem(Directive.Noop, undefined, {
+					label: 'Connect your branches to their associated issues in Home view',
+					iconPath: new ThemeIcon('issues'),
 				}),
 				createQuickPickSeparator(),
 			);

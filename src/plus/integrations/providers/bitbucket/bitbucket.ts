@@ -13,9 +13,11 @@ import {
 	RequestClientError,
 	RequestNotFoundError,
 } from '../../../../errors';
+import type { Issue } from '../../../../git/models/issue';
 import type { IssueOrPullRequest, IssueOrPullRequestType } from '../../../../git/models/issueOrPullRequest';
 import type { PullRequest } from '../../../../git/models/pullRequest';
 import type { Provider } from '../../../../git/models/remoteProvider';
+import type { RepositoryMetadata } from '../../../../git/models/repositoryMetadata';
 import { showIntegrationRequestFailed500WarningMessage } from '../../../../messages';
 import { configuration } from '../../../../system/-webview/configuration';
 import { debug } from '../../../../system/decorators/log';
@@ -23,8 +25,8 @@ import { Logger } from '../../../../system/logger';
 import type { LogScope } from '../../../../system/logger.scope';
 import { getLogScope } from '../../../../system/logger.scope';
 import { maybeStopWatch } from '../../../../system/stopwatch';
-import type { BitbucketIssue, BitbucketPullRequest } from './models';
-import { bitbucketIssueStateToState, fromBitbucketPullRequest } from './models';
+import type { BitbucketIssue, BitbucketPullRequest, BitbucketRepository } from './models';
+import { bitbucketIssueStateToState, fromBitbucketIssue, fromBitbucketPullRequest } from './models';
 
 export class BitbucketApi implements Disposable {
 	private readonly _disposable: Disposable;
@@ -89,6 +91,73 @@ export class BitbucketApi implements Disposable {
 			return undefined;
 		}
 		return fromBitbucketPullRequest(response.values[0], provider);
+	}
+
+	@debug<BitbucketApi['getUsersIssuesForRepo']>({ args: { 0: p => p.name, 1: '<token>' } })
+	async getUsersIssuesForRepo(
+		provider: Provider,
+		token: string,
+		userUuid: string,
+		owner: string,
+		repo: string,
+		baseUrl: string,
+	): Promise<Issue[] | undefined> {
+		const scope = getLogScope();
+		const query = encodeURIComponent(`assignee.uuid="${userUuid}" OR reporter.uuid="${userUuid}"`);
+
+		const response = await this.request<{
+			values: BitbucketIssue[];
+			pagelen: number;
+			size: number;
+			page: number;
+		}>(
+			provider,
+			token,
+			baseUrl,
+			`repositories/${owner}/${repo}/issues?q=${query}`,
+			{
+				method: 'GET',
+			},
+			scope,
+		);
+
+		if (!response?.values?.length) {
+			return undefined;
+		}
+		return response.values.map(issue => fromBitbucketIssue(issue, provider));
+	}
+
+	@debug<BitbucketApi['getIssue']>({ args: { 0: p => p.name, 1: '<token>' } })
+	async getIssue(
+		provider: Provider,
+		token: string,
+		owner: string,
+		repo: string,
+		id: string,
+		baseUrl: string,
+	): Promise<Issue | undefined> {
+		const scope = getLogScope();
+
+		try {
+			const response = await this.request<BitbucketIssue>(
+				provider,
+				token,
+				baseUrl,
+				`repositories/${owner}/${repo}/issues/${id}`,
+				{
+					method: 'GET',
+				},
+				scope,
+			);
+
+			if (response) {
+				return fromBitbucketIssue(response, provider);
+			}
+			return undefined;
+		} catch (ex) {
+			Logger.error(ex, scope);
+			return undefined;
+		}
 	}
 
 	@debug<BitbucketApi['getIssueOrPullRequest']>({ args: { 0: p => p.name, 1: '<token>' } })
@@ -163,6 +232,125 @@ export class BitbucketApi implements Disposable {
 		}
 
 		return undefined;
+	}
+
+	@debug<BitbucketApi['getRepositoriesForWorkspace']>({ args: { 0: p => p.name, 1: '<token>' } })
+	async getRepositoriesForWorkspace(
+		provider: Provider,
+		token: string,
+		workspace: string,
+		options: {
+			baseUrl: string;
+		},
+	): Promise<RepositoryMetadata[] | undefined> {
+		const scope = getLogScope();
+
+		try {
+			interface BitbucketRepositoriesResponse {
+				size: number;
+				page: number;
+				pagelen: number;
+				next?: string;
+				previous?: string;
+				values: BitbucketRepository[];
+			}
+
+			const response = await this.request<BitbucketRepositoriesResponse>(
+				provider,
+				token,
+				options.baseUrl,
+				`repositories/${workspace}?role=contributor&fields=%2Bvalues.parent.workspace`, // field=+<field> must be encoded as field=%2B<field>
+				{
+					method: 'GET',
+				},
+				scope,
+			);
+
+			if (response) {
+				return response.values.map(repo => {
+					return {
+						provider: provider,
+						owner: repo.workspace.slug,
+						name: repo.slug,
+						isFork: Boolean(repo.parent),
+						parent: repo.parent
+							? {
+									owner: repo.parent.workspace.slug,
+									name: repo.parent.slug,
+							  }
+							: undefined,
+					};
+				});
+			}
+			return undefined;
+		} catch (ex) {
+			Logger.error(ex, scope);
+			return undefined;
+		}
+	}
+
+	async getPullRequestsForWorkspaceAuthoredByUser(
+		provider: Provider,
+		token: string,
+		userUuid: string,
+		workspace: string,
+		baseUrl: string,
+	): Promise<PullRequest[] | undefined> {
+		const scope = getLogScope();
+
+		const response = await this.request<{
+			values: BitbucketPullRequest[];
+			pagelen: number;
+			size: number;
+			page: number;
+		}>(
+			provider,
+			token,
+			baseUrl,
+			`workspaces/${workspace}/pullrequests/${userUuid}?state=OPEN&fields=%2Bvalues.reviewers,%2Bvalues.participants`,
+			{
+				method: 'GET',
+			},
+			scope,
+		);
+
+		if (!response?.values?.length) {
+			return undefined;
+		}
+		return response.values.map(pr => fromBitbucketPullRequest(pr, provider));
+	}
+
+	async getUsersReviewingPullRequestsForRepo(
+		provider: Provider,
+		token: string,
+		userUuid: string,
+		owner: string,
+		repo: string,
+		baseUrl: string,
+	): Promise<PullRequest[] | undefined> {
+		const scope = getLogScope();
+
+		const query = encodeURIComponent(`state="OPEN" AND reviewers.uuid="${userUuid}"`);
+		const response = await this.request<{
+			values: BitbucketPullRequest[];
+			pagelen: number;
+			size: number;
+			page: number;
+		}>(
+			provider,
+			token,
+			baseUrl,
+			`repositories/${owner}/${repo}/pullrequests?q=${query}&state=OPEN&fields=%2Bvalues.reviewers,%2Bvalues.participants`,
+			{
+				method: 'GET',
+			},
+			scope,
+		);
+
+		if (!response?.values?.length) {
+			return undefined;
+		}
+		return response.values.map(pr => fromBitbucketPullRequest(pr, provider));
 	}
 
 	private async request<T>(
