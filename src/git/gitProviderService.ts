@@ -16,7 +16,7 @@ import { GlyphChars, Schemes } from '../constants';
 import { SubscriptionPlanId } from '../constants.subscription';
 import type { Container } from '../container';
 import { AccessDeniedError, ProviderNotFoundError, ProviderNotSupportedError } from '../errors';
-import type { FeatureAccess, Features, PlusFeatures, RepoFeatureAccess } from '../features';
+import type { AdvancedFeatures, FeatureAccess, Features, PlusFeatures, RepoFeatureAccess } from '../features';
 import type { Subscription } from '../plus/gk/models/subscription';
 import type { SubscriptionChangeEvent } from '../plus/gk/subscriptionService';
 import { isSubscriptionPaidPlan } from '../plus/gk/utils/subscription.utils';
@@ -722,17 +722,26 @@ export class GitProviderService implements Disposable {
 		return this._subscription ?? (this._subscription = await this.container.subscription.getSubscription());
 	}
 
-	private _accessCache = new Map<PlusFeatures | undefined, Promise<FeatureAccess>>();
+	private _accessCache = new Map<PlusFeatures | AdvancedFeatures | undefined, Promise<FeatureAccess>>();
 	private _accessCacheByRepo = new Map<string /* path */, Promise<RepoFeatureAccess>>();
 	private clearAccessCache(): void {
 		this._accessCache.clear();
 		this._accessCacheByRepo.clear();
 	}
 
-	async access(feature: PlusFeatures | undefined, repoPath: string | Uri): Promise<RepoFeatureAccess>;
-	async access(feature?: PlusFeatures, repoPath?: string | Uri): Promise<FeatureAccess | RepoFeatureAccess>;
+	async access(
+		feature: PlusFeatures | AdvancedFeatures | undefined,
+		repoPath: string | Uri,
+	): Promise<RepoFeatureAccess>;
+	async access(
+		feature?: PlusFeatures | AdvancedFeatures,
+		repoPath?: string | Uri,
+	): Promise<FeatureAccess | RepoFeatureAccess>;
 	@debug({ exit: true })
-	async access(feature?: PlusFeatures, repoPath?: string | Uri): Promise<FeatureAccess | RepoFeatureAccess> {
+	async access(
+		feature?: PlusFeatures | AdvancedFeatures,
+		repoPath?: string | Uri,
+	): Promise<FeatureAccess | RepoFeatureAccess> {
 		if (repoPath == null) {
 			let access = this._accessCache.get(feature);
 			if (access == null) {
@@ -754,14 +763,17 @@ export class GitProviderService implements Disposable {
 		return access;
 	}
 
-	private async accessCore(feature: PlusFeatures | undefined, repoPath: string | Uri): Promise<RepoFeatureAccess>;
 	private async accessCore(
-		feature?: PlusFeatures,
+		feature: PlusFeatures | AdvancedFeatures | undefined,
+		repoPath: string | Uri,
+	): Promise<RepoFeatureAccess>;
+	private async accessCore(
+		feature?: PlusFeatures | AdvancedFeatures,
 		repoPath?: string | Uri,
 	): Promise<FeatureAccess | RepoFeatureAccess>;
 	@debug({ exit: true })
 	private async accessCore(
-		feature?: PlusFeatures,
+		feature?: PlusFeatures | AdvancedFeatures,
 		repoPath?: string | Uri,
 	): Promise<FeatureAccess | RepoFeatureAccess> {
 		const subscription = await this.getSubscription();
@@ -775,7 +787,15 @@ export class GitProviderService implements Disposable {
 			return { allowed: subscription.account?.verified !== false, subscription: { current: subscription } };
 		}
 
-		if (feature === 'launchpad' || feature === 'startWork' || feature === 'associateIssueWithBranch') {
+		if (
+			feature === 'launchpad' ||
+			feature === 'startWork' ||
+			feature === 'associateIssueWithBranch' ||
+			feature === 'generateStashMessage' ||
+			feature === 'explainCommit' ||
+			feature === 'cloudPatchGenerateTitleAndDescription' ||
+			feature === 'generateChangelog'
+		) {
 			return { allowed: false, subscription: { current: subscription, required: SubscriptionPlanId.Pro } };
 		}
 
@@ -850,7 +870,7 @@ export class GitProviderService implements Disposable {
 		return getRepoAccess.call(this, repoPath, true);
 	}
 
-	async ensureAccess(feature: PlusFeatures, repoPath?: string): Promise<void> {
+	async ensureAccess(feature: PlusFeatures | AdvancedFeatures, repoPath?: string): Promise<void> {
 		const { allowed, subscription } = await this.access(feature, repoPath);
 		if (allowed === false) throw new AccessDeniedError(subscription.current, subscription.required);
 	}

@@ -30,7 +30,17 @@ export type RepoFeatureAccess =
 			visibility?: RepositoryVisibility;
 	  };
 
-export type PlusFeatures = 'timeline' | 'worktrees' | 'graph' | 'launchpad' | 'startWork' | 'associateIssueWithBranch';
+export type PlusFeatures =
+	| 'timeline'
+	| 'worktrees'
+	| 'graph'
+	| 'launchpad'
+	| 'startWork'
+	| 'associateIssueWithBranch'
+	| 'generateStashMessage'
+	| 'explainCommit'
+	| 'cloudPatchGenerateTitleAndDescription';
+export type AdvancedFeatures = 'generateChangelog';
 
 export type FeaturePreviews = 'graph';
 export const featurePreviews: FeaturePreviews[] = ['graph'];
