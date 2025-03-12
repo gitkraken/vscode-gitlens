@@ -1,6 +1,8 @@
+import type { Uri } from 'vscode';
 import { window } from 'vscode';
 import type { Source } from '../../../../constants.telemetry';
 import type { Container } from '../../../../container';
+import type { AdvancedFeatures, PlusFeatures } from '../../../../features';
 
 export async function ensureAccount(container: Container, title: string, source: Source): Promise<boolean> {
 	while (true) {
@@ -43,6 +45,40 @@ export async function ensureAccount(container: Container, title: string, source:
 			}
 		} else if (result === signUp) {
 			if (await container.subscription.loginOrSignUp(true, source)) {
+				continue;
+			}
+		}
+
+		return false;
+	}
+
+	return true;
+}
+
+export async function ensureFeatureAccess(
+	container: Container,
+	title: string,
+	feature: PlusFeatures | AdvancedFeatures,
+	source: Source,
+	repoPath?: string | Uri,
+): Promise<boolean> {
+	if (!(await ensureAccount(container, title, source))) return false;
+
+	while (true) {
+		const access = await container.git.access(feature, repoPath);
+		if (access.allowed) break;
+
+		const upgrade = { title: 'Upgrade to Pro' };
+		const cancel = { title: 'Cancel', isCloseAffordance: true };
+		const result = await window.showWarningMessage(
+			`${title}\n\nUpgrade to Pro to access this feature.`,
+			{ modal: true },
+			upgrade,
+			cancel,
+		);
+
+		if (result === upgrade) {
+			if (await container.subscription.upgrade(source)) {
 				continue;
 			}
 		}

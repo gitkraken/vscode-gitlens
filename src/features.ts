@@ -43,6 +43,13 @@ export const enum PlusFeatures {
 	Launchpad = 'launchpad',
 	StartWork = 'startWork',
 	AssociateIssueWithBranch = 'associateIssueWithBranch',
+	GenerateStashMessage = 'generateStashMessage',
+	ExplainCommit = 'explainCommit',
+	CloudPatchGenerateTitleAndDescription = 'cloudPatchGenerateTitleAndDescription',
+}
+
+export const enum AdvancedFeatures {
+	GenerateChangelog = 'generateChangelog',
 }
 
 export type FeaturePreviews = 'graph';

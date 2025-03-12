@@ -873,10 +873,10 @@ export class SubscriptionService implements Disposable {
 	}
 
 	@log()
-	async upgrade(source: Source | undefined): Promise<void> {
+	async upgrade(source: Source | undefined): Promise<boolean> {
 		const scope = getLogScope();
 
-		if (!(await ensurePlusFeaturesEnabled())) return;
+		if (!(await ensurePlusFeaturesEnabled())) return false;
 
 		let aborted = false;
 		const promo = await this.container.productConfig.getApplicablePromo(this._subscription.state);
@@ -906,7 +906,7 @@ export class SubscriptionService implements Disposable {
 				const session = await this.ensureSession(false, source);
 				if (session != null) {
 					if ((await this.checkUpdatedSubscription(source)) === SubscriptionState.Paid) {
-						return;
+						return true;
 					}
 				}
 			} catch {}
@@ -955,7 +955,7 @@ export class SubscriptionService implements Disposable {
 		aborted = !(await openUrl(this.container.urls.getGkDevUrl('purchase/checkout', query)));
 
 		if (aborted) {
-			return;
+			return false;
 		}
 
 		telemetry?.dispose();
@@ -989,6 +989,8 @@ export class SubscriptionService implements Disposable {
 		if (refresh) {
 			void this.checkUpdatedSubscription(source);
 		}
+
+		return true;
 	}
 
 	@gate<SubscriptionService['validate']>(o => `${o?.force ?? false}`)
