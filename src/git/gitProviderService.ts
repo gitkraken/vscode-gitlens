@@ -773,7 +773,7 @@ export class GitProviderService implements Disposable {
 			return { allowed: subscription.account?.verified !== false, subscription: { current: subscription } };
 		}
 
-		if (feature === 'launchpad') {
+		if (feature === 'launchpad' || feature === 'startWork' || feature === 'associateIssueWithBranch') {
 			return { allowed: false, subscription: { current: subscription, required: SubscriptionPlanId.Pro } };
 		}
 
