@@ -56,7 +56,7 @@ type SimulateQuickPickItem = QuickPickItemOfT<
 			state: SubscriptionState.ProTrial;
 			reactivatedTrial?: boolean;
 			expiredPaid?: never;
-			planId?: never;
+			planId?: SubscriptionPlanId.Advanced;
 			featurePreviews?: never;
 	  }
 	| {
@@ -150,6 +150,22 @@ class AccountDebug {
 					iconPath: new ThemeIcon('blank'),
 					item: {
 						state: SubscriptionState.ProTrial,
+						reactivatedTrial: true,
+					},
+				},
+				{
+					label: 'Pro Trial (Advanced)',
+					description: 'Advanced, account',
+					iconPath: new ThemeIcon('blank'),
+					item: { state: SubscriptionState.ProTrial, planId: SubscriptionPlanId.Advanced },
+				},
+				{
+					label: 'Pro Trial (Advanced Reactivated)',
+					description: 'Advanced, account',
+					iconPath: new ThemeIcon('blank'),
+					item: {
+						state: SubscriptionState.ProTrial,
+						planId: SubscriptionPlanId.Advanced,
 						reactivatedTrial: true,
 					},
 				},

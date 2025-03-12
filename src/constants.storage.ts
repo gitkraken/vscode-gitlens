@@ -184,11 +184,13 @@ export interface StoredGKLicense {
 
 export type StoredGKLicenseType =
 	| 'gitlens-pro'
+	| 'gitlens-advanced'
 	| 'gitlens-teams'
 	| 'gitlens-hosted-enterprise'
 	| 'gitlens-self-hosted-enterprise'
 	| 'gitlens-standalone-enterprise'
 	| 'bundle-pro'
+	| 'bundle-advanced'
 	| 'bundle-teams'
 	| 'bundle-hosted-enterprise'
 	| 'bundle-self-hosted-enterprise'
