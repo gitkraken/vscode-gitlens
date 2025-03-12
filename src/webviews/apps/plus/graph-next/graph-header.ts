@@ -785,10 +785,8 @@ export class GlGraphHeader extends SignalWatcher(LitElement) {
 							<code-icon icon="rocket"></code-icon>
 						</a>
 						<span slot="content">
-							<span style="white-space: break-spaces">
-								<strong>Launchpad</strong> &mdash; organizes your pull requests into actionable groups
-								to help you focus and keep your team unblocked
-							</span>
+							<strong>Launchpad</strong> &mdash; organizes your pull requests into actionable groups to
+							help you focus and keep your team unblocked
 						</span>
 					</gl-tooltip>
 					<gl-tooltip placement="bottom">
