@@ -185,7 +185,7 @@ export const normalizeBitbucketServerPullRequest = (pr: BitbucketServerPullReque
 			name: pr.fromRef.displayId,
 			oid: pr.fromRef.latestCommit,
 		},
-		commentCount: pr.properties.commentCount,
+		commentCount: pr.properties?.commentCount,
 		upvoteCount: null,
 		commitCount: null,
 		fileCount: null,

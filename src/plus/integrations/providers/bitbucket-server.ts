@@ -96,19 +96,21 @@ export class BitbucketServerIntegration extends HostingIntegration<
 		id: string,
 		type: undefined | IssueOrPullRequestType,
 	): Promise<IssueOrPullRequest | undefined> {
-		if (type !== 'pullrequest') {
+		if (type === 'issue') {
 			return undefined;
 		}
-		return (await this.container.bitbucket)?.getIssueOrPullRequest(
+		const integration = await this.container.integrations.get(this.id);
+		if (!integration) {
+			return undefined;
+		}
+		return (await this.container.bitbucket)?.getServerPullRequestById(
 			this,
 			accessToken,
 			repo.owner,
 			repo.name,
 			id,
 			this.apiBaseUrl,
-			{
-				type: 'pullrequest',
-			},
+			integration,
 		);
 	}
 
