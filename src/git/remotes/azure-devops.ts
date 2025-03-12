@@ -182,8 +182,20 @@ export class AzureDevOpsRemote extends RemoteProvider {
 		return this.encodeUrl(`${this.baseUrl}/commit/${sha}`);
 	}
 
-	protected override getUrlForComparison(base: string, compare: string, _notation: '..' | '...'): string {
-		return this.encodeUrl(`${this.baseUrl}/branchCompare?baseVersion=GB${base}&targetVersion=GB${compare}`);
+	protected override getUrlForComparison(base: string, head: string, _notation: '..' | '...'): string {
+		return this.encodeUrl(`${this.baseUrl}/branchCompare?baseVersion=GB${base}&targetVersion=GB${head}`);
+	}
+
+	protected override getUrlForCreatePullRequest(
+		base: { branch?: string; remote: { path: string; url: string } },
+		head: { branch: string; remote: { path: string; url: string } },
+	): string | undefined {
+		const query = new URLSearchParams({ sourceRef: head.branch, targetRef: base.branch ?? '' });
+		// TODO: figure this out
+		// query.set('sourceRepositoryId', compare.repoId);
+		// query.set('targetRepositoryId', base.repoId);
+
+		return `${this.encodeUrl(`${this.baseUrl}/pullrequestcreate`)}?${query.toString()}`;
 	}
 
 	protected getUrlForFile(fileName: string, branch?: string, sha?: string, range?: Range): string {
