@@ -516,7 +516,7 @@ export function GraphWrapperReact(props: Readonly<GraphWrapperEvents & GraphWrap
 			}
 			onGraphRowUnhovered={(e, graphZoneType, graphRow) =>
 				props.onGraphRowUnhovered?.({
-					relatedTarget: e.relatedTarget,
+					relatedTarget: e.nativeEvent.relatedTarget ?? e.relatedTarget,
 					graphRow: graphRow,
 					graphZoneType: graphZoneType,
 				})
