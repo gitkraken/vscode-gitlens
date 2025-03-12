@@ -21501,7 +21501,7 @@
 		"@eamodio/eslint-lite-webpack-plugin": "0.2.0",
 		"@eslint/js": "9.22.0",
 		"@playwright/test": "1.51.0",
-		"@swc/core": "1.11.8",
+		"@swc/core": "1.11.9",
 		"@twbs/fantasticon": "3.1.0",
 		"@types/mocha": "10.0.10",
 		"@types/node": "20.14.15",
@@ -21524,7 +21524,7 @@
 		"css-loader": "7.1.2",
 		"css-minimizer-webpack-plugin": "7.0.2",
 		"cssnano-preset-advanced": "7.0.6",
-		"esbuild": "0.25.0",
+		"esbuild": "0.25.1",
 		"esbuild-loader": "4.3.0",
 		"esbuild-node-externals": "1.18.0",
 		"esbuild-sass-plugin": "3.3.1",
@@ -21564,7 +21564,7 @@
 		"webpack-require-from": "1.8.6"
 	},
 	"resolutions": {
-		"esbuild": "0.25.0",
+		"esbuild": "0.25.1",
 		"iconv-lite": "0.6.3",
 		"node-fetch": "2.7.0",
 		"semver-regex": "4.0.5"
