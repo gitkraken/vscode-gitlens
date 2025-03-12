@@ -610,16 +610,21 @@ export class ProvidersApi {
 		}
 	}
 
-	async getBitbucketServerPullRequestsForCurrentUser(options?: {
-		accessToken?: string;
-	}): Promise<ProviderPullRequest[] | undefined> {
+	async getBitbucketServerPullRequestsForCurrentUser(
+		baseUrl: string,
+		options?: {
+			accessToken?: string;
+		},
+	): Promise<ProviderPullRequest[] | undefined> {
 		const { provider, token } = await this.ensureProviderTokenAndFunction(
 			SelfHostedIntegrationId.BitbucketServer,
 			'getBitbucketServerPullRequestsForCurrentUserFn',
 			options?.accessToken,
 		);
 		try {
-			return (await provider.getBitbucketServerPullRequestsForCurrentUserFn?.({}, { token: token }))?.data;
+			return (
+				await provider.getBitbucketServerPullRequestsForCurrentUserFn?.({}, { token: token, baseUrl: baseUrl })
+			)?.data;
 		} catch (e) {
 			return this.handleProviderError(SelfHostedIntegrationId.BitbucketServer, token, e);
 		}
