@@ -139,8 +139,23 @@ export class GiteaRemote extends RemoteProvider {
 		return this.encodeUrl(`${this.baseUrl}/commit/${sha}`);
 	}
 
-	protected override getUrlForComparison(ref1: string, ref2: string, _notation: '..' | '...'): string {
-		return this.encodeUrl(`${this.baseUrl}/compare/${ref1}...${ref2}`);
+	protected override getUrlForComparison(base: string, head: string, _notation: '..' | '...'): string {
+		return this.encodeUrl(`${this.baseUrl}/compare/${base}...${head}`);
+	}
+
+	protected override getUrlForCreatePullRequest(
+		base: { branch?: string; remote: { path: string; url: string } },
+		head: { branch: string; remote: { path: string; url: string } },
+		options?: { title?: string; description?: string },
+	): string | undefined {
+		const query = new URLSearchParams({ head: head.branch, base: base.branch ?? '' });
+		if (options?.title) {
+			query.set('title', options.title);
+		}
+		if (options?.description) {
+			query.set('body', options.description);
+		}
+		return `${this.encodeUrl(`${this.baseUrl}/pulls/new`)}?${query.toString()}`;
 	}
 
 	protected getUrlForFile(fileName: string, branch?: string, sha?: string, range?: Range): string {

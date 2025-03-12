@@ -58,10 +58,23 @@ export class CustomRemote extends RemoteProvider {
 		return this.getUrl(this.urls.commit, this.getContext({ id: sha }));
 	}
 
-	protected override getUrlForComparison(base: string, compare: string, notation: '..' | '...'): string | undefined {
+	protected override getUrlForComparison(base: string, head: string, notation: '..' | '...'): string | undefined {
 		if (this.urls.comparison == null) return undefined;
 
-		return this.getUrl(this.urls.comparison, this.getContext({ ref1: base, ref2: compare, notation: notation }));
+		return this.getUrl(this.urls.comparison, this.getContext({ ref1: base, ref2: head, notation: notation }));
+	}
+
+	protected override getUrlForCreatePullRequest(
+		base: { branch?: string; remote: { path: string; url: string } },
+		compare: { branch: string; remote: { path: string; url: string } },
+		_options?: { title?: string; description?: string },
+	): string | undefined {
+		if (this.urls.createPullRequest == null) return undefined;
+
+		return this.getUrl(
+			this.urls.createPullRequest,
+			this.getContext({ base: base.branch ?? '', head: compare.branch }),
+		);
 	}
 
 	protected getUrlForFile(fileName: string, branch?: string, sha?: string, range?: Range): string {
