@@ -246,12 +246,12 @@ export class ViewCommands implements Disposable {
 
 			registerViewCommand(
 				'gitlens.views.openBranchOnRemote',
-				n => executeCommand(GlCommand.OpenBranchOnRemote, n),
+				n => executeCommand('gitlens.openBranchOnRemote', n),
 				this,
 			),
 			registerViewCommand(
 				'gitlens.views.openBranchOnRemote.multi',
-				n => executeCommand(GlCommand.OpenBranchOnRemote, n),
+				n => executeCommand('gitlens.openBranchOnRemote', n),
 				this,
 				'sequential',
 			),
@@ -460,7 +460,7 @@ export class ViewCommands implements Disposable {
 				this,
 			),
 
-			registerViewCommand('gitlens.views.generateChangelog', this.generateChangelog, this),
+			registerViewCommand('gitlens.views.ai.generateChangelog', this.generateChangelog, this),
 		);
 	}
 

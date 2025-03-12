@@ -1,6 +1,5 @@
 import type { TextEditor, Uri } from 'vscode';
 import { ProgressLocation, window } from 'vscode';
-import { GlCommand } from '../constants.commands';
 import type { Sources } from '../constants.telemetry';
 import type { Container } from '../container';
 import { GitUri } from '../git/gitUri';
@@ -20,12 +19,19 @@ export interface GenerateCommitMessageCommandArgs {
 @command()
 export class GenerateCommitMessageCommand extends ActiveEditorCommand {
 	constructor(private readonly container: Container) {
-		super([GlCommand.GenerateCommitMessage, GlCommand.GenerateCommitMessageScm]);
+		super(
+			['gitlens.ai.generateCommitMessage', 'gitlens.scm.ai.generateCommitMessage'],
+			['gitlens.generateCommitMessage', 'gitlens.scm.generateCommitMessage'],
+		);
 	}
 
 	protected override preExecute(context: CommandContext, args?: GenerateCommitMessageCommandArgs): Promise<void> {
 		let source: Sources | undefined = args?.source;
-		if (source == null && context.command === GlCommand.GenerateCommitMessageScm) {
+		if (
+			source == null &&
+			(context.command === 'gitlens.scm.ai.generateCommitMessage' ||
+				context.command === /** @deprecated */ 'gitlens.scm.generateCommitMessage')
+		) {
 			source = 'scm-input';
 			if (context.type === 'scm' && context.scm.rootUri != null) {
 				args = { ...args, repoPath: context.scm.rootUri };

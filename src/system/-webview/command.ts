@@ -7,6 +7,7 @@ import type {
 	CoreCommands,
 	CoreGitCommands,
 	GlCommands,
+	GlCommandsDeprecated,
 	WebviewCommands,
 	WebviewViewCommands,
 } from '../../constants.commands';
@@ -25,7 +26,11 @@ export function command(): ClassDecorator {
 	};
 }
 
-export function registerCommand(command: GlCommands, callback: CommandCallback, thisArg?: any): Disposable {
+export function registerCommand(
+	command: GlCommands | GlCommandsDeprecated,
+	callback: CommandCallback,
+	thisArg?: any,
+): Disposable {
 	return commands.registerCommand(
 		command,
 		function (this: any, ...args) {

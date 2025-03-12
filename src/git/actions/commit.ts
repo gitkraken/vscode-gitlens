@@ -602,7 +602,7 @@ export async function openFileOnRemote(fileOrUri: string | GitFile | Uri, ref?: 
 		if (typeof fileOrUri !== 'string' && fileOrUri.status === '?') return;
 	}
 
-	void (await executeCommand<[Uri, OpenFileOnRemoteCommandArgs]>(GlCommand.OpenFileOnRemote, uri, {
+	void (await executeCommand<[Uri, OpenFileOnRemoteCommandArgs]>('gitlens.openFileOnRemote', uri, {
 		sha: ref?.ref,
 	}));
 }

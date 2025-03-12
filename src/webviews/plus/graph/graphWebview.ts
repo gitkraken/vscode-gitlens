@@ -680,7 +680,7 @@ export class GraphWebviewProvider implements WebviewProvider<State, State, Graph
 				'gitlens.graph.copyWorkingChangesToWorktree',
 				this.copyWorkingChangesToWorktree,
 			),
-			this.host.registerWebviewCommand('gitlens.graph.generateCommitMessage', this.generateCommitMessage),
+			this.host.registerWebviewCommand('gitlens.graph.ai.generateCommitMessage', this.generateCommitMessage),
 
 			this.host.registerWebviewCommand('gitlens.graph.compareSelectedCommits.multi', this.compareSelectedCommits),
 			this.host.registerWebviewCommand('gitlens.graph.abortPausedOperation', this.abortPausedOperation),
@@ -3810,7 +3810,7 @@ export class GraphWebviewProvider implements WebviewProvider<State, State, Graph
 		const ref = this.getGraphItemRef(item);
 		if (ref == null) return Promise.resolve();
 
-		return executeCommand<GenerateCommitMessageCommandArgs>(GlCommand.GenerateCommitMessage, {
+		return executeCommand<GenerateCommitMessageCommandArgs>('gitlens.graph.ai.generateCommitMessage', {
 			repoPath: ref.repoPath,
 			source: 'graph',
 		});

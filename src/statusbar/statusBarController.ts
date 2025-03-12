@@ -259,7 +259,7 @@ export class StatusBarController implements Disposable {
 				actionTooltip = 'Click to Copy Remote Commit URL';
 				break;
 			case StatusBarCommand.CopyRemoteFileUrl:
-				this._statusBarBlame.command = GlCommand.CopyRemoteFileUrl;
+				this._statusBarBlame.command = 'gitlens.copyRemoteFileUrlToClipboard';
 				actionTooltip = 'Click to Copy Remote File Revision URL';
 				break;
 			case StatusBarCommand.DiffWithPrevious:

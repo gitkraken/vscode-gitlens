@@ -17,13 +17,10 @@ export interface CompareWithCommandArgs {
 @command()
 export class CompareWithCommand extends ActiveEditorCommand {
 	constructor(private readonly container: Container) {
-		super([
-			GlCommand.CompareWith,
-			GlCommand.CompareHeadWith,
-			GlCommand.CompareWorkingWith,
-			/** @deprecated */ 'gitlens.diffHeadWith',
-			/** @deprecated */ 'gitlens.diffWorkingWith',
-		]);
+		super(
+			[GlCommand.CompareWith, GlCommand.CompareHeadWith, GlCommand.CompareWorkingWith],
+			['gitlens.diffHeadWith', 'gitlens.diffWorkingWith'],
+		);
 	}
 
 	protected override preExecute(context: CommandContext, args?: CompareWithCommandArgs): Promise<void> {

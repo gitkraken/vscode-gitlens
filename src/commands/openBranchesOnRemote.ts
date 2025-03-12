@@ -21,11 +21,7 @@ export interface OpenBranchesOnRemoteCommandArgs {
 @command()
 export class OpenBranchesOnRemoteCommand extends ActiveEditorCommand {
 	constructor(private readonly container: Container) {
-		super([
-			'gitlens.openBranchesOnRemote',
-			/** @deprecated */ 'gitlens.openBranchesInRemote',
-			GlCommand.CopyRemoteBranchesUrl,
-		]);
+		super(['gitlens.openBranchesOnRemote', 'gitlens.copyRemoteBranchesUrl'], ['gitlens.openBranchesInRemote']);
 	}
 
 	protected override preExecute(context: CommandContext, args?: OpenBranchesOnRemoteCommandArgs): Promise<void> {
@@ -33,7 +29,7 @@ export class OpenBranchesOnRemoteCommand extends ActiveEditorCommand {
 			args = { ...args, remote: context.node.remote.name };
 		}
 
-		if (context.command === GlCommand.CopyRemoteBranchesUrl) {
+		if (context.command === 'gitlens.copyRemoteBranchesUrl') {
 			args = { ...args, clipboard: true };
 		}
 
