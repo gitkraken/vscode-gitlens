@@ -6,6 +6,8 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/) and this p
 
 ## [Unreleased]
 
+## [16.3.3] - 2025-03-13
+
 ### Fixed
 
 - Fixes GitLens gets stuck after rebase ([#4078](https://github.com/gitkraken/vscode-gitlens/issues/4078))
@@ -5994,7 +5996,8 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/) and this p
 
 - Initial release but still heavily a work in progress.
 
-[unreleased]: https://github.com/gitkraken/vscode-gitlens/compare/v16.3.2...HEAD
+[unreleased]: https://github.com/gitkraken/vscode-gitlens/compare/v16.3.3...HEAD
+[16.3.3]: https://github.com/gitkraken/vscode-gitlens/compare/v16.3.2...gitkraken:v16.3.3
 [16.3.2]: https://github.com/gitkraken/vscode-gitlens/compare/v16.3.1...gitkraken:v16.3.2
 [16.3.1]: https://github.com/gitkraken/vscode-gitlens/compare/v16.3.0...gitkraken:v16.3.1
 [16.3.0]: https://github.com/gitkraken/vscode-gitlens/compare/v16.2.1...gitkraken:v16.3.0
