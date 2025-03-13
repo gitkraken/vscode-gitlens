@@ -217,6 +217,24 @@ export class ProvidersApi {
 					providerApis.bitbucket,
 				) as MergePullRequestFn,
 			},
+			[SelfHostedIntegrationId.BitbucketServer]: {
+				...providersMetadata[SelfHostedIntegrationId.BitbucketServer],
+				provider: providerApis.bitbucketServer,
+				getCurrentUserFn: providerApis.bitbucketServer.getCurrentUser.bind(
+					providerApis.bitbucketServer,
+				) as GetCurrentUserFn,
+				getBitbucketServerPullRequestsForCurrentUserFn:
+					providerApis.bitbucketServer.getPullRequestsForCurrentUser.bind(providerApis.bitbucketServer),
+				getPullRequestsForReposFn: providerApis.bitbucketServer.getPullRequestsForRepos.bind(
+					providerApis.bitbucketServer,
+				) as GetPullRequestsForReposFn,
+				getPullRequestsForRepoFn: providerApis.bitbucketServer.getPullRequestsForRepo.bind(
+					providerApis.bitbucketServer,
+				) as GetPullRequestsForRepoFn,
+				mergePullRequestFn: providerApis.bitbucketServer.mergePullRequest.bind(
+					providerApis.bitbucketServer,
+				) as MergePullRequestFn,
+			},
 			[HostingIntegrationId.AzureDevOps]: {
 				...providersMetadata[HostingIntegrationId.AzureDevOps],
 				provider: providerApis.azureDevOps,
@@ -591,6 +609,25 @@ export class ProvidersApi {
 			return this.handleProviderError(HostingIntegrationId.Bitbucket, token, e);
 		}
 	}
+	async getBitbucketServerPullRequestsForCurrentUser(
+		baseUrl: string,
+		options?: {
+			accessToken?: string;
+		},
+	): Promise<ProviderPullRequest[] | undefined> {
+		const { provider, token } = await this.ensureProviderTokenAndFunction(
+			SelfHostedIntegrationId.BitbucketServer,
+			'getBitbucketServerPullRequestsForCurrentUserFn',
+			options?.accessToken,
+		);
+		try {
+			return (
+				await provider.getBitbucketServerPullRequestsForCurrentUserFn?.({}, { token: token, baseUrl: baseUrl })
+			)?.data;
+		} catch (e) {
+			return this.handleProviderError(SelfHostedIntegrationId.BitbucketServer, token, e);
+		}
+	}
 
 	async getJiraProjectsForResources(
 		resourceIds: string[],
@@ -807,6 +844,7 @@ export class ProvidersApi {
 								login: pr.repository.owner,
 							},
 						},
+						version: pr.version,
 					},
 					...options,
 				},

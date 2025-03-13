@@ -57,6 +57,7 @@ export class PullRequest implements PullRequestShape {
 		public readonly assignees?: PullRequestMember[],
 		public readonly statusCheckRollupState?: PullRequestStatusCheckRollupState,
 		public readonly project?: IssueProject,
+		public readonly version?: number,
 	) {}
 
 	get closed(): boolean {
