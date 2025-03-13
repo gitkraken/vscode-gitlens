@@ -144,7 +144,7 @@ export class BitbucketRemote extends RemoteProvider<RepositoryDescriptor> {
 	}
 
 	protected override getUrlForComparison(base: string, head: string, _notation: '..' | '...'): string {
-		return this.encodeUrl(`${this.baseUrl}/branches/compare/${base}%0D${head}`).replace('%250D', '%0D');
+		return `${this.encodeUrl(`${this.baseUrl}/branches/compare/${head}\r${base}`)}#diff`;
 	}
 
 	protected override getUrlForCreatePullRequest(
