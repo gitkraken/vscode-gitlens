@@ -6,6 +6,10 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/) and this p
 
 ## [Unreleased]
 
+### Fixed
+
+- Fixes GitLens gets stuck after rebase ([#4078](https://github.com/gitkraken/vscode-gitlens/issues/4078))
+
 ## [16.3.2] - 2025-02-21
 
 ## [16.3.1] - 2025-02-20

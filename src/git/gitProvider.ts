@@ -321,6 +321,8 @@ export interface GitBranchesSubProvider {
 		branch: GitBranchReference,
 		into: GitBranchReference,
 	): Promise<GitBranchMergedStatus>;
+	/** @internal not intended to be used outside of the sub-providers */
+	getCurrentBranchReference?(repoPath: string): Promise<GitBranchReference | undefined>;
 	getLocalBranchByUpstream?(repoPath: string, remoteBranchName: string): Promise<GitBranch | undefined>;
 	getPotentialMergeOrRebaseConflict?(
 		repoPath: string,

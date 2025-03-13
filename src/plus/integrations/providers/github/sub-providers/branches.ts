@@ -11,7 +11,6 @@ import type { BranchSortOptions } from '../../../../../git/utils/-webview/sortin
 import { sortBranches, sortContributors } from '../../../../../git/utils/-webview/sorting';
 import { createRevisionRange } from '../../../../../git/utils/revision.utils';
 import { configuration } from '../../../../../system/-webview/configuration';
-import { gate } from '../../../../../system/decorators/-webview/gate';
 import { log } from '../../../../../system/decorators/log';
 import { Logger } from '../../../../../system/logger';
 import { getLogScope } from '../../../../../system/logger.scope';
@@ -29,7 +28,6 @@ export class BranchesGitSubProvider implements GitBranchesSubProvider {
 		private readonly provider: GitHubGitProviderInternal,
 	) {}
 
-	@gate()
 	@log()
 	async getBranch(repoPath: string, name?: string): Promise<GitBranch | undefined> {
 		if (name != null) {
