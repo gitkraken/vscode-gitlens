@@ -23,6 +23,7 @@ interface StoredSession {
 	cloud?: boolean;
 	expiresAt?: string;
 	domain?: string;
+	protocol?: string;
 }
 
 export type ConfiguredIntegrationType = 'cloud' | 'local';
@@ -396,5 +397,6 @@ function convertStoredSessionToSession(
 		cloud: storedSession.cloud ?? cloudIfMissing,
 		expiresAt: storedSession.expiresAt ? new Date(storedSession.expiresAt) : undefined,
 		domain: storedSession.domain ?? descriptor.domain,
+		protocol: storedSession.protocol,
 	};
 }
