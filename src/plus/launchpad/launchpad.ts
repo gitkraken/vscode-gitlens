@@ -512,7 +512,7 @@ export class LaunchpadCommand extends QuickCommand<State> {
 						? new ThemeIcon('account')
 						: i.author?.avatarUrl != null
 						  ? Uri.parse(i.author.avatarUrl)
-						  : undefined,
+						  : new ThemeIcon('account'),
 				item: i,
 				picked:
 					i.graphQLId != null
@@ -1496,7 +1496,7 @@ function getLaunchpadItemReviewInformation(item: LaunchpadItem): QuickPickItemOf
 				? new ThemeIcon('account')
 				: review.reviewer.avatarUrl != null
 				  ? Uri.parse(review.reviewer.avatarUrl)
-				  : undefined;
+				  : new ThemeIcon('account');
 		switch (review.state) {
 			case ProviderPullRequestReviewState.Approved:
 				reviewLabel = `${isCurrentUser ? 'You' : review.reviewer.username} approved these changes`;
