@@ -25,7 +25,8 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/) and this p
 
 ### Fixed
 
-- Fixes [#3218](https://github.com/gitkraken/vscode-gitlens/issues/3218) - Bitbucket Server remote - "scm/" path prefix not removed (regression)
+- Fixes GitLens gets stuck after rebase ([#4078](https://github.com/gitkraken/vscode-gitlens/issues/4078))
+- Fixes Bitbucket Server remote - "scm/" path prefix not removed (regression) ([#3218](https://github.com/gitkraken/vscode-gitlens/issues/3218))
 - Fixes avoid eagerly getting "full" commit details for inline blame ([#4115])(https://github.com/gitkraken/vscode-gitlens/issues/4115))
 - Fixes large commit messages work poorly on Commit Graph ([#4100](https://github.com/gitkraken/vscode-gitlens/issues/4100))
 - Fixes _Show \* View_ commands fail intermittently ([#4127](https://github.com/gitkraken/vscode-gitlens/issues/4127))
