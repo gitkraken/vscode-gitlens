@@ -43,7 +43,8 @@ export class BitbucketServerIntegration extends HostingIntegration<
 	}
 
 	protected get apiBaseUrl(): string {
-		return `https://${this.domain}/rest/api/1.0`;
+		const protocol = this._session?.protocol ?? 'https:';
+		return `${protocol}//${this.domain}/rest/api/1.0`;
 	}
 
 	protected override async mergeProviderPullRequest(
