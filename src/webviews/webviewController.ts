@@ -191,6 +191,7 @@ export class WebviewController<
 			}
 
 			this.disposable = Disposable.from(
+				this._onDidDispose,
 				window.onDidChangeWindowState(this.onWindowStateChanged, this),
 				parent.webview.onDidReceiveMessage(this.onMessageReceivedCore, this),
 				isInEditor

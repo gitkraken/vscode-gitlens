@@ -60,7 +60,10 @@ export class WorkspacesService implements Disposable {
 		this._currentWorkspaceAutoAddSetting =
 			workspace.getConfiguration('gitkraken')?.get<WorkspaceAutoAddSetting>('workspaceAutoAddSetting') ??
 			'disabled';
-		this._disposable = Disposable.from(container.subscription.onDidChange(this.onSubscriptionChanged, this));
+		this._disposable = Disposable.from(
+			this._onDidResetWorkspaces,
+			container.subscription.onDidChange(this.onSubscriptionChanged, this),
+		);
 	}
 
 	dispose(): void {

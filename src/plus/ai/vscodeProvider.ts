@@ -1,5 +1,5 @@
-import type { CancellationToken, Disposable, Event, LanguageModelChat, LanguageModelChatSelector } from 'vscode';
-import { CancellationTokenSource, EventEmitter, LanguageModelChatMessage, lm } from 'vscode';
+import type { CancellationToken, Event, LanguageModelChat, LanguageModelChatSelector } from 'vscode';
+import { CancellationTokenSource, Disposable, EventEmitter, LanguageModelChatMessage, lm } from 'vscode';
 import type { TelemetryEvents } from '../../constants.telemetry';
 import type { Container } from '../../container';
 import { sum } from '../../system/iterable';
@@ -39,7 +39,10 @@ export class VSCodeAIProvider implements AIProvider<typeof provider.id> {
 		private readonly container: Container,
 		private readonly connection: ServerConnection,
 	) {
-		this._disposable = lm.onDidChangeChatModels(() => this._onDidChange.fire());
+		this._disposable = Disposable.from(
+			this._onDidChange,
+			lm.onDidChangeChatModels(() => this._onDidChange.fire()),
+		);
 	}
 
 	dispose(): void {

@@ -104,6 +104,8 @@ export class IntegrationService implements Disposable {
 	}
 
 	dispose(): void {
+		this._integrations.forEach(i => i.dispose());
+		this._integrations.clear();
 		this._disposable?.dispose();
 	}
 

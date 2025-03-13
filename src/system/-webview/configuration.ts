@@ -1,4 +1,4 @@
-import type { ConfigurationChangeEvent, ConfigurationScope, Event, ExtensionContext } from 'vscode';
+import type { ConfigurationChangeEvent, ConfigurationScope, Disposable, Event, ExtensionContext } from 'vscode';
 import { ConfigurationTarget, EventEmitter, workspace } from 'vscode';
 import type { Config, CoreConfig } from '../../config';
 import { extensionPrefix } from '../../constants';
@@ -10,7 +10,7 @@ interface ConfigurationOverrides {
 	onDidChange(e: ConfigurationChangeEvent): ConfigurationChangeEvent;
 }
 
-export class Configuration {
+export class Configuration implements Disposable {
 	static configure(context: ExtensionContext): void {
 		context.subscriptions.push(
 			// eslint-disable-next-line @typescript-eslint/no-use-before-define
@@ -40,6 +40,11 @@ export class Configuration {
 	}
 
 	private _overrides: Partial<ConfigurationOverrides> | undefined;
+
+	dispose(): void {
+		this._onDidChange.dispose();
+		this._onDidChangeAny.dispose();
+	}
 
 	applyOverrides(overrides: ConfigurationOverrides): void {
 		this._overrides = overrides;

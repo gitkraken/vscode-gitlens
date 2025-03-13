@@ -3,8 +3,8 @@ import { request } from '@octokit/request';
 import { RequestError } from '@octokit/request-error';
 import type { Endpoints, OctokitResponse, RequestParameters } from '@octokit/types';
 import type { HttpsProxyAgent } from 'https-proxy-agent';
-import type { CancellationToken, Disposable, Event } from 'vscode';
-import { EventEmitter, Uri, window } from 'vscode';
+import type { CancellationToken, Event } from 'vscode';
+import { Disposable, EventEmitter, Uri, window } from 'vscode';
 import { fetch, getProxyAgent, wrapForForcedInsecureSSL } from '@env/fetch';
 import { isWeb } from '@env/platform';
 import type { Container } from '../../../../container';
@@ -215,14 +215,17 @@ export class GitHubApi implements Disposable {
 	private readonly _disposable: Disposable;
 
 	constructor(_container: Container) {
-		this._disposable = configuration.onDidChangeAny(e => {
-			if (
-				configuration.changedCore(e, ['http.proxy', 'http.proxyStrictSSL']) ||
-				configuration.changed(e, ['outputLevel', 'proxy'])
-			) {
-				this.resetCaches();
-			}
-		});
+		this._disposable = Disposable.from(
+			this._onDidReauthenticate,
+			configuration.onDidChangeAny(e => {
+				if (
+					configuration.changedCore(e, ['http.proxy', 'http.proxyStrictSSL']) ||
+					configuration.changed(e, ['outputLevel', 'proxy'])
+				) {
+					this.resetCaches();
+				}
+			}),
+		);
 	}
 
 	dispose(): void {

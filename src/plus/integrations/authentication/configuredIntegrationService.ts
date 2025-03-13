@@ -1,4 +1,4 @@
-import type { Event } from 'vscode';
+import type { Disposable, Event } from 'vscode';
 import { EventEmitter } from 'vscode';
 import type { IntegrationId } from '../../../constants.integrations';
 import { HostingIntegrationId } from '../../../constants.integrations';
@@ -31,7 +31,7 @@ export interface ConfiguredIntegrationsChangeEvent {
 	ids: IntegrationId[];
 }
 
-export class ConfiguredIntegrationService {
+export class ConfiguredIntegrationService implements Disposable {
 	private readonly _onDidChange = new EventEmitter<ConfiguredIntegrationsChangeEvent>();
 	get onDidChange(): Event<ConfiguredIntegrationsChangeEvent> {
 		return this._onDidChange.event;
@@ -40,6 +40,10 @@ export class ConfiguredIntegrationService {
 	private _configured?: Map<IntegrationId, ConfiguredIntegrationDescriptor[]>;
 
 	constructor(private readonly container: Container) {}
+
+	dispose(): void {
+		this._onDidChange.dispose();
+	}
 
 	private get configured(): Map<IntegrationId, ConfiguredIntegrationDescriptor[]> {
 		if (this._configured == null) {
