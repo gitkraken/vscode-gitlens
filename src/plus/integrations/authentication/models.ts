@@ -13,6 +13,7 @@ export interface ProviderAuthenticationSession extends AuthenticationSession {
 	readonly cloud: boolean;
 	readonly expiresAt?: Date;
 	readonly domain: string;
+	readonly protocol?: string;
 }
 
 export interface ConfiguredIntegrationDescriptor {
