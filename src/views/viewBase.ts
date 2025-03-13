@@ -193,27 +193,9 @@ export abstract class ViewBase<
 		return `gitlens.views.${this.type}`;
 	}
 
-	protected _onDidInitialize = new EventEmitter<void>();
-	private initialized = false;
-
-	protected _onDidChangeTreeData = new EventEmitter<ViewNode | undefined>();
-	get onDidChangeTreeData(): Event<ViewNode | undefined> {
-		return this._onDidChangeTreeData.event;
-	}
-
 	private _onDidChangeSelection = new EventEmitter<TreeViewSelectionChangeEvent<ViewNode>>();
 	get onDidChangeSelection(): Event<TreeViewSelectionChangeEvent<ViewNode>> {
 		return this._onDidChangeSelection.event;
-	}
-
-	private _onDidChangeVisibility = new EventEmitter<TreeViewVisibilityChangeEvent>();
-	get onDidChangeVisibility(): Event<TreeViewVisibilityChangeEvent> {
-		return this._onDidChangeVisibility.event;
-	}
-
-	private _onDidChangeNodeCollapsibleState = new EventEmitter<TreeViewNodeCollapsibleStateChangeEvent<ViewNode>>();
-	get onDidChangeNodeCollapsibleState(): Event<TreeViewNodeCollapsibleStateChangeEvent<ViewNode>> {
-		return this._onDidChangeNodeCollapsibleState.event;
 	}
 
 	private _onDidChangeNodesCheckedState = new EventEmitter<TreeCheckboxChangeEvent<ViewNode>>();
@@ -221,10 +203,27 @@ export abstract class ViewBase<
 		return this._onDidChangeNodesCheckedState.event;
 	}
 
+	private _onDidChangeNodeCollapsibleState = new EventEmitter<TreeViewNodeCollapsibleStateChangeEvent<ViewNode>>();
+	get onDidChangeNodeCollapsibleState(): Event<TreeViewNodeCollapsibleStateChangeEvent<ViewNode>> {
+		return this._onDidChangeNodeCollapsibleState.event;
+	}
+
+	protected _onDidChangeTreeData = new EventEmitter<ViewNode | undefined>();
+	get onDidChangeTreeData(): Event<ViewNode | undefined> {
+		return this._onDidChangeTreeData.event;
+	}
+
+	private _onDidChangeVisibility = new EventEmitter<TreeViewVisibilityChangeEvent>();
+	get onDidChangeVisibility(): Event<TreeViewVisibilityChangeEvent> {
+		return this._onDidChangeVisibility.event;
+	}
+
+	protected _onDidInitialize = new EventEmitter<void>();
 	protected disposables: Disposable[] = [];
 	protected root: RootNode | undefined;
 	protected tree: TreeView<ViewNode> | undefined;
 
+	private initialized = false;
 	private readonly _lastKnownLimits = new Map<string, number | undefined>();
 
 	constructor(
@@ -235,7 +234,15 @@ export abstract class ViewBase<
 		public readonly grouped?: boolean,
 	) {
 		this.description = this.getViewDescription();
-		this.disposables.push(once(container.onReady)(this.onReady, this));
+		this.disposables.push(
+			this._onDidChangeNodesCheckedState,
+			this._onDidChangeNodeCollapsibleState,
+			this._onDidChangeSelection,
+			this._onDidChangeTreeData,
+			this._onDidChangeVisibility,
+			this._onDidInitialize,
+			once(container.onReady)(this.onReady, this),
+		);
 
 		if (this.container.debugging || configuration.get('debug')) {
 			function addDebuggingInfo(item: TreeItem, node: ViewNode, parent: ViewNode | undefined) {

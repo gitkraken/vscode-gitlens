@@ -128,7 +128,15 @@ export class GitHubGitProvider implements GitProvider, Disposable {
 
 	constructor(private readonly container: Container) {
 		this._cache = new GitCache(this.container);
-		this._disposables.push(authentication.onDidChangeSessions(this.onAuthenticationSessionsChanged, this));
+		this._disposables.push(
+			this._onDidChange,
+			this._onWillChangeRepository,
+			this._onDidChangeRepository,
+			this._onDidCloseRepository,
+			this._onDidOpenRepository,
+			this._cache,
+			authentication.onDidChangeSessions(this.onAuthenticationSessionsChanged, this),
+		);
 	}
 
 	dispose(): void {

@@ -233,6 +233,8 @@ export class GitProviderService implements Disposable {
 	constructor(private readonly container: Container) {
 		this._initializing = defer<number>();
 		this._disposable = Disposable.from(
+			this._onDidChangeProviders,
+			this._onDidChangeRepositories,
 			container.subscription.onDidChange(this.onSubscriptionChanged, this),
 			window.onDidChangeWindowState(this.onWindowStateChanged, this),
 			workspace.onDidChangeWorkspaceFolders(this.onWorkspaceFoldersChanged, this),

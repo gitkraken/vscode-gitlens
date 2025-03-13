@@ -99,6 +99,8 @@ export class AIProviderService implements Disposable {
 	) {}
 
 	dispose(): void {
+		this._onDidChangeModel.dispose();
+		this._providerDisposable?.dispose();
 		this._provider?.dispose();
 	}
 

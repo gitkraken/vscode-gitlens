@@ -247,6 +247,8 @@ export class Repository implements Disposable {
 		this._closed = closed;
 
 		this._disposable = Disposable.from(
+			this._onDidChange,
+			this._onDidChangeFileSystem,
 			this.setupRepoWatchers(),
 			configuration.onDidChange(this.onConfigurationChanged, this),
 			// Sending this event in the `'git:cache:reset'` below to avoid unnecessary work. While we will refresh more than needed, this doesn't happen often

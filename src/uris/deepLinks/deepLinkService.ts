@@ -59,16 +59,19 @@ type OpenLocationQuickPickItem = {
 };
 
 export class DeepLinkService implements Disposable {
-	private readonly _disposables: Disposable[] = [];
 	private _context: DeepLinkServiceContext;
 	private readonly _onDeepLinkProgressUpdated = new EventEmitter<DeepLinkProgress>();
+	private readonly _disposables: Disposable[] = [];
 
 	constructor(private readonly container: Container) {
 		this._context = {
 			state: DeepLinkServiceState.Idle,
 		};
 
-		this._disposables.push(container.uri.onDidReceiveUri(async (uri: Uri) => this.processDeepLinkUri(uri)));
+		this._disposables.push(
+			this._onDeepLinkProgressUpdated,
+			container.uri.onDidReceiveUri(async (uri: Uri) => this.processDeepLinkUri(uri)),
+		);
 
 		const pendingDeepLink = this.container.storage.get('deepLinks:pending');
 		void this.processPendingDeepLink(pendingDeepLink);

@@ -2,6 +2,7 @@ import type {
 	CancellationToken,
 	CodeLensProvider,
 	Command,
+	Disposable,
 	DocumentSelector,
 	DocumentSymbol,
 	Event,
@@ -75,7 +76,7 @@ class GitAuthorsCodeLens extends CodeLens {
 	}
 }
 
-export class GitCodeLensProvider implements CodeLensProvider {
+export class GitCodeLensProvider implements CodeLensProvider, Disposable {
 	static selector: DocumentSelector = [...map(trackableSchemes, scheme => ({ scheme: scheme }))];
 
 	private _onDidChangeCodeLenses = new EventEmitter<void>();
@@ -84,6 +85,10 @@ export class GitCodeLensProvider implements CodeLensProvider {
 	}
 
 	constructor(private readonly container: Container) {}
+
+	dispose(): void {
+		this._onDidChangeCodeLenses.dispose();
+	}
 
 	reset(): void {
 		this._onDidChangeCodeLenses.fire();

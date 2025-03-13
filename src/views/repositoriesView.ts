@@ -41,15 +41,20 @@ import { ViewBase } from './viewBase';
 import { registerViewCommand } from './viewCommands';
 
 export class RepositoriesView extends ViewBase<'repositories', RepositoriesNode, RepositoriesViewConfig> {
+	private _onDidChangeAutoRefresh = new EventEmitter<void>();
+	get onDidChangeAutoRefresh(): Event<void> {
+		return this._onDidChangeAutoRefresh.event;
+	}
+
 	protected readonly configKey = 'repositories';
 
 	constructor(container: Container, grouped?: boolean) {
 		super(container, 'repositories', 'Repositories', 'repositoriesView', grouped);
 	}
 
-	private _onDidChangeAutoRefresh = new EventEmitter<void>();
-	get onDidChangeAutoRefresh(): Event<void> {
-		return this._onDidChangeAutoRefresh.event;
+	override dispose(): void {
+		this._onDidChangeAutoRefresh.dispose();
+		super.dispose();
 	}
 
 	protected getRoot(): RepositoriesNode {

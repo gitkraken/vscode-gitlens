@@ -1,5 +1,5 @@
-import type { Disposable, Event, ExtensionContext, SecretStorageChangeEvent } from 'vscode';
-import { EventEmitter } from 'vscode';
+import type { Event, ExtensionContext, SecretStorageChangeEvent } from 'vscode';
+import { Disposable, EventEmitter } from 'vscode';
 import { extensionPrefix } from '../../constants';
 import type {
 	DeprecatedGlobalStorage,
@@ -42,7 +42,11 @@ export class Storage implements Disposable {
 
 	private readonly _disposable: Disposable;
 	constructor(private readonly context: ExtensionContext) {
-		this._disposable = this.context.secrets.onDidChange(e => this._onDidChangeSecrets.fire(e));
+		this._disposable = Disposable.from(
+			this._onDidChange,
+			this._onDidChangeSecrets,
+			this.context.secrets.onDidChange(e => this._onDidChangeSecrets.fire(e)),
+		);
 	}
 
 	dispose(): void {

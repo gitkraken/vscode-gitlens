@@ -172,6 +172,8 @@ export class LaunchpadProvider implements Disposable {
 
 	constructor(private readonly container: Container) {
 		this._disposable = Disposable.from(
+			this._onDidChange,
+			this._onDidRefresh,
 			configuration.onDidChange(this.onConfigurationChanged, this),
 			container.integrations.onDidChangeConnectionState(this.onIntegrationConnectionStateChanged, this),
 			...this.registerCommands(),

@@ -73,6 +73,7 @@ export class FileAnnotationController implements Disposable {
 
 	constructor(private readonly container: Container) {
 		this._disposable = Disposable.from(
+			this._onDidToggleAnnotations,
 			once(container.onReady)(this.onReady, this),
 			configuration.onDidChange(this.onConfigurationChanged, this),
 			window.onDidChangeActiveColorTheme(this.onThemeChanged, this),

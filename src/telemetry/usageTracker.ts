@@ -24,7 +24,9 @@ export class UsageTracker implements Disposable {
 		private readonly storage: Storage,
 	) {}
 
-	dispose(): void {}
+	dispose(): void {
+		this._onDidChange.dispose();
+	}
 
 	get(key: TrackedUsageKeys): TrackedUsage | undefined {
 		return this.storage.get('usages')?.[key];

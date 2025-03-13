@@ -129,6 +129,9 @@ export class SubscriptionService implements Disposable {
 		previousVersion: string | undefined,
 	) {
 		this._disposable = Disposable.from(
+			this._onDidChange,
+			this._onDidChangeFeaturePreview,
+			this._onDidCheckIn,
 			once(container.onReady)(this.onReady, this),
 			this.container.accountAuthentication.onDidChangeSessions(
 				e => setTimeout(() => this.onAuthenticationChanged(e), 0),

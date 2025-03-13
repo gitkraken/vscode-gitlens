@@ -15,7 +15,7 @@ export class ViewFileDecorationProvider implements FileDecorationProvider, Dispo
 
 	private readonly disposable: Disposable;
 	constructor() {
-		this.disposable = Disposable.from(window.registerFileDecorationProvider(this));
+		this.disposable = Disposable.from(this._onDidChange, window.registerFileDecorationProvider(this));
 	}
 
 	dispose(): void {

@@ -147,6 +147,14 @@ export class LocalGitProvider implements GitProvider, Disposable {
 		protected readonly git: Git,
 	) {
 		this._cache = new GitCache(this.container);
+		this._disposables.push(
+			this._onDidChange,
+			this._onWillChangeRepository,
+			this._onDidChangeRepository,
+			this._onDidCloseRepository,
+			this._onDidOpenRepository,
+			this._cache,
+		);
 		this.git.setLocator(this.ensureGit.bind(this));
 	}
 

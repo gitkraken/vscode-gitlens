@@ -111,18 +111,20 @@ const walkthroughRequiredMapping: Readonly<Map<WalkthroughContextKeys, Walkthrou
 ]);
 
 export class WalkthroughStateProvider implements Disposable {
-	readonly walkthroughSize = walkthroughRequiredMapping.size;
-	protected disposables: Disposable[] = [];
-	private readonly completed = new Set<WalkthroughContextKeys>();
-	private subscriptionState: SubscriptionState | undefined;
-
 	private readonly _onProgressChanged = new EventEmitter<void>();
 	get onProgressChanged(): Event<void> {
 		return this._onProgressChanged.event;
 	}
 
+	readonly walkthroughSize = walkthroughRequiredMapping.size;
+
+	protected disposables: Disposable[] = [];
+	private readonly completed = new Set<WalkthroughContextKeys>();
+	private subscriptionState: SubscriptionState | undefined;
+
 	constructor(private readonly container: Container) {
 		this.disposables.push(
+			this._onProgressChanged,
 			this.container.usage.onDidChange(this.onUsageChanged, this),
 			this.container.subscription.onDidChange(this.onSubscriptionChanged, this),
 		);

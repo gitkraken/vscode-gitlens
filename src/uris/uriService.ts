@@ -1,5 +1,5 @@
-import type { Disposable, Event, Uri, UriHandler } from 'vscode';
-import { EventEmitter, window } from 'vscode';
+import type { Event, Uri, UriHandler } from 'vscode';
+import { Disposable, EventEmitter, window } from 'vscode';
 import type { Container } from '../container';
 import { AuthenticationUriPathPrefix, LoginUriPathPrefix } from '../plus/gk/authenticationConnection';
 import { SubscriptionUpdatedUriPathPrefix } from '../plus/gk/utils/subscription.utils';
@@ -10,25 +10,22 @@ import { log } from '../system/decorators/log';
 // URI events to GitLens take the form of: vscode://eamodio.gitlens/... and are handled by the UriEventHandler.
 // The UriEventHandler is responsible for parsing the URI and emitting the event to the UriService.
 export class UriService implements Disposable, UriHandler {
-	private _disposable: Disposable;
-
 	private _onDidReceiveAuthenticationUri: EventEmitter<Uri> = new EventEmitter<Uri>();
-	private _onDidReceiveLoginUri: EventEmitter<Uri> = new EventEmitter<Uri>();
-	private _onDidReceiveCloudIntegrationAuthenticationUri: EventEmitter<Uri> = new EventEmitter<Uri>();
-	private _onDidReceiveSubscriptionUpdatedUri: EventEmitter<Uri> = new EventEmitter<Uri>();
-
 	get onDidReceiveAuthenticationUri(): Event<Uri> {
 		return this._onDidReceiveAuthenticationUri.event;
 	}
 
-	get onDidReceiveLoginUri(): Event<Uri> {
-		return this._onDidReceiveLoginUri.event;
-	}
-
+	private _onDidReceiveCloudIntegrationAuthenticationUri: EventEmitter<Uri> = new EventEmitter<Uri>();
 	get onDidReceiveCloudIntegrationAuthenticationUri(): Event<Uri> {
 		return this._onDidReceiveCloudIntegrationAuthenticationUri.event;
 	}
 
+	private _onDidReceiveLoginUri: EventEmitter<Uri> = new EventEmitter<Uri>();
+	get onDidReceiveLoginUri(): Event<Uri> {
+		return this._onDidReceiveLoginUri.event;
+	}
+
+	private _onDidReceiveSubscriptionUpdatedUri: EventEmitter<Uri> = new EventEmitter<Uri>();
 	get onDidReceiveSubscriptionUpdatedUri(): Event<Uri> {
 		return this._onDidReceiveSubscriptionUpdatedUri.event;
 	}
@@ -38,8 +35,17 @@ export class UriService implements Disposable, UriHandler {
 		return this._onDidReceiveUri.event;
 	}
 
+	private _disposable: Disposable;
+
 	constructor(private readonly container: Container) {
-		this._disposable = window.registerUriHandler(this);
+		this._disposable = Disposable.from(
+			this._onDidReceiveAuthenticationUri,
+			this._onDidReceiveCloudIntegrationAuthenticationUri,
+			this._onDidReceiveLoginUri,
+			this._onDidReceiveSubscriptionUpdatedUri,
+			this._onDidReceiveUri,
+			window.registerUriHandler(this),
+		);
 	}
 
 	dispose(): void {
