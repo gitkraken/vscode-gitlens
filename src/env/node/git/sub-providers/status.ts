@@ -27,6 +27,7 @@ import { splitPath } from '../../../../system/-webview/path';
 import { gate } from '../../../../system/decorators/-webview/gate';
 import { log } from '../../../../system/decorators/log';
 import { Logger } from '../../../../system/logger';
+import { getLogScope, setLogScopeExit } from '../../../../system/logger.scope';
 import { getSettledValue } from '../../../../system/promise';
 import type { Git } from '../git';
 import { GitErrors } from '../git';
@@ -47,6 +48,8 @@ export class StatusGitSubProvider implements GitStatusSubProvider {
 	@gate()
 	@log()
 	async getPausedOperationStatus(repoPath: string): Promise<GitPausedOperationStatus | undefined> {
+		const scope = getLogScope();
+
 		let status = this.cache.pausedOperationStatus?.get(repoPath);
 		if (status == null) {
 			async function getCore(this: StatusGitSubProvider): Promise<GitPausedOperationStatus | undefined> {
@@ -97,10 +100,12 @@ export class StatusGitSubProvider implements GitStatusSubProvider {
 
 				if (!operations.size) return undefined;
 
-				const operation = [...operations].sort(
+				const sortedOperations = [...operations].sort(
 					(a, b) => orderedOperations.indexOf(a) - orderedOperations.indexOf(b),
-				)[0];
+				);
+				Logger.log(`Detected paused operations: ${sortedOperations.join(', ')}`);
 
+				const operation = sortedOperations[0];
 				switch (operation) {
 					case 'cherry-pick': {
 						const cherryPickHead = (
@@ -112,7 +117,10 @@ export class StatusGitSubProvider implements GitStatusSubProvider {
 								'CHERRY_PICK_HEAD',
 							)
 						)?.trim();
-						if (!cherryPickHead) return undefined;
+						if (!cherryPickHead) {
+							setLogScopeExit(scope, 'No CHERRY_PICK_HEAD found');
+							return undefined;
+						}
 
 						const current = (await this.provider.branches.getCurrentBranchReference(repoPath))!;
 
@@ -135,7 +143,10 @@ export class StatusGitSubProvider implements GitStatusSubProvider {
 								'MERGE_HEAD',
 							)
 						)?.trim();
-						if (!mergeHead) return undefined;
+						if (!mergeHead) {
+							setLogScopeExit(scope, 'No MERGE_HEAD found');
+							return undefined;
+						}
 
 						const [branchResult, mergeBaseResult, possibleSourceBranchesResult] = await Promise.allSettled([
 							this.provider.branches.getCurrentBranchReference(repoPath),
@@ -176,7 +187,10 @@ export class StatusGitSubProvider implements GitStatusSubProvider {
 								'REVERT_HEAD',
 							)
 						)?.trim();
-						if (!revertHead) return undefined;
+						if (!revertHead) {
+							setLogScopeExit(scope, 'No REVERT_HEAD found');
+							return undefined;
+						}
 
 						const current = (await this.provider.branches.getCurrentBranchReference(repoPath))!;
 
@@ -191,7 +205,10 @@ export class StatusGitSubProvider implements GitStatusSubProvider {
 					case 'rebase-apply':
 					case 'rebase-merge': {
 						let branch = await this.git.readDotGitFile(gitDir, [operation, 'head-name']);
-						if (!branch) return undefined;
+						if (!branch) {
+							setLogScopeExit(scope, `No '${operation}/head-name' found`);
+							return undefined;
+						}
 
 						const [
 							rebaseHeadResult,
@@ -219,7 +236,10 @@ export class StatusGitSubProvider implements GitStatusSubProvider {
 
 						const origHead = getSettledValue(origHeadResult);
 						const onto = getSettledValue(ontoResult);
-						if (origHead == null || onto == null) return undefined;
+						if (origHead == null || onto == null) {
+							setLogScopeExit(scope, `Neither '${operation}/orig-head' nor '${operation}/onto' found`);
+							return undefined;
+						}
 
 						const rebaseHead = getSettledValue(rebaseHeadResult)?.trim();
 
