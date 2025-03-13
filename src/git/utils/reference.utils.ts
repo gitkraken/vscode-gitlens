@@ -10,46 +10,52 @@ import type {
 import { getBranchNameWithoutRemote, getRemoteNameFromBranchName } from './branch.utils';
 import { isRevisionRange, isShaParent, shortenRevision } from './revision.utils';
 
+interface GitBranchReferenceOptions {
+	refType: 'branch';
+	id?: string;
+	name: string;
+	remote: boolean;
+	sha?: string;
+	upstream?: { name: string; missing: boolean };
+}
+
+interface GitCommitReferenceOptions {
+	refType: 'revision';
+	name?: string;
+	message?: string;
+}
+
+interface GitStashReferenceOptions {
+	refType: 'stash';
+	name: string;
+	number: string | undefined;
+	message?: string;
+	stashOnRef?: string;
+}
+
+interface GitTagReferenceOptions {
+	refType: 'tag';
+	id?: string;
+	name: string;
+	sha?: string;
+}
+
+export function createReference(ref: string, repoPath: string, options: GitBranchReferenceOptions): GitBranchReference;
+export function createReference(ref: string, repoPath: string, options: GitStashReferenceOptions): GitStashReference;
+export function createReference(ref: string, repoPath: string, options: GitTagReferenceOptions): GitTagReference;
 export function createReference(
 	ref: string,
 	repoPath: string,
-	options: {
-		refType: 'branch';
-		name: string;
-		id?: string;
-		remote: boolean;
-		upstream?: { name: string; missing: boolean };
-	},
-): GitBranchReference;
-export function createReference(
-	ref: string,
-	repoPath: string,
-	options: { refType: 'stash'; name: string; number: string | undefined; message?: string; stashOnRef?: string },
-): GitStashReference;
-export function createReference(
-	ref: string,
-	repoPath: string,
-	options: { refType: 'tag'; name: string; id?: string },
-): GitTagReference;
-export function createReference(
-	ref: string,
-	repoPath: string,
-	options?: { refType: 'revision'; name?: string; message?: string },
+	options?: GitCommitReferenceOptions,
 ): GitRevisionReference;
 export function createReference(
 	ref: string,
 	repoPath: string,
 	options:
-		| {
-				id?: string;
-				refType: 'branch';
-				name: string;
-				remote: boolean;
-				upstream?: { name: string; missing: boolean };
-		  }
-		| { refType?: 'revision'; name?: string; message?: string }
-		| { refType: 'stash'; name: string; number: string | undefined; message?: string; stashOnRef?: string }
-		| { id?: string; refType: 'tag'; name: string } = { refType: 'revision' },
+		| GitBranchReferenceOptions
+		| GitStashReferenceOptions
+		| GitTagReferenceOptions
+		| GitCommitReferenceOptions = { refType: 'revision' },
 ): GitReference {
 	switch (options.refType) {
 		case 'branch':
@@ -60,6 +66,7 @@ export function createReference(
 				name: options.name,
 				id: options.id,
 				remote: options.remote,
+				sha: options.sha,
 				upstream: options.upstream,
 			};
 		case 'stash':
@@ -80,6 +87,7 @@ export function createReference(
 				ref: ref,
 				name: options.name,
 				id: options.id,
+				sha: options.sha,
 			};
 		default:
 			return {

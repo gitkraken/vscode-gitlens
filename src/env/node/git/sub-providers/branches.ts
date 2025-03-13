@@ -18,15 +18,17 @@ import { getReferenceFromBranch } from '../../../../git/utils/-webview/reference
 import type { BranchSortOptions } from '../../../../git/utils/-webview/sorting';
 import { sortBranches, sortContributors } from '../../../../git/utils/-webview/sorting';
 import {
+	formatDetachedHeadName,
+	getBranchId,
 	getLocalBranchByUpstream,
 	isDetachedHead,
 	isRemoteHEAD,
 	parseUpstream,
 } from '../../../../git/utils/branch.utils';
+import { createReference } from '../../../../git/utils/reference.utils';
 import { createRevisionRange } from '../../../../git/utils/revision.utils';
 import { configuration } from '../../../../system/-webview/configuration';
 import { filterMap } from '../../../../system/array';
-import { gate } from '../../../../system/decorators/-webview/gate';
 import { log } from '../../../../system/decorators/log';
 import { Logger } from '../../../../system/logger';
 import { getLogScope } from '../../../../system/logger.scope';
@@ -49,7 +51,6 @@ export class BranchesGitSubProvider implements GitBranchesSubProvider {
 		private readonly provider: LocalGitProvider,
 	) {}
 
-	@gate()
 	@log()
 	async getBranch(repoPath: string, name?: string): Promise<GitBranch | undefined> {
 		if (name != null) {
@@ -76,15 +77,13 @@ export class BranchesGitSubProvider implements GitBranchesSubProvider {
 	}
 
 	private async getCurrentBranch(repoPath: string): Promise<GitBranch | undefined> {
+		const ref = await this.getCurrentBranchReferenceCore(repoPath);
+		if (ref == null) return undefined;
+
 		const commitOrdering = configuration.get('advanced.commitOrdering');
 
-		const data = await this.git.rev_parse__currentBranch(repoPath, commitOrdering);
-		if (data == null) return undefined;
-
-		const [name, upstream] = data[0].split('\n');
-
 		const [pausedOpStatusResult, committerDateResult, defaultWorktreePathResult] = await Promise.allSettled([
-			isDetachedHead(name) ? this.provider.status?.getPausedOperationStatus(repoPath) : undefined,
+			isDetachedHead(ref.name) ? this.provider.status?.getPausedOperationStatus(repoPath) : undefined,
 			this.git
 				.exec(
 					{ cwd: repoPath, configs: gitLogDefaultConfigs, errors: GitErrorHandling.Ignore },
@@ -106,11 +105,11 @@ export class BranchesGitSubProvider implements GitBranchesSubProvider {
 		return new GitBranch(
 			this.container,
 			repoPath,
-			rebaseStatus?.incoming.name ?? `refs/heads/${name}`,
+			rebaseStatus?.incoming.name ?? `refs/heads/${ref.name}`,
 			true,
 			committerDate != null ? new Date(Number(committerDate) * 1000) : undefined,
-			data[1],
-			upstream ? { name: upstream, missing: false, state: { ahead: 0, behind: 0 } } : undefined,
+			ref.sha,
+			ref.upstream ? { ...ref.upstream, state: { ahead: 0, behind: 0 } } : undefined,
 			{ path: repoPath, isDefault: repoPath === defaultWorktreePath },
 			undefined,
 			rebaseStatus != null,
@@ -336,6 +335,40 @@ export class BranchesGitSubProvider implements GitBranchesSubProvider {
 		if (!data) return [];
 
 		return filterMap(data.split('\n'), b => b.trim() || undefined);
+	}
+
+	@log()
+	async getCurrentBranchReference(repoPath: string): Promise<GitBranchReference | undefined> {
+		let ref = await this.getCurrentBranchReferenceCore(repoPath);
+		if (ref != null && isDetachedHead(ref.name)) {
+			ref = createReference(ref.sha!, repoPath, {
+				refType: 'branch',
+				name: formatDetachedHeadName(ref.sha!),
+				id: getBranchId(repoPath, ref.remote, ref.sha!),
+				remote: ref.remote,
+				upstream: ref.upstream,
+				sha: ref.sha,
+			});
+		}
+		return ref;
+	}
+
+	private async getCurrentBranchReferenceCore(repoPath: string): Promise<GitBranchReference | undefined> {
+		const commitOrdering = configuration.get('advanced.commitOrdering');
+
+		const data = await this.git.rev_parse__currentBranch(repoPath, commitOrdering);
+		if (data == null) return undefined;
+
+		const [name, upstream] = data[0].split('\n');
+
+		return createReference(name, repoPath, {
+			refType: 'branch',
+			name: name,
+			id: getBranchId(repoPath, false, name),
+			remote: false,
+			upstream: upstream ? { name: upstream, missing: false } : undefined,
+			sha: data[1],
+		});
 	}
 
 	@log({ exit: true })

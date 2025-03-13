@@ -21,7 +21,6 @@ import type { GitBranchReference, GitTagReference } from '../../../../git/models
 import { GitStatus } from '../../../../git/models/status';
 import type { GitStatusFile } from '../../../../git/models/statusFile';
 import { parseGitStatus } from '../../../../git/parsers/statusParser';
-import { getReferenceFromBranch } from '../../../../git/utils/-webview/reference.utils';
 import { createReference } from '../../../../git/utils/reference.utils';
 import { configuration } from '../../../../system/-webview/configuration';
 import { splitPath } from '../../../../system/-webview/path';
@@ -32,6 +31,10 @@ import { getSettledValue } from '../../../../system/promise';
 import type { Git } from '../git';
 import { GitErrors } from '../git';
 import type { LocalGitProvider } from '../localGitProvider';
+
+type Operation = 'cherry-pick' | 'merge' | 'rebase-apply' | 'rebase-merge' | 'revert';
+
+const orderedOperations: Operation[] = ['rebase-apply', 'rebase-merge', 'merge', 'cherry-pick', 'revert'];
 
 export class StatusGitSubProvider implements GitStatusSubProvider {
 	constructor(
@@ -49,16 +52,16 @@ export class StatusGitSubProvider implements GitStatusSubProvider {
 			async function getCore(this: StatusGitSubProvider): Promise<GitPausedOperationStatus | undefined> {
 				const gitDir = await this.provider.config.getGitDir(repoPath);
 
-				type Operation = 'cherry-pick' | 'merge' | 'rebase-apply' | 'rebase-merge' | 'revert';
-				const operation = await new Promise<Operation | undefined>((resolve, _) => {
+				const operations = await new Promise<Set<Operation>>((resolve, _) => {
 					readdir(gitDir.uri.fsPath, { withFileTypes: true }, (err, entries) => {
+						const operations = new Set<Operation>();
 						if (err != null) {
-							resolve(undefined);
+							resolve(operations);
 							return;
 						}
 
 						if (entries.length === 0) {
-							resolve(undefined);
+							resolve(operations);
 							return;
 						}
 
@@ -67,32 +70,36 @@ export class StatusGitSubProvider implements GitStatusSubProvider {
 							if (entry.isFile()) {
 								switch (entry.name) {
 									case 'CHERRY_PICK_HEAD':
-										resolve('cherry-pick');
-										return;
+										operations.add('cherry-pick');
+										break;
 									case 'MERGE_HEAD':
-										resolve('merge');
-										return;
+										operations.add('merge');
+										break;
 									case 'REVERT_HEAD':
-										resolve('revert');
-										return;
+										operations.add('revert');
+										break;
 								}
 							} else if (entry.isDirectory()) {
 								switch (entry.name) {
 									case 'rebase-apply':
-										resolve('rebase-apply');
-										return;
+										operations.add('rebase-apply');
+										break;
 									case 'rebase-merge':
-										resolve('rebase-merge');
-										return;
+										operations.add('rebase-merge');
+										break;
 								}
 							}
 						}
 
-						resolve(undefined);
+						resolve(operations);
 					});
 				});
 
-				if (operation == null) return undefined;
+				if (!operations.size) return undefined;
+
+				const operation = [...operations].sort(
+					(a, b) => orderedOperations.indexOf(a) - orderedOperations.indexOf(b),
+				)[0];
 
 				switch (operation) {
 					case 'cherry-pick': {
@@ -107,14 +114,14 @@ export class StatusGitSubProvider implements GitStatusSubProvider {
 						)?.trim();
 						if (!cherryPickHead) return undefined;
 
-						const branch = (await this.provider.branches.getBranch(repoPath))!;
+						const current = (await this.provider.branches.getCurrentBranchReference(repoPath))!;
 
 						return {
 							type: 'cherry-pick',
 							repoPath: repoPath,
 							// TODO: Validate that these are correct
 							HEAD: createReference(cherryPickHead, repoPath, { refType: 'revision' }),
-							current: getReferenceFromBranch(branch),
+							current: current,
 							incoming: createReference(cherryPickHead, repoPath, { refType: 'revision' }),
 						} satisfies GitCherryPickStatus;
 					}
@@ -131,7 +138,7 @@ export class StatusGitSubProvider implements GitStatusSubProvider {
 						if (!mergeHead) return undefined;
 
 						const [branchResult, mergeBaseResult, possibleSourceBranchesResult] = await Promise.allSettled([
-							this.provider.branches.getBranch(repoPath),
+							this.provider.branches.getCurrentBranchReference(repoPath),
 							this.provider.refs.getMergeBase(repoPath, 'MERGE_HEAD', 'HEAD'),
 							this.provider.branches.getBranchesWithCommits(repoPath, ['MERGE_HEAD'], undefined, {
 								all: true,
@@ -139,7 +146,7 @@ export class StatusGitSubProvider implements GitStatusSubProvider {
 							}),
 						]);
 
-						const branch = getSettledValue(branchResult)!;
+						const current = getSettledValue(branchResult)!;
 						const mergeBase = getSettledValue(mergeBaseResult);
 						const possibleSourceBranches = getSettledValue(possibleSourceBranchesResult);
 
@@ -148,7 +155,7 @@ export class StatusGitSubProvider implements GitStatusSubProvider {
 							repoPath: repoPath,
 							mergeBase: mergeBase,
 							HEAD: createReference(mergeHead, repoPath, { refType: 'revision' }),
-							current: getReferenceFromBranch(branch),
+							current: current,
 							incoming:
 								possibleSourceBranches?.length === 1
 									? createReference(possibleSourceBranches[0], repoPath, {
@@ -171,13 +178,13 @@ export class StatusGitSubProvider implements GitStatusSubProvider {
 						)?.trim();
 						if (!revertHead) return undefined;
 
-						const branch = (await this.provider.branches.getBranch(repoPath))!;
+						const current = (await this.provider.branches.getCurrentBranchReference(repoPath))!;
 
 						return {
 							type: 'revert',
 							repoPath: repoPath,
 							HEAD: createReference(revertHead, repoPath, { refType: 'revision' }),
-							current: getReferenceFromBranch(branch),
+							current: current,
 							incoming: createReference(revertHead, repoPath, { refType: 'revision' }),
 						} satisfies GitRevertStatus;
 					}

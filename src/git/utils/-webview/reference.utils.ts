@@ -11,6 +11,7 @@ export function getReferenceFromBranch(branch: GitBranch): GitBranchReference {
 		name: branch.name,
 		remote: branch.remote,
 		upstream: branch.upstream,
+		sha: branch.sha,
 	});
 }
 
@@ -39,5 +40,6 @@ export function getReferenceFromTag(tag: GitTag): GitTagReference {
 		id: tag.id,
 		refType: tag.refType,
 		name: tag.name,
+		sha: tag.sha,
 	});
 }
