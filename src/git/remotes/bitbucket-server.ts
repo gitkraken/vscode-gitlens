@@ -158,7 +158,8 @@ export class BitbucketServerRemote extends RemoteProvider {
 	}
 
 	protected override getUrlForComparison(base: string, head: string, _notation: '..' | '...'): string {
-		return this.encodeUrl(`${this.baseUrl}/branches/compare/${base}%0D${head}`).replace('%250D', '%0D');
+		const query = new URLSearchParams({ sourceBranch: `refs/heads/${head}`, targetBranch: `refs/heads/${base}` });
+		return `${this.baseUrl}/compare?${query.toString()}`;
 	}
 
 	protected override getUrlForCreatePullRequest(
@@ -166,7 +167,11 @@ export class BitbucketServerRemote extends RemoteProvider {
 		head: { branch: string; remote: { path: string; url: string } },
 		options?: { title?: string; description?: string },
 	): string | undefined {
-		const query = new URLSearchParams({ sourceBranch: head.branch, targetBranch: base.branch ?? '' });
+		const query = new URLSearchParams({
+			sourceBranch: head.branch,
+			targetBranch: base.branch ?? '',
+			activeTab: 'compare-diff-tab',
+		});
 		// TODO: figure this out
 		// query.set('targetRepoId', base.repoId);
 		if (options?.title) {
