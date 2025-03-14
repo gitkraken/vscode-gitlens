@@ -939,6 +939,7 @@ export type Sources =
 	| 'launchpad'
 	| 'launchpad-indicator'
 	| 'launchpad-view'
+	| 'merge-target'
 	| 'notification'
 	| 'patchDetails'
 	| 'prompt'

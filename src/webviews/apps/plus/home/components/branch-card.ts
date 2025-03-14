@@ -234,6 +234,9 @@ export abstract class GlBranchCardBase extends GlElement {
 	@property()
 	repo!: string;
 
+	@property({ type: Boolean })
+	showUpgrade = false;
+
 	private _branch!: GetOverviewBranch;
 	get branch(): GetOverviewBranch {
 		return this._branch;
@@ -794,6 +797,10 @@ export abstract class GlBranchCardBase extends GlElement {
 	}
 
 	protected renderMergeTargetStatus(): TemplateResult | NothingType {
+		if (this.showUpgrade) {
+			return html`<gl-merge-target-upgrade class="branch-item__merge-target"></gl-merge-target-upgrade>`;
+		}
+
 		if (!this.branch.mergeTarget) return nothing;
 
 		return html`<gl-merge-target-status
