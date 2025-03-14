@@ -1,6 +1,6 @@
 import { consume } from '@lit/context';
 import { css, html, LitElement, nothing } from 'lit';
-import { customElement, query, state } from 'lit/decorators.js';
+import { customElement, property, query, state } from 'lit/decorators.js';
 import { when } from 'lit/directives/when.js';
 import { urls } from '../../../../../constants';
 import { proTrialLengthInDays, SubscriptionPlanId, SubscriptionState } from '../../../../../constants.subscription';
@@ -39,22 +39,39 @@ export class GLAccountChip extends LitElement {
 		focusableBaseStyles,
 		chipStyles,
 		css`
+			:host {
+				display: inline-flex;
+				align-items: center;
+				gap: 0.8rem;
+			}
+
+			:host-context(.vscode-dark),
+			:host-context(.vscode-high-contrast) {
+				--gl-account-chip-color: color-mix(in lab, var(--vscode-sideBar-background), #fff 10%);
+				--gl-account-chip-media-color: color-mix(in lab, var(--vscode-sideBar-background), #fff 25%);
+				--gl-account-account-media-color: color-mix(in lab, var(--vscode-sideBar-background), #fff 20%);
+			}
+
+			:host-context(.vscode-light),
+			:host-context(.vscode-high-contrast-light) {
+				--gl-account-chip-color: color-mix(in lab, var(--vscode-sideBar-background), #000 7%);
+				--gl-account-chip-media-color: color-mix(in lab, var(--vscode-sideBar-background), #000 18%);
+				--gl-account-account-media-color: color-mix(in lab, var(--vscode-sideBar-background), #000 15%);
+			}
+
 			.chip {
 				padding-right: 0.6rem;
 
 				font-size: 1.1rem;
 				font-weight: 400;
 				text-transform: uppercase;
+				line-height: 2rem;
+				background-color: var(--gl-account-chip-color);
 			}
 
-			:host-context(.vscode-dark) .chip,
-			:host-context(.vscode-high-contrast) .chip {
-				background-color: color-mix(in lab, var(--vscode-sideBar-background), #fff 10%);
-			}
-
-			:host-context(.vscode-light) .chip,
-			:host-context(.vscode-high-contrast-light) .chip {
-				background-color: color-mix(in lab, var(--vscode-sideBar-background), #000 7%);
+			.chip--outlined {
+				background-color: transparent;
+				border: 1px solid var(--gl-account-chip-color);
 			}
 
 			.chip__media {
@@ -69,16 +86,14 @@ export class GLAccountChip extends LitElement {
 				width: 1.6rem;
 				aspect-ratio: 1 / 1;
 				border-radius: 50%;
+				background-color: var(--gl-account-chip-media-color);
 			}
 
-			:host-context(.vscode-dark) img.chip__media,
-			:host-context(.vscode-high-contrast) img.chip__media {
-				background-color: color-mix(in lab, var(--vscode-sideBar-background), #fff 25%);
-			}
-
-			:host-context(.vscode-light) img.chip__media,
-			:host-context(.vscode-high-contrast-light) img.chip__media {
-				background-color: color-mix(in lab, var(--vscode-sideBar-background), #000 18%);
+			.chip-group {
+				display: inline-flex;
+				flex-direction: row;
+				gap: 0.8rem;
+				cursor: pointer;
 			}
 
 			.account-org {
@@ -107,16 +122,7 @@ export class GLAccountChip extends LitElement {
 				width: 2rem;
 				aspect-ratio: 1 / 1;
 				border-radius: 50%;
-			}
-
-			:host-context(.vscode-dark) img.account__media,
-			:host-context(.vscode-high-contrast) img.account__media {
-				background-color: color-mix(in lab, var(--vscode-sideBar-background), #fff 20%);
-			}
-
-			:host-context(.vscode-light) img.account__media,
-			:host-context(.vscode-high-contrast-light) img.account__media {
-				background-color: color-mix(in lab, var(--vscode-sideBar-background), #000 15%);
+				background-color: var(--gl-account-account-media-color);
 			}
 
 			.account__details {
@@ -222,8 +228,36 @@ export class GLAccountChip extends LitElement {
 				border: none;
 				border-top: 1px solid var(--color-foreground--25);
 			}
+
+			.upgrade > * {
+				margin-block: 0.8rem 0;
+			}
+
+			.upgrade ul {
+				padding-inline-start: 2rem;
+			}
+
+			.upgrade gl-promo::part(text) {
+				margin-block-start: 0;
+				border-radius: 0.3rem;
+				padding: 0.2rem 0.4rem;
+				background-color: var(--gl-account-chip-color);
+			}
+
+			.upgrade gl-promo:not([has-promo]) {
+				display: none;
+			}
 		`,
 	];
+
+	private _showUpgrade = false;
+	@property({ type: Boolean, reflect: true, attribute: 'show-upgrade' })
+	get showUpgrade() {
+		return this._showUpgrade;
+	}
+	private set showUpgrade(value: boolean) {
+		this._showUpgrade = value;
+	}
 
 	@query('#chip')
 	private _chip!: HTMLElement;
@@ -295,58 +329,59 @@ export class GLAccountChip extends LitElement {
 
 	override render(): unknown {
 		return html`<gl-popover placement="bottom" trigger="hover focus click" hoist>
-			<span id="chip" slot="anchor" class="chip" tabindex="0">
-				${this.accountAvatar
-					? html`<img class="chip__media" src=${this.accountAvatar} />`
-					: html`<code-icon class="chip__media" icon="gl-gitlens" size="16"></code-icon>`}
-				<span>${this.planTier}</span>
-			</span>
-			<div slot="content" class="content" tabindex="-1">
-				<div class="header">
-					<span class="header__title">${this.planName}</span>
-					<span class="header__actions">
-						${this.hasAccount
-							? html`<gl-button
+				<span id="chip" slot="anchor" class="chip" tabindex="0">
+					${this.accountAvatar
+						? html`<img class="chip__media" src=${this.accountAvatar} />`
+						: html`<code-icon class="chip__media" icon="gl-gitlens" size="16"></code-icon>`}
+					<span>${this.planTier}</span>
+				</span>
+				<div slot="content" class="content" tabindex="-1">
+					<div class="header">
+						<span class="header__title">${this.planName}</span>
+						<span class="header__actions">
+							${this.hasAccount
+								? html`<gl-button
+											appearance="toolbar"
+											href="${createCommandLink<Source>('gitlens.views.home.account.resync', {
+												source: 'account',
+											})}"
+											tooltip="Synchronize Status"
+											aria-label="Synchronize Status"
+											><code-icon icon="sync"></code-icon
+										></gl-button>
+										<gl-button
+											appearance="toolbar"
+											href="${createCommandLink<Source>('gitlens.plus.manage', {
+												source: 'account',
+											})}"
+											tooltip="Manage Account"
+											aria-label="Manage Account"
+											><code-icon icon="gear"></code-icon
+										></gl-button>
+										<gl-button
+											appearance="toolbar"
+											href="${createCommandLink<Source>('gitlens.plus.logout', {
+												source: 'account',
+											})}"
+											tooltip="Sign Out"
+											aria-label="Sign Out"
+											><code-icon icon="sign-out"></code-icon
+										></gl-button>`
+								: html`<gl-button
 										appearance="toolbar"
-										href="${createCommandLink<Source>('gitlens.views.home.account.resync', {
+										href="${createCommandLink<Source>('gitlens.plus.login', {
 											source: 'account',
 										})}"
-										tooltip="Synchronize Status"
-										aria-label="Synchronize Status"
-										><code-icon icon="sync"></code-icon
-									></gl-button>
-									<gl-button
-										appearance="toolbar"
-										href="${createCommandLink<Source>('gitlens.plus.manage', {
-											source: 'account',
-										})}"
-										tooltip="Manage Account"
-										aria-label="Manage Account"
-										><code-icon icon="gear"></code-icon
-									></gl-button>
-									<gl-button
-										appearance="toolbar"
-										href="${createCommandLink<Source>('gitlens.plus.logout', {
-											source: 'account',
-										})}"
-										tooltip="Sign Out"
-										aria-label="Sign Out"
-										><code-icon icon="sign-out"></code-icon
-									></gl-button>`
-							: html`<gl-button
-									appearance="toolbar"
-									href="${createCommandLink<Source>('gitlens.plus.login', {
-										source: 'account',
-									})}"
-									tooltip="Sign In"
-									aria-label="Sign In"
-									><code-icon icon="sign-in"></code-icon
-							  ></gl-button>`}
-					</span>
+										tooltip="Sign In"
+										aria-label="Sign In"
+										><code-icon icon="sign-in"></code-icon
+								  ></gl-button>`}
+						</span>
+					</div>
+					${this.renderOrganization()} ${this.renderAccountState()}
 				</div>
-				${this.renderOrganization()} ${this.renderAccountState()}
-			</div>
-		</gl-popover>`;
+			</gl-popover>
+			${this.renderUpgradeContent()}`;
 	}
 
 	show(): void {
@@ -541,6 +576,49 @@ export class GLAccountChip extends LitElement {
 			>
 			&mdash; give 50% off and get up to $20
 		</p>`;
+	}
+
+	private renderUpgradeContent() {
+		if (this.planTier !== 'Community' && this.planId !== SubscriptionPlanId.Pro) {
+			this.showUpgrade = false;
+			return nothing;
+		}
+
+		this.showUpgrade = true;
+
+		return html`<gl-popover placement="bottom" trigger="hover focus click" hoist>
+			<span slot="anchor" class="chip chip--outlined" tabindex="0">
+				<span>Upgrade</span>
+			</span>
+			<div slot="content" class="content" tabindex="-1">
+				<div class="header">
+					<span class="header__title">Upgrade GitLens</span>
+				</div>
+				<div class="upgrade">
+					<p>Unlock Pro features:</p>
+					<ul>
+						<li>Connect powerful integrations</li>
+						<li>Start work on Issues assigned to you</li>
+						<li>Leverage Git Worktrees in VS Code</li>
+						<li>Monitor PRs and accelerate reviews</li>
+						<li>Rich AI features</li>
+						<li>Interactive Commit Graph</li>
+						<li>Visual File and Folder History</li>
+					</ul>
+					${this.renderPromo()}
+					<button-container>
+						<gl-button
+							full
+							href="${createCommandLink<Source>('gitlens.plus.upgrade', {
+								// needs to indicate upgrade menu
+								source: 'account',
+							})}"
+							>Upgrade to Pro</gl-button
+						>
+					</button-container>
+				</div>
+			</div>
+		</gl-popover>`;
 	}
 
 	private renderPromo() {
