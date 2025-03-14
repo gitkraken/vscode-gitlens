@@ -54,6 +54,10 @@ export class VSCodeAIProvider implements AIProvider<typeof provider.id> {
 		return models.map(getModelFromChatModel);
 	}
 
+	async ensureConfigured(): Promise<boolean> {
+		return (await this.getModels()).length !== 0;
+	}
+
 	async getPromptTemplate(action: AIActionType, model: VSCodeAIModel): Promise<PromptTemplate | undefined> {
 		return Promise.resolve(getLocalPromptTemplate(action, model));
 	}

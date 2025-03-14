@@ -59,6 +59,10 @@ export abstract class OpenAICompatibleProvider<T extends AIProviders> implements
 		});
 	}
 
+	async ensureConfigured(): Promise<boolean> {
+		return (await this.getApiKey()) != null;
+	}
+
 	protected getHeaders<TAction extends AIActionType>(
 		_action: TAction,
 		_model: AIModel<T>,
