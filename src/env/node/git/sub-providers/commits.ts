@@ -451,12 +451,12 @@ export class CommitsGitSubProvider implements GitCommitsSubProvider {
 			if (log != null) {
 				log.query = (limit: number | undefined) => this.getLog(repoPath, rev, { ...options, limit: limit });
 				if (log.hasMore) {
-					let opts;
+					let opts: Omit<typeof options, 'extraArgs'> | undefined;
 					if (options != null) {
 						let _;
 						({ extraArgs: _, ...opts } = options);
 					}
-					log.more = this.getLogMoreFn(log, opts);
+					log.more = this.getLogMoreFn(log, rev, opts);
 				}
 			}
 
