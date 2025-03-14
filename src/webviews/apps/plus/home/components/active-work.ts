@@ -5,6 +5,7 @@ import { css, html, LitElement, nothing } from 'lit';
 import { customElement, state } from 'lit/decorators.js';
 import { ifDefined } from 'lit/directives/if-defined.js';
 import { when } from 'lit/directives/when.js';
+import { isSubscriptionStatePaidOrTrial } from '../../../../../plus/gk/utils/subscription.utils';
 import { createCommandLink } from '../../../../../system/commands';
 import { createWebviewCommandLink } from '../../../../../system/webview';
 import type { GetActiveOverviewResponse, GetOverviewBranch, OpenInGraphParams, State } from '../../../../home/protocol';
@@ -64,6 +65,10 @@ export class GlActiveWork extends SignalWatcher(LitElement) {
 
 	@consume({ context: activeOverviewStateContext })
 	private _activeOverviewState!: ActiveOverviewState;
+
+	get isPro() {
+		return isSubscriptionStatePaidOrTrial(this._homeState.subscription.state);
+	}
 
 	override connectedCallback(): void {
 		super.connectedCallback();
@@ -185,6 +190,7 @@ export class GlActiveWork extends SignalWatcher(LitElement) {
 			.branch=${branch}
 			.repo=${repo}
 			?busy=${isFetching}
+			?showUpgrade=${!this.isPro}
 		></gl-active-branch-card>`;
 	}
 
