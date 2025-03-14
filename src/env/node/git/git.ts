@@ -1400,12 +1400,14 @@ export class Git {
 			if (ex instanceof WorkspaceUntrustedError) return emptyArray as [];
 
 			const unsafeMatch =
-				/^fatal: detected dubious ownership in repository at '([^']+)'[\s\S]*git config --global --add safe\.directory '?([^'\n]+)'?$/m.exec(
+				/(?:^fatal: detected dubious ownership in repository at '([^']+)'|unsafe repository \('([^']+)' is owned by someone else\))[\s\S]*(git config --global --add safe\.directory [^\n•]+)/m.exec(
 					ex.stderr,
 				);
-			if (unsafeMatch?.length === 3) {
+			if (unsafeMatch != null) {
 				Logger.log(
-					`Skipping; unsafe repository detected in '${unsafeMatch[1]}'; run 'git config --global --add safe.directory ${unsafeMatch[2]}' to allow it`,
+					`Skipping; unsafe repository detected in '${unsafeMatch[1] || unsafeMatch[2]}'; run '${
+						unsafeMatch[3]
+					}' to allow it`,
 				);
 				return [false];
 			}
