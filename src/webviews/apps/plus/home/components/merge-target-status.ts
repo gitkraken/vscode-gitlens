@@ -1,5 +1,6 @@
 import { css, html, LitElement, nothing } from 'lit';
 import { customElement, property, state } from 'lit/decorators.js';
+import type { Source } from '../../../../../constants.telemetry';
 import { createCommandLink } from '../../../../../system/commands';
 import { pluralize } from '../../../../../system/string';
 import type { BranchAndTargetRefs, BranchRef, GetOverviewBranch } from '../../../../home/protocol';
@@ -11,6 +12,183 @@ import '../../../shared/components/button-container';
 import '../../../shared/components/code-icon';
 import '../../../shared/components/overlays/popover';
 
+const mergeTargetStyles = css`
+	.header__actions {
+		margin-top: 0.4rem;
+	}
+
+	.content {
+		gap: 0.6rem;
+	}
+
+	:host-context(.vscode-dark),
+	:host-context(.vscode-high-contrast) {
+		--color-status--in-sync: #00bb00;
+		--color-merge--clean: #00bb00;
+		--color-merge--conflict: var(--vscode-gitlens-decorations\\.statusMergingOrRebasingForegroundColor);
+	}
+
+	:host-context(.vscode-light),
+	:host-context(.vscode-high-contrast-light) {
+		--color-status--in-sync: #00aa00;
+		--color-merge--clean: #00aa00;
+		--color-merge--conflict: var(--vscode-gitlens-decorations\\.statusMergingOrRebasingForegroundColor);
+	}
+
+	.header__title code-icon {
+		margin-bottom: 0.1rem;
+	}
+
+	.header__title code-icon.status--warning {
+		color: var(--vscode-gitlens-decorations\\.statusMergingOrRebasingForegroundColor);
+	}
+
+	.header__subtitle {
+		font-size: 1.3rem;
+		margin: 0.2rem 0 0 0;
+	}
+
+	.status--conflict .icon,
+	.status--conflict .status-indicator {
+		color: var(--vscode-gitlens-decorations\\.statusMergingOrRebasingForegroundColor);
+	}
+
+	.status--behind .icon,
+	.status--behind .status-indicator {
+		color: var(--vscode-gitlens-decorations\\.statusMergingOrRebasingForegroundColor);
+	}
+
+	.status--merged .icon,
+	.status--merged .status-indicator {
+		color: var(--vscode-gitlens-mergedPullRequestIconColor);
+	}
+
+	.status--merged .icon {
+		transform: rotateY(180deg);
+	}
+
+	.status--in-sync .status-indicator {
+		color: var(--color-status--in-sync);
+	}
+
+	.status--merge-conflict {
+		color: var(--color-merge--conflict);
+	}
+
+	.status--merge-clean {
+		color: var(--color-merge--clean);
+	}
+
+	.status--upgrade {
+		color: var(--color-foreground--50);
+	}
+
+	.status-indicator {
+		margin-left: -0.5rem;
+		margin-top: 0.8rem;
+	}
+
+	.body {
+		display: flex;
+		flex-direction: column;
+		gap: 0.8rem;
+		width: 100%;
+	}
+
+	.button-container {
+		display: flex;
+		flex-direction: column;
+		gap: 0.8rem;
+		margin-top: 0.4rem;
+		margin-bottom: 0.4rem;
+		align-items: center;
+		justify-content: center;
+		width: 100%;
+	}
+
+	.button-container gl-button {
+		max-width: 30rem;
+	}
+
+	p {
+		margin: 0 0.4rem;
+	}
+
+	p code-icon,
+	gl-button code-icon {
+		margin-bottom: 0.1rem;
+	}
+
+	details {
+		display: flex;
+		flex-direction: column;
+		gap: 0.4rem;
+		padding: 0;
+		position: relative;
+		margin: 0 0.2rem 0.4rem;
+		overflow: hidden;
+		border: 1px solid transparent;
+		color: var(--color-foreground--85);
+	}
+
+	details[open] {
+		border-radius: 0.3rem;
+		border: 1px solid var(--vscode-sideBar-border);
+	}
+
+	summary {
+		position: sticky;
+		top: 0;
+		color: var(--color-foreground);
+		cursor: pointer;
+		list-style: none;
+		transition: transform ease-in-out 0.1s;
+		padding: 0.4rem 0.6rem 0.4rem 0.6rem;
+		z-index: 1;
+	}
+
+	summary:hover {
+		color: var(--vscode-textLink-activeForeground);
+	}
+
+	details[open] > summary {
+		color: var(--vscode-textLink-foreground);
+		border-radius: 0.3rem 0.3rem 0 0;
+		margin-left: 0;
+		background: var(--vscode-sideBar-background);
+	}
+
+	details[open] > summary code-icon {
+		transform: rotate(90deg);
+	}
+
+	summary code-icon {
+		transition: transform 0.2s;
+	}
+
+	.files {
+		display: flex;
+		flex-direction: column;
+		gap: 0.4rem;
+
+		max-height: 8rem;
+		overflow-y: auto;
+		padding: 0.4rem 0.8rem;
+
+		background: var(--vscode-sideBar-background);
+	}
+
+	gl-popover {
+		--max-width: 80vw;
+	}
+
+	.info {
+		cursor: help;
+		display: inline-flex;
+		vertical-align: middle;
+	}
+`;
+
 @customElement('gl-merge-target-status')
 export class GlMergeTargetStatus extends LitElement {
 	static override shadowRootOptions: ShadowRootInit = {
@@ -18,184 +196,7 @@ export class GlMergeTargetStatus extends LitElement {
 		delegatesFocus: true,
 	};
 
-	static override styles = [
-		elementBase,
-		linkBase,
-		chipStyles,
-		scrollableBase,
-		css`
-			.header__actions {
-				margin-top: 0.4rem;
-			}
-
-			.content {
-				gap: 0.6rem;
-			}
-
-			:host-context(.vscode-dark),
-			:host-context(.vscode-high-contrast) {
-				--color-status--in-sync: #00bb00;
-				--color-merge--clean: #00bb00;
-				--color-merge--conflict: var(--vscode-gitlens-decorations\\.statusMergingOrRebasingForegroundColor);
-			}
-
-			:host-context(.vscode-light),
-			:host-context(.vscode-high-contrast-light) {
-				--color-status--in-sync: #00aa00;
-				--color-merge--clean: #00aa00;
-				--color-merge--conflict: var(--vscode-gitlens-decorations\\.statusMergingOrRebasingForegroundColor);
-			}
-
-			.header__title code-icon {
-				margin-bottom: 0.1rem;
-			}
-
-			.header__title code-icon.status--warning {
-				color: var(--vscode-gitlens-decorations\\.statusMergingOrRebasingForegroundColor);
-			}
-
-			.header__subtitle {
-				font-size: 1.3rem;
-				margin: 0.2rem 0 0 0;
-			}
-
-			.status--conflict .icon,
-			.status--conflict .status-indicator {
-				color: var(--vscode-gitlens-decorations\\.statusMergingOrRebasingForegroundColor);
-			}
-
-			.status--behind .icon,
-			.status--behind .status-indicator {
-				color: var(--vscode-gitlens-decorations\\.statusMergingOrRebasingForegroundColor);
-			}
-
-			.status--merged .icon,
-			.status--merged .status-indicator {
-				color: var(--vscode-gitlens-mergedPullRequestIconColor);
-			}
-
-			.status--merged .icon {
-				transform: rotateY(180deg);
-			}
-
-			.status--in-sync .status-indicator {
-				color: var(--color-status--in-sync);
-			}
-
-			.status--merge-conflict {
-				color: var(--color-merge--conflict);
-			}
-
-			.status--merge-clean {
-				color: var(--color-merge--clean);
-			}
-
-			.status-indicator {
-				margin-left: -0.5rem;
-				margin-top: 0.8rem;
-			}
-
-			.body {
-				display: flex;
-				flex-direction: column;
-				gap: 0.8rem;
-				width: 100%;
-			}
-
-			.button-container {
-				display: flex;
-				flex-direction: column;
-				gap: 0.8rem;
-				margin-top: 0.4rem;
-				margin-bottom: 0.4rem;
-				align-items: center;
-				justify-content: center;
-				width: 100%;
-			}
-
-			.button-container gl-button {
-				max-width: 30rem;
-			}
-
-			p {
-				margin: 0 0.4rem;
-			}
-
-			p code-icon,
-			gl-button code-icon {
-				margin-bottom: 0.1rem;
-			}
-
-			details {
-				display: flex;
-				flex-direction: column;
-				gap: 0.4rem;
-				padding: 0;
-				position: relative;
-				margin: 0 0.2rem 0.4rem;
-				overflow: hidden;
-				border: 1px solid transparent;
-				color: var(--color-foreground--85);
-			}
-
-			details[open] {
-				border-radius: 0.3rem;
-				border: 1px solid var(--vscode-sideBar-border);
-			}
-
-			summary {
-				position: sticky;
-				top: 0;
-				color: var(--color-foreground);
-				cursor: pointer;
-				list-style: none;
-				transition: transform ease-in-out 0.1s;
-				padding: 0.4rem 0.6rem 0.4rem 0.6rem;
-				z-index: 1;
-			}
-
-			summary:hover {
-				color: var(--vscode-textLink-activeForeground);
-			}
-
-			details[open] > summary {
-				color: var(--vscode-textLink-foreground);
-				border-radius: 0.3rem 0.3rem 0 0;
-				margin-left: 0;
-				background: var(--vscode-sideBar-background);
-			}
-
-			details[open] > summary code-icon {
-				transform: rotate(90deg);
-			}
-
-			summary code-icon {
-				transition: transform 0.2s;
-			}
-
-			.files {
-				display: flex;
-				flex-direction: column;
-				gap: 0.4rem;
-
-				max-height: 8rem;
-				overflow-y: auto;
-				padding: 0.4rem 0.8rem;
-
-				background: var(--vscode-sideBar-background);
-			}
-
-			gl-popover {
-				--max-width: 80vw;
-			}
-
-			.info {
-				cursor: help;
-				display: inline-flex;
-				vertical-align: middle;
-			}
-		`,
-	];
+	static override styles = [elementBase, linkBase, chipStyles, scrollableBase, mergeTargetStyles];
 
 	@property({ type: Object })
 	branch!: Pick<GetOverviewBranch, 'repoPath' | 'id' | 'name' | 'opened' | 'upstream' | 'worktree'>;
@@ -526,5 +527,47 @@ export class GlMergeTargetStatus extends LitElement {
 
 	private renderFile(path: string) {
 		return html`<span class="files__item"><code-icon icon="file"></code-icon> ${path}</span>`;
+	}
+}
+
+@customElement('gl-merge-target-upgrade')
+export class GlMergeTargetUpgrade extends LitElement {
+	static override shadowRootOptions: ShadowRootInit = {
+		...LitElement.shadowRootOptions,
+		delegatesFocus: true,
+	};
+
+	static override styles = [elementBase, linkBase, chipStyles, scrollableBase, mergeTargetStyles];
+
+	override render(): unknown {
+		const icon = 'warning';
+		const status = 'upgrade';
+
+		return html`<gl-popover placement="bottom" trigger="hover click focus" hoist>
+			<span slot="anchor" class="chip status--${status}" tabindex="0"
+				><code-icon class="icon" icon="gl-merge-target" size="18"></code-icon
+				><code-icon class="status-indicator icon--${status}" icon="${icon}" size="12"></code-icon>
+			</span>
+			<div slot="content" class="content">
+				<div class="header">
+					<span class="header__title">Detect potential merge conflicts</span>
+				</div>
+				<div class="body">
+					<p>
+						Upgrade to GitLens Pro to see when your current branch has potential conflicts with its merge
+						target branch and take action to resolve them.
+					</p>
+					<div class="button-container">
+						<gl-button
+							full
+							href="${createCommandLink<Source>('gitlens.plus.upgrade', {
+								source: 'merge-target',
+							})}"
+							>Upgrade to Pro</gl-button
+						>
+					</div>
+				</div>
+			</div>
+		</gl-popover>`;
 	}
 }
