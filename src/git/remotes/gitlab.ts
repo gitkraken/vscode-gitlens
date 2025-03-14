@@ -372,8 +372,31 @@ export class GitLabRemote extends RemoteProvider<GitLabRepositoryDescriptor> {
 		return this.encodeUrl(`${this.baseUrl}/-/commit/${sha}`);
 	}
 
-	protected override getUrlForComparison(base: string, compare: string, notation: '..' | '...'): string {
-		return this.encodeUrl(`${this.baseUrl}/-/compare/${base}${notation}${compare}`);
+	protected override getUrlForComparison(base: string, head: string, notation: '..' | '...'): string {
+		return this.encodeUrl(`${this.baseUrl}/-/compare/${base}${notation}${head}`);
+	}
+
+	protected override getUrlForCreatePullRequest(
+		base: { branch?: string; remote: { path: string; url: string } },
+		head: { branch: string; remote: { path: string; url: string } },
+		options?: { title?: string; description?: string },
+	): string | undefined {
+		const query = new URLSearchParams({
+			utf8: '✓',
+			'merge_request["source_branch"]': head.branch,
+			'merge_request["target_branch"]': base.branch ?? '',
+			// TODO: figure this out
+			// 'merge_request["source_project_id"]': this.path,
+			// 'merge_request["target_project_id"]': this.path,
+		});
+		if (options?.title) {
+			query.set('merge_request[title]', options.title);
+		}
+		if (options?.description) {
+			query.set('merge_request[description]', options.description);
+		}
+
+		return `${this.encodeUrl(`${this.baseUrl}/-/merge_requests/new`)}?${query.toString()}`;
 	}
 
 	protected getUrlForFile(fileName: string, branch?: string, sha?: string, range?: Range): string {
