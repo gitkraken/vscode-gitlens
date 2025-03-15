@@ -61,7 +61,7 @@ export class GenerateCommitMessageCommand extends ActiveEditorCommand {
 
 		try {
 			const currentMessage = scmRepo.inputBox.value;
-			const message = await this.container.ai.generateCommitMessage(
+			const result = await this.container.ai.generateCommitMessage(
 				repository,
 				{ source: args?.source ?? 'commandPalette' },
 				{
@@ -69,11 +69,11 @@ export class GenerateCommitMessageCommand extends ActiveEditorCommand {
 					progress: { location: ProgressLocation.Notification, title: 'Generating commit message...' },
 				},
 			);
-			if (message == null) return;
+			if (result == null) return;
 
 			void executeCoreCommand('workbench.view.scm');
-			scmRepo.inputBox.value = `${currentMessage ? `${currentMessage}\n\n` : ''}${message.summary}\n\n${
-				message.body
+			scmRepo.inputBox.value = `${currentMessage ? `${currentMessage}\n\n` : ''}${result.parsed.summary}\n\n${
+				result.parsed.body
 			}`;
 		} catch (ex) {
 			Logger.error(ex, 'GenerateCommitMessageCommand');

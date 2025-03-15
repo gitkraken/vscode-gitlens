@@ -7,12 +7,21 @@ interface CacheEntry<V> {
 export class PromiseCache<K, V> {
 	private readonly cache = new Map<K, CacheEntry<V>>();
 
-	constructor(private readonly options?: { createTTL?: number; accessTTL?: number }) {}
+	constructor(
+		private readonly options?: {
+			/** TTL (time-to-live) in milliseconds since creation */
+			createTTL?: number;
+			/** TTL (time-to-live) in milliseconds since last access */
+			accessTTL?: number;
+			/** Whether to expire the entry if the promise fails */
+			expireOnError?: boolean;
+		},
+	) {}
 
 	async get(key: K, factory: () => Promise<V>): Promise<V> {
 		const now = Date.now();
 
-		const entry = this.cache.get(key);
+		let entry = this.cache.get(key);
 		if (entry != null && !this.expired(entry, now)) {
 			// Update accessed time
 			entry.accessed = now;
@@ -20,15 +29,20 @@ export class PromiseCache<K, V> {
 		}
 
 		const promise = factory();
-		this.cache.set(key, {
+		entry = {
 			promise: promise,
 			created: now,
 			accessed: now,
-		});
+		};
+		this.cache.set(key, entry);
 
 		// Clean up other expired entries
 		if ((this.options?.createTTL != null || this.options?.accessTTL != null) && this.cache.size > 1) {
 			queueMicrotask(() => this.cleanupExpired());
+		}
+
+		if (this.options?.expireOnError) {
+			promise.catch(() => this.cache.delete(key));
 		}
 
 		return promise;

@@ -683,7 +683,7 @@ export class StashGitCommand extends QuickCommand<State> {
 
 						input.validationMessage = undefined;
 
-						const message = result?.summary;
+						const message = result?.parsed.summary;
 						if (message != null) {
 							state.message = message;
 							input.value = message;
