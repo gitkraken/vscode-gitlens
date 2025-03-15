@@ -5,56 +5,26 @@ import type { Container } from '../../../../container';
 import { cherryPick, merge, rebase } from '../../../../git/actions/repository';
 import type { Repository } from '../../../../git/models/repository';
 import { executeCommand } from '../../../../system/-webview/command';
+import { createCommandDecorator } from '../../../../system/decorators/command';
 import type { CliCommandRequest, CliCommandResponse, CliIpcServer } from './integration';
 
-interface CliCommand {
-	command: string;
-	handler: (request: CliCommandRequest, repo?: Repository | undefined) => Promise<CliCommandResponse>;
-}
+type CliCommandHandler = (request: CliCommandRequest, repo?: Repository | undefined) => Promise<CliCommandResponse>;
 
-const commandHandlers: CliCommand[] = [];
-function command(command: string) {
-	return function (
-		target: unknown,
-		contextOrKey?: string | ClassMethodDecoratorContext,
-		descriptor?: PropertyDescriptor,
-	) {
-		// ES Decorator
-		if (contextOrKey && typeof contextOrKey === 'object' && 'kind' in contextOrKey) {
-			if (contextOrKey.kind !== 'method') {
-				throw new Error('The command decorator can only be applied to methods');
-			}
-
-			commandHandlers.push({ command: command, handler: target as CliCommand['handler'] });
-			return;
-		}
-
-		// TypeScript experimental decorator
-		if (descriptor) {
-			commandHandlers.push({ command: command, handler: descriptor.value as CliCommand['handler'] });
-			return descriptor;
-		}
-
-		throw new Error('Invalid decorator usage');
-	};
-}
+const { command, getCommands } = createCommandDecorator<CliCommandHandler>();
 
 export class CliCommandHandlers implements Disposable {
 	constructor(
 		private readonly container: Container,
 		private readonly server: CliIpcServer,
 	) {
-		for (const { command, handler } of commandHandlers) {
+		for (const { command, handler } of getCommands()) {
 			this.server.registerHandler(command, rq => this.wrapHandler(rq, handler));
 		}
 	}
 
 	dispose(): void {}
 
-	private wrapHandler(
-		request: CliCommandRequest,
-		handler: (request: CliCommandRequest, repo?: Repository | undefined) => Promise<CliCommandResponse>,
-	) {
+	private wrapHandler(request: CliCommandRequest, handler: CliCommandHandler) {
 		let repo: Repository | undefined;
 		if (request?.cwd) {
 			repo = this.container.git.getRepository(request.cwd);

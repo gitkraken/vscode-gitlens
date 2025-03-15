@@ -52,8 +52,9 @@ import { setContext } from '../system/-webview/context';
 import type { MergeEditorInputs, OpenWorkspaceLocation } from '../system/-webview/vscode';
 import { openMergeEditor, openUrl, openWorkspace, revealInFileExplorer } from '../system/-webview/vscode';
 import { filterMap } from '../system/array';
+import { createCommandDecorator } from '../system/decorators/command';
 import { log } from '../system/decorators/log';
-import { partial, runSequentially } from '../system/function';
+import { runSequentially } from '../system/function';
 import { join, map } from '../system/iterable';
 import { lazy } from '../system/lazy';
 import { basename } from '../system/path';
@@ -101,378 +102,165 @@ import type { TagsNode } from './nodes/tagsNode';
 import type { WorktreeNode } from './nodes/worktreeNode';
 import type { WorktreesNode } from './nodes/worktreesNode';
 
-interface CompareSelectedInfo {
-	ref: string;
-	repoPath: string | undefined;
-	uri?: Uri;
-}
-
-export function registerViewCommand(
-	command: GlCommands,
-	callback: (...args: any[]) => unknown,
-	thisArg?: any,
-	multiselect: boolean | 'sequential' = false,
-): Disposable {
-	return registerCommand(
-		command,
-		(...args: any[]) => {
-			if (multiselect) {
-				const [active, selection, ...rest] = args;
-
-				// If there is a node followed by an array of nodes, then check how we want to execute the command
-				if (active instanceof ViewNode && Array.isArray(selection) && selection[0] instanceof ViewNode) {
-					const nodes = selection.filter((n): n is ViewNode => n?.constructor === active.constructor);
-
-					if (multiselect === 'sequential') {
-						if (!nodes.includes(active)) {
-							nodes.splice(0, 0, active);
-						}
-
-						// Execute the command for each node sequentially
-						return runSequentially(
-							callback,
-							nodes.map<[ViewNode, ...any[]]>(n => [n, ...rest]),
-							thisArg,
-						);
-					}
-
-					// Delegate to the callback to handle the multi-select
-					return callback.apply(thisArg, [active, nodes, ...rest]);
-				}
-			}
-
-			return callback.apply(thisArg, args);
-		},
-		thisArg,
-	);
-}
+const { command, getCommands } = createCommandDecorator<
+	(...args: any[]) => unknown,
+	GlCommands,
+	{
+		multiselect?: boolean | 'sequential';
+		args?: (...args: unknown[]) => unknown[];
+	}
+>();
 
 export class ViewCommands implements Disposable {
 	private readonly _disposable: Disposable;
 
 	constructor(private readonly container: Container) {
-		this._disposable = Disposable.from(
-			registerViewCommand('gitlens.views.clearComparison', n => this.clearComparison(n), this),
-			registerViewCommand('gitlens.views.clearReviewed', n => this.clearReviewed(n), this),
-			registerViewCommand(GlCommand.ViewsCopy, partial(copyNode, 'text'), this, true),
-			registerViewCommand('gitlens.views.copyAsMarkdown', partial(copyNode, 'markdown'), this, true),
-			registerViewCommand(GlCommand.ViewsCopyUrl, copyNodeUrl, this),
-			registerViewCommand(`${GlCommand.ViewsCopyUrl}.multi`, copyNodeUrl, this, true),
-			registerViewCommand(GlCommand.ViewsOpenUrl, openNodeUrl, this),
-			registerViewCommand(`${GlCommand.ViewsOpenUrl}.multi`, openNodeUrl, this, true),
-			registerViewCommand(
-				'gitlens.views.collapseNode',
-				() => executeCoreCommand('list.collapseAllToFocus'),
-				this,
-			),
-			registerViewCommand(
-				'gitlens.views.dismissNode',
-				(n: ViewNode) => canViewDismissNode(n.view) && n.view.dismissNode(n),
-				this,
-			),
-			registerViewCommand('gitlens.views.editNode', (n: ViewNode) => canEditNode(n) && n.edit(), this),
-			registerViewCommand(
-				'gitlens.views.expandNode',
-				(n: ViewNode) => n.view.reveal(n, { select: false, focus: false, expand: 3 }),
-				this,
-			),
-			registerViewCommand('gitlens.views.loadMoreChildren', (n: PagerNode) => n.loadMore(), this),
-			registerViewCommand('gitlens.views.loadAllChildren', (n: PagerNode) => n.loadAll(), this),
-			registerViewCommand(
-				'gitlens.views.refreshNode',
-				(n: ViewNode, reset?: boolean) => {
-					if (reset == null && isPageableViewNode(n)) {
-						n.limit = undefined;
-						n.view.resetNodeLastKnownLimit(n);
-					}
-
-					return n.view.refreshNode(n, reset == null ? true : reset);
-				},
-				this,
-				'sequential',
-			),
-
-			registerViewCommand(
-				'gitlens.views.setShowRelativeDateMarkersOn',
-				() => this.setShowRelativeDateMarkers(true),
-				this,
-			),
-			registerViewCommand(
-				'gitlens.views.setShowRelativeDateMarkersOff',
-				() => this.setShowRelativeDateMarkers(false),
-				this,
-			),
-
-			registerViewCommand('gitlens.views.fetch', this.fetch, this),
-			registerViewCommand('gitlens.views.publishBranch', this.publishBranch, this),
-			registerViewCommand('gitlens.views.publishRepository', this.publishRepository, this),
-			registerViewCommand('gitlens.views.pull', this.pull, this),
-			registerViewCommand('gitlens.views.push', this.push, this),
-			registerViewCommand('gitlens.views.pushWithForce', n => this.push(n, true), this),
-			registerViewCommand('gitlens.views.closeRepository', this.closeRepository, this),
-
-			registerViewCommand('gitlens.views.setAsDefault', this.setAsDefault, this),
-			registerViewCommand('gitlens.views.unsetAsDefault', this.unsetAsDefault, this),
-
-			registerViewCommand('gitlens.views.openInTerminal', this.openInTerminal, this),
-			registerViewCommand('gitlens.views.openInIntegratedTerminal', this.openInIntegratedTerminal, this),
-			registerViewCommand('gitlens.views.star', this.star, this),
-			registerViewCommand('gitlens.views.star.multi', this.star, this, 'sequential'),
-			registerViewCommand('gitlens.views.unstar', this.unstar, this),
-			registerViewCommand('gitlens.views.unstar.multi', this.unstar, this, 'sequential'),
-
-			registerViewCommand('gitlens.views.browseRepoAtRevision', this.browseRepoAtRevision, this),
-			registerViewCommand(
-				'gitlens.views.browseRepoAtRevisionInNewWindow',
-				n => this.browseRepoAtRevision(n, { openInNewWindow: true }),
-				this,
-			),
-			registerViewCommand(
-				'gitlens.views.browseRepoBeforeRevision',
-				n => this.browseRepoAtRevision(n, { before: true }),
-				this,
-			),
-			registerViewCommand(
-				'gitlens.views.browseRepoBeforeRevisionInNewWindow',
-				n => this.browseRepoAtRevision(n, { before: true, openInNewWindow: true }),
-				this,
-			),
-
-			registerViewCommand('gitlens.views.addAuthors', this.addAuthors, this),
-			registerViewCommand('gitlens.views.addAuthor', this.addAuthor, this),
-			registerViewCommand('gitlens.views.addAuthor.multi', this.addAuthor, this, true),
-
-			registerViewCommand('gitlens.views.addPullRequestRemote', this.addPullRequestRemote, this),
-
-			registerViewCommand(
-				'gitlens.views.openBranchOnRemote',
-				n => executeCommand('gitlens.openBranchOnRemote', n),
-				this,
-			),
-			registerViewCommand(
-				'gitlens.views.openBranchOnRemote.multi',
-				n => executeCommand('gitlens.openBranchOnRemote', n),
-				this,
-				'sequential',
-			),
-
-			registerViewCommand('gitlens.views.associateIssueWithBranch', n => this.associateIssueWithBranch(n), this),
-
-			registerViewCommand(
-				'gitlens.views.copyRemoteCommitUrl',
-				(n, nodes) => this.openCommitOnRemote(n, nodes, true),
-				this,
-			),
-			registerViewCommand(
-				'gitlens.views.copyRemoteCommitUrl.multi',
-				(n, nodes) => this.openCommitOnRemote(n, nodes, true),
-				this,
-			),
-			registerViewCommand(
-				'gitlens.views.openCommitOnRemote',
-				(n, nodes) => this.openCommitOnRemote(n, nodes),
-				this,
-			),
-			registerViewCommand(
-				'gitlens.views.openCommitOnRemote.multi',
-				(n, nodes) => this.openCommitOnRemote(n, nodes),
-				this,
-			),
-
-			registerViewCommand('gitlens.views.openChanges', this.openChanges, this),
-			registerViewCommand('gitlens.views.openChangesWithMergeBase', this.openChangesWithMergeBase, this),
-			registerViewCommand('gitlens.views.openChangesWithWorking', this.openChangesWithWorking, this),
-			registerViewCommand('gitlens.views.mergeChangesWithWorking', this.mergeChangesWithWorking, this),
-			registerViewCommand(
-				'gitlens.views.openPreviousChangesWithWorking',
-				this.openPreviousChangesWithWorking,
-				this,
-			),
-			registerViewCommand('gitlens.views.openFile', this.openFile, this),
-			registerViewCommand('gitlens.views.openFileRevision', this.openRevision, this),
-			registerViewCommand('gitlens.views.openChangedFiles', this.openFiles, this),
-			registerViewCommand('gitlens.views.openOnlyChangedFiles', this.openOnlyChangedFiles),
-			registerViewCommand('gitlens.views.openChangedFileDiffs', (n, o) => this.openAllChanges(n, o), this),
-			registerViewCommand(
-				'gitlens.views.openChangedFileDiffsWithWorking',
-				(n, o) => this.openAllChangesWithWorking(n, o),
-				this,
-			),
-			registerViewCommand(
-				'gitlens.views.openChangedFileDiffsIndividually',
-				(n, o) => this.openAllChanges(n, o, true),
-				this,
-			),
-			registerViewCommand(
-				'gitlens.views.openChangedFileDiffsWithWorkingIndividually',
-				(n, o) => this.openAllChangesWithWorking(n, o, true),
-				this,
-			),
-			registerViewCommand('gitlens.views.openChangedFileRevisions', this.openRevisions, this),
-			registerViewCommand('gitlens.views.applyChanges', this.applyChanges, this),
-			registerViewCommand('gitlens.views.highlightChanges', this.highlightChanges, this),
-			registerViewCommand('gitlens.views.highlightRevisionChanges', this.highlightRevisionChanges, this),
-			registerViewCommand('gitlens.views.restore', this.restore, this),
-			registerViewCommand('gitlens.views.switchToAnotherBranch', this.switch, this),
-			registerViewCommand('gitlens.views.switchToBranch', this.switchTo, this),
-			registerViewCommand('gitlens.views.switchToCommit', this.switchTo, this),
-			registerViewCommand('gitlens.views.switchToTag', this.switchTo, this),
-			registerViewCommand('gitlens.views.addRemote', this.addRemote, this),
-			registerViewCommand('gitlens.views.pruneRemote', this.pruneRemote, this),
-			registerViewCommand('gitlens.views.removeRemote', this.removeRemote, this),
-
-			registerViewCommand('gitlens.views.stageDirectory', this.stageDirectory, this),
-			registerViewCommand('gitlens.views.stageFile', this.stageFile, this),
-			registerViewCommand('gitlens.views.unstageDirectory', this.unstageDirectory, this),
-			registerViewCommand('gitlens.views.unstageFile', this.unstageFile, this),
-
-			registerViewCommand(
-				'gitlens.views.openChangedFileDiffsWithMergeBase',
-				this.openChangedFileDiffsWithMergeBase,
-				this,
-			),
-
-			registerViewCommand('gitlens.views.compareAncestryWithWorking', this.compareAncestryWithWorking, this),
-			registerViewCommand('gitlens.views.compareWithHead', this.compareHeadWith, this),
-			registerViewCommand('gitlens.views.compareBranchWithHead', this.compareBranchWithHead, this),
-			registerViewCommand('gitlens.views.compareWithMergeBase', this.compareWithMergeBase, this),
-			registerViewCommand('gitlens.views.compareWithUpstream', this.compareWithUpstream, this),
-			registerViewCommand('gitlens.views.compareWithSelected', this.compareWithSelected, this),
-			registerViewCommand('gitlens.views.selectForCompare', this.selectForCompare, this),
-			registerViewCommand('gitlens.views.compareFileWithSelected', this.compareFileWithSelected, this),
-			registerViewCommand('gitlens.views.selectFileForCompare', this.selectFileForCompare, this),
-			registerViewCommand('gitlens.views.compareWithWorking', this.compareWorkingWith, this),
-
-			registerViewCommand(
-				'gitlens.views.setBranchComparisonToWorking',
-				n => this.setBranchComparison(n, 'working'),
-				this,
-			),
-			registerViewCommand(
-				'gitlens.views.setBranchComparisonToBranch',
-				n => this.setBranchComparison(n, 'branch'),
-				this,
-			),
-
-			registerViewCommand('gitlens.views.cherryPick', this.cherryPick, this),
-			registerViewCommand('gitlens.views.cherryPick.multi', this.cherryPick, this, true),
-
-			registerViewCommand('gitlens.views.title.createBranch', () => this.createBranch()),
-			registerViewCommand('gitlens.views.createBranch', this.createBranch, this),
-			registerViewCommand('gitlens.views.deleteBranch', this.deleteBranch, this),
-			registerViewCommand('gitlens.views.deleteBranch.multi', this.deleteBranch, this, true),
-			registerViewCommand('gitlens.views.renameBranch', this.renameBranch, this),
-
-			registerViewCommand('gitlens.views.stash.apply', this.applyStash, this),
-			registerViewCommand('gitlens.views.stash.delete', this.deleteStash, this),
-			registerViewCommand('gitlens.views.stash.delete.multi', this.deleteStash, this, true),
-			registerViewCommand('gitlens.views.stash.rename', this.renameStash, this),
-
-			registerViewCommand('gitlens.views.title.createTag', () => this.createTag()),
-			registerViewCommand('gitlens.views.createTag', this.createTag, this),
-			registerViewCommand('gitlens.views.deleteTag', this.deleteTag, this),
-			registerViewCommand('gitlens.views.deleteTag.multi', this.deleteTag, this, true),
-
-			registerViewCommand('gitlens.views.mergeBranchInto', this.merge, this),
-			registerViewCommand('gitlens.views.pushToCommit', this.pushToCommit, this),
-
-			registerViewCommand('gitlens.views.rebaseOntoBranch', this.rebase, this),
-			registerViewCommand('gitlens.views.rebaseOntoUpstream', this.rebaseToRemote, this),
-			registerViewCommand('gitlens.views.rebaseOntoCommit', this.rebase, this),
-
-			registerViewCommand('gitlens.views.resetCommit', this.resetCommit, this),
-			registerViewCommand('gitlens.views.resetToCommit', this.resetToCommit, this),
-			registerViewCommand('gitlens.views.resetToTip', this.resetToTip, this),
-			registerViewCommand('gitlens.views.revert', this.revert, this),
-			registerViewCommand('gitlens.views.undoCommit', this.undoCommit, this),
-
-			registerViewCommand('gitlens.views.createPullRequest', this.createPullRequest, this),
-			registerViewCommand('gitlens.views.openPullRequest', this.openPullRequest, this),
-			registerViewCommand('gitlens.views.openPullRequestChanges', this.openPullRequestChanges, this),
-			registerViewCommand('gitlens.views.openPullRequestComparison', this.openPullRequestComparison, this),
-
-			registerViewCommand('gitlens.views.draft.open', this.openDraft, this),
-			registerViewCommand('gitlens.views.draft.openOnWeb', this.openDraftOnWeb, this),
-
-			registerViewCommand('gitlens.views.title.createWorktree', () => this.createWorktree()),
-			registerViewCommand('gitlens.views.createWorktree', this.createWorktree, this),
-			registerViewCommand('gitlens.views.deleteWorktree', this.deleteWorktree, this),
-			registerViewCommand('gitlens.views.deleteWorktree.multi', this.deleteWorktree, this, true),
-			registerViewCommand('gitlens.views.openWorktree', this.openWorktree, this),
-			registerViewCommand('gitlens.views.openInWorktree', this.openInWorktree, this),
-			registerViewCommand('gitlens.views.revealRepositoryInExplorer', this.revealRepositoryInExplorer, this),
-			registerViewCommand('gitlens.views.revealWorktreeInExplorer', this.revealWorktreeInExplorer, this),
-			registerViewCommand(
-				'gitlens.views.openWorktreeInNewWindow',
-				n => this.openWorktree(n, undefined, { location: 'newWindow' }),
-				this,
-			),
-			registerViewCommand(
-				'gitlens.views.openWorktreeInNewWindow.multi',
-				(n, nodes) => this.openWorktree(n, nodes, { location: 'newWindow' }),
-				this,
-				true,
-			),
-
-			registerViewCommand('gitlens.views.abortPausedOperation', this.abortPausedOperation, this),
-			registerViewCommand('gitlens.views.continuePausedOperation', this.continuePausedOperation, this),
-			registerViewCommand('gitlens.views.skipPausedOperation', this.skipPausedOperation, this),
-			registerViewCommand(
-				'gitlens.views.openPausedOperationInRebaseEditor',
-				this.openPausedOperationInRebaseEditor,
-				this,
-			),
-
-			registerViewCommand(
-				'gitlens.views.setResultsCommitsFilterAuthors',
-				n => this.setResultsCommitsFilter(n, true),
-				this,
-			),
-			registerViewCommand(
-				'gitlens.views.setResultsCommitsFilterOff',
-				n => this.setResultsCommitsFilter(n, false),
-				this,
-			),
-			registerViewCommand(
-				'gitlens.views.setContributorsStatisticsOff',
-				() => this.setContributorsStatistics(false),
-				this,
-			),
-			registerViewCommand(
-				'gitlens.views.setContributorsStatisticsOn',
-				() => this.setContributorsStatistics(true),
-				this,
-			),
-
-			registerViewCommand(
-				'gitlens.views.setResultsFilesFilterOnLeft',
-				n => this.setResultsFilesFilter(n, FilesQueryFilter.Left),
-				this,
-			),
-			registerViewCommand(
-				'gitlens.views.setResultsFilesFilterOnRight',
-				n => this.setResultsFilesFilter(n, FilesQueryFilter.Right),
-				this,
-			),
-			registerViewCommand(
-				'gitlens.views.setResultsFilesFilterOff',
-				n => this.setResultsFilesFilter(n, undefined),
-				this,
-			),
-
-			registerViewCommand('gitlens.views.ai.generateChangelog', this.generateChangelog, this),
-		);
+		const subscriptions: Disposable[] = [];
+		for (const { command, handler, options } of getCommands()) {
+			subscriptions.push(registerViewCommand(command, handler, this, options));
+		}
+		this._disposable = Disposable.from(...subscriptions);
 	}
 
 	dispose(): void {
 		this._disposable.dispose();
 	}
 
+	@command(GlCommand.ViewsCopy, { args: (a, s) => [a, s, 'text' satisfies ClipboardType] })
+	@command('gitlens.views.copyAsMarkdown', { args: (a, s) => [a, s, 'markdown' satisfies ClipboardType] })
+	@log()
+	private async copyNode(active: ViewNode | undefined, selection: ViewNode[], type: ClipboardType): Promise<void> {
+		selection = Array.isArray(selection) ? selection : active != null ? [active] : [];
+		if (selection.length === 0) return;
+
+		const data = join(
+			filterMap(await Promise.allSettled(map(selection, n => n.toClipboard?.(type))), r =>
+				r.status === 'fulfilled' && r.value?.trim() ? r.value : undefined,
+			),
+			'\n',
+		);
+
+		await env.clipboard.writeText(data);
+	}
+
+	@command(GlCommand.ViewsCopyUrl, { args: (a, s) => [a, s, true] })
+	@command(`${GlCommand.ViewsCopyUrl}.multi`, { args: (a, s) => [a, s, true], multiselect: true })
+	@command(GlCommand.ViewsOpenUrl, { args: (a, s) => [a, s, false] })
+	@command(`${GlCommand.ViewsOpenUrl}.multi`, { args: (a, s) => [a, s, false], multiselect: true })
+	@log()
+	private async copyOrOpenNodeUrls(
+		active: ViewNode | undefined,
+		selection: ViewNode[],
+		clipboard?: boolean,
+	): Promise<void> {
+		selection = Array.isArray(selection) ? selection : active != null ? [active] : [];
+		if (!selection.length) return;
+
+		const urls = [
+			...filterMap(await Promise.allSettled(map(selection, n => n.getUrl?.())), r =>
+				r.status === 'fulfilled' && r.value?.trim() ? r.value : undefined,
+			),
+		];
+		if (!urls.length) return;
+
+		if (clipboard) {
+			await env.clipboard.writeText(urls.join('\n'));
+			return;
+		}
+
+		if (urls.length > 10) {
+			const confirm = { title: 'Open' };
+			const cancel = { title: 'Cancel', isCloseAffordance: true };
+			const result = await window.showWarningMessage(
+				`Are you sure you want to open ${urls.length} URLs?`,
+				{ modal: true },
+				confirm,
+				cancel,
+			);
+			if (result !== confirm) return;
+		}
+
+		for (const url of urls) {
+			if (url == null) continue;
+
+			void openUrl(url);
+		}
+	}
+
+	@command('gitlens.views.copyRemoteCommitUrl', { args: (a, s) => [a, s, true] })
+	@command('gitlens.views.copyRemoteCommitUrl.multi', { args: (a, s) => [a, s, true], multiselect: true })
+	@command('gitlens.views.openCommitOnRemote', { args: (a, s) => [a, s, false] })
+	@command('gitlens.views.openCommitOnRemote.multi', { args: (a, s) => [a, s, false], multiselect: true })
+	@log()
+	private copyOrOpenCommitsOnRemote(active: ViewRefNode, selection?: ViewRefNode[], clipboard?: boolean) {
+		const refs = selection?.length ? selection.map(n => n.ref) : [active.ref];
+
+		return executeCommand<OpenOnRemoteCommandArgs>(GlCommand.OpenOnRemote, {
+			repoPath: refs[0].repoPath,
+			resource: refs.map(r => ({ type: RemoteResourceType.Commit, sha: r.ref })),
+			clipboard: clipboard,
+		});
+	}
+
+	@command('gitlens.views.collapseNode')
+	@log()
+	private collapseNode() {
+		return executeCoreCommand('list.collapseAllToFocus');
+	}
+
+	@command('gitlens.views.dismissNode')
+	@log()
+	private dismissNode(node: ViewNode) {
+		if (!canViewDismissNode(node.view)) return;
+
+		node.view.dismissNode(node);
+	}
+
+	@command('gitlens.views.editNode')
+	@log()
+	private editNode(node: ViewNode) {
+		if (!canEditNode(node)) return;
+
+		return node.edit();
+	}
+
+	@command('gitlens.views.expandNode')
+	@log()
+	private expandNode(node: ViewNode) {
+		return node.view.reveal(node, { select: false, focus: false, expand: 3 });
+	}
+
+	@command('gitlens.views.loadMoreChildren')
+	@log()
+	private loadMoreChildren(node: PagerNode) {
+		return node.loadMore();
+	}
+
+	@command('gitlens.views.loadAllChildren')
+	@log()
+	private loadAllChildren(node: PagerNode) {
+		return node.loadAll();
+	}
+
+	@command('gitlens.views.refreshNode', { multiselect: 'sequential' })
+	@log()
+	private refreshNode(node: ViewNode, reset?: boolean) {
+		if (reset == null && isPageableViewNode(node)) {
+			node.limit = undefined;
+			node.view.resetNodeLastKnownLimit(node);
+		}
+
+		return node.view.refreshNode(node, reset == null ? true : reset);
+	}
+
+	@command('gitlens.views.addAuthors')
 	@log()
 	private addAuthors(node?: ViewNode) {
 		return ContributorActions.addAuthors(getNodeRepoPath(node));
 	}
 
+	@command('gitlens.views.addAuthor')
+	@command('gitlens.views.addAuthor.multi', { multiselect: true })
 	@log()
 	private addAuthor(node?: ContributorNode, nodes?: ContributorNode[]) {
 		if (!node?.is('contributor')) return Promise.resolve();
@@ -484,11 +272,13 @@ export class ViewCommands implements Disposable {
 		);
 	}
 
+	@command('gitlens.views.addRemote')
 	@log()
 	private addRemote(node?: ViewNode) {
 		return RemoteActions.add(getNodeRepoPath(node));
 	}
 
+	@command('gitlens.views.addPullRequestRemote')
 	@log()
 	private async addPullRequestRemote(node: ViewNode, pr: PullRequest, repo: Repository) {
 		const identity = getRepositoryIdentityForPullRequest(pr);
@@ -498,6 +288,7 @@ export class ViewCommands implements Disposable {
 		return node.triggerChange(true);
 	}
 
+	@command('gitlens.views.applyChanges')
 	@log()
 	private applyChanges(node: ViewRefFileNode) {
 		if (node.is('results-file')) {
@@ -513,6 +304,7 @@ export class ViewCommands implements Disposable {
 		return CommitActions.applyChanges(node.file, node.ref);
 	}
 
+	@command('gitlens.views.stash.apply')
 	@log()
 	private applyStash(node: StashNode) {
 		if (!node.is('stash')) return Promise.resolve();
@@ -520,6 +312,12 @@ export class ViewCommands implements Disposable {
 		return StashActions.apply(node.repoPath, node.commit);
 	}
 
+	@command('gitlens.views.browseRepoAtRevision')
+	@command('gitlens.views.browseRepoAtRevisionInNewWindow', { args: n => [n, { openInNewWindow: true }] })
+	@command('gitlens.views.browseRepoBeforeRevision', { args: n => [n, { before: true }] })
+	@command('gitlens.views.browseRepoBeforeRevisionInNewWindow', {
+		args: n => [n, { before: true, openInNewWindow: true }],
+	})
 	@log()
 	private browseRepoAtRevision(
 		node: ViewRefNode | ViewRefFileNode,
@@ -533,6 +331,8 @@ export class ViewCommands implements Disposable {
 		});
 	}
 
+	@command('gitlens.views.cherryPick')
+	@command('gitlens.views.cherryPick.multi', { multiselect: true })
 	@log()
 	private cherryPick(node: CommitNode, nodes?: CommitNode[]) {
 		if (!node.is('commit')) return Promise.resolve();
@@ -541,6 +341,7 @@ export class ViewCommands implements Disposable {
 		return RepoActions.cherryPick(node.repoPath, refs);
 	}
 
+	@command('gitlens.views.clearComparison')
 	@log()
 	private clearComparison(node: ViewNode) {
 		if (node.is('compare-branch')) {
@@ -548,6 +349,7 @@ export class ViewCommands implements Disposable {
 		}
 	}
 
+	@command('gitlens.views.clearReviewed')
 	@log()
 	private clearReviewed(node: ViewNode) {
 		let compareNode;
@@ -563,13 +365,16 @@ export class ViewCommands implements Disposable {
 		}
 	}
 
+	@command('gitlens.views.closeRepository')
 	@log()
-	private closeRepository(node: RepositoryNode | RepositoryFolderNode) {
+	private closeRepository(node: RepositoryNode | RepositoryFolderNode): void {
 		if (!node.isAny('repository', 'repo-folder')) return;
 
 		node.repo.closed = true;
 	}
 
+	@command('gitlens.views.title.createBranch', { args: () => [] })
+	@command('gitlens.views.createBranch')
 	@log()
 	private async createBranch(node?: ViewRefNode | ViewRefFileNode | BranchesNode | BranchTrackingStatusNode) {
 		let from =
@@ -590,6 +395,7 @@ export class ViewCommands implements Disposable {
 		return BranchActions.create(node?.repoPath, from);
 	}
 
+	@command('gitlens.views.createPullRequest')
 	@log()
 	private async createPullRequest(node: BranchNode | BranchTrackingStatusNode) {
 		if (!node.isAny('branch', 'tracking-status')) return Promise.resolve();
@@ -621,6 +427,8 @@ export class ViewCommands implements Disposable {
 		});
 	}
 
+	@command('gitlens.views.title.createTag', { args: () => [] })
+	@command('gitlens.views.createTag')
 	@log()
 	private async createTag(node?: ViewRefNode | ViewRefFileNode | TagsNode | BranchTrackingStatusNode) {
 		let from =
@@ -641,6 +449,8 @@ export class ViewCommands implements Disposable {
 		return TagActions.create(node?.repoPath, from);
 	}
 
+	@command('gitlens.views.title.createWorktree', { args: () => [] })
+	@command('gitlens.views.createWorktree')
 	@log()
 	private async createWorktree(node?: BranchNode | WorktreesNode) {
 		if (node?.is('worktrees')) {
@@ -651,6 +461,8 @@ export class ViewCommands implements Disposable {
 		return WorktreeActions.create(node?.repoPath, undefined, node?.ref);
 	}
 
+	@command('gitlens.views.deleteBranch')
+	@command('gitlens.views.deleteBranch.multi', { multiselect: true })
 	@log()
 	private deleteBranch(node: BranchNode, nodes?: BranchNode[]) {
 		if (!node.is('branch')) return Promise.resolve();
@@ -659,6 +471,8 @@ export class ViewCommands implements Disposable {
 		return BranchActions.remove(node.repoPath, refs);
 	}
 
+	@command('gitlens.views.stash.delete')
+	@command('gitlens.views.stash.delete.multi', { multiselect: true })
 	@log()
 	private deleteStash(node: StashNode, nodes?: StashNode[]) {
 		if (!node.is('stash')) return Promise.resolve();
@@ -667,6 +481,7 @@ export class ViewCommands implements Disposable {
 		return StashActions.drop(node.repoPath, refs);
 	}
 
+	@command('gitlens.views.stash.rename')
 	@log()
 	private renameStash(node: StashNode) {
 		if (!node.is('stash')) return Promise.resolve();
@@ -674,6 +489,8 @@ export class ViewCommands implements Disposable {
 		return StashActions.rename(node.repoPath, node.commit);
 	}
 
+	@command('gitlens.views.deleteTag')
+	@command('gitlens.views.deleteTag.multi', { multiselect: true })
 	@log()
 	private deleteTag(node: TagNode, nodes?: TagNode[]) {
 		if (!node.is('tag')) return Promise.resolve();
@@ -682,6 +499,8 @@ export class ViewCommands implements Disposable {
 		return TagActions.remove(node.repoPath, refs);
 	}
 
+	@command('gitlens.views.deleteWorktree')
+	@command('gitlens.views.deleteWorktree.multi', { multiselect: true })
 	@log()
 	private async deleteWorktree(node: WorktreeNode, nodes?: WorktreeNode[]) {
 		if (!node.is('worktree')) return undefined;
@@ -691,6 +510,7 @@ export class ViewCommands implements Disposable {
 		return WorktreeActions.remove(node.repoPath, uris);
 	}
 
+	@command('gitlens.views.fetch')
 	@log()
 	private fetch(node: RemoteNode | RepositoryNode | RepositoryFolderNode | BranchNode | BranchTrackingStatusNode) {
 		if (node.isAny('repository', 'repo-folder')) return RepoActions.fetch(node.repo);
@@ -702,6 +522,7 @@ export class ViewCommands implements Disposable {
 		return Promise.resolve();
 	}
 
+	@command('gitlens.views.highlightChanges')
 	@log()
 	private async highlightChanges(node: CommitFileNode | StashFileNode | FileRevisionAsCommitNode | ResultsFileNode) {
 		if (!node.isAny('commit-file', 'stash-file', 'file-commit', 'results-file')) return;
@@ -715,6 +536,7 @@ export class ViewCommands implements Disposable {
 		));
 	}
 
+	@command('gitlens.views.highlightRevisionChanges')
 	@log()
 	private async highlightRevisionChanges(
 		node: CommitFileNode | StashFileNode | FileRevisionAsCommitNode | ResultsFileNode,
@@ -730,6 +552,7 @@ export class ViewCommands implements Disposable {
 		));
 	}
 
+	@command('gitlens.views.mergeBranchInto')
 	@log()
 	private merge(node: BranchNode | TagNode) {
 		if (!node.isAny('branch', 'tag')) return Promise.resolve();
@@ -737,6 +560,14 @@ export class ViewCommands implements Disposable {
 		return RepoActions.merge(node.repoPath, node.is('branch') ? node.branch : node.tag);
 	}
 
+	@command('gitlens.views.openBranchOnRemote')
+	@command('gitlens.views.openBranchOnRemote.multi', { multiselect: 'sequential' })
+	@log()
+	private openBranchOnRemote(node: BranchNode) {
+		return executeCommand('gitlens.openBranchOnRemote', node);
+	}
+
+	@command('gitlens.views.openInTerminal')
 	@log()
 	private openInTerminal(node: BranchTrackingStatusNode | RepositoryNode | RepositoryFolderNode) {
 		if (!node.isAny('tracking-status', 'repository', 'repo-folder')) return Promise.resolve();
@@ -744,6 +575,7 @@ export class ViewCommands implements Disposable {
 		return executeCoreCommand('openInTerminal', Uri.file(node.repoPath));
 	}
 
+	@command('gitlens.views.openInIntegratedTerminal')
 	@log()
 	private openInIntegratedTerminal(node: BranchTrackingStatusNode | RepositoryNode | RepositoryFolderNode) {
 		if (!node.isAny('tracking-status', 'repository', 'repo-folder')) return Promise.resolve();
@@ -751,6 +583,7 @@ export class ViewCommands implements Disposable {
 		return executeCoreCommand('openInIntegratedTerminal', Uri.file(node.repoPath));
 	}
 
+	@command('gitlens.views.abortPausedOperation')
 	@log()
 	private async abortPausedOperation(node: PausedOperationStatusNode) {
 		if (!node.is('paused-operation-status')) return;
@@ -765,6 +598,7 @@ export class ViewCommands implements Disposable {
 		}
 	}
 
+	@command('gitlens.views.continuePausedOperation')
 	@log()
 	private async continuePausedOperation(node: PausedOperationStatusNode) {
 		if (!node.is('paused-operation-status')) return;
@@ -779,6 +613,7 @@ export class ViewCommands implements Disposable {
 		}
 	}
 
+	@command('gitlens.views.skipPausedOperation')
 	@log()
 	private async skipPausedOperation(node: PausedOperationStatusNode) {
 		if (!node.is('paused-operation-status')) return;
@@ -793,6 +628,7 @@ export class ViewCommands implements Disposable {
 		}
 	}
 
+	@command('gitlens.views.openPausedOperationInRebaseEditor')
 	@log()
 	private async openPausedOperationInRebaseEditor(node: PausedOperationStatusNode) {
 		if (!node.is('paused-operation-status') || node.pausedOpStatus.type !== 'rebase') return;
@@ -806,6 +642,7 @@ export class ViewCommands implements Disposable {
 		});
 	}
 
+	@command('gitlens.views.openPullRequest')
 	@log()
 	private openPullRequest(node: PullRequestNode) {
 		if (!node.is('pullrequest')) return Promise.resolve();
@@ -824,6 +661,7 @@ export class ViewCommands implements Disposable {
 		});
 	}
 
+	@command('gitlens.views.openPullRequestChanges')
 	@log()
 	private async openPullRequestChanges(node: PullRequestNode | LaunchpadItemNode) {
 		if (!node.is('pullrequest') && !node.is('launchpad-item')) return Promise.resolve();
@@ -856,6 +694,7 @@ export class ViewCommands implements Disposable {
 		);
 	}
 
+	@command('gitlens.views.openPullRequestComparison')
 	@log()
 	private async openPullRequestComparison(node: PullRequestNode | LaunchpadItemNode) {
 		if (!node.is('pullrequest') && !node.is('launchpad-item')) return Promise.resolve();
@@ -878,28 +717,36 @@ export class ViewCommands implements Disposable {
 		return this.container.views.searchAndCompare.compare(refs.repoPath, refs.head, refs.base);
 	}
 
+	@command('gitlens.views.draft.open')
 	@log()
 	private async openDraft(node: DraftNode) {
 		await showPatchesView({ mode: 'view', draft: node.draft });
 	}
 
+	@command('gitlens.views.draft.openOnWeb')
 	@log()
 	private async openDraftOnWeb(node: DraftNode) {
 		const url = this.container.drafts.generateWebUrl(node.draft);
 		await openUrl(url);
 	}
 
+	@command('gitlens.views.openWorktree')
+	@command('gitlens.views.openWorktreeInNewWindow', { args: a => [a, undefined, { location: 'newWindow' }] })
+	@command('gitlens.views.openWorktreeInNewWindow.multi', {
+		args: (a, s) => [a, s, { location: 'newWindow' }],
+		multiselect: true,
+	})
 	@log()
 	private async openWorktree(
-		node: BranchNode | WorktreeNode,
-		nodes?: (BranchNode | WorktreeNode)[],
+		active: BranchNode | WorktreeNode,
+		selection?: (BranchNode | WorktreeNode)[],
 		options?: { location?: OpenWorkspaceLocation },
 	) {
-		if (!node.is('branch') && !node.is('worktree')) return;
-		if (node.worktree == null) return;
+		if (!active.is('branch') && !active.is('worktree')) return;
+		if (active.worktree == null) return;
 
 		let uri;
-		if (nodes?.length && options?.location === 'newWindow') {
+		if (selection?.length && options?.location === 'newWindow') {
 			type VSCodeWorkspace = {
 				folders: ({ name: string; path: string } | { name: string; uri: Uri })[];
 				settings: { [key: string]: unknown };
@@ -907,7 +754,7 @@ export class ViewCommands implements Disposable {
 
 			// TODO@eamodio hash the folder paths to get a unique, but re-usable workspace name?
 			const codeWorkspace: VSCodeWorkspace = {
-				folders: filterMap(nodes, n =>
+				folders: filterMap(selection, n =>
 					n.worktree != null ? { name: n.worktree.name, path: n.worktree.uri.fsPath } : undefined,
 				),
 				settings: {},
@@ -916,12 +763,13 @@ export class ViewCommands implements Disposable {
 
 			await workspace.fs.writeFile(uri, new TextEncoder().encode(JSON.stringify(codeWorkspace, null, 2)));
 		} else {
-			uri = node.worktree.uri;
+			uri = active.worktree.uri;
 		}
 
 		openWorkspace(uri, options);
 	}
 
+	@command('gitlens.views.openInWorktree')
 	@log()
 	private async openInWorktree(node: BranchNode | PullRequestNode | LaunchpadItemNode) {
 		if (!node.is('branch') && !node.is('pullrequest') && !node.is('launchpad-item')) return;
@@ -976,6 +824,7 @@ export class ViewCommands implements Disposable {
 		}
 	}
 
+	@command('gitlens.views.pruneRemote')
 	@log()
 	private pruneRemote(node: RemoteNode) {
 		if (!node.is('remote')) return Promise.resolve();
@@ -983,6 +832,7 @@ export class ViewCommands implements Disposable {
 		return RemoteActions.prune(node.remote.repoPath, node.remote.name);
 	}
 
+	@command('gitlens.views.removeRemote')
 	@log()
 	private async removeRemote(node: RemoteNode) {
 		if (!node.is('remote')) return Promise.resolve();
@@ -990,6 +840,7 @@ export class ViewCommands implements Disposable {
 		return RemoteActions.remove(node.remote.repoPath, node.remote.name);
 	}
 
+	@command('gitlens.views.publishBranch')
 	@log()
 	private publishBranch(node: BranchNode | BranchTrackingStatusNode) {
 		if (node.isAny('branch', 'tracking-status')) {
@@ -998,6 +849,7 @@ export class ViewCommands implements Disposable {
 		return Promise.resolve();
 	}
 
+	@command('gitlens.views.publishRepository')
 	@log()
 	private publishRepository(node: BranchNode | BranchTrackingStatusNode) {
 		if (node.isAny('branch', 'tracking-status')) {
@@ -1006,6 +858,7 @@ export class ViewCommands implements Disposable {
 		return Promise.resolve();
 	}
 
+	@command('gitlens.views.pull')
 	@log()
 	private pull(node: RepositoryNode | RepositoryFolderNode | BranchNode | BranchTrackingStatusNode) {
 		if (node.isAny('repository', 'repo-folder')) return RepoActions.pull(node.repo);
@@ -1016,6 +869,8 @@ export class ViewCommands implements Disposable {
 		return Promise.resolve();
 	}
 
+	@command('gitlens.views.push', { args: n => [n, false] })
+	@command('gitlens.views.pushWithForce', { args: n => [n, true] })
 	@log()
 	private push(
 		node:
@@ -1046,6 +901,7 @@ export class ViewCommands implements Disposable {
 		return Promise.resolve();
 	}
 
+	@command('gitlens.views.pushToCommit')
 	@log()
 	private pushToCommit(node: CommitNode | FileRevisionAsCommitNode) {
 		if (!node.isAny('commit', 'file-commit')) return Promise.resolve();
@@ -1053,6 +909,8 @@ export class ViewCommands implements Disposable {
 		return RepoActions.push(node.repoPath, false, node.commit);
 	}
 
+	@command('gitlens.views.rebaseOntoBranch')
+	@command('gitlens.views.rebaseOntoCommit')
 	@log()
 	private rebase(node: BranchNode | CommitNode | FileRevisionAsCommitNode | TagNode) {
 		if (!node.isAny('branch', 'commit', 'file-commit', 'tag')) {
@@ -1062,6 +920,7 @@ export class ViewCommands implements Disposable {
 		return RepoActions.rebase(node.repoPath, node.ref);
 	}
 
+	@command('gitlens.views.rebaseOntoUpstream')
 	@log()
 	private rebaseToRemote(node: BranchNode | BranchTrackingStatusNode) {
 		if (!node.isAny('branch', 'tracking-status')) return Promise.resolve();
@@ -1079,6 +938,7 @@ export class ViewCommands implements Disposable {
 		);
 	}
 
+	@command('gitlens.views.renameBranch')
 	@log()
 	private renameBranch(node: BranchNode) {
 		if (!node.is('branch')) return Promise.resolve();
@@ -1086,6 +946,7 @@ export class ViewCommands implements Disposable {
 		return BranchActions.rename(node.repoPath, node.branch);
 	}
 
+	@command('gitlens.views.resetCommit')
 	@log()
 	private resetCommit(node: CommitNode | FileRevisionAsCommitNode) {
 		if (!node.isAny('commit', 'file-commit')) return Promise.resolve();
@@ -1100,6 +961,7 @@ export class ViewCommands implements Disposable {
 		);
 	}
 
+	@command('gitlens.views.resetToCommit')
 	@log()
 	private resetToCommit(node: CommitNode | FileRevisionAsCommitNode) {
 		if (!node.isAny('commit', 'file-commit')) return Promise.resolve();
@@ -1107,6 +969,7 @@ export class ViewCommands implements Disposable {
 		return RepoActions.reset(node.repoPath, node.ref);
 	}
 
+	@command('gitlens.views.resetToTip')
 	@log()
 	private resetToTip(node: BranchNode) {
 		if (!node.is('branch')) return Promise.resolve();
@@ -1117,6 +980,7 @@ export class ViewCommands implements Disposable {
 		);
 	}
 
+	@command('gitlens.views.restore')
 	@log()
 	private restore(node: ViewRefFileNode) {
 		if (!(node instanceof ViewRefFileNode)) return Promise.resolve();
@@ -1124,6 +988,7 @@ export class ViewCommands implements Disposable {
 		return CommitActions.restoreFile(node.file, node.ref);
 	}
 
+	@command('gitlens.views.revealRepositoryInExplorer')
 	@log()
 	private revealRepositoryInExplorer(node: RepositoryNode) {
 		if (!node.is('repository')) return undefined;
@@ -1131,6 +996,7 @@ export class ViewCommands implements Disposable {
 		return revealInFileExplorer(node.repo.uri);
 	}
 
+	@command('gitlens.views.revealWorktreeInExplorer')
 	@log()
 	private revealWorktreeInExplorer(nodeOrUrl: WorktreeNode | string) {
 		if (typeof nodeOrUrl === 'string') return revealInFileExplorer(Uri.parse(nodeOrUrl));
@@ -1139,6 +1005,7 @@ export class ViewCommands implements Disposable {
 		return revealInFileExplorer(nodeOrUrl.worktree.uri);
 	}
 
+	@command('gitlens.views.revert')
 	@log()
 	private revert(node: CommitNode | FileRevisionAsCommitNode) {
 		if (!node.isAny('commit', 'file-commit')) return Promise.resolve();
@@ -1146,6 +1013,7 @@ export class ViewCommands implements Disposable {
 		return RepoActions.revert(node.repoPath, node.ref);
 	}
 
+	@command('gitlens.views.setAsDefault')
 	@log()
 	private setAsDefault(node: RemoteNode) {
 		if (!node.is('remote')) return Promise.resolve();
@@ -1153,6 +1021,12 @@ export class ViewCommands implements Disposable {
 		return node.setAsDefault();
 	}
 
+	@command('gitlens.views.setBranchComparisonToWorking', {
+		args: n => [n, 'working' satisfies ViewShowBranchComparison],
+	})
+	@command('gitlens.views.setBranchComparisonToBranch', {
+		args: n => [n, 'branch' satisfies ViewShowBranchComparison],
+	})
 	@log()
 	private setBranchComparison(node: ViewNode, comparisonType: Exclude<ViewShowBranchComparison, false>) {
 		if (!node.is('compare-branch')) return undefined;
@@ -1160,16 +1034,21 @@ export class ViewCommands implements Disposable {
 		return node.setComparisonType(comparisonType);
 	}
 
+	@command('gitlens.views.setShowRelativeDateMarkersOn', { args: () => [true] })
+	@command('gitlens.views.setShowRelativeDateMarkersOff', { args: () => [false] })
 	@log()
 	private setShowRelativeDateMarkers(enabled: boolean) {
 		return configuration.updateEffective('views.showRelativeDateMarkers', enabled);
 	}
 
+	@command('gitlens.views.setContributorsStatisticsOff', { args: () => [false] })
+	@command('gitlens.views.setContributorsStatisticsOn', { args: () => [true] })
 	@log()
 	private setContributorsStatistics(enabled: boolean) {
 		return configuration.updateEffective('views.showContributorsStatistics', enabled);
 	}
 
+	@command('gitlens.views.stageFile')
 	@log()
 	private async stageFile(node: CommitFileNode | FileRevisionAsCommitNode | StatusFileNode) {
 		if (!node.isAny('commit-file', 'file-commit') && !node.is('status-file')) {
@@ -1180,6 +1059,7 @@ export class ViewCommands implements Disposable {
 		void node.triggerChange();
 	}
 
+	@command('gitlens.views.stageDirectory')
 	@log()
 	private async stageDirectory(node: FolderNode) {
 		if (!node.is('folder') || !node.relativePath) return;
@@ -1188,8 +1068,10 @@ export class ViewCommands implements Disposable {
 		void node.triggerChange();
 	}
 
+	@command('gitlens.views.star')
+	@command('gitlens.views.star.multi', { multiselect: 'sequential' })
 	@log()
-	private star(node: BranchNode | RepositoryNode | RepositoryFolderNode) {
+	private async star(node: BranchNode | RepositoryNode | RepositoryFolderNode): Promise<void> {
 		if (!node.isAny('branch', 'repository', 'repo-folder')) {
 			return Promise.resolve();
 		}
@@ -1197,11 +1079,15 @@ export class ViewCommands implements Disposable {
 		return node.star();
 	}
 
+	@command('gitlens.views.switchToAnotherBranch')
 	@log()
 	private switch(node?: ViewNode) {
 		return RepoActions.switchTo(getNodeRepoPath(node));
 	}
 
+	@command('gitlens.views.switchToBranch')
+	@command('gitlens.views.switchToCommit')
+	@command('gitlens.views.switchToTag')
 	@log()
 	private switchTo(node?: ViewNode) {
 		if (node instanceof ViewRefNode) {
@@ -1211,6 +1097,7 @@ export class ViewCommands implements Disposable {
 		return RepoActions.switchTo(getNodeRepoPath(node));
 	}
 
+	@command('gitlens.views.undoCommit')
 	@log()
 	private async undoCommit(node: CommitNode | FileRevisionAsCommitNode) {
 		if (!node.isAny('commit', 'file-commit')) return;
@@ -1218,13 +1105,15 @@ export class ViewCommands implements Disposable {
 		await CommitActions.undoCommit(this.container, node.ref);
 	}
 
+	@command('gitlens.views.unsetAsDefault')
 	@log()
-	private unsetAsDefault(node: RemoteNode) {
+	private unsetAsDefault(node: RemoteNode): Promise<void> {
 		if (!node.is('remote')) return Promise.resolve();
 
 		return node.setAsDefault(false);
 	}
 
+	@command('gitlens.views.unstageFile')
 	@log()
 	private async unstageFile(node: CommitFileNode | FileRevisionAsCommitNode | StatusFileNode) {
 		if (!node.isAny('commit-file', 'file-commit', 'status-file')) return;
@@ -1233,6 +1122,7 @@ export class ViewCommands implements Disposable {
 		void node.triggerChange();
 	}
 
+	@command('gitlens.views.unstageDirectory')
 	@log()
 	private async unstageDirectory(node: FolderNode) {
 		if (!node.is('folder') || !node.relativePath) return;
@@ -1241,12 +1131,16 @@ export class ViewCommands implements Disposable {
 		void node.triggerChange();
 	}
 
+	@command('gitlens.views.unstar')
+	@command('gitlens.views.unstar.multi', { multiselect: 'sequential' })
 	@log()
-	private unstar(node: BranchNode | RepositoryNode | RepositoryFolderNode) {
+	private async unstar(node: BranchNode | RepositoryNode | RepositoryFolderNode): Promise<void> {
 		if (!node.isAny('branch', 'repository', 'repo-folder')) return Promise.resolve();
+
 		return node.unstar();
 	}
 
+	@command('gitlens.views.compareWithHead')
 	@log()
 	private async compareHeadWith(node: ViewRefNode | ViewRefFileNode) {
 		if (node instanceof ViewRefFileNode) {
@@ -1264,6 +1158,7 @@ export class ViewCommands implements Disposable {
 		return this.container.views.searchAndCompare.compare(node.repoPath, ref1, ref2);
 	}
 
+	@command('gitlens.views.compareBranchWithHead')
 	@log()
 	private compareBranchWithHead(node: BranchNode) {
 		if (!(node instanceof ViewRefNode)) return Promise.resolve();
@@ -1271,6 +1166,7 @@ export class ViewCommands implements Disposable {
 		return this.container.views.searchAndCompare.compare(node.repoPath, node.ref, 'HEAD');
 	}
 
+	@command('gitlens.views.compareWithMergeBase')
 	@log()
 	private async compareWithMergeBase(node: BranchNode) {
 		if (!node.is('branch')) return Promise.resolve();
@@ -1287,6 +1183,7 @@ export class ViewCommands implements Disposable {
 		});
 	}
 
+	@command('gitlens.views.openChangedFileDiffsWithMergeBase')
 	@log()
 	private async openChangedFileDiffsWithMergeBase(node: BranchNode) {
 		if (!node.is('branch')) return Promise.resolve();
@@ -1308,6 +1205,7 @@ export class ViewCommands implements Disposable {
 		);
 	}
 
+	@command('gitlens.views.compareWithUpstream')
 	@log()
 	private compareWithUpstream(node: BranchNode) {
 		if (!node.is('branch') || node.branch.upstream == null) return Promise.resolve();
@@ -1315,6 +1213,7 @@ export class ViewCommands implements Disposable {
 		return this.container.views.searchAndCompare.compare(node.repoPath, node.ref, node.branch.upstream.name);
 	}
 
+	@command('gitlens.views.compareWithWorking')
 	@log()
 	private compareWorkingWith(node: ViewRefNode | ViewRefFileNode) {
 		if (node instanceof ViewRefFileNode) {
@@ -1326,6 +1225,7 @@ export class ViewCommands implements Disposable {
 		return this.container.views.searchAndCompare.compare(node.repoPath, '', node.ref);
 	}
 
+	@command('gitlens.views.compareAncestryWithWorking')
 	@log()
 	private async compareAncestryWithWorking(node: BranchNode) {
 		if (!node.is('branch')) return undefined;
@@ -1342,6 +1242,7 @@ export class ViewCommands implements Disposable {
 		});
 	}
 
+	@command('gitlens.views.compareWithSelected')
 	@log()
 	private compareWithSelected(node: ViewRefNode | ViewRefFileNode) {
 		if (!(node instanceof ViewRefNode) && !(node instanceof ViewRefFileNode)) return;
@@ -1349,6 +1250,7 @@ export class ViewCommands implements Disposable {
 		this.container.views.searchAndCompare.compareWithSelected(node.repoPath, node.ref);
 	}
 
+	@command('gitlens.views.selectForCompare')
 	@log()
 	private selectForCompare(node: ViewRefNode | ViewRefFileNode) {
 		if (!(node instanceof ViewRefNode) && !(node instanceof ViewRefFileNode)) return;
@@ -1380,6 +1282,7 @@ export class ViewCommands implements Disposable {
 		});
 	}
 
+	@command('gitlens.views.compareFileWithSelected')
 	@log()
 	private compareFileWithSelected(node: ViewRefFileNode) {
 		if (this._selectedFile == null || !(node instanceof ViewRefFileNode) || node.ref == null) {
@@ -1401,6 +1304,7 @@ export class ViewCommands implements Disposable {
 
 	private _selectedFile: CompareSelectedInfo | undefined;
 
+	@command('gitlens.views.selectFileForCompare')
 	@log()
 	private selectFileForCompare(node: ViewRefFileNode) {
 		if (!(node instanceof ViewRefFileNode) || node.ref == null) return;
@@ -1413,6 +1317,8 @@ export class ViewCommands implements Disposable {
 		void setContext('gitlens:views:canCompare:file', true);
 	}
 
+	@command('gitlens.views.openChangedFileDiffs', { args: (n, o) => [n, o] })
+	@command('gitlens.views.openChangedFileDiffsIndividually', { args: (n, o) => [n, o, true] })
 	@log()
 	private async openAllChanges(
 		node:
@@ -1447,17 +1353,7 @@ export class ViewCommands implements Disposable {
 		return CommitActions.openCommitChanges(this.container, node.commit, individually, options);
 	}
 
-	@log()
-	private openCommitOnRemote(node: ViewRefNode, nodes?: ViewRefNode[], clipboard?: boolean) {
-		const refs = nodes?.length ? nodes.map(n => n.ref) : [node.ref];
-
-		return executeCommand<OpenOnRemoteCommandArgs>(GlCommand.OpenOnRemote, {
-			repoPath: refs[0].repoPath,
-			resource: refs.map(r => ({ type: RemoteResourceType.Commit, sha: r.ref })),
-			clipboard: clipboard,
-		});
-	}
-
+	@command('gitlens.views.openChanges')
 	@log()
 	private openChanges(node: ViewRefFileNode | MergeConflictFileNode | StatusFileNode) {
 		if (node.is('conflict-file')) {
@@ -1510,6 +1406,8 @@ export class ViewCommands implements Disposable {
 		// });
 	}
 
+	@command('gitlens.views.openChangedFileDiffsWithWorking', { args: (n, o) => [n, o] })
+	@command('gitlens.views.openChangedFileDiffsWithWorkingIndividually', { args: (n, o) => [n, o, true] })
 	@log()
 	private async openAllChangesWithWorking(
 		node:
@@ -1540,6 +1438,8 @@ export class ViewCommands implements Disposable {
 		return CommitActions.openCommitChangesWithWorking(this.container, node.commit, individually, options);
 	}
 
+	@command('gitlens.views.mergeChangesWithWorking')
+	@log()
 	private async mergeChangesWithWorking(node: ViewRefFileNode) {
 		if (!(node instanceof ViewRefFileNode)) return Promise.resolve();
 
@@ -1596,6 +1496,7 @@ export class ViewCommands implements Disposable {
 		return openMergeEditor(inputs);
 	}
 
+	@command('gitlens.views.openChangesWithMergeBase')
 	@log()
 	private async openChangesWithMergeBase(node: ResultsFileNode) {
 		if (!node.is('results-file')) return Promise.resolve();
@@ -1614,6 +1515,7 @@ export class ViewCommands implements Disposable {
 		);
 	}
 
+	@command('gitlens.views.openChangesWithWorking')
 	@log()
 	private async openChangesWithWorking(node: ViewRefFileNode | MergeConflictFileNode | StatusFileNode) {
 		if (node.is('status-file')) {
@@ -1657,6 +1559,7 @@ export class ViewCommands implements Disposable {
 		});
 	}
 
+	@command('gitlens.views.openPreviousChangesWithWorking')
 	@log()
 	private async openPreviousChangesWithWorking(node: ViewRefFileNode) {
 		if (!(node instanceof ViewRefFileNode)) return Promise.resolve();
@@ -1667,6 +1570,7 @@ export class ViewCommands implements Disposable {
 		});
 	}
 
+	@command('gitlens.views.openFile')
 	@log()
 	private openFile(
 		node: ViewRefFileNode | MergeConflictFileNode | StatusFileNode | FileHistoryNode | LineHistoryNode,
@@ -1686,6 +1590,7 @@ export class ViewCommands implements Disposable {
 		});
 	}
 
+	@command('gitlens.views.openChangedFiles')
 	@log()
 	private async openFiles(
 		node: BranchTrackingStatusFilesNode | CompareResultsNode | CommitNode | StashNode | ResultsFilesNode,
@@ -1704,6 +1609,7 @@ export class ViewCommands implements Disposable {
 		return CommitActions.openFiles(node.commit);
 	}
 
+	@command('gitlens.views.openOnlyChangedFiles')
 	@log()
 	private async openOnlyChangedFiles(
 		node: BranchTrackingStatusFilesNode | CompareResultsNode | CommitNode | StashNode | ResultsFilesNode,
@@ -1724,6 +1630,7 @@ export class ViewCommands implements Disposable {
 		return CommitActions.openOnlyChangedFiles(node.view.container, node.commit);
 	}
 
+	@command('gitlens.views.openFileRevision')
 	@log()
 	private async openRevision(
 		node:
@@ -1760,6 +1667,7 @@ export class ViewCommands implements Disposable {
 		return CommitActions.openFileAtRevision(uri, options.showOptions ?? { preserveFocus: true, preview: false });
 	}
 
+	@command('gitlens.views.openChangedFileRevisions')
 	@log()
 	private async openRevisions(
 		node: BranchTrackingStatusFilesNode | CompareResultsNode | CommitNode | StashNode | ResultsFilesNode,
@@ -1780,6 +1688,8 @@ export class ViewCommands implements Disposable {
 		return CommitActions.openFilesAtRevision(node.commit, options);
 	}
 
+	@command('gitlens.views.setResultsCommitsFilterAuthors', { args: n => [n, true] })
+	@command('gitlens.views.setResultsCommitsFilterOff', { args: n => [n, false] })
 	@log()
 	private async setResultsCommitsFilter(node: ViewNode, filter: boolean) {
 		if (!node?.isAny('compare-results', 'compare-branch')) return;
@@ -1823,6 +1733,9 @@ export class ViewCommands implements Disposable {
 		void node.triggerChange(true);
 	}
 
+	@command('gitlens.views.setResultsFilesFilterOnLeft', { args: n => [n, FilesQueryFilter.Left] })
+	@command('gitlens.views.setResultsFilesFilterOnRight', { args: n => [n, FilesQueryFilter.Right] })
+	@command('gitlens.views.setResultsFilesFilterOff', { args: n => [n, undefined] })
 	@log()
 	private setResultsFilesFilter(node: ResultsFilesNode, filter: FilesQueryFilter | undefined) {
 		if (!node.is('results-files')) return;
@@ -1830,6 +1743,7 @@ export class ViewCommands implements Disposable {
 		node.filter = filter;
 	}
 
+	@command('gitlens.views.associateIssueWithBranch')
 	@log()
 	private async associateIssueWithBranch(node: BranchNode) {
 		if (!node.is('branch')) return Promise.resolve();
@@ -1841,75 +1755,74 @@ export class ViewCommands implements Disposable {
 		});
 	}
 
+	@command('gitlens.views.ai.generateChangelog')
 	@log()
 	private async generateChangelog(node: ResultsCommitsNode) {
 		if (!node.is('results-commits')) return;
 
 		const changes = lazy(() => node.getChangesForChangelog());
-		const changelog = await this.container.ai.generateChangelog(
+		const result = await this.container.ai.generateChangelog(
 			changes,
 			{ source: 'view' },
 			{ progress: { location: ProgressLocation.Notification } },
 		);
-		if (changelog == null) return;
+		if (result == null) return;
 
 		// open an untitled editor
-		const document = await workspace.openTextDocument({ language: 'markdown', content: changelog });
+		const document = await workspace.openTextDocument({ language: 'markdown', content: result.content });
 		await window.showTextDocument(document);
 	}
 }
 
-async function copyNode(type: ClipboardType, active: ViewNode | undefined, selection: ViewNode[]): Promise<void> {
-	selection = Array.isArray(selection) ? selection : active != null ? [active] : [];
-	if (selection.length === 0) return;
+interface CompareSelectedInfo {
+	ref: string;
+	repoPath: string | undefined;
+	uri?: Uri;
+}
 
-	const data = join(
-		filterMap(await Promise.allSettled(map(selection, n => n.toClipboard?.(type))), r =>
-			r.status === 'fulfilled' && r.value?.trim() ? r.value : undefined,
-		),
-		'\n',
+export function registerViewCommand(
+	command: GlCommands,
+	callback: (...args: any[]) => unknown,
+	thisArg?: any,
+	options?: {
+		multiselect?: boolean | 'sequential';
+		args?: (...args: unknown[]) => unknown[];
+	},
+): Disposable {
+	return registerCommand(
+		command,
+		(...args: any[]) => {
+			if (options?.args != null) {
+				args = options.args(...args);
+			}
+
+			if (options?.multiselect) {
+				const [active, selection, ...rest] = args;
+
+				// If there is a node followed by an array of nodes, then check how we want to execute the command
+				if (active instanceof ViewNode && Array.isArray(selection) && selection[0] instanceof ViewNode) {
+					const nodes = selection.filter((n): n is ViewNode => n?.constructor === active.constructor);
+
+					if (options.multiselect === 'sequential') {
+						if (!nodes.includes(active)) {
+							nodes.splice(0, 0, active);
+						}
+
+						// Execute the command for each node sequentially
+						return runSequentially(
+							callback,
+							nodes.map<[ViewNode, ...any[]]>(n => [n, ...rest]),
+							thisArg,
+						);
+					}
+
+					// Delegate to the callback to handle the multi-select
+					return callback.apply(thisArg, [active, nodes, ...rest]);
+				}
+			}
+
+			return callback.apply(thisArg, args);
+		},
+		thisArg,
 	);
-
-	await env.clipboard.writeText(data);
-}
-
-async function copyNodeUrl(active: ViewNode | undefined, selection: ViewNode[]): Promise<void> {
-	const urls = await getNodeUrls(active, selection);
-	if (urls.length === 0) return;
-
-	await env.clipboard.writeText(urls.join('\n'));
-}
-
-async function openNodeUrl(active: ViewNode | undefined, selection: ViewNode[]): Promise<void> {
-	const urls = await getNodeUrls(active, selection);
-	if (urls.length === 0) return;
-
-	if (urls.length > 10) {
-		const confirm = { title: 'Open' };
-		const cancel = { title: 'Cancel', isCloseAffordance: true };
-		const result = await window.showWarningMessage(
-			`Are you sure you want to open ${urls.length} URLs?`,
-			{ modal: true },
-			confirm,
-			cancel,
-		);
-		if (result !== confirm) return;
-	}
-
-	for (const url of urls) {
-		if (url == null) continue;
-
-		void openUrl(url);
-	}
-}
-
-async function getNodeUrls(active: ViewNode | undefined, selection: ViewNode[]): Promise<string[]> {
-	selection = Array.isArray(selection) ? selection : active != null ? [active] : [];
-	if (selection.length === 0) return Promise.resolve([]);
-
-	return [
-		...filterMap(await Promise.allSettled(map(selection, n => n.getUrl?.())), r =>
-			r.status === 'fulfilled' && r.value?.trim() ? r.value : undefined,
-		),
-	];
 }
