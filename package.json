@@ -20828,47 +20828,47 @@
 			{
 				"view": "gitlens.views.launchpad",
 				"contents": "[Connect an Integration...](command:gitlens.showLaunchpad?%7B%22source%22%3A%22launchpad-view%22%7D)\n\nAllows Launchpad to organize your pull requests into actionable groups and keep your team unblocked.",
-				"when": "gitlens:launchpad:connect"
+				"when": "!gitlens:launchpad:connected"
 			},
 			{
 				"view": "gitlens.views.launchpad",
 				"contents": "[Resend Verification Email](command:gitlens.plus.resendVerification?%7B%22source%22%3A%22launchpad-view%22%7D)\n\nYou must verify your email before you can continue or [recheck Status](command:gitlens.plus.validate?%7B%22source%22%3A%22launchpad-view%22%7D).",
-				"when": "!gitlens:launchpad:connect && gitlens:plus:state == -1"
+				"when": "gitlens:launchpad:connected && gitlens:plus:state == -1"
 			},
 			{
 				"view": "gitlens.views.launchpad",
 				"contents": "[Continue](command:gitlens.plus.startPreviewTrial?%7B%22source%22%3A%22launchpad-view%22%7D)\n\nContinuing gives you 3 days to preview Launchpad and other local Pro features for 3 days. [Start 14-day Pro trial](command:gitlens.plus.signUp?%7B%22source%22%3A%22launchpad-view%22%7D) or [sign in](command:gitlens.plus.login?%7B%22source%22%3A%22launchpad-view%22%7D) for full access to Pro features.",
-				"when": "false && !gitlens:launchpad:connect && gitlens:plus:required && gitlens:plus:state == 0"
+				"when": "false && gitlens:launchpad:connected && gitlens:plus:state == 0"
 			},
 			{
 				"view": "gitlens.views.launchpad",
 				"contents": "[Try GitLens Pro](command:gitlens.plus.signUp?%7B%22source%22%3A%22launchpad-view%22%7D)\n\nGet 14 days of GitLens Pro for free — no credit card required. Or [sign in](command:gitlens.plus.login?%7B%22source%22%3A%22launchpad-view%22%7D).",
-				"when": "!gitlens:launchpad:connect && gitlens:plus:required && (gitlens:plus:state == 0 || gitlens:plus:state == 2)"
+				"when": "gitlens:launchpad:connected && (gitlens:plus:state == 0 || gitlens:plus:state == 2)"
 			},
 			{
 				"view": "gitlens.views.launchpad",
 				"contents": "[Upgrade to Pro](command:gitlens.plus.upgrade?%7B%22source%22%3A%22launchpad-view%22%7D)",
-				"when": "!gitlens:launchpad:connect && gitlens:plus:required && gitlens:plus:state == 4"
+				"when": "gitlens:launchpad:connected && gitlens:plus:state == 4"
 			},
 			{
 				"view": "gitlens.views.launchpad",
 				"contents": "Limited-time sale on GitLens Pro.",
-				"when": "!gitlens:launchpad:connect && gitlens:plus:required && gitlens:plus:state == 4 && gitlens:promo && gitlens:promo != pro50"
+				"when": "gitlens:launchpad:connected && gitlens:plus:state == 4 && gitlens:promo && gitlens:promo != pro50"
 			},
 			{
 				"view": "gitlens.views.launchpad",
 				"contents": "Save 33% or more on GitLens Pro.",
-				"when": "!gitlens:launchpad:connect && gitlens:plus:required && gitlens:plus:state == 4 && gitlens:promo == pro50"
+				"when": "gitlens:launchpad:connected && gitlens:plus:state == 4 && gitlens:promo == pro50"
 			},
 			{
 				"view": "gitlens.views.launchpad",
 				"contents": "Your Pro trial has ended. Please upgrade for full access to Launchpad and other Pro features.",
-				"when": "!gitlens:launchpad:connect && gitlens:plus:required && gitlens:plus:state == 4"
+				"when": "gitlens:launchpad:connected && gitlens:plus:state == 4"
 			},
 			{
 				"view": "gitlens.views.launchpad",
 				"contents": "[Continue](command:gitlens.plus.reactivateProTrial?%7B%22source%22%3A%22launchpad-view%22%7D)\n\nReactivate your Pro trial and experience Launchpad and all the new Pro features — free for another 14 days!",
-				"when": "!gitlens:launchpad:connect && gitlens:plus:required && gitlens:plus:state == 5"
+				"when": "gitlens:launchpad:connected && gitlens:plus:state == 5"
 			},
 			{
 				"view": "gitlens.views.scm.grouped",
@@ -20888,47 +20888,47 @@
 			{
 				"view": "gitlens.views.scm.grouped",
 				"contents": "[Connect an Integration...](command:gitlens.showLaunchpad?%7B%22source%22%3A%22launchpad-view%22%7D)\n\nAllows Launchpad to organize your pull requests into actionable groups and keep your team unblocked.",
-				"when": "gitlens:views:scm:grouped:view == launchpad && gitlens:launchpad:connect"
+				"when": "gitlens:views:scm:grouped:view == launchpad && !gitlens:launchpad:connected"
 			},
 			{
 				"view": "gitlens.views.scm.grouped",
 				"contents": "[Resend Verification Email](command:gitlens.plus.resendVerification?%7B%22source%22%3A%22launchpad-view%22%7D)\n\nYou must verify your email before you can continue or [recheck Status](command:gitlens.plus.validate?%7B%22source%22%3A%22launchpad-view%22%7D).",
-				"when": "gitlens:views:scm:grouped:view == launchpad && !gitlens:launchpad:connect && gitlens:plus:state == -1"
+				"when": "gitlens:views:scm:grouped:view == launchpad && gitlens:launchpad:connected && gitlens:plus:state == -1"
 			},
 			{
 				"view": "gitlens.views.scm.grouped",
 				"contents": "[Continue](command:gitlens.plus.startPreviewTrial?%7B%22source%22%3A%22launchpad-view%22%7D)\n\nContinuing gives you 3 days to preview Launchpad and other local Pro features for 3 days. [Start 14-day Pro trial](command:gitlens.plus.signUp?%7B%22source%22%3A%22launchpad-view%22%7D) or [sign in](command:gitlens.plus.login?%7B%22source%22%3A%22launchpad-view%22%7D) for full access to Pro features.",
-				"when": "gitlens:views:scm:grouped:view == launchpad && false && !gitlens:launchpad:connect && gitlens:plus:required && gitlens:plus:state == 0"
+				"when": "gitlens:views:scm:grouped:view == launchpad && false && gitlens:launchpad:connected && gitlens:plus:state == 0"
 			},
 			{
 				"view": "gitlens.views.scm.grouped",
 				"contents": "[Try GitLens Pro](command:gitlens.plus.signUp?%7B%22source%22%3A%22launchpad-view%22%7D)\n\nGet 14 days of GitLens Pro for free — no credit card required. Or [sign in](command:gitlens.plus.login?%7B%22source%22%3A%22launchpad-view%22%7D).",
-				"when": "gitlens:views:scm:grouped:view == launchpad && !gitlens:launchpad:connect && gitlens:plus:required && (gitlens:plus:state == 0 || gitlens:plus:state == 2)"
+				"when": "gitlens:views:scm:grouped:view == launchpad && gitlens:launchpad:connected && (gitlens:plus:state == 0 || gitlens:plus:state == 2)"
 			},
 			{
 				"view": "gitlens.views.scm.grouped",
 				"contents": "[Upgrade to Pro](command:gitlens.plus.upgrade?%7B%22source%22%3A%22launchpad-view%22%7D)",
-				"when": "gitlens:views:scm:grouped:view == launchpad && !gitlens:launchpad:connect && gitlens:plus:required && gitlens:plus:state == 4"
+				"when": "gitlens:views:scm:grouped:view == launchpad && gitlens:launchpad:connected && gitlens:plus:state == 4"
 			},
 			{
 				"view": "gitlens.views.scm.grouped",
 				"contents": "Limited-time sale on GitLens Pro.",
-				"when": "gitlens:views:scm:grouped:view == launchpad && !gitlens:launchpad:connect && gitlens:plus:required && gitlens:plus:state == 4 && gitlens:promo && gitlens:promo != pro50"
+				"when": "gitlens:views:scm:grouped:view == launchpad && gitlens:launchpad:connected && gitlens:plus:state == 4 && gitlens:promo && gitlens:promo != pro50"
 			},
 			{
 				"view": "gitlens.views.scm.grouped",
 				"contents": "Save 33% or more on GitLens Pro.",
-				"when": "gitlens:views:scm:grouped:view == launchpad && !gitlens:launchpad:connect && gitlens:plus:required && gitlens:plus:state == 4 && gitlens:promo == pro50"
+				"when": "gitlens:views:scm:grouped:view == launchpad && gitlens:launchpad:connected && gitlens:plus:state == 4 && gitlens:promo == pro50"
 			},
 			{
 				"view": "gitlens.views.scm.grouped",
 				"contents": "Your Pro trial has ended. Please upgrade for full access to Launchpad and other Pro features.",
-				"when": "gitlens:views:scm:grouped:view == launchpad && !gitlens:launchpad:connect && gitlens:plus:required && gitlens:plus:state == 4"
+				"when": "gitlens:views:scm:grouped:view == launchpad && gitlens:launchpad:connected && gitlens:plus:state == 4"
 			},
 			{
 				"view": "gitlens.views.scm.grouped",
 				"contents": "[Continue](command:gitlens.plus.reactivateProTrial?%7B%22source%22%3A%22launchpad-view%22%7D)\n\nReactivate your Pro trial and experience Launchpad and all the new Pro features — free for another 14 days!",
-				"when": "gitlens:views:scm:grouped:view == launchpad && !gitlens:launchpad:connect && gitlens:plus:required && gitlens:plus:state == 5"
+				"when": "gitlens:views:scm:grouped:view == launchpad && gitlens:launchpad:connected && gitlens:plus:state == 5"
 			},
 			{
 				"view": "gitlens.views.scm.grouped",

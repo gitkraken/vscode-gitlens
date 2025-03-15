@@ -914,11 +914,12 @@ export class LaunchpadProvider implements Disposable {
 			if (integration == null) continue;
 
 			if (integration.maybeConnected ?? (await integration.isConnected())) {
+				void setContext('gitlens:launchpad:connected', true);
 				return true;
 			}
 		}
 
-		void setContext('gitlens:launchpad:connect', true);
+		void setContext('gitlens:launchpad:connected', false);
 		return false;
 	}
 
@@ -937,7 +938,10 @@ export class LaunchpadProvider implements Disposable {
 			}),
 		);
 
-		void setContext('gitlens:launchpad:connect', !some(connected.values(), c => c));
+		void setContext(
+			'gitlens:launchpad:connected',
+			some(connected.values(), c => c),
+		);
 		return connected;
 	}
 
@@ -992,11 +996,10 @@ export class LaunchpadProvider implements Disposable {
 
 	private async onIntegrationConnectionStateChanged(e: ConnectionStateChangeEvent) {
 		if (isSupportedLaunchpadIntegrationId(e.key)) {
-			if (e.reason === 'connected') {
-				void setContext('gitlens:launchpad:connect', false);
-			} else {
-				void setContext('gitlens:launchpad:connect', !(await this.hasConnectedIntegration()));
-			}
+			void setContext(
+				'gitlens:launchpad:connected',
+				e.reason === 'connected' ? true : await this.hasConnectedIntegration(),
+			);
 		}
 	}
 }
