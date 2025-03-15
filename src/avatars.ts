@@ -126,13 +126,7 @@ function getAvatarUriCore(
 	const avatar = createOrUpdateAvatar(key, email, size, hash, options?.defaultStyle);
 	if (avatar.uri != null) return avatar.uri;
 
-	if (
-		!options?.cached &&
-		repoPathOrCommit != null &&
-		getContext('gitlens:repos:withHostingIntegrationsConnected')?.includes(
-			typeof repoPathOrCommit === 'string' ? repoPathOrCommit : repoPathOrCommit.repoPath,
-		)
-	) {
+	if (!options?.cached && repoPathOrCommit != null) {
 		let query = avatarQueue.get(key);
 		if (query == null && hasAvatarExpired(avatar)) {
 			query = getAvatarUriFromRemoteProvider(avatar, key, email, repoPathOrCommit, { size: size }).then(
@@ -219,6 +213,23 @@ async function getAvatarUriFromRemoteProvider(
 	{ size = 16 }: { size?: number } = {},
 ) {
 	ensureAvatarCache(avatarCache);
+
+	if (
+		!getContext('gitlens:repos:withHostingIntegrationsConnected')?.includes(
+			typeof repoPathOrCommit === 'string' ? repoPathOrCommit : repoPathOrCommit.repoPath,
+		)
+	) {
+		const remote = await Container.instance.git.getBestRemoteWithProvider(
+			typeof repoPathOrCommit !== 'string' ? repoPathOrCommit.repoPath : repoPathOrCommit,
+		);
+		const avatarUrl = remote?.provider.getUrlForAvatar?.(email, size);
+		if (avatarUrl) {
+			avatar.uri = Uri.parse(avatarUrl);
+			avatar.timestamp = Date.now();
+			avatar.retries = 0;
+		}
+		return avatar.uri ?? avatar.fallback;
+	}
 
 	try {
 		let account: CommitAuthor | undefined;
