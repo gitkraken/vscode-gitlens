@@ -9,7 +9,7 @@ import { capitalize } from '../../system/string';
 import type { ServerConnection } from '../gk/serverConnection';
 import type { AIActionType, AIModel } from './models/model';
 import type { PromptTemplate, PromptTemplateContext } from './models/promptTemplates';
-import type { AIProvider } from './models/provider';
+import type { AIProvider, AIRequestResult } from './models/provider';
 import { getMaxCharacters, getValidatedTemperature, showDiffTruncationWarning } from './utils/-webview/ai.utils';
 import { getLocalPromptTemplate, resolvePrompt } from './utils/-webview/prompt.utils';
 
@@ -69,7 +69,7 @@ export class VSCodeAIProvider implements AIProvider<typeof provider.id> {
 		model: VSCodeAIModel,
 		reporting: TelemetryEvents['ai/generate' | 'ai/explain'],
 		options?: { cancellation?: CancellationToken; outputTokens?: number },
-	): Promise<string | undefined> {
+	): Promise<AIRequestResult | undefined> {
 		using scope = startLogScope(`${getLoggableName(this)}.sendRequest`, false);
 
 		const chatModel = await this.getChatModel(model);
@@ -123,7 +123,7 @@ export class VSCodeAIProvider implements AIProvider<typeof provider.id> {
 						message += fragment;
 					}
 
-					return message.trim();
+					return { content: message.trim() } satisfies AIRequestResult;
 				} catch (ex) {
 					debugger;
 

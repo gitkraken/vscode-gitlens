@@ -11,7 +11,7 @@ import { startLogScope } from '../../system/logger.scope';
 import type { ServerConnection } from '../gk/serverConnection';
 import type { AIActionType, AIModel } from './models/model';
 import type { PromptTemplate, PromptTemplateContext } from './models/promptTemplates';
-import type { AIProvider } from './models/provider';
+import type { AIProvider, AIRequestResult } from './models/provider';
 import {
 	getMaxCharacters,
 	getOrPromptApiKey,
@@ -78,7 +78,7 @@ export abstract class OpenAICompatibleProvider<T extends AIProviders> implements
 		model: AIModel<T>,
 		reporting: TelemetryEvents['ai/generate' | 'ai/explain'],
 		options?: { cancellation?: CancellationToken; outputTokens?: number },
-	): Promise<string | undefined> {
+	): Promise<AIRequestResult | undefined> {
 		using scope = startLogScope(`${getLoggableName(this)}.sendRequest`, false);
 
 		const apiKey = await this.getApiKey();
@@ -129,7 +129,7 @@ export abstract class OpenAICompatibleProvider<T extends AIProviders> implements
 		messages: (maxCodeCharacters: number, retries: number) => ChatMessage[],
 		outputTokens: number,
 		cancellation: CancellationToken | undefined,
-	): Promise<[result: string, maxCodeCharacters: number]> {
+	): Promise<[result: AIRequestResult, maxCodeCharacters: number]> {
 		let retries = 0;
 		let maxCodeCharacters = getMaxCharacters(model, 2600);
 
@@ -153,7 +153,23 @@ export abstract class OpenAICompatibleProvider<T extends AIProviders> implements
 			}
 
 			const data: ChatCompletionResponse = await rsp.json();
-			const result = data.choices?.[0].message.content?.trim() ?? data.content?.[0]?.text?.trim() ?? '';
+			const result: AIRequestResult = {
+				id: data.id,
+				content: data.choices?.[0].message.content?.trim() ?? data.content?.[0]?.text?.trim() ?? '',
+				usage: {
+					promptTokens: data.usage?.prompt_tokens ?? data.usage?.input_tokens,
+					completionTokens: data.usage?.completion_tokens ?? data.usage?.output_tokens,
+					totalTokens: data.usage?.total_tokens,
+					limits:
+						data?.usage?.gk != null
+							? {
+									used: data.usage.gk.used,
+									limit: data.usage.gk.limit,
+									resetsOn: new Date(data.usage.gk.resets_on),
+							  }
+							: undefined,
+				},
+			};
 			return [result, maxCodeCharacters];
 		}
 	}
@@ -263,5 +279,12 @@ interface ChatCompletionResponse {
 		/** Anthropic */
 		input_tokens?: number;
 		output_tokens?: number;
+
+		/** GitKraken */
+		gk: {
+			used: number;
+			limit: number;
+			resets_on: string;
+		};
 	};
 }

@@ -49,7 +49,7 @@ class AICommitMessageProvider implements CommitMessageProvider, Disposable {
 
 		const currentMessage = repository.inputBox.value;
 		try {
-			const message = await this.container.ai.generateCommitMessage(
+			const result = await this.container.ai.generateCommitMessage(
 				changes,
 				{ source: 'scm-input' },
 				{
@@ -62,8 +62,8 @@ class AICommitMessageProvider implements CommitMessageProvider, Disposable {
 				},
 			);
 
-			if (message == null) return;
-			return `${currentMessage ? `${currentMessage}\n\n` : ''}${message.summary}\n\n${message.body}`;
+			if (result == null) return;
+			return `${currentMessage ? `${currentMessage}\n\n` : ''}${result.parsed.summary}\n\n${result.parsed.body}`;
 		} catch (ex) {
 			Logger.error(ex, scope);
 
