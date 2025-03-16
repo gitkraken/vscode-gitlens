@@ -246,6 +246,7 @@ export type CoreCommands =
 	| 'vscode.executeDocumentSymbolProvider'
 	| 'vscode.moveViews'
 	| 'vscode.previewHtml'
+	| 'workbench.action.chat.open'
 	| 'workbench.action.closeActiveEditor'
 	| 'workbench.action.closeAllEditors'
 	| 'workbench.action.closePanel'

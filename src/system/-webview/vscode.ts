@@ -282,6 +282,28 @@ export function isWorkspaceFolder(folder: unknown): folder is WorkspaceFolder {
 	return false;
 }
 
+export interface ChatOpenOptions {
+	/** The query for quick chat */
+	query: string;
+	/** Whether the query is partial and will await more input from the user */
+	isPartialQuery?: boolean;
+	/** A list of tools IDs with `canBeReferencedInPrompt` that will be resolved and attached if they exist */
+	toolIds?: string[];
+	/** Any previous chat requests and responses that should be shown in the chat view */
+	previousRequests?: ChatOpenOptionsRequestEntry[];
+	/** Whether a screenshot of the focused window should be taken and attached */
+	attachScreenshot?: boolean;
+}
+
+interface ChatOpenOptionsRequestEntry {
+	request: string;
+	response: string;
+}
+
+export async function openChat(options: string | ChatOpenOptions): Promise<void> {
+	await executeCoreCommand('workbench.action.chat.open', options);
+}
+
 export async function openEditor(
 	uri: Uri,
 	options?: TextDocumentShowOptions & { background?: boolean; throwOnError?: boolean },

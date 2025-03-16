@@ -925,6 +925,8 @@ export type Context = LoginContext | ConnectIntegrationContext;
 export type TrackingContext = 'graph' | 'launchpad' | 'visual_file_history' | 'worktrees';
 
 export type Sources =
+	| 'ai'
+	| 'ai-chat'
 	| 'account'
 	| 'associateIssueWithBranch'
 	| 'code-suggest'
