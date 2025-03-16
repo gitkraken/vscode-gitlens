@@ -4905,6 +4905,18 @@
 				]
 			}
 		},
+		"gitlens.views.ai.chat.explainCommit": {
+			"label": "Explain Commit",
+			"menus": {
+				"view/item/context": [
+					{
+						"when": "viewItem =~ /gitlens:(commit|stash)\\b/ && !listMultiSelection && gitlens:gk:organization:ai:enabled",
+						"group": "3_gitlens_explore",
+						"order": 1
+					}
+				]
+			}
+		},
 		"gitlens.views.ai.generateChangelog": {
 			"label": "Generate Changelog (Preview)",
 			"icon": "$(sparkle)",

@@ -65,6 +65,41 @@
 		}
 	},
 	"contributes": {
+		"chatParticipants": [
+			{
+				"id": "gitlens",
+				"fullName": "GitLens",
+				"name": "gitlens",
+				"description": "Ask GitLens about git repositories, commits, history, and more.",
+				"isSticky": true,
+				"commands": [
+					{
+						"name": "explain",
+						"description": "Explain the changes in the current commit or specified commit"
+					},
+					{
+						"name": "blame",
+						"description": "Show who wrote the current line or specified file"
+					},
+					{
+						"name": "history",
+						"description": "Show the commit history of the current file or repository"
+					},
+					{
+						"name": "compare",
+						"description": "Compare branches, commits, or files"
+					},
+					{
+						"name": "status",
+						"description": "Show the git status of the repository"
+					},
+					{
+						"name": "stash",
+						"description": "List stashes or show stash details"
+					}
+				]
+			}
+		],
 		"configuration": [
 			{
 				"id": "current-line-blame",
@@ -7832,6 +7867,10 @@
 				"enablement": "!operationInProgress"
 			},
 			{
+				"command": "gitlens.views.ai.chat.explainCommit",
+				"title": "Explain Commit"
+			},
+			{
 				"command": "gitlens.views.ai.generateChangelog",
 				"title": "Generate Changelog (Preview)",
 				"icon": "$(sparkle)"
@@ -11684,6 +11723,10 @@
 				},
 				{
 					"command": "gitlens.views.addRemote",
+					"when": "false"
+				},
+				{
+					"command": "gitlens.views.ai.chat.explainCommit",
 					"when": "false"
 				},
 				{
@@ -16473,6 +16516,11 @@
 					"command": "gitlens.showInDetailsView",
 					"when": "viewItem =~ /gitlens:(commit|stash)\\b/ && !listMultiSelection",
 					"group": "3_gitlens_explore@0"
+				},
+				{
+					"command": "gitlens.views.ai.chat.explainCommit",
+					"when": "viewItem =~ /gitlens:(commit|stash)\\b/ && !listMultiSelection && gitlens:gk:organization:ai:enabled",
+					"group": "3_gitlens_explore@1"
 				},
 				{
 					"command": "gitlens.revealCommitInView",

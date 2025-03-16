@@ -30,6 +30,7 @@ import {
 	getOpenedPullRequestRepo,
 	getOrOpenPullRequestRepository,
 } from '../git/utils/-webview/pullRequest.utils';
+import { getReferenceFromRevision } from '../git/utils/-webview/reference.utils';
 import { matchContributor } from '../git/utils/contributor.utils';
 import { getComparisonRefsForPullRequest, getRepositoryIdentityForPullRequest } from '../git/utils/pullRequest.utils';
 import { createReference } from '../git/utils/reference.utils';
@@ -49,7 +50,7 @@ import {
 import { configuration } from '../system/-webview/configuration';
 import { setContext } from '../system/-webview/context';
 import type { MergeEditorInputs, OpenWorkspaceLocation } from '../system/-webview/vscode';
-import { openMergeEditor, openUrl, openWorkspace, revealInFileExplorer } from '../system/-webview/vscode';
+import { openChat, openMergeEditor, openUrl, openWorkspace, revealInFileExplorer } from '../system/-webview/vscode';
 import { filterMap } from '../system/array';
 import { createCommandDecorator } from '../system/decorators/command';
 import { log } from '../system/decorators/log';
@@ -1772,6 +1773,18 @@ export class ViewCommands implements Disposable {
 		// open an untitled editor
 		const document = await workspace.openTextDocument({ language: 'markdown', content: result.content });
 		await window.showTextDocument(document);
+	}
+
+	@command('gitlens.views.ai.chat.explainCommit')
+	@log()
+	private async explainCommit(node: CommitNode) {
+		if (!node.is('commit')) return;
+
+		return openChat(
+			`@gitlens /explain the changes in commit\n\n<commit>\\\n${JSON.stringify(
+				getReferenceFromRevision(node.ref),
+			)}\\\n</commit>`,
+		);
 	}
 }
 

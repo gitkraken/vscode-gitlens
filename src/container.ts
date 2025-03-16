@@ -25,6 +25,7 @@ import { GitProviderService } from './git/gitProviderService';
 import type { RepositoryLocationProvider } from './git/location/repositorylocationProvider';
 import { LineHoverController } from './hovers/lineHoverController';
 import { AIProviderService } from './plus/ai/aiProviderService';
+import { ChatProvider } from './plus/ai/chat/chatProvider';
 import { DraftService } from './plus/drafts/draftsService';
 import { AccountAuthenticationProvider } from './plus/gk/authenticationProvider';
 import { OrganizationService } from './plus/gk/organizationService';
@@ -225,6 +226,9 @@ export class Container {
 		this._disposables.push((this._lineHoverController = new LineHoverController(this)));
 		this._disposables.push((this._statusBarController = new StatusBarController(this)));
 		this._disposables.push((this._codeLensController = new GitCodeLensController(this)));
+
+		const chatProvider = new ChatProvider(this);
+		context.subscriptions.push(chatProvider);
 
 		const webviews = new WebviewsController(this);
 		this._disposables.push(webviews);
