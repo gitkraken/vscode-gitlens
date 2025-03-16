@@ -2567,7 +2567,7 @@ export class GraphWebviewProvider implements WebviewProvider<State, State, Graph
 					branchState.provider = {
 						name: remote.provider.name,
 						icon: remote.provider.icon === 'remote' ? 'cloud' : remote.provider.icon,
-						url: remote.provider.url({ type: RemoteResourceType.Repo }),
+						url: await remote.provider.url({ type: RemoteResourceType.Repo }),
 					};
 				}
 
