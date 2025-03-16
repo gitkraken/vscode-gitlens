@@ -10,6 +10,7 @@ import type { OpenWorkspaceLocation } from '../../system/-webview/vscode';
 import { openWorkspace } from '../../system/-webview/vscode';
 import { log } from '../../system/decorators/log';
 import { normalizePath } from '../../system/path';
+import { getSettledValue } from '../../system/promise';
 import type { SubscriptionChangeEvent } from '../gk/subscriptionService';
 import { isSubscriptionStatePaidOrTrial } from '../gk/utils/subscription.utils';
 import type { CloudWorkspaceData, CloudWorkspaceRepositoryDescriptor } from './models/cloudWorkspace';
@@ -473,13 +474,12 @@ export class WorkspacesService implements Disposable {
 		const repoPath = repo.uri.fsPath;
 
 		const remotes = await repo.git.remotes().getRemotes();
-		const remoteUrls: string[] = [];
-		for (const remote of remotes) {
-			const remoteUrl = remote.provider?.url({ type: RemoteResourceType.Repo });
-			if (remoteUrl != null) {
-				remoteUrls.push(remoteUrl);
-			}
-		}
+		const remoteUrlPromises: Promise<string | undefined>[] = remotes.map(async remote => {
+			return remote.provider?.url({ type: RemoteResourceType.Repo });
+		});
+		const remoteUrls: string[] = (await Promise.allSettled(remoteUrlPromises))
+			.map(r => getSettledValue(r))
+			.filter(r => r != null);
 
 		for (const remoteUrl of remoteUrls) {
 			await this._repositoryLocator?.storeLocation(repoPath, remoteUrl);
@@ -906,7 +906,7 @@ export class WorkspacesService implements Disposable {
 			if (repo == null) continue;
 			const remote =
 				(await repo.git.remotes().getRemote('origin')) || (await repo.git.remotes().getRemotes())?.[0];
-			const remoteDescriptor = getRemoteDescriptor(remote);
+			const remoteDescriptor = await getRemoteDescriptor(remote);
 			if (remoteDescriptor == null) continue;
 			repoInputs.push({
 				owner: remoteDescriptor.owner,
@@ -1042,7 +1042,7 @@ export class WorkspacesService implements Disposable {
 			if (workspace instanceof CloudWorkspace) {
 				const remotes = await repo.git.remotes().getRemotes();
 				for (const remote of remotes) {
-					const remoteDescriptor = getRemoteDescriptor(remote);
+					const remoteDescriptor = await getRemoteDescriptor(remote);
 					if (remoteDescriptor == null) continue;
 					reposProviderMap.set(
 						`${remoteDescriptor.provider}/${remoteDescriptor.owner}/${remoteDescriptor.repoName}`,
@@ -1324,7 +1324,7 @@ export class WorkspacesService implements Disposable {
 	}
 }
 
-function getRemoteDescriptor(remote: GitRemote): RemoteDescriptor | undefined {
+async function getRemoteDescriptor(remote: GitRemote): Promise<RemoteDescriptor | undefined> {
 	if (remote.provider?.owner == null) return undefined;
 	const remoteRepoName = remote.provider.path.split('/').pop();
 	if (remoteRepoName == null) return undefined;
@@ -1332,7 +1332,7 @@ function getRemoteDescriptor(remote: GitRemote): RemoteDescriptor | undefined {
 		provider: remote.provider.id.toLowerCase(),
 		owner: remote.provider.owner.toLowerCase(),
 		repoName: remoteRepoName.toLowerCase(),
-		url: remote.provider.url({ type: RemoteResourceType.Repo }),
+		url: await remote.provider.url({ type: RemoteResourceType.Repo }),
 	};
 }
 

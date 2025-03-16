@@ -48,7 +48,7 @@ export async function formatRepositories(repositories: Repository[]): Promise<Gr
 								  }
 								: undefined,
 							icon: remote.provider.icon === 'remote' ? 'cloud' : remote.provider.icon,
-							url: remote.provider.url({ type: RemoteResourceType.Repo }),
+							url: await remote.provider.url({ type: RemoteResourceType.Repo }),
 					  }
 					: undefined,
 				isVirtual: repo.provider.virtual,

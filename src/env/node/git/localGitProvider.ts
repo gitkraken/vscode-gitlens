@@ -516,7 +516,7 @@ export class LocalGitProvider implements GitProvider, Disposable {
 			case 'gitea':
 			case 'gerrit':
 			case 'google-source':
-				url = remote.provider.url({ type: RemoteResourceType.Repo });
+				url = await remote.provider.url({ type: RemoteResourceType.Repo });
 				if (url == null) return ['private', remote];
 
 				break;
