@@ -179,7 +179,7 @@ export class RepositoryIdentityService implements Disposable {
 		const repoPath = repo.uri.fsPath;
 
 		for (const remote of remotes) {
-			const remoteUrl = remote.provider?.url({ type: RemoteResourceType.Repo });
+			const remoteUrl = await remote.provider?.url({ type: RemoteResourceType.Repo });
 			if (remoteUrl != null) {
 				await this.locator.storeLocation(repoPath, remoteUrl);
 			}

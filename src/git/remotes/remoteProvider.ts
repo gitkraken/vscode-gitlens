@@ -100,7 +100,7 @@ export abstract class RemoteProvider<T extends ResourceDescriptor = ResourceDesc
 	abstract get name(): string;
 
 	async copy(resource: RemoteResource | RemoteResource[]): Promise<void> {
-		const urls = this.getUrlsFromResources(resource);
+		const urls = await this.getUrlsFromResources(resource);
 		if (!urls.length) return;
 
 		await env.clipboard.writeText(urls.join('\n'));
@@ -113,14 +113,14 @@ export abstract class RemoteProvider<T extends ResourceDescriptor = ResourceDesc
 	): Promise<{ uri: Uri; startLine?: number; endLine?: number } | undefined>;
 
 	async open(resource: RemoteResource | RemoteResource[]): Promise<boolean | undefined> {
-		const urls = this.getUrlsFromResources(resource);
+		const urls = await this.getUrlsFromResources(resource);
 		if (!urls.length) return false;
 
 		const results = await Promise.allSettled(urls.map(openUrl));
 		return results.every(r => getSettledValue(r) === true);
 	}
 
-	url(resource: RemoteResource): string | undefined {
+	url(resource: RemoteResource): Promise<string | undefined> | string | undefined {
 		switch (resource.type) {
 			case RemoteResourceType.Branch:
 				return this.getUrlForBranch(resource.branch);
@@ -186,7 +186,7 @@ export abstract class RemoteProvider<T extends ResourceDescriptor = ResourceDesc
 		base: { branch?: string; remote: { path: string; url: string } },
 		head: { branch: string; remote: { path: string; url: string } },
 		options?: { title?: string; description?: string },
-	): string | undefined;
+	): Promise<string | undefined> | string | undefined;
 
 	protected abstract getUrlForFile(fileName: string, branch?: string, sha?: string, range?: Range): string;
 
@@ -200,22 +200,19 @@ export abstract class RemoteProvider<T extends ResourceDescriptor = ResourceDesc
 		return encodeUrl(url)?.replace(/#/g, '%23');
 	}
 
-	private getUrlsFromResources(resource: RemoteResource | RemoteResource[]): string[] {
-		const urls: string[] = [];
+	private async getUrlsFromResources(resource: RemoteResource | RemoteResource[]): Promise<string[]> {
+		const urlPromises: (Promise<string | undefined> | string | undefined)[] = [];
 
 		if (Array.isArray(resource)) {
 			for (const r of resource) {
-				const url = this.url(r);
-				if (url == null) continue;
-
-				urls.push(url);
+				urlPromises.push(this.url(r));
 			}
 		} else {
-			const url = this.url(resource);
-			if (url != null) {
-				urls.push(url);
-			}
+			urlPromises.push(this.url(resource));
 		}
+		const urls: string[] = (await Promise.allSettled(urlPromises))
+			.map(r => getSettledValue(r))
+			.filter(r => r != null);
 		return urls;
 	}
 }
