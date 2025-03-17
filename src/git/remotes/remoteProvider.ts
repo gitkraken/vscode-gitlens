@@ -159,7 +159,11 @@ export abstract class RemoteProvider<T extends ResourceDescriptor = ResourceDesc
 	}
 
 	protected get baseUrl(): string {
-		return `${this.protocol}://${this.domain}/${this.path}`;
+		return this.getRepoBaseUrl(this.path);
+	}
+
+	protected getRepoBaseUrl(path: string): string {
+		return `${this.protocol}://${this.domain}/${path}`;
 	}
 
 	protected formatName(name: string): string {
