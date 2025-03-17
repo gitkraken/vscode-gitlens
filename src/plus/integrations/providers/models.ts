@@ -234,6 +234,15 @@ export interface PageInfo {
 	nextPage?: number | null;
 }
 
+export type GetRepoFn = (
+	input: ProviderRepoInput,
+	options?: EnterpriseOptions,
+) => Promise<{ data: ProviderRepository }>;
+export type GetRepoOfProjectFn = (
+	input: ProviderRepoInput & { project: string },
+	options?: EnterpriseOptions,
+) => Promise<{ data: ProviderRepository }>;
+
 export type GetPullRequestsForReposFn = (
 	input: (GetPullRequestsForReposInput | GetPullRequestsForRepoIdsInput) & PagingInput,
 	options?: EnterpriseOptions,
@@ -382,6 +391,8 @@ export type GetIssuesForResourceForCurrentUserFn = (
 
 export interface ProviderInfo extends ProviderMetadata {
 	provider: GitHub | GitLab | Bitbucket | BitbucketServer | Jira | Trello | AzureDevOps;
+	getRepoFn?: GetRepoFn;
+	getRepoOfProjectFn?: GetRepoOfProjectFn;
 	getPullRequestsForReposFn?: GetPullRequestsForReposFn;
 	getPullRequestsForRepoFn?: GetPullRequestsForRepoFn;
 	getPullRequestsForUserFn?: GetPullRequestsForUserFn;

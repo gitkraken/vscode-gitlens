@@ -42,7 +42,7 @@ const builtInProviders: RemoteProviders = [
 	{
 		custom: false,
 		matcher: /\bdev\.azure\.com$/i,
-		creator: (_container: Container, domain: string, path: string) => new AzureDevOpsRemote(domain, path),
+		creator: (container: Container, domain: string, path: string) => new AzureDevOpsRemote(container, domain, path),
 	},
 	{
 		custom: true,
@@ -57,8 +57,8 @@ const builtInProviders: RemoteProviders = [
 	{
 		custom: false,
 		matcher: /\bvisualstudio\.com$/i,
-		creator: (_container: Container, domain: string, path: string) =>
-			new AzureDevOpsRemote(domain, path, undefined, undefined, true),
+		creator: (container: Container, domain: string, path: string) =>
+			new AzureDevOpsRemote(container, domain, path, undefined, undefined, true),
 	},
 	{
 		custom: false,
@@ -145,8 +145,8 @@ export function loadRemoteProviders(
 function getCustomProviderCreator(cfg: RemotesConfig) {
 	switch (cfg.type) {
 		case 'AzureDevOps':
-			return (_container: Container, domain: string, path: string) =>
-				new AzureDevOpsRemote(domain, path, cfg.protocol, cfg.name, true);
+			return (container: Container, domain: string, path: string) =>
+				new AzureDevOpsRemote(container, domain, path, cfg.protocol, cfg.name, true);
 		case 'Bitbucket':
 			return (_container: Container, domain: string, path: string) =>
 				new BitbucketRemote(domain, path, cfg.protocol, cfg.name, true);

@@ -337,6 +337,39 @@ export function getAzureRepo(pr: AzurePullRequest): string {
 	return `${pr.repository.project.name}/_git/${pr.repository.name}`;
 }
 
+// Example: https://bbbchiv.visualstudio.com/MyFirstProject/_git/test
+const azureProjectRepoRegex = /([^/]+)\/_git\/([^/]+)/;
+function parseVstsHttpsUrl(url: URL): [owner: string, project: string, repo: string] {
+	const owner = getVSTSOwner(url);
+	const match = azureProjectRepoRegex.exec(url.pathname);
+	if (match == null) {
+		throw new Error(`Invalid VSTS URL: ${url.toString()}`);
+	}
+	const [, project, repo] = match;
+	return [owner, project, repo];
+}
+
+// Example https://bbbchiv2@dev.azure.com/bbbchiv2/MyFirstProject/_git/test
+const azureHttpsUrlRegex = /([^/]+)\/([^/]+)\/_git\/([^/]+)/;
+function parseAzureNewStyleUrl(url: URL): [owner: string, project: string, repo: string] {
+	const match = azureHttpsUrlRegex.exec(url.pathname);
+	if (match == null) {
+		throw new Error(`Invalid Azure URL: ${url.toString()}`);
+	}
+	const [, owner, project, repo] = match;
+	return [owner, project, repo];
+}
+
+export function parseAzureHttpsUrl(url: string): [owner: string, project: string, repo: string];
+export function parseAzureHttpsUrl(urlObj: URL): [owner: string, project: string, repo: string];
+export function parseAzureHttpsUrl(arg: URL | string): [owner: string, project: string, repo: string] {
+	const url = typeof arg === 'string' ? new URL(arg) : arg;
+	if (vstsHostnameRegex.test(url.hostname)) {
+		return parseVstsHttpsUrl(url);
+	}
+	return parseAzureNewStyleUrl(url);
+}
+
 export function getAzurePullRequestWebUrl(pr: AzurePullRequest): string {
 	const url = new URL(pr.url);
 	const baseUrl = new URL(url.origin).toString();
