@@ -197,6 +197,12 @@ export class AzureDevOpsRemote extends RemoteProvider {
 		return this.encodeUrl(`${this.baseUrl}/branchCompare?baseVersion=GB${base}&targetVersion=GB${head}`);
 	}
 
+	override async isReadyForForCrossForkPullRequestUrls(): Promise<boolean> {
+		const integrationId = remoteProviderIdToIntegrationId(this.id);
+		const integration = integrationId && (await this.container.integrations.get(integrationId));
+		return integration?.maybeConnected ?? integration?.isConnected() ?? false;
+	}
+
 	protected override async getUrlForCreatePullRequest(
 		base: { branch?: string; remote: { path: string; url: string } },
 		head: { branch: string; remote: { path: string; url: string } },

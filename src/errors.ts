@@ -269,3 +269,10 @@ export class RequestsAreBlockedTemporarilyError extends Error {
 		Error.captureStackTrace?.(this, RequestsAreBlockedTemporarilyError);
 	}
 }
+
+export class RequiresIntegrationError extends Error {
+	constructor(message: string) {
+		super(message);
+		Error.captureStackTrace?.(this, RequiresIntegrationError);
+	}
+}
