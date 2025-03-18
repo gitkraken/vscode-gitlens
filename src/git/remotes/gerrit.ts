@@ -189,6 +189,10 @@ export class GerritRemote extends RemoteProvider {
 		return this.encodeUrl(`${this.baseReviewUrl}/q/${sha}`);
 	}
 
+	protected override getUrlForComparison(base: string, head: string, notation: '..' | '...'): string | undefined {
+		return this.encodeUrl(`${this.baseReviewUrl}/q/${base}${notation}${head}`);
+	}
+
 	protected getUrlForFile(fileName: string, branch?: string, sha?: string, range?: Range): string {
 		const line = range != null ? `#${range.start.line}` : '';
 
