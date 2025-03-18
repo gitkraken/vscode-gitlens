@@ -3913,6 +3913,14 @@
 											"type": "string",
 											"markdownDescription": "Specifies the format of a commit URL for the custom remote service\n\nAvailable tokens\\\n`${repo}` &mdash; repository path\\\n`${id}` &mdash; commit SHA"
 										},
+										"comparison": {
+											"type": "string",
+											"markdownDescription": "Specifies the format of a comparison URL for the custom remote service\n\nAvailable tokens\\\n`${repo}` &mdash; repository path\\\n`${ref1}` &mdash; ref 1\\\n`${ref2}` &mdash; ref 2\\\n`${notation}` &mdash; notation"
+										},
+										"createPullRequest": {
+											"type": "string",
+											"markdownDescription": "Specifies the format of a create pull request URL for the custom remote service\n\nAvailable tokens\\\n`${repo}` &mdash; repository path\\\n`${base}` &mdash; base branch\\\n`${compare}` &mdash; compare branch"
+										},
 										"file": {
 											"type": "string",
 											"markdownDescription": "Specifies the format of a file URL for the custom remote service\n\nAvailable tokens\\\n`${repo}` &mdash; repository path\\\n`${file}` &mdash; file name\\\n`${line}` &mdash; formatted line information"
