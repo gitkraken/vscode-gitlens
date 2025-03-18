@@ -34,7 +34,7 @@ export type RemoteResource =
 	| {
 			type: RemoteResourceType.CreatePullRequest;
 			base: {
-				branch?: string;
+				branch: string | undefined;
 				remote: { path: string; url: string };
 			};
 			compare: {

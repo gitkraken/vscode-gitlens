@@ -11,7 +11,7 @@ import { GlCommandBase } from './commandBase';
 import type { OpenOnRemoteCommandArgs } from './openOnRemote';
 
 export interface CreatePullRequestOnRemoteCommandArgs {
-	base?: string;
+	base: string | undefined;
 	compare: string;
 	remote: string;
 	repoPath: string;

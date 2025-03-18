@@ -641,6 +641,7 @@ export interface RemotesUrlsConfig {
 	readonly branch: string;
 	readonly commit: string;
 	readonly comparison?: string;
+	readonly createPullRequest?: string;
 	readonly file: string;
 	readonly fileInBranch: string;
 	readonly fileInCommit: string;
