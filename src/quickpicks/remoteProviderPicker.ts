@@ -1,10 +1,13 @@
-import type { Disposable, QuickInputButton } from 'vscode';
+import type { Disposable, QuickInputButton, QuickPickItem } from 'vscode';
 import { env, ThemeIcon, Uri, window } from 'vscode';
 import type { OpenOnRemoteCommandArgs } from '../commands/openOnRemote';
 import { SetRemoteAsDefaultQuickInputButton } from '../commands/quickCommand.buttons';
 import type { Keys } from '../constants';
 import { GlyphChars } from '../constants';
+import type { IntegrationId } from '../constants.integrations';
+import type { Sources } from '../constants.telemetry';
 import { Container } from '../container';
+import { RequiresIntegrationError } from '../errors';
 import type { GitRemote } from '../git/models/remote';
 import type { RemoteResource } from '../git/models/remoteResource';
 import { RemoteResourceType } from '../git/models/remoteResource';
@@ -13,10 +16,12 @@ import { getDefaultBranchName } from '../git/utils/-webview/branch.utils';
 import { getBranchNameWithoutRemote, getRemoteNameFromBranchName } from '../git/utils/branch.utils';
 import { getHighlanderProviders } from '../git/utils/remote.utils';
 import { getNameFromRemoteResource } from '../git/utils/remoteResource.utils';
+import { remoteProviderIdToIntegrationId } from '../plus/integrations/integrationService';
+import { providersMetadata } from '../plus/integrations/providers/models';
 import { getQuickPickIgnoreFocusOut } from '../system/-webview/vscode';
-import { filterMap } from '../system/array';
 import { getSettledValue } from '../system/promise';
-import { CommandQuickPickItem } from './items/common';
+import { CommandQuickPickItem, createQuickPickItemOfT } from './items/common';
+import { createDirectiveQuickPickItem, Directive } from './items/directive';
 
 export class ConfigureCustomRemoteProviderCommandQuickPickItem extends CommandQuickPickItem {
 	constructor() {
@@ -68,6 +73,20 @@ export class CopyOrOpenRemoteCommandQuickPickItem extends CommandQuickPickItem {
 						...resource,
 						base: { branch: branch, remote: { path: this.remote.path, url: this.remote.url } },
 					};
+
+					if (
+						resource.base.remote.url !== resource.compare.remote.url &&
+						!(await this.remote.provider.isReadyForForCrossForkPullRequestUrls())
+					) {
+						const integrationId = remoteProviderIdToIntegrationId(this.remote.provider.id);
+						const connected =
+							integrationId && (await this.showIntegrationConnectionPicker(integrationId, 'view'));
+						if (!connected) {
+							throw new RequiresIntegrationError(
+								'Cross-fork pull request URLs are not supported by this provider',
+							);
+						}
+					}
 				} else if (
 					resource.type === RemoteResourceType.File &&
 					resource.branchOrTag != null &&
@@ -96,9 +115,66 @@ export class CopyOrOpenRemoteCommandQuickPickItem extends CommandQuickPickItem {
 			}),
 		);
 
-		const resources = filterMap(resourcesResults, r => getSettledValue(r));
+		const resources = resourcesResults
+			.map(r => {
+				if (r.status === 'fulfilled') {
+					return r.value;
+				}
+				if (r.reason instanceof RequiresIntegrationError) {
+					throw r.reason;
+				}
+				return undefined;
+			})
+			.filter((r): r is RemoteResource => r !== undefined);
 
 		void (await (this.clipboard ? this.remote.provider.copy(resources) : this.remote.provider.open(resources)));
+	}
+
+	async showIntegrationConnectionPicker(integrationId: IntegrationId, source: Sources): Promise<boolean> {
+		const disposables: Disposable[] = [];
+		const quickpick = window.createQuickPick<QuickPickItem>();
+		try {
+			const integrationName = providersMetadata[integrationId].name;
+			const connectItem = createQuickPickItemOfT(
+				{
+					label: `Connect a ${integrationName} Integration...`,
+					detail: `Connect a ${integrationName} integration to be able to create cross-fork pull requests`,
+					picked: true,
+				},
+				true,
+			);
+			const cancelItem = createDirectiveQuickPickItem(Directive.Cancel, false, { label: 'Cancel' });
+			const quickpickPromise = new Promise<undefined | QuickPickItem>(resolve => {
+				disposables.push(
+					quickpick.onDidHide(() => resolve(undefined)),
+					quickpick.onDidAccept(() => {
+						if (quickpick.activeItems.length !== 0) {
+							resolve(quickpick.activeItems[0]);
+						}
+					}),
+				);
+			});
+			quickpick.ignoreFocusOut = getQuickPickIgnoreFocusOut();
+			quickpick.title = `Connect a ${integrationName} Integration`;
+			quickpick.placeholder = `Connect a ${integrationName} integration to be able to create cross-fork pull requests`;
+			quickpick.matchOnDetail = true;
+			quickpick.items = [connectItem, cancelItem];
+			quickpick.show();
+			const pick = await quickpickPromise;
+			if (pick === connectItem) {
+				const connected = await Container.instance.integrations.connectCloudIntegrations(
+					{ integrationIds: [integrationId] },
+					{
+						source: source,
+					},
+				);
+				return connected;
+			}
+		} finally {
+			quickpick.dispose();
+			disposables.forEach(d => void d.dispose());
+		}
+		return false;
 	}
 
 	setAsDefault(): Promise<void> {

@@ -186,6 +186,10 @@ export abstract class RemoteProvider<T extends ResourceDescriptor = ResourceDesc
 
 	protected abstract getUrlForComparison(base: string, head: string, notation: '..' | '...'): string | undefined;
 
+	async isReadyForForCrossForkPullRequestUrls(): Promise<boolean> {
+		return Promise.resolve(true);
+	}
+
 	protected getUrlForCreatePullRequest?(
 		base: { branch?: string; remote: { path: string; url: string } },
 		head: { branch: string; remote: { path: string; url: string } },
