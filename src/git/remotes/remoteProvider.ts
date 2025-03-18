@@ -129,7 +129,7 @@ export abstract class RemoteProvider<T extends ResourceDescriptor = ResourceDesc
 			case RemoteResourceType.Commit:
 				return this.getUrlForCommit(resource.sha);
 			case RemoteResourceType.Comparison: {
-				return this.getUrlForComparison?.(resource.base, resource.compare, resource.notation ?? '...');
+				return this.getUrlForComparison(resource.base, resource.compare, resource.notation ?? '...');
 			}
 			case RemoteResourceType.CreatePullRequest: {
 				return this.getUrlForCreatePullRequest?.(resource.base, resource.compare);
@@ -180,11 +180,12 @@ export abstract class RemoteProvider<T extends ResourceDescriptor = ResourceDesc
 
 	protected abstract getUrlForCommit(sha: string): string;
 
-	protected getUrlForComparison?(base: string, compare: string, notation: '..' | '...'): string | undefined;
+	protected abstract getUrlForComparison(base: string, head: string, notation: '..' | '...'): string | undefined;
 
 	protected getUrlForCreatePullRequest?(
 		base: { branch?: string; remote: { path: string; url: string } },
-		compare: { branch: string; remote: { path: string; url: string } },
+		head: { branch: string; remote: { path: string; url: string } },
+		options?: { title?: string; description?: string },
 	): string | undefined;
 
 	protected abstract getUrlForFile(fileName: string, branch?: string, sha?: string, range?: Range): string;
