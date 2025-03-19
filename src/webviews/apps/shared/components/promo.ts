@@ -101,7 +101,7 @@ export class GlPromo extends LitElement {
 			case 'info':
 				if (content.info) {
 					this.hasPromo = true;
-					return html`<p class="promo">${unsafeHTML(content.info.html)}</p>`;
+					return html`<p class="promo" part="text">${unsafeHTML(content.info.html)}</p>`;
 				}
 				break;
 
@@ -110,6 +110,7 @@ export class GlPromo extends LitElement {
 					this.hasPromo = true;
 					return html`<a
 						class="link"
+						part="link"
 						href="${this.getCommandUrl(promo)}"
 						title="${ifDefined(content.link.title)}"
 						>${unsafeHTML(content.link.html)}</a
