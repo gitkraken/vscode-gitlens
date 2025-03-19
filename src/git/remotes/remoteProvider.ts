@@ -100,7 +100,7 @@ export abstract class RemoteProvider<T extends ResourceDescriptor = ResourceDesc
 	abstract get name(): string;
 
 	async copy(resource: RemoteResource | RemoteResource[]): Promise<void> {
-		const urls = this.getUrlsFromResources(resource);
+		const urls = await this.getUrlsFromResources(resource);
 		if (!urls.length) return;
 
 		await env.clipboard.writeText(urls.join('\n'));
@@ -113,14 +113,14 @@ export abstract class RemoteProvider<T extends ResourceDescriptor = ResourceDesc
 	): Promise<{ uri: Uri; startLine?: number; endLine?: number } | undefined>;
 
 	async open(resource: RemoteResource | RemoteResource[]): Promise<boolean | undefined> {
-		const urls = this.getUrlsFromResources(resource);
+		const urls = await this.getUrlsFromResources(resource);
 		if (!urls.length) return false;
 
 		const results = await Promise.allSettled(urls.map(openUrl));
 		return results.every(r => getSettledValue(r) === true);
 	}
 
-	url(resource: RemoteResource): string | undefined {
+	url(resource: RemoteResource): Promise<string | undefined> | string | undefined {
 		switch (resource.type) {
 			case RemoteResourceType.Branch:
 				return this.getUrlForBranch(resource.branch);
@@ -129,10 +129,10 @@ export abstract class RemoteProvider<T extends ResourceDescriptor = ResourceDesc
 			case RemoteResourceType.Commit:
 				return this.getUrlForCommit(resource.sha);
 			case RemoteResourceType.Comparison: {
-				return this.getUrlForComparison?.(resource.base, resource.compare, resource.notation ?? '...');
+				return this.getUrlForComparison(resource.base, resource.compare, resource.notation ?? '...');
 			}
 			case RemoteResourceType.CreatePullRequest: {
-				return this.getUrlForCreatePullRequest?.(resource.base, resource.compare);
+				return this.getUrlForCreatePullRequest(resource.base, resource.compare);
 			}
 			case RemoteResourceType.File:
 				return this.getUrlForFile(
@@ -159,7 +159,11 @@ export abstract class RemoteProvider<T extends ResourceDescriptor = ResourceDesc
 	}
 
 	protected get baseUrl(): string {
-		return `${this.protocol}://${this.domain}/${this.path}`;
+		return this.getRepoBaseUrl(this.path);
+	}
+
+	protected getRepoBaseUrl(path: string): string {
+		return `${this.protocol}://${this.domain}/${path}`;
 	}
 
 	protected formatName(name: string): string {
@@ -180,12 +184,17 @@ export abstract class RemoteProvider<T extends ResourceDescriptor = ResourceDesc
 
 	protected abstract getUrlForCommit(sha: string): string;
 
-	protected getUrlForComparison?(base: string, compare: string, notation: '..' | '...'): string | undefined;
+	protected abstract getUrlForComparison(base: string, head: string, notation: '..' | '...'): string | undefined;
 
-	protected getUrlForCreatePullRequest?(
+	async isReadyForForCrossForkPullRequestUrls(): Promise<boolean> {
+		return Promise.resolve(true);
+	}
+
+	protected abstract getUrlForCreatePullRequest(
 		base: { branch?: string; remote: { path: string; url: string } },
-		compare: { branch: string; remote: { path: string; url: string } },
-	): string | undefined;
+		head: { branch: string; remote: { path: string; url: string } },
+		options?: { title?: string; description?: string },
+	): Promise<string | undefined> | string | undefined;
 
 	protected abstract getUrlForFile(fileName: string, branch?: string, sha?: string, range?: Range): string;
 
@@ -199,22 +208,19 @@ export abstract class RemoteProvider<T extends ResourceDescriptor = ResourceDesc
 		return encodeUrl(url)?.replace(/#/g, '%23');
 	}
 
-	private getUrlsFromResources(resource: RemoteResource | RemoteResource[]): string[] {
-		const urls: string[] = [];
+	private async getUrlsFromResources(resource: RemoteResource | RemoteResource[]): Promise<string[]> {
+		const urlPromises: (Promise<string | undefined> | string | undefined)[] = [];
 
 		if (Array.isArray(resource)) {
 			for (const r of resource) {
-				const url = this.url(r);
-				if (url == null) continue;
-
-				urls.push(url);
+				urlPromises.push(this.url(r));
 			}
 		} else {
-			const url = this.url(resource);
-			if (url != null) {
-				urls.push(url);
-			}
+			urlPromises.push(this.url(resource));
 		}
+		const urls: string[] = (await Promise.allSettled(urlPromises))
+			.map(r => getSettledValue(r))
+			.filter(r => r != null);
 		return urls;
 	}
 }

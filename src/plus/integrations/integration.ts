@@ -44,6 +44,7 @@ import type {
 	ProviderPullRequest,
 	ProviderRepoInput,
 	ProviderReposInput,
+	ProviderRepository,
 } from './providers/models';
 import { IssueFilter, PagingMode, PullRequestFilter } from './providers/models';
 import type { ProvidersApi } from './providers/providersApi';
@@ -784,6 +785,8 @@ export abstract class HostingIntegration<
 		);
 		return defaultBranch;
 	}
+
+	getRepoInfo?(repo: { owner: string; name: string; project?: string }): Promise<ProviderRepository | undefined>;
 
 	protected abstract getProviderDefaultBranch(
 		{ accessToken }: ProviderAuthenticationSession,
