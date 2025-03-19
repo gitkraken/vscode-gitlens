@@ -19,6 +19,7 @@ import type { RepositoryDescriptor } from '../integration';
 import { HostingIntegration } from '../integration';
 import { getGitLabPullRequestIdentityFromMaybeUrl } from './gitlab/gitlab.utils';
 import { fromGitLabMergeRequestProvidersApi } from './gitlab/models';
+import type { ProviderRepository } from './models';
 import { ProviderPullRequestReviewState, providersMetadata, toIssueShape } from './models';
 import type { ProvidersApi } from './providersApi';
 
@@ -188,6 +189,13 @@ abstract class GitLabIntegrationBase<
 				baseUrl: this.apiBaseUrl,
 			},
 		);
+	}
+
+	public override async getRepoInfo(repo: { owner: string; name: string }): Promise<ProviderRepository | undefined> {
+		const api = await this.getProvidersApi();
+		return api.getRepo(this.id, repo.owner, repo.name, undefined, {
+			accessToken: this._session?.accessToken,
+		});
 	}
 
 	protected override async getProviderRepositoryMetadata(

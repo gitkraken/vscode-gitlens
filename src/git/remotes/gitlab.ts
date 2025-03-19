@@ -6,6 +6,9 @@ import type {
 	MaybeEnrichedAutolink,
 } from '../../autolinks/models/autolinks';
 import { GlyphChars } from '../../constants';
+import type { Container } from '../../container';
+import { HostingIntegration } from '../../plus/integrations/integration';
+import { remoteProviderIdToIntegrationId } from '../../plus/integrations/integrationService';
 import type { GitLabRepositoryDescriptor } from '../../plus/integrations/providers/gitlab';
 import type { Brand, Unbrand } from '../../system/brand';
 import { fromNow } from '../../system/date';
@@ -30,7 +33,14 @@ function isGitLabDotCom(domain: string): boolean {
 }
 
 export class GitLabRemote extends RemoteProvider<GitLabRepositoryDescriptor> {
-	constructor(domain: string, path: string, protocol?: string, name?: string, custom: boolean = false) {
+	constructor(
+		private readonly container: Container,
+		domain: string,
+		path: string,
+		protocol?: string,
+		name?: string,
+		custom: boolean = false,
+	) {
 		super(domain, path, protocol, name, custom);
 	}
 
@@ -372,8 +382,51 @@ export class GitLabRemote extends RemoteProvider<GitLabRepositoryDescriptor> {
 		return this.encodeUrl(`${this.baseUrl}/-/commit/${sha}`);
 	}
 
-	protected override getUrlForComparison(base: string, compare: string, notation: '..' | '...'): string {
-		return this.encodeUrl(`${this.baseUrl}/-/compare/${base}${notation}${compare}`);
+	protected override getUrlForComparison(base: string, head: string, notation: '..' | '...'): string {
+		return this.encodeUrl(`${this.baseUrl}/-/compare/${base}${notation}${head}`);
+	}
+
+	override async isReadyForForCrossForkPullRequestUrls(): Promise<boolean> {
+		const integrationId = remoteProviderIdToIntegrationId(this.id);
+		const integration = integrationId && (await this.container.integrations.get(integrationId));
+		return integration?.maybeConnected ?? integration?.isConnected() ?? false;
+	}
+
+	protected override async getUrlForCreatePullRequest(
+		base: { branch?: string; remote: { path: string; url: string } },
+		head: { branch: string; remote: { path: string; url: string } },
+		options?: { title?: string; description?: string },
+	): Promise<string | undefined> {
+		const query = new URLSearchParams({
+			utf8: '✓',
+			'merge_request[source_branch]': head.branch,
+			'merge_request[target_branch]': base.branch ?? '',
+		});
+		if (base.remote.url !== head.remote.url) {
+			const targetDesc = {
+				owner: base.remote.path.split('/')[0],
+				name: base.remote.path.split('/')[1],
+			};
+			const integrationId = remoteProviderIdToIntegrationId(this.id);
+			const integration = integrationId && (await this.container.integrations.get(integrationId));
+			let targetRepoId = undefined;
+			if (integration?.isConnected && integration instanceof HostingIntegration) {
+				targetRepoId = (await integration.getRepoInfo?.(targetDesc))?.id;
+			}
+			if (!targetRepoId) {
+				return undefined;
+			}
+			query.set('merge_request[target_project_id]', targetRepoId);
+			// 'merge_request["source_project_id"]': this.path, // ?? seems we don't need it
+		}
+		if (options?.title) {
+			query.set('merge_request[title]', options.title);
+		}
+		if (options?.description) {
+			query.set('merge_request[description]', options.description);
+		}
+
+		return `${this.encodeUrl(`${this.getRepoBaseUrl(head.remote.path)}/-/merge_requests/new`)}?${query.toString()}`;
 	}
 
 	protected getUrlForFile(fileName: string, branch?: string, sha?: string, range?: Range): string {
