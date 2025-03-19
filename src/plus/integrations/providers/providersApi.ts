@@ -132,6 +132,7 @@ export class ProvidersApi {
 			[HostingIntegrationId.GitLab]: {
 				...providersMetadata[HostingIntegrationId.GitLab],
 				provider: providerApis.gitlab,
+				getRepoFn: providerApis.gitlab.getRepo.bind(providerApis.gitlab),
 				getCurrentUserFn: providerApis.gitlab.getCurrentUser.bind(providerApis.gitlab) as GetCurrentUserFn,
 				getPullRequestsForReposFn: providerApis.gitlab.getPullRequestsForRepos.bind(
 					providerApis.gitlab,

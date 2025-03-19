@@ -36,7 +36,7 @@ const builtInProviders: RemoteProviders = [
 	{
 		custom: false,
 		matcher: 'gitlab.com',
-		creator: (_container: Container, domain: string, path: string) => new GitLabRemote(domain, path),
+		creator: (container: Container, domain: string, path: string) => new GitLabRemote(container, domain, path),
 	},
 	{
 		custom: false,
@@ -51,7 +51,7 @@ const builtInProviders: RemoteProviders = [
 	{
 		custom: false,
 		matcher: /\bgitlab\b/i,
-		creator: (_container: Container, domain: string, path: string) => new GitLabRemote(domain, path),
+		creator: (container: Container, domain: string, path: string) => new GitLabRemote(container, domain, path),
 	},
 	{
 		custom: false,
@@ -107,10 +107,10 @@ export function loadRemoteProviders(
 		for (const ci of configuredIntegrations) {
 			if (isCloudSelfHostedIntegrationId(ci.integrationId) && ci.domain) {
 				const matcher = ci.domain.toLocaleLowerCase();
-				const providerCreator = (_container: Container, domain: string, path: string) =>
+				const providerCreator = (container: Container, domain: string, path: string) =>
 					ci.integrationId === SelfHostedIntegrationId.CloudGitHubEnterprise
 						? new GitHubRemote(domain, path)
-						: new GitLabRemote(domain, path);
+						: new GitLabRemote(container, domain, path);
 				const provider = {
 					custom: false,
 					matcher: matcher,
@@ -160,8 +160,8 @@ function getCustomProviderCreator(cfg: RemotesConfig) {
 			return (_container: Container, domain: string, path: string) =>
 				new GitHubRemote(domain, path, cfg.protocol, cfg.name, true);
 		case 'GitLab':
-			return (_container: Container, domain: string, path: string) =>
-				new GitLabRemote(domain, path, cfg.protocol, cfg.name, true);
+			return (container: Container, domain: string, path: string) =>
+				new GitLabRemote(container, domain, path, cfg.protocol, cfg.name, true);
 		default:
 			return undefined;
 	}
