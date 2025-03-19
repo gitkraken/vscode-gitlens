@@ -157,8 +157,26 @@ export class BitbucketServerRemote extends RemoteProvider {
 		return this.encodeUrl(`${this.baseUrl}/commits/${sha}`);
 	}
 
-	protected override getUrlForComparison(base: string, compare: string, _notation: '..' | '...'): string {
-		return this.encodeUrl(`${this.baseUrl}/branches/compare/${base}%0D${compare}`).replace('%250D', '%0D');
+	protected override getUrlForComparison(base: string, head: string, _notation: '..' | '...'): string {
+		return this.encodeUrl(`${this.baseUrl}/branches/compare/${base}%0D${head}`).replace('%250D', '%0D');
+	}
+
+	protected override getUrlForCreatePullRequest(
+		base: { branch?: string; remote: { path: string; url: string } },
+		head: { branch: string; remote: { path: string; url: string } },
+		options?: { title?: string; description?: string },
+	): string | undefined {
+		const query = new URLSearchParams({ sourceBranch: head.branch, targetBranch: base.branch ?? '' });
+		// TODO: figure this out
+		// query.set('targetRepoId', base.repoId);
+		if (options?.title) {
+			query.set('title', options.title);
+		}
+		if (options?.description) {
+			query.set('description', options.description);
+		}
+
+		return `${this.encodeUrl(`${this.baseUrl}/pull-requests?create`)}&${query.toString()}`;
 	}
 
 	protected getUrlForFile(fileName: string, branch?: string, sha?: string, range?: Range): string {
