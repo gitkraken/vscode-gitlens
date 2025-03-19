@@ -276,20 +276,33 @@ export class GitHubRemote extends RemoteProvider<GitHubRepositoryDescriptor> {
 		return this.encodeUrl(`${this.baseUrl}/commit/${sha}`);
 	}
 
-	protected override getUrlForComparison(base: string, compare: string, notation: '..' | '...'): string {
-		return this.encodeUrl(`${this.baseUrl}/compare/${base}${notation}${compare}`);
+	protected override getUrlForComparison(base: string, head: string, notation: '..' | '...'): string {
+		return this.encodeUrl(`${this.baseUrl}/compare/${base}${notation}${head}`);
 	}
 
 	protected override getUrlForCreatePullRequest(
 		base: { branch?: string; remote: { path: string; url: string } },
-		compare: { branch: string; remote: { path: string; url: string } },
+		head: { branch: string; remote: { path: string; url: string } },
+		options?: { title?: string; description?: string },
 	): string | undefined {
-		if (base.remote.url === compare.remote.url) {
-			return this.encodeUrl(`${this.baseUrl}/pull/new/${base.branch ?? 'HEAD'}...${compare.branch}`);
+		const query = new URLSearchParams();
+		if (options?.title) {
+			query.set('title', options.title);
+		}
+		if (options?.description) {
+			query.set('body', options.description);
 		}
 
-		const [owner] = compare.remote.path.split('/', 1);
-		return this.encodeUrl(`${this.baseUrl}/pull/new/${base.branch ?? 'HEAD'}...${owner}:${compare.branch}`);
+		if (base.remote.url === head.remote.url) {
+			return `${this.encodeUrl(
+				`${this.baseUrl}/pull/new/${base.branch ?? 'HEAD'}...${head.branch}`,
+			)}?${query.toString()}`;
+		}
+
+		const [owner] = head.remote.path.split('/', 1);
+		return `${this.encodeUrl(
+			`${this.baseUrl}/pull/new/${base.branch ?? 'HEAD'}...${owner}:${head.branch}`,
+		)}?${query.toString()}`;
 	}
 
 	protected getUrlForFile(fileName: string, branch?: string, sha?: string, range?: Range): string {
