@@ -400,7 +400,7 @@ export class WalkthroughShowHomeViewCommand extends GlCommandBase {
 	}
 
 	execute(): void {
-		const command = GlCommand.ShowHomeView;
+		const command: GlCommands = 'gitlens.showHomeView';
 		this.container.telemetry.sendEvent('walkthrough/action', {
 			type: 'command',
 			name: 'open/home',
