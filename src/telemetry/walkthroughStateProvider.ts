@@ -11,6 +11,7 @@ import type { UsageChangeEvent } from './usageTracker';
 
 export type WalkthroughContextKeys =
 	| 'gettingStarted'
+	| 'homeView'
 	| 'visualizeCodeHistory'
 	| 'prReviews'
 	| 'streamlineCollaboration'
@@ -44,6 +45,16 @@ const walkthroughRequiredMapping: Readonly<Map<WalkthroughContextKeys, Walkthrou
 			subscriptionStates: triedProStates,
 			subscriptionCommands: tryProCommands,
 			usage: [],
+		},
+	],
+	[
+		'homeView',
+		{
+			usage: [
+				'homeView:shown',
+				`command:${'gitlens.showHomeView' satisfies GlCommands}:executed`,
+				`command:${'gitlens.showAccountView' satisfies GlCommands}:executed`,
+			],
 		},
 	],
 	[

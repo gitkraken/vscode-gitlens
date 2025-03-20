@@ -154,7 +154,7 @@ export const trackableSchemes = Object.freeze(
 	]),
 );
 
-const utm = 'utm_source=gitlens-extension&utm_medium=in-app-links';
+const utm = 'source=gitlens&product=gitlens&utm_source=gitlens-extension&utm_medium=in-app-links';
 export const urls = Object.freeze({
 	codeSuggest: `https://gitkraken.com/solutions/code-suggest?${utm}`,
 	cloudPatches: `https://gitkraken.com/solutions/cloud-patches?${utm}`,
@@ -178,6 +178,7 @@ export const urls = Object.freeze({
 
 	acceleratePrReviews: `https://help.gitkraken.com/gitlens/gitlens-start-here/?${utm}#accelerate-pr-reviews`,
 	communityVsPro: `https://help.gitkraken.com/gitlens/gitlens-community-vs-gitlens-pro/?${utm}`,
+	homeView: `https://help.gitkraken.com/gitlens/home-view/?${utm}&utm_campaign=walkthrough`,
 	interactiveCodeHistory: `https://help.gitkraken.com/gitlens/gitlens-start-here/?${utm}#interactive-code-history`,
 	startIntegrations: `https://help.gitkraken.com/gitlens/gitlens-start-here/?${utm}#improve-workflows-with-integrations`,
 	streamlineCollaboration: `https://help.gitkraken.com/gitlens/gitlens-start-here/?${utm}#streamline-collaboration`,
