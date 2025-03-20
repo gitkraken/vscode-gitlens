@@ -373,3 +373,39 @@ export class WalkthroughOpenStartIntegrations extends GlCommandBase {
 		void openUrl(url);
 	}
 }
+
+// https://help.gitkraken.com/gitlens/home-view
+@command()
+export class WalkthroughOpenHomeViewVideo extends GlCommandBase {
+	constructor(private readonly container: Container) {
+		super('gitlens.walkthrough.openHomeViewVideo');
+	}
+
+	execute(): void {
+		const url = urls.homeView;
+		this.container.telemetry.sendEvent('walkthrough/action', {
+			type: 'url',
+			name: 'open/help-center/home-view',
+			url: url,
+		});
+		void openUrl(url);
+	}
+}
+
+// gitlens.showHomeView
+@command()
+export class WalkthroughShowHomeViewCommand extends GlCommandBase {
+	constructor(private readonly container: Container) {
+		super('gitlens.walkthrough.showHomeView');
+	}
+
+	execute(): void {
+		const command = GlCommand.ShowHomeView;
+		this.container.telemetry.sendEvent('walkthrough/action', {
+			type: 'command',
+			name: 'open/home',
+			command: command,
+		});
+		executeCommand(command);
+	}
+}

@@ -21361,6 +21361,17 @@
 						"when": "gitlens:plus:state == 6"
 					},
 					{
+						"id": "welcome-home-view",
+						"title": "(New) The Home View",
+						"description": "Compact yet powerful, the Home View allows you to start work on an issue or create PRs and new branches in one intelligent view.\n\nImprove workflow visibility with clear paths to take action on:\n\n- What am I actively working on now?\n- What should I work on next?\n- What have I worked on recently?\n\nThe Home View is the perfect companion for developers looking to reduce tedious context switching and stay focused on their work in VS Code.\n\n\n[Open the Home View](command:gitlens.walkthrough.showHomeView)\n$(gitlens-play-button)  [Watch a video on the Home view](command:gitlens.walkthrough.openHomeViewVideo)",
+						"media": {
+							"markdown": "walkthroughs/welcome/home.md"
+						},
+						"completionEvents": [
+							"onContext:gitlens:walkthroughState:homeView == true"
+						]
+					},
+					{
 						"id": "visualize-code-history",
 						"title": "Interactive Code History",
 						"description": "$(gitlens-gitlens)  **Blame Annotations and Hovers**\n\nSee who changed what and why with in-editor blame annotations, hovers, and CodeLens.\n\n$(gitlens-graph)  **Visual Commit Graph & Search**\n\nNavigate complex Git histories with clarity using the interactive Commit Graph to visualize changes and search your repository.\n\n[View your Commit Graph](command:gitlens.walkthrough.showGraph)\n\n$(gitlens-gitlens-inspect)  **GitLens Inspect**\n\nDive deep into the revision history of files, folders, or specific lines. Get the context you need to understand changes faster. [Open GitLens Inspect](command:gitlens.walkthrough.gitlensInspect)\n\n$(gitlens-play-button)  [Watch a video about Interactive Code History](command:gitlens.walkthrough.openInteractiveCodeHistory)",
