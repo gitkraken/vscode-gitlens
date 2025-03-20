@@ -189,6 +189,7 @@ type InternalWalkthroughCommands =
 	| 'gitlens.walkthrough.openAcceleratePrReviews'
 	| 'gitlens.walkthrough.openCommunityVsPro'
 	| 'gitlens.walkthrough.openHelpCenter'
+	| 'gitlens.walkthrough.openHomeViewVideo'
 	| 'gitlens.walkthrough.openInteractiveCodeHistory'
 	| 'gitlens.walkthrough.openStartIntegrations'
 	| 'gitlens.walkthrough.openStreamlineCollaboration'
@@ -199,6 +200,7 @@ type InternalWalkthroughCommands =
 	| 'gitlens.walkthrough.showAutolinks'
 	| 'gitlens.walkthrough.showDraftsView'
 	| 'gitlens.walkthrough.showGraph'
+	| 'gitlens.walkthrough.showHomeView'
 	| 'gitlens.walkthrough.showLaunchpad'
 	| 'gitlens.walkthrough.worktree.create'
 	| 'gitlens.walkthrough.openDevExPlatform';
