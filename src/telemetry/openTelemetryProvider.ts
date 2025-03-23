@@ -1,7 +1,7 @@
 import type { AttributeValue, Span, TimeInput, Tracer } from '@opentelemetry/api';
 import { SpanKind } from '@opentelemetry/api';
 import { OTLPTraceExporter } from '@opentelemetry/exporter-trace-otlp-http';
-import { Resource } from '@opentelemetry/resources';
+import { resourceFromAttributes } from '@opentelemetry/resources';
 import type { SpanProcessor } from '@opentelemetry/sdk-trace-base';
 import { BasicTracerProvider, BatchSpanProcessor, SimpleSpanProcessor } from '@opentelemetry/sdk-trace-base';
 import { ATTR_SERVICE_NAME, ATTR_SERVICE_VERSION } from '@opentelemetry/semantic-conventions';
@@ -43,7 +43,7 @@ export class OpenTelemetryProvider implements TelemetryProvider {
 		}
 
 		this.provider = new BasicTracerProvider({
-			resource: new Resource({
+			resource: resourceFromAttributes({
 				[ATTR_SERVICE_NAME]: 'gitlens',
 				[ATTR_SERVICE_VERSION]: context.extensionVersion,
 				[ATTR_DEPLOYMENT_ENVIRONMENT]: context.env,
