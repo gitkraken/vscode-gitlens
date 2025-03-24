@@ -9,7 +9,7 @@ import { isLinux, isWindows } from '@env/platform';
 import type { GitExtension, API as ScmGitApi } from '../../../@types/vscode.git';
 import { GlyphChars, Schemes } from '../../../constants';
 import type { Container } from '../../../container';
-import { Features } from '../../../features';
+import type { Features } from '../../../features';
 import { GitCache } from '../../../git/cache';
 import { GitErrorHandling } from '../../../git/commandOptions';
 import {
@@ -463,15 +463,15 @@ export class LocalGitProvider implements GitProvider, Disposable {
 		if (supported != null) return supported;
 
 		switch (feature) {
-			case Features.Worktrees:
+			case 'worktrees' satisfies Features:
 				supported = await this.git.isAtLeastVersion('2.17.0');
 				this._supportedFeatures.set(feature, supported);
 				return supported;
-			case Features.StashOnlyStaged:
+			case 'stashOnlyStaged' satisfies Features:
 				supported = await this.git.isAtLeastVersion('2.35.0');
 				this._supportedFeatures.set(feature, supported);
 				return supported;
-			case Features.ForceIfIncludes:
+			case 'forceIfIncludes' satisfies Features:
 				supported = await this.git.isAtLeastVersion('2.30.0');
 				this._supportedFeatures.set(feature, supported);
 				return supported;

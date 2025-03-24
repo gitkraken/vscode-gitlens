@@ -9,13 +9,12 @@ import { setContext } from '../system/-webview/context';
 import { wait } from '../system/promise';
 import type { UsageChangeEvent } from './usageTracker';
 
-export enum WalkthroughContextKeys {
-	GettingStarted = 'gettingStarted',
-	VisualizeCodeHistory = 'visualizeCodeHistory',
-	PrReviews = 'prReviews',
-	StreamlineCollaboration = 'streamlineCollaboration',
-	Integrations = 'integrations',
-}
+export type WalkthroughContextKeys =
+	| 'gettingStarted'
+	| 'visualizeCodeHistory'
+	| 'prReviews'
+	| 'streamlineCollaboration'
+	| 'integrations';
 
 type WalkthroughUsage = {
 	subscriptionStates?: SubscriptionState[] | Readonly<SubscriptionState[]>;
@@ -40,7 +39,7 @@ const walkthroughRequiredMapping: Readonly<Map<WalkthroughContextKeys, Walkthrou
 	WalkthroughUsage
 >([
 	[
-		WalkthroughContextKeys.GettingStarted,
+		'gettingStarted',
 		{
 			subscriptionStates: triedProStates,
 			subscriptionCommands: tryProCommands,
@@ -48,7 +47,7 @@ const walkthroughRequiredMapping: Readonly<Map<WalkthroughContextKeys, Walkthrou
 		},
 	],
 	[
-		WalkthroughContextKeys.VisualizeCodeHistory,
+		'visualizeCodeHistory',
 		{
 			subscriptionStates: triedProStates,
 			subscriptionCommands: tryProCommands,
@@ -66,7 +65,7 @@ const walkthroughRequiredMapping: Readonly<Map<WalkthroughContextKeys, Walkthrou
 		},
 	],
 	[
-		WalkthroughContextKeys.PrReviews,
+		'prReviews',
 		{
 			subscriptionStates: triedProStates,
 			subscriptionCommands: tryProCommands,
@@ -83,7 +82,7 @@ const walkthroughRequiredMapping: Readonly<Map<WalkthroughContextKeys, Walkthrou
 		},
 	],
 	[
-		WalkthroughContextKeys.StreamlineCollaboration,
+		'streamlineCollaboration',
 		{
 			subscriptionStates: triedProStates,
 			subscriptionCommands: tryProCommands,
@@ -99,7 +98,7 @@ const walkthroughRequiredMapping: Readonly<Map<WalkthroughContextKeys, Walkthrou
 		},
 	],
 	[
-		WalkthroughContextKeys.Integrations,
+		'integrations',
 		{
 			usage: [
 				`command:${'gitlens.plus.cloudIntegrations.connect' satisfies GlCommands}:executed`,

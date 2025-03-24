@@ -33,7 +33,7 @@ import type { IntegrationId } from '../../constants.integrations';
 import { HostingIntegrationId, IssueIntegrationId, SelfHostedIntegrationId } from '../../constants.integrations';
 import type { Source, Sources, StartWorkTelemetryContext, TelemetryEvents } from '../../constants.telemetry';
 import type { Container } from '../../container';
-import { PlusFeatures } from '../../features';
+import type { PlusFeatures } from '../../features';
 import type { Issue, IssueShape } from '../../git/models/issue';
 import type { GitBranchReference } from '../../git/models/reference';
 import type { Repository } from '../../git/models/repository';
@@ -218,9 +218,9 @@ export abstract class StartWorkBaseCommand extends QuickCommand<State> {
 
 			let plusFeature: PlusFeatures | undefined;
 			if (this.key === 'startWork') {
-				plusFeature = PlusFeatures.StartWork;
+				plusFeature = 'startWork';
 			} else if (this.key === 'associateIssueWithBranch') {
-				plusFeature = PlusFeatures.AssociateIssueWithBranch;
+				plusFeature = 'associateIssueWithBranch';
 			}
 
 			if (plusFeature != null) {

@@ -33,7 +33,6 @@ import type {
 	WorkspaceRepositoryRelation,
 	WorkspacesResponse,
 } from './models/workspaces';
-import { WorkspaceAddRepositoriesChoice } from './models/workspaces';
 import type { WorkspacesApi } from './workspacesApi';
 import type { GkWorkspacesSharedStorageProvider } from './workspacesSharedStorageProvider';
 
@@ -813,13 +812,13 @@ export class WorkspacesService implements Disposable {
 			const choices: {
 				label: string;
 				description?: string;
-				choice: WorkspaceAddRepositoriesChoice;
+				choice: 'currentWindow' | 'parentFolder';
 				picked?: boolean;
 			}[] = [
 				{
 					label: 'Choose repositories from a folder',
 					description: undefined,
-					choice: WorkspaceAddRepositoriesChoice.ParentFolder,
+					choice: 'parentFolder',
 				},
 			];
 
@@ -827,7 +826,7 @@ export class WorkspacesService implements Disposable {
 				choices.unshift({
 					label: 'Choose repositories from the current window',
 					description: undefined,
-					choice: WorkspaceAddRepositoriesChoice.CurrentWindow,
+					choice: 'currentWindow',
 				});
 			}
 
@@ -840,7 +839,7 @@ export class WorkspacesService implements Disposable {
 
 			if (repoChoice == null) return;
 
-			if (repoChoice.choice === WorkspaceAddRepositoriesChoice.ParentFolder) {
+			if (repoChoice.choice === 'parentFolder') {
 				await window.withProgress(
 					{
 						location: ProgressLocation.Notification,

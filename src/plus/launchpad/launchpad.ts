@@ -41,7 +41,6 @@ import type { IntegrationId } from '../../constants.integrations';
 import { HostingIntegrationId, SelfHostedIntegrationId } from '../../constants.integrations';
 import type { LaunchpadTelemetryContext, Source, Sources, TelemetryEvents } from '../../constants.telemetry';
 import type { Container } from '../../container';
-import { PlusFeatures } from '../../features';
 import type { QuickPickItemOfT } from '../../quickpicks/items/common';
 import { createQuickPickItemOfT, createQuickPickSeparator } from '../../quickpicks/items/common';
 import type { DirectiveQuickPickItem } from '../../quickpicks/items/directive';
@@ -290,7 +289,7 @@ export class LaunchpadCommand extends QuickCommand<State> {
 				newlyConnected = Boolean(connected);
 			}
 
-			const result = yield* ensureAccessStep(this.container, state, context, PlusFeatures.Launchpad);
+			const result = yield* ensureAccessStep(this.container, state, context, 'launchpad');
 			if (result === StepResultBreak) continue;
 
 			await updateContextItems(this.container, context, { force: newlyConnected });

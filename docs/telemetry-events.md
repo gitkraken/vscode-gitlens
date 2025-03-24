@@ -2042,7 +2042,7 @@ or
 
 ```typescript
 {
-  'context.key': 'gettingStarted' | 'visualizeCodeHistory' | 'prReviews' | 'streamlineCollaboration' | 'integrations'
+  'context.key': 'integrations' | 'gettingStarted' | 'visualizeCodeHistory' | 'prReviews' | 'streamlineCollaboration'
 }
 ```
 

@@ -2,7 +2,6 @@ import type { Uri } from 'vscode';
 import type { ScmResource } from '../@types/vscode.git.resources';
 import { ScmResourceGroupType, ScmStatus } from '../@types/vscode.git.resources.enums';
 import type { Container } from '../container';
-import { Features } from '../features';
 import { push } from '../git/actions/stash';
 import { GitUri } from '../git/gitUri';
 import { command } from '../system/-webview/command';
@@ -77,7 +76,7 @@ export class StashSaveCommand extends GlCommandBase {
 			const repo = await this.container.git.getOrOpenRepository(uris[0]);
 
 			args.repoPath = repo?.path;
-			args.onlyStaged = repo != null && hasOnlyStaged ? await repo.git.supports(Features.StashOnlyStaged) : false;
+			args.onlyStaged = repo != null && hasOnlyStaged ? await repo.git.supports('stashOnlyStaged') : false;
 			if (args.keepStaged == null && !hasStaged) {
 				args.keepStaged = true;
 			}
@@ -116,7 +115,7 @@ export class StashSaveCommand extends GlCommandBase {
 			const repo = await this.container.git.getOrOpenRepository(uris[0]);
 
 			args.repoPath = repo?.path;
-			args.onlyStaged = repo != null && hasOnlyStaged ? await repo.git.supports(Features.StashOnlyStaged) : false;
+			args.onlyStaged = repo != null && hasOnlyStaged ? await repo.git.supports('stashOnlyStaged') : false;
 			if (args.keepStaged == null && !hasStaged) {
 				args.keepStaged = true;
 			}

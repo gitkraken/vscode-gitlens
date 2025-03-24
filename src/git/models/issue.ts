@@ -40,7 +40,7 @@ export class Issue implements IssueShape {
 	) {}
 }
 
-export enum RepositoryAccessLevel {
+export const enum RepositoryAccessLevel {
 	Admin = 100,
 	Maintain = 40,
 	Write = 30,

@@ -21,7 +21,7 @@ import {
 	OpenVirtualRepositoryError,
 	OpenVirtualRepositoryErrorReason,
 } from '../../../../errors';
-import { Features } from '../../../../features';
+import type { Features } from '../../../../features';
 import { GitCache } from '../../../../git/cache';
 import type {
 	GitProvider,
@@ -248,9 +248,9 @@ export class GitHubGitProvider implements GitProvider, Disposable {
 		// if (supported != null) return supported;
 
 		switch (feature) {
-			case Features.Stashes:
-			case Features.Worktrees:
-			case Features.StashOnlyStaged:
+			case 'stashes' satisfies Features:
+			case 'worktrees' satisfies Features:
+			case 'stashOnlyStaged' satisfies Features:
 				return false;
 			default:
 				return true;
