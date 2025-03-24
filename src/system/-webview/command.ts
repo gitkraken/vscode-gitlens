@@ -2,7 +2,7 @@ import type { Command, Disposable, Uri } from 'vscode';
 import { commands } from 'vscode';
 import type { Action, ActionContext } from '../../api/gitlens';
 import type { GlCommandBase } from '../../commands/commandBase';
-import type { CodeLensCommand } from '../../config';
+import type { CodeLensCommands } from '../../config';
 import type {
 	CoreCommands,
 	CoreGitCommands,
@@ -122,7 +122,7 @@ export function executeActionCommand<T extends ActionContext>(
 }
 
 export function createCommand<T extends unknown[]>(
-	command: GlCommands | CodeLensCommand,
+	command: GlCommands | CodeLensCommands,
 	title: string,
 	...args: T
 ): Command {
