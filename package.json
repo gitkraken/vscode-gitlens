@@ -7705,7 +7705,7 @@
 			},
 			{
 				"command": "gitlens.switchAIModel",
-				"title": "Switch AI Model",
+				"title": "Switch AI Provider/Model",
 				"category": "GitLens"
 			},
 			{

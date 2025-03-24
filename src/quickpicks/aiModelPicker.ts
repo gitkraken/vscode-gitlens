@@ -3,7 +3,7 @@ import { QuickPickItemKind, ThemeIcon, window } from 'vscode';
 import type { AIProviders } from '../constants.ai';
 import type { Container } from '../container';
 import type { AIModel, AIModelDescriptor } from '../plus/ai/models/model';
-import { configuration } from '../system/-webview/configuration';
+import { isSubscriptionPaidPlan } from '../plus/gk/utils/subscription.utils';
 import { getQuickPickIgnoreFocusOut } from '../system/-webview/vscode';
 
 export interface ModelQuickPickItem extends QuickPickItem {
@@ -41,14 +41,12 @@ export async function showAIProviderPicker(
 	current?: AIModelDescriptor,
 ): Promise<ProviderQuickPickItem | undefined> {
 	const providers: Map<AIProviders, boolean> = new Map();
-	const models = await container.ai.getModels();
-	let currentModelName: string | undefined;
-	if (configuration.getAny('gitkraken.ai.enabled', undefined, false)) {
-		providers.set('gitkraken', true);
-	}
+	const supportedProviders = container.ai.supportedProviders;
+	const currentModelName = container.ai.currentModelName;
+	const subscription = await container.subscription.getSubscription();
+	const hasPaidPlan = isSubscriptionPaidPlan(subscription?.plan?.effective.id) && subscription?.account?.verified;
 
-	for (const model of models) {
-		const provider = model.provider.id;
+	for (const provider of supportedProviders) {
 		if (providers.has(provider)) continue;
 
 		providers.set(
@@ -57,10 +55,6 @@ export async function showAIProviderPicker(
 				? true
 				: (await container.storage.getSecret(`gitlens.${provider}.key`)) != null,
 		);
-
-		if (current != null && model.provider.id === current.provider && model.id === current.model) {
-			currentModelName = model.name;
-		}
 	}
 
 	const quickpick = window.createQuickPick<ProviderQuickPickItem>();
@@ -118,14 +112,14 @@ export async function showAIProviderPicker(
 						p === current?.provider && currentModelName
 							? `      ${currentModelName}`
 							: p === 'gitkraken'
-							  ? '      Models provided by GitKraken'
+							  ? `      Models provided by GitKraken${hasPaidPlan ? ' (included in your plan)' : ''}`
 							  : undefined,
 					buttons: !isPrimaryProvider(p)
 						? providers.get(p)
 							? [ClearAIKeyButton]
 							: [ConfigureAIKeyButton]
 						: undefined,
-					description: !isPrimaryProvider(p) && providers.get(p) ? 'Configured' : undefined,
+					description: !isPrimaryProvider(p) && providers.get(p) ? '  (configured)' : undefined,
 				} satisfies ProviderQuickPickItem);
 			}
 
