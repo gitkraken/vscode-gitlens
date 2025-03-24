@@ -10,7 +10,6 @@ import type { ShowQuickCommitCommandArgs } from '../../commands/showQuickCommit'
 import type { ShowQuickCommitFileCommandArgs } from '../../commands/showQuickCommitFile';
 import type { FileAnnotationType } from '../../config';
 import { GlyphChars } from '../../constants';
-import { GlCommand } from '../../constants.commands';
 import { Container } from '../../container';
 import { showRevisionFilesPicker } from '../../quickpicks/revisionFilesPicker';
 import { executeCommand, executeCoreGitCommand, executeEditorCommand } from '../../system/-webview/command';
@@ -18,7 +17,7 @@ import { configuration } from '../../system/-webview/configuration';
 import { findOrOpenEditor, findOrOpenEditors, openChangesEditor } from '../../system/-webview/vscode';
 import { getSettledValue } from '../../system/promise';
 import type { ViewNode } from '../../views/nodes/abstract/viewNode';
-import type { ShowInCommitGraphCommandArgs } from '../../webviews/plus/graph/protocol';
+import type { ShowInCommitGraphCommandArgs } from '../../webviews/plus/graph/registration';
 import { GitUri } from '../gitUri';
 import type { GitCommit } from '../models/commit';
 import { isCommit } from '../models/commit';
@@ -292,7 +291,7 @@ export async function openChanges(
 
 	if (file.status === 'A' && hasCommit) {
 		const commit = await commitOrRefs.getCommitForFile(file);
-		void executeCommand<DiffWithPreviousCommandArgs>(GlCommand.DiffWithPrevious, {
+		void executeCommand<DiffWithPreviousCommandArgs>('gitlens.diffWithPrevious', {
 			commit: commit,
 			showOptions: options,
 		});
@@ -313,7 +312,7 @@ export async function openChanges(
 	const lhsUri =
 		file.status === 'R' || file.status === 'C' ? GitUri.fromFile(file, refs.repoPath, refs.lhs, true) : rhsUri;
 
-	void (await executeCommand<DiffWithCommandArgs>(GlCommand.DiffWith, {
+	void (await executeCommand<DiffWithCommandArgs>('gitlens.diffWith', {
 		repoPath: refs.repoPath,
 		lhs: { uri: lhsUri, sha: refs.lhs, title: options?.lhsTitle },
 		rhs: { uri: rhsUri, sha: refs.rhs, title: options?.rhsTitle },
@@ -385,7 +384,7 @@ export async function openChangesWithWorking(
 
 	options = { preserveFocus: true, preview: false, ...options };
 
-	void (await executeEditorCommand<DiffWithWorkingCommandArgs>(GlCommand.DiffWithWorking, undefined, {
+	void (await executeEditorCommand<DiffWithWorkingCommandArgs>('gitlens.diffWithWorking', undefined, {
 		uri: GitUri.fromFile(file, ref.repoPath, ref.ref),
 		showOptions: options,
 		lhsTitle: options?.lhsTitle,
@@ -709,7 +708,7 @@ export async function showDetailsQuickPick(commit: GitCommit, uri?: Uri): Promis
 export async function showDetailsQuickPick(commit: GitCommit, file?: string | GitFile): Promise<void>;
 export async function showDetailsQuickPick(commit: GitCommit, fileOrUri?: string | GitFile | Uri): Promise<void> {
 	if (fileOrUri == null) {
-		void (await executeCommand<ShowQuickCommitCommandArgs>(GlCommand.ShowQuickCommit, { commit: commit }));
+		void (await executeCommand<ShowQuickCommitCommandArgs>('gitlens.showQuickCommitDetails', { commit: commit }));
 		return;
 	}
 
@@ -720,7 +719,7 @@ export async function showDetailsQuickPick(commit: GitCommit, fileOrUri?: string
 		uri = GitUri.fromFile(fileOrUri, commit.repoPath, commit.ref);
 	}
 
-	void (await executeCommand<[Uri, ShowQuickCommitFileCommandArgs]>(GlCommand.ShowQuickCommitFile, uri, {
+	void (await executeCommand<[Uri, ShowQuickCommitFileCommandArgs]>('gitlens.showQuickCommitFileDetails', uri, {
 		sha: commit.sha,
 		commit: commit,
 	}));
@@ -746,7 +745,7 @@ export async function showInCommitGraph(
 	commit: GitRevisionReference | GitCommit,
 	options?: { preserveFocus?: boolean },
 ): Promise<void> {
-	void (await executeCommand<ShowInCommitGraphCommandArgs>(GlCommand.ShowInCommitGraph, {
+	void (await executeCommand<ShowInCommitGraphCommandArgs>('gitlens.showInCommitGraph', {
 		ref: getReferenceFromRevision(commit),
 		preserveFocus: options?.preserveFocus,
 	}));
@@ -776,7 +775,7 @@ export async function openOnlyChangedFiles(container: Container, commitOrFiles: 
 		return;
 	}
 
-	void (await executeCommand<OpenOnlyChangedFilesCommandArgs>(GlCommand.OpenOnlyChangedFiles, {
+	void (await executeCommand<OpenOnlyChangedFilesCommandArgs>('gitlens.openOnlyChangedFiles', {
 		uris: files.filter(f => f.status !== 'D').map(f => f.uri),
 	}));
 }

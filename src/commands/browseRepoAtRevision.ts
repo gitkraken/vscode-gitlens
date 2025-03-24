@@ -1,5 +1,4 @@
 import type { TextEditor, Uri } from 'vscode';
-import { GlCommand } from '../constants.commands';
 import type { Container } from '../container';
 import { GitUri } from '../git/gitUri';
 import { showGenericErrorMessage } from '../messages';
@@ -22,22 +21,22 @@ export interface BrowseRepoAtRevisionCommandArgs {
 export class BrowseRepoAtRevisionCommand extends ActiveEditorCommand {
 	constructor(private readonly container: Container) {
 		super([
-			GlCommand.BrowseRepoAtRevision,
-			GlCommand.BrowseRepoAtRevisionInNewWindow,
-			GlCommand.BrowseRepoBeforeRevision,
-			GlCommand.BrowseRepoBeforeRevisionInNewWindow,
+			'gitlens.browseRepoAtRevision',
+			'gitlens.browseRepoAtRevisionInNewWindow',
+			'gitlens.browseRepoBeforeRevision',
+			'gitlens.browseRepoBeforeRevisionInNewWindow',
 		]);
 	}
 
 	protected override preExecute(context: CommandContext, args?: BrowseRepoAtRevisionCommandArgs): Promise<void> {
 		switch (context.command) {
-			case GlCommand.BrowseRepoAtRevisionInNewWindow:
+			case 'gitlens.browseRepoAtRevisionInNewWindow':
 				args = { ...args, before: false, openInNewWindow: true };
 				break;
-			case GlCommand.BrowseRepoBeforeRevision:
+			case 'gitlens.browseRepoBeforeRevision':
 				args = { ...args, before: true, openInNewWindow: false };
 				break;
-			case GlCommand.BrowseRepoBeforeRevisionInNewWindow:
+			case 'gitlens.browseRepoBeforeRevisionInNewWindow':
 				args = { ...args, before: true, openInNewWindow: true };
 				break;
 		}

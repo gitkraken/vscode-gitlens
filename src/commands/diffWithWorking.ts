@@ -1,6 +1,5 @@
 import type { TextDocumentShowOptions, TextEditor, Uri } from 'vscode';
 import { window } from 'vscode';
-import { GlCommand } from '../constants.commands';
 import type { Container } from '../container';
 import { GitUri } from '../git/gitUri';
 import { deletedOrMissing, uncommittedStaged } from '../git/models/revision';
@@ -77,7 +76,7 @@ export class DiffWithWorkingCommand extends ActiveEditorCommand {
 		if (gitUri.isUncommittedStaged) {
 			const status = await this.container.git.status(gitUri.repoPath!).getStatusForFile?.(gitUri);
 			if (status?.indexStatus != null) {
-				void (await executeCommand<DiffWithCommandArgs>(GlCommand.DiffWith, {
+				void (await executeCommand<DiffWithCommandArgs>('gitlens.diffWith', {
 					repoPath: gitUri.repoPath,
 					lhs: {
 						sha: uncommittedStaged,
@@ -116,7 +115,7 @@ export class DiffWithWorkingCommand extends ActiveEditorCommand {
 			workingUri = pickedUri;
 		}
 
-		void (await executeCommand<DiffWithCommandArgs>(GlCommand.DiffWith, {
+		void (await executeCommand<DiffWithCommandArgs>('gitlens.diffWith', {
 			repoPath: gitUri.repoPath,
 			lhs: {
 				sha: gitUri.sha,

@@ -4,7 +4,6 @@ import type { OpenOnlyChangedFilesCommandArgs } from '../../commands/openOnlyCha
 import { RevealInSideBarQuickInputButton, ShowDetailsViewQuickInputButton } from '../../commands/quickCommand.buttons';
 import type { Keys } from '../../constants';
 import { GlyphChars } from '../../constants';
-import { GlCommand } from '../../constants.commands';
 import { Container } from '../../container';
 import { browseAtRevision } from '../../git/actions';
 import * as CommitActions from '../../git/actions/commit';
@@ -372,7 +371,7 @@ export class OpenChangedFilesCommandQuickPickItem extends CommandQuickPickItem {
 			uris: files.map(f => f.uri),
 		};
 
-		super(label ?? 'Open All Changed Files', new ThemeIcon('files'), GlCommand.OpenChangedFiles, [commandArgs]);
+		super(label ?? 'Open All Changed Files', new ThemeIcon('files'), 'gitlens.openChangedFiles', [commandArgs]);
 	}
 }
 
@@ -382,7 +381,7 @@ export class OpenOnlyChangedFilesCommandQuickPickItem extends CommandQuickPickIt
 			uris: files.map(f => f.uri),
 		};
 
-		super(label ?? 'Open Changed & Close Unchanged Files', new ThemeIcon('files'), GlCommand.OpenOnlyChangedFiles, [
+		super(label ?? 'Open Changed & Close Unchanged Files', new ThemeIcon('files'), 'gitlens.openOnlyChangedFiles', [
 			commandArgs,
 		]);
 	}

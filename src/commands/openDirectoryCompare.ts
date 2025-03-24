@@ -1,5 +1,4 @@
 import type { TextEditor, Uri } from 'vscode';
-import { GlCommand } from '../constants.commands';
 import type { Container } from '../container';
 import { openDirectoryCompare } from '../git/actions/commit';
 import { showGenericErrorMessage } from '../messages';
@@ -24,8 +23,8 @@ export class OpenDirectoryCompareCommand extends ActiveEditorCommand {
 		super([
 			'gitlens.diffDirectory',
 			'gitlens.diffDirectoryWithHead',
-			GlCommand.ViewsOpenDirectoryDiff,
-			GlCommand.ViewsOpenDirectoryDiffWithWorking,
+			'gitlens.views.openDirectoryDiff',
+			'gitlens.views.openDirectoryDiffWithWorking',
 		]);
 	}
 
@@ -40,14 +39,14 @@ export class OpenDirectoryCompareCommand extends ActiveEditorCommand {
 				args.ref2 = undefined;
 				break;
 
-			case GlCommand.ViewsOpenDirectoryDiff:
+			case 'gitlens.views.openDirectoryDiff':
 				if (context.type === 'viewItem' && context.node instanceof CompareResultsNode) {
 					args = { ...args };
 					[args.ref1, args.ref2] = await context.node.getDiffRefs();
 				}
 				break;
 
-			case GlCommand.ViewsOpenDirectoryDiffWithWorking:
+			case 'gitlens.views.openDirectoryDiffWithWorking':
 				if (isCommandContextViewNodeHasRef(context)) {
 					args = { ...args };
 					args.ref1 = context.node.ref.ref;

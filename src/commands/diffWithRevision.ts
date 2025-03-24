@@ -1,6 +1,5 @@
 import type { TextDocumentShowOptions, TextEditor, Uri } from 'vscode';
 import { GlyphChars, quickPickTitleMaxChars } from '../constants';
-import { GlCommand } from '../constants.commands';
 import type { Container } from '../container';
 import { GitUri } from '../git/gitUri';
 import { shortenRevision } from '../git/utils/revision.utils';
@@ -26,7 +25,7 @@ export interface DiffWithRevisionCommandArgs {
 @command()
 export class DiffWithRevisionCommand extends ActiveEditorCommand {
 	constructor(private readonly container: Container) {
-		super(GlCommand.DiffWithRevision);
+		super('gitlens.diffWithRevision');
 	}
 
 	async execute(editor?: TextEditor, uri?: Uri, args?: DiffWithRevisionCommandArgs): Promise<any> {
@@ -75,7 +74,7 @@ export class DiffWithRevisionCommand extends ActiveEditorCommand {
 													description: description,
 												},
 												undefined,
-												GlCommand.DiffWithRevision,
+												'gitlens.diffWithRevision',
 												[this.container.git.getAbsoluteUri(f.path, gitUri.repoPath)],
 											),
 										);
@@ -110,7 +109,7 @@ export class DiffWithRevisionCommand extends ActiveEditorCommand {
 				keyboard: {
 					keys: ['right', 'alt+right', 'ctrl+right'],
 					onDidPressKey: async (_key, item) => {
-						await executeCommand<DiffWithCommandArgs>(GlCommand.DiffWith, {
+						await executeCommand<DiffWithCommandArgs>('gitlens.diffWith', {
 							repoPath: gitUri.repoPath,
 							lhs: {
 								sha: item.item.ref,
@@ -128,19 +127,19 @@ export class DiffWithRevisionCommand extends ActiveEditorCommand {
 				showOtherReferences: [
 					CommandQuickPickItem.fromCommand<[Uri]>(
 						'Choose a Branch or Tag...',
-						GlCommand.DiffWithRevisionFrom,
+						'gitlens.diffWithRevisionFrom',
 						[uri],
 					),
 					CommandQuickPickItem.fromCommand<[Uri, DiffWithRevisionFromCommandArgs]>(
 						'Choose a Stash...',
-						GlCommand.DiffWithRevisionFrom,
+						'gitlens.diffWithRevisionFrom',
 						[uri, { stash: true }],
 					),
 				],
 			});
 			if (pick == null) return;
 
-			void (await executeCommand<DiffWithCommandArgs>(GlCommand.DiffWith, {
+			void (await executeCommand<DiffWithCommandArgs>('gitlens.diffWith', {
 				repoPath: gitUri.repoPath,
 				lhs: {
 					sha: pick.ref,

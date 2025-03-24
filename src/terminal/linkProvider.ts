@@ -5,13 +5,13 @@ import type { InspectCommandArgs } from '../commands/inspect';
 import type { ShowQuickBranchHistoryCommandArgs } from '../commands/showQuickBranchHistory';
 import type { ShowQuickCommitCommandArgs } from '../commands/showQuickCommit';
 import type { GlCommands } from '../constants.commands';
-import { GlCommand } from '../constants.commands';
 import type { Container } from '../container';
 import type { PagedResult } from '../git/gitProvider';
 import type { GitBranch } from '../git/models/branch';
 import type { GitTag } from '../git/models/tag';
 import { getBranchNameWithoutRemote } from '../git/utils/branch.utils';
 import { createReference } from '../git/utils/reference.utils';
+import { createTerminalLinkCommand } from '../system/-webview/command';
 import { configuration } from '../system/-webview/configuration';
 
 const commandsRegexShared =
@@ -67,12 +67,9 @@ export class GitTerminalLinkProvider implements Disposable, TerminalLinkProvider
 					startIndex: match.index + git.length,
 					length: command.length,
 					tooltip: 'Open in Git Command Palette',
-					command: {
-						command: GlCommand.GitCommands,
-						args: {
-							command: command as GitWizardCommandArgs['command'],
-						},
-					},
+					command: createTerminalLinkCommand<GitWizardCommandArgs>('gitlens.gitCommands', {
+						command: command as GitWizardCommandArgs['command'],
+					}),
 				};
 				links.push(link);
 			}
@@ -87,13 +84,13 @@ export class GitTerminalLinkProvider implements Disposable, TerminalLinkProvider
 					startIndex: match.index,
 					length: ref.length,
 					tooltip: 'Show HEAD',
-					command: {
-						command: GlCommand.ShowQuickBranchHistory,
-						args: {
+					command: createTerminalLinkCommand<ShowQuickBranchHistoryCommandArgs>(
+						'gitlens.showQuickBranchHistory',
+						{
 							branch: 'HEAD',
 							repoPath: repoPath,
 						},
-					},
+					),
 				};
 				links.push(link);
 
@@ -114,10 +111,10 @@ export class GitTerminalLinkProvider implements Disposable, TerminalLinkProvider
 					startIndex: match.index,
 					length: ref.length,
 					tooltip: 'Show Branch',
-					command: {
-						command: GlCommand.ShowQuickBranchHistory,
-						args: { repoPath: repoPath, branch: branch.name },
-					},
+					command: createTerminalLinkCommand<ShowQuickBranchHistoryCommandArgs>(
+						'gitlens.showQuickBranchHistory',
+						{ repoPath: repoPath, branch: branch.name },
+					),
 				};
 				links.push(link);
 
@@ -135,10 +132,10 @@ export class GitTerminalLinkProvider implements Disposable, TerminalLinkProvider
 					startIndex: match.index,
 					length: ref.length,
 					tooltip: 'Show Tag',
-					command: {
-						command: GlCommand.ShowQuickBranchHistory,
-						args: { repoPath: repoPath, tag: tag.name },
-					},
+					command: createTerminalLinkCommand<ShowQuickBranchHistoryCommandArgs>(
+						'gitlens.showQuickBranchHistory',
+						{ repoPath: repoPath, tag: tag.name },
+					),
 				};
 				links.push(link);
 
@@ -151,16 +148,13 @@ export class GitTerminalLinkProvider implements Disposable, TerminalLinkProvider
 						startIndex: match.index,
 						length: ref.length,
 						tooltip: 'Show Commits',
-						command: {
-							command: GlCommand.GitCommands,
-							args: {
-								command: 'log',
-								state: {
-									repo: repoPath,
-									reference: createReference(ref, repoPath, { refType: 'revision' }),
-								},
+						command: createTerminalLinkCommand<GitWizardCommandArgs>('gitlens.gitCommands', {
+							command: 'log',
+							state: {
+								repo: repoPath,
+								reference: createReference(ref, repoPath, { refType: 'revision' }),
 							},
-						},
+						}),
 					};
 					links.push(link);
 				}
@@ -174,19 +168,13 @@ export class GitTerminalLinkProvider implements Disposable, TerminalLinkProvider
 					length: ref.length,
 					tooltip: 'Show Commit',
 					command: showDetailsView
-						? {
-								command: GlCommand.ShowInDetailsView,
-								args: {
-									ref: createReference(ref, repoPath, { refType: 'revision' }),
-								},
-						  }
-						: {
-								command: GlCommand.ShowQuickCommit,
-								args: {
-									repoPath: repoPath,
-									sha: ref,
-								},
-						  },
+						? createTerminalLinkCommand<InspectCommandArgs>('gitlens.showInDetailsView', {
+								ref: createReference(ref, repoPath, { refType: 'revision' }),
+						  })
+						: createTerminalLinkCommand<ShowQuickCommitCommandArgs>('gitlens.showQuickCommitDetails', {
+								repoPath: repoPath,
+								sha: ref,
+						  }),
 				};
 				links.push(link);
 			}

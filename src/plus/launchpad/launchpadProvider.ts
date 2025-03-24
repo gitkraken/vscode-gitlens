@@ -6,7 +6,7 @@ import type {
 import type { CancellationToken, ConfigurationChangeEvent, Event } from 'vscode';
 import { Disposable, env, EventEmitter, Uri, window } from 'vscode';
 import { md5 } from '@env/crypto';
-import { GlCommand } from '../../constants.commands';
+import type { OpenCloudPatchCommandArgs } from '../../commands/patches';
 import type { CloudSelfHostedIntegrationId, IntegrationId } from '../../constants.integrations';
 import { HostingIntegrationId, SelfHostedIntegrationId } from '../../constants.integrations';
 import type { Container } from '../../container';
@@ -455,7 +455,7 @@ export class LaunchpadProvider implements Disposable {
 		if (draft == null) return;
 		this._codeSuggestions?.delete(item.uuid);
 		this._prs = undefined;
-		void executeCommand(GlCommand.OpenCloudPatch, {
+		void executeCommand<OpenCloudPatchCommandArgs>('gitlens.openCloudPatch', {
 			type: 'code_suggestion',
 			draft: draft,
 		});

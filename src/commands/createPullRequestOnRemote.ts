@@ -1,5 +1,4 @@
 import { window } from 'vscode';
-import { GlCommand } from '../constants.commands';
 import type { Container } from '../container';
 import type { GitRemote } from '../git/models/remote';
 import type { RemoteResource } from '../git/models/remoteResource';
@@ -23,7 +22,7 @@ export interface CreatePullRequestOnRemoteCommandArgs {
 @command()
 export class CreatePullRequestOnRemoteCommand extends GlCommandBase {
 	constructor(private readonly container: Container) {
-		super(GlCommand.CreatePullRequestOnRemote);
+		super('gitlens.createPullRequestOnRemote');
 	}
 
 	async execute(args?: CreatePullRequestOnRemoteCommandArgs): Promise<void> {
@@ -77,7 +76,7 @@ export class CreatePullRequestOnRemoteCommand extends GlCommandBase {
 			},
 		};
 
-		void (await executeCommand<OpenOnRemoteCommandArgs>(GlCommand.OpenOnRemote, {
+		void (await executeCommand<OpenOnRemoteCommandArgs>('gitlens.openOnRemote', {
 			resource: resource,
 			remotes: remotes,
 		}));

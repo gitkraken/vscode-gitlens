@@ -9,7 +9,6 @@ import { when } from 'lit/directives/when.js';
 import type { ConnectCloudIntegrationsCommandArgs } from '../../../../commands/cloudIntegrations';
 import type { BranchGitCommandArgs } from '../../../../commands/git/branch';
 import type { GraphBranchesVisibility } from '../../../../config';
-import { GlCommand } from '../../../../constants.commands';
 import type { SearchQuery } from '../../../../constants.search';
 import { isSubscriptionPaid } from '../../../../plus/gk/utils/subscription.utils';
 import type { LaunchpadCommandArgs } from '../../../../plus/launchpad/launchpad';
@@ -756,7 +755,7 @@ export class GlGraphHeader extends SignalWatcher(LitElement) {
 					<gl-tooltip placement="bottom">
 						<a
 							class="action-button"
-							href=${createCommandLink<BranchGitCommandArgs>(GlCommand.GitCommandsBranch, {
+							href=${createCommandLink<BranchGitCommandArgs>('gitlens.gitCommands.branch', {
 								state: {
 									subcommand: 'create',
 									reference: this.hostState.branch,

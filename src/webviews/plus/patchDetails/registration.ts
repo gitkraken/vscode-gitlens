@@ -1,5 +1,4 @@
 import { ViewColumn } from 'vscode';
-import { GlCommand } from '../../../constants.commands';
 import type { Sources } from '../../../constants.telemetry';
 import { executeCommand } from '../../../system/-webview/command';
 import { configuration } from '../../../system/-webview/configuration';
@@ -57,7 +56,7 @@ export function registerPatchDetailsWebviewView(
 		async (...args) => {
 			if (configuration.get('cloudPatches.experimental.layout') === 'editor') {
 				await setContext('gitlens:views:patchDetails:mode', undefined);
-				void executeCommand<WebviewPanelShowCommandArgs>(GlCommand.ShowPatchDetailsPage, undefined, ...args);
+				void executeCommand<WebviewPanelShowCommandArgs>('gitlens.showPatchDetailsPage', undefined, ...args);
 				return;
 			}
 
@@ -78,7 +77,7 @@ export function registerPatchDetailsWebviewPanel(
 		Serialized<State>,
 		PatchDetailsWebviewShowingArgs
 	>(
-		{ id: GlCommand.ShowPatchDetailsPage, options: { preserveInstance: true } },
+		{ id: 'gitlens.showPatchDetailsPage', options: { preserveInstance: true } },
 		{
 			id: 'gitlens.patchDetails',
 			fileName: 'patchDetails.html',

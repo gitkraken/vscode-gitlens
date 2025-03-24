@@ -1,6 +1,5 @@
 import type { Uri } from 'vscode';
 import { TabInputCustom, TabInputNotebook, TabInputNotebookDiff, TabInputText, TabInputTextDiff, window } from 'vscode';
-import { GlCommand } from '../constants.commands';
 import type { Container } from '../container';
 import { showGenericErrorMessage } from '../messages';
 import { getRepositoryOrShowPicker } from '../quickpicks/repositoryPicker';
@@ -18,7 +17,7 @@ export interface OpenOnlyChangedFilesCommandArgs {
 @command()
 export class OpenOnlyChangedFilesCommand extends GlCommandBase {
 	constructor(private readonly container: Container) {
-		super(GlCommand.OpenOnlyChangedFiles);
+		super('gitlens.openOnlyChangedFiles');
 	}
 
 	async execute(args?: OpenOnlyChangedFilesCommandArgs): Promise<void> {

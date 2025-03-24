@@ -3,7 +3,6 @@ import { Disposable, TreeItem, TreeItemCollapsibleState, window } from 'vscode';
 import type { OpenWalkthroughCommandArgs } from '../commands/walkthroughs';
 import type { DraftsViewConfig } from '../config';
 import { previewBadge } from '../constants';
-import { GlCommand } from '../constants.commands';
 import type { Container } from '../container';
 import { AuthenticationRequiredError } from '../errors';
 import { unknownGitUri } from '../git/gitUri';
@@ -18,6 +17,7 @@ import type { ViewNode } from './nodes/abstract/viewNode';
 import { DraftNode } from './nodes/draftNode';
 import { GroupingNode } from './nodes/groupingNode';
 import { ViewBase } from './viewBase';
+import type { CopyNodeCommandArgs } from './viewCommands';
 import { registerViewCommand } from './viewCommands';
 
 export class DraftsViewNode extends CacheableChildrenViewNode<'drafts', DraftsView, GroupingNode | DraftNode> {
@@ -128,14 +128,14 @@ export class DraftsView extends ViewBase<'drafts', DraftsViewNode, DraftsViewCon
 			),
 			registerViewCommand(
 				this.getQualifiedCommand('copy'),
-				() => executeCommand(GlCommand.ViewsCopy, this.activeSelection, this.selection),
+				() => executeCommand<CopyNodeCommandArgs>('gitlens.views.copy', this.activeSelection, this.selection),
 				this,
 			),
 			registerViewCommand(this.getQualifiedCommand('refresh'), () => this.refresh(true), this),
 			registerViewCommand(
 				this.getQualifiedCommand('create'),
 				async () => {
-					await executeCommand(GlCommand.CreateCloudPatch);
+					await executeCommand('gitlens.createCloudPatch');
 					void this.ensureRoot().triggerChange(true);
 				},
 				this,

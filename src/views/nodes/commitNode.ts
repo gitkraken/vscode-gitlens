@@ -2,7 +2,6 @@ import type { CancellationToken, Command } from 'vscode';
 import { MarkdownString, ThemeColor, ThemeIcon, TreeItem, TreeItemCollapsibleState } from 'vscode';
 import type { DiffWithPreviousCommandArgs } from '../../commands/diffWithPrevious';
 import type { Colors } from '../../constants.colors';
-import { GlCommand } from '../../constants.commands';
 import { CommitFormatter } from '../../git/formatters/commitFormatter';
 import type { GitBranch } from '../../git/models/branch';
 import type { GitCommit } from '../../git/models/commit';
@@ -10,6 +9,7 @@ import type { PullRequest } from '../../git/models/pullRequest';
 import type { GitRevisionReference } from '../../git/models/reference';
 import type { GitRemote } from '../../git/models/remote';
 import type { RemoteProvider } from '../../git/remotes/remoteProvider';
+import { createCommand } from '../../system/-webview/command';
 import { configuration } from '../../system/-webview/configuration';
 import { getContext } from '../../system/-webview/context';
 import { makeHierarchical } from '../../system/array';
@@ -197,20 +197,20 @@ export class CommitNode extends ViewRefNode<'commit', ViewsWithCommits | FileHis
 	}
 
 	override getCommand(): Command | undefined {
-		const commandArgs: DiffWithPreviousCommandArgs = {
-			commit: this.commit,
-			uri: this.uri,
-			line: 0,
-			showOptions: {
-				preserveFocus: true,
-				preview: true,
+		return createCommand<[undefined, DiffWithPreviousCommandArgs]>(
+			'gitlens.diffWithPrevious',
+			'Open Changes with Previous Revision',
+			undefined,
+			{
+				commit: this.commit,
+				uri: this.uri,
+				line: 0,
+				showOptions: {
+					preserveFocus: true,
+					preview: true,
+				},
 			},
-		};
-		return {
-			title: 'Open Changes with Previous Revision',
-			command: GlCommand.DiffWithPrevious,
-			arguments: [undefined, commandArgs],
-		};
+		);
 	}
 
 	override refresh(reset?: boolean): void {

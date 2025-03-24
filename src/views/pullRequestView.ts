@@ -1,7 +1,6 @@
 import type { ConfigurationChangeEvent, Disposable } from 'vscode';
 import { TreeItem, TreeItemCollapsibleState } from 'vscode';
 import type { PullRequestViewConfig, ViewFilesLayout } from '../config';
-import { GlCommand } from '../constants.commands';
 import type { Container } from '../container';
 import { unknownGitUri } from '../git/gitUri';
 import type { GitBranch } from '../git/models/branch';
@@ -13,6 +12,7 @@ import { setContext } from '../system/-webview/context';
 import { ViewNode } from './nodes/abstract/viewNode';
 import { PullRequestNode } from './nodes/pullRequestNode';
 import { ViewBase } from './viewBase';
+import type { CopyNodeCommandArgs } from './viewCommands';
 import { registerViewCommand } from './viewCommands';
 
 export class PullRequestViewNode extends ViewNode<'pullrequest', PullRequestView> {
@@ -101,7 +101,7 @@ export class PullRequestView extends ViewBase<'pullRequest', PullRequestViewNode
 		return [
 			registerViewCommand(
 				this.getQualifiedCommand('copy'),
-				() => executeCommand(GlCommand.ViewsCopy, this.activeSelection, this.selection),
+				() => executeCommand<CopyNodeCommandArgs>('gitlens.views.copy', this.activeSelection, this.selection),
 				this,
 			),
 			registerViewCommand(this.getQualifiedCommand('refresh'), () => this.refresh(true), this),

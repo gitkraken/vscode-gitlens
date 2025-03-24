@@ -1,4 +1,3 @@
-import { GlCommand } from '../constants.commands';
 import type { Container } from '../container';
 import { RemoteResourceType } from '../git/models/remoteResource';
 import { showGenericErrorMessage } from '../messages';
@@ -19,7 +18,7 @@ export interface OpenComparisonOnRemoteCommandArgs {
 @command()
 export class OpenComparisonOnRemoteCommand extends GlCommandBase {
 	constructor(private readonly container: Container) {
-		super(['gitlens.openComparisonOnRemote', GlCommand.CopyRemoteComparisonUrl]);
+		super(['gitlens.openComparisonOnRemote', 'gitlens.copyRemoteComparisonUrl']);
 	}
 
 	protected override preExecute(context: CommandContext, args?: OpenComparisonOnRemoteCommandArgs): Promise<void> {
@@ -48,7 +47,7 @@ export class OpenComparisonOnRemoteCommand extends GlCommandBase {
 			}
 		}
 
-		if (context.command === GlCommand.CopyRemoteComparisonUrl) {
+		if (context.command === 'gitlens.copyRemoteComparisonUrl') {
 			args = { ...args, clipboard: true };
 		}
 
@@ -59,7 +58,7 @@ export class OpenComparisonOnRemoteCommand extends GlCommandBase {
 		if (args?.repoPath == null || args.ref1 == null || args.ref2 == null) return;
 
 		try {
-			void (await executeCommand<OpenOnRemoteCommandArgs>(GlCommand.OpenOnRemote, {
+			void (await executeCommand<OpenOnRemoteCommandArgs>('gitlens.openOnRemote', {
 				resource: {
 					type: RemoteResourceType.Comparison,
 					base: args.ref1,

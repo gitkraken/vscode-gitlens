@@ -1,5 +1,4 @@
 import type { TextEditor, Uri } from 'vscode';
-import { GlCommand } from '../constants.commands';
 import type { Container } from '../container';
 import { showDetailsView } from '../git/actions/commit';
 import { GitUri } from '../git/gitUri';
@@ -32,11 +31,11 @@ export class InspectCommand extends ActiveEditorCommand {
 			typeof argsOrSha === 'string'
 				? { ref: createReference(argsOrSha, repoPath!, { refType: 'revision' }), repoPath: repoPath }
 				: argsOrSha;
-		return createMarkdownCommandLink<InspectCommandArgs>(GlCommand.ShowCommitInView, args);
+		return createMarkdownCommandLink<InspectCommandArgs>('gitlens.showCommitInView', args);
 	}
 
 	constructor(private readonly container: Container) {
-		super([GlCommand.ShowCommitInView, GlCommand.ShowInDetailsView, 'gitlens.showLineCommitInView']);
+		super(['gitlens.showCommitInView', 'gitlens.showInDetailsView', 'gitlens.showLineCommitInView']);
 	}
 
 	protected override preExecute(context: CommandContext, args?: InspectCommandArgs): Promise<void> {

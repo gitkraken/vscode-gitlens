@@ -2,7 +2,6 @@ import type { Command, Selection } from 'vscode';
 import { TreeItem, TreeItemCollapsibleState, Uri } from 'vscode';
 import type { DiffWithPreviousCommandArgs } from '../../commands/diffWithPrevious';
 import { Schemes } from '../../constants';
-import { GlCommand } from '../../constants.commands';
 import type { TreeViewRefFileNodeTypes } from '../../constants.views';
 import { StatusFileFormatter } from '../../git/formatters/statusFormatter';
 import { GitUri } from '../../git/gitUri';
@@ -11,6 +10,7 @@ import type { GitCommit } from '../../git/models/commit';
 import type { GitFile } from '../../git/models/file';
 import type { GitRevisionReference } from '../../git/models/reference';
 import { getGitFileStatusIcon } from '../../git/utils/fileStatus.utils';
+import { createCommand } from '../../system/-webview/command';
 import { relativeDir } from '../../system/-webview/path';
 import { joinPaths } from '../../system/path';
 import type { ViewsWithCommits, ViewsWithStashes } from '../viewBase';
@@ -163,20 +163,20 @@ export abstract class CommitFileNodeBase<
 			line = this.options?.selection?.active.line ?? 0;
 		}
 
-		const commandArgs: DiffWithPreviousCommandArgs = {
-			commit: this.commit,
-			uri: GitUri.fromFile(this.file, this.commit.repoPath),
-			line: line,
-			showOptions: {
-				preserveFocus: true,
-				preview: true,
+		return createCommand<[undefined, DiffWithPreviousCommandArgs]>(
+			'gitlens.diffWithPrevious',
+			'Open Changes with Previous Revision',
+			undefined,
+			{
+				commit: this.commit,
+				uri: GitUri.fromFile(this.file, this.commit.repoPath),
+				line: line,
+				showOptions: {
+					preserveFocus: true,
+					preview: true,
+				},
 			},
-		};
-		return {
-			title: 'Open Changes with Previous Revision',
-			command: GlCommand.DiffWithPrevious,
-			arguments: [undefined, commandArgs],
-		};
+		);
 	}
 }
 

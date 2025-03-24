@@ -11,7 +11,7 @@ import type {
 	WebviewCommands,
 	WebviewViewCommands,
 } from '../../constants.commands';
-import { actionCommandPrefix, GlCommand } from '../../constants.commands';
+import { actionCommandPrefix } from '../../constants.commands';
 import { Container } from '../../container';
 import { isWebviewContext } from '../webview';
 
@@ -35,7 +35,7 @@ export function registerCommand(
 		command,
 		function (this: any, ...args) {
 			let context: any;
-			if (command === GlCommand.GitCommands) {
+			if (command === 'gitlens.gitCommands') {
 				const arg = args?.[0];
 				if (arg?.command != null) {
 					context = { mode: args[0].command };
@@ -126,11 +126,14 @@ export function createCommand<T extends unknown[]>(
 	title: string,
 	...args: T
 ): Command {
-	return {
-		command: command,
-		title: title,
-		arguments: args,
-	};
+	return { command: command, title: title, arguments: args };
+}
+
+export function createTerminalLinkCommand<T extends object>(
+	command: GlCommands,
+	args: T,
+): { command: GlCommands; args: T } {
+	return { command: command, args: args };
 }
 
 export function executeCommand<U = any>(command: GlCommands): Thenable<U>;
@@ -141,11 +144,7 @@ export function executeCommand<T extends [...unknown[]] = [], U = any>(command: 
 }
 
 export function createCoreCommand<T extends unknown[]>(command: CoreCommands, title: string, ...args: T): Command {
-	return {
-		command: command,
-		title: title,
-		arguments: args,
-	};
+	return { command: command, title: title, arguments: args };
 }
 
 export function executeCoreCommand<T = unknown, U = any>(command: CoreCommands, arg: T): Thenable<U>;
