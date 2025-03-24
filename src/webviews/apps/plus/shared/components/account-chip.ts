@@ -260,9 +260,12 @@ export class GLAccountChip extends LitElement {
 	private get planId() {
 		return this._state.subscription?.plan.actual.id ?? SubscriptionPlanId.Pro;
 	}
+	private get effectivePlanId() {
+		return this._state.subscription?.plan.effective.id ?? SubscriptionPlanId.Pro;
+	}
 
 	private get planName() {
-		return getSubscriptionStateName(this.subscriptionState, this.planId);
+		return getSubscriptionStateName(this.subscriptionState, this.planId, this.effectivePlanId);
 	}
 
 	private get planTier() {
