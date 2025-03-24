@@ -56,14 +56,18 @@ type SimulateQuickPickItem = QuickPickItemOfT<
 			state: SubscriptionState.ProTrial;
 			reactivatedTrial?: boolean;
 			expiredPaid?: never;
-			planId?: never;
+			planId?: SubscriptionPlanId.Advanced;
 			featurePreviews?: never;
 	  }
 	| {
 			state: SubscriptionState.Paid;
 			reactivatedTrial?: never;
 			expiredPaid?: boolean;
-			planId?: SubscriptionPlanId.Pro | SubscriptionPlanId.Teams | SubscriptionPlanId.Enterprise;
+			planId?:
+				| SubscriptionPlanId.Pro
+				| SubscriptionPlanId.Teams
+				| SubscriptionPlanId.Advanced
+				| SubscriptionPlanId.Enterprise;
 			featurePreviews?: never;
 	  }
 >;
@@ -150,6 +154,22 @@ class AccountDebug {
 					},
 				},
 				{
+					label: 'Pro Trial (Advanced)',
+					description: 'Advanced, account',
+					iconPath: new ThemeIcon('blank'),
+					item: { state: SubscriptionState.ProTrial, planId: SubscriptionPlanId.Advanced },
+				},
+				{
+					label: 'Pro Trial (Advanced Reactivated)',
+					description: 'Advanced, account',
+					iconPath: new ThemeIcon('blank'),
+					item: {
+						state: SubscriptionState.ProTrial,
+						planId: SubscriptionPlanId.Advanced,
+						reactivatedTrial: true,
+					},
+				},
+				{
 					label: 'Pro Trial (Expired)',
 					description: 'Community, account',
 					iconPath: new ThemeIcon('blank'),
@@ -167,6 +187,12 @@ class AccountDebug {
 					description: 'Pro, account',
 					iconPath: new ThemeIcon('blank'),
 					item: { state: SubscriptionState.Paid, planId: SubscriptionPlanId.Pro },
+				},
+				{
+					label: 'Advanced',
+					description: 'Advanced, account',
+					iconPath: new ThemeIcon('blank'),
+					item: { state: SubscriptionState.Paid, planId: SubscriptionPlanId.Advanced },
 				},
 				{
 					label: 'Teams',
@@ -326,7 +352,9 @@ class AccountDebug {
 				? 'gitkraken_v1-hosted-enterprise'
 				: planId === 'teams'
 				  ? 'gitkraken_v1-teams'
-				  : 'gitkraken_v1-pro',
+				  : planId === 'advanced'
+				    ? 'gitkraken_v1-advanced'
+				    : 'gitkraken_v1-pro',
 			{
 				organizationId: activeOrganizationId,
 				trial: { reactivatedTrial: reactivatedTrial },

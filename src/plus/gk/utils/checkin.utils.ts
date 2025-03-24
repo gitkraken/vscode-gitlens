@@ -163,6 +163,11 @@ function convertLicenseTypeToPlanId(licenseType: GKLicenseType): SubscriptionPla
 		case 'gitkraken_v1-teams':
 		case 'gitkraken-v1-teams':
 			return SubscriptionPlanId.Teams;
+		case 'gitlens-advanced':
+		case 'bundle-advanced':
+		case 'gitkraken_v1-advanced':
+		case 'gitkraken-v1-advanced':
+			return SubscriptionPlanId.Advanced;
 		case 'gitlens-hosted-enterprise':
 		case 'gitlens-self-hosted-enterprise':
 		case 'gitlens-standalone-enterprise':
@@ -177,12 +182,13 @@ function convertLicenseTypeToPlanId(licenseType: GKLicenseType): SubscriptionPla
 		case 'gitkraken-v1-standalone-enterprise':
 			return SubscriptionPlanId.Enterprise;
 		default:
-			return SubscriptionPlanId.CommunityWithAccount;
+			return SubscriptionPlanId.Pro;
 	}
 }
 function isBundleLicenseType(licenseType: GKLicenseType): boolean {
 	switch (licenseType) {
 		case 'bundle-pro':
+		case 'bundle-advanced':
 		case 'bundle-teams':
 		case 'bundle-hosted-enterprise':
 		case 'bundle-self-hosted-enterprise':
