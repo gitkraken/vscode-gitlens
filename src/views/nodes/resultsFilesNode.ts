@@ -20,7 +20,7 @@ type State = {
 	filter: FilesQueryFilter | undefined;
 };
 
-export enum FilesQueryFilter {
+export const enum FilesQueryFilter {
 	Left = 0,
 	Right = 1,
 }

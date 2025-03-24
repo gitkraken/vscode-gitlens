@@ -1,6 +1,5 @@
 import { GlyphChars } from '../../constants';
 import type { Container } from '../../container';
-import { Features } from '../../features';
 import type { GitBranchReference, GitReference } from '../../git/models/reference';
 import type { Repository } from '../../git/models/repository';
 import { getRemoteNameFromBranchName } from '../../git/utils/branch.utils';
@@ -158,7 +157,7 @@ export class PushGitCommand extends QuickCommand<State> {
 		const useForceIfIncludes =
 			useForceWithLease &&
 			(configuration.getCore('git.useForcePushIfIncludes') ?? true) &&
-			(await this.container.git.supports(state.repos[0].uri, Features.ForceIfIncludes));
+			(await this.container.git.supports(state.repos[0].uri, 'forceIfIncludes'));
 
 		let step: QuickPickStep<FlagsQuickPickItem<Flags>>;
 

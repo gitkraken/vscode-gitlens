@@ -1,6 +1,5 @@
 import { ThemeIcon, TreeItem, TreeItemCollapsibleState } from 'vscode';
 import { GlyphChars } from '../../constants';
-import { PlusFeatures } from '../../features';
 import type { GitUri } from '../../git/gitUri';
 import type { Repository } from '../../git/models/repository';
 import { sortWorktrees } from '../../git/utils/-webview/sorting';
@@ -39,7 +38,7 @@ export class WorktreesNode extends CacheableChildrenViewNode<'worktrees', ViewsW
 
 	async getChildren(): Promise<ViewNode[]> {
 		if (this.children == null) {
-			const access = await this.repo.access(PlusFeatures.Worktrees);
+			const access = await this.repo.access('worktrees');
 			if (!access.allowed) return [];
 
 			const worktrees = await this.repo.git.worktrees()?.getWorktrees();
@@ -94,7 +93,7 @@ export class WorktreesNode extends CacheableChildrenViewNode<'worktrees', ViewsW
 	}
 
 	async getTreeItem(): Promise<TreeItem> {
-		const access = await this.repo.access(PlusFeatures.Worktrees);
+		const access = await this.repo.access('worktrees');
 
 		const item = new TreeItem(
 			'Worktrees',

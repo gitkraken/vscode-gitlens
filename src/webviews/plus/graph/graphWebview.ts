@@ -24,7 +24,7 @@ import type { Container } from '../../../container';
 import { CancellationError } from '../../../errors';
 import type { CommitSelectedEvent } from '../../../eventBus';
 import type { FeaturePreview } from '../../../features';
-import { getFeaturePreviewStatus, PlusFeatures } from '../../../features';
+import { getFeaturePreviewStatus } from '../../../features';
 import { executeGitCommand } from '../../../git/actions';
 import * as BranchActions from '../../../git/actions/branch';
 import {
@@ -2419,13 +2419,13 @@ export class GraphWebviewProvider implements WebviewProvider<State, State, Graph
 	}
 
 	private async getGraphAccess() {
-		let access = await this.container.git.access(PlusFeatures.Graph, this.repository?.path);
+		let access = await this.container.git.access('graph', this.repository?.path);
 		this._etagSubscription = this.container.subscription.etag;
 
 		// If we don't have access, but the preview trial hasn't been started, auto-start it
 		if (access.allowed === false && access.subscription.current.previewTrial == null) {
 			// await this.container.subscription.startPreviewTrial();
-			access = await this.container.git.access(PlusFeatures.Graph, this.repository?.path);
+			access = await this.container.git.access('graph', this.repository?.path);
 		}
 
 		let visibility = access?.visibility;

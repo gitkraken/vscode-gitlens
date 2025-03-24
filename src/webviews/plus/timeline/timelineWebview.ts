@@ -3,7 +3,6 @@ import { proBadge } from '../../../constants';
 import type { TimelineShownTelemetryContext, TimelineTelemetryContext } from '../../../constants.telemetry';
 import type { Container } from '../../../container';
 import type { CommitSelectedEvent, FileSelectedEvent } from '../../../eventBus';
-import { PlusFeatures } from '../../../features';
 import type { RepositoriesChangeEvent } from '../../../git/gitProviderService';
 import { GitUri } from '../../../git/gitUri';
 import type { RepositoryChangeEvent } from '../../../git/models/repository';
@@ -301,7 +300,7 @@ export class TimelineWebviewProvider implements WebviewProvider<State, State, Ti
 			this.host.description = gitUri?.fileName ?? proBadge;
 		}
 
-		const access = await this.container.git.access(PlusFeatures.Timeline, repoPath);
+		const access = await this.container.git.access('timeline', repoPath);
 		if (access.allowed === false) {
 			return {
 				...this.host.baseWebviewState,

@@ -11,10 +11,7 @@ import type { LocalWorkspace, LocalWorkspaceRepositoryDescriptor } from './local
 export type WorkspaceType = 'cloud' | 'local';
 export type WorkspaceAutoAddSetting = 'disabled' | 'enabled' | 'prompt';
 
-export enum WorkspaceRepositoryRelation {
-	Direct = 'DIRECT',
-	ProviderProject = 'PROVIDER_PROJECT',
-}
+export type WorkspaceRepositoryRelation = 'DIRECT' | 'PROVIDER_PROJECT';
 
 export type CodeWorkspaceFileContents = {
 	folders: { path: string }[];
@@ -55,11 +52,6 @@ export interface LoadLocalWorkspacesResponse {
 export interface GetCloudWorkspaceRepositoriesResponse {
 	repositories: CloudWorkspaceRepositoryDescriptor[] | undefined;
 	repositoriesInfo: string | undefined;
-}
-
-export enum WorkspaceAddRepositoriesChoice {
-	CurrentWindow = 'Current Window',
-	ParentFolder = 'Parent Folder',
 }
 
 export const defaultWorkspaceCount = 100;

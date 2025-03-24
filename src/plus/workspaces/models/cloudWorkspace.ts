@@ -172,7 +172,7 @@ export interface CloudWorkspaceFileData {
 	workspaces: CloudWorkspacesPathMap;
 }
 
-export enum CloudWorkspaceProviderType {
+export const enum CloudWorkspaceProviderType {
 	GitHub = 'github',
 	GitHubEnterprise = 'github_enterprise',
 	GitLab = 'gitlab',
@@ -190,7 +190,7 @@ export const cloudWorkspaceProviderTypeToRemoteProviderId = {
 	[CloudWorkspaceProviderType.GitLabSelfHosted]: 'gitlab',
 };
 
-export enum CloudWorkspaceProviderInputType {
+export const enum CloudWorkspaceProviderInputType {
 	GitHub = 'GITHUB',
 	GitHubEnterprise = 'GITHUB_ENTERPRISE',
 	GitLab = 'GITLAB',

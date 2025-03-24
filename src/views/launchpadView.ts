@@ -5,7 +5,6 @@ import type { LaunchpadViewConfig, ViewFilesLayout } from '../config';
 import { proBadge } from '../constants';
 import type { Container } from '../container';
 import { AuthenticationRequiredError } from '../errors';
-import { PlusFeatures } from '../features';
 import { GitUri, unknownGitUri } from '../git/gitUri';
 import type { PullRequest } from '../git/models/pullRequest';
 import type { SubscriptionChangeEvent } from '../plus/gk/subscriptionService';
@@ -158,7 +157,7 @@ export class LaunchpadViewNode extends CacheableChildrenViewNode<
 		this.view.message = undefined;
 
 		if (this.children == null) {
-			const access = await this.view.container.git.access(PlusFeatures.Launchpad);
+			const access = await this.view.container.git.access('launchpad');
 			if (!access.allowed) return [];
 
 			const children: (GroupingNode | LaunchpadItemNode)[] = [];

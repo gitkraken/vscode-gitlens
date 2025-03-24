@@ -3,7 +3,6 @@ import { ProgressLocation, TreeItem, TreeItemCollapsibleState, window } from 'vs
 import type { ViewBranchesLayout, ViewFilesLayout, WorktreesViewConfig } from '../config';
 import { proBadge } from '../constants';
 import type { Container } from '../container';
-import { PlusFeatures } from '../features';
 import { GitUri } from '../git/gitUri';
 import type { RepositoryChangeEvent } from '../git/models/repository';
 import { RepositoryChange, RepositoryChangeComparisonMode } from '../git/models/repository';
@@ -56,7 +55,7 @@ export class WorktreesViewNode extends RepositoriesSubscribeableNode<WorktreesVi
 		this.view.message = undefined;
 
 		if (this.children == null) {
-			const access = await this.view.container.git.access(PlusFeatures.Worktrees);
+			const access = await this.view.container.git.access('worktrees');
 			if (access.allowed === false) return [];
 
 			if (this.view.container.git.isDiscoveringRepositories) {

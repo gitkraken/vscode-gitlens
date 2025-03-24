@@ -112,20 +112,20 @@ export function isCloudSelfHostedIntegrationId(id: IntegrationId): id is CloudSe
 	return id === SelfHostedIntegrationId.CloudGitHubEnterprise || id === SelfHostedIntegrationId.CloudGitLabSelfHosted;
 }
 
-export enum PullRequestFilter {
+export const enum PullRequestFilter {
 	Author = 'author',
 	Assignee = 'assignee',
 	ReviewRequested = 'review-requested',
 	Mention = 'mention',
 }
 
-export enum IssueFilter {
+export const enum IssueFilter {
 	Author = 'author',
 	Assignee = 'assignee',
 	Mention = 'mention',
 }
 
-export enum PagingMode {
+export const enum PagingMode {
 	Project = 'project',
 	Repo = 'repo',
 	Repos = 'repos',

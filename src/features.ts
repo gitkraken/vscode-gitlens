@@ -4,13 +4,7 @@ import type { RepositoryVisibility } from './git/gitProvider';
 import type { RequiredSubscriptionPlans, Subscription } from './plus/gk/models/subscription';
 import { capitalize } from './system/string';
 
-export const enum Features {
-	Stashes = 'stashes',
-	Timeline = 'timeline',
-	Worktrees = 'worktrees',
-	StashOnlyStaged = 'stashOnlyStaged',
-	ForceIfIncludes = 'forceIfIncludes',
-}
+export type Features = 'stashes' | 'timeline' | 'worktrees' | 'stashOnlyStaged' | 'forceIfIncludes';
 
 export type FeatureAccess =
 	| {
@@ -36,14 +30,7 @@ export type RepoFeatureAccess =
 			visibility?: RepositoryVisibility;
 	  };
 
-export const enum PlusFeatures {
-	Timeline = 'timeline',
-	Worktrees = 'worktrees',
-	Graph = 'graph',
-	Launchpad = 'launchpad',
-	StartWork = 'startWork',
-	AssociateIssueWithBranch = 'associateIssueWithBranch',
-}
+export type PlusFeatures = 'timeline' | 'worktrees' | 'graph' | 'launchpad' | 'startWork' | 'associateIssueWithBranch';
 
 export type FeaturePreviews = 'graph';
 export const featurePreviews: FeaturePreviews[] = ['graph'];

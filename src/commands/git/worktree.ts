@@ -4,7 +4,6 @@ import type { Config } from '../../config';
 import { proBadge, proBadgeSuperscript } from '../../constants';
 import type { Container } from '../../container';
 import { CancellationError } from '../../errors';
-import { PlusFeatures } from '../../features';
 import { executeGitCommand } from '../../git/actions';
 import { convertLocationToOpenFlags, convertOpenFlagsToLocation, reveal } from '../../git/actions/worktree';
 import {
@@ -309,7 +308,7 @@ export class WorktreeGitCommand extends QuickCommand<State> {
 			}
 			assertStateStepRepository(state);
 
-			const result = yield* ensureAccessStep(this.container, state, context, PlusFeatures.Worktrees);
+			const result = yield* ensureAccessStep(this.container, state, context, 'worktrees');
 			if (result === StepResultBreak) continue;
 
 			switch (state.subcommand) {
