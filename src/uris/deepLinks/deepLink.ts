@@ -1,6 +1,5 @@
 import type { Uri } from 'vscode';
 import type { GlCommands } from '../../constants.commands';
-import { GlCommand } from '../../constants.commands';
 import type { GitReference } from '../../git/models/reference';
 import type { GitRemote } from '../../git/models/remote';
 import type { Repository } from '../../git/models/repository';
@@ -35,13 +34,13 @@ export function isDeepLinkCommandType(type: string): type is DeepLinkCommandType
 }
 
 export const DeepLinkCommandTypeToCommand = new Map<DeepLinkCommandType, GlCommands>([
-	[DeepLinkCommandType.CloudPatches, GlCommand.ShowDraftsView],
-	[DeepLinkCommandType.Graph, GlCommand.ShowGraph],
-	[DeepLinkCommandType.Home, GlCommand.ShowHomeView],
-	[DeepLinkCommandType.Inspect, GlCommand.ShowCommitDetailsView],
+	[DeepLinkCommandType.CloudPatches, 'gitlens.showDraftsView'],
+	[DeepLinkCommandType.Graph, 'gitlens.showGraph'],
+	[DeepLinkCommandType.Home, 'gitlens.showHomeView'],
+	[DeepLinkCommandType.Inspect, 'gitlens.showCommitDetailsView'],
 	[DeepLinkCommandType.Launchpad, 'gitlens.showLaunchpad'],
 	[DeepLinkCommandType.Walkthrough, 'gitlens.getStarted'],
-	[DeepLinkCommandType.Worktrees, GlCommand.ShowWorktreesView],
+	[DeepLinkCommandType.Worktrees, 'gitlens.showWorktreesView'],
 ]);
 
 export enum DeepLinkActionType {

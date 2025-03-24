@@ -1,5 +1,4 @@
 import type { TextDocumentShowOptions, TextEditor, Uri } from 'vscode';
-import { GlCommand } from '../constants.commands';
 import type { Container } from '../container';
 import { GitUri } from '../git/gitUri';
 import type { GitCommit } from '../git/models/commit';
@@ -56,7 +55,7 @@ export class DiffWithPreviousCommand extends ActiveEditorCommand {
 		let gitUri;
 		if (args.commit?.file != null) {
 			if (!args.commit.isUncommitted) {
-				void (await executeCommand<DiffWithCommandArgs>(GlCommand.DiffWith, {
+				void (await executeCommand<DiffWithCommandArgs>('gitlens.diffWith', {
 					repoPath: args.commit.repoPath,
 					lhs: {
 						sha: `${args.commit.sha}^`,
@@ -120,7 +119,7 @@ export class DiffWithPreviousCommand extends ActiveEditorCommand {
 				);
 			}
 
-			void (await executeCommand<DiffWithCommandArgs>(GlCommand.DiffWith, {
+			void (await executeCommand<DiffWithCommandArgs>('gitlens.diffWith', {
 				repoPath: diffUris.current.repoPath,
 				lhs: {
 					sha: diffUris.previous.sha ?? '',

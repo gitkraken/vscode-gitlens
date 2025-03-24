@@ -1,7 +1,6 @@
 import type { TextEditor, Uri } from 'vscode';
 import { Range } from 'vscode';
 import { GlyphChars } from '../constants';
-import { GlCommand } from '../constants.commands';
 import type { Container } from '../container';
 import { GitUri } from '../git/gitUri';
 import { RemoteResourceType } from '../git/models/remoteResource';
@@ -205,7 +204,7 @@ export class OpenFileOnRemoteCommand extends ActiveEditorCommand {
 				}
 			}
 
-			void (await executeCommand<OpenOnRemoteCommandArgs>(GlCommand.OpenOnRemote, {
+			void (await executeCommand<OpenOnRemoteCommandArgs>('gitlens.openOnRemote', {
 				resource: {
 					type: sha == null ? RemoteResourceType.File : RemoteResourceType.Revision,
 					branchOrTag: args.branchOrTag ?? 'HEAD',

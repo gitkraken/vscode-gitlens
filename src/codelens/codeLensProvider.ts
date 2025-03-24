@@ -21,7 +21,6 @@ import type { CodeLensConfig, CodeLensLanguageScope } from '../config';
 import { CodeLensCommand } from '../config';
 import { trackableSchemes } from '../constants';
 import type { GlCommands } from '../constants.commands';
-import { GlCommand } from '../constants.commands';
 import type { Container } from '../container';
 import type { GitUri } from '../git/gitUri';
 import type { GitBlame } from '../git/models/blame';
@@ -617,7 +616,7 @@ function applyDiffWithPreviousCommand<T extends GitRecentChangeCodeLens | GitAut
 	commit: GitCommit | undefined,
 ): T {
 	lens.command = createCommand<[undefined, DiffWithPreviousCommandArgs]>(
-		GlCommand.DiffWithPrevious,
+		'gitlens.diffWithPrevious',
 		title,
 		undefined,
 		{
@@ -634,7 +633,7 @@ function applyCopyOrOpenCommitOnRemoteCommand<T extends GitRecentChangeCodeLens 
 	commit: GitCommit,
 	clipboard: boolean = false,
 ): T {
-	lens.command = createCommand<[OpenOnRemoteCommandArgs]>(GlCommand.OpenOnRemote, title, {
+	lens.command = createCommand<[OpenOnRemoteCommandArgs]>('gitlens.openOnRemote', title, {
 		resource: {
 			type: RemoteResourceType.Commit,
 			sha: commit.sha,
@@ -651,7 +650,7 @@ function applyCopyOrOpenFileOnRemoteCommand<T extends GitRecentChangeCodeLens | 
 	commit: GitCommit,
 	clipboard: boolean = false,
 ): T {
-	lens.command = createCommand<[OpenOnRemoteCommandArgs]>(GlCommand.OpenOnRemote, title, {
+	lens.command = createCommand<[OpenOnRemoteCommandArgs]>('gitlens.openOnRemote', title, {
 		resource: {
 			type: RemoteResourceType.Revision,
 			fileName: commit.file?.path ?? '',
@@ -694,7 +693,7 @@ function applyShowCommitsInViewCommand<T extends GitRecentChangeCodeLens | GitAu
 	}
 
 	lens.command = createCommand<[ShowCommitsInViewCommandArgs]>(
-		refs.length === 0 ? ('' as GlCommands) : GlCommand.ShowCommitsInView,
+		refs.length === 0 ? ('' as GlCommands) : 'gitlens.showCommitsInView',
 		title,
 		{
 			repoPath: blame.repoPath,

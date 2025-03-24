@@ -34,7 +34,6 @@ import type { GitPausedOperationStatus } from '../../../git/models/pausedOperati
 import type { PullRequestRefs, PullRequestShape } from '../../../git/models/pullRequest';
 import type {
 	GitBranchReference,
-	GitReference,
 	GitRevisionReference,
 	GitStashReference,
 	GitTagReference,
@@ -524,10 +523,6 @@ export const DidStartFeaturePreviewNotification = new IpcNotification<DidStartFe
 	'featurePreview/didStart',
 );
 
-export interface ShowInCommitGraphCommandArgs {
-	ref: GitReference;
-	preserveFocus?: boolean;
-}
 export type GraphItemContext = WebviewItemContext<GraphItemContextValue>;
 export type GraphItemContextValue = GraphColumnsContextValue | GraphItemTypedContextValue | GraphItemRefContextValue;
 

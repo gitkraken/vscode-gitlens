@@ -1,6 +1,5 @@
 import type { ConfigurationChangeEvent, Disposable } from 'vscode';
 import type { FileHistoryViewConfig } from '../config';
-import { GlCommand } from '../constants.commands';
 import type { Container } from '../container';
 import type { GitUri } from '../git/gitUri';
 import { executeCommand } from '../system/-webview/command';
@@ -9,6 +8,7 @@ import { setContext } from '../system/-webview/context';
 import { FileHistoryTrackerNode } from './nodes/fileHistoryTrackerNode';
 import { LineHistoryTrackerNode } from './nodes/lineHistoryTrackerNode';
 import { ViewBase } from './viewBase';
+import type { CopyNodeCommandArgs } from './viewCommands';
 import { registerViewCommand } from './viewCommands';
 
 const pinnedSuffix = ' (pinned)';
@@ -46,7 +46,7 @@ export class FileHistoryView extends ViewBase<
 		return [
 			registerViewCommand(
 				this.getQualifiedCommand('copy'),
-				() => executeCommand(GlCommand.ViewsCopy, this.activeSelection, this.selection),
+				() => executeCommand<CopyNodeCommandArgs>('gitlens.views.copy', this.activeSelection, this.selection),
 				this,
 			),
 			registerViewCommand(this.getQualifiedCommand('refresh'), () => this.refresh(true), this),

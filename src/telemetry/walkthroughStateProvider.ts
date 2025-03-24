@@ -1,7 +1,6 @@
 import type { Event } from 'vscode';
 import { Disposable, EventEmitter } from 'vscode';
 import type { GlCommands } from '../constants.commands';
-import { GlCommand } from '../constants.commands';
 import { SubscriptionState } from '../constants.subscription';
 import type { TrackedUsageKeys } from '../constants.telemetry';
 import type { Container } from '../container';
@@ -58,11 +57,11 @@ const walkthroughRequiredMapping: Readonly<Map<WalkthroughContextKeys, Walkthrou
 				'graphView:shown',
 				'graphWebview:shown',
 				'commitDetailsView:shown',
-				`command:${GlCommand.ShowGraph}:executed`,
-				`command:${GlCommand.ShowGraphPage}:executed`,
-				`command:${GlCommand.ShowGraphView}:executed`,
-				`command:${GlCommand.ShowInCommitGraph}:executed`,
-				`command:${GlCommand.ShowInCommitGraphView}:executed`,
+				`command:${'gitlens.showGraph' satisfies GlCommands}:executed`,
+				`command:${'gitlens.showGraphPage' satisfies GlCommands}:executed`,
+				`command:${'gitlens.showGraphView' satisfies GlCommands}:executed`,
+				`command:${'gitlens.showInCommitGraph' satisfies GlCommands}:executed`,
+				`command:${'gitlens.showInCommitGraphView' satisfies GlCommands}:executed`,
 			],
 		},
 	],
@@ -75,11 +74,11 @@ const walkthroughRequiredMapping: Readonly<Map<WalkthroughContextKeys, Walkthrou
 				'launchpadView:shown',
 				'worktreesView:shown',
 				`command:${'gitlens.showLaunchpad' satisfies GlCommands}:executed`,
-				`command:${GlCommand.ShowLaunchpadView}:executed`,
-				`command:${GlCommand.GitCommandsWorktree}:executed`,
-				`command:${GlCommand.GitCommandsWorktreeCreate}:executed`,
-				`command:${GlCommand.GitCommandsWorktreeDelete}:executed`,
-				`command:${GlCommand.GitCommandsWorktreeOpen}:executed`,
+				`command:${'gitlens.showLaunchpadView' satisfies GlCommands}:executed`,
+				`command:${'gitlens.gitCommands.worktree' satisfies GlCommands}:executed`,
+				`command:${'gitlens.gitCommands.worktree.create' satisfies GlCommands}:executed`,
+				`command:${'gitlens.gitCommands.worktree.delete' satisfies GlCommands}:executed`,
+				`command:${'gitlens.gitCommands.worktree.open' satisfies GlCommands}:executed`,
 			],
 		},
 	],
@@ -92,9 +91,9 @@ const walkthroughRequiredMapping: Readonly<Map<WalkthroughContextKeys, Walkthrou
 				`patchDetailsView:shown`,
 				`patchDetailsWebview:shown`,
 				`draftsView:shown`,
-				`command:${GlCommand.ShowDraftsView}:executed`,
-				`command:${GlCommand.ShowPatchDetailsPage}:executed`,
-				`command:${GlCommand.CreateCloudPatch}:executed`,
+				`command:${'gitlens.showDraftsView' satisfies GlCommands}:executed`,
+				`command:${'gitlens.showPatchDetailsPage' satisfies GlCommands}:executed`,
+				`command:${'gitlens.createCloudPatch' satisfies GlCommands}:executed`,
 				`command:${'gitlens.createPatch' satisfies GlCommands}:executed`,
 			],
 		},

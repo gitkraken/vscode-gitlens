@@ -1,5 +1,4 @@
 import type { TextEditor, Uri } from 'vscode';
-import { GlCommand } from '../constants.commands';
 import type { Container } from '../container';
 import { GitUri } from '../git/gitUri';
 import { getRepositoryOrShowPicker } from '../quickpicks/repositoryPicker';
@@ -54,6 +53,6 @@ export class OpenAssociatedPullRequestOnRemoteCommand extends ActiveEditorComman
 			}
 		}
 
-		await executeCommand<OpenPullRequestOnRemoteCommandArgs>(GlCommand.OpenPullRequestOnRemote, args);
+		await executeCommand<OpenPullRequestOnRemoteCommandArgs>('gitlens.openPullRequestOnRemote', args);
 	}
 }

@@ -1,5 +1,4 @@
 import { window } from 'vscode';
-import { GlCommand } from '../constants.commands';
 import type { Container } from '../container';
 import { command, executeCoreCommand } from '../system/-webview/command';
 import type { HomeWebviewShowingArgs } from '../webviews/home/registration';
@@ -12,24 +11,24 @@ export class ShowViewCommand extends GlCommandBase {
 	constructor(private readonly container: Container) {
 		super([
 			'gitlens.showAccountView',
-			GlCommand.ShowBranchesView,
-			GlCommand.ShowCommitDetailsView,
-			GlCommand.ShowCommitsView,
-			GlCommand.ShowContributorsView,
-			GlCommand.ShowDraftsView,
-			GlCommand.ShowFileHistoryView,
-			GlCommand.ShowGraphView,
-			GlCommand.ShowHomeView,
-			GlCommand.ShowLaunchpadView,
-			GlCommand.ShowLineHistoryView,
-			GlCommand.ShowRemotesView,
-			GlCommand.ShowRepositoriesView,
-			GlCommand.ShowSearchAndCompareView,
-			GlCommand.ShowStashesView,
-			GlCommand.ShowTagsView,
-			GlCommand.ShowTimelineView,
-			GlCommand.ShowWorktreesView,
-			GlCommand.ShowWorkspacesView,
+			'gitlens.showBranchesView',
+			'gitlens.showCommitDetailsView',
+			'gitlens.showCommitsView',
+			'gitlens.showContributorsView',
+			'gitlens.showDraftsView',
+			'gitlens.showFileHistoryView',
+			'gitlens.showGraphView',
+			'gitlens.showHomeView',
+			'gitlens.showLaunchpadView',
+			'gitlens.showLineHistoryView',
+			'gitlens.showRemotesView',
+			'gitlens.showRepositoriesView',
+			'gitlens.showSearchAndCompareView',
+			'gitlens.showStashesView',
+			'gitlens.showTagsView',
+			'gitlens.showTimelineView',
+			'gitlens.showWorktreesView',
+			'gitlens.showWorkspacesView',
 		]);
 	}
 
@@ -61,43 +60,43 @@ export class ShowViewCommand extends GlCommandBase {
 					undefined,
 					...([{ focusAccount: true }, ...args] as HomeWebviewShowingArgs),
 				);
-			case GlCommand.ShowBranchesView:
+			case 'gitlens.showBranchesView':
 				return this.container.views.showView('branches');
-			case GlCommand.ShowCommitDetailsView:
+			case 'gitlens.showCommitDetailsView':
 				void this.notifyWhenNoRepository('Inspect');
 				return this.container.views.commitDetails.show();
-			case GlCommand.ShowCommitsView:
+			case 'gitlens.showCommitsView':
 				return this.container.views.showView('commits');
-			case GlCommand.ShowContributorsView:
+			case 'gitlens.showContributorsView':
 				return this.container.views.showView('contributors');
-			case GlCommand.ShowDraftsView:
+			case 'gitlens.showDraftsView':
 				return this.container.views.showView('drafts');
-			case GlCommand.ShowFileHistoryView:
+			case 'gitlens.showFileHistoryView':
 				return this.container.views.showView('fileHistory');
-			case GlCommand.ShowGraphView:
+			case 'gitlens.showGraphView':
 				void this.notifyWhenNoRepository('the Commit Graph');
 				return this.container.views.graph.show(undefined, ...(args as GraphWebviewShowingArgs));
-			case GlCommand.ShowHomeView:
+			case 'gitlens.showHomeView':
 				return this.container.views.home.show(undefined, ...(args as HomeWebviewShowingArgs));
-			case GlCommand.ShowLaunchpadView:
+			case 'gitlens.showLaunchpadView':
 				return this.container.views.showView('launchpad');
-			case GlCommand.ShowLineHistoryView:
+			case 'gitlens.showLineHistoryView':
 				return this.container.views.showView('lineHistory');
-			case GlCommand.ShowRemotesView:
+			case 'gitlens.showRemotesView':
 				return this.container.views.showView('remotes');
-			case GlCommand.ShowRepositoriesView:
+			case 'gitlens.showRepositoriesView':
 				return this.container.views.showView('repositories');
-			case GlCommand.ShowSearchAndCompareView:
+			case 'gitlens.showSearchAndCompareView':
 				return this.container.views.showView('searchAndCompare');
-			case GlCommand.ShowStashesView:
+			case 'gitlens.showStashesView':
 				return this.container.views.showView('stashes');
-			case GlCommand.ShowTagsView:
+			case 'gitlens.showTagsView':
 				return this.container.views.showView('tags');
-			case GlCommand.ShowTimelineView:
+			case 'gitlens.showTimelineView':
 				return this.container.views.timeline.show();
-			case GlCommand.ShowWorktreesView:
+			case 'gitlens.showWorktreesView':
 				return this.container.views.showView('worktrees');
-			case GlCommand.ShowWorkspacesView:
+			case 'gitlens.showWorkspacesView':
 				return this.container.views.showView('workspaces');
 		}
 

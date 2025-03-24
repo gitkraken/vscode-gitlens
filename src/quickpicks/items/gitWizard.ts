@@ -4,7 +4,6 @@ import type { GitWizardCommandArgs } from '../../commands/gitWizard';
 import type { StepGenerator } from '../../commands/quickCommand';
 import { getSteps } from '../../commands/quickWizard.utils';
 import { GlyphChars } from '../../constants';
-import { GlCommand } from '../../constants.commands';
 import { Container } from '../../container';
 import { emojify } from '../../emojis';
 import type { GitBranch } from '../../git/models/branch';
@@ -28,7 +27,7 @@ export class GitWizardQuickPickItem extends CommandQuickPickItem<[GitWizardComma
 	constructor(label: string, args: GitWizardCommandArgs);
 	constructor(item: QuickPickItem, args: GitWizardCommandArgs);
 	constructor(labelOrItem: string | QuickPickItem, args: GitWizardCommandArgs) {
-		super(labelOrItem, undefined, GlCommand.GitCommands, [args], { suppressKeyPress: true });
+		super(labelOrItem, undefined, 'gitlens.gitCommands', [args], { suppressKeyPress: true });
 	}
 
 	executeSteps(pickedVia: 'menu' | 'command'): StepGenerator {

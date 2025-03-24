@@ -2,7 +2,6 @@ import type { CancellationToken, ConfigurationChangeEvent, Disposable } from 'vs
 import { ProgressLocation, TreeItem, TreeItemCollapsibleState, window } from 'vscode';
 import type { WorkspacesViewConfig } from '../config';
 import { previewBadge, urls } from '../constants';
-import { GlCommand } from '../constants.commands';
 import type { Container } from '../container';
 import { unknownGitUri } from '../git/gitUri';
 import type { Repository } from '../git/models/repository';
@@ -19,6 +18,7 @@ import { RepositoryNode } from './nodes/repositoryNode';
 import type { WorkspaceMissingRepositoryNode } from './nodes/workspaceMissingRepositoryNode';
 import { WorkspaceNode } from './nodes/workspaceNode';
 import { disposeChildren, ViewBase } from './viewBase';
+import type { CopyNodeCommandArgs } from './viewCommands';
 import { registerViewCommand } from './viewCommands';
 
 export class WorkspacesViewNode extends ViewNode<'workspaces', WorkspacesView> {
@@ -148,7 +148,7 @@ export class WorkspacesView extends ViewBase<'workspaces', WorkspacesViewNode, W
 			registerViewCommand(this.getQualifiedCommand('info'), () => openUrl(urls.workspaces), this),
 			registerViewCommand(
 				this.getQualifiedCommand('copy'),
-				() => executeCommand(GlCommand.ViewsCopy, this.activeSelection, this.selection),
+				() => executeCommand<CopyNodeCommandArgs>('gitlens.views.copy', this.activeSelection, this.selection),
 				this,
 			),
 			registerViewCommand(

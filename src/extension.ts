@@ -9,7 +9,6 @@ import type { CreatePullRequestOnRemoteCommandArgs } from './commands/createPull
 import type { OpenPullRequestOnRemoteCommandArgs } from './commands/openPullRequestOnRemote';
 import { fromOutputLevel } from './config';
 import { trackableSchemes } from './constants';
-import { GlCommand } from './constants.commands';
 import { SyncedStorageKeys } from './constants.storage';
 import { Container } from './container';
 import { isGitUri } from './git/gitUri';
@@ -301,7 +300,7 @@ function registerBuiltInActionRunners(container: Container): void {
 			run: async ctx => {
 				if (ctx.type !== 'createPullRequest') return;
 
-				void (await executeCommand<CreatePullRequestOnRemoteCommandArgs>(GlCommand.CreatePullRequestOnRemote, {
+				void (await executeCommand<CreatePullRequestOnRemoteCommandArgs>('gitlens.createPullRequestOnRemote', {
 					base: undefined,
 					compare: ctx.branch.isRemote
 						? getBranchNameWithoutRemote(ctx.branch.name)
@@ -318,7 +317,7 @@ function registerBuiltInActionRunners(container: Container): void {
 			run: async ctx => {
 				if (ctx.type !== 'openPullRequest') return;
 
-				void (await executeCommand<OpenPullRequestOnRemoteCommandArgs>(GlCommand.OpenPullRequestOnRemote, {
+				void (await executeCommand<OpenPullRequestOnRemoteCommandArgs>('gitlens.openPullRequestOnRemote', {
 					pr: { url: ctx.pullRequest.url },
 				}));
 			},

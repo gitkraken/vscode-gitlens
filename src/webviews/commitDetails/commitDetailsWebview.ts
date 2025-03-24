@@ -67,7 +67,7 @@ import { getSettledValue, pauseOnCancelOrTimeoutMapTuplePromise } from '../../sy
 import type { Serialized } from '../../system/serialize';
 import { serialize } from '../../system/serialize';
 import type { LinesChangeEvent } from '../../trackers/lineTracker';
-import type { ShowInCommitGraphCommandArgs } from '../plus/graph/protocol';
+import type { ShowInCommitGraphCommandArgs } from '../plus/graph/registration';
 import type { Change } from '../plus/patchDetails/protocol';
 import type { IpcCallMessageType, IpcMessage } from '../protocol';
 import { updatePendingContext } from '../webviewController';

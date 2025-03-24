@@ -1,5 +1,4 @@
 import type { TextEditor, Uri } from 'vscode';
-import { GlCommand } from '../constants.commands';
 import type { Container } from '../container';
 import { executeGitCommand } from '../git/actions';
 import { GitUri } from '../git/gitUri';
@@ -19,7 +18,7 @@ export interface ShowQuickBranchHistoryCommandArgs {
 @command()
 export class ShowQuickBranchHistoryCommand extends ActiveEditorCachedCommand {
 	constructor(private readonly container: Container) {
-		super([GlCommand.ShowQuickBranchHistory, 'gitlens.showQuickRepoHistory']);
+		super(['gitlens.showQuickBranchHistory', 'gitlens.showQuickRepoHistory']);
 	}
 
 	protected override preExecute(context: CommandContext, args?: ShowQuickBranchHistoryCommandArgs): Promise<void> {

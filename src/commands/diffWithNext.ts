@@ -1,5 +1,4 @@
 import type { Range, TextDocumentShowOptions, TextEditor, Uri } from 'vscode';
-import { GlCommand } from '../constants.commands';
 import type { Container } from '../container';
 import { GitUri } from '../git/gitUri';
 import type { GitCommit } from '../git/models/commit';
@@ -54,7 +53,7 @@ export class DiffWithNextCommand extends ActiveEditorCommand {
 
 			if (diffUris?.next == null) return;
 
-			void (await executeCommand<DiffWithCommandArgs>(GlCommand.DiffWith, {
+			void (await executeCommand<DiffWithCommandArgs>('gitlens.diffWith', {
 				repoPath: diffUris.current.repoPath,
 				lhs: {
 					sha: diffUris.current.sha ?? '',

@@ -1,4 +1,3 @@
-import { GlCommand } from '../constants.commands';
 import type { SearchQuery } from '../constants.search';
 import type { Container } from '../container';
 import { executeGitCommand } from '../git/actions';
@@ -22,11 +21,11 @@ export interface SearchCommitsCommandArgs {
 @command()
 export class SearchCommitsCommand extends GlCommandBase {
 	constructor(private readonly container: Container) {
-		super(['gitlens.showCommitSearch', GlCommand.SearchCommitsInView]);
+		super(['gitlens.showCommitSearch', 'gitlens.views.searchAndCompare.searchCommits']);
 	}
 
 	protected override preExecute(context: CommandContext, args?: SearchCommitsCommandArgs): Promise<void> {
-		if (context.command === GlCommand.SearchCommitsInView) {
+		if (context.command === 'gitlens.views.searchAndCompare.searchCommits') {
 			args = { ...args };
 			args.showResultsInSideBar = true;
 		} else if (context.type === 'viewItem') {

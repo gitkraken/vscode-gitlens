@@ -2,7 +2,6 @@ import type { CancellationToken, Command } from 'vscode';
 import { MarkdownString, ThemeIcon, TreeItem, TreeItemCollapsibleState } from 'vscode';
 import type { DiffWithCommandArgs } from '../../commands/diffWith';
 import { GlyphChars } from '../../constants';
-import { GlCommand } from '../../constants.commands';
 import { GitUri } from '../../git/gitUri';
 import type { GitCommit } from '../../git/models/commit';
 import type { GitFile } from '../../git/models/file';
@@ -75,7 +74,7 @@ export class MergeConflictIncomingChangesNode extends ViewNode<
 			);
 		}
 
-		return createCommand<[DiffWithCommandArgs]>(GlCommand.DiffWith, 'Open Changes', {
+		return createCommand<[DiffWithCommandArgs]>('gitlens.diffWith', 'Open Changes', {
 			lhs: {
 				sha: this.status.mergeBase,
 				uri: GitUri.fromFile(this.file, this.status.repoPath, undefined, true),

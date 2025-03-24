@@ -1,6 +1,5 @@
 import type { TextEditor, Uri } from 'vscode';
 import { env } from 'vscode';
-import { GlCommand } from '../constants.commands';
 import type { Container } from '../container';
 import { copyMessageToClipboard } from '../git/actions/commit';
 import { GitUri } from '../git/gitUri';
@@ -26,7 +25,7 @@ export interface CopyMessageToClipboardCommandArgs {
 @command()
 export class CopyMessageToClipboardCommand extends ActiveEditorCommand {
 	constructor(private readonly container: Container) {
-		super(GlCommand.CopyMessageToClipboard);
+		super('gitlens.copyMessageToClipboard');
 	}
 
 	protected override async preExecute(

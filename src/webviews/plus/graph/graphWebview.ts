@@ -18,7 +18,6 @@ import type {
 	GraphScrollMarkersAdditionalTypes,
 } from '../../../config';
 import { GlyphChars } from '../../../constants';
-import { GlCommand } from '../../../constants.commands';
 import type { StoredGraphFilters, StoredGraphRefType } from '../../../constants.storage';
 import type { GraphShownTelemetryContext, GraphTelemetryContext, TelemetryEvents } from '../../../constants.telemetry';
 import type { Container } from '../../../container';
@@ -444,7 +443,7 @@ export class GraphWebviewProvider implements WebviewProvider<State, State, Graph
 			}
 
 			if (this.repository == null && this.container.git.repositoryCount > 1) {
-				const [context] = parseCommandContext(GlCommand.ShowGraph, undefined, ...args);
+				const [context] = parseCommandContext('gitlens.showGraph', undefined, ...args);
 
 				if (context.type === 'scm' && context.scm.rootUri != null) {
 					this.repository = this.container.git.getRepository(context.scm.rootUri);
@@ -481,7 +480,7 @@ export class GraphWebviewProvider implements WebviewProvider<State, State, Graph
 					`${this.host.id}.openInTab`,
 					() =>
 						void executeCommand<WebviewPanelShowCommandArgs>(
-							GlCommand.ShowGraphPage,
+							'gitlens.showGraphPage',
 							undefined,
 							this.repository,
 						),
@@ -3125,7 +3124,7 @@ export class GraphWebviewProvider implements WebviewProvider<State, State, Graph
 				remote = getRemoteNameFromBranchName(ref.upstream.name);
 			}
 
-			return executeCommand<OpenOnRemoteCommandArgs>(GlCommand.OpenOnRemote, {
+			return executeCommand<OpenOnRemoteCommandArgs>('gitlens.openOnRemote', {
 				repoPath: ref.repoPath,
 				resource: {
 					type: RemoteResourceType.Branch,
@@ -3235,7 +3234,7 @@ export class GraphWebviewProvider implements WebviewProvider<State, State, Graph
 		const ref = this.getGraphItemRef(item);
 		if (ref == null) return Promise.resolve();
 
-		return executeCommand<CopyMessageToClipboardCommandArgs>(GlCommand.CopyMessageToClipboard, {
+		return executeCommand<CopyMessageToClipboardCommandArgs>('gitlens.copyMessageToClipboard', {
 			repoPath: ref.repoPath,
 			sha: ref.ref,
 			message: 'message' in ref ? ref.message : undefined,
@@ -3252,7 +3251,7 @@ export class GraphWebviewProvider implements WebviewProvider<State, State, Graph
 			sha = await this.container.git.refs(ref.repoPath).resolveReference(sha, undefined, { force: true });
 		}
 
-		return executeCommand<CopyShaToClipboardCommandArgs, void>(GlCommand.CopyShaToClipboard, {
+		return executeCommand<CopyShaToClipboardCommandArgs, void>('gitlens.copyShaToClipboard', {
 			sha: sha,
 		});
 	}
@@ -3266,7 +3265,7 @@ export class GraphWebviewProvider implements WebviewProvider<State, State, Graph
 			return void showGraphDetailsView(ref, { preserveFocus: true, preserveVisibility: false });
 		}
 
-		return executeCommand<InspectCommandArgs>(GlCommand.ShowInDetailsView, { ref: ref });
+		return executeCommand<InspectCommandArgs>('gitlens.showInDetailsView', { ref: ref });
 	}
 
 	@log()
@@ -3289,7 +3288,7 @@ export class GraphWebviewProvider implements WebviewProvider<State, State, Graph
 		const { selection } = this.getGraphItemRefs(item, 'revision');
 		if (selection == null) return Promise.resolve();
 
-		return executeCommand<OpenOnRemoteCommandArgs>(GlCommand.OpenOnRemote, {
+		return executeCommand<OpenOnRemoteCommandArgs>('gitlens.openOnRemote', {
 			repoPath: selection[0].repoPath,
 			resource: selection.map(r => ({ type: RemoteResourceType.Commit, sha: r.ref })),
 			clipboard: clipboard,
@@ -3418,7 +3417,7 @@ export class GraphWebviewProvider implements WebviewProvider<State, State, Graph
 		if (ref == null) return Promise.resolve();
 
 		const { summary: title, body: description } = splitCommitMessage(ref.message);
-		return executeCommand<CreatePatchCommandArgs, void>(GlCommand.CreateCloudPatch, {
+		return executeCommand<CreatePatchCommandArgs, void>('gitlens.createCloudPatch', {
 			to: ref.ref,
 			repoPath: ref.repoPath,
 			title: title,
@@ -3684,7 +3683,7 @@ export class GraphWebviewProvider implements WebviewProvider<State, State, Graph
 	private openPullRequestOnRemote(item?: GraphItemContext, clipboard?: boolean) {
 		if (isGraphItemTypedContext(item, 'pullrequest')) {
 			const { url } = item.webviewItemValue;
-			return executeCommand<OpenPullRequestOnRemoteCommandArgs>(GlCommand.OpenPullRequestOnRemote, {
+			return executeCommand<OpenPullRequestOnRemoteCommandArgs>('gitlens.openPullRequestOnRemote', {
 				pr: { url: url },
 				clipboard: clipboard,
 			});

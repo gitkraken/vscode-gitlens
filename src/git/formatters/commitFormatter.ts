@@ -16,7 +16,7 @@ import type { ShowQuickCommitCommandArgs } from '../../commands/showQuickCommit'
 import { ShowQuickCommitFileCommand } from '../../commands/showQuickCommitFile';
 import type { DateStyle } from '../../config';
 import { GlyphChars } from '../../constants';
-import { actionCommandPrefix, GlCommand } from '../../constants.commands';
+import { actionCommandPrefix } from '../../constants.commands';
 import { Container } from '../../container';
 import { emojify } from '../../emojis';
 import { arePlusFeaturesEnabled } from '../../plus/gk/utils/-webview/plus.utils';
@@ -28,7 +28,7 @@ import { isPromise } from '../../system/promise';
 import type { TokenOptions } from '../../system/string';
 import { encodeHtmlWeak, getSuperscript } from '../../system/string';
 import type { ContactPresence } from '../../vsls/vsls';
-import type { ShowInCommitGraphCommandArgs } from '../../webviews/plus/graph/protocol';
+import type { ShowInCommitGraphCommandArgs } from '../../webviews/plus/graph/registration';
 import type { PreviousLineComparisonUrisResult } from '../gitProvider';
 import type { GitCommit } from '../models/commit';
 import { isCommit, isStash } from '../models/commit';
@@ -478,7 +478,7 @@ export class CommitFormatter extends Formatter<GitCommit, CommitFormatOptions> {
 		}
 
 		commands += ` &nbsp;[$(search)](${createMarkdownCommandLink<ShowQuickCommitCommandArgs>(
-			GlCommand.RevealCommitInView,
+			'gitlens.revealCommitInView',
 			{
 				repoPath: this._item.repoPath,
 				sha: this._item.sha,
@@ -488,7 +488,7 @@ export class CommitFormatter extends Formatter<GitCommit, CommitFormatOptions> {
 
 		if (arePlusFeaturesEnabled()) {
 			commands += ` &nbsp;[$(gitlens-graph)](${createMarkdownCommandLink<ShowInCommitGraphCommandArgs>(
-				GlCommand.ShowInCommitGraph,
+				'gitlens.showInCommitGraph',
 				// Avoid including the message here, it just bloats the command url
 				{ ref: getReferenceFromRevision(this._item, { excludeMessage: true }) },
 			)} "Open in Commit Graph")`;

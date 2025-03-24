@@ -4,7 +4,6 @@ import type { ToggleFileChangesAnnotationCommandArgs } from '../commands/toggleF
 import { StatusBarCommand } from '../config';
 import { GlyphChars } from '../constants';
 import type { GlCommands } from '../constants.commands';
-import { GlCommand } from '../constants.commands';
 import type { Container } from '../container';
 import { CommitFormatter } from '../git/formatters/commitFormatter';
 import type { PullRequest } from '../git/models/pullRequest';
@@ -263,11 +262,11 @@ export class StatusBarController implements Disposable {
 				actionTooltip = 'Click to Copy Remote File Revision URL';
 				break;
 			case StatusBarCommand.DiffWithPrevious:
-				this._statusBarBlame.command = GlCommand.DiffLineWithPrevious;
+				this._statusBarBlame.command = 'gitlens.diffLineWithPrevious' satisfies GlCommands;
 				actionTooltip = 'Click to Open Line Changes with Previous Revision';
 				break;
 			case StatusBarCommand.DiffWithWorking:
-				this._statusBarBlame.command = GlCommand.DiffLineWithWorking;
+				this._statusBarBlame.command = 'gitlens.diffLineWithWorking' satisfies GlCommands;
 				actionTooltip = 'Click to Open Line Changes with Working File';
 				break;
 			case StatusBarCommand.OpenCommitOnRemote:

@@ -1,4 +1,3 @@
-import { GlCommand } from '../constants.commands';
 import type { Container } from '../container';
 import type { GitCommit } from '../git/models/commit';
 import type { GitRemote } from '../git/models/remote';
@@ -33,11 +32,11 @@ export class ConnectRemoteProviderCommand extends GlCommandBase {
 			args = argsOrRemote;
 		}
 
-		return createMarkdownCommandLink<ConnectRemoteProviderCommandArgs>(GlCommand.ConnectRemoteProvider, args);
+		return createMarkdownCommandLink<ConnectRemoteProviderCommandArgs>('gitlens.connectRemoteProvider', args);
 	}
 
 	constructor(private readonly container: Container) {
-		super(GlCommand.ConnectRemoteProvider);
+		super('gitlens.connectRemoteProvider');
 	}
 
 	protected override preExecute(context: CommandContext, args?: ConnectRemoteProviderCommandArgs): Promise<any> {
@@ -128,11 +127,11 @@ export class DisconnectRemoteProviderCommand extends GlCommandBase {
 			args = argsOrRemote;
 		}
 
-		return createMarkdownCommandLink<DisconnectRemoteProviderCommandArgs>(GlCommand.DisconnectRemoteProvider, args);
+		return createMarkdownCommandLink<DisconnectRemoteProviderCommandArgs>('gitlens.disconnectRemoteProvider', args);
 	}
 
 	constructor(private readonly container: Container) {
-		super(GlCommand.DisconnectRemoteProvider);
+		super('gitlens.disconnectRemoteProvider');
 	}
 
 	protected override preExecute(context: CommandContext, args?: DisconnectRemoteProviderCommandArgs): Promise<void> {

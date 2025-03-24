@@ -1,11 +1,11 @@
 import type { Command } from 'vscode';
 import { TreeItem, TreeItemCollapsibleState } from 'vscode';
 import type { DiffWithPreviousCommandArgs } from '../../commands/diffWithPrevious';
-import { GlCommand } from '../../constants.commands';
 import { StatusFileFormatter } from '../../git/formatters/statusFormatter';
 import { GitUri } from '../../git/gitUri';
 import type { GitFile } from '../../git/models/file';
 import { getGitFileStatusIcon } from '../../git/utils/fileStatus.utils';
+import { createCommand } from '../../system/-webview/command';
 import { dirname, joinPaths } from '../../system/path';
 import type { ViewsWithCommits } from '../viewBase';
 import { getFileTooltipMarkdown, ViewFileNode } from './abstract/viewFileNode';
@@ -100,18 +100,18 @@ export class UncommittedFileNode extends ViewFileNode<'uncommitted-file', ViewsW
 	}
 
 	override getCommand(): Command | undefined {
-		const commandArgs: DiffWithPreviousCommandArgs = {
-			uri: GitUri.fromFile(this.file, this.repoPath),
-			line: 0,
-			showOptions: {
-				preserveFocus: true,
-				preview: true,
+		return createCommand<[undefined, DiffWithPreviousCommandArgs]>(
+			'gitlens.diffWithPrevious',
+			'Open Changes with Previous Revision',
+			undefined,
+			{
+				uri: GitUri.fromFile(this.file, this.repoPath),
+				line: 0,
+				showOptions: {
+					preserveFocus: true,
+					preview: true,
+				},
 			},
-		};
-		return {
-			title: 'Open Changes with Previous Revision',
-			command: GlCommand.DiffWithPrevious,
-			arguments: [undefined, commandArgs],
-		};
+		);
 	}
 }

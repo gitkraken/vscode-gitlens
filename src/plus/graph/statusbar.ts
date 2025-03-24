@@ -1,6 +1,6 @@
 import type { ConfigurationChangeEvent, StatusBarItem } from 'vscode';
 import { Disposable, MarkdownString, StatusBarAlignment, window } from 'vscode';
-import { GlCommand } from '../../constants.commands';
+import type { GlCommands } from '../../constants.commands';
 import type { Container } from '../../container';
 import { configuration } from '../../system/-webview/configuration';
 import { getContext, onDidChangeContext } from '../../system/-webview/context';
@@ -46,7 +46,7 @@ export class GraphStatusBarController implements Disposable {
 			if (this._statusBarItem == null) {
 				this._statusBarItem = window.createStatusBarItem('gitlens.graph', StatusBarAlignment.Left, 10000 - 2);
 				this._statusBarItem.name = 'GitLens Commit Graph';
-				this._statusBarItem.command = GlCommand.ShowGraph;
+				this._statusBarItem.command = 'gitlens.showGraph' satisfies GlCommands;
 				this._statusBarItem.text = '$(gitlens-graph)';
 				this._statusBarItem.tooltip = new MarkdownString('Visualize commits on the Commit Graph');
 				this._statusBarItem.accessibilityInformation = {

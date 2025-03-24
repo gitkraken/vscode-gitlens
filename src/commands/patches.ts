@@ -4,7 +4,6 @@ import { env, Uri, window, workspace } from 'vscode';
 import type { ScmResource } from '../@types/vscode.git.resources';
 import { ScmResourceGroupType, ScmStatus } from '../@types/vscode.git.resources.enums';
 import type { GlCommands } from '../constants.commands';
-import { GlCommand } from '../constants.commands';
 import type { IntegrationId } from '../constants.integrations';
 import type { Container } from '../container';
 import { CancellationError } from '../errors';
@@ -265,7 +264,7 @@ export class ApplyPatchFromClipboardCommand extends GlCommandBase {
 @command()
 export class CreateCloudPatchCommand extends CreatePatchCommandBase {
 	constructor(container: Container) {
-		super(container, [GlCommand.CreateCloudPatch, 'gitlens.shareAsCloudPatch']);
+		super(container, ['gitlens.createCloudPatch', 'gitlens.shareAsCloudPatch']);
 	}
 
 	async execute(args?: CreatePatchCommandArgs): Promise<void> {
@@ -325,18 +324,26 @@ export class OpenPatchCommand extends ActiveEditorCommand {
 	}
 }
 
-export interface OpenCloudPatchCommandArgs {
-	type: 'patch' | 'code_suggestion';
-	id: string;
-	patchId?: string;
-	draft?: Draft;
-	prEntityId?: string;
-}
+export type OpenCloudPatchCommandArgs =
+	| {
+			type: 'patch' | 'code_suggestion';
+			id: string;
+			draft?: Draft;
+			patchId?: string;
+			prEntityId?: string;
+	  }
+	| {
+			type: 'patch' | 'code_suggestion';
+			id?: string;
+			draft: Draft;
+			patchId?: string;
+			prEntityId?: string;
+	  };
 
 @command()
 export class OpenCloudPatchCommand extends GlCommandBase {
 	constructor(private readonly container: Container) {
-		super(GlCommand.OpenCloudPatch);
+		super('gitlens.openCloudPatch');
 	}
 
 	async execute(args?: OpenCloudPatchCommandArgs): Promise<void> {
@@ -347,7 +354,7 @@ export class OpenCloudPatchCommand extends GlCommandBase {
 		}
 
 		let providerAuth: ProviderAuth | undefined;
-		if (args?.prEntityId != null && args?.type === 'code_suggestion') {
+		if (args.prEntityId != null && args.type === 'code_suggestion') {
 			let providerId: IntegrationId | undefined;
 			let providerDomain: string | undefined;
 			try {
@@ -381,7 +388,7 @@ export class OpenCloudPatchCommand extends GlCommandBase {
 
 		try {
 			const draft =
-				args?.draft ?? (await this.container.drafts.getDraft(args?.id, { providerAuth: providerAuth }));
+				args.draft ?? (await this.container.drafts.getDraft(args.id!, { providerAuth: providerAuth }));
 			void showPatchesView({ mode: 'view', draft: draft });
 		} catch (ex) {
 			Logger.error(ex, 'OpenCloudPatchCommand');

@@ -6,7 +6,6 @@ import { getAvatarUriFromGravatarEmail } from '../../avatars';
 import type { BranchGitCommandArgs } from '../../commands/git/branch';
 import type { OpenPullRequestOnRemoteCommandArgs } from '../../commands/openPullRequestOnRemote';
 import { GlyphChars, urls } from '../../constants';
-import { GlCommand } from '../../constants.commands';
 import type { ContextKeys } from '../../constants.context';
 import {
 	isSupportedCloudIntegrationId,
@@ -67,7 +66,7 @@ import { getSettledValue } from '../../system/promise';
 import { SubscriptionManager } from '../../system/subscriptionManager';
 import type { UriTypes } from '../../uris/deepLinks/deepLink';
 import { DeepLinkServiceState, DeepLinkType } from '../../uris/deepLinks/deepLink';
-import type { ShowInCommitGraphCommandArgs } from '../plus/graph/protocol';
+import type { ShowInCommitGraphCommandArgs } from '../plus/graph/registration';
 import type { Change } from '../plus/patchDetails/protocol';
 import type { IpcMessage } from '../protocol';
 import type { WebviewHost, WebviewProvider, WebviewShowingArgs } from '../webviewProvider';
@@ -446,27 +445,27 @@ export class HomeWebviewProvider implements WebviewProvider<State, State, HomeWe
 	private openInGraph(params: OpenInGraphParams) {
 		const repoInfo = params != null ? this._repositoryBranches.get(params.repoPath) : undefined;
 		if (repoInfo == null) {
-			void executeCommand(GlCommand.ShowGraph, this.getSelectedRepository());
+			void executeCommand('gitlens.showGraph', this.getSelectedRepository());
 			return;
 		}
 
 		if (params!.type === 'branch') {
 			const branch = repoInfo.branches.find(b => b.id === params!.branchId);
 			if (branch != null) {
-				void executeCommand<ShowInCommitGraphCommandArgs>(GlCommand.ShowInCommitGraph, {
+				void executeCommand<ShowInCommitGraphCommandArgs>('gitlens.showInCommitGraph', {
 					ref: getReferenceFromBranch(branch),
 				});
 				return;
 			}
 		}
 
-		void executeCommand(GlCommand.ShowGraph, repoInfo.repo);
+		void executeCommand('gitlens.showGraph', repoInfo.repo);
 	}
 
 	@log()
 	private createBranch() {
 		this.container.telemetry.sendEvent('home/createBranch');
-		void executeCommand<BranchGitCommandArgs>(GlCommand.GitCommands, {
+		void executeCommand<BranchGitCommandArgs>('gitlens.gitCommands', {
 			command: 'branch',
 			state: {
 				subcommand: 'create',
@@ -1324,7 +1323,7 @@ export class HomeWebviewProvider implements WebviewProvider<State, State, HomeWe
 			return;
 		}
 
-		void executeCommand<OpenPullRequestOnRemoteCommandArgs>(GlCommand.OpenPullRequestOnRemote, {
+		void executeCommand<OpenPullRequestOnRemoteCommandArgs>('gitlens.openPullRequestOnRemote', {
 			pr: { url: pr.url },
 			clipboard: clipboard,
 		});

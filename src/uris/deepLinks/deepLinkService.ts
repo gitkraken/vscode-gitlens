@@ -1,6 +1,6 @@
 import type { QuickPickItem } from 'vscode';
 import { Disposable, env, EventEmitter, ProgressLocation, Range, Uri, window, workspace } from 'vscode';
-import { GlCommand } from '../../constants.commands';
+import type { OpenCloudPatchCommandArgs } from '../../commands/patches';
 import type { StoredDeepLinkContext, StoredNamedRef } from '../../constants.storage';
 import type { Container } from '../../container';
 import { executeGitCommand } from '../../git/actions';
@@ -31,7 +31,7 @@ import { maybeUri, normalizePath } from '../../system/path';
 import { fromBase64 } from '../../system/string';
 import { showInspectView } from '../../webviews/commitDetails/actions';
 import type { ShowWipArgs } from '../../webviews/commitDetails/protocol';
-import type { ShowInCommitGraphCommandArgs } from '../../webviews/plus/graph/protocol';
+import type { ShowInCommitGraphCommandArgs } from '../../webviews/plus/graph/registration';
 import type { DeepLink, DeepLinkProgress, DeepLinkRepoOpenType, DeepLinkServiceContext, UriTypes } from './deepLink';
 import {
 	AccountDeepLinkTypes,
@@ -1135,7 +1135,7 @@ export class DeepLinkService implements Disposable {
 					}
 
 					if (targetType === DeepLinkType.Repository) {
-						void (await executeCommand(GlCommand.ShowInCommitGraph, repo));
+						void (await executeCommand<ShowInCommitGraphCommandArgs>('gitlens.showInCommitGraph', repo));
 						action = DeepLinkServiceAction.DeepLinkResolved;
 						break;
 					}
@@ -1146,7 +1146,7 @@ export class DeepLinkService implements Disposable {
 						break;
 					}
 
-					void (await executeCommand<ShowInCommitGraphCommandArgs>(GlCommand.ShowInCommitGraph, {
+					void (await executeCommand<ShowInCommitGraphCommandArgs>('gitlens.showInCommitGraph', {
 						ref: createReference(targetSha, repo.path),
 					}));
 
@@ -1189,12 +1189,12 @@ export class DeepLinkService implements Disposable {
 					}
 
 					const type = this._context.params?.get('type');
-					let prEntityId = this._context.params?.get('prEntityId');
+					let prEntityId = this._context.params?.get('prEntityId') ?? undefined;
 					if (prEntityId != null) {
 						prEntityId = fromBase64(prEntityId).toString();
 					}
 
-					void (await executeCommand(GlCommand.OpenCloudPatch, {
+					void (await executeCommand<OpenCloudPatchCommandArgs>('gitlens.openCloudPatch', {
 						type: type === 'suggested_pr_change' ? 'code_suggestion' : 'patch',
 						id: targetId,
 						patchId: secondaryTargetId,

@@ -2,7 +2,6 @@ import type { CancellationToken, ConfigurationChangeEvent } from 'vscode';
 import { Disposable, ProgressLocation, ThemeIcon, TreeItem, TreeItemCollapsibleState, window } from 'vscode';
 import type { CommitsViewConfig, ViewFilesLayout } from '../config';
 import { GlyphChars } from '../constants';
-import { GlCommand } from '../constants.commands';
 import type { Container } from '../container';
 import { GitUri } from '../git/gitUri';
 import type { GitCommit } from '../git/models/commit';
@@ -30,6 +29,7 @@ import { BranchNode } from './nodes/branchNode';
 import { BranchTrackingStatusNode } from './nodes/branchTrackingStatusNode';
 import { CommandMessageNode } from './nodes/common';
 import { ViewBase } from './viewBase';
+import type { CopyNodeCommandArgs } from './viewCommands';
 import { registerViewCommand } from './viewCommands';
 
 export class CommitsRepositoryNode extends RepositoryFolderNode<CommitsView, BranchNode> {
@@ -163,7 +163,7 @@ export class CommitsViewNode extends RepositoriesSubscribeableNode<CommitsView, 
 				new CommandMessageNode(
 					this.view,
 					this,
-					createCommand(GlCommand.ShowGraph, 'Show Commit Graph'),
+					createCommand('gitlens.showGraph', 'Show Commit Graph'),
 					'Visualize commits on the Commit Graph',
 					undefined,
 					'Visualize commits on the Commit Graph',
@@ -250,7 +250,7 @@ export class CommitsView extends ViewBase<'commits', CommitsViewNode, CommitsVie
 		return [
 			registerViewCommand(
 				this.getQualifiedCommand('copy'),
-				() => executeCommand(GlCommand.ViewsCopy, this.activeSelection, this.selection),
+				() => executeCommand<CopyNodeCommandArgs>('gitlens.views.copy', this.activeSelection, this.selection),
 				this,
 			),
 			registerViewCommand(

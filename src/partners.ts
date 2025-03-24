@@ -2,7 +2,6 @@ import type { CancellationTokenSource, Extension, ExtensionContext, Uri } from '
 import { extensions } from 'vscode';
 import type { ActionContext, HoverCommandsActionContext } from './api/gitlens';
 import type { InviteToLiveShareCommandArgs } from './commands/inviteToLiveShare';
-import { GlCommand } from './constants.commands';
 import { Container } from './container';
 import { executeCommand, executeCoreCommand } from './system/-webview/command';
 import type { ContactPresence } from './vsls/vsls';
@@ -76,12 +75,12 @@ function registerLiveShare(context: ExtensionContext) {
 				},
 				run: async (context: ActionContext) => {
 					if (context.type !== 'hover.commands' || context.commit.author.name === 'You') {
-						await executeCommand<InviteToLiveShareCommandArgs>(GlCommand.InviteToLiveShare, {});
+						await executeCommand<InviteToLiveShareCommandArgs>('gitlens.inviteToLiveShare', {});
 
 						return;
 					}
 
-					await executeCommand<InviteToLiveShareCommandArgs>(GlCommand.InviteToLiveShare, {
+					await executeCommand<InviteToLiveShareCommandArgs>('gitlens.inviteToLiveShare', {
 						email: context.commit.author.email,
 					});
 				},

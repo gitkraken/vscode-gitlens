@@ -4,7 +4,6 @@ import type { OpenOnRemoteCommandArgs } from '../commands/openOnRemote';
 import { SetRemoteAsDefaultQuickInputButton } from '../commands/quickCommand.buttons';
 import type { Keys } from '../constants';
 import { GlyphChars } from '../constants';
-import { GlCommand } from '../constants.commands';
 import { Container } from '../container';
 import type { GitRemote } from '../git/models/remote';
 import type { RemoteResource } from '../git/models/remoteResource';
@@ -118,7 +117,7 @@ export class CopyRemoteResourceCommandQuickPickItem extends CommandQuickPickItem
 		const label = `Copy Link to ${getNameFromRemoteResource(resource)} for ${
 			providers?.length ? providers[0].name : 'Remote'
 		}${providers?.length === 1 ? '' : GlyphChars.Ellipsis}`;
-		super(label, new ThemeIcon('copy'), GlCommand.OpenOnRemote, [commandArgs]);
+		super(label, new ThemeIcon('copy'), 'gitlens.openOnRemote', [commandArgs]);
 	}
 
 	override async onDidPressKey(key: Keys): Promise<void> {
@@ -142,7 +141,7 @@ export class OpenRemoteResourceCommandQuickPickItem extends CommandQuickPickItem
 					: `${providers?.length ? providers[0].name : 'Remote'}${GlyphChars.Ellipsis}`
 			}`,
 			new ThemeIcon('link-external'),
-			GlCommand.OpenOnRemote,
+			'gitlens.openOnRemote',
 			[commandArgs],
 		);
 	}
