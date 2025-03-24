@@ -207,17 +207,14 @@ function getExtensionConfig(target, mode, env) {
 							keep_classnames: true,
 							module: true,
 						},
-						ecma: 2020,
 						format: {
 							comments: false,
 							ecma: 2020,
 						},
-						// Keep the class names otherwise @log won't provide a useful name
-						keep_classnames: true,
 						mangle: {
+							// Keep the class names otherwise @log won't provide a useful name
 							keep_classnames: true,
 						},
-						module: true,
 					},
 				}),
 			],
@@ -534,17 +531,14 @@ function getWebviewConfig(webviews, overrides, mode, env) {
 										keep_classnames: true,
 										module: true,
 									},
-									ecma: 2020,
 									format: {
 										comments: false,
 										ecma: 2020,
 									},
-									// Keep the class names otherwise @log won't provide a useful name
-									keep_classnames: true,
 									mangle: {
+										// Keep the class names otherwise @log won't provide a useful name
 										keep_classnames: true,
 									},
-									module: true,
 								},
 							}),
 							new ImageMinimizerPlugin({
