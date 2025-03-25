@@ -84,6 +84,13 @@ export class GitCache implements Disposable {
 			: undefined;
 	}
 
+	private _defaultBranchNameCache: Map<RepoPath, Map<string, Promise<string | undefined>>> | undefined;
+	get defaultBranchName(): Map<RepoPath, Map<string, Promise<string | undefined>>> | undefined {
+		return this.useCaching
+			? (this._defaultBranchNameCache ??= new Map<RepoPath, Map<string, Promise<string | undefined>>>())
+			: undefined;
+	}
+
 	private _pausedOperationStatusCache: Map<RepoPath, Promise<GitPausedOperationStatus | undefined>> | undefined;
 	get pausedOperationStatus(): Map<RepoPath, Promise<GitPausedOperationStatus | undefined>> | undefined {
 		return this.useCaching
@@ -128,6 +135,7 @@ export class GitCache implements Disposable {
 		if (!types.length || types.includes('branches')) {
 			cachesToClear.add(this._branchCache);
 			cachesToClear.add(this._branchesCache);
+			cachesToClear.add(this._defaultBranchNameCache);
 		}
 
 		if (!types.length || types.includes('contributors')) {
@@ -137,6 +145,7 @@ export class GitCache implements Disposable {
 		if (!types.length || types.includes('remotes')) {
 			cachesToClear.add(this._remotesCache);
 			cachesToClear.add(this._bestRemotesCache);
+			cachesToClear.add(this._defaultBranchNameCache);
 		}
 
 		if (!types.length || types.includes('providers')) {
