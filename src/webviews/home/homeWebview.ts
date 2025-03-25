@@ -664,6 +664,7 @@ export class HomeWebviewProvider implements WebviewProvider<State, State, HomeWe
 	private getOrgSettings(): State['orgSettings'] {
 		return {
 			drafts: getContext('gitlens:gk:organization:drafts:enabled', false),
+			ai: getContext('gitlens:gk:organization:ai:enabled', true),
 		};
 	}
 
