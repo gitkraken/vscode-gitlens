@@ -375,25 +375,25 @@ export class BranchesGitSubProvider implements GitBranchesSubProvider {
 	async getDefaultBranchName(repoPath: string | undefined, remote?: string): Promise<string | undefined> {
 		if (repoPath == null) return undefined;
 
-		if (remote) {
-			try {
-				const data = await this.git.exec({ cwd: repoPath }, 'ls-remote', '--symref', remote, 'HEAD');
-				if (data == null) return undefined;
+		remote ??= 'origin';
 
-				const match = /ref:\s(\S+)\s+HEAD/m.exec(data);
-				if (match == null) return undefined;
+		const cacheByRemote = this.cache.defaultBranchName?.get(repoPath);
+		let promise = cacheByRemote?.get(remote);
+		if (promise == null) {
+			async function load(this: BranchesGitSubProvider): Promise<string | undefined> {
+				return this.git.symbolic_ref__HEAD(repoPath!, remote!);
+			}
 
-				const [, branch] = match;
-				return `${remote}/${branch.substring('refs/heads/'.length)}`;
-			} catch {}
+			promise = load.call(this);
+
+			if (cacheByRemote == null) {
+				this.cache.defaultBranchName?.set(repoPath, new Map([[remote, promise]]));
+			} else {
+				cacheByRemote.set(remote, promise);
+			}
 		}
 
-		try {
-			const data = await this.git.exec({ cwd: repoPath }, 'symbolic-ref', '--short', 'refs/remotes/origin/HEAD');
-			return data?.trim() || undefined;
-		} catch {}
-
-		return undefined;
+		return promise;
 	}
 
 	@log()
