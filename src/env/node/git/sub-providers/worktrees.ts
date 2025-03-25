@@ -55,7 +55,7 @@ export class WorktreesGitSubProvider implements GitWorktreesSubProvider {
 
 			this.container.events.fire('git:cache:reset', {
 				repoPath: repoPath,
-				caches: options?.createBranch ? ['branches', 'worktrees'] : ['worktrees'],
+				types: options?.createBranch ? ['branches', 'worktrees'] : ['worktrees'],
 			});
 		} catch (ex) {
 			Logger.error(ex, scope);
@@ -241,7 +241,7 @@ export class WorktreesGitSubProvider implements GitWorktreesSubProvider {
 
 			throw new WorktreeDeleteError(undefined, ex);
 		} finally {
-			this.container.events.fire('git:cache:reset', { repoPath: repoPath, caches: ['worktrees'] });
+			this.container.events.fire('git:cache:reset', { repoPath: repoPath, types: ['worktrees'] });
 		}
 	}
 }

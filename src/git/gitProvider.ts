@@ -34,7 +34,7 @@ import type { RemoteProvider } from './remotes/remoteProvider';
 import type { GitGraphSearch } from './search';
 import type { BranchSortOptions, TagSortOptions } from './utils/-webview/sorting';
 
-export type GitCaches =
+export type CachedGitTypes =
 	| 'branches'
 	| 'contributors'
 	| 'providers'
@@ -43,8 +43,6 @@ export type GitCaches =
 	| 'status'
 	| 'tags'
 	| 'worktrees';
-export type GitRepositoryCaches = Extract<GitCaches, 'branches' | 'remotes'>;
-export const gitRepositoryCacheKeys = new Set<GitRepositoryCaches>(['branches', 'remotes']);
 
 export interface GitDir {
 	readonly uri: Uri;

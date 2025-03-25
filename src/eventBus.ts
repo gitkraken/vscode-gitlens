@@ -1,7 +1,7 @@
 import type { Disposable, Uri } from 'vscode';
 import { EventEmitter } from 'vscode';
 import type { CustomEditorIds, ViewIds, WebviewIds } from './constants.views';
-import type { GitCaches } from './git/gitProvider';
+import type { CachedGitTypes } from './git/gitProvider';
 import type { GitCommit } from './git/models/commit';
 import type { GitRevisionReference } from './git/models/reference';
 import type { RepositoryChange } from './git/models/repository';
@@ -33,7 +33,7 @@ interface FileSelectedEventArgs {
 export type GitCacheResetEvent = EventBusEvent<'git:cache:reset'>;
 interface GitCacheResetEventArgs {
 	readonly repoPath?: string;
-	readonly caches?: GitCaches[];
+	readonly types?: CachedGitTypes[];
 }
 
 /**

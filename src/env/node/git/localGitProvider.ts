@@ -982,7 +982,7 @@ export class LocalGitProvider implements GitProvider, Disposable {
 
 		try {
 			await this.git.checkout(repoPath, ref, options);
-			this.container.events.fire('git:cache:reset', { repoPath: repoPath, caches: ['branches', 'status'] });
+			this.container.events.fire('git:cache:reset', { repoPath: repoPath, types: ['branches', 'status'] });
 		} catch (ex) {
 			const msg: string = ex?.toString() ?? '';
 			if (/overwritten by checkout/i.test(msg)) {
