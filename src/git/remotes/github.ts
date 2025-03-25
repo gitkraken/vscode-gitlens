@@ -285,7 +285,7 @@ export class GitHubRemote extends RemoteProvider<GitHubRepositoryDescriptor> {
 		head: { branch: string; remote: { path: string; url: string } },
 		options?: { title?: string; description?: string },
 	): string | undefined {
-		const query = new URLSearchParams();
+		const query = new URLSearchParams({ expand: '1' });
 		if (options?.title) {
 			query.set('title', options.title);
 		}
@@ -294,14 +294,14 @@ export class GitHubRemote extends RemoteProvider<GitHubRepositoryDescriptor> {
 		}
 
 		if (base.remote.url === head.remote.url) {
-			return `${this.encodeUrl(
-				`${this.baseUrl}/pull/new/${base.branch ?? 'HEAD'}...${head.branch}`,
-			)}?${query.toString()}`;
+			return base.branch
+				? `${this.encodeUrl(`${this.baseUrl}/compare/${base.branch}...${head.branch}`)}?${query.toString()}`
+				: `${this.encodeUrl(`${this.baseUrl}/compare/${head.branch}`)}?${query.toString()}`;
 		}
 
 		const [owner] = head.remote.path.split('/', 1);
 		return `${this.encodeUrl(
-			`${this.baseUrl}/pull/new/${base.branch ?? 'HEAD'}...${owner}:${head.branch}`,
+			`${this.baseUrl}/compare/${base.branch ?? 'HEAD'}...${owner}:${head.branch}`,
 		)}?${query.toString()}`;
 	}
 
