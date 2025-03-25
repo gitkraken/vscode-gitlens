@@ -4,7 +4,7 @@ import { configuration } from '../system/-webview/configuration';
 import { log } from '../system/decorators/log';
 import type { PromiseOrValue } from '../system/promise';
 import { PathTrie } from '../system/trie';
-import type { GitCaches, GitDir, PagedResult } from './gitProvider';
+import type { CachedGitTypes, GitDir, PagedResult } from './gitProvider';
 import type { GitBranch } from './models/branch';
 import type { GitContributor } from './models/contributor';
 import type { GitPausedOperationStatus } from './models/pausedOperationStatus';
@@ -41,7 +41,7 @@ export class GitCache implements Disposable {
 				}
 			}),
 			container.events.on('git:cache:reset', e =>
-				this.clearCaches(e.data.repoPath, ...(e.data.caches ?? emptyArray)),
+				this.clearCaches(e.data.repoPath, ...(e.data.types ?? emptyArray)),
 			),
 		);
 	}
@@ -118,44 +118,44 @@ export class GitCache implements Disposable {
 	}
 
 	@log({ singleLine: true })
-	clearCaches(repoPath: string | undefined, ...caches: GitCaches[]): void {
+	clearCaches(repoPath: string | undefined, ...types: CachedGitTypes[]): void {
 		const cachesToClear = new Set<Map<string, unknown> | PathTrie<unknown> | undefined>();
 
-		if (!caches.length || caches.includes('branches')) {
+		if (!types.length || types.includes('branches')) {
 			cachesToClear.add(this._branchCache);
 			cachesToClear.add(this._branchesCache);
 		}
 
-		if (!caches.length || caches.includes('contributors')) {
+		if (!types.length || types.includes('contributors')) {
 			cachesToClear.add(this._contributorsCache);
 		}
 
-		if (!caches.length || caches.includes('remotes')) {
+		if (!types.length || types.includes('remotes')) {
 			cachesToClear.add(this._remotesCache);
 			cachesToClear.add(this._bestRemotesCache);
 		}
 
-		if (!caches.length || caches.includes('providers')) {
+		if (!types.length || types.includes('providers')) {
 			cachesToClear.add(this._bestRemotesCache);
 		}
 
-		if (!caches.length || caches.includes('stashes')) {
+		if (!types.length || types.includes('stashes')) {
 			cachesToClear.add(this._stashesCache);
 		}
 
-		if (!caches.length || caches.includes('status')) {
+		if (!types.length || types.includes('status')) {
 			cachesToClear.add(this._pausedOperationStatusCache);
 		}
 
-		if (!caches.length || caches.includes('tags')) {
+		if (!types.length || types.includes('tags')) {
 			cachesToClear.add(this._tagsCache);
 		}
 
-		if (!caches.length || caches.includes('worktrees')) {
+		if (!types.length || types.includes('worktrees')) {
 			cachesToClear.add(this._worktreesCache);
 		}
 
-		if (!caches.length) {
+		if (!types.length) {
 			cachesToClear.add(this._repoInfoCache);
 			cachesToClear.add(this._trackedPaths);
 		}

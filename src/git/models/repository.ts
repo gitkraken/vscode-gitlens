@@ -291,7 +291,7 @@ export class Repository implements Disposable {
 		disposables.push(
 			this.container.events.on('git:cache:reset', e => {
 				if (!e.data.repoPath || e.data.repoPath === this.path) {
-					if (e.data.caches?.includes('providers')) {
+					if (e.data.types?.includes('providers')) {
 						this.fireChange(RepositoryChange.RemoteProviders);
 					}
 				}
