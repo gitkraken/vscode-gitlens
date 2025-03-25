@@ -597,13 +597,12 @@ export class GLAccountChip extends LitElement {
 				<div class="upgrade">
 					<p>Unlock Pro features:</p>
 					<ul>
-						<li>Connect powerful integrations</li>
-						<li>Start work on Issues assigned to you</li>
+						<li>Unlimited Cloud Integrations</li>
+						<li>250K AI Tokens per week</li>
+						<li>Interactive Commit Graph on private repos</li>
+						<li>Visual File and Folder History on private repos</li>
 						<li>Leverage Git Worktrees in VS Code</li>
-						<li>Monitor PRs and accelerate reviews</li>
-						<li>Rich AI features</li>
-						<li>Interactive Commit Graph</li>
-						<li>Visual File and Folder History</li>
+						<li>Integrated issue and pull request workflows</li>
 					</ul>
 					${this.renderPromo()}
 					<button-container>
