@@ -23,6 +23,7 @@ export interface State extends WebviewState {
 	subscription: Subscription;
 	orgSettings: {
 		drafts: boolean;
+		ai: boolean;
 	};
 	previewCollapsed: boolean;
 	integrationBannerCollapsed: boolean;
