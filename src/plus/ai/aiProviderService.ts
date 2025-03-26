@@ -5,7 +5,8 @@ import { primaryAIProviders } from '../../constants.ai';
 import type { AIGenerateDraftEventData, Source, TelemetryEvents } from '../../constants.telemetry';
 import type { Container } from '../../container';
 import { CancellationError } from '../../errors';
-import type { AdvancedFeatures, PlusFeatures } from '../../features';
+import type { AIFeatures } from '../../features';
+import { isAdvancedFeature } from '../../features';
 import type { GitCommit } from '../../git/models/commit';
 import { isCommit } from '../../git/models/commit';
 import type { GitRevisionReference } from '../../git/models/reference';
@@ -297,22 +298,16 @@ export class AIProviderService implements Disposable {
 		return true;
 	}
 
-	private async ensureFeatureAccess(
-		feature:
-			| 'generateStashMessage'
-			| 'explainCommit'
-			| 'cloudPatchGenerateTitleAndDescription'
-			| 'generateChangelog',
-		title: string,
-		source: Source,
-	): Promise<boolean> {
+	private async ensureFeatureAccess(feature: AIFeatures, source: Source): Promise<boolean> {
 		if (!(await this.ensureOrgAccess())) return false;
 
 		if (
 			!(await ensureFeatureAccess(
 				this.container,
-				title,
-				feature satisfies PlusFeatures | AdvancedFeatures,
+				isAdvancedFeature(feature)
+					? `Advanced AI features require a trial or GitLens Advanced.`
+					: `Pro AI features require a trial or GitLens Pro.`,
+				feature,
 				source,
 			))
 		) {
@@ -327,13 +322,7 @@ export class AIProviderService implements Disposable {
 		sourceContext: Source & { type: TelemetryEvents['ai/explain']['changeType'] },
 		options?: { cancellation?: CancellationToken; progress?: ProgressOptions },
 	): Promise<AISummarizeResult | undefined> {
-		if (
-			!(await this.ensureFeatureAccess(
-				'explainCommit' satisfies PlusFeatures,
-				'Explaining commits requires an account with Pro access.',
-				sourceContext,
-			))
-		) {
+		if (!(await this.ensureFeatureAccess('explainCommit', sourceContext))) {
 			return undefined;
 		}
 
@@ -427,15 +416,7 @@ export class AIProviderService implements Disposable {
 			codeSuggestion?: boolean;
 		},
 	): Promise<AISummarizeResult | undefined> {
-		if (
-			!(await this.ensureFeatureAccess(
-				'cloudPatchGenerateTitleAndDescription' satisfies PlusFeatures,
-				`Generating ${
-					options?.codeSuggestion ? 'code suggestion' : 'cloud patch'
-				} descriptions requires an account with Pro access.`,
-				sourceContext,
-			))
-		) {
+		if (!(await this.ensureFeatureAccess('cloudPatchGenerateTitleAndDescription', sourceContext))) {
 			return undefined;
 		}
 
@@ -485,13 +466,7 @@ export class AIProviderService implements Disposable {
 			progress?: ProgressOptions;
 		},
 	): Promise<AISummarizeResult | undefined> {
-		if (
-			!(await this.ensureFeatureAccess(
-				'generateStashMessage' satisfies PlusFeatures,
-				'Generating stash messages requires an account with Pro access.',
-				source,
-			))
-		) {
+		if (!(await this.ensureFeatureAccess('generateStashMessage', source))) {
 			return undefined;
 		}
 
@@ -530,13 +505,7 @@ export class AIProviderService implements Disposable {
 		source: Source,
 		options?: { cancellation?: CancellationToken; progress?: ProgressOptions },
 	): Promise<AIResult | undefined> {
-		if (
-			!(await this.ensureFeatureAccess(
-				'generateChangelog' satisfies AdvancedFeatures,
-				'Generating changelogs requires an account with Pro access.',
-				source,
-			))
-		) {
+		if (!(await this.ensureFeatureAccess('generateChangelog', source))) {
 			return undefined;
 		}
 

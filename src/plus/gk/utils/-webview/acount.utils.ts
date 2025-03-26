@@ -2,7 +2,7 @@ import type { Uri } from 'vscode';
 import { window } from 'vscode';
 import type { Source } from '../../../../constants.telemetry';
 import type { Container } from '../../../../container';
-import type { AdvancedFeatures, PlusFeatures } from '../../../../features';
+import type { PlusFeatures } from '../../../../features';
 
 export async function ensureAccount(container: Container, title: string, source: Source): Promise<boolean> {
 	while (true) {
@@ -58,7 +58,7 @@ export async function ensureAccount(container: Container, title: string, source:
 export async function ensureFeatureAccess(
 	container: Container,
 	title: string,
-	feature: PlusFeatures | AdvancedFeatures,
+	feature: PlusFeatures,
 	source: Source,
 	repoPath?: string | Uri,
 ): Promise<boolean> {
@@ -71,7 +71,7 @@ export async function ensureFeatureAccess(
 		const upgrade = { title: 'Upgrade to Pro' };
 		const cancel = { title: 'Cancel', isCloseAffordance: true };
 		const result = await window.showWarningMessage(
-			`${title}\n\nUpgrade to Pro to access this feature.`,
+			`${title}\n\nPlease upgrade to GitLens Pro to continue.`,
 			{ modal: true },
 			upgrade,
 			cancel,
