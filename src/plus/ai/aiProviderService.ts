@@ -530,7 +530,7 @@ export class AIProviderService implements Disposable {
 			progress?: ProgressOptions;
 		},
 	): Promise<AISummarizeResult | undefined> {
-		const diff = await repo.git.diff().getDiff?.(compareRef, baseRef);
+		const diff = await repo.git.diff().getDiff?.(compareRef, baseRef, { notation: '...' });
 
 		const log = await this.container.git.commits(repo.path).getLog(`${baseRef}..${compareRef}`);
 		const commits: [string, number][] = [];
