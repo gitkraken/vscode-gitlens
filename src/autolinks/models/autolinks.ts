@@ -23,21 +23,10 @@ export interface AutolinkReference {
 	readonly descriptor?: ResourceDescriptor;
 }
 
-export interface Autolink extends AutolinkReference {
+export interface Autolink extends Omit<CacheableAutolinkReference, 'id'> {
 	provider?: ProviderReference;
 	id: string;
 	index?: number;
-
-	tokenize?:
-		| ((
-				text: string,
-				outputFormat: 'html' | 'markdown' | 'plaintext',
-				tokenMapping: Map<string, string>,
-				enrichedAutolinks?: Map<string, MaybeEnrichedAutolink>,
-				prs?: Set<string>,
-				footnotes?: Map<number, string>,
-		  ) => string)
-		| null;
 }
 
 export type EnrichedAutolink = [
@@ -51,6 +40,8 @@ export type MaybeEnrichedAutolink = readonly [
 ];
 
 export interface CacheableAutolinkReference extends AutolinkReference {
+	id?: never;
+
 	tokenize?:
 		| ((
 				text: string,

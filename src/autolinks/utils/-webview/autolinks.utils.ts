@@ -61,49 +61,51 @@ function compareAutolinks(a: Autolink, b: Autolink): number {
 }
 
 export function ensureCachedRegex(
-	ref: CacheableAutolinkReference,
+	ref: Autolink | CacheableAutolinkReference,
 	outputFormat: 'html',
 ): asserts ref is RequireSome<CacheableAutolinkReference, 'messageHtmlRegex'>;
 export function ensureCachedRegex(
-	ref: CacheableAutolinkReference,
+	ref: Autolink | CacheableAutolinkReference,
 	outputFormat: 'markdown',
 ): asserts ref is RequireSome<CacheableAutolinkReference, 'messageMarkdownRegex'>;
 export function ensureCachedRegex(
-	ref: CacheableAutolinkReference,
+	ref: Autolink | CacheableAutolinkReference,
 	outputFormat: 'plaintext',
-): asserts ref is RequireSome<CacheableAutolinkReference, 'messageRegex' | 'branchNameRegex'>;
+): asserts ref is RequireSome<CacheableAutolinkReference, 'messageRegex'>;
 export function ensureCachedRegex(
-	ref: CacheableAutolinkReference,
+	ref: Autolink | CacheableAutolinkReference,
 	outputFormat: 'html' | 'markdown' | 'plaintext',
-): boolean {
-	// Regexes matches the ref prefix followed by a token (e.g. #1234)
-	if (outputFormat === 'markdown' && ref.messageMarkdownRegex == null) {
-		// Extra `\\\\` in `\\\\\\[` is because the markdown is escaped
-		ref.messageMarkdownRegex = new RegExp(
-			`(^|\\s|\\(|\\[|\\{)(${escapeRegex(encodeHtmlWeak(escapeMarkdown(ref.prefix)))}(${
-				ref.alphanumeric ? '\\w' : '\\d'
-			}+))\\b`,
-			ref.ignoreCase ? 'gi' : 'g',
-		);
-	} else if (outputFormat === 'html' && ref.messageHtmlRegex == null) {
-		ref.messageHtmlRegex = new RegExp(
-			`(^|\\s|\\(|\\[|\\{)(${escapeRegex(encodeHtmlWeak(ref.prefix))}(${ref.alphanumeric ? '\\w' : '\\d'}+))\\b`,
-			ref.ignoreCase ? 'gi' : 'g',
-		);
-	} else if (ref.messageRegex == null) {
-		ref.messageRegex = new RegExp(
-			`(^|\\s|\\(|\\[|\\{)(${escapeRegex(ref.prefix)}(${ref.alphanumeric ? '\\w' : '\\d'}+))\\b`,
-			ref.ignoreCase ? 'gi' : 'g',
-		);
-		ref.branchNameRegex = new RegExp(
-			`(^|\\-|_|\\.|\\/)(?<prefix>${ref.prefix})(?<issueKeyNumber>${
-				ref.alphanumeric ? '\\w' : '\\d'
-			}+)(?=$|\\-|_|\\.|\\/)`,
-			'gi',
-		);
-	}
+): void {
+	// If the ref is a matched Autolink then only match the exact `id`
+	const refPattern = ref.id ? ref.id : ref.alphanumeric ? '\\w+' : '\\d+';
+	const refFlags = !ref.id && ref.ignoreCase ? 'gi' : 'g';
 
-	return true;
+	// Regexes matches the ref prefix followed by a token (e.g. #1234)
+	if (outputFormat === 'markdown') {
+		// Extra `\\\\` in `\\\\\\[` is because the markdown is escaped
+		ref.messageMarkdownRegex ??= new RegExp(
+			`(^|\\s|\\(|\\[|\\{)(${escapeRegex(encodeHtmlWeak(escapeMarkdown(ref.prefix)))}(${refPattern}))\\b`,
+			refFlags,
+		);
+	} else if (outputFormat === 'html') {
+		ref.messageHtmlRegex ??= new RegExp(
+			`(^|\\s|\\(|\\[|\\{)(${escapeRegex(encodeHtmlWeak(ref.prefix))}(${refPattern}))\\b`,
+			refFlags,
+		);
+	} else {
+		ref.messageRegex ??= new RegExp(`(^|\\s|\\(|\\[|\\{)(${escapeRegex(ref.prefix)}(${refPattern}))\\b`, refFlags);
+	}
+}
+
+export function ensureCachedBranchNameRegex(
+	ref: CacheableAutolinkReference,
+): asserts ref is RequireSome<CacheableAutolinkReference, 'branchNameRegex'> {
+	ref.branchNameRegex ??= new RegExp(
+		`(^|\\-|_|\\.|\\/)(?<prefix>${ref.prefix})(?<issueKeyNumber>${
+			ref.alphanumeric ? '\\w' : '\\d'
+		}+)(?=$|\\-|_|\\.|\\/)`,
+		'gi',
+	);
 }
 
 export const numRegex = /<num>/g;
@@ -165,7 +167,7 @@ export function getBranchAutolinks(branchName: string, refsets: Readonly<RefSet[
 				continue;
 			}
 
-			ensureCachedRegex(ref, 'plaintext');
+			ensureCachedBranchNameRegex(ref);
 			const matches = branchName.matchAll(ref.branchNameRegex);
 			do {
 				match = matches.next();

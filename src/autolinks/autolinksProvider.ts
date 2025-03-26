@@ -301,7 +301,7 @@ export class AutolinksProvider implements Disposable {
 				}
 			}
 
-			if (remotes != null && remotes.length !== 0) {
+			if (remotes?.length) {
 				remotes = [...remotes].sort((a, b) => {
 					const aConnected = a.maybeIntegrationConnected;
 					const bConnected = b.maybeIntegrationConnected;
