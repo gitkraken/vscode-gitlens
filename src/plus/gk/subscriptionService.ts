@@ -348,6 +348,7 @@ export class SubscriptionService implements Disposable {
 			registerCommand('gitlens.plus.login', (src?: Source) => this.loginOrSignUp(false, src)),
 			registerCommand('gitlens.plus.signUp', (src?: Source) => this.loginOrSignUp(true, src)),
 			registerCommand('gitlens.plus.logout', (src?: Source) => this.logout(src)),
+			registerCommand('gitlens.plus.referFriend', (src?: Source) => this.referFriend(src)),
 			registerCommand('gitlens.gk.switchOrganization', (src?: Source) => this.switchOrganization(src)),
 
 			registerCommand('gitlens.plus.manage', (src?: Source) => this.manage(src)),
@@ -724,6 +725,15 @@ export class SubscriptionService implements Disposable {
 			Logger.error(ex, scope);
 			debugger;
 		}
+	}
+
+	@log()
+	async referFriend(source: Source | undefined): Promise<void> {
+		if (this.container.telemetry.enabled) {
+			this.container.telemetry.sendEvent('subscription/action', { action: 'refer-friend' }, source);
+		}
+
+		await openUrl(this.container.urls.getGkDevUrl(undefined, 'referral_portal=true&source=gitlens'));
 	}
 
 	@gate(() => '')

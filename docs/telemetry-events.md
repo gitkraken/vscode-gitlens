@@ -1805,7 +1805,7 @@ void
 
 ```typescript
 {
-  'action': 'manage' | 'sign-up' | 'sign-in' | 'sign-out' | 'reactivate' | 'resend-verification' | 'pricing' | 'start-preview-trial'
+  'action': 'manage' | 'sign-up' | 'sign-in' | 'sign-out' | 'reactivate' | 'refer-friend' | 'resend-verification' | 'pricing' | 'start-preview-trial'
 }
 ```
 

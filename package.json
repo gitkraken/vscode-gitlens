@@ -7285,6 +7285,11 @@
 				"category": "GitLens"
 			},
 			{
+				"command": "gitlens.plus.referFriend",
+				"title": "Refer a friend",
+				"category": "GitLens"
+			},
+			{
 				"command": "gitlens.plus.refreshRepositoryAccess",
 				"title": "Refresh Repository Access",
 				"category": "GitLens"
@@ -11301,6 +11306,10 @@
 				{
 					"command": "gitlens.plus.reactivateProTrial",
 					"when": "gitlens:plus:state == 5"
+				},
+				{
+					"command": "gitlens.plus.referFriend",
+					"when": "gitlens:plus"
 				},
 				{
 					"command": "gitlens.plus.refreshRepositoryAccess",
