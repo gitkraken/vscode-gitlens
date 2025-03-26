@@ -48,7 +48,7 @@ export async function getDefaultBranchName(
 
 	const integration = await remote.getIntegration();
 	const defaultBranch = await integration?.getDefaultBranch?.(remote.provider.repoDesc, options);
-	return `${remote.name}/${defaultBranch?.name}`;
+	return defaultBranch && `${remote.name}/${defaultBranch?.name}`;
 }
 
 export async function getTargetBranchName(
