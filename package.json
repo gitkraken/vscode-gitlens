@@ -7833,7 +7833,7 @@
 			},
 			{
 				"command": "gitlens.views.ai.generateChangelog",
-				"title": "Generate Changelog",
+				"title": "Generate Changelog (Preview)",
 				"icon": "$(sparkle)"
 			},
 			{

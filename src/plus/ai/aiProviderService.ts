@@ -5,6 +5,8 @@ import { primaryAIProviders } from '../../constants.ai';
 import type { AIGenerateDraftEventData, Source, TelemetryEvents } from '../../constants.telemetry';
 import type { Container } from '../../container';
 import { CancellationError } from '../../errors';
+import type { AIFeatures } from '../../features';
+import { isAdvancedFeature } from '../../features';
 import type { GitCommit } from '../../git/models/commit';
 import { isCommit } from '../../git/models/commit';
 import type { GitRevisionReference } from '../../git/models/reference';
@@ -13,6 +15,7 @@ import { uncommitted, uncommittedStaged } from '../../git/models/revision';
 import { assertsCommitHasFullDetails } from '../../git/utils/commit.utils';
 import { showAIModelPicker } from '../../quickpicks/aiModelPicker';
 import { configuration } from '../../system/-webview/configuration';
+import { getContext } from '../../system/-webview/context';
 import type { Storage } from '../../system/-webview/storage';
 import { supportedInVSCodeVersion } from '../../system/-webview/vscode';
 import { debounce } from '../../system/function/debounce';
@@ -22,6 +25,7 @@ import { lazy } from '../../system/lazy';
 import type { Deferred } from '../../system/promise';
 import { getSettledValue } from '../../system/promise';
 import type { ServerConnection } from '../gk/serverConnection';
+import { ensureFeatureAccess } from '../gk/utils/-webview/acount.utils';
 import type { AIActionType, AIModel, AIModelDescriptor } from './models/model';
 import type { PromptTemplateContext } from './models/promptTemplates';
 import type { AIProvider, AIRequestResult } from './models/provider';
@@ -284,11 +288,44 @@ export class AIProviderService implements Disposable {
 		return model;
 	}
 
+	private async ensureOrgAccess(): Promise<boolean> {
+		const orgEnabled = getContext('gitlens:gk:organization:ai:enabled');
+		if (orgEnabled === false) {
+			await window.showErrorMessage(`AI features have been disabled for your organization.`);
+			return false;
+		}
+
+		return true;
+	}
+
+	private async ensureFeatureAccess(feature: AIFeatures, source: Source): Promise<boolean> {
+		if (!(await this.ensureOrgAccess())) return false;
+
+		if (
+			!(await ensureFeatureAccess(
+				this.container,
+				isAdvancedFeature(feature)
+					? `Advanced AI features require a trial or GitLens Advanced.`
+					: `Pro AI features require a trial or GitLens Pro.`,
+				feature,
+				source,
+			))
+		) {
+			return false;
+		}
+
+		return true;
+	}
+
 	async explainCommit(
 		commitOrRevision: GitRevisionReference | GitCommit,
 		sourceContext: Source & { type: TelemetryEvents['ai/explain']['changeType'] },
 		options?: { cancellation?: CancellationToken; progress?: ProgressOptions },
 	): Promise<AISummarizeResult | undefined> {
+		if (!(await this.ensureFeatureAccess('explainCommit', sourceContext))) {
+			return undefined;
+		}
+
 		const diff = await this.container.git.diff(commitOrRevision.repoPath).getDiff?.(commitOrRevision.ref);
 		if (!diff?.contents) throw new Error('No changes found to explain.');
 
@@ -339,6 +376,8 @@ export class AIProviderService implements Disposable {
 			progress?: ProgressOptions;
 		},
 	): Promise<AISummarizeResult | undefined> {
+		if (!(await this.ensureOrgAccess())) return undefined;
+
 		const changes: string | undefined = await this.getChanges(changesOrRepo);
 		if (changes == null) return undefined;
 
@@ -377,6 +416,10 @@ export class AIProviderService implements Disposable {
 			codeSuggestion?: boolean;
 		},
 	): Promise<AISummarizeResult | undefined> {
+		if (!(await this.ensureFeatureAccess('cloudPatchGenerateTitleAndDescription', sourceContext))) {
+			return undefined;
+		}
+
 		const changes: string | undefined = await this.getChanges(changesOrRepo);
 		if (changes == null) return undefined;
 
@@ -423,6 +466,10 @@ export class AIProviderService implements Disposable {
 			progress?: ProgressOptions;
 		},
 	): Promise<AISummarizeResult | undefined> {
+		if (!(await this.ensureFeatureAccess('generateStashMessage', source))) {
+			return undefined;
+		}
+
 		const changes: string | undefined = await this.getChanges(changesOrRepo);
 		if (changes == null) {
 			options?.generating?.cancel();
@@ -458,6 +505,10 @@ export class AIProviderService implements Disposable {
 		source: Source,
 		options?: { cancellation?: CancellationToken; progress?: ProgressOptions },
 	): Promise<AIResult | undefined> {
+		if (!(await this.ensureFeatureAccess('generateChangelog', source))) {
+			return undefined;
+		}
+
 		const result = await this.sendRequest(
 			'generate-changelog',
 			async () => ({
