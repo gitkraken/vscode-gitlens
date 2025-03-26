@@ -518,6 +518,44 @@ export class AIProviderService implements Disposable {
 		return result != null ? { ...result, parsed: parseSummarizeResult(result.content) } : undefined;
 	}
 
+	async generatePullRequestMessage(
+		repo: Repository,
+		baseRef: string,
+		compareRef: string,
+		source: Source,
+		options?: {
+			cancellation?: CancellationToken;
+			context?: string;
+			generating?: Deferred<AIModel>;
+			progress?: ProgressOptions;
+		},
+	): Promise<AISummarizeResult | undefined> {
+		const diff = await repo.git.diff().getDiff?.(compareRef, baseRef);
+
+		const result = await this.sendRequest(
+			'generate-commitMessage',
+			() => ({
+				diff: diff?.contents ?? '[no code changes]',
+				context: options?.context ?? '',
+				instructions: configuration.get('ai.generateCommitMessage.customInstructions') ?? '',
+			}),
+			m => `Generating commit message with ${m.name}...`,
+			source,
+			m => ({
+				key: 'ai/generate',
+				data: {
+					type: 'commitMessage',
+					'model.id': m.id,
+					'model.provider.id': m.provider.id,
+					'model.provider.name': m.provider.name,
+					'retry.count': 0,
+				},
+			}),
+			options,
+		);
+		return result != null ? { ...result, parsed: parseSummarizeResult(result.content) } : undefined;
+	}
+
 	async generateDraftMessage(
 		changesOrRepo: string | string[] | Repository,
 		sourceContext: Source & { type: AIGenerateDraftEventData['draftType'] },

@@ -72,7 +72,22 @@ export class CreatePullRequestOnRemoteCommand extends GlCommandBase {
 			},
 			compare: {
 				branch: args.compare,
-				remote: { path: compareRemote.path, url: compareRemote.url },
+				remote: { path: compareRemote.path, url: compareRemote.url, name: compareRemote.name },
+			},
+			describePullRequest: async (
+				completedResource: RemoteResource & { type: RemoteResourceType.CreatePullRequest },
+			) => {
+				const base = completedResource.base;
+				const compare = completedResource.compare;
+				if (!base?.remote || !compare?.remote || !base?.branch || !compare?.branch) {
+					return undefined;
+				}
+				const baseRef = `${base.remote.name}/${base.branch}`;
+				const compareRef = `${compare.remote.name}/${compare.branch}`;
+				const result = await this.container.ai.generatePullRequestMessage(repo, baseRef, compareRef, {
+					source: 'home', // TODO provide the real source
+				});
+				return result?.parsed;
 			},
 		};
 
