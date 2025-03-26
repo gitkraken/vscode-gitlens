@@ -439,9 +439,12 @@ export class GlCommitDetails extends GlDetailsBase {
 		return html`
 			<webview-pane collapsable data-region="explain-pane">
 				<span slot="title">Explain (AI)</span>
-				<span slot="subtitle"><code-icon icon="beaker" size="12"></code-icon></span>
 				<action-nav slot="actions">
-					<action-item data-action="switch-ai" label="Switch AI Model" icon="hubot"></action-item>
+					<action-item
+						data-action="switch-ai"
+						label="Switch AI Provider/Model"
+						icon="arrow-swap"
+					></action-item>
 				</action-nav>
 
 				<div class="section">

@@ -27,6 +27,7 @@ export interface AIProvider<Provider extends AIProviders = AIProviders> extends 
 
 	onDidChange?: Event<void>;
 
+	ensureConfigured(): Promise<boolean>;
 	getModels(): Promise<readonly AIModel<Provider>[]>;
 	getPromptTemplate(action: AIActionType, model: AIModel<Provider>): Promise<PromptTemplate | undefined>;
 
