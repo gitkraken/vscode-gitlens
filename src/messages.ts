@@ -2,14 +2,12 @@ import type { MessageItem } from 'vscode';
 import { ConfigurationTarget, window } from 'vscode';
 import type { SuppressedMessages } from './config';
 import { urls } from './constants';
-import type { Source } from './constants.telemetry';
 import type { BlameIgnoreRevsFileError } from './git/errors';
 import { BlameIgnoreRevsFileBadRevisionError } from './git/errors';
 import type { GitCommit } from './git/models/commit';
 import { executeCommand, executeCoreCommand } from './system/-webview/command';
 import { configuration } from './system/-webview/configuration';
 import { openUrl } from './system/-webview/vscode';
-import { createMarkdownCommandLink } from './system/commands';
 import { Logger } from './system/logger';
 
 export function showBlameInvalidIgnoreRevsFileWarningMessage(
