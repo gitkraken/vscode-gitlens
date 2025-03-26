@@ -26,6 +26,7 @@ export interface AIModelDescriptor<Provider extends AIProviders = AIProviders, M
 
 export type AIActionType =
 	| 'generate-commitMessage'
+	| 'generate-pullRequestMessage'
 	| 'generate-stashMessage'
 	| 'generate-changelog'
 	| `generate-create-${'cloudPatch' | 'codeSuggestion' | 'pullRequest'}`

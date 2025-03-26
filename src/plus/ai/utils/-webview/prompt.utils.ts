@@ -8,6 +8,7 @@ import {
 	generateCloudPatchMessageUserPrompt,
 	generateCodeSuggestMessageUserPrompt,
 	generateCommitMessageUserPrompt,
+	generatePullRequestMessageUserPrompt,
 	generateStashMessageUserPrompt,
 } from '../../prompts';
 
@@ -18,6 +19,12 @@ export function getLocalPromptTemplate<T extends AIActionType>(action: T, _model
 				name: 'Generate Commit Message',
 				template: generateCommitMessageUserPrompt,
 				variables: ['diff', 'context', 'instructions'],
+			};
+		case 'generate-pullRequestMessage':
+			return {
+				name: 'Generate Pull Request Details',
+				template: generatePullRequestMessageUserPrompt,
+				variables: ['diff', 'data', 'context', 'instructions'],
 			};
 		case 'generate-stashMessage':
 			return {

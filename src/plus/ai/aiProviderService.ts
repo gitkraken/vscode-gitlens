@@ -543,14 +543,14 @@ export class AIProviderService implements Disposable {
 		}
 
 		const result = await this.sendRequest(
-			'generate-commitMessage',
+			'generate-pullRequestMessage',
 			() => ({
 				diff: diff?.contents ?? '',
 				data: commits.sort((a, b) => a[1] - b[1]).map(c => c[0]),
 				context: options?.context ?? '',
 				instructions: configuration.get('ai.generateCommitMessage.customInstructions') ?? '',
 			}),
-			m => `Generating commit message with ${m.name}...`,
+			m => `Generating pull request details with ${m.name}...`,
 			source,
 			m => ({
 				key: 'ai/generate',

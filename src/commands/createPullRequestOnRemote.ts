@@ -84,10 +84,15 @@ export class CreatePullRequestOnRemoteCommand extends GlCommandBase {
 				}
 				const baseRef = `${base.remote.name}/${base.branch}`;
 				const compareRef = `${compare.remote.name}/${compare.branch}`;
-				const result = await this.container.ai.generatePullRequestMessage(repo, baseRef, compareRef, {
-					source: 'home', // TODO provide the real source
-				});
-				return result?.parsed;
+				try {
+					const result = await this.container.ai.generatePullRequestMessage(repo, baseRef, compareRef, {
+						source: 'scm-input',
+					});
+					return result?.parsed;
+				} catch (e) {
+					void window.showErrorMessage(`Unable to generate pull request message: ${e}`);
+					return undefined;
+				}
 			},
 		};
 
