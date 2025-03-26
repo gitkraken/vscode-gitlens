@@ -30,7 +30,31 @@ export type RepoFeatureAccess =
 			visibility?: RepositoryVisibility;
 	  };
 
-export type PlusFeatures = 'timeline' | 'worktrees' | 'graph' | 'launchpad' | 'startWork' | 'associateIssueWithBranch';
+export type PlusFeatures = ProFeatures | AdvancedFeatures;
+
+export type ProFeatures =
+	| 'timeline'
+	| 'worktrees'
+	| 'graph'
+	| 'launchpad'
+	| 'startWork'
+	| 'associateIssueWithBranch'
+	| ProAIFeatures;
+export type ProAIFeatures = 'generateStashMessage' | 'explainCommit' | 'cloudPatchGenerateTitleAndDescription';
+
+export type AdvancedFeatures = AdvancedAIFeatures;
+export type AdvancedAIFeatures = 'generateChangelog';
+
+export type AIFeatures = ProAIFeatures | AdvancedAIFeatures;
+
+export function isAdvancedFeature(feature: PlusFeatures): feature is AdvancedFeatures {
+	switch (feature) {
+		case 'generateChangelog':
+			return true;
+		default:
+			return false;
+	}
+}
 
 export type FeaturePreviews = 'graph';
 export const featurePreviews: FeaturePreviews[] = ['graph'];
