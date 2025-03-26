@@ -442,7 +442,7 @@ export class GLAccountChip extends LitElement {
 		switch (this.subscriptionState) {
 			case SubscriptionState.Paid:
 				return html`<div class="account-status">
-					${this.renderIncludesDevEx()} ${this.renderReferFriend()}
+					${this.renderIncludesDevEx()} ${this.renderReferFriend()} ${this.renderGetAdvanced()}
 				</div> `;
 
 			case SubscriptionState.VerificationRequired:
@@ -578,8 +578,23 @@ export class GLAccountChip extends LitElement {
 		</p>`;
 	}
 
+	private renderGetAdvanced() {
+		if (this.subscription?.plan?.effective.id !== SubscriptionPlanId.Pro) return nothing;
+
+		return html`<p>
+			Get advanced AI features, self-hosted integrations, and more with GitLens Advanced.
+			<a
+				href=${createCommandLink<Source & { plan: SubscriptionPlanId }>('gitlens.plus.upgrade', {
+					source: 'account',
+					plan: SubscriptionPlanId.Advanced,
+				})}
+				>Upgrade to Advanced</a
+			>
+		</p>`;
+	}
+
 	private renderUpgradeContent() {
-		if (this.planTier !== 'Community' && this.planId !== SubscriptionPlanId.Pro) {
+		if (this.planTier !== 'Community') {
 			this.showUpgrade = false;
 			return nothing;
 		}
@@ -613,6 +628,21 @@ export class GLAccountChip extends LitElement {
 								source: 'account',
 							})}"
 							>Upgrade to Pro</gl-button
+						>
+					</button-container>
+					<p>Upgrade to Advanced:</p>
+					<ul>
+						<li>500K AI Tokens per week</li>
+						<li>Self-hosted Git and Issue integrations</li>
+					</ul>
+					<button-container>
+						<gl-button
+							full
+							href="${createCommandLink<Source & { plan: SubscriptionPlanId }>('gitlens.plus.upgrade', {
+								source: 'account',
+								plan: SubscriptionPlanId.Advanced,
+							})}"
+							>Upgrade to Advanced</gl-button
 						>
 					</button-container>
 				</div>
