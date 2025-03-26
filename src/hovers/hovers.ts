@@ -228,9 +228,11 @@ export async function detailsMessage(
 	}
 
 	const cfg = configuration.get('hovers');
-	const autolinks =
+	const enhancedAutolinks =
 		remote?.provider != null &&
-		(options?.autolinks || (options?.autolinks !== false && cfg.autolinks.enabled && cfg.autolinks.enhanced)) &&
+		options?.autolinks !== false &&
+		(options?.autolinks || cfg.autolinks.enabled) &&
+		cfg.autolinks.enhanced &&
 		CommitFormatter.has(cfg.detailsMarkdownFormat, 'message');
 	const prs =
 		remote?.hasIntegration() &&
@@ -247,7 +249,7 @@ export async function detailsMessage(
 
 	const [enrichedAutolinksResult, prResult, presenceResult, previousLineComparisonUrisResult] =
 		await Promise.allSettled([
-			autolinks
+			enhancedAutolinks
 				? pauseOnCancelOrTimeoutMapTuplePromise(
 						options?.enrichedAutolinks ?? commit.getEnrichedAutolinks(remote),
 						options?.cancellation,
