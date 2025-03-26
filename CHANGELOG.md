@@ -10,7 +10,7 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/) and this p
 
 - Adds AI model status and model switcher to the _Home_ view ([#4064](https://github.com/gitkraken/vscode-gitlens/issues/4064))
 - Adds Anthropic Claude 3.7 Sonnet model for GitLens' AI features ([#4101](https://github.com/gitkraken/vscode-gitlens/issues/4101))
-- Adds Google Gemini 2.0 Flash-Lite model for GitLens' AI features ([#4104](https://github.com/gitkraken/vscode-gitlens/issues/4104))
+- Adds Google Gemini 2.5 Pro (Experimental) and Gemini 2.0 Flash-Lite model for GitLens' AI features ([#4104](https://github.com/gitkraken/vscode-gitlens/issues/4104))
 - Adds integration with Bitbucket Cloud and Data Center ([#3916](https://github.com/gitkraken/vscode-gitlens/issues/3916))
   - shows enriched links to PRs and issues ([#4045](https://github.com/gitkraken/vscode-gitlens/issues/4045))
   - shows Bitbucket Cloud and Data Center PRs in Launchpad ([#4046](https://github.com/gitkraken/vscode-gitlens/issues/4046))
