@@ -876,7 +876,7 @@ export class SubscriptionService implements Disposable {
 	}
 
 	@log()
-	async upgrade(source: Source | undefined): Promise<void> {
+	async upgrade(source: Source | undefined, plan?: SubscriptionPlanId): Promise<void> {
 		const scope = getLogScope();
 
 		if (!(await ensurePlusFeaturesEnabled())) return;
@@ -918,6 +918,20 @@ export class SubscriptionService implements Disposable {
 		const query = new URLSearchParams();
 		query.set('source', 'gitlens');
 		query.set('product', 'gitlens');
+
+		let planType = 'PRO';
+		switch (plan) {
+			case SubscriptionPlanId.Advanced:
+				planType = 'ADVANCED';
+				break;
+			case SubscriptionPlanId.Teams:
+				planType = 'TEAMS';
+				break;
+			case SubscriptionPlanId.Enterprise:
+				planType = 'ENTERPRISE';
+				break;
+		}
+		query.set('planType', planType);
 
 		if (promo?.code != null) {
 			query.set('promoCode', promo.code);
