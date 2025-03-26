@@ -532,10 +532,21 @@ export class AIProviderService implements Disposable {
 	): Promise<AISummarizeResult | undefined> {
 		const diff = await repo.git.diff().getDiff?.(compareRef, baseRef);
 
+		const log = await this.container.git.commits(repo.path).getLog(`${baseRef}..${compareRef}`);
+		const commits: [string, number][] = [];
+		for (const [_sha, commit] of log?.commits ?? []) {
+			commits.push([commit.message ?? '', commit.date.getTime()]);
+		}
+
+		if (!diff?.contents && !commits.length) {
+			throw new Error('No changes found to generate a pull request message from.');
+		}
+
 		const result = await this.sendRequest(
 			'generate-commitMessage',
 			() => ({
-				diff: diff?.contents ?? '[no code changes]',
+				diff: diff?.contents ?? '',
+				data: commits.sort((a, b) => a[1] - b[1]).map(c => c[0]),
 				context: options?.context ?? '',
 				instructions: configuration.get('ai.generateCommitMessage.customInstructions') ?? '',
 			}),
