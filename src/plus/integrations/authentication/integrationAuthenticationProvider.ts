@@ -274,7 +274,13 @@ export abstract class CloudIntegrationAuthenticationProvider<
 
 		if (!session) return undefined;
 
-		const sessionProtocol = new URL(session.domain).protocol;
+		let sessionProtocol;
+		try {
+			sessionProtocol = new URL(session.domain).protocol;
+		} catch {
+			// If the domain is invalid, we can't use it to create a session
+			sessionProtocol = undefined;
+		}
 
 		// TODO: Once we care about domains, we should try to match the domain here against ours, and if it fails, return undefined
 		return {
