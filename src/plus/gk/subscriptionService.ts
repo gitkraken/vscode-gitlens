@@ -83,6 +83,7 @@ import {
 	getPreviewSubscription,
 	getSubscriptionPlan,
 	getSubscriptionPlanName,
+	getSubscriptionPlanPriority,
 	getSubscriptionStateString,
 	getSubscriptionTimeRemaining,
 	getTimeRemaining,
@@ -355,7 +356,12 @@ export class SubscriptionService implements Disposable {
 			registerCommand('gitlens.plus.startPreviewTrial', (src?: Source) => this.startPreviewTrial(src)),
 			registerCommand('gitlens.plus.reactivateProTrial', (src?: Source) => this.reactivateProTrial(src)),
 			registerCommand('gitlens.plus.resendVerification', (src?: Source) => this.resendVerification(src)),
-			registerCommand('gitlens.plus.upgrade', (src?: Source) => this.upgrade(src)),
+			registerCommand('gitlens.plus.upgrade', (srcAndPlan?: Source & { plan?: SubscriptionPlanId }) =>
+				this.upgrade(
+					srcAndPlan ? { source: srcAndPlan.source, detail: srcAndPlan.detail } : undefined,
+					srcAndPlan?.plan,
+				),
+			),
 
 			registerCommand('gitlens.plus.hide', (src?: Source) => this.setProFeaturesVisibility(false, src)),
 			registerCommand('gitlens.plus.restore', (src?: Source) => this.setProFeaturesVisibility(true, src)),
@@ -908,7 +914,11 @@ export class SubscriptionService implements Disposable {
 			try {
 				const session = await this.ensureSession(false, source);
 				if (session != null) {
-					if ((await this.checkUpdatedSubscription(source)) === SubscriptionState.Paid) {
+					if (
+						(await this.checkUpdatedSubscription(source)) === SubscriptionState.Paid &&
+						getSubscriptionPlanPriority(this._subscription.plan.effective.id) >=
+							getSubscriptionPlanPriority(plan ?? SubscriptionPlanId.Pro)
+					) {
 						return;
 					}
 				}
