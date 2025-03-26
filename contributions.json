@@ -3427,6 +3427,10 @@
 			"label": "Reactivate Pro Trial",
 			"commandPalette": "gitlens:plus:state == 5"
 		},
+		"gitlens.plus.referFriend": {
+			"label": "Refer a friend",
+			"commandPalette": "gitlens:plus"
+		},
 		"gitlens.plus.refreshRepositoryAccess": {
 			"label": "Refresh Repository Access",
 			"commandPalette": "gitlens:enabled"
