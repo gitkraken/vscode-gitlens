@@ -236,10 +236,8 @@ export async function showWhatsNewMessage(majorVersion: string): Promise<void> {
 	const result = await showMessage(
 		'info',
 		`Upgraded to GitLens ${majorVersion}${
-			majorVersion === '16'
-				? ` with an all new [Home view](${createMarkdownCommandLink<Source>('gitlens.showHomeView', {
-						source: 'whatsnew',
-				  })} "Show Home view") reimagined as a hub for your current, future, and recent work, [consolidated Source Control views](command:gitlens.views.scm.grouped.focus "Show GitLens view"), and much more.`
+			majorVersion === '17'
+				? ' with all new [GitKraken AI](https://gitkraken.com/solutions/gitkraken-ai?source=gitlens&product=gitlens&utm_source=gitlens-extension&utm_medium=in-app-links) access included in GitLens Pro, AI changelog and pull request creation, and Bitbucket integration.'
 				: " — see what's new."
 		}`,
 		undefined,
