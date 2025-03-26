@@ -816,6 +816,7 @@ type SubscriptionActionEventData =
 				| 'sign-out'
 				| 'manage'
 				| 'reactivate'
+				| 'refer-friend'
 				| 'resend-verification'
 				| 'pricing'
 				| 'start-preview-trial';

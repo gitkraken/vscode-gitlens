@@ -406,7 +406,9 @@ export class GLAccountChip extends LitElement {
 	private renderAccountState() {
 		switch (this.subscriptionState) {
 			case SubscriptionState.Paid:
-				return html`<div class="account-status">${this.renderIncludesDevEx()}</div> `;
+				return html`<div class="account-status">
+					${this.renderIncludesDevEx()} ${this.renderReferFriend()}
+				</div> `;
 
 			case SubscriptionState.VerificationRequired:
 				return html`<div class="account-status">
@@ -456,7 +458,7 @@ export class GLAccountChip extends LitElement {
 							>Upgrade to Pro</gl-button
 						>
 					</button-container>
-					${this.renderPromo()} ${this.renderIncludesDevEx()}
+					${this.renderPromo()} ${this.renderIncludesDevEx()} ${this.renderReferFriend()}
 				</div>`;
 			}
 
@@ -473,7 +475,7 @@ export class GLAccountChip extends LitElement {
 							>Upgrade to Pro</gl-button
 						>
 					</button-container>
-					${this.renderPromo()} ${this.renderIncludesDevEx()}
+					${this.renderPromo()} ${this.renderIncludesDevEx()} ${this.renderReferFriend()}
 				</div>`;
 
 			case SubscriptionState.ProTrialReactivationEligible:
@@ -492,6 +494,7 @@ export class GLAccountChip extends LitElement {
 							>Reactivate GitLens Pro Trial</gl-button
 						>
 					</button-container>
+					${this.renderReferFriend()}
 				</div>`;
 
 			default:
@@ -526,6 +529,18 @@ export class GLAccountChip extends LitElement {
 
 	private renderIncludesDevEx() {
 		return html`<p>Includes access to <a href="${urls.platform}">GitKraken's DevEx platform</a></p>`;
+	}
+
+	private renderReferFriend() {
+		return html`<p>
+			<a
+				href="${createCommandLink<Source>('gitlens.plus.referFriend', {
+					source: 'account',
+				})}"
+				>Refer a friend</a
+			>
+			&mdash; give 50% off and get up to $20
+		</p>`;
 	}
 
 	private renderPromo() {

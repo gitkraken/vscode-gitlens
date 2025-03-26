@@ -724,6 +724,7 @@ export type ContributedPaletteCommands =
 	| 'gitlens.plus.logout'
 	| 'gitlens.plus.manage'
 	| 'gitlens.plus.reactivateProTrial'
+	| 'gitlens.plus.referFriend'
 	| 'gitlens.plus.refreshRepositoryAccess'
 	| 'gitlens.plus.restore'
 	| 'gitlens.plus.signUp'
