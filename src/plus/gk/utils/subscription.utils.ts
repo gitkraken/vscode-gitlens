@@ -8,21 +8,23 @@ export const SubscriptionUpdatedUriPathPrefix = 'did-update-subscription';
 export function getSubscriptionStateName(
 	state: SubscriptionState,
 	planId?: SubscriptionPlanId,
-	effectivePlanId?: SubscriptionPlanId,
+	_effectivePlanId?: SubscriptionPlanId,
 ): string {
 	switch (state) {
 		case SubscriptionState.Community:
 		case SubscriptionState.ProPreviewExpired:
 			return getSubscriptionPlanName(SubscriptionPlanId.Community);
 		case SubscriptionState.ProPreview:
-			return `${getSubscriptionPlanName(SubscriptionPlanId.Pro)} (Preview)`;
+			return `${getSubscriptionPlanName(SubscriptionPlanId.Pro)} Preview`;
 		case SubscriptionState.ProTrial:
-			return `${getSubscriptionPlanName(SubscriptionPlanId.Pro)} (${
-				effectivePlanId != null &&
-				getSubscriptionPlanPriority(effectivePlanId) > getSubscriptionPlanPriority(SubscriptionPlanId.Pro)
-					? `${getSubscriptionPlanTier(effectivePlanId)} `
-					: ''
-			}Trial)`;
+			return `${getSubscriptionPlanName(SubscriptionPlanId.Pro)} Trial`;
+		// return `${getSubscriptionPlanName(
+		// 	effectivePlanId != null &&
+		// 		getSubscriptionPlanPriority(effectivePlanId) >
+		// 			getSubscriptionPlanPriority(planId ?? SubscriptionPlanId.Pro)
+		// 		? effectivePlanId
+		// 		: planId ?? SubscriptionPlanId.Pro,
+		// )} Trial`;
 		case SubscriptionState.ProTrialExpired:
 			return getSubscriptionPlanName(SubscriptionPlanId.CommunityWithAccount);
 		case SubscriptionState.ProTrialReactivationEligible:
@@ -147,8 +149,6 @@ export function getSubscriptionPlanTier(
 	id: SubscriptionPlanId,
 ): 'Community' | 'Pro' | 'Advanced' | 'Teams' | 'Enterprise' {
 	switch (id) {
-		case SubscriptionPlanId.CommunityWithAccount:
-			return 'Community';
 		case SubscriptionPlanId.Pro:
 			return 'Pro';
 		case SubscriptionPlanId.Advanced:
@@ -157,7 +157,6 @@ export function getSubscriptionPlanTier(
 			return 'Teams';
 		case SubscriptionPlanId.Enterprise:
 			return 'Enterprise';
-		case SubscriptionPlanId.Community:
 		default:
 			return 'Community';
 	}
