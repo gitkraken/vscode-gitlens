@@ -30,7 +30,7 @@ import '../../../shared/components/code-icon';
 import '../../../shared/components/overlays/popover';
 
 @customElement('gl-account-chip')
-export class GLAccountChip extends LitElement {
+export class GlAccountChip extends LitElement {
 	static override shadowRootOptions: ShadowRootInit = {
 		...LitElement.shadowRootOptions,
 		delegatesFocus: true,
