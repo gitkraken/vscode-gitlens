@@ -1,16 +1,16 @@
 import type { Response } from '@env/fetch';
 import { fetch } from '@env/fetch';
+import { githubProviderDescriptor as provider } from '../../constants.ai';
 import type { AIActionType, AIModel } from './models/model';
 import { OpenAICompatibleProvider } from './openAICompatibleProvider';
 import { getMaxCharacters } from './utils/-webview/ai.utils';
-
-const provider = { id: 'github', name: 'GitHub Models' } as const;
 
 type GitHubModelsModel = AIModel<typeof provider.id>;
 
 export class GitHubModelsProvider extends OpenAICompatibleProvider<typeof provider.id> {
 	readonly id = provider.id;
 	readonly name = provider.name;
+	protected readonly descriptor = provider;
 	protected readonly config = {
 		keyUrl: 'https://github.com/settings/tokens',
 		keyValidator: /(?:ghp-)?[a-zA-Z0-9]{32,}/,

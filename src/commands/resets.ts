@@ -10,6 +10,7 @@ import { GlCommandBase } from './commandBase';
 
 const resetTypes = [
 	'ai',
+	'ai:confirmations',
 	'avatars',
 	'integrations',
 	'previews',
@@ -34,6 +35,11 @@ export class ResetCommand extends GlCommandBase {
 				label: 'AI Keys...',
 				detail: 'Clears any locally stored AI keys',
 				item: 'ai',
+			},
+			{
+				label: 'AI Confirmations...',
+				detail: 'Clears any accepted AI confirmations',
+				item: 'ai:confirmations',
 			},
 			{
 				label: 'Avatars...',
@@ -111,6 +117,10 @@ export class ResetCommand extends GlCommandBase {
 				confirmationMessage = 'Are you sure you want to reset all of the stored AI keys?';
 				confirm.title = 'Reset AI Keys';
 				break;
+			case 'ai:confirmations':
+				confirmationMessage = 'Are you sure you want to reset all AI confirmations?';
+				confirm.title = 'Reset AI Confirmations';
+				break;
 			case 'avatars':
 				confirmationMessage = 'Are you sure you want to reset the avatar cache?';
 				confirm.title = 'Reset Avatars';
@@ -170,6 +180,10 @@ export class ResetCommand extends GlCommandBase {
 
 			case 'ai':
 				await this.container.ai.reset(true);
+				break;
+
+			case 'ai:confirmations':
+				this.container.ai.resetConfirmations();
 				break;
 
 			case 'avatars':

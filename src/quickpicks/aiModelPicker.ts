@@ -1,38 +1,146 @@
 import type { Disposable, QuickInputButton, QuickPickItem } from 'vscode';
-import { QuickPickItemKind, ThemeIcon, window } from 'vscode';
+import { QuickInputButtons, ThemeIcon, window } from 'vscode';
 import type { AIProviders } from '../constants.ai';
 import type { Container } from '../container';
 import type { AIModel, AIModelDescriptor } from '../plus/ai/models/model';
-import { executeCommand } from '../system/-webview/command';
+import { isSubscriptionPaidPlan } from '../plus/gk/utils/subscription.utils';
 import { getQuickPickIgnoreFocusOut } from '../system/-webview/vscode';
+import { getSettledValue } from '../system/promise';
+import { createQuickPickSeparator } from './items/common';
+import { Directive } from './items/directive';
 
 export interface ModelQuickPickItem extends QuickPickItem {
 	model: AIModel;
 }
 
+export interface ProviderQuickPickItem extends QuickPickItem {
+	provider: AIProviders;
+}
+
+const ClearAIKeyButton: QuickInputButton = {
+	iconPath: new ThemeIcon('trash'),
+	tooltip: 'Clear AI Key',
+};
+
+const ConfigureAIKeyButton: QuickInputButton = {
+	iconPath: new ThemeIcon('key'),
+	tooltip: 'Configure AI Key...',
+};
+
+export async function showAIProviderPicker(
+	container: Container,
+	current: AIModelDescriptor | undefined,
+): Promise<ProviderQuickPickItem | undefined> {
+	const [providersResult, modelResult, subscriptionResult] = await Promise.allSettled([
+		container.ai.getProvidersConfiguration(),
+		container.ai.getModel({ silent: true }, { source: 'ai:picker' }),
+		container.subscription.getSubscription(),
+	]);
+
+	const providers = getSettledValue(providersResult) ?? new Map();
+	const currentModelName = getSettledValue(modelResult)?.name;
+	const subscription = getSettledValue(subscriptionResult)!;
+	const hasPaidPlan = isSubscriptionPaidPlan(subscription.plan.effective.id) && subscription.account?.verified;
+
+	const quickpick = window.createQuickPick<ProviderQuickPickItem>();
+	quickpick.ignoreFocusOut = getQuickPickIgnoreFocusOut();
+	quickpick.title = 'Select AI Provider';
+	quickpick.placeholder = 'Choose an AI provider to use';
+
+	const disposables: Disposable[] = [];
+
+	try {
+		const pickedProvider =
+			current?.provider ?? providers.get('vscode')?.configured
+				? 'vscode'
+				: providers.get('gitkraken')?.configured
+				  ? 'gitkraken'
+				  : undefined;
+
+		let addedRequiredKeySeparator = false;
+		const items: ProviderQuickPickItem[] = [];
+
+		for (const p of providers.values()) {
+			if (!p.primary && !addedRequiredKeySeparator) {
+				addedRequiredKeySeparator = true;
+				items.push(createQuickPickSeparator<ProviderQuickPickItem>('Requires API Key'));
+			}
+
+			items.push({
+				label: p.name,
+				iconPath: p.id === current?.provider ? new ThemeIcon('check') : new ThemeIcon('blank'),
+				provider: p.id,
+				picked: p.id === pickedProvider,
+				detail:
+					p.id === current?.provider && currentModelName
+						? `      ${currentModelName}`
+						: p.id === 'gitkraken'
+						  ? '      Models provided by GitKraken'
+						  : undefined,
+				buttons: !p.primary ? (p.configured ? [ClearAIKeyButton] : [ConfigureAIKeyButton]) : undefined,
+				description:
+					p.id === 'gitkraken'
+						? hasPaidPlan
+							? '  included in your plan'
+							: '  included in GitLens Pro'
+						: undefined,
+			} satisfies ProviderQuickPickItem);
+		}
+
+		while (true) {
+			const pick = await new Promise<ProviderQuickPickItem | 'refresh' | undefined>(resolve => {
+				disposables.push(
+					quickpick.onDidHide(() => resolve(undefined)),
+					quickpick.onDidAccept(() => {
+						if (quickpick.activeItems.length !== 0) {
+							resolve(quickpick.activeItems[0]);
+						}
+					}),
+					quickpick.onDidTriggerItemButton(e => {
+						if (e.button === ClearAIKeyButton) {
+							container.ai.resetProviderKey(e.item.provider);
+							providers.set(e.item.provider, { ...providers.get(e.item.provider)!, configured: false });
+							resolve('refresh');
+						} else if (e.button === ConfigureAIKeyButton) {
+							resolve(e.item);
+						}
+					}),
+				);
+
+				quickpick.items = items;
+				quickpick.activeItems = items.filter(i => i.picked);
+
+				quickpick.show();
+			});
+
+			if (pick === 'refresh') continue;
+
+			return pick;
+		}
+	} finally {
+		quickpick.dispose();
+		disposables.forEach(d => void d.dispose());
+	}
+}
+
 export async function showAIModelPicker(
 	container: Container,
+	provider: AIProviders,
 	current?: AIModelDescriptor,
-): Promise<ModelQuickPickItem | undefined> {
-	const models = (await container.ai.getModels()) ?? [];
+): Promise<ModelQuickPickItem | Directive | undefined> {
+	const models = (await container.ai.getModels(provider)) ?? [];
 
 	const items: ModelQuickPickItem[] = [];
 
-	let lastProvider: AIProviders | undefined;
 	for (const m of models) {
 		if (m.hidden) continue;
-
-		if (lastProvider !== m.provider.id) {
-			lastProvider = m.provider.id;
-			items.push({ label: m.provider.name, kind: QuickPickItemKind.Separator } as unknown as ModelQuickPickItem);
-		}
 
 		const picked = m.provider.id === current?.provider && m.id === current?.model;
 
 		items.push({
 			label: m.name,
+			description: m.default ? '  recommended' : undefined,
 			iconPath: picked ? new ThemeIcon('check') : new ThemeIcon('blank'),
-			// description: ` ~${formatNumeric(m.maxTokens)} tokens`,
 			model: m,
 			picked: picked,
 		} satisfies ModelQuickPickItem);
@@ -43,13 +151,8 @@ export async function showAIModelPicker(
 
 	const disposables: Disposable[] = [];
 
-	const ResetAIKeyButton: QuickInputButton = {
-		iconPath: new ThemeIcon('clear-all'),
-		tooltip: 'Reset AI Keys...',
-	};
-
 	try {
-		const pick = await new Promise<ModelQuickPickItem | undefined>(resolve => {
+		const pick = await new Promise<ModelQuickPickItem | Directive | undefined>(resolve => {
 			disposables.push(
 				quickpick.onDidHide(() => resolve(undefined)),
 				quickpick.onDidAccept(() => {
@@ -58,8 +161,8 @@ export async function showAIModelPicker(
 					}
 				}),
 				quickpick.onDidTriggerButton(e => {
-					if (e === ResetAIKeyButton) {
-						void executeCommand('gitlens.resetAIKey');
+					if (e === QuickInputButtons.Back) {
+						resolve(Directive.Back);
 					}
 				}),
 			);
@@ -68,8 +171,9 @@ export async function showAIModelPicker(
 			quickpick.placeholder = 'Choose an AI model to use';
 			quickpick.matchOnDescription = true;
 			quickpick.matchOnDetail = true;
-			quickpick.buttons = [ResetAIKeyButton];
 			quickpick.items = items;
+			quickpick.activeItems = items.filter(i => i.picked);
+			quickpick.buttons = [QuickInputButtons.Back];
 
 			quickpick.show();
 		});
