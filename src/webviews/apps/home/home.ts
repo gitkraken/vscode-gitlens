@@ -12,7 +12,7 @@ import {
 	InactiveOverviewState,
 	inactiveOverviewStateContext,
 } from '../plus/home/components/overviewState';
-import type { GLHomeHeader } from '../plus/shared/components/home-header';
+import type { GlHomeHeader } from '../plus/shared/components/home-header';
 import { GlApp } from '../shared/app';
 import { scrollableBase } from '../shared/components/styles/lit/base.css';
 import type { HostIpc } from '../shared/ipc';
@@ -40,7 +40,7 @@ export class GlHomeApp extends GlApp<State> {
 	private _inactiveOverviewState!: InactiveOverviewState;
 
 	@query('gl-home-header')
-	private _header!: GLHomeHeader;
+	private _header!: GlHomeHeader;
 
 	private badgeSource = { source: 'home', detail: 'badge' };
 

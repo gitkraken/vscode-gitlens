@@ -84,7 +84,7 @@ customElements.define('web-graph', WebGraph);
 
 declare global {
 	interface HTMLElementTagNameMap {
-		'gl-graph-wrapper': GLGraphWrapper;
+		'gl-graph-wrapper': GlGraphWrapper;
 	}
 
 	interface GlobalEventHandlersEventMap {
@@ -121,7 +121,7 @@ declare global {
 }
 
 @customElement('gl-graph-wrapper')
-export class GLGraphWrapper extends SignalWatcher(LitElement) {
+export class GlGraphWrapper extends SignalWatcher(LitElement) {
 	// use Light DOM
 	protected override createRenderRoot(): HTMLElement | DocumentFragment {
 		return this;

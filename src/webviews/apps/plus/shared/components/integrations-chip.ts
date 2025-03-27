@@ -25,7 +25,7 @@ import '../../../shared/components/overlays/tooltip';
 import '../../../shared/components/feature-badge';
 
 @customElement('gl-integrations-chip')
-export class GLIntegrationsChip extends LitElement {
+export class GlIntegrationsChip extends LitElement {
 	static override shadowRootOptions: ShadowRootInit = {
 		...LitElement.shadowRootOptions,
 		delegatesFocus: true,

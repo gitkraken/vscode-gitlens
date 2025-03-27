@@ -1,7 +1,7 @@
 import { css, html, LitElement } from 'lit';
 import { customElement, query } from 'lit/decorators.js';
 import { elementBase, linkBase } from '../../../shared/components/styles/lit/base.css';
-import type { GLAccountChip } from './account-chip';
+import type { GlAccountChip } from './account-chip';
 import './account-chip';
 import './integrations-chip';
 import '../../../home/components/onboarding';
@@ -13,7 +13,7 @@ import '../../../shared/components/promo';
 // import '../../../shared/components/snow';
 
 @customElement('gl-home-header')
-export class GLHomeHeader extends LitElement {
+export class GlHomeHeader extends LitElement {
 	static override styles = [
 		elementBase,
 		linkBase,
@@ -60,7 +60,7 @@ export class GLHomeHeader extends LitElement {
 	];
 
 	@query('gl-account-chip')
-	private accountChip!: GLAccountChip;
+	private accountChip!: GlAccountChip;
 
 	override render(): unknown {
 		return html`<gl-promo-banner></gl-promo-banner>
