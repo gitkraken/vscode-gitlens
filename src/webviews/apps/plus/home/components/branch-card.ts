@@ -163,8 +163,32 @@ export const branchCardStyles = css`
 		margin-inline-end: auto;
 	}
 
+	.branch-item__row {
+		display: flex;
+		gap: 0.8rem;
+		container-type: inline-size;
+		contain: layout;
+	}
+
+	.branch-item__row [full] {
+		flex-grow: 1;
+	}
+
 	.branch-item__missing {
 		--button-foreground: inherit;
+	}
+
+	.branch-item__is-narrow {
+		display: none;
+	}
+
+	@container (max-width: 280px) {
+		.branch-item__is-narrow {
+			display: block;
+		}
+		.branch-item__is-wide {
+			display: none;
+		}
 	}
 
 	:host-context(.vscode-dark) .branch-item__missing,
@@ -715,22 +739,28 @@ export abstract class GlBranchCardBase extends GlElement {
 		if (!this.pr) {
 			if (this.branch.upstream?.missing === false && this.expanded) {
 				return html`
-					<gl-button
-						class="branch-item__missing"
-						appearance="secondary"
-						full
-						href="${this.createCommandLink('gitlens.home.createPullRequest')}"
-						>Create a Pull Request</gl-button
-					>
+					<div class="branch-item__row">
 						<gl-button
 							class="branch-item__missing"
+							appearance="secondary"
+							full
+							href="${this.createCommandLink('gitlens.home.createPullRequest')}"
+							>Create a Pull Request</gl-button
+						>
+						<gl-button
+							class="branch-item__missing"
+							tooltip="Create a Pull Request with AI"
 							appearance="secondary"
 							href="${this.createCommandLink('gitlens.home.createPullRequest', {
 								source: 'home',
 								useAI: true,
 							})}"
-							>AI</gl-button
 						>
+							<code-icon class="branch-item__is-wide" icon="sparkle" slot="prefix"></code-icon>
+							<code-icon class="branch-item__is-narrow" icon="sparkle"></code-icon>
+							<span class="branch-item__is-wide">Create with AI</span>
+						</gl-button>
+					</div>
 				`;
 			}
 			return nothing;
