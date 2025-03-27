@@ -137,8 +137,8 @@ export class CopyOrOpenRemoteCommandQuickPickItem extends CommandQuickPickItem {
 			const integrationName = providersMetadata[integrationId].name;
 			const connectItem = createQuickPickItemOfT(
 				{
-					label: `Connect a ${integrationName} Integration...`,
-					detail: `Connect a ${integrationName} integration to be able to create cross-fork pull requests`,
+					label: `Connect to ${integrationName}...`,
+					detail: `Connect an integration with ${integrationName} to create cross-repository pull requests`,
 					picked: true,
 				},
 				true,
@@ -155,8 +155,8 @@ export class CopyOrOpenRemoteCommandQuickPickItem extends CommandQuickPickItem {
 				);
 			});
 			quickpick.ignoreFocusOut = getQuickPickIgnoreFocusOut();
-			quickpick.title = `Connect a ${integrationName} Integration`;
-			quickpick.placeholder = `Connect a ${integrationName} integration to be able to create cross-fork pull requests`;
+			quickpick.title = `Connect ${integrationName} Integration`;
+			quickpick.placeholder = `Requires an integration with ${integrationName} to create cross-repository pull requests`;
 			quickpick.matchOnDetail = true;
 			quickpick.items = [connectItem, cancelItem];
 			quickpick.show();
