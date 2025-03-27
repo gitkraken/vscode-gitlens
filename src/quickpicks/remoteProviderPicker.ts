@@ -82,9 +82,7 @@ export class CopyOrOpenRemoteCommandQuickPickItem extends CommandQuickPickItem {
 						const connected =
 							integrationId && (await this.showIntegrationConnectionPicker(integrationId, 'view'));
 						if (!connected) {
-							throw new RequiresIntegrationError(
-								'Cross-fork pull request URLs are not supported by this provider',
-							);
+							return undefined;
 						}
 					}
 				} else if (
