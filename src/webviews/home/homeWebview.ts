@@ -689,7 +689,7 @@ export class HomeWebviewProvider implements WebviewProvider<State, State, HomeWe
 		const [subResult, integrationResult, aiModelResult] = await Promise.allSettled([
 			this.getSubscriptionState(subscription),
 			this.getIntegrationStates(true),
-			this.container.ai.getModel({ silent: true }),
+			this.container.ai.getModel({ silent: true }, { source: 'home' }),
 		]);
 
 		if (subResult.status === 'rejected') {
@@ -1143,7 +1143,7 @@ export class HomeWebviewProvider implements WebviewProvider<State, State, HomeWe
 		// force rechecking
 		const [integrationResult, aiModelResult] = await Promise.allSettled([
 			this.getIntegrationStates(true),
-			this.container.ai.getModel({ silent: true }),
+			this.container.ai.getModel({ silent: true }, { source: 'home' }),
 		]);
 
 		const integrations = getSettledValue(integrationResult) ?? [];

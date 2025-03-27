@@ -1,14 +1,14 @@
 import { fetch } from '@env/fetch';
+import { huggingFaceProviderDescriptor as provider } from '../../constants.ai';
 import type { AIModel } from './models/model';
 import { OpenAICompatibleProvider } from './openAICompatibleProvider';
-
-const provider = { id: 'huggingface', name: 'Hugging Face' } as const;
 
 type HuggingFaceModel = AIModel<typeof provider.id>;
 
 export class HuggingFaceProvider extends OpenAICompatibleProvider<typeof provider.id> {
 	readonly id = provider.id;
 	readonly name = provider.name;
+	protected readonly descriptor = provider;
 	protected readonly config = {
 		keyUrl: 'https://huggingface.co/settings/tokens',
 		keyValidator: /(?:hf_)?[a-zA-Z0-9]{32,}/,

@@ -1,8 +1,7 @@
+import { openAIProviderDescriptor as provider } from '../../constants.ai';
 import { configuration } from '../../system/-webview/configuration';
 import type { AIActionType, AIModel } from './models/model';
 import { OpenAICompatibleProvider } from './openAICompatibleProvider';
-
-const provider = { id: 'openai', name: 'OpenAI' } as const;
 
 type OpenAIModel = AIModel<typeof provider.id>;
 const models: OpenAIModel[] = [
@@ -211,6 +210,7 @@ const models: OpenAIModel[] = [
 export class OpenAIProvider extends OpenAICompatibleProvider<typeof provider.id> {
 	readonly id = provider.id;
 	readonly name = provider.name;
+	protected readonly descriptor = provider;
 	protected readonly config = {
 		keyUrl: 'https://platform.openai.com/account/api-keys',
 		keyValidator: /(?:sk-)?[a-zA-Z0-9]{32,}/,

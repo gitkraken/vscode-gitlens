@@ -1,5 +1,6 @@
 import type { Disposable } from 'vscode';
 import { fetch } from '@env/fetch';
+import { gitKrakenProviderDescriptor as provider } from '../../constants.ai';
 import type { Container } from '../../container';
 import { AuthenticationRequiredError } from '../../errors';
 import { debug } from '../../system/decorators/log';
@@ -10,15 +11,14 @@ import type { ServerConnection } from '../gk/serverConnection';
 import type { AIActionType, AIModel } from './models/model';
 import type { PromptTemplate } from './models/promptTemplates';
 import { OpenAICompatibleProvider } from './openAICompatibleProvider';
-import { getActionName } from './utils/-webview/ai.utils';
-
-const provider = { id: 'gitkraken', name: 'GitKraken AI (Preview)' } as const;
+import { ensureAccount, getActionName } from './utils/-webview/ai.utils';
 
 type GitKrakenModel = AIModel<typeof provider.id>;
 
 export class GitKrakenProvider extends OpenAICompatibleProvider<typeof provider.id> {
 	readonly id = provider.id;
 	readonly name = provider.name;
+	protected readonly descriptor = provider;
 	protected readonly config = {};
 
 	private readonly _disposable: Disposable;
@@ -141,8 +141,16 @@ export class GitKrakenProvider extends OpenAICompatibleProvider<typeof provider.
 		return super.getPromptTemplate(action, model);
 	}
 
-	protected override getApiKey(): Promise<string | undefined> {
-		return Promise.resolve('');
+	protected override async getApiKey(silent: boolean): Promise<string | undefined> {
+		let session = await this.container.subscription.getAuthenticationSession();
+		if (session?.accessToken) return session.accessToken;
+		if (silent) return undefined;
+
+		const result = await ensureAccount(this.container, silent);
+		if (!result) return undefined;
+
+		session = await this.container.subscription.getAuthenticationSession();
+		return session?.accessToken;
 	}
 
 	protected getUrl(_model: AIModel<typeof provider.id>): string {
@@ -153,9 +161,9 @@ export class GitKrakenProvider extends OpenAICompatibleProvider<typeof provider.
 		action: TAction,
 		_model: AIModel<typeof provider.id>,
 		_url: string,
-		_apiKey: string,
+		apiKey: string,
 	): Promise<Record<string, string>> {
-		return this.connection.getGkHeaders(undefined, undefined, {
+		return this.connection.getGkHeaders(apiKey, undefined, {
 			Accept: 'application/json',
 			'GK-Action': action,
 		});

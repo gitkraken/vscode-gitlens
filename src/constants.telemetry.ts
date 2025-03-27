@@ -926,6 +926,8 @@ export type TrackingContext = 'graph' | 'launchpad' | 'visual_file_history' | 'w
 
 export type Sources =
 	| 'account'
+	| 'ai'
+	| 'ai:picker'
 	| 'associateIssueWithBranch'
 	| 'code-suggest'
 	| 'cloud-patches'

@@ -4570,7 +4570,7 @@
 			}
 		},
 		"gitlens.switchAIModel": {
-			"label": "Switch AI Model",
+			"label": "Switch AI Provider/Model",
 			"commandPalette": "gitlens:enabled && gitlens:gk:organization:ai:enabled"
 		},
 		"gitlens.switchMode": {

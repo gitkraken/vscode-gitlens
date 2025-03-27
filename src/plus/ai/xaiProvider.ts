@@ -1,7 +1,6 @@
+import { xAIProviderDescriptor as provider } from '../../constants.ai';
 import type { AIModel } from './models/model';
 import { OpenAICompatibleProvider } from './openAICompatibleProvider';
-
-const provider = { id: 'xai', name: 'xAI' } as const;
 
 type XAIModel = AIModel<typeof provider.id>;
 const models: XAIModel[] = [
@@ -17,6 +16,7 @@ const models: XAIModel[] = [
 export class XAIProvider extends OpenAICompatibleProvider<typeof provider.id> {
 	readonly id = provider.id;
 	readonly name = provider.name;
+	protected readonly descriptor = provider;
 	protected readonly config = {
 		keyUrl: 'https://console.x.ai/',
 		keyValidator: /(?:xai-)?[a-zA-Z0-9]{32,}/,

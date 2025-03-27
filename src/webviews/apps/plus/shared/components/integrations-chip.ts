@@ -368,8 +368,8 @@ export class GLIntegrationsChip extends LitElement {
 									source: 'home',
 									detail: 'integrations',
 								})}"
-								tooltip="Switch AI Model"
-								aria-label="Switch AI Model"
+								tooltip="Switch AI Provider/Model"
+								aria-label="Switch AI Provider/Model"
 								><code-icon icon="arrow-swap"></code-icon
 							></gl-button>
 						</span>`
