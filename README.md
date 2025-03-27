@@ -53,17 +53,22 @@ GitLens offers a wide range of features—here are the three most popular workfl
 
 Compact but powerful, the Home View lets you take your tasks and issues from code to merge. Start work on an issue and create PRs in one intelligent view. The perfect companion for developers looking to reduce tedious context switching and stay focused on their work in VS Code.
 
-## GitLens AI Integrations
+## Accelerate Your Workflow with AI (Preview)
 
-GitLens integrates with models such as OpenAI, Anthropic, DeepSeek, GitHub Copilot, Gemini and more.
+GitLens leverages AI to simplify tedious tasks like writing commit messages, crafting pull request descriptions, generating changelogs and more—allowing you to focus on your code.
 
-- 🧪**AI Generatated Commit Message** - Leverage more AI models to quickly generate commit messages for uncommitted work from Home View, or from the Source Control view's context menu.
+- **Generate Commit and Stash Messages**: Quickly create descriptive commit or stash messages tailored to your code changes.
 
-- 🧪**AI Explain Commit**
-Use the Explain panel on the Inspect view to leverage AI to help you understand the changes introduced by a commit.
+- **Explain Commits**: Instantly understand the context of a commit through concise AI-generated explanations in the Inspect view.
 
- Access these AI features by signing up for a free [GitKraken](https://gitkraken.dev/register?product=gitlens&source=marketing_page&redirect_uri=vscode%3A%2F%2Feamodio.gitlens%2Flogin&flow=gitlens_web&utm_source=gitlens-extension&utm_medium=readme-ai) account.
+- **Open Pull Requests**: Automatically generate clear PR titles and descriptions directly from your branch changes, speeding up review cycles.
 
+- **Generate Changelogs**: Effortlessly summarize repository changes for release notes or documentation updates.
+- More coming soon!
+
+**Community Features**: Community users can generate commit messages for free if they are using GitHub Copilot or have a free [GitKraken](https://gitkraken.dev/register?product=gitlens&source=marketing_page&redirect_uri=vscode%3A%2F%2Feamodio.gitlens%2Flogin&flow=gitlens_web&utm_source=gitlens-extension&utm_medium=readme-ai) account with an API key connected to other providers like OpenAI, Anthropic, DeepSeek, Gemini, etc.
+
+**Pro Features**: Subscribe to GitLens Pro to access all AI features with GitKraken AI (Preview)—no manual key management required.
 
 # Interactive Code History
 
@@ -281,18 +286,6 @@ All integrations provide automatic linking, while rich integrations with GitHub,
 ## Define your own autolinks
 
 Use autolinks to linkify external references, like Jira issues or Zendesk tickets, in commit messages.
-
-# GitKraken Labs
-
-Our incubator for experimentation and exploration with the community to gather early reactions and feedback. Below are some of our current experiments.
-
-## 🧪AI Explain Commit
-
-Use the Explain panel on the **Inspect** view to leverage AI to help you understand the changes introduced by a commit.
-
-## 🧪Automatically Generate Commit Message
-
-Use the `Generate Commit Message` command from the Source Control view's context menu to automatically generate a commit message for your staged changes by leveraging AI.
 
 # Ready for GitLens Pro?
 
