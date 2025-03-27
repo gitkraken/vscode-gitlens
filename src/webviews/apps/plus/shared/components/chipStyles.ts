@@ -47,6 +47,7 @@ export const chipStyles = css`
 	.header__title {
 		flex: 1;
 		font-size: 1.5rem;
+		line-height: 1.7;
 		font-weight: 600;
 		margin: 0;
 		white-space: nowrap;
