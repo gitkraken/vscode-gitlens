@@ -1,5 +1,4 @@
 import { env, window } from 'vscode';
-import { GlCommand } from '../constants.commands';
 import type { Container } from '../container';
 import { shortenRevision } from '../git/utils/revision.utils';
 import { command } from '../system/-webview/command';
@@ -17,7 +16,7 @@ export interface OpenPullRequestOnRemoteCommandArgs {
 @command()
 export class OpenPullRequestOnRemoteCommand extends GlCommandBase {
 	constructor(private readonly container: Container) {
-		super([GlCommand.OpenPullRequestOnRemote, GlCommand.CopyRemotePullRequestUrl]);
+		super(['gitlens.openPullRequestOnRemote', 'gitlens.copyRemotePullRequestUrl']);
 	}
 
 	protected override preExecute(context: CommandContext, args?: OpenPullRequestOnRemoteCommandArgs): Promise<void> {
@@ -25,7 +24,7 @@ export class OpenPullRequestOnRemoteCommand extends GlCommandBase {
 			args = {
 				...args,
 				pr: context.node.pullRequest != null ? { url: context.node.pullRequest.url } : undefined,
-				clipboard: context.command === GlCommand.CopyRemotePullRequestUrl,
+				clipboard: context.command === 'gitlens.copyRemotePullRequestUrl',
 			};
 		}
 

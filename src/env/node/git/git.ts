@@ -1266,32 +1266,15 @@ export class Git {
 					return [ex.stdout, undefined];
 				}
 
+				let data;
 				try {
-					const data = await this.exec({ cwd: repoPath }, 'symbolic-ref', '--short', 'HEAD');
+					data = await this.exec({ cwd: repoPath }, 'symbolic-ref', '--short', 'HEAD');
 					if (data != null) return [data.trim(), undefined];
 				} catch {}
 
-				try {
-					const data = await this.exec(
-						{ cwd: repoPath },
-						'symbolic-ref',
-						'--short',
-						'refs/remotes/origin/HEAD',
-					);
-					if (data != null) return [data.trim().substring('origin/'.length), undefined];
-				} catch (ex) {
-					if (/is not a symbolic ref/.test(ex.stderr)) {
-						try {
-							const data = await this.exec({ cwd: repoPath }, 'ls-remote', '--symref', 'origin', 'HEAD');
-							if (data != null) {
-								const match = /ref:\s(\S+)\s+HEAD/m.exec(data);
-								if (match != null) {
-									const [, branch] = match;
-									return [branch.substring('refs/heads/'.length), undefined];
-								}
-							}
-						} catch {}
-					}
+				data = await this.symbolic_ref__HEAD(repoPath, 'origin');
+				if (data != null) {
+					return [data.startsWith('origin/') ? data.substring('origin/'.length) : data, undefined];
 				}
 
 				const defaultBranch = (await this.config__get('init.defaultBranch', repoPath)) ?? 'main';
@@ -1334,6 +1317,42 @@ export class Git {
 
 			defaultExceptionHandler(ex, repoPath);
 			return undefined;
+		}
+	}
+
+	async symbolic_ref__HEAD(repoPath: string, remote: string): Promise<string | undefined> {
+		let retried = false;
+		while (true) {
+			try {
+				const data = await this.exec(
+					{ cwd: repoPath },
+					'symbolic-ref',
+					'--short',
+					`refs/remotes/${remote}/HEAD`,
+				);
+				return data?.trim() || undefined;
+			} catch (ex) {
+				if (/is not a symbolic ref/.test(ex.stderr)) {
+					try {
+						if (!retried) {
+							retried = true;
+							await this.exec({ cwd: repoPath }, 'remote', 'set-head', '-a', remote);
+							continue;
+						}
+
+						const data = await this.exec({ cwd: repoPath }, 'ls-remote', '--symref', remote, 'HEAD');
+						if (data != null) {
+							const match = /ref:\s(\S+)\s+HEAD/m.exec(data);
+							if (match != null) {
+								const [, branch] = match;
+								return `${remote}/${branch.substring('refs/heads/'.length).trim()}`;
+							}
+						}
+					} catch {}
+				}
+
+				return undefined;
+			}
 		}
 	}
 
@@ -1400,12 +1419,14 @@ export class Git {
 			if (ex instanceof WorkspaceUntrustedError) return emptyArray as [];
 
 			const unsafeMatch =
-				/^fatal: detected dubious ownership in repository at '([^']+)'[\s\S]*git config --global --add safe\.directory '?([^'\n]+)'?$/m.exec(
+				/(?:^fatal: detected dubious ownership in repository at '([^']+)'|unsafe repository \('([^']+)' is owned by someone else\))[\s\S]*(git config --global --add safe\.directory [^\n•]+)/m.exec(
 					ex.stderr,
 				);
-			if (unsafeMatch?.length === 3) {
+			if (unsafeMatch != null) {
 				Logger.log(
-					`Skipping; unsafe repository detected in '${unsafeMatch[1]}'; run 'git config --global --add safe.directory ${unsafeMatch[2]}' to allow it`,
+					`Skipping; unsafe repository detected in '${unsafeMatch[1] || unsafeMatch[2]}'; run '${
+						unsafeMatch[3]
+					}' to allow it`,
 				);
 				return [false];
 			}

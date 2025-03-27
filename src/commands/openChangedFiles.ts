@@ -1,6 +1,5 @@
 import type { Uri } from 'vscode';
 import { window } from 'vscode';
-import { GlCommand } from '../constants.commands';
 import type { Container } from '../container';
 import { showGenericErrorMessage } from '../messages';
 import { getRepositoryOrShowPicker } from '../quickpicks/repositoryPicker';
@@ -17,7 +16,7 @@ export interface OpenChangedFilesCommandArgs {
 @command()
 export class OpenChangedFilesCommand extends GlCommandBase {
 	constructor(private readonly container: Container) {
-		super(GlCommand.OpenChangedFiles);
+		super('gitlens.openChangedFiles');
 	}
 
 	async execute(args?: OpenChangedFilesCommandArgs): Promise<void> {

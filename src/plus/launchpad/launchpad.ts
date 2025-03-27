@@ -41,7 +41,6 @@ import type { IntegrationId } from '../../constants.integrations';
 import { HostingIntegrationId, SelfHostedIntegrationId } from '../../constants.integrations';
 import type { LaunchpadTelemetryContext, Source, Sources, TelemetryEvents } from '../../constants.telemetry';
 import type { Container } from '../../container';
-import { PlusFeatures } from '../../features';
 import type { QuickPickItemOfT } from '../../quickpicks/items/common';
 import { createQuickPickItemOfT, createQuickPickSeparator } from '../../quickpicks/items/common';
 import type { DirectiveQuickPickItem } from '../../quickpicks/items/directive';
@@ -290,7 +289,7 @@ export class LaunchpadCommand extends QuickCommand<State> {
 				newlyConnected = Boolean(connected);
 			}
 
-			const result = yield* ensureAccessStep(this.container, state, context, PlusFeatures.Launchpad);
+			const result = yield* ensureAccessStep(this.container, state, context, 'launchpad');
 			if (result === StepResultBreak) continue;
 
 			await updateContextItems(this.container, context, { force: newlyConnected });
@@ -513,7 +512,7 @@ export class LaunchpadCommand extends QuickCommand<State> {
 						? new ThemeIcon('account')
 						: i.author?.avatarUrl != null
 						  ? Uri.parse(i.author.avatarUrl)
-						  : undefined,
+						  : new ThemeIcon('account'),
 				item: i,
 				picked:
 					i.graphQLId != null
@@ -1497,7 +1496,7 @@ function getLaunchpadItemReviewInformation(item: LaunchpadItem): QuickPickItemOf
 				? new ThemeIcon('account')
 				: review.reviewer.avatarUrl != null
 				  ? Uri.parse(review.reviewer.avatarUrl)
-				  : undefined;
+				  : new ThemeIcon('account');
 		switch (review.state) {
 			case ProviderPullRequestReviewState.Approved:
 				reviewLabel = `${isCurrentUser ? 'You' : review.reviewer.username} approved these changes`;
@@ -1597,6 +1596,7 @@ function getOpenOnGitProviderQuickInputButton(integrationId: string): QuickInput
 		case HostingIntegrationId.AzureDevOps:
 			return OpenOnAzureDevOpsQuickInputButton;
 		case HostingIntegrationId.Bitbucket:
+		case SelfHostedIntegrationId.BitbucketServer:
 			return OpenOnBitbucketQuickInputButton;
 		default:
 			return undefined;
@@ -1622,6 +1622,8 @@ function getIntegrationTitle(integrationId: string): string {
 			return 'Azure DevOps';
 		case HostingIntegrationId.Bitbucket:
 			return 'Bitbucket';
+		case SelfHostedIntegrationId.BitbucketServer:
+			return 'Bitbucket Data Center';
 		default:
 			return integrationId;
 	}

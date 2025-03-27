@@ -1,5 +1,4 @@
 import { Disposable, ViewColumn } from 'vscode';
-import { GlCommand } from '../../../constants.commands';
 import type { Container } from '../../../container';
 import type { GitReference } from '../../../git/models/reference';
 import type { Repository } from '../../../git/models/repository';
@@ -20,18 +19,32 @@ import type {
 	WebviewsController,
 	WebviewViewProxy,
 } from '../../webviewsController';
-import type { ShowInCommitGraphCommandArgs, State } from './protocol';
+import type { State } from './protocol';
 
 export type GraphWebviewShowingArgs = [Repository | { ref: GitReference }];
+
+export type ShowInCommitGraphCommandArgs =
+	| { ref: GitReference; preserveFocus?: boolean }
+	| Repository
+	| BranchNode
+	| CommitNode
+	| CommitFileNode
+	| PullRequestNode
+	| StashNode
+	| TagNode;
+
+function getFileName(): string {
+	return configuration.get('graph.experimental.renderer.enabled') ? 'graph-next.html' : 'graph.html';
+}
 
 export function registerGraphWebviewPanel(
 	controller: WebviewsController,
 ): WebviewPanelsProxy<'gitlens.graph', GraphWebviewShowingArgs, State> {
 	return controller.registerWebviewPanel<'gitlens.graph', State, State, GraphWebviewShowingArgs>(
-		{ id: GlCommand.ShowGraphPage, options: { preserveInstance: true } },
+		{ id: 'gitlens.showGraphPage', options: { preserveInstance: true } },
 		{
 			id: 'gitlens.graph',
-			fileName: 'graph.html',
+			fileName: getFileName(),
 			iconPath: 'images/gitlens-icon.png',
 			title: 'Commit Graph',
 			contextKeyPrefix: `gitlens:webview:graph`,
@@ -58,7 +71,7 @@ export function registerGraphWebviewView(
 	return controller.registerWebviewView<'gitlens.views.graph', State, State, GraphWebviewShowingArgs>(
 		{
 			id: 'gitlens.views.graph',
-			fileName: 'graph.html',
+			fileName: getFileName(),
 			title: 'Commit Graph',
 			contextKeyPrefix: `gitlens:webviewView:graph`,
 			trackingFeature: 'graphView',
@@ -80,7 +93,7 @@ export function registerGraphWebviewCommands<T>(
 	panels: WebviewPanelsProxy<'gitlens.graph', GraphWebviewShowingArgs, T>,
 ): Disposable {
 	return Disposable.from(
-		registerCommand(GlCommand.ShowGraph, (...args: unknown[]) => {
+		registerCommand('gitlens.showGraph', (...args: unknown[]) => {
 			const [arg] = args;
 
 			let showInGraphArg;
@@ -100,100 +113,74 @@ export function registerGraphWebviewCommands<T>(
 			}
 
 			if (showInGraphArg != null) {
-				return executeCommand(GlCommand.ShowInCommitGraph, showInGraphArg);
+				return executeCommand<ShowInCommitGraphCommandArgs>('gitlens.showInCommitGraph', showInGraphArg);
 			}
 
 			if (configuration.get('graph.layout') === 'panel') {
-				return executeCommand(GlCommand.ShowGraphView, ...args);
+				return executeCommand('gitlens.showGraphView', ...args);
 			}
 
-			return executeCommand<WebviewPanelShowCommandArgs>(GlCommand.ShowGraphPage, undefined, ...args);
+			return executeCommand<WebviewPanelShowCommandArgs>('gitlens.showGraphPage', undefined, ...args);
 		}),
 		registerCommand(`${panels.id}.switchToEditorLayout`, async () => {
 			await configuration.updateEffective('graph.layout', 'editor');
-			queueMicrotask(() => void executeCommand<WebviewPanelShowCommandArgs>(GlCommand.ShowGraphPage));
+			queueMicrotask(() => void executeCommand<WebviewPanelShowCommandArgs>('gitlens.showGraphPage'));
 		}),
 		registerCommand(`${panels.id}.switchToPanelLayout`, async () => {
 			await configuration.updateEffective('graph.layout', 'panel');
 			queueMicrotask(async () => {
 				await executeCoreCommand('gitlens.views.graph.resetViewLocation');
 				await executeCoreCommand('gitlens.views.graphDetails.resetViewLocation');
-				void executeCommand(GlCommand.ShowGraphView);
+				void executeCommand('gitlens.showGraphView');
 			});
 		}),
 		registerCommand('gitlens.toggleGraph', (...args: any[]) => {
 			if (getContext('gitlens:webviewView:graph:visible')) {
 				void executeCoreCommand('workbench.action.closePanel');
 			} else {
-				void executeCommand(GlCommand.ShowGraphView, ...args);
+				void executeCommand('gitlens.showGraphView', ...args);
 			}
 		}),
 		registerCommand('gitlens.toggleMaximizedGraph', (...args: any[]) => {
 			if (getContext('gitlens:webviewView:graph:visible')) {
 				void executeCoreCommand('workbench.action.toggleMaximizedPanel');
 			} else {
-				void executeCommand(GlCommand.ShowGraphView, ...args);
+				void executeCommand('gitlens.showGraphView', ...args);
 				void executeCoreCommand('workbench.action.toggleMaximizedPanel');
 			}
 		}),
-		registerCommand(
-			GlCommand.ShowInCommitGraph,
-			(
-				args:
-					| ShowInCommitGraphCommandArgs
-					| Repository
-					| BranchNode
-					| CommitNode
-					| CommitFileNode
-					| PullRequestNode
-					| StashNode
-					| TagNode,
-			) => {
-				if (args instanceof PullRequestNode) {
-					if (args.ref == null) return;
+		registerCommand('gitlens.showInCommitGraph', (args: ShowInCommitGraphCommandArgs) => {
+			if (args instanceof PullRequestNode) {
+				if (args.ref == null) return;
 
-					args = { ref: args.ref };
-				}
+				args = { ref: args.ref };
+			}
 
-				const preserveFocus = 'preserveFocus' in args ? args.preserveFocus ?? false : false;
-				if (configuration.get('graph.layout') === 'panel') {
-					if (!container.views.graph.visible) {
-						const instance = panels.getBestInstance({ preserveFocus: preserveFocus }, args);
-						if (instance != null) {
-							void instance.show({ preserveFocus: preserveFocus }, args);
-							return;
-						}
+			const preserveFocus = 'preserveFocus' in args ? args.preserveFocus ?? false : false;
+			if (configuration.get('graph.layout') === 'panel') {
+				if (!container.views.graph.visible) {
+					const instance = panels.getBestInstance({ preserveFocus: preserveFocus }, args);
+					if (instance != null) {
+						void instance.show({ preserveFocus: preserveFocus }, args);
+						return;
 					}
-
-					void container.views.graph.show({ preserveFocus: preserveFocus }, args);
-				} else {
-					void panels.show({ preserveFocus: preserveFocus }, args);
-				}
-			},
-		),
-		registerCommand(
-			GlCommand.ShowInCommitGraphView,
-			(
-				args:
-					| ShowInCommitGraphCommandArgs
-					| Repository
-					| BranchNode
-					| CommitNode
-					| CommitFileNode
-					| PullRequestNode
-					| StashNode
-					| TagNode,
-			) => {
-				if (args instanceof PullRequestNode) {
-					if (args.ref == null) return;
-
-					args = { ref: args.ref };
 				}
 
-				const preserveFocus = 'preserveFocus' in args ? args.preserveFocus ?? false : false;
 				void container.views.graph.show({ preserveFocus: preserveFocus }, args);
-			},
-		),
+			} else {
+				void panels.show({ preserveFocus: preserveFocus }, args);
+			}
+		}),
+		registerCommand('gitlens.showInCommitGraphView', (args: ShowInCommitGraphCommandArgs) => {
+			if (args instanceof PullRequestNode) {
+				if (args.ref == null) return;
+
+				args = { ref: args.ref };
+			}
+
+			const preserveFocus = 'preserveFocus' in args ? args.preserveFocus ?? false : false;
+			void container.views.graph.show({ preserveFocus: preserveFocus }, args);
+		}),
 		registerCommand(`${panels.id}.refresh`, () => void panels.getActiveInstance()?.refresh(true)),
 		registerCommand(
 			`${panels.id}.split`,

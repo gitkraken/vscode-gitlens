@@ -7,7 +7,7 @@ import { debounce } from '../../../../../system/function/debounce';
 import { getSettledValue, isPromise } from '../../../../../system/promise';
 import type { DidGetRowHoverParams } from '../../../../plus/graph/protocol';
 import { GlElement } from '../../../shared/components/element';
-import type { GlPopover } from '../../../shared/components/overlays/popover.react';
+import type { GlPopover } from '../../../shared/components/overlays/popover';
 import '../../../shared/components/markdown/markdown';
 import '../../../shared/components/overlays/popover';
 

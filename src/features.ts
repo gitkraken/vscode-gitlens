@@ -4,13 +4,7 @@ import type { RepositoryVisibility } from './git/gitProvider';
 import type { RequiredSubscriptionPlans, Subscription } from './plus/gk/models/subscription';
 import { capitalize } from './system/string';
 
-export const enum Features {
-	Stashes = 'stashes',
-	Timeline = 'timeline',
-	Worktrees = 'worktrees',
-	StashOnlyStaged = 'stashOnlyStaged',
-	ForceIfIncludes = 'forceIfIncludes',
-}
+export type Features = 'stashes' | 'timeline' | 'worktrees' | 'stashOnlyStaged' | 'forceIfIncludes';
 
 export type FeatureAccess =
 	| {
@@ -36,13 +30,30 @@ export type RepoFeatureAccess =
 			visibility?: RepositoryVisibility;
 	  };
 
-export const enum PlusFeatures {
-	Timeline = 'timeline',
-	Worktrees = 'worktrees',
-	Graph = 'graph',
-	Launchpad = 'launchpad',
-	StartWork = 'startWork',
-	AssociateIssueWithBranch = 'associateIssueWithBranch',
+export type PlusFeatures = ProFeatures | AdvancedFeatures;
+
+export type ProFeatures =
+	| 'timeline'
+	| 'worktrees'
+	| 'graph'
+	| 'launchpad'
+	| 'startWork'
+	| 'associateIssueWithBranch'
+	| ProAIFeatures;
+export type ProAIFeatures = 'generateStashMessage' | 'explainCommit' | 'cloudPatchGenerateTitleAndDescription';
+
+export type AdvancedFeatures = AdvancedAIFeatures;
+export type AdvancedAIFeatures = 'generateChangelog';
+
+export type AIFeatures = ProAIFeatures | AdvancedAIFeatures;
+
+export function isAdvancedFeature(feature: PlusFeatures): feature is AdvancedFeatures {
+	switch (feature) {
+		case 'generateChangelog':
+			return true;
+		default:
+			return false;
+	}
 }
 
 export type FeaturePreviews = 'graph';

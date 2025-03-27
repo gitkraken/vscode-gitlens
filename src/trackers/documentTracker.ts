@@ -79,6 +79,10 @@ export class GitDocumentTracker implements Disposable {
 
 	constructor(private readonly container: Container) {
 		this._disposable = Disposable.from(
+			this._onDidChangeBlameState,
+			this._onDidChangeContent,
+			this._onDidChangeDirtyState,
+			this._onDidTriggerDirtyIdle,
 			once(container.onReady)(this.onReady, this),
 			configuration.onDidChange(this.onConfigurationChanged, this),
 			window.onDidChangeActiveTextEditor(this.onActiveTextEditorChanged, this),

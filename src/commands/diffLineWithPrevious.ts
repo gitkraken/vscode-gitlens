@@ -1,5 +1,4 @@
 import type { TextDocumentShowOptions, TextEditor, Uri } from 'vscode';
-import { GlCommand } from '../constants.commands';
 import type { Container } from '../container';
 import { GitUri } from '../git/gitUri';
 import type { GitCommit } from '../git/models/commit';
@@ -21,7 +20,7 @@ export interface DiffLineWithPreviousCommandArgs {
 @command()
 export class DiffLineWithPreviousCommand extends ActiveEditorCommand {
 	constructor(private readonly container: Container) {
-		super(GlCommand.DiffLineWithPrevious);
+		super('gitlens.diffLineWithPrevious');
 	}
 
 	protected override preExecute(context: CommandContext, args?: DiffLineWithPreviousCommandArgs): Promise<any> {
@@ -54,7 +53,7 @@ export class DiffLineWithPreviousCommand extends ActiveEditorCommand {
 				return;
 			}
 
-			void (await executeCommand<DiffWithCommandArgs>(GlCommand.DiffWith, {
+			void (await executeCommand<DiffWithCommandArgs>('gitlens.diffWith', {
 				repoPath: diffUris.current.repoPath,
 				lhs: {
 					sha: diffUris.previous.sha ?? '',

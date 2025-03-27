@@ -128,6 +128,7 @@ export class ActionRunners implements Disposable {
 
 	constructor(private readonly container: Container) {
 		const subscriptions: Disposable[] = [
+			this._onDidChange,
 			configuration.onDidChange(e => {
 				if (!configuration.changed(e, 'partners')) return;
 

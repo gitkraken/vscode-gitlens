@@ -1,6 +1,5 @@
 import type { TextEditor } from 'vscode';
 import { Uri } from 'vscode';
-import { GlCommand } from '../constants.commands';
 import type { Container } from '../container';
 import { executeGitCommand } from '../git/actions';
 import { GitUri } from '../git/gitUri';
@@ -33,11 +32,11 @@ export interface ShowQuickCommitFileCommandArgs {
 @command()
 export class ShowQuickCommitFileCommand extends ActiveEditorCachedCommand {
 	static createMarkdownCommandLink(args: ShowQuickCommitFileCommandArgs): string {
-		return createMarkdownCommandLink<ShowQuickCommitFileCommandArgs>(GlCommand.ShowQuickCommitFile, args);
+		return createMarkdownCommandLink<ShowQuickCommitFileCommandArgs>('gitlens.showQuickCommitFileDetails', args);
 	}
 
 	constructor(private readonly container: Container) {
-		super(GlCommand.ShowQuickCommitFile);
+		super('gitlens.showQuickCommitFileDetails');
 	}
 
 	protected override async preExecute(context: CommandContext, args?: ShowQuickCommitFileCommandArgs): Promise<void> {

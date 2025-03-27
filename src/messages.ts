@@ -2,14 +2,12 @@ import type { MessageItem } from 'vscode';
 import { ConfigurationTarget, window } from 'vscode';
 import type { SuppressedMessages } from './config';
 import { urls } from './constants';
-import { GlCommand } from './constants.commands';
 import type { BlameIgnoreRevsFileError } from './git/errors';
 import { BlameIgnoreRevsFileBadRevisionError } from './git/errors';
 import type { GitCommit } from './git/models/commit';
 import { executeCommand, executeCoreCommand } from './system/-webview/command';
 import { configuration } from './system/-webview/configuration';
 import { openUrl } from './system/-webview/vscode';
-import { createMarkdownCommandLink } from './system/commands';
 import { Logger } from './system/logger';
 
 export function showBlameInvalidIgnoreRevsFileWarningMessage(
@@ -236,10 +234,8 @@ export async function showWhatsNewMessage(majorVersion: string): Promise<void> {
 	const result = await showMessage(
 		'info',
 		`Upgraded to GitLens ${majorVersion}${
-			majorVersion === '16'
-				? ` with an all new [Home view](${createMarkdownCommandLink(GlCommand.ShowHomeView, {
-						source: 'whatsnew',
-				  })} "Show Home view") reimagined as a hub for your current, future, and recent work, [consolidated Source Control views](command:gitlens.views.scm.grouped.focus "Show GitLens view"), and much more.`
+			majorVersion === '17'
+				? ' with all new [GitKraken AI](https://gitkraken.com/solutions/gitkraken-ai?source=gitlens&product=gitlens&utm_source=gitlens-extension&utm_medium=in-app-links) access included in GitLens Pro, AI changelog and pull request creation, and Bitbucket integration.'
 				: " — see what's new."
 		}`,
 		undefined,

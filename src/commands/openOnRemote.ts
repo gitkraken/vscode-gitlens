@@ -1,5 +1,4 @@
 import { GlyphChars } from '../constants';
-import { GlCommand } from '../constants.commands';
 import type { Container } from '../container';
 import type { GitRemote } from '../git/models/remote';
 import type { RemoteResource } from '../git/models/remoteResource';
@@ -34,7 +33,7 @@ export type OpenOnRemoteCommandArgs =
 @command()
 export class OpenOnRemoteCommand extends GlCommandBase {
 	constructor(private readonly container: Container) {
-		super([GlCommand.OpenOnRemote, /** @deprecated */ 'gitlens.openInRemote']);
+		super(['gitlens.openOnRemote'], ['gitlens.openInRemote']);
 	}
 
 	async execute(args?: OpenOnRemoteCommandArgs): Promise<void> {

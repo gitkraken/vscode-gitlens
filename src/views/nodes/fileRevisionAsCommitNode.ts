@@ -1,8 +1,8 @@
 import type { CancellationToken, Command, Selection, Uri } from 'vscode';
 import { MarkdownString, ThemeColor, ThemeIcon, TreeItem, TreeItemCollapsibleState } from 'vscode';
+import type { DiffWithCommandArgs } from '../../commands/diffWith';
 import type { DiffWithPreviousCommandArgs } from '../../commands/diffWithPrevious';
 import type { Colors } from '../../constants.colors';
-import { GlCommand } from '../../constants.commands';
 import type { Container } from '../../container';
 import { CommitFormatter } from '../../git/formatters/commitFormatter';
 import { StatusFileFormatter } from '../../git/formatters/statusFormatter';
@@ -12,6 +12,7 @@ import type { GitCommit } from '../../git/models/commit';
 import type { GitFile } from '../../git/models/file';
 import type { GitRevisionReference } from '../../git/models/reference';
 import { getGitFileStatusIcon } from '../../git/utils/fileStatus.utils';
+import { createCommand } from '../../system/-webview/command';
 import { configuration } from '../../system/-webview/configuration';
 import { joinPaths } from '../../system/path';
 import { getSettledValue, pauseOnCancelOrTimeoutMapTuplePromise } from '../../system/promise';
@@ -75,7 +76,7 @@ export class FileRevisionAsCommitNode extends ViewRefFileNode<
 			if (commit == null) {
 				const log = await this.view.container.git
 					.commits(this.repoPath)
-					.getLogForFile(this.file.path, this.commit.sha, { limit: 2 });
+					.getLogForPath(this.file.path, this.commit.sha, { limit: 2 });
 				if (log != null) {
 					this.commit = log.commits.get(this.commit.sha) ?? this.commit;
 				}
@@ -145,44 +146,38 @@ export class FileRevisionAsCommitNode extends ViewRefFileNode<
 		}
 
 		if (this.commit.file?.hasConflicts) {
-			return {
-				title: 'Open Changes',
-				command: GlCommand.DiffWith,
-				arguments: [
-					{
-						lhs: {
-							sha: 'MERGE_HEAD',
-							uri: GitUri.fromFile(this.file, this.repoPath, undefined, true),
-						},
-						rhs: {
-							sha: 'HEAD',
-							uri: GitUri.fromFile(this.file, this.repoPath),
-						},
-						repoPath: this.repoPath,
-						line: 0,
-						showOptions: {
-							preserveFocus: false,
-							preview: false,
-						},
-					},
-				],
-			};
+			return createCommand<[DiffWithCommandArgs]>('gitlens.diffWith', 'Open Changes', {
+				lhs: {
+					sha: 'MERGE_HEAD',
+					uri: GitUri.fromFile(this.file, this.repoPath, undefined, true),
+				},
+				rhs: {
+					sha: 'HEAD',
+					uri: GitUri.fromFile(this.file, this.repoPath),
+				},
+				repoPath: this.repoPath,
+				line: 0,
+				showOptions: {
+					preserveFocus: false,
+					preview: false,
+				},
+			});
 		}
 
-		const commandArgs: DiffWithPreviousCommandArgs = {
-			commit: this.commit,
-			uri: GitUri.fromFile(this.file, this.commit.repoPath),
-			line: line,
-			showOptions: {
-				preserveFocus: true,
-				preview: true,
+		return createCommand<[undefined, DiffWithPreviousCommandArgs]>(
+			'gitlens.diffWithPrevious',
+			'Open Changes with Previous Revision',
+			undefined,
+			{
+				commit: this.commit,
+				uri: GitUri.fromFile(this.file, this.commit.repoPath),
+				line: line,
+				showOptions: {
+					preserveFocus: true,
+					preview: true,
+				},
 			},
-		};
-		return {
-			title: 'Open Changes with Previous Revision',
-			command: GlCommand.DiffWithPrevious,
-			arguments: [undefined, commandArgs],
-		};
+		);
 	}
 
 	override async resolveTreeItem(item: TreeItem, token: CancellationToken): Promise<TreeItem> {

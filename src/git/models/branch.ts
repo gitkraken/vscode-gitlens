@@ -54,11 +54,12 @@ export class GitBranch implements GitBranchReference {
 	) {
 		({ name: this._name, remote: this._remote } = parseRefName(refName));
 
-		this.id = getBranchId(repoPath, this._remote, this._name);
-
 		this.detached = detached || (this.current ? isDetachedHead(this._name) : false);
 		if (this.detached) {
+			this.id = getBranchId(repoPath, this._remote, this.sha!);
 			this._name = formatDetachedHeadName(this.sha!);
+		} else {
+			this.id = getBranchId(repoPath, this._remote, this._name);
 		}
 
 		this.upstream = upstream?.name ? upstream : undefined;

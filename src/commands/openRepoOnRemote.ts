@@ -1,5 +1,4 @@
 import type { TextEditor, Uri } from 'vscode';
-import { GlCommand } from '../constants.commands';
 import type { Container } from '../container';
 import { GitUri } from '../git/gitUri';
 import { RemoteResourceType } from '../git/models/remoteResource';
@@ -21,11 +20,7 @@ export interface OpenRepoOnRemoteCommandArgs {
 @command()
 export class OpenRepoOnRemoteCommand extends ActiveEditorCommand {
 	constructor(private readonly container: Container) {
-		super([
-			'gitlens.openRepoOnRemote',
-			/** @deprecated */ 'gitlens.openRepoInRemote',
-			GlCommand.CopyRemoteRepositoryUrl,
-		]);
+		super(['gitlens.openRepoOnRemote', 'gitlens.copyRemoteRepositoryUrl'], ['gitlens.openRepoInRemote']);
 	}
 
 	protected override preExecute(context: CommandContext, args?: OpenRepoOnRemoteCommandArgs): Promise<void> {
@@ -33,7 +28,7 @@ export class OpenRepoOnRemoteCommand extends ActiveEditorCommand {
 			args = { ...args, remote: context.node.remote.name };
 		}
 
-		if (context.command === GlCommand.CopyRemoteRepositoryUrl) {
+		if (context.command === 'gitlens.copyRemoteRepositoryUrl') {
 			args = { ...args, clipboard: true };
 		}
 
@@ -57,7 +52,7 @@ export class OpenRepoOnRemoteCommand extends ActiveEditorCommand {
 		if (!repoPath) return;
 
 		try {
-			void (await executeCommand<OpenOnRemoteCommandArgs>(GlCommand.OpenOnRemote, {
+			void (await executeCommand<OpenOnRemoteCommandArgs>('gitlens.openOnRemote', {
 				resource: {
 					type: RemoteResourceType.Repo,
 				},

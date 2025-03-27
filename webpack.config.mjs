@@ -207,17 +207,14 @@ function getExtensionConfig(target, mode, env) {
 							keep_classnames: true,
 							module: true,
 						},
-						ecma: 2020,
 						format: {
 							comments: false,
 							ecma: 2020,
 						},
-						// Keep the class names otherwise @log won't provide a useful name
-						keep_classnames: true,
 						mangle: {
+							// Keep the class names otherwise @log won't provide a useful name
 							keep_classnames: true,
 						},
-						module: true,
 					},
 				}),
 			],
@@ -319,6 +316,24 @@ function getWebviewsConfigs(mode, env) {
 				patchDetails: { entry: './plus/patchDetails/patchDetails.ts', plus: true },
 			},
 			{},
+			mode,
+			env,
+		),
+		getWebviewConfig(
+			{
+				'graph-next': { entry: './plus/graph-next/graph.ts', plus: true },
+			},
+			{
+				alias: {
+					'@gitkraken/gitkraken-components': path.resolve(
+						__dirname,
+						'node_modules',
+						'@gitkraken/gitkraken-components-next',
+					),
+					react: path.resolve(__dirname, 'node_modules', 'react-next'),
+					'react-dom': path.resolve(__dirname, 'node_modules', 'react-dom-next'),
+				},
+			},
 			mode,
 			env,
 		),
@@ -516,17 +531,14 @@ function getWebviewConfig(webviews, overrides, mode, env) {
 										keep_classnames: true,
 										module: true,
 									},
-									ecma: 2020,
 									format: {
 										comments: false,
 										ecma: 2020,
 									},
-									// Keep the class names otherwise @log won't provide a useful name
-									keep_classnames: true,
 									mangle: {
+										// Keep the class names otherwise @log won't provide a useful name
 										keep_classnames: true,
 									},
-									module: true,
 								},
 							}),
 							new ImageMinimizerPlugin({

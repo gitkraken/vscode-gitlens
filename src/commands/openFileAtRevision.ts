@@ -2,7 +2,6 @@ import type { TextDocumentShowOptions, TextEditor } from 'vscode';
 import { Uri } from 'vscode';
 import type { FileAnnotationType } from '../config';
 import { GlyphChars, quickPickTitleMaxChars } from '../constants';
-import { GlCommand } from '../constants.commands';
 import type { Container } from '../container';
 import { openFileAtRevision } from '../git/actions/commit';
 import { GitUri } from '../git/gitUri';
@@ -52,15 +51,15 @@ export class OpenFileAtRevisionCommand extends ActiveEditorCommand {
 			args = argsOrUri;
 		}
 
-		return createMarkdownCommandLink<OpenFileAtRevisionCommandArgs>(GlCommand.OpenFileAtRevision, args);
+		return createMarkdownCommandLink<OpenFileAtRevisionCommandArgs>('gitlens.openFileRevision', args);
 	}
 
 	constructor(private readonly container: Container) {
-		super([GlCommand.OpenFileAtRevision, GlCommand.OpenBlamePriorToChange]);
+		super(['gitlens.openFileRevision', 'gitlens.openBlamePriorToChange']);
 	}
 
 	protected override async preExecute(context: CommandContext, args?: OpenFileAtRevisionCommandArgs): Promise<void> {
-		if (context.command === GlCommand.OpenBlamePriorToChange) {
+		if (context.command === 'gitlens.openBlamePriorToChange') {
 			args = { ...args, annotationType: 'blame' };
 			if (args.revisionUri == null && context.editor != null) {
 				const editorLine = context.editor.selection.active.line;
@@ -117,10 +116,10 @@ export class OpenFileAtRevisionCommand extends ActiveEditorCommand {
 			if (args.revisionUri == null) {
 				const commitsProvider = this.container.git.commits(gitUri.repoPath!);
 				const log = commitsProvider
-					.getLogForFile(gitUri.fsPath)
+					.getLogForPath(gitUri.fsPath)
 					.then(
 						log =>
-							log ?? (gitUri.sha ? commitsProvider.getLogForFile(gitUri.fsPath, gitUri.sha) : undefined),
+							log ?? (gitUri.sha ? commitsProvider.getLogForPath(gitUri.fsPath, gitUri.sha) : undefined),
 					);
 
 				const title = `Open ${args.annotationType === 'blame' ? 'Blame' : 'File'} at Revision${pad(
@@ -158,7 +157,7 @@ export class OpenFileAtRevisionCommand extends ActiveEditorCommand {
 															description: description,
 														},
 														undefined,
-														GlCommand.OpenFileAtRevision,
+														'gitlens.openFileRevision',
 														[this.container.git.getAbsoluteUri(f.path, gitUri.repoPath)],
 													),
 												);
@@ -204,12 +203,12 @@ export class OpenFileAtRevisionCommand extends ActiveEditorCommand {
 						showOtherReferences: [
 							CommandQuickPickItem.fromCommand<[Uri]>(
 								'Choose a Branch or Tag...',
-								GlCommand.OpenFileAtRevisionFrom,
+								'gitlens.openFileRevisionFrom',
 								[uri],
 							),
 							CommandQuickPickItem.fromCommand<[Uri, OpenFileAtRevisionFromCommandArgs]>(
 								'Choose a Stash...',
-								GlCommand.OpenFileAtRevisionFrom,
+								'gitlens.openFileRevisionFrom',
 								[uri, { stash: true }],
 							),
 						],

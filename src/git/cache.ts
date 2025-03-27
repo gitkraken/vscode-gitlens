@@ -4,7 +4,7 @@ import { configuration } from '../system/-webview/configuration';
 import { log } from '../system/decorators/log';
 import type { PromiseOrValue } from '../system/promise';
 import { PathTrie } from '../system/trie';
-import type { GitCaches, GitDir, PagedResult } from './gitProvider';
+import type { CachedGitTypes, GitDir, PagedResult } from './gitProvider';
 import type { GitBranch } from './models/branch';
 import type { GitContributor } from './models/contributor';
 import type { GitPausedOperationStatus } from './models/pausedOperationStatus';
@@ -14,6 +14,8 @@ import type { GitTag } from './models/tag';
 import type { GitUser } from './models/user';
 import type { GitWorktree } from './models/worktree';
 import type { RemoteProvider } from './remotes/remoteProvider';
+
+type RepoPath = string;
 
 interface RepositoryInfo {
 	gitDir?: GitDir;
@@ -41,7 +43,7 @@ export class GitCache implements Disposable {
 				}
 			}),
 			container.events.on('git:cache:reset', e =>
-				this.clearCaches(e.data.repoPath, ...(e.data.caches ?? emptyArray)),
+				this.clearCaches(e.data.repoPath, ...(e.data.types ?? emptyArray)),
 			),
 		);
 	}
@@ -56,55 +58,64 @@ export class GitCache implements Disposable {
 		return this._useCaching;
 	}
 
-	private _bestRemotesCache: Map<string, Promise<GitRemote<RemoteProvider>[]>> | undefined;
-	get bestRemotes(): Map<string, Promise<GitRemote<RemoteProvider>[]>> {
-		return (this._bestRemotesCache ??= new Map<string, Promise<GitRemote<RemoteProvider>[]>>());
+	private _bestRemotesCache: Map<RepoPath, Promise<GitRemote<RemoteProvider>[]>> | undefined;
+	get bestRemotes(): Map<RepoPath, Promise<GitRemote<RemoteProvider>[]>> {
+		return (this._bestRemotesCache ??= new Map<RepoPath, Promise<GitRemote<RemoteProvider>[]>>());
 	}
 
-	private _branchCache: Map<string, Promise<GitBranch | undefined>> | undefined;
-	get branch(): Map<string, Promise<GitBranch | undefined>> | undefined {
-		return this.useCaching ? (this._branchCache ??= new Map<string, Promise<GitBranch | undefined>>()) : undefined;
-	}
-
-	private _branchesCache: Map<string, Promise<PagedResult<GitBranch>>> | undefined;
-	get branches(): Map<string, Promise<PagedResult<GitBranch>>> | undefined {
+	private _branchCache: Map<RepoPath, Promise<GitBranch | undefined>> | undefined;
+	get branch(): Map<RepoPath, Promise<GitBranch | undefined>> | undefined {
 		return this.useCaching
-			? (this._branchesCache ??= new Map<string, Promise<PagedResult<GitBranch>>>())
+			? (this._branchCache ??= new Map<RepoPath, Promise<GitBranch | undefined>>())
 			: undefined;
 	}
 
-	private _contributorsCache: Map<string, Map<string, Promise<GitContributor[]>>> | undefined;
-	get contributors(): Map<string, Map<string, Promise<GitContributor[]>>> | undefined {
+	private _branchesCache: Map<RepoPath, Promise<PagedResult<GitBranch>>> | undefined;
+	get branches(): Map<RepoPath, Promise<PagedResult<GitBranch>>> | undefined {
 		return this.useCaching
-			? (this._contributorsCache ??= new Map<string, Map<string, Promise<GitContributor[]>>>())
+			? (this._branchesCache ??= new Map<RepoPath, Promise<PagedResult<GitBranch>>>())
 			: undefined;
 	}
 
-	private _pausedOperationStatusCache: Map<string, Promise<GitPausedOperationStatus | undefined>> | undefined;
-	get pausedOperationStatus(): Map<string, Promise<GitPausedOperationStatus | undefined>> | undefined {
+	private _contributorsCache: Map<RepoPath, Map<string, Promise<GitContributor[]>>> | undefined;
+	get contributors(): Map<RepoPath, Map<string, Promise<GitContributor[]>>> | undefined {
 		return this.useCaching
-			? (this._pausedOperationStatusCache ??= new Map<string, Promise<GitPausedOperationStatus | undefined>>())
+			? (this._contributorsCache ??= new Map<RepoPath, Map<string, Promise<GitContributor[]>>>())
 			: undefined;
 	}
 
-	private _remotesCache: Map<string, Promise<GitRemote[]>> | undefined;
-	get remotes(): Map<string, Promise<GitRemote[]>> | undefined {
-		return this.useCaching ? (this._remotesCache ??= new Map<string, Promise<GitRemote[]>>()) : undefined;
+	private _defaultBranchNameCache: Map<RepoPath, Map<string, Promise<string | undefined>>> | undefined;
+	get defaultBranchName(): Map<RepoPath, Map<string, Promise<string | undefined>>> | undefined {
+		return this.useCaching
+			? (this._defaultBranchNameCache ??= new Map<RepoPath, Map<string, Promise<string | undefined>>>())
+			: undefined;
 	}
 
-	private _repoInfoCache: Map<string, RepositoryInfo> | undefined;
-	get repoInfo(): Map<string, RepositoryInfo> {
-		return (this._repoInfoCache ??= new Map<string, RepositoryInfo>());
+	private _pausedOperationStatusCache: Map<RepoPath, Promise<GitPausedOperationStatus | undefined>> | undefined;
+	get pausedOperationStatus(): Map<RepoPath, Promise<GitPausedOperationStatus | undefined>> | undefined {
+		return this.useCaching
+			? (this._pausedOperationStatusCache ??= new Map<RepoPath, Promise<GitPausedOperationStatus | undefined>>())
+			: undefined;
 	}
 
-	private _stashesCache: Map<string, GitStash | null> | undefined;
-	get stashes(): Map<string, GitStash | null> | undefined {
-		return this.useCaching ? (this._stashesCache ??= new Map<string, GitStash | null>()) : undefined;
+	private _remotesCache: Map<RepoPath, Promise<GitRemote[]>> | undefined;
+	get remotes(): Map<RepoPath, Promise<GitRemote[]>> | undefined {
+		return this.useCaching ? (this._remotesCache ??= new Map<RepoPath, Promise<GitRemote[]>>()) : undefined;
 	}
 
-	private _tagsCache: Map<string, Promise<PagedResult<GitTag>>> | undefined;
-	get tags(): Map<string, Promise<PagedResult<GitTag>>> | undefined {
-		return this.useCaching ? (this._tagsCache ??= new Map<string, Promise<PagedResult<GitTag>>>()) : undefined;
+	private _repoInfoCache: Map<RepoPath, RepositoryInfo> | undefined;
+	get repoInfo(): Map<RepoPath, RepositoryInfo> {
+		return (this._repoInfoCache ??= new Map<RepoPath, RepositoryInfo>());
+	}
+
+	private _stashesCache: Map<RepoPath, GitStash | null> | undefined;
+	get stashes(): Map<RepoPath, GitStash | null> | undefined {
+		return this.useCaching ? (this._stashesCache ??= new Map<RepoPath, GitStash | null>()) : undefined;
+	}
+
+	private _tagsCache: Map<RepoPath, Promise<PagedResult<GitTag>>> | undefined;
+	get tags(): Map<RepoPath, Promise<PagedResult<GitTag>>> | undefined {
+		return this.useCaching ? (this._tagsCache ??= new Map<RepoPath, Promise<PagedResult<GitTag>>>()) : undefined;
 	}
 
 	private _trackedPaths = new PathTrie<PromiseOrValue<[string, string] | undefined>>();
@@ -112,50 +123,52 @@ export class GitCache implements Disposable {
 		return this._trackedPaths;
 	}
 
-	private _worktreesCache: Map<string, Promise<GitWorktree[]>> | undefined;
-	get worktrees(): Map<string, Promise<GitWorktree[]>> | undefined {
-		return this.useCaching ? (this._worktreesCache ??= new Map<string, Promise<GitWorktree[]>>()) : undefined;
+	private _worktreesCache: Map<RepoPath, Promise<GitWorktree[]>> | undefined;
+	get worktrees(): Map<RepoPath, Promise<GitWorktree[]>> | undefined {
+		return this.useCaching ? (this._worktreesCache ??= new Map<RepoPath, Promise<GitWorktree[]>>()) : undefined;
 	}
 
 	@log({ singleLine: true })
-	clearCaches(repoPath: string | undefined, ...caches: GitCaches[]): void {
+	clearCaches(repoPath: string | undefined, ...types: CachedGitTypes[]): void {
 		const cachesToClear = new Set<Map<string, unknown> | PathTrie<unknown> | undefined>();
 
-		if (!caches.length || caches.includes('branches')) {
+		if (!types.length || types.includes('branches')) {
 			cachesToClear.add(this._branchCache);
 			cachesToClear.add(this._branchesCache);
+			cachesToClear.add(this._defaultBranchNameCache);
 		}
 
-		if (!caches.length || caches.includes('contributors')) {
+		if (!types.length || types.includes('contributors')) {
 			cachesToClear.add(this._contributorsCache);
 		}
 
-		if (!caches.length || caches.includes('remotes')) {
+		if (!types.length || types.includes('remotes')) {
 			cachesToClear.add(this._remotesCache);
 			cachesToClear.add(this._bestRemotesCache);
+			cachesToClear.add(this._defaultBranchNameCache);
 		}
 
-		if (!caches.length || caches.includes('providers')) {
+		if (!types.length || types.includes('providers')) {
 			cachesToClear.add(this._bestRemotesCache);
 		}
 
-		if (!caches.length || caches.includes('stashes')) {
+		if (!types.length || types.includes('stashes')) {
 			cachesToClear.add(this._stashesCache);
 		}
 
-		if (!caches.length || caches.includes('status')) {
+		if (!types.length || types.includes('status')) {
 			cachesToClear.add(this._pausedOperationStatusCache);
 		}
 
-		if (!caches.length || caches.includes('tags')) {
+		if (!types.length || types.includes('tags')) {
 			cachesToClear.add(this._tagsCache);
 		}
 
-		if (!caches.length || caches.includes('worktrees')) {
+		if (!types.length || types.includes('worktrees')) {
 			cachesToClear.add(this._worktreesCache);
 		}
 
-		if (!caches.length) {
+		if (!types.length) {
 			cachesToClear.add(this._repoInfoCache);
 			cachesToClear.add(this._trackedPaths);
 		}

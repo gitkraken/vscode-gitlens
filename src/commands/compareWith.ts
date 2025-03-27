@@ -1,5 +1,4 @@
 import type { TextEditor, Uri } from 'vscode';
-import { GlCommand } from '../constants.commands';
 import type { Container } from '../container';
 import { showGenericErrorMessage } from '../messages';
 import { getBestRepositoryOrShowPicker } from '../quickpicks/repositoryPicker';
@@ -17,28 +16,25 @@ export interface CompareWithCommandArgs {
 @command()
 export class CompareWithCommand extends ActiveEditorCommand {
 	constructor(private readonly container: Container) {
-		super([
-			GlCommand.CompareWith,
-			GlCommand.CompareHeadWith,
-			GlCommand.CompareWorkingWith,
-			/** @deprecated */ 'gitlens.diffHeadWith',
-			/** @deprecated */ 'gitlens.diffWorkingWith',
-		]);
+		super(
+			['gitlens.compareWith', 'gitlens.compareHeadWith', 'gitlens.compareWorkingWith'],
+			['gitlens.diffHeadWith', 'gitlens.diffWorkingWith'],
+		);
 	}
 
 	protected override preExecute(context: CommandContext, args?: CompareWithCommandArgs): Promise<void> {
 		switch (context.command) {
-			case GlCommand.CompareWith:
+			case 'gitlens.compareWith':
 				args = { ...args };
 				break;
 
-			case GlCommand.CompareHeadWith:
+			case 'gitlens.compareHeadWith':
 			case /** @deprecated */ 'gitlens.diffHeadWith':
 				args = { ...args };
 				args.ref1 = 'HEAD';
 				break;
 
-			case GlCommand.CompareWorkingWith:
+			case 'gitlens.compareWorkingWith':
 			case /** @deprecated */ 'gitlens.diffWorkingWith':
 				args = { ...args };
 				args.ref1 = '';

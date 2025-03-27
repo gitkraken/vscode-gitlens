@@ -1,7 +1,6 @@
 import type { CancellationToken, ConfigurationChangeEvent, Disposable } from 'vscode';
 import { ProgressLocation, TreeItem, TreeItemCollapsibleState, window } from 'vscode';
 import type { StashesViewConfig, ViewFilesLayout } from '../config';
-import { GlCommand } from '../constants.commands';
 import type { Container } from '../container';
 import { GitUri } from '../git/gitUri';
 import type { GitStashReference } from '../git/models/reference';
@@ -17,6 +16,7 @@ import { RepositoryFolderNode } from './nodes/abstract/repositoryFolderNode';
 import type { ViewNode } from './nodes/abstract/viewNode';
 import { StashesNode } from './nodes/stashesNode';
 import { ViewBase } from './viewBase';
+import type { CopyNodeCommandArgs } from './viewCommands';
 import { registerViewCommand } from './viewCommands';
 
 export class StashesRepositoryNode extends RepositoryFolderNode<StashesView, StashesNode> {
@@ -109,7 +109,7 @@ export class StashesView extends ViewBase<'stashes', StashesViewNode, StashesVie
 		return [
 			registerViewCommand(
 				this.getQualifiedCommand('copy'),
-				() => executeCommand(GlCommand.ViewsCopy, this.activeSelection, this.selection),
+				() => executeCommand<CopyNodeCommandArgs>('gitlens.views.copy', this.activeSelection, this.selection),
 				this,
 			),
 			registerViewCommand(

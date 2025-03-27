@@ -1,7 +1,6 @@
 import type { CancellationToken, ConfigurationChangeEvent, Disposable, Event } from 'vscode';
 import { EventEmitter, ProgressLocation, window } from 'vscode';
 import type { RepositoriesViewConfig, ViewBranchesLayout, ViewFilesLayout } from '../config';
-import { GlCommand } from '../constants.commands';
 import type { Container } from '../container';
 import type { GitCommit } from '../git/models/commit';
 import { isCommit } from '../git/models/commit';
@@ -38,18 +37,24 @@ import { TagsNode } from './nodes/tagsNode';
 import { WorktreeNode } from './nodes/worktreeNode';
 import { WorktreesNode } from './nodes/worktreesNode';
 import { ViewBase } from './viewBase';
+import type { CopyNodeCommandArgs } from './viewCommands';
 import { registerViewCommand } from './viewCommands';
 
 export class RepositoriesView extends ViewBase<'repositories', RepositoriesNode, RepositoriesViewConfig> {
+	private _onDidChangeAutoRefresh = new EventEmitter<void>();
+	get onDidChangeAutoRefresh(): Event<void> {
+		return this._onDidChangeAutoRefresh.event;
+	}
+
 	protected readonly configKey = 'repositories';
 
 	constructor(container: Container, grouped?: boolean) {
 		super(container, 'repositories', 'Repositories', 'repositoriesView', grouped);
 	}
 
-	private _onDidChangeAutoRefresh = new EventEmitter<void>();
-	get onDidChangeAutoRefresh(): Event<void> {
-		return this._onDidChangeAutoRefresh.event;
+	override dispose(): void {
+		this._onDidChangeAutoRefresh.dispose();
+		super.dispose();
 	}
 
 	protected getRoot(): RepositoriesNode {
@@ -60,7 +65,7 @@ export class RepositoriesView extends ViewBase<'repositories', RepositoriesNode,
 		return [
 			registerViewCommand(
 				this.getQualifiedCommand('copy'),
-				() => executeCommand(GlCommand.ViewsCopy, this.activeSelection, this.selection),
+				() => executeCommand<CopyNodeCommandArgs>('gitlens.views.copy', this.activeSelection, this.selection),
 				this,
 			),
 			registerViewCommand(

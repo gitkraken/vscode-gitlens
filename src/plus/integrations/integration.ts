@@ -1,4 +1,4 @@
-import type { CancellationToken, Event, MessageItem } from 'vscode';
+import type { CancellationToken, Disposable, Event, MessageItem } from 'vscode';
 import { EventEmitter, window } from 'vscode';
 import type { AutolinkReference, DynamicAutolinkReference } from '../../autolinks/models/autolinks';
 import type {
@@ -115,7 +115,8 @@ export function isIssueIntegration(integration: Integration): integration is Iss
 export abstract class IntegrationBase<
 	ID extends SupportedIntegrationIds = SupportedIntegrationIds,
 	T extends ResourceDescriptor = ResourceDescriptor,
-> {
+> implements Disposable
+{
 	abstract readonly type: IntegrationType;
 
 	private readonly _onDidChange = new EventEmitter<void>();
@@ -128,6 +129,10 @@ export abstract class IntegrationBase<
 		protected readonly authenticationService: IntegrationAuthenticationService,
 		protected readonly getProvidersApi: () => Promise<ProvidersApi>,
 	) {}
+
+	dispose(): void {
+		this._onDidChange.dispose();
+	}
 
 	abstract get authProvider(): IntegrationAuthenticationProviderDescriptor;
 	abstract get id(): ID;

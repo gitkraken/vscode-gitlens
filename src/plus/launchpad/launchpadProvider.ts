@@ -6,7 +6,7 @@ import type {
 import type { CancellationToken, ConfigurationChangeEvent, Event } from 'vscode';
 import { Disposable, env, EventEmitter, Uri, window } from 'vscode';
 import { md5 } from '@env/crypto';
-import { GlCommand } from '../../constants.commands';
+import type { OpenCloudPatchCommandArgs } from '../../commands/patches';
 import type { CloudSelfHostedIntegrationId, IntegrationId } from '../../constants.integrations';
 import { HostingIntegrationId, SelfHostedIntegrationId } from '../../constants.integrations';
 import type { Container } from '../../container';
@@ -134,6 +134,7 @@ export const supportedLaunchpadIntegrations: (HostingIntegrationId | CloudSelfHo
 	SelfHostedIntegrationId.CloudGitLabSelfHosted,
 	HostingIntegrationId.AzureDevOps,
 	HostingIntegrationId.Bitbucket,
+	SelfHostedIntegrationId.BitbucketServer,
 ];
 type SupportedLaunchpadIntegrationIds = (typeof supportedLaunchpadIntegrations)[number];
 function isSupportedLaunchpadIntegrationId(id: string): id is SupportedLaunchpadIntegrationIds {
@@ -172,6 +173,8 @@ export class LaunchpadProvider implements Disposable {
 
 	constructor(private readonly container: Container) {
 		this._disposable = Disposable.from(
+			this._onDidChange,
+			this._onDidRefresh,
 			configuration.onDidChange(this.onConfigurationChanged, this),
 			container.integrations.onDidChangeConnectionState(this.onIntegrationConnectionStateChanged, this),
 			...this.registerCommands(),
@@ -453,7 +456,7 @@ export class LaunchpadProvider implements Disposable {
 		if (draft == null) return;
 		this._codeSuggestions?.delete(item.uuid);
 		this._prs = undefined;
-		void executeCommand(GlCommand.OpenCloudPatch, {
+		void executeCommand<OpenCloudPatchCommandArgs>('gitlens.openCloudPatch', {
 			type: 'code_suggestion',
 			draft: draft,
 		});
@@ -912,11 +915,12 @@ export class LaunchpadProvider implements Disposable {
 			if (integration == null) continue;
 
 			if (integration.maybeConnected ?? (await integration.isConnected())) {
+				void setContext('gitlens:launchpad:connected', true);
 				return true;
 			}
 		}
 
-		void setContext('gitlens:launchpad:connect', true);
+		void setContext('gitlens:launchpad:connected', false);
 		return false;
 	}
 
@@ -935,7 +939,10 @@ export class LaunchpadProvider implements Disposable {
 			}),
 		);
 
-		void setContext('gitlens:launchpad:connect', !some(connected.values(), c => c));
+		void setContext(
+			'gitlens:launchpad:connected',
+			some(connected.values(), c => c),
+		);
 		return connected;
 	}
 
@@ -990,11 +997,10 @@ export class LaunchpadProvider implements Disposable {
 
 	private async onIntegrationConnectionStateChanged(e: ConnectionStateChangeEvent) {
 		if (isSupportedLaunchpadIntegrationId(e.key)) {
-			if (e.reason === 'connected') {
-				void setContext('gitlens:launchpad:connect', false);
-			} else {
-				void setContext('gitlens:launchpad:connect', !(await this.hasConnectedIntegration()));
-			}
+			void setContext(
+				'gitlens:launchpad:connected',
+				e.reason === 'connected' ? true : await this.hasConnectedIntegration(),
+			);
 		}
 	}
 }

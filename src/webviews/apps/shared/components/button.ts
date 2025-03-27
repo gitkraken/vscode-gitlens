@@ -211,24 +211,36 @@ export class GlButton extends LitElement {
 	@property()
 	href?: string;
 
-	@property({ reflect: true })
-	// eslint-disable-next-line lit/no-native-attributes
-	override get role(): 'link' | 'button' {
-		return this.href ? 'link' : 'button';
-	}
-
 	@property()
 	tooltip?: string;
 
 	@property()
 	tooltipPlacement?: GlTooltip['placement'] = 'bottom';
 
-	protected override updated(changedProperties: PropertyValueMap<any> | Map<PropertyKey, unknown>): void {
-		super.updated(changedProperties);
+	override connectedCallback(): void {
+		super.connectedCallback();
 
-		if (changedProperties.has('disabled')) {
+		this.setAttribute('role', this.href ? 'link' : 'button');
+		if (this.disabled) {
 			this.setAttribute('aria-disabled', this.disabled.toString());
 		}
+	}
+
+	protected override willUpdate(changedProperties: PropertyValueMap<any> | Map<PropertyKey, unknown>): void {
+		if (changedProperties.has('href')) {
+			this.setAttribute('role', this.href ? 'link' : 'button');
+		}
+
+		if (changedProperties.has('disabled')) {
+			const disabled = changedProperties.get('disabled');
+			if (disabled) {
+				this.setAttribute('aria-disabled', disabled.toString());
+			} else {
+				this.removeAttribute('aria-disabled');
+			}
+		}
+
+		super.willUpdate(changedProperties);
 	}
 
 	protected override render(): unknown {

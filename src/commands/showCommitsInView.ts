@@ -1,5 +1,4 @@
 import type { TextEditor, Uri } from 'vscode';
-import { GlCommand } from '../constants.commands';
 import type { Container } from '../container';
 import { executeGitCommand } from '../git/actions';
 import { GitUri } from '../git/gitUri';
@@ -23,11 +22,11 @@ export class ShowCommitsInViewCommand extends ActiveEditorCommand {
 	static createMarkdownCommandLink(args: ShowCommitsInViewCommandArgs): string;
 	static createMarkdownCommandLink(argsOrSha: ShowCommitsInViewCommandArgs | string, repoPath?: string): string {
 		const args = typeof argsOrSha === 'string' ? { refs: [argsOrSha], repoPath: repoPath } : argsOrSha;
-		return createMarkdownCommandLink<ShowCommitsInViewCommandArgs>(GlCommand.ShowCommitsInView, args);
+		return createMarkdownCommandLink<ShowCommitsInViewCommandArgs>('gitlens.showCommitsInView', args);
 	}
 
 	constructor(private readonly container: Container) {
-		super(GlCommand.ShowCommitsInView);
+		super('gitlens.showCommitsInView');
 	}
 
 	async execute(editor?: TextEditor, uri?: Uri, args?: ShowCommitsInViewCommandArgs): Promise<void> {

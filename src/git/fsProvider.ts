@@ -20,11 +20,17 @@ export function fromGitLensFSUri(uri: Uri): { path: string; ref: string; repoPat
 }
 
 export class GitFileSystemProvider implements FileSystemProvider, Disposable {
+	private _onDidChangeFile = new EventEmitter<FileChangeEvent[]>();
+	get onDidChangeFile(): Event<FileChangeEvent[]> {
+		return this._onDidChangeFile.event;
+	}
+
 	private readonly _disposable: Disposable;
 	private readonly _searchTreeMap = new Map<string, Promise<TernarySearchTree<string, GitTreeEntry>>>();
 
 	constructor(private readonly container: Container) {
 		this._disposable = Disposable.from(
+			this._onDidChangeFile,
 			workspace.registerFileSystemProvider(Schemes.GitLens, this, {
 				isCaseSensitive: isLinux,
 				isReadonly: true,
@@ -34,11 +40,6 @@ export class GitFileSystemProvider implements FileSystemProvider, Disposable {
 
 	dispose(): void {
 		this._disposable.dispose();
-	}
-
-	private _onDidChangeFile = new EventEmitter<FileChangeEvent[]>();
-	get onDidChangeFile(): Event<FileChangeEvent[]> {
-		return this._onDidChangeFile.event;
 	}
 
 	copy?(source: Uri, _destination: Uri, _options: { readonly overwrite: boolean }): void | Thenable<void> {

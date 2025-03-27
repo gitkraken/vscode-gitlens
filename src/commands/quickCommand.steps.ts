@@ -2,8 +2,7 @@ import type { QuickInputButton, QuickPick, QuickPickItem } from 'vscode';
 import { ThemeIcon } from 'vscode';
 import { GlyphChars, quickPickTitleMaxChars } from '../constants';
 import { Container } from '../container';
-import type { FeatureAccess, RepoFeatureAccess } from '../features';
-import { PlusFeatures } from '../features';
+import type { FeatureAccess, PlusFeatures, RepoFeatureAccess } from '../features';
 import * as BranchActions from '../git/actions/branch';
 import * as CommitActions from '../git/actions/commit';
 import * as ContributorActions from '../git/actions/contributor';
@@ -2660,9 +2659,24 @@ export async function* ensureAccessStep<
 		const promo = await container.productConfig.getApplicablePromo(access.subscription.current.state, 'gate');
 		const detail = promo?.content?.quickpick.detail;
 
-		placeholder = 'Pro feature — requires a trial or GitLens Pro for use on privately-hosted repos';
+		switch (feature) {
+			case 'graph' satisfies PlusFeatures:
+			case 'timeline' satisfies PlusFeatures:
+			case 'worktrees' satisfies PlusFeatures:
+				placeholder =
+					isSubscriptionPaidPlan(access.subscription.required) && access.subscription.current.account != null
+						? 'Pro feature — requires GitLens Pro for use on privately-hosted repos'
+						: 'Pro feature — requires a trial or GitLens Pro for use on privately-hosted repos';
+				break;
+			default:
+				placeholder =
+					isSubscriptionPaidPlan(access.subscription.required) && access.subscription.current.account != null
+						? 'Pro feature — requires GitLens Pro'
+						: 'Pro feature — requires a trial or GitLens Pro';
+				break;
+		}
+
 		if (isSubscriptionPaidPlan(access.subscription.required) && access.subscription.current.account != null) {
-			placeholder = 'Pro feature — requires GitLens Pro for use on privately-hosted repos';
 			directives.push(
 				createDirectiveQuickPickItem(Directive.RequiresPaidSubscription, true, { detail: detail }),
 				createQuickPickSeparator(),
@@ -2688,7 +2702,7 @@ export async function* ensureAccessStep<
 	}
 
 	switch (feature) {
-		case PlusFeatures.Launchpad:
+		case 'launchpad' satisfies PlusFeatures:
 			directives.splice(
 				0,
 				0,
@@ -2705,7 +2719,7 @@ export async function* ensureAccessStep<
 				createQuickPickSeparator(),
 			);
 			break;
-		case PlusFeatures.StartWork:
+		case 'startWork' satisfies PlusFeatures:
 			directives.splice(
 				0,
 				0,
@@ -2716,7 +2730,7 @@ export async function* ensureAccessStep<
 				createQuickPickSeparator(),
 			);
 			break;
-		case PlusFeatures.AssociateIssueWithBranch:
+		case 'associateIssueWithBranch' satisfies PlusFeatures:
 			directives.splice(
 				0,
 				0,
@@ -2727,7 +2741,7 @@ export async function* ensureAccessStep<
 				createQuickPickSeparator(),
 			);
 			break;
-		case PlusFeatures.Worktrees:
+		case 'worktrees' satisfies PlusFeatures:
 			directives.splice(
 				0,
 				0,

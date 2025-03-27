@@ -1,7 +1,6 @@
 import type { TextDocumentShowOptions, Uri } from 'vscode';
 import { Range, ViewColumn } from 'vscode';
 import { GlyphChars } from '../constants';
-import { GlCommand } from '../constants.commands';
 import type { Container } from '../container';
 import type { GitCommit } from '../git/models/commit';
 import { isCommit } from '../git/models/commit';
@@ -75,11 +74,11 @@ export class DiffWithCommand extends GlCommandBase {
 			args = argsOrCommit;
 		}
 
-		return createMarkdownCommandLink<DiffWithCommandArgs>(GlCommand.DiffWith, args);
+		return createMarkdownCommandLink<DiffWithCommandArgs>('gitlens.diffWith', args);
 	}
 
 	constructor(private readonly container: Container) {
-		super(GlCommand.DiffWith);
+		super('gitlens.diffWith');
 	}
 
 	async execute(args?: DiffWithCommandArgs): Promise<any> {

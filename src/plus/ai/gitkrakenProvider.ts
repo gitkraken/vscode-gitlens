@@ -1,9 +1,12 @@
-import type { CancellationToken } from 'vscode';
-import type { Response } from '@env/fetch';
+import type { Disposable } from 'vscode';
 import { fetch } from '@env/fetch';
+import type { Container } from '../../container';
+import { AuthenticationRequiredError } from '../../errors';
 import { debug } from '../../system/decorators/log';
 import { Logger } from '../../system/logger';
 import { getLogScope } from '../../system/logger.scope';
+import { PromiseCache } from '../../system/promiseCache';
+import type { ServerConnection } from '../gk/serverConnection';
 import type { AIActionType, AIModel } from './models/model';
 import type { PromptTemplate } from './models/promptTemplates';
 import { OpenAICompatibleProvider } from './openAICompatibleProvider';
@@ -18,16 +21,36 @@ export class GitKrakenProvider extends OpenAICompatibleProvider<typeof provider.
 	readonly name = provider.name;
 	protected readonly config = {};
 
+	private readonly _disposable: Disposable;
+	private readonly _promptTemplates = new PromiseCache<AIActionType, PromptTemplate>({
+		createTTL: 12 * 60 * 60 * 1000, // 12 hours
+		expireOnError: true,
+	});
+
+	constructor(container: Container, connection: ServerConnection) {
+		super(container, connection);
+
+		this._disposable = this.container.subscription.onDidChange(() => this._promptTemplates.clear());
+	}
+
+	override dispose(): void {
+		this._disposable.dispose();
+	}
+
 	@debug()
 	async getModels(): Promise<readonly AIModel<typeof provider.id>[]> {
 		const scope = getLogScope();
 
 		try {
-			const rsp = await fetch(this.container.urls.getGkAIApiUrl('providers/message-prompt'), {
+			const url = this.container.urls.getGkAIApiUrl('providers/message-prompt');
+			const rsp = await fetch(url, {
 				headers: await this.connection.getGkHeaders(undefined, undefined, {
 					Accept: 'application/json',
 				}),
 			});
+			if (!rsp.ok) {
+				throw new Error(`Getting models (${url}) failed: ${rsp.status} (${rsp.statusText})`);
+			}
 
 			interface ModelsResponse {
 				data: {
@@ -43,27 +66,27 @@ export class GitKrakenProvider extends OpenAICompatibleProvider<typeof provider.
 			}
 
 			const result: ModelsResponse = await rsp.json();
-
-			if (result.error == null) {
-				const models: GitKrakenModel[] = result.data.map(
-					m =>
-						({
-							id: m.modelId,
-							name: m.modelName,
-							maxTokens: { input: m.maxInputTokens, output: m.maxOutputTokens },
-							provider: provider,
-							default: m.preferred,
-							temperature: null,
-						}) satisfies GitKrakenModel,
-				);
-				return models;
+			if (result.error != null) {
+				throw new Error(`Getting models (${url}) failed: ${String(result.error)}`);
 			}
 
-			debugger;
-			Logger.error(undefined, scope, `${String(result.error)}: Unable to get models`);
+			const models: GitKrakenModel[] = result.data.map(
+				m =>
+					({
+						id: m.modelId,
+						name: m.modelName,
+						maxTokens: { input: m.maxInputTokens, output: m.maxOutputTokens },
+						provider: provider,
+						default: m.preferred,
+						temperature: null,
+					}) satisfies GitKrakenModel,
+			);
+			return models;
 		} catch (ex) {
-			debugger;
-			Logger.error(ex, scope, `Unable to get models`);
+			if (!(ex instanceof AuthenticationRequiredError)) {
+				debugger;
+				Logger.error(ex, scope, `Unable to get models`);
+			}
 		}
 
 		return [];
@@ -76,36 +99,43 @@ export class GitKrakenProvider extends OpenAICompatibleProvider<typeof provider.
 		const scope = getLogScope();
 
 		try {
-			const rsp = await fetch(this.container.urls.getGkAIApiUrl(`templates/message-prompt/${action}`), {
-				headers: await this.connection.getGkHeaders(undefined, undefined, {
-					Accept: 'application/json',
-				}),
-			});
+			return await this._promptTemplates.get(action, async () => {
+				const url = this.container.urls.getGkAIApiUrl(`templates/message-prompt/${action}`);
+				const rsp = await fetch(url, {
+					headers: await this.connection.getGkHeaders(undefined, undefined, {
+						Accept: 'application/json',
+					}),
+				});
+				if (!rsp.ok) {
+					throw new Error(`Getting prompt template (${url}) failed: ${rsp.status} (${rsp.statusText})`);
+				}
 
-			interface PromptResponse {
-				data: {
-					id: string;
-					template: string;
-					variables: string[];
-				};
-				error?: null;
-			}
+				interface PromptResponse {
+					data: {
+						id: string;
+						template: string;
+						variables: string[];
+					};
+					error?: null;
+				}
 
-			const result: PromptResponse = await rsp.json();
-			if (result.error == null) {
+				const result: PromptResponse = await rsp.json();
+				if (result.error != null) {
+					throw new Error(`Getting prompt template (${url}) failed: ${String(result.error)}`);
+				}
+
 				return {
 					id: result.data.id,
 					name: getActionName(action),
 					template: result.data.template,
 					variables: result.data.variables,
 				};
-			}
-
-			debugger;
-			Logger.error(undefined, scope, `${String(result.error)}: Unable to get prompt template for '${action}'`);
+			});
 		} catch (ex) {
-			debugger;
-			Logger.error(ex, scope, `Unable to get prompt template for '${action}'`);
+			if (!(ex instanceof AuthenticationRequiredError)) {
+				debugger;
+				Logger.error(ex, scope, `Unable to get prompt template for '${action}'`);
+			}
 		}
 
 		return super.getPromptTemplate(action, model);
@@ -129,15 +159,5 @@ export class GitKrakenProvider extends OpenAICompatibleProvider<typeof provider.
 			Accept: 'application/json',
 			'GK-Action': action,
 		});
-	}
-
-	protected override fetchCore<TAction extends AIActionType>(
-		action: TAction,
-		model: AIModel<typeof provider.id>,
-		_apiKey: string,
-		request: object,
-		cancellation: CancellationToken | undefined,
-	): Promise<Response> {
-		return super.fetchCore(action, model, _apiKey, request, cancellation);
 	}
 }

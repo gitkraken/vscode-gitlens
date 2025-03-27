@@ -5,6 +5,8 @@ import { primaryAIProviders } from '../../constants.ai';
 import type { AIGenerateDraftEventData, Source, TelemetryEvents } from '../../constants.telemetry';
 import type { Container } from '../../container';
 import { CancellationError } from '../../errors';
+import type { AIFeatures } from '../../features';
+import { isAdvancedFeature } from '../../features';
 import type { GitCommit } from '../../git/models/commit';
 import { isCommit } from '../../git/models/commit';
 import type { GitRevisionReference } from '../../git/models/reference';
@@ -13,6 +15,7 @@ import { uncommitted, uncommittedStaged } from '../../git/models/revision';
 import { assertsCommitHasFullDetails } from '../../git/utils/commit.utils';
 import { showAIModelPicker } from '../../quickpicks/aiModelPicker';
 import { configuration } from '../../system/-webview/configuration';
+import { getContext } from '../../system/-webview/context';
 import type { Storage } from '../../system/-webview/storage';
 import { supportedInVSCodeVersion } from '../../system/-webview/vscode';
 import { debounce } from '../../system/function/debounce';
@@ -22,13 +25,32 @@ import { lazy } from '../../system/lazy';
 import type { Deferred } from '../../system/promise';
 import { getSettledValue } from '../../system/promise';
 import type { ServerConnection } from '../gk/serverConnection';
+import { ensureFeatureAccess } from '../gk/utils/-webview/acount.utils';
 import type { AIActionType, AIModel, AIModelDescriptor } from './models/model';
 import type { PromptTemplateContext } from './models/promptTemplates';
-import type { AIProvider } from './models/provider';
+import type { AIProvider, AIRequestResult } from './models/provider';
 
 export interface AIResult {
-	readonly summary: string;
-	readonly body: string;
+	readonly id?: string;
+	readonly content: string;
+	readonly usage?: {
+		readonly promptTokens?: number;
+		readonly completionTokens?: number;
+		readonly totalTokens?: number;
+
+		readonly limits?: {
+			readonly used: number;
+			readonly limit: number;
+			readonly resetsOn: Date;
+		};
+	};
+}
+
+export interface AISummarizeResult extends AIResult {
+	readonly parsed: {
+		readonly summary: string;
+		readonly body: string;
+	};
 }
 
 export interface AIGenerateChangelogChange {
@@ -99,6 +121,8 @@ export class AIProviderService implements Disposable {
 	) {}
 
 	dispose(): void {
+		this._onDidChangeModel.dispose();
+		this._providerDisposable?.dispose();
 		this._provider?.dispose();
 	}
 
@@ -264,11 +288,44 @@ export class AIProviderService implements Disposable {
 		return model;
 	}
 
+	private async ensureOrgAccess(): Promise<boolean> {
+		const orgEnabled = getContext('gitlens:gk:organization:ai:enabled');
+		if (orgEnabled === false) {
+			await window.showErrorMessage(`AI features have been disabled for your organization.`);
+			return false;
+		}
+
+		return true;
+	}
+
+	private async ensureFeatureAccess(feature: AIFeatures, source: Source): Promise<boolean> {
+		if (!(await this.ensureOrgAccess())) return false;
+
+		if (
+			!(await ensureFeatureAccess(
+				this.container,
+				isAdvancedFeature(feature)
+					? `Advanced AI features require a trial or GitLens Advanced.`
+					: `Pro AI features require a trial or GitLens Pro.`,
+				feature,
+				source,
+			))
+		) {
+			return false;
+		}
+
+		return true;
+	}
+
 	async explainCommit(
 		commitOrRevision: GitRevisionReference | GitCommit,
 		sourceContext: Source & { type: TelemetryEvents['ai/explain']['changeType'] },
 		options?: { cancellation?: CancellationToken; progress?: ProgressOptions },
-	): Promise<AIResult | undefined> {
+	): Promise<AISummarizeResult | undefined> {
+		if (!(await this.ensureFeatureAccess('explainCommit', sourceContext))) {
+			return undefined;
+		}
+
 		const diff = await this.container.git.diff(commitOrRevision.repoPath).getDiff?.(commitOrRevision.ref);
 		if (!diff?.contents) throw new Error('No changes found to explain.');
 
@@ -306,7 +363,7 @@ export class AIProviderService implements Disposable {
 			}),
 			options,
 		);
-		return result != null ? parseResult(result) : undefined;
+		return result != null ? { ...result, parsed: parseSummarizeResult(result.content) } : undefined;
 	}
 
 	async generateCommitMessage(
@@ -318,7 +375,9 @@ export class AIProviderService implements Disposable {
 			generating?: Deferred<AIModel>;
 			progress?: ProgressOptions;
 		},
-	): Promise<AIResult | undefined> {
+	): Promise<AISummarizeResult | undefined> {
+		if (!(await this.ensureOrgAccess())) return undefined;
+
 		const changes: string | undefined = await this.getChanges(changesOrRepo);
 		if (changes == null) return undefined;
 
@@ -343,7 +402,7 @@ export class AIProviderService implements Disposable {
 			}),
 			options,
 		);
-		return result != null ? parseResult(result) : undefined;
+		return result != null ? { ...result, parsed: parseSummarizeResult(result.content) } : undefined;
 	}
 
 	async generateDraftMessage(
@@ -356,7 +415,11 @@ export class AIProviderService implements Disposable {
 			progress?: ProgressOptions;
 			codeSuggestion?: boolean;
 		},
-	): Promise<AIResult | undefined> {
+	): Promise<AISummarizeResult | undefined> {
+		if (!(await this.ensureFeatureAccess('cloudPatchGenerateTitleAndDescription', sourceContext))) {
+			return undefined;
+		}
+
 		const changes: string | undefined = await this.getChanges(changesOrRepo);
 		if (changes == null) return undefined;
 
@@ -390,7 +453,7 @@ export class AIProviderService implements Disposable {
 			}),
 			options,
 		);
-		return result != null ? parseResult(result) : undefined;
+		return result != null ? { ...result, parsed: parseSummarizeResult(result.content) } : undefined;
 	}
 
 	async generateStashMessage(
@@ -402,7 +465,11 @@ export class AIProviderService implements Disposable {
 			generating?: Deferred<AIModel>;
 			progress?: ProgressOptions;
 		},
-	): Promise<AIResult | undefined> {
+	): Promise<AISummarizeResult | undefined> {
+		if (!(await this.ensureFeatureAccess('generateStashMessage', source))) {
+			return undefined;
+		}
+
 		const changes: string | undefined = await this.getChanges(changesOrRepo);
 		if (changes == null) {
 			options?.generating?.cancel();
@@ -430,14 +497,18 @@ export class AIProviderService implements Disposable {
 			}),
 			options,
 		);
-		return result != null ? parseResult(result) : undefined;
+		return result != null ? { ...result, parsed: parseSummarizeResult(result.content) } : undefined;
 	}
 
 	async generateChangelog(
 		changes: Lazy<Promise<AIGenerateChangelogChange[]>>,
 		source: Source,
 		options?: { cancellation?: CancellationToken; progress?: ProgressOptions },
-	): Promise<string | undefined> {
+	): Promise<AIResult | undefined> {
+		if (!(await this.ensureFeatureAccess('generateChangelog', source))) {
+			return undefined;
+		}
+
 		const result = await this.sendRequest(
 			'generate-changelog',
 			async () => ({
@@ -458,7 +529,7 @@ export class AIProviderService implements Disposable {
 			}),
 			options,
 		);
-		return result;
+		return result != null ? { ...result } : undefined;
 	}
 
 	private async sendRequest<T extends AIActionType>(
@@ -475,7 +546,7 @@ export class AIProviderService implements Disposable {
 			generating?: Deferred<AIModel>;
 			progress?: ProgressOptions;
 		},
-	): Promise<string | undefined> {
+	): Promise<AIRequestResult | undefined> {
 		const { confirmed, model } = await getModelAndConfirmAIProviderToS(
 			'diff',
 			source,
@@ -523,7 +594,7 @@ export class AIProviderService implements Disposable {
 				? window.withProgress({ ...options.progress, title: getProgressTitle(model) }, () => promise)
 				: promise);
 
-			telementry.data['output.length'] = result?.length;
+			telementry.data['output.length'] = result?.content?.length;
 			this.container.telemetry.sendEvent(
 				telementry.key,
 				{ ...telementry.data, duration: Date.now() - start },
@@ -691,7 +762,7 @@ async function getModelAndConfirmAIProviderToS(
 	}
 }
 
-function parseResult(result: string): AIResult {
+function parseSummarizeResult(result: string): NonNullable<AISummarizeResult['parsed']> {
 	result = result.trim();
 	let summary = result.match(/<summary>\s?([\s\S]*?)\s?(<\/summary>|$)/)?.[1]?.trim() ?? '';
 	let body = result.match(/<body>\s?([\s\S]*?)\s?(<\/body>|$)/)?.[1]?.trim() ?? '';
@@ -718,7 +789,7 @@ function parseResult(result: string): AIResult {
 	return { summary: summary, body: body };
 }
 
-function splitMessageIntoSummaryAndBody(message: string): AIResult {
+function splitMessageIntoSummaryAndBody(message: string): NonNullable<AISummarizeResult['parsed']> {
 	const index = message.indexOf('\n');
 	if (index === -1) return { summary: message, body: '' };
 

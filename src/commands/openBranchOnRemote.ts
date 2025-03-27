@@ -1,5 +1,4 @@
 import type { TextEditor, Uri } from 'vscode';
-import { GlCommand } from '../constants.commands';
 import type { Container } from '../container';
 import { GitUri } from '../git/gitUri';
 import { RemoteResourceType } from '../git/models/remoteResource';
@@ -25,11 +24,7 @@ export interface OpenBranchOnRemoteCommandArgs {
 @command()
 export class OpenBranchOnRemoteCommand extends ActiveEditorCommand {
 	constructor(private readonly container: Container) {
-		super([
-			GlCommand.OpenBranchOnRemote,
-			/** @deprecated */ 'gitlens.openBranchInRemote',
-			GlCommand.CopyRemoteBranchUrl,
-		]);
+		super(['gitlens.openBranchOnRemote', 'gitlens.copyRemoteBranchUrl'], ['gitlens.openBranchInRemote']);
 	}
 
 	protected override preExecute(context: CommandContext, args?: OpenBranchOnRemoteCommandArgs): Promise<void> {
@@ -41,7 +36,7 @@ export class OpenBranchOnRemoteCommand extends ActiveEditorCommand {
 			};
 		}
 
-		if (context.command === GlCommand.CopyRemoteBranchUrl) {
+		if (context.command === 'gitlens.copyRemoteBranchUrl') {
 			args = { ...args, clipboard: true };
 		}
 
@@ -93,7 +88,7 @@ export class OpenBranchOnRemoteCommand extends ActiveEditorCommand {
 				}
 			}
 
-			void (await executeCommand<OpenOnRemoteCommandArgs>(GlCommand.OpenOnRemote, {
+			void (await executeCommand<OpenOnRemoteCommandArgs>('gitlens.openOnRemote', {
 				resource: {
 					type: RemoteResourceType.Branch,
 					branch: args.branch || 'HEAD',

@@ -3,10 +3,8 @@ import { Disposable, ThemeIcon, TreeItem, TreeItemCollapsibleState, Uri, window 
 import type { OpenWalkthroughCommandArgs } from '../commands/walkthroughs';
 import type { LaunchpadViewConfig, ViewFilesLayout } from '../config';
 import { proBadge } from '../constants';
-import { GlCommand } from '../constants.commands';
 import type { Container } from '../container';
 import { AuthenticationRequiredError } from '../errors';
-import { PlusFeatures } from '../features';
 import { GitUri, unknownGitUri } from '../git/gitUri';
 import type { PullRequest } from '../git/models/pullRequest';
 import type { SubscriptionChangeEvent } from '../plus/gk/subscriptionService';
@@ -25,6 +23,7 @@ import type { GroupingNode } from './nodes/groupingNode';
 import { LaunchpadViewGroupingNode } from './nodes/launchpadViewGroupingNode';
 import { getPullRequestChildren, getPullRequestTooltip } from './nodes/pullRequestNode';
 import { disposeChildren, ViewBase } from './viewBase';
+import type { CopyNodeCommandArgs } from './viewCommands';
 import { registerViewCommand } from './viewCommands';
 
 export class LaunchpadItemNode extends CacheableChildrenViewNode<'launchpad-item', LaunchpadView> {
@@ -158,7 +157,7 @@ export class LaunchpadViewNode extends CacheableChildrenViewNode<
 		this.view.message = undefined;
 
 		if (this.children == null) {
-			const access = await this.view.container.git.access(PlusFeatures.Launchpad);
+			const access = await this.view.container.git.access('launchpad');
 			if (!access.allowed) return [];
 
 			const children: (GroupingNode | LaunchpadItemNode)[] = [];
@@ -275,7 +274,7 @@ export class LaunchpadView extends ViewBase<'launchpad', LaunchpadViewNode, Laun
 			),
 			registerViewCommand(
 				this.getQualifiedCommand('copy'),
-				() => executeCommand(GlCommand.ViewsCopy, this.activeSelection, this.selection),
+				() => executeCommand<CopyNodeCommandArgs>('gitlens.views.copy', this.activeSelection, this.selection),
 				this,
 			),
 			registerViewCommand(

@@ -19,7 +19,7 @@ import { formatPath } from '../../system/-webview/formatPath';
 import { getLoggableName, Logger } from '../../system/logger';
 import { startLogScope } from '../../system/logger.scope';
 import { defer } from '../../system/promise';
-import { pad } from '../../system/string';
+import { pad, pluralize } from '../../system/string';
 import type { ViewsWithRepositoryFolders } from '../../views/viewBase';
 import type {
 	AsyncStepResultGenerator,
@@ -111,9 +111,6 @@ const subcommandToTitleMap = new Map<State['subcommand'], string>([
 	['rename', 'Rename'],
 ]);
 function getTitle(title: string, subcommand: State['subcommand'] | undefined) {
-	if (subcommand === 'drop') {
-		title = 'Stashes';
-	}
 	return subcommand == null ? title : `${subcommandToTitleMap.get(subcommand)} ${title}`;
 }
 
@@ -442,6 +439,11 @@ export class StashGitCommand extends QuickCommand<State> {
 				state.references = result;
 			}
 
+			context.title = getTitle(
+				pluralize('Stash', state.references.length, { only: true, plural: 'Stashes' }),
+				state.subcommand,
+			);
+
 			const result = yield* this.dropCommandConfirmStep(state, context);
 			if (result === StepResultBreak) continue;
 
@@ -636,7 +638,9 @@ export class StashGitCommand extends QuickCommand<State> {
 			placeholder: 'Please provide a stash message',
 			value: state.message,
 			prompt: 'Enter stash message',
-			buttons: [QuickInputButtons.Back, generateMessageButton],
+			buttons: getContext('gitlens:gk:organization:ai:enabled')
+				? [QuickInputButtons.Back, generateMessageButton]
+				: [QuickInputButtons.Back],
 			// Needed to clear any validation errors because of AI generation
 			validate: (_value: string | undefined): [boolean, string | undefined] => [true, undefined],
 			onDidClickButton: async (input, button) => {
@@ -679,7 +683,7 @@ export class StashGitCommand extends QuickCommand<State> {
 
 						input.validationMessage = undefined;
 
-						const message = result?.summary;
+						const message = result?.parsed.summary;
 						if (message != null) {
 							state.message = message;
 							input.value = message;

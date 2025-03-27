@@ -95,7 +95,7 @@ export type GlobalStorage = {
 	[key in `azure:${string}:projects`]: Stored<StoredAzureProject[] | undefined>;
 } & { [key in `bitbucket:${string}:account`]: Stored<StoredBitbucketAccount | undefined> } & {
 	[key in `bitbucket:${string}:workspaces`]: Stored<StoredBitbucketWorkspace[] | undefined>;
-};
+} & { [key in `bitbucket-server:${string}:account`]: Stored<StoredBitbucketAccount | undefined> };
 
 export type StoredIntegrationConfigurations = Record<string, StoredConfiguredIntegrationDescriptor[] | undefined>;
 
@@ -184,21 +184,25 @@ export interface StoredGKLicense {
 
 export type StoredGKLicenseType =
 	| 'gitlens-pro'
+	| 'gitlens-advanced'
 	| 'gitlens-teams'
 	| 'gitlens-hosted-enterprise'
 	| 'gitlens-self-hosted-enterprise'
 	| 'gitlens-standalone-enterprise'
 	| 'bundle-pro'
+	| 'bundle-advanced'
 	| 'bundle-teams'
 	| 'bundle-hosted-enterprise'
 	| 'bundle-self-hosted-enterprise'
 	| 'bundle-standalone-enterprise'
 	| 'gitkraken_v1-pro'
+	| 'gitkraken_v1-advanced'
 	| 'gitkraken_v1-teams'
 	| 'gitkraken_v1-hosted-enterprise'
 	| 'gitkraken_v1-self-hosted-enterprise'
 	| 'gitkraken_v1-standalone-enterprise'
 	| 'gitkraken-v1-pro'
+	| 'gitkraken-v1-advanced'
 	| 'gitkraken-v1-teams'
 	| 'gitkraken-v1-hosted-enterprise'
 	| 'gitkraken-v1-self-hosted-enterprise'

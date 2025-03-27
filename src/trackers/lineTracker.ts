@@ -51,6 +51,7 @@ export class LineTracker {
 	) {}
 
 	dispose(): void {
+		this._onDidChangeActiveLines.dispose();
 		for (const subscriber of this._subscriptions.keys()) {
 			this.unsubscribe(subscriber);
 		}

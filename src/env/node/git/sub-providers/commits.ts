@@ -157,7 +157,7 @@ export class CommitsGitSubProvider implements GitCommitsSubProvider {
 		const [relativePath, root] = splitPath(uri, repoPath);
 
 		try {
-			const log = await this.getLogForFile(root, relativePath, rev, { limit: 2 });
+			const log = await this.getLogForPath(root, relativePath, rev, { limit: 2 });
 			if (log == null) return undefined;
 
 			let commit;
@@ -451,12 +451,12 @@ export class CommitsGitSubProvider implements GitCommitsSubProvider {
 			if (log != null) {
 				log.query = (limit: number | undefined) => this.getLog(repoPath, rev, { ...options, limit: limit });
 				if (log.hasMore) {
-					let opts;
+					let opts: Omit<typeof options, 'extraArgs'> | undefined;
 					if (options != null) {
 						let _;
 						({ extraArgs: _, ...opts } = options);
 					}
-					log.more = this.getLogMoreFn(log, opts);
+					log.more = this.getLogMoreFn(log, rev, opts);
 				}
 			}
 
@@ -633,7 +633,7 @@ export class CommitsGitSubProvider implements GitCommitsSubProvider {
 	}
 
 	@log()
-	async getLogForFile(
+	async getLogForPath(
 		repoPath: string | undefined,
 		pathOrUri: string | Uri,
 		rev?: string | undefined,
@@ -656,10 +656,10 @@ export class CommitsGitSubProvider implements GitCommitsSubProvider {
 		const relativePath = this.provider.getRelativePath(pathOrUri, repoPath);
 
 		if (repoPath != null && repoPath === relativePath) {
-			throw new Error(`File name cannot match the repository path; path=${relativePath}`);
+			throw new Error(`Path cannot match the repository path; path=${relativePath}`);
 		}
 
-		const opts: typeof options & Parameters<CommitsGitSubProvider['getLogForFileCore']>[6] = {
+		const opts: typeof options & Parameters<CommitsGitSubProvider['getLogForPathCore']>[6] = {
 			reverse: false,
 			...options,
 		};
@@ -769,7 +769,7 @@ export class CommitsGitSubProvider implements GitCommitsSubProvider {
 								count: commits.size,
 								commits: commits,
 								query: (limit: number | undefined) =>
-									this.getLogForFile(repoPath, pathOrUri, rev, { ...optsCopy, limit: limit }),
+									this.getLogForPath(repoPath, pathOrUri, rev, { ...optsCopy, limit: limit }),
 							};
 
 							return log;
@@ -783,7 +783,7 @@ export class CommitsGitSubProvider implements GitCommitsSubProvider {
 			doc.state ??= new GitDocumentState();
 		}
 
-		const promise = this.getLogForFileCore(repoPath, relativePath, rev, doc, key, scope, opts);
+		const promise = this.getLogForPathCore(repoPath, relativePath, rev, doc, key, scope, opts);
 
 		if (useCache && doc.state != null) {
 			Logger.debug(scope, `Cache add: '${key}'`);
@@ -797,7 +797,7 @@ export class CommitsGitSubProvider implements GitCommitsSubProvider {
 		return promise;
 	}
 
-	private async getLogForFileCore(
+	private async getLogForPathCore(
 		repoPath: string | undefined,
 		path: string,
 		rev: string | undefined,
@@ -870,9 +870,9 @@ export class CommitsGitSubProvider implements GitCommitsSubProvider {
 			if (log != null) {
 				const opts = { ...options, range: range };
 				log.query = (limit: number | undefined) =>
-					this.getLogForFile(repoPath, path, rev, { ...opts, limit: limit });
+					this.getLogForPath(repoPath, path, rev, { ...opts, limit: limit });
 				if (log.hasMore) {
-					log.more = this.getLogForFileMoreFn(log, path, rev, opts);
+					log.more = this.getLogForPathMoreFn(log, path, rev, opts);
 				}
 			}
 
@@ -896,7 +896,7 @@ export class CommitsGitSubProvider implements GitCommitsSubProvider {
 		}
 	}
 
-	private getLogForFileMoreFn(
+	private getLogForPathMoreFn(
 		log: GitLog,
 		relativePath: string,
 		rev: string | undefined,
@@ -931,7 +931,7 @@ export class CommitsGitSubProvider implements GitCommitsSubProvider {
 					}
 				}
 			}
-			const moreLog = await this.getLogForFile(
+			const moreLog = await this.getLogForPath(
 				log.repoPath,
 				relativePath,
 				options.all ? undefined : moreUntil == null ? `${sha}^` : `${moreUntil}^..${sha}^`,
@@ -955,7 +955,7 @@ export class CommitsGitSubProvider implements GitCommitsSubProvider {
 				limit: moreUntil == null ? (log.limit ?? 0) + moreLimit : undefined,
 				hasMore: moreUntil == null ? moreLog.hasMore : true,
 				query: (limit: number | undefined) =>
-					this.getLogForFile(log.repoPath, relativePath, rev, { ...options, limit: limit }),
+					this.getLogForPath(log.repoPath, relativePath, rev, { ...options, limit: limit }),
 			};
 
 			if (options.renames) {
@@ -967,7 +967,7 @@ export class CommitsGitSubProvider implements GitCommitsSubProvider {
 			}
 
 			if (mergedLog.hasMore) {
-				mergedLog.more = this.getLogForFileMoreFn(mergedLog, relativePath, rev, options);
+				mergedLog.more = this.getLogForPathMoreFn(mergedLog, relativePath, rev, options);
 			}
 
 			return mergedLog;
@@ -975,10 +975,10 @@ export class CommitsGitSubProvider implements GitCommitsSubProvider {
 	}
 
 	@log()
-	async getOldestUnpushedShaForFile(repoPath: string, uri: Uri): Promise<string | undefined> {
-		const [relativePath, root] = splitPath(uri, repoPath);
+	async getOldestUnpushedShaForPath(repoPath: string, pathOrUri: string | Uri): Promise<string | undefined> {
+		const relativePath = this.provider.getRelativePath(pathOrUri, repoPath);
 
-		const data = await this.git.log__file(root, relativePath, '@{u}..', {
+		const data = await this.git.log__file(repoPath, relativePath, '@{u}..', {
 			argsOrFormat: ['-z', '--format=%H'],
 			fileMode: 'none',
 			ordering: configuration.get('advanced.commitOrdering'),

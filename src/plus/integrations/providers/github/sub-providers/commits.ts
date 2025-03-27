@@ -462,7 +462,7 @@ export class CommitsGitSubProvider implements GitCommitsSubProvider {
 	}
 
 	@log()
-	async getLogForFile(
+	async getLogForPath(
 		repoPath: string | undefined,
 		pathOrUri: string | Uri,
 		rev?: string | undefined,
@@ -591,7 +591,7 @@ export class CommitsGitSubProvider implements GitCommitsSubProvider {
 								count: commits.size,
 								commits: commits,
 								query: (limit: number | undefined) =>
-									this.getLogForFile(repoPath, pathOrUri, rev, { ...opts, limit: limit }),
+									this.getLogForPath(repoPath, pathOrUri, rev, { ...opts, limit: limit }),
 							};
 
 							return log;
@@ -605,7 +605,7 @@ export class CommitsGitSubProvider implements GitCommitsSubProvider {
 			doc.state ??= new GitDocumentState();
 		}
 
-		const promise = this.getLogForFileCore(repoPath, relativePath, rev, doc, key, scope, options);
+		const promise = this.getLogForPathCore(repoPath, relativePath, rev, doc, key, scope, options);
 
 		if (useCache && doc.state != null) {
 			Logger.debug(scope, `Cache add: '${key}'`);
@@ -619,7 +619,7 @@ export class CommitsGitSubProvider implements GitCommitsSubProvider {
 		return promise;
 	}
 
-	private async getLogForFileCore(
+	private async getLogForPathCore(
 		repoPath: string | undefined,
 		path: string,
 		rev: string | undefined,
@@ -742,10 +742,10 @@ export class CommitsGitSubProvider implements GitCommitsSubProvider {
 				hasMore: result.paging?.more ?? false,
 				endingCursor: result.paging?.cursor,
 				query: (limit: number | undefined) =>
-					this.getLogForFile(repoPath, path, rev, { ...options, limit: limit }),
+					this.getLogForPath(repoPath, path, rev, { ...options, limit: limit }),
 			};
 			if (log.hasMore) {
-				log.more = this.getLogForFileMoreFn(log, path, rev, options);
+				log.more = this.getLogForPathMoreFn(log, path, rev, options);
 			}
 
 			return log;
@@ -769,7 +769,7 @@ export class CommitsGitSubProvider implements GitCommitsSubProvider {
 		}
 	}
 
-	private getLogForFileMoreFn(
+	private getLogForPathMoreFn(
 		log: GitLog,
 		relativePath: string,
 		rev: string | undefined,
@@ -793,7 +793,7 @@ export class CommitsGitSubProvider implements GitCommitsSubProvider {
 			moreLimit = this.provider.getPagingLimit(moreLimit);
 
 			// const sha = Iterables.last(log.commits.values())?.ref;
-			const moreLog = await this.getLogForFile(
+			const moreLog = await this.getLogForPath(
 				log.repoPath,
 				relativePath,
 				rev /* options.all ? undefined : moreUntil == null ? `${sha}^` : `${moreUntil}^..${sha}^ */,
@@ -830,7 +830,7 @@ export class CommitsGitSubProvider implements GitCommitsSubProvider {
 			// }
 
 			if (mergedLog.hasMore) {
-				mergedLog.more = this.getLogForFileMoreFn(mergedLog, relativePath, rev, options);
+				mergedLog.more = this.getLogForPathMoreFn(mergedLog, relativePath, rev, options);
 			}
 
 			return mergedLog;
@@ -838,7 +838,7 @@ export class CommitsGitSubProvider implements GitCommitsSubProvider {
 	}
 
 	@log()
-	getOldestUnpushedShaForFile(_repoPath: string, _uri: Uri): Promise<string | undefined> {
+	getOldestUnpushedShaForPath(_repoPath: string, _pathOrUri: string | Uri): Promise<string | undefined> {
 		// TODO@eamodio until we have access to the RemoteHub change store there isn't anything we can do here
 		return Promise.resolve(undefined);
 	}

@@ -1,5 +1,4 @@
 import type { TextEditor, Uri } from 'vscode';
-import { GlCommand } from '../constants.commands';
 import type { Container } from '../container';
 import { GitUri } from '../git/gitUri';
 import { RemoteResourceType } from '../git/models/remoteResource';
@@ -29,7 +28,7 @@ export class OpenCurrentBranchOnRemoteCommand extends ActiveEditorCommand {
 		try {
 			const branch = await repository.git.branches().getBranch();
 			if (branch?.detached) {
-				void (await executeCommand<OpenOnRemoteCommandArgs>(GlCommand.OpenOnRemote, {
+				void (await executeCommand<OpenOnRemoteCommandArgs>('gitlens.openOnRemote', {
 					resource: {
 						type: RemoteResourceType.Commit,
 						sha: branch.sha ?? 'HEAD',
@@ -49,7 +48,7 @@ export class OpenCurrentBranchOnRemoteCommand extends ActiveEditorCommand {
 				branchName = branch.name;
 			}
 
-			void (await executeCommand<OpenOnRemoteCommandArgs>(GlCommand.OpenOnRemote, {
+			void (await executeCommand<OpenOnRemoteCommandArgs>('gitlens.openOnRemote', {
 				resource: {
 					type: RemoteResourceType.Branch,
 					branch: branchName ?? 'HEAD',

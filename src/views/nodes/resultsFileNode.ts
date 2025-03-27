@@ -1,13 +1,13 @@
 import type { Command } from 'vscode';
 import { TreeItem, TreeItemCheckboxState, TreeItemCollapsibleState } from 'vscode';
 import type { DiffWithCommandArgs } from '../../commands/diffWith';
-import { GlCommand } from '../../constants.commands';
 import { StatusFileFormatter } from '../../git/formatters/statusFormatter';
 import { GitUri } from '../../git/gitUri';
 import type { GitFile } from '../../git/models/file';
 import type { GitRevisionReference } from '../../git/models/reference';
 import { getGitFileStatusIcon } from '../../git/utils/fileStatus.utils';
 import { createReference } from '../../git/utils/reference.utils';
+import { createCommand } from '../../system/-webview/command';
 import { relativeDir } from '../../system/-webview/path';
 import { joinPaths } from '../../system/path';
 import type { View } from '../viewBase';
@@ -125,7 +125,7 @@ export class ResultsFileNode extends ViewRefFileNode<'results-file', View, State
 	}
 
 	override getCommand(): Command | undefined {
-		const commandArgs: DiffWithCommandArgs = {
+		return createCommand<[DiffWithCommandArgs]>('gitlens.diffWith', 'Open Changes', {
 			lhs: {
 				sha: this.ref1,
 				uri:
@@ -147,11 +147,6 @@ export class ResultsFileNode extends ViewRefFileNode<'results-file', View, State
 				preserveFocus: true,
 				preview: true,
 			},
-		};
-		return {
-			title: 'Open Changes',
-			command: GlCommand.DiffWith,
-			arguments: [commandArgs],
-		};
+		});
 	}
 }

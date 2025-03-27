@@ -1,6 +1,5 @@
 import type { TextEditor, Uri } from 'vscode';
 import { env } from 'vscode';
-import { GlCommand } from '../constants.commands';
 import type { Container } from '../container';
 import { GitUri } from '../git/gitUri';
 import { shortenRevision } from '../git/utils/revision.utils';
@@ -25,7 +24,7 @@ export interface CopyShaToClipboardCommandArgs {
 @command()
 export class CopyShaToClipboardCommand extends ActiveEditorCommand {
 	constructor(private readonly container: Container) {
-		super(GlCommand.CopyShaToClipboard);
+		super('gitlens.copyShaToClipboard');
 	}
 
 	protected override preExecute(context: CommandContext, args?: CopyShaToClipboardCommandArgs): Promise<void> {

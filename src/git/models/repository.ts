@@ -247,6 +247,8 @@ export class Repository implements Disposable {
 		this._closed = closed;
 
 		this._disposable = Disposable.from(
+			this._onDidChange,
+			this._onDidChangeFileSystem,
 			this.setupRepoWatchers(),
 			configuration.onDidChange(this.onConfigurationChanged, this),
 			// Sending this event in the `'git:cache:reset'` below to avoid unnecessary work. While we will refresh more than needed, this doesn't happen often
@@ -289,7 +291,7 @@ export class Repository implements Disposable {
 		disposables.push(
 			this.container.events.on('git:cache:reset', e => {
 				if (!e.data.repoPath || e.data.repoPath === this.path) {
-					if (e.data.caches?.includes('providers')) {
+					if (e.data.types?.includes('providers')) {
 						this.fireChange(RepositoryChange.RemoteProviders);
 					}
 				}

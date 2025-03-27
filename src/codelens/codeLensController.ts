@@ -109,6 +109,7 @@ export class GitCodeLensController implements Disposable {
 
 		this._provider = new GitCodeLensProvider(this.container);
 		this._providerDisposable = Disposable.from(
+			this._provider,
 			languages.registerCodeLensProvider(GitCodeLensProvider.selector, this._provider),
 			this.container.documentTracker.onDidChangeBlameState(this.onBlameStateChanged, this),
 			this.container.documentTracker.onDidTriggerDirtyIdle(this.onDirtyIdleTriggered, this),

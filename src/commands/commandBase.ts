@@ -1,6 +1,6 @@
 import type { TextEditor, TextEditorEdit } from 'vscode';
 import { commands, Disposable } from 'vscode';
-import type { GlCommands } from '../constants.commands';
+import type { GlCommands, GlCommandsDeprecated } from '../constants.commands';
 import { registerCommand } from '../system/-webview/command';
 import type { CommandContext } from './commandContext';
 import type { CommandContextParsingOptions } from './commandContext.utils';
@@ -11,14 +11,10 @@ export abstract class GlCommandBase implements Disposable {
 
 	private readonly _disposable: Disposable;
 
-	constructor(command: GlCommands | GlCommands[]) {
-		if (typeof command === 'string') {
-			this._disposable = registerCommand(command, (...args: any[]) => this._execute(command, ...args), this);
+	constructor(command: GlCommands | GlCommands[], deprecated?: GlCommandsDeprecated[]) {
+		const commands = [...(typeof command === 'string' ? [command] : command), ...(deprecated ?? [])];
 
-			return;
-		}
-
-		const subscriptions = command.map(cmd =>
+		const subscriptions = commands.map(cmd =>
 			registerCommand(cmd, (...args: any[]) => this._execute(cmd, ...args), this),
 		);
 		this._disposable = Disposable.from(...subscriptions);
@@ -35,7 +31,7 @@ export abstract class GlCommandBase implements Disposable {
 
 	abstract execute(...args: any[]): any;
 
-	protected _execute(command: GlCommands, ...args: any[]): Promise<unknown> {
+	protected _execute(command: GlCommands | GlCommandsDeprecated, ...args: any[]): Promise<unknown> {
 		const [context, rest] = parseCommandContext(command, { ...this.contextParsingOptions }, ...args);
 		return this.preExecute(context, ...rest);
 	}

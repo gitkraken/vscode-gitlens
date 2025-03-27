@@ -274,6 +274,14 @@ export abstract class CloudIntegrationAuthenticationProvider<
 
 		if (!session) return undefined;
 
+		let sessionProtocol;
+		try {
+			sessionProtocol = new URL(session.domain).protocol;
+		} catch {
+			// If the domain is invalid, we can't use it to create a session
+			sessionProtocol = undefined;
+		}
+
 		// TODO: Once we care about domains, we should try to match the domain here against ours, and if it fails, return undefined
 		return {
 			id: this.configuredIntegrationService.getSessionId(descriptor),
@@ -287,6 +295,7 @@ export abstract class CloudIntegrationAuthenticationProvider<
 			expiresAt: new Date(session.expiresIn * 1000 + Date.now()),
 			// Note: do not use the session's domain, because the format is different than in our model
 			domain: descriptor.domain,
+			protocol: sessionProtocol ?? undefined,
 		};
 	}
 

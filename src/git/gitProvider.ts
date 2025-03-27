@@ -34,7 +34,7 @@ import type { RemoteProvider } from './remotes/remoteProvider';
 import type { GitGraphSearch } from './search';
 import type { BranchSortOptions, TagSortOptions } from './utils/-webview/sorting';
 
-export type GitCaches =
+export type CachedGitTypes =
 	| 'branches'
 	| 'contributors'
 	| 'providers'
@@ -43,8 +43,6 @@ export type GitCaches =
 	| 'status'
 	| 'tags'
 	| 'worktrees';
-export type GitRepositoryCaches = Extract<GitCaches, 'branches' | 'remotes'>;
-export const gitRepositoryCacheKeys = new Set<GitRepositoryCaches>(['branches', 'remotes']);
 
 export interface GitDir {
 	readonly uri: Uri;
@@ -232,6 +230,8 @@ export interface GitBranchesSubProvider {
 		branch: GitBranchReference,
 		into: GitBranchReference,
 	): Promise<GitBranchMergedStatus>;
+	/** @internal not intended to be used outside of the sub-providers */
+	getCurrentBranchReference?(repoPath: string): Promise<GitBranchReference | undefined>;
 	getLocalBranchByUpstream?(repoPath: string, remoteBranchName: string): Promise<GitBranch | undefined>;
 	getPotentialMergeOrRebaseConflict?(
 		repoPath: string,
@@ -298,7 +298,7 @@ export interface GitCommitsSubProvider {
 			since?: string | undefined;
 		},
 	): Promise<Set<string> | undefined>;
-	getLogForFile(
+	getLogForPath(
 		repoPath: string,
 		pathOrUri: string | Uri,
 		rev?: string | undefined,
@@ -314,7 +314,7 @@ export interface GitCommitsSubProvider {
 			skip?: number | undefined;
 		},
 	): Promise<GitLog | undefined>;
-	getOldestUnpushedShaForFile(repoPath: string, uri: Uri): Promise<string | undefined>;
+	getOldestUnpushedShaForPath(repoPath: string, pathOrUri: string | Uri): Promise<string | undefined>;
 	isAncestorOf(repoPath: string, rev1: string, rev2: string): Promise<boolean>;
 	hasCommitBeenPushed(repoPath: string, rev: string): Promise<boolean>;
 	searchCommits(

@@ -19,6 +19,7 @@ import type { IntegrationAuthenticationService } from '../authentication/integra
 import type {
 	GetAzureProjectsForResourceFn,
 	GetAzureResourcesForUserFn,
+	GetBitbucketPullRequestsAuthoredByUserForWorkspaceFn,
 	GetBitbucketResourcesForUserFn,
 	GetCurrentUserFn,
 	GetCurrentUserForInstanceFn,
@@ -202,6 +203,10 @@ export class ProvidersApi {
 				getBitbucketResourcesForUserFn: providerApis.bitbucket.getWorkspacesForUser.bind(
 					providerApis.bitbucket,
 				) as GetBitbucketResourcesForUserFn,
+				getBitbucketPullRequestsAuthoredByUserForWorkspaceFn:
+					providerApis.bitbucket.getPullRequestsForUserAndWorkspace.bind(
+						providerApis.bitbucket,
+					) as GetBitbucketPullRequestsAuthoredByUserForWorkspaceFn,
 				getPullRequestsForReposFn: providerApis.bitbucket.getPullRequestsForRepos.bind(
 					providerApis.bitbucket,
 				) as GetPullRequestsForReposFn,
@@ -210,6 +215,24 @@ export class ProvidersApi {
 				) as GetPullRequestsForRepoFn,
 				mergePullRequestFn: providerApis.bitbucket.mergePullRequest.bind(
 					providerApis.bitbucket,
+				) as MergePullRequestFn,
+			},
+			[SelfHostedIntegrationId.BitbucketServer]: {
+				...providersMetadata[SelfHostedIntegrationId.BitbucketServer],
+				provider: providerApis.bitbucketServer,
+				getCurrentUserFn: providerApis.bitbucketServer.getCurrentUser.bind(
+					providerApis.bitbucketServer,
+				) as GetCurrentUserFn,
+				getBitbucketServerPullRequestsForCurrentUserFn:
+					providerApis.bitbucketServer.getPullRequestsForCurrentUser.bind(providerApis.bitbucketServer),
+				getPullRequestsForReposFn: providerApis.bitbucketServer.getPullRequestsForRepos.bind(
+					providerApis.bitbucketServer,
+				) as GetPullRequestsForReposFn,
+				getPullRequestsForRepoFn: providerApis.bitbucketServer.getPullRequestsForRepo.bind(
+					providerApis.bitbucketServer,
+				) as GetPullRequestsForRepoFn,
+				mergePullRequestFn: providerApis.bitbucketServer.mergePullRequest.bind(
+					providerApis.bitbucketServer,
 				) as MergePullRequestFn,
 			},
 			[HostingIntegrationId.AzureDevOps]: {
@@ -564,6 +587,49 @@ export class ProvidersApi {
 		}
 	}
 
+	async getBitbucketPullRequestsAuthoredByUserForWorkspace(
+		userId: string,
+		workspaceSlug: string,
+		options?: { accessToken?: string },
+	): Promise<ProviderPullRequest[] | undefined> {
+		const { provider, token } = await this.ensureProviderTokenAndFunction(
+			HostingIntegrationId.Bitbucket,
+			'getBitbucketPullRequestsAuthoredByUserForWorkspaceFn',
+			options?.accessToken,
+		);
+
+		try {
+			return (
+				await provider.getBitbucketPullRequestsAuthoredByUserForWorkspaceFn?.(
+					{ userId: userId, workspaceSlug: workspaceSlug },
+					{ token: token },
+				)
+			)?.data;
+		} catch (e) {
+			return this.handleProviderError(HostingIntegrationId.Bitbucket, token, e);
+		}
+	}
+
+	async getBitbucketServerPullRequestsForCurrentUser(
+		baseUrl: string,
+		options?: {
+			accessToken?: string;
+		},
+	): Promise<ProviderPullRequest[] | undefined> {
+		const { provider, token } = await this.ensureProviderTokenAndFunction(
+			SelfHostedIntegrationId.BitbucketServer,
+			'getBitbucketServerPullRequestsForCurrentUserFn',
+			options?.accessToken,
+		);
+		try {
+			return (
+				await provider.getBitbucketServerPullRequestsForCurrentUserFn?.({}, { token: token, baseUrl: baseUrl })
+			)?.data;
+		} catch (e) {
+			return this.handleProviderError(SelfHostedIntegrationId.BitbucketServer, token, e);
+		}
+	}
+
 	async getJiraProjectsForResources(
 		resourceIds: string[],
 		options?: { accessToken?: string },
@@ -779,6 +845,7 @@ export class ProvidersApi {
 								login: pr.repository.owner,
 							},
 						},
+						version: pr.version,
 					},
 					...options,
 				},

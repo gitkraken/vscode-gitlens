@@ -2,9 +2,7 @@ import type { CancellationToken, ConfigurationChangeEvent, Disposable } from 'vs
 import { ProgressLocation, TreeItem, TreeItemCollapsibleState, window } from 'vscode';
 import type { ViewBranchesLayout, ViewFilesLayout, WorktreesViewConfig } from '../config';
 import { proBadge } from '../constants';
-import { GlCommand } from '../constants.commands';
 import type { Container } from '../container';
-import { PlusFeatures } from '../features';
 import { GitUri } from '../git/gitUri';
 import type { RepositoryChangeEvent } from '../git/models/repository';
 import { RepositoryChange, RepositoryChangeComparisonMode } from '../git/models/repository';
@@ -20,6 +18,7 @@ import type { ViewNode } from './nodes/abstract/viewNode';
 import { WorktreeNode } from './nodes/worktreeNode';
 import { WorktreesNode } from './nodes/worktreesNode';
 import { ViewBase } from './viewBase';
+import type { CopyNodeCommandArgs } from './viewCommands';
 import { registerViewCommand } from './viewCommands';
 
 export class WorktreesRepositoryNode extends RepositoryFolderNode<WorktreesView, WorktreesNode> {
@@ -56,7 +55,7 @@ export class WorktreesViewNode extends RepositoriesSubscribeableNode<WorktreesVi
 		this.view.message = undefined;
 
 		if (this.children == null) {
-			const access = await this.view.container.git.access(PlusFeatures.Worktrees);
+			const access = await this.view.container.git.access('worktrees');
 			if (access.allowed === false) return [];
 
 			if (this.view.container.git.isDiscoveringRepositories) {
@@ -138,7 +137,7 @@ export class WorktreesView extends ViewBase<'worktrees', WorktreesViewNode, Work
 		return [
 			registerViewCommand(
 				this.getQualifiedCommand('copy'),
-				() => executeCommand(GlCommand.ViewsCopy, this.activeSelection, this.selection),
+				() => executeCommand<CopyNodeCommandArgs>('gitlens.views.copy', this.activeSelection, this.selection),
 				this,
 			),
 			registerViewCommand(

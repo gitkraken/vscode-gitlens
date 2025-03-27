@@ -2,7 +2,6 @@ import type { ConfigurationChangeEvent } from 'vscode';
 import { Disposable, env, Uri, window } from 'vscode';
 import { getAvatarUri } from '../../../avatars';
 import { GlyphChars, previewBadge } from '../../../constants';
-import { GlCommand } from '../../../constants.commands';
 import type { ContextKeys } from '../../../constants.context';
 import type { Sources, WebviewTelemetryContext } from '../../../constants.telemetry';
 import type { Container } from '../../../container';
@@ -53,7 +52,7 @@ import { showInspectView } from '../../commitDetails/actions';
 import type { IpcCallMessageType, IpcMessage } from '../../protocol';
 import type { WebviewHost, WebviewProvider } from '../../webviewProvider';
 import type { WebviewShowOptions } from '../../webviewsController';
-import type { ShowInCommitGraphCommandArgs } from '../graph/protocol';
+import type { ShowInCommitGraphCommandArgs } from '../graph/registration';
 import type {
 	ApplyPatchParams,
 	Change,
@@ -269,7 +268,7 @@ export class PatchDetailsWebviewProvider
 				break;
 
 			case OpenInCommitGraphCommand.is(e):
-				void executeCommand<ShowInCommitGraphCommandArgs>(GlCommand.ShowInCommitGraph, {
+				void executeCommand<ShowInCommitGraphCommandArgs>('gitlens.showInCommitGraph', {
 					ref: createReference(e.params.ref, e.params.repoPath, { refType: 'revision' }),
 				});
 				break;
@@ -832,7 +831,7 @@ export class PatchDetailsWebviewProvider
 			);
 			if (result == null) throw new Error('Error retrieving content');
 
-			params = { result: result };
+			params = { result: result.parsed };
 		} catch (ex) {
 			debugger;
 			params = { error: { message: ex.message } };
@@ -867,16 +866,16 @@ export class PatchDetailsWebviewProvider
 			// const commit = await this.getOrCreateCommitForPatch(patch.gkRepositoryId);
 			// if (commit == null) throw new Error('Unable to find commit');
 
-			const message = await this.container.ai.generateDraftMessage(
+			const result = await this.container.ai.generateDraftMessage(
 				repo,
 				{ source: 'patchDetails', type: 'patch' },
 				{ progress: { location: { viewId: this.host.id } } },
 			);
-			if (message == null) throw new Error('Error retrieving content');
+			if (result == null) throw new Error('Error retrieving content');
 
 			params = {
-				title: message.summary,
-				description: message.body,
+				title: result.parsed.summary,
+				description: result.parsed.body,
 			};
 		} catch (ex) {
 			debugger;

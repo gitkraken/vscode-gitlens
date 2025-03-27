@@ -1,5 +1,4 @@
 import type { Uri } from 'vscode';
-import { GlCommand } from '../constants.commands';
 import type { Container } from '../container';
 import { command } from '../system/-webview/command';
 import { createMarkdownCommandLink } from '../system/commands';
@@ -18,11 +17,11 @@ export class InviteToLiveShareCommand extends GlCommandBase {
 	static createMarkdownCommandLink(argsOrEmail: InviteToLiveShareCommandArgs | string | undefined): string {
 		const args =
 			argsOrEmail === undefined || typeof argsOrEmail === 'string' ? { email: argsOrEmail } : argsOrEmail;
-		return createMarkdownCommandLink<InviteToLiveShareCommandArgs>(GlCommand.InviteToLiveShare, args);
+		return createMarkdownCommandLink<InviteToLiveShareCommandArgs>('gitlens.inviteToLiveShare', args);
 	}
 
 	constructor(private readonly container: Container) {
-		super(GlCommand.InviteToLiveShare);
+		super('gitlens.inviteToLiveShare');
 	}
 
 	protected override preExecute(

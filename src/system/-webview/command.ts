@@ -2,15 +2,16 @@ import type { Command, Disposable, Uri } from 'vscode';
 import { commands } from 'vscode';
 import type { Action, ActionContext } from '../../api/gitlens';
 import type { GlCommandBase } from '../../commands/commandBase';
-import type { CodeLensCommand } from '../../config';
+import type { CodeLensCommands } from '../../config';
 import type {
 	CoreCommands,
 	CoreGitCommands,
 	GlCommands,
+	GlCommandsDeprecated,
 	WebviewCommands,
 	WebviewViewCommands,
 } from '../../constants.commands';
-import { actionCommandPrefix, GlCommand } from '../../constants.commands';
+import { actionCommandPrefix } from '../../constants.commands';
 import { Container } from '../../container';
 import { isWebviewContext } from '../webview';
 
@@ -25,12 +26,16 @@ export function command(): ClassDecorator {
 	};
 }
 
-export function registerCommand(command: GlCommands, callback: CommandCallback, thisArg?: any): Disposable {
+export function registerCommand(
+	command: GlCommands | GlCommandsDeprecated,
+	callback: CommandCallback,
+	thisArg?: any,
+): Disposable {
 	return commands.registerCommand(
 		command,
 		function (this: any, ...args) {
 			let context: any;
-			if (command === GlCommand.GitCommands) {
+			if (command === 'gitlens.gitCommands') {
 				const arg = args?.[0];
 				if (arg?.command != null) {
 					context = { mode: args[0].command };
@@ -117,15 +122,18 @@ export function executeActionCommand<T extends ActionContext>(
 }
 
 export function createCommand<T extends unknown[]>(
-	command: GlCommands | CodeLensCommand,
+	command: GlCommands | CodeLensCommands,
 	title: string,
 	...args: T
 ): Command {
-	return {
-		command: command,
-		title: title,
-		arguments: args,
-	};
+	return { command: command, title: title, arguments: args };
+}
+
+export function createTerminalLinkCommand<T extends object>(
+	command: GlCommands,
+	args: T,
+): { command: GlCommands; args: T } {
+	return { command: command, args: args };
 }
 
 export function executeCommand<U = any>(command: GlCommands): Thenable<U>;
@@ -136,11 +144,7 @@ export function executeCommand<T extends [...unknown[]] = [], U = any>(command: 
 }
 
 export function createCoreCommand<T extends unknown[]>(command: CoreCommands, title: string, ...args: T): Command {
-	return {
-		command: command,
-		title: title,
-		arguments: args,
-	};
+	return { command: command, title: title, arguments: args };
 }
 
 export function executeCoreCommand<T = unknown, U = any>(command: CoreCommands, arg: T): Thenable<U>;

@@ -1,7 +1,6 @@
 import type { ConfigurationChangeEvent, Disposable } from 'vscode';
 import { TreeItem, TreeItemCollapsibleState } from 'vscode';
 import type { SearchAndCompareViewConfig, ViewFilesLayout } from '../config';
-import { GlCommand } from '../constants.commands';
 import type { SearchQuery } from '../constants.search';
 import type { StoredNamedRef, StoredSearchAndCompareItem } from '../constants.storage';
 import type { Container } from '../container';
@@ -25,6 +24,7 @@ import { ComparePickerNode } from './nodes/comparePickerNode';
 import { CompareResultsNode, restoreComparisonCheckedFiles } from './nodes/compareResultsNode';
 import { SearchResultsNode } from './nodes/searchResultsNode';
 import { disposeChildren, ViewBase } from './viewBase';
+import type { CopyNodeCommandArgs } from './viewCommands';
 import { registerViewCommand } from './viewCommands';
 
 export class SearchAndCompareViewNode extends ViewNode<'search-compare', SearchAndCompareView> {
@@ -292,7 +292,7 @@ export class SearchAndCompareView extends ViewBase<
 			registerViewCommand(this.getQualifiedCommand('clear'), () => void this.clear(), this),
 			registerViewCommand(
 				this.getQualifiedCommand('copy'),
-				() => executeCommand(GlCommand.ViewsCopy, this.activeSelection, this.selection),
+				() => executeCommand<CopyNodeCommandArgs>('gitlens.views.copy', this.activeSelection, this.selection),
 				this,
 			),
 			registerViewCommand(this.getQualifiedCommand('refresh'), () => this.refresh(true), this),

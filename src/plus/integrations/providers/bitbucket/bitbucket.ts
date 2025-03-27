@@ -25,6 +25,10 @@ import { Logger } from '../../../../system/logger';
 import type { LogScope } from '../../../../system/logger.scope';
 import { getLogScope } from '../../../../system/logger.scope';
 import { maybeStopWatch } from '../../../../system/stopwatch';
+import type { Integration } from '../../integration';
+import type { BitbucketServerPullRequest } from '../bitbucket-server/models';
+import { normalizeBitbucketServerPullRequest } from '../bitbucket-server/models';
+import { fromProviderPullRequest } from '../models';
 import type { BitbucketIssue, BitbucketPullRequest, BitbucketRepository } from './models';
 import { bitbucketIssueStateToState, fromBitbucketIssue, fromBitbucketPullRequest } from './models';
 
@@ -91,6 +95,43 @@ export class BitbucketApi implements Disposable {
 			return undefined;
 		}
 		return fromBitbucketPullRequest(response.values[0], provider);
+	}
+
+	@debug<BitbucketApi['getServerPullRequestForBranch']>({ args: { 0: p => p.name, 1: '<token>' } })
+	public async getServerPullRequestForBranch(
+		provider: Provider,
+		token: string,
+		owner: string,
+		repo: string,
+		branch: string,
+		baseUrl: string,
+		integration: Integration,
+	): Promise<PullRequest | undefined> {
+		const scope = getLogScope();
+
+		const response = await this.request<{
+			values: BitbucketServerPullRequest[];
+			pagelen: number;
+			size: number;
+			page: number;
+		}>(
+			provider,
+			token,
+			baseUrl,
+			`projects/${owner}/repos/${repo}/pull-requests?at=refs/heads/${branch}&direction=OUTGOING&state=ALL`,
+			{
+				method: 'GET',
+			},
+			scope,
+		);
+
+		if (!response?.values?.length) {
+			return undefined;
+		}
+
+		const providersPr = normalizeBitbucketServerPullRequest(response.values[0]);
+		const gitlensPr = fromProviderPullRequest(providersPr, integration);
+		return gitlensPr;
 	}
 
 	@debug<BitbucketApi['getUsersIssuesForRepo']>({ args: { 0: p => p.name, 1: '<token>' } })
@@ -234,6 +275,45 @@ export class BitbucketApi implements Disposable {
 		return undefined;
 	}
 
+	@debug<BitbucketApi['getServerPullRequestById']>({ args: { 0: p => p.name, 1: '<token>' } })
+	public async getServerPullRequestById(
+		provider: Provider,
+		token: string,
+		owner: string,
+		repo: string,
+		id: string,
+		baseUrl: string,
+		integration: Integration,
+	): Promise<IssueOrPullRequest | undefined> {
+		const scope = getLogScope();
+
+		try {
+			const prResponse = await this.request<BitbucketServerPullRequest>(
+				provider,
+				token,
+				baseUrl,
+				`projects/${owner}/repos/${repo}/pull-requests/${id}`,
+				{
+					method: 'GET',
+				},
+				scope,
+			);
+
+			if (prResponse) {
+				const providersPr = normalizeBitbucketServerPullRequest(prResponse);
+				const gitlensPr = fromProviderPullRequest(providersPr, integration);
+				return gitlensPr;
+			}
+		} catch (ex) {
+			if (ex.original?.status !== 404) {
+				Logger.error(ex, scope);
+				return undefined;
+			}
+		}
+
+		return undefined;
+	}
+
 	@debug<BitbucketApi['getRepositoriesForWorkspace']>({ args: { 0: p => p.name, 1: '<token>' } })
 	async getRepositoriesForWorkspace(
 		provider: Provider,
@@ -287,70 +367,6 @@ export class BitbucketApi implements Disposable {
 			Logger.error(ex, scope);
 			return undefined;
 		}
-	}
-
-	async getPullRequestsForWorkspaceAuthoredByUser(
-		provider: Provider,
-		token: string,
-		userUuid: string,
-		workspace: string,
-		baseUrl: string,
-	): Promise<PullRequest[] | undefined> {
-		const scope = getLogScope();
-
-		const response = await this.request<{
-			values: BitbucketPullRequest[];
-			pagelen: number;
-			size: number;
-			page: number;
-		}>(
-			provider,
-			token,
-			baseUrl,
-			`workspaces/${workspace}/pullrequests/${userUuid}?state=OPEN&fields=%2Bvalues.reviewers,%2Bvalues.participants`,
-			{
-				method: 'GET',
-			},
-			scope,
-		);
-
-		if (!response?.values?.length) {
-			return undefined;
-		}
-		return response.values.map(pr => fromBitbucketPullRequest(pr, provider));
-	}
-
-	async getUsersReviewingPullRequestsForRepo(
-		provider: Provider,
-		token: string,
-		userUuid: string,
-		owner: string,
-		repo: string,
-		baseUrl: string,
-	): Promise<PullRequest[] | undefined> {
-		const scope = getLogScope();
-
-		const query = encodeURIComponent(`state="OPEN" AND reviewers.uuid="${userUuid}"`);
-		const response = await this.request<{
-			values: BitbucketPullRequest[];
-			pagelen: number;
-			size: number;
-			page: number;
-		}>(
-			provider,
-			token,
-			baseUrl,
-			`repositories/${owner}/${repo}/pullrequests?q=${query}&state=OPEN&fields=%2Bvalues.reviewers,%2Bvalues.participants`,
-			{
-				method: 'GET',
-			},
-			scope,
-		);
-
-		if (!response?.values?.length) {
-			return undefined;
-		}
-		return response.values.map(pr => fromBitbucketPullRequest(pr, provider));
 	}
 
 	private async request<T>(

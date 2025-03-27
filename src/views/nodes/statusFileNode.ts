@@ -2,7 +2,6 @@ import type { Command } from 'vscode';
 import { MarkdownString, ThemeIcon, TreeItem, TreeItemCollapsibleState } from 'vscode';
 import type { DiffWithCommandArgs } from '../../commands/diffWith';
 import type { DiffWithPreviousCommandArgs } from '../../commands/diffWithPrevious';
-import { GlCommand } from '../../constants.commands';
 import { StatusFileFormatter } from '../../git/formatters/statusFormatter';
 import { GitUri } from '../../git/gitUri';
 import type { GitCommit } from '../../git/models/commit';
@@ -10,6 +9,7 @@ import type { GitFileWithCommit } from '../../git/models/file';
 import { isGitFileChange } from '../../git/models/fileChange';
 import { getGitFileStatusIcon } from '../../git/utils/fileStatus.utils';
 import { shortenRevision } from '../../git/utils/revision.utils';
+import { createCommand } from '../../system/-webview/command';
 import { relativeDir } from '../../system/-webview/path';
 import { joinPaths } from '../../system/path';
 import type { ViewsWithCommits } from '../viewBase';
@@ -206,20 +206,20 @@ export class StatusFileNode extends ViewFileNode<'status-file', ViewsWithCommits
 
 	override getCommand(): Command | undefined {
 		if ((this._hasStagedChanges || this._hasUnstagedChanges) && this._files.length === 1) {
-			const commandArgs: DiffWithPreviousCommandArgs = {
-				commit: this.commit,
-				uri: GitUri.fromFile(this.file, this.repoPath),
-				line: 0,
-				showOptions: {
-					preserveFocus: true,
-					preview: true,
+			return createCommand<[undefined, DiffWithPreviousCommandArgs]>(
+				'gitlens.diffWithPrevious',
+				'Open Changes with Previous Revision',
+				undefined,
+				{
+					commit: this.commit,
+					uri: GitUri.fromFile(this.file, this.repoPath),
+					line: 0,
+					showOptions: {
+						preserveFocus: true,
+						preview: true,
+					},
 				},
-			};
-			return {
-				title: 'Open Changes with Previous Revision',
-				command: GlCommand.DiffWithPrevious,
-				arguments: [undefined, commandArgs],
-			};
+			);
 		}
 
 		let commandArgs: DiffWithCommandArgs;
@@ -279,10 +279,6 @@ export class StatusFileNode extends ViewFileNode<'status-file', ViewsWithCommits
 			}
 		}
 
-		return {
-			title: 'Open Changes',
-			command: GlCommand.DiffWith,
-			arguments: [commandArgs],
-		};
+		return createCommand<[DiffWithCommandArgs]>('gitlens.diffWith', 'Open Changes', commandArgs);
 	}
 }

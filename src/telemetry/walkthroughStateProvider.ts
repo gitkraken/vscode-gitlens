@@ -1,7 +1,6 @@
 import type { Event } from 'vscode';
 import { Disposable, EventEmitter } from 'vscode';
 import type { GlCommands } from '../constants.commands';
-import { GlCommand } from '../constants.commands';
 import { SubscriptionState } from '../constants.subscription';
 import type { TrackedUsageKeys } from '../constants.telemetry';
 import type { Container } from '../container';
@@ -10,13 +9,12 @@ import { setContext } from '../system/-webview/context';
 import { wait } from '../system/promise';
 import type { UsageChangeEvent } from './usageTracker';
 
-export enum WalkthroughContextKeys {
-	GettingStarted = 'gettingStarted',
-	VisualizeCodeHistory = 'visualizeCodeHistory',
-	PrReviews = 'prReviews',
-	StreamlineCollaboration = 'streamlineCollaboration',
-	Integrations = 'integrations',
-}
+export type WalkthroughContextKeys =
+	| 'gettingStarted'
+	| 'visualizeCodeHistory'
+	| 'prReviews'
+	| 'streamlineCollaboration'
+	| 'integrations';
 
 type WalkthroughUsage = {
 	subscriptionStates?: SubscriptionState[] | Readonly<SubscriptionState[]>;
@@ -41,7 +39,7 @@ const walkthroughRequiredMapping: Readonly<Map<WalkthroughContextKeys, Walkthrou
 	WalkthroughUsage
 >([
 	[
-		WalkthroughContextKeys.GettingStarted,
+		'gettingStarted',
 		{
 			subscriptionStates: triedProStates,
 			subscriptionCommands: tryProCommands,
@@ -49,7 +47,7 @@ const walkthroughRequiredMapping: Readonly<Map<WalkthroughContextKeys, Walkthrou
 		},
 	],
 	[
-		WalkthroughContextKeys.VisualizeCodeHistory,
+		'visualizeCodeHistory',
 		{
 			subscriptionStates: triedProStates,
 			subscriptionCommands: tryProCommands,
@@ -58,16 +56,16 @@ const walkthroughRequiredMapping: Readonly<Map<WalkthroughContextKeys, Walkthrou
 				'graphView:shown',
 				'graphWebview:shown',
 				'commitDetailsView:shown',
-				`command:${GlCommand.ShowGraph}:executed`,
-				`command:${GlCommand.ShowGraphPage}:executed`,
-				`command:${GlCommand.ShowGraphView}:executed`,
-				`command:${GlCommand.ShowInCommitGraph}:executed`,
-				`command:${GlCommand.ShowInCommitGraphView}:executed`,
+				`command:${'gitlens.showGraph' satisfies GlCommands}:executed`,
+				`command:${'gitlens.showGraphPage' satisfies GlCommands}:executed`,
+				`command:${'gitlens.showGraphView' satisfies GlCommands}:executed`,
+				`command:${'gitlens.showInCommitGraph' satisfies GlCommands}:executed`,
+				`command:${'gitlens.showInCommitGraphView' satisfies GlCommands}:executed`,
 			],
 		},
 	],
 	[
-		WalkthroughContextKeys.PrReviews,
+		'prReviews',
 		{
 			subscriptionStates: triedProStates,
 			subscriptionCommands: tryProCommands,
@@ -75,16 +73,16 @@ const walkthroughRequiredMapping: Readonly<Map<WalkthroughContextKeys, Walkthrou
 				'launchpadView:shown',
 				'worktreesView:shown',
 				`command:${'gitlens.showLaunchpad' satisfies GlCommands}:executed`,
-				`command:${GlCommand.ShowLaunchpadView}:executed`,
-				`command:${GlCommand.GitCommandsWorktree}:executed`,
-				`command:${GlCommand.GitCommandsWorktreeCreate}:executed`,
-				`command:${GlCommand.GitCommandsWorktreeDelete}:executed`,
-				`command:${GlCommand.GitCommandsWorktreeOpen}:executed`,
+				`command:${'gitlens.showLaunchpadView' satisfies GlCommands}:executed`,
+				`command:${'gitlens.gitCommands.worktree' satisfies GlCommands}:executed`,
+				`command:${'gitlens.gitCommands.worktree.create' satisfies GlCommands}:executed`,
+				`command:${'gitlens.gitCommands.worktree.delete' satisfies GlCommands}:executed`,
+				`command:${'gitlens.gitCommands.worktree.open' satisfies GlCommands}:executed`,
 			],
 		},
 	],
 	[
-		WalkthroughContextKeys.StreamlineCollaboration,
+		'streamlineCollaboration',
 		{
 			subscriptionStates: triedProStates,
 			subscriptionCommands: tryProCommands,
@@ -92,15 +90,15 @@ const walkthroughRequiredMapping: Readonly<Map<WalkthroughContextKeys, Walkthrou
 				`patchDetailsView:shown`,
 				`patchDetailsWebview:shown`,
 				`draftsView:shown`,
-				`command:${GlCommand.ShowDraftsView}:executed`,
-				`command:${GlCommand.ShowPatchDetailsPage}:executed`,
-				`command:${GlCommand.CreateCloudPatch}:executed`,
+				`command:${'gitlens.showDraftsView' satisfies GlCommands}:executed`,
+				`command:${'gitlens.showPatchDetailsPage' satisfies GlCommands}:executed`,
+				`command:${'gitlens.createCloudPatch' satisfies GlCommands}:executed`,
 				`command:${'gitlens.createPatch' satisfies GlCommands}:executed`,
 			],
 		},
 	],
 	[
-		WalkthroughContextKeys.Integrations,
+		'integrations',
 		{
 			usage: [
 				`command:${'gitlens.plus.cloudIntegrations.connect' satisfies GlCommands}:executed`,
@@ -111,18 +109,20 @@ const walkthroughRequiredMapping: Readonly<Map<WalkthroughContextKeys, Walkthrou
 ]);
 
 export class WalkthroughStateProvider implements Disposable {
-	readonly walkthroughSize = walkthroughRequiredMapping.size;
-	protected disposables: Disposable[] = [];
-	private readonly completed = new Set<WalkthroughContextKeys>();
-	private subscriptionState: SubscriptionState | undefined;
-
 	private readonly _onProgressChanged = new EventEmitter<void>();
 	get onProgressChanged(): Event<void> {
 		return this._onProgressChanged.event;
 	}
 
+	readonly walkthroughSize = walkthroughRequiredMapping.size;
+
+	protected disposables: Disposable[] = [];
+	private readonly completed = new Set<WalkthroughContextKeys>();
+	private subscriptionState: SubscriptionState | undefined;
+
 	constructor(private readonly container: Container) {
 		this.disposables.push(
+			this._onProgressChanged,
 			this.container.usage.onDidChange(this.onUsageChanged, this),
 			this.container.subscription.onDidChange(this.onSubscriptionChanged, this),
 		);

@@ -189,6 +189,7 @@ export class Container {
 		this.ensureModeApplied();
 
 		this._disposables = [
+			configuration,
 			(this._storage = storage),
 			(this._telemetry = new TelemetryService(this)),
 			(this._usage = new UsageTracker(this, storage)),
@@ -580,6 +581,7 @@ export class Container {
 			const authService = new IntegrationAuthenticationService(this, configuredIntegrationService);
 			this._disposables.push(
 				authService,
+				configuredIntegrationService,
 				(this._integrations = new IntegrationService(this, authService, configuredIntegrationService)),
 			);
 		}

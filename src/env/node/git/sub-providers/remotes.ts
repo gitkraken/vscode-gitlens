@@ -80,7 +80,7 @@ export class RemotesGitSubProvider extends RemotesGitProviderBase implements Git
 	@log()
 	async addRemote(repoPath: string, name: string, url: string, options?: { fetch?: boolean }): Promise<void> {
 		await this.git.exec({ cwd: repoPath }, 'remote', 'add', options?.fetch ? '-f' : undefined, name, url);
-		this.container.events.fire('git:cache:reset', { repoPath: repoPath, caches: ['remotes'] });
+		this.container.events.fire('git:cache:reset', { repoPath: repoPath, types: ['remotes'] });
 	}
 
 	@gate()
@@ -100,13 +100,13 @@ export class RemotesGitSubProvider extends RemotesGitProviderBase implements Git
 	@log()
 	async pruneRemote(repoPath: string, name: string): Promise<void> {
 		await this.git.exec({ cwd: repoPath }, 'remote', 'prune', name);
-		this.container.events.fire('git:cache:reset', { repoPath: repoPath, caches: ['remotes'] });
+		this.container.events.fire('git:cache:reset', { repoPath: repoPath, types: ['remotes'] });
 	}
 
 	@gate()
 	@log()
 	async removeRemote(repoPath: string, name: string): Promise<void> {
 		await this.git.exec({ cwd: repoPath }, 'remote', 'remove', name);
-		this.container.events.fire('git:cache:reset', { repoPath: repoPath, caches: ['remotes'] });
+		this.container.events.fire('git:cache:reset', { repoPath: repoPath, types: ['remotes'] });
 	}
 }

@@ -56,6 +56,7 @@ export class AccountAuthenticationProvider implements AuthenticationProvider, Di
 		this._sessionsPromise = this.getSessionsFromStorage();
 
 		this._disposable = Disposable.from(
+			this._onDidChangeSessions,
 			this._authConnection,
 			this.container.storage.onDidChangeSecrets(() => this.checkForUpdates()),
 		);

@@ -21,7 +21,7 @@ import {
 	OpenVirtualRepositoryError,
 	OpenVirtualRepositoryErrorReason,
 } from '../../../../errors';
-import { Features } from '../../../../features';
+import type { Features } from '../../../../features';
 import { GitCache } from '../../../../git/cache';
 import type {
 	GitProvider,
@@ -128,7 +128,15 @@ export class GitHubGitProvider implements GitProvider, Disposable {
 
 	constructor(private readonly container: Container) {
 		this._cache = new GitCache(this.container);
-		this._disposables.push(authentication.onDidChangeSessions(this.onAuthenticationSessionsChanged, this));
+		this._disposables.push(
+			this._onDidChange,
+			this._onWillChangeRepository,
+			this._onDidChangeRepository,
+			this._onDidCloseRepository,
+			this._onDidOpenRepository,
+			this._cache,
+			authentication.onDidChangeSessions(this.onAuthenticationSessionsChanged, this),
+		);
 	}
 
 	dispose(): void {
@@ -240,9 +248,9 @@ export class GitHubGitProvider implements GitProvider, Disposable {
 		// if (supported != null) return supported;
 
 		switch (feature) {
-			case Features.Stashes:
-			case Features.Worktrees:
-			case Features.StashOnlyStaged:
+			case 'stashes' satisfies Features:
+			case 'worktrees' satisfies Features:
+			case 'stashOnlyStaged' satisfies Features:
 				return false;
 			default:
 				return true;

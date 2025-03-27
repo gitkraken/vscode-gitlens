@@ -83,6 +83,7 @@ import {
 	getPreviewSubscription,
 	getSubscriptionPlan,
 	getSubscriptionPlanName,
+	getSubscriptionPlanPriority,
 	getSubscriptionStateString,
 	getSubscriptionTimeRemaining,
 	getTimeRemaining,
@@ -129,6 +130,9 @@ export class SubscriptionService implements Disposable {
 		previousVersion: string | undefined,
 	) {
 		this._disposable = Disposable.from(
+			this._onDidChange,
+			this._onDidChangeFeaturePreview,
+			this._onDidCheckIn,
 			once(container.onReady)(this.onReady, this),
 			this.container.accountAuthentication.onDidChangeSessions(
 				e => setTimeout(() => this.onAuthenticationChanged(e), 0),
@@ -352,7 +356,12 @@ export class SubscriptionService implements Disposable {
 			registerCommand('gitlens.plus.startPreviewTrial', (src?: Source) => this.startPreviewTrial(src)),
 			registerCommand('gitlens.plus.reactivateProTrial', (src?: Source) => this.reactivateProTrial(src)),
 			registerCommand('gitlens.plus.resendVerification', (src?: Source) => this.resendVerification(src)),
-			registerCommand('gitlens.plus.upgrade', (src?: Source) => this.upgrade(src)),
+			registerCommand('gitlens.plus.upgrade', (srcAndPlan?: Source & { plan?: SubscriptionPlanId }) =>
+				this.upgrade(
+					srcAndPlan ? { source: srcAndPlan.source, detail: srcAndPlan.detail } : undefined,
+					srcAndPlan?.plan,
+				),
+			),
 
 			registerCommand('gitlens.plus.hide', (src?: Source) => this.setProFeaturesVisibility(false, src)),
 			registerCommand('gitlens.plus.restore', (src?: Source) => this.setProFeaturesVisibility(true, src)),
@@ -873,10 +882,10 @@ export class SubscriptionService implements Disposable {
 	}
 
 	@log()
-	async upgrade(source: Source | undefined): Promise<void> {
+	async upgrade(source: Source | undefined, plan?: SubscriptionPlanId): Promise<boolean> {
 		const scope = getLogScope();
 
-		if (!(await ensurePlusFeaturesEnabled())) return;
+		if (!(await ensurePlusFeaturesEnabled())) return false;
 
 		let aborted = false;
 		const promo = await this.container.productConfig.getApplicablePromo(this._subscription.state);
@@ -905,8 +914,12 @@ export class SubscriptionService implements Disposable {
 			try {
 				const session = await this.ensureSession(false, source);
 				if (session != null) {
-					if ((await this.checkUpdatedSubscription(source)) === SubscriptionState.Paid) {
-						return;
+					if (
+						(await this.checkUpdatedSubscription(source)) === SubscriptionState.Paid &&
+						getSubscriptionPlanPriority(this._subscription.plan.effective.id) >=
+							getSubscriptionPlanPriority(plan ?? SubscriptionPlanId.Pro)
+					) {
+						return true;
 					}
 				}
 			} catch {}
@@ -915,6 +928,20 @@ export class SubscriptionService implements Disposable {
 		const query = new URLSearchParams();
 		query.set('source', 'gitlens');
 		query.set('product', 'gitlens');
+
+		let planType = 'PRO';
+		switch (plan) {
+			case SubscriptionPlanId.Advanced:
+				planType = 'ADVANCED';
+				break;
+			case SubscriptionPlanId.Teams:
+				planType = 'TEAMS';
+				break;
+			case SubscriptionPlanId.Enterprise:
+				planType = 'ENTERPRISE';
+				break;
+		}
+		query.set('planType', planType);
 
 		if (promo?.code != null) {
 			query.set('promoCode', promo.code);
@@ -955,7 +982,7 @@ export class SubscriptionService implements Disposable {
 		aborted = !(await openUrl(this.container.urls.getGkDevUrl('purchase/checkout', query)));
 
 		if (aborted) {
-			return;
+			return false;
 		}
 
 		telemetry?.dispose();
@@ -989,6 +1016,8 @@ export class SubscriptionService implements Disposable {
 		if (refresh) {
 			void this.checkUpdatedSubscription(source);
 		}
+
+		return true;
 	}
 
 	@gate<SubscriptionService['validate']>(o => `${o?.force ?? false}`)
