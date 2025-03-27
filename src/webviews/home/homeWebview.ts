@@ -12,7 +12,7 @@ import {
 	supportedCloudIntegrationDescriptors,
 	supportedOrderedCloudIntegrationIds,
 } from '../../constants.integrations';
-import type { HomeTelemetryContext, Source } from '../../constants.telemetry';
+import type { HomeTelemetryContext, Source, Sources } from '../../constants.telemetry';
 import type { Container } from '../../container';
 import { executeGitCommand } from '../../git/actions';
 import { openComparisonChanges } from '../../git/actions/commit';
@@ -1346,7 +1346,7 @@ export class HomeWebviewProvider implements WebviewProvider<State, State, HomeWe
 	@log<HomeWebviewProvider['pullRequestCreate']>({
 		args: { 0: r => `${r.branchId}, upstream: ${r.branchUpstreamName}` },
 	})
-	private async pullRequestCreate(ref: BranchRef) {
+	private async pullRequestCreate(ref: BranchRef & { source?: Sources; useAI?: boolean }) {
 		const { branch } = await this.getRepoInfoFromRef(ref);
 		if (branch == null) return;
 
@@ -1374,6 +1374,8 @@ export class HomeWebviewProvider implements WebviewProvider<State, State, HomeWe
 				upstream: branch.upstream?.name,
 				isRemote: branch.remote,
 			},
+			source: ref.source,
+			useAI: ref.useAI,
 		});
 	}
 

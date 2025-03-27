@@ -1,4 +1,5 @@
 import { window } from 'vscode';
+import type { Sources } from '../constants.telemetry';
 import type { Container } from '../container';
 import type { GitRemote } from '../git/models/remote';
 import type { RemoteResource } from '../git/models/remoteResource';
@@ -17,6 +18,8 @@ export interface CreatePullRequestOnRemoteCommandArgs {
 	repoPath: string;
 
 	clipboard?: boolean;
+	source?: Sources;
+	useAI?: boolean;
 }
 
 @command()
@@ -74,26 +77,31 @@ export class CreatePullRequestOnRemoteCommand extends GlCommandBase {
 				branch: args.compare,
 				remote: { path: compareRemote.path, url: compareRemote.url, name: compareRemote.name },
 			},
-			describePullRequest: async (
-				completedResource: RemoteResource & { type: RemoteResourceType.CreatePullRequest },
-			) => {
-				const base = completedResource.base;
-				const compare = completedResource.compare;
-				if (!base?.remote || !compare?.remote || !base?.branch || !compare?.branch) {
-					return undefined;
-				}
-				const baseRef = `${base.remote.name}/${base.branch}`;
-				const compareRef = `${compare.remote.name}/${compare.branch}`;
-				try {
-					const result = await this.container.ai.generatePullRequestMessage(repo, baseRef, compareRef, {
-						source: 'scm-input',
-					});
-					return result?.parsed;
-				} catch (e) {
-					void window.showErrorMessage(`Unable to generate pull request message: ${e}`);
-					return undefined;
-				}
-			},
+			describePullRequest: !args.useAI
+				? undefined
+				: async (completedResource: RemoteResource & { type: RemoteResourceType.CreatePullRequest }) => {
+						const base = completedResource.base;
+						const compare = completedResource.compare;
+						if (!base?.remote || !compare?.remote || !base?.branch || !compare?.branch) {
+							return undefined;
+						}
+						const baseRef = `${base.remote.name}/${base.branch}`;
+						const compareRef = `${compare.remote.name}/${compare.branch}`;
+						try {
+							const result = await this.container.ai.generatePullRequestMessage(
+								repo,
+								baseRef,
+								compareRef,
+								{
+									source: args.source ?? 'scm-input',
+								},
+							);
+							return result?.parsed;
+						} catch (e) {
+							void window.showErrorMessage(`Unable to generate pull request message: ${e}`);
+							return undefined;
+						}
+				  },
 		};
 
 		void (await executeCommand<OpenOnRemoteCommandArgs>('gitlens.openOnRemote', {

@@ -640,7 +640,7 @@ export abstract class GlBranchCardBase extends GlElement {
 	}
 
 	protected createCommandLink<T>(command: GlCommands, args?: T | any): string {
-		return createCommandLink<T>(command, args ?? this.branchRef);
+		return createCommandLink<T>(command, args ? { ...args, ...this.branchRef } : this.branchRef);
 	}
 
 	protected renderTimestamp(): TemplateResult | NothingType {
@@ -722,6 +722,15 @@ export abstract class GlBranchCardBase extends GlElement {
 						href="${this.createCommandLink('gitlens.home.createPullRequest')}"
 						>Create a Pull Request</gl-button
 					>
+						<gl-button
+							class="branch-item__missing"
+							appearance="secondary"
+							href="${this.createCommandLink('gitlens.home.createPullRequest', {
+								source: 'home',
+								useAI: true,
+							})}"
+							>AI</gl-button
+						>
 				`;
 			}
 			return nothing;
