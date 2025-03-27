@@ -1,7 +1,17 @@
 import type { CancellationToken, Disposable, Event, MessageItem, ProgressOptions } from 'vscode';
-import { env, EventEmitter, ThemeIcon, window } from 'vscode';
+import { env, EventEmitter, window } from 'vscode';
 import type { AIPrimaryProviders, AIProviderAndModel, AIProviders, SupportedAIModels } from '../../constants.ai';
-import { aiProviderDataDisclaimer, primaryAIProviders } from '../../constants.ai';
+import {
+	anthropicProviderDescriptor,
+	deepSeekProviderDescriptor,
+	geminiProviderDescriptor,
+	githubProviderDescriptor,
+	gitKrakenProviderDescriptor,
+	huggingFaceProviderDescriptor,
+	openAIProviderDescriptor,
+	vscodeProviderDescriptor,
+	xAIProviderDescriptor,
+} from '../../constants.ai';
 import type { AIGenerateDraftEventData, Source, TelemetryEvents } from '../../constants.telemetry';
 import type { Container } from '../../container';
 import { CancellationError } from '../../errors';
@@ -14,19 +24,26 @@ import type { Repository } from '../../git/models/repository';
 import { uncommitted, uncommittedStaged } from '../../git/models/revision';
 import { assertsCommitHasFullDetails } from '../../git/utils/commit.utils';
 import { showAIModelPicker, showAIProviderPicker } from '../../quickpicks/aiModelPicker';
+import { Directive, isDirective } from '../../quickpicks/items/directive';
 import { configuration } from '../../system/-webview/configuration';
 import { getContext } from '../../system/-webview/context';
 import type { Storage } from '../../system/-webview/storage';
-import { supportedInVSCodeVersion } from '../../system/-webview/vscode';
 import { debounce } from '../../system/function/debounce';
 import { map } from '../../system/iterable';
 import type { Lazy } from '../../system/lazy';
 import { lazy } from '../../system/lazy';
 import type { Deferred } from '../../system/promise';
-import { getSettledValue } from '../../system/promise';
+import { getSettledValue, getSettledValues } from '../../system/promise';
 import type { ServerConnection } from '../gk/serverConnection';
-import { ensureAccountQuickPick, ensureFeatureAccess } from '../gk/utils/-webview/acount.utils';
-import type { AIActionType, AIModel, AIModelDescriptor } from './models/model';
+import { ensureFeatureAccess } from '../gk/utils/-webview/acount.utils';
+import type {
+	AIActionType,
+	AIModel,
+	AIModelDescriptor,
+	AIProviderConstructor,
+	AIProviderDescriptorWithConfiguration,
+	AIProviderDescriptorWithType,
+} from './models/model';
 import type { PromptTemplateContext } from './models/promptTemplates';
 import type { AIProvider, AIRequestResult } from './models/provider';
 
@@ -58,52 +75,89 @@ export interface AIGenerateChangelogChange {
 	readonly issues: readonly { readonly id: string; readonly url: string; readonly title: string | undefined }[];
 }
 
-interface AIProviderConstructor<Provider extends AIProviders = AIProviders> {
-	new (container: Container, connection: ServerConnection): AIProvider<Provider>;
+export interface AIModelChangeEvent {
+	readonly model: AIModel | undefined;
 }
 
 // Order matters for sorting the picker
-const _supportedProviderTypes = new Map<AIProviders, Lazy<Promise<AIProviderConstructor>>>([
+const supportedAIProviders = new Map<AIProviders, AIProviderDescriptorWithType>([
 	...(configuration.getAny('gitkraken.ai.enabled', undefined, false)
 		? [
 				[
 					'gitkraken',
-					lazy(
-						async () =>
-							(await import(/* webpackChunkName: "ai" */ './gitkrakenProvider')).GitKrakenProvider,
-					),
-				],
-		  ]
-		: []),
-	...(supportedInVSCodeVersion('language-models')
-		? [
-				[
-					'vscode',
-					lazy(async () => (await import(/* webpackChunkName: "ai" */ './vscodeProvider')).VSCodeAIProvider),
+					{
+						...gitKrakenProviderDescriptor,
+						type: lazy(
+							async () =>
+								(await import(/* webpackChunkName: "ai" */ './gitkrakenProvider')).GitKrakenProvider,
+						),
+					},
 				],
 		  ]
 		: ([] as any)),
-	['openai', lazy(async () => (await import(/* webpackChunkName: "ai" */ './openaiProvider')).OpenAIProvider)],
+	[
+		'vscode',
+		{
+			...vscodeProviderDescriptor,
+			type: lazy(async () => (await import(/* webpackChunkName: "ai" */ './vscodeProvider')).VSCodeAIProvider),
+		},
+	],
+	[
+		'openai',
+		{
+			...openAIProviderDescriptor,
+			type: lazy(async () => (await import(/* webpackChunkName: "ai" */ './openaiProvider')).OpenAIProvider),
+		},
+	],
 	[
 		'anthropic',
-		lazy(async () => (await import(/* webpackChunkName: "ai" */ './anthropicProvider')).AnthropicProvider),
+		{
+			...anthropicProviderDescriptor,
+			type: lazy(
+				async () => (await import(/* webpackChunkName: "ai" */ './anthropicProvider')).AnthropicProvider,
+			),
+		},
 	],
-	['gemini', lazy(async () => (await import(/* webpackChunkName: "ai" */ './geminiProvider')).GeminiProvider)],
-	['deepseek', lazy(async () => (await import(/* webpackChunkName: "ai" */ './deepSeekProvider')).DeepSeekProvider)],
-	['xai', lazy(async () => (await import(/* webpackChunkName: "ai" */ './xaiProvider')).XAIProvider)],
+	[
+		'gemini',
+		{
+			...geminiProviderDescriptor,
+			type: lazy(async () => (await import(/* webpackChunkName: "ai" */ './geminiProvider')).GeminiProvider),
+		},
+	],
+	[
+		'deepseek',
+		{
+			...deepSeekProviderDescriptor,
+			type: lazy(async () => (await import(/* webpackChunkName: "ai" */ './deepSeekProvider')).DeepSeekProvider),
+		},
+	],
+	[
+		'xai',
+		{
+			...xAIProviderDescriptor,
+			type: lazy(async () => (await import(/* webpackChunkName: "ai" */ './xaiProvider')).XAIProvider),
+		},
+	],
 	[
 		'github',
-		lazy(async () => (await import(/* webpackChunkName: "ai" */ './githubModelsProvider')).GitHubModelsProvider),
+		{
+			...githubProviderDescriptor,
+			type: lazy(
+				async () => (await import(/* webpackChunkName: "ai" */ './githubModelsProvider')).GitHubModelsProvider,
+			),
+		},
 	],
 	[
 		'huggingface',
-		lazy(async () => (await import(/* webpackChunkName: "ai" */ './huggingFaceProvider')).HuggingFaceProvider),
+		{
+			...huggingFaceProviderDescriptor,
+			type: lazy(
+				async () => (await import(/* webpackChunkName: "ai" */ './huggingFaceProvider')).HuggingFaceProvider,
+			),
+		},
 	],
 ]);
-
-export interface AIModelChangeEvent {
-	readonly model: AIModel | undefined;
-}
 
 export class AIProviderService implements Disposable {
 	private _model: AIModel | undefined;
@@ -124,18 +178,6 @@ export class AIProviderService implements Disposable {
 		this._onDidChangeModel.dispose();
 		this._providerDisposable?.dispose();
 		this._provider?.dispose();
-	}
-
-	get currentProviderId(): AIProviders | undefined {
-		return this._provider?.id;
-	}
-
-	get supportedProviders(): readonly AIProviders[] {
-		return [..._supportedProviderTypes.keys()];
-	}
-
-	get currentModelName(): string | undefined {
-		return this._model?.name;
 	}
 
 	private getConfiguredModel(): AIModelDescriptor | undefined {
@@ -176,13 +218,13 @@ export class AIProviderService implements Disposable {
 		};
 
 		if (providerId != null && this.supports(providerId)) {
-			const type = _supportedProviderTypes.get(providerId);
+			const type = supportedAIProviders.get(providerId)?.type;
 			if (type == null) return [];
 
 			return loadModels(type);
 		}
 
-		const modelResults = await Promise.allSettled(map(_supportedProviderTypes.values(), t => loadModels(t)));
+		const modelResults = await Promise.allSettled(map(supportedAIProviders.values(), p => loadModels(p.type)));
 
 		return modelResults.flatMap(m => getSettledValue(m, []));
 	}
@@ -196,45 +238,41 @@ export class AIProviderService implements Disposable {
 
 		if (options?.silent) return undefined;
 
-		let chosenProvider: AIProviders | undefined = undefined;
-		let chosenModel: AIModel | undefined = undefined;
+		let chosenProviderId: AIProviders | undefined;
+		let chosenModel: AIModel | undefined;
 
 		if (!options?.force) {
 			const vsCodeModels = await this.getModels('vscode');
 			if (vsCodeModels.length !== 0) {
-				chosenProvider = 'vscode';
+				chosenProviderId = 'vscode';
 			} else if ((await this.container.subscription.getSubscription()).account?.verified) {
-				chosenProvider = 'gitkraken';
+				chosenProviderId = 'gitkraken';
 				const gitkrakenModels = await this.getModels('gitkraken');
 				chosenModel = gitkrakenModels.find(m => m.default);
 			}
 		}
 
-		if (chosenProvider == null) {
-			chosenProvider = (await showAIProviderPicker(this.container, cfg))?.provider;
-			if (chosenProvider == null) return;
-			if (
-				(chosenProvider === 'gitkraken' ||
-					(chosenProvider !== 'vscode' &&
-						(await this.container.storage.getSecret(`gitlens.${chosenProvider}.key`)) == null)) &&
-				!(await ensureAccountQuickPick(
-					this.container,
-					{
-						label: 'Use AI-powered GitLens features like Generate Commit Message, Explain Commit, and more.',
-						iconPath: new ThemeIcon('sparkle'),
-					},
-					source,
-				))
-			) {
-				return;
+		while (true) {
+			chosenProviderId ??= (await showAIProviderPicker(this.container, cfg))?.provider;
+			if (chosenProviderId == null) return;
+
+			const provider = supportedAIProviders.get(chosenProviderId);
+			if (provider == null) return;
+
+			if (!(await this.ensureProviderConfigured(provider, false))) return;
+
+			if (chosenModel == null) {
+				const result = await showAIModelPicker(this.container, chosenProviderId, cfg);
+				if (result == null || (isDirective(result) && result !== Directive.Back)) return;
+				if (result === Directive.Back) {
+					chosenProviderId = undefined;
+					continue;
+				}
+
+				chosenModel = result.model;
 			}
-		}
 
-		if (!(await this.ensureProviderConfigured(chosenProvider))) return;
-
-		if (chosenModel == null) {
-			chosenModel = (await showAIModelPicker(this.container, chosenProvider, cfg))?.model;
-			if (chosenModel == null) return;
+			break;
 		}
 
 		const model = await this.getOrUpdateModel(chosenModel);
@@ -251,23 +289,33 @@ export class AIProviderService implements Disposable {
 			source,
 		);
 
-		await showAIProviderToS(this.container.storage);
+		void (await showConfirmAIProviderToS(this.container.storage));
 		return model;
 	}
 
-	private async ensureProviderConfigured(providerId: AIProviders): Promise<boolean> {
-		const key = await this.container.storage.getSecret(`gitlens.${providerId}.key`);
-		if (key != null) return true;
+	async getProvidersConfiguration(): Promise<Map<AIProviders, AIProviderDescriptorWithConfiguration>> {
+		const promises = await Promise.allSettled(
+			map(
+				supportedAIProviders.values(),
+				async p =>
+					[
+						p.id,
+						{ ...p, type: undefined, configured: await this.ensureProviderConfigured(p, true) },
+					] as const,
+			),
+		);
+		return new Map<AIProviders, AIProviderDescriptorWithConfiguration>(getSettledValues(promises));
+	}
 
-		if (this._provider != null && providerId === this._provider.id) return this._provider.ensureConfigured();
-		const type = await _supportedProviderTypes.get(providerId)?.value;
-		if (type == null) {
-			return false;
-		}
+	private async ensureProviderConfigured(provider: AIProviderDescriptorWithType, silent: boolean): Promise<boolean> {
+		if (provider.id === this._provider?.id) return this._provider.configured(silent);
+
+		const type = await provider.type.value;
+		if (type == null) return false;
 
 		const p = new type(this.container, this.connection);
 		try {
-			return await p.ensureConfigured();
+			return await p.configured(silent);
 		} finally {
 			p.dispose();
 		}
@@ -295,7 +343,7 @@ export class AIProviderService implements Disposable {
 			this._providerDisposable?.dispose();
 			this._provider?.dispose();
 
-			const type = await _supportedProviderTypes.get(providerId)?.value;
+			const type = await supportedAIProviders.get(providerId)?.type.value;
 			if (type == null) {
 				this._provider = undefined;
 				this._model = undefined;
@@ -612,7 +660,7 @@ export class AIProviderService implements Disposable {
 			progress?: ProgressOptions;
 		},
 	): Promise<AIRequestResult | undefined> {
-		const { confirmed, model } = await getModelAndConfirmAIProviderToS(source, this, this.container.storage);
+		const model = await this.getModel(undefined, source);
 		if (model == null) {
 			options?.generating?.cancel();
 			return undefined;
@@ -620,6 +668,7 @@ export class AIProviderService implements Disposable {
 
 		const telementry = getTelemetryInfo(model);
 
+		const confirmed = await showConfirmAIProviderToS(this.container.storage);
 		if (!confirmed) {
 			this.container.telemetry.sendEvent(
 				telementry.key,
@@ -703,11 +752,6 @@ export class AIProviderService implements Disposable {
 		return changes;
 	}
 
-	async resetProvider(provider: AIProviders): Promise<void> {
-		void env.clipboard.writeText((await this.container.storage.getSecret(`gitlens.${provider}.key`)) ?? '');
-		void this.container.storage.deleteSecret(`gitlens.${provider}.key`);
-	}
-
 	async reset(all?: boolean): Promise<void> {
 		let { _provider: provider } = this;
 		if (provider == null) {
@@ -741,25 +785,46 @@ export class AIProviderService implements Disposable {
 		}
 
 		if (provider != null && result === resetCurrent) {
-			void this.resetProvider(provider.id);
+			this.resetProviderKey(provider.id);
+			this.resetConfirmations();
 		} else if (result === resetAll) {
 			const keys = [];
-			for (const [providerId] of _supportedProviderTypes) {
+			for (const providerId of supportedAIProviders.keys()) {
 				keys.push(await this.container.storage.getSecret(`gitlens.${providerId}.key`));
+
+				this.resetProviderKey(providerId, true);
 			}
+
+			this.resetConfirmations();
+
 			void env.clipboard.writeText(keys.join('\n'));
-
-			for (const [providerId] of _supportedProviderTypes) {
-				void this.container.storage.deleteSecret(`gitlens.${providerId}.key`);
-			}
-
-			void this.container.storage.deleteWithPrefix(`confirm:ai:tos`);
-			void this.container.storage.deleteWorkspaceWithPrefix(`confirm:ai:tos`);
+			void window.showInformationMessage(
+				`All stored AI keys have been reset. The configured keys were copied to your clipboard.`,
+			);
 		}
 	}
 
+	resetConfirmations(): void {
+		void this.container.storage.deleteWithPrefix(`confirm:ai:tos`);
+		void this.container.storage.deleteWorkspaceWithPrefix(`confirm:ai:tos`);
+	}
+
+	resetProviderKey(provider: AIProviders, silent?: boolean): void {
+		if (!silent) {
+			void this.container.storage.getSecret(`gitlens.${provider}.key`).then(key => {
+				if (key) {
+					void env.clipboard.writeText(key);
+					void window.showInformationMessage(
+						`The stored AI key has been reset. The configured key was copied to your clipboard.`,
+					);
+				}
+			});
+		}
+		void this.container.storage.deleteSecret(`gitlens.${provider}.key`);
+	}
+
 	supports(provider: AIProviders | string): boolean {
-		return _supportedProviderTypes.has(provider as AIProviders);
+		return supportedAIProviders.has(provider as AIProviders);
 	}
 
 	switchModel(source?: Source): Promise<AIModel | undefined> {
@@ -767,76 +832,33 @@ export class AIProviderService implements Disposable {
 	}
 }
 
-async function showAIProviderToS(storage: Storage): Promise<void> {
+async function showConfirmAIProviderToS(storage: Storage): Promise<boolean> {
 	const confirmed = storage.get(`confirm:ai:tos`, false) || storage.getWorkspace(`confirm:ai:tos`, false);
-	if (confirmed) return;
+	if (confirmed) return true;
 
-	const acceptWorkspace: MessageItem = { title: 'Always for this Workspace' };
-	const acceptAlways: MessageItem = { title: 'Always' };
+	const acceptAlways: MessageItem = { title: 'Accept' };
+	const acceptWorkspace: MessageItem = { title: 'Accept Only for this Workspace' };
+	const cancel: MessageItem = { title: 'Cancel', isCloseAffordance: true };
 
 	const result = await window.showInformationMessage(
-		aiProviderDataDisclaimer,
+		'GitLens AI features can send code snippets, diffs, and other context to your selected AI provider for analysis. This may contain sensitive information.',
 		{ modal: true },
-		acceptWorkspace,
 		acceptAlways,
+		acceptWorkspace,
+		cancel,
 	);
 
-	if (result === acceptWorkspace || result == null) {
+	if (result === acceptWorkspace) {
 		void storage.storeWorkspace(`confirm:ai:tos`, true).catch();
+		return true;
 	}
 
 	if (result === acceptAlways) {
 		void storage.store(`confirm:ai:tos`, true).catch();
+		return true;
 	}
-}
 
-async function getModelAndConfirmAIProviderToS(
-	source: Source,
-	service: AIProviderService,
-	storage: Storage,
-): Promise<{ confirmed: boolean; model: AIModel | undefined }> {
-	let model = await service.getModel(undefined, source);
-	while (true) {
-		if (model == null) return { confirmed: false, model: model };
-
-		const confirmed = storage.get(`confirm:ai:tos`, false) || storage.getWorkspace(`confirm:ai:tos`, false);
-		if (confirmed) return { confirmed: true, model: model };
-
-		const accept: MessageItem = { title: 'Continue' };
-		const switchModel: MessageItem = { title: 'Switch Model' };
-		const acceptWorkspace: MessageItem = { title: 'Always for this Workspace' };
-		const acceptAlways: MessageItem = { title: 'Always' };
-		const decline: MessageItem = { title: 'Cancel', isCloseAffordance: true };
-
-		const result = await window.showInformationMessage(
-			`${aiProviderDataDisclaimer}\n\nDo you want to continue?`,
-			{ modal: true },
-			accept,
-			switchModel,
-			acceptWorkspace,
-			acceptAlways,
-			decline,
-		);
-
-		if (result === switchModel) {
-			model = await service.switchModel(source);
-			continue;
-		}
-
-		if (result === accept) return { confirmed: true, model: model };
-
-		if (result === acceptWorkspace) {
-			void storage.storeWorkspace(`confirm:ai:tos`, true).catch();
-			return { confirmed: true, model: model };
-		}
-
-		if (result === acceptAlways) {
-			void storage.store(`confirm:ai:tos`, true).catch();
-			return { confirmed: true, model: model };
-		}
-
-		return { confirmed: false, model: model };
-	}
+	return false;
 }
 
 function parseSummarizeResult(result: string): NonNullable<AISummarizeResult['parsed']> {
@@ -877,7 +899,7 @@ function splitMessageIntoSummaryAndBody(message: string): NonNullable<AISummariz
 }
 
 function isPrimaryAIProvider(provider: AIProviders): provider is AIPrimaryProviders {
-	return primaryAIProviders.includes(provider as AIPrimaryProviders);
+	return supportedAIProviders.get(provider)?.primary === true;
 }
 
 function isPrimaryAIProviderModel(model: AIModel): model is AIModel<AIPrimaryProviders, AIProviderAndModel> {

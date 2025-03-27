@@ -1,10 +1,13 @@
 import type { Disposable, QuickInputButton, QuickPickItem } from 'vscode';
-import { QuickPickItemKind, ThemeIcon, window } from 'vscode';
+import { QuickInputButtons, ThemeIcon, window } from 'vscode';
 import type { AIProviders } from '../constants.ai';
 import type { Container } from '../container';
 import type { AIModel, AIModelDescriptor } from '../plus/ai/models/model';
 import { isSubscriptionPaidPlan } from '../plus/gk/utils/subscription.utils';
 import { getQuickPickIgnoreFocusOut } from '../system/-webview/vscode';
+import { getSettledValue } from '../system/promise';
+import { createQuickPickSeparator } from './items/common';
+import { Directive } from './items/directive';
 
 export interface ModelQuickPickItem extends QuickPickItem {
 	model: AIModel;
@@ -14,115 +17,77 @@ export interface ProviderQuickPickItem extends QuickPickItem {
 	provider: AIProviders;
 }
 
-const aiProviderLabels: { [provider in AIProviders]: string } = {
-	anthropic: 'Anthropic',
-	deepseek: 'DeepSeek',
-	gemini: 'Google',
-	github: 'GitHub Models',
-	gitkraken: 'GitKraken',
-	huggingface: 'Hugging Face',
-	openai: 'OpenAI',
-	vscode: 'Copilot',
-	xai: 'xAI',
-};
-
 const ClearAIKeyButton: QuickInputButton = {
 	iconPath: new ThemeIcon('trash'),
-	tooltip: 'Clear key',
+	tooltip: 'Clear AI Key',
 };
 
 const ConfigureAIKeyButton: QuickInputButton = {
 	iconPath: new ThemeIcon('key'),
-	tooltip: 'Configure key...',
+	tooltip: 'Configure AI Key...',
 };
 
 export async function showAIProviderPicker(
 	container: Container,
-	current?: AIModelDescriptor,
+	current: AIModelDescriptor | undefined,
 ): Promise<ProviderQuickPickItem | undefined> {
-	const providers: Map<AIProviders, boolean> = new Map();
-	const supportedProviders = container.ai.supportedProviders;
-	const currentModelName = container.ai.currentModelName;
-	const subscription = await container.subscription.getSubscription();
-	const hasPaidPlan = isSubscriptionPaidPlan(subscription?.plan?.effective.id) && subscription?.account?.verified;
+	const [providersResult, modelResult, subscriptionResult] = await Promise.allSettled([
+		container.ai.getProvidersConfiguration(),
+		container.ai.getModel({ silent: true }, { source: 'ai:picker' }),
+		container.subscription.getSubscription(),
+	]);
 
-	for (const provider of supportedProviders) {
-		if (providers.has(provider)) continue;
-
-		providers.set(
-			provider,
-			provider === 'vscode' || provider === 'gitkraken'
-				? true
-				: (await container.storage.getSecret(`gitlens.${provider}.key`)) != null,
-		);
-	}
+	const providers = getSettledValue(providersResult) ?? new Map();
+	const currentModelName = getSettledValue(modelResult)?.name;
+	const subscription = getSettledValue(subscriptionResult)!;
+	const hasPaidPlan = isSubscriptionPaidPlan(subscription.plan.effective.id) && subscription.account?.verified;
 
 	const quickpick = window.createQuickPick<ProviderQuickPickItem>();
 	quickpick.ignoreFocusOut = getQuickPickIgnoreFocusOut();
 	quickpick.title = 'Select AI Provider';
 	quickpick.placeholder = 'Choose an AI provider to use';
-	quickpick.matchOnDescription = true;
-	quickpick.matchOnDetail = true;
 
 	const disposables: Disposable[] = [];
 
 	try {
-		while (true) {
-			const items: ProviderQuickPickItem[] = [];
-			const sortedProviders = [...providers.keys()].sort((a, b) => {
-				// Always put 'gitkraken' first if exists, then 'vscode' if exists, then any configured providers, then the rest
-				if (a === 'gitkraken') return -1;
-				if (b === 'gitkraken') return 1;
-				if (a === 'vscode') return -1;
-				if (b === 'vscode') return 1;
-				if (providers.get(a) && !providers.get(b)) return -1;
-				if (!providers.get(a) && providers.get(b)) return 1;
-				return 0;
-			});
+		const pickedProvider =
+			current?.provider ?? providers.get('vscode')?.configured
+				? 'vscode'
+				: providers.get('gitkraken')?.configured
+				  ? 'gitkraken'
+				  : undefined;
 
-			function isPrimaryProvider(provider: AIProviders): boolean {
-				return provider === 'gitkraken' || provider === 'vscode';
+		let addedRequiredKeySeparator = false;
+		const items: ProviderQuickPickItem[] = [];
+
+		for (const p of providers.values()) {
+			if (!p.primary && !addedRequiredKeySeparator) {
+				addedRequiredKeySeparator = true;
+				items.push(createQuickPickSeparator<ProviderQuickPickItem>('Requires API Key'));
 			}
 
-			const firstNonPrimaryProvider = sortedProviders.find(p => !isPrimaryProvider(p));
-
-			const pickedProvider =
-				current != null
-					? current.provider
-					: providers.get('vscode')
-					  ? 'vscode'
-					  : providers.get('gitkraken')
-					    ? 'gitkraken'
-					    : undefined;
-
-			for (const p of sortedProviders) {
-				if (firstNonPrimaryProvider === p) {
-					items.push({
-						label: 'Requires API Key',
-						kind: QuickPickItemKind.Separator,
-					} as unknown as ProviderQuickPickItem);
-				}
-
-				items.push({
-					label: aiProviderLabels[p],
-					iconPath: p === current?.provider ? new ThemeIcon('check') : new ThemeIcon('blank'),
-					provider: p,
-					picked: p === pickedProvider,
-					detail:
-						p === current?.provider && currentModelName
-							? `      ${currentModelName}`
-							: p === 'gitkraken'
-							  ? `      Models provided by GitKraken${hasPaidPlan ? ' (included in your plan)' : ''}`
-							  : undefined,
-					buttons: !isPrimaryProvider(p)
-						? providers.get(p)
-							? [ClearAIKeyButton]
-							: [ConfigureAIKeyButton]
+			items.push({
+				label: p.name,
+				iconPath: p.id === current?.provider ? new ThemeIcon('check') : new ThemeIcon('blank'),
+				provider: p.id,
+				picked: p.id === pickedProvider,
+				detail:
+					p.id === current?.provider && currentModelName
+						? `      ${currentModelName}`
+						: p.id === 'gitkraken'
+						  ? '      Models provided by GitKraken'
+						  : undefined,
+				buttons: !p.primary ? (p.configured ? [ClearAIKeyButton] : [ConfigureAIKeyButton]) : undefined,
+				description:
+					p.id === 'gitkraken'
+						? hasPaidPlan
+							? '  included in your plan'
+							: '  included in GitLens Pro'
 						: undefined,
-					description: !isPrimaryProvider(p) && providers.get(p) ? '  (configured)' : undefined,
-				} satisfies ProviderQuickPickItem);
-			}
+			} satisfies ProviderQuickPickItem);
+		}
 
+		while (true) {
 			const pick = await new Promise<ProviderQuickPickItem | 'refresh' | undefined>(resolve => {
 				disposables.push(
 					quickpick.onDidHide(() => resolve(undefined)),
@@ -133,11 +98,10 @@ export async function showAIProviderPicker(
 					}),
 					quickpick.onDidTriggerItemButton(e => {
 						if (e.button === ClearAIKeyButton) {
-							void container.ai.resetProvider(e.item.provider);
-							providers.set(e.item.provider, false);
+							container.ai.resetProviderKey(e.item.provider);
+							providers.set(e.item.provider, { ...providers.get(e.item.provider)!, configured: false });
 							resolve('refresh');
-						}
-						if (e.button === ConfigureAIKeyButton) {
+						} else if (e.button === ConfigureAIKeyButton) {
 							resolve(e.item);
 						}
 					}),
@@ -149,9 +113,7 @@ export async function showAIProviderPicker(
 				quickpick.show();
 			});
 
-			if (pick === 'refresh') {
-				continue;
-			}
+			if (pick === 'refresh') continue;
 
 			return pick;
 		}
@@ -165,7 +127,7 @@ export async function showAIModelPicker(
 	container: Container,
 	provider: AIProviders,
 	current?: AIModelDescriptor,
-): Promise<ModelQuickPickItem | undefined> {
+): Promise<ModelQuickPickItem | Directive | undefined> {
 	const models = (await container.ai.getModels(provider)) ?? [];
 
 	const items: ModelQuickPickItem[] = [];
@@ -177,6 +139,7 @@ export async function showAIModelPicker(
 
 		items.push({
 			label: m.name,
+			description: m.default ? '  recommended' : undefined,
 			iconPath: picked ? new ThemeIcon('check') : new ThemeIcon('blank'),
 			model: m,
 			picked: picked,
@@ -189,12 +152,17 @@ export async function showAIModelPicker(
 	const disposables: Disposable[] = [];
 
 	try {
-		const pick = await new Promise<ModelQuickPickItem | undefined>(resolve => {
+		const pick = await new Promise<ModelQuickPickItem | Directive | undefined>(resolve => {
 			disposables.push(
 				quickpick.onDidHide(() => resolve(undefined)),
 				quickpick.onDidAccept(() => {
 					if (quickpick.activeItems.length !== 0) {
 						resolve(quickpick.activeItems[0]);
+					}
+				}),
+				quickpick.onDidTriggerButton(e => {
+					if (e === QuickInputButtons.Back) {
+						resolve(Directive.Back);
 					}
 				}),
 			);
@@ -205,6 +173,7 @@ export async function showAIModelPicker(
 			quickpick.matchOnDetail = true;
 			quickpick.items = items;
 			quickpick.activeItems = items.filter(i => i.picked);
+			quickpick.buttons = [QuickInputButtons.Back];
 
 			quickpick.show();
 		});

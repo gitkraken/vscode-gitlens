@@ -1,5 +1,6 @@
 import type { CancellationToken, Event, LanguageModelChat, LanguageModelChatSelector } from 'vscode';
 import { CancellationTokenSource, Disposable, EventEmitter, LanguageModelChatMessage, lm } from 'vscode';
+import { vscodeProviderDescriptor } from '../../constants.ai';
 import type { TelemetryEvents } from '../../constants.telemetry';
 import type { Container } from '../../container';
 import { sum } from '../../system/iterable';
@@ -13,7 +14,7 @@ import type { AIProvider, AIRequestResult } from './models/provider';
 import { getMaxCharacters, getValidatedTemperature, showDiffTruncationWarning } from './utils/-webview/ai.utils';
 import { getLocalPromptTemplate, resolvePrompt } from './utils/-webview/prompt.utils';
 
-const provider = { id: 'vscode', name: 'VS Code Provided' } as const;
+const provider = vscodeProviderDescriptor;
 
 type VSCodeAIModel = AIModel<typeof provider.id> & { vendor: string; selector: LanguageModelChatSelector };
 
@@ -49,13 +50,13 @@ export class VSCodeAIProvider implements AIProvider<typeof provider.id> {
 		this._disposable.dispose();
 	}
 
+	async configured(_silent: boolean): Promise<boolean> {
+		return (await this.getModels()).length !== 0;
+	}
+
 	async getModels(): Promise<readonly AIModel<typeof provider.id>[]> {
 		const models = await lm.selectChatModels();
 		return models.map(getModelFromChatModel);
-	}
-
-	async ensureConfigured(): Promise<boolean> {
-		return (await this.getModels()).length !== 0;
 	}
 
 	async getPromptTemplate(action: AIActionType, model: VSCodeAIModel): Promise<PromptTemplate | undefined> {
@@ -162,7 +163,7 @@ export class VSCodeAIProvider implements AIProvider<typeof provider.id> {
 function getModelFromChatModel(model: LanguageModelChat): VSCodeAIModel {
 	return {
 		id: `${model.vendor}:${model.family}`,
-		name: `${capitalize(model.vendor)} ${model.name}`,
+		name: model.vendor === 'copilot' ? model.name : `${capitalize(model.vendor)} ${model.name}`,
 		vendor: model.vendor,
 		selector: {
 			vendor: model.vendor,

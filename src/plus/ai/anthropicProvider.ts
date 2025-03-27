@@ -1,9 +1,8 @@
 import type { CancellationToken } from 'vscode';
 import type { Response } from '@env/fetch';
+import { anthropicProviderDescriptor as provider } from '../../constants.ai';
 import type { AIActionType, AIModel } from './models/model';
 import { OpenAICompatibleProvider } from './openAICompatibleProvider';
-
-const provider = { id: 'anthropic', name: 'Anthropic' } as const;
 
 type AnthropicModel = AIModel<typeof provider.id>;
 const models: AnthropicModel[] = [
@@ -106,6 +105,7 @@ const models: AnthropicModel[] = [
 export class AnthropicProvider extends OpenAICompatibleProvider<typeof provider.id> {
 	readonly id = provider.id;
 	readonly name = provider.name;
+	protected readonly descriptor = provider;
 	protected readonly config = {
 		keyUrl: 'https://console.anthropic.com/account/keys',
 		keyValidator: /(?:sk-)?[a-zA-Z0-9-_]{32,}/,

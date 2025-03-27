@@ -187,6 +187,12 @@ export function getSettledValue<T>(
 	return promise?.status === 'fulfilled' ? promise.value : defaultValue;
 }
 
+export function getSettledValues<T extends string | number | boolean | symbol | bigint | object>(
+	promises: readonly PromiseSettledResult<T>[],
+): T[] {
+	return promises.map(getSettledValue).filter((v): v is T => v != null);
+}
+
 export function isPromise<T>(obj: PromiseLike<T> | T): obj is Promise<T> {
 	return obj != null && (obj instanceof Promise || typeof (obj as PromiseLike<T>)?.then === 'function');
 }

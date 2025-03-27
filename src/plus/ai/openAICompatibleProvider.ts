@@ -9,7 +9,7 @@ import { sum } from '../../system/iterable';
 import { getLoggableName, Logger } from '../../system/logger';
 import { startLogScope } from '../../system/logger.scope';
 import type { ServerConnection } from '../gk/serverConnection';
-import type { AIActionType, AIModel } from './models/model';
+import type { AIActionType, AIModel, AIProviderDescriptor } from './models/model';
 import type { PromptTemplate, PromptTemplateContext } from './models/promptTemplates';
 import type { AIProvider, AIRequestResult } from './models/provider';
 import {
@@ -36,7 +36,12 @@ export abstract class OpenAICompatibleProvider<T extends AIProviders> implements
 
 	abstract readonly id: T;
 	abstract readonly name: string;
+	protected abstract readonly descriptor: AIProviderDescriptor<T>;
 	protected abstract readonly config: { keyUrl?: string; keyValidator?: RegExp };
+
+	async configured(silent: boolean): Promise<boolean> {
+		return (await this.getApiKey(silent)) != null;
+	}
 
 	abstract getModels(): Promise<readonly AIModel<T>[]>;
 	async getPromptTemplate<TAction extends AIActionType>(
@@ -48,19 +53,20 @@ export abstract class OpenAICompatibleProvider<T extends AIProviders> implements
 
 	protected abstract getUrl(_model: AIModel<T>): string;
 
-	protected async getApiKey(): Promise<string | undefined> {
+	protected async getApiKey(silent: boolean): Promise<string | undefined> {
 		const { keyUrl, keyValidator } = this.config;
 
-		return getOrPromptApiKey(this.container.storage, {
-			id: this.id,
-			name: this.name,
-			validator: keyValidator != null ? v => keyValidator.test(v) : () => true,
-			url: keyUrl,
-		});
-	}
-
-	async ensureConfigured(): Promise<boolean> {
-		return (await this.getApiKey()) != null;
+		return getOrPromptApiKey(
+			this.container,
+			{
+				id: this.id,
+				name: this.name,
+				requiresAccount: this.descriptor.requiresAccount,
+				validator: keyValidator != null ? v => keyValidator.test(v) : () => true,
+				url: keyUrl,
+			},
+			silent,
+		);
 	}
 
 	protected getHeaders<TAction extends AIActionType>(
@@ -85,7 +91,7 @@ export abstract class OpenAICompatibleProvider<T extends AIProviders> implements
 	): Promise<AIRequestResult | undefined> {
 		using scope = startLogScope(`${getLoggableName(this)}.sendRequest`, false);
 
-		const apiKey = await this.getApiKey();
+		const apiKey = await this.getApiKey(false);
 		if (apiKey == null) return undefined;
 
 		const prompt = await this.getPromptTemplate(action, model);
