@@ -10,6 +10,9 @@ import {
 	getSubscriptionStateName,
 	getSubscriptionTimeRemaining,
 	hasAccountFromSubscriptionState,
+	isSubscriptionPaid,
+	isSubscriptionStatePaidOrTrial,
+	isSubscriptionTrial,
 } from '../../../../../plus/gk/utils/subscription.utils';
 import { createCommandLink } from '../../../../../system/commands';
 import { pluralize } from '../../../../../system/string';
@@ -96,13 +99,13 @@ export class GLAccountChip extends LitElement {
 				cursor: pointer;
 			}
 
-			.account-org {
+			.account-info {
 				display: flex;
 				flex-direction: column;
 				gap: 0.2rem;
 			}
 
-			.account {
+			.row {
 				position: relative;
 				display: flex;
 				flex-direction: row;
@@ -110,7 +113,11 @@ export class GLAccountChip extends LitElement {
 				align-items: center;
 			}
 
-			.account__media {
+			.row:last-of-type {
+				margin-bottom: 0.6rem;
+			}
+
+			.row__media {
 				flex: 0 0 auto;
 				width: 3.4rem;
 				display: flex;
@@ -118,26 +125,31 @@ export class GLAccountChip extends LitElement {
 				justify-content: center;
 			}
 
-			img.account__media {
+			.row__media code-icon {
+				color: var(--color-foreground--65);
+			}
+
+			.row__media img {
 				width: 2rem;
 				aspect-ratio: 1 / 1;
 				border-radius: 50%;
 				background-color: var(--gl-account-account-media-color);
 			}
 
-			.account__details {
+			.details {
+				flex: 1;
 				display: flex;
 				flex-direction: column;
 				justify-content: center;
 			}
 
-			.account__title {
+			.details__title {
 				font-size: 1.3rem;
 				font-weight: 600;
 				margin: 0;
 			}
 
-			.account__email {
+			.details__subtitle {
 				font-size: 1.1rem;
 				font-weight: 400;
 				margin: 0;
@@ -160,19 +172,6 @@ export class GLAccountChip extends LitElement {
 				align-items: center;
 				justify-content: center;
 				color: var(--color-foreground--65);
-			}
-
-			.org__details {
-				flex: 1;
-				display: flex;
-				flex-direction: column;
-				justify-content: center;
-			}
-
-			.org__title {
-				font-size: 1.3rem;
-				font-weight: 600;
-				margin: 0;
 			}
 
 			.org__access {
@@ -237,11 +236,15 @@ export class GLAccountChip extends LitElement {
 				padding-inline-start: 2rem;
 			}
 
+			.upgrade li {
+				text-wrap: pretty;
+			}
+
 			.upgrade gl-promo::part(text) {
 				margin-block-start: 0;
-				border-radius: 0.3rem;
+				/* border-radius: 0.3rem;
 				padding: 0.2rem 0.4rem;
-				background-color: var(--gl-account-chip-color);
+				background-color: var(--gl-account-chip-color); */
 			}
 
 			.upgrade gl-promo:not([has-promo]) {
@@ -303,6 +306,10 @@ export class GLAccountChip extends LitElement {
 	}
 
 	private get planTier() {
+		if (isSubscriptionTrial(this.subscription)) {
+			return 'Pro Trial';
+		}
+
 		return getSubscriptionPlanTier(this.planId);
 	}
 
@@ -341,33 +348,6 @@ export class GLAccountChip extends LitElement {
 						<span class="header__actions">
 							${this.hasAccount
 								? html`<gl-button
-											appearance="toolbar"
-											href="${createCommandLink<Source>('gitlens.views.home.account.resync', {
-												source: 'account',
-											})}"
-											tooltip="Synchronize Status"
-											aria-label="Synchronize Status"
-											><code-icon icon="sync"></code-icon
-										></gl-button>
-										<gl-button
-											appearance="toolbar"
-											href="${createCommandLink<Source>('gitlens.plus.manage', {
-												source: 'account',
-											})}"
-											tooltip="Manage Account"
-											aria-label="Manage Account"
-											><code-icon icon="gear"></code-icon
-										></gl-button>
-										<gl-button
-											appearance="toolbar"
-											href="${createCommandLink<Source>('gitlens.plus.logout', {
-												source: 'account',
-											})}"
-											tooltip="Sign Out"
-											aria-label="Sign Out"
-											><code-icon icon="sign-out"></code-icon
-										></gl-button>`
-								: html`<gl-button
 										appearance="toolbar"
 										href="${createCommandLink<Source>('gitlens.plus.login', {
 											source: 'account',
@@ -375,10 +355,11 @@ export class GLAccountChip extends LitElement {
 										tooltip="Sign In"
 										aria-label="Sign In"
 										><code-icon icon="sign-in"></code-icon
-								  ></gl-button>`}
+								  ></gl-button>`
+								: nothing}
 						</span>
 					</div>
-					${this.renderOrganization()} ${this.renderAccountState()}
+					${this.renderAccountInfo()} ${this.renderAccountState()}
 				</div>
 			</gl-popover>
 			${this.renderUpgradeContent()}`;
@@ -389,25 +370,25 @@ export class GLAccountChip extends LitElement {
 		this.focus();
 	}
 
-	private renderOrganization() {
+	private renderAccountInfo() {
 		const organization = this._state.subscription?.activeOrganization?.name ?? '';
 		if (!this.hasAccount || !organization) return nothing;
 
-		return html`<div class="account-org">
-			<span class="account">
-				<span class="account__media"
+		return html`<div class="account-info">
+			<span class="row">
+				<span class="row__media"
 					>${this._state.avatar
-						? html`<img class="account__media" src=${this._state.avatar} />`
-						: html`<code-icon class="account__media" icon="gl-gitlens" size="20"></code-icon>`}</span
+						? html`<img src=${this._state.avatar} />`
+						: html`<code-icon icon="gl-gitlens" size="20"></code-icon>`}</span
 				>
-				<span class="account__details"
-					><p class="account__title">${this.accountName}</p>
-					<p class="account__email">${this.accountEmail}</p></span
+				<span class="details"
+					><p class="details__title">${this.accountName}</p>
+					<p class="details__subtitle">${this.accountEmail}</p></span
 				>
 			</span>
-			<span class="org">
-				<span class="org__media"><code-icon icon="organization" size="20"></code-icon></span>
-				<span class="org__details"><p class="org__title">${organization}</p></span>
+			<span class="row">
+				<span class="row__media"><code-icon icon="organization" size="20"></code-icon></span>
+				<span class="details"><p class="details__title">${organization}</p></span>
 				${when(
 					this._state.organizationsCount! > 1,
 					() =>
@@ -435,6 +416,25 @@ export class GLAccountChip extends LitElement {
 						</div>`,
 				)}
 			</span>
+			${when(
+				isSubscriptionStatePaidOrTrial(this.subscription.state),
+				() => html`
+					<span class="row">
+						<span class="row__media"><code-icon icon="info" size="20"></code-icon></span>
+						<span class="details"
+							><p class="details__title">
+								${isSubscriptionTrial(this.subscription)
+									? html`${getSubscriptionPlanTier(this.effectivePlanId)} plan<span
+												class="details__subtitle"
+											>
+												(trial)</span
+											>`
+									: html`${getSubscriptionPlanTier(this.planId)} plan`}
+							</p></span
+						>
+					</span>
+				`,
+			)}
 		</div>`;
 	}
 
@@ -594,7 +594,7 @@ export class GLAccountChip extends LitElement {
 	}
 
 	private renderUpgradeContent() {
-		if (this.planTier !== 'Community') {
+		if (isSubscriptionPaid(this.subscription)) {
 			this.showUpgrade = false;
 			return nothing;
 		}
@@ -607,19 +607,9 @@ export class GLAccountChip extends LitElement {
 			</span>
 			<div slot="content" class="content" tabindex="-1">
 				<div class="header">
-					<span class="header__title">Upgrade GitLens</span>
+					<span class="header__title">Advantages of GitLens Pro</span>
 				</div>
 				<div class="upgrade">
-					<p>Unlock Pro features:</p>
-					<ul>
-						<li>Unlimited Cloud Integrations</li>
-						<li>250K AI Tokens per week</li>
-						<li>Interactive Commit Graph on private repos</li>
-						<li>Visual File and Folder History on private repos</li>
-						<li>Leverage Git Worktrees in VS Code</li>
-						<li>Integrated issue and pull request workflows</li>
-					</ul>
-					${this.renderPromo()}
 					<button-container>
 						<gl-button
 							full
@@ -630,11 +620,19 @@ export class GLAccountChip extends LitElement {
 							>Upgrade to Pro</gl-button
 						>
 					</button-container>
-					<p>Upgrade to Advanced:</p>
+					<!-- <p>Unlock Pro features:</p> -->
+					${this.renderPromo()}
+
 					<ul>
-						<li>500K AI Tokens per week</li>
-						<li>Self-hosted Git and Issue integrations</li>
+						<li>Unlimited cloud integrations</li>
+						<li>Smart AI features &mdash; 250K tokens/week</li>
+						<li>
+							Powerful tools &mdash; Commit Graph, Visual History, &amp; Git Worktrees on private repos
+						</li>
+						<li>Streamlined workflows &mdash; start work from issues, pull request reviews</li>
 					</ul>
+
+					<br />
 					<button-container>
 						<gl-button
 							full
@@ -645,6 +643,11 @@ export class GLAccountChip extends LitElement {
 							>Upgrade to Advanced</gl-button
 						>
 					</button-container>
+					<!-- <p>Upgrade to Advanced:</p> -->
+					<ul>
+						<li>Self-hosted integrations</li>
+						<li>Advanced AI features &mdash; 500K tokens/week</li>
+					</ul>
 				</div>
 			</div>
 		</gl-popover>`;
