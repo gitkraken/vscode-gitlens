@@ -747,19 +747,21 @@ export abstract class GlBranchCardBase extends GlElement {
 							href="${this.createCommandLink('gitlens.home.createPullRequest')}"
 							>Create a Pull Request</gl-button
 						>
-						<gl-button
-							class="branch-item__missing"
-							tooltip="Create a Pull Request with AI"
-							appearance="secondary"
-							href="${this.createCommandLink('gitlens.home.createPullRequest', {
-								source: 'home',
-								useAI: true,
-							})}"
-						>
-							<code-icon class="branch-item__is-wide" icon="sparkle" slot="prefix"></code-icon>
-							<code-icon class="branch-item__is-narrow" icon="sparkle"></code-icon>
-							<span class="branch-item__is-wide">Create with AI</span>
-						</gl-button>
+						${this.branch.aiPullRequestCreationAvailable
+							? html`<gl-button
+									class="branch-item__missing"
+									tooltip="Create a Pull Request with AI"
+									appearance="secondary"
+									href="${this.createCommandLink('gitlens.home.createPullRequest', {
+										source: 'home',
+										useAI: true,
+									})}"
+							  >
+									<code-icon class="branch-item__is-wide" icon="sparkle" slot="prefix"></code-icon>
+									<code-icon class="branch-item__is-narrow" icon="sparkle"></code-icon>
+									<span class="branch-item__is-wide">Create with AI</span>
+							  </gl-button>`
+							: nothing}
 					</div>
 				`;
 			}

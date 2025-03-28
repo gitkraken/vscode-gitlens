@@ -25,6 +25,13 @@ export type RemoteProviderId =
 	| 'gitlab'
 	| 'google-source';
 
+export const remotesSupportTitleOnPullRequestCreation: RemoteProviderId[] = [
+	'github',
+	'gitlab',
+	'cloud-github-enterprise',
+	'cloud-gitlab-self-hosted',
+];
+
 export abstract class RemoteProvider<T extends ResourceDescriptor = ResourceDescriptor> implements ProviderReference {
 	protected readonly _name: string | undefined;
 

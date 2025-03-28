@@ -29,6 +29,7 @@ import { RepositoryChange, RepositoryChangeComparisonMode } from '../../git/mode
 import { uncommitted } from '../../git/models/revision';
 import type { GitStatus } from '../../git/models/status';
 import type { GitWorktree } from '../../git/models/worktree';
+import { remotesSupportTitleOnPullRequestCreation } from '../../git/remotes/remoteProvider';
 import { getAssociatedIssuesForBranch } from '../../git/utils/-webview/branch.issue.utils';
 import { getBranchTargetInfo } from '../../git/utils/-webview/branch.utils';
 import { getReferenceFromBranch } from '../../git/utils/-webview/reference.utils';
@@ -756,10 +757,15 @@ export class HomeWebviewProvider implements WebviewProvider<State, State, HomeWe
 		const activeBranch = branches.find(
 			branch => this.getBranchOverviewType(branch, worktreesByBranch) === 'active',
 		)!;
+		const aiPullRequestCreationAvailable =
+			(await repo.git.remotes().getBestRemotesWithProviders()).find(r =>
+				remotesSupportTitleOnPullRequestCreation.includes(r.provider.id),
+			) != null;
 
 		const isPro = await this.isSubscriptionPro();
 		const [activeOverviewBranch] = getOverviewBranchesCore(
 			[activeBranch],
+			aiPullRequestCreationAvailable,
 			branchesAndWorktrees.worktreesByBranch,
 			isPro,
 			this.container,
@@ -791,6 +797,10 @@ export class HomeWebviewProvider implements WebviewProvider<State, State, HomeWe
 
 		const forceRepo = this._invalidateOverview === 'repo';
 		const branchesAndWorktrees = await this.getBranchesData(repo, forceRepo);
+		const aiPullRequestCreationAvailable =
+			(await repo.git.remotes().getBestRemotesWithProviders()).find(r =>
+				remotesSupportTitleOnPullRequestCreation.includes(r.provider.id),
+			) != null;
 
 		const recentBranches = branchesAndWorktrees.branches.filter(
 			branch => this.getBranchOverviewType(branch, branchesAndWorktrees.worktreesByBranch) === 'recent',
@@ -823,6 +833,7 @@ export class HomeWebviewProvider implements WebviewProvider<State, State, HomeWe
 		const isPro = await this.isSubscriptionPro();
 		const recentOverviewBranches = getOverviewBranchesCore(
 			recentBranches,
+			aiPullRequestCreationAvailable,
 			branchesAndWorktrees.worktreesByBranch,
 			isPro,
 			this.container,
@@ -830,7 +841,13 @@ export class HomeWebviewProvider implements WebviewProvider<State, State, HomeWe
 		const staleOverviewBranches =
 			staleBranches == null
 				? undefined
-				: getOverviewBranchesCore(staleBranches, branchesAndWorktrees.worktreesByBranch, isPro, this.container);
+				: getOverviewBranchesCore(
+						staleBranches,
+						aiPullRequestCreationAvailable,
+						branchesAndWorktrees.worktreesByBranch,
+						isPro,
+						this.container,
+				  );
 
 		// TODO: revisit invalidation
 		if (!forceRepo) {
@@ -1460,6 +1477,7 @@ export class HomeWebviewProvider implements WebviewProvider<State, State, HomeWe
 
 function getOverviewBranchesCore(
 	branches: GitBranch[],
+	aiPullRequestCreationAvailable: boolean,
 	worktreesByBranch: Map<string, GitWorktree>,
 	isPro: boolean,
 	container: Container,
@@ -1518,6 +1536,7 @@ function getOverviewBranchesCore(
 			reference: getReferenceFromBranch(branch),
 			repoPath: branch.repoPath,
 			id: branch.id,
+			aiPullRequestCreationAvailable: aiPullRequestCreationAvailable,
 			name: branch.name,
 			opened: isActive,
 			timestamp: timestamp,

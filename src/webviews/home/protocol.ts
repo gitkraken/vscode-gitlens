@@ -74,6 +74,7 @@ export interface GetOverviewBranch {
 	id: string;
 	name: string;
 	opened: boolean;
+	aiPullRequestCreationAvailable: boolean;
 	timestamp?: number;
 	status: GitBranchStatus;
 	upstream: GitTrackingUpstream | undefined;
