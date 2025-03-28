@@ -518,6 +518,59 @@ export class AIProviderService implements Disposable {
 		return result != null ? { ...result, parsed: parseSummarizeResult(result.content) } : undefined;
 	}
 
+	async generatePullRequestMessage(
+		repo: Repository,
+		baseRef: string,
+		compareRef: string,
+		source: Source,
+		options?: {
+			cancellation?: CancellationToken;
+			context?: string;
+			generating?: Deferred<AIModel>;
+			progress?: ProgressOptions;
+		},
+	): Promise<AISummarizeResult | undefined> {
+		if (!(await this.ensureFeatureAccess('generateCreatePullRequest', source))) {
+			return undefined;
+		}
+
+		const diff = await repo.git.diff().getDiff?.(compareRef, baseRef, { notation: '...' });
+
+		const log = await this.container.git.commits(repo.path).getLog(`${baseRef}..${compareRef}`);
+		const commits: [string, number][] = [];
+		for (const [_sha, commit] of log?.commits ?? []) {
+			commits.push([commit.message ?? '', commit.date.getTime()]);
+		}
+
+		if (!diff?.contents && !commits.length) {
+			throw new Error('No changes found to generate a pull request message from.');
+		}
+
+		const result = await this.sendRequest(
+			'generate-create-pullRequest',
+			() => ({
+				diff: diff?.contents ?? '',
+				data: commits.sort((a, b) => a[1] - b[1]).map(c => c[0]),
+				context: options?.context ?? '',
+				instructions: configuration.get('ai.generateCreatePullRequest.customInstructions') ?? '',
+			}),
+			m => `Generating pull request details with ${m.name}...`,
+			source,
+			m => ({
+				key: 'ai/generate',
+				data: {
+					type: 'createPullRequest',
+					'model.id': m.id,
+					'model.provider.id': m.provider.id,
+					'model.provider.name': m.provider.name,
+					'retry.count': 0,
+				},
+			}),
+			options,
+		);
+		return result != null ? { ...result, parsed: parseSummarizeResult(result.content) } : undefined;
+	}
+
 	async generateDraftMessage(
 		changesOrRepo: string | string[] | Repository,
 		sourceContext: Source & { type: AIGenerateDraftEventData['draftType'] },
@@ -529,7 +582,7 @@ export class AIProviderService implements Disposable {
 			codeSuggestion?: boolean;
 		},
 	): Promise<AISummarizeResult | undefined> {
-		if (!(await this.ensureFeatureAccess('cloudPatchGenerateTitleAndDescription', sourceContext))) {
+		if (!(await this.ensureFeatureAccess('generateCreateDraft', sourceContext))) {
 			return undefined;
 		}
 
@@ -545,8 +598,8 @@ export class AIProviderService implements Disposable {
 				context: options?.context ?? '',
 				instructions:
 					(options?.codeSuggestion
-						? configuration.get('ai.generateCodeSuggestMessage.customInstructions')
-						: configuration.get('ai.generateCloudPatchMessage.customInstructions')) ?? '',
+						? configuration.get('ai.generateCreateCodeSuggest.customInstructions')
+						: configuration.get('ai.generateCreateCloudPatch.customInstructions')) ?? '',
 			}),
 			m =>
 				`Generating ${options?.codeSuggestion ? 'code suggestion' : 'cloud patch'} description with ${

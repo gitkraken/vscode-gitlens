@@ -71,7 +71,10 @@ export class CopyOrOpenRemoteCommandQuickPickItem extends CommandQuickPickItem {
 
 					resource = {
 						...resource,
-						base: { branch: branch, remote: { path: this.remote.path, url: this.remote.url } },
+						base: {
+							branch: branch,
+							remote: { path: this.remote.path, url: this.remote.url, name: this.remote.name },
+						},
 					};
 
 					if (

@@ -40,16 +40,17 @@ export type ProFeatures =
 	| 'startWork'
 	| 'associateIssueWithBranch'
 	| ProAIFeatures;
-export type ProAIFeatures = 'generateStashMessage' | 'explainCommit' | 'cloudPatchGenerateTitleAndDescription';
+export type ProAIFeatures = 'explainCommit' | 'generateCreateDraft' | 'generateStashMessage';
 
 export type AdvancedFeatures = AdvancedAIFeatures;
-export type AdvancedAIFeatures = 'generateChangelog';
+export type AdvancedAIFeatures = 'generateChangelog' | 'generateCreatePullRequest';
 
 export type AIFeatures = ProAIFeatures | AdvancedAIFeatures;
 
 export function isAdvancedFeature(feature: PlusFeatures): feature is AdvancedFeatures {
 	switch (feature) {
 		case 'generateChangelog':
+		case 'generateCreatePullRequest':
 			return true;
 		default:
 			return false;

@@ -219,6 +219,29 @@ or
   'model.provider.name': string,
   'output.length': number,
   'retry.count': number,
+  'type': 'createPullRequest',
+  'usage.completionTokens': number,
+  'usage.limits.limit': number,
+  'usage.limits.resetsOn': string,
+  'usage.limits.used': number,
+  'usage.promptTokens': number,
+  'usage.totalTokens': number
+}
+```
+
+or
+
+```typescript
+{
+  'duration': number,
+  'failed.error': string,
+  'failed.reason': 'user-declined' | 'user-cancelled' | 'error',
+  'input.length': number,
+  'model.id': string,
+  'model.provider.id': 'anthropic' | 'deepseek' | 'gemini' | 'github' | 'gitkraken' | 'huggingface' | 'openai' | 'vscode' | 'xai',
+  'model.provider.name': string,
+  'output.length': number,
+  'retry.count': number,
   'type': 'changelog',
   'usage.completionTokens': number,
   'usage.limits.limit': number,

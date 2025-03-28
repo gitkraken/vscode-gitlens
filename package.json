@@ -4152,7 +4152,7 @@
 							"preview"
 						]
 					},
-					"gitlens.ai.generateCloudPatchMessage.customInstructions": {
+					"gitlens.ai.generateCreateCloudPatch.customInstructions": {
 						"type": "string",
 						"default": null,
 						"markdownDescription": "Specifies custom instructions to provide to the AI provider when generating a cloud patch title and description",
@@ -4162,12 +4162,22 @@
 							"preview"
 						]
 					},
-					"gitlens.ai.generateCodeSuggestMessage.customInstructions": {
+					"gitlens.ai.generateCreateCodeSuggest.customInstructions": {
 						"type": "string",
 						"default": null,
 						"markdownDescription": "Specifies custom instructions to provide to the AI provider when generating a code suggest title and description",
 						"scope": "window",
 						"order": 400,
+						"tags": [
+							"preview"
+						]
+					},
+					"gitlens.ai.generateCreatePullRequest.customInstructions": {
+						"type": "string",
+						"default": null,
+						"markdownDescription": "Specifies custom instructions to provide to the AI provider when generating a pull request title and description",
+						"scope": "window",
+						"order": 500,
 						"tags": [
 							"preview"
 						]

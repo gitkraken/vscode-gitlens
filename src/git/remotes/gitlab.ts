@@ -395,7 +395,11 @@ export class GitLabRemote extends RemoteProvider<GitLabRepositoryDescriptor> {
 	protected override async getUrlForCreatePullRequest(
 		base: { branch?: string; remote: { path: string; url: string } },
 		head: { branch: string; remote: { path: string; url: string } },
-		options?: { title?: string; description?: string },
+		options?: {
+			title?: string;
+			description?: string;
+			describePullRequest?: () => Promise<{ summary: string; body: string } | undefined>;
+		},
 	): Promise<string | undefined> {
 		const query = new URLSearchParams({
 			utf8: '✓',
@@ -424,6 +428,15 @@ export class GitLabRemote extends RemoteProvider<GitLabRepositoryDescriptor> {
 		}
 		if (options?.description) {
 			query.set('merge_request[description]', options.description);
+		}
+		if ((!options?.title || !options?.description) && options?.describePullRequest) {
+			const result = await options.describePullRequest();
+			if (result?.summary) {
+				query.set('merge_request[title]', result.summary);
+			}
+			if (result?.body) {
+				query.set('merge_request[description]', result.body);
+			}
 		}
 
 		return `${this.encodeUrl(`${this.getRepoBaseUrl(head.remote.path)}/-/merge_requests/new`)}?${query.toString()}`;
