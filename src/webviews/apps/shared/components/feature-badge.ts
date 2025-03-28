@@ -4,7 +4,7 @@ import { css, html, LitElement, nothing, unsafeCSS } from 'lit';
 import { customElement, property } from 'lit/decorators.js';
 import { proTrialLengthInDays, SubscriptionPlanId, SubscriptionState } from '../../../../constants.subscription';
 import type { Source } from '../../../../constants.telemetry';
-import type { Subscription } from '../../../../plus/gk/models/subscription';
+import type { Subscription, SubscriptionUpgradeCommandArgs } from '../../../../plus/gk/models/subscription';
 import {
 	getSubscriptionPlanName,
 	getSubscriptionTimeRemaining,
@@ -331,7 +331,12 @@ export class GlFeatureBadge extends LitElement {
 	private renderUpgradeActions(leadin?: TemplateResult) {
 		return html`<div class="actions">
 			${leadin ?? nothing}
-			<gl-button density="tight" href="${createCommandLink<Source>('gitlens.plus.upgrade', this.source)}"
+			<gl-button
+				density="tight"
+				href="${createCommandLink<SubscriptionUpgradeCommandArgs>('gitlens.plus.upgrade', {
+					plan: SubscriptionPlanId.Pro,
+					...(this.source ?? { source: 'feature-badge' }),
+				})}"
 				>Upgrade to Pro</gl-button
 			>
 			${this.renderPromo()}

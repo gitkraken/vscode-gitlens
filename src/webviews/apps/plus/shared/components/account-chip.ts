@@ -5,7 +5,9 @@ import { when } from 'lit/directives/when.js';
 import { urls } from '../../../../../constants';
 import { proTrialLengthInDays, SubscriptionPlanId, SubscriptionState } from '../../../../../constants.subscription';
 import type { Source } from '../../../../../constants.telemetry';
+import type { SubscriptionUpgradeCommandArgs } from '../../../../../plus/gk/models/subscription';
 import {
+	compareSubscriptionPlans,
 	getSubscriptionPlanTier,
 	getSubscriptionStateName,
 	getSubscriptionTimeRemaining,
@@ -156,31 +158,7 @@ export class GlAccountChip extends LitElement {
 				color: var(--color-foreground--65);
 			}
 
-			.org {
-				position: relative;
-				display: flex;
-				flex-direction: row;
-				gap: 0 0.6rem;
-				align-items: center;
-				margin-bottom: 0.6rem;
-			}
-
-			.org__media {
-				flex: none;
-				width: 3.4rem;
-				display: flex;
-				align-items: center;
-				justify-content: center;
-				color: var(--color-foreground--65);
-			}
-
-			.org__access {
-				position: relative;
-				margin: 0;
-				color: var(--color-foreground--65);
-			}
-
-			.org__signout {
+			.details__button {
 				flex: none;
 				display: flex;
 				gap: 0.2rem;
@@ -249,6 +227,11 @@ export class GlAccountChip extends LitElement {
 
 			.upgrade gl-promo:not([has-promo]) {
 				display: none;
+			}
+
+			.upgrade-button {
+				text-transform: uppercase;
+				font-size: 1rem;
 			}
 		`,
 	];
@@ -392,7 +375,7 @@ export class GlAccountChip extends LitElement {
 				${when(
 					this._state.organizationsCount! > 1,
 					() =>
-						html`<div class="org__signout">
+						html`<div class="details__button">
 							<gl-button
 								appearance="toolbar"
 								href="${createCommandLink<Source>('gitlens.gk.switchOrganization', {
@@ -418,22 +401,44 @@ export class GlAccountChip extends LitElement {
 			</span>
 			${when(
 				isSubscriptionStatePaidOrTrial(this.subscription.state),
-				() => html`
-					<span class="row">
-						<span class="row__media"><code-icon icon="info" size="20"></code-icon></span>
+				() =>
+					html`<span class="row">
+						<span class="row__media"><code-icon icon="unlock" size="20"></code-icon></span>
 						<span class="details"
 							><p class="details__title">
 								${isSubscriptionTrial(this.subscription)
-									? html`${getSubscriptionPlanTier(this.effectivePlanId)} plan<span
-												class="details__subtitle"
-											>
-												(trial)</span
-											>`
+									? html`${getSubscriptionPlanTier(this.effectivePlanId)} plan
+											<span class="details__subtitle">(trial)</span>`
 									: html`${getSubscriptionPlanTier(this.planId)} plan`}
 							</p></span
 						>
-					</span>
-				`,
+						${isSubscriptionPaid(this.subscription) &&
+						compareSubscriptionPlans(this.planId, SubscriptionPlanId.Advanced) < 0
+							? html`<div class="details__button">
+									<gl-button
+										appearance="secondary"
+										href="${createCommandLink<SubscriptionUpgradeCommandArgs>(
+											'gitlens.plus.upgrade',
+											{
+												plan: SubscriptionPlanId.Advanced,
+												source: 'account',
+												detail: {
+													location: 'plan-section:upgrade-button',
+													organization: this._state.subscription?.activeOrganization?.id,
+													plan: SubscriptionPlanId.Advanced,
+												},
+											},
+										)}"
+										aria-label="Ugrade to Advanced"
+										><span class="upgrade-button">Upgrade</span
+										><span slot="tooltip"
+											>Ugrade to the Advanced plan for access to self-hosted integrations,
+											advanced AI features @ 500K tokens/week, and more</span
+										>
+									</gl-button>
+							  </div>`
+							: nothing}
+					</span>`,
 			)}
 		</div>`;
 	}
@@ -442,7 +447,7 @@ export class GlAccountChip extends LitElement {
 		switch (this.subscriptionState) {
 			case SubscriptionState.Paid:
 				return html`<div class="account-status">
-					${this.renderIncludesDevEx()} ${this.renderReferFriend()} ${this.renderGetAdvanced()}
+					${this.renderIncludesDevEx()}${this.renderReferFriend()}
 				</div> `;
 
 			case SubscriptionState.VerificationRequired:
@@ -487,8 +492,14 @@ export class GlAccountChip extends LitElement {
 					<button-container>
 						<gl-button
 							full
-							href="${createCommandLink<Source>('gitlens.plus.upgrade', {
+							href="${createCommandLink<SubscriptionUpgradeCommandArgs>('gitlens.plus.upgrade', {
+								plan: SubscriptionPlanId.Pro,
 								source: 'account',
+								detail: {
+									location: 'upgrade-button',
+									organization: this._state.subscription?.activeOrganization?.id,
+									plan: SubscriptionPlanId.Pro,
+								},
 							})}"
 							>Upgrade to Pro</gl-button
 						>
@@ -504,8 +515,14 @@ export class GlAccountChip extends LitElement {
 					<button-container>
 						<gl-button
 							full
-							href="${createCommandLink<Source>('gitlens.plus.upgrade', {
+							href="${createCommandLink<SubscriptionUpgradeCommandArgs>('gitlens.plus.upgrade', {
+								plan: SubscriptionPlanId.Pro,
 								source: 'account',
+								detail: {
+									location: 'upgrade-button',
+									organization: this._state.subscription?.activeOrganization?.id,
+									plan: SubscriptionPlanId.Pro,
+								},
 							})}"
 							>Upgrade to Pro</gl-button
 						>
@@ -567,6 +584,8 @@ export class GlAccountChip extends LitElement {
 	}
 
 	private renderReferFriend() {
+		if (!isSubscriptionPaid(this.subscription)) return nothing;
+
 		return html`<p>
 			<a
 				href="${createCommandLink<Source>('gitlens.plus.referFriend', {
@@ -575,21 +594,6 @@ export class GlAccountChip extends LitElement {
 				>Refer a friend</a
 			>
 			&mdash; give 50% off and get up to $20
-		</p>`;
-	}
-
-	private renderGetAdvanced() {
-		if (this.subscription?.plan?.effective.id !== SubscriptionPlanId.Pro) return nothing;
-
-		return html`<p>
-			Get advanced AI features, self-hosted integrations, and more with GitLens Advanced.
-			<a
-				href=${createCommandLink<Source & { plan: SubscriptionPlanId }>('gitlens.plus.upgrade', {
-					source: 'account',
-					plan: SubscriptionPlanId.Advanced,
-				})}
-				>Upgrade to Advanced</a
-			>
 		</p>`;
 	}
 
@@ -613,14 +617,18 @@ export class GlAccountChip extends LitElement {
 					<button-container>
 						<gl-button
 							full
-							href="${createCommandLink<Source>('gitlens.plus.upgrade', {
-								// needs to indicate upgrade menu
+							href="${createCommandLink<SubscriptionUpgradeCommandArgs>('gitlens.plus.upgrade', {
+								plan: SubscriptionPlanId.Pro,
 								source: 'account',
+								detail: {
+									location: 'upgrade-chip:upgrade-button',
+									organization: this._state.subscription?.activeOrganization?.id,
+									plan: SubscriptionPlanId.Pro,
+								},
 							})}"
 							>Upgrade to Pro</gl-button
 						>
 					</button-container>
-					<!-- <p>Unlock Pro features:</p> -->
 					${this.renderPromo()}
 
 					<ul>
@@ -636,14 +644,18 @@ export class GlAccountChip extends LitElement {
 					<button-container>
 						<gl-button
 							full
-							href="${createCommandLink<Source & { plan: SubscriptionPlanId }>('gitlens.plus.upgrade', {
-								source: 'account',
+							href="${createCommandLink<SubscriptionUpgradeCommandArgs>('gitlens.plus.upgrade', {
 								plan: SubscriptionPlanId.Advanced,
+								source: 'account',
+								detail: {
+									location: 'upgrade-chip:upgrade-button',
+									organization: this._state.subscription?.activeOrganization?.id,
+									plan: SubscriptionPlanId.Advanced,
+								},
 							})}"
 							>Upgrade to Advanced</gl-button
 						>
 					</button-container>
-					<!-- <p>Upgrade to Advanced:</p> -->
 					<ul>
 						<li>Self-hosted integrations</li>
 						<li>Advanced AI features &mdash; 500K tokens/week</li>

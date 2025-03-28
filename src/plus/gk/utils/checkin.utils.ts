@@ -2,7 +2,7 @@ import { SubscriptionPlanId } from '../../../constants.subscription';
 import type { GKCheckInResponse, GKLicense, GKLicenseType } from '../models/checkin';
 import type { Organization } from '../models/organization';
 import type { Subscription } from '../models/subscription';
-import { getSubscriptionPlan, getSubscriptionPlanPriority } from './subscription.utils';
+import { compareSubscriptionPlans, getSubscriptionPlan, getSubscriptionPlanPriority } from './subscription.utils';
 
 export function getSubscriptionFromCheckIn(
 	data: GKCheckInResponse,
@@ -129,7 +129,7 @@ export function getSubscriptionFromCheckIn(
 		);
 	}
 
-	if (effective == null || getSubscriptionPlanPriority(actual.id) >= getSubscriptionPlanPriority(effective.id)) {
+	if (effective == null || compareSubscriptionPlans(actual.id, effective.id) >= 0) {
 		effective = { ...actual };
 	}
 

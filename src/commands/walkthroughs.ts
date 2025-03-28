@@ -3,6 +3,7 @@ import { urls } from '../constants';
 import type { GlCommands } from '../constants.commands';
 import type { Source, Sources } from '../constants.telemetry';
 import type { Container } from '../container';
+import type { SubscriptionUpgradeCommandArgs } from '../plus/gk/models/subscription';
 import type { LaunchpadCommandArgs } from '../plus/launchpad/launchpad';
 import { command, executeCommand } from '../system/-webview/command';
 import { openUrl, openWalkthrough as openWalkthroughCore } from '../system/-webview/vscode';
@@ -80,7 +81,7 @@ export class WalkthroughPlusUpgradeCommand extends GlCommandBase {
 			name: 'plus/upgrade',
 			command: command,
 		});
-		executeCommand<Source>(command, { source: 'walkthrough' });
+		executeCommand<SubscriptionUpgradeCommandArgs>(command, { source: 'walkthrough' });
 	}
 }
 
