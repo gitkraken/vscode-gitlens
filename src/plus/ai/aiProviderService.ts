@@ -530,6 +530,10 @@ export class AIProviderService implements Disposable {
 			progress?: ProgressOptions;
 		},
 	): Promise<AISummarizeResult | undefined> {
+		if (!(await this.ensureFeatureAccess('generateChangelog', source))) {
+			return undefined;
+		}
+
 		const diff = await repo.git.diff().getDiff?.(compareRef, baseRef, { notation: '...' });
 
 		const log = await this.container.git.commits(repo.path).getLog(`${baseRef}..${compareRef}`);
