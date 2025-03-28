@@ -64,6 +64,23 @@ export class GlPopover extends GlElement {
 		delegatesFocus: true,
 	};
 
+	/** static registry to track all open popovers */
+	private static readonly openPopovers = new Set<GlPopover>();
+
+	private static closeOthers(openingPopover: GlPopover): void {
+		for (const popover of GlPopover.openPopovers) {
+			if (
+				popover === openingPopover ||
+				// Check if the popover contains the opening popover
+				Boolean(popover.compareDocumentPosition(openingPopover) & Node.DOCUMENT_POSITION_CONTAINS)
+			) {
+				continue;
+			}
+
+			void popover.hide();
+		}
+	}
+
 	static override styles = [
 		scrollableBase,
 		css`
@@ -228,6 +245,10 @@ export class GlPopover extends GlElement {
 		window.removeEventListener('webview-blur', this.handleWebviewBlur, false);
 		document.removeEventListener('keydown', this.handleDocumentKeyDown);
 		document.removeEventListener('mousedown', this.handleWebviewMouseDown);
+
+		// Remove this popover from the registry when it's disconnected
+		GlPopover.openPopovers.delete(this);
+
 		super.disconnectedCallback();
 	}
 
@@ -286,7 +307,13 @@ export class GlPopover extends GlElement {
 		}
 		if (this.open) return undefined;
 
+		// Close other popovers before showing this one, unless this popover is a descendant of an open popover
+		GlPopover.closeOthers(this);
+
 		this.open = true;
+		// Add this popover to the registry when it's opened
+		GlPopover.openPopovers.add(this);
+
 		return waitForEvent(this, 'gl-popover-after-show');
 	}
 
@@ -296,6 +323,9 @@ export class GlPopover extends GlElement {
 		if (!this.open) return undefined;
 
 		this.open = false;
+		// Remove this popover from the registry when it's closed
+		GlPopover.openPopovers.delete(this);
+
 		return waitForEvent(this, 'gl-popover-after-hide');
 	}
 
