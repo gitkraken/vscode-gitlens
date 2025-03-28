@@ -11327,7 +11327,7 @@
 				},
 				{
 					"command": "gitlens.plus.referFriend",
-					"when": "gitlens:plus"
+					"when": "gitlens:plus:state == 6"
 				},
 				{
 					"command": "gitlens.plus.refreshRepositoryAccess",
