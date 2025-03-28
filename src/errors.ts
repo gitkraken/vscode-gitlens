@@ -276,3 +276,45 @@ export class RequiresIntegrationError extends Error {
 		Error.captureStackTrace?.(this, RequiresIntegrationError);
 	}
 }
+
+export const enum GkAIErrorReason {
+	Entitlement,
+	RequestTooLarge,
+	UserQuotaExceeded,
+	RateLimitExceeded,
+	ServiceCapacityExceeded,
+}
+
+export class GkAIError extends Error {
+	readonly original?: Error;
+	readonly reason: GkAIErrorReason | undefined;
+
+	constructor(reason: GkAIErrorReason, original?: Error) {
+		let message;
+		switch (reason) {
+			case GkAIErrorReason.Entitlement:
+				message = 'You do not have the required entitlement to use this feature';
+				break;
+			case GkAIErrorReason.RequestTooLarge:
+				message = 'Your request is too large';
+				break;
+			case GkAIErrorReason.UserQuotaExceeded:
+				message = 'You have exceeded your user token limit';
+				break;
+			case GkAIErrorReason.RateLimitExceeded:
+				message = 'Rate limit exceeded';
+				break;
+			case GkAIErrorReason.ServiceCapacityExceeded:
+				message = 'Service capacity exceeded';
+				break;
+			default:
+				message = 'An unknown error occurred';
+		}
+
+		super(message);
+
+		this.original = original;
+		this.reason = reason;
+		Error.captureStackTrace?.(this, GkAIError);
+	}
+}

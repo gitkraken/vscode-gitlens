@@ -124,7 +124,13 @@
   'model.provider.name': string,
   'output.length': number,
   'retry.count': number,
-  'type': 'change'
+  'type': 'change',
+  'usage.completionTokens': number,
+  'usage.limits.limit': number,
+  'usage.limits.resetsOn': string,
+  'usage.limits.used': number,
+  'usage.promptTokens': number,
+  'usage.totalTokens': number
 }
 ```
 
@@ -143,7 +149,13 @@
   'model.provider.name': string,
   'output.length': number,
   'retry.count': number,
-  'type': 'commitMessage'
+  'type': 'commitMessage',
+  'usage.completionTokens': number,
+  'usage.limits.limit': number,
+  'usage.limits.resetsOn': string,
+  'usage.limits.used': number,
+  'usage.promptTokens': number,
+  'usage.totalTokens': number
 }
 ```
 
@@ -161,7 +173,13 @@ or
   'model.provider.name': string,
   'output.length': number,
   'retry.count': number,
-  'type': 'draftMessage'
+  'type': 'draftMessage',
+  'usage.completionTokens': number,
+  'usage.limits.limit': number,
+  'usage.limits.resetsOn': string,
+  'usage.limits.used': number,
+  'usage.promptTokens': number,
+  'usage.totalTokens': number
 }
 ```
 
@@ -178,7 +196,13 @@ or
   'model.provider.name': string,
   'output.length': number,
   'retry.count': number,
-  'type': 'stashMessage'
+  'type': 'stashMessage',
+  'usage.completionTokens': number,
+  'usage.limits.limit': number,
+  'usage.limits.resetsOn': string,
+  'usage.limits.used': number,
+  'usage.promptTokens': number,
+  'usage.totalTokens': number
 }
 ```
 
@@ -195,7 +219,13 @@ or
   'model.provider.name': string,
   'output.length': number,
   'retry.count': number,
-  'type': 'changelog'
+  'type': 'changelog',
+  'usage.completionTokens': number,
+  'usage.limits.limit': number,
+  'usage.limits.resetsOn': string,
+  'usage.limits.used': number,
+  'usage.promptTokens': number,
+  'usage.totalTokens': number
 }
 ```
 
@@ -1805,7 +1835,7 @@ void
 
 ```typescript
 {
-  'action': 'manage' | 'sign-up' | 'sign-in' | 'sign-out' | 'reactivate' | 'refer-friend' | 'resend-verification' | 'pricing' | 'start-preview-trial'
+  'action': 'manage' | 'sign-up' | 'sign-in' | 'sign-out' | 'manage-subscription' | 'reactivate' | 'refer-friend' | 'resend-verification' | 'pricing' | 'start-preview-trial'
 }
 ```
 

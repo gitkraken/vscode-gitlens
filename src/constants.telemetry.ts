@@ -312,6 +312,12 @@ interface AIEventDataBase {
 	duration?: number;
 	'input.length'?: number;
 	'output.length'?: number;
+	'usage.promptTokens'?: number;
+	'usage.completionTokens'?: number;
+	'usage.totalTokens'?: number;
+	'usage.limits.used'?: number;
+	'usage.limits.limit'?: number;
+	'usage.limits.resetsOn'?: string;
 	'failed.reason'?: 'user-declined' | 'user-cancelled' | 'error';
 	'failed.error'?: string;
 }
@@ -815,6 +821,7 @@ type SubscriptionActionEventData =
 				| 'sign-in'
 				| 'sign-out'
 				| 'manage'
+				| 'manage-subscription'
 				| 'reactivate'
 				| 'refer-friend'
 				| 'resend-verification'

@@ -154,7 +154,7 @@ export class AnthropicProvider extends OpenAICompatibleProvider<typeof provider.
 		model: AIModel<typeof provider.id>,
 		retries: number,
 		maxCodeCharacters: number,
-	): Promise<{ retry: boolean; maxCodeCharacters: number }> {
+	): Promise<{ retry: true; maxCodeCharacters: number }> {
 		if (rsp.status === 404) {
 			throw new Error(`Your API key doesn't seem to have access to the selected '${model.id}' model`);
 		}

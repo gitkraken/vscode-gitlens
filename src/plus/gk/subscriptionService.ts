@@ -353,7 +353,7 @@ export class SubscriptionService implements Disposable {
 			registerCommand('gitlens.plus.referFriend', (src?: Source) => this.referFriend(src)),
 			registerCommand('gitlens.gk.switchOrganization', (src?: Source) => this.switchOrganization(src)),
 
-			registerCommand('gitlens.plus.manage', (src?: Source) => this.manage(src)),
+			registerCommand('gitlens.plus.manage', (src?: Source) => this.manageAccount(src)),
 			registerCommand('gitlens.plus.showPlans', (src?: Source) => this.showPlans(src)),
 			registerCommand('gitlens.plus.startPreviewTrial', (src?: Source) => this.startPreviewTrial(src)),
 			registerCommand('gitlens.plus.reactivateProTrial', (src?: Source) => this.reactivateProTrial(src)),
@@ -637,7 +637,7 @@ export class SubscriptionService implements Disposable {
 	}
 
 	@log()
-	async manage(source: Source | undefined): Promise<void> {
+	async manageAccount(source: Source | undefined): Promise<boolean> {
 		const scope = getLogScope();
 		if (this.container.telemetry.enabled) {
 			this.container.telemetry.sendEvent('subscription/action', { action: 'manage' }, source);
@@ -645,11 +645,20 @@ export class SubscriptionService implements Disposable {
 
 		try {
 			const exchangeToken = await this.container.accountAuthentication.getExchangeToken();
-			await openUrl(this.container.urls.getGkDevUrl('account', `token=${exchangeToken}`));
+			return await openUrl(this.container.urls.getGkDevUrl('account', `token=${exchangeToken}`));
 		} catch (ex) {
 			Logger.error(ex, scope);
-			await openUrl(this.container.urls.getGkDevUrl('account'));
+			return openUrl(this.container.urls.getGkDevUrl('account'));
 		}
+	}
+
+	@log()
+	async manageSubscription(source: Source | undefined): Promise<boolean> {
+		if (this.container.telemetry.enabled) {
+			this.container.telemetry.sendEvent('subscription/action', { action: 'manage-subscription' }, source);
+		}
+
+		return openUrl(this.container.urls.getGkDevUrl('subscription/edit'));
 	}
 
 	@gate(() => '')
@@ -822,6 +831,7 @@ export class SubscriptionService implements Disposable {
 		}
 	}
 
+	@log()
 	private showPlans(source: Source | undefined): void {
 		if (this.container.telemetry.enabled) {
 			this.container.telemetry.sendEvent('subscription/action', { action: 'pricing' }, source);

@@ -4,7 +4,7 @@ import { fetch } from '@env/fetch';
 import type { AIProviders } from '../../constants.ai';
 import type { TelemetryEvents } from '../../constants.telemetry';
 import type { Container } from '../../container';
-import { CancellationError } from '../../errors';
+import { CancellationError, GkAIError } from '../../errors';
 import { sum } from '../../system/iterable';
 import { getLoggableName, Logger } from '../../system/logger';
 import { startLogScope } from '../../system/logger.scope';
@@ -128,6 +128,8 @@ export abstract class OpenAICompatibleProvider<T extends AIProviders> implements
 			return result;
 		} catch (ex) {
 			Logger.error(ex, scope, `Unable to ${prompt.name}: (${model.provider.name})`);
+			if (ex instanceof GkAIError) throw ex;
+
 			throw new Error(`Unable to ${prompt.name}: (${model.provider.name}) ${ex.message}`);
 		}
 	}
@@ -190,7 +192,7 @@ export abstract class OpenAICompatibleProvider<T extends AIProviders> implements
 		model: AIModel<T>,
 		retries: number,
 		maxCodeCharacters: number,
-	): Promise<{ retry: boolean; maxCodeCharacters: number }> {
+	): Promise<{ retry: true; maxCodeCharacters: number }> {
 		if (rsp.status === 404) {
 			throw new Error(`Your API key doesn't seem to have access to the selected '${model.id}' model`);
 		}
