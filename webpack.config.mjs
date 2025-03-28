@@ -382,6 +382,17 @@ function getWebviewsCommonConfig(mode, env) {
 		}),
 	];
 
+	const imageGeneratorConfig = getImageMinimizerConfig(mode, env);
+
+	if (mode !== 'production') {
+		plugins.push(
+			new ImageMinimizerPlugin({
+				deleteOriginalAssets: true,
+				generator: [imageGeneratorConfig],
+			}),
+		);
+	}
+
 	if (!env.skipLint) {
 		plugins.push(
 			new ESLintLitePlugin({
@@ -405,6 +416,17 @@ function getWebviewsCommonConfig(mode, env) {
 		output: {
 			path: path.join(__dirname, 'dist', 'webviews'),
 			publicPath: '#{root}/dist/webviews/',
+		},
+		optimization: {
+			minimizer:
+				mode === 'production'
+					? [
+							new ImageMinimizerPlugin({
+								deleteOriginalAssets: true,
+								generator: [imageGeneratorConfig],
+							}),
+					  ]
+					: [],
 		},
 		plugins: plugins,
 		infrastructureLogging:
@@ -706,13 +728,7 @@ function getImageMinimizerConfig(mode, env) {
 	return {
 		type: 'asset',
 		implementation: ImageMinimizerPlugin.sharpGenerate,
-		options: {
-			encodeOptions: {
-				webp: {
-					lossless: true,
-				},
-			},
-		},
+		options: { encodeOptions: { webp: { lossless: true } } },
 	};
 }
 
