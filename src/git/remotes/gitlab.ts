@@ -305,7 +305,7 @@ export class GitLabRemote extends RemoteProvider<GitLabRepositoryDescriptor> {
 
 	@memoize()
 	override get repoDesc(): GitLabRepositoryDescriptor {
-		const [owner, repo] = this.splitPath();
+		const [owner, repo] = this.splitPath(this.path);
 		return { key: this.remoteKey, owner: owner, name: repo };
 	}
 
