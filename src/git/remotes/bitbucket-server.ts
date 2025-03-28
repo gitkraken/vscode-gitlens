@@ -2,6 +2,8 @@ import type { Range, Uri } from 'vscode';
 import type { AutolinkReference, DynamicAutolinkReference } from '../../autolinks/models/autolinks';
 import type { Source } from '../../constants.telemetry';
 import type { Container } from '../../container';
+import { HostingIntegration } from '../../plus/integrations/integration';
+import { remoteProviderIdToIntegrationId } from '../../plus/integrations/integrationService';
 import type { Brand, Unbrand } from '../../system/brand';
 import type { CreatePullRequestRemoteResource } from '../models/remoteResource';
 import type { Repository } from '../models/repository';
@@ -62,18 +64,16 @@ export class BitbucketServerRemote extends RemoteProvider {
 	}
 
 	protected override get baseUrl(): string {
-		const [project, repo] = this.splitPath();
+		const [project, repo] = this.splitPath(this.path);
 		return `${this.protocol}://${this.domain}/projects/${project}/repos/${repo}`;
 	}
 
-	protected override splitPath(): [string, string] {
-		if (this.path.startsWith('scm/') && this.path.indexOf('/') !== this.path.lastIndexOf('/')) {
-			const path = this.path.replace('scm/', '');
-			const index = path.indexOf('/');
-			return [path.substring(0, index), path.substring(index + 1)];
+	protected override splitPath(path: string): [string, string] {
+		if (path.startsWith('scm/') && path.indexOf('/') !== path.lastIndexOf('/')) {
+			return super.splitPath(path.replace('scm/', ''));
 		}
 
-		return super.splitPath();
+		return super.splitPath(path);
 	}
 
 	override get icon(): string {
@@ -191,7 +191,13 @@ export class BitbucketServerRemote extends RemoteProvider {
 	}
 
 	protected override getUrlForComparison(base: string, head: string, _notation: GitRevisionRangeNotation): string {
-		return this.encodeUrl(`${this.baseUrl}/branches/compare/${base}%0D${head}`).replaceAll('%250D', '%0D');
+		return this.encodeUrl(`${this.baseUrl}/branches/compare/${head}\r${base}`);
+	}
+
+	override async isReadyForForCrossForkPullRequestUrls(): Promise<boolean> {
+		const integrationId = remoteProviderIdToIntegrationId(this.id);
+		const integration = integrationId && (await this.container.integrations.get(integrationId));
+		return integration?.maybeConnected ?? integration?.isConnected() ?? false;
 	}
 
 	protected override async getUrlForCreatePullRequest(
@@ -210,17 +216,33 @@ export class BitbucketServerRemote extends RemoteProvider {
 		}
 
 		const query = new URLSearchParams({ sourceBranch: head.branch, targetBranch: base.branch ?? '' });
-		// TODO: figure this out
-		// query.set('targetRepoId', base.repoId);
-
+		const [baseOwner, baseName] = this.splitPath(base.remote.path);
+		if (base.remote.url !== head.remote.url) {
+			const targetDesc = {
+				owner: baseOwner,
+				name: baseName,
+			};
+			const integrationId = remoteProviderIdToIntegrationId(this.id);
+			const integration = integrationId && (await this.container.integrations.get(integrationId));
+			let targetRepoId = undefined;
+			if (integration?.isConnected && integration instanceof HostingIntegration) {
+				targetRepoId = (await integration.getRepoInfo?.(targetDesc))?.id;
+			}
+			if (!targetRepoId) {
+				return undefined;
+			}
+			query.set('targetRepoId', targetRepoId);
+		}
 		if (details?.title) {
 			query.set('title', details.title);
 		}
 		if (details?.description) {
 			query.set('description', details.description);
 		}
-
-		return `${this.encodeUrl(`${this.baseUrl}/pull-requests?create`)}&${query.toString()}`;
+		const [headOwner, headName] = this.splitPath(head.remote.path);
+		return `${this.encodeUrl(
+			`${this.protocol}://${this.domain}/projects/${headOwner}/repos/${headName}/pull-requests?create`,
+		)}&${query.toString()}`;
 	}
 
 	protected getUrlForFile(fileName: string, branch?: string, sha?: string, range?: Range): string {

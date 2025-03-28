@@ -183,7 +183,7 @@ export class GitHubRemote extends RemoteProvider<GitHubRepositoryDescriptor> {
 	}
 
 	override get avatarUri(): Uri {
-		const [owner] = this.splitPath();
+		const [owner] = this.splitPath(this.path);
 		return Uri.parse(`https://avatars.githubusercontent.com/${owner}`);
 	}
 
@@ -207,7 +207,7 @@ export class GitHubRemote extends RemoteProvider<GitHubRepositoryDescriptor> {
 
 	@memoize()
 	override get repoDesc(): GitHubRepositoryDescriptor {
-		const [owner, repo] = this.splitPath();
+		const [owner, repo] = this.splitPath(this.path);
 		return { key: this.remoteKey, owner: owner, name: repo };
 	}
 
