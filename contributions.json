@@ -3429,7 +3429,7 @@
 		},
 		"gitlens.plus.referFriend": {
 			"label": "Refer a friend",
-			"commandPalette": "gitlens:plus"
+			"commandPalette": "gitlens:plus:state == 6"
 		},
 		"gitlens.plus.refreshRepositoryAccess": {
 			"label": "Refresh Repository Access",
