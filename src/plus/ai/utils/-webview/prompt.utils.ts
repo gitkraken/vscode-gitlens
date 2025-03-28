@@ -22,7 +22,7 @@ export function getLocalPromptTemplate<T extends AIActionType>(action: T, _model
 			};
 		case 'generate-pullRequestMessage':
 			return {
-				name: 'Generate Pull Request Details',
+				name: 'Generate Pull Request Details (Preview)',
 				template: generatePullRequestMessageUserPrompt,
 				variables: ['diff', 'data', 'context', 'instructions'],
 			};

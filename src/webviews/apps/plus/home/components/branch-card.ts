@@ -182,7 +182,7 @@ export const branchCardStyles = css`
 		display: none;
 	}
 
-	@container (max-width: 280px) {
+	@container (max-width: 330px) {
 		.branch-item__is-narrow {
 			display: block;
 		}
@@ -750,7 +750,7 @@ export abstract class GlBranchCardBase extends GlElement {
 						${this.branch.aiPullRequestCreationAvailable
 							? html`<gl-button
 									class="branch-item__missing"
-									tooltip="Create a Pull Request with AI"
+									tooltip="Create a Pull Request with AI (Preview)"
 									appearance="secondary"
 									href="${this.createCommandLink('gitlens.home.createPullRequest', {
 										source: 'home',
@@ -759,7 +759,7 @@ export abstract class GlBranchCardBase extends GlElement {
 							  >
 									<code-icon class="branch-item__is-wide" icon="sparkle" slot="prefix"></code-icon>
 									<code-icon class="branch-item__is-narrow" icon="sparkle"></code-icon>
-									<span class="branch-item__is-wide">Create with AI</span>
+									<span class="branch-item__is-wide">Create with AI (Preview)</span>
 							  </gl-button>`
 							: nothing}
 					</div>

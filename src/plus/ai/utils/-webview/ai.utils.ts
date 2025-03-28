@@ -26,7 +26,7 @@ export function getActionName(action: AIActionType): string {
 		case 'generate-commitMessage':
 			return 'Generate Commit Message';
 		case 'generate-pullRequestMessage':
-			return 'Generate Pull Request Details';
+			return 'Generate Pull Request Details (Preview)';
 		case 'generate-stashMessage':
 			return 'Generate Stash Message';
 		case 'generate-changelog':
