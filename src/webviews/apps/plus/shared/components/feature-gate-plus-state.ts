@@ -6,11 +6,13 @@ import { urls } from '../../../../../constants';
 import {
 	proFeaturePreviewUsages,
 	proTrialLengthInDays,
+	SubscriptionPlanId,
 	SubscriptionState,
 } from '../../../../../constants.subscription';
 import type { Source } from '../../../../../constants.telemetry';
 import type { FeaturePreview } from '../../../../../features';
 import { getFeaturePreviewStatus } from '../../../../../features';
+import type { SubscriptionUpgradeCommandArgs } from '../../../../../plus/gk/models/subscription';
 import { createCommandLink } from '../../../../../system/commands';
 import { pluralize } from '../../../../../system/string';
 import type { GlButton } from '../../../shared/components/button';
@@ -200,7 +202,10 @@ export class GlFeatureGatePlusState extends LitElement {
 						<gl-button
 							class="inline"
 							appearance="${ifDefined(appearance)}"
-							href="${createCommandLink<Source>('gitlens.plus.upgrade', this.source)}"
+							href="${createCommandLink<SubscriptionUpgradeCommandArgs>('gitlens.plus.upgrade', {
+								plan: SubscriptionPlanId.Pro,
+								...(this.source ?? { source: 'feature-gate' }),
+							})}"
 							>Upgrade to Pro</gl-button
 						><span
 							>or

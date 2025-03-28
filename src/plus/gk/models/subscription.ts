@@ -1,4 +1,5 @@
 import type { SubscriptionPlanId, SubscriptionState } from '../../../constants.subscription';
+import type { Source } from '../../../constants.telemetry';
 import type { Organization } from './organization';
 
 export type FreeSubscriptionPlans = Extract<
@@ -49,4 +50,8 @@ export interface SubscriptionAccount {
 export interface SubscriptionPreviewTrial {
 	readonly startedOn: string;
 	readonly expiresOn: string;
+}
+
+export interface SubscriptionUpgradeCommandArgs extends Source {
+	plan?: SubscriptionPlanId;
 }

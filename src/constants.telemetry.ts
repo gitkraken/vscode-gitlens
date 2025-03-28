@@ -934,6 +934,8 @@ export type Sources =
 	| 'cloud-patches'
 	| 'commandPalette'
 	| 'deeplink'
+	| 'feature-badge'
+	| 'feature-gate'
 	| 'graph'
 	| 'home'
 	| 'inspect'
