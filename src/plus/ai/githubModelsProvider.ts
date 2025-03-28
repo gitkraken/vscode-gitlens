@@ -64,7 +64,7 @@ export class GitHubModelsProvider extends OpenAICompatibleProvider<typeof provid
 		model: AIModel<typeof provider.id>,
 		retries: number,
 		maxCodeCharacters: number,
-	): Promise<{ retry: boolean; maxCodeCharacters: number }> {
+	): Promise<{ retry: true; maxCodeCharacters: number }> {
 		if (rsp.status !== 404 && rsp.status !== 429) {
 			let json;
 			try {

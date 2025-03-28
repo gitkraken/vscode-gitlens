@@ -14,7 +14,7 @@ import {
 } from '../../constants.ai';
 import type { AIGenerateDraftEventData, Source, TelemetryEvents } from '../../constants.telemetry';
 import type { Container } from '../../container';
-import { CancellationError } from '../../errors';
+import { CancellationError, GkAIError, GkAIErrorReason } from '../../errors';
 import type { AIFeatures } from '../../features';
 import { isAdvancedFeature } from '../../features';
 import type { GitCommit } from '../../git/models/commit';
@@ -704,6 +704,12 @@ export class AIProviderService implements Disposable {
 				: promise);
 
 			telementry.data['output.length'] = result?.content?.length;
+			telementry.data['usage.promptTokens'] = result?.usage?.promptTokens;
+			telementry.data['usage.completionTokens'] = result?.usage?.completionTokens;
+			telementry.data['usage.totalTokens'] = result?.usage?.totalTokens;
+			telementry.data['usage.limits.used'] = result?.usage?.limits?.used;
+			telementry.data['usage.limits.limit'] = result?.usage?.limits?.limit;
+			telementry.data['usage.limits.resetsOn'] = result?.usage?.limits?.resetsOn?.toISOString();
 			this.container.telemetry.sendEvent(
 				telementry.key,
 				{ ...telementry.data, duration: Date.now() - start },
@@ -723,6 +729,48 @@ export class AIProviderService implements Disposable {
 				},
 				source,
 			);
+
+			if (ex instanceof GkAIError) {
+				switch (ex.reason) {
+					case GkAIErrorReason.Entitlement:
+						void window.showErrorMessage(
+							'You do not have the required entitlement or are over the limits to use this AI feature',
+						);
+						return undefined;
+					case GkAIErrorReason.RequestTooLarge:
+						void window.showErrorMessage(
+							'Your request is too large. Please reduce the size of your request and try again.',
+						);
+						return undefined;
+					case GkAIErrorReason.UserQuotaExceeded: {
+						const increaseLimit: MessageItem = { title: 'Increase Limit' };
+						const result = await window.showErrorMessage(
+							"Your request could not be completed because you've reached the weekly Al usage limit for your current plan. Upgrade to unlock more Al-powered actions.",
+							increaseLimit,
+						);
+
+						if (result === increaseLimit) {
+							void this.container.subscription.manageSubscription(source);
+						}
+
+						return undefined;
+					}
+					case GkAIErrorReason.RateLimitExceeded:
+						void window.showErrorMessage(
+							'Rate limit exceeded. Please wait a few moments and try again later.',
+						);
+						return undefined;
+					case GkAIErrorReason.ServiceCapacityExceeded: {
+						void window.showErrorMessage(
+							'GitKraken AI is temporarily unable to process your request due to high volume. Please wait a few moments and try again. If this issue persists, please contact support.',
+							'OK',
+						);
+						return undefined;
+					}
+				}
+
+				return undefined;
+			}
 
 			throw ex;
 		}
