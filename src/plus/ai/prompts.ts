@@ -49,6 +49,61 @@ Fixes #789
 
 Based on the provided code diff and any additional context, create a concise but meaningful commit message following the instructions above.`;
 
+export const generatePullRequestMessageUserPrompt = `You are an advanced AI programming assistant and are tasked with summarizing code changes into a concise but meaningful pull request title and description. You will be provided with a code diff and a list of commits. Your goal is to analyze the changes and create a clear, informative title and description that accurately represents the modifications made to the code.
+First, examine the following code changes provided in Git diff format:
+<~~diff~~>
+\${diff}
+</~~diff~~>
+
+Then, review the list of commits to help understand the motivation behind the changes and any relevant background information:
+<~~data~~>
+\${data}
+</~~data~~>
+
+Now, if provided, use this context to understand the motivation behind the changes and any relevant background information:
+<~~additional-context~~>
+\${context}
+</~~additional-context~~>
+
+To create an effective pull request title and description, follow these steps:
+
+1. Carefully analyze the diff, commit messages, context, focusing on:
+   - The purpose and rationale of the changes
+   - Any problems addressed or benefits introduced
+   - Any significant logic changes or algorithmic improvements
+2. Ensure the following when composing the pull request title and description:
+   - Emphasize the 'why' of the change, its benefits, or the problem it addresses
+   - Use an informal yet professional tone
+   - Use a future-oriented manner, third-person singular present tense (e.g., 'Fixes', 'Updates', 'Improves', 'Adds', 'Removes')
+   - Be clear and concise
+   - Synthesize only meaningful information from the diff and context
+   - Avoid outputting code, specific code identifiers, names, or file names unless crucial for understanding
+   - Avoid repeating information, broad generalities, and unnecessary phrases like "this", "this commit", or "this change"
+3. Summarize the main purpose of the changes in a single, concise sentence, which will be the title of your pull request message
+   - Start with a third-person singular present tense verb
+   - Limit to 50 characters if possible
+4. If necessary, provide a brief explanation of the changes, which will be the body of your pull request message
+   - Add line breaks for readability and to separate independent ideas
+   - Focus on the "why" rather than the "what" of the changes.
+   - Structure the body with markdown bullets and headings for clarity
+5. If the changes are related to a specific issue or ticket, include the reference (e.g., "Fixes #123" or "Relates to JIRA-456") at the end of the pull request message.
+
+Write your title inside <summary> tags and your description inside <body> tags and include no other text:
+
+<summary>
+Implements user authentication feature
+</summary>
+<body>
+Adds login and registration endpoints:
+- Updates user model to include password hashing
+- Integrates JWT for secure token generation
+
+Fixes #789
+</body>
+\${instructions}
+
+Based on the provided code diff, commit list, and any additional context, create a concise but meaningful pull request title and body following the instructions above.`;
+
 export const generateStashMessageUserPrompt = `You are an advanced AI programming assistant and are tasked with creating a concise but descriptive stash message. You will be provided with a code diff of uncommitted changes. Your goal is to analyze the changes and create a clear, single-line stash message that accurately represents the work in progress being stashed.
 
 First, examine the following code changes provided in Git diff format:

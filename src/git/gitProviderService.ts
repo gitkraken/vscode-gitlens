@@ -779,10 +779,11 @@ export class GitProviderService implements Disposable {
 			feature === 'launchpad' ||
 			feature === 'startWork' ||
 			feature === 'associateIssueWithBranch' ||
-			feature === 'generateStashMessage' ||
 			feature === 'explainCommit' ||
-			feature === 'cloudPatchGenerateTitleAndDescription' ||
-			feature === 'generateChangelog'
+			feature === 'generateChangelog' ||
+			feature === 'generateCreateDraft' ||
+			feature === 'generateCreatePullRequest' ||
+			feature === 'generateStashMessage'
 		) {
 			return { allowed: false, subscription: { current: subscription, required: SubscriptionPlanId.Pro } };
 		}

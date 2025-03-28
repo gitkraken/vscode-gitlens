@@ -344,10 +344,15 @@ export interface AIGenerateChangelogEventData extends AIEventDataBase {
 	type: 'changelog';
 }
 
+export interface AIGenerateCreatePullRequestEventData extends AIEventDataBase {
+	type: 'createPullRequest';
+}
+
 type AIGenerateEvent =
 	| AIGenerateCommitEventData
 	| AIGenerateDraftEventData
 	| AIGenerateStashEventData
+	| AIGenerateCreatePullRequestEventData
 	| AIGenerateChangelogEventData;
 
 export type AISwitchModelEvent =

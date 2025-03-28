@@ -89,12 +89,12 @@ export class DiffGitSubProvider implements GitDiffSubProvider {
 		repoPath: string,
 		to: string,
 		from?: string,
-		options?: { context?: number; includeUntracked: boolean; uris?: Uri[] },
+		options?: { context?: number; includeUntracked: boolean; uris?: Uri[]; notation?: '..' | '...' },
 	): Promise<GitDiff | undefined> {
 		const scope = getLogScope();
 		const args = [`-U${options?.context ?? 3}`];
 
-		from = prepareToFromDiffArgs(to, from, args);
+		from = prepareToFromDiffArgs(to, from, args, options?.notation);
 
 		let paths: Set<string> | undefined;
 		let untrackedPaths: string[] | undefined;
@@ -630,7 +630,7 @@ export class DiffGitSubProvider implements GitDiffSubProvider {
 		}
 	}
 }
-function prepareToFromDiffArgs(to: string, from: string | undefined, args: string[]) {
+function prepareToFromDiffArgs(to: string, from: string | undefined, args: string[], notation?: '..' | '...'): string {
 	if (to === uncommitted) {
 		if (from != null) {
 			args.push(from);
@@ -656,6 +656,8 @@ function prepareToFromDiffArgs(to: string, from: string | undefined, args: strin
 		}
 	} else if (to === '') {
 		args.push(from);
+	} else if (notation != null) {
+		args.push(`${from}${notation}${to}`);
 	} else {
 		args.push(from, to);
 	}
