@@ -5,6 +5,13 @@ import type { PaidSubscriptionPlans, Subscription, SubscriptionPlan } from '../m
 
 export const SubscriptionUpdatedUriPathPrefix = 'did-update-subscription';
 
+export function compareSubscriptionPlans(
+	planA: SubscriptionPlanId | undefined,
+	planB: SubscriptionPlanId | undefined,
+): number {
+	return getSubscriptionPlanPriority(planA) - getSubscriptionPlanPriority(planB);
+}
+
 export function getSubscriptionStateName(
 	state: SubscriptionState,
 	planId?: SubscriptionPlanId,
@@ -19,10 +26,9 @@ export function getSubscriptionStateName(
 		case SubscriptionState.ProTrial:
 			return `${getSubscriptionPlanName(SubscriptionPlanId.Pro)} Trial`;
 		// return `${getSubscriptionPlanName(
-		// 	effectivePlanId != null &&
-		// 		getSubscriptionPlanPriority(effectivePlanId) >
-		// 			getSubscriptionPlanPriority(planId ?? SubscriptionPlanId.Pro)
-		// 		? effectivePlanId
+		// 	_effectivePlanId != null &&
+		// 		compareSubscriptionPlans(_effectivePlanId, planId ?? SubscriptionPlanId.Pro) > 0
+		// 		? _effectivePlanId
 		// 		: planId ?? SubscriptionPlanId.Pro,
 		// )} Trial`;
 		case SubscriptionState.ProTrialExpired:
@@ -68,10 +74,7 @@ export function computeSubscriptionState(subscription: Optional<Subscription, 's
 
 	if (account?.verified === false) return SubscriptionState.VerificationRequired;
 
-	if (
-		actual.id === effective.id ||
-		getSubscriptionPlanPriority(actual.id) > getSubscriptionPlanPriority(effective.id)
-	) {
+	if (actual.id === effective.id || compareSubscriptionPlans(actual.id, effective.id) > 0) {
 		switch (actual.id === effective.id ? effective.id : actual.id) {
 			case SubscriptionPlanId.Community:
 				return preview == null ? SubscriptionState.Community : SubscriptionState.ProPreviewExpired;
@@ -93,7 +96,7 @@ export function computeSubscriptionState(subscription: Optional<Subscription, 's
 	}
 
 	// If you have a paid license, any trial license higher tier than your paid license is considered paid
-	if (getSubscriptionPlanPriority(actual.id) > getSubscriptionPlanPriority(SubscriptionPlanId.CommunityWithAccount)) {
+	if (compareSubscriptionPlans(actual.id, SubscriptionPlanId.CommunityWithAccount) > 0) {
 		return SubscriptionState.Paid;
 	}
 	switch (effective.id) {
@@ -161,6 +164,20 @@ export function getSubscriptionPlanTier(
 			return 'Community';
 	}
 }
+
+export function getSubscriptionPlanTierType(id: SubscriptionPlanId): 'PRO' | 'ADVANCED' | 'TEAMS' | 'ENTERPRISE' {
+	switch (id) {
+		case SubscriptionPlanId.Advanced:
+			return 'ADVANCED';
+		case SubscriptionPlanId.Teams:
+			return 'TEAMS';
+		case SubscriptionPlanId.Enterprise:
+			return 'ENTERPRISE';
+		default:
+			return 'PRO';
+	}
+}
+
 const plansPriority = new Map<SubscriptionPlanId | undefined, number>([
 	[undefined, -1],
 	[SubscriptionPlanId.Community, 0],

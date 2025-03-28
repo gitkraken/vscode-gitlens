@@ -71,19 +71,20 @@ import { authenticationProviderScopes } from './authenticationProvider';
 import type { GKCheckInResponse } from './models/checkin';
 import type { Organization } from './models/organization';
 import type { Promo } from './models/promo';
-import type { Subscription } from './models/subscription';
+import type { Subscription, SubscriptionUpgradeCommandArgs } from './models/subscription';
 import type { ServerConnection } from './serverConnection';
 import { ensurePlusFeaturesEnabled } from './utils/-webview/plus.utils';
 import { getConfiguredActiveOrganizationId, updateActiveOrganizationId } from './utils/-webview/subscription.utils';
 import { getSubscriptionFromCheckIn } from './utils/checkin.utils';
 import {
 	assertSubscriptionState,
+	compareSubscriptionPlans,
 	computeSubscriptionState,
 	getCommunitySubscription,
 	getPreviewSubscription,
 	getSubscriptionPlan,
 	getSubscriptionPlanName,
-	getSubscriptionPlanPriority,
+	getSubscriptionPlanTierType,
 	getSubscriptionStateString,
 	getSubscriptionTimeRemaining,
 	getTimeRemaining,
@@ -357,11 +358,8 @@ export class SubscriptionService implements Disposable {
 			registerCommand('gitlens.plus.startPreviewTrial', (src?: Source) => this.startPreviewTrial(src)),
 			registerCommand('gitlens.plus.reactivateProTrial', (src?: Source) => this.reactivateProTrial(src)),
 			registerCommand('gitlens.plus.resendVerification', (src?: Source) => this.resendVerification(src)),
-			registerCommand('gitlens.plus.upgrade', (srcAndPlan?: Source & { plan?: SubscriptionPlanId }) =>
-				this.upgrade(
-					srcAndPlan ? { source: srcAndPlan.source, detail: srcAndPlan.detail } : undefined,
-					srcAndPlan?.plan,
-				),
+			registerCommand('gitlens.plus.upgrade', (args?: SubscriptionUpgradeCommandArgs) =>
+				this.upgrade(args?.plan, args ? { source: args.source, detail: args.detail } : undefined),
 			),
 
 			registerCommand('gitlens.plus.hide', (src?: Source) => this.setProFeaturesVisibility(false, src)),
@@ -548,7 +546,7 @@ export class SubscriptionService implements Disposable {
 			);
 
 			if (result === upgrade) {
-				void this.upgrade(source);
+				void this.upgrade(SubscriptionPlanId.Pro, source);
 			} else if (result === learn) {
 				void this.learnAboutPro({ source: 'prompt', detail: { action: 'trial-ended' } }, source);
 			}
@@ -657,8 +655,9 @@ export class SubscriptionService implements Disposable {
 	@gate(() => '')
 	@log()
 	async reactivateProTrial(source: Source | undefined): Promise<void> {
-		if (!(await ensurePlusFeaturesEnabled())) return;
 		const scope = getLogScope();
+
+		if (!(await ensurePlusFeaturesEnabled())) return;
 
 		if (this.container.telemetry.enabled) {
 			this.container.telemetry.sendEvent('subscription/action', { action: 'reactivate' }, source);
@@ -892,10 +891,12 @@ export class SubscriptionService implements Disposable {
 	}
 
 	@log()
-	async upgrade(source: Source | undefined, plan?: SubscriptionPlanId): Promise<boolean> {
+	async upgrade(plan: SubscriptionPlanId | undefined, source: Source | undefined): Promise<boolean> {
 		const scope = getLogScope();
 
 		if (!(await ensurePlusFeaturesEnabled())) return false;
+
+		plan ??= SubscriptionPlanId.Pro;
 
 		let aborted = false;
 		const promo = await this.container.productConfig.getApplicablePromo(this._subscription.state);
@@ -920,14 +921,13 @@ export class SubscriptionService implements Disposable {
 
 		const hasAccount = this._subscription.account != null;
 		if (hasAccount) {
-			// Do a pre-check-in to see if we've already upgraded to a paid plan.
+			// Do a pre-check-in to see if we've already upgraded to a paid plan
 			try {
 				const session = await this.ensureSession(false, source);
 				if (session != null) {
 					if (
 						(await this.checkUpdatedSubscription(source)) === SubscriptionState.Paid &&
-						getSubscriptionPlanPriority(this._subscription.plan.effective.id) >=
-							getSubscriptionPlanPriority(plan ?? SubscriptionPlanId.Pro)
+						compareSubscriptionPlans(this._subscription.plan.effective.id, plan) >= 0
 					) {
 						return true;
 					}
@@ -938,20 +938,7 @@ export class SubscriptionService implements Disposable {
 		const query = new URLSearchParams();
 		query.set('source', 'gitlens');
 		query.set('product', 'gitlens');
-
-		let planType = 'PRO';
-		switch (plan) {
-			case SubscriptionPlanId.Advanced:
-				planType = 'ADVANCED';
-				break;
-			case SubscriptionPlanId.Teams:
-				planType = 'TEAMS';
-				break;
-			case SubscriptionPlanId.Enterprise:
-				planType = 'ENTERPRISE';
-				break;
-		}
-		query.set('planType', planType);
+		query.set('planType', getSubscriptionPlanTierType(plan));
 
 		if (promo?.code != null) {
 			query.set('promoCode', promo.code);

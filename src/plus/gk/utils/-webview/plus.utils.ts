@@ -1,6 +1,6 @@
 import type { MessageItem } from 'vscode';
 import { window } from 'vscode';
-import { proTrialLengthInDays } from '../../../../constants.subscription';
+import { proTrialLengthInDays, SubscriptionPlanId } from '../../../../constants.subscription';
 import type { Source } from '../../../../constants.telemetry';
 import type { Container } from '../../../../container';
 import { configuration } from '../../../../system/-webview/configuration';
@@ -28,6 +28,7 @@ export async function ensurePlusFeaturesEnabled(): Promise<boolean> {
 	await configuration.updateEffective('plusFeatures.enabled', true);
 	return true;
 }
+
 export async function ensurePaidPlan(
 	container: Container,
 	title: string,
@@ -100,7 +101,7 @@ export async function ensurePaidPlan(
 			);
 
 			if (result === upgrade) {
-				void container.subscription.upgrade(source);
+				void container.subscription.upgrade(SubscriptionPlanId.Pro, source);
 			}
 		}
 
