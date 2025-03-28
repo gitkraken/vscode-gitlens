@@ -212,6 +212,10 @@ interface AIConfig {
 	readonly generateChangelog: {
 		readonly customInstructions: string;
 	};
+	readonly generatePullRequestMessage: {
+		readonly customInstructions: string;
+		readonly enabled: boolean;
+	};
 	readonly generateCommitMessage: {
 		readonly customInstructions: string;
 		readonly enabled: boolean;

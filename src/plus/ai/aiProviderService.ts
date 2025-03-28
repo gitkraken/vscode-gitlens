@@ -552,14 +552,14 @@ export class AIProviderService implements Disposable {
 				diff: diff?.contents ?? '',
 				data: commits.sort((a, b) => a[1] - b[1]).map(c => c[0]),
 				context: options?.context ?? '',
-				instructions: configuration.get('ai.generateCommitMessage.customInstructions') ?? '',
+				instructions: configuration.get('ai.generatePullRequestMessage.customInstructions') ?? '',
 			}),
 			m => `Generating pull request details with ${m.name}...`,
 			source,
 			m => ({
 				key: 'ai/generate',
 				data: {
-					type: 'commitMessage',
+					type: 'createPullRequest',
 					'model.id': m.id,
 					'model.provider.id': m.provider.id,
 					'model.provider.name': m.provider.name,
