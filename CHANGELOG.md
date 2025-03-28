@@ -25,6 +25,7 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/) and this p
 
 ### Fixed
 
+- Fixes _Create Pull Request_ feature ([#4142](https://github.com/gitkraken/vscode-gitlens/issues/4142))
 - Fixes Bitbucket Server remote - "scm/" path prefix not removed (regression) ([#3218](https://github.com/gitkraken/vscode-gitlens/issues/3218))
 - Fixes avoid eagerly getting "full" commit details for inline blame ([#4115](https://github.com/gitkraken/vscode-gitlens/issues/4115))
 - Fixes large commit messages work poorly on Commit Graph ([#4100](https://github.com/gitkraken/vscode-gitlens/issues/4100))
@@ -33,7 +34,7 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/) and this p
 - Fixes incorrect settings.json entry for Google Gemini 2.0 Flash Thinking causes linter warning ([#4168](https://github.com/gitkraken/vscode-gitlens/issues/4168))
 - Fixes multiple autolinks in commit message are broken when enriched ([#4069](https://github.com/gitkraken/vscode-gitlens/issues/4069))
 - Fixes `gitlens.hovers.autolinks.enhanced` setting is not respected ([#4174](https://github.com/gitkraken/vscode-gitlens/issues/4174))
-- Fixes _Create Pull Request_ feature ([#4142](https://github.com/gitkraken/vscode-gitlens/issues/4142))
+- Fixes sign out action on Account popover is actually sign in ([#4182](https://github.com/gitkraken/vscode-gitlens/issues/4182))
 
 ## [16.3.3] - 2025-03-13
 

@@ -332,12 +332,12 @@ export class GlAccountChip extends LitElement {
 							${this.hasAccount
 								? html`<gl-button
 										appearance="toolbar"
-										href="${createCommandLink<Source>('gitlens.plus.login', {
+										href="${createCommandLink<Source>('gitlens.plus.logout', {
 											source: 'account',
 										})}"
-										tooltip="Sign In"
-										aria-label="Sign In"
-										><code-icon icon="sign-in"></code-icon
+										tooltip="Sign Out"
+										aria-label="Sign Out"
+										><code-icon icon="sign-out"></code-icon
 								  ></gl-button>`
 								: nothing}
 						</span>
