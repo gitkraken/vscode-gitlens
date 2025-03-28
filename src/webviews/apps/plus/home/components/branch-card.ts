@@ -759,7 +759,7 @@ export abstract class GlBranchCardBase extends GlElement {
 							  >
 									<code-icon class="branch-item__is-wide" icon="sparkle" slot="prefix"></code-icon>
 									<code-icon class="branch-item__is-narrow" icon="sparkle"></code-icon>
-									<span class="branch-item__is-wide">Create with AI (Preview)</span>
+									<span class="branch-item__is-wide">Create with AI</span>
 							  </gl-button>`
 							: nothing}
 					</div>
