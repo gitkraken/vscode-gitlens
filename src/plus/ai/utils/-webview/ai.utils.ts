@@ -25,16 +25,16 @@ export function getActionName(action: AIActionType): string {
 	switch (action) {
 		case 'generate-commitMessage':
 			return 'Generate Commit Message';
-		case 'generate-pullRequestMessage':
-			return 'Generate Pull Request Details (Preview)';
 		case 'generate-stashMessage':
 			return 'Generate Stash Message';
 		case 'generate-changelog':
-			return 'Generate Changelog';
+			return 'Generate Changelog (Preview)';
 		case 'generate-create-cloudPatch':
 			return 'Create Cloud Patch Details';
 		case 'generate-create-codeSuggestion':
 			return 'Create Code Suggestion Details';
+		case 'generate-create-pullRequest':
+			return 'Create Pull Request Details (Preview)';
 		case 'explain-changes':
 			return 'Explain Changes';
 		default:

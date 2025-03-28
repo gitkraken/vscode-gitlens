@@ -530,7 +530,7 @@ export class AIProviderService implements Disposable {
 			progress?: ProgressOptions;
 		},
 	): Promise<AISummarizeResult | undefined> {
-		if (!(await this.ensureFeatureAccess('generateChangelog', source))) {
+		if (!(await this.ensureFeatureAccess('generateCreatePullRequest', source))) {
 			return undefined;
 		}
 
@@ -547,12 +547,12 @@ export class AIProviderService implements Disposable {
 		}
 
 		const result = await this.sendRequest(
-			'generate-pullRequestMessage',
+			'generate-create-pullRequest',
 			() => ({
 				diff: diff?.contents ?? '',
 				data: commits.sort((a, b) => a[1] - b[1]).map(c => c[0]),
 				context: options?.context ?? '',
-				instructions: configuration.get('ai.generatePullRequestMessage.customInstructions') ?? '',
+				instructions: configuration.get('ai.generateCreatePullRequest.customInstructions') ?? '',
 			}),
 			m => `Generating pull request details with ${m.name}...`,
 			source,
@@ -582,7 +582,7 @@ export class AIProviderService implements Disposable {
 			codeSuggestion?: boolean;
 		},
 	): Promise<AISummarizeResult | undefined> {
-		if (!(await this.ensureFeatureAccess('cloudPatchGenerateTitleAndDescription', sourceContext))) {
+		if (!(await this.ensureFeatureAccess('generateCreateDraft', sourceContext))) {
 			return undefined;
 		}
 
@@ -598,8 +598,8 @@ export class AIProviderService implements Disposable {
 				context: options?.context ?? '',
 				instructions:
 					(options?.codeSuggestion
-						? configuration.get('ai.generateCodeSuggestMessage.customInstructions')
-						: configuration.get('ai.generateCloudPatchMessage.customInstructions')) ?? '',
+						? configuration.get('ai.generateCreateCodeSuggest.customInstructions')
+						: configuration.get('ai.generateCreateCloudPatch.customInstructions')) ?? '',
 			}),
 			m =>
 				`Generating ${options?.codeSuggestion ? 'code suggestion' : 'cloud patch'} description with ${

@@ -20,12 +20,6 @@ export function getLocalPromptTemplate<T extends AIActionType>(action: T, _model
 				template: generateCommitMessageUserPrompt,
 				variables: ['diff', 'context', 'instructions'],
 			};
-		case 'generate-pullRequestMessage':
-			return {
-				name: 'Generate Pull Request Details (Preview)',
-				template: generatePullRequestMessageUserPrompt,
-				variables: ['diff', 'data', 'context', 'instructions'],
-			};
 		case 'generate-stashMessage':
 			return {
 				name: 'Generate Stash Message',
@@ -34,7 +28,7 @@ export function getLocalPromptTemplate<T extends AIActionType>(action: T, _model
 			};
 		case 'generate-changelog':
 			return {
-				name: 'Generate Changelog',
+				name: 'Generate Changelog (Preview)',
 				template: generateChangelogUserPrompt,
 				variables: ['data', 'instructions'],
 			};
@@ -49,6 +43,12 @@ export function getLocalPromptTemplate<T extends AIActionType>(action: T, _model
 				name: 'Create Code Suggestion Details',
 				template: generateCodeSuggestMessageUserPrompt,
 				variables: ['diff', 'context', 'instructions'],
+			};
+		case 'generate-create-pullRequest':
+			return {
+				name: 'Generate Pull Request Details (Preview)',
+				template: generatePullRequestMessageUserPrompt,
+				variables: ['diff', 'data', 'context', 'instructions'],
 			};
 		case 'explain-changes':
 			return {

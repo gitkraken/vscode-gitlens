@@ -223,10 +223,13 @@ interface AIConfig {
 	readonly generateStashMessage: {
 		readonly customInstructions: string;
 	};
-	readonly generateCloudPatchMessage: {
+	readonly generateCreateCloudPatch: {
 		readonly customInstructions: string;
 	};
-	readonly generateCodeSuggestMessage: {
+	readonly generateCreateCodeSuggest: {
+		readonly customInstructions: string;
+	};
+	readonly generateCreatePullRequest: {
 		readonly customInstructions: string;
 	};
 	readonly gitkraken: {

@@ -9,7 +9,6 @@ export interface PromptTemplate {
 
 export type PromptTemplateContext<T extends AIActionType> = T extends
 	| 'generate-commitMessage'
-	| 'generate-pullRequestMessage'
 	| 'generate-stashMessage'
 	| 'generate-create-cloudPatch'
 	| 'generate-create-codeSuggestion'

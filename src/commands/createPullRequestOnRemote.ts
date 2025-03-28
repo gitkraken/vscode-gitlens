@@ -98,7 +98,7 @@ export class CreatePullRequestOnRemoteCommand extends GlCommandBase {
 							);
 							return result?.parsed;
 						} catch (e) {
-							void window.showErrorMessage(`Unable to generate pull request message: ${e}`);
+							void window.showErrorMessage(`Unable to generate pull request details: ${e}`);
 							return undefined;
 						}
 				  },
