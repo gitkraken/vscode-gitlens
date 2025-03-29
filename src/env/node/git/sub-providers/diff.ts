@@ -11,7 +11,7 @@ import type {
 import { GitUri } from '../../../../git/gitUri';
 import type { GitDiff, GitDiffFiles, GitDiffFilter, GitDiffShortStat } from '../../../../git/models/diff';
 import type { GitFile } from '../../../../git/models/file';
-import type { GitRevisionRange } from '../../../../git/models/revision';
+import type { GitRevisionRange, GitRevisionRangeNotation } from '../../../../git/models/revision';
 import { deletedOrMissing, uncommitted, uncommittedStaged } from '../../../../git/models/revision';
 import {
 	parseGitApplyFiles,
@@ -23,7 +23,7 @@ import {
 	parseGitLogSimpleFormat,
 	parseGitLogSimpleRenamed,
 } from '../../../../git/parsers/logParser';
-import { isRevisionRange, isUncommittedStaged } from '../../../../git/utils/revision.utils';
+import { getRevisionRangeParts, isRevisionRange, isUncommittedStaged } from '../../../../git/utils/revision.utils';
 import { showGenericErrorMessage } from '../../../../messages';
 import { configuration } from '../../../../system/-webview/configuration';
 import { splitPath } from '../../../../system/-webview/path';
@@ -89,10 +89,19 @@ export class DiffGitSubProvider implements GitDiffSubProvider {
 		repoPath: string,
 		to: string,
 		from?: string,
-		options?: { context?: number; includeUntracked: boolean; uris?: Uri[]; notation?: '..' | '...' },
+		options?: { context?: number; includeUntracked?: boolean; notation?: GitRevisionRangeNotation; uris?: Uri[] },
 	): Promise<GitDiff | undefined> {
 		const scope = getLogScope();
 		const args = [`-U${options?.context ?? 3}`];
+
+		if (to != null && isRevisionRange(to)) {
+			const parts = getRevisionRangeParts(to);
+			if (parts != null) {
+				to = parts.right ?? '';
+				from = parts.left;
+				options = { ...options, notation: parts.notation };
+			}
+		}
 
 		from = prepareToFromDiffArgs(to, from, args, options?.notation);
 
@@ -138,7 +147,7 @@ export class DiffGitSubProvider implements GitDiffSubProvider {
 			}
 		}
 
-		const diff: GitDiff = { contents: data, from: from, to: to };
+		const diff: GitDiff = { contents: data, from: from, to: to, notation: options?.notation };
 		return diff;
 	}
 
@@ -630,7 +639,12 @@ export class DiffGitSubProvider implements GitDiffSubProvider {
 		}
 	}
 }
-function prepareToFromDiffArgs(to: string, from: string | undefined, args: string[], notation?: '..' | '...'): string {
+function prepareToFromDiffArgs(
+	to: string,
+	from: string | undefined,
+	args: string[],
+	notation?: GitRevisionRangeNotation,
+): string {
 	if (to === uncommitted) {
 		if (from != null) {
 			args.push(from);

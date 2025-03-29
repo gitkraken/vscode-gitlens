@@ -16,6 +16,7 @@ import { escapeMarkdown, unescapeMarkdown } from '../../system/markdown';
 import { equalsIgnoreCase } from '../../system/string';
 import type { Repository } from '../models/repository';
 import type { GkProviderId } from '../models/repositoryIdentities';
+import type { GitRevisionRangeNotation } from '../models/revision';
 import { getIssueOrPullRequestMarkdownIcon } from '../utils/-webview/icons';
 import { isSha } from '../utils/revision.utils';
 import type { RemoteProviderId } from './remoteProvider';
@@ -276,7 +277,7 @@ export class GitHubRemote extends RemoteProvider<GitHubRepositoryDescriptor> {
 		return this.encodeUrl(`${this.baseUrl}/commit/${sha}`);
 	}
 
-	protected override getUrlForComparison(base: string, head: string, notation: '..' | '...'): string {
+	protected override getUrlForComparison(base: string, head: string, notation: GitRevisionRangeNotation): string {
 		return this.encodeUrl(`${this.baseUrl}/compare/${base}${notation}${head}`);
 	}
 

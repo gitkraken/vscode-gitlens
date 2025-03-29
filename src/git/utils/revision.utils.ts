@@ -1,4 +1,4 @@
-import type { GitRevisionRange } from '../models/revision';
+import type { GitRevisionRange, GitRevisionRangeNotation } from '../models/revision';
 import { deletedOrMissing, uncommitted, uncommittedStaged } from '../models/revision';
 
 const rangeRegex = /^([\w\-/]+(?:\.[\w\-/]+)*)?(\.\.\.?)([\w\-/]+(?:\.[\w\-/]+)*)?$/;
@@ -85,14 +85,14 @@ export function shortenRevision(
 export function createRevisionRange(
 	left: string | undefined,
 	right: string | undefined,
-	notation: '..' | '...',
+	notation: GitRevisionRangeNotation,
 ): GitRevisionRange {
 	return `${left ?? ''}${notation}${right ?? ''}`;
 }
 
 export function getRevisionRangeParts(
 	ref: GitRevisionRange,
-): { left: string | undefined; right: string | undefined; notation: '..' | '...' } | undefined {
+): { left: string | undefined; right: string | undefined; notation: GitRevisionRangeNotation } | undefined {
 	const match = rangeRegex.exec(ref);
 	if (match == null) return undefined;
 
@@ -100,7 +100,7 @@ export function getRevisionRangeParts(
 	return {
 		left: left || undefined,
 		right: right || undefined,
-		notation: notation as '..' | '...',
+		notation: notation as GitRevisionRangeNotation,
 	};
 }
 

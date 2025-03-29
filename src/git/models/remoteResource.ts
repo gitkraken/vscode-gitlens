@@ -1,5 +1,6 @@
 import type { Range } from 'vscode';
 import type { GitCommit } from './commit';
+import type { GitRevisionRangeNotation } from './revision';
 
 export const enum RemoteResourceType {
 	Branch = 'branch',
@@ -29,7 +30,7 @@ export type RemoteResource =
 			type: RemoteResourceType.Comparison;
 			base: string;
 			compare: string;
-			notation?: '..' | '...';
+			notation?: GitRevisionRangeNotation;
 	  }
 	| {
 			type: RemoteResourceType.CreatePullRequest;

@@ -2,6 +2,7 @@ import type { Range, Uri } from 'vscode';
 import type { AutolinkReference, DynamicAutolinkReference } from '../../autolinks/models/autolinks';
 import type { Repository } from '../models/repository';
 import type { GkProviderId } from '../models/repositoryIdentities';
+import type { GitRevisionRangeNotation } from '../models/revision';
 import { isSha } from '../utils/revision.utils';
 import type { RemoteProviderId } from './remoteProvider';
 import { RemoteProvider } from './remoteProvider';
@@ -189,7 +190,11 @@ export class GerritRemote extends RemoteProvider {
 		return this.encodeUrl(`${this.baseReviewUrl}/q/${sha}`);
 	}
 
-	protected override getUrlForComparison(base: string, head: string, notation: '..' | '...'): string | undefined {
+	protected override getUrlForComparison(
+		base: string,
+		head: string,
+		notation: GitRevisionRangeNotation,
+	): string | undefined {
 		return this.encodeUrl(`${this.baseReviewUrl}/q/${base}${notation}${head}`);
 	}
 

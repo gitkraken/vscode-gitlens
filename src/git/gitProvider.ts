@@ -22,7 +22,7 @@ import type { GitBranchReference, GitReference } from './models/reference';
 import type { GitReflog } from './models/reflog';
 import type { GitRemote } from './models/remote';
 import type { Repository, RepositoryChangeEvent } from './models/repository';
-import type { GitRevisionRange } from './models/revision';
+import type { GitRevisionRange, GitRevisionRangeNotation } from './models/revision';
 import type { GitStash } from './models/stash';
 import type { GitStatus } from './models/status';
 import type { GitStatusFile } from './models/statusFile';
@@ -360,12 +360,12 @@ export interface GitDiffSubProvider {
 		options?: { uris?: Uri[] },
 	): Promise<GitDiffShortStat | undefined>;
 	getDiff?(
-		repoPath: string | Uri,
+		repoPath: string,
 		to: string,
 		from?: string,
-		options?: { context?: number; includeUntracked?: boolean; uris?: Uri[]; notation?: '..' | '...' },
+		options?: { context?: number; includeUntracked?: boolean; notation?: GitRevisionRangeNotation; uris?: Uri[] },
 	): Promise<GitDiff | undefined>;
-	getDiffFiles?(repoPath: string | Uri, contents: string): Promise<GitDiffFiles | undefined>;
+	getDiffFiles?(repoPath: string, contents: string): Promise<GitDiffFiles | undefined>;
 	getDiffStatus(
 		repoPath: string,
 		ref1OrRange: string | GitRevisionRange,

@@ -4,6 +4,7 @@ import type { RepositoryDescriptor } from '../../plus/integrations/integration';
 import type { Brand, Unbrand } from '../../system/brand';
 import type { Repository } from '../models/repository';
 import type { GkProviderId } from '../models/repositoryIdentities';
+import type { GitRevisionRangeNotation } from '../models/revision';
 import { isSha } from '../utils/revision.utils';
 import type { RemoteProviderId } from './remoteProvider';
 import { RemoteProvider } from './remoteProvider';
@@ -143,7 +144,7 @@ export class BitbucketRemote extends RemoteProvider<RepositoryDescriptor> {
 		return this.encodeUrl(`${this.baseUrl}/commits/${sha}`);
 	}
 
-	protected override getUrlForComparison(base: string, head: string, _notation: '..' | '...'): string {
+	protected override getUrlForComparison(base: string, head: string, _notation: GitRevisionRangeNotation): string {
 		return `${this.encodeUrl(`${this.baseUrl}/branches/compare/${head}\r${base}`)}#diff`;
 	}
 

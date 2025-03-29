@@ -6,6 +6,7 @@ import type { TrackedUsage, TrackedUsageKeys } from './constants.telemetry';
 import type { GroupableTreeViewTypes } from './constants.views';
 import type { Environment } from './container';
 import type { FeaturePreviews } from './features';
+import type { GitRevisionRangeNotation } from './git/models/revision';
 import type { Subscription } from './plus/gk/models/subscription';
 import type { Integration } from './plus/integrations/integration';
 import type { DeepLinkServiceState } from './uris/deepLinks/deepLink';
@@ -288,7 +289,7 @@ export interface StoredRepoVisibilityInfo {
 export interface StoredBranchComparison {
 	ref: string;
 	label?: string;
-	notation: '..' | '...' | undefined;
+	notation: GitRevisionRangeNotation | undefined;
 	type: Exclude<ViewShowBranchComparison, false> | undefined;
 	checkedFiles?: string[];
 }
@@ -348,7 +349,7 @@ export interface StoredComparison {
 	path: string;
 	ref1: StoredNamedRef;
 	ref2: StoredNamedRef;
-	notation?: '..' | '...';
+	notation?: GitRevisionRangeNotation;
 
 	checkedFiles?: string[];
 }

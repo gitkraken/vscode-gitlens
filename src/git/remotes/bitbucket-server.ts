@@ -3,6 +3,7 @@ import type { AutolinkReference, DynamicAutolinkReference } from '../../autolink
 import type { Brand, Unbrand } from '../../system/brand';
 import type { Repository } from '../models/repository';
 import type { GkProviderId } from '../models/repositoryIdentities';
+import type { GitRevisionRangeNotation } from '../models/revision';
 import { isSha } from '../utils/revision.utils';
 import type { RemoteProviderId } from './remoteProvider';
 import { RemoteProvider } from './remoteProvider';
@@ -157,7 +158,7 @@ export class BitbucketServerRemote extends RemoteProvider {
 		return this.encodeUrl(`${this.baseUrl}/commits/${sha}`);
 	}
 
-	protected override getUrlForComparison(base: string, head: string, _notation: '..' | '...'): string {
+	protected override getUrlForComparison(base: string, head: string, _notation: GitRevisionRangeNotation): string {
 		return this.encodeUrl(`${this.baseUrl}/branches/compare/${base}%0D${head}`).replaceAll('%250D', '%0D');
 	}
 
