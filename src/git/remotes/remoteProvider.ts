@@ -11,6 +11,7 @@ import type { RemoteResource } from '../models/remoteResource';
 import { RemoteResourceType } from '../models/remoteResource';
 import type { Repository } from '../models/repository';
 import type { GkProviderId } from '../models/repositoryIdentities';
+import type { GitRevisionRangeNotation } from '../models/revision';
 
 export type RemoteProviderId =
 	| 'azure-devops'
@@ -193,7 +194,11 @@ export abstract class RemoteProvider<T extends ResourceDescriptor = ResourceDesc
 
 	protected abstract getUrlForCommit(sha: string): string;
 
-	protected abstract getUrlForComparison(base: string, head: string, notation: '..' | '...'): string | undefined;
+	protected abstract getUrlForComparison(
+		base: string,
+		head: string,
+		notation: GitRevisionRangeNotation,
+	): string | undefined;
 
 	async isReadyForForCrossForkPullRequestUrls(): Promise<boolean> {
 		return Promise.resolve(true);

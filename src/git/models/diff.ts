@@ -1,9 +1,11 @@
 import type { GitFileChange } from './fileChange';
+import type { GitRevisionRangeNotation } from './revision';
 
 export interface GitDiff {
 	readonly contents: string;
 	readonly from: string;
 	readonly to: string;
+	readonly notation: GitRevisionRangeNotation | undefined;
 }
 
 export interface GitDiffHunkLine {

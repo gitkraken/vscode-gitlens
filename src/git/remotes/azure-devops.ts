@@ -7,6 +7,7 @@ import { parseAzureHttpsUrl } from '../../plus/integrations/providers/azure/mode
 import type { Brand, Unbrand } from '../../system/brand';
 import type { Repository } from '../models/repository';
 import type { GkProviderId } from '../models/repositoryIdentities';
+import type { GitRevisionRangeNotation } from '../models/revision';
 import type { RemoteProviderId } from './remoteProvider';
 import { RemoteProvider } from './remoteProvider';
 
@@ -193,7 +194,7 @@ export class AzureDevOpsRemote extends RemoteProvider {
 		return this.encodeUrl(`${this.baseUrl}/commit/${sha}`);
 	}
 
-	protected override getUrlForComparison(base: string, head: string, _notation: '..' | '...'): string {
+	protected override getUrlForComparison(base: string, head: string, _notation: GitRevisionRangeNotation): string {
 		return this.encodeUrl(`${this.baseUrl}/branchCompare?baseVersion=GB${base}&targetVersion=GB${head}`);
 	}
 

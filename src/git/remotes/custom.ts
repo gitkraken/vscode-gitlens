@@ -4,6 +4,7 @@ import type { RemotesUrlsConfig } from '../../config';
 import { getTokensFromTemplate, interpolate } from '../../system/string';
 import type { Repository } from '../models/repository';
 import type { GkProviderId } from '../models/repositoryIdentities';
+import type { GitRevisionRangeNotation } from '../models/revision';
 import type { RemoteProviderId } from './remoteProvider';
 import { RemoteProvider } from './remoteProvider';
 
@@ -58,7 +59,11 @@ export class CustomRemote extends RemoteProvider {
 		return this.getUrl(this.urls.commit, this.getContext({ id: sha }));
 	}
 
-	protected override getUrlForComparison(base: string, head: string, notation: '..' | '...'): string | undefined {
+	protected override getUrlForComparison(
+		base: string,
+		head: string,
+		notation: GitRevisionRangeNotation,
+	): string | undefined {
 		if (this.urls.comparison == null) return undefined;
 
 		return this.getUrl(this.urls.comparison, this.getContext({ ref1: base, ref2: head, notation: notation }));
