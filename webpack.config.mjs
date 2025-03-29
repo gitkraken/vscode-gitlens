@@ -587,6 +587,11 @@ function getWebviewConfig(webviews, overrides, mode, env) {
 				// Disable all non-async code splitting
 				// chunks: () => false,
 				cacheGroups: {
+					billboard: {
+						test: /[\\/]node_modules[\\/](billboard\.js)[\\/]/,
+						filename: pathData => `lib-billboard-${pathData.chunk?.id ?? 'chunk'}.js`,
+						chunks: 'async',
+					},
 					default: false,
 					vendors: false,
 				},
