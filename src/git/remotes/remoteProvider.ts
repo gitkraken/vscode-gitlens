@@ -183,8 +183,12 @@ export abstract class RemoteProvider<T extends ResourceDescriptor = ResourceDesc
 	}
 
 	protected splitPath(): [string, string] {
-		const index = this.path.indexOf('/');
-		return [this.path.substring(0, index), this.path.substring(index + 1)];
+		return this.splitArgPath(this.path);
+	}
+
+	protected splitArgPath(argPath: string): [string, string] {
+		const index = argPath.indexOf('/');
+		return [argPath.substring(0, index), argPath.substring(index + 1)];
 	}
 
 	protected abstract getUrlForBranch(branch: string): string;

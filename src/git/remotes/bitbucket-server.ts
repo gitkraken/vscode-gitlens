@@ -1,5 +1,8 @@
 import type { Range, Uri } from 'vscode';
 import type { AutolinkReference, DynamicAutolinkReference } from '../../autolinks/models/autolinks';
+import type { Container } from '../../container';
+import { HostingIntegration } from '../../plus/integrations/integration';
+import { remoteProviderIdToIntegrationId } from '../../plus/integrations/integrationService';
 import type { Brand, Unbrand } from '../../system/brand';
 import type { Repository } from '../models/repository';
 import type { GkProviderId } from '../models/repositoryIdentities';
@@ -11,7 +14,14 @@ const fileRegex = /^\/([^/]+)\/([^/]+?)\/src(.+)$/i;
 const rangeRegex = /^lines-(\d+)(?::(\d+))?$/;
 
 export class BitbucketServerRemote extends RemoteProvider {
-	constructor(domain: string, path: string, protocol?: string, name?: string, custom: boolean = false) {
+	constructor(
+		private readonly container: Container,
+		domain: string,
+		path: string,
+		protocol?: string,
+		name?: string,
+		custom: boolean = false,
+	) {
 		super(domain, path, protocol, name, custom);
 	}
 
@@ -54,14 +64,12 @@ export class BitbucketServerRemote extends RemoteProvider {
 		return `${this.protocol}://${this.domain}/projects/${project}/repos/${repo}`;
 	}
 
-	protected override splitPath(): [string, string] {
-		if (this.path.startsWith('scm/') && this.path.indexOf('/') !== this.path.lastIndexOf('/')) {
-			const path = this.path.replace('scm/', '');
-			const index = path.indexOf('/');
-			return [path.substring(0, index), path.substring(index + 1)];
+	protected override splitArgPath(argPath: string): [string, string] {
+		if (argPath.startsWith('scm/') && argPath.indexOf('/') !== argPath.lastIndexOf('/')) {
+			return super.splitArgPath(argPath.replace('scm/', ''));
 		}
 
-		return super.splitPath();
+		return super.splitArgPath(argPath);
 	}
 
 	override get icon(): string {
@@ -158,25 +166,48 @@ export class BitbucketServerRemote extends RemoteProvider {
 	}
 
 	protected override getUrlForComparison(base: string, head: string, _notation: '..' | '...'): string {
-		return this.encodeUrl(`${this.baseUrl}/branches/compare/${base}%0D${head}`).replaceAll('%250D', '%0D');
+		return this.encodeUrl(`${this.baseUrl}/branches/compare/${head}\r${base}`);
 	}
 
-	protected override getUrlForCreatePullRequest(
+	override async isReadyForForCrossForkPullRequestUrls(): Promise<boolean> {
+		const integrationId = remoteProviderIdToIntegrationId(this.id);
+		const integration = integrationId && (await this.container.integrations.get(integrationId));
+		return integration?.maybeConnected ?? integration?.isConnected() ?? false;
+	}
+
+	protected override async getUrlForCreatePullRequest(
 		base: { branch?: string; remote: { path: string; url: string } },
 		head: { branch: string; remote: { path: string; url: string } },
 		options?: { title?: string; description?: string },
-	): string | undefined {
+	): Promise<string | undefined> {
 		const query = new URLSearchParams({ sourceBranch: head.branch, targetBranch: base.branch ?? '' });
-		// TODO: figure this out
-		// query.set('targetRepoId', base.repoId);
+		const [baseOwner, baseName] = this.splitArgPath(base.remote.path);
+		if (base.remote.url !== head.remote.url) {
+			const targetDesc = {
+				owner: baseOwner,
+				name: baseName,
+			};
+			const integrationId = remoteProviderIdToIntegrationId(this.id);
+			const integration = integrationId && (await this.container.integrations.get(integrationId));
+			let targetRepoId = undefined;
+			if (integration?.isConnected && integration instanceof HostingIntegration) {
+				targetRepoId = (await integration.getRepoInfo?.(targetDesc))?.id;
+			}
+			if (!targetRepoId) {
+				return undefined;
+			}
+			query.set('targetRepoId', targetRepoId);
+		}
 		if (options?.title) {
 			query.set('title', options.title);
 		}
 		if (options?.description) {
 			query.set('description', options.description);
 		}
-
-		return `${this.encodeUrl(`${this.baseUrl}/pull-requests?create`)}&${query.toString()}`;
+		const [headOwner, headName] = this.splitArgPath(head.remote.path);
+		return `${this.encodeUrl(
+			`${this.protocol}://${this.domain}/projects/${headOwner}/repos/${headName}/pull-requests?create`,
+		)}&${query.toString()}`;
 	}
 
 	protected getUrlForFile(fileName: string, branch?: string, sha?: string, range?: Range): string {
