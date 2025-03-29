@@ -8,6 +8,7 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/) and this p
 
 ### Added
 
+- Adds auto-squashing of fixup commits to interactive rebases ([#2949](https://github.com/gitkraken/vscode-gitlens/issues/2959)) — thanks to [PR #4109](https://github.com/gitkraken/vscode-gitlens/pull/4109) by Gabriel Seltzer [@gabeseltzer](https://github.com/gabeseltzer)
 - Adds AI model status and model switcher to the _Home_ view ([#4064](https://github.com/gitkraken/vscode-gitlens/issues/4064))
 - Adds an optional "Create with AI" button to generate pull requests using AI assistance for GitHub and GitLab.
 - Adds Anthropic Claude 3.7 Sonnet model for GitLens' AI features ([#4101](https://github.com/gitkraken/vscode-gitlens/issues/4101))
