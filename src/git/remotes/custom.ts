@@ -2,6 +2,7 @@ import type { Range, Uri } from 'vscode';
 import type { AutolinkReference, DynamicAutolinkReference } from '../../autolinks/models/autolinks';
 import type { RemotesUrlsConfig } from '../../config';
 import { getTokensFromTemplate, interpolate } from '../../system/string';
+import type { CreatePullRequestRemoteResource } from '../models/remoteResource';
 import type { Repository } from '../models/repository';
 import type { GkProviderId } from '../models/repositoryIdentities';
 import type { GitRevisionRangeNotation } from '../models/revision';
@@ -69,16 +70,12 @@ export class CustomRemote extends RemoteProvider {
 		return this.getUrl(this.urls.comparison, this.getContext({ ref1: base, ref2: head, notation: notation }));
 	}
 
-	protected override getUrlForCreatePullRequest(
-		base: { branch?: string; remote: { path: string; url: string } },
-		compare: { branch: string; remote: { path: string; url: string } },
-		_options?: { title?: string; description?: string },
-	): string | undefined {
+	protected override getUrlForCreatePullRequest({ base, head }: CreatePullRequestRemoteResource): string | undefined {
 		if (this.urls.createPullRequest == null) return undefined;
 
 		return this.getUrl(
 			this.urls.createPullRequest,
-			this.getContext({ base: base.branch ?? '', head: compare.branch }),
+			this.getContext({ base: base.branch ?? '', head: head.branch }),
 		);
 	}
 

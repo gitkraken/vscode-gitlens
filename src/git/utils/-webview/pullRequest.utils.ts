@@ -1,11 +1,45 @@
-import { Uri, window } from 'vscode';
+import type { ProgressOptions } from 'vscode';
+import { ProgressLocation, Uri, window } from 'vscode';
 import { Schemes } from '../../../constants';
+import type { Source } from '../../../constants.telemetry';
 import type { Container } from '../../../container';
 import type { LeftRightCommitCountResult } from '../../gitProvider';
 import type { PullRequest, PullRequestComparisonRefs } from '../../models/pullRequest';
+import type { CreatePullRequestRemoteResource } from '../../models/remoteResource';
 import type { Repository } from '../../models/repository';
 import { getComparisonRefsForPullRequest, getRepositoryIdentityForPullRequest } from '../pullRequest.utils';
 import { createRevisionRange } from '../revision.utils';
+
+export async function describePullRequestWithAI(
+	container: Container,
+	repo: string | Repository,
+	{ base, head }: CreatePullRequestRemoteResource,
+	source: Source,
+	options?: { progress?: ProgressOptions },
+): Promise<{ title: string; description: string } | undefined> {
+	if (!base?.remote || !head?.remote || !base?.branch || !head?.branch) {
+		return undefined;
+	}
+
+	if (typeof repo === 'string') {
+		const r = container.git.getRepository(repo);
+		if (r == null) return undefined;
+
+		repo = r;
+	}
+
+	const result = await container.ai.generatePullRequestMessage(
+		repo,
+		`${base.remote.name}/${base.branch}`,
+		`${head.remote.name}/${head.branch}`,
+		source,
+		{
+			progress: { location: ProgressLocation.Notification },
+			...options,
+		},
+	);
+	return result?.parsed ? { title: result.parsed.summary, description: result.parsed.body } : undefined;
+}
 
 export async function ensurePullRequestRefs(
 	pr: PullRequest,

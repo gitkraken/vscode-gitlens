@@ -309,8 +309,8 @@ function registerBuiltInActionRunners(container: Container): void {
 						  : ctx.branch.name,
 					remote: ctx.remote?.name ?? '',
 					repoPath: ctx.repoPath,
+					describeWithAI: ctx.describeWithAI,
 					source: ctx.source,
-					useAI: ctx.useAI,
 				}));
 			},
 		}),

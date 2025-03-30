@@ -1,4 +1,5 @@
 import type { IntegrationDescriptor } from '../../constants.integrations';
+import type { Source } from '../../constants.telemetry';
 import type { GitBranchMergedStatus } from '../../git/gitProvider';
 import type { GitBranchStatus, GitTrackingState, GitTrackingUpstream } from '../../git/models/branch';
 import type { GitDiffFileStats } from '../../git/models/diff';
@@ -348,4 +349,10 @@ export interface BranchRef {
 export interface BranchAndTargetRefs extends BranchRef {
 	mergeTargetId: string;
 	mergeTargetName: string;
+}
+
+export interface CreatePullRequestCommandArgs {
+	ref: BranchRef;
+	describeWithAI?: boolean;
+	source?: Source;
 }

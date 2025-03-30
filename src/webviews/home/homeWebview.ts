@@ -1,5 +1,6 @@
 import type { ConfigurationChangeEvent } from 'vscode';
 import { Disposable, env, Uri, window, workspace } from 'vscode';
+import { ActionRunnerType } from '../../api/actionRunners';
 import type { CreatePullRequestActionContext } from '../../api/gitlens';
 import type { EnrichedAutolink } from '../../autolinks/models/autolinks';
 import { getAvatarUriFromGravatarEmail } from '../../avatars';
@@ -12,7 +13,7 @@ import {
 	supportedCloudIntegrationDescriptors,
 	supportedOrderedCloudIntegrationIds,
 } from '../../constants.integrations';
-import type { HomeTelemetryContext, Source, Sources } from '../../constants.telemetry';
+import type { HomeTelemetryContext, Source } from '../../constants.telemetry';
 import type { Container } from '../../container';
 import { executeGitCommand } from '../../git/actions';
 import { openComparisonChanges } from '../../git/actions/commit';
@@ -76,6 +77,7 @@ import type {
 	BranchAndTargetRefs,
 	BranchRef,
 	CollapseSectionParams,
+	CreatePullRequestCommandArgs,
 	DidChangeRepositoriesParams,
 	GetActiveOverviewResponse,
 	GetInactiveOverviewResponse,
@@ -1350,39 +1352,48 @@ export class HomeWebviewProvider implements WebviewProvider<State, State, HomeWe
 	}
 
 	@log<HomeWebviewProvider['pullRequestCreate']>({
-		args: { 0: r => `${r.branchId}, upstream: ${r.branchUpstreamName}` },
+		args: { 0: a => `${a.ref.branchId}, upstream: ${a.ref.branchUpstreamName}` },
 	})
-	private async pullRequestCreate(ref: BranchRef & { source?: Sources; useAI?: boolean }) {
+	private async pullRequestCreate({ ref, describeWithAI, source }: CreatePullRequestCommandArgs) {
 		const { branch } = await this.getRepoInfoFromRef(ref);
 		if (branch == null) return;
 
 		const remote = await branch.getRemote();
 
-		executeActionCommand<CreatePullRequestActionContext>('createPullRequest', {
-			repoPath: ref.repoPath,
-			remote:
-				remote != null
-					? {
-							name: remote.name,
-							provider:
-								remote.provider != null
-									? {
-											id: remote.provider.id,
-											name: remote.provider.name,
-											domain: remote.provider.domain,
-									  }
-									: undefined,
-							url: remote.url,
-					  }
-					: undefined,
-			branch: {
-				name: branch.name,
-				upstream: branch.upstream?.name,
-				isRemote: branch.remote,
+		// If we are describing with AI, we need to use the built-in action runner only
+		const runnerId = describeWithAI
+			? this.container.actionRunners.get('createPullRequest')?.find(r => r.type === ActionRunnerType.BuiltIn)?.id
+			: undefined;
+
+		executeActionCommand<CreatePullRequestActionContext>(
+			'createPullRequest',
+			{
+				repoPath: ref.repoPath,
+				remote:
+					remote != null
+						? {
+								name: remote.name,
+								provider:
+									remote.provider != null
+										? {
+												id: remote.provider.id,
+												name: remote.provider.name,
+												domain: remote.provider.domain,
+										  }
+										: undefined,
+								url: remote.url,
+						  }
+						: undefined,
+				branch: {
+					name: branch.name,
+					upstream: branch.upstream?.name,
+					isRemote: branch.remote,
+				},
+				describeWithAI: describeWithAI,
+				source: source,
 			},
-			source: ref.source,
-			useAI: ref.useAI,
-		});
+			runnerId,
+		);
 	}
 
 	@log<HomeWebviewProvider['worktreeOpen']>({

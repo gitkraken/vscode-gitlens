@@ -135,7 +135,7 @@ export class OpenOnRemoteCommand extends GlCommandBase {
 					if (resources.length === 1) {
 						title += `${pad(GlyphChars.Dot, 2, 2)}${createRevisionRange(
 							resource.base,
-							resource.compare,
+							resource.head,
 							resource.notation ?? '...',
 						)}`;
 					}
@@ -160,8 +160,8 @@ export class OpenOnRemoteCommand extends GlCommandBase {
 								: `Create Pull Request on ${provider}`
 						}${pad(GlyphChars.Dot, 2, 2)}${
 							resource.base?.branch
-								? createRevisionRange(resource.base.branch, resource.compare.branch, '...')
-								: resource.compare.branch
+								? createRevisionRange(resource.base.branch, resource.head.branch, '...')
+								: resource.head.branch
 						}`;
 
 						placeholder = `Choose which remote to ${

@@ -63,7 +63,7 @@ export class OpenComparisonOnRemoteCommand extends GlCommandBase {
 				resource: {
 					type: RemoteResourceType.Comparison,
 					base: args.ref1,
-					compare: args.ref2,
+					head: args.ref2,
 					notation: args.notation,
 				},
 				repoPath: args.repoPath,

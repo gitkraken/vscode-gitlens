@@ -32,7 +32,7 @@ const builtInProviders: RemoteProviders = [
 	{
 		custom: false,
 		matcher: 'github.com',
-		creator: (_container: Container, domain: string, path: string) => new GitHubRemote(domain, path),
+		creator: (container: Container, domain: string, path: string) => new GitHubRemote(container, domain, path),
 	},
 	{
 		custom: false,
@@ -47,7 +47,8 @@ const builtInProviders: RemoteProviders = [
 	{
 		custom: true,
 		matcher: /^(.+\/(?:bitbucket|stash))\/scm\/(.+)$/i,
-		creator: (_container: Container, domain: string, path: string) => new BitbucketServerRemote(domain, path),
+		creator: (container: Container, domain: string, path: string) =>
+			new BitbucketServerRemote(container, domain, path),
 	},
 	{
 		custom: false,
@@ -63,7 +64,7 @@ const builtInProviders: RemoteProviders = [
 	{
 		custom: false,
 		matcher: /\bgitea\b/i,
-		creator: (_container: Container, domain: string, path: string) => new GiteaRemote(domain, path),
+		creator: (container: Container, domain: string, path: string) => new GiteaRemote(container, domain, path),
 	},
 	{
 		custom: false,
@@ -81,12 +82,12 @@ const cloudProviderCreatorsMap: Record<
 	CloudSelfHostedIntegrationId,
 	(container: Container, domain: string, path: string) => RemoteProvider
 > = {
-	[SelfHostedIntegrationId.CloudGitHubEnterprise]: (_container: Container, domain: string, path: string) =>
-		new GitHubRemote(domain, path),
+	[SelfHostedIntegrationId.CloudGitHubEnterprise]: (container: Container, domain: string, path: string) =>
+		new GitHubRemote(container, domain, path),
 	[SelfHostedIntegrationId.CloudGitLabSelfHosted]: (container: Container, domain: string, path: string) =>
 		new GitLabRemote(container, domain, path),
-	[SelfHostedIntegrationId.BitbucketServer]: (_container: Container, domain: string, path: string) =>
-		new BitbucketServerRemote(domain, path),
+	[SelfHostedIntegrationId.BitbucketServer]: (container: Container, domain: string, path: string) =>
+		new BitbucketServerRemote(container, domain, path),
 };
 
 export function loadRemoteProviders(
@@ -152,8 +153,8 @@ function getCustomProviderCreator(cfg: RemotesConfig) {
 			return (_container: Container, domain: string, path: string) =>
 				new BitbucketRemote(domain, path, cfg.protocol, cfg.name, true);
 		case 'BitbucketServer':
-			return (_container: Container, domain: string, path: string) =>
-				new BitbucketServerRemote(domain, path, cfg.protocol, cfg.name, true);
+			return (container: Container, domain: string, path: string) =>
+				new BitbucketServerRemote(container, domain, path, cfg.protocol, cfg.name, true);
 		case 'Custom':
 			return (_container: Container, domain: string, path: string) =>
 				new CustomRemote(domain, path, cfg.urls!, cfg.protocol, cfg.name);
@@ -164,11 +165,11 @@ function getCustomProviderCreator(cfg: RemotesConfig) {
 			return (_container: Container, domain: string, path: string) =>
 				new GoogleSourceRemote(domain, path, cfg.protocol, cfg.name, true);
 		case 'Gitea':
-			return (_container: Container, domain: string, path: string) =>
-				new GiteaRemote(domain, path, cfg.protocol, cfg.name, true);
+			return (container: Container, domain: string, path: string) =>
+				new GiteaRemote(container, domain, path, cfg.protocol, cfg.name, true);
 		case 'GitHub':
-			return (_container: Container, domain: string, path: string) =>
-				new GitHubRemote(domain, path, cfg.protocol, cfg.name, true);
+			return (container: Container, domain: string, path: string) =>
+				new GitHubRemote(container, domain, path, cfg.protocol, cfg.name, true);
 		case 'GitLab':
 			return (container: Container, domain: string, path: string) =>
 				new GitLabRemote(container, domain, path, cfg.protocol, cfg.name, true);

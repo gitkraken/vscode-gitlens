@@ -6,6 +6,7 @@ import type {
 	MaybeEnrichedAutolink,
 } from '../../autolinks/models/autolinks';
 import { GlyphChars } from '../../constants';
+import type { Source } from '../../constants.telemetry';
 import type { Container } from '../../container';
 import { HostingIntegration } from '../../plus/integrations/integration';
 import { remoteProviderIdToIntegrationId } from '../../plus/integrations/integrationService';
@@ -16,10 +17,12 @@ import { memoize } from '../../system/decorators/-webview/memoize';
 import { encodeUrl } from '../../system/encoding';
 import { escapeMarkdown, unescapeMarkdown } from '../../system/markdown';
 import { equalsIgnoreCase } from '../../system/string';
+import type { CreatePullRequestRemoteResource } from '../models/remoteResource';
 import type { Repository } from '../models/repository';
 import type { GkProviderId } from '../models/repositoryIdentities';
 import type { GitRevisionRangeNotation } from '../models/revision';
 import { getIssueOrPullRequestMarkdownIcon } from '../utils/-webview/icons';
+import { describePullRequestWithAI } from '../utils/-webview/pullRequest.utils';
 import { isSha } from '../utils/revision.utils';
 import type { RemoteProviderId, RemoteProviderSupportedFeatures } from './remoteProvider';
 import { RemoteProvider } from './remoteProvider';
@@ -401,19 +404,25 @@ export class GitLabRemote extends RemoteProvider<GitLabRepositoryDescriptor> {
 	}
 
 	protected override async getUrlForCreatePullRequest(
-		base: { branch?: string; remote: { path: string; url: string } },
-		head: { branch: string; remote: { path: string; url: string } },
-		options?: {
-			title?: string;
-			description?: string;
-			describePullRequest?: () => Promise<{ summary: string; body: string } | undefined>;
-		},
+		resource: CreatePullRequestRemoteResource,
+		source?: Source,
 	): Promise<string | undefined> {
+		let { base, head, details } = resource;
+
+		if (details?.describeWithAI) {
+			details = await describePullRequestWithAI(
+				this.container,
+				resource.repoPath,
+				resource,
+				source ?? { source: 'ai' },
+			);
+		}
 		const query = new URLSearchParams({
 			utf8: '✓',
 			'merge_request[source_branch]': head.branch,
 			'merge_request[target_branch]': base.branch ?? '',
 		});
+
 		if (base.remote.url !== head.remote.url) {
 			const targetDesc = {
 				owner: base.remote.path.split('/')[0],
@@ -421,30 +430,22 @@ export class GitLabRemote extends RemoteProvider<GitLabRepositoryDescriptor> {
 			};
 			const integrationId = remoteProviderIdToIntegrationId(this.id);
 			const integration = integrationId && (await this.container.integrations.get(integrationId));
-			let targetRepoId = undefined;
+
+			let targetRepoId;
 			if (integration?.isConnected && integration instanceof HostingIntegration) {
 				targetRepoId = (await integration.getRepoInfo?.(targetDesc))?.id;
 			}
-			if (!targetRepoId) {
-				return undefined;
-			}
+			if (!targetRepoId) return undefined;
+
 			query.set('merge_request[target_project_id]', targetRepoId);
 			// 'merge_request["source_project_id"]': this.path, // ?? seems we don't need it
 		}
-		if (options?.title) {
-			query.set('merge_request[title]', options.title);
+
+		if (details?.title) {
+			query.set('merge_request[title]', details.title);
 		}
-		if (options?.description) {
-			query.set('merge_request[description]', options.description);
-		}
-		if ((!options?.title || !options?.description) && options?.describePullRequest) {
-			const result = await options.describePullRequest();
-			if (result?.summary) {
-				query.set('merge_request[title]', result.summary);
-			}
-			if (result?.body) {
-				query.set('merge_request[description]', result.body);
-			}
+		if (details?.description) {
+			query.set('merge_request[description]', details.description);
 		}
 
 		return `${this.encodeUrl(`${this.getRepoBaseUrl(head.remote.path)}/-/merge_requests/new`)}?${query.toString()}`;

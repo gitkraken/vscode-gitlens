@@ -1,18 +1,29 @@
 import type { Range, Uri } from 'vscode';
 import type { AutolinkReference, DynamicAutolinkReference } from '../../autolinks/models/autolinks';
+import type { Source } from '../../constants.telemetry';
+import type { Container } from '../../container';
 import type { Brand, Unbrand } from '../../system/brand';
+import type { CreatePullRequestRemoteResource } from '../models/remoteResource';
 import type { Repository } from '../models/repository';
 import type { GkProviderId } from '../models/repositoryIdentities';
 import type { GitRevisionRangeNotation } from '../models/revision';
+import { describePullRequestWithAI } from '../utils/-webview/pullRequest.utils';
 import { isSha } from '../utils/revision.utils';
-import type { RemoteProviderId } from './remoteProvider';
+import type { RemoteProviderId, RemoteProviderSupportedFeatures } from './remoteProvider';
 import { RemoteProvider } from './remoteProvider';
 
 const fileRegex = /^\/([^/]+)\/([^/]+?)\/src(.+)$/i;
 const rangeRegex = /^lines-(\d+)(?::(\d+))?$/;
 
 export class BitbucketServerRemote extends RemoteProvider {
-	constructor(domain: string, path: string, protocol?: string, name?: string, custom: boolean = false) {
+	constructor(
+		private readonly container: Container,
+		domain: string,
+		path: string,
+		protocol?: string,
+		name?: string,
+		custom: boolean = false,
+	) {
 		super(domain, path, protocol, name, custom);
 	}
 
@@ -79,6 +90,13 @@ export class BitbucketServerRemote extends RemoteProvider {
 
 	get name(): string {
 		return this.formatName('Bitbucket Server');
+	}
+
+	override get supportedFeatures(): RemoteProviderSupportedFeatures {
+		return {
+			...super.supportedFeatures,
+			createPullRequestWithDetails: true,
+		};
 	}
 
 	async getLocalInfoFromRemoteUri(
@@ -162,19 +180,30 @@ export class BitbucketServerRemote extends RemoteProvider {
 		return this.encodeUrl(`${this.baseUrl}/branches/compare/${base}%0D${head}`).replaceAll('%250D', '%0D');
 	}
 
-	protected override getUrlForCreatePullRequest(
-		base: { branch?: string; remote: { path: string; url: string } },
-		head: { branch: string; remote: { path: string; url: string } },
-		options?: { title?: string; description?: string },
-	): string | undefined {
+	protected override async getUrlForCreatePullRequest(
+		resource: CreatePullRequestRemoteResource,
+		source?: Source,
+	): Promise<string | undefined> {
+		let { base, head, details } = resource;
+
+		if (details?.describeWithAI) {
+			details = await describePullRequestWithAI(
+				this.container,
+				resource.repoPath,
+				resource,
+				source ?? { source: 'ai' },
+			);
+		}
+
 		const query = new URLSearchParams({ sourceBranch: head.branch, targetBranch: base.branch ?? '' });
 		// TODO: figure this out
 		// query.set('targetRepoId', base.repoId);
-		if (options?.title) {
-			query.set('title', options.title);
+
+		if (details?.title) {
+			query.set('title', details.title);
 		}
-		if (options?.description) {
-			query.set('description', options.description);
+		if (details?.description) {
+			query.set('description', details.description);
 		}
 
 		return `${this.encodeUrl(`${this.baseUrl}/pull-requests?create`)}&${query.toString()}`;

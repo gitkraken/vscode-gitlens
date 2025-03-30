@@ -57,8 +57,8 @@ export class CopyOrOpenRemoteCommandQuickPickItem extends CommandQuickPickItem {
 						resource = { ...resource, base: getBranchNameWithoutRemote(resource.base) };
 					}
 
-					if (getRemoteNameFromBranchName(resource.compare) === this.remote.name) {
-						resource = { ...resource, compare: getBranchNameWithoutRemote(resource.compare) };
+					if (getRemoteNameFromBranchName(resource.head) === this.remote.name) {
+						resource = { ...resource, head: getBranchNameWithoutRemote(resource.head) };
 					}
 				} else if (resource.type === RemoteResourceType.CreatePullRequest) {
 					let branch = resource.base.branch;
@@ -78,7 +78,7 @@ export class CopyOrOpenRemoteCommandQuickPickItem extends CommandQuickPickItem {
 					};
 
 					if (
-						resource.base.remote.url !== resource.compare.remote.url &&
+						resource.base.remote.url !== resource.head.remote.url &&
 						!(await this.remote.provider.isReadyForForCrossForkPullRequestUrls())
 					) {
 						const integrationId = remoteProviderIdToIntegrationId(this.remote.provider.id);

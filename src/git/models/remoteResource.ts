@@ -14,52 +14,74 @@ export const enum RemoteResourceType {
 	// Tag = 'tag',
 }
 
+export interface BranchRemoteResource {
+	type: RemoteResourceType.Branch;
+	branch: string;
+}
+
+export interface BranchesRemoteResource {
+	type: RemoteResourceType.Branches;
+}
+
+export interface CommitRemoteResource {
+	type: RemoteResourceType.Commit;
+	sha: string;
+}
+
+export interface ComparisonRemoteResource {
+	type: RemoteResourceType.Comparison;
+	base: string;
+	head: string;
+	notation?: GitRevisionRangeNotation;
+}
+
+export interface CreatePullRequestRemoteResource {
+	type: RemoteResourceType.CreatePullRequest;
+	repoPath: string;
+	base: {
+		branch: string | undefined;
+		remote: { path: string; url: string; name: string };
+	};
+	head: {
+		branch: string;
+		remote: { path: string; url: string; name: string };
+	};
+	details?:
+		| { title: string; description: string; describeWithAI?: never }
+		| { describeWithAI: boolean; title?: never; description?: never };
+}
+
+export interface FileRemoteResource {
+	type: RemoteResourceType.File;
+	branchOrTag?: string;
+	fileName: string;
+	range?: Range;
+}
+
+export interface RepoRemoteResource {
+	type: RemoteResourceType.Repo;
+}
+
+export interface RevisionRemoteResource {
+	type: RemoteResourceType.Revision;
+	branchOrTag?: string;
+	commit?: GitCommit;
+	fileName: string;
+	range?: Range;
+	sha?: string;
+}
+
+// export interface TagRemoteResource {
+// 	type: RemoteResourceType.Tag;
+// 	tag: string;
+// }
+
 export type RemoteResource =
-	| {
-			type: RemoteResourceType.Branch;
-			branch: string;
-	  }
-	| {
-			type: RemoteResourceType.Branches;
-	  }
-	| {
-			type: RemoteResourceType.Commit;
-			sha: string;
-	  }
-	| {
-			type: RemoteResourceType.Comparison;
-			base: string;
-			compare: string;
-			notation?: GitRevisionRangeNotation;
-	  }
-	| {
-			type: RemoteResourceType.CreatePullRequest;
-			base: {
-				branch: string | undefined;
-				remote: { path: string; url: string; name: string };
-			};
-			compare: {
-				branch: string;
-				remote: { path: string; url: string; name: string };
-			};
-			describePullRequest?: (
-				completedResource: RemoteResource & { type: RemoteResourceType.CreatePullRequest },
-			) => Promise<{ summary: string; body: string } | undefined>;
-	  }
-	| {
-			type: RemoteResourceType.File;
-			branchOrTag?: string;
-			fileName: string;
-			range?: Range;
-	  }
-	| {
-			type: RemoteResourceType.Repo;
-	  }
-	| {
-			type: RemoteResourceType.Revision;
-			branchOrTag?: string;
-			commit?: GitCommit;
-			fileName: string;
-			range?: Range;
-			sha?: string;
-	  };
+	| BranchRemoteResource
+	| BranchesRemoteResource
+	| CommitRemoteResource
+	| ComparisonRemoteResource
+	| CreatePullRequestRemoteResource
+	| FileRemoteResource
+	| RepoRemoteResource
+	| RevisionRemoteResource;

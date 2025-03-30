@@ -521,7 +521,7 @@ export class AIProviderService implements Disposable {
 	async generatePullRequestMessage(
 		repo: Repository,
 		baseRef: string,
-		compareRef: string,
+		headRef: string,
 		source: Source,
 		options?: {
 			cancellation?: CancellationToken;
@@ -534,9 +534,9 @@ export class AIProviderService implements Disposable {
 			return undefined;
 		}
 
-		const diff = await repo.git.diff().getDiff?.(compareRef, baseRef, { notation: '...' });
+		const diff = await repo.git.diff().getDiff?.(headRef, baseRef, { notation: '...' });
 
-		const log = await this.container.git.commits(repo.path).getLog(`${baseRef}..${compareRef}`);
+		const log = await this.container.git.commits(repo.path).getLog(`${baseRef}..${headRef}`);
 		const commits: [string, number][] = [];
 		for (const [_sha, commit] of log?.commits ?? []) {
 			commits.push([commit.message ?? '', commit.date.getTime()]);
@@ -839,10 +839,9 @@ export class AIProviderService implements Disposable {
 		} else if (Array.isArray(changesOrRepo)) {
 			changes = changesOrRepo.join('\n');
 		} else {
-			const diffProvider = this.container.git.diff(changesOrRepo.uri);
-			let diff = await diffProvider.getDiff?.(uncommittedStaged);
+			let diff = await changesOrRepo.git.diff().getDiff?.(uncommittedStaged);
 			if (!diff?.contents) {
-				diff = await diffProvider.getDiff?.(uncommitted);
+				diff = await changesOrRepo.git.diff().getDiff?.(uncommitted);
 				if (!diff?.contents) throw new Error('No changes to generate a commit message from.');
 			}
 			if (options?.cancellation?.isCancellationRequested) return undefined;

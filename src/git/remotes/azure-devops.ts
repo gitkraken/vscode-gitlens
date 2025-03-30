@@ -1,10 +1,12 @@
 import type { Range, Uri } from 'vscode';
 import type { AutolinkReference, DynamicAutolinkReference } from '../../autolinks/models/autolinks';
+import type { Source } from '../../constants.telemetry';
 import type { Container } from '../../container';
 import { HostingIntegration } from '../../plus/integrations/integration';
 import { remoteProviderIdToIntegrationId } from '../../plus/integrations/integrationService';
 import { parseAzureHttpsUrl } from '../../plus/integrations/providers/azure/models';
 import type { Brand, Unbrand } from '../../system/brand';
+import type { CreatePullRequestRemoteResource } from '../models/remoteResource';
 import type { Repository } from '../models/repository';
 import type { GkProviderId } from '../models/repositoryIdentities';
 import type { GitRevisionRangeNotation } from '../models/revision';
@@ -205,28 +207,27 @@ export class AzureDevOpsRemote extends RemoteProvider {
 	}
 
 	protected override async getUrlForCreatePullRequest(
-		base: { branch?: string; remote: { path: string; url: string } },
-		head: { branch: string; remote: { path: string; url: string } },
+		{ base, head }: CreatePullRequestRemoteResource,
+		_source?: Source,
 	): Promise<string | undefined> {
 		const query = new URLSearchParams({ sourceRef: head.branch, targetRef: base.branch ?? '' });
+
 		if (base.remote.url !== head.remote.url) {
 			const parsedBaseUrl = parseAzureUrl(base.remote.url);
-			if (parsedBaseUrl == null) {
-				return undefined;
-			}
+			if (parsedBaseUrl == null) return undefined;
+
 			const { org: baseOrg, project: baseProject, repo: baseName } = parsedBaseUrl;
 			const targetDesc = { project: baseProject, name: baseName, owner: baseOrg };
 
 			const integrationId = remoteProviderIdToIntegrationId(this.id);
 			const integration = integrationId && (await this.container.integrations.get(integrationId));
-			let targetRepoId = undefined;
+
+			let targetRepoId;
 			if (integration?.isConnected && integration instanceof HostingIntegration) {
 				targetRepoId = (await integration.getRepoInfo?.(targetDesc))?.id;
 			}
+			if (!targetRepoId) return undefined;
 
-			if (!targetRepoId) {
-				return undefined;
-			}
 			query.set('targetRepositoryId', targetRepoId);
 			// query.set('sourceRepositoryId', compare.repoId); // ?? looks like not needed
 		}

@@ -117,8 +117,9 @@ export function registerCommands(container: Container): Disposable[] {
 export function executeActionCommand<T extends ActionContext>(
 	action: Action<T>,
 	args: Omit<T, 'type'>,
+	runnerId?: number,
 ): Thenable<unknown> {
-	return commands.executeCommand(`${actionCommandPrefix}${action}`, { ...args, type: action });
+	return commands.executeCommand(`${actionCommandPrefix}${action}`, { ...args, type: action }, runnerId);
 }
 
 export function createCommand<T extends unknown[]>(
