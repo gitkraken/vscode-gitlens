@@ -1,6 +1,6 @@
 import type { Uri } from 'vscode';
 import { window } from 'vscode';
-import { SubscriptionPlanId } from '../../../../constants.subscription';
+import { proTrialLengthInDays, SubscriptionPlanId } from '../../../../constants.subscription';
 import type { Source } from '../../../../constants.telemetry';
 import type { Container } from '../../../../container';
 import type { PlusFeatures } from '../../../../features';
@@ -32,11 +32,11 @@ export async function ensureAccount(container: Container, title: string, source:
 
 		if (subscription.account != null) break;
 
-		const signUp = { title: 'Sign Up' };
+		const signUp = { title: 'Try GitLens Pro' };
 		const signIn = { title: 'Sign In' };
 		const cancel = { title: 'Cancel', isCloseAffordance: true };
 		const result = await window.showWarningMessage(
-			`${title}\n\nSign up for access to Pro features and the GitKraken DevEx platform, or sign in`,
+			`${title}\n\nStart your free ${proTrialLengthInDays}-day Pro trial for full access to all GitLens Pro features, or sign in.`,
 			{ modal: true },
 			signUp,
 			signIn,
