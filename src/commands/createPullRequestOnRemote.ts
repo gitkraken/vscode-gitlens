@@ -1,8 +1,8 @@
 import { window } from 'vscode';
-import type { Sources } from '../constants.telemetry';
+import type { Source } from '../constants.telemetry';
 import type { Container } from '../container';
 import type { GitRemote } from '../git/models/remote';
-import type { RemoteResource } from '../git/models/remoteResource';
+import type { CreatePullRequestRemoteResource } from '../git/models/remoteResource';
 import { RemoteResourceType } from '../git/models/remoteResource';
 import type { RemoteProvider } from '../git/remotes/remoteProvider';
 import { getRemoteNameFromBranchName } from '../git/utils/branch.utils';
@@ -18,8 +18,8 @@ export interface CreatePullRequestOnRemoteCommandArgs {
 	repoPath: string;
 
 	clipboard?: boolean;
-	source?: Sources;
-	useAI?: boolean;
+	describeWithAI?: boolean;
+	source?: Source;
 }
 
 @command()
@@ -67,41 +67,18 @@ export class CreatePullRequestOnRemoteCommand extends GlCommandBase {
 			sort: true,
 		})) as GitRemote<RemoteProvider>[];
 
-		const resource: RemoteResource = {
+		const resource: CreatePullRequestRemoteResource = {
 			type: RemoteResourceType.CreatePullRequest,
+			repoPath: repo.path,
 			base: {
 				branch: args.base,
 				remote: undefined!,
 			},
-			compare: {
+			head: {
 				branch: args.compare,
 				remote: { path: compareRemote.path, url: compareRemote.url, name: compareRemote.name },
 			},
-			describePullRequest: !args.useAI
-				? undefined
-				: async (completedResource: RemoteResource & { type: RemoteResourceType.CreatePullRequest }) => {
-						const base = completedResource.base;
-						const compare = completedResource.compare;
-						if (!base?.remote || !compare?.remote || !base?.branch || !compare?.branch) {
-							return undefined;
-						}
-						const baseRef = `${base.remote.name}/${base.branch}`;
-						const compareRef = `${compare.remote.name}/${compare.branch}`;
-						try {
-							const result = await this.container.ai.generatePullRequestMessage(
-								repo,
-								baseRef,
-								compareRef,
-								{
-									source: args.source ?? 'scm-input',
-								},
-							);
-							return result?.parsed;
-						} catch (e) {
-							void window.showErrorMessage(`Unable to generate pull request details: ${e}`);
-							return undefined;
-						}
-				  },
+			details: args.describeWithAI ? { describeWithAI: true } : undefined,
 		};
 
 		void (await executeCommand<OpenOnRemoteCommandArgs>('gitlens.openOnRemote', {

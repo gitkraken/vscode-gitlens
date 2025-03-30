@@ -1,5 +1,6 @@
 import type { Range, Uri } from 'vscode';
 import type { AutolinkReference, DynamicAutolinkReference } from '../../autolinks/models/autolinks';
+import type { CreatePullRequestRemoteResource } from '../models/remoteResource';
 import type { Repository } from '../models/repository';
 import type { GkProviderId } from '../models/repositoryIdentities';
 import type { GitRevisionRangeNotation } from '../models/revision';
@@ -198,11 +199,7 @@ export class GerritRemote extends RemoteProvider {
 		return this.encodeUrl(`${this.baseReviewUrl}/q/${base}${notation}${head}`);
 	}
 
-	protected override getUrlForCreatePullRequest(
-		base: { branch?: string; remote: { path: string; url: string } },
-		head: { branch: string; remote: { path: string; url: string } },
-		_options?: { title?: string; description?: string },
-	): string | undefined {
+	protected override getUrlForCreatePullRequest({ base, head }: CreatePullRequestRemoteResource): string | undefined {
 		const query = new URLSearchParams({ sourceBranch: head.branch, targetBranch: base.branch ?? '' });
 
 		return this.encodeUrl(`${this.baseReviewUrl}/createPullRequest?${query.toString()}`);

@@ -7,6 +7,8 @@ import type {
 	MaybeEnrichedAutolink,
 } from '../../autolinks/models/autolinks';
 import { GlyphChars } from '../../constants';
+import type { Source } from '../../constants.telemetry';
+import type { Container } from '../../container';
 import type { GitHubRepositoryDescriptor } from '../../plus/integrations/providers/github';
 import type { Brand, Unbrand } from '../../system/brand';
 import { fromNow } from '../../system/date';
@@ -14,10 +16,12 @@ import { memoize } from '../../system/decorators/-webview/memoize';
 import { encodeUrl } from '../../system/encoding';
 import { escapeMarkdown, unescapeMarkdown } from '../../system/markdown';
 import { equalsIgnoreCase } from '../../system/string';
+import type { CreatePullRequestRemoteResource } from '../models/remoteResource';
 import type { Repository } from '../models/repository';
 import type { GkProviderId } from '../models/repositoryIdentities';
 import type { GitRevisionRangeNotation } from '../models/revision';
 import { getIssueOrPullRequestMarkdownIcon } from '../utils/-webview/icons';
+import { describePullRequestWithAI } from '../utils/-webview/pullRequest.utils';
 import { isSha } from '../utils/revision.utils';
 import type { RemoteProviderId, RemoteProviderSupportedFeatures } from './remoteProvider';
 import { RemoteProvider } from './remoteProvider';
@@ -31,7 +35,14 @@ function isGitHubDotCom(domain: string): boolean {
 }
 
 export class GitHubRemote extends RemoteProvider<GitHubRepositoryDescriptor> {
-	constructor(domain: string, path: string, protocol?: string, name?: string, custom: boolean = false) {
+	constructor(
+		private readonly container: Container,
+		domain: string,
+		path: string,
+		protocol?: string,
+		name?: string,
+		custom: boolean = false,
+	) {
 		super(domain, path, protocol, name, custom);
 	}
 
@@ -289,30 +300,26 @@ export class GitHubRemote extends RemoteProvider<GitHubRepositoryDescriptor> {
 	}
 
 	protected override async getUrlForCreatePullRequest(
-		base: { branch?: string; remote: { path: string; url: string } },
-		head: { branch: string; remote: { path: string; url: string } },
-		options?: {
-			title?: string;
-			description?: string;
-			describePullRequest?: () => Promise<{ summary: string; body: string } | undefined>;
-		},
+		resource: CreatePullRequestRemoteResource,
+		source?: Source,
 	): Promise<string | undefined> {
-		const query = new URLSearchParams({ expand: '1' });
-		if (options?.title) {
-			query.set('title', options.title);
-		}
-		if (options?.description) {
-			query.set('body', options.description);
+		let { base, head, details } = resource;
+
+		if (details?.describeWithAI) {
+			details = await describePullRequestWithAI(
+				this.container,
+				resource.repoPath,
+				resource,
+				source ?? { source: 'ai' },
+			);
 		}
 
-		if ((!options?.title || !options?.description) && options?.describePullRequest) {
-			const result = await options.describePullRequest();
-			if (result?.summary) {
-				query.set('title', result.summary);
-			}
-			if (result?.body) {
-				query.set('body', result.body);
-			}
+		const query = new URLSearchParams({ expand: '1' });
+		if (details?.title) {
+			query.set('title', details.title);
+		}
+		if (details?.description) {
+			query.set('body', details.description);
 		}
 
 		if (base.remote.url === head.remote.url) {

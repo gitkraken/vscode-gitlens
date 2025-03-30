@@ -1,5 +1,5 @@
 import type { Disposable } from 'vscode';
-import type { Sources } from '../constants.telemetry';
+import type { Source } from '../constants.telemetry';
 
 export type { Disposable } from 'vscode';
 
@@ -25,8 +25,8 @@ export interface CreatePullRequestActionContext {
 				readonly url?: string;
 		  }
 		| undefined;
-	readonly source?: Sources;
-	readonly useAI?: boolean;
+	readonly describeWithAI?: boolean;
+	readonly source?: Source;
 }
 
 export interface OpenPullRequestActionContext {

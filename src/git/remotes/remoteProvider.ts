@@ -1,13 +1,14 @@
 import type { Range, Uri } from 'vscode';
 import { env } from 'vscode';
 import type { AutolinkReference, DynamicAutolinkReference } from '../../autolinks/models/autolinks';
+import type { Source } from '../../constants.telemetry';
 import type { ResourceDescriptor } from '../../plus/integrations/integration';
 import { openUrl } from '../../system/-webview/vscode';
 import { memoize } from '../../system/decorators/-webview/memoize';
 import { encodeUrl } from '../../system/encoding';
 import { getSettledValue } from '../../system/promise';
 import type { ProviderReference } from '../models/remoteProvider';
-import type { RemoteResource } from '../models/remoteResource';
+import type { CreatePullRequestRemoteResource, RemoteResource } from '../models/remoteResource';
 import { RemoteResourceType } from '../models/remoteResource';
 import type { Repository } from '../models/repository';
 import type { GkProviderId } from '../models/repositoryIdentities';
@@ -128,7 +129,7 @@ export abstract class RemoteProvider<T extends ResourceDescriptor = ResourceDesc
 		return results.every(r => getSettledValue(r) === true);
 	}
 
-	url(resource: RemoteResource): Promise<string | undefined> | string | undefined {
+	url(resource: RemoteResource, source?: Source): Promise<string | undefined> | string | undefined {
 		switch (resource.type) {
 			case RemoteResourceType.Branch:
 				return this.getUrlForBranch(resource.branch);
@@ -136,14 +137,10 @@ export abstract class RemoteProvider<T extends ResourceDescriptor = ResourceDesc
 				return this.getUrlForBranches();
 			case RemoteResourceType.Commit:
 				return this.getUrlForCommit(resource.sha);
-			case RemoteResourceType.Comparison: {
-				return this.getUrlForComparison(resource.base, resource.compare, resource.notation ?? '...');
-			}
-			case RemoteResourceType.CreatePullRequest: {
-				return this.getUrlForCreatePullRequest(resource.base, resource.compare, {
-					describePullRequest: resource.describePullRequest?.bind(null, resource),
-				});
-			}
+			case RemoteResourceType.Comparison:
+				return this.getUrlForComparison(resource.base, resource.head, resource.notation ?? '...');
+			case RemoteResourceType.CreatePullRequest:
+				return this.getUrlForCreatePullRequest(resource, source);
 			case RemoteResourceType.File:
 				return this.getUrlForFile(
 					resource.fileName,
@@ -205,14 +202,9 @@ export abstract class RemoteProvider<T extends ResourceDescriptor = ResourceDesc
 	}
 
 	protected abstract getUrlForCreatePullRequest(
-		base: { branch?: string; remote: { path: string; url: string } },
-		head: { branch: string; remote: { path: string; url: string } },
-		options?: {
-			title?: string;
-			description?: string;
-			describePullRequest?: () => Promise<{ summary: string; body: string } | undefined>;
-		},
-	): Promise<string | undefined> | string | undefined;
+		resource: CreatePullRequestRemoteResource,
+		source?: Source,
+	): string | undefined | Promise<string | undefined>;
 
 	protected abstract getUrlForFile(fileName: string, branch?: string, sha?: string, range?: Range): string;
 

@@ -1,17 +1,28 @@
 import type { Range, Uri } from 'vscode';
 import type { AutolinkReference, DynamicAutolinkReference } from '../../autolinks/models/autolinks';
+import type { Source } from '../../constants.telemetry';
+import type { Container } from '../../container';
+import type { CreatePullRequestRemoteResource } from '../models/remoteResource';
 import type { Repository } from '../models/repository';
 import type { GkProviderId } from '../models/repositoryIdentities';
 import type { GitRevisionRangeNotation } from '../models/revision';
+import { describePullRequestWithAI } from '../utils/-webview/pullRequest.utils';
 import { isSha } from '../utils/revision.utils';
-import type { RemoteProviderId } from './remoteProvider';
+import type { RemoteProviderId, RemoteProviderSupportedFeatures } from './remoteProvider';
 import { RemoteProvider } from './remoteProvider';
 
 const fileRegex = /^\/([^/]+)\/([^/]+?)\/src(.+)$/i;
 const rangeRegex = /^L(\d+)(?:-L(\d+))?$/;
 
 export class GiteaRemote extends RemoteProvider {
-	constructor(domain: string, path: string, protocol?: string, name?: string, custom: boolean = false) {
+	constructor(
+		private readonly container: Container,
+		domain: string,
+		path: string,
+		protocol?: string,
+		name?: string,
+		custom: boolean = false,
+	) {
 		super(domain, path, protocol, name, custom);
 	}
 
@@ -53,6 +64,13 @@ export class GiteaRemote extends RemoteProvider {
 
 	get name(): string {
 		return this.formatName('Gitea');
+	}
+
+	override get supportedFeatures(): RemoteProviderSupportedFeatures {
+		return {
+			...super.supportedFeatures,
+			createPullRequestWithDetails: true,
+		};
 	}
 
 	async getLocalInfoFromRemoteUri(
@@ -144,17 +162,27 @@ export class GiteaRemote extends RemoteProvider {
 		return this.encodeUrl(`${this.baseUrl}/compare/${base}...${head}`);
 	}
 
-	protected override getUrlForCreatePullRequest(
-		base: { branch?: string; remote: { path: string; url: string } },
-		head: { branch: string; remote: { path: string; url: string } },
-		options?: { title?: string; description?: string },
-	): string | undefined {
-		const query = new URLSearchParams({ head: head.branch, base: base.branch ?? '' });
-		if (options?.title) {
-			query.set('title', options.title);
+	protected override async getUrlForCreatePullRequest(
+		resource: CreatePullRequestRemoteResource,
+		source?: Source,
+	): Promise<string | undefined> {
+		let { base, head, details } = resource;
+
+		if (details?.describeWithAI) {
+			details = await describePullRequestWithAI(
+				this.container,
+				resource.repoPath,
+				resource,
+				source ?? { source: 'ai' },
+			);
 		}
-		if (options?.description) {
-			query.set('body', options.description);
+
+		const query = new URLSearchParams({ head: head.branch, base: base.branch ?? '' });
+		if (details?.title) {
+			query.set('title', details.title);
+		}
+		if (details?.description) {
+			query.set('body', details.description);
 		}
 		return `${this.encodeUrl(`${this.baseUrl}/pulls/new`)}?${query.toString()}`;
 	}

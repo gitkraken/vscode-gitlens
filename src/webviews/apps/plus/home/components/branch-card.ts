@@ -16,7 +16,13 @@ import type { AssociateIssueWithBranchCommandArgs } from '../../../../../plus/st
 import { createCommandLink } from '../../../../../system/commands';
 import { fromNow } from '../../../../../system/date';
 import { interpolate, pluralize } from '../../../../../system/string';
-import type { BranchRef, GetOverviewBranch, OpenInGraphParams, State } from '../../../../home/protocol';
+import type {
+	BranchRef,
+	CreatePullRequestCommandArgs,
+	GetOverviewBranch,
+	OpenInGraphParams,
+	State,
+} from '../../../../home/protocol';
 import { stateContext } from '../../../home/context';
 import { renderBranchName } from '../../../shared/components/branch-name';
 import type { GlCard } from '../../../shared/components/card/card';
@@ -780,10 +786,14 @@ export abstract class GlBranchCardBase extends GlElement {
 									class="branch-item__missing"
 									tooltip="Create a Pull Request with AI (Preview)"
 									appearance="secondary"
-									href="${this.createCommandLink('gitlens.home.createPullRequest', {
-										source: 'home',
-										useAI: true,
-									})}"
+									href="${createCommandLink<CreatePullRequestCommandArgs>(
+										'gitlens.home.createPullRequest',
+										{
+											ref: this.branchRef,
+											describeWithAI: true,
+											source: { source: 'home', detail: 'create-pr' },
+										},
+									)}"
 							  >
 									<code-icon class="branch-item__is-wide" icon="sparkle" slot="prefix"></code-icon>
 									<code-icon class="branch-item__is-narrow" icon="sparkle"></code-icon>
