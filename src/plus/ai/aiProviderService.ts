@@ -81,20 +81,15 @@ export interface AIModelChangeEvent {
 
 // Order matters for sorting the picker
 const supportedAIProviders = new Map<AIProviders, AIProviderDescriptorWithType>([
-	...(configuration.getAny('gitkraken.ai.enabled', undefined, false)
-		? [
-				[
-					'gitkraken',
-					{
-						...gitKrakenProviderDescriptor,
-						type: lazy(
-							async () =>
-								(await import(/* webpackChunkName: "ai" */ './gitkrakenProvider')).GitKrakenProvider,
-						),
-					},
-				],
-		  ]
-		: ([] as any)),
+	[
+		'gitkraken',
+		{
+			...gitKrakenProviderDescriptor,
+			type: lazy(
+				async () => (await import(/* webpackChunkName: "ai" */ './gitkrakenProvider')).GitKrakenProvider,
+			),
+		},
+	],
 	[
 		'vscode',
 		{
