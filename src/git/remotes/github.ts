@@ -19,7 +19,7 @@ import type { GkProviderId } from '../models/repositoryIdentities';
 import type { GitRevisionRangeNotation } from '../models/revision';
 import { getIssueOrPullRequestMarkdownIcon } from '../utils/-webview/icons';
 import { isSha } from '../utils/revision.utils';
-import type { RemoteProviderId } from './remoteProvider';
+import type { RemoteProviderId, RemoteProviderSupportedFeatures } from './remoteProvider';
 import { RemoteProvider } from './remoteProvider';
 
 const autolinkFullIssuesRegex = /\b([^/\s]+\/[^/\s]+?)(?:\\)?#([0-9]+)\b(?!]\()/g;
@@ -198,6 +198,13 @@ export class GitHubRemote extends RemoteProvider<GitHubRepositoryDescriptor> {
 	override get repoDesc(): GitHubRepositoryDescriptor {
 		const [owner, repo] = this.splitPath();
 		return { key: this.remoteKey, owner: owner, name: repo };
+	}
+
+	override get supportedFeatures(): RemoteProviderSupportedFeatures {
+		return {
+			...super.supportedFeatures,
+			createPullRequestWithDetails: true,
+		};
 	}
 
 	async getLocalInfoFromRemoteUri(

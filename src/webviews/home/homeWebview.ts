@@ -23,13 +23,13 @@ import type { GitFileChangeShape } from '../../git/models/fileChange';
 import type { Issue } from '../../git/models/issue';
 import type { GitPausedOperationStatus } from '../../git/models/pausedOperationStatus';
 import type { PullRequest } from '../../git/models/pullRequest';
+import type { GitRemote } from '../../git/models/remote';
 import { RemoteResourceType } from '../../git/models/remoteResource';
 import type { Repository, RepositoryFileSystemChangeEvent } from '../../git/models/repository';
 import { RepositoryChange, RepositoryChangeComparisonMode } from '../../git/models/repository';
 import { uncommitted } from '../../git/models/revision';
 import type { GitStatus } from '../../git/models/status';
 import type { GitWorktree } from '../../git/models/worktree';
-import { remotesSupportTitleOnPullRequestCreation } from '../../git/remotes/remoteProvider';
 import { getAssociatedIssuesForBranch } from '../../git/utils/-webview/branch.issue.utils';
 import { getBranchTargetInfo } from '../../git/utils/-webview/branch.utils';
 import { getReferenceFromBranch } from '../../git/utils/-webview/reference.utils';
@@ -84,6 +84,7 @@ import type {
 	OpenInGraphParams,
 	OverviewFilters,
 	OverviewRecentThreshold,
+	OverviewRepository,
 	OverviewStaleThreshold,
 	State,
 } from './protocol';
@@ -751,24 +752,24 @@ export class HomeWebviewProvider implements WebviewProvider<State, State, HomeWe
 
 		const forceRepo = this._invalidateOverview === 'repo';
 		const forceWip = this._invalidateOverview === 'wip';
-		const branchesAndWorktrees = await this.getBranchesData(repo, forceRepo);
 
-		const { branches, worktreesByBranch } = branchesAndWorktrees;
+		const [branchesAndWorktreesResult, proSubscriptionResult, formatRepositoryResult] = await Promise.allSettled([
+			this.getBranchesData(repo, forceRepo),
+			this.isSubscriptionPro(),
+			this.formatRepository(repo),
+		]);
+
+		const { branches, worktreesByBranch } = getSettledValue(branchesAndWorktreesResult)!;
 		const activeBranch = branches.find(
 			branch => this.getBranchOverviewType(branch, worktreesByBranch) === 'active',
 		)!;
-		const aiPullRequestCreationAvailable =
-			(await repo.git.remotes().getBestRemotesWithProviders()).find(r =>
-				remotesSupportTitleOnPullRequestCreation.includes(r.provider.id),
-			) != null;
+		const isPro = getSettledValue(proSubscriptionResult)!;
 
-		const isPro = await this.isSubscriptionPro();
 		const [activeOverviewBranch] = getOverviewBranchesCore(
-			[activeBranch],
-			aiPullRequestCreationAvailable,
-			branchesAndWorktrees.worktreesByBranch,
-			isPro,
 			this.container,
+			[activeBranch],
+			worktreesByBranch,
+			isPro,
 			{
 				isActive: true,
 				forceStatus: forceRepo || forceWip ? true : undefined,
@@ -782,7 +783,7 @@ export class HomeWebviewProvider implements WebviewProvider<State, State, HomeWe
 		this._etagFileSystem = repo.etagFileSystem;
 
 		return {
-			repository: await this.formatRepository(repo),
+			repository: getSettledValue(formatRepositoryResult)!,
 			active: activeOverviewBranch,
 		};
 	}
@@ -796,24 +797,27 @@ export class HomeWebviewProvider implements WebviewProvider<State, State, HomeWe
 		if (repo == null) return undefined;
 
 		const forceRepo = this._invalidateOverview === 'repo';
-		const branchesAndWorktrees = await this.getBranchesData(repo, forceRepo);
-		const aiPullRequestCreationAvailable =
-			(await repo.git.remotes().getBestRemotesWithProviders()).find(r =>
-				remotesSupportTitleOnPullRequestCreation.includes(r.provider.id),
-			) != null;
 
-		const recentBranches = branchesAndWorktrees.branches.filter(
-			branch => this.getBranchOverviewType(branch, branchesAndWorktrees.worktreesByBranch) === 'recent',
+		const [branchesAndWorktreesResult, proSubscriptionResult, formatRepositoryResult] = await Promise.allSettled([
+			this.getBranchesData(repo, forceRepo),
+			this.isSubscriptionPro(),
+			this.formatRepository(repo),
+		]);
+
+		const { branches, worktreesByBranch } = getSettledValue(branchesAndWorktreesResult)!;
+		const recentBranches = branches.filter(
+			branch => this.getBranchOverviewType(branch, worktreesByBranch) === 'recent',
 		);
+		const isPro = getSettledValue(proSubscriptionResult)!;
 
 		let staleBranches: GitBranch[] | undefined;
 		if (this._overviewBranchFilter.stale.show) {
-			sortBranches(branchesAndWorktrees.branches, {
+			sortBranches(branches, {
 				missingUpstream: true,
 				orderBy: 'date:asc',
 			});
 
-			for (const branch of branchesAndWorktrees.branches) {
+			for (const branch of branches) {
 				if (staleBranches != null && staleBranches.length > this._overviewBranchFilter.stale.limit) {
 					break;
 				}
@@ -821,7 +825,7 @@ export class HomeWebviewProvider implements WebviewProvider<State, State, HomeWe
 					continue;
 				}
 
-				if (this.getBranchOverviewType(branch, branchesAndWorktrees.worktreesByBranch) !== 'stale') {
+				if (this.getBranchOverviewType(branch, worktreesByBranch) !== 'stale') {
 					continue;
 				}
 
@@ -830,24 +834,16 @@ export class HomeWebviewProvider implements WebviewProvider<State, State, HomeWe
 			}
 		}
 
-		const isPro = await this.isSubscriptionPro();
 		const recentOverviewBranches = getOverviewBranchesCore(
-			recentBranches,
-			aiPullRequestCreationAvailable,
-			branchesAndWorktrees.worktreesByBranch,
-			isPro,
 			this.container,
+			recentBranches,
+			worktreesByBranch,
+			isPro,
 		);
 		const staleOverviewBranches =
 			staleBranches == null
 				? undefined
-				: getOverviewBranchesCore(
-						staleBranches,
-						aiPullRequestCreationAvailable,
-						branchesAndWorktrees.worktreesByBranch,
-						isPro,
-						this.container,
-				  );
+				: getOverviewBranchesCore(this.container, staleBranches, worktreesByBranch, isPro);
 
 		// TODO: revisit invalidation
 		if (!forceRepo) {
@@ -855,21 +851,13 @@ export class HomeWebviewProvider implements WebviewProvider<State, State, HomeWe
 		}
 
 		return {
-			repository: await this.formatRepository(repo),
+			repository: getSettledValue(formatRepositoryResult)!,
 			recent: recentOverviewBranches,
 			stale: staleOverviewBranches,
 		};
 	}
 
-	private async formatRepository(repo: Repository): Promise<{
-		name: string;
-		path: string;
-		provider?: {
-			name: string;
-			icon?: string;
-			url?: string;
-		};
-	}> {
+	private async formatRepository(repo: Repository): Promise<OverviewRepository> {
 		const remotes = await repo.git.remotes().getBestRemotesWithProviders();
 		const remote = remotes.find(r => r.hasIntegration()) ?? remotes[0];
 
@@ -879,6 +867,7 @@ export class HomeWebviewProvider implements WebviewProvider<State, State, HomeWe
 			provider: remote?.provider
 				? {
 						name: remote.provider.name,
+						supportedFeatures: remote.provider.supportedFeatures,
 						icon: remote.provider.icon === 'remote' ? 'cloud' : remote.provider.icon,
 						url: await remote.provider.url({ type: RemoteResourceType.Repo }),
 				  }
@@ -1476,11 +1465,10 @@ export class HomeWebviewProvider implements WebviewProvider<State, State, HomeWe
 }
 
 function getOverviewBranchesCore(
+	container: Container,
 	branches: GitBranch[],
-	aiPullRequestCreationAvailable: boolean,
 	worktreesByBranch: Map<string, GitWorktree>,
 	isPro: boolean,
-	container: Container,
 	options?: {
 		forceStatus?: boolean;
 		isActive?: boolean;
@@ -1494,6 +1482,7 @@ function getOverviewBranchesCore(
 
 	let launchpadPromise: Promise<LaunchpadCategorizedResult> | undefined;
 	let repoStatusPromise: Promise<GitStatus | undefined> | undefined;
+	const remotePromises = new Map<string, Promise<GitRemote | undefined>>();
 	const prPromises = new Map<string, Promise<PullRequestInfo | undefined>>();
 	const autolinkPromises = new Map<string, Promise<Map<string, EnrichedAutolink> | undefined>>();
 	const issuePromises = new Map<string, Promise<Issue[] | undefined>>();
@@ -1503,6 +1492,10 @@ function getOverviewBranchesCore(
 
 	const overviewBranches: GetOverviewBranch[] = [];
 	for (const branch of branches) {
+		if (branch.upstream?.missing === false) {
+			remotePromises.set(branch.id, branch.getRemote());
+		}
+
 		const wt = worktreesByBranch.get(branch.id);
 
 		const timestamp = branch.date?.getTime();
@@ -1536,7 +1529,6 @@ function getOverviewBranchesCore(
 			reference: getReferenceFromBranch(branch),
 			repoPath: branch.repoPath,
 			id: branch.id,
-			aiPullRequestCreationAvailable: aiPullRequestCreationAvailable,
 			name: branch.name,
 			opened: isActive,
 			timestamp: timestamp,
@@ -1548,15 +1540,16 @@ function getOverviewBranchesCore(
 
 	if (overviewBranches.length > 0) {
 		enrichOverviewBranchesCore(
+			container,
 			overviewBranches,
 			isActive,
+			remotePromises,
 			prPromises,
 			autolinkPromises,
 			issuePromises,
 			statusPromises,
 			contributorsPromises,
 			mergeTargetPromises,
-			container,
 		);
 	}
 
@@ -1565,17 +1558,34 @@ function getOverviewBranchesCore(
 
 // FIXME: support partial enrichment
 function enrichOverviewBranchesCore(
+	container: Container,
 	overviewBranches: GetOverviewBranch[],
 	isActive: boolean,
+	remotePromises: Map<string, Promise<GitRemote | undefined>>,
 	prPromises: Map<string, Promise<PullRequestInfo | undefined>>,
 	autolinkPromises: Map<string, Promise<Map<string, EnrichedAutolink> | undefined>>,
 	issuePromises: Map<string, Promise<Issue[] | undefined>>,
 	statusPromises: Map<string, Promise<GitStatus | undefined>>,
 	contributorsPromises: Map<string, Promise<BranchContributionsOverview | undefined>>,
 	mergeTargetPromises: Map<string, Promise<BranchMergeTargetStatusInfo>>,
-	container: Container,
 ) {
 	for (const branch of overviewBranches) {
+		branch.remote = remotePromises.get(branch.id)?.then(async r => {
+			if (r == null) return undefined;
+
+			return {
+				name: r.name,
+				provider: r.provider
+					? {
+							name: r.provider.name,
+							icon: r.provider.icon === 'remote' ? 'cloud' : r.provider.icon,
+							url: await r.provider.url({ type: RemoteResourceType.Repo }),
+							supportedFeatures: r.provider.supportedFeatures,
+					  }
+					: undefined,
+			};
+		});
+
 		branch.pr = prPromises.get(branch.id);
 
 		const autolinks = autolinkPromises.get(branch.id);

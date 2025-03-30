@@ -1,3 +1,4 @@
+import { consume } from '@lit/context';
 import type { TemplateResult } from 'lit';
 import { css, html, LitElement, nothing } from 'lit';
 import { customElement, property, state } from 'lit/decorators.js';
@@ -15,7 +16,8 @@ import type { AssociateIssueWithBranchCommandArgs } from '../../../../../plus/st
 import { createCommandLink } from '../../../../../system/commands';
 import { fromNow } from '../../../../../system/date';
 import { interpolate, pluralize } from '../../../../../system/string';
-import type { BranchRef, GetOverviewBranch, OpenInGraphParams } from '../../../../home/protocol';
+import type { BranchRef, GetOverviewBranch, OpenInGraphParams, State } from '../../../../home/protocol';
+import { stateContext } from '../../../home/context';
 import { renderBranchName } from '../../../shared/components/branch-name';
 import type { GlCard } from '../../../shared/components/card/card';
 import { GlElement, observe } from '../../../shared/components/element';
@@ -255,6 +257,10 @@ declare global {
 export abstract class GlBranchCardBase extends GlElement {
 	static override styles = [linkStyles, branchCardStyles];
 
+	@consume<State>({ context: stateContext, subscribe: true })
+	@state()
+	private _homeState!: State;
+
 	@property()
 	repo!: string;
 
@@ -273,6 +279,7 @@ export abstract class GlBranchCardBase extends GlElement {
 		this.issuesPromise = value?.issues;
 		this.prPromise = value?.pr;
 		this.mergeTargetPromise = value?.mergeTarget;
+		this.remotePromise = value?.remote;
 		this.wipPromise = value?.wip;
 	}
 
@@ -399,6 +406,26 @@ export abstract class GlBranchCardBase extends GlElement {
 		void this._mergeTargetPromise?.then(
 			r => (this._mergeTarget = r),
 			() => (this._mergeTarget = undefined),
+		);
+	}
+
+	@state()
+	private _remote!: Awaited<GetOverviewBranch['remote']>;
+	get remote(): Awaited<GetOverviewBranch['remote']> {
+		return this._remote;
+	}
+
+	private _remotePromise!: GetOverviewBranch['remote'];
+	get remotePromise(): GetOverviewBranch['remote'] {
+		return this._remotePromise;
+	}
+	set remotePromise(value: GetOverviewBranch['remote']) {
+		if (this._remotePromise === value) return;
+
+		this._remotePromise = value;
+		void this._remotePromise?.then(
+			r => (this._remote = r),
+			() => (this._remote = undefined),
 		);
 	}
 
@@ -747,7 +774,8 @@ export abstract class GlBranchCardBase extends GlElement {
 							href="${this.createCommandLink('gitlens.home.createPullRequest')}"
 							>Create a Pull Request</gl-button
 						>
-						${this.branch.aiPullRequestCreationAvailable
+						${this._homeState.orgSettings.ai &&
+						this.remote?.provider?.supportedFeatures?.createPullRequestWithDetails
 							? html`<gl-button
 									class="branch-item__missing"
 									tooltip="Create a Pull Request with AI (Preview)"
