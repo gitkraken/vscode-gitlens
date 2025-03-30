@@ -21,17 +21,14 @@ export type RemoteProviderId =
 	| 'gerrit'
 	| 'gitea'
 	| 'github'
-	| 'cloud-github-enterprise'
-	| 'cloud-gitlab-self-hosted'
+	| 'cloud-github-enterprise' // TODO@eamodio this shouldn't really be here, since it's not a valid remote provider id
+	| 'cloud-gitlab-self-hosted' // TODO@eamodio this shouldn't really be here, since it's not a valid remote provider id
 	| 'gitlab'
 	| 'google-source';
 
-export const remotesSupportTitleOnPullRequestCreation: RemoteProviderId[] = [
-	'github',
-	'gitlab',
-	'cloud-github-enterprise',
-	'cloud-gitlab-self-hosted',
-];
+export interface RemoteProviderSupportedFeatures {
+	createPullRequestWithDetails?: boolean;
+}
 
 export abstract class RemoteProvider<T extends ResourceDescriptor = ResourceDescriptor> implements ProviderReference {
 	protected readonly _name: string | undefined;
@@ -106,6 +103,9 @@ export abstract class RemoteProvider<T extends ResourceDescriptor = ResourceDesc
 	abstract get id(): RemoteProviderId;
 	abstract get gkProviderId(): GkProviderId | undefined;
 	abstract get name(): string;
+	get supportedFeatures(): RemoteProviderSupportedFeatures {
+		return {};
+	}
 
 	async copy(resource: RemoteResource | RemoteResource[]): Promise<void> {
 		const urls = await this.getUrlsFromResources(resource);

@@ -6,6 +6,7 @@ import type { Issue } from '../../git/models/issue';
 import type { MergeConflict } from '../../git/models/mergeConflict';
 import type { GitPausedOperationStatus } from '../../git/models/pausedOperationStatus';
 import type { GitBranchReference } from '../../git/models/reference';
+import type { RemoteProviderSupportedFeatures } from '../../git/remotes/remoteProvider';
 import type { AIModel } from '../../plus/ai/models/model';
 import type { Subscription } from '../../plus/gk/models/subscription';
 import type { LaunchpadSummaryResult } from '../../plus/launchpad/launchpadIndicator';
@@ -74,10 +75,23 @@ export interface GetOverviewBranch {
 	id: string;
 	name: string;
 	opened: boolean;
-	aiPullRequestCreationAvailable: boolean;
 	timestamp?: number;
 	status: GitBranchStatus;
 	upstream: GitTrackingUpstream | undefined;
+
+	remote?: Promise<
+		| {
+				name: string;
+
+				provider?: {
+					name: string;
+					icon?: string;
+					url?: string;
+					supportedFeatures: RemoteProviderSupportedFeatures;
+				};
+		  }
+		| undefined
+	>;
 
 	wip?: Promise<
 		| {
@@ -194,6 +208,7 @@ export interface OverviewRepository {
 		name: string;
 		icon?: string;
 		url?: string;
+		supportedFeatures: RemoteProviderSupportedFeatures;
 	};
 }
 
