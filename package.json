@@ -16322,12 +16322,12 @@
 				},
 				{
 					"command": "gitlens.views.collapseNode",
-					"when": "viewItem =~ /gitlens:(branch|compare|folder|grouping|pseudo:folder|results|search|status|tag)\\b/ && !listMultiSelection",
+					"when": "viewItem =~ /gitlens:(branch|commit|compare|contributor|folder|grouping|launchpad:item|pseudo:folder|pullrequest|remote|results|search|stash|status|tag|worktree)\\b/ && !listMultiSelection",
 					"group": "9_gitlens@1"
 				},
 				{
 					"command": "gitlens.views.expandNode",
-					"when": "viewItem =~ /gitlens:(branch|compare|folder|grouping|pseudo:folder|results|search|status|tag)\\b/ && !listMultiSelection",
+					"when": "viewItem =~ /gitlens:(branch|commit|compare|contributor|folder|grouping|launchpad:item|pseudo:folder|pullrequest|remote|results|search|stash|status|tag|worktree)\\b/ && !listMultiSelection",
 					"group": "9_gitlens@2"
 				},
 				{
