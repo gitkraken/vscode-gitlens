@@ -150,14 +150,14 @@ export function getSubscriptionPlanName(id: SubscriptionPlanId): string {
 
 export function getSubscriptionPlanTier(
 	id: SubscriptionPlanId,
-): 'Community' | 'Pro' | 'Advanced' | 'Teams' | 'Enterprise' {
+): 'Community' | 'Pro' | 'Advanced' | 'Business' | 'Enterprise' {
 	switch (id) {
 		case SubscriptionPlanId.Pro:
 			return 'Pro';
 		case SubscriptionPlanId.Advanced:
 			return 'Advanced';
 		case SubscriptionPlanId.Teams:
-			return 'Teams';
+			return 'Business';
 		case SubscriptionPlanId.Enterprise:
 			return 'Enterprise';
 		default:
@@ -165,12 +165,12 @@ export function getSubscriptionPlanTier(
 	}
 }
 
-export function getSubscriptionPlanTierType(id: SubscriptionPlanId): 'PRO' | 'ADVANCED' | 'TEAMS' | 'ENTERPRISE' {
+export function getSubscriptionPlanTierType(id: SubscriptionPlanId): 'PRO' | 'ADVANCED' | 'BUSINESS' | 'ENTERPRISE' {
 	switch (id) {
 		case SubscriptionPlanId.Advanced:
 			return 'ADVANCED';
 		case SubscriptionPlanId.Teams:
-			return 'TEAMS';
+			return 'BUSINESS';
 		case SubscriptionPlanId.Enterprise:
 			return 'ENTERPRISE';
 		default:
