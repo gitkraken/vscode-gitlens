@@ -274,7 +274,6 @@ export function sortRepositories(repositories: Repository[], options?: Repositor
 }
 
 export interface TagSortOptions {
-	current?: boolean;
 	orderBy?: TagSorting;
 }
 

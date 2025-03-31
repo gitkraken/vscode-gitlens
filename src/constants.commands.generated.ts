@@ -25,6 +25,7 @@ export type ContributedCommands =
 	| 'gitlens.diffWithWorkingInDiffRight'
 	| 'gitlens.ghpr.views.openOrCreateWorktree'
 	| 'gitlens.graph.addAuthor'
+	| 'gitlens.graph.ai.generateChangelogFrom'
 	| 'gitlens.graph.ai.generateCommitMessage'
 	| 'gitlens.graph.associateIssueWithBranch'
 	| 'gitlens.graph.cherryPick'
@@ -180,6 +181,7 @@ export type ContributedCommands =
 	| 'gitlens.views.addPullRequestRemote'
 	| 'gitlens.views.addRemote'
 	| 'gitlens.views.ai.generateChangelog'
+	| 'gitlens.views.ai.generateChangelogFrom'
 	| 'gitlens.views.applyChanges'
 	| 'gitlens.views.associateIssueWithBranch'
 	| 'gitlens.views.branches.copy'
@@ -611,6 +613,7 @@ export type ContributedCommands =
 
 export type ContributedPaletteCommands =
 	| 'gitlens.addAuthors'
+	| 'gitlens.ai.generateChangelog'
 	| 'gitlens.ai.generateCommitMessage'
 	| 'gitlens.applyPatchFromClipboard'
 	| 'gitlens.associateIssueWithBranch'

@@ -1,17 +1,23 @@
 import type { Autolink } from '../../../autolinks/models/autolinks';
 import type { Container } from '../../../container';
-import type { AIGenerateChangelogChange } from '../../../plus/ai/aiProviderService';
+import type { AIGenerateChangelogChange, AIGenerateChangelogChanges } from '../../../plus/ai/aiProviderService';
 import { filterMap, map } from '../../../system/iterable';
 import { getSettledValue } from '../../../system/promise';
 import type { IssueOrPullRequest } from '../../models/issueOrPullRequest';
 import type { GitLog } from '../../models/log';
 
-export async function getChangesForChangelog(container: Container, log: GitLog): Promise<AIGenerateChangelogChange[]> {
+export async function getChangesForChangelog(
+	container: Container,
+	range: AIGenerateChangelogChanges['range'],
+	log: GitLog,
+): Promise<AIGenerateChangelogChanges> {
 	interface Change extends AIGenerateChangelogChange {
 		links: Map<string, Autolink>;
 	}
 
 	const changes: Change[] = [];
+	if (!log.commits.size) return { changes: changes, range: range };
+
 	const allLinks: Map<string, Autolink> = new Map();
 
 	const remote = await container.git.remotes(log.repoPath).getBestRemoteWithIntegration();
@@ -54,5 +60,5 @@ export async function getChangesForChangelog(container: Container, log: GitLog):
 		);
 	}
 
-	return changes;
+	return { changes: changes, range: range };
 }

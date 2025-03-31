@@ -7,7 +7,7 @@ import type { PromptTemplate, PromptTemplateContext } from './promptTemplates';
 export interface AIRequestResult {
 	readonly id?: string;
 	readonly content: string;
-
+	readonly model: AIModel;
 	readonly usage?: {
 		readonly promptTokens?: number;
 		readonly completionTokens?: number;
