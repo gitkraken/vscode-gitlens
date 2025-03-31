@@ -174,8 +174,6 @@ export const branchCardStyles = css`
 	.branch-item__row {
 		display: flex;
 		gap: 0.8rem;
-		container-type: inline-size;
-		contain: layout;
 	}
 
 	.branch-item__row [full] {
@@ -190,7 +188,7 @@ export const branchCardStyles = css`
 		display: none;
 	}
 
-	@container (max-width: 330px) {
+	@media (max-width: 330px) {
 		.branch-item__is-narrow {
 			display: block;
 		}
