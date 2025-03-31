@@ -8,14 +8,18 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/) and this p
 
 ### Added
 
+- Adds an AI-powered "Create with AI" button to assist with creating pull requests for GitHub and GitLab
+- Adds AI-powered ability to automatically generate changelogs ([#4189](https://github.com/gitkraken/vscode-gitlens/issues/4189))
+  - Adds a _Generate Changelog (Preview)..._ command to the Command Palette
+  - Adds a _Generate Changelog (Preview)..._ context menu item to branches and tags in the _Commit Graph_ and in GitLens views
+  - Adds a _Generate Changelog (Preview)_ context menu item to Behind/Ahead comparison results in Gitlens views
 - Adds AI model status and model switcher to the _Home_ view ([#4064](https://github.com/gitkraken/vscode-gitlens/issues/4064))
-- Adds an optional "Create with AI" button to generate pull requests using AI assistance for GitHub and GitLab.
 - Adds Anthropic Claude 3.7 Sonnet model for GitLens' AI features ([#4101](https://github.com/gitkraken/vscode-gitlens/issues/4101))
 - Adds Google Gemini 2.5 Pro (Experimental) and Gemini 2.0 Flash-Lite model for GitLens' AI features ([#4104](https://github.com/gitkraken/vscode-gitlens/issues/4104))
-- Adds integration with Bitbucket Cloud and Data Center ([#3916](https://github.com/gitkraken/vscode-gitlens/issues/3916))
-  - shows enriched links to PRs and issues ([#4045](https://github.com/gitkraken/vscode-gitlens/issues/4045))
-  - shows Bitbucket Cloud and Data Center PRs in Launchpad ([#4046](https://github.com/gitkraken/vscode-gitlens/issues/4046))
-  - supports Bitbucket issues in Start Work and lets associate issues with branches ([#4047](https://github.com/gitkraken/vscode-gitlens/issues/4047), [#4107](https://github.com/gitkraken/vscode-gitlens/issues/4107))
+- Adds new Bitbucket Cloud and Data Center integration ([#3916](https://github.com/gitkraken/vscode-gitlens/issues/3916))
+  - Adds enriched links to PRs and issues ([#4045](https://github.com/gitkraken/vscode-gitlens/issues/4045))
+  - Adds Bitbucket Cloud and Data Center PRs in _Launchpad_ ([#4046](https://github.com/gitkraken/vscode-gitlens/issues/4046))
+  - Adds support for Bitbucket issues in _Start Work_ and allows associating issues with branches ([#4047](https://github.com/gitkraken/vscode-gitlens/issues/4047), [#4107](https://github.com/gitkraken/vscode-gitlens/issues/4107))
 - Adds ability to control how worktrees are displayed in the views
   - Adds a `gitlens.views.worktrees.worktrees.viewAs` setting to specify whether to show worktrees by name, path, or relative path
   - Adds a `gitlens.views.worktrees.branches.layout` setting to specify whether to show branch worktrees as a list or tree, similar to branches
@@ -24,7 +28,7 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/) and this p
 ### Changed
 
 - Curated the list of AI models available for GitLens' AI features
-- Updates the _Switch AI Model_ command and flow:
+- Updates the _Switch AI Model_ command and flow
   - Renames the _Switch AI Model_ command to _Switch AI Provider/Model_
   - Allows the provider to be selected before displaying a list of models
   - Adds inline actions to reset or configure a provider at the provider step
@@ -511,7 +515,7 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/) and this p
   - Adds a new _Connect Additional Integrations_ button to the _Launchpad_ titlebar to allow connecting additional integrations (GitHub and GitLab currently)
   - Adds an new experimental _Launchpad_ view to provide a persistent view of the _Launchpad_ in the sidebar
     - To try it out, run the _Show Launchpad View_ command or set the `gitlens.views.launchpad.enabled` setting to `true` &mdash; let us know what you think!
-    - While its functionality is currently limited, pull requests can be expanded to show changes, commits, and code suggestions, as well as actions to open changes in the multi-diff editor, open a comparision, and more
+    - While its functionality is currently limited, pull requests can be expanded to show changes, commits, and code suggestions, as well as actions to open changes in the multi-diff editor, open a comparison, and more
 - Adds new features and improvements to the _Commit Graph_
   - Branch visibility options, formerly in the _Graph Filtering_ dropdown, are now moved to the new _Branches Visibility_ dropdown in the _Commit Graph_ header bar
   - Adds a new _Smart Branches_ visibility option to shows only relevant branches &mdash; the current branch, its upstream, and its base or target branch, to help you better focus
@@ -1190,7 +1194,7 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/) and this p
   - Adds a highlight (green) to the linked GitKraken Cloud workspace when the current VS Code workspace is associated with it in the _GitKraken Workspaces_ view
 - Adds deep link support for comparisons in the _Search & Compare_ view
   - Deep link format: `vscode://eamodio.gitlens/r/{repoId}/compare/{ref1}[..|...]{ref2}?[url={remoteUrl}|path={repoPath}]`
-  - Adds a _Share_ submenu with a _Copy Link to Comparison_ command to comparisions in the _Search & Compare_ view
+  - Adds a _Share_ submenu with a _Copy Link to Comparison_ command to comparisons in the _Search & Compare_ view
 - Adds support for Anthropic's Claude 2 AI model
 - Adds a progress notification while repositories are being added to a GitKraken Cloud workspace
 

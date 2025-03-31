@@ -5,6 +5,8 @@ import type { CreatePullRequestActionContext, OpenPullRequestActionContext } fro
 import type { DiffWithCommandArgs } from '../commands/diffWith';
 import type { DiffWithPreviousCommandArgs } from '../commands/diffWithPrevious';
 import type { DiffWithWorkingCommandArgs } from '../commands/diffWithWorking';
+import type { GenerateChangelogCommandArgs } from '../commands/generateChangelog';
+import { generateChangelogAndOpenMarkdownDocument } from '../commands/generateChangelog';
 import type { OpenFileAtRevisionCommandArgs } from '../commands/openFileAtRevision';
 import type { OpenOnRemoteCommandArgs } from '../commands/openOnRemote';
 import type { ViewShowBranchComparison } from '../config';
@@ -1761,17 +1763,24 @@ export class ViewCommands implements Disposable {
 	private async generateChangelog(node: ResultsCommitsNode) {
 		if (!node.is('results-commits')) return;
 
-		const changes = lazy(() => node.getChangesForChangelog());
-		const result = await this.container.ai.generateChangelog(
-			changes,
-			{ source: 'view' },
+		await generateChangelogAndOpenMarkdownDocument(
+			this.container,
+			lazy(() => node.getChangesForChangelog()),
+			{ source: 'view', detail: 'comparison' },
 			{ progress: { location: ProgressLocation.Notification } },
 		);
-		if (result == null) return;
+	}
 
-		// open an untitled editor
-		const document = await workspace.openTextDocument({ language: 'markdown', content: result.content });
-		await window.showTextDocument(document);
+	@command('gitlens.views.ai.generateChangelogFrom')
+	@log()
+	private async generateChangelogFrom(node: BranchNode | TagNode) {
+		if (!node.is('branch') && !node.is('tag')) return;
+
+		await executeCommand<GenerateChangelogCommandArgs>('gitlens.ai.generateChangelog', {
+			repoPath: node.repoPath,
+			head: node.ref,
+			source: { source: 'view', detail: node.is('branch') ? 'branch' : 'tag' },
+		});
 	}
 }
 

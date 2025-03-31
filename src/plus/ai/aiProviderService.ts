@@ -50,6 +50,7 @@ import type { AIProvider, AIRequestResult } from './models/provider';
 export interface AIResult {
 	readonly id?: string;
 	readonly content: string;
+	readonly model: AIModel;
 	readonly usage?: {
 		readonly promptTokens?: number;
 		readonly completionTokens?: number;
@@ -73,6 +74,14 @@ export interface AISummarizeResult extends AIResult {
 export interface AIGenerateChangelogChange {
 	readonly message: string;
 	readonly issues: readonly { readonly id: string; readonly url: string; readonly title: string | undefined }[];
+}
+
+export interface AIGenerateChangelogChanges {
+	readonly changes: readonly AIGenerateChangelogChange[];
+	readonly range: {
+		readonly base: { readonly ref: string; readonly label?: string };
+		readonly head: { readonly ref: string; readonly label?: string };
+	};
 }
 
 export interface AIModelChangeEvent {
@@ -662,7 +671,7 @@ export class AIProviderService implements Disposable {
 	}
 
 	async generateChangelog(
-		changes: Lazy<Promise<AIGenerateChangelogChange[]>>,
+		changes: Lazy<Promise<AIGenerateChangelogChanges>>,
 		source: Source,
 		options?: { cancellation?: CancellationToken; progress?: ProgressOptions },
 	): Promise<AIResult | undefined> {
@@ -672,10 +681,15 @@ export class AIProviderService implements Disposable {
 
 		const result = await this.sendRequest(
 			'generate-changelog',
-			async () => ({
-				data: JSON.stringify(await changes.value),
-				instructions: configuration.get('ai.generateChangelog.customInstructions') ?? '',
-			}),
+			async () => {
+				const { changes: data } = await changes.value;
+				if (!data.length) return undefined;
+
+				return {
+					data: JSON.stringify(data),
+					instructions: configuration.get('ai.generateChangelog.customInstructions') ?? '',
+				};
+			},
 			m => `Generating changelog with ${m.name}...`,
 			source,
 			m => ({
@@ -695,7 +709,7 @@ export class AIProviderService implements Disposable {
 
 	private async sendRequest<T extends AIActionType>(
 		action: T,
-		getContext: () => PromptTemplateContext<T> | Promise<PromptTemplateContext<T>>,
+		getContext: () => PromptTemplateContext<T> | undefined | Promise<PromptTemplateContext<T> | undefined>,
 		getProgressTitle: (model: AIModel) => string,
 		source: Source,
 		getTelemetryInfo: (model: AIModel) => {
@@ -740,6 +754,11 @@ export class AIProviderService implements Disposable {
 		}
 
 		const context = await getContext();
+		if (context == null) {
+			options?.generating?.cancel();
+			return undefined;
+		}
+
 		const promise = this._provider!.sendRequest(action, context, model, telementry.data, {
 			cancellation: options?.cancellation,
 		});

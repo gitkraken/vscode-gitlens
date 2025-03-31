@@ -6,6 +6,7 @@ import { parseCommandContext } from '../../../commands/commandContext.utils';
 import type { CopyDeepLinkCommandArgs } from '../../../commands/copyDeepLink';
 import type { CopyMessageToClipboardCommandArgs } from '../../../commands/copyMessageToClipboard';
 import type { CopyShaToClipboardCommandArgs } from '../../../commands/copyShaToClipboard';
+import type { GenerateChangelogCommandArgs } from '../../../commands/generateChangelog';
 import type { GenerateCommitMessageCommandArgs } from '../../../commands/generateCommitMessage';
 import type { InspectCommandArgs } from '../../../commands/inspect';
 import type { OpenOnRemoteCommandArgs } from '../../../commands/openOnRemote';
@@ -686,6 +687,8 @@ export class GraphWebviewProvider implements WebviewProvider<State, State, Graph
 			this.host.registerWebviewCommand('gitlens.graph.continuePausedOperation', this.continuePausedOperation),
 			this.host.registerWebviewCommand('gitlens.graph.openRebaseEditor', this.openRebaseEditor),
 			this.host.registerWebviewCommand('gitlens.graph.skipPausedOperation', this.skipPausedOperation),
+
+			this.host.registerWebviewCommand('gitlens.graph.ai.generateChangelogFrom', this.generateChangelogFrom),
 		);
 
 		return commands;
@@ -3976,6 +3979,21 @@ export class GraphWebviewProvider implements WebviewProvider<State, State, Graph
 		await this.container.storage.storeWorkspace('graph:columns', columns);
 
 		void this.notifyDidChangeColumns();
+	}
+
+	@log()
+	private async generateChangelogFrom(item?: GraphItemContext) {
+		if (isGraphItemRefContext(item, 'branch') || isGraphItemRefContext(item, 'tag')) {
+			const { ref } = item.webviewItemValue;
+
+			await executeCommand<GenerateChangelogCommandArgs>('gitlens.ai.generateChangelog', {
+				repoPath: ref.repoPath,
+				head: ref,
+				source: { source: 'graph', detail: isGraphItemRefContext(item, 'branch') ? 'branch' : 'tag' },
+			});
+		}
+
+		return Promise.resolve();
 	}
 
 	private getCommitFromGraphItemRef(item?: GraphItemContext): Promise<GitCommit | undefined> {

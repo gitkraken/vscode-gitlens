@@ -168,6 +168,7 @@ export abstract class OpenAICompatibleProvider<T extends AIProviders> implements
 			const result: AIRequestResult = {
 				id: data.id,
 				content: data.choices?.[0].message.content?.trim() ?? data.content?.[0]?.text?.trim() ?? '',
+				model: model,
 				usage: {
 					promptTokens: data.usage?.prompt_tokens ?? data.usage?.input_tokens,
 					completionTokens: data.usage?.completion_tokens ?? data.usage?.output_tokens,

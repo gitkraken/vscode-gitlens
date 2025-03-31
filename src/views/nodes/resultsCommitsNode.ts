@@ -4,7 +4,7 @@ import { isStash } from '../../git/models/commit';
 import type { GitRevisionRange } from '../../git/models/revision';
 import type { CommitsQueryResults, FilesQueryResults } from '../../git/queryResults';
 import { getChangesForChangelog } from '../../git/utils/-webview/log.utils';
-import type { AIGenerateChangelogChange } from '../../plus/ai/aiProviderService';
+import type { AIGenerateChangelogChanges } from '../../plus/ai/aiProviderService';
 import { configuration } from '../../system/-webview/configuration';
 import { gate } from '../../system/decorators/-webview/gate';
 import { debug } from '../../system/decorators/log';
@@ -265,10 +265,15 @@ export class ResultsCommitsNode<View extends ViewsWithCommits = ViewsWithCommits
 		void this.triggerChange(false);
 	}
 
-	async getChangesForChangelog(): Promise<AIGenerateChangelogChange[]> {
-		const { log } = await this.getCommitsQueryResults();
-		if (log == null) return [];
+	async getChangesForChangelog(): Promise<AIGenerateChangelogChanges> {
+		const range: AIGenerateChangelogChanges['range'] = {
+			base: { ref: this.ref1!, label: `\`${this.ref1}\`` },
+			head: { ref: this.ref2!, label: `\`${this.ref2}\`` },
+		};
 
-		return getChangesForChangelog(this.view.container, log);
+		const { log } = await this.getCommitsQueryResults();
+		if (log == null) return { changes: [], range: range };
+
+		return getChangesForChangelog(this.view.container, range, log);
 	}
 }

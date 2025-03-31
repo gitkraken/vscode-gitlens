@@ -128,7 +128,7 @@ export class VSCodeAIProvider implements AIProvider<typeof provider.id> {
 						message += fragment;
 					}
 
-					return { content: message.trim() } satisfies AIRequestResult;
+					return { content: message.trim(), model: model } satisfies AIRequestResult;
 				} catch (ex) {
 					debugger;
 

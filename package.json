@@ -6005,6 +6005,11 @@
 				"icon": "$(person-add)"
 			},
 			{
+				"command": "gitlens.ai.generateChangelog",
+				"title": "Generate Changelog (Preview)...",
+				"category": "GitLens"
+			},
+			{
 				"command": "gitlens.ai.generateCommitMessage",
 				"title": "Generate Commit Message...",
 				"category": "GitLens"
@@ -6564,6 +6569,11 @@
 				"command": "gitlens.graph.addAuthor",
 				"title": "Add as Co-author",
 				"icon": "$(person-add)"
+			},
+			{
+				"command": "gitlens.graph.ai.generateChangelogFrom",
+				"title": "Generate Changelog (Preview)...",
+				"icon": "$(sparkle)"
 			},
 			{
 				"command": "gitlens.graph.ai.generateCommitMessage",
@@ -7857,6 +7867,11 @@
 			{
 				"command": "gitlens.views.ai.generateChangelog",
 				"title": "Generate Changelog (Preview)",
+				"icon": "$(sparkle)"
+			},
+			{
+				"command": "gitlens.views.ai.generateChangelogFrom",
+				"title": "Generate Changelog (Preview)...",
 				"icon": "$(sparkle)"
 			},
 			{
@@ -10322,6 +10337,10 @@
 					"when": "gitlens:enabled && !gitlens:readonly && !gitlens:untrusted && !gitlens:hasVirtualFolders"
 				},
 				{
+					"command": "gitlens.ai.generateChangelog",
+					"when": "gitlens:enabled && !gitlens:readonly && !gitlens:untrusted && !gitlens:hasVirtualFolders && gitlens:gk:organization:ai:enabled"
+				},
+				{
 					"command": "gitlens.ai.generateCommitMessage",
 					"when": "gitlens:enabled && !gitlens:readonly && !gitlens:untrusted && !gitlens:hasVirtualFolders && gitlens:gk:organization:ai:enabled && config.gitlens.ai.generateCommitMessage.enabled"
 				},
@@ -10735,6 +10754,10 @@
 				},
 				{
 					"command": "gitlens.graph.addAuthor",
+					"when": "false"
+				},
+				{
+					"command": "gitlens.graph.ai.generateChangelogFrom",
 					"when": "false"
 				},
 				{
@@ -11715,6 +11738,10 @@
 				},
 				{
 					"command": "gitlens.views.ai.generateChangelog",
+					"when": "false"
+				},
+				{
+					"command": "gitlens.views.ai.generateChangelogFrom",
 					"when": "false"
 				},
 				{
@@ -16141,6 +16168,11 @@
 					"group": "1_gitlens_action@3"
 				},
 				{
+					"command": "gitlens.showInCommitGraph",
+					"when": "viewItem =~ /gitlens:(branch|tag)\\b(?!.*?\\b\\+closed\\b)/ && !listMultiSelection",
+					"group": "1_gitlens_action@100"
+				},
+				{
 					"command": "gitlens.views.publishBranch",
 					"when": "viewItem =~ /gitlens:branch\\b(?!.*?\\b\\+(closed|remote|tracking)\\b)/ && !listMultiSelection && gitlens:repos:withRemotes && !gitlens:hasVirtualFolders && !gitlens:readonly && !gitlens:untrusted",
 					"group": "1_gitlens_actions@2"
@@ -16221,6 +16253,11 @@
 					"group": "1_gitlens_actions_3@10"
 				},
 				{
+					"command": "gitlens.views.ai.generateChangelogFrom",
+					"when": "viewItem =~ /gitlens:(branch|tag)\\b/ && gitlens:gk:organization:ai:enabled",
+					"group": "1_gitlens_actions_3@100"
+				},
+				{
 					"command": "gitlens.views.openBranchOnRemote",
 					"when": "viewItem =~ /gitlens:branch\\b(?=.*?\\b\\+(tracking|remote)\\b)/ && !listMultiSelection",
 					"group": "2_gitlens_quickopen@1"
@@ -16231,16 +16268,6 @@
 					"group": "2_gitlens_quickopen@1"
 				},
 				{
-					"command": "gitlens.showInCommitGraph",
-					"when": "viewItem =~ /gitlens:(branch|commit|stash|tag)\\b(?!.*?\\b\\+closed\\b)/ && !listMultiSelection",
-					"group": "3_gitlens_explore@1"
-				},
-				{
-					"submenu": "gitlens/commit/browse",
-					"when": "viewItem =~ /gitlens:(branch|commit|file\\b(?=.*?\\b\\+committed\\b)|stash|tag)\\b/ && !listMultiSelection && !gitlens:hasVirtualFolders",
-					"group": "3_gitlens_explore@10"
-				},
-				{
 					"command": "gitlens.views.openChangedFileDiffsWithMergeBase",
 					"when": "viewItem =~ /gitlens:branch\\b(?!.*?\\b\\+current\\b)/ && !listMultiSelection",
 					"group": "3_gitlens_explore@11"
@@ -16249,6 +16276,11 @@
 					"command": "gitlens.views.openDirectoryDiffWithWorking",
 					"when": "viewItem =~ /gitlens:(branch|tag)\\b/ && !listMultiSelection && !gitlens:hasVirtualFolders",
 					"group": "3_gitlens_explore@12"
+				},
+				{
+					"submenu": "gitlens/commit/browse",
+					"when": "viewItem =~ /gitlens:(branch|commit|file\\b(?=.*?\\b\\+committed\\b)|stash|tag)\\b/ && !listMultiSelection && !gitlens:hasVirtualFolders",
+					"group": "3_gitlens_explore@100"
 				},
 				{
 					"command": "gitlens.views.compareWithUpstream",
@@ -16500,6 +16532,11 @@
 					"command": "gitlens.showInDetailsView",
 					"when": "viewItem =~ /gitlens:(commit|stash)\\b/ && !listMultiSelection",
 					"group": "3_gitlens_explore@0"
+				},
+				{
+					"command": "gitlens.showInCommitGraph",
+					"when": "viewItem =~ /gitlens:(commit|stash)\\b(?!.*?\\b\\+closed\\b)/ && !listMultiSelection",
+					"group": "3_gitlens_explore@1"
 				},
 				{
 					"command": "gitlens.revealCommitInView",
@@ -17687,7 +17724,7 @@
 				{
 					"command": "gitlens.views.createBranch",
 					"when": "viewItem =~ /gitlens:tag\\b/ && !listMultiSelection && !gitlens:hasVirtualFolders && !gitlens:readonly && !gitlens:untrusted",
-					"group": "1_gitlens_actions@3"
+					"group": "1_gitlens_actions_3@3"
 				},
 				{
 					"command": "gitlens.views.createTag",
@@ -19837,6 +19874,11 @@
 					"group": "1_gitlens_actions_3@4"
 				},
 				{
+					"command": "gitlens.graph.ai.generateChangelogFrom",
+					"when": "webviewItem =~ /gitlens:(branch|tag)\\b/ && gitlens:gk:organization:ai:enabled",
+					"group": "1_gitlens_actions_3@100"
+				},
+				{
 					"command": "gitlens.graph.openBranchOnRemote",
 					"when": "webviewItem =~ /gitlens:branch\\b(?=.*?\\b\\+(tracking|remote)\\b)/ && gitlens:repos:withRemotes",
 					"group": "2_gitlens_quickopen@1"
@@ -20139,7 +20181,7 @@
 				{
 					"command": "gitlens.graph.createBranch",
 					"when": "webviewItem =~ /gitlens:tag\\b/ && !gitlens:hasVirtualFolders && !gitlens:readonly && !gitlens:untrusted",
-					"group": "1_gitlens_actions@4"
+					"group": "1_gitlens_actions_3@4"
 				},
 				{
 					"command": "gitlens.graph.hideTag",

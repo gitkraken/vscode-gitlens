@@ -23,6 +23,10 @@
 				]
 			}
 		},
+		"gitlens.ai.generateChangelog": {
+			"label": "Generate Changelog (Preview)...",
+			"commandPalette": "gitlens:enabled && !gitlens:readonly && !gitlens:untrusted && !gitlens:hasVirtualFolders && gitlens:gk:organization:ai:enabled"
+		},
 		"gitlens.ai.generateCommitMessage": {
 			"label": "Generate Commit Message...",
 			"commandPalette": "gitlens:enabled && !gitlens:readonly && !gitlens:untrusted && !gitlens:hasVirtualFolders && gitlens:gk:organization:ai:enabled && config.gitlens.ai.generateCommitMessage.enabled"
@@ -1457,6 +1461,19 @@
 				]
 			}
 		},
+		"gitlens.graph.ai.generateChangelogFrom": {
+			"label": "Generate Changelog (Preview)...",
+			"icon": "$(sparkle)",
+			"menus": {
+				"webview/context": [
+					{
+						"when": "webviewItem =~ /gitlens:(branch|tag)\\b/ && gitlens:gk:organization:ai:enabled",
+						"group": "1_gitlens_actions_3",
+						"order": 100
+					}
+				]
+			}
+		},
 		"gitlens.graph.ai.generateCommitMessage": {
 			"label": "Generate Commit Message...",
 			"menus": {
@@ -1967,7 +1984,7 @@
 					},
 					{
 						"when": "webviewItem =~ /gitlens:tag\\b/ && !gitlens:hasVirtualFolders && !gitlens:readonly && !gitlens:untrusted",
-						"group": "1_gitlens_actions",
+						"group": "1_gitlens_actions_3",
 						"order": 4
 					}
 				]
@@ -3836,7 +3853,12 @@
 				],
 				"view/item/context": [
 					{
-						"when": "viewItem =~ /gitlens:(branch|commit|stash|tag)\\b(?!.*?\\b\\+closed\\b)/ && !listMultiSelection",
+						"when": "viewItem =~ /gitlens:(branch|tag)\\b(?!.*?\\b\\+closed\\b)/ && !listMultiSelection",
+						"group": "1_gitlens_action",
+						"order": 100
+					},
+					{
+						"when": "viewItem =~ /gitlens:(commit|stash)\\b(?!.*?\\b\\+closed\\b)/ && !listMultiSelection",
 						"group": "3_gitlens_explore",
 						"order": 1
 					},
@@ -4923,6 +4945,19 @@
 						"when": "viewItem =~ /gitlens:compare:results:commits\\b/ && !listMultiSelection && gitlens:gk:organization:ai:enabled",
 						"group": "4_gitlens_actions",
 						"order": 2
+					}
+				]
+			}
+		},
+		"gitlens.views.ai.generateChangelogFrom": {
+			"label": "Generate Changelog (Preview)...",
+			"icon": "$(sparkle)",
+			"menus": {
+				"view/item/context": [
+					{
+						"when": "viewItem =~ /gitlens:(branch|tag)\\b/ && gitlens:gk:organization:ai:enabled",
+						"group": "1_gitlens_actions_3",
+						"order": 100
 					}
 				]
 			}
@@ -6588,7 +6623,7 @@
 					},
 					{
 						"when": "viewItem =~ /gitlens:tag\\b/ && !listMultiSelection && !gitlens:hasVirtualFolders && !gitlens:readonly && !gitlens:untrusted",
-						"group": "1_gitlens_actions",
+						"group": "1_gitlens_actions_3",
 						"order": 3
 					}
 				]
@@ -12878,7 +12913,7 @@
 					{
 						"when": "viewItem =~ /gitlens:(branch|commit|file\\b(?=.*?\\b\\+committed\\b)|stash|tag)\\b/ && !listMultiSelection && !gitlens:hasVirtualFolders",
 						"group": "3_gitlens_explore",
-						"order": 10
+						"order": 100
 					}
 				]
 			}

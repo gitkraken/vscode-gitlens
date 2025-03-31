@@ -2,6 +2,7 @@ import type { QuickPickItem, ThemeIcon, Uri } from 'vscode';
 import { commands, QuickPickItemKind } from 'vscode';
 import type { Keys } from '../../constants';
 import type { GlCommands } from '../../constants.commands';
+import type { Directive } from './directive';
 
 declare module 'vscode' {
 	interface QuickPickItem {
@@ -18,13 +19,15 @@ export function createQuickPickSeparator<T = QuickPickSeparator>(label?: string)
 	return { kind: QuickPickItemKind.Separator, label: label ?? '' } as unknown as T;
 }
 
-export interface QuickPickItemOfT<T = any> extends QuickPickItem {
+export interface QuickPickItemOfT<T = unknown> extends QuickPickItem {
 	readonly item: T;
 }
 
-export function createQuickPickItemOfT<T = any>(labelOrItem: string | QuickPickItem, item: T): QuickPickItemOfT<T> {
+export function createQuickPickItemOfT<T = unknown>(labelOrItem: string | QuickPickItem, item: T): QuickPickItemOfT<T> {
 	return typeof labelOrItem === 'string' ? { label: labelOrItem, item: item } : { ...labelOrItem, item: item };
 }
+
+export type QuickPickResult<T> = { value: T | undefined; directive?: never } | { directive: Directive; value?: never };
 
 export class CommandQuickPickItem<Arguments extends any[] = any[]> implements QuickPickItem {
 	static fromCommand<T>(label: string, command: GlCommands, args?: T): CommandQuickPickItem;
