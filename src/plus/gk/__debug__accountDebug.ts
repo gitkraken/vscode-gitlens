@@ -195,8 +195,8 @@ class AccountDebug {
 					item: { state: SubscriptionState.Paid, planId: SubscriptionPlanId.Advanced },
 				},
 				{
-					label: 'Teams',
-					description: 'Teams plan, account',
+					label: 'Business',
+					description: 'Business plan, account',
 					iconPath: new ThemeIcon('blank'),
 					item: { state: SubscriptionState.Paid, planId: SubscriptionPlanId.Teams },
 				},
