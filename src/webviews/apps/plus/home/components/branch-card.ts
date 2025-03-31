@@ -775,7 +775,11 @@ export abstract class GlBranchCardBase extends GlElement {
 							class="branch-item__missing"
 							appearance="secondary"
 							full
-							href="${this.createCommandLink('gitlens.home.createPullRequest')}"
+							href="${createCommandLink('gitlens.home.createPullRequest', {
+								ref: this.branchRef,
+								describeWithAI: false,
+								source: { source: 'home', detail: 'create-pr' },
+							})}"
 							>Create a Pull Request</gl-button
 						>
 						${this._homeState.orgSettings.ai &&
