@@ -25,11 +25,11 @@
 		},
 		"gitlens.ai.generateChangelog": {
 			"label": "Generate Changelog (Preview)...",
-			"commandPalette": "gitlens:enabled && !gitlens:readonly && !gitlens:untrusted && !gitlens:hasVirtualFolders && gitlens:gk:organization:ai:enabled"
+			"commandPalette": "gitlens:enabled && !gitlens:untrusted && gitlens:gk:organization:ai:enabled"
 		},
 		"gitlens.ai.generateCommitMessage": {
-			"label": "Generate Commit Message...",
-			"commandPalette": "gitlens:enabled && !gitlens:readonly && !gitlens:untrusted && !gitlens:hasVirtualFolders && gitlens:gk:organization:ai:enabled && config.gitlens.ai.generateCommitMessage.enabled"
+			"label": "Generate Commit Message",
+			"commandPalette": "gitlens:enabled && !gitlens:readonly && !gitlens:untrusted && gitlens:gk:organization:ai:enabled && config.gitlens.ai.generateCommitMessage.enabled"
 		},
 		"gitlens.annotations.nextChange": {
 			"label": "Next Change",
@@ -1467,7 +1467,7 @@
 			"menus": {
 				"webview/context": [
 					{
-						"when": "webviewItem =~ /gitlens:(branch|tag)\\b/ && gitlens:gk:organization:ai:enabled",
+						"when": "webviewItem =~ /gitlens:(branch|tag)\\b/ && gitlens:gk:organization:ai:enabled && !gitlens:untrusted",
 						"group": "1_gitlens_actions_3",
 						"order": 100
 					}
@@ -1475,11 +1475,11 @@
 			}
 		},
 		"gitlens.graph.ai.generateCommitMessage": {
-			"label": "Generate Commit Message...",
+			"label": "Generate Commit Message",
 			"menus": {
 				"webview/context": [
 					{
-						"when": "webviewItem == gitlens:wip && config.gitlens.ai.generateCommitMessage.enabled && !listMultiSelection && gitlens:gk:organization:ai:enabled && !gitlens:hasVirtualFolders && !gitlens:readonly && !gitlens:untrusted",
+						"when": "webviewItem == gitlens:wip && config.gitlens.ai.generateCommitMessage.enabled && !listMultiSelection && gitlens:gk:organization:ai:enabled && !gitlens:readonly && !gitlens:untrusted",
 						"group": "1_gitlens",
 						"order": 2
 					}
@@ -3603,18 +3603,24 @@
 			}
 		},
 		"gitlens.scm.ai.generateCommitMessage": {
-			"label": "Generate Commit Message with GitLens...",
+			"label": "Generate Commit Message with GitLens",
+			"icon": "$(sparkle)",
 			"menus": {
 				"git.commit": [
 					{
-						"when": "gitlens:enabled && !gitlens:readonly && !gitlens:untrusted && !gitlens:hasVirtualFolders && gitlens:gk:organization:ai:enabled && config.gitlens.ai.generateCommitMessage.enabled && config.gitlens.menus.scmRepository.generateCommitMessage",
+						"when": "gitlens:enabled && !gitlens:readonly && !gitlens:untrusted && gitlens:gk:organization:ai:enabled && config.gitlens.ai.generateCommitMessage.enabled && config.gitlens.menus.scmRepository.generateCommitMessage",
 						"group": "4_gitlens",
 						"order": 4
 					}
 				],
 				"scm/title": [
 					{
-						"when": "scmProvider == git && gitlens:enabled && config.gitlens.ai.generateCommitMessage.enabled && config.gitlens.menus.scmRepository.generateCommitMessage && gitlens:gk:organization:ai:enabled && !gitlens:hasVirtualFolders && !gitlens:readonly && !gitlens:untrusted",
+						"when": "scmProvider == git && gitlens:enabled && config.gitlens.ai.generateCommitMessage.enabled && config.gitlens.menus.scmRepositoryInline.generateCommitMessage && gitlens:gk:organization:ai:enabled && !gitlens:readonly && !gitlens:untrusted",
+						"group": "navigation",
+						"order": -3
+					},
+					{
+						"when": "scmProvider == git && gitlens:enabled && config.gitlens.ai.generateCommitMessage.enabled && config.gitlens.menus.scmRepository.generateCommitMessage && gitlens:gk:organization:ai:enabled && !gitlens:readonly && !gitlens:untrusted",
 						"group": "2_z_gitlens",
 						"order": 4
 					}
@@ -3792,7 +3798,7 @@
 					{
 						"when": "scmProvider == git && gitlens:enabled && config.gitlens.menus.scmRepositoryInline.graph && gitlens:plus:enabled && scmProviderRootUri not in gitlens:plus:disallowedRepos",
 						"group": "navigation",
-						"order": -1000
+						"order": -1
 					},
 					{
 						"when": "scmProvider == git && gitlens:enabled && config.gitlens.menus.scmRepository.graph && gitlens:plus:enabled && scmProviderRootUri not in gitlens:plus:disallowedRepos",
@@ -4535,7 +4541,7 @@
 					{
 						"when": "scmProvider == git && gitlens:enabled && config.gitlens.menus.scmRepositoryInline.stash && !gitlens:hasVirtualFolders && !gitlens:readonly && !gitlens:untrusted",
 						"group": "navigation",
-						"order": -1001
+						"order": -2
 					}
 				],
 				"view/item/context": [
@@ -4937,12 +4943,12 @@
 			"menus": {
 				"view/item/context": [
 					{
-						"when": "viewItem =~ /gitlens:compare:results:commits\\b/ && gitlens:gk:organization:ai:enabled",
+						"when": "viewItem =~ /gitlens:compare:results:commits\\b/ && gitlens:gk:organization:ai:enabled && !gitlens:untrusted",
 						"group": "inline",
 						"order": 98
 					},
 					{
-						"when": "viewItem =~ /gitlens:compare:results:commits\\b/ && !listMultiSelection && gitlens:gk:organization:ai:enabled",
+						"when": "viewItem =~ /gitlens:compare:results:commits\\b/ && !listMultiSelection && gitlens:gk:organization:ai:enabled && !gitlens:untrusted",
 						"group": "4_gitlens_actions",
 						"order": 2
 					}
@@ -4955,7 +4961,7 @@
 			"menus": {
 				"view/item/context": [
 					{
-						"when": "viewItem =~ /gitlens:(branch|tag)\\b/ && gitlens:gk:organization:ai:enabled",
+						"when": "viewItem =~ /gitlens:(branch|tag)\\b/ && gitlens:gk:organization:ai:enabled && !gitlens:untrusted",
 						"group": "1_gitlens_actions_3",
 						"order": 100
 					}
