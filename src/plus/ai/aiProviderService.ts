@@ -955,7 +955,7 @@ async function showConfirmAIProviderToS(storage: Storage): Promise<boolean> {
 	const cancel: MessageItem = { title: 'Cancel', isCloseAffordance: true };
 
 	const result = await window.showInformationMessage(
-		'GitLens AI features can send code snippets, diffs, and other context to your selected AI provider for analysis. This may contain sensitive information.',
+		'GitLens AI features can send code snippets, diffs, and other context to your selected AI provider for analysis.',
 		{ modal: true },
 		acceptAlways,
 		acceptWorkspace,
