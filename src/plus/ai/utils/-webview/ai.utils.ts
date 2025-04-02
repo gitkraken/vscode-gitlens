@@ -142,10 +142,12 @@ export async function showLargePromptWarning(estimatedTokens: number, threshold:
 	const changeThreshold = { title: `Change Threshold` };
 	const cancel = { title: 'Cancel', isCloseAffordance: true };
 	const result = await window.showWarningMessage(
-		`This request will use about ${pluralize(
+		`This request will use approximately ${pluralize(
 			'token',
 			estimatedTokens,
-		)} which exceeds the large prompt threshold of ${pluralize('token', threshold)}.\n\nDo you want to continue?`,
+		)}, which exceeds the configured ${formatNumeric(
+			threshold,
+		)} token threshold for large prompts.\n\nDo you want to continue?`,
 		{ modal: true },
 		confirm,
 		changeThreshold,
