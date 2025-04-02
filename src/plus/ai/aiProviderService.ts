@@ -82,6 +82,10 @@ export interface AISummarizeResult extends AIResult {
 	};
 }
 
+export interface AIRebaseResult extends AIResult {
+	readonly diff: string;
+}
+
 export interface AIGenerateChangelogChange {
 	readonly message: string;
 	readonly issues: readonly { readonly id: string; readonly url: string; readonly title: string | undefined }[];
@@ -804,6 +808,98 @@ export class AIProviderService implements Disposable {
 			options,
 		);
 		return result != null ? { ...result } : undefined;
+	}
+
+	// Step 1: Get a patch containing the combined diff of all the changes within the branch input
+	// Step 2: Prompt the AI agent to output an array with the reorganized commits and their commit messages.
+	// Accept as context:
+	// 1. The combined diff
+	// 2. Optional list of original commits and messages
+	// Take as output:
+	// An array of commit objects with the properties:
+	//   'message': The commit message as a string
+	//   'explanation': A more detailed explanation of the changes in the commit as a string
+	//   'changes': The changes of the commit as a formatted diff
+	// Step 3: Create a new branch at the same branching point as the input branch with name <originalbranch>-recomposed
+	// Step 4: Iteratively apply the diffs from the array as commits using the message and changes properties of each object
+	// Step 5: ???
+
+	async generateRebase(
+		repo: Repository,
+		baseRef: string,
+		headRef: string,
+		source: Source,
+		options?: {
+			cancellation?: CancellationToken;
+			context?: string;
+			generating?: Deferred<AIModel>;
+			progress?: ProgressOptions;
+		},
+	): Promise<AIRebaseResult | undefined> {
+		let numberedDiff: string | undefined;
+		const result = await this.sendRequest(
+			'generate-rebase',
+			async (action, model, promptTemplate, reporting, cancellation, maxInputTokens, retries) => {
+				const [diffResult, logResult] = await Promise.allSettled([
+					repo.git.diff().getDiff?.(headRef, baseRef, { notation: '...' }),
+					repo.git.commits().getLog(`${baseRef}..${headRef}`),
+				]);
+
+				const diff = getSettledValue(diffResult);
+				const log = getSettledValue(logResult);
+
+				if (!diff?.contents || !log?.commits?.size) {
+					throw new AINoRequestDataError('No changes found to generate a rebase from.');
+				}
+				if (cancellation.isCancellationRequested) throw new CancellationError();
+
+				// add line numbers to each line of the diff.contents
+				const lines = diff.contents.split('\n');
+				const lineNumbers = lines.map((_, index) => `${index + 1}: `);
+				numberedDiff = lines.map((line, index) => `${lineNumbers[index]}${line}`).join('\n');
+
+				const commits: { diff: string; message: string }[] = [];
+				for (const commit of [...log.commits.values()].sort((a, b) => a.date.getTime() - b.date.getTime())) {
+					const diff = await repo.git.diff().getDiff?.(commit.ref);
+					commits.push({ message: commit.message ?? commit.summary, diff: diff?.contents ?? '' });
+
+					if (cancellation.isCancellationRequested) throw new CancellationError();
+				}
+
+				const { prompt } = await resolvePrompt(
+					action,
+					model,
+					promptTemplate,
+					{
+						diff: numberedDiff,
+						commits: JSON.stringify(commits),
+						context: options?.context ?? '',
+						instructions: /*configuration.get('ai.generateChangelog.customInstructions') ??*/ '',
+					},
+					maxInputTokens,
+					retries,
+					reporting,
+				);
+				if (cancellation.isCancellationRequested) throw new CancellationError();
+
+				const messages: AIChatMessage[] = [{ role: 'user', content: prompt }];
+				return messages;
+			},
+			m => `Generating rebase with ${m.name}...`,
+			source,
+			m => ({
+				key: 'ai/generate',
+				data: {
+					type: 'rebase',
+					'model.id': m.id,
+					'model.provider.id': m.provider.id,
+					'model.provider.name': m.provider.name,
+					'retry.count': 0,
+				},
+			}),
+			options,
+		);
+		return result != null ? { diff: numberedDiff!, ...result } : undefined;
 	}
 
 	private async sendRequest<T extends AIActionType>(

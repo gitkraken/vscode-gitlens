@@ -34,6 +34,13 @@ interface ExplainChangesPromptTemplateContext {
 	instructions?: string;
 }
 
+interface RebasePromptTemplateContext {
+	diff: string;
+	commits: string;
+	context?: string;
+	instructions?: string;
+}
+
 interface StashMessagePromptTemplateContext {
 	diff: string;
 	context?: string;
@@ -57,6 +64,8 @@ export type PromptTemplateContext<T extends PromptTemplateType> = T extends 'gen
 	      ? CreatePullRequestPromptTemplateContext
 	      : T extends 'generate-changelog'
 	        ? ChangelogPromptTemplateContext
-	        : T extends 'explain-changes'
-	          ? ExplainChangesPromptTemplateContext
-	          : never;
+	        : T extends 'generate-rebase'
+	          ? RebasePromptTemplateContext
+	          : T extends 'explain-changes'
+	            ? ExplainChangesPromptTemplateContext
+	            : never;

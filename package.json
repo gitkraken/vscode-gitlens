@@ -6029,6 +6029,11 @@
 				"category": "GitLens"
 			},
 			{
+				"command": "gitlens.ai.generateRebase",
+				"title": "Rebase with AI (Preview)...",
+				"category": "GitLens"
+			},
+			{
 				"command": "gitlens.annotations.nextChange",
 				"title": "Next Change",
 				"icon": "$(arrow-down)"
@@ -7888,6 +7893,11 @@
 				"command": "gitlens.views.ai.generateChangelogFrom",
 				"title": "Generate Changelog (Preview)...",
 				"icon": "$(sparkle)"
+			},
+			{
+				"command": "gitlens.views.ai.rebaseOntoCommit",
+				"title": "AI Rebase Current Branch onto Commit...",
+				"enablement": "!operationInProgress"
 			},
 			{
 				"command": "gitlens.views.applyChanges",
@@ -10360,6 +10370,10 @@
 					"when": "gitlens:enabled && !gitlens:readonly && !gitlens:untrusted && gitlens:gk:organization:ai:enabled && config.gitlens.ai.generateCommitMessage.enabled"
 				},
 				{
+					"command": "gitlens.ai.generateRebase",
+					"when": "gitlens:enabled && !gitlens:untrusted && gitlens:gk:organization:ai:enabled"
+				},
+				{
 					"command": "gitlens.annotations.nextChange",
 					"when": "false"
 				},
@@ -11757,6 +11771,10 @@
 				},
 				{
 					"command": "gitlens.views.ai.generateChangelogFrom",
+					"when": "false"
+				},
+				{
+					"command": "gitlens.views.ai.rebaseOntoCommit",
 					"when": "false"
 				},
 				{
@@ -13990,6 +14008,11 @@
 					"command": "gitlens.views.resetCommit",
 					"when": "viewItem =~ /gitlens:file\\b(?=.*?\\b\\+committed\\b)/ && !gitlens:readonly && !gitlens:untrusted && !gitlens:hasVirtualFolders",
 					"group": "1_gitlens_actions@5"
+				},
+				{
+					"command": "gitlens.views.ai.rebaseOntoCommit",
+					"when": "viewItem =~ /gitlens:file\\b(?=.*?\\b\\+committed\\b)(?=.*?\\b\\+current\\b)/ && !gitlens:readonly && !gitlens:untrusted && !gitlens:hasVirtualFolders",
+					"group": "1_gitlens_actions@6"
 				},
 				{
 					"command": "gitlens.views.rebaseOntoCommit",
@@ -16512,6 +16535,11 @@
 					"command": "gitlens.views.resetCommit",
 					"when": "viewItem =~ /gitlens:commit\\b(?!.*?\\b\\+rebase\\b)/ && !listMultiSelection && !gitlens:readonly && !gitlens:untrusted && !gitlens:hasVirtualFolders",
 					"group": "1_gitlens_actions@5"
+				},
+				{
+					"command": "gitlens.views.ai.rebaseOntoCommit",
+					"when": "viewItem =~ /gitlens:commit\\b(?!.*?\\b\\+rebase\\b)/ && !listMultiSelection && !gitlens:readonly && !gitlens:untrusted && !gitlens:hasVirtualFolders",
+					"group": "1_gitlens_actions@6"
 				},
 				{
 					"command": "gitlens.views.rebaseOntoCommit",

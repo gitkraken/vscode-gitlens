@@ -7,6 +7,7 @@ import type { DiffWithPreviousCommandArgs } from '../commands/diffWithPrevious';
 import type { DiffWithWorkingCommandArgs } from '../commands/diffWithWorking';
 import type { GenerateChangelogCommandArgs } from '../commands/generateChangelog';
 import { generateChangelogAndOpenMarkdownDocument } from '../commands/generateChangelog';
+import type { GenerateRebaseCommandArgs } from '../commands/generateRebase';
 import type { OpenFileAtRevisionCommandArgs } from '../commands/openFileAtRevision';
 import type { OpenOnRemoteCommandArgs } from '../commands/openOnRemote';
 import type { ViewShowBranchComparison } from '../config';
@@ -921,6 +922,21 @@ export class ViewCommands implements Disposable {
 		}
 
 		return RepoActions.rebase(node.repoPath, node.ref);
+	}
+
+	@command('gitlens.views.ai.rebaseOntoCommit')
+	@log()
+	private async aiRebase(node: BranchNode | CommitNode | FileRevisionAsCommitNode | TagNode) {
+		if (!node.isAny('branch', 'commit', 'file-commit', 'tag')) {
+			return Promise.resolve();
+		}
+
+		await executeCommand<GenerateRebaseCommandArgs>('gitlens.ai.generateRebase', {
+			repoPath: node.repoPath,
+			base: node.ref,
+			head: createReference('HEAD', node.repoPath, { refType: 'revision', name: 'HEAD' }),
+			source: { source: 'view', detail: node.is('branch') ? 'branch' : 'tag' },
+		});
 	}
 
 	@command('gitlens.views.rebaseOntoUpstream')

@@ -356,12 +356,17 @@ export interface AIGenerateCreatePullRequestEventData extends AIEventDataBase {
 	type: 'createPullRequest';
 }
 
+export interface AIGenerateRebaseEventData extends AIEventDataBase {
+	type: 'rebase';
+}
+
 type AIGenerateEvent =
 	| AIGenerateCommitEventData
 	| AIGenerateDraftEventData
 	| AIGenerateStashEventData
 	| AIGenerateCreatePullRequestEventData
-	| AIGenerateChangelogEventData;
+	| AIGenerateChangelogEventData
+	| AIGenerateRebaseEventData;
 
 export type AISwitchModelEvent =
 	| {
