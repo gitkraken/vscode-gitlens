@@ -24,7 +24,7 @@ export interface ComparisonPickerOptions {
  * @param title The title of the quick pick
  * @param placeholder The placeholder text for the quick pick
  * @param options Options for the picker
- * @returns A promise resolving to the selected references or undefined if canceled
+ * @returns A promise resolving to the selected references or undefined if cancelled
  */
 export async function showComparisonPicker(
 	container: Container,
