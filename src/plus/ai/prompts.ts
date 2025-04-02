@@ -321,9 +321,9 @@ Example output structure:
 
 Based on the provided commit messages and associated issues, create a set of markdown changelog entries following the instructions above. Do not include any explanatory text or metadata`;
 
-export const generateRebaseUserPrompt = `You are an advanced AI programming assistant tasked with taking the combined diff of the commits of a branch, as well as the diffs and messages of the commits themselves, and reorganizing the commit history to a new set of commits which contain the best possible logical separation of the changes in the branch, in a way which is easy to review.
+export const generateRebaseUserPrompt = `You are an advanced AI programming assistant tasked with reoriginizing a set of commit changes, provided in a unified diff format, into a new set of commits with the changes grouped both logically and atomically and should be easy to review. The changes should only be reorganized at the hunk level, not as individual lines, and no other changes should be made. You will be provided the unified diff of code changes, a list of commits with their commit message and associated diffs, and optional additional context.
 
-First, examine the following combined code changes of the branch provided in Git diff format with additional line numbers followed by a :, added to the start of each line to be referenced in the ouput (they are not part of the diff iteself):
+First, examine the following unified Git diff of code changes:
 <~~diff~~>
 \${diff}
 </~~diff~~>
@@ -338,29 +338,132 @@ Now, if provided, use this context to understand the motivation behind the chang
 \${context}
 </~~additional-context~~>
 
-Guidelines for creating and outputting the reorganized commit history:
+Guidelines for reorganizing the commit history:
 
-1. Carefully observe the changes in all the commits and diffs, including commit messages, as well as the combined diff of code changes.
-2. Using the combined diff, and what you learned from the individual commit changes, generate a new commit history which cleanly organizes the changes based on logical grouping, and makes the branch as easy as possible for a reviewer to understand if it were to be made into a pull request.
-3. Express the new commit history you have generated as a JSON array of commit objects. The commit objects in the array should each have three properties: a "message" property representing a commit message for that commit, an "explanation" property with a more detailed explanation of the changes in that commit, written as a presentation script, as if you were the author walking a reviewer through the changes in that commit and helping them to understand the reasoning behind them, and a "changes" property array of tuples of representing a range of lines inclusive of the start and end line numbers, where the entire array represents the lines from the combined diff that should be included in that commit.
+1. Carefully review the unified diff changes, all the commit messages and associated diffs to understand the original set of changes and how that could be reorganized better.
+2. Using that understanding, generate a new set of commits that represents the same changes:
+   - Only reorganize the hunks, not the lines within the hunks
+   - Grouped into logical units that make sense together and can be applied atomically
+   - Ensures that each commit is self-contained and does not depend on other commits, unless that commit comes after the commit it depends on
+   - Uses meaningful commit messages that accurately describe the changes in each commit
+   - Provides a detailed explanation of the changes in each commit
+   - Ensures that the new commit history is easy to review and understand
+3. Ensure that the new commit history is equivalent to the original commit history. That is, if all the new commits were squashed into a single commit, the diff of the combined changes should be exactly equivalent to the diff of combined changes you received as input.
+4. Output the new commit history you have generated as JSON, using the following JSON schema:
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "type": "array",
+  "items": {
+    "type": "object",
+    "properties": {
+      "message": {
+        "type": "string",
+        "description": "A commit message that describes the changes"
+      },
+      "explanation": {
+        "type": "string",
+        "description": "A detailed explanation of the changes in the commit"
+      },
+      "hunks": {
+        "type": "array",
+        "items": {
+          "type": "object",
+          "properties": {
+            "hunk": {
+              "type": "string",
+              "description": "hunk header line for the specific hunk"
+            },
+            "diff": {
+              "type": "string",
+              "description": "diff header line for the file that contains this hunk"
+            }
+          },
+          "required": ["diff", "hunk"],
+          "additionalProperties": false
+        }
+      }
+    },
+    "required": ["message", "explanation", "hunks"],
+    "additionalProperties": false
+  }
+}
+5. Ensure that the \`hunk\` property is just the hunk header line (NOT the full hunk) for the specific hunk in the unified diff, and the \`diff\` property is the diff header line for the file that contains that hunk, also from the unified diff.
 
-
-Example JSON output structure:
+Example ouput JSON:
 [{
   "message": "Fixes typo in README.md",
   "explanation": "This commit fixes a typo in the README file on the word 'repository'.",
-  "changes": [[1, 1], [10, 12], [100, 300]]
+  "hunks": [{ "diff": "diff --git a/README.md b/README.md", "hunk": "@@ -11,6 +11,10 @@" }]
 },
 {
-  "message": "Fixes typo in README.md",
-  "explanation": "This commit fixes a typo in the README file on the word 'repository'.",
-  "changes": [[2, 9], [13, 99]]
+  "message": "Adds new feature to AI provider service",
+  "explanation": "This commit adds a new feature to the AI provider service that allows users to switch between different AI models.",
+  "hunks": [
+    { "diff": "diff --git a/src/plus/ai/aiProviderService.ts b/src/plus/ai/aiProviderService.ts", "hunk": "@@ -11,6 +11,10 @@" },
+    { "diff": "diff --git a/CHANGELOG.md b/CHANGELOG.md", "hunk": "@@ -11,6 +11,10 @@" }
+  ]
 }]
-
-Important notes:
-
-1. Make sure that, if we were to take all the lines/ranges in the "changes" property of all objects in your new array and combine them together as if we were squashing commits into a single commit, the diff of the combined changes should be exactly equivalent to the diff of combined changes you received as input.
 
 \${instructions}
 
-Based on the provided combined diff and commit history, create a JSON output representing a new commit history following the instructions above. Only output the raw JSON and nothing else.`;
+Based on the provided instructions above output only JSON and nothing else.`;
+
+export const generateRebaseUserPromptV2 = `You are an advanced AI programming assistant tasked with reorganizing a set of commit changes. Your goal is to create a new set of commits that are logically grouped, atomic, and easy to review. You will be working with code changes provided in a unified diff format.
+
+First, examine the following unified Git diff of code changes:
+
+<unified_diff>
+\${diff}
+</unified_diff>
+
+Next, review this list of original commits, including their commit messages and associated diffs. This will help you understand the motivation behind the original commit history:
+
+<commit_list>
+\${commits}
+</commit_list>
+
+If provided, use the following additional context to better understand the motivation behind the changes and any relevant background information:
+
+<additional_context>
+\${context}
+</additional_context>
+
+Your task is to reorganize these changes into a new set of commits. Follow these guidelines:
+
+1. Only reorganize at the hunk level, not individual lines within hunks.
+2. Group changes into logical units that make sense together and can be applied atomically.
+3. Ensure each commit is self-contained and only depends on commits that come before it in the new history.
+4. Write meaningful commit messages that accurately describe the changes in each commit.
+5. Provide a detailed explanation of the changes in each commit.
+6. Make sure the new commit history is easy to review and understand.
+7. Verify that the new commit history is equivalent to the original. If all new commits were squashed, the resulting diff should match the input diff exactly.
+
+Output your new commit history as a JSON array. Each commit in the array should be an object with the following properties:
+- "message": A string containing the commit message.
+- "explanation": A string with a detailed explanation of the changes.
+- "hunks": An array of objects, each representing a hunk in the commit. Each hunk object should have:
+  - "hunk": The hunk header line from the unified diff.
+  - "diff": The diff header line for the file containing the hunk.
+
+Once you've completed your analysis, generate the JSON output following the specified format. Ensure that you only include the hunk header line in the "hunk" property and the diff header line in the "diff" property.
+
+Here's an example of the expected JSON structure (note that this is just a structural example and does not reflect the actual content you should produce):
+
+[
+  {
+    "message": "Example commit message",
+    "explanation": "Detailed explanation of the changes in this commit",
+    "hunks": [
+      {
+        "diff": "diff --git a/example/file.txt b/example/file.txt",
+        "hunk": "@@ -1,5 +1,5 @@"
+      }
+    ]
+  }
+]
+
+Remember to base your reorganization solely on the provided unified diff, commit list, and additional context. Do not introduce any new changes or modify the content of the hunks. Your task is to reorganize the existing changes in a more logical and reviewable manner.
+
+\${instructions}
+
+Now, proceed with your analysis and reorganization of the commits. Output only the JSON array containing the reorganized commits, and nothing else.`;
