@@ -1,5 +1,7 @@
 # GitLens &mdash; Supercharge Git in VS Code
 
+I'm the commit composer.
+
 > Supercharge Git and unlock **untapped knowledge** within your repo to better **understand**, **write**, and **review** code. Focus, collaborate, accelerate.
 
 [GitLens](https://gitkraken.com/gitlens?utm_source=gitlens-extension&utm_medium=in-app-links&utm_campaign=gitlens-logo-links 'Learn more about GitLens') is a powerful [open-source](https://github.com/gitkraken/vscode-gitlens 'Open GitLens on GitHub') extension for Visual Studio Code built and maintained by GitKraken.
