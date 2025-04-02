@@ -460,7 +460,7 @@ export class AIProviderService implements Disposable {
 
 		const result = await this.sendRequest(
 			'explain-changes',
-			() => ({
+			(): PromptTemplateContext<'explain-changes'> => ({
 				diff: diff.contents,
 				message: commit.message,
 				instructions: configuration.get('ai.explainChanges.customInstructions') ?? '',
@@ -500,7 +500,7 @@ export class AIProviderService implements Disposable {
 
 		const result = await this.sendRequest(
 			'generate-commitMessage',
-			() => ({
+			(): PromptTemplateContext<'generate-commitMessage'> => ({
 				diff: changes,
 				context: options?.context ?? '',
 				instructions: configuration.get('ai.generateCommitMessage.customInstructions') ?? '',
@@ -538,23 +538,28 @@ export class AIProviderService implements Disposable {
 			return undefined;
 		}
 
-		const diff = await repo.git.diff().getDiff?.(headRef, baseRef, { notation: '...' });
+		const [diffResult, logResult] = await Promise.allSettled([
+			repo.git.diff().getDiff?.(headRef, baseRef, { notation: '...' }),
+			repo.git.commits().getLog(`${baseRef}..${headRef}`),
+		]);
 
-		const log = await this.container.git.commits(repo.path).getLog(`${baseRef}..${headRef}`);
-		const commits: [string, number][] = [];
-		for (const [_sha, commit] of log?.commits ?? []) {
-			commits.push([commit.message ?? '', commit.date.getTime()]);
+		const diff = getSettledValue(diffResult);
+		const log = getSettledValue(logResult);
+
+		if (!diff?.contents || !log?.commits?.size) {
+			throw new Error('No changes found to generate a pull request message from.');
 		}
 
-		if (!diff?.contents && !commits.length) {
-			throw new Error('No changes found to generate a pull request message from.');
+		const commitMessages: string[] = [];
+		for (const commit of [...log.commits.values()].sort((a, b) => a.date.getTime() - b.date.getTime())) {
+			commitMessages.push(commit.message ?? commit.summary);
 		}
 
 		const result = await this.sendRequest(
 			'generate-create-pullRequest',
-			() => ({
-				diff: diff?.contents ?? '',
-				data: commits.sort((a, b) => a[1] - b[1]).map(c => c[0]),
+			(): PromptTemplateContext<'generate-create-pullRequest'> => ({
+				diff: diff.contents,
+				data: commitMessages.join('\n'),
 				context: options?.context ?? '',
 				instructions: configuration.get('ai.generateCreatePullRequest.customInstructions') ?? '',
 			}),
@@ -597,7 +602,7 @@ export class AIProviderService implements Disposable {
 
 		const result = await this.sendRequest(
 			options?.codeSuggestion ? 'generate-create-codeSuggestion' : 'generate-create-cloudPatch',
-			() => ({
+			(): PromptTemplateContext<'generate-create-codeSuggestion' | 'generate-create-cloudPatch'> => ({
 				diff: changes,
 				context: options?.context ?? '',
 				instructions:
@@ -648,7 +653,7 @@ export class AIProviderService implements Disposable {
 
 		const result = await this.sendRequest(
 			'generate-stashMessage',
-			() => ({
+			(): PromptTemplateContext<'generate-stashMessage'> => ({
 				diff: changes,
 				context: options?.context ?? '',
 				instructions: configuration.get('ai.generateStashMessage.customInstructions') ?? '',
@@ -681,7 +686,7 @@ export class AIProviderService implements Disposable {
 
 		const result = await this.sendRequest(
 			'generate-changelog',
-			async () => {
+			async (): Promise<PromptTemplateContext<'generate-changelog'> | undefined> => {
 				const { changes: data } = await changes.value;
 				if (!data.length) return undefined;
 

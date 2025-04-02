@@ -11,6 +11,10 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/) and this p
 - Adds new large prompt warning for GitLens' AI features ([#4183](https://github.com/gitkraken/vscode-gitlens/issues/4183))
   - Adds a new `gitlens.ai.largePromptWarningThreshold` setting to specify the threshold (in tokens) for when to show a warning about the prompt being too large
 
+### Fixed
+
+- Fixes _Create PR with AI_ isn't including commit messages properly ([#4198](https://github.com/gitkraken/vscode-gitlens/issues/4198))
+
 ## [17.0.0] - 2025-03-31
 
 ### Added

@@ -12,10 +12,11 @@ export type PromptTemplateContext<T extends AIActionType> = T extends
 	| 'generate-stashMessage'
 	| 'generate-create-cloudPatch'
 	| 'generate-create-codeSuggestion'
-	| 'generate-create-pullRequest'
 	? { diff: string; context: string; instructions: string }
-	: T extends 'generate-changelog'
-	  ? { data: string; instructions: string }
-	  : T extends 'explain-changes'
-	    ? { diff: string; message: string; instructions: string }
-	    : never;
+	: T extends 'generate-create-pullRequest'
+	  ? { diff: string; data: string; context: string; instructions: string }
+	  : T extends 'generate-changelog'
+	    ? { data: string; instructions: string }
+	    : T extends 'explain-changes'
+	      ? { diff: string; message: string; instructions: string }
+	      : never;
