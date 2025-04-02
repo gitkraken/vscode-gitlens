@@ -14,6 +14,7 @@ import {
 	generateCommitMessageUserPrompt,
 	generatePullRequestMessageUserPrompt,
 	generateRebaseUserPrompt,
+	generateRebaseUserPromptV2,
 	generateStashMessageUserPrompt,
 } from '../../prompts';
 import { estimatedCharactersPerToken, showLargePromptWarning, showPromptTruncationWarning } from './ai.utils';
@@ -77,7 +78,7 @@ export function getLocalPromptTemplate<T extends PromptTemplateType>(
 		case 'generate-rebase':
 			return {
 				name: 'Generate Rebase (Preview)',
-				template: generateRebaseUserPrompt,
+				template: generateRebaseUserPromptV2, //generateRebaseUserPrompt,
 				variables: ['diff', 'commits', 'context', 'instructions'],
 			};
 		case 'explain-changes':

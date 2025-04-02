@@ -836,7 +836,7 @@ export class AIProviderService implements Disposable {
 			progress?: ProgressOptions;
 		},
 	): Promise<AIRebaseResult | undefined> {
-		let numberedDiff: string | undefined;
+		let originalDiff: string | undefined;
 		const result = await this.sendRequest(
 			'generate-rebase',
 			async (action, model, promptTemplate, reporting, cancellation, maxInputTokens, retries) => {
@@ -853,10 +853,7 @@ export class AIProviderService implements Disposable {
 				}
 				if (cancellation.isCancellationRequested) throw new CancellationError();
 
-				// add line numbers to each line of the diff.contents
-				const lines = diff.contents.split('\n');
-				const lineNumbers = lines.map((_, index) => `${index + 1}: `);
-				numberedDiff = lines.map((line, index) => `${lineNumbers[index]}${line}`).join('\n');
+				originalDiff = diff.contents;
 
 				const commits: { diff: string; message: string }[] = [];
 				for (const commit of [...log.commits.values()].sort((a, b) => a.date.getTime() - b.date.getTime())) {
@@ -871,10 +868,10 @@ export class AIProviderService implements Disposable {
 					model,
 					promptTemplate,
 					{
-						diff: numberedDiff,
+						diff: diff.contents,
 						commits: JSON.stringify(commits),
-						context: options?.context ?? '',
-						instructions: /*configuration.get('ai.generateChangelog.customInstructions') ??*/ '',
+						context: options?.context,
+						// instructions: configuration.get('ai.generateRebase.customInstructions'),
 					},
 					maxInputTokens,
 					retries,
@@ -899,7 +896,7 @@ export class AIProviderService implements Disposable {
 			}),
 			options,
 		);
-		return result != null ? { diff: numberedDiff!, ...result } : undefined;
+		return result != null ? { diff: originalDiff!, ...result } : undefined;
 	}
 
 	private async sendRequest<T extends AIActionType>(
