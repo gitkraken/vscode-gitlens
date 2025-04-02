@@ -492,9 +492,11 @@ export class LaunchpadProvider implements Disposable {
 		);
 		if (deepLinkUrl == null) return;
 
-		const prRepo = await getOrOpenPullRequestRepository(this.container, item.underlyingPullRequest, {
-			skipVirtual: true,
-		});
+		const prRepo = options?.openInWorktree
+			? await getOrOpenPullRequestRepository(this.container, item.underlyingPullRequest, {
+					skipVirtual: true,
+			  })
+			: undefined;
 		this._codeSuggestions?.delete(item.uuid);
 		await this.container.deepLinks.processDeepLinkUri(deepLinkUrl, false, prRepo);
 	}
