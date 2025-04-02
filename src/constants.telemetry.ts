@@ -318,7 +318,15 @@ interface AIEventDataBase {
 	'usage.limits.used'?: number;
 	'usage.limits.limit'?: number;
 	'usage.limits.resetsOn'?: string;
+
+	'config.largePromptThreshold'?: number;
+	'config.usedCustomInstructions'?: boolean;
+
+	'warning.exceededLargePromptThreshold'?: boolean;
+	'warning.promptTruncated'?: boolean;
+
 	'failed.reason'?: 'user-declined' | 'user-cancelled' | 'error';
+	'failed.cancelled.reason'?: 'large-prompt';
 	'failed.error'?: string;
 }
 

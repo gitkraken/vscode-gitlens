@@ -150,6 +150,7 @@ export type CoreCommands =
 	| 'workbench.action.focusRightGroup'
 	| 'workbench.action.nextEditor'
 	| 'workbench.action.newGroupRight'
+	| 'workbench.action.openSettings'
 	| 'workbench.action.openWalkthrough'
 	| 'workbench.action.toggleMaximizedPanel'
 	| 'workbench.extensions.action.switchToRelease'

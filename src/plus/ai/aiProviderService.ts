@@ -14,7 +14,7 @@ import {
 } from '../../constants.ai';
 import type { AIGenerateDraftEventData, Source, TelemetryEvents } from '../../constants.telemetry';
 import type { Container } from '../../container';
-import { CancellationError, GkAIError, GkAIErrorReason } from '../../errors';
+import { AIError, AIErrorReason, CancellationError } from '../../errors';
 import type { AIFeatures } from '../../features';
 import { isAdvancedFeature } from '../../features';
 import type { GitCommit } from '../../git/models/commit';
@@ -797,19 +797,19 @@ export class AIProviderService implements Disposable {
 				source,
 			);
 
-			if (ex instanceof GkAIError) {
+			if (ex instanceof AIError) {
 				switch (ex.reason) {
-					case GkAIErrorReason.Entitlement:
+					case AIErrorReason.Entitlement:
 						void window.showErrorMessage(
 							'You do not have the required entitlement or are over the limits to use this AI feature',
 						);
 						return undefined;
-					case GkAIErrorReason.RequestTooLarge:
+					case AIErrorReason.RequestTooLarge:
 						void window.showErrorMessage(
-							'Your request is too large. Please reduce the size of your request and try again.',
+							'Your request is too large. Please reduce the size of your request or switch to a different model and try again.',
 						);
 						return undefined;
-					case GkAIErrorReason.UserQuotaExceeded: {
+					case AIErrorReason.UserQuotaExceeded: {
 						const increaseLimit: MessageItem = { title: 'Increase Limit' };
 						const result = await window.showErrorMessage(
 							"Your request could not be completed because you've reached the weekly Al usage limit for your current plan. Upgrade to unlock more Al-powered actions.",
@@ -822,12 +822,12 @@ export class AIProviderService implements Disposable {
 
 						return undefined;
 					}
-					case GkAIErrorReason.RateLimitExceeded:
+					case AIErrorReason.RateLimitExceeded:
 						void window.showErrorMessage(
 							'Rate limit exceeded. Please wait a few moments and try again later.',
 						);
 						return undefined;
-					case GkAIErrorReason.ServiceCapacityExceeded: {
+					case AIErrorReason.ServiceCapacityExceeded: {
 						void window.showErrorMessage(
 							'GitKraken AI is temporarily unable to process your request due to high volume. Please wait a few moments and try again. If this issue persists, please contact support.',
 							'OK',
