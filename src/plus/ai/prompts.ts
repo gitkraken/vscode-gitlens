@@ -320,3 +320,47 @@ Example output structure:
 \${instructions}
 
 Based on the provided commit messages and associated issues, create a set of markdown changelog entries following the instructions above. Do not include any explanatory text or metadata`;
+
+export const generateRebaseUserPrompt = `You are an advanced AI programming assistant tasked with taking the combined diff of the commits of a branch, as well as the diffs and messages of the commits themselves, and reorganizing the commit history to a new set of commits which contain the best possible logical separation of the changes in the branch, in a way which is easy to review.
+
+First, examine the following combined code changes of the branch provided in Git diff format with additional line numbers followed by a :, added to the start of each line to be referenced in the ouput (they are not part of the diff iteself):
+<~~diff~~>
+\${diff}
+</~~diff~~>
+
+Then, review the list of commits and their code changes/diffs to help understand the motivation behind the original commit history and any relevant background information:
+<~~commits~~>
+\${commits}
+</~~commits~~>
+
+Now, if provided, use this context to understand the motivation behind the changes and any relevant background information:
+<~~additional-context~~>
+\${context}
+</~~additional-context~~>
+
+Guidelines for creating and outputting the reorganized commit history:
+
+1. Carefully observe the changes in all the commits and diffs, including commit messages, as well as the combined diff of code changes.
+2. Using the combined diff, and what you learned from the individual commit changes, generate a new commit history which cleanly organizes the changes based on logical grouping, and makes the branch as easy as possible for a reviewer to understand if it were to be made into a pull request.
+3. Express the new commit history you have generated as a JSON array of commit objects. The commit objects in the array should each have three properties: a "message" property representing a commit message for that commit, an "explanation" property with a more detailed explanation of the changes in that commit, written as a presentation script, as if you were the author walking a reviewer through the changes in that commit and helping them to understand the reasoning behind them, and a "changes" property array of tuples of representing a range of lines inclusive of the start and end line numbers, where the entire array represents the lines from the combined diff that should be included in that commit.
+
+
+Example JSON output structure:
+[{
+  "message": "Fixes typo in README.md",
+  "explanation": "This commit fixes a typo in the README file on the word 'repository'.",
+  "changes": [[1, 1], [10, 12], [100, 300]]
+},
+{
+  "message": "Fixes typo in README.md",
+  "explanation": "This commit fixes a typo in the README file on the word 'repository'.",
+  "changes": [[2, 9], [13, 99]]
+}]
+
+Important notes:
+
+1. Make sure that, if we were to take all the lines/ranges in the "changes" property of all objects in your new array and combine them together as if we were squashing commits into a single commit, the diff of the combined changes should be exactly equivalent to the diff of combined changes you received as input.
+
+\${instructions}
+
+Based on the provided combined diff and commit history, create a JSON output representing a new commit history following the instructions above. Only output the raw JSON and nothing else.`;
