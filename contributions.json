@@ -31,6 +31,10 @@
 			"label": "Generate Commit Message",
 			"commandPalette": "gitlens:enabled && !gitlens:readonly && !gitlens:untrusted && gitlens:gk:organization:ai:enabled && config.gitlens.ai.generateCommitMessage.enabled"
 		},
+		"gitlens.ai.generateRebase": {
+			"label": "Rebase with AI (Preview)...",
+			"commandPalette": "gitlens:enabled && !gitlens:untrusted && gitlens:gk:organization:ai:enabled"
+		},
 		"gitlens.annotations.nextChange": {
 			"label": "Next Change",
 			"icon": "$(arrow-down)"
@@ -4964,6 +4968,26 @@
 						"when": "viewItem =~ /gitlens:(branch|tag)\\b/ && !gitlens:untrusted && gitlens:gk:organization:ai:enabled",
 						"group": "1_gitlens_actions_3",
 						"order": 100
+					}
+				]
+			}
+		},
+		"gitlens.views.ai.rebaseOntoCommit": {
+			"label": "AI Rebase Current Branch onto Commit...",
+			"enablement": "!operationInProgress",
+			"menus": {
+				"gitlens/commit/file/commit": [
+					{
+						"when": "viewItem =~ /gitlens:file\\b(?=.*?\\b\\+committed\\b)(?=.*?\\b\\+current\\b)/ && !gitlens:readonly && !gitlens:untrusted && !gitlens:hasVirtualFolders",
+						"group": "1_gitlens_actions",
+						"order": 6
+					}
+				],
+				"view/item/context": [
+					{
+						"when": "viewItem =~ /gitlens:commit\\b(?!.*?\\b\\+rebase\\b)/ && !listMultiSelection && !gitlens:readonly && !gitlens:untrusted && !gitlens:hasVirtualFolders",
+						"group": "1_gitlens_actions",
+						"order": 6
 					}
 				]
 			}

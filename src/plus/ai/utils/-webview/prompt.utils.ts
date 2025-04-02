@@ -13,6 +13,7 @@ import {
 	generateCodeSuggestMessageUserPrompt,
 	generateCommitMessageUserPrompt,
 	generatePullRequestMessageUserPrompt,
+	generateRebaseUserPrompt,
 	generateStashMessageUserPrompt,
 } from '../../prompts';
 import { estimatedCharactersPerToken, showLargePromptWarning, showPromptTruncationWarning } from './ai.utils';
@@ -75,6 +76,12 @@ export function getLocalPromptTemplate<T extends AIActionType>(action: T, _model
 					'context',
 					'instructions',
 				] satisfies (keyof PromptTemplateContext<'generate-create-pullRequest'>)[],
+			};
+		case 'generate-rebase':
+			return {
+				name: 'Generate Rebase (Preview)',
+				template: generateRebaseUserPrompt,
+				variables: ['diff', 'commits', 'context', 'instructions'],
 			};
 		case 'explain-changes':
 			return {
