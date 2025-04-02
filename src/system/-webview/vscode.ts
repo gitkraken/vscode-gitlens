@@ -368,13 +368,18 @@ export async function openDiffEditor(
 	}
 }
 
-type MergeEditorInputData = { uri: Uri; title?: string; detail?: string; description?: string };
-export type MergeEditorInputs = {
+interface MergeEditorInputData {
+	uri: Uri;
+	title?: string;
+	detail?: string;
+	description?: string;
+}
+export interface MergeEditorInputs {
 	base: Uri;
 	input1: MergeEditorInputData;
 	input2: MergeEditorInputData;
 	output: Uri;
-};
+}
 
 export async function openMergeEditor(
 	inputs: MergeEditorInputs,
@@ -399,6 +404,22 @@ export async function openMergeEditor(
 		Logger.error(ex, 'openMergeEditor');
 		debugger;
 	}
+}
+
+export type OpenSettingsEditorOptions =
+	| string
+	| {
+			openToSide?: boolean;
+			query?: string;
+			revealSetting?: {
+				key: string;
+				edit?: boolean;
+			};
+			focusSearch?: boolean;
+	  };
+
+export async function openSettingsEditor(queryOrOptions: OpenSettingsEditorOptions): Promise<void> {
+	await executeCoreCommand('workbench.action.openSettings', queryOrOptions);
 }
 
 export async function openUrl(url: string): Promise<boolean>;

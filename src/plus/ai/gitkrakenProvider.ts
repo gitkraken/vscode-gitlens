@@ -3,7 +3,7 @@ import type { Response } from '@env/fetch';
 import { fetch } from '@env/fetch';
 import { gitKrakenProviderDescriptor as provider } from '../../constants.ai';
 import type { Container } from '../../container';
-import { AuthenticationRequiredError, GkAIError, GkAIErrorReason } from '../../errors';
+import { AIError, AIErrorReason, AuthenticationRequiredError } from '../../errors';
 import { debug } from '../../system/decorators/log';
 import { Logger } from '../../system/logger';
 import { getLogScope } from '../../system/logger.scope';
@@ -220,10 +220,10 @@ export class GitKrakenProvider extends OpenAICompatibleProvider<typeof provider.
 						message += `; entitlement=${data.entitlementId} ${JSON.stringify(data)}`;
 					}
 
-					throw new GkAIError(
+					throw new AIError(
 						entitlementId === 'ai.tokens.weekly'
-							? GkAIErrorReason.UserQuotaExceeded
-							: GkAIErrorReason.Entitlement,
+							? AIErrorReason.UserQuotaExceeded
+							: AIErrorReason.Entitlement,
 						new Error(`(${this.name}) ${status}.${code}: ${message}`),
 					);
 				}
@@ -242,8 +242,8 @@ export class GitKrakenProvider extends OpenAICompatibleProvider<typeof provider.
 					if (retries < 2) {
 						return { retry: true, maxCodeCharacters: maxCodeCharacters - 500 };
 					}
-					throw new GkAIError(
-						GkAIErrorReason.RequestTooLarge,
+					throw new AIError(
+						AIErrorReason.RequestTooLarge,
 						new Error(`(${this.name}) ${status}.${code}: ${message}`),
 					);
 				}
@@ -253,8 +253,8 @@ export class GitKrakenProvider extends OpenAICompatibleProvider<typeof provider.
 
 				// Too many requests
 				if (code === 1) {
-					throw new GkAIError(
-						GkAIErrorReason.RateLimitExceeded,
+					throw new AIError(
+						AIErrorReason.RateLimitExceeded,
 						new Error(`(${this.name}) ${status}.${code}: ${message}`),
 					);
 				}
@@ -271,8 +271,8 @@ export class GitKrakenProvider extends OpenAICompatibleProvider<typeof provider.
 				// Service unavailable
 				if (code === 1) {
 					if (message === 'Agent Error: too many requests') {
-						throw new GkAIError(
-							GkAIErrorReason.ServiceCapacityExceeded,
+						throw new AIError(
+							AIErrorReason.ServiceCapacityExceeded,
 							new Error(`(${this.name}) ${status}.${code}: ${message}`),
 						);
 					}

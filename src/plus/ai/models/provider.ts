@@ -29,7 +29,7 @@ export interface AIProvider<Provider extends AIProviders = AIProviders> extends 
 
 	configured(silent: boolean): Promise<boolean>;
 	getModels(): Promise<readonly AIModel<Provider>[]>;
-	getPromptTemplate(action: AIActionType, model: AIModel<Provider>): Promise<PromptTemplate | undefined>;
+	getPromptTemplate<T extends AIActionType>(action: T, model: AIModel<Provider>): Promise<PromptTemplate | undefined>;
 
 	sendRequest<T extends AIActionType>(
 		action: T,

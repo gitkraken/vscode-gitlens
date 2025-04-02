@@ -4,8 +4,7 @@ import { fetch } from '@env/fetch';
 import type { AIProviders } from '../../constants.ai';
 import type { TelemetryEvents } from '../../constants.telemetry';
 import type { Container } from '../../container';
-import { CancellationError, GkAIError } from '../../errors';
-import { sum } from '../../system/iterable';
+import { AIError, CancellationError } from '../../errors';
 import { getLoggableName, Logger } from '../../system/logger';
 import { startLogScope } from '../../system/logger.scope';
 import type { ServerConnection } from '../gk/serverConnection';
@@ -16,7 +15,7 @@ import {
 	getMaxCharacters,
 	getOrPromptApiKey,
 	getValidatedTemperature,
-	showDiffTruncationWarning,
+	showPromptTruncationWarning,
 } from './utils/-webview/ai.utils';
 import { getLocalPromptTemplate, resolvePrompt } from './utils/-webview/prompt.utils';
 
@@ -94,8 +93,8 @@ export abstract class OpenAICompatibleProvider<T extends AIProviders> implements
 		const apiKey = await this.getApiKey(false);
 		if (apiKey == null) return undefined;
 
-		const prompt = await this.getPromptTemplate(action, model);
-		if (prompt == null) {
+		const promptTemplate = await this.getPromptTemplate(action, model);
+		if (promptTemplate == null) {
 			debugger;
 			Logger.error(undefined, scope, `Unable to find prompt template for '${action}'`);
 			return undefined;
@@ -107,14 +106,18 @@ export abstract class OpenAICompatibleProvider<T extends AIProviders> implements
 				action,
 				model,
 				apiKey,
-				(max, retries): ChatMessage[] => {
-					let content;
-					({ content, truncated } = resolvePrompt(action, prompt, context, max));
-					const messages: ChatMessage[] = [{ role: 'user', content: content }];
+				async (max, retries) => {
+					let prompt;
+					({ prompt, truncated } = await resolvePrompt(
+						action,
+						promptTemplate,
+						context,
+						max,
+						retries,
+						reporting,
+					));
 
-					reporting['retry.count'] = retries;
-					reporting['input.length'] = (reporting['input.length'] ?? 0) + sum(messages, m => m.content.length);
-
+					const messages: ChatMessage[] = [{ role: 'user', content: prompt }];
 					return messages;
 				},
 				options?.outputTokens ?? 4096,
@@ -122,15 +125,20 @@ export abstract class OpenAICompatibleProvider<T extends AIProviders> implements
 			);
 
 			if (truncated) {
-				showDiffTruncationWarning(maxCodeCharacters, model);
+				showPromptTruncationWarning(maxCodeCharacters, model);
 			}
 
 			return result;
 		} catch (ex) {
-			Logger.error(ex, scope, `Unable to ${prompt.name}: (${model.provider.name})`);
-			if (ex instanceof GkAIError) throw ex;
+			if (ex instanceof CancellationError) {
+				Logger.error(ex, scope, `Cancelled request to ${promptTemplate.name}: (${model.provider.name})`);
+				throw ex;
+			}
 
-			throw new Error(`Unable to ${prompt.name}: (${model.provider.name}) ${ex.message}`);
+			Logger.error(ex, scope, `Unable to ${promptTemplate.name}: (${model.provider.name})`);
+			if (ex instanceof AIError) throw ex;
+
+			throw new Error(`Unable to ${promptTemplate.name}: (${model.provider.name}) ${ex.message}`);
 		}
 	}
 
@@ -138,7 +146,7 @@ export abstract class OpenAICompatibleProvider<T extends AIProviders> implements
 		action: TAction,
 		model: AIModel<T>,
 		apiKey: string,
-		messages: (maxCodeCharacters: number, retries: number) => ChatMessage[],
+		messages: (maxCodeCharacters: number, retries: number) => Promise<ChatMessage[]>,
 		outputTokens: number,
 		cancellation: CancellationToken | undefined,
 	): Promise<[result: AIRequestResult, maxCodeCharacters: number]> {
@@ -148,7 +156,7 @@ export abstract class OpenAICompatibleProvider<T extends AIProviders> implements
 		while (true) {
 			const request: ChatCompletionRequest = {
 				model: model.id,
-				messages: messages(maxCodeCharacters, retries),
+				messages: await messages(maxCodeCharacters, retries),
 				stream: false,
 				max_completion_tokens: Math.min(outputTokens, model.maxTokens.output),
 				temperature: getValidatedTemperature(model.temperature),

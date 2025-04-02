@@ -4090,6 +4090,16 @@
 							"preview"
 						]
 					},
+					"gitlens.ai.largePromptWarningThreshold": {
+						"type": "number",
+						"default": 20000,
+						"markdownDescription": "Specifies the threshold (in tokens) for when to show a warning about the prompt being too large",
+						"scope": "window",
+						"order": 80,
+						"tags": [
+							"preview"
+						]
+					},
 					"gitlens.ai.modelOptions.temperature": {
 						"type": "number",
 						"default": 0.7,

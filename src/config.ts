@@ -235,6 +235,7 @@ interface AIConfig {
 	readonly gitkraken: {
 		readonly model: AIProviderAndModel | null;
 	};
+	readonly largePromptWarningThreshold: number;
 	readonly model: SupportedAIModels | null;
 	readonly modelOptions: {
 		readonly temperature: number;

@@ -115,7 +115,10 @@
 ```typescript
 {
   'changeType': 'wip' | 'stash' | 'commit' | 'draft-stash' | 'draft-patch' | 'draft-suggested_pr_change',
+  'config.largePromptThreshold': number,
+  'config.usedCustomInstructions': boolean,
   'duration': number,
+  'failed.cancelled.reason': 'large-prompt',
   'failed.error': string,
   'failed.reason': 'user-declined' | 'user-cancelled' | 'error',
   'input.length': number,
@@ -130,7 +133,9 @@
   'usage.limits.resetsOn': string,
   'usage.limits.used': number,
   'usage.promptTokens': number,
-  'usage.totalTokens': number
+  'usage.totalTokens': number,
+  'warning.exceededLargePromptThreshold': boolean,
+  'warning.promptTruncated': boolean
 }
 ```
 
@@ -140,7 +145,10 @@
 
 ```typescript
 {
+  'config.largePromptThreshold': number,
+  'config.usedCustomInstructions': boolean,
   'duration': number,
+  'failed.cancelled.reason': 'large-prompt',
   'failed.error': string,
   'failed.reason': 'user-declined' | 'user-cancelled' | 'error',
   'input.length': number,
@@ -155,7 +163,9 @@
   'usage.limits.resetsOn': string,
   'usage.limits.used': number,
   'usage.promptTokens': number,
-  'usage.totalTokens': number
+  'usage.totalTokens': number,
+  'warning.exceededLargePromptThreshold': boolean,
+  'warning.promptTruncated': boolean
 }
 ```
 
@@ -163,8 +173,11 @@ or
 
 ```typescript
 {
+  'config.largePromptThreshold': number,
+  'config.usedCustomInstructions': boolean,
   'draftType': 'stash' | 'patch' | 'suggested_pr_change',
   'duration': number,
+  'failed.cancelled.reason': 'large-prompt',
   'failed.error': string,
   'failed.reason': 'user-declined' | 'user-cancelled' | 'error',
   'input.length': number,
@@ -179,7 +192,9 @@ or
   'usage.limits.resetsOn': string,
   'usage.limits.used': number,
   'usage.promptTokens': number,
-  'usage.totalTokens': number
+  'usage.totalTokens': number,
+  'warning.exceededLargePromptThreshold': boolean,
+  'warning.promptTruncated': boolean
 }
 ```
 
@@ -187,7 +202,10 @@ or
 
 ```typescript
 {
+  'config.largePromptThreshold': number,
+  'config.usedCustomInstructions': boolean,
   'duration': number,
+  'failed.cancelled.reason': 'large-prompt',
   'failed.error': string,
   'failed.reason': 'user-declined' | 'user-cancelled' | 'error',
   'input.length': number,
@@ -202,7 +220,9 @@ or
   'usage.limits.resetsOn': string,
   'usage.limits.used': number,
   'usage.promptTokens': number,
-  'usage.totalTokens': number
+  'usage.totalTokens': number,
+  'warning.exceededLargePromptThreshold': boolean,
+  'warning.promptTruncated': boolean
 }
 ```
 
@@ -210,7 +230,10 @@ or
 
 ```typescript
 {
+  'config.largePromptThreshold': number,
+  'config.usedCustomInstructions': boolean,
   'duration': number,
+  'failed.cancelled.reason': 'large-prompt',
   'failed.error': string,
   'failed.reason': 'user-declined' | 'user-cancelled' | 'error',
   'input.length': number,
@@ -225,7 +248,9 @@ or
   'usage.limits.resetsOn': string,
   'usage.limits.used': number,
   'usage.promptTokens': number,
-  'usage.totalTokens': number
+  'usage.totalTokens': number,
+  'warning.exceededLargePromptThreshold': boolean,
+  'warning.promptTruncated': boolean
 }
 ```
 
@@ -233,7 +258,10 @@ or
 
 ```typescript
 {
+  'config.largePromptThreshold': number,
+  'config.usedCustomInstructions': boolean,
   'duration': number,
+  'failed.cancelled.reason': 'large-prompt',
   'failed.error': string,
   'failed.reason': 'user-declined' | 'user-cancelled' | 'error',
   'input.length': number,
@@ -248,7 +276,9 @@ or
   'usage.limits.resetsOn': string,
   'usage.limits.used': number,
   'usage.promptTokens': number,
-  'usage.totalTokens': number
+  'usage.totalTokens': number,
+  'warning.exceededLargePromptThreshold': boolean,
+  'warning.promptTruncated': boolean
 }
 ```
 

@@ -6,6 +6,11 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/) and this p
 
 ## [Unreleased]
 
+### Added
+
+- Adds new large prompt warning for GitLens' AI features ([#4183](https://github.com/gitkraken/vscode-gitlens/issues/4183))
+  - Adds a new `gitlens.ai.largePromptWarningThreshold` setting to specify the threshold (in tokens) for when to show a warning about the prompt being too large
+
 ## [17.0.0] - 2025-03-31
 
 ### Added

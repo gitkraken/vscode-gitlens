@@ -3,7 +3,7 @@ import { CancellationTokenSource, Disposable, EventEmitter, LanguageModelChatMes
 import { vscodeProviderDescriptor } from '../../constants.ai';
 import type { TelemetryEvents } from '../../constants.telemetry';
 import type { Container } from '../../container';
-import { sum } from '../../system/iterable';
+import { CancellationError } from '../../errors';
 import { getLoggableName, Logger } from '../../system/logger';
 import { startLogScope } from '../../system/logger.scope';
 import { capitalize } from '../../system/string';
@@ -11,7 +11,7 @@ import type { ServerConnection } from '../gk/serverConnection';
 import type { AIActionType, AIModel } from './models/model';
 import type { PromptTemplate, PromptTemplateContext } from './models/promptTemplates';
 import type { AIProvider, AIRequestResult } from './models/provider';
-import { getMaxCharacters, getValidatedTemperature, showDiffTruncationWarning } from './utils/-webview/ai.utils';
+import { getMaxCharacters, getValidatedTemperature, showPromptTruncationWarning } from './utils/-webview/ai.utils';
 import { getLocalPromptTemplate, resolvePrompt } from './utils/-webview/prompt.utils';
 
 const provider = vscodeProviderDescriptor;
@@ -59,7 +59,10 @@ export class VSCodeAIProvider implements AIProvider<typeof provider.id> {
 		return models.map(getModelFromChatModel);
 	}
 
-	async getPromptTemplate(action: AIActionType, model: VSCodeAIModel): Promise<PromptTemplate | undefined> {
+	async getPromptTemplate<T extends AIActionType>(
+		action: T,
+		model: VSCodeAIModel,
+	): Promise<PromptTemplate | undefined> {
 		return Promise.resolve(getLocalPromptTemplate(action, model));
 	}
 
@@ -89,8 +92,8 @@ export class VSCodeAIProvider implements AIProvider<typeof provider.id> {
 			cancellation = options.cancellation;
 		}
 
-		const prompt = await this.getPromptTemplate(action, model);
-		if (prompt == null) {
+		const promptTemplate = await this.getPromptTemplate(action, model);
+		if (promptTemplate == null) {
 			debugger;
 			Logger.error(undefined, scope, `Unable to find prompt template for '${action}'`);
 			return undefined;
@@ -102,12 +105,17 @@ export class VSCodeAIProvider implements AIProvider<typeof provider.id> {
 		try {
 			let truncated = false;
 			while (true) {
-				let content;
-				({ content, truncated } = resolvePrompt(action, prompt, context, maxCodeCharacters));
-				const messages: LanguageModelChatMessage[] = [LanguageModelChatMessage.User(content)];
+				let prompt;
+				({ prompt, truncated } = await resolvePrompt(
+					action,
+					promptTemplate,
+					context,
+					maxCodeCharacters,
+					retries,
+					reporting,
+				));
 
-				reporting['retry.count'] = retries;
-				reporting['input.length'] = (reporting['input.length'] ?? 0) + sum(messages, m => m.content.length);
+				const messages: LanguageModelChatMessage[] = [LanguageModelChatMessage.User(prompt)];
 
 				try {
 					const rsp = await chatModel.sendRequest(
@@ -120,7 +128,7 @@ export class VSCodeAIProvider implements AIProvider<typeof provider.id> {
 					);
 
 					if (truncated) {
-						showDiffTruncationWarning(maxCodeCharacters, model);
+						showPromptTruncationWarning(maxCodeCharacters, model);
 					}
 
 					let message = '';
@@ -130,6 +138,15 @@ export class VSCodeAIProvider implements AIProvider<typeof provider.id> {
 
 					return { content: message.trim(), model: model } satisfies AIRequestResult;
 				} catch (ex) {
+					if (ex instanceof CancellationError) {
+						Logger.error(
+							ex,
+							scope,
+							`Cancelled request to ${promptTemplate.name}: (${model.provider.name})`,
+						);
+						throw ex;
+					}
+
 					debugger;
 
 					let message = ex instanceof Error ? ex.message : String(ex);
@@ -148,9 +165,11 @@ export class VSCodeAIProvider implements AIProvider<typeof provider.id> {
 						}
 					}
 
-					Logger.error(ex, scope, `Unable to ${prompt.name}: (${model.provider.name})`);
+					Logger.error(ex, scope, `Unable to ${promptTemplate.name}: (${model.provider.name})`);
 					throw new Error(
-						`Unable to ${prompt.name}: (${model.provider.name}${ex.code ? `:${ex.code}` : ''}) ${message}`,
+						`Unable to ${promptTemplate.name}: (${model.provider.name}${
+							ex.code ? `:${ex.code}` : ''
+						}) ${message}`,
 					);
 				}
 			}
