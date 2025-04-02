@@ -10,10 +10,12 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/) and this p
 
 - Adds new large prompt warning for GitLens' AI features ([#4183](https://github.com/gitkraken/vscode-gitlens/issues/4183))
   - Adds a new `gitlens.ai.largePromptWarningThreshold` setting to specify the threshold (in tokens) for when to show a warning about the prompt being too large
+- Adds _Generate Commit Message with GitLens_ and _Stash All Changes..._ buttons to the Source Control toolbar by default &mdash; can be configured via the `gitlens.menus` setting
 
 ### Fixed
 
 - Fixes _Create PR with AI_ isn't including commit messages properly ([#4198](https://github.com/gitkraken/vscode-gitlens/issues/4198))
+- Fixes some cases where "Switch" and "Open in Worktree" actions in Launchpad fail to fully open the repo ([#4196](https://github.com/gitkraken/vscode-gitlens/issues/4196))
 
 ## [17.0.0] - 2025-03-31
 
