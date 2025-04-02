@@ -82,7 +82,7 @@ export interface Deferrable<F extends (...args: any[]) => unknown> {
  *   console.log('Function execution is pending');
  * }
  *
- * // Will not log anything as the previous call is canceled
+ * // Will not log anything as the previous call is cancelled
  * debouncedFunction.cancel();
  *
  * // With AbortSignal
