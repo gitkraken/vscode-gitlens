@@ -6,6 +6,8 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/) and this p
 
 ## [Unreleased]
 
+## [17.0.1] - 2025-04-03
+
 ### Added
 
 - Adds new large prompt warning for GitLens' AI features ([#4183](https://github.com/gitkraken/vscode-gitlens/issues/4183))
@@ -6068,7 +6070,8 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/) and this p
 
 - Initial release but still heavily a work in progress.
 
-[unreleased]: https://github.com/gitkraken/vscode-gitlens/compare/v17.0.0...HEAD
+[unreleased]: https://github.com/gitkraken/vscode-gitlens/compare/v17.0.1...HEAD
+[17.0.1]: https://github.com/gitkraken/vscode-gitlens/compare/v17.0.0...gitkraken:v17.0.1
 [17.0.0]: https://github.com/gitkraken/vscode-gitlens/compare/v16.3.3...gitkraken:v17.0.0
 [16.3.3]: https://github.com/gitkraken/vscode-gitlens/compare/v16.3.2...gitkraken:v16.3.3
 [16.3.2]: https://github.com/gitkraken/vscode-gitlens/compare/v16.3.1...gitkraken:v16.3.2
