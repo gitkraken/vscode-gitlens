@@ -29,7 +29,7 @@ export type AIActionType =
 	| 'generate-stashMessage'
 	| 'generate-changelog'
 	| `generate-create-${'cloudPatch' | 'codeSuggestion' | 'pullRequest'}`
-	| `explain-changes`;
+	| 'explain-changes';
 
 export interface AIProviderConstructor<Provider extends AIProviders = AIProviders> {
 	new (container: Container, connection: ServerConnection): AIProvider<Provider>;
