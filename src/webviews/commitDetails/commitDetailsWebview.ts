@@ -1160,7 +1160,7 @@ export class CommitDetailsWebviewProvider
 			// const commit = await this.getOrCreateCommitForPatch(patch.gkRepositoryId);
 			// if (commit == null) throw new Error('Unable to find commit');
 
-			const result = await this.container.ai.generateDraftMessage(
+			const result = await this.container.ai.generateCreateDraft(
 				repo,
 				{ source: 'inspect', type: 'suggested_pr_change' },
 				{ progress: { location: { viewId: this.host.id } } },

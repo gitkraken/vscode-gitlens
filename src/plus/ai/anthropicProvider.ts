@@ -153,8 +153,8 @@ export class AnthropicProvider extends OpenAICompatibleProvider<typeof provider.
 		_action: TAction,
 		model: AIModel<typeof provider.id>,
 		retries: number,
-		maxCodeCharacters: number,
-	): Promise<{ retry: true; maxCodeCharacters: number }> {
+		maxInputTokens: number,
+	): Promise<{ retry: true; maxInputTokens: number }> {
 		if (rsp.status === 404) {
 			throw new Error(`Your API key doesn't seem to have access to the selected '${model.id}' model`);
 		}
@@ -172,11 +172,11 @@ export class AnthropicProvider extends OpenAICompatibleProvider<typeof provider.
 		debugger;
 
 		if (
-			retries++ < 2 &&
+			retries < 2 &&
 			json?.error?.type === 'invalid_request_error' &&
 			json?.error?.message?.includes('prompt is too long')
 		) {
-			return { retry: true, maxCodeCharacters: maxCodeCharacters - 500 * retries };
+			return { retry: true, maxInputTokens: maxInputTokens - 200 * (retries || 1) };
 		}
 
 		throw new Error(`(${this.name}) ${rsp.status}: ${json?.error?.message || rsp.statusText})`);

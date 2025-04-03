@@ -38,6 +38,18 @@ export class GitKrakenProvider extends OpenAICompatibleProvider<typeof provider.
 		this._disposable.dispose();
 	}
 
+	override async getApiKey(silent: boolean): Promise<string | undefined> {
+		let session = await this.container.subscription.getAuthenticationSession();
+		if (session?.accessToken) return session.accessToken;
+		if (silent) return undefined;
+
+		const result = await ensureAccount(this.container, silent);
+		if (!result) return undefined;
+
+		session = await this.container.subscription.getAuthenticationSession();
+		return session?.accessToken;
+	}
+
 	@debug()
 	async getModels(): Promise<readonly AIModel<typeof provider.id>[]> {
 		const scope = getLogScope();
@@ -142,18 +154,6 @@ export class GitKrakenProvider extends OpenAICompatibleProvider<typeof provider.
 		return super.getPromptTemplate(action, model);
 	}
 
-	protected override async getApiKey(silent: boolean): Promise<string | undefined> {
-		let session = await this.container.subscription.getAuthenticationSession();
-		if (session?.accessToken) return session.accessToken;
-		if (silent) return undefined;
-
-		const result = await ensureAccount(this.container, silent);
-		if (!result) return undefined;
-
-		session = await this.container.subscription.getAuthenticationSession();
-		return session?.accessToken;
-	}
-
 	protected getUrl(_model: AIModel<typeof provider.id>): string {
 		return this.container.urls.getGkAIApiUrl('chat/completions');
 	}
@@ -175,8 +175,8 @@ export class GitKrakenProvider extends OpenAICompatibleProvider<typeof provider.
 		_action: TAction,
 		_model: AIModel<typeof provider.id>,
 		retries: number,
-		maxCodeCharacters: number,
-	): Promise<{ retry: true; maxCodeCharacters: number }> {
+		maxInputTokens: number,
+	): Promise<{ retry: true; maxInputTokens: number }> {
 		type ErrorResponse = {
 			error?: { code: string; message: string; data?: any };
 		};
@@ -240,7 +240,7 @@ export class GitKrakenProvider extends OpenAICompatibleProvider<typeof provider.
 				// Request too large
 				if (code === 1) {
 					if (retries < 2) {
-						return { retry: true, maxCodeCharacters: maxCodeCharacters - 500 };
+						return { retry: true, maxInputTokens: maxInputTokens - 200 * (retries || 1) };
 					}
 					throw new AIError(
 						AIErrorReason.RequestTooLarge,

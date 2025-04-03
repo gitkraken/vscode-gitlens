@@ -72,17 +72,47 @@ export type ProFeatures =
 	| 'startWork'
 	| 'associateIssueWithBranch'
 	| ProAIFeatures;
-export type ProAIFeatures = 'explainCommit' | 'generateCreateDraft' | 'generateStashMessage';
+export type ProAIFeatures =
+	| 'explain-changes'
+	| 'generate-create-cloudPatch'
+	| 'generate-create-codeSuggestion'
+	| 'generate-stashMessage';
 
 export type AdvancedFeatures = AdvancedAIFeatures;
-export type AdvancedAIFeatures = 'generateChangelog' | 'generateCreatePullRequest';
+export type AdvancedAIFeatures = 'generate-changelog' | 'generate-create-pullRequest';
 
-export type AIFeatures = ProAIFeatures | AdvancedAIFeatures;
+export type AIFeatures = 'generate-commitMessage' | ProAIFeatures | AdvancedAIFeatures;
+
+export function isProFeature(feature: PlusFeatures): feature is ProFeatures {
+	switch (feature) {
+		case 'timeline':
+		case 'worktrees':
+		case 'graph':
+			return true;
+		default:
+			return isProFeatureOnAllRepos(feature);
+	}
+}
 
 export function isAdvancedFeature(feature: PlusFeatures): feature is AdvancedFeatures {
 	switch (feature) {
-		case 'generateChangelog':
-		case 'generateCreatePullRequest':
+		case 'generate-changelog':
+		case 'generate-create-pullRequest':
+			return true;
+		default:
+			return false;
+	}
+}
+
+export function isProFeatureOnAllRepos(feature: PlusFeatures): feature is ProFeatures {
+	switch (feature) {
+		case 'launchpad':
+		case 'startWork':
+		case 'associateIssueWithBranch':
+		case 'explain-changes':
+		case 'generate-create-cloudPatch':
+		case 'generate-create-codeSuggestion':
+		case 'generate-stashMessage':
 			return true;
 		default:
 			return false;
