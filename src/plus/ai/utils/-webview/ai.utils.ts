@@ -45,13 +45,6 @@ export function getActionName(action: AIActionType): string {
 
 export const estimatedCharactersPerToken = 3.1;
 
-export function getMaxCharacters(model: AIModel, outputLength: number, overrideInputTokens?: number): number {
-	const max =
-		(overrideInputTokens ?? model.maxTokens.input) * estimatedCharactersPerToken -
-		outputLength / estimatedCharactersPerToken;
-	return Math.floor(max - max * 0.1);
-}
-
 export async function getOrPromptApiKey(
 	container: Container,
 	provider: {
@@ -160,10 +153,8 @@ export async function showLargePromptWarning(estimatedTokens: number, threshold:
 	return result === confirm;
 }
 
-export function showPromptTruncationWarning(maxCodeCharacters: number, model: AIModel): void {
+export function showPromptTruncationWarning(model: AIModel): void {
 	void window.showWarningMessage(
-		`The prompt was truncated to ${formatNumeric(
-			maxCodeCharacters,
-		)} characters to fit within the ${getPossessiveForm(model.provider.name)} limits.`,
+		`The prompt was truncated to fit within the ${getPossessiveForm(model.provider.name)} limits.`,
 	);
 }

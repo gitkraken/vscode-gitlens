@@ -28,17 +28,22 @@ export async function describePullRequestWithAI(
 		repo = r;
 	}
 
-	const result = await container.ai.generatePullRequestMessage(
-		repo,
-		`${base.remote.name}/${base.branch}`,
-		`${head.remote.name}/${head.branch}`,
-		source,
-		{
-			progress: { location: ProgressLocation.Notification },
-			...options,
-		},
-	);
-	return result?.parsed ? { title: result.parsed.summary, description: result.parsed.body } : undefined;
+	try {
+		const result = await container.ai.generateCreatePullRequest(
+			repo,
+			`${base.remote.name}/${base.branch}`,
+			`${head.remote.name}/${head.branch}`,
+			source,
+			{
+				progress: { location: ProgressLocation.Notification },
+				...options,
+			},
+		);
+		return result?.parsed ? { title: result.parsed.summary, description: result.parsed.body } : undefined;
+	} catch (ex) {
+		void window.showErrorMessage(ex.message);
+		return undefined;
+	}
 }
 
 export async function ensurePullRequestRefs(

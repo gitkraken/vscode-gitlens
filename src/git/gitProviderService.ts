@@ -17,6 +17,7 @@ import { SubscriptionPlanId } from '../constants.subscription';
 import type { Container } from '../container';
 import { AccessDeniedError, ProviderNotFoundError, ProviderNotSupportedError } from '../errors';
 import type { FeatureAccess, Features, PlusFeatures, RepoFeatureAccess } from '../features';
+import { isAdvancedFeature, isProFeatureOnAllRepos } from '../features';
 import type { Subscription } from '../plus/gk/models/subscription';
 import type { SubscriptionChangeEvent } from '../plus/gk/subscriptionService';
 import { isSubscriptionPaidPlan } from '../plus/gk/utils/subscription.utils';
@@ -775,16 +776,7 @@ export class GitProviderService implements Disposable {
 			return { allowed: subscription.account?.verified !== false, subscription: { current: subscription } };
 		}
 
-		if (
-			feature === 'launchpad' ||
-			feature === 'startWork' ||
-			feature === 'associateIssueWithBranch' ||
-			feature === 'explainCommit' ||
-			feature === 'generateChangelog' ||
-			feature === 'generateCreateDraft' ||
-			feature === 'generateCreatePullRequest' ||
-			feature === 'generateStashMessage'
-		) {
+		if (feature != null && (isProFeatureOnAllRepos(feature) || isAdvancedFeature(feature))) {
 			return { allowed: false, subscription: { current: subscription, required: SubscriptionPlanId.Pro } };
 		}
 

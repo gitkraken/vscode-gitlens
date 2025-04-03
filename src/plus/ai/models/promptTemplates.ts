@@ -7,16 +7,52 @@ export interface PromptTemplate {
 	readonly variables: string[];
 }
 
-export type PromptTemplateContext<T extends AIActionType> = T extends
-	| 'generate-commitMessage'
-	| 'generate-stashMessage'
-	| 'generate-create-cloudPatch'
-	| 'generate-create-codeSuggestion'
-	? { diff: string; context: string; instructions: string }
-	: T extends 'generate-create-pullRequest'
-	  ? { diff: string; data: string; context: string; instructions: string }
-	  : T extends 'generate-changelog'
-	    ? { data: string; instructions: string }
-	    : T extends 'explain-changes'
-	      ? { diff: string; message: string; instructions: string }
-	      : never;
+interface ChangelogPromptTemplateContext {
+	data: string;
+	instructions?: string;
+}
+
+interface CommitMessagePromptTemplateContext {
+	diff: string;
+	context?: string;
+	instructions?: string;
+}
+
+interface CreateDraftPromptTemplateContext {
+	diff: string;
+	context?: string;
+	instructions?: string;
+}
+
+interface CreatePullRequestPromptTemplateContext {
+	diff: string;
+	data: string;
+	context?: string;
+	instructions?: string;
+}
+
+export interface ExplainChangesPromptTemplateContext {
+	diff: string;
+	message: string;
+	instructions?: string;
+}
+
+interface StashMessagePromptTemplateContext {
+	diff: string;
+	context?: string;
+	instructions?: string;
+}
+
+export type PromptTemplateContext<T extends AIActionType> = T extends 'generate-commitMessage'
+	? CommitMessagePromptTemplateContext
+	: T extends 'generate-stashMessage'
+	  ? StashMessagePromptTemplateContext
+	  : T extends 'generate-create-cloudPatch' | 'generate-create-codeSuggestion'
+	    ? CreateDraftPromptTemplateContext
+	    : T extends 'generate-create-pullRequest'
+	      ? CreatePullRequestPromptTemplateContext
+	      : T extends 'generate-changelog'
+	        ? ChangelogPromptTemplateContext
+	        : T extends 'explain-changes'
+	          ? ExplainChangesPromptTemplateContext
+	          : never;
