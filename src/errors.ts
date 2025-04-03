@@ -278,6 +278,7 @@ export class RequiresIntegrationError extends Error {
 }
 
 export const enum AIErrorReason {
+	NoRequestData,
 	Entitlement,
 	RequestTooLarge,
 	UserQuotaExceeded,
@@ -307,8 +308,12 @@ export class AIError extends Error {
 			case AIErrorReason.ServiceCapacityExceeded:
 				message = 'Service capacity exceeded';
 				break;
+			case AIErrorReason.NoRequestData:
+				message = original?.message ?? 'No data was provided for the request';
+				break;
 			default:
-				message = 'An unknown error occurred';
+				message = original?.message ?? 'An unknown error occurred';
+				break;
 		}
 
 		super(message);
@@ -316,5 +321,13 @@ export class AIError extends Error {
 		this.original = original;
 		this.reason = reason;
 		Error.captureStackTrace?.(this, AIError);
+	}
+}
+
+export class AINoRequestDataError extends AIError {
+	constructor(message?: string) {
+		super(AIErrorReason.NoRequestData, message ? new Error(message) : undefined);
+
+		Error.captureStackTrace?.(this, AINoRequestDataError);
 	}
 }

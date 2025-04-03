@@ -7,7 +7,7 @@ import type { AIProvider } from './provider';
 export interface AIModel<Provider extends AIProviders = AIProviders, Model extends string = string> {
 	readonly id: Model;
 	readonly name: string;
-	readonly maxTokens: { readonly input: number; readonly output: number };
+	readonly maxTokens: { readonly input: number; readonly output: number | undefined };
 	readonly provider: {
 		readonly id: Provider;
 		readonly name: string;

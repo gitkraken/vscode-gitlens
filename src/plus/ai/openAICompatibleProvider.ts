@@ -1,23 +1,18 @@
 import type { CancellationToken } from 'vscode';
 import type { Response } from '@env/fetch';
 import { fetch } from '@env/fetch';
+import type { Role } from '../../@types/vsls';
 import type { AIProviders } from '../../constants.ai';
-import type { TelemetryEvents } from '../../constants.telemetry';
 import type { Container } from '../../container';
 import { AIError, CancellationError } from '../../errors';
 import { getLoggableName, Logger } from '../../system/logger';
 import { startLogScope } from '../../system/logger.scope';
 import type { ServerConnection } from '../gk/serverConnection';
 import type { AIActionType, AIModel, AIProviderDescriptor } from './models/model';
-import type { PromptTemplate, PromptTemplateContext } from './models/promptTemplates';
-import type { AIProvider, AIRequestResult } from './models/provider';
-import {
-	getMaxCharacters,
-	getOrPromptApiKey,
-	getValidatedTemperature,
-	showPromptTruncationWarning,
-} from './utils/-webview/ai.utils';
-import { getLocalPromptTemplate, resolvePrompt } from './utils/-webview/prompt.utils';
+import type { PromptTemplate } from './models/promptTemplates';
+import type { AIChatMessage, AIChatMessageRole, AIProvider, AIRequestResult } from './models/provider';
+import { getOrPromptApiKey, getValidatedTemperature } from './utils/-webview/ai.utils';
+import { getLocalPromptTemplate } from './utils/-webview/prompt.utils';
 
 export interface AIProviderConfig {
 	url: string;
@@ -42,17 +37,7 @@ export abstract class OpenAICompatibleProvider<T extends AIProviders> implements
 		return (await this.getApiKey(silent)) != null;
 	}
 
-	abstract getModels(): Promise<readonly AIModel<T>[]>;
-	async getPromptTemplate<TAction extends AIActionType>(
-		action: TAction,
-		model: AIModel<T>,
-	): Promise<PromptTemplate | undefined> {
-		return Promise.resolve(getLocalPromptTemplate(action, model));
-	}
-
-	protected abstract getUrl(_model: AIModel<T>): string;
-
-	protected async getApiKey(silent: boolean): Promise<string | undefined> {
+	async getApiKey(silent: boolean): Promise<string | undefined> {
 		const { keyUrl, keyValidator } = this.config;
 
 		return getOrPromptApiKey(
@@ -67,6 +52,16 @@ export abstract class OpenAICompatibleProvider<T extends AIProviders> implements
 			silent,
 		);
 	}
+
+	abstract getModels(): Promise<readonly AIModel<T>[]>;
+	async getPromptTemplate<TAction extends AIActionType>(
+		action: TAction,
+		model: AIModel<T>,
+	): Promise<PromptTemplate | undefined> {
+		return Promise.resolve(getLocalPromptTemplate(action, model));
+	}
+
+	protected abstract getUrl(_model: AIModel<T>): string;
 
 	protected getHeaders<TAction extends AIActionType>(
 		_action: TAction,
@@ -83,51 +78,23 @@ export abstract class OpenAICompatibleProvider<T extends AIProviders> implements
 
 	async sendRequest<TAction extends AIActionType>(
 		action: TAction,
-		context: PromptTemplateContext<TAction>,
 		model: AIModel<T>,
-		reporting: TelemetryEvents['ai/generate' | 'ai/explain'],
-		options?: { cancellation?: CancellationToken; outputTokens?: number },
+		apiKey: string,
+		promptTemplate: PromptTemplate,
+		getMessages: (maxCodeCharacters: number, retries: number) => Promise<AIChatMessage[]>,
+		options: { cancellation: CancellationToken; modelOptions?: { outputTokens?: number; temperature?: number } },
 	): Promise<AIRequestResult | undefined> {
 		using scope = startLogScope(`${getLoggableName(this)}.sendRequest`, false);
 
-		const apiKey = await this.getApiKey(false);
-		if (apiKey == null) return undefined;
-
-		const promptTemplate = await this.getPromptTemplate(action, model);
-		if (promptTemplate == null) {
-			debugger;
-			Logger.error(undefined, scope, `Unable to find prompt template for '${action}'`);
-			return undefined;
-		}
-
 		try {
-			let truncated = false;
-			const [result, maxCodeCharacters] = await this.fetch(
+			const result = await this.fetch(
 				action,
 				model,
 				apiKey,
-				async (max, retries) => {
-					let prompt;
-					({ prompt, truncated } = await resolvePrompt(
-						action,
-						promptTemplate,
-						context,
-						max,
-						retries,
-						reporting,
-					));
-
-					const messages: ChatMessage[] = [{ role: 'user', content: prompt }];
-					return messages;
-				},
-				options?.outputTokens ?? 4096,
-				options?.cancellation,
+				getMessages,
+				options.modelOptions,
+				options.cancellation,
 			);
-
-			if (truncated) {
-				showPromptTruncationWarning(maxCodeCharacters, model);
-			}
-
 			return result;
 		} catch (ex) {
 			if (ex instanceof CancellationError) {
@@ -138,6 +105,7 @@ export abstract class OpenAICompatibleProvider<T extends AIProviders> implements
 			Logger.error(ex, scope, `Unable to ${promptTemplate.name}: (${model.provider.name})`);
 			if (ex instanceof AIError) throw ex;
 
+			debugger;
 			throw new Error(`Unable to ${promptTemplate.name}: (${model.provider.name}) ${ex.message}`);
 		}
 	}
@@ -146,27 +114,29 @@ export abstract class OpenAICompatibleProvider<T extends AIProviders> implements
 		action: TAction,
 		model: AIModel<T>,
 		apiKey: string,
-		messages: (maxCodeCharacters: number, retries: number) => Promise<ChatMessage[]>,
-		outputTokens: number,
-		cancellation: CancellationToken | undefined,
-	): Promise<[result: AIRequestResult, maxCodeCharacters: number]> {
+		messages: (maxInputTokens: number, retries: number) => Promise<AIChatMessage[]>,
+		modelOptions?: { outputTokens?: number; temperature?: number },
+		cancellation?: CancellationToken,
+	): Promise<AIRequestResult> {
 		let retries = 0;
-		let maxCodeCharacters = getMaxCharacters(model, 2600);
+		let maxInputTokens = model.maxTokens.input;
 
 		while (true) {
 			const request: ChatCompletionRequest = {
 				model: model.id,
-				messages: await messages(maxCodeCharacters, retries),
+				messages: await messages(maxInputTokens, retries),
 				stream: false,
-				max_completion_tokens: Math.min(outputTokens, model.maxTokens.output),
-				temperature: getValidatedTemperature(model.temperature),
+				max_completion_tokens: model.maxTokens.output
+					? Math.min(modelOptions?.outputTokens ?? Infinity, model.maxTokens.output)
+					: modelOptions?.outputTokens,
+				temperature: getValidatedTemperature(modelOptions?.temperature ?? model.temperature),
 			};
 
 			const rsp = await this.fetchCore(action, model, apiKey, request, cancellation);
 			if (!rsp.ok) {
-				const result = await this.handleFetchFailure(rsp, action, model, retries, maxCodeCharacters);
+				const result = await this.handleFetchFailure(rsp, action, model, retries, maxInputTokens);
 				if (result.retry) {
-					maxCodeCharacters = result.maxCodeCharacters;
+					maxInputTokens = result.maxInputTokens;
 					retries++;
 					continue;
 				}
@@ -191,7 +161,7 @@ export abstract class OpenAICompatibleProvider<T extends AIProviders> implements
 							: undefined,
 				},
 			};
-			return [result, maxCodeCharacters];
+			return result;
 		}
 	}
 
@@ -200,8 +170,8 @@ export abstract class OpenAICompatibleProvider<T extends AIProviders> implements
 		_action: TAction,
 		model: AIModel<T>,
 		retries: number,
-		maxCodeCharacters: number,
-	): Promise<{ retry: true; maxCodeCharacters: number }> {
+		maxInputTokens: number,
+	): Promise<{ retry: true; maxInputTokens: number }> {
 		if (rsp.status === 404) {
 			throw new Error(`Your API key doesn't seem to have access to the selected '${model.id}' model`);
 		}
@@ -217,7 +187,7 @@ export abstract class OpenAICompatibleProvider<T extends AIProviders> implements
 		} catch {}
 
 		if (retries < 2 && json?.error?.code === 'context_length_exceeded') {
-			return { retry: true, maxCodeCharacters: maxCodeCharacters - 500 };
+			return { retry: true, maxInputTokens: maxInputTokens - 200 * (retries || 1) };
 		}
 
 		throw new Error(`(${this.name}) ${rsp.status}: ${json?.error?.message || rsp.statusText}`);
@@ -251,17 +221,9 @@ export abstract class OpenAICompatibleProvider<T extends AIProviders> implements
 	}
 }
 
-type Role = 'assistant' | 'system' | 'user';
-
-export type SystemMessage = ChatMessage<'system'>;
-export interface ChatMessage<T extends Role = 'assistant' | 'user'> {
-	role: T;
-	content: string;
-}
-
 interface ChatCompletionRequest {
 	model: string;
-	messages: ChatMessage<Role>[];
+	messages: AIChatMessage<AIChatMessageRole>[];
 
 	/** @deprecated but used by Anthropic & Gemini */
 	max_tokens?: number;

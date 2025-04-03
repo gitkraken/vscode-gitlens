@@ -3,7 +3,6 @@ import { fetch } from '@env/fetch';
 import { githubProviderDescriptor as provider } from '../../constants.ai';
 import type { AIActionType, AIModel } from './models/model';
 import { OpenAICompatibleProvider } from './openAICompatibleProvider';
-import { getMaxCharacters } from './utils/-webview/ai.utils';
 
 type GitHubModelsModel = AIModel<typeof provider.id>;
 
@@ -63,8 +62,8 @@ export class GitHubModelsProvider extends OpenAICompatibleProvider<typeof provid
 		action: AIActionType,
 		model: AIModel<typeof provider.id>,
 		retries: number,
-		maxCodeCharacters: number,
-	): Promise<{ retry: true; maxCodeCharacters: number }> {
+		maxInputTokens: number,
+	): Promise<{ retry: true; maxInputTokens: number }> {
 		if (rsp.status !== 404 && rsp.status !== 429) {
 			let json;
 			try {
@@ -74,12 +73,11 @@ export class GitHubModelsProvider extends OpenAICompatibleProvider<typeof provid
 			if (retries < 2 && json?.error?.code === 'tokens_limit_reached') {
 				const match = /Max size: (\d+) tokens/.exec(json?.error?.message);
 				if (match?.[1] != null) {
-					maxCodeCharacters = getMaxCharacters(model, 2600, parseInt(match[1], 10));
-					return { retry: true, maxCodeCharacters: maxCodeCharacters };
+					return { retry: true, maxInputTokens: parseInt(match[1], 10) };
 				}
 			}
 		}
 
-		return super.handleFetchFailure(rsp, action, model, retries, maxCodeCharacters);
+		return super.handleFetchFailure(rsp, action, model, retries, maxInputTokens);
 	}
 }
