@@ -31,7 +31,7 @@ interface CreatePullRequestPromptTemplateContext {
 	instructions?: string;
 }
 
-export interface ExplainChangesPromptTemplateContext {
+interface ExplainChangesPromptTemplateContext {
 	diff: string;
 	message: string;
 	instructions?: string;
