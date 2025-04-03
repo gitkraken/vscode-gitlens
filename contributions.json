@@ -16,7 +16,7 @@
 				],
 				"scm/title": [
 					{
-						"when": "scmProvider == git && gitlens:enabled && config.gitlens.menus.scmRepository.authors && !gitlens:hasVirtualFolders && !gitlens:readonly && !gitlens:untrusted",
+						"when": "scmProvider == git && gitlens:enabled && !gitlens:readonly && !gitlens:untrusted && !gitlens:hasVirtualFolders && config.gitlens.menus.scmRepository.authors",
 						"group": "2_z_gitlens",
 						"order": 1
 					}
@@ -140,12 +140,12 @@
 			"menus": {
 				"view/item/context": [
 					{
-						"when": "viewItem =~ /gitlens:autolinked:items\\b/ && config.gitlens.integrations.enabled && gitlens:repos:withHostingIntegrations && !gitlens:repos:withHostingIntegrationsConnected",
+						"when": "viewItem =~ /gitlens:autolinked:items\\b/ && gitlens:repos:withHostingIntegrations && !gitlens:repos:withHostingIntegrationsConnected && config.gitlens.integrations.enabled",
 						"group": "inline",
 						"order": 98
 					},
 					{
-						"when": "viewItem =~ /gitlens:autolinked:items\\b/ && config.gitlens.integrations.enabled && gitlens:repos:withHostingIntegrations && !gitlens:repos:withHostingIntegrationsConnected",
+						"when": "viewItem =~ /gitlens:autolinked:items\\b/ && gitlens:repos:withHostingIntegrations && !gitlens:repos:withHostingIntegrationsConnected && config.gitlens.integrations.enabled",
 						"group": "6_gitlens_actions",
 						"order": 1
 					},
@@ -155,7 +155,7 @@
 						"order": 98
 					},
 					{
-						"when": "viewItem =~ /gitlens:remote\\b(?=.*?\\b\\+disconnected\\b)/ && config.gitlens.integrations.enabled && !listMultiSelection",
+						"when": "viewItem =~ /gitlens:remote\\b(?=.*?\\b\\+disconnected\\b)/ && !listMultiSelection && config.gitlens.integrations.enabled",
 						"group": "8_gitlens_actions",
 						"order": 2
 					}
@@ -392,24 +392,24 @@
 				],
 				"view/item/context": [
 					{
-						"when": "viewItem =~ /gitlens:(commit|stash)\\b/ && !listMultiSelection && !gitlens:hasVirtualFolders && !gitlens:untrusted",
+						"when": "viewItem =~ /gitlens:(commit|stash)\\b/ && !listMultiSelection && !gitlens:untrusted && !gitlens:hasVirtualFolders",
 						"group": "7_gitlens_cutcopypaste",
 						"order": 97
 					},
 					{
-						"when": "viewItem =~ /gitlens:compare:(branch|results(?!:))\\b/ && !listMultiSelection && !gitlens:hasVirtualFolders && !gitlens:untrusted",
+						"when": "viewItem =~ /gitlens:compare:(branch|results(?!:))\\b/ && !listMultiSelection && !gitlens:untrusted && !gitlens:hasVirtualFolders",
 						"group": "7_gitlens_cutcopypaste",
 						"order": 97
 					},
 					{
-						"when": "viewItem =~ /gitlens:file(\\b(?=.*?\\b\\+committed\\b)|:results)/ && !gitlens:hasVirtualFolders && !gitlens:untrusted",
+						"when": "viewItem =~ /gitlens:file(\\b(?=.*?\\b\\+committed\\b)|:results)/ && !gitlens:untrusted && !gitlens:hasVirtualFolders",
 						"group": "7_gitlens_cutcopypaste",
 						"order": 3
 					}
 				],
 				"webview/context": [
 					{
-						"when": "webviewItem =~ /gitlens:(commit|stash)\\b/ && !listMultiSelection && !gitlens:hasVirtualFolders && !gitlens:untrusted",
+						"when": "webviewItem =~ /gitlens:(commit|stash)\\b/ && !listMultiSelection && !gitlens:untrusted && !gitlens:hasVirtualFolders",
 						"group": "7_cutcopypaste",
 						"order": 97
 					}
@@ -430,7 +430,7 @@
 				],
 				"scm/resourceState/context": [
 					{
-						"when": "scmResourceGroup =~ /^(workingTree|index|merge)$/ && scmProvider == git && gitlens:enabled && config.gitlens.menus.scmItem.clipboard && gitlens:repos:withRemotes",
+						"when": "scmResourceGroup =~ /^(workingTree|index|merge)$/ && scmProvider == git && gitlens:enabled && gitlens:repos:withRemotes && config.gitlens.menus.scmItem.clipboard",
 						"group": "7_cutcopypaste",
 						"order": 98
 					}
@@ -522,14 +522,14 @@
 				],
 				"editor/title/context": [
 					{
-						"when": "resourceScheme in gitlens:schemes:trackable && gitlens:enabled && config.gitlens.menus.editorTab.clipboard && gitlens:repos:withRemotes",
+						"when": "resourceScheme in gitlens:schemes:trackable && gitlens:enabled && gitlens:repos:withRemotes && config.gitlens.menus.editorTab.clipboard",
 						"group": "1_cutcopypaste",
 						"order": 101
 					}
 				],
 				"explorer/context": [
 					{
-						"when": "!explorerResourceIsRoot && gitlens:enabled && config.gitlens.menus.explorer.clipboard && gitlens:repos:withRemotes",
+						"when": "!explorerResourceIsRoot && gitlens:enabled && gitlens:repos:withRemotes && config.gitlens.menus.explorer.clipboard",
 						"group": "6_copypath",
 						"order": 101
 					}
@@ -594,14 +594,14 @@
 			"menus": {
 				"editor/title/context": [
 					{
-						"when": "resourceScheme in gitlens:schemes:trackable && gitlens:enabled && config.gitlens.menus.editorTab.clipboard && gitlens:repos:withRemotes",
+						"when": "resourceScheme in gitlens:schemes:trackable && gitlens:enabled && gitlens:repos:withRemotes && config.gitlens.menus.editorTab.clipboard",
 						"group": "1_cutcopypaste",
 						"order": 100
 					}
 				],
 				"explorer/context": [
 					{
-						"when": "!explorerResourceIsRoot && gitlens:enabled && config.gitlens.menus.explorer.clipboard && gitlens:repos:withRemotes",
+						"when": "!explorerResourceIsRoot && gitlens:enabled && gitlens:repos:withRemotes && config.gitlens.menus.explorer.clipboard",
 						"group": "6_copypath",
 						"order": 100
 					}
@@ -692,19 +692,19 @@
 			"menus": {
 				"gitlens/commit/file/commit": [
 					{
-						"when": "viewItem =~ /gitlens:file\\b(?=.*?\\b\\+committed\\b)/ && config.gitlens.cloudPatches.enabled && gitlens:gk:organization:drafts:enabled && !gitlens:hasVirtualFolders && !gitlens:untrusted",
+						"when": "viewItem =~ /gitlens:file\\b(?=.*?\\b\\+committed\\b)/ && !gitlens:untrusted && !gitlens:hasVirtualFolders && gitlens:gk:organization:drafts:enabled && config.gitlens.cloudPatches.enabled",
 						"group": "1_gitlens_secondary_actions",
 						"order": 3
 					}
 				],
 				"view/item/context": [
 					{
-						"when": "viewItem =~ /gitlens:(commit|stash)\\b/ && config.gitlens.cloudPatches.enabled && !listMultiSelection && gitlens:gk:organization:drafts:enabled && !gitlens:hasVirtualFolders && !gitlens:untrusted",
+						"when": "viewItem =~ /gitlens:(commit|stash)\\b/ && !listMultiSelection && !gitlens:untrusted && !gitlens:hasVirtualFolders && gitlens:gk:organization:drafts:enabled && config.gitlens.cloudPatches.enabled",
 						"group": "1_gitlens_actions_1",
 						"order": 3
 					},
 					{
-						"when": "viewItem =~ /gitlens:compare:results(?!:)\\b/ && config.gitlens.cloudPatches.enabled && !listMultiSelection && gitlens:gk:organization:drafts:enabled && !gitlens:hasVirtualFolders && !gitlens:untrusted",
+						"when": "viewItem =~ /gitlens:compare:results(?!:)\\b/ && !listMultiSelection && !gitlens:untrusted && !gitlens:hasVirtualFolders && gitlens:gk:organization:drafts:enabled && config.gitlens.cloudPatches.enabled",
 						"group": "1_gitlens_secondary_actions",
 						"order": 2
 					}
@@ -1193,7 +1193,7 @@
 						"order": 98
 					},
 					{
-						"when": "viewItem =~ /gitlens:remote\\b(?=.*?\\b\\+connected\\b)/ && config.gitlens.integrations.enabled && !listMultiSelection",
+						"when": "viewItem =~ /gitlens:remote\\b(?=.*?\\b\\+connected\\b)/ && !listMultiSelection && config.gitlens.integrations.enabled",
 						"group": "8_gitlens_actions",
 						"order": 2
 					}
@@ -1214,7 +1214,7 @@
 			"menus": {
 				"gitlens/commit/file/changes": [
 					{
-						"when": "viewItem =~ /gitlens:file\\b(?!.*?\\b\\+conflicted\\b)/ && !gitlens:hasVirtualFolders && !gitlens:readonly && !gitlens:untrusted",
+						"when": "viewItem =~ /gitlens:file\\b(?!.*?\\b\\+conflicted\\b)/ && !gitlens:readonly && !gitlens:untrusted && !gitlens:hasVirtualFolders",
 						"group": "1_gitlens_",
 						"order": 1
 					}
@@ -1249,26 +1249,26 @@
 			"menus": {
 				"gitlens/views/grouped/commits": [
 					{
-						"when": "gitlens:views:scm:grouped:view == commits && gitlens:repos:withRemotes && !gitlens:hasVirtualFolders && !gitlens:readonly && !gitlens:untrusted",
+						"when": "gitlens:views:scm:grouped:view == commits && !gitlens:readonly && !gitlens:untrusted && !gitlens:hasVirtualFolders && gitlens:repos:withRemotes",
 						"group": "2_gitlens_actions",
 						"order": 3
 					}
 				],
 				"gitlens/views/grouped/repositories": [
 					{
-						"when": "gitlens:views:scm:grouped:view == repositories && gitlens:repos:withRemotes && !gitlens:hasVirtualFolders && !gitlens:readonly && !gitlens:untrusted",
+						"when": "gitlens:views:scm:grouped:view == repositories && !gitlens:readonly && !gitlens:untrusted && !gitlens:hasVirtualFolders && gitlens:repos:withRemotes",
 						"group": "2_gitlens_actions",
 						"order": 3
 					}
 				],
 				"view/title": [
 					{
-						"when": "view == gitlens.views.commits && gitlens:repos:withRemotes && !gitlens:hasVirtualFolders && !gitlens:readonly && !gitlens:untrusted",
+						"when": "view == gitlens.views.commits && !gitlens:readonly && !gitlens:untrusted && !gitlens:hasVirtualFolders && gitlens:repos:withRemotes",
 						"group": "navigation",
 						"order": 3
 					},
 					{
-						"when": "view == gitlens.views.repositories && gitlens:repos:withRemotes && !gitlens:hasVirtualFolders && !gitlens:readonly && !gitlens:untrusted",
+						"when": "view == gitlens.views.repositories && !gitlens:readonly && !gitlens:untrusted && !gitlens:hasVirtualFolders && gitlens:repos:withRemotes",
 						"group": "navigation",
 						"order": 3
 					}
@@ -1294,7 +1294,7 @@
 			"menus": {
 				"view/item/context": [
 					{
-						"when": "viewItem =~ /pullrequest(:local)?:nonactive|description/ && view == pr:github && config.gitlens.menus.ghpr.worktree && !listMultiSelection && !gitlens:hasVirtualFolders && !gitlens:readonly && !gitlens:untrusted",
+						"when": "viewItem =~ /pullrequest(:local)?:nonactive|description/ && view == pr:github && !listMultiSelection && !gitlens:readonly && !gitlens:untrusted && !gitlens:hasVirtualFolders && config.gitlens.menus.ghpr.worktree",
 						"group": "2_gitlens",
 						"order": 1
 					}
@@ -1454,7 +1454,7 @@
 			"menus": {
 				"webview/context": [
 					{
-						"when": "webviewItem =~ /gitlens:contributor\\b(?!.*?\\b\\+current\\b)/ && !gitlens:hasVirtualFolders && !gitlens:readonly && !gitlens:untrusted",
+						"when": "webviewItem =~ /gitlens:contributor\\b(?!.*?\\b\\+current\\b)/ && !gitlens:readonly && !gitlens:untrusted && !gitlens:hasVirtualFolders",
 						"group": "1_gitlens_actions",
 						"order": 2
 					}
@@ -1467,7 +1467,7 @@
 			"menus": {
 				"webview/context": [
 					{
-						"when": "webviewItem =~ /gitlens:(branch|tag)\\b/ && gitlens:gk:organization:ai:enabled && !gitlens:untrusted",
+						"when": "webviewItem =~ /gitlens:(branch|tag)\\b/ && !gitlens:untrusted && gitlens:gk:organization:ai:enabled",
 						"group": "1_gitlens_actions_3",
 						"order": 100
 					}
@@ -1479,7 +1479,7 @@
 			"menus": {
 				"webview/context": [
 					{
-						"when": "webviewItem == gitlens:wip && config.gitlens.ai.generateCommitMessage.enabled && !listMultiSelection && gitlens:gk:organization:ai:enabled && !gitlens:readonly && !gitlens:untrusted",
+						"when": "webviewItem == gitlens:wip && !listMultiSelection && !gitlens:readonly && !gitlens:untrusted && gitlens:gk:organization:ai:enabled && config.gitlens.ai.generateCommitMessage.enabled",
 						"group": "1_gitlens",
 						"order": 2
 					}
@@ -1492,7 +1492,7 @@
 			"menus": {
 				"webview/context": [
 					{
-						"when": "webviewItem =~ /gitlens:branch\\b(?!.*?\\b\\+remote\\b)/ && !gitlens:hasVirtualFolders && !gitlens:readonly && !gitlens:untrusted",
+						"when": "webviewItem =~ /gitlens:branch\\b(?!.*?\\b\\+remote\\b)/ && !gitlens:readonly && !gitlens:untrusted && !gitlens:hasVirtualFolders",
 						"group": "1_gitlens_actions_2",
 						"order": 1
 					}
@@ -1505,7 +1505,7 @@
 			"menus": {
 				"webview/context": [
 					{
-						"when": "webviewItem =~ /gitlens:commit\\b(?!.*?\\b\\+(current|rebase)\\b)/ && !listMultiSelection && !gitlens:hasVirtualFolders && !gitlens:readonly && !gitlens:untrusted",
+						"when": "webviewItem =~ /gitlens:commit\\b(?!.*?\\b\\+(current|rebase)\\b)/ && !listMultiSelection && !gitlens:readonly && !gitlens:untrusted && !gitlens:hasVirtualFolders",
 						"group": "1_gitlens_actions",
 						"order": 1
 					}
@@ -1518,7 +1518,7 @@
 			"menus": {
 				"webview/context": [
 					{
-						"when": "webviewItems =~ /gitlens:commit\\b(?!.*?\\b\\+(current|rebase)\\b)/ && listMultiSelection && !gitlens:hasVirtualFolders && !gitlens:readonly && !gitlens:untrusted",
+						"when": "webviewItems =~ /gitlens:commit\\b(?!.*?\\b\\+(current|rebase)\\b)/ && listMultiSelection && !gitlens:readonly && !gitlens:untrusted && !gitlens:hasVirtualFolders",
 						"group": "1_gitlens_actions",
 						"order": 1
 					}
@@ -1959,7 +1959,7 @@
 			"menus": {
 				"webview/context": [
 					{
-						"when": "webviewItem == gitlens:wip && !listMultiSelection && !gitlens:hasVirtualFolders && !gitlens:readonly && !gitlens:untrusted",
+						"when": "webviewItem == gitlens:wip && !listMultiSelection && !gitlens:readonly && !gitlens:untrusted && !gitlens:hasVirtualFolders",
 						"group": "1_gitlens_actions",
 						"order": 4
 					}
@@ -1973,17 +1973,17 @@
 			"menus": {
 				"webview/context": [
 					{
-						"when": "webviewItem =~ /gitlens:branch\\b/ && !gitlens:hasVirtualFolders && !gitlens:readonly && !gitlens:untrusted",
+						"when": "webviewItem =~ /gitlens:branch\\b/ && !gitlens:readonly && !gitlens:untrusted && !gitlens:hasVirtualFolders",
 						"group": "1_gitlens_actions_3",
 						"order": 1
 					},
 					{
-						"when": "webviewItem =~ /gitlens:commit\\b/ && !listMultiSelection && !gitlens:hasVirtualFolders && !gitlens:readonly && !gitlens:untrusted",
+						"when": "webviewItem =~ /gitlens:commit\\b/ && !listMultiSelection && !gitlens:readonly && !gitlens:untrusted && !gitlens:hasVirtualFolders",
 						"group": "1_gitlens_actions_1",
 						"order": 1
 					},
 					{
-						"when": "webviewItem =~ /gitlens:tag\\b/ && !gitlens:hasVirtualFolders && !gitlens:readonly && !gitlens:untrusted",
+						"when": "webviewItem =~ /gitlens:tag\\b/ && !gitlens:readonly && !gitlens:untrusted && !gitlens:hasVirtualFolders",
 						"group": "1_gitlens_actions_3",
 						"order": 4
 					}
@@ -1995,7 +1995,7 @@
 			"menus": {
 				"webview/context": [
 					{
-						"when": "webviewItem =~ /gitlens:(commit|stash)\\b/ && config.gitlens.cloudPatches.enabled && !listMultiSelection && gitlens:gk:organization:drafts:enabled && !gitlens:hasVirtualFolders && !gitlens:untrusted",
+						"when": "webviewItem =~ /gitlens:(commit|stash)\\b/ && !listMultiSelection && !gitlens:untrusted && !gitlens:hasVirtualFolders && gitlens:gk:organization:drafts:enabled && config.gitlens.cloudPatches.enabled",
 						"group": "1_gitlens_actions_1",
 						"order": 3
 					}
@@ -2034,12 +2034,12 @@
 			"menus": {
 				"webview/context": [
 					{
-						"when": "webviewItem =~ /gitlens:branch\\b/ && !gitlens:hasVirtualFolders && !gitlens:readonly && !gitlens:untrusted",
+						"when": "webviewItem =~ /gitlens:branch\\b/ && !gitlens:readonly && !gitlens:untrusted && !gitlens:hasVirtualFolders",
 						"group": "1_gitlens_actions_3",
 						"order": 2
 					},
 					{
-						"when": "webviewItem =~ /gitlens:commit\\b/ && !listMultiSelection && !gitlens:hasVirtualFolders && !gitlens:readonly && !gitlens:untrusted",
+						"when": "webviewItem =~ /gitlens:commit\\b/ && !listMultiSelection && !gitlens:readonly && !gitlens:untrusted && !gitlens:hasVirtualFolders",
 						"group": "1_gitlens_actions_1",
 						"order": 4
 					}
@@ -2053,7 +2053,7 @@
 			"menus": {
 				"webview/context": [
 					{
-						"when": "webviewItem =~ /gitlens:branch\\b/ && !gitlens:hasVirtualFolders && !gitlens:readonly && !gitlens:untrusted",
+						"when": "webviewItem =~ /gitlens:branch\\b/ && !gitlens:readonly && !gitlens:untrusted && !gitlens:hasVirtualFolders",
 						"group": "1_gitlens_actions_3",
 						"order": 3
 					}
@@ -2067,7 +2067,7 @@
 			"menus": {
 				"webview/context": [
 					{
-						"when": "webviewItem =~ /gitlens:branch\\b(?!.*?\\b\\+(current|checkedout)\\b)/ && !gitlens:hasVirtualFolders && !gitlens:readonly && !gitlens:untrusted",
+						"when": "webviewItem =~ /gitlens:branch\\b(?!.*?\\b\\+(current|checkedout)\\b)/ && !gitlens:readonly && !gitlens:untrusted && !gitlens:hasVirtualFolders",
 						"group": "1_gitlens_actions_2",
 						"order": 3
 					}
@@ -2081,7 +2081,7 @@
 			"menus": {
 				"webview/context": [
 					{
-						"when": "webviewItem == gitlens:tag && !gitlens:hasVirtualFolders && !gitlens:readonly && !gitlens:untrusted",
+						"when": "webviewItem == gitlens:tag && !gitlens:readonly && !gitlens:untrusted && !gitlens:hasVirtualFolders",
 						"group": "1_gitlens_actions",
 						"order": 3
 					}
@@ -2095,7 +2095,7 @@
 			"menus": {
 				"webview/context": [
 					{
-						"when": "webviewItem =~ /gitlens:branch\\b(?=.*?\\b\\+(remote|tracking)\\b)(?!.*?\\b\\+closed\\b)/ && gitlens:repos:withRemotes && !gitlens:hasVirtualFolders && !gitlens:readonly && !gitlens:untrusted",
+						"when": "webviewItem =~ /gitlens:branch\\b(?=.*?\\b\\+(remote|tracking)\\b)(?!.*?\\b\\+closed\\b)/ && !gitlens:readonly && !gitlens:untrusted && !gitlens:hasVirtualFolders && gitlens:repos:withRemotes",
 						"group": "1_gitlens_actions",
 						"order": 3
 					},
@@ -2173,7 +2173,7 @@
 			"menus": {
 				"webview/context": [
 					{
-						"when": "webviewItem =~ /gitlens:branch\\b(?!.*?\\b\\+current\\b)/ && !gitlens:hasVirtualFolders && !gitlens:readonly && !gitlens:untrusted",
+						"when": "webviewItem =~ /gitlens:branch\\b(?!.*?\\b\\+current\\b)/ && !gitlens:readonly && !gitlens:untrusted && !gitlens:hasVirtualFolders",
 						"group": "1_gitlens_actions_1",
 						"order": 1
 					}
@@ -2412,7 +2412,7 @@
 			"menus": {
 				"webview/context": [
 					{
-						"when": "webviewItem =~ /gitlens:branch\\b(?!.*?\\b\\+remote\\b)(?!.*?\\b\\+tracking\\b)(?!.*?\\b\\+closed\\b)/ && gitlens:repos:withRemotes && !gitlens:hasVirtualFolders && !gitlens:readonly && !gitlens:untrusted",
+						"when": "webviewItem =~ /gitlens:branch\\b(?!.*?\\b\\+remote\\b)(?!.*?\\b\\+tracking\\b)(?!.*?\\b\\+closed\\b)/ && !gitlens:readonly && !gitlens:untrusted && !gitlens:hasVirtualFolders && gitlens:repos:withRemotes",
 						"group": "1_gitlens_actions",
 						"order": 2
 					}
@@ -2426,7 +2426,7 @@
 			"menus": {
 				"webview/context": [
 					{
-						"when": "webviewItem =~ /gitlens:branch\\b(?=.*?\\b\\+(behind|tracking)\\b)(?!.*?\\b\\+closed\\b)/ && gitlens:repos:withRemotes && !gitlens:hasVirtualFolders && !gitlens:readonly && !gitlens:untrusted",
+						"when": "webviewItem =~ /gitlens:branch\\b(?=.*?\\b\\+(behind|tracking)\\b)(?!.*?\\b\\+closed\\b)/ && !gitlens:readonly && !gitlens:untrusted && !gitlens:hasVirtualFolders && gitlens:repos:withRemotes",
 						"group": "1_gitlens_actions",
 						"order": 2
 					},
@@ -2445,7 +2445,7 @@
 			"menus": {
 				"webview/context": [
 					{
-						"when": "webviewItem =~ /gitlens:branch\\b(?=.*?\\b\\+ahead\\b)(?!.*?\\b\\+behind\\b)(?!.*?\\b\\+closed\\b)/ && gitlens:repos:withRemotes && !gitlens:hasVirtualFolders && !gitlens:readonly && !gitlens:untrusted",
+						"when": "webviewItem =~ /gitlens:branch\\b(?=.*?\\b\\+ahead\\b)(?!.*?\\b\\+behind\\b)(?!.*?\\b\\+closed\\b)/ && !gitlens:readonly && !gitlens:untrusted && !gitlens:hasVirtualFolders && gitlens:repos:withRemotes",
 						"group": "1_gitlens_actions",
 						"order": 2
 					},
@@ -2468,7 +2468,7 @@
 			"menus": {
 				"webview/context": [
 					{
-						"when": "webviewItem =~ /gitlens:branch\\b(?!.*?\\b\\+current\\b)/ && !gitlens:hasVirtualFolders && !gitlens:readonly && !gitlens:untrusted",
+						"when": "webviewItem =~ /gitlens:branch\\b(?!.*?\\b\\+current\\b)/ && !gitlens:readonly && !gitlens:untrusted && !gitlens:hasVirtualFolders",
 						"group": "1_gitlens_actions_1",
 						"order": 2
 					}
@@ -2481,7 +2481,7 @@
 			"menus": {
 				"webview/context": [
 					{
-						"when": "webviewItem =~ /gitlens:commit\\b/ && !listMultiSelection && !gitlens:hasVirtualFolders && !gitlens:readonly && !gitlens:untrusted",
+						"when": "webviewItem =~ /gitlens:commit\\b/ && !listMultiSelection && !gitlens:readonly && !gitlens:untrusted && !gitlens:hasVirtualFolders",
 						"group": "1_gitlens_actions",
 						"order": 6
 					}
@@ -2494,7 +2494,7 @@
 			"menus": {
 				"webview/context": [
 					{
-						"when": "webviewItem =~ /gitlens:branch\\b(?=.*?\\b\\+current\\b)(?=.*?\\b\\+tracking\\b)/ && !gitlens:hasVirtualFolders && !gitlens:readonly && !gitlens:untrusted",
+						"when": "webviewItem =~ /gitlens:branch\\b(?=.*?\\b\\+current\\b)(?=.*?\\b\\+tracking\\b)/ && !gitlens:readonly && !gitlens:untrusted && !gitlens:hasVirtualFolders",
 						"group": "1_gitlens_actions_1",
 						"order": 2
 					}
@@ -2520,7 +2520,7 @@
 			"menus": {
 				"webview/context": [
 					{
-						"when": "webviewItem =~ /gitlens:branch\\b/ && !gitlens:hasVirtualFolders && !gitlens:readonly && !gitlens:untrusted",
+						"when": "webviewItem =~ /gitlens:branch\\b/ && !gitlens:readonly && !gitlens:untrusted && !gitlens:hasVirtualFolders",
 						"group": "1_gitlens_actions_2",
 						"order": 2
 					}
@@ -2557,7 +2557,7 @@
 			"menus": {
 				"webview/context": [
 					{
-						"when": "webviewItem =~ /gitlens:commit\\b/ && !listMultiSelection && !gitlens:hasVirtualFolders && !gitlens:readonly && !gitlens:untrusted",
+						"when": "webviewItem =~ /gitlens:commit\\b/ && !listMultiSelection && !gitlens:readonly && !gitlens:untrusted && !gitlens:hasVirtualFolders",
 						"group": "1_gitlens_actions",
 						"order": 5
 					}
@@ -2570,7 +2570,7 @@
 			"menus": {
 				"webview/context": [
 					{
-						"when": "webviewItem =~ /gitlens:commit\\b/ && !listMultiSelection && !gitlens:hasVirtualFolders && !gitlens:readonly && !gitlens:untrusted",
+						"when": "webviewItem =~ /gitlens:commit\\b/ && !listMultiSelection && !gitlens:readonly && !gitlens:untrusted && !gitlens:hasVirtualFolders",
 						"group": "1_gitlens_actions",
 						"order": 4
 					}
@@ -2584,7 +2584,7 @@
 			"menus": {
 				"webview/context": [
 					{
-						"when": "webviewItem =~ /gitlens:tag\\b/ && !listMultiSelection && !gitlens:hasVirtualFolders && !gitlens:readonly && !gitlens:untrusted",
+						"when": "webviewItem =~ /gitlens:tag\\b/ && !listMultiSelection && !gitlens:readonly && !gitlens:untrusted && !gitlens:hasVirtualFolders",
 						"group": "1_gitlens_actions",
 						"order": 2
 					}
@@ -2597,7 +2597,7 @@
 			"menus": {
 				"webview/context": [
 					{
-						"when": "webviewItem =~ /gitlens:branch\\b/ && !gitlens:hasVirtualFolders && !gitlens:readonly && !gitlens:untrusted",
+						"when": "webviewItem =~ /gitlens:branch\\b/ && !gitlens:readonly && !gitlens:untrusted && !gitlens:hasVirtualFolders",
 						"group": "1_gitlens_actions_1",
 						"order": 3
 					}
@@ -2610,7 +2610,7 @@
 			"menus": {
 				"webview/context": [
 					{
-						"when": "webviewItem =~ /gitlens:commit\\b(?=.*?\\b\\+current\\b)/ && !listMultiSelection && !gitlens:hasVirtualFolders && !gitlens:readonly && !gitlens:untrusted",
+						"when": "webviewItem =~ /gitlens:commit\\b(?=.*?\\b\\+current\\b)/ && !listMultiSelection && !gitlens:readonly && !gitlens:untrusted && !gitlens:hasVirtualFolders",
 						"group": "1_gitlens_actions",
 						"order": 3
 					}
@@ -2742,7 +2742,7 @@
 			"menus": {
 				"gitlens/share": [
 					{
-						"when": "webviewItem =~ /gitlens:(commit|stash)\\b/ && config.gitlens.cloudPatches.enabled && !listMultiSelection && gitlens:gk:organization:drafts:enabled && !gitlens:hasVirtualFolders && !gitlens:untrusted",
+						"when": "webviewItem =~ /gitlens:(commit|stash)\\b/ && !listMultiSelection && !gitlens:untrusted && !gitlens:hasVirtualFolders && gitlens:gk:organization:drafts:enabled && config.gitlens.cloudPatches.enabled",
 						"group": "1_a_gitlens",
 						"order": 1
 					}
@@ -2790,7 +2790,7 @@
 			"menus": {
 				"webview/context": [
 					{
-						"when": "webviewItem == gitlens:stash && !listMultiSelection && !gitlens:hasVirtualFolders && !gitlens:readonly && !gitlens:untrusted",
+						"when": "webviewItem == gitlens:stash && !listMultiSelection && !gitlens:readonly && !gitlens:untrusted && !gitlens:hasVirtualFolders",
 						"group": "1_gitlens_actions",
 						"order": 1
 					}
@@ -2804,7 +2804,7 @@
 			"menus": {
 				"webview/context": [
 					{
-						"when": "webviewItem == gitlens:stash && !listMultiSelection && !gitlens:hasVirtualFolders && !gitlens:readonly && !gitlens:untrusted",
+						"when": "webviewItem == gitlens:stash && !listMultiSelection && !gitlens:readonly && !gitlens:untrusted && !gitlens:hasVirtualFolders",
 						"group": "1_gitlens_actions",
 						"order": 3
 					}
@@ -2818,7 +2818,7 @@
 			"menus": {
 				"webview/context": [
 					{
-						"when": "webviewItem == gitlens:stash && !listMultiSelection && !gitlens:hasVirtualFolders && !gitlens:readonly && !gitlens:untrusted",
+						"when": "webviewItem == gitlens:stash && !listMultiSelection && !gitlens:readonly && !gitlens:untrusted && !gitlens:hasVirtualFolders",
 						"group": "1_gitlens_actions",
 						"order": 2
 					}
@@ -2832,7 +2832,7 @@
 			"menus": {
 				"webview/context": [
 					{
-						"when": "webviewItem == gitlens:wip && !listMultiSelection && !gitlens:hasVirtualFolders && !gitlens:readonly && !gitlens:untrusted",
+						"when": "webviewItem == gitlens:wip && !listMultiSelection && !gitlens:readonly && !gitlens:untrusted && !gitlens:hasVirtualFolders",
 						"group": "1_gitlens_actions",
 						"order": 3
 					}
@@ -2846,7 +2846,7 @@
 			"menus": {
 				"webview/context": [
 					{
-						"when": "webviewItem =~ /gitlens:branch\\b(?=.*?\\b\\+(current|checkedout)\\b)/ && !gitlens:hasVirtualFolders && !gitlens:readonly && !gitlens:untrusted",
+						"when": "webviewItem =~ /gitlens:branch\\b(?=.*?\\b\\+(current|checkedout)\\b)/ && !gitlens:readonly && !gitlens:untrusted && !gitlens:hasVirtualFolders",
 						"group": "1_gitlens_action",
 						"order": 1
 					}
@@ -2860,7 +2860,7 @@
 			"menus": {
 				"webview/context": [
 					{
-						"when": "webviewItem =~ /gitlens:branch\\b(?!.*?\\b\\+(current|checkedout|worktree)\\b)/ && !gitlens:hasVirtualFolders && !gitlens:readonly && !gitlens:untrusted",
+						"when": "webviewItem =~ /gitlens:branch\\b(?!.*?\\b\\+(current|checkedout|worktree)\\b)/ && !gitlens:readonly && !gitlens:untrusted && !gitlens:hasVirtualFolders",
 						"group": "1_gitlens_action",
 						"order": 1
 					}
@@ -2874,7 +2874,7 @@
 			"menus": {
 				"webview/context": [
 					{
-						"when": "webviewItem =~ /gitlens:commit\\b/ && !listMultiSelection && !gitlens:hasVirtualFolders && !gitlens:readonly && !gitlens:untrusted",
+						"when": "webviewItem =~ /gitlens:commit\\b/ && !listMultiSelection && !gitlens:readonly && !gitlens:untrusted && !gitlens:hasVirtualFolders",
 						"group": "1_gitlens_actions",
 						"order": 7
 					}
@@ -2914,7 +2914,7 @@
 			"menus": {
 				"webview/context": [
 					{
-						"when": "webviewItem =~ /gitlens:tag\\b/ && !gitlens:hasVirtualFolders && !gitlens:readonly && !gitlens:untrusted",
+						"when": "webviewItem =~ /gitlens:tag\\b/ && !gitlens:readonly && !gitlens:untrusted && !gitlens:hasVirtualFolders",
 						"group": "1_gitlens_actions",
 						"order": 1
 					}
@@ -2928,7 +2928,7 @@
 			"menus": {
 				"webview/context": [
 					{
-						"when": "webviewItem =~ /gitlens:commit\\b(?=.*?\\b\\+HEAD\\b)/ && !listMultiSelection && !gitlens:hasVirtualFolders && !gitlens:readonly && !gitlens:untrusted",
+						"when": "webviewItem =~ /gitlens:commit\\b(?=.*?\\b\\+HEAD\\b)/ && !listMultiSelection && !gitlens:readonly && !gitlens:untrusted && !gitlens:hasVirtualFolders",
 						"group": "1_gitlens_actions",
 						"order": 1
 					}
@@ -3480,26 +3480,26 @@
 			"menus": {
 				"gitlens/views/grouped/commits": [
 					{
-						"when": "gitlens:views:scm:grouped:view == commits && gitlens:repos:withRemotes && !gitlens:hasVirtualFolders && !gitlens:readonly && !gitlens:untrusted",
+						"when": "gitlens:views:scm:grouped:view == commits && !gitlens:readonly && !gitlens:untrusted && !gitlens:hasVirtualFolders && gitlens:repos:withRemotes",
 						"group": "2_gitlens_actions",
 						"order": 2
 					}
 				],
 				"gitlens/views/grouped/repositories": [
 					{
-						"when": "gitlens:views:scm:grouped:view == repositories && gitlens:repos:withRemotes && !gitlens:hasVirtualFolders && !gitlens:readonly && !gitlens:untrusted",
+						"when": "gitlens:views:scm:grouped:view == repositories && !gitlens:readonly && !gitlens:untrusted && !gitlens:hasVirtualFolders && gitlens:repos:withRemotes",
 						"group": "2_gitlens_actions",
 						"order": 2
 					}
 				],
 				"view/title": [
 					{
-						"when": "view == gitlens.views.commits && gitlens:repos:withRemotes && !gitlens:hasVirtualFolders && !gitlens:readonly && !gitlens:untrusted",
+						"when": "view == gitlens.views.commits && !gitlens:readonly && !gitlens:untrusted && !gitlens:hasVirtualFolders && gitlens:repos:withRemotes",
 						"group": "navigation",
 						"order": 2
 					},
 					{
-						"when": "view == gitlens.views.repositories && gitlens:repos:withRemotes && !gitlens:hasVirtualFolders && !gitlens:readonly && !gitlens:untrusted",
+						"when": "view == gitlens.views.repositories && !gitlens:readonly && !gitlens:untrusted && !gitlens:hasVirtualFolders && gitlens:repos:withRemotes",
 						"group": "navigation",
 						"order": 2
 					}
@@ -3514,26 +3514,26 @@
 			"menus": {
 				"gitlens/views/grouped/commits": [
 					{
-						"when": "gitlens:views:scm:grouped:view == commits && gitlens:repos:withRemotes && !gitlens:hasVirtualFolders && !gitlens:readonly && !gitlens:untrusted",
+						"when": "gitlens:views:scm:grouped:view == commits && !gitlens:readonly && !gitlens:untrusted && !gitlens:hasVirtualFolders && gitlens:repos:withRemotes",
 						"group": "2_gitlens_actions",
 						"order": 1
 					}
 				],
 				"gitlens/views/grouped/repositories": [
 					{
-						"when": "gitlens:views:scm:grouped:view == repositories && gitlens:repos:withRemotes && !gitlens:hasVirtualFolders && !gitlens:readonly && !gitlens:untrusted",
+						"when": "gitlens:views:scm:grouped:view == repositories && !gitlens:readonly && !gitlens:untrusted && !gitlens:hasVirtualFolders && gitlens:repos:withRemotes",
 						"group": "2_gitlens_actions",
 						"order": 1
 					}
 				],
 				"view/title": [
 					{
-						"when": "view == gitlens.views.commits && gitlens:repos:withRemotes && !gitlens:hasVirtualFolders && !gitlens:readonly && !gitlens:untrusted",
+						"when": "view == gitlens.views.commits && !gitlens:readonly && !gitlens:untrusted && !gitlens:hasVirtualFolders && gitlens:repos:withRemotes",
 						"group": "navigation",
 						"order": 1
 					},
 					{
-						"when": "view == gitlens.views.repositories && gitlens:repos:withRemotes && !gitlens:hasVirtualFolders && !gitlens:readonly && !gitlens:untrusted",
+						"when": "view == gitlens.views.repositories && !gitlens:readonly && !gitlens:untrusted && !gitlens:hasVirtualFolders && gitlens:repos:withRemotes",
 						"group": "navigation",
 						"order": 1
 					}
@@ -3615,12 +3615,12 @@
 				],
 				"scm/title": [
 					{
-						"when": "scmProvider == git && gitlens:enabled && config.gitlens.ai.generateCommitMessage.enabled && config.gitlens.menus.scmRepositoryInline.generateCommitMessage && gitlens:gk:organization:ai:enabled && !gitlens:readonly && !gitlens:untrusted",
+						"when": "scmProvider == git && gitlens:enabled && !gitlens:readonly && !gitlens:untrusted && gitlens:gk:organization:ai:enabled && config.gitlens.ai.generateCommitMessage.enabled && config.gitlens.menus.scmRepositoryInline.generateCommitMessage",
 						"group": "navigation",
 						"order": -3
 					},
 					{
-						"when": "scmProvider == git && gitlens:enabled && config.gitlens.ai.generateCommitMessage.enabled && config.gitlens.menus.scmRepository.generateCommitMessage && gitlens:gk:organization:ai:enabled && !gitlens:readonly && !gitlens:untrusted",
+						"when": "scmProvider == git && gitlens:enabled && !gitlens:readonly && !gitlens:untrusted && gitlens:gk:organization:ai:enabled && config.gitlens.ai.generateCommitMessage.enabled && config.gitlens.menus.scmRepository.generateCommitMessage",
 						"group": "2_z_gitlens",
 						"order": 4
 					}
@@ -3640,7 +3640,7 @@
 				],
 				"gitlens/share": [
 					{
-						"when": "viewItem =~ /gitlens:(commit|file\\b(?=.*?\\b\\+committed\\b)|stash|compare:results(?!:))\\b/ && config.gitlens.cloudPatches.enabled && !listMultiSelection && gitlens:gk:organization:drafts:enabled && !gitlens:hasVirtualFolders && !gitlens:untrusted",
+						"when": "viewItem =~ /gitlens:(commit|file\\b(?=.*?\\b\\+committed\\b)|stash|compare:results(?!:))\\b/ && !listMultiSelection && !gitlens:untrusted && !gitlens:hasVirtualFolders && gitlens:gk:organization:drafts:enabled && config.gitlens.cloudPatches.enabled",
 						"group": "1_a_gitlens",
 						"order": 1
 					}
@@ -3796,12 +3796,12 @@
 				],
 				"scm/title": [
 					{
-						"when": "scmProvider == git && gitlens:enabled && config.gitlens.menus.scmRepositoryInline.graph && gitlens:plus:enabled && scmProviderRootUri not in gitlens:plus:disallowedRepos",
+						"when": "scmProvider == git && gitlens:enabled && gitlens:plus:enabled && scmProviderRootUri not in gitlens:plus:disallowedRepos && config.gitlens.menus.scmRepositoryInline.graph",
 						"group": "navigation",
 						"order": -1
 					},
 					{
-						"when": "scmProvider == git && gitlens:enabled && config.gitlens.menus.scmRepository.graph && gitlens:plus:enabled && scmProviderRootUri not in gitlens:plus:disallowedRepos",
+						"when": "scmProvider == git && gitlens:enabled && gitlens:plus:enabled && scmProviderRootUri not in gitlens:plus:disallowedRepos && config.gitlens.menus.scmRepository.graph",
 						"group": "2_z_gitlens",
 						"order": 5
 					}
@@ -4476,36 +4476,36 @@
 			"menus": {
 				"gitlens/views/grouped/stashes": [
 					{
-						"when": "gitlens:views:scm:grouped:view == stashes && !gitlens:hasVirtualFolders && !gitlens:readonly && !gitlens:untrusted",
+						"when": "gitlens:views:scm:grouped:view == stashes && !gitlens:readonly && !gitlens:untrusted && !gitlens:hasVirtualFolders",
 						"group": "2_gitlens_actions",
 						"order": 2
 					}
 				],
 				"view/item/context": [
 					{
-						"when": "viewItem =~ /gitlens:repo-folder\\b/ && !listMultiSelection && !gitlens:hasVirtualFolders && !gitlens:readonly && !gitlens:untrusted",
+						"when": "viewItem =~ /gitlens:repo-folder\\b/ && !listMultiSelection && !gitlens:readonly && !gitlens:untrusted && !gitlens:hasVirtualFolders",
 						"group": "1_gitlens_actions_1",
 						"order": 2
 					},
 					{
-						"when": "viewItem =~ /gitlens:repository\\b(?!.*?\\b\\+workspace\\b)/ && !listMultiSelection && !gitlens:hasVirtualFolders && !gitlens:readonly && !gitlens:untrusted",
+						"when": "viewItem =~ /gitlens:repository\\b(?!.*?\\b\\+workspace\\b)/ && !listMultiSelection && !gitlens:readonly && !gitlens:untrusted && !gitlens:hasVirtualFolders",
 						"group": "1_gitlens_actions_1",
 						"order": 2
 					},
 					{
-						"when": "viewItem == gitlens:stashes && !gitlens:hasVirtualFolders && !gitlens:readonly && !gitlens:untrusted",
+						"when": "viewItem == gitlens:stashes && !gitlens:readonly && !gitlens:untrusted && !gitlens:hasVirtualFolders",
 						"group": "inline",
 						"order": 99
 					},
 					{
-						"when": "viewItem == gitlens:stashes && !listMultiSelection && !gitlens:hasVirtualFolders && !gitlens:readonly && !gitlens:untrusted",
+						"when": "viewItem == gitlens:stashes && !listMultiSelection && !gitlens:readonly && !gitlens:untrusted && !gitlens:hasVirtualFolders",
 						"group": "1_gitlens_actions",
 						"order": 2
 					}
 				],
 				"view/title": [
 					{
-						"when": "view == gitlens.views.stashes && !gitlens:hasVirtualFolders && !gitlens:readonly && !gitlens:untrusted",
+						"when": "view == gitlens.views.stashes && !gitlens:readonly && !gitlens:untrusted && !gitlens:hasVirtualFolders",
 						"group": "navigation",
 						"order": 11
 					}
@@ -4520,55 +4520,55 @@
 			"menus": {
 				"gitlens/views/grouped/stashes": [
 					{
-						"when": "gitlens:views:scm:grouped:view == stashes && !gitlens:hasVirtualFolders && !gitlens:readonly && !gitlens:untrusted",
+						"when": "gitlens:views:scm:grouped:view == stashes && !gitlens:readonly && !gitlens:untrusted && !gitlens:hasVirtualFolders",
 						"group": "2_gitlens_actions",
 						"order": 1
 					}
 				],
 				"scm/resourceGroup/context": [
 					{
-						"when": "scmResourceGroup =~ /^(workingTree|index)$/ && scmProvider == git && gitlens:enabled && config.gitlens.menus.scmGroupInline.stash && !gitlens:hasVirtualFolders && !gitlens:readonly && !gitlens:untrusted",
+						"when": "scmResourceGroup =~ /^(workingTree|index)$/ && scmProvider == git && gitlens:enabled && !gitlens:readonly && !gitlens:untrusted && !gitlens:hasVirtualFolders && config.gitlens.menus.scmGroupInline.stash",
 						"group": "inline",
 						"order": -1
 					},
 					{
-						"when": "scmResourceGroup =~ /^(workingTree|index)$/ && scmProvider == git && gitlens:enabled && config.gitlens.menus.scmGroup.stash && !gitlens:hasVirtualFolders && !gitlens:readonly && !gitlens:untrusted",
+						"when": "scmResourceGroup =~ /^(workingTree|index)$/ && scmProvider == git && gitlens:enabled && !gitlens:readonly && !gitlens:untrusted && !gitlens:hasVirtualFolders && config.gitlens.menus.scmGroup.stash",
 						"group": "1_modification",
 						"order": 100
 					}
 				],
 				"scm/title": [
 					{
-						"when": "scmProvider == git && gitlens:enabled && config.gitlens.menus.scmRepositoryInline.stash && !gitlens:hasVirtualFolders && !gitlens:readonly && !gitlens:untrusted",
+						"when": "scmProvider == git && gitlens:enabled && !gitlens:readonly && !gitlens:untrusted && !gitlens:hasVirtualFolders && config.gitlens.menus.scmRepositoryInline.stash",
 						"group": "navigation",
 						"order": -2
 					}
 				],
 				"view/item/context": [
 					{
-						"when": "viewItem =~ /gitlens:repo-folder\\b/ && !listMultiSelection && !gitlens:hasVirtualFolders && !gitlens:readonly && !gitlens:untrusted",
+						"when": "viewItem =~ /gitlens:repo-folder\\b/ && !listMultiSelection && !gitlens:readonly && !gitlens:untrusted && !gitlens:hasVirtualFolders",
 						"group": "1_gitlens_actions_1",
 						"order": 1
 					},
 					{
-						"when": "viewItem =~ /gitlens:repository\\b(?!.*?\\b\\+workspace\\b)/ && !listMultiSelection && !gitlens:hasVirtualFolders && !gitlens:readonly && !gitlens:untrusted",
+						"when": "viewItem =~ /gitlens:repository\\b(?!.*?\\b\\+workspace\\b)/ && !listMultiSelection && !gitlens:readonly && !gitlens:untrusted && !gitlens:hasVirtualFolders",
 						"group": "1_gitlens_actions_1",
 						"order": 1
 					},
 					{
-						"when": "viewItem =~ /^gitlens:(stashes|status:files)$/ && !gitlens:hasVirtualFolders && !gitlens:readonly && !gitlens:untrusted",
+						"when": "viewItem =~ /^gitlens:(stashes|status:files)$/ && !gitlens:readonly && !gitlens:untrusted && !gitlens:hasVirtualFolders",
 						"group": "inline",
 						"order": 98
 					},
 					{
-						"when": "viewItem =~ /^gitlens:(stashes|status:files)$/ && !listMultiSelection && !gitlens:hasVirtualFolders && !gitlens:readonly && !gitlens:untrusted",
+						"when": "viewItem =~ /^gitlens:(stashes|status:files)$/ && !listMultiSelection && !gitlens:readonly && !gitlens:untrusted && !gitlens:hasVirtualFolders",
 						"group": "1_gitlens_actions",
 						"order": 1
 					}
 				],
 				"view/title": [
 					{
-						"when": "view == gitlens.views.stashes && !gitlens:hasVirtualFolders && !gitlens:readonly && !gitlens:untrusted",
+						"when": "view == gitlens.views.stashes && !gitlens:readonly && !gitlens:untrusted && !gitlens:hasVirtualFolders",
 						"group": "navigation",
 						"order": 10
 					}
@@ -4582,19 +4582,19 @@
 			"menus": {
 				"scm/resourceState/context": [
 					{
-						"when": "scmResourceGroup =~ /^(workingTree|index)$/ && scmProvider == git && gitlens:enabled && config.gitlens.menus.scmItemInline.stash && !gitlens:hasVirtualFolders && !gitlens:readonly && !gitlens:untrusted",
+						"when": "scmResourceGroup =~ /^(workingTree|index)$/ && scmProvider == git && gitlens:enabled && !gitlens:readonly && !gitlens:untrusted && !gitlens:hasVirtualFolders && config.gitlens.menus.scmItemInline.stash",
 						"group": "inline",
 						"order": 1
 					},
 					{
-						"when": "scmResourceGroup =~ /^(workingTree|index)$/ && scmProvider == git && gitlens:enabled && config.gitlens.menus.scmItem.stash && !gitlens:hasVirtualFolders && !gitlens:readonly && !gitlens:untrusted",
+						"when": "scmResourceGroup =~ /^(workingTree|index)$/ && scmProvider == git && gitlens:enabled && !gitlens:readonly && !gitlens:untrusted && !gitlens:hasVirtualFolders && config.gitlens.menus.scmItem.stash",
 						"group": "1_modification",
 						"order": 2
 					}
 				],
 				"view/item/context": [
 					{
-						"when": "viewItem =~ /gitlens:file\\b(?=.*?\\b\\+(un)?staged\\b)/ && !listMultiSelection && !gitlens:hasVirtualFolders && !gitlens:readonly && !gitlens:untrusted",
+						"when": "viewItem =~ /gitlens:file\\b(?=.*?\\b\\+(un)?staged\\b)/ && !listMultiSelection && !gitlens:readonly && !gitlens:untrusted && !gitlens:hasVirtualFolders",
 						"group": "1_gitlens_actions",
 						"order": 2
 					}
@@ -4724,7 +4724,7 @@
 			"menus": {
 				"editor/title": [
 					{
-						"when": "resource in gitlens:tabs:blameable && resource not in gitlens:tabs:annotated && config.gitlens.menus.editorGroup.blame && config.gitlens.fileAnnotations.command == changes && !gitlens:hasVirtualFolders",
+						"when": "resource in gitlens:tabs:blameable && resource not in gitlens:tabs:annotated && !gitlens:hasVirtualFolders && config.gitlens.menus.editorGroup.blame && config.gitlens.fileAnnotations.command == changes",
 						"group": "navigation",
 						"order": 100,
 						"alt": "gitlens.toggleFileBlame"
@@ -4837,12 +4837,12 @@
 			"menus": {
 				"view/item/context": [
 					{
-						"when": "viewItem =~ /gitlens:contributor\\b(?!.*?\\b\\+current\\b)/ && !gitlens:hasVirtualFolders && !gitlens:readonly && !gitlens:untrusted",
+						"when": "viewItem =~ /gitlens:contributor\\b(?!.*?\\b\\+current\\b)/ && !gitlens:readonly && !gitlens:untrusted && !gitlens:hasVirtualFolders",
 						"group": "inline",
 						"order": 2
 					},
 					{
-						"when": "viewItem =~ /gitlens:contributor\\b(?!.*?\\b\\+current\\b)/ && !listMultiSelection && !gitlens:hasVirtualFolders && !gitlens:readonly && !gitlens:untrusted",
+						"when": "viewItem =~ /gitlens:contributor\\b(?!.*?\\b\\+current\\b)/ && !listMultiSelection && !gitlens:readonly && !gitlens:untrusted && !gitlens:hasVirtualFolders",
 						"group": "1_gitlens_actions",
 						"order": 2
 					}
@@ -4855,7 +4855,7 @@
 			"menus": {
 				"view/item/context": [
 					{
-						"when": "viewItem =~ /gitlens:contributor\\b(?!.*?\\b\\+current\\b)/ && listMultiSelection && !gitlens:hasVirtualFolders && !gitlens:readonly && !gitlens:untrusted",
+						"when": "viewItem =~ /gitlens:contributor\\b(?!.*?\\b\\+current\\b)/ && listMultiSelection && !gitlens:readonly && !gitlens:untrusted && !gitlens:hasVirtualFolders",
 						"group": "1_gitlens_actions",
 						"order": 2
 					}
@@ -4868,26 +4868,26 @@
 			"menus": {
 				"gitlens/views/grouped/contributors": [
 					{
-						"when": "gitlens:views:scm:grouped:view == contributors && !gitlens:hasVirtualFolders && !gitlens:readonly && !gitlens:untrusted",
+						"when": "gitlens:views:scm:grouped:view == contributors && !gitlens:readonly && !gitlens:untrusted && !gitlens:hasVirtualFolders",
 						"group": "2_gitlens_actions",
 						"order": 1
 					}
 				],
 				"view/item/context": [
 					{
-						"when": "viewItem =~ /gitlens:contributors\\b/ && !gitlens:hasVirtualFolders && !gitlens:readonly && !gitlens:untrusted",
+						"when": "viewItem =~ /gitlens:contributors\\b/ && !gitlens:readonly && !gitlens:untrusted && !gitlens:hasVirtualFolders",
 						"group": "inline",
 						"order": 1
 					},
 					{
-						"when": "viewItem =~ /gitlens:contributors\\b/ && !listMultiSelection && !gitlens:hasVirtualFolders && !gitlens:readonly && !gitlens:untrusted",
+						"when": "viewItem =~ /gitlens:contributors\\b/ && !listMultiSelection && !gitlens:readonly && !gitlens:untrusted && !gitlens:hasVirtualFolders",
 						"group": "1_gitlens_actions",
 						"order": 1
 					}
 				],
 				"view/title": [
 					{
-						"when": "view == gitlens.views.contributors && !gitlens:hasVirtualFolders && !gitlens:readonly && !gitlens:untrusted",
+						"when": "view == gitlens.views.contributors && !gitlens:readonly && !gitlens:untrusted && !gitlens:hasVirtualFolders",
 						"group": "navigation",
 						"order": 10
 					}
@@ -4906,31 +4906,31 @@
 			"menus": {
 				"gitlens/views/grouped/remotes": [
 					{
-						"when": "gitlens:views:scm:grouped:view == remotes && !gitlens:hasVirtualFolders && !gitlens:readonly && !gitlens:untrusted",
+						"when": "gitlens:views:scm:grouped:view == remotes && !gitlens:readonly && !gitlens:untrusted && !gitlens:hasVirtualFolders",
 						"group": "2_gitlens_actions",
 						"order": 1
 					}
 				],
 				"view/item/context": [
 					{
-						"when": "viewItem =~ /gitlens:remotes\\b/ && !gitlens:hasVirtualFolders && !gitlens:readonly && !gitlens:untrusted",
+						"when": "viewItem =~ /gitlens:remotes\\b/ && !gitlens:readonly && !gitlens:untrusted && !gitlens:hasVirtualFolders",
 						"group": "inline",
 						"order": 1
 					},
 					{
-						"when": "viewItem =~ /gitlens:remotes\\b/ && !listMultiSelection && !gitlens:hasVirtualFolders && !gitlens:readonly && !gitlens:untrusted",
+						"when": "viewItem =~ /gitlens:remotes\\b/ && !listMultiSelection && !gitlens:readonly && !gitlens:untrusted && !gitlens:hasVirtualFolders",
 						"group": "1_gitlens_actions",
 						"order": 1
 					},
 					{
-						"when": "viewItem =~ /gitlens:status(\\-branch)?:upstream:none/ && !gitlens:hasVirtualFolders && !gitlens:readonly && !gitlens:repos:withRemotes && !gitlens:untrusted",
+						"when": "viewItem =~ /gitlens:status(\\-branch)?:upstream:none/ && !gitlens:readonly && !gitlens:untrusted && !gitlens:hasVirtualFolders && !gitlens:repos:withRemotes",
 						"group": "inline",
 						"order": 2
 					}
 				],
 				"view/title": [
 					{
-						"when": "view == gitlens.views.remotes && !gitlens:hasVirtualFolders && !gitlens:readonly && !gitlens:untrusted",
+						"when": "view == gitlens.views.remotes && !gitlens:readonly && !gitlens:untrusted && !gitlens:hasVirtualFolders",
 						"group": "navigation",
 						"order": 1
 					}
@@ -4943,12 +4943,12 @@
 			"menus": {
 				"view/item/context": [
 					{
-						"when": "viewItem =~ /gitlens:compare:results:commits\\b/ && gitlens:gk:organization:ai:enabled && !gitlens:untrusted",
+						"when": "viewItem =~ /gitlens:compare:results:commits\\b/ && !gitlens:untrusted && gitlens:gk:organization:ai:enabled",
 						"group": "inline",
 						"order": 98
 					},
 					{
-						"when": "viewItem =~ /gitlens:compare:results:commits\\b/ && !listMultiSelection && gitlens:gk:organization:ai:enabled && !gitlens:untrusted",
+						"when": "viewItem =~ /gitlens:compare:results:commits\\b/ && !listMultiSelection && !gitlens:untrusted && gitlens:gk:organization:ai:enabled",
 						"group": "4_gitlens_actions",
 						"order": 2
 					}
@@ -4961,7 +4961,7 @@
 			"menus": {
 				"view/item/context": [
 					{
-						"when": "viewItem =~ /gitlens:(branch|tag)\\b/ && gitlens:gk:organization:ai:enabled && !gitlens:untrusted",
+						"when": "viewItem =~ /gitlens:(branch|tag)\\b/ && !gitlens:untrusted && gitlens:gk:organization:ai:enabled",
 						"group": "1_gitlens_actions_3",
 						"order": 100
 					}
@@ -4974,12 +4974,12 @@
 			"menus": {
 				"view/item/context": [
 					{
-						"when": "viewItem =~ /gitlens:file\\b(?=.*?\\b\\+stashed\\b)/ && !listMultiSelection && !gitlens:hasVirtualFolders && !gitlens:readonly && !gitlens:untrusted",
+						"when": "viewItem =~ /gitlens:file\\b(?=.*?\\b\\+stashed\\b)/ && !listMultiSelection && !gitlens:readonly && !gitlens:untrusted && !gitlens:hasVirtualFolders",
 						"group": "1_gitlens_actions",
 						"order": 1
 					},
 					{
-						"when": "viewItem =~ /gitlens:file\\b((?=.*?\\b\\+committed\\b)|:results\\b)/ && !listMultiSelection && !gitlens:hasVirtualFolders && !gitlens:readonly && !gitlens:untrusted",
+						"when": "viewItem =~ /gitlens:file\\b((?=.*?\\b\\+committed\\b)|:results\\b)/ && !listMultiSelection && !gitlens:readonly && !gitlens:untrusted && !gitlens:hasVirtualFolders",
 						"group": "8_gitlens_actions",
 						"order": 1
 					}
@@ -4992,7 +4992,7 @@
 			"menus": {
 				"view/item/context": [
 					{
-						"when": "viewItem =~ /gitlens:branch\\b(?!.*?\\b\\+remote\\b)/ && !listMultiSelection && !gitlens:hasVirtualFolders && !gitlens:readonly && !gitlens:untrusted",
+						"when": "viewItem =~ /gitlens:branch\\b(?!.*?\\b\\+remote\\b)/ && !listMultiSelection && !gitlens:readonly && !gitlens:untrusted && !gitlens:hasVirtualFolders",
 						"group": "1_gitlens_actions_2",
 						"order": 1
 					}
@@ -5321,19 +5321,19 @@
 			"menus": {
 				"gitlens/views/grouped/more": [
 					{
-						"when": "gitlens:views:scm:grouped:view == branches && view == gitlens.views.scm.grouped && config.gitlens.views.branches.showRemoteBranches && !gitlens:hasVirtualFolders",
+						"when": "gitlens:views:scm:grouped:view == branches && view == gitlens.views.scm.grouped && !gitlens:hasVirtualFolders && config.gitlens.views.branches.showRemoteBranches",
 						"group": "5_gitlens",
 						"order": 5
 					}
 				],
 				"view/title": [
 					{
-						"when": "view == gitlens.views.branches && config.gitlens.views.branches.showRemoteBranches && !gitlens:hasVirtualFolders",
+						"when": "view == gitlens.views.branches && !gitlens:hasVirtualFolders && config.gitlens.views.branches.showRemoteBranches",
 						"group": "5_gitlens",
 						"order": 5
 					},
 					{
-						"when": "view == gitlens.views.scm.grouped && gitlens:views:scm:grouped:view == branches && config.gitlens.views.branches.showRemoteBranches && !gitlens:hasVirtualFolders",
+						"when": "view == gitlens.views.scm.grouped && gitlens:views:scm:grouped:view == branches && !gitlens:hasVirtualFolders && config.gitlens.views.branches.showRemoteBranches",
 						"group": "5_gitlens",
 						"order": 5
 					}
@@ -5345,19 +5345,19 @@
 			"menus": {
 				"gitlens/views/grouped/more": [
 					{
-						"when": "gitlens:views:scm:grouped:view == branches && view == gitlens.views.scm.grouped && !config.gitlens.views.branches.showRemoteBranches && !gitlens:hasVirtualFolders",
+						"when": "gitlens:views:scm:grouped:view == branches && view == gitlens.views.scm.grouped && !gitlens:hasVirtualFolders && !config.gitlens.views.branches.showRemoteBranches",
 						"group": "5_gitlens",
 						"order": 5
 					}
 				],
 				"view/title": [
 					{
-						"when": "view == gitlens.views.branches && !config.gitlens.views.branches.showRemoteBranches && !gitlens:hasVirtualFolders",
+						"when": "view == gitlens.views.branches && !gitlens:hasVirtualFolders && !config.gitlens.views.branches.showRemoteBranches",
 						"group": "5_gitlens",
 						"order": 5
 					},
 					{
-						"when": "view == gitlens.views.scm.grouped && gitlens:views:scm:grouped:view == branches && !config.gitlens.views.branches.showRemoteBranches && !gitlens:hasVirtualFolders",
+						"when": "view == gitlens.views.scm.grouped && gitlens:views:scm:grouped:view == branches && !gitlens:hasVirtualFolders && !config.gitlens.views.branches.showRemoteBranches",
 						"group": "5_gitlens",
 						"order": 5
 					}
@@ -5369,19 +5369,19 @@
 			"menus": {
 				"gitlens/views/grouped/more": [
 					{
-						"when": "gitlens:views:scm:grouped:view == branches && view == gitlens.views.scm.grouped && config.gitlens.views.branches.showStashes && !gitlens:hasVirtualFolders",
+						"when": "gitlens:views:scm:grouped:view == branches && view == gitlens.views.scm.grouped && !gitlens:hasVirtualFolders && config.gitlens.views.branches.showStashes",
 						"group": "5_gitlens",
 						"order": 6
 					}
 				],
 				"view/title": [
 					{
-						"when": "view == gitlens.views.branches && config.gitlens.views.branches.showStashes && !gitlens:hasVirtualFolders",
+						"when": "view == gitlens.views.branches && !gitlens:hasVirtualFolders && config.gitlens.views.branches.showStashes",
 						"group": "5_gitlens",
 						"order": 6
 					},
 					{
-						"when": "view == gitlens.views.scm.grouped && gitlens:views:scm:grouped:view == branches && config.gitlens.views.branches.showStashes && !gitlens:hasVirtualFolders",
+						"when": "view == gitlens.views.scm.grouped && gitlens:views:scm:grouped:view == branches && !gitlens:hasVirtualFolders && config.gitlens.views.branches.showStashes",
 						"group": "5_gitlens",
 						"order": 6
 					}
@@ -5393,19 +5393,19 @@
 			"menus": {
 				"gitlens/views/grouped/more": [
 					{
-						"when": "gitlens:views:scm:grouped:view == branches && view == gitlens.views.scm.grouped && !config.gitlens.views.branches.showStashes && !gitlens:hasVirtualFolders",
+						"when": "gitlens:views:scm:grouped:view == branches && view == gitlens.views.scm.grouped && !gitlens:hasVirtualFolders && !config.gitlens.views.branches.showStashes",
 						"group": "5_gitlens",
 						"order": 6
 					}
 				],
 				"view/title": [
 					{
-						"when": "view == gitlens.views.branches && !config.gitlens.views.branches.showStashes && !gitlens:hasVirtualFolders",
+						"when": "view == gitlens.views.branches && !gitlens:hasVirtualFolders && !config.gitlens.views.branches.showStashes",
 						"group": "5_gitlens",
 						"order": 6
 					},
 					{
-						"when": "view == gitlens.views.scm.grouped && gitlens:views:scm:grouped:view == branches && !config.gitlens.views.branches.showStashes && !gitlens:hasVirtualFolders",
+						"when": "view == gitlens.views.scm.grouped && gitlens:views:scm:grouped:view == branches && !gitlens:hasVirtualFolders && !config.gitlens.views.branches.showStashes",
 						"group": "5_gitlens",
 						"order": 6
 					}
@@ -5479,7 +5479,7 @@
 			"menus": {
 				"view/item/context": [
 					{
-						"when": "viewItem =~ /gitlens:commit\\b(?!.*?\\b\\+(current|rebase)\\b)/ && !listMultiSelection && !gitlens:hasVirtualFolders && !gitlens:readonly && !gitlens:untrusted",
+						"when": "viewItem =~ /gitlens:commit\\b(?!.*?\\b\\+(current|rebase)\\b)/ && !listMultiSelection && !gitlens:readonly && !gitlens:untrusted && !gitlens:hasVirtualFolders",
 						"group": "1_gitlens_actions",
 						"order": 1
 					}
@@ -5492,7 +5492,7 @@
 			"menus": {
 				"view/item/context": [
 					{
-						"when": "viewItem =~ /gitlens:commit\\b(?!.*?\\b\\+(current|rebase)\\b)/ && listMultiSelection && !gitlens:hasVirtualFolders && !gitlens:readonly && !gitlens:untrusted",
+						"when": "viewItem =~ /gitlens:commit\\b(?!.*?\\b\\+(current|rebase)\\b)/ && listMultiSelection && !gitlens:readonly && !gitlens:untrusted && !gitlens:hasVirtualFolders",
 						"group": "1_gitlens_actions",
 						"order": 1
 					}
@@ -5975,19 +5975,19 @@
 			"menus": {
 				"gitlens/views/grouped/more": [
 					{
-						"when": "gitlens:views:scm:grouped:view == commits && view == gitlens.views.scm.grouped && config.gitlens.views.commits.showStashes && !gitlens:hasVirtualFolders",
+						"when": "gitlens:views:scm:grouped:view == commits && view == gitlens.views.scm.grouped && !gitlens:hasVirtualFolders && config.gitlens.views.commits.showStashes",
 						"group": "5_gitlens",
 						"order": 6
 					}
 				],
 				"view/title": [
 					{
-						"when": "view == gitlens.views.commits && config.gitlens.views.commits.showStashes && !gitlens:hasVirtualFolders",
+						"when": "view == gitlens.views.commits && !gitlens:hasVirtualFolders && config.gitlens.views.commits.showStashes",
 						"group": "5_gitlens",
 						"order": 6
 					},
 					{
-						"when": "view == gitlens.views.scm.grouped && gitlens:views:scm:grouped:view == commits && config.gitlens.views.commits.showStashes && !gitlens:hasVirtualFolders",
+						"when": "view == gitlens.views.scm.grouped && gitlens:views:scm:grouped:view == commits && !gitlens:hasVirtualFolders && config.gitlens.views.commits.showStashes",
 						"group": "5_gitlens",
 						"order": 6
 					}
@@ -5999,19 +5999,19 @@
 			"menus": {
 				"gitlens/views/grouped/more": [
 					{
-						"when": "gitlens:views:scm:grouped:view == commits && view == gitlens.views.scm.grouped && !config.gitlens.views.commits.showStashes && !gitlens:hasVirtualFolders",
+						"when": "gitlens:views:scm:grouped:view == commits && view == gitlens.views.scm.grouped && !gitlens:hasVirtualFolders && !config.gitlens.views.commits.showStashes",
 						"group": "5_gitlens",
 						"order": 6
 					}
 				],
 				"view/title": [
 					{
-						"when": "view == gitlens.views.commits && !config.gitlens.views.commits.showStashes && !gitlens:hasVirtualFolders",
+						"when": "view == gitlens.views.commits && !gitlens:hasVirtualFolders && !config.gitlens.views.commits.showStashes",
 						"group": "5_gitlens",
 						"order": 6
 					},
 					{
-						"when": "view == gitlens.views.scm.grouped && gitlens:views:scm:grouped:view == commits && !config.gitlens.views.commits.showStashes && !gitlens:hasVirtualFolders",
+						"when": "view == gitlens.views.scm.grouped && gitlens:views:scm:grouped:view == commits && !gitlens:hasVirtualFolders && !config.gitlens.views.commits.showStashes",
 						"group": "5_gitlens",
 						"order": 6
 					}
@@ -6596,39 +6596,39 @@
 			"menus": {
 				"gitlens/commit/file/commit": [
 					{
-						"when": "viewItem =~ /gitlens:file\\b(?=.*?\\b\\+committed\\b)/ && !gitlens:hasVirtualFolders && !gitlens:readonly && !gitlens:untrusted",
+						"when": "viewItem =~ /gitlens:file\\b(?=.*?\\b\\+committed\\b)/ && !gitlens:readonly && !gitlens:untrusted && !gitlens:hasVirtualFolders",
 						"group": "1_gitlens_secondary_actions",
 						"order": 1
 					}
 				],
 				"view/item/context": [
 					{
-						"when": "viewItem =~ /gitlens:branch\\b(?!.*?\\b\\+closed\\b)/ && !listMultiSelection && !gitlens:hasVirtualFolders && !gitlens:readonly && !gitlens:untrusted",
+						"when": "viewItem =~ /gitlens:branch\\b(?!.*?\\b\\+closed\\b)/ && !listMultiSelection && !gitlens:readonly && !gitlens:untrusted && !gitlens:hasVirtualFolders",
 						"group": "1_gitlens_actions_3",
 						"order": 7
 					},
 					{
-						"when": "viewItem =~ /gitlens:branches\\b(?!.*?\\b\\+closed\\b)/ && !gitlens:hasVirtualFolders && !gitlens:readonly && !gitlens:untrusted",
+						"when": "viewItem =~ /gitlens:branches\\b(?!.*?\\b\\+closed\\b)/ && !gitlens:readonly && !gitlens:untrusted && !gitlens:hasVirtualFolders",
 						"group": "inline",
 						"order": 11
 					},
 					{
-						"when": "viewItem =~ /gitlens:branches\\b(?!.*?\\b\\+closed\\b)/ && !listMultiSelection && !gitlens:hasVirtualFolders && !gitlens:readonly && !gitlens:untrusted",
+						"when": "viewItem =~ /gitlens:branches\\b(?!.*?\\b\\+closed\\b)/ && !listMultiSelection && !gitlens:readonly && !gitlens:untrusted && !gitlens:hasVirtualFolders",
 						"group": "1_gitlens_actions",
 						"order": 2
 					},
 					{
-						"when": "viewItem =~ /gitlens:commit\\b/ && !listMultiSelection && !gitlens:hasVirtualFolders && !gitlens:readonly && !gitlens:untrusted",
+						"when": "viewItem =~ /gitlens:commit\\b/ && !listMultiSelection && !gitlens:readonly && !gitlens:untrusted && !gitlens:hasVirtualFolders",
 						"group": "1_gitlens_actions_1",
 						"order": 1
 					},
 					{
-						"when": "viewItem =~ /gitlens:status:upstream/ && !listMultiSelection && !gitlens:hasVirtualFolders && !gitlens:readonly && !gitlens:untrusted",
+						"when": "viewItem =~ /gitlens:status:upstream/ && !listMultiSelection && !gitlens:readonly && !gitlens:untrusted && !gitlens:hasVirtualFolders",
 						"group": "1_gitlens_secondary_actions",
 						"order": 1
 					},
 					{
-						"when": "viewItem =~ /gitlens:tag\\b/ && !listMultiSelection && !gitlens:hasVirtualFolders && !gitlens:readonly && !gitlens:untrusted",
+						"when": "viewItem =~ /gitlens:tag\\b/ && !listMultiSelection && !gitlens:readonly && !gitlens:untrusted && !gitlens:hasVirtualFolders",
 						"group": "1_gitlens_actions_3",
 						"order": 3
 					}
@@ -6651,12 +6651,12 @@
 						"order": 10
 					},
 					{
-						"when": "viewItem =~ /gitlens:status:upstream:(?!(missing|none))/ && !listMultiSelection && gitlens:action:createPullRequest && gitlens:repos:withRemotes && !gitlens:hasVirtualFolders && !gitlens:readonly && !gitlens:untrusted",
+						"when": "viewItem =~ /gitlens:status:upstream:(?!(missing|none))/ && !listMultiSelection && !gitlens:readonly && !gitlens:untrusted && !gitlens:hasVirtualFolders && gitlens:action:createPullRequest && gitlens:repos:withRemotes",
 						"group": "1_gitlens_secondary_actions",
 						"order": 3
 					},
 					{
-						"when": "viewItem =~ /gitlens:status:upstream:same/ && gitlens:action:createPullRequest && gitlens:repos:withRemotes && !gitlens:hasVirtualFolders && !gitlens:readonly && !gitlens:untrusted",
+						"when": "viewItem =~ /gitlens:status:upstream:same/ && !gitlens:readonly && !gitlens:untrusted && !gitlens:hasVirtualFolders && gitlens:action:createPullRequest && gitlens:repos:withRemotes",
 						"group": "inline",
 						"order": 1
 					}
@@ -6670,34 +6670,34 @@
 			"menus": {
 				"gitlens/commit/file/commit": [
 					{
-						"when": "viewItem =~ /gitlens:file\\b(?=.*?\\b\\+committed\\b)/ && !gitlens:hasVirtualFolders && !gitlens:readonly && !gitlens:untrusted",
+						"when": "viewItem =~ /gitlens:file\\b(?=.*?\\b\\+committed\\b)/ && !gitlens:readonly && !gitlens:untrusted && !gitlens:hasVirtualFolders",
 						"group": "1_gitlens_secondary_actions",
 						"order": 4
 					}
 				],
 				"view/item/context": [
 					{
-						"when": "viewItem =~ /gitlens:branch\\b(?!.*?\\b\\+closed\\b)/ && !listMultiSelection && !gitlens:hasVirtualFolders && !gitlens:readonly && !gitlens:untrusted",
+						"when": "viewItem =~ /gitlens:branch\\b(?!.*?\\b\\+closed\\b)/ && !listMultiSelection && !gitlens:readonly && !gitlens:untrusted && !gitlens:hasVirtualFolders",
 						"group": "1_gitlens_actions_3",
 						"order": 8
 					},
 					{
-						"when": "viewItem =~ /gitlens:commit\\b/ && !listMultiSelection && !gitlens:hasVirtualFolders && !gitlens:readonly && !gitlens:untrusted",
+						"when": "viewItem =~ /gitlens:commit\\b/ && !listMultiSelection && !gitlens:readonly && !gitlens:untrusted && !gitlens:hasVirtualFolders",
 						"group": "1_gitlens_actions_1",
 						"order": 4
 					},
 					{
-						"when": "viewItem =~ /gitlens:status:upstream/ && !listMultiSelection && !gitlens:hasVirtualFolders && !gitlens:readonly && !gitlens:untrusted",
+						"when": "viewItem =~ /gitlens:status:upstream/ && !listMultiSelection && !gitlens:readonly && !gitlens:untrusted && !gitlens:hasVirtualFolders",
 						"group": "1_gitlens_secondary_actions",
 						"order": 2
 					},
 					{
-						"when": "viewItem =~ /gitlens:tags\\b/ && !gitlens:hasVirtualFolders && !gitlens:readonly && !gitlens:untrusted",
+						"when": "viewItem =~ /gitlens:tags\\b/ && !gitlens:readonly && !gitlens:untrusted && !gitlens:hasVirtualFolders",
 						"group": "inline",
 						"order": 1
 					},
 					{
-						"when": "viewItem =~ /gitlens:tags\\b/ && !listMultiSelection && !gitlens:hasVirtualFolders && !gitlens:readonly && !gitlens:untrusted",
+						"when": "viewItem =~ /gitlens:tags\\b/ && !listMultiSelection && !gitlens:readonly && !gitlens:untrusted && !gitlens:hasVirtualFolders",
 						"group": "1_gitlens_actions",
 						"order": 1
 					}
@@ -6711,17 +6711,17 @@
 			"menus": {
 				"view/item/context": [
 					{
-						"when": "viewItem =~ /gitlens:branch\\b(?!.*?\\b\\+closed\\b)/ && !listMultiSelection && !gitlens:hasVirtualFolders && !gitlens:readonly && !gitlens:untrusted",
+						"when": "viewItem =~ /gitlens:branch\\b(?!.*?\\b\\+closed\\b)/ && !listMultiSelection && !gitlens:readonly && !gitlens:untrusted && !gitlens:hasVirtualFolders",
 						"group": "1_gitlens_actions_3",
 						"order": 9
 					},
 					{
-						"when": "viewItem =~ /gitlens:worktrees\\b/ && !gitlens:hasVirtualFolders && !gitlens:readonly && !gitlens:untrusted",
+						"when": "viewItem =~ /gitlens:worktrees\\b/ && !gitlens:readonly && !gitlens:untrusted && !gitlens:hasVirtualFolders",
 						"group": "inline",
 						"order": 1
 					},
 					{
-						"when": "viewItem =~ /gitlens:worktrees\\b/ && !listMultiSelection && !gitlens:hasVirtualFolders && !gitlens:readonly && !gitlens:untrusted",
+						"when": "viewItem =~ /gitlens:worktrees\\b/ && !listMultiSelection && !gitlens:readonly && !gitlens:untrusted && !gitlens:hasVirtualFolders",
 						"group": "1_gitlens_actions",
 						"order": 1
 					}
@@ -6735,7 +6735,7 @@
 			"menus": {
 				"view/item/context": [
 					{
-						"when": "viewItem =~ /gitlens:branch\\b(?!.*?\\b\\+current\\b)(?!.*?\\b\\+closed\\b)/ && !listMultiSelection && !gitlens:hasVirtualFolders && !gitlens:readonly && !gitlens:untrusted",
+						"when": "viewItem =~ /gitlens:branch\\b(?!.*?\\b\\+current\\b)(?!.*?\\b\\+closed\\b)/ && !listMultiSelection && !gitlens:readonly && !gitlens:untrusted && !gitlens:hasVirtualFolders",
 						"group": "1_gitlens_actions_2",
 						"order": 3
 					}
@@ -6749,7 +6749,7 @@
 			"menus": {
 				"view/item/context": [
 					{
-						"when": "viewItem =~ /gitlens:branch\\b(?!.*?\\b\\+current\\b)(?!.*?\\b\\+closed\\b)/ && listMultiSelection && !gitlens:hasVirtualFolders && !gitlens:readonly && !gitlens:untrusted",
+						"when": "viewItem =~ /gitlens:branch\\b(?!.*?\\b\\+current\\b)(?!.*?\\b\\+closed\\b)/ && listMultiSelection && !gitlens:readonly && !gitlens:untrusted && !gitlens:hasVirtualFolders",
 						"group": "1_gitlens_actions_2",
 						"order": 3
 					}
@@ -6763,7 +6763,7 @@
 			"menus": {
 				"view/item/context": [
 					{
-						"when": "viewItem == gitlens:tag && !listMultiSelection && !gitlens:hasVirtualFolders && !gitlens:readonly && !gitlens:untrusted",
+						"when": "viewItem == gitlens:tag && !listMultiSelection && !gitlens:readonly && !gitlens:untrusted && !gitlens:hasVirtualFolders",
 						"group": "1_gitlens_actions",
 						"order": 2
 					}
@@ -6777,7 +6777,7 @@
 			"menus": {
 				"view/item/context": [
 					{
-						"when": "viewItem == gitlens:tag && listMultiSelection && !gitlens:hasVirtualFolders && !gitlens:readonly && !gitlens:untrusted",
+						"when": "viewItem == gitlens:tag && listMultiSelection && !gitlens:readonly && !gitlens:untrusted && !gitlens:hasVirtualFolders",
 						"group": "1_gitlens_actions",
 						"order": 2
 					}
@@ -6994,58 +6994,58 @@
 			"menus": {
 				"view/item/context": [
 					{
-						"when": "viewItem =~ /gitlens:branch\\b(?=.*?\\b\\+tracking\\b)(?!.*?\\b\\+(ahead|behind|closed)\\b)/ && gitlens:repos:withRemotes && !gitlens:hasVirtualFolders && !gitlens:readonly && !gitlens:untrusted",
+						"when": "viewItem =~ /gitlens:branch\\b(?=.*?\\b\\+tracking\\b)(?!.*?\\b\\+(ahead|behind|closed)\\b)/ && !gitlens:readonly && !gitlens:untrusted && !gitlens:hasVirtualFolders && gitlens:repos:withRemotes",
 						"group": "inline",
 						"order": 8,
 						"alt": "gitlens.views.pull"
 					},
 					{
-						"when": "viewItem =~ /gitlens:branch\\b(?=.*?\\b\\+remote\\b)(?!.*?\\b\\+(ahead|behind|closed)\\b)/ && gitlens:repos:withRemotes && !gitlens:hasVirtualFolders && !gitlens:readonly && !gitlens:untrusted",
+						"when": "viewItem =~ /gitlens:branch\\b(?=.*?\\b\\+remote\\b)(?!.*?\\b\\+(ahead|behind|closed)\\b)/ && !gitlens:readonly && !gitlens:untrusted && !gitlens:hasVirtualFolders && gitlens:repos:withRemotes",
 						"group": "inline",
 						"order": 8
 					},
 					{
-						"when": "viewItem =~ /gitlens:branch\\b(?=.*?\\b\\+(remote|tracking)\\b)(?!.*?\\b\\+closed\\b)/ && !listMultiSelection && gitlens:repos:withRemotes && !gitlens:hasVirtualFolders && !gitlens:readonly && !gitlens:untrusted",
+						"when": "viewItem =~ /gitlens:branch\\b(?=.*?\\b\\+(remote|tracking)\\b)(?!.*?\\b\\+closed\\b)/ && !listMultiSelection && !gitlens:readonly && !gitlens:untrusted && !gitlens:hasVirtualFolders && gitlens:repos:withRemotes",
 						"group": "1_gitlens_actions",
 						"order": 3
 					},
 					{
-						"when": "viewItem =~ /gitlens:remote\\b/ && !gitlens:hasVirtualFolders && !gitlens:readonly && !gitlens:untrusted",
+						"when": "viewItem =~ /gitlens:remote\\b/ && !gitlens:readonly && !gitlens:untrusted && !gitlens:hasVirtualFolders",
 						"group": "inline",
 						"order": 97
 					},
 					{
-						"when": "viewItem =~ /gitlens:remote\\b/ && !listMultiSelection && !gitlens:hasVirtualFolders && !gitlens:readonly && !gitlens:untrusted",
+						"when": "viewItem =~ /gitlens:remote\\b/ && !listMultiSelection && !gitlens:readonly && !gitlens:untrusted && !gitlens:hasVirtualFolders",
 						"group": "1_gitlens_actions",
 						"order": 1
 					},
 					{
-						"when": "viewItem =~ /gitlens:repo-folder\\b(?!.*?\\b\\+ahead\\b)(?!.*?\\b\\+behind\\b)/ && gitlens:repos:withRemotes && !gitlens:hasVirtualFolders && !gitlens:readonly && !gitlens:untrusted",
+						"when": "viewItem =~ /gitlens:repo-folder\\b(?!.*?\\b\\+ahead\\b)(?!.*?\\b\\+behind\\b)/ && !gitlens:readonly && !gitlens:untrusted && !gitlens:hasVirtualFolders && gitlens:repos:withRemotes",
 						"group": "inline",
 						"order": 98
 					},
 					{
-						"when": "viewItem =~ /gitlens:repo-folder\\b/ && !listMultiSelection && gitlens:repos:withRemotes && !gitlens:hasVirtualFolders && !gitlens:readonly && !gitlens:untrusted",
+						"when": "viewItem =~ /gitlens:repo-folder\\b/ && !listMultiSelection && !gitlens:readonly && !gitlens:untrusted && !gitlens:hasVirtualFolders && gitlens:repos:withRemotes",
 						"group": "1_gitlens_actions",
 						"order": 1
 					},
 					{
-						"when": "viewItem =~ /gitlens:repository\\b(?!.*?\\b\\+closed\\b)/ && gitlens:repos:withRemotes && !gitlens:hasVirtualFolders && !gitlens:readonly && !gitlens:untrusted",
+						"when": "viewItem =~ /gitlens:repository\\b(?!.*?\\b\\+closed\\b)/ && !gitlens:readonly && !gitlens:untrusted && !gitlens:hasVirtualFolders && gitlens:repos:withRemotes",
 						"group": "inline",
 						"order": 98
 					},
 					{
-						"when": "viewItem =~ /gitlens:repository\\b(?!.*?\\b\\+closed\\b)/ && !listMultiSelection && gitlens:repos:withRemotes && !gitlens:hasVirtualFolders && !gitlens:readonly && !gitlens:untrusted",
+						"when": "viewItem =~ /gitlens:repository\\b(?!.*?\\b\\+closed\\b)/ && !listMultiSelection && !gitlens:readonly && !gitlens:untrusted && !gitlens:hasVirtualFolders && gitlens:repos:withRemotes",
 						"group": "1_gitlens_actions",
 						"order": 1
 					},
 					{
-						"when": "viewItem =~ /gitlens:status(\\-branch)?:upstream:(?!(missing|none))/ && gitlens:repos:withRemotes && !gitlens:hasVirtualFolders && !gitlens:readonly && !gitlens:untrusted",
+						"when": "viewItem =~ /gitlens:status(\\-branch)?:upstream:(?!(missing|none))/ && !gitlens:readonly && !gitlens:untrusted && !gitlens:hasVirtualFolders && gitlens:repos:withRemotes",
 						"group": "inline",
 						"order": 98
 					},
 					{
-						"when": "viewItem =~ /gitlens:status:upstream:(?!(missing|none))/ && !listMultiSelection && gitlens:repos:withRemotes && !gitlens:hasVirtualFolders && !gitlens:readonly && !gitlens:untrusted",
+						"when": "viewItem =~ /gitlens:status:upstream:(?!(missing|none))/ && !listMultiSelection && !gitlens:readonly && !gitlens:untrusted && !gitlens:hasVirtualFolders && gitlens:repos:withRemotes",
 						"group": "1_gitlens_actions",
 						"order": 3
 					}
@@ -7095,7 +7095,7 @@
 			"menus": {
 				"view/title": [
 					{
-						"when": "view == gitlens.views.fileHistory && gitlens:views:fileHistory:cursorFollowing && !gitlens:hasVirtualFolders",
+						"when": "view == gitlens.views.fileHistory && !gitlens:hasVirtualFolders && gitlens:views:fileHistory:cursorFollowing",
 						"group": "navigation",
 						"order": 11
 					}
@@ -7147,7 +7147,7 @@
 			"menus": {
 				"view/title": [
 					{
-						"when": "view == gitlens.views.fileHistory && config.gitlens.advanced.fileHistoryFollowsRenames && !gitlens:views:fileHistory:cursorFollowing",
+						"when": "view == gitlens.views.fileHistory && !gitlens:views:fileHistory:cursorFollowing && config.gitlens.advanced.fileHistoryFollowsRenames",
 						"group": "3_gitlens",
 						"order": 1
 					}
@@ -7159,7 +7159,7 @@
 			"menus": {
 				"view/title": [
 					{
-						"when": "view == gitlens.views.fileHistory && !config.gitlens.advanced.fileHistoryFollowsRenames && !gitlens:views:fileHistory:cursorFollowing",
+						"when": "view == gitlens.views.fileHistory && !gitlens:views:fileHistory:cursorFollowing && !config.gitlens.advanced.fileHistoryFollowsRenames",
 						"group": "3_gitlens",
 						"order": 1
 					}
@@ -7171,7 +7171,7 @@
 			"menus": {
 				"view/title": [
 					{
-						"when": "view == gitlens.views.fileHistory && config.gitlens.advanced.fileHistoryShowAllBranches && !gitlens:views:fileHistory:cursorFollowing",
+						"when": "view == gitlens.views.fileHistory && !gitlens:views:fileHistory:cursorFollowing && config.gitlens.advanced.fileHistoryShowAllBranches",
 						"group": "3_gitlens",
 						"order": 3
 					}
@@ -7183,7 +7183,7 @@
 			"menus": {
 				"view/title": [
 					{
-						"when": "view == gitlens.views.fileHistory && !config.gitlens.advanced.fileHistoryShowAllBranches && !gitlens:views:fileHistory:cursorFollowing",
+						"when": "view == gitlens.views.fileHistory && !gitlens:views:fileHistory:cursorFollowing && !config.gitlens.advanced.fileHistoryShowAllBranches",
 						"group": "3_gitlens",
 						"order": 3
 					}
@@ -7219,7 +7219,7 @@
 			"menus": {
 				"view/title": [
 					{
-						"when": "view == gitlens.views.fileHistory && config.gitlens.advanced.fileHistoryShowMergeCommits && !gitlens:views:fileHistory:cursorFollowing",
+						"when": "view == gitlens.views.fileHistory && !gitlens:views:fileHistory:cursorFollowing && config.gitlens.advanced.fileHistoryShowMergeCommits",
 						"group": "3_gitlens",
 						"order": 2
 					}
@@ -7231,7 +7231,7 @@
 			"menus": {
 				"view/title": [
 					{
-						"when": "view == gitlens.views.fileHistory && !config.gitlens.advanced.fileHistoryShowMergeCommits && !gitlens:views:fileHistory:cursorFollowing",
+						"when": "view == gitlens.views.fileHistory && !gitlens:views:fileHistory:cursorFollowing && !config.gitlens.advanced.fileHistoryShowMergeCommits",
 						"group": "3_gitlens",
 						"order": 2
 					}
@@ -7721,7 +7721,7 @@
 			"menus": {
 				"view/item/context": [
 					{
-						"when": "viewItem =~ /gitlens:branch\\b(?!.*?\\b\\+current\\b)(?!.*?\\b\\+closed\\b)/ && !listMultiSelection && !gitlens:hasVirtualFolders && !gitlens:readonly && !gitlens:untrusted",
+						"when": "viewItem =~ /gitlens:branch\\b(?!.*?\\b\\+current\\b)(?!.*?\\b\\+closed\\b)/ && !listMultiSelection && !gitlens:readonly && !gitlens:untrusted && !gitlens:hasVirtualFolders",
 						"group": "1_gitlens_actions_1",
 						"order": 1
 					}
@@ -7761,7 +7761,7 @@
 						"order": 1
 					},
 					{
-						"when": "viewItem =~ /gitlens:status:upstream:same/ && gitlens:repos:withRemotes && !gitlens:hasVirtualFolders && !gitlens:readonly && !gitlens:untrusted",
+						"when": "viewItem =~ /gitlens:status:upstream:same/ && !gitlens:readonly && !gitlens:untrusted && !gitlens:hasVirtualFolders && gitlens:repos:withRemotes",
 						"group": "inline",
 						"order": 97,
 						"alt": "gitlens.copyRemoteBranchUrl"
@@ -7794,7 +7794,7 @@
 				],
 				"view/item/context": [
 					{
-						"when": "viewItem =~ /gitlens:(compare:results(?!:)\\b(?!.*?\\b\\+filtered\\b)|commit|stash|results:files|status-branch:files|status:upstream:(ahead|behind))\\b/ && config.gitlens.views.openChangesInMultiDiffEditor && !listMultiSelection",
+						"when": "viewItem =~ /gitlens:(compare:results(?!:)\\b(?!.*?\\b\\+filtered\\b)|commit|stash|results:files|status-branch:files|status:upstream:(ahead|behind))\\b/ && !listMultiSelection && config.gitlens.views.openChangesInMultiDiffEditor",
 						"group": "inline",
 						"order": 90,
 						"alt": "gitlens.views.openChangedFileDiffsWithWorking"
@@ -8327,7 +8327,7 @@
 			"menus": {
 				"view/item/context": [
 					{
-						"when": "viewItem =~ /gitlens:remote\\b/ && !listMultiSelection && !gitlens:hasVirtualFolders && !gitlens:readonly && !gitlens:untrusted",
+						"when": "viewItem =~ /gitlens:remote\\b/ && !listMultiSelection && !gitlens:readonly && !gitlens:untrusted && !gitlens:hasVirtualFolders",
 						"group": "1_gitlens_actions",
 						"order": 2
 					}
@@ -8341,17 +8341,17 @@
 			"menus": {
 				"view/item/context": [
 					{
-						"when": "viewItem =~ /gitlens:branch\\b(?!.*?\\b\\+(closed|remote|tracking)\\b)/ && gitlens:repos:withRemotes && !gitlens:hasVirtualFolders && !gitlens:readonly && !gitlens:untrusted",
+						"when": "viewItem =~ /gitlens:branch\\b(?!.*?\\b\\+(closed|remote|tracking)\\b)/ && !gitlens:readonly && !gitlens:untrusted && !gitlens:hasVirtualFolders && gitlens:repos:withRemotes",
 						"group": "inline",
 						"order": 8
 					},
 					{
-						"when": "viewItem =~ /gitlens:branch\\b(?!.*?\\b\\+(closed|remote|tracking)\\b)/ && !listMultiSelection && gitlens:repos:withRemotes && !gitlens:hasVirtualFolders && !gitlens:readonly && !gitlens:untrusted",
+						"when": "viewItem =~ /gitlens:branch\\b(?!.*?\\b\\+(closed|remote|tracking)\\b)/ && !listMultiSelection && !gitlens:readonly && !gitlens:untrusted && !gitlens:hasVirtualFolders && gitlens:repos:withRemotes",
 						"group": "1_gitlens_actions",
 						"order": 2
 					},
 					{
-						"when": "viewItem =~ /gitlens:status(\\-branch)?:upstream:(missing|none)/ && gitlens:repos:withRemotes && !gitlens:hasVirtualFolders && !gitlens:readonly && !gitlens:untrusted",
+						"when": "viewItem =~ /gitlens:status(\\-branch)?:upstream:(missing|none)/ && !gitlens:readonly && !gitlens:untrusted && !gitlens:hasVirtualFolders && gitlens:repos:withRemotes",
 						"group": "inline",
 						"order": 99
 					}
@@ -8365,7 +8365,7 @@
 			"menus": {
 				"view/item/context": [
 					{
-						"when": "viewItem =~ /gitlens:status(\\-branch)?:upstream:(missing|none)/ && !gitlens:hasVirtualFolders && !gitlens:readonly && !gitlens:repos:withRemotes && !gitlens:untrusted",
+						"when": "viewItem =~ /gitlens:status(\\-branch)?:upstream:(missing|none)/ && !gitlens:readonly && !gitlens:untrusted && !gitlens:hasVirtualFolders && !gitlens:repos:withRemotes",
 						"group": "inline",
 						"order": 99
 					}
@@ -8379,43 +8379,43 @@
 			"menus": {
 				"view/item/context": [
 					{
-						"when": "viewItem =~ /gitlens:branch\\b(?=.*?\\b\\+behind\\b)(?!.*?\\b\\+closed\\b)/ && gitlens:repos:withRemotes && !gitlens:hasVirtualFolders && !gitlens:readonly && !gitlens:untrusted",
+						"when": "viewItem =~ /gitlens:branch\\b(?=.*?\\b\\+behind\\b)(?!.*?\\b\\+closed\\b)/ && !gitlens:readonly && !gitlens:untrusted && !gitlens:hasVirtualFolders && gitlens:repos:withRemotes",
 						"group": "inline",
 						"order": 8,
 						"alt": "gitlens.views.fetch"
 					},
 					{
-						"when": "viewItem =~ /gitlens:branch\\b(?=.*?\\b\\+(behind|tracking)\\b)(?!.*?\\b\\+closed\\b)/ && !listMultiSelection && gitlens:repos:withRemotes && !gitlens:hasVirtualFolders && !gitlens:readonly && !gitlens:untrusted",
+						"when": "viewItem =~ /gitlens:branch\\b(?=.*?\\b\\+(behind|tracking)\\b)(?!.*?\\b\\+closed\\b)/ && !listMultiSelection && !gitlens:readonly && !gitlens:untrusted && !gitlens:hasVirtualFolders && gitlens:repos:withRemotes",
 						"group": "1_gitlens_actions",
 						"order": 2
 					},
 					{
-						"when": "viewItem =~ /gitlens:repo-folder\\b(?=.*?\\b\\+behind\\b)/ && gitlens:repos:withRemotes && !gitlens:hasVirtualFolders && !gitlens:readonly && !gitlens:untrusted",
+						"when": "viewItem =~ /gitlens:repo-folder\\b(?=.*?\\b\\+behind\\b)/ && !gitlens:readonly && !gitlens:untrusted && !gitlens:hasVirtualFolders && gitlens:repos:withRemotes",
 						"group": "inline",
 						"order": 97
 					},
 					{
-						"when": "viewItem =~ /gitlens:repo-folder\\b/ && !listMultiSelection && gitlens:repos:withRemotes && !gitlens:hasVirtualFolders && !gitlens:readonly && !gitlens:untrusted",
+						"when": "viewItem =~ /gitlens:repo-folder\\b/ && !listMultiSelection && !gitlens:readonly && !gitlens:untrusted && !gitlens:hasVirtualFolders && gitlens:repos:withRemotes",
 						"group": "1_gitlens_actions",
 						"order": 1
 					},
 					{
-						"when": "viewItem =~ /gitlens:repository\\b(?!.*?\\b\\+closed\\b)/ && gitlens:repos:withRemotes && !gitlens:hasVirtualFolders && !gitlens:readonly && !gitlens:untrusted",
+						"when": "viewItem =~ /gitlens:repository\\b(?!.*?\\b\\+closed\\b)/ && !gitlens:readonly && !gitlens:untrusted && !gitlens:hasVirtualFolders && gitlens:repos:withRemotes",
 						"group": "inline",
 						"order": 97
 					},
 					{
-						"when": "viewItem =~ /gitlens:repository\\b(?!.*?\\b\\+closed\\b)/ && !listMultiSelection && gitlens:repos:withRemotes && !gitlens:hasVirtualFolders && !gitlens:readonly && !gitlens:untrusted",
+						"when": "viewItem =~ /gitlens:repository\\b(?!.*?\\b\\+closed\\b)/ && !listMultiSelection && !gitlens:readonly && !gitlens:untrusted && !gitlens:hasVirtualFolders && gitlens:repos:withRemotes",
 						"group": "1_gitlens_actions",
 						"order": 1
 					},
 					{
-						"when": "viewItem =~ /gitlens:status(\\-branch)?:upstream:behind/ && gitlens:repos:withRemotes && !gitlens:hasVirtualFolders && !gitlens:readonly && !gitlens:untrusted",
+						"when": "viewItem =~ /gitlens:status(\\-branch)?:upstream:behind/ && !gitlens:readonly && !gitlens:untrusted && !gitlens:hasVirtualFolders && gitlens:repos:withRemotes",
 						"group": "inline",
 						"order": 99
 					},
 					{
-						"when": "viewItem == gitlens:status:upstream:behind && !listMultiSelection && gitlens:repos:withRemotes && !gitlens:hasVirtualFolders && !gitlens:readonly && !gitlens:untrusted",
+						"when": "viewItem == gitlens:status:upstream:behind && !listMultiSelection && !gitlens:readonly && !gitlens:untrusted && !gitlens:hasVirtualFolders && gitlens:repos:withRemotes",
 						"group": "1_gitlens_actions",
 						"order": 1
 					}
@@ -8528,68 +8528,68 @@
 			"menus": {
 				"gitlens/commit/file/commit": [
 					{
-						"when": "viewItem =~ /gitlens:file\\b(?=.*?\\b\\+committed\\b)(?=.*?\\b\\+current\\b)(?=.*?\\b\\+unpublished\\b)(?=.*?\\b\\+HEAD\\b)/ && gitlens:repos:withRemotes && !gitlens:hasVirtualFolders && !gitlens:readonly && !gitlens:untrusted",
+						"when": "viewItem =~ /gitlens:file\\b(?=.*?\\b\\+committed\\b)(?=.*?\\b\\+current\\b)(?=.*?\\b\\+unpublished\\b)(?=.*?\\b\\+HEAD\\b)/ && !gitlens:readonly && !gitlens:untrusted && !gitlens:hasVirtualFolders && gitlens:repos:withRemotes",
 						"group": "1_gitlens_actions",
 						"order": 1
 					}
 				],
 				"view/item/context": [
 					{
-						"when": "viewItem =~ /gitlens:branch\\b(?=.*?\\b\\+ahead\\b)(?!.*?\\b\\+(behind|closed)\\b)/ && gitlens:repos:withRemotes && !gitlens:hasVirtualFolders && !gitlens:readonly && !gitlens:untrusted",
+						"when": "viewItem =~ /gitlens:branch\\b(?=.*?\\b\\+ahead\\b)(?!.*?\\b\\+(behind|closed)\\b)/ && !gitlens:readonly && !gitlens:untrusted && !gitlens:hasVirtualFolders && gitlens:repos:withRemotes",
 						"group": "inline",
 						"order": 8
 					},
 					{
-						"when": "viewItem =~ /gitlens:branch\\b(?=.*?\\b\\+ahead\\b)(?!.*?\\b\\+(behind|closed)\\b)/ && !listMultiSelection && gitlens:repos:withRemotes && !gitlens:hasVirtualFolders && !gitlens:readonly && !gitlens:untrusted",
+						"when": "viewItem =~ /gitlens:branch\\b(?=.*?\\b\\+ahead\\b)(?!.*?\\b\\+(behind|closed)\\b)/ && !listMultiSelection && !gitlens:readonly && !gitlens:untrusted && !gitlens:hasVirtualFolders && gitlens:repos:withRemotes",
 						"group": "1_gitlens_actions",
 						"order": 2
 					},
 					{
-						"when": "viewItem =~ /gitlens:commit\\b(?=.*?\\b\\+current\\b)(?=.*?\\b\\+unpublished\\b)(?=.*?\\b\\+HEAD\\b)/ && gitlens:repos:withRemotes && !gitlens:hasVirtualFolders && !gitlens:readonly && !gitlens:untrusted",
+						"when": "viewItem =~ /gitlens:commit\\b(?=.*?\\b\\+current\\b)(?=.*?\\b\\+unpublished\\b)(?=.*?\\b\\+HEAD\\b)/ && !gitlens:readonly && !gitlens:untrusted && !gitlens:hasVirtualFolders && gitlens:repos:withRemotes",
 						"group": "inline",
 						"order": 79,
 						"alt": "gitlens.views.pushWithForce"
 					},
 					{
-						"when": "viewItem =~ /gitlens:commit\\b(?=.*?\\b\\+current\\b)(?=.*?\\b\\+unpublished\\b)(?=.*?\\b\\+HEAD\\b)/ && !listMultiSelection && gitlens:repos:withRemotes && !gitlens:hasVirtualFolders && !gitlens:readonly && !gitlens:untrusted",
+						"when": "viewItem =~ /gitlens:commit\\b(?=.*?\\b\\+current\\b)(?=.*?\\b\\+unpublished\\b)(?=.*?\\b\\+HEAD\\b)/ && !listMultiSelection && !gitlens:readonly && !gitlens:untrusted && !gitlens:hasVirtualFolders && gitlens:repos:withRemotes",
 						"group": "1_gitlens_actions",
 						"order": 2
 					},
 					{
-						"when": "viewItem =~ /gitlens:file\\b(?=.*?\\b\\+committed\\b)(?=.*?\\b\\+current\\b)(?=.*?\\b\\+unpublished\\b)(?=.*?\\b\\+HEAD\\b)/ && gitlens:repos:withRemotes && !gitlens:hasVirtualFolders && !gitlens:readonly && !gitlens:untrusted",
+						"when": "viewItem =~ /gitlens:file\\b(?=.*?\\b\\+committed\\b)(?=.*?\\b\\+current\\b)(?=.*?\\b\\+unpublished\\b)(?=.*?\\b\\+HEAD\\b)/ && !gitlens:readonly && !gitlens:untrusted && !gitlens:hasVirtualFolders && gitlens:repos:withRemotes",
 						"group": "inline",
 						"order": -1
 					},
 					{
-						"when": "viewItem =~ /gitlens:repo-folder\\b(?=.*?\\b\\+ahead\\b)(?!.*?\\b\\+behind\\b)/ && gitlens:repos:withRemotes && !gitlens:hasVirtualFolders && !gitlens:readonly && !gitlens:untrusted",
+						"when": "viewItem =~ /gitlens:repo-folder\\b(?=.*?\\b\\+ahead\\b)(?!.*?\\b\\+behind\\b)/ && !gitlens:readonly && !gitlens:untrusted && !gitlens:hasVirtualFolders && gitlens:repos:withRemotes",
 						"group": "inline",
 						"order": 96,
 						"alt": "gitlens.views.pushWithForce"
 					},
 					{
-						"when": "viewItem =~ /gitlens:repo-folder\\b/ && !listMultiSelection && gitlens:repos:withRemotes && !gitlens:hasVirtualFolders && !gitlens:readonly && !gitlens:untrusted",
+						"when": "viewItem =~ /gitlens:repo-folder\\b/ && !listMultiSelection && !gitlens:readonly && !gitlens:untrusted && !gitlens:hasVirtualFolders && gitlens:repos:withRemotes",
 						"group": "1_gitlens_actions",
 						"order": 1
 					},
 					{
-						"when": "viewItem =~ /gitlens:repository\\b(?!.*?\\b\\+closed\\b)/ && gitlens:repos:withRemotes && !gitlens:hasVirtualFolders && !gitlens:readonly && !gitlens:untrusted",
+						"when": "viewItem =~ /gitlens:repository\\b(?!.*?\\b\\+closed\\b)/ && !gitlens:readonly && !gitlens:untrusted && !gitlens:hasVirtualFolders && gitlens:repos:withRemotes",
 						"group": "inline",
 						"order": 96,
 						"alt": "gitlens.views.pushWithForce"
 					},
 					{
-						"when": "viewItem =~ /gitlens:repository\\b(?!.*?\\b\\+closed\\b)/ && !listMultiSelection && gitlens:repos:withRemotes && !gitlens:hasVirtualFolders && !gitlens:readonly && !gitlens:untrusted",
+						"when": "viewItem =~ /gitlens:repository\\b(?!.*?\\b\\+closed\\b)/ && !listMultiSelection && !gitlens:readonly && !gitlens:untrusted && !gitlens:hasVirtualFolders && gitlens:repos:withRemotes",
 						"group": "1_gitlens_actions",
 						"order": 1
 					},
 					{
-						"when": "viewItem =~ /gitlens:status(\\-branch)?:upstream:ahead/ && gitlens:repos:withRemotes && !gitlens:hasVirtualFolders && !gitlens:readonly && !gitlens:untrusted",
+						"when": "viewItem =~ /gitlens:status(\\-branch)?:upstream:ahead/ && !gitlens:readonly && !gitlens:untrusted && !gitlens:hasVirtualFolders && gitlens:repos:withRemotes",
 						"group": "inline",
 						"order": 99,
 						"alt": "gitlens.views.pushWithForce"
 					},
 					{
-						"when": "viewItem == gitlens:status:upstream:ahead && !listMultiSelection && gitlens:repos:withRemotes && !gitlens:hasVirtualFolders && !gitlens:readonly && !gitlens:untrusted",
+						"when": "viewItem == gitlens:status:upstream:ahead && !listMultiSelection && !gitlens:readonly && !gitlens:untrusted && !gitlens:hasVirtualFolders && gitlens:repos:withRemotes",
 						"group": "1_gitlens_actions",
 						"order": 1
 					}
@@ -8603,24 +8603,24 @@
 			"menus": {
 				"gitlens/commit/file/commit": [
 					{
-						"when": "viewItem =~ /gitlens:file\\b(?=.*?\\b\\+committed\\b)(?=.*?\\b\\+current\\b)(?=.*?\\b\\+unpublished\\b)(?!.*?\\b\\+HEAD\\b)/ && gitlens:repos:withRemotes && !gitlens:hasVirtualFolders && !gitlens:readonly && !gitlens:untrusted",
+						"when": "viewItem =~ /gitlens:file\\b(?=.*?\\b\\+committed\\b)(?=.*?\\b\\+current\\b)(?=.*?\\b\\+unpublished\\b)(?!.*?\\b\\+HEAD\\b)/ && !gitlens:readonly && !gitlens:untrusted && !gitlens:hasVirtualFolders && gitlens:repos:withRemotes",
 						"group": "1_gitlens_actions",
 						"order": 2
 					}
 				],
 				"view/item/context": [
 					{
-						"when": "viewItem =~ /gitlens:commit\\b(?=.*?\\b\\+current\\b)(?=.*?\\b\\+unpublished\\b)(?!.*?\\b\\+HEAD\\b)/ && gitlens:repos:withRemotes && !gitlens:hasVirtualFolders && !gitlens:readonly && !gitlens:untrusted",
+						"when": "viewItem =~ /gitlens:commit\\b(?=.*?\\b\\+current\\b)(?=.*?\\b\\+unpublished\\b)(?!.*?\\b\\+HEAD\\b)/ && !gitlens:readonly && !gitlens:untrusted && !gitlens:hasVirtualFolders && gitlens:repos:withRemotes",
 						"group": "inline",
 						"order": 80
 					},
 					{
-						"when": "viewItem =~ /gitlens:commit\\b(?=.*?\\b\\+current\\b)(?=.*?\\b\\+unpublished\\b)(?!.*?\\b\\+HEAD\\b)/ && !listMultiSelection && gitlens:repos:withRemotes && !gitlens:hasVirtualFolders && !gitlens:readonly && !gitlens:untrusted",
+						"when": "viewItem =~ /gitlens:commit\\b(?=.*?\\b\\+current\\b)(?=.*?\\b\\+unpublished\\b)(?!.*?\\b\\+HEAD\\b)/ && !listMultiSelection && !gitlens:readonly && !gitlens:untrusted && !gitlens:hasVirtualFolders && gitlens:repos:withRemotes",
 						"group": "1_gitlens_actions",
 						"order": 2
 					},
 					{
-						"when": "viewItem =~ /gitlens:file\\b(?=.*?\\b\\+committed\\b)(?=.*?\\b\\+current\\b)(?=.*?\\b\\+unpublished\\b)(?!.*?\\b\\+HEAD\\b)/ && gitlens:repos:withRemotes && !gitlens:hasVirtualFolders && !gitlens:readonly && !gitlens:untrusted",
+						"when": "viewItem =~ /gitlens:file\\b(?=.*?\\b\\+committed\\b)(?=.*?\\b\\+current\\b)(?=.*?\\b\\+unpublished\\b)(?!.*?\\b\\+HEAD\\b)/ && !gitlens:readonly && !gitlens:untrusted && !gitlens:hasVirtualFolders && gitlens:repos:withRemotes",
 						"group": "inline",
 						"order": -1
 					}
@@ -8634,17 +8634,17 @@
 			"menus": {
 				"view/item/context": [
 					{
-						"when": "viewItem =~ /gitlens:repo-folder\\b/ && !listMultiSelection && gitlens:repos:withRemotes && !gitlens:hasVirtualFolders && !gitlens:readonly && !gitlens:untrusted",
+						"when": "viewItem =~ /gitlens:repo-folder\\b/ && !listMultiSelection && !gitlens:readonly && !gitlens:untrusted && !gitlens:hasVirtualFolders && gitlens:repos:withRemotes",
 						"group": "1_gitlens_actions",
 						"order": 2
 					},
 					{
-						"when": "viewItem =~ /gitlens:repository\\b(?!.*?\\b\\+closed\\b)/ && !listMultiSelection && gitlens:repos:withRemotes && !gitlens:hasVirtualFolders && !gitlens:readonly && !gitlens:untrusted",
+						"when": "viewItem =~ /gitlens:repository\\b(?!.*?\\b\\+closed\\b)/ && !listMultiSelection && !gitlens:readonly && !gitlens:untrusted && !gitlens:hasVirtualFolders && gitlens:repos:withRemotes",
 						"group": "1_gitlens_actions",
 						"order": 2
 					},
 					{
-						"when": "viewItem == gitlens:status:upstream:ahead && !listMultiSelection && gitlens:repos:withRemotes && !gitlens:hasVirtualFolders && !gitlens:readonly && !gitlens:untrusted",
+						"when": "viewItem == gitlens:status:upstream:ahead && !listMultiSelection && !gitlens:readonly && !gitlens:untrusted && !gitlens:hasVirtualFolders && gitlens:repos:withRemotes",
 						"group": "1_gitlens_actions",
 						"order": 2
 					}
@@ -8657,7 +8657,7 @@
 			"menus": {
 				"view/item/context": [
 					{
-						"when": "viewItem =~ /gitlens:branch\\b(?!.*?\\b\\+current\\b)(?!.*?\\b\\+closed\\b)/ && !listMultiSelection && !gitlens:hasVirtualFolders && !gitlens:readonly && !gitlens:untrusted",
+						"when": "viewItem =~ /gitlens:branch\\b(?!.*?\\b\\+current\\b)(?!.*?\\b\\+closed\\b)/ && !listMultiSelection && !gitlens:readonly && !gitlens:untrusted && !gitlens:hasVirtualFolders",
 						"group": "1_gitlens_actions_1",
 						"order": 2
 					}
@@ -8670,14 +8670,14 @@
 			"menus": {
 				"gitlens/commit/file/commit": [
 					{
-						"when": "viewItem =~ /gitlens:file\\b(?=.*?\\b\\+committed\\b)(?=.*?\\b\\+current\\b)/ && !gitlens:hasVirtualFolders && !gitlens:readonly && !gitlens:untrusted",
+						"when": "viewItem =~ /gitlens:file\\b(?=.*?\\b\\+committed\\b)(?=.*?\\b\\+current\\b)/ && !gitlens:readonly && !gitlens:untrusted && !gitlens:hasVirtualFolders",
 						"group": "1_gitlens_actions",
 						"order": 6
 					}
 				],
 				"view/item/context": [
 					{
-						"when": "viewItem =~ /gitlens:commit\\b(?!.*?\\b\\+rebase\\b)/ && !listMultiSelection && !gitlens:hasVirtualFolders && !gitlens:readonly && !gitlens:untrusted",
+						"when": "viewItem =~ /gitlens:commit\\b(?!.*?\\b\\+rebase\\b)/ && !listMultiSelection && !gitlens:readonly && !gitlens:untrusted && !gitlens:hasVirtualFolders",
 						"group": "1_gitlens_actions",
 						"order": 6
 					}
@@ -8690,7 +8690,7 @@
 			"menus": {
 				"view/item/context": [
 					{
-						"when": "viewItem =~ /gitlens:branch\\b(?=.*?\\b\\+current\\b)(?=.*?\\b\\+tracking\\b)(?!.*?\\b\\+closed\\b)/ && !listMultiSelection && !gitlens:hasVirtualFolders && !gitlens:readonly && !gitlens:untrusted",
+						"when": "viewItem =~ /gitlens:branch\\b(?=.*?\\b\\+current\\b)(?=.*?\\b\\+tracking\\b)(?!.*?\\b\\+closed\\b)/ && !listMultiSelection && !gitlens:readonly && !gitlens:untrusted && !gitlens:hasVirtualFolders",
 						"group": "1_gitlens_actions_1",
 						"order": 2
 					}
@@ -9001,7 +9001,7 @@
 			"menus": {
 				"view/item/context": [
 					{
-						"when": "viewItem =~ /gitlens:remote\\b/ && !listMultiSelection && !gitlens:hasVirtualFolders && !gitlens:readonly && !gitlens:untrusted",
+						"when": "viewItem =~ /gitlens:remote\\b/ && !listMultiSelection && !gitlens:readonly && !gitlens:untrusted && !gitlens:hasVirtualFolders",
 						"group": "6_gitlens_terminal",
 						"order": 1
 					}
@@ -9014,7 +9014,7 @@
 			"menus": {
 				"view/item/context": [
 					{
-						"when": "viewItem =~ /gitlens:branch\\b(?!.*?\\b\\+closed\\b)/ && !listMultiSelection && !gitlens:hasVirtualFolders && !gitlens:readonly && !gitlens:untrusted",
+						"when": "viewItem =~ /gitlens:branch\\b(?!.*?\\b\\+closed\\b)/ && !listMultiSelection && !gitlens:readonly && !gitlens:untrusted && !gitlens:hasVirtualFolders",
 						"group": "1_gitlens_actions_2",
 						"order": 2
 					}
@@ -9067,19 +9067,19 @@
 			"menus": {
 				"gitlens/views/grouped/more": [
 					{
-						"when": "gitlens:views:scm:grouped:view == repositories && view == gitlens.views.scm.grouped && config.gitlens.views.repositories.autoRefresh && gitlens:views:repositories:autoRefresh",
+						"when": "gitlens:views:scm:grouped:view == repositories && view == gitlens.views.scm.grouped && gitlens:views:repositories:autoRefresh && config.gitlens.views.repositories.autoRefresh",
 						"group": "2_gitlens",
 						"order": 1
 					}
 				],
 				"view/title": [
 					{
-						"when": "view == gitlens.views.repositories && config.gitlens.views.repositories.autoRefresh && gitlens:views:repositories:autoRefresh",
+						"when": "view == gitlens.views.repositories && gitlens:views:repositories:autoRefresh && config.gitlens.views.repositories.autoRefresh",
 						"group": "2_gitlens",
 						"order": 0
 					},
 					{
-						"when": "view == gitlens.views.scm.grouped && gitlens:views:scm:grouped:view == repositories && config.gitlens.views.repositories.autoRefresh && gitlens:views:repositories:autoRefresh",
+						"when": "view == gitlens.views.scm.grouped && gitlens:views:scm:grouped:view == repositories && gitlens:views:repositories:autoRefresh && config.gitlens.views.repositories.autoRefresh",
 						"group": "2_gitlens",
 						"order": 1
 					}
@@ -9091,19 +9091,19 @@
 			"menus": {
 				"gitlens/views/grouped/more": [
 					{
-						"when": "gitlens:views:scm:grouped:view == repositories && view == gitlens.views.scm.grouped && config.gitlens.views.repositories.autoRefresh && !gitlens:views:repositories:autoRefresh",
+						"when": "gitlens:views:scm:grouped:view == repositories && view == gitlens.views.scm.grouped && !gitlens:views:repositories:autoRefresh && config.gitlens.views.repositories.autoRefresh",
 						"group": "2_gitlens",
 						"order": 1
 					}
 				],
 				"view/title": [
 					{
-						"when": "view == gitlens.views.repositories && config.gitlens.views.repositories.autoRefresh && !gitlens:views:repositories:autoRefresh",
+						"when": "view == gitlens.views.repositories && !gitlens:views:repositories:autoRefresh && config.gitlens.views.repositories.autoRefresh",
 						"group": "2_gitlens",
 						"order": 0
 					},
 					{
-						"when": "view == gitlens.views.scm.grouped && gitlens:views:scm:grouped:view == repositories && config.gitlens.views.repositories.autoRefresh && !gitlens:views:repositories:autoRefresh",
+						"when": "view == gitlens.views.scm.grouped && gitlens:views:scm:grouped:view == repositories && !gitlens:views:repositories:autoRefresh && config.gitlens.views.repositories.autoRefresh",
 						"group": "2_gitlens",
 						"order": 1
 					}
@@ -9151,7 +9151,7 @@
 			"menus": {
 				"view/item/context": [
 					{
-						"when": "viewItem =~ /gitlens:branches\\b/ && view == gitlens.views.repositories && config.gitlens.views.repositories.branches.showBranchComparison && !listMultiSelection",
+						"when": "viewItem =~ /gitlens:branches\\b/ && view == gitlens.views.repositories && !listMultiSelection && config.gitlens.views.repositories.branches.showBranchComparison",
 						"group": "8_gitlens_toggles",
 						"order": 1
 					},
@@ -9168,7 +9168,7 @@
 			"menus": {
 				"view/item/context": [
 					{
-						"when": "viewItem =~ /gitlens:branches\\b/ && view == gitlens.views.repositories && !config.gitlens.views.repositories.branches.showBranchComparison && !listMultiSelection",
+						"when": "viewItem =~ /gitlens:branches\\b/ && view == gitlens.views.repositories && !listMultiSelection && !config.gitlens.views.repositories.branches.showBranchComparison",
 						"group": "8_gitlens_toggles",
 						"order": 1
 					}
@@ -9435,7 +9435,7 @@
 			"menus": {
 				"gitlens/view/repositories/sections": [
 					{
-						"when": "config.gitlens.views.repositories.showStashes && !gitlens:hasVirtualFolders",
+						"when": "!gitlens:hasVirtualFolders && config.gitlens.views.repositories.showStashes",
 						"group": "2_gitlens",
 						"order": 5
 					}
@@ -9447,7 +9447,7 @@
 			"menus": {
 				"gitlens/view/repositories/sections": [
 					{
-						"when": "!config.gitlens.views.repositories.showStashes && !gitlens:hasVirtualFolders",
+						"when": "!gitlens:hasVirtualFolders && !config.gitlens.views.repositories.showStashes",
 						"group": "2_gitlens",
 						"order": 5
 					}
@@ -9545,14 +9545,14 @@
 			"menus": {
 				"gitlens/commit/file/commit": [
 					{
-						"when": "viewItem =~ /gitlens:file\\b(?=.*?\\b\\+committed\\b)/ && !gitlens:hasVirtualFolders && !gitlens:readonly && !gitlens:untrusted",
+						"when": "viewItem =~ /gitlens:file\\b(?=.*?\\b\\+committed\\b)/ && !gitlens:readonly && !gitlens:untrusted && !gitlens:hasVirtualFolders",
 						"group": "1_gitlens_actions",
 						"order": 5
 					}
 				],
 				"view/item/context": [
 					{
-						"when": "viewItem =~ /gitlens:commit\\b(?!.*?\\b\\+rebase\\b)/ && !listMultiSelection && !gitlens:hasVirtualFolders && !gitlens:readonly && !gitlens:untrusted",
+						"when": "viewItem =~ /gitlens:commit\\b(?!.*?\\b\\+rebase\\b)/ && !listMultiSelection && !gitlens:readonly && !gitlens:untrusted && !gitlens:hasVirtualFolders",
 						"group": "1_gitlens_actions",
 						"order": 5
 					}
@@ -9565,14 +9565,14 @@
 			"menus": {
 				"gitlens/commit/file/commit": [
 					{
-						"when": "viewItem =~ /gitlens:file\\b(?=.*?\\b\\+committed\\b)/ && !gitlens:hasVirtualFolders && !gitlens:readonly && !gitlens:untrusted",
+						"when": "viewItem =~ /gitlens:file\\b(?=.*?\\b\\+committed\\b)/ && !gitlens:readonly && !gitlens:untrusted && !gitlens:hasVirtualFolders",
 						"group": "1_gitlens_actions",
 						"order": 4
 					}
 				],
 				"view/item/context": [
 					{
-						"when": "viewItem =~ /gitlens:commit\\b(?!.*?\\b\\+rebase\\b)/ && !listMultiSelection && !gitlens:hasVirtualFolders && !gitlens:readonly && !gitlens:untrusted",
+						"when": "viewItem =~ /gitlens:commit\\b(?!.*?\\b\\+rebase\\b)/ && !listMultiSelection && !gitlens:readonly && !gitlens:untrusted && !gitlens:hasVirtualFolders",
 						"group": "1_gitlens_actions",
 						"order": 4
 					}
@@ -9585,7 +9585,7 @@
 			"menus": {
 				"view/item/context": [
 					{
-						"when": "viewItem =~ /gitlens:branch\\b(?!.*?\\b\\+rebase\\b)/ && !listMultiSelection && !gitlens:hasVirtualFolders && !gitlens:readonly && !gitlens:untrusted",
+						"when": "viewItem =~ /gitlens:branch\\b(?!.*?\\b\\+rebase\\b)/ && !listMultiSelection && !gitlens:readonly && !gitlens:untrusted && !gitlens:hasVirtualFolders",
 						"group": "1_gitlens_actions_1",
 						"order": 3
 					}
@@ -9598,12 +9598,12 @@
 			"menus": {
 				"view/item/context": [
 					{
-						"when": "viewItem =~ /gitlens:file\\b(?=.*?\\b\\+stashed\\b)/ && !listMultiSelection && !gitlens:hasVirtualFolders && !gitlens:readonly && !gitlens:untrusted",
+						"when": "viewItem =~ /gitlens:file\\b(?=.*?\\b\\+stashed\\b)/ && !listMultiSelection && !gitlens:readonly && !gitlens:untrusted && !gitlens:hasVirtualFolders",
 						"group": "1_gitlens_actions",
 						"order": 3
 					},
 					{
-						"when": "viewItem =~ /gitlens:file\\b((?=.*?\\b\\+committed\\b)|:results\\b)/ && !listMultiSelection && !gitlens:hasVirtualFolders && !gitlens:readonly && !gitlens:untrusted",
+						"when": "viewItem =~ /gitlens:file\\b((?=.*?\\b\\+committed\\b)|:results\\b)/ && !listMultiSelection && !gitlens:readonly && !gitlens:untrusted && !gitlens:hasVirtualFolders",
 						"group": "8_gitlens_actions",
 						"order": 3
 					}
@@ -9645,14 +9645,14 @@
 			"menus": {
 				"gitlens/commit/file/commit": [
 					{
-						"when": "viewItem =~ /gitlens:file\\b(?=.*?\\b\\+committed\\b)(?=.*?\\b\\+current\\b)/ && !gitlens:hasVirtualFolders && !gitlens:readonly && !gitlens:untrusted",
+						"when": "viewItem =~ /gitlens:file\\b(?=.*?\\b\\+committed\\b)(?=.*?\\b\\+current\\b)/ && !gitlens:readonly && !gitlens:untrusted && !gitlens:hasVirtualFolders",
 						"group": "1_gitlens_actions",
 						"order": 3
 					}
 				],
 				"view/item/context": [
 					{
-						"when": "viewItem =~ /gitlens:commit\\b(?=.*?\\b\\+current\\b)/ && !listMultiSelection && !gitlens:hasVirtualFolders && !gitlens:readonly && !gitlens:untrusted",
+						"when": "viewItem =~ /gitlens:commit\\b(?=.*?\\b\\+current\\b)/ && !listMultiSelection && !gitlens:readonly && !gitlens:untrusted && !gitlens:hasVirtualFolders",
 						"group": "1_gitlens_actions",
 						"order": 3
 					}
@@ -10432,7 +10432,7 @@
 			"menus": {
 				"gitlens/views/grouped/detachOrRegroup": [
 					{
-						"when": "view == gitlens.views.scm.grouped && !config.gitlens.views.scm.grouped.views.stashes && !gitlens:hasVirtualFolders",
+						"when": "view == gitlens.views.scm.grouped && !gitlens:hasVirtualFolders && !config.gitlens.views.scm.grouped.views.stashes",
 						"group": "2_gitlens",
 						"order": 4
 					}
@@ -10599,7 +10599,7 @@
 			"menus": {
 				"gitlens/views/grouped/detachOrRegroup": [
 					{
-						"when": "view == gitlens.views.scm.grouped && config.gitlens.views.scm.grouped.views.worktrees && gitlens:plus:enabled && !gitlens:hasVirtualFolders",
+						"when": "view == gitlens.views.scm.grouped && !gitlens:hasVirtualFolders && gitlens:plus:enabled && config.gitlens.views.scm.grouped.views.worktrees",
 						"group": "2_gitlens",
 						"order": 6
 					}
@@ -10626,7 +10626,7 @@
 			"menus": {
 				"gitlens/views/grouped/detachOrRegroup": [
 					{
-						"when": "view == gitlens.views.scm.grouped && !config.gitlens.views.scm.grouped.views.worktrees && gitlens:plus:enabled && !gitlens:hasVirtualFolders",
+						"when": "view == gitlens.views.scm.grouped && !gitlens:hasVirtualFolders && gitlens:plus:enabled && !config.gitlens.views.scm.grouped.views.worktrees",
 						"group": "2_gitlens",
 						"order": 6
 					}
@@ -11189,7 +11189,7 @@
 				],
 				"view/item/context": [
 					{
-						"when": "viewItem == gitlens:date-marker && config.gitlens.views.showRelativeDateMarkers && !listMultiSelection",
+						"when": "viewItem == gitlens:date-marker && !listMultiSelection && config.gitlens.views.showRelativeDateMarkers",
 						"group": "1_gitlens",
 						"order": 0
 					}
@@ -11427,12 +11427,12 @@
 			"menus": {
 				"view/item/context": [
 					{
-						"when": "viewItem =~ /gitlens:folder\\b(?=.*?\\b\\+working\\b)/ && !listMultiSelection && !gitlens:hasVirtualFolders && !gitlens:readonly && !gitlens:untrusted",
+						"when": "viewItem =~ /gitlens:folder\\b(?=.*?\\b\\+working\\b)/ && !listMultiSelection && !gitlens:readonly && !gitlens:untrusted && !gitlens:hasVirtualFolders",
 						"group": "inline",
 						"order": 1
 					},
 					{
-						"when": "viewItem =~ /gitlens:folder\\b(?=.*?\\b\\+working\\b)/ && !listMultiSelection && !gitlens:hasVirtualFolders && !gitlens:readonly && !gitlens:untrusted",
+						"when": "viewItem =~ /gitlens:folder\\b(?=.*?\\b\\+working\\b)/ && !listMultiSelection && !gitlens:readonly && !gitlens:untrusted && !gitlens:hasVirtualFolders",
 						"group": "1_gitlens_actions",
 						"order": 1
 					}
@@ -11446,12 +11446,12 @@
 			"menus": {
 				"view/item/context": [
 					{
-						"when": "viewItem =~ /gitlens:file\\b(?=.*?\\b\\+unstaged\\b)/ && !gitlens:hasVirtualFolders && !gitlens:readonly && !gitlens:untrusted",
+						"when": "viewItem =~ /gitlens:file\\b(?=.*?\\b\\+unstaged\\b)/ && !gitlens:readonly && !gitlens:untrusted && !gitlens:hasVirtualFolders",
 						"group": "inline",
 						"order": 97
 					},
 					{
-						"when": "viewItem =~ /gitlens:file\\b(?=.*?\\b\\+unstaged\\b)/ && !listMultiSelection && !gitlens:hasVirtualFolders && !gitlens:readonly && !gitlens:untrusted",
+						"when": "viewItem =~ /gitlens:file\\b(?=.*?\\b\\+unstaged\\b)/ && !listMultiSelection && !gitlens:readonly && !gitlens:untrusted && !gitlens:hasVirtualFolders",
 						"group": "1_gitlens_actions",
 						"order": 1
 					}
@@ -11521,12 +11521,12 @@
 			"menus": {
 				"view/item/context": [
 					{
-						"when": "viewItem == gitlens:stash && !gitlens:hasVirtualFolders && !gitlens:readonly && !gitlens:untrusted",
+						"when": "viewItem == gitlens:stash && !gitlens:readonly && !gitlens:untrusted && !gitlens:hasVirtualFolders",
 						"group": "inline",
 						"order": 1
 					},
 					{
-						"when": "viewItem == gitlens:stash && !listMultiSelection && !gitlens:hasVirtualFolders && !gitlens:readonly && !gitlens:untrusted",
+						"when": "viewItem == gitlens:stash && !listMultiSelection && !gitlens:readonly && !gitlens:untrusted && !gitlens:hasVirtualFolders",
 						"group": "1_gitlens_actions",
 						"order": 1
 					}
@@ -11540,12 +11540,12 @@
 			"menus": {
 				"view/item/context": [
 					{
-						"when": "viewItem == gitlens:stash && !gitlens:hasVirtualFolders && !gitlens:readonly && !gitlens:untrusted",
+						"when": "viewItem == gitlens:stash && !gitlens:readonly && !gitlens:untrusted && !gitlens:hasVirtualFolders",
 						"group": "inline",
 						"order": 99
 					},
 					{
-						"when": "viewItem == gitlens:stash && !listMultiSelection && !gitlens:hasVirtualFolders && !gitlens:readonly && !gitlens:untrusted",
+						"when": "viewItem == gitlens:stash && !listMultiSelection && !gitlens:readonly && !gitlens:untrusted && !gitlens:hasVirtualFolders",
 						"group": "1_gitlens_actions",
 						"order": 3
 					}
@@ -11559,7 +11559,7 @@
 			"menus": {
 				"view/item/context": [
 					{
-						"when": "viewItem == gitlens:stash && listMultiSelection && !gitlens:hasVirtualFolders && !gitlens:readonly && !gitlens:untrusted",
+						"when": "viewItem == gitlens:stash && listMultiSelection && !gitlens:readonly && !gitlens:untrusted && !gitlens:hasVirtualFolders",
 						"group": "1_gitlens_actions",
 						"order": 3
 					}
@@ -11573,12 +11573,12 @@
 			"menus": {
 				"view/item/context": [
 					{
-						"when": "viewItem == gitlens:stash && !gitlens:hasVirtualFolders && !gitlens:readonly && !gitlens:untrusted",
+						"when": "viewItem == gitlens:stash && !gitlens:readonly && !gitlens:untrusted && !gitlens:hasVirtualFolders",
 						"group": "inline",
 						"order": 98
 					},
 					{
-						"when": "viewItem == gitlens:stash && !listMultiSelection && !gitlens:hasVirtualFolders && !gitlens:readonly && !gitlens:untrusted",
+						"when": "viewItem == gitlens:stash && !listMultiSelection && !gitlens:readonly && !gitlens:untrusted && !gitlens:hasVirtualFolders",
 						"group": "1_gitlens_actions",
 						"order": 2
 					}
@@ -11721,48 +11721,48 @@
 			"menus": {
 				"gitlens/views/grouped/branches": [
 					{
-						"when": "gitlens:views:scm:grouped:view == branches && !gitlens:hasVirtualFolders && !gitlens:readonly && !gitlens:untrusted",
+						"when": "gitlens:views:scm:grouped:view == branches && !gitlens:readonly && !gitlens:untrusted && !gitlens:hasVirtualFolders",
 						"group": "3_gitlens",
 						"order": 1
 					}
 				],
 				"gitlens/views/grouped/commits": [
 					{
-						"when": "gitlens:views:scm:grouped:view == commits && !gitlens:hasVirtualFolders && !gitlens:readonly && !gitlens:untrusted",
+						"when": "gitlens:views:scm:grouped:view == commits && !gitlens:readonly && !gitlens:untrusted && !gitlens:hasVirtualFolders",
 						"group": "2_gitlens_actions_",
 						"order": 0
 					}
 				],
 				"view/item/context": [
 					{
-						"when": "viewItem =~ /gitlens:branch\\b(?=.*?\\b\\+current\\b)(?!.*?\\b\\+closed\\b)/ && !gitlens:hasVirtualFolders && !gitlens:readonly && !gitlens:untrusted",
+						"when": "viewItem =~ /gitlens:branch\\b(?=.*?\\b\\+current\\b)(?!.*?\\b\\+closed\\b)/ && !gitlens:readonly && !gitlens:untrusted && !gitlens:hasVirtualFolders",
 						"group": "inline",
 						"order": 7
 					},
 					{
-						"when": "viewItem =~ /gitlens:branch\\b(?=.*?\\b\\+current\\b)(?!.*?\\b\\+closed\\b)/ && !listMultiSelection && !gitlens:hasVirtualFolders && !gitlens:readonly && !gitlens:untrusted",
+						"when": "viewItem =~ /gitlens:branch\\b(?=.*?\\b\\+current\\b)(?!.*?\\b\\+closed\\b)/ && !listMultiSelection && !gitlens:readonly && !gitlens:untrusted && !gitlens:hasVirtualFolders",
 						"group": "1_gitlens_action",
 						"order": 1
 					},
 					{
-						"when": "viewItem =~ /gitlens:branches\\b(?!.*?\\b\\+closed\\b)/ && !gitlens:hasVirtualFolders && !gitlens:readonly && !gitlens:untrusted",
+						"when": "viewItem =~ /gitlens:branches\\b(?!.*?\\b\\+closed\\b)/ && !gitlens:readonly && !gitlens:untrusted && !gitlens:hasVirtualFolders",
 						"group": "inline",
 						"order": 10
 					},
 					{
-						"when": "viewItem =~ /gitlens:branches\\b(?!.*?\\b\\+closed\\b)/ && !listMultiSelection && !gitlens:hasVirtualFolders && !gitlens:readonly && !gitlens:untrusted",
+						"when": "viewItem =~ /gitlens:branches\\b(?!.*?\\b\\+closed\\b)/ && !listMultiSelection && !gitlens:readonly && !gitlens:untrusted && !gitlens:hasVirtualFolders",
 						"group": "1_gitlens_actions",
 						"order": 1
 					}
 				],
 				"view/title": [
 					{
-						"when": "view == gitlens.views.branches && !gitlens:hasVirtualFolders && !gitlens:readonly && !gitlens:untrusted",
+						"when": "view == gitlens.views.branches && !gitlens:readonly && !gitlens:untrusted && !gitlens:hasVirtualFolders",
 						"group": "navigation",
 						"order": 10
 					},
 					{
-						"when": "view == gitlens.views.commits && !gitlens:hasVirtualFolders && !gitlens:readonly && !gitlens:untrusted",
+						"when": "view == gitlens.views.commits && !gitlens:readonly && !gitlens:untrusted && !gitlens:hasVirtualFolders",
 						"group": "navigation",
 						"order": 10
 					}
@@ -11776,12 +11776,12 @@
 			"menus": {
 				"view/item/context": [
 					{
-						"when": "viewItem =~ /gitlens:branch\\b(?!.*?\\b\\+(current|closed|checkedout|worktree)\\b)/ && !gitlens:hasVirtualFolders && !gitlens:readonly && !gitlens:untrusted",
+						"when": "viewItem =~ /gitlens:branch\\b(?!.*?\\b\\+(current|closed|checkedout|worktree)\\b)/ && !gitlens:readonly && !gitlens:untrusted && !gitlens:hasVirtualFolders",
 						"group": "inline",
 						"order": 7
 					},
 					{
-						"when": "viewItem =~ /gitlens:branch\\b(?!.*?\\b\\+(current|closed|checkedout|worktree)\\b)/ && !listMultiSelection && !gitlens:hasVirtualFolders && !gitlens:readonly && !gitlens:untrusted",
+						"when": "viewItem =~ /gitlens:branch\\b(?!.*?\\b\\+(current|closed|checkedout|worktree)\\b)/ && !listMultiSelection && !gitlens:readonly && !gitlens:untrusted && !gitlens:hasVirtualFolders",
 						"group": "1_gitlens_action",
 						"order": 1
 					}
@@ -11795,14 +11795,14 @@
 			"menus": {
 				"gitlens/commit/file/commit": [
 					{
-						"when": "viewItem =~ /gitlens:file\\b(?=.*?\\b\\+committed\\b)/ && !gitlens:hasVirtualFolders && !gitlens:readonly && !gitlens:untrusted",
+						"when": "viewItem =~ /gitlens:file\\b(?=.*?\\b\\+committed\\b)/ && !gitlens:readonly && !gitlens:untrusted && !gitlens:hasVirtualFolders",
 						"group": "1_gitlens_actions",
 						"order": 7
 					}
 				],
 				"view/item/context": [
 					{
-						"when": "viewItem =~ /gitlens:commit\\b(?!.*?\\b\\+rebase\\b)/ && !listMultiSelection && !gitlens:hasVirtualFolders && !gitlens:readonly && !gitlens:untrusted",
+						"when": "viewItem =~ /gitlens:commit\\b(?!.*?\\b\\+rebase\\b)/ && !listMultiSelection && !gitlens:readonly && !gitlens:untrusted && !gitlens:hasVirtualFolders",
 						"group": "1_gitlens_actions",
 						"order": 7
 					}
@@ -11816,12 +11816,12 @@
 			"menus": {
 				"view/item/context": [
 					{
-						"when": "viewItem =~ /gitlens:tag\\b/ && !gitlens:hasVirtualFolders && !gitlens:readonly && !gitlens:untrusted",
+						"when": "viewItem =~ /gitlens:tag\\b/ && !gitlens:readonly && !gitlens:untrusted && !gitlens:hasVirtualFolders",
 						"group": "inline",
 						"order": 10
 					},
 					{
-						"when": "viewItem =~ /gitlens:tag\\b/ && !listMultiSelection && !gitlens:hasVirtualFolders && !gitlens:readonly && !gitlens:untrusted",
+						"when": "viewItem =~ /gitlens:tag\\b/ && !listMultiSelection && !gitlens:readonly && !gitlens:untrusted && !gitlens:hasVirtualFolders",
 						"group": "1_gitlens_actions",
 						"order": 1
 					}
@@ -12075,14 +12075,14 @@
 			"menus": {
 				"gitlens/views/grouped/branches": [
 					{
-						"when": "gitlens:views:scm:grouped:view == branches && !gitlens:hasVirtualFolders && !gitlens:readonly && !gitlens:untrusted",
+						"when": "gitlens:views:scm:grouped:view == branches && !gitlens:readonly && !gitlens:untrusted && !gitlens:hasVirtualFolders",
 						"group": "3_gitlens",
 						"order": 2
 					}
 				],
 				"view/title": [
 					{
-						"when": "view == gitlens.views.branches && !gitlens:hasVirtualFolders && !gitlens:readonly && !gitlens:untrusted",
+						"when": "view == gitlens.views.branches && !gitlens:readonly && !gitlens:untrusted && !gitlens:hasVirtualFolders",
 						"group": "navigation",
 						"order": 11
 					}
@@ -12096,14 +12096,14 @@
 			"menus": {
 				"gitlens/views/grouped/tags": [
 					{
-						"when": "gitlens:views:scm:grouped:view == tags && !gitlens:hasVirtualFolders && !gitlens:readonly && !gitlens:untrusted",
+						"when": "gitlens:views:scm:grouped:view == tags && !gitlens:readonly && !gitlens:untrusted && !gitlens:hasVirtualFolders",
 						"group": "2_gitlens_actions",
 						"order": 1
 					}
 				],
 				"view/title": [
 					{
-						"when": "view == gitlens.views.tags && !gitlens:hasVirtualFolders && !gitlens:readonly && !gitlens:untrusted",
+						"when": "view == gitlens.views.tags && !gitlens:readonly && !gitlens:untrusted && !gitlens:hasVirtualFolders",
 						"group": "navigation",
 						"order": 10
 					}
@@ -12138,19 +12138,19 @@
 			"menus": {
 				"gitlens/commit/file/commit": [
 					{
-						"when": "viewItem =~ /gitlens:file\\b(?=.*?\\b\\+committed\\b)(?=.*?\\b\\+HEAD\\b)/ && !gitlens:hasVirtualFolders && !gitlens:readonly && !gitlens:untrusted",
+						"when": "viewItem =~ /gitlens:file\\b(?=.*?\\b\\+committed\\b)(?=.*?\\b\\+HEAD\\b)/ && !gitlens:readonly && !gitlens:untrusted && !gitlens:hasVirtualFolders",
 						"group": "1_gitlens_actions",
 						"order": 0
 					}
 				],
 				"view/item/context": [
 					{
-						"when": "viewItem =~ /gitlens:commit\\b(?=.*?\\b\\+HEAD\\b)/ && !gitlens:hasVirtualFolders && !gitlens:readonly && !gitlens:untrusted",
+						"when": "viewItem =~ /gitlens:commit\\b(?=.*?\\b\\+HEAD\\b)/ && !gitlens:readonly && !gitlens:untrusted && !gitlens:hasVirtualFolders",
 						"group": "inline",
 						"order": 78
 					},
 					{
-						"when": "viewItem =~ /gitlens:commit\\b(?=.*?\\b\\+HEAD\\b)/ && !listMultiSelection && !gitlens:hasVirtualFolders && !gitlens:readonly && !gitlens:untrusted",
+						"when": "viewItem =~ /gitlens:commit\\b(?=.*?\\b\\+HEAD\\b)/ && !listMultiSelection && !gitlens:readonly && !gitlens:untrusted && !gitlens:hasVirtualFolders",
 						"group": "1_gitlens_actions",
 						"order": 1
 					}
@@ -12176,12 +12176,12 @@
 			"menus": {
 				"view/item/context": [
 					{
-						"when": "viewItem =~ /gitlens:folder\\b(?=.*?\\b\\+working\\b)/ && !listMultiSelection && !gitlens:hasVirtualFolders && !gitlens:readonly && !gitlens:untrusted",
+						"when": "viewItem =~ /gitlens:folder\\b(?=.*?\\b\\+working\\b)/ && !listMultiSelection && !gitlens:readonly && !gitlens:untrusted && !gitlens:hasVirtualFolders",
 						"group": "inline",
 						"order": 2
 					},
 					{
-						"when": "viewItem =~ /gitlens:folder\\b(?=.*?\\b\\+working\\b)/ && !listMultiSelection && !gitlens:hasVirtualFolders && !gitlens:readonly && !gitlens:untrusted",
+						"when": "viewItem =~ /gitlens:folder\\b(?=.*?\\b\\+working\\b)/ && !listMultiSelection && !gitlens:readonly && !gitlens:untrusted && !gitlens:hasVirtualFolders",
 						"group": "1_gitlens_actions",
 						"order": 2
 					}
@@ -12195,12 +12195,12 @@
 			"menus": {
 				"view/item/context": [
 					{
-						"when": "viewItem =~ /gitlens:file\\b(?=.*?\\b\\+staged\\b)/ && !gitlens:hasVirtualFolders && !gitlens:readonly && !gitlens:untrusted",
+						"when": "viewItem =~ /gitlens:file\\b(?=.*?\\b\\+staged\\b)/ && !gitlens:readonly && !gitlens:untrusted && !gitlens:hasVirtualFolders",
 						"group": "inline",
 						"order": 97
 					},
 					{
-						"when": "viewItem =~ /gitlens:file\\b(?=.*?\\b\\+staged\\b)/ && !listMultiSelection && !gitlens:hasVirtualFolders && !gitlens:readonly && !gitlens:untrusted",
+						"when": "viewItem =~ /gitlens:file\\b(?=.*?\\b\\+staged\\b)/ && !listMultiSelection && !gitlens:readonly && !gitlens:untrusted && !gitlens:hasVirtualFolders",
 						"group": "1_gitlens_actions",
 						"order": 1
 					}
@@ -12854,19 +12854,19 @@
 			"menus": {
 				"gitlens/views/grouped/more": [
 					{
-						"when": "gitlens:views:scm:grouped:view == worktrees && view == gitlens.views.scm.grouped && config.gitlens.views.worktrees.showStashes && !gitlens:hasVirtualFolders",
+						"when": "gitlens:views:scm:grouped:view == worktrees && view == gitlens.views.scm.grouped && !gitlens:hasVirtualFolders && config.gitlens.views.worktrees.showStashes",
 						"group": "5_gitlens",
 						"order": 5
 					}
 				],
 				"view/title": [
 					{
-						"when": "view == gitlens.views.scm.grouped && gitlens:views:scm:grouped:view == worktrees && config.gitlens.views.worktrees.showStashes && !gitlens:hasVirtualFolders",
+						"when": "view == gitlens.views.scm.grouped && gitlens:views:scm:grouped:view == worktrees && !gitlens:hasVirtualFolders && config.gitlens.views.worktrees.showStashes",
 						"group": "5_gitlens",
 						"order": 5
 					},
 					{
-						"when": "view == gitlens.views.worktrees && config.gitlens.views.worktrees.showStashes && !gitlens:hasVirtualFolders",
+						"when": "view == gitlens.views.worktrees && !gitlens:hasVirtualFolders && config.gitlens.views.worktrees.showStashes",
 						"group": "5_gitlens",
 						"order": 5
 					}
@@ -12878,19 +12878,19 @@
 			"menus": {
 				"gitlens/views/grouped/more": [
 					{
-						"when": "gitlens:views:scm:grouped:view == worktrees && view == gitlens.views.scm.grouped && !config.gitlens.views.worktrees.showStashes && !gitlens:hasVirtualFolders",
+						"when": "gitlens:views:scm:grouped:view == worktrees && view == gitlens.views.scm.grouped && !gitlens:hasVirtualFolders && !config.gitlens.views.worktrees.showStashes",
 						"group": "5_gitlens",
 						"order": 5
 					}
 				],
 				"view/title": [
 					{
-						"when": "view == gitlens.views.scm.grouped && gitlens:views:scm:grouped:view == worktrees && !config.gitlens.views.worktrees.showStashes && !gitlens:hasVirtualFolders",
+						"when": "view == gitlens.views.scm.grouped && gitlens:views:scm:grouped:view == worktrees && !gitlens:hasVirtualFolders && !config.gitlens.views.worktrees.showStashes",
 						"group": "5_gitlens",
 						"order": 5
 					},
 					{
-						"when": "view == gitlens.views.worktrees && !config.gitlens.views.worktrees.showStashes && !gitlens:hasVirtualFolders",
+						"when": "view == gitlens.views.worktrees && !gitlens:hasVirtualFolders && !config.gitlens.views.worktrees.showStashes",
 						"group": "5_gitlens",
 						"order": 5
 					}
@@ -13049,7 +13049,7 @@
 				],
 				"editor/title": [
 					{
-						"when": "resource in gitlens:tabs:blameable && resource not in gitlens:tabs:annotated && config.gitlens.menus.editorGroup.blame && !config.gitlens.fileAnnotations.command && !gitlens:window:annotated",
+						"when": "resource in gitlens:tabs:blameable && resource not in gitlens:tabs:annotated && !gitlens:window:annotated && config.gitlens.menus.editorGroup.blame && !config.gitlens.fileAnnotations.command",
 						"group": "navigation",
 						"order": 100
 					}
@@ -13085,7 +13085,7 @@
 			"menus": {
 				"editor/context": [
 					{
-						"when": "resourceScheme in gitlens:schemes:trackable && editorTextFocus && config.gitlens.menus.editor.remote && gitlens:repos:withRemotes",
+						"when": "resourceScheme in gitlens:schemes:trackable && editorTextFocus && gitlens:repos:withRemotes && config.gitlens.menus.editor.remote",
 						"group": "1_z_gitlens_open",
 						"order": 2
 					}
@@ -13128,7 +13128,7 @@
 			"menus": {
 				"editor/lineNumber/context": [
 					{
-						"when": "resourceScheme in gitlens:schemes:trackable && config.gitlens.menus.editorGutter.remote && gitlens:repos:withRemotes",
+						"when": "resourceScheme in gitlens:schemes:trackable && gitlens:repos:withRemotes && config.gitlens.menus.editorGutter.remote",
 						"group": "3_gitlens",
 						"order": 2
 					}
@@ -13140,7 +13140,7 @@
 			"menus": {
 				"editor/lineNumber/context": [
 					{
-						"when": "resourceScheme in gitlens:schemes:trackable && config.gitlens.menus.editorGutter.share && gitlens:repos:withRemotes",
+						"when": "resourceScheme in gitlens:schemes:trackable && gitlens:repos:withRemotes && config.gitlens.menus.editorGutter.share",
 						"group": "2_gitlens",
 						"order": 2
 					}
@@ -13152,7 +13152,7 @@
 			"menus": {
 				"editor/title/context": [
 					{
-						"when": "resourceScheme in gitlens:schemes:trackable && gitlens:enabled && config.gitlens.menus.editorTab.remote && gitlens:repos:withRemotes",
+						"when": "resourceScheme in gitlens:schemes:trackable && gitlens:enabled && gitlens:repos:withRemotes && config.gitlens.menus.editorTab.remote",
 						"group": "2_a_gitlens_open",
 						"order": 2
 					}
@@ -13207,7 +13207,7 @@
 			"menus": {
 				"explorer/context": [
 					{
-						"when": "!explorerResourceIsRoot && gitlens:enabled && config.gitlens.menus.explorer.remote && gitlens:repos:withRemotes",
+						"when": "!explorerResourceIsRoot && gitlens:enabled && gitlens:repos:withRemotes && config.gitlens.menus.explorer.remote",
 						"group": "4_t_gitlens",
 						"order": 1
 					}
@@ -13322,7 +13322,7 @@
 			"menus": {
 				"scm/resourceState/context": [
 					{
-						"when": "scmResourceGroup =~ /^(workingTree|index|merge)$/ && scmProvider == git && gitlens:enabled && config.gitlens.menus.scmItem.remote && gitlens:repos:withRemotes",
+						"when": "scmResourceGroup =~ /^(workingTree|index|merge)$/ && scmProvider == git && gitlens:enabled && gitlens:repos:withRemotes && config.gitlens.menus.scmItem.remote",
 						"group": "navigation"
 					}
 				]
@@ -13392,7 +13392,7 @@
 			"menus": {
 				"view/title": [
 					{
-						"when": "view == gitlens.views.scm.grouped && gitlens:views:scm:grouped:view == branches && config.gitlens.views.scm.grouped.views.branches && !gitlens:views:scm:grouped:welcome",
+						"when": "view == gitlens.views.scm.grouped && gitlens:views:scm:grouped:view == branches && !gitlens:views:scm:grouped:welcome && config.gitlens.views.scm.grouped.views.branches",
 						"group": "navigation",
 						"order": 2
 					}
@@ -13405,7 +13405,7 @@
 			"menus": {
 				"view/title": [
 					{
-						"when": "view == gitlens.views.scm.grouped && gitlens:views:scm:grouped:view == commits && config.gitlens.views.scm.grouped.views.commits && !gitlens:views:scm:grouped:welcome",
+						"when": "view == gitlens.views.scm.grouped && gitlens:views:scm:grouped:view == commits && !gitlens:views:scm:grouped:welcome && config.gitlens.views.scm.grouped.views.commits",
 						"group": "navigation",
 						"order": 1
 					}
@@ -13418,7 +13418,7 @@
 			"menus": {
 				"view/title": [
 					{
-						"when": "view == gitlens.views.scm.grouped && gitlens:views:scm:grouped:view == contributors && config.gitlens.views.scm.grouped.views.contributors && !gitlens:views:scm:grouped:welcome",
+						"when": "view == gitlens.views.scm.grouped && gitlens:views:scm:grouped:view == contributors && !gitlens:views:scm:grouped:welcome && config.gitlens.views.scm.grouped.views.contributors",
 						"group": "navigation",
 						"order": 7
 					}
@@ -13443,7 +13443,7 @@
 			"menus": {
 				"view/title": [
 					{
-						"when": "view == gitlens.views.scm.grouped && gitlens:views:scm:grouped:view == launchpad && config.gitlens.views.scm.grouped.views.launchpad && !gitlens:views:scm:grouped:welcome",
+						"when": "view == gitlens.views.scm.grouped && gitlens:views:scm:grouped:view == launchpad && !gitlens:views:scm:grouped:welcome && config.gitlens.views.scm.grouped.views.launchpad",
 						"group": "navigation",
 						"order": 10
 					}
@@ -13532,7 +13532,7 @@
 			"menus": {
 				"view/title": [
 					{
-						"when": "view == gitlens.views.scm.grouped && gitlens:views:scm:grouped:view == remotes && config.gitlens.views.scm.grouped.views.remotes && !gitlens:views:scm:grouped:welcome",
+						"when": "view == gitlens.views.scm.grouped && gitlens:views:scm:grouped:view == remotes && !gitlens:views:scm:grouped:welcome && config.gitlens.views.scm.grouped.views.remotes",
 						"group": "navigation",
 						"order": 3
 					}
@@ -13545,7 +13545,7 @@
 			"menus": {
 				"view/title": [
 					{
-						"when": "view == gitlens.views.scm.grouped && gitlens:views:scm:grouped:view == repositories && config.gitlens.views.scm.grouped.views.repositories && !gitlens:views:scm:grouped:welcome",
+						"when": "view == gitlens.views.scm.grouped && gitlens:views:scm:grouped:view == repositories && !gitlens:views:scm:grouped:welcome && config.gitlens.views.scm.grouped.views.repositories",
 						"group": "navigation",
 						"order": 8
 					}
@@ -13558,7 +13558,7 @@
 			"menus": {
 				"view/title": [
 					{
-						"when": "view == gitlens.views.scm.grouped && gitlens:views:scm:grouped:view == searchAndCompare && config.gitlens.views.scm.grouped.views.searchAndCompare && !gitlens:views:scm:grouped:welcome",
+						"when": "view == gitlens.views.scm.grouped && gitlens:views:scm:grouped:view == searchAndCompare && !gitlens:views:scm:grouped:welcome && config.gitlens.views.scm.grouped.views.searchAndCompare",
 						"group": "navigation",
 						"order": 9
 					}
@@ -13571,7 +13571,7 @@
 			"menus": {
 				"view/title": [
 					{
-						"when": "view == gitlens.views.scm.grouped && gitlens:views:scm:grouped:view == stashes && config.gitlens.views.scm.grouped.views.stashes && !gitlens:hasVirtualFolders && !gitlens:views:scm:grouped:welcome",
+						"when": "view == gitlens.views.scm.grouped && gitlens:views:scm:grouped:view == stashes && !gitlens:hasVirtualFolders && !gitlens:views:scm:grouped:welcome && config.gitlens.views.scm.grouped.views.stashes",
 						"group": "navigation",
 						"order": 4
 					}
@@ -13584,7 +13584,7 @@
 			"menus": {
 				"view/title": [
 					{
-						"when": "view == gitlens.views.scm.grouped && gitlens:views:scm:grouped:view == tags && config.gitlens.views.scm.grouped.views.tags && !gitlens:views:scm:grouped:welcome",
+						"when": "view == gitlens.views.scm.grouped && gitlens:views:scm:grouped:view == tags && !gitlens:views:scm:grouped:welcome && config.gitlens.views.scm.grouped.views.tags",
 						"group": "navigation",
 						"order": 5
 					}
@@ -13609,7 +13609,7 @@
 			"menus": {
 				"view/title": [
 					{
-						"when": "view == gitlens.views.scm.grouped && gitlens:views:scm:grouped:view == worktrees && config.gitlens.views.scm.grouped.views.worktrees && gitlens:plus:enabled && !gitlens:hasVirtualFolders && !gitlens:views:scm:grouped:welcome",
+						"when": "view == gitlens.views.scm.grouped && gitlens:views:scm:grouped:view == worktrees && !gitlens:hasVirtualFolders && gitlens:plus:enabled && !gitlens:views:scm:grouped:welcome && config.gitlens.views.scm.grouped.views.worktrees",
 						"group": "navigation",
 						"order": 6
 					}

@@ -429,28 +429,48 @@ export class MenuSorter {
 }
 
 const configRegex = /^config\./;
+const contextRegex = /^gitlens:/;
+const orderedContextKeys = [
+	'gitlens:enabled',
+	'gitlens:readonly',
+	'gitlens:untrusted',
+	'gitlens:hasVirtualFolders',
+	contextRegex,
+	configRegex,
+];
 const orderedContextKeysByLocation = new Map<string, [primary: string[], ...(string | RegExp)[]]>([
-	[
-		'scm/resourceFolder/context',
-		[['scmResourceFolder'], 'scmResourceGroup', 'scmProvider', 'gitlens:enabled', configRegex],
-	],
-	['scm/resourceGroup/context', [['scmResourceGroup'], 'scmProvider', 'gitlens:enabled', configRegex]],
+	['scm/resourceFolder/context', [['scmResourceFolder'], 'scmResourceGroup', 'scmProvider', ...orderedContextKeys]],
+	['scm/resourceGroup/context', [['scmResourceGroup'], 'scmProvider', ...orderedContextKeys]],
 	[
 		'scm/resourceState/context',
-		[['scmResourceState'], 'scmResourceFolder', 'scmResourceGroup', 'scmProvider', 'gitlens:enabled', configRegex],
+		[['scmResourceState'], 'scmResourceFolder', 'scmResourceGroup', 'scmProvider', ...orderedContextKeys],
 	],
-	['scm/title', [['scmProvider'], 'gitlens:enabled', configRegex]],
-	['scm/sourceControl', [['scmProvider'], 'gitlens:enabled', configRegex]],
-	['timeline/title', [['timeline'], 'gitlens:enabled', configRegex]],
-	['timeline/item/context', [['timelineItem'], 'timeline', 'gitlens:enabled', configRegex]],
-	['view/title', [['view', 'gitlens:views:scm:grouped:view'], configRegex]],
-	['view/item/context', [['viewItem'], 'gitlens:views:scm:grouped:view', 'view', configRegex, 'listMultiSelection']],
-	['webview/context', [['webviewItem', 'webviewItems', 'webviewItemGroup'], configRegex, 'listMultiSelection']],
+	['scm/title', [['scmProvider'], ...orderedContextKeys]],
+	['timeline/title', [['timeline'], ...orderedContextKeys]],
+	['timeline/item/context', [['timelineItem'], 'timeline', ...orderedContextKeys]],
+	['view/title', [['view', 'gitlens:views:scm:grouped:view'], ...orderedContextKeys]],
 	[
-		'editor/',
-		[['activeWebviewPanelId', 'resourceScheme', 'resource'], 'editorTextFocus', 'gitlens:enabled', configRegex],
+		'view/item/context',
+		[
+			['viewItem'],
+			'gitlens:views:scm:grouped:view',
+			'view',
+			'listDoubleSelection',
+			'listMultiSelection',
+			...orderedContextKeys,
+		],
 	],
-	['explorer/', [[], 'explorerResourceIsRoot', 'explorerResourceIsFolder', 'gitlens:enabled', configRegex]],
+	[
+		'webview/context',
+		[
+			['webviewItem', 'webviewItems', 'webviewItemGroup'],
+			'listDoubleSelection',
+			'listMultiSelection',
+			...orderedContextKeys,
+		],
+	],
+	['editor/', [['activeWebviewPanelId', 'resourceScheme', 'resource'], 'editorTextFocus', ...orderedContextKeys]],
+	['explorer/', [[], 'explorerResourceIsRoot', 'explorerResourceIsFolder', ...orderedContextKeys]],
 	[
 		'gitlens/',
 		[
@@ -473,8 +493,9 @@ const orderedContextKeysByLocation = new Map<string, [primary: string[], ...(str
 			],
 			'explorerResourceIsRoot',
 			'explorerResourceIsFolder',
-			configRegex,
+			'listDoubleSelection',
 			'listMultiSelection',
+			...orderedContextKeys,
 		],
 	],
 ]);
