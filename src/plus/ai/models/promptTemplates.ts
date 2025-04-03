@@ -36,7 +36,7 @@ interface ExplainChangesPromptTemplateContext {
 
 interface RebasePromptTemplateContext {
 	diff: string;
-	commits: string;
+	commits?: string;
 	context?: string;
 	instructions?: string;
 }

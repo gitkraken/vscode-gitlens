@@ -408,9 +408,9 @@ Example ouput JSON:
 
 Based on the provided instructions above output only JSON and nothing else.`;
 
-export const generateRebaseUserPromptV2 = `You are an advanced AI programming assistant tasked with reorganizing a set of commit changes. Your goal is to create a new set of commits that are logically grouped, atomic, and easy to review. You will be working with code changes provided in a unified diff format.
+export const generateRebaseUserPromptV2 = `You are an advanced AI programming assistant tasked with reorganizing a set of commit changes. Your goal is to create a new set of commits that are related, grouped logically, atomic, and easy to review. You will be working with code changes provided in a unified diff format.
 
-First, examine the following unified Git diff of code changes:
+First, examine the following unified Git diff of code changes within each hunk:
 
 <unified_diff>
 \${diff}
@@ -463,6 +463,54 @@ Here's an example of the expected JSON structure (note that this is just a struc
 ]
 
 Remember to base your reorganization solely on the provided unified diff, commit list, and additional context. Do not introduce any new changes or modify the content of the hunks. Your task is to reorganize the existing changes in a more logical and reviewable manner.
+
+\${instructions}
+
+Now, proceed with your analysis and reorganization of the commits. Output only the JSON array containing the reorganized commits, and nothing else.`;
+
+export const generateRebaseUserPromptV3 = `You are an advanced AI programming assistant tasked with reorganizing a set of commit changes. Your goal is to create a new set of commits that are logically grouped, atomic, and easy to review. You will be working with code changes provided in a unified diff format.
+
+First, examine the following unified Git diff of code changes within each hunk:
+
+<unified_diff>
+\${diff}
+</unified_diff>
+
+Your task is to reorganize these changes into a new set of commits. Follow these guidelines:
+
+1. Only reorganize at the hunk level, not individual lines within hunks.
+2. Group changes into logical units that make sense together and can be applied atomically.
+3. Ensure each commit is self-contained and only depends on commits that come before it in the new history.
+4. Write meaningful commit messages that accurately describe the changes in each commit.
+5. Provide a detailed explanation of the changes in each commit.
+6. Make sure the new commit history is easy to review and understand.
+7. Verify that the new commit history is equivalent to the original. If all new commits were squashed, the resulting diff should match the input diff exactly.
+
+Output your new commit history as a JSON array. Each commit in the array should be an object with the following properties:
+- "message": A string containing the commit message.
+- "explanation": A string with a detailed explanation of the changes.
+- "hunks": An array of objects, each representing a hunk in the commit. Each hunk object should have:
+  - "hunk": The hunk header line from the unified diff.
+  - "diff": The diff header line for the file containing the hunk.
+
+Once you've completed your analysis, generate the JSON output following the specified format. Ensure that you only include the hunk header line in the "hunk" property and the diff header line in the "diff" property.
+
+Here's an example of the expected JSON structure (note that this is just a structural example and does not reflect the actual content you should produce):
+
+[
+  {
+    "message": "Example commit message",
+    "explanation": "Detailed explanation of the changes in this commit",
+    "hunks": [
+      {
+        "diff": "diff --git a/example/file.txt b/example/file.txt",
+        "hunk": "@@ -1,5 +1,5 @@"
+      }
+    ]
+  }
+]
+
+Remember to base your reorganization solely on the provided unified diff. Do not introduce any new changes or modify the content of the hunks. Your task is to reorganize the existing changes in a more logical and reviewable manner.
 
 \${instructions}
 

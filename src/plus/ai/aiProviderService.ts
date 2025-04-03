@@ -855,13 +855,13 @@ export class AIProviderService implements Disposable {
 
 				originalDiff = diff.contents;
 
-				const commits: { diff: string; message: string }[] = [];
-				for (const commit of [...log.commits.values()].sort((a, b) => a.date.getTime() - b.date.getTime())) {
-					const diff = await repo.git.diff().getDiff?.(commit.ref);
-					commits.push({ message: commit.message ?? commit.summary, diff: diff?.contents ?? '' });
+				// const commits: { diff: string; message: string }[] = [];
+				// for (const commit of [...log.commits.values()].sort((a, b) => a.date.getTime() - b.date.getTime())) {
+				// 	const diff = await repo.git.diff().getDiff?.(commit.ref);
+				// 	commits.push({ message: commit.message ?? commit.summary, diff: diff?.contents ?? '' });
 
-					if (cancellation.isCancellationRequested) throw new CancellationError();
-				}
+				// 	if (cancellation.isCancellationRequested) throw new CancellationError();
+				// }
 
 				const { prompt } = await resolvePrompt(
 					action,
@@ -869,7 +869,7 @@ export class AIProviderService implements Disposable {
 					promptTemplate,
 					{
 						diff: diff.contents,
-						commits: JSON.stringify(commits),
+						// commits: JSON.stringify(commits),
 						context: options?.context,
 						// instructions: configuration.get('ai.generateRebase.customInstructions'),
 					},
