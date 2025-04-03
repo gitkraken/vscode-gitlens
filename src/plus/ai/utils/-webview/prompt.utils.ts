@@ -15,6 +15,7 @@ import {
 	generatePullRequestMessageUserPrompt,
 	generateRebaseUserPrompt,
 	generateRebaseUserPromptV2,
+	generateRebaseUserPromptV3,
 	generateStashMessageUserPrompt,
 } from '../../prompts';
 import { estimatedCharactersPerToken, showLargePromptWarning, showPromptTruncationWarning } from './ai.utils';
@@ -81,8 +82,13 @@ export function getLocalPromptTemplate<T extends AIActionType>(action: T, _model
 		case 'generate-rebase':
 			return {
 				name: 'Generate Rebase (Preview)',
-				template: generateRebaseUserPromptV2, //generateRebaseUserPrompt,
-				variables: ['diff', 'commits', 'context', 'instructions'],
+				template: generateRebaseUserPromptV3, //generateRebaseUserPrompt,
+				variables: [
+					'diff',
+					'commits',
+					'context',
+					'instructions',
+				] satisfies (keyof PromptTemplateContext<'generate-rebase'>)[],
 			};
 		case 'explain-changes':
 			return {
