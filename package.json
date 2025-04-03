@@ -58,6 +58,9 @@
 		"onWebviewPanel:gitlens.timeline",
 		"onStartupFinished"
 	],
+	"enabledApiProposals": [
+		"quickDiffProvider"
+	],
 	"capabilities": {
 		"virtualWorkspaces": true,
 		"untrustedWorkspaces": {
