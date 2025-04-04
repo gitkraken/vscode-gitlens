@@ -1220,9 +1220,9 @@ export class WorktreeGitCommand extends QuickCommand<State> {
 			try {
 				const patchProvider = this.container.git.patch(state.worktree.uri);
 				const commit = await patchProvider?.createUnreachableCommitForPatch(
-					state.changes.contents,
 					state.changes.baseSha,
 					'Copied Changes',
+					state.changes.contents,
 				);
 				if (commit == null) return;
 

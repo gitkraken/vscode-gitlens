@@ -1440,7 +1440,7 @@ export class PatchDetailsWebviewProvider
 				try {
 					const commit = await repo.git
 						.patch()
-						?.createUnreachableCommitForPatch(patch.contents!, baseRef, draft.title);
+						?.createUnreachableCommitForPatch(baseRef, draft.title, patch.contents!);
 					patch.commit = commit;
 				} catch (ex) {
 					if (baseRef != null) {
