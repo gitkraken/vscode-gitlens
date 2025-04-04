@@ -159,27 +159,60 @@ export class PatchGitSubProvider implements GitPatchSubProvider {
 		}
 	}
 
-	@log({ args: { 1: '<contents>', 3: '<message>' } })
+	@log({ args: { 2: '<message>', 3: '<patch>' } })
 	async createUnreachableCommitForPatch(
 		repoPath: string,
-		contents: string,
-		baseRef: string,
+		base: string,
 		message: string,
+		patch: string,
 	): Promise<GitCommit | undefined> {
-		const scope = getLogScope();
+		// Create a temporary index file
+		await using disposableIndex = await this.provider.staging!.createTemporaryIndex(repoPath, base);
+		const { env } = disposableIndex;
 
-		if (!contents.endsWith('\n')) {
-			contents += '\n';
+		const sha = await this.createUnreachableCommitForPatchCore(env, repoPath, base, message, patch);
+		// eslint-disable-next-line no-return-await -- await is needed for the disposableIndex to be disposed properly after
+		return await this.provider.commits.getCommit(repoPath, sha);
+	}
+
+	@log<PatchGitSubProvider['createUnreachableCommisFromPatches']>({ args: { 2: p => p.length } })
+	async createUnreachableCommisFromPatches(
+		repoPath: string,
+		base: string,
+		patches: { message: string; patch: string }[],
+	): Promise<string[]> {
+		// Create a temporary index file
+		await using disposableIndex = await this.provider.staging!.createTemporaryIndex(repoPath, base);
+		const { env } = disposableIndex;
+
+		const shas: string[] = [];
+
+		for (const { message, patch } of patches) {
+			const sha = await this.createUnreachableCommitForPatchCore(env, repoPath, base, message, patch);
+			shas.push(sha);
+			base = sha;
 		}
 
-		// Create a temporary index file
-		await using disposableIndex = await this.provider.staging!.createTemporaryIndex(repoPath, baseRef);
-		const { env } = disposableIndex;
+		return shas;
+	}
+
+	private async createUnreachableCommitForPatchCore(
+		env: Record<string, any>,
+		repoPath: string,
+		base: string,
+		message: string,
+		patch: string,
+	): Promise<string> {
+		const scope = getLogScope();
+
+		if (!patch.endsWith('\n')) {
+			patch += '\n';
+		}
 
 		try {
 			// Apply the patch to our temp index, without touching the working directory
 			await this.git.exec(
-				{ cwd: repoPath, configs: gitLogDefaultConfigs, env: env, stdin: contents },
+				{ cwd: repoPath, configs: gitLogDefaultConfigs, env: env, stdin: patch },
 				'apply',
 				'--cached',
 				'-',
@@ -206,13 +239,13 @@ export class PatchGitSubProvider implements GitPatchSubProvider {
 					'commit-tree',
 					tree,
 					'-p',
-					baseRef,
+					base,
 					'-m',
 					message,
 				)
 			)?.trim();
 
-			return await this.provider.commits.getCommit(repoPath, sha);
+			return sha;
 		} catch (ex) {
 			Logger.error(ex, scope);
 			debugger;
