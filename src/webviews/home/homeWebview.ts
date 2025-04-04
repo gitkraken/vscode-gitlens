@@ -1201,7 +1201,9 @@ export class HomeWebviewProvider implements WebviewProvider<State, State, HomeWe
 		const { repo, branch } = await this.getRepoInfoFromRef(ref);
 		if (branch == null) return;
 
-		if (branch.current && mergeTarget != null && (!branch.worktree || branch.worktree.isDefault)) {
+		const worktree = branch.worktree === false ? undefined : branch.worktree ?? (await branch.getWorktree());
+
+		if (branch.current && mergeTarget != null && (!worktree || worktree.isDefault)) {
 			const mergeTargetLocalBranchName = getBranchNameWithoutRemote(mergeTarget.branchName);
 			const confirm = await window.showWarningMessage(
 				`Before deleting the current branch '${branch.name}', you will be switched to '${mergeTargetLocalBranchName}'.`,
@@ -1221,7 +1223,7 @@ export class HomeWebviewProvider implements WebviewProvider<State, State, HomeWe
 					references: branch,
 				},
 			});
-		} else if (repo != null && branch?.worktree != null && !branch.worktree.isDefault) {
+		} else if (repo != null && worktree != null && !worktree.isDefault) {
 			const commonRepo = await repo.getCommonRepository();
 			const defaultWorktree = await repo.git.worktrees?.()?.getWorktree(w => w.isDefault);
 			if (defaultWorktree == null || commonRepo == null) return;

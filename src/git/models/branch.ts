@@ -48,7 +48,7 @@ export class GitBranch implements GitBranchReference {
 		public readonly date: Date | undefined,
 		public readonly sha?: string,
 		public readonly upstream?: GitTrackingUpstream,
-		public readonly worktree?: { path: string; isDefault: boolean },
+		public readonly worktree?: { path: string; isDefault: boolean } | false,
 		detached: boolean = false,
 		public readonly rebasing: boolean = false,
 	) {
@@ -178,10 +178,14 @@ export class GitBranch implements GitBranchReference {
 
 	@debug()
 	async getWorktree(): Promise<GitWorktree | undefined> {
-		if (this.worktree == null) return undefined;
+		if (this.worktree === false) return undefined;
+		if (this.worktree == null) {
+			const { id } = this;
+			return this.container.git.worktrees(this.repoPath)?.getWorktree(wt => wt.branch?.id === id);
+		}
 
-		const worktreePath = this.worktree.path;
-		return this.container.git.worktrees(this.repoPath)?.getWorktree(wt => wt.path === worktreePath);
+		const { path } = this.worktree;
+		return this.container.git.worktrees(this.repoPath)?.getWorktree(wt => wt.path === path);
 	}
 
 	get starred(): boolean {
