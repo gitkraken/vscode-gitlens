@@ -8,7 +8,7 @@ import type { GitCommitsSubProvider, LeftRightCommitCountResult } from '../../..
 import { GitUri } from '../../../../git/gitUri';
 import type { GitBlame } from '../../../../git/models/blame';
 import type { GitCommit, GitStashCommit } from '../../../../git/models/commit';
-import type { GitDiffFile } from '../../../../git/models/diff';
+import type { ParsedGitDiffHunks } from '../../../../git/models/diff';
 import type { GitFile } from '../../../../git/models/file';
 import { GitFileChange } from '../../../../git/models/fileChange';
 import type { GitFileStatus } from '../../../../git/models/fileStatus';
@@ -44,7 +44,7 @@ import type { Git } from '../git';
 import { gitLogDefaultConfigs, gitLogDefaultConfigsWithFiles } from '../git';
 import type { LocalGitProvider } from '../localGitProvider';
 
-const emptyPromise: Promise<GitBlame | GitDiffFile | GitLog | undefined> = Promise.resolve(undefined);
+const emptyPromise: Promise<GitBlame | ParsedGitDiffHunks | GitLog | undefined> = Promise.resolve(undefined);
 const reflogCommands = ['merge', 'pull'];
 
 export class CommitsGitSubProvider implements GitCommitsSubProvider {

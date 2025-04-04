@@ -16,9 +16,7 @@ import type { GitLog } from '../models/log';
 import { uncommitted } from '../models/revision';
 import type { GitUser } from '../models/user';
 import { isUserMatch } from '../utils/user.utils';
-
-const diffRegex = /diff --git a\/(.*) b\/(.*)/;
-const diffRangeRegex = /^@@ -(\d+?),(\d+?) \+(\d+?),(\d+?) @@/;
+import { diffHunkRegex, diffRegex } from './diffParser';
 
 export const fileStatusRegex = /(\S)\S*\t([^\t\n]+)(?:\t(.+))?/;
 const fileStatusAndSummaryRegex = /^(\d+?|-)\s+?(\d+?|-)\s+?(.*)(?:\n\s(delete|rename|copy|create))?/;
@@ -735,7 +733,7 @@ export function parseGitLog(
 							void lines.next();
 							next = lines.next();
 
-							match = diffRangeRegex.exec(next.value);
+							match = diffHunkRegex.exec(next.value);
 							if (match !== null) {
 								entry.line = {
 									sha: entry.sha!,

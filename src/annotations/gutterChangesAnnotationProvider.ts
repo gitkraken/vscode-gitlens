@@ -2,7 +2,7 @@ import type { CancellationToken, DecorationOptions, Disposable, TextDocument, Te
 import { Hover, languages, Position, Range, Selection, TextEditorRevealType } from 'vscode';
 import type { Container } from '../container';
 import type { GitCommit } from '../git/models/commit';
-import type { GitDiffFile } from '../git/models/diff';
+import type { ParsedGitDiffHunks } from '../git/models/diff';
 import { localChangesMessage } from '../hovers/hovers';
 import { configuration } from '../system/-webview/configuration';
 import { log } from '../system/decorators/log';
@@ -25,7 +25,7 @@ export interface ChangesAnnotationContext extends AnnotationContext {
 export class GutterChangesAnnotationProvider extends AnnotationProviderBase<ChangesAnnotationContext> {
 	private hoverProviderDisposable: Disposable | undefined;
 	private sortedHunkStarts: number[] | undefined;
-	private state: { commit: GitCommit | undefined; diffs: GitDiffFile[] } | undefined;
+	private state: { commit: GitCommit | undefined; diffs: ParsedGitDiffHunks[] } | undefined;
 
 	constructor(
 		container: Container,

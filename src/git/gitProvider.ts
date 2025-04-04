@@ -11,7 +11,14 @@ import type { GitBlame, GitBlameLine } from './models/blame';
 import type { GitBranch } from './models/branch';
 import type { GitCommit, GitCommitStats } from './models/commit';
 import type { GitContributor, GitContributorsStats } from './models/contributor';
-import type { GitDiff, GitDiffFile, GitDiffFiles, GitDiffFilter, GitDiffLine, GitDiffShortStat } from './models/diff';
+import type {
+	GitDiff,
+	GitDiffFiles,
+	GitDiffFilter,
+	GitDiffShortStat,
+	GitLineDiff,
+	ParsedGitDiffHunks,
+} from './models/diff';
 import type { GitFile } from './models/file';
 import type { GitFileChange } from './models/fileChange';
 import type { GitGraph } from './models/graph';
@@ -750,14 +757,14 @@ export interface GitProvider extends GitRepositoryProvider, Disposable {
 	 * @param ref1 Commit to diff from
 	 * @param ref2 Commit to diff to
 	 */
-	getDiffForFile(uri: GitUri, ref1: string | undefined, ref2?: string): Promise<GitDiffFile | undefined>;
+	getDiffForFile(uri: GitUri, ref1: string | undefined, ref2?: string): Promise<ParsedGitDiffHunks | undefined>;
 	/**
 	 * Returns a file diff between a commit and the specified contents
 	 * @param uri Uri of the file to diff
 	 * @param ref Commit to diff from
 	 * @param contents Contents to use for the diff
 	 */
-	getDiffForFileContents(uri: GitUri, ref: string, contents: string): Promise<GitDiffFile | undefined>;
+	getDiffForFileContents(uri: GitUri, ref: string, contents: string): Promise<ParsedGitDiffHunks | undefined>;
 	/**
 	 * Returns a line diff between two commits
 	 * @param uri Uri of the file to diff
@@ -770,7 +777,7 @@ export interface GitProvider extends GitRepositoryProvider, Disposable {
 		editorLine: number,
 		ref1: string | undefined,
 		ref2?: string,
-	): Promise<GitDiffLine | undefined>;
+	): Promise<GitLineDiff | undefined>;
 	hasUnsafeRepositories?(): boolean;
 	isTrackable(uri: Uri): boolean;
 	isTracked(uri: Uri): Promise<boolean>;

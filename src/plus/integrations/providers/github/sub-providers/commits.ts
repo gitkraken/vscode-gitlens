@@ -6,7 +6,7 @@ import type { GitCache } from '../../../../../git/cache';
 import type { GitCommitsSubProvider, LeftRightCommitCountResult } from '../../../../../git/gitProvider';
 import { GitUri } from '../../../../../git/gitUri';
 import { GitCommit, GitCommitIdentity } from '../../../../../git/models/commit';
-import type { GitDiffFile } from '../../../../../git/models/diff';
+import type { ParsedGitDiffHunks } from '../../../../../git/models/diff';
 import type { GitFile } from '../../../../../git/models/file';
 import { GitFileChange } from '../../../../../git/models/fileChange';
 import { GitFileIndexStatus } from '../../../../../git/models/fileStatus';
@@ -30,7 +30,7 @@ import { stripOrigin } from '../githubGitProvider';
 import { fromCommitFileStatus } from '../models';
 import { getQueryArgsFromSearchQuery } from '../utils/-webview/search.utils';
 
-const emptyPromise: Promise<GitBlame | GitDiffFile | GitLog | undefined> = Promise.resolve(undefined);
+const emptyPromise: Promise<GitBlame | ParsedGitDiffHunks | GitLog | undefined> = Promise.resolve(undefined);
 
 export class CommitsGitSubProvider implements GitCommitsSubProvider {
 	constructor(

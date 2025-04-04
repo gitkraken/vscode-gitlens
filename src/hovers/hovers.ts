@@ -8,7 +8,7 @@ import type { Container } from '../container';
 import { CommitFormatter } from '../git/formatters/commitFormatter';
 import { GitUri } from '../git/gitUri';
 import type { GitCommit } from '../git/models/commit';
-import type { GitDiffHunk, GitDiffLine } from '../git/models/diff';
+import type { GitLineDiff, ParsedGitDiffHunk } from '../git/models/diff';
 import type { PullRequest } from '../git/models/pullRequest';
 import type { GitRemote } from '../git/models/remote';
 import { uncommittedStaged } from '../git/models/revision';
@@ -147,7 +147,7 @@ export async function localChangesMessage(
 	fromCommit: GitCommit | undefined,
 	uri: GitUri,
 	editorLine: number, // 0-based, Git is 1-based
-	hunk: GitDiffHunk,
+	hunk: ParsedGitDiffHunk,
 ): Promise<MarkdownString | undefined> {
 	const diff = getDiffFromHunk(hunk);
 
@@ -303,11 +303,11 @@ export async function detailsMessage(
 	return markdown;
 }
 
-function getDiffFromHunk(hunk: GitDiffHunk): string {
+function getDiffFromHunk(hunk: ParsedGitDiffHunk): string {
 	return `\`\`\`diff\n${hunk.contents.trim()}\n\`\`\``;
 }
 
-function getDiffFromLine(lineDiff: GitDiffLine, diffStyle?: 'line' | 'hunk'): string {
+function getDiffFromLine(lineDiff: GitLineDiff, diffStyle?: 'line' | 'hunk'): string {
 	if (diffStyle === 'hunk' || (diffStyle == null && configuration.get('hovers.changesDiff') === 'hunk')) {
 		return getDiffFromHunk(lineDiff.hunk);
 	}
