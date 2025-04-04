@@ -1,11 +1,11 @@
 import type { StoredFeaturePreviewUsagePeriod } from './constants.storage';
 import { proFeaturePreviewUsageDurationInDays, proFeaturePreviewUsages } from './constants.subscription';
 import type { RepositoryVisibility } from './git/gitProvider';
-import type { RequiredSubscriptionPlanIds, Subscription } from './plus/gk/models/subscription';
+import type { RequiredSubscriptionPlans, Subscription } from './plus/gk/models/subscription';
 import { capitalize } from './system/string';
 
 // GitFeature's must start with `git:` to be recognized in all usages
-export type GitFeatures =
+export type GitFeature =
 	| 'git:for-each-ref:worktreePath'
 	| 'git:ignoreRevsFile'
 	| 'git:merge-tree'
@@ -16,20 +16,11 @@ export type GitFeatures =
 	| 'git:stash:push:stdin'
 	| 'git:status:find-renames'
 	| 'git:status:porcelain-v2'
-	| 'git:worktrees';
+	| 'git:worktrees'
+	| 'git:worktrees:delete'
+	| 'git:worktrees:list';
 
-type ExtractPrefix<T> = T extends `${infer Prefix}:${infer Rest}`
-	? Rest extends `${infer SubPrefix}:${string}`
-		? T | `${Prefix}:${SubPrefix}` | Prefix
-		: T | Prefix
-	: never;
-
-export type GitFeatureOrPrefix = ExtractPrefix<GitFeatures>;
-export type FilteredGitFeatures<T extends GitFeatureOrPrefix> = T extends GitFeatures
-	? T
-	: Extract<GitFeatures, T | `${T}:${string}`>;
-
-export const gitFeaturesByVersion = new Map<GitFeatures, string>([
+export const gitFeaturesByVersion = new Map<GitFeature, string>([
 	['git:for-each-ref:worktreePath', '2.23'],
 	['git:ignoreRevsFile', '2.23'],
 	['git:merge-tree', '2.33'],
@@ -41,9 +32,11 @@ export const gitFeaturesByVersion = new Map<GitFeatures, string>([
 	['git:status:find-renames', '2.18'],
 	['git:status:porcelain-v2', '2.11'],
 	['git:worktrees', '2.17.0'],
+	['git:worktrees:delete', '2.17.0'],
+	['git:worktrees:list', '2.7.6'],
 ]);
 
-export type Features = 'stashes' | 'timeline' | GitFeatures;
+export type Features = 'stashes' | 'timeline' | GitFeature;
 
 export type FeatureAccess =
 	| {
@@ -53,7 +46,7 @@ export type FeatureAccess =
 	  }
 	| {
 			allowed: false | 'mixed';
-			subscription: { current: Subscription; required?: RequiredSubscriptionPlanIds };
+			subscription: { current: Subscription; required?: RequiredSubscriptionPlans };
 			visibility?: RepositoryVisibility;
 	  };
 
@@ -65,7 +58,7 @@ export type RepoFeatureAccess =
 	  }
 	| {
 			allowed: false;
-			subscription: { current: Subscription; required?: RequiredSubscriptionPlanIds };
+			subscription: { current: Subscription; required?: RequiredSubscriptionPlans };
 			visibility?: RepositoryVisibility;
 	  };
 
@@ -86,7 +79,7 @@ export type ProAIFeatures =
 	| 'generate-stashMessage';
 
 export type AdvancedFeatures = AdvancedAIFeatures;
-export type AdvancedAIFeatures = 'generate-changelog' | 'generate-create-pullRequest' | 'generate-rebase';
+export type AdvancedAIFeatures = 'generate-changelog' | 'generate-create-pullRequest';
 
 export type AIFeatures = 'generate-commitMessage' | ProAIFeatures | AdvancedAIFeatures;
 

@@ -1,6 +1,5 @@
-import type { CancellationToken } from 'vscode';
+import type { GitConfigKeys } from '../../../../constants';
 import type { Container } from '../../../../container';
-import { CancellationError, isCancellationError } from '../../../../errors';
 import type { GitCache } from '../../../../git/cache';
 import { GitErrorHandling } from '../../../../git/commandOptions';
 import type {
@@ -15,7 +14,6 @@ import type { MergeConflict } from '../../../../git/models/mergeConflict';
 import type { GitBranchReference } from '../../../../git/models/reference';
 import { parseMergeTreeConflict } from '../../../../git/parsers/mergeTreeParser';
 import { getBranchParser } from '../../../../git/parsers/refParser';
-import { getBranchMergeTargetName } from '../../../../git/utils/-webview/branch.utils';
 import { getReferenceFromBranch } from '../../../../git/utils/-webview/reference.utils';
 import type { BranchSortOptions } from '../../../../git/utils/-webview/sorting';
 import { sortBranches, sortContributors } from '../../../../git/utils/-webview/sorting';
@@ -39,8 +37,9 @@ import { normalizePath } from '../../../../system/path';
 import { getSettledValue } from '../../../../system/promise';
 import { maybeStopWatch } from '../../../../system/stopwatch';
 import type { Git } from '../git';
-import { gitConfigsLog, GitError, GitErrors } from '../git';
+import { GitErrors, gitLogDefaultConfigs } from '../git';
 import type { LocalGitProvider } from '../localGitProvider';
+import { RunError } from '../shell';
 
 const emptyPagedResult: PagedResult<any> = Object.freeze({ values: [] });
 
@@ -53,11 +52,11 @@ export class BranchesGitSubProvider implements GitBranchesSubProvider {
 	) {}
 
 	@log()
-	async getBranch(repoPath: string, name?: string, cancellation?: CancellationToken): Promise<GitBranch | undefined> {
+	async getBranch(repoPath: string, name?: string): Promise<GitBranch | undefined> {
 		if (name != null) {
 			const {
 				values: [branch],
-			} = await this.getBranches(repoPath, { filter: b => b.name === name }, cancellation);
+			} = await this.getBranches(repoPath, { filter: b => b.name === name });
 			return branch;
 		}
 
@@ -66,8 +65,8 @@ export class BranchesGitSubProvider implements GitBranchesSubProvider {
 			async function load(this: BranchesGitSubProvider): Promise<GitBranch | undefined> {
 				const {
 					values: [branch],
-				} = await this.getBranches(repoPath, { filter: b => b.current }, cancellation);
-				return branch ?? this.getCurrentBranch(repoPath, cancellation);
+				} = await this.getBranches(repoPath, { filter: b => b.current });
+				return branch ?? this.getCurrentBranch(repoPath);
 			}
 
 			branchPromise = load.call(this);
@@ -77,31 +76,24 @@ export class BranchesGitSubProvider implements GitBranchesSubProvider {
 		return branchPromise;
 	}
 
-	private async getCurrentBranch(repoPath: string, cancellation?: CancellationToken): Promise<GitBranch | undefined> {
-		const ref = await this.getCurrentBranchReferenceCore(repoPath, cancellation);
+	private async getCurrentBranch(repoPath: string): Promise<GitBranch | undefined> {
+		const ref = await this.getCurrentBranchReferenceCore(repoPath);
 		if (ref == null) return undefined;
 
 		const commitOrdering = configuration.get('advanced.commitOrdering');
 
 		const [pausedOpStatusResult, committerDateResult, defaultWorktreePathResult] = await Promise.allSettled([
-			isDetachedHead(ref.name)
-				? this.provider.status?.getPausedOperationStatus(repoPath, cancellation)
-				: undefined,
+			isDetachedHead(ref.name) ? this.provider.status?.getPausedOperationStatus(repoPath) : undefined,
 			this.git
 				.exec(
-					{
-						cwd: repoPath,
-						cancellation: cancellation,
-						configs: gitConfigsLog,
-						errors: GitErrorHandling.Ignore,
-					},
+					{ cwd: repoPath, configs: gitLogDefaultConfigs, errors: GitErrorHandling.Ignore },
 					'log',
 					'-n1',
 					'--format=%ct',
 					commitOrdering ? `--${commitOrdering}-order` : undefined,
 					'--',
 				)
-				.then(result => (result.stdout ? result.stdout.trim() : undefined)),
+				.then(data => (!data.length ? undefined : data.trim())),
 			this.provider.config.getDefaultWorktreePath?.(repoPath),
 		]);
 
@@ -109,8 +101,6 @@ export class BranchesGitSubProvider implements GitBranchesSubProvider {
 		const pausedOpStatus = getSettledValue(pausedOpStatusResult);
 		const rebaseStatus = pausedOpStatus?.type === 'rebase' ? pausedOpStatus : undefined;
 		const defaultWorktreePath = getSettledValue(defaultWorktreePathResult);
-
-		if (cancellation?.isCancellationRequested) throw new CancellationError();
 
 		return new GitBranch(
 			this.container,
@@ -134,7 +124,6 @@ export class BranchesGitSubProvider implements GitBranchesSubProvider {
 			paging?: PagingOptions;
 			sort?: boolean | BranchSortOptions;
 		},
-		cancellation?: CancellationToken,
 	): Promise<PagedResult<GitBranch>> {
 		if (repoPath == null) return emptyPagedResult;
 
@@ -144,19 +133,18 @@ export class BranchesGitSubProvider implements GitBranchesSubProvider {
 		if (resultsPromise == null) {
 			async function load(this: BranchesGitSubProvider): Promise<PagedResult<GitBranch>> {
 				try {
-					const supported = await this.git.supported('git:for-each-ref');
-					const parser = getBranchParser(supported);
+					const parser = getBranchParser(await this.git.supports('git:for-each-ref:worktreePath'));
 
-					const result = await this.git.exec(
-						{ cwd: repoPath, cancellation: cancellation },
+					const data = await this.git.exec(
+						{ cwd: repoPath },
 						'for-each-ref',
 						...parser.arguments,
 						'refs/heads/',
 						'refs/remotes/',
 					);
 					// If we don't get any data, assume the repo doesn't have any commits yet so check if we have a current branch
-					if (!result.stdout) {
-						const current = await this.getCurrentBranch(repoPath, cancellation);
+					if (!data?.length) {
+						const current = await this.getCurrentBranch(repoPath);
 						return current != null ? { values: [current] } : emptyPagedResult;
 					}
 
@@ -168,7 +156,7 @@ export class BranchesGitSubProvider implements GitBranchesSubProvider {
 
 					let hasCurrent = false;
 
-					for (const entry of parser.parse(result.stdout)) {
+					for (const entry of parser.parse(data)) {
 						// Skip HEAD refs in remote branches
 						if (isRemoteHEAD(entry.name)) continue;
 
@@ -190,10 +178,11 @@ export class BranchesGitSubProvider implements GitBranchesSubProvider {
 								entry.date ? new Date(entry.date) : undefined,
 								entry.sha,
 								upstream,
-								supported.includes('git:for-each-ref:worktreePath')
-									? worktreePath
-										? { path: worktreePath, isDefault: worktreePath === defaultWorktreePath }
-										: false
+								worktreePath
+									? {
+											path: worktreePath,
+											isDefault: worktreePath === defaultWorktreePath,
+									  }
 									: undefined,
 							),
 						);
@@ -205,7 +194,7 @@ export class BranchesGitSubProvider implements GitBranchesSubProvider {
 
 					// If we don't have a current branch, check if we can find it another way (likely detached head)
 					if (!hasCurrent) {
-						const current = await this.getCurrentBranch(repoPath, cancellation);
+						const current = await this.getCurrentBranch(repoPath);
 						if (current != null) {
 							// replace the current branch if it already exists and add it first if not
 							const index = branches.findIndex(b => b.id === current.id);
@@ -217,9 +206,8 @@ export class BranchesGitSubProvider implements GitBranchesSubProvider {
 						}
 					}
 					return { values: branches };
-				} catch (ex) {
+				} catch (_ex) {
 					this.cache.branches?.delete(repoPath);
-					if (isCancellationError(ex)) throw ex;
 
 					return emptyPagedResult;
 				}
@@ -251,39 +239,28 @@ export class BranchesGitSubProvider implements GitBranchesSubProvider {
 	async getBranchContributionsOverview(
 		repoPath: string,
 		ref: string,
-		cancellation?: CancellationToken,
 	): Promise<BranchContributionsOverview | undefined> {
 		const scope = getLogScope();
 
 		try {
-			const branch = await this.getBranch(repoPath, ref, cancellation);
-			if (branch == null) return undefined;
+			let baseOrTargetBranch = await this.getBaseBranchName(repoPath, ref);
+			// If the base looks like its remote branch, look for the target or default
+			if (baseOrTargetBranch == null || baseOrTargetBranch.endsWith(`/${ref}`)) {
+				baseOrTargetBranch = await this.getTargetBranchName(repoPath, ref);
+				baseOrTargetBranch ??= await this.getDefaultBranchName(repoPath);
+				if (baseOrTargetBranch == null) return undefined;
+			}
 
-			const mergeTargetResult = await getBranchMergeTargetName(this.container, branch, {
-				cancellation: cancellation,
-			});
-			if (mergeTargetResult.paused) return undefined;
-
-			const mergeTarget = mergeTargetResult.value;
-			if (mergeTarget == null) return undefined;
-
-			const mergeBase = await this.provider.refs.getMergeBase(
-				repoPath,
-				ref,
-				mergeTarget,
-				undefined,
-				cancellation,
-			);
+			const mergeBase = await this.provider.refs.getMergeBase(repoPath, ref, baseOrTargetBranch);
 			if (mergeBase == null) return undefined;
 
-			const result = await this.provider.contributors.getContributors(
+			const contributors = await this.provider.contributors.getContributors(
 				repoPath,
 				createRevisionRange(mergeBase, ref, '..'),
 				{ stats: true },
-				cancellation,
 			);
 
-			sortContributors(result.contributors, { orderBy: 'score:desc' });
+			sortContributors(contributors, { orderBy: 'score:desc' });
 
 			let totalCommits = 0;
 			let totalFiles = 0;
@@ -292,8 +269,8 @@ export class BranchesGitSubProvider implements GitBranchesSubProvider {
 			let firstCommitTimestamp;
 			let latestCommitTimestamp;
 
-			for (const c of result.contributors) {
-				totalCommits += c.contributionCount;
+			for (const c of contributors) {
+				totalCommits += c.commits;
 				totalFiles += c.stats?.files ?? 0;
 				totalAdditions += c.stats?.additions ?? 0;
 				totalDeletions += c.stats?.deletions ?? 0;
@@ -317,7 +294,7 @@ export class BranchesGitSubProvider implements GitBranchesSubProvider {
 			return {
 				repoPath: repoPath,
 				branch: ref,
-				mergeTarget: mergeTarget,
+				baseOrTargetBranch: baseOrTargetBranch,
 				mergeBase: mergeBase,
 
 				commits: totalCommits,
@@ -328,12 +305,10 @@ export class BranchesGitSubProvider implements GitBranchesSubProvider {
 				latestCommitDate: latestCommitTimestamp != null ? new Date(latestCommitTimestamp) : undefined,
 				firstCommitDate: firstCommitTimestamp != null ? new Date(firstCommitTimestamp) : undefined,
 
-				contributors: result.contributors,
+				contributors: contributors,
 			};
 		} catch (ex) {
 			Logger.error(ex, scope);
-			if (isCancellationError(ex)) throw ex;
-
 			return undefined;
 		}
 	}
@@ -346,36 +321,25 @@ export class BranchesGitSubProvider implements GitBranchesSubProvider {
 		options?:
 			| { all?: boolean; commitDate?: Date; mode?: 'contains' | 'pointsAt' }
 			| { commitDate?: Date; mode?: 'contains' | 'pointsAt'; remotes?: boolean },
-		cancellation?: CancellationToken,
 	): Promise<string[]> {
 		if (branch != null) {
-			const result = await this.git.branchOrTag__containsOrPointsAt(
-				repoPath,
-				commits,
-				{ type: 'branch', mode: 'contains', name: branch },
-				cancellation,
-			);
-			const data = result.stdout.trim();
-			return data ? [data] : [];
+			const data = await this.git.branchOrTag__containsOrPointsAt(repoPath, commits, {
+				type: 'branch',
+				mode: 'contains',
+				name: branch,
+			});
+			return data ? [data?.trim()] : [];
 		}
 
-		const result = await this.git.branchOrTag__containsOrPointsAt(
-			repoPath,
-			commits,
-			{ type: 'branch', ...options },
-			cancellation,
-		);
-		if (!result.stdout) return [];
+		const data = await this.git.branchOrTag__containsOrPointsAt(repoPath, commits, { type: 'branch', ...options });
+		if (!data) return [];
 
-		return filterMap(result.stdout.split('\n'), b => b.trim() || undefined);
+		return filterMap(data.split('\n'), b => b.trim() || undefined);
 	}
 
 	@log()
-	async getCurrentBranchReference(
-		repoPath: string,
-		cancellation?: CancellationToken,
-	): Promise<GitBranchReference | undefined> {
-		let ref = await this.getCurrentBranchReferenceCore(repoPath, cancellation);
+	async getCurrentBranchReference(repoPath: string): Promise<GitBranchReference | undefined> {
+		let ref = await this.getCurrentBranchReferenceCore(repoPath);
 		if (ref != null && isDetachedHead(ref.name)) {
 			ref = createReference(ref.sha!, repoPath, {
 				refType: 'branch',
@@ -389,13 +353,10 @@ export class BranchesGitSubProvider implements GitBranchesSubProvider {
 		return ref;
 	}
 
-	private async getCurrentBranchReferenceCore(
-		repoPath: string,
-		cancellation?: CancellationToken,
-	): Promise<GitBranchReference | undefined> {
+	private async getCurrentBranchReferenceCore(repoPath: string): Promise<GitBranchReference | undefined> {
 		const commitOrdering = configuration.get('advanced.commitOrdering');
 
-		const data = await this.git.rev_parse__currentBranch(repoPath, commitOrdering, cancellation);
+		const data = await this.git.rev_parse__currentBranch(repoPath, commitOrdering);
 		if (data == null) return undefined;
 
 		const [name, upstream] = data[0].split('\n');
@@ -411,11 +372,7 @@ export class BranchesGitSubProvider implements GitBranchesSubProvider {
 	}
 
 	@log({ exit: true })
-	async getDefaultBranchName(
-		repoPath: string | undefined,
-		remote?: string,
-		cancellation?: CancellationToken,
-	): Promise<string | undefined> {
+	async getDefaultBranchName(repoPath: string | undefined, remote?: string): Promise<string | undefined> {
 		if (repoPath == null) return undefined;
 
 		remote ??= 'origin';
@@ -424,7 +381,7 @@ export class BranchesGitSubProvider implements GitBranchesSubProvider {
 		let promise = cacheByRemote?.get(remote);
 		if (promise == null) {
 			async function load(this: BranchesGitSubProvider): Promise<string | undefined> {
-				return this.git.symbolic_ref__HEAD(repoPath!, remote!, cancellation);
+				return this.git.symbolic_ref__HEAD(repoPath!, remote!);
 			}
 
 			promise = load.call(this);
@@ -449,21 +406,20 @@ export class BranchesGitSubProvider implements GitBranchesSubProvider {
 		repoPath: string,
 		branch: GitBranchReference,
 		into: GitBranchReference,
-		cancellation?: CancellationToken,
 	): Promise<GitBranchMergedStatus> {
 		if (branch.name === into.name || branch.upstream?.name === into.name) {
 			return { merged: false };
 		}
 
-		const result = await this.getBranchMergedStatusCore(repoPath, branch, into, cancellation);
+		const result = await this.getBranchMergedStatusCore(repoPath, branch, into);
 		if (result.merged) return result;
 
 		// If the branch we are checking is a remote branch, check if it has been merged into its local branch (if there is one)
 		if (into.remote) {
-			const localIntoBranch = await this.getLocalBranchByUpstream(repoPath, into.name, cancellation);
+			const localIntoBranch = await this.getLocalBranchByUpstream(repoPath, into.name);
 			// If there is a local branch and it is not the branch we are checking, check if it has been merged into it
 			if (localIntoBranch != null && localIntoBranch.name !== branch.name) {
-				const result = await this.getBranchMergedStatusCore(repoPath, branch, localIntoBranch, cancellation);
+				const result = await this.getBranchMergedStatusCore(repoPath, branch, localIntoBranch);
 				if (result.merged) {
 					return {
 						...result,
@@ -480,7 +436,6 @@ export class BranchesGitSubProvider implements GitBranchesSubProvider {
 		repoPath: string,
 		branch: GitBranchReference,
 		into: GitBranchReference,
-		cancellation?: CancellationToken,
 	): Promise<Exclude<GitBranchMergedStatus, 'localBranchOnly'>> {
 		const scope = getLogScope();
 
@@ -488,30 +443,21 @@ export class BranchesGitSubProvider implements GitBranchesSubProvider {
 			// Check if branch is direct ancestor (handles FF merges)
 			try {
 				await this.git.exec(
-					{ cwd: repoPath, cancellation: cancellation, errors: GitErrorHandling.Throw },
+					{ cwd: repoPath, errors: GitErrorHandling.Throw },
 					'merge-base',
 					'--is-ancestor',
 					branch.name,
 					into.name,
 				);
 				return { merged: true, confidence: 'highest' };
-			} catch (ex) {
-				if (isCancellationError(ex)) throw ex;
-			}
+			} catch {}
 
 			// Cherry-pick detection (handles cherry-picks, rebases, etc)
-			let result = await this.git.exec(
-				{ cwd: repoPath, cancellation: cancellation },
-				'cherry',
-				'--abbrev',
-				'-v',
-				into.name,
-				branch.name,
-			);
+			let data = await this.git.exec({ cwd: repoPath }, 'cherry', '--abbrev', '-v', into.name, branch.name);
 			// Check if there are no lines or all lines startwith a `-` (i.e. likely merged)
 			if (
-				!result.stdout ||
-				result.stdout
+				!data ||
+				data
 					.trim()
 					.split('\n')
 					.every(l => l.startsWith('-'))
@@ -520,58 +466,37 @@ export class BranchesGitSubProvider implements GitBranchesSubProvider {
 			}
 
 			// Attempt to detect squash merges by checking if the diff of the branch can be cleanly removed from the target
-			const mergeBase = await this.provider.refs.getMergeBase(
-				repoPath,
-				into.name,
-				branch.name,
-				undefined,
-				cancellation,
-			);
-			result = await this.git.exec({ cwd: repoPath, cancellation: cancellation }, 'diff', mergeBase, branch.name);
-			if (result.stdout) {
+			const mergeBase = await this.provider.refs.getMergeBase(repoPath, into.name, branch.name);
+			data = await this.git.exec<string>({ cwd: repoPath }, 'diff', mergeBase, branch.name);
+			if (data?.length) {
 				// Create a temporary index file
 				await using disposableIndex = await this.provider.staging!.createTemporaryIndex(repoPath, into.name);
 				const { env } = disposableIndex;
 
-				result = await this.git.exec(
-					{
-						cwd: repoPath,
-						cancellation: cancellation,
-						env: env,
-						errors: GitErrorHandling.Ignore,
-						stdin: result.stdout,
-					},
+				data = await this.git.exec<string>(
+					{ cwd: repoPath, env: env, stdin: data },
 					'apply',
 					'--cached',
 					'--reverse',
 					'--check',
 					'-',
 				);
-
-				if (result.exitCode === 0 && !result.stdout.trim() && !result.stderr?.trim()) {
+				if (!data?.trim().length) {
 					return { merged: true, confidence: 'medium' };
 				}
 			}
 
 			return { merged: false };
 		} catch (ex) {
-			if (Logger.enabled('debug')) {
-				Logger.error(ex, scope);
-			}
-			if (isCancellationError(ex)) throw ex;
-
+			Logger.error(ex, scope);
 			return { merged: false };
 		}
 	}
 
 	@log()
-	async getLocalBranchByUpstream(
-		repoPath: string,
-		remoteBranchName: string,
-		cancellation?: CancellationToken,
-	): Promise<GitBranch | undefined> {
+	async getLocalBranchByUpstream(repoPath: string, remoteBranchName: string): Promise<GitBranch | undefined> {
 		const branches = new PageableResult<GitBranch>(p =>
-			this.getBranches(repoPath, p != null ? { paging: p } : undefined, cancellation),
+			this.getBranches(repoPath, p != null ? { paging: p } : undefined),
 		);
 		return getLocalBranchByUpstream(remoteBranchName, branches);
 	}
@@ -581,7 +506,6 @@ export class BranchesGitSubProvider implements GitBranchesSubProvider {
 		repoPath: string,
 		branch: string,
 		targetBranch: string,
-		cancellation?: CancellationToken,
 	): Promise<MergeConflict | undefined> {
 		const scope = getLogScope();
 
@@ -593,8 +517,8 @@ export class BranchesGitSubProvider implements GitBranchesSubProvider {
 
 			let data;
 			try {
-				const result = await this.git.exec(
-					{ cwd: repoPath, cancellation: cancellation, errors: GitErrorHandling.Throw },
+				data = await this.git.exec(
+					{ cwd: repoPath, errors: GitErrorHandling.Throw },
 					'merge-tree',
 					'-z',
 					'--name-only',
@@ -602,10 +526,7 @@ export class BranchesGitSubProvider implements GitBranchesSubProvider {
 					branch,
 					targetBranch,
 				);
-				data = result.stdout;
 			} catch (ex) {
-				if (isCancellationError(ex)) throw ex;
-
 				const msg: string = ex?.toString() ?? '';
 				if (GitErrors.notAValidObjectName.test(msg)) {
 					Logger.error(
@@ -621,7 +542,7 @@ export class BranchesGitSubProvider implements GitBranchesSubProvider {
 						scope,
 						`Unable to merge '${branch}' and '${targetBranch}' as they have no common ancestor`,
 					);
-				} else if (ex instanceof GitError) {
+				} else if (ex instanceof RunError) {
 					data = ex.stdout;
 				} else {
 					Logger.error(ex, scope);
@@ -646,11 +567,7 @@ export class BranchesGitSubProvider implements GitBranchesSubProvider {
 	}
 
 	@log({ exit: true })
-	async getBaseBranchName(
-		repoPath: string,
-		ref: string,
-		cancellation?: CancellationToken,
-	): Promise<string | undefined> {
+	async getBaseBranchName(repoPath: string, ref: string): Promise<string | undefined> {
 		try {
 			const pattern = `^branch\\.${ref}\\.`;
 			const data = await this.git.config__get_regex(pattern, repoPath);
@@ -679,7 +596,7 @@ export class BranchesGitSubProvider implements GitBranchesSubProvider {
 					const branch = await this.provider.refs.getSymbolicReferenceName(repoPath, mergeBase);
 					if (branch != null) {
 						if (update) {
-							void this.storeBaseBranchName(repoPath, ref, branch);
+							void this.setBaseBranchName(repoPath, ref, branch);
 						}
 						return branch;
 					}
@@ -687,30 +604,31 @@ export class BranchesGitSubProvider implements GitBranchesSubProvider {
 			}
 		} catch {}
 
-		const branch = await this.getBaseBranchFromReflog(repoPath, ref, { upstream: true }, cancellation);
+		const branch = await this.getBaseBranchFromReflog(repoPath, ref, { upstream: true });
 		if (branch != null) {
-			void this.storeBaseBranchName(repoPath, ref, branch);
+			void this.setBaseBranchName(repoPath, ref, branch);
 			return branch;
 		}
 
 		return undefined;
 	}
 
+	@log()
+	async setBaseBranchName(repoPath: string, ref: string, base: string): Promise<void> {
+		const mergeBaseConfigKey: GitConfigKeys = `branch.${ref}.gk-merge-base`;
+
+		await this.provider.config.setConfig(repoPath, mergeBaseConfigKey, base);
+	}
+
 	private async getBaseBranchFromReflog(
 		repoPath: string,
 		ref: string,
 		options?: { upstream: true },
-		cancellation?: CancellationToken,
 	): Promise<string | undefined> {
 		try {
-			let result = await this.git.exec(
-				{ cwd: repoPath, cancellation: cancellation },
-				'reflog',
-				ref,
-				'--grep-reflog=branch: Created from *.',
-			);
+			let data = await this.git.exec({ cwd: repoPath }, 'reflog', ref, '--grep-reflog=branch: Created from *.');
 
-			let entries = result.stdout.split('\n').filter(entry => Boolean(entry));
+			let entries = data.split('\n').filter(entry => Boolean(entry));
 			if (entries.length !== 1) return undefined;
 
 			// Check if branch created from an explicit branch
@@ -729,14 +647,14 @@ export class BranchesGitSubProvider implements GitBranchesSubProvider {
 			}
 
 			// Check if branch was created from HEAD
-			result = await this.git.exec(
-				{ cwd: repoPath, cancellation: cancellation },
+			data = await this.git.exec(
+				{ cwd: repoPath },
 				'reflog',
 				'HEAD',
 				`--grep-reflog=checkout: moving from .* to ${ref.replace('refs/heads/', '')}`,
 			);
 
-			entries = result.stdout.split('\n').filter(entry => Boolean(entry));
+			entries = data.split('\n').filter(entry => Boolean(entry));
 			if (!entries.length) return undefined;
 
 			match = entries[entries.length - 1].match(/checkout: moving from ([^\s]+)\s/);
@@ -750,52 +668,31 @@ export class BranchesGitSubProvider implements GitBranchesSubProvider {
 				name = await this.provider.refs.getSymbolicReferenceName(repoPath, name);
 				if (name) return name;
 			}
-		} catch (ex) {
-			if (isCancellationError(ex)) throw ex;
-		}
+		} catch {}
 
 		return undefined;
 	}
 
 	@log({ exit: true })
-	async getStoredMergeTargetBranchName(repoPath: string, ref: string): Promise<string | undefined> {
-		const target =
-			(await this.getStoredUserMergeTargetBranchName?.(repoPath, ref)) ??
-			(await this.getStoredDetectedMergeTargetBranchName?.(repoPath, ref));
-		return target?.trim() || undefined;
-	}
+	async getTargetBranchName(repoPath: string, ref: string): Promise<string | undefined> {
+		const targetBaseConfigKey: GitConfigKeys = `branch.${ref}.gk-target-base`;
 
-	@log({ exit: true })
-	async getStoredDetectedMergeTargetBranchName(repoPath: string, ref: string): Promise<string | undefined> {
-		const target =
-			(await this.provider.config.getConfig(repoPath, `branch.${ref}.gk-merge-target`)) ??
-			(await this.provider.config.getConfig(repoPath, `branch.${ref}.gk-target-base`));
+		let target = await this.provider.config.getConfig(repoPath, targetBaseConfigKey);
+		if (target != null) {
+			target = await this.provider.refs.getSymbolicReferenceName(repoPath, target);
+		}
 		return target?.trim() || undefined;
 	}
 
 	@log()
-	async getStoredUserMergeTargetBranchName(repoPath: string, ref: string): Promise<string | undefined> {
-		const target = await this.provider.config.getConfig(repoPath, `branch.${ref}.gk-merge-target-user`);
-		return target?.trim() || undefined;
+	async setTargetBranchName(repoPath: string, ref: string, target: string): Promise<void> {
+		const targetBaseConfigKey: GitConfigKeys = `branch.${ref}.gk-target-base`;
+
+		await this.provider.config.setConfig(repoPath, targetBaseConfigKey, target);
 	}
 
 	@log()
 	async renameBranch(repoPath: string, oldName: string, newName: string): Promise<void> {
 		await this.git.exec({ cwd: repoPath }, 'branch', '-m', oldName, newName);
-	}
-
-	@log()
-	async storeBaseBranchName(repoPath: string, ref: string, base: string): Promise<void> {
-		await this.provider.config.setConfig(repoPath, `branch.${ref}.gk-merge-base`, base);
-	}
-
-	@log()
-	async storeMergeTargetBranchName(repoPath: string, ref: string, target: string): Promise<void> {
-		await this.provider.config.setConfig(repoPath, `branch.${ref}.gk-merge-target`, target);
-	}
-
-	@log()
-	async storeUserMergeTargetBranchName(repoPath: string, ref: string, target: string | undefined): Promise<void> {
-		await this.provider.config.setConfig(repoPath, `branch.${ref}.gk-merge-target-user`, target);
 	}
 }

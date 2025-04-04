@@ -1,7 +1,6 @@
 import { exec } from 'child_process';
 import { promises as fs } from 'fs';
 import { homedir } from 'os';
-import type { CancellationToken } from 'vscode';
 import { Uri } from 'vscode';
 import type { Container } from '../../../../container';
 import type { GitCache } from '../../../../git/cache';
@@ -20,7 +19,6 @@ import { log } from '../../../../system/decorators/log';
 import { Logger } from '../../../../system/logger';
 import { getLogScope } from '../../../../system/logger.scope';
 import { joinPaths, normalizePath } from '../../../../system/path';
-import { getSettledValue } from '../../../../system/promise';
 import { interpolate } from '../../../../system/string';
 import type { Git } from '../git';
 import { GitErrors } from '../git';
@@ -87,18 +85,14 @@ export class WorktreesGitSubProvider implements GitWorktreesSubProvider {
 	}
 
 	@log()
-	async getWorktree(
-		repoPath: string,
-		predicate: (w: GitWorktree) => boolean,
-		cancellation?: CancellationToken,
-	): Promise<GitWorktree | undefined> {
-		return (await this.getWorktrees(repoPath, cancellation)).find(predicate);
+	async getWorktree(repoPath: string, predicate: (w: GitWorktree) => boolean): Promise<GitWorktree | undefined> {
+		return (await this.getWorktrees(repoPath)).find(predicate);
 	}
 
 	@log()
-	async getWorktrees(repoPath: string, cancellation?: CancellationToken): Promise<GitWorktree[]> {
+	async getWorktrees(repoPath: string): Promise<GitWorktree[]> {
 		await this.git.ensureSupports(
-			'git:worktrees',
+			'git:worktrees:list',
 			'Displaying worktrees',
 			' Please install a more recent version of Git and try again.',
 		);
@@ -107,17 +101,12 @@ export class WorktreesGitSubProvider implements GitWorktreesSubProvider {
 		if (worktrees == null) {
 			async function load(this: WorktreesGitSubProvider) {
 				try {
-					const [dataResult, branchesResult] = await Promise.allSettled([
-						this.git.exec({ cwd: repoPath, cancellation: cancellation }, 'worktree', 'list', '--porcelain'),
-						this.provider.branches.getBranches(repoPath, undefined, cancellation),
+					const [data, branches] = await Promise.all([
+						this.git.exec({ cwd: repoPath }, 'worktree', 'list', '--porcelain'),
+						this.provider.branches.getBranches(repoPath),
 					]);
 
-					return parseGitWorktrees(
-						this.container,
-						getSettledValue(dataResult)?.stdout,
-						repoPath,
-						getSettledValue(branchesResult)?.values ?? [],
-					);
+					return parseGitWorktrees(this.container, data, repoPath, branches.values);
 				} catch (ex) {
 					this.cache.worktrees?.delete(repoPath);
 
@@ -170,7 +159,7 @@ export class WorktreesGitSubProvider implements GitWorktreesSubProvider {
 		const scope = getLogScope();
 
 		await this.git.ensureSupports(
-			'git:worktrees',
+			'git:worktrees:delete',
 			'Deleting worktrees',
 			' Please install a more recent version of Git and try again.',
 		);

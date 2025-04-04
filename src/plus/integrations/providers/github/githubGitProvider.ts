@@ -12,7 +12,7 @@ import type {
 import { authentication, EventEmitter, Uri, window, workspace } from 'vscode';
 import { encodeUtf8Hex } from '@env/hex';
 import { CharCode, Schemes } from '../../../../constants';
-import { GitCloudHostIntegrationId } from '../../../../constants.integrations';
+import { HostingIntegrationId } from '../../../../constants.integrations';
 import type { Container } from '../../../../container';
 import {
 	AuthenticationError,
@@ -95,7 +95,7 @@ export class GitHubGitProvider implements GitProvider, Disposable {
 		domain: 'github.com',
 		scopes: githubAuthenticationScopes,
 	};
-	readonly authenticationProviderId = GitCloudHostIntegrationId.GitHub;
+	readonly authenticationProviderId = HostingIntegrationId.GitHub;
 	readonly supportedSchemes = new Set<string>([Schemes.Virtual, Schemes.GitHub, Schemes.PRs]);
 
 	private _onDidChange = new EventEmitter<void>();
@@ -243,18 +243,12 @@ export class GitHubGitProvider implements GitProvider, Disposable {
 	}
 
 	async supports(feature: Features): Promise<boolean> {
-		let supported;
 		switch (feature) {
-			case 'timeline':
-				supported = true;
-				break;
+			case 'timeline' satisfies Features:
+				return true;
 			default:
-				supported = false;
-				break;
+				return false;
 		}
-
-		void setContext(`gitlens:feature:unsupported:${feature}`, !supported);
-		return supported;
 	}
 
 	async visibility(repoPath: string): Promise<[visibility: RepositoryVisibility, cacheKey: string | undefined]> {
@@ -335,8 +329,8 @@ export class GitHubGitProvider implements GitProvider, Disposable {
 	}
 
 	@log()
-	async getBestRevisionUri(repoPath: string, path: string, rev: string | undefined): Promise<Uri | undefined> {
-		return rev ? this.createProviderUri(repoPath, rev, path) : this.createVirtualUri(repoPath, rev, path);
+	async getBestRevisionUri(repoPath: string, path: string, ref: string | undefined): Promise<Uri | undefined> {
+		return ref ? this.createProviderUri(repoPath, ref, path) : this.createVirtualUri(repoPath, ref, path);
 	}
 
 	getRelativePath(pathOrUri: string | Uri, base: string | Uri): string {
@@ -379,9 +373,9 @@ export class GitHubGitProvider implements GitProvider, Disposable {
 		return relativePath;
 	}
 
-	getRevisionUri(repoPath: string, rev: string, path: string): Uri {
-		const uri = this.createProviderUri(repoPath, rev, path);
-		return rev === deletedOrMissing ? uri.with({ query: '~' }) : uri;
+	getRevisionUri(repoPath: string, path: string, ref: string): Uri {
+		const uri = this.createProviderUri(repoPath, ref, path);
+		return ref === deletedOrMissing ? uri.with({ query: '~' }) : uri;
 	}
 
 	@log()
@@ -527,20 +521,7 @@ export class GitHubGitProvider implements GitProvider, Disposable {
 						c.message.split('\n', 1)[0],
 						c.parents.nodes[0]?.oid ? [c.parents.nodes[0]?.oid] : [],
 						c.message,
-						{
-							files: undefined,
-							filtered: {
-								files: [
-									new GitFileChange(
-										this.container,
-										root.toString(),
-										relativePath,
-										GitFileIndexStatus.Modified,
-									),
-								],
-								pathspec: relativePath,
-							},
-						},
+						new GitFileChange(this.container, root.toString(), relativePath, GitFileIndexStatus.Modified),
 						{ files: c.changedFiles ?? 0, additions: c.additions ?? 0, deletions: c.deletions ?? 0 },
 						[],
 					);
@@ -665,20 +646,7 @@ export class GitHubGitProvider implements GitProvider, Disposable {
 				c.message.split('\n', 1)[0],
 				c.parents.nodes[0]?.oid ? [c.parents.nodes[0]?.oid] : [],
 				c.message,
-				{
-					files: undefined,
-					filtered: {
-						files: [
-							new GitFileChange(
-								this.container,
-								root.toString(),
-								relativePath,
-								GitFileIndexStatus.Modified,
-							),
-						],
-						pathspec: relativePath,
-					},
-				},
+				new GitFileChange(this.container, root.toString(), relativePath, GitFileIndexStatus.Modified),
 				{ files: c.changedFiles ?? 0, additions: c.additions ?? 0, deletions: c.deletions ?? 0 },
 				[],
 			);
@@ -1063,21 +1031,21 @@ export class GitHubGitProvider implements GitProvider, Disposable {
 
 						session = await getBuiltInIntegrationSession(
 							this.container,
-							GitCloudHostIntegrationId.GitHub,
+							HostingIntegrationId.GitHub,
 							this.authenticationDescriptor,
 							{ forceNewSession: true },
 						);
 					} else if (!skip && !silent) {
 						session = await getBuiltInIntegrationSession(
 							this.container,
-							GitCloudHostIntegrationId.GitHub,
+							HostingIntegrationId.GitHub,
 							this.authenticationDescriptor,
 							{ createIfNeeded: true },
 						);
 					} else {
 						session = await getBuiltInIntegrationSession(
 							this.container,
-							GitCloudHostIntegrationId.GitHub,
+							HostingIntegrationId.GitHub,
 							this.authenticationDescriptor,
 						);
 					}
