@@ -1,6 +1,7 @@
 import { window } from 'vscode';
 import type { Container } from '../../../../container';
 import { CancellationError } from '../../../../errors';
+import { GitErrorHandling } from '../../../../git/commandOptions';
 import {
 	ApplyPatchCommitError,
 	ApplyPatchCommitErrorReason,
@@ -15,7 +16,7 @@ import { log } from '../../../../system/decorators/log';
 import { Logger } from '../../../../system/logger';
 import { getLogScope } from '../../../../system/logger.scope';
 import type { Git } from '../git';
-import { gitConfigsLog } from '../git';
+import { gitLogDefaultConfigs } from '../git';
 import type { LocalGitProvider } from '../localGitProvider';
 
 export class PatchGitSubProvider implements GitPatchSubProvider {
@@ -129,7 +130,7 @@ export class PatchGitSubProvider implements GitPatchSubProvider {
 
 		// Apply the patch using a cherry pick without committing
 		try {
-			await this.provider.commits.cherryPick(targetPath, [rev], { noCommit: true });
+			await this.git.cherrypick(targetPath, rev, { noCommit: true, errors: GitErrorHandling.Throw });
 		} catch (ex) {
 			Logger.error(ex, scope);
 			if (ex instanceof CherryPickError) {
@@ -211,19 +212,38 @@ export class PatchGitSubProvider implements GitPatchSubProvider {
 		try {
 			// Apply the patch to our temp index, without touching the working directory
 			await this.git.exec(
-				{ cwd: repoPath, configs: gitConfigsLog, env: env, stdin: patch },
+				{ cwd: repoPath, configs: gitLogDefaultConfigs, env: env, stdin: patch },
 				'apply',
 				'--cached',
 				'-',
 			);
 
 			// Create a new tree from our patched index
-			let result = await this.git.exec({ cwd: repoPath, env: env }, 'write-tree');
-			const tree = result.stdout.trim();
+			const tree = (
+				await this.git.exec(
+					{
+						cwd: repoPath,
+						env: env,
+					},
+					'write-tree',
+				)
+			)?.trim();
 
 			// Create new commit from the tree
-			result = await this.git.exec({ cwd: repoPath, env: env }, 'commit-tree', tree, '-p', base, '-m', message);
-			const sha = result.stdout.trim();
+			const sha = (
+				await this.git.exec(
+					{
+						cwd: repoPath,
+						env: env,
+					},
+					'commit-tree',
+					tree,
+					'-p',
+					base,
+					'-m',
+					message,
+				)
+			)?.trim();
 
 			return sha;
 		} catch (ex) {
@@ -237,7 +257,12 @@ export class PatchGitSubProvider implements GitPatchSubProvider {
 	@log({ args: { 1: false } })
 	async validatePatch(repoPath: string | undefined, contents: string): Promise<boolean> {
 		try {
-			await this.git.exec({ cwd: repoPath, configs: gitConfigsLog, stdin: contents }, 'apply', '--check', '-');
+			await this.git.exec(
+				{ cwd: repoPath, configs: gitLogDefaultConfigs, stdin: contents },
+				'apply',
+				'--check',
+				'-',
+			);
 			return true;
 		} catch (ex) {
 			if (ex instanceof Error && ex.message) {

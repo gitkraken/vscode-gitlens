@@ -4,7 +4,7 @@ import { env, Uri, window, workspace } from 'vscode';
 import type { ScmResource } from '../@types/vscode.git.resources';
 import { ScmResourceGroupType, ScmStatus } from '../@types/vscode.git.resources.enums';
 import type { GlCommands } from '../constants.commands';
-import type { IntegrationIds } from '../constants.integrations';
+import type { IntegrationId } from '../constants.integrations';
 import type { Container } from '../container';
 import { CancellationError } from '../errors';
 import { ApplyPatchCommitError, ApplyPatchCommitErrorReason } from '../git/errors';
@@ -167,7 +167,7 @@ abstract class CreatePatchCommandBase extends GlCommandBase {
 		repo ??= await getRepositoryOrShowPicker(title);
 		if (repo == null) return;
 
-		return repo.git.diff.getDiff?.(args?.to ?? uncommitted, args?.from ?? 'HEAD', {
+		return repo.git.diff().getDiff?.(args?.to ?? uncommitted, args?.from ?? 'HEAD', {
 			includeUntracked: args?.includeUntracked ?? (args?.to != null || args?.to === uncommitted),
 			uris: args?.uris,
 		});
@@ -227,8 +227,10 @@ export class ApplyPatchFromClipboardCommand extends GlCommandBase {
 		const patch = await env.clipboard.readText();
 		let repo = this.container.git.highlander;
 
+		const patchProvider = repo?.uri != null ? this.container.git.patch(repo.uri) : undefined;
+
 		// Make sure it looks like a valid patch
-		const valid = patch.length ? await repo?.git.patch?.validatePatch(patch) : false;
+		const valid = patch.length ? await patchProvider?.validatePatch(patch) : false;
 		if (!valid) {
 			void window.showWarningMessage('No valid patch found in the clipboard');
 			return;
@@ -238,10 +240,10 @@ export class ApplyPatchFromClipboardCommand extends GlCommandBase {
 		if (repo == null) return;
 
 		try {
-			const commit = await repo.git.patch?.createUnreachableCommitForPatch('HEAD', 'Pasted Patch', patch);
+			const commit = await patchProvider?.createUnreachableCommitForPatch('HEAD', 'Pasted Patch', patch);
 			if (commit == null) return;
 
-			await repo.git.patch?.applyUnreachableCommitForPatch(commit.sha, { stash: false });
+			await patchProvider?.applyUnreachableCommitForPatch(commit.sha, { stash: false });
 			void window.showInformationMessage(`Patch applied successfully`);
 		} catch (ex) {
 			if (ex instanceof CancellationError) return;
@@ -353,7 +355,7 @@ export class OpenCloudPatchCommand extends GlCommandBase {
 
 		let providerAuth: ProviderAuth | undefined;
 		if (args.prEntityId != null && args.type === 'code_suggestion') {
-			let providerId: IntegrationIds | undefined;
+			let providerId: IntegrationId | undefined;
 			let providerDomain: string | undefined;
 			try {
 				const identifier = EntityIdentifierUtils.decode(args.prEntityId);
@@ -413,33 +415,33 @@ async function createDraft(repository: Repository, args: CreatePatchCommandArgs)
 
 	const create: CreateDraft = { changes: [change], title: args.title, description: args.description };
 
-	const { git: svc } = repository;
+	const commitsProvider = repository.git.commits();
 
-	const commit = await svc.commits.getCommit(to);
+	const commit = await commitsProvider.getCommit(to);
 	if (commit == null) return undefined;
 
 	if (args.from == null) {
-		if (commit.fileset?.files == null) return;
+		if (commit.files == null) return;
 
-		change.files = [...commit.fileset.files];
+		change.files = [...commit.files];
 	} else {
-		const diff = await svc.diff.getDiff?.(to, args.from);
+		const diff = await repository.git.diff().getDiff?.(to, args.from);
 		if (diff == null) return;
 
-		const result = await svc.diff.getDiffFiles?.(diff.contents);
+		const result = await repository.git.diff().getDiffFiles?.(diff.contents);
 		if (result?.files == null) return;
 
 		change.files = result.files;
 
 		if (!isSha(args.to)) {
-			const commit = await svc.commits.getCommit(args.to);
+			const commit = await commitsProvider.getCommit(args.to);
 			if (commit != null) {
 				change.revision.to = commit.sha;
 			}
 		}
 
 		if (!isSha(args.from)) {
-			const commit = await svc.commits.getCommit(args.from);
+			const commit = await commitsProvider.getCommit(args.from);
 			if (commit != null) {
 				change.revision.from = commit.sha;
 			}

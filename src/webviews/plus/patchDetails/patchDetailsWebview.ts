@@ -219,7 +219,7 @@ export class PatchDetailsWebviewProvider
 	registerCommands(): Disposable[] {
 		const commands: Disposable[] = [];
 
-		if (this.host.is('view')) {
+		if (this.host.isHost('view')) {
 			commands.push(
 				registerCommand(`${this.host.id}.refresh`, () => this.host.refresh(true)),
 				registerCommand(`${this.host.id}.close`, () => this.closeView()),
@@ -342,12 +342,7 @@ export class PatchDetailsWebviewProvider
 
 	private onAnyConfigurationChanged(e: ConfigurationChangeEvent) {
 		if (
-			configuration.changed(e, [
-				'defaultDateFormat',
-				'views.patchDetails.files',
-				'views.patchDetails.avatars',
-				'ai.enabled',
-			]) ||
+			configuration.changed(e, ['defaultDateFormat', 'views.patchDetails.files', 'views.patchDetails.avatars']) ||
 			configuration.changedCore(e, 'workbench.tree.renderIndentGuides') ||
 			configuration.changedCore(e, 'workbench.tree.indent')
 		) {
@@ -363,7 +358,6 @@ export class PatchDetailsWebviewProvider
 			files: configuration.get('views.patchDetails.files'),
 			indentGuides: configuration.getCore('workbench.tree.renderIndentGuides') ?? 'onHover',
 			indent: configuration.getCore('workbench.tree.indent'),
-			aiEnabled: configuration.get('ai.enabled'),
 		};
 	}
 
@@ -490,12 +484,10 @@ export class PatchDetailsWebviewProvider
 					};
 				}
 
-				await this.container.git
-					.getRepositoryService(commit.repoPath)
-					.patch?.applyUnreachableCommitForPatch(commit.ref, {
-						stash: 'prompt',
-						...options,
-					});
+				await this.container.git.patch(commit.repoPath)?.applyUnreachableCommitForPatch(commit.ref, {
+					stash: 'prompt',
+					...options,
+				});
 				void window.showInformationMessage(`Patch applied successfully`);
 			} catch (ex) {
 				if (ex instanceof CancellationError) return;
@@ -1203,7 +1195,7 @@ export class PatchDetailsWebviewProvider
 		// if (draft.draftType === 'local') {
 		// 	const { patch } = draft;
 		// 	if (patch.repository == null) {
-		// 		const repo = this.container.git2.getBestRepository;
+		// 		const repo = this.container.git.getBestRepository();
 		// 		if (repo != null) {
 		// 			patch.repository = repo;
 		// 		}
@@ -1413,9 +1405,7 @@ export class PatchDetailsWebviewProvider
 		if (change == null) return [undefined];
 
 		if (change.type === 'revision') {
-			const commit = await this.container.git
-				.getRepositoryService(file.repoPath)
-				.commits.getCommit(change.revision.to ?? uncommitted);
+			const commit = await this.container.git.commits(file.repoPath).getCommit(change.revision.to ?? uncommitted);
 			if (
 				change.revision.to === change.revision.from ||
 				(change.revision.from.length === change.revision.to.length + 1 &&
@@ -1427,11 +1417,7 @@ export class PatchDetailsWebviewProvider
 
 			return [commit, change.revision];
 		} else if (change.type === 'wip') {
-			return [
-				await this.container.git
-					.getRepositoryService(file.repoPath)
-					.commits.getCommit(change.revision.to ?? uncommitted),
-			];
+			return [await this.container.git.commits(file.repoPath).getCommit(change.revision.to ?? uncommitted)];
 		}
 
 		return [undefined];
@@ -1452,11 +1438,9 @@ export class PatchDetailsWebviewProvider
 
 			do {
 				try {
-					const commit = await repo.git.patch?.createUnreachableCommitForPatch(
-						baseRef,
-						draft.title,
-						patch.contents!,
-					);
+					const commit = await repo.git
+						.patch()
+						?.createUnreachableCommitForPatch(baseRef, draft.title, patch.contents!);
 					patch.commit = commit;
 				} catch (ex) {
 					if (baseRef != null) {
