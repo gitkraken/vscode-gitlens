@@ -368,16 +368,15 @@ export class StashGitSubProvider implements GitStashSubProvider {
 			return;
 		}
 
-		await this.git.ensureGitVersion(
-			'2.13.2',
+		await this.git.ensureSupports(
+			'git:stash:push:pathspecs',
 			'Stashing individual files',
 			' Please retry by stashing everything or install a more recent version of Git and try again.',
 		);
 
 		const pathspecs = uris.map(u => `./${splitPath(u, repoPath)[0]}`);
 
-		const stdinVersion = '2.30.0';
-		let stdin = await this.git.isAtLeastVersion(stdinVersion);
+		let stdin = await this.git.supports('git:stash:push:stdin');
 		if (stdin && options?.onlyStaged && uris.length) {
 			// Since Git doesn't support --staged with --pathspec-from-file try to pass them in directly
 			stdin = false;
@@ -385,8 +384,8 @@ export class StashGitSubProvider implements GitStashSubProvider {
 
 		// If we don't support stdin, then error out if we are over the maximum allowed git cli length
 		if (!stdin && countStringLength(pathspecs) > maxGitCliLength) {
-			await this.git.ensureGitVersion(
-				stdinVersion,
+			await this.git.ensureSupports(
+				'git:stash:push:stdin',
 				`Stashing so many files (${pathspecs.length}) at once`,
 				' Please retry by stashing fewer files or install a more recent version of Git and try again.',
 			);

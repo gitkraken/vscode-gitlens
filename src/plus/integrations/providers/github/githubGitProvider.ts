@@ -242,18 +242,12 @@ export class GitHubGitProvider implements GitProvider, Disposable {
 		];
 	}
 
-	// private _supportedFeatures = new Map<Features, boolean>();
 	async supports(feature: Features): Promise<boolean> {
-		// const supported = this._supportedFeatures.get(feature);
-		// if (supported != null) return supported;
-
 		switch (feature) {
-			case 'stashes' satisfies Features:
-			case 'worktrees' satisfies Features:
-			case 'stashOnlyStaged' satisfies Features:
-				return false;
-			default:
+			case 'timeline' satisfies Features:
 				return true;
+			default:
+				return false;
 		}
 	}
 

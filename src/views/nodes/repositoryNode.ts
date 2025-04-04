@@ -174,7 +174,7 @@ export class RepositoryNode extends SubscribeableViewNode<'repository', ViewsWit
 				children.push(new TagsNode(this.uri, this.view, this, this.repo));
 			}
 
-			if (this.view.config.showWorktrees && (await this.repo.git.supports('worktrees'))) {
+			if (this.view.config.showWorktrees && (await this.repo.git.supports('git:worktrees'))) {
 				children.push(new WorktreesNode(this.uri, this.view, this, this.repo));
 			}
 

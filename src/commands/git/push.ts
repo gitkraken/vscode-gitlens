@@ -157,7 +157,7 @@ export class PushGitCommand extends QuickCommand<State> {
 		const useForceIfIncludes =
 			useForceWithLease &&
 			(configuration.getCore('git.useForcePushIfIncludes') ?? true) &&
-			(await this.container.git.supports(state.repos[0].uri, 'forceIfIncludes'));
+			(await this.container.git.supports(state.repos[0].uri, 'git:push:force-if-includes'));
 
 		let step: QuickPickStep<FlagsQuickPickItem<Flags>>;
 
