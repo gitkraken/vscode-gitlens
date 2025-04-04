@@ -86,6 +86,7 @@ export function getLocalPromptTemplate<T extends AIActionType>(action: T, _model
 				variables: [
 					'diff',
 					'commits',
+					'data',
 					'context',
 					'instructions',
 				] satisfies (keyof PromptTemplateContext<'generate-rebase'>)[],
