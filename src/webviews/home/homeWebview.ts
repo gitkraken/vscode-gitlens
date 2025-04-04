@@ -284,6 +284,13 @@ export class HomeWebviewProvider implements WebviewProvider<State, State, HomeWe
 		return Promise.resolve();
 	}
 
+	private async publishBranch(ref: BranchRef) {
+		const { repo, branch } = await this.getRepoInfoFromRef(ref);
+		if (branch == null) return;
+
+		return RepoActions.push(repo, undefined, getReferenceFromBranch(branch));
+	}
+
 	private async pull() {
 		const repo = this.getSelectedRepository();
 		if (repo) {
@@ -305,7 +312,7 @@ export class HomeWebviewProvider implements WebviewProvider<State, State, HomeWe
 				},
 				this,
 			),
-			registerCommand(`${this.host.id}.publishBranch`, this.push, this),
+			registerCommand(`${this.host.id}.publishBranch`, this.publishBranch, this),
 			registerCommand(`${this.host.id}.refresh`, () => this.host.refresh(true), this),
 			registerCommand(`${this.host.id}.disablePreview`, () => this.onTogglePreviewEnabled(false), this),
 			registerCommand(`${this.host.id}.enablePreview`, () => this.onTogglePreviewEnabled(true), this),

@@ -5,6 +5,7 @@ import { customElement, property, state } from 'lit/decorators.js';
 import { classMap } from 'lit/directives/class-map.js';
 import { when } from 'lit/directives/when.js';
 import type { GlCommands } from '../../../../../constants.commands';
+import type { WebviewIds, WebviewViewIds } from '../../../../../constants.views';
 import type { LaunchpadCommandArgs } from '../../../../../plus/launchpad/launchpad';
 import {
 	actionGroupMap,
@@ -16,6 +17,7 @@ import type { AssociateIssueWithBranchCommandArgs } from '../../../../../plus/st
 import { createCommandLink } from '../../../../../system/commands';
 import { fromNow } from '../../../../../system/date';
 import { interpolate, pluralize } from '../../../../../system/string';
+import { createWebviewCommandLink } from '../../../../../system/webview';
 import type {
 	BranchRef,
 	CreatePullRequestCommandArgs,
@@ -692,6 +694,18 @@ export abstract class GlBranchCardBase extends GlElement {
 		if (!actions?.length) return nothing;
 
 		return html`<action-nav class="branch-item__collapsed-actions">${actions}</action-nav>`;
+	}
+
+	protected createWebviewCommandLink<T>(
+		command: `${WebviewIds | WebviewViewIds}.${string}` | `gitlens.plus.${string}`,
+		args?: T | any,
+	): string {
+		return createWebviewCommandLink<T>(
+			command,
+			'gitlens.views.home',
+			'',
+			args ? { ...args, ...this.branchRef } : this.branchRef,
+		);
 	}
 
 	protected createCommandLink<T>(command: GlCommands, args?: T | any): string {
