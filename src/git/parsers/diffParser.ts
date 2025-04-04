@@ -1,10 +1,19 @@
 import type { Container } from '../../container';
 import { joinPaths, normalizePath } from '../../system/path';
 import { maybeStopWatch } from '../../system/stopwatch';
-import type { GitDiffFile, GitDiffHunk, GitDiffHunkLine, GitDiffShortStat } from '../models/diff';
+import type {
+	GitDiffShortStat,
+	ParsedGitDiff,
+	ParsedGitDiffHunk,
+	ParsedGitDiffHunkLine,
+	ParsedGitDiffHunks,
+} from '../models/diff';
 import type { GitFile } from '../models/file';
 import { GitFileChange } from '../models/fileChange';
 import type { GitFileStatus } from '../models/fileStatus';
+
+export const diffRegex = /^diff --git a\/(.*) b\/(.*)$/;
+export const diffHunkRegex = /^@@ -(\d+?),(\d+?) \+(\d+?),(\d+?) @@/;
 
 const shortStatDiffRegex = /(\d+)\s+files? changed(?:,\s+(\d+)\s+insertions?\(\+\))?(?:,\s+(\d+)\s+deletions?\(-\))?/;
 
@@ -15,11 +24,46 @@ function parseHunkHeaderPart(headerPart: string) {
 	return { count: count, position: { start: start, end: start + count - 1 } };
 }
 
-export function parseGitFileDiff(data: string, includeContents = false): GitDiffFile | undefined {
+export function parseGitDiff(data: string, includeContents = false): ParsedGitDiff {
+	using sw = maybeStopWatch('Git.parseDiffFiles', { log: false, logLevel: 'debug' });
+
+	const parsed: ParsedGitDiff = { files: [], contents: includeContents ? data : undefined };
+
+	// Split the diff data into file chunks
+	const files = data.split(/^diff --git /m).filter(Boolean);
+	if (!files.length) return parsed;
+
+	for (const file of files) {
+		const [line] = file.split('\n', 1);
+
+		const match = diffRegex.exec(`diff --git ${line}`);
+		if (match == null) continue;
+
+		const [, originalPath, path] = match;
+
+		const hunkStartIndex = file.indexOf('\n@@ -');
+		if (hunkStartIndex === -1) continue;
+
+		const content = file.substring(hunkStartIndex + 1);
+		parsed.files.push({
+			path: path,
+			originalPath: path === originalPath ? undefined : originalPath,
+			status: (path !== originalPath ? 'R' : 'M') as GitFileStatus,
+			hunks: parseGitFileDiff(content, includeContents)?.hunks || [],
+			contents: includeContents ? content : undefined,
+		});
+	}
+
+	sw?.stop({ suffix: ` parsed ${parsed.files.length} files` });
+
+	return parsed;
+}
+
+export function parseGitFileDiff(data: string, includeContents = false): ParsedGitDiffHunks | undefined {
 	using sw = maybeStopWatch('Git.parseFileDiff', { log: false, logLevel: 'debug' });
 	if (!data) return undefined;
 
-	const hunks: GitDiffHunk[] = [];
+	const hunks: ParsedGitDiffHunk[] = [];
 
 	const lines = data.split('\n');
 
@@ -46,7 +90,7 @@ export function parseGitFileDiff(data: string, includeContents = false): GitDiff
 		const current = parseHunkHeaderPart(currentHeaderPart.slice(1));
 		const previous = parseHunkHeaderPart(previousHeaderPart.slice(1));
 
-		const hunkLines = new Map<number, GitDiffHunkLine>();
+		const hunkLines = new Map<number, ParsedGitDiffHunkLine>();
 		let fileLineNumber = current.position.start;
 
 		line = lines[++i];
@@ -118,7 +162,7 @@ export function parseGitFileDiff(data: string, includeContents = false): GitDiff
 			}
 		}
 
-		const hunk: GitDiffHunk = {
+		const hunk: ParsedGitDiffHunk = {
 			contents: `${lines.slice(contentStartLine, i).join('\n')}\n`,
 			current: current,
 			previous: previous,

@@ -35,7 +35,7 @@ import { isGitUri } from '../../../git/gitUri';
 import { encodeGitLensRevisionUriAuthority } from '../../../git/gitUri.authority';
 import type { GitBlame, GitBlameAuthor, GitBlameLine } from '../../../git/models/blame';
 import type { GitCommit } from '../../../git/models/commit';
-import type { GitDiffFile, GitDiffLine } from '../../../git/models/diff';
+import type { GitLineDiff, ParsedGitDiffHunks } from '../../../git/models/diff';
 import type { GitLog } from '../../../git/models/log';
 import type { GitBranchReference, GitReference } from '../../../git/models/reference';
 import type { GitRemote } from '../../../git/models/remote';
@@ -95,7 +95,7 @@ import { StatusGitSubProvider } from './sub-providers/status';
 import { TagsGitSubProvider } from './sub-providers/tags';
 import { WorktreesGitSubProvider } from './sub-providers/worktrees';
 
-const emptyPromise: Promise<GitBlame | GitDiffFile | GitLog | undefined> = Promise.resolve(undefined);
+const emptyPromise: Promise<GitBlame | ParsedGitDiffHunks | GitLog | undefined> = Promise.resolve(undefined);
 const slash = 47;
 
 const RepoSearchWarnings = {
@@ -1696,7 +1696,11 @@ export class LocalGitProvider implements GitProvider, Disposable {
 	}
 
 	@log()
-	async getDiffForFile(uri: GitUri, ref1: string | undefined, ref2?: string): Promise<GitDiffFile | undefined> {
+	async getDiffForFile(
+		uri: GitUri,
+		ref1: string | undefined,
+		ref2?: string,
+	): Promise<ParsedGitDiffHunks | undefined> {
 		const scope = getLogScope();
 
 		let key = 'diff';
@@ -1738,7 +1742,7 @@ export class LocalGitProvider implements GitProvider, Disposable {
 			Logger.debug(scope, `Cache add: '${key}'`);
 
 			const value: CachedDiff = {
-				item: promise as Promise<GitDiffFile>,
+				item: promise as Promise<ParsedGitDiffHunks>,
 			};
 			doc.state.setDiff(key, value);
 		}
@@ -1755,7 +1759,7 @@ export class LocalGitProvider implements GitProvider, Disposable {
 		document: TrackedGitDocument,
 		key: string,
 		scope: LogScope | undefined,
-	): Promise<GitDiffFile | undefined> {
+	): Promise<ParsedGitDiffHunks | undefined> {
 		const [relativePath, root] = splitPath(path, repoPath);
 
 		try {
@@ -1776,12 +1780,12 @@ export class LocalGitProvider implements GitProvider, Disposable {
 				Logger.debug(scope, `Cache replace (with empty promise): '${key}'`);
 
 				const value: CachedDiff = {
-					item: emptyPromise as Promise<GitDiffFile>,
+					item: emptyPromise as Promise<ParsedGitDiffHunks>,
 					errorMessage: msg,
 				};
 				document.state.setDiff(key, value);
 
-				return emptyPromise as Promise<GitDiffFile>;
+				return emptyPromise as Promise<ParsedGitDiffHunks>;
 			}
 
 			return undefined;
@@ -1789,7 +1793,7 @@ export class LocalGitProvider implements GitProvider, Disposable {
 	}
 
 	@log<LocalGitProvider['getDiffForFileContents']>({ args: { 1: '<contents>' } })
-	async getDiffForFileContents(uri: GitUri, ref: string, contents: string): Promise<GitDiffFile | undefined> {
+	async getDiffForFileContents(uri: GitUri, ref: string, contents: string): Promise<ParsedGitDiffHunks | undefined> {
 		const scope = getLogScope();
 
 		const key = `diff:${md5(contents)}`;
@@ -1825,7 +1829,7 @@ export class LocalGitProvider implements GitProvider, Disposable {
 			Logger.debug(scope, `Cache add: '${key}'`);
 
 			const value: CachedDiff = {
-				item: promise as Promise<GitDiffFile>,
+				item: promise as Promise<ParsedGitDiffHunks>,
 			};
 			doc.state.setDiff(key, value);
 		}
@@ -1842,7 +1846,7 @@ export class LocalGitProvider implements GitProvider, Disposable {
 		document: TrackedGitDocument,
 		key: string,
 		scope: LogScope | undefined,
-	): Promise<GitDiffFile | undefined> {
+	): Promise<ParsedGitDiffHunks | undefined> {
 		const [relativePath, root] = splitPath(path, repoPath);
 
 		try {
@@ -1861,12 +1865,12 @@ export class LocalGitProvider implements GitProvider, Disposable {
 				Logger.debug(scope, `Cache replace (with empty promise): '${key}'`);
 
 				const value: CachedDiff = {
-					item: emptyPromise as Promise<GitDiffFile>,
+					item: emptyPromise as Promise<ParsedGitDiffHunks>,
 					errorMessage: msg,
 				};
 				document.state.setDiff(key, value);
 
-				return emptyPromise as Promise<GitDiffFile>;
+				return emptyPromise as Promise<ParsedGitDiffHunks>;
 			}
 
 			return undefined;
@@ -1879,7 +1883,7 @@ export class LocalGitProvider implements GitProvider, Disposable {
 		editorLine: number, // 0-based, Git is 1-based
 		ref1: string | undefined,
 		ref2?: string,
-	): Promise<GitDiffLine | undefined> {
+	): Promise<GitLineDiff | undefined> {
 		try {
 			const diff = await this.getDiffForFile(uri, ref1, ref2);
 			if (diff == null) return undefined;

@@ -2,7 +2,7 @@ import type { Disposable, TextDocument } from 'vscode';
 import type { Container } from '../container';
 import { GitUri } from '../git/gitUri';
 import type { GitBlame } from '../git/models/blame';
-import type { GitDiffFile } from '../git/models/diff';
+import type { ParsedGitDiffHunks } from '../git/models/diff';
 import type { GitLog } from '../git/models/log';
 import { configuration } from '../system/-webview/configuration';
 import { getEditorIfVisible, isActiveDocument, isVisibleDocument } from '../system/-webview/vscode';
@@ -19,7 +19,7 @@ interface CachedItem<T> {
 }
 
 export type CachedBlame = CachedItem<GitBlame>;
-export type CachedDiff = CachedItem<GitDiffFile>;
+export type CachedDiff = CachedItem<ParsedGitDiffHunks>;
 export type CachedLog = CachedItem<GitLog>;
 
 export class GitDocumentState {
