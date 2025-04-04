@@ -16,6 +16,7 @@ import { gate } from '../../system/decorators/-webview/gate';
 import { debug, log } from '../../system/decorators/log';
 import { weakEvent } from '../../system/event';
 import { disposableInterval } from '../../system/function';
+import { join, map, slice } from '../../system/iterable';
 import { pad } from '../../system/string';
 import type { ViewsWithRepositories } from '../viewBase';
 import { createViewDecorationUri } from '../viewDecorationProvider';
@@ -393,10 +394,10 @@ export class RepositoryNode extends SubscribeableViewNode<'repository', ViewsWit
 	@debug<RepositoryNode['onFileSystemChanged']>({
 		args: {
 			0: e =>
-				`{ repository: ${e.repository.name ?? ''}, uris(${e.uris.length}): [${e.uris
-					.slice(0, 1)
-					.map(u => u.fsPath)
-					.join(', ')}${e.uris.length > 1 ? ', ...' : ''}] }`,
+				`{ repository: ${e.repository.name ?? ''}, uris(${e.uris.size}): [${join(
+					map(slice(e.uris, 0, 1), u => u.fsPath),
+					', ',
+				)}${e.uris.size > 1 ? ', ...' : ''}] }`,
 		},
 	})
 	private async onFileSystemChanged(_e: RepositoryFileSystemChangeEvent) {

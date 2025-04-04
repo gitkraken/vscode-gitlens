@@ -228,7 +228,7 @@ export class LineHistoryNode
 	}
 
 	private onFileSystemChanged(e: RepositoryFileSystemChangeEvent) {
-		if (!e.uris.some(uri => uri.toString() === this.uri.toString())) return;
+		if (!e.uris.has(this.uri)) return;
 
 		using scope = startLogScope(
 			`${getLoggableName(this)}.onFileSystemChanged(e=${this.uri.toString(true)})`,

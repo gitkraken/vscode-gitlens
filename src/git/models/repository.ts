@@ -11,13 +11,14 @@ import type { RepoComparisonKey } from '../../repositories';
 import { asRepoComparisonKey } from '../../repositories';
 import { executeActionCommand } from '../../system/-webview/command';
 import { configuration } from '../../system/-webview/configuration';
+import { UriSet } from '../../system/-webview/uriMap';
 import { getScopedCounter } from '../../system/counter';
 import { gate } from '../../system/decorators/-webview/gate';
 import { memoize } from '../../system/decorators/-webview/memoize';
 import { debug, log, logName } from '../../system/decorators/log';
 import type { Deferrable } from '../../system/function/debounce';
 import { debounce } from '../../system/function/debounce';
-import { filter, groupByMap, join, min, some } from '../../system/iterable';
+import { filter, groupByMap, join, map, min, some } from '../../system/iterable';
 import { getLoggableName, Logger } from '../../system/logger';
 import { getLogScope, startLogScope } from '../../system/logger.scope';
 import { updateRecordValue } from '../../system/object';
@@ -139,7 +140,7 @@ export class RepositoryChangeEvent {
 
 export interface RepositoryFileSystemChangeEvent {
 	readonly repository: Repository;
-	readonly uris: Uri[];
+	readonly uris: UriSet;
 }
 
 const instanceCounter = getScopedCounter();
@@ -416,8 +417,8 @@ export class Repository implements Disposable {
 	}
 
 	private onFileSystemChanged(uri: Uri) {
-		// Ignore .git changes
-		if (/\.git(?:\/|\\|$)/.test(uri.fsPath)) return;
+		// Ignore node_modules and .git changes
+		if (/(?:(?:\/|\\)node_modules|\.git)(?:\/|\\|$)/.test(uri.fsPath)) return;
 
 		this._etagFileSystem = Date.now();
 		this.fireFileSystemChange(uri);
@@ -966,12 +967,18 @@ export class Repository implements Disposable {
 
 		this._fireFileSystemChangeDebounced ??= debounce(this.fireFileSystemChangeCore.bind(this), this._fsChangeDelay);
 
-		this._pendingFileSystemChange ??= { repository: this, uris: [] };
+		this._pendingFileSystemChange ??= { repository: this, uris: new UriSet() };
 		const e = this._pendingFileSystemChange;
-		e.uris.push(uri);
+		e.uris.add(uri);
 
 		if (this._suspended) {
-			Logger.debug(scope, `queueing suspended fs changes=${e.uris.map(u => u.fsPath).join(', ')}`);
+			Logger.debug(
+				scope,
+				`queueing suspended fs changes=${join(
+					map(e.uris, u => u.fsPath),
+					', ',
+				)}`,
+			);
 			return;
 		}
 
@@ -984,15 +991,21 @@ export class Repository implements Disposable {
 
 		this._pendingFileSystemChange = undefined;
 
-		const uris = await this.git.excludeIgnoredUris(e.uris);
-		if (uris.length === 0) return;
+		const uris = await this.git.excludeIgnoredUris([...e.uris]);
+		if (!uris.length) return;
 
-		if (uris.length !== e.uris.length) {
-			e = { ...e, uris: uris };
+		if (uris.length !== e.uris.size) {
+			e = { ...e, uris: new UriSet(uris) };
 		}
 
 		using scope = startLogScope(`${getLoggableName(this)}.fireChangeCore`, false);
-		Logger.debug(scope, `firing fs changes=${e.uris.map(u => u.fsPath).join(', ')}`);
+		Logger.debug(
+			scope,
+			`firing fs changes=${join(
+				map(e.uris, u => u.fsPath),
+				', ',
+			)}`,
+		);
 
 		this._onDidChangeFileSystem.fire(e);
 	}
