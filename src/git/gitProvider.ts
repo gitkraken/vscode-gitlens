@@ -446,10 +446,16 @@ export interface GitPatchSubProvider {
 	): Promise<void>;
 	createUnreachableCommitForPatch(
 		repoPath: string,
-		contents: string,
-		baseRef: string,
+		base: string,
 		message: string,
+		patch: string,
 	): Promise<GitCommit | undefined>;
+	createUnreachableCommitsFromPatches(
+		repoPath: string,
+		base: string,
+		patches: { message: string; patch: string }[],
+	): Promise<string[]>;
+
 	validatePatch(repoPath: string | undefined, contents: string): Promise<boolean>;
 }
 
@@ -543,7 +549,7 @@ export interface DisposableTemporaryGitIndex extends UnifiedAsyncDisposable {
 }
 
 export interface GitStagingSubProvider {
-	createTemporaryIndex(repoPath: string, baseRef: string): Promise<DisposableTemporaryGitIndex>;
+	createTemporaryIndex(repoPath: string, base: string): Promise<DisposableTemporaryGitIndex>;
 	stageFile(repoPath: string, pathOrUri: string | Uri, options?: { intentToAdd?: boolean }): Promise<void>;
 	stageFiles(repoPath: string, pathOrUri: string[] | Uri[], options?: { intentToAdd?: boolean }): Promise<void>;
 	stageDirectory(repoPath: string, directoryOrUri: string | Uri, options?: { intentToAdd?: boolean }): Promise<void>;

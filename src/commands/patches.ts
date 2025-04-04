@@ -240,7 +240,7 @@ export class ApplyPatchFromClipboardCommand extends GlCommandBase {
 		if (repo == null) return;
 
 		try {
-			const commit = await patchProvider?.createUnreachableCommitForPatch(patch, 'HEAD', 'Pasted Patch');
+			const commit = await patchProvider?.createUnreachableCommitForPatch('HEAD', 'Pasted Patch', patch);
 			if (commit == null) return;
 
 			await patchProvider?.applyUnreachableCommitForPatch(commit.sha, { stash: false });

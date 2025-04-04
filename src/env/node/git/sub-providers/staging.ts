@@ -18,7 +18,7 @@ export class StagingGitSubProvider implements GitStagingSubProvider {
 	) {}
 
 	@log()
-	async createTemporaryIndex(repoPath: string, baseRef: string): Promise<DisposableTemporaryGitIndex> {
+	async createTemporaryIndex(repoPath: string, base: string): Promise<DisposableTemporaryGitIndex> {
 		// Create a temporary index file
 		const tempDir = await fs.mkdtemp(joinPaths(tmpdir(), 'gl-'));
 		const tempIndex = joinPaths(tempDir, 'index');
@@ -48,7 +48,7 @@ export class StagingGitSubProvider implements GitStagingSubProvider {
 				'-z',
 				'-r',
 				'--full-name',
-				baseRef,
+				base,
 			);
 
 			// Write the tree to our temp index
