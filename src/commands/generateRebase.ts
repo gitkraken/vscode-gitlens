@@ -6,9 +6,11 @@ import type { GitReference } from '../git/models/reference';
 import type { Repository } from '../git/models/repository';
 import { createReference } from '../git/utils/reference.utils';
 import { showGenericErrorMessage } from '../messages';
+import type { AIRebaseResult } from '../plus/ai/aiProviderService';
 import { showComparisonPicker } from '../quickpicks/comparisonPicker';
 import { command } from '../system/-webview/command';
 import { Logger } from '../system/logger';
+import { escapeMarkdown } from '../system/markdown';
 import { GlCommandBase } from './commandBase';
 
 export interface GenerateRebaseCommandArgs {
@@ -16,16 +18,6 @@ export interface GenerateRebaseCommandArgs {
 	head?: GitReference;
 	base?: GitReference;
 	source?: Source;
-}
-
-interface CommitHunk {
-	hunk: number;
-}
-
-interface ReorganizedCommit {
-	message: string;
-	explanation: string;
-	hunks: CommitHunk[];
 }
 
 @command()
@@ -88,15 +80,9 @@ export async function generateRebase(
 	const result = await container.ai.generateRebase(repo, base.ref, head.ref, source, options);
 	if (result == null) return;
 
-	// if it is wrapped in markdown, we need to strip it
-	const content = result.content.replace(/^\s*```json\s*/, '').replace(/\s*```$/, '');
-
 	try {
-		// Parse the JSON content from the result
-		const commits = JSON.parse(content) as ReorganizedCommit[];
-
 		// Generate the markdown content that shows each commit and its diffs
-		const markdownContent = generateRebaseMarkdown(commits, result.diff, result.hunkMap);
+		const markdownContent = generateRebaseMarkdown(result);
 
 		// open an untitled editor with the markdown content
 		const document = await workspace.openTextDocument({ language: 'markdown', content: markdownContent });
@@ -110,18 +96,18 @@ export async function generateRebase(
 /**
  * Formats the reorganized commits into a readable markdown document with proper git diff format
  */
-function generateRebaseMarkdown(
-	commits: ReorganizedCommit[],
-	originalDiff: string,
-	hunkMap: { index: number; hunkHeader: string }[],
-): string {
+function generateRebaseMarkdown(result: AIRebaseResult): string {
 	let markdown = `# Rebase Commits\n\n`;
+
+	const { commits, diff: originalDiff, hunkMap, explanation } = result;
+
+	markdown += `## Explanation\n${explanation}\n\n----\n\n`;
 
 	for (let i = 0; i < commits.length; i++) {
 		const commit = commits[i];
 
 		markdown += `## Commit ${i + 1}: ${commit.message}\n\n`;
-		markdown += `### Explanation\n${commit.explanation}\n\n`;
+		// markdown += `### Explanation\n${commit.explanation}\n\n`;
 		markdown += `### Changes\n`;
 
 		// Group hunks by file (diff header)
@@ -147,7 +133,7 @@ function generateRebaseMarkdown(
 		// Output each file with its hunks in git patch format
 		for (const [diffHeader, hunkHeaders] of fileHunks.entries()) {
 			markdown += '```diff\n';
-			markdown += `${diffHeader.replace('```', '``')}\n`;
+			markdown += `${escapeMarkdown(diffHeader)}\n`;
 
 			// Extract and include the actual content for each hunk from the original diff
 			for (const hunkHeader of hunkHeaders) {
@@ -155,7 +141,7 @@ function generateRebaseMarkdown(
 				// Find the hunk content in the original diff
 				const hunkContent = extractHunkContent(originalDiff, diffHeader, hunkHeader);
 				if (hunkContent) {
-					markdown += `${hunkContent.replaceAll('```', '``')}\n`;
+					markdown += `${escapeMarkdown(hunkContent)}\n`;
 				} else {
 					markdown += `Unable to extract hunk content for ${hunkHeader}\n`;
 				}
@@ -165,7 +151,8 @@ function generateRebaseMarkdown(
 		}
 	}
 
-	markdown += `\n\n----\n\n## Original Diff\n\n\`\`\`${originalDiff.replaceAll('```', '``')}\`\`\`\n`;
+	markdown += `\n\n----\n\n## Raw commits\n\n\`\`\`${escapeMarkdown(JSON.stringify(commits))}\`\`\``;
+	markdown += `\n\n----\n\n## Original Diff\n\n\`\`\`${escapeMarkdown(originalDiff)}\`\`\`\n`;
 
 	return markdown;
 }

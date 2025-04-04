@@ -13,8 +13,8 @@ import {
 	generateCodeSuggestMessageUserPrompt,
 	generateCommitMessageUserPrompt,
 	generatePullRequestMessageUserPrompt,
-	generateRebaseUserPrompt,
-	generateRebaseUserPromptV2,
+	generateRebaseMultiStep1UserPrompt,
+	generateRebaseMultiStep2UserPrompt,
 	generateRebaseUserPromptV3,
 	generateStashMessageUserPrompt,
 } from '../../prompts';
@@ -78,7 +78,6 @@ export function getLocalPromptTemplate<T extends PromptTemplateType>(
 			};
 		case 'generate-rebase':
 			return {
-				name: 'Generate Rebase (Preview)',
 				template: generateRebaseUserPromptV3, //generateRebaseUserPrompt,
 				variables: [
 					'diff',
@@ -87,6 +86,25 @@ export function getLocalPromptTemplate<T extends PromptTemplateType>(
 					'context',
 					'instructions',
 				] satisfies (keyof PromptTemplateContext<'generate-rebase'>)[],
+			};
+		case 'generate-rebase-multi-step1':
+			return {
+				template: generateRebaseMultiStep1UserPrompt, //generateRebaseUserPrompt,
+				variables: [
+					'diff',
+					'commits',
+					'context',
+					'instructions',
+				] satisfies (keyof PromptTemplateContext<'generate-rebase-multi-step1'>)[],
+			};
+		case 'generate-rebase-multi-step2':
+			return {
+				template: generateRebaseMultiStep2UserPrompt, //generateRebaseUserPrompt,
+				variables: [
+					'data',
+					'context',
+					'instructions',
+				] satisfies (keyof PromptTemplateContext<'generate-rebase-multi-step2'>)[],
 			};
 		case 'explain-changes':
 			return {
