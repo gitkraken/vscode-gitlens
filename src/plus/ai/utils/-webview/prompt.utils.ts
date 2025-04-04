@@ -13,8 +13,8 @@ import {
 	generateCodeSuggestMessageUserPrompt,
 	generateCommitMessageUserPrompt,
 	generatePullRequestMessageUserPrompt,
-	generateRebaseUserPrompt,
-	generateRebaseUserPromptV2,
+	generateRebaseMultiStep1UserPrompt,
+	generateRebaseMultiStep2UserPrompt,
 	generateRebaseUserPromptV3,
 	generateStashMessageUserPrompt,
 } from '../../prompts';
@@ -90,6 +90,27 @@ export function getLocalPromptTemplate<T extends AIActionType>(action: T, _model
 					'context',
 					'instructions',
 				] satisfies (keyof PromptTemplateContext<'generate-rebase'>)[],
+			};
+		case 'generate-rebase-multi-step1':
+			return {
+				name: 'Generate Rebase (Preview)',
+				template: generateRebaseMultiStep1UserPrompt, //generateRebaseUserPrompt,
+				variables: [
+					'diff',
+					'commits',
+					'context',
+					'instructions',
+				] satisfies (keyof PromptTemplateContext<'generate-rebase-multi-step1'>)[],
+			};
+		case 'generate-rebase-multi-step2':
+			return {
+				name: 'Generate Rebase (Preview)',
+				template: generateRebaseMultiStep2UserPrompt, //generateRebaseUserPrompt,
+				variables: [
+					'data',
+					'context',
+					'instructions',
+				] satisfies (keyof PromptTemplateContext<'generate-rebase-multi-step2'>)[],
 			};
 		case 'explain-changes':
 			return {
