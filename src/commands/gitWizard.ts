@@ -79,6 +79,8 @@ export class GitWizardCommand extends QuickWizardCommandBase {
 			'gitlens.gitCommands.tag.delete',
 			'gitlens.gitCommands.worktree',
 			'gitlens.gitCommands.worktree.create',
+			'gitlens.gitCommands.worktree.delete',
+			'gitlens.gitCommands.worktree.open',
 
 			'gitlens.copyWorkingChangesToWorktree',
 		]);

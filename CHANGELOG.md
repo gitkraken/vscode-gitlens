@@ -18,6 +18,7 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/) and this p
 
 - Fixes _Create PR with AI_ isn't including commit messages properly ([#4198](https://github.com/gitkraken/vscode-gitlens/issues/4198))
 - Fixes some cases where "Switch" and "Open in Worktree" actions in Launchpad fail to fully open the repo ([#4196](https://github.com/gitkraken/vscode-gitlens/issues/4196))
+- Fixes worktree commands not registered ([#4203](https://github.com/gitkraken/vscode-gitlens/issues/4203))
 
 ## [17.0.0] - 2025-03-31
 
