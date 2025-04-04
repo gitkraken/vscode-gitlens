@@ -47,7 +47,6 @@ import type {
 import type { PromptTemplate } from './models/promptTemplates';
 import type { AIChatMessage, AIProvider, AIRequestResult } from './models/provider';
 import { resolvePrompt } from './utils/-webview/prompt.utils';
-import { parseGitFileDiff } from '../../git/parsers/diffParser';
 
 export interface AIResult {
 	readonly id?: string;
@@ -837,7 +836,7 @@ export class AIProviderService implements Disposable {
 
 				originalDiff = diff.contents;
 
-				let hunkMap: { index: number; hunkHeader: string }[] = [];
+				const hunkMap: { index: number; hunkHeader: string }[] = [];
 				let counter = 0;
 				//const filesDiffs = await repo.git.diff().getDiffFiles!(diff.contents)!;
 				//for (const f of filesDiffs!.files)
@@ -847,7 +846,7 @@ export class AIProviderService implements Disposable {
 
 				// let hunksByNumber= '';
 
-				for (const hunkHeader of originalDiff.matchAll(/@@ -\d+,\d+ \+\d+,\d+ @@ (.*)$/gm)) {
+				for (const hunkHeader of originalDiff.matchAll(/@@ -\d+,\d+ \+\d+,\d+ @@(.*)$/gm)) {
 					hunkMap.push({ index: ++counter, hunkHeader: hunkHeader[0] });
 				}
 
