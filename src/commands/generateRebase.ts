@@ -28,6 +28,15 @@ interface ReorganizedCommit {
 	hunks: CommitHunk[];
 }
 
+/**
+ * Represents a file patch with its diff header and hunk contents
+ */
+export interface RebaseDiffInfo {
+	message: string;
+	explanation: string;
+	filePatches: Map<string, string[]>;
+}
+
 @command()
 export class GenerateChangelogCommand extends GlCommandBase {
 	constructor(private readonly container: Container) {
@@ -95,8 +104,11 @@ export async function generateRebase(
 		// Parse the JSON content from the result
 		const commits = JSON.parse(content) as ReorganizedCommit[];
 
+		// Extract the diff information
+		const commitDiffs = extractRebaseDiffInfo(commits, result.diff, result.hunkMap);
+
 		// Generate the markdown content that shows each commit and its diffs
-		const markdownContent = generateRebaseMarkdown(commits, result.diff, result.hunkMap);
+		const markdownContent = generateRebaseMarkdown(commitDiffs, result.diff);
 
 		// open an untitled editor with the markdown content
 		const document = await workspace.openTextDocument({ language: 'markdown', content: markdownContent });
@@ -108,57 +120,68 @@ export async function generateRebase(
 }
 
 /**
- * Formats the reorganized commits into a readable markdown document with proper git diff format
+ * Extracts the diff information from reorganized commits
  */
-function generateRebaseMarkdown(
+export function extractRebaseDiffInfo(
 	commits: ReorganizedCommit[],
 	originalDiff: string,
 	hunkMap: { index: number; hunkHeader: string }[],
-): string {
-	let markdown = `# Rebase Commits\n\n`;
-
-	for (let i = 0; i < commits.length; i++) {
-		const commit = commits[i];
-
-		markdown += `## Commit ${i + 1}: ${commit.message}\n\n`;
-		markdown += `### Explanation\n${commit.explanation}\n\n`;
-		markdown += `### Changes\n`;
-
+): RebaseDiffInfo[] {
+	return commits.map(commit => {
 		// Group hunks by file (diff header)
-		const fileHunks = new Map<string, string[]>();
+		const filePatches = new Map<string, string[]>();
 		for (const { hunk: hunkIndex } of commit.hunks) {
 			if (hunkIndex < 1 || hunkIndex > hunkMap.length) continue;
 			const matchingHunk = hunkMap[hunkIndex - 1];
 			// find the index of the hunk header in the original diff
 			const hunkHeaderIndex = originalDiff.indexOf(matchingHunk.hunkHeader);
-			// extract the matching file diff header from the original diff, which is the last line in the diff starting with 'diff --git' before the hunk header. Use a regex to get the single diff header line out
+			// extract the matching file diff header from the original diff
 			const diffHeader = originalDiff
 				.substring(0, hunkHeaderIndex)
 				.split('\n')
 				.reverse()
 				.find(line => line.startsWith('diff --git'));
 			if (diffHeader == null) continue;
-			if (!fileHunks.has(diffHeader)) {
-				fileHunks.set(diffHeader, []);
+			if (!filePatches.has(diffHeader)) {
+				filePatches.set(diffHeader, []);
 			}
-			fileHunks.get(diffHeader)!.push(matchingHunk.hunkHeader);
+
+			// Find the hunk content in the original diff
+			const hunkContent = extractHunkContent(originalDiff, diffHeader, matchingHunk.hunkHeader);
+			if (hunkContent) {
+				filePatches.get(diffHeader)!.push(hunkContent);
+			}
 		}
 
+		return {
+			message: commit.message,
+			explanation: commit.explanation,
+			filePatches: filePatches,
+		};
+	});
+}
+
+/**
+ * Formats the reorganized commits into a readable markdown document with proper git diff format
+ */
+function generateRebaseMarkdown(commitDiffs: RebaseDiffInfo[], originalDiff: string): string {
+	let markdown = `# Rebase Commits\n\n`;
+
+	for (let i = 0; i < commitDiffs.length; i++) {
+		const { message, explanation, filePatches } = commitDiffs[i];
+
+		markdown += `## Commit ${i + 1}: ${message}\n\n`;
+		markdown += `### Explanation\n${explanation}\n\n`;
+		markdown += `### Changes\n`;
+
 		// Output each file with its hunks in git patch format
-		for (const [diffHeader, hunkHeaders] of fileHunks.entries()) {
+		for (const [diffHeader, hunkContents] of filePatches.entries()) {
 			markdown += '```diff\n';
 			markdown += `${diffHeader.replace('```', '``')}\n`;
 
-			// Extract and include the actual content for each hunk from the original diff
-			for (const hunkHeader of hunkHeaders) {
-				// markdown += `${hunkHeader}\n`;
-				// Find the hunk content in the original diff
-				const hunkContent = extractHunkContent(originalDiff, diffHeader, hunkHeader);
-				if (hunkContent) {
-					markdown += `${hunkContent.replaceAll('```', '``')}\n`;
-				} else {
-					markdown += `Unable to extract hunk content for ${hunkHeader}\n`;
-				}
+			// Include all hunks for this file
+			for (const hunkContent of hunkContents) {
+				markdown += `${hunkContent.replaceAll('```', '``')}\n`;
 			}
 
 			markdown += '```\n\n';
