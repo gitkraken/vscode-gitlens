@@ -151,7 +151,7 @@ function generateRebaseMarkdown(
 
 			// Extract and include the actual content for each hunk from the original diff
 			for (const hunkHeader of hunkHeaders) {
-				markdown += `${hunkHeader}\n`;
+				// markdown += `${hunkHeader}\n`;
 				// Find the hunk content in the original diff
 				const hunkContent = extractHunkContent(originalDiff, diffHeader, hunkHeader);
 				if (hunkContent) {
