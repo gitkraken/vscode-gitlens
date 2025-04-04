@@ -191,14 +191,20 @@ function extractHunkContent(originalDiff: string, diffHeader: string, hunkHeader
 		hunkIndex = originalDiff.indexOf(newHunkHeader, diffIndex);
 	}
 
-	if (hunkIndex === -1 || hunkIndex > nextDiffIndex) {
+	if (hunkIndex === -1 || (nextDiffIndex !== -1 && hunkIndex > nextDiffIndex)) {
 		debugger;
 
 		return null;
 	}
 
 	const nextHunkIndex = originalDiff.indexOf('@@ -', hunkIndex + 1);
+	const nextIndex =
+		nextHunkIndex !== -1 && nextHunkIndex < nextDiffIndex
+			? nextHunkIndex - 1
+			: nextDiffIndex > 0
+			  ? nextDiffIndex - 1
+			  : undefined;
 
 	// Extract the content lines (excluding the hunk header)
-	return originalDiff.substring(hunkIndex, (nextHunkIndex > nextDiffIndex ? nextDiffIndex : nextHunkIndex) - 1);
+	return originalDiff.substring(hunkIndex, nextIndex);
 }
