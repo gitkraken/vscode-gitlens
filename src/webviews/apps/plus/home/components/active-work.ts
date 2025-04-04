@@ -283,7 +283,7 @@ export class GlActiveBranchCard extends GlBranchCardBase {
 				<gl-button
 					aria-busy=${ifDefined(isFetching)}
 					?disabled=${isFetching}
-					href=${createWebviewCommandLink('gitlens.views.home.publishBranch', 'gitlens.views.home', '')}
+					href=${this.createWebviewCommandLink('gitlens.views.home.publishBranch')}
 					full
 					appearance="secondary"
 					><code-icon icon="cloud-upload" slot="prefix"></code-icon> Publish Branch<span slot="tooltip"
