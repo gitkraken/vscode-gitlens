@@ -175,8 +175,8 @@ export class PatchGitSubProvider implements GitPatchSubProvider {
 		return await this.provider.commits.getCommit(repoPath, sha);
 	}
 
-	@log<PatchGitSubProvider['createUnreachableCommisFromPatches']>({ args: { 2: p => p.length } })
-	async createUnreachableCommisFromPatches(
+	@log<PatchGitSubProvider['createUnreachableCommitsFromPatches']>({ args: { 2: p => p.length } })
+	async createUnreachableCommitsFromPatches(
 		repoPath: string,
 		base: string,
 		patches: { message: string; patch: string }[],
