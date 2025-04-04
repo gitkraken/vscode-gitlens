@@ -493,7 +493,7 @@ export class StatusGitSubProvider implements GitStatusSubProvider {
 	async getStatus(repoPath: string | undefined): Promise<GitStatus | undefined> {
 		if (repoPath == null) return undefined;
 
-		const porcelainVersion = (await this.git.isAtLeastVersion('2.11')) ? 2 : 1;
+		const porcelainVersion = (await this.git.supports('git:status:porcelain-v2')) ? 2 : 1;
 
 		const data = await this.git.status(repoPath, porcelainVersion, {
 			similarityThreshold: configuration.get('advanced.similarityThreshold') ?? undefined,
@@ -529,7 +529,7 @@ export class StatusGitSubProvider implements GitStatusSubProvider {
 	async getStatusForPath(repoPath: string, pathOrGlob: string | Uri): Promise<GitStatusFile[] | undefined> {
 		const [relativePath] = splitPath(pathOrGlob, repoPath);
 
-		const porcelainVersion = (await this.git.isAtLeastVersion('2.11')) ? 2 : 1;
+		const porcelainVersion = (await this.git.supports('git:status:porcelain-v2')) ? 2 : 1;
 
 		const data = await this.git.status(
 			repoPath,

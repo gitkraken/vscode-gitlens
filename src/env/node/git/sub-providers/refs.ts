@@ -99,7 +99,7 @@ export class RefsGitSubProvider implements GitRefsSubProvider {
 
 	@log()
 	async getSymbolicReferenceName(repoPath: string, ref: string): Promise<string | undefined> {
-		const supportsEndOfOptions = await this.git.isAtLeastVersion('2.30');
+		const supportsEndOfOptions = await this.git.supports('git:rev-parse:end-of-options');
 
 		const data = await this.git.exec(
 			{ cwd: repoPath, errors: GitErrorHandling.Ignore },
@@ -200,7 +200,7 @@ export class RefsGitSubProvider implements GitRefsSubProvider {
 		if (!ref) return undefined;
 		if (ref === deletedOrMissing || isUncommitted(ref)) return ref;
 
-		const supportsEndOfOptions = await this.git.isAtLeastVersion('2.30');
+		const supportsEndOfOptions = await this.git.supports('git:rev-parse:end-of-options');
 
 		const data = await this.git.exec(
 			{ cwd: repoPath, errors: GitErrorHandling.Ignore },

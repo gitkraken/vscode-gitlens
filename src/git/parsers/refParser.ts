@@ -8,11 +8,11 @@ type BranchParser = Parser<{
 	upstreamTracking: string;
 	sha: string;
 	date: string;
-	worktreePath: string;
+	worktreePath?: string;
 }>;
 
 let _branchParser: BranchParser | undefined;
-export function getBranchParser(): BranchParser {
+export function getBranchParser(supportsWorktreePath: boolean): BranchParser {
 	_branchParser ??= createRefParser({
 		current: `%(if)%(HEAD)%(then)*%(else) %(end)`, // HEAD indicator (current branch)
 		name: `%(refname)`, // Full reference name
@@ -20,7 +20,7 @@ export function getBranchParser(): BranchParser {
 		upstreamTracking: `%(upstream:track)`, // Tracking status
 		sha: `%(objectname)`, // SHA
 		date: `%(committerdate:iso8601)`, // Date
-		worktreePath: '%(worktreepath)', // Worktree path
+		worktreePath: supportsWorktreePath ? '%(worktreepath)' : undefined, // Worktree path
 	});
 	return _branchParser;
 }
@@ -45,12 +45,17 @@ export function getTagParser(): TagParser {
 	return _tagParser;
 }
 
-export function createRefParser<T extends Record<string, unknown>>(fieldMapping: ExtractAll<T, string>): Parser<T> {
+export function createRefParser<T extends Record<string, unknown>>(
+	fieldMapping: ExtractAll<T, string | undefined>,
+): Parser<T> {
 	let format = '';
 	const keys: (keyof ExtractAll<T, string>)[] = [];
 	for (const key in fieldMapping) {
+		const value = fieldMapping[key];
+		if (!value) continue;
+
 		keys.push(key);
-		format += `%00${fieldMapping[key]}`;
+		format += `%00${value}`;
 	}
 
 	const args = [`--format=${format}`];

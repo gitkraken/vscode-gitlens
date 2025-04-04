@@ -463,21 +463,21 @@ export class LocalGitProvider implements GitProvider, Disposable {
 		if (supported != null) return supported;
 
 		switch (feature) {
-			case 'worktrees' satisfies Features:
-				supported = await this.git.isAtLeastVersion('2.17.0');
-				this._supportedFeatures.set(feature, supported);
-				return supported;
-			case 'stashOnlyStaged' satisfies Features:
-				supported = await this.git.isAtLeastVersion('2.35.0');
-				this._supportedFeatures.set(feature, supported);
-				return supported;
-			case 'forceIfIncludes' satisfies Features:
-				supported = await this.git.isAtLeastVersion('2.30.0');
-				this._supportedFeatures.set(feature, supported);
-				return supported;
+			case 'stashes' satisfies Features:
+			case 'timeline' satisfies Features:
+				supported = true;
+				break;
 			default:
-				return true;
+				if (feature.startsWith('git:')) {
+					supported = await this.git.supports(feature);
+				} else {
+					supported = true;
+				}
+				break;
 		}
+
+		this._supportedFeatures.set(feature, supported);
+		return supported;
 	}
 
 	@debug<LocalGitProvider['visibility']>({ exit: r => `returned ${r[0]}` })

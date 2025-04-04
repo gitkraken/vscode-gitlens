@@ -7,6 +7,8 @@ import type { CancellationToken, OutputChannel } from 'vscode';
 import { env, Uri, window, workspace } from 'vscode';
 import { hrtime } from '@env/hrtime';
 import { GlyphChars } from '../../../constants';
+import type { GitFeature } from '../../../features';
+import { gitFeaturesByVersion } from '../../../features';
 import type { GitCommandOptions, GitSpawnOptions } from '../../../git/commandOptions';
 import { GitErrorHandling } from '../../../git/commandOptions';
 import {
@@ -41,6 +43,7 @@ import { Logger } from '../../../system/logger';
 import { slowCallWarningThreshold } from '../../../system/logger.constants';
 import { getLoggableScopeBlockOverride, getLogScope } from '../../../system/logger.scope';
 import { dirname, isAbsolute, isFolderGlob, joinPaths, normalizePath } from '../../../system/path';
+import { isPromise } from '../../../system/promise';
 import { getDurationMilliseconds } from '../../../system/string';
 import { compare, fromString } from '../../../system/version';
 import { ensureGitTerminal } from '../../../terminal';
@@ -362,27 +365,29 @@ export class Git {
 		return (await this.getLocation()).path;
 	}
 
-	async version(): Promise<string> {
-		return (await this.getLocation()).version;
-	}
+	async ensureSupports(feature: GitFeature, prefix: string, suffix: string): Promise<void> {
+		const version = gitFeaturesByVersion.get(feature);
+		if (version == null) return;
 
-	async ensureGitVersion(version: string, prefix: string, suffix: string): Promise<void> {
-		if (await this.isAtLeastVersion(version)) return;
+		const gitVersion = await this.version();
+		if (compare(fromString(gitVersion), fromString(version)) !== -1) return;
 
 		throw new Error(
-			`${prefix} requires a newer version of Git (>= ${version}) than is currently installed (${await this.version()}).${suffix}`,
+			`${prefix} requires a newer version of Git (>= ${version}) than is currently installed (${gitVersion}).${suffix}`,
 		);
 	}
 
-	async isAtLeastVersion(minimum: string): Promise<boolean> {
-		const result = compare(fromString(await this.version()), fromString(minimum));
-		return result !== -1;
+	supports(feature: GitFeature): boolean | Promise<boolean> {
+		const version = gitFeaturesByVersion.get(feature);
+		if (version == null) return true;
+
+		return this._gitLocation != null
+			? compare(fromString(this._gitLocation.version), fromString(version)) !== -1
+			: this.version().then(v => compare(fromString(v), fromString(version)) !== -1);
 	}
 
-	maybeIsAtLeastVersion(minimum: string): boolean | undefined {
-		return this._gitLocation != null
-			? compare(fromString(this._gitLocation.version), fromString(minimum)) !== -1
-			: undefined;
+	async version(): Promise<string> {
+		return (await this.getLocation()).version;
 	}
 
 	// Git commands
@@ -427,10 +432,10 @@ export class Git {
 		}
 
 		// Ensure the version of Git supports the --ignore-revs-file flag, otherwise the blame will fail
-		let supportsIgnoreRevsFile = this.maybeIsAtLeastVersion('2.23');
-		if (supportsIgnoreRevsFile === undefined) {
-			supportsIgnoreRevsFile = await this.isAtLeastVersion('2.23');
-		}
+		const supportsIgnoreRevsFileResult = this.supports('git:ignoreRevsFile');
+		let supportsIgnoreRevsFile = isPromise(supportsIgnoreRevsFileResult)
+			? await supportsIgnoreRevsFileResult
+			: supportsIgnoreRevsFileResult;
 
 		const ignoreRevsIndex = params.indexOf('--ignore-revs-file');
 
@@ -825,7 +830,7 @@ export class Git {
 			if (options.force.withLease) {
 				params.push('--force-with-lease');
 				if (options.force.ifIncludes) {
-					if (await this.isAtLeastVersion('2.30.0')) {
+					if (await this.supports('git:push:force-if-includes')) {
 						params.push('--force-if-includes');
 					}
 				}
@@ -1531,10 +1536,14 @@ export class Git {
 		}
 
 		if (options?.onlyStaged) {
-			if (await this.isAtLeastVersion('2.35')) {
+			if (await this.supports('git:stash:push:staged')) {
 				params.push('--staged');
 			} else {
-				throw new Error('Git version 2.35 or higher is required for --staged');
+				throw new Error(
+					`Git version ${gitFeaturesByVersion.get(
+						'git:stash:push:staged',
+					)}}2.35 or higher is required for --staged`,
+				);
 			}
 		}
 
@@ -1584,7 +1593,7 @@ export class Git {
 			'--branch',
 			'-u',
 		];
-		if (await this.isAtLeastVersion('2.18')) {
+		if (await this.supports('git:status:find-renames')) {
 			params.push(
 				`--find-renames${options?.similarityThreshold == null ? '' : `=${options.similarityThreshold}%`}`,
 			);

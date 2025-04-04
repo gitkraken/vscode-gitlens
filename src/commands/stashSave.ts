@@ -76,7 +76,7 @@ export class StashSaveCommand extends GlCommandBase {
 			const repo = await this.container.git.getOrOpenRepository(uris[0]);
 
 			args.repoPath = repo?.path;
-			args.onlyStaged = repo != null && hasOnlyStaged ? await repo.git.supports('stashOnlyStaged') : false;
+			args.onlyStaged = repo != null && hasOnlyStaged ? await repo.git.supports('git:stash:push:staged') : false;
 			if (args.keepStaged == null && !hasStaged) {
 				args.keepStaged = true;
 			}
@@ -115,7 +115,7 @@ export class StashSaveCommand extends GlCommandBase {
 			const repo = await this.container.git.getOrOpenRepository(uris[0]);
 
 			args.repoPath = repo?.path;
-			args.onlyStaged = repo != null && hasOnlyStaged ? await repo.git.supports('stashOnlyStaged') : false;
+			args.onlyStaged = repo != null && hasOnlyStaged ? await repo.git.supports('git:stash:push:staged') : false;
 			if (args.keepStaged == null && !hasStaged) {
 				args.keepStaged = true;
 			}
