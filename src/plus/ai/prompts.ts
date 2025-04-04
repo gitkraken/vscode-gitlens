@@ -493,7 +493,7 @@ Your task is to group the hunks in unified_diff into a set of commits, ordered i
 
 Output your new commit history as a JSON array. Each commit in the array should be an object representing a grouping of hunks forming that commit, with the following properties:
 - "message": A string containing the commit message.
-- "explanation": A string with a detailed explanation of the changes in the commit.
+- "explanation": A string with a detailed explanation of the changes in the commit. Write the explanation as if you were explaining the changes to a reviewer who is familiar with the codebase but not the specific changes. Walk through the changes and make references to specific changes where needed, explaining how they achieve the objective of the commit.
 - "hunks": An array of objects, each representing a hunk in the commit. Each hunk object should have:
   - "hunk": The hunk index (number) from the hunk_map, matching the equivalent hunk you chose from the unified_diff.
 

@@ -147,7 +147,7 @@ function generateRebaseMarkdown(
 		// Output each file with its hunks in git patch format
 		for (const [diffHeader, hunkHeaders] of fileHunks.entries()) {
 			markdown += '```diff\n';
-			markdown += `${diffHeader}\n`;
+			markdown += `${diffHeader.replace('```', '``')}\n`;
 
 			// Extract and include the actual content for each hunk from the original diff
 			for (const hunkHeader of hunkHeaders) {
@@ -155,7 +155,7 @@ function generateRebaseMarkdown(
 				// Find the hunk content in the original diff
 				const hunkContent = extractHunkContent(originalDiff, diffHeader, hunkHeader);
 				if (hunkContent) {
-					markdown += `${hunkContent}\n`;
+					markdown += `${hunkContent.replaceAll('```', '``')}\n`;
 				} else {
 					markdown += `Unable to extract hunk content for ${hunkHeader}\n`;
 				}
@@ -165,7 +165,7 @@ function generateRebaseMarkdown(
 		}
 	}
 
-	markdown += `\n\n----\n\n## Original Diff\n\n\`\`\`${originalDiff}\`\`\`\n`;
+	markdown += `\n\n----\n\n## Original Diff\n\n\`\`\`${originalDiff.replaceAll('```', '``')}\`\`\`\n`;
 
 	return markdown;
 }
