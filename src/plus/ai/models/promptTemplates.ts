@@ -36,6 +36,7 @@ interface ExplainChangesPromptTemplateContext {
 
 interface RebasePromptTemplateContext {
 	diff: string;
+	data?: string;
 	commits?: string;
 	context?: string;
 	instructions?: string;
@@ -52,6 +53,7 @@ export type PromptTemplateType =
 	| 'generate-stashMessage'
 	| 'generate-changelog'
 	| `generate-create-${'cloudPatch' | 'codeSuggestion' | 'pullRequest'}`
+	| 'generate-rebase'
 	| 'explain-changes';
 
 export type PromptTemplateContext<T extends PromptTemplateType> = T extends 'generate-commitMessage'

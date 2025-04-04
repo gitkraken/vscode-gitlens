@@ -83,6 +83,7 @@ export function getLocalPromptTemplate<T extends PromptTemplateType>(
 				variables: [
 					'diff',
 					'commits',
+					'data',
 					'context',
 					'instructions',
 				] satisfies (keyof PromptTemplateContext<'generate-rebase'>)[],

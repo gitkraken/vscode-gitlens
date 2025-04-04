@@ -84,6 +84,7 @@ export interface AISummarizeResult extends AIResult {
 
 export interface AIRebaseResult extends AIResult {
 	readonly diff: string;
+	readonly hunkMap: { index: number; hunkHeader: string }[];
 }
 
 export interface AIGenerateChangelogChange {
@@ -837,9 +838,10 @@ export class AIProviderService implements Disposable {
 		},
 	): Promise<AIRebaseResult | undefined> {
 		let originalDiff: string | undefined;
+		let hunkMapInput: { index: number; hunkHeader: string }[] = [];
 		const result = await this.sendRequest(
 			'generate-rebase',
-			async (action, model, promptTemplate, reporting, cancellation, maxInputTokens, retries) => {
+			async (model, reporting, cancellation, maxInputTokens, retries) => {
 				const [diffResult, logResult] = await Promise.allSettled([
 					repo.git.diff().getDiff?.(headRef, baseRef, { notation: '...' }),
 					repo.git.commits().getLog(`${baseRef}..${headRef}`),
@@ -855,6 +857,25 @@ export class AIProviderService implements Disposable {
 
 				originalDiff = diff.contents;
 
+				const hunkMap: { index: number; hunkHeader: string }[] = [];
+				let counter = 0;
+				//const filesDiffs = await repo.git.diff().getDiffFiles!(diff.contents)!;
+				//for (const f of filesDiffs!.files)
+				//for (const hunk of parsedDiff.hunks) {
+				//	hunkMap.push({ index: ++counter, hunkHeader: hunk.contents.split('\n', 1)[0] });
+				//}
+
+				// let hunksByNumber= '';
+
+				for (const hunkHeader of originalDiff.matchAll(/@@ -\d+,\d+ \+\d+,\d+ @@ (.*)$/gm)) {
+					hunkMap.push({ index: ++counter, hunkHeader: hunkHeader[0] });
+				}
+
+				hunkMapInput = hunkMap;
+				// 	const hunkNumber = `hunk-${counter++}`;
+				// 	hunksByNumber += `${hunkNumber}: ${hunk[0]}\n`;
+				// }
+
 				// const commits: { diff: string; message: string }[] = [];
 				// for (const commit of [...log.commits.values()].sort((a, b) => a.date.getTime() - b.date.getTime())) {
 				// 	const diff = await repo.git.diff().getDiff?.(commit.ref);
@@ -863,13 +884,13 @@ export class AIProviderService implements Disposable {
 				// 	if (cancellation.isCancellationRequested) throw new CancellationError();
 				// }
 
-				const { prompt } = await resolvePrompt(
-					action,
+				const { prompt } = await this.getPrompt(
+					'generate-rebase',
 					model,
-					promptTemplate,
 					{
 						diff: diff.contents,
 						// commits: JSON.stringify(commits),
+						data: JSON.stringify(hunkMap),
 						context: options?.context,
 						// instructions: configuration.get('ai.generateRebase.customInstructions'),
 					},
@@ -896,7 +917,7 @@ export class AIProviderService implements Disposable {
 			}),
 			options,
 		);
-		return result != null ? { diff: originalDiff!, ...result } : undefined;
+		return result != null ? { diff: originalDiff!, hunkMap: hunkMapInput, ...result } : undefined;
 	}
 
 	private async sendRequest<T extends AIActionType>(
