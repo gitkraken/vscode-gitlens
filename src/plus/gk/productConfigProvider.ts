@@ -98,15 +98,15 @@ export class ProductConfigProvider {
 						locations: ['home', 'account', 'badge', 'gate'],
 						content: {
 							quickpick: {
-								detail: '$(star-full) Save 33% or more on GitLens Pro',
+								detail: '$(star-full) Save 50% on GitLens Pro',
 							},
 							webview: {
 								info: {
-									html: '<b>Save 33% or more</b> on GitLens Pro',
+									html: '<b>Save 50%</b> on GitLens Pro',
 								},
 								link: {
-									html: '<b>Save 33% or more</b> on GitLens Pro',
-									title: 'Upgrade now and save 33% or more on GitLens Pro',
+									html: '<b>Save 50%</b> on GitLens Pro',
+									title: 'Upgrade now and Save 50% on GitLens Pro',
 								},
 							},
 						},
