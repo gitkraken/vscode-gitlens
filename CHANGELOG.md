@@ -604,6 +604,7 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/) and this p
 ### Added
 
 - Adds support for OpenAI's GPT-4o Mini model for GitLens' experimental AI features
+- Adds support for `--update-refs` flag when using interactive rebase editor - closes [#2387](https://github.com/gitkraken/vscode-gitlens/issues/2387) thanks to [PR #3705](https://github.com/gitkraken/vscode-gitlens/pull/3705) by Gavin Bath ([@thezwap](https://github.com/thezwap))
 - Adds a _Jump to HEAD_ button on the _Commit Graph_ header bar (next to the current branch) to quickly jump to the HEAD commit
   - Adds a _Jump to Reference_ as an `alt` modifier to the _Jump to HEAD_ button to jump to the selected branch or tag
 - Adds support deep link documentation &mdash; closes [#3399](https://github.com/gitkraken/vscode-gitlens/issues/3399)
