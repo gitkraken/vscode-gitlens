@@ -8,6 +8,7 @@ export type AIProviders =
 	| 'gitkraken'
 	| 'huggingface'
 	| 'openai'
+	| 'openrouter'
 	| 'vscode'
 	| 'xai';
 export type AIPrimaryProviders = Extract<AIProviders, 'gitkraken' | 'vscode'>;
@@ -74,6 +75,13 @@ export const githubProviderDescriptor: AIProviderDescriptor<'github'> = {
 export const huggingFaceProviderDescriptor: AIProviderDescriptor<'huggingface'> = {
 	id: 'huggingface',
 	name: 'Hugging Face',
+	primary: false,
+	requiresAccount: true,
+	requiresUserKey: true,
+} as const;
+export const openRouterProviderDescriptor: AIProviderDescriptor<'openrouter'> = {
+	id: 'openrouter',
+	name: 'OpenRouter',
 	primary: false,
 	requiresAccount: true,
 	requiresUserKey: true,
