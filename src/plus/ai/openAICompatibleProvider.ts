@@ -1,107 +1,264 @@
-import type { Disposable } from 'vscode';
-import { window } from 'vscode';
-import { openAICompatibleProviderDescriptor as provider } from '../../constants.ai';
-import { configuration } from '../../system/-webview/configuration';
-import type { AIModel } from './models/model';
-import { openAIModels } from './models/model';
-import { OpenAICompatibleProviderBase } from './openAICompatibleProviderBase';
-import { isAzureUrl } from './utils/-webview/ai.utils';
+import type { CancellationToken } from 'vscode';
+import type { Response } from '@env/fetch';
+import { fetch } from '@env/fetch';
+import type { Role } from '../../@types/vsls';
+import type { AIProviders } from '../../constants.ai';
+import type { Container } from '../../container';
+import { AIError, CancellationError } from '../../errors';
+import { getLoggableName, Logger } from '../../system/logger';
+import { startLogScope } from '../../system/logger.scope';
+import type { ServerConnection } from '../gk/serverConnection';
+import type { AIActionType, AIModel, AIProviderDescriptor } from './models/model';
+import type { AIChatMessage, AIChatMessageRole, AIProvider, AIRequestResult } from './models/provider';
+import { getActionName, getOrPromptApiKey, getValidatedTemperature } from './utils/-webview/ai.utils';
 
-type OpenAICompatibleModel = AIModel<typeof provider.id>;
-const models: OpenAICompatibleModel[] = openAIModels(provider);
+export interface AIProviderConfig {
+	url: string;
+	keyUrl: string;
+	keyValidator?: RegExp;
+}
 
-export class OpenAICompatibleProvider extends OpenAICompatibleProviderBase<typeof provider.id> {
-	readonly id = provider.id;
-	readonly name = provider.name;
-	protected readonly descriptor = provider;
-	protected readonly config = {
-		keyUrl: undefined,
-		keyValidator: /(?:sk-)?[a-zA-Z0-9]{32,}/,
-	};
+export abstract class OpenAICompatibleProvider<T extends AIProviders> implements AIProvider<T> {
+	constructor(
+		protected readonly container: Container,
+		protected readonly connection: ServerConnection,
+	) {}
 
-	getModels(): Promise<readonly AIModel<typeof provider.id>[]> {
-		return Promise.resolve(models);
+	dispose(): void {}
+
+	abstract readonly id: T;
+	abstract readonly name: string;
+	protected abstract readonly descriptor: AIProviderDescriptor<T>;
+	protected abstract readonly config: { keyUrl?: string; keyValidator?: RegExp };
+
+	async configured(silent: boolean): Promise<boolean> {
+		return (await this.getApiKey(silent)) != null;
 	}
 
-	protected getUrl(_model?: AIModel<typeof provider.id>): string | undefined {
-		return configuration.get('ai.openaicompatible.url') ?? undefined;
+	async getApiKey(silent: boolean): Promise<string | undefined> {
+		const { keyUrl, keyValidator } = this.config;
+
+		return getOrPromptApiKey(
+			this.container,
+			{
+				id: this.id,
+				name: this.name,
+				requiresAccount: this.descriptor.requiresAccount,
+				validator: keyValidator != null ? v => keyValidator.test(v) : () => true,
+				url: keyUrl,
+			},
+			silent,
+		);
 	}
 
-	private async getOrPromptBaseUrl(silent: boolean, hasApiKey: boolean): Promise<string | undefined> {
-		let url: string | undefined = this.getUrl();
+	abstract getModels(): Promise<readonly AIModel<T>[]>;
 
-		if (silent || (url != null && hasApiKey)) return url;
+	protected abstract getUrl(_model: AIModel<T>): string;
 
-		const input = window.createInputBox();
-		input.ignoreFocusOut = true;
-		if (url) {
-			input.value = url;
-		}
+	protected getHeaders<TAction extends AIActionType>(
+		_action: TAction,
+		apiKey: string,
+		_model: AIModel<T>,
+		_url: string,
+	): Record<string, string> | Promise<Record<string, string>> {
+		return {
+			Accept: 'application/json',
+			'Content-Type': 'application/json',
+			Authorization: `Bearer ${apiKey}`,
+		};
+	}
 
-		const disposables: Disposable[] = [];
+	async sendRequest<TAction extends AIActionType>(
+		action: TAction,
+		model: AIModel<T>,
+		apiKey: string,
+		getMessages: (maxCodeCharacters: number, retries: number) => Promise<AIChatMessage[]>,
+		options: { cancellation: CancellationToken; modelOptions?: { outputTokens?: number; temperature?: number } },
+	): Promise<AIRequestResult | undefined> {
+		using scope = startLogScope(`${getLoggableName(this)}.sendRequest`, false);
 
 		try {
-			url = await new Promise<string | undefined>(resolve => {
-				disposables.push(
-					input.onDidHide(() => resolve(undefined)),
-					input.onDidChangeValue(value => {
-						if (value) {
-							try {
-								new URL(value);
-							} catch {
-								input.validationMessage = `Please enter a valid URL`;
-								return;
-							}
-						}
-						input.validationMessage = undefined;
-					}),
-					input.onDidAccept(() => {
-						const value = input.value.trim();
-						if (!value) {
-							input.validationMessage = `Please enter a valid URL`;
-							return;
-						}
+			const result = await this.fetch(
+				action,
+				model,
+				apiKey,
+				getMessages,
+				options.modelOptions,
+				options.cancellation,
+			);
+			return result;
+		} catch (ex) {
+			if (ex instanceof CancellationError) {
+				Logger.error(ex, scope, `Cancelled request to ${getActionName(action)}: (${model.provider.name})`);
+				throw ex;
+			}
 
-						try {
-							new URL(value);
-						} catch {
-							input.validationMessage = `Please enter a valid URL`;
-							return;
-						}
+			Logger.error(ex, scope, `Unable to ${getActionName(action)}: (${model.provider.name})`);
+			if (ex instanceof AIError) throw ex;
 
-						if (isAzureUrl(value)) {
-							input.validationMessage = `Please use the Azure OpenAI provider instead for Azure URLS`;
-							return;
-						}
+			debugger;
+			throw new Error(`Unable to ${getActionName(action)}: (${model.provider.name}) ${ex.message}`);
+		}
+	}
 
-						resolve(value);
-					}),
-				);
+	protected async fetch<TAction extends AIActionType>(
+		action: TAction,
+		model: AIModel<T>,
+		apiKey: string,
+		messages: (maxInputTokens: number, retries: number) => Promise<AIChatMessage[]>,
+		modelOptions?: { outputTokens?: number; temperature?: number },
+		cancellation?: CancellationToken,
+	): Promise<AIRequestResult> {
+		let retries = 0;
+		let maxInputTokens = model.maxTokens.input;
 
-				input.title = `Connect to OpenAI-Compatible Provider`;
-				input.placeholder = `Please enter your provider's URL to use this feature`;
-				input.prompt = `Enter your OpenAI-Compatible Provider URL`;
+		while (true) {
+			const request: ChatCompletionRequest = {
+				model: model.id,
+				messages: await messages(maxInputTokens, retries),
+				stream: false,
+				max_completion_tokens: model.maxTokens.output
+					? Math.min(modelOptions?.outputTokens ?? Infinity, model.maxTokens.output)
+					: modelOptions?.outputTokens,
+				temperature: getValidatedTemperature(modelOptions?.temperature ?? model.temperature),
+			};
 
-				input.show();
+			const rsp = await this.fetchCore(action, model, apiKey, request, cancellation);
+			if (!rsp.ok) {
+				const result = await this.handleFetchFailure(rsp, action, model, retries, maxInputTokens);
+				if (result.retry) {
+					maxInputTokens = result.maxInputTokens;
+					retries++;
+					continue;
+				}
+			}
+
+			const data: ChatCompletionResponse = await rsp.json();
+			const result: AIRequestResult = {
+				id: data.id,
+				content: data.choices?.[0].message.content?.trim() ?? data.content?.[0]?.text?.trim() ?? '',
+				model: model,
+				usage: {
+					promptTokens: data.usage?.prompt_tokens ?? data.usage?.input_tokens,
+					completionTokens: data.usage?.completion_tokens ?? data.usage?.output_tokens,
+					totalTokens: data.usage?.total_tokens,
+					limits:
+						data?.usage?.gk != null
+							? {
+									used: data.usage.gk.used,
+									limit: data.usage.gk.limit,
+									resetsOn: new Date(data.usage.gk.resets_on),
+							  }
+							: undefined,
+				},
+			};
+			return result;
+		}
+	}
+
+	protected async handleFetchFailure<TAction extends AIActionType>(
+		rsp: Response,
+		_action: TAction,
+		model: AIModel<T>,
+		retries: number,
+		maxInputTokens: number,
+	): Promise<{ retry: true; maxInputTokens: number }> {
+		if (rsp.status === 404) {
+			throw new Error(`Your API key doesn't seem to have access to the selected '${model.id}' model`);
+		}
+		if (rsp.status === 429) {
+			throw new Error(
+				`(${this.name}) ${rsp.status}: Too many requests (rate limit exceeded) or your account is out of funds`,
+			);
+		}
+
+		let json;
+		try {
+			json = (await rsp.json()) as { error?: { code: string; message: string } } | undefined;
+		} catch {}
+
+		if (retries < 2 && json?.error?.code === 'context_length_exceeded') {
+			return { retry: true, maxInputTokens: maxInputTokens - 200 * (retries || 1) };
+		}
+
+		throw new Error(`(${this.name}) ${rsp.status}: ${json?.error?.message || rsp.statusText}`);
+	}
+
+	protected async fetchCore<TAction extends AIActionType>(
+		action: TAction,
+		model: AIModel<T>,
+		apiKey: string,
+		request: object,
+		cancellation: CancellationToken | undefined,
+	): Promise<Response> {
+		let aborter: AbortController | undefined;
+		if (cancellation != null) {
+			aborter = new AbortController();
+			cancellation.onCancellationRequested(() => aborter?.abort());
+		}
+
+		const url = this.getUrl(model);
+		try {
+			return await fetch(url, {
+				headers: await this.getHeaders(action, apiKey, model, url),
+				method: 'POST',
+				body: JSON.stringify(request),
+				signal: aborter?.signal,
 			});
-		} finally {
-			input.dispose();
-			disposables.forEach(d => void d.dispose());
+		} catch (ex) {
+			if (ex.name === 'AbortError') throw new CancellationError(ex);
+			throw ex;
 		}
-
-		if (url) {
-			void configuration.updateEffective('ai.openaicompatible.url', url);
-		}
-
-		return url;
 	}
+}
 
-	override async configured(silent: boolean): Promise<boolean> {
-		const hasApiKey = await super.configured(true);
+interface ChatCompletionRequest {
+	model: string;
+	messages: AIChatMessage<AIChatMessageRole>[];
 
-		const url = await this.getOrPromptBaseUrl(silent, hasApiKey);
-		if (!url || isAzureUrl(url)) return false;
+	/** @deprecated but used by Anthropic & Gemini */
+	max_tokens?: number;
+	/** Currently can't be used for Anthropic & Gemini */
+	max_completion_tokens?: number;
+	metadata?: Record<string, string>;
+	stream?: boolean;
+	temperature?: number;
+	top_p?: number;
 
-		return silent ? hasApiKey : super.configured(silent);
-	}
+	/** Not supported by many models/providers */
+	reasoning_effort?: 'low' | 'medium' | 'high';
+}
+
+interface ChatCompletionResponse {
+	id: string;
+	model: string;
+	/** OpenAI compatible output */
+	choices?: {
+		index: number;
+		message: {
+			role: Role;
+			content: string | null;
+			refusal: string | null;
+		};
+		finish_reason: string;
+	}[];
+	/** Anthropic output */
+	content?: { type: 'text'; text: string }[];
+	usage: {
+		/** OpenAI compatible */
+		prompt_tokens?: number;
+		completion_tokens?: number;
+		total_tokens?: number;
+
+		/** Anthropic */
+		input_tokens?: number;
+		output_tokens?: number;
+
+		/** GitKraken */
+		gk: {
+			used: number;
+			limit: number;
+			resets_on: string;
+		};
+	};
 }

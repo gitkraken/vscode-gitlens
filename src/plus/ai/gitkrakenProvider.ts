@@ -6,12 +6,12 @@ import { debug } from '../../system/decorators/log';
 import { Logger } from '../../system/logger';
 import { getLogScope } from '../../system/logger.scope';
 import type { AIActionType, AIModel } from './models/model';
-import { OpenAICompatibleProviderBase } from './openAICompatibleProviderBase';
+import { OpenAICompatibleProvider } from './openAICompatibleProvider';
 import { ensureAccount } from './utils/-webview/ai.utils';
 
 type GitKrakenModel = AIModel<typeof provider.id>;
 
-export class GitKrakenProvider extends OpenAICompatibleProviderBase<typeof provider.id> {
+export class GitKrakenProvider extends OpenAICompatibleProvider<typeof provider.id> {
 	readonly id = provider.id;
 	readonly name = provider.name;
 	protected readonly descriptor = provider;
@@ -135,7 +135,6 @@ export class GitKrakenProvider extends OpenAICompatibleProviderBase<typeof provi
 			case 403:
 				// CodeAuthorization      = "403.1"
 				// CodeEntitlement        = "403.2"
-				// CodeFeatureDisabled    = "403.3"
 
 				// Entitlement Error
 				if (code === 2) {
@@ -152,20 +151,12 @@ export class GitKrakenProvider extends OpenAICompatibleProviderBase<typeof provi
 					}
 
 					throw new AIError(
-						// If there is an `entitlementValue` then we are over the limit, otherwise it is an entitlement error
-						data?.entitlementValue ? AIErrorReason.UserQuotaExceeded : AIErrorReason.NoEntitlement,
-						new Error(`(${this.name}) ${status}.${code}: ${message}`),
-					);
-				} else if (code === 3) {
-					throw new AIError(
-						AIErrorReason.DeniedByOrganization,
+						entitlementId === 'ai.tokens.weekly'
+							? AIErrorReason.UserQuotaExceeded
+							: AIErrorReason.Entitlement,
 						new Error(`(${this.name}) ${status}.${code}: ${message}`),
 					);
 				}
-				throw new AIError(
-					AIErrorReason.Unauthorized,
-					new Error(`(${this.name}) ${status}.${code}: ${message}`),
-				);
 				throw new Error(`(${this.name}) ${status}.${code}: ${message}`);
 			case 404:
 				// CodeNotFound           = "404.1"
