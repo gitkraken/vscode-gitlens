@@ -4,7 +4,7 @@ import { configuration } from '../../../../system/-webview/configuration';
 import { filterMap } from '../../../../system/array';
 import { sum } from '../../../../system/iterable';
 import { getPossessiveForm, interpolate } from '../../../../system/string';
-import type { AIActionType, AIModel } from '../../models/model';
+import type { AIModel } from '../../models/model';
 import type { PromptTemplate, PromptTemplateContext, PromptTemplateType } from '../../models/promptTemplates';
 import {
 	explainChangesUserPrompt,
@@ -17,8 +17,11 @@ import {
 } from '../../prompts';
 import { estimatedCharactersPerToken, showLargePromptWarning, showPromptTruncationWarning } from './ai.utils';
 
-export function getLocalPromptTemplate<T extends AIActionType>(action: T, _model: AIModel): PromptTemplate | undefined {
-	switch (action) {
+export function getLocalPromptTemplate<T extends PromptTemplateType>(
+	template: T,
+	_model: AIModel,
+): PromptTemplate | undefined {
+	switch (template) {
 		case 'generate-commitMessage':
 			return {
 				template: generateCommitMessageUserPrompt,
