@@ -226,9 +226,9 @@ export class OpenAIProvider extends OpenAICompatibleProvider<typeof provider.id>
 
 	protected override getHeaders<TAction extends AIActionType>(
 		action: TAction,
+		apiKey: string,
 		model: AIModel<typeof provider.id>,
 		url: string,
-		apiKey: string,
 	): Record<string, string> | Promise<Record<string, string>> {
 		if (url.includes('.azure.com')) {
 			return {
@@ -238,6 +238,6 @@ export class OpenAIProvider extends OpenAICompatibleProvider<typeof provider.id>
 			};
 		}
 
-		return super.getHeaders(action, model, url, apiKey);
+		return super.getHeaders(action, apiKey, model, url);
 	}
 }
