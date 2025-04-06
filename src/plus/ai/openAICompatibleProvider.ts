@@ -9,10 +9,8 @@ import { getLoggableName, Logger } from '../../system/logger';
 import { startLogScope } from '../../system/logger.scope';
 import type { ServerConnection } from '../gk/serverConnection';
 import type { AIActionType, AIModel, AIProviderDescriptor } from './models/model';
-import type { PromptTemplate } from './models/promptTemplates';
 import type { AIChatMessage, AIChatMessageRole, AIProvider, AIRequestResult } from './models/provider';
-import { getOrPromptApiKey, getValidatedTemperature } from './utils/-webview/ai.utils';
-import { getLocalPromptTemplate } from './utils/-webview/prompt.utils';
+import { getActionName, getOrPromptApiKey, getValidatedTemperature } from './utils/-webview/ai.utils';
 
 export interface AIProviderConfig {
 	url: string;
@@ -54,20 +52,14 @@ export abstract class OpenAICompatibleProvider<T extends AIProviders> implements
 	}
 
 	abstract getModels(): Promise<readonly AIModel<T>[]>;
-	async getPromptTemplate<TAction extends AIActionType>(
-		action: TAction,
-		model: AIModel<T>,
-	): Promise<PromptTemplate | undefined> {
-		return Promise.resolve(getLocalPromptTemplate(action, model));
-	}
 
 	protected abstract getUrl(_model: AIModel<T>): string;
 
 	protected getHeaders<TAction extends AIActionType>(
 		_action: TAction,
+		apiKey: string,
 		_model: AIModel<T>,
 		_url: string,
-		apiKey: string,
 	): Record<string, string> | Promise<Record<string, string>> {
 		return {
 			Accept: 'application/json',
@@ -80,7 +72,6 @@ export abstract class OpenAICompatibleProvider<T extends AIProviders> implements
 		action: TAction,
 		model: AIModel<T>,
 		apiKey: string,
-		promptTemplate: PromptTemplate,
 		getMessages: (maxCodeCharacters: number, retries: number) => Promise<AIChatMessage[]>,
 		options: { cancellation: CancellationToken; modelOptions?: { outputTokens?: number; temperature?: number } },
 	): Promise<AIRequestResult | undefined> {
@@ -98,15 +89,15 @@ export abstract class OpenAICompatibleProvider<T extends AIProviders> implements
 			return result;
 		} catch (ex) {
 			if (ex instanceof CancellationError) {
-				Logger.error(ex, scope, `Cancelled request to ${promptTemplate.name}: (${model.provider.name})`);
+				Logger.error(ex, scope, `Cancelled request to ${getActionName(action)}: (${model.provider.name})`);
 				throw ex;
 			}
 
-			Logger.error(ex, scope, `Unable to ${promptTemplate.name}: (${model.provider.name})`);
+			Logger.error(ex, scope, `Unable to ${getActionName(action)}: (${model.provider.name})`);
 			if (ex instanceof AIError) throw ex;
 
 			debugger;
-			throw new Error(`Unable to ${promptTemplate.name}: (${model.provider.name}) ${ex.message}`);
+			throw new Error(`Unable to ${getActionName(action)}: (${model.provider.name}) ${ex.message}`);
 		}
 	}
 
@@ -209,7 +200,7 @@ export abstract class OpenAICompatibleProvider<T extends AIProviders> implements
 		const url = this.getUrl(model);
 		try {
 			return await fetch(url, {
-				headers: await this.getHeaders(action, model, url, apiKey),
+				headers: await this.getHeaders(action, apiKey, model, url),
 				method: 'POST',
 				body: JSON.stringify(request),
 				signal: aborter?.signal,

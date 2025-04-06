@@ -121,9 +121,9 @@ export class AnthropicProvider extends OpenAICompatibleProvider<typeof provider.
 
 	protected override getHeaders<TAction extends AIActionType>(
 		_action: TAction,
+		apiKey: string,
 		_model: AIModel<typeof provider.id>,
 		_url: string,
-		apiKey: string,
 	): Record<string, string> {
 		return {
 			Accept: 'application/json',

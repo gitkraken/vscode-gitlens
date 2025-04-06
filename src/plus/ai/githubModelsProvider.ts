@@ -20,26 +20,23 @@ export class GitHubModelsProvider extends OpenAICompatibleProvider<typeof provid
 			headers: { Accept: 'application/json', 'Content-Type': 'application/json' },
 		});
 
-		interface ModelsResponseResult {
-			type: 'model';
-			task: 'chat-completion';
-
-			id: string;
-			name: string;
-			friendly_name: string;
-			publisher: string;
-			model_family: string;
-			max_input_tokens: number;
-			max_output_tokens: number;
-		}
-
 		interface ModelsResponse {
-			results: ModelsResponseResult[];
+			results: {
+				type: 'model';
+				task: 'chat-completion';
+
+				id: string;
+				name: string;
+				friendly_name: string;
+				publisher: string;
+				model_family: string;
+				max_input_tokens: number;
+				max_output_tokens: number;
+			}[];
 		}
 
 		const result: ModelsResponse = await rsp.json();
-
-		const models = result.results.map(
+		const models = result.results.map<GitHubModelsModel>(
 			m =>
 				({
 					id: m.name,

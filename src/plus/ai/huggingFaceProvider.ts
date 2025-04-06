@@ -29,15 +29,10 @@ export class HuggingFaceProvider extends OpenAICompatibleProvider<typeof provide
 			method: 'GET',
 		});
 
-		interface ModelsResponseResult {
-			id: string;
-		}
-
-		type ModelsResponse = ModelsResponseResult[];
+		type ModelsResponse = { id: string }[];
 
 		const results: ModelsResponse = await rsp.json();
-
-		const models = results.map(
+		const models = results.map<HuggingFaceModel>(
 			r =>
 				({
 					id: r.id,

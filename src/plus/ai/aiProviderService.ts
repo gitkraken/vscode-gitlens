@@ -14,7 +14,13 @@ import {
 } from '../../constants.ai';
 import type { AIGenerateDraftEventData, Source, TelemetryEvents } from '../../constants.telemetry';
 import type { Container } from '../../container';
-import { AIError, AIErrorReason, AINoRequestDataError, CancellationError } from '../../errors';
+import {
+	AIError,
+	AIErrorReason,
+	AINoRequestDataError,
+	AuthenticationRequiredError,
+	CancellationError,
+} from '../../errors';
 import type { AIFeatures } from '../../features';
 import { isAdvancedFeature } from '../../features';
 import type { GitCommit } from '../../git/models/commit';
@@ -32,8 +38,11 @@ import { debounce } from '../../system/function/debounce';
 import { map } from '../../system/iterable';
 import type { Lazy } from '../../system/lazy';
 import { lazy } from '../../system/lazy';
+import { Logger } from '../../system/logger';
+import { getLogScope } from '../../system/logger.scope';
 import type { Deferred } from '../../system/promise';
 import { getSettledValue, getSettledValues } from '../../system/promise';
+import { PromiseCache } from '../../system/promiseCache';
 import type { ServerConnection } from '../gk/serverConnection';
 import { ensureFeatureAccess } from '../gk/utils/-webview/acount.utils';
 import type {
@@ -44,9 +53,9 @@ import type {
 	AIProviderDescriptorWithConfiguration,
 	AIProviderDescriptorWithType,
 } from './models/model';
-import type { PromptTemplate } from './models/promptTemplates';
+import type { PromptTemplate, PromptTemplateContext, PromptTemplateType } from './models/promptTemplates';
 import type { AIChatMessage, AIProvider, AIRequestResult } from './models/provider';
-import { resolvePrompt } from './utils/-webview/prompt.utils';
+import { getLocalPromptTemplate, resolvePrompt } from './utils/-webview/prompt.utils';
 
 export interface AIResult {
 	readonly id?: string;
@@ -165,21 +174,29 @@ const supportedAIProviders = new Map<AIProviders, AIProviderDescriptorWithType>(
 ]);
 
 export class AIProviderService implements Disposable {
-	private _model: AIModel | undefined;
-	private _provider: AIProvider | undefined;
-	private _providerDisposable: Disposable | undefined;
-
 	private readonly _onDidChangeModel = new EventEmitter<AIModelChangeEvent>();
 	get onDidChangeModel(): Event<AIModelChangeEvent> {
 		return this._onDidChangeModel.event;
 	}
 
+	private readonly _disposable: Disposable;
+	private _model: AIModel | undefined;
+	private readonly _promptTemplates = new PromiseCache<PromptTemplateType, PromptTemplate>({
+		createTTL: 12 * 60 * 60 * 1000, // 12 hours
+		expireOnError: true,
+	});
+	private _provider: AIProvider | undefined;
+	private _providerDisposable: Disposable | undefined;
+
 	constructor(
 		private readonly container: Container,
 		private readonly connection: ServerConnection,
-	) {}
+	) {
+		this._disposable = this.container.subscription.onDidChange(() => this._promptTemplates.clear());
+	}
 
 	dispose(): void {
+		this._disposable.dispose();
 		this._onDidChangeModel.dispose();
 		this._providerDisposable?.dispose();
 		this._provider?.dispose();
@@ -445,7 +462,7 @@ export class AIProviderService implements Disposable {
 
 		const result = await this.sendRequest(
 			'explain-changes',
-			async (action, model, promptTemplate, reporting, cancellation, maxInputTokens, retries) => {
+			async (model, reporting, cancellation, maxInputTokens, retries) => {
 				const diff = await this.container.git.diff(commitOrRevision.repoPath).getDiff?.(commitOrRevision.ref);
 				if (!diff?.contents) throw new AINoRequestDataError('No changes found to explain.');
 				if (cancellation.isCancellationRequested) throw new CancellationError();
@@ -463,10 +480,9 @@ export class AIProviderService implements Disposable {
 					if (cancellation.isCancellationRequested) throw new CancellationError();
 				}
 
-				const { prompt } = await resolvePrompt(
-					action,
+				const { prompt } = await this.getPrompt(
+					'explain-changes',
 					model,
-					promptTemplate,
 					{
 						diff: diff.contents,
 						message: commit.message,
@@ -512,15 +528,14 @@ export class AIProviderService implements Disposable {
 	): Promise<AISummarizeResult | undefined> {
 		const result = await this.sendRequest(
 			'generate-commitMessage',
-			async (action, model, promptTemplate, reporting, cancellation, maxInputTokens, retries) => {
+			async (model, reporting, cancellation, maxInputTokens, retries) => {
 				const changes: string | undefined = await this.getChanges(changesOrRepo);
 				if (changes == null) throw new AINoRequestDataError('No changes to generate a commit message from.');
 				if (cancellation.isCancellationRequested) throw new CancellationError();
 
-				const { prompt } = await resolvePrompt(
-					action,
+				const { prompt } = await this.getPrompt(
+					'generate-commitMessage',
 					model,
-					promptTemplate,
 					{
 						diff: changes,
 						context: options?.context,
@@ -566,7 +581,7 @@ export class AIProviderService implements Disposable {
 	): Promise<AISummarizeResult | undefined> {
 		const result = await this.sendRequest(
 			'generate-create-pullRequest',
-			async (action, model, promptTemplate, reporting, cancellation, maxInputTokens, retries) => {
+			async (model, reporting, cancellation, maxInputTokens, retries) => {
 				const [diffResult, logResult] = await Promise.allSettled([
 					repo.git.diff().getDiff?.(headRef, baseRef, { notation: '...' }),
 					repo.git.commits().getLog(`${baseRef}..${headRef}`),
@@ -586,10 +601,9 @@ export class AIProviderService implements Disposable {
 					commitMessages.push(commit.message ?? commit.summary);
 				}
 
-				const { prompt } = await resolvePrompt(
-					action,
+				const { prompt } = await this.getPrompt(
+					'generate-create-pullRequest',
 					model,
-					promptTemplate,
 					{
 						diff: diff.contents,
 						data: commitMessages.join('\n'),
@@ -637,7 +651,7 @@ export class AIProviderService implements Disposable {
 
 		const result = await this.sendRequest(
 			options?.codeSuggestion ? 'generate-create-codeSuggestion' : 'generate-create-cloudPatch',
-			async (action, model, promptTemplate, reporting, cancellation, maxInputTokens, retries) => {
+			async (model, reporting, cancellation, maxInputTokens, retries) => {
 				const changes: string | undefined = await this.getChanges(changesOrRepo);
 				if (changes == null) {
 					throw new AINoRequestDataError(
@@ -646,10 +660,9 @@ export class AIProviderService implements Disposable {
 				}
 				if (cancellation.isCancellationRequested) throw new CancellationError();
 
-				const { prompt } = await resolvePrompt(
-					action,
+				const { prompt } = await this.getPrompt(
+					options?.codeSuggestion ? 'generate-create-codeSuggestion' : 'generate-create-cloudPatch',
 					model,
-					promptTemplate,
 					{
 						diff: changes,
 						context: options?.context,
@@ -699,15 +712,14 @@ export class AIProviderService implements Disposable {
 	): Promise<AISummarizeResult | undefined> {
 		const result = await this.sendRequest(
 			'generate-stashMessage',
-			async (action, model, promptTemplate, reporting, cancellation, maxInputTokens, retries) => {
+			async (model, reporting, cancellation, maxInputTokens, retries) => {
 				const changes: string | undefined = await this.getChanges(changesOrRepo);
 				if (changes == null) throw new AINoRequestDataError('No changes to generate a stash message from.');
 				if (cancellation.isCancellationRequested) throw new CancellationError();
 
-				const { prompt } = await resolvePrompt(
-					action,
+				const { prompt } = await this.getPrompt(
+					'generate-stashMessage',
 					model,
-					promptTemplate,
 					{
 						diff: changes,
 						context: options?.context,
@@ -746,15 +758,14 @@ export class AIProviderService implements Disposable {
 	): Promise<AIResult | undefined> {
 		const result = await this.sendRequest(
 			'generate-changelog',
-			async (action, model, promptTemplate, reporting, cancellation, maxInputTokens, retries) => {
+			async (model, reporting, cancellation, maxInputTokens, retries) => {
 				const { changes: data } = await changes.value;
 				if (!data.length) throw new AINoRequestDataError('No changes to generate a changelog from.');
 				if (cancellation.isCancellationRequested) throw new CancellationError();
 
-				const { prompt } = await resolvePrompt(
-					action,
+				const { prompt } = await this.getPrompt(
+					'generate-changelog',
 					model,
-					promptTemplate,
 					{
 						data: JSON.stringify(data),
 						instructions: configuration.get('ai.generateChangelog.customInstructions'),
@@ -788,9 +799,7 @@ export class AIProviderService implements Disposable {
 	private async sendRequest<T extends AIActionType>(
 		action: T,
 		getMessages: (
-			action: T,
 			model: AIModel,
-			promptTemplate: PromptTemplate,
 			reporting: TelemetryEvents['ai/generate' | 'ai/explain'],
 			cancellation: CancellationToken,
 			maxCodeCharacters: number,
@@ -856,26 +865,11 @@ export class AIProviderService implements Disposable {
 			return undefined;
 		}
 
-		const promptTemplate = await this._provider!.getPromptTemplate(action, model);
-		if (promptTemplate == null || cancellation.isCancellationRequested) {
-			this.container.telemetry.sendEvent(
-				telementry.key,
-				cancellation.isCancellationRequested
-					? { ...telementry.data, 'failed.reason': 'user-cancelled' }
-					: { ...telementry.data, 'failed.reason': 'error', 'failed.error': 'No prompt template found' },
-				source,
-			);
-
-			options?.generating?.cancel();
-			return undefined;
-		}
-
 		const promise = this._provider!.sendRequest(
 			action,
 			model,
 			apiKey,
-			promptTemplate,
-			getMessages.bind(this, action, model, promptTemplate, telementry.data, cancellation),
+			getMessages.bind(this, model, telementry.data, cancellation),
 			{
 				cancellation: cancellation,
 				modelOptions: options?.modelOptions,
@@ -994,6 +988,74 @@ export class AIProviderService implements Disposable {
 		}
 
 		return changes;
+	}
+
+	private async getPrompt<T extends PromptTemplateType>(
+		template: T,
+		model: AIModel,
+		context: PromptTemplateContext<T>,
+		maxInputTokens: number,
+		retries: number,
+		reporting: TelemetryEvents['ai/generate' | 'ai/explain'],
+	): Promise<{ prompt: string; truncated: boolean }> {
+		const promptTemplate = await this.getPromptTemplate(template, model);
+		if (promptTemplate == null) {
+			debugger;
+			throw new Error(`No prompt template found for ${template}`);
+		}
+
+		const result = await resolvePrompt(model, promptTemplate, context, maxInputTokens, retries, reporting);
+		return result;
+	}
+
+	private async getPromptTemplate<T extends PromptTemplateType>(
+		template: T,
+		model: AIModel,
+	): Promise<PromptTemplate | undefined> {
+		if ((await this.container.subscription.getSubscription()).account) {
+			const scope = getLogScope();
+
+			try {
+				return await this._promptTemplates.get(template, async () => {
+					const url = this.container.urls.getGkAIApiUrl(`templates/message-prompt/${template}`);
+					const rsp = await fetch(url, {
+						headers: await this.connection.getGkHeaders(undefined, undefined, {
+							Accept: 'application/json',
+						}),
+					});
+					if (!rsp.ok) {
+						throw new Error(`Getting prompt template (${url}) failed: ${rsp.status} (${rsp.statusText})`);
+					}
+
+					interface PromptResponse {
+						data: {
+							id: string;
+							template: string;
+							variables: string[];
+						};
+						error?: null;
+					}
+
+					const result: PromptResponse = (await rsp.json()) as PromptResponse;
+					if (result.error != null) {
+						throw new Error(`Getting prompt template (${url}) failed: ${String(result.error)}`);
+					}
+
+					return {
+						id: result.data.id,
+						template: result.data.template,
+						variables: result.data.variables,
+					};
+				});
+			} catch (ex) {
+				if (!(ex instanceof AuthenticationRequiredError)) {
+					debugger;
+					Logger.error(ex, scope, `Unable to get prompt template for '${template}'`);
+				}
+			}
+		}
+
+		return getLocalPromptTemplate(template, model);
 	}
 
 	async reset(all?: boolean): Promise<void> {

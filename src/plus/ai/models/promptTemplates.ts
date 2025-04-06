@@ -1,8 +1,5 @@
-import type { AIActionType } from './model';
-
 export interface PromptTemplate {
 	readonly id?: string;
-	readonly name: string;
 	readonly template: string;
 	readonly variables: string[];
 }
@@ -43,7 +40,14 @@ interface StashMessagePromptTemplateContext {
 	instructions?: string;
 }
 
-export type PromptTemplateContext<T extends AIActionType> = T extends 'generate-commitMessage'
+export type PromptTemplateType =
+	| 'generate-commitMessage'
+	| 'generate-stashMessage'
+	| 'generate-changelog'
+	| `generate-create-${'cloudPatch' | 'codeSuggestion' | 'pullRequest'}`
+	| 'explain-changes';
+
+export type PromptTemplateContext<T extends PromptTemplateType> = T extends 'generate-commitMessage'
 	? CommitMessagePromptTemplateContext
 	: T extends 'generate-stashMessage'
 	  ? StashMessagePromptTemplateContext

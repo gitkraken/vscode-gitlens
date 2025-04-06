@@ -3,9 +3,9 @@ import { AIError, AIErrorReason, CancellationError } from '../../../../errors';
 import { configuration } from '../../../../system/-webview/configuration';
 import { filterMap } from '../../../../system/array';
 import { sum } from '../../../../system/iterable';
-import { interpolate } from '../../../../system/string';
+import { getPossessiveForm, interpolate } from '../../../../system/string';
 import type { AIActionType, AIModel } from '../../models/model';
-import type { PromptTemplate, PromptTemplateContext } from '../../models/promptTemplates';
+import type { PromptTemplate, PromptTemplateContext, PromptTemplateType } from '../../models/promptTemplates';
 import {
 	explainChangesUserPrompt,
 	generateChangelogUserPrompt,
@@ -21,7 +21,6 @@ export function getLocalPromptTemplate<T extends AIActionType>(action: T, _model
 	switch (action) {
 		case 'generate-commitMessage':
 			return {
-				name: 'Generate Commit Message',
 				template: generateCommitMessageUserPrompt,
 				variables: [
 					'diff',
@@ -31,7 +30,6 @@ export function getLocalPromptTemplate<T extends AIActionType>(action: T, _model
 			};
 		case 'generate-stashMessage':
 			return {
-				name: 'Generate Stash Message',
 				template: generateStashMessageUserPrompt,
 				variables: [
 					'diff',
@@ -41,13 +39,11 @@ export function getLocalPromptTemplate<T extends AIActionType>(action: T, _model
 			};
 		case 'generate-changelog':
 			return {
-				name: 'Generate Changelog (Preview)',
 				template: generateChangelogUserPrompt,
 				variables: ['data', 'instructions'] satisfies (keyof PromptTemplateContext<'generate-changelog'>)[],
 			};
 		case 'generate-create-cloudPatch':
 			return {
-				name: 'Create Cloud Patch Details',
 				template: generateCloudPatchMessageUserPrompt,
 				variables: [
 					'diff',
@@ -57,7 +53,6 @@ export function getLocalPromptTemplate<T extends AIActionType>(action: T, _model
 			};
 		case 'generate-create-codeSuggestion':
 			return {
-				name: 'Create Code Suggestion Details',
 				template: generateCodeSuggestMessageUserPrompt,
 				variables: [
 					'diff',
@@ -67,7 +62,6 @@ export function getLocalPromptTemplate<T extends AIActionType>(action: T, _model
 			};
 		case 'generate-create-pullRequest':
 			return {
-				name: 'Generate Pull Request Details (Preview)',
 				template: generatePullRequestMessageUserPrompt,
 				variables: [
 					'diff',
@@ -78,7 +72,6 @@ export function getLocalPromptTemplate<T extends AIActionType>(action: T, _model
 			};
 		case 'explain-changes':
 			return {
-				name: 'Explain Changes',
 				template: explainChangesUserPrompt,
 				variables: [
 					'diff',
@@ -93,8 +86,7 @@ export function getLocalPromptTemplate<T extends AIActionType>(action: T, _model
 
 const canTruncateTemplateVariables = ['diff'];
 
-export async function resolvePrompt<T extends AIActionType>(
-	_action: T,
+export async function resolvePrompt<T extends PromptTemplateType>(
 	model: AIModel,
 	template: PromptTemplate,
 	templateContext: PromptTemplateContext<T>,
@@ -131,7 +123,9 @@ export async function resolvePrompt<T extends AIActionType>(
 				debugger;
 				throw new AIError(
 					AIErrorReason.RequestTooLarge,
-					new Error(`Unable to truncate context to fit within the ${template.name} limits`),
+					new Error(
+						`Unable to truncate context to fit within the ${getPossessiveForm(model.provider.name)} limits`,
+					),
 				);
 			}
 			return [k, v.substring(0, truncateTo)] as const;

@@ -8,10 +8,8 @@ import { startLogScope } from '../../system/logger.scope';
 import { capitalize } from '../../system/string';
 import type { ServerConnection } from '../gk/serverConnection';
 import type { AIActionType, AIModel } from './models/model';
-import type { PromptTemplate } from './models/promptTemplates';
 import type { AIChatMessage, AIProvider, AIRequestResult } from './models/provider';
-import { getValidatedTemperature } from './utils/-webview/ai.utils';
-import { getLocalPromptTemplate } from './utils/-webview/prompt.utils';
+import { getActionName, getValidatedTemperature } from './utils/-webview/ai.utils';
 
 const provider = vscodeProviderDescriptor;
 
@@ -62,23 +60,15 @@ export class VSCodeAIProvider implements AIProvider<typeof provider.id> {
 		return models.map(getModelFromChatModel);
 	}
 
-	async getPromptTemplate<T extends AIActionType>(
-		action: T,
-		model: VSCodeAIModel,
-	): Promise<PromptTemplate | undefined> {
-		return Promise.resolve(getLocalPromptTemplate(action, model));
-	}
-
 	private async getChatModel(model: VSCodeAIModel): Promise<LanguageModelChat | undefined> {
 		const models = await lm.selectChatModels(model.selector);
 		return models?.[0];
 	}
 
 	async sendRequest<TAction extends AIActionType>(
-		_action: TAction,
+		action: TAction,
 		model: VSCodeAIModel,
 		_apiKey: string,
-		promptTemplate: PromptTemplate,
 		getMessages: (maxInputTokens: number, retries: number) => Promise<AIChatMessage[]>,
 		options: { cancellation: CancellationToken; modelOptions?: { outputTokens?: number; temperature?: number } },
 	): Promise<AIRequestResult | undefined> {
@@ -123,7 +113,7 @@ export class VSCodeAIProvider implements AIProvider<typeof provider.id> {
 				return { content: message.trim(), model: model } satisfies AIRequestResult;
 			} catch (ex) {
 				if (ex instanceof CancellationError) {
-					Logger.error(ex, scope, `Cancelled request to ${promptTemplate.name}: (${model.provider.name})`);
+					Logger.error(ex, scope, `Cancelled request to ${getActionName(action)}: (${model.provider.name})`);
 					throw ex;
 				}
 
@@ -145,9 +135,9 @@ export class VSCodeAIProvider implements AIProvider<typeof provider.id> {
 					}
 				}
 
-				Logger.error(ex, scope, `Unable to ${promptTemplate.name}: (${model.provider.name})`);
+				Logger.error(ex, scope, `Unable to ${getActionName(action)}: (${model.provider.name})`);
 				throw new Error(
-					`Unable to ${promptTemplate.name}: (${model.provider.name}${
+					`Unable to ${getActionName(action)}: (${model.provider.name}${
 						ex.code ? `:${ex.code}` : ''
 					}) ${message}`,
 				);
