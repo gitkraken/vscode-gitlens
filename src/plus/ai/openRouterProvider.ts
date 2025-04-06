@@ -1,11 +1,11 @@
 import { fetch } from '@env/fetch';
 import { openRouterProviderDescriptor as provider } from '../../constants.ai';
 import type { AIActionType, AIModel } from './models/model';
-import { OpenAICompatibleProviderBase } from './openAICompatibleProviderBase';
+import { OpenAICompatibleProvider } from './openAICompatibleProvider';
 
 type OpenRouterModel = AIModel<typeof provider.id>;
 
-export class OpenRouterProvider extends OpenAICompatibleProviderBase<typeof provider.id> {
+export class OpenRouterProvider extends OpenAICompatibleProvider<typeof provider.id> {
 	readonly id = provider.id;
 	readonly name = provider.name;
 	protected readonly descriptor = provider;

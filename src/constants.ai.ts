@@ -2,21 +2,16 @@ import type { AIProviderDescriptor } from './plus/ai/models/model';
 
 export type AIProviders =
 	| 'anthropic'
-	| 'azure'
 	| 'deepseek'
 	| 'gemini'
 	| 'github'
 	| 'gitkraken'
 	| 'huggingface'
-	| 'mistral'
-	| 'ollama'
 	| 'openai'
-	| 'openaicompatible'
 	| 'openrouter'
 	| 'vscode'
 	| 'xai';
 export type AIPrimaryProviders = Extract<AIProviders, 'gitkraken' | 'vscode'>;
-export type OpenAIProviders = 'azure' | 'openai' | 'openaicompatible';
 
 export type AIProviderAndModel = `${string}:${string}`;
 export type SupportedAIModels = `${Exclude<AIProviders, AIPrimaryProviders>}:${string}` | AIPrimaryProviders;
@@ -42,20 +37,6 @@ export const openAIProviderDescriptor: AIProviderDescriptor<'openai'> = {
 	requiresAccount: true,
 	requiresUserKey: true,
 } as const;
-export const azureProviderDescriptor: AIProviderDescriptor<'azure'> = {
-	id: 'azure',
-	name: 'Azure (Preview)',
-	primary: false,
-	requiresAccount: true,
-	requiresUserKey: true,
-} as const;
-export const openAICompatibleProviderDescriptor: AIProviderDescriptor<'openaicompatible'> = {
-	id: 'openaicompatible',
-	name: 'OpenAI-Compatible Provider',
-	primary: false,
-	requiresAccount: true,
-	requiresUserKey: true,
-} as const;
 export const anthropicProviderDescriptor: AIProviderDescriptor<'anthropic'> = {
 	id: 'anthropic',
 	name: 'Anthropic',
@@ -66,13 +47,6 @@ export const anthropicProviderDescriptor: AIProviderDescriptor<'anthropic'> = {
 export const geminiProviderDescriptor: AIProviderDescriptor<'gemini'> = {
 	id: 'gemini',
 	name: 'Google',
-	primary: false,
-	requiresAccount: true,
-	requiresUserKey: true,
-} as const;
-export const mistralProviderDescriptor: AIProviderDescriptor<'mistral'> = {
-	id: 'mistral',
-	name: 'Mistral',
 	primary: false,
 	requiresAccount: true,
 	requiresUserKey: true,
@@ -111,11 +85,4 @@ export const openRouterProviderDescriptor: AIProviderDescriptor<'openrouter'> = 
 	primary: false,
 	requiresAccount: true,
 	requiresUserKey: true,
-} as const;
-export const ollamaProviderDescriptor: AIProviderDescriptor<'ollama'> = {
-	id: 'ollama',
-	name: 'Ollama',
-	primary: false,
-	requiresAccount: true,
-	requiresUserKey: false,
 } as const;
