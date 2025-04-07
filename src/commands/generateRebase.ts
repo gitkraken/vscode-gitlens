@@ -10,7 +10,7 @@ import type { AIRebaseResult } from '../plus/ai/aiProviderService';
 import { showComparisonPicker } from '../quickpicks/comparisonPicker';
 import { command } from '../system/-webview/command';
 import { Logger } from '../system/logger';
-import { escapeMarkdown, escapeMarkdownCodeBlocks } from '../system/markdown';
+import { escapeMarkdownCodeBlocks } from '../system/markdown';
 import { GlCommandBase } from './commandBase';
 
 export interface GenerateRebaseCommandArgs {
