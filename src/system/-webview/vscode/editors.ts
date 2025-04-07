@@ -1,7 +1,6 @@
 import type { TextDocument, TextDocumentShowOptions, TextEditor } from 'vscode';
-import { Selection, Uri, ViewColumn, window } from 'vscode';
+import { Uri, ViewColumn, window, workspace } from 'vscode';
 import { imageMimetypes, Schemes } from '../../../constants';
-import type { DiffRange } from '../../../git/gitProvider';
 import { isGitUri } from '../../../git/gitUri';
 import { Logger } from '../../logger';
 import { extname } from '../../path';
@@ -185,7 +184,6 @@ export async function openSettingsEditor(queryOrOptions: OpenSettingsEditorOptio
 export async function openTextEditor(
 	uri: Uri,
 	options?: TextDocumentShowOptions & { background?: boolean; throwOnError?: boolean },
-	title?: string,
 ): Promise<TextEditor | undefined> {
 	let background;
 	let throwOnError;
@@ -198,13 +196,14 @@ export async function openTextEditor(
 			uri = uri.documentUri();
 		}
 
-		if (background || title || (uri.scheme === Schemes.GitLens && imageMimetypes[extname(uri.fsPath)])) {
-			await executeCoreCommand('vscode.open', uri, { background: background, ...options }, title);
+		if (background || (uri.scheme === Schemes.GitLens && imageMimetypes[extname(uri.fsPath)])) {
+			await executeCoreCommand('vscode.open', uri, { background: background, ...options });
 
 			return undefined;
 		}
 
-		return await window.showTextDocument(uri, {
+		const document = await workspace.openTextDocument(uri);
+		return await window.showTextDocument(document, {
 			preserveFocus: false,
 			preview: true,
 			viewColumn: ViewColumn.Active,
@@ -239,33 +238,4 @@ export function openTextEditors(uris: Uri[], options?: TextDocumentShowOptions &
 	for (const uri of normalizedUris.values()) {
 		void executeCoreCommand('vscode.open', uri, options);
 	}
-}
-
-export function diffRangeToEditorLine(range: DiffRange | undefined): number {
-	if (range == null) return 0;
-
-	return (range.active === 'end' ? range.endLine : range.startLine) - 1;
-}
-
-export function diffRangeToSelection(range: DiffRange): Selection {
-	if (range.active === 'end') {
-		return new Selection(range.startLine - 1, 0, range.endLine - 1, 0);
-	}
-	return new Selection(range.endLine - 1, 0, range.startLine - 1, 0);
-}
-
-export function editorLineToDiffRange(editorLine: number | undefined): DiffRange {
-	if (editorLine == null || editorLine < 0) return { startLine: 1, endLine: 1, active: 'start' };
-
-	return { startLine: editorLine + 1, endLine: editorLine + 1, active: 'start' };
-}
-
-export function selectionToDiffRange(selection: Selection | undefined): DiffRange {
-	if (selection == null) return { startLine: 1, endLine: 1, active: 'start' };
-
-	const { anchor, active } = selection;
-	if (anchor.line >= active.line) {
-		return { startLine: active.line + 1, endLine: anchor.line + 1, active: 'start' };
-	}
-	return { startLine: anchor.line + 1, endLine: active.line + 1, active: 'end' };
 }

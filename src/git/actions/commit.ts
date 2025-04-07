@@ -3,7 +3,6 @@ import { env, Range, Uri, window, workspace } from 'vscode';
 import type { DiffWithCommandArgs } from '../../commands/diffWith';
 import type { DiffWithPreviousCommandArgs } from '../../commands/diffWithPrevious';
 import type { DiffWithWorkingCommandArgs } from '../../commands/diffWithWorking';
-import type { ExplainCommitCommandArgs } from '../../commands/explainCommit';
 import type { OpenFileOnRemoteCommandArgs } from '../../commands/openFileOnRemote';
 import type { OpenOnlyChangedFilesCommandArgs } from '../../commands/openOnlyChangedFiles';
 import type { OpenWorkingFileCommandArgs } from '../../commands/openWorkingFile';
@@ -11,7 +10,6 @@ import type { ShowQuickCommitCommandArgs } from '../../commands/showQuickCommit'
 import type { ShowQuickCommitFileCommandArgs } from '../../commands/showQuickCommitFile';
 import type { FileAnnotationType } from '../../config';
 import { GlyphChars } from '../../constants';
-import type { Source } from '../../constants.telemetry';
 import { Container } from '../../container';
 import { showRevisionFilesPicker } from '../../quickpicks/revisionFilesPicker';
 import { executeCommand, executeCoreGitCommand, executeEditorCommand } from '../../system/-webview/command';
@@ -101,7 +99,7 @@ export async function copyMessageToClipboard(ref: Ref | GitCommit): Promise<void
 			await commit.ensureFullDetails();
 		}
 	} else {
-		commit = await Container.instance.git.getRepositoryService(ref.repoPath).commits.getCommit(ref.ref);
+		commit = await Container.instance.git.commits(ref.repoPath).getCommit(ref.ref);
 		if (commit == null) return;
 	}
 
@@ -209,27 +207,29 @@ export async function openMultipleChanges(
 		GlyphChars.ArrowLeftRightLong
 	} ${shortenRevision(refs.rhs, { strings: { working: 'Working Tree' } })}`;
 
-	const svc = container.git.getRepositoryService(refs.repoPath);
+	const { git } = container;
 
 	const resources: Parameters<typeof openChangesEditor>[0] = [];
 	for (const file of files) {
-		let rhs = file.status === 'D' ? undefined : (await svc.getBestRevisionUri(file.path, refs.rhs))!;
+		let rhs = file.status === 'D' ? undefined : (await git.getBestRevisionUri(refs.repoPath, file.path, refs.rhs))!;
 		if (refs.rhs === '') {
 			if (rhs != null) {
-				rhs = await svc.getWorkingUri(rhs);
+				rhs = await git.getWorkingUri(refs.repoPath, rhs);
 			} else {
 				rhs = Uri.from({
 					scheme: 'untitled',
 					authority: '',
-					path: svc.getAbsoluteUri(file.path, refs.repoPath).fsPath,
+					path: git.getAbsoluteUri(file.path, refs.repoPath).fsPath,
 				});
 			}
 		}
 
 		const lhs =
-			file.status === 'A' ? undefined : (await svc.getBestRevisionUri(file.originalPath ?? file.path, refs.lhs))!;
+			file.status === 'A'
+				? undefined
+				: (await git.getBestRevisionUri(refs.repoPath, file.originalPath ?? file.path, refs.lhs))!;
 
-		const uri = (file.status === 'D' ? lhs : rhs) ?? svc.getAbsoluteUri(file.path, refs.repoPath);
+		const uri = (file.status === 'D' ? lhs : rhs) ?? git.getAbsoluteUri(file.path, refs.repoPath);
 		if (rhs?.scheme === 'untitled' && lhs == null) continue;
 
 		resources.push({ uri: uri, lhs: lhs, rhs: rhs });
@@ -337,8 +337,8 @@ export async function openChangesInDiffTool(
 	}
 
 	return Container.instance.git
-		.getRepositoryService(commitOrRef.repoPath)
-		.diff.openDiffTool?.(GitUri.fromFile(file, file.repoPath ?? commitOrRef.repoPath), {
+		.diff(commitOrRef.repoPath)
+		.openDiffTool?.(GitUri.fromFile(file, file.repoPath ?? commitOrRef.repoPath), {
 			ref1: isUncommitted(commitOrRef.ref) ? '' : `${commitOrRef.ref}^`,
 			ref2: isUncommitted(commitOrRef.ref) ? '' : commitOrRef.ref,
 			staged: isUncommittedStaged(commitOrRef.ref) || file.indexStatus != null,
@@ -415,7 +415,7 @@ export async function openDirectoryCompare(
 	ref2: string | undefined,
 	tool?: string,
 ): Promise<void> {
-	return Container.instance.git.getRepositoryService(repoPath).diff.openDirectoryCompare?.(ref, ref2, tool);
+	return Container.instance.git.diff(repoPath).openDirectoryCompare?.(ref, ref2, tool);
 }
 
 export async function openDirectoryCompareWithPrevious(ref: Ref | GitCommit): Promise<void> {
@@ -432,6 +432,8 @@ export async function openFolderCompare(
 	refs: RefRange,
 	options?: TextDocumentShowOptions,
 ): Promise<void> {
+	const { git } = container;
+
 	let comparison;
 	if (refs.lhs === '') {
 		debugger;
@@ -442,10 +444,9 @@ export async function openFolderCompare(
 		comparison = `${refs.lhs}..${refs.rhs}`;
 	}
 
-	const svc = container.git.getRepositoryService(refs.repoPath);
-	const relativePath = svc.getRelativePath(pathOrUri, refs.repoPath);
+	const relativePath = git.getRelativePath(pathOrUri, refs.repoPath);
 
-	const files = await svc.diff.getDiffStatus(comparison, undefined, { path: relativePath });
+	const files = await git.diff(refs.repoPath).getDiffStatus(comparison, undefined, { path: relativePath });
 	if (files == null) {
 		void window.showWarningMessage(
 			`No changes in '${relativePath}' between ${shortenRevision(refs.lhs, {
@@ -530,12 +531,11 @@ export async function openFileAtRevision(
 			file = fileOrRevisionUri;
 		}
 
-		uri = Container.instance.git
-			.getRepositoryService(commit.repoPath)
-			.getRevisionUri(
-				file.status === 'D' ? (await commit.getPreviousSha()) ?? deletedOrMissing : commit.sha,
-				file,
-			);
+		uri = Container.instance.git.getRevisionUri(
+			file.status === 'D' ? (await commit.getPreviousSha()) ?? deletedOrMissing : commit.sha,
+			file,
+			commit.repoPath,
+		);
 	}
 
 	const { annotationType, line, ...opts }: Exclude<typeof options, undefined> = {
@@ -559,7 +559,7 @@ export async function openFileAtRevision(
 			return;
 		}
 
-		const picked = await showRevisionFilesPicker(
+		const pickedUri = await showRevisionFilesPicker(
 			Container.instance,
 			createReference(gitUri.sha!, gitUri.repoPath!),
 			{
@@ -575,9 +575,9 @@ export async function openFileAtRevision(
 				},
 			},
 		);
-		if (picked == null) return;
+		if (pickedUri == null) return;
 
-		editor = await getOrOpenTextEditor(picked?.uri, opts);
+		editor = await getOrOpenTextEditor(pickedUri, opts);
 	}
 
 	if (annotationType != null && editor != null) {
@@ -625,9 +625,12 @@ export async function openFiles(
 		return;
 	}
 
-	const svc = Container.instance.git.getRepositoryService(ref.repoPath);
 	const uris: Uri[] = (
-		await Promise.all(files.map(file => svc.getWorkingUri(GitUri.fromFile(file, ref.repoPath, ref.ref))))
+		await Promise.all(
+			files.map(file =>
+				Container.instance.git.getWorkingUri(ref.repoPath, GitUri.fromFile(file, ref.repoPath, ref.ref)),
+			),
+		)
 	).filter(<T>(u?: T): u is T => Boolean(u));
 	openTextEditors(uris, options);
 }
@@ -655,9 +658,10 @@ export async function openFilesAtRevision(
 		return;
 	}
 
-	const svc = Container.instance.git.getRepositoryService(refs.repoPath);
 	openTextEditors(
-		files.map(file => svc.getRevisionUri(file.status === 'D' ? refs.lhs : refs.rhs, file)),
+		files.map(file =>
+			Container.instance.git.getRevisionUri(file.status === 'D' ? refs.lhs : refs.rhs, file, refs.repoPath),
+		),
 		options,
 	);
 }
@@ -686,7 +690,7 @@ export async function restoreFile(file: string | GitFile, revision: GitRevisionR
 		}
 	}
 
-	await Container.instance.git.getRepositoryService(revision.repoPath).checkout(ref, { path: path });
+	await Container.instance.git.checkout(revision.repoPath, ref, { path: path });
 }
 
 export function reveal(
@@ -747,27 +751,16 @@ export async function showInCommitGraph(
 	}));
 }
 
-export async function explainCommit(
-	commit: GitRevisionReference | GitCommit,
-	options: { source: Source },
-): Promise<void> {
-	void (await executeCommand<ExplainCommitCommandArgs>('gitlens.ai.explainCommit', {
-		repoPath: commit.repoPath,
-		rev: commit.ref,
-		source: { ...options?.source, type: 'commit' },
-	}));
-}
-
 export async function openOnlyChangedFiles(container: Container, commit: GitCommit): Promise<void>;
 export async function openOnlyChangedFiles(container: Container, files: GitFile[]): Promise<void>;
 export async function openOnlyChangedFiles(container: Container, commitOrFiles: GitCommit | GitFile[]): Promise<void> {
 	let files;
 	if (isCommit(commitOrFiles)) {
-		if (commitOrFiles.hasFullDetails()) {
+		if (commitOrFiles.files == null) {
 			await commitOrFiles.ensureFullDetails();
 		}
 
-		files = commitOrFiles.fileset?.files ?? [];
+		files = commitOrFiles.files ?? [];
 	} else {
 		files = commitOrFiles.map(f => new GitFileChange(container, f.repoPath!, f.path, f.status, f.originalPath));
 	}
@@ -788,9 +781,8 @@ export async function openOnlyChangedFiles(container: Container, commitOrFiles: 
 }
 
 export async function undoCommit(container: Container, commit: GitRevisionReference): Promise<void> {
-	const svc = container.git.getRepositoryService(commit.repoPath);
-	const scmRepo = await svc.getOrOpenScmRepository();
-	const scmCommit = await scmRepo?.getCommit('HEAD');
+	const repo = await container.git.getOrOpenScmRepository(commit.repoPath);
+	const scmCommit = await repo?.getCommit('HEAD');
 
 	if (scmCommit?.hash !== commit.ref) {
 		void window.showWarningMessage(
@@ -803,7 +795,7 @@ export async function undoCommit(container: Container, commit: GitRevisionRefere
 		return;
 	}
 
-	const status = await svc.status.getStatus();
+	const status = await container.git.status(commit.repoPath).getStatus();
 	if (status?.files.length) {
 		const confirm = { title: 'Undo Commit' };
 		const cancel = { title: 'Cancel', isCloseAffordance: true };
@@ -856,13 +848,13 @@ async function getChangesRefArgs(
 		};
 	}
 
-	if (commitOrFiles.fileset?.files == null) {
+	if (commitOrFiles.files == null) {
 		await commitOrFiles.ensureFullDetails();
 	}
 
 	return {
 		commit: commitOrFiles,
-		files: commitOrFiles.fileset?.files ?? [],
+		files: commitOrFiles.files ?? [],
 		options: refOrOptions as TextDocumentShowOptions | undefined,
 		ref: {
 			repoPath: commitOrFiles.repoPath,
@@ -889,13 +881,13 @@ async function getChangesRefsArgs(
 		};
 	}
 
-	if (commitOrFiles.fileset?.files == null) {
+	if (commitOrFiles.files == null) {
 		await commitOrFiles.ensureFullDetails();
 	}
 
 	return {
 		commit: commitOrFiles,
-		files: commitOrFiles.fileset?.files ?? [],
+		files: commitOrFiles.files ?? [],
 		options: refsOrOptions as TextDocumentShowOptions | undefined,
 		refs: {
 			repoPath: commitOrFiles.repoPath,
@@ -912,12 +904,12 @@ async function getCommitChangesArgs(
 	commit: GitCommit,
 	filter?: (file: GitFileChange) => boolean,
 ): Promise<{ files: readonly GitFile[]; refs: RefRange }> {
-	if (commit.fileset?.files == null) {
+	if (commit.files == null) {
 		await commit.ensureFullDetails();
 	}
 
 	return {
-		files: (filter != null ? commit.fileset?.files?.filter(filter) : commit.fileset?.files) ?? [],
+		files: (filter != null ? commit.files?.filter(filter) : commit.files) ?? [],
 		refs: {
 			repoPath: commit.repoPath,
 			rhs: commit.sha,
@@ -932,20 +924,20 @@ export async function getOrderedComparisonRefs(
 	refA: string,
 	refB: string,
 ): Promise<[string, string]> {
-	const commitsSvc = container.git.getRepositoryService(repoPath).commits;
+	const commitsProvider = container.git.commits(repoPath);
 
 	// Check the ancestry of refA and refB to determine which is the "newer" one
-	const ancestor = await commitsSvc.isAncestorOf(refA, refB);
+	const ancestor = await commitsProvider.isAncestorOf(refA, refB);
 	// If refB is an ancestor of refA, compare refA to refB (as refA is "newer")
 	if (ancestor) return [refB, refA];
 
-	const ancestor2 = await commitsSvc.isAncestorOf(refB, refA);
+	const ancestor2 = await commitsProvider.isAncestorOf(refB, refA);
 	// If refA is an ancestor of refB, compare refB to refA (as refB is "newer")
 	if (ancestor2) return [refA, refB];
 
 	const [commitRefAResult, commitRefBResult] = await Promise.allSettled([
-		commitsSvc.getCommit(refA),
-		commitsSvc.getCommit(refB),
+		commitsProvider.getCommit(refA),
+		commitsProvider.getCommit(refB),
 	]);
 
 	const commitRefA = getSettledValue(commitRefAResult);

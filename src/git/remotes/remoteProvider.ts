@@ -2,6 +2,7 @@ import type { Range, Uri } from 'vscode';
 import { env } from 'vscode';
 import type { AutolinkReference, DynamicAutolinkReference } from '../../autolinks/models/autolinks';
 import type { Source } from '../../constants.telemetry';
+import type { ResourceDescriptor } from '../../plus/integrations/integration';
 import { openUrl } from '../../system/-webview/vscode/uris';
 import { memoize } from '../../system/decorators/-webview/memoize';
 import { encodeUrl } from '../../system/encoding';
@@ -11,7 +12,6 @@ import type { CreatePullRequestRemoteResource, RemoteResource } from '../models/
 import { RemoteResourceType } from '../models/remoteResource';
 import type { Repository } from '../models/repository';
 import type { GkProviderId } from '../models/repositoryIdentities';
-import type { ResourceDescriptor } from '../models/resourceDescriptor';
 import type { GitRevisionRangeNotation } from '../models/revision';
 
 export type RemoteProviderId =
@@ -26,16 +26,6 @@ export type RemoteProviderId =
 	| 'cloud-gitlab-self-hosted' // TODO@eamodio this shouldn't really be here, since it's not a valid remote provider id
 	| 'gitlab'
 	| 'google-source';
-
-export interface LocalInfoFromRemoteUriResult {
-	uri: Uri;
-
-	repoPath: string;
-	rev: string | undefined;
-
-	startLine?: number;
-	endLine?: number;
-}
 
 export interface RemoteProviderSupportedFeatures {
 	createPullRequestWithDetails?: boolean;
@@ -82,7 +72,7 @@ export abstract class RemoteProvider<T extends ResourceDescriptor = ResourceDesc
 	}
 
 	get owner(): string | undefined {
-		return this.splitPath(this.path)[0];
+		return this.splitPath()[0];
 	}
 
 	@memoize()
@@ -108,7 +98,7 @@ export abstract class RemoteProvider<T extends ResourceDescriptor = ResourceDesc
 	}
 
 	get repoName(): string | undefined {
-		return this.splitPath(this.path)[1];
+		return this.splitPath()[1];
 	}
 
 	abstract get id(): RemoteProviderId;
@@ -125,7 +115,11 @@ export abstract class RemoteProvider<T extends ResourceDescriptor = ResourceDesc
 		await env.clipboard.writeText(urls.join('\n'));
 	}
 
-	abstract getLocalInfoFromRemoteUri(repo: Repository, uri: Uri): Promise<LocalInfoFromRemoteUriResult | undefined>;
+	abstract getLocalInfoFromRemoteUri(
+		repository: Repository,
+		uri: Uri,
+		options?: { validate?: boolean },
+	): Promise<{ uri: Uri; startLine?: number; endLine?: number } | undefined>;
 
 	async open(resource: RemoteResource | RemoteResource[]): Promise<boolean | undefined> {
 		const urls = await this.getUrlsFromResources(resource);
@@ -186,9 +180,9 @@ export abstract class RemoteProvider<T extends ResourceDescriptor = ResourceDesc
 		return `${name}${this.custom ? ` (${this.domain})` : ''}`;
 	}
 
-	protected splitPath(path: string): [string, string] {
-		const index = path.indexOf('/');
-		return [path.substring(0, index), path.substring(index + 1)];
+	protected splitPath(): [string, string] {
+		const index = this.path.indexOf('/');
+		return [this.path.substring(0, index), this.path.substring(index + 1)];
 	}
 
 	protected abstract getUrlForBranch(branch: string): string;

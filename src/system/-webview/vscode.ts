@@ -8,7 +8,6 @@ import { getDistributionGroup } from '../string';
 import { satisfies } from '../version';
 import { executeCoreCommand } from './command';
 import { configuration } from './configuration';
-import { exists } from './vscode/uris';
 
 export const deviceCohortGroup = getDistributionGroup(env.machineId);
 
@@ -55,7 +54,12 @@ export async function getHostExecutablePath(): Promise<string> {
 	if (env.remoteName) return app;
 
 	async function checkPath(path: string) {
-		return (await exists(Uri.file(path))) ? path : undefined;
+		try {
+			await workspace.fs.stat(Uri.file(path));
+			return path;
+		} catch {
+			return undefined;
+		}
 	}
 
 	switch (platform) {
