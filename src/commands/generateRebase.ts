@@ -20,6 +20,16 @@ export interface GenerateRebaseCommandArgs {
 	source?: Source;
 }
 
+/**
+ * Represents a file patch with its diff header and hunk contents
+ */
+export interface RebaseDiffInfo {
+	message: string;
+	explanation?: string;
+	filePatches: Map<string, string[]>;
+	patch: string;
+}
+
 @command()
 export class GenerateChangelogCommand extends GlCommandBase {
 	constructor(private readonly container: Container) {
@@ -81,8 +91,16 @@ export async function generateRebase(
 	if (result == null) return;
 
 	try {
+		// Extract the diff information from the reorganized commits
+		const diffInfo = extractRebaseDiffInfo(result.commits, result.diff, result.hunkMap);
+
 		// Generate the markdown content that shows each commit and its diffs
 		const markdownContent = generateRebaseMarkdown(result);
+
+		const shas = await repo.git.patch()?.createUnreachableCommitsFromPatches(base.ref, diffInfo);
+		if (shas?.length) {
+			await repo.git.branches().createBranch?.(`rebase/${head.ref}-${Date.now()}`, shas[shas.length - 1]);
+		}
 
 		// open an untitled editor with the markdown content
 		const document = await workspace.openTextDocument({ language: 'markdown', content: markdownContent });
@@ -91,6 +109,61 @@ export async function generateRebase(
 		Logger.error(ex, 'GenerateRebaseCommand', 'execute');
 		void showGenericErrorMessage('Unable to parse rebase result');
 	}
+}
+
+/**
+ * Extracts the diff information from reorganized commits
+ */
+export function extractRebaseDiffInfo(
+	commits: AIRebaseResult['commits'],
+	originalDiff: string,
+	hunkMap: { index: number; hunkHeader: string }[],
+): RebaseDiffInfo[] {
+	return commits.map(commit => {
+		// Group hunks by file (diff header)
+		const filePatches = new Map<string, string[]>();
+		for (const { hunk: hunkIndex } of commit.hunks) {
+			if (hunkIndex < 1 || hunkIndex > hunkMap.length) continue;
+			const matchingHunk = hunkMap[hunkIndex - 1];
+			// find the index of the hunk header in the original diff
+			const hunkHeaderIndex = originalDiff.indexOf(matchingHunk.hunkHeader);
+			// extract the matching file diff header from the original diff
+			const diffLines = originalDiff.substring(0, hunkHeaderIndex).split('\n').reverse();
+			const diffHeaderIndex = diffLines.findIndex(line => line.startsWith('diff --git'));
+			const lastHunkHeaderIndex = diffLines
+				.slice(0, diffHeaderIndex)
+				.findLastIndex(line => line.startsWith('@@ -'));
+			let diffHeader = diffLines
+				.slice(lastHunkHeaderIndex > -1 ? lastHunkHeaderIndex + 1 : 0, diffHeaderIndex + 1)
+				.reverse()
+				.join('\n');
+			if (lastHunkHeaderIndex > -1) {
+				diffHeader += '\n';
+			}
+			if (diffHeader === '') continue;
+			if (!filePatches.has(diffHeader)) {
+				filePatches.set(diffHeader, []);
+			}
+
+			// Find the hunk content in the original diff
+			const hunkContent = extractHunkContent(originalDiff, diffHeader, matchingHunk.hunkHeader);
+			if (hunkContent) {
+				filePatches.get(diffHeader)!.push(hunkContent);
+			}
+		}
+
+		let commitPatch = '';
+		for (const [header, hunks] of filePatches.entries()) {
+			commitPatch += `${header.trim()}${hunks.map(h => (h.startsWith('\n') ? h : `\n${h}`)).join('')}\n`;
+		}
+
+		return {
+			message: commit.message,
+			// explanation: commit.explanation,
+			filePatches: filePatches,
+			patch: commitPatch,
+		};
+	});
 }
 
 /**
@@ -184,14 +257,15 @@ function extractHunkContent(originalDiff: string, diffHeader: string, hunkHeader
 		return null;
 	}
 
-	const nextHunkIndex = originalDiff.indexOf('@@ -', hunkIndex + 1);
+	const nextHunkIndex = originalDiff.indexOf('\n@@ -', hunkIndex + 1);
 	const nextIndex =
 		nextHunkIndex !== -1 && nextHunkIndex < nextDiffIndex
-			? nextHunkIndex - 1
+			? nextHunkIndex
 			: nextDiffIndex > 0
 			  ? nextDiffIndex - 1
 			  : undefined;
 
 	// Extract the content lines (excluding the hunk header)
-	return originalDiff.substring(hunkIndex, nextIndex);
+	const result = originalDiff.substring(hunkIndex, nextIndex);
+	return result;
 }
