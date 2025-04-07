@@ -5,7 +5,7 @@ import type { Container } from '../container';
 import { GitUri, isGitUri } from '../git/gitUri';
 import { showGenericErrorMessage } from '../messages';
 import { command } from '../system/-webview/command';
-import { findOrOpenEditor } from '../system/-webview/vscode';
+import { getOrOpenTextEditor } from '../system/-webview/vscode/editors';
 import { Logger } from '../system/logger';
 import { ActiveEditorCommand } from './commandBase';
 import { getCommandUri } from './commandBase.utils';
@@ -58,7 +58,7 @@ export class OpenWorkingFileCommand extends ActiveEditorCommand {
 				args.showOptions.selection = new Range(args.line, 0, args.line, 0);
 			}
 
-			const e = await findOrOpenEditor(args.uri, { ...args.showOptions, throwOnError: true });
+			const e = await getOrOpenTextEditor(args.uri, { ...args.showOptions, throwOnError: true });
 			if (args.annotationType === undefined) return;
 
 			void (await this.container.fileAnnotations.show(e, args.annotationType, {

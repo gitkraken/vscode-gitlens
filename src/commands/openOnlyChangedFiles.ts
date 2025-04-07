@@ -4,7 +4,7 @@ import type { Container } from '../container';
 import { showGenericErrorMessage } from '../messages';
 import { getRepositoryOrShowPicker } from '../quickpicks/repositoryPicker';
 import { command } from '../system/-webview/command';
-import { findOrOpenEditors } from '../system/-webview/vscode';
+import { openTextEditors } from '../system/-webview/vscode/editors';
 import { filterMap } from '../system/array';
 import { Logger } from '../system/logger';
 import { uriEquals } from '../system/uri';
@@ -74,7 +74,7 @@ export class OpenOnlyChangedFilesCommand extends GlCommandBase {
 			}
 
 			if (openUris.size > 0) {
-				findOrOpenEditors([...openUris]);
+				openTextEditors([...openUris]);
 			}
 		} catch (ex) {
 			Logger.error(ex, 'OpenOnlyChangedFilesCommand');

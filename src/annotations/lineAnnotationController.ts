@@ -6,7 +6,7 @@ import { CommitFormatter } from '../git/formatters/commitFormatter';
 import type { PullRequest } from '../git/models/pullRequest';
 import { detailsMessage } from '../hovers/hovers';
 import { configuration } from '../system/-webview/configuration';
-import { isTrackableTextEditor } from '../system/-webview/vscode';
+import { isTrackableTextEditor } from '../system/-webview/vscode/editors';
 import { debug, log } from '../system/decorators/log';
 import { once } from '../system/event';
 import { debounce } from '../system/function/debounce';

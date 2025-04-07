@@ -50,8 +50,12 @@ import {
 } from '../system/-webview/command';
 import { configuration } from '../system/-webview/configuration';
 import { setContext } from '../system/-webview/context';
-import type { MergeEditorInputs, OpenWorkspaceLocation } from '../system/-webview/vscode';
-import { openMergeEditor, openUrl, openWorkspace, revealInFileExplorer } from '../system/-webview/vscode';
+import { revealInFileExplorer } from '../system/-webview/vscode';
+import type { MergeEditorInputs } from '../system/-webview/vscode/editors';
+import { openMergeEditor } from '../system/-webview/vscode/editors';
+import { openUrl } from '../system/-webview/vscode/uris';
+import type { OpenWorkspaceLocation } from '../system/-webview/vscode/workspaces';
+import { openWorkspace } from '../system/-webview/vscode/workspaces';
 import { filterMap } from '../system/array';
 import { createCommandDecorator } from '../system/decorators/command';
 import { log } from '../system/decorators/log';

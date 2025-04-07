@@ -50,7 +50,7 @@ import type { RepositoriesChangeEvent } from '../../git/gitProviderService';
 import { executeCommand, registerCommand } from '../../system/-webview/command';
 import { configuration } from '../../system/-webview/configuration';
 import { setContext } from '../../system/-webview/context';
-import { openUrl } from '../../system/-webview/vscode';
+import { openUrl } from '../../system/-webview/vscode/uris';
 import { createCommandLink } from '../../system/commands';
 import { createFromDateDelta, fromNow } from '../../system/date';
 import { gate } from '../../system/decorators/-webview/gate';

@@ -3,7 +3,7 @@ import { Disposable, window } from 'vscode';
 import type { FileAnnotationType } from '../config';
 import type { AnnotationStatus } from '../constants';
 import type { Container } from '../container';
-import { getTabUri } from '../system/-webview/vscode';
+import { getTabUri } from '../system/-webview/vscode/tabs';
 import { Logger } from '../system/logger';
 import type { Deferred } from '../system/promise';
 import { defer } from '../system/promise';

@@ -10,7 +10,7 @@ import type { PullRequest } from '../git/models/pullRequest';
 import { detailsMessage } from '../hovers/hovers';
 import { createCommand } from '../system/-webview/command';
 import { configuration } from '../system/-webview/configuration';
-import { isTrackableTextEditor } from '../system/-webview/vscode';
+import { isTrackableTextEditor } from '../system/-webview/vscode/editors';
 import { createMarkdownCommandLink } from '../system/commands';
 import { debug } from '../system/decorators/log';
 import { once } from '../system/event';

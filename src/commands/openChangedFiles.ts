@@ -4,7 +4,7 @@ import type { Container } from '../container';
 import { showGenericErrorMessage } from '../messages';
 import { getRepositoryOrShowPicker } from '../quickpicks/repositoryPicker';
 import { command } from '../system/-webview/command';
-import { findOrOpenEditors } from '../system/-webview/vscode';
+import { openTextEditors } from '../system/-webview/vscode/editors';
 import { filterMap } from '../system/array';
 import { Logger } from '../system/logger';
 import { GlCommandBase } from './commandBase';
@@ -37,7 +37,7 @@ export class OpenChangedFilesCommand extends GlCommandBase {
 				args.uris = filterMap(status.files, f => (f.status !== 'D' ? f.uri : undefined));
 			}
 
-			findOrOpenEditors(args.uris);
+			openTextEditors(args.uris);
 		} catch (ex) {
 			Logger.error(ex, 'OpenChangedFilesCommand');
 			void showGenericErrorMessage('Unable to open all changed files');

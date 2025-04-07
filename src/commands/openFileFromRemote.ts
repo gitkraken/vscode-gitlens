@@ -1,7 +1,7 @@
 import { env, Range, Uri, window } from 'vscode';
 import type { Container } from '../container';
 import { command } from '../system/-webview/command';
-import { openEditor } from '../system/-webview/vscode';
+import { openTextEditor } from '../system/-webview/vscode/editors';
 import { GlCommandBase } from './commandBase';
 
 @command()
@@ -53,7 +53,7 @@ export class OpenFileFromRemoteCommand extends GlCommandBase {
 		}
 
 		try {
-			await openEditor(local.uri, { selection: selection, throwOnError: true });
+			await openTextEditor(local.uri, { selection: selection, throwOnError: true });
 		} catch {
 			const uris = await window.showOpenDialog({
 				title: 'Open local file',
@@ -63,7 +63,7 @@ export class OpenFileFromRemoteCommand extends GlCommandBase {
 			});
 			if (uris == null || uris.length === 0) return;
 
-			await openEditor(uris[0]);
+			await openTextEditor(uris[0]);
 		}
 	}
 }

@@ -2,7 +2,7 @@ import { env, window } from 'vscode';
 import type { Container } from '../container';
 import { shortenRevision } from '../git/utils/revision.utils';
 import { command } from '../system/-webview/command';
-import { openUrl } from '../system/-webview/vscode';
+import { openUrl } from '../system/-webview/vscode/uris';
 import { GlCommandBase } from './commandBase';
 import type { CommandContext } from './commandContext';
 

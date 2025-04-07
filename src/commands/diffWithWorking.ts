@@ -7,7 +7,7 @@ import { createReference } from '../git/utils/reference.utils';
 import { showGenericErrorMessage } from '../messages';
 import { showRevisionFilesPicker } from '../quickpicks/revisionFilesPicker';
 import { command, executeCommand } from '../system/-webview/command';
-import { findOrOpenEditor } from '../system/-webview/vscode';
+import { getOrOpenTextEditor } from '../system/-webview/vscode/editors';
 import { Logger } from '../system/logger';
 import { ActiveEditorCommand } from './commandBase';
 import { getCommandUri } from './commandBase.utils';
@@ -106,7 +106,7 @@ export class DiffWithWorkingCommand extends ActiveEditorCommand {
 				keyboard: {
 					keys: ['right', 'alt+right', 'ctrl+right'],
 					onDidPressKey: async (_key, uri) => {
-						await findOrOpenEditor(uri, { ...args.showOptions, preserveFocus: true, preview: true });
+						await getOrOpenTextEditor(uri, { ...args.showOptions, preserveFocus: true, preview: true });
 					},
 				},
 			});

@@ -16,7 +16,7 @@ import type { PullRequest } from '../../git/models/pullRequest';
 import type { GitRemote } from '../../git/models/remote';
 import type { RemoteProvider, RemoteProviderId } from '../../git/remotes/remoteProvider';
 import { configuration } from '../../system/-webview/configuration';
-import { openUrl } from '../../system/-webview/vscode';
+import { openUrl } from '../../system/-webview/vscode/uris';
 import { gate } from '../../system/decorators/-webview/gate';
 import { debug, log } from '../../system/decorators/log';
 import { promisifyDeferred, take } from '../../system/event';

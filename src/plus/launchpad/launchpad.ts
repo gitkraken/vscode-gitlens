@@ -48,7 +48,7 @@ import { createDirectiveQuickPickItem, Directive, isDirectiveQuickPickItem } fro
 import { createAsyncDebouncer } from '../../system/-webview/asyncDebouncer';
 import { executeCommand } from '../../system/-webview/command';
 import { configuration } from '../../system/-webview/configuration';
-import { openUrl } from '../../system/-webview/vscode';
+import { openUrl } from '../../system/-webview/vscode/uris';
 import { getScopedCounter } from '../../system/counter';
 import { fromNow } from '../../system/date';
 import { some } from '../../system/iterable';

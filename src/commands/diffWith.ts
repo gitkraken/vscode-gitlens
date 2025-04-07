@@ -8,7 +8,7 @@ import { deletedOrMissing } from '../git/models/revision';
 import { isShaLike, isUncommitted, shortenRevision } from '../git/utils/revision.utils';
 import { showGenericErrorMessage } from '../messages';
 import { command } from '../system/-webview/command';
-import { openDiffEditor } from '../system/-webview/vscode';
+import { openDiffEditor } from '../system/-webview/vscode/editors';
 import { createMarkdownCommandLink } from '../system/commands';
 import { Logger } from '../system/logger';
 import { basename } from '../system/path';

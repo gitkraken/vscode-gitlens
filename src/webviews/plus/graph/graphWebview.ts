@@ -104,8 +104,10 @@ import {
 } from '../../../system/-webview/command';
 import { configuration } from '../../../system/-webview/configuration';
 import { getContext, onDidChangeContext } from '../../../system/-webview/context';
-import type { OpenWorkspaceLocation } from '../../../system/-webview/vscode';
-import { isDarkTheme, isLightTheme, openUrl, openWorkspace } from '../../../system/-webview/vscode';
+import { isDarkTheme, isLightTheme } from '../../../system/-webview/vscode';
+import { openUrl } from '../../../system/-webview/vscode/uris';
+import type { OpenWorkspaceLocation } from '../../../system/-webview/vscode/workspaces';
+import { openWorkspace } from '../../../system/-webview/vscode/workspaces';
 import { gate } from '../../../system/decorators/-webview/gate';
 import { debug, log } from '../../../system/decorators/log';
 import { disposableInterval } from '../../../system/function';

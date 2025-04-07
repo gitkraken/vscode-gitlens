@@ -5,7 +5,8 @@ import type { GitBlame } from '../git/models/blame';
 import type { ParsedGitDiffHunks } from '../git/models/diff';
 import type { GitLog } from '../git/models/log';
 import { configuration } from '../system/-webview/configuration';
-import { getEditorIfVisible, isActiveDocument, isVisibleDocument } from '../system/-webview/vscode';
+import { isActiveTextDocument, isVisibleTextDocument } from '../system/-webview/vscode/documents';
+import { getOpenTextEditorIfVisible } from '../system/-webview/vscode/editors';
 import { debug, logName } from '../system/decorators/log';
 import type { Deferrable } from '../system/function/debounce';
 import { debounce } from '../system/function/debounce';
@@ -221,9 +222,9 @@ export class TrackedGitDocument implements Disposable {
 		}
 
 		// Only update the active document immediately if this isn't a "visible" change, since visible changes need to be debounced (vscode fires too many)
-		if (isActiveDocument(this.document) && reason !== 'visible') {
+		if (isActiveTextDocument(this.document) && reason !== 'visible') {
 			void this.update();
-		} else if (isVisibleDocument(this.document)) {
+		} else if (isVisibleTextDocument(this.document)) {
 			this._updateDebounced ??= debounce(this.update.bind(this), 100);
 			void this._updateDebounced();
 		}
@@ -238,7 +239,7 @@ export class TrackedGitDocument implements Disposable {
 		if (wasBlameable) {
 			this._pendingUpdates = { ...this._pendingUpdates, reason: 'blame-failed', forceBlameChange: true };
 
-			if (isActiveDocument(this.document)) {
+			if (isActiveTextDocument(this.document)) {
 				void this.update();
 			}
 		}
@@ -274,7 +275,7 @@ export class TrackedGitDocument implements Disposable {
 
 		if (!this._loading && wasBlameable !== this.blameable) {
 			const e: DocumentBlameStateChangeEvent = {
-				editor: getEditorIfVisible(this.document),
+				editor: getOpenTextEditorIfVisible(this.document),
 				document: this,
 				blameable: this.blameable,
 			};

@@ -1,7 +1,7 @@
 import type { Uri } from 'vscode';
 import type { WorktreeGitCommandArgs } from '../../commands/git/worktree';
 import { Container } from '../../container';
-import type { OpenWorkspaceLocation } from '../../system/-webview/vscode';
+import type { OpenWorkspaceLocation } from '../../system/-webview/vscode/workspaces';
 import { defer } from '../../system/promise';
 import type { ViewNode } from '../../views/nodes/abstract/viewNode';
 import { executeGitCommand } from '../actions';

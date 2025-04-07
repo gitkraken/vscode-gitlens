@@ -5,7 +5,8 @@ import type { GitCommit } from '../git/models/commit';
 import { deletedOrMissing } from '../git/models/revision';
 import { showCommitHasNoPreviousCommitWarningMessage, showGenericErrorMessage } from '../messages';
 import { command, executeCommand } from '../system/-webview/command';
-import { findOrOpenEditor } from '../system/-webview/vscode';
+import { getOrOpenTextEditor } from '../system/-webview/vscode/editors';
+import { getVisibleTabs } from '../system/-webview/vscode/tabs';
 import { Logger } from '../system/logger';
 import { ActiveEditorCommand } from './commandBase';
 import { getCommandUri } from './commandBase.utils';
@@ -100,7 +101,7 @@ export class DiffWithPreviousCommand extends ActiveEditorCommand {
 
 				// If we have no previous and the current is the working file, just open the working file
 				if (diffUris.current.sha == null) {
-					void (await findOrOpenEditor(diffUris.current, args.showOptions));
+					void (await getOrOpenTextEditor(diffUris.current, args.showOptions));
 
 					return;
 				}

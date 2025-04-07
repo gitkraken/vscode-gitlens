@@ -3,7 +3,7 @@ import { env } from 'vscode';
 import type { AutolinkReference, DynamicAutolinkReference } from '../../autolinks/models/autolinks';
 import type { Source } from '../../constants.telemetry';
 import type { ResourceDescriptor } from '../../plus/integrations/integration';
-import { openUrl } from '../../system/-webview/vscode';
+import { openUrl } from '../../system/-webview/vscode/uris';
 import { memoize } from '../../system/decorators/-webview/memoize';
 import { encodeUrl } from '../../system/encoding';
 import { getSettledValue } from '../../system/promise';

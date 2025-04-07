@@ -14,7 +14,7 @@ import { Container } from '../../container';
 import { showRevisionFilesPicker } from '../../quickpicks/revisionFilesPicker';
 import { executeCommand, executeCoreGitCommand, executeEditorCommand } from '../../system/-webview/command';
 import { configuration } from '../../system/-webview/configuration';
-import { findOrOpenEditor, findOrOpenEditors, openChangesEditor } from '../../system/-webview/vscode';
+import { getOrOpenTextEditor, openChangesEditor, openTextEditors } from '../../system/-webview/vscode/editors';
 import { getSettledValue } from '../../system/promise';
 import type { ViewNode } from '../../views/nodes/abstract/viewNode';
 import type { ShowInCommitGraphCommandArgs } from '../../webviews/plus/graph/registration';
@@ -552,7 +552,7 @@ export async function openFileAtRevision(
 
 	let editor: TextEditor | undefined;
 	try {
-		editor = await findOrOpenEditor(uri, { throwOnError: true, ...opts });
+		editor = await getOrOpenTextEditor(uri, { throwOnError: true, ...opts });
 	} catch (ex) {
 		if (!ex?.message?.includes('Unable to resolve nonexistent file')) {
 			void window.showErrorMessage(`Unable to open '${gitUri.relativePath}' in revision '${gitUri.sha}'`);
@@ -570,14 +570,14 @@ export async function openFileAtRevision(
 				keyboard: {
 					keys: ['right', 'alt+right', 'ctrl+right'],
 					onDidPressKey: async (_key, uri) => {
-						await findOrOpenEditor(uri, { ...opts, preserveFocus: true, preview: true });
+						await getOrOpenTextEditor(uri, { ...opts, preserveFocus: true, preview: true });
 					},
 				},
 			},
 		);
 		if (pickedUri == null) return;
 
-		editor = await findOrOpenEditor(pickedUri, opts);
+		editor = await getOrOpenTextEditor(pickedUri, opts);
 	}
 
 	if (annotationType != null && editor != null) {
@@ -632,7 +632,7 @@ export async function openFiles(
 			),
 		)
 	).filter(<T>(u?: T): u is T => Boolean(u));
-	findOrOpenEditors(uris, options);
+	openTextEditors(uris, options);
 }
 
 export async function openFilesAtRevision(commit: GitCommit, options?: TextDocumentShowOptions): Promise<void>;
@@ -658,7 +658,7 @@ export async function openFilesAtRevision(
 		return;
 	}
 
-	findOrOpenEditors(
+	openTextEditors(
 		files.map(file =>
 			Container.instance.git.getRevisionUri(file.status === 'D' ? refs.lhs : refs.rhs, file, refs.repoPath),
 		),

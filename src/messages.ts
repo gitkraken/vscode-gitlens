@@ -7,7 +7,7 @@ import { BlameIgnoreRevsFileBadRevisionError } from './git/errors';
 import type { GitCommit } from './git/models/commit';
 import { executeCommand, executeCoreCommand } from './system/-webview/command';
 import { configuration } from './system/-webview/configuration';
-import { openUrl } from './system/-webview/vscode';
+import { openUrl } from './system/-webview/vscode/uris';
 import { Logger } from './system/logger';
 
 export function showBlameInvalidIgnoreRevsFileWarningMessage(

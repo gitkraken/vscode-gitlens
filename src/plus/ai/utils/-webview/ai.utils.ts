@@ -4,7 +4,7 @@ import type { AIProviders } from '../../../../constants.ai';
 import type { Container } from '../../../../container';
 import { createDirectiveQuickPickItem, Directive } from '../../../../quickpicks/items/directive';
 import { configuration } from '../../../../system/-webview/configuration';
-import { openSettingsEditor } from '../../../../system/-webview/vscode';
+import { openSettingsEditor } from '../../../../system/-webview/vscode/editors';
 import { formatNumeric } from '../../../../system/date';
 import { getPossessiveForm, pluralize } from '../../../../system/string';
 import { ensureAccountQuickPick } from '../../../gk/utils/-webview/acount.utils';

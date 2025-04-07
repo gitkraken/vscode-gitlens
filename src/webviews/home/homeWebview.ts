@@ -59,7 +59,8 @@ import {
 } from '../../system/-webview/command';
 import { configuration } from '../../system/-webview/configuration';
 import { getContext, onDidChangeContext } from '../../system/-webview/context';
-import { openUrl, openWorkspace } from '../../system/-webview/vscode';
+import { openUrl } from '../../system/-webview/vscode/uris';
+import { openWorkspace } from '../../system/-webview/vscode/workspaces';
 import { debug, log } from '../../system/decorators/log';
 import type { Deferrable } from '../../system/function/debounce';
 import { debounce } from '../../system/function/debounce';

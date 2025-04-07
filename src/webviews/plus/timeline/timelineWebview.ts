@@ -12,7 +12,7 @@ import type { SubscriptionChangeEvent } from '../../../plus/gk/subscriptionServi
 import { executeCommand, registerCommand } from '../../../system/-webview/command';
 import { configuration } from '../../../system/-webview/configuration';
 import { isFolderUri } from '../../../system/-webview/path';
-import { getTabUri } from '../../../system/-webview/vscode';
+import { getTabUri } from '../../../system/-webview/vscode/tabs';
 import { createFromDateDelta } from '../../../system/date';
 import { debug } from '../../../system/decorators/log';
 import type { Deferrable } from '../../../system/function/debounce';

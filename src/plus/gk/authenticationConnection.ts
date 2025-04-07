@@ -4,7 +4,7 @@ import { uuid } from '@env/crypto';
 import type { Response } from '@env/fetch';
 import type { TrackingContext } from '../../constants.telemetry';
 import type { Container } from '../../container';
-import { openUrl } from '../../system/-webview/vscode';
+import { openUrl } from '../../system/-webview/vscode/uris';
 import { debug } from '../../system/decorators/log';
 import type { DeferredEvent, DeferredEventExecutor } from '../../system/event';
 import { promisifyDeferred } from '../../system/event';

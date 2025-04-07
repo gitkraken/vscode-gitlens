@@ -101,7 +101,8 @@ import {
 import { executeCommand } from '../system/-webview/command';
 import { configuration } from '../system/-webview/configuration';
 import { formatPath } from '../system/-webview/formatPath';
-import { getIconPathUris, openWorkspace } from '../system/-webview/vscode';
+import { getIconPathUris } from '../system/-webview/vscode';
+import { openWorkspace } from '../system/-webview/vscode/workspaces';
 import { filterMap, intersection, isStringArray } from '../system/array';
 import { debounce } from '../system/function/debounce';
 import { first, map } from '../system/iterable';

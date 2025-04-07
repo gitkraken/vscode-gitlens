@@ -22,8 +22,9 @@ import { ensurePaidPlan } from '../../plus/gk/utils/-webview/plus.utils';
 import { createQuickPickSeparator } from '../../quickpicks/items/common';
 import { executeCommand } from '../../system/-webview/command';
 import { configuration } from '../../system/-webview/configuration';
-import type { OpenWorkspaceLocation } from '../../system/-webview/vscode';
-import { findOrOpenEditor, openWorkspace } from '../../system/-webview/vscode';
+import { getOrOpenTextEditor } from '../../system/-webview/vscode/editors';
+import type { OpenWorkspaceLocation } from '../../system/-webview/vscode/workspaces';
+import { openWorkspace } from '../../system/-webview/vscode/workspaces';
 import { debug } from '../../system/decorators/log';
 import { once } from '../../system/event';
 import { Logger } from '../../system/logger';
@@ -1251,7 +1252,7 @@ export class DeepLinkService implements Disposable {
 
 					if (targetSha == null) {
 						try {
-							await findOrOpenEditor(Uri.file(`${repo.path}/${filePath}`), {
+							await getOrOpenTextEditor(Uri.file(`${repo.path}/${filePath}`), {
 								preview: false,
 								selection: selection,
 								throwOnError: true,
