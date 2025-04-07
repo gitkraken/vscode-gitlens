@@ -4,10 +4,12 @@ import type { Source } from '../constants.telemetry';
 import type { Container } from '../container';
 import type { GitReference } from '../git/models/reference';
 import type { Repository } from '../git/models/repository';
+import { uncommitted } from '../git/models/revision';
 import { createReference } from '../git/utils/reference.utils';
 import { showGenericErrorMessage } from '../messages';
 import type { AIRebaseResult } from '../plus/ai/aiProviderService';
 import { showComparisonPicker } from '../quickpicks/comparisonPicker';
+import { getRepositoryOrShowPicker } from '../quickpicks/repositoryPicker';
 import { command } from '../system/-webview/command';
 import { Logger } from '../system/logger';
 import { escapeMarkdownCodeBlocks } from '../system/markdown';
@@ -17,6 +19,11 @@ export interface GenerateRebaseCommandArgs {
 	repoPath?: string;
 	head?: GitReference;
 	base?: GitReference;
+	source?: Source;
+}
+
+export interface GenerateCommitsCommandArgs {
+	repoPath?: string;
 	source?: Source;
 }
 
@@ -31,7 +38,37 @@ export interface RebaseDiffInfo {
 }
 
 @command()
-export class GenerateChangelogCommand extends GlCommandBase {
+export class GenerateCommitsCommand extends GlCommandBase {
+	constructor(private readonly container: Container) {
+		super('gitlens.ai.generateCommits');
+	}
+
+	async execute(args?: GenerateCommitsCommandArgs): Promise<void> {
+		try {
+			let repo;
+			if (args?.repoPath != null) {
+				repo = this.container.git.getRepository(args.repoPath);
+			}
+			repo ??= await getRepositoryOrShowPicker('Generate Commits from Working Changes');
+			if (repo == null) return;
+
+			await generateRebase(
+				this.container,
+				repo,
+				createReference(uncommitted, repo.path, { refType: 'revision' }),
+				createReference('HEAD', repo.path, { refType: 'revision' }),
+				args?.source ?? { source: 'commandPalette' },
+				{ progress: { location: ProgressLocation.Notification } },
+			);
+		} catch (ex) {
+			Logger.error(ex, 'GenerateCommitsCommand', 'execute');
+			void showGenericErrorMessage('Unable to generate commits');
+		}
+	}
+}
+
+@command()
+export class GenerateRebaseCommand extends GlCommandBase {
 	constructor(private readonly container: Container) {
 		super('gitlens.ai.generateRebase');
 	}
@@ -99,7 +136,15 @@ export async function generateRebase(
 
 		const shas = await repo.git.patch()?.createUnreachableCommitsFromPatches(base.ref, diffInfo);
 		if (shas?.length) {
-			await repo.git.branches().createBranch?.(`rebase/${head.ref}-${Date.now()}`, shas[shas.length - 1]);
+			if (head.ref === uncommitted) {
+				// stash the working changes
+				await repo.git.stash()?.saveStash(undefined, undefined, { includeUntracked: true });
+				// await repo.git.checkout?.(shas[shas.length - 1]);
+				// reset the current branch to the new shas
+				await repo.git.reset?.({ hard: true }, shas[shas.length - 1]);
+			} else {
+				await repo.git.branches().createBranch?.(`rebase/${head.ref}-${Date.now()}`, shas[shas.length - 1]);
+			}
 		}
 
 		// open an untitled editor with the markdown content
@@ -259,7 +304,7 @@ function extractHunkContent(originalDiff: string, diffHeader: string, hunkHeader
 
 	const nextHunkIndex = originalDiff.indexOf('\n@@ -', hunkIndex + 1);
 	const nextIndex =
-		nextHunkIndex !== -1 && nextHunkIndex < nextDiffIndex
+		nextHunkIndex !== -1 && (nextHunkIndex < nextDiffIndex || nextDiffIndex === -1)
 			? nextHunkIndex
 			: nextDiffIndex > 0
 			  ? nextDiffIndex - 1

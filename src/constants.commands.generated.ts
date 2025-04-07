@@ -616,6 +616,7 @@ export type ContributedPaletteCommands =
 	| 'gitlens.addAuthors'
 	| 'gitlens.ai.generateChangelog'
 	| 'gitlens.ai.generateCommitMessage'
+	| 'gitlens.ai.generateCommits'
 	| 'gitlens.ai.generateRebase'
 	| 'gitlens.applyPatchFromClipboard'
 	| 'gitlens.associateIssueWithBranch'

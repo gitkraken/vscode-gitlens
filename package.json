@@ -6029,6 +6029,11 @@
 				"category": "GitLens"
 			},
 			{
+				"command": "gitlens.ai.generateCommits",
+				"title": "Generate Commits with AI (Preview)...",
+				"category": "GitLens"
+			},
+			{
 				"command": "gitlens.ai.generateRebase",
 				"title": "Rebase with AI (Preview)...",
 				"category": "GitLens"
@@ -10368,6 +10373,10 @@
 				{
 					"command": "gitlens.ai.generateCommitMessage",
 					"when": "gitlens:enabled && !gitlens:readonly && !gitlens:untrusted && gitlens:gk:organization:ai:enabled && config.gitlens.ai.generateCommitMessage.enabled"
+				},
+				{
+					"command": "gitlens.ai.generateCommits",
+					"when": "gitlens:enabled && !gitlens:untrusted && gitlens:gk:organization:ai:enabled"
 				},
 				{
 					"command": "gitlens.ai.generateRebase",
