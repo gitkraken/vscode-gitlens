@@ -8,13 +8,14 @@ import { showGenericErrorMessage } from '../messages';
 import { showRevisionFilesPicker } from '../quickpicks/revisionFilesPicker';
 import { command, executeCommand } from '../system/-webview/command';
 import { getOrOpenTextEditor } from '../system/-webview/vscode/editors';
+import { getTabUris, getVisibleTabs } from '../system/-webview/vscode/tabs';
 import { Logger } from '../system/logger';
+import { uriEquals } from '../system/uri';
 import { ActiveEditorCommand } from './commandBase';
 import { getCommandUri } from './commandBase.utils';
 import type { DiffWithCommandArgs } from './diffWith';
 
 export interface DiffWithWorkingCommandArgs {
-	inDiffRightEditor?: boolean;
 	uri?: Uri;
 	line?: number;
 	showOptions?: TextDocumentShowOptions;
@@ -24,7 +25,7 @@ export interface DiffWithWorkingCommandArgs {
 @command()
 export class DiffWithWorkingCommand extends ActiveEditorCommand {
 	constructor(private readonly container: Container) {
-		super(['gitlens.diffWithWorking', 'gitlens.diffWithWorkingInDiffLeft', 'gitlens.diffWithWorkingInDiffRight']);
+		super('gitlens.diffWithWorking');
 	}
 
 	async execute(editor?: TextEditor, uri?: Uri, args?: DiffWithWorkingCommandArgs): Promise<any> {
@@ -42,7 +43,19 @@ export class DiffWithWorkingCommand extends ActiveEditorCommand {
 			args.line = editor?.selection.active.line ?? 0;
 		}
 
-		if (args.inDiffRightEditor) {
+		let isInRightSideOfDiffEditor = false;
+
+		// Figure out if we are in a diff editor and if so, which side
+		const [tab] = getVisibleTabs(uri);
+		if (tab != null) {
+			const uris = getTabUris(tab);
+			// If there is an original, then we are in a diff editor -- modified is right, original is left
+			if (uris.original != null && uriEquals(uri, uris.modified)) {
+				isInRightSideOfDiffEditor = true;
+			}
+		}
+
+		if (isInRightSideOfDiffEditor) {
 			try {
 				const diffUris = await this.container.git
 					.diff(gitUri.repoPath!)

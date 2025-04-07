@@ -10,6 +10,10 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/) and this p
 
 - Adds OpenRouter support for GitLens' AI features ([#3906](https://github.com/gitkraken/vscode-gitlens/issues/3906))
 
+### Changed
+
+- Improves editor revision navigation ([#4200](https://github.com/gitkraken/vscode-gitlens/issues/4200))
+
 ## [17.0.1] - 2025-04-03
 
 ### Added

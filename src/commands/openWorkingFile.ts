@@ -20,7 +20,7 @@ export interface OpenWorkingFileCommandArgs {
 @command()
 export class OpenWorkingFileCommand extends ActiveEditorCommand {
 	constructor(private readonly container: Container) {
-		super(['gitlens.openWorkingFile', 'gitlens.openWorkingFileInDiffLeft', 'gitlens.openWorkingFileInDiffRight']);
+		super('gitlens.openWorkingFile');
 	}
 
 	async execute(editor: TextEditor, uri?: Uri, args?: OpenWorkingFileCommandArgs): Promise<void> {

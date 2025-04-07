@@ -1,8 +1,8 @@
 import type { Uri } from 'vscode';
 
-export function uriEquals(lhs: Uri | undefined, rhs: Uri | undefined): boolean {
-	if (lhs === rhs) return true;
-	if (lhs == null || rhs == null) return false;
+export function uriEquals(a: Uri | undefined, b: Uri | undefined): boolean {
+	if (a === b) return true;
+	if (a == null || b == null) return false;
 
-	return lhs.toString() === rhs.toString();
+	return a.toString() === b.toString();
 }

@@ -64,7 +64,7 @@ export type ToggleFileAnnotationCommandArgs =
 @command()
 export class ToggleFileBlameCommand extends ActiveEditorCommand {
 	constructor(private readonly container: Container) {
-		super(['gitlens.toggleFileBlame', 'gitlens.toggleFileBlameInDiffLeft', 'gitlens.toggleFileBlameInDiffRight']);
+		super('gitlens.toggleFileBlame');
 	}
 
 	execute(editor: TextEditor, uri?: Uri, args?: ToggleFileBlameAnnotationCommandArgs): Promise<void> {

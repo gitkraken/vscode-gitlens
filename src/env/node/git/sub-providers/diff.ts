@@ -27,6 +27,7 @@ import { getRevisionRangeParts, isRevisionRange, isUncommittedStaged } from '../
 import { showGenericErrorMessage } from '../../../../messages';
 import { configuration } from '../../../../system/-webview/configuration';
 import { splitPath } from '../../../../system/-webview/path';
+import { getOpenTextDocument } from '../../../../system/-webview/vscode/documents';
 import { log } from '../../../../system/decorators/log';
 import { Logger } from '../../../../system/logger';
 import { getLogScope } from '../../../../system/logger.scope';
@@ -241,6 +242,15 @@ export class DiffGitSubProvider implements GitDiffSubProvider {
 						next: GitUri.fromFile(relativePath, repoPath, uncommittedStaged),
 					};
 				}
+			} else {
+				const workingUri = GitUri.fromFile(relativePath, repoPath, undefined);
+				const isDirty = getOpenTextDocument(workingUri)?.isDirty;
+				if (!isDirty) {
+					return {
+						current: (await this.getPreviousUri(repoPath, uri, ref, 0))!,
+						next: workingUri,
+					};
+				}
 			}
 
 			return {
@@ -320,10 +330,12 @@ export class DiffGitSubProvider implements GitDiffSubProvider {
 		uri: Uri,
 		ref: string | undefined,
 		skip: number = 0,
+		dirty?: boolean,
 	): Promise<PreviousComparisonUrisResult | undefined> {
 		if (ref === deletedOrMissing) return undefined;
 
 		const relativePath = this.provider.getRelativePath(uri, repoPath);
+		let skipPrev = 0;
 
 		// If we are at the working tree (i.e. no ref), we need to dig deeper to figure out where to go
 		if (!ref) {
@@ -351,7 +363,9 @@ export class DiffGitSubProvider implements GitDiffSubProvider {
 						current: GitUri.fromFile(relativePath, repoPath, uncommittedStaged),
 						previous: await this.getPreviousUri(repoPath, uri, ref, skip - 1),
 					};
-				} else if (status.workingTreeStatus != null) {
+				}
+
+				if (status.workingTreeStatus != null) {
 					if (skip === 0) {
 						return {
 							current: GitUri.fromFile(relativePath, repoPath, undefined),
@@ -359,21 +373,21 @@ export class DiffGitSubProvider implements GitDiffSubProvider {
 						};
 					}
 				}
-			} else if (skip === 0) {
-				skip++;
+			} else if (!dirty && skip === 0) {
+				skipPrev++;
 			}
-		}
-		// If we are at the index (staged), diff staged with HEAD
-		else if (isUncommittedStaged(ref)) {
+		} else if (isUncommittedStaged(ref)) {
+			// If we are at the index (staged), diff staged with HEAD
+
 			const current =
 				skip === 0
 					? GitUri.fromFile(relativePath, repoPath, ref)
-					: (await this.getPreviousUri(repoPath, uri, undefined, skip - 1))!;
+					: (await this.getPreviousUri(repoPath, uri, undefined, skip + skipPrev - 1))!;
 			if (current == null || current.sha === deletedOrMissing) return undefined;
 
 			return {
 				current: current,
-				previous: await this.getPreviousUri(repoPath, uri, undefined, skip),
+				previous: await this.getPreviousUri(repoPath, uri, undefined, skip + skipPrev),
 			};
 		}
 
@@ -381,12 +395,12 @@ export class DiffGitSubProvider implements GitDiffSubProvider {
 		const current =
 			skip === 0
 				? GitUri.fromFile(relativePath, repoPath, ref)
-				: (await this.getPreviousUri(repoPath, uri, ref, skip - 1))!;
+				: (await this.getPreviousUri(repoPath, uri, ref, skip + skipPrev - 1))!;
 		if (current == null || current.sha === deletedOrMissing) return undefined;
 
 		return {
 			current: current,
-			previous: await this.getPreviousUri(repoPath, uri, ref, skip),
+			previous: await this.getPreviousUri(repoPath, uri, ref, skip + skipPrev),
 		};
 	}
 
@@ -506,6 +520,10 @@ export class DiffGitSubProvider implements GitDiffSubProvider {
 
 		if (ref === uncommitted) {
 			ref = undefined;
+		}
+
+		if (ref === 'HEAD' && skip === 0) {
+			skip++;
 		}
 
 		const relativePath = this.provider.getRelativePath(uri, repoPath);

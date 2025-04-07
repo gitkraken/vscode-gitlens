@@ -4,17 +4,17 @@ import { GitUri } from '../git/gitUri';
 import type { GitCommit } from '../git/models/commit';
 import { showGenericErrorMessage } from '../messages';
 import { command, executeCommand } from '../system/-webview/command';
+import { getTabUris, getVisibleTabs } from '../system/-webview/vscode/tabs';
 import { Logger } from '../system/logger';
+import { uriEquals } from '../system/uri';
 import { ActiveEditorCommand } from './commandBase';
 import { getCommandUri } from './commandBase.utils';
-import type { CommandContext } from './commandContext';
 import type { DiffWithCommandArgs } from './diffWith';
 
 export interface DiffWithNextCommandArgs {
 	commit?: GitCommit;
 	range?: Range;
 
-	inDiffLeftEditor?: boolean;
 	line?: number;
 	showOptions?: TextDocumentShowOptions;
 }
@@ -22,15 +22,7 @@ export interface DiffWithNextCommandArgs {
 @command()
 export class DiffWithNextCommand extends ActiveEditorCommand {
 	constructor(private readonly container: Container) {
-		super(['gitlens.diffWithNext', 'gitlens.diffWithNextInDiffLeft', 'gitlens.diffWithNextInDiffRight']);
-	}
-
-	protected override preExecute(context: CommandContext, args?: DiffWithNextCommandArgs): Promise<void> {
-		if (context.command === 'gitlens.diffWithNextInDiffLeft') {
-			args = { ...args, inDiffLeftEditor: true };
-		}
-
-		return this.execute(context.editor, context.uri, args);
+		super('gitlens.diffWithNext');
 	}
 
 	async execute(editor?: TextEditor, uri?: Uri, args?: DiffWithNextCommandArgs): Promise<void> {
@@ -42,13 +34,25 @@ export class DiffWithNextCommand extends ActiveEditorCommand {
 			args.line = editor?.selection.active.line ?? 0;
 		}
 
+		let isInLeftSideOfDiffEditor = false;
+
+		// Figure out if we are in a diff editor and if so, which side
+		const [tab] = getVisibleTabs(uri);
+		if (tab != null) {
+			const uris = getTabUris(tab);
+			// If there is an original, then we are in a diff editor -- modified is right, original is left
+			if (uris.original != null && uriEquals(uri, uris.original)) {
+				isInLeftSideOfDiffEditor = true;
+			}
+		}
+
 		const gitUri = args.commit?.getGitUri() ?? (await GitUri.fromUri(uri));
 		try {
 			const diffUris = await this.container.git.diff(gitUri.repoPath!).getNextComparisonUris(
 				gitUri,
 				gitUri.sha,
 				// If we are in the left-side of the diff editor, we need to skip forward 1 more revision
-				args.inDiffLeftEditor ? 1 : 0,
+				isInLeftSideOfDiffEditor ? 1 : 0,
 			);
 
 			if (diffUris?.next == null) return;

@@ -860,11 +860,11 @@
 			"label": "Open Changes with Next Revision",
 			"icon": "$(gitlens-next-commit)",
 			"enablement": "gitlens:enabled && resourceScheme =~ /^(gitlens|git|pr)$/",
-			"commandPalette": "gitlens:enabled && resourceScheme =~ /^(gitlens|git|pr)$/ && !isInDiffEditor",
+			"commandPalette": "gitlens:enabled && resourceScheme =~ /^(gitlens|git|pr)$/",
 			"menus": {
 				"editor/title": [
 					{
-						"when": "resource in gitlens:tabs:tracked && config.gitlens.menus.editorGroup.compare && !isInDiffEditor",
+						"when": "resource in gitlens:tabs:tracked && config.gitlens.menus.editorGroup.compare",
 						"group": "navigation",
 						"order": 99
 					}
@@ -873,63 +873,11 @@
 			"keybindings": [
 				{
 					"key": "alt+.",
-					"when": "config.gitlens.keymap == alternate && editorTextFocus && gitlens:enabled && resourceScheme =~ /^(gitlens|git|pr)$/ && !isInDiffEditor"
+					"when": "config.gitlens.keymap == alternate && editorTextFocus && gitlens:enabled && resourceScheme =~ /^(gitlens|git|pr)$/"
 				},
 				{
 					"key": "ctrl+shift+g .",
-					"when": "config.gitlens.keymap == chorded && editorTextFocus && gitlens:enabled && resourceScheme =~ /^(gitlens|git|pr)$/ && !isInDiffEditor",
-					"mac": "cmd+alt+g ."
-				}
-			]
-		},
-		"gitlens.diffWithNextInDiffLeft": {
-			"label": "Open Changes with Next Revision",
-			"icon": "$(gitlens-next-commit)",
-			"enablement": "gitlens:enabled && resourceScheme =~ /^(gitlens|git|pr)$/",
-			"commandPalette": "gitlens:enabled && resourceScheme =~ /^(gitlens|git|pr)$/ && isInDiffEditor && !isInDiffRightEditor",
-			"menus": {
-				"editor/title": [
-					{
-						"when": "resource in gitlens:tabs:tracked && config.gitlens.menus.editorGroup.compare && isInDiffEditor && !isInDiffRightEditor",
-						"group": "navigation",
-						"order": 99
-					}
-				]
-			},
-			"keybindings": [
-				{
-					"key": "alt+.",
-					"when": "config.gitlens.keymap == alternate && editorTextFocus && gitlens:enabled && resourceScheme =~ /^(gitlens|git|pr)$/ && isInDiffEditor && !isInDiffRightEditor"
-				},
-				{
-					"key": "ctrl+shift+g .",
-					"when": "config.gitlens.keymap == chorded && editorTextFocus && gitlens:enabled && resourceScheme =~ /^(gitlens|git|pr)$/ && isInDiffEditor && !isInDiffRightEditor",
-					"mac": "cmd+alt+g ."
-				}
-			]
-		},
-		"gitlens.diffWithNextInDiffRight": {
-			"label": "Open Changes with Next Revision",
-			"icon": "$(gitlens-next-commit)",
-			"enablement": "gitlens:enabled && resourceScheme =~ /^(gitlens|git|pr)$/",
-			"commandPalette": "gitlens:enabled && resourceScheme =~ /^(gitlens|git|pr)$/ && isInDiffRightEditor",
-			"menus": {
-				"editor/title": [
-					{
-						"when": "resource in gitlens:tabs:tracked && config.gitlens.menus.editorGroup.compare && isInDiffRightEditor",
-						"group": "navigation",
-						"order": 99
-					}
-				]
-			},
-			"keybindings": [
-				{
-					"key": "alt+.",
-					"when": "config.gitlens.keymap == alternate && editorTextFocus && gitlens:enabled && resourceScheme =~ /^(gitlens|git|pr)$/ && isInDiffRightEditor"
-				},
-				{
-					"key": "ctrl+shift+g .",
-					"when": "config.gitlens.keymap == chorded && editorTextFocus && gitlens:enabled && resourceScheme =~ /^(gitlens|git|pr)$/ && isInDiffRightEditor",
+					"when": "config.gitlens.keymap == chorded && editorTextFocus && gitlens:enabled && resourceScheme =~ /^(gitlens|git|pr)$/",
 					"mac": "cmd+alt+g ."
 				}
 			]
@@ -937,11 +885,11 @@
 		"gitlens.diffWithPrevious": {
 			"label": "Open Changes with Previous Revision",
 			"icon": "$(gitlens-prev-commit)",
-			"commandPalette": "resource in gitlens:tabs:tracked && !isInDiffEditor",
+			"commandPalette": "resource in gitlens:tabs:tracked",
 			"menus": {
 				"editor/title": [
 					{
-						"when": "resource in gitlens:tabs:tracked && config.gitlens.menus.editorGroup.compare && !isInDiffEditor",
+						"when": "resource in gitlens:tabs:tracked && config.gitlens.menus.editorGroup.compare",
 						"group": "navigation",
 						"order": 97,
 						"alt": "gitlens.diffWithRevision"
@@ -970,63 +918,11 @@
 			"keybindings": [
 				{
 					"key": "alt+,",
-					"when": "config.gitlens.keymap == alternate && editorTextFocus && resource in gitlens:tabs:tracked && !isInDiffEditor"
+					"when": "config.gitlens.keymap == alternate && editorTextFocus && resource in gitlens:tabs:tracked"
 				},
 				{
 					"key": "ctrl+shift+g ,",
-					"when": "config.gitlens.keymap == chorded && editorTextFocus && resource in gitlens:tabs:tracked && !isInDiffEditor",
-					"mac": "cmd+alt+g ,"
-				}
-			]
-		},
-		"gitlens.diffWithPreviousInDiffLeft": {
-			"label": "Open Changes with Previous Revision",
-			"icon": "$(gitlens-prev-commit)",
-			"commandPalette": "resource in gitlens:tabs:tracked && isInDiffEditor && !isInDiffRightEditor",
-			"menus": {
-				"editor/title": [
-					{
-						"when": "resource in gitlens:tabs:tracked && config.gitlens.menus.editorGroup.compare && isInDiffEditor && !isInDiffRightEditor",
-						"group": "navigation",
-						"order": 97,
-						"alt": "gitlens.diffWithRevision"
-					}
-				]
-			},
-			"keybindings": [
-				{
-					"key": "alt+,",
-					"when": "config.gitlens.keymap == alternate && editorTextFocus && resource in gitlens:tabs:tracked && isInDiffEditor && !isInDiffRightEditor"
-				},
-				{
-					"key": "ctrl+shift+g ,",
-					"when": "config.gitlens.keymap == chorded && editorTextFocus && resource in gitlens:tabs:tracked && isInDiffEditor && !isInDiffRightEditor",
-					"mac": "cmd+alt+g ,"
-				}
-			]
-		},
-		"gitlens.diffWithPreviousInDiffRight": {
-			"label": "Open Changes with Previous Revision",
-			"icon": "$(gitlens-prev-commit)",
-			"commandPalette": "resource in gitlens:tabs:tracked && isInDiffRightEditor",
-			"menus": {
-				"editor/title": [
-					{
-						"when": "resource in gitlens:tabs:tracked && config.gitlens.menus.editorGroup.compare && isInDiffRightEditor",
-						"group": "navigation",
-						"order": 97,
-						"alt": "gitlens.diffWithRevision"
-					}
-				]
-			},
-			"keybindings": [
-				{
-					"key": "alt+,",
-					"when": "config.gitlens.keymap == alternate && editorTextFocus && resource in gitlens:tabs:tracked && isInDiffRightEditor"
-				},
-				{
-					"key": "ctrl+shift+g ,",
-					"when": "config.gitlens.keymap == chorded && editorTextFocus && resource in gitlens:tabs:tracked && isInDiffRightEditor",
+					"when": "config.gitlens.keymap == chorded && editorTextFocus && resource in gitlens:tabs:tracked",
 					"mac": "cmd+alt+g ,"
 				}
 			]
@@ -1115,7 +1011,7 @@
 			"menus": {
 				"editor/title": [
 					{
-						"when": "resourceScheme =~ /^(gitlens|pr)$/ && gitlens:enabled && !isInDiffEditor",
+						"when": "resourceScheme =~ /^(gitlens|pr)$/ && gitlens:enabled",
 						"group": "navigation",
 						"order": -99
 					}
@@ -1146,32 +1042,6 @@
 					"when": "config.gitlens.keymap == alternate && editorTextFocus && gitlens:enabled && resourceScheme =~ /^(gitlens|git|pr)$/"
 				}
 			]
-		},
-		"gitlens.diffWithWorkingInDiffLeft": {
-			"label": "Open Changes with Working File",
-			"icon": "$(gitlens-compare-ref-working)",
-			"menus": {
-				"editor/title": [
-					{
-						"when": "resourceScheme =~ /^(gitlens|pr)$/ && gitlens:enabled && isInDiffEditor && !isInDiffRightEditor",
-						"group": "navigation",
-						"order": -99
-					}
-				]
-			}
-		},
-		"gitlens.diffWithWorkingInDiffRight": {
-			"label": "Open Changes with Working File",
-			"icon": "$(gitlens-compare-ref-working)",
-			"menus": {
-				"editor/title": [
-					{
-						"when": "resourceScheme =~ /^(gitlens|pr)$/ && gitlens:enabled && isInDiffRightEditor",
-						"group": "navigation",
-						"order": -99
-					}
-				]
-			}
 		},
 		"gitlens.disableDebugLogging": {
 			"label": "Disable Debug Logging",
@@ -3315,30 +3185,11 @@
 			"label": "Open File at Revision",
 			"icon": "$(gitlens-open-revision)",
 			"enablement": "gitlens:enabled && resourceScheme =~ /^(gitlens|pr)$/",
-			"commandPalette": "gitlens:enabled && resourceScheme =~ /^(gitlens|git|pr)$/ && isInDiffEditor"
-		},
-		"gitlens.openRevisionFileInDiffLeft": {
-			"label": "Open File at Revision",
-			"icon": "$(gitlens-open-revision)",
-			"enablement": "gitlens:enabled && resourceScheme =~ /^(gitlens|pr)$/",
+			"commandPalette": "gitlens:enabled && resourceScheme =~ /^(gitlens|git|pr)$/ && isInDiffEditor",
 			"menus": {
 				"editor/title": [
 					{
-						"when": "resourceScheme =~ /^(gitlens|pr)$/ && gitlens:enabled && isInDiffEditor && !isInDiffRightEditor",
-						"group": "navigation",
-						"order": -97
-					}
-				]
-			}
-		},
-		"gitlens.openRevisionFileInDiffRight": {
-			"label": "Open File at Revision",
-			"icon": "$(gitlens-open-revision)",
-			"enablement": "gitlens:enabled && resourceScheme =~ /^(gitlens|pr)$/ ",
-			"menus": {
-				"editor/title": [
-					{
-						"when": "resourceScheme =~ /^(gitlens|pr)$/ && gitlens:enabled && isInDiffRightEditor",
+						"when": "resourceScheme =~ /^(gitlens|pr)$/ && gitlens:enabled && isInDiffEditor",
 						"group": "navigation",
 						"order": -97
 					}
@@ -3364,7 +3215,7 @@
 						"order": -98
 					},
 					{
-						"when": "resourceScheme =~ /^(gitlens|pr)$/ && gitlens:enabled && !isInDiffEditor",
+						"when": "resourceScheme =~ /^(gitlens|pr)$/ && gitlens:enabled",
 						"group": "navigation",
 						"order": -98
 					}
@@ -3374,32 +3225,6 @@
 						"when": "resourceScheme == gitlens && resourceScheme in gitlens:schemes:trackable",
 						"group": "2_a_gitlens",
 						"order": 0
-					}
-				]
-			}
-		},
-		"gitlens.openWorkingFileInDiffLeft": {
-			"label": "Open File",
-			"icon": "$(go-to-file)",
-			"menus": {
-				"editor/title": [
-					{
-						"when": "resourceScheme =~ /^(gitlens|pr)$/ && gitlens:enabled && isInDiffEditor && !isInDiffRightEditor",
-						"group": "navigation",
-						"order": -98
-					}
-				]
-			}
-		},
-		"gitlens.openWorkingFileInDiffRight": {
-			"label": "Open File",
-			"icon": "$(go-to-file)",
-			"menus": {
-				"editor/title": [
-					{
-						"when": "resourceScheme =~ /^(gitlens|pr)$/ && gitlens:enabled && isInDiffRightEditor",
-						"group": "navigation",
-						"order": -98
 					}
 				]
 			}
@@ -4044,56 +3869,14 @@
 			"menus": {
 				"editor/title": [
 					{
-						"when": "resource in gitlens:tabs:tracked && config.gitlens.menus.editorGroup.compare && !isInDiffEditor",
+						"when": "resource in gitlens:tabs:tracked && config.gitlens.menus.editorGroup.compare",
 						"group": "navigation",
 						"order": 98
 					}
 				],
 				"gitlens/editor/context/changes": [
 					{
-						"when": "resourceScheme =~ /^(gitlens|git|pr)$/ && gitlens:enabled && !isInDiffEditor",
-						"group": "3_gitlens_1",
-						"order": 1
-					}
-				]
-			}
-		},
-		"gitlens.showQuickRevisionDetailsInDiffLeft": {
-			"label": "Show Revision Commit",
-			"icon": "$(gitlens-commit-horizontal)",
-			"enablement": "gitlens:enabled && resourceScheme =~ /^(gitlens|pr)$/",
-			"menus": {
-				"editor/title": [
-					{
-						"when": "resource in gitlens:tabs:tracked && config.gitlens.menus.editorGroup.compare && isInDiffEditor && !isInDiffRightEditor",
-						"group": "navigation",
-						"order": 98
-					}
-				],
-				"gitlens/editor/context/changes": [
-					{
-						"when": "resourceScheme =~ /^(gitlens|git|pr)$/ && gitlens:enabled && isInDiffEditor && !isInDiffRightEditor",
-						"group": "3_gitlens_1",
-						"order": 1
-					}
-				]
-			}
-		},
-		"gitlens.showQuickRevisionDetailsInDiffRight": {
-			"label": "Show Revision Commit",
-			"icon": "$(gitlens-commit-horizontal)",
-			"enablement": "gitlens:enabled && resourceScheme =~ /^(gitlens|pr)$/",
-			"menus": {
-				"editor/title": [
-					{
-						"when": "resource in gitlens:tabs:tracked && config.gitlens.menus.editorGroup.compare && isInDiffRightEditor",
-						"group": "navigation",
-						"order": 98
-					}
-				],
-				"gitlens/editor/context/changes": [
-					{
-						"when": "resourceScheme =~ /^(gitlens|git|pr)$/ && gitlens:enabled && isInDiffRightEditor",
+						"when": "resourceScheme =~ /^(gitlens|git|pr)$/ && gitlens:enabled",
 						"group": "3_gitlens_1",
 						"order": 1
 					}
@@ -4673,7 +4456,7 @@
 				],
 				"gitlens/editor/annotations": [
 					{
-						"when": "resource in gitlens:tabs:blameable && !isInDiffEditor",
+						"when": "resource in gitlens:tabs:blameable",
 						"group": "2_gitlens",
 						"order": 1
 					}
@@ -4690,32 +4473,6 @@
 					"mac": "cmd+alt+g b"
 				}
 			]
-		},
-		"gitlens.toggleFileBlameInDiffLeft": {
-			"label": "Toggle File Blame",
-			"icon": "$(gitlens-gitlens)",
-			"menus": {
-				"gitlens/editor/annotations": [
-					{
-						"when": "resource in gitlens:tabs:blameable && isInDiffEditor && !isInDiffRightEditor",
-						"group": "2_gitlens",
-						"order": 1
-					}
-				]
-			}
-		},
-		"gitlens.toggleFileBlameInDiffRight": {
-			"label": "Toggle File Blame",
-			"icon": "$(gitlens-gitlens)",
-			"menus": {
-				"gitlens/editor/annotations": [
-					{
-						"when": "resource in gitlens:tabs:blameable && isInDiffRightEditor",
-						"group": "2_gitlens",
-						"order": 1
-					}
-				]
-			}
 		},
 		"gitlens.toggleFileChanges": {
 			"label": "Toggle File Changes",

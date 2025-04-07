@@ -6,17 +6,16 @@ import { deletedOrMissing } from '../git/models/revision';
 import { showCommitHasNoPreviousCommitWarningMessage, showGenericErrorMessage } from '../messages';
 import { command, executeCommand } from '../system/-webview/command';
 import { getOrOpenTextEditor } from '../system/-webview/vscode/editors';
-import { getVisibleTabs } from '../system/-webview/vscode/tabs';
+import { getTabUris, getVisibleTabs } from '../system/-webview/vscode/tabs';
 import { Logger } from '../system/logger';
+import { uriEquals } from '../system/uri';
 import { ActiveEditorCommand } from './commandBase';
 import { getCommandUri } from './commandBase.utils';
-import type { CommandContext } from './commandContext';
 import type { DiffWithCommandArgs } from './diffWith';
 
 export interface DiffWithPreviousCommandArgs {
 	commit?: GitCommit;
 
-	inDiffRightEditor?: boolean;
 	uri?: Uri;
 	line?: number;
 	showOptions?: TextDocumentShowOptions;
@@ -25,19 +24,7 @@ export interface DiffWithPreviousCommandArgs {
 @command()
 export class DiffWithPreviousCommand extends ActiveEditorCommand {
 	constructor(private readonly container: Container) {
-		super([
-			'gitlens.diffWithPrevious',
-			'gitlens.diffWithPreviousInDiffLeft',
-			'gitlens.diffWithPreviousInDiffRight',
-		]);
-	}
-
-	protected override preExecute(context: CommandContext, args?: DiffWithPreviousCommandArgs): Promise<void> {
-		if (context.command === 'gitlens.diffWithPreviousInDiffRight') {
-			args = { ...args, inDiffRightEditor: true };
-		}
-
-		return this.execute(context.editor, context.uri, args);
+		super('gitlens.diffWithPrevious');
 	}
 
 	async execute(editor?: TextEditor, uri?: Uri, args?: DiffWithPreviousCommandArgs): Promise<void> {
@@ -84,12 +71,28 @@ export class DiffWithPreviousCommand extends ActiveEditorCommand {
 		// 	// TODO@eamodio figure out how to tell where the line moved in the previous commit (if at all)
 		// }
 
+		let isInRightSideOfDiffEditor = false;
+		let isDirty = false;
+
+		// Figure out if we are in a diff editor and if so, which side
+		const [tab] = getVisibleTabs(uri);
+		if (tab != null) {
+			isDirty = tab.isDirty;
+
+			const uris = getTabUris(tab);
+			// If there is an original, then we are in a diff editor -- modified is right, original is left
+			if (uris.original != null && uriEquals(uri, uris.modified)) {
+				isInRightSideOfDiffEditor = true;
+			}
+		}
+
 		try {
 			const diffUris = await this.container.git.diff(gitUri.repoPath!).getPreviousComparisonUris(
 				gitUri,
 				gitUri.sha,
 				// If we are in the right-side of the diff editor, we need to skip back 1 more revision
-				args.inDiffRightEditor ? 1 : 0,
+				isInRightSideOfDiffEditor ? 1 : 0,
+				isDirty,
 			);
 
 			if (diffUris?.previous == null) {
