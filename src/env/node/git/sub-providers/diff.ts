@@ -1,13 +1,12 @@
-import { env, Uri, window } from 'vscode';
+import { env, Uri, window, workspace } from 'vscode';
 import type { Container } from '../../../../container';
 import type { GitCache } from '../../../../git/cache';
 import { GitErrorHandling } from '../../../../git/commandOptions';
 import type {
-	DiffRange,
 	GitDiffSubProvider,
 	NextComparisonUrisResult,
 	PreviousComparisonUrisResult,
-	PreviousRangeComparisonUrisResult,
+	PreviousLineComparisonUrisResult,
 } from '../../../../git/gitProvider';
 import { GitUri } from '../../../../git/gitUri';
 import type { GitDiff, GitDiffFiles, GitDiffFilter, GitDiffShortStat } from '../../../../git/models/diff';
@@ -19,23 +18,21 @@ import {
 	parseGitDiffNameStatusFiles,
 	parseGitDiffShortStat,
 } from '../../../../git/parsers/diffParser';
-import type { LogParsedFile } from '../../../../git/parsers/logParser';
-import { getShaAndFileRangeLogParser, getShaAndFileSummaryLogParser } from '../../../../git/parsers/logParser';
 import {
-	getRevisionRangeParts,
-	isRevisionRange,
-	isUncommitted,
-	isUncommittedStaged,
-} from '../../../../git/utils/revision.utils';
+	parseGitLogSimple,
+	parseGitLogSimpleFormat,
+	parseGitLogSimpleRenamed,
+} from '../../../../git/parsers/logParser';
+import { getRevisionRangeParts, isRevisionRange, isUncommittedStaged } from '../../../../git/utils/revision.utils';
 import { showGenericErrorMessage } from '../../../../messages';
 import { configuration } from '../../../../system/-webview/configuration';
 import { splitPath } from '../../../../system/-webview/path';
+import { getOpenTextDocument } from '../../../../system/-webview/vscode/documents';
 import { log } from '../../../../system/decorators/log';
-import { first } from '../../../../system/iterable';
 import { Logger } from '../../../../system/logger';
 import { getLogScope } from '../../../../system/logger.scope';
-import type { Git, GitResult } from '../git';
-import { gitConfigsDiff, gitConfigsLog, GitErrors } from '../git';
+import type { Git } from '../git';
+import { gitDiffDefaultConfigs, GitErrors, gitLogDefaultConfigs } from '../git';
 import type { LocalGitProvider } from '../localGitProvider';
 
 export class DiffGitSubProvider implements GitDiffSubProvider {
@@ -66,18 +63,17 @@ export class DiffGitSubProvider implements GitDiffSubProvider {
 		}
 
 		try {
-			const result = await this.git.exec(
-				{ cwd: repoPath, configs: gitConfigsDiff },
+			const data = await this.git.exec(
+				{ cwd: repoPath, configs: gitDiffDefaultConfigs },
 				'diff',
 				'--shortstat',
 				'--no-ext-diff',
 				...args,
 				'--',
-				...(options?.uris?.map(u => this.provider.getRelativePath(u, repoPath)) ?? []),
+				options?.uris?.map(u => this.provider.getRelativePath(u, repoPath)) ?? undefined,
 			);
-			if (!result.stdout) return undefined;
-
-			return parseGitDiffShortStat(result.stdout);
+			if (!data) return undefined;
+			return parseGitDiffShortStat(data);
 		} catch (ex) {
 			const msg: string = ex?.toString() ?? '';
 			if (GitErrors.noMergeBase.test(msg)) {
@@ -134,10 +130,10 @@ export class DiffGitSubProvider implements GitDiffSubProvider {
 			}
 		}
 
-		let result;
+		let data;
 		try {
-			result = await this.git.exec(
-				{ cwd: repoPath, configs: gitConfigsLog, errors: GitErrorHandling.Throw },
+			data = await this.git.exec(
+				{ cwd: repoPath, configs: gitLogDefaultConfigs, errors: GitErrorHandling.Throw },
 				'diff',
 				...args,
 				args.includes('--') ? undefined : '--',
@@ -152,23 +148,25 @@ export class DiffGitSubProvider implements GitDiffSubProvider {
 			}
 		}
 
-		const diff: GitDiff = { contents: result.stdout, from: from, to: to, notation: options?.notation };
+		const diff: GitDiff = { contents: data, from: from, to: to, notation: options?.notation };
 		return diff;
 	}
 
 	@log({ args: { 1: false } })
 	async getDiffFiles(repoPath: string, contents: string): Promise<GitDiffFiles | undefined> {
-		const result = await this.git.exec(
-			{ cwd: repoPath, configs: gitConfigsLog, stdin: contents },
+		// const data = await this.git.apply2(repoPath, { stdin: contents }, '--numstat', '--summary', '-z');
+		const data = await this.git.exec(
+			{ cwd: repoPath, configs: gitLogDefaultConfigs, stdin: contents },
 			'apply',
 			'--numstat',
 			'--summary',
 			'-z',
 			'-',
 		);
-		if (!result.stdout) return undefined;
 
-		const files = parseGitApplyFiles(this.container, result.stdout, repoPath);
+		if (!data) return undefined;
+
+		const files = parseGitApplyFiles(this.container, data, repoPath);
 		return {
 			files: files,
 		};
@@ -184,8 +182,8 @@ export class DiffGitSubProvider implements GitDiffSubProvider {
 		try {
 			const similarityThreshold =
 				options?.similarityThreshold ?? configuration.get('advanced.similarityThreshold') ?? undefined;
-			const result = await this.git.exec(
-				{ cwd: repoPath, configs: gitConfigsDiff },
+			const data = await this.git.exec(
+				{ cwd: repoPath, configs: gitDiffDefaultConfigs },
 				'diff',
 				'--name-status',
 				`-M${similarityThreshold == null ? '' : `${similarityThreshold}%`}`,
@@ -197,9 +195,9 @@ export class DiffGitSubProvider implements GitDiffSubProvider {
 				'--',
 				options?.path ? options.path : undefined,
 			);
-			if (!result.stdout) return undefined;
+			if (!data) return undefined;
 
-			const files = parseGitDiffNameStatusFiles(result.stdout, repoPath);
+			const files = parseGitDiffNameStatusFiles(data, repoPath);
 			return files == null || files.length === 0 ? undefined : files;
 		} catch (_ex) {
 			return undefined;
@@ -218,453 +216,355 @@ export class DiffGitSubProvider implements GitDiffSubProvider {
 	async getNextComparisonUris(
 		repoPath: string,
 		uri: Uri,
-		rev: string | undefined,
+		ref: string | undefined,
 		skip: number = 0,
 	): Promise<NextComparisonUrisResult | undefined> {
-		// If we have no revision there is no next commit
-		if (!rev) return undefined;
+		// If we have no ref (or staged ref) there is no next commit
+		if (!ref) return undefined;
 
-		const scope = getLogScope();
+		const relativePath = this.provider.getRelativePath(uri, repoPath);
 
-		let relativePath = this.provider.getRelativePath(uri, repoPath);
-
-		if (isUncommittedStaged(rev)) {
+		if (isUncommittedStaged(ref)) {
 			return {
-				current: GitUri.fromFile(relativePath, repoPath, rev),
+				current: GitUri.fromFile(relativePath, repoPath, ref),
 				next: GitUri.fromFile(relativePath, repoPath, undefined),
 			};
-		} else if (isUncommitted(rev)) {
-			return undefined;
 		}
 
-		try {
-			const parser = getShaAndFileSummaryLogParser();
-			const args = ['log', ...parser.arguments];
-
-			const ordering = configuration.get('advanced.commitOrdering');
-			if (ordering) {
-				args.push(`--${ordering}-order`);
-			}
-
-			args.push(
-				// Use reverse to get the next commits (oldest to newest instead of newest to oldest)
-				'--reverse',
-			);
-
-			if (rev !== deletedOrMissing) {
-				args.push(
-					// Ancestry path to ensure we only follow the path from the given revision to HEAD
-					'--ancestry-path',
-					// Range from the given revision to HEAD
-					`${rev}..HEAD`,
-				);
-			}
-
-			// Follow file history and specify the file path
-			args.push('--follow', '--', relativePath);
-
-			const result = await this.git.exec({ cwd: repoPath, configs: gitConfigsLog }, ...args);
-
-			let currentSha;
-			let currentPath;
-
-			if (skip === 0) {
-				currentSha = rev;
-				currentPath = relativePath;
+		const next = await this.getNextUri(repoPath, uri, ref, skip);
+		if (next == null) {
+			const status = await this.provider.status?.getStatusForFile(repoPath, uri);
+			if (status != null) {
+				// If the file is staged, diff with the staged version
+				if (status.indexStatus != null) {
+					return {
+						current: GitUri.fromFile(relativePath, repoPath, ref),
+						next: GitUri.fromFile(relativePath, repoPath, uncommittedStaged),
+					};
+				}
 			} else {
-				skip--;
-			}
-
-			let nextSha;
-			let nextPath;
-
-			let file;
-			for (const commit of parser.parse(result.stdout)) {
-				const path = relativePath;
-				file = commit.files.find(f => f.path === path || f.originalPath === path);
-				// Keep track of the file changing paths
-				if (file?.path && file.path !== relativePath) {
-					relativePath = file.path;
-				}
-
-				if (skip > 0) {
-					skip--;
-					continue;
-				}
-
-				if (currentSha == null) {
-					currentSha = commit.sha;
-					currentPath = file?.path ?? relativePath;
-				} else if (nextSha == null) {
-					// if (commit.sha === rev) continue;
-
-					nextSha = commit.sha;
-					nextPath = file?.path ?? relativePath;
-
-					break;
-				}
-			}
-
-			if (currentSha == null || currentPath == null) {
-				const status = await this.provider.status?.getStatusForFile(repoPath, relativePath);
-				if (status != null) {
-					if (status.indexStatus != null) {
-						currentSha = uncommittedStaged;
-						currentPath = status.originalPath ?? status.path;
-						nextSha = '';
-						nextPath = status.path;
-					} else {
-						debugger;
-						return undefined;
-					}
-				} else {
-					debugger;
-					return undefined;
-				}
-			}
-
-			if (nextSha == null || nextPath == null) {
-				const status = await this.provider.status?.getStatusForFile(repoPath, relativePath);
-				if (status != null) {
-					if (status.indexStatus != null) {
-						nextSha = uncommittedStaged;
-						nextPath = status.originalPath ?? status.path;
-					} else {
-						nextSha = '';
-						nextPath = status.path;
-					}
-				} else {
-					nextSha = '';
-					nextPath = relativePath;
+				const workingUri = GitUri.fromFile(relativePath, repoPath, undefined);
+				const isDirty = getOpenTextDocument(workingUri)?.isDirty;
+				if (!isDirty) {
+					return {
+						current: (await this.getPreviousUri(repoPath, uri, ref, 0))!,
+						next: workingUri,
+					};
 				}
 			}
 
 			return {
-				current: GitUri.fromFile(currentPath, repoPath, currentSha || undefined),
-				next: GitUri.fromFile(nextPath ?? currentPath, repoPath, (nextSha ?? deletedOrMissing) || undefined),
+				current: GitUri.fromFile(relativePath, repoPath, ref),
+				next: GitUri.fromFile(relativePath, repoPath, undefined),
 			};
-		} catch (ex) {
-			Logger.error(ex, scope);
-			throw ex;
 		}
+
+		return {
+			current:
+				skip === 0
+					? GitUri.fromFile(relativePath, repoPath, ref)
+					: (await this.getNextUri(repoPath, uri, ref, skip - 1))!,
+			next: next,
+		};
+	}
+
+	@log()
+	private async getNextUri(
+		repoPath: string,
+		uri: Uri,
+		ref?: string,
+		skip: number = 0,
+		// editorLine?: number
+	): Promise<GitUri | undefined> {
+		// If we have no ref (or staged ref) there is no next commit
+		if (!ref || isUncommittedStaged(ref)) return undefined;
+
+		let filters: GitDiffFilter[] | undefined;
+		if (ref === deletedOrMissing) {
+			// If we are trying to move next from a deleted or missing ref then get the first commit
+			ref = undefined;
+			filters = ['A'];
+		}
+
+		const relativePath = this.provider.getRelativePath(uri, repoPath);
+		let data = await this.git.log__file(repoPath, relativePath, ref, {
+			argsOrFormat: parseGitLogSimpleFormat,
+			fileMode: 'simple',
+			filters: filters,
+			limit: skip + 1,
+			ordering: configuration.get('advanced.commitOrdering'),
+			reverse: true,
+			// startLine: editorLine != null ? editorLine + 1 : undefined,
+		});
+		if (data == null || data.length === 0) return undefined;
+
+		const [nextRef, file, status] = parseGitLogSimple(data, skip);
+		// If the file was deleted, check for a possible rename
+		if (status === 'D') {
+			data = await this.git.log__file(repoPath, '.', nextRef, {
+				argsOrFormat: parseGitLogSimpleFormat,
+				fileMode: 'simple',
+				filters: ['R', 'C'],
+				limit: 1,
+				ordering: configuration.get('advanced.commitOrdering'),
+				// startLine: editorLine != null ? editorLine + 1 : undefined
+			});
+			if (data == null || data.length === 0) {
+				return GitUri.fromFile(file ?? relativePath, repoPath, nextRef);
+			}
+
+			const [nextRenamedRef, renamedFile] = parseGitLogSimpleRenamed(data, file ?? relativePath);
+			return GitUri.fromFile(
+				renamedFile ?? file ?? relativePath,
+				repoPath,
+				nextRenamedRef ?? nextRef ?? deletedOrMissing,
+			);
+		}
+
+		return GitUri.fromFile(file ?? relativePath, repoPath, nextRef);
 	}
 
 	@log()
 	async getPreviousComparisonUris(
 		repoPath: string,
 		uri: Uri,
-		rev: string | undefined,
+		ref: string | undefined,
 		skip: number = 0,
-		unsaved?: boolean,
+		dirty?: boolean,
 	): Promise<PreviousComparisonUrisResult | undefined> {
-		if (rev === deletedOrMissing) return undefined;
+		if (ref === deletedOrMissing) return undefined;
 
-		const scope = getLogScope();
-
-		if (rev === uncommitted) {
-			rev = undefined;
-		}
-
-		/* Rules:
-		 * Starting from working tree (rev is empty or undefined):
-		 *   1. Check file status:
-		 *      1.1. If file has both staged and working (or unsaved) changes:
-		 *          - If skip=0: diff working with staged
-		 *          - If skip>0: skip through revs starting at HEAD
-		 *
-		 *      1.2. If file has only staged changes:
-		 *          - If skip=0: diff working with HEAD
-		 *          - If skip>0: skip through revs starting at HEAD
-		 *
-		 *      1.3. If file has only working changes:
-		 *          - If skip=0: diff working with HEAD
-		 *          - If skip>0: skip through revs starting at HEAD
-		 *
-		 *      1.4. If file has no changes (or no status found):
-		 *          - If skip=0: diff working with HEAD~1
-		 *          - If skip>0: skip through revs starting at HEAD~1
-		 *
-		 * Starting from staged (rev is uncommittedStaged):
-		 *   1. Check file status:
-		 *      1.1. If status exists:
-		 *          - If skip=0: diff staged with HEAD
-		 *          - If skip>0: skip through revs starting at HEAD
-		 *
-		 *      1.2. If status doesn't exist:
-		 *          - If skip=0: diff HEAD with HEAD~1
-		 *          - If skip>0: skip through revs starting at HEAD
-		 *
-		 * Starting from a commit (rev is a SHA):
-		 *   - If skip=0: diff SHA with SHA^
-		 *   - If skip>0: skip through revs starting at SHA
-		 */
-
-		let relativePath = this.provider.getRelativePath(uri, repoPath);
+		const relativePath = this.provider.getRelativePath(uri, repoPath);
 		let skipPrev = 0;
 
-		let revs: [string, string][] = [];
-		if (!rev) {
-			revs = [['', relativePath]];
-
-			const status = await this.provider.status?.getStatusForFile(repoPath, uri);
-			if (status != null) {
-				if (status.indexStatus != null) {
-					revs.push([uncommittedStaged, status.originalPath ?? status.path]);
-				}
-
-				revs.push(['HEAD', status.originalPath ?? status.path]);
-				if (status.workingTreeStatus == null && !unsaved) {
-					if (skip === 0 || status.indexStatus == null) {
-						// Skip over the HEAD commit to get a diff, because working and HEAD are the same
-						skipPrev++;
-					}
-				}
-			} else {
-				revs.push(['HEAD', relativePath]);
-				if (!unsaved) {
-					// Skip over the HEAD commit to get a diff, because working and HEAD are the same
-					skipPrev++;
-				}
-			}
-		} else if (isUncommittedStaged(rev)) {
-			const status = await this.provider.status?.getStatusForFile(repoPath, uri);
-			if (status != null) {
-				revs = [
-					[uncommittedStaged, status.originalPath ?? status.path],
-					['HEAD', status.originalPath ?? status.path],
-				];
-			} else {
-				// Even though we supposedly started at staged, there is no staged version
-				revs = [['HEAD', relativePath]];
-				if (skip > 0) {
-					skip--;
-				}
-			}
-		}
-
-		let currentSha;
-		let currentPath;
-
-		if (revs.length) {
-			skip++;
-			while (revs.length && skip > 0) {
-				skip--;
-				[rev, relativePath] = revs.shift()!;
-			}
-
-			if (rev !== 'HEAD') {
-				currentSha = rev;
-				currentPath = relativePath;
-
-				skipPrev++;
-				while (revs.length && skipPrev > 0) {
-					skipPrev--;
-					[rev, relativePath] = revs.shift()!;
-				}
-
-				if (skipPrev > 0) {
-					skip += skipPrev;
-					skipPrev = 0;
-				}
-
-				if (rev !== 'HEAD' && skip === 0) {
-					return {
-						current: GitUri.fromFile(currentPath, repoPath, currentSha),
-						previous: GitUri.fromFile(relativePath, repoPath, rev),
-					};
-				}
-			}
-		}
-
-		try {
-			const parser = getShaAndFileSummaryLogParser();
-			const args = ['log', ...parser.arguments, `-n${skip + 2}`]; // Don't use --skip as it doesn't work with --follow
-
-			const ordering = configuration.get('advanced.commitOrdering');
-			if (ordering) {
-				args.push(`--${ordering}-order`);
-			}
-
-			args.push('--follow', rev!, '--', relativePath);
-
-			const result = await this.git.exec({ cwd: repoPath, configs: gitConfigsLog }, ...args);
-
-			let previousSha;
-			let previousPath;
-			let file;
-
-			for (const commit of parser.parse(result.stdout)) {
-				const path = relativePath;
-				file = commit.files.find(f => f.path === path || f.originalPath === path);
-				// Keep track of the file changing paths
-				if (file?.originalPath && file.originalPath !== relativePath) {
-					relativePath = file.originalPath;
-				}
-
-				if (skip > 0) {
-					skip--;
-					continue;
-				}
-
-				if (currentSha == null) {
-					currentSha = commit.sha;
-					currentPath = file?.path ?? relativePath;
-				} else if (previousSha == null) {
-					if (commit.sha === rev) continue;
-
-					previousSha = commit.sha;
-					previousPath = file?.path ?? relativePath;
-
-					break;
-				}
-			}
-
-			if (currentSha == null || currentPath == null) return undefined;
-
-			return {
-				current: GitUri.fromFile(currentPath, repoPath, currentSha || undefined),
-				previous: GitUri.fromFile(previousPath ?? currentPath, repoPath, previousSha ?? deletedOrMissing),
-			};
-		} catch (ex) {
-			Logger.error(ex, scope);
-			throw ex;
-		}
-	}
-
-	@log()
-	async getPreviousComparisonUrisForRange(
-		repoPath: string,
-		uri: Uri,
-		rev: string | undefined,
-		range: DiffRange,
-		options?: { skipFirstRev?: boolean },
-	): Promise<PreviousRangeComparisonUrisResult | undefined> {
-		if (rev === deletedOrMissing) return undefined;
-
-		const scope = getLogScope();
-
-		if (rev === uncommitted) {
-			rev = undefined;
-		}
-
-		let currentSha;
-		let currentPath;
-		let relativePath = this.provider.getRelativePath(uri, repoPath);
-		const skipFirstRev = options?.skipFirstRev ?? true;
-
 		// If we are at the working tree (i.e. no ref), we need to dig deeper to figure out where to go
-		if (!rev) {
+		if (!ref) {
+			// First, check the file status to see if there is anything staged
 			const status = await this.provider.status?.getStatusForFile(repoPath, uri);
 			if (status != null) {
+				// If the file is staged with working changes, diff working with staged (index)
+				// If the file is staged without working changes, diff staged with HEAD
 				if (status.indexStatus != null) {
-					if (status.workingTreeStatus != null && !skipFirstRev) {
+					// Backs up to get to HEAD
+					if (status.workingTreeStatus == null) {
+						skip++;
+					}
+
+					if (skip === 0) {
+						// Diff working with staged
 						return {
 							current: GitUri.fromFile(relativePath, repoPath, undefined),
 							previous: GitUri.fromFile(relativePath, repoPath, uncommittedStaged),
-							range: range,
 						};
 					}
 
-					currentSha = uncommittedStaged;
-					currentPath = status.originalPath ?? status.path;
-					if (status.originalPath != null) {
-						relativePath = status.originalPath;
+					return {
+						// Diff staged with HEAD (or prior if more skips)
+						current: GitUri.fromFile(relativePath, repoPath, uncommittedStaged),
+						previous: await this.getPreviousUri(repoPath, uri, ref, skip - 1),
+					};
+				}
+
+				if (status.workingTreeStatus != null) {
+					if (skip === 0) {
+						return {
+							current: GitUri.fromFile(relativePath, repoPath, undefined),
+							previous: await this.getPreviousUri(repoPath, uri, undefined, skip),
+						};
 					}
-					rev = uncommittedStaged;
-				} else if (status.workingTreeStatus != null && !skipFirstRev) {
-					currentSha = '';
-					currentPath = relativePath;
-					rev = '';
 				}
-			} else if (!skipFirstRev) {
-				currentSha = '';
-				currentPath = relativePath;
-				rev = '';
+			} else if (!dirty && skip === 0) {
+				skipPrev++;
 			}
-		} else if (!skipFirstRev) {
-			currentSha = rev;
-			currentPath = relativePath;
-		}
+		} else if (isUncommittedStaged(ref)) {
+			// If we are at the index (staged), diff staged with HEAD
 
-		try {
-			const parser = getShaAndFileRangeLogParser();
-			const args = ['log', ...parser.arguments, '-n2']; // Don't use --skip as it doesn't work with --follow
-
-			const ordering = configuration.get('advanced.commitOrdering');
-			if (ordering) {
-				args.push(`--${ordering}-order`);
-			}
-
-			if (rev && !isUncommittedStaged(rev)) {
-				args.push(rev);
-			}
-
-			args.push(`-L${range.startLine},${range.endLine}:${relativePath}`);
-
-			let result: GitResult<string>;
-			try {
-				result = await this.git.exec({ cwd: repoPath, configs: gitConfigsLog }, ...args);
-			} catch (ex) {
-				if (rev && !isUncommittedStaged(rev)) throw ex;
-
-				// If the line count is invalid reset to a valid range
-				const match = GitErrors.invalidLineCount.exec(ex?.toString() ?? '');
-				if (match == null) throw ex;
-
-				const line = parseInt(match[1], 10);
-				if (isNaN(line)) throw ex;
-
-				const index = args.findIndex(a => a.startsWith('-L'));
-				if (index === -1) throw ex;
-
-				range = {
-					startLine: Math.min(range.startLine, line),
-					endLine: Math.min(range.endLine, line),
-					active: range.active,
-				};
-
-				args.splice(index, 1, `-L${range.startLine},${range.endLine}:${relativePath}`);
-				result = await this.git.exec({ cwd: repoPath, configs: gitConfigsLog }, ...args);
-			}
-
-			let currentRange;
-			let previousSha;
-			let previousPath;
-			let file;
-
-			for (const commit of parser.parse(result.stdout)) {
-				const path = relativePath;
-				file = commit.files.find(f => f.path === path || f.originalPath === path);
-				// Keep track of the file changing paths
-				if (file?.originalPath && file.originalPath !== relativePath) {
-					relativePath = file.originalPath;
-				}
-
-				if (currentSha == null) {
-					currentSha = commit.sha;
-					currentPath = file?.path ?? relativePath;
-					currentRange = file?.range;
-				} else if (previousSha == null) {
-					if (commit.sha === rev) continue;
-
-					previousSha = commit.sha;
-					previousPath = file?.path ?? relativePath;
-
-					break;
-				}
-			}
-
-			if (currentSha == null || currentPath == null) return undefined;
+			const current =
+				skip === 0
+					? GitUri.fromFile(relativePath, repoPath, ref)
+					: (await this.getPreviousUri(repoPath, uri, undefined, skip + skipPrev - 1))!;
+			if (current == null || current.sha === deletedOrMissing) return undefined;
 
 			return {
-				current: GitUri.fromFile(currentPath, repoPath, currentSha || undefined),
-				previous: GitUri.fromFile(previousPath ?? currentPath, repoPath, previousSha ?? deletedOrMissing),
-				range: currentRange ?? range,
+				current: current,
+				previous: await this.getPreviousUri(repoPath, uri, undefined, skip + skipPrev),
 			};
+		}
+
+		// If we are at a commit, diff commit with previous
+		const current =
+			skip === 0
+				? GitUri.fromFile(relativePath, repoPath, ref)
+				: (await this.getPreviousUri(repoPath, uri, ref, skip + skipPrev - 1))!;
+		if (current == null || current.sha === deletedOrMissing) return undefined;
+
+		return {
+			current: current,
+			previous: await this.getPreviousUri(repoPath, uri, ref, skip + skipPrev),
+		};
+	}
+
+	@log()
+	async getPreviousComparisonUrisForLine(
+		repoPath: string,
+		uri: Uri,
+		editorLine: number, // 0-based, Git is 1-based
+		ref: string | undefined,
+		skip: number = 0,
+	): Promise<PreviousLineComparisonUrisResult | undefined> {
+		if (ref === deletedOrMissing) return undefined;
+
+		let relativePath = this.provider.getRelativePath(uri, repoPath);
+
+		let previous;
+
+		// If we are at the working tree (i.e. no ref), we need to dig deeper to figure out where to go
+		if (!ref) {
+			// First, check the blame on the current line to see if there are any working/staged changes
+			const gitUri = new GitUri(uri, repoPath);
+
+			const document = await workspace.openTextDocument(uri);
+			const blameLine = document.isDirty
+				? await this.provider.getBlameForLineContents(gitUri, editorLine, document.getText())
+				: await this.provider.getBlameForLine(gitUri, editorLine);
+			if (blameLine == null) return undefined;
+
+			// If line is uncommitted, we need to dig deeper to figure out where to go (because blame can't be trusted)
+			if (blameLine.commit.isUncommitted) {
+				// Check the file status to see if there is anything staged
+				const status = await this.provider.status?.getStatusForFile(repoPath, uri);
+				if (status != null) {
+					// If the file is staged, diff working with staged (index)
+					// If the file is not staged, diff working with HEAD
+					if (status.indexStatus != null) {
+						// Diff working with staged
+						return {
+							current: GitUri.fromFile(relativePath, repoPath, undefined),
+							previous: GitUri.fromFile(relativePath, repoPath, uncommittedStaged),
+							line: editorLine,
+						};
+					}
+				}
+
+				// Diff working with HEAD (or prior if more skips)
+				return {
+					current: GitUri.fromFile(relativePath, repoPath, undefined),
+					previous: await this.getPreviousUri(repoPath, uri, undefined, skip, editorLine),
+					line: editorLine,
+				};
+			}
+
+			// If line is committed, diff with line ref with previous
+			ref = blameLine.commit.sha;
+			relativePath = blameLine.commit.file?.path ?? blameLine.commit.file?.originalPath ?? relativePath;
+			uri = this.provider.getAbsoluteUri(relativePath, repoPath);
+			editorLine = blameLine.line.originalLine - 1;
+
+			if (skip === 0 && blameLine.commit.file?.previousSha) {
+				previous = GitUri.fromFile(relativePath, repoPath, blameLine.commit.file.previousSha);
+			}
+		} else {
+			if (isUncommittedStaged(ref)) {
+				const current =
+					skip === 0
+						? GitUri.fromFile(relativePath, repoPath, ref)
+						: (await this.getPreviousUri(repoPath, uri, undefined, skip - 1, editorLine))!;
+				if (current.sha === deletedOrMissing) return undefined;
+
+				return {
+					current: current,
+					previous: await this.getPreviousUri(repoPath, uri, undefined, skip, editorLine),
+					line: editorLine,
+				};
+			}
+
+			const gitUri = new GitUri(uri, { repoPath: repoPath, sha: ref });
+			const blameLine = await this.provider.getBlameForLine(gitUri, editorLine);
+			if (blameLine == null) return undefined;
+
+			// Diff with line ref with previous
+			ref = blameLine.commit.sha;
+			relativePath = blameLine.commit.file?.path ?? blameLine.commit.file?.originalPath ?? relativePath;
+			uri = this.provider.getAbsoluteUri(relativePath, repoPath);
+			editorLine = blameLine.line.originalLine - 1;
+
+			if (skip === 0 && blameLine.commit.file?.previousSha) {
+				previous = GitUri.fromFile(relativePath, repoPath, blameLine.commit.file.previousSha);
+			}
+		}
+
+		const current =
+			skip === 0
+				? GitUri.fromFile(relativePath, repoPath, ref)
+				: (await this.getPreviousUri(repoPath, uri, ref, skip - 1, editorLine))!;
+		if (current.sha === deletedOrMissing) return undefined;
+
+		return {
+			current: current,
+			previous: previous ?? (await this.getPreviousUri(repoPath, uri, ref, skip, editorLine)),
+			line: editorLine,
+		};
+	}
+
+	@log()
+	private async getPreviousUri(
+		repoPath: string,
+		uri: Uri,
+		ref?: string,
+		skip: number = 0,
+		editorLine?: number,
+	): Promise<GitUri | undefined> {
+		if (ref === deletedOrMissing) return undefined;
+
+		const scope = getLogScope();
+
+		if (ref === uncommitted) {
+			ref = undefined;
+		}
+
+		if (ref === 'HEAD' && skip === 0) {
+			skip++;
+		}
+
+		const relativePath = this.provider.getRelativePath(uri, repoPath);
+
+		// TODO: Add caching
+		let data;
+		try {
+			data = await this.git.log__file(repoPath, relativePath, ref, {
+				argsOrFormat: parseGitLogSimpleFormat,
+				fileMode: 'simple',
+				limit: skip + 2,
+				ordering: configuration.get('advanced.commitOrdering'),
+				startLine: editorLine != null ? editorLine + 1 : undefined,
+			});
 		} catch (ex) {
+			const msg: string = ex?.toString() ?? '';
+			// If the line count is invalid just fallback to the most recent commit
+			if ((ref == null || isUncommittedStaged(ref)) && GitErrors.invalidLineCount.test(msg)) {
+				if (ref == null) {
+					const status = await this.provider.status?.getStatusForFile(repoPath, uri);
+					if (status?.indexStatus != null) {
+						return GitUri.fromFile(relativePath, repoPath, uncommittedStaged);
+					}
+				}
+
+				ref = await this.git.log__file_recent(repoPath, relativePath, {
+					ordering: configuration.get('advanced.commitOrdering'),
+				});
+				return GitUri.fromFile(relativePath, repoPath, ref ?? deletedOrMissing);
+			}
+
 			Logger.error(ex, scope);
 			throw ex;
 		}
+		if (data == null || data.length === 0) return undefined;
+
+		const [previousRef, file] = parseGitLogSimple(data, skip, ref);
+		// If the previous ref matches the ref we asked for assume we are at the end of the history
+		if (ref != null && ref === previousRef) return undefined;
+
+		return GitUri.fromFile(file ?? relativePath, repoPath, previousRef ?? deletedOrMissing);
 	}
 
 	@log()
@@ -794,33 +694,4 @@ function prepareToFromDiffArgs(
 		args.push(from, to);
 	}
 	return from;
-}
-
-export async function findPathStatusChanged(
-	git: Git,
-	repoPath: string,
-	pathspec: string,
-	rev: string | undefined,
-	options?: { filters?: GitDiffFilter[]; ordering?: 'date' | 'author-date' | 'topo' | null },
-): Promise<{ sha: string; file: LogParsedFile | undefined } | undefined> {
-	const parser = getShaAndFileSummaryLogParser();
-
-	const ordering = options?.ordering ?? configuration.get('advanced.commitOrdering');
-
-	const result = await git.exec(
-		{ cwd: repoPath, configs: gitConfigsLog },
-		'log',
-		...parser.arguments,
-		ordering ? `--${ordering}-order` : undefined,
-		'-n1',
-		`--diff-filter=${options?.filters?.length ? options.filters.join('') : 'RCD'}`,
-		rev,
-		'--',
-	);
-
-	const commit = first(parser.parse(result.stdout));
-	if (commit == null) return undefined;
-
-	const file = commit.files.find(f => f.path === pathspec || f.originalPath === pathspec);
-	return { sha: commit.sha, file: file };
 }
