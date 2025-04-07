@@ -10,7 +10,7 @@ import type { AIRebaseResult } from '../plus/ai/aiProviderService';
 import { showComparisonPicker } from '../quickpicks/comparisonPicker';
 import { command } from '../system/-webview/command';
 import { Logger } from '../system/logger';
-import { escapeMarkdown } from '../system/markdown';
+import { escapeMarkdown, escapeMarkdownCodeBlocks } from '../system/markdown';
 import { GlCommandBase } from './commandBase';
 
 export interface GenerateRebaseCommandArgs {
@@ -133,7 +133,7 @@ function generateRebaseMarkdown(result: AIRebaseResult): string {
 		// Output each file with its hunks in git patch format
 		for (const [diffHeader, hunkHeaders] of fileHunks.entries()) {
 			markdown += '```diff\n';
-			markdown += `${escapeMarkdown(diffHeader)}\n`;
+			markdown += `${escapeMarkdownCodeBlocks(diffHeader)}\n`;
 
 			// Extract and include the actual content for each hunk from the original diff
 			for (const hunkHeader of hunkHeaders) {
@@ -141,7 +141,7 @@ function generateRebaseMarkdown(result: AIRebaseResult): string {
 				// Find the hunk content in the original diff
 				const hunkContent = extractHunkContent(originalDiff, diffHeader, hunkHeader);
 				if (hunkContent) {
-					markdown += `${escapeMarkdown(hunkContent)}\n`;
+					markdown += `${escapeMarkdownCodeBlocks(hunkContent)}\n`;
 				} else {
 					markdown += `Unable to extract hunk content for ${hunkHeader}\n`;
 				}
@@ -151,8 +151,8 @@ function generateRebaseMarkdown(result: AIRebaseResult): string {
 		}
 	}
 
-	markdown += `\n\n----\n\n## Raw commits\n\n\`\`\`${escapeMarkdown(JSON.stringify(commits))}\`\`\``;
-	markdown += `\n\n----\n\n## Original Diff\n\n\`\`\`${escapeMarkdown(originalDiff)}\`\`\`\n`;
+	// markdown += `\n\n----\n\n## Raw commits\n\n\`\`\`${escapeMarkdownCodeBlocks(JSON.stringify(commits))}\`\`\``;
+	// markdown += `\n\n----\n\n## Original Diff\n\n\`\`\`${escapeMarkdownCodeBlocks(originalDiff)}\`\`\`\n`;
 
 	return markdown;
 }
