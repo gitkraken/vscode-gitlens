@@ -11,11 +11,10 @@ import type { GitCommit } from '../git/models/commit';
 import type { GitLineDiff, ParsedGitDiffHunk } from '../git/models/diff';
 import type { PullRequest } from '../git/models/pullRequest';
 import type { GitRemote } from '../git/models/remote';
-import { deletedOrMissing, uncommittedStaged } from '../git/models/revision';
+import { uncommittedStaged } from '../git/models/revision';
 import type { RemoteProvider } from '../git/remotes/remoteProvider';
 import { isUncommittedStaged, shortenRevision } from '../git/utils/revision.utils';
 import { configuration } from '../system/-webview/configuration';
-import { editorLineToDiffRange } from '../system/-webview/vscode/editors';
 import { escapeMarkdownCodeBlocks } from '../system/markdown';
 import { getSettledValue, pauseOnCancelOrTimeout, pauseOnCancelOrTimeoutMapTuplePromise } from '../system/promise';
 
@@ -26,7 +25,7 @@ export async function changesMessage(
 	editorLine: number, // 0-based, Git is 1-based
 	document: TextDocument,
 ): Promise<MarkdownString | undefined> {
-	const documentRev = uri.sha;
+	const documentRef = uri.sha;
 
 	let previousSha = null;
 
@@ -39,8 +38,8 @@ export async function changesMessage(
 		// TODO: Figure out how to optimize this
 		let ref;
 		if (commit.isUncommitted) {
-			if (isUncommittedStaged(documentRev)) {
-				ref = documentRev;
+			if (isUncommittedStaged(documentRef)) {
+				ref = documentRef;
 			}
 		} else {
 			previousSha = commitLine.previousSha;
@@ -59,10 +58,10 @@ export async function changesMessage(
 
 		editorLine = commitLine.line - 1;
 		// TODO: Doesn't work with dirty files -- pass in editor? or contents?
-		let lineDiff = await container.git.getDiffForLine(uri, editorLine, ref, documentRev);
+		let lineDiff = await container.git.getDiffForLine(uri, editorLine, ref, documentRef);
 
 		// If we didn't find a diff & ref is undefined (meaning uncommitted), check for a staged diff
-		if (lineDiff == null && ref == null && documentRev !== uncommittedStaged) {
+		if (lineDiff == null && ref == null && documentRef !== uncommittedStaged) {
 			lineDiff = await container.git.getDiffForLine(uri, editorLine, undefined, uncommittedStaged);
 		}
 
@@ -72,20 +71,24 @@ export async function changesMessage(
 	const diff = await getDiff();
 	if (diff == null) return undefined;
 
-	const range = editorLineToDiffRange(editorLine);
-
 	let message;
 	let previous;
 	let current;
 	if (commit.isUncommitted) {
-		const compareUris = await commit.getPreviousComparisonUrisForRange(range, documentRev);
+		const compareUris = await commit.getPreviousComparisonUrisForLine(editorLine, documentRef);
 		if (compareUris?.previous == null) return undefined;
 
 		message = `[$(compare-changes)](${DiffWithCommand.createMarkdownCommandLink({
-			lhs: { sha: compareUris.previous.sha ?? '', uri: compareUris.previous.documentUri() },
-			rhs: { sha: compareUris.current.sha ?? '', uri: compareUris.current.documentUri() },
+			lhs: {
+				sha: compareUris.previous.sha ?? '',
+				uri: compareUris.previous.documentUri(),
+			},
+			rhs: {
+				sha: compareUris.current.sha ?? '',
+				uri: compareUris.current.documentUri(),
+			},
 			repoPath: commit.repoPath,
-			range: compareUris.range,
+			line: editorLine,
 		})} "Open Changes")`;
 
 		previous =
@@ -101,17 +104,26 @@ export async function changesMessage(
 
 		current =
 			compareUris.current.sha == null || compareUris.current.isUncommitted
-				? `_${shortenRevision(compareUris.current.sha, { strings: { working: 'Working Tree' } })}_`
+				? `_${shortenRevision(compareUris.current.sha, {
+						strings: {
+							working: 'Working Tree',
+						},
+				  })}_`
 				: `[$(git-commit) ${shortenRevision(
 						compareUris.current.sha || '',
 				  )}](${ShowQuickCommitCommand.createMarkdownCommandLink(
 						compareUris.current.sha || '',
 				  )} "Show Commit")`;
 	} else {
-		message = `[$(compare-changes)](${DiffWithCommand.createMarkdownCommandLink(commit, range)} "Open Changes")`;
+		message = `[$(compare-changes)](${DiffWithCommand.createMarkdownCommandLink(
+			commit,
+			editorLine,
+		)} "Open Changes")`;
 
-		previousSha ??= await commit.getPreviousSha();
-		if (previousSha && previousSha !== deletedOrMissing) {
+		if (previousSha === null) {
+			previousSha = await commit.getPreviousSha();
+		}
+		if (previousSha) {
 			previous = `  &nbsp;[$(git-commit) ${shortenRevision(
 				previousSha,
 			)}](${ShowQuickCommitCommand.createMarkdownCommandLink(previousSha)} "Show Commit") &nbsp;${
@@ -155,9 +167,12 @@ export async function localChangesMessage(
 				sha: fromCommit.sha,
 				uri: GitUri.fromFile(file, uri.repoPath!, undefined, true).toFileUri(),
 			},
-			rhs: { sha: '', uri: uri.toFileUri() },
+			rhs: {
+				sha: '',
+				uri: uri.toFileUri(),
+			},
 			repoPath: uri.repoPath!,
-			range: editorLineToDiffRange(editorLine),
+			line: editorLine,
 		})} "Open Changes")`;
 
 		previous = `[$(git-commit) ${fromCommit.shortSha}](${ShowQuickCommitCommand.createMarkdownCommandLink(
@@ -198,7 +213,7 @@ export async function detailsMessage(
 	}>,
 ): Promise<MarkdownString | undefined> {
 	const remotesResult = await pauseOnCancelOrTimeout(
-		options?.remotes ?? container.git.getRepositoryService(commit.repoPath).remotes.getBestRemotesWithProviders(),
+		options?.remotes ?? container.git.remotes(commit.repoPath).getBestRemotesWithProviders(),
 		options?.cancellation,
 		options?.timeout,
 	);
@@ -221,7 +236,7 @@ export async function detailsMessage(
 		cfg.autolinks.enhanced &&
 		CommitFormatter.has(cfg.detailsMarkdownFormat, 'message');
 	const prs =
-		remote?.supportsIntegration() &&
+		remote?.hasIntegration() &&
 		remote.maybeIntegrationConnected !== false &&
 		(options?.pullRequests || (options?.pullRequests !== false && cfg.pullRequests.enabled)) &&
 		CommitFormatter.has(
@@ -256,9 +271,7 @@ export async function detailsMessage(
 						Math.min(options?.timeout ?? 250, 250),
 				  )
 				: undefined,
-			commit.isUncommitted
-				? commit.getPreviousComparisonUrisForRange(editorLineToDiffRange(editorLine), uri.sha)
-				: undefined,
+			commit.isUncommitted ? commit.getPreviousComparisonUrisForLine(editorLine, uri.sha) : undefined,
 			commit.message == null ? commit.ensureFullDetails() : undefined,
 		]);
 
@@ -270,10 +283,12 @@ export async function detailsMessage(
 	const previousLineComparisonUris = getSettledValue(previousLineComparisonUrisResult);
 
 	const details = await CommitFormatter.fromTemplateAsync(options.format, commit, {
-		aiEnabled: configuration.get('ai.enabled'),
 		enrichedAutolinks: enrichedResult?.value != null && !enrichedResult.paused ? enrichedResult.value : undefined,
 		dateFormat: options.dateFormat === null ? 'MMMM Do, YYYY h:mma' : options.dateFormat,
-		editor: { line: editorLine, uri: uri },
+		editor: {
+			line: editorLine,
+			uri: uri,
+		},
 		getBranchAndTagTips: options?.getBranchAndTagTips,
 		messageAutolinks: options?.autolinks || (options?.autolinks !== false && cfg.autolinks.enabled),
 		pullRequest: pr?.value,
