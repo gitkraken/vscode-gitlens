@@ -8,9 +8,9 @@ import type {
 import { GlyphChars } from '../../constants';
 import type { Source } from '../../constants.telemetry';
 import type { Container } from '../../container';
-import { GitHostIntegration } from '../../plus/integrations/models/gitHostIntegration';
+import { HostingIntegration } from '../../plus/integrations/integration';
+import { remoteProviderIdToIntegrationId } from '../../plus/integrations/integrationService';
 import type { GitLabRepositoryDescriptor } from '../../plus/integrations/providers/gitlab';
-import { convertRemoteProviderIdToIntegrationId } from '../../plus/integrations/utils/-webview/integration.utils';
 import type { Brand, Unbrand } from '../../system/brand';
 import { fromNow } from '../../system/date';
 import { memoize } from '../../system/decorators/-webview/memoize';
@@ -305,7 +305,7 @@ export class GitLabRemote extends RemoteProvider<GitLabRepositoryDescriptor> {
 
 	@memoize()
 	override get repoDesc(): GitLabRepositoryDescriptor {
-		const [owner, repo] = this.splitPath(this.path);
+		const [owner, repo] = this.splitPath();
 		return { key: this.remoteKey, owner: owner, name: repo };
 	}
 
@@ -376,7 +376,7 @@ export class GitLabRemote extends RemoteProvider<GitLabRepositoryDescriptor> {
 		} while (index > 0);
 
 		if (possibleBranches.size) {
-			const { values: branches } = await repo.git.branches.getBranches({
+			const { values: branches } = await repo.git.branches().getBranches({
 				filter: b => b.remote && possibleBranches.has(b.getNameWithoutRemote()),
 			});
 			for (const branch of branches) {
@@ -411,7 +411,7 @@ export class GitLabRemote extends RemoteProvider<GitLabRepositoryDescriptor> {
 	}
 
 	override async isReadyForForCrossForkPullRequestUrls(): Promise<boolean> {
-		const integrationId = convertRemoteProviderIdToIntegrationId(this.id);
+		const integrationId = remoteProviderIdToIntegrationId(this.id);
 		const integration = integrationId && (await this.container.integrations.get(integrationId));
 		return integration?.maybeConnected ?? integration?.isConnected() ?? false;
 	}
@@ -441,11 +441,11 @@ export class GitLabRemote extends RemoteProvider<GitLabRepositoryDescriptor> {
 				owner: base.remote.path.split('/')[0],
 				name: base.remote.path.split('/')[1],
 			};
-			const integrationId = convertRemoteProviderIdToIntegrationId(this.id);
+			const integrationId = remoteProviderIdToIntegrationId(this.id);
 			const integration = integrationId && (await this.container.integrations.get(integrationId));
 
 			let targetRepoId;
-			if (integration?.isConnected && integration instanceof GitHostIntegration) {
+			if (integration?.isConnected && integration instanceof HostingIntegration) {
 				targetRepoId = (await integration.getRepoInfo?.(targetDesc))?.id;
 			}
 			if (!targetRepoId) return undefined;

@@ -7,10 +7,7 @@ import type {
 } from '../../api/gitlens';
 import type { MaybeEnrichedAutolink } from '../../autolinks/models/autolinks';
 import { getPresenceDataUri } from '../../avatars';
-import { CopyShaToClipboardCommand } from '../../commands/copyShaToClipboard';
 import { DiffWithCommand } from '../../commands/diffWith';
-import { ExplainCommitCommand } from '../../commands/explainCommit';
-import { ExplainWipCommand } from '../../commands/explainWip';
 import { InspectCommand } from '../../commands/inspect';
 import { OpenCommitOnRemoteCommand } from '../../commands/openCommitOnRemote';
 import { OpenFileAtRevisionCommand } from '../../commands/openFileAtRevision';
@@ -24,7 +21,6 @@ import { Container } from '../../container';
 import { emojify } from '../../emojis';
 import { arePlusFeaturesEnabled } from '../../plus/gk/utils/-webview/plus.utils';
 import { configuration } from '../../system/-webview/configuration';
-import { editorLineToDiffRange } from '../../system/-webview/vscode/editors';
 import { createMarkdownCommandLink } from '../../system/commands';
 import { join, map } from '../../system/iterable';
 import { escapeMarkdown } from '../../system/markdown';
@@ -33,7 +29,7 @@ import type { TokenOptions } from '../../system/string';
 import { encodeHtmlWeak, getSuperscript } from '../../system/string';
 import type { ContactPresence } from '../../vsls/vsls';
 import type { ShowInCommitGraphCommandArgs } from '../../webviews/plus/graph/registration';
-import type { PreviousRangeComparisonUrisResult } from '../gitProvider';
+import type { PreviousLineComparisonUrisResult } from '../gitProvider';
 import type { GitCommit } from '../models/commit';
 import { isCommit, isStash } from '../models/commit';
 import type { PullRequest } from '../models/pullRequest';
@@ -49,7 +45,6 @@ import type { FormatOptions, RequiredTokenOptions } from './formatter';
 import { Formatter } from './formatter';
 
 export interface CommitFormatOptions extends FormatOptions {
-	aiEnabled?: boolean;
 	avatarSize?: number;
 	dateStyle?: DateStyle;
 	editor?: { line: number; uri: Uri };
@@ -77,7 +72,7 @@ export interface CommitFormatOptions extends FormatOptions {
 	pullRequest?: PullRequest | Promise<PullRequest | undefined>;
 	pullRequestPendingMessage?: string;
 	presence?: ContactPresence | Promise<ContactPresence | undefined>;
-	previousLineComparisonUris?: PreviousRangeComparisonUrisResult;
+	previousLineComparisonUris?: PreviousLineComparisonUrisResult;
 	outputFormat?: 'html' | 'markdown' | 'plaintext';
 	remotes?: GitRemote<RemoteProvider>[];
 	unpublished?: boolean;
@@ -414,8 +409,6 @@ export class CommitFormatter extends Formatter<GitCommit, CommitFormatOptions> {
 			return this._padOrTruncate('', this._options.tokenOptions.commands);
 		}
 
-		const separator = ' &nbsp;&nbsp;|&nbsp;&nbsp; ';
-
 		let commands;
 		if (this._item.isUncommitted) {
 			const { previousLineComparisonUris: diffUris } = this._options;
@@ -428,17 +421,23 @@ export class CommitFormatter extends Formatter<GitCommit, CommitFormatOptions> {
 					this._item.repoPath,
 				)} "Inspect Commit Details")`;
 
-				commands += ` &nbsp;[$(compare-changes)](${DiffWithCommand.createMarkdownCommandLink({
-					lhs: { sha: diffUris.previous.sha ?? '', uri: diffUris.previous.documentUri() },
-					rhs: { sha: diffUris.current.sha ?? '', uri: diffUris.current.documentUri() },
+				commands += ` &nbsp;[$(chevron-left)$(compare-changes)](${DiffWithCommand.createMarkdownCommandLink({
+					lhs: {
+						sha: diffUris.previous.sha ?? '',
+						uri: diffUris.previous.documentUri(),
+					},
+					rhs: {
+						sha: diffUris.current.sha ?? '',
+						uri: diffUris.current.documentUri(),
+					},
 					repoPath: this._item.repoPath,
-					range: editorLineToDiffRange(this._options.editor?.line),
+					line: this._options.editor?.line,
 				})} "Open Changes with Previous Revision")`;
 
 				commands += ` &nbsp;[$(versions)](${OpenFileAtRevisionCommand.createMarkdownCommandLink(
 					Container.instance.git.getRevisionUriFromGitUri(diffUris.previous),
 					'blame',
-					editorLineToDiffRange(this._options.editor?.line),
+					this._options.editor?.line,
 				)} "Open Blame Prior to this Change")`;
 			} else {
 				commands = `[\`${this._padOrTruncate(
@@ -450,48 +449,41 @@ export class CommitFormatter extends Formatter<GitCommit, CommitFormatOptions> {
 				)} "Inspect Commit Details")`;
 			}
 
-			if (this._options.aiEnabled) {
-				commands += `${separator}[$(sparkle) Explain](${ExplainWipCommand.createMarkdownCommandLink({
-					repoPath: this._item.repoPath,
-					staged: undefined,
-					source: { source: 'editor:hover', type: 'wip' },
-				})} "Explain Changes")`;
-			}
-
 			return commands;
 		}
+
+		const separator = ' &nbsp;&nbsp;|&nbsp;&nbsp; ';
 
 		commands = `---\n\n[\`$(git-commit) ${this.id}\`](${InspectCommand.createMarkdownCommandLink(
 			this._item.sha,
 			this._item.repoPath,
 		)} "Inspect Commit Details")`;
 
-		commands += ` &nbsp;[$(copy)](${CopyShaToClipboardCommand.createMarkdownCommandLink(
-			this._item.sha,
-		)} "Copy SHA")`;
-
-		commands += ` &nbsp;[$(compare-changes)](${DiffWithCommand.createMarkdownCommandLink(
+		commands += ` &nbsp;[$(chevron-left)$(compare-changes)](${DiffWithCommand.createMarkdownCommandLink(
 			this._item,
-			editorLineToDiffRange(this._options.editor?.line),
+			this._options.editor?.line,
 		)} "Open Changes with Previous Revision")`;
 
 		if (this._item.file != null && this._item.unresolvedPreviousSha != null) {
-			const uri = Container.instance.git
-				.getRepositoryService(this._item.repoPath)
-				.getRevisionUri(
-					this._item.unresolvedPreviousSha,
-					this._item.file.originalPath ?? this._item.file?.path,
-				);
+			const uri = Container.instance.git.getRevisionUri(
+				this._item.repoPath,
+				this._item.unresolvedPreviousSha,
+				this._item.file.originalPath ?? this._item.file?.path,
+			);
 			commands += ` &nbsp;[$(versions)](${OpenFileAtRevisionCommand.createMarkdownCommandLink(
 				uri,
 				'blame',
-				editorLineToDiffRange(this._options.editor?.line),
+				this._options.editor?.line,
 			)} "Open Blame Prior to this Change")`;
 		}
 
-		commands += `${separator}[$(search)](${createMarkdownCommandLink<ShowQuickCommitCommandArgs>(
+		commands += ` &nbsp;[$(search)](${createMarkdownCommandLink<ShowQuickCommitCommandArgs>(
 			'gitlens.revealCommitInView',
-			{ repoPath: this._item.repoPath, sha: this._item.sha, revealInView: true },
+			{
+				repoPath: this._item.repoPath,
+				sha: this._item.sha,
+				revealInView: true,
+			},
 		)} "Reveal in Side Bar")`;
 
 		if (arePlusFeaturesEnabled()) {
@@ -510,14 +502,6 @@ export class CommitFormatter extends Formatter<GitCommit, CommitFormatOptions> {
 			commands += ` &nbsp;[$(globe)](${OpenCommitOnRemoteCommand.createMarkdownCommandLink(
 				this._item.sha,
 			)} "Open Commit on ${providers?.length ? providers[0].name : 'Remote'}")`;
-		}
-
-		if (this._options.aiEnabled) {
-			commands += `${separator}[$(sparkle) Explain](${ExplainCommitCommand.createMarkdownCommandLink({
-				repoPath: this._item.repoPath,
-				rev: this._item.sha,
-				source: { source: 'editor:hover', type: isStash(this._item) ? 'stash' : 'commit' },
-			})} "Explain Changes")`;
 		}
 
 		if (pr != null) {
@@ -542,7 +526,7 @@ export class CommitFormatter extends Formatter<GitCommit, CommitFormatOptions> {
 		} else if (remotes != null) {
 			const [remote] = remotes;
 			if (
-				remote?.supportsIntegration() &&
+				remote?.hasIntegration() &&
 				!remote.maybeIntegrationConnected &&
 				configuration.get('integrations.enabled')
 			) {
@@ -557,20 +541,26 @@ export class CommitFormatter extends Formatter<GitCommit, CommitFormatOptions> {
 		if (Container.instance.actionRunners.count('hover.commands') > 0) {
 			const { name, email } = this._item.author;
 
-			commands += `${separator}[$(organization)](${createMarkdownActionCommandLink<HoverCommandsActionContext>(
-				'hover.commands',
-				{
-					repoPath: this._item.repoPath,
-					commit: {
-						sha: this._item.sha,
-						author: { name: name, email: email, presence: this._options.presence },
+			commands += `${separator}[$(organization) Team${GlyphChars.SpaceThinnest}${
+				GlyphChars.Ellipsis
+			}](${createMarkdownActionCommandLink<HoverCommandsActionContext>('hover.commands', {
+				repoPath: this._item.repoPath,
+				commit: {
+					sha: this._item.sha,
+					author: {
+						name: name,
+						email: email,
+						presence: this._options.presence,
 					},
-					file:
-						this._options.editor != null
-							? { uri: this._options.editor?.uri.toString(), line: this._options.editor?.line }
-							: undefined,
 				},
-			)} "Show Team Actions")`;
+				file:
+					this._options.editor != null
+						? {
+								uri: this._options.editor?.uri.toString(),
+								line: this._options.editor?.line,
+						  }
+						: undefined,
+			})} "Show Team Actions")`;
 		}
 
 		const gitUri = this._item.getGitUri();
@@ -671,7 +661,7 @@ export class CommitFormatter extends Formatter<GitCommit, CommitFormatOptions> {
 		if (isStash(this._item)) {
 			icon = 'archive';
 			label = this._padOrTruncate(
-				`Stash${this._item.stashNumber ? ` #${this._item.stashNumber}` : ''}`,
+				`Stash${this._item.number ? ` #${this._item.number}` : ''}`,
 				this._options.tokenOptions.link,
 			);
 		} else {
@@ -744,7 +734,7 @@ export class CommitFormatter extends Formatter<GitCommit, CommitFormatOptions> {
 			message = encodeHtmlWeak(message);
 		}
 		if (outputFormat === 'markdown') {
-			message = escapeMarkdown(message, { quoted: true, inlineBackticks: true, preserveLinks: true });
+			message = escapeMarkdown(message, { quoted: true, inlineBackticks: true });
 		}
 
 		if (this._options.messageAutolinks) {
@@ -866,7 +856,7 @@ export class CommitFormatter extends Formatter<GitCommit, CommitFormatOptions> {
 	}
 
 	get stashNumber(): string {
-		return this._padOrTruncate(this._item.stashNumber ?? '', this._options.tokenOptions.stashNumber);
+		return this._padOrTruncate(this._item.number ?? '', this._options.tokenOptions.stashNumber);
 	}
 
 	get stashOnRef(): string {

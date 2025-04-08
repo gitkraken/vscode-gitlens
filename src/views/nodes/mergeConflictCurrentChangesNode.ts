@@ -9,7 +9,6 @@ import type { GitPausedOperationStatus } from '../../git/models/pausedOperationS
 import { getReferenceLabel } from '../../git/utils/reference.utils';
 import { createCommand, createCoreCommand } from '../../system/-webview/command';
 import { configuration } from '../../system/-webview/configuration';
-import { editorLineToDiffRange } from '../../system/-webview/vscode/editors';
 import type { FileHistoryView } from '../fileHistoryView';
 import type { LineHistoryView } from '../lineHistoryView';
 import type { ViewsWithCommits } from '../viewBase';
@@ -31,7 +30,7 @@ export class MergeConflictCurrentChangesNode extends ViewNode<
 
 	private _commit: Promise<GitCommit | undefined> | undefined;
 	private async getCommit(): Promise<GitCommit | undefined> {
-		this._commit ??= this.view.container.git.getRepositoryService(this.status.repoPath).commits.getCommit('HEAD');
+		this._commit ??= this.view.container.git.commits(this.status.repoPath).getCommit('HEAD');
 		return this._commit;
 	}
 
@@ -61,9 +60,7 @@ export class MergeConflictCurrentChangesNode extends ViewNode<
 			return createCoreCommand(
 				'vscode.open',
 				'Open Revision',
-				this.view.container.git
-					.getRepositoryService(this.status.repoPath)
-					.getRevisionUri('HEAD', this.file.path),
+				this.view.container.git.getRevisionUri(this.status.repoPath, 'HEAD', this.file.path),
 			);
 		}
 
@@ -82,13 +79,18 @@ export class MergeConflictCurrentChangesNode extends ViewNode<
 				})})`,
 			},
 			repoPath: this.status.repoPath,
-			range: editorLineToDiffRange(0),
-			showOptions: { preserveFocus: true, preview: true },
+			line: 0,
+			showOptions: {
+				preserveFocus: true,
+				preview: true,
+			},
 		});
 	}
 
 	override async resolveTreeItem(item: TreeItem, token: CancellationToken): Promise<TreeItem> {
-		item.tooltip ??= await this.getTooltip(token);
+		if (item.tooltip == null) {
+			item.tooltip = await this.getTooltip(token);
+		}
 		return item;
 	}
 

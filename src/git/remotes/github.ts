@@ -183,7 +183,7 @@ export class GitHubRemote extends RemoteProvider<GitHubRepositoryDescriptor> {
 	}
 
 	override get avatarUri(): Uri {
-		const [owner] = this.splitPath(this.path);
+		const [owner] = this.splitPath();
 		return Uri.parse(`https://avatars.githubusercontent.com/${owner}`);
 	}
 
@@ -207,7 +207,7 @@ export class GitHubRemote extends RemoteProvider<GitHubRepositoryDescriptor> {
 
 	@memoize()
 	override get repoDesc(): GitHubRepositoryDescriptor {
-		const [owner, repo] = this.splitPath(this.path);
+		const [owner, repo] = this.splitPath();
 		return { key: this.remoteKey, owner: owner, name: repo };
 	}
 
@@ -279,7 +279,7 @@ export class GitHubRemote extends RemoteProvider<GitHubRepositoryDescriptor> {
 		} while (index > 0);
 
 		if (possibleBranches.size) {
-			const { values: branches } = await repo.git.branches.getBranches({
+			const { values: branches } = await repo.git.branches().getBranches({
 				filter: b => b.remote && possibleBranches.has(b.getNameWithoutRemote()),
 			});
 			for (const branch of branches) {

@@ -710,9 +710,9 @@ export interface GitProvider extends GitRepositoryProvider, Disposable {
 	canHandlePathOrUri(scheme: string, pathOrUri: string | Uri): string | undefined;
 	findRepositoryUri(uri: Uri, isDirectory?: boolean): Promise<Uri | undefined>;
 	getAbsoluteUri(pathOrUri: string | Uri, base: string | Uri): Uri;
-	getBestRevisionUri(repoPath: string, path: string, ref: string | undefined): Promise<Uri | undefined>;
+	getBestRevisionUri(repoPath: string, path: string, rev: string | undefined): Promise<Uri | undefined>;
 	getRelativePath(pathOrUri: string | Uri, base: string | Uri): string;
-	getRevisionUri(repoPath: string, path: string, ref: string): Uri;
+	getRevisionUri(repoPath: string, rev: string, path: string): Uri;
 	// getRootUri(pathOrUri: string | Uri): Uri;
 	getWorkingUri(repoPath: string, uri: Uri): Promise<Uri | undefined>;
 

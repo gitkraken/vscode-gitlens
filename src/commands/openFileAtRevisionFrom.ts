@@ -6,8 +6,8 @@ import { openFileAtRevision } from '../git/actions/commit';
 import { GitUri } from '../git/gitUri';
 import type { GitReference } from '../git/models/reference';
 import { showNoRepositoryWarningMessage } from '../messages';
+import { showStashPicker } from '../quickpicks/commitPicker';
 import { showReferencePicker } from '../quickpicks/referencePicker';
-import { showStashPicker } from '../quickpicks/stashPicker';
 import { command } from '../system/-webview/command';
 import { pad } from '../system/string';
 import { ActiveEditorCommand } from './commandBase';
@@ -43,21 +43,17 @@ export class OpenFileAtRevisionFromCommand extends ActiveEditorCommand {
 			args.line = editor?.selection.active.line ?? 0;
 		}
 
-		const svc = this.container.git.getRepositoryService(gitUri.repoPath);
-
 		if (args.reference == null) {
 			if (args?.stash) {
-				const path = svc.getRelativePath(gitUri, gitUri.repoPath);
+				const path = this.container.git.getRelativePath(gitUri, gitUri.repoPath);
 
 				const title = `Open Changes with Stash${pad(GlyphChars.Dot, 2, 2)}`;
 				const pick = await showStashPicker(
-					svc.stash?.getStash(),
+					this.container.git.stash(gitUri.repoPath)?.getStash(),
 					`${title}${gitUri.getFormattedFileName({ truncateTo: quickPickTitleMaxChars - title.length })}`,
 					'Choose a stash to compare with',
 					// Stashes should always come with files, so this should be fine (but protect it just in case)
-					{
-						filter: c => c.anyFiles?.some(f => f.path === path || f.originalPath === path) ?? true,
-					},
+					{ filter: c => c.files?.some(f => f.path === path || f.originalPath === path) ?? true },
 				);
 				if (pick == null) return;
 
@@ -73,12 +69,15 @@ export class OpenFileAtRevisionFromCommand extends ActiveEditorCommand {
 						keyboard: {
 							keys: ['right', 'alt+right', 'ctrl+right'],
 							onDidPressKey: async (_key, item) => {
-								await openFileAtRevision(svc.getRevisionUri(item.ref, gitUri.fsPath), {
-									annotationType: args.annotationType,
-									line: args.line,
-									preserveFocus: true,
-									preview: true,
-								});
+								await openFileAtRevision(
+									this.container.git.getRevisionUri(gitUri.repoPath!, item.ref, gitUri.fsPath),
+									{
+										annotationType: args.annotationType,
+										line: args.line,
+										preserveFocus: true,
+										preview: true,
+									},
+								);
 							},
 						},
 					},
@@ -89,10 +88,13 @@ export class OpenFileAtRevisionFromCommand extends ActiveEditorCommand {
 			}
 		}
 
-		await openFileAtRevision(svc.getRevisionUri(args.reference.ref, gitUri.fsPath), {
-			annotationType: args.annotationType,
-			line: args.line,
-			...args.showOptions,
-		});
+		await openFileAtRevision(
+			this.container.git.getRevisionUri(gitUri.repoPath, args.reference.ref, gitUri.fsPath),
+			{
+				annotationType: args.annotationType,
+				line: args.line,
+				...args.showOptions,
+			},
+		);
 	}
 }

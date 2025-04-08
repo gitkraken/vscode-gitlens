@@ -1,6 +1,15 @@
 import type { Uri } from 'vscode';
-import { env } from 'vscode';
+import { env, workspace } from 'vscode';
 import { Schemes, trackableSchemes } from '../../../constants';
+
+export async function exists(uri: Uri): Promise<boolean> {
+	try {
+		await workspace.fs.stat(uri);
+		return true;
+	} catch {
+		return false;
+	}
+}
 
 export async function openUrl(url: string): Promise<boolean>;
 export async function openUrl(url?: string): Promise<boolean | undefined>;

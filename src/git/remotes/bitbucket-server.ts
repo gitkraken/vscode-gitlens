@@ -2,8 +2,6 @@ import type { Range, Uri } from 'vscode';
 import type { AutolinkReference, DynamicAutolinkReference } from '../../autolinks/models/autolinks';
 import type { Source } from '../../constants.telemetry';
 import type { Container } from '../../container';
-import { GitHostIntegration } from '../../plus/integrations/models/gitHostIntegration';
-import { convertRemoteProviderIdToIntegrationId } from '../../plus/integrations/utils/-webview/integration.utils';
 import type { Brand, Unbrand } from '../../system/brand';
 import type { CreatePullRequestRemoteResource } from '../models/remoteResource';
 import type { Repository } from '../models/repository';
@@ -64,16 +62,18 @@ export class BitbucketServerRemote extends RemoteProvider {
 	}
 
 	protected override get baseUrl(): string {
-		const [project, repo] = this.splitPath(this.path);
+		const [project, repo] = this.splitPath();
 		return `${this.protocol}://${this.domain}/projects/${project}/repos/${repo}`;
 	}
 
-	protected override splitPath(path: string): [string, string] {
-		if (path.startsWith('scm/') && path.indexOf('/') !== path.lastIndexOf('/')) {
-			return super.splitPath(path.replace('scm/', ''));
+	protected override splitPath(): [string, string] {
+		if (this.path.startsWith('scm/') && this.path.indexOf('/') !== this.path.lastIndexOf('/')) {
+			const path = this.path.replace('scm/', '');
+			const index = path.indexOf('/');
+			return [path.substring(0, index), path.substring(index + 1)];
 		}
 
-		return super.splitPath(path);
+		return super.splitPath();
 	}
 
 	override get icon(): string {
@@ -160,7 +160,7 @@ export class BitbucketServerRemote extends RemoteProvider {
 		} while (index > 0);
 
 		if (possibleBranches.size) {
-			const { values: branches } = await repo.git.branches.getBranches({
+			const { values: branches } = await repo.git.branches().getBranches({
 				filter: b => b.remote && possibleBranches.has(b.getNameWithoutRemote()),
 			});
 			for (const branch of branches) {
@@ -191,13 +191,7 @@ export class BitbucketServerRemote extends RemoteProvider {
 	}
 
 	protected override getUrlForComparison(base: string, head: string, _notation: GitRevisionRangeNotation): string {
-		return this.encodeUrl(`${this.baseUrl}/branches/compare/${head}\r${base}`);
-	}
-
-	override async isReadyForForCrossForkPullRequestUrls(): Promise<boolean> {
-		const integrationId = convertRemoteProviderIdToIntegrationId(this.id);
-		const integration = integrationId && (await this.container.integrations.get(integrationId));
-		return integration?.maybeConnected ?? integration?.isConnected() ?? false;
+		return this.encodeUrl(`${this.baseUrl}/branches/compare/${base}%0D${head}`).replaceAll('%250D', '%0D');
 	}
 
 	protected override async getUrlForCreatePullRequest(
@@ -216,33 +210,17 @@ export class BitbucketServerRemote extends RemoteProvider {
 		}
 
 		const query = new URLSearchParams({ sourceBranch: head.branch, targetBranch: base.branch ?? '' });
-		const [baseOwner, baseName] = this.splitPath(base.remote.path);
-		if (base.remote.url !== head.remote.url) {
-			const targetDesc = {
-				owner: baseOwner,
-				name: baseName,
-			};
-			const integrationId = convertRemoteProviderIdToIntegrationId(this.id);
-			const integration = integrationId && (await this.container.integrations.get(integrationId));
-			let targetRepoId = undefined;
-			if (integration?.isConnected && integration instanceof GitHostIntegration) {
-				targetRepoId = (await integration.getRepoInfo?.(targetDesc))?.id;
-			}
-			if (!targetRepoId) {
-				return undefined;
-			}
-			query.set('targetRepoId', targetRepoId);
-		}
+		// TODO: figure this out
+		// query.set('targetRepoId', base.repoId);
+
 		if (details?.title) {
 			query.set('title', details.title);
 		}
 		if (details?.description) {
 			query.set('description', details.description);
 		}
-		const [headOwner, headName] = this.splitPath(head.remote.path);
-		return `${this.encodeUrl(
-			`${this.protocol}://${this.domain}/projects/${headOwner}/repos/${headName}/pull-requests?create`,
-		)}&${query.toString()}`;
+
+		return `${this.encodeUrl(`${this.baseUrl}/pull-requests?create`)}&${query.toString()}`;
 	}
 
 	protected getUrlForFile(fileName: string, branch?: string, sha?: string, range?: Range): string {

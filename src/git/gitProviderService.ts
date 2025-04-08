@@ -13,9 +13,10 @@ import { Disposable, EventEmitter, FileType, ProgressLocation, Uri, window, work
 import { isWeb } from '@env/platform';
 import { resetAvatarCache } from '../avatars';
 import { GlyphChars, Schemes } from '../constants';
+import { SubscriptionPlanId } from '../constants.subscription';
 import type { Container } from '../container';
 import { AccessDeniedError, ProviderNotFoundError, ProviderNotSupportedError } from '../errors';
-import type { FeatureAccess, PlusFeatures, RepoFeatureAccess } from '../features';
+import type { FeatureAccess, Features, PlusFeatures, RepoFeatureAccess } from '../features';
 import { isAdvancedFeature, isProFeatureOnAllRepos } from '../features';
 import type { Subscription } from '../plus/gk/models/subscription';
 import type { SubscriptionChangeEvent } from '../plus/gk/subscriptionService';
@@ -31,38 +32,73 @@ import { gate } from '../system/decorators/-webview/gate';
 import { debug, log } from '../system/decorators/log';
 import type { Deferrable } from '../system/function/debounce';
 import { debounce } from '../system/function/debounce';
-import { count, filter, first, flatMap, groupByMap, join, map, some, sum } from '../system/iterable';
+import { count, filter, first, flatMap, groupByFilterMap, groupByMap, join, map, some, sum } from '../system/iterable';
 import { getLoggableName, Logger } from '../system/logger';
 import { getLogScope, setLogScopeExit, startLogScope } from '../system/logger.scope';
 import { getScheme, isAbsolute, maybeUri, normalizePath } from '../system/path';
 import type { Deferred } from '../system/promise';
 import { asSettled, defer, getDeferredPromiseIfPending, getSettledValue } from '../system/promise';
 import { VisitedPathsTrie } from '../system/trie';
-import { areUrisEqual } from '../system/uri';
 import type {
 	CachedGitTypes,
+	GitBranchesSubProvider,
+	GitCommitsSubProvider,
+	GitConfigSubProvider,
+	GitContributorsSubProvider,
+	GitDiffSubProvider,
+	GitGraphSubProvider,
+	GitPatchSubProvider,
 	GitProvider,
 	GitProviderDescriptor,
 	GitProviderId,
+	GitRefsSubProvider,
+	GitRemotesSubProvider,
+	GitRevisionSubProvider,
+	GitStagingSubProvider,
+	GitStashSubProvider,
+	GitStatusSubProvider,
+	GitSubProviderForRepo,
+	GitSubProviderProps,
+	GitTagsSubProvider,
+	GitWorktreesSubProvider,
+	NonNullableGitSubProviderProps,
 	RepositoryVisibility,
 	RepositoryVisibilityInfo,
 	ScmRepository,
 } from './gitProvider';
-import { GitRepositoryService } from './gitRepositoryService';
+import { createSubProviderProxyForRepo } from './gitProvider';
 import type { GitUri } from './gitUri';
 import type { GitBlame, GitBlameLine } from './models/blame';
+import type { GitBranch } from './models/branch';
 import type { GitLineDiff, ParsedGitDiffHunks } from './models/diff';
-import type { GitReference } from './models/reference';
+import type { GitFile } from './models/file';
+import type { GitBranchReference, GitReference } from './models/reference';
 import type { GitRemote } from './models/remote';
 import type { Repository, RepositoryChangeEvent } from './models/repository';
 import { RepositoryChange, RepositoryChangeComparisonMode } from './models/repository';
+import { deletedOrMissing } from './models/revision';
+import type { GitTag } from './models/tag';
 import type { LocalInfoFromRemoteUriResult } from './remotes/remoteProvider';
 import { sortRepositories } from './utils/-webview/sorting';
 import { calculateDistribution } from './utils/contributor.utils';
-import { getVisibilityCacheKey } from './utils/remote.utils';
+import { getRemoteThemeIconString, getVisibilityCacheKey } from './utils/remote.utils';
+import { createRevisionRange } from './utils/revision.utils';
 
-const emptyArray: readonly any[] = Object.freeze([]);
-const emptyDisposable: Disposable = Object.freeze({ dispose: () => {} });
+const emptyArray = Object.freeze([]) as unknown as any[];
+const emptyDisposable = Object.freeze({
+	dispose: () => {
+		/* noop */
+	},
+});
+
+const maxDefaultBranchWeight = 100;
+const weightedDefaultBranches = new Map<string, number>([
+	['master', maxDefaultBranchWeight],
+	['main', 15],
+	['default', 10],
+	['develop', 5],
+	['development', 1],
+]);
 
 export type GitProvidersChangeEvent = {
 	readonly added: readonly GitProvider[];
@@ -142,8 +178,8 @@ export class GitProviderService implements Disposable {
 					added.map(async repo => {
 						const since = '1.year.ago';
 						const [remotesResult, contributorsStatsResult] = await Promise.allSettled([
-							repo.git.remotes.getRemotes(),
-							repo.git.contributors.getContributorsStats({ since: since }, undefined, 2000),
+							repo.git.remotes().getRemotes(),
+							repo.git.contributors().getContributorsStats({ since: since }),
 						]);
 
 						const remotes = getSettledValue(remotesResult) ?? [];
@@ -178,7 +214,7 @@ export class GitProviderService implements Disposable {
 						});
 					}),
 				);
-			}, 10000);
+			}, 0);
 		}
 	}
 
@@ -194,7 +230,7 @@ export class GitProviderService implements Disposable {
 	private readonly _pendingRepositories = new Map<RepoComparisonKey, Promise<Repository | undefined>>();
 	private readonly _providers = new Map<GitProviderId, GitProvider>();
 	private readonly _repositories = new Repositories();
-	private readonly _searchedRepositoryPaths = new VisitedPathsTrie();
+	private readonly _visitedPaths = new VisitedPathsTrie();
 
 	constructor(private readonly container: Container) {
 		this._initializing = defer<number>();
@@ -564,6 +600,11 @@ export class GitProviderService implements Disposable {
 		);
 	}
 
+	getOpenProviders(): GitProvider[] {
+		const map = this.getOpenRepositoriesByProvider();
+		return [...map.keys()].map(id => this._providers.get(id)!);
+	}
+
 	getOpenRepositories(id: GitProviderId): Iterable<Repository> {
 		return filter(this.repositories, r => !r.closed && (id == null || id === r.provider.id));
 	}
@@ -737,7 +778,7 @@ export class GitProviderService implements Disposable {
 		}
 
 		if (feature != null && (isProFeatureOnAllRepos(feature) || isAdvancedFeature(feature))) {
-			return { allowed: false, subscription: { current: subscription, required: 'pro' } };
+			return { allowed: false, subscription: { current: subscription, required: SubscriptionPlanId.Pro } };
 		}
 
 		function getRepoAccess(
@@ -754,7 +795,7 @@ export class GitProviderService implements Disposable {
 						if (visibility === 'private') {
 							return {
 								allowed: false,
-								subscription: { current: subscription, required: 'pro' },
+								subscription: { current: subscription, required: SubscriptionPlanId.Pro },
 								visibility: visibility,
 							};
 						}
@@ -790,13 +831,13 @@ export class GitProviderService implements Disposable {
 				case 'private':
 					return {
 						allowed: false,
-						subscription: { current: subscription, required: 'pro' },
+						subscription: { current: subscription, required: SubscriptionPlanId.Pro },
 						visibility: 'private',
 					};
 				case 'mixed':
 					return {
 						allowed: 'mixed',
-						subscription: { current: subscription, required: 'pro' },
+						subscription: { current: subscription, required: SubscriptionPlanId.Pro },
 					};
 				default:
 					return {
@@ -814,6 +855,12 @@ export class GitProviderService implements Disposable {
 	async ensureAccess(feature: PlusFeatures, repoPath?: string): Promise<void> {
 		const { allowed, subscription } = await this.access(feature, repoPath);
 		if (allowed === false) throw new AccessDeniedError(subscription.current, subscription.required);
+	}
+
+	@debug({ exit: true })
+	supports(repoPath: string | Uri, feature: Features): Promise<boolean> {
+		const { provider } = this.getProvider(repoPath);
+		return provider.supports(feature);
 	}
 
 	private _reposVisibilityCache: RepositoriesVisibility | undefined;
@@ -1083,7 +1130,7 @@ export class GitProviderService implements Disposable {
 				let hasSupportedIntegration = false;
 				let hasConnectedIntegration = false;
 
-				const remotes = await repo.git.remotes.getRemotes();
+				const remotes = await repo.git.remotes().getRemotes();
 				for (const remote of remotes) {
 					remoteProviders.add(remote.provider?.id ?? 'unknown');
 					reposWithRemotes.add(repo.uri.toString());
@@ -1092,7 +1139,7 @@ export class GitProviderService implements Disposable {
 					// Skip if integrations are disabled or if we've already found a connected integration
 					if (!integrations || (hasSupportedIntegration && hasConnectedIntegration)) continue;
 
-					if (remote.supportsIntegration()) {
+					if (remote.hasIntegration()) {
 						hasSupportedIntegration = true;
 						reposWithHostingIntegrations.add(repo.uri.toString());
 						reposWithHostingIntegrations.add(repo.path);
@@ -1218,9 +1265,29 @@ export class GitProviderService implements Disposable {
 		return provider.getAbsoluteUri(pathOrUri, base);
 	}
 
+	@log()
+	async getBestRevisionUri(
+		repoPath: string | Uri | undefined,
+		path: string,
+		rev: string | undefined,
+	): Promise<Uri | undefined> {
+		if (repoPath == null || rev === deletedOrMissing) return undefined;
+
+		const { provider, path: rp } = this.getProvider(repoPath);
+		return provider.getBestRevisionUri(rp, provider.getRelativePath(path, rp), rev);
+	}
+
 	getRelativePath(pathOrUri: string | Uri, base: string | Uri): string {
 		const { provider } = this.getProvider(pathOrUri instanceof Uri ? pathOrUri : base);
 		return provider.getRelativePath(pathOrUri, base);
+	}
+
+	@log()
+	getRevisionUri(repoPath: string | Uri, rev: string, pathOrFile: string | GitFile): Uri {
+		const path = typeof pathOrFile === 'string' ? pathOrFile : pathOrFile?.originalPath ?? pathOrFile?.path ?? '';
+
+		const { provider, path: rp } = this.getProvider(repoPath);
+		return provider.getRevisionUri(rp, rev, provider.getRelativePath(path, rp));
 	}
 
 	@log()
@@ -1232,11 +1299,41 @@ export class GitProviderService implements Disposable {
 	}
 
 	@log()
+	getWorkingUri(repoPath: string | Uri, uri: Uri): Promise<Uri | undefined> {
+		const { provider, path } = this.getProvider(repoPath);
+		return provider.getWorkingUri(path, uri);
+	}
+
+	@log()
+	async reset(
+		repoPath: string | Uri,
+		options: { hard?: boolean } | { soft?: boolean } = {},
+		ref: string,
+	): Promise<void> {
+		const { provider, path } = this.getProvider(repoPath);
+		if (provider.reset == null) throw new ProviderNotSupportedError(provider.descriptor.name);
+
+		return provider.reset(path, ref, options);
+	}
+
+	@log()
 	applyChangesToWorkingFile(uri: GitUri, ref1?: string, ref2?: string): Promise<void> {
 		const { provider } = this.getProvider(uri);
 		if (provider.applyChangesToWorkingFile == null) throw new ProviderNotSupportedError(provider.descriptor.name);
 
 		return provider.applyChangesToWorkingFile(uri, ref1, ref2);
+	}
+
+	@log()
+	checkout(
+		repoPath: string | Uri,
+		ref: string,
+		options?: { createBranch?: string } | { path?: string },
+	): Promise<void> {
+		const { provider, path } = this.getProvider(repoPath);
+		if (provider.checkout == null) throw new ProviderNotSupportedError(provider.descriptor.name);
+
+		return provider.checkout(path, ref, options);
 	}
 
 	@log()
@@ -1248,6 +1345,24 @@ export class GitProviderService implements Disposable {
 	@log({ singleLine: true })
 	resetCaches(...types: CachedGitTypes[]): void {
 		this.container.events.fire('git:cache:reset', { types: types });
+	}
+
+	@log<GitProviderService['excludeIgnoredUris']>({ args: { 1: uris => uris.length } })
+	excludeIgnoredUris(repoPath: string | Uri, uris: Uri[]): Promise<Uri[]> {
+		const { provider, path } = this.getProvider(repoPath);
+		return provider.excludeIgnoredUris(path, uris);
+	}
+
+	@gate()
+	@log()
+	fetch(
+		repoPath: string | Uri,
+		options?: { all?: boolean; branch?: GitBranchReference; prune?: boolean; pull?: boolean; remote?: string },
+	): Promise<void> {
+		const { provider, path } = this.getProvider(repoPath);
+		if (provider.fetch == null) throw new ProviderNotSupportedError(provider.descriptor.name);
+
+		return provider.fetch(path, options);
 	}
 
 	@gate<GitProviderService['fetchAll']>(
@@ -1275,6 +1390,15 @@ export class GitProviderService implements Disposable {
 		);
 	}
 
+	@gate()
+	@log()
+	pull(repoPath: string | Uri, options?: { rebase?: boolean; tags?: boolean }): Promise<void> {
+		const { provider, path } = this.getProvider(repoPath);
+		if (provider.pull == null) throw new ProviderNotSupportedError(provider.descriptor.name);
+
+		return provider.pull(path, options);
+	}
+
 	@gate<GitProviderService['pullAll']>(
 		(repos, opts) => `${repos == null ? '' : repos.map(r => r.id).join(',')}|${JSON.stringify(opts)}`,
 	)
@@ -1298,6 +1422,18 @@ export class GitProviderService implements Disposable {
 			},
 			() => Promise.allSettled(repositories.map(r => r.pull({ progress: false, ...options }))),
 		);
+	}
+
+	@gate()
+	@log()
+	push(
+		repoPath: string | Uri,
+		options?: { reference?: GitReference; force?: boolean; publish?: { remote: string } },
+	): Promise<void> {
+		const { provider, path } = this.getProvider(repoPath);
+		if (provider.push == null) throw new ProviderNotSupportedError(provider.descriptor.name);
+
+		return provider.push(path, options);
 	}
 
 	@gate<GitProviderService['pushAll']>(repos => (repos == null ? '' : repos.map(r => r.id).join(',')))
@@ -1408,6 +1544,136 @@ export class GitProviderService implements Disposable {
 		return provider.getBlameRange(blame, uri, range);
 	}
 
+	@log<GitProviderService['getBranchAheadRange']>({ args: { 0: b => b.name } })
+	async getBranchAheadRange(branch: GitBranch): Promise<string | undefined> {
+		if (branch.upstream?.state.ahead) {
+			return createRevisionRange(branch.upstream?.name, branch.ref, '..');
+		}
+
+		if (branch.upstream == null) {
+			// If we have no upstream branch, try to find a best guess branch to use as the "base"
+			const { values: branches } = await this.branches(branch.repoPath).getBranches({
+				filter: b => weightedDefaultBranches.has(b.name),
+			});
+			if (branches.length > 0) {
+				let weightedBranch: { weight: number; branch: GitBranch } | undefined;
+				for (const branch of branches) {
+					const weight = weightedDefaultBranches.get(branch.name)!;
+					if (weightedBranch == null || weightedBranch.weight < weight) {
+						weightedBranch = { weight: weight, branch: branch };
+					}
+
+					if (weightedBranch.weight === maxDefaultBranchWeight) break;
+				}
+
+				const possibleBranch = weightedBranch!.branch.upstream?.name ?? weightedBranch!.branch.ref;
+				if (possibleBranch !== branch.ref) {
+					return createRevisionRange(possibleBranch, branch.ref, '..');
+				}
+			}
+		}
+
+		return undefined;
+	}
+
+	@log()
+	async getBranchesAndTagsTipsLookup(
+		repoPath: string | Uri | undefined,
+		suppressName?: string,
+	): Promise<
+		(
+			sha: string,
+			options?: { compact?: boolean; icons?: boolean; pills?: boolean | { cssClass: string } },
+		) => string | undefined
+	> {
+		if (repoPath == null) return () => undefined;
+
+		type Tip = {
+			name: string;
+			icon: string;
+			compactName: string | undefined;
+			type: 'branch' | 'tag';
+		};
+
+		const [branchesResult, tagsResult, remotesResult] = await Promise.allSettled([
+			this.branches(repoPath).getBranches(),
+			this.tags(repoPath).getTags(),
+			this.remotes(repoPath).getRemotes(),
+		]);
+
+		const branches = getSettledValue(branchesResult)?.values ?? [];
+		const tags = getSettledValue(tagsResult)?.values ?? [];
+		const remotes = getSettledValue(remotesResult) ?? [];
+
+		const branchesAndTagsBySha = groupByFilterMap(
+			(branches as (GitBranch | GitTag)[]).concat(tags as (GitBranch | GitTag)[]),
+			bt => bt.sha,
+			bt => {
+				let icon;
+				if (bt.refType === 'branch') {
+					if (bt.remote) {
+						const remote = remotes.find(r => r.name === bt.getRemoteName());
+						icon = `$(${getRemoteThemeIconString(remote)}) `;
+					} else {
+						icon = bt.current ? '$(target) ' : '$(git-branch) ';
+					}
+				} else {
+					icon = '$(tag) ';
+				}
+
+				return {
+					name: bt.name,
+					icon: icon,
+					compactName:
+						suppressName && bt.refType === 'branch' && bt.getNameWithoutRemote() === suppressName
+							? bt.getRemoteName()
+							: undefined,
+					type: bt.refType,
+				} satisfies Tip;
+			},
+		);
+
+		return (
+			sha: string,
+			options?: { compact?: boolean; icons?: boolean; pills?: boolean | { cssClass: string } },
+		): string | undefined => {
+			const branchesAndTags = branchesAndTagsBySha.get(sha);
+			if (!branchesAndTags?.length) return undefined;
+
+			const tips =
+				suppressName && options?.compact
+					? branchesAndTags.filter(bt => bt.name !== suppressName)
+					: branchesAndTags;
+
+			function getIconAndLabel(tip: Tip) {
+				const label = (options?.compact ? tip.compactName : undefined) ?? tip.name;
+				return `${options?.icons ? `${tip.icon}${options?.pills ? '&nbsp;' : ' '}` : ''}${label}`;
+			}
+
+			let results;
+			if (options?.compact) {
+				if (!tips.length) return undefined;
+
+				const [bt] = tips;
+				results = [`${getIconAndLabel(bt)}${tips.length > 1 ? `, ${GlyphChars.Ellipsis}` : ''}`];
+			} else {
+				results = tips.map(getIconAndLabel);
+			}
+
+			if (options?.pills) {
+				return results
+					.map(
+						t =>
+							/*html*/ `<span style="color:#ffffff;background-color:#1d76db;border-radius:3px;"${
+								typeof options.pills === 'object' ? ` class="${options.pills.cssClass}"` : ''
+							}>&nbsp;${t}&nbsp;&nbsp;</span>`,
+					)
+					.join('&nbsp;&nbsp;');
+			}
+			return results.join(', ');
+		};
+	}
+
 	@log()
 	/**
 	 * Returns a file diff between two commits
@@ -1448,6 +1714,12 @@ export class GitProviderService implements Disposable {
 	): Promise<GitLineDiff | undefined> {
 		const { provider } = this.getProvider(uri);
 		return provider.getDiffForLine(uri, editorLine, ref1, ref2);
+	}
+
+	@debug()
+	getLastFetchedTimestamp(repoPath: string | Uri): Promise<number | undefined> {
+		const { provider, path } = this.getProvider(repoPath);
+		return provider.getLastFetchedTimestamp(path);
 	}
 
 	getBestRepository(): Repository | undefined;
@@ -1496,19 +1768,6 @@ export class GitProviderService implements Disposable {
 		);
 	}
 
-	@log()
-	async getOpenScmRepositories(): Promise<ScmRepository[]> {
-		const results = await Promise.allSettled([...this._providers.values()].map(p => p.getOpenScmRepositories()));
-		const repositories = flatMap<PromiseFulfilledResult<ScmRepository[]>, ScmRepository>(
-			filter<PromiseSettledResult<ScmRepository[]>, PromiseFulfilledResult<ScmRepository[]>>(
-				results,
-				(r): r is PromiseFulfilledResult<ScmRepository[]> => r.status === 'fulfilled',
-			),
-			r => r.value,
-		);
-		return [...repositories];
-	}
-
 	getOrOpenRepository(
 		uri: Uri,
 		options?: { closeOnOpen?: boolean; detectNested?: boolean; force?: boolean },
@@ -1540,7 +1799,8 @@ export class GitProviderService implements Disposable {
 		}
 
 		const path = getBestPath(uri);
-		let repository: Repository | undefined = this.getRepository(uri);
+		let repository: Repository | undefined;
+		repository = this.getRepository(uri);
 
 		if (repository == null && this._discoveringRepositories?.pending) {
 			await this._discoveringRepositories.promise;
@@ -1552,30 +1812,27 @@ export class GitProviderService implements Disposable {
 		const detectNested = options?.detectNested ?? configuration.get('detectNestedRepositories', uri);
 		if (!detectNested) {
 			if (repository != null) return repository;
-		} else if (!options?.force) {
-			// Check if we've seen this path before
-			if (this._searchedRepositoryPaths.has(path)) {
-				Logger.debug(scope, `Skipped search as path is known; returning ${repository?.toString()}`);
-				return repository;
-			}
-
+		} else if (!options?.force && this._visitedPaths.has(path)) {
+			return repository;
+		} else {
 			const stats = await workspace.fs.stat(uri);
+
+			const bestPath = getBestPath(uri);
+
+			Logger.debug(
+				scope,
+				`Ensuring URI is a folder; repository=${repository?.toString()}, uri=${uri.toString(true)} stats.type=${
+					stats.type
+				}, bestPath=${bestPath}, visitedPaths.has=${this._visitedPaths.has(bestPath)}`,
+			);
+
 			// If the uri isn't a directory, go up one level
 			if ((stats.type & FileType.Directory) !== FileType.Directory) {
-				// Check if we've seen it's parent before, since a file can't be a nested repository
-				if (this._searchedRepositoryPaths.hasParent(path)) {
-					Logger.debug(
-						scope,
-						`Skipped search as path is a file and parent is known; returning ${repository?.toString()}`,
-					);
-					return repository;
-				}
-
 				uri = Uri.joinPath(uri, '..');
-				isDirectory = true;
-			} else {
-				isDirectory = true;
+				if (!options?.force && this._visitedPaths.has(bestPath)) return repository;
 			}
+
+			isDirectory = true;
 		}
 
 		const key = asRepoComparisonKey(uri);
@@ -1585,12 +1842,12 @@ export class GitProviderService implements Disposable {
 				const { provider } = this.getProvider(uri);
 				const repoUri = await provider.findRepositoryUri(uri, isDirectory);
 
-				this._searchedRepositoryPaths.set(path);
+				this._visitedPaths.set(path);
 
 				if (repoUri == null) return undefined;
 
 				let root: Repository | undefined;
-				if (this._repositories.count) {
+				if (this._repositories.count !== 0) {
 					repository = this._repositories.get(repoUri);
 					if (repository != null) return repository;
 
@@ -1645,6 +1902,19 @@ export class GitProviderService implements Disposable {
 		return promise;
 	}
 
+	@gate()
+	@log()
+	async storeRepositoriesLocation(repos: Repository[]): Promise<void> {
+		const scope = getLogScope();
+		for (const repo of repos) {
+			try {
+				await this.container.repositoryIdentity.storeRepositoryLocation(repo);
+			} catch (ex) {
+				Logger.error(ex, scope);
+			}
+		}
+	}
+
 	@log()
 	async getOrOpenRepositoryForEditor(editor?: TextEditor): Promise<Repository | undefined> {
 		editor = editor ?? window.activeTextEditor;
@@ -1671,29 +1941,9 @@ export class GitProviderService implements Disposable {
 		return this._repositories.getClosest(pathOrUri);
 	}
 
-	private _repoServices = new Map<GitProvider, Map<string, GitRepositoryService>>();
-
-	getRepositoryService(repoPath: string | Uri): GitRepositoryService {
-		const { provider, path } = this.getProvider(repoPath);
-
-		let services = this._repoServices.get(provider);
-		if (services == null) {
-			services = new Map<string, GitRepositoryService>();
-			this._repoServices.set(provider, services);
-		}
-
-		let service = services.get(path);
-		if (service == null) {
-			service = new GitRepositoryService(this, provider, path);
-			services.set(path, service);
-		}
-		return service;
-	}
-
-	@log()
 	async getLocalInfoFromRemoteUri(uri: Uri): Promise<LocalInfoFromRemoteUriResult | undefined> {
 		for (const repo of this.openRepositories) {
-			for (const remote of await repo.git.remotes.getRemotes()) {
+			for (const remote of await repo.git.remotes().getRemotes()) {
 				const local = await remote?.provider?.getLocalInfoFromRemoteUri(repo, uri);
 				if (local != null) return local;
 			}
@@ -1703,22 +1953,16 @@ export class GitProviderService implements Disposable {
 	}
 
 	@log({ exit: true })
+	async getUniqueRepositoryId(repoPath: string | Uri): Promise<string | undefined> {
+		return this.commits(repoPath).getInitialCommitSha?.();
+	}
+
+	@log({ exit: true })
 	hasUnsafeRepositories(): boolean {
 		for (const provider of this._providers.values()) {
 			if (provider.hasUnsafeRepositories?.()) return true;
 		}
 		return false;
-	}
-
-	isRepositoryPathOrUri(uri: Uri): boolean;
-	isRepositoryPathOrUri(path: string): boolean;
-	isRepositoryPathOrUri(pathOrUri: string | Uri): boolean;
-	@log({ exit: true })
-	isRepositoryPathOrUri(pathOrUri: string | Uri): boolean {
-		if (typeof pathOrUri === 'string') {
-			return this.getRepository(pathOrUri)?.path === pathOrUri;
-		}
-		return areUrisEqual(pathOrUri, this.getRepository(pathOrUri)?.uri);
 	}
 
 	@log({ exit: true })
@@ -1743,16 +1987,149 @@ export class GitProviderService implements Disposable {
 		return provider.isTracked(uri);
 	}
 
-	@gate()
-	@log()
-	async storeRepositoriesLocation(repos: Repository[]): Promise<void> {
-		const scope = getLogScope();
-		for (const repo of repos) {
-			try {
-				await this.container.repositoryIdentity.storeRepositoryLocation(repo);
-			} catch (ex) {
-				Logger.error(ex, scope);
-			}
+	@log({ args: false })
+	async runGitCommandViaTerminal(
+		repoPath: string | Uri,
+		command: string,
+		args: string[],
+		options?: { execute?: boolean },
+	): Promise<void> {
+		const { provider, path } = this.getProvider(repoPath);
+		return provider.runGitCommandViaTerminal?.(path, command, args, options);
+	}
+
+	private readonly _subProviderProxies = new Map<GitProvider, Map<string, GitSubProviderForRepo<any>>>();
+
+	private getSubProviderProxy<T extends NonNullableGitSubProviderProps>(
+		repoPath: string | Uri,
+		prop: T,
+	): GitSubProviderForRepo<GitProvider[T]>;
+	private getSubProviderProxy<T extends GitSubProviderProps>(
+		repoPath: string | Uri,
+		prop: T,
+	): GitSubProviderForRepo<NonNullable<GitProvider[T]>> | undefined;
+	private getSubProviderProxy<T extends GitSubProviderProps>(
+		repoPath: string | Uri,
+		prop: T,
+	): GitSubProviderForRepo<NonNullable<GitProvider[T]>> | undefined {
+		const { provider, path } = this.getProvider(repoPath);
+
+		let proxies = this._subProviderProxies.get(provider);
+		if (proxies == null) {
+			proxies = new Map();
+			this._subProviderProxies.set(provider, proxies);
 		}
+
+		const key = `${prop}|${path}`;
+		let proxy = proxies.get(key);
+		if (proxy == null) {
+			const subProvider = provider[prop];
+			if (subProvider == null) return undefined;
+
+			proxy = createSubProviderProxyForRepo(subProvider, path);
+			proxies.set(key, proxy);
+		}
+
+		return proxy;
+	}
+
+	@log({ singleLine: true })
+	branches(repoPath: string | Uri): GitSubProviderForRepo<GitBranchesSubProvider> {
+		return this.getSubProviderProxy(repoPath, 'branches');
+	}
+
+	@log({ singleLine: true })
+	commits(repoPath: string | Uri): GitSubProviderForRepo<GitCommitsSubProvider> {
+		return this.getSubProviderProxy(repoPath, 'commits');
+	}
+
+	@log({ singleLine: true })
+	config(repoPath: string | Uri): GitSubProviderForRepo<GitConfigSubProvider> {
+		return this.getSubProviderProxy(repoPath, 'config');
+	}
+
+	@log({ singleLine: true })
+	contributors(repoPath: string | Uri): GitSubProviderForRepo<GitContributorsSubProvider> {
+		return this.getSubProviderProxy(repoPath, 'contributors');
+	}
+
+	@log({ singleLine: true })
+	diff(repoPath: string | Uri): GitSubProviderForRepo<GitDiffSubProvider> {
+		return this.getSubProviderProxy(repoPath, 'diff');
+	}
+
+	@log({ singleLine: true })
+	graph(repoPath: string | Uri): GitSubProviderForRepo<GitGraphSubProvider> {
+		return this.getSubProviderProxy(repoPath, 'graph');
+	}
+
+	@log({ singleLine: true })
+	patch(repoPath: string | Uri): GitSubProviderForRepo<GitPatchSubProvider> | undefined {
+		return this.getSubProviderProxy(repoPath, 'patch');
+	}
+
+	@log({ singleLine: true })
+	refs(repoPath: string | Uri): GitSubProviderForRepo<GitRefsSubProvider> {
+		return this.getSubProviderProxy(repoPath, 'refs');
+	}
+
+	@log({ singleLine: true })
+	remotes(repoPath: string | Uri): GitSubProviderForRepo<GitRemotesSubProvider> {
+		return this.getSubProviderProxy(repoPath, 'remotes');
+	}
+
+	@log({ singleLine: true })
+	revision(repoPath: string | Uri): GitSubProviderForRepo<GitRevisionSubProvider> {
+		return this.getSubProviderProxy(repoPath, 'revision');
+	}
+
+	@log({ singleLine: true })
+	staging(repoPath: string | Uri): GitSubProviderForRepo<GitStagingSubProvider> | undefined {
+		return this.getSubProviderProxy(repoPath, 'staging');
+	}
+
+	@log({ singleLine: true })
+	stash(repoPath: string | Uri): GitSubProviderForRepo<GitStashSubProvider> | undefined {
+		return this.getSubProviderProxy(repoPath, 'stash');
+	}
+
+	@log({ singleLine: true })
+	status(repoPath: string | Uri): GitSubProviderForRepo<GitStatusSubProvider> {
+		return this.getSubProviderProxy(repoPath, 'status');
+	}
+
+	@log({ singleLine: true })
+	tags(repoPath: string | Uri): GitSubProviderForRepo<GitTagsSubProvider> {
+		return this.getSubProviderProxy(repoPath, 'tags');
+	}
+
+	@log({ singleLine: true })
+	worktrees(repoPath: string | Uri): GitSubProviderForRepo<GitWorktreesSubProvider> | undefined {
+		return this.getSubProviderProxy(repoPath, 'worktrees');
+	}
+
+	@log()
+	async getOpenScmRepositories(): Promise<ScmRepository[]> {
+		const results = await Promise.allSettled([...this._providers.values()].map(p => p.getOpenScmRepositories()));
+		const repositories = flatMap<PromiseFulfilledResult<ScmRepository[]>, ScmRepository>(
+			filter<PromiseSettledResult<ScmRepository[]>, PromiseFulfilledResult<ScmRepository[]>>(
+				results,
+				(r): r is PromiseFulfilledResult<ScmRepository[]> => r.status === 'fulfilled',
+			),
+			r => r.value,
+		);
+		return [...repositories];
+	}
+
+	@log()
+	getScmRepository(repoPath: string | Uri): Promise<ScmRepository | undefined> {
+		const { provider, path } = this.getProvider(repoPath);
+		return provider.getScmRepository(path);
+	}
+
+	@log()
+	getOrOpenScmRepository(repoPath: string | Uri): Promise<ScmRepository | undefined> {
+		const { provider, path } = this.getProvider(repoPath);
+		return provider.getOrOpenScmRepository(path);
 	}
 }

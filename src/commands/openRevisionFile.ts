@@ -38,12 +38,15 @@ export class OpenRevisionFileCommand extends ActiveEditorCommand {
 		try {
 			if (args.revisionUri == null) {
 				if (gitUri?.sha) {
-					const svc = this.container.git.getRepositoryService(gitUri.repoPath!);
-					const commit = await svc.commits.getCommit(gitUri.sha);
+					const commit = await this.container.git.commits(gitUri.repoPath!).getCommit(gitUri.sha);
 
 					args.revisionUri =
 						commit?.file?.status === 'D'
-							? svc.getRevisionUri((await commit.getPreviousSha()) ?? deletedOrMissing, commit.file)
+							? this.container.git.getRevisionUri(
+									commit.repoPath,
+									(await commit.getPreviousSha()) ?? deletedOrMissing,
+									commit.file,
+							  )
 							: this.container.git.getRevisionUriFromGitUri(gitUri);
 				} else {
 					args.revisionUri = this.container.git.getRevisionUriFromGitUri(gitUri);
