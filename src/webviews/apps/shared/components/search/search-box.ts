@@ -153,7 +153,7 @@ export class GlSearchBox extends GlElement {
 	resultsLoaded = false;
 
 	get hasResults(): boolean {
-		return this.total > 1;
+		return this.total >= 1;
 	}
 
 	@query('gl-search-input')
