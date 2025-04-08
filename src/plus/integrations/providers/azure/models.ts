@@ -472,12 +472,7 @@ function fromAzureUserToMember(user: AzureUser, _type: 'issue' | 'pullRequest'):
 	};
 }
 
-export function fromAzurePullRequest(
-	pr: AzurePullRequest,
-	provider: Provider,
-	orgName: string,
-	projectName: string,
-): PullRequest {
+export function fromAzurePullRequest(pr: AzurePullRequest, provider: Provider, orgName: string): PullRequest {
 	const url = new URL(pr.url);
 	return new PullRequest(
 		provider,
@@ -531,7 +526,7 @@ export function fromAzurePullRequest(
 		undefined,
 		{
 			id: pr.repository?.project?.id,
-			name: projectName,
+			name: pr.repository.project.name,
 			resourceId: '', // TODO: This is a workaround until we can get the org id here.
 			resourceName: orgName,
 		},
