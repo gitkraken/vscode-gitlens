@@ -1413,12 +1413,13 @@ web-graph {
 	}
 
 	&__panes {
+		height: 100%;
 	}
 
 	&__graph-pane {
 		display: grid;
 		grid-template-columns: min-content 1fr;
-		grid-template-rows: 1fr;
+		grid-template-rows: auto 1fr;
 		grid-template-areas: 'minimap minimap' 'sidebar graph';
 		height: 100%;
 		overflow: hidden;

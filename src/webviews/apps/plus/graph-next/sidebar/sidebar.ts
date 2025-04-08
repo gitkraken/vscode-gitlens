@@ -34,6 +34,7 @@ type Counts = Record<IconTypes, number | undefined>;
 export class GlGraphSideBar extends LitElement {
 	static override styles = css`
 		.sidebar {
+			box-sizing: border-box;
 			display: flex;
 			flex-direction: column;
 			align-items: center;
@@ -43,7 +44,7 @@ export class GlGraphSideBar extends LitElement {
 			width: 2.6rem;
 			font-size: 9px;
 			font-weight: 600;
-			height: 100vh;
+			height: 100%;
 			padding: 3rem 0;
 			z-index: 1040;
 		}

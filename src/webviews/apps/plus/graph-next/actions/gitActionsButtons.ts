@@ -11,6 +11,12 @@ import '../../../shared/components/overlays/tooltip';
 
 @customElement('gl-git-actions-buttons')
 export class GitActionsButtons extends LitElement {
+	static override styles = css`
+		:host {
+			display: contents;
+		}
+	`;
+
 	@property({ type: Object })
 	branchState?: BranchState;
 
