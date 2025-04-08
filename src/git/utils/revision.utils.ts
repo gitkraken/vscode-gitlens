@@ -5,41 +5,47 @@ const rangeRegex = /^([\w\-/]+(?:\.[\w\-/]+)*)?(\.\.\.?)([\w\-/]+(?:\.[\w\-/]+)*
 const qualifiedRangeRegex = /^([\w\-/]+(?:\.[\w\-/]+)*)(\.\.\.?)([\w\-/]+(?:\.[\w\-/]+)*)$/;
 const qualifiedDoubleDotRange = /^([\w\-/]+(?:\.[\w\-/]+)*)(\.\.)([\w\-/]+(?:\.[\w\-/]+)*)$/;
 const qualifiedTripleDotRange = /^([\w\-/]+(?:\.[\w\-/]+)*)(\.\.\.)([\w\-/]+(?:\.[\w\-/]+)*)$/;
-const shaLikeRegex = /(^[0-9a-f]{40}([\^@~:]\S*)?$)|(^[0]{40}(:|-)$)/;
+const shaWithOptionalRevisionSuffixRegex = /(^[0-9a-f]{40}([\^@~:]\S*)?$)|(^[0]{40}(:|-)$)/;
 const shaRegex = /(^[0-9a-f]{40}$)|(^[0]{40}(:|-)$)/;
+const shaShortRegex = /(^[0-9a-f]{7,40}$)|(^[0]{40}(:|-)$)/;
 const shaParentRegex = /(^[0-9a-f]{40})\^[0-3]?$/;
 const shaShortenRegex = /^(.*?)([\^@~:].*)?$/;
 const uncommittedRegex = /^[0]{40}(?:[\^@~:]\S*)?:?$/;
 const uncommittedStagedRegex = /^[0]{40}([\^@~]\S*)?:$/;
 
-function isMatch(regex: RegExp, ref: string | undefined) {
-	return !ref ? false : regex.test(ref);
+function isMatch(regex: RegExp, rev: string | undefined) {
+	return !rev ? false : regex.test(rev);
 }
 
-export function isSha(ref: string): boolean {
-	return isMatch(shaRegex, ref);
+/** Checks if the rev looks like a SHA-1 hash
+ * @param allowShort If true, allows short SHAs (7-40 characters)
+ */
+export function isSha(rev: string, allowShort: boolean = false): boolean {
+	return isMatch(allowShort ? shaShortRegex : shaRegex, rev);
 }
 
-export function isShaLike(ref: string): boolean {
-	return isMatch(shaLikeRegex, ref);
+/** Checks if the rev looks like a SHA-1 hash with an optional revision navigation suffixes (like ^, @, ~, or :) */
+export function isShaWithOptionalRevisionSuffix(rev: string): boolean {
+	return isMatch(shaWithOptionalRevisionSuffixRegex, rev);
 }
 
-export function isShaParent(ref: string): boolean {
-	return isMatch(shaParentRegex, ref);
+/** Checks if the rev looks like a SHA-1 hash with a ^ parent suffix */
+export function isShaWithParentSuffix(rev: string): boolean {
+	return isMatch(shaParentRegex, rev);
 }
 
-export function isUncommitted(ref: string | undefined, exact: boolean = false): boolean {
-	return ref === uncommitted || ref === uncommittedStaged || (!exact && isMatch(uncommittedRegex, ref));
+export function isUncommitted(rev: string | undefined, exact: boolean = false): boolean {
+	return rev === uncommitted || rev === uncommittedStaged || (!exact && isMatch(uncommittedRegex, rev));
 }
 
-export function isUncommittedParent(
-	ref: string | undefined,
-): ref is '0000000000000000000000000000000000000000^' | '0000000000000000000000000000000000000000:^' {
-	return ref === `${uncommitted}^` || ref === `${uncommittedStaged}^`;
+export function isUncommittedStaged(rev: string | undefined, exact: boolean = false): boolean {
+	return rev === uncommittedStaged || (!exact && isMatch(uncommittedStagedRegex, rev));
 }
 
-export function isUncommittedStaged(ref: string | undefined, exact: boolean = false): boolean {
-	return ref === uncommittedStaged || (!exact && isMatch(uncommittedStagedRegex, ref));
+export function isUncommittedWithParentSuffix(
+	rev: string | undefined,
+): rev is '0000000000000000000000000000000000000000^' | '0000000000000000000000000000000000000000:^' {
+	return rev === `${uncommitted}^` || rev === `${uncommittedStaged}^`;
 }
 
 let abbreviatedShaLength = 7;
@@ -52,25 +58,25 @@ export function setAbbreviatedShaLength(length: number): void {
 }
 
 export function shortenRevision(
-	ref: string | undefined,
+	rev: string | undefined,
 	options?: {
 		strings?: { uncommitted?: string; uncommittedStaged?: string; working?: string };
 	},
 ): string {
-	if (ref === deletedOrMissing) return '(deleted)';
-	if (!ref) return options?.strings?.working ?? '';
-	if (isUncommitted(ref)) {
-		return isUncommittedStaged(ref)
+	if (rev === deletedOrMissing) return '(deleted)';
+	if (!rev) return options?.strings?.working ?? '';
+	if (isUncommitted(rev)) {
+		return isUncommittedStaged(rev)
 			? options?.strings?.uncommittedStaged ?? 'Index'
 			: options?.strings?.uncommitted ?? 'Working Tree';
 	}
-	if (isRevisionRange(ref) || !isShaLike(ref)) return ref;
+	if (isRevisionRange(rev) || !isShaWithOptionalRevisionSuffix(rev)) return rev;
 
 	// Don't allow shas to be shortened to less than 5 characters
 	const len = Math.max(5, getAbbreviatedShaLength());
 
 	// If we have a suffix, append it
-	const match = shaShortenRegex.exec(ref);
+	const match = shaShortenRegex.exec(rev);
 	if (match != null) {
 		const [, rev, suffix] = match;
 
@@ -79,7 +85,7 @@ export function shortenRevision(
 		}
 	}
 
-	return ref.substring(0, len);
+	return rev.substring(0, len);
 }
 
 export function createRevisionRange(
@@ -91,9 +97,9 @@ export function createRevisionRange(
 }
 
 export function getRevisionRangeParts(
-	ref: GitRevisionRange,
+	revRange: GitRevisionRange,
 ): { left: string | undefined; right: string | undefined; notation: GitRevisionRangeNotation } | undefined {
-	const match = rangeRegex.exec(ref);
+	const match = rangeRegex.exec(revRange);
 	if (match == null) return undefined;
 
 	const [, left, notation, right] = match;
@@ -105,19 +111,19 @@ export function getRevisionRangeParts(
 }
 
 export function isRevisionRange(
-	ref: string | undefined,
+	rev: string | undefined,
 	rangeType: 'any' | 'qualified' | 'qualified-double-dot' | 'qualified-triple-dot' = 'any',
-): ref is GitRevisionRange {
-	if (ref == null) return false;
+): rev is GitRevisionRange {
+	if (rev == null) return false;
 
 	switch (rangeType) {
 		case 'qualified':
-			return qualifiedRangeRegex.test(ref);
+			return qualifiedRangeRegex.test(rev);
 		case 'qualified-double-dot':
-			return qualifiedDoubleDotRange.test(ref);
+			return qualifiedDoubleDotRange.test(rev);
 		case 'qualified-triple-dot':
-			return qualifiedTripleDotRange.test(ref);
+			return qualifiedTripleDotRange.test(rev);
 		default:
-			return rangeRegex.test(ref);
+			return rangeRegex.test(rev);
 	}
 }

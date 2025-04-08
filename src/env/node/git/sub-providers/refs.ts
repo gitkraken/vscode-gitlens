@@ -8,7 +8,12 @@ import type { GitReference } from '../../../../git/models/reference';
 import { deletedOrMissing } from '../../../../git/models/revision';
 import type { GitTag } from '../../../../git/models/tag';
 import { createReference } from '../../../../git/utils/reference.utils';
-import { isSha, isShaLike, isUncommitted, isUncommittedParent } from '../../../../git/utils/revision.utils';
+import {
+	isSha,
+	isShaWithOptionalRevisionSuffix,
+	isUncommitted,
+	isUncommittedWithParentSuffix,
+} from '../../../../git/utils/revision.utils';
 import { TimedCancellationSource } from '../../../../system/-webview/cancellation';
 import { log } from '../../../../system/decorators/log';
 import { Logger } from '../../../../system/logger';
@@ -72,7 +77,7 @@ export class RefsGitSubProvider implements GitRefsSubProvider {
 
 		if (!(await this.isValidReference(repoPath, ref))) return undefined;
 
-		if (ref !== 'HEAD' && !isShaLike(ref)) {
+		if (ref !== 'HEAD' && !isShaWithOptionalRevisionSuffix(ref)) {
 			const branch = await this.provider.branches.getBranch(repoPath, ref);
 			if (branch != null) {
 				return createReference(branch.ref, repoPath, {
@@ -150,7 +155,7 @@ export class RefsGitSubProvider implements GitRefsSubProvider {
 		pathOrUri?: string | Uri,
 		options?: { force?: boolean; timeout?: number },
 	): Promise<string> {
-		if (pathOrUri != null && isUncommittedParent(ref)) {
+		if (pathOrUri != null && isUncommittedWithParentSuffix(ref)) {
 			ref = 'HEAD';
 		}
 
@@ -165,7 +170,7 @@ export class RefsGitSubProvider implements GitRefsSubProvider {
 
 		if (pathOrUri == null) {
 			// If it doesn't look like a sha at all (e.g. branch name) or is a stash ref (^3) don't try to resolve it
-			if ((!options?.force && !isShaLike(ref)) || ref.endsWith('^3')) return ref;
+			if ((!options?.force && !isShaWithOptionalRevisionSuffix(ref)) || ref.endsWith('^3')) return ref;
 
 			return (await this.validateReference(repoPath, ref)) ?? ref;
 		}

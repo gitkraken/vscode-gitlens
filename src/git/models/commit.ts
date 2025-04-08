@@ -16,7 +16,7 @@ import { GitUri } from '../gitUri';
 import type { RemoteProvider } from '../remotes/remoteProvider';
 import { mapFilesWithStats } from '../utils/-webview/fileChange.utils';
 import { getChangedFilesCount } from '../utils/commit.utils';
-import { isSha, isUncommitted, isUncommittedParent, isUncommittedStaged } from '../utils/revision.utils';
+import { isSha, isUncommitted, isUncommittedStaged, isUncommittedWithParentSuffix } from '../utils/revision.utils';
 import type { GitDiffFileStats } from './diff';
 import type { GitFile } from './file';
 import { GitFileChange } from './fileChange';
@@ -195,7 +195,7 @@ export class GitCommit implements GitRevisionReference {
 			this._resolvedPreviousSha ??
 			(this.file != null ? this.file.previousSha : this.parents[0]) ??
 			`${this.sha}^`;
-		return isUncommittedParent(previousSha) ? 'HEAD' : previousSha;
+		return isUncommittedWithParentSuffix(previousSha) ? 'HEAD' : previousSha;
 	}
 
 	private _etagFileSystem: number | undefined;

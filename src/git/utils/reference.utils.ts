@@ -8,7 +8,7 @@ import type {
 	GitTagReference,
 } from '../models/reference';
 import { getBranchNameWithoutRemote, getRemoteNameFromBranchName } from './branch.utils';
-import { isRevisionRange, isShaParent, shortenRevision } from './revision.utils';
+import { isRevisionRange, isShaWithParentSuffix, shortenRevision } from './revision.utils';
 
 interface GitBranchReferenceOptions {
 	refType: 'branch';
@@ -170,7 +170,7 @@ export function getReferenceLabel(
 					}
 
 					let prefix;
-					if (options.expand && options.label && isShaParent(ref.ref)) {
+					if (options.expand && options.label && isShaWithParentSuffix(ref.ref)) {
 						refName = ref.name.endsWith('^') ? ref.name.substring(0, ref.name.length - 1) : ref.name;
 						if (options?.quoted) {
 							refName = `'${refName}'`;

@@ -10,9 +10,9 @@ import { createReference } from '../../../../../git/utils/reference.utils';
 import {
 	createRevisionRange,
 	isSha,
-	isShaLike,
+	isShaWithOptionalRevisionSuffix,
 	isUncommitted,
-	isUncommittedParent,
+	isUncommittedWithParentSuffix,
 } from '../../../../../git/utils/revision.utils';
 import { log } from '../../../../../system/decorators/log';
 import { Logger } from '../../../../../system/logger';
@@ -70,7 +70,7 @@ export class RefsGitSubProvider implements GitRefsSubProvider {
 
 		if (!(await this.isValidReference(repoPath, ref))) return undefined;
 
-		if (ref !== 'HEAD' && !isShaLike(ref)) {
+		if (ref !== 'HEAD' && !isShaWithOptionalRevisionSuffix(ref)) {
 			const branch = await this.provider.branches.getBranch(repoPath, ref);
 			if (branch != null) {
 				return createReference(branch.ref, repoPath, {
@@ -128,7 +128,7 @@ export class RefsGitSubProvider implements GitRefsSubProvider {
 		pathOrUri?: string | Uri,
 		_options?: { force?: boolean; timeout?: number },
 	): Promise<string> {
-		if (pathOrUri != null && isUncommittedParent(ref)) {
+		if (pathOrUri != null && isUncommittedWithParentSuffix(ref)) {
 			ref = 'HEAD';
 		}
 
@@ -144,7 +144,7 @@ export class RefsGitSubProvider implements GitRefsSubProvider {
 		let relativePath;
 		if (pathOrUri != null) {
 			relativePath = this.provider.getRelativePath(pathOrUri, repoPath);
-		} else if (!isShaLike(ref) || ref.endsWith('^3')) {
+		} else if (!isShaWithOptionalRevisionSuffix(ref) || ref.endsWith('^3')) {
 			// If it doesn't look like a sha at all (e.g. branch name) or is a stash ref (^3) don't try to resolve it
 			return ref;
 		}
