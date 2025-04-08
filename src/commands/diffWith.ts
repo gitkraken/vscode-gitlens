@@ -5,7 +5,7 @@ import type { Container } from '../container';
 import type { GitCommit } from '../git/models/commit';
 import { isCommit } from '../git/models/commit';
 import { deletedOrMissing } from '../git/models/revision';
-import { isShaLike, isUncommitted, shortenRevision } from '../git/utils/revision.utils';
+import { isShaWithOptionalRevisionSuffix, isUncommitted, shortenRevision } from '../git/utils/revision.utils';
 import { showGenericErrorMessage } from '../messages';
 import { command } from '../system/-webview/command';
 import { openDiffEditor } from '../system/-webview/vscode/editors';
@@ -100,11 +100,11 @@ export class DiffWithCommand extends GlCommandBase {
 			[args.lhs.sha, args.rhs.sha] = await Promise.all([
 				await this.container.git.refs(args.repoPath).resolveReference(args.lhs.sha, args.lhs.uri, {
 					// If the ref looks like a sha, don't wait too long, since it should work
-					timeout: isShaLike(args.lhs.sha) ? 100 : undefined,
+					timeout: isShaWithOptionalRevisionSuffix(args.lhs.sha) ? 100 : undefined,
 				}),
 				await this.container.git.refs(args.repoPath).resolveReference(args.rhs.sha, args.rhs.uri, {
 					// If the ref looks like a sha, don't wait too long, since it should work
-					timeout: isShaLike(args.rhs.sha) ? 100 : undefined,
+					timeout: isShaWithOptionalRevisionSuffix(args.rhs.sha) ? 100 : undefined,
 				}),
 			]);
 
