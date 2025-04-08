@@ -329,8 +329,8 @@ export class GitHubGitProvider implements GitProvider, Disposable {
 	}
 
 	@log()
-	async getBestRevisionUri(repoPath: string, path: string, ref: string | undefined): Promise<Uri | undefined> {
-		return ref ? this.createProviderUri(repoPath, ref, path) : this.createVirtualUri(repoPath, ref, path);
+	async getBestRevisionUri(repoPath: string, path: string, rev: string | undefined): Promise<Uri | undefined> {
+		return rev ? this.createProviderUri(repoPath, rev, path) : this.createVirtualUri(repoPath, rev, path);
 	}
 
 	getRelativePath(pathOrUri: string | Uri, base: string | Uri): string {
@@ -373,9 +373,9 @@ export class GitHubGitProvider implements GitProvider, Disposable {
 		return relativePath;
 	}
 
-	getRevisionUri(repoPath: string, path: string, ref: string): Uri {
-		const uri = this.createProviderUri(repoPath, ref, path);
-		return ref === deletedOrMissing ? uri.with({ query: '~' }) : uri;
+	getRevisionUri(repoPath: string, rev: string, path: string): Uri {
+		const uri = this.createProviderUri(repoPath, rev, path);
+		return rev === deletedOrMissing ? uri.with({ query: '~' }) : uri;
 	}
 
 	@log()

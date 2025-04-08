@@ -70,7 +70,7 @@ export class OpenFileAtRevisionFromCommand extends ActiveEditorCommand {
 							keys: ['right', 'alt+right', 'ctrl+right'],
 							onDidPressKey: async (_key, item) => {
 								await openFileAtRevision(
-									this.container.git.getRevisionUri(item.ref, gitUri.fsPath, gitUri.repoPath!),
+									this.container.git.getRevisionUri(gitUri.repoPath!, item.ref, gitUri.fsPath),
 									{
 										annotationType: args.annotationType,
 										line: args.line,
@@ -89,7 +89,7 @@ export class OpenFileAtRevisionFromCommand extends ActiveEditorCommand {
 		}
 
 		await openFileAtRevision(
-			this.container.git.getRevisionUri(args.reference.ref, gitUri.fsPath, gitUri.repoPath),
+			this.container.git.getRevisionUri(gitUri.repoPath, args.reference.ref, gitUri.fsPath),
 			{
 				annotationType: args.annotationType,
 				line: args.line,

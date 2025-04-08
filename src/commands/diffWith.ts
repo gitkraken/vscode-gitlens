@@ -181,8 +181,8 @@ export class DiffWithCommand extends GlCommandBase {
 			}
 
 			await openDiffEditor(
-				lhs ?? this.container.git.getRevisionUri(deletedOrMissing, args.lhs.uri.fsPath, args.repoPath),
-				rhs ?? this.container.git.getRevisionUri(deletedOrMissing, args.rhs.uri.fsPath, args.repoPath),
+				lhs ?? this.container.git.getRevisionUri(args.repoPath, deletedOrMissing, args.lhs.uri.fsPath),
+				rhs ?? this.container.git.getRevisionUri(args.repoPath, deletedOrMissing, args.rhs.uri.fsPath),
 				title,
 				args.showOptions,
 			);

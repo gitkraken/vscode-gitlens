@@ -532,9 +532,9 @@ export async function openFileAtRevision(
 		}
 
 		uri = Container.instance.git.getRevisionUri(
+			commit.repoPath,
 			file.status === 'D' ? (await commit.getPreviousSha()) ?? deletedOrMissing : commit.sha,
 			file,
-			commit.repoPath,
 		);
 	}
 
@@ -660,7 +660,7 @@ export async function openFilesAtRevision(
 
 	openTextEditors(
 		files.map(file =>
-			Container.instance.git.getRevisionUri(file.status === 'D' ? refs.lhs : refs.rhs, file, refs.repoPath),
+			Container.instance.git.getRevisionUri(refs.repoPath, file.status === 'D' ? refs.lhs : refs.rhs, file),
 		),
 		options,
 	);

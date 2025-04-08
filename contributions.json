@@ -3196,6 +3196,10 @@
 				]
 			}
 		},
+		"gitlens.openRevisionFromRemote": {
+			"label": "Open File at Revision from Remote",
+			"commandPalette": "gitlens:enabled"
+		},
 		"gitlens.openWorkingFile": {
 			"label": "Open File",
 			"icon": "$(go-to-file)",

@@ -61,7 +61,7 @@ export class BrowseRepoAtRevisionCommand extends ActiveEditorCommand {
 			const sha = args?.before
 				? await this.container.git.refs(gitUri.repoPath!).resolveReference(`${gitUri.sha}^`)
 				: gitUri.sha;
-			uri = this.container.git.getRevisionUri(sha, gitUri.repoPath!, gitUri.repoPath!);
+			uri = this.container.git.getRevisionUri(gitUri.repoPath!, sha, gitUri.repoPath!);
 			gitUri = GitUri.fromRevisionUri(uri);
 
 			openWorkspace(uri, {

@@ -70,7 +70,7 @@ export class MergeConflictIncomingChangesNode extends ViewNode<
 			return createCoreCommand(
 				'vscode.open',
 				'Open Revision',
-				this.view.container.git.getRevisionUri(this.status.HEAD.ref, this.file.path, this.status.repoPath),
+				this.view.container.git.getRevisionUri(this.status.repoPath, this.status.HEAD.ref, this.file.path),
 			);
 		}
 

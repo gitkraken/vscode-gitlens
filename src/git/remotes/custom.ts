@@ -6,7 +6,7 @@ import type { CreatePullRequestRemoteResource } from '../models/remoteResource';
 import type { Repository } from '../models/repository';
 import type { GkProviderId } from '../models/repositoryIdentities';
 import type { GitRevisionRangeNotation } from '../models/revision';
-import type { RemoteProviderId } from './remoteProvider';
+import type { LocalInfoFromRemoteUriResult, RemoteProviderId } from './remoteProvider';
 import { RemoteProvider } from './remoteProvider';
 
 export class CustomRemote extends RemoteProvider {
@@ -37,10 +37,7 @@ export class CustomRemote extends RemoteProvider {
 		return [];
 	}
 
-	getLocalInfoFromRemoteUri(
-		_repository: Repository,
-		_uri: Uri,
-	): Promise<{ uri: Uri; startLine?: number; endLine?: number } | undefined> {
+	getLocalInfoFromRemoteUri(_repo: Repository, _uri: Uri): Promise<LocalInfoFromRemoteUriResult | undefined> {
 		return Promise.resolve(undefined);
 	}
 

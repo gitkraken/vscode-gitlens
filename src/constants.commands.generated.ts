@@ -705,6 +705,7 @@ export type ContributedPaletteCommands =
 	| 'gitlens.openPatch'
 	| 'gitlens.openRepoOnRemote'
 	| 'gitlens.openRevisionFile'
+	| 'gitlens.openRevisionFromRemote'
 	| 'gitlens.openWorkingFile'
 	| 'gitlens.pastePatchFromClipboard'
 	| 'gitlens.plus.cloudIntegrations.manage'

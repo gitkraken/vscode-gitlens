@@ -32,7 +32,7 @@ export async function showRevisionFilesPicker(
 	const ref = revision.ref;
 
 	function getRevisionUri(item: RevisionQuickPickItem) {
-		return container.git.getRevisionUri(ref, `${repoPath}/${item.item.path}`, repoPath);
+		return container.git.getRevisionUri(repoPath, ref, `${repoPath}/${item.item.path}`);
 	}
 
 	try {

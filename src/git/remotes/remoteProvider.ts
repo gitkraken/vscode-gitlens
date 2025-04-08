@@ -27,6 +27,16 @@ export type RemoteProviderId =
 	| 'gitlab'
 	| 'google-source';
 
+export interface LocalInfoFromRemoteUriResult {
+	uri: Uri;
+
+	repoPath: string;
+	rev: string | undefined;
+
+	startLine?: number;
+	endLine?: number;
+}
+
 export interface RemoteProviderSupportedFeatures {
 	createPullRequestWithDetails?: boolean;
 }
@@ -115,11 +125,7 @@ export abstract class RemoteProvider<T extends ResourceDescriptor = ResourceDesc
 		await env.clipboard.writeText(urls.join('\n'));
 	}
 
-	abstract getLocalInfoFromRemoteUri(
-		repository: Repository,
-		uri: Uri,
-		options?: { validate?: boolean },
-	): Promise<{ uri: Uri; startLine?: number; endLine?: number } | undefined>;
+	abstract getLocalInfoFromRemoteUri(repo: Repository, uri: Uri): Promise<LocalInfoFromRemoteUriResult | undefined>;
 
 	async open(resource: RemoteResource | RemoteResource[]): Promise<boolean | undefined> {
 		const urls = await this.getUrlsFromResources(resource);

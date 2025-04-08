@@ -10,7 +10,7 @@ import type { CreatePullRequestRemoteResource } from '../models/remoteResource';
 import type { Repository } from '../models/repository';
 import type { GkProviderId } from '../models/repositoryIdentities';
 import type { GitRevisionRangeNotation } from '../models/revision';
-import type { RemoteProviderId } from './remoteProvider';
+import type { LocalInfoFromRemoteUriResult, RemoteProviderId } from './remoteProvider';
 import { RemoteProvider } from './remoteProvider';
 
 const gitRegex = /\/_git\/?/i;
@@ -150,13 +150,9 @@ export class AzureDevOpsRemote extends RemoteProvider {
 		return this._displayPath;
 	}
 
-	async getLocalInfoFromRemoteUri(
-		repository: Repository,
-		uri: Uri,
-		options?: { validate?: boolean },
-	): Promise<{ uri: Uri; startLine?: number; endLine?: number } | undefined> {
-		if (uri.authority !== this.domain) return Promise.resolve(undefined);
-		// if ((options?.validate ?? true) && !uri.path.startsWith(`/${this.path}/`)) return undefined;
+	async getLocalInfoFromRemoteUri(repo: Repository, uri: Uri): Promise<LocalInfoFromRemoteUriResult | undefined> {
+		if (uri.authority !== this.domain) return undefined;
+		// if (!uri.path.startsWith(`/${this.path}/`)) return undefined;
 
 		let startLine;
 		let endLine;
@@ -174,14 +170,14 @@ export class AzureDevOpsRemote extends RemoteProvider {
 		}
 
 		const match = fileRegex.exec(uri.query);
-		if (match == null) return Promise.resolve(undefined);
+		if (match == null) return undefined;
 
 		const [, path] = match;
 
-		const absoluteUri = repository.toAbsoluteUri(path, { validate: options?.validate });
-		return Promise.resolve(
-			absoluteUri != null ? { uri: absoluteUri, startLine: startLine, endLine: endLine } : undefined,
-		);
+		const absoluteUri = await repo.getAbsoluteOrBestRevisionUri(path, undefined);
+		return absoluteUri != null
+			? { uri: absoluteUri, repoPath: repo.path, rev: undefined, startLine: startLine, endLine: endLine }
+			: undefined;
 	}
 
 	protected getUrlForBranches(): string {

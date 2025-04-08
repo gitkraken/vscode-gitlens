@@ -12,6 +12,7 @@ import { asRepoComparisonKey } from '../../repositories';
 import { executeActionCommand } from '../../system/-webview/command';
 import { configuration } from '../../system/-webview/configuration';
 import { UriSet } from '../../system/-webview/uriMap';
+import { exists } from '../../system/-webview/vscode/uris';
 import { getScopedCounter } from '../../system/counter';
 import { gate } from '../../system/decorators/-webview/gate';
 import { memoize } from '../../system/decorators/-webview/memoize';
@@ -30,7 +31,12 @@ import { getReferenceNameWithoutRemote, isBranchReference } from '../utils/refer
 import type { GitBranch } from './branch';
 import type { GitBranchReference, GitReference } from './reference';
 
-type GitProviderRepoKeys = keyof GitRepositoryProvider | 'supports';
+type GitProviderRepoKeys =
+	| keyof GitRepositoryProvider
+	| 'getBestRevisionUri'
+	| 'getRevisionUri'
+	| 'getWorkingUri'
+	| 'supports';
 
 export type GitProviderServiceForRepo = Pick<
 	{
@@ -836,9 +842,11 @@ export class Repository implements Disposable {
 		}
 	}
 
-	toAbsoluteUri(path: string, options?: { validate?: boolean }): Uri | undefined {
+	async getAbsoluteOrBestRevisionUri(path: string, rev: string | undefined): Promise<Uri | undefined> {
 		const uri = this.container.git.getAbsoluteUri(path, this.uri);
-		return !(options?.validate ?? true) || this.containsUri(uri) ? uri : undefined;
+		if (uri != null && this.containsUri(uri) && (await exists(uri))) return uri;
+
+		return rev != null ? this.git.getBestRevisionUri(path, rev) : undefined;
 	}
 
 	unstar(branch?: GitBranch): Promise<void> {

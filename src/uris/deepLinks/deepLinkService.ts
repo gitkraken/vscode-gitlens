@@ -1269,9 +1269,9 @@ export class DeepLinkService implements Disposable {
 					let revisionUri: Uri | undefined;
 					try {
 						revisionUri = this.container.git.getRevisionUri(
+							repoPath ?? repo.uri.fsPath,
 							targetSha,
 							filePath,
-							repoPath ?? repo.uri.fsPath,
 						);
 					} catch {}
 					if (revisionUri == null) {

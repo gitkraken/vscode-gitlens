@@ -7224,6 +7224,11 @@
 				"enablement": "gitlens:enabled && resourceScheme =~ /^(gitlens|pr)$/"
 			},
 			{
+				"command": "gitlens.openRevisionFromRemote",
+				"title": "Open File at Revision from Remote",
+				"category": "GitLens"
+			},
+			{
 				"command": "gitlens.openWorkingFile",
 				"title": "Open File",
 				"category": "GitLens",
@@ -11210,6 +11215,10 @@
 				{
 					"command": "gitlens.openRevisionFile",
 					"when": "gitlens:enabled && resourceScheme =~ /^(gitlens|git|pr)$/ && isInDiffEditor"
+				},
+				{
+					"command": "gitlens.openRevisionFromRemote",
+					"when": "gitlens:enabled"
 				},
 				{
 					"command": "gitlens.openWorkingFile",

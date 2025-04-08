@@ -1658,16 +1658,16 @@ export class ViewCommands implements Disposable {
 		let uri = options.revisionUri;
 		if (uri == null) {
 			if (node.isAny('results-file', 'conflict-file')) {
-				uri = this.container.git.getRevisionUri(node.uri);
+				uri = this.container.git.getRevisionUriFromGitUri(node.uri);
 			} else {
 				uri =
 					node.commit.file?.status === 'D'
 						? this.container.git.getRevisionUri(
+								node.commit.repoPath,
 								(await node.commit.getPreviousSha()) ?? deletedOrMissing,
 								node.commit.file.path,
-								node.commit.repoPath,
 						  )
-						: this.container.git.getRevisionUri(node.uri);
+						: this.container.git.getRevisionUriFromGitUri(node.uri);
 			}
 		}
 
