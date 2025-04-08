@@ -476,7 +476,6 @@ export function fromAzurePullRequest(
 	pr: AzurePullRequest,
 	provider: Provider,
 	orgName: string,
-	projectName: string,
 ): PullRequest {
 	const url = new URL(pr.url);
 	return new PullRequest(
