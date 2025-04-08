@@ -472,11 +472,7 @@ function fromAzureUserToMember(user: AzureUser, _type: 'issue' | 'pullRequest'):
 	};
 }
 
-export function fromAzurePullRequest(
-	pr: AzurePullRequest,
-	provider: Provider,
-	orgName: string,
-): PullRequest {
+export function fromAzurePullRequest(pr: AzurePullRequest, provider: Provider, orgName: string): PullRequest {
 	const url = new URL(pr.url);
 	return new PullRequest(
 		provider,
