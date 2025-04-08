@@ -24,10 +24,10 @@ function parseHunkHeaderPart(headerPart: string) {
 	return { count: count, position: { start: start, end: start + count - 1 } };
 }
 
-export function parseGitDiff(data: string, includeContents = false): ParsedGitDiff {
+export function parseGitDiff(data: string, includeRawContent = false): ParsedGitDiff {
 	using sw = maybeStopWatch('Git.parseDiffFiles', { log: false, logLevel: 'debug' });
 
-	const parsed: ParsedGitDiff = { files: [], contents: includeContents ? data : undefined };
+	const parsed: ParsedGitDiff = { files: [], rawContent: includeRawContent ? data : undefined };
 
 	// Split the diff data into file chunks
 	const files = data.split(/^diff --git /m).filter(Boolean);
@@ -44,13 +44,16 @@ export function parseGitDiff(data: string, includeContents = false): ParsedGitDi
 		const hunkStartIndex = file.indexOf('\n@@ -');
 		if (hunkStartIndex === -1) continue;
 
+		const header = `diff --git ${file.substring(0, hunkStartIndex)}`;
 		const content = file.substring(hunkStartIndex + 1);
 		parsed.files.push({
 			path: path,
 			originalPath: path === originalPath ? undefined : originalPath,
 			status: (path !== originalPath ? 'R' : 'M') as GitFileStatus,
-			hunks: parseGitFileDiff(content, includeContents)?.hunks || [],
-			contents: includeContents ? content : undefined,
+
+			header: header,
+			rawContent: includeRawContent ? content : undefined,
+			hunks: parseGitFileDiff(content, includeRawContent)?.hunks || [],
 		});
 	}
 
@@ -59,7 +62,7 @@ export function parseGitDiff(data: string, includeContents = false): ParsedGitDi
 	return parsed;
 }
 
-export function parseGitFileDiff(data: string, includeContents = false): ParsedGitDiffHunks | undefined {
+export function parseGitFileDiff(data: string, includeRawContent = false): ParsedGitDiffHunks | undefined {
 	using sw = maybeStopWatch('Git.parseFileDiff', { log: false, logLevel: 'debug' });
 	if (!data) return undefined;
 
@@ -84,8 +87,8 @@ export function parseGitFileDiff(data: string, includeContents = false): ParsedG
 			continue;
 		}
 
-		const header = line.split('@@')[1].trim();
-		const [previousHeaderPart, currentHeaderPart] = header.split(' ');
+		const header = line;
+		const [previousHeaderPart, currentHeaderPart] = header.split('@@')[1].trim().split(' ');
 
 		const current = parseHunkHeaderPart(currentHeaderPart.slice(1));
 		const previous = parseHunkHeaderPart(previousHeaderPart.slice(1));
@@ -163,7 +166,8 @@ export function parseGitFileDiff(data: string, includeContents = false): ParsedG
 		}
 
 		const hunk: ParsedGitDiffHunk = {
-			contents: `${lines.slice(contentStartLine, i).join('\n')}\n`,
+			header: header,
+			content: lines.slice(contentStartLine, i).join('\n'),
 			current: current,
 			previous: previous,
 			lines: hunkLines,
@@ -175,7 +179,7 @@ export function parseGitFileDiff(data: string, includeContents = false): ParsedG
 	sw?.stop({ suffix: ` parsed ${hunks.length} hunks` });
 
 	return {
-		contents: includeContents ? data : undefined,
+		rawContent: includeRawContent ? data : undefined,
 		hunks: hunks,
 	};
 }

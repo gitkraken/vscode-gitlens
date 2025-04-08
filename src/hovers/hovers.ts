@@ -15,6 +15,7 @@ import { uncommittedStaged } from '../git/models/revision';
 import type { RemoteProvider } from '../git/remotes/remoteProvider';
 import { isUncommittedStaged, shortenRevision } from '../git/utils/revision.utils';
 import { configuration } from '../system/-webview/configuration';
+import { escapeMarkdownCodeBlocks } from '../system/markdown';
 import { getSettledValue, pauseOnCancelOrTimeout, pauseOnCancelOrTimeoutMapTuplePromise } from '../system/promise';
 
 export async function changesMessage(
@@ -44,7 +45,7 @@ export async function changesMessage(
 			previousSha = commitLine.previousSha;
 			ref = previousSha;
 			if (ref == null) {
-				return `\`\`\`diff\n+ ${document.lineAt(editorLine).text}\n\`\`\``;
+				return `\`\`\`diff\n+ ${escapeMarkdownCodeBlocks(document.lineAt(editorLine).text)}\n\`\`\``;
 			}
 		}
 
@@ -304,7 +305,7 @@ export async function detailsMessage(
 }
 
 function getDiffFromHunk(hunk: ParsedGitDiffHunk): string {
-	return `\`\`\`diff\n${hunk.contents.trim()}\n\`\`\``;
+	return `\`\`\`diff\n${escapeMarkdownCodeBlocks(hunk.content.trim())}\n\`\`\``;
 }
 
 function getDiffFromLine(lineDiff: GitLineDiff, diffStyle?: 'line' | 'hunk'): string {
@@ -312,7 +313,7 @@ function getDiffFromLine(lineDiff: GitLineDiff, diffStyle?: 'line' | 'hunk'): st
 		return getDiffFromHunk(lineDiff.hunk);
 	}
 
-	return `\`\`\`diff${lineDiff.line.previous == null ? '' : `\n- ${lineDiff.line.previous.trim()}`}${
-		lineDiff.line.current == null ? '' : `\n+ ${lineDiff.line.current.trim()}`
-	}\n\`\`\``;
+	return `\`\`\`diff${
+		lineDiff.line.previous == null ? '' : `\n- ${escapeMarkdownCodeBlocks(lineDiff.line.previous.trim())}`
+	}${lineDiff.line.current == null ? '' : `\n+ ${escapeMarkdownCodeBlocks(lineDiff.line.current.trim())}`}\n\`\`\``;
 }
