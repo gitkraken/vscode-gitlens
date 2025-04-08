@@ -13,7 +13,6 @@ import {
 	RequestClientError,
 	RequestNotFoundError,
 } from '../../../../errors';
-import type { UnidentifiedAuthor } from '../../../../git/models/author';
 import type { Issue } from '../../../../git/models/issue';
 import type { IssueOrPullRequest } from '../../../../git/models/issueOrPullRequest';
 import type { PullRequest } from '../../../../git/models/pullRequest';
@@ -25,9 +24,7 @@ import { Logger } from '../../../../system/logger';
 import type { LogScope } from '../../../../system/logger.scope';
 import { getLogScope } from '../../../../system/logger.scope';
 import { maybeStopWatch } from '../../../../system/stopwatch';
-import { base64 } from '../../../../system/string';
 import type {
-	AzureGitCommit,
 	AzureProjectDescriptor,
 	AzurePullRequest,
 	AzurePullRequestWithLinks,
@@ -109,63 +106,6 @@ export class AzureDevOpsApi implements Disposable {
 			if (pr == null) return undefined;
 
 			return fromAzurePullRequest(pr, provider, owner);
-		} catch (ex) {
-			Logger.error(ex, scope);
-			return undefined;
-		}
-	}
-
-	@debug<AzureDevOpsApi['getPullRequestForCommit']>({ args: { 0: p => p.name, 1: '<token>' } })
-	async getPullRequestForCommit(
-		provider: Provider,
-		token: string,
-		owner: string,
-		repo: string,
-		rev: string,
-		baseUrl: string,
-		_options?: {
-			avatarSize?: number;
-		},
-		cancellation?: CancellationToken,
-	): Promise<PullRequest | undefined> {
-		const scope = getLogScope();
-		const [projectName, _, repoName] = repo.split('/');
-		try {
-			const prResult = await this.request<{ results: Record<string, AzurePullRequest[]>[] }>(
-				provider,
-				token,
-				baseUrl,
-				`${owner}/${projectName}/_apis/git/repositories/${repoName}/pullrequestquery?api-version=7.1`,
-				{
-					method: 'POST',
-					body: JSON.stringify({
-						queries: [
-							{
-								items: [rev],
-								type: 'commit',
-							},
-						],
-					}),
-				},
-				scope,
-				cancellation,
-			);
-
-			const pr = prResult?.results[0]?.[rev]?.[0];
-			if (pr == null) return undefined;
-
-			const pullRequest = await this.request<AzurePullRequestWithLinks>(
-				provider,
-				token,
-				undefined,
-				pr.url,
-				{ method: 'GET' },
-				scope,
-				cancellation,
-			);
-			if (pullRequest == null) return undefined;
-
-			return fromAzurePullRequest(pullRequest, provider, owner);
 		} catch (ex) {
 			Logger.error(ex, scope);
 			return undefined;
@@ -315,56 +255,6 @@ export class AzureDevOpsApi implements Disposable {
 		return undefined;
 	}
 
-	@debug<AzureDevOpsApi['getAccountForCommit']>({ args: { 0: p => p.name, 1: '<token>' } })
-	async getAccountForCommit(
-		provider: Provider,
-		token: string,
-		owner: string,
-		repo: string,
-		rev: string,
-		baseUrl: string,
-		_options?: {
-			avatarSize?: number;
-		},
-	): Promise<UnidentifiedAuthor | undefined> {
-		const scope = getLogScope();
-		const [projectName, _, repoName] = repo.split('/');
-
-		try {
-			// Try to get the Work item (wit) first with specific fields
-			const commit = await this.request<AzureGitCommit>(
-				provider,
-				token,
-				baseUrl,
-				`${owner}/${projectName}/_apis/git/repositories/${repoName}/commits/${rev}`,
-				{
-					method: 'GET',
-				},
-				scope,
-			);
-			const author = commit?.author;
-			if (!author) {
-				return undefined;
-			}
-			// Azure API never gives us an id/username we can use, therefore we always return UnidentifiedAuthor
-			return {
-				provider: provider,
-				id: undefined,
-				username: undefined,
-				name: author?.name,
-				email: author?.email,
-				avatarUrl: undefined,
-			} satisfies UnidentifiedAuthor;
-		} catch (ex) {
-			if (ex.original?.status !== 404) {
-				Logger.error(ex, scope);
-				return undefined;
-			}
-		}
-
-		return undefined;
-	}
-
 	async getWorkItemStateCategory(
 		issueType: string,
 		state: string,
@@ -420,13 +310,13 @@ export class AzureDevOpsApi implements Disposable {
 	private async request<T>(
 		provider: Provider,
 		token: string,
-		baseUrl: string | undefined,
+		baseUrl: string,
 		route: string,
 		options: { method: RequestInit['method'] } & Record<string, unknown>,
 		scope: LogScope | undefined,
 		cancellation?: CancellationToken | undefined,
 	): Promise<T | undefined> {
-		const url = baseUrl ? `${baseUrl}/${route}` : route;
+		const url = `${baseUrl}/${route}`;
 
 		let rsp: Response;
 		try {
@@ -444,10 +334,7 @@ export class AzureDevOpsApi implements Disposable {
 
 				rsp = await wrapForForcedInsecureSSL(provider.getIgnoreSSLErrors(), () =>
 					fetch(url, {
-						headers: {
-							Authorization: `Basic ${base64(`PAT:${token}`)}`,
-							'Content-Type': 'application/json',
-						},
+						headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' },
 						agent: agent,
 						signal: aborter?.signal,
 						...options,
