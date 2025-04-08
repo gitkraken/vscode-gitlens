@@ -12,7 +12,11 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/) and this p
 
 ### Changed
 
-- Improves editor revision navigation ([#4200](https://github.com/gitkraken/vscode-gitlens/issues/4200))
+- Improves editor revision navigation ([#4207](https://github.com/gitkraken/vscode-gitlens/issues/4207))
+
+### Fixed
+
+- Fixes Incorrect PR Link Across Azure DevOps Projects ([#3218](https://github.com/gitkraken/vscode-gitlens/issues/3218))
 
 ## [17.0.1] - 2025-04-03
 
