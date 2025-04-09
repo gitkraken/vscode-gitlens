@@ -1,7 +1,6 @@
 import type {
 	CommitType,
 	ExcludeRefsById,
-	ExternalIconKeys,
 	GetExternalIcon,
 	GraphColumnMode,
 	GraphColumnSetting,
@@ -16,8 +15,9 @@ import type {
 	OnFormatCommitDateTime,
 } from '@gitkraken/gitkraken-components';
 import GraphContainer, { CommitDateTimeSources, refZone } from '@gitkraken/gitkraken-components';
+import r2wc from '@r2wc/react-to-web-component';
 import type { ReactElement } from 'react';
-import React, { createElement, memo, useCallback, useEffect, useMemo, useState } from 'react';
+import React, { createElement, useCallback, useEffect, useMemo, useState } from 'react';
 import { getPlatform } from '@env/platform';
 import type { DateStyle } from '../../../../../config';
 import type { DateTimeFormat } from '../../../../../system/date';
@@ -62,39 +62,38 @@ export type GraphWrapperProps = Pick<
 	Pick<GraphAppState, 'activeRow' | 'theming' | 'searchResults' | 'filter'>;
 
 export interface GraphWrapperEvents {
-	onChangeColumns?: (columns: GraphColumnsConfig) => void;
-	onChangeRefsVisibility?: (detail: { refs: GraphExcludedRef[]; visible: boolean }) => void;
+	onGraphMouseLeave?: () => void;
+	onChangeColumns?: (colsSettings: GraphColumnsConfig) => void;
+	onChangeRefsVisibility?: (args: { refs: GraphExcludedRef[]; visible: boolean }) => void;
 	onChangeSelection?: (rows: GraphRow[]) => void;
-	onChangeVisibleDays?: (detail: { top: number; bottom: number }) => void;
+	onDoubleClickRef?: (args: { ref: GraphRef; metadata?: GraphRefMetadataItem }) => void;
+	onDoubleClickRow?: (args: { row: GraphRow; preserveFocus?: boolean }) => void;
 	onMissingAvatars?: (emails: Record<string, string>) => void;
 	onMissingRefsMetadata?: (metadata: GraphMissingRefsMetadata) => void;
 	onMoreRows?: (id?: string) => void;
-	onRefDoubleClick?: (detail: { ref: GraphRef; metadata?: GraphRefMetadataItem }) => void;
-	onMouseLeave?: () => void;
-	onRowContextMenu?: (detail: { graphZoneType: GraphZoneType; graphRow: GraphRow }) => void;
-	onRowDoubleClick?: (detail: { row: GraphRow; preserveFocus?: boolean }) => void;
-	onRowHover?: (detail: {
+	onChangeVisibleDays?: (args: any) => void;
+	onGraphRowHovered?: (args: {
 		clientX: number;
 		currentTarget: HTMLElement;
 		graphZoneType: GraphZoneType;
 		graphRow: GraphRow;
 	}) => void;
-	onRowUnhover?: (detail: {
+	onGraphRowUnhovered?: (args: {
 		relatedTarget: EventTarget | null;
 		graphZoneType: GraphZoneType;
 		graphRow: GraphRow;
 	}) => void;
+	onRowContextMenu?: (args: { graphZoneType: GraphZoneType; graphRow: GraphRow }) => void;
 }
 
-const getGraphDateFormatter = (config: GraphComponentConfig): OnFormatCommitDateTime => {
+const getGraphDateFormatter = (config?: GraphComponentConfig): OnFormatCommitDateTime => {
 	return (commitDateTime: number, source?: CommitDateTimeSources) =>
-		formatCommitDateTime(commitDateTime, config.dateStyle, config.dateFormat, source);
+		formatCommitDateTime(commitDateTime, config?.dateStyle, config?.dateFormat, source);
 };
 
-const createIconElements = (): Record<ExternalIconKeys | 'undefined-icon', ReactElement> => {
+const createIconElements = () => {
 	const iconList = [
 		'head',
-		'filter',
 		'remote',
 		'remote-github',
 		'remote-githubEnterprise',
@@ -126,14 +125,8 @@ const createIconElements = (): Record<ExternalIconKeys | 'undefined-icon', React
 		'files',
 		'worktree',
 		'issue-github',
-		'issue-githubEnterprise',
 		'issue-gitlab',
-		'issue-gitlabSelfHosted',
 		'issue-jiraCloud',
-		'issue-jiraServer',
-		'issue-azureDevops',
-		'issue-bitbucket',
-		'undefined-icon',
 	];
 
 	const miniIconList = ['upstream-ahead', 'upstream-behind'];
@@ -155,9 +148,8 @@ const createIconElements = (): Record<ExternalIconKeys | 'undefined-icon', React
 
 const iconElementLibrary = createIconElements();
 
-const getIconElementLibrary: GetExternalIcon = (iconKey: ExternalIconKeys) => {
-	const icon = iconKey in iconElementLibrary ? iconKey : 'undefined-icon';
-	return iconElementLibrary[icon];
+const getIconElementLibrary: GetExternalIcon = (iconKey: string) => {
+	return iconElementLibrary[iconKey];
 };
 
 const getClientPlatform = (): GraphPlatform => {
@@ -197,33 +189,12 @@ interface GraphWrapperAPI {
 	setRef: (refObject: GraphContainer) => void;
 }
 
-export type GraphWrapperSubscriberProps = GraphWrapperProps & GraphWrapperAPI;
-export type GraphWrapperInitProps = GraphWrapperProps &
-	GraphWrapperEvents &
-	GraphWrapperAPI & {
-		subscriber?: (updater: (props: Partial<GraphWrapperSubscriberProps>) => void) => void;
-	};
-
 const emptyRows: GraphRow[] = [];
-
-export const GraphWrapperReact = memo((initProps: GraphWrapperInitProps) => {
+// eslint-disable-next-line @typescript-eslint/naming-convention
+export function GraphWrapperReact(props: Readonly<GraphWrapperEvents & GraphWrapperProps & GraphWrapperAPI>) {
 	const [graph, _graphRef] = useState<GraphContainer | null>(null);
-	const [context, setContext] = useState(initProps.context);
-	const [props, setProps] = useState(initProps);
+	const [context, setContext] = useState(props.context);
 	const [selectionContexts, setSelectionContexts] = useState<SelectionContexts | undefined>();
-
-	// Register the state updater function with the subscriber if provided
-	useEffect(
-		() =>
-			props.subscriber?.(newProps => {
-				// Update state based on new props
-				// if (newProps.context !== context) {
-				// 	setContext(newProps.context);
-				// }
-				setProps(currentProps => ({ ...currentProps, ...newProps }));
-			}),
-		[props.subscriber],
-	);
 
 	useEffect(() => {
 		setContext(props.context);
@@ -249,7 +220,7 @@ export const GraphWrapperReact = memo((initProps: GraphWrapperInitProps) => {
 			const row = props.rows?.find(r => r.sha === sha);
 			if (row == null) return;
 
-			initProps.onRowDoubleClick?.({ row: row, preserveFocus: e.key !== 'Enter' });
+			props.onDoubleClickRow?.({ row: row, preserveFocus: e.key !== 'Enter' });
 		}
 	};
 
@@ -276,16 +247,16 @@ export const GraphWrapperReact = memo((initProps: GraphWrapperInitProps) => {
 	};
 
 	const handleOnGraphMouseLeave = (_event: React.MouseEvent<any>) => {
-		initProps.onMouseLeave?.();
+		props.onGraphMouseLeave?.();
 		stopColumnResize();
 	};
 
 	const handleMissingAvatars = (emails: GraphAvatars) => {
-		initProps.onMissingAvatars?.(emails);
+		props.onMissingAvatars?.(emails);
 	};
 
 	const handleMissingRefsMetadata = (metadata: GraphMissingRefsMetadata) => {
-		initProps.onMissingRefsMetadata?.(metadata);
+		props.onMissingRefsMetadata?.(metadata);
 	};
 
 	const handleToggleColumnSettings = (event: React.MouseEvent<HTMLButtonElement>) => {
@@ -300,12 +271,12 @@ export const GraphWrapperReact = memo((initProps: GraphWrapperInitProps) => {
 	};
 
 	const handleMoreCommits = () => {
-		initProps.onMoreRows?.();
+		props.onMoreRows?.();
 	};
 
 	const handleOnColumnResized = (columnName: GraphColumnName, columnSettings: GraphColumnSetting) => {
 		if (columnSettings.width) {
-			initProps.onChangeColumns?.({
+			props.onChangeColumns?.({
 				[columnName]: {
 					width: columnSettings.width,
 					isHidden: columnSettings.isHidden,
@@ -317,7 +288,7 @@ export const GraphWrapperReact = memo((initProps: GraphWrapperInitProps) => {
 	};
 
 	const handleOnGraphVisibleRowsChanged = (top: GraphRow, bottom: GraphRow) => {
-		initProps.onChangeVisibleDays?.({
+		props.onChangeVisibleDays?.({
 			top: new Date(top.date).setHours(23, 59, 59, 999),
 			bottom: new Date(bottom.date).setHours(0, 0, 0, 0),
 		});
@@ -328,7 +299,7 @@ export const GraphWrapperReact = memo((initProps: GraphWrapperInitProps) => {
 		for (const [columnName, config] of Object.entries(columnsSettings as GraphColumnsConfig)) {
 			graphColumnsConfig[columnName] = { ...config };
 		}
-		initProps.onChangeColumns?.(graphColumnsConfig);
+		props.onChangeColumns?.(graphColumnsConfig);
 	};
 
 	// dirty trick to avoid mutations on the GraphContainer side
@@ -353,7 +324,7 @@ export const GraphWrapperReact = memo((initProps: GraphWrapperInitProps) => {
 				},
 			);
 		}
-		initProps.onChangeRefsVisibility?.({ refs: refs, visible: visible });
+		props.onChangeRefsVisibility?.({ refs: refs, visible: visible });
 	};
 
 	const handleOnDoubleClickRef = (
@@ -363,7 +334,7 @@ export const GraphWrapperReact = memo((initProps: GraphWrapperInitProps) => {
 		metadata?: GraphRefMetadataItem,
 	) => {
 		if (refGroup.length > 0) {
-			initProps.onRefDoubleClick?.({ ref: refGroup[0], metadata: metadata });
+			props.onDoubleClickRef?.({ ref: refGroup[0], metadata: metadata });
 		}
 	};
 
@@ -374,15 +345,12 @@ export const GraphWrapperReact = memo((initProps: GraphWrapperInitProps) => {
 	) => {
 		if (graphZoneType === refZone) return;
 
-		initProps.onRowDoubleClick?.({ row: row, preserveFocus: true });
+		props.onDoubleClickRow?.({ row: row, preserveFocus: true });
 	};
 
-	const computeSelectionContext = (rows: GraphRow[]) => {
+	const computeSelectionContext = (_active: GraphRow, rows: GraphRow[]) => {
 		if (rows.length <= 1) {
-			if (selectionContexts != null) {
-				setSelectionContexts(undefined);
-			}
-
+			setSelectionContexts(undefined);
 			return;
 		}
 
@@ -426,7 +394,7 @@ export const GraphWrapperReact = memo((initProps: GraphWrapperInitProps) => {
 
 					let additionalContext = itemTypes.get(type);
 					if (additionalContext == null) {
-						additionalContext = new Map<string, number>();
+						additionalContext ??= new Map<string, number>();
 						itemTypes.set(type, additionalContext);
 					}
 
@@ -478,18 +446,15 @@ export const GraphWrapperReact = memo((initProps: GraphWrapperInitProps) => {
 	};
 
 	const handleSelectGraphRows = (rows: GraphRow[]) => {
-		if (rows.length > 1) {
-			computeSelectionContext(rows);
-		} else if (selectionContexts != null) {
-			setSelectionContexts(undefined);
-		}
+		const active = rows[rows.length - 1];
+		computeSelectionContext(active, rows);
 
-		initProps.onChangeSelection?.(rows);
+		props.onChangeSelection?.(rows);
 	};
 
 	const handleRowContextMenu = (_event: React.MouseEvent<any>, graphZoneType: GraphZoneType, graphRow: GraphRow) => {
 		if (graphZoneType === refZone) return;
-
+		props.onRowContextMenu?.({ graphZoneType: graphZoneType, graphRow: graphRow });
 		// If the row is in the current selection, use the typed selection context, otherwise clear it
 		const newSelectionContext = selectionContexts?.selectedShas.has(graphRow.sha)
 			? selectionContexts.contexts.get(graphRow.type)
@@ -504,11 +469,7 @@ export const GraphWrapperReact = memo((initProps: GraphWrapperInitProps) => {
 				...newSelectionContext,
 			},
 		});
-
-		initProps.onRowContextMenu?.({ graphZoneType: graphZoneType, graphRow: graphRow });
 	};
-
-	const config = props.config ?? ({} as unknown as NonNullable<typeof props.config>);
 
 	return (
 		<GraphContainer
@@ -519,25 +480,25 @@ export const GraphWrapperReact = memo((initProps: GraphWrapperInitProps) => {
 			// @ts-expect-error returnType of formatCommitMessage callback expects to be string, but it works fine with react element
 			formatCommitMessage={e => <GlMarkdown markdown={e}></GlMarkdown>}
 			cssVariables={props.theming?.cssVariables}
-			dimMergeCommits={config.dimMergeCommits}
+			dimMergeCommits={props.config?.dimMergeCommits}
 			downstreamsByUpstream={props.downstreams}
-			enabledRefMetadataTypes={config.enabledRefMetadataTypes}
-			enabledScrollMarkerTypes={config.scrollMarkerTypes}
+			enabledRefMetadataTypes={props.config?.enabledRefMetadataTypes}
+			enabledScrollMarkerTypes={props.config?.scrollMarkerTypes}
 			enableShowHideRefsOptions
-			enableMultiSelection={config.enableMultiSelection}
+			enableMultiSelection={props.config?.enableMultiSelection}
 			excludeRefsById={props.excludeRefs}
 			excludeByType={props.excludeTypes}
-			formatCommitDateTime={getGraphDateFormatter(config)}
+			formatCommitDateTime={getGraphDateFormatter(props.config)}
 			getExternalIcon={getIconElementLibrary}
 			graphRows={props.rows ?? emptyRows}
 			hasMoreCommits={props.paging?.hasMore}
 			// Just cast the { [id: string]: number } object to { [id: string]: boolean } for performance
 			highlightedShas={props.searchResults?.ids as GraphContainerProps['highlightedShas']}
-			highlightRowsOnRefHover={config.highlightRowsOnRefHover}
+			highlightRowsOnRefHover={props.config?.highlightRowsOnRefHover}
 			includeOnlyRefsById={props.includeOnlyRefs}
-			scrollRowPadding={config.scrollRowPadding}
-			showGhostRefsOnRowHover={config.showGhostRefsOnRowHover}
-			showRemoteNamesOnRefs={config.showRemoteNamesOnRefs}
+			scrollRowPadding={props.config?.scrollRowPadding}
+			showGhostRefsOnRowHover={props.config?.showGhostRefsOnRowHover}
+			showRemoteNamesOnRefs={props.config?.showRemoteNamesOnRefs}
 			isContainerWindowFocused={props.windowFocused}
 			isLoadingRows={props.loading}
 			isSelectedBySha={props.selectedRows}
@@ -548,7 +509,7 @@ export const GraphWrapperReact = memo((initProps: GraphWrapperInitProps) => {
 			onGraphColumnsReOrdered={handleOnGraphColumnsReOrdered}
 			onGraphMouseLeave={handleOnGraphMouseLeave}
 			onGraphRowHovered={(e, graphZoneType, graphRow) =>
-				initProps.onRowHover?.({
+				props.onGraphRowHovered?.({
 					clientX: e.clientX,
 					currentTarget: e.currentTarget,
 					graphRow: graphRow,
@@ -556,7 +517,7 @@ export const GraphWrapperReact = memo((initProps: GraphWrapperInitProps) => {
 				})
 			}
 			onGraphRowUnhovered={(e, graphZoneType, graphRow) =>
-				initProps.onRowUnhover?.({
+				props.onGraphRowUnhovered?.({
 					relatedTarget: e.nativeEvent.relatedTarget ?? e.relatedTarget,
 					graphRow: graphRow,
 					graphZoneType: graphZoneType,
@@ -575,15 +536,15 @@ export const GraphWrapperReact = memo((initProps: GraphWrapperInitProps) => {
 			rowsStats={props.rowsStats}
 			rowsStatsLoading={props.rowsStatsLoading}
 			searchMode={props.filter?.filter ? 'filter' : 'normal'}
-			shaLength={config.idLength}
+			shaLength={props.config?.idLength}
 			shiftSelectMode="simple"
 			suppressNonRefRowTooltips
 			themeOpacityFactor={props.theming?.themeOpacityFactor}
-			useAuthorInitialsForAvatars={!config.avatars}
+			useAuthorInitialsForAvatars={!props.config?.avatars}
 			workDirStats={props.workingTreeStats}
 		/>
 	);
-});
+}
 
 function formatCommitDateTime(
 	date: number,
@@ -610,6 +571,51 @@ function getActiveRowInfo(activeRow: string | undefined): { id: string; date: nu
 	};
 }
 
+export const WebGraph = r2wc(GraphWrapperReact, {
+	props: {
+		activeRow: 'string',
+		filter: 'json',
+		avatars: 'json',
+		columns: 'json',
+		context: 'json',
+		theming: 'json',
+		config: 'json',
+		downstreams: 'json',
+		excludeRefs: 'json',
+		excludeTypes: 'json',
+		rows: 'json',
+		includeOnlyRefs: 'json',
+		windowFocused: 'boolean',
+		loading: 'boolean',
+		selectedRows: 'json',
+		nonce: 'string',
+		refsMetadata: 'json',
+		rowsStats: 'json',
+		workingTreeStats: 'json',
+		paging: 'json',
+		setRef: 'function',
+		searchResults: 'json',
+	},
+
+	events: [
+		'onChangeColumns',
+		'onGraphMouseLeave',
+		'onChangeRefsVisibility',
+		'onChangeSelection',
+		'onDoubleClickRef',
+		'onDoubleClickRow',
+		'onMissingAvatars',
+		'onMissingRefsMetadata',
+		'onMoreRows',
+		'onChangeVisibleDays',
+		'onGraphRowHovered',
+		'onGraphRowUnhovered',
+		'onRowContextMenu',
+	],
+});
+
+customElements.define('web-graph', WebGraph);
+
 declare global {
 	interface GlobalEventHandlersEventMap {
 		// event map from react wrapped component
@@ -634,7 +640,7 @@ declare global {
 			graphZoneType: GraphZoneType;
 			graphRow: GraphRow;
 		}>;
-		'graph-rowcontextmenu': CustomEvent<{ graphZoneType: GraphZoneType; graphRow: GraphRow }>;
+		'graph-rowcontextmenu': CustomEvent<void>;
 		'graph-graphmouseleave': CustomEvent<void>;
 	}
 }
