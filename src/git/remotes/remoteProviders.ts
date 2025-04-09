@@ -1,6 +1,6 @@
 import type { RemotesConfig } from '../../config';
-import type { CloudGitSelfManagedHostIntegrationIds } from '../../constants.integrations';
-import { GitSelfManagedHostIntegrationId } from '../../constants.integrations';
+import type { CloudSelfHostedIntegrationId } from '../../constants.integrations';
+import { SelfHostedIntegrationId } from '../../constants.integrations';
 import type { Container } from '../../container';
 import type { ConfiguredIntegrationDescriptor } from '../../plus/integrations/authentication/models';
 import { isCloudSelfHostedIntegrationId } from '../../plus/integrations/providers/models';
@@ -79,14 +79,14 @@ const builtInProviders: RemoteProviders = [
 ];
 
 const cloudProviderCreatorsMap: Record<
-	CloudGitSelfManagedHostIntegrationIds,
+	CloudSelfHostedIntegrationId,
 	(container: Container, domain: string, path: string, scheme: string | undefined) => RemoteProvider
 > = {
-	[GitSelfManagedHostIntegrationId.CloudGitHubEnterprise]: (container: Container, domain: string, path: string) =>
+	[SelfHostedIntegrationId.CloudGitHubEnterprise]: (container: Container, domain: string, path: string) =>
 		new GitHubRemote(container, domain, path),
-	[GitSelfManagedHostIntegrationId.CloudGitLabSelfHosted]: (container: Container, domain: string, path: string) =>
+	[SelfHostedIntegrationId.CloudGitLabSelfHosted]: (container: Container, domain: string, path: string) =>
 		new GitLabRemote(container, domain, path),
-	[GitSelfManagedHostIntegrationId.BitbucketServer]: (
+	[SelfHostedIntegrationId.BitbucketServer]: (
 		container: Container,
 		domain: string,
 		path: string,
@@ -212,7 +212,7 @@ function createBestRemoteProvider(
 	scheme: string | undefined,
 ): RemoteProvider | undefined {
 	try {
-		const key = domain?.toLowerCase();
+		const key = domain.toLowerCase();
 		for (const { custom, matcher, creator } of providers) {
 			if (typeof matcher === 'string') {
 				if (matcher === key) {
@@ -236,7 +236,7 @@ function createBestRemoteProvider(
 		return undefined;
 	} catch (ex) {
 		debugger;
-		Logger.error(ex, 'createBestRemoteProvider');
+		Logger.error(ex, 'createRemoteProvider');
 		return undefined;
 	}
 }

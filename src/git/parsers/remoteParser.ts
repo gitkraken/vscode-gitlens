@@ -1,9 +1,10 @@
 import type { Container } from '../../container';
 import { maybeStopWatch } from '../../system/stopwatch';
-import { iterateByDelimiter } from '../../system/string';
 import type { GitRemoteType } from '../models/remote';
 import { GitRemote } from '../models/remote';
 import type { getRemoteProviderMatcher } from '../remotes/remoteProviders';
+
+const remoteRegex = /^(.*)\t(.*)\s\((.*)\)$/gm;
 
 export function parseGitRemotes(
 	container: Container,
@@ -12,52 +13,33 @@ export function parseGitRemotes(
 	remoteProviderMatcher: Awaited<ReturnType<typeof getRemoteProviderMatcher>>,
 ): GitRemote[] {
 	using sw = maybeStopWatch(`Git.parseRemotes(${repoPath})`, { log: false, logLevel: 'debug' });
-	if (!data) {
-		sw?.stop({ suffix: ` no data` });
-		return [];
-	}
-
-	// Format: <name>\t<url> (<type>)
+	if (!data) return [];
 
 	const remotes = new Map<string, GitRemote>();
 
-	let name: string;
-	let url: string;
-	let type: GitRemoteType;
+	let name;
+	let url;
+	let type;
 
-	let scheme: string;
-	let domain: string;
-	let path: string;
+	let scheme;
+	let domain;
+	let path;
 
 	let remote: GitRemote | undefined;
 
-	let startIndex = 0;
-	let endIndex = 0;
+	let match;
+	do {
+		match = remoteRegex.exec(data);
+		if (match == null) break;
 
-	for (let line of iterateByDelimiter(data, '\n')) {
-		line = line.trim();
-		if (!line) continue;
+		[, name, url, type] = match;
 
-		// Parse name
-		startIndex = 0;
-		endIndex = line.indexOf('\t');
-		if (endIndex === -1) continue;
-
-		name = line.substring(startIndex, endIndex);
-
-		// Parse url
-		startIndex = endIndex + 1;
-		endIndex = line.lastIndexOf(' (');
-		if (endIndex === -1) continue;
-
-		url = line.substring(startIndex, endIndex);
-
-		// Parse type
-		startIndex = endIndex + 2;
-		endIndex = line.lastIndexOf(')');
-		if (endIndex === -1) continue;
-
-		type = line.substring(startIndex, endIndex) as GitRemoteType;
+		// Stops excessive memory usage -- https://bugs.chromium.org/p/v8/issues/detail?id=2869
+		name = ` ${name}`.substring(1);
+		// Stops excessive memory usage -- https://bugs.chromium.org/p/v8/issues/detail?id=2869
+		url = ` ${url}`.substring(1);
+		// Stops excessive memory usage -- https://bugs.chromium.org/p/v8/issues/detail?id=2869
+		type = ` ${type}`.substring(1);
 
 		[scheme, domain, path] = parseGitRemoteUrl(url);
 
@@ -71,11 +53,11 @@ export function parseGitRemotes(
 				domain,
 				path,
 				remoteProviderMatcher(url, domain, path, scheme),
-				[{ url: url, type: type }],
+				[{ url: url, type: type as GitRemoteType }],
 			);
 			remotes.set(name, remote);
 		} else {
-			remote.urls.push({ url: url, type: type });
+			remote.urls.push({ url: url, type: type as GitRemoteType });
 			if (remote.provider != null && type !== 'push') continue;
 
 			const provider = remoteProviderMatcher(url, domain, path, scheme);
@@ -84,7 +66,7 @@ export function parseGitRemotes(
 			remote = new GitRemote(container, repoPath, name, scheme, domain, path, provider, remote.urls);
 			remotes.set(name, remote);
 		}
-	}
+	} while (true);
 
 	sw?.stop({ suffix: ` parsed ${remotes.size} remotes` });
 
