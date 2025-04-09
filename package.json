@@ -1057,16 +1057,6 @@
 						"scope": "window",
 						"order": 300
 					},
-					"gitlens.graph.experimental.renderer.enabled": {
-						"type": "boolean",
-						"default": false,
-						"markdownDescription": "(Experimental) Specifies whether to use the new renderer for the _Commit Graph_. Requires a restart",
-						"scope": "window",
-						"order": 301,
-						"tags": [
-							"experimental"
-						]
-					},
 					"gitlens.graph.branchesVisibility": {
 						"type": "string",
 						"enum": [
@@ -21520,13 +21510,13 @@
 		"analyze:bundle": "webpack --mode production --env analyzeBundle",
 		"analyze:bundle:extension": "webpack --mode production --config-name extension:node --env analyzeBundle",
 		"analyze:bundle:extension:browser": "webpack --mode production --config-name extension:webworker --env analyzeBundle",
-		"analyze:bundle:webviews": "webpack --mode production --config-name webviews:common --config-name webviews --config-name webviews:graph-next --env analyzeBundle",
+		"analyze:bundle:webviews": "webpack --mode production --config-name webviews:common --config-name webviews --env analyzeBundle",
 		"analyze:deps": "webpack --env analyzeDeps",
 		"build": "webpack --mode development",
 		"build:quick": "webpack --mode development --env skipLint",
 		"build:extension": "webpack --mode development --config-name extension:node",
 		"build:extension:browser": "webpack --mode development --config-name extension:webworker",
-		"build:webviews": "webpack --mode development --config-name webviews:common --config-name webviews --config-name webviews:graph-next",
+		"build:webviews": "webpack --mode development --config-name webviews:common --config-name webviews",
 		"build:icons": "pnpm run icons:svgo && pnpm fantasticon && pnpm run icons:apply && pnpm run icons:export",
 		"build:tests": "node ./scripts/esbuild.tests.mjs",
 		"// Extracts the contributions from package.json into contributions.json": "//",
@@ -21582,8 +21572,7 @@
 		"vscode:prepublish": "pnpm run bundle"
 	},
 	"dependencies": {
-		"@gitkraken/gitkraken-components": "10.7.0",
-		"@gitkraken/gitkraken-components-next": "npm:@gitkraken/gitkraken-components@11.0.0-vnext.3",
+		"@gitkraken/gitkraken-components": "11.0.0-vnext.3",
 		"@gitkraken/provider-apis": "0.28.3",
 		"@gitkraken/shared-web-components": "0.1.1-rc.15",
 		"@gk-nzaytsev/fast-string-truncated-width": "1.1.0",
@@ -21611,10 +21600,8 @@
 		"node-fetch": "2.7.0",
 		"os-browserify": "0.3.0",
 		"path-browserify": "1.0.1",
-		"react": "16.8.4",
-		"react-dom": "16.8.4",
-		"react-dom-next": "npm:react-dom@19.0.0",
-		"react-next": "npm:react@19.0.0",
+		"react": "19.0.0",
+		"react-dom": "19.0.0",
 		"signal-utils": "0.21.1",
 		"slug": "10.0.0",
 		"sortablejs": "1.15.0"
@@ -21627,10 +21614,8 @@
 		"@twbs/fantasticon": "3.1.0",
 		"@types/mocha": "10.0.10",
 		"@types/node": "20.14.15",
-		"@types/react": "17.0.84",
-		"@types/react-dom": "17.0.26",
-		"@types/react-dom-next": "npm:@types/react-dom@19.0.4",
-		"@types/react-next": "npm:@types/react@19.0.12",
+		"@types/react": "19.0.12",
+		"@types/react-dom": "19.0.4",
 		"@types/sinon": "17.0.4",
 		"@types/slug": "5.0.9",
 		"@types/sortablejs": "1.15.8",

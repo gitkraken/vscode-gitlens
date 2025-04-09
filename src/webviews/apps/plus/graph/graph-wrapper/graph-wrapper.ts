@@ -1,21 +1,12 @@
 import type GraphContainer from '@gitkraken/gitkraken-components';
-import type { GraphRef, GraphRow, GraphZoneType } from '@gitkraken/gitkraken-components';
+import type { GraphRow, GraphZoneType } from '@gitkraken/gitkraken-components';
 import { refZone } from '@gitkraken/gitkraken-components';
 import { consume } from '@lit/context';
 import { SignalWatcher } from '@lit-labs/signals';
-import r2wc from '@r2wc/react-to-web-component';
 import { html, LitElement } from 'lit';
 import { customElement, query } from 'lit/decorators.js';
 import { ifDefined } from 'lit/directives/if-defined.js';
 import type { GitGraphRowType } from '../../../../../git/models/graph';
-import type {
-	GraphAvatars,
-	GraphColumnsConfig,
-	GraphExcludedRef,
-	GraphMissingRefsMetadata,
-	GraphRefMetadataItem,
-	UpdateGraphConfigurationParams,
-} from '../../../../plus/graph/protocol';
 import {
 	DoubleClickedCommandType,
 	GetMissingAvatarsCommand,
@@ -31,56 +22,12 @@ import type { CustomEventType } from '../../../shared/components/element';
 import { ipcContext } from '../../../shared/contexts/ipc';
 import type { TelemetryContext } from '../../../shared/contexts/telemetry';
 import { telemetryContext } from '../../../shared/contexts/telemetry';
-import type { GlGraphHover } from '../../graph/hover/graphHover';
 import { stateContext } from '../context';
+import type { GlGraphHover } from '../hover/graphHover';
 import { graphStateContext } from '../stateProvider';
-import { GraphWrapperReact } from './graph-wrapper.react';
-import '../../graph/hover/graphHover';
-
-const WebGraph = r2wc(GraphWrapperReact, {
-	props: {
-		activeRow: 'string',
-		filter: 'json',
-		avatars: 'json',
-		columns: 'json',
-		context: 'json',
-		theming: 'json',
-		config: 'json',
-		downstreams: 'json',
-		excludeRefs: 'json',
-		excludeTypes: 'json',
-		rows: 'json',
-		includeOnlyRefs: 'json',
-		windowFocused: 'boolean',
-		loading: 'boolean',
-		selectedRows: 'json',
-		nonce: 'string',
-		refsMetadata: 'json',
-		rowsStats: 'json',
-		workingTreeStats: 'json',
-		paging: 'json',
-		setRef: 'function',
-		searchResults: 'json',
-	},
-
-	events: [
-		'onChangeColumns',
-		'onGraphMouseLeave',
-		'onChangeRefsVisibility',
-		'onChangeSelection',
-		'onDoubleClickRef',
-		'onDoubleClickRow',
-		'onMissingAvatars',
-		'onMissingRefsMetadata',
-		'onMoreRows',
-		'onChangeVisibleDays',
-		'onGraphRowHovered',
-		'onGraphRowUnhovered',
-		'onRowContextMenu',
-	],
-});
-
-customElements.define('web-graph', WebGraph);
+import type { WebGraph } from './graph-wrapper.react';
+import '../hover/graphHover';
+import './graph-wrapper.react';
 
 declare global {
 	interface HTMLElementTagNameMap {
@@ -88,31 +35,6 @@ declare global {
 	}
 
 	interface GlobalEventHandlersEventMap {
-		// event map from react wrapped component
-		'graph-changecolumns': CustomEvent<{ settings: GraphColumnsConfig }>;
-		'graph-changegraphconfiguration': CustomEvent<UpdateGraphConfigurationParams['changes']>;
-		'graph-changerefsvisibility': CustomEvent<{ refs: GraphExcludedRef[]; visible: boolean }>;
-		'graph-changeselection': CustomEvent<GraphRow[]>;
-		'graph-doubleclickref': CustomEvent<{ ref: GraphRef; metadata?: GraphRefMetadataItem }>;
-		'graph-doubleclickrow': CustomEvent<{ row: GraphRow; preserveFocus?: boolean }>;
-		'graph-missingavatars': CustomEvent<GraphAvatars>;
-		'graph-missingrefsmetadata': CustomEvent<GraphMissingRefsMetadata>;
-		'graph-morerows': CustomEvent<string | undefined>;
-		'graph-changevisibledays': CustomEvent<{ top: number; bottom: number }>;
-		'graph-graphrowhovered': CustomEvent<{
-			clientX: number;
-			currentTarget: HTMLElement;
-			graphZoneType: GraphZoneType;
-			graphRow: GraphRow;
-		}>;
-		'graph-graphrowunhovered': CustomEvent<{
-			relatedTarget: HTMLElement;
-			graphZoneType: GraphZoneType;
-			graphRow: GraphRow;
-		}>;
-		'graph-rowcontextmenu': CustomEvent<void>;
-		'graph-graphmouseleave': CustomEvent<void>;
-
 		// passing up event map
 		'gl-graph-mouse-leave': CustomEvent<void>;
 		'gl-graph-change-visible-days': CustomEvent<{ top: number; bottom: number }>;

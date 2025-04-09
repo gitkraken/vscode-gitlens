@@ -33,10 +33,6 @@ export type ShowInCommitGraphCommandArgs =
 	| StashNode
 	| TagNode;
 
-function getFileName(): string {
-	return configuration.get('graph.experimental.renderer.enabled') ? 'graph-next.html' : 'graph.html';
-}
-
 export function registerGraphWebviewPanel(
 	controller: WebviewsController,
 ): WebviewPanelsProxy<'gitlens.graph', GraphWebviewShowingArgs, State> {
@@ -44,7 +40,7 @@ export function registerGraphWebviewPanel(
 		{ id: 'gitlens.showGraphPage', options: { preserveInstance: true } },
 		{
 			id: 'gitlens.graph',
-			fileName: getFileName(),
+			fileName: 'graph.html',
 			iconPath: 'images/gitlens-icon.png',
 			title: 'Commit Graph',
 			contextKeyPrefix: `gitlens:webview:graph`,
@@ -71,7 +67,7 @@ export function registerGraphWebviewView(
 	return controller.registerWebviewView<'gitlens.views.graph', State, State, GraphWebviewShowingArgs>(
 		{
 			id: 'gitlens.views.graph',
-			fileName: getFileName(),
+			fileName: 'graph.html',
 			title: 'Commit Graph',
 			contextKeyPrefix: `gitlens:webviewView:graph`,
 			trackingFeature: 'graphView',

@@ -308,7 +308,7 @@ function getWebviewsConfigs(mode, env) {
 		getWebviewConfig(
 			{
 				commitDetails: { entry: './commitDetails/commitDetails.ts' },
-				graph: { entry: './plus/graph/graph.tsx', plus: true },
+				graph: { entry: './plus/graph/graph.ts', plus: true },
 				home: { entry: './home/home.ts' },
 				rebase: { entry: './rebase/rebase.ts' },
 				settings: { entry: './settings/settings.ts' },
@@ -316,24 +316,6 @@ function getWebviewsConfigs(mode, env) {
 				patchDetails: { entry: './plus/patchDetails/patchDetails.ts', plus: true },
 			},
 			{},
-			mode,
-			env,
-		),
-		getWebviewConfig(
-			{
-				'graph-next': { entry: './plus/graph-next/graph.ts', plus: true },
-			},
-			{
-				alias: {
-					'@gitkraken/gitkraken-components': path.resolve(
-						__dirname,
-						'node_modules',
-						'@gitkraken/gitkraken-components-next',
-					),
-					react: path.resolve(__dirname, 'node_modules', 'react-next'),
-					'react-dom': path.resolve(__dirname, 'node_modules', 'react-dom-next'),
-				},
-			},
 			mode,
 			env,
 		),
@@ -587,11 +569,6 @@ function getWebviewConfig(webviews, overrides, mode, env) {
 				// Disable all non-async code splitting
 				// chunks: () => false,
 				cacheGroups: {
-					billboard: {
-						test: /[\\/]node_modules[\\/](billboard\.js)[\\/]/,
-						filename: pathData => `lib-billboard-${pathData.chunk?.id ?? 'chunk'}.js`,
-						chunks: 'async',
-					},
 					default: false,
 					vendors: false,
 				},

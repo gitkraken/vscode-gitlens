@@ -17,11 +17,8 @@ importers:
   .:
     dependencies:
       '@gitkraken/gitkraken-components':
-        specifier: 10.7.0
-        version: 10.7.0
-      '@gitkraken/gitkraken-components-next':
-        specifier: npm:@gitkraken/gitkraken-components@11.0.0-vnext.3
-        version: '@gitkraken/gitkraken-components@11.0.0-vnext.3(@types/react@17.0.84)(react@16.8.4)'
+        specifier: 11.0.0-vnext.3
+        version: 11.0.0-vnext.3(@types/react@19.0.12)(react@19.0.0)
       '@gitkraken/provider-apis':
         specifier: 0.28.3
         version: 0.28.3(encoding@0.1.13)
@@ -39,7 +36,7 @@ importers:
         version: 1.1.5
       '@lit/react':
         specifier: 1.0.7
-        version: 1.0.7(@types/react@17.0.84)
+        version: 1.0.7(@types/react@19.0.12)
       '@lit/task':
         specifier: 1.0.2
         version: 1.0.2
@@ -72,10 +69,10 @@ importers:
         version: 1.32.0
       '@r2wc/react-to-web-component':
         specifier: 2.0.4
-        version: 2.0.4(react-dom@16.8.4(react@16.8.4))(react@16.8.4)
+        version: 2.0.4(react-dom@19.0.0(react@19.0.0))(react@19.0.0)
       '@shoelace-style/shoelace':
         specifier: 2.20.1
-        version: 2.20.1(@floating-ui/utils@0.2.9)(@types/react@17.0.84)
+        version: 2.20.1(@floating-ui/utils@0.2.9)(@types/react@19.0.12)
       '@vscode/codicons':
         specifier: 0.0.36
         version: 0.0.36
@@ -104,17 +101,11 @@ importers:
         specifier: 1.0.1
         version: 1.0.1
       react:
-        specifier: 16.8.4
-        version: 16.8.4
+        specifier: 19.0.0
+        version: 19.0.0
       react-dom:
-        specifier: 16.8.4
-        version: 16.8.4(react@16.8.4)
-      react-dom-next:
-        specifier: npm:react-dom@19.0.0
-        version: react-dom@19.0.0(react@16.8.4)
-      react-next:
-        specifier: npm:react@19.0.0
-        version: react@19.0.0
+        specifier: 19.0.0
+        version: 19.0.0(react@19.0.0)
       signal-utils:
         specifier: 0.21.1
         version: 0.21.1(signal-polyfill@0.2.2)
@@ -147,17 +138,11 @@ importers:
         specifier: 20.14.15
         version: 20.14.15
       '@types/react':
-        specifier: 17.0.84
-        version: 17.0.84
+        specifier: 19.0.12
+        version: 19.0.12
       '@types/react-dom':
-        specifier: 17.0.26
-        version: 17.0.26(@types/react@17.0.84)
-      '@types/react-dom-next':
-        specifier: npm:@types/react-dom@19.0.4
-        version: '@types/react-dom@19.0.4(@types/react@17.0.84)'
-      '@types/react-next':
-        specifier: npm:@types/react@19.0.12
-        version: '@types/react@19.0.12'
+        specifier: 19.0.4
+        version: 19.0.4(@types/react@19.0.12)
       '@types/sinon':
         specifier: 17.0.4
         version: 17.0.4
@@ -327,7 +312,7 @@ importers:
 packages:
 
   '@axosoft/react-virtualized@9.22.3-gitkraken.3':
-    resolution: {integrity: sha512-sCU8gM0Ut1I3lNBYLQCq7nmRObFsdGKkTIMZkVThZhFYtmQchl1RLnsXilicmNlwCNZdm3/uDCpOw6q7T1gtog==}
+    resolution: {integrity: sha512-sCU8gM0Ut1I3lNBYLQCq7nmRObFsdGKkTIMZkVThZhFYtmQchl1RLnsXilicmNlwCNZdm3/uDCpOw6q7T1gtog==, tarball: https://registry.npmjs.org/@axosoft/react-virtualized/-/react-virtualized-9.22.3-gitkraken.3.tgz}
     peerDependencies:
       react: ^15.3.0 || ^16.0.0-alpha
       react-dom: ^15.3.0 || ^16.0.0-alpha
@@ -382,10 +367,6 @@ packages:
 
   '@babel/helper-validator-identifier@7.25.9':
     resolution: {integrity: sha512-Ed61U6XJc3CVRfkERJWDz4dJwKe7iLmmJsbOGu9wSloNSFttHV0I8g6UAgb7qnK5ly5bGLPd4oXZlxCdANBOWQ==}
-    engines: {node: '>=6.9.0'}
-
-  '@babel/runtime-corejs2@7.27.0':
-    resolution: {integrity: sha512-89TgomkhiBKJ1QN/zPJbSW6M3T9caLoSDYsHFNlTI2Q+T12w8ehZeEnx54I79gB0kmM+etCC5Lfgv95rYUJPdQ==}
     engines: {node: '>=6.9.0'}
 
   '@babel/runtime@7.27.0':
@@ -629,9 +610,6 @@ packages:
 
   '@gar/promisify@1.1.3':
     resolution: {integrity: sha512-k2Ty1JcVojjJFwrg/ThKi2ujJ7XNLYaFGNB/bWT9wGR+oSMJHMa5w+CUq6p/pVrKeNNgA7pCqEcjSnHVoqJQFw==}
-
-  '@gitkraken/gitkraken-components@10.7.0':
-    resolution: {integrity: sha512-0oekeCgTgZNAtUFNH8eSIdOfPOVG3IUIXoaKuOBY0dRT6TLc5Q/ARyujdtWLHpdD3FC/GZv46N9IdQL4AEIwNA==}
 
   '@gitkraken/gitkraken-components@11.0.0-vnext.3':
     resolution: {integrity: sha512-tS/R3lewd7qqKm4L3v/2SY9++aZExINC3L5wN75ljY3z0Cei9uVKi7EIVeIR/Zil/apwnti7SfYY9+yS+9XzQg==}
@@ -1292,11 +1270,6 @@ packages:
   '@types/prop-types@15.7.14':
     resolution: {integrity: sha512-gNMvNH49DJ7OJYv+KAKn0Xp45p8PLl6zo2YnvDIbTd4J6MER2BmWN49TG7n9LvkyihINxeKW8+3bfS2yDC9dzQ==}
 
-  '@types/react-dom@17.0.26':
-    resolution: {integrity: sha512-Z+2VcYXJwOqQ79HreLU/1fyQ88eXSSFh6I3JdrEHQIfYSI0kCQpTGvOrbE6jFGGYXKsHuwY9tBa/w5Uo6KzrEg==}
-    peerDependencies:
-      '@types/react': ^17.0.0
-
   '@types/react-dom@19.0.4':
     resolution: {integrity: sha512-4fSQ8vWFkg+TGhePfUzVmat3eC14TXYSsiiDSLI0dVLsrm9gZFABjPy/Qu6TKgl1tq1Bu1yDsuQgY3A3DOjCcg==}
     peerDependencies:
@@ -1307,14 +1280,8 @@ packages:
     peerDependencies:
       '@types/react': '*'
 
-  '@types/react@17.0.84':
-    resolution: {integrity: sha512-DtgToBBNtUTNokPYGCShoDfbEtv2a0XnL1OVnShFU2d8wZ3EfI8nRwzVOeYxKUZdHdl++eX8Fmka7pDr6X+0xw==}
-
   '@types/react@19.0.12':
     resolution: {integrity: sha512-V6Ar115dBDrjbtXSrS+/Oruobc+qVbbUxDFC1RSbRqLt5SYvxxyIDrSC85RWml54g+jfNeEMZhEj7wW07ONQhA==}
-
-  '@types/scheduler@0.16.8':
-    resolution: {integrity: sha512-WZLiwShhwLRmeV6zH+GkbOFT6Z6VklCItrDioxUnv+u4Ll+8vKeFySoFyK/0ctcRpOmwAicELfmys1sDc/Rw+A==}
 
   '@types/sinon@17.0.4':
     resolution: {integrity: sha512-RHnIrhfPO3+tJT0s7cFaXGZvsL4bbR3/k7z3P312qMS4JaS2Tk+KiwiLx1S0rQ56ERj00u1/BtdyVd0FY+Pdew==}
@@ -2156,10 +2123,6 @@ packages:
     peerDependencies:
       webpack: ^5.1.0
 
-  core-js@2.6.12:
-    resolution: {integrity: sha512-Kb2wC0fvsWfQrgk8HU5lW6U/Lcs8+9aaYcy4ZFc6DDlo4nZ7n70dEgE5rtR0oG6ufKDUnrwfWL1mXR5ljDatrQ==}
-    deprecated: core-js@<3.23.3 is no longer maintained and not recommended for usage due to the number of issues. Because of the V8 engine whims, feature detection in old core-js versions could cause a slowdown up to 100x even if nothing is polyfilled. Some versions have web compatibility issues. Please, upgrade your dependencies to the actual version of core-js.
-
   core-util-is@1.0.3:
     resolution: {integrity: sha512-ZQBvi1DcpJ4GDqanjucZ2Hj3wEO5pZDS89BWbkcrvdxksJorwUDDZamX9ldFkp9aw2lmBDLgkObEA4DWNJ9FYQ==}
 
@@ -2523,9 +2486,6 @@ packages:
 
   dom-converter@0.2.0:
     resolution: {integrity: sha512-gd3ypIPfOMr9h5jIKq8E3sHOTCjeirnl0WK5ZdS1AW0Odt0b1PaWaHdJ4Qk4klv+YB9aJBS7mESXjFoDQPu6DA==}
-
-  dom-helpers@3.4.0:
-    resolution: {integrity: sha512-LnuPJ+dwqKDIyotW1VzmOZ5TONUN7CwkCR5hrgawTUbkBGYdeoNLZo6nNfGkCrjtE1nXXaj7iMMpDa8/d9WoIA==}
 
   dom-helpers@5.2.1:
     resolution: {integrity: sha512-nRCa7CK3VTrM2NmGkIy4cbK7IZlgBE/PYMn55rrXefr5xXDP0LdtfPnblFDoVdcAfslJ7or6iqAUnx0CCGIWQA==}
@@ -3595,9 +3555,6 @@ packages:
   jws@3.2.2:
     resolution: {integrity: sha512-YHlZCB6lMTllWDtSPHz/ZXTsi8S00usEV6v1tjq8tOUZzw7DpSDWVXjXDre6ed1w/pd495ODpHZYSdkRTsa0HA==}
 
-  keycode@2.2.1:
-    resolution: {integrity: sha512-Rdgz9Hl9Iv4QKi8b0OlCRQEzp4AgVxyCtz5S/+VIHezDmrDhkp2N2TqBWOLz0/gbeREXOOiI9/4b8BY9uw2vFg==}
-
   keygrip@1.1.0:
     resolution: {integrity: sha512-iYSchDJ+liQ8iwbSI2QqsQOvqv58eJCEanyJPJi+Khyu8smkcKSFUCbPwzFcL7YVtZ6eONjqRX/38caJ7QjRAQ==}
     engines: {node: '>= 0.6'}
@@ -4602,18 +4559,6 @@ packages:
       react: ^16.13.1 || ^17.0.0 || ^18.0.0 || ^19.0.0
       react-dom: ^16.13.1 || ^17.0.0 || ^18.0.0 || ^19.0.0
 
-  re-resizable@6.9.11:
-    resolution: {integrity: sha512-a3hiLWck/NkmyLvGWUuvkAmN1VhwAz4yOhS6FdMTaxCUVN9joIWkT11wsO68coG/iEYuwn+p/7qAmfQzRhiPLQ==}
-    peerDependencies:
-      react: ^16.13.1 || ^17.0.0 || ^18.0.0
-      react-dom: ^16.13.1 || ^17.0.0 || ^18.0.0
-
-  react-bootstrap@0.32.4:
-    resolution: {integrity: sha512-xj+JfaPOvnvr3ow0aHC7Y3HaBKZNR1mm361hVxVzVX3fcdJNIrfiodbQ0m9nLBpNxiKG6FTU2lq/SbTDYT2vew==}
-    peerDependencies:
-      react: ^0.14.9 || >=15.3.0
-      react-dom: ^0.14.9 || >=15.3.0
-
   react-bootstrap@2.10.7:
     resolution: {integrity: sha512-w6mWb3uytB5A18S2oTZpYghcOUK30neMBBvZ/bEfA+WIF2dF4OGqjzoFVMpVXBjtyf92gkmRToHlddiMAVhQqQ==}
     peerDependencies:
@@ -4623,11 +4568,6 @@ packages:
     peerDependenciesMeta:
       '@types/react':
         optional: true
-
-  react-dom@16.8.4:
-    resolution: {integrity: sha512-Ob2wK7XG2tUDt7ps7LtLzGYYB6DXMCLj0G5fO6WeEICtT4/HdpOi7W/xLzZnR6RCG1tYza60nMdqtxzA8FaPJQ==}
-    peerDependencies:
-      react: ^16.0.0
 
   react-dom@19.0.0:
     resolution: {integrity: sha512-4GV5sHFG0e/0AD4X+ySy6UJd3jVl1iNsNHdpad0qhABJ11twS3TTBnseqsKurKcsNqCEFeGL3uLpVChpIO3QfQ==}
@@ -4643,44 +4583,17 @@ packages:
   react-lifecycles-compat@3.0.4:
     resolution: {integrity: sha512-fBASbA6LnOU9dOU2eW7aQ8xmYBSXUIWr+UmF9b1efZBazGNO+rcXT/icdKnYm2pTwcRylVUYwW7H1PHfLekVzA==}
 
-  react-onclickoutside@6.13.0:
-    resolution: {integrity: sha512-ty8So6tcUpIb+ZE+1HAhbLROvAIJYyJe/1vRrrcmW+jLsaM+/powDRqxzo6hSh9CuRZGSL1Q8mvcF5WRD93a0A==}
-    peerDependencies:
-      react: ^15.5.x || ^16.x || ^17.x || ^18.x
-      react-dom: ^15.5.x || ^16.x || ^17.x || ^18.x
-
   react-onclickoutside@6.13.1:
     resolution: {integrity: sha512-LdrrxK/Yh9zbBQdFbMTXPp3dTSN9B+9YJQucdDu3JNKRrbdU+H+/TVONJoWtOwy4II8Sqf1y/DTI6w/vGPYW0w==}
     peerDependencies:
       react: ^15.5.x || ^16.x || ^17.x || ^18.x
       react-dom: ^15.5.x || ^16.x || ^17.x || ^18.x
 
-  react-overlays@0.8.3:
-    resolution: {integrity: sha512-h6GT3jgy90PgctleP39Yu3eK1v9vaJAW73GOA/UbN9dJ7aAN4BTZD6793eI1D5U+ukMk17qiqN/wl3diK1Z5LA==}
-    peerDependencies:
-      react: ^0.14.9 || >=15.3.0
-      react-dom: ^0.14.9 || >=15.3.0
-
-  react-prop-types@0.4.0:
-    resolution: {integrity: sha512-IyjsJhDX9JkoOV9wlmLaS7z+oxYoIWhfzDcFy7inwoAKTu+VcVNrVpPmLeioJ94y6GeDRsnwarG1py5qofFQMg==}
-    peerDependencies:
-      react: '>=0.14.0'
-
-  react-transition-group@2.9.0:
-    resolution: {integrity: sha512-+HzNTCHpeQyl4MJ/bdE0u6XRMe9+XG/+aL4mCxVN4DnPBQ0/5bfHWPDuOZUzYdMj94daZaZdCCc1Dzt9R/xSSg==}
-    peerDependencies:
-      react: '>=15.0.0'
-      react-dom: '>=15.0.0'
-
   react-transition-group@4.4.5:
     resolution: {integrity: sha512-pZcd1MCJoiKiBR2NRxeCRg13uCXbydPnmB4EOeRrY7480qNWO8IIgQG6zlDkm6uRMsURXPuKq0GWtiM59a5Q6g==}
     peerDependencies:
       react: '>=16.6.0'
       react-dom: '>=16.6.0'
-
-  react@16.8.4:
-    resolution: {integrity: sha512-0GQ6gFXfUH7aZcjGVymlPOASTuSjlQL4ZtVC5YKH+3JL6bBLCVO21DknzmaPlI90LN253ojj02nsapy+j7wIjg==}
-    engines: {node: '>=0.10.0'}
 
   react@19.0.0:
     resolution: {integrity: sha512-V8AVnmPIICiWpGfm6GLzCR/W5FXLchHop40W4nXBmdlEceh16rCN8O8LNWm5bh5XUX91fh7KpA+W0TgMKmgTpQ==}
@@ -4994,9 +4907,6 @@ packages:
 
   sax@1.4.1:
     resolution: {integrity: sha512-+aWOz7yVScEGoKNd4PA10LZ8sk0A/z5+nXQG5giUO5rprX9jgYsTdov9qCchZiPIZezbZH+jRut8nPodFAX4Jg==}
-
-  scheduler@0.13.6:
-    resolution: {integrity: sha512-IWnObHt413ucAYKsD9J1QShUKkbKLQQHdxRyw73sw4FN26iWr3DY/H34xGPe4nmL1DwXyWmSWmMrA9TfQbE/XQ==}
 
   scheduler@0.25.0:
     resolution: {integrity: sha512-xFVuu11jh+xcO7JOAGJNOXld8/TcEHK/4CituBUeUb5hqxJLj9YuemAEuvm9gQ/+pgXYfbQuqAkiYu+u7YEsNA==}
@@ -5507,11 +5417,6 @@ packages:
     resolution: {integrity: sha512-nWJ91DjeOkej/TA8pXQ3myruKpKEYgqvpw9lz4OPHj/NWFNluYrjbz9j01CJ8yKQd2g4jFoOkINCTW2I5LEEyw==}
     engines: {node: '>= 0.4'}
 
-  uncontrollable@5.1.0:
-    resolution: {integrity: sha512-5FXYaFANKaafg4IVZXUNtGyzsnYEvqlr9wQ3WpZxFpEUxl29A3H6Q4G1Dnnorvq9TGOGATBApWR4YpLAh+F5hw==}
-    peerDependencies:
-      react: '>=15.0.0'
-
   uncontrollable@7.2.1:
     resolution: {integrity: sha512-svtcfoTADIB0nT9nltgjujTi7BzVmwjZClOmskKu/E8FW9BXzg9os8OLr4f8Dlnk0rYWJIWr4wv9eKUXiQvQwQ==}
     peerDependencies:
@@ -5584,9 +5489,6 @@ packages:
 
   vscode-uri@3.1.0:
     resolution: {integrity: sha512-/BpdSx+yCQGnCvecbyXdxHDkuk55/G3xwnC0GqY4gmQ3j+A+g8kzzgB4Nk/SINjqn6+waqw3EgbVF2QKExkRxQ==}
-
-  warning@3.0.0:
-    resolution: {integrity: sha512-jMBt6pUrKn5I+OGgtQ4YZLdhIeJmObddh6CsibPxyQ5yPZm1XExSyzC1LCNX7BzhxWgiHmizBWJTHJIjMjTQYQ==}
 
   warning@4.0.3:
     resolution: {integrity: sha512-rpJyN222KWIvHJ/F53XSZv0Zl/accqHR8et1kpaMTD/fLCRxtV8iX8czMzY7sVZupTI3zcUTg8eycS2kNF9l6w==}
@@ -5769,26 +5671,15 @@ packages:
 
 snapshots:
 
-  '@axosoft/react-virtualized@9.22.3-gitkraken.3(react-dom@16.8.4(react@16.8.4))(react@16.8.4)':
+  '@axosoft/react-virtualized@9.22.3-gitkraken.3(react-dom@19.0.0(react@19.0.0))(react@19.0.0)':
     dependencies:
       '@babel/runtime': 7.27.0
       clsx: 1.2.1
       dom-helpers: 5.2.1
       loose-envify: 1.4.0
       prop-types: 15.8.1
-      react: 16.8.4
-      react-dom: 16.8.4(react@16.8.4)
-      react-lifecycles-compat: 3.0.4
-
-  '@axosoft/react-virtualized@9.22.3-gitkraken.3(react-dom@19.0.0(react@16.8.4))(react@16.8.4)':
-    dependencies:
-      '@babel/runtime': 7.27.0
-      clsx: 1.2.1
-      dom-helpers: 5.2.1
-      loose-envify: 1.4.0
-      prop-types: 15.8.1
-      react: 16.8.4
-      react-dom: 19.0.0(react@16.8.4)
+      react: 19.0.0
+      react-dom: 19.0.0(react@19.0.0)
       react-lifecycles-compat: 3.0.4
 
   '@azure/abort-controller@2.1.2':
@@ -5874,11 +5765,6 @@ snapshots:
       picocolors: 1.1.1
 
   '@babel/helper-validator-identifier@7.25.9': {}
-
-  '@babel/runtime-corejs2@7.27.0':
-    dependencies:
-      core-js: 2.6.12
-      regenerator-runtime: 0.14.1
 
   '@babel/runtime@7.27.0':
     dependencies:
@@ -6060,27 +5946,16 @@ snapshots:
 
   '@gar/promisify@1.1.3': {}
 
-  '@gitkraken/gitkraken-components@10.7.0':
+  '@gitkraken/gitkraken-components@11.0.0-vnext.3(@types/react@19.0.12)(react@19.0.0)':
     dependencies:
-      '@axosoft/react-virtualized': 9.22.3-gitkraken.3(react-dom@16.8.4(react@16.8.4))(react@16.8.4)
+      '@axosoft/react-virtualized': 9.22.3-gitkraken.3(react-dom@19.0.0(react@19.0.0))(react@19.0.0)
       classnames: 2.5.1
-      re-resizable: 6.9.11(react-dom@16.8.4(react@16.8.4))(react@16.8.4)
-      react: 16.8.4
-      react-bootstrap: 0.32.4(react-dom@16.8.4(react@16.8.4))(react@16.8.4)
-      react-dom: 16.8.4(react@16.8.4)
+      re-resizable: 6.10.3(react-dom@19.0.0(react@19.0.0))(react@19.0.0)
+      react: 19.0.0
+      react-bootstrap: 2.10.7(@types/react@19.0.12)(react-dom@19.0.0(react@19.0.0))(react@19.0.0)
+      react-dom: 19.0.0(react@19.0.0)
       react-dragula: 1.1.17
-      react-onclickoutside: 6.13.0(react-dom@16.8.4(react@16.8.4))(react@16.8.4)
-
-  '@gitkraken/gitkraken-components@11.0.0-vnext.3(@types/react@17.0.84)(react@16.8.4)':
-    dependencies:
-      '@axosoft/react-virtualized': 9.22.3-gitkraken.3(react-dom@19.0.0(react@16.8.4))(react@16.8.4)
-      classnames: 2.5.1
-      re-resizable: 6.10.3(react-dom@19.0.0(react@16.8.4))(react@16.8.4)
-      react: 16.8.4
-      react-bootstrap: 2.10.7(@types/react@17.0.84)(react-dom@19.0.0(react@16.8.4))(react@16.8.4)
-      react-dom: 19.0.0(react@16.8.4)
-      react-dragula: 1.1.17
-      react-onclickoutside: 6.13.1(react-dom@19.0.0(react@16.8.4))(react@16.8.4)
+      react-onclickoutside: 6.13.1(react-dom@19.0.0(react@19.0.0))(react@19.0.0)
     transitivePeerDependencies:
       - '@types/react'
 
@@ -6256,9 +6131,9 @@ snapshots:
     dependencies:
       '@lit/reactive-element': 2.1.0
 
-  '@lit/react@1.0.7(@types/react@17.0.84)':
+  '@lit/react@1.0.7(@types/react@19.0.12)':
     dependencies:
-      '@types/react': 17.0.84
+      '@types/react': 19.0.12
 
   '@lit/reactive-element@2.1.0':
     dependencies:
@@ -6498,50 +6373,50 @@ snapshots:
 
   '@r2wc/core@1.2.0': {}
 
-  '@r2wc/react-to-web-component@2.0.4(react-dom@16.8.4(react@16.8.4))(react@16.8.4)':
+  '@r2wc/react-to-web-component@2.0.4(react-dom@19.0.0(react@19.0.0))(react@19.0.0)':
     dependencies:
       '@r2wc/core': 1.2.0
-      react: 16.8.4
-      react-dom: 16.8.4(react@16.8.4)
+      react: 19.0.0
+      react-dom: 19.0.0(react@19.0.0)
 
-  '@react-aria/ssr@3.9.8(react@16.8.4)':
+  '@react-aria/ssr@3.9.8(react@19.0.0)':
     dependencies:
       '@swc/helpers': 0.5.17
-      react: 16.8.4
+      react: 19.0.0
 
-  '@restart/hooks@0.4.16(react@16.8.4)':
+  '@restart/hooks@0.4.16(react@19.0.0)':
     dependencies:
       dequal: 2.0.3
-      react: 16.8.4
+      react: 19.0.0
 
-  '@restart/hooks@0.5.1(react@16.8.4)':
+  '@restart/hooks@0.5.1(react@19.0.0)':
     dependencies:
       dequal: 2.0.3
-      react: 16.8.4
+      react: 19.0.0
 
-  '@restart/ui@1.9.4(react-dom@19.0.0(react@16.8.4))(react@16.8.4)':
+  '@restart/ui@1.9.4(react-dom@19.0.0(react@19.0.0))(react@19.0.0)':
     dependencies:
       '@babel/runtime': 7.27.0
       '@popperjs/core': 2.11.8
-      '@react-aria/ssr': 3.9.8(react@16.8.4)
-      '@restart/hooks': 0.5.1(react@16.8.4)
+      '@react-aria/ssr': 3.9.8(react@19.0.0)
+      '@restart/hooks': 0.5.1(react@19.0.0)
       '@types/warning': 3.0.3
       dequal: 2.0.3
       dom-helpers: 5.2.1
-      react: 16.8.4
-      react-dom: 19.0.0(react@16.8.4)
-      uncontrollable: 8.0.4(react@16.8.4)
+      react: 19.0.0
+      react-dom: 19.0.0(react@19.0.0)
+      uncontrollable: 8.0.4(react@19.0.0)
       warning: 4.0.3
 
   '@shoelace-style/animations@1.2.0': {}
 
   '@shoelace-style/localize@3.2.1': {}
 
-  '@shoelace-style/shoelace@2.20.1(@floating-ui/utils@0.2.9)(@types/react@17.0.84)':
+  '@shoelace-style/shoelace@2.20.1(@floating-ui/utils@0.2.9)(@types/react@19.0.12)':
     dependencies:
       '@ctrl/tinycolor': 4.1.0
       '@floating-ui/dom': 1.6.13
-      '@lit/react': 1.0.7(@types/react@17.0.84)
+      '@lit/react': 1.0.7(@types/react@19.0.12)
       '@shoelace-style/animations': 1.2.0
       '@shoelace-style/localize': 3.2.1
       composed-offset-position: 0.0.6(@floating-ui/utils@0.2.9)
@@ -6707,29 +6582,17 @@ snapshots:
 
   '@types/prop-types@15.7.14': {}
 
-  '@types/react-dom@17.0.26(@types/react@17.0.84)':
+  '@types/react-dom@19.0.4(@types/react@19.0.12)':
     dependencies:
-      '@types/react': 17.0.84
+      '@types/react': 19.0.12
 
-  '@types/react-dom@19.0.4(@types/react@17.0.84)':
+  '@types/react-transition-group@4.4.12(@types/react@19.0.12)':
     dependencies:
-      '@types/react': 17.0.84
-
-  '@types/react-transition-group@4.4.12(@types/react@17.0.84)':
-    dependencies:
-      '@types/react': 17.0.84
-
-  '@types/react@17.0.84':
-    dependencies:
-      '@types/prop-types': 15.7.14
-      '@types/scheduler': 0.16.8
-      csstype: 3.1.3
+      '@types/react': 19.0.12
 
   '@types/react@19.0.12':
     dependencies:
       csstype: 3.1.3
-
-  '@types/scheduler@0.16.8': {}
 
   '@types/sinon@17.0.4':
     dependencies:
@@ -7689,8 +7552,6 @@ snapshots:
       tinyglobby: 0.2.12
       webpack: 5.99.5(@swc/core@1.11.21(@swc/helpers@0.5.17))(esbuild@0.25.2)(webpack-cli@6.0.1)
 
-  core-js@2.6.12: {}
-
   core-util-is@1.0.3: {}
 
   cosmiconfig@8.3.6(typescript@5.8.3):
@@ -8057,10 +7918,6 @@ snapshots:
   dom-converter@0.2.0:
     dependencies:
       utila: 0.4.0
-
-  dom-helpers@3.4.0:
-    dependencies:
-      '@babel/runtime': 7.27.0
 
   dom-helpers@5.2.1:
     dependencies:
@@ -9332,8 +9189,6 @@ snapshots:
       jwa: 1.4.1
       safe-buffer: 5.2.1
 
-  keycode@2.2.1: {}
-
   keygrip@1.1.0:
     dependencies:
       tsscmp: 1.0.6
@@ -10346,9 +10201,9 @@ snapshots:
       err-code: 2.0.3
       retry: 0.12.0
 
-  prop-types-extra@1.1.1(react@16.8.4):
+  prop-types-extra@1.1.1(react@19.0.0):
     dependencies:
-      react: 16.8.4
+      react: 19.0.0
       react-is: 16.13.1
       warning: 4.0.3
 
@@ -10415,64 +10270,34 @@ snapshots:
       strip-json-comments: 2.0.1
     optional: true
 
-  re-resizable@6.10.3(react-dom@19.0.0(react@16.8.4))(react@16.8.4):
+  re-resizable@6.10.3(react-dom@19.0.0(react@19.0.0))(react@19.0.0):
     dependencies:
-      react: 16.8.4
-      react-dom: 19.0.0(react@16.8.4)
+      react: 19.0.0
+      react-dom: 19.0.0(react@19.0.0)
 
-  re-resizable@6.9.11(react-dom@16.8.4(react@16.8.4))(react@16.8.4):
-    dependencies:
-      react: 16.8.4
-      react-dom: 16.8.4(react@16.8.4)
-
-  react-bootstrap@0.32.4(react-dom@16.8.4(react@16.8.4))(react@16.8.4):
-    dependencies:
-      '@babel/runtime-corejs2': 7.27.0
-      classnames: 2.5.1
-      dom-helpers: 3.4.0
-      invariant: 2.2.4
-      keycode: 2.2.1
-      prop-types: 15.8.1
-      prop-types-extra: 1.1.1(react@16.8.4)
-      react: 16.8.4
-      react-dom: 16.8.4(react@16.8.4)
-      react-overlays: 0.8.3(react-dom@16.8.4(react@16.8.4))(react@16.8.4)
-      react-prop-types: 0.4.0(react@16.8.4)
-      react-transition-group: 2.9.0(react-dom@16.8.4(react@16.8.4))(react@16.8.4)
-      uncontrollable: 5.1.0(react@16.8.4)
-      warning: 3.0.0
-
-  react-bootstrap@2.10.7(@types/react@17.0.84)(react-dom@19.0.0(react@16.8.4))(react@16.8.4):
+  react-bootstrap@2.10.7(@types/react@19.0.12)(react-dom@19.0.0(react@19.0.0))(react@19.0.0):
     dependencies:
       '@babel/runtime': 7.27.0
-      '@restart/hooks': 0.4.16(react@16.8.4)
-      '@restart/ui': 1.9.4(react-dom@19.0.0(react@16.8.4))(react@16.8.4)
+      '@restart/hooks': 0.4.16(react@19.0.0)
+      '@restart/ui': 1.9.4(react-dom@19.0.0(react@19.0.0))(react@19.0.0)
       '@types/prop-types': 15.7.14
-      '@types/react-transition-group': 4.4.12(@types/react@17.0.84)
+      '@types/react-transition-group': 4.4.12(@types/react@19.0.12)
       classnames: 2.5.1
       dom-helpers: 5.2.1
       invariant: 2.2.4
       prop-types: 15.8.1
-      prop-types-extra: 1.1.1(react@16.8.4)
-      react: 16.8.4
-      react-dom: 19.0.0(react@16.8.4)
-      react-transition-group: 4.4.5(react-dom@19.0.0(react@16.8.4))(react@16.8.4)
-      uncontrollable: 7.2.1(react@16.8.4)
+      prop-types-extra: 1.1.1(react@19.0.0)
+      react: 19.0.0
+      react-dom: 19.0.0(react@19.0.0)
+      react-transition-group: 4.4.5(react-dom@19.0.0(react@19.0.0))(react@19.0.0)
+      uncontrollable: 7.2.1(react@19.0.0)
       warning: 4.0.3
     optionalDependencies:
-      '@types/react': 17.0.84
+      '@types/react': 19.0.12
 
-  react-dom@16.8.4(react@16.8.4):
+  react-dom@19.0.0(react@19.0.0):
     dependencies:
-      loose-envify: 1.4.0
-      object-assign: 4.1.1
-      prop-types: 15.8.1
-      react: 16.8.4
-      scheduler: 0.13.6
-
-  react-dom@19.0.0(react@16.8.4):
-    dependencies:
-      react: 16.8.4
+      react: 19.0.0
       scheduler: 0.25.0
 
   react-dragula@1.1.17:
@@ -10484,56 +10309,19 @@ snapshots:
 
   react-lifecycles-compat@3.0.4: {}
 
-  react-onclickoutside@6.13.0(react-dom@16.8.4(react@16.8.4))(react@16.8.4):
+  react-onclickoutside@6.13.1(react-dom@19.0.0(react@19.0.0))(react@19.0.0):
     dependencies:
-      react: 16.8.4
-      react-dom: 16.8.4(react@16.8.4)
+      react: 19.0.0
+      react-dom: 19.0.0(react@19.0.0)
 
-  react-onclickoutside@6.13.1(react-dom@19.0.0(react@16.8.4))(react@16.8.4):
-    dependencies:
-      react: 16.8.4
-      react-dom: 19.0.0(react@16.8.4)
-
-  react-overlays@0.8.3(react-dom@16.8.4(react@16.8.4))(react@16.8.4):
-    dependencies:
-      classnames: 2.5.1
-      dom-helpers: 3.4.0
-      prop-types: 15.8.1
-      prop-types-extra: 1.1.1(react@16.8.4)
-      react: 16.8.4
-      react-dom: 16.8.4(react@16.8.4)
-      react-transition-group: 2.9.0(react-dom@16.8.4(react@16.8.4))(react@16.8.4)
-      warning: 3.0.0
-
-  react-prop-types@0.4.0(react@16.8.4):
-    dependencies:
-      react: 16.8.4
-      warning: 3.0.0
-
-  react-transition-group@2.9.0(react-dom@16.8.4(react@16.8.4))(react@16.8.4):
-    dependencies:
-      dom-helpers: 3.4.0
-      loose-envify: 1.4.0
-      prop-types: 15.8.1
-      react: 16.8.4
-      react-dom: 16.8.4(react@16.8.4)
-      react-lifecycles-compat: 3.0.4
-
-  react-transition-group@4.4.5(react-dom@19.0.0(react@16.8.4))(react@16.8.4):
+  react-transition-group@4.4.5(react-dom@19.0.0(react@19.0.0))(react@19.0.0):
     dependencies:
       '@babel/runtime': 7.27.0
       dom-helpers: 5.2.1
       loose-envify: 1.4.0
       prop-types: 15.8.1
-      react: 16.8.4
-      react-dom: 19.0.0(react@16.8.4)
-
-  react@16.8.4:
-    dependencies:
-      loose-envify: 1.4.0
-      object-assign: 4.1.1
-      prop-types: 15.8.1
-      scheduler: 0.13.6
+      react: 19.0.0
+      react-dom: 19.0.0(react@19.0.0)
 
   react@19.0.0: {}
 
@@ -10824,11 +10612,6 @@ snapshots:
       '@parcel/watcher': 2.5.1
 
   sax@1.4.1: {}
-
-  scheduler@0.13.6:
-    dependencies:
-      loose-envify: 1.4.0
-      object-assign: 4.1.1
 
   scheduler@0.25.0: {}
 
@@ -11443,22 +11226,17 @@ snapshots:
       which-boxed-primitive: 1.1.1
     optional: true
 
-  uncontrollable@5.1.0(react@16.8.4):
-    dependencies:
-      invariant: 2.2.4
-      react: 16.8.4
-
-  uncontrollable@7.2.1(react@16.8.4):
+  uncontrollable@7.2.1(react@19.0.0):
     dependencies:
       '@babel/runtime': 7.27.0
       '@types/react': 19.0.12
       invariant: 2.2.4
-      react: 16.8.4
+      react: 19.0.0
       react-lifecycles-compat: 3.0.4
 
-  uncontrollable@8.0.4(react@16.8.4):
+  uncontrollable@8.0.4(react@19.0.0):
     dependencies:
-      react: 16.8.4
+      react: 19.0.0
 
   underscore@1.13.7: {}
 
@@ -11529,10 +11307,6 @@ snapshots:
   vary@1.1.2: {}
 
   vscode-uri@3.1.0: {}
-
-  warning@3.0.0:
-    dependencies:
-      loose-envify: 1.4.0
 
   warning@4.0.3:
     dependencies:
