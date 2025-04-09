@@ -1,13 +1,15 @@
 import { consume } from '@lit/context';
 import { Task } from '@lit/task';
 import { css, html, LitElement, nothing } from 'lit';
-import { customElement, property } from 'lit/decorators.js';
+import { customElement } from 'lit/decorators.js';
 import { repeat } from 'lit/directives/repeat.js';
+import type { State } from '../../../../plus/graph/protocol';
 import { DidChangeNotification, GetCountsRequest } from '../../../../plus/graph/protocol';
 import { ipcContext } from '../../../shared/contexts/ipc';
 import type { Disposable } from '../../../shared/events';
 import type { HostIpc } from '../../../shared/ipc';
 import { emitTelemetrySentEvent } from '../../../shared/telemetry';
+import { stateContext } from '../context';
 import '../../../shared/components/code-icon';
 import '../../../shared/components/overlays/tooltip';
 
@@ -32,6 +34,7 @@ type Counts = Record<IconTypes, number | undefined>;
 export class GlGraphSideBar extends LitElement {
 	static override styles = css`
 		.sidebar {
+			box-sizing: border-box;
 			display: flex;
 			flex-direction: column;
 			align-items: center;
@@ -41,7 +44,7 @@ export class GlGraphSideBar extends LitElement {
 			width: 2.6rem;
 			font-size: 9px;
 			font-weight: 600;
-			height: 100vh;
+			height: 100%;
 			padding: 3rem 0;
 			z-index: 1040;
 		}
@@ -72,14 +75,19 @@ export class GlGraphSideBar extends LitElement {
 		}
 	`;
 
-	@property({ type: Boolean })
-	enabled = true;
-
-	@property({ type: Array })
-	include?: IconTypes[];
+	get include(): undefined | IconTypes[] {
+		const repo = this._state.repositories?.find(item => item.path === this._state.selectedRepository);
+		return repo?.isVirtual
+			? (['branches', 'remotes', 'tags'] as const)
+			: (['branches', 'remotes', 'tags', 'stashes', 'worktrees'] as const);
+	}
 
 	@consume({ context: ipcContext })
 	private _ipc!: HostIpc;
+
+	@consume({ context: stateContext, subscribe: true })
+	private readonly _state!: State;
+
 	private _disposable: Disposable | undefined;
 	private _countsTask = new Task(this, {
 		args: () => [this.fetchCounts()],
@@ -129,8 +137,6 @@ export class GlGraphSideBar extends LitElement {
 	}
 
 	override render(): unknown {
-		if (!this.enabled) return nothing;
-
 		if (this._counts == null) {
 			void this._countsTask.run();
 		}

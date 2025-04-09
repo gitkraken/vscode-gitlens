@@ -31,11 +31,11 @@ import type { CustomEventType } from '../../../shared/components/element';
 import { ipcContext } from '../../../shared/contexts/ipc';
 import type { TelemetryContext } from '../../../shared/contexts/telemetry';
 import { telemetryContext } from '../../../shared/contexts/telemetry';
-import type { GlGraphHover } from '../../graph/hover/graphHover';
 import { stateContext } from '../context';
+import type { GlGraphHover } from '../hover/graphHover';
 import { graphStateContext } from '../stateProvider';
 import { GraphWrapperReact } from './graph-wrapper.react';
-import '../../graph/hover/graphHover';
+import '../hover/graphHover';
 
 const WebGraph = r2wc(GraphWrapperReact, {
 	props: {

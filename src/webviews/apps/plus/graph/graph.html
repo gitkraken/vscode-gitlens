@@ -20,11 +20,11 @@
 	</head>
 
 	<body
-		class="graph-app scrollable"
+		class="scrollable"
 		data-placement="#{placement}"
 		data-vscode-context='{ "preventDefaultContextMenuItems": true, "webview": "#{webviewId}", "webviewInstance": "#{webviewInstanceId}" }'
 	>
-		<div id="root" class="graph-app__container"></div>
+		<gl-graph-app name="GraphView" placement="#{placement}" bootstrap="#{state}"></gl-graph-app>
 		#{endOfBody}
 	</body>
 </html>
