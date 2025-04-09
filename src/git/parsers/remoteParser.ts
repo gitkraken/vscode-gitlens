@@ -52,7 +52,7 @@ export function parseGitRemotes(
 				scheme,
 				domain,
 				path,
-				remoteProviderMatcher(url, domain, path),
+				remoteProviderMatcher(url, domain, path, scheme),
 				[{ url: url, type: type as GitRemoteType }],
 			);
 			remotes.set(name, remote);
@@ -60,7 +60,7 @@ export function parseGitRemotes(
 			remote.urls.push({ url: url, type: type as GitRemoteType });
 			if (remote.provider != null && type !== 'push') continue;
 
-			const provider = remoteProviderMatcher(url, domain, path);
+			const provider = remoteProviderMatcher(url, domain, path, scheme);
 			if (provider == null) continue;
 
 			remote = new GitRemote(container, repoPath, name, scheme, domain, path, provider, remote.urls);

@@ -19,6 +19,7 @@ export class RemotesGitSubProvider extends RemotesGitProviderBase {
 		const [, owner, repo] = uri.path.split('/', 3);
 
 		const url = `https://github.com/${owner}/${repo}.git`;
+		const protocol = 'https';
 		const domain = 'github.com';
 		const path = `${owner}/${repo}`;
 
@@ -27,10 +28,10 @@ export class RemotesGitSubProvider extends RemotesGitProviderBase {
 				this.container,
 				repoPath,
 				'origin',
-				'https',
+				protocol,
 				domain,
 				path,
-				(await getRemoteProviderMatcher(this.container, providers))(url, domain, path),
+				(await getRemoteProviderMatcher(this.container, providers))(url, domain, path, protocol),
 				[
 					{ type: 'fetch', url: url },
 					{ type: 'push', url: url },

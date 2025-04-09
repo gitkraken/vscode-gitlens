@@ -725,7 +725,7 @@ export class DraftService implements Disposable {
 			name = data.provider.repoName;
 		} else if (data.remote?.url != null && data.remote?.domain != null && data.remote?.path != null) {
 			const matcher = await getRemoteProviderMatcher(this.container);
-			const provider = matcher(data.remote.url, data.remote.domain, data.remote.path);
+			const provider = matcher(data.remote.url, data.remote.domain, data.remote.path, undefined);
 			name = provider?.repoName ?? data.remote.path;
 		} else {
 			name =
