@@ -21333,7 +21333,6 @@
 		"@opentelemetry/resources": "2.0.0",
 		"@opentelemetry/sdk-trace-base": "2.0.0",
 		"@opentelemetry/semantic-conventions": "1.30.0",
-		"@r2wc/react-to-web-component": "2.0.4",
 		"@shoelace-style/shoelace": "2.20.0",
 		"@vscode/codicons": "0.0.36",
 		"billboard.js": "3.15.0",
