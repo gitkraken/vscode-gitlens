@@ -2,33 +2,20 @@ import type { CancellationToken } from 'vscode';
 import type { Response } from '@env/fetch';
 import { geminiProviderDescriptor as provider } from '../../constants.ai';
 import type { AIActionType, AIModel } from './models/model';
-import { OpenAICompatibleProviderBase } from './openAICompatibleProviderBase';
+import { OpenAICompatibleProvider } from './openAICompatibleProvider';
 
 type GeminiModel = AIModel<typeof provider.id>;
 const models: GeminiModel[] = [
 	{
-		id: 'gemini-2.5-flash-preview-05-20',
-		name: 'Gemini 2.5 Flash (Preview)',
-		maxTokens: { input: 1048576, output: 65536 },
-		provider: provider,
-	},
-	{
-		id: 'gemini-2.5-flash-preview-04-17',
-		name: 'Gemini 2.5 Flash (Preview)',
-		maxTokens: { input: 1048576, output: 65536 },
-		provider: provider,
-		hidden: true,
-	},
-	{
 		id: 'gemini-2.5-pro-preview-03-25',
 		name: 'Gemini 2.5 Pro (Preview)',
-		maxTokens: { input: 1048576, output: 65536 },
+		maxTokens: { input: 1000000, output: 64000 },
 		provider: provider,
 	},
 	{
 		id: 'gemini-2.5-pro-exp-03-25',
 		name: 'Gemini 2.5 Pro (Experimental)',
-		maxTokens: { input: 1048576, output: 65536 },
+		maxTokens: { input: 1000000, output: 64000 },
 		provider: provider,
 		hidden: true,
 	},
@@ -118,7 +105,7 @@ const models: GeminiModel[] = [
 	},
 ];
 
-export class GeminiProvider extends OpenAICompatibleProviderBase<typeof provider.id> {
+export class GeminiProvider extends OpenAICompatibleProvider<typeof provider.id> {
 	readonly id = provider.id;
 	readonly name = provider.name;
 	protected readonly descriptor = provider;
