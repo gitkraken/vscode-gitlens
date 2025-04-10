@@ -82,7 +82,7 @@ export abstract class RemoteProvider<T extends ResourceDescriptor = ResourceDesc
 	}
 
 	get owner(): string | undefined {
-		return this.splitPath()[0];
+		return this.splitPath(this.path)[0];
 	}
 
 	@memoize()
@@ -108,7 +108,7 @@ export abstract class RemoteProvider<T extends ResourceDescriptor = ResourceDesc
 	}
 
 	get repoName(): string | undefined {
-		return this.splitPath()[1];
+		return this.splitPath(this.path)[1];
 	}
 
 	abstract get id(): RemoteProviderId;
@@ -186,9 +186,9 @@ export abstract class RemoteProvider<T extends ResourceDescriptor = ResourceDesc
 		return `${name}${this.custom ? ` (${this.domain})` : ''}`;
 	}
 
-	protected splitPath(): [string, string] {
-		const index = this.path.indexOf('/');
-		return [this.path.substring(0, index), this.path.substring(index + 1)];
+	protected splitPath(path: string): [string, string] {
+		const index = path.indexOf('/');
+		return [path.substring(0, index), path.substring(index + 1)];
 	}
 
 	protected abstract getUrlForBranch(branch: string): string;

@@ -221,6 +221,7 @@ export class ProvidersApi {
 			[SelfHostedIntegrationId.BitbucketServer]: {
 				...providersMetadata[SelfHostedIntegrationId.BitbucketServer],
 				provider: providerApis.bitbucketServer,
+				getRepoFn: providerApis.bitbucketServer.getRepo.bind(providerApis.bitbucketServer),
 				getCurrentUserFn: providerApis.bitbucketServer.getCurrentUser.bind(
 					providerApis.bitbucketServer,
 				) as GetCurrentUserFn,

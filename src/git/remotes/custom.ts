@@ -128,7 +128,7 @@ export class CustomRemote extends RemoteProvider {
 	}
 
 	private getContext(additionalContext?: Record<string, string>) {
-		const [repoBase, repoPath] = this.splitPath();
+		const [repoBase, repoPath] = this.splitPath(this.path);
 		const context: Record<string, string> = {
 			repo: this.path,
 			repoBase: repoBase,
