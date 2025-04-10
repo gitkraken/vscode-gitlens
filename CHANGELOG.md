@@ -20,6 +20,18 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/) and this p
 - Fixes incorrect PR Link Across Azure DevOps Projects ([#4207](https://github.com/gitkraken/vscode-gitlens/issues/4207))
 - Fixes detail view incorrectly parses GitHub account in commit message ([#3246](https://github.com/gitkraken/vscode-gitlens/issues/3246))
 
+## [17.0.2] - 2025-04-11
+
+### Changed
+
+- Updates discount messaging ([#4202](https://github.com/gitkraken/vscode-gitlens/issues/4202))
+
+### Fixed
+
+- Fixes branches not found for older git version ([#4201](https://github.com/gitkraken/vscode-gitlens/issues/4201))
+- Fixes worktree commands not registered ([#4203](https://github.com/gitkraken/vscode-gitlens/issues/4203))
+- GL won't publish/push initial commit to remote from Home ([#4010](https://github.com/gitkraken/vscode-gitlens/issues/4010))
+
 ## [17.0.1] - 2025-04-03
 
 ### Added
@@ -32,7 +44,6 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/) and this p
 
 - Fixes _Create PR with AI_ isn't including commit messages properly ([#4198](https://github.com/gitkraken/vscode-gitlens/issues/4198))
 - Fixes some cases where "Switch" and "Open in Worktree" actions in Launchpad fail to fully open the repo ([#4196](https://github.com/gitkraken/vscode-gitlens/issues/4196))
-- Fixes worktree commands not registered ([#4203](https://github.com/gitkraken/vscode-gitlens/issues/4203))
 
 ## [17.0.0] - 2025-03-31
 
@@ -6085,7 +6096,8 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/) and this p
 
 - Initial release but still heavily a work in progress.
 
-[unreleased]: https://github.com/gitkraken/vscode-gitlens/compare/v17.0.1...HEAD
+[unreleased]: https://github.com/gitkraken/vscode-gitlens/compare/v17.0.2...HEAD
+[17.0.2]: https://github.com/gitkraken/vscode-gitlens/compare/v17.0.1...gitkraken:v17.0.2
 [17.0.1]: https://github.com/gitkraken/vscode-gitlens/compare/v17.0.0...gitkraken:v17.0.1
 [17.0.0]: https://github.com/gitkraken/vscode-gitlens/compare/v16.3.3...gitkraken:v17.0.0
 [16.3.3]: https://github.com/gitkraken/vscode-gitlens/compare/v16.3.2...gitkraken:v16.3.3
