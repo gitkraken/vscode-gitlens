@@ -15,6 +15,7 @@ import type {
 	OnFormatCommitDateTime,
 } from '@gitkraken/gitkraken-components';
 import GraphContainer, { CommitDateTimeSources, refZone } from '@gitkraken/gitkraken-components';
+import r2wc from '@r2wc/react-to-web-component';
 import type { ReactElement } from 'react';
 import React, { createElement, useCallback, useEffect, useMemo, useState } from 'react';
 import { getPlatform } from '@env/platform';
@@ -32,6 +33,7 @@ import type {
 	GraphMissingRefsMetadata,
 	GraphRefMetadataItem,
 	State,
+	UpdateGraphConfigurationParams,
 } from '../../../../plus/graph/protocol';
 import { GlMarkdown } from '../../../shared/components/markdown/markdown.react';
 import type { GraphAppState } from '../stateProvider';
@@ -567,4 +569,78 @@ function getActiveRowInfo(activeRow: string | undefined): { id: string; date: nu
 		id: id,
 		date: Number(date),
 	};
+}
+
+export const WebGraph = r2wc(GraphWrapperReact, {
+	props: {
+		activeRow: 'string',
+		filter: 'json',
+		avatars: 'json',
+		columns: 'json',
+		context: 'json',
+		theming: 'json',
+		config: 'json',
+		downstreams: 'json',
+		excludeRefs: 'json',
+		excludeTypes: 'json',
+		rows: 'json',
+		includeOnlyRefs: 'json',
+		windowFocused: 'boolean',
+		loading: 'boolean',
+		selectedRows: 'json',
+		nonce: 'string',
+		refsMetadata: 'json',
+		rowsStats: 'json',
+		workingTreeStats: 'json',
+		paging: 'json',
+		setRef: 'function',
+		searchResults: 'json',
+	},
+
+	events: [
+		'onChangeColumns',
+		'onGraphMouseLeave',
+		'onChangeRefsVisibility',
+		'onChangeSelection',
+		'onDoubleClickRef',
+		'onDoubleClickRow',
+		'onMissingAvatars',
+		'onMissingRefsMetadata',
+		'onMoreRows',
+		'onChangeVisibleDays',
+		'onGraphRowHovered',
+		'onGraphRowUnhovered',
+		'onRowContextMenu',
+	],
+});
+
+customElements.define('web-graph', WebGraph);
+
+declare global {
+	interface GlobalEventHandlersEventMap {
+		// event map from react wrapped component
+		'graph-changecolumns': CustomEvent<{ settings: GraphColumnsConfig }>;
+		'graph-changegraphconfiguration': CustomEvent<UpdateGraphConfigurationParams['changes']>;
+		'graph-changerefsvisibility': CustomEvent<{ refs: GraphExcludedRef[]; visible: boolean }>;
+		'graph-changeselection': CustomEvent<GraphRow[]>;
+		'graph-doubleclickref': CustomEvent<{ ref: GraphRef; metadata?: GraphRefMetadataItem }>;
+		'graph-doubleclickrow': CustomEvent<{ row: GraphRow; preserveFocus?: boolean }>;
+		'graph-missingavatars': CustomEvent<GraphAvatars>;
+		'graph-missingrefsmetadata': CustomEvent<GraphMissingRefsMetadata>;
+		'graph-morerows': CustomEvent<string | undefined>;
+		'graph-changevisibledays': CustomEvent<{ top: number; bottom: number }>;
+		'graph-graphrowhovered': CustomEvent<{
+			clientX: number;
+			currentTarget: HTMLElement;
+			graphZoneType: GraphZoneType;
+			graphRow: GraphRow;
+		}>;
+		'graph-graphrowunhovered': CustomEvent<{
+			relatedTarget: HTMLElement;
+			graphZoneType: GraphZoneType;
+			graphRow: GraphRow;
+		}>;
+		'graph-rowcontextmenu': CustomEvent<void>;
+		'graph-graphmouseleave': CustomEvent<void>;
+	}
 }
