@@ -25,14 +25,14 @@ import { telemetryContext } from '../../../shared/contexts/telemetry';
 import { stateContext } from '../context';
 import type { GlGraphHover } from '../hover/graphHover';
 import { graphStateContext } from '../stateProvider';
-import type { WebGraph } from './graph-wrapper.react';
+import type { WebGraph } from './graph-wrapper-element';
 import '../hover/graphHover';
-import './graph-wrapper.react';
+import './graph-wrapper-element';
 
 declare global {
-	interface HTMLElementTagNameMap {
-		'gl-graph-wrapper': GlGraphWrapper;
-	}
+	// interface HTMLElementTagNameMap {
+	// 	'gl-graph-wrapper': GlGraphWrapper;
+	// }
 
 	interface GlobalEventHandlersEventMap {
 		// passing up event map
