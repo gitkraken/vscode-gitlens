@@ -21572,7 +21572,7 @@
 		"vscode:prepublish": "pnpm run bundle"
 	},
 	"dependencies": {
-		"@gitkraken/gitkraken-components": "11.0.0-vnext.3",
+		"@gitkraken/gitkraken-components": "13.0.0-vnext.0",
 		"@gitkraken/provider-apis": "0.28.3",
 		"@gitkraken/shared-web-components": "0.1.1-rc.15",
 		"@gk-nzaytsev/fast-string-truncated-width": "1.1.0",
@@ -21589,7 +21589,6 @@
 		"@opentelemetry/resources": "2.0.0",
 		"@opentelemetry/sdk-trace-base": "2.0.0",
 		"@opentelemetry/semantic-conventions": "1.32.0",
-		"@r2wc/react-to-web-component": "2.0.4",
 		"@shoelace-style/shoelace": "2.20.1",
 		"@vscode/codicons": "0.0.36",
 		"billboard.js": "3.15.0",

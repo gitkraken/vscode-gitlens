@@ -1443,4 +1443,8 @@ web-graph {
 			grid-area: graph;
 		}
 	}
+	&__graph-root {
+		width: 100%;
+		height: 100%;
+	}
 }
