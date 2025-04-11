@@ -2,7 +2,6 @@
 // That's why this file has been created that can collect more simple functions which
 // don't require Container and can be tested.
 
-import { HostingIntegrationId } from '../../../../constants.integrations';
 import type { PullRequestUrlIdentity } from '../../../../git/utils/pullRequest.utils';
 
 export function isMaybeGitLabPullRequestUrl(url: string): boolean {
@@ -11,7 +10,7 @@ export function isMaybeGitLabPullRequestUrl(url: string): boolean {
 
 export function getGitLabPullRequestIdentityFromMaybeUrl(
 	search: string,
-): (PullRequestUrlIdentity & { provider: HostingIntegrationId.GitLab }) | undefined {
+): Omit<PullRequestUrlIdentity, 'provider'> | undefined {
 	let ownerAndRepo: string | undefined = undefined;
 	let prNumber: string | undefined = undefined;
 
@@ -28,7 +27,5 @@ export function getGitLabPullRequestIdentityFromMaybeUrl(
 		}
 	}
 
-	return prNumber != null
-		? { ownerAndRepo: ownerAndRepo, prNumber: prNumber, provider: HostingIntegrationId.GitLab }
-		: undefined;
+	return prNumber != null ? { ownerAndRepo: ownerAndRepo, prNumber: prNumber } : undefined;
 }
