@@ -6,6 +6,10 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/) and this p
 
 ## [Unreleased]
 
+### Changed
+
+- Improves AI-related error messages ([#4227](https://github.com/gitkraken/vscode-gitlens/issues/4227))
+
 ## [17.0.2] - 2025-04-11
 
 ### Changed

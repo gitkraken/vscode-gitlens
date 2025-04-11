@@ -1,6 +1,7 @@
 import type { Response } from '@env/fetch';
 import { fetch } from '@env/fetch';
 import { githubProviderDescriptor as provider } from '../../constants.ai';
+import { AIError, AIErrorReason } from '../../errors';
 import type { AIActionType, AIModel } from './models/model';
 import { OpenAICompatibleProvider } from './openAICompatibleProvider';
 
@@ -67,11 +68,18 @@ export class GitHubModelsProvider extends OpenAICompatibleProvider<typeof provid
 				json = (await rsp.json()) as { error?: { code: string; message: string } } | undefined;
 			} catch {}
 
-			if (retries < 2 && json?.error?.code === 'tokens_limit_reached') {
-				const match = /Max size: (\d+) tokens/.exec(json?.error?.message);
-				if (match?.[1] != null) {
-					return { retry: true, maxInputTokens: parseInt(match[1], 10) };
+			if (json?.error?.code === 'tokens_limit_reached') {
+				if (retries < 2) {
+					const match = /Max size: (\d+) tokens/.exec(json?.error?.message);
+					if (match?.[1] != null) {
+						return { retry: true, maxInputTokens: parseInt(match[1], 10) };
+					}
 				}
+
+				throw new AIError(
+					AIErrorReason.RequestTooLarge,
+					new Error(`(${this.name}) ${rsp.status}: ${json?.error?.message || rsp.statusText}`),
+				);
 			}
 		}
 

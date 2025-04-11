@@ -928,11 +928,17 @@ export class AIProviderService implements Disposable {
 							'You do not have the required entitlement or are over the limits to use this AI feature',
 						);
 						return undefined;
-					case AIErrorReason.RequestTooLarge:
-						void window.showErrorMessage(
-							'Your request is too large. Please reduce the size of your request or switch to a different model and try again.',
+					case AIErrorReason.RequestTooLarge: {
+						const switchModel: MessageItem = { title: 'Switch Model' };
+						const result = await window.showErrorMessage(
+							'Your request is too large. Please reduce the size of your request or switch to a different model, and then try again.',
+							switchModel,
 						);
+						if (result === switchModel) {
+							void this.switchModel(source);
+						}
 						return undefined;
+					}
 					case AIErrorReason.UserQuotaExceeded: {
 						const increaseLimit: MessageItem = { title: 'Increase Limit' };
 						const result = await window.showErrorMessage(
@@ -946,16 +952,67 @@ export class AIProviderService implements Disposable {
 
 						return undefined;
 					}
-					case AIErrorReason.RateLimitExceeded:
-						void window.showErrorMessage(
-							'Rate limit exceeded. Please wait a few moments and try again later.',
+					case AIErrorReason.RateLimitExceeded: {
+						const switchModel: MessageItem = { title: 'Switch Model' };
+						const result = await window.showErrorMessage(
+							'Rate limit exceeded. Please wait a few moments or switch to a different model, and then try again.',
+							switchModel,
 						);
+						if (result === switchModel) {
+							void this.switchModel(source);
+						}
+
 						return undefined;
+					}
+					case AIErrorReason.RateLimitOrFundsExceeded: {
+						const switchModel: MessageItem = { title: 'Switch Model' };
+						const result = await window.showErrorMessage(
+							'Rate limit exceeded, or your account is out of funds. Please wait a few moments, check your account balance, or switch to a different model, and then try again.',
+							switchModel,
+						);
+						if (result === switchModel) {
+							void this.switchModel(source);
+						}
+						return undefined;
+					}
 					case AIErrorReason.ServiceCapacityExceeded: {
 						void window.showErrorMessage(
 							'GitKraken AI is temporarily unable to process your request due to high volume. Please wait a few moments and try again. If this issue persists, please contact support.',
 							'OK',
 						);
+						return undefined;
+					}
+					case AIErrorReason.ModelNotSupported: {
+						const switchModel: MessageItem = { title: 'Switch Model' };
+						const result = await window.showErrorMessage(
+							'The selected model is not supported for this request. Please select a different model and try again.',
+							switchModel,
+						);
+						if (result === switchModel) {
+							void this.switchModel(source);
+						}
+						return undefined;
+					}
+					case AIErrorReason.ModelUserUnauthorized: {
+						const switchModel: MessageItem = { title: 'Switch Model' };
+						const result = await window.showErrorMessage(
+							'You do not have access to the selected model. Please select a different model and try again.',
+							switchModel,
+						);
+						if (result === switchModel) {
+							void this.switchModel(source);
+						}
+						return undefined;
+					}
+					case AIErrorReason.ModelUserDeniedAccess: {
+						const switchModel: MessageItem = { title: 'Switch Model' };
+						const result = await window.showErrorMessage(
+							'You have denied access to the selected model. Please provide access or select a different model, and then try again.',
+							switchModel,
+						);
+						if (result === switchModel) {
+							void this.switchModel(source);
+						}
 						return undefined;
 					}
 				}
