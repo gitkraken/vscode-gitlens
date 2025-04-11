@@ -2,7 +2,7 @@ import type { CancellationToken, Event, LanguageModelChat, LanguageModelChatSele
 import { Disposable, EventEmitter, LanguageModelChatMessage, lm } from 'vscode';
 import { vscodeProviderDescriptor } from '../../constants.ai';
 import type { Container } from '../../container';
-import { CancellationError } from '../../errors';
+import { AIError, AIErrorReason, CancellationError } from '../../errors';
 import { getLoggableName, Logger } from '../../system/logger';
 import { startLogScope } from '../../system/logger.scope';
 import { capitalize } from '../../system/string';
@@ -123,19 +123,29 @@ export class VSCodeAIProvider implements AIProvider<typeof provider.id> {
 
 				if (ex instanceof Error && 'code' in ex && ex.code === 'NoPermissions') {
 					Logger.error(ex, scope, `User denied access to ${model.provider.name}`);
-					throw new Error(`User denied access to ${model.provider.name}`);
+					throw new AIError(AIErrorReason.ModelUserDeniedAccess, ex);
 				}
 
 				if (ex instanceof Error && 'cause' in ex && ex.cause instanceof Error) {
 					message += `\n${ex.cause.message}`;
 
-					if (retries++ < 2 && ex.cause.message.includes('exceeds token limit')) {
-						maxInputTokens -= 500 * retries;
-						continue;
+					if (ex.cause.message.includes('exceeds token limit')) {
+						if (retries++ < 2) {
+							maxInputTokens -= 500 * retries;
+							continue;
+						}
+
+						Logger.error(ex, scope, `Unable to ${getActionName(action)}: (${model.provider.name})`);
+						throw new AIError(AIErrorReason.RequestTooLarge, ex);
 					}
 				}
 
 				Logger.error(ex, scope, `Unable to ${getActionName(action)}: (${model.provider.name})`);
+
+				if (message.includes('Model is not supported for this request')) {
+					throw new AIError(AIErrorReason.ModelNotSupported, ex);
+				}
+
 				throw new Error(
 					`Unable to ${getActionName(action)}: (${model.provider.name}${
 						ex.code ? `:${ex.code}` : ''
