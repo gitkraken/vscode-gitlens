@@ -283,7 +283,11 @@ export const enum AIErrorReason {
 	RequestTooLarge,
 	UserQuotaExceeded,
 	RateLimitExceeded,
+	RateLimitOrFundsExceeded,
 	ServiceCapacityExceeded,
+	ModelNotSupported,
+	ModelUserUnauthorized,
+	ModelUserDeniedAccess,
 }
 
 export class AIError extends Error {
@@ -305,11 +309,23 @@ export class AIError extends Error {
 			case AIErrorReason.RateLimitExceeded:
 				message = 'Rate limit exceeded';
 				break;
+			case AIErrorReason.RateLimitOrFundsExceeded:
+				message = 'Rate limit exceeded or your account is out of funds';
+				break;
 			case AIErrorReason.ServiceCapacityExceeded:
 				message = 'Service capacity exceeded';
 				break;
 			case AIErrorReason.NoRequestData:
 				message = original?.message ?? 'No data was provided for the request';
+				break;
+			case AIErrorReason.ModelNotSupported:
+				message = 'Model not supported for this request';
+				break;
+			case AIErrorReason.ModelUserUnauthorized:
+				message = 'User is not authorized to use the specified model';
+				break;
+			case AIErrorReason.ModelUserDeniedAccess:
+				message = 'User denied access to the specified model';
 				break;
 			default:
 				message = original?.message ?? 'An unknown error occurred';

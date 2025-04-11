@@ -4,7 +4,7 @@ import { fetch } from '@env/fetch';
 import type { Role } from '../../@types/vsls';
 import type { AIProviders } from '../../constants.ai';
 import type { Container } from '../../container';
-import { AIError, CancellationError } from '../../errors';
+import { AIError, AIErrorReason, CancellationError } from '../../errors';
 import { getLoggableName, Logger } from '../../system/logger';
 import { startLogScope } from '../../system/logger.scope';
 import type { ServerConnection } from '../gk/serverConnection';
@@ -164,11 +164,17 @@ export abstract class OpenAICompatibleProvider<T extends AIProviders> implements
 		maxInputTokens: number,
 	): Promise<{ retry: true; maxInputTokens: number }> {
 		if (rsp.status === 404) {
-			throw new Error(`Your API key doesn't seem to have access to the selected '${model.id}' model`);
+			throw new AIError(
+				AIErrorReason.ModelUserUnauthorized,
+				new Error(`Your API key doesn't seem to have access to the selected '${model.id}' model`),
+			);
 		}
 		if (rsp.status === 429) {
-			throw new Error(
-				`(${this.name}) ${rsp.status}: Too many requests (rate limit exceeded) or your account is out of funds`,
+			throw new AIError(
+				AIErrorReason.RateLimitOrFundsExceeded,
+				new Error(
+					`(${this.name}) ${rsp.status}: Too many requests (rate limit exceeded) or your account is out of funds`,
+				),
 			);
 		}
 
@@ -177,8 +183,15 @@ export abstract class OpenAICompatibleProvider<T extends AIProviders> implements
 			json = (await rsp.json()) as { error?: { code: string; message: string } } | undefined;
 		} catch {}
 
-		if (retries < 2 && json?.error?.code === 'context_length_exceeded') {
-			return { retry: true, maxInputTokens: maxInputTokens - 200 * (retries || 1) };
+		if (json?.error?.code === 'context_length_exceeded') {
+			if (retries < 2) {
+				return { retry: true, maxInputTokens: maxInputTokens - 200 * (retries || 1) };
+			}
+
+			throw new AIError(
+				AIErrorReason.RequestTooLarge,
+				new Error(`(${this.name}) ${rsp.status}: ${json?.error?.message || rsp.statusText}`),
+			);
 		}
 
 		throw new Error(`(${this.name}) ${rsp.status}: ${json?.error?.message || rsp.statusText}`);
