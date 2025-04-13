@@ -65,13 +65,16 @@ export class BranchTrackingStatusFilesNode extends ViewNode<'tracking-status-fil
 
 		await Promise.allSettled(
 			map(
-				filter(log.commits.values(), c => c.files == null),
+				filter(log.commits.values(), c => c.fileset?.files == null),
 				c => c.ensureFullDetails(),
 			),
 		);
 
 		const files = [
-			...flatMap(log.commits.values(), c => c.files?.map<GitFileWithCommit>(f => ({ ...f, commit: c })) ?? []),
+			...flatMap(
+				log.commits.values(),
+				c => c.fileset?.files.map<GitFileWithCommit>(f => ({ ...f, commit: c })) ?? [],
+			),
 		];
 
 		files.sort((a, b) => b.commit.date.getTime() - a.commit.date.getTime());

@@ -233,7 +233,7 @@ export class StatusFileNode extends ViewFileNode<'status-file', ViewsWithCommits
 					lhs: {
 						sha: `${lhs.sha}^`,
 						uri: GitUri.fromFile(
-							lhs.files?.find(f => f.path === this.file.path) ?? this.file.path,
+							lhs.fileset?.files?.find(f => f.path === this.file.path) ?? this.file.path,
 							this.repoPath,
 							`${lhs.sha}^`,
 							true,
@@ -242,7 +242,7 @@ export class StatusFileNode extends ViewFileNode<'status-file', ViewsWithCommits
 					rhs: {
 						sha: rhs.sha,
 						uri: GitUri.fromFile(
-							rhs.files?.find(f => f.path === this.file.path) ?? this.file.path,
+							rhs.fileset?.files?.find(f => f.path === this.file.path) ?? this.file.path,
 							this.repoPath,
 							rhs.sha,
 						),
@@ -258,7 +258,7 @@ export class StatusFileNode extends ViewFileNode<'status-file', ViewsWithCommits
 			}
 			default: {
 				const commit = this._files[this._files.length - 1].commit;
-				const file = commit.files?.find(f => f.path === this.file.path) ?? this.file;
+				const file = commit.fileset?.files?.find(f => f.path === this.file.path) ?? this.file;
 				commandArgs = {
 					lhs: {
 						sha: `${commit.sha}^`,

@@ -521,7 +521,18 @@ export class GitHubGitProvider implements GitProvider, Disposable {
 						c.message.split('\n', 1)[0],
 						c.parents.nodes[0]?.oid ? [c.parents.nodes[0]?.oid] : [],
 						c.message,
-						new GitFileChange(this.container, root.toString(), relativePath, GitFileIndexStatus.Modified),
+						{
+							files: [
+								new GitFileChange(
+									this.container,
+									root.toString(),
+									relativePath,
+									GitFileIndexStatus.Modified,
+								),
+							],
+							filtered: true,
+							pathspec: relativePath,
+						},
 						{ files: c.changedFiles ?? 0, additions: c.additions ?? 0, deletions: c.deletions ?? 0 },
 						[],
 					);
@@ -646,7 +657,13 @@ export class GitHubGitProvider implements GitProvider, Disposable {
 				c.message.split('\n', 1)[0],
 				c.parents.nodes[0]?.oid ? [c.parents.nodes[0]?.oid] : [],
 				c.message,
-				new GitFileChange(this.container, root.toString(), relativePath, GitFileIndexStatus.Modified),
+				{
+					files: [
+						new GitFileChange(this.container, root.toString(), relativePath, GitFileIndexStatus.Modified),
+					],
+					filtered: true,
+					pathspec: relativePath,
+				},
 				{ files: c.changedFiles ?? 0, additions: c.additions ?? 0, deletions: c.deletions ?? 0 },
 				[],
 			);

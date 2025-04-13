@@ -203,12 +203,18 @@ export class SettingsWebviewProvider implements WebviewProvider<State, State, Se
 							e.params.type === 'commit-uncommitted' ? 'Uncommitted changes' : 'Supercharged',
 							['3ac1d3f51d7cf5f438cc69f25f6740536ad80fef'],
 							e.params.type === 'commit-uncommitted' ? 'Uncommitted changes' : 'Supercharged',
-							new GitFileChange(
-								this.container,
-								'~/code/eamodio/vscode-gitlens-demo',
-								'code.ts',
-								GitFileIndexStatus.Modified,
-							),
+							{
+								files: [
+									new GitFileChange(
+										this.container,
+										'~/code/eamodio/vscode-gitlens-demo',
+										'code.ts',
+										GitFileIndexStatus.Modified,
+									),
+								],
+								filtered: true,
+								pathspec: 'code.ts',
+							},
 							undefined,
 							[],
 						);

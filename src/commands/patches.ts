@@ -421,9 +421,9 @@ async function createDraft(repository: Repository, args: CreatePatchCommandArgs)
 	if (commit == null) return undefined;
 
 	if (args.from == null) {
-		if (commit.files == null) return;
+		if (commit.fileset?.files == null) return;
 
-		change.files = [...commit.files];
+		change.files = [...commit.fileset.files];
 	} else {
 		const diff = await repository.git.diff().getDiff?.(to, args.from);
 		if (diff == null) return;

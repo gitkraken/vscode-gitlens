@@ -46,7 +46,7 @@ export class StatusFilesNode extends ViewNode<'status-files', ViewsWithWorkingTr
 			if (log != null) {
 				await Promise.allSettled(
 					map(
-						filter(log.commits.values(), c => c.files == null),
+						filter(log.commits.values(), c => c.fileset?.files == null),
 						c => c.ensureFullDetails(),
 					),
 				);
@@ -54,7 +54,7 @@ export class StatusFilesNode extends ViewNode<'status-files', ViewsWithWorkingTr
 				files = [
 					...flatMap(
 						log.commits.values(),
-						c => c.files?.map<GitFileWithCommit>(f => ({ ...f, commit: c })) ?? [],
+						c => c.fileset?.files?.map<GitFileWithCommit>(f => ({ ...f, commit: c })) ?? [],
 					),
 				];
 			}

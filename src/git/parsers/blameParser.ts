@@ -235,14 +235,20 @@ function parseBlameEntry(
 			entry.summary!,
 			[],
 			undefined,
-			new GitFileChange(
-				container,
-				repoPath,
-				entry.path,
-				GitFileIndexStatus.Modified,
-				entry.previousPath && entry.previousPath !== entry.path ? entry.previousPath : undefined,
-				entry.previousSha,
-			),
+			{
+				files: [
+					new GitFileChange(
+						container,
+						repoPath,
+						entry.path,
+						GitFileIndexStatus.Modified,
+						entry.previousPath && entry.previousPath !== entry.path ? entry.previousPath : undefined,
+						entry.previousSha,
+					),
+				],
+				filtered: true,
+				pathspec: entry.path,
+			},
 			undefined,
 			[],
 		);

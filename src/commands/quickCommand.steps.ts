@@ -2242,7 +2242,7 @@ export function* showCommitOrStashFilesStep<
 	context: Context,
 	options?: { picked?: string },
 ): StepResultGenerator<CommitFilesQuickPickItem | CommitFileQuickPickItem> {
-	if (state.reference.files == null) {
+	if (state.reference.fileset?.files == null) {
 		debugger;
 	}
 
@@ -2263,7 +2263,7 @@ export function* showCommitOrStashFilesStep<
 				hint: `Click to see ${isStash(state.reference) ? 'stash' : 'commit'} actions`,
 			}),
 			createQuickPickSeparator('Files'),
-			...(state.reference.files?.map(
+			...(state.reference.fileset?.files.map(
 				fs => new CommitFileQuickPickItem(state.reference, fs, options?.picked === fs.path),
 			) ?? []),
 		] as (CommitFilesQuickPickItem | CommitFileQuickPickItem)[],

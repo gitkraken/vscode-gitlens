@@ -1793,7 +1793,7 @@ export class CommitDetailsWebviewProvider
 			message: formattedMessage,
 			parents: commit.parents,
 			stashNumber: commit.refType === 'stash' ? commit.number : undefined,
-			files: commit.files,
+			files: commit.fileset?.files,
 			stats: commit.stats,
 			autolinks: autolinks != null ? [...map(autolinks.values(), serializeAutolink)] : undefined,
 		};

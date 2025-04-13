@@ -28,9 +28,9 @@ export function countUniques<T>(source: T[], accessor: (item: T) => string): Rec
 	return uniqueCounts;
 }
 
-export function ensureArray<T>(source: T | T[]): T[];
-export function ensureArray<T>(source: T | T[] | undefined): T[] | undefined;
-export function ensureArray<T>(source: T | T[] | undefined): T[] | undefined {
+export function ensureArray<T>(source: NonNullable<T> | NonNullable<T>[]): T[];
+export function ensureArray<T>(source: NonNullable<T> | NonNullable<T>[] | undefined): NonNullable<T>[] | undefined;
+export function ensureArray<T>(source: NonNullable<T> | NonNullable<T>[] | undefined): NonNullable<T>[] | undefined {
 	return source == null ? undefined : Array.isArray(source) ? source : [source];
 }
 

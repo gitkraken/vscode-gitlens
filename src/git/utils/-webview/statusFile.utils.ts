@@ -76,9 +76,10 @@ export function getPseudoCommits(
 		const conflictedAndWipFiles = [...(conflicted ?? []), ...(wip ?? [])];
 		commits.push(
 			createUncommittedChangesCommit(container, repoPath, uncommitted, now, user, {
-				files: {
-					file: conflictedAndWipFiles.length === 1 ? conflictedAndWipFiles[0] : undefined,
+				fileset: {
 					files: conflictedAndWipFiles,
+					filtered: false,
+					pathspec: conflictedAndWipFiles.length === 1 ? conflictedAndWipFiles[0].path : undefined,
 				},
 				parents: [staged?.length ? uncommittedStaged : 'HEAD'],
 			}),
@@ -91,7 +92,7 @@ export function getPseudoCommits(
 	if (staged?.length) {
 		commits.push(
 			createUncommittedChangesCommit(container, repoPath, uncommittedStaged, now, user, {
-				files: { file: staged.length === 1 ? staged[0] : undefined, files: staged },
+				fileset: { files: staged, filtered: false, pathspec: staged.length === 1 ? staged[0].path : undefined },
 				parents: ['HEAD'],
 			}),
 		);
@@ -116,7 +117,7 @@ export async function getPseudoCommitsWithStats(
 		commits.push(
 			commit.with({
 				stats: await diffProvider.getChangedFilesCount(commit.sha, 'HEAD', {
-					uris: commit.files?.map(f => f.uri),
+					uris: commit.fileset?.files.map(f => f.uri),
 				}),
 			}),
 		);

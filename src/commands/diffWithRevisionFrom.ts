@@ -55,7 +55,7 @@ export class DiffWithRevisionFromCommand extends ActiveEditorCommand {
 				{
 					empty: `No stashes with '${gitUri.getFormattedFileName()}' found`,
 					// Stashes should always come with files, so this should be fine (but protect it just in case)
-					filter: c => c.files?.some(f => f.path === path || f.originalPath === path) ?? true,
+					filter: c => c.fileset?.files.some(f => f.path === path || f.originalPath === path) ?? true,
 				},
 			);
 			if (pick == null) return;

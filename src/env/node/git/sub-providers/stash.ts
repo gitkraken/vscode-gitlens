@@ -139,16 +139,20 @@ export class StashGitSubProvider implements GitStashSubProvider {
 						message.split('\n', 1)[0] ?? '',
 						s.parents.split(' '),
 						message,
-						s.files?.map(
-							f =>
-								new GitFileChange(
-									this.container,
-									repoPath,
-									f.path,
-									f.status as GitFileStatus,
-									f.originalPath,
-								),
-						) ?? [],
+						{
+							files:
+								s.files?.map(
+									f =>
+										new GitFileChange(
+											this.container,
+											repoPath,
+											f.path,
+											f.status as GitFileStatus,
+											f.originalPath,
+										),
+								) ?? [],
+							filtered: false,
+						},
 						undefined,
 						[],
 						undefined,

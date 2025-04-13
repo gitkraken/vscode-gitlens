@@ -78,6 +78,7 @@ export class FileHistoryNode
 
 		if (fileStatuses?.length) {
 			if (this.folder) {
+				const relativePath = this.view.container.git.getRelativePath(this.getPathOrGlob(), this.uri.repoPath);
 				// Combine all the working/staged changes into single pseudo commits
 				const commits = map(
 					uniqueBy(
@@ -85,11 +86,10 @@ export class FileHistoryNode
 						c => c.sha,
 						(original, c) =>
 							original.with({
-								files: {
-									files: [
-										...(original.files ?? (original.file != null ? [original.file] : [])),
-										...(c.files ?? (c.file != null ? [c.file] : [])),
-									],
+								fileset: {
+									files: [...(original.fileset?.files ?? []), ...(c.fileset?.files ?? [])],
+									filtered: Boolean(original.fileset?.filtered || c.fileset?.filtered),
+									pathspec: relativePath,
 								},
 							}),
 					),

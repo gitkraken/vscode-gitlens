@@ -756,11 +756,11 @@ export async function openOnlyChangedFiles(container: Container, files: GitFile[
 export async function openOnlyChangedFiles(container: Container, commitOrFiles: GitCommit | GitFile[]): Promise<void> {
 	let files;
 	if (isCommit(commitOrFiles)) {
-		if (commitOrFiles.files == null) {
+		if (commitOrFiles.fileset?.files == null || commitOrFiles.fileset?.filtered) {
 			await commitOrFiles.ensureFullDetails();
 		}
 
-		files = commitOrFiles.files ?? [];
+		files = commitOrFiles.fileset?.files ?? [];
 	} else {
 		files = commitOrFiles.map(f => new GitFileChange(container, f.repoPath!, f.path, f.status, f.originalPath));
 	}
@@ -848,13 +848,13 @@ async function getChangesRefArgs(
 		};
 	}
 
-	if (commitOrFiles.files == null) {
+	if (commitOrFiles.fileset?.files == null) {
 		await commitOrFiles.ensureFullDetails();
 	}
 
 	return {
 		commit: commitOrFiles,
-		files: commitOrFiles.files ?? [],
+		files: commitOrFiles.fileset?.files ?? [],
 		options: refOrOptions as TextDocumentShowOptions | undefined,
 		ref: {
 			repoPath: commitOrFiles.repoPath,
@@ -881,13 +881,13 @@ async function getChangesRefsArgs(
 		};
 	}
 
-	if (commitOrFiles.files == null) {
+	if (commitOrFiles.fileset?.files == null) {
 		await commitOrFiles.ensureFullDetails();
 	}
 
 	return {
 		commit: commitOrFiles,
-		files: commitOrFiles.files ?? [],
+		files: commitOrFiles.fileset?.files ?? [],
 		options: refsOrOptions as TextDocumentShowOptions | undefined,
 		refs: {
 			repoPath: commitOrFiles.repoPath,
@@ -904,12 +904,12 @@ async function getCommitChangesArgs(
 	commit: GitCommit,
 	filter?: (file: GitFileChange) => boolean,
 ): Promise<{ files: readonly GitFile[]; refs: RefRange }> {
-	if (commit.files == null) {
+	if (commit.fileset?.files == null) {
 		await commit.ensureFullDetails();
 	}
 
 	return {
-		files: (filter != null ? commit.files?.filter(filter) : commit.files) ?? [],
+		files: (filter != null ? commit.fileset?.files?.filter(filter) : commit.fileset?.files) ?? [],
 		refs: {
 			repoPath: commit.repoPath,
 			rhs: commit.sha,
