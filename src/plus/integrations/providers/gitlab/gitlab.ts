@@ -97,7 +97,7 @@ export class GitLabApi implements Disposable {
 		token: string,
 		owner: string,
 		repo: string,
-		ref: string,
+		rev: string,
 		options?: {
 			baseUrl?: string;
 			avatarSize?: number;
@@ -114,7 +114,7 @@ export class GitLabApi implements Disposable {
 				provider,
 				token,
 				options?.baseUrl,
-				`v4/projects/${projectId}/repository/commits/${ref}?stats=false`,
+				`v4/projects/${projectId}/repository/commits/${rev}?stats=false`,
 				{
 					method: 'GET',
 					// ...options,
@@ -533,7 +533,7 @@ export class GitLabApi implements Disposable {
 		token: string,
 		owner: string,
 		repo: string,
-		ref: string,
+		rev: string,
 		options?: {
 			baseUrl?: string;
 			avatarSize?: number;
@@ -550,7 +550,7 @@ export class GitLabApi implements Disposable {
 				provider,
 				token,
 				options?.baseUrl,
-				`v4/projects/${projectId}/repository/commits/${ref}/merge_requests`,
+				`v4/projects/${projectId}/repository/commits/${rev}/merge_requests`,
 				{
 					method: 'GET',
 					// ...options,

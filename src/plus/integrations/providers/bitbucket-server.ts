@@ -65,7 +65,7 @@ export class BitbucketServerIntegration extends HostingIntegration<
 	protected override async getProviderAccountForCommit(
 		_session: AuthenticationSession,
 		_repo: BitbucketRepositoryDescriptor,
-		_ref: string,
+		_rev: string,
 		_options?: {
 			avatarSize?: number;
 		},
@@ -150,7 +150,7 @@ export class BitbucketServerIntegration extends HostingIntegration<
 	protected override async getProviderPullRequestForCommit(
 		_session: AuthenticationSession,
 		_repo: BitbucketRepositoryDescriptor,
-		_ref: string,
+		_rev: string,
 	): Promise<PullRequest | undefined> {
 		return Promise.resolve(undefined);
 	}

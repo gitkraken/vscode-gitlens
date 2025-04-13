@@ -480,12 +480,14 @@ export class GitCommit implements GitRevisionReference {
 		remote?: GitRemote<RemoteProvider>,
 		options?: { expiryOverride?: boolean | number },
 	): Promise<PullRequest | undefined> {
+		if (this.isUncommitted) return undefined;
+
 		remote ??= await this.container.git.remotes(this.repoPath).getBestRemoteWithIntegration();
 		if (!remote?.hasIntegration()) return undefined;
 
 		return (await this.container.integrations.getByRemote(remote))?.getPullRequestForCommit(
 			remote.provider.repoDesc,
-			this.ref,
+			this.sha,
 			options,
 		);
 	}

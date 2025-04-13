@@ -220,7 +220,7 @@ export class AzureDevOpsIntegration extends HostingIntegration<
 	protected override async getProviderAccountForCommit(
 		_session: AuthenticationSession,
 		_repo: AzureRepositoryDescriptor,
-		_ref: string,
+		_rev: string,
 		_options?: {
 			avatarSize?: number;
 		},
@@ -295,7 +295,7 @@ export class AzureDevOpsIntegration extends HostingIntegration<
 	protected override async getProviderPullRequestForCommit(
 		_session: AuthenticationSession,
 		_repo: AzureRepositoryDescriptor,
-		_ref: string,
+		_rev: string,
 	): Promise<PullRequest | undefined> {
 		return Promise.resolve(undefined);
 	}

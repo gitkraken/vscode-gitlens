@@ -47,12 +47,12 @@ abstract class GitHubIntegrationBase<ID extends SupportedIntegrationIds> extends
 	protected override async getProviderAccountForCommit(
 		{ accessToken }: AuthenticationSession,
 		repo: GitHubRepositoryDescriptor,
-		ref: string,
+		rev: string,
 		options?: {
 			avatarSize?: number;
 		},
 	): Promise<Account | UnidentifiedAuthor | undefined> {
-		return (await this.container.github)?.getAccountForCommit(this, accessToken, repo.owner, repo.name, ref, {
+		return (await this.container.github)?.getAccountForCommit(this, accessToken, repo.owner, repo.name, rev, {
 			...options,
 			baseUrl: this.apiBaseUrl,
 		});
@@ -156,9 +156,9 @@ abstract class GitHubIntegrationBase<ID extends SupportedIntegrationIds> extends
 	protected override async getProviderPullRequestForCommit(
 		{ accessToken }: AuthenticationSession,
 		repo: GitHubRepositoryDescriptor,
-		ref: string,
+		rev: string,
 	): Promise<PullRequest | undefined> {
-		return (await this.container.github)?.getPullRequestForCommit(this, accessToken, repo.owner, repo.name, ref, {
+		return (await this.container.github)?.getPullRequestForCommit(this, accessToken, repo.owner, repo.name, rev, {
 			baseUrl: this.apiBaseUrl,
 		});
 	}
