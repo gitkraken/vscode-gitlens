@@ -21399,7 +21399,7 @@
 		"esbuild-node-externals": "1.18.0",
 		"esbuild-sass-plugin": "3.3.1",
 		"eslint": "9.24.0",
-		"eslint-import-resolver-oxc": "0.13.1",
+		"eslint-import-resolver-typescript": "4.3.2",
 		"eslint-plugin-anti-trojan-source": "1.1.1",
 		"eslint-plugin-import-x": "4.9.4",
 		"eslint-plugin-lit": "2.0.0",
