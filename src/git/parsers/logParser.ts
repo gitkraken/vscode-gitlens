@@ -906,18 +906,27 @@ function parseLogEntry(
 
 		const originalFileName = entry.originalPath ?? (relativeFileName !== entry.path ? entry.path : undefined);
 
-		const files: { file?: GitFileChange; files?: GitFileChange[] } = {
-			files: entry.files?.map(f => new GitFileChange(container, repoPath!, f.path, f.status, f.originalPath)),
+		const fileset = {
+			files:
+				entry.files?.map(f => new GitFileChange(container, repoPath!, f.path, f.status, f.originalPath)) ?? [],
+			filtered: Boolean(relativeFileName),
+			pathspec: relativeFileName,
 		};
 		if (type === LogType.LogFile && relativeFileName != null) {
-			files.file = new GitFileChange(
-				container,
-				repoPath!,
-				relativeFileName,
-				entry.status!,
-				originalFileName,
-				undefined,
-				entry.fileStats,
+			const index = fileset.files.findIndex(f => f.path === relativeFileName);
+			if (index !== -1) {
+				fileset.files.splice(index, 1);
+			}
+			fileset.files.push(
+				new GitFileChange(
+					container,
+					repoPath!,
+					relativeFileName,
+					entry.status!,
+					originalFileName,
+					undefined,
+					entry.fileStats,
+				),
 			);
 		}
 
@@ -932,7 +941,13 @@ function parseLogEntry(
 				stash.summary,
 				stash.parents,
 				stash.message,
-				files,
+				stash.fileset?.files != null
+					? {
+							files: stash.fileset?.files,
+							filtered: Boolean(relativeFileName),
+							pathspec: relativeFileName,
+					  }
+					: undefined,
 				undefined,
 				entry.line != null ? [entry.line] : [],
 				entry.tips,
@@ -960,7 +975,7 @@ function parseLogEntry(
 				entry.summary?.split('\n', 1)[0] ?? '',
 				entry.parentShas ?? [],
 				entry.summary ?? '',
-				files,
+				fileset,
 				undefined,
 				entry.line != null ? [entry.line] : [],
 				entry.tips,

@@ -1,4 +1,4 @@
-import type { CancellationToken, Uri } from 'vscode';
+import type { Uri } from 'vscode';
 import { window } from 'vscode';
 import type { Container } from '../../../../container';
 import type { GitCache } from '../../../../git/cache';
@@ -12,18 +12,23 @@ import type { GitFileStatus } from '../../../../git/models/fileStatus';
 import { GitFileWorkingTreeStatus } from '../../../../git/models/fileStatus';
 import { RepositoryChange } from '../../../../git/models/repository';
 import type { GitStash } from '../../../../git/models/stash';
-import type { ParsedStash } from '../../../../git/parsers/logParser';
-import { getStashFilesOnlyLogParser, getStashLogParser } from '../../../../git/parsers/logParser';
+import type { ParserWithFilesAndMaybeStats } from '../../../../git/parsers/logParser';
+import { createLogParserWithFiles, createLogParserWithFilesAndStats } from '../../../../git/parsers/logParser';
+import { mapFilesWithStats } from '../../../../git/utils/-webview/fileChange.utils';
 import { configuration } from '../../../../system/-webview/configuration';
 import { splitPath } from '../../../../system/-webview/path';
 import { countStringLength } from '../../../../system/array';
 import { gate } from '../../../../system/decorators/-webview/gate';
 import { log } from '../../../../system/decorators/log';
-import { min, skip } from '../../../../system/iterable';
+import { min } from '../../../../system/iterable';
 import { getSettledValue } from '../../../../system/promise';
 import type { Git } from '../git';
-import { GitError, maxGitCliLength } from '../git';
-import { createCommitFileset } from './commits';
+import { maxGitCliLength } from '../git';
+import { RunError } from '../shell';
+
+const stashSummaryRegex =
+	// eslint-disable-next-line no-control-regex
+	/(?:(?:(?<wip>WIP) on|On) (?<onref>[^/](?!.*\/\.)(?!.*\.\.)(?!.*\/\/)(?!.*@\{)[^\x00-\x1F\x7F ~^:?*[\\]+[^./]):\s*)?(?<summary>.*)$/s;
 
 export class StashGitSubProvider implements GitStashSubProvider {
 	constructor(
@@ -49,9 +54,9 @@ export class StashGitSubProvider implements GitStashSubProvider {
 
 				if (
 					(msg.includes('Auto-merging') && msg.includes('CONFLICT')) ||
-					(ex instanceof GitError &&
-						((ex.stdout?.includes('Auto-merging') && ex.stdout.includes('CONFLICT')) ||
-							ex.stdout?.includes('needs merge')))
+					(ex instanceof RunError &&
+						((ex.stdout.includes('Auto-merging') && ex.stdout.includes('CONFLICT')) ||
+							ex.stdout.includes('needs merge')))
 				) {
 					void window.showInformationMessage('Stash applied with conflicts');
 
@@ -65,44 +70,112 @@ export class StashGitSubProvider implements GitStashSubProvider {
 		}
 	}
 
+	@gate()
 	@log()
-	async getStash(
-		repoPath: string,
-		options?: { reachableFrom?: string },
-		cancellation?: CancellationToken,
-	): Promise<GitStash | undefined> {
+	async getStash(repoPath: string | undefined, options?: { reachableFrom?: string }): Promise<GitStash | undefined> {
 		if (repoPath == null) return undefined;
 
-		let stash = this.cache.stashes?.get(repoPath);
-		if (stash == null) {
-			const parser = getStashLogParser();
-			const args = [...parser.arguments];
-
+		let gitStash = this.cache.stashes?.get(repoPath);
+		if (gitStash === undefined) {
+			const parser = createLogParserWithFiles<{
+				sha: string;
+				date: string;
+				committedDate: string;
+				parents: string;
+				stashName: string;
+				summary: string;
+			}>({
+				sha: '%H',
+				date: '%at',
+				committedDate: '%ct',
+				parents: '%P',
+				stashName: '%gd',
+				summary: '%gs',
+			});
 			const similarityThreshold = configuration.get('advanced.similarityThreshold');
-			args.push(`-M${similarityThreshold == null ? '' : `${similarityThreshold}%`}`);
-
-			const result = await this.git.exec({ cwd: repoPath, cancellation: cancellation }, 'stash', 'list', ...args);
+			const data = await this.git.exec(
+				{ cwd: repoPath },
+				'stash',
+				'list',
+				...(parser.arguments ?? ['--name-status']),
+				`-M${similarityThreshold == null ? '' : `${similarityThreshold}%`}`,
+			);
 
 			const stashes = new Map<string, GitStashCommit>();
 
-			for (const s of parser.parse(result.stdout)) {
-				stashes.set(s.sha, createStash(this.container, s, repoPath));
+			for (const s of parser.parse(data)) {
+				let onRef;
+				let summary;
+				let message;
+
+				const match = stashSummaryRegex.exec(s.summary);
+				if (match?.groups != null) {
+					onRef = match.groups.onref;
+					summary = match.groups.summary.trim();
+
+					if (summary.length === 0) {
+						message = 'WIP';
+					} else if (match.groups.wip) {
+						message = `WIP: ${summary}`;
+					} else {
+						message = summary;
+					}
+				} else {
+					message = s.summary.trim();
+				}
+
+				stashes.set(
+					s.sha,
+					new GitCommit(
+						this.container,
+						repoPath,
+						s.sha,
+						new GitCommitIdentity('You', undefined, new Date((s.date as unknown as number) * 1000)),
+						new GitCommitIdentity(
+							'You',
+							undefined,
+							new Date((s.committedDate as unknown as number) * 1000),
+						),
+						message.split('\n', 1)[0] ?? '',
+						s.parents.split(' '),
+						message,
+						{
+							files:
+								s.files?.map(
+									f =>
+										new GitFileChange(
+											this.container,
+											repoPath,
+											f.path,
+											f.status as GitFileStatus,
+											f.originalPath,
+										),
+								) ?? [],
+							filtered: false,
+						},
+						undefined,
+						[],
+						undefined,
+						s.stashName,
+						onRef,
+					) as GitStashCommit,
+				);
 			}
 
-			stash = { repoPath: repoPath, stashes: stashes };
+			gitStash = { repoPath: repoPath, stashes: stashes };
 
-			this.cache.stashes?.set(repoPath, stash);
+			this.cache.stashes?.set(repoPath, gitStash ?? null);
 		}
 
 		// Return only reachable stashes from the given ref
-		if (options?.reachableFrom && stash?.stashes.size) {
+		if (options?.reachableFrom && gitStash?.stashes.size) {
 			// Create a copy because we are going to modify it and we don't want to mutate the cache
-			stash = { ...stash, stashes: new Map(stash.stashes) };
+			gitStash = { ...gitStash, stashes: new Map(gitStash.stashes) };
 
-			const oldestStashDate = new Date(min(stash.stashes.values(), c => c.date.getTime())).toISOString();
+			const oldestStashDate = new Date(min(gitStash.stashes.values(), c => c.date.getTime())).toISOString();
 
-			const result = await this.git.exec(
-				{ cwd: repoPath, cancellation: cancellation, errors: GitErrorHandling.Ignore },
+			const data = await this.git.exec(
+				{ cwd: repoPath, errors: GitErrorHandling.Ignore },
 				'rev-list',
 				`--since="${oldestStashDate}"`,
 				'--date-order',
@@ -110,7 +183,7 @@ export class StashGitSubProvider implements GitStashSubProvider {
 				'--',
 			);
 
-			const ancestors = result.stdout.trim().split('\n');
+			const ancestors = data?.trim().split('\n');
 			if (ancestors?.length && (ancestors.length !== 1 || ancestors[0])) {
 				const reachableCommits = new Set(ancestors);
 
@@ -118,8 +191,8 @@ export class StashGitSubProvider implements GitStashSubProvider {
 					const reachableStashes = new Set<string>();
 
 					// First pass: mark directly reachable stashes
-					for (const [sha, s] of stash.stashes) {
-						if (s.parents.some(p => p === options.reachableFrom || reachableCommits.has(p))) {
+					for (const [sha, stash] of gitStash.stashes) {
+						if (stash.parents.some(p => p === options.reachableFrom || reachableCommits.has(p))) {
 							reachableStashes.add(sha);
 						}
 					}
@@ -128,8 +201,8 @@ export class StashGitSubProvider implements GitStashSubProvider {
 					let changed;
 					do {
 						changed = false;
-						for (const [sha, s] of stash.stashes) {
-							if (!reachableStashes.has(sha) && s.parents.some(p => reachableStashes.has(p))) {
+						for (const [sha, stash] of gitStash.stashes) {
+							if (!reachableStashes.has(sha) && stash.parents.some(p => reachableStashes.has(p))) {
 								reachableStashes.add(sha);
 								changed = true;
 							}
@@ -137,32 +210,36 @@ export class StashGitSubProvider implements GitStashSubProvider {
 					} while (changed);
 
 					// Remove unreachable stashes
-					for (const [sha] of stash.stashes) {
+					for (const [sha] of gitStash.stashes) {
 						if (!reachableStashes.has(sha)) {
-							stash.stashes.delete(sha);
+							gitStash.stashes.delete(sha);
 						}
 					}
 				} else {
-					stash.stashes.clear();
+					gitStash.stashes.clear();
 				}
 			}
 		}
 
-		return stash;
+		return gitStash ?? undefined;
 	}
 
+	@gate()
 	@log()
 	async getStashCommitFiles(
 		repoPath: string,
 		ref: string,
-		cancellation?: CancellationToken,
+		options?: { include?: { stats?: boolean } },
 	): Promise<GitFileChange[]> {
-		const [stashFilesResult, stashUntrackedFilesResult] = await Promise.allSettled([
+		const [stashFilesResult, stashUntrackedFilesResult, stashFilesStatsResult] = await Promise.allSettled([
 			// Don't include untracked files here, because we won't be able to tell them apart from added (and we need the untracked status)
-			this.getStashCommitFilesCore(repoPath, ref, { untracked: false }, cancellation),
+			this.getStashCommitFilesCore(repoPath, ref, { untracked: false }),
 			// Check for any untracked files -- since git doesn't return them via `git stash list` :(
 			// See https://stackoverflow.com/questions/12681529/
-			this.getStashCommitFilesCore(repoPath, ref, { untracked: 'only' }, cancellation),
+			this.getStashCommitFilesCore(repoPath, ref, { untracked: 'only' }),
+			options?.include?.stats
+				? this.getStashCommitFilesCore(repoPath, ref, { untracked: true, stats: true })
+				: undefined,
 		]);
 
 		let files = getSettledValue(stashFilesResult);
@@ -174,14 +251,19 @@ export class StashGitSubProvider implements GitStashSubProvider {
 			files = files ?? untrackedFiles;
 		}
 
-		return files ?? [];
+		files ??= [];
+
+		if (stashFilesStatsResult.status === 'fulfilled' && stashFilesStatsResult.value != null) {
+			files = mapFilesWithStats(this.container, files, stashFilesStatsResult.value);
+		}
+
+		return files;
 	}
 
 	private async getStashCommitFilesCore(
 		repoPath: string,
 		ref: string,
-		options?: { untracked?: boolean | 'only' },
-		cancellation?: CancellationToken,
+		options?: { untracked?: boolean | 'only'; stats?: boolean },
 	): Promise<GitFileChange[] | undefined> {
 		const args = [];
 		if (options?.untracked) {
@@ -193,17 +275,12 @@ export class StashGitSubProvider implements GitStashSubProvider {
 			args.push(`-M${similarityThreshold}%`);
 		}
 
-		const parser = getStashFilesOnlyLogParser();
-		const result = await this.git.exec(
-			{ cwd: repoPath, cancellation: cancellation },
-			'stash',
-			'show',
-			...args,
-			...parser.arguments,
-			ref,
-		);
+		const parser: ParserWithFilesAndMaybeStats<object> = options?.stats
+			? createLogParserWithFilesAndStats()
+			: createLogParserWithFiles();
+		const data = await this.git.exec({ cwd: repoPath }, 'stash', 'show', ...args, ...parser.arguments, ref);
 
-		for (const s of parser.parse(result.stdout)) {
+		for (const s of parser.parse(data)) {
 			return (
 				s.files?.map(
 					f =>
@@ -231,6 +308,7 @@ export class StashGitSubProvider implements GitStashSubProvider {
 		return undefined;
 	}
 
+	@gate()
 	@log()
 	async deleteStash(repoPath: string, stashName: string, sha?: string): Promise<void> {
 		await this.deleteStashCore(repoPath, stashName, sha);
@@ -238,28 +316,26 @@ export class StashGitSubProvider implements GitStashSubProvider {
 		this.container.events.fire('git:cache:reset', { repoPath: repoPath, types: ['stashes'] });
 	}
 
-	@gate()
 	private async deleteStashCore(repoPath: string, stashName: string, sha?: string): Promise<string | undefined> {
 		if (!stashName) return undefined;
 
-		let result;
 		if (sha) {
-			result = await this.git.exec(
+			const stashSha = await this.git.exec(
 				{ cwd: repoPath, errors: GitErrorHandling.Ignore },
 				'show',
 				'--format=%H',
 				'--no-patch',
 				stashName,
 			);
-			if (result.stdout.trim() !== sha) {
+			if (stashSha?.trim() !== sha) {
 				throw new Error('Unable to delete stash; mismatch with stash number');
 			}
 		}
 
-		result = await this.git.exec({ cwd: repoPath }, 'stash', 'drop', stashName);
-		return result.stdout;
+		return this.git.exec({ cwd: repoPath }, 'stash', 'drop', stashName);
 	}
 
+	@gate()
 	@log()
 	async renameStash(
 		repoPath: string,
@@ -327,10 +403,11 @@ export class StashGitSubProvider implements GitStashSubProvider {
 		this.container.events.fire('git:cache:reset', { repoPath: repoPath, types: ['stashes', 'status'] });
 	}
 
+	@gate()
 	@log()
 	async saveSnapshot(repoPath: string, message?: string): Promise<void> {
-		const result = await this.git.exec({ cwd: repoPath }, 'stash', 'create');
-		const id = result.stdout.trim() || undefined;
+		const data = await this.git.exec({ cwd: repoPath }, 'stash', 'create');
+		const id = data?.trim() || undefined;
 		if (id == null) return;
 
 		const args = [];
@@ -342,95 +419,4 @@ export class StashGitSubProvider implements GitStashSubProvider {
 		this.container.events.fire('git:repo:change', { repoPath: repoPath, changes: [RepositoryChange.Stash] });
 		this.container.events.fire('git:cache:reset', { repoPath: repoPath, types: ['stashes'] });
 	}
-}
-
-export function convertStashesToStdin(stashOrStashes: GitStash | Map<string, GitStashCommit> | undefined): {
-	readonly stdin: string | undefined;
-	readonly stashes: Map<string, GitStashCommit>;
-	readonly remappedIds: Map<string, string>;
-} {
-	const remappedIds = new Map<string, string>();
-	if (stashOrStashes == null) return { stdin: undefined, stashes: new Map(), remappedIds: remappedIds };
-
-	let stdin: string | undefined;
-	let stashes: Map<string, GitStashCommit>;
-
-	if ('stashes' in stashOrStashes) {
-		stashes = new Map(stashOrStashes.stashes);
-		if (stashOrStashes.stashes.size) {
-			stdin = '';
-			for (const stash of stashOrStashes.stashes.values()) {
-				stdin += `${stash.sha.substring(0, 9)}\n`;
-				// Include the stash's 2nd (index files) and 3rd (untracked files) parents
-				for (const p of skip(stash.parents, 1)) {
-					remappedIds.set(p, stash.sha);
-
-					stashes.set(p, stash);
-					stdin += `${p.substring(0, 9)}\n`;
-				}
-			}
-		}
-	} else {
-		if (stashOrStashes.size) {
-			stdin = '';
-			for (const stash of stashOrStashes.values()) {
-				stdin += `${stash.sha.substring(0, 9)}\n`;
-				// Include the stash's 2nd (index files) and 3rd (untracked files) parents (if they aren't already in the map)
-				for (const p of skip(stash.parents, 1)) {
-					remappedIds.set(p, stash.sha);
-
-					if (!stashOrStashes.has(p)) {
-						stashOrStashes.set(p, stash);
-						stdin += `${p.substring(0, 9)}\n`;
-					}
-				}
-			}
-		}
-		stashes = stashOrStashes;
-	}
-
-	return { stdin: stdin || undefined, stashes: stashes, remappedIds: remappedIds };
-}
-
-const stashSummaryRegex =
-	// eslint-disable-next-line no-control-regex
-	/(?:(?:(?<wip>WIP) on|On) (?<onref>[^/](?!.*\/\.)(?!.*\.\.)(?!.*\/\/)(?!.*@\{)[^\x00-\x1F\x7F ~^:?*[\\]+[^./]):\s*)?(?<summary>.*)$/s;
-
-function createStash(container: Container, s: ParsedStash, repoPath: string): GitStashCommit {
-	let message = s.summary.trim();
-
-	let onRef;
-	let summary;
-	const match = stashSummaryRegex.exec(message);
-	if (match?.groups != null) {
-		onRef = match.groups.onref;
-		summary = match.groups.summary.trim();
-
-		if (summary.length === 0) {
-			message = 'WIP';
-		} else if (match.groups.wip) {
-			message = `WIP: ${summary}`;
-		} else {
-			message = summary;
-		}
-	}
-
-	const index = message.indexOf('\n');
-
-	return new GitCommit(
-		container,
-		repoPath,
-		s.sha,
-		new GitCommitIdentity('You', undefined, new Date((s.authorDate as unknown as number) * 1000)),
-		new GitCommitIdentity('You', undefined, new Date((s.committedDate as unknown as number) * 1000)),
-		index !== -1 ? message.substring(0, index) : message,
-		s.parents.split(' ') ?? [],
-		message,
-		createCommitFileset(container, s, repoPath, undefined),
-		s.stats,
-		undefined,
-		undefined,
-		s.stashName,
-		onRef,
-	) as GitStashCommit;
 }

@@ -1,19 +1,13 @@
 import type { GitBlame } from '@gitkraken/provider-apis/providers';
-import type { CancellationToken, Uri } from 'vscode';
+import type { Range, Uri } from 'vscode';
 import type { SearchQuery } from '../../../../../constants.search';
 import type { Container } from '../../../../../container';
 import type { GitCache } from '../../../../../git/cache';
-import type {
-	GitCommitsSubProvider,
-	GitLogForPathOptions,
-	GitLogOptions,
-	GitLogShasOptions,
-	GitSearchCommitsOptions,
-	LeftRightCommitCountResult,
-} from '../../../../../git/gitProvider';
+import type { GitCommitsSubProvider, LeftRightCommitCountResult } from '../../../../../git/gitProvider';
 import { GitUri } from '../../../../../git/gitUri';
 import { GitCommit, GitCommitIdentity } from '../../../../../git/models/commit';
 import type { ParsedGitDiffHunks } from '../../../../../git/models/diff';
+import type { GitFile } from '../../../../../git/models/file';
 import { GitFileChange } from '../../../../../git/models/fileChange';
 import { GitFileIndexStatus } from '../../../../../git/models/fileStatus';
 import type { GitLog } from '../../../../../git/models/log';
@@ -24,10 +18,11 @@ import { parseSearchQuery } from '../../../../../git/search';
 import { createUncommittedChangesCommit } from '../../../../../git/utils/-webview/commit.utils';
 import { createRevisionRange, isUncommitted } from '../../../../../git/utils/revision.utils';
 import { log } from '../../../../../system/decorators/log';
-import { filterMap, first, last, map, some } from '../../../../../system/iterable';
+import { filterMap, first, last, some } from '../../../../../system/iterable';
 import { Logger } from '../../../../../system/logger';
+import type { LogScope } from '../../../../../system/logger.scope';
 import { getLogScope } from '../../../../../system/logger.scope';
-import { isFolderGlob, stripFolderGlob } from '../../../../../system/path';
+import { isFolderGlob } from '../../../../../system/path';
 import type { CachedLog, TrackedGitDocument } from '../../../../../trackers/trackedDocument';
 import { GitDocumentState } from '../../../../../trackers/trackedDocument';
 import type { GitHubGitProviderInternal } from '../githubGitProvider';
@@ -44,12 +39,8 @@ export class CommitsGitSubProvider implements GitCommitsSubProvider {
 		private readonly provider: GitHubGitProviderInternal,
 	) {}
 
-	private get useCaching() {
-		return true; // configuration.get('advanced.caching.enabled');
-	}
-
 	@log()
-	async getCommit(repoPath: string, rev: string, _cancellation?: CancellationToken): Promise<GitCommit | undefined> {
+	async getCommit(repoPath: string, rev: string): Promise<GitCommit | undefined> {
 		if (repoPath == null) return undefined;
 
 		const scope = getLogScope();
@@ -94,22 +85,24 @@ export class CommitsGitSubProvider implements GitCommitsSubProvider {
 				commit.parents.nodes.map(p => p.oid),
 				commit.message,
 				{
-					files: commit.files?.map(
-						f =>
-							new GitFileChange(
-								this.container,
-								repoPath,
-								f.filename ?? '',
-								fromCommitFileStatus(f.status) ?? GitFileIndexStatus.Modified,
-								f.previous_filename,
-								undefined,
-								{
-									additions: f.additions ?? 0,
-									deletions: f.deletions ?? 0,
-									changes: f.changes ?? 0,
-								},
-							),
-					),
+					files:
+						commit.files?.map(
+							f =>
+								new GitFileChange(
+									this.container,
+									repoPath,
+									f.filename ?? '',
+									fromCommitFileStatus(f.status) ?? GitFileIndexStatus.Modified,
+									f.previous_filename,
+									undefined,
+									{
+										additions: f.additions ?? 0,
+										deletions: f.deletions ?? 0,
+										changes: f.changes ?? 0,
+									},
+								),
+						) ?? [],
+					filtered: false,
 				},
 				{
 					files: commit.changedFiles ?? 0,
@@ -126,11 +119,7 @@ export class CommitsGitSubProvider implements GitCommitsSubProvider {
 	}
 
 	@log()
-	async getCommitCount(
-		repoPath: string,
-		rev: string,
-		_cancellation?: CancellationToken,
-	): Promise<number | undefined> {
+	async getCommitCount(repoPath: string, rev: string): Promise<number | undefined> {
 		if (repoPath == null) return undefined;
 
 		const scope = getLogScope();
@@ -154,20 +143,11 @@ export class CommitsGitSubProvider implements GitCommitsSubProvider {
 	}
 
 	@log()
-	async getCommitFiles(repoPath: string, rev: string, _cancellation?: CancellationToken): Promise<GitFileChange[]> {
-		if (rev === deletedOrMissing || isUncommitted(rev)) return [];
-
-		const commit = await this.getCommit(repoPath, rev);
-		return [...(commit?.fileset?.files ?? [])];
-	}
-
-	@log()
 	async getCommitForFile(
 		repoPath: string | undefined,
 		uri: Uri,
 		rev?: string | undefined,
 		_options?: { firstIfNotFound?: boolean },
-		_cancellation?: CancellationToken,
 	): Promise<GitCommit | undefined> {
 		if (repoPath == null) return undefined;
 
@@ -208,26 +188,24 @@ export class CommitsGitSubProvider implements GitCommitsSubProvider {
 				commit.message,
 				commit.files != null
 					? {
-							files: undefined,
-							filtered: {
-								files: commit.files?.map(
-									f =>
-										new GitFileChange(
-											this.container,
-											repoPath,
-											f.filename ?? '',
-											fromCommitFileStatus(f.status) ?? GitFileIndexStatus.Modified,
-											f.previous_filename,
-											undefined,
-											{
-												additions: f.additions ?? 0,
-												deletions: f.deletions ?? 0,
-												changes: f.changes ?? 0,
-											},
-										),
-								),
-								pathspec: file,
-							},
+							files: commit.files?.map(
+								f =>
+									new GitFileChange(
+										this.container,
+										repoPath,
+										f.filename ?? '',
+										fromCommitFileStatus(f.status) ?? GitFileIndexStatus.Modified,
+										f.previous_filename,
+										undefined,
+										{
+											additions: f.additions ?? 0,
+											deletions: f.deletions ?? 0,
+											changes: f.changes ?? 0,
+										},
+									),
+							),
+							filtered: true,
+							pathspec: file,
 					  }
 					: undefined,
 				{
@@ -245,11 +223,20 @@ export class CommitsGitSubProvider implements GitCommitsSubProvider {
 	}
 
 	@log()
+	async getCommitFileStatus(repoPath: string, uri: Uri, rev: string): Promise<GitFile | undefined> {
+		if (rev === deletedOrMissing || isUncommitted(rev)) return undefined;
+
+		const commit = await this.getCommitForFile(repoPath, uri, rev);
+		if (commit == null) return undefined;
+
+		return commit.findFile(uri);
+	}
+
+	@log()
 	async getLeftRightCommitCount(
 		repoPath: string,
 		range: GitRevisionRange,
-		_options?: { authors?: GitUser[]; excludeMerges?: boolean },
-		_cancellation?: CancellationToken,
+		_options?: { authors?: GitUser[] | undefined; excludeMerges?: boolean },
 	): Promise<LeftRightCommitCountResult | undefined> {
 		if (repoPath == null) return undefined;
 
@@ -282,8 +269,15 @@ export class CommitsGitSubProvider implements GitCommitsSubProvider {
 	async getLog(
 		repoPath: string,
 		rev?: string | undefined,
-		options?: GitLogOptions,
-		_cancellation?: CancellationToken,
+		options?: {
+			all?: boolean;
+			authors?: GitUser[];
+			cursor?: string;
+			limit?: number;
+			merges?: boolean | 'first-parent';
+			ordering?: 'date' | 'author-date' | 'topo' | null;
+			since?: string;
+		},
 	): Promise<GitLog | undefined> {
 		if (repoPath == null) return undefined;
 
@@ -351,6 +345,7 @@ export class CommitsGitSubProvider implements GitCommitsSubProvider {
 												},
 											),
 									),
+									filtered: false,
 							  }
 							: undefined,
 						{
@@ -368,6 +363,7 @@ export class CommitsGitSubProvider implements GitCommitsSubProvider {
 				repoPath: repoPath,
 				commits: commits,
 				sha: rev,
+				range: undefined,
 				count: commits.size,
 				limit: limit,
 				hasMore: result.paging?.more ?? false,
@@ -387,10 +383,35 @@ export class CommitsGitSubProvider implements GitCommitsSubProvider {
 		}
 	}
 
+	@log()
+	async getLogShasOnly(
+		repoPath: string,
+		rev?: string | undefined,
+		options?: {
+			authors?: GitUser[];
+			cursor?: string;
+			limit?: number;
+			merges?: boolean | 'first-parent';
+			ordering?: 'date' | 'author-date' | 'topo' | null;
+			since?: string;
+		},
+	): Promise<Set<string> | undefined> {
+		// TODO@eamodio optimize this
+		const result = await this.getLog(repoPath, rev, options);
+		if (result == null) return undefined;
+
+		return new Set([...result.commits.values()].map(c => c.ref));
+	}
+
 	private getLogMoreFn(
 		log: GitLog,
 		rev: string | undefined,
-		options?: GitLogOptions,
+		options?: {
+			authors?: GitUser[];
+			limit?: number;
+			merges?: boolean | 'first-parent';
+			ordering?: 'date' | 'author-date' | 'topo' | null;
+		},
 	): (limit: number | { until: string } | undefined) => Promise<GitLog> {
 		return async (limit: number | { until: string } | undefined) => {
 			const moreUntil = limit != null && typeof limit === 'object' ? limit.until : undefined;
@@ -437,6 +458,7 @@ export class CommitsGitSubProvider implements GitCommitsSubProvider {
 				repoPath: log.repoPath,
 				commits: commits,
 				sha: log.sha,
+				range: undefined,
 				count: commits.size,
 				limit: moreUntil == null ? (log.limit ?? 0) + moreLimit : undefined,
 				hasMore: moreUntil == null ? moreLog.hasMore : true,
@@ -464,90 +486,101 @@ export class CommitsGitSubProvider implements GitCommitsSubProvider {
 		repoPath: string | undefined,
 		pathOrUri: string | Uri,
 		rev?: string | undefined,
-		options?: GitLogForPathOptions,
-		cancellation?: CancellationToken,
+		options?: {
+			all?: boolean;
+			cursor?: string;
+			limit?: number;
+			ordering?: 'date' | 'author-date' | 'topo' | null;
+			range?: Range;
+			renames?: boolean;
+			reverse?: boolean;
+			since?: string;
+			skip?: number;
+		},
 	): Promise<GitLog | undefined> {
 		if (repoPath == null) return undefined;
 
 		const scope = getLogScope();
 
-		let relativePath = this.provider.getRelativePath(pathOrUri, repoPath);
+		const relativePath = this.provider.getRelativePath(pathOrUri, repoPath);
 
 		if (repoPath != null && repoPath === relativePath) {
-			throw new Error(`Path cannot match the repository path; path=${relativePath}`);
+			throw new Error(`File name cannot match the repository path; path=${relativePath}`);
 		}
 
-		options = {
-			...options,
-			all: false /* not supported */,
-			limit: this.provider.getPagingLimit(options?.limit),
-			renames: false /* not supported */,
-		};
+		options = { reverse: false, ...options };
 
-		if (isFolderGlob(relativePath)) {
-			relativePath = stripFolderGlob(relativePath);
-			options.isFolder = true;
-		} else if (options.isFolder == null) {
-			const tree = await this.provider.revision.getTreeEntryForRevision(repoPath, rev || 'HEAD', relativePath);
-			options.isFolder = tree?.type === 'tree';
+		// Not currently supported
+		options.renames = false;
+		options.all = false;
+
+		// if (options.renames == null) {
+		// 	options.renames = configuration.get('advanced.fileHistoryFollowsRenames');
+		// }
+
+		let key = 'log';
+		if (rev != null) {
+			key += `:${rev}`;
 		}
 
-		let cacheKey: string | undefined;
-		if (
-			this.useCaching &&
-			// Don't cache folders
-			!options.isFolder &&
-			options.authors == null &&
-			options.cursor == null &&
-			options.filters == null &&
-			options.range == null &&
-			options.since == null &&
-			options.until == null
-		) {
-			cacheKey = 'log';
-			if (rev != null) {
-				cacheKey += `:${rev}`;
-			}
-			if (options.all) {
-				cacheKey += ':all';
-			}
-			if (options.limit) {
-				cacheKey += `:n${options.limit}`;
-			}
-			if (options.merges) {
-				cacheKey += `:merges=${options.merges}`;
-			}
-			if (options.ordering) {
-				cacheKey += `:ordering=${options.ordering}`;
-			}
-			if (options.renames) {
-				cacheKey += ':follow';
-			}
+		// if (options.all == null) {
+		// 	options.all = configuration.get('advanced.fileHistoryShowAllBranches');
+		// }
+		// if (options.all) {
+		// 	key += ':all';
+		// }
+
+		options.limit = this.provider.getPagingLimit(options?.limit);
+		if (options.limit) {
+			key += `:n${options.limit}`;
 		}
 
-		let doc: TrackedGitDocument | undefined;
-		if (cacheKey) {
-			doc = await this.container.documentTracker.getOrAdd(GitUri.fromFile(relativePath, repoPath, rev));
+		if (options.ordering) {
+			key += `:ordering=${options.ordering}`;
+		}
+
+		if (options.renames) {
+			key += ':follow';
+		}
+
+		if (options.reverse) {
+			key += ':reverse';
+		}
+
+		if (options.since) {
+			key += `:since=${options.since}`;
+		}
+
+		if (options.skip) {
+			key += `:skip${options.skip}`;
+		}
+
+		const useCache = options.cursor == null && options.range == null;
+
+		const doc = await this.container.documentTracker.getOrAdd(GitUri.fromFile(relativePath, repoPath, rev));
+		if (useCache) {
 			if (doc.state != null) {
-				const cachedLog = doc.state.getLog(cacheKey);
+				const cachedLog = doc.state.getLog(key);
 				if (cachedLog != null) {
-					Logger.debug(scope, `Cache hit: '${cacheKey}'`);
+					Logger.debug(scope, `Cache hit: '${key}'`);
 					return cachedLog.item;
 				}
 
 				if (rev != null || options.limit != null) {
 					// Since we are looking for partial log, see if we have the log of the whole file
-					const cachedLog = doc.state.getLog(`log${options.renames ? ':follow' : ''}`);
+					const cachedLog = doc.state.getLog(
+						`log${options.renames ? ':follow' : ''}${options.reverse ? ':reverse' : ''}`,
+					);
 					if (cachedLog != null) {
 						if (rev == null) {
-							Logger.debug(scope, `Cache hit: ~'${cacheKey}'`);
+							Logger.debug(scope, `Cache hit: ~'${key}'`);
 							return cachedLog.item;
 						}
 
-						Logger.debug(scope, `Cache ?: '${cacheKey}'`);
+						Logger.debug(scope, `Cache ?: '${key}'`);
 						let log = await cachedLog.item;
 						if (log != null && !log.hasMore && log.commits.has(rev)) {
-							Logger.debug(scope, `Cache hit: '${cacheKey}'`);
+							Logger.debug(scope, `Cache hit: '${key}'`);
 
 							// Create a copy of the log starting at the requested commit
 							let skip = true;
@@ -562,7 +595,7 @@ export class CommitsGitSubProvider implements GitCommitsSubProvider {
 										}
 
 										i++;
-										if (options.limit != null && i > options.limit) {
+										if (options?.limit != null && i > options.limit) {
 											return undefined;
 										}
 
@@ -587,39 +620,20 @@ export class CommitsGitSubProvider implements GitCommitsSubProvider {
 				}
 			}
 
-			Logger.debug(scope, `Cache miss: '${cacheKey}'`);
+			Logger.debug(scope, `Cache miss: '${key}'`);
 
 			doc.state ??= new GitDocumentState();
 		}
 
-		const promise = this.getLogForPathCore(repoPath, relativePath, rev, options, cancellation).catch(
-			(ex: unknown) => {
-				debugger;
-				// Trap and cache expected log errors
-				if (cacheKey && doc?.state != null) {
-					const msg: string = ex?.toString() ?? '';
-					Logger.debug(scope, `Cache replace (with empty promise): '${cacheKey}'`);
+		const promise = this.getLogForPathCore(repoPath, relativePath, rev, doc, key, scope, options);
 
-					const value: CachedLog = {
-						item: emptyPromise as Promise<GitLog>,
-						errorMessage: msg,
-					};
-					doc.state.setLog(cacheKey, value);
-
-					return emptyPromise as Promise<GitLog>;
-				}
-
-				return undefined;
-			},
-		);
-
-		if (cacheKey && doc?.state != null) {
-			Logger.debug(scope, `Cache add: '${cacheKey}'`);
+		if (useCache && doc.state != null) {
+			Logger.debug(scope, `Cache add: '${key}'`);
 
 			const value: CachedLog = {
 				item: promise as Promise<GitLog>,
 			};
-			doc.state.setLog(cacheKey, value);
+			doc.state.setLog(key, value);
 		}
 
 		return promise;
@@ -629,134 +643,175 @@ export class CommitsGitSubProvider implements GitCommitsSubProvider {
 		repoPath: string | undefined,
 		path: string,
 		rev: string | undefined,
-		options: GitLogForPathOptions,
-		_cancellation?: CancellationToken,
+		document: TrackedGitDocument,
+		key: string,
+		scope: LogScope | undefined,
+		options?: {
+			all?: boolean;
+			cursor?: string;
+			limit?: number;
+			ordering?: 'date' | 'author-date' | 'topo' | null;
+			range?: Range;
+			renames?: boolean;
+			reverse?: boolean;
+			since?: string;
+			skip?: number;
+		},
 	): Promise<GitLog | undefined> {
 		if (repoPath == null) return undefined;
 
-		const limit = this.provider.getPagingLimit(options.limit);
+		const limit = this.provider.getPagingLimit(options?.limit);
 
-		const context = await this.provider.ensureRepositoryContext(repoPath);
-		if (context == null) return undefined;
-		const { metadata, github, remotehub, session } = context;
+		try {
+			const context = await this.provider.ensureRepositoryContext(repoPath);
+			if (context == null) return undefined;
+			const { metadata, github, remotehub, session } = context;
 
-		const uri = this.provider.getAbsoluteUri(path, repoPath);
-		const relativePath = this.provider.getRelativePath(uri, remotehub.getProviderRootUri(uri));
+			const uri = this.provider.getAbsoluteUri(path, repoPath);
+			const relativePath = this.provider.getRelativePath(uri, remotehub.getProviderRootUri(uri));
 
-		// if (range != null && range.start.line > range.end.line) {
-		// 	range = new Range(range.end, range.start);
-		// }
+			// if (range != null && range.start.line > range.end.line) {
+			// 	range = new Range(range.end, range.start);
+			// }
 
-		rev = !rev || rev === 'HEAD' ? (await metadata.getRevision()).revision : rev;
-		const result = await github.getCommits(
-			session.accessToken,
-			metadata.repo.owner,
-			metadata.repo.name,
-			stripOrigin(rev),
-			{
-				all: options.all,
-				after: options.cursor,
-				path: relativePath,
-				limit: limit,
-				since: options.since ? new Date(options.since) : undefined,
-			},
-		);
+			rev = !rev || rev === 'HEAD' ? (await metadata.getRevision()).revision : rev;
+			const result = await github.getCommits(
+				session.accessToken,
+				metadata.repo.owner,
+				metadata.repo.name,
+				stripOrigin(rev),
+				{
+					all: options?.all,
+					after: options?.cursor,
+					path: relativePath,
+					limit: limit,
+					since: options?.since ? new Date(options.since) : undefined,
+				},
+			);
 
-		const commits = new Map<string, GitCommit>();
+			const commits = new Map<string, GitCommit>();
 
-		const { viewer = session.account.label } = result;
-		for (const commit of result.values) {
-			const authorName = viewer != null && commit.author.name === viewer ? 'You' : commit.author.name;
-			const committerName = viewer != null && commit.committer.name === viewer ? 'You' : commit.committer.name;
+			const { viewer = session.account.label } = result;
+			for (const commit of result.values) {
+				const authorName = viewer != null && commit.author.name === viewer ? 'You' : commit.author.name;
+				const committerName =
+					viewer != null && commit.committer.name === viewer ? 'You' : commit.committer.name;
 
-			let c = commits.get(commit.oid);
-			if (c == null) {
-				const files = commit.files?.map(
-					f =>
-						new GitFileChange(
-							this.container,
-							repoPath,
-							f.filename ?? '',
-							fromCommitFileStatus(f.status) ?? GitFileIndexStatus.Modified,
-							f.previous_filename,
-							undefined,
-							{ additions: f.additions ?? 0, deletions: f.deletions ?? 0, changes: f.changes ?? 0 },
-						),
-				);
-
-				if (files != null && !options.isFolder && commit.changedFiles === 1) {
-					const index = files.findIndex(f => f.path === relativePath);
-					if (index !== -1) {
-						files.splice(
-							index,
-							1,
+				let c = commits.get(commit.oid);
+				if (c == null) {
+					const files = commit.files?.map(
+						f =>
 							new GitFileChange(
 								this.container,
 								repoPath,
-								relativePath,
-								GitFileIndexStatus.Modified,
+								f.filename ?? '',
+								fromCommitFileStatus(f.status) ?? GitFileIndexStatus.Modified,
+								f.previous_filename,
 								undefined,
-								undefined,
-								commit.changedFiles === 1
-									? {
-											additions: commit.additions ?? 0,
-											deletions: commit.deletions ?? 0,
-											changes: 0,
-									  }
-									: undefined,
+								{ additions: f.additions ?? 0, deletions: f.deletions ?? 0, changes: f.changes ?? 0 },
 							),
-						);
+					);
+
+					if (files != null && !isFolderGlob(relativePath) && commit.changedFiles === 1) {
+						const index = files.findIndex(f => f.path === relativePath);
+						if (index !== -1) {
+							files.splice(
+								index,
+								1,
+								new GitFileChange(
+									this.container,
+									repoPath,
+									relativePath,
+									GitFileIndexStatus.Modified,
+									undefined,
+									undefined,
+									commit.changedFiles === 1
+										? {
+												additions: commit.additions ?? 0,
+												deletions: commit.deletions ?? 0,
+												changes: 0,
+										  }
+										: undefined,
+								),
+							);
+						}
 					}
+
+					c = new GitCommit(
+						this.container,
+						repoPath,
+						commit.oid,
+						new GitCommitIdentity(
+							authorName,
+							commit.author.email,
+							new Date(commit.author.date),
+							commit.author.avatarUrl,
+						),
+						new GitCommitIdentity(committerName, commit.committer.email, new Date(commit.committer.date)),
+						commit.message.split('\n', 1)[0],
+						commit.parents.nodes.map(p => p.oid),
+						commit.message,
+						files != null ? { files: files, filtered: true, pathspec: relativePath } : undefined,
+						{
+							files: commit.changedFiles ?? 0,
+							additions: commit.additions ?? 0,
+							deletions: commit.deletions ?? 0,
+						},
+						[],
+					);
+					commits.set(commit.oid, c);
 				}
-
-				c = new GitCommit(
-					this.container,
-					repoPath,
-					commit.oid,
-					new GitCommitIdentity(
-						authorName,
-						commit.author.email,
-						new Date(commit.author.date),
-						commit.author.avatarUrl,
-					),
-					new GitCommitIdentity(committerName, commit.committer.email, new Date(commit.committer.date)),
-					commit.message.split('\n', 1)[0],
-					commit.parents.nodes.map(p => p.oid),
-					commit.message,
-					{ files: undefined, filtered: { files: files, pathspec: relativePath } },
-					{
-						files: commit.changedFiles ?? 0,
-						additions: commit.additions ?? 0,
-						deletions: commit.deletions ?? 0,
-					},
-					[],
-				);
-				commits.set(commit.oid, c);
 			}
-		}
 
-		const log: GitLog = {
-			repoPath: repoPath,
-			commits: commits,
-			sha: rev,
-			count: commits.size,
-			limit: limit,
-			hasMore: result.paging?.more ?? false,
-			endingCursor: result.paging?.cursor,
-			query: (limit: number | undefined) => this.getLogForPath(repoPath, path, rev, { ...options, limit: limit }),
-		};
-		if (log.hasMore) {
-			log.more = this.getLogForPathMoreFn(log, path, rev, options);
-		}
+			const log: GitLog = {
+				repoPath: repoPath,
+				commits: commits,
+				sha: rev,
+				range: undefined,
+				count: commits.size,
+				limit: limit,
+				hasMore: result.paging?.more ?? false,
+				endingCursor: result.paging?.cursor,
+				query: (limit: number | undefined) =>
+					this.getLogForPath(repoPath, path, rev, { ...options, limit: limit }),
+			};
+			if (log.hasMore) {
+				log.more = this.getLogForPathMoreFn(log, path, rev, options);
+			}
 
-		return log;
+			return log;
+		} catch (ex) {
+			debugger;
+			// Trap and cache expected log errors
+			if (document.state != null && options?.range == null && !options?.reverse) {
+				const msg: string = ex?.toString() ?? '';
+				Logger.debug(scope, `Cache replace (with empty promise): '${key}'`);
+
+				const value: CachedLog = {
+					item: emptyPromise as Promise<GitLog>,
+					errorMessage: msg,
+				};
+				document.state.setLog(key, value);
+
+				return emptyPromise as Promise<GitLog>;
+			}
+
+			return undefined;
+		}
 	}
 
 	private getLogForPathMoreFn(
 		log: GitLog,
 		relativePath: string,
 		rev: string | undefined,
-		options: GitLogForPathOptions,
+		options?: {
+			all?: boolean;
+			limit?: number;
+			ordering?: 'date' | 'author-date' | 'topo' | null;
+			range?: Range;
+			renames?: boolean;
+			reverse?: boolean;
+		},
 	): (limit: number | { until: string } | undefined) => Promise<GitLog> {
 		return async (limit: number | { until: string } | undefined) => {
 			const moreUntil = limit != null && typeof limit === 'object' ? limit.until : undefined;
@@ -789,6 +844,7 @@ export class CommitsGitSubProvider implements GitCommitsSubProvider {
 				repoPath: log.repoPath,
 				commits: commits,
 				sha: log.sha,
+				range: log.range,
 				count: commits.size,
 				limit: moreUntil == null ? (log.limit ?? 0) + moreLimit : undefined,
 				hasMore: moreUntil == null ? moreLog.hasMore : true,
@@ -813,48 +869,19 @@ export class CommitsGitSubProvider implements GitCommitsSubProvider {
 	}
 
 	@log()
-	async getLogShas(
-		repoPath: string,
-		rev?: string | undefined,
-		options?: GitLogShasOptions,
-		cancellation?: CancellationToken,
-	): Promise<Iterable<string>> {
-		// TODO@eamodio optimize this
-
-		let log: GitLog | undefined;
-		if (options?.pathOrUri != null) {
-			log = await this.getLogForPath(repoPath, options.pathOrUri, rev, options, cancellation);
-		} else {
-			log = await this.getLog(repoPath, rev, options, cancellation);
-		}
-		if (log == null) return [];
-
-		return map(log.commits.values(), c => c.ref);
-	}
-
-	@log()
-	getOldestUnpushedShaForPath(
-		_repoPath: string,
-		_pathOrUri: string | Uri,
-		_cancellation?: CancellationToken,
-	): Promise<string | undefined> {
+	getOldestUnpushedShaForPath(_repoPath: string, _pathOrUri: string | Uri): Promise<string | undefined> {
 		// TODO@eamodio until we have access to the RemoteHub change store there isn't anything we can do here
 		return Promise.resolve(undefined);
 	}
 
 	@log()
-	hasCommitBeenPushed(_repoPath: string, _rev: string, _cancellation?: CancellationToken): Promise<boolean> {
+	hasCommitBeenPushed(_repoPath: string, _rev: string): Promise<boolean> {
 		// In this env we can't have unpushed commits
 		return Promise.resolve(true);
 	}
 
 	@log()
-	async isAncestorOf(
-		repoPath: string,
-		rev1: string,
-		rev2: string,
-		_cancellation?: CancellationToken,
-	): Promise<boolean> {
+	async isAncestorOf(repoPath: string, rev1: string, rev2: string): Promise<boolean> {
 		if (repoPath == null) return false;
 
 		const scope = getLogScope();
@@ -897,8 +924,7 @@ export class CommitsGitSubProvider implements GitCommitsSubProvider {
 	async searchCommits(
 		repoPath: string,
 		search: SearchQuery,
-		options?: GitSearchCommitsOptions,
-		_cancellation?: CancellationToken,
+		options?: { cursor?: string; limit?: number; ordering?: 'date' | 'author-date' | 'topo' | null; skip?: number },
 	): Promise<GitLog | undefined> {
 		if (repoPath == null) return undefined;
 
@@ -915,6 +941,7 @@ export class CommitsGitSubProvider implements GitCommitsSubProvider {
 				repoPath: repoPath,
 				commits: new Map([[commit.sha, commit]]),
 				sha: commit.sha,
+				range: undefined,
 				count: 1,
 				limit: 1,
 				hasMore: false,
@@ -985,6 +1012,7 @@ export class CommitsGitSubProvider implements GitCommitsSubProvider {
 												},
 											),
 									),
+									filtered: false,
 							  }
 							: undefined,
 						{
@@ -1002,6 +1030,7 @@ export class CommitsGitSubProvider implements GitCommitsSubProvider {
 				repoPath: repoPath,
 				commits: commits,
 				sha: undefined,
+				range: undefined,
 				count: commits.size,
 				limit: limit,
 				hasMore: result.pageInfo?.hasNextPage ?? false,
@@ -1031,6 +1060,7 @@ export class CommitsGitSubProvider implements GitCommitsSubProvider {
 							repoPath: log.repoPath,
 							commits: commits,
 							sha: log.sha,
+							range: undefined,
 							count: commits.size,
 							limit: (log.limit ?? 0) + limit,
 							hasMore: moreLog.hasMore,
@@ -1054,5 +1084,7 @@ export class CommitsGitSubProvider implements GitCommitsSubProvider {
 			debugger;
 			return undefined;
 		}
+
+		return undefined;
 	}
 }

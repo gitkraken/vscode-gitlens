@@ -44,10 +44,7 @@ export function parseGitBlame(
 	modifiedTime?: number,
 ): GitBlame | undefined {
 	using sw = maybeStopWatch(`Git.parseBlame(${repoPath})`, { log: false, logLevel: 'debug' });
-	if (!data) {
-		sw?.stop({ suffix: ` no data` });
-		return undefined;
-	}
+	if (!data) return undefined;
 
 	const authors = new Map<string, GitBlameAuthor>();
 	const commits = new Map<string, GitCommit>();
@@ -58,7 +55,7 @@ export function parseGitBlame(
 	let line: string;
 	let lineParts: string[];
 
-	for (line of iterateByDelimiter(data, '\n')) {
+	for (line of iterateByDelimiter(data)) {
 		lineParts = line.split(' ');
 		if (lineParts.length < 2) continue;
 
@@ -239,20 +236,18 @@ function parseBlameEntry(
 			[],
 			undefined,
 			{
-				files: undefined,
-				filtered: {
-					files: [
-						new GitFileChange(
-							container,
-							repoPath,
-							entry.path,
-							GitFileIndexStatus.Modified,
-							entry.previousPath && entry.previousPath !== entry.path ? entry.previousPath : undefined,
-							entry.previousSha,
-						),
-					],
-					pathspec: entry.path,
-				},
+				files: [
+					new GitFileChange(
+						container,
+						repoPath,
+						entry.path,
+						GitFileIndexStatus.Modified,
+						entry.previousPath && entry.previousPath !== entry.path ? entry.previousPath : undefined,
+						entry.previousSha,
+					),
+				],
+				filtered: true,
+				pathspec: entry.path,
 			},
 			undefined,
 			[],

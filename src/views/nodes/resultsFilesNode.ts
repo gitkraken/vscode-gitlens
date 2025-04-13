@@ -4,6 +4,7 @@ import { GitUri } from '../../git/gitUri';
 import type { GitFile } from '../../git/models/file';
 import type { FilesQueryResults } from '../../git/queryResults';
 import { makeHierarchical } from '../../system/array';
+import { gate } from '../../system/decorators/-webview/gate';
 import { debug } from '../../system/decorators/log';
 import { map } from '../../system/iterable';
 import { joinPaths, normalizePath } from '../../system/path';
@@ -196,6 +197,7 @@ export class ResultsFilesNode extends ViewNode<'results-files', ViewsWithCommits
 		return item;
 	}
 
+	@gate()
 	@debug()
 	override refresh(reset: boolean = false): void {
 		if (!reset) return;
@@ -210,7 +212,9 @@ export class ResultsFilesNode extends ViewNode<'results-files', ViewsWithCommits
 	private _filterResults: Promise<void> | undefined;
 
 	private async getFilesQueryResults() {
-		this._filesQueryResults ??= this._filesQuery();
+		if (this._filesQueryResults === undefined) {
+			this._filesQueryResults = this._filesQuery();
+		}
 
 		const results = await this._filesQueryResults;
 		if (
@@ -222,7 +226,10 @@ export class ResultsFilesNode extends ViewNode<'results-files', ViewsWithCommits
 			return results;
 		}
 
-		this._filterResults ??= this.filterResults(this.filter, results);
+		if (this._filterResults === undefined) {
+			this._filterResults = this.filterResults(this.filter, results);
+		}
+
 		await this._filterResults;
 
 		return results;
@@ -233,16 +240,16 @@ export class ResultsFilesNode extends ViewNode<'results-files', ViewsWithCommits
 
 		const ref = this.filter === FilesQueryFilter.Left ? this.ref2 : this.ref1;
 
-		const svc = this.view.container.git.getRepositoryService(this.repoPath);
-
-		const mergeBase = await svc.refs.getMergeBase(this.ref1 || 'HEAD', this.ref2 || 'HEAD');
+		const mergeBase = await this.view.container.git
+			.refs(this.repoPath)
+			.getMergeBase(this.ref1 || 'HEAD', this.ref2 || 'HEAD');
 		if (mergeBase != null) {
-			const files = await svc.diff.getDiffStatus(`${mergeBase}..${ref}`);
+			const files = await this.view.container.git.diff(this.uri.repoPath!).getDiffStatus(`${mergeBase}..${ref}`);
 			if (files != null) {
 				filterTo = new Set<string>(files.map(f => f.path));
 			}
 		} else {
-			const commit = await svc.commits.getCommit(ref || 'HEAD');
+			const commit = await this.view.container.git.commits(this.uri.repoPath!).getCommit(ref || 'HEAD');
 			if (commit?.fileset?.files != null) {
 				filterTo = new Set<string>(commit.fileset?.files.map(f => f.path));
 			}

@@ -54,8 +54,8 @@ export class BranchTrackingStatusFilesNode extends ViewNode<'tracking-status-fil
 
 	private async getGroupedFiles(): Promise<Map<string, GitFileWithCommit[]>> {
 		const log = await this.view.container.git
-			.getRepositoryService(this.repoPath)
-			.commits.getLog(
+			.commits(this.repoPath)
+			.getLog(
 				this.direction === 'behind'
 					? createRevisionRange(this.ref1, this.ref2, '..')
 					: createRevisionRange(this.ref2, this.ref1, '..'),
@@ -71,7 +71,10 @@ export class BranchTrackingStatusFilesNode extends ViewNode<'tracking-status-fil
 		);
 
 		const files = [
-			...flatMap(log.commits.values(), c => c.anyFiles?.map<GitFileWithCommit>(f => ({ ...f, commit: c })) ?? []),
+			...flatMap(
+				log.commits.values(),
+				c => c.fileset?.files.map<GitFileWithCommit>(f => ({ ...f, commit: c })) ?? [],
+			),
 		];
 
 		files.sort((a, b) => b.commit.date.getTime() - a.commit.date.getTime());
@@ -106,8 +109,8 @@ export class BranchTrackingStatusFilesNode extends ViewNode<'tracking-status-fil
 
 	async getTreeItem(): Promise<TreeItem> {
 		const stats = await this.view.container.git
-			.getRepositoryService(this.repoPath)
-			.diff.getChangedFilesCount(this.direction === 'behind' ? `${this.ref1}...${this.ref2}` : `${this.ref2}...`);
+			.diff(this.repoPath)
+			.getChangedFilesCount(this.direction === 'behind' ? `${this.ref1}...${this.ref2}` : `${this.ref2}...`);
 		const files = stats?.files ?? 0;
 
 		const label = `${pluralize('file', files)} changed`;
