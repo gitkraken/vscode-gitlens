@@ -175,24 +175,24 @@ export function getGraphStatsParser(): ParserWithStats<{ sha: string }> {
 	return _graphStatsParser;
 }
 
-type RefParser = Parser<string>;
+type ShaLogParser = Parser<string>;
 
-let _refParser: RefParser | undefined;
-export function getRefParser(): RefParser {
-	_refParser ??= createLogParserSingle('%H');
-	return _refParser;
+let _shaLogParser: ShaLogParser | undefined;
+export function getShaLogParser(): ShaLogParser {
+	_shaLogParser ??= createLogParserSingle('%H');
+	return _shaLogParser;
 }
 
-type RefAndDateParser = Parser<{ sha: string; authorDate: string; committerDate: string }>;
+type ShaAndDatesLogParser = Parser<{ sha: string; authorDate: string; committerDate: string }>;
 
-let _refAndDateParser: RefAndDateParser | undefined;
-export function getRefAndDateParser(): RefAndDateParser {
-	_refAndDateParser ??= createLogParser({
+let _shaAndDatesLogParser: ShaAndDatesLogParser | undefined;
+export function getShaAndDatesLogParser(): ShaAndDatesLogParser {
+	_shaAndDatesLogParser ??= createLogParser({
 		sha: '%H',
 		authorDate: '%at',
 		committerDate: '%ct',
 	});
-	return _refAndDateParser;
+	return _shaAndDatesLogParser;
 }
 
 export function createLogParser<

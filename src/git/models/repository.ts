@@ -576,11 +576,6 @@ export class Repository implements Disposable {
 		}
 	}
 
-	@log()
-	cherryPick(...args: string[]): void {
-		void this.runTerminalCommand('cherry-pick', ...args);
-	}
-
 	containsUri(uri: Uri): boolean {
 		return this === this.container.git.getRepository(uri);
 	}
@@ -879,6 +874,38 @@ export class Repository implements Disposable {
 
 	suspend(): void {
 		this._suspended = true;
+	}
+
+	waitForRepoChange(timeoutMs: number): Promise<boolean> {
+		return new Promise<boolean>(resolve => {
+			let timeoutId: NodeJS.Timeout | undefined;
+			let listener: Disposable | undefined;
+
+			const cleanup = () => {
+				if (timeoutId != null) {
+					clearTimeout(timeoutId);
+					timeoutId = undefined;
+				}
+				listener?.dispose();
+				listener = undefined;
+			};
+
+			const timeoutPromise = new Promise<false>(r => {
+				timeoutId = setTimeout(() => {
+					cleanup();
+					r(false);
+				}, timeoutMs);
+			});
+
+			const changePromise = new Promise<true>(r => {
+				listener = this.onDidChange(() => {
+					cleanup();
+					r(true);
+				});
+			});
+
+			void Promise.race([timeoutPromise, changePromise]).then(result => resolve(result));
+		});
 	}
 
 	private _fsWatcherDisposable: Disposable | undefined;

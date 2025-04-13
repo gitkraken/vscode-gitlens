@@ -253,6 +253,7 @@ export interface GitBranchesSubProvider {
 }
 
 export interface GitCommitsSubProvider {
+	cherryPick?(repoPath: string, revs: string[], options?: { edit?: boolean; noCommit?: boolean }): Promise<void>;
 	getCommit(repoPath: string, rev: string): Promise<GitCommit | undefined>;
 	getCommitCount(repoPath: string, rev: string): Promise<number | undefined>;
 	getCommitFilesStats?(repoPath: string, rev: string): Promise<GitFileChange[] | undefined>;

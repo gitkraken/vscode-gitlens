@@ -1,4 +1,5 @@
-import type { GitPausedOperation } from './models/pausedOperationStatus';
+import { pluralize } from '../system/string';
+import type { GitPausedOperation, GitPausedOperationStatus } from './models/pausedOperationStatus';
 
 export class GitSearchError extends Error {
 	constructor(public readonly original: Error) {
@@ -354,8 +355,9 @@ export class FetchError extends Error {
 }
 
 export const enum CherryPickErrorReason {
-	Conflicts,
 	AbortedWouldOverwrite,
+	Conflicts,
+	EmptyCommit,
 	Other,
 }
 
@@ -367,11 +369,13 @@ export class CherryPickError extends Error {
 	readonly original?: Error;
 	readonly reason: CherryPickErrorReason | undefined;
 
-	constructor(reason?: CherryPickErrorReason, original?: Error, sha?: string);
+	constructor(reason?: CherryPickErrorReason, original?: Error, revs?: string[]);
 	constructor(message?: string, original?: Error);
-	constructor(messageOrReason: string | CherryPickErrorReason | undefined, original?: Error, sha?: string) {
+	constructor(messageOrReason: string | CherryPickErrorReason | undefined, original?: Error, revs?: string[]) {
 		let message;
-		const baseMessage = `Unable to cherry-pick${sha ? ` commit '${sha}'` : ''}`;
+		const baseMessage = `Unable to cherry-pick${
+			revs?.length ? (revs.length === 1 ? ` commit '${revs[0]}'` : ` ${pluralize('commit', revs.length)}`) : ''
+		}`;
 		let reason: CherryPickErrorReason | undefined;
 		if (messageOrReason == null) {
 			message = baseMessage;
@@ -600,6 +604,7 @@ export class PausedOperationAbortError extends Error {
 }
 
 export const enum PausedOperationContinueErrorReason {
+	EmptyCommit,
 	NothingToContinue,
 	UnmergedFiles,
 	UncommittedChanges,
@@ -615,11 +620,11 @@ export class PausedOperationContinueError extends Error {
 
 	readonly original?: Error;
 	readonly reason: PausedOperationContinueErrorReason | undefined;
-	readonly operation: GitPausedOperation;
+	readonly operation: GitPausedOperationStatus;
 
 	constructor(
 		reason: PausedOperationContinueErrorReason | undefined,
-		operation: GitPausedOperation,
+		operation: GitPausedOperationStatus,
 		message?: string,
 		original?: Error,
 	) {

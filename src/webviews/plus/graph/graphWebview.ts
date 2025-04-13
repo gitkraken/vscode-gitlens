@@ -40,6 +40,11 @@ import {
 	undoCommit,
 } from '../../../git/actions/commit';
 import * as ContributorActions from '../../../git/actions/contributor';
+import {
+	abortPausedOperation,
+	continuePausedOperation,
+	skipPausedOperation,
+} from '../../../git/actions/pausedOperation';
 import * as RepoActions from '../../../git/actions/repository';
 import * as StashActions from '../../../git/actions/stash';
 import * as TagActions from '../../../git/actions/tag';
@@ -3315,14 +3320,7 @@ export class GraphWebviewProvider implements WebviewProvider<State, State, Graph
 	private async abortPausedOperation(_item?: GraphItemContext) {
 		if (this.repository == null) return;
 
-		const abortPausedOperation = this.repository.git.status().abortPausedOperation;
-		if (abortPausedOperation == null) return;
-
-		try {
-			await abortPausedOperation();
-		} catch (ex) {
-			void window.showErrorMessage(ex.message);
-		}
+		await abortPausedOperation(this.repository);
 	}
 
 	@log()
@@ -3332,14 +3330,7 @@ export class GraphWebviewProvider implements WebviewProvider<State, State, Graph
 		const status = await this.repository.git.status().getPausedOperationStatus?.();
 		if (status == null || status.type === 'revert') return;
 
-		const continuePausedOperation = this.repository.git.status().continuePausedOperation;
-		if (continuePausedOperation == null) return;
-
-		try {
-			await continuePausedOperation();
-		} catch (ex) {
-			void window.showErrorMessage(ex.message);
-		}
+		await continuePausedOperation(this.repository);
 	}
 
 	@log()
@@ -3362,14 +3353,7 @@ export class GraphWebviewProvider implements WebviewProvider<State, State, Graph
 	private async skipPausedOperation(_item?: GraphItemContext) {
 		if (this.repository == null) return;
 
-		const continuePausedOperation = this.container.git.status(this.repository.path).continuePausedOperation;
-		if (continuePausedOperation == null) return;
-
-		try {
-			await continuePausedOperation({ skip: true });
-		} catch (ex) {
-			void window.showErrorMessage(ex.message);
-		}
+		await skipPausedOperation(this.repository);
 	}
 
 	@log()

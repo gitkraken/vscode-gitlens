@@ -25,8 +25,8 @@ import type { GitWorktree } from '../../../../git/models/worktree';
 import {
 	getGraphParser,
 	getGraphStatsParser,
-	getRefAndDateParser,
-	getRefParser,
+	getShaAndDatesLogParser,
+	getShaLogParser,
 } from '../../../../git/parsers/logParser';
 import type { GitGraphSearch, GitGraphSearchResultData, GitGraphSearchResults } from '../../../../git/search';
 import { getGitArgsFromSearchQuery, getSearchQueryComparisonKey } from '../../../../git/search';
@@ -86,12 +86,12 @@ export class GraphGitSubProvider implements GitGraphSubProvider {
 		const deferStats = options?.include?.stats; // && defaultLimit > 1000;
 
 		const parser = getGraphParser(options?.include?.stats && !deferStats);
-		const refParser = getRefParser();
+		const shaParser = getShaLogParser();
 		const statsParser = getGraphStatsParser();
 
-		const [refResult, stashResult, branchesResult, remotesResult, currentUserResult, worktreesResult] =
+		const [shaResult, stashResult, branchesResult, remotesResult, currentUserResult, worktreesResult] =
 			await Promise.allSettled([
-				this.git.log(repoPath, undefined, undefined, ...refParser.arguments, '-n1', rev ?? 'HEAD'),
+				this.git.log(repoPath, undefined, undefined, ...shaParser.arguments, '-n1', rev ?? 'HEAD'),
 				this.provider.stash?.getStash(repoPath),
 				this.provider.branches.getBranches(repoPath),
 				this.provider.remotes.getRemotes(repoPath),
@@ -121,7 +121,7 @@ export class GraphGitSubProvider implements GitGraphSubProvider {
 
 		const remotes = getSettledValue(remotesResult);
 		const remoteMap = remotes != null ? new Map(remotes.map(r => [r.name, r])) : new Map<string, GitRemote>();
-		const selectSha = first(refParser.parse(getSettledValue(refResult) ?? ''));
+		const selectSha = first(shaParser.parse(getSettledValue(shaResult) ?? ''));
 
 		const downstreamMap = new Map<string, string[]>();
 
@@ -660,7 +660,7 @@ export class GraphGitSubProvider implements GitGraphSubProvider {
 
 		const comparisonKey = getSearchQueryComparisonKey(search);
 		try {
-			const refAndDateParser = getRefAndDateParser();
+			const parser = getShaAndDatesLogParser();
 
 			const currentUser = search.query.includes('@me')
 				? await this.provider.config.getCurrentUser(repoPath)
@@ -672,7 +672,7 @@ export class GraphGitSubProvider implements GitGraphSubProvider {
 					{ cwd: repoPath, cancellation: options?.cancellation, configs: gitLogDefaultConfigs },
 					'show',
 					'-s',
-					...refAndDateParser.arguments,
+					...parser.arguments,
 					...shas.values(),
 					...searchArgs,
 					'--',
@@ -680,7 +680,7 @@ export class GraphGitSubProvider implements GitGraphSubProvider {
 
 				let i = 0;
 				const results: GitGraphSearchResults = new Map<string, GitGraphSearchResultData>(
-					map(refAndDateParser.parse(data), c => [
+					map(parser.parse(data), c => [
 						c.sha,
 						{
 							i: i++,
@@ -720,7 +720,7 @@ export class GraphGitSubProvider implements GitGraphSubProvider {
 			}
 
 			const args = [
-				...refAndDateParser.arguments,
+				...parser.arguments,
 				`-M${similarityThreshold == null ? '' : `${similarityThreshold}%`}`,
 				'--use-mailmap',
 			];
@@ -770,7 +770,7 @@ export class GraphGitSubProvider implements GitGraphSubProvider {
 
 				let count = total;
 
-				for (const r of refAndDateParser.parse(data)) {
+				for (const r of parser.parse(data)) {
 					if (includeOnlyStashes && !stashes?.has(r.sha)) continue;
 
 					if (results.has(r.sha)) {

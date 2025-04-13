@@ -14,8 +14,6 @@ import { GitErrorHandling } from '../../../git/commandOptions';
 import {
 	BlameIgnoreRevsFileBadRevisionError,
 	BlameIgnoreRevsFileError,
-	CherryPickError,
-	CherryPickErrorReason,
 	FetchError,
 	FetchErrorReason,
 	PullError,
@@ -83,6 +81,7 @@ export const GitErrors = {
 	commitChangesFirst: /Please, commit your changes before you can/i,
 	conflict: /^CONFLICT \([^)]+\): \b/m,
 	detachedHead: /You are in 'detached HEAD' state/i,
+	emptyPreviousCherryPick: /The previous cherry-pick is now empty/i,
 	entryNotUpToDate: /error:\s*Entry ['"].+['"] not uptodate\. Cannot merge\./i,
 	failedToDeleteDirectoryNotEmpty: /failed to delete '(.*?)': Directory not empty/i,
 	invalidLineCount: /file .+? has only \d+ lines/i,
@@ -566,35 +565,6 @@ export class Git {
 		}
 
 		return this.exec({ cwd: repoPath }, ...params);
-	}
-
-	async cherrypick(
-		repoPath: string,
-		sha: string,
-		options: { noCommit?: boolean; errors?: GitErrorHandling } = {},
-	): Promise<void> {
-		const params = ['cherry-pick'];
-		if (options?.noCommit) {
-			params.push('-n');
-		}
-		params.push(sha);
-
-		try {
-			await this.exec({ cwd: repoPath, errors: options?.errors }, ...params);
-		} catch (ex) {
-			const msg: string = ex?.toString() ?? '';
-			let reason: CherryPickErrorReason = CherryPickErrorReason.Other;
-			if (
-				GitErrors.changesWouldBeOverwritten.test(msg) ||
-				GitErrors.changesWouldBeOverwritten.test(ex.stderr ?? '')
-			) {
-				reason = CherryPickErrorReason.AbortedWouldOverwrite;
-			} else if (GitErrors.conflict.test(msg) || GitErrors.conflict.test(ex.stdout ?? '')) {
-				reason = CherryPickErrorReason.Conflicts;
-			}
-
-			throw new CherryPickError(reason, ex, sha);
-		}
 	}
 
 	// TODO: Expand to include options and other params
