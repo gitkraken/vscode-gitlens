@@ -423,10 +423,19 @@ export class StatusGitSubProvider implements GitStatusSubProvider {
 			Logger.error(ex);
 
 			const msg: string = ex?.toString() ?? '';
+			if (GitErrors.emptyPreviousCherryPick.test(msg)) {
+				throw new PausedOperationContinueError(
+					PausedOperationContinueErrorReason.EmptyCommit,
+					status,
+					`Cannot continue ${status.type} as the previous cherry-pick is empty`,
+					ex,
+				);
+			}
+
 			if (GitErrors.noPausedOperation.test(msg)) {
 				throw new PausedOperationContinueError(
 					PausedOperationContinueErrorReason.NothingToContinue,
-					status.type,
+					status,
 					`Cannot ${options?.skip ? 'skip' : 'continue'} as there is no ${status.type} operation in progress`,
 					ex,
 				);
@@ -435,7 +444,7 @@ export class StatusGitSubProvider implements GitStatusSubProvider {
 			if (GitErrors.uncommittedChanges.test(msg)) {
 				throw new PausedOperationContinueError(
 					PausedOperationContinueErrorReason.UncommittedChanges,
-					status.type,
+					status,
 					`Cannot ${options?.skip ? 'skip' : `continue ${status.type}`} as there are uncommitted changes`,
 					ex,
 				);
@@ -444,7 +453,7 @@ export class StatusGitSubProvider implements GitStatusSubProvider {
 			if (GitErrors.unmergedFiles.test(msg)) {
 				throw new PausedOperationContinueError(
 					PausedOperationContinueErrorReason.UnmergedFiles,
-					status.type,
+					status,
 					`Cannot ${options?.skip ? 'skip' : `continue ${status.type}`} as there are unmerged files`,
 					ex,
 				);
@@ -453,7 +462,7 @@ export class StatusGitSubProvider implements GitStatusSubProvider {
 			if (GitErrors.unresolvedConflicts.test(msg)) {
 				throw new PausedOperationContinueError(
 					PausedOperationContinueErrorReason.UnresolvedConflicts,
-					status.type,
+					status,
 					`Cannot ${options?.skip ? 'skip' : `continue ${status.type}`} as there are unresolved conflicts`,
 					ex,
 				);
@@ -462,7 +471,7 @@ export class StatusGitSubProvider implements GitStatusSubProvider {
 			if (GitErrors.unstagedChanges.test(msg)) {
 				throw new PausedOperationContinueError(
 					PausedOperationContinueErrorReason.UnstagedChanges,
-					status.type,
+					status,
 					`Cannot ${options?.skip ? 'skip' : `continue ${status.type}`} as there are unstaged changes`,
 					ex,
 				);
@@ -471,7 +480,7 @@ export class StatusGitSubProvider implements GitStatusSubProvider {
 			if (GitErrors.changesWouldBeOverwritten.test(msg)) {
 				throw new PausedOperationContinueError(
 					PausedOperationContinueErrorReason.WouldOverwrite,
-					status.type,
+					status,
 					`Cannot ${
 						options?.skip ? 'skip' : `continue ${status.type}`
 					} as local changes would be overwritten`,
@@ -481,7 +490,7 @@ export class StatusGitSubProvider implements GitStatusSubProvider {
 
 			throw new PausedOperationContinueError(
 				undefined,
-				status.type,
+				status,
 				`Cannot ${options?.skip ? 'skip' : `continue ${status.type}`}; ${msg}`,
 				ex,
 			);

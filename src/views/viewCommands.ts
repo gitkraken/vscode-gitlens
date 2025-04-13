@@ -18,6 +18,7 @@ import { browseAtRevision, executeGitCommand } from '../git/actions';
 import * as BranchActions from '../git/actions/branch';
 import * as CommitActions from '../git/actions/commit';
 import * as ContributorActions from '../git/actions/contributor';
+import { abortPausedOperation, continuePausedOperation, skipPausedOperation } from '../git/actions/pausedOperation';
 import * as RemoteActions from '../git/actions/remote';
 import * as RepoActions from '../git/actions/repository';
 import * as StashActions from '../git/actions/stash';
@@ -596,14 +597,7 @@ export class ViewCommands implements Disposable {
 	private async abortPausedOperation(node: PausedOperationStatusNode) {
 		if (!node.is('paused-operation-status')) return;
 
-		const abortPausedOperation = this.container.git.status(node.pausedOpStatus.repoPath).abortPausedOperation;
-		if (abortPausedOperation == null) return;
-
-		try {
-			await abortPausedOperation();
-		} catch (ex) {
-			void window.showErrorMessage(ex.message);
-		}
+		await abortPausedOperation(this.container, node.pausedOpStatus.repoPath);
 	}
 
 	@command('gitlens.views.continuePausedOperation')
@@ -611,14 +605,7 @@ export class ViewCommands implements Disposable {
 	private async continuePausedOperation(node: PausedOperationStatusNode) {
 		if (!node.is('paused-operation-status')) return;
 
-		const continuePausedOperation = this.container.git.status(node.pausedOpStatus.repoPath).continuePausedOperation;
-		if (continuePausedOperation == null) return;
-
-		try {
-			await continuePausedOperation();
-		} catch (ex) {
-			void window.showErrorMessage(ex.message);
-		}
+		await continuePausedOperation(this.container, node.pausedOpStatus.repoPath);
 	}
 
 	@command('gitlens.views.skipPausedOperation')
@@ -626,14 +613,7 @@ export class ViewCommands implements Disposable {
 	private async skipPausedOperation(node: PausedOperationStatusNode) {
 		if (!node.is('paused-operation-status')) return;
 
-		const continuePausedOperation = this.container.git.status(node.pausedOpStatus.repoPath).continuePausedOperation;
-		if (continuePausedOperation == null) return;
-
-		try {
-			await continuePausedOperation({ skip: true });
-		} catch (ex) {
-			void window.showErrorMessage(ex.message);
-		}
+		await skipPausedOperation(this.container, node.pausedOpStatus.repoPath);
 	}
 
 	@command('gitlens.views.openPausedOperationInRebaseEditor')

@@ -3,8 +3,8 @@ import { getCachedAvatarUri } from '../../../../avatars';
 import type { SearchQuery } from '../../../../constants.search';
 import type { Container } from '../../../../container';
 import { emojify } from '../../../../emojis';
-import { isCancellationError } from '../../../../errors';
 import type { GitCache } from '../../../../git/cache';
+import { GitErrorHandling } from '../../../../git/commandOptions';
 import { GitSearchError } from '../../../../git/errors';
 import type { GitGraphSubProvider } from '../../../../git/gitProvider';
 import type { GitBranch } from '../../../../git/models/branch';
@@ -24,12 +24,12 @@ import type { GitRemote } from '../../../../git/models/remote';
 import type { GitWorktree } from '../../../../git/models/worktree';
 import {
 	getGraphParser,
+	getGraphStatsParser,
 	getShaAndDatesLogParser,
-	getShaAndStatsLogParser,
 	getShaLogParser,
 } from '../../../../git/parsers/logParser';
 import type { GitGraphSearch, GitGraphSearchResultData, GitGraphSearchResults } from '../../../../git/search';
-import { getSearchQueryComparisonKey, parseSearchQueryCommand } from '../../../../git/search';
+import { getGitArgsFromSearchQuery, getSearchQueryComparisonKey } from '../../../../git/search';
 import { getRemoteIconUri } from '../../../../git/utils/-webview/icons';
 import { groupWorktreesByBranch } from '../../../../git/utils/-webview/worktree.utils';
 import {
@@ -37,19 +37,14 @@ import {
 	getBranchNameWithoutRemote,
 	getRemoteNameFromBranchName,
 } from '../../../../git/utils/branch.utils';
-import { getChangedFilesCount } from '../../../../git/utils/commit.utils';
 import { createReference } from '../../../../git/utils/reference.utils';
-import { isUncommittedStaged } from '../../../../git/utils/revision.utils';
 import { getTagId } from '../../../../git/utils/tag.utils';
 import { isUserMatch } from '../../../../git/utils/user.utils';
 import { getWorktreeId } from '../../../../git/utils/worktree.utils';
 import { configuration } from '../../../../system/-webview/configuration';
 import { log } from '../../../../system/decorators/log';
-import { find, first, join, last } from '../../../../system/iterable';
-import { Logger } from '../../../../system/logger';
-import { getLogScope } from '../../../../system/logger.scope';
+import { find, first, join, last, map, skip } from '../../../../system/iterable';
 import { getSettledValue } from '../../../../system/promise';
-import { mixinDisposable } from '../../../../system/unifiedDisposable';
 import { serializeWebviewItemContext } from '../../../../system/webview';
 import type {
 	GraphBranchContextValue,
@@ -59,9 +54,11 @@ import type {
 	GraphTagContextValue,
 } from '../../../../webviews/plus/graph/protocol';
 import type { Git } from '../git';
-import { gitConfigsLog } from '../git';
+import { getShaInLogRegex, gitLogDefaultConfigs } from '../git';
 import type { LocalGitProvider } from '../localGitProvider';
-import { convertStashesToStdin } from './stash';
+import { CancelledRunError } from '../shell';
+
+const emptyArray = Object.freeze([]) as unknown as any[];
 
 export class GraphGitSubProvider implements GitGraphSubProvider {
 	constructor(
@@ -76,37 +73,31 @@ export class GraphGitSubProvider implements GitGraphSubProvider {
 		repoPath: string,
 		rev: string | undefined,
 		asWebviewUri: (uri: Uri) => Uri,
-		options?: { include?: { stats?: boolean }; limit?: number },
-		cancellation?: CancellationToken,
+		options?: {
+			include?: { stats?: boolean };
+			limit?: number;
+		},
 	): Promise<GitGraph> {
-		const scope = getLogScope();
-
 		const defaultLimit = options?.limit ?? configuration.get('graph.defaultItemLimit') ?? 5000;
+		const defaultPageLimit = configuration.get('graph.pageItemLimit') ?? 1000;
 		const ordering = configuration.get('graph.commitOrdering', undefined, 'date');
 		const onlyFollowFirstParent = configuration.get('graph.onlyFollowFirstParent', undefined, false);
 
-		const deferStats = options?.include?.stats;
+		const deferStats = options?.include?.stats; // && defaultLimit > 1000;
 
 		const parser = getGraphParser(options?.include?.stats && !deferStats);
 		const shaParser = getShaLogParser();
-		const statsParser = getShaAndStatsLogParser();
+		const statsParser = getGraphStatsParser();
 
 		const [shaResult, stashResult, branchesResult, remotesResult, currentUserResult, worktreesResult] =
 			await Promise.allSettled([
-				this.git.exec(
-					{ cwd: repoPath, configs: gitConfigsLog },
-					'log',
-					...shaParser.arguments,
-					'-n1',
-					rev && !isUncommittedStaged(rev) ? rev : 'HEAD',
-					'--',
-				),
-				this.provider.stash?.getStash(repoPath, undefined, cancellation),
-				this.provider.branches.getBranches(repoPath, undefined, cancellation),
-				this.provider.remotes.getRemotes(repoPath, undefined, cancellation),
+				this.git.log(repoPath, undefined, undefined, ...shaParser.arguments, '-n1', rev ?? 'HEAD'),
+				this.provider.stash?.getStash(repoPath),
+				this.provider.branches.getBranches(repoPath),
+				this.provider.remotes.getRemotes(repoPath),
 				this.provider.config.getCurrentUser(repoPath),
 				this.provider.worktrees
-					?.getWorktrees(repoPath, cancellation)
+					?.getWorktrees(repoPath)
 					.then(w => [w, groupWorktreesByBranch(w, { includeDefault: true })]) satisfies Promise<
 					[GitWorktree[], Map<string, GitWorktree>]
 				>,
@@ -130,488 +121,521 @@ export class GraphGitSubProvider implements GitGraphSubProvider {
 
 		const remotes = getSettledValue(remotesResult);
 		const remoteMap = remotes != null ? new Map(remotes.map(r => [r.name, r])) : new Map<string, GitRemote>();
-		const selectSha = first(shaParser.parse(getSettledValue(shaResult)?.stdout));
+		const selectSha = first(shaParser.parse(getSettledValue(shaResult) ?? ''));
 
 		const downstreamMap = new Map<string, string[]>();
 
+		let stashes: Map<string, GitStashCommit> | undefined;
+		let stdin: string | undefined;
+
 		// TODO@eamodio this is insanity -- there *HAS* to be a better way to get git log to return stashes
 		const gitStash = getSettledValue(stashResult);
-		const { stdin, stashes, remappedIds } = convertStashesToStdin(gitStash?.stashes);
+		if (gitStash?.stashes.size) {
+			stashes = new Map(gitStash.stashes);
+			stdin = join(
+				map(stashes.values(), c => c.sha.substring(0, 9)),
+				'\n',
+			);
+		}
 
 		const useAvatars = configuration.get('graph.avatars', undefined, true);
 
 		const avatars = new Map<string, string>();
 		const ids = new Set<string>();
 		const reachableFromHEAD = new Set<string>();
+		const remappedIds = new Map<string, string>();
 		const rowStats: GitGraphRowsStats = new Map<string, GitGraphRowStats>();
-		let pendingRowsStatsCount = 0;
-		let iterations = 0;
 		let total = 0;
-
-		const args = ['log', ...parser.arguments, `--${ordering}-order`, '--all'];
-		if (stdin) {
-			args.push('--stdin');
-		}
-		if (onlyFollowFirstParent) {
-			args.push('--first-parent');
-		}
+		let iterations = 0;
+		let pendingRowsStatsCount = 0;
 
 		async function getCommitsForGraphCore(
 			this: GraphGitSubProvider,
 			limit: number,
 			sha?: string,
 			cursor?: { sha: string; skip: number },
-			cancellation?: CancellationToken,
 		): Promise<GitGraph> {
-			try {
-				iterations++;
-				const startTotal = total;
+			const startTotal = total;
 
-				const aborter = new AbortController();
-				using _disposable = mixinDisposable(cancellation?.onCancellationRequested(() => aborter.abort()));
+			iterations++;
 
-				const stream = this.git.stream(
-					{ cwd: repoPath, configs: gitConfigsLog, signal: aborter.signal, stdin: stdin },
-					...args,
-					cursor?.skip ? `--skip=${cursor.skip}` : undefined,
-					'--',
-				);
+			let log: string | string[] | undefined;
+			let nextPageLimit = limit;
+			let size;
 
-				const rows: GitGraphRow[] = [];
+			do {
+				const args = [...parser.arguments, `--${ordering}-order`, '--all'];
+				if (onlyFollowFirstParent) {
+					args.push('--first-parent');
+				}
+				if (cursor?.skip) {
+					args.push(`--skip=${cursor.skip}`);
+				}
 
-				let avatarUri: Uri | undefined;
-				let avatarUrl: string | undefined;
-				let branch: GitBranch | undefined;
-				let branchId: string;
-				let branchName: string;
-				let context:
-					| GraphItemRefContext<GraphBranchContextValue>
-					| GraphItemRefContext<GraphTagContextValue>
-					| undefined;
-				let contexts: GitGraphRowContexts | undefined;
-				let group;
-				let groupName;
-				const groupedRefs = new Map<
-					string,
-					{ head?: boolean; local?: GitBranchReference; remotes?: GitBranchReference[] }
-				>();
-				let head = false;
-				let isCurrentUser = false;
-				let refHead: GitGraphRowHead;
-				let refHeads: GitGraphRowHead[];
-				let refRemoteHead: GitGraphRowRemoteHead;
-				let refRemoteHeads: GitGraphRowRemoteHead[];
-				let refTag: GitGraphRowTag;
-				let refTags: GitGraphRowTag[];
-				let parent: string;
-				let parents: string[];
-				let remote: GitRemote | undefined;
-				let remoteBranchId: string;
-				let remoteName: string;
-				let shaOrRemapped: string | undefined;
-				let stash: GitStashCommit | undefined;
-				let tagId: string;
-				let tagName: string;
-				let tip: string;
+				let data;
+				if (sha) {
+					[data, limit] = await this.git.logStreamTo(
+						repoPath,
+						sha,
+						limit,
+						stdin ? { stdin: stdin } : undefined,
+						...args,
+					);
+				} else {
+					args.push(`-n${nextPageLimit + 1}`);
 
-				let count = 0;
-				let found = false;
-				let hasMore = false;
+					data = await this.git.log(repoPath, undefined, stdin ? { stdin: stdin } : undefined, ...args);
 
-				for await (const commit of parser.parseAsync(stream)) {
-					if (count > limit && (!sha || (sha && found))) {
-						hasMore = true;
-
-						aborter.abort();
-						break;
-					}
-
-					if (sha && !found && commit.sha === sha) {
-						found = true;
-					}
-
-					count++;
-					if (ids.has(commit.sha)) continue;
-
-					total++;
-					shaOrRemapped = remappedIds.get(commit.sha);
-					if (shaOrRemapped && ids.has(shaOrRemapped)) continue;
-					shaOrRemapped ??= commit.sha;
-
-					ids.add(shaOrRemapped);
-
-					refHeads = [];
-					refRemoteHeads = [];
-					refTags = [];
-					contexts = {};
-
-					if (commit.tips) {
-						groupedRefs.clear();
-
-						for (tip of commit.tips.split(', ')) {
-							head = false;
-							if (tip === 'refs/stash') continue;
-
-							if (tip.startsWith('tag: ')) {
-								tagName = tip.substring(5);
-								tagId = getTagId(repoPath, tagName);
-								context = {
-									webviewItem: 'gitlens:tag',
-									webviewItemValue: {
-										type: 'tag',
-										ref: createReference(tagName, repoPath, {
-											id: tagId,
-											refType: 'tag',
-											name: tagName,
-										}),
-									},
+					if (cursor) {
+						if (!getShaInLogRegex(cursor.sha).test(data)) {
+							// If we didn't find any new commits, we must have them all so return that we have everything
+							if (size === data.length) {
+								return {
+									repoPath: repoPath,
+									avatars: avatars,
+									ids: ids,
+									includes: options?.include,
+									branches: branchMap,
+									remotes: remoteMap,
+									downstreams: downstreamMap,
+									stashes: stashes,
+									worktrees: worktrees,
+									worktreesByBranch: worktreesByBranch,
+									rows: [],
 								};
-
-								refTag = {
-									id: tagId,
-									name: tagName,
-									// Not currently used, so don't bother looking it up
-									annotated: true,
-									context:
-										serializeWebviewItemContext<GraphItemRefContext<GraphTagContextValue>>(context),
-								};
-								refTags.push(refTag);
-
-								continue;
 							}
 
-							if (tip.startsWith('HEAD')) {
-								head = true;
-								reachableFromHEAD.add(shaOrRemapped);
+							size = data.length;
+							nextPageLimit = (nextPageLimit === 0 ? defaultPageLimit : nextPageLimit) * 2;
+							cursor.skip -= Math.floor(cursor.skip * 0.1);
 
-								if (tip !== 'HEAD') {
-									tip = tip.substring(8);
-								}
-							}
+							continue;
+						}
+					}
+				}
 
-							remoteName = getRemoteNameFromBranchName(tip);
-							if (remoteName) {
-								remote = remoteMap.get(remoteName);
-								if (remote != null) {
-									branchName = getBranchNameWithoutRemote(tip);
-									if (branchName === 'HEAD') continue;
+				if (!data) {
+					return {
+						repoPath: repoPath,
+						avatars: avatars,
+						ids: ids,
+						includes: options?.include,
+						branches: branchMap,
+						remotes: remoteMap,
+						downstreams: downstreamMap,
+						stashes: stashes,
+						worktrees: worktrees,
+						worktreesByBranch: worktreesByBranch,
+						rows: [],
+					};
+				}
 
-									remoteBranchId = getBranchId(repoPath, true, tip);
-									avatarUrl = (
-										(useAvatars ? remote.provider?.avatarUri : undefined) ??
-										getRemoteIconUri(this.container, remote, asWebviewUri)
-									)?.toString(true);
-									context = {
-										webviewItem: 'gitlens:branch+remote',
-										webviewItemValue: {
-											type: 'branch',
-											ref: createReference(tip, repoPath, {
-												id: remoteBranchId,
-												refType: 'branch',
-												name: tip,
-												remote: true,
-												upstream: { name: remote.name, missing: false },
-											}),
-										},
-									};
+				log = data;
+				if (limit !== 0) {
+					limit = nextPageLimit;
+				}
 
-									refRemoteHead = {
-										id: remoteBranchId,
-										name: branchName,
-										owner: remote.name,
-										url: remote.url,
-										avatarUrl: avatarUrl,
-										context:
-											serializeWebviewItemContext<GraphItemRefContext<GraphBranchContextValue>>(
-												context,
-											),
-										current: tip === headRefUpstreamName,
-										hostingServiceType: remote.provider?.gkProviderId,
-									};
-									refRemoteHeads.push(refRemoteHead);
+				break;
+			} while (true);
 
-									group = groupedRefs.get(branchName);
-									if (group == null) {
-										group = { remotes: [] };
-										groupedRefs.set(branchName, group);
-									}
-									if (group.remotes == null) {
-										group.remotes = [];
-									}
-									group.remotes.push(context.webviewItemValue.ref);
+			const rows: GitGraphRow[] = [];
 
-									continue;
-								}
-							}
+			let avatarUri: Uri | undefined;
+			let avatarUrl: string | undefined;
+			let branch: GitBranch | undefined;
+			let branchId: string;
+			let branchName: string;
+			let context:
+				| GraphItemRefContext<GraphBranchContextValue>
+				| GraphItemRefContext<GraphTagContextValue>
+				| undefined;
+			let contexts: GitGraphRowContexts | undefined;
+			let group;
+			let groupName;
+			const groupedRefs = new Map<
+				string,
+				{ head?: boolean; local?: GitBranchReference; remotes?: GitBranchReference[] }
+			>();
+			let head = false;
+			let isCurrentUser = false;
+			let refHead: GitGraphRowHead;
+			let refHeads: GitGraphRowHead[];
+			let refRemoteHead: GitGraphRowRemoteHead;
+			let refRemoteHeads: GitGraphRowRemoteHead[];
+			let refTag: GitGraphRowTag;
+			let refTags: GitGraphRowTag[];
+			let parent: string;
+			let parents: string[];
+			let remote: GitRemote | undefined;
+			let remoteBranchId: string;
+			let remoteName: string;
+			let stash: GitStashCommit | undefined;
+			let tagId: string;
+			let tagName: string;
+			let tip: string;
 
-							branch = branchMap.get(tip);
-							branchId = branch?.id ?? getBranchId(repoPath, false, tip);
+			let count = 0;
+
+			const commits = parser.parse(log);
+			for (const commit of commits) {
+				count++;
+				if (ids.has(commit.sha)) continue;
+
+				total++;
+				if (remappedIds.has(commit.sha)) continue;
+
+				ids.add(commit.sha);
+
+				refHeads = [];
+				refRemoteHeads = [];
+				refTags = [];
+				contexts = {};
+
+				if (commit.tips) {
+					groupedRefs.clear();
+
+					for (tip of commit.tips.split(', ')) {
+						head = false;
+						if (tip === 'refs/stash') continue;
+
+						if (tip.startsWith('tag: ')) {
+							tagName = tip.substring(5);
+							tagId = getTagId(repoPath, tagName);
 							context = {
-								webviewItem: `gitlens:branch${head ? '+current' : ''}${
-									branch?.upstream != null ? '+tracking' : ''
-								}${
-									worktreesByBranch?.has(branchId)
-										? '+worktree'
-										: branchIdOfMainWorktree === branchId
-										  ? '+checkedout'
-										  : ''
-								}`,
+								webviewItem: 'gitlens:tag',
 								webviewItemValue: {
-									type: 'branch',
-									ref: createReference(tip, repoPath, {
-										id: branchId,
-										refType: 'branch',
-										name: tip,
-										remote: false,
-										upstream: branch?.upstream,
+									type: 'tag',
+									ref: createReference(tagName, repoPath, {
+										id: tagId,
+										refType: 'tag',
+										name: tagName,
 									}),
 								},
 							};
 
-							const worktree = worktreesByBranch?.get(branchId);
-							refHead = {
-								id: branchId,
-								name: tip,
-								isCurrentHead: head,
+							refTag = {
+								id: tagId,
+								name: tagName,
+								// Not currently used, so don't bother looking it up
+								annotated: true,
 								context:
-									serializeWebviewItemContext<GraphItemRefContext<GraphBranchContextValue>>(context),
-								upstream:
-									branch?.upstream != null
-										? {
-												name: branch.upstream.name,
-												id: getBranchId(repoPath, true, branch.upstream.name),
-										  }
-										: undefined,
-								worktreeId: worktree != null ? getWorktreeId(repoPath, worktree.name) : undefined,
+									serializeWebviewItemContext<GraphItemRefContext<GraphTagContextValue>>(context),
 							};
-							refHeads.push(refHead);
-							if (branch?.upstream?.name != null) {
-								// Add the branch name (tip) to the upstream name entry in the downstreams map
-								let downstreams = downstreamMap.get(branch.upstream.name);
-								if (downstreams == null) {
-									downstreams = [];
-									downstreamMap.set(branch.upstream.name, downstreams);
-								}
+							refTags.push(refTag);
 
-								downstreams.push(tip);
-							}
-
-							group = groupedRefs.get(tip);
-							if (group == null) {
-								group = {};
-								groupedRefs.set(tip, group);
-							}
-
-							if (head) {
-								group.head = true;
-							}
-							group.local = context.webviewItemValue.ref;
+							continue;
 						}
 
-						for ([groupName, group] of groupedRefs) {
-							if (
-								group.remotes != null &&
-								((group.local != null && group.remotes.length > 0) || group.remotes.length > 1)
-							) {
-								if (contexts.refGroups == null) {
-									contexts.refGroups = {};
-								}
-								contexts.refGroups[groupName] = serializeWebviewItemContext<GraphItemRefGroupContext>({
-									webviewItemGroup: `gitlens:refGroup${group.head ? '+current' : ''}`,
-									webviewItemGroupValue: {
-										type: 'refGroup',
-										refs: group.local != null ? [group.local, ...group.remotes] : group.remotes,
+						if (tip.startsWith('HEAD')) {
+							head = true;
+							reachableFromHEAD.add(commit.sha);
+
+							if (tip !== 'HEAD') {
+								tip = tip.substring(8);
+							}
+						}
+
+						remoteName = getRemoteNameFromBranchName(tip);
+						if (remoteName) {
+							remote = remoteMap.get(remoteName);
+							if (remote != null) {
+								branchName = getBranchNameWithoutRemote(tip);
+								if (branchName === 'HEAD') continue;
+
+								remoteBranchId = getBranchId(repoPath, true, tip);
+								avatarUrl = (
+									(useAvatars ? remote.provider?.avatarUri : undefined) ??
+									getRemoteIconUri(this.container, remote, asWebviewUri)
+								)?.toString(true);
+								context = {
+									webviewItem: 'gitlens:branch+remote',
+									webviewItemValue: {
+										type: 'branch',
+										ref: createReference(tip, repoPath, {
+											id: remoteBranchId,
+											refType: 'branch',
+											name: tip,
+											remote: true,
+											upstream: { name: remote.name, missing: false },
+										}),
 									},
-								});
-							}
-						}
-					}
+								};
 
-					parents = commit.parents ? commit.parents.split(' ') : [];
-					if (reachableFromHEAD.has(shaOrRemapped)) {
-						for (parent of parents) {
-							reachableFromHEAD.add(parent);
-						}
-					}
+								refRemoteHead = {
+									id: remoteBranchId,
+									name: branchName,
+									owner: remote.name,
+									url: remote.url,
+									avatarUrl: avatarUrl,
+									context:
+										serializeWebviewItemContext<GraphItemRefContext<GraphBranchContextValue>>(
+											context,
+										),
+									current: tip === headRefUpstreamName,
+									hostingServiceType: remote.provider?.gkProviderId,
+								};
+								refRemoteHeads.push(refRemoteHead);
 
-					stash = gitStash?.stashes.get(shaOrRemapped);
-					if (stash != null) {
-						contexts.row = serializeWebviewItemContext<GraphItemRefContext>({
-							webviewItem: 'gitlens:stash',
-							webviewItemValue: {
-								type: 'stash',
-								ref: createReference(shaOrRemapped, repoPath, {
-									refType: 'stash',
-									name: stash.name,
-									message: stash.message,
-									number: stash.stashNumber,
-								}),
-							},
-						});
+								group = groupedRefs.get(branchName);
+								if (group == null) {
+									group = { remotes: [] };
+									groupedRefs.set(branchName, group);
+								}
+								if (group.remotes == null) {
+									group.remotes = [];
+								}
+								group.remotes.push(context.webviewItemValue.ref);
 
-						rows.push({
-							sha: shaOrRemapped,
-							// Always only return the first parent for stashes, as it is a Git implementation for the index and untracked files
-							parents: parents.slice(0, 1),
-							author: 'You',
-							email: commit.authorEmail,
-							date: Number(ordering === 'author-date' ? commit.authorDate : commit.committerDate) * 1000,
-							message: emojify(stash.message ?? commit.message.trim()),
-							type: 'stash-node',
-							heads: refHeads,
-							remotes: refRemoteHeads,
-							tags: refTags,
-							contexts: contexts,
-						});
-
-						if (stash.stats != null) {
-							rowStats.set(shaOrRemapped, {
-								files: getChangedFilesCount(stash.stats.files),
-								additions: stash.stats.additions,
-								deletions: stash.stats.deletions,
-							});
-						}
-					} else {
-						isCurrentUser = isUserMatch(currentUser, commit.author, commit.authorEmail);
-
-						if (!avatars.has(commit.authorEmail)) {
-							avatarUri = getCachedAvatarUri(commit.authorEmail);
-							if (avatarUri != null) {
-								avatars.set(commit.authorEmail, avatarUri.toString(true));
+								continue;
 							}
 						}
 
-						contexts.row = serializeWebviewItemContext<GraphItemRefContext>({
-							webviewItem: `gitlens:commit${head ? '+HEAD' : ''}${
-								reachableFromHEAD.has(shaOrRemapped) ? '+current' : ''
+						branch = branchMap.get(tip);
+						branchId = branch?.id ?? getBranchId(repoPath, false, tip);
+						context = {
+							webviewItem: `gitlens:branch${head ? '+current' : ''}${
+								branch?.upstream != null ? '+tracking' : ''
+							}${
+								worktreesByBranch?.has(branchId)
+									? '+worktree'
+									: branchIdOfMainWorktree === branchId
+									  ? '+checkedout'
+									  : ''
 							}`,
 							webviewItemValue: {
-								type: 'commit',
-								ref: createReference(shaOrRemapped, repoPath, {
-									refType: 'revision',
-									message: commit.message,
+								type: 'branch',
+								ref: createReference(tip, repoPath, {
+									id: branchId,
+									refType: 'branch',
+									name: tip,
+									remote: false,
+									upstream: branch?.upstream,
 								}),
 							},
-						});
+						};
 
-						contexts.avatar = serializeWebviewItemContext<GraphItemContext>({
-							webviewItem: `gitlens:contributor${isCurrentUser ? '+current' : ''}`,
-							webviewItemValue: {
-								type: 'contributor',
-								repoPath: repoPath,
-								name: commit.author,
-								email: commit.authorEmail,
-								current: isCurrentUser,
-							},
-						});
+						const worktree = worktreesByBranch?.get(branchId);
+						refHead = {
+							id: branchId,
+							name: tip,
+							isCurrentHead: head,
+							context: serializeWebviewItemContext<GraphItemRefContext<GraphBranchContextValue>>(context),
+							upstream:
+								branch?.upstream != null
+									? {
+											name: branch.upstream.name,
+											id: getBranchId(repoPath, true, branch.upstream.name),
+									  }
+									: undefined,
+							worktreeId: worktree != null ? getWorktreeId(repoPath, worktree.name) : undefined,
+						};
+						refHeads.push(refHead);
+						if (branch?.upstream?.name != null) {
+							// Add the branch name (tip) to the upstream name entry in the downstreams map
+							let downstreams = downstreamMap.get(branch.upstream.name);
+							if (downstreams == null) {
+								downstreams = [];
+								downstreamMap.set(branch.upstream.name, downstreams);
+							}
 
-						rows.push({
-							sha: shaOrRemapped,
-							parents: onlyFollowFirstParent ? parents.slice(0, 1) : parents,
-							author: isCurrentUser ? 'You' : commit.author,
-							email: commit.authorEmail,
-							date: Number(ordering === 'author-date' ? commit.authorDate : commit.committerDate) * 1000,
-							message: emojify(commit.message.trim()),
-							type: parents.length > 1 ? 'merge-node' : 'commit-node',
-							heads: refHeads,
-							remotes: refRemoteHeads,
-							tags: refTags,
-							contexts: contexts,
-						});
+							downstreams.push(tip);
+						}
 
-						if (commit.stats != null) {
-							rowStats.set(shaOrRemapped, commit.stats);
+						group = groupedRefs.get(tip);
+						if (group == null) {
+							group = {};
+							groupedRefs.set(tip, group);
+						}
+
+						if (head) {
+							group.head = true;
+						}
+						group.local = context.webviewItemValue.ref;
+					}
+
+					for ([groupName, group] of groupedRefs) {
+						if (
+							group.remotes != null &&
+							((group.local != null && group.remotes.length > 0) || group.remotes.length > 1)
+						) {
+							if (contexts.refGroups == null) {
+								contexts.refGroups = {};
+							}
+							contexts.refGroups[groupName] = serializeWebviewItemContext<GraphItemRefGroupContext>({
+								webviewItemGroup: `gitlens:refGroup${group.head ? '+current' : ''}`,
+								webviewItemGroupValue: {
+									type: 'refGroup',
+									refs: group.local != null ? [group.local, ...group.remotes] : group.remotes,
+								},
+							});
 						}
 					}
 				}
 
-				const startingCursor = cursor?.sha;
-				const lastSha = last(ids);
-				cursor = lastSha != null ? { sha: lastSha, skip: total - iterations } : undefined;
+				stash = gitStash?.stashes.get(commit.sha);
 
-				let rowsStatsDeferred: GitGraph['rowsStatsDeferred'];
-
-				if (deferStats) {
-					pendingRowsStatsCount++;
-
-					// eslint-disable-next-line no-async-promise-executor
-					const promise = new Promise<void>(async resolve => {
-						try {
-							const args = [...statsParser.arguments];
-							if (startTotal === 0) {
-								args.push(`-n${total}`);
-							} else {
-								args.push(`-n${total - startTotal}`, `--skip=${startTotal}`);
-							}
-							args.push(`--${ordering}-order`, '--all');
-
-							const statsResult = await this.git.exec(
-								{ cwd: repoPath, configs: gitConfigsLog, stdin: stdin },
-								'log',
-								stdin ? '--stdin' : undefined,
-								...args,
-								'--',
-							);
-
-							if (statsResult.stdout) {
-								let statShaOrRemapped;
-								for (const stat of statsParser.parse(statsResult.stdout)) {
-									statShaOrRemapped = remappedIds.get(stat.sha) ?? stat.sha;
-
-									// If we already have the stats for this sha, skip it (e.g. stashes)
-									if (rowStats.has(statShaOrRemapped)) continue;
-
-									rowStats.set(statShaOrRemapped, stat.stats);
-								}
-							}
-						} finally {
-							pendingRowsStatsCount--;
-							resolve();
-						}
-					});
-
-					rowsStatsDeferred = {
-						isLoaded: () => pendingRowsStatsCount === 0,
-						promise: promise,
-					};
+				parents = commit.parents ? commit.parents.split(' ') : [];
+				if (reachableFromHEAD.has(commit.sha)) {
+					for (parent of parents) {
+						reachableFromHEAD.add(parent);
+					}
 				}
 
-				return {
-					repoPath: repoPath,
-					avatars: avatars,
-					ids: ids,
-					includes: options?.include,
-					branches: branchMap,
-					remotes: remoteMap,
-					downstreams: downstreamMap,
-					stashes: stashes,
-					worktrees: worktrees,
-					worktreesByBranch: worktreesByBranch,
-					rows: rows,
-					id: sha,
-					rowsStats: rowStats,
-					rowsStatsDeferred: rowsStatsDeferred,
-					paging: {
-						limit: limit === 0 ? count : limit,
-						startingCursor: startingCursor,
-						hasMore: hasMore,
-					},
-					more: async (
-						limit: number,
-						sha?: string,
-						cancellation?: CancellationToken,
-					): Promise<GitGraph | undefined> =>
-						getCommitsForGraphCore.call(this, limit, sha, cursor, cancellation),
-				};
-			} catch (ex) {
-				Logger.error(ex, scope);
-				debugger;
+				// Remove the second & third parent, if exists, from each stash commit as it is a Git implementation for the index and untracked files
+				if (stash != null && parents.length > 1) {
+					// Remap the "index commit" (e.g. contains staged files) of the stash
+					remappedIds.set(parents[1], commit.sha);
+					// Remap the "untracked commit" (e.g. contains untracked files) of the stash
+					remappedIds.set(parents[2], commit.sha);
+					parents.splice(1, 2);
+				}
 
-				throw ex;
+				if (stash == null && !avatars.has(commit.authorEmail)) {
+					avatarUri = getCachedAvatarUri(commit.authorEmail);
+					if (avatarUri != null) {
+						avatars.set(commit.authorEmail, avatarUri.toString(true));
+					}
+				}
+
+				isCurrentUser = isUserMatch(currentUser, commit.author, commit.authorEmail);
+
+				if (stash != null) {
+					contexts.row = serializeWebviewItemContext<GraphItemRefContext>({
+						webviewItem: 'gitlens:stash',
+						webviewItemValue: {
+							type: 'stash',
+							ref: createReference(commit.sha, repoPath, {
+								refType: 'stash',
+								name: stash.name,
+								message: stash.message,
+								number: stash.number,
+							}),
+						},
+					});
+				} else {
+					contexts.row = serializeWebviewItemContext<GraphItemRefContext>({
+						webviewItem: `gitlens:commit${head ? '+HEAD' : ''}${
+							reachableFromHEAD.has(commit.sha) ? '+current' : ''
+						}`,
+						webviewItemValue: {
+							type: 'commit',
+							ref: createReference(commit.sha, repoPath, {
+								refType: 'revision',
+								message: commit.message,
+							}),
+						},
+					});
+
+					contexts.avatar = serializeWebviewItemContext<GraphItemContext>({
+						webviewItem: `gitlens:contributor${isCurrentUser ? '+current' : ''}`,
+						webviewItemValue: {
+							type: 'contributor',
+							repoPath: repoPath,
+							name: commit.author,
+							email: commit.authorEmail,
+							current: isCurrentUser,
+						},
+					});
+				}
+
+				rows.push({
+					sha: commit.sha,
+					parents: onlyFollowFirstParent ? [parents[0]] : parents,
+					author: isCurrentUser ? 'You' : commit.author,
+					email: commit.authorEmail,
+					date: Number(ordering === 'author-date' ? commit.authorDate : commit.committerDate) * 1000,
+					message: emojify(commit.message.trim()),
+					// TODO: review logic for stash, wip, etc
+					type: stash != null ? 'stash-node' : parents.length > 1 ? 'merge-node' : 'commit-node',
+					heads: refHeads,
+					remotes: refRemoteHeads,
+					tags: refTags,
+					contexts: contexts,
+				});
+
+				if (commit.stats != null) {
+					rowStats.set(commit.sha, commit.stats);
+				}
 			}
+
+			const startingCursor = cursor?.sha;
+			const lastSha = last(ids);
+			cursor =
+				lastSha != null
+					? {
+							sha: lastSha,
+							skip: total - iterations,
+					  }
+					: undefined;
+
+			let rowsStatsDeferred: GitGraph['rowsStatsDeferred'];
+
+			if (deferStats) {
+				pendingRowsStatsCount++;
+
+				// eslint-disable-next-line no-async-promise-executor
+				const promise = new Promise<void>(async resolve => {
+					try {
+						const args = [...statsParser.arguments];
+						if (startTotal === 0) {
+							args.push(`-n${total}`);
+						} else {
+							args.push(`-n${total - startTotal}`, `--skip=${startTotal}`);
+						}
+						args.push(`--${ordering}-order`, '--all');
+
+						const statsData = await this.git.log(
+							repoPath,
+							undefined,
+							stdin ? { stdin: stdin } : undefined,
+							...args,
+						);
+						if (statsData) {
+							const commitStats = statsParser.parse(statsData);
+							for (const stat of commitStats) {
+								rowStats.set(stat.sha, stat.stats);
+							}
+						}
+					} finally {
+						pendingRowsStatsCount--;
+						resolve();
+					}
+				});
+
+				rowsStatsDeferred = {
+					isLoaded: () => pendingRowsStatsCount === 0,
+					promise: promise,
+				};
+			}
+
+			return {
+				repoPath: repoPath,
+				avatars: avatars,
+				ids: ids,
+				includes: options?.include,
+				remappedIds: remappedIds,
+				branches: branchMap,
+				remotes: remoteMap,
+				downstreams: downstreamMap,
+				stashes: stashes,
+				worktrees: worktrees,
+				worktreesByBranch: worktreesByBranch,
+				rows: rows,
+				id: sha,
+				rowsStats: rowStats,
+				rowsStatsDeferred: rowsStatsDeferred,
+
+				paging: {
+					limit: limit === 0 ? count : limit,
+					startingCursor: startingCursor,
+					hasMore: limit !== 0 && count > limit,
+				},
+				more: async (limit: number, sha?: string): Promise<GitGraph | undefined> =>
+					getCommitsForGraphCore.call(this, limit, sha, cursor),
+			};
 		}
 
-		return getCommitsForGraphCore.call(this, defaultLimit, selectSha, undefined, cancellation);
+		return getCommitsForGraphCore.call(this, defaultLimit, selectSha);
 	}
 
 	@log<GraphGitSubProvider['searchGraph']>({
@@ -626,8 +650,11 @@ export class GraphGitSubProvider implements GitGraphSubProvider {
 	async searchGraph(
 		repoPath: string,
 		search: SearchQuery,
-		options?: { limit?: number; ordering?: 'date' | 'author-date' | 'topo' },
-		cancellation?: CancellationToken,
+		options?: {
+			cancellation?: CancellationToken;
+			limit?: number;
+			ordering?: 'date' | 'author-date' | 'topo';
+		},
 	): Promise<GitGraphSearch> {
 		search = { matchAll: false, matchCase: false, matchRegex: true, ...search };
 
@@ -635,133 +662,155 @@ export class GraphGitSubProvider implements GitGraphSubProvider {
 		try {
 			const parser = getShaAndDatesLogParser();
 
-			const similarityThreshold = configuration.get('advanced.similarityThreshold');
-			const args = [
-				'log',
+			const currentUser = search.query.includes('@me')
+				? await this.provider.config.getCurrentUser(repoPath)
+				: undefined;
 
+			const { args: searchArgs, files, shas } = getGitArgsFromSearchQuery(search, currentUser);
+			if (shas?.size) {
+				const data = await this.git.exec(
+					{ cwd: repoPath, cancellation: options?.cancellation, configs: gitLogDefaultConfigs },
+					'show',
+					'-s',
+					...parser.arguments,
+					...shas.values(),
+					...searchArgs,
+					'--',
+				);
+
+				let i = 0;
+				const results: GitGraphSearchResults = new Map<string, GitGraphSearchResultData>(
+					map(parser.parse(data), c => [
+						c.sha,
+						{
+							i: i++,
+							date: Number(options?.ordering === 'author-date' ? c.authorDate : c.committerDate) * 1000,
+						},
+					]),
+				);
+
+				return {
+					repoPath: repoPath,
+					query: search,
+					comparisonKey: comparisonKey,
+					results: results,
+				};
+			}
+
+			const limit = options?.limit ?? configuration.get('advanced.maxSearchItems') ?? 0;
+			const similarityThreshold = configuration.get('advanced.similarityThreshold');
+			const includeOnlyStashes = searchArgs.includes('--no-walk');
+
+			let stashes: Map<string, GitStashCommit> | undefined;
+			let stdin: string | undefined;
+
+			// TODO@eamodio this is insanity -- there *HAS* to be a better way to get git log to return stashes
+			const gitStash = await this.provider.stash?.getStash(repoPath);
+			if (gitStash?.stashes.size) {
+				stdin = '';
+				stashes = new Map(gitStash.stashes);
+				for (const stash of gitStash.stashes.values()) {
+					stdin += `${stash.sha.substring(0, 9)}\n`;
+					// Include the stash's 2nd (index files) and 3rd (untracked files) parents
+					for (const p of skip(stash.parents, 1)) {
+						stashes.set(p, stash);
+						stdin += `${p.substring(0, 9)}\n`;
+					}
+				}
+			}
+
+			const args = [
 				...parser.arguments,
 				`-M${similarityThreshold == null ? '' : `${similarityThreshold}%`}`,
 				'--use-mailmap',
 			];
 
-			const currentUser = search.query.includes('@me')
-				? await this.provider.config.getCurrentUser(repoPath)
-				: undefined;
-
-			const { args: searchArgs, files, shas, filters } = parseSearchQueryCommand(search, currentUser);
-
-			let stashes: Map<string, GitStashCommit> | undefined;
-			let stdin: string | undefined;
-			let remappedIds: Map<string, string>;
-
-			if (shas?.size) {
-				stdin = join(shas, '\n');
-				args.push('--no-walk');
-
-				remappedIds = new Map();
-			} else {
-				// TODO@eamodio this is insanity -- there *HAS* to be a better way to get git log to return stashes
-				({ stdin, stashes, remappedIds } = convertStashesToStdin(
-					await this.provider.stash?.getStash(repoPath, undefined, cancellation),
-				));
-			}
-
-			if (stdin) {
-				args.push('--stdin');
-			}
-
-			const limit = options?.limit ?? configuration.get('advanced.maxSearchItems') ?? 0;
-			const ordering = options?.ordering ?? configuration.get('advanced.commitOrdering');
-			if (ordering) {
-				args.push(`--${ordering}-order`);
-			}
-
-			// Add the search args, but skip any shas (as they are already included in the stdin)
-			for (const arg of searchArgs) {
-				if (shas?.has(arg) || args.includes(arg)) continue;
-
-				args.push(arg);
-			}
-
 			const results: GitGraphSearchResults = new Map<string, GitGraphSearchResultData>();
-			let iterations = 0;
-			/** Total seen, not results */
-			let totalSeen = 0;
+			let total = 0;
 
 			async function searchForCommitsCore(
 				this: GraphGitSubProvider,
 				limit: number,
 				cursor?: { sha: string; skip: number },
-				cancellation?: CancellationToken,
 			): Promise<GitGraphSearch> {
-				iterations++;
+				if (options?.cancellation?.isCancellationRequested) {
+					return { repoPath: repoPath, query: search, comparisonKey: comparisonKey, results: results };
+				}
 
+				let data;
 				try {
-					const aborter = new AbortController();
-					using _disposable = mixinDisposable(cancellation?.onCancellationRequested(() => aborter.abort()));
-
-					const stream = this.git.stream(
+					data = await this.git.log(
+						repoPath,
+						undefined,
 						{
-							cwd: repoPath,
-							cancellation: cancellation,
-							configs: ['-C', repoPath, ...gitConfigsLog],
-							signal: aborter.signal,
+							cancellation: options?.cancellation,
+							configs: ['-C', repoPath, ...gitLogDefaultConfigs],
+							errors: GitErrorHandling.Throw,
 							stdin: stdin,
 						},
 						...args,
-						cursor?.skip ? `--skip=${cursor.skip}` : undefined,
+						...searchArgs,
+						...(options?.ordering ? [`--${options.ordering}-order`] : emptyArray),
+						...(limit ? [`-n${limit + 1}`] : emptyArray),
+						...(cursor?.skip ? [`--skip=${cursor.skip}`] : emptyArray),
 						'--',
 						...files,
 					);
-
-					let count = 0;
-					let hasMore = false;
-					let sha;
-					const stashesOnly = filters.type === 'stash';
-
-					for await (const r of parser.parseAsync(stream)) {
-						if (count > limit) {
-							hasMore = true;
-
-							aborter.abort();
-							break;
-						}
-
-						count++;
-						sha = remappedIds.get(r.sha) ?? r.sha;
-						if (results.has(sha) || (stashesOnly && !stashes?.has(sha))) {
-							continue;
-						}
-
-						results.set(sha, {
-							i: results.size,
-							date: Number(options?.ordering === 'author-date' ? r.authorDate : r.committerDate) * 1000,
-						});
-					}
-
-					totalSeen += count;
-					const lastSha = last(results)?.[0];
-					cursor = lastSha != null ? { sha: lastSha, skip: totalSeen - iterations } : undefined;
-
-					return {
-						repoPath: repoPath,
-						query: search,
-						comparisonKey: comparisonKey,
-						results: results,
-						paging: limit ? { limit: limit, hasMore: hasMore } : undefined,
-						more: async (limit: number): Promise<GitGraphSearch> =>
-							searchForCommitsCore.call(this, limit, cursor),
-					};
 				} catch (ex) {
-					if (isCancellationError(ex) || cancellation?.isCancellationRequested) {
+					if (ex instanceof CancelledRunError || options?.cancellation?.isCancellationRequested) {
 						return { repoPath: repoPath, query: search, comparisonKey: comparisonKey, results: results };
 					}
 
 					throw new GitSearchError(ex);
 				}
+
+				if (options?.cancellation?.isCancellationRequested) {
+					return { repoPath: repoPath, query: search, comparisonKey: comparisonKey, results: results };
+				}
+
+				let count = total;
+
+				for (const r of parser.parse(data)) {
+					if (includeOnlyStashes && !stashes?.has(r.sha)) continue;
+
+					if (results.has(r.sha)) {
+						limit--;
+						continue;
+					}
+					results.set(r.sha, {
+						i: total++,
+						date: Number(options?.ordering === 'author-date' ? r.authorDate : r.committerDate) * 1000,
+					});
+				}
+
+				count = total - count;
+				const lastSha = last(results)?.[0];
+				cursor =
+					lastSha != null
+						? {
+								sha: lastSha,
+								skip: total,
+						  }
+						: undefined;
+
+				return {
+					repoPath: repoPath,
+					query: search,
+					comparisonKey: comparisonKey,
+					results: results,
+					paging:
+						limit !== 0 && count > limit
+							? {
+									limit: limit,
+									hasMore: true,
+							  }
+							: undefined,
+					more: async (limit: number): Promise<GitGraphSearch> =>
+						searchForCommitsCore.call(this, limit, cursor),
+				};
 			}
 
-			return await searchForCommitsCore.call(this, limit, undefined, cancellation);
+			return await searchForCommitsCore.call(this, limit);
 		} catch (ex) {
 			if (ex instanceof GitSearchError) throw ex;
 

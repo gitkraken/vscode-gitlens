@@ -1,7 +1,6 @@
 import { window } from 'vscode';
 import type { Container } from '../../../../container';
 import { CancellationError } from '../../../../errors';
-import { GitErrorHandling } from '../../../../git/commandOptions';
 import {
 	ApplyPatchCommitError,
 	ApplyPatchCommitErrorReason,
@@ -130,7 +129,7 @@ export class PatchGitSubProvider implements GitPatchSubProvider {
 
 		// Apply the patch using a cherry pick without committing
 		try {
-			await this.git.cherrypick(targetPath, rev, { noCommit: true, errors: GitErrorHandling.Throw });
+			await this.provider.commits.cherryPick(targetPath, [rev], { noCommit: true });
 		} catch (ex) {
 			Logger.error(ex, scope);
 			if (ex instanceof CherryPickError) {
