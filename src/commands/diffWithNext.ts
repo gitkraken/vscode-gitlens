@@ -36,13 +36,15 @@ export class DiffWithNextCommand extends ActiveEditorCommand {
 
 		let isInLeftSideOfDiffEditor = false;
 
-		// Figure out if we are in a diff editor and if so, which side
-		const [tab] = getVisibleTabs(uri);
-		if (tab != null) {
-			const uris = getTabUris(tab);
-			// If there is an original, then we are in a diff editor -- modified is right, original is left
-			if (uris.original != null && uriEquals(uri, uris.original)) {
-				isInLeftSideOfDiffEditor = true;
+		if (args.commit == null) {
+			// Figure out if we are in a diff editor and if so, which side
+			const [tab] = getVisibleTabs(uri);
+			if (tab != null) {
+				const uris = getTabUris(tab);
+				// If there is an original, then we are in a diff editor -- modified is right, original is left
+				if (uris.original != null && uriEquals(uri, uris.original)) {
+					isInLeftSideOfDiffEditor = true;
+				}
 			}
 		}
 

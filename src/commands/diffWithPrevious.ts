@@ -74,15 +74,17 @@ export class DiffWithPreviousCommand extends ActiveEditorCommand {
 		let isInRightSideOfDiffEditor = false;
 		let isDirty = false;
 
-		// Figure out if we are in a diff editor and if so, which side
-		const [tab] = getVisibleTabs(uri);
-		if (tab != null) {
-			isDirty = tab.isDirty;
+		if (args.commit == null) {
+			// Figure out if we are in a diff editor and if so, which side
+			const [tab] = getVisibleTabs(uri);
+			if (tab != null) {
+				isDirty = tab.isDirty;
 
-			const uris = getTabUris(tab);
-			// If there is an original, then we are in a diff editor -- modified is right, original is left
-			if (uris.original != null && uriEquals(uri, uris.modified)) {
-				isInRightSideOfDiffEditor = true;
+				const uris = getTabUris(tab);
+				// If there is an original, then we are in a diff editor -- modified is right, original is left
+				if (uris.original != null && uriEquals(uri, uris.modified)) {
+					isInRightSideOfDiffEditor = true;
+				}
 			}
 		}
 
