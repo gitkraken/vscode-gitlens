@@ -1,8 +1,8 @@
-import type { AuthenticationSession, CancellationToken, EventEmitter } from 'vscode';
+import type { AuthenticationSession, CancellationToken } from 'vscode';
 import { md5 } from '@env/crypto';
-import { GitSelfManagedHostIntegrationId } from '../../../constants.integrations';
+import { SelfHostedIntegrationId } from '../../../constants.integrations';
 import type { Container } from '../../../container';
-import type { Account, UnidentifiedAuthor } from '../../../git/models/author';
+import type { Account } from '../../../git/models/author';
 import type { DefaultBranch } from '../../../git/models/defaultBranch';
 import type { Issue, IssueShape } from '../../../git/models/issue';
 import type { IssueOrPullRequest, IssueOrPullRequestType } from '../../../git/models/issueOrPullRequest';
@@ -11,34 +11,31 @@ import type { RepositoryMetadata } from '../../../git/models/repositoryMetadata'
 import type { IntegrationAuthenticationProviderDescriptor } from '../authentication/integrationAuthenticationProvider';
 import type { IntegrationAuthenticationService } from '../authentication/integrationAuthenticationService';
 import type { ProviderAuthenticationSession } from '../authentication/models';
-import type { IntegrationConnectionChangeEvent } from '../integrationService';
-import { GitHostIntegration } from '../models/gitHostIntegration';
+import { HostingIntegration } from '../integration';
 import type { BitbucketRepositoryDescriptor } from './bitbucket/models';
-import type { ProviderRepository } from './models';
 import { fromProviderPullRequest, providersMetadata } from './models';
 import type { ProvidersApi } from './providersApi';
 
-const metadata = providersMetadata[GitSelfManagedHostIntegrationId.BitbucketServer];
+const metadata = providersMetadata[SelfHostedIntegrationId.BitbucketServer];
 const authProvider = Object.freeze({ id: metadata.id, scopes: metadata.scopes });
 
-export class BitbucketServerIntegration extends GitHostIntegration<
-	GitSelfManagedHostIntegrationId.BitbucketServer,
+export class BitbucketServerIntegration extends HostingIntegration<
+	SelfHostedIntegrationId.BitbucketServer,
 	BitbucketRepositoryDescriptor
 > {
 	readonly authProvider: IntegrationAuthenticationProviderDescriptor = authProvider;
-	readonly id = GitSelfManagedHostIntegrationId.BitbucketServer;
+	readonly id = SelfHostedIntegrationId.BitbucketServer;
 	protected readonly key =
-		`${this.id}:${this.domain}` satisfies `${GitSelfManagedHostIntegrationId.BitbucketServer}:${string}`;
+		`${this.id}:${this.domain}` satisfies `${SelfHostedIntegrationId.BitbucketServer}:${string}`;
 	readonly name: string = 'Bitbucket Data Center';
 
 	constructor(
 		container: Container,
 		authenticationService: IntegrationAuthenticationService,
 		getProvidersApi: () => Promise<ProvidersApi>,
-		didChangeConnection: EventEmitter<IntegrationConnectionChangeEvent>,
 		private readonly _domain: string,
 	) {
-		super(container, authenticationService, getProvidersApi, didChangeConnection);
+		super(container, authenticationService, getProvidersApi);
 	}
 
 	get domain(): string {
@@ -66,24 +63,14 @@ export class BitbucketServerIntegration extends GitHostIntegration<
 	}
 
 	protected override async getProviderAccountForCommit(
-		{ accessToken }: AuthenticationSession,
-		repo: BitbucketRepositoryDescriptor,
-		rev: string,
-		options?: {
+		_session: AuthenticationSession,
+		_repo: BitbucketRepositoryDescriptor,
+		_rev: string,
+		_options?: {
 			avatarSize?: number;
 		},
-	): Promise<Account | UnidentifiedAuthor | undefined> {
-		return (await this.container.bitbucket)?.getServerAccountForCommit(
-			this,
-			accessToken,
-			repo.owner,
-			repo.name,
-			rev,
-			this.apiBaseUrl,
-			{
-				avatarSize: options?.avatarSize,
-			},
-		);
+	): Promise<Account | undefined> {
+		return Promise.resolve(undefined);
 	}
 
 	protected override async getProviderAccountForEmail(
@@ -113,6 +100,10 @@ export class BitbucketServerIntegration extends GitHostIntegration<
 		if (type === 'issue') {
 			return undefined;
 		}
+		const integration = await this.container.integrations.get(this.id);
+		if (!integration) {
+			return undefined;
+		}
 		return (await this.container.bitbucket)?.getServerPullRequestById(
 			this,
 			accessToken,
@@ -120,6 +111,7 @@ export class BitbucketServerIntegration extends GitHostIntegration<
 			repo.name,
 			id,
 			this.apiBaseUrl,
+			integration,
 		);
 	}
 
@@ -140,6 +132,10 @@ export class BitbucketServerIntegration extends GitHostIntegration<
 			include?: PullRequestState[];
 		},
 	): Promise<PullRequest | undefined> {
+		const integration = await this.container.integrations.get(this.id);
+		if (!integration) {
+			return undefined;
+		}
 		return (await this.container.bitbucket)?.getServerPullRequestForBranch(
 			this,
 			accessToken,
@@ -147,30 +143,16 @@ export class BitbucketServerIntegration extends GitHostIntegration<
 			repo.name,
 			branch,
 			this.apiBaseUrl,
+			integration,
 		);
 	}
 
 	protected override async getProviderPullRequestForCommit(
-		{ accessToken }: AuthenticationSession,
-		repo: BitbucketRepositoryDescriptor,
-		rev: string,
+		_session: AuthenticationSession,
+		_repo: BitbucketRepositoryDescriptor,
+		_rev: string,
 	): Promise<PullRequest | undefined> {
-		return (await this.container.bitbucket)?.getServerPullRequestForCommit(
-			this,
-			accessToken,
-			repo.owner,
-			repo.name,
-			rev,
-			this.apiBaseUrl,
-		);
-	}
-
-	public override async getRepoInfo(repo: { owner: string; name: string }): Promise<ProviderRepository | undefined> {
-		const api = await this.getProvidersApi();
-		return api.getRepo(this.id, repo.owner, repo.name, undefined, {
-			accessToken: this._session?.accessToken,
-			baseUrl: this.apiBaseUrl,
-		});
+		return Promise.resolve(undefined);
 	}
 
 	protected override async getProviderRepositoryMetadata(
@@ -219,13 +201,14 @@ export class BitbucketServerIntegration extends GitHostIntegration<
 		}
 
 		const api = await this.getProvidersApi();
-		if (!api) {
+		const integration = await this.container.integrations.get(this.id);
+		if (!api || !integration) {
 			return undefined;
 		}
 		const prs = await api.getBitbucketServerPullRequestsForCurrentUser(this.apiBaseUrl, {
 			accessToken: session.accessToken,
 		});
-		return prs?.map(pr => fromProviderPullRequest(pr, this));
+		return prs?.map(pr => fromProviderPullRequest(pr, integration));
 	}
 
 	protected override async searchProviderMyIssues(
