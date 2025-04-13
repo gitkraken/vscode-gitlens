@@ -16,6 +16,7 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/) and this p
 - Improves editor revision navigation ([#4200](https://github.com/gitkraken/vscode-gitlens/issues/4200))
 - Improves AI-related error messages ([#4227](https://github.com/gitkraken/vscode-gitlens/issues/4227))
 - Changes cherry-pick command no longer use/open a terminal ([#3531](https://github.com/gitkraken/vscode-gitlens/issues/3531))
+- Improves date setting descriptions ([#3953](https://github.com/gitkraken/vscode-gitlens/issues/3953))
 
 ### Fixed
 
