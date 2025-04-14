@@ -465,6 +465,7 @@ export abstract class IntegrationBase<
 
 		const issueOrPR = this.container.cache.getIssueOrPullRequest(
 			id,
+			options?.type,
 			resource,
 			this,
 			() => ({
