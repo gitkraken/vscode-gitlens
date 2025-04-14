@@ -331,14 +331,32 @@ export class GlAccountChip extends LitElement {
 						<span class="header__actions">
 							${this.hasAccount
 								? html`<gl-button
-										appearance="toolbar"
-										href="${createCommandLink<Source>('gitlens.plus.logout', {
-											source: 'account',
-										})}"
-										tooltip="Sign Out"
-										aria-label="Sign Out"
-										><code-icon icon="sign-out"></code-icon
-								  ></gl-button>`
+											appearance="toolbar"
+											href="${createCommandLink<Source>('gitlens.views.home.account.resync', {
+												source: 'account',
+											})}"
+											tooltip="Synchronize Status"
+											aria-label="Synchronize Status"
+											><code-icon icon="sync"></code-icon
+										></gl-button>
+										<gl-button
+											appearance="toolbar"
+											href="${createCommandLink<Source>('gitlens.plus.manage', {
+												source: 'account',
+											})}"
+											tooltip="Manage Account"
+											aria-label="Manage Account"
+											><code-icon icon="gear"></code-icon
+										></gl-button>
+										<gl-button
+											appearance="toolbar"
+											href="${createCommandLink<Source>('gitlens.plus.logout', {
+												source: 'account',
+											})}"
+											tooltip="Sign Out"
+											aria-label="Sign Out"
+											><code-icon icon="sign-out"></code-icon
+										></gl-button>`
 								: nothing}
 						</span>
 					</div>
