@@ -9593,14 +9593,14 @@
 					{
 						"when": "view == gitlens.views.scm.grouped && config.gitlens.views.scm.grouped.views.branches && !config.gitlens.views.scm.grouped.hiddenViews.branches && (gitlens:views:scm:grouped:view != branches || gitlens:views:scm:grouped:welcome)",
 						"group": "navigation",
-						"order": 2,
+						"order": 3,
 						"alt": "gitlens.views.scm.grouped.branches.detach"
 					}
 				]
 			},
 			"keybindings": [
 				{
-					"key": "2",
+					"key": "3",
 					"when": "focusedView == gitlens.views.scm.grouped && config.gitlens.views.scm.grouped.views.branches"
 				}
 			]
@@ -9613,7 +9613,7 @@
 					{
 						"when": "view == gitlens.views.scm.grouped && !config.gitlens.views.scm.grouped.views.branches",
 						"group": "2_gitlens",
-						"order": 2
+						"order": 3
 					}
 				]
 			}
@@ -9626,7 +9626,7 @@
 					{
 						"when": "view == gitlens.views.scm.grouped && config.gitlens.views.scm.grouped.views.branches",
 						"group": "2_gitlens",
-						"order": 2
+						"order": 3
 					}
 				],
 				"gitlens/views/grouped/branches": [
@@ -9664,7 +9664,7 @@
 					{
 						"when": "!config.gitlens.views.scm.grouped.hiddenViews.branches",
 						"group": "2_gitlens",
-						"order": 2
+						"order": 3
 					}
 				]
 			}
@@ -9676,7 +9676,7 @@
 					{
 						"when": "config.gitlens.views.scm.grouped.hiddenViews.branches",
 						"group": "2_gitlens",
-						"order": 2
+						"order": 3
 					}
 				]
 			}
@@ -9897,14 +9897,14 @@
 					{
 						"when": "view == gitlens.views.scm.grouped && config.gitlens.views.scm.grouped.views.fileHistory && !config.gitlens.views.scm.grouped.hiddenViews.fileHistory && (gitlens:views:scm:grouped:view != fileHistory || gitlens:views:scm:grouped:welcome)",
 						"group": "navigation",
-						"order": 11,
+						"order": 9,
 						"alt": "gitlens.views.scm.grouped.fileHistory.detach"
 					}
 				]
 			},
 			"keybindings": [
 				{
-					"key": "11",
+					"key": "8",
 					"when": "focusedView == gitlens.views.scm.grouped && config.gitlens.views.scm.grouped.views.fileHistory"
 				}
 			]
@@ -9917,7 +9917,7 @@
 					{
 						"when": "view == gitlens.views.scm.grouped && !config.gitlens.views.scm.grouped.views.fileHistory",
 						"group": "2_gitlens",
-						"order": 11
+						"order": 9
 					}
 				]
 			}
@@ -9930,7 +9930,7 @@
 					{
 						"when": "view == gitlens.views.scm.grouped && config.gitlens.views.scm.grouped.views.fileHistory",
 						"group": "2_gitlens",
-						"order": 11
+						"order": 9
 					}
 				],
 				"gitlens/views/grouped/fileHistory": [
@@ -9968,7 +9968,7 @@
 					{
 						"when": "!config.gitlens.views.scm.grouped.hiddenViews.fileHistory",
 						"group": "2_gitlens",
-						"order": 11
+						"order": 9
 					}
 				]
 			}
@@ -9980,7 +9980,7 @@
 					{
 						"when": "config.gitlens.views.scm.grouped.hiddenViews.fileHistory",
 						"group": "2_gitlens",
-						"order": 11
+						"order": 9
 					}
 				]
 			}
@@ -10001,7 +10001,7 @@
 			},
 			"keybindings": [
 				{
-					"key": "0",
+					"key": "9",
 					"when": "focusedView == gitlens.views.scm.grouped && config.gitlens.views.scm.grouped.views.launchpad"
 				}
 			]
@@ -10105,14 +10105,14 @@
 					{
 						"when": "view == gitlens.views.scm.grouped && config.gitlens.views.scm.grouped.views.remotes && !config.gitlens.views.scm.grouped.hiddenViews.remotes && (gitlens:views:scm:grouped:view != remotes || gitlens:views:scm:grouped:welcome)",
 						"group": "navigation",
-						"order": 3,
+						"order": 4,
 						"alt": "gitlens.views.scm.grouped.remotes.detach"
 					}
 				]
 			},
 			"keybindings": [
 				{
-					"key": "3",
+					"key": "4",
 					"when": "focusedView == gitlens.views.scm.grouped && config.gitlens.views.scm.grouped.views.remotes"
 				}
 			]
@@ -10125,7 +10125,7 @@
 					{
 						"when": "view == gitlens.views.scm.grouped && !config.gitlens.views.scm.grouped.views.remotes",
 						"group": "2_gitlens",
-						"order": 3
+						"order": 4
 					}
 				]
 			}
@@ -10138,7 +10138,7 @@
 					{
 						"when": "view == gitlens.views.scm.grouped && config.gitlens.views.scm.grouped.views.remotes",
 						"group": "2_gitlens",
-						"order": 3
+						"order": 4
 					}
 				],
 				"gitlens/views/grouped/remotes": [
@@ -10176,7 +10176,7 @@
 					{
 						"when": "!config.gitlens.views.scm.grouped.hiddenViews.remotes",
 						"group": "2_gitlens",
-						"order": 3
+						"order": 4
 					}
 				]
 			}
@@ -10188,7 +10188,7 @@
 					{
 						"when": "config.gitlens.views.scm.grouped.hiddenViews.remotes",
 						"group": "2_gitlens",
-						"order": 3
+						"order": 4
 					}
 				]
 			}
@@ -10206,13 +10206,7 @@
 						"alt": "gitlens.views.scm.grouped.repositories.detach"
 					}
 				]
-			},
-			"keybindings": [
-				{
-					"key": "8",
-					"when": "focusedView == gitlens.views.scm.grouped && config.gitlens.views.scm.grouped.views.repositories"
-				}
-			]
+			}
 		},
 		"gitlens.views.scm.grouped.repositories.attach": {
 			"label": "Group Repositories View",
@@ -10299,14 +10293,14 @@
 					{
 						"when": "view == gitlens.views.scm.grouped && config.gitlens.views.scm.grouped.views.searchAndCompare && !config.gitlens.views.scm.grouped.hiddenViews.searchAndCompare && (gitlens:views:scm:grouped:view != searchAndCompare || gitlens:views:scm:grouped:welcome)",
 						"group": "navigation",
-						"order": 9,
+						"order": 11,
 						"alt": "gitlens.views.scm.grouped.searchAndCompare.detach"
 					}
 				]
 			},
 			"keybindings": [
 				{
-					"key": "9",
+					"key": "0",
 					"when": "focusedView == gitlens.views.scm.grouped && config.gitlens.views.scm.grouped.views.searchAndCompare"
 				}
 			]
@@ -10319,7 +10313,7 @@
 					{
 						"when": "view == gitlens.views.scm.grouped && !config.gitlens.views.scm.grouped.views.searchAndCompare",
 						"group": "2_gitlens",
-						"order": 9
+						"order": 11
 					}
 				]
 			}
@@ -10332,7 +10326,7 @@
 					{
 						"when": "view == gitlens.views.scm.grouped && config.gitlens.views.scm.grouped.views.searchAndCompare",
 						"group": "2_gitlens",
-						"order": 9
+						"order": 11
 					}
 				],
 				"gitlens/views/grouped/searchAndCompare": [
@@ -10370,7 +10364,7 @@
 					{
 						"when": "!config.gitlens.views.scm.grouped.hiddenViews.searchAndCompare",
 						"group": "2_gitlens",
-						"order": 9
+						"order": 11
 					}
 				]
 			}
@@ -10382,7 +10376,7 @@
 					{
 						"when": "config.gitlens.views.scm.grouped.hiddenViews.searchAndCompare",
 						"group": "2_gitlens",
-						"order": 9
+						"order": 11
 					}
 				]
 			}
@@ -10403,7 +10397,7 @@
 			},
 			"keybindings": [
 				{
-					"key": "4",
+					"key": "5",
 					"when": "focusedView == gitlens.views.scm.grouped && config.gitlens.views.scm.grouped.views.stashes"
 				}
 			]
@@ -10416,7 +10410,7 @@
 					{
 						"when": "view == gitlens.views.scm.grouped && !gitlens:hasVirtualFolders && !config.gitlens.views.scm.grouped.views.stashes",
 						"group": "2_gitlens",
-						"order": 4
+						"order": 5
 					}
 				]
 			}
@@ -10429,7 +10423,7 @@
 					{
 						"when": "view == gitlens.views.scm.grouped && config.gitlens.views.scm.grouped.views.stashes",
 						"group": "2_gitlens",
-						"order": 4
+						"order": 5
 					}
 				],
 				"gitlens/views/grouped/stashes": [
@@ -10467,7 +10461,7 @@
 					{
 						"when": "!config.gitlens.views.scm.grouped.hiddenViews.stashes",
 						"group": "2_gitlens",
-						"order": 4
+						"order": 5
 					}
 				]
 			}
@@ -10479,7 +10473,7 @@
 					{
 						"when": "config.gitlens.views.scm.grouped.hiddenViews.stashes",
 						"group": "2_gitlens",
-						"order": 4
+						"order": 5
 					}
 				]
 			}
@@ -10493,14 +10487,14 @@
 					{
 						"when": "view == gitlens.views.scm.grouped && config.gitlens.views.scm.grouped.views.tags && !config.gitlens.views.scm.grouped.hiddenViews.tags && (gitlens:views:scm:grouped:view != tags || gitlens:views:scm:grouped:welcome)",
 						"group": "navigation",
-						"order": 5,
+						"order": 6,
 						"alt": "gitlens.views.scm.grouped.tags.detach"
 					}
 				]
 			},
 			"keybindings": [
 				{
-					"key": "5",
+					"key": "6",
 					"when": "focusedView == gitlens.views.scm.grouped && config.gitlens.views.scm.grouped.views.tags"
 				}
 			]
@@ -10513,7 +10507,7 @@
 					{
 						"when": "view == gitlens.views.scm.grouped && !config.gitlens.views.scm.grouped.views.tags",
 						"group": "2_gitlens",
-						"order": 5
+						"order": 6
 					}
 				]
 			}
@@ -10526,7 +10520,7 @@
 					{
 						"when": "view == gitlens.views.scm.grouped && config.gitlens.views.scm.grouped.views.tags",
 						"group": "2_gitlens",
-						"order": 5
+						"order": 6
 					}
 				],
 				"gitlens/views/grouped/tags": [
@@ -10564,7 +10558,7 @@
 					{
 						"when": "!config.gitlens.views.scm.grouped.hiddenViews.tags",
 						"group": "2_gitlens",
-						"order": 5
+						"order": 6
 					}
 				]
 			}
@@ -10576,7 +10570,7 @@
 					{
 						"when": "config.gitlens.views.scm.grouped.hiddenViews.tags",
 						"group": "2_gitlens",
-						"order": 5
+						"order": 6
 					}
 				]
 			}
@@ -10590,14 +10584,14 @@
 					{
 						"when": "!gitlens:hasVirtualFolders && gitlens:plus:enabled && view == gitlens.views.scm.grouped && config.gitlens.views.scm.grouped.views.worktrees && !config.gitlens.views.scm.grouped.hiddenViews.worktrees && (gitlens:views:scm:grouped:view != worktrees || gitlens:views:scm:grouped:welcome)",
 						"group": "navigation",
-						"order": 6,
+						"order": 2,
 						"alt": "gitlens.views.scm.grouped.worktrees.detach"
 					}
 				]
 			},
 			"keybindings": [
 				{
-					"key": "6",
+					"key": "2",
 					"when": "focusedView == gitlens.views.scm.grouped && config.gitlens.views.scm.grouped.views.worktrees"
 				}
 			]
@@ -10610,7 +10604,7 @@
 					{
 						"when": "view == gitlens.views.scm.grouped && !gitlens:hasVirtualFolders && gitlens:plus:enabled && !config.gitlens.views.scm.grouped.views.worktrees",
 						"group": "2_gitlens",
-						"order": 6
+						"order": 2
 					}
 				]
 			}
@@ -10623,7 +10617,7 @@
 					{
 						"when": "view == gitlens.views.scm.grouped && !gitlens:hasVirtualFolders && gitlens:plus:enabled && config.gitlens.views.scm.grouped.views.worktrees",
 						"group": "2_gitlens",
-						"order": 6
+						"order": 2
 					}
 				],
 				"gitlens/views/grouped/worktrees": [
@@ -10661,7 +10655,7 @@
 					{
 						"when": "!config.gitlens.views.scm.grouped.hiddenViews.worktrees",
 						"group": "2_gitlens",
-						"order": 6
+						"order": 2
 					}
 				]
 			}
@@ -10673,7 +10667,7 @@
 					{
 						"when": "config.gitlens.views.scm.grouped.hiddenViews.worktrees",
 						"group": "2_gitlens",
-						"order": 6
+						"order": 2
 					}
 				]
 			}
@@ -13415,7 +13409,7 @@
 					{
 						"when": "view == gitlens.views.scm.grouped && gitlens:views:scm:grouped:view == branches && !gitlens:views:scm:grouped:welcome && config.gitlens.views.scm.grouped.views.branches",
 						"group": "navigation",
-						"order": 2
+						"order": 3
 					}
 				]
 			}
@@ -13454,7 +13448,7 @@
 					{
 						"when": "view == gitlens.views.scm.grouped && gitlens:views:scm:grouped:view == fileHistory && !gitlens:views:scm:grouped:welcome && config.gitlens.views.scm.grouped.views.fileHistory",
 						"group": "navigation",
-						"order": 11
+						"order": 9
 					}
 				]
 			}
@@ -13563,7 +13557,7 @@
 					{
 						"when": "view == gitlens.views.scm.grouped && gitlens:views:scm:grouped:view == remotes && !gitlens:views:scm:grouped:welcome && config.gitlens.views.scm.grouped.views.remotes",
 						"group": "navigation",
-						"order": 3
+						"order": 4
 					}
 				]
 			}
@@ -13589,7 +13583,7 @@
 					{
 						"when": "view == gitlens.views.scm.grouped && gitlens:views:scm:grouped:view == searchAndCompare && !gitlens:views:scm:grouped:welcome && config.gitlens.views.scm.grouped.views.searchAndCompare",
 						"group": "navigation",
-						"order": 9
+						"order": 11
 					}
 				]
 			}
@@ -13602,7 +13596,7 @@
 					{
 						"when": "view == gitlens.views.scm.grouped && gitlens:views:scm:grouped:view == stashes && !gitlens:hasVirtualFolders && !gitlens:views:scm:grouped:welcome && config.gitlens.views.scm.grouped.views.stashes",
 						"group": "navigation",
-						"order": 4
+						"order": 5
 					}
 				]
 			}
@@ -13615,7 +13609,7 @@
 					{
 						"when": "view == gitlens.views.scm.grouped && gitlens:views:scm:grouped:view == tags && !gitlens:views:scm:grouped:welcome && config.gitlens.views.scm.grouped.views.tags",
 						"group": "navigation",
-						"order": 5
+						"order": 6
 					}
 				]
 			}
@@ -13640,7 +13634,7 @@
 					{
 						"when": "view == gitlens.views.scm.grouped && gitlens:views:scm:grouped:view == worktrees && !gitlens:hasVirtualFolders && gitlens:plus:enabled && !gitlens:views:scm:grouped:welcome && config.gitlens.views.scm.grouped.views.worktrees",
 						"group": "navigation",
-						"order": 6
+						"order": 2
 					}
 				]
 			}
