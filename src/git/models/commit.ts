@@ -52,8 +52,7 @@ export class GitCommit implements GitRevisionReference {
 	readonly refType: GitRevisionReference['refType'];
 	readonly shortSha: string;
 	readonly stashName: string | undefined;
-	// TODO@eamodio rename to stashNumber
-	readonly number: string | undefined;
+	readonly stashNumber: string | undefined;
 	readonly stashOnRef: string | undefined;
 	readonly tips: string[] | undefined;
 
@@ -81,7 +80,7 @@ export class GitCommit implements GitRevisionReference {
 			this.refType = 'stash';
 			this.stashName = stashName || undefined;
 			this.stashOnRef = stashOnRef || undefined;
-			this.number = stashNumberRegex.exec(stashName)?.[1];
+			this.stashNumber = stashNumberRegex.exec(stashName)?.[1];
 		} else {
 			this.refType = 'revision';
 		}
@@ -740,7 +739,7 @@ export interface GitCommitStats<Files extends number | GitDiffFileStats = number
 export interface GitStashCommit extends GitCommit {
 	readonly refType: GitStashReference['refType'];
 	readonly stashName: string;
-	readonly number: string;
+	readonly stashNumber: string;
 }
 
 export type GitCommitWithFullDetails = GitCommit & SomeNonNullable<GitCommit, 'message' | 'fileset'>;

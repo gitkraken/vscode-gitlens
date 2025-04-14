@@ -508,7 +508,7 @@ export class GraphGitSubProvider implements GitGraphSubProvider {
 								refType: 'stash',
 								name: stash.name,
 								message: stash.message,
-								number: stash.number,
+								number: stash.stashNumber,
 							}),
 						},
 					});

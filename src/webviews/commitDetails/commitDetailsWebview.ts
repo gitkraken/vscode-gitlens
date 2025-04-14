@@ -1792,7 +1792,7 @@ export class CommitDetailsWebviewProvider
 			// committer: { ...commit.committer, avatar: committerAvatar?.toString(true) },
 			message: formattedMessage,
 			parents: commit.parents,
-			stashNumber: commit.refType === 'stash' ? commit.number : undefined,
+			stashNumber: commit.refType === 'stash' ? commit.stashNumber : undefined,
 			files: commit.fileset?.files,
 			stats: commit.stats,
 			autolinks: autolinks != null ? [...map(autolinks.values(), serializeAutolink)] : undefined,
