@@ -9,6 +9,7 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/) and this p
 ### Added
 
 - Adds OpenRouter support for GitLens' AI features ([#3906](https://github.com/gitkraken/vscode-gitlens/issues/3906))
+- Adds OpenAI GPT-4.1 models for GitLens' AI features ([#4235](https://github.com/gitkraken/vscode-gitlens/issues/4235))
 - Adds _Open File at Revision from Remote_ command to open the specific file revision from a remote file URL
 
 ### Changed
