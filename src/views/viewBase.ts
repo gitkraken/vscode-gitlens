@@ -318,6 +318,14 @@ export abstract class ViewBase<
 		return false;
 	}
 
+	private _groupedLabel: string | undefined;
+	get groupedLabel(): string | undefined {
+		return this.grouped ? this._groupedLabel : undefined;
+	}
+	set groupedLabel(value: string | undefined) {
+		this._groupedLabel = value;
+	}
+
 	private _nodeState: ViewNodeState | undefined;
 	get nodeState(): ViewNodeState {
 		if (this._nodeState == null) {

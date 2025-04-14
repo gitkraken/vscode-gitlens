@@ -53,8 +53,10 @@ export class LineHistoryTrackerNode extends SubscribeableViewNode<
 
 	async getChildren(): Promise<ViewNode[]> {
 		if (this.child == null) {
+			this.view.groupedLabel ??= this.view.name.toLocaleLowerCase();
+
 			if (!this.hasUri) {
-				this.view.description = undefined;
+				this.view.description = this.view.grouped ? this.view.groupedLabel : undefined;
 
 				this.view.message = 'There are no editors open that can provide line history information.';
 				return [];
@@ -64,10 +66,10 @@ export class LineHistoryTrackerNode extends SubscribeableViewNode<
 			const editorContents = this._editorContents;
 
 			if (selection == null) {
-				this.view.description = undefined;
-
 				this.view.message = 'There was no selection provided for line history.';
-				this.view.description = `${this.uri.fileName}${
+				this.view.description = `${this.view.groupedLabel ? `${this.view.groupedLabel} \u2022 ` : ''}${
+					this.uri.fileName
+				}${
 					this.uri.sha
 						? ` ${this.uri.sha === deletedOrMissing ? this.uri.shortSha : `(${this.uri.shortSha})`}`
 						: ''

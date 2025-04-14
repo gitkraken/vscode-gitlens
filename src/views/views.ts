@@ -54,6 +54,7 @@ const defaultScmGroupedViews: Record<GroupableTreeViewTypes, boolean> = Object.f
 	tags: true,
 	worktrees: true,
 	contributors: true,
+	fileHistory: false,
 	repositories: false,
 	searchAndCompare: false,
 	launchpad: false,
@@ -134,6 +135,7 @@ export class Views implements Disposable {
 		this._branchesView?.dispose();
 		this._commitsView?.dispose();
 		this._contributorsView?.dispose();
+		this._fileHistoryView?.dispose();
 		this._launchpadView?.dispose();
 		this._remotesView?.dispose();
 		this._repositoriesView?.dispose();
@@ -206,6 +208,22 @@ export class Views implements Disposable {
 			),
 			registerCommand('gitlens.views.scm.grouped.contributors.setAsDefault', () =>
 				this.setAsScmGroupedDefaultView('contributors'),
+			),
+			registerCommand('gitlens.views.fileHistory.regroup', () => this.toggleScmViewGrouping('fileHistory', true)),
+			registerCommand('gitlens.views.scm.grouped.fileHistory.detach', () =>
+				this.toggleScmViewGrouping('fileHistory', false),
+			),
+			registerCommand('gitlens.views.scm.grouped.fileHistory.regroup', () =>
+				this.toggleScmViewGrouping('fileHistory', true),
+			),
+			registerCommand('gitlens.views.scm.grouped.fileHistory.visibility.hide', () =>
+				this.toggleScmViewVisibility('fileHistory', false),
+			),
+			registerCommand('gitlens.views.scm.grouped.fileHistory.visibility.show', () =>
+				this.toggleScmViewVisibility('fileHistory', true),
+			),
+			registerCommand('gitlens.views.scm.grouped.fileHistory.setAsDefault', () =>
+				this.setAsScmGroupedDefaultView('fileHistory'),
 			),
 			registerCommand('gitlens.views.launchpad.regroup', () => this.toggleScmViewGrouping('launchpad', true)),
 			registerCommand('gitlens.views.scm.grouped.launchpad.detach', () =>
@@ -325,6 +343,7 @@ export class Views implements Disposable {
 			registerCommand('gitlens.views.scm.grouped.contributors', () =>
 				this.setScmGroupedView('contributors', true),
 			),
+			registerCommand('gitlens.views.scm.grouped.fileHistory', () => this.setScmGroupedView('fileHistory', true)),
 			registerCommand('gitlens.views.scm.grouped.launchpad', () => this.setScmGroupedView('launchpad', true)),
 			registerCommand('gitlens.views.scm.grouped.remotes', () => this.setScmGroupedView('remotes', true)),
 			registerCommand('gitlens.views.scm.grouped.repositories', () =>
@@ -363,7 +382,7 @@ export class Views implements Disposable {
 	private registerViews(): Disposable[] {
 		return [
 			(this._draftsView = new DraftsView(this.container)),
-			(this._fileHistoryView = new FileHistoryView(this.container)),
+			// (this._fileHistoryView = new FileHistoryView(this.container)),
 			(this._lineHistoryView = new LineHistoryView(this.container)),
 			(this._pullRequestView = new PullRequestView(this.container)),
 			(this._workspacesView = new WorkspacesView(this.container)),
@@ -563,6 +582,13 @@ export class Views implements Disposable {
 			this._contributorsView = undefined;
 		}
 
+		if (!this._scmGroupedViews.has('fileHistory')) {
+			this._fileHistoryView ??= new FileHistoryView(this.container);
+		} else {
+			this._fileHistoryView?.dispose();
+			this._fileHistoryView = undefined;
+		}
+
 		if (!this._scmGroupedViews.has('launchpad')) {
 			this._launchpadView ??= new LaunchpadView(this.container);
 		} else {
@@ -649,9 +675,9 @@ export class Views implements Disposable {
 		return this._draftsView;
 	}
 
-	private _fileHistoryView!: FileHistoryView;
+	private _fileHistoryView!: FileHistoryView | undefined;
 	get fileHistory(): FileHistoryView {
-		return this._fileHistoryView;
+		return this._fileHistoryView ?? this.getScmGroupedView('fileHistory');
 	}
 
 	private _graphView!: ReturnType<typeof registerGraphWebviewView>;
@@ -881,7 +907,8 @@ export class Views implements Disposable {
 			case 'drafts':
 				return this.drafts.show();
 			case 'fileHistory':
-				return this.fileHistory.show();
+				return show('contributors', this._fileHistoryView);
+			// return this.fileHistory.show();
 			case 'launchpad':
 				return show('launchpad', this._launchpadView);
 			case 'lineHistory':
@@ -939,6 +966,7 @@ async function updateScmGroupedViewsInConfig(groupedViews: Set<GroupableTreeView
 		tags: groupedViews.has('tags'),
 		worktrees: groupedViews.has('worktrees'),
 		contributors: groupedViews.has('contributors'),
+		fileHistory: groupedViews.has('fileHistory'),
 		repositories: groupedViews.has('repositories'),
 		searchAndCompare: groupedViews.has('searchAndCompare'),
 		launchpad: groupedViews.has('launchpad'),

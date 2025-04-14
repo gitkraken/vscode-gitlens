@@ -1470,7 +1470,8 @@
 							"contributors",
 							"repositories",
 							"searchAndCompare",
-							"launchpad"
+							"launchpad",
+							"fileHistory"
 						],
 						"enumDescriptions": [
 							"Commits view",
@@ -1482,7 +1483,8 @@
 							"Contributors view",
 							"Repositories view",
 							"Search & Compare view",
-							"Launchpad view"
+							"Launchpad view",
+							"File History view"
 						],
 						"markdownDescription": "Specifies the default view to show when the _GitLens_ view is opened",
 						"scope": "window",
@@ -1500,7 +1502,8 @@
 							"contributors": true,
 							"repositories": false,
 							"searchAndCompare": false,
-							"launchpad": false
+							"launchpad": false,
+							"fileHistory": false
 						},
 						"properties": {
 							"commits": {
@@ -1552,6 +1555,11 @@
 								"type": "boolean",
 								"default": false,
 								"description": "Group the Launchpad view"
+							},
+							"fileHistory": {
+								"type": "boolean",
+								"default": false,
+								"description": "Group the File History view"
 							}
 						},
 						"additionalProperties": false,
@@ -1571,7 +1579,8 @@
 							"contributors": false,
 							"repositories": true,
 							"searchAndCompare": false,
-							"launchpad": false
+							"launchpad": false,
+							"fileHistory": false
 						},
 						"properties": {
 							"commits": {
@@ -1623,6 +1632,11 @@
 								"type": "boolean",
 								"default": false,
 								"description": "Hide the Launchpad view"
+							},
+							"fileHistory": {
+								"type": "boolean",
+								"default": false,
+								"description": "Hide the File History view"
 							}
 						},
 						"additionalProperties": false,
@@ -8318,6 +8332,11 @@
 				"icon": "$(refresh)"
 			},
 			{
+				"command": "gitlens.views.fileHistory.regroup",
+				"title": "Regroup with GitLens View",
+				"icon": "$(close)"
+			},
+			{
 				"command": "gitlens.views.fileHistory.setCursorFollowingOff",
 				"title": "View File History",
 				"icon": "$(list-selection)",
@@ -8370,6 +8389,11 @@
 			{
 				"command": "gitlens.views.fileHistory.setShowMergeCommitsOn",
 				"title": "Show Merge Commits"
+			},
+			{
+				"command": "gitlens.views.fileHistory.viewOptionsTitle",
+				"title": "File History View Options",
+				"enablement": "false"
 			},
 			{
 				"command": "gitlens.views.graph.openInTab",
@@ -9128,6 +9152,34 @@
 				"command": "gitlens.views.scm.grouped.detachAll",
 				"title": "Detach All Views",
 				"enablement": "!gitlens:views:scm:grouped:welcome"
+			},
+			{
+				"command": "gitlens.views.scm.grouped.fileHistory",
+				"title": "File History",
+				"icon": "$(gitlens-history-view)",
+				"enablement": "!gitlens:views:scm:grouped:welcome"
+			},
+			{
+				"command": "gitlens.views.scm.grouped.fileHistory.detach",
+				"title": "Detach File History View",
+				"icon": "$(gitlens-history-view)"
+			},
+			{
+				"command": "gitlens.views.scm.grouped.fileHistory.regroup",
+				"title": "Regroup File History View",
+				"enablement": "!gitlens:views:scm:grouped:welcome"
+			},
+			{
+				"command": "gitlens.views.scm.grouped.fileHistory.setAsDefault",
+				"title": "Set as Default View"
+			},
+			{
+				"command": "gitlens.views.scm.grouped.fileHistory.visibility.hide",
+				"title": "Hide File History View"
+			},
+			{
+				"command": "gitlens.views.scm.grouped.fileHistory.visibility.show",
+				"title": "Show File History View"
 			},
 			{
 				"command": "gitlens.views.scm.grouped.launchpad",
@@ -10269,6 +10321,13 @@
 				"default": {
 					"fontPath": "dist/glicons.woff2",
 					"fontCharacter": "\\f141"
+				}
+			},
+			"gitlens-history-view-filled": {
+				"description": "history-view-filled icon",
+				"default": {
+					"fontPath": "dist/glicons.woff2",
+					"fontCharacter": "\\f142"
 				}
 			}
 		},
@@ -12063,6 +12122,10 @@
 					"when": "false"
 				},
 				{
+					"command": "gitlens.views.fileHistory.regroup",
+					"when": "false"
+				},
+				{
 					"command": "gitlens.views.fileHistory.setCursorFollowingOff",
 					"when": "false"
 				},
@@ -12108,6 +12171,10 @@
 				},
 				{
 					"command": "gitlens.views.fileHistory.setShowMergeCommitsOn",
+					"when": "false"
+				},
+				{
+					"command": "gitlens.views.fileHistory.viewOptionsTitle",
 					"when": "false"
 				},
 				{
@@ -12760,6 +12827,30 @@
 				},
 				{
 					"command": "gitlens.views.scm.grouped.detachAll",
+					"when": "false"
+				},
+				{
+					"command": "gitlens.views.scm.grouped.fileHistory",
+					"when": "false"
+				},
+				{
+					"command": "gitlens.views.scm.grouped.fileHistory.detach",
+					"when": "false"
+				},
+				{
+					"command": "gitlens.views.scm.grouped.fileHistory.regroup",
+					"when": "false"
+				},
+				{
+					"command": "gitlens.views.scm.grouped.fileHistory.setAsDefault",
+					"when": "false"
+				},
+				{
+					"command": "gitlens.views.scm.grouped.fileHistory.visibility.hide",
+					"when": "false"
+				},
+				{
+					"command": "gitlens.views.scm.grouped.fileHistory.visibility.show",
 					"when": "false"
 				},
 				{
@@ -14806,6 +14897,16 @@
 					"group": "2_gitlens@10"
 				},
 				{
+					"command": "gitlens.views.scm.grouped.fileHistory.detach",
+					"when": "view == gitlens.views.scm.grouped && config.gitlens.views.scm.grouped.views.fileHistory",
+					"group": "2_gitlens@11"
+				},
+				{
+					"command": "gitlens.views.scm.grouped.fileHistory.regroup",
+					"when": "view == gitlens.views.scm.grouped && !config.gitlens.views.scm.grouped.views.fileHistory",
+					"group": "2_gitlens@11"
+				},
+				{
 					"command": "gitlens.views.scm.grouped.detachAll",
 					"when": "view == gitlens.views.scm.grouped",
 					"group": "9_gitlens@98"
@@ -14814,6 +14915,83 @@
 					"command": "gitlens.views.scm.grouped.regroupAll",
 					"when": "view == gitlens.views.scm.grouped",
 					"group": "9_gitlens@99"
+				}
+			],
+			"gitlens/views/grouped/fileHistory": [
+				{
+					"command": "gitlens.views.fileHistory.setEditorFollowingOff",
+					"when": "gitlens:views:scm:grouped:view == fileHistory && gitlens:views:fileHistory:canPin && gitlens:views:fileHistory:editorFollowing",
+					"group": "1_gitlens@0"
+				},
+				{
+					"command": "gitlens.views.fileHistory.setEditorFollowingOn",
+					"when": "gitlens:views:scm:grouped:view == fileHistory && !gitlens:views:fileHistory:editorFollowing",
+					"group": "1_gitlens@0"
+				},
+				{
+					"command": "gitlens.views.fileHistory.setCursorFollowingOff",
+					"when": "gitlens:views:scm:grouped:view == fileHistory && !gitlens:hasVirtualFolders && gitlens:views:fileHistory:cursorFollowing",
+					"group": "1_gitlens@1"
+				},
+				{
+					"command": "gitlens.views.fileHistory.setCursorFollowingOn",
+					"when": "gitlens:views:scm:grouped:view == fileHistory && !gitlens:hasVirtualFolders && !gitlens:views:fileHistory:cursorFollowing",
+					"group": "1_gitlens@1"
+				},
+				{
+					"command": "gitlens.views.fileHistory.changeBase",
+					"when": "gitlens:views:scm:grouped:view == fileHistory && !gitlens:hasVirtualFolders",
+					"group": "2_gitlens@0"
+				},
+				{
+					"command": "gitlens.views.fileHistory.setRenameFollowingOff",
+					"when": "gitlens:views:scm:grouped:view == fileHistory && !gitlens:views:fileHistory:cursorFollowing && config.gitlens.advanced.fileHistoryFollowsRenames",
+					"group": "3_gitlens@1"
+				},
+				{
+					"command": "gitlens.views.fileHistory.setRenameFollowingOn",
+					"when": "gitlens:views:scm:grouped:view == fileHistory && !gitlens:views:fileHistory:cursorFollowing && !config.gitlens.advanced.fileHistoryFollowsRenames",
+					"group": "3_gitlens@1"
+				},
+				{
+					"command": "gitlens.views.fileHistory.setShowMergeCommitsOff",
+					"when": "gitlens:views:scm:grouped:view == fileHistory && !gitlens:views:fileHistory:cursorFollowing && config.gitlens.advanced.fileHistoryShowMergeCommits",
+					"group": "3_gitlens@2"
+				},
+				{
+					"command": "gitlens.views.fileHistory.setShowMergeCommitsOn",
+					"when": "gitlens:views:scm:grouped:view == fileHistory && !gitlens:views:fileHistory:cursorFollowing && !config.gitlens.advanced.fileHistoryShowMergeCommits",
+					"group": "3_gitlens@2"
+				},
+				{
+					"command": "gitlens.views.fileHistory.setShowAllBranchesOff",
+					"when": "gitlens:views:scm:grouped:view == fileHistory && !gitlens:views:fileHistory:cursorFollowing && config.gitlens.advanced.fileHistoryShowAllBranches",
+					"group": "3_gitlens@3"
+				},
+				{
+					"command": "gitlens.views.fileHistory.setShowAllBranchesOn",
+					"when": "gitlens:views:scm:grouped:view == fileHistory && !gitlens:views:fileHistory:cursorFollowing && !config.gitlens.advanced.fileHistoryShowAllBranches",
+					"group": "3_gitlens@3"
+				},
+				{
+					"command": "gitlens.showLineHistoryView",
+					"when": "gitlens:views:scm:grouped:view == fileHistory && !gitlens:hasVirtualFolders",
+					"group": "8_gitlens_toggles@0"
+				},
+				{
+					"submenu": "gitlens/views/grouped/more",
+					"when": "gitlens:views:scm:grouped:view == fileHistory",
+					"group": "9_gitlens@1"
+				},
+				{
+					"command": "gitlens.views.scm.grouped.fileHistory.setAsDefault",
+					"when": "gitlens:views:scm:grouped:view == fileHistory && config.gitlens.views.scm.grouped.default != fileHistory",
+					"group": "9_gitlens@2"
+				},
+				{
+					"command": "gitlens.views.scm.grouped.fileHistory.detach",
+					"when": "gitlens:views:scm:grouped:view == fileHistory",
+					"group": "9_gitlens@3"
 				}
 			],
 			"gitlens/views/grouped/launchpad": [
@@ -15077,6 +15255,21 @@
 				{
 					"command": "gitlens.showSettingsPage!contributors-view",
 					"when": "gitlens:views:scm:grouped:view == contributors && view == gitlens.views.scm.grouped",
+					"group": "9_gitlens@1"
+				},
+				{
+					"command": "gitlens.views.fileHistory.setShowAvatarsOff",
+					"when": "gitlens:views:scm:grouped:view == fileHistory && config.gitlens.views.fileHistory.avatars",
+					"group": "5_gitlens@1"
+				},
+				{
+					"command": "gitlens.views.fileHistory.setShowAvatarsOn",
+					"when": "gitlens:views:scm:grouped:view == fileHistory && !config.gitlens.views.fileHistory.avatars",
+					"group": "5_gitlens@1"
+				},
+				{
+					"command": "gitlens.showSettingsPage!file-history-view",
+					"when": "gitlens:views:scm:grouped:view == fileHistory && view == gitlens.views.scm.grouped",
 					"group": "9_gitlens@1"
 				},
 				{
@@ -15635,6 +15828,16 @@
 					"command": "gitlens.views.scm.grouped.launchpad.visibility.show",
 					"when": "config.gitlens.views.scm.grouped.hiddenViews.launchpad",
 					"group": "2_gitlens@10"
+				},
+				{
+					"command": "gitlens.views.scm.grouped.fileHistory.visibility.hide",
+					"when": "!config.gitlens.views.scm.grouped.hiddenViews.fileHistory",
+					"group": "2_gitlens@11"
+				},
+				{
+					"command": "gitlens.views.scm.grouped.fileHistory.visibility.show",
+					"when": "config.gitlens.views.scm.grouped.hiddenViews.fileHistory",
+					"group": "2_gitlens@11"
 				}
 			],
 			"gitlens/views/grouped/worktrees": [
@@ -18090,6 +18293,11 @@
 					"group": "navigation@99"
 				},
 				{
+					"command": "gitlens.views.fileHistory.regroup",
+					"when": "view == gitlens.views.fileHistory",
+					"group": "navigation@99"
+				},
+				{
 					"command": "gitlens.views.fileHistory.changeBase",
 					"when": "view == gitlens.views.fileHistory",
 					"group": "1_gitlens@0"
@@ -18148,6 +18356,11 @@
 					"command": "gitlens.showLineHistoryView",
 					"when": "view == gitlens.views.fileHistory && !gitlens:hasVirtualFolders",
 					"group": "8_gitlens_toggles@0"
+				},
+				{
+					"command": "gitlens.views.fileHistory.regroup",
+					"when": "view == gitlens.views.fileHistory",
+					"group": "9_gitlens@0"
 				},
 				{
 					"command": "gitlens.showSettingsPage!file-history-view",
@@ -18630,6 +18843,17 @@
 					"group": "navigation@10"
 				},
 				{
+					"command": "gitlens.views.scm.grouped.fileHistory",
+					"when": "view == gitlens.views.scm.grouped && config.gitlens.views.scm.grouped.views.fileHistory && !config.gitlens.views.scm.grouped.hiddenViews.fileHistory && (gitlens:views:scm:grouped:view != fileHistory || gitlens:views:scm:grouped:welcome)",
+					"group": "navigation@11",
+					"alt": "gitlens.views.scm.grouped.fileHistory.detach"
+				},
+				{
+					"submenu": "gitlens/views/grouped/fileHistory",
+					"when": "view == gitlens.views.scm.grouped && gitlens:views:scm:grouped:view == fileHistory && !gitlens:views:scm:grouped:welcome && config.gitlens.views.scm.grouped.views.fileHistory",
+					"group": "navigation@11"
+				},
+				{
 					"command": "gitlens.views.scm.grouped.refresh",
 					"when": "view == gitlens.views.scm.grouped",
 					"group": "navigation@98"
@@ -18647,6 +18871,11 @@
 				{
 					"command": "gitlens.views.scm.grouped.contributors.detach",
 					"when": "view == gitlens.views.scm.grouped && gitlens:views:scm:grouped:view == contributors && config.gitlens.views.scm.grouped.views.contributors",
+					"group": "1_gitlens@-1"
+				},
+				{
+					"command": "gitlens.views.scm.grouped.fileHistory.detach",
+					"when": "view == gitlens.views.scm.grouped && gitlens:views:scm:grouped:view == fileHistory && config.gitlens.views.scm.grouped.views.fileHistory",
 					"group": "1_gitlens@-1"
 				},
 				{
@@ -18707,6 +18936,11 @@
 				{
 					"command": "gitlens.views.contributors.viewOptionsTitle",
 					"when": "view == gitlens.views.scm.grouped && gitlens:views:scm:grouped:view == contributors",
+					"group": "1_gitlens_1@1"
+				},
+				{
+					"command": "gitlens.views.fileHistory.viewOptionsTitle",
+					"when": "view == gitlens.views.scm.grouped && gitlens:views:scm:grouped:view == fileHistory",
 					"group": "1_gitlens_1@1"
 				},
 				{
@@ -18982,6 +19216,16 @@
 				{
 					"command": "gitlens.views.contributors.setShowAvatarsOn",
 					"when": "view == gitlens.views.scm.grouped && gitlens:views:scm:grouped:view == contributors && !config.gitlens.views.contributors.avatars",
+					"group": "5_gitlens@1"
+				},
+				{
+					"command": "gitlens.views.fileHistory.setShowAvatarsOff",
+					"when": "view == gitlens.views.scm.grouped && gitlens:views:scm:grouped:view == fileHistory && config.gitlens.views.fileHistory.avatars",
+					"group": "5_gitlens@1"
+				},
+				{
+					"command": "gitlens.views.fileHistory.setShowAvatarsOn",
+					"when": "view == gitlens.views.scm.grouped && gitlens:views:scm:grouped:view == fileHistory && !config.gitlens.views.fileHistory.avatars",
 					"group": "5_gitlens@1"
 				},
 				{
@@ -19267,6 +19511,11 @@
 				{
 					"command": "gitlens.showSettingsPage!contributors-view",
 					"when": "view == gitlens.views.scm.grouped && gitlens:views:scm:grouped:view == contributors",
+					"group": "9_gitlens@1"
+				},
+				{
+					"command": "gitlens.showSettingsPage!file-history-view",
+					"when": "view == gitlens.views.scm.grouped && gitlens:views:scm:grouped:view == fileHistory",
 					"group": "9_gitlens@1"
 				},
 				{
@@ -20231,6 +20480,11 @@
 				"label": "Detach / Regroup Views"
 			},
 			{
+				"id": "gitlens/views/grouped/fileHistory",
+				"label": "File History",
+				"icon": "$(gitlens-history-view-filled)"
+			},
+			{
 				"id": "gitlens/views/grouped/launchpad",
 				"label": "Launchpad",
 				"icon": "$(gitlens-launchpad-view-filled)"
@@ -20528,6 +20782,11 @@
 				"command": "gitlens.views.scm.grouped.contributors",
 				"key": "7",
 				"when": "focusedView == gitlens.views.scm.grouped && config.gitlens.views.scm.grouped.views.contributors"
+			},
+			{
+				"command": "gitlens.views.scm.grouped.fileHistory",
+				"key": "11",
+				"when": "focusedView == gitlens.views.scm.grouped && config.gitlens.views.scm.grouped.views.fileHistory"
 			},
 			{
 				"command": "gitlens.views.scm.grouped.launchpad",
@@ -21039,7 +21298,7 @@
 				{
 					"id": "gitlens.views.fileHistory",
 					"name": "File History",
-					"when": "!gitlens:disabled",
+					"when": "!gitlens:disabled && !(config.gitlens.views.scm.grouped.views.fileHistory || gitlens:views:scm:grouped:views:fileHistory)",
 					"contextualTitle": "GitLens",
 					"icon": "$(gitlens-history-view)",
 					"initialSize": 2,

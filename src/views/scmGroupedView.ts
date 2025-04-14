@@ -5,6 +5,7 @@ import { first } from '../system/iterable';
 import { BranchesView } from './branchesView';
 import { CommitsView } from './commitsView';
 import { ContributorsView } from './contributorsView';
+import { FileHistoryView } from './fileHistoryView';
 import { LaunchpadView } from './launchpadView';
 import { RemotesView } from './remotesView';
 import { RepositoriesView } from './repositoriesView';
@@ -59,6 +60,8 @@ export class ScmGroupedView implements Disposable {
 				return new CommitsView(this.container, true);
 			case 'contributors':
 				return new ContributorsView(this.container, true);
+			case 'fileHistory':
+				return new FileHistoryView(this.container, true);
 			case 'launchpad':
 				return new LaunchpadView(this.container, true);
 			case 'remotes':
