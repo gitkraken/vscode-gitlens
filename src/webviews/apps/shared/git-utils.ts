@@ -95,7 +95,7 @@ export function getReferenceLabel(
 			if (isStashReference(ref)) {
 				let message;
 				if (options.expand && ref.message) {
-					message = `${ref.number != null ? `#${ref.number}: ` : ''}${
+					message = `${ref.stashNumber != null ? `#${ref.stashNumber}: ` : ''}${
 						ref.message.length > 20
 							? `${ref.message.substring(0, 20).trimEnd()}${GlyphChars.Ellipsis}`
 							: ref.message
@@ -105,7 +105,7 @@ export function getReferenceLabel(
 				result = `${options.label ? 'stash ' : ''}${
 					options.icon
 						? `$(archive)${GlyphChars.Space}${message ?? ref.name}`
-						: message ?? (ref.number ? `#${ref.number}` : ref.name)
+						: message ?? (ref.stashNumber ? `#${ref.stashNumber}` : ref.name)
 				}`;
 			} else if (isRevisionRange(ref.ref)) {
 				result = refName;

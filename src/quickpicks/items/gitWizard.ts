@@ -214,7 +214,7 @@ export function createStashQuickPickItem(
 	picked?: boolean,
 	options?: { alwaysShow?: boolean; buttons?: QuickInputButton[]; compact?: boolean; icon?: boolean },
 ): CommitQuickPickItem<GitStashCommit> {
-	const number = stash.number == null ? '' : `${stash.number}: `;
+	const number = stash.stashNumber == null ? '' : `${stash.stashNumber}: `;
 
 	if (options?.compact) {
 		const item: CommitQuickPickItem<GitStashCommit> = {

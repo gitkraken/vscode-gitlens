@@ -348,7 +348,7 @@ export class StashGitCommand extends QuickCommand<State> {
 			try {
 				await state.repo.git.stash()?.applyStash(
 					// pop can only take a stash index, e.g. `stash@{1}`
-					state.subcommand === 'pop' ? `stash@{${state.reference.number}}` : state.reference.ref,
+					state.subcommand === 'pop' ? `stash@{${state.reference.stashNumber}}` : state.reference.ref,
 					{ deleteAfter: state.subcommand === 'pop' },
 				);
 
@@ -449,16 +449,16 @@ export class StashGitCommand extends QuickCommand<State> {
 
 			endSteps(state);
 
-			state.references.sort((a, b) => parseInt(b.number, 10) - parseInt(a.number, 10));
+			state.references.sort((a, b) => parseInt(b.stashNumber, 10) - parseInt(a.stashNumber, 10));
 			for (const ref of state.references) {
 				try {
 					// drop can only take a stash index, e.g. `stash@{1}`
-					await state.repo.git.stash()?.deleteStash(`stash@{${ref.number}}`, ref.ref);
+					await state.repo.git.stash()?.deleteStash(`stash@{${ref.stashNumber}}`, ref.ref);
 				} catch (ex) {
 					Logger.error(ex, context.title);
 
 					void showGenericErrorMessage(
-						`Unable to delete stash@{${ref.number}}${ref.message ? `: ${ref.message}` : ''}`,
+						`Unable to delete stash@{${ref.stashNumber}}${ref.message ? `: ${ref.message}` : ''}`,
 					);
 				}
 			}

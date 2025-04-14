@@ -23,7 +23,7 @@ export function getReferenceFromRevision(
 		return createReference(revision.ref, revision.repoPath, {
 			refType: revision.refType,
 			name: revision.name,
-			number: revision.number,
+			number: revision.stashNumber,
 			message: options?.excludeMessage ? undefined : revision.message,
 		});
 	}

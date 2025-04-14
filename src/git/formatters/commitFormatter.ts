@@ -661,7 +661,7 @@ export class CommitFormatter extends Formatter<GitCommit, CommitFormatOptions> {
 		if (isStash(this._item)) {
 			icon = 'archive';
 			label = this._padOrTruncate(
-				`Stash${this._item.number ? ` #${this._item.number}` : ''}`,
+				`Stash${this._item.stashNumber ? ` #${this._item.stashNumber}` : ''}`,
 				this._options.tokenOptions.link,
 			);
 		} else {
@@ -856,7 +856,7 @@ export class CommitFormatter extends Formatter<GitCommit, CommitFormatOptions> {
 	}
 
 	get stashNumber(): string {
-		return this._padOrTruncate(this._item.number ?? '', this._options.tokenOptions.stashNumber);
+		return this._padOrTruncate(this._item.stashNumber ?? '', this._options.tokenOptions.stashNumber);
 	}
 
 	get stashOnRef(): string {
