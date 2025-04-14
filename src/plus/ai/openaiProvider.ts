@@ -6,6 +6,45 @@ import { OpenAICompatibleProvider } from './openAICompatibleProvider';
 type OpenAIModel = AIModel<typeof provider.id>;
 const models: OpenAIModel[] = [
 	{
+		id: 'gpt-4.1',
+		name: 'GPT-4.1',
+		maxTokens: { input: 1047576, output: 32768 },
+		provider: provider,
+	},
+	{
+		id: 'gpt-4.1-2025-04-14',
+		name: 'GPT-4.1 (2025-04-14)',
+		maxTokens: { input: 1047576, output: 32768 },
+		provider: provider,
+		hidden: true,
+	},
+	{
+		id: 'gpt-4.1-mini',
+		name: 'GPT-4.1 mini',
+		maxTokens: { input: 1047576, output: 32768 },
+		provider: provider,
+	},
+	{
+		id: 'gpt-4.1-mini-2025-04-14',
+		name: 'GPT-4.1 mini (2025-04-14)',
+		maxTokens: { input: 1047576, output: 32768 },
+		provider: provider,
+		hidden: true,
+	},
+	{
+		id: 'gpt-4.1-nano',
+		name: 'GPT-4.1 nano',
+		maxTokens: { input: 1047576, output: 32768 },
+		provider: provider,
+	},
+	{
+		id: 'gpt-4.1-nano-2025-04-14',
+		name: 'GPT-4.1 nano (2025-04-14)',
+		maxTokens: { input: 1047576, output: 32768 },
+		provider: provider,
+		hidden: true,
+	},
+	{
 		id: 'o3-mini',
 		name: 'o3 mini',
 		maxTokens: { input: 200000, output: 100000 },
