@@ -7841,6 +7841,11 @@
 				"enablement": "!operationInProgress"
 			},
 			{
+				"command": "gitlens.views.branches.attach",
+				"title": "Group into GitLens View",
+				"icon": "$(close)"
+			},
+			{
 				"command": "gitlens.views.branches.copy",
 				"title": "Copy"
 			},
@@ -7848,11 +7853,6 @@
 				"command": "gitlens.views.branches.refresh",
 				"title": "Refresh",
 				"icon": "$(refresh)"
-			},
-			{
-				"command": "gitlens.views.branches.regroup",
-				"title": "Regroup with GitLens View",
-				"icon": "$(close)"
 			},
 			{
 				"command": "gitlens.views.branches.setFilesLayoutToAuto",
@@ -7977,6 +7977,11 @@
 				"icon": "$(refresh)"
 			},
 			{
+				"command": "gitlens.views.commits.attach",
+				"title": "Group into GitLens View",
+				"icon": "$(close)"
+			},
+			{
 				"command": "gitlens.views.commits.copy",
 				"title": "Copy"
 			},
@@ -7984,11 +7989,6 @@
 				"command": "gitlens.views.commits.refresh",
 				"title": "Refresh",
 				"icon": "$(refresh)"
-			},
-			{
-				"command": "gitlens.views.commits.regroup",
-				"title": "Regroup with GitLens View",
-				"icon": "$(close)"
 			},
 			{
 				"command": "gitlens.views.commits.setCommitsFilterAuthors",
@@ -8101,6 +8101,11 @@
 				"icon": "$(debug-continue)"
 			},
 			{
+				"command": "gitlens.views.contributors.attach",
+				"title": "Group into GitLens View",
+				"icon": "$(close)"
+			},
+			{
 				"command": "gitlens.views.contributors.copy",
 				"title": "Copy"
 			},
@@ -8108,11 +8113,6 @@
 				"command": "gitlens.views.contributors.refresh",
 				"title": "Refresh",
 				"icon": "$(refresh)"
-			},
-			{
-				"command": "gitlens.views.contributors.regroup",
-				"title": "Regroup with GitLens View",
-				"icon": "$(close)"
 			},
 			{
 				"command": "gitlens.views.contributors.setFilesLayoutToAuto",
@@ -8318,6 +8318,11 @@
 				"enablement": "!operationInProgress"
 			},
 			{
+				"command": "gitlens.views.fileHistory.attach",
+				"title": "Group into GitLens View",
+				"icon": "$(close)"
+			},
+			{
 				"command": "gitlens.views.fileHistory.changeBase",
 				"title": "Change Base...",
 				"icon": "$(history)"
@@ -8330,11 +8335,6 @@
 				"command": "gitlens.views.fileHistory.refresh",
 				"title": "Refresh",
 				"icon": "$(refresh)"
-			},
-			{
-				"command": "gitlens.views.fileHistory.regroup",
-				"title": "Regroup with GitLens View",
-				"icon": "$(close)"
 			},
 			{
 				"command": "gitlens.views.fileHistory.setCursorFollowingOff",
@@ -8464,6 +8464,11 @@
 				"icon": "$(megaphone)"
 			},
 			{
+				"command": "gitlens.views.launchpad.attach",
+				"title": "Group into GitLens View",
+				"icon": "$(close)"
+			},
+			{
 				"command": "gitlens.views.launchpad.copy",
 				"title": "Copy"
 			},
@@ -8476,11 +8481,6 @@
 				"command": "gitlens.views.launchpad.refresh",
 				"title": "Refresh",
 				"icon": "$(refresh)"
-			},
-			{
-				"command": "gitlens.views.launchpad.regroup",
-				"title": "Regroup with GitLens View",
-				"icon": "$(close)"
 			},
 			{
 				"command": "gitlens.views.launchpad.setFilesLayoutToAuto",
@@ -8818,6 +8818,11 @@
 				"icon": "$(refresh)"
 			},
 			{
+				"command": "gitlens.views.remotes.attach",
+				"title": "Group into GitLens View",
+				"icon": "$(close)"
+			},
+			{
 				"command": "gitlens.views.remotes.copy",
 				"title": "Copy"
 			},
@@ -8825,11 +8830,6 @@
 				"command": "gitlens.views.remotes.refresh",
 				"title": "Refresh",
 				"icon": "$(refresh)"
-			},
-			{
-				"command": "gitlens.views.remotes.regroup",
-				"title": "Regroup with GitLens View",
-				"icon": "$(close)"
 			},
 			{
 				"command": "gitlens.views.remotes.setFilesLayoutToAuto",
@@ -8888,6 +8888,11 @@
 				"enablement": "!operationInProgress"
 			},
 			{
+				"command": "gitlens.views.repositories.attach",
+				"title": "Group into GitLens View",
+				"icon": "$(close)"
+			},
+			{
 				"command": "gitlens.views.repositories.copy",
 				"title": "Copy"
 			},
@@ -8895,11 +8900,6 @@
 				"command": "gitlens.views.repositories.refresh",
 				"title": "Refresh",
 				"icon": "$(refresh)"
-			},
-			{
-				"command": "gitlens.views.repositories.regroup",
-				"title": "Regroup with GitLens View",
-				"icon": "$(close)"
 			},
 			{
 				"command": "gitlens.views.repositories.setAutoRefreshToOff",
@@ -9065,20 +9065,25 @@
 				"enablement": "!operationInProgress"
 			},
 			{
+				"command": "gitlens.views.scm.grouped.attachAll",
+				"title": "Group All Views",
+				"enablement": "!gitlens:views:scm:grouped:welcome"
+			},
+			{
 				"command": "gitlens.views.scm.grouped.branches",
 				"title": "Branches",
 				"icon": "$(gitlens-branches-view)",
 				"enablement": "!gitlens:views:scm:grouped:welcome"
 			},
 			{
+				"command": "gitlens.views.scm.grouped.branches.attach",
+				"title": "Group Branches View",
+				"enablement": "!gitlens:views:scm:grouped:welcome"
+			},
+			{
 				"command": "gitlens.views.scm.grouped.branches.detach",
 				"title": "Detach Branches View",
 				"icon": "$(gitlens-branches-view)"
-			},
-			{
-				"command": "gitlens.views.scm.grouped.branches.regroup",
-				"title": "Regroup Branches View",
-				"enablement": "!gitlens:views:scm:grouped:welcome"
 			},
 			{
 				"command": "gitlens.views.scm.grouped.branches.setAsDefault",
@@ -9099,14 +9104,14 @@
 				"enablement": "!gitlens:views:scm:grouped:welcome"
 			},
 			{
+				"command": "gitlens.views.scm.grouped.commits.attach",
+				"title": "Group Commits View",
+				"enablement": "!gitlens:views:scm:grouped:welcome"
+			},
+			{
 				"command": "gitlens.views.scm.grouped.commits.detach",
 				"title": "Detach Commits View",
 				"icon": "$(gitlens-commits-view)"
-			},
-			{
-				"command": "gitlens.views.scm.grouped.commits.regroup",
-				"title": "Regroup Commits View",
-				"enablement": "!gitlens:views:scm:grouped:welcome"
 			},
 			{
 				"command": "gitlens.views.scm.grouped.commits.setAsDefault",
@@ -9127,14 +9132,14 @@
 				"enablement": "!gitlens:views:scm:grouped:welcome"
 			},
 			{
+				"command": "gitlens.views.scm.grouped.contributors.attach",
+				"title": "Group Contributors View",
+				"enablement": "!gitlens:views:scm:grouped:welcome"
+			},
+			{
 				"command": "gitlens.views.scm.grouped.contributors.detach",
 				"title": "Detach Contributors View",
 				"icon": "$(gitlens-contributors-view)"
-			},
-			{
-				"command": "gitlens.views.scm.grouped.contributors.regroup",
-				"title": "Regroup Contributors View",
-				"enablement": "!gitlens:views:scm:grouped:welcome"
 			},
 			{
 				"command": "gitlens.views.scm.grouped.contributors.setAsDefault",
@@ -9160,14 +9165,14 @@
 				"enablement": "!gitlens:views:scm:grouped:welcome"
 			},
 			{
+				"command": "gitlens.views.scm.grouped.fileHistory.attach",
+				"title": "Group File History View",
+				"enablement": "!gitlens:views:scm:grouped:welcome"
+			},
+			{
 				"command": "gitlens.views.scm.grouped.fileHistory.detach",
 				"title": "Detach File History View",
 				"icon": "$(gitlens-history-view)"
-			},
-			{
-				"command": "gitlens.views.scm.grouped.fileHistory.regroup",
-				"title": "Regroup File History View",
-				"enablement": "!gitlens:views:scm:grouped:welcome"
 			},
 			{
 				"command": "gitlens.views.scm.grouped.fileHistory.setAsDefault",
@@ -9188,14 +9193,14 @@
 				"enablement": "!gitlens:views:scm:grouped:welcome"
 			},
 			{
+				"command": "gitlens.views.scm.grouped.launchpad.attach",
+				"title": "Group Launchpad View",
+				"enablement": "!gitlens:views:scm:grouped:welcome"
+			},
+			{
 				"command": "gitlens.views.scm.grouped.launchpad.detach",
 				"title": "Detach Launchpad View",
 				"icon": "$(gitlens-launchpad-view)"
-			},
-			{
-				"command": "gitlens.views.scm.grouped.launchpad.regroup",
-				"title": "Regroup Launchpad View",
-				"enablement": "!gitlens:views:scm:grouped:welcome"
 			},
 			{
 				"command": "gitlens.views.scm.grouped.launchpad.setAsDefault",
@@ -9216,25 +9221,20 @@
 				"enablement": "!gitlens:views:scm:grouped:welcome"
 			},
 			{
-				"command": "gitlens.views.scm.grouped.regroupAll",
-				"title": "Regroup All Views",
-				"enablement": "!gitlens:views:scm:grouped:welcome"
-			},
-			{
 				"command": "gitlens.views.scm.grouped.remotes",
 				"title": "Remotes",
 				"icon": "$(gitlens-remotes-view)",
 				"enablement": "!gitlens:views:scm:grouped:welcome"
 			},
 			{
+				"command": "gitlens.views.scm.grouped.remotes.attach",
+				"title": "Group Remotes View",
+				"enablement": "!gitlens:views:scm:grouped:welcome"
+			},
+			{
 				"command": "gitlens.views.scm.grouped.remotes.detach",
 				"title": "Detach Remotes View",
 				"icon": "$(gitlens-remotes-view)"
-			},
-			{
-				"command": "gitlens.views.scm.grouped.remotes.regroup",
-				"title": "Regroup Remotes View",
-				"enablement": "!gitlens:views:scm:grouped:welcome"
 			},
 			{
 				"command": "gitlens.views.scm.grouped.remotes.setAsDefault",
@@ -9255,14 +9255,14 @@
 				"enablement": "!gitlens:views:scm:grouped:welcome"
 			},
 			{
+				"command": "gitlens.views.scm.grouped.repositories.attach",
+				"title": "Group Repositories View",
+				"enablement": "!gitlens:views:scm:grouped:welcome"
+			},
+			{
 				"command": "gitlens.views.scm.grouped.repositories.detach",
 				"title": "Detach Repositories View",
 				"icon": "$(gitlens-repositories-view)"
-			},
-			{
-				"command": "gitlens.views.scm.grouped.repositories.regroup",
-				"title": "Regroup Repositories View",
-				"enablement": "!gitlens:views:scm:grouped:welcome"
 			},
 			{
 				"command": "gitlens.views.scm.grouped.repositories.setAsDefault",
@@ -9283,14 +9283,14 @@
 				"enablement": "!gitlens:views:scm:grouped:welcome"
 			},
 			{
+				"command": "gitlens.views.scm.grouped.searchAndCompare.attach",
+				"title": "Group Search & Compare View",
+				"enablement": "!gitlens:views:scm:grouped:welcome"
+			},
+			{
 				"command": "gitlens.views.scm.grouped.searchAndCompare.detach",
 				"title": "Detach Search & Compare View",
 				"icon": "$(gitlens-search-view)"
-			},
-			{
-				"command": "gitlens.views.scm.grouped.searchAndCompare.regroup",
-				"title": "Regroup Search & Compare View",
-				"enablement": "!gitlens:views:scm:grouped:welcome"
 			},
 			{
 				"command": "gitlens.views.scm.grouped.searchAndCompare.setAsDefault",
@@ -9311,14 +9311,14 @@
 				"enablement": "!gitlens:views:scm:grouped:welcome"
 			},
 			{
+				"command": "gitlens.views.scm.grouped.stashes.attach",
+				"title": "Group Stashes View",
+				"enablement": "!gitlens:views:scm:grouped:welcome"
+			},
+			{
 				"command": "gitlens.views.scm.grouped.stashes.detach",
 				"title": "Detach Stashes View",
 				"icon": "$(gitlens-stashes-view)"
-			},
-			{
-				"command": "gitlens.views.scm.grouped.stashes.regroup",
-				"title": "Regroup Stashes View",
-				"enablement": "!gitlens:views:scm:grouped:welcome"
 			},
 			{
 				"command": "gitlens.views.scm.grouped.stashes.setAsDefault",
@@ -9339,14 +9339,14 @@
 				"enablement": "!gitlens:views:scm:grouped:welcome"
 			},
 			{
+				"command": "gitlens.views.scm.grouped.tags.attach",
+				"title": "Group Tags View",
+				"enablement": "!gitlens:views:scm:grouped:welcome"
+			},
+			{
 				"command": "gitlens.views.scm.grouped.tags.detach",
 				"title": "Detach Tags View",
 				"icon": "$(gitlens-tags-view)"
-			},
-			{
-				"command": "gitlens.views.scm.grouped.tags.regroup",
-				"title": "Regroup Tags View",
-				"enablement": "!gitlens:views:scm:grouped:welcome"
 			},
 			{
 				"command": "gitlens.views.scm.grouped.tags.setAsDefault",
@@ -9367,14 +9367,14 @@
 				"enablement": "!gitlens:views:scm:grouped:welcome"
 			},
 			{
+				"command": "gitlens.views.scm.grouped.worktrees.attach",
+				"title": "Group Worktrees View",
+				"enablement": "!gitlens:views:scm:grouped:welcome"
+			},
+			{
 				"command": "gitlens.views.scm.grouped.worktrees.detach",
 				"title": "Detach Worktrees View",
 				"icon": "$(gitlens-worktrees-view)"
-			},
-			{
-				"command": "gitlens.views.scm.grouped.worktrees.regroup",
-				"title": "Regroup Worktrees View",
-				"enablement": "!gitlens:views:scm:grouped:welcome"
 			},
 			{
 				"command": "gitlens.views.scm.grouped.worktrees.setAsDefault",
@@ -9389,6 +9389,11 @@
 				"title": "Show Worktrees View"
 			},
 			{
+				"command": "gitlens.views.searchAndCompare.attach",
+				"title": "Group into GitLens View",
+				"icon": "$(close)"
+			},
+			{
 				"command": "gitlens.views.searchAndCompare.clear",
 				"title": "Clear Results",
 				"icon": "$(clear-all)"
@@ -9401,11 +9406,6 @@
 				"command": "gitlens.views.searchAndCompare.refresh",
 				"title": "Refresh",
 				"icon": "$(refresh)"
-			},
-			{
-				"command": "gitlens.views.searchAndCompare.regroup",
-				"title": "Regroup with GitLens View",
-				"icon": "$(close)"
 			},
 			{
 				"command": "gitlens.views.searchAndCompare.searchCommits",
@@ -9567,6 +9567,11 @@
 				"enablement": "!operationInProgress"
 			},
 			{
+				"command": "gitlens.views.stashes.attach",
+				"title": "Group into GitLens View",
+				"icon": "$(close)"
+			},
+			{
 				"command": "gitlens.views.stashes.copy",
 				"title": "Copy"
 			},
@@ -9574,11 +9579,6 @@
 				"command": "gitlens.views.stashes.refresh",
 				"title": "Refresh",
 				"icon": "$(refresh)"
-			},
-			{
-				"command": "gitlens.views.stashes.regroup",
-				"title": "Regroup with GitLens View",
-				"icon": "$(close)"
 			},
 			{
 				"command": "gitlens.views.stashes.setFilesLayoutToAuto",
@@ -9625,6 +9625,11 @@
 				"enablement": "!operationInProgress"
 			},
 			{
+				"command": "gitlens.views.tags.attach",
+				"title": "Group into GitLens View",
+				"icon": "$(close)"
+			},
+			{
 				"command": "gitlens.views.tags.copy",
 				"title": "Copy"
 			},
@@ -9632,11 +9637,6 @@
 				"command": "gitlens.views.tags.refresh",
 				"title": "Refresh",
 				"icon": "$(refresh)"
-			},
-			{
-				"command": "gitlens.views.tags.regroup",
-				"title": "Regroup with GitLens View",
-				"icon": "$(close)"
 			},
 			{
 				"command": "gitlens.views.tags.setFilesLayoutToAuto",
@@ -9819,6 +9819,11 @@
 				"icon": "$(trash)"
 			},
 			{
+				"command": "gitlens.views.worktrees.attach",
+				"title": "Group into GitLens View",
+				"icon": "$(close)"
+			},
+			{
 				"command": "gitlens.views.worktrees.copy",
 				"title": "Copy"
 			},
@@ -9826,11 +9831,6 @@
 				"command": "gitlens.views.worktrees.refresh",
 				"title": "Refresh",
 				"icon": "$(refresh)"
-			},
-			{
-				"command": "gitlens.views.worktrees.regroup",
-				"title": "Regroup with GitLens View",
-				"icon": "$(close)"
 			},
 			{
 				"command": "gitlens.views.worktrees.setFilesLayoutToAuto",
@@ -11702,15 +11702,15 @@
 					"when": "false"
 				},
 				{
+					"command": "gitlens.views.branches.attach",
+					"when": "false"
+				},
+				{
 					"command": "gitlens.views.branches.copy",
 					"when": "false"
 				},
 				{
 					"command": "gitlens.views.branches.refresh",
-					"when": "false"
-				},
-				{
-					"command": "gitlens.views.branches.regroup",
 					"when": "false"
 				},
 				{
@@ -11822,15 +11822,15 @@
 					"when": "false"
 				},
 				{
+					"command": "gitlens.views.commits.attach",
+					"when": "false"
+				},
+				{
 					"command": "gitlens.views.commits.copy",
 					"when": "false"
 				},
 				{
 					"command": "gitlens.views.commits.refresh",
-					"when": "false"
-				},
-				{
-					"command": "gitlens.views.commits.regroup",
 					"when": "false"
 				},
 				{
@@ -11934,15 +11934,15 @@
 					"when": "false"
 				},
 				{
+					"command": "gitlens.views.contributors.attach",
+					"when": "false"
+				},
+				{
 					"command": "gitlens.views.contributors.copy",
 					"when": "false"
 				},
 				{
 					"command": "gitlens.views.contributors.refresh",
-					"when": "false"
-				},
-				{
-					"command": "gitlens.views.contributors.regroup",
 					"when": "false"
 				},
 				{
@@ -12110,6 +12110,10 @@
 					"when": "false"
 				},
 				{
+					"command": "gitlens.views.fileHistory.attach",
+					"when": "false"
+				},
+				{
 					"command": "gitlens.views.fileHistory.changeBase",
 					"when": "false"
 				},
@@ -12119,10 +12123,6 @@
 				},
 				{
 					"command": "gitlens.views.fileHistory.refresh",
-					"when": "false"
-				},
-				{
-					"command": "gitlens.views.fileHistory.regroup",
 					"when": "false"
 				},
 				{
@@ -12234,6 +12234,10 @@
 					"when": "false"
 				},
 				{
+					"command": "gitlens.views.launchpad.attach",
+					"when": "false"
+				},
+				{
 					"command": "gitlens.views.launchpad.copy",
 					"when": "false"
 				},
@@ -12243,10 +12247,6 @@
 				},
 				{
 					"command": "gitlens.views.launchpad.refresh",
-					"when": "false"
-				},
-				{
-					"command": "gitlens.views.launchpad.regroup",
 					"when": "false"
 				},
 				{
@@ -12530,15 +12530,15 @@
 					"when": "false"
 				},
 				{
+					"command": "gitlens.views.remotes.attach",
+					"when": "false"
+				},
+				{
 					"command": "gitlens.views.remotes.copy",
 					"when": "false"
 				},
 				{
 					"command": "gitlens.views.remotes.refresh",
-					"when": "false"
-				},
-				{
-					"command": "gitlens.views.remotes.regroup",
 					"when": "false"
 				},
 				{
@@ -12590,15 +12590,15 @@
 					"when": "false"
 				},
 				{
+					"command": "gitlens.views.repositories.attach",
+					"when": "false"
+				},
+				{
 					"command": "gitlens.views.repositories.copy",
 					"when": "false"
 				},
 				{
 					"command": "gitlens.views.repositories.refresh",
-					"when": "false"
-				},
-				{
-					"command": "gitlens.views.repositories.regroup",
 					"when": "false"
 				},
 				{
@@ -12754,15 +12754,19 @@
 					"when": "false"
 				},
 				{
+					"command": "gitlens.views.scm.grouped.attachAll",
+					"when": "false"
+				},
+				{
 					"command": "gitlens.views.scm.grouped.branches",
 					"when": "false"
 				},
 				{
-					"command": "gitlens.views.scm.grouped.branches.detach",
+					"command": "gitlens.views.scm.grouped.branches.attach",
 					"when": "false"
 				},
 				{
-					"command": "gitlens.views.scm.grouped.branches.regroup",
+					"command": "gitlens.views.scm.grouped.branches.detach",
 					"when": "false"
 				},
 				{
@@ -12782,11 +12786,11 @@
 					"when": "false"
 				},
 				{
-					"command": "gitlens.views.scm.grouped.commits.detach",
+					"command": "gitlens.views.scm.grouped.commits.attach",
 					"when": "false"
 				},
 				{
-					"command": "gitlens.views.scm.grouped.commits.regroup",
+					"command": "gitlens.views.scm.grouped.commits.detach",
 					"when": "false"
 				},
 				{
@@ -12806,11 +12810,11 @@
 					"when": "false"
 				},
 				{
-					"command": "gitlens.views.scm.grouped.contributors.detach",
+					"command": "gitlens.views.scm.grouped.contributors.attach",
 					"when": "false"
 				},
 				{
-					"command": "gitlens.views.scm.grouped.contributors.regroup",
+					"command": "gitlens.views.scm.grouped.contributors.detach",
 					"when": "false"
 				},
 				{
@@ -12834,11 +12838,11 @@
 					"when": "false"
 				},
 				{
-					"command": "gitlens.views.scm.grouped.fileHistory.detach",
+					"command": "gitlens.views.scm.grouped.fileHistory.attach",
 					"when": "false"
 				},
 				{
-					"command": "gitlens.views.scm.grouped.fileHistory.regroup",
+					"command": "gitlens.views.scm.grouped.fileHistory.detach",
 					"when": "false"
 				},
 				{
@@ -12858,11 +12862,11 @@
 					"when": "false"
 				},
 				{
-					"command": "gitlens.views.scm.grouped.launchpad.detach",
+					"command": "gitlens.views.scm.grouped.launchpad.attach",
 					"when": "false"
 				},
 				{
-					"command": "gitlens.views.scm.grouped.launchpad.regroup",
+					"command": "gitlens.views.scm.grouped.launchpad.detach",
 					"when": "false"
 				},
 				{
@@ -12882,19 +12886,15 @@
 					"when": "false"
 				},
 				{
-					"command": "gitlens.views.scm.grouped.regroupAll",
-					"when": "false"
-				},
-				{
 					"command": "gitlens.views.scm.grouped.remotes",
 					"when": "false"
 				},
 				{
-					"command": "gitlens.views.scm.grouped.remotes.detach",
+					"command": "gitlens.views.scm.grouped.remotes.attach",
 					"when": "false"
 				},
 				{
-					"command": "gitlens.views.scm.grouped.remotes.regroup",
+					"command": "gitlens.views.scm.grouped.remotes.detach",
 					"when": "false"
 				},
 				{
@@ -12914,11 +12914,11 @@
 					"when": "false"
 				},
 				{
-					"command": "gitlens.views.scm.grouped.repositories.detach",
+					"command": "gitlens.views.scm.grouped.repositories.attach",
 					"when": "false"
 				},
 				{
-					"command": "gitlens.views.scm.grouped.repositories.regroup",
+					"command": "gitlens.views.scm.grouped.repositories.detach",
 					"when": "false"
 				},
 				{
@@ -12938,11 +12938,11 @@
 					"when": "false"
 				},
 				{
-					"command": "gitlens.views.scm.grouped.searchAndCompare.detach",
+					"command": "gitlens.views.scm.grouped.searchAndCompare.attach",
 					"when": "false"
 				},
 				{
-					"command": "gitlens.views.scm.grouped.searchAndCompare.regroup",
+					"command": "gitlens.views.scm.grouped.searchAndCompare.detach",
 					"when": "false"
 				},
 				{
@@ -12962,11 +12962,11 @@
 					"when": "false"
 				},
 				{
-					"command": "gitlens.views.scm.grouped.stashes.detach",
+					"command": "gitlens.views.scm.grouped.stashes.attach",
 					"when": "false"
 				},
 				{
-					"command": "gitlens.views.scm.grouped.stashes.regroup",
+					"command": "gitlens.views.scm.grouped.stashes.detach",
 					"when": "false"
 				},
 				{
@@ -12986,11 +12986,11 @@
 					"when": "false"
 				},
 				{
-					"command": "gitlens.views.scm.grouped.tags.detach",
+					"command": "gitlens.views.scm.grouped.tags.attach",
 					"when": "false"
 				},
 				{
-					"command": "gitlens.views.scm.grouped.tags.regroup",
+					"command": "gitlens.views.scm.grouped.tags.detach",
 					"when": "false"
 				},
 				{
@@ -13010,11 +13010,11 @@
 					"when": "false"
 				},
 				{
-					"command": "gitlens.views.scm.grouped.worktrees.detach",
+					"command": "gitlens.views.scm.grouped.worktrees.attach",
 					"when": "false"
 				},
 				{
-					"command": "gitlens.views.scm.grouped.worktrees.regroup",
+					"command": "gitlens.views.scm.grouped.worktrees.detach",
 					"when": "false"
 				},
 				{
@@ -13030,6 +13030,10 @@
 					"when": "false"
 				},
 				{
+					"command": "gitlens.views.searchAndCompare.attach",
+					"when": "false"
+				},
+				{
 					"command": "gitlens.views.searchAndCompare.clear",
 					"when": "false"
 				},
@@ -13039,10 +13043,6 @@
 				},
 				{
 					"command": "gitlens.views.searchAndCompare.refresh",
-					"when": "false"
-				},
-				{
-					"command": "gitlens.views.searchAndCompare.regroup",
 					"when": "false"
 				},
 				{
@@ -13174,15 +13174,15 @@
 					"when": "false"
 				},
 				{
+					"command": "gitlens.views.stashes.attach",
+					"when": "false"
+				},
+				{
 					"command": "gitlens.views.stashes.copy",
 					"when": "false"
 				},
 				{
 					"command": "gitlens.views.stashes.refresh",
-					"when": "false"
-				},
-				{
-					"command": "gitlens.views.stashes.regroup",
 					"when": "false"
 				},
 				{
@@ -13218,15 +13218,15 @@
 					"when": "false"
 				},
 				{
+					"command": "gitlens.views.tags.attach",
+					"when": "false"
+				},
+				{
 					"command": "gitlens.views.tags.copy",
 					"when": "false"
 				},
 				{
 					"command": "gitlens.views.tags.refresh",
-					"when": "false"
-				},
-				{
-					"command": "gitlens.views.tags.regroup",
 					"when": "false"
 				},
 				{
@@ -13374,15 +13374,15 @@
 					"when": "false"
 				},
 				{
+					"command": "gitlens.views.worktrees.attach",
+					"when": "false"
+				},
+				{
 					"command": "gitlens.views.worktrees.copy",
 					"when": "false"
 				},
 				{
 					"command": "gitlens.views.worktrees.refresh",
-					"when": "false"
-				},
-				{
-					"command": "gitlens.views.worktrees.regroup",
 					"when": "false"
 				},
 				{
@@ -14694,6 +14694,128 @@
 					"group": "navigation@11"
 				}
 			],
+			"gitlens/views/grouped/attachOrDetach": [
+				{
+					"command": "gitlens.views.scm.grouped.commits.attach",
+					"when": "view == gitlens.views.scm.grouped && !config.gitlens.views.scm.grouped.views.commits",
+					"group": "2_gitlens@1"
+				},
+				{
+					"command": "gitlens.views.scm.grouped.commits.detach",
+					"when": "view == gitlens.views.scm.grouped && config.gitlens.views.scm.grouped.views.commits",
+					"group": "2_gitlens@1"
+				},
+				{
+					"command": "gitlens.views.scm.grouped.branches.attach",
+					"when": "view == gitlens.views.scm.grouped && !config.gitlens.views.scm.grouped.views.branches",
+					"group": "2_gitlens@2"
+				},
+				{
+					"command": "gitlens.views.scm.grouped.branches.detach",
+					"when": "view == gitlens.views.scm.grouped && config.gitlens.views.scm.grouped.views.branches",
+					"group": "2_gitlens@2"
+				},
+				{
+					"command": "gitlens.views.scm.grouped.remotes.attach",
+					"when": "view == gitlens.views.scm.grouped && !config.gitlens.views.scm.grouped.views.remotes",
+					"group": "2_gitlens@3"
+				},
+				{
+					"command": "gitlens.views.scm.grouped.remotes.detach",
+					"when": "view == gitlens.views.scm.grouped && config.gitlens.views.scm.grouped.views.remotes",
+					"group": "2_gitlens@3"
+				},
+				{
+					"command": "gitlens.views.scm.grouped.stashes.attach",
+					"when": "view == gitlens.views.scm.grouped && !gitlens:hasVirtualFolders && !config.gitlens.views.scm.grouped.views.stashes",
+					"group": "2_gitlens@4"
+				},
+				{
+					"command": "gitlens.views.scm.grouped.stashes.detach",
+					"when": "view == gitlens.views.scm.grouped && config.gitlens.views.scm.grouped.views.stashes",
+					"group": "2_gitlens@4"
+				},
+				{
+					"command": "gitlens.views.scm.grouped.tags.attach",
+					"when": "view == gitlens.views.scm.grouped && !config.gitlens.views.scm.grouped.views.tags",
+					"group": "2_gitlens@5"
+				},
+				{
+					"command": "gitlens.views.scm.grouped.tags.detach",
+					"when": "view == gitlens.views.scm.grouped && config.gitlens.views.scm.grouped.views.tags",
+					"group": "2_gitlens@5"
+				},
+				{
+					"command": "gitlens.views.scm.grouped.worktrees.attach",
+					"when": "view == gitlens.views.scm.grouped && !gitlens:hasVirtualFolders && gitlens:plus:enabled && !config.gitlens.views.scm.grouped.views.worktrees",
+					"group": "2_gitlens@6"
+				},
+				{
+					"command": "gitlens.views.scm.grouped.worktrees.detach",
+					"when": "view == gitlens.views.scm.grouped && !gitlens:hasVirtualFolders && gitlens:plus:enabled && config.gitlens.views.scm.grouped.views.worktrees",
+					"group": "2_gitlens@6"
+				},
+				{
+					"command": "gitlens.views.scm.grouped.contributors.attach",
+					"when": "view == gitlens.views.scm.grouped && !config.gitlens.views.scm.grouped.views.contributors",
+					"group": "2_gitlens@7"
+				},
+				{
+					"command": "gitlens.views.scm.grouped.contributors.detach",
+					"when": "view == gitlens.views.scm.grouped && config.gitlens.views.scm.grouped.views.contributors",
+					"group": "2_gitlens@7"
+				},
+				{
+					"command": "gitlens.views.scm.grouped.repositories.attach",
+					"when": "view == gitlens.views.scm.grouped && !config.gitlens.views.scm.grouped.views.repositories",
+					"group": "2_gitlens@8"
+				},
+				{
+					"command": "gitlens.views.scm.grouped.repositories.detach",
+					"when": "view == gitlens.views.scm.grouped && config.gitlens.views.scm.grouped.views.repositories",
+					"group": "2_gitlens@8"
+				},
+				{
+					"command": "gitlens.views.scm.grouped.searchAndCompare.attach",
+					"when": "view == gitlens.views.scm.grouped && !config.gitlens.views.scm.grouped.views.searchAndCompare",
+					"group": "2_gitlens@9"
+				},
+				{
+					"command": "gitlens.views.scm.grouped.searchAndCompare.detach",
+					"when": "view == gitlens.views.scm.grouped && config.gitlens.views.scm.grouped.views.searchAndCompare",
+					"group": "2_gitlens@9"
+				},
+				{
+					"command": "gitlens.views.scm.grouped.launchpad.attach",
+					"when": "view == gitlens.views.scm.grouped && !config.gitlens.views.scm.grouped.views.launchpad",
+					"group": "2_gitlens@10"
+				},
+				{
+					"command": "gitlens.views.scm.grouped.launchpad.detach",
+					"when": "view == gitlens.views.scm.grouped && config.gitlens.views.scm.grouped.views.launchpad",
+					"group": "2_gitlens@10"
+				},
+				{
+					"command": "gitlens.views.scm.grouped.fileHistory.attach",
+					"when": "view == gitlens.views.scm.grouped && !config.gitlens.views.scm.grouped.views.fileHistory",
+					"group": "2_gitlens@11"
+				},
+				{
+					"command": "gitlens.views.scm.grouped.fileHistory.detach",
+					"when": "view == gitlens.views.scm.grouped && config.gitlens.views.scm.grouped.views.fileHistory",
+					"group": "2_gitlens@11"
+				},
+				{
+					"command": "gitlens.views.scm.grouped.attachAll",
+					"when": "view == gitlens.views.scm.grouped",
+					"group": "9_gitlens@98"
+				},
+				{
+					"command": "gitlens.views.scm.grouped.detachAll",
+					"when": "view == gitlens.views.scm.grouped",
+					"group": "9_gitlens@99"
+				}
+			],
 			"gitlens/views/grouped/branches": [
 				{
 					"command": "gitlens.views.switchToAnotherBranch",
@@ -14793,128 +14915,6 @@
 					"command": "gitlens.views.scm.grouped.contributors.detach",
 					"when": "gitlens:views:scm:grouped:view == contributors",
 					"group": "9_gitlens@3"
-				}
-			],
-			"gitlens/views/grouped/detachOrRegroup": [
-				{
-					"command": "gitlens.views.scm.grouped.commits.detach",
-					"when": "view == gitlens.views.scm.grouped && config.gitlens.views.scm.grouped.views.commits",
-					"group": "2_gitlens@1"
-				},
-				{
-					"command": "gitlens.views.scm.grouped.commits.regroup",
-					"when": "view == gitlens.views.scm.grouped && !config.gitlens.views.scm.grouped.views.commits",
-					"group": "2_gitlens@1"
-				},
-				{
-					"command": "gitlens.views.scm.grouped.branches.detach",
-					"when": "view == gitlens.views.scm.grouped && config.gitlens.views.scm.grouped.views.branches",
-					"group": "2_gitlens@2"
-				},
-				{
-					"command": "gitlens.views.scm.grouped.branches.regroup",
-					"when": "view == gitlens.views.scm.grouped && config.gitlens.views.scm.grouped.views.branches",
-					"group": "2_gitlens@2"
-				},
-				{
-					"command": "gitlens.views.scm.grouped.remotes.detach",
-					"when": "view == gitlens.views.scm.grouped && config.gitlens.views.scm.grouped.views.remotes",
-					"group": "2_gitlens@3"
-				},
-				{
-					"command": "gitlens.views.scm.grouped.remotes.regroup",
-					"when": "view == gitlens.views.scm.grouped && !config.gitlens.views.scm.grouped.views.remotes",
-					"group": "2_gitlens@3"
-				},
-				{
-					"command": "gitlens.views.scm.grouped.stashes.detach",
-					"when": "view == gitlens.views.scm.grouped && config.gitlens.views.scm.grouped.views.stashes",
-					"group": "2_gitlens@4"
-				},
-				{
-					"command": "gitlens.views.scm.grouped.stashes.regroup",
-					"when": "view == gitlens.views.scm.grouped && !gitlens:hasVirtualFolders && !config.gitlens.views.scm.grouped.views.stashes",
-					"group": "2_gitlens@4"
-				},
-				{
-					"command": "gitlens.views.scm.grouped.tags.detach",
-					"when": "view == gitlens.views.scm.grouped && config.gitlens.views.scm.grouped.views.tags",
-					"group": "2_gitlens@5"
-				},
-				{
-					"command": "gitlens.views.scm.grouped.tags.regroup",
-					"when": "view == gitlens.views.scm.grouped && !config.gitlens.views.scm.grouped.views.tags",
-					"group": "2_gitlens@5"
-				},
-				{
-					"command": "gitlens.views.scm.grouped.worktrees.detach",
-					"when": "view == gitlens.views.scm.grouped && !gitlens:hasVirtualFolders && gitlens:plus:enabled && config.gitlens.views.scm.grouped.views.worktrees",
-					"group": "2_gitlens@6"
-				},
-				{
-					"command": "gitlens.views.scm.grouped.worktrees.regroup",
-					"when": "view == gitlens.views.scm.grouped && !gitlens:hasVirtualFolders && gitlens:plus:enabled && !config.gitlens.views.scm.grouped.views.worktrees",
-					"group": "2_gitlens@6"
-				},
-				{
-					"command": "gitlens.views.scm.grouped.contributors.detach",
-					"when": "view == gitlens.views.scm.grouped && config.gitlens.views.scm.grouped.views.contributors",
-					"group": "2_gitlens@7"
-				},
-				{
-					"command": "gitlens.views.scm.grouped.contributors.regroup",
-					"when": "view == gitlens.views.scm.grouped && !config.gitlens.views.scm.grouped.views.contributors",
-					"group": "2_gitlens@7"
-				},
-				{
-					"command": "gitlens.views.scm.grouped.repositories.detach",
-					"when": "view == gitlens.views.scm.grouped && config.gitlens.views.scm.grouped.views.repositories",
-					"group": "2_gitlens@8"
-				},
-				{
-					"command": "gitlens.views.scm.grouped.repositories.regroup",
-					"when": "view == gitlens.views.scm.grouped && !config.gitlens.views.scm.grouped.views.repositories",
-					"group": "2_gitlens@8"
-				},
-				{
-					"command": "gitlens.views.scm.grouped.searchAndCompare.detach",
-					"when": "view == gitlens.views.scm.grouped && config.gitlens.views.scm.grouped.views.searchAndCompare",
-					"group": "2_gitlens@9"
-				},
-				{
-					"command": "gitlens.views.scm.grouped.searchAndCompare.regroup",
-					"when": "view == gitlens.views.scm.grouped && !config.gitlens.views.scm.grouped.views.searchAndCompare",
-					"group": "2_gitlens@9"
-				},
-				{
-					"command": "gitlens.views.scm.grouped.launchpad.detach",
-					"when": "view == gitlens.views.scm.grouped && config.gitlens.views.scm.grouped.views.launchpad",
-					"group": "2_gitlens@10"
-				},
-				{
-					"command": "gitlens.views.scm.grouped.launchpad.regroup",
-					"when": "view == gitlens.views.scm.grouped && !config.gitlens.views.scm.grouped.views.launchpad",
-					"group": "2_gitlens@10"
-				},
-				{
-					"command": "gitlens.views.scm.grouped.fileHistory.detach",
-					"when": "view == gitlens.views.scm.grouped && config.gitlens.views.scm.grouped.views.fileHistory",
-					"group": "2_gitlens@11"
-				},
-				{
-					"command": "gitlens.views.scm.grouped.fileHistory.regroup",
-					"when": "view == gitlens.views.scm.grouped && !config.gitlens.views.scm.grouped.views.fileHistory",
-					"group": "2_gitlens@11"
-				},
-				{
-					"command": "gitlens.views.scm.grouped.detachAll",
-					"when": "view == gitlens.views.scm.grouped",
-					"group": "9_gitlens@98"
-				},
-				{
-					"command": "gitlens.views.scm.grouped.regroupAll",
-					"when": "view == gitlens.views.scm.grouped",
-					"group": "9_gitlens@99"
 				}
 			],
 			"gitlens/views/grouped/fileHistory": [
@@ -17913,7 +17913,7 @@
 					"group": "navigation@98"
 				},
 				{
-					"command": "gitlens.views.branches.regroup",
+					"command": "gitlens.views.branches.attach",
 					"when": "view == gitlens.views.branches",
 					"group": "navigation@99"
 				},
@@ -17993,7 +17993,7 @@
 					"group": "5_gitlens@6"
 				},
 				{
-					"command": "gitlens.views.branches.regroup",
+					"command": "gitlens.views.branches.attach",
 					"when": "view == gitlens.views.branches",
 					"group": "9_gitlens@0"
 				},
@@ -18043,7 +18043,7 @@
 					"group": "navigation@98"
 				},
 				{
-					"command": "gitlens.views.commits.regroup",
+					"command": "gitlens.views.commits.attach",
 					"when": "view == gitlens.views.commits",
 					"group": "navigation@99"
 				},
@@ -18143,7 +18143,7 @@
 					"group": "8_gitlens_toggles@1"
 				},
 				{
-					"command": "gitlens.views.commits.regroup",
+					"command": "gitlens.views.commits.attach",
 					"when": "view == gitlens.views.commits",
 					"group": "9_gitlens@0"
 				},
@@ -18163,7 +18163,7 @@
 					"group": "navigation@98"
 				},
 				{
-					"command": "gitlens.views.contributors.regroup",
+					"command": "gitlens.views.contributors.attach",
 					"when": "view == gitlens.views.contributors",
 					"group": "navigation@99"
 				},
@@ -18233,7 +18233,7 @@
 					"group": "5_gitlens@4"
 				},
 				{
-					"command": "gitlens.views.contributors.regroup",
+					"command": "gitlens.views.contributors.attach",
 					"when": "view == gitlens.views.contributors",
 					"group": "9_gitlens@0"
 				},
@@ -18288,12 +18288,12 @@
 					"group": "navigation@11"
 				},
 				{
-					"command": "gitlens.views.fileHistory.refresh",
+					"command": "gitlens.views.fileHistory.attach",
 					"when": "view == gitlens.views.fileHistory",
 					"group": "navigation@99"
 				},
 				{
-					"command": "gitlens.views.fileHistory.regroup",
+					"command": "gitlens.views.fileHistory.refresh",
 					"when": "view == gitlens.views.fileHistory",
 					"group": "navigation@99"
 				},
@@ -18358,7 +18358,7 @@
 					"group": "8_gitlens_toggles@0"
 				},
 				{
-					"command": "gitlens.views.fileHistory.regroup",
+					"command": "gitlens.views.fileHistory.attach",
 					"when": "view == gitlens.views.fileHistory",
 					"group": "9_gitlens@0"
 				},
@@ -18453,7 +18453,7 @@
 					"group": "navigation@98"
 				},
 				{
-					"command": "gitlens.views.launchpad.regroup",
+					"command": "gitlens.views.launchpad.attach",
 					"when": "view == gitlens.views.launchpad",
 					"group": "navigation@99"
 				},
@@ -18473,7 +18473,7 @@
 					"group": "8_info@1"
 				},
 				{
-					"command": "gitlens.views.launchpad.regroup",
+					"command": "gitlens.views.launchpad.attach",
 					"when": "view == gitlens.views.launchpad",
 					"group": "9_gitlens@0"
 				},
@@ -18588,7 +18588,7 @@
 					"group": "navigation@98"
 				},
 				{
-					"command": "gitlens.views.remotes.regroup",
+					"command": "gitlens.views.remotes.attach",
 					"when": "view == gitlens.views.remotes",
 					"group": "navigation@99"
 				},
@@ -18638,7 +18638,7 @@
 					"group": "5_gitlens@3"
 				},
 				{
-					"command": "gitlens.views.remotes.regroup",
+					"command": "gitlens.views.remotes.attach",
 					"when": "view == gitlens.views.remotes",
 					"group": "9_gitlens@0"
 				},
@@ -18668,7 +18668,7 @@
 					"group": "navigation@98"
 				},
 				{
-					"command": "gitlens.views.repositories.regroup",
+					"command": "gitlens.views.repositories.attach",
 					"when": "view == gitlens.views.repositories",
 					"group": "navigation@99"
 				},
@@ -18718,7 +18718,7 @@
 					"group": "5_gitlens@2"
 				},
 				{
-					"command": "gitlens.views.repositories.regroup",
+					"command": "gitlens.views.repositories.attach",
 					"when": "view == gitlens.views.repositories",
 					"group": "9_gitlens@0"
 				},
@@ -18914,7 +18914,7 @@
 					"group": "1_gitlens@-1"
 				},
 				{
-					"submenu": "gitlens/views/grouped/detachOrRegroup",
+					"submenu": "gitlens/views/grouped/attachOrDetach",
 					"when": "view == gitlens.views.scm.grouped && !gitlens:views:scm:grouped:welcome",
 					"group": "1_gitlens@1"
 				},
@@ -19564,7 +19564,7 @@
 					"group": "navigation@98"
 				},
 				{
-					"command": "gitlens.views.searchAndCompare.regroup",
+					"command": "gitlens.views.searchAndCompare.attach",
 					"when": "view == gitlens.views.searchAndCompare",
 					"group": "navigation@99"
 				},
@@ -19594,7 +19594,7 @@
 					"group": "5_gitlens@1"
 				},
 				{
-					"command": "gitlens.views.searchAndCompare.regroup",
+					"command": "gitlens.views.searchAndCompare.attach",
 					"when": "view == gitlens.views.searchAndCompare",
 					"group": "9_gitlens@0"
 				},
@@ -19619,7 +19619,7 @@
 					"group": "navigation@98"
 				},
 				{
-					"command": "gitlens.views.stashes.regroup",
+					"command": "gitlens.views.stashes.attach",
 					"when": "view == gitlens.views.stashes",
 					"group": "navigation@99"
 				},
@@ -19639,7 +19639,7 @@
 					"group": "3_gitlens@0"
 				},
 				{
-					"command": "gitlens.views.stashes.regroup",
+					"command": "gitlens.views.stashes.attach",
 					"when": "view == gitlens.views.stashes",
 					"group": "9_gitlens@0"
 				},
@@ -19669,7 +19669,7 @@
 					"group": "navigation@98"
 				},
 				{
-					"command": "gitlens.views.tags.regroup",
+					"command": "gitlens.views.tags.attach",
 					"when": "view == gitlens.views.tags",
 					"group": "navigation@99"
 				},
@@ -19709,7 +19709,7 @@
 					"group": "5_gitlens@2"
 				},
 				{
-					"command": "gitlens.views.tags.regroup",
+					"command": "gitlens.views.tags.attach",
 					"when": "view == gitlens.views.tags",
 					"group": "9_gitlens@0"
 				},
@@ -19759,7 +19759,7 @@
 					"group": "navigation@98"
 				},
 				{
-					"command": "gitlens.views.worktrees.regroup",
+					"command": "gitlens.views.worktrees.attach",
 					"when": "view == gitlens.views.worktrees",
 					"group": "navigation@99"
 				},
@@ -19829,7 +19829,7 @@
 					"group": "5_gitlens@5"
 				},
 				{
-					"command": "gitlens.views.worktrees.regroup",
+					"command": "gitlens.views.worktrees.attach",
 					"when": "view == gitlens.views.worktrees",
 					"group": "9_gitlens@0"
 				},
@@ -20461,6 +20461,10 @@
 				"icon": "$(add)"
 			},
 			{
+				"id": "gitlens/views/grouped/attachOrDetach",
+				"label": "Group / Detach Views"
+			},
+			{
 				"id": "gitlens/views/grouped/branches",
 				"label": "Branches",
 				"icon": "$(gitlens-branches-view-filled)"
@@ -20474,10 +20478,6 @@
 				"id": "gitlens/views/grouped/contributors",
 				"label": "Contributors",
 				"icon": "$(gitlens-contributors-view-filled)"
-			},
-			{
-				"id": "gitlens/views/grouped/detachOrRegroup",
-				"label": "Detach / Regroup Views"
 			},
 			{
 				"id": "gitlens/views/grouped/fileHistory",
