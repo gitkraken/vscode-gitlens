@@ -777,6 +777,7 @@ export abstract class GlBranchCardBase extends GlElement {
 			?hasChanges=${hasChanges}
 			upstream=${this.branch.upstream?.name}
 			?worktree=${this.branch.worktree != null}
+			?is-default=${this.branch.worktree?.isDefault ?? false}
 		></gl-branch-icon>`;
 	}
 

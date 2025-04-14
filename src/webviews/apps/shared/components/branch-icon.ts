@@ -69,6 +69,9 @@ export class GlBranchIcon extends LitElement {
 	@property({ type: Boolean })
 	worktree: boolean = false;
 
+	@property({ type: Boolean, attribute: 'is-default' })
+	isDefault: boolean = false;
+
 	override render(): unknown {
 		return html`<gl-tooltip placement="bottom"
 			>${this.renderIcon()}<span slot="content">${this.renderTooltipContent()}</span></gl-tooltip
@@ -110,7 +113,7 @@ export class GlBranchIcon extends LitElement {
 				break;
 		}
 
-		if (this.worktree) {
+		if (this.worktree && this.isDefault === false) {
 			return svg`<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="none" viewBox="0 0 16 16">
 				<path
 					fill="var(--gl-icon-color-foreground, #c5c5c5)"
