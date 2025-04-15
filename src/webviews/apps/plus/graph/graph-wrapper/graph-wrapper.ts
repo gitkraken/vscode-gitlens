@@ -7,6 +7,7 @@ import { html, LitElement } from 'lit';
 import { customElement, query } from 'lit/decorators.js';
 import { ifDefined } from 'lit/directives/if-defined.js';
 import type { GitGraphRowType } from '../../../../../git/models/graph';
+import { debounce } from '../../../../../system/decorators/debounce';
 import {
 	DoubleClickedCommandType,
 	GetMissingAvatarsCommand,
@@ -71,6 +72,7 @@ export class GlGraphWrapper extends SignalWatcher(LitElement) {
 		this._ipc.sendCommand(GetMoreRowsCommand, { id: sha });
 	}
 
+	@debounce(250)
 	private onColumnsChanged(event: CustomEventType<'graph-changecolumns'>) {
 		this._ipc.sendCommand(UpdateColumnsCommand, {
 			config: event.detail.settings,
@@ -101,6 +103,7 @@ export class GlGraphWrapper extends SignalWatcher(LitElement) {
 		this._ipc.sendCommand(UpdateGraphConfigurationCommand, { changes: changes });
 	}
 
+	@debounce(250)
 	private onSelectionChanged({ detail: rows }: CustomEventType<'graph-changeselection'>) {
 		const selection = rows.filter(r => r != null).map(r => ({ id: r.sha, type: r.type as GitGraphRowType }));
 		this._telemetry.sendEvent({ name: 'graph/row/selected', data: { rows: selection.length } });
@@ -223,7 +226,7 @@ export class GlGraphWrapper extends SignalWatcher(LitElement) {
 					// eslint-disable-next-line lit/no-this-assign-in-render
 					this.ref = ref;
 				}}
-				.filter=${{ ...this.graphAppState.filter }}
+				.filter=${this.graphAppState.filter}
 				@changecolumns=${this.onColumnsChanged}
 				@changegraphconfiguration=${this.onGraphConfigurationChanged}
 				@changerefsvisibility=${this.onRefsVisibilityChanged}

@@ -12,6 +12,7 @@ import type {
 	GraphMissingRefsMetadata,
 	GraphRefMetadataItem,
 } from '../../../../plus/graph/protocol';
+import type { GraphWrapperInitProps, GraphWrapperProps, GraphWrapperSubscriberProps } from './graph-wrapper.react';
 import { GraphWrapperReact } from './graph-wrapper.react';
 
 // @customElement('gl-graph-wrapper-element')
@@ -38,8 +39,8 @@ export class WebGraph extends LitElement {
 	private graphRef: GraphContainer | null = null;
 
 	// State updater function provided by the React component
-	@state()
-	private stateUpdater: ((props: any) => void) | null = null;
+	// @state()
+	private stateUpdater: ((props: Partial<GraphWrapperSubscriberProps>) => void) | null = null;
 
 	// Properties that match GraphWrapperProps
 	@property({ type: String })
@@ -79,7 +80,7 @@ export class WebGraph extends LitElement {
 	loading?: boolean;
 
 	@property({ type: Object })
-	selectedRows?: Record<string, boolean>;
+	selectedRows?: GraphWrapperProps['selectedRows'];
 
 	@property({ type: Boolean })
 	windowFocused?: boolean;
@@ -124,10 +125,10 @@ export class WebGraph extends LitElement {
 	}
 
 	// Update the React component's state when properties change
-	override updated(_changedProperties: Map<string, any>): void {
+	override updated(changedProperties: Map<string, unknown>): void {
 		if (this.stateUpdater) {
 			// Only update if we have a state updater and properties have changed
-			const props = this.getProps();
+			const props = this.getProps(changedProperties);
 			this.stateUpdater(props);
 		}
 	}
@@ -145,15 +146,13 @@ export class WebGraph extends LitElement {
 		// Get the initial props
 		const props = this.getProps();
 
-		// Add the subscriber function to allow the React component to provide a state updater
-		props.subscriber = (updater: (props: any) => void) => {
-			this.stateUpdater = updater;
-		};
-
 		// Mount the React component
 		this.reactRoot.render(
 			createElement(GraphWrapperReact, {
 				...props,
+				subscriber: (updater: (props: Partial<GraphWrapperSubscriberProps>) => void) => {
+					this.stateUpdater = updater;
+				},
 				onChangeColumns: this.handleChangeColumns.bind(this),
 				onGraphMouseLeave: this.handleGraphMouseLeave.bind(this),
 				onChangeRefsVisibility: this.handleChangeRefsVisibility.bind(this),
@@ -167,17 +166,22 @@ export class WebGraph extends LitElement {
 				onGraphRowHovered: this.handleGraphRowHovered.bind(this),
 				onGraphRowUnhovered: this.handleGraphRowUnhovered.bind(this),
 				onRowContextMenu: this.handleRowContextMenu.bind(this),
-			}),
+			} as GraphWrapperInitProps),
 		);
 	}
 
 	// Collect all props to pass to the React component
-	private getProps(): any {
+	private getProps(_changedProperties?: Map<string, unknown>): Partial<GraphWrapperSubscriberProps> {
+		// TODO: look at only sending changed properties
+		// if (changedProperties != null) {
+		// 	return Object.fromEntries(changedProperties.entries());
+		// }
+
 		return {
 			activeRow: this.activeRow,
 			avatars: this.avatars,
 			columns: this.columns,
-			context: this.context,
+			context: this.context as GraphWrapperSubscriberProps['context'],
 			config: this.config,
 			downstreams: this.downstreams,
 			rows: this.rows,

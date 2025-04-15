@@ -1023,7 +1023,7 @@ export class GlGraphHeader extends SignalWatcher(LitElement) {
 								?valid=${this.searchValid}
 								?more=${this.appState.searchResults?.paging?.hasMore ?? false}
 								?searching=${this.appState.searching}
-								?filter=${this.appState.filter.filter}
+								?filter=${this.hostState.defaultSearchMode === 'filter'}
 								value=${this.appState.filter.query}
 								errorMessage=${this.appState.searchResultsError?.error ?? ''}
 								?resultsHidden=${this.appState.searchResultsHidden}
