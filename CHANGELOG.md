@@ -18,6 +18,7 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/) and this p
 - Improves AI-related error messages ([#4227](https://github.com/gitkraken/vscode-gitlens/issues/4227))
 - Changes cherry-pick command no longer use/open a terminal ([#3531](https://github.com/gitkraken/vscode-gitlens/issues/3531))
 - Improves date setting descriptions ([#3953](https://github.com/gitkraken/vscode-gitlens/issues/3953))
+- Bumps `eslint-plugin-import-x` to v4.10.5 &mdash; thanks to [PR #4236](https://github.com/gitkraken/vscode-gitlens/pull/4236) by JounQin ([@JounQin](https://github.com/JounQin))
 
 ### Fixed
 
