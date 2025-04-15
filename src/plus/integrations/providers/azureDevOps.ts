@@ -293,11 +293,18 @@ export class AzureDevOpsIntegration extends HostingIntegration<
 	}
 
 	protected override async getProviderPullRequestForCommit(
-		_session: AuthenticationSession,
-		_repo: AzureRepositoryDescriptor,
-		_rev: string,
+		{ accessToken }: AuthenticationSession,
+		repo: AzureRepositoryDescriptor,
+		rev: string,
 	): Promise<PullRequest | undefined> {
-		return Promise.resolve(undefined);
+		return (await this.container.azure)?.getPullRequestForCommit(
+			this,
+			accessToken,
+			repo.owner,
+			repo.name,
+			rev,
+			this.apiBaseUrl,
+		);
 	}
 
 	public override async getRepoInfo(repo: {
