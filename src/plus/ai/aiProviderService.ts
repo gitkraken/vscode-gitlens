@@ -13,6 +13,7 @@ import {
 	vscodeProviderDescriptor,
 	xAIProviderDescriptor,
 } from '../../constants.ai';
+import { SubscriptionPlanId } from '../../constants.subscription';
 import type { AIGenerateDraftEventData, Source, TelemetryEvents } from '../../constants.telemetry';
 import type { Container } from '../../container';
 import {
@@ -46,6 +47,7 @@ import { getSettledValue, getSettledValues } from '../../system/promise';
 import { PromiseCache } from '../../system/promiseCache';
 import type { ServerConnection } from '../gk/serverConnection';
 import { ensureFeatureAccess } from '../gk/utils/-webview/acount.utils';
+import { compareSubscriptionPlans, getSubscriptionPlanTier, isSubscriptionPaid } from '../gk/utils/subscription.utils';
 import type {
 	AIActionType,
 	AIModel,
@@ -933,11 +935,27 @@ export class AIProviderService implements Disposable {
 						void window.showErrorMessage(ex.message);
 						return undefined;
 
-					case AIErrorReason.Entitlement:
-						void window.showErrorMessage(
-							'You do not have the required entitlement or are over the limits to use this AI feature',
+					case AIErrorReason.Entitlement: {
+						const sub = await this.container.subscription.getSubscription();
+
+						const plan = isSubscriptionPaid(sub)
+							? compareSubscriptionPlans(sub.plan.actual.id, SubscriptionPlanId.Advanced) <= 0
+								? SubscriptionPlanId.Business
+								: SubscriptionPlanId.Advanced
+							: SubscriptionPlanId.Pro;
+
+						const upgrade = { title: `Upgrade to ${getSubscriptionPlanTier(plan)}` };
+						const result = await window.showErrorMessage(
+							'You do not have the required entitlement to use this AI feature. Please upgrade your plan and try again.',
+							upgrade,
 						);
+
+						if (result === upgrade) {
+							void this.container.subscription.upgrade(plan, source);
+						}
+
 						return undefined;
+					}
 					case AIErrorReason.RequestTooLarge: {
 						const switchModel: MessageItem = { title: 'Switch Model' };
 						const result = await window.showErrorMessage(
