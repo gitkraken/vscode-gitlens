@@ -135,7 +135,7 @@ export class GitKrakenProvider extends OpenAICompatibleProvider<typeof provider.
 			case 403:
 				// CodeAuthorization      = "403.1"
 				// CodeEntitlement        = "403.2"
-				// CodeOrganization       = "403.3"
+				// CodeFeatureDisabled    = "403.3"
 
 				// Entitlement Error
 				if (code === 2) {
