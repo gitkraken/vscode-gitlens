@@ -186,12 +186,18 @@ const emptySelectionContext: SelectionContext = {
 
 interface GraphWrapperAPI {
 	setRef: (refObject: GraphContainer) => void;
-	subscriber?: (updater: (props: Readonly<GraphWrapperEvents & GraphWrapperProps & GraphWrapperAPI>) => void) => void;
 }
+
+export type GraphWrapperSubscriberProps = GraphWrapperProps & GraphWrapperAPI;
+export type GraphWrapperInitProps = GraphWrapperProps &
+	GraphWrapperEvents &
+	GraphWrapperAPI & {
+		subscriber?: (updater: (props: Partial<GraphWrapperSubscriberProps>) => void) => void;
+	};
 
 const emptyRows: GraphRow[] = [];
 // eslint-disable-next-line @typescript-eslint/naming-convention
-export function GraphWrapperReact(initProps: Readonly<GraphWrapperEvents & GraphWrapperProps & GraphWrapperAPI>) {
+export function GraphWrapperReact(initProps: GraphWrapperInitProps) {
 	const [graph, _graphRef] = useState<GraphContainer | null>(null);
 	const [context, setContext] = useState(initProps.context);
 	const [props, setProps] = useState(initProps);
@@ -205,7 +211,7 @@ export function GraphWrapperReact(initProps: Readonly<GraphWrapperEvents & Graph
 				// if (newProps.context !== context) {
 				// 	setContext(newProps.context);
 				// }
-				setProps(newProps);
+				setProps({ ...props, ...newProps });
 				// Other state updates can be added here as needed
 			});
 		}
