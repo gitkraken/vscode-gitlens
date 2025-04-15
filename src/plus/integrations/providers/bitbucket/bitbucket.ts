@@ -13,32 +13,24 @@ import {
 	RequestClientError,
 	RequestNotFoundError,
 } from '../../../../errors';
-import type { Account, CommitAuthor, UnidentifiedAuthor } from '../../../../git/models/author';
 import type { Issue } from '../../../../git/models/issue';
 import type { IssueOrPullRequest, IssueOrPullRequestType } from '../../../../git/models/issueOrPullRequest';
 import type { PullRequest } from '../../../../git/models/pullRequest';
 import type { Provider } from '../../../../git/models/remoteProvider';
 import type { RepositoryMetadata } from '../../../../git/models/repositoryMetadata';
-import {
-	showBitbucketPRCommitLinksAppNotInstalledWarningMessage,
-	showIntegrationRequestFailed500WarningMessage,
-} from '../../../../messages';
+import { showIntegrationRequestFailed500WarningMessage } from '../../../../messages';
 import { configuration } from '../../../../system/-webview/configuration';
 import { debug } from '../../../../system/decorators/log';
 import { Logger } from '../../../../system/logger';
 import type { LogScope } from '../../../../system/logger.scope';
 import { getLogScope } from '../../../../system/logger.scope';
 import { maybeStopWatch } from '../../../../system/stopwatch';
-import type { BitbucketServerCommit, BitbucketServerPullRequest } from '../bitbucket-server/models';
+import type { Integration } from '../../integration';
+import type { BitbucketServerPullRequest } from '../bitbucket-server/models';
 import { normalizeBitbucketServerPullRequest } from '../bitbucket-server/models';
 import { fromProviderPullRequest } from '../models';
-import type { BitbucketCommit, BitbucketIssue, BitbucketPullRequest, BitbucketRepository } from './models';
-import {
-	bitbucketIssueStateToState,
-	fromBitbucketIssue,
-	fromBitbucketPullRequest,
-	parseRawBitbucketAuthor,
-} from './models';
+import type { BitbucketIssue, BitbucketPullRequest, BitbucketRepository } from './models';
+import { bitbucketIssueStateToState, fromBitbucketIssue, fromBitbucketPullRequest } from './models';
 
 export class BitbucketApi implements Disposable {
 	private readonly _disposable: Disposable;
@@ -113,6 +105,7 @@ export class BitbucketApi implements Disposable {
 		repo: string,
 		branch: string,
 		baseUrl: string,
+		integration: Integration,
 	): Promise<PullRequest | undefined> {
 		const scope = getLogScope();
 
@@ -137,7 +130,7 @@ export class BitbucketApi implements Disposable {
 		}
 
 		const providersPr = normalizeBitbucketServerPullRequest(response.values[0]);
-		const gitlensPr = fromProviderPullRequest(providersPr, provider);
+		const gitlensPr = fromProviderPullRequest(providersPr, integration);
 		return gitlensPr;
 	}
 
@@ -290,6 +283,7 @@ export class BitbucketApi implements Disposable {
 		repo: string,
 		id: string,
 		baseUrl: string,
+		integration: Integration,
 	): Promise<IssueOrPullRequest | undefined> {
 		const scope = getLogScope();
 
@@ -307,7 +301,7 @@ export class BitbucketApi implements Disposable {
 
 			if (prResponse) {
 				const providersPr = normalizeBitbucketServerPullRequest(prResponse);
-				const gitlensPr = fromProviderPullRequest(providersPr, provider);
+				const gitlensPr = fromProviderPullRequest(providersPr, integration);
 				return gitlensPr;
 			}
 		} catch (ex) {
@@ -375,47 +369,6 @@ export class BitbucketApi implements Disposable {
 		}
 	}
 
-	@debug<BitbucketApi['getServerPullRequestForCommit']>({ args: { 0: p => p.name, 1: '<token>' } })
-	async getServerPullRequestForCommit(
-		provider: Provider,
-		token: string,
-		owner: string,
-		repo: string,
-		rev: string,
-		baseUrl: string,
-		_options?: {
-			avatarSize?: number;
-		},
-		cancellation?: CancellationToken,
-	): Promise<PullRequest | undefined> {
-		const scope = getLogScope();
-
-		try {
-			const response = await this.request<{ values: BitbucketServerPullRequest[] }>(
-				provider,
-				token,
-				baseUrl,
-				`projects/${owner}/repos/${repo}/commits/${rev}/pull-requests`, //?fields=${fieldsParam}`,
-				{
-					method: 'GET',
-				},
-				scope,
-				cancellation,
-			);
-			const prResponse = response?.values?.reduce<BitbucketServerPullRequest | undefined>(
-				(acc, pr) => (!acc || pr.updatedDate > acc.updatedDate ? pr : acc),
-				undefined,
-			);
-			if (!prResponse) return undefined;
-			const providersPr = normalizeBitbucketServerPullRequest(prResponse);
-			const gitlensPr = fromProviderPullRequest(providersPr, provider);
-			return gitlensPr;
-		} catch (ex) {
-			Logger.error(ex, scope);
-			return undefined;
-		}
-	}
-
 	@debug<BitbucketApi['getPullRequestForCommit']>({ args: { 0: p => p.name, 1: '<token>' } })
 	async getPullRequestForCommit(
 		provider: Provider,
@@ -459,127 +412,6 @@ export class BitbucketApi implements Disposable {
 			);
 			if (!pr) return undefined;
 			return fromBitbucketPullRequest(pr, provider);
-		} catch (ex) {
-			if (ex.original instanceof ProviderFetchError) {
-				const json = await ex.original.response.json();
-				if (json?.error === 'Invalid or unknown installation') {
-					// TODO: In future get it on to home as an worning on the integratin istelf "this integration has issues"
-					// even user suppresses the message it's still visible with some capacity. It's a broader thing to get other errors.
-					const commitWebUrl = `https://bitbucket.org/${owner}/${repo}/commits/${rev}`;
-					void showBitbucketPRCommitLinksAppNotInstalledWarningMessage(commitWebUrl);
-					return undefined;
-				}
-			}
-			Logger.error(ex, scope);
-			return undefined;
-		}
-	}
-
-	@debug<BitbucketApi['getAccountForCommit']>({ args: { 0: p => p.name, 1: '<token>' } })
-	async getAccountForCommit(
-		provider: Provider,
-		token: string,
-		owner: string,
-		repo: string,
-		rev: string,
-		baseUrl: string,
-		_options?: {
-			avatarSize?: number;
-		},
-		cancellation?: CancellationToken,
-	): Promise<Account | UnidentifiedAuthor | undefined> {
-		const scope = getLogScope();
-
-		try {
-			const commit = await this.request<BitbucketCommit>(
-				provider,
-				token,
-				baseUrl,
-				`repositories/${owner}/${repo}/commit/${rev}`,
-				{
-					method: 'GET',
-				},
-				scope,
-				cancellation,
-			);
-			if (!commit) {
-				return undefined;
-			}
-
-			const { name, email } = parseRawBitbucketAuthor(commit.author.raw);
-			const commitAuthor: CommitAuthor = {
-				provider: provider,
-				id: commit.author.user?.account_id,
-				username: commit.author.user?.nickname,
-				name: commit.author.user?.display_name || name,
-				email: email,
-				avatarUrl: commit.author.user?.links?.avatar?.href,
-			};
-			if (commitAuthor.id != null && commitAuthor.username != null) {
-				return {
-					...commitAuthor,
-					id: commitAuthor.id,
-				} satisfies Account;
-			}
-			return {
-				...commitAuthor,
-				id: undefined,
-				username: undefined,
-			} satisfies UnidentifiedAuthor;
-		} catch (ex) {
-			Logger.error(ex, scope);
-			return undefined;
-		}
-	}
-
-	@debug<BitbucketApi['getServerAccountForCommit']>({ args: { 0: p => p.name, 1: '<token>' } })
-	async getServerAccountForCommit(
-		provider: Provider,
-		token: string,
-		owner: string,
-		repo: string,
-		rev: string,
-		baseUrl: string,
-		_options?: {
-			avatarSize?: number;
-		},
-		cancellation?: CancellationToken,
-	): Promise<Account | UnidentifiedAuthor | undefined> {
-		const scope = getLogScope();
-
-		try {
-			const commit = await this.request<BitbucketServerCommit>(
-				provider,
-				token,
-				baseUrl,
-				`projects/${owner}/repos/${repo}/commits/${rev}`,
-				{
-					method: 'GET',
-				},
-				scope,
-				cancellation,
-			);
-			if (!commit?.author) {
-				return undefined;
-			}
-			if (commit.author.id != null) {
-				return {
-					provider: provider,
-					id: commit.author.id.toString(),
-					username: commit.author.name,
-					name: commit.author.name,
-					email: commit.author.emailAddress,
-					avatarUrl: commit.author?.avatarUrl,
-				} satisfies Account;
-			}
-			return {
-				provider: provider,
-				id: undefined,
-				username: undefined,
-				name: commit.author.name,
-				email: commit.author.emailAddress,
-				avatarUrl: undefined,
-			} satisfies UnidentifiedAuthor;
 		} catch (ex) {
 			Logger.error(ex, scope);
 			return undefined;
