@@ -946,20 +946,32 @@ export class AIProviderService implements Disposable {
 					case AIErrorReason.NoEntitlement: {
 						const sub = await this.container.subscription.getSubscription();
 
-						const plan = isSubscriptionPaid(sub)
-							? compareSubscriptionPlans(sub.plan.actual.id, SubscriptionPlanId.Advanced) <= 0
-								? SubscriptionPlanId.Business
-								: SubscriptionPlanId.Advanced
-							: SubscriptionPlanId.Pro;
+						if (isSubscriptionPaid(sub)) {
+							const plan =
+								compareSubscriptionPlans(sub.plan.actual.id, SubscriptionPlanId.Advanced) <= 0
+									? SubscriptionPlanId.Business
+									: SubscriptionPlanId.Advanced;
 
-						const upgrade = { title: `Upgrade to ${getSubscriptionPlanTier(plan)}` };
-						const result = await window.showErrorMessage(
-							'You do not have the required entitlement to use this AI feature. Please upgrade your plan and try again.',
-							upgrade,
-						);
+							const upgrade = { title: `Upgrade to ${getSubscriptionPlanTier(plan)}` };
+							const result = await window.showErrorMessage(
+								"This AI feature isn't included in your current plan. Please upgrade and try again.",
+								upgrade,
+							);
 
-						if (result === upgrade) {
-							void this.container.subscription.upgrade(plan, source);
+							if (result === upgrade) {
+								void this.container.subscription.manageSubscription(source);
+							}
+						} else {
+							// Users without accounts would never get here since they would have been blocked by `ensureFeatureAccess`
+							const upgrade = { title: 'Upgrade to Pro' };
+							const result = await window.showErrorMessage(
+								'Please upgrade to GitLens Pro to access this AI feature and try again.',
+								upgrade,
+							);
+
+							if (result === upgrade) {
+								void this.container.subscription.upgrade(SubscriptionPlanId.Pro, source);
+							}
 						}
 
 						return undefined;
