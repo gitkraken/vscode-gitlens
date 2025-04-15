@@ -113,6 +113,63 @@ export class AzureDevOpsApi implements Disposable {
 		}
 	}
 
+	@debug<AzureDevOpsApi['getPullRequestForCommit']>({ args: { 0: p => p.name, 1: '<token>' } })
+	async getPullRequestForCommit(
+		provider: Provider,
+		token: string,
+		owner: string,
+		repo: string,
+		rev: string,
+		baseUrl: string,
+		_options?: {
+			avatarSize?: number;
+		},
+		cancellation?: CancellationToken,
+	): Promise<PullRequest | undefined> {
+		const scope = getLogScope();
+		const [projectName, _, repoName] = repo.split('/');
+		try {
+			const prResult = await this.request<{ results: Record<string, AzurePullRequest[]>[] }>(
+				provider,
+				token,
+				baseUrl,
+				`${owner}/${projectName}/_apis/git/repositories/${repoName}/pullrequestquery?api-version=7.1`,
+				{
+					method: 'POST',
+					body: JSON.stringify({
+						queries: [
+							{
+								items: [rev],
+								type: 'commit',
+							},
+						],
+					}),
+				},
+				scope,
+				cancellation,
+			);
+
+			const pr = prResult?.results[0]?.[rev]?.[0];
+			if (pr == null) return undefined;
+
+			const pullRequest = await this.request<AzurePullRequestWithLinks>(
+				provider,
+				token,
+				undefined,
+				pr.url,
+				{ method: 'GET' },
+				scope,
+				cancellation,
+			);
+			if (pullRequest == null) return undefined;
+
+			return fromAzurePullRequest(pullRequest, provider, owner);
+		} catch (ex) {
+			Logger.error(ex, scope);
+			return undefined;
+		}
+	}
+
 	@debug<AzureDevOpsApi['getIssueOrPullRequest']>({ args: { 0: p => p.name, 1: '<token>' } })
 	public async getIssueOrPullRequest(
 		provider: Provider,
@@ -311,13 +368,13 @@ export class AzureDevOpsApi implements Disposable {
 	private async request<T>(
 		provider: Provider,
 		token: string,
-		baseUrl: string,
+		baseUrl: string | undefined,
 		route: string,
 		options: { method: RequestInit['method'] } & Record<string, unknown>,
 		scope: LogScope | undefined,
 		cancellation?: CancellationToken | undefined,
 	): Promise<T | undefined> {
-		const url = `${baseUrl}/${route}`;
+		const url = baseUrl ? `${baseUrl}/${route}` : route;
 
 		let rsp: Response;
 		try {
