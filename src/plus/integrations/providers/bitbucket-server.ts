@@ -101,10 +101,6 @@ export class BitbucketServerIntegration extends HostingIntegration<
 		if (type === 'issue') {
 			return undefined;
 		}
-		const integration = await this.container.integrations.get(this.id);
-		if (!integration) {
-			return undefined;
-		}
 		return (await this.container.bitbucket)?.getServerPullRequestById(
 			this,
 			accessToken,
@@ -112,7 +108,6 @@ export class BitbucketServerIntegration extends HostingIntegration<
 			repo.name,
 			id,
 			this.apiBaseUrl,
-			integration,
 		);
 	}
 
@@ -133,10 +128,6 @@ export class BitbucketServerIntegration extends HostingIntegration<
 			include?: PullRequestState[];
 		},
 	): Promise<PullRequest | undefined> {
-		const integration = await this.container.integrations.get(this.id);
-		if (!integration) {
-			return undefined;
-		}
 		return (await this.container.bitbucket)?.getServerPullRequestForBranch(
 			this,
 			accessToken,
@@ -144,16 +135,22 @@ export class BitbucketServerIntegration extends HostingIntegration<
 			repo.name,
 			branch,
 			this.apiBaseUrl,
-			integration,
 		);
 	}
 
 	protected override async getProviderPullRequestForCommit(
-		_session: AuthenticationSession,
-		_repo: BitbucketRepositoryDescriptor,
-		_rev: string,
+		{ accessToken }: AuthenticationSession,
+		repo: BitbucketRepositoryDescriptor,
+		rev: string,
 	): Promise<PullRequest | undefined> {
-		return Promise.resolve(undefined);
+		return (await this.container.bitbucket)?.getServerPullRequestForCommit(
+			this,
+			accessToken,
+			repo.owner,
+			repo.name,
+			rev,
+			this.apiBaseUrl,
+		);
 	}
 
 	public override async getRepoInfo(repo: { owner: string; name: string }): Promise<ProviderRepository | undefined> {
@@ -210,14 +207,13 @@ export class BitbucketServerIntegration extends HostingIntegration<
 		}
 
 		const api = await this.getProvidersApi();
-		const integration = await this.container.integrations.get(this.id);
-		if (!api || !integration) {
+		if (!api) {
 			return undefined;
 		}
 		const prs = await api.getBitbucketServerPullRequestsForCurrentUser(this.apiBaseUrl, {
 			accessToken: session.accessToken,
 		});
-		return prs?.map(pr => fromProviderPullRequest(pr, integration));
+		return prs?.map(pr => fromProviderPullRequest(pr, this));
 	}
 
 	protected override async searchProviderMyIssues(
