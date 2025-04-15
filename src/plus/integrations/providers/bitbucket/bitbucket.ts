@@ -25,7 +25,6 @@ import { Logger } from '../../../../system/logger';
 import type { LogScope } from '../../../../system/logger.scope';
 import { getLogScope } from '../../../../system/logger.scope';
 import { maybeStopWatch } from '../../../../system/stopwatch';
-import type { Integration } from '../../integration';
 import type { BitbucketServerPullRequest } from '../bitbucket-server/models';
 import { normalizeBitbucketServerPullRequest } from '../bitbucket-server/models';
 import { fromProviderPullRequest } from '../models';
@@ -105,7 +104,6 @@ export class BitbucketApi implements Disposable {
 		repo: string,
 		branch: string,
 		baseUrl: string,
-		integration: Integration,
 	): Promise<PullRequest | undefined> {
 		const scope = getLogScope();
 
@@ -130,7 +128,7 @@ export class BitbucketApi implements Disposable {
 		}
 
 		const providersPr = normalizeBitbucketServerPullRequest(response.values[0]);
-		const gitlensPr = fromProviderPullRequest(providersPr, integration);
+		const gitlensPr = fromProviderPullRequest(providersPr, provider);
 		return gitlensPr;
 	}
 
@@ -283,7 +281,6 @@ export class BitbucketApi implements Disposable {
 		repo: string,
 		id: string,
 		baseUrl: string,
-		integration: Integration,
 	): Promise<IssueOrPullRequest | undefined> {
 		const scope = getLogScope();
 
@@ -301,7 +298,7 @@ export class BitbucketApi implements Disposable {
 
 			if (prResponse) {
 				const providersPr = normalizeBitbucketServerPullRequest(prResponse);
-				const gitlensPr = fromProviderPullRequest(providersPr, integration);
+				const gitlensPr = fromProviderPullRequest(providersPr, provider);
 				return gitlensPr;
 			}
 		} catch (ex) {
@@ -363,6 +360,47 @@ export class BitbucketApi implements Disposable {
 				});
 			}
 			return undefined;
+		} catch (ex) {
+			Logger.error(ex, scope);
+			return undefined;
+		}
+	}
+
+	@debug<BitbucketApi['getServerPullRequestForCommit']>({ args: { 0: p => p.name, 1: '<token>' } })
+	async getServerPullRequestForCommit(
+		provider: Provider,
+		token: string,
+		owner: string,
+		repo: string,
+		rev: string,
+		baseUrl: string,
+		_options?: {
+			avatarSize?: number;
+		},
+		cancellation?: CancellationToken,
+	): Promise<PullRequest | undefined> {
+		const scope = getLogScope();
+
+		try {
+			const response = await this.request<{ values: BitbucketServerPullRequest[] }>(
+				provider,
+				token,
+				baseUrl,
+				`projects/${owner}/repos/${repo}/commits/${rev}/pull-requests`, //?fields=${fieldsParam}`,
+				{
+					method: 'GET',
+				},
+				scope,
+				cancellation,
+			);
+			const prResponse = response?.values?.reduce<BitbucketServerPullRequest | undefined>(
+				(acc, pr) => (!acc || pr.updatedDate > acc.updatedDate ? pr : acc),
+				undefined,
+			);
+			if (!prResponse) return undefined;
+			const providersPr = normalizeBitbucketServerPullRequest(prResponse);
+			const gitlensPr = fromProviderPullRequest(providersPr, provider);
+			return gitlensPr;
 		} catch (ex) {
 			Logger.error(ex, scope);
 			return undefined;
