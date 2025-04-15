@@ -21690,7 +21690,6 @@
 	"resolutions": {
 		"@types/vscode": "1.92.0",
 		"esbuild": "0.25.2",
-		"eslint-plugin-import-x": "4.10.5",
 		"https-proxy-agent": "5.0.1",
 		"iconv-lite": "0.6.3",
 		"node-fetch": "2.7.0",
