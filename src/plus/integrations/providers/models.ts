@@ -55,7 +55,7 @@ import {
 	PullRequestReviewState,
 	PullRequestStatusCheckRollupState,
 } from '../../../git/models/pullRequest';
-import type { ProviderReference } from '../../../git/models/remoteProvider';
+import type { Provider, ProviderReference } from '../../../git/models/remoteProvider';
 import { equalsIgnoreCase } from '../../../system/string';
 import type { EnrichableItem } from '../../launchpad/models/enrichedItem';
 import type { Integration, IntegrationType } from '../integration';
@@ -959,11 +959,11 @@ export function toProviderPullRequest(pr: PullRequest): ProviderPullRequest {
 
 export function fromProviderPullRequest(
 	pr: ProviderPullRequest,
-	integration: Integration,
+	provider: Provider,
 	options?: { project?: IssueProject },
 ): PullRequest {
 	return new PullRequest(
-		integration,
+		provider,
 		fromProviderAccount(pr.author),
 		pr.id,
 		pr.graphQLId || pr.id,
