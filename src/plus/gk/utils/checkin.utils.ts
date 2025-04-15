@@ -1,7 +1,8 @@
+import { SubscriptionPlanId } from '../../../constants.subscription';
 import type { GKCheckInResponse, GKLicense, GKLicenseType } from '../models/checkin';
 import type { Organization } from '../models/organization';
-import type { Subscription, SubscriptionPlanIds } from '../models/subscription';
-import { compareSubscriptionPlans, getSubscriptionPlan, getSubscriptionPlanOrder } from './subscription.utils';
+import type { Subscription } from '../models/subscription';
+import { compareSubscriptionPlans, getSubscriptionPlan, getSubscriptionPlanPriority } from './subscription.utils';
 
 export function getSubscriptionFromCheckIn(
 	data: GKCheckInResponse,
@@ -24,17 +25,19 @@ export function getSubscriptionFromCheckIn(
 	if (paidLicenses.length > 1) {
 		paidLicenses.sort(
 			(a, b) =>
-				getSubscriptionPlanOrder(convertLicenseTypeToPlanId(b[0])) +
+				getSubscriptionPlanPriority(convertLicenseTypeToPlanId(b[0])) +
 				licenseStatusPriority(b[1].latestStatus) -
-				(getSubscriptionPlanOrder(convertLicenseTypeToPlanId(a[0])) + licenseStatusPriority(a[1].latestStatus)),
+				(getSubscriptionPlanPriority(convertLicenseTypeToPlanId(a[0])) +
+					licenseStatusPriority(a[1].latestStatus)),
 		);
 	}
 	if (effectiveLicenses.length > 1) {
 		effectiveLicenses.sort(
 			(a, b) =>
-				getSubscriptionPlanOrder(convertLicenseTypeToPlanId(b[0])) +
+				getSubscriptionPlanPriority(convertLicenseTypeToPlanId(b[0])) +
 				licenseStatusPriority(b[1].latestStatus) -
-				(getSubscriptionPlanOrder(convertLicenseTypeToPlanId(a[0])) + licenseStatusPriority(a[1].latestStatus)),
+				(getSubscriptionPlanPriority(convertLicenseTypeToPlanId(a[0])) +
+					licenseStatusPriority(a[1].latestStatus)),
 		);
 	}
 
@@ -92,7 +95,7 @@ export function getSubscriptionFromCheckIn(
 
 	if (actual == null) {
 		actual = getSubscriptionPlan(
-			'community-with-account',
+			SubscriptionPlanId.CommunityWithAccount,
 			false,
 			0,
 			undefined,
@@ -148,23 +151,23 @@ export function getSubscriptionFromCheckIn(
 		activeOrganization: activeOrganization,
 	};
 }
-function convertLicenseTypeToPlanId(licenseType: GKLicenseType): SubscriptionPlanIds {
+function convertLicenseTypeToPlanId(licenseType: GKLicenseType): SubscriptionPlanId {
 	switch (licenseType) {
 		case 'gitlens-pro':
 		case 'bundle-pro':
 		case 'gitkraken_v1-pro':
 		case 'gitkraken-v1-pro':
-			return 'pro';
+			return SubscriptionPlanId.Pro;
 		case 'gitlens-teams':
 		case 'bundle-teams':
 		case 'gitkraken_v1-teams':
 		case 'gitkraken-v1-teams':
-			return 'teams';
+			return SubscriptionPlanId.Business;
 		case 'gitlens-advanced':
 		case 'bundle-advanced':
 		case 'gitkraken_v1-advanced':
 		case 'gitkraken-v1-advanced':
-			return 'advanced';
+			return SubscriptionPlanId.Advanced;
 		case 'gitlens-hosted-enterprise':
 		case 'gitlens-self-hosted-enterprise':
 		case 'gitlens-standalone-enterprise':
@@ -177,9 +180,9 @@ function convertLicenseTypeToPlanId(licenseType: GKLicenseType): SubscriptionPla
 		case 'gitkraken-v1-hosted-enterprise':
 		case 'gitkraken-v1-self-hosted-enterprise':
 		case 'gitkraken-v1-standalone-enterprise':
-			return 'enterprise';
+			return SubscriptionPlanId.Enterprise;
 		default:
-			return 'pro';
+			return SubscriptionPlanId.Pro;
 	}
 }
 function isBundleLicenseType(licenseType: GKLicenseType): boolean {

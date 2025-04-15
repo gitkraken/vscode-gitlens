@@ -1,15 +1,20 @@
 import type { Disposable } from 'vscode';
 import { ThemeIcon, window } from 'vscode';
-import { proFeaturePreviewUsages, proTrialLengthInDays, SubscriptionState } from '../../constants.subscription';
+import {
+	proFeaturePreviewUsages,
+	proTrialLengthInDays,
+	SubscriptionPlanId,
+	SubscriptionState,
+} from '../../constants.subscription';
 import type { Container } from '../../container';
 import type { QuickPickItemOfT } from '../../quickpicks/items/common';
 import { createQuickPickSeparator } from '../../quickpicks/items/common';
 import { registerCommand } from '../../system/-webview/command';
 import type { GKCheckInResponse, GKLicenses, GKLicenseType, GKUser } from './models/checkin';
-import type { PaidSubscriptionPlanIds, SubscriptionPlanIds } from './models/subscription';
 import type { SubscriptionService } from './subscriptionService';
 import { getConfiguredActiveOrganizationId } from './utils/-webview/subscription.utils';
 import { getSubscriptionFromCheckIn } from './utils/checkin.utils';
+import { getPreviewSubscription } from './utils/subscription.utils';
 
 type SubscriptionServiceFacade = {
 	getSubscription: () => SubscriptionService['_subscription'];
@@ -41,24 +46,28 @@ type SimulateQuickPickItem = QuickPickItemOfT<
 			featurePreviews?: SimulatedFeaturePreviews;
 	  }
 	| {
-			state: Exclude<SubscriptionState, SubscriptionState.Trial | SubscriptionState.Paid>;
+			state: Exclude<SubscriptionState, SubscriptionState.ProTrial | SubscriptionState.Paid>;
 			reactivatedTrial?: never;
 			expiredPaid?: never;
 			planId?: never;
 			featurePreviews?: never;
 	  }
 	| {
-			state: SubscriptionState.Trial;
+			state: SubscriptionState.ProTrial;
 			reactivatedTrial?: boolean;
 			expiredPaid?: never;
-			planId?: Extract<'advanced', SubscriptionPlanIds>;
+			planId?: SubscriptionPlanId.Advanced;
 			featurePreviews?: never;
 	  }
 	| {
 			state: SubscriptionState.Paid;
 			reactivatedTrial?: never;
 			expiredPaid?: boolean;
-			planId?: PaidSubscriptionPlanIds;
+			planId?:
+				| SubscriptionPlanId.Pro
+				| SubscriptionPlanId.Advanced
+				| SubscriptionPlanId.Business
+				| SubscriptionPlanId.Enterprise;
 			featurePreviews?: never;
 	  }
 >;
@@ -133,14 +142,14 @@ class AccountDebug {
 					label: 'Pro Trial',
 					description: 'Pro trial (pro plan), account',
 					iconPath: new ThemeIcon('blank'),
-					item: { state: SubscriptionState.Trial },
+					item: { state: SubscriptionState.ProTrial },
 				},
 				{
 					label: 'Pro Trial (Reactivated)',
 					description: 'Pro trial (pro plan), account',
 					iconPath: new ThemeIcon('blank'),
 					item: {
-						state: SubscriptionState.Trial,
+						state: SubscriptionState.ProTrial,
 						reactivatedTrial: true,
 					},
 				},
@@ -148,15 +157,15 @@ class AccountDebug {
 					label: 'Pro Trial (Advanced)',
 					description: 'Pro trial (advanced plan), account',
 					iconPath: new ThemeIcon('blank'),
-					item: { state: SubscriptionState.Trial, planId: 'advanced' },
+					item: { state: SubscriptionState.ProTrial, planId: SubscriptionPlanId.Advanced },
 				},
 				{
 					label: 'Pro Trial (Advanced, Reactivated)',
 					description: 'Pro trial (advanced plan), account',
 					iconPath: new ThemeIcon('blank'),
 					item: {
-						state: SubscriptionState.Trial,
-						planId: 'advanced',
+						state: SubscriptionState.ProTrial,
+						planId: SubscriptionPlanId.Advanced,
 						reactivatedTrial: true,
 					},
 				},
@@ -164,38 +173,38 @@ class AccountDebug {
 					label: 'Pro Trial (Expired)',
 					description: 'Community, account',
 					iconPath: new ThemeIcon('blank'),
-					item: { state: SubscriptionState.TrialExpired },
+					item: { state: SubscriptionState.ProTrialExpired },
 				},
 				{
 					label: 'Pro Trial (Reactivation Eligible)',
 					description: 'Community, account',
 					iconPath: new ThemeIcon('blank'),
-					item: { state: SubscriptionState.TrialReactivationEligible },
+					item: { state: SubscriptionState.ProTrialReactivationEligible },
 				},
 				createQuickPickSeparator('Paid'),
 				{
 					label: 'Pro',
 					description: 'Pro, account',
 					iconPath: new ThemeIcon('blank'),
-					item: { state: SubscriptionState.Paid, planId: 'pro' },
+					item: { state: SubscriptionState.Paid, planId: SubscriptionPlanId.Pro },
 				},
 				{
 					label: 'Advanced',
 					description: 'Advanced plan, account',
 					iconPath: new ThemeIcon('blank'),
-					item: { state: SubscriptionState.Paid, planId: 'advanced' },
+					item: { state: SubscriptionState.Paid, planId: SubscriptionPlanId.Advanced },
 				},
 				{
 					label: 'Business',
 					description: 'Business plan, account',
 					iconPath: new ThemeIcon('blank'),
-					item: { state: SubscriptionState.Paid, planId: 'teams' },
+					item: { state: SubscriptionState.Paid, planId: SubscriptionPlanId.Business },
 				},
 				{
 					label: 'Enterprise',
 					description: 'Enterprise plan, account',
 					iconPath: new ThemeIcon('blank'),
-					item: { state: SubscriptionState.Paid, planId: 'enterprise' },
+					item: { state: SubscriptionState.Paid, planId: SubscriptionPlanId.Enterprise },
 				},
 				// TODO: Update this subscription state once we have a "paid expired" state availale
 				{
@@ -290,6 +299,8 @@ class AccountDebug {
 
 		switch (state) {
 			case SubscriptionState.Community:
+			case SubscriptionState.ProPreview:
+			case SubscriptionState.ProPreviewExpired:
 				this.service.overrideSession(null);
 				if (featurePreviews != null) {
 					this.service.overrideFeaturePreviews(featurePreviews);
@@ -297,7 +308,13 @@ class AccountDebug {
 					this.service.restoreFeaturePreviews();
 				}
 
-				this.service.changeSubscription(undefined, undefined, { store: false });
+				this.service.changeSubscription(
+					state === SubscriptionState.Community
+						? undefined
+						: getPreviewSubscription(state === SubscriptionState.ProPreviewExpired ? 0 : 3),
+					undefined,
+					{ store: false },
+				);
 
 				return false;
 		}
@@ -442,20 +459,20 @@ function getSimulatedCheckInResponse(
 			: {};
 	let trialLicenseStatus: 'active-new' | 'active-reactivated' | 'expired' | 'expired-reactivatable' = 'active-new';
 	switch (targetSubscriptionState) {
-		case SubscriptionState.TrialExpired:
+		case SubscriptionState.ProTrialExpired:
 			trialLicenseStatus = 'expired';
 			break;
-		case SubscriptionState.TrialReactivationEligible:
+		case SubscriptionState.ProTrialReactivationEligible:
 			trialLicenseStatus = 'expired-reactivatable';
 			break;
-		case SubscriptionState.Trial:
+		case SubscriptionState.ProTrial:
 			trialLicenseStatus = options?.trial?.reactivatedTrial ? 'active-reactivated' : 'active-new';
 			break;
 	}
 	const trialLicenseData =
-		targetSubscriptionState === SubscriptionState.Trial ||
-		targetSubscriptionState === SubscriptionState.TrialExpired ||
-		targetSubscriptionState === SubscriptionState.TrialReactivationEligible
+		targetSubscriptionState === SubscriptionState.ProTrial ||
+		targetSubscriptionState === SubscriptionState.ProTrialExpired ||
+		targetSubscriptionState === SubscriptionState.ProTrialReactivationEligible
 			? getSimulatedTrialLicenseResponse(
 					options?.organizationId,
 					targetSubscriptionType,
@@ -470,7 +487,7 @@ function getSimulatedCheckInResponse(
 			effectiveLicenses: trialLicenseData,
 		},
 		nextOptInDate:
-			targetSubscriptionState === SubscriptionState.TrialReactivationEligible
+			targetSubscriptionState === SubscriptionState.ProTrialReactivationEligible
 				? tenSecondsAgo.toISOString()
 				: undefined,
 	};

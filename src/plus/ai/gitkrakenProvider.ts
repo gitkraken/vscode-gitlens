@@ -151,9 +151,8 @@ export class GitKrakenProvider extends OpenAICompatibleProvider<typeof provider.
 					}
 
 					throw new AIError(
-						entitlementId === 'ai.tokens.weekly'
-							? AIErrorReason.UserQuotaExceeded
-							: AIErrorReason.Entitlement,
+						// If there is an `entitlementValue` then we are over the limit, otherwise it is an entitlement error
+						data?.entitlementValue ? AIErrorReason.UserQuotaExceeded : AIErrorReason.Entitlement,
 						new Error(`(${this.name}) ${status}.${code}: ${message}`),
 					);
 				}
