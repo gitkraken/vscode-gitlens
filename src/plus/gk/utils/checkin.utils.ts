@@ -162,7 +162,7 @@ function convertLicenseTypeToPlanId(licenseType: GKLicenseType): SubscriptionPla
 		case 'bundle-teams':
 		case 'gitkraken_v1-teams':
 		case 'gitkraken-v1-teams':
-			return SubscriptionPlanId.Teams;
+			return SubscriptionPlanId.Business;
 		case 'gitlens-advanced':
 		case 'bundle-advanced':
 		case 'gitkraken_v1-advanced':

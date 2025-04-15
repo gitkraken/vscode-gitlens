@@ -8,7 +8,7 @@ export const enum SubscriptionPlanId {
 	CommunityWithAccount = 'community-with-account',
 	Pro = 'pro',
 	Advanced = 'advanced',
-	Teams = 'teams',
+	Business = 'teams', // teams is the old name for Business; do not change
 	Enterprise = 'enterprise',
 }
 

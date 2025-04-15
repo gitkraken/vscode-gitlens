@@ -65,8 +65,8 @@ type SimulateQuickPickItem = QuickPickItemOfT<
 			expiredPaid?: boolean;
 			planId?:
 				| SubscriptionPlanId.Pro
-				| SubscriptionPlanId.Teams
 				| SubscriptionPlanId.Advanced
+				| SubscriptionPlanId.Business
 				| SubscriptionPlanId.Enterprise;
 			featurePreviews?: never;
 	  }
@@ -198,7 +198,7 @@ class AccountDebug {
 					label: 'Business',
 					description: 'Business plan, account',
 					iconPath: new ThemeIcon('blank'),
-					item: { state: SubscriptionState.Paid, planId: SubscriptionPlanId.Teams },
+					item: { state: SubscriptionState.Paid, planId: SubscriptionPlanId.Business },
 				},
 				{
 					label: 'Enterprise',

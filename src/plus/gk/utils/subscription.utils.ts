@@ -89,7 +89,7 @@ export function computeSubscriptionState(subscription: Optional<Subscription, 's
 
 			case SubscriptionPlanId.Pro:
 			case SubscriptionPlanId.Advanced:
-			case SubscriptionPlanId.Teams:
+			case SubscriptionPlanId.Business:
 			case SubscriptionPlanId.Enterprise:
 				return SubscriptionState.Paid;
 		}
@@ -113,7 +113,7 @@ export function computeSubscriptionState(subscription: Optional<Subscription, 's
 
 		case SubscriptionPlanId.Pro:
 		case SubscriptionPlanId.Advanced:
-		case SubscriptionPlanId.Teams:
+		case SubscriptionPlanId.Business:
 		case SubscriptionPlanId.Enterprise:
 			return actual.id === SubscriptionPlanId.Community
 				? SubscriptionState.ProPreview
@@ -156,7 +156,7 @@ export function getSubscriptionPlanTier(
 			return 'Pro';
 		case SubscriptionPlanId.Advanced:
 			return 'Advanced';
-		case SubscriptionPlanId.Teams:
+		case SubscriptionPlanId.Business:
 			return 'Business';
 		case SubscriptionPlanId.Enterprise:
 			return 'Enterprise';
@@ -169,7 +169,7 @@ export function getSubscriptionPlanTierType(id: SubscriptionPlanId): 'PRO' | 'AD
 	switch (id) {
 		case SubscriptionPlanId.Advanced:
 			return 'ADVANCED';
-		case SubscriptionPlanId.Teams:
+		case SubscriptionPlanId.Business:
 			return 'BUSINESS';
 		case SubscriptionPlanId.Enterprise:
 			return 'ENTERPRISE';
@@ -184,7 +184,7 @@ const plansPriority = new Map<SubscriptionPlanId | undefined, number>([
 	[SubscriptionPlanId.CommunityWithAccount, 1],
 	[SubscriptionPlanId.Pro, 2],
 	[SubscriptionPlanId.Advanced, 3],
-	[SubscriptionPlanId.Teams, 4],
+	[SubscriptionPlanId.Business, 4],
 	[SubscriptionPlanId.Enterprise, 5],
 ]);
 
