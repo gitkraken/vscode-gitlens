@@ -135,6 +135,7 @@ export class GitKrakenProvider extends OpenAICompatibleProvider<typeof provider.
 			case 403:
 				// CodeAuthorization      = "403.1"
 				// CodeEntitlement        = "403.2"
+				// CodeOrganization       = "403.3"
 
 				// Entitlement Error
 				if (code === 2) {
@@ -152,10 +153,19 @@ export class GitKrakenProvider extends OpenAICompatibleProvider<typeof provider.
 
 					throw new AIError(
 						// If there is an `entitlementValue` then we are over the limit, otherwise it is an entitlement error
-						data?.entitlementValue ? AIErrorReason.UserQuotaExceeded : AIErrorReason.Entitlement,
+						data?.entitlementValue ? AIErrorReason.UserQuotaExceeded : AIErrorReason.NoEntitlement,
+						new Error(`(${this.name}) ${status}.${code}: ${message}`),
+					);
+				} else if (code === 3) {
+					throw new AIError(
+						AIErrorReason.DeniedByOrganization,
 						new Error(`(${this.name}) ${status}.${code}: ${message}`),
 					);
 				}
+				throw new AIError(
+					AIErrorReason.Unauthorized,
+					new Error(`(${this.name}) ${status}.${code}: ${message}`),
+				);
 				throw new Error(`(${this.name}) ${status}.${code}: ${message}`);
 			case 404:
 				// CodeNotFound           = "404.1"

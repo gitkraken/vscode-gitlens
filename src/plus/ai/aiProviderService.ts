@@ -906,26 +906,34 @@ export class AIProviderService implements Disposable {
 
 			return result;
 		} catch (ex) {
-			this.container.telemetry.sendEvent(
-				telementry.key,
-				{
-					...telementry.data,
-					duration: Date.now() - start,
-					...(ex instanceof CancellationError
-						? { 'failed.reason': 'user-cancelled' }
-						: { 'failed.reason': 'error', 'failed.error': String(ex) }),
-				},
-				source,
-			);
+			if (ex instanceof CancellationError) {
+				this.container.telemetry.sendEvent(
+					telementry.key,
+					{ ...telementry.data, duration: Date.now() - start, 'failed.reason': 'user-cancelled' },
+					source,
+				);
 
-			if (ex instanceof CancellationError) return undefined;
+				return undefined;
+			}
 			if (ex instanceof AIError) {
+				this.container.telemetry.sendEvent(
+					telementry.key,
+					{
+						...telementry.data,
+						duration: Date.now() - start,
+						// eslint-disable-next-line @typescript-eslint/no-base-to-string
+						'failed.error': String(ex),
+						'failed.error.detail': String(ex.original),
+					},
+					source,
+				);
+
 				switch (ex.reason) {
 					case AIErrorReason.NoRequestData:
 						void window.showErrorMessage(ex.message);
 						return undefined;
 
-					case AIErrorReason.Entitlement: {
+					case AIErrorReason.NoEntitlement: {
 						const sub = await this.container.subscription.getSubscription();
 
 						const plan = isSubscriptionPaid(sub)
@@ -1011,7 +1019,7 @@ export class AIProviderService implements Disposable {
 						}
 						return undefined;
 					}
-					case AIErrorReason.ModelUserUnauthorized: {
+					case AIErrorReason.Unauthorized: {
 						const switchModel: MessageItem = { title: 'Switch Model' };
 						const result = await window.showErrorMessage(
 							'You do not have access to the selected model. Please select a different model and try again.',
@@ -1022,7 +1030,7 @@ export class AIProviderService implements Disposable {
 						}
 						return undefined;
 					}
-					case AIErrorReason.ModelUserDeniedAccess: {
+					case AIErrorReason.DeniedByUser: {
 						const switchModel: MessageItem = { title: 'Switch Model' };
 						const result = await window.showErrorMessage(
 							'You have denied access to the selected model. Please provide access or select a different model, and then try again.',
@@ -1038,6 +1046,16 @@ export class AIProviderService implements Disposable {
 				return undefined;
 			}
 
+			this.container.telemetry.sendEvent(
+				telementry.key,
+				{
+					...telementry.data,
+					duration: Date.now() - start,
+					'failed.error': String(ex),
+					'failed.error.detail': ex.original ? String(ex.original) : undefined,
+				},
+				source,
+			);
 			throw ex;
 		}
 	}

@@ -165,7 +165,7 @@ export abstract class OpenAICompatibleProvider<T extends AIProviders> implements
 	): Promise<{ retry: true; maxInputTokens: number }> {
 		if (rsp.status === 404) {
 			throw new AIError(
-				AIErrorReason.ModelUserUnauthorized,
+				AIErrorReason.Unauthorized,
 				new Error(`Your API key doesn't seem to have access to the selected '${model.id}' model`),
 			);
 		}
