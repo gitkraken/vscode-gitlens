@@ -278,16 +278,17 @@ export class RequiresIntegrationError extends Error {
 }
 
 export const enum AIErrorReason {
+	DeniedByOrganization,
+	DeniedByUser,
+	NoEntitlement,
 	NoRequestData,
-	Entitlement,
-	RequestTooLarge,
-	UserQuotaExceeded,
 	RateLimitExceeded,
 	RateLimitOrFundsExceeded,
-	ServiceCapacityExceeded,
+	RequestTooLarge,
 	ModelNotSupported,
-	ModelUserUnauthorized,
-	ModelUserDeniedAccess,
+	ServiceCapacityExceeded,
+	Unauthorized,
+	UserQuotaExceeded,
 }
 
 export class AIError extends Error {
@@ -297,7 +298,7 @@ export class AIError extends Error {
 	constructor(reason: AIErrorReason, original?: Error) {
 		let message;
 		switch (reason) {
-			case AIErrorReason.Entitlement:
+			case AIErrorReason.NoEntitlement:
 				message = 'You do not have the required entitlement to use this feature';
 				break;
 			case AIErrorReason.RequestTooLarge:
@@ -321,11 +322,14 @@ export class AIError extends Error {
 			case AIErrorReason.ModelNotSupported:
 				message = 'Model not supported for this request';
 				break;
-			case AIErrorReason.ModelUserUnauthorized:
-				message = 'User is not authorized to use the specified model';
+			case AIErrorReason.Unauthorized:
+				message = 'You are not authorized to use the specified provider or model';
 				break;
-			case AIErrorReason.ModelUserDeniedAccess:
-				message = 'User denied access to the specified model';
+			case AIErrorReason.DeniedByOrganization:
+				message = 'Your organization has denied access to the specified provider or model';
+				break;
+			case AIErrorReason.DeniedByUser:
+				message = 'You have denied access to the specified provider or model';
 				break;
 			default:
 				message = original?.message ?? 'An unknown error occurred';

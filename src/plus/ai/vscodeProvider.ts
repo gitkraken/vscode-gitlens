@@ -123,7 +123,7 @@ export class VSCodeAIProvider implements AIProvider<typeof provider.id> {
 
 				if (ex instanceof Error && 'code' in ex && ex.code === 'NoPermissions') {
 					Logger.error(ex, scope, `User denied access to ${model.provider.name}`);
-					throw new AIError(AIErrorReason.ModelUserDeniedAccess, ex);
+					throw new AIError(AIErrorReason.DeniedByUser, ex);
 				}
 
 				if (ex instanceof Error && 'cause' in ex && ex.cause instanceof Error) {
