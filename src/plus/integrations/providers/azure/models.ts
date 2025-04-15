@@ -332,6 +332,9 @@ export function getAzureOwner(url: URL): string {
 	const isVSTS = vstsHostnameRegex.test(url.hostname);
 	return isVSTS ? getVSTSOwner(url) : getAzureDevOpsOwner(url);
 }
+export function isVsts(domain: string): boolean {
+	return vstsHostnameRegex.test(domain);
+}
 
 export function getAzureRepo(pr: AzurePullRequest): string {
 	return `${pr.repository.project.name}/_git/${pr.repository.name}`;
