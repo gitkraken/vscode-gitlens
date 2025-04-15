@@ -4,7 +4,7 @@ import type { Source } from '../../constants.telemetry';
 import type { Container } from '../../container';
 import { HostingIntegration } from '../../plus/integrations/integration';
 import { remoteProviderIdToIntegrationId } from '../../plus/integrations/integrationService';
-import { parseAzureHttpsUrl } from '../../plus/integrations/providers/azure/models';
+import { isVsts, parseAzureHttpsUrl } from '../../plus/integrations/providers/azure/models';
 import type { Brand, Unbrand } from '../../system/brand';
 import type { CreatePullRequestRemoteResource } from '../models/remoteResource';
 import type { Repository } from '../models/repository';
@@ -120,6 +120,20 @@ export class AzureDevOpsRemote extends RemoteProvider {
 
 	get name(): string {
 		return 'Azure DevOps';
+	}
+
+	override get owner(): string | undefined {
+		if (isVsts(this.domain)) {
+			return this.domain.split('.')[0];
+		}
+		return super.owner;
+	}
+
+	override get repoName(): string | undefined {
+		if (isVsts(this.domain)) {
+			return this.path;
+		}
+		return super.repoName;
 	}
 
 	override get providerDesc():
