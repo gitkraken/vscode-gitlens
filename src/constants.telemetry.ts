@@ -328,6 +328,7 @@ interface AIEventDataBase {
 	'failed.reason'?: 'user-declined' | 'user-cancelled' | 'error';
 	'failed.cancelled.reason'?: 'large-prompt';
 	'failed.error'?: string;
+	'failed.error.detail'?: string;
 }
 
 interface AIExplainEvent extends AIEventDataBase {
