@@ -369,6 +369,55 @@ export class BitbucketApi implements Disposable {
 		}
 	}
 
+	@debug<BitbucketApi['getPullRequestForCommit']>({ args: { 0: p => p.name, 1: '<token>' } })
+	async getPullRequestForCommit(
+		provider: Provider,
+		token: string,
+		owner: string,
+		repo: string,
+		rev: string,
+		baseUrl: string,
+		_options?: {
+			avatarSize?: number;
+		},
+		cancellation?: CancellationToken,
+	): Promise<PullRequest | undefined> {
+		const scope = getLogScope();
+
+		try {
+			const fields = [
+				'+values.*',
+				'+values.destination.repository',
+				'+values.destination.branch.*',
+				'+values.destination.commit.*',
+				'+values.source.repository.*',
+				'+values.source.branch.*',
+				'+values.source.commit.*',
+			];
+			const fieldsParam = encodeURIComponent(fields.join(','));
+			const response = await this.request<{ values: BitbucketPullRequest[] }>(
+				provider,
+				token,
+				baseUrl,
+				`repositories/${owner}/${repo}/commit/${rev}/pullrequests?fields=${fieldsParam}`,
+				{
+					method: 'GET',
+				},
+				scope,
+				cancellation,
+			);
+			const pr = response?.values?.reduce<BitbucketPullRequest | undefined>(
+				(acc, pr) => (!acc || pr.updated_on > acc.updated_on ? pr : acc),
+				undefined,
+			);
+			if (!pr) return undefined;
+			return fromBitbucketPullRequest(pr, provider);
+		} catch (ex) {
+			Logger.error(ex, scope);
+			return undefined;
+		}
+	}
+
 	private async request<T>(
 		provider: Provider,
 		token: string,
