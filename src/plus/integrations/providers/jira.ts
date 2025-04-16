@@ -57,16 +57,29 @@ export class JiraIntegration extends IssueIntegration<IssueIntegrationId.Jira> {
 				const projects = this._projects.get(`${this._session.accessToken}:${organization.id}`);
 				if (projects != null) {
 					for (const project of projects) {
-						const prefix = `${project.key}-`;
+						const dashedPrefix = `${project.key}-`;
+						const underscoredPrefix = `${project.key}_`;
 						autolinks.push({
-							prefix: prefix,
-							url: `${organization.url}/browse/${prefix}<num>`,
+							prefix: dashedPrefix,
+							url: `${organization.url}/browse/${dashedPrefix}<num>`,
 							alphanumeric: false,
 							ignoreCase: false,
-							title: `Open Issue ${prefix}<num> on ${organization.name}`,
+							title: `Open Issue ${dashedPrefix}<num> on ${organization.name}`,
 
 							type: 'issue',
-							description: `${organization.name} Issue ${prefix}<num>`,
+							description: `${organization.name} Issue ${dashedPrefix}<num>`,
+							descriptor: { ...organization },
+						});
+						autolinks.push({
+							prefix: underscoredPrefix,
+							url: `${organization.url}/browse/${dashedPrefix}<num>`,
+							alphanumeric: false,
+							ignoreCase: false,
+							referenceType: 'branch',
+							title: `Open Issue ${dashedPrefix}<num> on ${organization.name}`,
+
+							type: 'issue',
+							description: `${organization.name} Issue ${dashedPrefix}<num>`,
 							descriptor: { ...organization },
 						});
 					}
