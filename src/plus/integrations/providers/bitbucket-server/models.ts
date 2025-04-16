@@ -51,6 +51,12 @@ export interface BitbucketServerPullRequestRef {
 	};
 }
 
+export interface BitbucketAuthor {
+	name: string;
+	emailAddress: string;
+	id: undefined;
+}
+
 export interface BitbucketServerUser {
 	name: string;
 	emailAddress: string;
@@ -71,6 +77,20 @@ export interface BitbucketServerPullRequestUser {
 	role: 'REVIEWER' | 'AUTHOR' | 'PARTICIPANT';
 	approved: boolean;
 	status: 'UNAPPROVED' | 'NEEDS_WORK' | 'APPROVED';
+}
+
+export interface BitbucketServerBriefCommit {
+	displayId: string;
+	id: string;
+}
+
+export interface BitbucketServerCommit extends BitbucketServerBriefCommit {
+	author: BitbucketServerUser | BitbucketAuthor;
+	authorTimestamp: number;
+	committer: BitbucketServerUser | BitbucketAuthor;
+	committerTimestamp: number;
+	message: string;
+	parents: (BitbucketServerCommit | BitbucketServerBriefCommit)[];
 }
 
 export interface BitbucketServerPullRequest {

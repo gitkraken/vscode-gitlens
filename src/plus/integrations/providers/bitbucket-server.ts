@@ -2,7 +2,7 @@ import type { AuthenticationSession, CancellationToken } from 'vscode';
 import { md5 } from '@env/crypto';
 import { SelfHostedIntegrationId } from '../../../constants.integrations';
 import type { Container } from '../../../container';
-import type { Account } from '../../../git/models/author';
+import type { Account, UnidentifiedAuthor } from '../../../git/models/author';
 import type { DefaultBranch } from '../../../git/models/defaultBranch';
 import type { Issue, IssueShape } from '../../../git/models/issue';
 import type { IssueOrPullRequest, IssueOrPullRequestType } from '../../../git/models/issueOrPullRequest';
@@ -64,14 +64,24 @@ export class BitbucketServerIntegration extends HostingIntegration<
 	}
 
 	protected override async getProviderAccountForCommit(
-		_session: AuthenticationSession,
-		_repo: BitbucketRepositoryDescriptor,
-		_rev: string,
-		_options?: {
+		{ accessToken }: AuthenticationSession,
+		repo: BitbucketRepositoryDescriptor,
+		rev: string,
+		options?: {
 			avatarSize?: number;
 		},
-	): Promise<Account | undefined> {
-		return Promise.resolve(undefined);
+	): Promise<Account | UnidentifiedAuthor | undefined> {
+		return (await this.container.bitbucket)?.getServerAccountForCommit(
+			this,
+			accessToken,
+			repo.owner,
+			repo.name,
+			rev,
+			this.apiBaseUrl,
+			{
+				avatarSize: options?.avatarSize,
+			},
+		);
 	}
 
 	protected override async getProviderAccountForEmail(
