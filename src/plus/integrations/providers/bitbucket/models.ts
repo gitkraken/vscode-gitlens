@@ -104,6 +104,12 @@ export interface BitbucketRepository {
 	};
 }
 
+interface BitbucketCommitAuthor {
+	type: 'author';
+	raw: string;
+	user: BitbucketUser;
+}
+
 type BitbucketMergeStrategy =
 	| 'merge_commit'
 	| 'squash'
@@ -118,7 +124,43 @@ interface BitbucketBranch {
 	default_merge_strategy?: BitbucketMergeStrategy;
 }
 
-interface BitbucketPullRequestCommit {
+// It parses a raw author sitring like "Sergei Shmakov GK <sergei.shmakov@gitkraken.com>" to name and email
+const parseRawBitbucketAuthorRegex = /^(.*) <(.*)>$/;
+export function parseRawBitbucketAuthor(raw: string): { name: string; email: string } {
+	const match = raw.match(parseRawBitbucketAuthorRegex);
+	if (match) {
+		return { name: match[1], email: match[2] };
+	}
+	return { name: raw, email: '' };
+}
+
+export interface BitbucketCommit extends BitbucketBriefCommit {
+	author: BitbucketCommitAuthor;
+	date: string;
+	links: {
+		approve: BitbucketLink;
+		comments: BitbucketLink;
+		diff: BitbucketLink;
+		html: BitbucketLink;
+		self: BitbucketLink;
+		statuses: BitbucketLink;
+	};
+	message: string;
+	parents: BitbucketBriefCommit[];
+	participants: BitbucketPullRequestParticipant[];
+	rendered: {
+		message: string;
+	};
+	repository: BitbucketRepository;
+	summary: {
+		type: 'rendered';
+		raw: string;
+		markup: string;
+		html: string;
+	};
+}
+
+interface BitbucketBriefCommit {
 	type: 'commit';
 	hash: string;
 	links: {
@@ -144,7 +186,7 @@ export interface BitbucketPullRequest {
 	title: string;
 	description: string;
 	state: BitbucketPullRequestState;
-	merge_commit: null | BitbucketPullRequestCommit;
+	merge_commit: null | BitbucketBriefCommit;
 	comment_count: number;
 	task_count: number;
 	close_source_branch: boolean;
@@ -155,12 +197,12 @@ export interface BitbucketPullRequest {
 	updated_on: string;
 	destination: {
 		branch: BitbucketBranch;
-		commit: BitbucketPullRequestCommit;
+		commit: BitbucketBriefCommit;
 		repository: BitbucketRepository;
 	};
 	source: {
 		branch: BitbucketBranch;
-		commit: BitbucketPullRequestCommit;
+		commit: BitbucketBriefCommit;
 		repository: BitbucketRepository;
 	};
 	summary: {
