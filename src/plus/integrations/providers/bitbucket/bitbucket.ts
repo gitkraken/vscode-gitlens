@@ -13,6 +13,7 @@ import {
 	RequestClientError,
 	RequestNotFoundError,
 } from '../../../../errors';
+import type { Account, CommitAuthor, UnidentifiedAuthor } from '../../../../git/models/author';
 import type { Issue } from '../../../../git/models/issue';
 import type { IssueOrPullRequest, IssueOrPullRequestType } from '../../../../git/models/issueOrPullRequest';
 import type { PullRequest } from '../../../../git/models/pullRequest';
@@ -28,8 +29,13 @@ import { maybeStopWatch } from '../../../../system/stopwatch';
 import type { BitbucketServerPullRequest } from '../bitbucket-server/models';
 import { normalizeBitbucketServerPullRequest } from '../bitbucket-server/models';
 import { fromProviderPullRequest } from '../models';
-import type { BitbucketIssue, BitbucketPullRequest, BitbucketRepository } from './models';
-import { bitbucketIssueStateToState, fromBitbucketIssue, fromBitbucketPullRequest } from './models';
+import type { BitbucketCommit, BitbucketIssue, BitbucketPullRequest, BitbucketRepository } from './models';
+import {
+	bitbucketIssueStateToState,
+	fromBitbucketIssue,
+	fromBitbucketPullRequest,
+	parseRawBitbucketAuthor,
+} from './models';
 
 export class BitbucketApi implements Disposable {
 	private readonly _disposable: Disposable;
@@ -450,6 +456,63 @@ export class BitbucketApi implements Disposable {
 			);
 			if (!pr) return undefined;
 			return fromBitbucketPullRequest(pr, provider);
+		} catch (ex) {
+			Logger.error(ex, scope);
+			return undefined;
+		}
+	}
+
+	@debug<BitbucketApi['getAccountForCommit']>({ args: { 0: p => p.name, 1: '<token>' } })
+	async getAccountForCommit(
+		provider: Provider,
+		token: string,
+		owner: string,
+		repo: string,
+		rev: string,
+		baseUrl: string,
+		_options?: {
+			avatarSize?: number;
+		},
+		cancellation?: CancellationToken,
+	): Promise<Account | UnidentifiedAuthor | undefined> {
+		const scope = getLogScope();
+
+		try {
+			const commit = await this.request<BitbucketCommit>(
+				provider,
+				token,
+				baseUrl,
+				`repositories/${owner}/${repo}/commit/${rev}`,
+				{
+					method: 'GET',
+				},
+				scope,
+				cancellation,
+			);
+			if (!commit) {
+				return undefined;
+			}
+
+			const { name, email } = parseRawBitbucketAuthor(commit.author.raw);
+			const commitAuthor: CommitAuthor = {
+				provider: provider,
+				id: commit.author.user?.account_id,
+				username: commit.author.user?.nickname,
+				name: commit.author.user?.display_name || name,
+				email: email,
+				avatarUrl: commit.author.user?.links?.avatar?.href,
+			};
+			if (commitAuthor.id != null && commitAuthor.username != null) {
+				return {
+					...commitAuthor,
+					id: commitAuthor.id,
+				} satisfies Account;
+			}
+			return {
+				...commitAuthor,
+				id: undefined,
+				username: undefined,
+			} satisfies UnidentifiedAuthor;
 		} catch (ex) {
 			Logger.error(ex, scope);
 			return undefined;
