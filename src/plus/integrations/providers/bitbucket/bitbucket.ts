@@ -26,7 +26,7 @@ import { Logger } from '../../../../system/logger';
 import type { LogScope } from '../../../../system/logger.scope';
 import { getLogScope } from '../../../../system/logger.scope';
 import { maybeStopWatch } from '../../../../system/stopwatch';
-import type { BitbucketServerPullRequest } from '../bitbucket-server/models';
+import type { BitbucketServerCommit, BitbucketServerPullRequest } from '../bitbucket-server/models';
 import { normalizeBitbucketServerPullRequest } from '../bitbucket-server/models';
 import { fromProviderPullRequest } from '../models';
 import type { BitbucketCommit, BitbucketIssue, BitbucketPullRequest, BitbucketRepository } from './models';
@@ -512,6 +512,60 @@ export class BitbucketApi implements Disposable {
 				...commitAuthor,
 				id: undefined,
 				username: undefined,
+			} satisfies UnidentifiedAuthor;
+		} catch (ex) {
+			Logger.error(ex, scope);
+			return undefined;
+		}
+	}
+
+	@debug<BitbucketApi['getServerAccountForCommit']>({ args: { 0: p => p.name, 1: '<token>' } })
+	async getServerAccountForCommit(
+		provider: Provider,
+		token: string,
+		owner: string,
+		repo: string,
+		rev: string,
+		baseUrl: string,
+		_options?: {
+			avatarSize?: number;
+		},
+		cancellation?: CancellationToken,
+	): Promise<Account | UnidentifiedAuthor | undefined> {
+		const scope = getLogScope();
+
+		try {
+			const commit = await this.request<BitbucketServerCommit>(
+				provider,
+				token,
+				baseUrl,
+				`projects/${owner}/repos/${repo}/commits/${rev}`,
+				{
+					method: 'GET',
+				},
+				scope,
+				cancellation,
+			);
+			if (!commit?.author) {
+				return undefined;
+			}
+			if (commit.author.id != null) {
+				return {
+					provider: provider,
+					id: commit.author.id.toString(),
+					username: commit.author.name,
+					name: commit.author.name,
+					email: commit.author.emailAddress,
+					avatarUrl: commit.author?.avatarUrl,
+				} satisfies Account;
+			}
+			return {
+				provider: provider,
+				id: undefined,
+				username: undefined,
+				name: commit.author.name,
+				email: commit.author.emailAddress,
+				avatarUrl: undefined,
 			} satisfies UnidentifiedAuthor;
 		} catch (ex) {
 			Logger.error(ex, scope);
