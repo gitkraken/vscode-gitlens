@@ -1124,7 +1124,7 @@ export async function* pickCommitStep<
 	},
 ): AsyncStepResultGenerator<GitCommit> {
 	async function getItems(log: GitLog | undefined) {
-		if (log == null) {
+		if (!log?.commits.size) {
 			return [createDirectiveQuickPickItem(Directive.Back, true), createDirectiveQuickPickItem(Directive.Cancel)];
 		}
 
