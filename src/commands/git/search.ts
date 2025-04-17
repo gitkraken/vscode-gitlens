@@ -229,7 +229,7 @@ export class SearchGitCommand extends QuickCommand<State> {
 						log == null
 							? `No results for ${state.query}`
 							: `${pluralize('result', log.count, {
-									format: c => (log.hasMore ? `${c}+` : undefined),
+									format: c => (log.hasMore ? `${c}+` : String(c)),
 							  })} for ${state.query}`,
 					picked: context.commit?.ref,
 					showInSideBarCommand: new ActionQuickPickItem(
