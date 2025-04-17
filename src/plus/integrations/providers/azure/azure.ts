@@ -13,6 +13,7 @@ import {
 	RequestClientError,
 	RequestNotFoundError,
 } from '../../../../errors';
+import type { UnidentifiedAuthor } from '../../../../git/models/author';
 import type { Issue } from '../../../../git/models/issue';
 import type { IssueOrPullRequest } from '../../../../git/models/issueOrPullRequest';
 import type { PullRequest } from '../../../../git/models/pullRequest';
@@ -25,6 +26,7 @@ import type { LogScope } from '../../../../system/logger.scope';
 import { getLogScope } from '../../../../system/logger.scope';
 import { maybeStopWatch } from '../../../../system/stopwatch';
 import type {
+	AzureGitCommit,
 	AzureProjectDescriptor,
 	AzurePullRequest,
 	AzurePullRequestWithLinks,
@@ -302,6 +304,56 @@ export class AzureDevOpsApi implements Disposable {
 				);
 				return fromAzureWorkItem(issueResult, provider, project, stateCategory);
 			}
+		} catch (ex) {
+			if (ex.original?.status !== 404) {
+				Logger.error(ex, scope);
+				return undefined;
+			}
+		}
+
+		return undefined;
+	}
+
+	@debug<AzureDevOpsApi['getAccountForCommit']>({ args: { 0: p => p.name, 1: '<token>' } })
+	async getAccountForCommit(
+		provider: Provider,
+		token: string,
+		owner: string,
+		repo: string,
+		rev: string,
+		baseUrl: string,
+		_options?: {
+			avatarSize?: number;
+		},
+	): Promise<UnidentifiedAuthor | undefined> {
+		const scope = getLogScope();
+		const [projectName, _, repoName] = repo.split('/');
+
+		try {
+			// Try to get the Work item (wit) first with specific fields
+			const commit = await this.request<AzureGitCommit>(
+				provider,
+				token,
+				baseUrl,
+				`${owner}/${projectName}/_apis/git/repositories/${repoName}/commits/${rev}`,
+				{
+					method: 'GET',
+				},
+				scope,
+			);
+			const author = commit?.author;
+			if (!author) {
+				return undefined;
+			}
+			// Azure API never gives us an id/username we can use, therefore we always return UnidentifiedAuthor
+			return {
+				provider: provider,
+				id: undefined,
+				username: undefined,
+				name: author?.name,
+				email: author?.email,
+				avatarUrl: undefined,
+			} satisfies UnidentifiedAuthor;
 		} catch (ex) {
 			if (ex.original?.status !== 404) {
 				Logger.error(ex, scope);

@@ -202,9 +202,42 @@ export interface AzureRepository {
 	isInMaintenance: boolean;
 }
 
+export interface AzureGitUser {
+	date?: string;
+	email?: string;
+	imageUrl?: string;
+	name: string;
+}
+
 export interface AzureGitCommitRef {
 	commitId: string;
 	url: string;
+}
+
+export interface AzureGitCommit {
+	_links: {
+		changes: AzureLink;
+		repository: AzureLink;
+		self: AzureLink;
+		web: AzureLink;
+	};
+	author: AzureGitUser;
+	comment: string;
+	commentTruncated?: boolean;
+	commitId: string;
+	commitTooManyChanges?: boolean;
+	committer: AzureGitUser;
+	parents: string[];
+	push: {
+		date: string;
+		pushedBy: AzureUser;
+		pushId: number;
+	};
+	remoteUrl: string;
+	statuses?: AzureGitStatus[];
+	treeId: string;
+	url: string;
+	workItems?: AzureResourceRef[];
 }
 
 export interface AzureResourceRef {
