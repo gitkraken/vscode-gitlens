@@ -7,12 +7,15 @@ import { GitUri } from '../../git/gitUri';
 import type { GitLog } from '../../git/models/log';
 import type { CommitsQueryResults } from '../../git/queryResults';
 import { getSearchQueryComparisonKey, getStoredSearchQuery } from '../../git/search';
+import { gate } from '../../system/decorators/-webview/gate';
 import { debug } from '../../system/decorators/log';
 import { pluralize } from '../../system/string';
 import type { SearchAndCompareView } from '../searchAndCompareView';
 import type { PageableViewNode } from './abstract/viewNode';
 import { ContextValues, getViewNodeId, ViewNode } from './abstract/viewNode';
 import { ResultsCommitsNode } from './resultsCommitsNode';
+
+let instanceId = 0;
 
 interface SearchQueryResults {
 	readonly label: string;
@@ -22,6 +25,8 @@ interface SearchQueryResults {
 }
 
 export class SearchResultsNode extends ViewNode<'search-results', SearchAndCompareView> implements PageableViewNode {
+	private _instanceId: number;
+
 	constructor(
 		view: SearchAndCompareView,
 		protected override readonly parent: ViewNode,
@@ -29,7 +34,12 @@ export class SearchResultsNode extends ViewNode<'search-results', SearchAndCompa
 		private _search: SearchQuery,
 		private _labels: {
 			label: string;
-			queryLabel: string | { label: string; resultsType?: { singular: string; plural: string } };
+			queryLabel:
+				| string
+				| {
+						label: string;
+						resultsType?: { singular: string; plural: string };
+				  };
 			resultsType?: { singular: string; plural: string };
 		},
 		private _searchQueryOrLog?:
@@ -41,7 +51,8 @@ export class SearchResultsNode extends ViewNode<'search-results', SearchAndCompa
 	) {
 		super('search-results', GitUri.fromRepoPath(repoPath), view, parent);
 
-		this.updateContext({ searchId: getSearchQueryComparisonKey(this._search) });
+		this._instanceId = instanceId++;
+		this.updateContext({ searchId: `${getSearchQueryComparisonKey(this._search)}+${this._instanceId}` });
 		this._uniqueId = getViewNodeId(this.type, this.context);
 
 		// If this is a new search, save it
@@ -92,6 +103,7 @@ export class SearchResultsNode extends ViewNode<'search-results', SearchAndCompa
 				this._labels.label,
 				{ query: this._searchQueryOrLog, deferred: deferred },
 				{ expand: false },
+				true,
 			);
 		}
 
@@ -108,7 +120,7 @@ export class SearchResultsNode extends ViewNode<'search-results', SearchAndCompa
 		item.contextValue = ContextValues.SearchResults;
 		if (this.view.container.git.repositoryCount > 1) {
 			const repo = this.view.container.git.getRepository(this.repoPath);
-			item.description = repo?.name ?? this.repoPath;
+			item.description = repo?.formattedName ?? this.repoPath;
 		}
 		item.iconPath = new ThemeIcon('search');
 
@@ -166,6 +178,7 @@ export class SearchResultsNode extends ViewNode<'search-results', SearchAndCompa
 		queueMicrotask(() => this.view.reveal(this, { expand: true, focus: true, select: true }));
 	}
 
+	@gate()
 	@debug()
 	override refresh(reset: boolean = false): void {
 		this._resultsNode?.refresh(reset);
@@ -210,8 +223,7 @@ export class SearchResultsNode extends ViewNode<'search-results', SearchAndCompa
 		let useCacheOnce = true;
 
 		return async (limit: number | undefined) => {
-			log = await (log ??
-				this.view.container.git.getRepositoryService(this.repoPath).commits.searchCommits(this.search));
+			log = await (log ?? this.view.container.git.commits(this.repoPath).searchCommits(this.search));
 
 			if (!useCacheOnce && log?.query != null) {
 				log = await log.query(limit);
