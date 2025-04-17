@@ -10,6 +10,10 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/) and this p
 
 - Improves AI-related error messages ([#4227](https://github.com/gitkraken/vscode-gitlens/issues/4227))
 
+### Fixed
+
+- Fixes `undefined` sometimes showing for search results in the _Search Commits_ command and _Search & Compare_ view
+
 ## [17.0.2] - 2025-04-11
 
 ### Changed

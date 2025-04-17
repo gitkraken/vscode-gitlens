@@ -88,14 +88,10 @@ export class SearchResultsNode extends ViewNode<'search-results', SearchAndCompa
 			let deferred;
 			if (this._searchQueryOrLog == null) {
 				deferred = true;
-				this._searchQueryOrLog = this.getSearchQuery({
-					label: this._labels.queryLabel,
-				});
+				this._searchQueryOrLog = this.getSearchQuery({ label: this._labels.queryLabel });
 			} else if (typeof this._searchQueryOrLog !== 'function') {
 				this._searchQueryOrLog = this.getSearchQuery(
-					{
-						label: this._labels.queryLabel,
-					},
+					{ label: this._labels.queryLabel },
 					this._searchQueryOrLog,
 				);
 			}
@@ -105,13 +101,8 @@ export class SearchResultsNode extends ViewNode<'search-results', SearchAndCompa
 				this,
 				this.repoPath,
 				this._labels.label,
-				{
-					query: this._searchQueryOrLog,
-					deferred: deferred,
-				},
-				{
-					expand: false,
-				},
+				{ query: this._searchQueryOrLog, deferred: deferred },
+				{ expand: false },
 				true,
 			);
 		}
@@ -212,7 +203,7 @@ export class SearchResultsNode extends ViewNode<'search-results', SearchAndCompa
 				: label.resultsType;
 
 		return `${pluralize(resultsType.singular, count, {
-			format: c => (log?.hasMore ? `${c}+` : undefined),
+			format: c => (log?.hasMore ? `${c}+` : String(c)),
 			plural: resultsType.plural,
 			zero: 'No',
 		})} ${label.label}`;
