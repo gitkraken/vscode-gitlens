@@ -1,7 +1,7 @@
 import type { AuthenticationSession, CancellationToken } from 'vscode';
 import { window } from 'vscode';
 import { HostingIntegrationId } from '../../../constants.integrations';
-import type { Account } from '../../../git/models/author';
+import type { Account, UnidentifiedAuthor } from '../../../git/models/author';
 import type { DefaultBranch } from '../../../git/models/defaultBranch';
 import type { Issue, IssueShape } from '../../../git/models/issue';
 import type { IssueOrPullRequest } from '../../../git/models/issueOrPullRequest';
@@ -227,14 +227,22 @@ export class AzureDevOpsIntegration extends HostingIntegration<
 	}
 
 	protected override async getProviderAccountForCommit(
-		_session: AuthenticationSession,
-		_repo: AzureRepositoryDescriptor,
-		_rev: string,
-		_options?: {
+		{ accessToken }: AuthenticationSession,
+		repo: AzureRepositoryDescriptor,
+		rev: string,
+		options?: {
 			avatarSize?: number;
 		},
-	): Promise<Account | undefined> {
-		return Promise.resolve(undefined);
+	): Promise<UnidentifiedAuthor | undefined> {
+		return (await this.container.azure)?.getAccountForCommit(
+			this,
+			accessToken,
+			repo.owner,
+			repo.name,
+			rev,
+			this.apiBaseUrl,
+			options,
+		);
 	}
 
 	protected override async getProviderAccountForEmail(
