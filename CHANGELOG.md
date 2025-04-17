@@ -16,7 +16,6 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/) and this p
 ### Changed
 
 - Improves editor revision navigation ([#4200](https://github.com/gitkraken/vscode-gitlens/issues/4200))
-- Improves AI-related error messages ([#4227](https://github.com/gitkraken/vscode-gitlens/issues/4227))
 - Changes cherry-pick command no longer use/open a terminal ([#3531](https://github.com/gitkraken/vscode-gitlens/issues/3531))
 - Improves date setting descriptions ([#3953](https://github.com/gitkraken/vscode-gitlens/issues/3953))
 - Bumps `eslint-plugin-import-x` to v4.10.5 &mdash; thanks to [PR #4236](https://github.com/gitkraken/vscode-gitlens/pull/4236) by JounQin ([@JounQin](https://github.com/JounQin))
@@ -26,7 +25,18 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/) and this p
 - Fixes cache collision between issues and PRs in autolinks ([#4193](https://github.com/gitkraken/vscode-gitlens/issues/4193))
 - Fixes incorrect PR Link Across Azure DevOps Projects ([#4207](https://github.com/gitkraken/vscode-gitlens/issues/4207))
 - Fixes detail view incorrectly parses GitHub account in commit message ([#3246](https://github.com/gitkraken/vscode-gitlens/issues/3246))
+
+## [17.0.3] - 2025-04-17
+
+### Changed
+
+- Improves AI-related error messages ([#4227](https://github.com/gitkraken/vscode-gitlens/issues/4227))
+- Shows the default worktree with a branch icon in the Home view
+
+### Fixed
+
 - Fixes `undefined` sometimes showing for search results in the _Search Commits_ command and _Search & Compare_ view
+- Fixes missing account menu buttons for synchronizing account status and managing account
 
 ## [17.0.2] - 2025-04-11
 
@@ -6104,7 +6114,8 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/) and this p
 
 - Initial release but still heavily a work in progress.
 
-[unreleased]: https://github.com/gitkraken/vscode-gitlens/compare/v17.0.2...HEAD
+[unreleased]: https://github.com/gitkraken/vscode-gitlens/compare/v17.0.3...HEAD
+[17.0.3]: https://github.com/gitkraken/vscode-gitlens/compare/v17.0.2...gitkraken:v17.0.3
 [17.0.2]: https://github.com/gitkraken/vscode-gitlens/compare/v17.0.1...gitkraken:v17.0.2
 [17.0.1]: https://github.com/gitkraken/vscode-gitlens/compare/v17.0.0...gitkraken:v17.0.1
 [17.0.0]: https://github.com/gitkraken/vscode-gitlens/compare/v16.3.3...gitkraken:v17.0.0
