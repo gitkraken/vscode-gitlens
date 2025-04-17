@@ -9,10 +9,12 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/) and this p
 ### Changed
 
 - Improves AI-related error messages ([#4227](https://github.com/gitkraken/vscode-gitlens/issues/4227))
+- Shows the default worktree with a branch icon in the Home view
 
 ### Fixed
 
 - Fixes `undefined` sometimes showing for search results in the _Search Commits_ command and _Search & Compare_ view
+- Fixes missing account menu buttons for synchronizing account status and managing account
 
 ## [17.0.2] - 2025-04-11
 
