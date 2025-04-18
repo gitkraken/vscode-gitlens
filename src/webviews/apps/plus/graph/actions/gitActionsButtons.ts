@@ -116,6 +116,10 @@ export class PushPullButton extends LitElement {
 		actionButton,
 		ruleBase,
 		css`
+			:host {
+				display: contents;
+			}
+
 			.pill {
 				display: inline-block;
 				padding: 0.2rem 0.5rem;
