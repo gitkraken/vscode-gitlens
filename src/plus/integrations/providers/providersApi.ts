@@ -10,6 +10,7 @@ import {
 	AuthenticationError,
 	AuthenticationErrorReason,
 	RequestClientError,
+	RequestNotFoundError,
 	RequestRateLimitError,
 } from '../../../errors';
 import type { PagedResult } from '../../../git/gitProvider';
@@ -378,15 +379,17 @@ export class ProvidersApi {
 			throw new Error(`Provider with id ${providerId} not registered`);
 		}
 
-		switch (providerId) {
-			case IssueIntegrationId.Jira: {
-				if (error?.response?.status != null) {
-					if (error.response.status === 401) {
-						throw new AuthenticationError(providerId, AuthenticationErrorReason.Forbidden, error);
-					} else if (error.response.status === 429) {
+		if (error?.response?.status != null) {
+			switch (error.response.status) {
+				case 404: // Not found
+				case 410: // Gone
+				case 422: // Unprocessable Entity
+					throw new RequestNotFoundError(error);
+				case 401: // Unauthorized
+					if (error.message?.includes('rate limit')) {
 						let resetAt: number | undefined;
 
-						const reset = error.response.headers?.['x-ratelimit-reset'];
+						const reset = error.response?.headers?.['x-ratelimit-reset'];
 						if (reset != null) {
 							resetAt = parseInt(reset, 10);
 							if (Number.isNaN(resetAt)) {
@@ -395,16 +398,32 @@ export class ProvidersApi {
 						}
 
 						throw new RequestRateLimitError(error, token, resetAt);
-					} else if (error.response.status >= 400 && error.response.status < 500) {
+					}
+					throw new AuthenticationError(providerId, AuthenticationErrorReason.Unauthorized, error);
+				case 403: // Forbidden
+					throw new AuthenticationError(providerId, AuthenticationErrorReason.Forbidden, error);
+				case 429: {
+					// Too Many Requests
+					let resetAt: number | undefined;
+
+					const reset = error.response.headers?.['x-ratelimit-reset'];
+					if (reset != null) {
+						resetAt = parseInt(reset, 10);
+						if (Number.isNaN(resetAt)) {
+							resetAt = undefined;
+						}
+					}
+
+					throw new RequestRateLimitError(error, token, resetAt);
+				}
+				default:
+					if (error.response.status >= 400 && error.response.status < 500) {
 						throw new RequestClientError(error);
 					}
-				}
-				throw error;
-			}
-			default: {
-				throw error;
 			}
 		}
+
+		throw error;
 	}
 
 	async getPagedResult<T>(

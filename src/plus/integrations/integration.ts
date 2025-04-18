@@ -327,6 +327,18 @@ export abstract class IntegrationBase<
 		return defaultValue;
 	}
 
+	@gate()
+	protected async refreshSessionIfExpired(scope?: LogScope): Promise<void> {
+		if (this._session?.expiresAt != null && this._session.expiresAt < new Date()) {
+			// The current session is expired, so get the latest from the cloud and refresh if needed
+			try {
+				await this.syncCloudConnection('connected', true);
+			} catch (ex) {
+				Logger.error(ex, scope);
+			}
+		}
+	}
+
 	@debug()
 	trackRequestException(): void {
 		this.requestExceptionCount++;
@@ -433,6 +445,8 @@ export abstract class IntegrationBase<
 		const connected = this.maybeConnected ?? (await this.isConnected());
 		if (!connected) return undefined;
 
+		await this.refreshSessionIfExpired(scope);
+
 		try {
 			const issues = await this.searchProviderMyIssues(
 				this._session!,
@@ -462,6 +476,8 @@ export abstract class IntegrationBase<
 
 		const connected = this.maybeConnected ?? (await this.isConnected());
 		if (!connected) return undefined;
+
+		await this.refreshSessionIfExpired(scope);
 
 		const issueOrPR = this.container.cache.getIssueOrPullRequest(
 			id,
@@ -507,6 +523,8 @@ export abstract class IntegrationBase<
 		const connected = this.maybeConnected ?? (await this.isConnected());
 		if (!connected) return undefined;
 
+		await this.refreshSessionIfExpired(scope);
+
 		const issue = this.container.cache.getIssue(
 			id,
 			resource,
@@ -542,6 +560,8 @@ export abstract class IntegrationBase<
 		const connected = this.maybeConnected ?? (await this.isConnected());
 		if (!connected) return undefined;
 
+		await this.refreshSessionIfExpired(scope);
+
 		const { expiryOverride, ...opts } = options ?? {};
 
 		const currentAccount = await this.container.cache.getCurrentAccount(
@@ -574,6 +594,8 @@ export abstract class IntegrationBase<
 		const connected = this.maybeConnected ?? (await this.isConnected());
 		if (!connected) return undefined;
 
+		await this.refreshSessionIfExpired(scope);
+
 		const pr = await this.container.cache.getPullRequest(id, resource, this, () => ({
 			value: (async () => {
 				try {
@@ -604,8 +626,11 @@ export abstract class IssueIntegration<
 	@gate()
 	@debug()
 	async getAccountForResource(resource: T): Promise<Account | undefined> {
+		const scope = getLogScope();
 		const connected = this.maybeConnected ?? (await this.isConnected());
 		if (!connected) return undefined;
+
+		await this.refreshSessionIfExpired(scope);
 
 		try {
 			const account = await this.getProviderAccountForResource(this._session!, resource);
@@ -624,8 +649,11 @@ export abstract class IssueIntegration<
 	@gate()
 	@debug()
 	async getResourcesForUser(): Promise<T[] | undefined> {
+		const scope = getLogScope();
 		const connected = this.maybeConnected ?? (await this.isConnected());
 		if (!connected) return undefined;
+
+		await this.refreshSessionIfExpired(scope);
 
 		try {
 			const resources = await this.getProviderResourcesForUser(this._session!);
@@ -640,8 +668,11 @@ export abstract class IssueIntegration<
 
 	@debug()
 	async getProjectsForResources(resources: T[]): Promise<T[] | undefined> {
+		const scope = getLogScope();
 		const connected = this.maybeConnected ?? (await this.isConnected());
 		if (!connected) return undefined;
+
+		await this.refreshSessionIfExpired(scope);
 
 		try {
 			const projects = await this.getProviderProjectsForResources(this._session!, resources);
@@ -669,8 +700,11 @@ export abstract class IssueIntegration<
 		project: T,
 		options?: { user?: string; filters?: IssueFilter[] },
 	): Promise<IssueShape[] | undefined> {
+		const scope = getLogScope();
 		const connected = this.maybeConnected ?? (await this.isConnected());
 		if (!connected) return undefined;
+
+		await this.refreshSessionIfExpired(scope);
 
 		try {
 			const issues = await this.getProviderIssuesForProject(this._session!, project, options);
@@ -708,6 +742,8 @@ export abstract class HostingIntegration<
 		const connected = this.maybeConnected ?? (await this.isConnected());
 		if (!connected) return undefined;
 
+		await this.refreshSessionIfExpired(scope);
+
 		try {
 			const author = await this.getProviderAccountForEmail(this._session!, repo, email, options);
 			this.resetRequestExceptionCount();
@@ -740,6 +776,8 @@ export abstract class HostingIntegration<
 		const connected = this.maybeConnected ?? (await this.isConnected());
 		if (!connected) return undefined;
 
+		await this.refreshSessionIfExpired(scope);
+
 		try {
 			const author = await this.getProviderAccountForCommit(this._session!, repo, rev, options);
 			this.resetRequestExceptionCount();
@@ -767,6 +805,8 @@ export abstract class HostingIntegration<
 
 		const connected = this.maybeConnected ?? (await this.isConnected());
 		if (!connected) return undefined;
+
+		await this.refreshSessionIfExpired(scope);
 
 		const defaultBranch = this.container.cache.getRepositoryDefaultBranch(
 			repo,
@@ -804,6 +844,8 @@ export abstract class HostingIntegration<
 
 		const connected = this.maybeConnected ?? (await this.isConnected());
 		if (!connected) return undefined;
+
+		await this.refreshSessionIfExpired(scope);
 
 		const metadata = this.container.cache.getRepositoryMetadata(
 			repo,
@@ -845,6 +887,8 @@ export abstract class HostingIntegration<
 		const connected = this.maybeConnected ?? (await this.isConnected());
 		if (!connected) return false;
 
+		await this.refreshSessionIfExpired(scope);
+
 		try {
 			const result = await this.mergeProviderPullRequest(this._session!, pr, options);
 			this.resetRequestExceptionCount();
@@ -876,6 +920,8 @@ export abstract class HostingIntegration<
 
 		const connected = this.maybeConnected ?? (await this.isConnected());
 		if (!connected) return undefined;
+
+		await this.refreshSessionIfExpired(scope);
 
 		const { expiryOverride, ...opts } = options ?? {};
 
@@ -920,6 +966,8 @@ export abstract class HostingIntegration<
 		const connected = this.maybeConnected ?? (await this.isConnected());
 		if (!connected) return undefined;
 
+		await this.refreshSessionIfExpired(scope);
+
 		const pr = this.container.cache.getPullRequestForSha(
 			rev,
 			repo,
@@ -954,9 +1002,12 @@ export abstract class HostingIntegration<
 			customUrl?: string;
 		},
 	): Promise<PagedResult<ProviderIssue> | undefined> {
+		const scope = getLogScope();
 		const providerId = this.authProvider.id;
 		const connected = this.maybeConnected ?? (await this.isConnected());
 		if (!connected) return undefined;
+
+		await this.refreshSessionIfExpired(scope);
 
 		const api = await this.getProvidersApi();
 		if (
@@ -1157,9 +1208,12 @@ export abstract class HostingIntegration<
 			customUrl?: string;
 		},
 	): Promise<PagedResult<ProviderPullRequest> | undefined> {
+		const scope = getLogScope();
 		const providerId = this.authProvider.id;
 		const connected = this.maybeConnected ?? (await this.isConnected());
 		if (!connected) return undefined;
+
+		await this.refreshSessionIfExpired(scope);
 
 		const api = await this.getProvidersApi();
 		if (
@@ -1319,6 +1373,8 @@ export abstract class HostingIntegration<
 		const connected = this.maybeConnected ?? (await this.isConnected());
 		if (!connected) return undefined;
 
+		await this.refreshSessionIfExpired(scope);
+
 		const start = Date.now();
 		try {
 			const pullRequests = await this.searchProviderMyPullRequests(
@@ -1360,6 +1416,8 @@ export abstract class HostingIntegration<
 		const scope = getLogScope();
 		const connected = this.maybeConnected ?? (await this.isConnected());
 		if (!connected) return undefined;
+
+		await this.refreshSessionIfExpired(scope);
 
 		try {
 			const prs = await this.searchProviderPullRequests?.(
