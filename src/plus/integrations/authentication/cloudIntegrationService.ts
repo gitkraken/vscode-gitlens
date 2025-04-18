@@ -85,6 +85,21 @@ export class CloudIntegrationService {
 					},
 				);
 			}
+
+			if (refresh) {
+				// try once to just get the lastest token if the refresh fails, and give up if that fails too
+				const newTokenRsp = await this.connection.fetchGkApi(
+					`v1/provider-tokens/${cloudIntegrationType}`,
+					{ method: 'GET' },
+					{ organizationId: false },
+				);
+				if (newTokenRsp.ok) {
+					return (await newTokenRsp.json())?.data as Promise<
+						CloudIntegrationAuthenticationSession | undefined
+					>;
+				}
+			}
+
 			return undefined;
 		}
 
