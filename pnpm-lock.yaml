@@ -17,8 +17,8 @@ importers:
   .:
     dependencies:
       '@gitkraken/gitkraken-components':
-        specifier: 13.0.0-vnext.0
-        version: 13.0.0-vnext.0(@types/react@19.0.12)(react@19.0.0)
+        specifier: 13.0.0-vnext.1
+        version: 13.0.0-vnext.1(@types/react@19.0.12)(react@19.0.0)
       '@gitkraken/provider-apis':
         specifier: 0.28.3
         version: 0.28.3(encoding@0.1.13)
@@ -608,8 +608,8 @@ packages:
   '@gar/promisify@1.1.3':
     resolution: {integrity: sha512-k2Ty1JcVojjJFwrg/ThKi2ujJ7XNLYaFGNB/bWT9wGR+oSMJHMa5w+CUq6p/pVrKeNNgA7pCqEcjSnHVoqJQFw==}
 
-  '@gitkraken/gitkraken-components@13.0.0-vnext.0':
-    resolution: {integrity: sha512-pvfXatY4K7zWlSWG25VD5Onp2UamZtq8KdwsVem3uifDTt8c05chq+PG6d02ailwU0tLJtYoy0TVdBPoHDD2EQ==}
+  '@gitkraken/gitkraken-components@13.0.0-vnext.1':
+    resolution: {integrity: sha512-6PxByTgLHOSdyVgb9z5uwyb+HGQ5LrmuczDDJ0ndk624cvjY7pATlNB5phUHFiXQ85ysPcn8gDnDl7bRXJkmGQ==}
     peerDependencies:
       react: 19.0.0
 
@@ -5934,7 +5934,7 @@ snapshots:
 
   '@gar/promisify@1.1.3': {}
 
-  '@gitkraken/gitkraken-components@13.0.0-vnext.0(@types/react@19.0.12)(react@19.0.0)':
+  '@gitkraken/gitkraken-components@13.0.0-vnext.1(@types/react@19.0.12)(react@19.0.0)':
     dependencies:
       '@axosoft/react-virtualized': 9.22.3-gitkraken.3(react-dom@19.0.0(react@19.0.0))(react@19.0.0)
       classnames: 2.5.1
