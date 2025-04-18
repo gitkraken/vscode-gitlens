@@ -7,7 +7,7 @@ import type { CancellationToken, OutputChannel } from 'vscode';
 import { env, Uri, window, workspace } from 'vscode';
 import { hrtime } from '@env/hrtime';
 import { GlyphChars } from '../../../constants';
-import type { GitFeature } from '../../../features';
+import type { FilteredGitFeatures, GitFeatureOrPrefix, GitFeatures } from '../../../features';
 import { gitFeaturesByVersion } from '../../../features';
 import type { GitCommandOptions, GitSpawnOptions } from '../../../git/commandOptions';
 import { GitErrorHandling } from '../../../git/commandOptions';
@@ -364,7 +364,7 @@ export class Git {
 		return (await this.getLocation()).path;
 	}
 
-	async ensureSupports(feature: GitFeature, prefix: string, suffix: string): Promise<void> {
+	async ensureSupports(feature: GitFeatures, prefix: string, suffix: string): Promise<void> {
 		const version = gitFeaturesByVersion.get(feature);
 		if (version == null) return;
 
@@ -376,13 +376,26 @@ export class Git {
 		);
 	}
 
-	supports(feature: GitFeature): boolean | Promise<boolean> {
+	supports(feature: GitFeatures): boolean | Promise<boolean> {
 		const version = gitFeaturesByVersion.get(feature);
 		if (version == null) return true;
 
 		return this._gitLocation != null
 			? compare(fromString(this._gitLocation.version), fromString(version)) !== -1
 			: this.version().then(v => compare(fromString(v), fromString(version)) !== -1);
+	}
+
+	supported<T extends GitFeatureOrPrefix>(feature: T): FilteredGitFeatures<T>[] | Promise<FilteredGitFeatures<T>[]> {
+		function supportedCore(gitVersion: string): FilteredGitFeatures<T>[] {
+			return [...gitFeaturesByVersion]
+				.filter(([f, v]) => f.startsWith(feature) && compare(fromString(gitVersion), v) !== -1)
+				.map(([f]) => f as FilteredGitFeatures<T>);
+		}
+
+		if (this._gitLocation == null) {
+			return this.version().then(v => supportedCore(v));
+		}
+		return supportedCore(this._gitLocation.version);
 	}
 
 	async version(): Promise<string> {

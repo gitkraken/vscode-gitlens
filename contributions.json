@@ -14011,7 +14011,7 @@
 				},
 				{
 					"contents": "[Create Worktree...](command:gitlens.views.createWorktree)",
-					"when": "gitlens:views:scm:grouped:view == worktrees && !gitlens:plus:required"
+					"when": "gitlens:views:scm:grouped:view == worktrees && !gitlens:plus:required && !gitlens:feature:unsupported:git:worktrees"
 				},
 				{
 					"contents": "[Resend Verification Email](command:gitlens.plus.resendVerification?%7B%22source%22%3A%22worktrees%22%7D)\n\nYou must verify your email before you can continue or [recheck Status](command:gitlens.plus.validate?%7B%22source%22%3A%22worktrees%22%7D).",
@@ -14048,6 +14048,10 @@
 				{
 					"contents": "Use on privately-hosted repos require [GitLens Pro](https://help.gitkraken.com/gitlens/gitlens-community-vs-gitlens-pro/).",
 					"when": "gitlens:views:scm:grouped:view == worktrees && gitlens:plus:state != 6"
+				},
+				{
+					"contents": "⚠ Worktrees are not supported by your version of Git. Please upgrade to a more recent version.",
+					"when": "gitlens:views:scm:grouped:view == worktrees && !gitlens:plus:required && gitlens:feature:unsupported:git:worktrees"
 				}
 			]
 		},
@@ -14145,7 +14149,7 @@
 				},
 				{
 					"contents": "[Create Worktree...](command:gitlens.views.createWorktree)",
-					"when": "!gitlens:plus:required"
+					"when": "!gitlens:plus:required && !gitlens:feature:unsupported:git:worktrees"
 				},
 				{
 					"contents": "[Resend Verification Email](command:gitlens.plus.resendVerification?%7B%22source%22%3A%22worktrees%22%7D)\n\nYou must verify your email before you can continue or [recheck Status](command:gitlens.plus.validate?%7B%22source%22%3A%22worktrees%22%7D).",
@@ -14182,6 +14186,10 @@
 				{
 					"contents": "Use on privately-hosted repos require [GitLens Pro](https://help.gitkraken.com/gitlens/gitlens-community-vs-gitlens-pro/).",
 					"when": "gitlens:plus:state != 6"
+				},
+				{
+					"contents": "⚠ Worktrees are not supported by your version of Git. Please upgrade to a more recent version.",
+					"when": "!gitlens:plus:required && gitlens:feature:unsupported:git:worktrees"
 				}
 			]
 		}
