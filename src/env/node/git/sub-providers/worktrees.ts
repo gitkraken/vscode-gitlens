@@ -93,7 +93,7 @@ export class WorktreesGitSubProvider implements GitWorktreesSubProvider {
 	@log()
 	async getWorktrees(repoPath: string): Promise<GitWorktree[]> {
 		await this.git.ensureSupports(
-			'git:worktrees:list',
+			'git:worktrees',
 			'Displaying worktrees',
 			' Please install a more recent version of Git and try again.',
 		);
@@ -165,7 +165,7 @@ export class WorktreesGitSubProvider implements GitWorktreesSubProvider {
 		const scope = getLogScope();
 
 		await this.git.ensureSupports(
-			'git:worktrees:delete',
+			'git:worktrees',
 			'Deleting worktrees',
 			' Please install a more recent version of Git and try again.',
 		);

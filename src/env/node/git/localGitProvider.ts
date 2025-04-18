@@ -60,6 +60,7 @@ import {
 } from '../../../messages';
 import { asRepoComparisonKey } from '../../../repositories';
 import { configuration } from '../../../system/-webview/configuration';
+import { setContext } from '../../../system/-webview/context';
 import { getBestPath, isFolderUri, relative, splitPath } from '../../../system/-webview/path';
 import { gate } from '../../../system/decorators/-webview/gate';
 import { debug, log } from '../../../system/decorators/log';
@@ -476,6 +477,7 @@ export class LocalGitProvider implements GitProvider, Disposable {
 				break;
 		}
 
+		void setContext(`gitlens:feature:unsupported:${feature}`, !supported);
 		this._supportedFeatures.set(feature, supported);
 		return supported;
 	}

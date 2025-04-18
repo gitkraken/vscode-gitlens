@@ -23,10 +23,7 @@ import { registerViewCommand } from './viewCommands';
 
 export class WorktreesRepositoryNode extends RepositoryFolderNode<WorktreesView, WorktreesNode> {
 	getChildren(): Promise<ViewNode[]> {
-		if (this.child == null) {
-			this.child = new WorktreesNode(this.uri, this.view, this, this.repo);
-		}
-
+		this.child ??= new WorktreesNode(this.uri, this.view, this, this.repo);
 		return this.child.getChildren();
 	}
 
@@ -66,6 +63,11 @@ export class WorktreesViewNode extends RepositoriesSubscribeableNode<WorktreesVi
 			let repositories = this.view.container.git.openRepositories;
 			if (repositories.length === 0) {
 				this.view.message = 'No worktrees could be found.';
+				return [];
+			}
+
+			const repo = this.view.container.git.getBestRepositoryOrFirst();
+			if (repo != null && !(await repo.git.supports('git:worktrees'))) {
 				return [];
 			}
 

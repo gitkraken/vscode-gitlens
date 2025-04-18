@@ -243,12 +243,18 @@ export class GitHubGitProvider implements GitProvider, Disposable {
 	}
 
 	async supports(feature: Features): Promise<boolean> {
+		let supported;
 		switch (feature) {
 			case 'timeline' satisfies Features:
-				return true;
+				supported = true;
+				break;
 			default:
-				return false;
+				supported = false;
+				break;
 		}
+
+		void setContext(`gitlens:feature:unsupported:${feature}`, !supported);
+		return supported;
 	}
 
 	async visibility(repoPath: string): Promise<[visibility: RepositoryVisibility, cacheKey: string | undefined]> {

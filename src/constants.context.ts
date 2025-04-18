@@ -2,6 +2,7 @@ import type { Uri } from 'vscode';
 import type { AnnotationStatus, Keys } from './constants';
 import type { SubscriptionPlanId, SubscriptionState } from './constants.subscription';
 import type { CustomEditorTypes, GroupableTreeViewTypes, WebviewTypes, WebviewViewTypes } from './constants.views';
+import type { Features } from './features';
 import type { PromoKeys } from './plus/gk/models/promo';
 import type { WalkthroughContextKeys } from './telemetry/walkthroughStateProvider';
 
@@ -54,6 +55,7 @@ export type ContextKeys = {
 	'gitlens:vsls': boolean | 'host' | 'guest';
 	'gitlens:window:annotated': AnnotationStatus;
 } & Record<`gitlens:action:${string}`, number> &
+	Record<`gitlens:feature:unsupported:${Features}`, boolean> &
 	Record<`gitlens:key:${Keys}`, boolean> &
 	Record<`gitlens:views:scm:grouped:views:${GroupableTreeViewTypes}`, boolean> &
 	Record<`gitlens:webview:${WebviewTypes | CustomEditorTypes}:visible`, boolean> &
