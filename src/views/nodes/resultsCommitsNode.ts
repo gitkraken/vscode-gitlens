@@ -18,9 +18,9 @@ import { AutolinkedItemsNode } from './autolinkedItemsNode';
 import { CommitNode } from './commitNode';
 import { LoadMoreNode, MessageNode } from './common';
 import { ContributorsNode } from './contributorsNode';
-import { insertDateMarkers } from './helpers';
 import { ResultsFilesNode } from './resultsFilesNode';
 import { StashNode } from './stashNode';
+import { insertDateMarkers } from './utils/-webview/node.utils';
 
 interface Options {
 	autolinks: boolean;

@@ -16,7 +16,7 @@ import { ContextValues, getViewNodeId } from './abstract/viewNode';
 import { ViewRefNode } from './abstract/viewRefNode';
 import { CommitNode } from './commitNode';
 import { LoadMoreNode, MessageNode } from './common';
-import { insertDateMarkers } from './helpers';
+import { insertDateMarkers } from './utils/-webview/node.utils';
 
 export class TagNode extends ViewRefNode<'tag', ViewsWithTags, GitTagReference> implements PageableViewNode {
 	limit: number | undefined;

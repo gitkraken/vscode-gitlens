@@ -20,7 +20,7 @@ import { ContextValues, getViewNodeId, ViewNode } from './abstract/viewNode';
 import { BranchTrackingStatusFilesNode } from './branchTrackingStatusFilesNode';
 import { CommitNode } from './commitNode';
 import { LoadMoreNode } from './common';
-import { insertDateMarkers } from './helpers';
+import { insertDateMarkers } from './utils/-webview/node.utils';
 
 export interface BranchTrackingStatus {
 	ref: string;

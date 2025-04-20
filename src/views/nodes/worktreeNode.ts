@@ -27,10 +27,10 @@ import { ContextValues, getViewNodeId } from './abstract/viewNode';
 import { CommitNode } from './commitNode';
 import { LoadMoreNode, MessageNode } from './common';
 import { CompareBranchNode } from './compareBranchNode';
-import { insertDateMarkers } from './helpers';
 import { PullRequestNode } from './pullRequestNode';
 import { StashNode } from './stashNode';
 import { UncommittedFilesNode } from './UncommittedFilesNode';
+import { insertDateMarkers } from './utils/-webview/node.utils';
 
 type State = {
 	pullRequest: PullRequest | null | undefined;

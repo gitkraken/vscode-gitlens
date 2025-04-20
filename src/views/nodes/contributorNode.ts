@@ -16,7 +16,7 @@ import type { ClipboardType, PageableViewNode } from './abstract/viewNode';
 import { ContextValues, getViewNodeId, ViewNode } from './abstract/viewNode';
 import { CommitNode } from './commitNode';
 import { LoadMoreNode, MessageNode } from './common';
-import { insertDateMarkers } from './helpers';
+import { insertDateMarkers } from './utils/-webview/node.utils';
 
 export class ContributorNode extends ViewNode<'contributor', ViewsWithContributors> implements PageableViewNode {
 	limit: number | undefined;

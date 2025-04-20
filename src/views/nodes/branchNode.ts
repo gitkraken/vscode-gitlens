@@ -41,10 +41,10 @@ import { BranchTrackingStatusNode } from './branchTrackingStatusNode';
 import { CommitNode } from './commitNode';
 import { LoadMoreNode, MessageNode } from './common';
 import { CompareBranchNode } from './compareBranchNode';
-import { insertDateMarkers } from './helpers';
 import { PausedOperationStatusNode } from './pausedOperationStatusNode';
 import { PullRequestNode } from './pullRequestNode';
 import { StashNode } from './stashNode';
+import { insertDateMarkers } from './utils/-webview/node.utils';
 
 type State = {
 	pullRequest: PullRequest | null | undefined;
