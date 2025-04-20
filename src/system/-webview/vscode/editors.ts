@@ -1,5 +1,5 @@
 import type { TextDocument, TextDocumentShowOptions, TextEditor } from 'vscode';
-import { Uri, ViewColumn, window, workspace } from 'vscode';
+import { Uri, ViewColumn, window } from 'vscode';
 import { imageMimetypes, Schemes } from '../../../constants';
 import { isGitUri } from '../../../git/gitUri';
 import { Logger } from '../../logger';
@@ -184,6 +184,7 @@ export async function openSettingsEditor(queryOrOptions: OpenSettingsEditorOptio
 export async function openTextEditor(
 	uri: Uri,
 	options?: TextDocumentShowOptions & { background?: boolean; throwOnError?: boolean },
+	title?: string,
 ): Promise<TextEditor | undefined> {
 	let background;
 	let throwOnError;
@@ -196,14 +197,13 @@ export async function openTextEditor(
 			uri = uri.documentUri();
 		}
 
-		if (background || (uri.scheme === Schemes.GitLens && imageMimetypes[extname(uri.fsPath)])) {
-			await executeCoreCommand('vscode.open', uri, { background: background, ...options });
+		if (background || title || (uri.scheme === Schemes.GitLens && imageMimetypes[extname(uri.fsPath)])) {
+			await executeCoreCommand('vscode.open', uri, { background: background, ...options }, title);
 
 			return undefined;
 		}
 
-		const document = await workspace.openTextDocument(uri);
-		return await window.showTextDocument(document, {
+		return await window.showTextDocument(uri, {
 			preserveFocus: false,
 			preview: true,
 			viewColumn: ViewColumn.Active,
