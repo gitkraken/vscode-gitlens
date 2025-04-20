@@ -22,8 +22,8 @@ import type { PageableViewNode, ViewNode } from './abstract/viewNode';
 import { ContextValues, getViewNodeId } from './abstract/viewNode';
 import { LoadMoreNode, MessageNode } from './common';
 import { FileRevisionAsCommitNode } from './fileRevisionAsCommitNode';
-import { insertDateMarkers } from './helpers';
 import { LineHistoryTrackerNode } from './lineHistoryTrackerNode';
+import { insertDateMarkers } from './utils/-webview/node.utils';
 
 export class LineHistoryNode
 	extends SubscribeableViewNode<'line-history', FileHistoryView | LineHistoryView>

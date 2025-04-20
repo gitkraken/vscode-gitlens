@@ -23,7 +23,7 @@ import { CommitNode } from './commitNode';
 import { LoadMoreNode, MessageNode } from './common';
 import { FileHistoryTrackerNode } from './fileHistoryTrackerNode';
 import { FileRevisionAsCommitNode } from './fileRevisionAsCommitNode';
-import { insertDateMarkers } from './helpers';
+import { insertDateMarkers } from './utils/-webview/node.utils';
 
 export class FileHistoryNode
 	extends SubscribeableViewNode<'file-history', FileHistoryView>
