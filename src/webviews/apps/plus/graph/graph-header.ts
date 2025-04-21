@@ -1,4 +1,5 @@
 import type { GraphRefOptData } from '@gitkraken/gitkraken-components';
+import { refTypes } from '@gitkraken/gitkraken-components';
 import { consume } from '@lit/context';
 import { SignalWatcher } from '@lit-labs/signals';
 import { html, LitElement, nothing } from 'lit';
@@ -135,6 +136,10 @@ export class GlGraphHeader extends SignalWatcher(LitElement) {
 		if (this.hostState.excludeTypes == null) return false;
 
 		return Object.values(this.hostState.excludeTypes).includes(true);
+	}
+
+	get excludeRefs() {
+		return Object.values(this.hostState.excludeRefs ?? {}).sort(compareGraphRefOpts);
 	}
 
 	private async onJumpToRefPromise(alt: boolean): Promise<{ name: string; sha: string } | undefined> {
@@ -902,35 +907,40 @@ export class GlGraphHeader extends SignalWatcher(LitElement) {
 									</gl-tooltip>
 									<div slot="content">
 										<menu-label>Hidden Branches / Tags</menu-label>
-										${when(this.hostState.excludeRefs, excludeRefs => {
-											if (!Object.keys(excludeRefs).length) {
-												return nothing;
-											}
-											return repeat([...Object.values(excludeRefs), null], ref => {
-												if (ref) {
-													return html` <menu-item
-														@click=${(event: CustomEvent) => {
-															this.handleOnToggleRefsVisibilityClick(event, [ref], true);
-														}}
-														class="flex-gap"
-													>
-														<code-icon icon=${getRemoteIcon(ref.type)}></code-icon>
-														<span>${ref.name}</span>
-													</menu-item>`;
-												}
-												return html` <menu-item
+										${when(
+											this.excludeRefs.length > 0,
+											() => html`
+												${repeat(
+													this.excludeRefs,
+													ref => html`
+														<menu-item
+															@click=${(event: CustomEvent) => {
+																this.handleOnToggleRefsVisibilityClick(
+																	event,
+																	[ref],
+																	true,
+																);
+															}}
+															class="flex-gap"
+														>
+															${this.renderRemoteAvatarOrIcon(ref)}
+															<span>${ref.name}</span>
+														</menu-item>
+													`,
+												)}
+												<menu-item
 													@click=${(event: CustomEvent) => {
 														this.handleOnToggleRefsVisibilityClick(
 															event,
-															Object.values(excludeRefs ?? {}),
+															this.excludeRefs,
 															true,
 														);
 													}}
 												>
 													Show All
-												</menu-item>`;
-											});
-										})}
+												</menu-item>
+											`,
+										)}
 									</div>
 								</gl-popover>
 							</div>
@@ -1160,4 +1170,23 @@ export class GlGraphHeader extends SignalWatcher(LitElement) {
 			</div>
 		</header>`;
 	}
+
+	private renderRemoteAvatarOrIcon(refOptData: GraphRefOptData) {
+		if (refOptData.avatarUrl) {
+			return html`<img class="branch-menu__avatar" alt=${refOptData.name} src=${refOptData.avatarUrl} />`;
+		}
+		return html`<code-icon class="branch-menu__icon" icon=${getRemoteIcon(refOptData.type)}></code-icon>`;
+	}
+}
+
+// TODO: this should be exported by the graph library
+export function compareGraphRefOpts(a: GraphRefOptData, b: GraphRefOptData): number {
+	const comparationResult = a.name.localeCompare(b.name);
+	if (comparationResult === 0) {
+		// If names are equals
+		if (a.type === refTypes.REMOTE) {
+			return -1;
+		}
+	}
+	return comparationResult;
 }
