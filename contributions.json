@@ -13402,7 +13402,7 @@
 			}
 		},
 		"gitlens/views/grouped/branches": {
-			"label": "Branches",
+			"label": "Branches (3)",
 			"icon": "$(gitlens-branches-view-filled)",
 			"menus": {
 				"view/title": [
@@ -13415,7 +13415,7 @@
 			}
 		},
 		"gitlens/views/grouped/commits": {
-			"label": "Commits",
+			"label": "Commits (1)",
 			"icon": "$(gitlens-commits-view-filled)",
 			"menus": {
 				"view/title": [
@@ -13428,7 +13428,7 @@
 			}
 		},
 		"gitlens/views/grouped/contributors": {
-			"label": "Contributors",
+			"label": "Contributors (7)",
 			"icon": "$(gitlens-contributors-view-filled)",
 			"menus": {
 				"view/title": [
@@ -13441,7 +13441,7 @@
 			}
 		},
 		"gitlens/views/grouped/fileHistory": {
-			"label": "File History",
+			"label": "File History (8)",
 			"icon": "$(gitlens-history-view-filled)",
 			"menus": {
 				"view/title": [
@@ -13454,7 +13454,7 @@
 			}
 		},
 		"gitlens/views/grouped/launchpad": {
-			"label": "Launchpad",
+			"label": "Launchpad (9)",
 			"icon": "$(gitlens-launchpad-view-filled)",
 			"menus": {
 				"view/title": [
@@ -13550,7 +13550,7 @@
 			}
 		},
 		"gitlens/views/grouped/remotes": {
-			"label": "Remotes",
+			"label": "Remotes (4)",
 			"icon": "$(gitlens-remotes-view-filled)",
 			"menus": {
 				"view/title": [
@@ -13576,7 +13576,7 @@
 			}
 		},
 		"gitlens/views/grouped/searchAndCompare": {
-			"label": "Search & Compare",
+			"label": "Search & Compare (0)",
 			"icon": "$(gitlens-search-view-filled)",
 			"menus": {
 				"view/title": [
@@ -13589,7 +13589,7 @@
 			}
 		},
 		"gitlens/views/grouped/stashes": {
-			"label": "Stashes",
+			"label": "Stashes (5)",
 			"icon": "$(gitlens-stashes-view-filled)",
 			"menus": {
 				"view/title": [
@@ -13602,7 +13602,7 @@
 			}
 		},
 		"gitlens/views/grouped/tags": {
-			"label": "Tags",
+			"label": "Tags (6)",
 			"icon": "$(gitlens-tags-view-filled)",
 			"menus": {
 				"view/title": [
@@ -13627,7 +13627,7 @@
 			}
 		},
 		"gitlens/views/grouped/worktrees": {
-			"label": "Worktrees",
+			"label": "Worktrees (2)",
 			"icon": "$(gitlens-worktrees-view-filled)",
 			"menus": {
 				"view/title": [
