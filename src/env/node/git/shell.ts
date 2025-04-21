@@ -5,9 +5,7 @@ import { access, constants, existsSync, statSync } from 'fs';
 import { join as joinPaths } from 'path';
 import * as process from 'process';
 import { Logger } from '../../../system/logger';
-import { getLogScope } from '../../../system/logger.scope';
 import { normalizePath } from '../../../system/path';
-import { CancelledRunError, RunError } from './shell.errors';
 
 export const isWindows = process.platform === 'win32';
 
@@ -160,6 +158,55 @@ export interface RunOptions<TEncoding = BufferEncoding | 'buffer'> {
 
 const bufferExceededRegex = /stdout maxBuffer( length)? exceeded/;
 
+export class RunError extends Error {
+	constructor(
+		private readonly original: ExecFileException,
+		public readonly stdout: string,
+		public readonly stderr: string,
+	) {
+		super(original.message);
+
+		stdout = stdout.trim();
+		stderr = stderr.trim();
+		Error.captureStackTrace?.(this, RunError);
+	}
+
+	get cmd(): string | undefined {
+		return this.original.cmd;
+	}
+
+	get killed(): boolean | undefined {
+		return this.original.killed;
+	}
+
+	get code(): string | number | undefined {
+		return this.original.code ?? undefined;
+	}
+
+	get signal(): NodeJS.Signals | undefined {
+		return this.original.signal;
+	}
+}
+
+export class CancelledRunError extends RunError {
+	constructor(cmd: string, killed: boolean, code?: number | string | undefined, signal: NodeJS.Signals = 'SIGTERM') {
+		super(
+			{
+				name: 'CancelledRunError',
+				message: 'Cancelled',
+				cmd: cmd,
+				killed: killed,
+				code: code,
+				signal: signal,
+			},
+			'',
+			'',
+		);
+
+		Error.captureStackTrace?.(this, CancelledRunError);
+	}
+}
+
 type ExitCodeOnlyRunOptions<TEncoding = BufferEncoding | 'buffer'> = RunOptions<TEncoding> & { exitCodeOnly: true };
 
 export function run(
@@ -195,14 +242,7 @@ export function run<T extends number | string>(
 
 			if (error != null) {
 				if (error.signal === 'SIGTERM') {
-					reject(
-						new CancelledRunError(
-							`${command} ${args.join(' ')}`,
-							true,
-							error.code ?? undefined,
-							error.signal,
-						),
-					);
+					reject(new CancelledRunError(command, true, error.code ?? undefined, error.signal));
 
 					return;
 				}
@@ -264,58 +304,53 @@ export function runSpawn<T extends string | Buffer>(
 	command: string,
 	args: readonly string[],
 	encoding: BufferEncoding | 'buffer' | string,
-	options: RunOptions,
+	options?: RunOptions,
 ): Promise<RunResult<T>>;
 export function runSpawn<T extends string | Buffer>(
 	command: string,
 	args: readonly string[],
 	encoding: BufferEncoding | 'buffer' | string,
-	options: RunOptions & { exitCodeOnly?: boolean },
+	options?: RunOptions & { exitCodeOnly?: boolean },
 ): Promise<RunExitResult | RunResult<T>> {
-	const scope = getLogScope();
-
-	const { stdin, stdinEncoding, ...opts }: RunOptions = options;
+	const { stdin, stdinEncoding, ...opts }: RunOptions = {
+		maxBuffer: 1000 * 1024 * 1024,
+		...options,
+	};
 
 	return new Promise<RunExitResult | RunResult<T>>((resolve, reject) => {
 		const proc = spawn(command, args, opts);
 
-		const stdoutBuffers: Buffer[] = [];
+		const stdoutBuffers: any[] = [];
+		const stderrBuffers: any[] = [];
+
 		proc.stdout.on('data', (data: Buffer) => stdoutBuffers.push(data));
+		proc.stderr.on('data', (data: Buffer) => stdoutBuffers.push(data));
 
-		const stderrBuffers: Buffer[] = [];
-		proc.stderr.on('data', (data: Buffer) => stderrBuffers.push(data));
-
-		function getStdio<T>(
-			encoding: BufferEncoding | 'buffer' | string,
-		): { stdout: T; stderr: T } | Promise<{ stdout: T; stderr: T }> {
-			const stdout = Buffer.concat(stdoutBuffers);
-			const stderr = Buffer.concat(stderrBuffers);
-			if (encoding === 'utf8' || encoding === 'binary') {
-				return { stdout: stdout.toString(encoding) as T, stderr: stderr.toString(encoding) as T };
-			}
-			if (encoding === 'buffer') {
-				return { stdout: stdout as T, stderr: stderr as T };
-			}
-
-			return import(/* webpackChunkName: "lib-encoding" */ 'iconv-lite').then(iconv => {
-				return { stdout: iconv.decode(stdout, encoding) as T, stderr: iconv.decode(stderr, encoding) as T };
-			});
+		function stdioError(): [stdout: string, stderr: string] {
+			return [Buffer.concat(stdoutBuffers).toString('utf8'), Buffer.concat(stderrBuffers).toString('utf8')];
 		}
 
-		proc.once('error', async ex => {
+		async function stdioErrorDecoded(): Promise<[stdout: string, stderr: string]> {
+			const decode = (await import(/* webpackChunkName: "lib-encoding" */ 'iconv-lite')).decode;
+			return [decode(Buffer.concat(stdoutBuffers), encoding), decode(Buffer.concat(stderrBuffers), encoding)];
+		}
+
+		proc.on('error', async ex => {
 			if (ex?.name === 'AbortError') {
-				reject(new CancelledRunError(`${command} ${args.join(' ')}`, true));
+				reject(new CancelledRunError(command, true));
 
 				return;
 			}
 
-			const stdio = getStdio<string>('utf8');
-			const { stdout, stderr } = stdio instanceof Promise ? await stdio : stdio;
+			const [stdout, stderr] =
+				encoding === 'utf8' || encoding === 'binary' || encoding === 'buffer'
+					? stdioError()
+					: await stdioErrorDecoded();
 
 			reject(new RunError(ex, stdout, stderr));
 		});
 
-		proc.once('close', async (code, signal) => {
+		proc.on('exit', async (code, signal) => {
 			if (options?.exitCodeOnly) {
 				resolve({ exitCode: code ?? 0 });
 
@@ -323,25 +358,20 @@ export function runSpawn<T extends string | Buffer>(
 			}
 
 			if (code !== 0 || signal) {
-				const stdio = getStdio<string>('utf8');
-				const { stdout, stderr } = stdio instanceof Promise ? await stdio : stdio;
-				if (stderr.length) {
-					Logger.warn(scope, `Warning(${command} ${args.join(' ')}): ${stderr}`);
-				}
-
 				if (signal === 'SIGTERM') {
-					reject(new CancelledRunError(`${command} ${args.join(' ')}`, true, code ?? undefined, signal));
+					reject(new CancelledRunError(command, true, code ?? undefined, signal));
 
 					return;
 				}
 
+				const [stdout, stderr] =
+					encoding === 'utf8' || encoding === 'binary' || encoding === 'buffer'
+						? stdioError()
+						: await stdioErrorDecoded();
+
 				reject(
 					new RunError(
-						{
-							message: `Command failed with exit code ${code}`,
-							code: code,
-							signal: signal ?? undefined,
-						},
+						{ message: `Command failed with exit code ${code}`, code: code, signal: signal } as any,
 						stdout,
 						stderr,
 					),
@@ -350,23 +380,45 @@ export function runSpawn<T extends string | Buffer>(
 				return;
 			}
 
-			const stdio = getStdio<T>(encoding);
-			const { stdout, stderr } = stdio instanceof Promise ? await stdio : stdio;
-			if (stderr.length) {
-				Logger.warn(
-					scope,
-					`Warning(${command} ${args.join(' ')}): ${typeof stderr === 'string' ? stderr : stderr.toString()}`,
-				);
+			const stderr = Buffer.concat(stderrBuffers);
+			if (stderrBuffers.length) {
+				Logger.warn(`Warning(${command} ${args.join(' ')}): ${stderr.toString('utf8')}`);
 			}
 
-			resolve({ exitCode: code ?? 0, stdout: stdout, stderr: stderr });
+			const stdout = Buffer.concat(stdoutBuffers);
+			if (encoding === 'buffer') {
+				resolve({
+					exitCode: code ?? 0,
+					stdout: stdout as T,
+					stderr: Buffer.concat(stderrBuffers) as T,
+				});
+				return;
+			}
+
+			if (encoding === 'utf8' || encoding === 'binary') {
+				resolve({
+					exitCode: code ?? 0,
+					stdout: stdout.toString(encoding) as T,
+					stderr: stderr.toString(encoding) as T,
+				});
+				return;
+			}
+
+			const decode = (await import(/* webpackChunkName: "lib-encoding" */ 'iconv-lite')).decode;
+			resolve({
+				exitCode: code ?? 0,
+				stdout: decode(stdout, encoding) as T,
+				stderr: decode(stderr, encoding) as T,
+			});
 		});
 
-		if (stdin) {
+		if (stdin != null) {
 			if (typeof stdin === 'string') {
-				proc.stdin.end(stdin, (stdinEncoding ?? 'utf8') as BufferEncoding);
+				proc.stdin.write(stdin, (stdinEncoding ?? 'utf8') as BufferEncoding);
+				proc.stdin.end();
 			} else if (stdin instanceof Buffer) {
-				proc.stdin.end(stdin);
+				proc.stdin.write(stdin);
+				proc.stdin.end();
 			}
 		}
 	});

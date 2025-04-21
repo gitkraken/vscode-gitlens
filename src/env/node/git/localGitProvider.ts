@@ -45,7 +45,6 @@ import { Repository, RepositoryChange, RepositoryChangeComparisonMode } from '..
 import { deletedOrMissing } from '../../../git/models/revision';
 import { parseGitBlame } from '../../../git/parsers/blameParser';
 import { parseGitFileDiff } from '../../../git/parsers/diffParser';
-import { parseGitLogSimpleFormat, parseGitLogSimpleRenamed } from '../../../git/parsers/logParser';
 import { getBranchNameAndRemote, getBranchTrackingWithoutRemote } from '../../../git/utils/branch.utils';
 import { isBranchReference } from '../../../git/utils/reference.utils';
 import { getVisibilityCacheKey } from '../../../git/utils/remote.utils';
@@ -84,7 +83,7 @@ import { BranchesGitSubProvider } from './sub-providers/branches';
 import { CommitsGitSubProvider } from './sub-providers/commits';
 import { ConfigGitSubProvider } from './sub-providers/config';
 import { ContributorsGitSubProvider } from './sub-providers/contributors';
-import { DiffGitSubProvider } from './sub-providers/diff';
+import { DiffGitSubProvider, findPathStatusChanged } from './sub-providers/diff';
 import { GraphGitSubProvider } from './sub-providers/graph';
 import { PatchGitSubProvider } from './sub-providers/patch';
 import { RefsGitSubProvider } from './sub-providers/refs';
@@ -104,6 +103,10 @@ const RepoSearchWarnings = {
 };
 
 const driveLetterRegex = /(?<=^\/?)([a-zA-Z])(?=:\/)/;
+
+export type LocalGitProviderInternal = Omit<LocalGitProvider, 'isTrackedWithDetails'> & {
+	isTrackedWithDetails: LocalGitProvider['isTrackedWithDetails'];
+};
 
 export class LocalGitProvider implements GitProvider, Disposable {
 	readonly descriptor: GitProviderDescriptor = { id: 'git', name: 'Git', virtual: false };
@@ -888,7 +891,8 @@ export class LocalGitProvider implements GitProvider, Disposable {
 		let relativePath = this.getRelativePath(uri, repoPath);
 
 		let data;
-		let ref;
+		let result;
+		let rev;
 		do {
 			data = await this.git.ls_files(repoPath, relativePath);
 			if (data != null) {
@@ -898,30 +902,17 @@ export class LocalGitProvider implements GitProvider, Disposable {
 
 			// TODO: Add caching
 
-			const cfg = configuration.get('advanced');
-
 			// Get the most recent commit for this file name
-			ref = await this.git.log__file_recent(repoPath, relativePath, {
-				ordering: cfg.commitOrdering,
-				similarityThreshold: cfg.similarityThreshold,
-			});
-			if (ref == null) return undefined;
+			rev = first(await this.commits.getLogShas(repoPath, undefined, { limit: 1, pathOrUri: relativePath }));
+			if (rev == null) return undefined;
 
-			// Now check if that commit had any renames
-			data = await this.git.log__file(repoPath, '.', ref, {
-				argsOrFormat: parseGitLogSimpleFormat,
-				fileMode: 'simple',
-				filters: ['R', 'C', 'D'],
-				limit: 1,
-				ordering: cfg.commitOrdering,
-			});
-			if (data == null || data.length === 0) break;
+			// Now check if that commit had any copies/renames
+			result = await findPathStatusChanged(this.git, repoPath, relativePath, rev);
+			// If the file was deleted, then we can't find the working file
+			if (result?.file?.status === 'D') return undefined;
+			if (result?.file == null) break;
 
-			const [foundRef, foundFile, foundStatus] = parseGitLogSimpleRenamed(data, relativePath);
-			if (foundStatus === 'D' && foundFile != null) return undefined;
-			if (foundRef == null || foundFile == null) break;
-
-			relativePath = foundFile;
+			relativePath = result?.file.path;
 		} while (true);
 
 		uri = this.getAbsoluteUri(relativePath, repoPath);
@@ -2087,7 +2078,12 @@ export class LocalGitProvider implements GitProvider, Disposable {
 
 	private _commits: CommitsGitSubProvider | undefined;
 	get commits(): CommitsGitSubProvider {
-		return (this._commits ??= new CommitsGitSubProvider(this.container, this.git, this._cache, this));
+		return (this._commits ??= new CommitsGitSubProvider(
+			this.container,
+			this.git,
+			this._cache,
+			this as unknown as LocalGitProviderInternal,
+		));
 	}
 
 	private _config: ConfigGitSubProvider | undefined;

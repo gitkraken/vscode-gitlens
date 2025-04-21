@@ -8,7 +8,6 @@ import type { GitLog } from '../../git/models/log';
 import type { PullRequest, PullRequestState } from '../../git/models/pullRequest';
 import type { GitStatus } from '../../git/models/status';
 import type { GitWorktree } from '../../git/models/worktree';
-import { getBranchAheadRange } from '../../git/utils/-webview/branch.utils';
 import { getBranchIconPath } from '../../git/utils/-webview/icons';
 import { getHighlanderProviderName } from '../../git/utils/remote.utils';
 import { shortenRevision } from '../../git/utils/revision.utils';
@@ -17,9 +16,8 @@ import { getBestPath } from '../../system/-webview/path';
 import { gate } from '../../system/decorators/-webview/gate';
 import { debug } from '../../system/decorators/log';
 import { map } from '../../system/iterable';
-import { Logger } from '../../system/logger';
 import type { Deferred } from '../../system/promise';
-import { defer, getSettledValue, pauseOnCancelOrTimeout } from '../../system/promise';
+import { defer, getSettledValue } from '../../system/promise';
 import { pad } from '../../system/string';
 import type { ViewsWithWorktrees } from '../viewBase';
 import { createViewDecorationUri } from '../viewDecorationProvider';
@@ -49,6 +47,7 @@ export class WorktreeNode extends CacheableChildrenViewNode<'worktree', ViewsWit
 		view: ViewsWithWorktrees,
 		public override parent: ViewNode,
 		public readonly worktree: GitWorktree,
+		private readonly worktreeStatus: { status: GitStatus | undefined; missing: boolean } | undefined,
 	) {
 		super('worktree', uri, view, parent);
 
@@ -136,15 +135,19 @@ export class WorktreeNode extends CacheableChildrenViewNode<'worktree', ViewsWit
 				}
 			}
 
-			const svc = this.view.container.git.getRepositoryService(this.uri.repoPath!);
-
 			const [logResult, getBranchAndTagTipsResult, unpublishedCommitsResult] = await Promise.allSettled([
 				this.getLog(),
-				svc.getBranchesAndTagsTipsLookup(),
+				this.view.container.git.getBranchesAndTagsTipsLookup(this.uri.repoPath),
 				branch != null && !branch.remote
-					? getBranchAheadRange(svc, branch).then(range =>
-							range ? svc.commits.getLogShas(range, { limit: 0 }) : undefined,
-					  )
+					? this.view.container.git
+							.getBranchAheadRange(branch)
+							.then(range =>
+								range
+									? this.view.container.git
+											.commits(this.uri.repoPath!)
+											.getLogShas(range, { limit: 0 })
+									: undefined,
+							)
 					: undefined,
 			]);
 			const log = getSettledValue(logResult);
@@ -194,9 +197,8 @@ export class WorktreeNode extends CacheableChildrenViewNode<'worktree', ViewsWit
 				children.push(new LoadMoreNode(this.view, this, children[children.length - 1]));
 			}
 
-			const { status } = await this.getStatus();
-			if (status?.hasChanges) {
-				children.unshift(new UncommittedFilesNode(this.view, this, status, undefined));
+			if (this.worktreeStatus?.status?.hasChanges) {
+				children.unshift(new UncommittedFilesNode(this.view, this, this.worktreeStatus.status, undefined));
 			}
 
 			this.children = children;
@@ -207,6 +209,8 @@ export class WorktreeNode extends CacheableChildrenViewNode<'worktree', ViewsWit
 	}
 
 	async getTreeItem(): Promise<TreeItem> {
+		this.splatted = false;
+
 		let description = '';
 		let icon: IconPath | undefined;
 		let hasChanges = false;
@@ -225,19 +229,7 @@ export class WorktreeNode extends CacheableChildrenViewNode<'worktree', ViewsWit
 				  })`
 				: '';
 
-		let status: GitStatus | undefined;
-		let missing = false;
-
-		const result = await pauseOnCancelOrTimeout(this.getStatus(), undefined, 1);
-		if (!result.paused) {
-			({ status, missing } = result.value);
-		} else {
-			queueMicrotask(() => {
-				void result.value.then(() => {
-					this.view.triggerNodeChange(this);
-				});
-			});
-		}
+		const status = this.worktreeStatus?.status;
 
 		const folder = `\\\n$(folder) [\`${
 			this.worktree.friendlyPath
@@ -328,9 +320,7 @@ export class WorktreeNode extends CacheableChildrenViewNode<'worktree', ViewsWit
 							);
 						} else {
 							const providerName = getHighlanderProviderName(
-								await this.view.container.git
-									.getRepositoryService(branch.repoPath)
-									.remotes.getRemotesWithProviders(),
+								await this.view.container.git.remotes(branch.repoPath).getRemotesWithProviders(),
 							);
 
 							tooltip.appendMarkdown(
@@ -381,6 +371,7 @@ export class WorktreeNode extends CacheableChildrenViewNode<'worktree', ViewsWit
 			tooltip.appendMarkdown(`\n\n$(loading~spin) Loading associated pull request${GlyphChars.Ellipsis}`);
 		}
 
+		const missing = this.worktreeStatus?.missing ?? false;
 		if (missing) {
 			tooltip.appendMarkdown(`\n\n${GlyphChars.Warning} Unable to locate worktree path`);
 		}
@@ -410,7 +401,7 @@ export class WorktreeNode extends CacheableChildrenViewNode<'worktree', ViewsWit
 		item.description = description;
 		item.contextValue = `${ContextValues.Worktree}${this.worktree.isDefault ? '+default' : ''}${
 			this.worktree.opened ? '+active' : ''
-		}${hasChanges ? '+working' : ''}`;
+		}`;
 		item.iconPath =
 			pendingPullRequest != null
 				? new ThemeIcon('loading~spin')
@@ -424,12 +415,13 @@ export class WorktreeNode extends CacheableChildrenViewNode<'worktree', ViewsWit
 	}
 
 	@debug()
-	override refresh(reset?: boolean): void | { cancel: boolean } | Promise<void | { cancel: boolean }> {
+	override refresh(reset?: boolean): void {
+		super.refresh(true);
+
 		if (reset) {
 			this._log = undefined;
 			this.deleteState();
 		}
-		return super.refresh(reset);
 	}
 
 	private async getAssociatedPullRequest(
@@ -457,30 +449,13 @@ export class WorktreeNode extends CacheableChildrenViewNode<'worktree', ViewsWit
 	private _log: GitLog | undefined;
 	private async getLog() {
 		if (this._log == null) {
-			this._log = await this.view.container.git
-				.getRepositoryService(this.uri.repoPath!)
-				.commits.getLog(this.worktree.sha, {
-					limit: this.limit ?? this.view.config.defaultItemLimit,
-					stashes: this.view.config.showStashes,
-				});
+			this._log = await this.view.container.git.commits(this.uri.repoPath!).getLog(this.worktree.sha, {
+				limit: this.limit ?? this.view.config.defaultItemLimit,
+				stashes: this.view.config.showStashes,
+			});
 		}
 
 		return this._log;
-	}
-
-	private _status: { status: GitStatus | undefined; missing: boolean } | undefined;
-	private async getStatus() {
-		if (this._status == null) {
-			try {
-				const status = await this.worktree.getStatus();
-				this._status = { status: status, missing: false };
-			} catch (ex) {
-				Logger.error(ex, `Worktree status failed: ${this.worktree.uri.toString(true)}`);
-				this._status = { status: undefined, missing: true };
-			}
-		}
-
-		return this._status;
 	}
 
 	get hasMore(): boolean {

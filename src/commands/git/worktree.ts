@@ -1202,9 +1202,7 @@ export class WorktreeGitCommand extends QuickCommand<State> {
 			}
 
 			if (!isSha(state.changes.baseSha)) {
-				const sha = await state.repo.git
-					.refs()
-					.resolveReference(state.changes.baseSha, undefined, { force: true });
+				const sha = (await state.repo.git.revision().resolveRevision(state.changes.baseSha)).sha;
 				if (sha != null) {
 					state.changes.baseSha = sha;
 				}

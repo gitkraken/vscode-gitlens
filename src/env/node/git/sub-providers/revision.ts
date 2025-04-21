@@ -7,7 +7,7 @@ import type { GitFileStatus } from '../../../../git/models/fileStatus';
 import { deletedOrMissing } from '../../../../git/models/revision';
 import type { GitTreeEntry } from '../../../../git/models/tree';
 import { getShaAndFileSummaryLogParser } from '../../../../git/parsers/logParser';
-import { parseGitLsFilesStaged, parseGitTree } from '../../../../git/parsers/treeParser';
+import { parseGitLsFiles, parseGitTree } from '../../../../git/parsers/treeParser';
 import {
 	isRevisionWithSuffix,
 	isSha,
@@ -22,8 +22,6 @@ import { first } from '../../../../system/iterable';
 import type { Git } from '../git';
 import type { LocalGitProvider } from '../localGitProvider';
 
-const emptyArray: readonly any[] = Object.freeze([]);
-
 export class RevisionGitSubProvider implements GitRevisionSubProvider {
 	constructor(
 		private readonly container: Container,
@@ -31,32 +29,6 @@ export class RevisionGitSubProvider implements GitRevisionSubProvider {
 		private readonly cache: GitCache,
 		private readonly provider: LocalGitProvider,
 	) {}
-
-	exists(repoPath: string, path: string, rev?: string): Promise<boolean>;
-	exists(repoPath: string, path: string, options?: { untracked?: boolean }): Promise<boolean>;
-	async exists(repoPath: string, path: string, revOrOptions?: string | { untracked?: boolean }): Promise<boolean> {
-		let rev;
-		let untracked;
-		if (typeof revOrOptions === 'string') {
-			rev = revOrOptions;
-		} else if (revOrOptions != null) {
-			untracked = revOrOptions.untracked;
-		}
-
-		const args = ['ls-files'];
-		if (rev) {
-			if (!isUncommitted(rev)) {
-				args.push(`--with-tree=${rev}`);
-			} else if (isUncommittedStaged(rev)) {
-				args.push('--stage');
-			}
-		} else if (untracked) {
-			args.push('-o');
-		}
-
-		const result = await this.git.exec({ cwd: repoPath, errors: GitErrorHandling.Ignore }, ...args, '--', path);
-		return Boolean(result.stdout.trim());
-	}
 
 	@gate()
 	@log()
@@ -71,46 +43,48 @@ export class RevisionGitSubProvider implements GitRevisionSubProvider {
 	@gate()
 	@log()
 	async getTreeEntryForRevision(repoPath: string, rev: string, path: string): Promise<GitTreeEntry | undefined> {
-		if (!repoPath || !path) return undefined;
+		if (repoPath == null || !path) return undefined;
 
 		const [relativePath, root] = splitPath(path, repoPath);
 
 		if (isUncommittedStaged(rev)) {
-			let result = await this.git.exec(
-				{ cwd: root, errors: GitErrorHandling.Ignore },
-				'ls-files',
-				'--stage',
-				'--',
-				relativePath,
-			);
+			let data = await this.git.ls_files(root, relativePath, { rev: rev });
+			const [result] = parseGitLsFiles(data);
+			if (result == null) return undefined;
 
-			const [entry] = parseGitLsFilesStaged(result.stdout, true);
-			if (entry == null) return undefined;
+			data = (await this.git.exec({ cwd: repoPath }, 'cat-file', '-s', result.oid))?.trim();
+			const size = data.length ? parseInt(data, 10) : 0;
 
-			result = await this.git.exec({ cwd: root }, 'cat-file', '-s', entry.oid);
-			const size = result ? parseInt(result.stdout.trim(), 10) : 0;
-
-			return { ref: rev, oid: entry.oid, path: relativePath, size: size, type: 'blob' };
+			return {
+				ref: rev,
+				oid: result.oid,
+				path: relativePath,
+				size: size,
+				type: 'blob',
+			};
 		}
 
-		const [entry] = await this.getTreeForRevisionCore(repoPath, rev, path);
-		return entry;
+		const entries = await this.getTreeForRevisionCore(repoPath, rev, path);
+		return entries[0];
 	}
 
+	@gate()
 	@log()
 	async getTreeForRevision(repoPath: string, rev: string): Promise<GitTreeEntry[]> {
-		return repoPath ? this.getTreeForRevisionCore(repoPath, rev) : [];
+		if (repoPath == null) return [];
+
+		return this.getTreeForRevisionCore(repoPath, rev);
 	}
 
 	@gate()
 	private async getTreeForRevisionCore(repoPath: string, rev: string, path?: string): Promise<GitTreeEntry[]> {
-		const hasPath = Boolean(path);
-		const args = hasPath ? ['ls-tree', '-l', rev, '--', path] : ['ls-tree', '-lrt', rev, '--'];
-		const result = await this.git.exec({ cwd: repoPath, errors: GitErrorHandling.Ignore }, ...args);
-		const data = result.stdout.trim();
-		if (!data) return emptyArray as GitTreeEntry[];
+		const args = path ? ['-l', rev, '--', path] : ['-lrt', rev, '--'];
+		const data = (
+			await this.git.exec({ cwd: repoPath, errors: GitErrorHandling.Ignore }, 'ls-tree', ...args)
+		)?.trim();
+		if (!data) return [];
 
-		return parseGitTree(data, rev, hasPath);
+		return parseGitTree(data, rev);
 	}
 
 	@log()
@@ -134,22 +108,12 @@ export class RevisionGitSubProvider implements GitRevisionSubProvider {
 		if (isUncommittedWithParentSuffix(ref)) {
 			ref = 'HEAD';
 		}
+		if (isUncommitted(ref)) return { sha: ref, revision: ref };
+
 		const relativePath = this.provider.getRelativePath(pathOrUri, repoPath);
 
-		if (isUncommitted(ref)) {
-			if (!isUncommittedStaged(ref)) {
-				return { sha: ref, revision: ref };
-			}
-
-			// Ensure that the file is actually staged
-			const status = await this.provider.status.getStatusForFile(repoPath, relativePath, { renames: false });
-			if (status?.indexStatus) return { sha: ref, revision: ref };
-
-			ref = 'HEAD';
-		}
-
 		const parser = getShaAndFileSummaryLogParser();
-		let result = await this.git.exec(
+		let data = await this.git.exec(
 			{ cwd: repoPath, errors: GitErrorHandling.Ignore },
 			'log',
 			...parser.arguments,
@@ -159,7 +123,7 @@ export class RevisionGitSubProvider implements GitRevisionSubProvider {
 			relativePath,
 		);
 
-		let commit = first(parser.parse(result.stdout));
+		let commit = first(parser.parse(data));
 		let file = commit?.files?.find(f => f.path === relativePath);
 		if (file == null) {
 			return {
@@ -181,7 +145,7 @@ export class RevisionGitSubProvider implements GitRevisionSubProvider {
 
 		if (file.status === 'D') {
 			// If the file was deleted, check if it was moved or renamed
-			result = await this.git.exec(
+			data = await this.git.exec(
 				{ cwd: repoPath, errors: GitErrorHandling.Ignore },
 				'log',
 				...parser.arguments,
@@ -190,7 +154,7 @@ export class RevisionGitSubProvider implements GitRevisionSubProvider {
 				'--',
 			);
 
-			commit = first(parser.parse(result.stdout));
+			commit = first(parser.parse(data));
 			file = commit?.files?.find(f => f.path === relativePath || f.originalPath === relativePath);
 			if (file == null) {
 				return {

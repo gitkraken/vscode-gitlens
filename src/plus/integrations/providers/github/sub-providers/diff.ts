@@ -2,11 +2,10 @@ import type { Uri } from 'vscode';
 import type { Container } from '../../../../../container';
 import type { GitCache } from '../../../../../git/cache';
 import type {
-	DiffRange,
 	GitDiffSubProvider,
 	NextComparisonUrisResult,
 	PreviousComparisonUrisResult,
-	PreviousRangeComparisonUrisResult,
+	PreviousLineComparisonUrisResult,
 } from '../../../../../git/gitProvider';
 import { GitUri } from '../../../../../git/gitUri';
 import type { GitDiffFilter, GitDiffShortStat } from '../../../../../git/models/diff';
@@ -17,7 +16,6 @@ import type { GitRevisionRange } from '../../../../../git/models/revision';
 import { deletedOrMissing, uncommitted } from '../../../../../git/models/revision';
 import { getChangedFilesCount } from '../../../../../git/utils/commit.utils';
 import { createRevisionRange, getRevisionRangeParts, isRevisionRange } from '../../../../../git/utils/revision.utils';
-import { diffRangeToEditorLine } from '../../../../../system/-webview/vscode/editors';
 import { log } from '../../../../../system/decorators/log';
 import { union } from '../../../../../system/iterable';
 import { Logger } from '../../../../../system/logger';
@@ -185,7 +183,6 @@ export class DiffGitSubProvider implements GitDiffSubProvider {
 		uri: Uri,
 		rev: string | undefined,
 		skip: number = 0,
-		_unsaved?: boolean,
 	): Promise<PreviousComparisonUrisResult | undefined> {
 		if (rev === deletedOrMissing) return undefined;
 
@@ -248,13 +245,14 @@ export class DiffGitSubProvider implements GitDiffSubProvider {
 	}
 
 	@log()
-	async getPreviousComparisonUrisForRange(
+	async getPreviousComparisonUrisForLine(
 		repoPath: string,
 		uri: Uri,
+		/** 0-based, Git is 1-based */
+		editorLine: number,
 		rev: string | undefined,
-		range: DiffRange,
-		_options?: { skipFirstRev?: boolean },
-	): Promise<PreviousRangeComparisonUrisResult | undefined> {
+		skip: number = 0,
+	): Promise<PreviousLineComparisonUrisResult | undefined> {
 		if (rev === deletedOrMissing) return undefined;
 
 		const scope = getLogScope();
@@ -269,15 +267,13 @@ export class DiffGitSubProvider implements GitDiffSubProvider {
 
 			// FYI, GitHub doesn't currently support returning the original line number, nor the previous sha, so this is untrustworthy
 
-			const editorLine = diffRangeToEditorLine(range);
-
 			let current = GitUri.fromFile(relativePath, repoPath, rev);
 			let currentLine = editorLine;
 			let previous;
 			let previousLine = editorLine;
 			let nextLine = editorLine;
 
-			for (let i = 0; i < 2; i++) {
+			for (let i = 0; i < Math.max(0, skip) + 2; i++) {
 				const blameLine = await this.provider.getBlameForLine(previous ?? current, nextLine, undefined, {
 					forceSingleLine: true,
 				});
@@ -302,11 +298,10 @@ export class DiffGitSubProvider implements GitDiffSubProvider {
 
 			if (current == null) return undefined;
 
-			const line = currentLine != null ? currentLine + 1 : range.startLine;
 			return {
 				current: current,
 				previous: previous,
-				range: { startLine: line, endLine: line, active: range.active },
+				line: (currentLine ?? editorLine) + 1, // 1-based
 			};
 		} catch (ex) {
 			Logger.error(ex, scope);

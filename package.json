@@ -5247,9 +5247,12 @@
 						"scope": "window",
 						"order": 110
 					},
-					"gitlens.advanced.useSymmetricDifferenceNotation": {
-						"deprecationMessage": "Deprecated. This setting is no longer used",
-						"markdownDescription": "Deprecated. This setting is no longer used"
+					"gitlens.advanced.commits.delayLoadingFileDetails": {
+						"type": "boolean",
+						"default": false,
+						"markdownDescription": "Specifies whether to delay loading commit file details until required. This can improve performance when opening repositories with large histories, but causes more incremental Git calls",
+						"scope": "window",
+						"order": 120
 					}
 				}
 			},

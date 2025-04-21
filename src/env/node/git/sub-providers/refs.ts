@@ -8,17 +8,10 @@ import type { GitReference } from '../../../../git/models/reference';
 import { deletedOrMissing } from '../../../../git/models/revision';
 import type { GitTag } from '../../../../git/models/tag';
 import { createReference } from '../../../../git/utils/reference.utils';
-import {
-	isSha,
-	isShaWithOptionalRevisionSuffix,
-	isUncommitted,
-	isUncommittedWithParentSuffix,
-} from '../../../../git/utils/revision.utils';
-import { TimedCancellationSource } from '../../../../system/-webview/cancellation';
-import { log } from '../../../../system/decorators/log';
+import { isShaWithOptionalRevisionSuffix, isUncommitted } from '../../../../git/utils/revision.utils';
+import { debug, log } from '../../../../system/decorators/log';
 import { Logger } from '../../../../system/logger';
 import { getLogScope } from '../../../../system/logger.scope';
-import { getSettledValue } from '../../../../system/promise';
 import type { Git } from '../git';
 import type { LocalGitProvider } from '../localGitProvider';
 
@@ -148,60 +141,8 @@ export class RefsGitSubProvider implements GitRefsSubProvider {
 		return Boolean((await this.validateReference(repoPath, ref, relativePath))?.length);
 	}
 
-	@log()
-	async resolveReference(
-		repoPath: string,
-		ref: string,
-		pathOrUri?: string | Uri,
-		options?: { force?: boolean; timeout?: number },
-	): Promise<string> {
-		if (pathOrUri != null && isUncommittedWithParentSuffix(ref)) {
-			ref = 'HEAD';
-		}
-
-		if (
-			!ref ||
-			ref === deletedOrMissing ||
-			(pathOrUri == null && isSha(ref)) ||
-			(pathOrUri != null && isUncommitted(ref))
-		) {
-			return ref;
-		}
-
-		if (pathOrUri == null) {
-			// If it doesn't look like a sha at all (e.g. branch name) or is a stash ref (^3) don't try to resolve it
-			if ((!options?.force && !isShaWithOptionalRevisionSuffix(ref)) || ref.endsWith('^3')) return ref;
-
-			return (await this.validateReference(repoPath, ref)) ?? ref;
-		}
-
-		const relativePath = this.provider.getRelativePath(pathOrUri, repoPath);
-
-		let cancellation: TimedCancellationSource | undefined;
-		if (options?.timeout != null) {
-			cancellation = new TimedCancellationSource(options.timeout);
-		}
-
-		const [verifiedResult, resolvedResult] = await Promise.allSettled([
-			this.validateReference(repoPath, ref, relativePath),
-			this.git.log__file_recent(repoPath, relativePath, {
-				ref: ref,
-				cancellation: cancellation?.token,
-			}),
-		]);
-
-		const verified = getSettledValue(verifiedResult);
-		if (!verified) return deletedOrMissing;
-
-		const resolved = getSettledValue(resolvedResult);
-
-		const cancelled = cancellation?.token.isCancellationRequested;
-		cancellation?.dispose();
-
-		return cancelled ? ref : resolved ?? ref;
-	}
-
-	private async validateReference(repoPath: string, ref: string, relativePath?: string): Promise<string | undefined> {
+	@debug()
+	async validateReference(repoPath: string, ref: string, relativePath?: string): Promise<string | undefined> {
 		if (!ref) return undefined;
 		if (ref === deletedOrMissing || isUncommitted(ref)) return ref;
 

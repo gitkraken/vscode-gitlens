@@ -55,7 +55,7 @@ export function parseGitBlame(
 	let line: string;
 	let lineParts: string[];
 
-	for (line of iterateByDelimiter(data)) {
+	for (line of iterateByDelimiter(data, '\n')) {
 		lineParts = line.split(' ');
 		if (lineParts.length < 2) continue;
 

@@ -3,7 +3,7 @@ import { spawn } from 'child_process';
 import { accessSync } from 'fs';
 import { join as joinPath } from 'path';
 import * as process from 'process';
-import type { CancellationToken, OutputChannel } from 'vscode';
+import type { Disposable, OutputChannel } from 'vscode';
 import { env, Uri, window, workspace } from 'vscode';
 import { hrtime } from '@env/hrtime';
 import { GlyphChars } from '../../../constants';
@@ -30,7 +30,6 @@ import {
 } from '../../../git/errors';
 import type { GitDir } from '../../../git/gitProvider';
 import type { GitDiffFilter } from '../../../git/models/diff';
-import { parseGitLogAllFormat, parseGitLogDefaultFormat } from '../../../git/parsers/logParser';
 import { parseGitRemoteUrl } from '../../../git/parsers/remoteParser';
 import { isUncommitted, isUncommittedStaged, shortenRevision } from '../../../git/utils/revision.utils';
 import { configuration } from '../../../system/-webview/configuration';
@@ -40,14 +39,14 @@ import { log } from '../../../system/decorators/log';
 import { Logger } from '../../../system/logger';
 import { slowCallWarningThreshold } from '../../../system/logger.constants';
 import { getLoggableScopeBlockOverride, getLogScope } from '../../../system/logger.scope';
-import { dirname, isAbsolute, isFolderGlob, joinPaths, normalizePath } from '../../../system/path';
+import { dirname, isAbsolute, joinPaths, normalizePath } from '../../../system/path';
 import { isPromise } from '../../../system/promise';
 import { getDurationMilliseconds } from '../../../system/string';
 import { compare, fromString } from '../../../system/version';
 import { ensureGitTerminal } from '../../../terminal';
 import type { GitLocation } from './locator';
-import type { RunOptions } from './shell';
-import { fsExists, isWindows, run, RunError } from './shell';
+import type { RunOptions, RunResult } from './shell';
+import { CancelledRunError, fsExists, isWindows, RunError, runSpawn } from './shell';
 
 const emptyArray = Object.freeze([]) as unknown as any[];
 const emptyObj = Object.freeze({});
@@ -193,20 +192,25 @@ const resetErrorAndReason: [RegExp, ResetErrorReason][] = [
 
 export class Git {
 	/** Map of running git commands -- avoids running duplicate overlaping commands */
-	private readonly pendingCommands = new Map<string, Promise<string | Buffer>>();
+	private readonly pendingCommands = new Map<string, Promise<RunResult<string | Buffer>>>();
 
-	async exec(options: ExitCodeOnlyGitCommandOptions, ...args: unknown[]): Promise<number>;
-	async exec(options: GitCommandOptions, ...args: unknown[]): Promise<string>;
-	async exec<T extends string | Buffer>(options: GitCommandOptions, ...args: unknown[]): Promise<T>;
-	async exec<T extends string | Buffer>(options: GitCommandOptions, ...args: unknown[]): Promise<T> {
+	async exec(options: ExitCodeOnlyGitCommandOptions, ...args: readonly (string | undefined)[]): Promise<number>;
+	async exec<T extends string | Buffer = string>(
+		options: GitCommandOptions,
+		...args: readonly (string | undefined)[]
+	): Promise<T>;
+	async exec<T extends string | Buffer = string>(
+		options: GitCommandOptions,
+		...args: readonly (string | undefined)[]
+	): Promise<T> {
 		if (!workspace.isTrusted) throw new WorkspaceUntrustedError();
 
 		const start = hrtime();
 
-		const { configs, correlationKey, errors: errorHandling, encoding, ...opts } = options;
-		args = args.filter(a => a != null);
+		const { cancellation, configs, correlationKey, errors: errorHandling, encoding, local, ...opts } = options;
+		const runArgs = args.filter(a => a != null);
 
-		const runOpts: RunOptions = {
+		const runOpts: Mutable<RunOptions> = {
 			...opts,
 			encoding: (encoding ?? 'utf8') === 'utf8' ? 'utf8' : 'buffer',
 			// Adds GCM environment variables to avoid any possible credential issues -- from https://github.com/Microsoft/vscode/issues/26573#issuecomment-338686581
@@ -221,7 +225,7 @@ export class Git {
 			},
 		};
 
-		const gitCommand = `[${runOpts.cwd}] git ${args.join(' ')}`;
+		const gitCommand = `[${runOpts.cwd}] git ${runArgs.join(' ')}`;
 
 		const command = `${correlationKey !== undefined ? `${correlationKey}:` : ''}${
 			options?.stdin != null ? `${getStdinUniqueKey()}:` : ''
@@ -234,7 +238,7 @@ export class Git {
 
 			// Fixes https://github.com/gitkraken/vscode-gitlens/issues/73 & https://github.com/gitkraken/vscode-gitlens/issues/161
 			// See https://stackoverflow.com/questions/4144417/how-to-handle-asian-characters-in-file-names-in-git-on-os-x
-			args.unshift(
+			runArgs.unshift(
 				'-c',
 				'core.quotepath=false',
 				'-c',
@@ -243,10 +247,22 @@ export class Git {
 			);
 
 			if (process.platform === 'win32') {
-				args.unshift('-c', 'core.longpaths=true');
+				runArgs.unshift('-c', 'core.longpaths=true');
 			}
 
-			promise = run<T>(await this.path(), args, encoding ?? 'utf8', runOpts);
+			let abortController: AbortController | undefined;
+			let disposeCancellation: Disposable | undefined;
+			if (cancellation != null) {
+				abortController = new AbortController();
+				runOpts.signal = abortController.signal;
+				disposeCancellation = cancellation.onCancellationRequested(() => abortController?.abort());
+			}
+
+			runOpts.timeout = 1000 * 60;
+
+			promise = runSpawn<T>(await this.path(), runArgs, encoding ?? 'utf8', runOpts).finally(
+				() => void disposeCancellation?.dispose(),
+			);
 
 			this.pendingCommands.set(command, promise);
 		} else {
@@ -256,7 +272,8 @@ export class Git {
 
 		let exception: Error | undefined;
 		try {
-			return (await promise) as T;
+			const result = await promise;
+			return result.stdout as T;
 		} catch (ex) {
 			exception = ex;
 
@@ -280,12 +297,13 @@ export class Git {
 		}
 	}
 
-	async spawn(options: GitSpawnOptions, ...args: any[]): Promise<ChildProcess> {
+	async spawn(options: GitSpawnOptions, ...args: readonly (string | undefined)[]): Promise<ChildProcess> {
 		if (!workspace.isTrusted) throw new WorkspaceUntrustedError();
 
 		const start = hrtime();
 
 		const { cancellation, configs, stdin, stdinEncoding, ...opts } = options;
+		const runArgs = args.filter(a => a != null);
 
 		const spawnOpts: SpawnOptions = {
 			// Unless provided, ignore stdin and leave default streams for stdout and stderr
@@ -303,11 +321,11 @@ export class Git {
 			},
 		};
 
-		const gitCommand = `(spawn) [${spawnOpts.cwd as string}] git ${args.join(' ')}`;
+		const gitCommand = `(spawn) [${spawnOpts.cwd as string}] git ${runArgs.join(' ')}`;
 
 		// Fixes https://github.com/gitkraken/vscode-gitlens/issues/73 & https://github.com/gitkraken/vscode-gitlens/issues/161
 		// See https://stackoverflow.com/questions/4144417/how-to-handle-asian-characters-in-file-names-in-git-on-os-x
-		args.unshift(
+		runArgs.unshift(
 			'-c',
 			'core.quotepath=false',
 			'-c',
@@ -316,7 +334,7 @@ export class Git {
 		);
 
 		if (process.platform === 'win32') {
-			args.unshift('-c', 'core.longpaths=true');
+			runArgs.unshift('-c', 'core.longpaths=true');
 		}
 
 		if (cancellation) {
@@ -325,15 +343,114 @@ export class Git {
 			cancellation.onCancellationRequested(() => aborter.abort());
 		}
 
-		const proc = spawn(await this.path(), args, spawnOpts);
+		const command = await this.path();
+		const proc = spawn(command, runArgs, spawnOpts);
 		if (stdin) {
 			proc.stdin?.end(stdin, (stdinEncoding ?? 'utf8') as BufferEncoding);
 		}
 
 		let exception: Error | undefined;
-		proc.once('error', e => (exception = e));
+		proc.once('error', ex => {
+			if (ex?.name === 'AbortError') {
+				exception = new CancelledRunError(command, true);
+			} else {
+				exception = ex;
+			}
+
+			exception = ex;
+		});
 		proc.once('exit', () => this.logGitCommand(gitCommand, exception, getDurationMilliseconds(start), false));
 		return proc;
+	}
+
+	async *stream(options: GitSpawnOptions, ...args: readonly (string | undefined)[]): AsyncGenerator<string> {
+		if (!workspace.isTrusted) throw new WorkspaceUntrustedError();
+
+		const start = hrtime();
+
+		const { cancellation, configs, stdin, stdinEncoding, ...opts } = options;
+		const runArgs = args.filter(a => a != null);
+
+		const spawnOpts: SpawnOptions = {
+			// Unless provided, ignore stdin and leave default streams for stdout and stderr
+			stdio: [stdin ? 'pipe' : 'ignore', null, null],
+			...opts,
+			// Adds GCM environment variables to avoid any possible credential issues -- from https://github.com/Microsoft/vscode/issues/26573#issuecomment-338686581
+			// Shouldn't *really* be needed but better safe than sorry
+			env: {
+				...process.env,
+				...this._gitEnv,
+				...(options.env ?? emptyObj),
+				GCM_INTERACTIVE: 'NEVER',
+				GCM_PRESERVE_CREDS: 'TRUE',
+				LC_ALL: 'C',
+			},
+		};
+
+		const gitCommand = `(spawn) [${spawnOpts.cwd as string}] git ${runArgs.join(' ')}`;
+
+		// Fixes https://github.com/gitkraken/vscode-gitlens/issues/73 & https://github.com/gitkraken/vscode-gitlens/issues/161
+		// See https://stackoverflow.com/questions/4144417/how-to-handle-asian-characters-in-file-names-in-git-on-os-x
+		runArgs.unshift(
+			'-c',
+			'core.quotepath=false',
+			'-c',
+			'color.ui=false',
+			...(configs !== undefined ? configs : emptyArray),
+		);
+
+		if (process.platform === 'win32') {
+			runArgs.unshift('-c', 'core.longpaths=true');
+		}
+
+		const aborter = new AbortController();
+		spawnOpts.signal = aborter.signal;
+		cancellation?.onCancellationRequested(() => aborter.abort());
+
+		const command = await this.path();
+		const proc = spawn(command, runArgs, spawnOpts);
+		if (stdin) {
+			proc.stdin?.end(stdin, (stdinEncoding ?? 'utf8') as BufferEncoding);
+		}
+
+		let completed = false;
+		let exception: Error | undefined;
+
+		proc.once('error', ex => (exception = ex?.name === 'AbortError' ? new CancelledRunError(command, true) : ex));
+		proc.once('exit', (code, signal) => {
+			if (signal === 'SIGTERM') {
+				exception = new CancelledRunError(command, true, code ?? undefined, signal);
+			}
+			this.logGitCommand(gitCommand, exception, getDurationMilliseconds(start), false);
+		});
+
+		try {
+			if (!proc.stdout) {
+				aborter.abort();
+				throw new Error('Spawned Git process has no stdout');
+			}
+			proc.stdout.setEncoding('utf8');
+
+			for await (const chunk of proc.stdout) {
+				if (exception != null) {
+					if (exception instanceof CancelledRunError) {
+						// TODO: Should we throw here?
+						break;
+					} else {
+						throw exception;
+					}
+				}
+
+				yield chunk;
+			}
+
+			completed = true;
+		} finally {
+			// If we didn't complete the iteration, then abort the process
+			if (!completed) {
+				aborter.abort();
+			}
+		}
 	}
 
 	private _gitLocation: GitLocation | undefined;
@@ -921,33 +1038,6 @@ export class Git {
 		}
 	}
 
-	log(
-		repoPath: string,
-		rev?: string,
-		options?: {
-			cancellation?: CancellationToken;
-			configs?: readonly string[];
-			errors?: GitErrorHandling;
-			stdin?: string;
-		},
-		...args: string[]
-	): Promise<string> {
-		return this.exec(
-			{
-				cwd: repoPath,
-				cancellation: options?.cancellation,
-				configs: options?.configs ?? gitLogDefaultConfigs,
-				errors: options?.errors,
-				stdin: options?.stdin,
-			},
-			'log',
-			...(options?.stdin ? ['--stdin'] : emptyArray),
-			...args,
-			...(rev && !isUncommittedStaged(rev) ? [rev] : emptyArray),
-			...(!args.includes('--') ? ['--'] : emptyArray),
-		);
-	}
-
 	async logStreamTo(
 		repoPath: string,
 		sha: string,
@@ -966,8 +1056,11 @@ export class Git {
 			'--',
 		);
 
-		const shaRegex = getShaInLogRegex(sha);
-
+		// \x1E = ASCII Record Separator character
+		// \x1D = ASCII Group Separator character
+		const shaMatch = `\x1E${sha}\x1D`;
+		// eslint-disable-next-line no-control-regex
+		const shaMatchRegex = /\x1E.+?\x1D/g;
 		let found = false;
 		let count = 0;
 
@@ -993,10 +1086,11 @@ export class Git {
 
 			function onData(s: string) {
 				data.push(s);
-				// eslint-disable-next-line no-control-regex
-				count += s.match(/(?:^\x00*|\x00\x00)[0-9a-f]{40}\x00/g)?.length ?? 0;
 
-				if (!found && shaRegex.test(s)) {
+				const matches = s.match(shaMatchRegex);
+				count += matches?.length ?? 0;
+
+				if (!found && matches?.includes(shaMatch)) {
 					found = true;
 					// Buffer a bit past the sha we are looking for
 					if (count > limit) {
@@ -1024,161 +1118,6 @@ export class Git {
 			proc.stderr!.setEncoding('utf8');
 			proc.stderr!.on('data', onErrData);
 		});
-	}
-
-	log__file(
-		repoPath: string,
-		fileName: string,
-		rev: string | undefined,
-		{
-			all,
-			argsOrFormat,
-			// TODO@eamodio remove this in favor of argsOrFormat
-			fileMode = 'full',
-			filters,
-			limit,
-			merges = false,
-			ordering,
-			renames = true,
-			reverse = false,
-			since,
-			skip,
-			startLine,
-			endLine,
-		}: {
-			all?: boolean;
-			argsOrFormat?: string | string[];
-			// TODO@eamodio remove this in favor of argsOrFormat
-			fileMode?: 'full' | 'simple' | 'none';
-			filters?: GitDiffFilter[];
-			limit?: number;
-			merges?: boolean;
-			ordering?: 'date' | 'author-date' | 'topo' | null;
-			renames?: boolean;
-			reverse?: boolean;
-			since?: string;
-			skip?: number;
-			startLine?: number;
-			endLine?: number;
-		} = {},
-	): Promise<string> {
-		const [file, root] = splitPath(fileName, repoPath, true);
-
-		if (argsOrFormat == null) {
-			argsOrFormat = [`--format=${all ? parseGitLogAllFormat : parseGitLogDefaultFormat}`];
-		}
-
-		if (typeof argsOrFormat === 'string') {
-			argsOrFormat = [`--format=${argsOrFormat}`];
-		}
-
-		const params = ['log', ...argsOrFormat, '--use-mailmap'];
-
-		if (ordering) {
-			params.push(`--${ordering}-order`);
-		}
-
-		if (limit && !reverse) {
-			params.push(`-n${limit + 1}`);
-		}
-
-		if (skip) {
-			params.push(`--skip=${skip}`);
-		}
-
-		if (since) {
-			params.push(`--since="${since}"`);
-		}
-
-		if (all) {
-			params.push('--all', '--single-worktree');
-		}
-
-		if (merges) {
-			params.push('--first-parent');
-		}
-
-		// Can't allow rename detection (`--follow`) if a `startLine` is specified
-		if (renames && startLine != null) {
-			renames = false;
-		}
-
-		if (renames) {
-			params.push('--follow');
-		}
-
-		if (filters != null && filters.length !== 0) {
-			params.push(`--diff-filter=${filters.join('')}`);
-		}
-
-		if (fileMode !== 'none') {
-			if (startLine == null) {
-				// If this is the log of a folder, use `--name-status` to match non-file logs (for parsing)
-				if (fileMode === 'simple' || isFolderGlob(file)) {
-					params.push('--name-status');
-				} else {
-					params.push('--numstat', '--summary');
-				}
-			} else {
-				// Don't include `--name-status`, `--numstat`, or `--summary` because they aren't supported with `-L`
-				params.push(`-L ${startLine},${endLine == null ? startLine : endLine}:${file}`);
-			}
-		}
-
-		if (rev && !isUncommittedStaged(rev)) {
-			// If we are reversing, we must add a range (with HEAD) because we are using --ancestry-path for better reverse walking
-			if (reverse) {
-				params.push('--reverse', '--ancestry-path', `${rev}..HEAD`);
-			} else {
-				params.push(rev);
-			}
-		}
-
-		// Don't specify a file spec when using a line number (so say the git docs)
-		if (startLine == null) {
-			params.push('--', file);
-		}
-
-		return this.exec({ cwd: root, configs: gitLogDefaultConfigs }, ...params);
-	}
-
-	async log__file_recent(
-		repoPath: string,
-		fileName: string,
-		options?: {
-			ordering?: 'date' | 'author-date' | 'topo' | null;
-			ref?: string;
-			similarityThreshold?: number | null;
-			cancellation?: CancellationToken;
-		},
-	): Promise<string | undefined> {
-		const params = [
-			'log',
-			`-M${options?.similarityThreshold == null ? '' : `${options?.similarityThreshold}%`}`,
-			'-n1',
-			'--format=%H',
-		];
-
-		if (options?.ordering) {
-			params.push(`--${options?.ordering}-order`);
-		}
-
-		if (options?.ref) {
-			params.push(options?.ref);
-		}
-
-		const data = await this.exec(
-			{
-				cancellation: options?.cancellation,
-				cwd: repoPath,
-				configs: gitLogDefaultConfigs,
-				errors: GitErrorHandling.Ignore,
-			},
-			...params,
-			'--',
-			fileName,
-		);
-		return data.length === 0 ? undefined : data.trim();
 	}
 
 	async ls_files(
@@ -1712,8 +1651,4 @@ export class Git {
 			this._gitOutput.appendLine(`\n${String(ex)}\n`);
 		}
 	}
-}
-
-export function getShaInLogRegex(sha: string): RegExp {
-	return new RegExp(`(?:^\x00*|\x00\x00)${sha}\x00`);
 }

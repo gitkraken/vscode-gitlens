@@ -9,7 +9,7 @@ import type { UnifiedAsyncDisposable } from '../system/unifiedDisposable';
 import type { GitUri } from './gitUri';
 import type { GitBlame, GitBlameLine } from './models/blame';
 import type { GitBranch } from './models/branch';
-import type { GitCommit, GitCommitStats } from './models/commit';
+import type { GitCommit, GitCommitStats, GitStashCommit } from './models/commit';
 import type { GitContributor, GitContributorsStats } from './models/contributor';
 import type {
 	GitDiff,
@@ -21,6 +21,7 @@ import type {
 } from './models/diff';
 import type { GitFile } from './models/file';
 import type { GitFileChange } from './models/fileChange';
+import type { GitFileStatus } from './models/fileStatus';
 import type { GitGraph } from './models/graph';
 import type { GitLog } from './models/log';
 import type { MergeConflict } from './models/mergeConflict';
@@ -252,87 +253,78 @@ export interface GitBranchesSubProvider {
 	renameBranch?(repoPath: string, oldName: string, newName: string): Promise<void>;
 }
 
+interface GitLogOptionsBase {
+	cancellation?: CancellationToken;
+	cursor?: string;
+	limit?: number;
+	ordering?: 'date' | 'author-date' | 'topo' | null;
+}
+
+export interface GitLogOptions extends GitLogOptionsBase {
+	all?: boolean;
+	authors?: GitUser[];
+	merges?: boolean | 'first-parent';
+	since?: string;
+	stashes?: boolean | Map<string, GitStashCommit>;
+	until?: number;
+}
+
+export interface GitLogForPathOptions extends Omit<GitLogOptions, 'stashes'> {
+	filters?: GitDiffFilter[];
+	range?: Range;
+	renames?: boolean;
+}
+
+export interface GitLogShasOptions extends GitLogOptionsBase {
+	authors?: GitUser[];
+	merges?: boolean | 'first-parent';
+	pathOrUri?: string | Uri;
+	since?: string;
+}
+
+export interface GitSearchCommitsOptions extends GitLogOptionsBase {
+	skip?: number;
+}
+
+export interface IncomingActivityOptions extends GitLogOptionsBase {
+	all?: boolean;
+	branch?: string;
+	skip?: number;
+}
+
 export interface GitCommitsSubProvider {
 	cherryPick?(repoPath: string, revs: string[], options?: { edit?: boolean; noCommit?: boolean }): Promise<void>;
 	getCommit(repoPath: string, rev: string): Promise<GitCommit | undefined>;
 	getCommitCount(repoPath: string, rev: string): Promise<number | undefined>;
-	getCommitFilesStats?(repoPath: string, rev: string): Promise<GitFileChange[] | undefined>;
-	getCommitFileStatus(repoPath: string, uri: Uri, rev: string): Promise<GitFile | undefined>;
+	getCommitFiles(repoPath: string, rev: string): Promise<GitFileChange[]>;
 	getCommitForFile(
 		repoPath: string,
 		uri: Uri,
 		rev?: string | undefined,
 		options?: { firstIfNotFound?: boolean | undefined },
 	): Promise<GitCommit | undefined>;
-	getIncomingActivity?(
-		repoPath: string,
-		options?: {
-			all?: boolean | undefined;
-			branch?: string | undefined;
-			limit?: number | undefined;
-			ordering?: 'date' | 'author-date' | 'topo' | null | undefined;
-			skip?: number | undefined;
-		},
-	): Promise<GitReflog | undefined>;
+	getIncomingActivity?(repoPath: string, options?: IncomingActivityOptions): Promise<GitReflog | undefined>;
 	getInitialCommitSha?(repoPath: string): Promise<string | undefined>;
 	getLeftRightCommitCount(
 		repoPath: string,
 		range: GitRevisionRange,
-		options?: { authors?: GitUser[] | undefined; excludeMerges?: boolean },
+		options?: { authors?: GitUser[]; excludeMerges?: boolean },
 	): Promise<LeftRightCommitCountResult | undefined>;
-	getLog(
-		repoPath: string,
-		rev?: string | undefined,
-		options?: {
-			all?: boolean | undefined;
-			authors?: GitUser[] | undefined;
-			cursor?: string | undefined;
-			limit?: number | undefined;
-			merges?: boolean | 'first-parent' | undefined;
-			ordering?: 'date' | 'author-date' | 'topo' | null | undefined;
-			since?: string | undefined;
-			stashes?: boolean;
-		},
-	): Promise<GitLog | undefined>;
-	getLogShasOnly(
-		repoPath: string,
-		rev?: string | undefined,
-		options?: {
-			authors?: GitUser[] | undefined;
-			cursor?: string | undefined;
-			limit?: number | undefined;
-			merges?: boolean | 'first-parent';
-			ordering?: 'date' | 'author-date' | 'topo' | null | undefined;
-			since?: string | undefined;
-		},
-	): Promise<Set<string> | undefined>;
+	getLog(repoPath: string, rev?: string | undefined, options?: GitLogOptions): Promise<GitLog | undefined>;
 	getLogForPath(
 		repoPath: string,
 		pathOrUri: string | Uri,
 		rev?: string | undefined,
-		options?: {
-			all?: boolean | undefined;
-			cursor?: string | undefined;
-			limit?: number | undefined;
-			ordering?: 'date' | 'author-date' | 'topo' | null | undefined;
-			range?: Range | undefined;
-			renames?: boolean | undefined;
-			reverse?: boolean | undefined;
-			since?: string | undefined;
-			skip?: number | undefined;
-		},
+		options?: GitLogForPathOptions,
 	): Promise<GitLog | undefined>;
+	getLogShas(repoPath: string, rev?: string | undefined, options?: GitLogShasOptions): Promise<Iterable<string>>;
 	getOldestUnpushedShaForPath(repoPath: string, pathOrUri: string | Uri): Promise<string | undefined>;
 	isAncestorOf(repoPath: string, rev1: string, rev2: string): Promise<boolean>;
 	hasCommitBeenPushed(repoPath: string, rev: string): Promise<boolean>;
 	searchCommits(
 		repoPath: string,
 		search: SearchQuery,
-		options?: {
-			limit?: number | undefined;
-			ordering?: 'date' | 'author-date' | 'topo' | null | undefined;
-			skip?: number | undefined;
-		},
+		options?: GitSearchCommitsOptions,
 	): Promise<GitLog | undefined>;
 }
 
@@ -384,13 +376,13 @@ export interface GitDiffSubProvider {
 	getNextComparisonUris(
 		repoPath: string,
 		uri: Uri,
-		ref: string | undefined,
+		rev: string | undefined,
 		skip?: number,
 	): Promise<NextComparisonUrisResult | undefined>;
 	getPreviousComparisonUris(
 		repoPath: string,
 		uri: Uri,
-		ref: string | undefined,
+		rev: string | undefined,
 		skip?: number,
 		dirty?: boolean,
 	): Promise<PreviousComparisonUrisResult | undefined>;
@@ -398,7 +390,7 @@ export interface GitDiffSubProvider {
 		repoPath: string,
 		uri: Uri,
 		editorLine: number,
-		ref: string | undefined,
+		rev: string | undefined,
 		skip?: number,
 	): Promise<PreviousLineComparisonUrisResult | undefined>;
 	openDiffTool?(
@@ -480,12 +472,6 @@ export interface GitRefsSubProvider {
 		},
 	): Promise<boolean>;
 	isValidReference(repoPath: string, ref: string, pathOrUri?: string | Uri): Promise<boolean>;
-	resolveReference(
-		repoPath: string,
-		ref: string,
-		pathOrUri?: string | Uri,
-		options?: { force?: boolean; timeout?: number | undefined },
-	): Promise<string>;
 }
 
 export interface GitRemotesSubProvider {
@@ -539,10 +525,25 @@ export interface GitRemotesSubProvider {
 	setRemoteAsDefault(repoPath: string, name: string, value?: boolean): Promise<void>;
 }
 
+export interface ResolvedRevision {
+	/** The SHA of the revision */
+	sha: string;
+	/** The "friendly" version of the revision, if applicable, otherwise the SHA */
+	revision: string;
+
+	/** Only set if the pathOrUri is provided */
+	status?: GitFileStatus;
+	/** Only set if the pathOrUri is provided */
+	path?: string;
+	/** Only set if the pathOrUri is provided */
+	originalPath?: string;
+}
+
 export interface GitRevisionSubProvider {
 	getRevisionContent(repoPath: string, rev: string, path: string): Promise<Uint8Array | undefined>;
 	getTreeEntryForRevision(repoPath: string, rev: string, path: string): Promise<GitTreeEntry | undefined>;
 	getTreeForRevision(repoPath: string, rev: string): Promise<GitTreeEntry[]>;
+	resolveRevision(repoPath: string, ref: string, pathOrUri?: string | Uri): Promise<ResolvedRevision>;
 }
 
 export interface DisposableTemporaryGitIndex extends UnifiedAsyncDisposable {
@@ -563,11 +564,7 @@ export interface GitStagingSubProvider {
 export interface GitStashSubProvider {
 	applyStash(repoPath: string, stashName: string, options?: { deleteAfter?: boolean | undefined }): Promise<void>;
 	getStash(repoPath: string | undefined): Promise<GitStash | undefined>;
-	getStashCommitFiles(
-		repoPath: string,
-		ref: string,
-		options?: { include?: { stats?: boolean } },
-	): Promise<GitFileChange[]>;
+	getStashCommitFiles(repoPath: string, ref: string): Promise<GitFileChange[]>;
 	deleteStash(repoPath: string, stashName: string, sha?: string): Promise<void>;
 	renameStash(repoPath: string, stashName: string, sha: string, message: string, stashOnRef?: string): Promise<void>;
 	saveStash(

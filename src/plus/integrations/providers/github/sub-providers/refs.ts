@@ -7,13 +7,7 @@ import type { GitReference } from '../../../../../git/models/reference';
 import { deletedOrMissing } from '../../../../../git/models/revision';
 import type { GitTag } from '../../../../../git/models/tag';
 import { createReference } from '../../../../../git/utils/reference.utils';
-import {
-	createRevisionRange,
-	isSha,
-	isShaWithOptionalRevisionSuffix,
-	isUncommitted,
-	isUncommittedWithParentSuffix,
-} from '../../../../../git/utils/revision.utils';
+import { createRevisionRange, isShaWithOptionalRevisionSuffix } from '../../../../../git/utils/revision.utils';
 import { log } from '../../../../../system/decorators/log';
 import { Logger } from '../../../../../system/logger';
 import { getLogScope } from '../../../../../system/logger.scope';
@@ -119,51 +113,5 @@ export class RefsGitSubProvider implements GitRefsSubProvider {
 	@log()
 	isValidReference(_repoPath: string, _ref: string, _pathOrUri?: string | Uri): Promise<boolean> {
 		return Promise.resolve(true);
-	}
-
-	@log()
-	async resolveReference(
-		repoPath: string,
-		ref: string,
-		pathOrUri?: string | Uri,
-		_options?: { force?: boolean; timeout?: number },
-	): Promise<string> {
-		if (pathOrUri != null && isUncommittedWithParentSuffix(ref)) {
-			ref = 'HEAD';
-		}
-
-		if (
-			!ref ||
-			ref === deletedOrMissing ||
-			(pathOrUri == null && isSha(ref)) ||
-			(pathOrUri != null && isUncommitted(ref))
-		) {
-			return ref;
-		}
-
-		let relativePath;
-		if (pathOrUri != null) {
-			relativePath = this.provider.getRelativePath(pathOrUri, repoPath);
-		} else if (!isShaWithOptionalRevisionSuffix(ref) || ref.endsWith('^3')) {
-			// If it doesn't look like a sha at all (e.g. branch name) or is a stash ref (^3) don't try to resolve it
-			return ref;
-		}
-
-		const context = await this.provider.ensureRepositoryContext(repoPath);
-		if (context == null) return ref;
-
-		const { metadata, github, session } = context;
-
-		const resolved = await github.resolveReference(
-			session.accessToken,
-			metadata.repo.owner,
-			metadata.repo.name,
-			stripOrigin(ref),
-			relativePath,
-		);
-
-		if (resolved != null) return resolved;
-
-		return relativePath ? deletedOrMissing : ref;
 	}
 }

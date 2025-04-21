@@ -24,8 +24,8 @@ import type { GitRemote } from '../../../../git/models/remote';
 import type { GitWorktree } from '../../../../git/models/worktree';
 import {
 	getGraphParser,
-	getGraphStatsParser,
 	getShaAndDatesLogParser,
+	getShaAndStatsLogParser,
 	getShaLogParser,
 } from '../../../../git/parsers/logParser';
 import type { GitGraphSearch, GitGraphSearchResultData, GitGraphSearchResults } from '../../../../git/search';
@@ -38,12 +38,13 @@ import {
 	getRemoteNameFromBranchName,
 } from '../../../../git/utils/branch.utils';
 import { createReference } from '../../../../git/utils/reference.utils';
+import { isUncommittedStaged } from '../../../../git/utils/revision.utils';
 import { getTagId } from '../../../../git/utils/tag.utils';
 import { isUserMatch } from '../../../../git/utils/user.utils';
 import { getWorktreeId } from '../../../../git/utils/worktree.utils';
 import { configuration } from '../../../../system/-webview/configuration';
 import { log } from '../../../../system/decorators/log';
-import { find, first, join, last, map, skip } from '../../../../system/iterable';
+import { find, first, last, map } from '../../../../system/iterable';
 import { getSettledValue } from '../../../../system/promise';
 import { serializeWebviewItemContext } from '../../../../system/webview';
 import type {
@@ -54,11 +55,10 @@ import type {
 	GraphTagContextValue,
 } from '../../../../webviews/plus/graph/protocol';
 import type { Git } from '../git';
-import { getShaInLogRegex, gitLogDefaultConfigs } from '../git';
+import { gitLogDefaultConfigs } from '../git';
 import type { LocalGitProvider } from '../localGitProvider';
 import { CancelledRunError } from '../shell';
-
-const emptyArray = Object.freeze([]) as unknown as any[];
+import { convertStashesToStdin } from './stash';
 
 export class GraphGitSubProvider implements GitGraphSubProvider {
 	constructor(
@@ -87,11 +87,18 @@ export class GraphGitSubProvider implements GitGraphSubProvider {
 
 		const parser = getGraphParser(options?.include?.stats && !deferStats);
 		const shaParser = getShaLogParser();
-		const statsParser = getGraphStatsParser();
+		const statsParser = getShaAndStatsLogParser();
 
 		const [shaResult, stashResult, branchesResult, remotesResult, currentUserResult, worktreesResult] =
 			await Promise.allSettled([
-				this.git.log(repoPath, undefined, undefined, ...shaParser.arguments, '-n1', rev ?? 'HEAD'),
+				this.git.exec(
+					{ cwd: repoPath, configs: gitLogDefaultConfigs },
+					'log',
+					...shaParser.arguments,
+					'-n1',
+					rev && !isUncommittedStaged(rev) ? rev : 'HEAD',
+					'--',
+				),
 				this.provider.stash?.getStash(repoPath),
 				this.provider.branches.getBranches(repoPath),
 				this.provider.remotes.getRemotes(repoPath),
@@ -125,18 +132,9 @@ export class GraphGitSubProvider implements GitGraphSubProvider {
 
 		const downstreamMap = new Map<string, string[]>();
 
-		let stashes: Map<string, GitStashCommit> | undefined;
-		let stdin: string | undefined;
-
 		// TODO@eamodio this is insanity -- there *HAS* to be a better way to get git log to return stashes
 		const gitStash = getSettledValue(stashResult);
-		if (gitStash?.stashes.size) {
-			stashes = new Map(gitStash.stashes);
-			stdin = join(
-				map(stashes.values(), c => c.sha.substring(0, 9)),
-				'\n',
-			);
-		}
+		const { stdin, stashes } = convertStashesToStdin(gitStash?.stashes);
 
 		const useAvatars = configuration.get('graph.avatars', undefined, true);
 
@@ -184,10 +182,16 @@ export class GraphGitSubProvider implements GitGraphSubProvider {
 				} else {
 					args.push(`-n${nextPageLimit + 1}`);
 
-					data = await this.git.log(repoPath, undefined, stdin ? { stdin: stdin } : undefined, ...args);
+					data = await this.git.exec(
+						{ cwd: repoPath, configs: gitLogDefaultConfigs, stdin: stdin },
+						'log',
+						stdin ? '--stdin' : undefined,
+						...args,
+						'--',
+					);
 
 					if (cursor) {
-						if (!getShaInLogRegex(cursor.sha).test(data)) {
+						if (data.includes(`${parser.separators.record}${cursor.sha}${parser.separators.record}`)) {
 							// If we didn't find any new commits, we must have them all so return that we have everything
 							if (size === data.length) {
 								return {
@@ -584,12 +588,14 @@ export class GraphGitSubProvider implements GitGraphSubProvider {
 						}
 						args.push(`--${ordering}-order`, '--all');
 
-						const statsData = await this.git.log(
-							repoPath,
-							undefined,
-							stdin ? { stdin: stdin } : undefined,
+						const statsData = await this.git.exec(
+							{ cwd: repoPath, configs: gitLogDefaultConfigs, stdin: stdin },
+							'log',
+							stdin ? '--stdin' : undefined,
 							...args,
+							'--',
 						);
+
 						if (statsData) {
 							const commitStats = statsParser.parse(statsData);
 							for (const stat of commitStats) {
@@ -701,23 +707,8 @@ export class GraphGitSubProvider implements GitGraphSubProvider {
 			const similarityThreshold = configuration.get('advanced.similarityThreshold');
 			const includeOnlyStashes = searchArgs.includes('--no-walk');
 
-			let stashes: Map<string, GitStashCommit> | undefined;
-			let stdin: string | undefined;
-
 			// TODO@eamodio this is insanity -- there *HAS* to be a better way to get git log to return stashes
-			const gitStash = await this.provider.stash?.getStash(repoPath);
-			if (gitStash?.stashes.size) {
-				stdin = '';
-				stashes = new Map(gitStash.stashes);
-				for (const stash of gitStash.stashes.values()) {
-					stdin += `${stash.sha.substring(0, 9)}\n`;
-					// Include the stash's 2nd (index files) and 3rd (untracked files) parents
-					for (const p of skip(stash.parents, 1)) {
-						stashes.set(p, stash);
-						stdin += `${p.substring(0, 9)}\n`;
-					}
-				}
-			}
+			const { stdin, stashes } = convertStashesToStdin(await this.provider.stash?.getStash(repoPath));
 
 			const args = [
 				...parser.arguments,
@@ -739,20 +730,21 @@ export class GraphGitSubProvider implements GitGraphSubProvider {
 
 				let data;
 				try {
-					data = await this.git.log(
-						repoPath,
-						undefined,
+					data = await this.git.exec(
 						{
+							cwd: repoPath,
 							cancellation: options?.cancellation,
 							configs: ['-C', repoPath, ...gitLogDefaultConfigs],
 							errors: GitErrorHandling.Throw,
 							stdin: stdin,
 						},
+						'log',
+						stdin ? '--stdin' : undefined,
 						...args,
 						...searchArgs,
-						...(options?.ordering ? [`--${options.ordering}-order`] : emptyArray),
-						...(limit ? [`-n${limit + 1}`] : emptyArray),
-						...(cursor?.skip ? [`--skip=${cursor.skip}`] : emptyArray),
+						options?.ordering ? `--${options.ordering}-order` : undefined,
+						limit ? `-n${limit + 1}` : undefined,
+						cursor?.skip ? `--skip=${cursor.skip}` : undefined,
 						'--',
 						...files,
 					);
