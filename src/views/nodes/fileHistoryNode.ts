@@ -15,6 +15,7 @@ import { filterMap, flatMap, map, some, uniqueBy } from '../../system/iterable';
 import { getLoggableName, Logger } from '../../system/logger';
 import { startLogScope } from '../../system/logger.scope';
 import { basename } from '../../system/path';
+import { getSettledValue } from '../../system/promise';
 import type { FileHistoryView } from '../fileHistoryView';
 import { SubscribeableViewNode } from './abstract/subscribeableViewNode';
 import type { PageableViewNode, ViewNode } from './abstract/viewNode';
@@ -66,15 +67,19 @@ export class FileHistoryNode
 		if (this.uri.repoPath == null) return children;
 
 		const range = this.branch != null ? await this.view.container.git.getBranchAheadRange(this.branch) : undefined;
-		const [log, fileStatuses, currentUser, getBranchAndTagTips, unpublishedCommits] = await Promise.all([
-			this.getLog(),
-			this.uri.sha == null
-				? this.view.container.git.status(this.uri.repoPath).getStatusForPath?.(this.getPathOrGlob())
-				: undefined,
-			this.uri.sha == null ? this.view.container.git.config(this.uri.repoPath).getCurrentUser() : undefined,
-			this.view.container.git.getBranchesAndTagsTipsLookup(this.uri.repoPath, this.branch?.name),
-			range ? this.view.container.git.commits(this.uri.repoPath).getLogShasOnly(range, { limit: 0 }) : undefined,
-		]);
+		const [logResult, fileStatusesResult, currentUserResult, getBranchAndTagTipsResult, unpublishedCommitsResult] =
+			await Promise.allSettled([
+				this.getLog(),
+				this.uri.sha == null
+					? this.view.container.git.status(this.uri.repoPath).getStatusForPath?.(this.getPathOrGlob())
+					: undefined,
+				this.uri.sha == null ? this.view.container.git.config(this.uri.repoPath).getCurrentUser() : undefined,
+				this.view.container.git.getBranchesAndTagsTipsLookup(this.uri.repoPath, this.branch?.name),
+				range ? this.view.container.git.commits(this.uri.repoPath).getLogShas(range, { limit: 0 }) : undefined,
+			]);
+
+		const currentUser = getSettledValue(currentUserResult);
+		const fileStatuses = getSettledValue(fileStatusesResult);
 
 		if (fileStatuses?.length) {
 			if (this.folder) {
@@ -107,6 +112,10 @@ export class FileHistoryNode
 			}
 		}
 
+		const getBranchAndTagTips = getSettledValue(getBranchAndTagTipsResult);
+		const unpublishedCommits = new Set(getSettledValue(unpublishedCommitsResult));
+
+		const log = getSettledValue(logResult);
 		if (log != null) {
 			children.push(
 				...insertDateMarkers(

@@ -40,7 +40,7 @@ export function parseGitWorktrees(
 	let prunable: string;
 	let main = true; // the first worktree is the main worktree
 
-	for (line of iterateByDelimiter(data)) {
+	for (line of iterateByDelimiter(data, '\n')) {
 		index = line.indexOf(' ');
 		if (index === -1) {
 			key = line;

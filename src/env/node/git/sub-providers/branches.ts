@@ -133,8 +133,8 @@ export class BranchesGitSubProvider implements GitBranchesSubProvider {
 		if (resultsPromise == null) {
 			async function load(this: BranchesGitSubProvider): Promise<PagedResult<GitBranch>> {
 				try {
-					const supportsWorktreePath = await this.git.supports('git:for-each-ref:worktreePath');
-					const parser = getBranchParser(supportsWorktreePath);
+					const supported = await this.git.supported('git:for-each-ref');
+					const parser = getBranchParser(supported);
 
 					const data = await this.git.exec(
 						{ cwd: repoPath },
@@ -179,7 +179,7 @@ export class BranchesGitSubProvider implements GitBranchesSubProvider {
 								entry.date ? new Date(entry.date) : undefined,
 								entry.sha,
 								upstream,
-								supportsWorktreePath
+								supported.includes('git:for-each-ref:worktreePath')
 									? worktreePath
 										? { path: worktreePath, isDefault: worktreePath === defaultWorktreePath }
 										: false
@@ -467,13 +467,13 @@ export class BranchesGitSubProvider implements GitBranchesSubProvider {
 
 			// Attempt to detect squash merges by checking if the diff of the branch can be cleanly removed from the target
 			const mergeBase = await this.provider.refs.getMergeBase(repoPath, into.name, branch.name);
-			data = await this.git.exec<string>({ cwd: repoPath }, 'diff', mergeBase, branch.name);
+			data = await this.git.exec({ cwd: repoPath }, 'diff', mergeBase, branch.name);
 			if (data?.length) {
 				// Create a temporary index file
 				await using disposableIndex = await this.provider.staging!.createTemporaryIndex(repoPath, into.name);
 				const { env } = disposableIndex;
 
-				data = await this.git.exec<string>(
+				data = await this.git.exec(
 					{ cwd: repoPath, env: env, stdin: data },
 					'apply',
 					'--cached',

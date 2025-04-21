@@ -31,7 +31,7 @@ async function findSpecificGit(path: string): Promise<GitLocation> {
 
 	let version;
 	try {
-		version = await run<string>(path, ['--version'], 'utf8');
+		version = await run(path, ['--version'], 'utf8');
 	} catch (ex) {
 		sw?.stop({ message: ` ${GlyphChars.Dot} Unable to find git: ${ex}` });
 
@@ -45,7 +45,7 @@ async function findSpecificGit(path: string): Promise<GitLocation> {
 
 		// Ensure that the path we found works
 		try {
-			version = await run<string>(foundPath, ['--version'], 'utf8');
+			version = await run(foundPath, ['--version'], 'utf8');
 		} catch (ex) {
 			sw?.stop({ message: ` ${GlyphChars.Dot} Unable to find git: ${ex}` });
 
@@ -71,11 +71,11 @@ async function findSpecificGit(path: string): Promise<GitLocation> {
 
 async function findGitDarwin(): Promise<GitLocation> {
 	try {
-		const path = (await run<string>('which', ['git'], 'utf8')).trim();
+		const path = (await run('which', ['git'], 'utf8')).trim();
 		if (path !== '/usr/bin/git') return await findSpecificGit(path);
 
 		try {
-			await run<string>('xcode-select', ['-p'], 'utf8');
+			await run('xcode-select', ['-p'], 'utf8');
 			return await findSpecificGit(path);
 		} catch (ex) {
 			if (ex.code === 2) {

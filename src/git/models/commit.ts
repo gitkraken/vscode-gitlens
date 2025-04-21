@@ -108,7 +108,7 @@ export class GitCommit implements GitRevisionReference {
 		if (fileset != null) {
 			this.fileset = fileset;
 
-			this._recomputeStats = true;
+			this._recomputeStats = this._stats == null;
 		}
 
 		this.lines = ensureArray(lines) ?? [];
@@ -251,9 +251,10 @@ export class GitCommit implements GitRevisionReference {
 	async ensureFullDetails(options?: { include?: { stats?: boolean } }): Promise<void> {
 		if (this.hasFullDetails(options)) return;
 
+		const repo = this.container.git.getRepository(this.repoPath);
+
 		// If the commit is "uncommitted", then have the files list be all uncommitted files
 		if (this.isUncommitted) {
-			const repo = this.container.git.getRepository(this.repoPath);
 			this._etagFileSystem = repo?.etagFileSystem;
 
 			if (this._etagFileSystem != null) {
@@ -282,7 +283,7 @@ export class GitCommit implements GitRevisionReference {
 
 		if (this.refType === 'stash') {
 			const [stashFilesResult] = await Promise.allSettled([
-				this.container.git.stash(this.repoPath)?.getStashCommitFiles(this.sha, options),
+				repo?.git.stash()?.getStashCommitFiles(this.sha),
 				this.getPreviousSha(),
 			]);
 
@@ -292,10 +293,8 @@ export class GitCommit implements GitRevisionReference {
 			}
 			this._stashUntrackedFilesLoaded = true;
 		} else {
-			const commitsProvider = this.container.git.commits(this.repoPath);
-			const [commitResult, commitFilesStatsResult] = await Promise.allSettled([
-				commitsProvider.getCommit(this.sha),
-				options?.include?.stats ? commitsProvider.getCommitFilesStats?.(this.sha) : undefined,
+			const [commitResult] = await Promise.allSettled([
+				repo?.git.commits().getCommit(this.sha),
 				this.getPreviousSha(),
 			]);
 
@@ -309,27 +308,6 @@ export class GitCommit implements GitRevisionReference {
 					filtered: false,
 					pathspec: this.fileset?.pathspec,
 				};
-			}
-
-			const commitFilesStats = getSettledValue(commitFilesStatsResult);
-			if (commitFilesStats?.length && this.fileset?.files.length) {
-				const files = this.fileset.files.map(file => {
-					const stats = commitFilesStats.find(f => f.path === file.path)?.stats;
-					return stats != null
-						? new GitFileChange(
-								this.container,
-								file.repoPath,
-								file.path,
-								file.status,
-								file.originalPath,
-								file.previousSha,
-								stats,
-								file.staged,
-						  )
-						: file;
-				});
-
-				this.fileset = { ...this.fileset, files: files };
 			}
 		}
 
@@ -616,12 +594,14 @@ export class GitCommit implements GitRevisionReference {
 						return this.file.previousSha;
 					}
 
-					const sha = await this.container.git
-						.refs(this.repoPath)
-						.resolveReference(
-							isUncommitted(this.sha, true) ? 'HEAD' : `${this.sha}^`,
-							this.file.originalPath ?? this.file.path,
-						);
+					const sha = (
+						await this.container.git
+							.revision(this.repoPath)
+							.resolveRevision(
+								isUncommitted(this.sha, true) ? 'HEAD' : `${this.sha}^`,
+								this.file.originalPath ?? this.file.path,
+							)
+					).sha;
 
 					this._resolvedPreviousSha = sha;
 					return sha;
@@ -633,9 +613,11 @@ export class GitCommit implements GitRevisionReference {
 					return parent;
 				}
 
-				const sha = await this.container.git
-					.refs(this.repoPath)
-					.resolveReference(isUncommitted(this.sha, true) ? 'HEAD' : `${this.sha}^`);
+				const sha = (
+					await this.container.git
+						.revision(this.repoPath)
+						.resolveRevision(isUncommitted(this.sha, true) ? 'HEAD' : `${this.sha}^`)
+				).sha;
 
 				this._resolvedPreviousSha = sha;
 				return sha;

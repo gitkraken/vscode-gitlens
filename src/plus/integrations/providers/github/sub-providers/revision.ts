@@ -1,10 +1,19 @@
+import type { Uri } from 'vscode';
 import { FileType, workspace } from 'vscode';
 import type { Container } from '../../../../../container';
-import type { GitRevisionSubProvider } from '../../../../../git/gitProvider';
+import type { GitRevisionSubProvider, ResolvedRevision } from '../../../../../git/gitProvider';
+import { deletedOrMissing } from '../../../../../git/models/revision';
 import type { GitTreeEntry } from '../../../../../git/models/tree';
+import {
+	isRevisionWithSuffix,
+	isSha,
+	isUncommitted,
+	isUncommittedWithParentSuffix,
+} from '../../../../../git/utils/revision.utils';
 import { gate } from '../../../../../system/decorators/-webview/gate';
 import { log } from '../../../../../system/decorators/log';
 import type { GitHubGitProviderInternal } from '../githubGitProvider';
+import { stripOrigin } from '../githubGitProvider';
 
 export class RevisionGitSubProvider implements GitRevisionSubProvider {
 	constructor(
@@ -92,5 +101,42 @@ export class RevisionGitSubProvider implements GitRevisionSubProvider {
 
 		// TODO@eamodio: Implement this
 		return [];
+	}
+
+	@log()
+	async resolveRevision(repoPath: string, ref: string, pathOrUri?: string | Uri): Promise<ResolvedRevision> {
+		if (!ref || ref === deletedOrMissing) return { sha: ref, revision: ref };
+
+		let relativePath;
+		if (pathOrUri == null) {
+			if (isSha(ref)) return { sha: ref, revision: ref };
+			if (ref.endsWith('^3')) return { sha: ref, revision: ref };
+		} else {
+			if (isUncommittedWithParentSuffix(ref)) {
+				ref = 'HEAD';
+			}
+			if (isUncommitted(ref)) return { sha: ref, revision: ref };
+
+			relativePath = this.provider.getRelativePath(pathOrUri, repoPath);
+		}
+
+		const context = await this.provider.ensureRepositoryContext(repoPath);
+		if (context == null) return { sha: ref, revision: ref };
+
+		const { metadata, github, session } = context;
+
+		const sha = await github.resolveReference(
+			session.accessToken,
+			metadata.repo.owner,
+			metadata.repo.name,
+			stripOrigin(ref),
+			relativePath,
+		);
+
+		if (sha == null) {
+			return { sha: relativePath ? deletedOrMissing : ref, revision: ref };
+		}
+		// If it looks like non-sha like then preserve it as the friendly name
+		return { sha: sha, revision: isRevisionWithSuffix(ref) ? sha : ref };
 	}
 }

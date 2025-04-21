@@ -244,7 +244,7 @@ export class BranchNode
 								range
 									? this.view.container.git
 											.commits(this.uri.repoPath!)
-											.getLogShasOnly(range, { limit: 0, merges: this.options.showMergeCommits })
+											.getLogShas(range, { limit: 0, merges: this.options.showMergeCommits })
 									: undefined,
 							)
 					: undefined,
@@ -265,7 +265,7 @@ export class BranchNode
 
 			const status = getSettledValue(statusResult);
 			const pausedOpsStatus = getSettledValue(pausedOpStatusResult);
-			const unpublishedCommits = getSettledValue(unpublishedCommitsResult);
+			const unpublishedCommits = new Set(getSettledValue(unpublishedCommitsResult));
 
 			if (pullRequest != null) {
 				children.push(new PullRequestNode(this.view, this, pullRequest, branch));

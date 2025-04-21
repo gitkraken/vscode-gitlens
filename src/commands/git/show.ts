@@ -152,7 +152,6 @@ export class ShowGitCommand extends QuickCommand<State> {
 							repoPath: state.repo.path,
 							commits: new Map<string, GitCommit | GitStashCommit>(),
 							sha: undefined,
-							range: undefined,
 							count: 0,
 							limit: undefined,
 							hasMore: false,

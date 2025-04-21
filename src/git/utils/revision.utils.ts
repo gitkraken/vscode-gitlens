@@ -6,6 +6,7 @@ const qualifiedRangeRegex = /^([\w\-/]+(?:\.[\w\-/]+)*)(\.\.\.?)([\w\-/]+(?:\.[\
 const qualifiedDoubleDotRange = /^([\w\-/]+(?:\.[\w\-/]+)*)(\.\.)([\w\-/]+(?:\.[\w\-/]+)*)$/;
 const qualifiedTripleDotRange = /^([\w\-/]+(?:\.[\w\-/]+)*)(\.\.\.)([\w\-/]+(?:\.[\w\-/]+)*)$/;
 const shaWithOptionalRevisionSuffixRegex = /(^[0-9a-f]{40}([\^@~:]\S*)?$)|(^[0]{40}(:|-)$)/;
+const revisionWithSuffixRegex = /^\S+[\^@~:]\S*$/;
 const shaRegex = /(^[0-9a-f]{40}$)|(^[0]{40}(:|-)$)/;
 const shaShortRegex = /(^[0-9a-f]{7,40}$)|(^[0]{40}(:|-)$)/;
 const shaParentRegex = /(^[0-9a-f]{40})\^[0-3]?$/;
@@ -15,6 +16,11 @@ const uncommittedStagedRegex = /^[0]{40}([\^@~]\S*)?:$/;
 
 function isMatch(regex: RegExp, rev: string | undefined) {
 	return !rev ? false : regex.test(rev);
+}
+
+/** Checks if the rev looks like a revision with a navigation suffixes (like ^, @, ~, or :) */
+export function isRevisionWithSuffix(rev: string): boolean {
+	return isMatch(revisionWithSuffixRegex, rev) && rev.length > 40;
 }
 
 /** Checks if the rev looks like a SHA-1 hash
@@ -42,9 +48,7 @@ export function isUncommittedStaged(rev: string | undefined, exact: boolean = fa
 	return rev === uncommittedStaged || (!exact && isMatch(uncommittedStagedRegex, rev));
 }
 
-export function isUncommittedWithParentSuffix(
-	rev: string | undefined,
-): rev is '0000000000000000000000000000000000000000^' | '0000000000000000000000000000000000000000:^' {
+export function isUncommittedWithParentSuffix(rev: string | undefined): rev is `${typeof uncommitted}${'^' | ':^'}` {
 	return rev === `${uncommitted}^` || rev === `${uncommittedStaged}^`;
 }
 

@@ -70,9 +70,11 @@ export class OpenOnRemoteCommand extends GlCommandBase {
 						const file = await commit.findFile(fileName);
 						if (file?.status === 'D') {
 							// Resolve to the previous commit to that file
-							resource.sha = await this.container.git
-								.refs(commit.repoPath)
-								.resolveReference(`${commit.sha}^`, fileName);
+							resource.sha = (
+								await this.container.git
+									.revision(commit.repoPath)
+									.resolveRevision(`${commit.sha}^`, fileName)
+							).sha;
 						} else {
 							resource.sha = commit.sha;
 						}

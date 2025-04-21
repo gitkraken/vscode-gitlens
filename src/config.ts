@@ -190,6 +190,9 @@ export interface AdvancedConfig {
 		readonly gitPath: boolean;
 	};
 	readonly commitOrdering: 'date' | 'author-date' | 'topo' | null;
+	readonly commits: {
+		readonly delayLoadingFileDetails: boolean;
+	};
 	readonly externalDiffTool: string | null;
 	readonly externalDirectoryDiffTool: string | null;
 	readonly fileHistoryFollowsRenames: boolean;

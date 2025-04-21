@@ -386,85 +386,108 @@ export function getTokensFromTemplateRegex(template: string): TokenMatch[] {
 	return tokens;
 }
 
-export function* iterateByDelimiter(data: string, delimiter: string = '\n'): IterableIterator<string> {
+export function* iterateByDelimiter(data: string | Iterable<string>, delimiter: string): IterableIterator<string> {
+	const delimiterLen = delimiter.length;
 	let i = 0;
-	while (i < data.length) {
-		let j = data.indexOf(delimiter, i);
-		if (j === -1) {
-			j = data.length;
-		}
+	let j;
 
-		yield data.substring(i, j);
-		i = j + 1;
-	}
-}
-
-export function* iterateByDelimiters(
-	data: string | string[],
-	primaryDelimiter: string,
-	secondaryDelimiter?: string,
-): IterableIterator<string> {
 	if (typeof data === 'string') {
-		let i = 0;
-		let primaryIndex;
-		let secondaryIndex;
 		while (i < data.length) {
-			let j = data.length;
-
-			primaryIndex = data.indexOf(primaryDelimiter, i);
-			if (primaryIndex !== -1) {
-				j = primaryIndex;
-			}
-
-			if (secondaryDelimiter != null) {
-				secondaryIndex = data.indexOf(secondaryDelimiter, i);
-				if (secondaryIndex !== -1 && secondaryIndex < j) {
-					j = secondaryIndex;
-				}
+			j = data.indexOf(delimiter, i);
+			if (j === -1) {
+				j = data.length;
 			}
 
 			yield data.substring(i, j);
-			i = j + 1;
+			i = j + delimiterLen;
 		}
 
 		return;
 	}
 
-	let count = 0;
-	let leftover: string | undefined;
-	for (let s of data) {
-		count++;
-		if (leftover) {
-			s = leftover + s;
-			leftover = undefined;
+	if (Array.isArray(data)) {
+		let count = 0;
+		let leftover: string | undefined;
+		for (let s of data as string[]) {
+			count++;
+			if (leftover) {
+				s = leftover + s;
+				leftover = undefined;
+			}
+
+			i = 0;
+			while (i < s.length) {
+				j = s.indexOf(delimiter, i);
+				if (j === -1) {
+					if (count === data.length) {
+						j = s.length;
+					} else {
+						leftover = s.substring(i);
+						break;
+					}
+				}
+
+				yield s.substring(i, j);
+				i = j + delimiterLen;
+			}
 		}
 
-		let i = 0;
-		let primaryIndex;
-		let secondaryIndex;
-		while (i < s.length) {
-			let j = s.length;
+		return;
+	}
 
-			primaryIndex = s.indexOf(primaryDelimiter, i);
-			if (primaryIndex !== -1) {
-				j = primaryIndex;
-			}
+	let buffer = '';
+	for (const chunk of data) {
+		buffer += chunk;
 
-			if (secondaryDelimiter != null) {
-				secondaryIndex = s.indexOf(secondaryDelimiter, i);
-				if (secondaryIndex !== -1 && secondaryIndex < j) {
-					j = secondaryIndex;
-				}
-			}
-
-			if (j === s.length && count !== data.length) {
-				leftover = s.substring(i);
+		i = 0;
+		while (i < buffer.length) {
+			j = buffer.indexOf(delimiter, i);
+			if (j === -1) {
 				break;
 			}
 
-			yield s.substring(i, j);
-			i = j + 1;
+			yield buffer.substring(i, j);
+			i = j + delimiterLen;
 		}
+
+		if (i > 0) {
+			buffer = buffer.substring(i);
+		}
+	}
+
+	// Yield any remaining content
+	if (buffer.length > 0) {
+		yield buffer;
+	}
+}
+
+export async function* iterateAsyncByDelimiter(data: AsyncIterable<string>, delimiter: string): AsyncGenerator<string> {
+	const delimiterLen = delimiter.length;
+	let i = 0;
+	let j;
+	let buffer = '';
+	for await (const chunk of data) {
+		buffer += chunk;
+
+		i = 0;
+		while (i < buffer.length) {
+			j = buffer.indexOf(delimiter, i);
+			if (j === -1) {
+				break;
+			}
+
+			yield buffer.substring(i, j);
+			i = j + delimiterLen;
+		}
+
+		if (i > 0) {
+			buffer = buffer.substring(i);
+		}
+	}
+
+	// Yield any remaining content
+	if (buffer.length > 0) {
+		yield buffer;
 	}
 }
 

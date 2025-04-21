@@ -145,7 +145,7 @@ export class WorktreeNode extends CacheableChildrenViewNode<'worktree', ViewsWit
 								range
 									? this.view.container.git
 											.commits(this.uri.repoPath!)
-											.getLogShasOnly(range, { limit: 0 })
+											.getLogShas(range, { limit: 0 })
 									: undefined,
 							)
 					: undefined,
@@ -172,7 +172,7 @@ export class WorktreeNode extends CacheableChildrenViewNode<'worktree', ViewsWit
 				);
 			}
 
-			const unpublishedCommits = getSettledValue(unpublishedCommitsResult);
+			const unpublishedCommits = new Set(getSettledValue(unpublishedCommitsResult));
 			const getBranchAndTagTips = getSettledValue(getBranchAndTagTipsResult);
 
 			children.push(

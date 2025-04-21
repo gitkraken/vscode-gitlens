@@ -1,4 +1,3 @@
-import type { Range } from 'vscode';
 import type { GitCommit } from './commit';
 
 export interface GitLog {
@@ -7,7 +6,6 @@ export interface GitLog {
 	readonly count: number;
 
 	readonly sha: string | undefined;
-	readonly range: Range | undefined;
 
 	readonly limit: number | undefined;
 	readonly startingCursor?: string;

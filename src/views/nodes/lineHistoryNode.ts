@@ -15,6 +15,7 @@ import { weakEvent } from '../../system/event';
 import { filterMap } from '../../system/iterable';
 import { getLoggableName, Logger } from '../../system/logger';
 import { startLogScope } from '../../system/logger.scope';
+import { getSettledValue } from '../../system/promise';
 import type { FileHistoryView } from '../fileHistoryView';
 import type { LineHistoryView } from '../lineHistoryView';
 import { SubscribeableViewNode } from './abstract/subscribeableViewNode';
@@ -74,7 +75,7 @@ export class LineHistoryNode
 		let selection = this.selection;
 
 		const range = this.branch != null ? await this.view.container.git.getBranchAheadRange(this.branch) : undefined;
-		const [log, blame, getBranchAndTagTips, unpublishedCommits] = await Promise.all([
+		const [logResult, blameResult, getBranchAndTagTipsResult, unpublishedCommitsResult] = await Promise.allSettled([
 			this.getLog(selection),
 			this.uri.sha == null || isUncommitted(this.uri.sha)
 				? this.editorContents
@@ -82,10 +83,11 @@ export class LineHistoryNode
 					: await this.view.container.git.getBlameForRange(this.uri, selection)
 				: undefined,
 			this.view.container.git.getBranchesAndTagsTipsLookup(this.uri.repoPath, this.branch?.name),
-			range ? this.view.container.git.commits(this.uri.repoPath).getLogShasOnly(range, { limit: 0 }) : undefined,
+			range ? this.view.container.git.commits(this.uri.repoPath).getLogShas(range, { limit: 0 }) : undefined,
 		]);
 
 		// Check for any uncommitted changes in the range
+		const blame = getSettledValue(blameResult);
 		if (blame != null) {
 			for (const commit of blame.commits.values()) {
 				if (!commit.isUncommitted) continue;
@@ -103,7 +105,6 @@ export class LineHistoryNode
 				);
 
 				const status = await this.view.container.git.status(this.uri.repoPath).getStatusForFile?.(this.uri);
-
 				if (status != null) {
 					const file: GitFile = {
 						conflictStatus: status?.conflictStatus,
@@ -132,6 +133,10 @@ export class LineHistoryNode
 			}
 		}
 
+		const getBranchAndTagTips = getSettledValue(getBranchAndTagTipsResult);
+		const unpublishedCommits = new Set(getSettledValue(unpublishedCommitsResult));
+
+		const log = getSettledValue(logResult);
 		if (log != null) {
 			children.push(
 				...insertDateMarkers(

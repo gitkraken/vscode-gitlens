@@ -85,10 +85,10 @@ export class BranchTrackingStatusNode
 			const ref = this.options?.unpublishedCommits != null ? last(this.options.unpublishedCommits) : undefined;
 			if (ref == null) return undefined;
 
-			const resolved = await this.view.container.git.refs(this.repoPath).resolveReference(`${ref}^`);
+			const resolved = await this.view.container.git.revision(this.repoPath).resolveRevision(`${ref}^`);
 			return {
 				...comparison,
-				ref1: resolved,
+				ref1: resolved.sha,
 				ref2: comparison.ref1,
 				title: `Changes to push to ${comparison.ref2}`,
 			};
@@ -121,7 +121,7 @@ export class BranchTrackingStatusNode
 			if (previousSha == null) {
 				const previousLog = await this.view.container.git
 					.commits(this.uri.repoPath!)
-					.getLog(commit.sha, { limit: 2 });
+					.getLog(commit.sha, { limit: 1 });
 				if (previousLog != null) {
 					commits[commits.length - 1] = first(previousLog.commits.values())!;
 				}

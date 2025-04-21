@@ -3,8 +3,9 @@ import type { GitCache } from '../../../../git/cache';
 import type { GitContributorsSubProvider } from '../../../../git/gitProvider';
 import type { GitContributorsStats } from '../../../../git/models/contributor';
 import { GitContributor } from '../../../../git/models/contributor';
-import { getContributorsParser } from '../../../../git/parsers/logParser';
+import { getContributorsLogParser } from '../../../../git/parsers/logParser';
 import { calculateContributionScore } from '../../../../git/utils/contributor.utils';
+import { isUncommittedStaged } from '../../../../git/utils/revision.utils';
 import { isUserMatch } from '../../../../git/utils/user.utils';
 import { gate } from '../../../../system/decorators/-webview/gate';
 import { log } from '../../../../system/decorators/log';
@@ -12,6 +13,7 @@ import { Logger } from '../../../../system/logger';
 import { getLogScope } from '../../../../system/logger.scope';
 import { normalizePath } from '../../../../system/path';
 import type { Git } from '../git';
+import { gitLogDefaultConfigs } from '../git';
 import type { LocalGitProvider } from '../localGitProvider';
 
 export class ContributorsGitSubProvider implements GitContributorsSubProvider {
@@ -50,7 +52,7 @@ export class ContributorsGitSubProvider implements GitContributorsSubProvider {
 				try {
 					repoPath = normalizePath(repoPath);
 					const currentUser = await this.provider.config.getCurrentUser(repoPath);
-					const parser = getContributorsParser(options?.stats);
+					const parser = getContributorsLogParser(options?.stats);
 
 					const args = [...parser.arguments, '--use-mailmap'];
 
@@ -65,7 +67,13 @@ export class ContributorsGitSubProvider implements GitContributorsSubProvider {
 						args.push('--all', '--single-worktree');
 					}
 
-					const data = await this.git.log(repoPath, rev, undefined, ...args);
+					const data = await this.git.exec(
+						{ cwd: repoPath, configs: gitLogDefaultConfigs },
+						'log',
+						...args,
+						rev && !isUncommittedStaged(rev) ? rev : undefined,
+						'--',
+					);
 
 					const contributors = new Map<string, GitContributor>();
 					const commits = parser.parse(data);

@@ -430,9 +430,7 @@ export class GraphWebviewProvider implements WebviewProvider<State, State, Graph
 
 			let id = arg.ref.ref;
 			if (!isSha(id)) {
-				id = await this.container.git.refs(arg.ref.repoPath).resolveReference(id, undefined, {
-					force: true,
-				});
+				id = (await this.container.git.revision(arg.ref.repoPath).resolveRevision(id)).sha;
 			}
 
 			this.setSelectedRows(id);
@@ -3258,7 +3256,7 @@ export class GraphWebviewProvider implements WebviewProvider<State, State, Graph
 
 		let sha = ref.ref;
 		if (!isSha(sha)) {
-			sha = await this.container.git.refs(ref.repoPath).resolveReference(sha, undefined, { force: true });
+			sha = (await this.container.git.revision(ref.repoPath).resolveRevision(sha)).sha;
 		}
 
 		return executeCommand<CopyShaToClipboardCommandArgs, void>('gitlens.copyShaToClipboard', {

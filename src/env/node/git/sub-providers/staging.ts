@@ -81,9 +81,13 @@ export class StagingGitSubProvider implements GitStagingSubProvider {
 
 	@log()
 	async stageFile(repoPath: string, pathOrUri: string | Uri, options?: { intentToAdd?: boolean }): Promise<void> {
-		await this.git.exec({ cwd: repoPath }, 'add', options?.intentToAdd ? '-N' : '-A', '--', [
+		await this.git.exec(
+			{ cwd: repoPath },
+			'add',
+			options?.intentToAdd ? '-N' : '-A',
+			'--',
 			typeof pathOrUri === 'string' ? pathOrUri : splitPath(pathOrUri, repoPath)[0],
-		]);
+		);
 	}
 
 	@log()
@@ -107,9 +111,13 @@ export class StagingGitSubProvider implements GitStagingSubProvider {
 		directoryOrUri: string | Uri,
 		options?: { intentToAdd?: boolean },
 	): Promise<void> {
-		await this.git.exec({ cwd: repoPath }, 'add', options?.intentToAdd ? '-N' : '-A', '--', [
+		await this.git.exec(
+			{ cwd: repoPath },
+			'add',
+			options?.intentToAdd ? '-N' : '-A',
+			'--',
 			typeof directoryOrUri === 'string' ? directoryOrUri : splitPath(directoryOrUri, repoPath)[0],
-		]);
+		);
 	}
 
 	@log()

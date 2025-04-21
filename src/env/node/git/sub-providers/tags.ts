@@ -67,7 +67,7 @@ export class TagsGitSubProvider implements GitTagsSubProvider {
 								this.container,
 								repoPath,
 								entry.name,
-								entry.sha,
+								entry.sha || entry.tagSha,
 								entry.message,
 								entry.date ? new Date(entry.date) : undefined,
 								entry.commitDate ? new Date(entry.commitDate) : undefined,
