@@ -138,10 +138,16 @@ export const graphHeaderControlStyles = css`
 		margin-left: -0.5rem;
 	}
 
-	.flex-gap {
+	.branch-menu {
 		display: flex;
 		gap: 0.5em;
 		align-items: center;
+	}
+
+	.branch-menu__avatar {
+		width: 1.4rem;
+		aspect-ratio: 1;
+		vertical-align: text-bottom;
 	}
 
 	.action-divider {
