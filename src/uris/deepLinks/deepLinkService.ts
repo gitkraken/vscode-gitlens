@@ -72,6 +72,7 @@ export class DeepLinkService implements Disposable {
 		this._disposables.push(
 			this._onDeepLinkProgressUpdated,
 			container.uri.onDidReceiveUri(async (uri: Uri) => this.processDeepLinkUri(uri)),
+			container.storage.onDidChangeSecrets(this.onDidChangeStorage, this),
 		);
 
 		void this.container.storage.getSecret('deepLinks:pending').then(pendingDeepLink => {
@@ -84,6 +85,28 @@ export class DeepLinkService implements Disposable {
 
 	dispose(): void {
 		Disposable.from(...this._disposables).dispose();
+	}
+
+	private async onDidChangeStorage(e: SecretStorageChangeEvent): Promise<void> {
+		if (e.key === 'deepLinks:pending') {
+			const pendingDeepLinkStored = await this.container.storage.getSecret('deepLinks:pending');
+			if (pendingDeepLinkStored == null) return;
+
+			const pendingDeepLink = JSON.parse(pendingDeepLinkStored) as StoredDeepLinkContext;
+			if (pendingDeepLink?.url == null) return;
+
+			const link = parseDeepLinkUri(Uri.parse(pendingDeepLink.url));
+			if (link == null) return;
+
+			// TODO: See if we can remove this condition without breaking other link flows
+			if (link.action !== DeepLinkActionType.DeleteBranch) return;
+
+			// see if there is a matching repo in the current window
+			await this.findMatchingRepositoryFromCurrentWindow(link.repoPath, link.remoteUrl, link.mainId, true);
+			if (this._context.repo != null) {
+				void this.processPendingDeepLink(pendingDeepLink);
+			}
+		}
 	}
 
 	private resetContext() {
@@ -207,14 +230,24 @@ export class DeepLinkService implements Disposable {
 		repoPath: string | undefined,
 		remoteUrl: string | undefined,
 		repoId: string | undefined,
+		openOnly: boolean = false,
 	): Promise<void> {
 		if (repoPath != null) {
 			const repoOpenUri = maybeUri(repoPath) ? Uri.parse(repoPath) : repoPath;
 			try {
-				const openRepo = await this.container.git.getOrOpenRepository(repoOpenUri, { detectNested: false });
-				if (openRepo != null) {
-					this._context.repo = openRepo;
-					return;
+				if (openOnly) {
+					for (const repo of this.container.git.openRepositories) {
+						if (repo.path === repoPath || repo.uri.fsPath === repoPath) {
+							this._context.repo = repo;
+							return;
+						}
+					}
+				} else {
+					const openRepo = await this.container.git.getOrOpenRepository(repoOpenUri, { detectNested: false });
+					if (openRepo != null) {
+						this._context.repo = openRepo;
+						return;
+					}
 				}
 			} catch {}
 		}
@@ -227,7 +260,7 @@ export class DeepLinkService implements Disposable {
 
 		// Try to match a repo using the remote URL first, since that saves us some steps.
 		// As a fallback, try to match using the repo id.
-		for (const repo of this.container.git.repositories) {
+		for (const repo of openOnly ? this.container.git.openRepositories : this.container.git.repositories) {
 			if (repoPath != null && normalizePath(repo.path.toLowerCase()) === normalizePath(repoPath.toLowerCase())) {
 				this._context.repo = repo;
 				return;
