@@ -190,6 +190,27 @@ const resetErrorAndReason: [RegExp, ResetErrorReason][] = [
 	[GitErrors.unmergedChanges, ResetErrorReason.UnmergedChanges],
 ];
 
+export class GitError extends Error {
+	readonly cmd: string | undefined;
+	readonly exitCode: number | string | undefined;
+	readonly stdout: string | undefined;
+	readonly stderr: string | undefined;
+
+	constructor(private readonly original: Error) {
+		if (original instanceof RunError) {
+			super(original.stderr || original.stdout || original.message);
+			this.stdout = original.stdout;
+			this.stderr = original.stderr;
+			this.cmd = original.cmd;
+			this.exitCode = original.code;
+		} else {
+			super(original.message);
+		}
+
+		Error.captureStackTrace?.(this, GitError);
+	}
+}
+
 export class Git {
 	/** Map of running git commands -- avoids running duplicate overlaping commands */
 	private readonly pendingCommands = new Map<string, Promise<RunResult<string | Buffer>>>();
@@ -275,22 +296,14 @@ export class Git {
 			const result = await promise;
 			return result.stdout as T;
 		} catch (ex) {
-			exception = ex;
+			if (errorHandling === GitErrorHandling.Ignore) return '' as T;
 
-			switch (errorHandling) {
-				case GitErrorHandling.Ignore:
-					exception = undefined;
-					return '' as T;
+			exception = new GitError(ex);
+			if (errorHandling === GitErrorHandling.Throw) throw exception;
 
-				case GitErrorHandling.Throw:
-					throw ex;
-
-				default: {
-					const result = defaultExceptionHandler(ex, options.cwd, start);
-					exception = undefined;
-					return result as T;
-				}
-			}
+			const result = defaultExceptionHandler(ex, options.cwd, start);
+			exception = undefined;
+			return result as T;
 		} finally {
 			this.pendingCommands.delete(command);
 			this.logGitCommand(gitCommand, exception, getDurationMilliseconds(start), waiting);
@@ -354,10 +367,8 @@ export class Git {
 			if (ex?.name === 'AbortError') {
 				exception = new CancelledRunError(command, true);
 			} else {
-				exception = ex;
+				exception = new GitError(ex);
 			}
-
-			exception = ex;
 		});
 		proc.once('exit', () => this.logGitCommand(gitCommand, exception, getDurationMilliseconds(start), false));
 		return proc;
@@ -416,7 +427,10 @@ export class Git {
 		let completed = false;
 		let exception: Error | undefined;
 
-		proc.once('error', ex => (exception = ex?.name === 'AbortError' ? new CancelledRunError(command, true) : ex));
+		proc.once(
+			'error',
+			ex => (exception = ex?.name === 'AbortError' ? new CancelledRunError(command, true) : new GitError(ex)),
+		);
 		proc.once('exit', (code, signal) => {
 			if (signal === 'SIGTERM') {
 				exception = new CancelledRunError(command, true, code ?? undefined, signal);
