@@ -14,7 +14,8 @@ import type { DeepLinkServiceState } from './uris/deepLinks/deepLink';
 export type SecretKeys =
 	| IntegrationAuthenticationKeys
 	| `gitlens.${AIProviders}.key`
-	| `gitlens.plus.auth:${Environment}`;
+	| `gitlens.plus.auth:${Environment}`
+	| 'deepLinks:pending';
 
 export type IntegrationAuthenticationKeys =
 	| `gitlens.integration.auth:${IntegrationId}|${string}`
@@ -64,7 +65,6 @@ export type GlobalStorage = {
 	avatars: [string, StoredAvatar][];
 	'confirm:ai:tos': boolean;
 	repoVisibility: [string, StoredRepoVisibilityInfo][];
-	'deepLinks:pending': StoredDeepLinkContext;
 	pendingWhatsNewOnFocus: boolean;
 	// Don't change this key name ('premium`) as its the stored subscription
 	'premium:subscription': Stored<Subscription & { lastValidatedAt: number | undefined }>;

@@ -1,4 +1,4 @@
-import type { QuickPickItem } from 'vscode';
+import type { QuickPickItem, SecretStorageChangeEvent } from 'vscode';
 import { Disposable, env, EventEmitter, ProgressLocation, Range, Uri, window, workspace } from 'vscode';
 import type { OpenCloudPatchCommandArgs } from '../../commands/patches';
 import type { StoredDeepLinkContext, StoredNamedRef } from '../../constants.storage';
@@ -74,8 +74,12 @@ export class DeepLinkService implements Disposable {
 			container.uri.onDidReceiveUri(async (uri: Uri) => this.processDeepLinkUri(uri)),
 		);
 
-		const pendingDeepLink = this.container.storage.get('deepLinks:pending');
-		void this.processPendingDeepLink(pendingDeepLink);
+		void this.container.storage.getSecret('deepLinks:pending').then(pendingDeepLink => {
+			if (pendingDeepLink != null) {
+				const link = JSON.parse(pendingDeepLink) as StoredDeepLinkContext;
+				void this.processPendingDeepLink(link);
+			}
+		});
 	}
 
 	dispose(): void {
@@ -254,7 +258,7 @@ export class DeepLinkService implements Disposable {
 	@debug()
 	private async processPendingDeepLink(pendingDeepLink: StoredDeepLinkContext | undefined) {
 		if (pendingDeepLink == null) return;
-		void this.container.storage.delete('deepLinks:pending');
+		void this.container.storage.deleteSecret('deepLinks:pending');
 		if (pendingDeepLink?.url == null) return;
 		const link = parseDeepLinkUri(Uri.parse(pendingDeepLink.url));
 		if (link == null) return;
@@ -1061,13 +1065,16 @@ export class DeepLinkService implements Disposable {
 						action = DeepLinkServiceAction.RepoOpening;
 						if (!(repoOpenLocation === 'addToWorkspace' && (workspace.workspaceFolders?.length || 0) > 1)) {
 							// Deep link will resolve in a different service instance
-							await this.container.storage.store('deepLinks:pending', {
-								url: this._context.url,
-								repoPath: repoOpenUri.toString(),
-								targetSha: this._context.targetSha,
-								secondaryTargetSha: this._context.secondaryTargetSha,
-								useProgress: useProgress,
-							});
+							await this.container.storage.storeSecret(
+								'deepLinks:pending',
+								JSON.stringify({
+									url: this._context.url,
+									repoPath: repoOpenUri.toString(),
+									targetSha: this._context.targetSha,
+									secondaryTargetSha: this._context.secondaryTargetSha,
+									useProgress: useProgress,
+								}),
+							);
 							action = DeepLinkServiceAction.DeepLinkStored;
 						}
 
@@ -1349,9 +1356,11 @@ export class DeepLinkService implements Disposable {
 
 						// Storing link info in case the switch causes a new window to open
 						const onWorkspaceChanging = async (isNewWorktree?: boolean) =>
-							this.container.storage.store(
+							this.container.storage.storeSecret(
 								'deepLinks:pending',
-								isNewWorktree ? pendingDeepLink : { ...pendingDeepLink, url: nonPrUrl },
+								isNewWorktree
+									? JSON.stringify(pendingDeepLink)
+									: JSON.stringify({ ...pendingDeepLink, url: nonPrUrl }),
 							);
 
 						await executeGitCommand({
@@ -1406,7 +1415,7 @@ export class DeepLinkService implements Disposable {
 				}
 				case DeepLinkServiceState.OpenInspect: {
 					// If we arrive at this step, clear any stored data used for the "new window" option
-					await this.container.storage.delete('deepLinks:pending');
+					await this.container.storage.deleteSecret('deepLinks:pending');
 					if (!repo) {
 						action = DeepLinkServiceAction.DeepLinkErrored;
 						message = 'Missing repository.';
