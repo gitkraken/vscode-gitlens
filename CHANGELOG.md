@@ -8,6 +8,7 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/) and this p
 
 ### Added
 
+- Adds support for associated BitBucket, BitBucket Server, and Azure DevOps pull requests on commits ([#4192](https://github.com/gitkraken/vscode-gitlens/issues/4192))
 - Adds the ability to search for GitHub Enterprise and GitLab Self-Managed pull requests by URL in the main step of Launchpad
 - Adds Ollama and OpenRouter support for GitLens' AI features ([#3311](https://github.com/gitkraken/vscode-gitlens/issues/3311), [#3906](https://github.com/gitkraken/vscode-gitlens/issues/3906))
 - Adds the ability to change a branch's merge target in Home view. ([#4224](https://github.com/gitkraken/vscode-gitlens/issues/4224))
