@@ -1241,6 +1241,11 @@ export class HomeWebviewProvider implements WebviewProvider<State, State, HomeWe
 							'deepLinks:pending',
 							JSON.stringify(deleteBranchDeepLink),
 						);
+						// Close the current window. This should only occur if there was already a different
+						// window open for the default worktree.
+						setTimeout(() => {
+							void executeCoreCommand('workbench.action.closeWindow');
+						}, 2000);
 					},
 					worktreeDefaultOpen: 'current',
 				},
