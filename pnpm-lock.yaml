@@ -20,8 +20,8 @@ importers:
         specifier: 13.0.0-vnext.1
         version: 13.0.0-vnext.1(@types/react@19.0.12)(react@19.0.0)
       '@gitkraken/provider-apis':
-        specifier: 0.28.3
-        version: 0.28.3(encoding@0.1.13)
+        specifier: 0.28.5
+        version: 0.28.5(encoding@0.1.13)
       '@gitkraken/shared-web-components':
         specifier: 0.1.1-rc.15
         version: 0.1.1-rc.15
@@ -309,7 +309,7 @@ importers:
 packages:
 
   '@axosoft/react-virtualized@9.22.3-gitkraken.3':
-    resolution: {integrity: sha512-sCU8gM0Ut1I3lNBYLQCq7nmRObFsdGKkTIMZkVThZhFYtmQchl1RLnsXilicmNlwCNZdm3/uDCpOw6q7T1gtog==, tarball: https://registry.npmjs.org/@axosoft/react-virtualized/-/react-virtualized-9.22.3-gitkraken.3.tgz}
+    resolution: {integrity: sha512-sCU8gM0Ut1I3lNBYLQCq7nmRObFsdGKkTIMZkVThZhFYtmQchl1RLnsXilicmNlwCNZdm3/uDCpOw6q7T1gtog==}
     peerDependencies:
       react: ^15.3.0 || ^16.0.0-alpha
       react-dom: ^15.3.0 || ^16.0.0-alpha
@@ -613,8 +613,8 @@ packages:
     peerDependencies:
       react: 19.0.0
 
-  '@gitkraken/provider-apis@0.28.3':
-    resolution: {integrity: sha512-ko2Zg0AhQxERrBRRvMx/TSFlY4slwS9qYFXCr9jhwSOLLfR2L/A1xlX+V7gMemoFDnlbNUW+HijOZPubFlMBbg==}
+  '@gitkraken/provider-apis@0.28.5':
+    resolution: {integrity: sha512-6tNeqaFGf0u1Xvj8W8oP3dX6kEWQgf6zIghDyRPzR6P/FvTdpU8TfiGy0FVFh5AB1puMf59hMJswasIOkauxCA==}
     engines: {node: '>= 14'}
 
   '@gitkraken/shared-web-components@0.1.1-rc.15':
@@ -5947,7 +5947,7 @@ snapshots:
     transitivePeerDependencies:
       - '@types/react'
 
-  '@gitkraken/provider-apis@0.28.3(encoding@0.1.13)':
+  '@gitkraken/provider-apis@0.28.5(encoding@0.1.13)':
     dependencies:
       js-base64: 3.7.5
       node-fetch: 2.7.0(encoding@0.1.13)
