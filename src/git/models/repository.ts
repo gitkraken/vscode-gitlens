@@ -625,11 +625,11 @@ export class Repository implements Disposable {
 	@gate()
 	@log({ exit: true })
 	async getCommonRepository(): Promise<Repository | undefined> {
-		const gitDir = await this.git.config().getGitDir?.();
-		if (gitDir?.commonUri == null) return this;
+		const uri = await this.getCommonRepositoryUri();
+		if (uri == null) return this;
 
 		// If the repository isn't already opened, then open it as a "closed" repo (won't show up in the UI)
-		return this.container.git.getOrOpenRepository(gitDir.commonUri, {
+		return this.container.git.getOrOpenRepository(uri, {
 			detectNested: false,
 			force: true,
 			closeOnOpen: true,
