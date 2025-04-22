@@ -151,6 +151,7 @@ export type StatusBarCommands =
 
 // NOTE: Must be kept in sync with `gitlens.advanced.messages` setting in the package.json
 export type SuppressedMessages =
+	| 'suppressBitbucketPRCommitLinksAppNotInstalledWarning'
 	| 'suppressCommitHasNoPreviousCommitWarning'
 	| 'suppressCommitNotFoundWarning'
 	| 'suppressCreatePullRequestPrompt'

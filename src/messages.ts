@@ -94,6 +94,22 @@ export async function showGenericErrorMessage(message: string): Promise<void> {
 	}
 }
 
+export async function showBitbucketPRCommitLinksAppNotInstalledWarningMessage(revLink: string): Promise<void> {
+	const allowAccess = { title: 'Allow Access' };
+	const result = await showMessage(
+		'warn',
+		`GitLens cannot access Bitbucket PRs for commits.
+		Allow access by visiting [this commit](${revLink}) on Bitbucket and click “Pull requests” under the “Apps” section on the bottom right
+		or [read our docs](https://help.gitkraken.com/gitlens/gitlens-troubleshooting/#enable-showing-bitbucket-pull-request-for-a-commit) for more info.`,
+		'suppressBitbucketPRCommitLinksAppNotInstalledWarning',
+		{ title: "Don't Show Again" },
+		allowAccess,
+	);
+	if (result === allowAccess) {
+		void openUrl(revLink);
+	}
+}
+
 export function showFileNotUnderSourceControlWarningMessage(message: string): Promise<MessageItem | undefined> {
 	return showMessage(
 		'warn',
