@@ -17,7 +17,7 @@
 				"scm/title": [
 					{
 						"when": "scmProvider == git && gitlens:enabled && !gitlens:readonly && !gitlens:untrusted && !gitlens:hasVirtualFolders && config.gitlens.menus.scmRepository.authors",
-						"group": "2_z_gitlens",
+						"group": "2_gitlens",
 						"order": 1
 					}
 				]
@@ -359,7 +359,7 @@
 					{
 						"when": "gitlens:enabled && scmProvider == git && config.gitlens.menus.scmRepository.patch",
 						"group": "4_gitlens",
-						"order": 2
+						"order": 3
 					}
 				],
 				"scm/resourceFolder/context": [
@@ -3439,7 +3439,7 @@
 					{
 						"when": "gitlens:enabled && !gitlens:readonly && !gitlens:untrusted && gitlens:gk:organization:ai:enabled && config.gitlens.ai.generateCommitMessage.enabled && config.gitlens.menus.scmRepository.generateCommitMessage",
 						"group": "4_gitlens",
-						"order": 4
+						"order": 2
 					}
 				],
 				"scm/title": [
@@ -3450,8 +3450,8 @@
 					},
 					{
 						"when": "scmProvider == git && gitlens:enabled && !gitlens:readonly && !gitlens:untrusted && gitlens:gk:organization:ai:enabled && config.gitlens.ai.generateCommitMessage.enabled && config.gitlens.menus.scmRepository.generateCommitMessage",
-						"group": "2_z_gitlens",
-						"order": 4
+						"group": "2_gitlens",
+						"order": 2
 					}
 				]
 			}
@@ -3464,7 +3464,7 @@
 					{
 						"when": "gitlens:enabled && scmProvider == git && config.gitlens.menus.scmRepository.patch",
 						"group": "4_gitlens",
-						"order": 3
+						"order": 5
 					}
 				],
 				"gitlens/share": [

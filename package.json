@@ -13719,19 +13719,19 @@
 					"group": "4_gitlens@1"
 				},
 				{
-					"command": "gitlens.copyPatchToClipboard",
-					"when": "gitlens:enabled && scmProvider == git && config.gitlens.menus.scmRepository.patch",
+					"command": "gitlens.scm.ai.generateCommitMessage",
+					"when": "gitlens:enabled && !gitlens:readonly && !gitlens:untrusted && gitlens:gk:organization:ai:enabled && config.gitlens.ai.generateCommitMessage.enabled && config.gitlens.menus.scmRepository.generateCommitMessage",
 					"group": "4_gitlens@2"
 				},
 				{
-					"command": "gitlens.shareAsCloudPatch",
+					"command": "gitlens.copyPatchToClipboard",
 					"when": "gitlens:enabled && scmProvider == git && config.gitlens.menus.scmRepository.patch",
 					"group": "4_gitlens@3"
 				},
 				{
-					"command": "gitlens.scm.ai.generateCommitMessage",
-					"when": "gitlens:enabled && !gitlens:readonly && !gitlens:untrusted && gitlens:gk:organization:ai:enabled && config.gitlens.ai.generateCommitMessage.enabled && config.gitlens.menus.scmRepository.generateCommitMessage",
-					"group": "4_gitlens@4"
+					"command": "gitlens.shareAsCloudPatch",
+					"when": "gitlens:enabled && scmProvider == git && config.gitlens.menus.scmRepository.patch",
+					"group": "4_gitlens@5"
 				}
 			],
 			"gitlens/commit/browse": [
@@ -15994,7 +15994,12 @@
 				{
 					"command": "gitlens.addAuthors",
 					"when": "scmProvider == git && gitlens:enabled && !gitlens:readonly && !gitlens:untrusted && !gitlens:hasVirtualFolders && config.gitlens.menus.scmRepository.authors",
-					"group": "2_z_gitlens@1"
+					"group": "2_gitlens@1"
+				},
+				{
+					"command": "gitlens.scm.ai.generateCommitMessage",
+					"when": "scmProvider == git && gitlens:enabled && !gitlens:readonly && !gitlens:untrusted && gitlens:gk:organization:ai:enabled && config.gitlens.ai.generateCommitMessage.enabled && config.gitlens.menus.scmRepository.generateCommitMessage",
+					"group": "2_gitlens@2"
 				},
 				{
 					"command": "gitlens.copyPatchToClipboard",
@@ -16005,11 +16010,6 @@
 					"command": "gitlens.shareAsCloudPatch",
 					"when": "scmProvider == git && gitlens:enabled && config.gitlens.menus.scmRepository.patch",
 					"group": "2_z_gitlens@3"
-				},
-				{
-					"command": "gitlens.scm.ai.generateCommitMessage",
-					"when": "scmProvider == git && gitlens:enabled && !gitlens:readonly && !gitlens:untrusted && gitlens:gk:organization:ai:enabled && config.gitlens.ai.generateCommitMessage.enabled && config.gitlens.menus.scmRepository.generateCommitMessage",
-					"group": "2_z_gitlens@4"
 				},
 				{
 					"command": "gitlens.showGraph",
