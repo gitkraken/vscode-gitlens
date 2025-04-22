@@ -8,6 +8,7 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/) and this p
 
 ### Added
 
+- Adds support for associated BitBucket, BitBucket Server, and Azure DevOps pull requests on commits ([#4192](https://github.com/gitkraken/vscode-gitlens/issues/4192))
 - Adds the ability to search for GitHub Enterprise and GitLab Self-Managed pull requests by URL in the main step of Launchpad
 - Adds Ollama and OpenRouter support for GitLens' AI features ([#3311](https://github.com/gitkraken/vscode-gitlens/issues/3311), [#3906](https://github.com/gitkraken/vscode-gitlens/issues/3906))
 - Adds Google Gemini 2.5 Flash (Preview) model, and OpenAI GPT-4.1, GPT-4.1 mini, GPT-4.1 nano, o4 mini, and o3 models for GitLens' AI features ([#4235](https://github.com/gitkraken/vscode-gitlens/issues/4235))
