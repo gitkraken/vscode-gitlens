@@ -19,7 +19,10 @@ import type { IssueOrPullRequest, IssueOrPullRequestType } from '../../../../git
 import type { PullRequest } from '../../../../git/models/pullRequest';
 import type { Provider } from '../../../../git/models/remoteProvider';
 import type { RepositoryMetadata } from '../../../../git/models/repositoryMetadata';
-import { showIntegrationRequestFailed500WarningMessage } from '../../../../messages';
+import {
+	showBitbucketPRCommitLinksAppNotInstalledWarningMessage,
+	showIntegrationRequestFailed500WarningMessage,
+} from '../../../../messages';
 import { configuration } from '../../../../system/-webview/configuration';
 import { debug } from '../../../../system/decorators/log';
 import { Logger } from '../../../../system/logger';
@@ -457,6 +460,16 @@ export class BitbucketApi implements Disposable {
 			if (!pr) return undefined;
 			return fromBitbucketPullRequest(pr, provider);
 		} catch (ex) {
+			if (ex.original instanceof ProviderFetchError) {
+				const json = await ex.original.response.json();
+				if (json?.error === 'Invalid or unknown installation') {
+					// TODO: In future get it on to home as an worning on the integratin istelf "this integration has issues"
+					// even user suppresses the message it's still visible with some capacity. It's a broader thing to get other errors.
+					const commitWebUrl = `https://bitbucket.org/${owner}/${repo}/commits/${rev}`;
+					void showBitbucketPRCommitLinksAppNotInstalledWarningMessage(commitWebUrl);
+					return undefined;
+				}
+			}
 			Logger.error(ex, scope);
 			return undefined;
 		}
