@@ -125,6 +125,12 @@ export const titlebarStyles = css`
 `;
 
 export const graphHeaderControlStyles = css`
+	.popover::part(body) {
+		padding: 0;
+		font-size: var(--vscode-font-size);
+		background-color: var(--vscode-menu-background);
+	}
+
 	.shrink {
 		max-width: fit-content;
 		transition: all 0.2s;
