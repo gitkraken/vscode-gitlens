@@ -3,7 +3,7 @@ import { isLinux, isWindows } from '@env/platform';
 
 export { basename, dirname, extname, join as joinPaths } from 'path';
 
-const driveLetterNormalizeRegex = /(?<=^\/?)([A-Z])(?=:\/)/;
+const driveLetterNormalizeRegex = /(^\/?)([a-zA-Z])(?=:\/)/;
 const hasSchemeRegex = /^([a-zA-Z][\w+.-]+):/;
 const pathNormalizeRegex = /\\/g;
 const slash = 47;
@@ -71,8 +71,8 @@ export function normalizePath(path: string): string {
 	}
 
 	if (isWindows) {
-		// Ensure that drive casing is normalized (lower case)
-		path = path.replace(driveLetterNormalizeRegex, d => d.toLowerCase());
+		// Ensure that drive casing is normalized (lower case) and no leading slash
+		path = path.replace(driveLetterNormalizeRegex, (_, _slash, d: string) => d.toLowerCase());
 	}
 
 	return path;
