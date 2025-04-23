@@ -1,4 +1,4 @@
-import type { QuickPickItem } from 'vscode';
+import type { QuickPickItem, SecretStorageChangeEvent } from 'vscode';
 import { Disposable, env, EventEmitter, ProgressLocation, Range, Uri, window, workspace } from 'vscode';
 import type { OpenCloudPatchCommandArgs } from '../../commands/patches';
 import type { StoredDeepLinkContext, StoredNamedRef } from '../../constants.storage';
@@ -72,14 +72,41 @@ export class DeepLinkService implements Disposable {
 		this._disposables.push(
 			this._onDeepLinkProgressUpdated,
 			container.uri.onDidReceiveUri(async (uri: Uri) => this.processDeepLinkUri(uri)),
+			container.storage.onDidChangeSecrets(this.onDidChangeStorage, this),
 		);
 
-		const pendingDeepLink = this.container.storage.get('deepLinks:pending');
-		void this.processPendingDeepLink(pendingDeepLink);
+		void this.container.storage.getSecret('deepLinks:pending').then(pendingDeepLink => {
+			if (pendingDeepLink != null) {
+				const link = JSON.parse(pendingDeepLink) as StoredDeepLinkContext;
+				void this.processPendingDeepLink(link);
+			}
+		});
 	}
 
 	dispose(): void {
 		Disposable.from(...this._disposables).dispose();
+	}
+
+	private async onDidChangeStorage(e: SecretStorageChangeEvent): Promise<void> {
+		if (e.key === 'deepLinks:pending') {
+			const pendingDeepLinkStored = await this.container.storage.getSecret('deepLinks:pending');
+			if (pendingDeepLinkStored == null) return;
+
+			const pendingDeepLink = JSON.parse(pendingDeepLinkStored) as StoredDeepLinkContext;
+			if (pendingDeepLink?.url == null) return;
+
+			const link = parseDeepLinkUri(Uri.parse(pendingDeepLink.url));
+			if (link == null) return;
+
+			// TODO: See if we can remove this condition without breaking other link flows
+			if (link.action !== DeepLinkActionType.DeleteBranch) return;
+
+			// see if there is a matching repo in the current window
+			await this.findMatchingRepositoryFromCurrentWindow(link.repoPath, link.remoteUrl, link.mainId, true);
+			if (this._context.repo != null) {
+				void this.processPendingDeepLink(pendingDeepLink);
+			}
+		}
 	}
 
 	private resetContext() {
@@ -203,14 +230,24 @@ export class DeepLinkService implements Disposable {
 		repoPath: string | undefined,
 		remoteUrl: string | undefined,
 		repoId: string | undefined,
+		openOnly: boolean = false,
 	): Promise<void> {
 		if (repoPath != null) {
 			const repoOpenUri = maybeUri(repoPath) ? Uri.parse(repoPath) : repoPath;
 			try {
-				const openRepo = await this.container.git.getOrOpenRepository(repoOpenUri, { detectNested: false });
-				if (openRepo != null) {
-					this._context.repo = openRepo;
-					return;
+				if (openOnly) {
+					for (const repo of this.container.git.openRepositories) {
+						if (repo.path === repoPath || repo.uri.fsPath === repoPath) {
+							this._context.repo = repo;
+							return;
+						}
+					}
+				} else {
+					const openRepo = await this.container.git.getOrOpenRepository(repoOpenUri, { detectNested: false });
+					if (openRepo != null) {
+						this._context.repo = openRepo;
+						return;
+					}
 				}
 			} catch {}
 		}
@@ -223,7 +260,7 @@ export class DeepLinkService implements Disposable {
 
 		// Try to match a repo using the remote URL first, since that saves us some steps.
 		// As a fallback, try to match using the repo id.
-		for (const repo of this.container.git.repositories) {
+		for (const repo of openOnly ? this.container.git.openRepositories : this.container.git.repositories) {
 			if (repoPath != null && normalizePath(repo.path.toLowerCase()) === normalizePath(repoPath.toLowerCase())) {
 				this._context.repo = repo;
 				return;
@@ -254,7 +291,7 @@ export class DeepLinkService implements Disposable {
 	@debug()
 	private async processPendingDeepLink(pendingDeepLink: StoredDeepLinkContext | undefined) {
 		if (pendingDeepLink == null) return;
-		void this.container.storage.delete('deepLinks:pending');
+		void this.container.storage.deleteSecret('deepLinks:pending');
 		if (pendingDeepLink?.url == null) return;
 		const link = parseDeepLinkUri(Uri.parse(pendingDeepLink.url));
 		if (link == null) return;
@@ -1061,13 +1098,16 @@ export class DeepLinkService implements Disposable {
 						action = DeepLinkServiceAction.RepoOpening;
 						if (!(repoOpenLocation === 'addToWorkspace' && (workspace.workspaceFolders?.length || 0) > 1)) {
 							// Deep link will resolve in a different service instance
-							await this.container.storage.store('deepLinks:pending', {
-								url: this._context.url,
-								repoPath: repoOpenUri.toString(),
-								targetSha: this._context.targetSha,
-								secondaryTargetSha: this._context.secondaryTargetSha,
-								useProgress: useProgress,
-							});
+							await this.container.storage.storeSecret(
+								'deepLinks:pending',
+								JSON.stringify({
+									url: this._context.url,
+									repoPath: repoOpenUri.toString(),
+									targetSha: this._context.targetSha,
+									secondaryTargetSha: this._context.secondaryTargetSha,
+									useProgress: useProgress,
+								}),
+							);
 							action = DeepLinkServiceAction.DeepLinkStored;
 						}
 
@@ -1349,9 +1389,11 @@ export class DeepLinkService implements Disposable {
 
 						// Storing link info in case the switch causes a new window to open
 						const onWorkspaceChanging = async (isNewWorktree?: boolean) =>
-							this.container.storage.store(
+							this.container.storage.storeSecret(
 								'deepLinks:pending',
-								isNewWorktree ? pendingDeepLink : { ...pendingDeepLink, url: nonPrUrl },
+								isNewWorktree
+									? JSON.stringify(pendingDeepLink)
+									: JSON.stringify({ ...pendingDeepLink, url: nonPrUrl }),
 							);
 
 						await executeGitCommand({
@@ -1406,7 +1448,7 @@ export class DeepLinkService implements Disposable {
 				}
 				case DeepLinkServiceState.OpenInspect: {
 					// If we arrive at this step, clear any stored data used for the "new window" option
-					await this.container.storage.delete('deepLinks:pending');
+					await this.container.storage.deleteSecret('deepLinks:pending');
 					if (!repo) {
 						action = DeepLinkServiceAction.DeepLinkErrored;
 						message = 'Missing repository.';
