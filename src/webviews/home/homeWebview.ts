@@ -1236,8 +1236,17 @@ export class HomeWebviewProvider implements WebviewProvider<State, State, HomeWe
 					subcommand: 'open',
 					repo: defaultWorktree.repoPath,
 					worktree: defaultWorktree,
-					onWorkspaceChanging: async (_isNewWorktree?: boolean) =>
-						this.container.storage.store('deepLinks:pending', deleteBranchDeepLink),
+					onWorkspaceChanging: async (_isNewWorktree?: boolean) => {
+						await this.container.storage.storeSecret(
+							'deepLinks:pending',
+							JSON.stringify(deleteBranchDeepLink),
+						);
+						// Close the current window. This should only occur if there was already a different
+						// window open for the default worktree.
+						setTimeout(() => {
+							void executeCoreCommand('workbench.action.closeWindow');
+						}, 2000);
+					},
 					worktreeDefaultOpen: 'current',
 				},
 			});
