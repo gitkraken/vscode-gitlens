@@ -234,12 +234,11 @@ button:not([disabled]),
 // 	}
 // }
 
-// don't see usage
-// .popover::part(body) {
-// 	padding: 0;
-// 	font-size: var(--vscode-font-size);
-// 	background-color: var(--vscode-menu-background);
-// }
+.popover::part(body) {
+	padding: 0;
+	font-size: var(--vscode-font-size);
+	background-color: var(--vscode-menu-background);
+}
 
 // header
 // .jump-to-ref {
