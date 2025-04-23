@@ -1699,7 +1699,14 @@ export class SubscriptionService implements Disposable {
 			return;
 		}
 
-		await this.checkInAndValidate(this._session, source, { force: true, organizationId: pick.org.id });
+		try {
+			await this.checkInAndValidate(this._session, source, { force: true, organizationId: pick.org.id });
+		} catch (ex) {
+			debugger;
+			Logger.error(ex, scope);
+			return;
+		}
+
 		const checkInData = await this._getCheckInData();
 		if (checkInData == null) return;
 
@@ -1745,9 +1752,17 @@ export class SubscriptionService implements Disposable {
 	}
 
 	async checkUpdatedSubscription(source: Source | undefined): Promise<SubscriptionState | undefined> {
+		const scope = getLogScope();
 		if (this._session == null) return undefined;
 		const oldSubscriptionState = this._subscription.state;
-		await this.checkInAndValidate(this._session, source, { force: true });
+		try {
+			await this.checkInAndValidate(this._session, source, { force: true });
+		} catch (ex) {
+			debugger;
+			Logger.error(ex, scope);
+			return undefined;
+		}
+
 		if (oldSubscriptionState !== this._subscription.state) {
 			void this.showPlanMessage({ source: 'subscription' });
 		}
