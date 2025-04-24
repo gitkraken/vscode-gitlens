@@ -9,7 +9,7 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/) and this p
 ### Added
 
 - Adds the ability to search for GitHub Enterprise and GitLab Self-Managed pull requests by URL in the main step of Launchpad
-- Adds OpenRouter support for GitLens' AI features ([#3906](https://github.com/gitkraken/vscode-gitlens/issues/3906))
+- Adds Ollama and OpenRouter support for GitLens' AI features ([#3311](https://github.com/gitkraken/vscode-gitlens/issues/3311), [#3906](https://github.com/gitkraken/vscode-gitlens/issues/3906))
 - Adds Google Gemini 2.5 Flash (Preview) model, and OpenAI GPT-4.1, GPT-4.1 mini, GPT-4.1 nano, o4 mini, and o3 models for GitLens' AI features ([#4235](https://github.com/gitkraken/vscode-gitlens/issues/4235))
 - Adds _Open File at Revision from Remote_ command to open the specific file revision from a remote file URL
 

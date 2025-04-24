@@ -4,14 +4,13 @@ import { ollamaProviderDescriptor as provider } from '../../constants.ai';
 import { configuration } from '../../system/-webview/configuration';
 import type { AIActionType, AIModel } from './models/model';
 import type { AIChatMessage, AIRequestResult } from './models/provider';
-import { OpenAICompatibleProviderBase } from './openAICompatibleProviderBase';
-import { ensureAccount } from './utils/-webview/ai.utils';
+import { OpenAICompatibleProvider } from './openAICompatibleProvider';
 
 type OllamaModel = AIModel<typeof provider.id>;
 
 const defaultBaseUrl = 'http://localhost:11434';
 
-export class OllamaProvider extends OpenAICompatibleProviderBase<typeof provider.id> {
+export class OllamaProvider extends OpenAICompatibleProvider<typeof provider.id> {
 	readonly id = provider.id;
 	readonly name = provider.name;
 	protected readonly descriptor = provider;
@@ -24,10 +23,7 @@ export class OllamaProvider extends OpenAICompatibleProviderBase<typeof provider
 		return this.validateUrl(await this.getOrPromptBaseUrl(silent), silent);
 	}
 
-	override async getApiKey(silent: boolean): Promise<string | undefined> {
-		const result = await ensureAccount(this.container, silent);
-		if (!result) return undefined;
-
+	override getApiKey(_silent: boolean): Promise<string | undefined> {
 		// Ollama doesn't require an API key
 		return Promise.resolve('<not applicable>');
 	}

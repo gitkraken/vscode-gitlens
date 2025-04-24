@@ -3,8 +3,8 @@ import { QuickInputButtons, ThemeIcon, window } from 'vscode';
 import type { AIProviders } from '../constants.ai';
 import type { Container } from '../container';
 import type { AIModel, AIModelDescriptor, AIProviderDescriptorWithConfiguration } from '../plus/ai/models/model';
-import { ensureAccess } from '../plus/ai/utils/-webview/ai.utils';
 import { isSubscriptionPaidPlan } from '../plus/gk/utils/subscription.utils';
+import { getContext } from '../system/-webview/context';
 import { getQuickPickIgnoreFocusOut } from '../system/-webview/vscode';
 import { getSettledValue } from '../system/promise';
 import { createQuickPickSeparator } from './items/common';
@@ -33,7 +33,15 @@ export async function showAIProviderPicker(
 	container: Container,
 	current: AIModelDescriptor | undefined,
 ): Promise<ProviderQuickPickItem | undefined> {
-	if (!(await ensureAccess({ showPicker: true }))) return undefined;
+	if (!getContext('gitlens:gk:organization:ai:enabled', true)) {
+		await window.showQuickPick([{ label: 'OK' }], {
+			title: 'AI is Disabled',
+			placeHolder: 'GitLens AI features have been disabled by your GitKraken admin',
+			canPickMany: false,
+		});
+
+		return undefined;
+	}
 
 	const [providersResult, modelResult, subscriptionResult] = await Promise.allSettled([
 		container.ai.getProvidersConfiguration(),
@@ -131,7 +139,15 @@ export async function showAIModelPicker(
 	provider: AIProviders,
 	current?: AIModelDescriptor,
 ): Promise<ModelQuickPickItem | Directive | undefined> {
-	if (!(await ensureAccess({ showPicker: true }))) return undefined;
+	if (!getContext('gitlens:gk:organization:ai:enabled', true)) {
+		await window.showQuickPick([{ label: 'OK' }], {
+			title: 'AI is Disabled',
+			placeHolder: 'GitLens AI features have been disabled by your GitKraken admin',
+			canPickMany: false,
+		});
+
+		return undefined;
+	}
 
 	const models = (await container.ai.getModels(provider)) ?? [];
 
