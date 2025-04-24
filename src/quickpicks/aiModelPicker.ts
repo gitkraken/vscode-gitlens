@@ -2,13 +2,14 @@ import type { Disposable, QuickInputButton, QuickPickItem } from 'vscode';
 import { QuickInputButtons, ThemeIcon, window } from 'vscode';
 import type { AIProviders } from '../constants.ai';
 import type { Container } from '../container';
-import type { AIModel, AIModelDescriptor } from '../plus/ai/models/model';
+import type { AIModel, AIModelDescriptor, AIProviderDescriptorWithConfiguration } from '../plus/ai/models/model';
 import { isSubscriptionPaidPlan } from '../plus/gk/utils/subscription.utils';
 import { getContext } from '../system/-webview/context';
 import { getQuickPickIgnoreFocusOut } from '../system/-webview/vscode';
 import { getSettledValue } from '../system/promise';
 import { createQuickPickSeparator } from './items/common';
-import { Directive } from './items/directive';
+import type { DirectiveQuickPickItem } from './items/directive';
+import { Directive, isDirectiveQuickPickItem } from './items/directive';
 
 export interface ModelQuickPickItem extends QuickPickItem {
 	model: AIModel;
@@ -48,7 +49,7 @@ export async function showAIProviderPicker(
 		container.subscription.getSubscription(),
 	]);
 
-	const providers = getSettledValue(providersResult) ?? new Map();
+	const providers = getSettledValue(providersResult) ?? new Map<AIProviders, AIProviderDescriptorWithConfiguration>();
 	const currentModelName = getSettledValue(modelResult)?.name;
 	const subscription = getSettledValue(subscriptionResult)!;
 	const hasPaidPlan = isSubscriptionPaidPlan(subscription.plan.effective.id) && subscription.account?.verified;
@@ -150,23 +151,32 @@ export async function showAIModelPicker(
 
 	const models = (await container.ai.getModels(provider)) ?? [];
 
-	const items: ModelQuickPickItem[] = [];
+	const items: Array<ModelQuickPickItem | DirectiveQuickPickItem> = [];
 
-	for (const m of models) {
-		if (m.hidden) continue;
-
-		const picked = m.provider.id === current?.provider && m.id === current?.model;
-
+	if (models.length === 0 && provider === 'ollama') {
 		items.push({
-			label: m.name,
-			description: m.default ? '  recommended' : undefined,
-			iconPath: picked ? new ThemeIcon('check') : new ThemeIcon('blank'),
-			model: m,
-			picked: picked,
-		} satisfies ModelQuickPickItem);
+			label: 'No models found',
+			description: 'Please install a model or check your Ollama server configuration',
+			iconPath: new ThemeIcon('error'),
+			directive: Directive.Noop,
+		} satisfies ModelQuickPickItem | DirectiveQuickPickItem);
+	} else {
+		for (const m of models) {
+			if (m.hidden) continue;
+
+			const picked = m.provider.id === current?.provider && m.id === current?.model;
+
+			items.push({
+				label: m.name,
+				description: m.default ? '  recommended' : undefined,
+				iconPath: picked ? new ThemeIcon('check') : new ThemeIcon('blank'),
+				model: m,
+				picked: picked,
+			} satisfies ModelQuickPickItem);
+		}
 	}
 
-	const quickpick = window.createQuickPick<ModelQuickPickItem>();
+	const quickpick = window.createQuickPick<ModelQuickPickItem | DirectiveQuickPickItem>();
 	quickpick.ignoreFocusOut = getQuickPickIgnoreFocusOut();
 
 	const disposables: Disposable[] = [];
@@ -177,7 +187,9 @@ export async function showAIModelPicker(
 				quickpick.onDidHide(() => resolve(undefined)),
 				quickpick.onDidAccept(() => {
 					if (quickpick.activeItems.length !== 0) {
-						resolve(quickpick.activeItems[0]);
+						if (!isDirectiveQuickPickItem(quickpick.activeItems[0])) {
+							resolve(quickpick.activeItems[0]);
+						}
 					}
 				}),
 				quickpick.onDidTriggerButton(e => {
