@@ -8,6 +8,7 @@ import {
 	githubProviderDescriptor,
 	gitKrakenProviderDescriptor,
 	huggingFaceProviderDescriptor,
+	ollamaProviderDescriptor,
 	openAIProviderDescriptor,
 	openRouterProviderDescriptor,
 	vscodeProviderDescriptor,
@@ -181,6 +182,13 @@ const supportedAIProviders = new Map<AIProviders, AIProviderDescriptorWithType>(
 			type: lazy(
 				async () => (await import(/* webpackChunkName: "ai" */ './huggingFaceProvider')).HuggingFaceProvider,
 			),
+		},
+	],
+	[
+		'ollama',
+		{
+			...ollamaProviderDescriptor,
+			type: lazy(async () => (await import(/* webpackChunkName: "ai" */ './ollamaProvider')).OllamaProvider),
 		},
 	],
 ]);

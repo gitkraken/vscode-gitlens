@@ -243,6 +243,9 @@ interface AIConfig {
 	readonly modelOptions: {
 		readonly temperature: number;
 	};
+	readonly ollama: {
+		readonly url: string | null;
+	};
 	readonly openai: {
 		readonly url: string | null;
 	};

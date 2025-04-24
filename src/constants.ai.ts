@@ -7,6 +7,7 @@ export type AIProviders =
 	| 'github'
 	| 'gitkraken'
 	| 'huggingface'
+	| 'ollama'
 	| 'openai'
 	| 'openrouter'
 	| 'vscode'
@@ -85,4 +86,11 @@ export const openRouterProviderDescriptor: AIProviderDescriptor<'openrouter'> = 
 	primary: false,
 	requiresAccount: true,
 	requiresUserKey: true,
+} as const;
+export const ollamaProviderDescriptor: AIProviderDescriptor<'ollama'> = {
+	id: 'ollama',
+	name: 'Ollama',
+	primary: false,
+	requiresAccount: false,
+	requiresUserKey: false,
 } as const;
