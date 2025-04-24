@@ -305,6 +305,7 @@ export interface GitLogForPathOptions extends Omit<GitLogOptions, 'stashes'> {
 }
 
 export interface GitLogShasOptions extends GitLogOptionsBase {
+	all?: boolean;
 	authors?: GitUser[];
 	merges?: boolean | 'first-parent';
 	pathOrUri?: string | Uri;

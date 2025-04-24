@@ -3,6 +3,7 @@ import { setDefaultAnimation } from '@shoelace-style/shoelace/dist/utilities/ani
 import { css, html, LitElement, nothing } from 'lit';
 import { customElement, property } from 'lit/decorators.js';
 import '@shoelace-style/shoelace/dist/components/tooltip/tooltip.js';
+import { unsafeHTML } from 'lit/directives/unsafe-html.js';
 
 setDefaultAnimation('tooltip.show', null);
 setDefaultAnimation('tooltip.hide', null);
@@ -48,6 +49,11 @@ export class GlTooltip extends LitElement {
 		:host([data-current-placement^='right']) sl-tooltip::part(base__arrow) {
 			border-top-width: 0;
 			border-right-width: 0;
+		}
+
+		[slot='content'] hr {
+			border: none;
+			border-top: 1px solid var(--color-foreground--25);
 		}
 	`;
 
@@ -106,7 +112,11 @@ export class GlTooltip extends LitElement {
 		>
 			<slot></slot>
 			<div slot="content">
-				<slot name="content">${this.content}</slot>
+				<slot name="content"
+					>${this.content?.includes('\n')
+						? unsafeHTML(this.content?.replace(/\n\n/g, '<hr>').replace(/\n/g, '<br>'))
+						: this.content}</slot
+				>
 			</div>
 		</sl-tooltip>`;
 	}

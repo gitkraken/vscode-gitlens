@@ -2,35 +2,30 @@ import type { Chart, ChartOptions, ChartTypes, Data, DataItem } from 'billboard.
 import type { PropertyValues } from 'lit';
 import { html, LitElement, nothing } from 'lit';
 import { customElement, property, query, state } from 'lit/decorators.js';
+import type { ChartInternal, ChartWithInternal } from '../../../../../@types/bb';
+import { shortenRevision } from '../../../../../git/utils/revision.utils';
 import { log } from '../../../../../system/decorators/log';
+import { debounce } from '../../../../../system/function/debounce';
 import { defer } from '../../../../../system/promise';
-import { pluralize } from '../../../../../system/string';
-import type { Commit, State } from '../../../../plus/timeline/protocol';
+import { pluralize, truncateMiddle } from '../../../../../system/string';
+import type { Commit, State, TimelineSliceBy } from '../../../../plus/timeline/protocol';
+import { renderCommitSha } from '../../../shared/components/commit-sha';
 import { GlElement } from '../../../shared/components/element';
-import { formatDate, fromNow } from '../../../shared/date';
+import { createFromDateDelta, formatDate, fromNow } from '../../../shared/date';
 import { timelineChartStyles } from './chart.css';
+import type { SliderChangeEventDetail } from './slider';
+import { GlChartSlider } from './slider';
+import '@shoelace-style/shoelace/dist/components/resize-observer/resize-observer.js';
+import './scroller';
 
-export interface DataPointClickEventDetail {
-	data: {
-		id: string;
-		selected: boolean;
-	};
-}
+export const tagName = 'gl-timeline-chart';
 
-declare global {
-	interface HTMLElementTagNameMap {
-		'gl-timeline-chart': GlTimelineChart;
-	}
+const maxZoomExtent = 40;
 
-	interface GlobalEventHandlersEventMap {
-		'gl-data-point-click': CustomEvent<DataPointClickEventDetail>;
-		'gl-load': void;
-		'gl-zoomed': CustomEvent<boolean>;
-	}
-}
-
-@customElement('gl-timeline-chart')
+@customElement(tagName)
 export class GlTimelineChart extends GlElement {
+	static readonly tagName = tagName;
+
 	static override shadowRootOptions: ShadowRootInit = {
 		...LitElement.shadowRootOptions,
 		delegatesFocus: true,
@@ -38,7 +33,16 @@ export class GlTimelineChart extends GlElement {
 
 	static override styles = [timelineChartStyles];
 
-	private readonly _authors = new Map<
+	@query('#chart')
+	private chartContainer!: HTMLDivElement;
+	private _chart?: Chart;
+
+	@query(GlChartSlider.tagName)
+	private slider?: GlChartSlider;
+
+	private _abortController?: AbortController;
+
+	private readonly _slices = new Map<
 		string,
 		{
 			x: string[];
@@ -46,15 +50,10 @@ export class GlTimelineChart extends GlElement {
 			z: Map<string, number>;
 		}
 	>();
-	private readonly _authorsByIndex = new Map<number, string>();
-	private readonly _commitsByTimestamp = new Map<string, Commit>();
+	private readonly _slicesByIndex = new Map<number, string>();
+	private readonly _commitsByTimestamp = new Map<number, Commit>();
 
-	private _abortController?: AbortController;
 	private _loading?: ReturnType<typeof defer<void>>;
-
-	@query('#chart')
-	private chartContainer!: HTMLDivElement;
-	private _chart?: Chart;
 
 	private get compact(): boolean {
 		return this.placement !== 'editor';
@@ -66,17 +65,21 @@ export class GlTimelineChart extends GlElement {
 	@property()
 	dateFormat!: string;
 
+	@property({ type: String })
+	head?: string;
+
 	@property()
 	shortDateFormat!: string;
 
+	@property()
+	sliceBy: TimelineSliceBy = 'author';
+
 	@state()
 	private _data: Awaited<State['dataset']> | null = null;
+	private _dataReversed: Awaited<State['dataset']> | undefined;
 	get data(): Awaited<State['dataset']> | null {
 		return this._data;
 	}
-
-	@property({ type: Boolean, reflect: true })
-	zoomed = false;
 
 	private _dataPromise!: NonNullable<State['dataset']>;
 	@property({ type: Object })
@@ -88,23 +91,59 @@ export class GlTimelineChart extends GlElement {
 
 		this._dataPromise = value;
 		void this._dataPromise?.then(
-			r => (this._data = r),
+			r => {
+				this._data = r;
+				this._dataReversed = r.toReversed();
+			},
 			() => (this._data = undefined),
 		);
 	}
 
-	private _resizeObserver?: ResizeObserver;
+	@state()
+	private _shaHovered: string | undefined;
+	@state()
+	private _shaSelected: string | undefined;
+
+	@state()
+	private _shiftKeyPressed = false;
+
+	private _range!: [oldest: Date, newest: Date];
+	private _rangeScrollable!: [oldest: number, newest: number];
+	private get range(): [oldest: Date, newest: Date] {
+		return this._range;
+	}
+	private set range(range: [oldest: Date, newest: Date]) {
+		this._range = range;
+		this._rangeScrollable = [range[0].getTime() - 1000 * 60 * 60 * 4, range[1].getTime() + 1000 * 60 * 60 * 12];
+		this.resetZoom();
+	}
+
+	@state()
+	private _zoomedRange: [oldest: Date, newest: Date] | undefined;
+	private _zoomedRangeScrollable: [oldest: number, newest: number] | undefined;
+	private get zoomedRange(): [oldest: Date, newest: Date] | undefined {
+		return this._zoomedRange;
+	}
+	private set zoomedRange(range: [oldest: Date, newest: Date] | undefined) {
+		this._zoomedRange = range;
+		this._zoomedRangeScrollable = range ? [range[0].getTime(), range[1].getTime()] : undefined;
+	}
+
+	@property({ type: Boolean, reflect: true })
+	get zoomed(): boolean {
+		return this._zoomedRange != null;
+	}
 
 	override connectedCallback(): void {
 		super.connectedCallback();
 
-		this._resizeObserver = new ResizeObserver(this.onResize);
-		this._resizeObserver?.observe(this, { box: 'border-box' });
+		document.addEventListener('keydown', this.onDocumentKeyDown);
+		document.addEventListener('keyup', this.onDocumentKeyUp);
 	}
 
 	override disconnectedCallback(): void {
-		this._resizeObserver?.disconnect();
-		this._resizeObserver = undefined;
+		document.removeEventListener('keydown', this.onDocumentKeyDown);
+		document.removeEventListener('keyup', this.onDocumentKeyUp);
 
 		this._loading?.cancel();
 
@@ -115,10 +154,6 @@ export class GlTimelineChart extends GlElement {
 	}
 
 	override update(changedProperties: PropertyValues): void {
-		if (changedProperties.has('zoomed')) {
-			this.emit('gl-zoomed', this.zoomed);
-		}
-
 		if (changedProperties.has('dataPromise')) {
 			this._abortController?.abort();
 			this._abortController = new AbortController();
@@ -133,381 +168,246 @@ export class GlTimelineChart extends GlElement {
 	protected override render(): unknown {
 		// Don't render anything if the data is still loading
 		if (this.data === null) return nothing;
-
 		if (!this.data?.length) {
 			return html`<div class="empty"><p>No commits found for the specified time period.</p></div>`;
 		}
 
-		return html`<div id="chart"></div>`;
+		return html`<gl-chart-scroller
+			.range=${this._rangeScrollable}
+			.visibleRange=${this._zoomedRangeScrollable}
+			@gl-scroll=${this.onScroll}
+			@gl-scroll-start=${this.onScrollStart}
+			@gl-scroll-end=${this.onScrollEnd}
+		>
+			<sl-resize-observer @sl-resize=${this.onResize}>
+				<div id="chart" tabindex="-1"></div>
+			</sl-resize-observer>
+			${this.renderFooter()}
+		</gl-chart-scroller>`;
 	}
 
-	reset(): void {
-		// this._chart?.unselect();
+	private renderFooter() {
+		return html`<footer>
+			<gl-chart-slider
+				.data=${this._dataReversed}
+				?shift=${this._shiftKeyPressed}
+				@gl-slider-change=${this.onSliderChanged}
+			></gl-chart-slider>
+			${renderCommitSha(this._shaHovered ?? this._shaSelected, 16)}${this.renderActions()}
+		</footer>`;
+	}
+
+	private renderActions() {
+		return html`<div class="actions">
+			${this.zoomed
+				? html`<gl-button
+						appearance="toolbar"
+						@click=${(e: MouseEvent) => (e.shiftKey || e.altKey ? this.resetZoom() : this.zoom(-1))}
+						aria-label="Zoom Out"
+				  >
+						<code-icon icon="zoom-out"></code-icon>
+						<span slot="tooltip">Zoom Out<br />[Alt] Reset Zoom</span>
+				  </gl-button>`
+				: nothing}
+			<gl-button appearance="toolbar" @click=${() => this.zoom(0.5)} tooltip="Zoom In" aria-label="Zoom In">
+				<code-icon icon="zoom-in"></code-icon>
+			</gl-button>
+		</div>`;
+	}
+
+	private readonly onDataPointClicked = debounce((d: DataItem, _element: SVGElement) => {
+		const x = d.x as string | number | Date;
+		const date = x instanceof Date ? x : new Date(x);
+
+		const sha = this._commitsByTimestamp.get(date.getTime())?.sha;
+		if (sha == null) return;
+
+		this._shaHovered = undefined;
+		this._shaSelected = sha;
+
+		this.slider?.select(sha);
+
+		this.emit('gl-commit-select', { id: sha, shift: this._shiftKeyPressed });
+	}, 50);
+
+	private readonly onDataPointHovered = (d: DataItem, _element: SVGElement) => {
+		const x = d.x as string | number | Date;
+		const date = x instanceof Date ? x : new Date(x);
+
+		const sha = this._commitsByTimestamp.get(date.getTime())?.sha;
+		this._shaHovered = sha;
+	};
+
+	private readonly onDataPointUnhovered = (_d: DataItem, _element: SVGElement) => {
+		this._shaHovered = undefined;
+
+		// Refocus the selected commit
+		if (this._shaSelected) {
+			const date = this._data?.find(c => c.sha === this._shaSelected)?.date;
+			if (date == null) return;
+
+			this.selectDataPoint(new Date(date));
+		}
+	};
+
+	private readonly onDocumentKeyDown = (e: KeyboardEvent) => {
+		this._shiftKeyPressed = e.shiftKey;
+
+		if (e.key === 'Escape' || e.key === 'Esc') {
+			this.resetZoom();
+		}
+	};
+
+	private readonly onDocumentKeyUp = (e: KeyboardEvent) => {
+		this._shiftKeyPressed = e.shiftKey;
+	};
+
+	private readonly onResize = (e: CustomEvent<{ entries: ResizeObserverEntry[] }>) => {
+		if (!this._chart) return;
+
+		this.updateChartSize(e.detail.entries[0].contentRect);
+	};
+
+	private _transitionDuration: number | undefined;
+	private onScrollStart() {
+		if (!this._chart || !this.zoomed) return;
+
+		this._transitionDuration = this._chart?.config('transition.duration');
+		this._chart?.config('transition.duration', 0);
+	}
+
+	private onScrollEnd() {
+		if (!this._chart || !this.zoomed) return;
+
+		this._chart?.config('transition.duration', this._transitionDuration);
+	}
+
+	private onScroll(e: CustomEvent<{ range: [number, number] }>) {
+		if (!this._chart || !this.zoomed) return;
+
+		const zoomedRange = [new Date(e.detail.range[0]), new Date(e.detail.range[1])];
+		this._chart.zoom(zoomedRange);
+	}
+
+	private onSliderChanged(e: CustomEvent<SliderChangeEventDetail>) {
+		this.revealDate(e.detail.date, { focus: true, select: true });
+
+		const sha = this._commitsByTimestamp.get(e.detail.date.getTime())?.sha;
+		this._shaHovered = undefined;
+		this._shaSelected = sha;
+
+		if (sha == null) return;
+		this.emit('gl-commit-select', { id: sha, shift: e.detail.shift });
+	}
+
+	private readonly onZoom = (domain: [Date, Date]) => {
+		this.zoomedRange = domain[0] <= this.range[0] && domain[1] >= this.range[1] ? undefined : domain;
+	};
+
+	resetZoom(): void {
+		this.zoomedRange = undefined;
 		this._chart?.unzoom();
-		this.zoomed = false;
+	}
+
+	revealDate(date: Date, options?: { focus?: boolean; select?: boolean }): void {
+		if (!this._chart) return;
+
+		// Select the commit point in the chart
+		this.selectDataPoint(date, options);
+
+		if (!this.zoomedRange) return;
+
+		const padding = 0.2;
+
+		const domain = this.zoomedRange;
+		const range = domain[1].getTime() - domain[0].getTime();
+
+		let newStart;
+		let newEnd;
+
+		if (date < domain[0]) {
+			// If the date is earlier than our current window, slide earlier
+			newStart = new Date(date.getTime() - range * padding);
+			newEnd = new Date(newStart.getTime() + range);
+
+			// If sliding would go beyond the start, adjust to show the full start of the range
+			if (newStart <= this.range[0]) {
+				newStart = createFromDateDelta(this.range[0], { hours: -12 });
+				newEnd = new Date(newStart.getTime() + range);
+			}
+		} else if (date > domain[1]) {
+			// If the date is later than our current window, slide later
+			newEnd = new Date(date.getTime() + range * padding);
+			newStart = new Date(newEnd.getTime() - range);
+
+			// If sliding would go beyond the end, adjust to show the full end of the range
+			if (newEnd >= this.range[1]) {
+				newEnd = createFromDateDelta(this.range[1], { hours: 12 });
+				newStart = new Date(newEnd.getTime() - range);
+			}
+		} else {
+			// If the date is within the current window, no need to slide
+			return;
+		}
+
+		this._chart.zoom([newStart, newEnd]);
+	}
+
+	private selectDataPoint(date: Date, options?: { focus?: boolean; select?: boolean }) {
+		const internal = this.getInternalChart();
+		if (internal == null) return;
+
+		const d = this.getDataPoint(date);
+		if (d == null) return;
+
+		if (options?.focus) {
+			internal.showGridFocus([d]);
+		}
+
+		const { index } = d;
+		if (index == null) return;
+
+		this._chart?.$.main
+			.selectAll(`.bb-chart-circles .bb-shape-${index}`)
+			.each(() => internal.setExpand?.(index, null, true));
+
+		if (options?.select) {
+			const sha = this._commitsByTimestamp.get(date.getTime())?.sha;
+			this._shaHovered = undefined;
+			this._shaSelected = sha;
+
+			if (sha != null) {
+				this.slider?.select(sha);
+			}
+		}
 	}
 
 	zoom(factor: number): void {
+		if (factor === 0) {
+			this.resetZoom();
+			return;
+		}
+
 		if (!this._chart) return;
 
-		const d = this._chart.zoom();
-		const domain = [new Date(d[0]), new Date(d[1])];
-		const range = domain[1].getTime() - domain[0].getTime();
-		const mid = new Date((domain[1].getTime() + domain[0].getTime()) / 2);
+		const domain = this._chart.zoom() as [Date, Date];
+		const timeDomain = [domain[0].getTime(), domain[1].getTime()];
 
-		const start = new Date(mid.getTime() - (range * (1 - factor)) / 2);
-		const end = new Date(mid.getTime() + (range * (1 - factor)) / 2);
+		const range = timeDomain[1] - timeDomain[0];
+		const mid = new Date((timeDomain[1] + timeDomain[0]) / 2);
 
-		const updated = this._chart.zoom([start, end]);
-		if (factor < 0 && updated[0] === d[0] && updated[1] === d[1]) {
-			this._chart.unzoom();
-			this.zoomed = false;
+		const start = mid.getTime() - (range * (1 - factor)) / 2;
+		const end = mid.getTime() + (range * (1 - factor)) / 2;
+
+		// Don't allow the zoom to go past the set extent
+		const dataRange = this.range[1].getTime() - this.range[0].getTime();
+		const newRange = end - start;
+		if (newRange < dataRange / maxZoomExtent) return;
+
+		const updated = this._chart.zoom([new Date(start), new Date(end)]) as [Date, Date];
+		if (factor < 0 && updated[0].getTime() === timeDomain[0] && updated[1].getTime() === timeDomain[1]) {
+			this.resetZoom();
 		}
-	}
-
-	private _originalDomain!: [oldestDate: Date, latestDate: Date];
-	private _zoomedDomain: [string, string] | undefined;
-
-	@log({ args: false })
-	async updateChart(dataPromise: State['dataset']): Promise<void> {
-		if (this._loading?.pending) return;
-
-		const abortController = this._abortController;
-
-		const loading = defer<void>();
-		this._loading = loading;
-		void loading.promise.then(
-			() => this.emit('gl-load'),
-			() => {},
-		);
-
-		const dataset = await dataPromise;
-
-		if (abortController?.signal.aborted) {
-			loading?.cancel();
-			return;
-		}
-
-		if (!dataset?.length) {
-			this._chart?.destroy();
-			this._chart = undefined;
-
-			loading?.fulfill();
-			return;
-		}
-
-		// Clear previous state
-		this._authors.clear();
-		this._authorsByIndex.clear();
-		this._commitsByTimestamp.clear();
-
-		// Calculate quartiles for better distribution
-		const metrics = {
-			minRadius: 6,
-			maxRadius: 50,
-			...this.calculateChangeMetrics(dataset),
-		};
-
-		const { bb, bar, scatter, selection, zoom } = await import(
-			/* webpackChunkName: "lib-billboard" */ 'billboard.js'
-		);
-		if (abortController?.signal.aborted) {
-			loading?.cancel();
-			return;
-		}
-
-		this._originalDomain = [new Date(dataset[dataset.length - 1].date), new Date(dataset[0].date)];
-
-		// Initialize plugins
-		bar();
-		scatter();
-
-		const chartData = this.prepareChartData(dataset, metrics);
-
-		try {
-			const minY = -(this._authors.size + 1); // The +1 is to leave space at the bottom of the chart for the additions/deletions bars
-			const yTickValues = [...this._authorsByIndex.keys()];
-			if (this._chart == null) {
-				const options: ChartOptions = {
-					bindto: this.chartContainer,
-
-					onafterinit: () => setTimeout(() => loading?.fulfill(), 250),
-					onrendered: this.compact ? this.getOnRenderedCallback(this) : undefined,
-					// Restore the zoomed domain when the chart is resized, because it gets lost
-					onresized: () => {
-						if (this._chart == null || this._zoomedDomain == null) return;
-
-						this._chart.zoom(this._zoomedDomain);
-					},
-
-					clipPath: true,
-					data: {
-						...chartData,
-						colors: { additions: 'rgba(73, 190, 71, 1)', deletions: 'rgba(195, 32, 45, 1)' },
-						groups: [['additions', 'deletions']],
-						// xFormat: '%Y-%m-%dT%H:%M:%S.%LZ',
-						// xLocaltime: false,
-						selection: {
-							enabled: selection(),
-							draggable: false,
-							grouped: true,
-							multiple: false,
-							isselectable: () => false,
-						},
-						onclick: this.onDataPointClicked,
-					},
-					axis: {
-						x: {
-							type: 'timeseries',
-							localtime: true,
-							height: this.compact ? 28 : undefined,
-							forceAsSingle: true,
-							tick: {
-								fit: false,
-								format: (x: number | Date) =>
-									typeof x === 'number' ? x : formatDate(x, this.shortDateFormat ?? 'short'),
-								outer: true,
-							},
-						},
-						y: {
-							max: 0,
-							min: minY,
-							padding: { top: 75, bottom: 75 },
-							tick: {
-								format: (y: number) => (this.compact ? '\u{EB99}' : this._authorsByIndex.get(y) ?? ''), // `${this._authorsByIndex.get(y) ?? ''}\u00a0\u00a0⬤`,
-								outer: true,
-								values: yTickValues,
-							},
-						},
-						y2: {
-							padding: this.compact ? { top: 0, bottom: 0 } : undefined,
-							label: this.compact ? undefined : { text: 'Lines changed', position: 'outer-middle' },
-							show: true,
-							tick: {
-								format: (y: number) => (this.compact ? '' : y),
-								outer: true,
-							},
-						},
-					},
-					bar: { width: 2, sensitivity: 4, padding: 2 },
-					scatter: {
-						zerobased: true,
-					},
-					grid: {
-						focus: { edge: true, show: true, y: true },
-						front: false,
-						lines: { front: false },
-						x: { show: false },
-						y: { show: true },
-					},
-					legend: {
-						show: true,
-						hide: ['additions', 'deletions'],
-						padding: 4,
-						item: {
-							tile: { type: 'circle', r: 4 },
-							interaction: { dblclick: true },
-						},
-						tooltip: true,
-					},
-					point: {
-						r: (
-							d:
-								| (DataItem & { r?: number; data?: never })
-								| { data: () => (DataItem & { r?: number })[] },
-						) => {
-							if (d == null) return 0;
-
-							if (typeof d.data === 'function') {
-								d = d.data()[0];
-								if (d == null) return 0;
-							}
-							if (d.r != null) return d.r;
-
-							const result = Math.max(
-								6,
-								this._authors.get(d.id)?.z.get((d.x as unknown as Date).toISOString()) ?? 6,
-							);
-							return result;
-						},
-						focus: {
-							expand: {
-								enabled: true,
-							},
-						},
-						select: { r: 6 },
-					},
-					resize: { auto: false },
-					tooltip: {
-						contents: (data, _defaultTitleFormat, _defaultValueFormat, _color) => {
-							const d = data[0];
-							const date = new Date(d.x);
-							const commit = this._commitsByTimestamp.get(date.toISOString());
-							if (commit == null) return '';
-
-							const additions = commit.additions;
-							const deletions = commit.deletions;
-							const additionsLabel =
-								additions == null
-									? ''
-									: /*html*/ `<span class="additions">+${pluralize('line', additions)}</span>`;
-							let deletionsLabel =
-								deletions == null
-									? ''
-									: /*html*/ `<span class="deletions">-${pluralize('line', deletions)}</span>`;
-							if (additionsLabel) {
-								deletionsLabel = `, ${deletionsLabel}`;
-							}
-
-							return /*html*/ `<div class="bb-tooltip">
-								<section class="author">${commit.author}</section>
-								<section>
-									<span class="sha"><code-icon icon="git-commit"></code-icon> ${commit.commit.slice(0, 8)}</span>
-									<span class="changes">${additionsLabel}${deletionsLabel}</span>
-								</section>
-								<section class="date">
-									<code-icon icon="history"></code-icon><span class="date--relative">${capitalize(
-										fromNow(date),
-									)}</span><span class="date--absolute">(${formatDate(date, this.dateFormat)})</span>
-								</section>
-								<section class="message"><span class="message__content">${commit.message}</span></section>
-							</div>`;
-						},
-						show: true,
-					},
-					zoom: {
-						enabled: zoom(),
-						type: 'wheel',
-						extent: [1, 0.01],
-						onzoom: (domain: [string, string]) => {
-							if (
-								new Date(domain[0]) <= this._originalDomain[0] &&
-								new Date(domain[1]) >= this._originalDomain[1]
-							) {
-								this._zoomedDomain = undefined;
-								this.zoomed = false;
-							} else {
-								this._zoomedDomain = domain;
-								this.zoomed = true;
-							}
-						},
-						onzoomend: (domain: [string, string]) => {
-							if (
-								new Date(domain[0]) <= this._originalDomain[0] &&
-								new Date(domain[1]) >= this._originalDomain[1]
-							) {
-								this._zoomedDomain = undefined;
-								this.zoomed = false;
-							} else {
-								this._zoomedDomain = domain;
-								this.zoomed = true;
-							}
-						},
-					},
-				};
-
-				this._chart = bb.generate(options);
-			} else {
-				this._chart.config('axis.y.tick.values', yTickValues, false);
-				this._chart.config('axis.y.min', minY, false);
-
-				this._chart.load({
-					...chartData,
-					resizeAfter: true,
-					unload: true,
-					done: () => setTimeout(() => loading?.fulfill(), 250),
-				});
-			}
-
-			// eslint-disable-next-line @typescript-eslint/no-meaningless-void-operator
-			return void (await loading.promise.catch(() => {}));
-		} catch (_ex) {
-			debugger;
-
-			loading?.cancel();
-		}
-	}
-
-	@log<GlTimelineChart['prepareChartData']>({ args: { 0: d => d?.length } })
-	private prepareChartData(
-		dataset: Commit[],
-		metrics: { minRadius: number; maxRadius: number; q1: number; q3: number; maxChanges: number },
-	): {
-		axes: Data['axes'];
-		columns: Data['columns'];
-		names: { [key: string]: string };
-		types: Data['types'];
-		xs: Data['xs'];
-	} {
-		const commits = dataset.length + 1;
-
-		const timeSeries = new Array(commits);
-		timeSeries[0] = 'time';
-		const additionsSeries = new Array(commits);
-		additionsSeries[0] = 'additions';
-		const deletionsSeries = new Array(commits);
-		deletionsSeries[0] = 'deletions';
-
-		const axes: Record<string, string> = { time: 'x', additions: 'y2', deletions: 'y2' };
-		const names: Record<string, string> = { additions: 'Additions', deletions: 'Deletions' };
-		const types: Record<string, ChartTypes> = { additions: 'bar', deletions: 'bar' };
-		const xs: Record<string, string> = { additions: 'time', deletions: 'time' };
-
-		let nextAuthorIndex = 0;
-
-		let index = 0;
-		for (const commit of dataset) {
-			const { author, date, additions = 0, deletions = 0 } = commit;
-
-			this._commitsByTimestamp.set(date, commit);
-			index++;
-
-			timeSeries[index] = date;
-			additionsSeries[index] = additions;
-			deletionsSeries[index] = deletions;
-
-			const z = this.calculateBubbleSize(additions + deletions, metrics);
-
-			let authorInfo = this._authors.get(author);
-			if (authorInfo == null) {
-				authorInfo = {
-					x: [`time.${author}`, date],
-					y: nextAuthorIndex,
-					z: new Map([[date, z]]),
-				};
-				this._authors.set(author, authorInfo);
-				this._authorsByIndex.set(nextAuthorIndex, author);
-
-				axes[author] = 'y';
-				types[author] = 'scatter';
-				xs[author] = `time.${author}`;
-
-				nextAuthorIndex--;
-			} else {
-				authorInfo.x.push(date);
-				authorInfo.z.set(date, z);
-			}
-		}
-
-		const columns = [timeSeries, additionsSeries, deletionsSeries];
-		for (const [key, value] of this._authors) {
-			columns.push(value.x);
-
-			const y = Array(value.x.length).fill(value.y);
-			y[0] = key;
-			columns.push(y);
-		}
-
-		return { axes: axes, columns: columns, names: names, types: types, xs: xs };
-	}
-
-	private calculateChangeMetrics(dataset: Commit[]): { q1: number; q3: number; maxChanges: number } {
-		const sortedChanges = dataset.map(c => (c.additions ?? 0) + (c.deletions ?? 0)).sort((a, b) => a - b);
-		return {
-			maxChanges: sortedChanges[sortedChanges.length - 1],
-			q1: sortedChanges[Math.floor(sortedChanges.length * 0.25)],
-			q3: sortedChanges[Math.floor(sortedChanges.length * 0.75)],
-		};
 	}
 
 	private calculateBubbleSize(
@@ -542,6 +442,36 @@ export class GlTimelineChart extends GlElement {
 		return result;
 	}
 
+	private calculateChangeMetrics(dataset: Commit[]): { q1: number; q3: number; maxChanges: number } {
+		const sortedChanges = dataset.map(c => (c.additions ?? 0) + (c.deletions ?? 0)).sort((a, b) => a - b);
+		return {
+			maxChanges: sortedChanges[sortedChanges.length - 1],
+			q1: sortedChanges[Math.floor(sortedChanges.length * 0.25)],
+			q3: sortedChanges[Math.floor(sortedChanges.length * 0.75)],
+		};
+	}
+
+	private getDataPoint(date: string | number | Date): DataItem | undefined {
+		const timestamp = date instanceof Date ? date.getTime() : new Date(date).getTime();
+		return this._chart
+			?.data()[0]
+			?.values.find(v => (typeof v.x === 'number' ? v.x : (v.x as unknown as Date).getTime()) === timestamp);
+	}
+
+	private getInternalChart(): ChartInternal | undefined {
+		try {
+			const internal = (this._chart as unknown as ChartWithInternal)?.internal;
+			if (this._chart != null && internal == null) {
+				debugger;
+			}
+
+			return internal;
+		} catch {
+			debugger;
+			return undefined;
+		}
+	}
+
 	private getOnRenderedCallback(host: GlTimelineChart) {
 		return function (this: Chart) {
 			// eslint-disable-next-line @typescript-eslint/no-this-alias
@@ -551,15 +481,16 @@ export class GlTimelineChart extends GlElement {
 			chart.$.main.selectAll('.bb-axis-y .tick text tspan').each(function (this, d) {
 				if (this == null) return;
 
-				const author = host._authorsByIndex.get(-(d as { index: number }).index)!;
-				const color = chart.color(author);
+				const slice = host._slicesByIndex.get(-(d as { index: number }).index)!;
+				const color = chart.color(slice);
 
 				const el = this as SVGTSpanElement;
-				// if (host.compact) {
-				el.setAttribute('fill', color);
+				if (host.compact) {
+					el.setAttribute('fill', color);
+				}
 
 				const title = document.createElementNS('http://www.w3.org/2000/svg', 'title');
-				title.textContent = author;
+				title.textContent = slice;
 				el.appendChild(title);
 				// } else {
 				// 	const suffix = '\u00a0\u00a0⬤';
@@ -578,25 +509,415 @@ export class GlTimelineChart extends GlElement {
 		};
 	}
 
-	private onDataPointClicked = (d: DataItem, _element: SVGElement) => {
-		const commit = this._commitsByTimestamp.get(new Date(d.x).toISOString());
-		if (commit == null) return;
+	@log<GlTimelineChart['prepareChartData']>({ args: { 0: d => d?.length } })
+	private prepareChartData(
+		dataset: Commit[],
+		metrics: { minRadius: number; maxRadius: number; q1: number; q3: number; maxChanges: number },
+	): PreparedChartData {
+		const commits = dataset.length + 1;
 
-		// const selected = this._chart!.selected(d.id) as unknown as DataItem[];
-		this.emit('gl-data-point-click', {
-			data: {
-				id: commit.commit,
-				selected: true, //selected?.[0]?.id === d.id,
-			},
-		});
-	};
+		const timeSeries = new Array(commits);
+		timeSeries[0] = 'time';
+		const additionsSeries = new Array(commits);
+		additionsSeries[0] = 'additions';
+		const deletionsSeries = new Array(commits);
+		deletionsSeries[0] = 'deletions';
 
-	private onResize = (entries: ResizeObserverEntry[]) => {
-		this._chart?.resize({
-			width: entries[0].contentRect.width,
-			height: entries[0].contentRect.height,
-		});
-	};
+		const axes: Record<string, string> = { time: 'x', additions: 'y2', deletions: 'y2' };
+		const names: Record<string, string> = { additions: 'Additions', deletions: 'Deletions' };
+		const types: Record<string, ChartTypes> = { additions: 'bar', deletions: 'bar' };
+		const xs: Record<string, string> = { additions: 'time', deletions: 'time' };
+
+		// Clear previous data
+		this._slices.clear();
+		this._slicesByIndex.clear();
+
+		let nextIndex = 0;
+
+		const addSlice = (slice: string, date: string, z: number) => {
+			let sliceInfo = this._slices.get(slice);
+			if (sliceInfo == null) {
+				sliceInfo = {
+					x: [`time.${slice}`, date],
+					y: nextIndex,
+					z: new Map([[date, z]]),
+				};
+				this._slices.set(slice, sliceInfo);
+				this._slicesByIndex.set(nextIndex, slice);
+
+				axes[slice] = 'y';
+				types[slice] = 'scatter';
+				xs[slice] = `time.${slice}`;
+
+				nextIndex--;
+			} else {
+				sliceInfo.x.push(date);
+				sliceInfo.z.set(date, z);
+			}
+		};
+
+		let index = 0;
+		for (const commit of dataset) {
+			const { author, date, additions = 0, deletions = 0, branches } = commit;
+
+			this._commitsByTimestamp.set(new Date(date).getTime(), commit);
+			index++;
+
+			timeSeries[index] = date;
+			additionsSeries[index] = additions;
+			deletionsSeries[index] = deletions;
+
+			const z = this.calculateBubbleSize(additions + deletions, metrics);
+
+			if (this.sliceBy === 'branch') {
+				// Slice by branches
+				const commitBranches = branches?.length ? branches : [this.head ?? 'HEAD'];
+				for (const branch of commitBranches) {
+					addSlice(branch, date, z);
+				}
+			} else {
+				// Slice by author
+				addSlice(author, date, z);
+			}
+		}
+
+		const columns = [timeSeries, additionsSeries, deletionsSeries];
+
+		for (const [key, value] of this._slices) {
+			columns.push(value.x);
+
+			const y = Array(value.x.length).fill(value.y);
+			y[0] = key;
+			columns.push(y);
+		}
+
+		return { axes: axes, columns: columns, names: names, types: types, xs: xs };
+	}
+
+	@log({ args: false })
+	private async updateChart(dataPromise: State['dataset']): Promise<void> {
+		if (this._loading?.pending) return;
+
+		const abortController = this._abortController;
+
+		const loading = defer<void>();
+		this._loading = loading;
+		this.emit('gl-loading', loading.promise);
+
+		const data = await dataPromise;
+
+		if (abortController?.signal.aborted) {
+			loading?.cancel();
+			return;
+		}
+
+		if (!data?.length) {
+			this._chart?.destroy();
+			this._chart = undefined;
+
+			loading?.fulfill();
+			return;
+		}
+
+		// Clear previous state
+		this._slices.clear();
+		this._slicesByIndex.clear();
+		this._commitsByTimestamp.clear();
+
+		// Calculate quartiles for better distribution
+		const metrics = {
+			minRadius: 6,
+			maxRadius: 50,
+			...this.calculateChangeMetrics(data),
+		};
+
+		const { bb, bar, scatter, selection, zoom } = await import(
+			/* webpackChunkName: "lib-billboard" */ 'billboard.js'
+		);
+		if (abortController?.signal.aborted) {
+			loading?.cancel();
+			return;
+		}
+
+		this.range = [new Date(data[data.length - 1].date), new Date(data[0].date)];
+
+		// Initialize plugins
+		bar();
+		scatter();
+
+		const chartData = this.prepareChartData(data, metrics);
+
+		try {
+			const minY = -(this._slices.size + 1); // The +1 is to leave space at the bottom of the chart for the additions/deletions bars
+			const yTickValues = [...this._slicesByIndex.keys()];
+
+			if (this._chart == null) {
+				const options: ChartOptions = {
+					bindto: this.chartContainer,
+
+					onafterinit: () => {
+						this.updateChartSize();
+						setTimeout(() => loading?.fulfill(), 250);
+					},
+					onrendered: this.getOnRenderedCallback(this),
+					// Restore the zoomed domain when the chart is resized, because it gets lost
+					onresized: () => {
+						if (this._chart == null || this.zoomedRange == null) return;
+
+						this._chart.zoom(this.zoomedRange);
+					},
+
+					clipPath: true,
+					data: {
+						...chartData,
+						colors: { additions: 'rgba(73, 190, 71, 1)', deletions: 'rgba(195, 32, 45, 1)' },
+						groups: [['additions', 'deletions']],
+						// xFormat: '%Y-%m-%dT%H:%M:%S.%LZ',
+						// xLocaltime: false,
+						selection: {
+							enabled: selection(),
+							draggable: false,
+							grouped: true,
+							multiple: false,
+							isselectable: () => false,
+						},
+						onclick: this.onDataPointClicked,
+						onover: this.onDataPointHovered,
+						onout: this.onDataPointUnhovered,
+					},
+					axis: {
+						x: {
+							type: 'timeseries',
+							localtime: true,
+							height: this.compact ? 28 : undefined,
+							forceAsSingle: true,
+							tick: {
+								fit: false,
+								format: (x: number | Date) =>
+									typeof x === 'number' ? x : formatDate(x, this.shortDateFormat ?? 'short'),
+								outer: true,
+							},
+						},
+						y: {
+							max: 0,
+							min: minY,
+							padding: { top: 75, bottom: 75 },
+							tick: {
+								format: (y: number) => {
+									if (this.compact) return this.sliceBy === 'branch' ? '\u{EA68}' : '\u{EB99}';
+									return truncateMiddle(this._slicesByIndex.get(y) ?? '', 30);
+								},
+								outer: true,
+								values: yTickValues,
+							},
+						},
+						y2: {
+							padding: this.compact ? { top: 0, bottom: 0 } : undefined,
+							label: this.compact ? undefined : { text: 'Lines changed', position: 'outer-middle' },
+							show: true,
+							tick: {
+								format: (y: number) => (this.compact ? '' : y),
+								outer: true,
+							},
+						},
+					},
+					bar: { width: 2, sensitivity: 4, padding: 2 },
+					scatter: {
+						zerobased: true,
+					},
+					grid: {
+						focus: { edge: true, show: true, y: true },
+						front: false,
+						lines: { front: false },
+						x: { show: false },
+						y: { show: true },
+					},
+					legend: {
+						show: true,
+						hide: ['additions', 'deletions'],
+						padding: 4,
+						item: {
+							tile: { type: 'circle', r: 5 },
+							interaction: { dblclick: true },
+						},
+						tooltip: true,
+					},
+					point: {
+						r: (
+							d:
+								| (DataItem & { r?: number; data?: never })
+								| { data: () => (DataItem & { r?: number })[] },
+						) => {
+							if (d == null) return 0;
+
+							if (typeof d.data === 'function') {
+								d = d.data()[0];
+								if (d == null) return 0;
+							}
+							if (d.r != null) return d.r;
+
+							const result = Math.max(
+								6,
+								this._slices.get(d.id)?.z.get((d.x as unknown as Date).toISOString()) ?? 6,
+							);
+							return result;
+						},
+						focus: {
+							expand: {
+								enabled: true,
+							},
+						},
+						select: { r: 6 },
+					},
+					resize: { auto: false },
+					tooltip: {
+						contents: (data, _defaultTitleFormat, _defaultValueFormat, _color) => {
+							const d = data[0];
+							const date = new Date(d.x);
+							const commit = this._commitsByTimestamp.get(date.getTime());
+							if (commit == null) return '';
+
+							const additions = commit.additions;
+							const deletions = commit.deletions;
+							const additionsLabel =
+								additions == null
+									? ''
+									: /*html*/ `<span class="additions">+${pluralize('line', additions)}</span>`;
+							let deletionsLabel =
+								deletions == null
+									? ''
+									: /*html*/ `<span class="deletions">-${pluralize('line', deletions)}</span>`;
+							if (additionsLabel) {
+								deletionsLabel = `, ${deletionsLabel}`;
+							}
+
+							const branchesSection = commit.branches?.length
+								? /*html*/ `<section class="branches"><code-icon icon="git-branch"></code-icon> ${commit.branches.join(
+										', ',
+								  )}</section>`
+								: '';
+
+							return /*html*/ `<div class="bb-tooltip">
+									<section class="author">${commit.author}</section>
+									<section>
+										<span class="sha"><code-icon icon="git-commit"></code-icon> ${shortenRevision(commit.sha)}</span>
+										<span class="changes">${additionsLabel}${deletionsLabel}</span>
+									</section>
+									<section class="date">
+										<code-icon icon="history"></code-icon><span class="date--relative">${capitalize(
+											fromNow(date),
+										)}</span><span class="date--absolute">(${formatDate(
+											date,
+											this.dateFormat,
+										)})</span>
+									</section>
+									${branchesSection}
+									<section class="message"><span class="message__content">${commit.message}</span></section>
+								</div>`;
+						},
+						show: true,
+					},
+					zoom: {
+						enabled: zoom(),
+						type: 'wheel',
+						extent: [1, maxZoomExtent],
+						onzoom: this.onZoom,
+						onzoomend: this.onZoom,
+					},
+				};
+
+				this._chart = bb.generate(options);
+
+				const commit = data[0];
+				this._shaHovered = undefined;
+				this._shaSelected = commit.sha;
+
+				this.selectDataPoint(new Date(commit.date), { select: true });
+			} else {
+				this._chart.config('axis.y.tick.values', yTickValues, false);
+				this._chart.config('axis.y.min', minY, false);
+
+				this._chart.load({
+					...chartData,
+					resizeAfter: true,
+					unload: true,
+					done: () => {
+						let commit;
+						if (this._shaSelected != null) {
+							commit = data.find(c => c.sha === this._shaSelected);
+						}
+						if (commit == null) {
+							commit = data[0];
+							this._shaHovered = undefined;
+							this._shaSelected = commit.sha;
+						}
+						this.selectDataPoint(new Date(commit.date), { select: true });
+
+						setTimeout(() => loading?.fulfill(), 250);
+					},
+				});
+			}
+
+			// eslint-disable-next-line @typescript-eslint/no-meaningless-void-operator
+			return void (await loading.promise.catch(() => {}));
+		} catch (_ex) {
+			debugger;
+
+			loading?.cancel();
+		}
+	}
+
+	private updateChartSize(rect?: DOMRect) {
+		rect ??= this.chartContainer.getBoundingClientRect();
+
+		// Only resize if we have valid dimensions
+		if (rect.width > 0 && rect.height > 0) {
+			requestAnimationFrame(() => {
+				this._chart!.resize({
+					width: rect.width,
+					height: rect.height,
+				});
+
+				this.updateScrollerTrackPosition();
+			});
+		}
+	}
+
+	private updateScrollerTrackPosition() {
+		const xAxis = this.shadowRoot?.querySelector('.bb-axis.bb-axis-x');
+		if (xAxis == null) return;
+
+		const rect = xAxis.getBoundingClientRect();
+
+		this.style.setProperty('--scroller-track-top', `${rect.top}px`);
+		this.style.setProperty('--scroller-track-left', `${rect.left + 2}px`);
+		this.style.setProperty('--scroller-track-width', `${rect.width - 2}px`);
+		// this.style.setProperty('--scroller-track-height', `${rect.height + 2}px`);
+	}
+}
+
+declare global {
+	interface HTMLElementTagNameMap {
+		'gl-timeline-chart': GlTimelineChart;
+	}
+
+	interface GlobalEventHandlersEventMap {
+		'gl-commit-select': CustomEvent<CommitEventDetail>;
+		'gl-loading': CustomEvent<Promise<void>>;
+	}
+}
+
+export interface CommitEventDetail {
+	id: string | undefined;
+	shift: boolean;
+}
+
+interface PreparedChartData {
+	axes: Data['axes'];
+	columns: Data['columns'];
+	names: { [key: string]: string };
+	types: Data['types'];
+	xs: Data['xs'];
 }
 
 function capitalize(s: string): string {

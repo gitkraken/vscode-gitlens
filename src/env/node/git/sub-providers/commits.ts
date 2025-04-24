@@ -931,6 +931,10 @@ export class CommitsGitSubProvider implements GitCommitsSubProvider {
 			const parser = getShaLogParser();
 			const args = [...parser.arguments];
 
+			if (options?.all) {
+				args.push(`--all`);
+			}
+
 			const ordering = options?.ordering ?? configuration.get('advanced.commitOrdering');
 			if (ordering) {
 				args.push(`--${ordering}-order`);

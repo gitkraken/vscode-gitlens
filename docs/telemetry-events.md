@@ -2005,11 +2005,14 @@ or
 
 ### timeline/action/openInEditor
 
-> Sent when the user changes the period (timeframe) on the Visual History
+> Sent when the user clicks on the "Open in Editor" button on the Visual History
 
 ```typescript
 {
-  'context.period': string,
+  'context.itemType': 'file' | 'folder',
+  'context.period': 'all' | `${number}|D` | `${number}|M` | `${number}|Y`,
+  'context.showAllBranches': boolean,
+  'context.sliceBy': 'author' | 'branch',
   'context.webview.host': 'editor' | 'view',
   'context.webview.id': string,
   'context.webview.instanceId': string,
@@ -2023,11 +2026,34 @@ or
 
 ```typescript
 {
-  'context.period': string,
+  'context.itemType': 'file' | 'folder',
+  'context.period': 'all' | `${number}|D` | `${number}|M` | `${number}|Y`,
+  'context.showAllBranches': boolean,
+  'context.sliceBy': 'author' | 'branch',
   'context.webview.host': 'editor' | 'view',
   'context.webview.id': string,
   'context.webview.instanceId': string,
   'context.webview.type': string
+}
+```
+
+### timeline/config/changed
+
+> Sent when the user changes the configuration of the Visual History (e.g. period, show all branches, etc)
+
+```typescript
+{
+  'context.itemType': 'file' | 'folder',
+  'context.period': 'all' | `${number}|D` | `${number}|M` | `${number}|Y`,
+  'context.showAllBranches': boolean,
+  'context.sliceBy': 'author' | 'branch',
+  'context.webview.host': 'editor' | 'view',
+  'context.webview.id': string,
+  'context.webview.instanceId': string,
+  'context.webview.type': string,
+  'period': 'all' | `${number}|D` | `${number}|M` | `${number}|Y`,
+  'showAllBranches': boolean,
+  'sliceBy': 'author' | 'branch'
 }
 ```
 
@@ -2037,27 +2063,14 @@ or
 
 ```typescript
 {
-  'context.period': string,
+  'context.itemType': 'file' | 'folder',
+  'context.period': 'all' | `${number}|D` | `${number}|M` | `${number}|Y`,
+  'context.showAllBranches': boolean,
+  'context.sliceBy': 'author' | 'branch',
   'context.webview.host': 'editor' | 'view',
   'context.webview.id': string,
   'context.webview.instanceId': string,
   'context.webview.type': string
-}
-```
-
-### timeline/period/changed
-
-> Sent when the user changes the period (timeframe) on the Visual History
-
-```typescript
-{
-  'context.period': string,
-  'context.webview.host': 'editor' | 'view',
-  'context.webview.id': string,
-  'context.webview.instanceId': string,
-  'context.webview.type': string,
-  'period.new': 'all' | `${number}|D` | `${number}|M` | `${number}|Y`,
-  'period.old': 'all' | `${number}|D` | `${number}|M` | `${number}|Y`
 }
 ```
 
@@ -2082,7 +2095,10 @@ or
 {
   'context.config.allowMultiple': boolean,
   'context.config.queryLimit': number,
-  'context.period': string,
+  'context.itemType': 'file' | 'folder',
+  'context.period': 'all' | `${number}|D` | `${number}|M` | `${number}|Y`,
+  'context.showAllBranches': boolean,
+  'context.sliceBy': 'author' | 'branch',
   'context.webview.host': 'editor' | 'view',
   'context.webview.id': string,
   'context.webview.instanceId': string,
