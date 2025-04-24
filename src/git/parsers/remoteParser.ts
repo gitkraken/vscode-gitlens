@@ -13,7 +13,10 @@ export function parseGitRemotes(
 	remoteProviderMatcher: Awaited<ReturnType<typeof getRemoteProviderMatcher>>,
 ): GitRemote[] {
 	using sw = maybeStopWatch(`Git.parseRemotes(${repoPath})`, { log: false, logLevel: 'debug' });
-	if (!data) return [];
+	if (!data) {
+		sw?.stop({ suffix: ` no data` });
+		return [];
+	}
 
 	const remotes = new Map<string, GitRemote>();
 

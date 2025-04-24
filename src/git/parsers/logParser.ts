@@ -225,12 +225,16 @@ function createLogParser<T extends Record<string, string>>(mapping: ExtractAll<T
 	const args = [`--format=${format}`];
 
 	function* parse(data: string | Iterable<string> | undefined): Generator<LogParsedEntry<T>> {
-		if (!data) return;
+		using sw = maybeStopWatch('Git.LogParser.parse', { log: false, logLevel: 'debug' });
 
-		using _sw = maybeStopWatch('createLogParser.parse', { log: false, logLevel: 'debug' });
+		if (!data) {
+			sw?.stop({ suffix: ` no data` });
+			return;
+		}
 
 		const records = iterateByDelimiter(data, recordSep);
 
+		let count = 0;
 		let entry: LogParsedEntry<T>;
 		let fields: IterableIterator<string>;
 
@@ -248,18 +252,22 @@ function createLogParser<T extends Record<string, string>>(mapping: ExtractAll<T
 				if (field.done) break;
 				if (fieldCount >= keys.length) continue; // Handle extra newlines at the end
 
+				count++;
 				entry[keys[fieldCount++]] = field.value as T[keyof T];
 			}
 
 			yield entry;
 		}
+
+		sw?.stop({ suffix: ` parsed ${count} records` });
 	}
 
 	async function* parseAsync(stream: AsyncGenerator<string>): AsyncGenerator<LogParsedEntry<T>> {
-		using _sw = maybeStopWatch('createLogParser.parseAsync', { log: false, logLevel: 'debug' });
+		using sw = maybeStopWatch('Git.LogParser.parseAsync', { log: false, logLevel: 'debug' });
 
 		const records = iterateAsyncByDelimiter(stream, recordSep);
 
+		let count = 0;
 		let entry: LogParsedEntry<T>;
 		let fields: IterableIterator<string>;
 
@@ -277,11 +285,14 @@ function createLogParser<T extends Record<string, string>>(mapping: ExtractAll<T
 				if (field.done) break;
 				if (fieldCount >= keys.length) continue; // Handle extra newlines at the end
 
+				count++;
 				entry[keys[fieldCount++]] = field.value as T[keyof T];
 			}
 
 			yield entry;
 		}
+
+		sw?.stop({ suffix: ` parsed ${count} records` });
 	}
 
 	return {
@@ -392,12 +403,16 @@ function createLogParserWithFilesAndStats<T extends Record<string, string> | voi
 	}
 
 	function* parse(data: string | Iterable<string> | undefined): Generator<LogParsedEntryWithFilesAndStats<T>> {
-		if (!data) return;
+		using sw = maybeStopWatch('Git.LogParserWithFilesAndStats.parse', { log: false, logLevel: 'debug' });
 
-		using _sw = maybeStopWatch('createLogParserWithFilesAndStats.parse', { log: false, logLevel: 'debug' });
+		if (!data) {
+			sw?.stop({ suffix: ` no data` });
+			return;
+		}
 
 		const records = iterateByDelimiter(data, recordSep);
 
+		let count = 0;
 		let entry: LogParsedEntryWithFilesAndStats<T>;
 		let files: LogParsedFileWithStats[];
 		let fields: IterableIterator<string>;
@@ -405,6 +420,7 @@ function createLogParserWithFilesAndStats<T extends Record<string, string> | voi
 		for (const record of records) {
 			if (!record.length) continue;
 
+			count++;
 			entry = {} as unknown as LogParsedEntryWithFilesAndStats<T>;
 			files = [];
 			fields = iterateByDelimiter(record, fieldSep);
@@ -451,13 +467,16 @@ function createLogParserWithFilesAndStats<T extends Record<string, string> | voi
 
 			yield entry;
 		}
+
+		sw?.stop({ suffix: ` parsed ${count} records` });
 	}
 
 	async function* parseAsync(stream: AsyncGenerator<string>): AsyncGenerator<LogParsedEntryWithFilesAndStats<T>> {
-		using _sw = maybeStopWatch('createLogParserWithFilesAndStats.parseAsync', { log: false, logLevel: 'debug' });
+		using sw = maybeStopWatch('Git.LogParserWithFilesAndStats.parseAsync', { log: false, logLevel: 'debug' });
 
 		const records = iterateAsyncByDelimiter(stream, recordSep);
 
+		let count = 0;
 		let entry: LogParsedEntryWithFilesAndStats<T>;
 		let files: LogParsedFileWithStats[];
 		let fields: IterableIterator<string>;
@@ -465,6 +484,7 @@ function createLogParserWithFilesAndStats<T extends Record<string, string> | voi
 		for await (const record of records) {
 			if (!record.length) continue;
 
+			count++;
 			entry = {} as unknown as LogParsedEntryWithFilesAndStats<T>;
 			files = [];
 			fields = iterateByDelimiter(record, fieldSep);
@@ -511,6 +531,8 @@ function createLogParserWithFilesAndStats<T extends Record<string, string> | voi
 
 			yield entry;
 		}
+
+		sw?.stop({ suffix: ` parsed ${count} records` });
 	}
 
 	return {
@@ -577,12 +599,16 @@ function createLogParserWithFileSummary<T extends Record<string, string> | void>
 	}
 
 	function* parse(data: string | Iterable<string> | undefined): Generator<LogParsedEntryWithFiles<T>> {
-		if (!data) return;
+		using sw = maybeStopWatch('Git.LogParserWithFileSummary.parse', { log: false, logLevel: 'debug' });
 
-		using _sw = maybeStopWatch('createLogParserWithFileSummary.parse', { log: false, logLevel: 'debug' });
+		if (!data) {
+			sw?.stop({ suffix: ` no data` });
+			return;
+		}
 
 		const records = iterateByDelimiter(data, recordSep);
 
+		let count = 0;
 		let entry: LogParsedEntryWithFiles<T>;
 		let files: LogParsedFile[];
 		let fields: IterableIterator<string>;
@@ -590,6 +616,7 @@ function createLogParserWithFileSummary<T extends Record<string, string> | void>
 		for (const record of records) {
 			if (!record.length) continue;
 
+			count++;
 			entry = {} as unknown as LogParsedEntryWithFiles<T>;
 			files = [];
 			fields = iterateByDelimiter(record, fieldSep);
@@ -619,6 +646,8 @@ function createLogParserWithFileSummary<T extends Record<string, string> | void>
 
 			yield entry;
 		}
+
+		sw?.stop({ suffix: ` parsed ${count} records` });
 	}
 
 	return {
@@ -680,6 +709,8 @@ function createLogParserSingle(field: string): Parser<string> {
 	const args = ['-z', `--format=${field}`];
 
 	function parse(data: string | Iterable<string> | undefined): Iterable<string> {
+		using _sw = maybeStopWatch('Git.LogParserSingle.parse', { log: false, logLevel: 'debug' });
+
 		return data ? iterateByDelimiter(data, '\0') : [];
 	}
 
@@ -712,18 +743,23 @@ function createLogParserWithPatch<T extends Record<string, string>>(
 	}
 
 	function* parse(data: string | Iterable<string> | undefined): Generator<LogParsedEntryWithFiles<T>> {
-		if (!data) return;
+		using _sw = maybeStopWatch('Git.LogParserWithPatch.parse', { log: false, logLevel: 'debug' });
 
-		using _sw = maybeStopWatch('createLogParserWithPatch.parse', { log: false, logLevel: 'debug' });
+		if (!data) {
+			_sw?.stop({ suffix: ` no data` });
+			return;
+		}
 
 		const records = iterateByDelimiter(data, recordSep);
 
+		let count = 0;
 		let entry: LogParsedEntryWithFiles<T>;
 		let fields: IterableIterator<string>;
 
 		for (const record of records) {
 			if (!record.length) continue;
 
+			count++;
 			entry = {} as unknown as LogParsedEntryWithFiles<T>;
 			fields = iterateByDelimiter(record, fieldSep);
 
@@ -750,19 +786,23 @@ function createLogParserWithPatch<T extends Record<string, string>>(
 
 			yield entry;
 		}
+
+		_sw?.stop({ suffix: ` parsed ${count} records` });
 	}
 
 	async function* parseAsync(stream: AsyncGenerator<string>): AsyncGenerator<LogParsedEntryWithFiles<T>> {
-		using _sw = maybeStopWatch('createLogParserWithPatch.parseAsync', { log: false, logLevel: 'debug' });
+		using sw = maybeStopWatch('Git.LogParserWithPatch.parseAsync', { log: false, logLevel: 'debug' });
 
 		const records = iterateAsyncByDelimiter(stream, recordSep);
 
+		let count = 0;
 		let entry: LogParsedEntryWithFiles<T>;
 		let fields: IterableIterator<string>;
 
 		for await (const record of records) {
 			if (!record.length) continue;
 
+			count++;
 			entry = {} as unknown as LogParsedEntryWithFiles<T>;
 			fields = iterateByDelimiter(record, fieldSep);
 
@@ -789,6 +829,8 @@ function createLogParserWithPatch<T extends Record<string, string>>(
 
 			yield entry;
 		}
+
+		sw?.stop({ suffix: ` parsed ${count} records` });
 	}
 
 	return {
@@ -857,18 +899,23 @@ function createLogParserWithStats<T extends Record<string, string>>(
 	}
 
 	function* parse(data: string | Iterable<string> | undefined): Generator<LogParsedEntryWithStats<T>> {
-		if (!data) return;
+		using _sw = maybeStopWatch('Git.LogParserWithStats.parse', { log: false, logLevel: 'debug' });
 
-		using _sw = maybeStopWatch('createLogParserWithStats.parse', { log: false, logLevel: 'debug' });
+		if (!data) {
+			_sw?.stop({ suffix: ` no data` });
+			return;
+		}
 
 		const records = iterateByDelimiter(data, recordSep);
 
+		let count = 0;
 		let entry: LogParsedEntryWithStats<T>;
 		let fields: IterableIterator<string>;
 
 		for (const record of records) {
 			if (!record.length) continue;
 
+			count++;
 			entry = {} as unknown as LogParsedEntryWithStats<T>;
 			fields = iterateByDelimiter(record, fieldSep);
 
@@ -895,6 +942,8 @@ function createLogParserWithStats<T extends Record<string, string>>(
 
 			yield entry;
 		}
+
+		_sw?.stop({ suffix: ` parsed ${count} records` });
 	}
 
 	return {

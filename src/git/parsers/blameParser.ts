@@ -44,7 +44,10 @@ export function parseGitBlame(
 	modifiedTime?: number,
 ): GitBlame | undefined {
 	using sw = maybeStopWatch(`Git.parseBlame(${repoPath})`, { log: false, logLevel: 'debug' });
-	if (!data) return undefined;
+	if (!data) {
+		sw?.stop({ suffix: ` no data` });
+		return undefined;
+	}
 
 	const authors = new Map<string, GitBlameAuthor>();
 	const commits = new Map<string, GitCommit>();
