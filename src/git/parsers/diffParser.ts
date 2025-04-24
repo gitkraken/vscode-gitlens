@@ -31,7 +31,10 @@ export function parseGitDiff(data: string, includeRawContent = false): ParsedGit
 
 	// Split the diff data into file chunks
 	const files = data.split(/^diff --git /m).filter(Boolean);
-	if (!files.length) return parsed;
+	if (!files.length) {
+		sw?.stop({ suffix: ` parsed no files` });
+		return parsed;
+	}
 
 	for (const file of files) {
 		const [line] = file.split('\n', 1);
@@ -64,7 +67,10 @@ export function parseGitDiff(data: string, includeRawContent = false): ParsedGit
 
 export function parseGitFileDiff(data: string, includeRawContent = false): ParsedGitDiffHunks | undefined {
 	using sw = maybeStopWatch('Git.parseFileDiff', { log: false, logLevel: 'debug' });
-	if (!data) return undefined;
+	if (!data) {
+		sw?.stop({ suffix: ` no data` });
+		return undefined;
+	}
 
 	const hunks: ParsedGitDiffHunk[] = [];
 
@@ -186,7 +192,10 @@ export function parseGitFileDiff(data: string, includeRawContent = false): Parse
 
 export function parseGitDiffNameStatusFiles(data: string, repoPath: string): GitFile[] | undefined {
 	using sw = maybeStopWatch('Git.parseDiffNameStatusFiles', { log: false, logLevel: 'debug' });
-	if (!data) return undefined;
+	if (!data) {
+		sw?.stop({ suffix: ` no data` });
+		return undefined;
+	}
 
 	const files: GitFile[] = [];
 
@@ -216,7 +225,10 @@ export function parseGitDiffNameStatusFiles(data: string, repoPath: string): Git
 
 export function parseGitApplyFiles(container: Container, data: string, repoPath: string): GitFileChange[] {
 	using sw = maybeStopWatch('Git.parseApplyFiles', { log: false, logLevel: 'debug' });
-	if (!data) return [];
+	if (!data) {
+		sw?.stop({ suffix: ` no data` });
+		return [];
+	}
 
 	const files = new Map<string, GitFileChange>();
 
@@ -289,7 +301,10 @@ export function parseGitApplyFiles(container: Container, data: string, repoPath:
 
 export function parseGitDiffShortStat(data: string): GitDiffShortStat | undefined {
 	using sw = maybeStopWatch('Git.parseDiffShortStat', { log: false, logLevel: 'debug' });
-	if (!data) return undefined;
+	if (!data) {
+		sw?.stop({ suffix: ` no data` });
+		return undefined;
+	}
 
 	const match = shortStatDiffRegex.exec(data);
 	if (match == null) return undefined;

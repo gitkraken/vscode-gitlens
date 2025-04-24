@@ -8,7 +8,10 @@ export function parseGitTree(data: string | undefined, ref: string): GitTreeEntr
 	using sw = maybeStopWatch(`Git.parseTree`, { log: false, logLevel: 'debug' });
 
 	const trees: GitTreeEntry[] = [];
-	if (!data) return trees;
+	if (!data) {
+		sw?.stop({ suffix: ` no data` });
+		return trees;
+	}
 
 	let type;
 	let oid;
@@ -43,7 +46,10 @@ export function parseGitLsFiles(data: string | undefined): GitLsFilesEntry[] {
 	using sw = maybeStopWatch(`Git.parseLsFiles`, { log: false, logLevel: 'debug' });
 
 	const files: GitLsFilesEntry[] = [];
-	if (!data) return files;
+	if (!data) {
+		sw?.stop({ suffix: ` no data` });
+		return files;
+	}
 
 	let filePath;
 	let mode;

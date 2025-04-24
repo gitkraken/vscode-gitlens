@@ -66,18 +66,23 @@ function createRefParser<T extends Record<string, string | undefined>>(
 	const args = [`--format=${format}`];
 
 	function* parse(data: string | Iterable<string> | undefined): Generator<T> {
-		if (!data) return;
+		using sw = maybeStopWatch('Git.RefParser.parse', { log: false, logLevel: 'debug' });
 
-		using _sw = maybeStopWatch('createRefParser.parse', { log: false, logLevel: 'debug' });
+		if (!data) {
+			sw?.stop({ suffix: ` no data` });
+			return;
+		}
 
 		const records = iterateByDelimiter(data, recordSep);
 
+		let count = 0;
 		let entry: T;
 		let fields: IterableIterator<string>;
 
 		for (const record of records) {
 			if (!record.length) continue;
 
+			count++;
 			entry = {} as unknown as T;
 			fields = iterateByDelimiter(record, fieldSep);
 
@@ -94,6 +99,8 @@ function createRefParser<T extends Record<string, string | undefined>>(
 
 			yield entry;
 		}
+
+		sw?.stop({ suffix: ` parsed ${count} records` });
 	}
 
 	return { arguments: args, separators: { record: recordSep, field: fieldSep }, parse: parse };

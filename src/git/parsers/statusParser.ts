@@ -17,10 +17,16 @@ export function parseGitStatus(
 		log: false,
 		logLevel: 'debug',
 	});
-	if (!data) return undefined;
+	if (!data) {
+		sw?.stop({ suffix: ` no data` });
+		return undefined;
+	}
 
 	const lines = data.split('\n').filter(<T>(i?: T): i is T => Boolean(i));
-	if (lines.length === 0) return undefined;
+	if (lines.length === 0) {
+		sw?.stop({ suffix: ` parsed no files` });
+		return undefined;
+	}
 
 	const status =
 		porcelainVersion < 2 ? parseStatusV1(container, lines, repoPath) : parseStatusV2(container, lines, repoPath);

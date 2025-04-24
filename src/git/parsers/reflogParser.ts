@@ -27,7 +27,10 @@ export function parseGitRefLog(
 	totalLimit: number,
 ): GitReflog | undefined {
 	using sw = maybeStopWatch(`Git.parseRefLog(${repoPath})`, { log: false, logLevel: 'debug' });
-	if (!data) return undefined;
+	if (!data) {
+		sw?.stop({ suffix: ` no data` });
+		return undefined;
+	}
 
 	const records: GitReflogRecord[] = [];
 

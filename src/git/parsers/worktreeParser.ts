@@ -25,7 +25,10 @@ export function parseGitWorktrees(
 	using sw = maybeStopWatch(`Git.parseWorktrees(${repoPath})`, { log: false, logLevel: 'debug' });
 
 	const worktrees: GitWorktree[] = [];
-	if (!data) return worktrees;
+	if (!data) {
+		sw?.stop({ suffix: ` no data` });
+		return worktrees;
+	}
 
 	if (repoPath != null) {
 		repoPath = normalizePath(repoPath);
