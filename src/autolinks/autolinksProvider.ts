@@ -122,9 +122,13 @@ export class AutolinksProvider implements Disposable {
 	}
 
 	/** Collects remote provider autolink references into @param refsets */
-	private collectRemoteAutolinks(remote: GitRemote | undefined, refsets: RefSet[]): void {
+	private collectRemoteAutolinks(remote: GitRemote | undefined, refsets: RefSet[], forBranch?: boolean): void {
 		if (remote?.provider?.autolinks.length) {
-			refsets.push([remote.provider, remote.provider.autolinks]);
+			let autolinks = remote.provider.autolinks;
+			if (forBranch) {
+				autolinks = autolinks.filter(autolink => !isDynamic(autolink) && autolink.referenceType === 'branch');
+			}
+			refsets.push([remote.provider, autolinks]);
 		}
 	}
 
@@ -135,12 +139,12 @@ export class AutolinksProvider implements Disposable {
 		}
 	}
 
-	private async getRefSets(remote?: GitRemote) {
+	private async getRefSets(remote?: GitRemote, forBranch?: boolean) {
 		return this._refsetCache.get(remote?.remoteKey, async () => {
 			const refsets: RefSet[] = [];
 
-			await this.collectIntegrationAutolinks(remote, refsets);
-			this.collectRemoteAutolinks(remote, refsets);
+			await this.collectIntegrationAutolinks(forBranch ? undefined : remote, refsets);
+			this.collectRemoteAutolinks(remote, refsets, forBranch);
 			this.collectCustomAutolinks(refsets);
 
 			return refsets;
@@ -149,7 +153,7 @@ export class AutolinksProvider implements Disposable {
 
 	/** @returns A sorted list of autolinks. the first match is the most relevant */
 	async getBranchAutolinks(branchName: string, remote?: GitRemote): Promise<Map<string, Autolink>> {
-		const refsets = await this.getRefSets(remote);
+		const refsets = await this.getRefSets(remote, true);
 		if (refsets.length === 0) return emptyAutolinkMap;
 
 		return getBranchAutolinks(branchName, refsets);

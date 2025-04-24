@@ -20,7 +20,6 @@ export function serializeAutolink(value: Autolink): Autolink {
 			  }
 			: undefined,
 		id: value.id,
-		index: value.index,
 		prefix: value.prefix,
 		url: value.url,
 		alphanumeric: value.alphanumeric,
@@ -41,23 +40,6 @@ export function isDynamic(ref: AutolinkReference | DynamicAutolinkReference): re
 
 function isCacheable(ref: AutolinkReference | DynamicAutolinkReference): ref is CacheableAutolinkReference {
 	return 'prefix' in ref && ref.prefix != null && 'url' in ref && ref.url != null;
-}
-
-/**
- * Compares autolinks
- * @returns non-0 result that means a probability of the autolink `b` is more relevant of the autolink `a`
- */
-function compareAutolinks(a: Autolink, b: Autolink): number {
-	// consider that if the number is in the start, it's the most relevant link
-	if (b.index === 0) return 1;
-	if (a.index === 0) return -1;
-
-	// maybe it worths to use some weight function instead.
-	return (
-		b.prefix.length - a.prefix.length ||
-		b.id.length - a.id.length ||
-		(b.index != null && a.index != null ? -(b.index - a.index) : 0)
-	);
 }
 
 export function ensureCachedRegex(
@@ -97,15 +79,29 @@ export function ensureCachedRegex(
 	}
 }
 
-export function ensureCachedBranchNameRegex(
+export function ensureCachedBranchNameRegexes(
 	ref: CacheableAutolinkReference,
-): asserts ref is RequireSome<CacheableAutolinkReference, 'branchNameRegex'> {
-	ref.branchNameRegex ??= new RegExp(
-		`(^|\\-|_|\\.|\\/)(?<prefix>${ref.prefix})(?<issueKeyNumber>${
-			ref.alphanumeric ? '\\w' : '\\d'
-		}+)(?=$|\\-|_|\\.|\\/)`,
-		'gi',
-	);
+): asserts ref is RequireSome<CacheableAutolinkReference, 'branchNameRegexes'> {
+	if (ref.prefix?.length > 0) {
+		ref.branchNameRegexes ??= [
+			// Rule 1: Any prefixed ref followed by a 2+ digit number and either a connector or end-of-string after it
+			new RegExp(`(?<prefix>${ref.prefix})(?<issueKeyNumber>\\d{2,})(?:[\\/\\-\\_\\.]|$)`, 'i'),
+		];
+	} else {
+		ref.branchNameRegexes ??= [
+			// Rule 2: Any 2+ digit number preceded by feature|feat|fix|bug|bugfix|hotfix|issue|ticket with a connector before it, and either a connector or end-of-string after it
+			new RegExp(
+				`(?:feature|feat|fix|bug|bugfix|hotfix|issue|ticket)(?:\\/#|-#|_#|\\.#|[\\/\\-\\_\\.#])(?<issueKeyNumber>\\d{2,})(?:[\\/\\-\\_\\.]|$)`,
+				'i',
+			),
+			// Rule 3.1: Any 3+ digit number preceded by at least two non-slash, non-numeric characters
+			new RegExp(`(?:[^\\d/]{2})(?<issueKeyNumber>\\d{3,})`, 'i'),
+			// Rule 3.2: Any 3+ digit number followed by at least two non-slash, non-numeric characters
+			new RegExp(`(?<issueKeyNumber>\\d{3,})(?:[^\\d/]{2})`, 'i'),
+			// Rule 3.3: A 3+ digit number is the entire branch name
+			new RegExp(`^(?<issueKeyNumber>\\d{3,})$`, 'i'),
+		];
+	}
 }
 
 export const numRegex = /<num>/g;
@@ -135,7 +131,6 @@ export function getAutolinks(message: string, refsets: Readonly<RefSet[]>): Map<
 				autolinks.set(num, {
 					provider: provider,
 					id: num,
-					index: match.index,
 					prefix: ref.prefix,
 					url: ref.url?.replace(numRegex, num),
 					alphanumeric: ref.alphanumeric,
@@ -155,9 +150,16 @@ export function getAutolinks(message: string, refsets: Readonly<RefSet[]>): Map<
 export function getBranchAutolinks(branchName: string, refsets: Readonly<RefSet[]>): Map<string, Autolink> {
 	const autolinks = new Map<string, Autolink>();
 
-	let match;
 	let num;
-	for (const [provider, refs] of refsets) {
+	let match;
+	// Sort refsets so that issue integrations are checked first for matches
+	const sortedRefSets = [...refsets].sort((a, b) => {
+		if (a[0]?.id === IssueIntegrationId.Jira || a[0]?.id === IssueIntegrationId.Trello) return -1;
+		if (b[0]?.id === IssueIntegrationId.Jira || b[0]?.id === IssueIntegrationId.Trello) return 1;
+		return 0;
+	});
+
+	for (const [provider, refs] of sortedRefSets) {
 		for (const ref of refs) {
 			if (
 				!isCacheable(ref) ||
@@ -167,33 +169,27 @@ export function getBranchAutolinks(branchName: string, refsets: Readonly<RefSet[
 				continue;
 			}
 
-			ensureCachedBranchNameRegex(ref);
-			const matches = branchName.matchAll(ref.branchNameRegex);
-			do {
-				match = matches.next();
-				if (!match.value?.groups) break;
-
-				num = match?.value?.groups.issueKeyNumber;
-				let index = match.value.index;
+			ensureCachedBranchNameRegexes(ref);
+			for (const regex of ref.branchNameRegexes) {
+				match = branchName.match(regex);
+				if (!match?.groups) continue;
+				num = match.groups.issueKeyNumber;
 				const linkUrl = ref.url?.replace(numRegex, num);
-				// strange case (I would say synthetic), but if we parse the link twice, use the most relevant of them
-				const existingIndex = autolinks.get(linkUrl)?.index;
-				if (existingIndex != null) {
-					index = Math.min(index, existingIndex);
-				}
 				autolinks.set(linkUrl, {
 					...ref,
 					provider: provider,
 					id: num,
-					index: index,
 					url: linkUrl,
 					title: ref.title?.replace(numRegex, num),
 					description: ref.description?.replace(numRegex, num),
 					descriptor: ref.descriptor,
 				});
-			} while (!match.done);
+
+				// Stop at the first match
+				return autolinks;
+			}
 		}
 	}
 
-	return new Map([...autolinks.entries()].sort((a, b) => compareAutolinks(a[1], b[1])));
+	return autolinks;
 }

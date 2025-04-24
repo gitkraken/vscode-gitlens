@@ -26,7 +26,6 @@ export interface AutolinkReference {
 export interface Autolink extends Omit<CacheableAutolinkReference, 'id'> {
 	provider?: ProviderReference;
 	id: string;
-	index?: number;
 }
 
 export type EnrichedAutolink = [
@@ -56,7 +55,7 @@ export interface CacheableAutolinkReference extends AutolinkReference {
 	messageHtmlRegex?: RegExp;
 	messageMarkdownRegex?: RegExp;
 	messageRegex?: RegExp;
-	branchNameRegex?: RegExp;
+	branchNameRegexes?: RegExp[];
 }
 
 export interface DynamicAutolinkReference {
