@@ -16,10 +16,7 @@ export class GlChartScroller extends GlElement {
 			--track-left: 0;
 			--track-width: 100%;
 			--track-height: 1.2rem;
-
 			--thumb-height: 0.6rem;
-			--thumb-width: 2rem;
-			--thumb-left: 0;
 		}
 
 		.track {
@@ -33,16 +30,11 @@ export class GlChartScroller extends GlElement {
 			z-index: 1;
 		}
 
-		.track[scrollable] {
-			visibility: visible;
-		}
-
 		.thumb {
 			position: absolute;
 			top: 0;
-			left: var(--thumb-left);
+			left: 0;
 			height: var(--thumb-height);
-			width: var(--thumb-width);
 			min-width: 2rem;
 			background: transparent;
 			transition: background 1s linear;
@@ -108,16 +100,19 @@ export class GlChartScroller extends GlElement {
 
 	override willUpdate(_changedProperties: PropertyValues): void {
 		({ size: this.size, position: this.position } = this.calculateScrollState());
-
-		this.style.setProperty('--thumb-width', `${this.size}%`);
-		this.style.setProperty('--thumb-left', `${this.position}%`);
 	}
 
 	override render(): unknown {
 		return html`<slot></slot>
-			<div class="track" part="track" ?scrollable="${this.isScrollable()}" @pointerdown="${this.onTrackClick}">
+			<div
+				class="track"
+				part="track"
+				style="visibility:${this.isScrollable() ? 'visible' : 'hidden'}"
+				@pointerdown="${this.onTrackClick}"
+			>
 				<div
 					class="thumb"
+					style="width:${this.size}%;left:${this.position}%;"
 					@pointerdown="${this.onDragStart}"
 					@pointermove="${this.onDragMove}"
 					@pointerup="${this.onDragEnd}"
@@ -220,6 +215,7 @@ export class GlChartScroller extends GlElement {
 			return;
 		}
 
+		e.preventDefault();
 		e.stopPropagation();
 		e.stopImmediatePropagation();
 

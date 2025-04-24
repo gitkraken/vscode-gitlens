@@ -6,7 +6,6 @@ export const timelineChartStyles = css`
 		flex-direction: column;
 		width: 100%;
 		height: 100%;
-		position: relative;
 
 		--scroller-track-top: unset;
 		--scroller-track-left: 0;
@@ -348,7 +347,7 @@ export const timelineChartStyles = css`
 		font-family: var(--font-family);
 	}
 
-	:host-context([data-placement='view']) .bb .bb-button {
+	:host-context(:host[placement='view']) .bb .bb-button {
 		margin-right: 2.8rem;
 	}
 
@@ -358,46 +357,13 @@ export const timelineChartStyles = css`
 		cursor: pointer;
 	}
 
-	@keyframes fadeIn {
-		from {
-			opacity: 0;
-		}
-		to {
-			opacity: 1;
-		}
-	}
-
-	.notice {
-		position: absolute;
-		top: 0;
-		left: 0;
-		bottom: 0;
-		right: 0;
-		display: flex;
-		flex-direction: column;
-		align-items: center;
-		justify-content: center;
-		padding: 10% 2rem 30% 2rem;
+	.empty {
+		padding: 0.4rem 2rem 1.3rem 2rem;
 		font-size: var(--font-size);
-
-		z-index: 1;
 	}
 
-	.notice--blur {
-		backdrop-filter: blur(15px);
-		-webkit-backdrop-filter: blur(15px);
-
-		animation: fadeIn 0.2s ease-in;
-		animation-fill-mode: forwards;
-		opacity: 0;
-	}
-
-	:host-context([data-placement='view']) .notice--blur {
-		animation-delay: 0.5s;
-	}
-
-	.notice p {
-		margin: 0;
+	.empty p {
+		margin-top: 0;
 	}
 
 	.bb-tooltip {
@@ -465,10 +431,10 @@ export const timelineChartStyles = css`
 	}
 
 	.bb-tooltip .message {
-		margin-left: 0rem;
+		margin-left: 2rem;
 		margin-top: 0.5rem;
 		margin-bottom: 0.5rem;
-		max-height: 50vh;
+		max-height: 12rem;
 		overflow-y: auto;
 		overflow-x: hidden;
 	}
@@ -477,25 +443,25 @@ export const timelineChartStyles = css`
 		white-space: pre-line;
 	}
 
-	:host-context([data-placement='editor']) .bb-axis-y .tick text {
+	:host-context(:host[placement='editor']) .bb-axis-y .tick text {
 		fill: var(--color-foreground--85);
 	}
 
-	:host-context([data-placement='view']) .bb-axis-y .tick text {
+	:host-context(:host[placement='view']) .bb-axis-y .tick text {
 		transform: translate(0, 0.4rem);
 		font-family: codicon;
 		font-size: 1.5rem;
 	}
 
 	@media (max-height: 275px) {
-		:host-context([data-placement='view']) .bb-axis-y .tick text {
+		:host-context(:host[placement='view']) .bb-axis-y .tick text {
 			transform: none;
 			font-size: 1rem;
 		}
 	}
 
 	@media (max-height: 225px) {
-		:host-context([data-placement='view']) .bb-axis-y .tick text {
+		:host-context(:host[placement='view']) .bb-axis-y .tick text {
 			display: none;
 		}
 	}

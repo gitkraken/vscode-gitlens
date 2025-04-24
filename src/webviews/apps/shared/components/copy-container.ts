@@ -1,7 +1,7 @@
 import { css, html, LitElement, nothing } from 'lit';
 import { customElement, property, state } from 'lit/decorators.js';
-import type { GlTooltip } from './overlays/tooltip';
 import './overlays/tooltip';
+import type { GlTooltip } from './overlays/tooltip.react';
 
 const tagName = 'gl-copy-container';
 
@@ -37,17 +37,11 @@ export class GlCopyContainer extends LitElement {
 	private _resetTimer: ReturnType<typeof setTimeout> | undefined;
 
 	@state()
-	private label!: string;
+	private label: string = this.copyLabel;
 
 	override disconnectedCallback() {
 		this.cancelResetTimer();
 		super.disconnectedCallback();
-	}
-
-	override connectedCallback() {
-		super.connectedCallback();
-
-		this.label = this.copyLabel;
 	}
 
 	override render() {

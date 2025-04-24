@@ -1,6 +1,9 @@
+import type SlRange from '@shoelace-style/shoelace/dist/components/range/range.js';
+import type { PropertyValues } from 'lit';
 import { css, html } from 'lit';
-import { customElement, property, state } from 'lit/decorators.js';
-import type { TimelineDatum } from '../../../../plus/timeline/protocol';
+import { customElement, property, query, state } from 'lit/decorators.js';
+import { isUncommitted, isUncommittedStaged, shortenRevision } from '../../../../../git/utils/revision.utils';
+import type { Commit } from '../../../../plus/timeline/protocol';
 import { GlElement } from '../../../shared/components/element';
 import '@shoelace-style/shoelace/dist/components/range/range.js';
 
@@ -27,23 +30,22 @@ export class GlChartSlider extends GlElement {
 			--track-active-offset: 100%;
 			--track-color-active: var(--gl-track-color-active, var(--sl-color-neutral-200));
 		}
-
-		sl-range::part(thumb) {
-			cursor: pointer;
-		}
 	`;
+
+	@query('#slider')
+	private slider!: SlRange;
 
 	@state()
 	private _value: number = 0;
 	private _max: number = 0;
 	private _min: number = 0;
 
-	private _data: TimelineDatum[] | undefined;
+	private _data: Commit[] | undefined;
 	get data() {
 		return this._data;
 	}
 	@property({ type: Array })
-	set data(value: TimelineDatum[] | undefined) {
+	set data(value: Commit[] | undefined) {
 		if (this._data === value) return;
 
 		this._data = value;
@@ -66,8 +68,18 @@ export class GlChartSlider extends GlElement {
 		}
 	}
 
-	get value() {
-		return this.data?.[this._value];
+	protected override firstUpdated(_changedProperties: PropertyValues): void {
+		this.slider.tooltipFormatter = (value: number) => {
+			const sha = this.data?.[value]?.sha;
+			if (sha == null) return '';
+
+			if (!sha) return 'Working Changes';
+			if (isUncommitted(sha)) {
+				return isUncommittedStaged(sha) ? 'Staged Changes' : 'Working Changes';
+			}
+
+			return `Commit ${shortenRevision(sha)}`;
+		};
 	}
 
 	override render() {
@@ -77,10 +89,8 @@ export class GlChartSlider extends GlElement {
 				.min=${this._min}
 				.max=${this._max}
 				.value=${this._value}
-				tooltip="none"
 				@sl-change=${this.handleSliderInput}
 				@sl-input=${this.handleSliderInput}
-				@click=${this.handleSliderInput}
 			></sl-range>
 		</div>`;
 	}
@@ -100,7 +110,7 @@ export class GlChartSlider extends GlElement {
 		this._value = index;
 	}
 
-	private handleSliderInput(e: MouseEvent | CustomEvent<void>) {
+	private handleSliderInput(e: CustomEvent<void>) {
 		if (!this.data?.length) return;
 
 		const index = parseInt((e.target as HTMLInputElement).value);

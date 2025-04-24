@@ -1,16 +1,14 @@
-import type { Uri } from 'vscode';
 import type { FeatureAccess } from '../../../features';
 import type { GitReference } from '../../../git/models/reference';
-import type { RepositoryShape } from '../../../git/models/repositoryShape';
-import type { Serialized } from '../../../system/serialize';
 import type { IpcScope, WebviewState } from '../../protocol';
 import { IpcCommand, IpcNotification, IpcRequest } from '../../protocol';
 
 export const scope: IpcScope = 'timeline';
 
 export interface State extends WebviewState {
-	dataset?: Promise<TimelineDatum[]>;
+	dataset?: Promise<Commit[]>;
 	config: {
+		base: GitReference | undefined;
 		showAllBranches: boolean;
 		period: TimelinePeriod;
 		sliceBy: TimelineSliceBy;
@@ -20,13 +18,24 @@ export interface State extends WebviewState {
 		shortDateFormat: string;
 	};
 
-	scope: TimelineScopeSerialized | undefined;
-	repository: (RepositoryShape & { ref: GitReference | undefined }) | undefined;
+	uri?: string;
+	item: {
+		type: 'folder' | 'file';
+		path: string;
+	};
+	repository:
+		| {
+				id: string;
+				uri: string;
+				name: string;
+				ref: GitReference | undefined;
+		  }
+		| undefined;
 
 	access: FeatureAccess;
 }
 
-export interface TimelineDatum {
+export interface Commit {
 	sha: string;
 	author: string;
 	date: string;
@@ -41,68 +50,33 @@ export interface TimelineDatum {
 	sort: number;
 }
 
-export interface TimelineScope {
-	type: TimelineScopeType;
-	uri: Uri;
-	head?: GitReference;
-	base?: GitReference;
-}
-export type TimelineScopeSerialized = Required<Serialized<TimelineScope> & { relativePath: string }>;
-
-export type TimelineScopeType = 'file' | 'folder' | 'repo';
+export type TimelineItemType = 'file' | 'folder';
 export type TimelinePeriod = `${number}|${'D' | 'M' | 'Y'}` | 'all';
 export type TimelineSliceBy = 'author' | 'branch';
 
-// REQUESTS
-export type ChooseRefParams = { scope: State['scope']; type: 'base' | 'head' };
-export type DidChooseRefParams =
-	| { type: 'base' | 'head'; ref: GitReference | /** All Branches */ null | undefined }
-	| undefined;
-export const ChooseRefRequest = new IpcRequest<ChooseRefParams, DidChooseRefParams>(scope, 'ref/choose');
-
-export interface ChoosePathParams {
-	repoUri: string;
-	ref: GitReference | undefined;
-	title: string;
-	initialPath?: string;
-}
-export interface DidChoosePathParams {
-	picked?: { type: 'file' | 'folder'; relativePath: string };
-}
-export const ChoosePathRequest = new IpcRequest<ChoosePathParams, DidChoosePathParams>(scope, 'path/choose');
-
 // COMMANDS
 
+export type DidChooseRefParams = { ref: GitReference | undefined } | undefined;
+export const ChooseRefRequest = new IpcRequest<void, DidChooseRefParams>(scope, 'ref/choose');
+
 export interface SelectDataPointParams {
-	scope: State['scope'];
 	id: string | undefined;
 	shift: boolean;
 }
 export const SelectDataPointCommand = new IpcCommand<SelectDataPointParams>(scope, 'point/open');
 
 export interface UpdateConfigParams {
-	changes: Partial<State['config']>;
+	period?: TimelinePeriod;
+	showAllBranches?: boolean;
+	sliceBy?: TimelineSliceBy;
 }
 export const UpdateConfigCommand = new IpcCommand<UpdateConfigParams>(scope, 'config/update');
 
-export interface UpdateScopeParams {
-	scope: State['scope'];
-	changes:
-		| {
-				type?: Exclude<TimelineScopeType, 'repo'>;
-				head?: GitReference | null;
-				base?: GitReference | null;
-				relativePath?: string;
-		  }
-		| {
-				type?: Extract<TimelineScopeType, 'repo'>;
-				head?: GitReference | null;
-				base?: GitReference | null;
-				relativePath?: never;
-		  };
-	altOrShift?: boolean;
+export interface UpdateUriParams {
+	uri?: string;
+	path?: string;
 }
-export const UpdateScopeCommand = new IpcCommand<UpdateScopeParams>(scope, 'scope/update');
+export const UpdateUriCommand = new IpcCommand<UpdateUriParams>(scope, 'uri/update');
 
 // NOTIFICATIONS
 

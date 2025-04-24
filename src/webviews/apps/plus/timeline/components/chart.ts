@@ -8,7 +8,7 @@ import { log } from '../../../../../system/decorators/log';
 import { debounce } from '../../../../../system/function/debounce';
 import { defer } from '../../../../../system/promise';
 import { pluralize, truncateMiddle } from '../../../../../system/string';
-import type { State, TimelineDatum, TimelineSliceBy } from '../../../../plus/timeline/protocol';
+import type { Commit, State, TimelineSliceBy } from '../../../../plus/timeline/protocol';
 import { renderCommitSha } from '../../../shared/components/commit-sha';
 import { GlElement } from '../../../shared/components/element';
 import { createFromDateDelta, formatDate, fromNow } from '../../../shared/date';
@@ -17,7 +17,6 @@ import type { SliderChangeEventDetail } from './slider';
 import { GlChartSlider } from './slider';
 import '@shoelace-style/shoelace/dist/components/resize-observer/resize-observer.js';
 import './scroller';
-import '../../../shared/components/indicators/watermark-loader';
 
 export const tagName = 'gl-timeline-chart';
 
@@ -41,7 +40,7 @@ export class GlTimelineChart extends GlElement {
 	@query(GlChartSlider.tagName)
 	private slider?: GlChartSlider;
 
-	private _chartAborter?: AbortController;
+	private _abortController?: AbortController;
 
 	private readonly _slices = new Map<
 		string,
@@ -52,9 +51,8 @@ export class GlTimelineChart extends GlElement {
 		}
 	>();
 	private readonly _slicesByIndex = new Map<number, string>();
-	private readonly _commitsByTimestamp = new Map<number, TimelineDatum>();
+	private readonly _commitsByTimestamp = new Map<number, Commit>();
 
-	@state()
 	private _loading?: ReturnType<typeof defer<void>>;
 
 	private get compact(): boolean {
@@ -70,9 +68,6 @@ export class GlTimelineChart extends GlElement {
 	@property({ type: String })
 	head?: string;
 
-	@property({ type: Object })
-	scope?: State['scope'];
-
 	@property()
 	shortDateFormat!: string;
 
@@ -86,12 +81,12 @@ export class GlTimelineChart extends GlElement {
 		return this._data;
 	}
 
-	private _dataPromise: State['dataset'];
+	private _dataPromise!: NonNullable<State['dataset']>;
 	@property({ type: Object })
-	get dataPromise(): State['dataset'] {
+	get dataPromise(): NonNullable<State['dataset']> {
 		return this._dataPromise;
 	}
-	set dataPromise(value: State['dataset']) {
+	set dataPromise(value: NonNullable<State['dataset']>) {
 		if (this._dataPromise === value) return;
 
 		this._dataPromise = value;
@@ -159,74 +154,46 @@ export class GlTimelineChart extends GlElement {
 	}
 
 	override update(changedProperties: PropertyValues): void {
-		if (changedProperties.has('dataPromise') || this.dataPromise == null) {
-			this.updateChart();
+		if (changedProperties.has('dataPromise')) {
+			this._abortController?.abort();
+			this._abortController = new AbortController();
+			this._loading?.cancel();
+
+			void this.updateChart(this.dataPromise);
 		}
+
 		super.update(changedProperties);
 	}
 
-	private updateChart() {
-		if (!this._loading?.pending) {
-			this._loading = defer<void>();
-			void this._loading.promise.finally(() => (this._loading = undefined));
-
-			this.emit('gl-loading', this._loading.promise);
-		}
-
-		if (this.dataPromise == null) return;
-
-		this._chartAborter?.abort();
-		this._chartAborter = new AbortController();
-		void this.renderChart(this.dataPromise, this._loading, this._chartAborter.signal);
-	}
-
 	protected override render(): unknown {
-		return html`${this.renderNotice()}
-			<gl-chart-scroller
-				.range=${this._rangeScrollable}
-				.visibleRange=${this._zoomedRangeScrollable}
-				@gl-scroll=${this.onScroll}
-				@gl-scroll-start=${this.onScrollStart}
-				@gl-scroll-end=${this.onScrollEnd}
-			>
-				<sl-resize-observer @sl-resize=${this.onResize}>
-					<div id="chart" tabindex="-1"></div>
-				</sl-resize-observer>
-				${this.data?.length ? this.renderFooter() : nothing}
-			</gl-chart-scroller>`;
-	}
-
-	private renderNotice() {
-		if (this._loading?.pending || this.data == null) {
-			return html`<div class="notice notice--blur">
-				<gl-watermark-loader pulse><p>Loading...</p></gl-watermark-loader>
-			</div>`;
+		// Don't render anything if the data is still loading
+		if (this.data === null) return nothing;
+		if (!this.data?.length) {
+			return html`<div class="empty"><p>No commits found for the specified time period.</p></div>`;
 		}
 
-		if (!this.data.length) {
-			return html`<div class="notice">
-				<gl-watermark-loader><slot name="empty"></slot></gl-watermark-loader>
-			</div>`;
-		}
-
-		return nothing;
+		return html`<gl-chart-scroller
+			.range=${this._rangeScrollable}
+			.visibleRange=${this._zoomedRangeScrollable}
+			@gl-scroll=${this.onScroll}
+			@gl-scroll-start=${this.onScrollStart}
+			@gl-scroll-end=${this.onScrollEnd}
+		>
+			<sl-resize-observer @sl-resize=${this.onResize}>
+				<div id="chart" tabindex="-1"></div>
+			</sl-resize-observer>
+			${this.renderFooter()}
+		</gl-chart-scroller>`;
 	}
 
 	private renderFooter() {
-		const sha = this._shaHovered ?? this._shaSelected;
-
 		return html`<footer>
 			<gl-chart-slider
 				.data=${this._dataReversed}
 				?shift=${this._shiftKeyPressed}
 				@gl-slider-change=${this.onSliderChanged}
-				@mouseover=${this.onSliderMouseOver}
-				@mouseout=${this.onSliderMouseOut}
 			></gl-chart-slider>
-			<span @mouseover=${this.onFooterShaMouseOver} @mouseout=${this.onFooterShaMouseOut}
-				>${renderCommitSha(sha, 16)}</span
-			>
-			${this.renderActions()}
+			${renderCommitSha(this._shaHovered ?? this._shaSelected, 16)}${this.renderActions()}
 		</footer>`;
 	}
 
@@ -295,16 +262,6 @@ export class GlTimelineChart extends GlElement {
 		this._shiftKeyPressed = e.shiftKey;
 	};
 
-	private onFooterShaMouseOver() {
-		if (!this._shaSelected) return;
-
-		this.showTooltip(this._data?.find(c => c.sha === this._shaSelected));
-	}
-
-	private onFooterShaMouseOut() {
-		this.hideTooltip();
-	}
-
 	private readonly onResize = (e: CustomEvent<{ entries: ResizeObserverEntry[] }>) => {
 		if (!this._chart) return;
 
@@ -335,23 +292,12 @@ export class GlTimelineChart extends GlElement {
 	private onSliderChanged(e: CustomEvent<SliderChangeEventDetail>) {
 		this.revealDate(e.detail.date, { focus: true, select: true });
 
-		const commit = this._commitsByTimestamp.get(e.detail.date.getTime());
-		const sha = commit?.sha;
+		const sha = this._commitsByTimestamp.get(e.detail.date.getTime())?.sha;
 		this._shaHovered = undefined;
 		this._shaSelected = sha;
 
-		this.showTooltip(commit);
-
 		if (sha == null) return;
 		this.emit('gl-commit-select', { id: sha, shift: e.detail.shift });
-	}
-
-	private onSliderMouseOver(_e: MouseEvent) {
-		this.showTooltip(this.slider?.value);
-	}
-
-	private onSliderMouseOut(_e: MouseEvent) {
-		this.hideTooltip();
 	}
 
 	private readonly onZoom = (domain: [Date, Date]) => {
@@ -436,16 +382,6 @@ export class GlTimelineChart extends GlElement {
 		}
 	}
 
-	private showTooltip(datum: TimelineDatum | undefined) {
-		if (datum == null) return;
-
-		this._chart?.tooltip.show({ x: new Date(datum.date) });
-	}
-
-	private hideTooltip() {
-		this._chart?.tooltip.hide();
-	}
-
 	zoom(factor: number): void {
 		if (factor === 0) {
 			this.resetZoom();
@@ -506,7 +442,7 @@ export class GlTimelineChart extends GlElement {
 		return result;
 	}
 
-	private calculateChangeMetrics(dataset: TimelineDatum[]): { q1: number; q3: number; maxChanges: number } {
+	private calculateChangeMetrics(dataset: Commit[]): { q1: number; q3: number; maxChanges: number } {
 		const sortedChanges = dataset.map(c => (c.additions ?? 0) + (c.deletions ?? 0)).sort((a, b) => a - b);
 		return {
 			maxChanges: sortedChanges[sortedChanges.length - 1],
@@ -575,7 +511,7 @@ export class GlTimelineChart extends GlElement {
 
 	@log<GlTimelineChart['prepareChartData']>({ args: { 0: d => d?.length } })
 	private prepareChartData(
-		dataset: TimelineDatum[],
+		dataset: Commit[],
 		metrics: { minRadius: number; maxRadius: number; q1: number; q3: number; maxChanges: number },
 	): PreparedChartData {
 		const commits = dataset.length + 1;
@@ -659,15 +595,27 @@ export class GlTimelineChart extends GlElement {
 	}
 
 	@log({ args: false })
-	private async renderChart(
-		dataPromise: NonNullable<State['dataset']>,
-		loading: ReturnType<typeof defer<void>>,
-		signal: AbortSignal,
-	): Promise<void> {
+	private async updateChart(dataPromise: State['dataset']): Promise<void> {
+		if (this._loading?.pending) return;
+
+		const abortController = this._abortController;
+
+		const loading = defer<void>();
+		this._loading = loading;
+		this.emit('gl-loading', loading.promise);
+
 		const data = await dataPromise;
 
-		if (signal.aborted) {
+		if (abortController?.signal.aborted) {
 			loading?.cancel();
+			return;
+		}
+
+		if (!data?.length) {
+			this._chart?.destroy();
+			this._chart = undefined;
+
+			loading?.fulfill();
 			return;
 		}
 
@@ -686,14 +634,12 @@ export class GlTimelineChart extends GlElement {
 		const { bb, bar, scatter, selection, zoom } = await import(
 			/* webpackChunkName: "lib-billboard" */ 'billboard.js'
 		);
-		if (signal.aborted) {
+		if (abortController?.signal.aborted) {
 			loading?.cancel();
 			return;
 		}
 
-		this.range = data.length
-			? [new Date(data[data.length - 1].date), new Date(data[0].date)]
-			: [new Date(), new Date()];
+		this.range = [new Date(data[data.length - 1].date), new Date(data[0].date)];
 
 		// Initialize plugins
 		bar();
@@ -711,7 +657,7 @@ export class GlTimelineChart extends GlElement {
 
 					onafterinit: () => {
 						this.updateChartSize();
-						setTimeout(() => loading?.fulfill(), 0);
+						setTimeout(() => loading?.fulfill(), 250);
 					},
 					onrendered: this.getOnRenderedCallback(this),
 					// Restore the zoomed domain when the chart is resized, because it gets lost
@@ -758,11 +704,7 @@ export class GlTimelineChart extends GlElement {
 							padding: { top: 75, bottom: 75 },
 							tick: {
 								format: (y: number) => {
-									if (this.compact) {
-										return this.sliceBy === 'branch'
-											? '\u{EA68}' /* git-branch codicon */
-											: '\u{EB99}' /* account codicon */;
-									}
+									if (this.compact) return this.sliceBy === 'branch' ? '\u{EA68}' : '\u{EB99}';
 									return truncateMiddle(this._slicesByIndex.get(y) ?? '', 30);
 								},
 								outer: true,
@@ -835,13 +777,6 @@ export class GlTimelineChart extends GlElement {
 							const commit = this._commitsByTimestamp.get(date.getTime());
 							if (commit == null) return '';
 
-							if (commit.sha === '') {
-								return /*html*/ `<div class="bb-tooltip">
-									<section class="author">Working Tree</section>
-									<section class="message"><span class="message__content">No uncommitted changes</span></section>
-								</div>`;
-							}
-
 							const additions = commit.additions;
 							const deletions = commit.deletions;
 							const additionsLabel =
@@ -895,11 +830,9 @@ export class GlTimelineChart extends GlElement {
 
 				const commit = data[0];
 				this._shaHovered = undefined;
-				this._shaSelected = commit?.sha;
+				this._shaSelected = commit.sha;
 
-				if (commit != null) {
-					this.selectDataPoint(new Date(commit.date), { select: true });
-				}
+				this.selectDataPoint(new Date(commit.date), { select: true });
 			} else {
 				this._chart.config('axis.y.tick.values', yTickValues, false);
 				this._chart.config('axis.y.min', minY, false);
@@ -916,14 +849,11 @@ export class GlTimelineChart extends GlElement {
 						if (commit == null) {
 							commit = data[0];
 							this._shaHovered = undefined;
-							this._shaSelected = commit?.sha;
+							this._shaSelected = commit.sha;
 						}
+						this.selectDataPoint(new Date(commit.date), { select: true });
 
-						if (commit != null) {
-							this.selectDataPoint(new Date(commit.date), { select: true });
-						}
-
-						setTimeout(() => loading?.fulfill(), 0);
+						setTimeout(() => loading?.fulfill(), 250);
 					},
 				});
 			}
@@ -957,12 +887,11 @@ export class GlTimelineChart extends GlElement {
 		const xAxis = this.shadowRoot?.querySelector('.bb-axis.bb-axis-x');
 		if (xAxis == null) return;
 
-		const xAxisRect = xAxis.getBoundingClientRect();
-		const containerRect = this.chartContainer.getBoundingClientRect();
+		const rect = xAxis.getBoundingClientRect();
 
-		this.style.setProperty('--scroller-track-top', `${xAxisRect.top - (containerRect.top - 1)}px`);
-		this.style.setProperty('--scroller-track-left', `${xAxisRect.left + 2}px`);
-		this.style.setProperty('--scroller-track-width', `${xAxisRect.width - 2}px`);
+		this.style.setProperty('--scroller-track-top', `${rect.top}px`);
+		this.style.setProperty('--scroller-track-left', `${rect.left + 2}px`);
+		this.style.setProperty('--scroller-track-width', `${rect.width - 2}px`);
 		// this.style.setProperty('--scroller-track-height', `${rect.height + 2}px`);
 	}
 }
