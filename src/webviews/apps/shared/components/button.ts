@@ -66,6 +66,7 @@ export class GlButton extends LitElement {
 				text-decoration: none;
 
 				width: max-content;
+				max-width: 100%;
 				height: 100%;
 				cursor: pointer;
 			}

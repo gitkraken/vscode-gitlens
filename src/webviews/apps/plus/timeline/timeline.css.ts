@@ -75,22 +75,23 @@ export const timelineStyles = css`
 		font-size: var(--font-size);
 		margin: 0;
 		padding: 0;
-		height: 100%;
-	}
-
-	.container {
-		display: grid;
-		grid-template-rows: min-content 1fr min-content;
-		min-height: 100%;
+		height: 100vh;
 		overflow: hidden;
 	}
 
+	.container {
+		display: flex;
+		flex-direction: column;
+		height: 100%;
+	}
+
 	.header {
+		flex: none;
 		display: grid;
 		grid-template-columns: 1fr min-content;
-		align-items: baseline;
+		align-items: center;
 		grid-template-areas: 'details toolbox';
-		margin: 0.5rem 1rem 0.5rem 2rem;
+		margin: 0.5rem 1rem;
 	}
 
 	:host-context(body[data-placement='editor']) .header {
@@ -102,13 +103,21 @@ export const timelineStyles = css`
 		grid-area: details;
 		display: flex;
 		gap: 1rem;
-		align-items: baseline;
+		align-items: center;
 		font-size: var(--font-size);
 		min-width: 0;
 		margin-right: 1rem;
 	}
 
-	.details span {
+	.details gl-breadcrumbs {
+		flex: 1;
+		min-width: 0;
+		padding: 0.1rem 0;
+		overflow: hidden;
+	}
+
+	.details .details__ref,
+	.details .details__timeframe {
 		min-width: 0;
 		margin: 0;
 		text-overflow: ellipsis;
@@ -116,24 +125,25 @@ export const timelineStyles = css`
 		overflow: hidden;
 	}
 
-	.details__title {
-		flex: 0 1 auto;
+	.details .details__ref {
+		flex: 0 100000000 auto;
+		color: var(--color-foreground--75);
+		font-size: 1.2rem;
+		margin-left: auto;
 	}
 
-	.details__description {
-		flex: 0 1000000000 auto;
-		opacity: 0.7;
-		font-size: 1.1rem;
-	}
-
-	.details__sha {
-		flex: 0 100000 auto;
-		opacity: 0.7;
-		font-size: 1.1rem;
-	}
-
-	.details__sha .sha {
+	.details .details__ref .ref {
 		margin-left: 0.25rem;
+	}
+
+	.details .details__timeframe {
+		flex: 0 0 auto;
+		color: var(--color-foreground--75);
+		margin-right: 0.6rem;
+		user-select: none;
+		white-space: nowrap;
+		font-size: 1.2rem;
+		margin-left: auto;
 	}
 
 	.toolbox {
@@ -154,13 +164,13 @@ export const timelineStyles = css`
 	.select-container {
 		display: flex;
 		align-items: center;
-		justify-content: flex-end;
+		justify-content: space-between;
 		flex: 100% 0 1;
 		position: relative;
 	}
 
 	.select-container label {
-		margin: 0 1em 0 0.5rem;
+		margin: 0 1rem 0 0;
 		font-size: var(--font-size);
 		user-select: none;
 	}
@@ -177,7 +187,7 @@ export const timelineStyles = css`
 		color: var(--vscode-foreground);
 	}
 
-	.period {
+	.select {
 		-webkit-appearance: none;
 		-moz-appearance: none;
 		appearance: none;
@@ -197,9 +207,8 @@ export const timelineStyles = css`
 	}
 
 	.timeline {
-		position: relative;
-		width: 100%;
-		height: 100%;
+		flex: 1;
+		min-height: 0;
 	}
 
 	.timeline__empty {
@@ -215,5 +224,44 @@ export const timelineStyles = css`
 		vertical-align: super;
 		margin-left: 0.4rem;
 		margin-right: 0.4rem;
+	}
+
+	label {
+		min-width: fit-content;
+	}
+
+	label[disabled] {
+		opacity: 0.5;
+	}
+
+	.config__content {
+		display: flex;
+		flex-direction: column;
+		gap: 0.8rem;
+		max-width: 30rem;
+		min-width: 20rem;
+
+		margin-bottom: 0.4rem;
+	}
+
+	.config__content menu-label {
+		padding: 0;
+		margin-bottom: -0.4rem;
+	}
+
+	.config__content section {
+		display: flex;
+		flex-direction: row;
+		align-items: center;
+		justify-content: space-between;
+		gap: 0.5rem;
+	}
+
+	.breadcrumb-item-children {
+		display: flex;
+	}
+
+	.breadcrumb-folder {
+		cursor: pointer;
 	}
 `;
