@@ -14,23 +14,26 @@ export async function getBranchTargetInfo(
 		timeout?: number;
 	},
 ): Promise<BranchTargetInfo> {
-	const [baseResult, defaultResult, targetResult] = await Promise.allSettled([
+	const [baseResult, defaultResult, targetResult, userTargetResult] = await Promise.allSettled([
 		container.git.branches(branch.repoPath).getBaseBranchName?.(branch.name),
 		getDefaultBranchName(container, branch.repoPath, branch.getRemoteName()),
 		getTargetBranchName(container, branch, {
 			cancellation: options?.cancellation,
 			timeout: options?.timeout,
 		}),
+		container.git.branches(branch.repoPath).getUserMergeTargetBranchName?.(branch.name),
 	]);
 
 	const baseBranchName = getSettledValue(baseResult);
 	const defaultBranchName = getSettledValue(defaultResult);
 	const targetMaybeResult = getSettledValue(targetResult);
+	const userTargetBranchName = getSettledValue(userTargetResult);
 
 	return {
 		baseBranch: baseBranchName,
 		defaultBranch: defaultBranchName,
 		targetBranch: targetMaybeResult ?? { value: undefined, paused: false },
+		userTargetBranch: userTargetBranchName,
 	};
 }
 

@@ -627,6 +627,19 @@ export class BranchesGitSubProvider implements GitBranchesSubProvider {
 		await this.provider.config.setConfig(repoPath, mergeBaseConfigKey, base);
 	}
 
+	@log()
+	async getUserMergeTargetBranchName(repoPath: string, ref: string): Promise<string | undefined> {
+		const mergeTargetConfigKey: GitConfigKeys = `branch.${ref}.gk-user-merge-target`;
+		const target = await this.provider.config.getConfig(repoPath, mergeTargetConfigKey);
+		return target?.trim() || undefined;
+	}
+
+	@log()
+	async setUserMergeTargetBranchName(repoPath: string, ref: string, target: string | undefined): Promise<void> {
+		const mergeTargetConfigKey: GitConfigKeys = `branch.${ref}.gk-user-merge-target`;
+		await this.provider.config.setConfig(repoPath, mergeTargetConfigKey, target);
+	}
+
 	private async getBaseBranchFromReflog(
 		repoPath: string,
 		ref: string,

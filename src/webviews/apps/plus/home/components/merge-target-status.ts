@@ -477,18 +477,30 @@ export class GlMergeTargetStatus extends LitElement {
 		return html`<span class="header__actions"
 			>${branchRef && targetRef
 				? html`<gl-button
-						href="${createCommandLink<BranchAndTargetRefs>('gitlens.home.openMergeTargetComparison', {
-							...branchRef,
-							mergeTargetId: targetRef.branchId,
-							mergeTargetName: targetRef.branchName,
-						})}"
-						appearance="toolbar"
-						><code-icon icon="git-compare"></code-icon>
-						<span slot="tooltip"
-							>Compare Branch with Merge Target<br />${renderBranchName(this.branch.name)}
-							&leftrightarrow; ${renderBranchName(this.target?.name)}</span
-						>
-				  </gl-button>`
+							href="${createCommandLink<BranchAndTargetRefs>('gitlens.home.changeBranchMergeTarget', {
+								...branchRef,
+								mergeTargetId: targetRef.branchId,
+								mergeTargetName: targetRef.branchName,
+							})}"
+							appearance="toolbar"
+							><code-icon icon="pencil"></code-icon
+							><span slot="tooltip"
+								>Edit Merge Target<br />${renderBranchName(this.branch.name)} &leftrightarrow;
+								${renderBranchName(this.target?.name)}</span
+							></gl-button
+						><gl-button
+							href="${createCommandLink<BranchAndTargetRefs>('gitlens.home.openMergeTargetComparison', {
+								...branchRef,
+								mergeTargetId: targetRef.branchId,
+								mergeTargetName: targetRef.branchName,
+							})}"
+							appearance="toolbar"
+							><code-icon icon="git-compare"></code-icon>
+							<span slot="tooltip"
+								>Compare Branch with Merge Target<br />${renderBranchName(this.branch.name)}
+								&leftrightarrow; ${renderBranchName(this.target?.name)}</span
+							>
+						</gl-button>`
 				: nothing}<gl-button
 				href="${createCommandLink('gitlens.home.fetch', this.targetBranchRef)}"
 				appearance="toolbar"

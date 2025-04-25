@@ -81,9 +81,14 @@ export async function showComparisonPicker(
 				const branch = await repo?.git.branches().getBranch(head.name);
 				if (branch != null) {
 					const info = await getBranchTargetInfo(container, branch);
-					const target = info.targetBranch.paused
-						? info.baseBranch
-						: info.targetBranch.value ?? info.defaultBranch;
+					let target;
+					if (info.userTargetBranch) {
+						target = info.userTargetBranch;
+					} else if (!info.targetBranch.paused && info.targetBranch.value) {
+						target = info.targetBranch.value;
+					} else {
+						target = info.baseBranch ?? info.defaultBranch;
+					}
 					if (target != null) {
 						base = createReference(target, repoPath, { refType: 'revision' });
 					}

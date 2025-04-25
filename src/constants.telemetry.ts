@@ -157,6 +157,8 @@ export interface TelemetryEvents extends WebviewShowAbortedEvents, WebviewShownE
 	'home/createBranch': void;
 	/** Sent when the user chooses to start work on an issue from the home view */
 	'home/startWork': void;
+	/** Sent when the user starts defining a user-specific merge target branch */
+	'home/changeBranchMergeTarget': void;
 
 	/** Sent when the user takes an action on the Launchpad title bar */
 	'launchpad/title/action': LaunchpadTitleActionEvent;

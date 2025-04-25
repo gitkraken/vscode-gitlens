@@ -258,6 +258,8 @@ export interface GitBranchesSubProvider {
 	setBaseBranchName?(repoPath: string, ref: string, base: string): Promise<void>;
 	getTargetBranchName?(repoPath: string, ref: string): Promise<string | undefined>;
 	setTargetBranchName?(repoPath: string, ref: string, target: string): Promise<void>;
+	getUserMergeTargetBranchName?(repoPath: string, ref: string): Promise<string | undefined>;
+	setUserMergeTargetBranchName?(repoPath: string, ref: string, target: string): Promise<void>;
 	renameBranch?(repoPath: string, oldName: string, newName: string): Promise<void>;
 }
 
