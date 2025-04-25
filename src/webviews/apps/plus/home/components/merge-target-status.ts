@@ -1,6 +1,6 @@
 import { css, html, LitElement, nothing } from 'lit';
 import { customElement, property, state } from 'lit/decorators.js';
-import { ifDefined } from 'lit/directives/if-defined.js';
+import { SubscriptionPlanId } from '../../../../../constants.subscription';
 import type { SubscriptionUpgradeCommandArgs } from '../../../../../plus/gk/models/subscription';
 import { createCommandLink } from '../../../../../system/commands';
 import { pluralize } from '../../../../../system/string';
@@ -12,8 +12,6 @@ import '../../../shared/components/button';
 import '../../../shared/components/button-container';
 import '../../../shared/components/code-icon';
 import '../../../shared/components/overlays/popover';
-import '../../../shared/components/overlays/tooltip';
-import '../../../shared/components/ref-button';
 
 const mergeTargetStyles = css`
 	.header__actions {
@@ -38,20 +36,12 @@ const mergeTargetStyles = css`
 		--color-merge--conflict: var(--vscode-gitlens-decorations\\.statusMergingOrRebasingForegroundColor);
 	}
 
-	.header__title > span {
-		cursor: help;
-	}
-
-	.header__title code-icon:not(.info) {
+	.header__title code-icon {
 		margin-bottom: 0.1rem;
 	}
 
 	.header__title code-icon.status--warning {
 		color: var(--vscode-gitlens-decorations\\.statusMergingOrRebasingForegroundColor);
-	}
-
-	.header__title p {
-		margin: 0.5rem 0 0 0;
 	}
 
 	.header__subtitle {
@@ -193,9 +183,10 @@ const mergeTargetStyles = css`
 		--max-width: 80vw;
 	}
 
-	.target-edit * {
-		text-decoration: underline dotted;
-		text-underline-offset: 0.3rem;
+	.info {
+		cursor: help;
+		display: inline-flex;
+		vertical-align: middle;
 	}
 `;
 
@@ -318,12 +309,14 @@ export class GlMergeTargetStatus extends LitElement {
 
 		if (this.mergedStatus?.merged) {
 			if (this.mergedStatus.localBranchOnly) {
-				return html`${this.renderHeader(
-						`Branch ${
-							this.mergedStatus.confidence !== 'highest' ? 'Likely ' : ''
-						}Merged Locally into Merge Target`,
-						'git-merge',
-					)}
+				return html`<div class="header">
+						<span class="header__title"
+							><code-icon icon="git-merge"></code-icon> Branch
+							${this.mergedStatus.confidence !== 'highest' ? 'Likely ' : ''}Merged Locally into Merge
+							Target&nbsp;${this.renderInfo()}${this.renderCurrentTarget()}</span
+						>
+						${this.renderActions()}
+					</div>
 					<div class="body">
 						<p>
 							Your current branch ${renderBranchName(this.branch.name)} has
@@ -356,15 +349,19 @@ export class GlMergeTargetStatus extends LitElement {
 					</div>`;
 			}
 
-			return html`${this.renderHeader(
-					`Branch ${this.mergedStatus.confidence !== 'highest' ? 'Likely ' : ''}Merged into Merge Target`,
-					'git-merge',
-				)}
+			return html`<div class="header">
+					<span class="header__title"
+						><code-icon icon="git-merge"></code-icon> Branch
+						${this.mergedStatus.confidence !== 'highest' ? 'Likely ' : ''}Merged into Merge
+						Target&nbsp;${this.renderInfo()}${this.renderCurrentTarget()}</span
+					>
+					${this.renderActions()}
+				</div>
 				<div class="body">
 					<p>
 						Your current branch ${renderBranchName(this.branch.name)} has
 						${this.mergedStatus.confidence !== 'highest' ? 'likely ' : ''}been merged into its merge target
-						${this.renderInlineTargetEdit(this.target)}.
+						${target}.
 					</p>
 					<div class="button-container">
 						<gl-button
@@ -382,13 +379,19 @@ export class GlMergeTargetStatus extends LitElement {
 		}
 
 		if (this.conflicts) {
-			return html`${this.renderHeader('Potential Conflicts with Merge Target', 'warning', 'warning')}
+			return html`
+				<div class="header">
+					<span class="header__title"
+						><code-icon class="status--warning" icon="warning"></code-icon> Potential Conflicts with Merge
+						Target&nbsp;${this.renderInfo()}${this.renderCurrentTarget()}</span
+					>
+					${this.renderActions()}
+				</div>
 				<div class="body">
 					${this.status
 						? html`<p>
 								Your current branch ${renderBranchName(this.branch.name)} is
-								${pluralize('commit', this.status.behind)} behind its merge target
-								${this.renderInlineTargetEdit(this.target)}.
+								${pluralize('commit', this.status.behind)} behind its merge target ${target}.
 						  </p>`
 						: nothing}
 					<div class="button-container">
@@ -409,21 +412,26 @@ export class GlMergeTargetStatus extends LitElement {
 						${pluralize('file', this.conflicts.files.length)} that will need to be resolved.
 					</p>
 					${this.renderFiles(this.conflicts.files)}
-				</div>`;
+				</div>
+			`;
 		}
 
 		if (this.status != null) {
 			if (this.status.behind > 0) {
-				return html`${this.renderHeader(
-						`${pluralize('Commit', this.status.behind)} Behind Merge Target`,
-						'arrow-down',
-						'warning',
-					)}
+				return html`<div class="header">
+						<span class="header__title"
+							><code-icon class="status--warning" icon="arrow-down"></code-icon> ${pluralize(
+								'Commit',
+								this.status.behind,
+							)}
+							Behind Merge Target&nbsp;${this.renderInfo()}${this.renderCurrentTarget()}</span
+						>
+						${this.renderActions()}
+					</div>
 					<div class="body">
 						<p>
 							Your current branch ${renderBranchName(this.branch.name)} is
-							${pluralize('commit', this.status.behind)} behind its merge target
-							${this.renderInlineTargetEdit(this.target)}.
+							${pluralize('commit', this.status.behind)} behind its merge target ${target}.
 						</p>
 						<div class="button-container">
 							<gl-button
@@ -444,11 +452,17 @@ export class GlMergeTargetStatus extends LitElement {
 					</div>`;
 			}
 
-			return html`${this.renderHeader('Up to Date with Merge Target', 'check')}
+			return html`<div class="header">
+					<span class="header__title"
+						><code-icon icon="check"></code-icon> Up to Date with Merge
+						Target&nbsp;${this.renderInfo()}${this.renderCurrentTarget()}</span
+					>
+					${this.renderActions()}
+				</div>
 				<div class="body">
 					<p>
 						Your current branch ${renderBranchName(this.branch.name)} is up to date with its merge target
-						${this.renderInlineTargetEdit(this.target)}.
+						${target}.
 					</p>
 				</div>`;
 		}
@@ -456,29 +470,7 @@ export class GlMergeTargetStatus extends LitElement {
 		return nothing;
 	}
 
-	private renderHeader(title: string, icon: string, status?: string) {
-		return html`<div class="header">
-			<gl-tooltip class="header__title">
-				<span>
-					<code-icon
-						icon="${icon}"
-						class="${ifDefined(status ? `status--${status}` : undefined)}"
-					></code-icon>
-					${title}&nbsp;<code-icon class="info" icon="question" size="16"></code-icon>
-				</span>
-				<span slot="content"
-					>${title}
-					<p>
-						The "merge target" is the branch that ${renderBranchName(this.branch.name)} is most likely to be
-						merged into.
-					</p>
-				</span>
-			</gl-tooltip>
-			${this.renderHeaderActions()}
-		</div>`;
-	}
-
-	private renderHeaderActions() {
+	private renderActions() {
 		const branchRef = this.branchRef;
 		const targetRef = this.targetBranchRef;
 
@@ -493,7 +485,8 @@ export class GlMergeTargetStatus extends LitElement {
 							appearance="toolbar"
 							><code-icon icon="pencil"></code-icon
 							><span slot="tooltip"
-								>Change Merge Target<br />${renderBranchName(this.target?.name)}</span
+								>Edit Merge Target<br />${renderBranchName(this.branch.name)} &leftrightarrow;
+								${renderBranchName(this.target?.name)}</span
 							></gl-button
 						><gl-button
 							href="${createCommandLink<BranchAndTargetRefs>('gitlens.home.openMergeTargetComparison', {
@@ -505,9 +498,7 @@ export class GlMergeTargetStatus extends LitElement {
 							><code-icon icon="git-compare"></code-icon>
 							<span slot="tooltip"
 								>Compare Branch with Merge Target<br />${renderBranchName(this.branch.name)}
-								<code-icon icon="arrow-both" size="12"></code-icon> ${renderBranchName(
-									this.target?.name,
-								)}</span
+								&leftrightarrow; ${renderBranchName(this.target?.name)}</span
 							>
 						</gl-button>`
 				: nothing}<gl-button
@@ -519,19 +510,20 @@ export class GlMergeTargetStatus extends LitElement {
 		>`;
 	}
 
-	private renderInlineTargetEdit(target: Awaited<GetOverviewBranch['mergeTarget']>) {
-		return html`<gl-button
-			class="target-edit"
-			appearance="toolbar"
-			density="compact"
-			tooltip="Change Merge Target"
-			href="${createCommandLink<BranchAndTargetRefs>('gitlens.home.changeBranchMergeTarget', {
-				...this.branchRef!,
-				mergeTargetId: this.targetBranchRef!.branchId,
-				mergeTargetName: this.targetBranchRef!.branchName,
-			})}"
-			>${renderBranchName(target?.name)}</gl-button
-		>`;
+	private renderCurrentTarget() {
+		return nothing;
+		// return html`<br />
+		// 	<p class="header__subtitle">Merge Target is ${renderBranchName(this.target?.name)}</p>`;
+	}
+
+	private renderInfo() {
+		return html`<gl-tooltip class="info" position="bottom">
+			<code-icon icon="question" size="16"></code-icon>
+			<span slot="content"
+				>The "merge target" is the branch that ${renderBranchName(this.branch.name)} is most likely to be merged
+				into.</span
+			>
+		</gl-tooltip>`;
 	}
 
 	private renderFiles(files: { path: string }[]) {
@@ -582,7 +574,7 @@ export class GlMergeTargetUpgrade extends LitElement {
 						<gl-button
 							full
 							href="${createCommandLink<SubscriptionUpgradeCommandArgs>('gitlens.plus.upgrade', {
-								plan: 'pro',
+								plan: SubscriptionPlanId.Pro,
 								source: 'merge-target',
 							})}"
 							>Upgrade to Pro</gl-button

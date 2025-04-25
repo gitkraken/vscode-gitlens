@@ -1,6 +1,6 @@
 import type { Container } from '../container';
 import type { GitReference } from '../git/models/reference';
-import { getBranchMergeTargetInfo } from '../git/utils/-webview/branch.utils';
+import { getBranchTargetInfo } from '../git/utils/-webview/branch.utils';
 import { createReference, getReferenceLabel, isBranchReference } from '../git/utils/reference.utils';
 import { getRevisionRangeParts, isRevisionRange } from '../git/utils/revision.utils';
 import { Directive } from './items/directive';
@@ -77,12 +77,15 @@ export async function showComparisonPicker(
 
 			if (isBranchReference(head)) {
 				// get the merge target for the branch
-				const branch = await container.git.getRepositoryService(repoPath).branches.getBranch(head.name);
+				const repo = container.git.getRepository(repoPath);
+				const branch = await repo?.git.branches().getBranch(head.name);
 				if (branch != null) {
-					const info = await getBranchMergeTargetInfo(container, branch);
+					const info = await getBranchTargetInfo(container, branch);
 					let target;
-					if (!info.mergeTargetBranch.paused && info.mergeTargetBranch.value) {
-						target = info.mergeTargetBranch.value;
+					if (info.userTargetBranch) {
+						target = info.userTargetBranch;
+					} else if (!info.targetBranch.paused && info.targetBranch.value) {
+						target = info.targetBranch.value;
 					} else {
 						target = info.baseBranch ?? info.defaultBranch;
 					}

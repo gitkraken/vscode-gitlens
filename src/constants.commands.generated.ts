@@ -621,6 +621,7 @@ export type ContributedPaletteCommands =
 	| 'gitlens.browseRepoAtRevisionInNewWindow'
 	| 'gitlens.browseRepoBeforeRevision'
 	| 'gitlens.browseRepoBeforeRevisionInNewWindow'
+	| 'gitlens.changeBranchMergeTarget'
 	| 'gitlens.clearFileAnnotations'
 	| 'gitlens.closeUnchangedFiles'
 	| 'gitlens.compareHeadWith'
