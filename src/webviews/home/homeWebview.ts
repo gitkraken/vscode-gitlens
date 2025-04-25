@@ -4,6 +4,7 @@ import { ActionRunnerType } from '../../api/actionRunners';
 import type { CreatePullRequestActionContext } from '../../api/gitlens';
 import type { EnrichedAutolink } from '../../autolinks/models/autolinks';
 import { getAvatarUriFromGravatarEmail } from '../../avatars';
+import type { ChangeBranchMergeTargetCommandArgs } from '../../commands/changeBranchMergeTarget';
 import type { BranchGitCommandArgs } from '../../commands/git/branch';
 import type { OpenPullRequestOnRemoteCommandArgs } from '../../commands/openPullRequestOnRemote';
 import { GlyphChars, urls } from '../../constants';
@@ -333,6 +334,7 @@ export class HomeWebviewProvider implements WebviewProvider<State, State, HomeWe
 				(src?: Source) => this.container.subscription.validate({ force: true }, src),
 				this,
 			),
+			registerCommand('gitlens.home.changeBranchMergeTarget', this.changeBranchMergeTarget, this),
 			registerCommand('gitlens.home.deleteBranchOrWorktree', this.deleteBranchOrWorktree, this),
 			registerCommand('gitlens.home.pushBranch', this.pushBranch, this),
 			registerCommand('gitlens.home.openMergeTargetComparison', this.mergeTargetCompare, this),
@@ -486,6 +488,19 @@ export class HomeWebviewProvider implements WebviewProvider<State, State, HomeWe
 				suggestNameOnly: true,
 				suggestRepoOnly: true,
 				confirmOptions: ['--switch', '--worktree'],
+			},
+		});
+	}
+
+	@log<HomeWebviewProvider['changeBranchMergeTarget']>()
+	private changeBranchMergeTarget(ref: BranchAndTargetRefs) {
+		this.container.telemetry.sendEvent('home/changeBranchMergeTarget');
+		void executeCommand<ChangeBranchMergeTargetCommandArgs>('gitlens.changeBranchMergeTarget', {
+			command: 'changeBranchMergeTarget',
+			state: {
+				repo: ref.repoPath,
+				branch: ref.branchName,
+				mergeBranch: ref.mergeTargetName,
 			},
 		});
 	}
@@ -1682,7 +1697,9 @@ async function getBranchMergeTargetStatusInfo(
 	});
 
 	let targetResult;
-	if (!info.targetBranch.paused && info.targetBranch.value) {
+	if (info.userTargetBranch) {
+		targetResult = info.userTargetBranch;
+	} else if (!info.targetBranch.paused && info.targetBranch.value) {
 		targetResult = info.targetBranch.value;
 	}
 

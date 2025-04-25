@@ -33,6 +33,7 @@ type InternalGraphWebviewCommands =
 	| 'gitlens.graph.skipPausedOperation';
 
 type InternalHomeWebviewCommands =
+	| 'gitlens.home.changeBranchMergeTarget'
 	| 'gitlens.home.deleteBranchOrWorktree'
 	| 'gitlens.home.pushBranch'
 	| 'gitlens.home.openMergeTargetComparison'
@@ -103,6 +104,7 @@ type InternalWalkthroughCommands =
 
 type InternalGlCommands =
 	| `gitlens.action.${string}`
+	| 'gitlens.changeBranchMergeTarget'
 	| 'gitlens.diffWith'
 	| 'gitlens.openOnRemote'
 	| 'gitlens.openWalkthrough'

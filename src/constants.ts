@@ -49,6 +49,7 @@ export const enum CharCode {
 
 export type GitConfigKeys =
 	| `branch.${string}.${'gk' | 'vscode'}-merge-base`
+	| `branch.${string}.gk-user-merge-target`
 	| `branch.${string}.gk-target-base`
 	| `branch.${string}.gk-associated-issues`
 	| `branch.${string}.github-pr-owner-number`;

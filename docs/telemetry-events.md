@@ -1160,6 +1160,14 @@ or
 }
 ```
 
+### home/changeBranchMergeTarget
+
+> Sent when the user starts defining a user-specific merge target branch
+
+```typescript
+void
+```
+
 ### home/command
 
 > Sent when a Home command is executed
