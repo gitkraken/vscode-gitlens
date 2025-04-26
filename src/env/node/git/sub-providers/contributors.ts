@@ -151,21 +151,27 @@ export class ContributorsGitSubProvider implements GitContributorsSubProvider {
 	@log()
 	async getContributorsStats(
 		repoPath: string,
-		options?: { merges?: boolean; since?: string },
+		options?: { merges?: boolean | 'first-parent'; since?: string; timeout?: number },
 	): Promise<GitContributorsStats | undefined> {
 		if (repoPath == null) return undefined;
 
 		const scope = getLogScope();
 
 		try {
-			const result = await this.git.exec(
-				{ cwd: repoPath },
-				'shortlog',
-				'-s',
-				'--all',
-				!options?.merges ? '--no-merges' : undefined,
-				options?.since ? `--since=${options.since}` : undefined,
-			);
+			const args = ['shortlog', '-s', '--all'];
+
+			const merges = options?.merges ?? true;
+			if (merges) {
+				args.push(merges === 'first-parent' ? '--first-parent' : '--no-min-parents');
+			} else {
+				args.push('--no-merges');
+			}
+
+			if (options?.since) {
+				args.push(`--since=${options.since}`);
+			}
+
+			const result = await this.git.exec({ cwd: repoPath, timeout: options?.timeout }, ...args);
 			if (!result.stdout) return undefined;
 
 			const contributions = result.stdout
@@ -174,10 +180,7 @@ export class ContributorsGitSubProvider implements GitContributorsSubProvider {
 				.filter(c => !isNaN(c))
 				.sort((a, b) => b - a);
 
-			return {
-				count: contributions.length,
-				contributions: contributions,
-			} satisfies GitContributorsStats;
+			return { count: contributions.length, contributions: contributions } satisfies GitContributorsStats;
 		} catch (ex) {
 			Logger.error(ex, scope);
 			debugger;

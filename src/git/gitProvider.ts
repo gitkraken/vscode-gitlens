@@ -339,7 +339,7 @@ export interface GitConfigSubProvider {
 export interface GitContributorsSubProvider {
 	getContributorsStats(
 		repoPath: string,
-		options?: { merges?: boolean; since?: string },
+		options?: { merges?: boolean | 'first-parent'; since?: string; timeout?: number },
 	): Promise<GitContributorsStats | undefined>;
 	getContributors(
 		repoPath: string,

@@ -64,7 +64,7 @@ export class ContributorsGitSubProvider implements GitContributorsSubProvider {
 	@log()
 	async getContributorsStats(
 		repoPath: string,
-		_options?: { merges?: boolean; since?: string },
+		_options?: { merges?: boolean | 'first-parent'; since?: string; timeout?: number },
 	): Promise<GitContributorsStats | undefined> {
 		if (repoPath == null) return undefined;
 
