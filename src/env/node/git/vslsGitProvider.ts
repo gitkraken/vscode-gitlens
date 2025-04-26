@@ -9,6 +9,7 @@ import { isFolderUri } from '../../../system/-webview/path';
 import { addVslsPrefixIfNeeded } from '../../../system/-webview/path.vsls';
 import { Logger } from '../../../system/logger';
 import { getLogScope } from '../../../system/logger.scope';
+import type { GitResult } from './git';
 import { Git } from './git';
 import { LocalGitProvider } from './localGitProvider';
 
@@ -17,7 +18,7 @@ export class VslsGit extends Git {
 		super();
 	}
 
-	override async exec<T extends string | Buffer>(options: GitCommandOptions, ...args: any[]): Promise<T> {
+	override async exec<T extends string | Buffer>(options: GitCommandOptions, ...args: any[]): Promise<GitResult<T>> {
 		if (options.local) {
 			// Since we will have a live share path here, just blank it out
 			options.cwd = '';

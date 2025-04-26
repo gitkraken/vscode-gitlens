@@ -39,11 +39,8 @@ export class StagingGitSubProvider implements GitStagingSubProvider {
 			// Create the temp index file from a base ref/sha
 
 			// Get the tree of the base
-			const newIndex = await this.git.exec(
-				{
-					cwd: repoPath,
-					env: env,
-				},
+			const newIndexResult = await this.git.exec(
+				{ cwd: repoPath, env: env },
 				'ls-tree',
 				'-z',
 				'-r',
@@ -53,23 +50,13 @@ export class StagingGitSubProvider implements GitStagingSubProvider {
 
 			// Write the tree to our temp index
 			await this.git.exec(
-				{
-					cwd: repoPath,
-					env: env,
-					stdin: newIndex,
-				},
+				{ cwd: repoPath, env: env, stdin: newIndexResult.stdout },
 				'update-index',
 				'-z',
 				'--index-info',
 			);
 
-			return mixinAsyncDisposable(
-				{
-					path: tempIndex,
-					env: { GIT_INDEX_FILE: tempIndex },
-				},
-				dispose,
-			);
+			return mixinAsyncDisposable({ path: tempIndex, env: { GIT_INDEX_FILE: tempIndex } }, dispose);
 		} catch (ex) {
 			Logger.error(ex, scope);
 			debugger;

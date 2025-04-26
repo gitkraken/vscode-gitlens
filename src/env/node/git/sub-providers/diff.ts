@@ -61,7 +61,7 @@ export class DiffGitSubProvider implements GitDiffSubProvider {
 		}
 
 		try {
-			const data = await this.git.exec(
+			const result = await this.git.exec(
 				{ cwd: repoPath, configs: gitDiffDefaultConfigs },
 				'diff',
 				'--shortstat',
@@ -70,8 +70,9 @@ export class DiffGitSubProvider implements GitDiffSubProvider {
 				'--',
 				...(options?.uris?.map(u => this.provider.getRelativePath(u, repoPath)) ?? []),
 			);
-			if (!data) return undefined;
-			return parseGitDiffShortStat(data);
+			if (!result.stdout) return undefined;
+
+			return parseGitDiffShortStat(result.stdout);
 		} catch (ex) {
 			const msg: string = ex?.toString() ?? '';
 			if (GitErrors.noMergeBase.test(msg)) {
@@ -128,9 +129,9 @@ export class DiffGitSubProvider implements GitDiffSubProvider {
 			}
 		}
 
-		let data;
+		let result;
 		try {
-			data = await this.git.exec(
+			result = await this.git.exec(
 				{ cwd: repoPath, configs: gitLogDefaultConfigs, errors: GitErrorHandling.Throw },
 				'diff',
 				...args,
@@ -146,14 +147,13 @@ export class DiffGitSubProvider implements GitDiffSubProvider {
 			}
 		}
 
-		const diff: GitDiff = { contents: data, from: from, to: to, notation: options?.notation };
+		const diff: GitDiff = { contents: result.stdout, from: from, to: to, notation: options?.notation };
 		return diff;
 	}
 
 	@log({ args: { 1: false } })
 	async getDiffFiles(repoPath: string, contents: string): Promise<GitDiffFiles | undefined> {
-		// const data = await this.git.apply2(repoPath, { stdin: contents }, '--numstat', '--summary', '-z');
-		const data = await this.git.exec(
+		const result = await this.git.exec(
 			{ cwd: repoPath, configs: gitLogDefaultConfigs, stdin: contents },
 			'apply',
 			'--numstat',
@@ -161,10 +161,9 @@ export class DiffGitSubProvider implements GitDiffSubProvider {
 			'-z',
 			'-',
 		);
+		if (!result.stdout) return undefined;
 
-		if (!data) return undefined;
-
-		const files = parseGitApplyFiles(this.container, data, repoPath);
+		const files = parseGitApplyFiles(this.container, result.stdout, repoPath);
 		return {
 			files: files,
 		};
@@ -180,7 +179,7 @@ export class DiffGitSubProvider implements GitDiffSubProvider {
 		try {
 			const similarityThreshold =
 				options?.similarityThreshold ?? configuration.get('advanced.similarityThreshold') ?? undefined;
-			const data = await this.git.exec(
+			const result = await this.git.exec(
 				{ cwd: repoPath, configs: gitDiffDefaultConfigs },
 				'diff',
 				'--name-status',
@@ -193,9 +192,9 @@ export class DiffGitSubProvider implements GitDiffSubProvider {
 				'--',
 				options?.path ? options.path : undefined,
 			);
-			if (!data) return undefined;
+			if (!result.stdout) return undefined;
 
-			const files = parseGitDiffNameStatusFiles(data, repoPath);
+			const files = parseGitDiffNameStatusFiles(result.stdout, repoPath);
 			return files == null || files.length === 0 ? undefined : files;
 		} catch (_ex) {
 			return undefined;
@@ -311,12 +310,12 @@ export class DiffGitSubProvider implements GitDiffSubProvider {
 			// Follow file history and specify the file path
 			args.push('--follow', '--', relativePath);
 
-			const data = await this.git.exec({ cwd: repoPath, configs: gitLogDefaultConfigs }, ...args);
-			if (!data?.length) return undefined;
+			const result = await this.git.exec({ cwd: repoPath, configs: gitLogDefaultConfigs }, ...args);
+			if (!result.stdout) return undefined;
 
 			let next;
 			let file;
-			for (const commit of parser.parse(data)) {
+			for (const commit of parser.parse(result.stdout)) {
 				next = commit;
 
 				const path = relativePath;
@@ -332,14 +331,20 @@ export class DiffGitSubProvider implements GitDiffSubProvider {
 
 			// If the file was deleted, check for a possible copy/rename
 			if (file?.status === 'D') {
-				const result = await findPathStatusChanged(this.git, repoPath, file.path ?? relativePath, next.sha, {
-					filters: ['R', 'C'],
-				});
+				const pathResult = await findPathStatusChanged(
+					this.git,
+					repoPath,
+					file.path ?? relativePath,
+					next.sha,
+					{
+						filters: ['R', 'C'],
+					},
+				);
 
 				return GitUri.fromFile(
-					result?.file?.path ?? file.path ?? relativePath,
+					pathResult?.file?.path ?? file.path ?? relativePath,
 					repoPath,
-					result?.sha ?? next.sha ?? deletedOrMissing,
+					pathResult?.sha ?? next.sha ?? deletedOrMissing,
 				);
 			}
 
@@ -576,12 +581,12 @@ export class DiffGitSubProvider implements GitDiffSubProvider {
 				args.push('--follow', '--', relativePath);
 			}
 
-			const data = await this.git.exec({ cwd: repoPath, configs: gitLogDefaultConfigs }, ...args);
-			if (!data?.length) return undefined;
+			const result = await this.git.exec({ cwd: repoPath, configs: gitLogDefaultConfigs }, ...args);
+			if (!result.stdout) return undefined;
 
 			let previous;
 			let file;
-			for (const commit of parser.parse(data)) {
+			for (const commit of parser.parse(result.stdout)) {
 				previous = commit;
 
 				const path = relativePath;
@@ -759,7 +764,7 @@ export async function findPathStatusChanged(
 
 	const ordering = options?.ordering ?? configuration.get('advanced.commitOrdering');
 
-	const data = await git.exec(
+	const result = await git.exec(
 		{ cwd: repoPath, configs: gitLogDefaultConfigs },
 		'log',
 		...parser.arguments,
@@ -770,7 +775,7 @@ export async function findPathStatusChanged(
 		'--',
 	);
 
-	const commit = first(parser.parse(data));
+	const commit = first(parser.parse(result.stdout));
 	if (commit == null) return undefined;
 
 	const file = commit.files.find(f => f.path === pathspec || f.originalPath === pathspec);

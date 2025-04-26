@@ -50,7 +50,7 @@ import { Logger } from '../../../../system/logger';
 import { getLogScope } from '../../../../system/logger.scope';
 import type { CachedLog } from '../../../../trackers/trackedDocument';
 import { GitDocumentState } from '../../../../trackers/trackedDocument';
-import type { Git } from '../git';
+import type { Git, GitResult } from '../git';
 import { GitErrors, gitLogDefaultConfigs, gitLogDefaultConfigsWithFiles } from '../git';
 import type { LocalGitProviderInternal } from '../localGitProvider';
 import { convertStashesToStdin } from './stash';
@@ -87,7 +87,7 @@ export class CommitsGitSubProvider implements GitCommitsSubProvider {
 		if (revs.length > 1) {
 			const parser = getShaAndDatesLogParser();
 			// Ensure the revs are in reverse committer date order
-			const data = await this.git.exec(
+			const result = await this.git.exec(
 				{ cwd: repoPath, stdin: join(revs, '\n') },
 				'log',
 				'--no-walk',
@@ -95,7 +95,7 @@ export class CommitsGitSubProvider implements GitCommitsSubProvider {
 				...parser.arguments,
 				'--',
 			);
-			const commits = [...parser.parse(data)].sort(
+			const commits = [...parser.parse(result.stdout)].sort(
 				(c1, c2) => Number(c1.committerDate) - Number(c2.committerDate),
 			);
 			revs = commits.map(c => c.sha);
@@ -145,19 +145,24 @@ export class CommitsGitSubProvider implements GitCommitsSubProvider {
 
 	@log({ exit: true })
 	async getCommitCount(repoPath: string, rev: string): Promise<number | undefined> {
-		const data = (
-			await this.git.exec({ cwd: repoPath, errors: GitErrorHandling.Ignore }, 'rev-list', '--count', rev, '--')
-		)?.trim();
-		if (!data?.length) return undefined;
+		const result = await this.git.exec(
+			{ cwd: repoPath, errors: GitErrorHandling.Ignore },
+			'rev-list',
+			'--count',
+			rev,
+			'--',
+		);
+		const data = result.stdout.trim();
+		if (!data) return undefined;
 
-		const result = parseInt(data, 10);
-		return isNaN(result) ? undefined : result;
+		const count = parseInt(data, 10);
+		return isNaN(count) ? undefined : count;
 	}
 
 	@log()
 	async getCommitFiles(repoPath: string, rev: string): Promise<GitFileChange[]> {
 		const parser = getShaAndFilesAndStatsLogParser();
-		const data = await this.git.exec(
+		const result = await this.git.exec(
 			{ cwd: repoPath, configs: gitLogDefaultConfigs },
 			'log',
 			...parser.arguments,
@@ -166,7 +171,7 @@ export class CommitsGitSubProvider implements GitCommitsSubProvider {
 			'--',
 		);
 
-		const files = first(parser.parse(data))?.files.map(
+		const files = first(parser.parse(result.stdout))?.files.map(
 			f =>
 				new GitFileChange(
 					this.container,
@@ -243,14 +248,13 @@ export class CommitsGitSubProvider implements GitCommitsSubProvider {
 		}
 
 		try {
-			const data = await this.git.exec(
+			const result = await this.git.exec(
 				{ cwd: repoPath, cancellation: options?.cancellation, configs: gitLogDefaultConfigs },
 				'log',
 				...args,
 			);
-			if (data == null) return undefined;
 
-			const reflog = parseGitRefLog(this.container, data, repoPath, reflogCommands, limit, limit * 100);
+			const reflog = parseGitRefLog(this.container, result.stdout, repoPath, reflogCommands, limit, limit * 100);
 			if (reflog?.hasMore) {
 				reflog.more = this.getReflogMoreFn(reflog, options);
 			}
@@ -298,14 +302,14 @@ export class CommitsGitSubProvider implements GitCommitsSubProvider {
 	@log({ exit: true })
 	async getInitialCommitSha(repoPath: string): Promise<string | undefined> {
 		try {
-			const data = await this.git.exec(
+			const result = await this.git.exec(
 				{ cwd: repoPath, errors: GitErrorHandling.Ignore },
 				'rev-list',
 				`--max-parents=0`,
 				'HEAD',
 				'--',
 			);
-			return data?.trim().split('\n')?.[0];
+			return result.stdout.trim().split('\n')?.[0];
 		} catch {
 			return undefined;
 		}
@@ -319,7 +323,7 @@ export class CommitsGitSubProvider implements GitCommitsSubProvider {
 	): Promise<LeftRightCommitCountResult | undefined> {
 		const authors = options?.authors?.length ? options.authors.map(a => `--author=^${a.name} <${a.email}>$`) : [];
 
-		const data = await this.git.exec(
+		const result = await this.git.exec(
 			{ cwd: repoPath, errors: GitErrorHandling.Ignore },
 			'rev-list',
 			'--left-right',
@@ -329,20 +333,20 @@ export class CommitsGitSubProvider implements GitCommitsSubProvider {
 			range,
 			'--',
 		);
-		if (!data?.length) return undefined;
+		if (!result.stdout) return undefined;
 
-		const parts = data.split('\t');
+		const parts = result.stdout.split('\t');
 		if (parts.length !== 2) return undefined;
 
 		const [left, right] = parts;
-		const result = {
+		const counts = {
 			left: parseInt(left, 10),
 			right: parseInt(right, 10),
 		};
 
-		if (isNaN(result.left) || isNaN(result.right)) return undefined;
+		if (isNaN(counts.left) || isNaN(counts.right)) return undefined;
 
-		return result;
+		return counts;
 	}
 
 	@log()
@@ -914,12 +918,12 @@ export class CommitsGitSubProvider implements GitCommitsSubProvider {
 				args.push(pathspec);
 			}
 
-			const data = await this.git.exec(
+			const result = await this.git.exec(
 				{ cwd: repoPath, cancellation: options?.cancellation, configs: gitLogDefaultConfigs },
 				'log',
 				...args,
 			);
-			return parser.parse(data);
+			return parser.parse(result.stdout);
 		} catch (ex) {
 			Logger.error(ex, scope);
 			debugger;
@@ -942,7 +946,7 @@ export class CommitsGitSubProvider implements GitCommitsSubProvider {
 				args.push(`--${ordering}-order`);
 			}
 
-			const data = await this.git.exec(
+			const result = await this.git.exec(
 				{ cwd: repoPath, configs: gitLogDefaultConfigs },
 				'log',
 				...parser.arguments,
@@ -952,7 +956,7 @@ export class CommitsGitSubProvider implements GitCommitsSubProvider {
 				'--',
 				relativePath,
 			);
-			return first(parser.parse(data));
+			return first(parser.parse(result.stdout));
 		} catch (ex) {
 			Logger.error(ex, scope);
 			return undefined;
@@ -970,14 +974,14 @@ export class CommitsGitSubProvider implements GitCommitsSubProvider {
 	async isAncestorOf(repoPath: string, rev1: string, rev2: string): Promise<boolean> {
 		if (repoPath == null) return false;
 
-		const exitCode = await this.git.exec(
+		const result = await this.git.exec(
 			{ cwd: repoPath, exitCodeOnly: true },
 			'merge-base',
 			'--is-ancestor',
 			rev1,
 			rev2,
 		);
-		return exitCode === 0;
+		return result.exitCode === 0;
 	}
 
 	@log<CommitsGitSubProvider['searchCommits']>({
@@ -1187,7 +1191,7 @@ function getGitStartEnd(range: Range): [number, number] {
 async function parseCommits(
 	container: Container,
 	parser: CommitsLogParser | CommitsWithFilesLogParser | CommitsInFileRangeLogParser,
-	dataOrStream: Promise<string> | AsyncGenerator<string>,
+	resultOrStream: Promise<GitResult<string>> | AsyncGenerator<string>,
 	repoPath: string,
 	pathspec: string | undefined,
 	limit: number | undefined,
@@ -1198,11 +1202,11 @@ async function parseCommits(
 	let countStashChildCommits = 0;
 	const commits = new Map<string, GitCommit>();
 
-	if (dataOrStream instanceof Promise) {
-		const data = await dataOrStream;
+	if (resultOrStream instanceof Promise) {
+		const result = await resultOrStream;
 
 		if (stashes?.size) {
-			for (const c of parser.parse(data)) {
+			for (const c of parser.parse(result.stdout)) {
 				count++;
 				if (limit && count > limit) break;
 
@@ -1219,7 +1223,7 @@ async function parseCommits(
 				commits.set(c.sha, createCommit(container, c, repoPath, pathspec, currentUser));
 			}
 		} else {
-			for (const c of parser.parse(data)) {
+			for (const c of parser.parse(result.stdout)) {
 				count++;
 				if (limit && count > limit) break;
 
@@ -1231,7 +1235,7 @@ async function parseCommits(
 	}
 
 	if (stashes?.size) {
-		for await (const c of parser.parseAsync(dataOrStream)) {
+		for await (const c of parser.parseAsync(resultOrStream)) {
 			count++;
 			if (limit && count > limit) break;
 
@@ -1248,7 +1252,7 @@ async function parseCommits(
 			commits.set(c.sha, createCommit(container, c, repoPath, pathspec, currentUser));
 		}
 	} else {
-		for await (const c of parser.parseAsync(dataOrStream)) {
+		for await (const c of parser.parseAsync(resultOrStream)) {
 			count++;
 			if (limit && count > limit) break;
 

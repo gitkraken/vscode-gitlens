@@ -48,20 +48,19 @@ export class TagsGitSubProvider implements GitTagsSubProvider {
 				try {
 					const parser = getTagParser();
 
-					const data = await this.git.exec(
+					const result = await this.git.exec(
 						{ cwd: repoPath },
 						'for-each-ref',
 						...parser.arguments,
 						'refs/tags/',
 					);
-
-					if (!data?.length) return emptyPagedResult;
+					if (!result.stdout) return emptyPagedResult;
 
 					using sw = maybeStopWatch(scope, { log: false, logLevel: 'debug' });
 
 					const tags: GitTag[] = [];
 
-					for (const entry of parser.parse(data)) {
+					for (const entry of parser.parse(result.stdout)) {
 						tags.push(
 							new GitTag(
 								this.container,
@@ -113,10 +112,10 @@ export class TagsGitSubProvider implements GitTagsSubProvider {
 		sha: string,
 		options?: { commitDate?: Date; mode?: 'contains' | 'pointsAt' },
 	): Promise<string[]> {
-		const data = await this.git.branchOrTag__containsOrPointsAt(repoPath, [sha], { type: 'tag', ...options });
-		if (!data) return [];
+		const result = await this.git.branchOrTag__containsOrPointsAt(repoPath, [sha], { type: 'tag', ...options });
+		if (!result.stdout) return [];
 
-		return filterMap(data.split('\n'), b => b.trim() || undefined);
+		return filterMap(result.stdout.split('\n'), b => b.trim() || undefined);
 	}
 
 	@log()

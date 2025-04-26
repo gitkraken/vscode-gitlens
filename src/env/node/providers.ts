@@ -6,6 +6,7 @@ import type { SharedGkStorageLocationProvider } from '../../plus/repos/sharedGkS
 import type { GkWorkspacesSharedStorageProvider } from '../../plus/workspaces/workspacesSharedStorageProvider';
 import { configuration } from '../../system/-webview/configuration';
 // import { GitHubGitProvider } from '../../plus/github/githubGitProvider';
+import type { GitResult } from './git/git';
 import { Git } from './git/git';
 import { LocalGitProvider } from './git/localGitProvider';
 import { VslsGit, VslsGitProvider } from './git/vslsGitProvider';
@@ -22,7 +23,7 @@ function ensureGit() {
 	return gitInstance;
 }
 
-export function git(options: GitCommandOptions, ...args: any[]): Promise<string | Buffer> {
+export function git(options: GitCommandOptions, ...args: any[]): Promise<GitResult<string | Buffer>> {
 	return ensureGit().exec(options, ...args);
 }
 

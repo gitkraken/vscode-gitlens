@@ -93,7 +93,7 @@ export class BranchesGitSubProvider implements GitBranchesSubProvider {
 					commitOrdering ? `--${commitOrdering}-order` : undefined,
 					'--',
 				)
-				.then(data => (!data.length ? undefined : data.trim())),
+				.then(result => (result.stdout ? result.stdout.trim() : undefined)),
 			this.provider.config.getDefaultWorktreePath?.(repoPath),
 		]);
 
@@ -136,7 +136,7 @@ export class BranchesGitSubProvider implements GitBranchesSubProvider {
 					const supported = await this.git.supported('git:for-each-ref');
 					const parser = getBranchParser(supported);
 
-					const data = await this.git.exec(
+					const result = await this.git.exec(
 						{ cwd: repoPath },
 						'for-each-ref',
 						...parser.arguments,
@@ -144,7 +144,7 @@ export class BranchesGitSubProvider implements GitBranchesSubProvider {
 						'refs/remotes/',
 					);
 					// If we don't get any data, assume the repo doesn't have any commits yet so check if we have a current branch
-					if (!data?.length) {
+					if (!result.stdout) {
 						const current = await this.getCurrentBranch(repoPath);
 						return current != null ? { values: [current] } : emptyPagedResult;
 					}
@@ -157,7 +157,7 @@ export class BranchesGitSubProvider implements GitBranchesSubProvider {
 
 					let hasCurrent = false;
 
-					for (const entry of parser.parse(data)) {
+					for (const entry of parser.parse(result.stdout)) {
 						// Skip HEAD refs in remote branches
 						if (isRemoteHEAD(entry.name)) continue;
 
@@ -323,18 +323,22 @@ export class BranchesGitSubProvider implements GitBranchesSubProvider {
 			| { commitDate?: Date; mode?: 'contains' | 'pointsAt'; remotes?: boolean },
 	): Promise<string[]> {
 		if (branch != null) {
-			const data = await this.git.branchOrTag__containsOrPointsAt(repoPath, commits, {
+			const result = await this.git.branchOrTag__containsOrPointsAt(repoPath, commits, {
 				type: 'branch',
 				mode: 'contains',
 				name: branch,
 			});
-			return data ? [data?.trim()] : [];
+			const data = result.stdout.trim();
+			return data ? [data] : [];
 		}
 
-		const data = await this.git.branchOrTag__containsOrPointsAt(repoPath, commits, { type: 'branch', ...options });
-		if (!data) return [];
+		const result = await this.git.branchOrTag__containsOrPointsAt(repoPath, commits, {
+			type: 'branch',
+			...options,
+		});
+		if (!result.stdout) return [];
 
-		return filterMap(data.split('\n'), b => b.trim() || undefined);
+		return filterMap(result.stdout.split('\n'), b => b.trim() || undefined);
 	}
 
 	@log()
@@ -453,11 +457,11 @@ export class BranchesGitSubProvider implements GitBranchesSubProvider {
 			} catch {}
 
 			// Cherry-pick detection (handles cherry-picks, rebases, etc)
-			let data = await this.git.exec({ cwd: repoPath }, 'cherry', '--abbrev', '-v', into.name, branch.name);
+			let result = await this.git.exec({ cwd: repoPath }, 'cherry', '--abbrev', '-v', into.name, branch.name);
 			// Check if there are no lines or all lines startwith a `-` (i.e. likely merged)
 			if (
-				!data ||
-				data
+				!result.stdout ||
+				result.stdout
 					.trim()
 					.split('\n')
 					.every(l => l.startsWith('-'))
@@ -467,21 +471,21 @@ export class BranchesGitSubProvider implements GitBranchesSubProvider {
 
 			// Attempt to detect squash merges by checking if the diff of the branch can be cleanly removed from the target
 			const mergeBase = await this.provider.refs.getMergeBase(repoPath, into.name, branch.name);
-			data = await this.git.exec({ cwd: repoPath }, 'diff', mergeBase, branch.name);
-			if (data?.length) {
+			result = await this.git.exec({ cwd: repoPath }, 'diff', mergeBase, branch.name);
+			if (result.stdout) {
 				// Create a temporary index file
 				await using disposableIndex = await this.provider.staging!.createTemporaryIndex(repoPath, into.name);
 				const { env } = disposableIndex;
 
-				data = await this.git.exec(
-					{ cwd: repoPath, env: env, stdin: data },
+				result = await this.git.exec(
+					{ cwd: repoPath, env: env, stdin: result.stdout },
 					'apply',
 					'--cached',
 					'--reverse',
 					'--check',
 					'-',
 				);
-				if (!data?.trim().length) {
+				if (!result.stdout.trim()) {
 					return { merged: true, confidence: 'medium' };
 				}
 			}
@@ -519,7 +523,7 @@ export class BranchesGitSubProvider implements GitBranchesSubProvider {
 
 			let data;
 			try {
-				data = await this.git.exec(
+				const result = await this.git.exec(
 					{ cwd: repoPath, errors: GitErrorHandling.Throw },
 					'merge-tree',
 					'-z',
@@ -528,6 +532,7 @@ export class BranchesGitSubProvider implements GitBranchesSubProvider {
 					branch,
 					targetBranch,
 				);
+				data = result.stdout;
 			} catch (ex) {
 				const msg: string = ex?.toString() ?? '';
 				if (GitErrors.notAValidObjectName.test(msg)) {
@@ -628,9 +633,9 @@ export class BranchesGitSubProvider implements GitBranchesSubProvider {
 		options?: { upstream: true },
 	): Promise<string | undefined> {
 		try {
-			let data = await this.git.exec({ cwd: repoPath }, 'reflog', ref, '--grep-reflog=branch: Created from *.');
+			let result = await this.git.exec({ cwd: repoPath }, 'reflog', ref, '--grep-reflog=branch: Created from *.');
 
-			let entries = data.split('\n').filter(entry => Boolean(entry));
+			let entries = result.stdout.split('\n').filter(entry => Boolean(entry));
 			if (entries.length !== 1) return undefined;
 
 			// Check if branch created from an explicit branch
@@ -649,14 +654,14 @@ export class BranchesGitSubProvider implements GitBranchesSubProvider {
 			}
 
 			// Check if branch was created from HEAD
-			data = await this.git.exec(
+			result = await this.git.exec(
 				{ cwd: repoPath },
 				'reflog',
 				'HEAD',
 				`--grep-reflog=checkout: moving from .* to ${ref.replace('refs/heads/', '')}`,
 			);
 
-			entries = data.split('\n').filter(entry => Boolean(entry));
+			entries = result.stdout.split('\n').filter(entry => Boolean(entry));
 			if (!entries.length) return undefined;
 
 			match = entries[entries.length - 1].match(/checkout: moving from ([^\s]+)\s/);

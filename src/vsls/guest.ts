@@ -2,6 +2,8 @@ import type { CancellationToken, Disposable, Uri } from 'vscode';
 import { window } from 'vscode';
 import type { LiveShare, SharedServiceProxy } from '../@types/vsls';
 import type { Container } from '../container';
+// eslint-disable-next-line @typescript-eslint/no-restricted-imports -- Allowed since it is a type import
+import type { GitResult } from '../env/node/git/git';
 import type { GitCommandOptions } from '../git/commandOptions';
 import { debug, log } from '../system/decorators/log';
 import { Logger } from '../system/logger';
@@ -56,17 +58,17 @@ export class VslsGuestService implements Disposable {
 	}
 
 	@log()
-	async git<TOut extends string | Buffer>(options: GitCommandOptions, ...args: any[]): Promise<TOut> {
+	async git<TOut extends string | Buffer>(options: GitCommandOptions, ...args: any[]): Promise<GitResult<TOut>> {
 		const response = await this.sendRequest(GitCommandRequestType, {
 			__type: 'gitlens',
 			options: options,
 			args: args,
 		});
 
-		if (response.isBuffer) {
-			return Buffer.from(response.data, 'binary') as TOut;
-		}
-		return response.data as TOut;
+		return {
+			stdout: (response.isBuffer ? Buffer.from(response.data, 'binary') : response.data) as TOut,
+			exitCode: 0,
+		};
 	}
 
 	@log()

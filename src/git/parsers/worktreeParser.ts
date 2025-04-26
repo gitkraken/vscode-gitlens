@@ -18,7 +18,7 @@ interface WorktreeEntry {
 
 export function parseGitWorktrees(
 	container: Container,
-	data: string,
+	data: string | undefined,
 	repoPath: string,
 	branches: GitBranch[],
 ): GitWorktree[] {

@@ -82,11 +82,11 @@ export class StashGitSubProvider implements GitStashSubProvider {
 			const similarityThreshold = configuration.get('advanced.similarityThreshold');
 			args.push(`-M${similarityThreshold == null ? '' : `${similarityThreshold}%`}`);
 
-			const data = await this.git.exec({ cwd: repoPath }, 'stash', 'list', ...args);
+			const result = await this.git.exec({ cwd: repoPath }, 'stash', 'list', ...args);
 
 			const stashes = new Map<string, GitStashCommit>();
 
-			for (const s of parser.parse(data)) {
+			for (const s of parser.parse(result.stdout)) {
 				stashes.set(s.sha, createStash(this.container, s, repoPath));
 			}
 
@@ -102,7 +102,7 @@ export class StashGitSubProvider implements GitStashSubProvider {
 
 			const oldestStashDate = new Date(min(gitStash.stashes.values(), c => c.date.getTime())).toISOString();
 
-			const data = await this.git.exec(
+			const result = await this.git.exec(
 				{ cwd: repoPath, errors: GitErrorHandling.Ignore },
 				'rev-list',
 				`--since="${oldestStashDate}"`,
@@ -111,7 +111,7 @@ export class StashGitSubProvider implements GitStashSubProvider {
 				'--',
 			);
 
-			const ancestors = data?.trim().split('\n');
+			const ancestors = result.stdout.trim().split('\n');
 			if (ancestors?.length && (ancestors.length !== 1 || ancestors[0])) {
 				const reachableCommits = new Set(ancestors);
 
@@ -191,9 +191,9 @@ export class StashGitSubProvider implements GitStashSubProvider {
 		}
 
 		const parser = getStashFilesOnlyLogParser();
-		const data = await this.git.exec({ cwd: repoPath }, 'stash', 'show', ...args, ...parser.arguments, ref);
+		const result = await this.git.exec({ cwd: repoPath }, 'stash', 'show', ...args, ...parser.arguments, ref);
 
-		for (const s of parser.parse(data)) {
+		for (const s of parser.parse(result.stdout)) {
 			return (
 				s.files?.map(
 					f =>
@@ -232,21 +232,22 @@ export class StashGitSubProvider implements GitStashSubProvider {
 	private async deleteStashCore(repoPath: string, stashName: string, sha?: string): Promise<string | undefined> {
 		if (!stashName) return undefined;
 
+		let result;
 		if (sha) {
-			const stashSha = await this.git.exec(
+			result = await this.git.exec(
 				{ cwd: repoPath, errors: GitErrorHandling.Ignore },
 				'show',
 				'--format=%H',
 				'--no-patch',
 				stashName,
 			);
-			if (stashSha?.trim() !== sha) {
+			if (result.stdout.trim() !== sha) {
 				throw new Error('Unable to delete stash; mismatch with stash number');
 			}
 		}
 
-		// eslint-disable-next-line @typescript-eslint/no-unnecessary-type-arguments
-		return this.git.exec<string>({ cwd: repoPath }, 'stash', 'drop', stashName);
+		result = await this.git.exec({ cwd: repoPath }, 'stash', 'drop', stashName);
+		return result.stdout;
 	}
 
 	@gate()
@@ -320,8 +321,8 @@ export class StashGitSubProvider implements GitStashSubProvider {
 	@gate()
 	@log()
 	async saveSnapshot(repoPath: string, message?: string): Promise<void> {
-		const data = await this.git.exec({ cwd: repoPath }, 'stash', 'create');
-		const id = data?.trim() || undefined;
+		const result = await this.git.exec({ cwd: repoPath }, 'stash', 'create');
+		const id = result.stdout.trim() || undefined;
 		if (id == null) return;
 
 		const args = [];

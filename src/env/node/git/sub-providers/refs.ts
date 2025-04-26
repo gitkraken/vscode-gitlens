@@ -26,13 +26,13 @@ export class RefsGitSubProvider implements GitRefsSubProvider {
 	@log()
 	async checkIfCouldBeValidBranchOrTagName(repoPath: string, ref: string): Promise<boolean> {
 		try {
-			const data = await this.git.exec(
+			const result = await this.git.exec(
 				{ cwd: repoPath, errors: GitErrorHandling.Throw },
 				'check-ref-format',
 				'--branch',
 				ref,
 			);
-			return Boolean(data.trim());
+			return Boolean(result.stdout.trim());
 		} catch {
 			return false;
 		}
@@ -48,16 +48,16 @@ export class RefsGitSubProvider implements GitRefsSubProvider {
 		const scope = getLogScope();
 
 		try {
-			const data = await this.git.exec(
+			const result = await this.git.exec(
 				{ cwd: repoPath },
 				'merge-base',
 				options?.forkPoint ? '--fork-point' : undefined,
 				ref1,
 				ref2,
 			);
-			if (!data) return undefined;
+			if (!result.stdout) return undefined;
 
-			return data.split('\n')[0].trim() || undefined;
+			return result.stdout.split('\n')[0].trim() || undefined;
 		} catch (ex) {
 			Logger.error(ex, scope);
 			return undefined;
@@ -99,7 +99,7 @@ export class RefsGitSubProvider implements GitRefsSubProvider {
 	async getSymbolicReferenceName(repoPath: string, ref: string): Promise<string | undefined> {
 		const supportsEndOfOptions = await this.git.supports('git:rev-parse:end-of-options');
 
-		const data = await this.git.exec(
+		const result = await this.git.exec(
 			{ cwd: repoPath, errors: GitErrorHandling.Ignore },
 			'rev-parse',
 			'--verify',
@@ -109,7 +109,7 @@ export class RefsGitSubProvider implements GitRefsSubProvider {
 			supportsEndOfOptions ? '--end-of-options' : undefined,
 			ref,
 		);
-		return data?.trim() || undefined;
+		return result.stdout.trim() || undefined;
 	}
 
 	@log({ args: { 1: false } })
@@ -148,13 +148,13 @@ export class RefsGitSubProvider implements GitRefsSubProvider {
 
 		const supportsEndOfOptions = await this.git.supports('git:rev-parse:end-of-options');
 
-		const data = await this.git.exec(
+		const result = await this.git.exec(
 			{ cwd: repoPath, errors: GitErrorHandling.Ignore },
 			'rev-parse',
 			'--verify',
 			supportsEndOfOptions ? '--end-of-options' : undefined,
 			relativePath ? `${ref}:./${relativePath}` : `${ref}^{commit}`,
 		);
-		return data?.trim() || undefined;
+		return result.stdout.trim() || undefined;
 	}
 }

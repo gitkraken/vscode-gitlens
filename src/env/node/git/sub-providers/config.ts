@@ -88,14 +88,14 @@ export class ConfigGitSubProvider implements GitConfigSubProvider {
 
 			const author = `${user.name} <${user.email}>`;
 			// Check if there is a mailmap for the current user
-			const mappedAuthor = await this.git.exec(
+			const result = await this.git.exec(
 				{ cwd: repoPath, errors: GitErrorHandling.Ignore },
 				'check-mailmap',
 				author,
 			);
 
-			if (mappedAuthor != null && mappedAuthor.length !== 0 && author !== mappedAuthor) {
-				const match = mappedAuthorRegex.exec(mappedAuthor);
+			if (result.stdout && result.stdout !== author) {
+				const match = mappedAuthorRegex.exec(result.stdout);
 				if (match != null) {
 					[, user.name, user.email] = match;
 				}

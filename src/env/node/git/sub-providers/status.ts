@@ -108,15 +108,14 @@ export class StatusGitSubProvider implements GitStatusSubProvider {
 				const operation = sortedOperations[0];
 				switch (operation) {
 					case 'cherry-pick': {
-						const cherryPickHead = (
-							await this.git.exec(
-								{ cwd: repoPath, errors: GitErrorHandling.Ignore },
-								'rev-parse',
-								'--quiet',
-								'--verify',
-								'CHERRY_PICK_HEAD',
-							)
-						)?.trim();
+						const result = await this.git.exec(
+							{ cwd: repoPath, errors: GitErrorHandling.Ignore },
+							'rev-parse',
+							'--quiet',
+							'--verify',
+							'CHERRY_PICK_HEAD',
+						);
+						const cherryPickHead = result.stdout.trim();
 						if (!cherryPickHead) {
 							setLogScopeExit(scope, 'No CHERRY_PICK_HEAD found');
 							return undefined;
@@ -134,15 +133,14 @@ export class StatusGitSubProvider implements GitStatusSubProvider {
 						} satisfies GitCherryPickStatus;
 					}
 					case 'merge': {
-						const mergeHead = (
-							await this.git.exec(
-								{ cwd: repoPath, errors: GitErrorHandling.Ignore },
-								'rev-parse',
-								'--quiet',
-								'--verify',
-								'MERGE_HEAD',
-							)
-						)?.trim();
+						const result = await this.git.exec(
+							{ cwd: repoPath, errors: GitErrorHandling.Ignore },
+							'rev-parse',
+							'--quiet',
+							'--verify',
+							'MERGE_HEAD',
+						);
+						const mergeHead = result.stdout.trim();
 						if (!mergeHead) {
 							setLogScopeExit(scope, 'No MERGE_HEAD found');
 							return undefined;
@@ -178,15 +176,14 @@ export class StatusGitSubProvider implements GitStatusSubProvider {
 						} satisfies GitMergeStatus;
 					}
 					case 'revert': {
-						const revertHead = (
-							await this.git.exec(
-								{ cwd: repoPath, errors: GitErrorHandling.Ignore },
-								'rev-parse',
-								'--quiet',
-								'--verify',
-								'REVERT_HEAD',
-							)
-						)?.trim();
+						const result = await this.git.exec(
+							{ cwd: repoPath, errors: GitErrorHandling.Ignore },
+							'rev-parse',
+							'--quiet',
+							'--verify',
+							'REVERT_HEAD',
+						);
+						const revertHead = result.stdout.trim();
 						if (!revertHead) {
 							setLogScopeExit(scope, 'No REVERT_HEAD found');
 							return undefined;
@@ -241,7 +238,7 @@ export class StatusGitSubProvider implements GitStatusSubProvider {
 							return undefined;
 						}
 
-						const rebaseHead = getSettledValue(rebaseHeadResult)?.trim();
+						const rebaseHead = getSettledValue(rebaseHeadResult)?.stdout.trim();
 
 						if (branch.startsWith('refs/heads/')) {
 							branch = branch.substring(11).trim();
@@ -504,10 +501,10 @@ export class StatusGitSubProvider implements GitStatusSubProvider {
 
 		const porcelainVersion = (await this.git.supports('git:status:porcelain-v2')) ? 2 : 1;
 
-		const data = await this.git.status(repoPath, porcelainVersion, {
+		const result = await this.git.status(repoPath, porcelainVersion, {
 			similarityThreshold: configuration.get('advanced.similarityThreshold') ?? undefined,
 		});
-		const status = parseGitStatus(this.container, data, repoPath, porcelainVersion);
+		const status = parseGitStatus(this.container, result.stdout, repoPath, porcelainVersion);
 
 		if (status?.detached) {
 			const pausedOpStatus = await this.getPausedOperationStatus(repoPath);
@@ -540,7 +537,7 @@ export class StatusGitSubProvider implements GitStatusSubProvider {
 
 		const porcelainVersion = (await this.git.supports('git:status:porcelain-v2')) ? 2 : 1;
 
-		const data = await this.git.status(
+		const result = await this.git.status(
 			repoPath,
 			porcelainVersion,
 			{
@@ -549,7 +546,7 @@ export class StatusGitSubProvider implements GitStatusSubProvider {
 			relativePath,
 		);
 
-		const status = parseGitStatus(this.container, data, repoPath, porcelainVersion);
+		const status = parseGitStatus(this.container, result.stdout, repoPath, porcelainVersion);
 		return status?.files;
 	}
 }

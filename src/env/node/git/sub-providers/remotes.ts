@@ -44,10 +44,10 @@ export class RemotesGitSubProvider extends RemotesGitProviderBase implements Git
 				);
 
 				try {
-					const data = await this.git.exec({ cwd: repoPath }, 'remote', '-v');
+					const result = await this.git.exec({ cwd: repoPath }, 'remote', '-v');
 					const remotes = parseGitRemotes(
 						this.container,
-						data,
+						result.stdout,
 						repoPath!,
 						await getRemoteProviderMatcher(this.container, providers),
 					);

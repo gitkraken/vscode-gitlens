@@ -154,7 +154,8 @@ export class VslsHostService implements Disposable {
 		const [cwd, isRootWorkspace] = this.convertGitCommandCwd(options.cwd);
 		options.cwd = cwd;
 
-		let data = await git(options, ...this.convertGitCommandArgs(args, isRootWorkspace));
+		const result = await git(options, ...this.convertGitCommandArgs(args, isRootWorkspace));
+		let data = result.stdout;
 		if (typeof data === 'string') {
 			// Convert local paths to shared paths
 			if (this._localPathsRegex != null && data.length > 0) {

@@ -218,31 +218,12 @@ export class PatchGitSubProvider implements GitPatchSubProvider {
 			);
 
 			// Create a new tree from our patched index
-			const tree = (
-				await this.git.exec(
-					{
-						cwd: repoPath,
-						env: env,
-					},
-					'write-tree',
-				)
-			)?.trim();
+			let result = await this.git.exec({ cwd: repoPath, env: env }, 'write-tree');
+			const tree = result.stdout.trim();
 
 			// Create new commit from the tree
-			const sha = (
-				await this.git.exec(
-					{
-						cwd: repoPath,
-						env: env,
-					},
-					'commit-tree',
-					tree,
-					'-p',
-					base,
-					'-m',
-					message,
-				)
-			)?.trim();
+			result = await this.git.exec({ cwd: repoPath, env: env }, 'commit-tree', tree, '-p', base, '-m', message);
+			const sha = result.stdout.trim();
 
 			return sha;
 		} catch (ex) {

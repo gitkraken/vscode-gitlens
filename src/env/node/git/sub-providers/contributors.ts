@@ -67,7 +67,7 @@ export class ContributorsGitSubProvider implements GitContributorsSubProvider {
 						args.push('--all', '--single-worktree');
 					}
 
-					const data = await this.git.exec(
+					const result = await this.git.exec(
 						{ cwd: repoPath, configs: gitLogDefaultConfigs },
 						'log',
 						...args,
@@ -76,7 +76,7 @@ export class ContributorsGitSubProvider implements GitContributorsSubProvider {
 					);
 
 					const contributors = new Map<string, GitContributor>();
-					const commits = parser.parse(data);
+					const commits = parser.parse(result.stdout);
 					for (const c of commits) {
 						const key = `${c.author}|${c.email}`;
 						const timestamp = Number(c.date) * 1000;
@@ -158,7 +158,7 @@ export class ContributorsGitSubProvider implements GitContributorsSubProvider {
 		const scope = getLogScope();
 
 		try {
-			const data = await this.git.exec(
+			const result = await this.git.exec(
 				{ cwd: repoPath },
 				'shortlog',
 				'-s',
@@ -166,19 +166,18 @@ export class ContributorsGitSubProvider implements GitContributorsSubProvider {
 				!options?.merges ? '--no-merges' : undefined,
 				options?.since ? `--since=${options.since}` : undefined,
 			);
-			if (!data) return undefined;
+			if (!result.stdout) return undefined;
 
-			const contributions = data
+			const contributions = result.stdout
 				.split('\n')
 				.map(line => parseInt(line.trim().split('\t', 1)[0], 10))
 				.filter(c => !isNaN(c))
 				.sort((a, b) => b - a);
 
-			const result: GitContributorsStats = {
+			return {
 				count: contributions.length,
 				contributions: contributions,
-			};
-			return result;
+			} satisfies GitContributorsStats;
 		} catch (ex) {
 			Logger.error(ex, scope);
 			debugger;

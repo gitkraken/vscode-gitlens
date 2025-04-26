@@ -109,7 +109,7 @@ export class WorktreesGitSubProvider implements GitWorktreesSubProvider {
 
 					return parseGitWorktrees(
 						this.container,
-						getSettledValue(dataResult, ''),
+						getSettledValue(dataResult)?.stdout,
 						repoPath,
 						getSettledValue(branchesResult)?.values ?? [],
 					);

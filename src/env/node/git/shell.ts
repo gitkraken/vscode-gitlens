@@ -5,6 +5,7 @@ import { access, constants, existsSync, statSync } from 'fs';
 import { join as joinPaths } from 'path';
 import * as process from 'process';
 import { Logger } from '../../../system/logger';
+import { getLogScope } from '../../../system/logger.scope';
 import { normalizePath } from '../../../system/path';
 
 export const isWindows = process.platform === 'win32';
@@ -312,6 +313,8 @@ export function runSpawn<T extends string | Buffer>(
 	encoding: BufferEncoding | 'buffer' | string,
 	options?: RunOptions & { exitCodeOnly?: boolean },
 ): Promise<RunExitResult | RunResult<T>> {
+	const scope = getLogScope();
+
 	const { stdin, stdinEncoding, ...opts }: RunOptions = {
 		maxBuffer: 1000 * 1024 * 1024,
 		...options,
@@ -369,6 +372,10 @@ export function runSpawn<T extends string | Buffer>(
 						? stdioError()
 						: await stdioErrorDecoded();
 
+				if (stderr.length > 0) {
+					Logger.warn(scope, `Warning(${command} ${args.join(' ')}): ${stderr}`);
+				}
+
 				reject(
 					new RunError(
 						{ message: `Command failed with exit code ${code}`, code: code, signal: signal } as any,
@@ -382,7 +389,7 @@ export function runSpawn<T extends string | Buffer>(
 
 			const stderr = Buffer.concat(stderrBuffers);
 			if (stderrBuffers.length) {
-				Logger.warn(`Warning(${command} ${args.join(' ')}): ${stderr.toString('utf8')}`);
+				Logger.warn(scope, `Warning(${command} ${args.join(' ')}): ${stderr.toString('utf8')}`);
 			}
 
 			const stdout = Buffer.concat(stdoutBuffers);

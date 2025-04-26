@@ -7,9 +7,10 @@ import type { RepositoryLocationProvider } from '../../git/location/repositorylo
 import { GitHubGitProvider } from '../../plus/integrations/providers/github/githubGitProvider';
 import type { SharedGkStorageLocationProvider } from '../../plus/repos/sharedGkStorageLocationProvider';
 import type { GkWorkspacesSharedStorageProvider } from '../../plus/workspaces/workspacesSharedStorageProvider';
+import type { GitResult } from '../node/git/git';
 
-export function git(_options: GitCommandOptions, ..._args: any[]): Promise<string | Buffer> {
-	return Promise.resolve('');
+export function git(_options: GitCommandOptions, ..._args: any[]): Promise<GitResult<string | Buffer>> {
+	return Promise.resolve({ stdout: '', exitCode: 0 });
 }
 
 export function gitLogStreamTo(
