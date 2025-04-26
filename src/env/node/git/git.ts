@@ -254,6 +254,7 @@ export class Git {
 		const runArgs = args.filter(a => a != null);
 
 		const runOpts: Mutable<RunOptions> = {
+			timeout: 1000 * 60,
 			...opts,
 			encoding: (encoding ?? 'utf8') === 'utf8' ? 'utf8' : 'buffer',
 			// Adds GCM environment variables to avoid any possible credential issues -- from https://github.com/Microsoft/vscode/issues/26573#issuecomment-338686581
@@ -300,8 +301,6 @@ export class Git {
 				runOpts.signal = abortController.signal;
 				disposeCancellation = cancellation.onCancellationRequested(() => abortController?.abort());
 			}
-
-			runOpts.timeout = 1000 * 60;
 
 			promise = runSpawn<T>(await this.path(), runArgs, encoding ?? 'utf8', runOpts).finally(
 				() => void disposeCancellation?.dispose(),

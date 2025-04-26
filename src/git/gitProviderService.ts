@@ -179,7 +179,7 @@ export class GitProviderService implements Disposable {
 						const since = '1.year.ago';
 						const [remotesResult, contributorsStatsResult] = await Promise.allSettled([
 							repo.git.remotes().getRemotes(),
-							repo.git.contributors().getContributorsStats({ since: since }),
+							repo.git.contributors().getContributorsStats({ since: since, timeout: 2000 }),
 						]);
 
 						const remotes = getSettledValue(remotesResult) ?? [];
@@ -214,7 +214,7 @@ export class GitProviderService implements Disposable {
 						});
 					}),
 				);
-			}, 0);
+			}, 10000);
 		}
 	}
 
