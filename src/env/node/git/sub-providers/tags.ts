@@ -1,6 +1,4 @@
-import type { CancellationToken } from 'vscode';
 import type { Container } from '../../../../container';
-import { isCancellationError } from '../../../../errors';
 import type { GitCache } from '../../../../git/cache';
 import { TagError } from '../../../../git/errors';
 import type { GitTagsSubProvider, PagedResult, PagingOptions } from '../../../../git/gitProvider';
@@ -24,10 +22,10 @@ export class TagsGitSubProvider implements GitTagsSubProvider {
 	) {}
 
 	@log()
-	async getTag(repoPath: string, name: string, cancellation?: CancellationToken): Promise<GitTag | undefined> {
+	async getTag(repoPath: string, name: string): Promise<GitTag | undefined> {
 		const {
 			values: [tag],
-		} = await this.getTags(repoPath, { filter: t => t.name === name }, cancellation);
+		} = await this.getTags(repoPath, { filter: t => t.name === name });
 		return tag;
 	}
 
@@ -39,7 +37,6 @@ export class TagsGitSubProvider implements GitTagsSubProvider {
 			paging?: PagingOptions;
 			sort?: boolean | TagSortOptions;
 		},
-		cancellation?: CancellationToken,
 	): Promise<PagedResult<GitTag>> {
 		if (repoPath == null) return emptyPagedResult;
 
@@ -52,7 +49,7 @@ export class TagsGitSubProvider implements GitTagsSubProvider {
 					const parser = getTagParser();
 
 					const result = await this.git.exec(
-						{ cwd: repoPath, cancellation: cancellation },
+						{ cwd: repoPath },
 						'for-each-ref',
 						...parser.arguments,
 						'refs/tags/',
@@ -80,9 +77,8 @@ export class TagsGitSubProvider implements GitTagsSubProvider {
 					sw?.stop({ suffix: ` parsed ${tags.length} tags` });
 
 					return { values: tags };
-				} catch (ex) {
+				} catch (_ex) {
 					this.cache.tags?.delete(repoPath);
-					if (isCancellationError(ex)) throw ex;
 
 					return emptyPagedResult;
 				}
@@ -115,14 +111,8 @@ export class TagsGitSubProvider implements GitTagsSubProvider {
 		repoPath: string,
 		sha: string,
 		options?: { commitDate?: Date; mode?: 'contains' | 'pointsAt' },
-		cancellation?: CancellationToken,
 	): Promise<string[]> {
-		const result = await this.git.branchOrTag__containsOrPointsAt(
-			repoPath,
-			[sha],
-			{ type: 'tag', ...options },
-			cancellation,
-		);
+		const result = await this.git.branchOrTag__containsOrPointsAt(repoPath, [sha], { type: 'tag', ...options });
 		if (!result.stdout) return [];
 
 		return filterMap(result.stdout.split('\n'), b => b.trim() || undefined);

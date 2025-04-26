@@ -49,15 +49,16 @@ export class RevisionGitSubProvider implements GitRevisionSubProvider {
 
 		if (isUncommittedStaged(rev)) {
 			let data = await this.git.ls_files(root, relativePath, { rev: rev });
-			const [result] = parseGitLsFiles(data);
-			if (result == null) return undefined;
+			const [entry] = parseGitLsFiles(data);
+			if (entry == null) return undefined;
 
-			data = (await this.git.exec({ cwd: repoPath }, 'cat-file', '-s', result.oid))?.trim();
-			const size = data.length ? parseInt(data, 10) : 0;
+			const result = await this.git.exec({ cwd: repoPath }, 'cat-file', '-s', entry.oid);
+			data = result.stdout.trim();
+			const size = data ? parseInt(data, 10) : 0;
 
 			return {
 				ref: rev,
-				oid: result.oid,
+				oid: entry.oid,
 				path: relativePath,
 				size: size,
 				type: 'blob',
@@ -79,9 +80,8 @@ export class RevisionGitSubProvider implements GitRevisionSubProvider {
 	@gate()
 	private async getTreeForRevisionCore(repoPath: string, rev: string, path?: string): Promise<GitTreeEntry[]> {
 		const args = path ? ['-l', rev, '--', path] : ['-lrt', rev, '--'];
-		const data = (
-			await this.git.exec({ cwd: repoPath, errors: GitErrorHandling.Ignore }, 'ls-tree', ...args)
-		)?.trim();
+		const result = await this.git.exec({ cwd: repoPath, errors: GitErrorHandling.Ignore }, 'ls-tree', ...args);
+		const data = result.stdout.trim();
 		if (!data) return [];
 
 		return parseGitTree(data, rev);
@@ -113,7 +113,7 @@ export class RevisionGitSubProvider implements GitRevisionSubProvider {
 		const relativePath = this.provider.getRelativePath(pathOrUri, repoPath);
 
 		const parser = getShaAndFileSummaryLogParser();
-		let data = await this.git.exec(
+		let result = await this.git.exec(
 			{ cwd: repoPath, errors: GitErrorHandling.Ignore },
 			'log',
 			...parser.arguments,
@@ -123,7 +123,7 @@ export class RevisionGitSubProvider implements GitRevisionSubProvider {
 			relativePath,
 		);
 
-		let commit = first(parser.parse(data));
+		let commit = first(parser.parse(result.stdout));
 		let file = commit?.files?.find(f => f.path === relativePath);
 		if (file == null) {
 			return {
@@ -145,7 +145,7 @@ export class RevisionGitSubProvider implements GitRevisionSubProvider {
 
 		if (file.status === 'D') {
 			// If the file was deleted, check if it was moved or renamed
-			data = await this.git.exec(
+			result = await this.git.exec(
 				{ cwd: repoPath, errors: GitErrorHandling.Ignore },
 				'log',
 				...parser.arguments,
@@ -154,7 +154,7 @@ export class RevisionGitSubProvider implements GitRevisionSubProvider {
 				'--',
 			);
 
-			commit = first(parser.parse(data));
+			commit = first(parser.parse(result.stdout));
 			file = commit?.files?.find(f => f.path === relativePath || f.originalPath === relativePath);
 			if (file == null) {
 				return {

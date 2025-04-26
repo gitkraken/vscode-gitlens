@@ -1,6 +1,6 @@
 import type { CancellationToken, WorkspaceFoldersChangeEvent } from 'vscode';
 import { Disposable, Uri, workspace } from 'vscode';
-import { git } from '@env/providers';
+import { git, gitLogStreamTo } from '@env/providers';
 import type { LiveShare, SharedService } from '../@types/vsls';
 import type { Container } from '../container';
 import { isVslsRoot } from '../system/-webview/path.vsls';
@@ -14,10 +14,12 @@ import type {
 	GetRepositoriesForUriResponse,
 	GitCommandRequest,
 	GitCommandResponse,
+	GitLogStreamToCommandRequest,
+	GitLogStreamToCommandResponse,
 	RepositoryProxy,
 	RequestType,
 } from './protocol';
-import { GetRepositoriesForUriRequestType, GitCommandRequestType } from './protocol';
+import { GetRepositoriesForUriRequestType, GitCommandRequestType, GitLogStreamToCommandRequestType } from './protocol';
 
 const defaultWhitelistFn = () => true;
 const gitWhitelist = new Map<string, (args: any[]) => boolean>([
@@ -78,6 +80,7 @@ export class VslsHostService implements Disposable {
 		this._disposable = Disposable.from(workspace.onDidChangeWorkspaceFolders(this.onWorkspaceFoldersChanged, this));
 
 		this.onRequest(GitCommandRequestType, this.onGitCommandRequest.bind(this));
+		this.onRequest(GitLogStreamToCommandRequestType, this.onGitLogStreamToCommandRequest.bind(this));
 		this.onRequest(GetRepositoriesForUriRequestType, this.onGetRepositoriesForUriRequest.bind(this));
 
 		this.onWorkspaceFoldersChanged();
@@ -142,19 +145,16 @@ export class VslsHostService implements Disposable {
 	@log()
 	private async onGitCommandRequest(
 		request: GitCommandRequest,
-		cancellation: CancellationToken,
+		_cancellation: CancellationToken,
 	): Promise<GitCommandResponse> {
 		const fn = gitWhitelist.get(request.args[0]);
 		if (!fn?.(request.args)) throw new Error(`Git ${request.args[0]} command is not allowed`);
 
 		const { options, args } = request;
 		const [cwd, isRootWorkspace] = this.convertGitCommandCwd(options.cwd);
+		options.cwd = cwd;
 
-		const result = await git(
-			this.container,
-			{ ...options, cwd: cwd, cancellation: cancellation },
-			...this.convertGitCommandArgs(args, isRootWorkspace),
-		);
+		const result = await git(options, ...this.convertGitCommandArgs(args, isRootWorkspace));
 		let data = result.stdout;
 		if (typeof data === 'string') {
 			// Convert local paths to shared paths
@@ -169,6 +169,33 @@ export class VslsHostService implements Disposable {
 		}
 
 		return { data: data.toString('binary'), isBuffer: true };
+	}
+
+	@log()
+	private async onGitLogStreamToCommandRequest(
+		request: GitLogStreamToCommandRequest,
+		_cancellation: CancellationToken,
+	): Promise<GitLogStreamToCommandResponse> {
+		const { options, args } = request;
+		const [cwd, isRootWorkspace] = this.convertGitCommandCwd(request.repoPath);
+
+		let [data, count] = await gitLogStreamTo(
+			cwd,
+			request.sha,
+			request.limit,
+			options,
+			...this.convertGitCommandArgs(args, isRootWorkspace),
+		);
+		if (this._localPathsRegex != null && data.length > 0) {
+			// Convert local paths to shared paths
+			data = data.map(d =>
+				d.replace(this._localPathsRegex!, (_match, local: string) => {
+					const shared = this._localToSharedPaths.get(normalizePath(local));
+					return shared != null ? shared : local;
+				}),
+			);
+		}
+		return { data: data, count: count };
 	}
 
 	@log()

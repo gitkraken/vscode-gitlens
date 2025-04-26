@@ -128,7 +128,7 @@ export class GraphGitSubProvider implements GitGraphSubProvider {
 
 		const remotes = getSettledValue(remotesResult);
 		const remoteMap = remotes != null ? new Map(remotes.map(r => [r.name, r])) : new Map<string, GitRemote>();
-		const selectSha = first(shaParser.parse(getSettledValue(shaResult) ?? ''));
+		const selectSha = first(shaParser.parse(getSettledValue(shaResult)?.stdout));
 
 		const downstreamMap = new Map<string, string[]>();
 
@@ -182,13 +182,14 @@ export class GraphGitSubProvider implements GitGraphSubProvider {
 				} else {
 					args.push(`-n${nextPageLimit + 1}`);
 
-					data = await this.git.exec(
+					const result = await this.git.exec(
 						{ cwd: repoPath, configs: gitLogDefaultConfigs, stdin: stdin },
 						'log',
 						stdin ? '--stdin' : undefined,
 						...args,
 						'--',
 					);
+					data = result.stdout;
 
 					if (cursor) {
 						if (data.includes(`${parser.separators.record}${cursor.sha}${parser.separators.record}`)) {
@@ -588,7 +589,7 @@ export class GraphGitSubProvider implements GitGraphSubProvider {
 						}
 						args.push(`--${ordering}-order`, '--all');
 
-						const statsData = await this.git.exec(
+						const statsResult = await this.git.exec(
 							{ cwd: repoPath, configs: gitLogDefaultConfigs, stdin: stdin },
 							'log',
 							stdin ? '--stdin' : undefined,
@@ -596,8 +597,8 @@ export class GraphGitSubProvider implements GitGraphSubProvider {
 							'--',
 						);
 
-						if (statsData) {
-							const commitStats = statsParser.parse(statsData);
+						if (statsResult.stdout) {
+							const commitStats = statsParser.parse(statsResult.stdout);
 							for (const stat of commitStats) {
 								rowStats.set(stat.sha, stat.stats);
 							}
@@ -674,7 +675,7 @@ export class GraphGitSubProvider implements GitGraphSubProvider {
 
 			const { args: searchArgs, files, shas } = getGitArgsFromSearchQuery(search, currentUser);
 			if (shas?.size) {
-				const data = await this.git.exec(
+				const result = await this.git.exec(
 					{ cwd: repoPath, cancellation: options?.cancellation, configs: gitLogDefaultConfigs },
 					'show',
 					'-s',
@@ -686,7 +687,7 @@ export class GraphGitSubProvider implements GitGraphSubProvider {
 
 				let i = 0;
 				const results: GitGraphSearchResults = new Map<string, GitGraphSearchResultData>(
-					map(parser.parse(data), c => [
+					map(parser.parse(result.stdout), c => [
 						c.sha,
 						{
 							i: i++,
@@ -728,9 +729,9 @@ export class GraphGitSubProvider implements GitGraphSubProvider {
 					return { repoPath: repoPath, query: search, comparisonKey: comparisonKey, results: results };
 				}
 
-				let data;
+				let result;
 				try {
-					data = await this.git.exec(
+					result = await this.git.exec(
 						{
 							cwd: repoPath,
 							cancellation: options?.cancellation,
@@ -762,7 +763,7 @@ export class GraphGitSubProvider implements GitGraphSubProvider {
 
 				let count = total;
 
-				for (const r of parser.parse(data)) {
+				for (const r of parser.parse(result.stdout)) {
 					if (includeOnlyStashes && !stashes?.has(r.sha)) continue;
 
 					if (results.has(r.sha)) {

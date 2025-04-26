@@ -935,7 +935,8 @@ export class LocalGitProvider implements GitProvider, Disposable {
 
 		let patch;
 		try {
-			patch = await this.git.diff(root, relativePath, ref1, ref2);
+			const result = await this.git.diff(root, relativePath, ref1, ref2);
+			patch = result.stdout;
 			void (await this.git.exec({ cwd: root, stdin: patch }, 'apply', '--whitespace=warn'));
 		} catch (ex) {
 			const msg: string = ex?.toString() ?? '';
@@ -1008,15 +1009,15 @@ export class LocalGitProvider implements GitProvider, Disposable {
 	async excludeIgnoredUris(repoPath: string, uris: Uri[]): Promise<Uri[]> {
 		const paths = new Map<string, Uri>(uris.map(u => [normalizePath(u.fsPath), u]));
 
-		const data = await this.git.exec(
+		const result = await this.git.exec(
 			{ cwd: repoPath, errors: GitErrorHandling.Ignore, stdin: join(paths.keys(), '\0') },
 			'check-ignore',
 			'-z',
 			'--stdin',
 		);
-		if (data == null) return uris;
+		if (!result.stdout) return uris;
 
-		const ignored = data.split('\0').filter(<T>(i?: T): i is T => Boolean(i));
+		const ignored = result.stdout.split('\0').filter(<T>(i?: T): i is T => Boolean(i));
 		if (ignored.length === 0) return uris;
 
 		for (const file of ignored) {
@@ -1360,7 +1361,7 @@ export class LocalGitProvider implements GitProvider, Disposable {
 			const blame = parseGitBlame(
 				this.container,
 				root,
-				getSettledValue(dataResult),
+				getSettledValue(dataResult)?.stdout,
 				getSettledValue(userResult),
 				getSettledValue(statResult)?.mtime,
 			);
@@ -1456,7 +1457,7 @@ export class LocalGitProvider implements GitProvider, Disposable {
 			const blame = parseGitBlame(
 				this.container,
 				root,
-				getSettledValue(dataResult),
+				getSettledValue(dataResult)?.stdout,
 				getSettledValue(userResult),
 				getSettledValue(statResult)?.mtime,
 			);
@@ -1541,7 +1542,7 @@ export class LocalGitProvider implements GitProvider, Disposable {
 			const blame = parseGitBlame(
 				this.container,
 				root,
-				getSettledValue(dataResult),
+				getSettledValue(dataResult)?.stdout,
 				getSettledValue(userResult),
 				getSettledValue(statResult)?.mtime,
 			);
@@ -1609,7 +1610,7 @@ export class LocalGitProvider implements GitProvider, Disposable {
 			const blame = parseGitBlame(
 				this.container,
 				root,
-				getSettledValue(dataResult),
+				getSettledValue(dataResult)?.stdout,
 				getSettledValue(userResult),
 				getSettledValue(statResult)?.mtime,
 			);
@@ -1756,7 +1757,7 @@ export class LocalGitProvider implements GitProvider, Disposable {
 		const [relativePath, root] = splitPath(path, repoPath);
 
 		try {
-			const data = await this.git.diff(root, relativePath, ref1, ref2, {
+			const result = await this.git.diff(root, relativePath, ref1, ref2, {
 				...options,
 				filters: ['M'],
 				linesOfContext: 0,
@@ -1764,7 +1765,7 @@ export class LocalGitProvider implements GitProvider, Disposable {
 				similarityThreshold: configuration.get('advanced.similarityThreshold'),
 			});
 
-			const diff = parseGitFileDiff(data);
+			const diff = parseGitFileDiff(result.stdout);
 			return diff;
 		} catch (ex) {
 			// Trap and cache expected diff errors

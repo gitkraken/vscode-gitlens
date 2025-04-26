@@ -133,7 +133,7 @@ const GitWarnings = {
 	tipBehind: /tip of your current branch is behind/i,
 };
 
-function defaultExceptionHandler(ex: Error, cwd: string | undefined, start?: [number, number]): string {
+function defaultExceptionHandler(ex: Error, cwd: string | undefined, start?: [number, number]): void {
 	const msg = ex.message || ex.toString();
 	if (msg != null && msg.length !== 0) {
 		for (const warning of Object.values(GitWarnings)) {
@@ -145,7 +145,7 @@ function defaultExceptionHandler(ex: Error, cwd: string | undefined, start?: [nu
 						.replace(/fatal: /g, '')
 						.replace(/\r?\n|\r/g, ` ${GlyphChars.Dot} `)}${duration}`,
 				);
-				return '';
+				return;
 			}
 		}
 
@@ -154,7 +154,7 @@ function defaultExceptionHandler(ex: Error, cwd: string | undefined, start?: [nu
 			const [, ref] = match;
 
 			// Since looking up a ref with ^3 (e.g. looking for untracked files in a stash) can error on some versions of git just ignore it
-			if (ref?.endsWith('^3')) return '';
+			if (ref?.endsWith('^3')) return;
 		}
 	}
 
@@ -196,34 +196,56 @@ export class GitError extends Error {
 	readonly stdout: string | undefined;
 	readonly stderr: string | undefined;
 
-	constructor(private readonly original: Error) {
+	constructor(readonly original: Error) {
+		let message: string;
+		let stdout: string | undefined;
+		let stderr: string | undefined;
+		let cmd: string | undefined;
+		let exitCode: number | string | undefined;
+
 		if (original instanceof RunError) {
-			super(original.stderr || original.stdout || original.message);
-			this.stdout = original.stdout;
-			this.stderr = original.stderr;
-			this.cmd = original.cmd;
-			this.exitCode = original.code;
+			stdout = original.stdout;
+			stderr = original.stderr;
+			message = stderr || stdout || original.message;
+			cmd = original.cmd;
+			exitCode = original.code;
 		} else {
-			super(original.message);
+			message = original.message;
 		}
+
+		super(message);
+
+		this.stdout = stdout;
+		this.stderr = stderr;
+		this.cmd = cmd;
+		this.exitCode = exitCode;
 
 		Error.captureStackTrace?.(this, GitError);
 	}
 }
 
+export type GitResult<T extends string | Buffer | unknown> = {
+	readonly exitCode: number;
+	readonly stdout: T;
+	readonly stderr?: T;
+};
+
 export class Git {
 	/** Map of running git commands -- avoids running duplicate overlaping commands */
 	private readonly pendingCommands = new Map<string, Promise<RunResult<string | Buffer>>>();
 
-	async exec(options: ExitCodeOnlyGitCommandOptions, ...args: readonly (string | undefined)[]): Promise<number>;
+	async exec(
+		options: ExitCodeOnlyGitCommandOptions,
+		...args: readonly (string | undefined)[]
+	): Promise<GitResult<unknown>>;
 	async exec<T extends string | Buffer = string>(
 		options: GitCommandOptions,
 		...args: readonly (string | undefined)[]
-	): Promise<T>;
+	): Promise<GitResult<T>>;
 	async exec<T extends string | Buffer = string>(
 		options: GitCommandOptions,
 		...args: readonly (string | undefined)[]
-	): Promise<T> {
+	): Promise<GitResult<T | unknown>> {
 		if (!workspace.isTrusted) throw new WorkspaceUntrustedError();
 
 		const start = hrtime();
@@ -292,18 +314,25 @@ export class Git {
 		}
 
 		let exception: Error | undefined;
+		let result;
 		try {
-			const result = await promise;
-			return result.stdout as T;
+			result = await promise;
+			return {
+				stdout: result.stdout as T,
+				stderr: result.stderr as T | undefined,
+				exitCode: result.exitCode ?? 0,
+			};
 		} catch (ex) {
-			if (errorHandling === GitErrorHandling.Ignore) return '' as T;
+			if (errorHandling === GitErrorHandling.Ignore) {
+				return { stdout: '' as T, stderr: result?.stderr as T | undefined, exitCode: result?.exitCode ?? 0 };
+			}
 
 			exception = new GitError(ex);
 			if (errorHandling === GitErrorHandling.Throw) throw exception;
 
-			const result = defaultExceptionHandler(ex, options.cwd, start);
+			defaultExceptionHandler(ex, options.cwd, start);
 			exception = undefined;
-			return result as T;
+			return { stdout: '' as T, stderr: result?.stderr as T | undefined, exitCode: result?.exitCode ?? 0 };
 		} finally {
 			this.pendingCommands.delete(command);
 			this.logGitCommand(gitCommand, exception, getDurationMilliseconds(start), waiting);
@@ -547,7 +576,7 @@ export class Git {
 			startLine?: number;
 			endLine?: number;
 		},
-	): Promise<string> {
+	): Promise<GitResult<string>> {
 		const [file, root] = splitPath(fileName, repoPath, true);
 
 		const params = ['blame', '--root', '--incremental'];
@@ -633,13 +662,13 @@ export class Git {
 		}
 
 		try {
-			const blame = await this.exec(
+			const result = await this.exec(
 				{ cwd: root, stdin: stdin, correlationKey: options?.correlationKey },
 				...params,
 				'--',
 				file,
 			);
-			return blame;
+			return result;
 		} catch (ex) {
 			// Since `-c blame.ignoreRevsFile=` doesn't seem to work (unlike as the docs suggest), try to detect the error and throw a more helpful one
 			let match = GitErrors.invalidObjectNameList.exec(ex.message);
@@ -656,7 +685,7 @@ export class Git {
 		}
 	}
 
-	branchOrTag__containsOrPointsAt(
+	async branchOrTag__containsOrPointsAt(
 		repoPath: string,
 		refs: string[],
 		options?: {
@@ -666,7 +695,7 @@ export class Git {
 			name?: string;
 			remotes?: boolean;
 		},
-	): Promise<string> {
+	): Promise<GitResult<string>> {
 		const params: string[] = [options?.type ?? 'branch'];
 		if (options?.all) {
 			params.push('-a');
@@ -684,17 +713,18 @@ export class Git {
 			params.push(options.name);
 		}
 
-		return this.exec(
+		const result = await this.exec(
 			{ cwd: repoPath, configs: gitBranchDefaultConfigs, errors: GitErrorHandling.Ignore },
 			...params,
 		);
+		return result;
 	}
 
-	checkout(
+	async checkout(
 		repoPath: string,
 		ref: string,
 		{ createBranch, path }: { createBranch?: string; path?: string } = {},
-	): Promise<string> {
+	): Promise<GitResult<string>> {
 		const params = ['checkout'];
 		if (createBranch) {
 			params.push('-b', createBranch, ref, '--');
@@ -708,7 +738,8 @@ export class Git {
 			}
 		}
 
-		return this.exec({ cwd: repoPath }, ...params);
+		const result = await this.exec({ cwd: repoPath }, ...params);
+		return result;
 	}
 
 	// TODO: Expand to include options and other params
@@ -730,13 +761,13 @@ export class Git {
 	}
 
 	async config__get(key: string, repoPath?: string, options?: { local?: boolean }): Promise<string | undefined> {
-		const data = await this.exec(
+		const result = await this.exec(
 			{ cwd: repoPath ?? '', errors: GitErrorHandling.Ignore, local: options?.local },
 			'config',
 			'--get',
 			key,
 		);
-		return data.length === 0 ? undefined : data.trim();
+		return result.stdout.trim();
 	}
 
 	async config__get_regex(
@@ -744,13 +775,13 @@ export class Git {
 		repoPath?: string,
 		options?: { local?: boolean },
 	): Promise<string | undefined> {
-		const data = await this.exec(
+		const result = await this.exec(
 			{ cwd: repoPath ?? '', errors: GitErrorHandling.Ignore, local: options?.local },
 			'config',
 			'--get-regex',
 			pattern,
 		);
-		return data.length === 0 ? undefined : data.trim();
+		return result.stdout.trim();
 	}
 
 	async diff(
@@ -758,25 +789,25 @@ export class Git {
 		fileName: string,
 		ref1?: string,
 		ref2?: string,
-		options: {
+		options?: {
 			encoding?: string;
 			filters?: GitDiffFilter[];
 			linesOfContext?: number;
 			renames?: boolean;
 			similarityThreshold?: number | null;
-		} = {},
-	): Promise<string> {
+		},
+	): Promise<GitResult<string>> {
 		const params = ['diff', '--no-ext-diff', '--minimal'];
 
-		if (options.linesOfContext != null) {
+		if (options?.linesOfContext != null) {
 			params.push(`-U${options.linesOfContext}`);
 		}
 
-		if (options.renames) {
+		if (options?.renames) {
 			params.push(`-M${options.similarityThreshold == null ? '' : `${options.similarityThreshold}%`}`);
 		}
 
-		if (options.filters != null && options.filters.length !== 0) {
+		if (options?.filters != null && options.filters.length !== 0) {
 			params.push(`--diff-filter=${options.filters.join('')}`);
 		}
 
@@ -792,16 +823,13 @@ export class Git {
 		}
 
 		try {
-			return await this.exec(
-				{
-					cwd: repoPath,
-					configs: gitDiffDefaultConfigs,
-					encoding: options.encoding,
-				},
+			const result = await this.exec(
+				{ cwd: repoPath, configs: gitDiffDefaultConfigs, encoding: options?.encoding },
 				...params,
 				'--',
 				fileName,
 			);
+			return result;
 		} catch (ex) {
 			const match = GitErrors.badRevision.exec(ex.message);
 			if (match !== null) {
@@ -822,17 +850,17 @@ export class Git {
 		fileName: string,
 		ref: string,
 		contents: string,
-		options: { encoding?: string; filters?: GitDiffFilter[]; similarityThreshold?: number | null } = {},
+		options?: { encoding?: string; filters?: GitDiffFilter[]; similarityThreshold?: number | null },
 	): Promise<string> {
 		const params = [
 			'diff',
-			`-M${options.similarityThreshold == null ? '' : `${options.similarityThreshold}%`}`,
+			`-M${options?.similarityThreshold == null ? '' : `${options.similarityThreshold}%`}`,
 			'--no-ext-diff',
 			'-U0',
 			'--minimal',
 		];
 
-		if (options.filters != null && options.filters.length !== 0) {
+		if (options?.filters != null && options.filters.length !== 0) {
 			params.push(`--diff-filter=${options.filters.join('')}`);
 		}
 
@@ -845,11 +873,11 @@ export class Git {
 		params.push('--no-index');
 
 		try {
-			return await this.exec(
+			const result = await this.exec(
 				{
 					cwd: repoPath,
 					configs: gitDiffDefaultConfigs,
-					encoding: options.encoding,
+					encoding: options?.encoding,
 					stdin: contents,
 				},
 				...params,
@@ -858,6 +886,7 @@ export class Git {
 				// Pipe the contents to stdin
 				'-',
 			);
+			return result.stdout;
 		} catch (ex) {
 			if (ex instanceof RunError && ex.stdout) {
 				return ex.stdout;
@@ -888,7 +917,7 @@ export class Git {
 					pull?: boolean;
 					remote: string;
 					upstream: string;
-			  } = {},
+			  },
 	): Promise<void> {
 		const params = ['fetch'];
 
@@ -1138,7 +1167,7 @@ export class Git {
 		repoPath: string,
 		fileName: string,
 		options?: { rev?: string; untracked?: boolean },
-	): Promise<string | undefined> {
+	): Promise<string> {
 		const params = ['ls-files'];
 		if (options?.rev) {
 			if (!isUncommitted(options.rev)) {
@@ -1152,8 +1181,8 @@ export class Git {
 			params.push('-o');
 		}
 
-		const data = await this.exec({ cwd: repoPath, errors: GitErrorHandling.Ignore }, ...params, '--', fileName);
-		return data.length === 0 ? undefined : data.trim();
+		const result = await this.exec({ cwd: repoPath, errors: GitErrorHandling.Ignore }, ...params, '--', fileName);
+		return result.stdout.trim();
 	}
 
 	async reset(
@@ -1189,8 +1218,9 @@ export class Git {
 		repoPath: string,
 		ordering: 'date' | 'author-date' | 'topo' | null,
 	): Promise<[string, string | undefined] | undefined> {
+		let result;
 		try {
-			const data = await this.exec(
+			result = await this.exec(
 				{ cwd: repoPath, errors: GitErrorHandling.Throw },
 				'rev-parse',
 				'--abbrev-ref',
@@ -1199,7 +1229,7 @@ export class Git {
 				'@{u}',
 				'--',
 			);
-			return [data, undefined];
+			return [result.stdout, undefined];
 		} catch (ex) {
 			const msg: string = ex?.toString() ?? '';
 			if (GitErrors.badRevision.test(msg) || GitWarnings.noUpstream.test(msg)) {
@@ -1207,13 +1237,11 @@ export class Git {
 					return [ex.stdout, undefined];
 				}
 
-				let data;
 				try {
-					data = await this.exec({ cwd: repoPath }, 'symbolic-ref', '--short', 'HEAD');
-					if (data != null) return [data.trim(), undefined];
+					result = await this.exec({ cwd: repoPath }, 'symbolic-ref', '--short', 'HEAD');
+					if (result.stdout) return [result.stdout.trim(), undefined];
 				} catch {}
-
-				data = await this.symbolic_ref__HEAD(repoPath, 'origin');
+				const data = await this.symbolic_ref__HEAD(repoPath, 'origin');
 				if (data != null) {
 					return [data.startsWith('origin/') ? data.substring('origin/'.length) : data, undefined];
 				}
@@ -1241,16 +1269,15 @@ export class Git {
 			}
 
 			if (GitWarnings.headNotABranch.test(msg)) {
-				const sha = (
-					await this.exec(
-						{ cwd: repoPath, configs: gitLogDefaultConfigs, errors: GitErrorHandling.Ignore },
-						'log',
-						'-n1',
-						'--format=%H',
-						ordering ? `--${ordering}-order` : undefined,
-						'--',
-					)
-				)?.trim();
+				result = await this.exec(
+					{ cwd: repoPath, configs: gitLogDefaultConfigs, errors: GitErrorHandling.Ignore },
+					'log',
+					'-n1',
+					'--format=%H',
+					ordering ? `--${ordering}-order` : undefined,
+					'--',
+				);
+				const sha = result.stdout.trim();
 				if (!sha) return undefined;
 
 				return [`(HEAD detached at ${shortenRevision(sha)})`, sha];
@@ -1265,13 +1292,13 @@ export class Git {
 		let retried = false;
 		while (true) {
 			try {
-				const data = await this.exec(
+				const result = await this.exec(
 					{ cwd: repoPath },
 					'symbolic-ref',
 					'--short',
 					`refs/remotes/${remote}/HEAD`,
 				);
-				return data?.trim() || undefined;
+				return result.stdout.trim() || undefined;
 			} catch (ex) {
 				if (/is not a symbolic ref/.test(ex.stderr)) {
 					try {
@@ -1281,9 +1308,9 @@ export class Git {
 							continue;
 						}
 
-						const data = await this.exec({ cwd: repoPath }, 'ls-remote', '--symref', remote, 'HEAD');
-						if (data != null) {
-							const match = /ref:\s(\S+)\s+HEAD/m.exec(data);
+						const result = await this.exec({ cwd: repoPath }, 'ls-remote', '--symref', remote, 'HEAD');
+						if (result.stdout) {
+							const match = /ref:\s(\S+)\s+HEAD/m.exec(result.stdout);
 							if (match != null) {
 								const [, branch] = match;
 								return `${remote}/${branch.substring('refs/heads/'.length).trim()}`;
@@ -1298,16 +1325,16 @@ export class Git {
 	}
 
 	async rev_parse__git_dir(cwd: string): Promise<{ path: string; commonPath?: string } | undefined> {
-		const data = await this.exec(
+		const result = await this.exec(
 			{ cwd: cwd, errors: GitErrorHandling.Ignore },
 			'rev-parse',
 			'--git-dir',
 			'--git-common-dir',
 		);
-		if (!data?.length) return undefined;
+		if (!result.stdout) return undefined;
 
 		// Keep trailing spaces which are part of the directory name
-		let [dotGitPath, commonDotGitPath] = data.split('\n').map(r => r.trimStart());
+		let [dotGitPath, commonDotGitPath] = result.stdout.split('\n').map(r => r.trimStart());
 
 		// Make sure to normalize: https://github.com/git-for-windows/git/issues/2478
 
@@ -1329,18 +1356,18 @@ export class Git {
 	}
 
 	async rev_parse__show_toplevel(cwd: string): Promise<[safe: true, repoPath: string] | [safe: false] | []> {
-		let data;
+		let result;
 
 		if (!workspace.isTrusted) {
 			// Check if the folder is a bare clone: if it has a file named HEAD && `rev-parse --show-cdup` is empty
 			try {
 				accessSync(joinPaths(cwd, 'HEAD'));
-				data = await this.exec(
+				result = await this.exec(
 					{ cwd: cwd, errors: GitErrorHandling.Throw, configs: ['-C', cwd] },
 					'rev-parse',
 					'--show-cdup',
 				);
-				if (data.trim() === '') {
+				if (!result.stdout.trim()) {
 					Logger.log(`Skipping (untrusted workspace); bare clone repository detected in '${cwd}'`);
 					return emptyArray as [];
 				}
@@ -1350,12 +1377,12 @@ export class Git {
 		}
 
 		try {
-			data = await this.exec({ cwd: cwd, errors: GitErrorHandling.Throw }, 'rev-parse', '--show-toplevel');
+			result = await this.exec({ cwd: cwd, errors: GitErrorHandling.Throw }, 'rev-parse', '--show-toplevel');
 			// Make sure to normalize: https://github.com/git-for-windows/git/issues/2478
 			// Keep trailing spaces which are part of the directory name
-			return data.length === 0
+			return !result.stdout
 				? (emptyArray as [])
-				: [true, normalizePath(data.trimStart().replace(/[\r|\n]+$/, ''))];
+				: [true, normalizePath(result.stdout.trimStart().replace(/[\r|\n]+$/, ''))];
 		} catch (ex) {
 			if (ex instanceof WorkspaceUntrustedError) return emptyArray as [];
 
@@ -1375,12 +1402,12 @@ export class Git {
 			const inDotGit = /this operation must be run in a work tree/.test(ex.stderr);
 			// Check if we are in a bare clone
 			if (inDotGit && workspace.isTrusted) {
-				data = await this.exec(
+				result = await this.exec(
 					{ cwd: cwd, errors: GitErrorHandling.Ignore },
 					'rev-parse',
 					'--is-bare-repository',
 				);
-				if (data.trim() === 'true') {
+				if (result.stdout.trim() === 'true') {
 					const result = await this.rev_parse__git_dir(cwd);
 					const repoPath = result?.commonPath ?? result?.path;
 					if (repoPath?.length) return [true, repoPath];
@@ -1430,8 +1457,8 @@ export class Git {
 		const args = ref.endsWith(':') ? `${ref}./${file}` : `${ref}:./${file}`;
 
 		try {
-			const data = await this.exec<T>(opts, 'show', '--textconv', args, '--');
-			return data;
+			const result = await this.exec<T>(opts, 'show', '--textconv', args, '--');
+			return result.stdout;
 		} catch (ex) {
 			const msg: string = ex?.toString() ?? '';
 			if (ref === ':' && GitErrors.badRevision.test(msg)) {
@@ -1446,7 +1473,8 @@ export class Git {
 				return undefined;
 			}
 
-			return defaultExceptionHandler(ex, opts.cwd) as T;
+			defaultExceptionHandler(ex, opts.cwd);
+			return '' as T;
 		}
 	}
 
@@ -1500,8 +1528,8 @@ export class Git {
 		}
 
 		try {
-			const data = await this.exec({ cwd: repoPath, stdin: stdin }, ...params);
-			if (data.includes('No local changes to save')) {
+			const result = await this.exec({ cwd: repoPath, stdin: stdin }, ...params);
+			if (result.stdout.includes('No local changes to save')) {
 				throw new StashPushError(StashPushErrorReason.NothingToSave);
 				return;
 			}
@@ -1522,7 +1550,7 @@ export class Git {
 		porcelainVersion: number = 1,
 		options?: { similarityThreshold?: number },
 		...pathspecs: string[]
-	): Promise<string> {
+	): Promise<GitResult<string>> {
 		const params = [
 			'status',
 			porcelainVersion >= 2 ? `--porcelain=v${porcelainVersion}` : '--porcelain',
@@ -1535,18 +1563,19 @@ export class Git {
 			);
 		}
 
-		return this.exec(
+		const result = await this.exec(
 			{ cwd: repoPath, configs: gitStatusDefaultConfigs, env: { GIT_OPTIONAL_LOCKS: '0' } },
 			...params,
 			'--',
 			...pathspecs,
 		);
+		return result;
 	}
 
-	async tag(repoPath: string, ...args: string[]): Promise<string> {
+	async tag(repoPath: string, ...args: string[]): Promise<GitResult<string>> {
 		try {
-			const data = await this.exec({ cwd: repoPath }, 'tag', ...args);
-			return data;
+			const result = await this.exec({ cwd: repoPath }, 'tag', ...args);
+			return result;
 		} catch (ex) {
 			const msg: string = ex?.toString() ?? '';
 			for (const [error, reason] of tagErrorAndReason) {

@@ -16,25 +16,33 @@ import { LocalSharedGkStorageLocationProvider } from './gk/localSharedGkStorageL
 import { LocalGkWorkspacesSharedStorageProvider } from './gk/localWorkspacesSharedStorageProvider';
 
 let gitInstance: Git | undefined;
-function ensureGit(container: Container) {
-	gitInstance ??= new Git(container);
+function ensureGit() {
+	if (gitInstance == null) {
+		gitInstance = new Git();
+	}
 	return gitInstance;
 }
 
-export function git(
-	container: Container,
-	options: GitCommandOptions,
-	...args: any[]
-): Promise<GitResult<string | Buffer>> {
-	return ensureGit(container).exec(options, ...args);
+export function git(options: GitCommandOptions, ...args: any[]): Promise<GitResult<string | Buffer>> {
+	return ensureGit().exec(options, ...args);
+}
+
+export function gitLogStreamTo(
+	repoPath: string,
+	sha: string,
+	limit: number,
+	options?: { configs?: readonly string[]; stdin?: string },
+	...args: string[]
+): Promise<[data: string[], count: number]> {
+	return ensureGit().logStreamTo(repoPath, sha, limit, options, ...args);
 }
 
 export async function getSupportedGitProviders(container: Container): Promise<GitProvider[]> {
-	const git = ensureGit(container);
+	const git = ensureGit();
 
 	const providers: GitProvider[] = [
 		new LocalGitProvider(container, git),
-		new VslsGitProvider(container, new VslsGit(container, git)),
+		new VslsGitProvider(container, new VslsGit(git)),
 	];
 
 	if (configuration.get('virtualRepositories.enabled')) {
