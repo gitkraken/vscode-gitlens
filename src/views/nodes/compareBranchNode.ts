@@ -104,6 +104,7 @@ export class CompareBranchNode extends SubscribeableViewNode<
 		return this.branch.repoPath;
 	}
 
+	@debug()
 	protected override subscribe(): Disposable | Promise<Disposable | undefined> | undefined {
 		const subscriptions: Disposable[] = [
 			weakEvent(this.view.onDidChangeNodesCheckedState, this.onNodesCheckedStateChanged, this),

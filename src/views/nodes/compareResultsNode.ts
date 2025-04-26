@@ -105,6 +105,7 @@ export class CompareResultsNode extends SubscribeableViewNode<
 		return authors;
 	}
 
+	@debug()
 	protected override subscribe(): Disposable | Promise<Disposable | undefined> | undefined {
 		return Disposable.from(
 			weakEvent(this.view.onDidChangeNodesCheckedState, this.onNodesCheckedStateChanged, this),
