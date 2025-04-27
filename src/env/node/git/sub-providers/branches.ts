@@ -685,7 +685,7 @@ export class BranchesGitSubProvider implements GitBranchesSubProvider {
 		const targetBaseConfigKey: GitConfigKeys = `branch.${ref}.gk-target-base`;
 
 		let target = await this.provider.config.getConfig(repoPath, targetBaseConfigKey);
-		if (target != null) {
+		if (target) {
 			target = await this.provider.refs.getSymbolicReferenceName(repoPath, target);
 		}
 		return target?.trim() || undefined;
