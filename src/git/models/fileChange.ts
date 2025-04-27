@@ -1,9 +1,8 @@
-/* eslint-disable @typescript-eslint/no-restricted-imports -- TODO need to deal with sharing rich class shapes to webviews */
+/* eslint-disable @typescript-eslint/no-restricted-imports */ /* TODO need to deal with sharing rich class shapes to webviews */
 import type { Uri } from 'vscode';
 import type { Container } from '../../container';
 import { memoize } from '../../system/decorators/-webview/memoize';
 import { pluralize } from '../../system/string';
-import type { DiffRange } from '../gitProvider';
 import type { GitFileStatus } from './fileStatus';
 import { GitFileConflictStatus } from './fileStatus';
 
@@ -30,7 +29,7 @@ export class GitFileChange implements GitFileChangeShape {
 		public readonly previousSha?: string | undefined,
 		public readonly stats?: GitFileChangeStats | undefined,
 		public readonly staged?: boolean,
-		public readonly range?: DiffRange | undefined,
+		public readonly range?: { startLine: number; endLine: number } | undefined,
 	) {}
 
 	get hasConflicts(): boolean {
@@ -61,7 +60,7 @@ export class GitFileChange implements GitFileChangeShape {
 
 	@memoize()
 	getWorkingUri(): Promise<Uri | undefined> {
-		return this.container.git.getRepositoryService(this.repoPath).getWorkingUri(this.uri);
+		return this.container.git.getWorkingUri(this.repoPath, this.uri);
 	}
 
 	formatStats(

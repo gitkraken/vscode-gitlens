@@ -2,7 +2,7 @@ import { joinPaths, normalizePath } from '../../system/path';
 import { maybeStopWatch } from '../../system/stopwatch';
 import { iterateAsyncByDelimiter, iterateByDelimiter } from '../../system/string';
 import type { GitFileIndexStatus } from '../models/fileStatus';
-import { diffRegex } from './diffParser';
+import { diffHunkRegex, diffRegex } from './diffParser';
 
 const commitsMapping = {
 	sha: '%H',
@@ -191,23 +191,33 @@ type LogParsedEntryWithFilesAndStats<T> = { [K in keyof T]: string } & {
 type LogParsedEntryWithStats<T> = { [K in keyof T]: string } & { stats: LogParsedStats };
 
 // Parsed types
-export type LogParsedFile = {
+export interface LogParsedFile {
 	status: string;
 	path: string;
 	originalPath?: string;
 	additions?: never;
 	deletions?: never;
-};
+	range?: LogParsedRange;
+	originalRange?: LogParsedRange;
+}
 type LogParsedFileWithStats = Omit<LogParsedFile, 'additions' | 'deletions'> & {
 	additions: number;
 	deletions: number;
 };
-type LogParsedStats = { files: number; additions: number; deletions: number };
-type LogParsedStatsWithFilesStats = {
+interface LogParsedRange {
+	startLine: number;
+	endLine: number;
+}
+interface LogParsedStats {
+	files: number;
+	additions: number;
+	deletions: number;
+}
+interface LogParsedStatsWithFilesStats {
 	files: { added: number; changed: number; deleted: number };
 	additions: number;
 	deletions: number;
-};
+}
 
 const recordSep = '\x1E'; // ASCII Record Separator character
 const recordFormatSep = '%x1E';
@@ -729,24 +739,48 @@ function createLogParserWithPatch<T extends Record<string, string>>(
 
 	const args = [`--format=${format}`];
 
-	function parsePatch(content: string): LogParsedFile {
-		const [line] = content.split('\n', 1);
+	function parsePatch(content: string): LogParsedFile | undefined {
+		const lines = iterateByDelimiter(content, '\n');
+		let line = lines.next();
+		if (line.done) return undefined;
 
-		const match = diffRegex.exec(line);
-		if (match == null) return { status: '', path: '' };
+		const fileMatch = diffRegex.exec(line.value);
+		if (fileMatch == null) return undefined;
+
+		while (!line.done && !line.value.startsWith('@@ ')) {
+			line = lines.next();
+		}
+
+		const rangeMatch = line.value.match(diffHunkRegex);
+
+		let range: LogParsedRange | undefined;
+		let originalRange: LogParsedRange | undefined;
+		if (rangeMatch != null) {
+			let start = parseInt(rangeMatch[1], 10);
+			let count = rangeMatch[2] ? parseInt(rangeMatch[2], 10) : 1;
+
+			originalRange = start && count ? { startLine: start, endLine: start + count - 1 } : undefined;
+
+			start = parseInt(rangeMatch[3], 10);
+			count = rangeMatch[4] ? parseInt(rangeMatch[4], 10) : 1;
+
+			range = start && count ? { startLine: start, endLine: start + count - 1 } : undefined;
+		}
 
 		return {
-			status: (match[1] === 'rename' ? 'R' : 'M') as GitFileIndexStatus,
-			path: match[2],
-			originalPath: match[1] === 'rename' ? match[3] : undefined,
+			status: (fileMatch[1] === 'rename' ? 'R' : 'M') as GitFileIndexStatus,
+			path: fileMatch[2],
+			originalPath: fileMatch[1] === 'rename' ? fileMatch[3] : undefined,
+			range: range,
+			originalRange: originalRange,
 		};
 	}
 
 	function* parse(data: string | Iterable<string> | undefined): Generator<LogParsedEntryWithFiles<T>> {
-		using _sw = maybeStopWatch('Git.LogParserWithPatch.parse', { log: false, logLevel: 'debug' });
+		using sw = maybeStopWatch('Git.LogParserWithPatch.parse', { log: false, logLevel: 'debug' });
 
 		if (!data) {
-			_sw?.stop({ suffix: ` no data` });
+			sw?.stop({ suffix: ` no data` });
 			return;
 		}
 
@@ -778,7 +812,8 @@ function createLogParserWithPatch<T extends Record<string, string>>(
 						: field.value.startsWith('\n')
 						  ? field.value.substring(1)
 						  : field.value;
-					entry.files = [parsePatch(patch)];
+					const file = parsePatch(patch);
+					entry.files = file != null ? [file] : [];
 				} else {
 					debugger;
 				}
@@ -787,7 +822,7 @@ function createLogParserWithPatch<T extends Record<string, string>>(
 			yield entry;
 		}
 
-		_sw?.stop({ suffix: ` parsed ${count} records` });
+		sw?.stop({ suffix: ` parsed ${count} records` });
 	}
 
 	async function* parseAsync(stream: AsyncGenerator<string>): AsyncGenerator<LogParsedEntryWithFiles<T>> {
@@ -821,7 +856,8 @@ function createLogParserWithPatch<T extends Record<string, string>>(
 						: field.value.startsWith('\n')
 						  ? field.value.substring(1)
 						  : field.value;
-					entry.files = [parsePatch(patch)];
+					const file = parsePatch(patch);
+					entry.files = file != null ? [file] : [];
 				} else {
 					debugger;
 				}
@@ -899,10 +935,10 @@ function createLogParserWithStats<T extends Record<string, string>>(
 	}
 
 	function* parse(data: string | Iterable<string> | undefined): Generator<LogParsedEntryWithStats<T>> {
-		using _sw = maybeStopWatch('Git.LogParserWithStats.parse', { log: false, logLevel: 'debug' });
+		using sw = maybeStopWatch('Git.LogParserWithStats.parse', { log: false, logLevel: 'debug' });
 
 		if (!data) {
-			_sw?.stop({ suffix: ` no data` });
+			sw?.stop({ suffix: ` no data` });
 			return;
 		}
 
@@ -943,7 +979,7 @@ function createLogParserWithStats<T extends Record<string, string>>(
 			yield entry;
 		}
 
-		_sw?.stop({ suffix: ` parsed ${count} records` });
+		sw?.stop({ suffix: ` parsed ${count} records` });
 	}
 
 	return {

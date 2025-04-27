@@ -142,7 +142,12 @@ export class FileRevisionAsCommitNode extends ViewRefFileNode<
 		if (this.commit.lines.length) {
 			line = this.commit.lines[0].line - 1;
 		} else {
-			line = this._options.selection?.active.line ?? 0;
+			const range = this.commit.file?.range;
+			if (range != null) {
+				line = range.endLine - 1;
+			} else {
+				line = this._options.selection?.active.line ?? 0;
+			}
 		}
 
 		if (this.commit.file?.hasConflicts) {
