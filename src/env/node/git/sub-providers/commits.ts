@@ -1168,6 +1168,8 @@ function createCommit(
 								deletions: f.deletions ?? 0,
 								changes: 0,
 							},
+							undefined,
+							f.range ? { startLine: f.range.startLine, endLine: f.range.endLine } : undefined,
 						),
 				) ?? [],
 			filtered: Boolean(pathspec),

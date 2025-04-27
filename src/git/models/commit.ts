@@ -173,6 +173,8 @@ export class GitCommit implements GitRevisionReference {
 				file.originalPath ?? this._file?.originalPath,
 				file.previousSha ?? this._file?.previousSha,
 				file.stats ?? this._file?.stats,
+				file.staged ?? this._file?.staged,
+				file.range ?? this._file?.range,
 			);
 		} else {
 			this._file = undefined;

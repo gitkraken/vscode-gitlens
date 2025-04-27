@@ -13,7 +13,7 @@ import { GitFileChange } from '../models/fileChange';
 import type { GitFileStatus } from '../models/fileStatus';
 
 export const diffRegex = /^diff --git a\/(.*) b\/(.*)$/;
-export const diffHunkRegex = /^@@ -(\d+?),(\d+?) \+(\d+?),(\d+?) @@/;
+export const diffHunkRegex = /^@@ -(\d+)(?:,(\d+))? \+(\d+)(?:,(\d+))? @@/;
 
 const shortStatDiffRegex = /(\d+)\s+files? changed(?:,\s+(\d+)\s+insertions?\(\+\))?(?:,\s+(\d+)\s+deletions?\(-\))?/;
 

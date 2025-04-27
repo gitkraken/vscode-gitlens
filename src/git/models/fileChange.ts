@@ -29,6 +29,7 @@ export class GitFileChange implements GitFileChangeShape {
 		public readonly previousSha?: string | undefined,
 		public readonly stats?: GitFileChangeStats | undefined,
 		public readonly staged?: boolean,
+		public readonly range?: { startLine: number; endLine: number } | undefined,
 	) {}
 
 	get hasConflicts(): boolean {
