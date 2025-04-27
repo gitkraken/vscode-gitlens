@@ -384,7 +384,7 @@ export interface GitDiffSubProvider {
 		uri: Uri,
 		rev: string | undefined,
 		skip?: number,
-		dirty?: boolean,
+		unsaved?: boolean,
 	): Promise<PreviousComparisonUrisResult | undefined>;
 	getPreviousComparisonUrisForLine(
 		repoPath: string,
