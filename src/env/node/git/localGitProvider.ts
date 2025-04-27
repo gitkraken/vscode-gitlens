@@ -787,11 +787,11 @@ export class LocalGitProvider implements GitProvider, Disposable {
 		if (!rev || (isUncommitted(rev) && !isUncommittedStaged(rev))) {
 			// Make sure the file exists in the repo
 			let data = await this.git.ls_files(repoPath, path);
-			if (data != null) return this.getAbsoluteUri(path, repoPath);
+			if (data) return this.getAbsoluteUri(path, repoPath);
 
 			// Check if the file exists untracked
 			data = await this.git.ls_files(repoPath, path, { untracked: true });
-			if (data != null) return this.getAbsoluteUri(path, repoPath);
+			if (data) return this.getAbsoluteUri(path, repoPath);
 
 			return undefined;
 		}
@@ -895,7 +895,7 @@ export class LocalGitProvider implements GitProvider, Disposable {
 		let rev;
 		do {
 			data = await this.git.ls_files(repoPath, relativePath);
-			if (data != null) {
+			if (data) {
 				relativePath = splitSingle(data, '\n')[0];
 				break;
 			}
