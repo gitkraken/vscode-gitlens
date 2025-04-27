@@ -183,6 +183,7 @@ export class DiffGitSubProvider implements GitDiffSubProvider {
 		uri: Uri,
 		rev: string | undefined,
 		skip: number = 0,
+		_unsaved?: boolean,
 	): Promise<PreviousComparisonUrisResult | undefined> {
 		if (rev === deletedOrMissing) return undefined;
 
