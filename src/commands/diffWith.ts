@@ -170,7 +170,7 @@ export class DiffWithCommand extends GlCommandBase {
 				lhs ?? repo.git.getRevisionUri(deletedOrMissing, args.lhs.uri.fsPath),
 				rhs ?? repo.git.getRevisionUri(deletedOrMissing, args.rhs.uri.fsPath),
 				title,
-				args.showOptions,
+				showOptions,
 			);
 		} catch (ex) {
 			Logger.error(ex, 'DiffWithCommand');
