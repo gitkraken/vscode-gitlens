@@ -501,7 +501,6 @@ export class CommitsGitSubProvider implements GitCommitsSubProvider {
 
 			// If we didn't find any history from the working tree, check to see if the file was renamed
 			if (rev == null && pathspec && !commits.size) {
-				// TODO@eamodio this currently won't work because getStatusForFile won't return the original path
 				const status = await this.provider.status?.getStatusForFile(repoPath, pathspec);
 				if (status?.originalPath != null) {
 					pathspec = status.originalPath;
