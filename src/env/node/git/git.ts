@@ -329,7 +329,7 @@ export class Git {
 			exception = new GitError(ex);
 			if (errorHandling === GitErrorHandling.Throw) throw exception;
 
-			defaultExceptionHandler(ex, options.cwd, start);
+			defaultExceptionHandler(exception, options.cwd, start);
 			exception = undefined;
 			return { stdout: '' as T, stderr: result?.stderr as T | undefined, exitCode: result?.exitCode ?? 0 };
 		} finally {
