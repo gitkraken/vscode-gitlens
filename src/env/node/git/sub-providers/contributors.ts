@@ -29,7 +29,13 @@ export class ContributorsGitSubProvider implements GitContributorsSubProvider {
 	async getContributors(
 		repoPath: string,
 		rev?: string | undefined,
-		options?: { all?: boolean; merges?: boolean | 'first-parent'; stats?: boolean },
+		options?: {
+			all?: boolean;
+			merges?: boolean | 'first-parent';
+			pathspec?: string;
+			since?: string;
+			stats?: boolean;
+		},
 	): Promise<GitContributor[]> {
 		if (repoPath == null) return [];
 
@@ -38,7 +44,13 @@ export class ContributorsGitSubProvider implements GitContributorsSubProvider {
 			key += ':all';
 		}
 		if (options?.merges) {
-			key += `:merges:${options.merges}`;
+			key += `:merges=${options.merges}`;
+		}
+		if (options?.pathspec) {
+			key += `:pathspec=${options.pathspec}`;
+		}
+		if (options?.since) {
+			key += `:since=${options.since}`;
 		}
 		if (options?.stats) {
 			key += ':stats';
@@ -67,12 +79,24 @@ export class ContributorsGitSubProvider implements GitContributorsSubProvider {
 						args.push('--all', '--single-worktree');
 					}
 
+					if (options?.since) {
+						args.push(`--since="${options.since}"`);
+					}
+
+					if (rev && !isUncommittedStaged(rev)) {
+						args.push(rev);
+					}
+
+					if (options?.pathspec) {
+						args.push('--', options.pathspec);
+					} else {
+						args.push('--');
+					}
+
 					const result = await this.git.exec(
 						{ cwd: repoPath, configs: gitLogDefaultConfigs },
 						'log',
 						...args,
-						rev && !isUncommittedStaged(rev) ? rev : undefined,
-						'--',
 					);
 
 					const contributors = new Map<string, GitContributor>();
@@ -89,18 +113,25 @@ export class ContributorsGitSubProvider implements GitContributorsSubProvider {
 								c.email,
 								isUserMatch(currentUser, c.author, c.email),
 								1,
+								[
+									{
+										sha: c.sha,
+										date: new Date(timestamp),
+										message: c.message,
+										files: c.stats?.files,
+										additions: c.stats?.additions,
+										deletions: c.stats?.deletions,
+									},
+								],
 								new Date(timestamp),
 								new Date(timestamp),
 								c.stats
-									? {
-											...c.stats,
-											contributionScore: calculateContributionScore(c.stats, timestamp),
-									  }
+									? { ...c.stats, contributionScore: calculateContributionScore(c.stats, timestamp) }
 									: undefined,
 							);
 							contributors.set(key, contributor);
 						} else {
-							contributor.commits++;
+							contributor.contributionCount++;
 							const date = new Date(timestamp);
 							if (date > contributor.latestCommitDate!) {
 								contributor.latestCommitDate = date;
@@ -108,6 +139,17 @@ export class ContributorsGitSubProvider implements GitContributorsSubProvider {
 							if (date < contributor.firstCommitDate!) {
 								contributor.firstCommitDate = date;
 							}
+
+							contributor.contributions ??= [];
+							contributor.contributions.push({
+								sha: c.sha,
+								date: new Date(timestamp),
+								message: c.message,
+								files: c.stats?.files,
+								additions: c.stats?.additions,
+								deletions: c.stats?.deletions,
+							});
+
 							if (options?.stats && c.stats != null) {
 								if (contributor.stats == null) {
 									contributor.stats = {

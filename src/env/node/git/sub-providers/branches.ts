@@ -270,7 +270,7 @@ export class BranchesGitSubProvider implements GitBranchesSubProvider {
 			let latestCommitTimestamp;
 
 			for (const c of contributors) {
-				totalCommits += c.commits;
+				totalCommits += c.contributionCount;
 				totalFiles += c.stats?.files ?? 0;
 				totalAdditions += c.stats?.additions ?? 0;
 				totalDeletions += c.stats?.deletions ?? 0;

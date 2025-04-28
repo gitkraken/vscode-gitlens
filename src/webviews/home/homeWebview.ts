@@ -1664,7 +1664,7 @@ async function getContributorsInfo(
 					email: c.email ?? '',
 					current: c.current,
 					timestamp: c.latestCommitDate?.getTime(),
-					count: c.commits,
+					count: c.contributionCount,
 					stats: c.stats,
 					avatarUrl: (await c.getAvatarUri())?.toString(),
 				}) satisfies NonNullable<ContributorsInfo>[0],
