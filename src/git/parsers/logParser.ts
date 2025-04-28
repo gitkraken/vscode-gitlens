@@ -118,6 +118,14 @@ export function getShaAndFilesAndStatsLogParser(): ShaAndFilesAndStatsLogParser 
 	return _shaAndFilesAndStatsParser;
 }
 
+type ShaAndFileRangeLogParser = LogParserWithFiles<typeof shaMapping>;
+let _shaAndFileRangeParser: ShaAndFileRangeLogParser | undefined;
+
+export function getShaAndFileRangeLogParser(): ShaAndFileRangeLogParser {
+	_shaAndFileRangeParser ??= createLogParserWithPatch(shaMapping);
+	return _shaAndFileRangeParser;
+}
+
 type ShaAndFileSummaryLogParser = LogParserWithFileSummary<typeof shaMapping>;
 let _shaAndFileSummaryParser: ShaAndFileSummaryLogParser | undefined;
 

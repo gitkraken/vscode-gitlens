@@ -8,7 +8,7 @@ import { command, executeCommand } from '../system/-webview/command';
 import { selectionToDiffRange } from '../system/-webview/vscode/editors';
 import { getTabUris, getVisibleTabs } from '../system/-webview/vscode/tabs';
 import { Logger } from '../system/logger';
-import { areUrisEqual } from '../system/uri';
+import { uriEquals } from '../system/uri';
 import { ActiveEditorCommand } from './commandBase';
 import { getCommandUri } from './commandBase.utils';
 import type { CommandContext } from './commandContext';
@@ -52,14 +52,14 @@ export class DiffLineWithPreviousCommand extends ActiveEditorCommand {
 			const uris = getTabUris(tab);
 			// If there is an original, then we are in a diff editor -- modified is right, original is left
 			if (uris.original != null) {
-				skipFirstRev = areUrisEqual(uri, uris.modified);
+				skipFirstRev = uriEquals(uri, uris.modified);
 			}
 		}
 
 		try {
 			const diffUris = await this.container.git
-				.getRepositoryService(gitUri.repoPath!)
-				.diff.getPreviousComparisonUrisForRange(gitUri, gitUri.sha, args.range, {
+				.diff(gitUri.repoPath!)
+				.getPreviousComparisonUrisForRange(gitUri, gitUri.sha, args.range, {
 					skipFirstRev: skipFirstRev,
 				});
 

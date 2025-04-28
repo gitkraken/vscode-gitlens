@@ -105,8 +105,16 @@ export interface PreviousComparisonUrisResult {
 	previous: GitUri | undefined;
 }
 
-export interface PreviousLineComparisonUrisResult extends PreviousComparisonUrisResult {
-	line: number;
+export interface DiffRange {
+	/** 1-based */
+	readonly startLine: number;
+	/** 1-based */
+	readonly endLine: number;
+	readonly active?: 'start' | 'end';
+}
+
+export interface PreviousRangeComparisonUrisResult extends PreviousComparisonUrisResult {
+	range: DiffRange;
 }
 
 export interface RepositoryCloseEvent {
@@ -386,13 +394,13 @@ export interface GitDiffSubProvider {
 		skip?: number,
 		unsaved?: boolean,
 	): Promise<PreviousComparisonUrisResult | undefined>;
-	getPreviousComparisonUrisForLine(
+	getPreviousComparisonUrisForRange(
 		repoPath: string,
 		uri: Uri,
-		editorLine: number,
 		rev: string | undefined,
-		skip?: number,
-	): Promise<PreviousLineComparisonUrisResult | undefined>;
+		range: DiffRange,
+		options?: { skipFirstRev?: boolean },
+	): Promise<PreviousRangeComparisonUrisResult | undefined>;
 	openDiffTool?(
 		repoPath: string,
 		uri: Uri,

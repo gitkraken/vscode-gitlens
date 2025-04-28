@@ -4,6 +4,7 @@ import type { DiffWithPreviousCommandArgs } from '../../commands/diffWithPreviou
 import { Schemes } from '../../constants';
 import type { TreeViewRefFileNodeTypes } from '../../constants.views';
 import { StatusFileFormatter } from '../../git/formatters/statusFormatter';
+import type { DiffRange } from '../../git/gitProvider';
 import { GitUri } from '../../git/gitUri';
 import type { GitBranch } from '../../git/models/branch';
 import type { GitCommit } from '../../git/models/commit';
@@ -12,6 +13,7 @@ import type { GitRevisionReference } from '../../git/models/reference';
 import { getGitFileStatusIcon } from '../../git/utils/fileStatus.utils';
 import { createCommand } from '../../system/-webview/command';
 import { relativeDir } from '../../system/-webview/path';
+import { selectionToDiffRange } from '../../system/-webview/vscode/editors';
 import { joinPaths } from '../../system/path';
 import type { ViewsWithCommits, ViewsWithStashes } from '../viewBase';
 import { createViewDecorationUri } from '../viewDecorationProvider';
@@ -156,11 +158,12 @@ export abstract class CommitFileNodeBase<
 	}
 
 	override getCommand(): Command | undefined {
-		let line;
+		let range: DiffRange;
 		if (this.commit.lines.length) {
-			line = this.commit.lines[0].line - 1;
+			// TODO@eamodio should the endLine be the last line of the commit?
+			range = { startLine: this.commit.lines[0].line, endLine: this.commit.lines[0].line };
 		} else {
-			line = this.options?.selection?.active.line ?? 0;
+			range = this.commit.file?.range ?? selectionToDiffRange(this.options?.selection);
 		}
 
 		return createCommand<[undefined, DiffWithPreviousCommandArgs]>(
@@ -170,11 +173,8 @@ export abstract class CommitFileNodeBase<
 			{
 				commit: this.commit,
 				uri: GitUri.fromFile(this.file, this.commit.repoPath),
-				line: line,
-				showOptions: {
-					preserveFocus: true,
-					preview: true,
-				},
+				range: range,
+				showOptions: { preserveFocus: true, preview: true },
 			},
 		);
 	}

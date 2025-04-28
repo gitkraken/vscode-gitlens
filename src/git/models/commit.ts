@@ -12,7 +12,7 @@ import { memoize } from '../../system/decorators/-webview/memoize';
 import { getLoggableName } from '../../system/logger';
 import { getSettledValue } from '../../system/promise';
 import { pluralize } from '../../system/string';
-import type { PreviousLineComparisonUrisResult } from '../gitProvider';
+import type { DiffRange, PreviousRangeComparisonUrisResult } from '../gitProvider';
 import { GitUri } from '../gitUri';
 import type { RemoteProvider } from '../remotes/remoteProvider';
 import { getChangedFilesCount } from '../utils/commit.utils';
@@ -571,18 +571,18 @@ export class GitCommit implements GitRevisionReference {
 		});
 	}
 
-	@memoize<GitCommit['getPreviousComparisonUrisForLine']>((el, ref) => `${el}|${ref ?? ''}`)
-	getPreviousComparisonUrisForLine(
-		editorLine: number,
-		ref?: string,
-	): Promise<PreviousLineComparisonUrisResult | undefined> {
+	@memoize<GitCommit['getPreviousComparisonUrisForRange']>((r, rev) => `${r.startLine}-${r.endLine}|${rev ?? ''}`)
+	getPreviousComparisonUrisForRange(
+		range: DiffRange,
+		rev?: string,
+	): Promise<PreviousRangeComparisonUrisResult | undefined> {
 		return this.file != null
 			? this.container.git
 					.diff(this.repoPath)
-					.getPreviousComparisonUrisForLine(
+					.getPreviousComparisonUrisForRange(
 						this.file.uri,
-						editorLine,
-						ref ?? (this.sha === uncommitted ? undefined : this.sha),
+						rev ?? (this.sha === uncommitted ? undefined : this.sha),
+						range,
 					)
 			: Promise.resolve(undefined);
 	}

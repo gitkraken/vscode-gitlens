@@ -1,4 +1,5 @@
-import { Disposable, Selection, TreeItem, TreeItemCollapsibleState, window } from 'vscode';
+import type { Selection } from 'vscode';
+import { Disposable, TreeItem, TreeItemCollapsibleState, window } from 'vscode';
 import type { GitUri } from '../../git/gitUri';
 import type { GitBranch } from '../../git/models/branch';
 import type { GitFile } from '../../git/models/file';
@@ -12,7 +13,7 @@ import { gate } from '../../system/decorators/-webview/gate';
 import { memoize } from '../../system/decorators/-webview/memoize';
 import { debug } from '../../system/decorators/log';
 import { weakEvent } from '../../system/event';
-import { filterMap } from '../../system/iterable';
+import { filterMap, find } from '../../system/iterable';
 import { getLoggableName, Logger } from '../../system/logger';
 import { startLogScope } from '../../system/logger.scope';
 import { getSettledValue } from '../../system/promise';
@@ -72,12 +73,13 @@ export class LineHistoryNode
 		const children: ViewNode[] = [];
 		if (this.uri.repoPath == null) return children;
 
-		let selection = this.selection;
+		const { sha } = this.uri;
+		const selection = this.selection;
 
 		const range = this.branch != null ? await this.view.container.git.getBranchAheadRange(this.branch) : undefined;
 		const [logResult, blameResult, getBranchAndTagTipsResult, unpublishedCommitsResult] = await Promise.allSettled([
 			this.getLog(selection),
-			this.uri.sha == null || isUncommitted(this.uri.sha)
+			sha == null || isUncommitted(sha)
 				? this.editorContents
 					? await this.view.container.git.getBlameForRangeContents(this.uri, selection, this.editorContents)
 					: await this.view.container.git.getBlameForRange(this.uri, selection)
@@ -88,29 +90,18 @@ export class LineHistoryNode
 
 		// Check for any uncommitted changes in the range
 		const blame = getSettledValue(blameResult);
-		if (blame != null) {
-			for (const commit of blame.commits.values()) {
-				if (!commit.isUncommitted) continue;
-
-				const firstLine = blame.lines[0];
-				const lastLine = blame.lines[blame.lines.length - 1];
-
-				// Since there could be a change in the line numbers, update the selection
-				const firstActive = selection.active.line === firstLine.line - 1;
-				selection = new Selection(
-					(firstActive ? lastLine : firstLine).originalLine - 1,
-					selection.anchor.character,
-					(firstActive ? firstLine : lastLine).originalLine - 1,
-					selection.active.character,
-				);
+		if (blame?.lines.length) {
+			const uncommittedCommit = find(blame.commits.values(), c => c.isUncommitted);
+			if (uncommittedCommit != null) {
+				const relativePath = this.view.container.git.getRelativePath(this.uri, this.uri.repoPath);
 
 				const status = await this.view.container.git.status(this.uri.repoPath).getStatusForFile?.(this.uri);
 				if (status != null) {
 					const file: GitFile = {
 						conflictStatus: status?.conflictStatus,
-						path: commit.file?.path ?? '',
+						path: uncommittedCommit.file?.path ?? relativePath,
 						indexStatus: status?.indexStatus,
-						originalPath: commit.file?.originalPath,
+						originalPath: uncommittedCommit.file?.originalPath,
 						repoPath: this.uri.repoPath,
 						status: status?.status ?? GitFileIndexStatus.Modified,
 						workingTreeStatus: status?.workingTreeStatus,
@@ -128,8 +119,6 @@ export class LineHistoryNode
 						}
 					}
 				}
-
-				break;
 			}
 		}
 
@@ -253,17 +242,13 @@ export class LineHistoryNode
 	}
 
 	private _log: GitLog | undefined;
-	private async getLog(selection?: Selection) {
-		if (this._log == null) {
-			this._log = await this.view.container.git
-				.commits(this.uri.repoPath!)
-				.getLogForPath(this.uri, this.uri.sha, {
-					all: false,
-					limit: this.limit ?? this.view.config.pageItemLimit,
-					range: selection ?? this.selection,
-					renames: false,
-				});
-		}
+	private async getLog(selection?: Selection): Promise<GitLog | undefined> {
+		this._log ??= await this.view.container.git.commits(this.uri.repoPath!).getLogForPath(this.uri, this.uri.sha, {
+			all: false,
+			limit: this.limit ?? this.view.config.pageItemLimit,
+			range: selection ?? this.selection,
+			renames: false,
+		});
 
 		return this._log;
 	}

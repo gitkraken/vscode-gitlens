@@ -1,14 +1,15 @@
 import type { TextDocumentShowOptions, Uri } from 'vscode';
-import { Range, ViewColumn } from 'vscode';
+import { ViewColumn } from 'vscode';
 import { GlyphChars } from '../constants';
 import type { Container } from '../container';
+import type { DiffRange } from '../git/gitProvider';
 import type { GitCommit } from '../git/models/commit';
 import { isCommit } from '../git/models/commit';
 import { deletedOrMissing } from '../git/models/revision';
 import { isShaWithParentSuffix, isUncommitted, shortenRevision } from '../git/utils/revision.utils';
 import { showGenericErrorMessage } from '../messages';
 import { command } from '../system/-webview/command';
-import { openDiffEditor } from '../system/-webview/vscode/editors';
+import { diffRangeToSelection, openDiffEditor } from '../system/-webview/vscode/editors';
 import { createMarkdownCommandLink } from '../system/commands';
 import { Logger } from '../system/logger';
 import { basename } from '../system/path';
@@ -27,15 +28,15 @@ export interface DiffWithCommandArgs {
 	repoPath: string | undefined;
 
 	fromComparison?: boolean;
-	line?: number;
+	range?: DiffRange;
 	showOptions?: TextDocumentShowOptions;
 }
 
 @command()
 export class DiffWithCommand extends GlCommandBase {
 	static createMarkdownCommandLink(args: DiffWithCommandArgs): string;
-	static createMarkdownCommandLink(commit: GitCommit, line?: number): string;
-	static createMarkdownCommandLink(argsOrCommit: DiffWithCommandArgs | GitCommit, line?: number): string {
+	static createMarkdownCommandLink(commit: GitCommit, range?: DiffRange): string;
+	static createMarkdownCommandLink(argsOrCommit: DiffWithCommandArgs | GitCommit, range?: DiffRange): string {
 		let args: DiffWithCommandArgs | GitCommit;
 		if (isCommit(argsOrCommit)) {
 			const commit = argsOrCommit;
@@ -49,7 +50,7 @@ export class DiffWithCommand extends GlCommandBase {
 					repoPath: commit.repoPath,
 					lhs: { sha: 'HEAD', uri: commit.file.uri },
 					rhs: { sha: '', uri: commit.file.uri },
-					line: line,
+					range: range,
 				};
 			} else {
 				args = {
@@ -57,7 +58,7 @@ export class DiffWithCommand extends GlCommandBase {
 					// Don't need to worry about verifying the previous sha, as the DiffWith command will
 					lhs: { sha: commit.unresolvedPreviousSha, uri: commit.file.originalUri ?? commit.file.uri },
 					rhs: { sha: commit.sha, uri: commit.file.uri },
-					line: line,
+					range: range,
 				};
 			}
 		} else {
@@ -162,8 +163,8 @@ export class DiffWithCommand extends GlCommandBase {
 					? `${lhsTitle} ${GlyphChars.ArrowLeftRightLong} ${rhsTitle}`
 					: lhsTitle ?? rhsTitle;
 
-			if (args.line) {
-				showOptions.selection = new Range(args.line, 0, args.line, 0);
+			if (args.range != null) {
+				showOptions.selection = diffRangeToSelection(args.range);
 			}
 
 			await openDiffEditor(

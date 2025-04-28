@@ -9,6 +9,7 @@ import type { GitPausedOperationStatus } from '../../git/models/pausedOperationS
 import { getReferenceLabel } from '../../git/utils/reference.utils';
 import { createCommand, createCoreCommand } from '../../system/-webview/command';
 import { configuration } from '../../system/-webview/configuration';
+import { editorLineToDiffRange } from '../../system/-webview/vscode/editors';
 import type { FileHistoryView } from '../fileHistoryView';
 import type { LineHistoryView } from '../lineHistoryView';
 import type { ViewsWithCommits } from '../viewBase';
@@ -79,18 +80,13 @@ export class MergeConflictCurrentChangesNode extends ViewNode<
 				})})`,
 			},
 			repoPath: this.status.repoPath,
-			line: 0,
-			showOptions: {
-				preserveFocus: true,
-				preview: true,
-			},
+			range: editorLineToDiffRange(0),
+			showOptions: { preserveFocus: true, preview: true },
 		});
 	}
 
 	override async resolveTreeItem(item: TreeItem, token: CancellationToken): Promise<TreeItem> {
-		if (item.tooltip == null) {
-			item.tooltip = await this.getTooltip(token);
-		}
+		item.tooltip ??= await this.getTooltip(token);
 		return item;
 	}
 
