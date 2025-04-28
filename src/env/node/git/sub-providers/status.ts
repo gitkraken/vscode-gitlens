@@ -523,30 +523,53 @@ export class StatusGitSubProvider implements GitStatusSubProvider {
 		return status;
 	}
 
-	@gate()
 	@log()
-	async getStatusForFile(repoPath: string, pathOrUri: string | Uri): Promise<GitStatusFile | undefined> {
-		const files = await this.getStatusForPath(repoPath, pathOrUri);
+	async getStatusForFile(
+		repoPath: string,
+		pathOrUri: string | Uri,
+		options?: { renames?: boolean },
+	): Promise<GitStatusFile | undefined> {
+		const files = await this.getStatusForPathCore(repoPath, pathOrUri, { ...options, exact: true });
 		return files?.[0];
 	}
 
-	@gate()
 	@log()
-	async getStatusForPath(repoPath: string, pathOrGlob: string | Uri): Promise<GitStatusFile[] | undefined> {
+	async getStatusForPath(
+		repoPath: string,
+		pathOrGlob: string | Uri,
+		options?: { renames?: boolean },
+	): Promise<GitStatusFile[] | undefined> {
+		return this.getStatusForPathCore(repoPath, pathOrGlob, { ...options, exact: false });
+	}
+
+	@gate()
+	private async getStatusForPathCore(
+		repoPath: string,
+		pathOrGlob: string | Uri,
+		options: { exact: boolean; renames?: boolean },
+	): Promise<GitStatusFile[] | undefined> {
 		const [relativePath] = splitPath(pathOrGlob, repoPath);
 
 		const porcelainVersion = (await this.git.supports('git:status:porcelain-v2')) ? 2 : 1;
+		const renames = options.renames !== false;
 
 		const result = await this.git.status(
 			repoPath,
 			porcelainVersion,
-			{
-				similarityThreshold: configuration.get('advanced.similarityThreshold') ?? undefined,
-			},
-			relativePath,
+			{ similarityThreshold: configuration.get('advanced.similarityThreshold') ?? undefined },
+			// If we want renames, don't include the path as Git won't do rename detection
+			...(renames ? [] : [relativePath]),
 		);
 
 		const status = parseGitStatus(this.container, result.stdout, repoPath, porcelainVersion);
-		return status?.files;
+		if (!renames) return status?.files;
+
+		if (options.exact) {
+			const file = status?.files.find(f => f.path === relativePath);
+			return file ? [file] : undefined;
+		}
+
+		const files = status?.files.filter(f => f.path.startsWith(relativePath));
+		return files;
 	}
 }

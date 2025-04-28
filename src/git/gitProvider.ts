@@ -587,9 +587,42 @@ export interface GitStashSubProvider {
 }
 
 export interface GitStatusSubProvider {
+	/**
+	 * Get the status of the repository
+	 * @param repoPath Repository path
+	 * @returns A promise of the status
+	 */
 	getStatus(repoPath: string | undefined): Promise<GitStatus | undefined>;
-	getStatusForFile?(repoPath: string, uri: Uri): Promise<GitStatusFile | undefined>;
-	getStatusForPath?(repoPath: string, pathOrGlob: Uri): Promise<GitStatusFile[] | undefined>;
+	/**
+	 * Get the status of a file
+	 * @param repoPath Repository path
+	 * @param uri Uri of the file to get the status for
+	 * @param options Options to control how the status is retrieved
+	 * @returns A promise of the file's status
+	 */
+	getStatusForFile?(
+		repoPath: string,
+		uri: Uri,
+		options?: {
+			/** If false, will avoid rename detection (faster) */
+			renames?: boolean;
+		},
+	): Promise<GitStatusFile | undefined>;
+	/**
+	 * Get the status of a path or glob
+	 * @param repoPath Repository path
+	 * @param pathOrGlob Path or "glob" (globs can only end with `/*`) to get the status for
+	 * @param options Options to control how the status is retrieved
+	 * @returns A promise of the path's status
+	 */
+	getStatusForPath?(
+		repoPath: string,
+		pathOrGlob: Uri,
+		options?: {
+			/** If false, will avoid rename detection (faster) */
+			renames?: boolean;
+		},
+	): Promise<GitStatusFile[] | undefined>;
 
 	getPausedOperationStatus?(repoPath: string): Promise<GitPausedOperationStatus | undefined>;
 	abortPausedOperation?(repoPath: string, options?: { quit?: boolean }): Promise<void>;
