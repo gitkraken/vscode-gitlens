@@ -12,6 +12,7 @@ import type { RemoteProvider } from '../../git/remotes/remoteProvider';
 import { createCommand } from '../../system/-webview/command';
 import { configuration } from '../../system/-webview/configuration';
 import { getContext } from '../../system/-webview/context';
+import { editorLineToDiffRange } from '../../system/-webview/vscode/editors';
 import { makeHierarchical } from '../../system/array';
 import { joinPaths, normalizePath } from '../../system/path';
 import type { Deferred } from '../../system/promise';
@@ -204,11 +205,8 @@ export class CommitNode extends ViewRefNode<'commit', ViewsWithCommits | FileHis
 			{
 				commit: this.commit,
 				uri: this.uri,
-				line: 0,
-				showOptions: {
-					preserveFocus: true,
-					preview: true,
-				},
+				range: editorLineToDiffRange(0),
+				showOptions: { preserveFocus: true, preview: true },
 			},
 		);
 	}
@@ -223,9 +221,7 @@ export class CommitNode extends ViewRefNode<'commit', ViewsWithCommits | FileHis
 	}
 
 	override async resolveTreeItem(item: TreeItem, token: CancellationToken): Promise<TreeItem> {
-		if (item.tooltip == null) {
-			item.tooltip = await this.getTooltip(token);
-		}
+		item.tooltip ??= await this.getTooltip(token);
 		return item;
 	}
 

@@ -21,6 +21,7 @@ import { Container } from '../../container';
 import { emojify } from '../../emojis';
 import { arePlusFeaturesEnabled } from '../../plus/gk/utils/-webview/plus.utils';
 import { configuration } from '../../system/-webview/configuration';
+import { editorLineToDiffRange } from '../../system/-webview/vscode/editors';
 import { createMarkdownCommandLink } from '../../system/commands';
 import { join, map } from '../../system/iterable';
 import { escapeMarkdown } from '../../system/markdown';
@@ -29,7 +30,7 @@ import type { TokenOptions } from '../../system/string';
 import { encodeHtmlWeak, getSuperscript } from '../../system/string';
 import type { ContactPresence } from '../../vsls/vsls';
 import type { ShowInCommitGraphCommandArgs } from '../../webviews/plus/graph/registration';
-import type { PreviousLineComparisonUrisResult } from '../gitProvider';
+import type { PreviousRangeComparisonUrisResult } from '../gitProvider';
 import type { GitCommit } from '../models/commit';
 import { isCommit, isStash } from '../models/commit';
 import type { PullRequest } from '../models/pullRequest';
@@ -72,7 +73,7 @@ export interface CommitFormatOptions extends FormatOptions {
 	pullRequest?: PullRequest | Promise<PullRequest | undefined>;
 	pullRequestPendingMessage?: string;
 	presence?: ContactPresence | Promise<ContactPresence | undefined>;
-	previousLineComparisonUris?: PreviousLineComparisonUrisResult;
+	previousLineComparisonUris?: PreviousRangeComparisonUrisResult;
 	outputFormat?: 'html' | 'markdown' | 'plaintext';
 	remotes?: GitRemote<RemoteProvider>[];
 	unpublished?: boolean;
@@ -422,22 +423,16 @@ export class CommitFormatter extends Formatter<GitCommit, CommitFormatOptions> {
 				)} "Inspect Commit Details")`;
 
 				commands += ` &nbsp;[$(chevron-left)$(compare-changes)](${DiffWithCommand.createMarkdownCommandLink({
-					lhs: {
-						sha: diffUris.previous.sha ?? '',
-						uri: diffUris.previous.documentUri(),
-					},
-					rhs: {
-						sha: diffUris.current.sha ?? '',
-						uri: diffUris.current.documentUri(),
-					},
+					lhs: { sha: diffUris.previous.sha ?? '', uri: diffUris.previous.documentUri() },
+					rhs: { sha: diffUris.current.sha ?? '', uri: diffUris.current.documentUri() },
 					repoPath: this._item.repoPath,
-					line: this._options.editor?.line,
+					range: editorLineToDiffRange(this._options.editor?.line),
 				})} "Open Changes with Previous Revision")`;
 
 				commands += ` &nbsp;[$(versions)](${OpenFileAtRevisionCommand.createMarkdownCommandLink(
 					Container.instance.git.getRevisionUriFromGitUri(diffUris.previous),
 					'blame',
-					this._options.editor?.line,
+					editorLineToDiffRange(this._options.editor?.line),
 				)} "Open Blame Prior to this Change")`;
 			} else {
 				commands = `[\`${this._padOrTruncate(
@@ -461,7 +456,7 @@ export class CommitFormatter extends Formatter<GitCommit, CommitFormatOptions> {
 
 		commands += ` &nbsp;[$(chevron-left)$(compare-changes)](${DiffWithCommand.createMarkdownCommandLink(
 			this._item,
-			this._options.editor?.line,
+			editorLineToDiffRange(this._options.editor?.line),
 		)} "Open Changes with Previous Revision")`;
 
 		if (this._item.file != null && this._item.unresolvedPreviousSha != null) {
@@ -473,17 +468,13 @@ export class CommitFormatter extends Formatter<GitCommit, CommitFormatOptions> {
 			commands += ` &nbsp;[$(versions)](${OpenFileAtRevisionCommand.createMarkdownCommandLink(
 				uri,
 				'blame',
-				this._options.editor?.line,
+				editorLineToDiffRange(this._options.editor?.line),
 			)} "Open Blame Prior to this Change")`;
 		}
 
 		commands += ` &nbsp;[$(search)](${createMarkdownCommandLink<ShowQuickCommitCommandArgs>(
 			'gitlens.revealCommitInView',
-			{
-				repoPath: this._item.repoPath,
-				sha: this._item.sha,
-				revealInView: true,
-			},
+			{ repoPath: this._item.repoPath, sha: this._item.sha, revealInView: true },
 		)} "Reveal in Side Bar")`;
 
 		if (arePlusFeaturesEnabled()) {
@@ -547,18 +538,11 @@ export class CommitFormatter extends Formatter<GitCommit, CommitFormatOptions> {
 				repoPath: this._item.repoPath,
 				commit: {
 					sha: this._item.sha,
-					author: {
-						name: name,
-						email: email,
-						presence: this._options.presence,
-					},
+					author: { name: name, email: email, presence: this._options.presence },
 				},
 				file:
 					this._options.editor != null
-						? {
-								uri: this._options.editor?.uri.toString(),
-								line: this._options.editor?.line,
-						  }
+						? { uri: this._options.editor?.uri.toString(), line: this._options.editor?.line }
 						: undefined,
 			})} "Show Team Actions")`;
 		}

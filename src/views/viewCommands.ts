@@ -53,7 +53,7 @@ import { configuration } from '../system/-webview/configuration';
 import { setContext } from '../system/-webview/context';
 import { revealInFileExplorer } from '../system/-webview/vscode';
 import type { MergeEditorInputs } from '../system/-webview/vscode/editors';
-import { openMergeEditor } from '../system/-webview/vscode/editors';
+import { editorLineToDiffRange, openMergeEditor } from '../system/-webview/vscode/editors';
 import { openUrl } from '../system/-webview/vscode/uris';
 import type { OpenWorkspaceLocation } from '../system/-webview/vscode/workspaces';
 import { openWorkspace } from '../system/-webview/vscode/workspaces';
@@ -1354,11 +1354,8 @@ export class ViewCommands implements Disposable {
 					uri: GitUri.fromFile(node.file, node.repoPath),
 				},
 				repoPath: node.repoPath,
-				line: 0,
-				showOptions: {
-					preserveFocus: false,
-					preview: false,
-				},
+				range: editorLineToDiffRange(0),
+				showOptions: { preserveFocus: false, preview: false },
 			});
 
 			return;

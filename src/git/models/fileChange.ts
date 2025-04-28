@@ -3,6 +3,7 @@ import type { Uri } from 'vscode';
 import type { Container } from '../../container';
 import { memoize } from '../../system/decorators/-webview/memoize';
 import { pluralize } from '../../system/string';
+import type { DiffRange } from '../gitProvider';
 import type { GitFileStatus } from './fileStatus';
 import { GitFileConflictStatus } from './fileStatus';
 
@@ -29,7 +30,7 @@ export class GitFileChange implements GitFileChangeShape {
 		public readonly previousSha?: string | undefined,
 		public readonly stats?: GitFileChangeStats | undefined,
 		public readonly staged?: boolean,
-		public readonly range?: { startLine: number; endLine: number } | undefined,
+		public readonly range?: DiffRange | undefined,
 	) {}
 
 	get hasConflicts(): boolean {

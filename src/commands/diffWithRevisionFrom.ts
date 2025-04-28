@@ -1,6 +1,7 @@
 import type { TextDocumentShowOptions, TextEditor, Uri } from 'vscode';
 import { GlyphChars, quickPickTitleMaxChars } from '../constants';
 import type { Container } from '../container';
+import type { DiffRange } from '../git/gitProvider';
 import { GitUri } from '../git/gitUri';
 import { isBranchReference } from '../git/utils/reference.utils';
 import { shortenRevision } from '../git/utils/revision.utils';
@@ -8,6 +9,7 @@ import { showNoRepositoryWarningMessage } from '../messages';
 import { showStashPicker } from '../quickpicks/commitPicker';
 import { showReferencePicker } from '../quickpicks/referencePicker';
 import { command, executeCommand } from '../system/-webview/command';
+import { selectionToDiffRange } from '../system/-webview/vscode/editors';
 import { basename } from '../system/path';
 import { pad } from '../system/string';
 import { ActiveEditorCommand } from './commandBase';
@@ -15,9 +17,10 @@ import { getCommandUri } from './commandBase.utils';
 import type { DiffWithCommandArgs } from './diffWith';
 
 export interface DiffWithRevisionFromCommandArgs {
-	line?: number;
-	showOptions?: TextDocumentShowOptions;
 	stash?: boolean;
+
+	range?: DiffRange;
+	showOptions?: TextDocumentShowOptions;
 }
 
 @command()
@@ -38,9 +41,7 @@ export class DiffWithRevisionFromCommand extends ActiveEditorCommand {
 		}
 
 		args = { ...args };
-		if (args.line == null) {
-			args.line = editor?.selection.active.line ?? 0;
-		}
+		args.range ??= selectionToDiffRange(editor?.selection);
 
 		const path = this.container.git.getRelativePath(gitUri, gitUri.repoPath);
 
@@ -102,11 +103,8 @@ export class DiffWithRevisionFromCommand extends ActiveEditorCommand {
 				uri: renamedUri ?? gitUri,
 				title: renamedTitle ?? `${basename(gitUri.fsPath)} (${shortenRevision(ref)})`,
 			},
-			rhs: {
-				sha: '',
-				uri: gitUri,
-			},
-			line: args.line,
+			rhs: { sha: '', uri: gitUri },
+			range: args.range,
 			showOptions: args.showOptions,
 		}));
 	}

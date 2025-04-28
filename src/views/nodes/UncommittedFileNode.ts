@@ -6,6 +6,7 @@ import { GitUri } from '../../git/gitUri';
 import type { GitFile } from '../../git/models/file';
 import { getGitFileStatusIcon } from '../../git/utils/fileStatus.utils';
 import { createCommand } from '../../system/-webview/command';
+import { editorLineToDiffRange } from '../../system/-webview/vscode/editors';
 import { dirname, joinPaths } from '../../system/path';
 import type { ViewsWithCommits } from '../viewBase';
 import { getFileTooltipMarkdown, ViewFileNode } from './abstract/viewFileNode';
@@ -106,7 +107,7 @@ export class UncommittedFileNode extends ViewFileNode<'uncommitted-file', ViewsW
 			undefined,
 			{
 				uri: GitUri.fromFile(this.file, this.repoPath),
-				line: 0,
+				range: editorLineToDiffRange(0),
 				showOptions: {
 					preserveFocus: true,
 					preview: true,

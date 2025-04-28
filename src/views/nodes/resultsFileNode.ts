@@ -9,6 +9,7 @@ import { getGitFileStatusIcon } from '../../git/utils/fileStatus.utils';
 import { createReference } from '../../git/utils/reference.utils';
 import { createCommand } from '../../system/-webview/command';
 import { relativeDir } from '../../system/-webview/path';
+import { editorLineToDiffRange } from '../../system/-webview/vscode/editors';
 import { joinPaths } from '../../system/path';
 import type { View } from '../viewBase';
 import { getFileTooltipMarkdown } from './abstract/viewFileNode';
@@ -150,7 +151,7 @@ export class ResultsFileNode extends ViewRefFileNode<'results-file', View, State
 			repoPath: this.uri.repoPath!,
 
 			fromComparison: true,
-			line: 0,
+			range: editorLineToDiffRange(0),
 			showOptions: { preserveFocus: true, preview: true },
 		});
 	}

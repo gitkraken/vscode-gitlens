@@ -1,11 +1,12 @@
 import type { TextDocumentShowOptions, TextEditor, Uri } from 'vscode';
 import type { Container } from '../container';
+import type { DiffRange } from '../git/gitProvider';
 import { GitUri } from '../git/gitUri';
 import type { GitCommit } from '../git/models/commit';
 import { deletedOrMissing } from '../git/models/revision';
 import { showCommitHasNoPreviousCommitWarningMessage, showGenericErrorMessage } from '../messages';
 import { command, executeCommand } from '../system/-webview/command';
-import { getOrOpenTextEditor } from '../system/-webview/vscode/editors';
+import { getOrOpenTextEditor, selectionToDiffRange } from '../system/-webview/vscode/editors';
 import { getTabUris, getVisibleTabs } from '../system/-webview/vscode/tabs';
 import { Logger } from '../system/logger';
 import { uriEquals } from '../system/uri';
@@ -17,7 +18,7 @@ export interface DiffWithPreviousCommandArgs {
 	commit?: GitCommit;
 
 	uri?: Uri;
-	line?: number;
+	range?: DiffRange;
 	showOptions?: TextDocumentShowOptions;
 }
 
@@ -35,10 +36,7 @@ export class DiffWithPreviousCommand extends ActiveEditorCommand {
 		} else {
 			uri = args.uri;
 		}
-
-		if (args.line == null) {
-			args.line = editor?.selection.active.line ?? 0;
-		}
+		args.range ??= selectionToDiffRange(editor?.selection);
 
 		let gitUri;
 		if (args.commit?.file != null) {
@@ -54,7 +52,7 @@ export class DiffWithPreviousCommand extends ActiveEditorCommand {
 						sha: args.commit.file.status === '?' ? `${args.commit.sha}^3` : args.commit.sha || '',
 						uri: args.commit.file.uri,
 					},
-					line: args.line,
+					range: args.range,
 					showOptions: args.showOptions,
 				}));
 
@@ -127,15 +125,9 @@ export class DiffWithPreviousCommand extends ActiveEditorCommand {
 
 			void (await executeCommand<DiffWithCommandArgs>('gitlens.diffWith', {
 				repoPath: diffUris.current.repoPath,
-				lhs: {
-					sha: diffUris.previous.sha ?? '',
-					uri: diffUris.previous.documentUri(),
-				},
-				rhs: {
-					sha: diffUris.current.sha ?? '',
-					uri: diffUris.current.documentUri(),
-				},
-				line: args.line,
+				lhs: { sha: diffUris.previous.sha ?? '', uri: diffUris.previous.documentUri() },
+				rhs: { sha: diffUris.current.sha ?? '', uri: diffUris.current.documentUri() },
+				range: args.range,
 				showOptions: args.showOptions,
 			}));
 		} catch (ex) {

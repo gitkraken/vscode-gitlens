@@ -83,7 +83,7 @@ export const GitErrors = {
 	emptyPreviousCherryPick: /The previous cherry-pick is now empty/i,
 	entryNotUpToDate: /error:\s*Entry ['"].+['"] not uptodate\. Cannot merge\./i,
 	failedToDeleteDirectoryNotEmpty: /failed to delete '(.*?)': Directory not empty/i,
-	invalidLineCount: /file .+? has only \d+ lines/i,
+	invalidLineCount: /file .+? has only (\d+) lines/i,
 	invalidObjectName: /invalid object name: (.*)\s/i,
 	invalidObjectNameList: /could not open object name list: (.*)\s/i,
 	invalidTagName: /invalid tag name/i,

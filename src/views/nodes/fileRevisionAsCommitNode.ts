@@ -6,6 +6,7 @@ import type { Colors } from '../../constants.colors';
 import type { Container } from '../../container';
 import { CommitFormatter } from '../../git/formatters/commitFormatter';
 import { StatusFileFormatter } from '../../git/formatters/statusFormatter';
+import type { DiffRange } from '../../git/gitProvider';
 import { GitUri } from '../../git/gitUri';
 import type { GitBranch } from '../../git/models/branch';
 import type { GitCommit } from '../../git/models/commit';
@@ -14,6 +15,7 @@ import type { GitRevisionReference } from '../../git/models/reference';
 import { getGitFileStatusIcon } from '../../git/utils/fileStatus.utils';
 import { createCommand } from '../../system/-webview/command';
 import { configuration } from '../../system/-webview/configuration';
+import { editorLineToDiffRange, selectionToDiffRange } from '../../system/-webview/vscode/editors';
 import { joinPaths } from '../../system/path';
 import { getSettledValue, pauseOnCancelOrTimeoutMapTuplePromise } from '../../system/promise';
 import type { FileHistoryView } from '../fileHistoryView';
@@ -138,16 +140,12 @@ export class FileRevisionAsCommitNode extends ViewRefFileNode<
 	}
 
 	override getCommand(): Command | undefined {
-		let line;
+		let range: DiffRange;
 		if (this.commit.lines.length) {
-			line = this.commit.lines[0].line - 1;
+			// TODO@eamodio should the endLine be the last line of the commit?
+			range = { startLine: this.commit.lines[0].line, endLine: this.commit.lines[0].line };
 		} else {
-			const range = this.commit.file?.range;
-			if (range != null) {
-				line = range.endLine - 1;
-			} else {
-				line = this._options.selection?.active.line ?? 0;
-			}
+			range = this.commit.file?.range ?? selectionToDiffRange(this._options?.selection);
 		}
 
 		if (this.commit.file?.hasConflicts) {
@@ -161,11 +159,8 @@ export class FileRevisionAsCommitNode extends ViewRefFileNode<
 					uri: GitUri.fromFile(this.file, this.repoPath),
 				},
 				repoPath: this.repoPath,
-				line: 0,
-				showOptions: {
-					preserveFocus: false,
-					preview: false,
-				},
+				range: editorLineToDiffRange(0),
+				showOptions: { preserveFocus: false, preview: false },
 			});
 		}
 
@@ -176,19 +171,14 @@ export class FileRevisionAsCommitNode extends ViewRefFileNode<
 			{
 				commit: this.commit,
 				uri: GitUri.fromFile(this.file, this.commit.repoPath),
-				line: line,
-				showOptions: {
-					preserveFocus: true,
-					preview: true,
-				},
+				range: range,
+				showOptions: { preserveFocus: true, preview: true },
 			},
 		);
 	}
 
 	override async resolveTreeItem(item: TreeItem, token: CancellationToken): Promise<TreeItem> {
-		if (item.tooltip == null) {
-			item.tooltip = await this.getTooltip(token);
-		}
+		item.tooltip ??= await this.getTooltip(token);
 		return item;
 	}
 

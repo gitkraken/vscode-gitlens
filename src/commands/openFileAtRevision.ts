@@ -4,6 +4,7 @@ import type { FileAnnotationType } from '../config';
 import { GlyphChars, quickPickTitleMaxChars } from '../constants';
 import type { Container } from '../container';
 import { openFileAtRevision } from '../git/actions/commit';
+import type { DiffRange } from '../git/gitProvider';
 import { GitUri } from '../git/gitUri';
 import { shortenRevision } from '../git/utils/revision.utils';
 import { showCommitHasNoPreviousCommitWarningMessage, showGenericErrorMessage } from '../messages';
@@ -13,6 +14,7 @@ import type { DirectiveQuickPickItem } from '../quickpicks/items/directive';
 import { createDirectiveQuickPickItem, Directive } from '../quickpicks/items/directive';
 import { command } from '../system/-webview/command';
 import { splitPath } from '../system/-webview/path';
+import { diffRangeToEditorLine, selectionToDiffRange } from '../system/-webview/vscode/editors';
 import { createMarkdownCommandLink } from '../system/commands';
 import { Logger } from '../system/logger';
 import { pad } from '../system/string';
@@ -24,7 +26,7 @@ import type { OpenFileAtRevisionFromCommandArgs } from './openFileAtRevisionFrom
 export interface OpenFileAtRevisionCommandArgs {
 	revisionUri?: Uri;
 
-	line?: number;
+	range?: DiffRange;
 	showOptions?: TextDocumentShowOptions;
 	annotationType?: FileAnnotationType;
 }
@@ -32,21 +34,17 @@ export interface OpenFileAtRevisionCommandArgs {
 @command()
 export class OpenFileAtRevisionCommand extends ActiveEditorCommand {
 	static createMarkdownCommandLink(args: OpenFileAtRevisionCommandArgs): string;
-	static createMarkdownCommandLink(revisionUri: Uri, annotationType?: FileAnnotationType, line?: number): string;
+	static createMarkdownCommandLink(revisionUri: Uri, annotationType?: FileAnnotationType, range?: DiffRange): string;
 	static createMarkdownCommandLink(
 		argsOrUri: OpenFileAtRevisionCommandArgs | Uri,
 		annotationType?: FileAnnotationType,
-		line?: number,
+		range?: DiffRange,
 	): string {
 		let args: OpenFileAtRevisionCommandArgs | Uri;
 		if (argsOrUri instanceof Uri) {
 			const revisionUri = argsOrUri;
 
-			args = {
-				revisionUri: revisionUri,
-				line: line,
-				annotationType: annotationType,
-			};
+			args = { revisionUri: revisionUri, range: range, annotationType: annotationType };
 		} else {
 			args = argsOrUri;
 		}
@@ -62,14 +60,15 @@ export class OpenFileAtRevisionCommand extends ActiveEditorCommand {
 		if (context.command === 'gitlens.openBlamePriorToChange') {
 			args = { ...args, annotationType: 'blame' };
 			if (args.revisionUri == null && context.editor != null) {
-				const editorLine = context.editor.selection.active.line;
-				if (editorLine >= 0) {
+				const range = selectionToDiffRange(context.editor.selection);
+				if (range != null) {
+					const editorLine = diffRangeToEditorLine(range);
 					try {
 						const gitUri = await GitUri.fromUri(context.editor.document.uri);
 						const blame = await this.container.git.getBlameForLine(gitUri, editorLine);
 						if (blame != null) {
 							if (blame.commit.isUncommitted) {
-								const comparisonUris = await blame.commit.getPreviousComparisonUrisForLine(editorLine);
+								const comparisonUris = await blame.commit.getPreviousComparisonUrisForRange(range);
 								if (comparisonUris?.previous != null) {
 									args.revisionUri = this.container.git.getRevisionUriFromGitUri(
 										comparisonUris.previous,
@@ -112,9 +111,7 @@ export class OpenFileAtRevisionCommand extends ActiveEditorCommand {
 		const gitUri = await GitUri.fromUri(uri);
 
 		args = { ...args };
-		if (args.line == null) {
-			args.line = editor?.selection.active.line ?? 0;
-		}
+		args.range ??= selectionToDiffRange(editor?.selection);
 
 		try {
 			if (args.revisionUri == null) {
@@ -198,7 +195,7 @@ export class OpenFileAtRevisionCommand extends ActiveEditorCommand {
 							onDidPressKey: async (_key, item) => {
 								await openFileAtRevision(item.item.file!, item.item, {
 									annotationType: args.annotationType,
-									line: args.line,
+									line: diffRangeToEditorLine(args.range),
 									preserveFocus: true,
 									preview: true,
 								});
@@ -222,7 +219,7 @@ export class OpenFileAtRevisionCommand extends ActiveEditorCommand {
 
 				await openFileAtRevision(pick.file, pick, {
 					annotationType: args.annotationType,
-					line: args.line,
+					line: diffRangeToEditorLine(args.range),
 					...args.showOptions,
 				});
 
@@ -231,7 +228,7 @@ export class OpenFileAtRevisionCommand extends ActiveEditorCommand {
 
 			await openFileAtRevision(args.revisionUri, {
 				annotationType: args.annotationType,
-				line: args.line,
+				line: diffRangeToEditorLine(args.range),
 				...args.showOptions,
 			});
 		} catch (ex) {

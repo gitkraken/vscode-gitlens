@@ -1,6 +1,7 @@
 import type { TextDocument, TextDocumentShowOptions, TextEditor } from 'vscode';
-import { Uri, ViewColumn, window } from 'vscode';
+import { Selection, Uri, ViewColumn, window } from 'vscode';
 import { imageMimetypes, Schemes } from '../../../constants';
+import type { DiffRange } from '../../../git/gitProvider';
 import { isGitUri } from '../../../git/gitUri';
 import { Logger } from '../../logger';
 import { extname } from '../../path';
@@ -238,4 +239,33 @@ export function openTextEditors(uris: Uri[], options?: TextDocumentShowOptions &
 	for (const uri of normalizedUris.values()) {
 		void executeCoreCommand('vscode.open', uri, options);
 	}
+}
+
+export function diffRangeToEditorLine(range: DiffRange | undefined): number {
+	if (range == null) return 0;
+
+	return (range.active === 'end' ? range.endLine : range.startLine) - 1;
+}
+
+export function diffRangeToSelection(range: DiffRange): Selection {
+	if (range.active === 'end') {
+		return new Selection(range.startLine - 1, 0, range.endLine - 1, 0);
+	}
+	return new Selection(range.endLine - 1, 0, range.startLine - 1, 0);
+}
+
+export function editorLineToDiffRange(editorLine: number | undefined): DiffRange {
+	if (editorLine == null || editorLine < 0) return { startLine: 1, endLine: 1, active: 'start' };
+
+	return { startLine: editorLine + 1, endLine: editorLine + 1, active: 'start' };
+}
+
+export function selectionToDiffRange(selection: Selection | undefined): DiffRange {
+	if (selection == null) return { startLine: 1, endLine: 1, active: 'start' };
+
+	const { anchor, active } = selection;
+	if (anchor.line >= active.line) {
+		return { startLine: active.line + 1, endLine: anchor.line + 1, active: 'start' };
+	}
+	return { startLine: anchor.line + 1, endLine: active.line + 1, active: 'end' };
 }
