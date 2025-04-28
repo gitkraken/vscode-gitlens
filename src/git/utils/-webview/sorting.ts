@@ -130,7 +130,7 @@ export function sortContributors(
 				return (
 					pickedCompare ||
 					(options.current ? (a.current ? -1 : 1) - (b.current ? -1 : 1) : 0) ||
-					a.commits - b.commits ||
+					a.contributionCount - b.contributionCount ||
 					(a.latestCommitDate?.getTime() ?? 0) - (b.latestCommitDate?.getTime() ?? 0)
 				);
 			});
@@ -144,7 +144,7 @@ export function sortContributors(
 					pickedCompare ||
 					(options.current ? (a.current ? -1 : 1) - (b.current ? -1 : 1) : 0) ||
 					(b.latestCommitDate?.getTime() ?? 0) - (a.latestCommitDate?.getTime() ?? 0) ||
-					b.commits - a.commits
+					b.contributionCount - a.contributionCount
 				);
 			});
 		case 'date:asc':
@@ -157,7 +157,7 @@ export function sortContributors(
 					pickedCompare ||
 					(options.current ? (a.current ? -1 : 1) - (b.current ? -1 : 1) : 0) ||
 					(a.latestCommitDate?.getTime() ?? 0) - (b.latestCommitDate?.getTime() ?? 0) ||
-					b.commits - a.commits
+					b.contributionCount - a.contributionCount
 				);
 			});
 		case 'name:asc':
@@ -194,7 +194,7 @@ export function sortContributors(
 					pickedCompare ||
 					(options.current ? (a.current ? -1 : 1) - (b.current ? -1 : 1) : 0) ||
 					(b.stats?.contributionScore ?? 0) - (a.stats?.contributionScore ?? 0) ||
-					b.commits - a.commits ||
+					b.contributionCount - a.contributionCount ||
 					(b.latestCommitDate?.getTime() ?? 0) - (a.latestCommitDate?.getTime() ?? 0)
 				);
 			});
@@ -208,7 +208,7 @@ export function sortContributors(
 					pickedCompare ||
 					(options.current ? (a.current ? -1 : 1) - (b.current ? -1 : 1) : 0) ||
 					(a.stats?.contributionScore ?? 0) - (b.stats?.contributionScore ?? 0) ||
-					a.commits - b.commits ||
+					a.contributionCount - b.contributionCount ||
 					(a.latestCommitDate?.getTime() ?? 0) - (b.latestCommitDate?.getTime() ?? 0)
 				);
 			});
@@ -222,7 +222,7 @@ export function sortContributors(
 				return (
 					pickedCompare ||
 					(options.current ? (a.current ? -1 : 1) - (b.current ? -1 : 1) : 0) ||
-					b.commits - a.commits ||
+					b.contributionCount - a.contributionCount ||
 					(b.latestCommitDate?.getTime() ?? 0) - (a.latestCommitDate?.getTime() ?? 0)
 				);
 			});

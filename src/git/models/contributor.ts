@@ -16,7 +16,8 @@ export class GitContributor {
 		public readonly name: string,
 		public readonly email: string | undefined,
 		public readonly current: boolean,
-		public readonly commits: number,
+		public readonly contributionCount: number,
+		public readonly contributions?: GitContributorContribution[],
 		public readonly latestCommitDate?: Date,
 		public readonly firstCommitDate?: Date,
 		public readonly stats?: GitContributorStats,
@@ -47,6 +48,12 @@ export class GitContributor {
 	getCoauthor(): string {
 		return `${this.name}${this.email ? ` <${this.email}>` : ''}`;
 	}
+}
+
+interface GitContributorContribution extends Partial<GitCommitStats<number>> {
+	readonly sha: string;
+	readonly date: Date;
+	readonly message: string;
 }
 
 export interface GitContributorStats extends GitCommitStats<number> {

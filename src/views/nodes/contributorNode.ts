@@ -111,7 +111,7 @@ export class ContributorNode extends ViewNode<'contributor', ViewsWithContributo
 				: ''
 		}${this.contributor.latestCommitDate != null ? `${this.contributor.formatDateFromNow()}, ` : ''}${pluralize(
 			'commit',
-			this.contributor.commits,
+			this.contributor.contributionCount,
 		)}${shortStats}`;
 
 		let avatarUri;
@@ -124,7 +124,7 @@ export class ContributorNode extends ViewNode<'contributor', ViewsWithContributo
 			});
 
 			if (presence != null) {
-				const title = `${this.contributor.commits ? 'You are' : `${this.contributor.label} is`} ${
+				const title = `${this.contributor.contributionCount ? 'You are' : `${this.contributor.label} is`} ${
 					presence.status === 'dnd' ? 'in ' : ''
 				}${presence.statusText.toLocaleLowerCase()}`;
 
@@ -160,7 +160,7 @@ export class ContributorNode extends ViewNode<'contributor', ViewsWithContributo
 		const markdown = new MarkdownString(
 			`${avatarMarkdown != null ? avatarMarkdown : ''} &nbsp;${link} \n\n${lastCommitted}${pluralize(
 				'commit',
-				this.contributor.commits,
+				this.contributor.contributionCount,
 			)}${stats}`,
 		);
 		markdown.supportHtml = true;

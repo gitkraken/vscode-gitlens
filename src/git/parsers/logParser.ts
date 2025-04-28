@@ -47,7 +47,7 @@ export function getCommitsLogParser(
 	return _commitsParser;
 }
 
-const contributorsMapping = { sha: '%H', author: '%aN', email: '%aE', date: '%at' };
+const contributorsMapping = { sha: '%H', author: '%aN', email: '%aE', date: '%at', message: '%B' };
 
 type ContributorsLogParser = LogParser<typeof contributorsMapping>;
 let _contributorsParser: ContributorsLogParser | undefined;

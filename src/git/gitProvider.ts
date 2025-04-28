@@ -355,6 +355,8 @@ export interface GitContributorsSubProvider {
 		options?: {
 			all?: boolean | undefined;
 			merges?: boolean | 'first-parent';
+			pathspec?: string;
+			since?: string;
 			stats?: boolean | undefined;
 		},
 	): Promise<GitContributor[]>;
