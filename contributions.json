@@ -1988,6 +1988,18 @@
 				]
 			}
 		},
+		"gitlens.graph.explainCommit": {
+			"label": "Explain Commit",
+			"menus": {
+				"webview/context": [
+					{
+						"when": "webviewItem =~ /gitlens:commit\\b/ && !listMultiSelection && !gitlens:readonly && !gitlens:untrusted && gitlens:gk:organization:ai:enabled",
+						"group": "1_gitlens_actions_3",
+						"order": 1
+					}
+				]
+			}
+		},
 		"gitlens.graph.fetch": {
 			"label": "Fetch",
 			"icon": "$(repo-fetch)",

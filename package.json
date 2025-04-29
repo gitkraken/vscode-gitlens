@@ -6828,6 +6828,10 @@
 				"enablement": "!operationInProgress"
 			},
 			{
+				"command": "gitlens.graph.explainCommit",
+				"title": "Explain Commit"
+			},
+			{
 				"command": "gitlens.graph.fetch",
 				"title": "Fetch",
 				"icon": "$(repo-fetch)",
@@ -10970,6 +10974,10 @@
 				},
 				{
 					"command": "gitlens.graph.deleteTag",
+					"when": "false"
+				},
+				{
+					"command": "gitlens.graph.explainCommit",
 					"when": "false"
 				},
 				{
@@ -20126,6 +20134,11 @@
 					"command": "gitlens.graph.createTag",
 					"when": "webviewItem =~ /gitlens:commit\\b/ && !listMultiSelection && !gitlens:readonly && !gitlens:untrusted && !gitlens:hasVirtualFolders",
 					"group": "1_gitlens_actions_1@4"
+				},
+				{
+					"command": "gitlens.graph.explainCommit",
+					"when": "webviewItem =~ /gitlens:commit\\b/ && !listMultiSelection && !gitlens:readonly && !gitlens:untrusted && gitlens:gk:organization:ai:enabled",
+					"group": "1_gitlens_actions_3@1"
 				},
 				{
 					"submenu": "gitlens/graph/commit/changes",
