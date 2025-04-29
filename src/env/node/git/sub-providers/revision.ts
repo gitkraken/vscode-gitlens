@@ -69,7 +69,6 @@ export class RevisionGitSubProvider implements GitRevisionSubProvider {
 		return entries[0];
 	}
 
-	@gate()
 	@log()
 	async getTreeForRevision(repoPath: string, rev: string): Promise<GitTreeEntry[]> {
 		if (repoPath == null) return [];

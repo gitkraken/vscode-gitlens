@@ -40,14 +40,14 @@ export class DiffWithRevisionCommand extends ActiveEditorCommand {
 		args.range ??= selectionToDiffRange(editor?.selection);
 
 		try {
-			const svc = this.container.git.getRepositoryService(gitUri.repoPath!);
-			const log = svc.commits
+			const commitsProvider = this.container.git.commits(gitUri.repoPath!);
+			const log = commitsProvider
 				.getLogForPath(gitUri.fsPath, undefined, { isFolder: false })
 				.then(
 					log =>
 						log ??
 						(gitUri.sha
-							? svc.commits.getLogForPath(gitUri.fsPath, gitUri.sha, { isFolder: false })
+							? commitsProvider.getLogForPath(gitUri.fsPath, gitUri.sha, { isFolder: false })
 							: undefined),
 				);
 
@@ -62,7 +62,7 @@ export class DiffWithRevisionCommand extends ActiveEditorCommand {
 							getState: async () => {
 								const items: (CommandQuickPickItem | DirectiveQuickPickItem)[] = [];
 
-								const status = await svc.status.getStatus();
+								const status = await this.container.git.status(gitUri.repoPath!).getStatus();
 								if (status != null) {
 									for (const f of status.files) {
 										if (f.workingTreeStatus === '?' || f.workingTreeStatus === '!') {
@@ -79,7 +79,7 @@ export class DiffWithRevisionCommand extends ActiveEditorCommand {
 												},
 												undefined,
 												'gitlens.diffWithRevision',
-												[svc.getAbsoluteUri(f.path, gitUri.repoPath)],
+												[this.container.git.getAbsoluteUri(f.path, gitUri.repoPath)],
 											),
 										);
 									}

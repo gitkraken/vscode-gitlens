@@ -1,5 +1,5 @@
 import type { GitBlame } from '@gitkraken/provider-apis/providers';
-import type { Range, Uri } from 'vscode';
+import type { Uri } from 'vscode';
 import type { SearchQuery } from '../../../../../constants.search';
 import type { Container } from '../../../../../container';
 import type { GitCache } from '../../../../../git/cache';
@@ -27,8 +27,8 @@ import { log } from '../../../../../system/decorators/log';
 import { filterMap, first, last, map, some } from '../../../../../system/iterable';
 import { Logger } from '../../../../../system/logger';
 import { getLogScope } from '../../../../../system/logger.scope';
-import { isFolderGlob } from '../../../../../system/path';
-import type { CachedLog } from '../../../../../trackers/trackedDocument';
+import { isFolderGlob, stripFolderGlob } from '../../../../../system/path';
+import type { CachedLog, TrackedGitDocument } from '../../../../../trackers/trackedDocument';
 import { GitDocumentState } from '../../../../../trackers/trackedDocument';
 import type { GitHubGitProviderInternal } from '../githubGitProvider';
 import { stripOrigin } from '../githubGitProvider';
@@ -43,6 +43,10 @@ export class CommitsGitSubProvider implements GitCommitsSubProvider {
 		private readonly cache: GitCache,
 		private readonly provider: GitHubGitProviderInternal,
 	) {}
+
+	private get useCaching() {
+		return true; // configuration.get('advanced.caching.enabled');
+	}
 
 	@log()
 	async getCommit(repoPath: string, rev: string): Promise<GitCommit | undefined> {
@@ -376,12 +380,7 @@ export class CommitsGitSubProvider implements GitCommitsSubProvider {
 	private getLogMoreFn(
 		log: GitLog,
 		rev: string | undefined,
-		options?: {
-			authors?: GitUser[];
-			limit?: number;
-			merges?: boolean | 'first-parent';
-			ordering?: 'date' | 'author-date' | 'topo' | null;
-		},
+		options?: GitLogOptions,
 	): (limit: number | { until: string } | undefined) => Promise<GitLog> {
 		return async (limit: number | { until: string } | undefined) => {
 			const moreUntil = limit != null && typeof limit === 'object' ? limit.until : undefined;
@@ -461,48 +460,67 @@ export class CommitsGitSubProvider implements GitCommitsSubProvider {
 
 		const scope = getLogScope();
 
-		const relativePath = this.provider.getRelativePath(pathOrUri, repoPath);
+		let relativePath = this.provider.getRelativePath(pathOrUri, repoPath);
 
 		if (repoPath != null && repoPath === relativePath) {
 			throw new Error(`Path cannot match the repository path; path=${relativePath}`);
 		}
 
-		options = { ...options, all: false /* not supported */, renames: false /* not supported */ };
+		options = {
+			...options,
+			all: false /* not supported */,
+			limit: this.provider.getPagingLimit(options?.limit),
+			renames: false /* not supported */,
+		};
 
-		let key = 'log';
-		if (rev != null) {
-			key += `:${rev}`;
+		if (isFolderGlob(relativePath)) {
+			relativePath = stripFolderGlob(relativePath);
+			options.isFolder = true;
+		} else if (options.isFolder == null) {
+			const tree = await this.provider.revision.getTreeEntryForRevision(repoPath, rev || 'HEAD', relativePath);
+			options.isFolder = tree?.type === 'tree';
 		}
 
-		// if (options.all) {
-		// 	key += ':all';
-		// }
-
-		options.limit = this.provider.getPagingLimit(options?.limit);
-		if (options.limit) {
-			key += `:n${options.limit}`;
+		let cacheKey: string | undefined;
+		if (
+			this.useCaching &&
+			// Don't cache folders
+			!options.isFolder &&
+			options.authors == null &&
+			options.cursor == null &&
+			options.filters == null &&
+			options.range == null &&
+			options.since == null &&
+			options.until == null
+		) {
+			cacheKey = 'log';
+			if (rev != null) {
+				cacheKey += `:${rev}`;
+			}
+			if (options.all) {
+				cacheKey += ':all';
+			}
+			if (options.limit) {
+				cacheKey += `:n${options.limit}`;
+			}
+			if (options.merges) {
+				cacheKey += `:merges=${options.merges}`;
+			}
+			if (options.ordering) {
+				cacheKey += `:ordering=${options.ordering}`;
+			}
+			if (options.renames) {
+				cacheKey += ':follow';
+			}
 		}
 
-		if (options.ordering) {
-			key += `:ordering=${options.ordering}`;
-		}
-
-		// if (options.renames) {
-		// 	key += ':follow';
-		// }
-
-		if (options.since) {
-			key += `:since=${options.since}`;
-		}
-
-		const useCache = options.cursor == null && options.range == null;
-
-		const doc = await this.container.documentTracker.getOrAdd(GitUri.fromFile(relativePath, repoPath, rev));
-		if (useCache) {
+		let doc: TrackedGitDocument | undefined;
+		if (cacheKey) {
+			doc = await this.container.documentTracker.getOrAdd(GitUri.fromFile(relativePath, repoPath, rev));
 			if (doc.state != null) {
-				const cachedLog = doc.state.getLog(key);
+				const cachedLog = doc.state.getLog(cacheKey);
 				if (cachedLog != null) {
-					Logger.debug(scope, `Cache hit: '${key}'`);
+					Logger.debug(scope, `Cache hit: '${cacheKey}'`);
 					return cachedLog.item;
 				}
 
@@ -511,14 +529,14 @@ export class CommitsGitSubProvider implements GitCommitsSubProvider {
 					const cachedLog = doc.state.getLog(`log${options.renames ? ':follow' : ''}`);
 					if (cachedLog != null) {
 						if (rev == null) {
-							Logger.debug(scope, `Cache hit: ~'${key}'`);
+							Logger.debug(scope, `Cache hit: ~'${cacheKey}'`);
 							return cachedLog.item;
 						}
 
-						Logger.debug(scope, `Cache ?: '${key}'`);
+						Logger.debug(scope, `Cache ?: '${cacheKey}'`);
 						let log = await cachedLog.item;
 						if (log != null && !log.hasMore && log.commits.has(rev)) {
-							Logger.debug(scope, `Cache hit: '${key}'`);
+							Logger.debug(scope, `Cache hit: '${cacheKey}'`);
 
 							// Create a copy of the log starting at the requested commit
 							let skip = true;
@@ -533,7 +551,7 @@ export class CommitsGitSubProvider implements GitCommitsSubProvider {
 										}
 
 										i++;
-										if (options?.limit != null && i > options.limit) {
+										if (options.limit != null && i > options.limit) {
 											return undefined;
 										}
 
@@ -558,7 +576,7 @@ export class CommitsGitSubProvider implements GitCommitsSubProvider {
 				}
 			}
 
-			Logger.debug(scope, `Cache miss: '${key}'`);
+			Logger.debug(scope, `Cache miss: '${cacheKey}'`);
 
 			doc.state ??= new GitDocumentState();
 		}
@@ -566,15 +584,15 @@ export class CommitsGitSubProvider implements GitCommitsSubProvider {
 		const promise = this.getLogForPathCore(repoPath, relativePath, rev, options).catch((ex: unknown) => {
 			debugger;
 			// Trap and cache expected log errors
-			if (doc.state != null && options?.range == null) {
+			if (cacheKey && doc?.state != null) {
 				const msg: string = ex?.toString() ?? '';
-				Logger.debug(scope, `Cache replace (with empty promise): '${key}'`);
+				Logger.debug(scope, `Cache replace (with empty promise): '${cacheKey}'`);
 
 				const value: CachedLog = {
 					item: emptyPromise as Promise<GitLog>,
 					errorMessage: msg,
 				};
-				doc.state.setLog(key, value);
+				doc.state.setLog(cacheKey, value);
 
 				return emptyPromise as Promise<GitLog>;
 			}
@@ -582,13 +600,13 @@ export class CommitsGitSubProvider implements GitCommitsSubProvider {
 			return undefined;
 		});
 
-		if (useCache && doc.state != null) {
-			Logger.debug(scope, `Cache add: '${key}'`);
+		if (cacheKey && doc?.state != null) {
+			Logger.debug(scope, `Cache add: '${cacheKey}'`);
 
 			const value: CachedLog = {
 				item: promise as Promise<GitLog>,
 			};
-			doc.state.setLog(key, value);
+			doc.state.setLog(cacheKey, value);
 		}
 
 		return promise;
@@ -598,21 +616,11 @@ export class CommitsGitSubProvider implements GitCommitsSubProvider {
 		repoPath: string | undefined,
 		path: string,
 		rev: string | undefined,
-		options?: {
-			all?: boolean;
-			cursor?: string;
-			limit?: number;
-			ordering?: 'date' | 'author-date' | 'topo' | null;
-			range?: Range;
-			renames?: boolean;
-			reverse?: boolean;
-			since?: string;
-			skip?: number;
-		},
+		options: GitLogForPathOptions,
 	): Promise<GitLog | undefined> {
 		if (repoPath == null) return undefined;
 
-		const limit = this.provider.getPagingLimit(options?.limit);
+		const limit = this.provider.getPagingLimit(options.limit);
 
 		const context = await this.provider.ensureRepositoryContext(repoPath);
 		if (context == null) return undefined;
@@ -632,11 +640,11 @@ export class CommitsGitSubProvider implements GitCommitsSubProvider {
 			metadata.repo.name,
 			stripOrigin(rev),
 			{
-				all: options?.all,
-				after: options?.cursor,
+				all: options.all,
+				after: options.cursor,
 				path: relativePath,
 				limit: limit,
-				since: options?.since ? new Date(options.since) : undefined,
+				since: options.since ? new Date(options.since) : undefined,
 			},
 		);
 
@@ -662,7 +670,7 @@ export class CommitsGitSubProvider implements GitCommitsSubProvider {
 						),
 				);
 
-				if (files != null && !isFolderGlob(relativePath) && commit.changedFiles === 1) {
+				if (files != null && !options.isFolder && commit.changedFiles === 1) {
 					const index = files.findIndex(f => f.path === relativePath);
 					if (index !== -1) {
 						files.splice(
@@ -734,14 +742,7 @@ export class CommitsGitSubProvider implements GitCommitsSubProvider {
 		log: GitLog,
 		relativePath: string,
 		rev: string | undefined,
-		options?: {
-			all?: boolean;
-			limit?: number;
-			ordering?: 'date' | 'author-date' | 'topo' | null;
-			range?: Range;
-			renames?: boolean;
-			reverse?: boolean;
-		},
+		options: GitLogForPathOptions,
 	): (limit: number | { until: string } | undefined) => Promise<GitLog> {
 		return async (limit: number | { until: string } | undefined) => {
 			const moreUntil = limit != null && typeof limit === 'object' ? limit.until : undefined;

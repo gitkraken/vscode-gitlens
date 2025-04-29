@@ -245,6 +245,7 @@ export class LineHistoryNode
 	private async getLog(selection?: Selection): Promise<GitLog | undefined> {
 		this._log ??= await this.view.container.git.commits(this.uri.repoPath!).getLogForPath(this.uri, this.uri.sha, {
 			all: false,
+			isFolder: false,
 			limit: this.limit ?? this.view.config.pageItemLimit,
 			range: selection ?? this.selection,
 			renames: false,

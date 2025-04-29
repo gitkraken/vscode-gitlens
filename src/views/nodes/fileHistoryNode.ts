@@ -71,7 +71,7 @@ export class FileHistoryNode
 			await Promise.allSettled([
 				this.getLog(),
 				this.uri.sha == null
-					? this.view.container.git.status(this.uri.repoPath).getStatusForPath?.(this.getPathOrGlob())
+					? this.view.container.git.status(this.uri.repoPath).getStatusForPath?.(this.uri)
 					: undefined,
 				this.uri.sha == null ? this.view.container.git.config(this.uri.repoPath).getCurrentUser() : undefined,
 				this.view.container.git.getBranchesAndTagsTipsLookup(this.uri.repoPath, this.branch?.name),
@@ -259,14 +259,10 @@ export class FileHistoryNode
 
 	private _log: GitLog | undefined;
 	private async getLog() {
-		if (this._log == null) {
-			this._log = await this.view.container.git
-				.commits(this.uri.repoPath!)
-				.getLogForPath(this.getPathOrGlob(), this.uri.sha, {
-					limit: this.limit ?? this.view.config.pageItemLimit,
-				});
-		}
-
+		this._log ??= await this.view.container.git.commits(this.uri.repoPath!).getLogForPath(this.uri, this.uri.sha, {
+			limit: this.limit ?? this.view.config.pageItemLimit,
+			isFolder: this.folder,
+		});
 		return this._log;
 	}
 

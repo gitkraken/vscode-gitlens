@@ -78,7 +78,7 @@ export class FileRevisionAsCommitNode extends ViewRefFileNode<
 			if (commit == null) {
 				const log = await this.view.container.git
 					.commits(this.repoPath)
-					.getLogForPath(this.file.path, this.commit.sha, { limit: 1 });
+					.getLogForPath(this.file.path, this.commit.sha, { isFolder: false, limit: 1 });
 				if (log != null) {
 					this.commit = log.commits.get(this.commit.sha) ?? this.commit;
 				}

@@ -279,6 +279,7 @@ export interface GitLogOptions extends GitLogOptionsBase {
 
 export interface GitLogForPathOptions extends Omit<GitLogOptions, 'stashes'> {
 	filters?: GitDiffFilter[];
+	isFolder?: boolean;
 	range?: Range;
 	renames?: boolean;
 }
@@ -596,28 +597,28 @@ export interface GitStatusSubProvider {
 	/**
 	 * Get the status of a file
 	 * @param repoPath Repository path
-	 * @param uri Uri of the file to get the status for
+	 * @param pathOrUri Path or Uri of the file to get the status for
 	 * @param options Options to control how the status is retrieved
 	 * @returns A promise of the file's status
 	 */
 	getStatusForFile?(
 		repoPath: string,
-		uri: Uri,
+		pathOrUri: string | Uri,
 		options?: {
 			/** If false, will avoid rename detection (faster) */
 			renames?: boolean;
 		},
 	): Promise<GitStatusFile | undefined>;
 	/**
-	 * Get the status of a path or glob
+	 * Get the status of a path
 	 * @param repoPath Repository path
-	 * @param pathOrGlob Path or "glob" (globs can only end with `/*`) to get the status for
+	 * @param pathOrUri Path or Uri to get the status for
 	 * @param options Options to control how the status is retrieved
 	 * @returns A promise of the path's status
 	 */
 	getStatusForPath?(
 		repoPath: string,
-		pathOrGlob: Uri,
+		pathOrUri: Uri,
 		options?: {
 			/** If false, will avoid rename detection (faster) */
 			renames?: boolean;

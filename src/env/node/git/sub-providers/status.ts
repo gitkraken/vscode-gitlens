@@ -28,6 +28,7 @@ import { gate } from '../../../../system/decorators/-webview/gate';
 import { log } from '../../../../system/decorators/log';
 import { Logger } from '../../../../system/logger';
 import { getLogScope, setLogScopeExit } from '../../../../system/logger.scope';
+import { stripFolderGlob } from '../../../../system/path';
 import { getSettledValue } from '../../../../system/promise';
 import type { Git } from '../git';
 import { GitErrors } from '../git';
@@ -536,19 +537,20 @@ export class StatusGitSubProvider implements GitStatusSubProvider {
 	@log()
 	async getStatusForPath(
 		repoPath: string,
-		pathOrGlob: string | Uri,
+		pathOrUri: string | Uri,
 		options?: { renames?: boolean },
 	): Promise<GitStatusFile[] | undefined> {
-		return this.getStatusForPathCore(repoPath, pathOrGlob, { ...options, exact: false });
+		return this.getStatusForPathCore(repoPath, pathOrUri, { ...options, exact: false });
 	}
 
 	@gate()
 	private async getStatusForPathCore(
 		repoPath: string,
-		pathOrGlob: string | Uri,
+		pathOrUri: string | Uri,
 		options: { exact: boolean; renames?: boolean },
 	): Promise<GitStatusFile[] | undefined> {
-		const [relativePath] = splitPath(pathOrGlob, repoPath);
+		let [relativePath] = splitPath(pathOrUri, repoPath);
+		relativePath = stripFolderGlob(relativePath);
 
 		const porcelainVersion = (await this.git.supports('git:status:porcelain-v2')) ? 2 : 1;
 		const renames = options.renames !== false;
