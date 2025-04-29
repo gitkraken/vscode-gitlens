@@ -126,13 +126,6 @@ const supportedAIProviders = new Map<AIProviders, AIProviderDescriptorWithType>(
 		},
 	],
 	[
-		'openai',
-		{
-			...openAIProviderDescriptor,
-			type: lazy(async () => (await import(/* webpackChunkName: "ai" */ './openaiProvider')).OpenAIProvider),
-		},
-	],
-	[
 		'anthropic',
 		{
 			...anthropicProviderDescriptor,
@@ -149,17 +142,17 @@ const supportedAIProviders = new Map<AIProviders, AIProviderDescriptorWithType>(
 		},
 	],
 	[
-		'deepseek',
+		'openai',
 		{
-			...deepSeekProviderDescriptor,
-			type: lazy(async () => (await import(/* webpackChunkName: "ai" */ './deepSeekProvider')).DeepSeekProvider),
+			...openAIProviderDescriptor,
+			type: lazy(async () => (await import(/* webpackChunkName: "ai" */ './openaiProvider')).OpenAIProvider),
 		},
 	],
 	[
-		'xai',
+		'ollama',
 		{
-			...xAIProviderDescriptor,
-			type: lazy(async () => (await import(/* webpackChunkName: "ai" */ './xaiProvider')).XAIProvider),
+			...ollamaProviderDescriptor,
+			type: lazy(async () => (await import(/* webpackChunkName: "ai" */ './ollamaProvider')).OllamaProvider),
 		},
 	],
 	[
@@ -168,15 +161,6 @@ const supportedAIProviders = new Map<AIProviders, AIProviderDescriptorWithType>(
 			...openRouterProviderDescriptor,
 			type: lazy(
 				async () => (await import(/* webpackChunkName: "ai" */ './openRouterProvider')).OpenRouterProvider,
-			),
-		},
-	],
-	[
-		'github',
-		{
-			...githubProviderDescriptor,
-			type: lazy(
-				async () => (await import(/* webpackChunkName: "ai" */ './githubModelsProvider')).GitHubModelsProvider,
 			),
 		},
 	],
@@ -190,10 +174,26 @@ const supportedAIProviders = new Map<AIProviders, AIProviderDescriptorWithType>(
 		},
 	],
 	[
-		'ollama',
+		'github',
 		{
-			...ollamaProviderDescriptor,
-			type: lazy(async () => (await import(/* webpackChunkName: "ai" */ './ollamaProvider')).OllamaProvider),
+			...githubProviderDescriptor,
+			type: lazy(
+				async () => (await import(/* webpackChunkName: "ai" */ './githubModelsProvider')).GitHubModelsProvider,
+			),
+		},
+	],
+	[
+		'deepseek',
+		{
+			...deepSeekProviderDescriptor,
+			type: lazy(async () => (await import(/* webpackChunkName: "ai" */ './deepSeekProvider')).DeepSeekProvider),
+		},
+	],
+	[
+		'xai',
+		{
+			...xAIProviderDescriptor,
+			type: lazy(async () => (await import(/* webpackChunkName: "ai" */ './xaiProvider')).XAIProvider),
 		},
 	],
 ]);
