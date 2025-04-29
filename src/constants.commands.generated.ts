@@ -72,6 +72,7 @@ export type ContributedCommands =
 	| 'gitlens.graph.deleteBranch'
 	| 'gitlens.graph.deleteTag'
 	| 'gitlens.graph.explainCommit'
+	| 'gitlens.graph.explainStash'
 	| 'gitlens.graph.fetch'
 	| 'gitlens.graph.hideLocalBranch'
 	| 'gitlens.graph.hideRefGroup'
