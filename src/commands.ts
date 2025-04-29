@@ -21,6 +21,7 @@ import './commands/diffWithRevision';
 import './commands/diffWithRevisionFrom';
 import './commands/diffWithWorking';
 import './commands/externalDiff';
+import './commands/explainCommit';
 import './commands/generateChangelog';
 import './commands/generateCommitMessage';
 import './commands/ghpr/openOrCreateWorktree';
