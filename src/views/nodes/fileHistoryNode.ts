@@ -128,9 +128,7 @@ export class FileHistoryNode
 									unpublishedCommits?.has(c.ref),
 									this.branch,
 									getBranchAndTagTips,
-									{
-										expand: false,
-									},
+									{ allowFilteredFiles: true, expand: false },
 							  )
 							: c.file != null
 							  ? new FileRevisionAsCommitNode(this.view, this, c.file, c, {

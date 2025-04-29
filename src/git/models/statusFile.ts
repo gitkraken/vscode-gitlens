@@ -127,7 +127,7 @@ export class GitStatusFile implements GitFile {
 	}
 
 	getPseudoCommits(container: Container, user: GitUser | undefined): GitCommit[] {
-		return getPseudoCommits(container, [this], user);
+		return getPseudoCommits(container, [this], true, user);
 	}
 
 	getPseudoFileChanges(): GitFileChange[] {

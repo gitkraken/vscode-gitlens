@@ -9,6 +9,7 @@ import { createUncommittedChangesCommit } from './commit.utils';
 export function getPseudoCommits(
 	container: Container,
 	files: GitStatusFile[] | undefined,
+	filtered: boolean,
 	user: GitUser | undefined,
 ): GitCommit[] {
 	if (!files?.length) return [];
@@ -78,7 +79,7 @@ export function getPseudoCommits(
 			createUncommittedChangesCommit(container, repoPath, uncommitted, now, user, {
 				fileset: {
 					files: conflictedAndWipFiles,
-					filtered: false,
+					filtered: filtered,
 					pathspec: conflictedAndWipFiles.length === 1 ? conflictedAndWipFiles[0].path : undefined,
 				},
 				parents: [staged?.length ? uncommittedStaged : 'HEAD'],
@@ -92,7 +93,11 @@ export function getPseudoCommits(
 	if (staged?.length) {
 		commits.push(
 			createUncommittedChangesCommit(container, repoPath, uncommittedStaged, now, user, {
-				fileset: { files: staged, filtered: false, pathspec: staged.length === 1 ? staged[0].path : undefined },
+				fileset: {
+					files: staged,
+					filtered: filtered,
+					pathspec: staged.length === 1 ? staged[0].path : undefined,
+				},
 				parents: ['HEAD'],
 			}),
 		);
@@ -104,9 +109,10 @@ export function getPseudoCommits(
 export async function getPseudoCommitsWithStats(
 	container: Container,
 	files: GitStatusFile[] | undefined,
+	filtered: boolean,
 	user: GitUser | undefined,
 ): Promise<GitCommit[]> {
-	const pseudoCommits = getPseudoCommits(container, files, user);
+	const pseudoCommits = getPseudoCommits(container, files, filtered, user);
 	if (!pseudoCommits.length) return pseudoCommits;
 
 	const diffProvider = container.git.diff(pseudoCommits[0].repoPath);

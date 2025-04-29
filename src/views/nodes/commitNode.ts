@@ -42,7 +42,7 @@ export class CommitNode extends ViewRefNode<'commit', ViewsWithCommits | FileHis
 		protected readonly unpublished?: boolean,
 		public readonly branch?: GitBranch,
 		protected readonly getBranchAndTagTips?: (sha: string, options?: { compact?: boolean }) => string | undefined,
-		protected readonly _options: { expand?: boolean } = {},
+		protected readonly _options: { allowFilteredFiles?: boolean; expand?: boolean } = {},
 	) {
 		super('commit', commit.getGitUri(), view, parent);
 
@@ -130,7 +130,10 @@ export class CommitNode extends ViewRefNode<'commit', ViewsWithCommits | FileHis
 				}
 			}
 
-			const commits = await commit.getCommitsForFiles({ include: { stats: true } });
+			const commits = await commit.getCommitsForFiles({
+				allowFilteredFiles: this._options.allowFilteredFiles,
+				include: { stats: true },
+			});
 			for (const c of commits) {
 				children.push(new CommitFileNode(this.view, this, c.file!, c));
 			}
@@ -250,7 +253,10 @@ export class CommitNode extends ViewRefNode<'commit', ViewsWithCommits | FileHis
 	private async getTooltip(cancellation: CancellationToken) {
 		const [remotesResult, _] = await Promise.allSettled([
 			this.view.container.git.remotes(this.commit.repoPath).getBestRemotesWithProviders(cancellation),
-			this.commit.ensureFullDetails({ include: { stats: true } }),
+			this.commit.ensureFullDetails({
+				allowFilteredFiles: this._options.allowFilteredFiles,
+				include: { stats: true },
+			}),
 		]);
 
 		if (cancellation.isCancellationRequested) return undefined;
