@@ -3,7 +3,11 @@ import { customElement, property, state } from 'lit/decorators.js';
 import { unsafeHTML } from 'lit/directives/unsafe-html.js';
 import { when } from 'lit/directives/when.js';
 import type { Autolink } from '../../../../autolinks/models/autolinks';
-import type { ConnectCloudIntegrationsCommandArgs } from '../../../../commands/cloudIntegrations';
+import type {
+	ConnectCloudIntegrationsCommandArgs,
+	ManageCloudIntegrationsCommandArgs,
+} from '../../../../commands/cloudIntegrations';
+import type { IssueIntegrationId, SupportedCloudIntegrationIds } from '../../../../constants.integrations';
 import type { IssueOrPullRequest } from '../../../../git/models/issueOrPullRequest';
 import type { PullRequestShape } from '../../../../git/models/pullRequest';
 import { createCommandLink } from '../../../../system/commands';
@@ -14,16 +18,18 @@ import type { TreeItemAction, TreeItemBase } from '../../shared/components/tree/
 import { uncommittedSha } from './commit-details-app';
 import type { File } from './gl-details-base';
 import { GlDetailsBase } from './gl-details-base';
+import '../../shared/components/actions/action-item';
+import '../../shared/components/actions/action-nav';
 import '../../shared/components/button';
-import '../../shared/components/chips/action-chip';
-import '../../shared/components/chips/autolink-chip';
 import '../../shared/components/code-icon';
-import '../../shared/components/commit/commit-author';
-import '../../shared/components/commit/commit-date';
+import '../../shared/components/commit/commit-identity';
 import '../../shared/components/commit/commit-stats';
 import '../../shared/components/markdown/markdown';
-import '../../shared/components/panes/pane-group';
+import '../../shared/components/overlays/popover';
+import '../../shared/components/overlays/tooltip';
 import '../../shared/components/rich/issue-pull-request';
+import '../../shared/components/skeleton-loader';
+import '../../shared/components/webview-pane';
 
 interface ExplainState {
 	cancelled?: boolean;
@@ -122,25 +128,6 @@ export class GlCommitDetails extends GlDetailsBase {
 		`;
 	}
 
-	private renderExplainChanges() {
-		if (this.state?.orgSettings.ai === false) return undefined;
-
-		return html`
-			<gl-action-chip
-				label=${this.isUncommitted
-					? 'Explain Working Changes'
-					: `Explain Changes in this ${this.isStash ? 'Stash' : 'Commit'}`}
-				icon="sparkle"
-				data-action="explain-commit"
-				aria-busy="${this.explainBusy ? 'true' : nothing}"
-				?disabled="${this.explainBusy ? true : nothing}"
-				@click=${this.onExplainChanges}
-				@keydown=${this.onExplainChanges}
-				><span>explain</span></gl-action-chip
-			>
-		`;
-	}
-
 	private renderCommitMessage() {
 		const details = this.state?.commit;
 		if (details == null) return undefined;
@@ -149,20 +136,21 @@ export class GlCommitDetails extends GlDetailsBase {
 		const index = message.indexOf(messageHeadlineSplitterToken);
 		return html`
 			<div class="section section--message">
-				<div class="message-block-row">
-					${when(
-						!this.isStash,
-						() => html`
-							<gl-commit-author
-								name="${details.author.name}"
-								url="${details.author.email ? `mailto:${details.author.email}` : undefined}"
-								.avatarUrl="${details.author.avatar ?? ''}"
-								.showAvatar="${this.preferences?.avatars ?? true}"
-							></gl-commit-author>
-						`,
-					)}
-					${this.renderExplainChanges()}
-				</div>
+				${when(
+					!this.isStash,
+					() => html`
+						<commit-identity
+							class="mb-1"
+							name="${details.author.name}"
+							url="${details.author.email ? `mailto:${details.author.email}` : undefined}"
+							date=${details.author.date}
+							.dateFormat="${this.preferences?.dateFormat}"
+							.avatarUrl="${details.author.avatar ?? ''}"
+							.showAvatar="${this.preferences?.avatars ?? true}"
+							.actionLabel="${details.sha === uncommittedSha ? 'modified' : 'committed'}"
+						></commit-identity>
+					`,
+				)}
 				<div>
 					<div class="message-block">
 						${when(
@@ -179,26 +167,64 @@ export class GlCommitDetails extends GlDetailsBase {
 								</p>`,
 						)}
 					</div>
-					<div class="message-block-row message-block-row--actions">
-						${this.renderAutoLinksChips()}
-						${when(
-							!this.isStash,
-							() => html`
-								<gl-commit-date
-									date=${details.author.date}
-									.dateFormat="${this.preferences?.dateFormat}"
-									.dateStyle="${this.preferences?.dateStyle}"
-									.actionLabel="${details.sha === uncommittedSha ? 'Modified' : 'Committed'}"
-								></gl-commit-date>
-							`,
-						)}
-					</div>
+					${when(
+						this.state?.orgSettings.ai !== false,
+						() => html`
+							<div class="message-block-actions">
+								<action-item
+									label="Explain this ${this.isStash ? 'Stash' : 'Commit'}"
+									icon="sparkle"
+									data-action="explain-commit"
+									aria-busy="${this.explainBusy ? 'true' : nothing}"
+									?disabled="${this.explainBusy ? true : nothing}"
+									@click=${this.onExplainChanges}
+									@keydown=${this.onExplainChanges}
+								></action-item>
+							</div>
+						`,
+					)}
 				</div>
 			</div>
 		`;
 	}
 
-	private get autolinkState() {
+	private renderJiraLink() {
+		if (this.state == null) return 'Jira issues';
+
+		const { hasAccount, hasConnectedJira } = this.state;
+
+		let message = html`<a
+				href="${createCommandLink<ConnectCloudIntegrationsCommandArgs>(
+					'gitlens.plus.cloudIntegrations.connect',
+					{
+						integrationIds: ['jira' as IssueIntegrationId.Jira] as SupportedCloudIntegrationIds[],
+						source: {
+							source: 'inspect',
+							detail: {
+								action: 'connect',
+								integration: 'jira',
+							},
+						},
+					},
+				)}"
+				>Connect to Jira Cloud</a
+			>
+			&mdash; ${hasAccount ? '' : 'sign up and '}get access to automatic rich Jira autolinks`;
+
+		if (hasAccount && hasConnectedJira) {
+			message = html`<i class="codicon codicon-check" style="vertical-align: text-bottom"></i> Jira connected
+				&mdash; automatic rich Jira autolinks are enabled`;
+		}
+
+		return html`<gl-popover hoist class="inline-popover">
+			<span class="tooltip-hint" slot="anchor"
+				>Jira issues <code-icon icon="${hasConnectedJira ? 'check' : 'gl-unplug'}"></code-icon
+			></span>
+			<span slot="content">${message}</span>
+		</gl-popover>`;
+	}
+
+	private renderAutoLinks() {
 		if (!this.state?.autolinksEnabled || this.isUncommitted) return undefined;
 
 		const deduped = new Map<
@@ -256,112 +282,169 @@ export class GlCommitDetails extends GlDetailsBase {
 					break;
 			}
 		}
-		return {
-			autolinks: autolinks,
-			issues: issues,
-			prs: prs,
-			size: deduped.size,
-		};
-	}
 
-	private renderLearnAboutAutolinks(compact = false) {
-		const chipLabel = compact ? nothing : html`<span class="mq-hide-sm">Learn about autolinks</span>`;
-
-		const autolinkSettingsLink = createCommandLink('gitlens.showSettingsPage!autolinks', {
-			showOptions: { preserveFocus: true },
-		});
-
-		const hasIntegrationsConnected = this.state?.hasIntegrationsConnected ?? false;
-		let label =
-			'Configure autolinks to linkify external references, like Jira or Zendesk tickets, in commit messages.';
-		if (!hasIntegrationsConnected) {
-			label = `<a href="${autolinkSettingsLink}">Configure autolinks</a> to linkify external references, like Jira or Zendesk tickets, in commit messages.`;
-			label += `\n\n<a href="${createCommandLink<ConnectCloudIntegrationsCommandArgs>(
-				'gitlens.plus.cloudIntegrations.connect',
-				{
+		const { hasAccount, hasConnectedJira } = this.state ?? {};
+		const jiraIntegrationLink = hasConnectedJira
+			? createCommandLink<ManageCloudIntegrationsCommandArgs>('gitlens.plus.cloudIntegrations.manage', {
 					source: {
 						source: 'inspect',
 						detail: {
 							action: 'connect',
+							integration: 'jira',
 						},
 					},
-				},
-			)}">Connect an Integration</a> &mdash;`;
+			  })
+			: createCommandLink<ConnectCloudIntegrationsCommandArgs>('gitlens.plus.cloudIntegrations.connect', {
+					integrationIds: ['jira' as IssueIntegrationId.Jira] as SupportedCloudIntegrationIds[],
+					source: {
+						source: 'inspect',
+						detail: {
+							action: 'connect',
+							integration: 'jira',
+						},
+					},
+			  });
 
-			if (!this.state?.hasAccount) {
-				label += ' sign up and';
-			}
-
-			label += ' to get access to automatic rich autolinks for services like Jira, GitHub, and more.';
-		}
-
-		return html`<gl-action-chip
-			href=${autolinkSettingsLink}
-			data-action="autolink-settings"
-			icon="info"
-			.label=${label}
-			overlay=${hasIntegrationsConnected ? 'tooltip' : 'popover'}
-			>${chipLabel}</gl-action-chip
-		>`;
-	}
-
-	private renderAutoLinksChips() {
-		const autolinkState = this.autolinkState;
-		if (autolinkState == null) return this.renderLearnAboutAutolinks();
-
-		const { autolinks, issues, prs, size } = autolinkState;
-
-		if (size === 0) {
-			return this.renderLearnAboutAutolinks();
-		}
-
-		return html`<div class="message-block-group">
-			${this.renderLearnAboutAutolinks(true)}
-			${when(autolinks.length, () =>
-				autolinks.map(autolink => {
-					let name = autolink.description ?? autolink.title;
-					if (name === undefined) {
-						name = `Custom Autolink ${autolink.prefix}${autolink.id}`;
-					}
-					return html`<gl-autolink-chip
-						type="autolink"
-						name="${name}"
-						url="${autolink.url}"
-						identifier="${autolink.prefix}${autolink.id}"
-					></gl-autolink-chip>`;
-				}),
-			)}
-			${when(prs.length, () =>
-				prs.map(
-					pr =>
-						html`<gl-autolink-chip
-							type="pr"
-							name="${pr.title}"
-							url="${pr.url}"
-							identifier="#${pr.id}"
-							status="${pr.state}"
-							.date=${pr.updatedDate}
-							.dateFormat="${this.state!.preferences.dateFormat}"
-							.dateStyle="${this.state!.preferences.dateStyle}"
-						></gl-autolink-chip>`,
-				),
-			)}
-			${when(issues.length, () =>
-				issues.map(
-					issue =>
-						html`<gl-autolink-chip
-							type="issue"
-							name="${issue.title}"
-							url="${issue.url}"
-							identifier="${issue.id}"
-							status="${issue.state}"
-							.date=${issue.closed ? issue.closedDate : issue.createdDate}
-							.dateFormat="${this.state!.preferences.dateFormat}"
-							.dateStyle="${this.state!.preferences.dateStyle}"
-						></gl-autolink-chip>`,
-				),
-			)}
-		</div>`;
+		return html`
+			<webview-pane
+				collapsable
+				?expanded=${this.state?.preferences?.autolinksExpanded ?? true}
+				?loading=${!this.state?.includeRichContent}
+				data-region="rich-pane"
+			>
+				<span slot="title">Autolinks</span>
+				<span slot="subtitle" data-region="autolink-count"
+					>${this.state?.includeRichContent || deduped.size ? `${deduped.size} found ` : ''}${this.state
+						?.includeRichContent
+						? ''
+						: '…'}</span
+				>
+				<action-nav slot="actions">
+					<action-item
+						label="${hasAccount && hasConnectedJira ? 'Manage Jira' : 'Connect to Jira Cloud'}"
+						icon="gl-provider-jira"
+						href="${jiraIntegrationLink}"
+					></action-item>
+					<action-item
+						data-action="autolinks-settings"
+						label="Autolinks Settings"
+						icon="gear"
+						href="command:gitlens.showSettingsPage!autolinks"
+					></action-item>
+				</action-nav>
+				${when(
+					this.state == null,
+					() => html`
+						<div class="section" data-region="autolinks">
+							<section class="auto-link" aria-label="Custom Autolinks" data-region="custom-autolinks">
+								<skeleton-loader lines="2"></skeleton-loader>
+							</section>
+							<section class="pull-request" aria-label="Pull request" data-region="pull-request">
+								<skeleton-loader lines="2"></skeleton-loader>
+							</section>
+							<section class="issue" aria-label="Issue" data-region="issue">
+								<skeleton-loader lines="2"></skeleton-loader>
+							</section>
+						</div>
+					`,
+					() => {
+						if (deduped.size === 0) {
+							return html`
+								<div class="section" data-region="rich-info">
+									<p>
+										<code-icon icon="info"></code-icon>&nbsp;Use
+										<gl-tooltip hoist>
+											<a
+												href="command:gitlens.showSettingsPage!autolinks"
+												data-action="autolink-settings"
+												>autolinks</a
+											>
+											<span slot="content">Configure autolinks</span>
+										</gl-tooltip>
+										to linkify external references, like ${this.renderJiraLink()} or Zendesk
+										tickets, in commit messages.
+									</p>
+								</div>
+							`;
+						}
+						return html`
+							<div class="section" data-region="autolinks">
+								${autolinks.length
+									? html`
+											<section
+												class="auto-link"
+												aria-label="Custom Autolinks"
+												data-region="custom-autolinks"
+											>
+												${autolinks.map(autolink => {
+													let name = autolink.description ?? autolink.title;
+													if (name === undefined) {
+														name = `Custom Autolink ${autolink.prefix}${autolink.id}`;
+													}
+													return html`
+														<issue-pull-request
+															type="autolink"
+															name="${name}"
+															url="${autolink.url}"
+															identifier="${autolink.prefix}${autolink.id}"
+															status=""
+														></issue-pull-request>
+													`;
+												})}
+											</section>
+									  `
+									: undefined}
+								${prs.length
+									? html`
+											<section
+												class="pull-request"
+												aria-label="Pull request"
+												data-region="pull-request"
+											>
+												${prs.map(
+													pr => html`
+														<issue-pull-request
+																type="pr"
+																name="${pr.title}"
+																url="${pr.url}"
+																identifier="#${pr.id}"
+																status="${pr.state}"
+																.date=${pr.updatedDate}
+																.dateFormat="${this.state!.preferences.dateFormat}"
+																.dateStyle="${this.state!.preferences.dateStyle}"
+															></issue-pull-request>
+														</section>
+									  				`,
+												)}
+											</section>
+									  `
+									: undefined}
+								${issues.length
+									? html`
+											<section class="issue" aria-label="Issue" data-region="issue">
+												${issues.map(
+													issue => html`
+														<issue-pull-request
+															type="issue"
+															name="${issue.title}"
+															url="${issue.url}"
+															identifier="${issue.id}"
+															status="${issue.state}"
+															.date=${issue.closed ? issue.closedDate : issue.createdDate}
+															.dateFormat="${this.state!.preferences.dateFormat}"
+															.dateStyle="${this.state!.preferences.dateStyle}"
+														></issue-pull-request>
+													`,
+												)}
+											</section>
+									  `
+									: undefined}
+							</div>
+						`;
+					},
+				)}
+			</webview-pane>
+		`;
 	}
 
 	override render(): unknown {
@@ -372,6 +455,7 @@ export class GlCommitDetails extends GlDetailsBase {
 		return html`
 			${this.renderCommitMessage()}
 			<webview-pane-group flexible>
+				${this.renderAutoLinks()}
 				${this.renderChangedFiles(
 					this.isStash ? 'stash' : 'commit',
 					this.renderCommitStats(this.state.commit.stats),

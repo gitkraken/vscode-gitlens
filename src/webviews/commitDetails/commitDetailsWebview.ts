@@ -1126,14 +1126,14 @@ export class CommitDetailsWebviewProvider
 	private async explainRequest<T extends typeof ExplainRequest>(requestType: T, msg: IpcCallMessageType<T>) {
 		let params: DidExplainParams;
 		try {
-			const result = await this.container.ai.explainCommit(
-				this._context.commit!,
-				{ source: 'inspect', type: isStash(this._context.commit) ? 'stash' : 'commit' },
-				{ progress: { location: { viewId: this.host.id } } },
-			);
-			if (result == null) throw new Error('Error retrieving content');
+			const isStashCommit = isStash(this._context.commit);
+			await executeCommand(isStashCommit ? 'gitlens.ai.explainStash' : 'gitlens.ai.explainCommit', {
+				repoPath: this._context.commit!.repoPath,
+				ref: this._context.commit!.sha,
+				source: { source: 'inspect', type: isStashCommit ? 'stash' : 'commit' },
+			});
 
-			params = { result: result?.parsed };
+			params = { result: { summary: '', body: '' } };
 		} catch (ex) {
 			debugger;
 			params = { error: { message: ex.message } };
