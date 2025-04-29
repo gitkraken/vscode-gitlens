@@ -3,6 +3,7 @@ import { env, Range, Uri, window, workspace } from 'vscode';
 import type { DiffWithCommandArgs } from '../../commands/diffWith';
 import type { DiffWithPreviousCommandArgs } from '../../commands/diffWithPrevious';
 import type { DiffWithWorkingCommandArgs } from '../../commands/diffWithWorking';
+import type { ExplainCommitCommandArgs } from '../../commands/explainCommit';
 import type { OpenFileOnRemoteCommandArgs } from '../../commands/openFileOnRemote';
 import type { OpenOnlyChangedFilesCommandArgs } from '../../commands/openOnlyChangedFiles';
 import type { OpenWorkingFileCommandArgs } from '../../commands/openWorkingFile';
@@ -11,6 +12,7 @@ import type { ShowQuickCommitFileCommandArgs } from '../../commands/showQuickCom
 import type { FileAnnotationType } from '../../config';
 import { GlyphChars } from '../../constants';
 import { Container } from '../../container';
+import type { AIExplainSource } from '../../plus/ai/aiProviderService';
 import { showRevisionFilesPicker } from '../../quickpicks/revisionFilesPicker';
 import { executeCommand, executeCoreGitCommand, executeEditorCommand } from '../../system/-webview/command';
 import { configuration } from '../../system/-webview/configuration';
@@ -748,6 +750,17 @@ export async function showInCommitGraph(
 	void (await executeCommand<ShowInCommitGraphCommandArgs>('gitlens.showInCommitGraph', {
 		ref: getReferenceFromRevision(commit),
 		preserveFocus: options?.preserveFocus,
+	}));
+}
+
+export async function explainCommit(
+	commit: GitRevisionReference | GitCommit,
+	options?: { source?: AIExplainSource },
+): Promise<void> {
+	void (await executeCommand<ExplainCommitCommandArgs>('gitlens.ai.explainCommit', {
+		repoPath: commit.repoPath,
+		ref: commit.ref,
+		source: options?.source,
 	}));
 }
 
