@@ -108,6 +108,8 @@ export interface AIModelChangeEvent {
 	readonly model: AIModel | undefined;
 }
 
+export type AIExplainSource = Source & { type: TelemetryEvents['ai/explain']['changeType'] };
+
 // Order matters for sorting the picker
 const supportedAIProviders = new Map<AIProviders, AIProviderDescriptorWithType>([
 	[
@@ -490,14 +492,11 @@ export class AIProviderService implements Disposable {
 
 	async explainCommit(
 		commitOrRevision: GitRevisionReference | GitCommit,
-		sourceContext: Source & { type: TelemetryEvents['ai/explain']['changeType'] },
+		sourceContext: AIExplainSource,
 		options?: { cancellation?: CancellationToken; progress?: ProgressOptions },
 	): Promise<AISummarizeResult | undefined> {
-		const { type, ...source } = sourceContext;
-
-		const result = await this.sendRequest(
-			'explain-changes',
-			async (model, reporting, cancellation, maxInputTokens, retries) => {
+		return this.explainChanges(
+			async cancellation => {
 				const diff = await this.container.git.diff(commitOrRevision.repoPath).getDiff?.(commitOrRevision.ref);
 				if (!diff?.contents) throw new AINoRequestDataError('No changes found to explain.');
 				if (cancellation.isCancellationRequested) throw new CancellationError();
@@ -511,18 +510,45 @@ export class AIProviderService implements Disposable {
 				if (!commit.hasFullDetails()) {
 					await commit.ensureFullDetails();
 					assertsCommitHasFullDetails(commit);
-
 					if (cancellation.isCancellationRequested) throw new CancellationError();
 				}
+
+				return {
+					diff: diff.contents,
+					message: commit.message,
+				};
+			},
+			sourceContext,
+			options,
+		);
+	}
+
+	async explainChanges(
+		promptContext:
+			| PromptTemplateContext<'explain-changes'>
+			| ((cancellationToken: CancellationToken) => Promise<PromptTemplateContext<'explain-changes'>>),
+		sourceContext: AIExplainSource,
+		options?: { cancellation?: CancellationToken; progress?: ProgressOptions },
+	): Promise<AISummarizeResult | undefined> {
+		const { type, ...source } = sourceContext;
+
+		const result = await this.sendRequest(
+			'explain-changes',
+			async (model, reporting, cancellation, maxInputTokens, retries) => {
+				if (typeof promptContext === 'function') {
+					promptContext = await promptContext(cancellation);
+				}
+
+				promptContext.instructions = `${
+					promptContext.instructions ? `${promptContext.instructions}\n` : ''
+				}${configuration.get('ai.explainChanges.customInstructions')}`;
+
+				if (cancellation.isCancellationRequested) throw new CancellationError();
 
 				const { prompt } = await this.getPrompt(
 					'explain-changes',
 					model,
-					{
-						diff: diff.contents,
-						message: commit.message,
-						instructions: configuration.get('ai.explainChanges.customInstructions'),
-					},
+					promptContext,
 					maxInputTokens,
 					retries,
 					reporting,
