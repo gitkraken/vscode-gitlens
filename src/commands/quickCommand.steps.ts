@@ -1616,7 +1616,16 @@ export async function* pickRepositoryStep<
 		state.repo = Container.instance.git.getRepository(state.repo);
 		if (state.repo != null) return state.repo;
 	}
-	const active = state.repo ?? (await Container.instance.git.getOrOpenRepositoryForEditor());
+	let active;
+	try {
+		active = state.repo ?? (await Container.instance.git.getOrOpenRepositoryForEditor());
+	} catch (ex) {
+		Logger.log(
+			'pickRepositoryStep: failed to get active repository. Normally it happens when the currently open file does not belong to a repository',
+			ex,
+		);
+		active = undefined;
+	}
 
 	const step = createPickStep<RepositoryQuickPickItem>({
 		title: context.title,
