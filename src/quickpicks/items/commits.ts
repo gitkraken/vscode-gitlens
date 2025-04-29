@@ -296,7 +296,12 @@ export class CommitExplainCommandQuickPickItem extends CommandQuickPickItem {
 	}
 
 	override execute(_options: { preserveFocus?: boolean; preview?: boolean }): Promise<void> {
-		return CommitActions.explainCommit(this.commit, { source: { source: 'commandPalette' } });
+		return CommitActions.explainCommit(this.commit, {
+			source: {
+				source: 'commandPalette',
+				type: 'commit',
+			},
+		});
 	}
 }
 

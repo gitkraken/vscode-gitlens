@@ -52,6 +52,7 @@ import {
 	CommitCompareWithWorkingCommandQuickPickItem,
 	CommitCopyIdQuickPickItem,
 	CommitCopyMessageQuickPickItem,
+	CommitExplainCommandQuickPickItem,
 	CommitFileQuickPickItem,
 	CommitFilesQuickPickItem,
 	CommitOpenAllChangesCommandQuickPickItem,
@@ -2149,6 +2150,8 @@ async function getShowCommitOrStashStepItems<
 			new CommitCopyMessageQuickPickItem(state.reference),
 		);
 	} else {
+		items.push(createQuickPickSeparator(), new CommitExplainCommandQuickPickItem(state.reference));
+
 		const remotes = await state.repo.git.remotes().getRemotesWithProviders({ sort: true });
 		if (remotes?.length) {
 			items.push(
@@ -2487,6 +2490,8 @@ async function getShowCommitOrStashFileStepItems<
 			new CommitCopyMessageQuickPickItem(state.reference),
 		);
 	} else {
+		items.push(createQuickPickSeparator(), new CommitExplainCommandQuickPickItem(state.reference));
+
 		const remotes = await state.repo.git.remotes().getRemotesWithProviders({ sort: true });
 		if (remotes?.length) {
 			items.push(

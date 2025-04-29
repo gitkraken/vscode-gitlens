@@ -71,6 +71,7 @@ export type ContributedCommands =
 	| 'gitlens.graph.createWorktree'
 	| 'gitlens.graph.deleteBranch'
 	| 'gitlens.graph.deleteTag'
+	| 'gitlens.graph.explainCommit'
 	| 'gitlens.graph.fetch'
 	| 'gitlens.graph.hideLocalBranch'
 	| 'gitlens.graph.hideRefGroup'
@@ -612,6 +613,7 @@ export type ContributedCommands =
 
 export type ContributedPaletteCommands =
 	| 'gitlens.addAuthors'
+	| 'gitlens.ai.explainCommit'
 	| 'gitlens.ai.generateChangelog'
 	| 'gitlens.ai.generateCommitMessage'
 	| 'gitlens.ai.generateRebase'
