@@ -1,5 +1,5 @@
 import type { TextDocumentShowOptions, TextEditor } from 'vscode';
-import { FileType, Uri, workspace } from 'vscode';
+import { Uri } from 'vscode';
 import { GlyphChars } from '../constants';
 import type { Container } from '../container';
 import { openFolderCompare } from '../git/actions/commit';
@@ -10,6 +10,7 @@ import { showCommitPicker } from '../quickpicks/commitPicker';
 import { CommandQuickPickItem } from '../quickpicks/items/common';
 import { getBestRepositoryOrShowPicker } from '../quickpicks/repositoryPicker';
 import { command } from '../system/-webview/command';
+import { isFolderUri } from '../system/-webview/path';
 import { Logger } from '../system/logger';
 import { pad } from '../system/string';
 import { ActiveEditorCommand } from './commandBase';
@@ -34,13 +35,9 @@ export class DiffFolderWithRevisionCommand extends ActiveEditorCommand {
 		uri = args?.uri ?? getCommandUri(uri, editor);
 		if (uri == null) return;
 
-		try {
-			const stat = await workspace.fs.stat(uri);
-			if (stat.type !== FileType.Directory) {
-				uri = Uri.joinPath(uri, '..');
-			}
-		} catch {}
-
+		if (!(await isFolderUri(uri))) {
+			uri = Uri.joinPath(uri, '..');
+		}
 		const gitUri = await GitUri.fromUri(uri);
 
 		try {
@@ -50,9 +47,13 @@ export class DiffFolderWithRevisionCommand extends ActiveEditorCommand {
 
 			const commitsProvider = this.container.git.commits(repoPath);
 			const log = commitsProvider
-				.getLogForPath(gitUri.fsPath)
+				.getLogForPath(gitUri.fsPath, undefined, { isFolder: true })
 				.then(
-					log => log ?? (gitUri.sha ? commitsProvider.getLogForPath(gitUri.fsPath, gitUri.sha) : undefined),
+					log =>
+						log ??
+						(gitUri.sha
+							? commitsProvider.getLogForPath(gitUri.fsPath, gitUri.sha, { isFolder: true })
+							: undefined),
 				);
 
 			const relativePath = this.container.git.getRelativePath(uri, repoPath);

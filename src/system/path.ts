@@ -85,3 +85,7 @@ export function pathEquals(a: string, b: string, ignoreCase?: boolean): boolean 
 	}
 	return normalizePath(a) === normalizePath(b);
 }
+
+export function stripFolderGlob(path: string): string {
+	return isFolderGlob(path) ? path.slice(0, -2) : path;
+}

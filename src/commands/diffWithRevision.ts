@@ -42,9 +42,13 @@ export class DiffWithRevisionCommand extends ActiveEditorCommand {
 		try {
 			const commitsProvider = this.container.git.commits(gitUri.repoPath!);
 			const log = commitsProvider
-				.getLogForPath(gitUri.fsPath)
+				.getLogForPath(gitUri.fsPath, undefined, { isFolder: false })
 				.then(
-					log => log ?? (gitUri.sha ? commitsProvider.getLogForPath(gitUri.fsPath, gitUri.sha) : undefined),
+					log =>
+						log ??
+						(gitUri.sha
+							? commitsProvider.getLogForPath(gitUri.fsPath, gitUri.sha, { isFolder: false })
+							: undefined),
 				);
 
 			const title = `Open Changes with Revision${pad(GlyphChars.Dot, 2, 2)}`;

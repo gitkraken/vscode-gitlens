@@ -48,7 +48,8 @@ import { log } from '../../../../system/decorators/log';
 import { filterMap, first, join, last, some } from '../../../../system/iterable';
 import { Logger } from '../../../../system/logger';
 import { getLogScope } from '../../../../system/logger.scope';
-import type { CachedLog } from '../../../../trackers/trackedDocument';
+import { isFolderGlob, stripFolderGlob } from '../../../../system/path';
+import type { CachedLog, TrackedGitDocument } from '../../../../trackers/trackedDocument';
 import { GitDocumentState } from '../../../../trackers/trackedDocument';
 import type { Git, GitResult } from '../git';
 import { GitErrors, gitLogDefaultConfigs, gitLogDefaultConfigsWithFiles } from '../git';
@@ -672,77 +673,88 @@ export class CommitsGitSubProvider implements GitCommitsSubProvider {
 
 		const scope = getLogScope();
 
-		const relativePath = this.provider.getRelativePath(pathOrUri, repoPath);
+		let relativePath = this.provider.getRelativePath(pathOrUri, repoPath);
 
 		if (repoPath != null && repoPath === relativePath) {
 			throw new Error(`Path cannot match the repository path; path=${relativePath}`);
 		}
 
-		const opts = {
-			all: configuration.get('advanced.fileHistoryShowAllBranches'),
-			renames: configuration.get('advanced.fileHistoryFollowsRenames'),
+		options = {
 			...options,
+			all: options?.all ?? configuration.get('advanced.fileHistoryShowAllBranches'),
 			limit: options?.limit ?? configuration.get('advanced.maxListItems') ?? 0,
 			merges: options?.merges
 				? true
 				: options?.merges == null
 				  ? configuration.get('advanced.fileHistoryShowMergeCommits')
 				  : false,
+			renames: options?.renames ?? configuration.get('advanced.fileHistoryFollowsRenames'),
 		};
 
-		let key = 'log';
-		if (rev != null) {
-			key += `:${rev}`;
+		if (isFolderGlob(relativePath)) {
+			relativePath = stripFolderGlob(relativePath);
+			options.isFolder = true;
+		} else if (options.isFolder == null) {
+			const tree = await this.provider.revision.getTreeEntryForRevision(repoPath, rev || 'HEAD', relativePath);
+			options.isFolder = tree?.type === 'tree';
 		}
 
-		if (opts.all) {
-			key += ':all';
+		let cacheKey: string | undefined;
+		if (
+			this.useCaching &&
+			// Don't cache folders
+			!options.isFolder &&
+			options.authors == null &&
+			options.cursor == null &&
+			options.filters == null &&
+			options.range == null &&
+			options.since == null &&
+			options.until == null
+		) {
+			cacheKey = 'log';
+			if (rev != null) {
+				cacheKey += `:${rev}`;
+			}
+			if (options.all) {
+				cacheKey += ':all';
+			}
+			if (options.limit) {
+				cacheKey += `:n${options.limit}`;
+			}
+			if (options.merges) {
+				cacheKey += `:merges=${options.merges}`;
+			}
+			if (options.ordering) {
+				cacheKey += `:ordering=${options.ordering}`;
+			}
+			if (options.renames) {
+				cacheKey += ':follow';
+			}
 		}
 
-		if (opts.limit) {
-			key += `:n${opts.limit}`;
-		}
-
-		if (opts.merges) {
-			key += ':merges';
-		}
-
-		if (opts.ordering) {
-			key += `:ordering=${opts.ordering}`;
-		}
-
-		if (opts.renames) {
-			key += ':follow';
-		}
-
-		if (opts.since) {
-			key += `:since=${opts.since}`;
-		}
-
-		const useCache = this.useCaching && opts.cursor == null && opts.range == null;
-
-		const doc = await this.container.documentTracker.getOrAdd(GitUri.fromFile(relativePath, repoPath, rev));
-		if (useCache) {
+		let doc: TrackedGitDocument | undefined;
+		if (cacheKey) {
+			doc = await this.container.documentTracker.getOrAdd(GitUri.fromFile(relativePath, repoPath, rev));
 			if (doc.state != null) {
-				const cachedLog = doc.state.getLog(key);
+				const cachedLog = doc.state.getLog(cacheKey);
 				if (cachedLog != null) {
-					Logger.debug(scope, `Cache hit: '${key}'`);
+					Logger.debug(scope, `Cache hit: '${cacheKey}'`);
 					return cachedLog.item;
 				}
 
-				if (rev != null || (opts.limit != null && opts.limit !== 0)) {
+				if (rev != null || (options.limit != null && options.limit !== 0)) {
 					// Since we are looking for partial log, see if we have the log of the whole file
-					const cachedLog = doc.state.getLog(`log${opts.renames ? ':follow' : ''}`);
+					const cachedLog = doc.state.getLog(`log${options.renames ? ':follow' : ''}`);
 					if (cachedLog != null) {
 						if (rev == null) {
-							Logger.debug(scope, `Cache hit: ~'${key}'`);
+							Logger.debug(scope, `Cache hit: ~'${cacheKey}'`);
 							return cachedLog.item;
 						}
 
-						Logger.debug(scope, `Cache ?: '${key}'`);
+						Logger.debug(scope, `Cache ?: '${cacheKey}'`);
 						let log = await cachedLog.item;
 						if (log != null && !log.hasMore && log.commits.has(rev)) {
-							Logger.debug(scope, `Cache hit: '${key}'`);
+							Logger.debug(scope, `Cache hit: '${cacheKey}'`);
 
 							// Create a copy of the log starting at the requested commit
 							let skip = true;
@@ -757,7 +769,7 @@ export class CommitsGitSubProvider implements GitCommitsSubProvider {
 										}
 
 										i++;
-										if (opts?.limit != null && i > opts.limit) {
+										if (options?.limit != null && i > options.limit) {
 											return undefined;
 										}
 
@@ -766,7 +778,7 @@ export class CommitsGitSubProvider implements GitCommitsSubProvider {
 								),
 							);
 
-							const optsCopy = { ...opts };
+							const optsCopy = { ...options };
 							log = {
 								...log,
 								limit: optsCopy.limit,
@@ -782,22 +794,22 @@ export class CommitsGitSubProvider implements GitCommitsSubProvider {
 				}
 			}
 
-			Logger.debug(scope, `Cache miss: '${key}'`);
+			Logger.debug(scope, `Cache miss: '${cacheKey}'`);
 
 			doc.state ??= new GitDocumentState();
 		}
 
-		const promise = this.getLogForPathCore(repoPath, relativePath, rev, opts).catch((ex: unknown) => {
+		const promise = this.getLogForPathCore(repoPath, relativePath, rev, options).catch((ex: unknown) => {
 			// Trap and cache expected log errors
-			if (doc.state != null && opts.range == null) {
+			if (cacheKey && doc?.state != null) {
 				const msg: string = ex?.toString() ?? '';
-				Logger.debug(scope, `Cache replace (with empty promise): '${key}'`);
+				Logger.debug(scope, `Cache replace (with empty promise): '${cacheKey}'`);
 
 				const value: CachedLog = {
 					item: emptyPromise as Promise<GitLog>,
 					errorMessage: msg,
 				};
-				doc.state.setLog(key, value);
+				doc.state.setLog(cacheKey, value);
 
 				return emptyPromise as Promise<GitLog>;
 			}
@@ -805,13 +817,13 @@ export class CommitsGitSubProvider implements GitCommitsSubProvider {
 			return undefined;
 		});
 
-		if (useCache && doc.state != null) {
-			Logger.debug(scope, `Cache add: '${key}'`);
+		if (cacheKey && doc?.state != null) {
+			Logger.debug(scope, `Cache add: '${cacheKey}'`);
 
 			const value: CachedLog = {
 				item: promise as Promise<GitLog>,
 			};
-			doc.state.setLog(key, value);
+			doc.state.setLog(cacheKey, value);
 		}
 
 		return promise;
@@ -821,7 +833,7 @@ export class CommitsGitSubProvider implements GitCommitsSubProvider {
 		repoPath: string | undefined,
 		path: string,
 		rev: string | undefined,
-		options?: GitLogForPathOptions,
+		options: GitLogForPathOptions,
 	): Promise<GitLog | undefined> {
 		const scope = getLogScope();
 
@@ -833,29 +845,23 @@ export class CommitsGitSubProvider implements GitCommitsSubProvider {
 
 		const [relativePath, root] = paths;
 
-		const log = await this.getLogCore(
-			root,
-			rev,
-			options
-				? {
-						all: options.all,
-						authors: options.authors,
-						cancellation: options.cancellation,
-						cursor: options.cursor,
-						limit: options.limit,
-						merges: options.merges,
-						ordering: options.ordering,
-						since: options.since,
-						until: options.until,
-						path: {
-							pathspec: relativePath,
-							filters: options.filters,
-							range: options.range,
-							renames: options.renames,
-						},
-				  }
-				: { path: { pathspec: relativePath } },
-		);
+		const log = await this.getLogCore(root, rev, {
+			all: options.all,
+			authors: options.authors,
+			cancellation: options.cancellation,
+			cursor: options.cursor,
+			limit: options.limit,
+			merges: options.merges,
+			ordering: options.ordering,
+			since: options.since,
+			until: options.until,
+			path: {
+				pathspec: relativePath,
+				filters: options.filters,
+				range: options.range,
+				renames: options.renames,
+			},
+		});
 
 		return log;
 	}
