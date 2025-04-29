@@ -6832,6 +6832,10 @@
 				"title": "Explain Commit"
 			},
 			{
+				"command": "gitlens.graph.explainStash",
+				"title": "Explain Stash"
+			},
+			{
 				"command": "gitlens.graph.fetch",
 				"title": "Fetch",
 				"icon": "$(repo-fetch)",
@@ -10978,6 +10982,10 @@
 				},
 				{
 					"command": "gitlens.graph.explainCommit",
+					"when": "false"
+				},
+				{
+					"command": "gitlens.graph.explainStash",
 					"when": "false"
 				},
 				{
@@ -20299,6 +20307,11 @@
 					"command": "gitlens.graph.stash.delete",
 					"when": "webviewItem == gitlens:stash && !listMultiSelection && !gitlens:readonly && !gitlens:untrusted && !gitlens:hasVirtualFolders",
 					"group": "1_gitlens_actions@3"
+				},
+				{
+					"command": "gitlens.graph.explainStash",
+					"when": "webviewItem =~ /gitlens:stash\\b/ && !listMultiSelection && !gitlens:readonly && !gitlens:untrusted && gitlens:gk:organization:ai:enabled",
+					"group": "1_gitlens_actions_3@1"
 				},
 				{
 					"command": "gitlens.graph.switchToTag",
