@@ -3,6 +3,7 @@ import type { Container } from '../container';
 import { configuration } from '../system/-webview/configuration';
 import { log } from '../system/decorators/log';
 import type { PromiseOrValue } from '../system/promise';
+import type { PromiseCache } from '../system/promiseCache';
 import { PathTrie } from '../system/trie';
 import type { CachedGitTypes, GitDir, PagedResult } from './gitProvider';
 import type { GitBranch } from './models/branch';
@@ -77,10 +78,10 @@ export class GitCache implements Disposable {
 			: undefined;
 	}
 
-	private _contributorsCache: Map<RepoPath, Map<string, Promise<GitContributor[]>>> | undefined;
-	get contributors(): Map<RepoPath, Map<string, Promise<GitContributor[]>>> | undefined {
+	private _contributorsCache: Map<RepoPath, PromiseCache<string, GitContributor[]>> | undefined;
+	get contributors(): Map<RepoPath, PromiseCache<string, GitContributor[]>> | undefined {
 		return this.useCaching
-			? (this._contributorsCache ??= new Map<RepoPath, Map<string, Promise<GitContributor[]>>>())
+			? (this._contributorsCache ??= new Map<RepoPath, PromiseCache<string, GitContributor[]>>())
 			: undefined;
 	}
 
