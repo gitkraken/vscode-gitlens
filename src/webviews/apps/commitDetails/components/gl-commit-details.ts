@@ -151,19 +151,37 @@ export class GlCommitDetails extends GlDetailsBase {
 						></commit-identity>
 					`,
 				)}
-				<div class="message-block">
+				<div>
+					<div class="message-block">
+						${when(
+							index === -1,
+							() =>
+								html`<p class="message-block__text scrollable" data-region="message">
+									<strong>${unsafeHTML(message)}</strong>
+								</p>`,
+							() =>
+								html`<p class="message-block__text scrollable" data-region="message">
+									<strong>${unsafeHTML(message.substring(0, index))}</strong><br /><span
+										>${unsafeHTML(message.substring(index + 3))}</span
+									>
+								</p>`,
+						)}
+					</div>
 					${when(
-						index === -1,
-						() =>
-							html`<p class="message-block__text scrollable" data-region="message">
-								<strong>${unsafeHTML(message)}</strong>
-							</p>`,
-						() =>
-							html`<p class="message-block__text scrollable" data-region="message">
-								<strong>${unsafeHTML(message.substring(0, index))}</strong><br /><span
-									>${unsafeHTML(message.substring(index + 3))}</span
-								>
-							</p>`,
+						this.state?.orgSettings.ai !== false,
+						() => html`
+							<div class="message-block-actions">
+								<action-item
+									label="Explain this ${this.isStash ? 'Stash' : 'Commit'}"
+									icon="sparkle"
+									data-action="explain-commit"
+									aria-busy="${this.explainBusy ? 'true' : nothing}"
+									?disabled="${this.explainBusy ? true : nothing}"
+									@click=${this.onExplainChanges}
+									@keydown=${this.onExplainChanges}
+								></action-item>
+							</div>
+						`,
 					)}
 				</div>
 			</div>
@@ -429,59 +447,6 @@ export class GlCommitDetails extends GlDetailsBase {
 		`;
 	}
 
-	private renderExplainAi() {
-		if (this.state?.orgSettings.ai === false) return undefined;
-
-		const markdown =
-			this.explain?.result != null ? `${this.explain.result.summary}\n\n${this.explain.result.body}` : undefined;
-
-		// TODO: add loading and response states
-		return html`
-			<webview-pane collapsable data-region="explain-pane">
-				<span slot="title">Explain (AI)</span>
-				<action-nav slot="actions">
-					<action-item
-						data-action="switch-ai"
-						label="Switch AI Provider/Model"
-						icon="arrow-swap"
-					></action-item>
-				</action-nav>
-
-				<div class="section">
-					<p>Let AI assist in understanding the changes made with this commit.</p>
-					<p class="button-container">
-						<span class="button-group button-group--single">
-							<gl-button
-								full
-								class="button--busy"
-								data-action="explain-commit"
-								aria-busy="${this.explainBusy ? 'true' : nothing}"
-								@click=${this.onExplainChanges}
-								@keydown=${this.onExplainChanges}
-								><code-icon icon="loading" modifier="spin" slot="prefix"></code-icon>Explain
-								Changes</gl-button
-							>
-						</span>
-					</p>
-					${markdown
-						? html`<div class="ai-content" data-region="commit-explanation">
-								<gl-markdown
-									class="ai-content__summary scrollable"
-									markdown="${markdown}"
-								></gl-markdown>
-						  </div>`
-						: this.explain?.error
-						  ? html`<div class="ai-content has-error" data-region="commit-explanation">
-									<p class="ai-content__summary scrollable">
-										${this.explain.error.message ?? 'Error retrieving content'}
-									</p>
-						    </div>`
-						  : undefined}
-				</div>
-			</webview-pane>
-		`;
-	}
-
 	override render(): unknown {
 		if (this.state?.commit == null) {
 			return this.renderEmptyContent();
@@ -495,7 +460,6 @@ export class GlCommitDetails extends GlDetailsBase {
 					this.isStash ? 'stash' : 'commit',
 					this.renderCommitStats(this.state.commit.stats),
 				)}
-				${this.renderExplainAi()}
 			</webview-pane-group>
 		`;
 	}

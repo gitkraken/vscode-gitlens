@@ -166,6 +166,15 @@ ul {
 	}
 }
 
+.message-block-actions {
+	background: var(--color-background--level-075);
+	display: flex;
+	flex-direction: row;
+	justify-content: flex-end;
+	gap: 0.5rem;
+	border-radius: 0 0 2px 2px;
+}
+
 .commit-detail-panel {
 	max-height: 100vh;
 	overflow: auto;
