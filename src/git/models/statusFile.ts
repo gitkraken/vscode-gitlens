@@ -1,4 +1,4 @@
-/* eslint-disable @typescript-eslint/no-restricted-imports -- TODO need to deal with sharing rich class shapes to webviews */
+/* eslint-disable @typescript-eslint/no-restricted-imports */ /* TODO need to deal with sharing rich class shapes to webviews */
 import type { Uri } from 'vscode';
 import type { Container } from '../../container';
 import { memoize } from '../../system/decorators/-webview/memoize';
@@ -127,7 +127,7 @@ export class GitStatusFile implements GitFile {
 	}
 
 	getPseudoCommits(container: Container, user: GitUser | undefined): GitCommit[] {
-		return getPseudoCommits(container, [this], this.path, user);
+		return getPseudoCommits(container, [this], true, user);
 	}
 
 	getPseudoFileChanges(): GitFileChange[] {

@@ -252,9 +252,7 @@ export class CommitNode extends ViewRefNode<'commit', ViewsWithCommits | FileHis
 
 	private async getTooltip(cancellation: CancellationToken) {
 		const [remotesResult, _] = await Promise.allSettled([
-			this.view.container.git
-				.getRepositoryService(this.commit.repoPath)
-				.remotes.getBestRemotesWithProviders(cancellation),
+			this.view.container.git.remotes(this.commit.repoPath).getBestRemotesWithProviders(cancellation),
 			this.commit.ensureFullDetails({
 				allowFilteredFiles: this._options.allowFilteredFiles,
 				include: { stats: true },
@@ -269,7 +267,7 @@ export class CommitNode extends ViewRefNode<'commit', ViewsWithCommits | FileHis
 		let enrichedAutolinks;
 		let pr;
 
-		if (remote?.supportsIntegration()) {
+		if (remote?.hasIntegration()) {
 			const [enrichedAutolinksResult, prResult] = await Promise.allSettled([
 				pauseOnCancelOrTimeoutMapTuplePromise(this.commit.getEnrichedAutolinks(remote), cancellation),
 				this.getAssociatedPullRequest(this.commit, remote),

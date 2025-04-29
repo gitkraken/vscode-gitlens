@@ -235,11 +235,14 @@ export class GitCommit implements GitRevisionReference {
 
 	private _etagFileSystem: number | undefined;
 
-	hasFullDetails(options?: { include?: { stats?: boolean } }): this is GitCommitWithFullDetails {
+	hasFullDetails(options?: {
+		allowFilteredFiles?: boolean;
+		include?: { stats?: boolean };
+	}): this is GitCommitWithFullDetails {
 		return (
 			this.message != null &&
 			this.fileset != null &&
-			!this.fileset.filtered &&
+			((options?.allowFilteredFiles && this.fileset.filtered) || !this.fileset.filtered) &&
 			(!options?.include?.stats || this.fileset.files.some(f => f.stats != null)) &&
 			((this.isUncommitted &&
 				// If this is an uncommitted commit, check if we need to load the working files (if we don't have a matching etag -- only works if we are currently watching the file system for this repository)
@@ -250,7 +253,7 @@ export class GitCommit implements GitRevisionReference {
 	}
 
 	@gate()
-	async ensureFullDetails(options?: { include?: { stats?: boolean } }): Promise<void> {
+	async ensureFullDetails(options?: { allowFilteredFiles?: boolean; include?: { stats?: boolean } }): Promise<void> {
 		if (this.hasFullDetails(options)) return;
 
 		const repo = this.container.git.getRepository(this.repoPath);
@@ -365,7 +368,7 @@ export class GitCommit implements GitRevisionReference {
 	async findFile(
 		pathOrUri: string | Uri,
 		staged?: boolean,
-		options?: { include?: { stats?: boolean } },
+		options?: { allowFilteredFiles?: boolean; include?: { stats?: boolean } },
 	): Promise<GitFileChange | undefined> {
 		if (!this.hasFullDetails(options)) {
 			await this.ensureFullDetails(options);
@@ -552,7 +555,10 @@ export class GitCommit implements GitRevisionReference {
 		return commit;
 	}
 
-	async getCommitsForFiles(options?: { include?: { stats?: boolean } }): Promise<GitCommit[]> {
+	async getCommitsForFiles(options?: {
+		allowFilteredFiles?: boolean;
+		include?: { stats?: boolean };
+	}): Promise<GitCommit[]> {
 		if (!this.hasFullDetails(options)) {
 			await this.ensureFullDetails(options);
 			if (this.fileset == null) return [];
