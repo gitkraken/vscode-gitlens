@@ -2000,6 +2000,18 @@
 				]
 			}
 		},
+		"gitlens.graph.explainStash": {
+			"label": "Explain Stash",
+			"menus": {
+				"webview/context": [
+					{
+						"when": "webviewItem =~ /gitlens:stash\\b/ && !listMultiSelection && !gitlens:readonly && !gitlens:untrusted && gitlens:gk:organization:ai:enabled",
+						"group": "1_gitlens_actions_3",
+						"order": 1
+					}
+				]
+			}
+		},
 		"gitlens.graph.fetch": {
 			"label": "Fetch",
 			"icon": "$(repo-fetch)",
