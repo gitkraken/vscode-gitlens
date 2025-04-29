@@ -52,7 +52,7 @@ export async function getAssociatedIssuesForBranch(
 	if (options?.cancellation?.isCancellationRequested) return { value: undefined, paused: false };
 
 	let associatedIssues: GitConfigEntityIdentifier[] | undefined;
-	if (encoded != null && encoded.length > 0) {
+	if (encoded) {
 		try {
 			associatedIssues = decodeEntityIdentifiersFromGitConfig(encoded);
 		} catch (ex) {

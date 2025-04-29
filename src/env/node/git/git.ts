@@ -766,7 +766,7 @@ export class Git {
 			'--get',
 			key,
 		);
-		return result.stdout.trim();
+		return result.stdout.trim() || undefined;
 	}
 
 	async config__get_regex(
@@ -780,7 +780,7 @@ export class Git {
 			'--get-regex',
 			pattern,
 		);
-		return result.stdout.trim();
+		return result.stdout.trim() || undefined;
 	}
 
 	async diff(
