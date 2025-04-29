@@ -613,6 +613,7 @@ export type ContributedCommands =
 export type ContributedPaletteCommands =
 	| 'gitlens.addAuthors'
 	| 'gitlens.ai.explainCommit'
+	| 'gitlens.ai.explainStash'
 	| 'gitlens.ai.generateChangelog'
 	| 'gitlens.ai.generateCommitMessage'
 	| 'gitlens.applyPatchFromClipboard'

@@ -6060,6 +6060,11 @@
 				"category": "GitLens"
 			},
 			{
+				"command": "gitlens.ai.explainStash",
+				"title": "Explain Stash (Preview)...",
+				"category": "GitLens"
+			},
+			{
 				"command": "gitlens.ai.generateChangelog",
 				"title": "Generate Changelog (Preview)...",
 				"category": "GitLens"
@@ -10369,6 +10374,10 @@
 				},
 				{
 					"command": "gitlens.ai.explainCommit",
+					"when": "gitlens:enabled && !gitlens:readonly && !gitlens:untrusted && gitlens:gk:organization:ai:enabled"
+				},
+				{
+					"command": "gitlens.ai.explainStash",
 					"when": "gitlens:enabled && !gitlens:readonly && !gitlens:untrusted && gitlens:gk:organization:ai:enabled"
 				},
 				{
@@ -17647,6 +17656,11 @@
 					"command": "gitlens.views.stash.delete.multi",
 					"when": "viewItem == gitlens:stash && listMultiSelection && !gitlens:readonly && !gitlens:untrusted && !gitlens:hasVirtualFolders",
 					"group": "1_gitlens_actions@3"
+				},
+				{
+					"command": "gitlens.ai.explainStash",
+					"when": "viewItem =~ /gitlens:stash\\b/ && !listMultiSelection && !gitlens:readonly && !gitlens:untrusted && gitlens:gk:organization:ai:enabled",
+					"group": "3_gitlens_ai@1"
 				},
 				{
 					"command": "gitlens.stashSave",
