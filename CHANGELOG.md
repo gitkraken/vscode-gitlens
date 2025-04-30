@@ -25,6 +25,7 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/) and this p
 - Fixes cache collision between issues and PRs in autolinks ([#4193](https://github.com/gitkraken/vscode-gitlens/issues/4193))
 - Fixes incorrect PR Link Across Azure DevOps Projects ([#4207](https://github.com/gitkraken/vscode-gitlens/issues/4207))
 - Fixes detail view incorrectly parses GitHub account in commit message ([#3246](https://github.com/gitkraken/vscode-gitlens/issues/3246))
+- Fixes custom instructions are sometimes ignored ([#4267](https://github.com/gitkraken/vscode-gitlens/issues/4267))
 
 ## [17.0.3] - 2025-04-17
 
