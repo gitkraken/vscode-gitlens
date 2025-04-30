@@ -8,6 +8,7 @@ import type { IssueOrPullRequest } from '../../../git/models/issueOrPullRequest'
 import type { PullRequest, PullRequestMergeMethod, PullRequestState } from '../../../git/models/pullRequest';
 import type { RepositoryMetadata } from '../../../git/models/repositoryMetadata';
 import { getSettledValue } from '../../../system/promise';
+import { base64 } from '../../../system/string';
 import type { IntegrationAuthenticationProviderDescriptor } from '../authentication/integrationAuthenticationProvider';
 import { HostingIntegration } from '../integration';
 import type {
@@ -81,7 +82,10 @@ export class AzureDevOpsIntegration extends HostingIntegration<
 			const account = await this.getProviderCurrentAccount(session);
 			if (account?.id == null) return undefined;
 
-			const resources = await api.getAzureResourcesForUser(account.id, { accessToken: accessToken });
+			const resources = await api.getAzureResourcesForUser(account.id, {
+				accessToken: convertTokentoPAT(accessToken),
+				isPAT: true,
+			});
 			this._organizations.set(
 				accessToken,
 				resources != null ? resources.map(r => ({ ...r, key: r.id })) : undefined,
@@ -117,7 +121,10 @@ export class AzureDevOpsIntegration extends HostingIntegration<
 			const azureProjects = (
 				await Promise.allSettled(
 					resourcesWithoutProjects.map(resource =>
-						api.getAzureProjectsForResource(resource.name, { accessToken: accessToken }),
+						api.getAzureProjectsForResource(resource.name, {
+							accessToken: convertTokentoPAT(accessToken),
+							isPAT: true,
+						}),
 					),
 				)
 			)
@@ -164,7 +171,8 @@ export class AzureDevOpsIntegration extends HostingIntegration<
 			projects.map(async project => {
 				const repos = (
 					await api.getReposForAzureProject(project.resourceName, project.name, {
-						accessToken: accessToken,
+						accessToken: convertTokentoPAT(accessToken),
+						isPAT: true,
 					})
 				)?.values;
 				if (repos != null && repos.length > 0) {
@@ -202,7 +210,8 @@ export class AzureDevOpsIntegration extends HostingIntegration<
 		try {
 			const merged = await api.mergePullRequest(this.id, pr, {
 				...options,
-				accessToken: accessToken,
+				accessToken: convertTokentoPAT(accessToken),
+				isPAT: true,
 			});
 			return merged;
 		} catch (ex) {
@@ -306,8 +315,11 @@ export class AzureDevOpsIntegration extends HostingIntegration<
 		project: string;
 	}): Promise<ProviderRepository | undefined> {
 		const api = await this.getProvidersApi();
+		if (this._session == null) return undefined;
+
 		return api.getRepo(this.id, repo.owner, repo.name, repo.project, {
-			accessToken: this._session?.accessToken,
+			accessToken: convertTokentoPAT(this._session.accessToken),
+			isPAT: true,
 		});
 	}
 
@@ -347,13 +359,15 @@ export class AzureDevOpsIntegration extends HostingIntegration<
 		const projectInputs = projects.map(p => ({ namespace: p.resourceName, project: p.name }));
 		const assignedPrs = (
 			await api.getPullRequestsForAzureProjects(projectInputs, {
-				accessToken: session.accessToken,
+				accessToken: convertTokentoPAT(session.accessToken),
+				isPAT: true,
 				assigneeLogins: [user.username],
 			})
 		)?.map(pr => this.fromAzureProviderPullRequest(pr, repoDescriptors, projects));
 		const authoredPrs = (
 			await api.getPullRequestsForAzureProjects(projectInputs, {
-				accessToken: session.accessToken,
+				accessToken: convertTokentoPAT(session.accessToken),
+				isPAT: true,
 				authorLogin: user.username,
 			})
 		)?.map(pr => this.fromAzureProviderPullRequest(pr, repoDescriptors, projects));
@@ -392,7 +406,8 @@ export class AzureDevOpsIntegration extends HostingIntegration<
 				projects.map(async p => {
 					const issuesResponse = (
 						await api.getIssuesForAzureProject(p.resourceName, p.name, {
-							accessToken: session.accessToken,
+							accessToken: convertTokentoPAT(session.accessToken),
+							isPAT: true,
 							assigneeLogins: [user.username!],
 						})
 					).values;
@@ -546,4 +561,8 @@ export class AzureDevOpsIntegration extends HostingIntegration<
 const azureCloudDomainRegex = /^dev\.azure\.com$|\bvisualstudio\.com$/i;
 export function isAzureCloudDomain(domain: string | undefined): boolean {
 	return domain != null && azureCloudDomainRegex.test(domain);
+}
+
+function convertTokentoPAT(accessToken: string): string {
+	return base64(`PAT:${accessToken}`);
 }

@@ -24,6 +24,7 @@ import { Logger } from '../../../../system/logger';
 import type { LogScope } from '../../../../system/logger.scope';
 import { getLogScope } from '../../../../system/logger.scope';
 import { maybeStopWatch } from '../../../../system/stopwatch';
+import { base64 } from '../../../../system/string';
 import type {
 	AzureProjectDescriptor,
 	AzurePullRequest,
@@ -334,7 +335,10 @@ export class AzureDevOpsApi implements Disposable {
 
 				rsp = await wrapForForcedInsecureSSL(provider.getIgnoreSSLErrors(), () =>
 					fetch(url, {
-						headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' },
+						headers: {
+							Authorization: `Basic ${base64(`PAT:${token}`)}`,
+							'Content-Type': 'application/json',
+						},
 						agent: agent,
 						signal: aborter?.signal,
 						...options,
