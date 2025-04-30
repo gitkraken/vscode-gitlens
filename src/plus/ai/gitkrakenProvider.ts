@@ -6,12 +6,12 @@ import { debug } from '../../system/decorators/log';
 import { Logger } from '../../system/logger';
 import { getLogScope } from '../../system/logger.scope';
 import type { AIActionType, AIModel } from './models/model';
-import { OpenAICompatibleProvider } from './openAICompatibleProvider';
+import { OpenAICompatibleProviderBase } from './openAICompatibleProviderBase';
 import { ensureAccount } from './utils/-webview/ai.utils';
 
 type GitKrakenModel = AIModel<typeof provider.id>;
 
-export class GitKrakenProvider extends OpenAICompatibleProvider<typeof provider.id> {
+export class GitKrakenProvider extends OpenAICompatibleProviderBase<typeof provider.id> {
 	readonly id = provider.id;
 	readonly name = provider.name;
 	protected readonly descriptor = provider;

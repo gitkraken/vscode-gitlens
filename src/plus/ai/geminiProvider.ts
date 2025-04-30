@@ -2,7 +2,7 @@ import type { CancellationToken } from 'vscode';
 import type { Response } from '@env/fetch';
 import { geminiProviderDescriptor as provider } from '../../constants.ai';
 import type { AIActionType, AIModel } from './models/model';
-import { OpenAICompatibleProvider } from './openAICompatibleProvider';
+import { OpenAICompatibleProviderBase } from './openAICompatibleProviderBase';
 
 type GeminiModel = AIModel<typeof provider.id>;
 const models: GeminiModel[] = [
@@ -111,7 +111,7 @@ const models: GeminiModel[] = [
 	},
 ];
 
-export class GeminiProvider extends OpenAICompatibleProvider<typeof provider.id> {
+export class GeminiProvider extends OpenAICompatibleProviderBase<typeof provider.id> {
 	readonly id = provider.id;
 	readonly name = provider.name;
 	protected readonly descriptor = provider;

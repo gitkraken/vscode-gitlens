@@ -1,277 +1,382 @@
-import type { CancellationToken } from 'vscode';
-import type { Response } from '@env/fetch';
-import { fetch } from '@env/fetch';
-import type { Role } from '../../@types/vsls';
-import type { AIProviders } from '../../constants.ai';
-import type { Container } from '../../container';
-import { AIError, AIErrorReason, CancellationError } from '../../errors';
-import { getLoggableName, Logger } from '../../system/logger';
-import { startLogScope } from '../../system/logger.scope';
-import type { ServerConnection } from '../gk/serverConnection';
-import type { AIActionType, AIModel, AIProviderDescriptor } from './models/model';
-import type { AIChatMessage, AIChatMessageRole, AIProvider, AIRequestResult } from './models/provider';
-import { getActionName, getOrPromptApiKey, getValidatedTemperature } from './utils/-webview/ai.utils';
+import type { Disposable } from 'vscode';
+import { window } from 'vscode';
+import { openAICompatibleProviderDescriptor as provider } from '../../constants.ai';
+import { configuration } from '../../system/-webview/configuration';
+import type { AIActionType, AIModel } from './models/model';
+import { OpenAICompatibleProviderBase } from './openAICompatibleProviderBase';
 
-export interface AIProviderConfig {
-	url: string;
-	keyUrl: string;
-	keyValidator?: RegExp;
-}
+type OpenAICompatibleModel = AIModel<typeof provider.id>;
+const models: OpenAICompatibleModel[] = [
+	{
+		id: 'gpt-4.1',
+		name: 'GPT-4.1',
+		maxTokens: { input: 1047576, output: 32768 },
+		provider: provider,
+	},
+	{
+		id: 'gpt-4.1-2025-04-14',
+		name: 'GPT-4.1 (2025-04-14)',
+		maxTokens: { input: 1047576, output: 32768 },
+		provider: provider,
+		hidden: true,
+	},
+	{
+		id: 'gpt-4.1-mini',
+		name: 'GPT-4.1 mini',
+		maxTokens: { input: 1047576, output: 32768 },
+		provider: provider,
+	},
+	{
+		id: 'gpt-4.1-mini-2025-04-14',
+		name: 'GPT-4.1 mini (2025-04-14)',
+		maxTokens: { input: 1047576, output: 32768 },
+		provider: provider,
+		hidden: true,
+	},
+	{
+		id: 'gpt-4.1-nano',
+		name: 'GPT-4.1 nano',
+		maxTokens: { input: 1047576, output: 32768 },
+		provider: provider,
+	},
+	{
+		id: 'gpt-4.1-nano-2025-04-14',
+		name: 'GPT-4.1 nano (2025-04-14)',
+		maxTokens: { input: 1047576, output: 32768 },
+		provider: provider,
+		hidden: true,
+	},
+	{
+		id: 'o4-mini',
+		name: 'o4 mini',
+		maxTokens: { input: 200000, output: 100000 },
+		provider: provider,
+		temperature: null,
+	},
+	{
+		id: 'o4-mini-2025-04-16',
+		name: 'o4 mini (2025-04-16)',
+		maxTokens: { input: 200000, output: 100000 },
+		provider: provider,
+		temperature: null,
+		hidden: true,
+	},
+	{
+		id: 'o3',
+		name: 'o3',
+		maxTokens: { input: 200000, output: 100000 },
+		provider: provider,
+		temperature: null,
+	},
+	{
+		id: 'o3-2025-04-16',
+		name: 'o3 (2025-04-16)',
+		maxTokens: { input: 200000, output: 100000 },
+		provider: provider,
+		temperature: null,
+		hidden: true,
+	},
+	{
+		id: 'o3-mini',
+		name: 'o3 mini',
+		maxTokens: { input: 200000, output: 100000 },
+		provider: provider,
+		temperature: null,
+	},
+	{
+		id: 'o3-mini-2025-01-31',
+		name: 'o3 mini',
+		maxTokens: { input: 200000, output: 100000 },
+		provider: provider,
+		temperature: null,
+		hidden: true,
+	},
+	{
+		id: 'o1',
+		name: 'o1',
+		maxTokens: { input: 200000, output: 100000 },
+		provider: provider,
+		temperature: null,
+	},
+	{
+		id: 'o1-2024-12-17',
+		name: 'o1',
+		maxTokens: { input: 200000, output: 100000 },
+		provider: provider,
+		temperature: null,
+		hidden: true,
+	},
+	{
+		id: 'o1-preview',
+		name: 'o1 preview',
+		maxTokens: { input: 128000, output: 32768 },
+		provider: provider,
+		temperature: null,
+		hidden: true,
+	},
+	{
+		id: 'o1-preview-2024-09-12',
+		name: 'o1 preview',
+		maxTokens: { input: 128000, output: 32768 },
+		provider: provider,
+		temperature: null,
+		hidden: true,
+	},
+	{
+		id: 'o1-mini',
+		name: 'o1 mini',
+		maxTokens: { input: 128000, output: 65536 },
+		provider: provider,
+		temperature: null,
+	},
+	{
+		id: 'o1-mini-2024-09-12',
+		name: 'o1 mini',
+		maxTokens: { input: 128000, output: 65536 },
+		provider: provider,
+		temperature: null,
+		hidden: true,
+	},
+	{
+		id: 'gpt-4o',
+		name: 'GPT-4o',
+		maxTokens: { input: 128000, output: 16384 },
+		provider: provider,
+		default: true,
+	},
+	{
+		id: 'gpt-4o-2024-11-20',
+		name: 'GPT-4o',
+		maxTokens: { input: 128000, output: 16384 },
+		provider: provider,
+		hidden: true,
+	},
+	{
+		id: 'gpt-4o-2024-08-06',
+		name: 'GPT-4o',
+		maxTokens: { input: 128000, output: 16384 },
+		provider: provider,
+		hidden: true,
+	},
+	{
+		id: 'gpt-4o-2024-05-13',
+		name: 'GPT-4o',
+		maxTokens: { input: 128000, output: 4096 },
+		provider: provider,
+		hidden: true,
+	},
+	{
+		id: 'chatgpt-4o-latest',
+		name: 'GPT-4o',
+		maxTokens: { input: 128000, output: 16384 },
+		provider: provider,
+		hidden: true,
+	},
+	{
+		id: 'gpt-4o-mini',
+		name: 'GPT-4o mini',
+		maxTokens: { input: 128000, output: 16384 },
+		provider: provider,
+	},
+	{
+		id: 'gpt-4o-mini-2024-07-18',
+		name: 'GPT-4o mini',
+		maxTokens: { input: 128000, output: 16384 },
+		provider: provider,
+		hidden: true,
+	},
+	{
+		id: 'gpt-4-turbo',
+		name: 'GPT-4 Turbo',
+		maxTokens: { input: 128000, output: 4096 },
+		provider: provider,
+		hidden: true,
+	},
+	{
+		id: 'gpt-4-turbo-2024-04-09',
+		name: 'GPT-4 Turbo preview (2024-04-09)',
+		maxTokens: { input: 128000, output: 4096 },
+		provider: provider,
+		hidden: true,
+	},
+	{
+		id: 'gpt-4-turbo-preview',
+		name: 'GPT-4 Turbo preview',
+		maxTokens: { input: 128000, output: 4096 },
+		provider: provider,
+		hidden: true,
+	},
+	{
+		id: 'gpt-4-0125-preview',
+		name: 'GPT-4 0125 preview',
+		maxTokens: { input: 128000, output: 4096 },
+		provider: provider,
+		hidden: true,
+	},
+	{
+		id: 'gpt-4-1106-preview',
+		name: 'GPT-4 1106 preview',
+		maxTokens: { input: 128000, output: 4096 },
+		provider: provider,
+		hidden: true,
+	},
+	{
+		id: 'gpt-4',
+		name: 'GPT-4',
+		maxTokens: { input: 8192, output: 4096 },
+		provider: provider,
+		hidden: true,
+	},
+	{
+		id: 'gpt-4-0613',
+		name: 'GPT-4 0613',
+		maxTokens: { input: 8192, output: 4096 },
+		provider: provider,
+		hidden: true,
+	},
+	{
+		id: 'gpt-4-32k',
+		name: 'GPT-4 32k',
+		maxTokens: { input: 32768, output: 4096 },
+		provider: provider,
+		hidden: true,
+	},
+	{
+		id: 'gpt-4-32k-0613',
+		name: 'GPT-4 32k 0613',
+		maxTokens: { input: 32768, output: 4096 },
+		provider: provider,
+		hidden: true,
+	},
+	{
+		id: 'gpt-3.5-turbo',
+		name: 'GPT-3.5 Turbo',
+		maxTokens: { input: 16385, output: 4096 },
+		provider: provider,
+		hidden: true,
+	},
+	{
+		id: 'gpt-3.5-turbo-0125',
+		name: 'GPT-3.5 Turbo 0125',
+		maxTokens: { input: 16385, output: 4096 },
+		provider: provider,
+		hidden: true,
+	},
+	{
+		id: 'gpt-3.5-turbo-1106',
+		name: 'GPT-3.5 Turbo 1106',
+		maxTokens: { input: 16385, output: 4096 },
+		provider: provider,
+		hidden: true,
+	},
+	{
+		id: 'gpt-3.5-turbo-16k',
+		name: 'GPT-3.5 Turbo 16k',
+		maxTokens: { input: 16385, output: 4096 },
+		provider: provider,
+		hidden: true,
+	},
+];
 
-export abstract class OpenAICompatibleProvider<T extends AIProviders> implements AIProvider<T> {
-	constructor(
-		protected readonly container: Container,
-		protected readonly connection: ServerConnection,
-	) {}
-
-	dispose(): void {}
-
-	abstract readonly id: T;
-	abstract readonly name: string;
-	protected abstract readonly descriptor: AIProviderDescriptor<T>;
-	protected abstract readonly config: { keyUrl?: string; keyValidator?: RegExp };
-
-	async configured(silent: boolean): Promise<boolean> {
-		return (await this.getApiKey(silent)) != null;
-	}
-
-	async getApiKey(silent: boolean): Promise<string | undefined> {
-		const { keyUrl, keyValidator } = this.config;
-
-		return getOrPromptApiKey(
-			this.container,
-			{
-				id: this.id,
-				name: this.name,
-				requiresAccount: this.descriptor.requiresAccount,
-				validator: keyValidator != null ? v => keyValidator.test(v) : () => true,
-				url: keyUrl,
-			},
-			silent,
-		);
-	}
-
-	abstract getModels(): Promise<readonly AIModel<T>[]>;
-
-	protected abstract getUrl(_model: AIModel<T>): string;
-
-	protected getHeaders<TAction extends AIActionType>(
-		_action: TAction,
-		apiKey: string,
-		_model: AIModel<T>,
-		_url: string,
-	): Record<string, string> | Promise<Record<string, string>> {
-		return {
-			Accept: 'application/json',
-			'Content-Type': 'application/json',
-			Authorization: `Bearer ${apiKey}`,
-		};
-	}
-
-	async sendRequest<TAction extends AIActionType>(
-		action: TAction,
-		model: AIModel<T>,
-		apiKey: string,
-		getMessages: (maxCodeCharacters: number, retries: number) => Promise<AIChatMessage[]>,
-		options: { cancellation: CancellationToken; modelOptions?: { outputTokens?: number; temperature?: number } },
-	): Promise<AIRequestResult | undefined> {
-		using scope = startLogScope(`${getLoggableName(this)}.sendRequest`, false);
-
-		try {
-			const result = await this.fetch(
-				action,
-				model,
-				apiKey,
-				getMessages,
-				options.modelOptions,
-				options.cancellation,
-			);
-			return result;
-		} catch (ex) {
-			if (ex instanceof CancellationError) {
-				Logger.error(ex, scope, `Cancelled request to ${getActionName(action)}: (${model.provider.name})`);
-				throw ex;
-			}
-
-			Logger.error(ex, scope, `Unable to ${getActionName(action)}: (${model.provider.name})`);
-			if (ex instanceof AIError) throw ex;
-
-			debugger;
-			throw new Error(`Unable to ${getActionName(action)}: (${model.provider.name}) ${ex.message}`);
-		}
-	}
-
-	protected async fetch<TAction extends AIActionType>(
-		action: TAction,
-		model: AIModel<T>,
-		apiKey: string,
-		messages: (maxInputTokens: number, retries: number) => Promise<AIChatMessage[]>,
-		modelOptions?: { outputTokens?: number; temperature?: number },
-		cancellation?: CancellationToken,
-	): Promise<AIRequestResult> {
-		let retries = 0;
-		let maxInputTokens = model.maxTokens.input;
-
-		while (true) {
-			const request: ChatCompletionRequest = {
-				model: model.id,
-				messages: await messages(maxInputTokens, retries),
-				stream: false,
-				max_completion_tokens: model.maxTokens.output
-					? Math.min(modelOptions?.outputTokens ?? Infinity, model.maxTokens.output)
-					: modelOptions?.outputTokens,
-				temperature: getValidatedTemperature(modelOptions?.temperature ?? model.temperature),
-			};
-
-			const rsp = await this.fetchCore(action, model, apiKey, request, cancellation);
-			if (!rsp.ok) {
-				const result = await this.handleFetchFailure(rsp, action, model, retries, maxInputTokens);
-				if (result.retry) {
-					maxInputTokens = result.maxInputTokens;
-					retries++;
-					continue;
-				}
-			}
-
-			const data: ChatCompletionResponse = await rsp.json();
-			const result: AIRequestResult = {
-				id: data.id,
-				content: data.choices?.[0].message.content?.trim() ?? data.content?.[0]?.text?.trim() ?? '',
-				model: model,
-				usage: {
-					promptTokens: data.usage?.prompt_tokens ?? data.usage?.input_tokens,
-					completionTokens: data.usage?.completion_tokens ?? data.usage?.output_tokens,
-					totalTokens: data.usage?.total_tokens,
-					limits:
-						data?.usage?.gk != null
-							? {
-									used: data.usage.gk.used,
-									limit: data.usage.gk.limit,
-									resetsOn: new Date(data.usage.gk.resets_on),
-							  }
-							: undefined,
-				},
-			};
-			return result;
-		}
-	}
-
-	protected async handleFetchFailure<TAction extends AIActionType>(
-		rsp: Response,
-		_action: TAction,
-		model: AIModel<T>,
-		retries: number,
-		maxInputTokens: number,
-	): Promise<{ retry: true; maxInputTokens: number }> {
-		if (rsp.status === 404) {
-			throw new AIError(
-				AIErrorReason.Unauthorized,
-				new Error(`Your API key doesn't seem to have access to the selected '${model.id}' model`),
-			);
-		}
-		if (rsp.status === 429) {
-			throw new AIError(
-				AIErrorReason.RateLimitOrFundsExceeded,
-				new Error(
-					`(${this.name}) ${rsp.status}: Too many requests (rate limit exceeded) or your account is out of funds`,
-				),
-			);
-		}
-
-		let json;
-		try {
-			json = (await rsp.json()) as { error?: { code: string; message: string } } | undefined;
-		} catch {}
-
-		if (json?.error?.code === 'context_length_exceeded') {
-			if (retries < 2) {
-				return { retry: true, maxInputTokens: maxInputTokens - 200 * (retries || 1) };
-			}
-
-			throw new AIError(
-				AIErrorReason.RequestTooLarge,
-				new Error(`(${this.name}) ${rsp.status}: ${json?.error?.message || rsp.statusText}`),
-			);
-		}
-
-		throw new Error(`(${this.name}) ${rsp.status}: ${json?.error?.message || rsp.statusText}`);
-	}
-
-	protected async fetchCore<TAction extends AIActionType>(
-		action: TAction,
-		model: AIModel<T>,
-		apiKey: string,
-		request: object,
-		cancellation: CancellationToken | undefined,
-	): Promise<Response> {
-		let aborter: AbortController | undefined;
-		if (cancellation != null) {
-			aborter = new AbortController();
-			cancellation.onCancellationRequested(() => aborter?.abort());
-		}
-
-		const url = this.getUrl(model);
-		try {
-			return await fetch(url, {
-				headers: await this.getHeaders(action, apiKey, model, url),
-				method: 'POST',
-				body: JSON.stringify(request),
-				signal: aborter?.signal,
-			});
-		} catch (ex) {
-			if (ex.name === 'AbortError') throw new CancellationError(ex);
-			throw ex;
-		}
-	}
-}
-
-interface ChatCompletionRequest {
-	model: string;
-	messages: AIChatMessage<AIChatMessageRole>[];
-
-	/** @deprecated but used by Anthropic & Gemini */
-	max_tokens?: number;
-	/** Currently can't be used for Anthropic & Gemini */
-	max_completion_tokens?: number;
-	metadata?: Record<string, string>;
-	stream?: boolean;
-	temperature?: number;
-	top_p?: number;
-
-	/** Not supported by many models/providers */
-	reasoning_effort?: 'low' | 'medium' | 'high';
-}
-
-interface ChatCompletionResponse {
-	id: string;
-	model: string;
-	/** OpenAI compatible output */
-	choices?: {
-		index: number;
-		message: {
-			role: Role;
-			content: string | null;
-			refusal: string | null;
-		};
-		finish_reason: string;
-	}[];
-	/** Anthropic output */
-	content?: { type: 'text'; text: string }[];
-	usage: {
-		/** OpenAI compatible */
-		prompt_tokens?: number;
-		completion_tokens?: number;
-		total_tokens?: number;
-
-		/** Anthropic */
-		input_tokens?: number;
-		output_tokens?: number;
-
-		/** GitKraken */
-		gk: {
-			used: number;
-			limit: number;
-			resets_on: string;
-		};
+export class OpenAICompatibleProvider extends OpenAICompatibleProviderBase<typeof provider.id> {
+	readonly id = provider.id;
+	readonly name = provider.name;
+	protected readonly descriptor = provider;
+	protected readonly config = {
+		keyUrl: undefined,
+		keyValidator: /(?:sk-)?[a-zA-Z0-9]{32,}/,
 	};
+
+	getModels(): Promise<readonly AIModel<typeof provider.id>[]> {
+		return Promise.resolve(models);
+	}
+
+	protected getUrl(_model?: AIModel<typeof provider.id>): string | undefined {
+		return configuration.get('ai.openaicompatible.url') ?? undefined;
+	}
+
+	private async getOrPromptBaseUrl(silent: boolean): Promise<string | undefined> {
+		let url: string | undefined = this.getUrl();
+
+		if (silent || url != null) return url;
+
+		const input = window.createInputBox();
+		input.ignoreFocusOut = true;
+
+		const disposables: Disposable[] = [];
+
+		try {
+			url = await new Promise<string | undefined>(resolve => {
+				disposables.push(
+					input.onDidHide(() => resolve(undefined)),
+					input.onDidChangeValue(value => {
+						if (value) {
+							try {
+								new URL(value);
+							} catch {
+								input.validationMessage = `Please enter a valid URL`;
+								return;
+							}
+						}
+						input.validationMessage = undefined;
+					}),
+					input.onDidAccept(() => {
+						const value = input.value.trim();
+						if (!value) {
+							input.validationMessage = `Please enter a valid URL`;
+							return;
+						}
+
+						try {
+							new URL(value);
+						} catch {
+							input.validationMessage = `Please enter a valid URL`;
+							return;
+						}
+
+						resolve(value);
+					}),
+				);
+
+				input.title = `Connect to OpenAI-Compatible Provider`;
+				input.placeholder = `Please enter your provider's URL to use this feature`;
+				input.prompt = `Enter your OpenAI-Compatible Provider URL`;
+
+				input.show();
+			});
+		} finally {
+			input.dispose();
+			disposables.forEach(d => void d.dispose());
+		}
+
+		if (url) {
+			void configuration.updateEffective('ai.openaicompatible.url', url);
+		}
+
+		return url;
+	}
+
+	override async configured(silent: boolean): Promise<boolean> {
+		const url = await this.getOrPromptBaseUrl(silent);
+		if (url == null) return false;
+
+		return super.configured(silent);
+	}
+
+	protected override getHeaders<TAction extends AIActionType>(
+		action: TAction,
+		apiKey: string,
+		model: AIModel<typeof provider.id>,
+		url: string,
+	): Record<string, string> | Promise<Record<string, string>> {
+		if (url.includes('.azure.com')) {
+			return {
+				Accept: 'application/json',
+				'Content-Type': 'application/json',
+				'api-key': apiKey,
+			};
+		}
+
+		return super.getHeaders(action, apiKey, model, url);
+	}
 }
