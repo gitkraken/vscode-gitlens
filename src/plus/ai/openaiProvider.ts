@@ -1,7 +1,7 @@
 import { openAIProviderDescriptor as provider } from '../../constants.ai';
 import { configuration } from '../../system/-webview/configuration';
 import type { AIActionType, AIModel } from './models/model';
-import { OpenAICompatibleProvider } from './openAICompatibleProvider';
+import { OpenAICompatibleProviderBase } from './openAICompatibleProviderBase';
 
 type OpenAIModel = AIModel<typeof provider.id>;
 const models: OpenAIModel[] = [
@@ -276,7 +276,7 @@ const models: OpenAIModel[] = [
 	},
 ];
 
-export class OpenAIProvider extends OpenAICompatibleProvider<typeof provider.id> {
+export class OpenAIProvider extends OpenAICompatibleProviderBase<typeof provider.id> {
 	readonly id = provider.id;
 	readonly name = provider.name;
 	protected readonly descriptor = provider;

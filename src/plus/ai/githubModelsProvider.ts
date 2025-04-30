@@ -3,11 +3,11 @@ import { fetch } from '@env/fetch';
 import { githubProviderDescriptor as provider } from '../../constants.ai';
 import { AIError, AIErrorReason } from '../../errors';
 import type { AIActionType, AIModel } from './models/model';
-import { OpenAICompatibleProvider } from './openAICompatibleProvider';
+import { OpenAICompatibleProviderBase } from './openAICompatibleProviderBase';
 
 type GitHubModelsModel = AIModel<typeof provider.id>;
 
-export class GitHubModelsProvider extends OpenAICompatibleProvider<typeof provider.id> {
+export class GitHubModelsProvider extends OpenAICompatibleProviderBase<typeof provider.id> {
 	readonly id = provider.id;
 	readonly name = provider.name;
 	protected readonly descriptor = provider;

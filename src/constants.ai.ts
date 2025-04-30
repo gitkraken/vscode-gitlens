@@ -9,6 +9,7 @@ export type AIProviders =
 	| 'huggingface'
 	| 'ollama'
 	| 'openai'
+	| 'openaicompatible'
 	| 'openrouter'
 	| 'vscode'
 	| 'xai';
@@ -34,6 +35,13 @@ export const vscodeProviderDescriptor: AIProviderDescriptor<'vscode'> = {
 export const openAIProviderDescriptor: AIProviderDescriptor<'openai'> = {
 	id: 'openai',
 	name: 'OpenAI',
+	primary: false,
+	requiresAccount: true,
+	requiresUserKey: true,
+} as const;
+export const openAICompatibleProviderDescriptor: AIProviderDescriptor<'openaicompatible'> = {
+	id: 'openaicompatible',
+	name: 'OpenAI-Compatible Provider (Azure, etc.)',
 	primary: false,
 	requiresAccount: true,
 	requiresUserKey: true,

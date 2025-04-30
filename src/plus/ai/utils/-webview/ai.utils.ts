@@ -105,7 +105,11 @@ export async function getOrPromptApiKey(
 			input.password = true;
 			input.title = `Connect to ${provider.name}`;
 			input.placeholder = `Please enter your ${provider.name} API key to use this feature`;
-			input.prompt = `Enter your [${provider.name} API Key](${provider.url} "Get your ${provider.name} API key")`;
+			input.prompt = `Enter your ${
+				provider.url
+					? `[${provider.name} API Key](${provider.url} "Get your ${provider.name} API key")`
+					: `${provider.name} API Key`
+			}`;
 			if (provider.url) {
 				input.buttons = [infoButton];
 			}

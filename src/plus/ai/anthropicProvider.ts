@@ -3,7 +3,7 @@ import type { Response } from '@env/fetch';
 import { anthropicProviderDescriptor as provider } from '../../constants.ai';
 import { AIError, AIErrorReason } from '../../errors';
 import type { AIActionType, AIModel } from './models/model';
-import { OpenAICompatibleProvider } from './openAICompatibleProvider';
+import { OpenAICompatibleProviderBase } from './openAICompatibleProviderBase';
 
 type AnthropicModel = AIModel<typeof provider.id>;
 const models: AnthropicModel[] = [
@@ -103,7 +103,7 @@ const models: AnthropicModel[] = [
 	},
 ];
 
-export class AnthropicProvider extends OpenAICompatibleProvider<typeof provider.id> {
+export class AnthropicProvider extends OpenAICompatibleProviderBase<typeof provider.id> {
 	readonly id = provider.id;
 	readonly name = provider.name;
 	protected readonly descriptor = provider;

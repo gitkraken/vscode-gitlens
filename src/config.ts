@@ -250,6 +250,9 @@ interface AIConfig {
 	readonly openai: {
 		readonly url: string | null;
 	};
+	readonly openaicompatible: {
+		readonly url: string | null;
+	};
 	readonly vscode: {
 		readonly model: AIProviderAndModel | null;
 	};
