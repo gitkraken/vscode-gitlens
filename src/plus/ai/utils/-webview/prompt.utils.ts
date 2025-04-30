@@ -7,81 +7,35 @@ import { getPossessiveForm, interpolate } from '../../../../system/string';
 import type { AIModel } from '../../models/model';
 import type { PromptTemplate, PromptTemplateContext, PromptTemplateType } from '../../models/promptTemplates';
 import {
-	explainChangesUserPrompt,
-	generateChangelogUserPrompt,
-	generateCloudPatchMessageUserPrompt,
-	generateCodeSuggestMessageUserPrompt,
-	generateCommitMessageUserPrompt,
-	generatePullRequestMessageUserPrompt,
-	generateStashMessageUserPrompt,
+	explainChanges,
+	generateChangelog,
+	generateCommitMessage,
+	generateCreateCloudPatch,
+	generateCreateCodeSuggest,
+	generateCreatePullRequest,
+	generateStashMessage,
 } from '../../prompts';
 import { estimatedCharactersPerToken, showLargePromptWarning, showPromptTruncationWarning } from './ai.utils';
 
 export function getLocalPromptTemplate<T extends PromptTemplateType>(
 	template: T,
 	_model: AIModel,
-): PromptTemplate | undefined {
+): PromptTemplate<T> | undefined {
 	switch (template) {
 		case 'generate-commitMessage':
-			return {
-				template: generateCommitMessageUserPrompt,
-				variables: [
-					'diff',
-					'context',
-					'instructions',
-				] satisfies (keyof PromptTemplateContext<'generate-commitMessage'>)[],
-			};
+			return generateCommitMessage as PromptTemplate<T>;
 		case 'generate-stashMessage':
-			return {
-				template: generateStashMessageUserPrompt,
-				variables: [
-					'diff',
-					'context',
-					'instructions',
-				] satisfies (keyof PromptTemplateContext<'generate-stashMessage'>)[],
-			};
+			return generateStashMessage as PromptTemplate<T>;
 		case 'generate-changelog':
-			return {
-				template: generateChangelogUserPrompt,
-				variables: ['data', 'instructions'] satisfies (keyof PromptTemplateContext<'generate-changelog'>)[],
-			};
+			return generateChangelog as PromptTemplate<T>;
 		case 'generate-create-cloudPatch':
-			return {
-				template: generateCloudPatchMessageUserPrompt,
-				variables: [
-					'diff',
-					'context',
-					'instructions',
-				] satisfies (keyof PromptTemplateContext<'generate-create-cloudPatch'>)[],
-			};
+			return generateCreateCloudPatch as PromptTemplate<T>;
 		case 'generate-create-codeSuggestion':
-			return {
-				template: generateCodeSuggestMessageUserPrompt,
-				variables: [
-					'diff',
-					'context',
-					'instructions',
-				] satisfies (keyof PromptTemplateContext<'generate-create-codeSuggestion'>)[],
-			};
+			return generateCreateCodeSuggest as PromptTemplate<T>;
 		case 'generate-create-pullRequest':
-			return {
-				template: generatePullRequestMessageUserPrompt,
-				variables: [
-					'diff',
-					'data',
-					'context',
-					'instructions',
-				] satisfies (keyof PromptTemplateContext<'generate-create-pullRequest'>)[],
-			};
+			return generateCreatePullRequest as PromptTemplate<T>;
 		case 'explain-changes':
-			return {
-				template: explainChangesUserPrompt,
-				variables: [
-					'diff',
-					'message',
-					'instructions',
-				] satisfies (keyof PromptTemplateContext<'explain-changes'>)[],
-			};
+			return explainChanges as PromptTemplate<T>;
 		default:
 			return undefined;
 	}
@@ -91,7 +45,7 @@ const canTruncateTemplateVariables = ['diff'];
 
 export async function resolvePrompt<T extends PromptTemplateType>(
 	model: AIModel,
-	template: PromptTemplate,
+	template: PromptTemplate<T>,
 	templateContext: PromptTemplateContext<T>,
 	maxInputTokens: number,
 	retries: number,
@@ -102,7 +56,7 @@ export async function resolvePrompt<T extends PromptTemplateType>(
 	}
 
 	let entries = filterMap(Object.entries(templateContext), ([k, v]) => {
-		if (!template.variables.includes(k) || (v != null && typeof v !== 'string')) {
+		if (!template.variables.includes(k as keyof PromptTemplateContext<T>) || (v != null && typeof v !== 'string')) {
 			debugger;
 			return undefined;
 		}
@@ -138,7 +92,7 @@ export async function resolvePrompt<T extends PromptTemplateType>(
 	// Ensure we blank out any missing variables
 	for (const v of template.variables) {
 		if (!entries.some(([k]) => k === v)) {
-			entries.push([v, '']);
+			entries.push([v as string, '']);
 		}
 	}
 

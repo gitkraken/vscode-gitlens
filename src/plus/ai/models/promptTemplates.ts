@@ -1,7 +1,7 @@
-export interface PromptTemplate {
-	readonly id?: string;
+export interface PromptTemplate<T extends PromptTemplateType = PromptTemplateType> {
+	readonly id: PromptTemplateId<T>;
 	readonly template: string;
-	readonly variables: string[];
+	readonly variables: (keyof PromptTemplateContext<T>)[];
 }
 
 interface ChangelogPromptTemplateContext {
@@ -47,16 +47,21 @@ export type PromptTemplateType =
 	| `generate-create-${'cloudPatch' | 'codeSuggestion' | 'pullRequest'}`
 	| 'explain-changes';
 
+type PromptTemplateVersions = '' | '_v2';
+
+export type PromptTemplateId<T extends PromptTemplateType = PromptTemplateType> = `${T}${PromptTemplateVersions}`;
+
+// prettier-ignore
 export type PromptTemplateContext<T extends PromptTemplateType> = T extends 'generate-commitMessage'
 	? CommitMessagePromptTemplateContext
 	: T extends 'generate-stashMessage'
-	  ? StashMessagePromptTemplateContext
-	  : T extends 'generate-create-cloudPatch' | 'generate-create-codeSuggestion'
-	    ? CreateDraftPromptTemplateContext
-	    : T extends 'generate-create-pullRequest'
-	      ? CreatePullRequestPromptTemplateContext
-	      : T extends 'generate-changelog'
-	        ? ChangelogPromptTemplateContext
-	        : T extends 'explain-changes'
-	          ? ExplainChangesPromptTemplateContext
-	          : never;
+	? StashMessagePromptTemplateContext
+	: T extends 'generate-create-cloudPatch' | 'generate-create-codeSuggestion'
+	? CreateDraftPromptTemplateContext
+	: T extends 'generate-create-pullRequest'
+	? CreatePullRequestPromptTemplateContext
+	: T extends 'generate-changelog'
+	? ChangelogPromptTemplateContext
+	: T extends 'explain-changes'
+	? ExplainChangesPromptTemplateContext
+	: never;

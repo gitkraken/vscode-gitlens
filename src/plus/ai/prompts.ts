@@ -1,4 +1,9 @@
-export const generateCommitMessageUserPrompt = `You are an advanced AI programming assistant and are tasked with summarizing code changes into a concise but meaningful commit message. You will be provided with a code diff and optional additional context. Your goal is to analyze the changes and create a clear, informative commit message that accurately represents the modifications made to the code.
+import type { PromptTemplate } from './models/promptTemplates';
+
+export const generateCommitMessage: PromptTemplate<'generate-commitMessage'> = {
+	id: 'generate-commitMessage_v2',
+	variables: ['diff', 'context', 'instructions'],
+	template: `You are an advanced AI programming assistant and are tasked with summarizing code changes into a concise but meaningful commit message. You will be provided with a code diff and optional additional context. Your goal is to analyze the changes and create a clear, informative commit message that accurately represents the modifications made to the code
 
 First, examine the following code changes provided in Git diff format:
 <~~diff~~>
@@ -29,27 +34,27 @@ To create an effective commit message, follow these steps:
    - Limit to 50 characters if possible
 4. If necessary, provide a brief explanation of the changes, which will be the body of your commit message
    - Add line breaks for readability and to separate independent ideas
-   - Focus on the "why" rather than the "what" of the changes.
-5. If the changes are related to a specific issue or ticket, include the reference (e.g., "Fixes #123" or "Relates to JIRA-456") at the end of the commit message.
+   - Focus on the "why" rather than the "what" of the changes
+5. If the changes are related to a specific issue or ticket, include the reference (e.g., "Fixes #123" or "Relates to JIRA-456") at the end of the commit message
 
-Don't over explain and write your commit message summary inside <summary> tags and your commit message body inside <body> tags and include no other text:
-
+Write your commit message summary inside <summary> tags and your commit message body inside <body> tags and include no other text
+Example output structure:
 <summary>
-Implements user authentication feature
+[commit-message-summary-goes-here]
 </summary>
 <body>
-Adds login and registration endpoints
-Updates user model to include password hashing
-Integrates JWT for secure token generation
-
-Fixes #789
+[commit-message-body-goes-here]
 </body>
 
 \${instructions}
 
-Based on the provided code diff and any additional context, create a concise but meaningful commit message following the instructions above.`;
+Based on the provided code diff and any additional context, create a concise but meaningful commit message following the instructions above`,
+};
 
-export const generatePullRequestMessageUserPrompt = `You are an advanced AI programming assistant and are tasked with summarizing code changes into a concise but meaningful pull request title and description. You will be provided with a code diff and a list of commits. Your goal is to analyze the changes and create a clear, informative title and description that accurately represents the modifications made to the code.
+export const generateCreatePullRequest: PromptTemplate<'generate-create-pullRequest'> = {
+	id: 'generate-create-pullRequest_v2',
+	variables: ['diff', 'data', 'context', 'instructions'],
+	template: `You are an advanced AI programming assistant and are tasked with summarizing code changes into a concise but meaningful pull request title and description. You will be provided with a code diff and a list of commits. Your goal is to analyze the changes and create a clear, informative title and description that accurately represents the modifications made to the code
 First, examine the following code changes provided in Git diff format:
 <~~diff~~>
 \${diff}
@@ -79,32 +84,33 @@ To create an effective pull request title and description, follow these steps:
    - Synthesize only meaningful information from the diff and context
    - Avoid outputting code, specific code identifiers, names, or file names unless crucial for understanding
    - Avoid repeating information, broad generalities, and unnecessary phrases like "this", "this commit", or "this change"
-3. Summarize the main purpose of the changes in a single, concise sentence, which will be the title of your pull request message
+3. Summarize the main purpose of the changes in a single, concise sentence, which will be the title of your pull request
    - Start with a third-person singular present tense verb
    - Limit to 50 characters if possible
-4. If necessary, provide a brief explanation of the changes, which will be the body of your pull request message
+4. Provide a detailed explanation of the changes, which will be the body of your pull request
    - Add line breaks for readability and to separate independent ideas
-   - Focus on the "why" rather than the "what" of the changes.
+   - Focus on the "why" rather than the "what" of the changes
    - Structure the body with markdown bullets and headings for clarity
-5. If the changes are related to a specific issue or ticket, include the reference (e.g., "Fixes #123" or "Relates to JIRA-456") at the end of the pull request message.
+5. If the changes are related to a specific issue or ticket, include the reference (e.g., "Fixes #123" or "Relates to JIRA-456") at the end of the pull request message
 
-Write your title inside <summary> tags and your description inside <body> tags and include no other text:
-
+Write your title inside <summary> tags and your description inside <body> tags and include no other text
+Example output structure:
 <summary>
-Implements user authentication feature
+[pull-request-title-goes-here]
 </summary>
 <body>
-Adds login and registration endpoints:
-- Updates user model to include password hashing
-- Integrates JWT for secure token generation
-
-Fixes #789
+[pull-request-body-goes-here]
 </body>
+
 \${instructions}
 
-Based on the provided code diff, commit list, and any additional context, create a concise but meaningful pull request title and body following the instructions above.`;
+Based on the provided code diff, commit list, and any additional context, create a concise but meaningful pull request title and body following the instructions above`,
+};
 
-export const generateStashMessageUserPrompt = `You are an advanced AI programming assistant and are tasked with creating a concise but descriptive stash message. You will be provided with a code diff of uncommitted changes. Your goal is to analyze the changes and create a clear, single-line stash message that accurately represents the work in progress being stashed.
+export const generateStashMessage: PromptTemplate<'generate-stashMessage'> = {
+	id: 'generate-stashMessage_v2',
+	variables: ['diff', 'context', 'instructions'],
+	template: `You are an advanced AI programming assistant and are tasked with creating a concise but descriptive stash message. You will be provided with a code diff of uncommitted changes. Your goal is to analyze the changes and create a clear, single-line stash message that accurately represents the work in progress being stashed
 
 First, examine the following code changes provided in Git diff format:
 <~~diff~~>
@@ -122,17 +128,21 @@ To create an effective stash message, follow these steps:
    - Prioritizes the most significant change if multiple changes are present. If multiple related changes are significant, try to summarize them concisely
    - Use a future-oriented manner, third-person singular present tense (e.g., 'Fixes', 'Updates', 'Improves', 'Adds', 'Removes')
 
-Write your stash message inside <summary> tags and include no other text:
-
+Write your stash message inside <summary> tags and include no other text
+Example output structure:
 <summary>
-Adds new awesome feature
+[stash-message-goes-here]
 </summary>
 
 \${instructions}
 
-Based on the provided code diff, create a concise but descriptive stash message following the instructions above.`;
+Based on the provided code diff, create a concise but descriptive stash message following the instructions above`,
+};
 
-export const generateCloudPatchMessageUserPrompt = `You are an advanced AI programming assistant and are tasked with summarizing code changes into a concise and meaningful title and description. You will be provided with a code diff and optional additional context. Your goal is to analyze the changes and create a clear, informative title and description that accurately represents the modifications made to the code.
+export const generateCreateCloudPatch: PromptTemplate<'generate-create-cloudPatch'> = {
+	id: 'generate-create-cloudPatch_v2',
+	variables: ['diff', 'context', 'instructions'],
+	template: `You are an advanced AI programming assistant and are tasked with summarizing code changes into a concise and meaningful title and description. You will be provided with a code diff and optional additional context. Your goal is to analyze the changes and create a clear, informative title and description that accurately represents the modifications made to the code
 
 First, examine the following code changes provided in Git diff format:
 <~~diff~~>
@@ -158,27 +168,29 @@ To create an effective title and description, follow these steps:
    - Synthesize only meaningful information from the diff and context
    - Avoid outputting code, specific code identifiers, names, or file names unless crucial for understanding
    - Avoid repeating information, broad generalities, and unnecessary phrases like "this", "this commit", or "this change"
-3. Summarize the main purpose of the changes in a single, concise sentence, which will be the title.
-4. If necessary, provide a brief explanation of the changes, which will be the description.
+3. Summarize the main purpose of the changes in a single, concise sentence, which will be the title
+4. Provide a detailed explanation of the changes, which will be the description
    - Add line breaks for readability and to separate independent ideas
-   - Focus on the "why" rather than the "what" of the changes.
+   - Focus on the "why" rather than the "what" of the changes
 
-Write your title inside <summary> tags and your description inside <body> tags and include no other text:
-
+Write your title inside <summary> tags and your description inside <body> tags and include no other text
+Example output structure:
 <summary>
-Implements user authentication feature
+[cloud-patch-title-goes-here]
 </summary>
 <body>
-Adds login and registration endpoints
-Updates user model to include password hashing
-Integrates JWT for secure token generation
+[cloud-patch-description-goes-here]
 </body>
 
 \${instructions}
 
-Based on the provided code diff and any additional context, create a concise but meaningful title and description following the instructions above.`;
+Based on the provided code diff and any additional context, create a concise but meaningful title and description following the instructions above`,
+};
 
-export const generateCodeSuggestMessageUserPrompt = `You are an advanced AI programming assistant and are tasked with summarizing code changes into a concise and meaningful code review title and description. You will be provided with a code diff and optional additional context. Your goal is to analyze the changes and create a clear, informative code review title and description that accurately represents the modifications made to the code.
+export const generateCreateCodeSuggest: PromptTemplate<'generate-create-codeSuggestion'> = {
+	id: 'generate-create-codeSuggestion_v2',
+	variables: ['diff', 'context', 'instructions'],
+	template: `You are an advanced AI programming assistant and are tasked with summarizing code changes into a concise and meaningful code review title and description. You will be provided with a code diff and optional additional context. Your goal is to analyze the changes and create a clear, informative code review title and description that accurately represents the modifications made to the code
 
 First, examine the following code changes provided in Git diff format:
 <~~diff~~>
@@ -204,27 +216,29 @@ To create an effective title and description, follow these steps:
    - Synthesize only meaningful information from the diff and context
    - Avoid outputting code, specific code identifiers, names, or file names unless crucial for understanding
    - Avoid repeating information, broad generalities, and unnecessary phrases like "this", "this commit", or "this change"
-3. Summarize the main purpose of the changes in a single, concise sentence, which will be the title.
-4. If necessary, provide a brief explanation of the changes, which will be the description.
+3. Summarize the main purpose of the changes in a single, concise sentence, which will be the title
+4. Provide a detailed explanation of the changes, which will be the description
    - Add line breaks for readability and to separate independent ideas
-   - Focus on the "why" rather than the "what" of the changes.
+   - Focus on the "why" rather than the "what" of the changes
 
-Write your title inside <summary> tags and your description inside <body> tags and include no other text:
-
+Write your title inside <summary> tags and your description inside <body> tags and include no other text
+Example output structure:
 <summary>
-Implements user authentication feature
+[code-suggestion-title-goes-here]
 </summary>
 <body>
-Adds login and registration endpoints
-Updates user model to include password hashing
-Integrates JWT for secure token generation
+[code-suggestion-description-goes-here]
 </body>
 
 \${instructions}
 
-Based on the provided code diff and any additional context, create a concise but meaningful code review title and description following the instructions above.`;
+Based on the provided code diff and any additional context, create a concise but meaningful code review title and description following the instructions above`,
+};
 
-export const explainChangesUserPrompt = `You are an advanced AI programming assistant and are tasked with creating clear, technical summaries of code changes that help reviewers understand the modifications and their implications. You will analyze a code diff and the author-provided message to produce a structured summary that captures the essential aspects of the changes.
+export const explainChanges: PromptTemplate<'explain-changes'> = {
+	id: 'explain-changes',
+	variables: ['diff', 'message', 'instructions'],
+	template: `You are an advanced AI programming assistant and are tasked with creating clear, technical summaries of code changes that help reviewers understand the modifications and their implications. You will analyze a code diff and the author-provided message to produce a structured summary that captures the essential aspects of the changes
 
 First, examine the following code changes provided in Git diff format:
 <~~diff~~>
@@ -244,7 +258,6 @@ Analysis Instructions:
 5. Note any obvious testing implications
 
 Write your summary inside <summary> and <body> tags in the following structured markdown format, text in [] brackets should be replaced with your own text, if applicable, not including the brackets:
-
 <summary>
 [Concise, one-line description of the change]
 
@@ -274,11 +287,15 @@ Guidelines:
 
 \${instructions}
 
-Based on the provided code diff and message, create a focused technical summary following the format above.`;
+Based on the provided code diff and message, create a focused technical summary following the format above`,
+};
 
-export const generateChangelogUserPrompt = `You are an expert at creating changelogs in the "Keep a Changelog" format (https://keepachangelog.com). Your task is to create a set of clear, informative changelog entries.
+export const generateChangelog: PromptTemplate<'generate-changelog'> = {
+	id: 'generate-changelog',
+	variables: ['data', 'instructions'],
+	template: `You are an expert at creating changelogs in the "Keep a Changelog" format (https://keepachangelog.com). Your task is to create a set of clear, informative changelog entries
 
-First, carefully examine the following JSON data containing commit messages and associated issues. The data is structured as an array of "change" objects. Each "change" contains a \`message\` (the commit message) and an \`issues\` array. The \`issues\` array contains objects representing associated issues, each with an \`id\`, \`url\`, and optional \`title\`.
+First, carefully examine the following JSON data containing commit messages and associated issues. The data is structured as an array of "change" objects. Each "change" contains a \`message\` (the commit message) and an \`issues\` array. The \`issues\` array contains objects representing associated issues, each with an \`id\`, \`url\`, and optional \`title\`
 
 <~~data~~>
 \${data}
@@ -286,7 +303,7 @@ First, carefully examine the following JSON data containing commit messages and 
 
 Guidelines for creating the changelog:
 
-1. Analyze the commit messages and associated issue titles (if available) to understand the changes made. Be sure to read every commit message and associated issue titles to understand the purpose of each change.
+1. Analyze the commit messages and associated issue titles (if available) to understand the changes made. Be sure to read every commit message and associated issue titles to understand the purpose of each change
 2. Group changes into these categories (only include categories with actual changes):
    - Added: New features or capabilities
    - Changed: Changes to existing functionality
@@ -319,4 +336,5 @@ Example output structure:
 
 \${instructions}
 
-Based on the provided commit messages and associated issues, create a set of markdown changelog entries following the instructions above. Do not include any explanatory text or metadata`;
+Based on the provided commit messages and associated issues, create a set of markdown changelog entries following the instructions above. Do not include any explanatory text or metadata`,
+};

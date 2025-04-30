@@ -57,7 +57,12 @@ import type {
 	AIProviderDescriptorWithConfiguration,
 	AIProviderDescriptorWithType,
 } from './models/model';
-import type { PromptTemplate, PromptTemplateContext, PromptTemplateType } from './models/promptTemplates';
+import type {
+	PromptTemplate,
+	PromptTemplateContext,
+	PromptTemplateId,
+	PromptTemplateType,
+} from './models/promptTemplates';
 import type { AIChatMessage, AIProvider, AIRequestResult } from './models/provider';
 import { getLocalPromptTemplate, resolvePrompt } from './utils/-webview/prompt.utils';
 
@@ -201,9 +206,8 @@ export class AIProviderService implements Disposable {
 
 	private readonly _disposable: Disposable;
 	private _model: AIModel | undefined;
-	private readonly _promptTemplates = new PromiseCache<PromptTemplateType, PromptTemplate>({
+	private readonly _promptTemplates = new PromiseCache<PromptTemplateId, PromptTemplate | undefined>({
 		createTTL: 12 * 60 * 60 * 1000, // 12 hours
-		expireOnError: true,
 	});
 	private _provider: AIProvider | undefined;
 	private _providerDisposable: Disposable | undefined;
@@ -1114,17 +1118,17 @@ export class AIProviderService implements Disposable {
 	}
 
 	private async getPrompt<T extends PromptTemplateType>(
-		template: T,
+		templateType: T,
 		model: AIModel,
 		context: PromptTemplateContext<T>,
 		maxInputTokens: number,
 		retries: number,
 		reporting: TelemetryEvents['ai/generate' | 'ai/explain'],
 	): Promise<{ prompt: string; truncated: boolean }> {
-		const promptTemplate = await this.getPromptTemplate(template, model);
+		const promptTemplate = await this.getPromptTemplate(templateType, model);
 		if (promptTemplate == null) {
 			debugger;
-			throw new Error(`No prompt template found for ${template}`);
+			throw new Error(`No prompt template found for ${templateType}`);
 		}
 
 		const result = await resolvePrompt(model, promptTemplate, context, maxInputTokens, retries, reporting);
@@ -1132,53 +1136,63 @@ export class AIProviderService implements Disposable {
 	}
 
 	private async getPromptTemplate<T extends PromptTemplateType>(
-		template: T,
+		templateType: T,
 		model: AIModel,
 	): Promise<PromptTemplate | undefined> {
-		if ((await this.container.subscription.getSubscription()).account) {
-			const scope = getLogScope();
+		const scope = getLogScope();
+
+		const template = getLocalPromptTemplate(templateType, model);
+		const templateId = template?.id ?? templateType;
+
+		return this._promptTemplates.get(templateId, async cancellable => {
+			if (!(await this.container.subscription.getSubscription()).account) {
+				return template;
+			}
 
 			try {
-				return await this._promptTemplates.get(template, async () => {
-					const url = this.container.urls.getGkAIApiUrl(`templates/message-prompt/${template}`);
-					const rsp = await fetch(url, {
-						headers: await this.connection.getGkHeaders(undefined, undefined, {
-							Accept: 'application/json',
-						}),
-					});
-					if (!rsp.ok) {
-						throw new Error(`Getting prompt template (${url}) failed: ${rsp.status} (${rsp.statusText})`);
-					}
-
-					interface PromptResponse {
-						data: {
-							id: string;
-							template: string;
-							variables: string[];
-						};
-						error?: null;
-					}
-
-					const result: PromptResponse = (await rsp.json()) as PromptResponse;
-					if (result.error != null) {
-						throw new Error(`Getting prompt template (${url}) failed: ${String(result.error)}`);
-					}
-
-					return {
-						id: result.data.id,
-						template: result.data.template,
-						variables: result.data.variables,
-					};
+				const url = this.container.urls.getGkAIApiUrl(`templates/message-prompt/${templateId}`);
+				const rsp = await fetch(url, {
+					headers: await this.connection.getGkHeaders(undefined, undefined, { Accept: 'application/json' }),
 				});
+				if (!rsp.ok) {
+					if (rsp.status === 404) {
+						Logger.warn(
+							scope,
+							`${rsp.status} (${rsp.statusText}): Failed to get prompt template '${templateId}' (${url})`,
+						);
+						return template;
+					}
+
+					if (rsp.status === 401) throw new AuthenticationRequiredError();
+					throw new Error(
+						`${rsp.status} (${rsp.statusText}): Failed to get prompt template '${templateId}' (${url})`,
+					);
+				}
+
+				interface PromptResponse {
+					data: { id: string; template: string; variables: string[] };
+					error?: null;
+				}
+
+				const result: PromptResponse = (await rsp.json()) as PromptResponse;
+				if (result.error != null) {
+					throw new Error(`Failed to get prompt template '${templateId}' (${url}). ${String(result.error)}`);
+				}
+
+				return {
+					id: result.data.id as PromptTemplateId<T>,
+					template: result.data.template,
+					variables: result.data.variables as (keyof PromptTemplateContext<T>)[],
+				} satisfies PromptTemplate<T>;
 			} catch (ex) {
+				cancellable.cancel();
 				if (!(ex instanceof AuthenticationRequiredError)) {
 					debugger;
-					Logger.error(ex, scope, `Unable to get prompt template for '${template}'`);
+					Logger.error(ex, scope, String(ex));
 				}
+				return template;
 			}
-		}
-
-		return getLocalPromptTemplate(template, model);
+		});
 	}
 
 	async reset(all?: boolean): Promise<void> {
@@ -1292,32 +1306,42 @@ async function showConfirmAIProviderToS(storage: Storage): Promise<boolean> {
 
 function parseSummarizeResult(result: string): NonNullable<AISummarizeResult['parsed']> {
 	result = result.trim();
-	let summary = result.match(/<summary>\s?([\s\S]*?)\s?(<\/summary>|$)/)?.[1]?.trim() ?? '';
-	let body = result.match(/<body>\s?([\s\S]*?)\s?(<\/body>|$)/)?.[1]?.trim() ?? '';
+	const summary = result.match(/<summary>([\s\S]*?)(?:<\/summary>|$)/)?.[1]?.trim() ?? undefined;
+	if (summary != null) {
+		result = result.replace(/<summary>[\s\S]*?(?:<\/summary>|$)/, '').trim();
+	}
+
+	let body = result.match(/<body>([\s\S]*?)(?:<\/body>|$)/)?.[1]?.trim() ?? undefined;
+	if (body != null) {
+		result = result.replace(/<body>[\s\S]*?(?:<\/body>|$)/, '').trim();
+	}
+
+	// Check for self-closing body tag
+	if (body == null && result.includes('<body/>')) {
+		body = '';
+	}
+
+	// If both tags are present, return them
+	if (summary != null && body != null) return { summary: summary, body: body };
 
 	// If both tags are missing, split the result
-	if (!summary && !body) {
-		return splitMessageIntoSummaryAndBody(result);
+	if (summary == null && body == null) return splitMessageIntoSummaryAndBody(result);
+
+	// If only summary tag is present, use any remaining text as the body
+	if (summary && body == null) {
+		return result ? { summary: summary, body: result } : splitMessageIntoSummaryAndBody(summary);
 	}
 
-	if (summary && !body) {
-		// If only summary tag is present, use the remaining text as the body
-		body = result.replace(/<summary>[\s\S]*?<\/summary>/, '')?.trim() ?? '';
-		if (!body) {
-			return splitMessageIntoSummaryAndBody(summary);
-		}
-	} else if (!summary && body) {
-		// If only body tag is present, use the remaining text as the summary
-		summary = result.replace(/<body>[\s\S]*?<\/body>/, '').trim() ?? '';
-		if (!summary) {
-			return splitMessageIntoSummaryAndBody(body);
-		}
+	// If only body tag is present, use the remaining text as the summary
+	if (summary == null && body) {
+		return result ? { summary: result, body: body } : splitMessageIntoSummaryAndBody(body);
 	}
 
-	return { summary: summary, body: body };
+	return { summary: summary ?? '', body: body ?? '' };
 }
 
 function splitMessageIntoSummaryAndBody(message: string): NonNullable<AISummarizeResult['parsed']> {
+	message = message.replace(/```([\s\S]*?)```/, '$1').trim();
 	const index = message.indexOf('\n');
 	if (index === -1) return { summary: message, body: '' };
 
