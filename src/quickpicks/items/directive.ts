@@ -5,6 +5,7 @@ import { pluralize } from '../../system/string';
 export enum Directive {
 	Back,
 	Cancel,
+	Reset,
 	LoadMore,
 	Noop,
 	Reload,
@@ -56,6 +57,9 @@ export function createDirectiveQuickPickItem(
 				break;
 			case Directive.Reload:
 				label = 'Refresh';
+				break;
+			case Directive.Reset:
+				label = 'Reset';
 				break;
 			case Directive.SignIn:
 				label = 'Sign In';
