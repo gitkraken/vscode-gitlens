@@ -611,7 +611,7 @@ export class ProvidersApi {
 
 	async getAzureResourcesForUser(
 		userId: string,
-		options?: { accessToken?: string },
+		options?: { accessToken?: string; isPAT?: boolean },
 	): Promise<ProviderAzureResource[] | undefined> {
 		const { provider, token } = await this.ensureProviderTokenAndFunction(
 			HostingIntegrationId.AzureDevOps,
@@ -620,7 +620,9 @@ export class ProvidersApi {
 		);
 
 		try {
-			return (await provider.getAzureResourcesForUserFn?.({ userId: userId }, { token: token }))?.data;
+			return (
+				await provider.getAzureResourcesForUserFn?.({ userId: userId }, { token: token, isPAT: options?.isPAT })
+			)?.data;
 		} catch (e) {
 			return this.handleProviderError<ProviderAzureResource[] | undefined>(
 				HostingIntegrationId.AzureDevOps,
@@ -732,7 +734,7 @@ export class ProvidersApi {
 				provider.getAzureProjectsForResourceFn,
 				azureToken,
 				options?.cursor,
-				true,
+				options?.isPAT,
 			);
 		} catch (e) {
 			return this.handleProviderError<PagedResult<ProviderAzureProject>>(
@@ -746,7 +748,7 @@ export class ProvidersApi {
 	async getReposForAzureProject(
 		namespace: string,
 		project: string,
-		options?: GetReposOptions & { accessToken?: string },
+		options?: GetReposOptions & { accessToken?: string; isPAT?: boolean },
 	): Promise<PagedResult<ProviderRepository>> {
 		const { provider, token } = await this.ensureProviderTokenAndFunction(
 			HostingIntegrationId.AzureDevOps,
@@ -760,6 +762,7 @@ export class ProvidersApi {
 			provider.getReposForAzureProjectFn,
 			token,
 			options?.cursor,
+			options?.isPAT,
 		);
 	}
 
@@ -864,7 +867,7 @@ export class ProvidersApi {
 			return (
 				await provider.getPullRequestsForAzureProjectsFn?.(
 					{ projects: projects, ...options },
-					{ token: azureToken, isPAT: true },
+					{ token: azureToken, isPAT: options?.isPAT },
 				)
 			)?.data;
 		} catch (e) {
@@ -971,7 +974,7 @@ export class ProvidersApi {
 	async getIssuesForAzureProject(
 		namespace: string,
 		project: string,
-		options?: GetIssuesOptions & { accessToken?: string },
+		options?: GetIssuesOptions & { accessToken?: string; isPAT?: boolean },
 	): Promise<PagedResult<ProviderIssue>> {
 		const { provider, token } = await this.ensureProviderTokenAndFunction(
 			HostingIntegrationId.AzureDevOps,
@@ -985,6 +988,7 @@ export class ProvidersApi {
 			provider.getIssuesForAzureProjectFn,
 			token,
 			options?.cursor,
+			options?.isPAT,
 		);
 	}
 
