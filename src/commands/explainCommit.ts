@@ -4,7 +4,7 @@ import type { Container } from '../container';
 import { GitUri } from '../git/gitUri';
 import { showGenericErrorMessage } from '../messages';
 import type { AIExplainSource } from '../plus/ai/aiProviderService';
-import { ReferencesQuickPickIncludes, showReferencePicker } from '../quickpicks/referencePicker';
+import { showCommitPicker } from '../quickpicks/commitPicker';
 import { getBestRepositoryOrShowPicker } from '../quickpicks/repositoryPicker';
 import { command } from '../system/-webview/command';
 import { showMarkdownPreview } from '../system/-webview/markdown';
@@ -63,18 +63,11 @@ export class ExplainCommitCommand extends GlCommandBase {
 		try {
 			// If no ref is provided, show a picker to select a commit
 			if (args.ref == null) {
-				const pick = await showReferencePicker(
-					repository.path,
-					'Explain Commit',
-					'Choose a commit to explain',
-					{
-						allowRevisions: true,
-						include: ReferencesQuickPickIncludes.BranchesAndTags,
-						sort: { branches: { current: true }, tags: {} },
-					},
-				);
-				if (pick?.ref == null) return;
-				args.ref = pick.ref;
+				const commitsProvider = repository.git.commits();
+				const log = await commitsProvider.getLog();
+				const pick = await showCommitPicker(log, 'Explain Commit', 'Choose a commit to explain');
+				if (pick?.sha == null) return;
+				args.ref = pick.sha;
 			}
 
 			// Get the commit
