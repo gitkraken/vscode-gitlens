@@ -8,6 +8,7 @@ import type { IssueOrPullRequest } from '../../../git/models/issueOrPullRequest'
 import type { PullRequest, PullRequestMergeMethod, PullRequestState } from '../../../git/models/pullRequest';
 import type { RepositoryMetadata } from '../../../git/models/repositoryMetadata';
 import { getSettledValue } from '../../../system/promise';
+import { base64 } from '../../../system/string';
 import type { IntegrationAuthenticationProviderDescriptor } from '../authentication/integrationAuthenticationProvider';
 import { HostingIntegration } from '../integration';
 import type {
@@ -82,7 +83,7 @@ export class AzureDevOpsIntegration extends HostingIntegration<
 			if (account?.id == null) return undefined;
 
 			const resources = await api.getAzureResourcesForUser(account.id, {
-				accessToken: btoa(`PAT:${accessToken}`),
+				accessToken: convertTokentoPAT(accessToken),
 				isPAT: true,
 			});
 			this._organizations.set(
@@ -121,7 +122,7 @@ export class AzureDevOpsIntegration extends HostingIntegration<
 				await Promise.allSettled(
 					resourcesWithoutProjects.map(resource =>
 						api.getAzureProjectsForResource(resource.name, {
-							accessToken: btoa(`PAT:${accessToken}`),
+							accessToken: convertTokentoPAT(accessToken),
 							isPAT: true,
 						}),
 					),
@@ -170,7 +171,7 @@ export class AzureDevOpsIntegration extends HostingIntegration<
 			projects.map(async project => {
 				const repos = (
 					await api.getReposForAzureProject(project.resourceName, project.name, {
-						accessToken: btoa(`PAT:${accessToken}`),
+						accessToken: convertTokentoPAT(accessToken),
 						isPAT: true,
 					})
 				)?.values;
@@ -209,7 +210,7 @@ export class AzureDevOpsIntegration extends HostingIntegration<
 		try {
 			const merged = await api.mergePullRequest(this.id, pr, {
 				...options,
-				accessToken: btoa(`PAT:${accessToken}`),
+				accessToken: convertTokentoPAT(accessToken),
 				isPAT: true,
 			});
 			return merged;
@@ -317,7 +318,7 @@ export class AzureDevOpsIntegration extends HostingIntegration<
 		if (this._session == null) return undefined;
 
 		return api.getRepo(this.id, repo.owner, repo.name, repo.project, {
-			accessToken: btoa(`PAT:${this._session.accessToken}`),
+			accessToken: convertTokentoPAT(this._session.accessToken),
 			isPAT: true,
 		});
 	}
@@ -358,14 +359,14 @@ export class AzureDevOpsIntegration extends HostingIntegration<
 		const projectInputs = projects.map(p => ({ namespace: p.resourceName, project: p.name }));
 		const assignedPrs = (
 			await api.getPullRequestsForAzureProjects(projectInputs, {
-				accessToken: btoa(`PAT:${session.accessToken}`),
+				accessToken: convertTokentoPAT(session.accessToken),
 				isPAT: true,
 				assigneeLogins: [user.username],
 			})
 		)?.map(pr => this.fromAzureProviderPullRequest(pr, repoDescriptors, projects));
 		const authoredPrs = (
 			await api.getPullRequestsForAzureProjects(projectInputs, {
-				accessToken: btoa(`PAT:${session.accessToken}`),
+				accessToken: convertTokentoPAT(session.accessToken),
 				isPAT: true,
 				authorLogin: user.username,
 			})
@@ -405,7 +406,7 @@ export class AzureDevOpsIntegration extends HostingIntegration<
 				projects.map(async p => {
 					const issuesResponse = (
 						await api.getIssuesForAzureProject(p.resourceName, p.name, {
-							accessToken: btoa(`PAT:${session.accessToken}`),
+							accessToken: convertTokentoPAT(session.accessToken),
 							isPAT: true,
 							assigneeLogins: [user.username!],
 						})
@@ -560,4 +561,8 @@ export class AzureDevOpsIntegration extends HostingIntegration<
 const azureCloudDomainRegex = /^dev\.azure\.com$|\bvisualstudio\.com$/i;
 export function isAzureCloudDomain(domain: string | undefined): boolean {
 	return domain != null && azureCloudDomainRegex.test(domain);
+}
+
+function convertTokentoPAT(accessToken: string): string {
+	return base64(`PAT:${accessToken}`);
 }
