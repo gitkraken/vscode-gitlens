@@ -1,9 +1,9 @@
 import type { Disposable, QuickInputButton } from 'vscode';
 import { authentication, env, ThemeIcon, Uri, window } from 'vscode';
-import { wrapForForcedInsecureSSL } from '@env/fetch';
 import { HostingIntegrationId, SelfHostedIntegrationId } from '../../../constants.integrations';
 import type { Sources } from '../../../constants.telemetry';
 import type { Container } from '../../../container';
+import { getBuiltInIntegrationSession } from '../../gk/utils/-webview/integrationAuthentication.utils';
 import type { ConfiguredIntegrationService } from './configuredIntegrationService';
 import type { IntegrationAuthenticationSessionDescriptor } from './integrationAuthenticationProvider';
 import {
@@ -33,38 +33,20 @@ export class GitHubAuthenticationProvider extends CloudIntegrationAuthentication
 		return HostingIntegrationId.GitHub;
 	}
 
-	private async getBuiltInExistingSession(
-		descriptor: IntegrationAuthenticationSessionDescriptor,
-		forceNewSession?: boolean,
-	): Promise<ProviderAuthenticationSession | undefined> {
-		return wrapForForcedInsecureSSL(
-			this.container.integrations.ignoreSSLErrors({ id: this.authProviderId, domain: descriptor?.domain }),
-			async () => {
-				const session = await authentication.getSession(this.authProviderId, descriptor.scopes, {
-					forceNewSession: forceNewSession ? true : undefined,
-					silent: forceNewSession ? undefined : true,
-				});
-				if (session == null) return undefined;
-				return {
-					...session,
-					cloud: false,
-					domain: descriptor.domain,
-				};
-			},
-		);
-	}
-
 	public override async getSession(
 		descriptor: IntegrationAuthenticationSessionDescriptor,
 		options?: { createIfNeeded?: boolean; forceNewSession?: boolean; source?: Sources },
 	): Promise<ProviderAuthenticationSession | undefined> {
-		let vscodeSession = await this.getBuiltInExistingSession(descriptor);
-
-		if (vscodeSession != null && options?.forceNewSession) {
-			vscodeSession = await this.getBuiltInExistingSession(descriptor, true);
+		let session = await getBuiltInIntegrationSession(this.container, this.authProviderId, descriptor, {
+			silent: true,
+		});
+		if (session != null && options?.forceNewSession) {
+			session = await getBuiltInIntegrationSession(this.container, this.authProviderId, descriptor, {
+				forceNewSession: true,
+			});
 		}
 
-		if (vscodeSession != null) return vscodeSession;
+		if (session != null) return session;
 
 		return super.getSession(descriptor, options);
 	}
