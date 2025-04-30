@@ -1131,6 +1131,10 @@ export class AIProviderService implements Disposable {
 			throw new Error(`No prompt template found for ${templateType}`);
 		}
 
+		if ('instructions' in context && context.instructions) {
+			context.instructions = `Carefully follow these additional instructions (provided directly by the user), but do not deviate from the output structure:\n${context.instructions}`;
+		}
+
 		const result = await resolvePrompt(model, promptTemplate, context, maxInputTokens, retries, reporting);
 		return result;
 	}
