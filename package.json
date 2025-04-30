@@ -6085,6 +6085,11 @@
 				"category": "GitLens"
 			},
 			{
+				"command": "gitlens.ai.explainWip",
+				"title": "Explain Working Changes (Preview)...",
+				"category": "GitLens"
+			},
+			{
 				"command": "gitlens.ai.generateChangelog",
 				"title": "Generate Changelog (Preview)...",
 				"category": "GitLens"
@@ -6854,6 +6859,10 @@
 			{
 				"command": "gitlens.graph.explainStash",
 				"title": "Explain Stash (Preview)"
+			},
+			{
+				"command": "gitlens.graph.explainWip",
+				"title": "Explain Working Changes (Preview)"
 			},
 			{
 				"command": "gitlens.graph.fetch",
@@ -10409,6 +10418,10 @@
 					"when": "gitlens:enabled && !gitlens:readonly && !gitlens:untrusted && gitlens:gk:organization:ai:enabled && config.gitlens.ai.enabled"
 				},
 				{
+					"command": "gitlens.ai.explainWip",
+					"when": "gitlens:enabled && !gitlens:readonly && !gitlens:untrusted && gitlens:gk:organization:ai:enabled"
+				},
+				{
 					"command": "gitlens.ai.generateChangelog",
 					"when": "gitlens:enabled && !gitlens:untrusted && gitlens:gk:organization:ai:enabled && config.gitlens.ai.enabled"
 				},
@@ -11006,6 +11019,10 @@
 				},
 				{
 					"command": "gitlens.graph.explainStash",
+					"when": "false"
+				},
+				{
+					"command": "gitlens.graph.explainWip",
 					"when": "false"
 				},
 				{
@@ -17959,6 +17976,11 @@
 					"group": "3_gitlens@1"
 				},
 				{
+					"command": "gitlens.ai.explainWip",
+					"when": "viewItem =~ /gitlens:worktree\\b/ && !listMultiSelection && !gitlens:readonly && !gitlens:untrusted && gitlens:gk:organization:ai:enabled",
+					"group": "3_gitlens_ai@1"
+				},
+				{
 					"command": "gitlens.views.deleteWorktree",
 					"when": "viewItem =~ /gitlens:worktree\\b(?!.*?\\b\\+(active|default)\\b)/ && !listMultiSelection && !gitlens:readonly",
 					"group": "6_gitlens_actions@1"
@@ -20392,6 +20414,11 @@
 					"command": "gitlens.graph.copyWorkingChangesToWorktree",
 					"when": "webviewItem == gitlens:wip && !listMultiSelection && !gitlens:readonly && !gitlens:untrusted && !gitlens:hasVirtualFolders",
 					"group": "1_gitlens_actions@4"
+				},
+				{
+					"command": "gitlens.graph.explainWip",
+					"when": "webviewItem =~ /gitlens:wip\\b/ && !listMultiSelection && !gitlens:readonly && !gitlens:untrusted && gitlens:gk:organization:ai:enabled",
+					"group": "1_gitlens_actions_3@1"
 				},
 				{
 					"command": "gitlens.graph.hideRefGroup",

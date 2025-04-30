@@ -687,6 +687,7 @@ export class GraphWebviewProvider implements WebviewProvider<State, State, Graph
 			this.host.registerWebviewCommand('gitlens.graph.ai.generateCommitMessage', this.generateCommitMessage),
 			this.host.registerWebviewCommand('gitlens.graph.explainCommit', this.explainCommit),
 			this.host.registerWebviewCommand('gitlens.graph.explainStash', this.explainStash),
+			this.host.registerWebviewCommand('gitlens.graph.explainWip', this.explainWip),
 
 			this.host.registerWebviewCommand('gitlens.graph.compareSelectedCommits.multi', this.compareSelectedCommits),
 			this.host.registerWebviewCommand('gitlens.graph.abortPausedOperation', this.abortPausedOperation),
@@ -3905,6 +3906,17 @@ export class GraphWebviewProvider implements WebviewProvider<State, State, Graph
 			repoPath: ref.repoPath,
 			ref: ref.ref,
 			source: { source: 'graph', type: 'stash' },
+		});
+	}
+
+	@log()
+	private explainWip(item?: GraphItemContext) {
+		const ref = this.getGraphItemRef(item, 'revision');
+		if (ref == null) return Promise.resolve();
+
+		return executeCommand('gitlens.ai.explainWip', {
+			repoPath: ref.repoPath,
+			source: { source: 'graph', type: 'wip' },
 		});
 	}
 
