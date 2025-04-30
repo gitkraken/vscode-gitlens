@@ -615,6 +615,7 @@ export type ContributedCommands =
 
 export type ContributedPaletteCommands =
 	| 'gitlens.addAuthors'
+	| 'gitlens.ai.explainBranch'
 	| 'gitlens.ai.explainCommit'
 	| 'gitlens.ai.explainStash'
 	| 'gitlens.ai.explainWip'

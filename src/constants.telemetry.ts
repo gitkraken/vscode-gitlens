@@ -336,7 +336,7 @@ interface AIEventDataBase {
 
 interface AIExplainEvent extends AIEventDataBase {
 	type: 'change';
-	changeType: 'wip' | 'stash' | 'commit' | `draft-${'patch' | 'stash' | 'suggested_pr_change'}`;
+	changeType: 'wip' | 'stash' | 'commit' | 'branch' | `draft-${'patch' | 'stash' | 'suggested_pr_change'}`;
 }
 
 export interface AIGenerateCommitEventData extends AIEventDataBase {

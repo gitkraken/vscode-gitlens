@@ -23,6 +23,10 @@
 				]
 			}
 		},
+		"gitlens.ai.explainBranch": {
+			"label": "Explain Branch (Preview)...",
+			"commandPalette": "gitlens:enabled && !gitlens:readonly && !gitlens:untrusted && gitlens:gk:organization:ai:enabled"
+		},
 		"gitlens.ai.explainCommit": {
 			"label": "Explain Commit...",
 			"commandPalette": "gitlens:enabled && !gitlens:readonly && !gitlens:untrusted && gitlens:gk:organization:ai:enabled && config.gitlens.ai.enabled",
