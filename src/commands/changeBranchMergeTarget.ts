@@ -1,24 +1,37 @@
 import type { Container } from '../container';
 import type { GitBranch } from '../git/models/branch';
 import type { Repository } from '../git/models/repository';
-import type { PartialStepState, StepGenerator } from './quickCommand';
-import { QuickCommand, StepResultBreak } from './quickCommand';
-import { pickBranchOrTagStep } from './quickCommand.steps';
+import type { ViewsWithRepositoryFolders } from '../views/viewBase';
+import type { PartialStepState, StepGenerator, StepState } from './quickCommand';
+import { endSteps, QuickCommand, StepResultBreak } from './quickCommand';
+import { pickBranchOrTagStep, pickBranchStep, pickRepositoryStep } from './quickCommand.steps';
 
 interface Context {
 	repos: Repository[];
 	title: string;
+	associatedView: ViewsWithRepositoryFolders;
 }
 
-type State = {
+type InitialState = {
 	repo: string | Repository;
 	branch: string;
 	mergeBranch: string | undefined;
 };
 
+type State = {
+	repo: Repository;
+	branch: string;
+	mergeBranch: string | undefined;
+};
+function assertState(state: PartialStepState<InitialState>): asserts state is StepState<State> {
+	if (!state.repo || typeof state.repo === 'string') {
+		throw new Error('Invalid state: repo should be a Repository instance');
+	}
+}
+
 export interface ChangeBranchMergeTargetCommandArgs {
 	readonly command: 'changeBranchMergeTarget';
-	state?: Partial<State>;
+	state?: Partial<InitialState>;
 }
 
 export class ChangeBranchMergeTargetCommand extends QuickCommand {
@@ -26,20 +39,52 @@ export class ChangeBranchMergeTargetCommand extends QuickCommand {
 		super(container, 'changeBranchMergeTarget', 'changeBranchMergeTarget', 'Change Merge Target', {
 			description: 'Change Merge Target for a branch',
 		});
+		let counter = 0;
+		if (args?.state?.repo) {
+			counter++;
+		}
+		if (args?.state?.branch) {
+			counter++;
+		}
 		this.initialState = {
-			counter: 0,
+			counter: counter,
 			...args?.state,
 		};
 	}
 
-	protected async *steps(state: PartialStepState<State>): StepGenerator {
+	protected async *steps(state: PartialStepState<InitialState>): StepGenerator {
 		const context: Context = {
 			repos: this.container.git.openRepositories,
 			title: this.title,
+			associatedView: this.container.views.branches,
 		};
-		const repository = typeof state.repo === 'string' ? this.container.git.getRepository(state.repo) : state.repo;
-		if (repository) {
-			const result = yield* pickBranchOrTagStep({ counter: 0, repo: repository }, context, {
+
+		while (this.canStepsContinue(state)) {
+			if (state.counter < 1 || !state.repo || typeof state.repo === 'string') {
+				const result = yield* pickRepositoryStep(state, context);
+				if (result === StepResultBreak) {
+					break;
+				}
+
+				state.repo = result;
+			}
+
+			assertState(state);
+
+			if (state.counter < 2 || !state.branch) {
+				const branches = yield* pickBranchStep(state, context, {
+					picked: state.branch,
+					placeholder: 'Pick a branch to edit',
+					filter: (branch: GitBranch) => !branch.remote,
+				});
+				if (branches === StepResultBreak) {
+					continue;
+				}
+
+				state.branch = branches.name;
+			}
+
+			const result = yield* pickBranchOrTagStep(state, context, {
 				picked: state.mergeBranch,
 				placeholder: 'Pick a merge target branch',
 				value: undefined,
@@ -49,16 +94,15 @@ export class ChangeBranchMergeTargetCommand extends QuickCommand {
 				},
 			});
 			if (result === StepResultBreak) {
-				return;
+				continue;
 			}
-			const ref = await this.container.git.branches(repository.path).getBranch(state.branch);
-			if (ref && result && state.branch) {
+			if (result && state.branch) {
 				await this.container.git
-					.branches(repository.path)
+					.branches(state.repo.path)
 					.setUserMergeTargetBranchName?.(state.branch, result.name);
 			}
-		}
 
-		await Promise.resolve(true);
+			endSteps(state);
+		}
 	}
 }
