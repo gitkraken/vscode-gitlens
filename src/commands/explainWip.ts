@@ -1,7 +1,6 @@
 import type { TextEditor, Uri } from 'vscode';
 import { ProgressLocation } from 'vscode';
 import type { Container } from '../container';
-import type { GitRepositoryService } from '../git/gitRepositoryService';
 import { GitUri } from '../git/gitUri';
 import { uncommitted, uncommittedStaged } from '../git/models/revision';
 import { showGenericErrorMessage } from '../messages';
@@ -9,42 +8,26 @@ import type { AIExplainSource } from '../plus/ai/aiProviderService';
 import { getBestRepositoryOrShowPicker } from '../quickpicks/repositoryPicker';
 import { command } from '../system/-webview/command';
 import { showMarkdownPreview } from '../system/-webview/markdown';
-import { createMarkdownCommandLink } from '../system/commands';
 import { Logger } from '../system/logger';
-import { capitalize } from '../system/string';
 import { GlCommandBase } from './commandBase';
 import { getCommandUri } from './commandBase.utils';
 import type { CommandContext } from './commandContext';
-import {
-	isCommandContextViewNodeHasRepoPath,
-	isCommandContextViewNodeHasRepository,
-	isCommandContextViewNodeHasWorktree,
-} from './commandContext.utils';
+import { isCommandContextViewNodeHasRepoPath, isCommandContextViewNodeHasRepository } from './commandContext.utils';
 
 export interface ExplainWipCommandArgs {
 	repoPath?: string | Uri;
 	staged?: boolean;
 	source?: AIExplainSource;
-	worktreePath?: string;
 }
 
 @command()
 export class ExplainWipCommand extends GlCommandBase {
-	static createMarkdownCommandLink(args: ExplainWipCommandArgs): string {
-		return createMarkdownCommandLink<ExplainWipCommandArgs>('gitlens.ai.explainWip:editor', args);
-	}
-
 	constructor(private readonly container: Container) {
-		super(['gitlens.ai.explainWip', 'gitlens.ai.explainWip:editor', 'gitlens.ai.explainWip:views']);
+		super('gitlens.ai.explainWip');
 	}
 
 	protected override preExecute(context: CommandContext, args?: ExplainWipCommandArgs): Promise<void> {
-		if (isCommandContextViewNodeHasWorktree(context)) {
-			args = { ...args };
-			args.repoPath = context.node.worktree.repoPath;
-			args.worktreePath = context.node.worktree.path;
-			args.source = args.source ?? { source: 'view', type: 'wip' };
-		} else if (isCommandContextViewNodeHasRepository(context)) {
+		if (isCommandContextViewNodeHasRepository(context)) {
 			args = { ...args };
 			args.repoPath = context.node.repo.path;
 			args.source = args.source ?? { source: 'view', type: 'wip' };
@@ -60,108 +43,72 @@ export class ExplainWipCommand extends GlCommandBase {
 	async execute(editor?: TextEditor, uri?: Uri, args?: ExplainWipCommandArgs): Promise<void> {
 		args = { ...args };
 
-		// Get the diff of working changes
-		const svc = await this.getRepositoryService(editor, uri, args);
-		if (svc?.diff?.getDiff == null) {
-			void showGenericErrorMessage('Unable to get diff service');
-			return;
+		let repository;
+		if (args?.repoPath != null) {
+			repository = this.container.git.getRepository(args.repoPath);
 		}
 
-		try {
-			let label;
-			let to;
-			if (args?.staged === true) {
-				label = 'staged';
-				to = uncommittedStaged;
-			} else if (args?.staged === false) {
-				label = 'unstaged';
-				to = uncommitted;
-			} else {
-				label = 'working';
-				to = '';
-			}
+		if (repository == null) {
+			uri = getCommandUri(uri, editor);
+			const gitUri = uri != null ? await GitUri.fromUri(uri) : undefined;
+			repository = await getBestRepositoryOrShowPicker(
+				gitUri,
+				editor,
+				'Explain Working Changes',
+				'Choose which repository to explain working changes from',
+			);
+		}
 
-			const diff = await svc.diff.getDiff(to, undefined);
-			if (!diff?.contents) {
-				void showGenericErrorMessage(`No ${label} changes found to explain`);
+		if (repository == null) return;
+
+		try {
+			// Get the diff of working changes
+			const diffService = repository.git.diff();
+			if (diffService?.getDiff === undefined) {
+				void showGenericErrorMessage('Unable to get diff service');
 				return;
 			}
 
-			// Get worktree info
-			let worktreeInfo = '';
-			let worktreeDisplayName = '';
+			// If args?.staged is undefined, should we get all changes (staged and unstaged)?
+			let stagedLabel;
+			let to;
+			if (args?.staged === true) {
+				stagedLabel = 'Staged';
+				to = uncommittedStaged;
+			} else {
+				stagedLabel = 'Unstaged';
+				to = uncommitted;
+			}
 
-			if (args?.worktreePath) {
-				// Get the worktree name if available
-				const worktrees = await svc.worktrees?.getWorktrees();
-				const worktree = worktrees?.find(w => w.path === args.worktreePath);
-
-				if (worktree) {
-					worktreeInfo = ` in ${worktree.name}`;
-					worktreeDisplayName = ` (${worktree.name})`;
-				} else {
-					worktreeInfo = ` in worktree`;
-					worktreeDisplayName = ` (${args.worktreePath})`;
-				}
+			const diff = await diffService.getDiff(to);
+			if (!diff?.contents) {
+				void showGenericErrorMessage('No working changes found to explain');
+				return;
 			}
 
 			// Call the AI service to explain the changes
 			const result = await this.container.ai.explainChanges(
 				{
 					diff: diff.contents,
-					message: `${capitalize(label)} changes${worktreeInfo}`,
+					message: `${stagedLabel} working changes`,
 				},
+				args.source ?? { source: 'commandPalette', type: 'wip' },
 				{
-					...args.source,
-					source: args.source?.source ?? 'commandPalette',
-					type: 'wip',
-				},
-				{
-					progress: {
-						location: ProgressLocation.Notification,
-						title: `Explaining ${label} changes${worktreeInfo}...`,
-					},
+					progress: { location: ProgressLocation.Notification, title: 'Explaining working changes...' },
 				},
 			);
 
-			if (result == null) {
-				void showGenericErrorMessage(`Unable to explain ${label} changes`);
-				return;
+			// Display the result
+			let content = `#  Working Changes Summary\n\n`;
+			if (result != null) {
+				content += `> Generated by ${result.model.name}\n\n## ${stagedLabel} Changes\n\n${result?.parsed.summary}\n\n${result?.parsed.body}`;
+			} else {
+				content += `> No changes found to explain.`;
 			}
-
-			const title = `${capitalize(label)} Changes Summary${worktreeDisplayName}`;
-			const content = `# ${title}\n\n> Generated by ${result.model.name}\n\n## ${label} Changes\n\n${result.parsed.summary}\n\n${result.parsed.body}`;
-
 			void showMarkdownPreview(content);
 		} catch (ex) {
 			Logger.error(ex, 'ExplainWipCommand', 'execute');
 			void showGenericErrorMessage('Unable to explain working changes');
 		}
-	}
-
-	private async getRepositoryService(
-		editor?: TextEditor,
-		uri?: Uri,
-		args?: ExplainWipCommandArgs,
-	): Promise<GitRepositoryService | undefined> {
-		let svc;
-		if (args?.worktreePath) {
-			svc = this.container.git.getRepositoryService(args.worktreePath);
-		} else if (args?.repoPath) {
-			svc = this.container.git.getRepositoryService(args.repoPath);
-		} else {
-			uri = getCommandUri(uri, editor);
-			const gitUri = uri != null ? await GitUri.fromUri(uri) : undefined;
-			const repository = await getBestRepositoryOrShowPicker(
-				gitUri,
-				editor,
-				'Explain Working Changes',
-				'Choose which repository to explain working changes from',
-			);
-
-			svc = repository?.git;
-		}
-
-		return svc;
 	}
 }
