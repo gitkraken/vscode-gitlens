@@ -1,10 +1,12 @@
+import type { CancellationToken } from 'vscode';
 import type { Container } from '../container';
 import type { GitBranch } from '../git/models/branch';
 import type { Repository } from '../git/models/repository';
+import { getSettledValue } from '../system/promise';
 import type { ViewsWithRepositoryFolders } from '../views/viewBase';
 import type { PartialStepState, StepGenerator, StepState } from './quickCommand';
 import { endSteps, QuickCommand, StepResultBreak } from './quickCommand';
-import { pickBranchOrTagStep, pickBranchStep, pickRepositoryStep } from './quickCommand.steps';
+import { pickBranchStep, pickOrResetBranchStep, pickRepositoryStep } from './quickCommand.steps';
 
 interface Context {
 	repos: Repository[];
@@ -84,25 +86,68 @@ export class ChangeBranchMergeTargetCommand extends QuickCommand {
 				state.branch = branches.name;
 			}
 
-			const result = yield* pickBranchOrTagStep(state, context, {
+			if (!state.mergeBranch) {
+				state.mergeBranch = await this.container.git
+					.branches(state.repo.path)
+					.getBaseBranchName?.(state.branch);
+			}
+
+			const gitBranch = await state.repo.git.branches().getBranch(state.branch);
+			const detectedMergeTarget = gitBranch && (await getDetectedMergeTarget(this.container, gitBranch));
+
+			const result = yield* pickOrResetBranchStep(state, context, {
 				picked: state.mergeBranch,
 				placeholder: 'Pick a merge target branch',
-				value: undefined,
-				filter: {
-					branches: (branch: GitBranch) => branch.remote && branch.name !== state.branch,
-					tags: () => false,
-				},
+				filter: (branch: GitBranch) => branch.remote && branch.name !== state.branch,
+				resetTitle: 'Reset Merge Target',
+				resetDescription: `Reset to "${detectedMergeTarget}"`,
 			});
 			if (result === StepResultBreak) {
 				continue;
 			}
-			if (result && state.branch) {
+			if (state.branch) {
 				await this.container.git
 					.branches(state.repo.path)
-					.setUserMergeTargetBranchName?.(state.branch, result.name);
+					.setUserMergeTargetBranchName?.(state.branch, result?.name);
 			}
 
 			endSteps(state);
 		}
 	}
+}
+
+async function getDetectedMergeTarget(
+	container: Container,
+	branch: GitBranch,
+	options?: { cancellation?: CancellationToken },
+): Promise<string | undefined> {
+	const [baseResult, defaultResult, targetResult] = await Promise.allSettled([
+		container.git.branches(branch.repoPath).getBaseBranchName?.(branch.name),
+		container.git.branches(branch.repoPath).getDefaultBranchName(branch.getRemoteName()),
+		container.git.branches(branch.repoPath).getTargetBranchName?.(branch.name),
+	]);
+
+	const baseBranchName = getSettledValue(baseResult);
+	const defaultBranchName = getSettledValue(defaultResult);
+	const targetMaybeResult = getSettledValue(targetResult);
+	const localValue = targetMaybeResult || baseBranchName || defaultBranchName;
+	if (localValue) {
+		return localValue;
+	}
+
+	// only if nothing found locally, try value from integration
+	return getIntegrationDefaultBranchName(container, branch.repoPath, options);
+}
+
+async function getIntegrationDefaultBranchName(
+	container: Container,
+	repoPath: string,
+	options?: { cancellation?: CancellationToken },
+): Promise<string | undefined> {
+	const remote = await container.git.remotes(repoPath).getBestRemoteWithIntegration();
+	if (remote == null) return undefined;
+
+	const integration = await remote.getIntegration();
+	const defaultBranch = await integration?.getDefaultBranch?.(remote.provider.repoDesc, options);
+	return defaultBranch && `${remote.name}/${defaultBranch?.name}`;
 }

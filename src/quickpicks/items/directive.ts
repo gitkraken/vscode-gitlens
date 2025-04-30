@@ -1,5 +1,5 @@
 import type { QuickPickItem, ThemeIcon, Uri } from 'vscode';
-import { proTrialLengthInDays } from '../../constants.subscription';
+import { proPreviewLengthInDays, proTrialLengthInDays } from '../../constants.subscription';
 import { pluralize } from '../../system/string';
 
 export enum Directive {
@@ -9,14 +9,12 @@ export enum Directive {
 	LoadMore,
 	Noop,
 	Reload,
+	RequiresVerification,
 
 	SignIn,
+	StartPreview,
 	StartProTrial,
-
-	RequiresVerification,
 	RequiresPaidSubscription,
-
-	RefsAllBranches,
 }
 
 export function isDirective<T>(value: Directive | T): value is Directive {
@@ -63,9 +61,12 @@ export function createDirectiveQuickPickItem(
 			case Directive.Reset:
 				label = 'Reset';
 				break;
-
 			case Directive.SignIn:
 				label = 'Sign In';
+				break;
+			case Directive.StartPreview:
+				label = 'Continue';
+				detail = `Continuing gives you ${proPreviewLengthInDays} days to preview this and other local Pro features`;
 				break;
 			case Directive.StartProTrial:
 				label = 'Try GitLens Pro';
@@ -74,7 +75,6 @@ export function createDirectiveQuickPickItem(
 					proTrialLengthInDays,
 				)} of GitLens Pro for free — no credit card required.`;
 				break;
-
 			case Directive.RequiresVerification:
 				label = 'Resend Email';
 				detail = 'You must verify your email before you can continue';
@@ -86,10 +86,6 @@ export function createDirectiveQuickPickItem(
 				} else {
 					detail = 'Upgrading to GitLens Pro is required to use this feature';
 				}
-				break;
-
-			case Directive.RefsAllBranches:
-				label = 'All Branches';
 				break;
 		}
 	}
