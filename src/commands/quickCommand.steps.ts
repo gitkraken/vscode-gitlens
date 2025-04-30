@@ -296,7 +296,7 @@ export async function getBranchesAndOrTags(
 		filter?: { branches?: (b: GitBranch) => boolean; tags?: (t: GitTag) => boolean };
 		picked?: string | string[];
 		sort?: boolean | { branches?: BranchSortOptions; tags?: TagSortOptions };
-	} = {},
+	},
 ): Promise<(BranchQuickPickItem | TagQuickPickItem)[]> {
 	if (repos == null) return [];
 
