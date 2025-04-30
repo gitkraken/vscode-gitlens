@@ -23,6 +23,7 @@ import './commands/diffWithWorking';
 import './commands/externalDiff';
 import './commands/explainCommit';
 import './commands/explainStash';
+import './commands/explainWip';
 import './commands/generateChangelog';
 import './commands/generateCommitMessage';
 import './commands/ghpr/openOrCreateWorktree';

@@ -49,6 +49,19 @@
 				]
 			}
 		},
+		"gitlens.ai.explainWip": {
+			"label": "Explain Working Changes (Preview)...",
+			"commandPalette": "gitlens:enabled && !gitlens:readonly && !gitlens:untrusted && gitlens:gk:organization:ai:enabled",
+			"menus": {
+				"view/item/context": [
+					{
+						"when": "viewItem =~ /gitlens:worktree\\b/ && !listMultiSelection && !gitlens:readonly && !gitlens:untrusted && gitlens:gk:organization:ai:enabled",
+						"group": "3_gitlens_ai",
+						"order": 1
+					}
+				]
+			}
+		},
 		"gitlens.ai.generateChangelog": {
 			"label": "Generate Changelog (Preview)...",
 			"commandPalette": "gitlens:enabled && !gitlens:untrusted && gitlens:gk:organization:ai:enabled && config.gitlens.ai.enabled"
@@ -2006,6 +2019,18 @@
 				"webview/context": [
 					{
 						"when": "webviewItem =~ /gitlens:stash\\b/ && !listMultiSelection && !gitlens:readonly && !gitlens:untrusted && gitlens:gk:organization:ai:enabled && config.gitlens.ai.enabled",
+						"group": "1_gitlens_actions_3",
+						"order": 1
+					}
+				]
+			}
+		},
+		"gitlens.graph.explainWip": {
+			"label": "Explain Working Changes (Preview)",
+			"menus": {
+				"webview/context": [
+					{
+						"when": "webviewItem =~ /gitlens:wip\\b/ && !listMultiSelection && !gitlens:readonly && !gitlens:untrusted && gitlens:gk:organization:ai:enabled",
 						"group": "1_gitlens_actions_3",
 						"order": 1
 					}
