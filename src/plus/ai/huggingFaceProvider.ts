@@ -1,11 +1,11 @@
 import { fetch } from '@env/fetch';
 import { huggingFaceProviderDescriptor as provider } from '../../constants.ai';
 import type { AIModel } from './models/model';
-import { OpenAICompatibleProvider } from './openAICompatibleProvider';
+import { OpenAICompatibleProviderBase } from './openAICompatibleProviderBase';
 
 type HuggingFaceModel = AIModel<typeof provider.id>;
 
-export class HuggingFaceProvider extends OpenAICompatibleProvider<typeof provider.id> {
+export class HuggingFaceProvider extends OpenAICompatibleProviderBase<typeof provider.id> {
 	readonly id = provider.id;
 	readonly name = provider.name;
 	protected readonly descriptor = provider;

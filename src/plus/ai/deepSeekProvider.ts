@@ -1,6 +1,6 @@
 import { deepSeekProviderDescriptor as provider } from '../../constants.ai';
 import type { AIModel } from './models/model';
-import { OpenAICompatibleProvider } from './openAICompatibleProvider';
+import { OpenAICompatibleProviderBase } from './openAICompatibleProviderBase';
 
 type DeepSeekModel = AIModel<typeof provider.id>;
 const models: DeepSeekModel[] = [
@@ -21,7 +21,7 @@ const models: DeepSeekModel[] = [
 	},
 ];
 
-export class DeepSeekProvider extends OpenAICompatibleProvider<typeof provider.id> {
+export class DeepSeekProvider extends OpenAICompatibleProviderBase<typeof provider.id> {
 	readonly id = provider.id;
 	readonly name = provider.name;
 	protected readonly descriptor = provider;

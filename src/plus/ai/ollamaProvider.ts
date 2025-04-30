@@ -4,13 +4,13 @@ import { ollamaProviderDescriptor as provider } from '../../constants.ai';
 import { configuration } from '../../system/-webview/configuration';
 import type { AIActionType, AIModel } from './models/model';
 import type { AIChatMessage, AIRequestResult } from './models/provider';
-import { OpenAICompatibleProvider } from './openAICompatibleProvider';
+import { OpenAICompatibleProviderBase } from './openAICompatibleProviderBase';
 
 type OllamaModel = AIModel<typeof provider.id>;
 
 const defaultBaseUrl = 'http://localhost:11434';
 
-export class OllamaProvider extends OpenAICompatibleProvider<typeof provider.id> {
+export class OllamaProvider extends OpenAICompatibleProviderBase<typeof provider.id> {
 	readonly id = provider.id;
 	readonly name = provider.name;
 	protected readonly descriptor = provider;

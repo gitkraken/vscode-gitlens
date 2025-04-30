@@ -9,6 +9,7 @@ import {
 	gitKrakenProviderDescriptor,
 	huggingFaceProviderDescriptor,
 	ollamaProviderDescriptor,
+	openAICompatibleProviderDescriptor,
 	openAIProviderDescriptor,
 	openRouterProviderDescriptor,
 	vscodeProviderDescriptor,
@@ -146,6 +147,16 @@ const supportedAIProviders = new Map<AIProviders, AIProviderDescriptorWithType>(
 		{
 			...openAIProviderDescriptor,
 			type: lazy(async () => (await import(/* webpackChunkName: "ai" */ './openaiProvider')).OpenAIProvider),
+		},
+	],
+	[
+		'openaicompatible',
+		{
+			...openAICompatibleProviderDescriptor,
+			type: lazy(
+				async () =>
+					(await import(/* webpackChunkName: "ai" */ './openAICompatibleProvider')).OpenAICompatibleProvider,
+			),
 		},
 	],
 	[
