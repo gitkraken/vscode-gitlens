@@ -24,7 +24,7 @@
 			}
 		},
 		"gitlens.ai.explainCommit": {
-			"label": "Explain Commit",
+			"label": "Explain Commit...",
 			"commandPalette": "gitlens:enabled && !gitlens:readonly && !gitlens:untrusted && gitlens:gk:organization:ai:enabled",
 			"menus": {
 				"view/item/context": [
@@ -2001,7 +2001,7 @@
 			}
 		},
 		"gitlens.graph.explainStash": {
-			"label": "Explain Stash",
+			"label": "Explain Stash (Preview)",
 			"menus": {
 				"webview/context": [
 					{
