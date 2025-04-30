@@ -6056,7 +6056,7 @@
 			},
 			{
 				"command": "gitlens.ai.explainCommit",
-				"title": "Explain Commit",
+				"title": "Explain Commit...",
 				"category": "GitLens"
 			},
 			{
@@ -6833,7 +6833,7 @@
 			},
 			{
 				"command": "gitlens.graph.explainStash",
-				"title": "Explain Stash"
+				"title": "Explain Stash (Preview)"
 			},
 			{
 				"command": "gitlens.graph.fetch",
