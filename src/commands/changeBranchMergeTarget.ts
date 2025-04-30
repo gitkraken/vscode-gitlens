@@ -100,7 +100,7 @@ export class ChangeBranchMergeTargetCommand extends QuickCommand {
 				placeholder: 'Pick a merge target branch',
 				filter: (branch: GitBranch) => branch.remote && branch.name !== state.branch,
 				resetTitle: 'Reset Merge Target',
-				resetDescription: `Reset to "${detectedMergeTarget}"`,
+				resetDescription: detectedMergeTarget ? `Reset to "${detectedMergeTarget}"` : '',
 			});
 			if (result === StepResultBreak) {
 				continue;
