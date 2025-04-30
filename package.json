@@ -21635,7 +21635,7 @@
 		"@eamodio/eslint-lite-webpack-plugin": "0.2.0",
 		"@eslint/js": "9.25.1",
 		"@playwright/test": "1.52.0",
-		"@swc/core": "1.11.22",
+		"@swc/core": "1.11.24",
 		"@twbs/fantasticon": "3.1.0",
 		"@types/mocha": "10.0.10",
 		"@types/node": "20.14.15",
@@ -21645,7 +21645,7 @@
 		"@types/slug": "5.0.9",
 		"@types/sortablejs": "1.15.8",
 		"@types/vscode": "1.92.0",
-		"@typescript-eslint/parser": "8.31.0",
+		"@typescript-eslint/parser": "8.31.1",
 		"@vscode/test-cli": "0.0.10",
 		"@vscode/test-electron": "2.5.2",
 		"@vscode/test-web": "0.0.68",
@@ -21667,7 +21667,7 @@
 		"eslint-plugin-anti-trojan-source": "1.1.1",
 		"eslint-plugin-import-x": "4.11.0",
 		"eslint-plugin-lit": "2.1.1",
-		"eslint-plugin-wc": "3.0.0",
+		"eslint-plugin-wc": "3.0.1",
 		"fork-ts-checker-webpack-plugin": "9.1.0",
 		"glob": "11.0.2",
 		"globals": "16.0.0",
@@ -21705,5 +21705,5 @@
 		"node-fetch": "2.7.0",
 		"semver-regex": "4.0.5"
 	},
-	"packageManager": "pnpm@10.9.0"
+	"packageManager": "pnpm@10.10.0"
 }
