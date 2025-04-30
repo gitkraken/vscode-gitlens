@@ -823,7 +823,7 @@ export function* pickOrResetBranchStep<
 
 	const resetButton: QuickInputButton = {
 		iconPath: new ThemeIcon('notebook-revert'),
-		tooltip: resetDescription,
+		tooltip: resetDescription || resetTitle,
 	};
 	let resetButtonClicked = false;
 	const step = createPickStep<BranchQuickPickItem>({
