@@ -63,6 +63,28 @@ export async function* asSettled<T>(promises: Promise<T>[]): AsyncIterable<Promi
 	}
 }
 
+export async function batch<T>(items: T[], batchSize: number, task: (item: T) => Promise<void>): Promise<void> {
+	for (let i = 0; i < items.length; i += batchSize) {
+		const batch = items.slice(i, i + batchSize);
+		await Promise.allSettled(batch.map(item => task(item)));
+	}
+}
+
+export async function batchResults<T, R>(
+	items: T[],
+	batchSize: number,
+	task: (item: T) => Promise<R>,
+): Promise<PromiseSettledResult<Awaited<R>>[]> {
+	const results: PromiseSettledResult<Awaited<R>>[] = [];
+
+	for (let i = 0; i < items.length; i += batchSize) {
+		const batch = items.slice(i, i + batchSize);
+		results.push(...(await Promise.allSettled(batch.map(item => task(item)))));
+	}
+
+	return results;
+}
+
 export class PromiseCancelledError<T extends Promise<any> = Promise<any>> extends Error {
 	constructor(
 		public readonly promise: T,
