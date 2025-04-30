@@ -11,6 +11,7 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/) and this p
 - Adds support for associated BitBucket, BitBucket Server, and Azure DevOps pull requests on commits ([#4192](https://github.com/gitkraken/vscode-gitlens/issues/4192))
 - Adds the ability to search for GitHub Enterprise and GitLab Self-Managed pull requests by URL in the main step of Launchpad
 - Adds Ollama and OpenRouter support for GitLens' AI features ([#3311](https://github.com/gitkraken/vscode-gitlens/issues/3311), [#3906](https://github.com/gitkraken/vscode-gitlens/issues/3906))
+- Adds support for OpenAI-compatible providers for GitLens' AI features ([#4263](https://github.com/gitkraken/vscode-gitlens/issues/4263))
 - Adds the ability to change a branch's merge target in Home view. ([#4224](https://github.com/gitkraken/vscode-gitlens/issues/4224))
 - Adds Google Gemini 2.5 Flash (Preview) model, and OpenAI GPT-4.1, GPT-4.1 mini, GPT-4.1 nano, o4 mini, and o3 models for GitLens' AI features ([#4235](https://github.com/gitkraken/vscode-gitlens/issues/4235))
 - Adds _Open File at Revision from Remote_ command to open the specific file revision from a remote file URL
@@ -30,6 +31,10 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/) and this p
 - Fixes detail view incorrectly parses GitHub account in commit message ([#3246](https://github.com/gitkraken/vscode-gitlens/issues/3246))
 - Fixes custom instructions are sometimes ignored ([#4267](https://github.com/gitkraken/vscode-gitlens/issues/4267))
 - Fixes timed out waiting for authentication provider to register in GitLens after update to version 16.3 ([#4065](https://github.com/gitkraken/vscode-gitlens/issues/4065))
+- Fixes cloud integration sessions not refreshing when they expire mid-session ([#4240](https://github.com/gitkraken/vscode-gitlens/issues/4240))
+- Fixes "Delete Worktree" doing nothing when the default worktree is already open in another window ([#4232](https://github.com/gitkraken/vscode-gitlens/issues/4232))
+- Fixes some cases in which Azure DevOps queries fail or return unexpected results ([#4271](https://github.com/gitkraken/vscode-gitlens/issues/4271))
+- Fixes some cases of incorrect issue matching with branch names ([#3894](https://github.com/gitkraken/vscode-gitlens/issues/3894))
 
 ## [17.0.3] - 2025-04-17
 
