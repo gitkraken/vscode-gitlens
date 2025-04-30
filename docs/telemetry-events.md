@@ -114,7 +114,7 @@
 
 ```typescript
 {
-  'changeType': 'wip' | 'stash' | 'commit' | 'draft-stash' | 'draft-patch' | 'draft-suggested_pr_change',
+  'changeType': 'wip' | 'stash' | 'commit' | 'branch' | 'draft-stash' | 'draft-patch' | 'draft-suggested_pr_change',
   'config.largePromptThreshold': number,
   'config.usedCustomInstructions': boolean,
   'duration': number,
@@ -2065,7 +2065,7 @@ or
   'context.webview.type': string,
   'period': 'all' | `${number}|D` | `${number}|M` | `${number}|Y`,
   'showAllBranches': boolean,
-  'sliceBy': 'author' | 'branch'
+  'sliceBy': 'branch' | 'author'
 }
 ```
 

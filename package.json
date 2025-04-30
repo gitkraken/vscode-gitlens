@@ -6075,6 +6075,11 @@
 				"icon": "$(person-add)"
 			},
 			{
+				"command": "gitlens.ai.explainBranch",
+				"title": "Explain Branch (Preview)...",
+				"category": "GitLens"
+			},
+			{
 				"command": "gitlens.ai.explainCommit",
 				"title": "Explain Commit...",
 				"category": "GitLens"
@@ -10408,6 +10413,10 @@
 				{
 					"command": "gitlens.addAuthors",
 					"when": "gitlens:enabled && !gitlens:readonly && !gitlens:untrusted && !gitlens:hasVirtualFolders"
+				},
+				{
+					"command": "gitlens.ai.explainBranch",
+					"when": "gitlens:enabled && !gitlens:readonly && !gitlens:untrusted && gitlens:gk:organization:ai:enabled"
 				},
 				{
 					"command": "gitlens.ai.explainCommit",

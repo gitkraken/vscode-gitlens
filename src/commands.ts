@@ -21,6 +21,7 @@ import './commands/diffWithRevision';
 import './commands/diffWithRevisionFrom';
 import './commands/diffWithWorking';
 import './commands/externalDiff';
+import './commands/explainBranch';
 import './commands/explainCommit';
 import './commands/explainStash';
 import './commands/explainWip';
