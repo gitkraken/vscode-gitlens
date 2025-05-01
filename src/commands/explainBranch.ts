@@ -1,18 +1,17 @@
-import type { TextEditor, Uri } from 'vscode';
+import type { CancellationToken, TextEditor, Uri } from 'vscode';
 import { ProgressLocation } from 'vscode';
 import type { Source } from '../constants.telemetry';
 import type { Container } from '../container';
 import { GitUri } from '../git/gitUri';
-import type { GitBranchReference } from '../git/models/reference';
+import type { GitBranch } from '../git/models/branch';
 import { showGenericErrorMessage } from '../messages';
 import type { AIExplainSource } from '../plus/ai/aiProviderService';
-import { showComparisonPicker } from '../quickpicks/comparisonPicker';
 import { ReferencesQuickPickIncludes, showReferencePicker } from '../quickpicks/referencePicker';
 import { getBestRepositoryOrShowPicker, getRepositoryOrShowPicker } from '../quickpicks/repositoryPicker';
 import { command } from '../system/-webview/command';
 import { showMarkdownPreview } from '../system/-webview/markdown';
 import { Logger } from '../system/logger';
-import { getSettledValue, getSettledValues } from '../system/promise';
+import { getSettledValue } from '../system/promise';
 import { GlCommandBase } from './commandBase';
 import { getCommandUri } from './commandBase.utils';
 import type { CommandContext } from './commandContext';
@@ -34,10 +33,9 @@ export class ExplainBranchCommand extends GlCommandBase {
 	}
 
 	async execute(editor?: TextEditor, uri?: Uri, args?: ExplainBranchCommandArgs): Promise<void> {
+		//// Clarifying the repository
 		uri = getCommandUri(uri, editor);
-
 		const gitUri = uri != null ? await GitUri.fromUri(uri) : undefined;
-
 		const repository = await getBestRepositoryOrShowPicker(
 			gitUri,
 			editor,
@@ -49,8 +47,9 @@ export class ExplainBranchCommand extends GlCommandBase {
 		args = { ...args };
 
 		try {
-			// If no ref is provided, show a picker to select a branch
+			//// Clarifying the head branch
 			if (args.ref == null) {
+				// If no ref is provided, show a picker to select a branch
 				const pick = await showReferencePicker(
 					repository.path,
 					'Explain Branch',
@@ -71,6 +70,16 @@ export class ExplainBranchCommand extends GlCommandBase {
 				return;
 			}
 
+			//// Clarifying the base branch
+			const baseBranchName = await getMergeTarget(this.container, branch);
+			const baseBranch = await repository.git.branches().getBranch(baseBranchName);
+			if (!baseBranch) {
+				void showGenericErrorMessage(
+					'Unable to find the base branch for the specified branch. Probably it is undefined. Set it up and try again.',
+				);
+				return;
+			}
+
 			// Get the diff between the branch and its upstream or base
 			const diffService = repository.git.diff();
 			if (diffService?.getDiff === undefined) {
@@ -78,18 +87,49 @@ export class ExplainBranchCommand extends GlCommandBase {
 				return;
 			}
 
-			const diff = await diffService.getDiff(branch.ref);
-			if (!diff?.contents) {
+			const commitsService = repository.git.commits();
+			if (commitsService?.getLog === undefined) {
+				void showGenericErrorMessage('Unable to get commits service');
+				return;
+			}
+
+			const [diffResult, logResult] = await Promise.allSettled([
+				diffService.getDiff?.(branch.ref, baseBranch.ref, { notation: '...' }),
+				commitsService.getLog(`${baseBranch.ref}..${branch.ref}`),
+			]);
+
+			const diff = getSettledValue(diffResult);
+			const log = getSettledValue(logResult);
+			if (!diff?.contents || !log?.commits?.size) {
 				void showGenericErrorMessage('No changes found to explain');
 				return;
 			}
 
+			const commitMessages: string[] = [];
+			for (const commit of [...log.commits.values()].sort((a, b) => a.date.getTime() - b.date.getTime())) {
+				const message = commit.message ?? commit.summary;
+				if (message) {
+					commitMessages.push(
+						`<commit-message ${commit.date.toISOString()}>\n${
+							commit.message ?? commit.summary
+						}\n<end-of-commit-message>`,
+					);
+				}
+			}
+
+			const changes = {
+				diff: diff.contents,
+				message: `Changes in branch ${branch.name}
+					that is ahead of its target by number of commits with the following messages:\n\n
+					<commits>
+					${commitMessages.join('\n\n')}
+					<end-of-commits>
+					`,
+			};
+
 			// Call the AI service to explain the changes
 			const result = await this.container.ai.explainChanges(
-				{
-					diff: diff.contents,
-					message: `Changes in branch ${branch.name}`,
-				},
+				changes,
 				args.source ?? { source: 'commandPalette', type: 'commit' },
 				{
 					progress: { location: ProgressLocation.Notification, title: 'Explaining branch changes...' },
@@ -103,7 +143,9 @@ export class ExplainBranchCommand extends GlCommandBase {
 			} else {
 				content += `> No changes found to explain.`;
 			}
-			void showMarkdownPreview(content);
+			// Add changes temporarily for debug purposes, so it's easier to review what content has been explained
+			const changesMd = `${changes.message}\n\n${changes.diff}`;
+			void showMarkdownPreview(`${content}\n\n\`\`\`\n${changesMd.replaceAll('`', '')}\n\`\`\`\n`);
 		} catch (ex) {
 			Logger.error(ex, 'ExplainBranchCommand', 'execute');
 			void showGenericErrorMessage('Unable to explain branch');
@@ -192,6 +234,8 @@ export class ExplainBranchCommand2 extends GlCommandBase {
 
 // 	async execute(args?: ExplainBranchCommandArgs): Promise<void> {
 // 		try {
+// 			// I'm declining it for now, because it can be a behaviour for "explain comparison" command,
+// 			// that can be called either from the command palette or from the compare view.
 // 			const comparisonResult = await showComparisonPicker(this.container, args?.repoPath, {
 // 				head: args?.branch,
 // 				getTitleAndPlaceholder: step => {
@@ -263,3 +307,30 @@ export class ExplainBranchCommand2 extends GlCommandBase {
 // 		}
 // 	}
 // }
+
+async function getMergeTarget(
+	container: Container,
+	branch: GitBranch,
+	options?: { cancellation?: CancellationToken },
+): Promise<string | undefined> {
+	const localValue = await container.git.branches(branch.repoPath).getMergeTargetBranchName?.(branch);
+	if (localValue) {
+		return localValue;
+	}
+	return getIntegrationDefaultBranchName(container, branch.repoPath, options);
+}
+
+// This is similar to what we have in changeBranchMergeTarget.ts
+// what is a proper utils files to put it to?
+async function getIntegrationDefaultBranchName(
+	container: Container,
+	repoPath: string,
+	options?: { cancellation?: CancellationToken },
+): Promise<string | undefined> {
+	const remote = await container.git.remotes(repoPath).getBestRemoteWithIntegration();
+	if (remote == null) return undefined;
+
+	const integration = await remote.getIntegration();
+	const defaultBranch = await integration?.getDefaultBranch?.(remote.provider.repoDesc, options);
+	return defaultBranch && `${remote.name}/${defaultBranch?.name}`;
+}
