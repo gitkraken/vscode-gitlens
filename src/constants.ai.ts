@@ -2,6 +2,7 @@ import type { AIProviderDescriptor } from './plus/ai/models/model';
 
 export type AIProviders =
 	| 'anthropic'
+	| 'azure'
 	| 'deepseek'
 	| 'gemini'
 	| 'github'
@@ -39,9 +40,16 @@ export const openAIProviderDescriptor: AIProviderDescriptor<'openai'> = {
 	requiresAccount: true,
 	requiresUserKey: true,
 } as const;
+export const azureProviderDescriptor: AIProviderDescriptor<'azure'> = {
+	id: 'azure',
+	name: 'Azure',
+	primary: false,
+	requiresAccount: true,
+	requiresUserKey: true,
+} as const;
 export const openAICompatibleProviderDescriptor: AIProviderDescriptor<'openaicompatible'> = {
 	id: 'openaicompatible',
-	name: 'OpenAI-Compatible Provider (Azure, etc.)',
+	name: 'OpenAI-Compatible Provider',
 	primary: false,
 	requiresAccount: true,
 	requiresUserKey: true,

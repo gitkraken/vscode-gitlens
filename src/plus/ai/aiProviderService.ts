@@ -3,6 +3,7 @@ import { CancellationTokenSource, env, EventEmitter, window } from 'vscode';
 import type { AIPrimaryProviders, AIProviderAndModel, AIProviders, SupportedAIModels } from '../../constants.ai';
 import {
 	anthropicProviderDescriptor,
+	azureProviderDescriptor,
 	deepSeekProviderDescriptor,
 	geminiProviderDescriptor,
 	githubProviderDescriptor,
@@ -154,6 +155,13 @@ const supportedAIProviders = new Map<AIProviders, AIProviderDescriptorWithType>(
 		{
 			...openAIProviderDescriptor,
 			type: lazy(async () => (await import(/* webpackChunkName: "ai" */ './openaiProvider')).OpenAIProvider),
+		},
+	],
+	[
+		'azure',
+		{
+			...azureProviderDescriptor,
+			type: lazy(async () => (await import(/* webpackChunkName: "ai" */ './azureProvider')).AzureProvider),
 		},
 	],
 	[

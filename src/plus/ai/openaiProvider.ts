@@ -2,6 +2,7 @@ import { openAIProviderDescriptor as provider } from '../../constants.ai';
 import { configuration } from '../../system/-webview/configuration';
 import type { AIActionType, AIModel } from './models/model';
 import { OpenAICompatibleProviderBase } from './openAICompatibleProviderBase';
+import { isAzureUrl } from './utils/-webview/ai.utils';
 
 type OpenAIModel = AIModel<typeof provider.id>;
 const models: OpenAIModel[] = [
@@ -299,7 +300,7 @@ export class OpenAIProvider extends OpenAICompatibleProviderBase<typeof provider
 		model: AIModel<typeof provider.id>,
 		url: string,
 	): Record<string, string> | Promise<Record<string, string>> {
-		if (url.includes('.azure.com')) {
+		if (isAzureUrl(url)) {
 			return {
 				Accept: 'application/json',
 				'Content-Type': 'application/json',
