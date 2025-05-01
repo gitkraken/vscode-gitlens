@@ -648,6 +648,7 @@ export type RemotesConfig =
 			readonly type: CustomRemoteType;
 			readonly urls?: RemotesUrlsConfig;
 			readonly ignoreSSLErrors?: boolean | 'force';
+			readonly version?: string;
 	  }
 	| {
 			readonly domain: null;
@@ -657,6 +658,7 @@ export type RemotesConfig =
 			readonly type: CustomRemoteType;
 			readonly urls?: RemotesUrlsConfig;
 			readonly ignoreSSLErrors?: boolean | 'force';
+			readonly version?: string;
 	  };
 
 export interface RemotesUrlsConfig {

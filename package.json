@@ -3889,6 +3889,10 @@
 									"default": false,
 									"description": "Specifies whether to ignore invalid SSL certificate errors when connecting to the remote service"
 								},
+								"version": {
+									"type": "string",
+									"description": "Specifies the version of the remote service. Only used by some services such as GitLab."
+								},
 								"urls": {
 									"type": "object",
 									"required": [
