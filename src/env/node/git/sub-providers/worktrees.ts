@@ -1,6 +1,7 @@
 import { exec } from 'child_process';
 import { promises as fs } from 'fs';
 import { homedir } from 'os';
+import type { CancellationToken } from 'vscode';
 import { Uri } from 'vscode';
 import type { Container } from '../../../../container';
 import type { GitCache } from '../../../../git/cache';
@@ -86,12 +87,16 @@ export class WorktreesGitSubProvider implements GitWorktreesSubProvider {
 	}
 
 	@log()
-	async getWorktree(repoPath: string, predicate: (w: GitWorktree) => boolean): Promise<GitWorktree | undefined> {
-		return (await this.getWorktrees(repoPath)).find(predicate);
+	async getWorktree(
+		repoPath: string,
+		predicate: (w: GitWorktree) => boolean,
+		cancellation?: CancellationToken,
+	): Promise<GitWorktree | undefined> {
+		return (await this.getWorktrees(repoPath, cancellation)).find(predicate);
 	}
 
 	@log()
-	async getWorktrees(repoPath: string): Promise<GitWorktree[]> {
+	async getWorktrees(repoPath: string, cancellation?: CancellationToken): Promise<GitWorktree[]> {
 		await this.git.ensureSupports(
 			'git:worktrees',
 			'Displaying worktrees',
@@ -103,8 +108,8 @@ export class WorktreesGitSubProvider implements GitWorktreesSubProvider {
 			async function load(this: WorktreesGitSubProvider) {
 				try {
 					const [dataResult, branchesResult] = await Promise.allSettled([
-						this.git.exec({ cwd: repoPath }, 'worktree', 'list', '--porcelain'),
-						this.provider.branches.getBranches(repoPath),
+						this.git.exec({ cwd: repoPath, cancellation: cancellation }, 'worktree', 'list', '--porcelain'),
+						this.provider.branches.getBranches(repoPath, undefined, cancellation),
 					]);
 
 					return parseGitWorktrees(

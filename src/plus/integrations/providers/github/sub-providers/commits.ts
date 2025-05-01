@@ -1,5 +1,5 @@
 import type { GitBlame } from '@gitkraken/provider-apis/providers';
-import type { Uri } from 'vscode';
+import type { CancellationToken, Uri } from 'vscode';
 import type { SearchQuery } from '../../../../../constants.search';
 import type { Container } from '../../../../../container';
 import type { GitCache } from '../../../../../git/cache';
@@ -49,7 +49,7 @@ export class CommitsGitSubProvider implements GitCommitsSubProvider {
 	}
 
 	@log()
-	async getCommit(repoPath: string, rev: string): Promise<GitCommit | undefined> {
+	async getCommit(repoPath: string, rev: string, _cancellation?: CancellationToken): Promise<GitCommit | undefined> {
 		if (repoPath == null) return undefined;
 
 		const scope = getLogScope();
@@ -128,7 +128,11 @@ export class CommitsGitSubProvider implements GitCommitsSubProvider {
 	}
 
 	@log()
-	async getCommitCount(repoPath: string, rev: string): Promise<number | undefined> {
+	async getCommitCount(
+		repoPath: string,
+		rev: string,
+		_cancellation?: CancellationToken,
+	): Promise<number | undefined> {
 		if (repoPath == null) return undefined;
 
 		const scope = getLogScope();
@@ -152,7 +156,7 @@ export class CommitsGitSubProvider implements GitCommitsSubProvider {
 	}
 
 	@log()
-	async getCommitFiles(repoPath: string, rev: string): Promise<GitFileChange[]> {
+	async getCommitFiles(repoPath: string, rev: string, _cancellation?: CancellationToken): Promise<GitFileChange[]> {
 		if (rev === deletedOrMissing || isUncommitted(rev)) return [];
 
 		const commit = await this.getCommit(repoPath, rev);
@@ -165,6 +169,7 @@ export class CommitsGitSubProvider implements GitCommitsSubProvider {
 		uri: Uri,
 		rev?: string | undefined,
 		_options?: { firstIfNotFound?: boolean },
+		_cancellation?: CancellationToken,
 	): Promise<GitCommit | undefined> {
 		if (repoPath == null) return undefined;
 
@@ -244,6 +249,7 @@ export class CommitsGitSubProvider implements GitCommitsSubProvider {
 		repoPath: string,
 		range: GitRevisionRange,
 		_options?: { authors?: GitUser[]; excludeMerges?: boolean },
+		_cancellation?: CancellationToken,
 	): Promise<LeftRightCommitCountResult | undefined> {
 		if (repoPath == null) return undefined;
 
@@ -273,7 +279,12 @@ export class CommitsGitSubProvider implements GitCommitsSubProvider {
 	}
 
 	@log()
-	async getLog(repoPath: string, rev?: string | undefined, options?: GitLogOptions): Promise<GitLog | undefined> {
+	async getLog(
+		repoPath: string,
+		rev?: string | undefined,
+		options?: GitLogOptions,
+		_cancellation?: CancellationToken,
+	): Promise<GitLog | undefined> {
 		if (repoPath == null) return undefined;
 
 		const scope = getLogScope();
@@ -455,6 +466,7 @@ export class CommitsGitSubProvider implements GitCommitsSubProvider {
 		pathOrUri: string | Uri,
 		rev?: string | undefined,
 		options?: GitLogForPathOptions,
+		cancellation?: CancellationToken,
 	): Promise<GitLog | undefined> {
 		if (repoPath == null) return undefined;
 
@@ -581,24 +593,26 @@ export class CommitsGitSubProvider implements GitCommitsSubProvider {
 			doc.state ??= new GitDocumentState();
 		}
 
-		const promise = this.getLogForPathCore(repoPath, relativePath, rev, options).catch((ex: unknown) => {
-			debugger;
-			// Trap and cache expected log errors
-			if (cacheKey && doc?.state != null) {
-				const msg: string = ex?.toString() ?? '';
-				Logger.debug(scope, `Cache replace (with empty promise): '${cacheKey}'`);
+		const promise = this.getLogForPathCore(repoPath, relativePath, rev, options, cancellation).catch(
+			(ex: unknown) => {
+				debugger;
+				// Trap and cache expected log errors
+				if (cacheKey && doc?.state != null) {
+					const msg: string = ex?.toString() ?? '';
+					Logger.debug(scope, `Cache replace (with empty promise): '${cacheKey}'`);
 
-				const value: CachedLog = {
-					item: emptyPromise as Promise<GitLog>,
-					errorMessage: msg,
-				};
-				doc.state.setLog(cacheKey, value);
+					const value: CachedLog = {
+						item: emptyPromise as Promise<GitLog>,
+						errorMessage: msg,
+					};
+					doc.state.setLog(cacheKey, value);
 
-				return emptyPromise as Promise<GitLog>;
-			}
+					return emptyPromise as Promise<GitLog>;
+				}
 
-			return undefined;
-		});
+				return undefined;
+			},
+		);
 
 		if (cacheKey && doc?.state != null) {
 			Logger.debug(scope, `Cache add: '${cacheKey}'`);
@@ -617,6 +631,7 @@ export class CommitsGitSubProvider implements GitCommitsSubProvider {
 		path: string,
 		rev: string | undefined,
 		options: GitLogForPathOptions,
+		_cancellation?: CancellationToken,
 	): Promise<GitLog | undefined> {
 		if (repoPath == null) return undefined;
 
@@ -803,14 +818,15 @@ export class CommitsGitSubProvider implements GitCommitsSubProvider {
 		repoPath: string,
 		rev?: string | undefined,
 		options?: GitLogShasOptions,
+		cancellation?: CancellationToken,
 	): Promise<Iterable<string>> {
 		// TODO@eamodio optimize this
 
 		let log: GitLog | undefined;
 		if (options?.pathOrUri != null) {
-			log = await this.getLogForPath(repoPath, options.pathOrUri, rev, options);
+			log = await this.getLogForPath(repoPath, options.pathOrUri, rev, options, cancellation);
 		} else {
-			log = await this.getLog(repoPath, rev, options);
+			log = await this.getLog(repoPath, rev, options, cancellation);
 		}
 		if (log == null) return [];
 
@@ -818,19 +834,28 @@ export class CommitsGitSubProvider implements GitCommitsSubProvider {
 	}
 
 	@log()
-	getOldestUnpushedShaForPath(_repoPath: string, _pathOrUri: string | Uri): Promise<string | undefined> {
+	getOldestUnpushedShaForPath(
+		_repoPath: string,
+		_pathOrUri: string | Uri,
+		_cancellation?: CancellationToken,
+	): Promise<string | undefined> {
 		// TODO@eamodio until we have access to the RemoteHub change store there isn't anything we can do here
 		return Promise.resolve(undefined);
 	}
 
 	@log()
-	hasCommitBeenPushed(_repoPath: string, _rev: string): Promise<boolean> {
+	hasCommitBeenPushed(_repoPath: string, _rev: string, _cancellation?: CancellationToken): Promise<boolean> {
 		// In this env we can't have unpushed commits
 		return Promise.resolve(true);
 	}
 
 	@log()
-	async isAncestorOf(repoPath: string, rev1: string, rev2: string): Promise<boolean> {
+	async isAncestorOf(
+		repoPath: string,
+		rev1: string,
+		rev2: string,
+		_cancellation?: CancellationToken,
+	): Promise<boolean> {
 		if (repoPath == null) return false;
 
 		const scope = getLogScope();
@@ -874,6 +899,7 @@ export class CommitsGitSubProvider implements GitCommitsSubProvider {
 		repoPath: string,
 		search: SearchQuery,
 		options?: GitSearchCommitsOptions,
+		_cancellation?: CancellationToken,
 	): Promise<GitLog | undefined> {
 		if (repoPath == null) return undefined;
 
@@ -1030,7 +1056,5 @@ export class CommitsGitSubProvider implements GitCommitsSubProvider {
 			debugger;
 			return undefined;
 		}
-
-		return undefined;
 	}
 }

@@ -99,8 +99,21 @@ export class CancellationError extends _CancellationError {
 	constructor(public readonly original?: Error) {
 		super();
 
+		if (this.original) {
+			if (this.original.message.startsWith('Operation cancelled')) {
+				this.message = this.original.message;
+			} else {
+				this.message = `Operation cancelled; ${this.original.message}`;
+			}
+		} else {
+			this.message = 'Operation cancelled';
+		}
 		Error.captureStackTrace?.(this, CancellationError);
 	}
+}
+
+export function isCancellationError(ex: unknown): ex is CancellationError {
+	return ex instanceof CancellationError || ex instanceof _CancellationError;
 }
 
 export class ExtensionNotFoundError extends Error {

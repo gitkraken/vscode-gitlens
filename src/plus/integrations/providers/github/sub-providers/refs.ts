@@ -1,4 +1,4 @@
-import type { Uri } from 'vscode';
+import type { CancellationToken, Uri } from 'vscode';
 import type { Container } from '../../../../../container';
 import type { GitCache } from '../../../../../git/cache';
 import type { GitRefsSubProvider } from '../../../../../git/gitProvider';
@@ -36,6 +36,7 @@ export class RefsGitSubProvider implements GitRefsSubProvider {
 		ref1: string,
 		ref2: string,
 		_options?: { forkPoint?: boolean },
+		_cancellation?: CancellationToken,
 	): Promise<string | undefined> {
 		if (repoPath == null) return undefined;
 
@@ -59,7 +60,11 @@ export class RefsGitSubProvider implements GitRefsSubProvider {
 	}
 
 	@log()
-	async getReference(repoPath: string, ref: string): Promise<GitReference | undefined> {
+	async getReference(
+		repoPath: string,
+		ref: string,
+		_cancellation?: CancellationToken,
+	): Promise<GitReference | undefined> {
 		if (!ref || ref === deletedOrMissing) return undefined;
 
 		if (!(await this.isValidReference(repoPath, ref))) return undefined;
@@ -95,23 +100,37 @@ export class RefsGitSubProvider implements GitRefsSubProvider {
 		options?: {
 			filter?: { branches?: (b: GitBranch) => boolean; tags?: (t: GitTag) => boolean };
 		},
+		cancellation?: CancellationToken,
 	): Promise<boolean> {
 		const [{ values: branches }, { values: tags }] = await Promise.all([
-			this.provider.branches.getBranches(repoPath, {
-				filter: options?.filter?.branches,
-				sort: false,
-			}),
-			this.provider.tags.getTags(repoPath, {
-				filter: options?.filter?.tags,
-				sort: false,
-			}),
+			this.provider.branches.getBranches(
+				repoPath,
+				{
+					filter: options?.filter?.branches,
+					sort: false,
+				},
+				cancellation,
+			),
+			this.provider.tags.getTags(
+				repoPath,
+				{
+					filter: options?.filter?.tags,
+					sort: false,
+				},
+				cancellation,
+			),
 		]);
 
 		return branches.length !== 0 || tags.length !== 0;
 	}
 
 	@log()
-	isValidReference(_repoPath: string, _ref: string, _pathOrUri?: string | Uri): Promise<boolean> {
+	isValidReference(
+		_repoPath: string,
+		_ref: string,
+		_pathOrUri?: string | Uri,
+		_cancellation?: CancellationToken,
+	): Promise<boolean> {
 		return Promise.resolve(true);
 	}
 }

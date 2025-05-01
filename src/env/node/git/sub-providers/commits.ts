@@ -1,6 +1,7 @@
-import type { Range, Uri } from 'vscode';
+import type { CancellationToken, Range, Uri } from 'vscode';
 import type { SearchQuery } from '../../../../constants.search';
 import type { Container } from '../../../../container';
+import { CancellationError, isCancellationError } from '../../../../errors';
 import type { GitCache } from '../../../../git/cache';
 import type { GitCommandOptions } from '../../../../git/commandOptions';
 import { GitErrorHandling } from '../../../../git/commandOptions';
@@ -127,7 +128,7 @@ export class CommitsGitSubProvider implements GitCommitsSubProvider {
 	}
 
 	@log()
-	async getCommit(repoPath: string, rev: string): Promise<GitCommit | undefined> {
+	async getCommit(repoPath: string, rev: string, cancellation?: CancellationToken): Promise<GitCommit | undefined> {
 		if (isUncommitted(rev, true)) {
 			return createUncommittedChangesCommit(
 				this.container,
@@ -138,21 +139,23 @@ export class CommitsGitSubProvider implements GitCommitsSubProvider {
 			);
 		}
 
-		const log = await this.getLogCore(repoPath, rev, { limit: 1 });
+		const log = await this.getLogCore(repoPath, rev, { limit: 1 }, cancellation);
 		if (log == null) return undefined;
 
 		return log.commits.get(rev) ?? first(log.commits.values());
 	}
 
 	@log({ exit: true })
-	async getCommitCount(repoPath: string, rev: string): Promise<number | undefined> {
+	async getCommitCount(repoPath: string, rev: string, cancellation?: CancellationToken): Promise<number | undefined> {
 		const result = await this.git.exec(
-			{ cwd: repoPath, errors: GitErrorHandling.Ignore },
+			{ cwd: repoPath, cancellation: cancellation, errors: GitErrorHandling.Ignore },
 			'rev-list',
 			'--count',
 			rev,
 			'--',
 		);
+		if (result.cancelled || cancellation?.isCancellationRequested) throw new CancellationError();
+
 		const data = result.stdout.trim();
 		if (!data) return undefined;
 
@@ -161,10 +164,10 @@ export class CommitsGitSubProvider implements GitCommitsSubProvider {
 	}
 
 	@log()
-	async getCommitFiles(repoPath: string, rev: string): Promise<GitFileChange[]> {
+	async getCommitFiles(repoPath: string, rev: string, cancellation?: CancellationToken): Promise<GitFileChange[]> {
 		const parser = getShaAndFilesAndStatsLogParser();
 		const result = await this.git.exec(
-			{ cwd: repoPath, configs: gitLogDefaultConfigs },
+			{ cwd: repoPath, cancellation: cancellation, configs: gitLogDefaultConfigs },
 			'log',
 			...parser.arguments,
 			'-n1',
@@ -198,13 +201,14 @@ export class CommitsGitSubProvider implements GitCommitsSubProvider {
 		uri: Uri,
 		rev?: string | undefined,
 		options?: { firstIfNotFound?: boolean },
+		cancellation?: CancellationToken,
 	): Promise<GitCommit | undefined> {
 		const scope = getLogScope();
 
 		const [relativePath, root] = splitPath(uri, repoPath);
 
 		try {
-			const log = await this.getLogForPath(root, relativePath, rev, { limit: 1 });
+			const log = await this.getLogForPath(root, relativePath, rev, { limit: 1 }, cancellation);
 			if (log == null) return undefined;
 
 			let commit;
@@ -219,12 +223,18 @@ export class CommitsGitSubProvider implements GitCommitsSubProvider {
 			return commit ?? first(log.commits.values());
 		} catch (ex) {
 			Logger.error(ex, scope);
+			if (isCancellationError(ex)) throw ex;
+
 			return undefined;
 		}
 	}
 
 	@log()
-	async getIncomingActivity(repoPath: string, options?: IncomingActivityOptions): Promise<GitReflog | undefined> {
+	async getIncomingActivity(
+		repoPath: string,
+		options?: IncomingActivityOptions,
+		cancellation?: CancellationToken,
+	): Promise<GitReflog | undefined> {
 		const scope = getLogScope();
 
 		const args = ['--walk-reflogs', `--format=${parseGitRefLogDefaultFormat}`, '--date=iso8601'];
@@ -250,7 +260,7 @@ export class CommitsGitSubProvider implements GitCommitsSubProvider {
 
 		try {
 			const result = await this.git.exec(
-				{ cwd: repoPath, cancellation: options?.cancellation, configs: gitLogDefaultConfigs },
+				{ cwd: repoPath, cancellation: cancellation, configs: gitLogDefaultConfigs },
 				'log',
 				...args,
 			);
@@ -263,6 +273,8 @@ export class CommitsGitSubProvider implements GitCommitsSubProvider {
 			return reflog;
 		} catch (ex) {
 			Logger.error(ex, scope);
+			if (isCancellationError(ex)) throw ex;
+
 			return undefined;
 		}
 	}
@@ -301,17 +313,21 @@ export class CommitsGitSubProvider implements GitCommitsSubProvider {
 	}
 
 	@log({ exit: true })
-	async getInitialCommitSha(repoPath: string): Promise<string | undefined> {
+	async getInitialCommitSha(repoPath: string, cancellation?: CancellationToken): Promise<string | undefined> {
 		try {
 			const result = await this.git.exec(
-				{ cwd: repoPath, errors: GitErrorHandling.Ignore },
+				{ cwd: repoPath, cancellation: cancellation, errors: GitErrorHandling.Ignore },
 				'rev-list',
 				`--max-parents=0`,
 				'HEAD',
 				'--',
 			);
+			if (result.cancelled || cancellation?.isCancellationRequested) throw new CancellationError();
+
 			return result.stdout.trim().split('\n')?.[0];
-		} catch {
+		} catch (ex) {
+			if (isCancellationError(ex)) throw ex;
+
 			return undefined;
 		}
 	}
@@ -321,11 +337,12 @@ export class CommitsGitSubProvider implements GitCommitsSubProvider {
 		repoPath: string,
 		range: GitRevisionRange,
 		options?: { authors?: GitUser[]; excludeMerges?: boolean },
+		cancellation?: CancellationToken,
 	): Promise<LeftRightCommitCountResult | undefined> {
 		const authors = options?.authors?.length ? options.authors.map(a => `--author=^${a.name} <${a.email}>$`) : [];
 
 		const result = await this.git.exec(
-			{ cwd: repoPath, errors: GitErrorHandling.Ignore },
+			{ cwd: repoPath, cancellation: cancellation, errors: GitErrorHandling.Ignore },
 			'rev-list',
 			'--left-right',
 			'--count',
@@ -334,6 +351,7 @@ export class CommitsGitSubProvider implements GitCommitsSubProvider {
 			range,
 			'--',
 		);
+		if (result.cancelled || cancellation?.isCancellationRequested) throw new CancellationError();
 		if (!result.stdout) return undefined;
 
 		const parts = result.stdout.split('\t');
@@ -351,8 +369,13 @@ export class CommitsGitSubProvider implements GitCommitsSubProvider {
 	}
 
 	@log()
-	async getLog(repoPath: string, rev?: string | undefined, options?: GitLogOptions): Promise<GitLog | undefined> {
-		return this.getLogCore(repoPath, rev, options);
+	async getLog(
+		repoPath: string,
+		rev?: string | undefined,
+		options?: GitLogOptions,
+		cancellation?: CancellationToken,
+	): Promise<GitLog | undefined> {
+		return this.getLogCore(repoPath, rev, options, cancellation);
 	}
 
 	private async getLogCore(
@@ -361,6 +384,7 @@ export class CommitsGitSubProvider implements GitCommitsSubProvider {
 		options?: GitLogOptions & {
 			path?: { pathspec: string; filters?: GitDiffFilter[]; range?: Range; renames?: boolean };
 		},
+		cancellation?: CancellationToken,
 		additionalArgs?: string[],
 	): Promise<GitLog | undefined> {
 		const scope = getLogScope();
@@ -439,7 +463,7 @@ export class CommitsGitSubProvider implements GitCommitsSubProvider {
 					// TODO@eamodio this is insanity -- there *HAS* to be a better way to get git log to return stashes
 					({ stdin, stashes } = convertStashesToStdin(
 						typeof options.stashes === 'boolean'
-							? await this.provider.stash?.getStash(repoPath, { reachableFrom: rev })
+							? await this.provider.stash?.getStash(repoPath, { reachableFrom: rev }, cancellation)
 							: options.stashes,
 					));
 					if (stashes.size) {
@@ -482,10 +506,11 @@ export class CommitsGitSubProvider implements GitCommitsSubProvider {
 			}
 
 			const currentUser = await currentUserPromise.catch(() => undefined);
+			if (cancellation?.isCancellationRequested) throw new CancellationError();
 
 			const cmdOpts: GitCommandOptions = {
 				cwd: repoPath,
-				cancellation: options?.cancellation,
+				cancellation: cancellation,
 				configs: gitLogDefaultConfigsWithFiles,
 				stdin: stdin,
 			};
@@ -502,7 +527,12 @@ export class CommitsGitSubProvider implements GitCommitsSubProvider {
 
 			// If we didn't find any history from the working tree, check to see if the file was renamed
 			if (rev == null && pathspec && !commits.size) {
-				const status = await this.provider.status?.getStatusForFile(repoPath, pathspec);
+				const status = await this.provider.status?.getStatusForFile(
+					repoPath,
+					pathspec,
+					undefined,
+					cancellation,
+				);
 				if (status?.originalPath != null) {
 					pathspec = status.originalPath;
 
@@ -537,7 +567,7 @@ export class CommitsGitSubProvider implements GitCommitsSubProvider {
 
 			if (!isSingleCommit) {
 				log.query = (limit: number | undefined) =>
-					this.getLogCore(repoPath, rev, { ...options, limit: limit }, additionalArgs);
+					this.getLogCore(repoPath, rev, { ...options, limit: limit }, undefined, additionalArgs);
 				if (log.hasMore) {
 					log.more = this.getLogCoreMoreFn(log, rev, options);
 				}
@@ -546,7 +576,9 @@ export class CommitsGitSubProvider implements GitCommitsSubProvider {
 			return log;
 		} catch (ex) {
 			Logger.error(ex, scope);
+			if (isCancellationError(ex)) throw ex;
 			debugger;
+
 			return undefined;
 		}
 	}
@@ -610,6 +642,7 @@ export class CommitsGitSubProvider implements GitCommitsSubProvider {
 						limit: queryLimit,
 						...(timestamp ? { until: timestamp } : undefined),
 					},
+					undefined,
 					timestamp ? ['--boundary'] : undefined,
 				);
 				// If we can't find any more, assume we have everything
@@ -668,6 +701,7 @@ export class CommitsGitSubProvider implements GitCommitsSubProvider {
 		pathOrUri: string | Uri,
 		rev?: string | undefined,
 		options?: GitLogForPathOptions,
+		cancellation?: CancellationToken,
 	): Promise<GitLog | undefined> {
 		if (repoPath == null) return undefined;
 
@@ -696,6 +730,8 @@ export class CommitsGitSubProvider implements GitCommitsSubProvider {
 			options.isFolder = true;
 		} else if (options.isFolder == null) {
 			const tree = await this.provider.revision.getTreeEntryForRevision(repoPath, rev || 'HEAD', relativePath);
+			if (cancellation?.isCancellationRequested) throw new CancellationError();
+
 			options.isFolder = tree?.type === 'tree';
 		}
 
@@ -799,23 +835,32 @@ export class CommitsGitSubProvider implements GitCommitsSubProvider {
 			doc.state ??= new GitDocumentState();
 		}
 
-		const promise = this.getLogForPathCore(repoPath, relativePath, rev, options).catch((ex: unknown) => {
-			// Trap and cache expected log errors
-			if (cacheKey && doc?.state != null) {
-				const msg: string = ex?.toString() ?? '';
-				Logger.debug(scope, `Cache replace (with empty promise): '${cacheKey}'`);
+		const promise = this.getLogForPathCore(repoPath, relativePath, rev, options, cancellation).catch(
+			(ex: unknown) => {
+				// Trap and cache expected log errors
+				if (cacheKey && doc?.state != null) {
+					if (isCancellationError(ex)) {
+						doc.state.clearLog(cacheKey);
+						throw ex;
+					}
 
-				const value: CachedLog = {
-					item: emptyPromise as Promise<GitLog>,
-					errorMessage: msg,
-				};
-				doc.state.setLog(cacheKey, value);
+					const msg: string = ex?.toString() ?? '';
+					Logger.debug(scope, `Cache replace (with empty promise): '${cacheKey}'`);
 
-				return emptyPromise as Promise<GitLog>;
-			}
+					const value: CachedLog = {
+						item: emptyPromise as Promise<GitLog>,
+						errorMessage: msg,
+					};
+					doc.state.setLog(cacheKey, value);
 
-			return undefined;
-		});
+					return emptyPromise as Promise<GitLog>;
+				}
+
+				if (isCancellationError(ex)) throw ex;
+
+				return undefined;
+			},
+		);
 
 		if (cacheKey && doc?.state != null) {
 			Logger.debug(scope, `Cache add: '${cacheKey}'`);
@@ -834,10 +879,13 @@ export class CommitsGitSubProvider implements GitCommitsSubProvider {
 		path: string,
 		rev: string | undefined,
 		options: GitLogForPathOptions,
+		cancellation?: CancellationToken,
 	): Promise<GitLog | undefined> {
 		const scope = getLogScope();
 
 		const paths = await this.provider.isTrackedWithDetails(path, repoPath, rev);
+		if (cancellation?.isCancellationRequested) throw new CancellationError();
+
 		if (paths == null) {
 			Logger.log(scope, `Skipping log; '${path}' is not tracked`);
 			return emptyPromise as Promise<GitLog>;
@@ -845,23 +893,27 @@ export class CommitsGitSubProvider implements GitCommitsSubProvider {
 
 		const [relativePath, root] = paths;
 
-		const log = await this.getLogCore(root, rev, {
-			all: options.all,
-			authors: options.authors,
-			cancellation: options.cancellation,
-			cursor: options.cursor,
-			limit: options.limit,
-			merges: options.merges,
-			ordering: options.ordering,
-			since: options.since,
-			until: options.until,
-			path: {
-				pathspec: relativePath,
-				filters: options.filters,
-				range: options.range,
-				renames: options.renames,
+		const log = await this.getLogCore(
+			root,
+			rev,
+			{
+				all: options.all,
+				authors: options.authors,
+				cursor: options.cursor,
+				limit: options.limit,
+				merges: options.merges,
+				ordering: options.ordering,
+				since: options.since,
+				until: options.until,
+				path: {
+					pathspec: relativePath,
+					filters: options.filters,
+					range: options.range,
+					renames: options.renames,
+				},
 			},
-		});
+			cancellation,
+		);
 
 		return log;
 	}
@@ -871,6 +923,7 @@ export class CommitsGitSubProvider implements GitCommitsSubProvider {
 		repoPath: string,
 		rev?: string | undefined,
 		options?: GitLogShasOptions,
+		cancellation?: CancellationToken,
 	): Promise<Iterable<string>> {
 		const scope = getLogScope();
 
@@ -924,20 +977,26 @@ export class CommitsGitSubProvider implements GitCommitsSubProvider {
 			}
 
 			const result = await this.git.exec(
-				{ cwd: repoPath, cancellation: options?.cancellation, configs: gitLogDefaultConfigs },
+				{ cwd: repoPath, cancellation: cancellation, configs: gitLogDefaultConfigs },
 				'log',
 				...args,
 			);
 			return parser.parse(result.stdout);
 		} catch (ex) {
 			Logger.error(ex, scope);
+			if (isCancellationError(ex)) throw ex;
 			debugger;
+
 			return [];
 		}
 	}
 
 	@log()
-	async getOldestUnpushedShaForPath(repoPath: string, pathOrUri: string | Uri): Promise<string | undefined> {
+	async getOldestUnpushedShaForPath(
+		repoPath: string,
+		pathOrUri: string | Uri,
+		cancellation?: CancellationToken,
+	): Promise<string | undefined> {
 		const scope = getLogScope();
 
 		try {
@@ -952,7 +1011,7 @@ export class CommitsGitSubProvider implements GitCommitsSubProvider {
 			}
 
 			const result = await this.git.exec(
-				{ cwd: repoPath, configs: gitLogDefaultConfigs },
+				{ cwd: repoPath, cancellation: cancellation, configs: gitLogDefaultConfigs },
 				'log',
 				...parser.arguments,
 				'--follow',
@@ -964,23 +1023,31 @@ export class CommitsGitSubProvider implements GitCommitsSubProvider {
 			return first(parser.parse(result.stdout));
 		} catch (ex) {
 			Logger.error(ex, scope);
+			if (isCancellationError(ex)) throw ex;
+			debugger;
+
 			return undefined;
 		}
 	}
 
 	@log()
-	async hasCommitBeenPushed(repoPath: string, rev: string): Promise<boolean> {
+	async hasCommitBeenPushed(repoPath: string, rev: string, cancellation?: CancellationToken): Promise<boolean> {
 		if (repoPath == null) return false;
 
-		return this.isAncestorOf(repoPath, rev, '@{u}');
+		return this.isAncestorOf(repoPath, rev, '@{u}', cancellation);
 	}
 
 	@log()
-	async isAncestorOf(repoPath: string, rev1: string, rev2: string): Promise<boolean> {
+	async isAncestorOf(
+		repoPath: string,
+		rev1: string,
+		rev2: string,
+		cancellation?: CancellationToken,
+	): Promise<boolean> {
 		if (repoPath == null) return false;
 
 		const result = await this.git.exec(
-			{ cwd: repoPath, exitCodeOnly: true },
+			{ cwd: repoPath, cancellation: cancellation, exitCodeOnly: true },
 			'merge-base',
 			'--is-ancestor',
 			rev1,
@@ -1001,6 +1068,7 @@ export class CommitsGitSubProvider implements GitCommitsSubProvider {
 		repoPath: string,
 		search: SearchQuery,
 		options?: GitSearchCommitsOptions,
+		cancellation?: CancellationToken,
 	): Promise<GitLog | undefined> {
 		const scope = getLogScope();
 
@@ -1008,6 +1076,7 @@ export class CommitsGitSubProvider implements GitCommitsSubProvider {
 
 		try {
 			const currentUser = await this.provider.config.getCurrentUser(repoPath);
+			if (cancellation?.isCancellationRequested) throw new CancellationError();
 
 			const parser = getCommitsLogParser(true);
 			const args = [...parser.arguments];
@@ -1022,7 +1091,9 @@ export class CommitsGitSubProvider implements GitCommitsSubProvider {
 
 			if (shas == null) {
 				// TODO@eamodio this is insanity -- there *HAS* to be a better way to get git log to return stashes
-				({ stdin, stashes } = convertStashesToStdin(await this.provider.stash?.getStash(repoPath)));
+				({ stdin, stashes } = convertStashesToStdin(
+					await this.provider.stash?.getStash(repoPath, undefined, cancellation),
+				));
 			} else if (shas.size) {
 				stdin = join(shas, '\n');
 
@@ -1061,7 +1132,12 @@ export class CommitsGitSubProvider implements GitCommitsSubProvider {
 				this.container,
 				parser,
 				this.git.stream(
-					{ cwd: repoPath, configs: ['-C', repoPath, ...gitLogDefaultConfigs], stdin: stdin },
+					{
+						cwd: repoPath,
+						cancellation: cancellation,
+						configs: ['-C', repoPath, ...gitLogDefaultConfigs],
+						stdin: stdin,
+					},
 					'log',
 					...args,
 					'--',
@@ -1127,6 +1203,8 @@ export class CommitsGitSubProvider implements GitCommitsSubProvider {
 			return log;
 		} catch (ex) {
 			Logger.error(ex, scope);
+			if (isCancellationError(ex)) throw ex;
+
 			return undefined;
 		}
 	}

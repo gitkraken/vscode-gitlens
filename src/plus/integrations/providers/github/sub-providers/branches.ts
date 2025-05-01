@@ -1,3 +1,4 @@
+import type { CancellationToken } from 'vscode';
 import type { Container } from '../../../../../container';
 import type { GitCache } from '../../../../../git/cache';
 import type {
@@ -11,7 +12,6 @@ import type { BranchSortOptions } from '../../../../../git/utils/-webview/sortin
 import { sortBranches, sortContributors } from '../../../../../git/utils/-webview/sorting';
 import { createRevisionRange } from '../../../../../git/utils/revision.utils';
 import { configuration } from '../../../../../system/-webview/configuration';
-import { gate } from '../../../../../system/decorators/-webview/gate';
 import { log } from '../../../../../system/decorators/log';
 import { Logger } from '../../../../../system/logger';
 import { getLogScope } from '../../../../../system/logger.scope';
@@ -29,13 +29,12 @@ export class BranchesGitSubProvider implements GitBranchesSubProvider {
 		private readonly provider: GitHubGitProviderInternal,
 	) {}
 
-	@gate()
 	@log()
-	async getBranch(repoPath: string, name?: string): Promise<GitBranch | undefined> {
+	async getBranch(repoPath: string, name?: string, cancellation?: CancellationToken): Promise<GitBranch | undefined> {
 		if (name != null) {
 			const {
 				values: [branch],
-			} = await this.getBranches(repoPath, { filter: b => b.name === name });
+			} = await this.getBranches(repoPath, { filter: b => b.name === name }, cancellation);
 			return branch;
 		}
 
@@ -44,7 +43,7 @@ export class BranchesGitSubProvider implements GitBranchesSubProvider {
 			async function load(this: BranchesGitSubProvider): Promise<GitBranch | undefined> {
 				const {
 					values: [branch],
-				} = await this.getBranches(repoPath, { filter: b => b.current });
+				} = await this.getBranches(repoPath, { filter: b => b.current }, cancellation);
 				if (branch != null) return branch;
 
 				try {
@@ -90,6 +89,7 @@ export class BranchesGitSubProvider implements GitBranchesSubProvider {
 			paging?: PagingOptions;
 			sort?: boolean | BranchSortOptions;
 		},
+		_cancellation?: CancellationToken,
 	): Promise<PagedResult<GitBranch>> {
 		if (repoPath == null) return emptyPagedResult;
 
@@ -206,6 +206,7 @@ export class BranchesGitSubProvider implements GitBranchesSubProvider {
 	async getBranchContributionsOverview(
 		repoPath: string,
 		ref: string,
+		_cancellation?: CancellationToken,
 	): Promise<BranchContributionsOverview | undefined> {
 		const scope = getLogScope();
 
@@ -291,6 +292,7 @@ export class BranchesGitSubProvider implements GitBranchesSubProvider {
 		options?:
 			| { all?: boolean; commitDate?: Date; mode?: 'contains' | 'pointsAt' }
 			| { commitDate?: Date; mode?: 'contains' | 'pointsAt'; remotes?: boolean },
+		_cancellation?: CancellationToken,
 	): Promise<string[]> {
 		if (repoPath == null || options?.commitDate == null) return [];
 
@@ -331,7 +333,11 @@ export class BranchesGitSubProvider implements GitBranchesSubProvider {
 	}
 
 	@log()
-	async getDefaultBranchName(repoPath: string | undefined, _remote?: string): Promise<string | undefined> {
+	async getDefaultBranchName(
+		repoPath: string | undefined,
+		_remote?: string,
+		_cancellation?: CancellationToken,
+	): Promise<string | undefined> {
 		if (repoPath == null) return undefined;
 
 		const scope = getLogScope();

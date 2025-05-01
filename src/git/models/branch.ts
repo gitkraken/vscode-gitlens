@@ -1,4 +1,5 @@
 /* eslint-disable @typescript-eslint/no-restricted-imports */ /* TODO need to deal with sharing rich class shapes to webviews */
+import type { CancellationToken } from 'vscode';
 import type { EnrichedAutolink } from '../../autolinks/models/autolinks';
 import type { Container } from '../../container';
 import { formatDate, fromNow } from '../../system/date';
@@ -177,15 +178,15 @@ export class GitBranch implements GitBranchReference {
 	}
 
 	@debug()
-	async getWorktree(): Promise<GitWorktree | undefined> {
+	async getWorktree(cancellation?: CancellationToken): Promise<GitWorktree | undefined> {
 		if (this.worktree === false) return undefined;
 		if (this.worktree == null) {
 			const { id } = this;
-			return this.container.git.worktrees(this.repoPath)?.getWorktree(wt => wt.branch?.id === id);
+			return this.container.git.worktrees(this.repoPath)?.getWorktree(wt => wt.branch?.id === id, cancellation);
 		}
 
 		const { path } = this.worktree;
-		return this.container.git.worktrees(this.repoPath)?.getWorktree(wt => wt.path === path);
+		return this.container.git.worktrees(this.repoPath)?.getWorktree(wt => wt.path === path, cancellation);
 	}
 
 	get starred(): boolean {

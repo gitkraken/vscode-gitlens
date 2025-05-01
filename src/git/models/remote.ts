@@ -2,6 +2,7 @@
 import type { Container } from '../../container';
 import type { HostingIntegration } from '../../plus/integrations/integration';
 import { memoize } from '../../system/decorators/-webview/memoize';
+import { getLoggableName } from '../../system/logger';
 import { equalsIgnoreCase } from '../../system/string';
 import { parseGitRemoteUrl } from '../parsers/remoteParser';
 import type { RemoteProvider } from '../remotes/remoteProvider';
@@ -21,6 +22,10 @@ export class GitRemote<TProvider extends RemoteProvider | undefined = RemoteProv
 		public readonly provider: TProvider,
 		public readonly urls: { type: GitRemoteType; url: string }[],
 	) {}
+
+	toString(): string {
+		return `${getLoggableName(this)}(${this.id})`;
+	}
 
 	get default(): boolean {
 		const defaultRemote = this.container.storage.getWorkspace('remote:default');

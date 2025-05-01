@@ -1,3 +1,4 @@
+import type { CancellationToken } from 'vscode';
 import { filterMap } from '../../../system/iterable';
 import { PageableResult } from '../../../system/paging';
 import type { GitBranch } from '../../models/branch';
@@ -73,15 +74,16 @@ export async function getWorktreeForBranch(
 export async function getWorktreesByBranch(
 	repos: Repository | Repository[] | undefined,
 	options?: { includeDefault?: boolean },
+	cancellation?: CancellationToken,
 ): Promise<Map<string, GitWorktree>> {
 	const worktreesByBranch = new Map<string, GitWorktree>();
 	if (repos == null) return worktreesByBranch;
 
 	async function addWorktrees(repo: Repository) {
-		const worktrees = repo.git.worktrees();
-		if (worktrees == null) return;
+		const worktreesProvider = repo.git.worktrees();
+		if (worktreesProvider == null) return;
 
-		groupWorktreesByBranch(await worktrees.getWorktrees(), {
+		groupWorktreesByBranch(await worktreesProvider.getWorktrees(cancellation), {
 			includeDefault: options?.includeDefault,
 			worktreesByBranch: worktreesByBranch,
 		});

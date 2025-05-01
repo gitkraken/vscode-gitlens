@@ -3,10 +3,11 @@ import { spawn } from 'child_process';
 import { accessSync } from 'fs';
 import { join as joinPath } from 'path';
 import * as process from 'process';
-import type { Disposable, OutputChannel } from 'vscode';
+import type { CancellationToken, Disposable, OutputChannel } from 'vscode';
 import { env, Uri, window, workspace } from 'vscode';
 import { hrtime } from '@env/hrtime';
 import { GlyphChars } from '../../../constants';
+import { CancellationError, isCancellationError } from '../../../errors';
 import type { FilteredGitFeatures, GitFeatureOrPrefix, GitFeatures } from '../../../features';
 import { gitFeaturesByVersion } from '../../../features';
 import type { GitCommandOptions, GitSpawnOptions } from '../../../git/commandOptions';
@@ -46,7 +47,8 @@ import { compare, fromString } from '../../../system/version';
 import { ensureGitTerminal } from '../../../terminal';
 import type { GitLocation } from './locator';
 import type { RunOptions, RunResult } from './shell';
-import { CancelledRunError, fsExists, isWindows, RunError, runSpawn } from './shell';
+import { fsExists, isWindows, runSpawn } from './shell';
+import { CancelledRunError, RunError } from './shell.errors';
 
 const emptyArray = Object.freeze([]) as unknown as any[];
 const emptyObj = Object.freeze({});
@@ -134,8 +136,10 @@ const GitWarnings = {
 };
 
 function defaultExceptionHandler(ex: Error, cwd: string | undefined, start?: [number, number]): void {
+	if (isCancellationError(ex)) throw ex;
+
 	const msg = ex.message || ex.toString();
-	if (msg != null && msg.length !== 0) {
+	if (msg) {
 		for (const warning of Object.values(GitWarnings)) {
 			if (warning.test(msg)) {
 				const duration = start !== undefined ? ` [${getDurationMilliseconds(start)}ms]` : '';
@@ -228,6 +232,8 @@ export type GitResult<T extends string | Buffer | unknown> = {
 	readonly exitCode: number;
 	readonly stdout: T;
 	readonly stderr?: T;
+
+	readonly cancelled?: boolean;
 };
 
 export class Git {
@@ -323,10 +329,15 @@ export class Git {
 			};
 		} catch (ex) {
 			if (errorHandling === GitErrorHandling.Ignore) {
-				return { stdout: '' as T, stderr: result?.stderr as T | undefined, exitCode: result?.exitCode ?? 0 };
+				return {
+					stdout: '' as T,
+					stderr: result?.stderr as T | undefined,
+					exitCode: result?.exitCode ?? 0,
+					cancelled: ex instanceof CancelledRunError,
+				};
 			}
 
-			exception = new GitError(ex);
+			exception = ex instanceof CancelledRunError ? new CancellationError(ex) : new GitError(ex);
 			if (errorHandling === GitErrorHandling.Throw) throw exception;
 
 			defaultExceptionHandler(exception, options.cwd, start);
@@ -393,7 +404,7 @@ export class Git {
 		let exception: Error | undefined;
 		proc.once('error', ex => {
 			if (ex?.name === 'AbortError') {
-				exception = new CancelledRunError(command, true);
+				exception = new CancellationError(new CancelledRunError(command, true));
 			} else {
 				exception = new GitError(ex);
 			}
@@ -457,11 +468,15 @@ export class Git {
 
 		proc.once(
 			'error',
-			ex => (exception = ex?.name === 'AbortError' ? new CancelledRunError(command, true) : new GitError(ex)),
+			ex =>
+				(exception =
+					ex?.name === 'AbortError'
+						? new CancellationError(new CancelledRunError(command, true))
+						: new GitError(ex)),
 		);
 		proc.once('exit', (code, signal) => {
 			if (signal === 'SIGTERM') {
-				exception = new CancelledRunError(command, true, code ?? undefined, signal);
+				exception = new CancellationError(new CancelledRunError(command, true, code ?? undefined, signal));
 			}
 			this.logGitCommand(gitCommand, exception, getDurationMilliseconds(start), false);
 		});
@@ -475,7 +490,7 @@ export class Git {
 
 			for await (const chunk of proc.stdout) {
 				if (exception != null) {
-					if (exception instanceof CancelledRunError) {
+					if (isCancellationError(exception)) {
 						// TODO: Should we throw here?
 						break;
 					} else {
@@ -694,6 +709,7 @@ export class Git {
 			name?: string;
 			remotes?: boolean;
 		},
+		cancellation?: CancellationToken,
 	): Promise<GitResult<string>> {
 		const params: string[] = [options?.type ?? 'branch'];
 		if (options?.all) {
@@ -713,7 +729,12 @@ export class Git {
 		}
 
 		const result = await this.exec(
-			{ cwd: repoPath, configs: gitBranchDefaultConfigs, errors: GitErrorHandling.Ignore },
+			{
+				cwd: repoPath,
+				cancellation: cancellation,
+				configs: gitBranchDefaultConfigs,
+				errors: GitErrorHandling.Ignore,
+			},
 			...params,
 		);
 		return result;
@@ -1084,7 +1105,7 @@ export class Git {
 		repoPath: string,
 		sha: string,
 		limit: number,
-		options?: { configs?: readonly string[]; stdin?: string },
+		options?: { cancellation?: CancellationToken; configs?: readonly string[]; stdin?: string },
 		...args: string[]
 	): Promise<[data: string[], count: number]> {
 		const params = ['log', ...args];
@@ -1093,7 +1114,12 @@ export class Git {
 		}
 
 		const proc = await this.spawn(
-			{ cwd: repoPath, configs: options?.configs ?? gitLogDefaultConfigs, stdin: options?.stdin },
+			{
+				cwd: repoPath,
+				cancellation: options?.cancellation,
+				configs: options?.configs ?? gitLogDefaultConfigs,
+				stdin: options?.stdin,
+			},
 			...params,
 			'--',
 		);
@@ -1216,11 +1242,12 @@ export class Git {
 	async rev_parse__currentBranch(
 		repoPath: string,
 		ordering: 'date' | 'author-date' | 'topo' | null,
+		cancellation?: CancellationToken,
 	): Promise<[string, string | undefined] | undefined> {
 		let result;
 		try {
 			result = await this.exec(
-				{ cwd: repoPath, errors: GitErrorHandling.Throw },
+				{ cwd: repoPath, cancellation: cancellation, errors: GitErrorHandling.Throw },
 				'rev-parse',
 				'--abbrev-ref',
 				'--symbolic-full-name',
@@ -1230,6 +1257,8 @@ export class Git {
 			);
 			return [result.stdout, undefined];
 		} catch (ex) {
+			if (isCancellationError(ex)) throw ex;
+
 			const msg: string = ex?.toString() ?? '';
 			if (GitErrors.badRevision.test(msg) || GitWarnings.noUpstream.test(msg)) {
 				if (ex.stdout != null && ex.stdout.length !== 0) {
@@ -1237,10 +1266,17 @@ export class Git {
 				}
 
 				try {
-					result = await this.exec({ cwd: repoPath }, 'symbolic-ref', '--short', 'HEAD');
+					result = await this.exec(
+						{ cwd: repoPath, cancellation: cancellation },
+						'symbolic-ref',
+						'--short',
+						'HEAD',
+					);
 					if (result.stdout) return [result.stdout.trim(), undefined];
-				} catch {}
-				const data = await this.symbolic_ref__HEAD(repoPath, 'origin');
+				} catch {
+					if (isCancellationError(ex)) throw ex;
+				}
+				const data = await this.symbolic_ref__HEAD(repoPath, 'origin', cancellation);
 				if (data != null) {
 					return [data.startsWith('origin/') ? data.substring('origin/'.length) : data, undefined];
 				}
@@ -1269,13 +1305,21 @@ export class Git {
 
 			if (GitWarnings.headNotABranch.test(msg)) {
 				result = await this.exec(
-					{ cwd: repoPath, configs: gitLogDefaultConfigs, errors: GitErrorHandling.Ignore },
+					{
+						cwd: repoPath,
+						cancellation: cancellation,
+						configs: gitLogDefaultConfigs,
+						errors: GitErrorHandling.Ignore,
+					},
 					'log',
 					'-n1',
 					'--format=%H',
 					ordering ? `--${ordering}-order` : undefined,
 					'--',
 				);
+
+				if (result.cancelled || cancellation?.isCancellationRequested) throw new CancellationError();
+
 				const sha = result.stdout.trim();
 				if (!sha) return undefined;
 
@@ -1287,12 +1331,16 @@ export class Git {
 		}
 	}
 
-	async symbolic_ref__HEAD(repoPath: string, remote: string): Promise<string | undefined> {
+	async symbolic_ref__HEAD(
+		repoPath: string,
+		remote: string,
+		cancellation?: CancellationToken,
+	): Promise<string | undefined> {
 		let retried = false;
 		while (true) {
 			try {
 				const result = await this.exec(
-					{ cwd: repoPath },
+					{ cwd: repoPath, cancellation: cancellation },
 					'symbolic-ref',
 					'--short',
 					`refs/remotes/${remote}/HEAD`,
@@ -1303,11 +1351,23 @@ export class Git {
 					try {
 						if (!retried) {
 							retried = true;
-							await this.exec({ cwd: repoPath }, 'remote', 'set-head', '-a', remote);
+							await this.exec(
+								{ cwd: repoPath, cancellation: cancellation },
+								'remote',
+								'set-head',
+								'-a',
+								remote,
+							);
 							continue;
 						}
 
-						const result = await this.exec({ cwd: repoPath }, 'ls-remote', '--symref', remote, 'HEAD');
+						const result = await this.exec(
+							{ cwd: repoPath, cancellation: cancellation },
+							'ls-remote',
+							'--symref',
+							remote,
+							'HEAD',
+						);
 						if (result.stdout) {
 							const match = /ref:\s(\S+)\s+HEAD/m.exec(result.stdout);
 							if (match != null) {
@@ -1315,7 +1375,9 @@ export class Git {
 								return `${remote}/${branch.substring('refs/heads/'.length).trim()}`;
 							}
 						}
-					} catch {}
+					} catch {
+						if (isCancellationError(ex)) throw ex;
+					}
 				}
 
 				return undefined;
@@ -1548,6 +1610,7 @@ export class Git {
 		repoPath: string,
 		porcelainVersion: number = 1,
 		options?: { similarityThreshold?: number },
+		cancellation?: CancellationToken,
 		...pathspecs: string[]
 	): Promise<GitResult<string>> {
 		const params = [
@@ -1563,7 +1626,12 @@ export class Git {
 		}
 
 		const result = await this.exec(
-			{ cwd: repoPath, configs: gitStatusDefaultConfigs, env: { GIT_OPTIONAL_LOCKS: '0' } },
+			{
+				cwd: repoPath,
+				cancellation: cancellation,
+				configs: gitStatusDefaultConfigs,
+				env: { GIT_OPTIONAL_LOCKS: '0' },
+			},
 			...params,
 			'--',
 			...pathspecs,

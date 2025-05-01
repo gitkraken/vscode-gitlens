@@ -7,6 +7,7 @@ import { relative } from '../../system/-webview/path';
 import { getWorkspaceFriendlyPath } from '../../system/-webview/vscode/workspaces';
 import { formatDate, fromNow } from '../../system/date';
 import { memoize } from '../../system/decorators/-webview/memoize';
+import { getLoggableName } from '../../system/logger';
 import { normalizePath } from '../../system/path';
 import { shortenRevision } from '../utils/revision.utils';
 import type { GitBranch } from './branch';
@@ -24,6 +25,10 @@ export class GitWorktree {
 		public readonly sha?: string,
 		public readonly branch?: GitBranch,
 	) {}
+
+	toString(): string {
+		return `${getLoggableName(this)}(${this.uri.toString()})`;
+	}
 
 	get date(): Date | undefined {
 		return this.branch?.date;

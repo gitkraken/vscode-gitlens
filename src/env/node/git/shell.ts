@@ -7,6 +7,7 @@ import * as process from 'process';
 import { Logger } from '../../../system/logger';
 import { getLogScope } from '../../../system/logger.scope';
 import { normalizePath } from '../../../system/path';
+import { CancelledRunError, RunError } from './shell.errors';
 
 export const isWindows = process.platform === 'win32';
 
@@ -158,55 +159,6 @@ export interface RunOptions<TEncoding = BufferEncoding | 'buffer'> {
 }
 
 const bufferExceededRegex = /stdout maxBuffer( length)? exceeded/;
-
-export class RunError extends Error {
-	constructor(
-		private readonly original: ExecFileException,
-		public readonly stdout: string,
-		public readonly stderr: string,
-	) {
-		super(original.message);
-
-		stdout = stdout.trim();
-		stderr = stderr.trim();
-		Error.captureStackTrace?.(this, RunError);
-	}
-
-	get cmd(): string | undefined {
-		return this.original.cmd;
-	}
-
-	get killed(): boolean | undefined {
-		return this.original.killed;
-	}
-
-	get code(): string | number | undefined {
-		return this.original.code ?? undefined;
-	}
-
-	get signal(): NodeJS.Signals | undefined {
-		return this.original.signal;
-	}
-}
-
-export class CancelledRunError extends RunError {
-	constructor(cmd: string, killed: boolean, code?: number | string | undefined, signal: NodeJS.Signals = 'SIGTERM') {
-		super(
-			{
-				name: 'CancelledRunError',
-				message: 'Cancelled',
-				cmd: cmd,
-				killed: killed,
-				code: code,
-				signal: signal,
-			},
-			'',
-			'',
-		);
-
-		Error.captureStackTrace?.(this, CancelledRunError);
-	}
-}
 
 type ExitCodeOnlyRunOptions<TEncoding = BufferEncoding | 'buffer'> = RunOptions<TEncoding> & { exitCodeOnly: true };
 

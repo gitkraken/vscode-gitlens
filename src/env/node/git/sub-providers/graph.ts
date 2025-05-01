@@ -57,7 +57,7 @@ import type {
 import type { Git } from '../git';
 import { gitLogDefaultConfigs } from '../git';
 import type { LocalGitProvider } from '../localGitProvider';
-import { CancelledRunError } from '../shell';
+import { CancelledRunError } from '../shell.errors';
 import { convertStashesToStdin } from './stash';
 
 export class GraphGitSubProvider implements GitGraphSubProvider {
@@ -77,6 +77,7 @@ export class GraphGitSubProvider implements GitGraphSubProvider {
 			include?: { stats?: boolean };
 			limit?: number;
 		},
+		cancellation?: CancellationToken,
 	): Promise<GitGraph> {
 		const defaultLimit = options?.limit ?? configuration.get('graph.defaultItemLimit') ?? 5000;
 		const defaultPageLimit = configuration.get('graph.pageItemLimit') ?? 1000;
@@ -99,12 +100,12 @@ export class GraphGitSubProvider implements GitGraphSubProvider {
 					rev && !isUncommittedStaged(rev) ? rev : 'HEAD',
 					'--',
 				),
-				this.provider.stash?.getStash(repoPath),
-				this.provider.branches.getBranches(repoPath),
-				this.provider.remotes.getRemotes(repoPath),
+				this.provider.stash?.getStash(repoPath, undefined, cancellation),
+				this.provider.branches.getBranches(repoPath, undefined, cancellation),
+				this.provider.remotes.getRemotes(repoPath, undefined, cancellation),
 				this.provider.config.getCurrentUser(repoPath),
 				this.provider.worktrees
-					?.getWorktrees(repoPath)
+					?.getWorktrees(repoPath, cancellation)
 					.then(w => [w, groupWorktreesByBranch(w, { includeDefault: true })]) satisfies Promise<
 					[GitWorktree[], Map<string, GitWorktree>]
 				>,
@@ -152,6 +153,7 @@ export class GraphGitSubProvider implements GitGraphSubProvider {
 			limit: number,
 			sha?: string,
 			cursor?: { sha: string; skip: number },
+			cancellation?: CancellationToken,
 		): Promise<GitGraph> {
 			const startTotal = total;
 
@@ -176,14 +178,14 @@ export class GraphGitSubProvider implements GitGraphSubProvider {
 						repoPath,
 						sha,
 						limit,
-						stdin ? { stdin: stdin } : undefined,
+						{ cancellation: cancellation, configs: gitLogDefaultConfigs, stdin: stdin },
 						...args,
 					);
 				} else {
 					args.push(`-n${nextPageLimit + 1}`);
 
 					const result = await this.git.exec(
-						{ cwd: repoPath, configs: gitLogDefaultConfigs, stdin: stdin },
+						{ cwd: repoPath, cancellation: cancellation, configs: gitLogDefaultConfigs, stdin: stdin },
 						'log',
 						stdin ? '--stdin' : undefined,
 						...args,
@@ -642,7 +644,7 @@ export class GraphGitSubProvider implements GitGraphSubProvider {
 			};
 		}
 
-		return getCommitsForGraphCore.call(this, defaultLimit, selectSha);
+		return getCommitsForGraphCore.call(this, defaultLimit, selectSha, undefined, cancellation);
 	}
 
 	@log<GraphGitSubProvider['searchGraph']>({
@@ -658,10 +660,10 @@ export class GraphGitSubProvider implements GitGraphSubProvider {
 		repoPath: string,
 		search: SearchQuery,
 		options?: {
-			cancellation?: CancellationToken;
 			limit?: number;
 			ordering?: 'date' | 'author-date' | 'topo';
 		},
+		cancellation?: CancellationToken,
 	): Promise<GitGraphSearch> {
 		search = { matchAll: false, matchCase: false, matchRegex: true, ...search };
 
@@ -676,7 +678,7 @@ export class GraphGitSubProvider implements GitGraphSubProvider {
 			const { args: searchArgs, files, shas } = getGitArgsFromSearchQuery(search, currentUser);
 			if (shas?.size) {
 				const result = await this.git.exec(
-					{ cwd: repoPath, cancellation: options?.cancellation, configs: gitLogDefaultConfigs },
+					{ cwd: repoPath, cancellation: cancellation, configs: gitLogDefaultConfigs },
 					'show',
 					'-s',
 					...parser.arguments,
@@ -709,7 +711,9 @@ export class GraphGitSubProvider implements GitGraphSubProvider {
 			const includeOnlyStashes = searchArgs.includes('--no-walk');
 
 			// TODO@eamodio this is insanity -- there *HAS* to be a better way to get git log to return stashes
-			const { stdin, stashes } = convertStashesToStdin(await this.provider.stash?.getStash(repoPath));
+			const { stdin, stashes } = convertStashesToStdin(
+				await this.provider.stash?.getStash(repoPath, undefined, cancellation),
+			);
 
 			const args = [
 				...parser.arguments,
@@ -725,7 +729,7 @@ export class GraphGitSubProvider implements GitGraphSubProvider {
 				limit: number,
 				cursor?: { sha: string; skip: number },
 			): Promise<GitGraphSearch> {
-				if (options?.cancellation?.isCancellationRequested) {
+				if (cancellation?.isCancellationRequested) {
 					return { repoPath: repoPath, query: search, comparisonKey: comparisonKey, results: results };
 				}
 
@@ -734,7 +738,7 @@ export class GraphGitSubProvider implements GitGraphSubProvider {
 					result = await this.git.exec(
 						{
 							cwd: repoPath,
-							cancellation: options?.cancellation,
+							cancellation: cancellation,
 							configs: ['-C', repoPath, ...gitLogDefaultConfigs],
 							errors: GitErrorHandling.Throw,
 							stdin: stdin,
@@ -750,14 +754,14 @@ export class GraphGitSubProvider implements GitGraphSubProvider {
 						...files,
 					);
 				} catch (ex) {
-					if (ex instanceof CancelledRunError || options?.cancellation?.isCancellationRequested) {
+					if (ex instanceof CancelledRunError || cancellation?.isCancellationRequested) {
 						return { repoPath: repoPath, query: search, comparisonKey: comparisonKey, results: results };
 					}
 
 					throw new GitSearchError(ex);
 				}
 
-				if (options?.cancellation?.isCancellationRequested) {
+				if (cancellation?.isCancellationRequested) {
 					return { repoPath: repoPath, query: search, comparisonKey: comparisonKey, results: results };
 				}
 
