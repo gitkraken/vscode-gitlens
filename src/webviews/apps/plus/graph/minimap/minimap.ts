@@ -721,9 +721,7 @@ export class GlGraphMinimap extends GlElement {
 
 	private _loading: Promise<void> | undefined;
 	private loadChart() {
-		if (this._loading == null) {
-			this._loading = this.loadChartCore().then(() => (this._loading = undefined));
-		}
+		this._loading ??= this.loadChartCore().finally(() => (this._loading = undefined));
 	}
 
 	@debug({ singleLine: true })

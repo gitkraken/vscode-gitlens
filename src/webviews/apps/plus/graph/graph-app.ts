@@ -29,7 +29,7 @@ export class GraphAppWC extends SignalWatcher(LitElement) {
 	graphApp!: typeof graphStateContext.__context__;
 
 	@query('gl-graph-minimap-container')
-	minimapEl!: GlGraphMinimapContainer;
+	minimapEl: GlGraphMinimapContainer | undefined;
 
 	@query('gl-graph-wrapper')
 	graphWrapper!: GlGraphWrapper;
@@ -71,11 +71,11 @@ export class GraphAppWC extends SignalWatcher(LitElement) {
 	}
 
 	private handleGraphRowHovered(e: CustomEventType<'gl-graph-hovered-row'>) {
-		this.minimapEl.select(e.detail.graphRow.date, true);
+		this.minimapEl?.select(e.detail.graphRow.date, true);
 	}
 
 	private handleGraphMouseLeaved() {
-		this.minimapEl.unselect(undefined, true);
+		this.minimapEl?.unselect(undefined, true);
 	}
 
 	resetHover() {
