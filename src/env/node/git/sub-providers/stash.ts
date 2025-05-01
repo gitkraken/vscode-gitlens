@@ -1,4 +1,4 @@
-import type { Uri } from 'vscode';
+import type { CancellationToken, Uri } from 'vscode';
 import { window } from 'vscode';
 import type { Container } from '../../../../container';
 import type { GitCache } from '../../../../git/cache';
@@ -23,7 +23,7 @@ import { join, map, min, skip } from '../../../../system/iterable';
 import { getSettledValue } from '../../../../system/promise';
 import type { Git } from '../git';
 import { maxGitCliLength } from '../git';
-import { RunError } from '../shell';
+import { RunError } from '../shell.errors';
 
 const stashSummaryRegex =
 	// eslint-disable-next-line no-control-regex
@@ -69,20 +69,23 @@ export class StashGitSubProvider implements GitStashSubProvider {
 		}
 	}
 
-	@gate()
 	@log()
-	async getStash(repoPath: string | undefined, options?: { reachableFrom?: string }): Promise<GitStash | undefined> {
+	async getStash(
+		repoPath: string,
+		options?: { reachableFrom?: string },
+		cancellation?: CancellationToken,
+	): Promise<GitStash | undefined> {
 		if (repoPath == null) return undefined;
 
 		let gitStash = this.cache.stashes?.get(repoPath);
-		if (gitStash === undefined) {
+		if (gitStash == null) {
 			const parser = getStashLogParser();
 			const args = [...parser.arguments];
 
 			const similarityThreshold = configuration.get('advanced.similarityThreshold');
 			args.push(`-M${similarityThreshold == null ? '' : `${similarityThreshold}%`}`);
 
-			const result = await this.git.exec({ cwd: repoPath }, 'stash', 'list', ...args);
+			const result = await this.git.exec({ cwd: repoPath, cancellation: cancellation }, 'stash', 'list', ...args);
 
 			const stashes = new Map<string, GitStashCommit>();
 
@@ -92,7 +95,7 @@ export class StashGitSubProvider implements GitStashSubProvider {
 
 			gitStash = { repoPath: repoPath, stashes: stashes };
 
-			this.cache.stashes?.set(repoPath, gitStash ?? null);
+			this.cache.stashes?.set(repoPath, gitStash);
 		}
 
 		// Return only reachable stashes from the given ref
@@ -103,7 +106,7 @@ export class StashGitSubProvider implements GitStashSubProvider {
 			const oldestStashDate = new Date(min(gitStash.stashes.values(), c => c.date.getTime())).toISOString();
 
 			const result = await this.git.exec(
-				{ cwd: repoPath, errors: GitErrorHandling.Ignore },
+				{ cwd: repoPath, cancellation: cancellation, errors: GitErrorHandling.Ignore },
 				'rev-list',
 				`--since="${oldestStashDate}"`,
 				'--date-order',
@@ -149,18 +152,21 @@ export class StashGitSubProvider implements GitStashSubProvider {
 			}
 		}
 
-		return gitStash ?? undefined;
+		return gitStash;
 	}
 
-	@gate()
 	@log()
-	async getStashCommitFiles(repoPath: string, ref: string): Promise<GitFileChange[]> {
+	async getStashCommitFiles(
+		repoPath: string,
+		ref: string,
+		cancellation?: CancellationToken,
+	): Promise<GitFileChange[]> {
 		const [stashFilesResult, stashUntrackedFilesResult] = await Promise.allSettled([
 			// Don't include untracked files here, because we won't be able to tell them apart from added (and we need the untracked status)
-			this.getStashCommitFilesCore(repoPath, ref, { untracked: false }),
+			this.getStashCommitFilesCore(repoPath, ref, { untracked: false }, cancellation),
 			// Check for any untracked files -- since git doesn't return them via `git stash list` :(
 			// See https://stackoverflow.com/questions/12681529/
-			this.getStashCommitFilesCore(repoPath, ref, { untracked: 'only' }),
+			this.getStashCommitFilesCore(repoPath, ref, { untracked: 'only' }, cancellation),
 		]);
 
 		let files = getSettledValue(stashFilesResult);
@@ -179,6 +185,7 @@ export class StashGitSubProvider implements GitStashSubProvider {
 		repoPath: string,
 		ref: string,
 		options?: { untracked?: boolean | 'only' },
+		cancellation?: CancellationToken,
 	): Promise<GitFileChange[] | undefined> {
 		const args = [];
 		if (options?.untracked) {
@@ -191,7 +198,14 @@ export class StashGitSubProvider implements GitStashSubProvider {
 		}
 
 		const parser = getStashFilesOnlyLogParser();
-		const result = await this.git.exec({ cwd: repoPath }, 'stash', 'show', ...args, ...parser.arguments, ref);
+		const result = await this.git.exec(
+			{ cwd: repoPath, cancellation: cancellation },
+			'stash',
+			'show',
+			...args,
+			...parser.arguments,
+			ref,
+		);
 
 		for (const s of parser.parse(result.stdout)) {
 			return (
@@ -221,7 +235,6 @@ export class StashGitSubProvider implements GitStashSubProvider {
 		return undefined;
 	}
 
-	@gate()
 	@log()
 	async deleteStash(repoPath: string, stashName: string, sha?: string): Promise<void> {
 		await this.deleteStashCore(repoPath, stashName, sha);
@@ -229,6 +242,7 @@ export class StashGitSubProvider implements GitStashSubProvider {
 		this.container.events.fire('git:cache:reset', { repoPath: repoPath, types: ['stashes'] });
 	}
 
+	@gate()
 	private async deleteStashCore(repoPath: string, stashName: string, sha?: string): Promise<string | undefined> {
 		if (!stashName) return undefined;
 
@@ -250,7 +264,6 @@ export class StashGitSubProvider implements GitStashSubProvider {
 		return result.stdout;
 	}
 
-	@gate()
 	@log()
 	async renameStash(
 		repoPath: string,
@@ -318,7 +331,6 @@ export class StashGitSubProvider implements GitStashSubProvider {
 		this.container.events.fire('git:cache:reset', { repoPath: repoPath, types: ['stashes', 'status'] });
 	}
 
-	@gate()
 	@log()
 	async saveSnapshot(repoPath: string, message?: string): Promise<void> {
 		const result = await this.git.exec({ cwd: repoPath }, 'stash', 'create');

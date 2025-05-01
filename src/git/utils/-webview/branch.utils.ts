@@ -1,5 +1,6 @@
 import type { CancellationToken } from 'vscode';
 import type { Container } from '../../../container';
+import { CancellationError } from '../../../errors';
 import type { MaybePausedResult } from '../../../system/promise';
 import { getSettledValue, pauseOnCancelOrTimeout } from '../../../system/promise';
 import type { BranchTargetInfo, GitBranch } from '../../models/branch';
@@ -15,14 +16,18 @@ export async function getBranchTargetInfo(
 	},
 ): Promise<BranchTargetInfo> {
 	const [baseResult, defaultResult, targetResult, userTargetResult] = await Promise.allSettled([
-		container.git.branches(branch.repoPath).getBaseBranchName?.(branch.name),
-		getDefaultBranchName(container, branch.repoPath, branch.getRemoteName()),
+		container.git.branches(branch.repoPath).getBaseBranchName?.(branch.name, options?.cancellation),
+		getDefaultBranchName(container, branch.repoPath, branch.getRemoteName(), {
+			cancellation: options?.cancellation,
+		}),
 		getTargetBranchName(container, branch, {
 			cancellation: options?.cancellation,
 			timeout: options?.timeout,
 		}),
 		container.git.branches(branch.repoPath).getUserMergeTargetBranchName?.(branch.name),
 	]);
+
+	if (options?.cancellation?.isCancellationRequested) throw new CancellationError();
 
 	const baseBranchName = getSettledValue(baseResult);
 	const defaultBranchName = getSettledValue(defaultResult);
@@ -43,10 +48,10 @@ export async function getDefaultBranchName(
 	remoteName?: string,
 	options?: { cancellation?: CancellationToken },
 ): Promise<string | undefined> {
-	const name = await container.git.branches(repoPath).getDefaultBranchName(remoteName);
+	const name = await container.git.branches(repoPath).getDefaultBranchName(remoteName, options?.cancellation);
 	if (name != null) return name;
 
-	const remote = await container.git.remotes(repoPath).getBestRemoteWithIntegration();
+	const remote = await container.git.remotes(repoPath).getBestRemoteWithIntegration(undefined, options?.cancellation);
 	if (remote == null) return undefined;
 
 	const integration = await remote.getIntegration();

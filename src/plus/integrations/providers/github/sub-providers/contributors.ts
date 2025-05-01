@@ -1,3 +1,4 @@
+import type { CancellationToken } from 'vscode';
 import type { Container } from '../../../../../container';
 import type { GitCache } from '../../../../../git/cache';
 import type { GitContributorsSubProvider } from '../../../../../git/gitProvider';
@@ -32,6 +33,7 @@ export class ContributorsGitSubProvider implements GitContributorsSubProvider {
 			since?: string;
 			stats?: boolean;
 		},
+		_cancellation?: CancellationToken,
 	): Promise<GitContributor[]> {
 		if (repoPath == null) return [];
 
@@ -238,7 +240,9 @@ export class ContributorsGitSubProvider implements GitContributorsSubProvider {
 	@log()
 	async getContributorsStats(
 		repoPath: string,
-		_options?: { merges?: boolean | 'first-parent'; since?: string; timeout?: number },
+		_options?: { merges?: boolean | 'first-parent'; since?: string },
+		_cancellation?: CancellationToken,
+		_timeout?: number,
 	): Promise<GitContributorsStats | undefined> {
 		if (repoPath == null) return undefined;
 

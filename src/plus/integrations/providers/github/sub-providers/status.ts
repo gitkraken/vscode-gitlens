@@ -13,7 +13,7 @@ export class StatusGitSubProvider implements GitStatusSubProvider {
 		private readonly provider: GitHubGitProviderInternal,
 	) {}
 
-	@gate()
+	@gate<StatusGitSubProvider['getStatus']>(rp => rp ?? '')
 	@log()
 	async getStatus(repoPath: string | undefined, _cancellation?: CancellationToken): Promise<GitStatus | undefined> {
 		if (repoPath == null) return undefined;

@@ -1108,20 +1108,30 @@ export class GraphWebviewProvider implements WebviewProvider<State, State, Graph
 
 				let cache = true;
 				let commit;
-				switch (msg.params.type) {
-					case 'work-dir-changes':
-						cache = false;
-						commit = await this.container.git.commits(this._graph.repoPath).getCommit(uncommitted);
-						break;
-					case 'stash-node': {
-						const gitStash = await this.container.git.stash(this._graph.repoPath)?.getStash();
-						commit = gitStash?.stashes.get(msg.params.id);
-						break;
+				try {
+					switch (msg.params.type) {
+						case 'work-dir-changes':
+							cache = false;
+							commit = await this.container.git
+								.commits(this._graph.repoPath)
+								.getCommit(uncommitted, cancellation.token);
+							break;
+						case 'stash-node': {
+							const gitStash = await this.container.git
+								.stash(this._graph.repoPath)
+								?.getStash(undefined, cancellation.token);
+							commit = gitStash?.stashes.get(msg.params.id);
+							break;
+						}
+						default: {
+							commit = await this.container.git
+								.commits(this._graph.repoPath)
+								.getCommit(msg.params.id, cancellation.token);
+							break;
+						}
 					}
-					default: {
-						commit = await this.container.git.commits(this._graph.repoPath).getCommit(msg.params.id);
-						break;
-					}
+				} catch (ex) {
+					if (!(ex instanceof CancellationError)) throw ex;
 				}
 
 				if (commit != null && !cancellation.token.isCancellationRequested) {
@@ -1568,25 +1578,20 @@ export class GraphWebviewProvider implements WebviewProvider<State, State, Graph
 			const cancellation = this.createCancellation('search');
 
 			try {
-				search = await this.repository.git.graph().searchGraph(e.search, {
-					limit: configuration.get('graph.searchItemLimit') ?? 100,
-					ordering: configuration.get('graph.commitOrdering'),
-					cancellation: cancellation.token,
-				});
+				search = await this.repository.git.graph().searchGraph(
+					e.search,
+					{
+						limit: configuration.get('graph.searchItemLimit') ?? 100,
+						ordering: configuration.get('graph.commitOrdering'),
+					},
+					cancellation.token,
+				);
 			} catch (ex) {
 				this._search = undefined;
 				throw ex;
-				// return {
-				// 	results: {
-				// 		error: ex instanceof GitSearchError ? 'Invalid search pattern' : 'Unexpected error',
-				// 	},
-				// };
 			}
 
-			if (cancellation.token.isCancellationRequested) {
-				throw new CancellationError();
-				// return { results: undefined };
-			}
+			if (cancellation.token.isCancellationRequested) throw new CancellationError();
 
 			this._search = search;
 		} else {

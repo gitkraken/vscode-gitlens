@@ -1,4 +1,6 @@
+import type { CancellationToken } from 'vscode';
 import type { Container } from '../../../../container';
+import { CancellationError, isCancellationError } from '../../../../errors';
 import type { GitCache } from '../../../../git/cache';
 import type { GitContributorsSubProvider } from '../../../../git/gitProvider';
 import type { GitContributorsStats } from '../../../../git/models/contributor';
@@ -7,7 +9,6 @@ import { getContributorsLogParser } from '../../../../git/parsers/logParser';
 import { calculateContributionScore } from '../../../../git/utils/contributor.utils';
 import { isUncommittedStaged } from '../../../../git/utils/revision.utils';
 import { isUserMatch } from '../../../../git/utils/user.utils';
-import { gate } from '../../../../system/decorators/-webview/gate';
 import { log } from '../../../../system/decorators/log';
 import { Logger } from '../../../../system/logger';
 import { getLogScope } from '../../../../system/logger.scope';
@@ -26,7 +27,6 @@ export class ContributorsGitSubProvider implements GitContributorsSubProvider {
 		private readonly provider: LocalGitProvider,
 	) {}
 
-	@gate()
 	@log()
 	async getContributors(
 		repoPath: string,
@@ -38,6 +38,7 @@ export class ContributorsGitSubProvider implements GitContributorsSubProvider {
 			since?: string;
 			stats?: boolean;
 		},
+		cancellation?: CancellationToken,
 	): Promise<GitContributor[]> {
 		if (repoPath == null) return [];
 
@@ -46,7 +47,10 @@ export class ContributorsGitSubProvider implements GitContributorsSubProvider {
 		const getCore = async (cancellable?: Cancellable) => {
 			try {
 				repoPath = normalizePath(repoPath);
+
 				const currentUser = await this.provider.config.getCurrentUser(repoPath);
+				if (cancellation?.isCancellationRequested) throw new CancellationError();
+
 				const parser = getContributorsLogParser(options?.stats);
 
 				const args = [...parser.arguments, '--use-mailmap'];
@@ -76,7 +80,11 @@ export class ContributorsGitSubProvider implements GitContributorsSubProvider {
 					args.push('--');
 				}
 
-				const result = await this.git.exec({ cwd: repoPath, configs: gitLogDefaultConfigs }, 'log', ...args);
+				const result = await this.git.exec(
+					{ cwd: repoPath, cancellation: cancellation, configs: gitLogDefaultConfigs },
+					'log',
+					...args,
+				);
 
 				const contributors = new Map<string, GitContributor>();
 				const commits = parser.parse(result.stdout);
@@ -155,6 +163,8 @@ export class ContributorsGitSubProvider implements GitContributorsSubProvider {
 				Logger.error(ex, scope);
 				debugger;
 
+				if (isCancellationError(ex)) throw ex;
+
 				return [];
 			}
 		};
@@ -204,7 +214,9 @@ export class ContributorsGitSubProvider implements GitContributorsSubProvider {
 	@log()
 	async getContributorsStats(
 		repoPath: string,
-		options?: { merges?: boolean | 'first-parent'; since?: string; timeout?: number },
+		options?: { merges?: boolean | 'first-parent'; since?: string },
+		cancellation?: CancellationToken,
+		timeout?: number,
 	): Promise<GitContributorsStats | undefined> {
 		if (repoPath == null) return undefined;
 
@@ -224,7 +236,10 @@ export class ContributorsGitSubProvider implements GitContributorsSubProvider {
 				args.push(`--since=${options.since}`);
 			}
 
-			const result = await this.git.exec({ cwd: repoPath, timeout: options?.timeout }, ...args);
+			const result = await this.git.exec(
+				{ cwd: repoPath, cancellation: cancellation, timeout: timeout },
+				...args,
+			);
 			if (!result.stdout) return undefined;
 
 			const contributions = result.stdout
