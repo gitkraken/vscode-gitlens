@@ -1000,6 +1000,16 @@ export class GlBranchCard extends GlBranchCardBase {
 					href=${this.createCommandLink('gitlens.home.openWorktree')}
 				></action-item>`,
 			);
+			// add explain WIP
+			if (this.wip?.workingTreeState != null) {
+				actions.push(
+					html`<action-item
+						label="Explain Changes"
+						icon="sparkle"
+						href=${this.createCommandLink('gitlens.home.explainWip')}
+					></action-item>`,
+				);
+			}
 		} else {
 			actions.push(
 				html`<action-item
