@@ -243,7 +243,14 @@ export function run<T extends number | string>(
 
 			if (error != null) {
 				if (error.signal === 'SIGTERM') {
-					reject(new CancelledRunError(command, true, error.code ?? undefined, error.signal));
+					reject(
+						new CancelledRunError(
+							`${command} ${args.join(' ')}`,
+							true,
+							error.code ?? undefined,
+							error.signal,
+						),
+					);
 
 					return;
 				}
@@ -323,11 +330,11 @@ export function runSpawn<T extends string | Buffer>(
 	return new Promise<RunExitResult | RunResult<T>>((resolve, reject) => {
 		const proc = spawn(command, args, opts);
 
-		const stdoutBuffers: any[] = [];
-		const stderrBuffers: any[] = [];
-
+		const stdoutBuffers: Buffer[] = [];
 		proc.stdout.on('data', (data: Buffer) => stdoutBuffers.push(data));
-		proc.stderr.on('data', (data: Buffer) => stdoutBuffers.push(data));
+
+		const stderrBuffers: Buffer[] = [];
+		proc.stderr.on('data', (data: Buffer) => stderrBuffers.push(data));
 
 		function stdioError(): [stdout: string, stderr: string] {
 			return [Buffer.concat(stdoutBuffers).toString('utf8'), Buffer.concat(stderrBuffers).toString('utf8')];
@@ -338,9 +345,9 @@ export function runSpawn<T extends string | Buffer>(
 			return [decode(Buffer.concat(stdoutBuffers), encoding), decode(Buffer.concat(stderrBuffers), encoding)];
 		}
 
-		proc.on('error', async ex => {
+		proc.once('error', async ex => {
 			if (ex?.name === 'AbortError') {
-				reject(new CancelledRunError(command, true));
+				reject(new CancelledRunError(`${command} ${args.join(' ')}`, true));
 
 				return;
 			}
@@ -353,7 +360,7 @@ export function runSpawn<T extends string | Buffer>(
 			reject(new RunError(ex, stdout, stderr));
 		});
 
-		proc.on('exit', async (code, signal) => {
+		proc.once('exit', async (code, signal) => {
 			if (options?.exitCodeOnly) {
 				resolve({ exitCode: code ?? 0 });
 
@@ -362,7 +369,7 @@ export function runSpawn<T extends string | Buffer>(
 
 			if (code !== 0 || signal) {
 				if (signal === 'SIGTERM') {
-					reject(new CancelledRunError(command, true, code ?? undefined, signal));
+					reject(new CancelledRunError(`${command} ${args.join(' ')}`, true, code ?? undefined, signal));
 
 					return;
 				}
@@ -378,7 +385,11 @@ export function runSpawn<T extends string | Buffer>(
 
 				reject(
 					new RunError(
-						{ message: `Command failed with exit code ${code}`, code: code, signal: signal } as any,
+						{
+							message: `Command failed with exit code ${code}`,
+							code: code,
+							signal: signal ?? undefined,
+						},
 						stdout,
 						stderr,
 					),
