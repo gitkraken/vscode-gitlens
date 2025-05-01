@@ -21,6 +21,7 @@ import { GlDetailsBase } from './gl-details-base';
 import '../../shared/components/actions/action-item';
 import '../../shared/components/actions/action-nav';
 import '../../shared/components/button';
+import '../../shared/components/chips/action-chip';
 import '../../shared/components/code-icon';
 import '../../shared/components/commit/commit-identity';
 import '../../shared/components/commit/commit-stats';
@@ -171,7 +172,7 @@ export class GlCommitDetails extends GlDetailsBase {
 						this.state?.orgSettings.ai !== false,
 						() => html`
 							<div class="message-block-actions">
-								<action-item
+								<gl-action-chip
 									label="Explain this ${this.isStash ? 'Stash' : 'Commit'}"
 									icon="sparkle"
 									data-action="explain-commit"
@@ -179,7 +180,8 @@ export class GlCommitDetails extends GlDetailsBase {
 									?disabled="${this.explainBusy ? true : nothing}"
 									@click=${this.onExplainChanges}
 									@keydown=${this.onExplainChanges}
-								></action-item>
+									><span>explain</span></gl-action-chip
+								>
 							</div>
 						`,
 					)}
