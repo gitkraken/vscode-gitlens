@@ -3,6 +3,7 @@ import { customElement, property, state } from 'lit/decorators.js';
 import { classMap } from 'lit/directives/class-map.js';
 import './code-icon';
 import './overlays/tooltip';
+import { focusableBaseStyles } from './styles/lit/a11y.css';
 
 export type CollapsibleState = 'none' | 'collapsed' | 'expanded';
 
@@ -57,81 +58,90 @@ export class GlBreadcrumbs extends LitElement {
 
 @customElement('gl-breadcrumb-item')
 export class GlBreadcrumbItem extends LitElement {
-	static override styles = css`
-		* {
-			box-sizing: border-box;
-		}
+	static override styles = [
+		focusableBaseStyles,
+		css`
+			* {
+				box-sizing: border-box;
+			}
 
-		:host {
-			display: flex;
-			flex-direction: row;
-			align-items: center;
-			gap: 0.4rem;
-			white-space: nowrap;
-			overflow: hidden;
-			min-width: 0;
-			flex-shrink: var(--gl-breadcrumb-item-shrink, 1);
-		}
+			:host {
+				display: flex;
+				flex-direction: row;
+				align-items: center;
+				gap: 0.4rem;
+				white-space: nowrap;
+				overflow: hidden;
+				min-width: 0;
+				flex-shrink: var(--gl-breadcrumb-item-shrink, 1);
+			}
 
-		:host([icon]) {
-			min-width: calc(24px + 0.6rem);
-		}
+			:host([icon]) {
+				min-width: calc(24px + 0.6rem);
+			}
 
-		:host(:hover) {
-			flex-shrink: 0;
-		}
+			:host(:hover) {
+				flex-shrink: 0;
+			}
 
-		.breadcrumb-item {
-			display: flex;
-			flex-direction: row;
-			align-items: center;
-			gap: 0.4rem;
-			white-space: nowrap;
-			overflow: hidden;
-			min-width: 0;
-			width: 100%;
-		}
+			.breadcrumb-item {
+				display: flex;
+				flex-direction: row;
+				align-items: center;
+				gap: 0.4rem;
+				white-space: nowrap;
+				overflow: hidden;
+				min-width: 0;
+				width: 100%;
+			}
 
-		.breadcrumb-content {
-			display: inline-flex;
-			align-items: center;
-			gap: 0.6rem;
-			vertical-align: middle;
-		}
+			.breadcrumb-content {
+				display: inline-flex;
+				align-items: center;
+				gap: 0.6rem;
+				vertical-align: middle;
+			}
 
-		.breadcrumb-icon {
-			flex-shrink: 0;
-			z-index: 2;
-		}
+			.breadcrumb-icon {
+				flex-shrink: 0;
+				z-index: 2;
+			}
 
-		.collapsible .breadcrumb-icon {
-			cursor: pointer;
-		}
+			.collapsible .breadcrumb-icon {
+				cursor: pointer;
+			}
 
-		.breadcrumb-label {
-			display: inline-block;
-			overflow: hidden;
-			text-overflow: ellipsis;
-			white-space: nowrap;
-			max-width: 100vw;
-			transition: max-width 0.3s cubic-bezier(0.25, 1, 0.5, 1);
-		}
+			.breadcrumb-label {
+				display: inline-block;
+				overflow: hidden;
+				text-overflow: ellipsis;
+				white-space: nowrap;
+				max-width: 100vw;
+				transition: max-width 0.3s cubic-bezier(0.25, 1, 0.5, 1);
+			}
 
-		slot[name='children'] {
-			display: flex;
-			flex-direction: row;
-			align-items: center;
-			gap: 0.4rem;
-			overflow: hidden;
-			max-width: 100vw;
-			transition: max-width 0.3s cubic-bezier(0.25, 1, 0.5, 1);
-		}
+			.breadcrumb-tooltip {
+				display: inline-flex;
+				align-items: center;
+				vertical-align: middle;
+			}
 
-		:host([collapsed]) .breadcrumb-item:not(:hover) .breadcrumb-label,
-		:host([collapsed]) .breadcrumb-item:not(:hover) slot[name='children'] {
-			max-width: 0;
-		}
-	`;
+			slot[name='children'] {
+				display: flex;
+				flex-direction: row;
+				align-items: center;
+				gap: 0.4rem;
+				overflow: hidden;
+				max-width: 100vw;
+				transition: max-width 0.3s cubic-bezier(0.25, 1, 0.5, 1);
+			}
+
+			:host([collapsed]) .breadcrumb-item:not(:hover) .breadcrumb-label,
+			:host([collapsed]) .breadcrumb-item:not(:hover) slot[name='children'] {
+				max-width: 0;
+			}
+		`,
+	];
 
 	@state()
 	private _collapsed: boolean | undefined;
@@ -182,6 +192,7 @@ export class GlBreadcrumbItem extends LitElement {
 								<code-icon
 									class="breadcrumb-icon"
 									icon="${this.icon}"
+									tabindex="0"
 									@click=${collapsible ? this.onToggleCollapse : undefined}
 								></code-icon>
 							</gl-tooltip>
@@ -189,12 +200,13 @@ export class GlBreadcrumbItem extends LitElement {
 								<span><slot></slot></span>
 							</gl-tooltip>
 					  </span>`
-					: html`<gl-tooltip content="${this.tooltip}" placement="bottom">
+					: html`<gl-tooltip class="breadcrumb-tooltip" content="${this.tooltip}" placement="bottom">
 							<span class="breadcrumb-content">
 								${this.icon
 									? html`<code-icon
 											class="breadcrumb-icon"
 											icon="${this.icon}"
+											tabindex="0"
 											@click=${collapsible ? this.onToggleCollapse : undefined}
 									  ></code-icon>`
 									: nothing}
