@@ -2,8 +2,9 @@ import type { Disposable } from 'vscode';
 import { window } from 'vscode';
 import { openAICompatibleProviderDescriptor as provider } from '../../constants.ai';
 import { configuration } from '../../system/-webview/configuration';
-import type { AIActionType, AIModel } from './models/model';
+import type { AIModel } from './models/model';
 import { OpenAICompatibleProviderBase } from './openAICompatibleProviderBase';
+import { isAzureUrl } from './utils/-webview/ai.utils';
 
 type OpenAICompatibleModel = AIModel<typeof provider.id>;
 const models: OpenAICompatibleModel[] = [
@@ -334,6 +335,11 @@ export class OpenAICompatibleProvider extends OpenAICompatibleProviderBase<typeo
 							return;
 						}
 
+						if (isAzureUrl(value)) {
+							input.validationMessage = `Please use the Azure OpenAI provider instead for Azure URLS`;
+							return;
+						}
+
 						resolve(value);
 					}),
 				);
@@ -358,25 +364,8 @@ export class OpenAICompatibleProvider extends OpenAICompatibleProviderBase<typeo
 
 	override async configured(silent: boolean): Promise<boolean> {
 		const url = await this.getOrPromptBaseUrl(silent);
-		if (url == null) return false;
+		if (url == null || isAzureUrl(url)) return false;
 
 		return super.configured(silent);
-	}
-
-	protected override getHeaders<TAction extends AIActionType>(
-		action: TAction,
-		apiKey: string,
-		model: AIModel<typeof provider.id>,
-		url: string,
-	): Record<string, string> | Promise<Record<string, string>> {
-		if (url.includes('.azure.com')) {
-			return {
-				Accept: 'application/json',
-				'Content-Type': 'application/json',
-				'api-key': apiKey,
-			};
-		}
-
-		return super.getHeaders(action, apiKey, model, url);
 	}
 }

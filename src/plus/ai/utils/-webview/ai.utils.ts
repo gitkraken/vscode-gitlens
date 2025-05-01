@@ -162,3 +162,7 @@ export function showPromptTruncationWarning(model: AIModel): void {
 		`The prompt was truncated to fit within the ${getPossessiveForm(model.provider.name)} limits.`,
 	);
 }
+
+export function isAzureUrl(url: string): boolean {
+	return url.includes('.azure.com');
+}
