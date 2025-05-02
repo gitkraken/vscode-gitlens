@@ -274,14 +274,14 @@ export class BranchesGitSubProvider implements GitBranchesSubProvider {
 			);
 			if (mergeBase == null) return undefined;
 
-			const contributors = await this.provider.contributors.getContributors(
+			const result = await this.provider.contributors.getContributors(
 				repoPath,
 				createRevisionRange(mergeBase, ref, '..'),
 				{ stats: true },
 				cancellation,
 			);
 
-			sortContributors(contributors, { orderBy: 'score:desc' });
+			sortContributors(result.contributors, { orderBy: 'score:desc' });
 
 			let totalCommits = 0;
 			let totalFiles = 0;
@@ -290,7 +290,7 @@ export class BranchesGitSubProvider implements GitBranchesSubProvider {
 			let firstCommitTimestamp;
 			let latestCommitTimestamp;
 
-			for (const c of contributors) {
+			for (const c of result.contributors) {
 				totalCommits += c.contributionCount;
 				totalFiles += c.stats?.files ?? 0;
 				totalAdditions += c.stats?.additions ?? 0;
@@ -326,7 +326,7 @@ export class BranchesGitSubProvider implements GitBranchesSubProvider {
 				latestCommitDate: latestCommitTimestamp != null ? new Date(latestCommitTimestamp) : undefined,
 				firstCommitDate: firstCommitTimestamp != null ? new Date(firstCommitTimestamp) : undefined,
 
-				contributors: contributors,
+				contributors: result.contributors,
 			};
 		} catch (ex) {
 			Logger.error(ex, scope);

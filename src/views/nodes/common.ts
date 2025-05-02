@@ -1,8 +1,9 @@
-import type { Command, Uri } from 'vscode';
-import { TreeItem, TreeItemCollapsibleState } from 'vscode';
+import type { Command, Disposable, Uri } from 'vscode';
+import { commands, TreeItem, TreeItemCollapsibleState } from 'vscode';
 import { GlyphChars } from '../../constants';
 import { unknownGitUri } from '../../git/gitUri';
 import { configuration } from '../../system/-webview/configuration';
+import { isPromise } from '../../system/promise';
 import type { View } from '../viewBase';
 import type { PageableViewNode } from './abstract/viewNode';
 import { ContextValues, ViewNode } from './abstract/viewNode';
@@ -11,12 +12,12 @@ export class MessageNode extends ViewNode<'message'> {
 	constructor(
 		view: View,
 		protected override readonly parent: ViewNode,
-		private readonly message: string,
-		private readonly description?: string,
-		private readonly tooltip?: string,
-		private readonly iconPath?: TreeItem['iconPath'],
-		private readonly contextValue?: string,
-		private readonly resourceUri?: Uri,
+		protected message: string,
+		protected description?: string,
+		protected tooltip?: string,
+		protected iconPath?: TreeItem['iconPath'],
+		protected contextValue?: string,
+		protected resourceUri?: Uri,
 	) {
 		super('message', unknownGitUri, view, parent);
 	}
@@ -59,15 +60,61 @@ export class CommandMessageNode extends MessageNode {
 
 	override getTreeItem(): TreeItem | Promise<TreeItem> {
 		const item = super.getTreeItem();
-		if (item instanceof TreeItem) {
-			item.command = this._command;
-			return item;
+		if (isPromise(item)) {
+			return item.then(i => {
+				i.command = this._command;
+				return i;
+			});
 		}
 
-		return item.then(i => {
-			i.command = this._command;
-			return i;
-		});
+		item.command = this._command;
+		return item;
+	}
+
+	override getCommand(): Command | undefined {
+		return this._command;
+	}
+}
+
+export class ActionMessageNode extends CommandMessageNode {
+	private readonly _disposable: Disposable;
+
+	constructor(
+		view: View,
+		parent: ViewNode,
+		action: (node: ActionMessageNode) => void | Promise<void>,
+		message: string,
+		description?: string,
+		tooltip?: string,
+		iconPath?: TreeItem['iconPath'],
+		contextValue?: string,
+		resourceUri?: Uri,
+	) {
+		const command = { command: `gitlens.node.action:${Date.now()}`, title: 'Execute action' };
+		super(view, parent, command, message, description, tooltip, iconPath, contextValue, resourceUri);
+
+		this._disposable = commands.registerCommand(command.command, action.bind(undefined, this));
+	}
+
+	override dispose(): void {
+		this._disposable.dispose();
+	}
+
+	update(options: {
+		message?: string;
+		description?: string | null;
+		tooltip?: string | null;
+		iconPath?: TreeItem['iconPath'] | null;
+		contextValue?: string | null;
+		resourceUri?: Uri | null;
+	}): void {
+		this.message = options.message ?? this.message;
+		this.description = options.description === null ? undefined : options.description ?? this.description;
+		this.tooltip = options.tooltip === null ? undefined : options.tooltip ?? this.tooltip;
+		this.iconPath = options.iconPath === null ? undefined : options.iconPath ?? this.iconPath;
+		this.contextValue = options.contextValue === null ? undefined : options.contextValue ?? this.contextValue;
+		this.resourceUri = options.resourceUri === null ? undefined : options.resourceUri ?? this.resourceUri;
+		this.view.triggerNodeChange(this);
 	}
 }
 

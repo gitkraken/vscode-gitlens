@@ -9,7 +9,7 @@ import type { ViewsWithContributorsNode } from '../viewBase';
 import { CacheableChildrenViewNode } from './abstract/cacheableChildrenViewNode';
 import type { ViewNode } from './abstract/viewNode';
 import { ContextValues, getViewNodeId } from './abstract/viewNode';
-import { MessageNode } from './common';
+import { ActionMessageNode, MessageNode } from './common';
 import { ContributorNode } from './contributorNode';
 
 export class ContributorsNode extends CacheableChildrenViewNode<
@@ -63,25 +63,66 @@ export class ContributorsNode extends CacheableChildrenViewNode<
 
 			const stats = this.options?.stats ?? configuration.get('views.contributors.showStatistics');
 
-			const contributors = await this.repo.git.contributors().getContributors(rev, {
-				all: all,
-				merges: this.options?.showMergeCommits,
-				stats: stats,
-			});
-			if (contributors.length === 0) return [new MessageNode(this.view, this, 'No contributors could be found.')];
+			let timeout: number;
+			const overrideMaxWait = this.getState('overrideMaxWait');
+			if (overrideMaxWait) {
+				timeout = overrideMaxWait;
+				this.deleteState('overrideMaxWait');
+			} else {
+				timeout = configuration.get('views.contributors.maxWait') * 1000;
+			}
 
-			sortContributors(contributors);
-			const presenceMap = this.view.container.vsls.active ? await this.getPresenceMap(contributors) : undefined;
+			const result = await this.repo.git
+				.contributors()
+				.getContributors(
+					rev,
+					{ all: all, merges: this.options?.showMergeCommits, stats: stats },
+					undefined,
+					timeout || undefined,
+				);
+			if (!result.contributors.length) {
+				return [new MessageNode(this.view, this, 'No contributors could be found.')];
+			}
 
-			this.children = contributors.map(
-				c =>
+			const children: ContributorNode[] = [];
+			if (result.cancelled) {
+				children.push(
+					new ActionMessageNode(
+						this.view,
+						this,
+						n => {
+							n.update({
+								iconPath: new ThemeIcon('loading~spin'),
+								message: 'Loading contributors...',
+								description: `waiting for ${(timeout * 2) / 1000}s`,
+								tooltip: null,
+							});
+							this.storeState('overrideMaxWait', timeout * 2);
+							void this.triggerChange(true);
+						},
+						stats ? 'Showing incomplete contributors and statistics' : 'Showing incomplete contributors',
+						result.cancelled.reason === 'timedout' ? `timed out after ${timeout / 1000}s` : 'cancelled',
+						'Click to retry and wait longer for contributors',
+					) as unknown as ContributorNode,
+				);
+			}
+
+			sortContributors(result.contributors);
+			const presenceMap = this.view.container.vsls.active
+				? await this.getPresenceMap(result.contributors)
+				: undefined;
+
+			for (const c of result.contributors) {
+				children.push(
 					new ContributorNode(this.uri, this.view, this, c, {
 						all: all,
 						ref: rev,
 						presence: presenceMap,
 						showMergeCommits: this.options?.showMergeCommits,
 					}),
-			);
+				);
+			}
+			this.children = children;
 		}
 
 		return this.children;

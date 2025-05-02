@@ -5,7 +5,7 @@ import { log } from '../system/decorators/log';
 import type { PromiseOrValue } from '../system/promise';
 import type { PromiseCache } from '../system/promiseCache';
 import { PathTrie } from '../system/trie';
-import type { CachedGitTypes, GitDir, PagedResult } from './gitProvider';
+import type { CachedGitTypes, GitContributorsResult, GitDir, PagedResult } from './gitProvider';
 import type { GitBranch } from './models/branch';
 import type { GitContributor } from './models/contributor';
 import type { GitPausedOperationStatus } from './models/pausedOperationStatus';
@@ -78,10 +78,17 @@ export class GitCache implements Disposable {
 			: undefined;
 	}
 
-	private _contributorsCache: Map<RepoPath, PromiseCache<string, GitContributor[]>> | undefined;
-	get contributors(): Map<RepoPath, PromiseCache<string, GitContributor[]>> | undefined {
+	private _contributorsCache: Map<RepoPath, PromiseCache<string, GitContributorsResult>> | undefined;
+	get contributors(): Map<RepoPath, PromiseCache<string, GitContributorsResult>> | undefined {
 		return this.useCaching
-			? (this._contributorsCache ??= new Map<RepoPath, PromiseCache<string, GitContributor[]>>())
+			? (this._contributorsCache ??= new Map<RepoPath, PromiseCache<string, GitContributorsResult>>())
+			: undefined;
+	}
+
+	private _contributorsLiteCache: Map<RepoPath, PromiseCache<string, GitContributor[]>> | undefined;
+	get contributorsLite(): Map<RepoPath, PromiseCache<string, GitContributor[]>> | undefined {
+		return this.useCaching
+			? (this._contributorsLiteCache ??= new Map<RepoPath, PromiseCache<string, GitContributor[]>>())
 			: undefined;
 	}
 
@@ -141,6 +148,7 @@ export class GitCache implements Disposable {
 
 		if (!types.length || types.includes('contributors')) {
 			cachesToClear.add(this._contributorsCache);
+			cachesToClear.add(this._contributorsLiteCache);
 		}
 
 		if (!types.length || types.includes('remotes')) {
@@ -191,6 +199,8 @@ export class GitCache implements Disposable {
 		this._branchesCache = undefined;
 		this._contributorsCache?.clear();
 		this._contributorsCache = undefined;
+		this._contributorsLiteCache?.clear();
+		this._contributorsLiteCache = undefined;
 		this._pausedOperationStatusCache?.clear();
 		this._pausedOperationStatusCache = undefined;
 		this._remotesCache?.clear();

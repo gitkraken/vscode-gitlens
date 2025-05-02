@@ -2,10 +2,11 @@ import type { CancellationToken } from 'vscode';
 import type { Container } from '../../../../container';
 import { CancellationError, isCancellationError } from '../../../../errors';
 import type { GitCache } from '../../../../git/cache';
-import type { GitContributorsSubProvider } from '../../../../git/gitProvider';
+import type { GitContributorsResult, GitContributorsSubProvider } from '../../../../git/gitProvider';
 import type { GitContributorsStats } from '../../../../git/models/contributor';
 import { GitContributor } from '../../../../git/models/contributor';
 import { getContributorsLogParser } from '../../../../git/parsers/logParser';
+import { parseShortlog } from '../../../../git/parsers/shortlogParser';
 import { calculateContributionScore } from '../../../../git/utils/contributor.utils';
 import { isUncommittedStaged } from '../../../../git/utils/revision.utils';
 import { isUserMatch } from '../../../../git/utils/user.utils';
@@ -39,12 +40,15 @@ export class ContributorsGitSubProvider implements GitContributorsSubProvider {
 			stats?: boolean;
 		},
 		cancellation?: CancellationToken,
-	): Promise<GitContributor[]> {
-		if (repoPath == null) return [];
+		timeout?: number,
+	): Promise<GitContributorsResult> {
+		if (repoPath == null) return { contributors: [] };
 
 		const scope = getLogScope();
 
-		const getCore = async (cancellable?: Cancellable) => {
+		const getCore = async (cancellable?: Cancellable): Promise<GitContributorsResult> => {
+			const contributors = new Map<string, GitContributor>();
+
 			try {
 				repoPath = normalizePath(repoPath);
 
@@ -80,15 +84,20 @@ export class ContributorsGitSubProvider implements GitContributorsSubProvider {
 					args.push('--');
 				}
 
-				const result = await this.git.exec(
-					{ cwd: repoPath, cancellation: cancellation, configs: gitLogDefaultConfigs },
+				const signal = timeout ? AbortSignal.timeout(timeout) : undefined;
+
+				const stream = this.git.stream(
+					{ cwd: repoPath, cancellation: cancellation, configs: gitLogDefaultConfigs, signal: signal },
 					'log',
 					...args,
 				);
 
-				const contributors = new Map<string, GitContributor>();
-				const commits = parser.parse(result.stdout);
-				for (const c of commits) {
+				for await (const c of parser.parseAsync(stream)) {
+					if (signal?.aborted) {
+						// cancellable?.cancel();
+						break;
+					}
+
 					const key = `${c.author}|${c.email}`;
 					const timestamp = Number(c.date) * 1000;
 
@@ -157,15 +166,21 @@ export class ContributorsGitSubProvider implements GitContributorsSubProvider {
 					}
 				}
 
-				return [...contributors.values()];
+				return {
+					contributors: [...contributors.values()],
+					cancelled: signal?.aborted
+						? { reason: 'timedout' }
+						: cancellation?.isCancellationRequested
+						  ? { reason: 'cancelled' }
+						  : undefined,
+				};
 			} catch (ex) {
 				cancellable?.cancel();
 				Logger.error(ex, scope);
 				debugger;
 
-				if (isCancellationError(ex)) throw ex;
-
-				return [];
+				if (!isCancellationError(ex)) return { contributors: [] };
+				return { contributors: [...contributors.values()], cancelled: { reason: 'cancelled' } };
 			}
 		};
 
@@ -191,6 +206,94 @@ export class ContributorsGitSubProvider implements GitContributorsSubProvider {
 		}
 		if (options?.stats) {
 			cacheKey += ':stats';
+		}
+		if (timeout) {
+			cacheKey += `:timeout=${timeout}`;
+			customCacheTTL = timeout * 2;
+		}
+
+		let contributorsCache = cache.get(repoPath);
+		if (contributorsCache == null) {
+			cache.set(
+				repoPath,
+				(contributorsCache = new PromiseCache<string, GitContributorsResult>({
+					accessTTL: 1000 * 60 * 60 /* 60 minutes */,
+				})),
+			);
+		}
+
+		const contributors = contributorsCache.get(
+			cacheKey,
+			getCore,
+			customCacheTTL ? { accessTTL: customCacheTTL } : undefined,
+		);
+		return contributors;
+	}
+
+	@log()
+	async getContributorsLite(
+		repoPath: string,
+		rev?: string | undefined,
+		options?: { all?: boolean; merges?: boolean | 'first-parent'; since?: string },
+		cancellation?: CancellationToken,
+	): Promise<GitContributor[]> {
+		if (repoPath == null) return [];
+
+		const scope = getLogScope();
+
+		if (!rev || isUncommittedStaged(rev)) {
+			rev = undefined;
+			options = { ...options, all: true };
+		}
+
+		const getCore = async (cancellable?: Cancellable) => {
+			try {
+				// eventually support `--group=author --group=trailer:co-authored-by`
+				const args = ['shortlog', '-s', '-e', '-n'];
+
+				if (options?.all) {
+					args.push('--all');
+				}
+				const merges = options?.merges ?? true;
+				if (merges) {
+					args.push(merges === 'first-parent' ? '--first-parent' : '--no-min-parents');
+				} else {
+					args.push('--no-merges');
+				}
+				if (options?.since) {
+					args.push(`--since=${options.since}`);
+				}
+				if (rev) {
+					args.push(rev);
+				}
+
+				const currentUserPromise = this.provider.config.getCurrentUser(repoPath).catch(() => undefined);
+				const result = await this.git.exec({ cwd: repoPath, cancellation: cancellation }, ...args);
+				if (!result.stdout) return [];
+
+				const shortlog = parseShortlog(result.stdout, repoPath, await currentUserPromise);
+				return shortlog.contributors;
+			} catch (ex) {
+				cancellable?.cancel();
+				Logger.error(ex, scope);
+				debugger;
+
+				return [];
+			}
+		};
+
+		const cache = this.cache.contributorsLite;
+		if (cache == null) return getCore();
+
+		let customCacheTTL;
+
+		let cacheKey = `lite${rev ? `:${rev}` : ''}`;
+		if (options?.merges) {
+			cacheKey += `:merges=${options.merges}`;
+		}
+		if (options?.since) {
+			cacheKey += `:since=${options.since}`;
+			customCacheTTL = 1000 * 60 * 5; // 5 minutes
 		}
 
 		let contributorsCache = cache.get(repoPath);
