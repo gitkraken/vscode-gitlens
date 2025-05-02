@@ -95,12 +95,7 @@ export function makeHierarchical<T>(
 	compact: boolean = false,
 	canCompact?: (i: T) => boolean,
 ): HierarchicalItem<T> {
-	const seed = {
-		name: '',
-		relativePath: '',
-		children: new Map(),
-		descendants: [],
-	};
+	const seed = { name: '', relativePath: '', children: new Map(), descendants: [] };
 
 	let hierarchy = values.reduce((root: HierarchicalItem<T>, value) => {
 		let folder = root;
@@ -109,12 +104,9 @@ export function makeHierarchical<T>(
 		for (const folderName of splitPath(value)) {
 			relativePath = joinPath(relativePath, folderName);
 
-			if (folder.children === undefined) {
-				folder.children = new Map();
-			}
-
+			folder.children ??= new Map();
 			let f = folder.children.get(folderName);
-			if (f === undefined) {
+			if (f == null) {
 				f = {
 					name: folderName,
 					relativePath: relativePath,
@@ -125,9 +117,7 @@ export function makeHierarchical<T>(
 				folder.children.set(folderName, f);
 			}
 
-			if (folder.descendants === undefined) {
-				folder.descendants = [];
-			}
+			folder.descendants ??= [];
 			folder.descendants.push(value);
 			folder = f;
 		}
@@ -150,21 +140,28 @@ export function compactHierarchy<T>(
 	isRoot: boolean = true,
 	canCompact?: (i: T) => boolean,
 ): HierarchicalItem<T> {
-	if (root.children === undefined) return root;
+	if (root.children == null) return root;
 
 	const children = [...root.children.values()];
 	for (const child of children) {
 		compactHierarchy(child, joinPath, false, canCompact);
 	}
 
-	if (!isRoot && children.length === 1) {
+	if (!isRoot && root.value == null && children.length === 1) {
 		const child = children[0];
-		if (child.value === undefined || canCompact?.(child.value)) {
+		if (child.value == null || canCompact?.(child.value)) {
 			root.name = joinPath(root.name, child.name);
 			root.relativePath = child.relativePath;
 			root.children = child.children;
 			root.descendants = child.descendants;
 			root.value = child.value;
+
+			// Update the parent pointer for the new children if they exist
+			if (root.children != null) {
+				for (const grandChild of root.children.values()) {
+					grandChild.parent = root;
+				}
+			}
 		}
 	}
 

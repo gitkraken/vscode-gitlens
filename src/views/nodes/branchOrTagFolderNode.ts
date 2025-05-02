@@ -1,6 +1,7 @@
 import { ThemeIcon, TreeItem, TreeItemCollapsibleState } from 'vscode';
 import { GitUri } from '../../git/gitUri';
 import type { HierarchicalItem } from '../../system/array';
+import { first } from '../../system/iterable';
 import type { View } from '../viewBase';
 import { ContextValues, getViewNodeId, ViewNode } from './abstract/viewNode';
 import type { BranchNode } from './branchNode';
@@ -32,12 +33,29 @@ export class BranchOrTagFolderNode extends ViewNode<'branch-tag-folder'> {
 	}
 
 	getChildren(): ViewNode[] {
-		if (this.root.descendants === undefined || this.root.children === undefined) return [];
+		if (this.root.descendants == null || this.root.children == null) return [];
 
 		const children: (BranchOrTagFolderNode | BranchNode | TagNode | WorktreeNode)[] = [];
 
 		for (const folder of this.root.children.values()) {
-			if (folder.value === undefined) {
+			if (folder.value != null) {
+				// Make sure to set the parent
+				folder.value.parent = this.folderName ? this : this.parent;
+				children.push(folder.value);
+			}
+
+			if (!folder.children?.size) continue;
+			if (folder.children.size === 1) {
+				const child = first(folder.children.values());
+				if (child?.value != null) {
+					// Make sure to set the parent
+					child.value.parent = this.folderName ? this : this.parent;
+					if ('compacted' in child.value && typeof child.value.compacted === 'boolean') {
+						child.value.compacted = true;
+					}
+					children.push(child.value);
+				}
+			} else {
 				// If the folder contains the current branch or an active worktree, expand it by default
 				const expand = folder.descendants?.some(
 					n =>
@@ -56,12 +74,7 @@ export class BranchOrTagFolderNode extends ViewNode<'branch-tag-folder'> {
 						expand,
 					),
 				);
-				continue;
 			}
-
-			// Make sure to set the parent
-			folder.value.parent = this.folderName ? this : this.parent;
-			children.push(folder.value);
 		}
 
 		return children;
