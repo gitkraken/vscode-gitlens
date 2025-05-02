@@ -45,10 +45,9 @@ export class FolderNode extends ViewNode<'folder', ViewsWithCommits | StashesVie
 	}
 
 	getChildren(): (FolderNode | FileNode)[] {
-		if (!this.root.descendants?.length || !this.root.children?.size) return [];
+		if (this.root.descendants == null || this.root.children == null) return [];
 
 		let children: (FolderNode | FileNode)[];
-		const { compact } = this.view.config.files;
 
 		const nesting = FolderNode.getFileNesting(
 			this.view.config.files,
@@ -69,7 +68,7 @@ export class FolderNode extends ViewNode<'folder', ViewsWithCommits | StashesVie
 				}
 
 				if (!folder.children?.size) continue;
-				if (folder.children.size === 1 && compact) {
+				if (folder.children.size === 1) {
 					const child = first(folder.children.values());
 					if (child?.value != null) {
 						// Make sure to set the parent
