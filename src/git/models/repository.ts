@@ -1033,7 +1033,7 @@ export class Repository implements Disposable {
 			e = { ...e, uris: new UriSet(uris) };
 		}
 
-		using scope = startLogScope(`${getLoggableName(this)}.fireChangeCore`, false);
+		using scope = startLogScope(`${getLoggableName(this)}.fireFileSystemChangeCore`, false);
 		Logger.debug(
 			scope,
 			`firing fs changes=${join(
