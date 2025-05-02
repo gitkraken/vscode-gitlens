@@ -13,16 +13,6 @@ export function git(_options: GitCommandOptions, ..._args: any[]): Promise<GitRe
 	return Promise.resolve({ stdout: '', exitCode: 0 });
 }
 
-export function gitLogStreamTo(
-	_repoPath: string,
-	_sha: string,
-	_limit: number,
-	_options?: { configs?: readonly string[]; stdin?: string },
-	..._args: string[]
-): Promise<[data: string[], count: number]> {
-	return Promise.resolve([[''], 0]);
-}
-
 export function getSupportedGitProviders(container: Container): Promise<GitProvider[]> {
 	return Promise.resolve([new GitHubGitProvider(container)]);
 }

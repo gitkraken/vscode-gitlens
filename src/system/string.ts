@@ -112,6 +112,21 @@ export function compareSubstringIgnoreCase(
 	return 0;
 }
 
+export function countOccurrences(s: string, search: string): number {
+	let count = 0;
+	let position = 0;
+
+	while (true) {
+		position = s.indexOf(search, position);
+		if (position === -1) break;
+
+		count++;
+		position += search.length;
+	}
+
+	return count;
+}
+
 export function encodeHtmlWeak(s: string): string;
 export function encodeHtmlWeak(s: string | undefined): string | undefined;
 export function encodeHtmlWeak(s: string | undefined): string | undefined {

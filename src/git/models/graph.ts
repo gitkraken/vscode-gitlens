@@ -7,6 +7,7 @@ import type {
 	RowStats,
 	Tag,
 } from '@gitkraken/gitkraken-components';
+import type { CancellationToken } from 'vscode';
 import type { GitBranch } from './branch';
 import type { GitStashCommit } from './commit';
 import type { GitRemote } from './remote';
@@ -66,7 +67,7 @@ export interface GitGraph {
 		readonly hasMore: boolean;
 	};
 
-	more?(limit: number, id?: string): Promise<GitGraph | undefined>;
+	more?(limit: number, id?: string, cancellation?: CancellationToken): Promise<GitGraph | undefined>;
 }
 
 export type GitGraphRowsStats = Map<string, GitGraphRowStats>;

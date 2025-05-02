@@ -1,4 +1,3 @@
-import type { ChildProcess } from 'child_process';
 import { Uri } from 'vscode';
 import { Schemes } from '../../../constants';
 import { Container } from '../../../container';
@@ -34,25 +33,16 @@ export class VslsGit extends Git {
 		return guest.git<T>(options, ...args);
 	}
 
-	override spawn(_options: GitSpawnOptions, ..._args: any[]): Promise<ChildProcess> {
-		debugger;
-		throw new Error('Git spawn not supported in Live Share');
-	}
-
-	override async logStreamTo(
-		repoPath: string,
-		sha: string,
-		limit: number,
-		options?: { configs?: readonly string[]; stdin?: string },
-		...args: string[]
-	): Promise<[data: string[], count: number]> {
+	override async *stream(options: GitSpawnOptions, ...args: readonly (string | undefined)[]): AsyncGenerator<string> {
 		const guest = await Container.instance.vsls.guest();
 		if (guest == null) {
 			debugger;
 			throw new Error('No guest');
 		}
 
-		return guest.gitLogStreamTo(repoPath, sha, limit, options, ...args);
+		// TOTAL HACK for now -- makes it looks like a stream
+		const result = await guest.git<string>(options, ...args);
+		yield result.stdout;
 	}
 }
 

@@ -455,7 +455,11 @@ export class GraphGitSubProvider implements GitGraphSubProvider {
 				startingCursor: log.startingCursor,
 				hasMore: log.hasMore,
 			},
-			more: async (limit: number | { until: string } | undefined): Promise<GitGraph | undefined> => {
+			more: async (
+				limit: number | undefined,
+				_sha?: string,
+				_cancellation?: CancellationToken,
+			): Promise<GitGraph | undefined> => {
 				const moreLog = await log.more?.(limit);
 				return this.getGraphCore(
 					repoPath,

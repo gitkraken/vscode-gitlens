@@ -73,18 +73,14 @@ export class GraphGitSubProvider implements GitGraphSubProvider {
 		repoPath: string,
 		rev: string | undefined,
 		asWebviewUri: (uri: Uri) => Uri,
-		options?: {
-			include?: { stats?: boolean };
-			limit?: number;
-		},
+		options?: { include?: { stats?: boolean }; limit?: number },
 		cancellation?: CancellationToken,
 	): Promise<GitGraph> {
 		const defaultLimit = options?.limit ?? configuration.get('graph.defaultItemLimit') ?? 5000;
-		const defaultPageLimit = configuration.get('graph.pageItemLimit') ?? 1000;
 		const ordering = configuration.get('graph.commitOrdering', undefined, 'date');
 		const onlyFollowFirstParent = configuration.get('graph.onlyFollowFirstParent', undefined, false);
 
-		const deferStats = options?.include?.stats; // && defaultLimit > 1000;
+		const deferStats = options?.include?.stats;
 
 		const parser = getGraphParser(options?.include?.stats && !deferStats);
 		const shaParser = getShaLogParser();
@@ -148,6 +144,14 @@ export class GraphGitSubProvider implements GitGraphSubProvider {
 		let iterations = 0;
 		let pendingRowsStatsCount = 0;
 
+		const args = ['log', ...parser.arguments, `--${ordering}-order`, '--all'];
+		if (stdin) {
+			args.push('--stdin');
+		}
+		if (onlyFollowFirstParent) {
+			args.push('--first-parent');
+		}
+
 		async function getCommitsForGraphCore(
 			this: GraphGitSubProvider,
 			limit: number,
@@ -156,94 +160,14 @@ export class GraphGitSubProvider implements GitGraphSubProvider {
 			cancellation?: CancellationToken,
 		): Promise<GitGraph> {
 			const startTotal = total;
-
 			iterations++;
 
-			let log: string | string[] | undefined;
-			let nextPageLimit = limit;
-			let size;
-
-			do {
-				const args = [...parser.arguments, `--${ordering}-order`, '--all'];
-				if (onlyFollowFirstParent) {
-					args.push('--first-parent');
-				}
-				if (cursor?.skip) {
-					args.push(`--skip=${cursor.skip}`);
-				}
-
-				let data;
-				if (sha) {
-					[data, limit] = await this.git.logStreamTo(
-						repoPath,
-						sha,
-						limit,
-						{ cancellation: cancellation, configs: gitLogDefaultConfigs, stdin: stdin },
-						...args,
-					);
-				} else {
-					args.push(`-n${nextPageLimit + 1}`);
-
-					const result = await this.git.exec(
-						{ cwd: repoPath, cancellation: cancellation, configs: gitLogDefaultConfigs, stdin: stdin },
-						'log',
-						stdin ? '--stdin' : undefined,
-						...args,
-						'--',
-					);
-					data = result.stdout;
-
-					if (cursor) {
-						if (data.includes(`${parser.separators.record}${cursor.sha}${parser.separators.record}`)) {
-							// If we didn't find any new commits, we must have them all so return that we have everything
-							if (size === data.length) {
-								return {
-									repoPath: repoPath,
-									avatars: avatars,
-									ids: ids,
-									includes: options?.include,
-									branches: branchMap,
-									remotes: remoteMap,
-									downstreams: downstreamMap,
-									stashes: stashes,
-									worktrees: worktrees,
-									worktreesByBranch: worktreesByBranch,
-									rows: [],
-								};
-							}
-
-							size = data.length;
-							nextPageLimit = (nextPageLimit === 0 ? defaultPageLimit : nextPageLimit) * 2;
-							cursor.skip -= Math.floor(cursor.skip * 0.1);
-
-							continue;
-						}
-					}
-				}
-
-				if (!data) {
-					return {
-						repoPath: repoPath,
-						avatars: avatars,
-						ids: ids,
-						includes: options?.include,
-						branches: branchMap,
-						remotes: remoteMap,
-						downstreams: downstreamMap,
-						stashes: stashes,
-						worktrees: worktrees,
-						worktreesByBranch: worktreesByBranch,
-						rows: [],
-					};
-				}
-
-				log = data;
-				if (limit !== 0) {
-					limit = nextPageLimit;
-				}
-
-				break;
-			} while (true);
+			const stream = this.git.stream(
+				{ cwd: repoPath, cancellation: cancellation, configs: gitLogDefaultConfigs, stdin: stdin },
+				...args,
+				cursor?.skip ? `--skip=${cursor.skip}` : undefined,
+				'--',
+			);
 
 			const rows: GitGraphRow[] = [];
 
@@ -282,9 +206,20 @@ export class GraphGitSubProvider implements GitGraphSubProvider {
 			let tip: string;
 
 			let count = 0;
+			let found = false;
+			let hasMore = false;
 
-			const commits = parser.parse(log);
-			for (const commit of commits) {
+			// const commits = parser.parse(log);
+			for await (const commit of parser.parseAsync(stream)) {
+				if (count > limit && (!sha || (sha && found))) {
+					hasMore = true;
+					break;
+				}
+
+				if (sha && !found && commit.sha === sha) {
+					found = true;
+				}
+
 				count++;
 				if (ids.has(commit.sha)) continue;
 
@@ -567,13 +502,7 @@ export class GraphGitSubProvider implements GitGraphSubProvider {
 
 			const startingCursor = cursor?.sha;
 			const lastSha = last(ids);
-			cursor =
-				lastSha != null
-					? {
-							sha: lastSha,
-							skip: total - iterations,
-					  }
-					: undefined;
+			cursor = lastSha != null ? { sha: lastSha, skip: total - iterations } : undefined;
 
 			let rowsStatsDeferred: GitGraph['rowsStatsDeferred'];
 
@@ -633,14 +562,16 @@ export class GraphGitSubProvider implements GitGraphSubProvider {
 				id: sha,
 				rowsStats: rowStats,
 				rowsStatsDeferred: rowsStatsDeferred,
-
 				paging: {
 					limit: limit === 0 ? count : limit,
 					startingCursor: startingCursor,
-					hasMore: limit !== 0 && count > limit,
+					hasMore: hasMore,
 				},
-				more: async (limit: number, sha?: string): Promise<GitGraph | undefined> =>
-					getCommitsForGraphCore.call(this, limit, sha, cursor),
+				more: async (
+					limit: number,
+					sha?: string,
+					cancellation?: CancellationToken,
+				): Promise<GitGraph | undefined> => getCommitsForGraphCore.call(this, limit, sha, cursor, cancellation),
 			};
 		}
 
@@ -782,26 +713,14 @@ export class GraphGitSubProvider implements GitGraphSubProvider {
 
 				count = total - count;
 				const lastSha = last(results)?.[0];
-				cursor =
-					lastSha != null
-						? {
-								sha: lastSha,
-								skip: total,
-						  }
-						: undefined;
+				cursor = lastSha != null ? { sha: lastSha, skip: total } : undefined;
 
 				return {
 					repoPath: repoPath,
 					query: search,
 					comparisonKey: comparisonKey,
 					results: results,
-					paging:
-						limit !== 0 && count > limit
-							? {
-									limit: limit,
-									hasMore: true,
-							  }
-							: undefined,
+					paging: limit !== 0 && count > limit ? { limit: limit, hasMore: true } : undefined,
 					more: async (limit: number): Promise<GitGraphSearch> =>
 						searchForCommitsCore.call(this, limit, cursor),
 				};

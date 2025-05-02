@@ -187,7 +187,7 @@ type LogParser<T> = AsyncParser<LogParsedEntry<T>>;
 type LogParserWithFiles<T> = AsyncParser<LogParsedEntryWithFiles<T>>;
 type LogParserWithFilesAndStats<T> = AsyncParser<LogParsedEntryWithFilesAndStats<T>>;
 type LogParserWithFileSummary<T> = Parser<LogParsedEntryWithFiles<T>>;
-type LogParserWithStats<T> = Parser<LogParsedEntryWithStats<T>>;
+type LogParserWithStats<T> = AsyncParser<LogParsedEntryWithStats<T>>;
 
 // Parsed entry types
 type LogParsedEntry<T> = { [K in keyof T]: string } & { files?: never; stats?: never };
@@ -990,9 +990,53 @@ function createLogParserWithStats<T extends Record<string, string>>(
 		sw?.stop({ suffix: ` parsed ${count} records` });
 	}
 
+	async function* parseAsync(stream: AsyncGenerator<string>): AsyncGenerator<LogParsedEntryWithStats<T>> {
+		using sw = maybeStopWatch('Git.LogParserWithStats.parseAsync', { log: false, logLevel: 'debug' });
+
+		const records = iterateAsyncByDelimiter(stream, recordSep);
+
+		let count = 0;
+		let entry: LogParsedEntryWithStats<T>;
+		let fields: IterableIterator<string>;
+
+		for await (const record of records) {
+			if (!record.length) continue;
+
+			count++;
+			entry = {} as unknown as LogParsedEntryWithStats<T>;
+			fields = iterateByDelimiter(record, fieldSep);
+
+			let fieldCount = 0;
+			let field;
+			while (true) {
+				field = fields.next();
+				if (field.done) break;
+
+				if (fieldCount < keys.length) {
+					entry[keys[fieldCount++]] = field.value as LogParsedEntryWithStats<T>[keyof T];
+				} else if (fieldCount === keys.length) {
+					// Slice off the first newlines between the commit data and files/summary, if any
+					const summary = field.value.startsWith('\n\n')
+						? field.value.substring(2)
+						: field.value.startsWith('\n')
+						  ? field.value.substring(1)
+						  : field.value;
+					entry.stats = parseStats(summary);
+				} else {
+					debugger;
+				}
+			}
+
+			yield entry;
+		}
+
+		sw?.stop({ suffix: ` parsed ${count} records` });
+	}
+
 	return {
 		arguments: args,
 		separators: { record: recordSep, field: fieldSep },
 		parse: parse,
+		parseAsync: parseAsync,
 	};
 }
