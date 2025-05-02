@@ -169,7 +169,7 @@ export class GlCommitDetails extends GlDetailsBase {
 						)}
 					</div>
 					${when(
-						this.state?.orgSettings.ai !== false,
+						this.state?.orgSettings.ai !== false && this.state?.preferences.aiEnabled !== false,
 						() => html`
 							<div class="message-block-actions">
 								<gl-action-chip

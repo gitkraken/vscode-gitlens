@@ -9,7 +9,7 @@ import {
 	DidChangeWalkthroughProgress,
 	DidCompleteDiscoveringRepositories,
 } from '../../home/protocol';
-import type { ReactiveElementHost, StateProvider } from '../shared/appHost';
+import type { ReactiveElementHost, StateProvider } from '../shared/app';
 import type { Disposable } from '../shared/events';
 import type { HostIpc } from '../shared/ipc';
 import { stateContext } from './context';
@@ -80,7 +80,6 @@ export class HomeStateProvider implements StateProvider<State> {
 					this._state.previewEnabled = msg.params.previewEnabled;
 					this._state.previewCollapsed = msg.params.previewCollapsed;
 					this._state.aiEnabled = msg.params.aiEnabled;
-					this._state.aiGenerateCommitsEnabled = msg.params.aiGenerateCommitsEnabled;
 					this._state.timestamp = Date.now();
 
 					this.provider.setValue(this._state, true);

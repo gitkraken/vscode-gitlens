@@ -6,10 +6,13 @@ import type {
 	ManageCloudIntegrationsCommandArgs,
 } from '../../../../../commands/cloudIntegrations';
 import type { IntegrationFeatures } from '../../../../../constants.integrations';
-import { SubscriptionState } from '../../../../../constants.subscription';
+import { SubscriptionPlanId, SubscriptionState } from '../../../../../constants.subscription';
 import type { Source } from '../../../../../constants.telemetry';
 import type { SubscriptionUpgradeCommandArgs } from '../../../../../plus/gk/models/subscription';
-import { isSubscriptionTrialOrPaidFromState } from '../../../../../plus/gk/utils/subscription.utils';
+import {
+	hasAccountFromSubscriptionState,
+	isSubscriptionStatePaidOrTrial,
+} from '../../../../../plus/gk/utils/subscription.utils';
 import { createCommandLink } from '../../../../../system/commands';
 import type { IntegrationState, State } from '../../../../home/protocol';
 import { stateContext } from '../../../home/context';
@@ -157,7 +160,7 @@ export class GlIntegrationsChip extends LitElement {
 	private _state!: State;
 
 	private get hasAccount() {
-		return this._state.subscription?.account != null;
+		return hasAccountFromSubscriptionState(this._state.subscription?.state);
 	}
 
 	private get isPaidAccount() {
@@ -165,7 +168,7 @@ export class GlIntegrationsChip extends LitElement {
 	}
 
 	private get isProAccount() {
-		return isSubscriptionTrialOrPaidFromState(this._state.subscription?.state);
+		return isSubscriptionStatePaidOrTrial(this._state.subscription?.state);
 	}
 
 	private get hasConnectedIntegrations() {
@@ -299,7 +302,7 @@ export class GlIntegrationsChip extends LitElement {
 					? html`<gl-button
 							appearance="toolbar"
 							href="${createCommandLink<SubscriptionUpgradeCommandArgs>('gitlens.plus.upgrade', {
-								plan: 'pro',
+								plan: SubscriptionPlanId.Pro,
 								source: 'home',
 								detail: 'integrations',
 							})}"
@@ -371,7 +374,7 @@ export class GlIntegrationsChip extends LitElement {
 						<span class="integration__actions">
 							<gl-button
 								appearance="toolbar"
-								href="${createCommandLink<Source>('gitlens.ai.switchProvider', {
+								href="${createCommandLink<Source>('gitlens.switchAIModel', {
 									source: 'home',
 									detail: 'integrations',
 								})}"
@@ -381,22 +384,11 @@ export class GlIntegrationsChip extends LitElement {
 							></gl-button>
 						</span>`
 				: html`<span class="integration__content">
-							<span class="integration_details"
-								>GitLens AI features have been
-								disabled${!this.aiSettingEnabled ? ' via settings' : ' by your GitKraken admin'}</span
-							>
-						</span>
-						${!this.aiSettingEnabled
-							? html` <span class="integration__actions">
-									<gl-button
-										appearance="toolbar"
-										href="${createCommandLink<Source>('gitlens.home.enableAi', undefined)}"
-										tooltip="Re-enable AI Features"
-										aria-label="Re-enable AI Features"
-										><code-icon icon="unlock"></code-icon
-									></gl-button>
-							  </span>`
-							: nothing}`}
+						<span class="integration_details"
+							>GitLens AI features have been
+							disabled${!this.aiSettingEnabled ? ' via settings' : ' by your GitKraken admin'}</span
+						>
+				  </span>`}
 		</div>`;
 	}
 }
