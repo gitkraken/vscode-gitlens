@@ -6,10 +6,10 @@ import type { CommitsQueryResults, FilesQueryResults } from '../../git/queryResu
 import { getChangesForChangelog } from '../../git/utils/-webview/log.utils';
 import type { AIGenerateChangelogChanges } from '../../plus/ai/aiProviderService';
 import { configuration } from '../../system/-webview/configuration';
+import { gate } from '../../system/decorators/-webview/gate';
 import { debug } from '../../system/decorators/log';
 import { map } from '../../system/iterable';
-import type { Deferred } from '../../system/promise';
-import { defer, pauseOnCancelOrTimeout } from '../../system/promise';
+import { pauseOnCancelOrTimeout } from '../../system/promise';
 import type { ViewsWithCommits } from '../viewBase';
 import type { PageableViewNode } from './abstract/viewNode';
 import { ContextValues, getViewNodeId, ViewNode } from './abstract/viewNode';
@@ -45,9 +45,14 @@ export class ResultsCommitsNode<View extends ViewsWithCommits = ViewsWithCommits
 			comparison?: { ref1: string; ref2: string; range: GitRevisionRange };
 			deferred?: boolean;
 			direction?: 'ahead' | 'behind';
-			files?: { ref1: string; ref2: string; query: () => Promise<FilesQueryResults> };
+			files?: {
+				ref1: string;
+				ref2: string;
+				query: () => Promise<FilesQueryResults>;
+			};
 		},
 		options?: Partial<Options>,
+		splatted?: boolean,
 	) {
 		super('results-commits', GitUri.fromRepoPath(repoPath), view, parent);
 
@@ -58,6 +63,9 @@ export class ResultsCommitsNode<View extends ViewsWithCommits = ViewsWithCommits
 		this.limit = this.view.getNodeLastKnownLimit(this);
 
 		this._options = { autolinks: true, expand: true, ...options };
+		if (splatted != null) {
+			this.splatted = splatted;
+		}
 	}
 
 	override get id(): string {
@@ -76,21 +84,22 @@ export class ResultsCommitsNode<View extends ViewsWithCommits = ViewsWithCommits
 		return this.context.comparisonFiltered;
 	}
 
-	private _onChildrenCompleted: Deferred<void> | undefined;
+	// Stop trying to update the label, because VS Code can't handle it and throws id conflict errors
+	// private _onChildrenCompleted: Deferred<void> | undefined;
 
 	async getChildren(): Promise<ViewNode[]> {
-		this._onChildrenCompleted?.cancel();
-		this._onChildrenCompleted = defer<void>();
+		// this._onChildrenCompleted?.cancel();
+		// this._onChildrenCompleted = defer<void>();
 
 		const { log } = await this.getCommitsQueryResults();
 		if (!log?.commits.size) {
-			this._onChildrenCompleted?.fulfill();
+			// this._onChildrenCompleted?.fulfill();
 			return [new MessageNode(this.view, this, 'No results found')];
 		}
 
-		const getBranchAndTagTips = await this.view.container.git
-			.getRepositoryService(this.uri.repoPath!)
-			.getBranchesAndTagsTipsLookup();
+		const [getBranchAndTagTips] = await Promise.all([
+			this.view.container.git.getBranchesAndTagsTipsLookup(this.uri.repoPath),
+		]);
 
 		const children: ViewNode[] = [];
 		if (this._options.autolinks) {
@@ -131,17 +140,14 @@ export class ResultsCommitsNode<View extends ViewsWithCommits = ViewsWithCommits
 			);
 		}
 
-		const allowFilteredFiles = log.searchFilters?.files ?? false;
+		const options = { expand: this._options.expand && log.count === 1 };
 
 		children.push(
 			...insertDateMarkers(
 				map(log.commits.values(), c =>
 					isStash(c)
-						? new StashNode(this.view, this, c, { allowFilteredFiles: allowFilteredFiles, icon: true })
-						: new CommitNode(this.view, this, c, undefined, undefined, getBranchAndTagTips, {
-								allowFilteredFiles: allowFilteredFiles,
-								expand: this._options.expand && log.count === 1,
-						  }),
+						? new StashNode(this.view, this, c, { icon: true })
+						: new CommitNode(this.view, this, c, undefined, undefined, getBranchAndTagTips, options),
 				),
 				this,
 				undefined,
@@ -153,7 +159,7 @@ export class ResultsCommitsNode<View extends ViewsWithCommits = ViewsWithCommits
 			children.push(new LoadMoreNode(this.view, this, children[children.length - 1]));
 		}
 
-		this._onChildrenCompleted?.fulfill();
+		// this._onChildrenCompleted?.fulfill();
 		return children;
 	}
 
@@ -165,27 +171,28 @@ export class ResultsCommitsNode<View extends ViewsWithCommits = ViewsWithCommits
 			label = this._label;
 			state = TreeItemCollapsibleState.Collapsed;
 		} else {
-			let log;
+			// let log;
 
 			const result = await pauseOnCancelOrTimeout(this.getCommitsQueryResults(), undefined, 100);
 			if (!result.paused) {
 				state = this._options.expand ? TreeItemCollapsibleState.Expanded : TreeItemCollapsibleState.Collapsed;
 
-				({ label, log } = result.value);
-
-				state = !log?.commits.size
-					? TreeItemCollapsibleState.None
-					: this._options.expand //|| log.count === 1
-					  ? TreeItemCollapsibleState.Expanded
-					  : TreeItemCollapsibleState.Collapsed;
+				// ({ label, log } = result.value);
+				//
+				// state = !log?.commits.size
+				// 	? TreeItemCollapsibleState.None
+				// 	: this._options.expand //|| log.count === 1
+				// 	  ? TreeItemCollapsibleState.Expanded
+				// 	  : TreeItemCollapsibleState.Collapsed;
 			} else {
-				queueMicrotask(async () => {
-					try {
-						await this._onChildrenCompleted?.promise;
-						void (await result.value);
-						this.view.triggerNodeChange(this.parent);
-					} catch {}
-				});
+				// Stop trying to update the label, because VS Code can't handle it and throws id conflict errors
+				// queueMicrotask(async () => {
+				// 	try {
+				// 		await this._onChildrenCompleted?.promise;
+				// 		void (await result.value);
+				// 		this.view.triggerNodeChange(this.parent);
+				// 	} catch {}
+				// });
 
 				// Need to use Collapsed before we have results or the item won't show up in the view until the children are awaited
 				// https://github.com/microsoft/vscode/issues/54806 & https://github.com/microsoft/vscode/issues/62214
@@ -202,9 +209,11 @@ export class ResultsCommitsNode<View extends ViewsWithCommits = ViewsWithCommits
 		return item;
 	}
 
+	@gate()
 	@debug()
 	override refresh(reset: boolean = false): void {
 		if (reset) {
+			this._commitsQueryResults = undefined;
 			this._commitsQueryResultsPromise = undefined;
 			void this.getCommitsQueryResults();
 		}
@@ -213,21 +222,28 @@ export class ResultsCommitsNode<View extends ViewsWithCommits = ViewsWithCommits
 	private _commitsQueryResultsPromise: Promise<CommitsQueryResults> | undefined;
 	private async getCommitsQueryResults() {
 		if (this._commitsQueryResultsPromise == null) {
-			this._commitsQueryResultsPromise ??= this._results.query(
+			this._commitsQueryResultsPromise = this._results.query(
 				this.limit ?? configuration.get('advanced.maxSearchItems'),
 			);
 			const results = await this._commitsQueryResultsPromise;
+			this._commitsQueryResults = results;
 
 			this._hasMore = results.hasMore;
 
 			if (this._results.deferred) {
 				this._results.deferred = false;
 
-				void this.parent.triggerChange(false);
+				// Stop trying to update the label, because VS Code can't handle it and throws id conflict errors
+				// void this.parent.triggerChange(false);
 			}
 		}
 
 		return this._commitsQueryResultsPromise;
+	}
+
+	private _commitsQueryResults: CommitsQueryResults | undefined;
+	private maybeGetCommitsQueryResults(): CommitsQueryResults | undefined {
+		return this._commitsQueryResults;
 	}
 
 	private _hasMore = true;
