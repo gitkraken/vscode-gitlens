@@ -5,6 +5,7 @@ import type { WebviewCommands, WebviewViewCommands } from '../constants.commands
 import type { WebviewTelemetryContext } from '../constants.telemetry';
 import type { CustomEditorTypes, WebviewIds, WebviewTypes, WebviewViewIds, WebviewViewTypes } from '../constants.views';
 import type { Container } from '../container';
+import { isCancellationError } from '../errors';
 import { executeCommand, executeCoreCommand } from '../system/-webview/command';
 import { setContext } from '../system/-webview/context';
 import { getScopedCounter } from '../system/counter';
@@ -363,7 +364,16 @@ export class WebviewController<
 
 		if (loading) {
 			this.cancellation ??= new CancellationTokenSource();
-			this.webview.html = await this.getHtml(this.webview);
+			try {
+				this.webview.html = await this.getHtml(this.webview);
+			} catch (ex) {
+				if (isCancellationError(ex)) {
+					this.cancellation.cancel();
+					return;
+				}
+
+				throw ex;
+			}
 		}
 
 		if (this.isHost('editor')) {
@@ -420,7 +430,18 @@ export class WebviewController<
 		const wasReady = this._ready;
 		this._ready = false;
 
-		const html = await this.getHtml(this.webview);
+		let html;
+		try {
+			html = await this.getHtml(this.webview);
+		} catch (ex) {
+			if (isCancellationError(ex)) {
+				this.cancellation.cancel();
+				return;
+			}
+
+			throw ex;
+		}
+
 		if (force) {
 			// Reset the html to get the webview to reload
 			this.webview.html = '';
