@@ -25,11 +25,11 @@
 		},
 		"gitlens.ai.explainCommit": {
 			"label": "Explain Commit...",
-			"commandPalette": "gitlens:enabled && !gitlens:readonly && !gitlens:untrusted && gitlens:gk:organization:ai:enabled",
+			"commandPalette": "gitlens:enabled && !gitlens:readonly && !gitlens:untrusted && gitlens:gk:organization:ai:enabled && config.gitlens.ai.enabled",
 			"menus": {
 				"view/item/context": [
 					{
-						"when": "viewItem =~ /gitlens:commit\\b/ && !listMultiSelection && !gitlens:readonly && !gitlens:untrusted && gitlens:gk:organization:ai:enabled",
+						"when": "viewItem =~ /gitlens:commit\\b/ && !listMultiSelection && !gitlens:readonly && !gitlens:untrusted && gitlens:gk:organization:ai:enabled && config.gitlens.ai.enabled",
 						"group": "3_gitlens_ai",
 						"order": 1
 					}
@@ -38,11 +38,11 @@
 		},
 		"gitlens.ai.explainStash": {
 			"label": "Explain Stash (Preview)...",
-			"commandPalette": "gitlens:enabled && !gitlens:readonly && !gitlens:untrusted && gitlens:gk:organization:ai:enabled",
+			"commandPalette": "gitlens:enabled && !gitlens:readonly && !gitlens:untrusted && gitlens:gk:organization:ai:enabled && config.gitlens.ai.enabled",
 			"menus": {
 				"view/item/context": [
 					{
-						"when": "viewItem =~ /gitlens:stash\\b/ && !listMultiSelection && !gitlens:readonly && !gitlens:untrusted && gitlens:gk:organization:ai:enabled",
+						"when": "viewItem =~ /gitlens:stash\\b/ && !listMultiSelection && !gitlens:readonly && !gitlens:untrusted && gitlens:gk:organization:ai:enabled && config.gitlens.ai.enabled",
 						"group": "3_gitlens_ai",
 						"order": 1
 					}
@@ -51,11 +51,11 @@
 		},
 		"gitlens.ai.generateChangelog": {
 			"label": "Generate Changelog (Preview)...",
-			"commandPalette": "gitlens:enabled && !gitlens:untrusted && gitlens:gk:organization:ai:enabled"
+			"commandPalette": "gitlens:enabled && !gitlens:untrusted && gitlens:gk:organization:ai:enabled && config.gitlens.ai.enabled"
 		},
 		"gitlens.ai.generateCommitMessage": {
 			"label": "Generate Commit Message",
-			"commandPalette": "gitlens:enabled && !gitlens:readonly && !gitlens:untrusted && gitlens:gk:organization:ai:enabled && config.gitlens.ai.generateCommitMessage.enabled"
+			"commandPalette": "gitlens:enabled && !gitlens:readonly && !gitlens:untrusted && gitlens:gk:organization:ai:enabled && config.gitlens.ai.enabled"
 		},
 		"gitlens.annotations.nextChange": {
 			"label": "Next Change",
@@ -1367,7 +1367,7 @@
 			"menus": {
 				"webview/context": [
 					{
-						"when": "webviewItem =~ /gitlens:(branch|tag)\\b/ && !gitlens:untrusted && gitlens:gk:organization:ai:enabled",
+						"when": "webviewItem =~ /gitlens:(branch|tag)\\b/ && !gitlens:untrusted && gitlens:gk:organization:ai:enabled && config.gitlens.ai.enabled",
 						"group": "1_gitlens_actions_3",
 						"order": 100
 					}
@@ -1379,7 +1379,7 @@
 			"menus": {
 				"webview/context": [
 					{
-						"when": "webviewItem == gitlens:wip && !listMultiSelection && !gitlens:readonly && !gitlens:untrusted && gitlens:gk:organization:ai:enabled && config.gitlens.ai.generateCommitMessage.enabled",
+						"when": "webviewItem == gitlens:wip && !listMultiSelection && !gitlens:readonly && !gitlens:untrusted && gitlens:gk:organization:ai:enabled && config.gitlens.ai.enabled",
 						"group": "1_gitlens",
 						"order": 2
 					}
@@ -1993,7 +1993,7 @@
 			"menus": {
 				"webview/context": [
 					{
-						"when": "webviewItem =~ /gitlens:commit\\b/ && !listMultiSelection && !gitlens:readonly && !gitlens:untrusted && gitlens:gk:organization:ai:enabled",
+						"when": "webviewItem =~ /gitlens:commit\\b/ && !listMultiSelection && !gitlens:readonly && !gitlens:untrusted && gitlens:gk:organization:ai:enabled && config.gitlens.ai.enabled",
 						"group": "1_gitlens_actions_3",
 						"order": 1
 					}
@@ -2005,7 +2005,7 @@
 			"menus": {
 				"webview/context": [
 					{
-						"when": "webviewItem =~ /gitlens:stash\\b/ && !listMultiSelection && !gitlens:readonly && !gitlens:untrusted && gitlens:gk:organization:ai:enabled",
+						"when": "webviewItem =~ /gitlens:stash\\b/ && !listMultiSelection && !gitlens:readonly && !gitlens:untrusted && gitlens:gk:organization:ai:enabled && config.gitlens.ai.enabled",
 						"group": "1_gitlens_actions_3",
 						"order": 1
 					}
@@ -3459,7 +3459,7 @@
 		},
 		"gitlens.resetAIKey": {
 			"label": "Reset Stored AI Keys...",
-			"commandPalette": "gitlens:enabled && gitlens:gk:organization:ai:enabled"
+			"commandPalette": "gitlens:enabled && gitlens:gk:organization:ai:enabled && config.gitlens.ai.enabled"
 		},
 		"gitlens.resetViewsLayout": {
 			"label": "Reset Views Layout",
@@ -3491,19 +3491,19 @@
 			"menus": {
 				"git.commit": [
 					{
-						"when": "gitlens:enabled && !gitlens:readonly && !gitlens:untrusted && gitlens:gk:organization:ai:enabled && config.gitlens.ai.generateCommitMessage.enabled && config.gitlens.menus.scmRepository.generateCommitMessage",
+						"when": "gitlens:enabled && !gitlens:readonly && !gitlens:untrusted && gitlens:gk:organization:ai:enabled && config.gitlens.ai.enabled && config.gitlens.menus.scmRepository.generateCommitMessage",
 						"group": "4_gitlens",
 						"order": 2
 					}
 				],
 				"scm/title": [
 					{
-						"when": "scmProvider == git && gitlens:enabled && !gitlens:readonly && !gitlens:untrusted && gitlens:gk:organization:ai:enabled && config.gitlens.ai.generateCommitMessage.enabled && config.gitlens.menus.scmRepositoryInline.generateCommitMessage",
+						"when": "scmProvider == git && gitlens:enabled && !gitlens:readonly && !gitlens:untrusted && gitlens:gk:organization:ai:enabled && config.gitlens.ai.enabled && config.gitlens.menus.scmRepositoryInline.generateCommitMessage",
 						"group": "navigation",
 						"order": -3
 					},
 					{
-						"when": "scmProvider == git && gitlens:enabled && !gitlens:readonly && !gitlens:untrusted && gitlens:gk:organization:ai:enabled && config.gitlens.ai.generateCommitMessage.enabled && config.gitlens.menus.scmRepository.generateCommitMessage",
+						"when": "scmProvider == git && gitlens:enabled && !gitlens:readonly && !gitlens:untrusted && gitlens:gk:organization:ai:enabled && config.gitlens.ai.enabled && config.gitlens.menus.scmRepository.generateCommitMessage",
 						"group": "2_gitlens",
 						"order": 2
 					}
@@ -4463,7 +4463,7 @@
 		},
 		"gitlens.switchAIModel": {
 			"label": "Switch AI Provider/Model",
-			"commandPalette": "gitlens:enabled && gitlens:gk:organization:ai:enabled"
+			"commandPalette": "gitlens:enabled && gitlens:gk:organization:ai:enabled && config.gitlens.ai.enabled"
 		},
 		"gitlens.switchMode": {
 			"label": "Switch Mode",
@@ -4777,12 +4777,12 @@
 			"menus": {
 				"view/item/context": [
 					{
-						"when": "viewItem =~ /gitlens:compare:results:commits\\b/ && !gitlens:untrusted && gitlens:gk:organization:ai:enabled",
+						"when": "viewItem =~ /gitlens:compare:results:commits\\b/ && !gitlens:untrusted && gitlens:gk:organization:ai:enabled && config.gitlens.ai.enabled",
 						"group": "inline",
 						"order": 98
 					},
 					{
-						"when": "viewItem =~ /gitlens:compare:results:commits\\b/ && !listMultiSelection && !gitlens:untrusted && gitlens:gk:organization:ai:enabled",
+						"when": "viewItem =~ /gitlens:compare:results:commits\\b/ && !listMultiSelection && !gitlens:untrusted && gitlens:gk:organization:ai:enabled && config.gitlens.ai.enabled",
 						"group": "4_gitlens_actions",
 						"order": 2
 					}
@@ -4795,7 +4795,7 @@
 			"menus": {
 				"view/item/context": [
 					{
-						"when": "viewItem =~ /gitlens:(branch|tag)\\b/ && !gitlens:untrusted && gitlens:gk:organization:ai:enabled",
+						"when": "viewItem =~ /gitlens:(branch|tag)\\b/ && !gitlens:untrusted && gitlens:gk:organization:ai:enabled && config.gitlens.ai.enabled",
 						"group": "1_gitlens_actions_3",
 						"order": 100
 					}

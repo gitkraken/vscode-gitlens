@@ -468,7 +468,13 @@ export class AIProviderService implements Disposable {
 		return model;
 	}
 
-	private async ensureOrgAccess(): Promise<boolean> {
+	private async ensureAccess(): Promise<boolean> {
+		const aiEnabled = configuration.get('ai.enabled');
+		if (aiEnabled === false) {
+			await window.showErrorMessage(`AI features have been disabled via GitLens settings.`);
+			return false;
+		}
+
 		const orgEnabled = getContext('gitlens:gk:organization:ai:enabled');
 		if (orgEnabled === false) {
 			await window.showErrorMessage(`AI features have been disabled for your organization.`);
@@ -479,7 +485,7 @@ export class AIProviderService implements Disposable {
 	}
 
 	private async ensureFeatureAccess(feature: AIFeatures, source: Source): Promise<boolean> {
-		if (!(await this.ensureOrgAccess())) return false;
+		if (!(await this.ensureAccess())) return false;
 
 		if (feature === 'generate-commitMessage') return true;
 		if (

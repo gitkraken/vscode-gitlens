@@ -263,7 +263,7 @@ export class HomeWebviewProvider implements WebviewProvider<State, State, HomeWe
 	}
 
 	private onDidChangeConfig(e?: ConfigurationChangeEvent) {
-		if (configuration.changed(e, 'home.preview.enabled')) {
+		if (configuration.changed(e, ['home.preview.enabled', 'ai.enabled'])) {
 			this.notifyDidChangeConfig();
 		}
 	}
@@ -654,6 +654,10 @@ export class HomeWebviewProvider implements WebviewProvider<State, State, HomeWe
 		return this.container.storage.get('home:sections:collapsed')?.includes('newHomePreview') ?? false;
 	}
 
+	private getAiEnabled() {
+		return configuration.get('ai.enabled');
+	}
+
 	private getAmaBannerCollapsed() {
 		if (Date.now() >= new Date('2025-02-13T13:00:00-05:00').getTime()) return true;
 
@@ -712,6 +716,7 @@ export class HomeWebviewProvider implements WebviewProvider<State, State, HomeWe
 			avatar: subResult.value.avatar,
 			organizationsCount: subResult.value.organizationsCount,
 			orgSettings: this.getOrgSettings(),
+			aiEnabled: this.getAiEnabled(),
 			previewCollapsed: this.getPreviewCollapsed(),
 			integrationBannerCollapsed: this.getIntegrationBannerCollapsed(),
 			integrations: integrations,
@@ -1139,6 +1144,7 @@ export class HomeWebviewProvider implements WebviewProvider<State, State, HomeWe
 		void this.host.notify(DidChangePreviewEnabled, {
 			previewEnabled: this.getPreviewEnabled(),
 			previewCollapsed: this.getPreviewCollapsed(),
+			aiEnabled: this.getAiEnabled(),
 		});
 	}
 

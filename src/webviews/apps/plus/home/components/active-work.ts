@@ -250,18 +250,23 @@ export class GlActiveBranchCard extends GlBranchCardBase {
 			workingTreeState.added + workingTreeState.changed + workingTreeState.deleted > 0;
 
 		if (hasWip) {
+			if (this._homeState.orgSettings.ai && this._homeState.aiEnabled) {
+				actions.push(html`
+					<gl-button
+						aria-busy=${ifDefined(isFetching)}
+						?disabled=${isFetching}
+						href=${this.createCommandLink('gitlens.ai.generateCommitMessage', {
+							repoPath: this.repo,
+							source: 'home',
+						})}
+						appearance="secondary"
+						tooltip="Generate Message &amp; Commit..."
+						><code-icon icon="sparkle" slot="prefix"></code-icon>Commit
+					</gl-button>
+				`);
+			}
+
 			actions.push(html`
-				<gl-button
-					aria-busy=${ifDefined(isFetching)}
-					?disabled=${isFetching}
-					href=${this.createCommandLink('gitlens.ai.generateCommitMessage', {
-						repoPath: this.repo,
-						source: 'home',
-					})}
-					appearance="secondary"
-					tooltip="Generate Message &amp; Commit..."
-					><code-icon icon="sparkle" slot="prefix"></code-icon>Commit
-				</gl-button>
 				<gl-button
 					aria-busy=${ifDefined(isFetching)}
 					?disabled=${isFetching}

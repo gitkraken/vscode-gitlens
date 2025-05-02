@@ -4,6 +4,7 @@ import type { AIProviders } from '../constants.ai';
 import type { Container } from '../container';
 import type { AIModel, AIModelDescriptor, AIProviderDescriptorWithConfiguration } from '../plus/ai/models/model';
 import { isSubscriptionPaidPlan } from '../plus/gk/utils/subscription.utils';
+import { configuration } from '../system/-webview/configuration';
 import { getContext } from '../system/-webview/context';
 import { getQuickPickIgnoreFocusOut } from '../system/-webview/vscode';
 import { getSettledValue } from '../system/promise';
@@ -33,6 +34,16 @@ export async function showAIProviderPicker(
 	container: Container,
 	current: AIModelDescriptor | undefined,
 ): Promise<ProviderQuickPickItem | undefined> {
+	if (!configuration.get('ai.enabled')) {
+		await window.showQuickPick([{ label: 'OK' }], {
+			title: 'AI is Disabled',
+			placeHolder: 'GitLens AI features have been disabled via settings',
+			canPickMany: false,
+		});
+
+		return undefined;
+	}
+
 	if (!getContext('gitlens:gk:organization:ai:enabled', true)) {
 		await window.showQuickPick([{ label: 'OK' }], {
 			title: 'AI is Disabled',
@@ -139,6 +150,16 @@ export async function showAIModelPicker(
 	provider: AIProviders,
 	current?: AIModelDescriptor,
 ): Promise<ModelQuickPickItem | Directive | undefined> {
+	if (!configuration.get('ai.enabled')) {
+		await window.showQuickPick([{ label: 'OK' }], {
+			title: 'AI is Disabled',
+			placeHolder: 'GitLens AI features have been disabled via settings',
+			canPickMany: false,
+		});
+
+		return undefined;
+	}
+
 	if (!getContext('gitlens:gk:organization:ai:enabled', true)) {
 		await window.showQuickPick([{ label: 'OK' }], {
 			title: 'AI is Disabled',
