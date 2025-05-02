@@ -1,7 +1,8 @@
 import type { CancellationToken } from 'vscode';
 import type { Container } from '../../../../../container';
+import { isCancellationError } from '../../../../../errors';
 import type { GitCache } from '../../../../../git/cache';
-import type { GitContributorsSubProvider } from '../../../../../git/gitProvider';
+import type { GitContributorsResult, GitContributorsSubProvider } from '../../../../../git/gitProvider';
 import type { GitCommit } from '../../../../../git/models/commit';
 import type { GitContributorsStats } from '../../../../../git/models/contributor';
 import { GitContributor } from '../../../../../git/models/contributor';
@@ -33,13 +34,16 @@ export class ContributorsGitSubProvider implements GitContributorsSubProvider {
 			since?: string;
 			stats?: boolean;
 		},
-		_cancellation?: CancellationToken,
-	): Promise<GitContributor[]> {
-		if (repoPath == null) return [];
+		cancellation?: CancellationToken,
+		_timeout?: number,
+	): Promise<GitContributorsResult> {
+		if (repoPath == null) return { contributors: [] };
 
 		const scope = getLogScope();
 
-		const getCore = async (cancellable?: Cancellable) => {
+		const getCore = async (cancellable?: Cancellable): Promise<GitContributorsResult> => {
+			const contributors: GitContributor[] = [];
+
 			try {
 				const { metadata, github, session } = await this.provider.ensureRepositoryContext(repoPath);
 
@@ -153,7 +157,10 @@ export class ContributorsGitSubProvider implements GitContributorsSubProvider {
 							aggregateContributors(log.pagedCommits?.().values() ?? [], contributors);
 						}
 
-						return [...contributors.values()];
+						return {
+							contributors: [...contributors.values()],
+							cancelled: cancellation?.isCancellationRequested ? { reason: 'cancelled' } : undefined,
+						};
 					}
 				}
 
@@ -163,7 +170,6 @@ export class ContributorsGitSubProvider implements GitContributorsSubProvider {
 					metadata.repo.name,
 				);
 
-				const contributors = [];
 				for (const c of results) {
 					if (c.type !== 'User') continue;
 
@@ -185,13 +191,17 @@ export class ContributorsGitSubProvider implements GitContributorsSubProvider {
 					);
 				}
 
-				return contributors;
+				return {
+					contributors: contributors,
+					cancelled: cancellation?.isCancellationRequested ? { reason: 'cancelled' } : undefined,
+				};
 			} catch (ex) {
 				cancellable?.cancel();
 				Logger.error(ex, scope);
 				debugger;
 
-				return [];
+				if (!isCancellationError(ex)) return { contributors: [] };
+				return { contributors: [...contributors.values()], cancelled: { reason: 'cancelled' } };
 			}
 		};
 
@@ -223,7 +233,7 @@ export class ContributorsGitSubProvider implements GitContributorsSubProvider {
 		if (contributorsCache == null) {
 			cache.set(
 				repoPath,
-				(contributorsCache = new PromiseCache<string, GitContributor[]>({
+				(contributorsCache = new PromiseCache<string, GitContributorsResult>({
 					accessTTL: 1000 * 60 * 60 /* 60 minutes */,
 				})),
 			);
@@ -235,6 +245,52 @@ export class ContributorsGitSubProvider implements GitContributorsSubProvider {
 			customCacheTTL ? { accessTTL: customCacheTTL } : undefined,
 		);
 		return contributors;
+	}
+
+	@log()
+	async getContributorsLite(
+		repoPath: string,
+		_rev?: string | undefined,
+		_options?: { all?: boolean; merges?: boolean | 'first-parent'; since?: string },
+		_cancellation?: CancellationToken,
+	): Promise<GitContributor[]> {
+		if (repoPath == null) return [];
+
+		const scope = getLogScope();
+
+		try {
+			const { metadata, github, session } = await this.provider.ensureRepositoryContext(repoPath);
+			const currentUser = await this.provider.config.getCurrentUser(repoPath);
+
+			const results = await github.getContributors(session.accessToken, metadata.repo.owner, metadata.repo.name);
+
+			const contributors: GitContributor[] = [];
+			for (const c of results) {
+				if (c.type !== 'User') continue;
+
+				contributors.push(
+					new GitContributor(
+						repoPath,
+						c.name ?? c.login ?? '',
+						c.email,
+						isUserMatch(currentUser, c.name, c.email, c.login),
+						c.contributions,
+						undefined,
+						undefined,
+						undefined,
+						undefined,
+						c.login,
+						c.avatar_url,
+						c.node_id,
+					),
+				);
+			}
+			return contributors;
+		} catch (ex) {
+			Logger.error(ex, scope);
+			debugger;
+			return [];
+		}
 	}
 
 	@log()

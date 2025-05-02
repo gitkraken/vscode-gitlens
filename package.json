@@ -3157,6 +3157,13 @@
 						"markdownDescription": "Specifies whether to reveal contributors in the _Contributors_ view, otherwise they revealed in the _Repositories_ view",
 						"scope": "window",
 						"order": 20
+					},
+					"gitlens.views.contributors.maxWait": {
+						"type": "number",
+						"default": 10,
+						"markdownDescription": "Specifies the maximum amount of time (in seconds) to wait for all contributors to load. Use 0 to wait indefinitely (no timeout)",
+						"scope": "window",
+						"order": 30
 					}
 				}
 			},

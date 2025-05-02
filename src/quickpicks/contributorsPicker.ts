@@ -80,7 +80,7 @@ export async function showContributorsPicker(
 		quickpick.busy = true;
 		quickpick.show();
 
-		const contributors = await repository.git.contributors.getContributorsLite();
+		const contributors = await repository.git.contributors().getContributorsLite();
 		if (!deferred.pending) return;
 
 		const items = await Promise.all(
@@ -108,5 +108,8 @@ export async function showContributorsPicker(
 function appendRepoToTitle(container: Container, title: string, repo: Repository) {
 	return container.git.openRepositoryCount <= 1
 		? title
-		: `${title}${truncate(`${pad(GlyphChars.Dot, 2, 2)}${repo.name}`, quickPickTitleMaxChars - title.length)}`;
+		: `${title}${truncate(
+				`${pad(GlyphChars.Dot, 2, 2)}${repo.formattedName}`,
+				quickPickTitleMaxChars - title.length,
+		  )}`;
 }

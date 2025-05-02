@@ -848,6 +848,7 @@ export interface CommitDetailsViewConfig {
 export interface ContributorsViewConfig {
 	readonly avatars: boolean;
 	readonly files: ViewsFilesConfig;
+	readonly maxWait: number;
 	readonly pullRequests: {
 		readonly enabled: boolean;
 		readonly showForCommits: boolean;

@@ -388,25 +388,37 @@ export interface GitConfigSubProvider {
 	getGitDir?(repoPath: string): Promise<GitDir | undefined>;
 }
 
+export interface GitContributorsResult {
+	readonly contributors: GitContributor[];
+	readonly cancelled?: { reason: 'cancelled' | 'timedout' } | undefined;
+}
+
 export interface GitContributorsSubProvider {
+	getContributors(
+		repoPath: string,
+		rev?: string | undefined,
+		options?: {
+			all?: boolean;
+			merges?: boolean | 'first-parent';
+			pathspec?: string;
+			since?: string;
+			stats?: boolean;
+		},
+		cancellation?: CancellationToken,
+		timeout?: number,
+	): Promise<GitContributorsResult>;
+	getContributorsLite(
+		repoPath: string,
+		rev?: string | undefined,
+		options?: { all?: boolean; merges?: boolean | 'first-parent'; since?: string },
+		cancellation?: CancellationToken,
+	): Promise<GitContributor[]>;
 	getContributorsStats(
 		repoPath: string,
 		options?: { merges?: boolean | 'first-parent'; since?: string },
 		cancellation?: CancellationToken,
 		timeout?: number,
 	): Promise<GitContributorsStats | undefined>;
-	getContributors(
-		repoPath: string,
-		rev?: string | undefined,
-		options?: {
-			all?: boolean | undefined;
-			merges?: boolean | 'first-parent';
-			pathspec?: string;
-			since?: string;
-			stats?: boolean | undefined;
-		},
-		cancellation?: CancellationToken,
-	): Promise<GitContributor[]>;
 }
 
 export interface GitDiffSubProvider {
