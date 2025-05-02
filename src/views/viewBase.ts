@@ -453,8 +453,13 @@ export abstract class ViewBase<
 		return this.root;
 	}
 
+	private _skipNextVisibilityChange: boolean = false;
+
 	getChildren(node?: ViewNode): ViewNode[] | Promise<ViewNode[]> {
 		if (node != null) return node.getChildren();
+
+		// If we are already visible, then skip the next visibility change event otherwise we end up refreshing twice
+		this._skipNextVisibilityChange = this.tree?.visible ?? false;
 
 		const root = this.ensureRoot();
 		const children = root.getChildren();
@@ -527,7 +532,13 @@ export abstract class ViewBase<
 			void this.container.usage.track(`${this.trackingFeature}:shown`).catch();
 		}
 
-		this._onDidChangeVisibility.fire(e);
+		const skip = this._skipNextVisibilityChange;
+		this._skipNextVisibilityChange = false;
+
+		if (!skip || !e.visible) {
+			this._onDidChangeVisibility.fire(e);
+		}
+
 		if (e.visible) {
 			this.notifySelections();
 		}
