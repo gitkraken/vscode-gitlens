@@ -1162,7 +1162,7 @@ export class GlGraphHeader extends SignalWatcher(LitElement) {
 			)}
 			<div
 				class=${`progress-container infinite${
-					this.hostState.loading || this.hostState.rowsStatsLoading ? ' active' : ''
+					this.hostState.loading || this.hostState.rowsStatsLoading || this.appState.loading ? ' active' : ''
 				}`}
 				role="progressbar"
 			>
