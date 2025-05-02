@@ -626,6 +626,63 @@ export class AIProviderService implements Disposable {
 		return result != null ? { ...result, parsed: parseSummarizeResult(result.content) } : undefined;
 	}
 
+	async prepareCompareDataForAIRequest(
+		repo: Repository,
+		headRef: string,
+		baseRef: string,
+		options?: {
+			cancellation?: CancellationToken;
+			reportNoDiffService?: () => void;
+			reportNoCommitsService?: () => void;
+			reportNoChanges?: () => void;
+		},
+	): Promise<{ diff: string; logMessages: string } | undefined> {
+		const { cancellation, reportNoDiffService, reportNoCommitsService, reportNoChanges } = options ?? {};
+		const diffService = repo.git.diff();
+		if (diffService?.getDiff === undefined) {
+			if (reportNoDiffService) {
+				reportNoDiffService();
+				return;
+			}
+		}
+
+		const commitsService = repo.git.commits();
+		if (commitsService?.getLog === undefined) {
+			if (reportNoCommitsService) {
+				reportNoCommitsService();
+				return;
+			}
+		}
+
+		const [diffResult, logResult] = await Promise.allSettled([
+			diffService.getDiff?.(headRef, baseRef, { notation: '...' }),
+			commitsService.getLog(`${baseRef}..${headRef}`),
+		]);
+		const diff = getSettledValue(diffResult);
+		const log = getSettledValue(logResult);
+
+		if (!diff?.contents || !log?.commits?.size) {
+			reportNoChanges?.();
+			return undefined;
+		}
+
+		if (cancellation?.isCancellationRequested) throw new CancellationError();
+
+		const commitMessages: string[] = [];
+		for (const commit of [...log.commits.values()].sort((a, b) => a.date.getTime() - b.date.getTime())) {
+			const message = commit.message ?? commit.summary;
+			if (message) {
+				commitMessages.push(
+					`<commit-message ${commit.date.toISOString()}>\n${
+						commit.message ?? commit.summary
+					}\n<end-of-commit-message>`,
+				);
+			}
+		}
+
+		return { diff: diff.contents, logMessages: commitMessages.join('\n\n') };
+	}
+
 	async generateCreatePullRequest(
 		repo: Repository,
 		baseRef: string,
@@ -641,31 +698,21 @@ export class AIProviderService implements Disposable {
 		const result = await this.sendRequest(
 			'generate-create-pullRequest',
 			async (model, reporting, cancellation, maxInputTokens, retries) => {
-				const [diffResult, logResult] = await Promise.allSettled([
-					repo.git.diff().getDiff?.(headRef, baseRef, { notation: '...' }),
-					repo.git.commits().getLog(`${baseRef}..${headRef}`),
-				]);
+				const compareData = await this.prepareCompareDataForAIRequest(repo, headRef, baseRef, {
+					cancellation: cancellation,
+				});
 
-				const diff = getSettledValue(diffResult);
-				const log = getSettledValue(logResult);
-
-				if (!diff?.contents || !log?.commits?.size) {
+				if (!compareData?.diff || !compareData?.logMessages) {
 					throw new AINoRequestDataError('No changes to generate a pull request from.');
 				}
 
-				if (cancellation.isCancellationRequested) throw new CancellationError();
-
-				const commitMessages: string[] = [];
-				for (const commit of [...log.commits.values()].sort((a, b) => a.date.getTime() - b.date.getTime())) {
-					commitMessages.push(commit.message ?? commit.summary);
-				}
-
+				const { diff, logMessages } = compareData;
 				const { prompt } = await this.getPrompt(
 					'generate-create-pullRequest',
 					model,
 					{
-						diff: diff.contents,
-						data: commitMessages.join('\n'),
+						diff: diff,
+						data: logMessages,
 						context: options?.context,
 						instructions: configuration.get('ai.generateCreatePullRequest.customInstructions'),
 					},
