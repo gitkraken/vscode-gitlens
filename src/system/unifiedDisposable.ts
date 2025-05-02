@@ -3,7 +3,16 @@ import { once } from './function';
 export type UnifiedDisposable = { dispose: () => void } & Disposable;
 export type UnifiedAsyncDisposable = { dispose: () => Promise<void> } & AsyncDisposable;
 
-export function createDisposable(dispose: () => void, options?: { once?: boolean }): UnifiedDisposable {
+export function createDisposable(dispose: () => void, options?: { once?: boolean }): UnifiedDisposable;
+export function createDisposable(
+	dispose: (() => void) | undefined,
+	options?: { once?: boolean },
+): UnifiedDisposable | undefined;
+export function createDisposable(
+	dispose?: (() => void) | undefined,
+	options?: { once?: boolean },
+): UnifiedDisposable | undefined {
+	if (dispose == null) return undefined;
 	if (options?.once) {
 		dispose = once(dispose);
 	}

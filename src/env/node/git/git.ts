@@ -427,18 +427,33 @@ export class Git {
 				exception = new GitError(ex);
 			});
 			proc.once('close', (code, signal) => {
-				// If the process exited normally or the caller didn't iterate over the complete stream, just resolve
-				if (code === 0 || code === 141 /* SIGPIPE */) {
+				if (code === 0) {
 					resolve();
 					return;
 				}
 
 				if (signal === 'SIGTERM') {
-					reject(
-						new CancellationError(
-							new CancelledRunError(proc.spawnargs.join(' '), true, code ?? undefined, signal),
-						),
-					);
+					// If the caller aborted, just resolve
+					if (spawnOpts.signal?.aborted) {
+						resolve();
+					} else {
+						reject(
+							new CancellationError(
+								new CancelledRunError(proc.spawnargs.join(' '), true, code ?? undefined, signal),
+							),
+						);
+					}
+					return;
+				}
+
+				// If the caller didn't read the complete stream, just resolve
+				if (
+					signal === 'SIGPIPE' ||
+					code === 141 /* SIGPIPE */ ||
+					// Effectively SIGPIPE on WSL & Linux?
+					(code === 128 && stderrChunks.some(c => c.includes('Connection reset by peer')))
+				) {
+					resolve();
 					return;
 				}
 
