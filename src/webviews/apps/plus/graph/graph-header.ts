@@ -15,6 +15,7 @@ import { isSubscriptionPaid } from '../../../../plus/gk/utils/subscription.utils
 import type { LaunchpadCommandArgs } from '../../../../plus/launchpad/launchpad';
 import { createCommandLink } from '../../../../system/commands';
 import { debounce } from '../../../../system/decorators/debounce';
+import { debounce as debounceFunc } from '../../../../system/function/debounce';
 import { createWebviewCommandLink } from '../../../../system/webview';
 import type {
 	GraphExcludedRef,
@@ -38,7 +39,6 @@ import {
 	UpdateIncludedRefsCommand,
 	UpdateRefsVisibilityCommand,
 } from '../../../plus/graph/protocol';
-import type { CustomEventType } from '../../shared/components/element';
 import type { RadioGroup } from '../../shared/components/radio/radio-group';
 import type { GlSearchBox } from '../../shared/components/search/search-box';
 import type { SearchNavigationEventDetail } from '../../shared/components/search/search-input';
@@ -323,9 +323,11 @@ export class GlGraphHeader extends SignalWatcher(LitElement) {
 		this.onRefIncludesChanged($el.value as GraphBranchesVisibility);
 	}
 
-	@debounce(250)
 	async handleSearch() {
 		this.appState.searching = this.searchValid;
+		if (!this.searchValid) {
+			this.appState.searchResultsResponse = undefined;
+		}
 		try {
 			const rsp = await this._ipc.sendRequest(SearchRequest, {
 				search: this.searchValid ? { ...this.appState.filter } : undefined /*limit: options?.limit*/,
@@ -336,17 +338,19 @@ export class GlGraphHeader extends SignalWatcher(LitElement) {
 			}
 
 			this.appState.searchResultsResponse = rsp.results;
-			this.appState.selectedRows = rsp.selectedRows;
+			if (rsp.selectedRows != null) {
+				this.appState.selectedRows = rsp.selectedRows;
+			}
 		} catch {
 			this.appState.searchResultsResponse = undefined;
 		}
 		this.appState.searching = false;
 	}
 
-	private handleSearchInput = (e: CustomEvent<SearchQuery>) => {
+	private handleSearchInput(e: CustomEvent<SearchQuery>) {
 		this.appState.filter = e.detail;
 		void this.handleSearch();
-	};
+	}
 
 	private async onSearchPromise(search: SearchQuery, options?: { limit?: number; more?: boolean }) {
 		try {
@@ -356,7 +360,9 @@ export class GlGraphHeader extends SignalWatcher(LitElement) {
 				more: options?.more,
 			});
 			this.appState.searchResultsResponse = rsp.results;
-			this.appState.selectedRows = rsp.selectedRows;
+			if (rsp.selectedRows != null) {
+				this.appState.selectedRows = rsp.selectedRows;
+			}
 			return rsp;
 		} catch {
 			return undefined;
@@ -1038,8 +1044,9 @@ export class GlGraphHeader extends SignalWatcher(LitElement) {
 								errorMessage=${this.appState.searchResultsError?.error ?? ''}
 								?resultsHidden=${this.appState.searchResultsHidden}
 								?resultsLoaded=${this.appState.searchResults != null}
-								@gl-search-inputchange=${(e: CustomEventType<'gl-search-inputchange'>) =>
-									this.handleSearchInput(e)}
+								@gl-search-inputchange=${debounceFunc(this.handleSearchInput.bind(this), 250) as (
+									e: CustomEvent<SearchQuery>,
+								) => void}
 								@gl-search-navigate=${this.handleSearchNavigation}
 								@gl-search-openinview=${this.onSearchOpenInView}
 								@gl-search-modechange=${this.handleSearchModeChanged}
