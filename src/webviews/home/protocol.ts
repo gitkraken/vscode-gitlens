@@ -27,6 +27,7 @@ export interface State extends WebviewState {
 		drafts: boolean;
 		ai: boolean;
 	};
+	aiEnabled: boolean;
 	previewCollapsed: boolean;
 	integrationBannerCollapsed: boolean;
 	hasAnyIntegrationConnected: boolean;
@@ -275,6 +276,7 @@ export const DidCompleteDiscoveringRepositories = new IpcNotification<DidComplet
 export interface DidChangePreviewEnabledParams {
 	previewEnabled: boolean;
 	previewCollapsed: boolean;
+	aiEnabled: boolean;
 }
 export const DidChangePreviewEnabled = new IpcNotification<DidChangePreviewEnabledParams>(
 	scope,

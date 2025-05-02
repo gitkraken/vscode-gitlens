@@ -47,6 +47,7 @@ export interface Preferences {
 	files: Config['views']['commitDetails']['files'];
 	indent: number | undefined;
 	indentGuides: 'none' | 'onHover' | 'always';
+	aiEnabled: boolean;
 }
 export type UpdateablePreferences = Partial<Pick<Preferences, 'autolinksExpanded' | 'pullRequestExpanded' | 'files'>>;
 

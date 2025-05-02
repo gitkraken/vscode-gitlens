@@ -210,6 +210,7 @@ export interface AdvancedConfig {
 }
 
 interface AIConfig {
+	readonly enabled: boolean;
 	readonly azure: {
 		readonly url: string | null;
 	};

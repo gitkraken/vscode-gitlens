@@ -179,8 +179,16 @@ export class GlIntegrationsChip extends LitElement {
 		return this._state.ai;
 	}
 
-	private get aiEnabled() {
+	private get aiSettingEnabled() {
+		return this._state.aiEnabled;
+	}
+
+	private get aiOrgEnabled() {
 		return this._state.orgSettings?.ai ?? true;
+	}
+
+	private get aiEnabled() {
+		return this.aiSettingEnabled && this.aiOrgEnabled;
 	}
 
 	private get integrations() {
@@ -377,7 +385,8 @@ export class GlIntegrationsChip extends LitElement {
 						</span>`
 				: html`<span class="integration__content">
 						<span class="integration_details"
-							>GitLens AI features have been disabled by your GitKraken admin</span
+							>GitLens AI features have been
+							disabled${!this.aiSettingEnabled ? ' via settings' : ' by your GitKraken admin'}</span
 						>
 				  </span>`}
 		</div>`;

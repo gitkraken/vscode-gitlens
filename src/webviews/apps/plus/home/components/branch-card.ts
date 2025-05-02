@@ -265,7 +265,7 @@ export abstract class GlBranchCardBase extends GlElement {
 
 	@consume<State>({ context: stateContext, subscribe: true })
 	@state()
-	private _homeState!: State;
+	protected _homeState!: State;
 
 	@property()
 	repo!: string;
@@ -798,6 +798,7 @@ export abstract class GlBranchCardBase extends GlElement {
 							>Create a Pull Request</gl-button
 						>
 						${this._homeState.orgSettings.ai &&
+						this._homeState.aiEnabled &&
 						this.remote?.provider?.supportedFeatures?.createPullRequestWithDetails
 							? html`<gl-button
 									class="branch-item__missing"

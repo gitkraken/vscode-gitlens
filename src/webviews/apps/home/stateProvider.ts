@@ -79,6 +79,7 @@ export class HomeStateProvider implements StateProvider<State> {
 				case DidChangePreviewEnabled.is(msg):
 					this._state.previewEnabled = msg.params.previewEnabled;
 					this._state.previewCollapsed = msg.params.previewCollapsed;
+					this._state.aiEnabled = msg.params.aiEnabled;
 					this._state.timestamp = Date.now();
 
 					this.provider.setValue(this._state, true);

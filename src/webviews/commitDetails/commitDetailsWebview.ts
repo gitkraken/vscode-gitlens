@@ -866,6 +866,7 @@ export class CommitDetailsWebviewProvider
 				'defaultDateStyle',
 				'views.commitDetails.files',
 				'views.commitDetails.avatars',
+				'ai.enabled',
 			]) ||
 			configuration.changedCore(e, 'workbench.tree.renderIndentGuides') ||
 			configuration.changedCore(e, 'workbench.tree.indent')
@@ -945,6 +946,7 @@ export class CommitDetailsWebviewProvider
 			files: configuration.get('views.commitDetails.files'),
 			indentGuides: configuration.getCore('workbench.tree.renderIndentGuides') ?? 'onHover',
 			indent: configuration.getCore('workbench.tree.indent'),
+			aiEnabled: configuration.get('ai.enabled'),
 		};
 	}
 

@@ -192,7 +192,7 @@ export class GlDraftDetails extends GlTreeBase {
 	}
 
 	private renderExplainAi() {
-		if (this.state?.orgSettings.ai === false) return undefined;
+		if (this.state?.orgSettings.ai === false || this.state?.preferences.aiEnabled === false) return undefined;
 
 		const markdown =
 			this.explain?.result != null ? `${this.explain.result.summary}\n\n${this.explain.result.body}` : undefined;
