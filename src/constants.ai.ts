@@ -43,7 +43,7 @@ export const openAIProviderDescriptor: AIProviderDescriptor<'openai'> = {
 } as const;
 export const azureProviderDescriptor: AIProviderDescriptor<'azure'> = {
 	id: 'azure',
-	name: 'Azure',
+	name: 'Azure (Preview)',
 	primary: false,
 	requiresAccount: true,
 	requiresUserKey: true,
