@@ -1,5 +1,5 @@
 import type { SearchOperators, SearchOperatorsLongForm, SearchQuery } from '../constants.search';
-import { searchOperationRegex, searchOperatorsToLongFormMap } from '../constants.search';
+import { searchOperators, searchOperatorsToLongFormMap } from '../constants.search';
 import type { StoredSearchQuery } from '../constants.storage';
 import type { GitRevisionReference } from './models/reference';
 import type { GitUser } from './models/user';
@@ -63,35 +63,101 @@ export function createSearchQueryForCommits(refsOrCommits: (string | GitRevision
 
 export function parseSearchQuery(search: SearchQuery): Map<SearchOperatorsLongForm, Set<string>> {
 	const operations = new Map<SearchOperatorsLongForm, Set<string>>();
+	const query = search.query.trim();
 
-	let op: SearchOperators | undefined;
-	let value: string | undefined;
-	let text: string | undefined;
+	let pos = 0;
 
-	let match;
-	do {
-		match = searchOperationRegex.exec(search.query);
-		if (match?.groups == null) break;
+	while (pos < query.length) {
+		// Skip whitespace
+		if (/\s/.test(query[pos])) {
+			pos++;
+			continue;
+		}
 
-		op = searchOperatorsToLongFormMap.get(match.groups.op as SearchOperators);
-		({ value, text } = match.groups);
+		// Try to match an operator
+		let matchedOperator = false;
+		let op: SearchOperators | undefined;
+		let value: string | undefined;
 
-		if (text) {
-			if (!searchOperatorsToLongFormMap.has(text.trim() as SearchOperators)) {
-				op = text === '@me' ? 'author:' : isSha(text) ? 'commit:' : 'message:';
-				value = text;
+		// Check for operators (starting with longer ones first to avoid partial matches)
+		for (const operator of searchOperators) {
+			if (!operator.length) continue;
+
+			if (query.startsWith(operator, pos)) {
+				op = operator as SearchOperators;
+				const startPos = pos + operator.length;
+				pos = startPos;
+
+				// Skip optional space after operator
+				if (query[pos] === ' ') {
+					pos++;
+				}
+
+				// Extract the value and check if it is quoted
+				if (query[pos] === '"') {
+					const endQuotePos = query.indexOf('"', pos + 1);
+					if (endQuotePos !== -1) {
+						value = query.substring(pos, endQuotePos + 1);
+						pos = endQuotePos + 1;
+					} else {
+						// Unterminated quote, take the rest of the string
+						value = query.substring(pos);
+						pos = query.length;
+					}
+				} else {
+					// Unquoted value - take until whitespace
+					const nextSpacePos = query.indexOf(' ', pos);
+					const valueEndPos = nextSpacePos !== -1 ? nextSpacePos : query.length;
+					value = query.substring(pos, valueEndPos);
+					pos = valueEndPos;
+				}
+
+				matchedOperator = true;
+				break;
 			}
 		}
 
+		if (!matchedOperator) {
+			// No operator found, parse as text
+			let text: string;
+
+			// Check if text is quoted
+			if (query[pos] === '"') {
+				const endQuotePos = query.indexOf('"', pos + 1);
+				if (endQuotePos !== -1) {
+					text = query.substring(pos, endQuotePos + 1);
+					pos = endQuotePos + 1;
+				} else {
+					// Unterminated quote, take the rest of the string
+					text = query.substring(pos);
+					pos = query.length;
+				}
+			} else {
+				// Unquoted text - take until whitespace
+				const nextSpacePos = query.indexOf(' ', pos);
+				const valueEndPos = nextSpacePos !== -1 ? nextSpacePos : query.length;
+				text = query.substring(pos, valueEndPos);
+				pos = valueEndPos;
+			}
+
+			// Handle special text tokens (@me, SHA)
+			op = text === '@me' ? 'author:' : isSha(text) ? 'commit:' : 'message:';
+			value = text;
+		}
+
+		// Add the discovered operation to our map
 		if (op && value) {
-			let values = operations.get(op);
-			if (values == null) {
-				values = new Set();
-				operations.set(op, values);
+			const longFormOp = searchOperatorsToLongFormMap.get(op);
+			if (longFormOp) {
+				let values = operations.get(longFormOp);
+				if (values == null) {
+					values = new Set();
+					operations.set(longFormOp, values);
+				}
+				values.add(value);
 			}
-			values.add(value);
 		}
-	} while (match != null);
+	}
 
 	return operations;
 }
