@@ -15,6 +15,7 @@ export type AIProviders =
 	| 'vscode'
 	| 'xai';
 export type AIPrimaryProviders = Extract<AIProviders, 'gitkraken' | 'vscode'>;
+export type OpenAIProviders = 'azure' | 'openai' | 'openaicompatible';
 
 export type AIProviderAndModel = `${string}:${string}`;
 export type SupportedAIModels = `${Exclude<AIProviders, AIPrimaryProviders>}:${string}` | AIPrimaryProviders;
