@@ -1,4 +1,4 @@
-import type { ChildProcess, SpawnOptions } from 'child_process';
+import type { SpawnOptions } from 'child_process';
 import { spawn } from 'child_process';
 import { accessSync } from 'fs';
 import { join as joinPath } from 'path';
@@ -349,70 +349,6 @@ export class Git {
 		}
 	}
 
-	async spawn(options: GitSpawnOptions, ...args: readonly (string | undefined)[]): Promise<ChildProcess> {
-		if (!workspace.isTrusted) throw new WorkspaceUntrustedError();
-
-		const start = hrtime();
-
-		const { cancellation, configs, stdin, stdinEncoding, ...opts } = options;
-		const runArgs = args.filter(a => a != null);
-
-		const spawnOpts: SpawnOptions = {
-			// Unless provided, ignore stdin and leave default streams for stdout and stderr
-			stdio: [stdin ? 'pipe' : 'ignore', null, null],
-			...opts,
-			// Adds GCM environment variables to avoid any possible credential issues -- from https://github.com/Microsoft/vscode/issues/26573#issuecomment-338686581
-			// Shouldn't *really* be needed but better safe than sorry
-			env: {
-				...process.env,
-				...this._gitEnv,
-				...(options.env ?? emptyObj),
-				GCM_INTERACTIVE: 'NEVER',
-				GCM_PRESERVE_CREDS: 'TRUE',
-				LC_ALL: 'C',
-			},
-		};
-
-		const gitCommand = `(spawn) [${spawnOpts.cwd as string}] git ${runArgs.join(' ')}`;
-
-		// Fixes https://github.com/gitkraken/vscode-gitlens/issues/73 & https://github.com/gitkraken/vscode-gitlens/issues/161
-		// See https://stackoverflow.com/questions/4144417/how-to-handle-asian-characters-in-file-names-in-git-on-os-x
-		runArgs.unshift(
-			'-c',
-			'core.quotepath=false',
-			'-c',
-			'color.ui=false',
-			...(configs !== undefined ? configs : emptyArray),
-		);
-
-		if (process.platform === 'win32') {
-			runArgs.unshift('-c', 'core.longpaths=true');
-		}
-
-		if (cancellation) {
-			const aborter = new AbortController();
-			spawnOpts.signal = aborter.signal;
-			cancellation.onCancellationRequested(() => aborter.abort());
-		}
-
-		const command = await this.path();
-		const proc = spawn(command, runArgs, spawnOpts);
-		if (stdin) {
-			proc.stdin?.end(stdin, (stdinEncoding ?? 'utf8') as BufferEncoding);
-		}
-
-		let exception: Error | undefined;
-		proc.once('error', ex => {
-			if (ex?.name === 'AbortError') {
-				exception = new CancellationError(new CancelledRunError(command, true));
-			} else {
-				exception = new GitError(ex);
-			}
-		});
-		proc.once('exit', () => this.logGitCommand(gitCommand, exception, getDurationMilliseconds(start), false));
-		return proc;
-	}
-
 	async *stream(options: GitSpawnOptions, ...args: readonly (string | undefined)[]): AsyncGenerator<string> {
 		if (!workspace.isTrusted) throw new WorkspaceUntrustedError();
 
@@ -453,9 +389,22 @@ export class Git {
 			runArgs.unshift('-c', 'core.longpaths=true');
 		}
 
-		const aborter = new AbortController();
-		spawnOpts.signal = aborter.signal;
-		cancellation?.onCancellationRequested(() => aborter.abort());
+		let disposable: Disposable | undefined;
+		if (cancellation != null) {
+			const aborter = new AbortController();
+			const onAbort = () => aborter.abort();
+
+			const signal = spawnOpts.signal;
+			disposable = {
+				dispose: () => {
+					cancellation?.onCancellationRequested(onAbort);
+					signal?.removeEventListener('abort', onAbort);
+				},
+			};
+
+			spawnOpts.signal?.addEventListener('abort', onAbort);
+			spawnOpts.signal = aborter.signal;
+		}
 
 		const command = await this.path();
 		const proc = spawn(command, runArgs, spawnOpts);
@@ -463,50 +412,74 @@ export class Git {
 			proc.stdin?.end(stdin, (stdinEncoding ?? 'utf8') as BufferEncoding);
 		}
 
-		let completed = false;
 		let exception: Error | undefined;
 
-		proc.once(
-			'error',
-			ex =>
-				(exception =
-					ex?.name === 'AbortError'
-						? new CancellationError(new CancelledRunError(command, true))
-						: new GitError(ex)),
-		);
-		proc.once('exit', (code, signal) => {
-			if (signal === 'SIGTERM') {
-				exception = new CancellationError(new CancelledRunError(command, true, code ?? undefined, signal));
+		const promise = new Promise<void>((resolve, reject) => {
+			const stderrChunks: string[] = [];
+			if (proc.stderr) {
+				proc.stderr?.setEncoding('utf8');
+				proc.stderr.on('data', chunk => stderrChunks.push(chunk));
 			}
-			this.logGitCommand(gitCommand, exception, getDurationMilliseconds(start), false);
+
+			proc.once('error', ex => {
+				if (ex?.name === 'AbortError') return;
+
+				exception = new GitError(ex);
+			});
+			proc.once('close', (code, signal) => {
+				// If the process exited normally or the caller didn't iterate over the complete stream, just resolve
+				if (code === 0 || code === 141 /* SIGPIPE */) {
+					resolve();
+					return;
+				}
+
+				if (signal === 'SIGTERM') {
+					reject(
+						new CancellationError(
+							new CancelledRunError(proc.spawnargs.join(' '), true, code ?? undefined, signal),
+						),
+					);
+					return;
+				}
+
+				const stderr = stderrChunks.join('').trim();
+				reject(
+					new GitError(
+						new RunError(
+							{
+								message: `Error (${code}): ${stderr || 'Unknown'}`,
+								cmd: proc.spawnargs.join(' '),
+								killed: proc.killed,
+								code: proc.exitCode,
+							},
+							'',
+							stderr,
+						),
+					),
+				);
+			});
 		});
 
 		try {
-			if (!proc.stdout) {
-				aborter.abort();
-				throw new Error('Spawned Git process has no stdout');
-			}
-			proc.stdout.setEncoding('utf8');
-
-			for await (const chunk of proc.stdout) {
-				if (exception != null) {
-					if (isCancellationError(exception)) {
-						// TODO: Should we throw here?
-						break;
-					} else {
-						throw exception;
+			try {
+				if (proc.stdout) {
+					proc.stdout.setEncoding('utf8');
+					for await (const chunk of proc.stdout) {
+						yield chunk;
 					}
 				}
-
-				yield chunk;
+			} finally {
+				// I have NO idea why this HAS to be in a finally block, but it does
+				await promise;
 			}
-
-			completed = true;
+		} catch (ex) {
+			exception = ex;
+			throw ex;
 		} finally {
-			// If we didn't complete the iteration, then abort the process
-			if (!completed) {
-				aborter.abort();
-			}
+			disposable?.dispose();
+			proc.removeAllListeners();
+
+			this.logGitCommand(gitCommand, exception, getDurationMilliseconds(start), false);
 		}
 	}
 
@@ -1099,93 +1072,6 @@ export class Git {
 
 			throw new PullError(reason, ex);
 		}
-	}
-
-	async logStreamTo(
-		repoPath: string,
-		sha: string,
-		limit: number,
-		options?: { cancellation?: CancellationToken; configs?: readonly string[]; stdin?: string },
-		...args: string[]
-	): Promise<[data: string[], count: number]> {
-		const params = ['log', ...args];
-		if (options?.stdin) {
-			params.push('--stdin');
-		}
-
-		const proc = await this.spawn(
-			{
-				cwd: repoPath,
-				cancellation: options?.cancellation,
-				configs: options?.configs ?? gitLogDefaultConfigs,
-				stdin: options?.stdin,
-			},
-			...params,
-			'--',
-		);
-
-		// \x1E = ASCII Record Separator character
-		// \x1D = ASCII Group Separator character
-		const shaMatch = `\x1E${sha}\x1D`;
-		// eslint-disable-next-line no-control-regex
-		const shaMatchRegex = /\x1E.+?\x1D/g;
-		let found = false;
-		let count = 0;
-
-		return new Promise<[data: string[], count: number]>((resolve, reject) => {
-			const errData: string[] = [];
-			const data: string[] = [];
-
-			function onErrData(s: string) {
-				errData.push(s);
-			}
-
-			function onError(e: Error) {
-				reject(e);
-			}
-
-			function onExit(exitCode: number) {
-				if (exitCode !== 0) {
-					reject(new Error(errData.join('')));
-				}
-
-				resolve([data, count]);
-			}
-
-			function onData(s: string) {
-				data.push(s);
-
-				const matches = s.match(shaMatchRegex);
-				count += matches?.length ?? 0;
-
-				if (!found && matches?.includes(shaMatch)) {
-					found = true;
-					// Buffer a bit past the sha we are looking for
-					if (count > limit) {
-						limit = count + 50;
-					}
-				}
-
-				if (!found || count <= limit) return;
-
-				proc.removeListener('exit', onExit);
-				proc.removeListener('error', onError);
-				proc.stdout!.removeListener('data', onData);
-				proc.stderr!.removeListener('data', onErrData);
-				proc.kill();
-
-				resolve([data, count]);
-			}
-
-			proc.on('error', onError);
-			proc.on('exit', onExit);
-
-			proc.stdout!.setEncoding('utf8');
-			proc.stdout!.on('data', onData);
-
-			proc.stderr!.setEncoding('utf8');
-			proc.stderr!.on('data', onErrData);
-		});
 	}
 
 	async ls_files(

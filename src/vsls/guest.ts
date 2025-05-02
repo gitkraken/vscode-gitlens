@@ -10,7 +10,7 @@ import { Logger } from '../system/logger';
 import { getLogScope } from '../system/logger.scope';
 import { VslsHostService } from './host';
 import type { RepositoryProxy, RequestType } from './protocol';
-import { GetRepositoriesForUriRequestType, GitCommandRequestType, GitLogStreamToCommandRequestType } from './protocol';
+import { GetRepositoriesForUriRequestType, GitCommandRequestType } from './protocol';
 
 export class VslsGuestService implements Disposable {
 	@log()
@@ -69,26 +69,6 @@ export class VslsGuestService implements Disposable {
 			stdout: (response.isBuffer ? Buffer.from(response.data, 'binary') : response.data) as TOut,
 			exitCode: 0,
 		};
-	}
-
-	@log()
-	async gitLogStreamTo(
-		repoPath: string,
-		sha: string,
-		limit: number,
-		options?: { configs?: readonly string[]; stdin?: string },
-		...args: string[]
-	): Promise<[data: string[], count: number]> {
-		const response = await this.sendRequest(GitLogStreamToCommandRequestType, {
-			__type: 'gitlens',
-			repoPath: repoPath,
-			sha: sha,
-			limit: limit,
-			options: options,
-			args: args,
-		});
-
-		return [response.data, response.count];
 	}
 
 	@log()

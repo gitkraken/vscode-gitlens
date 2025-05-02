@@ -27,16 +27,6 @@ export function git(options: GitCommandOptions, ...args: any[]): Promise<GitResu
 	return ensureGit().exec(options, ...args);
 }
 
-export function gitLogStreamTo(
-	repoPath: string,
-	sha: string,
-	limit: number,
-	options?: { configs?: readonly string[]; stdin?: string },
-	...args: string[]
-): Promise<[data: string[], count: number]> {
-	return ensureGit().logStreamTo(repoPath, sha, limit, options, ...args);
-}
-
 export async function getSupportedGitProviders(container: Container): Promise<GitProvider[]> {
 	const git = ensureGit();
 
