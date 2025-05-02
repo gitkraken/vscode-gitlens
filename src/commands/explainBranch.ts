@@ -1,17 +1,15 @@
 import type { CancellationToken, TextEditor, Uri } from 'vscode';
 import { ProgressLocation } from 'vscode';
-import type { Source } from '../constants.telemetry';
 import type { Container } from '../container';
 import { GitUri } from '../git/gitUri';
 import type { GitBranch } from '../git/models/branch';
 import { showGenericErrorMessage } from '../messages';
 import type { AIExplainSource } from '../plus/ai/aiProviderService';
 import { ReferencesQuickPickIncludes, showReferencePicker } from '../quickpicks/referencePicker';
-import { getBestRepositoryOrShowPicker, getRepositoryOrShowPicker } from '../quickpicks/repositoryPicker';
+import { getBestRepositoryOrShowPicker } from '../quickpicks/repositoryPicker';
 import { command } from '../system/-webview/command';
 import { showMarkdownPreview } from '../system/-webview/markdown';
 import { Logger } from '../system/logger';
-import { getSettledValue } from '../system/promise';
 import { GlCommandBase } from './commandBase';
 import { getCommandUri } from './commandBase.utils';
 import type { CommandContext } from './commandContext';
@@ -133,161 +131,6 @@ export class ExplainBranchCommand extends GlCommandBase {
 		}
 	}
 }
-
-export interface ExplainBranchCommandArgs2 {
-	repoPath: string;
-	branch: string;
-	source?: Source;
-}
-
-@command()
-export class ExplainBranchCommand2 extends GlCommandBase {
-	constructor(private readonly container: Container) {
-		super('gitlens.ai.explainBranch');
-	}
-
-	async execute(args?: ExplainBranchCommandArgs2): Promise<void> {
-		let repo;
-		if (args?.repoPath != null) {
-			repo = this.container.git.getRepository(args.repoPath);
-		}
-		repo ??= await getRepositoryOrShowPicker(
-			'Explain Branch',
-			'Choose which repository to explain a branch from',
-			undefined,
-		);
-		if (repo == null) return;
-
-		try {
-			// If no ref is provided, show a picker to select a branch
-			if (args == null) {
-				const pick = await showReferencePicker(repo.path, 'Explain Branch', 'Choose a branch to explain', {
-					include: ReferencesQuickPickIncludes.Branches,
-					sort: { branches: { current: true } },
-				});
-				if (pick?.ref == null) return;
-
-				args = {
-					repoPath: repo.path,
-					branch: pick.ref,
-				};
-			}
-
-			// Get the branch
-			const branch = await repo.git.branches().getBranch(args.branch);
-			if (branch == null) {
-				void showGenericErrorMessage('Unable to find the specified branch');
-				return;
-			}
-			const headRef = branch.ref;
-			const baseRef = branch.upstream?.name;
-
-			// Get the diff between the branch and its upstream or base
-			const [diffResult, logResult] = await Promise.allSettled([
-				repo.git.diff().getDiff?.(headRef, baseRef, { notation: '...' }),
-				repo.git.commits().getLog(`${baseRef}..${headRef}`),
-			]);
-
-			const diff = getSettledValue(diffResult);
-			const log = getSettledValue(logResult);
-
-			if (!diff?.contents || !log?.commits?.size) {
-				void showGenericErrorMessage('No changes found to explain');
-			}
-		} catch (ex) {
-			Logger.error(ex, 'ExplainBranchCommand', 'execute');
-			void showGenericErrorMessage('Unable to explain branch');
-		}
-	}
-}
-
-// export interface ExplainBranchCommandArgs {
-// 	repoPath: string;
-// 	branch: GitBranchReference;
-// 	source?: Source;
-// }
-
-// @command()
-// export class ExplainBranchCommand extends GlCommandBase {
-// 	constructor(private readonly container: Container) {
-// 		super('gitlens.ai.explainBranch');
-// 	}
-
-// 	async execute(args?: ExplainBranchCommandArgs): Promise<void> {
-// 		try {
-// 			// I'm declining it for now, because it can be a behaviour for "explain comparison" command,
-// 			// that can be called either from the command palette or from the compare view.
-// 			const comparisonResult = await showComparisonPicker(this.container, args?.repoPath, {
-// 				head: args?.branch,
-// 				getTitleAndPlaceholder: step => {
-// 					switch (step) {
-// 						case 1:
-// 							return {
-// 								title: 'Explain Branch',
-// 								placeholder: 'Choose a branch to explain',
-// 							};
-// 						case 2:
-// 							return {
-// 								title: `Explain Branch \u2022 Select Base to Start From`,
-// 								placeholder: 'Choose a base branch to explain from',
-// 							};
-// 					}
-// 				},
-// 			});
-// 			if (comparisonResult == null) return;
-
-// 			const repo = this.container.git.getRepository(comparisonResult.repoPath);
-// 			if (repo == null) return;
-
-// 			const mergeBase = await repo.git.refs().getMergeBase(comparisonResult.head.ref, comparisonResult.base.ref);
-
-// 			const [diffResult, logResult] = await Promise.allSettled([
-// 				repo.git.diff().getDiff?.(comparisonResult.head.ref, mergeBase, { notation: '...' }),
-// 				repo.git.commits().getLog(`${mergeBase}..${comparisonResult.head.ref}`),
-// 			]);
-
-// 			const diff = getSettledValue(diffResult);
-// 			const log = getSettledValue(logResult);
-
-// 			if (!diff?.contents || !log?.commits?.size) {
-// 				void showGenericErrorMessage('No changes found to explain');
-// 				return;
-// 			}
-
-// 			const commitMessages: string[] = [];
-// 			for (const commit of [...log.commits.values()].sort((a, b) => a.date.getTime() - b.date.getTime())) {
-// 				commitMessages.push(commit.message ?? commit.summary);
-// 			}
-
-// 			const result = await this.container.ai.explainChanges(
-// 				{
-// 					diff: diff.contents,
-// 					message: commitMessages.join('\n\n'),
-// 				},
-// 				{
-// 					source: 'commandPalette',
-// 					...args?.source,
-// 					type: 'branch',
-// 				},
-// 				{
-// 					progress: { location: ProgressLocation.Notification, title: 'Explaining branch changes...' },
-// 				},
-// 			);
-
-// 			// Display the result
-// 			let content = `# Branch: ${comparisonResult.head.name}\n`;
-// 			if (result != null) {
-// 				content += `> Generated by ${result.model.name}\n\n----\n\n${result?.parsed.summary}\n\n${result?.parsed.body}`;
-// 			} else {
-// 				content += `> No changes found to explain.`;
-// 			}
-// 			void showMarkdownPreview(content);
-// 		} catch (ex) {
-// 			Logger.error(ex, 'ExplainBranchCommand', 'execute');
-// 			void showGenericErrorMessage('Unable to explain branch');
-// 		}
-// 	}
-// }
 
 async function getMergeTarget(
 	container: Container,
