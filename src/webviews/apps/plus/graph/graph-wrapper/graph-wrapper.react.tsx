@@ -475,7 +475,7 @@ export function GraphWrapperReact(initProps: GraphWrapperInitProps) {
 
 	const handleRowContextMenu = (_event: React.MouseEvent<any>, graphZoneType: GraphZoneType, graphRow: GraphRow) => {
 		if (graphZoneType === refZone) return;
-		// initProps.onRowContextMenu?.({ graphZoneType: graphZoneType, graphRow: graphRow });
+
 		// If the row is in the current selection, use the typed selection context, otherwise clear it
 		const newSelectionContext = selectionContexts?.selectedShas.has(graphRow.sha)
 			? selectionContexts.contexts.get(graphRow.type)
@@ -490,6 +490,8 @@ export function GraphWrapperReact(initProps: GraphWrapperInitProps) {
 				...newSelectionContext,
 			},
 		});
+
+		initProps.onRowContextMenu?.({ graphZoneType: graphZoneType, graphRow: graphRow });
 	};
 
 	return (
