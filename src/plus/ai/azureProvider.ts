@@ -1,6 +1,6 @@
 import type { Disposable } from 'vscode';
 import { window } from 'vscode';
-import { openAICompatibleProviderDescriptor as provider } from '../../constants.ai';
+import { azureProviderDescriptor as provider } from '../../constants.ai';
 import { configuration } from '../../system/-webview/configuration';
 import type { AIActionType, AIModel } from './models/model';
 import { openAIModels } from './models/model';
