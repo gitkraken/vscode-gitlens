@@ -16,11 +16,16 @@ Unsure where to begin contributing? You can start by looking through the [`help-
 git clone https://github.com/gitkraken/vscode-gitlens.git
 ```
 
-Prerequisites
+**Prerequisites**
 
 - [Git](https://git-scm.com/), `>= 2.7.2`
 - [NodeJS](https://nodejs.org/), `>= 22.12.0`
-- [pnpm](https://pnpm.io/), `>= 10.x` (install using [corepack](https://nodejs.org/docs/latest-v20.x/api/corepack.html))
+- [Corepack](https://nodejs.org/docs/latest-v22.x/api/corepack.html), `>= 0.31.0`
+- [pnpm](https://pnpm.io/), `>= 10.x` (installs using corepack)
+
+> 👉 **NOTE!** Corepack version
+>
+> Check your version of corepack by running `corepack -v` and ensure it is at least `0.31.0`. To update corepack, run `npm install corepack@latest`. You can enable corepack by running `corepack enable`.
 
 ### Dependencies
 
