@@ -81,48 +81,29 @@ export class ExplainBranchCommand extends GlCommandBase {
 			}
 
 			// Get the diff between the branch and its upstream or base
-			const diffService = repository.git.diff();
-			if (diffService?.getDiff === undefined) {
-				void showGenericErrorMessage('Unable to get diff service');
+			const compareData = await this.container.ai.prepareCompareDataForAIRequest(
+				repository,
+				branch.ref,
+				baseBranch.ref,
+				{
+					reportNoDiffService: () => void showGenericErrorMessage('Unable to get diff service'),
+					reportNoCommitsService: () => void showGenericErrorMessage('Unable to get commits service'),
+					reportNoChanges: () => void showGenericErrorMessage('No changes found to explain'),
+				},
+			);
+
+			if (compareData == null) {
 				return;
 			}
 
-			const commitsService = repository.git.commits();
-			if (commitsService?.getLog === undefined) {
-				void showGenericErrorMessage('Unable to get commits service');
-				return;
-			}
-
-			const [diffResult, logResult] = await Promise.allSettled([
-				diffService.getDiff?.(branch.ref, baseBranch.ref, { notation: '...' }),
-				commitsService.getLog(`${baseBranch.ref}..${branch.ref}`),
-			]);
-
-			const diff = getSettledValue(diffResult);
-			const log = getSettledValue(logResult);
-			if (!diff?.contents || !log?.commits?.size) {
-				void showGenericErrorMessage('No changes found to explain');
-				return;
-			}
-
-			const commitMessages: string[] = [];
-			for (const commit of [...log.commits.values()].sort((a, b) => a.date.getTime() - b.date.getTime())) {
-				const message = commit.message ?? commit.summary;
-				if (message) {
-					commitMessages.push(
-						`<commit-message ${commit.date.toISOString()}>\n${
-							commit.message ?? commit.summary
-						}\n<end-of-commit-message>`,
-					);
-				}
-			}
+			const { diff, logMessages } = compareData;
 
 			const changes = {
-				diff: diff.contents,
+				diff: diff,
 				message: `Changes in branch ${branch.name}
 					that is ahead of its target by number of commits with the following messages:\n\n
 					<commits>
-					${commitMessages.join('\n\n')}
+					${logMessages}
 					<end-of-commits>
 					`,
 			};
