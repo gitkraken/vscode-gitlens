@@ -379,7 +379,10 @@ function createLogParserWithFilesAndStats<T extends Record<string, string> | voi
 					} else if (line.startsWith(' delete mode ')) {
 						status = 'D';
 					} else {
-						debugger;
+						// Ignore " mode change " lines
+						if (!line.startsWith(' mode change ')) {
+							debugger;
+						}
 						continue;
 					}
 
