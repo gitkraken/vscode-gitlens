@@ -503,6 +503,8 @@ export class CommitsGitSubProvider implements GitCommitsSubProvider {
 					}
 					args.push('--', pathspec);
 				}
+			} else {
+				args.push('--');
 			}
 
 			const currentUser = await currentUserPromise.catch(() => undefined);
