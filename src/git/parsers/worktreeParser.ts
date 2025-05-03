@@ -53,7 +53,7 @@ export function parseGitWorktrees(
 			value = line.substring(index + 1);
 		}
 
-		if (key.length === 0 && entry != null) {
+		if (!key && entry != null) {
 			// eslint-disable-next-line no-loop-func
 			const branch = entry.branch ? branches?.find(b => b.name === entry!.branch) : undefined;
 
@@ -76,9 +76,7 @@ export function parseGitWorktrees(
 			continue;
 		}
 
-		if (entry == null) {
-			entry = {};
-		}
+		entry ??= {};
 
 		switch (key) {
 			case 'worktree':

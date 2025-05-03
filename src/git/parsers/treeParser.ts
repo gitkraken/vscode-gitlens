@@ -1,10 +1,8 @@
 import { maybeStopWatch } from '../../system/stopwatch';
+import { iterateByDelimiter } from '../../system/string';
 import type { GitLsFilesEntry, GitTreeEntry } from '../models/tree';
 
-const treeRegex = /(?:.+?)\s+(.+?)\s+(.+?)\s+(.+?)\s+(.+)/gm;
-const filesRegex = /^(\S+)\s+(\S+)\s+(\S+)\s+(.*)$/gm;
-
-export function parseGitTree(data: string | undefined, ref: string): GitTreeEntry[] {
+export function parseGitTree(data: string | undefined, ref: string, singleEntry: boolean): GitTreeEntry[] {
 	using sw = maybeStopWatch(`Git.parseTree`, { log: false, logLevel: 'debug' });
 
 	const trees: GitTreeEntry[] = [];
@@ -13,36 +11,56 @@ export function parseGitTree(data: string | undefined, ref: string): GitTreeEntr
 		return trees;
 	}
 
-	let type;
-	let oid;
-	let size;
-	let filePath;
+	// Format: <mode> <type> <oid> <size>\t<path>
 
-	let match;
-	do {
-		match = treeRegex.exec(data);
-		if (match == null) break;
+	let metadata: string;
+	let oid: string;
+	let size: number;
+	let type: 'blob' | 'tree';
+	let path: string;
 
-		[, type, oid, size, filePath] = match;
+	let startIndex = 0;
+	let endIndex = 0;
 
-		trees.push({
-			ref: ref,
-			// Stops excessive memory usage -- https://bugs.chromium.org/p/v8/issues/detail?id=2869
-			oid: oid == null || oid.length === 0 ? '' : ` ${oid}`.substring(1),
-			// Stops excessive memory usage -- https://bugs.chromium.org/p/v8/issues/detail?id=2869
-			path: filePath == null || filePath.length === 0 ? '' : ` ${filePath}`.substring(1),
-			size: Number(size) || 0,
-			// Stops excessive memory usage -- https://bugs.chromium.org/p/v8/issues/detail?id=2869
-			type: (type == null || type.length === 0 ? '' : ` ${type}`.substring(1)) as 'blob' | 'tree',
-		});
-	} while (true);
+	// Avoid generator if we are only parsing a single entry
+	for (let line of singleEntry ? data.split('\n') : iterateByDelimiter(data, '\n')) {
+		line = line.trim();
+		if (!line) continue;
+
+		[metadata, path] = line.split(/\t/);
+
+		// Skip mode
+		startIndex = metadata.indexOf(' ');
+		if (startIndex === -1) continue;
+
+		// Parse type
+		startIndex++;
+		endIndex = metadata.indexOf(' ', startIndex);
+		if (endIndex === -1) continue;
+
+		type = metadata.substring(startIndex, endIndex) as 'blob' | 'tree';
+
+		// Parse oid
+		startIndex = endIndex + 1;
+		endIndex = metadata.indexOf(' ', startIndex);
+		if (endIndex === -1) continue;
+
+		oid = metadata.substring(startIndex, endIndex);
+
+		// Parse size
+		startIndex = endIndex + 1;
+
+		size = parseInt(metadata.substring(startIndex), 10);
+
+		trees.push({ ref: ref, oid: oid, path: path || '', size: isNaN(size) ? 0 : size, type: type || 'blob' });
+	}
 
 	sw?.stop({ suffix: ` parsed ${trees.length} trees` });
 
 	return trees;
 }
 
-export function parseGitLsFiles(data: string | undefined): GitLsFilesEntry[] {
+export function parseGitLsFilesStaged(data: string | undefined, singleEntry: boolean): GitLsFilesEntry[] {
 	using sw = maybeStopWatch(`Git.parseLsFiles`, { log: false, logLevel: 'debug' });
 
 	const files: GitLsFilesEntry[] = [];
@@ -51,28 +69,45 @@ export function parseGitLsFiles(data: string | undefined): GitLsFilesEntry[] {
 		return files;
 	}
 
-	let filePath;
-	let mode;
-	let oid;
-	let stage;
+	// Format: <mode> <object> <stage>\t<file>
 
-	let match;
-	do {
-		match = filesRegex.exec(data);
-		if (match == null) break;
+	let metadata: string;
+	let mode: string;
+	let oid: string;
+	let stage: number;
+	let path: string;
 
-		[, mode, oid, stage, filePath] = match;
+	let startIndex = 0;
+	let endIndex = 0;
 
-		files.push({
-			// Stops excessive memory usage -- https://bugs.chromium.org/p/v8/issues/detail?id=2869
-			mode: mode == null || mode.length === 0 ? '' : ` ${mode}`.substring(1),
-			// Stops excessive memory usage -- https://bugs.chromium.org/p/v8/issues/detail?id=2869
-			oid: oid == null || oid.length === 0 ? '' : ` ${oid}`.substring(1),
-			// Stops excessive memory usage -- https://bugs.chromium.org/p/v8/issues/detail?id=2869
-			path: filePath == null || filePath.length === 0 ? '' : ` ${filePath}`.substring(1),
-			stage: parseInt(stage, 10),
-		});
-	} while (true);
+	// Avoid generator if we are only parsing a single entry
+	for (let line of singleEntry ? data.split('\n') : iterateByDelimiter(data, '\n')) {
+		line = line.trim();
+		if (!line) continue;
+
+		[metadata, path] = line.split(/\t/);
+
+		// Parse mode
+		startIndex = 0;
+		endIndex = metadata.indexOf(' ', startIndex);
+		if (endIndex === -1) continue;
+
+		mode = metadata.substring(startIndex, endIndex);
+
+		// Parse oid
+		startIndex = endIndex + 1;
+		endIndex = metadata.indexOf(' ', startIndex);
+		if (endIndex === -1) continue;
+
+		oid = metadata.substring(startIndex, endIndex);
+
+		// Parse stage
+		startIndex = endIndex + 1;
+
+		stage = parseInt(metadata.substring(startIndex), 10);
+
+		files.push({ mode: mode, oid: oid, path: path, stage: isNaN(stage) ? 0 : stage });
+	}
 
 	sw?.stop({ suffix: ` parsed ${files.length} files` });
 
