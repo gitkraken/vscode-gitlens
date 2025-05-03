@@ -21730,7 +21730,7 @@
 	},
 	"devDependencies": {
 		"@eamodio/eslint-lite-webpack-plugin": "0.2.0",
-		"@eslint/js": "9.25.1",
+		"@eslint/js": "9.26.0",
 		"@playwright/test": "1.52.0",
 		"@swc/core": "1.11.24",
 		"@twbs/fantasticon": "3.1.0",
@@ -21745,7 +21745,7 @@
 		"@typescript-eslint/parser": "8.31.1",
 		"@vscode/test-cli": "0.0.10",
 		"@vscode/test-electron": "2.5.2",
-		"@vscode/test-web": "0.0.68",
+		"@vscode/test-web": "0.0.69",
 		"@vscode/vsce": "3.3.2",
 		"cheerio": "1.0.0-rc.12",
 		"circular-dependency-plugin": "5.2.2",
@@ -21759,7 +21759,7 @@
 		"esbuild-loader": "4.3.0",
 		"esbuild-node-externals": "1.18.0",
 		"esbuild-sass-plugin": "3.3.1",
-		"eslint": "9.25.1",
+		"eslint": "9.26.0",
 		"eslint-import-resolver-typescript": "4.3.4",
 		"eslint-plugin-anti-trojan-source": "1.1.1",
 		"eslint-plugin-import-x": "4.11.0",
@@ -21787,7 +21787,7 @@
 		"terser-webpack-plugin": "5.3.14",
 		"ts-loader": "9.5.2",
 		"typescript": "5.8.3",
-		"typescript-eslint": "8.31.0",
+		"typescript-eslint": "8.31.1",
 		"webpack": "5.99.7",
 		"webpack-bundle-analyzer": "4.10.2",
 		"webpack-cli": "6.0.1",
@@ -21799,8 +21799,7 @@
 		"esbuild": "0.25.3",
 		"https-proxy-agent": "5.0.1",
 		"iconv-lite": "0.6.3",
-		"node-fetch": "2.7.0",
-		"semver-regex": "4.0.5"
+		"node-fetch": "2.7.0"
 	},
 	"packageManager": "pnpm@10.10.0"
 }
