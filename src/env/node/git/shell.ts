@@ -264,20 +264,17 @@ export function runSpawn<T extends string | Buffer>(
 	command: string,
 	args: readonly string[],
 	encoding: BufferEncoding | 'buffer' | string,
-	options?: RunOptions,
+	options: RunOptions,
 ): Promise<RunResult<T>>;
 export function runSpawn<T extends string | Buffer>(
 	command: string,
 	args: readonly string[],
 	encoding: BufferEncoding | 'buffer' | string,
-	options?: RunOptions & { exitCodeOnly?: boolean },
+	options: RunOptions & { exitCodeOnly?: boolean },
 ): Promise<RunExitResult | RunResult<T>> {
 	const scope = getLogScope();
 
-	const { stdin, stdinEncoding, ...opts }: RunOptions = {
-		maxBuffer: 1000 * 1024 * 1024,
-		...options,
-	};
+	const { stdin, stdinEncoding, ...opts }: RunOptions = options;
 
 	return new Promise<RunExitResult | RunResult<T>>((resolve, reject) => {
 		const proc = spawn(command, args, opts);
@@ -288,13 +285,21 @@ export function runSpawn<T extends string | Buffer>(
 		const stderrBuffers: Buffer[] = [];
 		proc.stderr.on('data', (data: Buffer) => stderrBuffers.push(data));
 
-		function stdioError(): [stdout: string, stderr: string] {
-			return [Buffer.concat(stdoutBuffers).toString('utf8'), Buffer.concat(stderrBuffers).toString('utf8')];
-		}
+		function getStdio<T>(
+			encoding: BufferEncoding | 'buffer' | string,
+		): { stdout: T; stderr: T } | Promise<{ stdout: T; stderr: T }> {
+			const stdout = Buffer.concat(stdoutBuffers);
+			const stderr = Buffer.concat(stderrBuffers);
+			if (encoding === 'utf8' || encoding === 'binary') {
+				return { stdout: stdout.toString(encoding) as T, stderr: stderr.toString(encoding) as T };
+			}
+			if (encoding === 'buffer') {
+				return { stdout: stdout as T, stderr: stderr as T };
+			}
 
-		async function stdioErrorDecoded(): Promise<[stdout: string, stderr: string]> {
-			const decode = (await import(/* webpackChunkName: "lib-encoding" */ 'iconv-lite')).decode;
-			return [decode(Buffer.concat(stdoutBuffers), encoding), decode(Buffer.concat(stderrBuffers), encoding)];
+			return import(/* webpackChunkName: "lib-encoding" */ 'iconv-lite').then(iconv => {
+				return { stdout: iconv.decode(stdout, encoding) as T, stderr: iconv.decode(stderr, encoding) as T };
+			});
 		}
 
 		proc.once('error', async ex => {
@@ -304,15 +309,13 @@ export function runSpawn<T extends string | Buffer>(
 				return;
 			}
 
-			const [stdout, stderr] =
-				encoding === 'utf8' || encoding === 'binary' || encoding === 'buffer'
-					? stdioError()
-					: await stdioErrorDecoded();
+			const stdio = getStdio<string>('utf8');
+			const { stdout, stderr } = stdio instanceof Promise ? await stdio : stdio;
 
 			reject(new RunError(ex, stdout, stderr));
 		});
 
-		proc.once('exit', async (code, signal) => {
+		proc.once('close', async (code, signal) => {
 			if (options?.exitCodeOnly) {
 				resolve({ exitCode: code ?? 0 });
 
@@ -320,19 +323,16 @@ export function runSpawn<T extends string | Buffer>(
 			}
 
 			if (code !== 0 || signal) {
+				const stdio = getStdio<string>('utf8');
+				const { stdout, stderr } = stdio instanceof Promise ? await stdio : stdio;
+				if (stderr.length) {
+					Logger.warn(scope, `Warning(${command} ${args.join(' ')}): ${stderr}`);
+				}
+
 				if (signal === 'SIGTERM') {
 					reject(new CancelledRunError(`${command} ${args.join(' ')}`, true, code ?? undefined, signal));
 
 					return;
-				}
-
-				const [stdout, stderr] =
-					encoding === 'utf8' || encoding === 'binary' || encoding === 'buffer'
-						? stdioError()
-						: await stdioErrorDecoded();
-
-				if (stderr.length > 0) {
-					Logger.warn(scope, `Warning(${command} ${args.join(' ')}): ${stderr}`);
 				}
 
 				reject(
@@ -350,45 +350,23 @@ export function runSpawn<T extends string | Buffer>(
 				return;
 			}
 
-			const stderr = Buffer.concat(stderrBuffers);
-			if (stderrBuffers.length) {
-				Logger.warn(scope, `Warning(${command} ${args.join(' ')}): ${stderr.toString('utf8')}`);
+			const stdio = getStdio<T>(encoding);
+			const { stdout, stderr } = stdio instanceof Promise ? await stdio : stdio;
+			if (stderr.length) {
+				Logger.warn(
+					scope,
+					`Warning(${command} ${args.join(' ')}): ${typeof stderr === 'string' ? stderr : stderr.toString()}`,
+				);
 			}
 
-			const stdout = Buffer.concat(stdoutBuffers);
-			if (encoding === 'buffer') {
-				resolve({
-					exitCode: code ?? 0,
-					stdout: stdout as T,
-					stderr: Buffer.concat(stderrBuffers) as T,
-				});
-				return;
-			}
-
-			if (encoding === 'utf8' || encoding === 'binary') {
-				resolve({
-					exitCode: code ?? 0,
-					stdout: stdout.toString(encoding) as T,
-					stderr: stderr.toString(encoding) as T,
-				});
-				return;
-			}
-
-			const decode = (await import(/* webpackChunkName: "lib-encoding" */ 'iconv-lite')).decode;
-			resolve({
-				exitCode: code ?? 0,
-				stdout: decode(stdout, encoding) as T,
-				stderr: decode(stderr, encoding) as T,
-			});
+			resolve({ exitCode: code ?? 0, stdout: stdout, stderr: stderr });
 		});
 
-		if (stdin != null) {
+		if (stdin) {
 			if (typeof stdin === 'string') {
-				proc.stdin.write(stdin, (stdinEncoding ?? 'utf8') as BufferEncoding);
-				proc.stdin.end();
+				proc.stdin.end(stdin, (stdinEncoding ?? 'utf8') as BufferEncoding);
 			} else if (stdin instanceof Buffer) {
-				proc.stdin.write(stdin);
-				proc.stdin.end();
+				proc.stdin.end(stdin);
 			}
 		}
 	});
