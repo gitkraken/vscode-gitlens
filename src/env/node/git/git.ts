@@ -1089,28 +1089,6 @@ export class Git {
 		}
 	}
 
-	async ls_files(
-		repoPath: string,
-		fileName: string,
-		options?: { rev?: string; untracked?: boolean },
-	): Promise<string> {
-		const params = ['ls-files'];
-		if (options?.rev) {
-			if (!isUncommitted(options.rev)) {
-				params.push(`--with-tree=${options.rev}`);
-			} else if (isUncommittedStaged(options.rev)) {
-				params.push('--stage');
-			}
-		}
-
-		if (!options?.rev && options?.untracked) {
-			params.push('-o');
-		}
-
-		const result = await this.exec({ cwd: repoPath, errors: GitErrorHandling.Ignore }, ...params, '--', fileName);
-		return result.stdout.trim();
-	}
-
 	async reset(
 		repoPath: string,
 		pathspecs: string[],

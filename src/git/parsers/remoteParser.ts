@@ -1,10 +1,9 @@
 import type { Container } from '../../container';
 import { maybeStopWatch } from '../../system/stopwatch';
+import { iterateByDelimiter } from '../../system/string';
 import type { GitRemoteType } from '../models/remote';
 import { GitRemote } from '../models/remote';
 import type { getRemoteProviderMatcher } from '../remotes/remoteProviders';
-
-const remoteRegex = /^(.*)\t(.*)\s\((.*)\)$/gm;
 
 export function parseGitRemotes(
 	container: Container,
@@ -18,31 +17,47 @@ export function parseGitRemotes(
 		return [];
 	}
 
+	// Format: <name>\t<url> (<type>)
+
 	const remotes = new Map<string, GitRemote>();
 
-	let name;
-	let url;
-	let type;
+	let name: string;
+	let url: string;
+	let type: GitRemoteType;
 
-	let scheme;
-	let domain;
-	let path;
+	let scheme: string;
+	let domain: string;
+	let path: string;
 
 	let remote: GitRemote | undefined;
 
-	let match;
-	do {
-		match = remoteRegex.exec(data);
-		if (match == null) break;
+	let startIndex = 0;
+	let endIndex = 0;
 
-		[, name, url, type] = match;
+	for (let line of iterateByDelimiter(data, '\n')) {
+		line = line.trim();
+		if (!line) continue;
 
-		// Stops excessive memory usage -- https://bugs.chromium.org/p/v8/issues/detail?id=2869
-		name = ` ${name}`.substring(1);
-		// Stops excessive memory usage -- https://bugs.chromium.org/p/v8/issues/detail?id=2869
-		url = ` ${url}`.substring(1);
-		// Stops excessive memory usage -- https://bugs.chromium.org/p/v8/issues/detail?id=2869
-		type = ` ${type}`.substring(1);
+		// Parse name
+		startIndex = 0;
+		endIndex = line.indexOf('\t');
+		if (endIndex === -1) continue;
+
+		name = line.substring(startIndex, endIndex);
+
+		// Parse url
+		startIndex = endIndex + 1;
+		endIndex = line.lastIndexOf(' (');
+		if (endIndex === -1) continue;
+
+		url = line.substring(startIndex, endIndex);
+
+		// Parse type
+		startIndex = endIndex + 2;
+		endIndex = line.lastIndexOf(')');
+		if (endIndex === -1) continue;
+
+		type = line.substring(startIndex, endIndex) as GitRemoteType;
 
 		[scheme, domain, path] = parseGitRemoteUrl(url);
 
@@ -56,11 +71,11 @@ export function parseGitRemotes(
 				domain,
 				path,
 				remoteProviderMatcher(url, domain, path, scheme),
-				[{ url: url, type: type as GitRemoteType }],
+				[{ url: url, type: type }],
 			);
 			remotes.set(name, remote);
 		} else {
-			remote.urls.push({ url: url, type: type as GitRemoteType });
+			remote.urls.push({ url: url, type: type });
 			if (remote.provider != null && type !== 'push') continue;
 
 			const provider = remoteProviderMatcher(url, domain, path, scheme);
@@ -69,7 +84,7 @@ export function parseGitRemotes(
 			remote = new GitRemote(container, repoPath, name, scheme, domain, path, provider, remote.urls);
 			remotes.set(name, remote);
 		}
-	} while (true);
+	}
 
 	sw?.stop({ suffix: ` parsed ${remotes.size} remotes` });
 

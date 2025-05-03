@@ -7,7 +7,7 @@ import type { GitFileStatus } from '../../../../git/models/fileStatus';
 import { deletedOrMissing } from '../../../../git/models/revision';
 import type { GitTreeEntry } from '../../../../git/models/tree';
 import { getShaAndFileSummaryLogParser } from '../../../../git/parsers/logParser';
-import { parseGitLsFiles, parseGitTree } from '../../../../git/parsers/treeParser';
+import { parseGitLsFilesStaged, parseGitTree } from '../../../../git/parsers/treeParser';
 import {
 	isRevisionWithSuffix,
 	isSha,
@@ -22,6 +22,8 @@ import { first } from '../../../../system/iterable';
 import type { Git } from '../git';
 import type { LocalGitProvider } from '../localGitProvider';
 
+const emptyArray: readonly any[] = Object.freeze([]);
+
 export class RevisionGitSubProvider implements GitRevisionSubProvider {
 	constructor(
 		private readonly container: Container,
@@ -29,6 +31,32 @@ export class RevisionGitSubProvider implements GitRevisionSubProvider {
 		private readonly cache: GitCache,
 		private readonly provider: LocalGitProvider,
 	) {}
+
+	exists(repoPath: string, path: string, rev?: string): Promise<boolean>;
+	exists(repoPath: string, path: string, options?: { untracked?: boolean }): Promise<boolean>;
+	async exists(repoPath: string, path: string, revOrOptions?: string | { untracked?: boolean }): Promise<boolean> {
+		let rev;
+		let untracked;
+		if (typeof revOrOptions === 'string') {
+			rev = revOrOptions;
+		} else if (revOrOptions != null) {
+			untracked = revOrOptions.untracked;
+		}
+
+		const args = ['ls-files'];
+		if (rev) {
+			if (!isUncommitted(rev)) {
+				args.push(`--with-tree=${rev}`);
+			} else if (isUncommittedStaged(rev)) {
+				args.push('--stage');
+			}
+		} else if (untracked) {
+			args.push('-o');
+		}
+
+		const result = await this.git.exec({ cwd: repoPath, errors: GitErrorHandling.Ignore }, ...args, '--', path);
+		return Boolean(result.stdout.trim());
+	}
 
 	@gate()
 	@log()
@@ -43,47 +71,46 @@ export class RevisionGitSubProvider implements GitRevisionSubProvider {
 	@gate()
 	@log()
 	async getTreeEntryForRevision(repoPath: string, rev: string, path: string): Promise<GitTreeEntry | undefined> {
-		if (repoPath == null || !path) return undefined;
+		if (!repoPath || !path) return undefined;
 
 		const [relativePath, root] = splitPath(path, repoPath);
 
 		if (isUncommittedStaged(rev)) {
-			let data = await this.git.ls_files(root, relativePath, { rev: rev });
-			const [entry] = parseGitLsFiles(data);
+			let result = await this.git.exec(
+				{ cwd: root, errors: GitErrorHandling.Ignore },
+				'ls-files',
+				'--stage',
+				'--',
+				relativePath,
+			);
+
+			const [entry] = parseGitLsFilesStaged(result.stdout, true);
 			if (entry == null) return undefined;
 
-			const result = await this.git.exec({ cwd: repoPath }, 'cat-file', '-s', entry.oid);
-			data = result.stdout.trim();
-			const size = data ? parseInt(data, 10) : 0;
+			result = await this.git.exec({ cwd: root }, 'cat-file', '-s', entry.oid);
+			const size = result ? parseInt(result.stdout.trim(), 10) : 0;
 
-			return {
-				ref: rev,
-				oid: entry.oid,
-				path: relativePath,
-				size: size,
-				type: 'blob',
-			};
+			return { ref: rev, oid: entry.oid, path: relativePath, size: size, type: 'blob' };
 		}
 
-		const entries = await this.getTreeForRevisionCore(repoPath, rev, path);
-		return entries[0];
+		const [entry] = await this.getTreeForRevisionCore(repoPath, rev, path);
+		return entry;
 	}
 
 	@log()
 	async getTreeForRevision(repoPath: string, rev: string): Promise<GitTreeEntry[]> {
-		if (repoPath == null) return [];
-
-		return this.getTreeForRevisionCore(repoPath, rev);
+		return repoPath ? this.getTreeForRevisionCore(repoPath, rev) : [];
 	}
 
 	@gate()
 	private async getTreeForRevisionCore(repoPath: string, rev: string, path?: string): Promise<GitTreeEntry[]> {
-		const args = path ? ['-l', rev, '--', path] : ['-lrt', rev, '--'];
-		const result = await this.git.exec({ cwd: repoPath, errors: GitErrorHandling.Ignore }, 'ls-tree', ...args);
+		const hasPath = Boolean(path);
+		const args = hasPath ? ['ls-tree', '-l', rev, '--', path] : ['ls-tree', '-lrt', rev, '--'];
+		const result = await this.git.exec({ cwd: repoPath, errors: GitErrorHandling.Ignore }, ...args);
 		const data = result.stdout.trim();
-		if (!data) return [];
+		if (!data) return emptyArray as GitTreeEntry[];
 
-		return parseGitTree(data, rev);
+		return parseGitTree(data, rev, hasPath);
 	}
 
 	@log()
