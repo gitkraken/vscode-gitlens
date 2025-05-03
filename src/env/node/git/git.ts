@@ -283,7 +283,7 @@ export class Git {
 
 		let waiting;
 		let promise = this.pendingCommands.get(command);
-		if (promise === undefined) {
+		if (promise == null) {
 			waiting = false;
 
 			// Fixes https://github.com/gitkraken/vscode-gitlens/issues/73 & https://github.com/gitkraken/vscode-gitlens/issues/161
@@ -308,9 +308,10 @@ export class Git {
 				disposeCancellation = cancellation.onCancellationRequested(() => abortController?.abort());
 			}
 
-			promise = runSpawn<T>(await this.path(), runArgs, encoding ?? 'utf8', runOpts).finally(
-				() => void disposeCancellation?.dispose(),
-			);
+			promise = runSpawn<T>(await this.path(), runArgs, encoding ?? 'utf8', runOpts).finally(() => {
+				this.pendingCommands.delete(command);
+				void disposeCancellation?.dispose();
+			});
 
 			this.pendingCommands.set(command, promise);
 		} else {
@@ -344,7 +345,6 @@ export class Git {
 			exception = undefined;
 			return { stdout: '' as T, stderr: result?.stderr as T | undefined, exitCode: result?.exitCode ?? 0 };
 		} finally {
-			this.pendingCommands.delete(command);
 			this.logGitCommand(gitCommand, exception, getDurationMilliseconds(start), waiting);
 		}
 	}
