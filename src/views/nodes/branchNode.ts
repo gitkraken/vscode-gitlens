@@ -756,11 +756,7 @@ export async function getBranchNodeParts(
 	};
 }
 
-const emptyDisposable = Object.freeze({
-	dispose: () => {
-		/* noop */
-	},
-});
+const emptyDisposable: Disposable = Object.freeze({ dispose: () => {} });
 
 export class CommitsCurrentBranchNode extends SubscribeableViewNode<'commits-current-branch'> {
 	private repo: Repository | undefined;

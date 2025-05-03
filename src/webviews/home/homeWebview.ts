@@ -119,11 +119,7 @@ import {
 } from './protocol';
 import type { HomeWebviewShowingArgs } from './registration';
 
-const emptyDisposable = Object.freeze({
-	dispose: () => {
-		/* noop */
-	},
-});
+const emptyDisposable: Disposable = Object.freeze({ dispose: () => {} });
 
 interface RepositoryBranchData {
 	repo: Repository;

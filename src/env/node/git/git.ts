@@ -50,7 +50,7 @@ import type { RunOptions, RunResult } from './shell';
 import { fsExists, isWindows, runSpawn } from './shell';
 import { CancelledRunError, RunError } from './shell.errors';
 
-const emptyArray = Object.freeze([]) as unknown as any[];
+const emptyArray: readonly any[] = Object.freeze([]);
 const emptyObj = Object.freeze({});
 
 const gitBranchDefaultConfigs = Object.freeze(['-c', 'color.branch=false']);

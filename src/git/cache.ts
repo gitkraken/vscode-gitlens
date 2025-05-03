@@ -23,7 +23,7 @@ interface RepositoryInfo {
 	user?: GitUser | null;
 }
 
-const emptyArray = Object.freeze([]) as unknown as any[];
+const emptyArray: readonly any[] = Object.freeze([]);
 
 export class GitCache implements Disposable {
 	private readonly _disposable: Disposable;
