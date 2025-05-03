@@ -1,4 +1,4 @@
-import type { Disposable, TerminalLink, TerminalLinkContext, TerminalLinkProvider } from 'vscode';
+import type { CancellationToken, Disposable, TerminalLink, TerminalLinkContext, TerminalLinkProvider } from 'vscode';
 import { commands, window } from 'vscode';
 import type { GitWizardCommandArgs } from '../commands/gitWizard';
 import type { InspectCommandArgs } from '../commands/inspect';
@@ -40,7 +40,7 @@ export class GitTerminalLinkProvider implements Disposable, TerminalLinkProvider
 		this.disposable.dispose();
 	}
 
-	async provideTerminalLinks(context: TerminalLinkContext): Promise<GitTerminalLink[]> {
+	async provideTerminalLinks(context: TerminalLinkContext, token: CancellationToken): Promise<GitTerminalLink[]> {
 		if (context.line.trim().length === 0) return [];
 
 		const repoPath = this.container.git.highlander?.path;
@@ -59,6 +59,8 @@ export class GitTerminalLinkProvider implements Disposable, TerminalLinkProvider
 
 		let match;
 		do {
+			if (token.isCancellationRequested) break;
+
 			match = commandsRegex.exec(context.line);
 			if (match != null) {
 				const [_, git, command] = match;
@@ -77,7 +79,7 @@ export class GitTerminalLinkProvider implements Disposable, TerminalLinkProvider
 			match = refRegex.exec(context.line);
 			if (match == null) break;
 
-			const [_, ref] = match;
+			const [, ref] = match;
 
 			if (ref.toUpperCase() === 'HEAD') {
 				const link: GitTerminalLink<ShowQuickBranchHistoryCommandArgs> = {
@@ -97,15 +99,15 @@ export class GitTerminalLinkProvider implements Disposable, TerminalLinkProvider
 				continue;
 			}
 
-			if (branchResults === undefined) {
-				branchResults = await this.container.git.branches(repoPath).getBranches();
-				// TODO@eamodio handle paging
-			}
+			// TODO@eamodio handle paging
+			branchResults ??= await this.container.git
+				.branches(repoPath)
+				.getBranches(undefined, token)
+				.catch(() => undefined);
+			if (token.isCancellationRequested) break;
 
-			let branch = branchResults.values.find(r => r.name === ref);
-			if (branch == null) {
-				branch = branchResults.values.find(r => getBranchNameWithoutRemote(r.name) === ref);
-			}
+			let branch = branchResults?.values.find(r => r.name === ref);
+			branch ??= branchResults?.values.find(r => getBranchNameWithoutRemote(r.name) === ref);
 			if (branch != null) {
 				const link: GitTerminalLink<ShowQuickBranchHistoryCommandArgs> = {
 					startIndex: match.index,
@@ -121,12 +123,14 @@ export class GitTerminalLinkProvider implements Disposable, TerminalLinkProvider
 				continue;
 			}
 
-			if (tagResults === undefined) {
-				tagResults = await this.container.git.tags(repoPath).getTags();
-				// TODO@eamodio handle paging
-			}
+			// TODO@eamodio handle paging
+			tagResults ??= await this.container.git
+				.tags(repoPath)
+				.getTags(undefined, token)
+				.catch(() => undefined);
+			if (token.isCancellationRequested) break;
 
-			const tag = tagResults.values.find(r => r.name === ref);
+			const tag = tagResults?.values.find(r => r.name === ref);
 			if (tag != null) {
 				const link: GitTerminalLink<ShowQuickBranchHistoryCommandArgs> = {
 					startIndex: match.index,
@@ -162,7 +166,12 @@ export class GitTerminalLinkProvider implements Disposable, TerminalLinkProvider
 				continue;
 			}
 
-			if (await this.container.git.refs(repoPath).isValidReference(ref)) {
+			if (
+				await this.container.git
+					.refs(repoPath)
+					.isValidReference(ref, undefined, token)
+					.catch(() => false)
+			) {
 				const link: GitTerminalLink<ShowQuickCommitCommandArgs | InspectCommandArgs> = {
 					startIndex: match.index,
 					length: ref.length,
