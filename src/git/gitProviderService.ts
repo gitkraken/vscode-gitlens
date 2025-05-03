@@ -84,12 +84,8 @@ import { calculateDistribution } from './utils/contributor.utils';
 import { getRemoteThemeIconString, getVisibilityCacheKey } from './utils/remote.utils';
 import { createRevisionRange } from './utils/revision.utils';
 
-const emptyArray = Object.freeze([]) as unknown as any[];
-const emptyDisposable = Object.freeze({
-	dispose: () => {
-		/* noop */
-	},
-});
+const emptyArray: readonly any[] = Object.freeze([]);
+const emptyDisposable: Disposable = Object.freeze({ dispose: () => {} });
 
 const maxDefaultBranchWeight = 100;
 const weightedDefaultBranches = new Map<string, number>([

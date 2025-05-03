@@ -12,7 +12,8 @@ import { GitUri, isGitUri } from './gitUri';
 import { deletedOrMissing } from './models/revision';
 import type { GitTreeEntry } from './models/tree';
 
-const emptyArray = new Uint8Array(0);
+const emptyArray = Object.freeze(new Uint8Array(0));
+const emptyDisposable: Disposable = Object.freeze({ dispose: () => {} });
 
 export function fromGitLensFSUri(uri: Uri): { path: string; ref: string; repoPath: string } {
 	const gitUri = isGitUri(uri) ? uri : GitUri.fromRevisionUri(uri);
@@ -128,11 +129,7 @@ export class GitFileSystemProvider implements FileSystemProvider, Disposable {
 	}
 
 	watch(): Disposable {
-		return {
-			dispose: () => {
-				// nothing to dispose
-			},
-		};
+		return emptyDisposable;
 	}
 
 	writeFile(uri: Uri): void | Thenable<void> {
