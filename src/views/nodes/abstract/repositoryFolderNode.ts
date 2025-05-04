@@ -172,9 +172,8 @@ export abstract class RepositoryFolderNode<
 	@gate()
 	@debug()
 	override async refresh(reset: boolean = false): Promise<void> {
-		super.refresh(reset);
+		await super.refresh(reset);
 		await this.child?.triggerChange(reset, false, this);
-
 		await this.ensureSubscription();
 	}
 

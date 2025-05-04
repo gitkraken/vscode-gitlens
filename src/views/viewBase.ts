@@ -453,6 +453,7 @@ export abstract class ViewBase<
 		return this.root;
 	}
 
+	/** Tracks whether the view has been initialized and should avoid a duplicate refresh */
 	private _skipNextVisibilityChange: boolean = false;
 
 	getChildren(node?: ViewNode): ViewNode[] | Promise<ViewNode[]> {
@@ -761,8 +762,8 @@ export abstract class ViewBase<
 
 	@debug<ViewBase<Type, RootNode, ViewConfig>['refreshNode']>({ args: { 0: n => n.toString() } })
 	async refreshNode(node: ViewNode, reset: boolean = false, force: boolean = false): Promise<void> {
-		const cancel = await node.refresh?.(reset);
-		if (!force && cancel === true) return;
+		const result = await node.refresh?.(reset);
+		if (!force && result?.cancel === true) return;
 
 		this.triggerNodeChange(node);
 	}

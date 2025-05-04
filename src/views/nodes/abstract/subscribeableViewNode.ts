@@ -34,16 +34,16 @@ export abstract class SubscribeableViewNode<
 		}
 
 		const getTreeItem = this.getTreeItem;
-		this.getTreeItem = function (this: SubscribeableViewNode<Type, TView>) {
+		this.getTreeItem = async function (this: SubscribeableViewNode<Type, TView>) {
 			this.loaded = true;
-			void this.ensureSubscription();
+			await this.ensureSubscription();
 			return getTreeItem.apply(this);
 		};
 
 		const getChildren = this.getChildren;
-		this.getChildren = function (this: SubscribeableViewNode<Type, TView>) {
+		this.getChildren = async function (this: SubscribeableViewNode<Type, TView>) {
 			this.loaded = true;
-			void this.ensureSubscription();
+			await this.ensureSubscription();
 			return getChildren.apply(this);
 		};
 

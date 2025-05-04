@@ -51,6 +51,18 @@ export class LineHistoryTrackerNode extends SubscribeableViewNode<
 		this._child = value;
 	}
 
+	protected override etag(): number {
+		return 0;
+	}
+
+	get followingEditor(): boolean {
+		return this.canSubscribe;
+	}
+
+	get hasUri(): boolean {
+		return this._uri !== unknownGitUri && this._uri.repoPath != null;
+	}
+
 	async getChildren(): Promise<ViewNode[]> {
 		if (this.child == null) {
 			this.view.groupedLabel ??= this.view.name.toLocaleLowerCase();
@@ -109,14 +121,58 @@ export class LineHistoryTrackerNode extends SubscribeableViewNode<
 		return item;
 	}
 
-	get followingEditor(): boolean {
-		return this.canSubscribe;
+	@gate()
+	@debug({ exit: true })
+	override async refresh(reset: boolean = false): Promise<{ cancel: boolean }> {
+		const scope = getLogScope();
+
+		if (!this.canSubscribe) return { cancel: false };
+
+		if (reset) {
+			if (this._uri != null && this._uri !== unknownGitUri) {
+				await this.view.container.documentTracker.resetCache(this._uri, 'log');
+			}
+
+			this.reset();
+		}
+
+		const updated = await this.updateUri();
+		setLogScopeExit(scope, `, uri=${Logger.toLoggable(this._uri)}`);
+		return { cancel: !updated };
+	}
+	@debug()
+	protected async subscribe(): Promise<Disposable | undefined> {
+		await this.updateUri();
+
+		if (this.view.container.lineTracker.subscribed(this)) return undefined;
+
+		const onActiveLinesChanged = debounce(this.onActiveLinesChanged.bind(this), 250);
+
+		return this.view.container.lineTracker.subscribe(
+			this,
+			weakEvent(
+				this.view.container.lineTracker.onDidChangeActiveLines,
+				(e: LinesChangeEvent) => {
+					if (e.pending) return;
+
+					onActiveLinesChanged(e);
+				},
+				this,
+			),
+		);
 	}
 
-	get hasUri(): boolean {
-		return this._uri !== unknownGitUri && this._uri.repoPath != null;
+	@debug<LineHistoryTrackerNode['onActiveLinesChanged']>({
+		args: {
+			0: e =>
+				`editor=${e.editor?.document.uri.toString(true)}, selections=${e.selections
+					?.map(s => `[${s.anchor}-${s.active}]`)
+					.join(',')}, pending=${Boolean(e.pending)}, reason=${e.reason}`,
+		},
+	})
+	private onActiveLinesChanged(_e: LinesChangeEvent) {
+		void this.triggerChange();
 	}
-
 	@gate()
 	@log()
 	async changeBase(): Promise<void> {
@@ -144,21 +200,25 @@ export class LineHistoryTrackerNode extends SubscribeableViewNode<
 		await this.triggerChange();
 	}
 
-	@gate()
-	@debug({ exit: true })
-	override async refresh(reset: boolean = false): Promise<boolean> {
-		const scope = getLogScope();
+	@log()
+	setEditorFollowing(enabled: boolean): void {
+		this.canSubscribe = enabled;
+	}
 
-		if (!this.canSubscribe) return false;
+	@debug()
+	setUri(uri?: GitUri): void {
+		this._uri = uri ?? unknownGitUri;
+		void setContext('gitlens:views:fileHistory:canPin', this.hasUri);
+	}
 
-		if (reset) {
-			if (this._uri != null && this._uri !== unknownGitUri) {
-				await this.view.container.documentTracker.resetCache(this._uri, 'log');
-			}
+	private reset() {
+		this.setUri();
+		this._editorContents = undefined;
+		this._selection = undefined;
+		this.child = undefined;
+	}
 
-			this.reset();
-		}
-
+	private async updateUri(): Promise<boolean> {
 		const editor = window.activeTextEditor;
 		if (editor == null || !this.view.container.git.isTrackable(editor.document.uri)) {
 			if (
@@ -166,13 +226,11 @@ export class LineHistoryTrackerNode extends SubscribeableViewNode<
 				(this.view.container.git.isTrackable(this.uri) &&
 					window.visibleTextEditors.some(e => e.document?.uri.path === this.uri.path))
 			) {
-				return true;
+				return false;
 			}
 
 			this.reset();
-
-			setLogScopeExit(scope, `, uri=${Logger.toLoggable(this._uri)}`);
-			return false;
+			return true;
 		}
 
 		if (
@@ -180,8 +238,7 @@ export class LineHistoryTrackerNode extends SubscribeableViewNode<
 			this._selection != null &&
 			editor.selection.isEqual(this._selection)
 		) {
-			setLogScopeExit(scope, `, uri=${Logger.toLoggable(this._uri)}`);
-			return true;
+			return false;
 		}
 
 		const gitUri = await GitUri.fromUri(editor.document.uri);
@@ -192,73 +249,20 @@ export class LineHistoryTrackerNode extends SubscribeableViewNode<
 			this._selection != null &&
 			editor.selection.isEqual(this._selection)
 		) {
-			return true;
+			return false;
 		}
 
 		// If we have no repoPath then don't attempt to use the Uri
-		if (gitUri.repoPath == null) {
+		if (!gitUri.repoPath) {
 			this.reset();
-		} else {
-			this.setUri(gitUri);
-			this._editorContents = editor.document.isDirty ? editor.document.getText() : undefined;
-			this._selection = editor.selection;
-			this.child = undefined;
+			return true;
 		}
 
-		setLogScopeExit(scope, `, uri=${Logger.toLoggable(this._uri)}`);
-		return false;
-	}
-
-	private reset() {
-		this.setUri();
-		this._editorContents = undefined;
-		this._selection = undefined;
+		this.setUri(gitUri);
+		this._editorContents = editor.document.isDirty ? editor.document.getText() : undefined;
+		this._selection = editor.selection;
 		this.child = undefined;
-	}
 
-	@log()
-	setEditorFollowing(enabled: boolean): void {
-		this.canSubscribe = enabled;
-	}
-
-	@debug()
-	protected subscribe(): Disposable | undefined {
-		if (this.view.container.lineTracker.subscribed(this)) return undefined;
-
-		const onActiveLinesChanged = debounce(this.onActiveLinesChanged.bind(this), 250);
-
-		return this.view.container.lineTracker.subscribe(
-			this,
-			weakEvent(
-				this.view.container.lineTracker.onDidChangeActiveLines,
-				(e: LinesChangeEvent) => {
-					if (e.pending) return;
-
-					onActiveLinesChanged(e);
-				},
-				this,
-			),
-		);
-	}
-
-	protected override etag(): number {
-		return 0;
-	}
-
-	@debug<LineHistoryTrackerNode['onActiveLinesChanged']>({
-		args: {
-			0: e =>
-				`editor=${e.editor?.document.uri.toString(true)}, selections=${e.selections
-					?.map(s => `[${s.anchor}-${s.active}]`)
-					.join(',')}, pending=${Boolean(e.pending)}, reason=${e.reason}`,
-		},
-	})
-	private onActiveLinesChanged(_e: LinesChangeEvent) {
-		void this.triggerChange();
-	}
-
-	setUri(uri?: GitUri): void {
-		this._uri = uri ?? unknownGitUri;
-		void setContext('gitlens:views:fileHistory:canPin', this.hasUri);
+		return true;
 	}
 }

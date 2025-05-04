@@ -307,7 +307,7 @@ export abstract class ViewNode<
 		return undefined;
 	}
 
-	refresh?(reset?: boolean): boolean | void | Promise<void> | Promise<boolean>;
+	refresh?(reset?: boolean): void | { cancel: boolean } | Promise<void | { cancel: boolean }>;
 
 	@gate()
 	@debug()

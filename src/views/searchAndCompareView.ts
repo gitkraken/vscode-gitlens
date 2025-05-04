@@ -134,7 +134,7 @@ export class SearchAndCompareViewNode extends ViewNode<'search-compare', SearchA
 		await Promise.allSettled(
 			filterMap(children, c => {
 				const result = c.refresh?.(reset);
-				return isPromise<boolean | void>(result) ? result : undefined;
+				return isPromise<{ cancel: boolean } | void>(result) ? result : undefined;
 			}),
 		);
 	}
