@@ -330,8 +330,8 @@ export class RepositoryNode extends SubscribeableViewNode<'repository', ViewsWit
 
 	@gate()
 	@debug()
-	override async refresh(reset: boolean = false): Promise<void> {
-		super.refresh(reset);
+	override async refresh(reset?: boolean): Promise<void | { cancel: boolean }> {
+		await super.refresh(reset);
 
 		if (reset) {
 			this._status = this.repo.git.status().getStatus();

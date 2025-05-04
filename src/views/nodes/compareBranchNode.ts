@@ -305,9 +305,9 @@ export class CompareBranchNode extends SubscribeableViewNode<
 	}
 
 	@debug()
-	override refresh(reset?: boolean): void {
-		super.refresh(reset);
+	override refresh(reset?: boolean): void | { cancel: boolean } | Promise<void | { cancel: boolean }> {
 		this.loadCompareWith();
+		return super.refresh(reset);
 	}
 
 	@log()

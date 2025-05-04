@@ -1,7 +1,6 @@
 import { ThemeIcon, TreeItem, TreeItemCollapsibleState } from 'vscode';
 import type { GitUri } from '../../git/gitUri';
 import type { Repository } from '../../git/models/repository';
-import { debug } from '../../system/decorators/log';
 import { map } from '../../system/iterable';
 import type { ViewsWithStashesNode } from '../viewBase';
 import { CacheableChildrenViewNode } from './abstract/cacheableChildrenViewNode';
@@ -48,10 +47,5 @@ export class StashesNode extends CacheableChildrenViewNode<'stashes', ViewsWithS
 		item.contextValue = ContextValues.Stashes;
 		item.iconPath = new ThemeIcon('gitlens-stashes');
 		return item;
-	}
-
-	@debug()
-	override refresh(): void {
-		super.refresh(true);
 	}
 }

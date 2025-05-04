@@ -2,7 +2,6 @@ import { ThemeIcon, TreeItem, TreeItemCollapsibleState } from 'vscode';
 import { GitUri } from '../../git/gitUri';
 import type { Repository } from '../../git/models/repository';
 import { makeHierarchical } from '../../system/array';
-import { debug } from '../../system/decorators/log';
 import type { ViewsWithTagsNode } from '../viewBase';
 import { CacheableChildrenViewNode } from './abstract/cacheableChildrenViewNode';
 import type { ViewNode } from './abstract/viewNode';
@@ -63,10 +62,5 @@ export class TagsNode extends CacheableChildrenViewNode<'tags', ViewsWithTagsNod
 		item.contextValue = ContextValues.Tags;
 		item.iconPath = new ThemeIcon('tag');
 		return item;
-	}
-
-	@debug()
-	override refresh(): void {
-		super.refresh(true);
 	}
 }

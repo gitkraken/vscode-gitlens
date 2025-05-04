@@ -68,12 +68,11 @@ export class ReflogNode
 	}
 
 	@debug()
-	override refresh(reset?: boolean): void {
-		super.refresh(true);
-
+	override refresh(reset?: boolean): void | { cancel: boolean } | Promise<void | { cancel: boolean }> {
 		if (reset) {
 			this._reflog = undefined;
 		}
+		return super.refresh(true);
 	}
 
 	private _reflog: GitReflog | undefined;

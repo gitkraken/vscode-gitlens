@@ -4,7 +4,6 @@ import type { GitUri } from '../../git/gitUri';
 import type { Repository } from '../../git/models/repository';
 import { sortWorktrees } from '../../git/utils/-webview/sorting';
 import { filterMap, makeHierarchical } from '../../system/array';
-import { debug } from '../../system/decorators/log';
 import { map } from '../../system/iterable';
 import { Logger } from '../../system/logger';
 import type { ViewsWithWorktreesNode } from '../viewBase';
@@ -107,10 +106,5 @@ export class WorktreesNode extends CacheableChildrenViewNode<'worktrees', ViewsW
 		// TODO@eamodio `folder` icon won't work here for some reason
 		item.iconPath = new ThemeIcon('folder-opened');
 		return item;
-	}
-
-	@debug()
-	override refresh(): void {
-		super.refresh(true);
 	}
 }

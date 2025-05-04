@@ -5,7 +5,6 @@ import type { Repository } from '../../git/models/repository';
 import { getOpenedWorktreesByBranch } from '../../git/utils/-webview/worktree.utils';
 import { getLocalBranchUpstreamNames } from '../../git/utils/branch.utils';
 import { makeHierarchical } from '../../system/array';
-import { debug } from '../../system/decorators/log';
 import { PageableResult } from '../../system/paging';
 import type { ViewsWithBranchesNode } from '../viewBase';
 import { CacheableChildrenViewNode } from './abstract/cacheableChildrenViewNode';
@@ -128,10 +127,5 @@ export class BranchesNode extends CacheableChildrenViewNode<'branches', ViewsWit
 		item.iconPath = new ThemeIcon('git-branch');
 
 		return item;
-	}
-
-	@debug()
-	override refresh(): void {
-		super.refresh(true);
 	}
 }

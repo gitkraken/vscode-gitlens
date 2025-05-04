@@ -1,7 +1,6 @@
 import { ThemeIcon, TreeItem, TreeItemCollapsibleState } from 'vscode';
 import type { GitUri } from '../../git/gitUri';
 import type { Repository } from '../../git/models/repository';
-import { debug } from '../../system/decorators/log';
 import type { ViewsWithRemotesNode } from '../viewBase';
 import { CacheableChildrenViewNode } from './abstract/cacheableChildrenViewNode';
 import type { ViewNode } from './abstract/viewNode';
@@ -50,10 +49,5 @@ export class RemotesNode extends CacheableChildrenViewNode<'remotes', ViewsWithR
 		item.iconPath = new ThemeIcon('cloud');
 
 		return item;
-	}
-
-	@debug()
-	override refresh(): void {
-		super.refresh(true);
 	}
 }
