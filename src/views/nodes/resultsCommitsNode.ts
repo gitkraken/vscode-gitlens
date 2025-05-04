@@ -140,13 +140,13 @@ export class ResultsCommitsNode<View extends ViewsWithCommits = ViewsWithCommits
 			);
 		}
 
-		const options = { expand: this._options.expand && log.count === 1 };
+		const options = { allowFilteredFiles: true, expand: this._options.expand && log.count === 1 };
 
 		children.push(
 			...insertDateMarkers(
 				map(log.commits.values(), c =>
 					isStash(c)
-						? new StashNode(this.view, this, c, { icon: true })
+						? new StashNode(this.view, this, c, { allowFilteredFiles: true, icon: true })
 						: new CommitNode(this.view, this, c, undefined, undefined, getBranchAndTagTips, options),
 				),
 				this,

@@ -239,17 +239,23 @@ export class GitCommit implements GitRevisionReference {
 		allowFilteredFiles?: boolean;
 		include?: { stats?: boolean };
 	}): this is GitCommitWithFullDetails {
-		return (
-			this.message != null &&
-			this.fileset != null &&
-			((options?.allowFilteredFiles && this.fileset.filtered) || !this.fileset.filtered) &&
-			(!options?.include?.stats || this.fileset.files.some(f => f.stats != null)) &&
-			((this.isUncommitted &&
-				// If this is an uncommitted commit, check if we need to load the working files (if we don't have a matching etag -- only works if we are currently watching the file system for this repository)
-				this._etagFileSystem === this.container.git.getRepository(this.repoPath)?.etagFileSystem) ||
-				this.parents.length !== 0) &&
-			(this.refType !== 'stash' || this._stashUntrackedFilesLoaded)
-		);
+		if (this.message == null || this.fileset == null) return false;
+		if (this.fileset.filtered && !options?.allowFilteredFiles) return false;
+		if (this.refType === 'stash' && !this._stashUntrackedFilesLoaded && !options?.allowFilteredFiles) {
+			return false;
+		}
+		if (options?.include?.stats && this.fileset.files.some(f => f.stats == null)) {
+			return false;
+		}
+		// If this is an uncommitted commit, check if we need to load the working files (if we don't have a matching etag -- only works if we are currently watching the file system for this repository)
+		if (
+			this.isUncommitted &&
+			(!this.parents.length ||
+				this._etagFileSystem !== this.container.git.getRepository(this.repoPath)?.etagFileSystem)
+		) {
+			return false;
+		}
+		return true;
 	}
 
 	@gate()
