@@ -150,11 +150,6 @@ export class ContributorsNode extends CacheableChildrenViewNode<
 		}
 	}
 
-	@debug()
-	override refresh(): void {
-		super.refresh(true);
-	}
-
 	@debug({ args: false })
 	private async getPresenceMap(contributors: GitContributor[]) {
 		// Only get presence for the current user, because it is far too slow otherwise

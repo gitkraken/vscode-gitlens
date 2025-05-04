@@ -415,13 +415,12 @@ export class WorktreeNode extends CacheableChildrenViewNode<'worktree', ViewsWit
 	}
 
 	@debug()
-	override refresh(reset?: boolean): void {
-		super.refresh(true);
-
+	override refresh(reset?: boolean): void | { cancel: boolean } | Promise<void | { cancel: boolean }> {
 		if (reset) {
 			this._log = undefined;
 			this.deleteState();
 		}
+		return super.refresh(reset);
 	}
 
 	private async getAssociatedPullRequest(
