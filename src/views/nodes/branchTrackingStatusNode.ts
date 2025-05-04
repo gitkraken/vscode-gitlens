@@ -327,7 +327,6 @@ export class BranchTrackingStatusNode
 		return item;
 	}
 
-	@gate()
 	@debug()
 	override refresh(reset?: boolean): void {
 		if (reset) {

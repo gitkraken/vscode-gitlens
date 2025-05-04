@@ -10,7 +10,6 @@ import { executeCommand } from '../system/-webview/command';
 import { configuration } from '../system/-webview/configuration';
 import { openUrl } from '../system/-webview/vscode/uris';
 import { openWorkspace } from '../system/-webview/vscode/workspaces';
-import { gate } from '../system/decorators/-webview/gate';
 import { debug } from '../system/decorators/log';
 import { ViewNode } from './nodes/abstract/viewNode';
 import { MessageNode } from './nodes/common';
@@ -71,7 +70,6 @@ export class WorkspacesViewNode extends ViewNode<'workspaces', WorkspacesView> {
 		return item;
 	}
 
-	@gate()
 	@debug()
 	override refresh(): void {
 		if (this._children == null) return;

@@ -7,7 +7,6 @@ import { GitUri } from '../../git/gitUri';
 import type { GitLog } from '../../git/models/log';
 import type { CommitsQueryResults } from '../../git/queryResults';
 import { getSearchQueryComparisonKey, getStoredSearchQuery } from '../../git/search';
-import { gate } from '../../system/decorators/-webview/gate';
 import { debug } from '../../system/decorators/log';
 import { pluralize } from '../../system/string';
 import type { SearchAndCompareView } from '../searchAndCompareView';
@@ -178,7 +177,6 @@ export class SearchResultsNode extends ViewNode<'search-results', SearchAndCompa
 		queueMicrotask(() => this.view.reveal(this, { expand: true, focus: true, select: true }));
 	}
 
-	@gate()
 	@debug()
 	override refresh(reset: boolean = false): void {
 		this._resultsNode?.refresh(reset);

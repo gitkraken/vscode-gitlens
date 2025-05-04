@@ -6,7 +6,6 @@ import type { CommitsQueryResults, FilesQueryResults } from '../../git/queryResu
 import { getChangesForChangelog } from '../../git/utils/-webview/log.utils';
 import type { AIGenerateChangelogChanges } from '../../plus/ai/aiProviderService';
 import { configuration } from '../../system/-webview/configuration';
-import { gate } from '../../system/decorators/-webview/gate';
 import { debug } from '../../system/decorators/log';
 import { map } from '../../system/iterable';
 import { pauseOnCancelOrTimeout } from '../../system/promise';
@@ -209,11 +208,9 @@ export class ResultsCommitsNode<View extends ViewsWithCommits = ViewsWithCommits
 		return item;
 	}
 
-	@gate()
 	@debug()
 	override refresh(reset: boolean = false): void {
 		if (reset) {
-			this._commitsQueryResults = undefined;
 			this._commitsQueryResultsPromise = undefined;
 			void this.getCommitsQueryResults();
 		}
@@ -226,7 +223,6 @@ export class ResultsCommitsNode<View extends ViewsWithCommits = ViewsWithCommits
 				this.limit ?? configuration.get('advanced.maxSearchItems'),
 			);
 			const results = await this._commitsQueryResultsPromise;
-			this._commitsQueryResults = results;
 
 			this._hasMore = results.hasMore;
 
@@ -239,11 +235,6 @@ export class ResultsCommitsNode<View extends ViewsWithCommits = ViewsWithCommits
 		}
 
 		return this._commitsQueryResultsPromise;
-	}
-
-	private _commitsQueryResults: CommitsQueryResults | undefined;
-	private maybeGetCommitsQueryResults(): CommitsQueryResults | undefined {
-		return this._commitsQueryResults;
 	}
 
 	private _hasMore = true;
