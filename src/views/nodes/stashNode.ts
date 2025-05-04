@@ -21,7 +21,7 @@ export class StashNode extends ViewRefNode<'stash', ViewsWithStashes, GitStashRe
 		view: ViewsWithStashes,
 		protected override parent: ViewNode,
 		public readonly commit: GitStashCommit,
-		private readonly options?: { icon?: boolean },
+		private readonly _options?: { allowFilteredFiles?: boolean; icon?: boolean },
 	) {
 		super('stash', commit.getGitUri(), view, parent);
 
@@ -43,7 +43,10 @@ export class StashNode extends ViewRefNode<'stash', ViewsWithStashes, GitStashRe
 
 	async getChildren(): Promise<ViewNode[]> {
 		// Ensure we have checked for untracked files (inside the getCommitsForFiles call)
-		const commits = await this.commit.getCommitsForFiles({ include: { stats: true } });
+		const commits = await this.commit.getCommitsForFiles({
+			allowFilteredFiles: this._options?.allowFilteredFiles,
+			include: { stats: true },
+		});
 		let children: FileNode[] = commits.map(c => new StashFileNode(this.view, this, c.file!, c as GitStashCommit));
 
 		if (this.view.config.files.layout !== 'list') {
@@ -76,7 +79,7 @@ export class StashNode extends ViewRefNode<'stash', ViewsWithStashes, GitStashRe
 			dateFormat: configuration.get('defaultDateFormat'),
 		});
 		item.contextValue = ContextValues.Stash;
-		if (this.options?.icon) {
+		if (this._options?.icon) {
 			item.iconPath = new ThemeIcon('archive');
 		}
 
@@ -84,16 +87,17 @@ export class StashNode extends ViewRefNode<'stash', ViewsWithStashes, GitStashRe
 	}
 
 	override async resolveTreeItem(item: TreeItem, token: CancellationToken): Promise<TreeItem> {
-		if (item.tooltip == null) {
-			item.tooltip = await this.getTooltip(token);
-		}
+		item.tooltip ??= await this.getTooltip(token);
 		return item;
 	}
 
 	private async getTooltip(cancellation: CancellationToken) {
 		const [remotesResult, _] = await Promise.allSettled([
 			this.view.container.git.remotes(this.commit.repoPath).getBestRemotesWithProviders(cancellation),
-			this.commit.ensureFullDetails({ include: { stats: true } }),
+			this.commit.ensureFullDetails({
+				allowFilteredFiles: this._options?.allowFilteredFiles,
+				include: { stats: true },
+			}),
 		]);
 
 		if (cancellation.isCancellationRequested) return undefined;
