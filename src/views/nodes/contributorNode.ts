@@ -172,7 +172,6 @@ export class ContributorNode extends ViewNode<'contributor', ViewsWithContributo
 		return item;
 	}
 
-	@gate()
 	@debug()
 	override refresh(reset?: boolean): void {
 		if (reset) {

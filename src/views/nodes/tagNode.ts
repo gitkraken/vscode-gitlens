@@ -100,7 +100,6 @@ export class TagNode extends ViewRefNode<'tag', ViewsWithTags, GitTagReference> 
 		return item;
 	}
 
-	@gate()
 	@debug()
 	override refresh(reset?: boolean): void {
 		if (reset) {

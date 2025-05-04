@@ -68,7 +68,6 @@ export class ReflogRecordNode extends ViewNode<'reflog-record', ViewsWithCommits
 		return item;
 	}
 
-	@gate()
 	@debug()
 	override refresh(reset?: boolean): void {
 		if (reset) {

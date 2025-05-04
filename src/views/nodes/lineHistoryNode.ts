@@ -233,12 +233,12 @@ export class LineHistoryNode
 		void this.triggerChange(true);
 	}
 
-	@gate()
 	@debug()
-	override refresh(reset?: boolean): void {
+	override refresh(reset: boolean = false): void | { cancel: boolean } | Promise<void | { cancel: boolean }> {
 		if (reset) {
 			this._log = undefined;
 		}
+		return super.refresh(reset);
 	}
 
 	private _log: GitLog | undefined;
