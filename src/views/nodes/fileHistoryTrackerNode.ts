@@ -47,6 +47,18 @@ export class FileHistoryTrackerNode extends SubscribeableViewNode<'file-history-
 		this._child = value;
 	}
 
+	protected override etag(): number {
+		return 0;
+	}
+
+	get followingEditor(): boolean {
+		return this.canSubscribe;
+	}
+
+	get hasUri(): boolean {
+		return this._uri !== unknownGitUri && this._uri.repoPath != null;
+	}
+
 	async getChildren(): Promise<ViewNode[]> {
 		if (this.child == null) {
 			this.view.groupedLabel ??= this.view.name.toLocaleLowerCase();
@@ -96,12 +108,50 @@ export class FileHistoryTrackerNode extends SubscribeableViewNode<'file-history-
 		return item;
 	}
 
-	get followingEditor(): boolean {
-		return this.canSubscribe;
+	@gate()
+	@debug({ exit: true })
+	override async refresh(reset: boolean = false): Promise<{ cancel: boolean }> {
+		const scope = getLogScope();
+
+		if (!this.canSubscribe) return { cancel: false };
+
+		if (reset) {
+			if (this._uri != null && this._uri !== unknownGitUri) {
+				await this.view.container.documentTracker.resetCache(this._uri, 'log');
+			}
+
+			this.reset();
+		}
+
+		const updated = await this.updateUri();
+		setLogScopeExit(scope, `, uri=${Logger.toLoggable(this._uri)}`);
+		return { cancel: !updated };
 	}
 
-	get hasUri(): boolean {
-		return this._uri !== unknownGitUri && this._uri.repoPath != null;
+	@debug()
+	protected async subscribe(): Promise<Disposable> {
+		await this.updateUri();
+
+		return Disposable.from(
+			weakEvent(window.onDidChangeActiveTextEditor, debounce(this.onActiveEditorChanged, 250), this),
+		);
+	}
+
+	private _triggerChangeDebounced: Deferrable<() => Promise<void>> | undefined;
+	@debug({ args: false })
+	private onActiveEditorChanged(editor: TextEditor | undefined) {
+		// If we are losing the active editor, give more time before assuming its really gone
+		// For virtual repositories the active editor event takes a while to fire
+		// Ultimately we need to be using the upcoming Tabs api to avoid this
+		if (editor == null && isVirtualUri(this._uri)) {
+			if (this._triggerChangeDebounced == null) {
+				this._triggerChangeDebounced = debounce(() => this.triggerChange(), 1500);
+			}
+
+			void this._triggerChangeDebounced();
+			return;
+		}
+		void this.triggerChange();
 	}
 
 	@gate()
@@ -131,72 +181,6 @@ export class FileHistoryTrackerNode extends SubscribeableViewNode<'file-history-
 		await this.triggerChange();
 	}
 
-	@gate()
-	@debug({ exit: true })
-	override async refresh(reset: boolean = false): Promise<boolean> {
-		const scope = getLogScope();
-
-		if (!this.canSubscribe) return false;
-
-		if (reset) {
-			if (this._uri != null && this._uri !== unknownGitUri) {
-				await this.view.container.documentTracker.resetCache(this._uri, 'log');
-			}
-
-			this.reset();
-		}
-
-		const editor = window.activeTextEditor;
-		if (editor == null || !this.view.container.git.isTrackable(editor.document.uri)) {
-			if (
-				!this.hasUri ||
-				(this.view.container.git.isTrackable(this.uri) &&
-					window.visibleTextEditors.some(e => e.document?.uri.path === this.uri.path))
-			) {
-				return true;
-			}
-
-			this.reset();
-
-			setLogScopeExit(scope, `, uri=${Logger.toLoggable(this._uri)}`);
-			return false;
-		}
-
-		if (editor.document.uri.path === this.uri.path) {
-			setLogScopeExit(scope, `, uri=${Logger.toLoggable(this._uri)}`);
-			return true;
-		}
-
-		let gitUri = await GitUri.fromUri(editor.document.uri);
-
-		// If we have a sha, normalize the history to the working file (so we get a full history all the time)
-		const uri = await ensureWorkingUri(this.view.container, gitUri);
-
-		if (this.hasUri && uriEquals(uri ?? gitUri, this.uri)) {
-			return true;
-		}
-
-		if (uri != null) {
-			gitUri = await GitUri.fromUri(uri);
-		}
-
-		// If we have no repoPath then don't attempt to use the Uri
-		if (gitUri.repoPath == null) {
-			this.reset();
-		} else {
-			this.setUri(gitUri);
-			this.child = undefined;
-		}
-
-		setLogScopeExit(scope, `, uri=${Logger.toLoggable(this._uri)}`);
-		return false;
-	}
-
-	private reset() {
-		this.setUri();
-		this.child = undefined;
-	}
-
 	@log()
 	setEditorFollowing(enabled: boolean): void {
 		if (enabled) {
@@ -210,42 +194,64 @@ export class FileHistoryTrackerNode extends SubscribeableViewNode<'file-history-
 		}
 	}
 
+	@debug()
+	setUri(uri?: GitUri): void {
+		this._uri = uri ?? unknownGitUri;
+		void setContext('gitlens:views:fileHistory:canPin', this.hasUri);
+	}
+
 	@log()
 	async showHistoryForUri(uri: GitUri): Promise<void> {
 		this.setUri(uri);
 		await this.triggerChange();
 	}
 
-	@debug()
-	protected subscribe(): Disposable {
-		return Disposable.from(
-			weakEvent(window.onDidChangeActiveTextEditor, debounce(this.onActiveEditorChanged, 250), this),
-		);
+	private reset() {
+		this.setUri();
+		this.child = undefined;
 	}
 
-	protected override etag(): number {
-		return 0;
-	}
-
-	private _triggerChangeDebounced: Deferrable<() => Promise<void>> | undefined;
-	@debug({ args: false })
-	private onActiveEditorChanged(editor: TextEditor | undefined) {
-		// If we are losing the active editor, give more time before assuming its really gone
-		// For virtual repositories the active editor event takes a while to fire
-		// Ultimately we need to be using the upcoming Tabs api to avoid this
-		if (editor == null && isVirtualUri(this._uri)) {
-			if (this._triggerChangeDebounced == null) {
-				this._triggerChangeDebounced = debounce(() => this.triggerChange(), 1500);
+	private async updateUri(): Promise<boolean> {
+		const editor = window.activeTextEditor;
+		if (editor == null || !this.view.container.git.isTrackable(editor.document.uri)) {
+			if (
+				!this.hasUri ||
+				(this.view.container.git.isTrackable(this.uri) &&
+					window.visibleTextEditors.some(e => e.document?.uri.path === this.uri.path))
+			) {
+				return false;
 			}
 
-			void this._triggerChangeDebounced();
-			return;
+			this.reset();
+			return true;
 		}
-		void this.triggerChange();
-	}
 
-	setUri(uri?: GitUri): void {
-		this._uri = uri ?? unknownGitUri;
-		void setContext('gitlens:views:fileHistory:canPin', this.hasUri);
+		if (editor.document.uri.path === this.uri.path) {
+			return false;
+		}
+
+		let gitUri = await GitUri.fromUri(editor.document.uri);
+
+		// If we have a sha, normalize the history to the working file (so we get a full history all the time)
+		const uri = await ensureWorkingUri(this.view.container, gitUri);
+
+		if (this.hasUri && uriEquals(uri ?? gitUri, this.uri)) {
+			return false;
+		}
+
+		if (uri != null) {
+			gitUri = await GitUri.fromUri(uri);
+		}
+
+		// If we have no repoPath then don't attempt to use the Uri
+		if (!gitUri.repoPath) {
+			this.reset();
+			return true;
+		}
+
+		this.setUri(gitUri);
+		this.child = undefined;
+
+		return true;
 	}
 }

@@ -13,7 +13,7 @@ import { weakEvent } from '../../system/event';
 import { debounce } from '../../system/function/debounce';
 import { Logger } from '../../system/logger';
 import { getLogScope, setLogScopeExit } from '../../system/logger.scope';
-import { areUrisEqual } from '../../system/uri';
+import { uriEquals } from '../../system/uri';
 import type { LinesChangeEvent } from '../../trackers/lineTracker';
 import type { FileHistoryView } from '../fileHistoryView';
 import type { LineHistoryView } from '../lineHistoryView';
@@ -29,6 +29,7 @@ export class LineHistoryTrackerNode extends SubscribeableViewNode<
 	private _base: string | undefined;
 	private _editorContents: string | undefined;
 	private _selection: Selection | undefined;
+	protected override splatted = true;
 
 	constructor(view: FileHistoryView | LineHistoryView) {
 		super('line-history-tracker', unknownGitUri, view);
@@ -97,13 +98,11 @@ export class LineHistoryTrackerNode extends SubscribeableViewNode<
 			};
 			const fileUri = new GitUri(this.uri, commitish);
 
-			const svc = this.view.container.git.getRepositoryService(commitish.repoPath);
-
 			let branch;
 			if (!commitish.sha || commitish.sha === 'HEAD') {
-				branch = await svc.branches.getBranch();
+				branch = await this.view.container.git.branches(commitish.repoPath).getBranch();
 			} else if (!isSha(commitish.sha)) {
-				branch = await svc.branches.getBranch(commitish.sha);
+				branch = await this.view.container.git.branches(commitish.repoPath).getBranch(commitish.sha);
 			}
 			this.child = new LineHistoryNode(fileUri, this.view, this, branch, selection, editorContents);
 		}
@@ -112,6 +111,8 @@ export class LineHistoryTrackerNode extends SubscribeableViewNode<
 	}
 
 	getTreeItem(): TreeItem {
+		this.splatted = false;
+
 		const item = new TreeItem('Line History', TreeItemCollapsibleState.Expanded);
 		item.contextValue = ContextValues.ActiveLineHistory;
 
@@ -139,10 +140,10 @@ export class LineHistoryTrackerNode extends SubscribeableViewNode<
 		setLogScopeExit(scope, `, uri=${Logger.toLoggable(this._uri)}`);
 		return { cancel: !updated };
 	}
-
 	@debug()
 	protected async subscribe(): Promise<Disposable | undefined> {
 		await this.updateUri();
+
 		if (this.view.container.lineTracker.subscribed(this)) return undefined;
 
 		const onActiveLinesChanged = debounce(this.onActiveLinesChanged.bind(this), 250);
@@ -172,7 +173,6 @@ export class LineHistoryTrackerNode extends SubscribeableViewNode<
 	private onActiveLinesChanged(_e: LinesChangeEvent) {
 		void this.triggerChange();
 	}
-
 	@gate()
 	@log()
 	async changeBase(): Promise<void> {
@@ -189,7 +189,7 @@ export class LineHistoryTrackerNode extends SubscribeableViewNode<
 		if (pick == null) return;
 
 		if (isBranchReference(pick)) {
-			const branch = await this.view.container.git.getRepositoryService(this.uri.repoPath!).branches.getBranch();
+			const branch = await this.view.container.git.branches(this.uri.repoPath!).getBranch();
 			this._base = branch?.name === pick.name ? undefined : pick.ref;
 		} else {
 			this._base = pick.ref;
@@ -245,7 +245,7 @@ export class LineHistoryTrackerNode extends SubscribeableViewNode<
 
 		if (
 			this.hasUri &&
-			areUrisEqual(gitUri, this.uri) &&
+			uriEquals(gitUri, this.uri) &&
 			this._selection != null &&
 			editor.selection.isEqual(this._selection)
 		) {
