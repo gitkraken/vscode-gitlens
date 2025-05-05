@@ -354,6 +354,7 @@ export class HomeWebviewProvider implements WebviewProvider<State, State, HomeWe
 			registerCommand('gitlens.home.abortPausedOperation', this.abortPausedOperation, this),
 			registerCommand('gitlens.home.openRebaseEditor', this.openRebaseEditor, this),
 			registerCommand('gitlens.home.explainWip', this.explainWip, this),
+			registerCommand('gitlens.home.ai.explainBranch', this.explainWip, this),
 		];
 	}
 
