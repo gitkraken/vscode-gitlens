@@ -16398,6 +16398,11 @@
 					"group": "2_gitlens_quickopen@1"
 				},
 				{
+					"command": "gitlens.ai.explainBranch",
+					"when": "viewItem =~ /gitlens:branch\\b/ && !listMultiSelection && !gitlens:readonly && !gitlens:untrusted && gitlens:gk:organization:ai:enabled && config.gitlens.ai.enabled",
+					"group": "3_gitlens_ai@1"
+				},
+				{
 					"command": "gitlens.views.openChangedFileDiffsWithMergeBase",
 					"when": "viewItem =~ /gitlens:branch\\b(?!.*?\\b\\+current\\b)/ && !listMultiSelection",
 					"group": "3_gitlens_explore@11"
