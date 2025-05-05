@@ -90,7 +90,7 @@ export class ContributorNode extends ViewNode<'contributor', ViewsWithContributo
 			this.contributor.stats != null
 				? ` (${pluralize('file', this.contributor.stats.files)}, +${formatNumeric(
 						this.contributor.stats.additions,
-				  )} -${formatNumeric(this.contributor.stats.additions)} ${pluralize(
+				  )} -${formatNumeric(this.contributor.stats.deletions)} ${pluralize(
 						'line',
 						this.contributor.stats.additions + this.contributor.stats.deletions,
 						{ only: true },
