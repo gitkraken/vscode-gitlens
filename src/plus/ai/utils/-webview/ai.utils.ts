@@ -4,6 +4,7 @@ import type { AIProviders } from '../../../../constants.ai';
 import type { Container } from '../../../../container';
 import { createDirectiveQuickPickItem, Directive } from '../../../../quickpicks/items/directive';
 import { configuration } from '../../../../system/-webview/configuration';
+import { getContext } from '../../../../system/-webview/context';
 import { openSettingsEditor } from '../../../../system/-webview/vscode/editors';
 import { formatNumeric } from '../../../../system/date';
 import { getPossessiveForm, pluralize } from '../../../../system/string';
@@ -165,4 +166,55 @@ export function showPromptTruncationWarning(model: AIModel): void {
 
 export function isAzureUrl(url: string): boolean {
 	return url.includes('.azure.com');
+}
+
+export async function ensureAccess(options?: { showPicker?: boolean }): Promise<boolean> {
+	const showPicker = options?.showPicker ?? false;
+
+	if (!getContext('gitlens:gk:organization:ai:enabled', true)) {
+		if (showPicker) {
+			await window.showQuickPick([{ label: 'OK' }], {
+				title: 'AI is Disabled',
+				placeHolder: 'GitLens AI features have been disabled by your GitKraken admin',
+				canPickMany: false,
+			});
+		} else {
+			await window.showErrorMessage(`AI features have been disabled by your GitKraken admin.`);
+		}
+
+		return false;
+	}
+
+	if (!configuration.get('ai.enabled')) {
+		let reenable = false;
+		if (showPicker) {
+			const enable = { label: 'Re-enable AI Features' };
+			const pick = await window.showQuickPick([{ label: 'OK' }, enable], {
+				title: 'AI is Disabled',
+				placeHolder: 'GitLens AI features have been disabled via settings',
+				canPickMany: false,
+			});
+			if (pick === enable) {
+				reenable = true;
+			}
+		} else {
+			const enable = { title: 'Re-enable AI Features' };
+			const result = await window.showErrorMessage(
+				`AI features have been disabled via GitLens settings.`,
+				enable,
+			);
+			if (result === enable) {
+				reenable = true;
+			}
+		}
+
+		if (reenable) {
+			await configuration.updateEffective('ai.enabled', true);
+			return true;
+		}
+
+		return false;
+	}
+
+	return true;
 }
