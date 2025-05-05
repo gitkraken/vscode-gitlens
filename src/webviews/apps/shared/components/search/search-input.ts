@@ -8,7 +8,8 @@ import { GlElement } from '../element';
 import type { GlPopover } from '../overlays/popover';
 import '../button';
 import '../code-icon';
-import '../menu';
+import '../menu/menu-label';
+import '../menu/menu-item';
 import '../overlays/popover';
 
 export interface SearchNavigationEventDetail {

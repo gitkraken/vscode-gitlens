@@ -1,7 +1,7 @@
 import { css, html, LitElement, nothing } from 'lit';
 import { customElement, property, state } from 'lit/decorators.js';
+import type { GlTooltip } from './overlays/tooltip';
 import './overlays/tooltip';
-import type { GlTooltip } from './overlays/tooltip.react';
 
 const tagName = 'gl-copy-container';
 
