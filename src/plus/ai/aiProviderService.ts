@@ -37,7 +37,6 @@ import { assertsCommitHasFullDetails } from '../../git/utils/commit.utils';
 import { showAIModelPicker, showAIProviderPicker } from '../../quickpicks/aiModelPicker';
 import { Directive, isDirective } from '../../quickpicks/items/directive';
 import { configuration } from '../../system/-webview/configuration';
-import { getContext } from '../../system/-webview/context';
 import type { Storage } from '../../system/-webview/storage';
 import { debounce } from '../../system/function/debounce';
 import { map } from '../../system/iterable';
@@ -66,6 +65,7 @@ import type {
 	PromptTemplateType,
 } from './models/promptTemplates';
 import type { AIChatMessage, AIProvider, AIRequestResult } from './models/provider';
+import { ensureAccess } from './utils/-webview/ai.utils';
 import { getLocalPromptTemplate, resolvePrompt } from './utils/-webview/prompt.utils';
 
 export interface AIResult {
@@ -468,24 +468,8 @@ export class AIProviderService implements Disposable {
 		return model;
 	}
 
-	private async ensureAccess(): Promise<boolean> {
-		const aiEnabled = configuration.get('ai.enabled');
-		if (aiEnabled === false) {
-			await window.showErrorMessage(`AI features have been disabled via GitLens settings.`);
-			return false;
-		}
-
-		const orgEnabled = getContext('gitlens:gk:organization:ai:enabled');
-		if (orgEnabled === false) {
-			await window.showErrorMessage(`AI features have been disabled for your organization.`);
-			return false;
-		}
-
-		return true;
-	}
-
 	private async ensureFeatureAccess(feature: AIFeatures, source: Source): Promise<boolean> {
-		if (!(await this.ensureAccess())) return false;
+		if (!(await ensureAccess())) return false;
 
 		if (feature === 'generate-commitMessage') return true;
 		if (
