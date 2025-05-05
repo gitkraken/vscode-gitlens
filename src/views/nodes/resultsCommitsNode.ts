@@ -44,11 +44,7 @@ export class ResultsCommitsNode<View extends ViewsWithCommits = ViewsWithCommits
 			comparison?: { ref1: string; ref2: string; range: GitRevisionRange };
 			deferred?: boolean;
 			direction?: 'ahead' | 'behind';
-			files?: {
-				ref1: string;
-				ref2: string;
-				query: () => Promise<FilesQueryResults>;
-			};
+			files?: { ref1: string; ref2: string; query: () => Promise<FilesQueryResults> };
 		},
 		options?: Partial<Options>,
 		splatted?: boolean,
@@ -139,14 +135,17 @@ export class ResultsCommitsNode<View extends ViewsWithCommits = ViewsWithCommits
 			);
 		}
 
-		const options = { allowFilteredFiles: true, expand: this._options.expand && log.count === 1 };
+		const allowFilteredFiles = log.searchFilters?.files ?? false;
 
 		children.push(
 			...insertDateMarkers(
 				map(log.commits.values(), c =>
 					isStash(c)
-						? new StashNode(this.view, this, c, { allowFilteredFiles: true, icon: true })
-						: new CommitNode(this.view, this, c, undefined, undefined, getBranchAndTagTips, options),
+						? new StashNode(this.view, this, c, { allowFilteredFiles: allowFilteredFiles, icon: true })
+						: new CommitNode(this.view, this, c, undefined, undefined, getBranchAndTagTips, {
+								allowFilteredFiles: allowFilteredFiles,
+								expand: this._options.expand && log.count === 1,
+						  }),
 				),
 				this,
 				undefined,
@@ -219,7 +218,7 @@ export class ResultsCommitsNode<View extends ViewsWithCommits = ViewsWithCommits
 	private _commitsQueryResultsPromise: Promise<CommitsQueryResults> | undefined;
 	private async getCommitsQueryResults() {
 		if (this._commitsQueryResultsPromise == null) {
-			this._commitsQueryResultsPromise = this._results.query(
+			this._commitsQueryResultsPromise ??= this._results.query(
 				this.limit ?? configuration.get('advanced.maxSearchItems'),
 			);
 			const results = await this._commitsQueryResultsPromise;

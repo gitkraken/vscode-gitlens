@@ -980,6 +980,10 @@ or
   'context.webview.instanceId': string,
   'context.webview.type': string,
   'duration': number,
+  'failed': boolean,
+  'failed.error': string,
+  'failed.error.detail': string,
+  'failed.reason': 'cancelled' | 'error',
   'matches': number,
   'types': string
 }

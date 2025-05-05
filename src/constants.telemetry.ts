@@ -558,6 +558,10 @@ interface GraphSearchedEvent extends GraphContextEventData {
 	types: string;
 	duration: number;
 	matches: number;
+	failed?: boolean;
+	'failed.reason'?: 'cancelled' | 'error';
+	'failed.error'?: string;
+	'failed.error.detail'?: string;
 }
 
 type GraphDetailsShownEvent = WebviewShownEventData & InspectShownEventData;

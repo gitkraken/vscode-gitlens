@@ -164,20 +164,34 @@ export function parseSearchQuery(search: SearchQuery): Map<SearchOperatorsLongFo
 
 const doubleQuoteRegex = /"/g;
 
-export function getGitArgsFromSearchQuery(
-	search: SearchQuery,
-	currentUser: GitUser | undefined,
-): {
+export interface SearchQueryFilters {
+	/** Specifies whether the search results will be filtered to specific files */
+	files: boolean;
+	/** Specifies whether the search results will be filtered to a specific type, only `stash` is supported */
+	type?: 'stash';
+}
+
+export interface SearchQueryCommand {
+	/** Git log args */
 	args: string[];
+	/** Pathspecs to search, if any */
 	files: string[];
+	/** SHAs to search, if any */
 	shas?: Set<string> | undefined;
-} {
+
+	filters: SearchQueryFilters;
+}
+
+export function parseSearchQueryCommand(search: SearchQuery, currentUser: GitUser | undefined): SearchQueryCommand {
 	const operations = parseSearchQuery(search);
 
 	const searchArgs = new Set<string>();
 	const files: string[] = [];
-
 	let shas;
+	const filters: SearchQueryFilters = {
+		files: false,
+		type: undefined,
+	};
 
 	let op;
 	let values = operations.get('commit:');
@@ -239,6 +253,8 @@ export function getGitArgsFromSearchQuery(
 							value = value.replace(doubleQuoteRegex, '');
 							if (!value) continue;
 						}
+
+						filters.files = true;
 						searchArgs.add(search.matchRegex ? `-G${value}` : `-S${value}`);
 					}
 
@@ -252,8 +268,11 @@ export function getGitArgsFromSearchQuery(
 							value = value.replace(doubleQuoteRegex, '');
 							if (!value) continue;
 
+							filters.files = true;
 							files.push(value);
 						} else {
+							filters.files = true;
+
 							const prefix = search.matchCase ? '' : ':(icase)';
 							if (/[/\\*?|![\]{}]/.test(value)) {
 								files.push(`${prefix}${value}`);
@@ -273,9 +292,8 @@ export function getGitArgsFromSearchQuery(
 				case 'type:':
 					for (const value of values) {
 						if (value === 'stash') {
-							if (!searchArgs.has('--no-walk')) {
-								searchArgs.add('--no-walk');
-							}
+							filters.type = 'stash';
+							searchArgs.add('--no-walk');
 						}
 					}
 
@@ -284,5 +302,10 @@ export function getGitArgsFromSearchQuery(
 		}
 	}
 
-	return { args: [...searchArgs.values()], files: files, shas: shas };
+	return {
+		args: [...searchArgs.values()],
+		files: files,
+		shas: shas,
+		filters: filters,
+	};
 }

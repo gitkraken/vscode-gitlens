@@ -17,7 +17,7 @@ import type {
 } from '../../../../git/gitProvider';
 import { GitUri } from '../../../../git/gitUri';
 import type { GitBlame } from '../../../../git/models/blame';
-import type { GitStashCommit } from '../../../../git/models/commit';
+import type { GitCommitFileset, GitStashCommit } from '../../../../git/models/commit';
 import { GitCommit, GitCommitIdentity } from '../../../../git/models/commit';
 import type { GitDiffFilter, ParsedGitDiffHunks } from '../../../../git/models/diff';
 import { GitFileChange } from '../../../../git/models/fileChange';
@@ -39,7 +39,8 @@ import {
 	getShaLogParser,
 } from '../../../../git/parsers/logParser';
 import { parseGitRefLog, parseGitRefLogDefaultFormat } from '../../../../git/parsers/reflogParser';
-import { getGitArgsFromSearchQuery } from '../../../../git/search';
+import type { SearchQueryFilters } from '../../../../git/search';
+import { parseSearchQueryCommand } from '../../../../git/search';
 import { createUncommittedChangesCommit } from '../../../../git/utils/-webview/commit.utils';
 import { isRevisionRange, isSha, isUncommitted, isUncommittedStaged } from '../../../../git/utils/revision.utils';
 import { isUserMatch } from '../../../../git/utils/user.utils';
@@ -1085,27 +1086,29 @@ export class CommitsGitSubProvider implements GitCommitsSubProvider {
 			if (cancellation?.isCancellationRequested) throw new CancellationError();
 
 			const parser = getCommitsLogParser(true);
-			const args = [...parser.arguments];
 
 			const similarityThreshold = configuration.get('advanced.similarityThreshold');
-			args.push(`-M${similarityThreshold == null ? '' : `${similarityThreshold}%`}`, '--use-mailmap');
+			const args = [
+				'log',
 
-			const { args: searchArgs, files, shas } = getGitArgsFromSearchQuery(search, currentUser);
+				...parser.arguments,
+				`-M${similarityThreshold == null ? '' : `${similarityThreshold}%`}`,
+				'--use-mailmap',
+			];
+
+			const { args: searchArgs, files, shas, filters } = parseSearchQueryCommand(search, currentUser);
 
 			let stashes: Map<string, GitStashCommit> | undefined;
 			let stdin: string | undefined;
 
-			if (shas == null) {
+			if (shas?.size) {
+				stdin = join(shas, '\n');
+				args.push('--no-walk');
+			} else {
 				// TODO@eamodio this is insanity -- there *HAS* to be a better way to get git log to return stashes
 				({ stdin, stashes } = convertStashesToStdin(
 					await this.provider.stash?.getStash(repoPath, undefined, cancellation),
 				));
-			} else if (shas.size) {
-				stdin = join(shas, '\n');
-
-				if (!searchArgs.includes('--no-walk')) {
-					args.push('--no-walk');
-				}
 			}
 
 			if (stdin) {
@@ -1128,7 +1131,7 @@ export class CommitsGitSubProvider implements GitCommitsSubProvider {
 
 			// Add the search args, but skip any shas (as they are already included in the stdin)
 			for (const arg of searchArgs) {
-				if (shas?.has(arg)) continue;
+				if (shas?.has(arg) || args.includes(arg)) continue;
 
 				args.push(arg);
 			}
@@ -1144,7 +1147,6 @@ export class CommitsGitSubProvider implements GitCommitsSubProvider {
 						configs: ['-C', repoPath, ...gitLogDefaultConfigs],
 						stdin: stdin,
 					},
-					'log',
 					...args,
 					'--',
 					...files,
@@ -1154,12 +1156,14 @@ export class CommitsGitSubProvider implements GitCommitsSubProvider {
 				limit,
 				stashes,
 				currentUser,
+				filters,
 			);
 
 			const log: GitLog = {
 				repoPath: repoPath,
 				commits: commits,
 				sha: undefined,
+				searchFilters: filters,
 				count: commits.size,
 				limit: limit,
 				hasMore: count - countStashChildCommits > commits.size,
@@ -1189,6 +1193,7 @@ export class CommitsGitSubProvider implements GitCommitsSubProvider {
 							repoPath: log.repoPath,
 							commits: commits,
 							sha: log.sha,
+							searchFilters: filters,
 							count: commits.size,
 							limit: (log.limit ?? 0) + limit,
 							hasMore: moreLog.hasMore,
@@ -1241,33 +1246,42 @@ function createCommit(
 		message.split('\n', 1)[0],
 		c.parents ? c.parents.split(' ') : [],
 		message,
-		{
-			files:
-				c.files?.map(
-					f =>
-						new GitFileChange(
-							container,
-							repoPath,
-							f.path,
-							f.status as GitFileStatus,
-							f.originalPath,
-							undefined,
-							{
-								additions: f.additions ?? 0,
-								deletions: f.deletions ?? 0,
-								changes: 0,
-							},
-							undefined,
-							f.range ? { startLine: f.range.startLine, endLine: f.range.endLine } : undefined,
-						),
-				) ?? [],
-			filtered: Boolean(pathspec),
-			pathspec: pathspec,
-		},
+		createCommitFileset(container, c, repoPath, pathspec),
 		c.stats,
 		undefined,
 		c.tips ? c.tips.split(' ') : undefined,
 	);
+}
+
+function createCommitFileset(
+	container: Container,
+	c: ParsedCommit,
+	repoPath: string,
+	pathspec: string | undefined,
+): GitCommitFileset {
+	return {
+		files:
+			c.files?.map(
+				f =>
+					new GitFileChange(
+						container,
+						repoPath,
+						f.path,
+						f.status as GitFileStatus,
+						f.originalPath,
+						undefined,
+						{
+							additions: f.additions ?? 0,
+							deletions: f.deletions ?? 0,
+							changes: 0,
+						},
+						undefined,
+						f.range ? { startLine: f.range.startLine, endLine: f.range.endLine } : undefined,
+					),
+			) ?? [],
+		filtered: Boolean(pathspec),
+		pathspec: pathspec,
+	};
 }
 
 function getGitStartEnd(range: Range): [number, number] {
@@ -1288,6 +1302,7 @@ async function parseCommits(
 	limit: number | undefined,
 	stashes: Map<string, GitStashCommit> | undefined,
 	currentUser: GitUser | undefined,
+	searchFilters?: SearchQueryFilters,
 ): Promise<{ commits: Map<string, GitCommit>; count: number; countStashChildCommits: number }> {
 	let count = 0;
 	let countStashChildCommits = 0;
@@ -1297,7 +1312,11 @@ async function parseCommits(
 		const result = await resultOrStream;
 
 		if (stashes?.size) {
+			const allowFilteredFiles = searchFilters?.files ?? false;
+			const stashesOnly = searchFilters?.type === 'stash';
 			for (const c of parser.parse(result.stdout)) {
+				if (stashesOnly && !stashes?.has(c.sha)) continue;
+
 				count++;
 				if (limit && count > limit) break;
 
@@ -1306,7 +1325,14 @@ async function parseCommits(
 					if (commits.has(stash.sha)) {
 						countStashChildCommits++;
 					} else {
-						commits.set(stash.sha, stash.with({}));
+						commits.set(
+							stash.sha,
+							stash.with(
+								allowFilteredFiles
+									? { fileset: createCommitFileset(container, c, repoPath, pathspec) }
+									: {},
+							),
+						);
 					}
 					continue;
 				}
@@ -1326,7 +1352,11 @@ async function parseCommits(
 	}
 
 	if (stashes?.size) {
+		const allowFilteredFiles = searchFilters?.files ?? false;
+		const stashesOnly = searchFilters?.type === 'stash';
 		for await (const c of parser.parseAsync(resultOrStream)) {
+			if (stashesOnly && !stashes?.has(c.sha)) continue;
+
 			count++;
 			if (limit && count > limit) break;
 
@@ -1335,7 +1365,14 @@ async function parseCommits(
 				if (commits.has(stash.sha)) {
 					countStashChildCommits++;
 				} else {
-					commits.set(stash.sha, stash.with({}));
+					commits.set(
+						stash.sha,
+						stash.with(
+							allowFilteredFiles
+								? { fileset: createCommitFileset(container, c, repoPath, pathspec) }
+								: {},
+						),
+					);
 				}
 				continue;
 			}

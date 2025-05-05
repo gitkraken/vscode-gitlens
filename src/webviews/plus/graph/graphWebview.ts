@@ -22,7 +22,7 @@ import { GlyphChars } from '../../../constants';
 import type { StoredGraphFilters, StoredGraphRefType } from '../../../constants.storage';
 import type { GraphShownTelemetryContext, GraphTelemetryContext, TelemetryEvents } from '../../../constants.telemetry';
 import type { Container } from '../../../container';
-import { CancellationError } from '../../../errors';
+import { CancellationError, isCancellationError } from '../../../errors';
 import type { CommitSelectedEvent } from '../../../eventBus';
 import type { FeaturePreview } from '../../../features';
 import { getFeaturePreviewStatus } from '../../../features';
@@ -117,7 +117,7 @@ import { debug, log } from '../../../system/decorators/log';
 import { disposableInterval } from '../../../system/function';
 import type { Deferrable } from '../../../system/function/debounce';
 import { debounce } from '../../../system/function/debounce';
-import { count, find, last, map } from '../../../system/iterable';
+import { count, find, join, last, map } from '../../../system/iterable';
 import { flatten, updateRecordValue } from '../../../system/object';
 import {
 	getSettledValue,
@@ -1502,29 +1502,38 @@ export class GraphWebviewProvider implements WebviewProvider<State, State, Graph
 
 	@debug()
 	private async onSearchRequest<T extends typeof SearchRequest>(requestType: T, msg: IpcCallMessageType<T>) {
+		using sw = new Stopwatch(`GraphWebviewProvider.onSearchRequest(${this.host.id})`);
+
+		const query = msg.params.search ? parseSearchQuery(msg.params.search) : undefined;
+		const types = query != null ? join(query?.keys(), ',') : '';
+
+		let results;
+		let exception: (Error & { original?: Error }) | undefined;
+
 		try {
-			using sw = new Stopwatch(`GraphWebviewProvider.onSearchRequest(${this.host.id})`);
-			const results = await this.getSearchResults(msg.params);
-			const query = msg.params.search ? parseSearchQuery(msg.params.search) : undefined;
-			const types = new Set<string>();
-			if (query != null) {
-				for (const [_, values] of query) {
-					values.forEach(v => types.add(v));
-				}
-			}
-			this.container.telemetry.sendEvent('graph/searched', {
-				...this.getTelemetryContext(),
-				types: [...types].join(','),
-				duration: sw.elapsed(),
-				matches: (results.results as GraphSearchResults)?.count ?? 0,
-			});
+			results = await this.getSearchResults(msg.params);
+
 			void this.host.respond(requestType, msg, results);
 		} catch (ex) {
+			exception = ex;
 			void this.host.respond(requestType, msg, {
-				results:
-					ex instanceof CancellationError
-						? undefined
-						: { error: ex instanceof GitSearchError ? 'Invalid search pattern' : 'Unexpected error' },
+				results: isCancellationError(ex)
+					? undefined
+					: { error: ex instanceof GitSearchError ? 'Invalid search pattern' : 'Unexpected error' },
+			});
+		} finally {
+			const cancelled = isCancellationError(exception);
+
+			this.container.telemetry.sendEvent('graph/searched', {
+				...this.getTelemetryContext(),
+				types: types,
+				duration: sw.elapsed(),
+				matches: (results?.results as GraphSearchResults)?.count ?? 0,
+				failed: exception != null,
+				'failed.reason': exception != null ? (cancelled ? 'cancelled' : 'error') : undefined,
+				'failed.error': !cancelled && exception != null ? String(exception) : undefined,
+				'failed.error.detail':
+					!cancelled && exception?.original != null ? String(exception?.original) : undefined,
 			});
 		}
 	}
@@ -1599,16 +1608,15 @@ export class GraphWebviewProvider implements WebviewProvider<State, State, Graph
 		}
 
 		return {
-			results:
-				search.results.size === 0
-					? { count: 0 }
-					: {
-							ids: Object.fromEntries(
-								map(search.results, ([k, v]) => [this._graph?.remappedIds?.get(k) ?? k, v]),
-							),
-							count: search.results.size,
-							paging: { hasMore: search.paging?.hasMore ?? false },
-					  },
+			results: !search.results.size
+				? { count: 0 }
+				: {
+						ids: Object.fromEntries(
+							map(search.results, ([k, v]) => [this._graph?.remappedIds?.get(k) ?? k, v]),
+						),
+						count: search.results.size,
+						paging: { hasMore: search.paging?.hasMore ?? false },
+				  },
 			selectedRows: sendSelectedRows ? this._selectedRows : undefined,
 		};
 	}
@@ -1689,10 +1697,7 @@ export class GraphWebviewProvider implements WebviewProvider<State, State, Graph
 		const item = e.selection[0];
 		this.setSelectedRows(item?.id);
 
-		if (this._fireSelectionChangedDebounced == null) {
-			this._fireSelectionChangedDebounced = debounce(this.fireSelectionChanged.bind(this), 50);
-		}
-
+		this._fireSelectionChangedDebounced ??= debounce(this.fireSelectionChanged.bind(this), 50);
 		this._fireSelectionChangedDebounced(item?.id, item?.type);
 	}
 
