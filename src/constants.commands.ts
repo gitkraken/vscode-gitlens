@@ -55,6 +55,7 @@ type InternalHomeWebviewCommands =
 	| 'gitlens.home.continuePausedOperation'
 	| 'gitlens.home.abortPausedOperation'
 	| 'gitlens.home.explainWip'
+	| 'gitlens.home.ai.explainBranch'
 	| 'gitlens.home.openRebaseEditor';
 
 type InternalHomeWebviewViewCommands =

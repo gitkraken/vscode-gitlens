@@ -1000,13 +1000,28 @@ export class GlBranchCard extends GlBranchCardBase {
 					href=${this.createCommandLink('gitlens.home.openWorktree')}
 				></action-item>`,
 			);
-			// add explain WIP
-			if (this.wip?.workingTreeState != null) {
+
+			const hasWip =
+				this.wip?.workingTreeState != null
+					? this.wip.workingTreeState.added +
+							this.wip.workingTreeState.changed +
+							this.wip.workingTreeState.deleted >
+					  0
+					: false;
+			if (hasWip) {
 				actions.push(
 					html`<action-item
-						label="Explain Changes"
+						label="Explain Working Changes (Preview)"
 						icon="sparkle"
 						href=${this.createCommandLink('gitlens.home.explainWip')}
+					></action-item>`,
+				);
+			} else {
+				actions.push(
+					html`<action-item
+						label="Explain Branch (Preview)"
+						icon="sparkle"
+						href=${this.createCommandLink('gitlens.home.ai.explainBranch')}
 					></action-item>`,
 				);
 			}
@@ -1016,6 +1031,13 @@ export class GlBranchCard extends GlBranchCardBase {
 					label="Switch to Branch..."
 					icon="gl-switch"
 					href=${this.createCommandLink('gitlens.home.switchToBranch')}
+				></action-item>`,
+			);
+			actions.push(
+				html`<action-item
+					label="Explain Branch (Preview)"
+					icon="sparkle"
+					href=${this.createCommandLink('gitlens.home.ai.explainBranch')}
 				></action-item>`,
 			);
 		}
