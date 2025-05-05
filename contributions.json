@@ -25,7 +25,16 @@
 		},
 		"gitlens.ai.explainBranch": {
 			"label": "Explain Branch (Preview)...",
-			"commandPalette": "gitlens:enabled && !gitlens:readonly && !gitlens:untrusted && gitlens:gk:organization:ai:enabled"
+			"commandPalette": "gitlens:enabled && !gitlens:readonly && !gitlens:untrusted && gitlens:gk:organization:ai:enabled",
+			"menus": {
+				"view/item/context": [
+					{
+						"when": "viewItem =~ /gitlens:branch\\b/ && !listMultiSelection && !gitlens:readonly && !gitlens:untrusted && gitlens:gk:organization:ai:enabled && config.gitlens.ai.enabled",
+						"group": "3_gitlens_ai",
+						"order": 1
+					}
+				]
+			}
 		},
 		"gitlens.ai.explainCommit": {
 			"label": "Explain Commit...",

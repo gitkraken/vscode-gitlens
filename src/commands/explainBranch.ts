@@ -10,9 +10,11 @@ import { getBestRepositoryOrShowPicker } from '../quickpicks/repositoryPicker';
 import { command } from '../system/-webview/command';
 import { showMarkdownPreview } from '../system/-webview/markdown';
 import { Logger } from '../system/logger';
+import { getNodeRepoPath } from '../views/nodes/abstract/viewNode';
 import { GlCommandBase } from './commandBase';
 import { getCommandUri } from './commandBase.utils';
 import type { CommandContext } from './commandContext';
+import { isCommandContextViewNodeHasBranch } from './commandContext.utils';
 
 export interface ExplainBranchCommandArgs {
 	repoPath?: string | Uri;
@@ -27,22 +29,34 @@ export class ExplainBranchCommand extends GlCommandBase {
 	}
 
 	protected override preExecute(context: CommandContext, args?: ExplainBranchCommandArgs): Promise<void> {
+		if (isCommandContextViewNodeHasBranch(context)) {
+			args = { ...args };
+			args.repoPath = args.repoPath ?? getNodeRepoPath(context.node);
+			args.ref = args.ref ?? context.node.branch.ref;
+			args.source = args.source ?? { source: 'view', type: 'branch' };
+		}
+
 		return this.execute(context.editor, context.uri, args);
 	}
 
 	async execute(editor?: TextEditor, uri?: Uri, args?: ExplainBranchCommandArgs): Promise<void> {
-		//// Clarifying the repository
-		uri = getCommandUri(uri, editor);
-		const gitUri = uri != null ? await GitUri.fromUri(uri) : undefined;
-		const repository = await getBestRepositoryOrShowPicker(
-			gitUri,
-			editor,
-			'Explain Branch',
-			'Choose which repository to explain a branch from',
-		);
-		if (repository == null) return;
-
 		args = { ...args };
+
+		let repository;
+		if (args?.repoPath != null) {
+			repository = this.container.git.getRepository(args.repoPath);
+		} else {
+			uri = getCommandUri(uri, editor);
+			const gitUri = uri != null ? await GitUri.fromUri(uri) : undefined;
+			repository = await getBestRepositoryOrShowPicker(
+				gitUri,
+				editor,
+				'Explain Branch',
+				'Choose which repository to explain a branch from',
+			);
+		}
+
+		if (repository == null) return;
 
 		try {
 			//// Clarifying the head branch
