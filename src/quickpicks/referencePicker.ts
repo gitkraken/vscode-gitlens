@@ -203,15 +203,17 @@ export async function showReferencePicker2(
 async function getItems(repoPath: string, options?: ReferencesQuickPickOptions): Promise<ReferencesQuickPickItem[]> {
 	const include = options?.include ?? ReferencesQuickPickIncludes.BranchesAndTags;
 
+	const includes: ('branches' | 'tags')[] = [];
+	if (include & ReferencesQuickPickIncludes.Branches) {
+		includes.push('branches');
+	}
+	if (include & ReferencesQuickPickIncludes.Tags) {
+		includes.push('tags');
+	}
+
 	const items: ReferencesQuickPickItem[] = await getBranchesAndOrTags(
 		Container.instance.git.getRepository(repoPath),
-		include && ReferencesQuickPickIncludes.BranchesAndTags
-			? ['branches', 'tags']
-			: include && ReferencesQuickPickIncludes.Branches
-			  ? ['branches']
-			  : include && ReferencesQuickPickIncludes.Tags
-			    ? ['tags']
-			    : [],
+		includes,
 		{
 			buttons: [RevealInSideBarQuickInputButton],
 			filter: options?.filter,
