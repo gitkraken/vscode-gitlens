@@ -327,6 +327,7 @@ interface AIEventDataBase {
 	'warning.exceededLargePromptThreshold'?: boolean;
 	'warning.promptTruncated'?: boolean;
 
+	failed?: boolean;
 	'failed.reason'?: 'user-declined' | 'user-cancelled' | 'error';
 	'failed.cancelled.reason'?: 'large-prompt';
 	'failed.error'?: string;

@@ -911,6 +911,7 @@ export class AIProviderService implements Disposable {
 				telementry.key,
 				{
 					...telementry.data,
+					failed: true,
 					'failed.reason': cancellation.isCancellationRequested ? 'user-cancelled' : 'user-declined',
 				},
 				source,
@@ -925,8 +926,8 @@ export class AIProviderService implements Disposable {
 			this.container.telemetry.sendEvent(
 				telementry.key,
 				cancellation.isCancellationRequested
-					? { ...telementry.data, 'failed.reason': 'user-cancelled' }
-					: { ...telementry.data, 'failed.reason': 'error', 'failed.error': 'Not authorized' },
+					? { ...telementry.data, failed: true, 'failed.reason': 'user-cancelled' }
+					: { ...telementry.data, failed: true, 'failed.reason': 'error', 'failed.error': 'Not authorized' },
 				source,
 			);
 
@@ -976,7 +977,12 @@ export class AIProviderService implements Disposable {
 			if (ex instanceof CancellationError) {
 				this.container.telemetry.sendEvent(
 					telementry.key,
-					{ ...telementry.data, duration: Date.now() - start, 'failed.reason': 'user-cancelled' },
+					{
+						...telementry.data,
+						duration: Date.now() - start,
+						failed: true,
+						'failed.reason': 'user-cancelled',
+					},
 					source,
 				);
 
@@ -988,6 +994,7 @@ export class AIProviderService implements Disposable {
 					{
 						...telementry.data,
 						duration: Date.now() - start,
+						failed: true,
 						// eslint-disable-next-line @typescript-eslint/no-base-to-string
 						'failed.error': String(ex),
 						'failed.error.detail': String(ex.original),
@@ -1130,6 +1137,7 @@ export class AIProviderService implements Disposable {
 				{
 					...telementry.data,
 					duration: Date.now() - start,
+					failed: true,
 					'failed.error': String(ex),
 					'failed.error.detail': ex.original ? String(ex.original) : undefined,
 				},
