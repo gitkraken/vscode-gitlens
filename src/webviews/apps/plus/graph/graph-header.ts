@@ -1,7 +1,7 @@
 import type { GraphRefOptData } from '@gitkraken/gitkraken-components';
 import { refTypes } from '@gitkraken/gitkraken-components';
 import { consume } from '@lit/context';
-import { SignalWatcher } from '@lit-labs/signals';
+import { computed, SignalWatcher } from '@lit-labs/signals';
 import { html, LitElement, nothing } from 'lit';
 import { customElement, query } from 'lit/decorators.js';
 import { ifDefined } from 'lit/directives/if-defined.js';
@@ -15,7 +15,6 @@ import { isSubscriptionPaid } from '../../../../plus/gk/utils/subscription.utils
 import type { LaunchpadCommandArgs } from '../../../../plus/launchpad/launchpad';
 import { createCommandLink } from '../../../../system/commands';
 import { debounce } from '../../../../system/decorators/debounce';
-import { debounce as debounceFunc } from '../../../../system/function/debounce';
 import { createWebviewCommandLink } from '../../../../system/webview';
 import type {
 	GraphExcludedRef,
@@ -179,33 +178,30 @@ export class GlGraphHeader extends SignalWatcher(LitElement) {
 		this._ipc.sendCommand(UpdateIncludedRefsCommand, { branchesVisibility: branchesVisibility, refs: refs });
 	}
 
-	private getActiveRowInfo(): undefined | { date: number; id: string } {
+	private getActiveRowInfo(): { date: number; id: string } | undefined {
 		if (this.appState.activeRow == null) return undefined;
 
 		const [id, date] = this.appState.activeRow.split('|');
-		return {
-			date: Number(date),
-			id: id,
-		};
+		return { date: Number(date), id: id };
 	}
 
 	private getNextOrPreviousSearchResultIndex(
 		index: number,
 		next: boolean,
 		results: GraphSearchResults,
-		query: undefined | SearchQuery,
+		query: SearchQuery | undefined,
 	) {
 		if (next) {
 			if (index < results.count - 1) {
 				index++;
-			} else if (query != null && results?.paging?.hasMore) {
+			} else if (query != null && results.paging?.hasMore) {
 				index = -1; // Indicates a boundary that we should load more results
 			} else {
 				index = 0;
 			}
 		} else if (index > 0) {
 			index--;
-		} else if (query != null && results?.paging?.hasMore) {
+		} else if (query != null && results.paging?.hasMore) {
 			index = -1; // Indicates a boundary that we should load more results
 		} else {
 			index = results.count - 1;
@@ -215,18 +211,18 @@ export class GlGraphHeader extends SignalWatcher(LitElement) {
 
 	private getClosestSearchResultIndex(
 		results: GraphSearchResults,
-		query: undefined | SearchQuery,
+		query: SearchQuery | undefined,
 		next: boolean = true,
-	): [number, undefined | string] {
+	): [number, string | undefined] {
 		if (results.ids == null) return [0, undefined];
 
 		const activeInfo = this.getActiveRowInfo();
 		const activeId = activeInfo?.id;
 		if (activeId == null) return [0, undefined];
 
-		let index: undefined | number;
-		let nearestId: undefined | string;
-		let nearestIndex: undefined | number;
+		let index: number | undefined;
+		let nearestId: string | undefined;
+		let nearestIndex: number | undefined;
 
 		const data = results.ids[activeId];
 		if (data != null) {
@@ -247,7 +243,7 @@ export class GlGraphHeader extends SignalWatcher(LitElement) {
 			let i: number;
 			let id: string;
 			let date: number;
-			let nearestDate: undefined | number;
+			let nearestDate: number | undefined;
 			for ([id, { date, i }] of Object.entries(results.ids)) {
 				if (next) {
 					if (date < activeDate && (nearestDate == null || date > nearestDate)) {
@@ -270,20 +266,26 @@ export class GlGraphHeader extends SignalWatcher(LitElement) {
 		return index === nearestIndex ? [index, nearestId] : [index, undefined];
 	}
 
-	private get searchPosition(): number {
-		if (this.appState.searchResults?.ids == null || !this.appState.filter.query) return 0;
+	private _searchPositionSignal = computed(() => {
+		const { searchResults } = this.appState;
+		if (searchResults?.ids == null || !this.appState.filter.query) return 0;
 
 		const id = this.getActiveRowInfo()?.id;
-		let searchIndex = id ? this.appState.searchResults.ids[id]?.i : undefined;
+		let searchIndex = id ? searchResults.ids[id]?.i : undefined;
 		if (searchIndex == null) {
-			[searchIndex] = this.getClosestSearchResultIndex(this.appState.searchResults, { ...this.appState.filter });
+			[searchIndex] = this.getClosestSearchResultIndex(searchResults, { ...this.appState.filter });
 		}
 		return searchIndex < 1 ? 1 : searchIndex + 1;
+	});
+
+	private get searchPosition(): number {
+		return this._searchPositionSignal.get();
 	}
 
 	get searchValid() {
 		return this.appState.filter.query.length > 2;
 	}
+
 	handleFilterChange(e: CustomEvent) {
 		const $el = e.target as HTMLInputElement;
 		if ($el == null) return;
@@ -311,12 +313,11 @@ export class GlGraphHeader extends SignalWatcher(LitElement) {
 			}
 		}
 	}
+
 	handleOnToggleRefsVisibilityClick(_event: any, refs: GraphExcludedRef[], visible: boolean) {
-		this._ipc.sendCommand(UpdateRefsVisibilityCommand, {
-			refs: refs,
-			visible: visible,
-		});
+		this._ipc.sendCommand(UpdateRefsVisibilityCommand, { refs: refs, visible: visible });
 	}
+
 	handleBranchesVisibility(e: CustomEvent) {
 		const $el = e.target as HTMLSelectElement;
 		if ($el == null) return;
@@ -328,6 +329,7 @@ export class GlGraphHeader extends SignalWatcher(LitElement) {
 		if (!this.searchValid) {
 			this.appState.searchResultsResponse = undefined;
 		}
+
 		try {
 			const rsp = await this._ipc.sendRequest(SearchRequest, {
 				search: this.searchValid ? { ...this.appState.filter } : undefined /*limit: options?.limit*/,
@@ -347,6 +349,7 @@ export class GlGraphHeader extends SignalWatcher(LitElement) {
 		this.appState.searching = false;
 	}
 
+	@debounce(250)
 	private handleSearchInput(e: CustomEvent<SearchQuery>) {
 		this.appState.filter = e.detail;
 		void this.handleSearch();
@@ -359,10 +362,12 @@ export class GlGraphHeader extends SignalWatcher(LitElement) {
 				limit: options?.limit,
 				more: options?.more,
 			});
+
 			this.appState.searchResultsResponse = rsp.results;
 			if (rsp.selectedRows != null) {
 				this.appState.selectedRows = rsp.selectedRows;
 			}
+
 			return rsp;
 		} catch {
 			return undefined;
@@ -370,12 +375,12 @@ export class GlGraphHeader extends SignalWatcher(LitElement) {
 	}
 
 	private async handleSearchNavigation(e: CustomEvent<SearchNavigationEventDetail>) {
-		let results = this.appState.searchResults;
-		if (results == null) return;
+		let { searchResults } = this.appState;
+		if (searchResults == null) return;
 
 		const direction = e.detail?.direction ?? 'next';
 
-		let count = results.count;
+		let count = searchResults.count;
 
 		let searchIndex;
 		let id: string | undefined;
@@ -389,7 +394,7 @@ export class GlGraphHeader extends SignalWatcher(LitElement) {
 			searchIndex = -1;
 		} else {
 			next = direction === 'next';
-			[searchIndex, id] = this.getClosestSearchResultIndex(results, { ...this.appState.filter }, next);
+			[searchIndex, id] = this.getClosestSearchResultIndex(searchResults, { ...this.appState.filter }, next);
 		}
 
 		let iterations = 0;
@@ -400,7 +405,7 @@ export class GlGraphHeader extends SignalWatcher(LitElement) {
 			// Indicates a boundary and we need to load more results
 			if (searchIndex === -1) {
 				if (next) {
-					if (this.appState.filter.query && results?.paging?.hasMore) {
+					if (this.appState.filter.query && searchResults?.paging?.hasMore) {
 						this.appState.searching = true;
 						let moreResults;
 						try {
@@ -410,9 +415,9 @@ export class GlGraphHeader extends SignalWatcher(LitElement) {
 						}
 						if (moreResults?.results != null && !('error' in moreResults.results)) {
 							if (count < moreResults.results.count) {
-								results = moreResults.results;
+								searchResults = moreResults.results;
 								searchIndex = count;
-								count = results.count;
+								count = searchResults.count;
 							} else {
 								searchIndex = 0;
 							}
@@ -423,7 +428,7 @@ export class GlGraphHeader extends SignalWatcher(LitElement) {
 						searchIndex = 0;
 					}
 					// this.appState.filter != null seems noop
-				} else if (direction === 'last' && this.appState.filter != null && results?.paging?.hasMore) {
+				} else if (direction === 'last' && this.appState.filter != null && searchResults?.paging?.hasMore) {
 					this.appState.searching = true;
 					let moreResults;
 					try {
@@ -433,8 +438,8 @@ export class GlGraphHeader extends SignalWatcher(LitElement) {
 					}
 					if (moreResults?.results != null && !('error' in moreResults.results)) {
 						if (count < moreResults.results.count) {
-							results = moreResults.results;
-							count = results.count;
+							searchResults = moreResults.results;
+							count = searchResults.count;
 						}
 						searchIndex = count;
 					}
@@ -443,7 +448,7 @@ export class GlGraphHeader extends SignalWatcher(LitElement) {
 				}
 			}
 
-			id = id ?? getSearchResultIdByIndex(results, searchIndex);
+			id = id ?? getSearchResultIdByIndex(searchResults, searchIndex);
 			if (id != null) {
 				id = await this.ensureSearchResultRow(id);
 				if (id != null) break;
@@ -451,7 +456,7 @@ export class GlGraphHeader extends SignalWatcher(LitElement) {
 
 			this.appState.searchResultsHidden = true;
 
-			searchIndex = this.getNextOrPreviousSearchResultIndex(searchIndex, next, results, {
+			searchIndex = this.getNextOrPreviousSearchResultIndex(searchIndex, next, searchResults, {
 				...this.appState.filter,
 			});
 		}
@@ -1044,9 +1049,7 @@ export class GlGraphHeader extends SignalWatcher(LitElement) {
 								errorMessage=${this.appState.searchResultsError?.error ?? ''}
 								?resultsHidden=${this.appState.searchResultsHidden}
 								?resultsLoaded=${this.appState.searchResults != null}
-								@gl-search-inputchange=${debounceFunc(this.handleSearchInput.bind(this), 250) as (
-									e: CustomEvent<SearchQuery>,
-								) => void}
+								@gl-search-inputchange=${this.handleSearchInput}
 								@gl-search-navigate=${this.handleSearchNavigation}
 								@gl-search-openinview=${this.onSearchOpenInView}
 								@gl-search-modechange=${this.handleSearchModeChanged}

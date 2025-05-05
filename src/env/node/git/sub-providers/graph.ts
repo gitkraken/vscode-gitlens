@@ -3,8 +3,8 @@ import { getCachedAvatarUri } from '../../../../avatars';
 import type { SearchQuery } from '../../../../constants.search';
 import type { Container } from '../../../../container';
 import { emojify } from '../../../../emojis';
+import { isCancellationError } from '../../../../errors';
 import type { GitCache } from '../../../../git/cache';
-import { GitErrorHandling } from '../../../../git/commandOptions';
 import { GitSearchError } from '../../../../git/errors';
 import type { GitGraphSubProvider } from '../../../../git/gitProvider';
 import type { GitBranch } from '../../../../git/models/branch';
@@ -29,7 +29,7 @@ import {
 	getShaLogParser,
 } from '../../../../git/parsers/logParser';
 import type { GitGraphSearch, GitGraphSearchResultData, GitGraphSearchResults } from '../../../../git/search';
-import { getGitArgsFromSearchQuery, getSearchQueryComparisonKey } from '../../../../git/search';
+import { getSearchQueryComparisonKey, parseSearchQueryCommand } from '../../../../git/search';
 import { getRemoteIconUri } from '../../../../git/utils/-webview/icons';
 import { groupWorktreesByBranch } from '../../../../git/utils/-webview/worktree.utils';
 import {
@@ -44,11 +44,11 @@ import { isUserMatch } from '../../../../git/utils/user.utils';
 import { getWorktreeId } from '../../../../git/utils/worktree.utils';
 import { configuration } from '../../../../system/-webview/configuration';
 import { log } from '../../../../system/decorators/log';
-import { find, first, last, map } from '../../../../system/iterable';
+import { find, first, join, last } from '../../../../system/iterable';
 import { Logger } from '../../../../system/logger';
 import { getLogScope } from '../../../../system/logger.scope';
 import { getSettledValue } from '../../../../system/promise';
-import { createDisposable } from '../../../../system/unifiedDisposable';
+import { mixinDisposable } from '../../../../system/unifiedDisposable';
 import { serializeWebviewItemContext } from '../../../../system/webview';
 import type {
 	GraphBranchContextValue,
@@ -60,7 +60,6 @@ import type {
 import type { Git } from '../git';
 import { gitLogDefaultConfigs } from '../git';
 import type { LocalGitProvider } from '../localGitProvider';
-import { CancelledRunError } from '../shell.errors';
 import { convertStashesToStdin } from './stash';
 
 export class GraphGitSubProvider implements GitGraphSubProvider {
@@ -145,9 +144,9 @@ export class GraphGitSubProvider implements GitGraphSubProvider {
 		const reachableFromHEAD = new Set<string>();
 		const remappedIds = new Map<string, string>();
 		const rowStats: GitGraphRowsStats = new Map<string, GitGraphRowStats>();
-		let total = 0;
-		let iterations = 0;
 		let pendingRowsStatsCount = 0;
+		let iterations = 0;
+		let total = 0;
 
 		const args = ['log', ...parser.arguments, `--${ordering}-order`, '--all'];
 		if (stdin) {
@@ -165,13 +164,11 @@ export class GraphGitSubProvider implements GitGraphSubProvider {
 			cancellation?: CancellationToken,
 		): Promise<GitGraph> {
 			try {
-				const startTotal = total;
 				iterations++;
+				const startTotal = total;
 
 				const aborter = new AbortController();
-				using _disposable = createDisposable(
-					cancellation?.onCancellationRequested(() => aborter.abort()).dispose,
-				);
+				using _disposable = mixinDisposable(cancellation?.onCancellationRequested(() => aborter.abort()));
 
 				const stream = this.git.stream(
 					{ cwd: repoPath, configs: gitLogDefaultConfigs, signal: aborter.signal, stdin: stdin },
@@ -610,10 +607,7 @@ export class GraphGitSubProvider implements GitGraphSubProvider {
 	async searchGraph(
 		repoPath: string,
 		search: SearchQuery,
-		options?: {
-			limit?: number;
-			ordering?: 'date' | 'author-date' | 'topo';
-		},
+		options?: { limit?: number; ordering?: 'date' | 'author-date' | 'topo' },
 		cancellation?: CancellationToken,
 	): Promise<GitGraphSearch> {
 		search = { matchAll: false, matchCase: false, matchRegex: true, ...search };
@@ -622,131 +616,128 @@ export class GraphGitSubProvider implements GitGraphSubProvider {
 		try {
 			const parser = getShaAndDatesLogParser();
 
-			const currentUser = search.query.includes('@me')
-				? await this.provider.config.getCurrentUser(repoPath)
-				: undefined;
-
-			const { args: searchArgs, files, shas } = getGitArgsFromSearchQuery(search, currentUser);
-			if (shas?.size) {
-				const result = await this.git.exec(
-					{ cwd: repoPath, cancellation: cancellation, configs: gitLogDefaultConfigs },
-					'show',
-					'-s',
-					...parser.arguments,
-					...shas.values(),
-					...searchArgs,
-					'--',
-				);
-
-				let i = 0;
-				const results: GitGraphSearchResults = new Map<string, GitGraphSearchResultData>(
-					map(parser.parse(result.stdout), c => [
-						c.sha,
-						{
-							i: i++,
-							date: Number(options?.ordering === 'author-date' ? c.authorDate : c.committerDate) * 1000,
-						},
-					]),
-				);
-
-				return {
-					repoPath: repoPath,
-					query: search,
-					comparisonKey: comparisonKey,
-					results: results,
-				};
-			}
-
-			const limit = options?.limit ?? configuration.get('advanced.maxSearchItems') ?? 0;
 			const similarityThreshold = configuration.get('advanced.similarityThreshold');
-			const includeOnlyStashes = searchArgs.includes('--no-walk');
-
-			// TODO@eamodio this is insanity -- there *HAS* to be a better way to get git log to return stashes
-			const { stdin, stashes } = convertStashesToStdin(
-				await this.provider.stash?.getStash(repoPath, undefined, cancellation),
-			);
-
 			const args = [
+				'log',
+
 				...parser.arguments,
 				`-M${similarityThreshold == null ? '' : `${similarityThreshold}%`}`,
 				'--use-mailmap',
 			];
 
+			const currentUser = search.query.includes('@me')
+				? await this.provider.config.getCurrentUser(repoPath)
+				: undefined;
+
+			const { args: searchArgs, files, shas, filters } = parseSearchQueryCommand(search, currentUser);
+
+			let stashes: Map<string, GitStashCommit> | undefined;
+			let stdin: string | undefined;
+
+			if (shas?.size) {
+				stdin = join(shas, '\n');
+				args.push('--no-walk');
+			} else {
+				// TODO@eamodio this is insanity -- there *HAS* to be a better way to get git log to return stashes
+				({ stdin, stashes } = convertStashesToStdin(
+					await this.provider.stash?.getStash(repoPath, undefined, cancellation),
+				));
+			}
+
+			if (stdin) {
+				args.push('--stdin');
+			}
+
+			const limit = options?.limit ?? configuration.get('advanced.maxSearchItems') ?? 0;
+			const ordering = options?.ordering ?? configuration.get('advanced.commitOrdering');
+			if (ordering) {
+				args.push(`--${ordering}-order`);
+			}
+
+			// Add the search args, but skip any shas (as they are already included in the stdin)
+			for (const arg of searchArgs) {
+				if (shas?.has(arg) || args.includes(arg)) continue;
+
+				args.push(arg);
+			}
+
 			const results: GitGraphSearchResults = new Map<string, GitGraphSearchResultData>();
-			let total = 0;
+			let iterations = 0;
+			/** Total seen, not results */
+			let totalSeen = 0;
 
 			async function searchForCommitsCore(
 				this: GraphGitSubProvider,
 				limit: number,
 				cursor?: { sha: string; skip: number },
+				cancellation?: CancellationToken,
 			): Promise<GitGraphSearch> {
-				if (cancellation?.isCancellationRequested) {
-					return { repoPath: repoPath, query: search, comparisonKey: comparisonKey, results: results };
-				}
+				iterations++;
 
-				let result;
 				try {
-					result = await this.git.exec(
+					const aborter = new AbortController();
+					using _disposable = mixinDisposable(cancellation?.onCancellationRequested(() => aborter.abort()));
+
+					const stream = this.git.stream(
 						{
 							cwd: repoPath,
 							cancellation: cancellation,
 							configs: ['-C', repoPath, ...gitLogDefaultConfigs],
-							errors: GitErrorHandling.Throw,
+							signal: aborter.signal,
 							stdin: stdin,
 						},
-						'log',
-						stdin ? '--stdin' : undefined,
 						...args,
-						...searchArgs,
-						options?.ordering ? `--${options.ordering}-order` : undefined,
-						limit ? `-n${limit + 1}` : undefined,
 						cursor?.skip ? `--skip=${cursor.skip}` : undefined,
 						'--',
 						...files,
 					);
+
+					let count = 0;
+					let hasMore = false;
+					const stashesOnly = filters.type === 'stash';
+
+					for await (const r of parser.parseAsync(stream)) {
+						if (count > limit) {
+							hasMore = true;
+
+							aborter.abort();
+							break;
+						}
+
+						count++;
+						if (results.has(r.sha) || (stashesOnly && !stashes?.has(r.sha))) {
+							continue;
+						}
+
+						results.set(r.sha, {
+							i: results.size,
+							date: Number(options?.ordering === 'author-date' ? r.authorDate : r.committerDate) * 1000,
+						});
+					}
+
+					totalSeen += count;
+					const lastSha = last(results)?.[0];
+					cursor = lastSha != null ? { sha: lastSha, skip: totalSeen - iterations } : undefined;
+
+					return {
+						repoPath: repoPath,
+						query: search,
+						comparisonKey: comparisonKey,
+						results: results,
+						paging: limit ? { limit: limit, hasMore: hasMore } : undefined,
+						more: async (limit: number): Promise<GitGraphSearch> =>
+							searchForCommitsCore.call(this, limit, cursor),
+					};
 				} catch (ex) {
-					if (ex instanceof CancelledRunError || cancellation?.isCancellationRequested) {
+					if (isCancellationError(ex) || cancellation?.isCancellationRequested) {
 						return { repoPath: repoPath, query: search, comparisonKey: comparisonKey, results: results };
 					}
 
 					throw new GitSearchError(ex);
 				}
-
-				if (cancellation?.isCancellationRequested) {
-					return { repoPath: repoPath, query: search, comparisonKey: comparisonKey, results: results };
-				}
-
-				let count = total;
-
-				for (const r of parser.parse(result.stdout)) {
-					if (includeOnlyStashes && !stashes?.has(r.sha)) continue;
-
-					if (results.has(r.sha)) {
-						limit--;
-						continue;
-					}
-					results.set(r.sha, {
-						i: total++,
-						date: Number(options?.ordering === 'author-date' ? r.authorDate : r.committerDate) * 1000,
-					});
-				}
-
-				count = total - count;
-				const lastSha = last(results)?.[0];
-				cursor = lastSha != null ? { sha: lastSha, skip: total } : undefined;
-
-				return {
-					repoPath: repoPath,
-					query: search,
-					comparisonKey: comparisonKey,
-					results: results,
-					paging: limit !== 0 && count > limit ? { limit: limit, hasMore: true } : undefined,
-					more: async (limit: number): Promise<GitGraphSearch> =>
-						searchForCommitsCore.call(this, limit, cursor),
-				};
 			}
 
-			return await searchForCommitsCore.call(this, limit);
+			return await searchForCommitsCore.call(this, limit, undefined, cancellation);
 		} catch (ex) {
 			if (ex instanceof GitSearchError) throw ex;
 
