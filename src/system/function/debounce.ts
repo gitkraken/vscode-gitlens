@@ -1,4 +1,4 @@
-interface DebounceOptions<F extends (...args: unknown[]) => ReturnType<F>> {
+export interface DebounceOptions<F extends (...args: unknown[]) => ReturnType<F>> {
 	/**
 	 * An optional AbortSignal to cancel the debounced function.
 	 */
