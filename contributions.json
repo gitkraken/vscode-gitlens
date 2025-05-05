@@ -1374,6 +1374,42 @@
 				]
 			}
 		},
+		"gitlens.graph.ai.explainCommit": {
+			"label": "Explain Commit",
+			"menus": {
+				"webview/context": [
+					{
+						"when": "webviewItem =~ /gitlens:commit\\b/ && !listMultiSelection && !gitlens:readonly && !gitlens:untrusted && gitlens:gk:organization:ai:enabled && config.gitlens.ai.enabled",
+						"group": "1_gitlens_actions_3",
+						"order": 1
+					}
+				]
+			}
+		},
+		"gitlens.graph.ai.explainStash": {
+			"label": "Explain Stash (Preview)",
+			"menus": {
+				"webview/context": [
+					{
+						"when": "webviewItem =~ /gitlens:stash\\b/ && !listMultiSelection && !gitlens:readonly && !gitlens:untrusted && gitlens:gk:organization:ai:enabled && config.gitlens.ai.enabled",
+						"group": "1_gitlens_actions_3",
+						"order": 1
+					}
+				]
+			}
+		},
+		"gitlens.graph.ai.explainWip": {
+			"label": "Explain Working Changes (Preview)",
+			"menus": {
+				"webview/context": [
+					{
+						"when": "webviewItem =~ /gitlens:wip\\b/ && !listMultiSelection && !gitlens:readonly && !gitlens:untrusted && gitlens:gk:organization:ai:enabled && config.gitlens.ai.enabled",
+						"group": "1_gitlens_actions_3",
+						"order": 1
+					}
+				]
+			}
+		},
 		"gitlens.graph.ai.generateChangelogFrom": {
 			"label": "Generate Changelog (Preview)...",
 			"icon": "$(sparkle)",
@@ -1997,42 +2033,6 @@
 						"when": "webviewItem == gitlens:tag && !gitlens:readonly && !gitlens:untrusted && !gitlens:hasVirtualFolders",
 						"group": "1_gitlens_actions",
 						"order": 3
-					}
-				]
-			}
-		},
-		"gitlens.graph.explainCommit": {
-			"label": "Explain Commit",
-			"menus": {
-				"webview/context": [
-					{
-						"when": "webviewItem =~ /gitlens:commit\\b/ && !listMultiSelection && !gitlens:readonly && !gitlens:untrusted && gitlens:gk:organization:ai:enabled && config.gitlens.ai.enabled",
-						"group": "1_gitlens_actions_3",
-						"order": 1
-					}
-				]
-			}
-		},
-		"gitlens.graph.explainStash": {
-			"label": "Explain Stash (Preview)",
-			"menus": {
-				"webview/context": [
-					{
-						"when": "webviewItem =~ /gitlens:stash\\b/ && !listMultiSelection && !gitlens:readonly && !gitlens:untrusted && gitlens:gk:organization:ai:enabled && config.gitlens.ai.enabled",
-						"group": "1_gitlens_actions_3",
-						"order": 1
-					}
-				]
-			}
-		},
-		"gitlens.graph.explainWip": {
-			"label": "Explain Working Changes (Preview)",
-			"menus": {
-				"webview/context": [
-					{
-						"when": "webviewItem =~ /gitlens:wip\\b/ && !listMultiSelection && !gitlens:readonly && !gitlens:untrusted && gitlens:gk:organization:ai:enabled",
-						"group": "1_gitlens_actions_3",
-						"order": 1
 					}
 				]
 			}

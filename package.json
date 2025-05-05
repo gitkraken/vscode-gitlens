@@ -6625,6 +6625,18 @@
 				"icon": "$(person-add)"
 			},
 			{
+				"command": "gitlens.graph.ai.explainCommit",
+				"title": "Explain Commit"
+			},
+			{
+				"command": "gitlens.graph.ai.explainStash",
+				"title": "Explain Stash (Preview)"
+			},
+			{
+				"command": "gitlens.graph.ai.explainWip",
+				"title": "Explain Working Changes (Preview)"
+			},
+			{
 				"command": "gitlens.graph.ai.generateChangelogFrom",
 				"title": "Generate Changelog (Preview)...",
 				"icon": "$(sparkle)"
@@ -6851,18 +6863,6 @@
 				"title": "Delete Tag...",
 				"icon": "$(trash)",
 				"enablement": "!operationInProgress"
-			},
-			{
-				"command": "gitlens.graph.explainCommit",
-				"title": "Explain Commit"
-			},
-			{
-				"command": "gitlens.graph.explainStash",
-				"title": "Explain Stash (Preview)"
-			},
-			{
-				"command": "gitlens.graph.explainWip",
-				"title": "Explain Working Changes (Preview)"
 			},
 			{
 				"command": "gitlens.graph.fetch",
@@ -10822,6 +10822,18 @@
 					"when": "false"
 				},
 				{
+					"command": "gitlens.graph.ai.explainCommit",
+					"when": "false"
+				},
+				{
+					"command": "gitlens.graph.ai.explainStash",
+					"when": "false"
+				},
+				{
+					"command": "gitlens.graph.ai.explainWip",
+					"when": "false"
+				},
+				{
 					"command": "gitlens.graph.ai.generateChangelogFrom",
 					"when": "false"
 				},
@@ -11011,18 +11023,6 @@
 				},
 				{
 					"command": "gitlens.graph.deleteTag",
-					"when": "false"
-				},
-				{
-					"command": "gitlens.graph.explainCommit",
-					"when": "false"
-				},
-				{
-					"command": "gitlens.graph.explainStash",
-					"when": "false"
-				},
-				{
-					"command": "gitlens.graph.explainWip",
 					"when": "false"
 				},
 				{
@@ -20186,7 +20186,7 @@
 					"group": "1_gitlens_actions_1@4"
 				},
 				{
-					"command": "gitlens.graph.explainCommit",
+					"command": "gitlens.graph.ai.explainCommit",
 					"when": "webviewItem =~ /gitlens:commit\\b/ && !listMultiSelection && !gitlens:readonly && !gitlens:untrusted && gitlens:gk:organization:ai:enabled && config.gitlens.ai.enabled",
 					"group": "1_gitlens_actions_3@1"
 				},
@@ -20351,7 +20351,7 @@
 					"group": "1_gitlens_actions@3"
 				},
 				{
-					"command": "gitlens.graph.explainStash",
+					"command": "gitlens.graph.ai.explainStash",
 					"when": "webviewItem =~ /gitlens:stash\\b/ && !listMultiSelection && !gitlens:readonly && !gitlens:untrusted && gitlens:gk:organization:ai:enabled && config.gitlens.ai.enabled",
 					"group": "1_gitlens_actions_3@1"
 				},
@@ -20416,8 +20416,8 @@
 					"group": "1_gitlens_actions@4"
 				},
 				{
-					"command": "gitlens.graph.explainWip",
-					"when": "webviewItem =~ /gitlens:wip\\b/ && !listMultiSelection && !gitlens:readonly && !gitlens:untrusted && gitlens:gk:organization:ai:enabled",
+					"command": "gitlens.graph.ai.explainWip",
+					"when": "webviewItem =~ /gitlens:wip\\b/ && !listMultiSelection && !gitlens:readonly && !gitlens:untrusted && gitlens:gk:organization:ai:enabled && config.gitlens.ai.enabled",
 					"group": "1_gitlens_actions_3@1"
 				},
 				{
