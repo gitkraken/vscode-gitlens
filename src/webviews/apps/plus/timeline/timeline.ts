@@ -15,7 +15,7 @@ import {
 	UpdateUriCommand,
 } from '../../../plus/timeline/protocol';
 import { GlApp } from '../../shared/app';
-import type { Checkbox } from '../../shared/components/checkbox';
+import type { Checkbox } from '../../shared/components/checkbox/checkbox';
 import type { GlRefButton } from '../../shared/components/ref-button';
 import type { HostIpc } from '../../shared/ipc';
 import type { CommitEventDetail, GlTimelineChart } from './components/chart';
@@ -24,7 +24,7 @@ import { timelineBaseStyles, timelineStyles } from './timeline.css';
 import './components/chart';
 import '../../shared/components/breadcrumbs';
 import '../../shared/components/button';
-import '../../shared/components/checkbox';
+import '../../shared/components/checkbox/checkbox';
 import '../../shared/components/code-icon';
 import '../../shared/components/feature-badge';
 import '../../shared/components/feature-gate';
