@@ -1387,6 +1387,18 @@
 				]
 			}
 		},
+		"gitlens.graph.ai.explainBranch": {
+			"label": "Explain Branch (Preview)",
+			"menus": {
+				"webview/context": [
+					{
+						"when": "webviewItem =~ /gitlens:branch\\b/ && !listMultiSelection && !gitlens:readonly && !gitlens:untrusted && gitlens:gk:organization:ai:enabled && config.gitlens.ai.enabled",
+						"group": "1_gitlens_actions_4",
+						"order": 100
+					}
+				]
+			}
+		},
 		"gitlens.graph.ai.explainCommit": {
 			"label": "Explain Commit",
 			"menus": {
