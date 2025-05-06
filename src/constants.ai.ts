@@ -108,6 +108,6 @@ export const ollamaProviderDescriptor: AIProviderDescriptor<'ollama'> = {
 	id: 'ollama',
 	name: 'Ollama',
 	primary: false,
-	requiresAccount: false,
+	requiresAccount: true,
 	requiresUserKey: false,
 } as const;
