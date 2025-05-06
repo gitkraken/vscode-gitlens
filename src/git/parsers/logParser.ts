@@ -344,36 +344,42 @@ function createLogParserWithFilesAndStats<T extends Record<string, string> | voi
 
 		const fileMap = new Map<string, number>(); // Maps path to index in files array
 
-		const lines = iterateByDelimiter(content, '\n');
-		for (const line of lines) {
+		let fileIndex;
+		let startIndex;
+		let endIndex;
+
+		let file: LogParsedFileWithStats;
+		let status;
+		let additions;
+		let deletions;
+		let path;
+		let originalPath;
+
+		for (const line of iterateByDelimiter(content, '\n')) {
 			if (!line) continue;
 
 			if (line.startsWith(' ')) {
 				if (line.startsWith(' rename ')) {
-					const { path, originalPath } = parseCopyOrRename(
-						line.substring(8 /* move past ' rename ' */),
-						true,
-					);
-					const fileIndex = fileMap.get(path);
+					({ path, originalPath } = parseCopyOrRename(line.substring(8 /* move past ' rename ' */), true));
+					fileIndex = fileMap.get(path);
 					if (fileIndex != null) {
-						const file = files[fileIndex];
+						file = files[fileIndex];
 						file.status = 'R';
 						file.originalPath = originalPath;
 					} else {
 						debugger;
 					}
 				} else if (line.startsWith(' copy ')) {
-					const { path, originalPath } = parseCopyOrRename(line.substring(6 /* move past ' copy ' */), true);
-					const fileIndex = fileMap.get(path);
+					({ path, originalPath } = parseCopyOrRename(line.substring(6 /* move past ' copy ' */), true));
+					fileIndex = fileMap.get(path);
 					if (fileIndex != null) {
-						const file = files[fileIndex];
+						file = files[fileIndex];
 						file.status = 'C';
 						file.originalPath = originalPath;
 					} else {
 						debugger;
 					}
 				} else {
-					let status;
 					if (line.startsWith(' create mode ')) {
 						status = 'A';
 					} else if (line.startsWith(' delete mode ')) {
@@ -386,11 +392,11 @@ function createLogParserWithFilesAndStats<T extends Record<string, string> | voi
 						continue;
 					}
 
-					const pathIndex = line.indexOf(' ', 13 /* move past 'create mode <num>' or 'delete mode <num>' */);
-					if (pathIndex > -1) {
-						const path = line.substring(pathIndex + 1);
+					startIndex = line.indexOf(' ', 13 /* move past 'create mode <num>' or 'delete mode <num>' */);
+					if (startIndex > -1) {
+						const path = line.substring(startIndex + 1);
 
-						const fileIndex = fileMap.get(path);
+						fileIndex = fileMap.get(path);
 						if (fileIndex != null) {
 							files[fileIndex].status = status;
 						} else {
@@ -401,13 +407,29 @@ function createLogParserWithFilesAndStats<T extends Record<string, string> | voi
 					}
 				}
 			} else {
-				let [additions, deletions, path] = line.split('\t');
+				startIndex = 0;
+				endIndex = line.indexOf('\t');
+				if (endIndex === -1) {
+					debugger;
+				}
 
-				let originalPath;
+				additions = line.substring(startIndex, endIndex);
+
+				startIndex = endIndex + 1;
+				endIndex = line.indexOf('\t', startIndex);
+				if (endIndex === -1) {
+					debugger;
+				}
+
+				deletions = line.substring(startIndex, endIndex);
+
+				startIndex = endIndex + 1;
+				path = line.substring(startIndex);
+
 				// Check for renamed files
 				({ path, originalPath } = parseCopyOrRename(path, false));
 
-				const file: LogParsedFileWithStats = {
+				file = {
 					status: originalPath == null ? 'M' : 'R',
 					path: path.trim(),
 					originalPath: originalPath?.trim(),
@@ -585,30 +607,37 @@ function createLogParserWithFileSummary<T extends Record<string, string> | void>
 		const files: LogParsedFile[] = [];
 		if (!content?.length) return files;
 
-		const lines = iterateByDelimiter(content, '\n');
-		for (const line of lines) {
+		let startIndex;
+
+		let path;
+		let originalPath;
+		let status;
+
+		for (const line of iterateByDelimiter(content, '\n')) {
 			if (!line) continue;
 
 			if (line.startsWith(' rename ')) {
-				const { path, originalPath } = parseCopyOrRename(line.substring(8 /* move past ' rename ' */), true);
+				({ path, originalPath } = parseCopyOrRename(line.substring(8 /* move past ' rename ' */), true));
 				files.push({ path: path, originalPath: originalPath, status: 'R' });
 			} else if (line.startsWith(' copy ')) {
-				const { path, originalPath } = parseCopyOrRename(line.substring(6 /* move past ' copy ' */), true);
+				({ path, originalPath } = parseCopyOrRename(line.substring(6 /* move past ' copy ' */), true));
 				files.push({ path: path, originalPath: originalPath, status: 'C' });
 			} else {
-				let status;
 				if (line.startsWith(' create mode ')) {
 					status = 'A';
 				} else if (line.startsWith(' delete mode ')) {
 					status = 'D';
 				} else {
-					debugger;
+					// Ignore " mode change " lines
+					if (!line.startsWith(' mode change ')) {
+						debugger;
+					}
 					continue;
 				}
 
-				const pathIndex = line.indexOf(' ', 13 /* move past 'create mode <num>' or 'delete mode <num>' */);
-				if (pathIndex > -1) {
-					const path = line.substring(pathIndex + 1);
+				startIndex = line.indexOf(' ', 13 /* move past 'create mode <num>' or 'delete mode <num>' */);
+				if (startIndex > -1) {
+					path = line.substring(startIndex + 1);
 					files.push({ path: path, status: status });
 				} else {
 					debugger;

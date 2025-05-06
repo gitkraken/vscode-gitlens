@@ -9,6 +9,7 @@ import { ensureArray } from '../../system/array';
 import { formatDate, fromNow } from '../../system/date';
 import { gate } from '../../system/decorators/-webview/gate';
 import { memoize } from '../../system/decorators/-webview/memoize';
+import { Lazy } from '../../system/lazy';
 import { getLoggableName } from '../../system/logger';
 import { getSettledValue } from '../../system/promise';
 import { pluralize } from '../../system/string';
@@ -16,7 +17,13 @@ import type { DiffRange, PreviousRangeComparisonUrisResult } from '../gitProvide
 import { GitUri } from '../gitUri';
 import type { RemoteProvider } from '../remotes/remoteProvider';
 import { getChangedFilesCount } from '../utils/commit.utils';
-import { isSha, isUncommitted, isUncommittedStaged, isUncommittedWithParentSuffix } from '../utils/revision.utils';
+import {
+	isSha,
+	isUncommitted,
+	isUncommittedStaged,
+	isUncommittedStagedWithParentSuffix,
+	isUncommittedWithParentSuffix,
+} from '../utils/revision.utils';
 import type { GitDiffFileStats } from './diff';
 import type { GitFile } from './file';
 import { GitFileChange } from './fileChange';
@@ -122,9 +129,9 @@ export class GitCommit implements GitRevisionReference {
 		return this.container.CommitDateFormatting.dateSource === 'committed' ? this.committer.date : this.author.date;
 	}
 
-	private _file: GitFileChange | undefined;
+	private _file: Lazy<GitFileChange | undefined> | undefined;
 	get file(): GitFileChange | undefined {
-		return this._file;
+		return this._file?.value;
 	}
 
 	private _fileset: GitCommitFileset | undefined;
@@ -133,7 +140,7 @@ export class GitCommit implements GitRevisionReference {
 	}
 	private set fileset(value: GitCommitFileset | undefined) {
 		if (value == null) {
-			this._fileset = value;
+			this._fileset = undefined;
 			this._file = undefined;
 			return;
 		}
@@ -144,41 +151,42 @@ export class GitCommit implements GitRevisionReference {
 		}
 		this._fileset = value;
 
-		let file;
-		if (value.pathspec) {
-			if (value.files.length === 1) {
-				[file] = value.files;
-			} else {
-				let files = value.files.filter(f => f.path === value.pathspec!);
-				// If we found multiple files with the same path and is uncommitted, then use the existing file if we have one, otherwise use the first
-				if (files.length > 1) {
-					if (this.isUncommitted) {
-						file = this._file ?? files[0];
-					}
-				} else if (files.length === 1) {
-					[file] = files;
+		const current = this._file?.value;
+		this._file = new Lazy(() => {
+			let file;
+			if (value.pathspec) {
+				if (value.files.length === 1) {
+					[file] = value.files;
 				} else {
-					files = value.files.filter(f => f.path.startsWith(value.pathspec!));
-					file = files.length === 1 ? files[0] : undefined;
+					let files = value.files.filter(f => f.path === value.pathspec!);
+					// If we found multiple files with the same path and is uncommitted, then use the existing file if we have one, otherwise use the first
+					if (files.length > 1) {
+						if (this.isUncommitted) {
+							file = current ?? files[0];
+						}
+					} else if (files.length === 1) {
+						[file] = files;
+					} else {
+						files = value.files.filter(f => f.path.startsWith(value.pathspec!));
+						file = files.length === 1 ? files[0] : undefined;
+					}
 				}
 			}
-		}
 
-		if (file != null) {
-			this._file = new GitFileChange(
+			if (file == null) return undefined;
+
+			return new GitFileChange(
 				this.container,
 				file.repoPath,
 				file.path,
 				file.status,
-				file.originalPath ?? this._file?.originalPath,
-				file.previousSha ?? this._file?.previousSha,
-				file.stats ?? this._file?.stats,
-				file.staged ?? this._file?.staged,
-				file.range ?? this._file?.range,
+				file.originalPath ?? current?.originalPath,
+				file.previousSha ?? current?.previousSha,
+				file.stats ?? current?.stats,
+				file.staged ?? current?.staged,
+				file.range ?? current?.range,
 			);
-		} else {
-			this._file = undefined;
-		}
+		});
 	}
 
 	get formattedDate(): string {
@@ -230,14 +238,18 @@ export class GitCommit implements GitRevisionReference {
 			this._resolvedPreviousSha ??
 			(this.file != null ? this.file.previousSha : this.parents[0]) ??
 			`${this.sha}^`;
-		return isUncommittedWithParentSuffix(previousSha) ? 'HEAD' : previousSha;
+		return isUncommittedWithParentSuffix(previousSha)
+			? isUncommittedStagedWithParentSuffix(previousSha)
+				? 'HEAD'
+				: uncommittedStaged
+			: previousSha;
 	}
 
 	private _etagFileSystem: number | undefined;
 
 	hasFullDetails(options?: {
 		allowFilteredFiles?: boolean;
-		include?: { stats?: boolean };
+		include?: { stats?: boolean; uncommittedFiles?: boolean };
 	}): this is GitCommitWithFullDetails {
 		if (this.message == null || this.fileset == null) return false;
 		if (this.fileset.filtered && !options?.allowFilteredFiles) return false;
@@ -259,7 +271,10 @@ export class GitCommit implements GitRevisionReference {
 	}
 
 	@gate()
-	async ensureFullDetails(options?: { allowFilteredFiles?: boolean; include?: { stats?: boolean } }): Promise<void> {
+	async ensureFullDetails(options?: {
+		allowFilteredFiles?: boolean;
+		include?: { stats?: boolean; uncommittedFiles?: boolean };
+	}): Promise<void> {
 		if (this.hasFullDetails(options)) return;
 
 		const repo = this.container.git.getRepository(this.repoPath);
@@ -268,7 +283,7 @@ export class GitCommit implements GitRevisionReference {
 		if (this.isUncommitted) {
 			this._etagFileSystem = repo?.etagFileSystem;
 
-			if (this._etagFileSystem != null) {
+			if (this._etagFileSystem != null || options?.include?.uncommittedFiles) {
 				const status = await repo?.git.status().getStatus();
 				if (status != null) {
 					let files = status.files.flatMap(f => f.getPseudoFileChanges());
@@ -576,10 +591,10 @@ export class GitCommit implements GitRevisionReference {
 
 	@memoize()
 	getGitUri(previous: boolean = false): GitUri {
-		const uri = this._file?.uri ?? this.container.git.getAbsoluteUri(this.repoPath, this.repoPath);
+		const uri = this.file?.uri ?? this.container.git.getAbsoluteUri(this.repoPath, this.repoPath);
 		if (!previous) return new GitUri(uri, this);
 
-		return new GitUri(this._file?.originalUri ?? uri, {
+		return new GitUri(this.file?.originalUri ?? uri, {
 			repoPath: this.repoPath,
 			sha: this.unresolvedPreviousSha,
 		});

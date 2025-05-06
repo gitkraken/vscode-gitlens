@@ -134,9 +134,19 @@ export class RevisionGitSubProvider implements GitRevisionSubProvider {
 		if (isUncommittedWithParentSuffix(ref)) {
 			ref = 'HEAD';
 		}
-		if (isUncommitted(ref)) return { sha: ref, revision: ref };
-
 		const relativePath = this.provider.getRelativePath(pathOrUri, repoPath);
+
+		if (isUncommitted(ref)) {
+			if (!isUncommittedStaged(ref)) {
+				return { sha: ref, revision: ref };
+			}
+
+			// Ensure that the file is actually staged
+			const status = await this.provider.status.getStatusForFile(repoPath, relativePath, { renames: false });
+			if (status?.indexStatus) return { sha: ref, revision: ref };
+
+			ref = 'HEAD';
+		}
 
 		const parser = getShaAndFileSummaryLogParser();
 		let result = await this.git.exec(
