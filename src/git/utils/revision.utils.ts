@@ -52,6 +52,12 @@ export function isUncommittedWithParentSuffix(rev: string | undefined): rev is `
 	return rev === `${uncommitted}^` || rev === `${uncommittedStaged}^`;
 }
 
+export function isUncommittedStagedWithParentSuffix(
+	rev: string | undefined,
+): rev is `${typeof uncommitted}${'^' | ':^'}` {
+	return rev === `${uncommittedStaged}^`;
+}
+
 let abbreviatedShaLength = 7;
 export function getAbbreviatedShaLength(): number {
 	return abbreviatedShaLength;

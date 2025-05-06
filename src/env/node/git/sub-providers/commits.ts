@@ -1229,6 +1229,8 @@ function createCommit(
 	currentUser: GitUser | undefined,
 ) {
 	const message = c.message.trim();
+	const index = message.indexOf('\n');
+
 	return new GitCommit(
 		container,
 		repoPath,
@@ -1243,13 +1245,13 @@ function createCommit(
 			c.committerEmail,
 			new Date((c.committerDate as unknown as number) * 1000),
 		),
-		message.split('\n', 1)[0],
-		c.parents ? c.parents.split(' ') : [],
+		index !== -1 ? message.substring(0, index) : message,
+		c.parents?.split(' ') ?? [],
 		message,
 		createCommitFileset(container, c, repoPath, pathspec),
 		c.stats,
 		undefined,
-		c.tips ? c.tips.split(' ') : undefined,
+		c.tips?.split(' '),
 	);
 }
 
