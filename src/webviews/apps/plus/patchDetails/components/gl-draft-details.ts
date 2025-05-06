@@ -37,9 +37,7 @@ import '../../../shared/components/badges/badge';
 import '../../../shared/components/button-container';
 import '../../../shared/components/button';
 import '../../../shared/components/code-icon';
-import '../../../shared/components/commit/commit-identity';
 import '../../../shared/components/markdown/markdown';
-import '../../../shared/components/tree/tree-generator';
 import '../../../shared/components/webview-pane';
 
 // Can only import types from 'vscode'
