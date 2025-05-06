@@ -5,6 +5,7 @@ import { configuration } from '../../system/-webview/configuration';
 import type { AIActionType, AIModel } from './models/model';
 import type { AIChatMessage, AIRequestResult } from './models/provider';
 import { OpenAICompatibleProviderBase } from './openAICompatibleProviderBase';
+import { ensureAccount } from './utils/-webview/ai.utils';
 
 type OllamaModel = AIModel<typeof provider.id>;
 
@@ -23,7 +24,10 @@ export class OllamaProvider extends OpenAICompatibleProviderBase<typeof provider
 		return this.validateUrl(await this.getOrPromptBaseUrl(silent), silent);
 	}
 
-	override getApiKey(_silent: boolean): Promise<string | undefined> {
+	override async getApiKey(silent: boolean): Promise<string | undefined> {
+		const result = await ensureAccount(this.container, silent);
+		if (!result) return undefined;
+
 		// Ollama doesn't require an API key
 		return Promise.resolve('<not applicable>');
 	}
