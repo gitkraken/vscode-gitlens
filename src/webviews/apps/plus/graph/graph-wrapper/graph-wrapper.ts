@@ -1,21 +1,19 @@
 import type GraphContainer from '@gitkraken/gitkraken-components';
 import type { GraphRow, GraphZoneType } from '@gitkraken/gitkraken-components';
-import { refZone } from '@gitkraken/gitkraken-components';
 import { consume } from '@lit/context';
 import { SignalWatcher } from '@lit-labs/signals';
 import { html, LitElement } from 'lit';
 import { customElement, query } from 'lit/decorators.js';
 import { ifDefined } from 'lit/directives/if-defined.js';
 import type { GitGraphRowType } from '../../../../../git/models/graph';
-import { debounce } from '../../../../../system/decorators/debounce';
+import { filterMap } from '../../../../../system/array';
+import { getScopedCounter } from '../../../../../system/counter';
 import {
 	DoubleClickedCommandType,
 	GetMissingAvatarsCommand,
 	GetMissingRefsMetadataCommand,
 	GetMoreRowsCommand,
-	GetRowHoverRequest,
 	UpdateColumnsCommand,
-	UpdateGraphConfigurationCommand,
 	UpdateRefsVisibilityCommand,
 	UpdateSelectionCommand,
 } from '../../../../plus/graph/protocol';
@@ -24,10 +22,8 @@ import { ipcContext } from '../../../shared/contexts/ipc';
 import type { TelemetryContext } from '../../../shared/contexts/telemetry';
 import { telemetryContext } from '../../../shared/contexts/telemetry';
 import { stateContext } from '../context';
-import type { GlGraphHover } from '../hover/graphHover';
 import { graphStateContext } from '../stateProvider';
-import type { WebGraph } from './graph-wrapper-element';
-import '../hover/graphHover';
+import type { GlGraph } from './graph-wrapper-element';
 import './graph-wrapper-element';
 
 declare global {
@@ -37,9 +33,21 @@ declare global {
 
 	interface GlobalEventHandlersEventMap {
 		// passing up event map
-		'gl-graph-mouse-leave': CustomEvent<void>;
+		'gl-graph-change-selection': CustomEvent<{ selection: GraphRow[] }>;
 		'gl-graph-change-visible-days': CustomEvent<{ top: number; bottom: number }>;
-		'gl-graph-hovered-row': CustomEvent<{ graphZoneType: GraphZoneType; graphRow: GraphRow }>;
+		'gl-graph-mouse-leave': CustomEvent<void>;
+		'gl-graph-row-context-menu': CustomEvent<{ graphZoneType: GraphZoneType; graphRow: GraphRow }>;
+		'gl-graph-row-hover': CustomEvent<{
+			graphZoneType: GraphZoneType;
+			graphRow: GraphRow;
+			clientX: number;
+			currentTarget: HTMLElement;
+		}>;
+		'gl-graph-row-unhover': CustomEvent<{
+			graphZoneType: GraphZoneType;
+			graphRow: GraphRow;
+			relatedTarget: EventTarget | null;
+		}>;
 	}
 }
 
@@ -50,6 +58,9 @@ export class GlGraphWrapper extends SignalWatcher(LitElement) {
 		return this;
 	}
 
+	@consume({ context: graphStateContext })
+	private readonly graphAppState!: typeof graphStateContext.__context__;
+
 	@consume({ context: stateContext, subscribe: true })
 	private readonly hostState!: typeof stateContext.__context__;
 
@@ -59,12 +70,62 @@ export class GlGraphWrapper extends SignalWatcher(LitElement) {
 	@consume({ context: telemetryContext as any })
 	private readonly _telemetry!: TelemetryContext;
 
-	private onGetMissingAvatars({ detail: emails }: CustomEventType<'graph-missingavatars'>) {
-		this._ipc.sendCommand(GetMissingAvatarsCommand, { emails: emails });
+	@query('gl-graph')
+	graph!: typeof GlGraph;
+
+	private ref?: GraphContainer;
+	private onSetRef = (ref: GraphContainer) => {
+		this.ref = ref;
+	};
+
+	override render() {
+		const { graphAppState, hostState } = this;
+
+		return html`<gl-graph
+			.setRef=${this.onSetRef}
+			.activeRow=${graphAppState.activeRow}
+			.avatars=${hostState.avatars}
+			.columns=${hostState.columns}
+			.config=${hostState.config}
+			.context=${hostState.context}
+			.downstreams=${hostState.downstreams}
+			.excludeRefs=${hostState.excludeRefs}
+			.excludeTypes=${hostState.excludeTypes}
+			.filter=${graphAppState.filter}
+			.includeOnlyRefs=${hostState.includeOnlyRefs}
+			?loading=${graphAppState.loading}
+			nonce=${ifDefined(hostState.nonce)}
+			.paging=${hostState.paging}
+			.refsMetadata=${hostState.refsMetadata}
+			.rows=${hostState.rows}
+			.rowsStats=${hostState.rowsStats}
+			.searchResults=${graphAppState.searchResults}
+			.selectedRows=${graphAppState.selectedRows}
+			.theming=${graphAppState.theming}
+			?windowFocused=${hostState.windowFocused}
+			.workingTreeStats=${hostState.workingTreeStats}
+			@changecolumns=${this.onColumnsChanged}
+			@changerefsvisibility=${this.onRefsVisibilityChanged}
+			@changeselection=${this.onSelectionChanged}
+			@changevisibledays=${this.onVisibleDaysChanged}
+			@missingavatars=${this.onMissingAvatars}
+			@missingrefsmetadata=${this.onMissingRefsMetadata}
+			@morerows=${this.onGetMoreRows}
+			@graphmouseleave=${this.onMouseLeave}
+			@refdoubleclick=${this.onRefDoubleClick}
+			@rowcontextmenu=${this.onRowContextMenu}
+			@rowdoubleclick=${this.onRowDoubleClick}
+			@rowhover=${this.onRowHover}
+			@rowunhover=${this.onRowUnhover}
+		></gl-graph>`;
 	}
 
-	private onGetMissingRefsMetadata({ detail: metadata }: CustomEventType<'graph-missingrefsmetadata'>) {
-		this._ipc.sendCommand(GetMissingRefsMetadataCommand, { metadata: metadata });
+	selectCommits(shaList: string[], includeToPrevSel: boolean, isAutoOrKeyScroll: boolean) {
+		this.ref?.selectCommits(shaList, includeToPrevSel, isAutoOrKeyScroll);
+	}
+
+	private onColumnsChanged(event: CustomEventType<'graph-changecolumns'>) {
+		this._ipc.sendCommand(UpdateColumnsCommand, { config: event.detail.settings });
 	}
 
 	private onGetMoreRows({ detail: sha }: CustomEventType<'graph-morerows'>) {
@@ -72,26 +133,35 @@ export class GlGraphWrapper extends SignalWatcher(LitElement) {
 		this._ipc.sendCommand(GetMoreRowsCommand, { id: sha });
 	}
 
-	@debounce(250)
-	private onColumnsChanged(event: CustomEventType<'graph-changecolumns'>) {
-		this._ipc.sendCommand(UpdateColumnsCommand, {
-			config: event.detail.settings,
-		});
+	private onMouseLeave() {
+		this.dispatchEvent(new CustomEvent('gl-graph-mouse-leave'));
+	}
+
+	private onMissingAvatars({ detail: emails }: CustomEventType<'graph-missingavatars'>) {
+		this._ipc.sendCommand(GetMissingAvatarsCommand, { emails: emails });
+	}
+
+	private onMissingRefsMetadata({ detail: metadata }: CustomEventType<'graph-missingrefsmetadata'>) {
+		this._ipc.sendCommand(GetMissingRefsMetadataCommand, { metadata: metadata });
+	}
+
+	private onRefDoubleClick({ detail: { ref, metadata } }: CustomEventType<'graph-doubleclickref'>) {
+		this._ipc.sendCommand(DoubleClickedCommandType, { type: 'ref', ref: ref, metadata: metadata });
 	}
 
 	private onRefsVisibilityChanged({ detail }: CustomEventType<'graph-changerefsvisibility'>) {
 		this._ipc.sendCommand(UpdateRefsVisibilityCommand, detail);
 	}
 
-	private onDoubleClickRef({ detail: { ref, metadata } }: CustomEventType<'graph-doubleclickref'>) {
-		this._ipc.sendCommand(DoubleClickedCommandType, {
-			type: 'ref',
-			ref: ref,
-			metadata: metadata,
-		});
+	private onRowContextMenu({ detail: { graphRow, graphZoneType } }: CustomEventType<'graph-rowcontextmenu'>) {
+		this.dispatchEvent(
+			new CustomEvent('gl-graph-row-context-menu', {
+				detail: { graphZoneType: graphZoneType, graphRow: graphRow },
+			}),
+		);
 	}
 
-	private onDoubleClickRow({ detail: { row, preserveFocus } }: CustomEventType<'graph-doubleclickrow'>) {
+	private onRowDoubleClick({ detail: { row, preserveFocus } }: CustomEventType<'graph-doubleclickrow'>) {
 		this._ipc.sendCommand(DoubleClickedCommandType, {
 			type: 'row',
 			row: { id: row.sha, type: row.type as GitGraphRowType },
@@ -99,150 +169,41 @@ export class GlGraphWrapper extends SignalWatcher(LitElement) {
 		});
 	}
 
-	private onGraphConfigurationChanged({ detail: changes }: CustomEventType<'graph-changegraphconfiguration'>) {
-		this._ipc.sendCommand(UpdateGraphConfigurationCommand, { changes: changes });
+	private onRowHover({ detail }: CustomEventType<'graph-graphrowhovered'>) {
+		this.dispatchEvent(new CustomEvent('gl-graph-row-hover', { detail: detail }));
 	}
 
-	@debounce(250)
-	private onSelectionChanged({ detail: rows }: CustomEventType<'graph-changeselection'>) {
-		const selection = rows.filter(r => r != null).map(r => ({ id: r.sha, type: r.type as GitGraphRowType }));
-		this._telemetry.sendEvent({ name: 'graph/row/selected', data: { rows: selection.length } });
+	private onRowUnhover({ detail }: CustomEventType<'graph-graphrowunhovered'>) {
+		this.dispatchEvent(new CustomEvent('gl-graph-row-unhover', { detail: detail }));
+	}
 
-		this.graphHover.hide();
+	private _selectionCounter = getScopedCounter();
+
+	private onSelectionChanged({ detail: rows }: CustomEventType<'graph-changeselection'>) {
+		const selection = filterMap(rows, r =>
+			r != null ? { id: r.sha, type: r.type as GitGraphRowType } : undefined,
+		);
 
 		const active = rows[rows.length - 1];
 		const activeKey = active != null ? `${active.sha}|${active.date}` : undefined;
 		this.graphAppState.activeRow = activeKey;
 		this.graphAppState.activeDay = active?.date;
 
-		this._ipc.sendCommand(UpdateSelectionCommand, {
-			selection: selection,
-		});
-	}
+		this.dispatchEvent(new CustomEvent('gl-graph-change-selection', { detail: { selection: selection } }));
+		this._ipc.sendCommand(UpdateSelectionCommand, { selection: selection });
 
-	private async onHoverRowPromise(row: GraphRow) {
-		try {
-			const request = await this._ipc.sendRequest(GetRowHoverRequest, {
-				type: row.type as GitGraphRowType,
-				id: row.sha,
-			});
-			this._telemetry.sendEvent({ name: 'graph/row/hovered', data: {} });
-			return request;
-		} catch (ex) {
-			return { id: row.sha, markdown: { status: 'rejected' as const, reason: ex } };
+		const count = this._selectionCounter.next();
+		if (count === 1 || count % 100 === 0) {
+			queueMicrotask(() =>
+				this._telemetry.sendEvent({
+					name: 'graph/row/selected',
+					data: { rows: selection.length, count: count },
+				}),
+			);
 		}
 	}
 
-	private handleOnGraphRowHovered({
-		detail: { graphRow, graphZoneType, clientX, currentTarget },
-	}: CustomEventType<'graph-graphrowhovered'>) {
-		if (graphZoneType === refZone) return;
-		this.dispatchEvent(
-			new CustomEvent('gl-graph-hovered-row', { detail: { graphZoneType: graphZoneType, graphRow: graphRow } }),
-		);
-		const hoverComponent = this.graphHover;
-		if (hoverComponent == null) return;
-		const rect = currentTarget.getBoundingClientRect();
-		const x = clientX;
-		const y = rect.top;
-		const height = rect.height;
-		const width = 60; // Add some width, so `skidding` will be able to apply
-		const anchor = {
-			getBoundingClientRect: function () {
-				return {
-					width: width,
-					height: height,
-					x: x,
-					y: y,
-					top: y,
-					left: x,
-					right: x + width,
-					bottom: y + height,
-				};
-			},
-		};
-		hoverComponent.requestMarkdown ??= this.onHoverRowPromise.bind(this);
-		hoverComponent.onRowHovered(graphRow, anchor);
-	}
-
-	private handleOnGraphRowUnhovered({
-		detail: { graphRow, graphZoneType, relatedTarget },
-	}: CustomEventType<'graph-graphrowunhovered'>) {
-		if (graphZoneType === refZone) return;
-		this.graphHover.onRowUnhovered(graphRow, relatedTarget);
-	}
-
-	@query('web-graph')
-	webGraph!: typeof WebGraph;
-
-	selectCommits(shaList: string[], includeToPrevSel: boolean, isAutoOrKeyScroll: boolean) {
-		this.ref?.selectCommits(shaList, includeToPrevSel, isAutoOrKeyScroll);
-	}
-
-	private onChangeVisibleDays({ detail }: CustomEventType<'graph-changevisibledays'>) {
+	private onVisibleDaysChanged({ detail }: CustomEventType<'graph-changevisibledays'>) {
 		this.dispatchEvent(new CustomEvent('gl-graph-change-visible-days', { detail: detail }));
-	}
-
-	@consume({ context: graphStateContext })
-	private readonly graphAppState!: typeof graphStateContext.__context__;
-
-	private ref?: GraphContainer;
-
-	@query('gl-graph-hover#commit-hover')
-	private readonly graphHover!: GlGraphHover;
-
-	resetHover() {
-		this.graphHover.reset();
-	}
-
-	private handleRowContextMenu() {
-		this.graphHover.hide();
-	}
-
-	private onSetRef = (ref: GraphContainer) => {
-		this.ref = ref;
-	};
-
-	override render() {
-		return html`<gl-graph-hover id="commit-hover" distance=${0} skidding=${15}></gl-graph-hover
-			><web-graph
-				nonce=${ifDefined(this.hostState.nonce)}
-				.activeRow=${ifDefined(this.graphAppState.activeRow)}
-				.avatars=${ifDefined(this.hostState.avatars)}
-				.columns=${ifDefined(this.hostState.columns)}
-				.context=${ifDefined(this.hostState.context)}
-				.theming=${ifDefined(this.graphAppState.theming)}
-				.config=${ifDefined(this.hostState.config)}
-				.downstreams=${ifDefined(this.hostState.downstreams)}
-				.excludeRefs=${ifDefined(this.hostState.excludeRefs)}
-				.excludeTypes=${ifDefined(this.hostState.excludeTypes)}
-				.rows=${ifDefined(this.hostState.rows)}
-				.includeOnlyRefs=${ifDefined(this.hostState.includeOnlyRefs)}
-				?windowFocused=${this.hostState.windowFocused}
-				?loading=${this.graphAppState.loading}
-				.selectedRows=${ifDefined(this.graphAppState.selectedRows)}
-				.searchResults=${ifDefined(this.graphAppState.searchResults)}
-				.refsMetadata=${ifDefined(this.hostState.refsMetadata)}
-				.rowsStats=${ifDefined(this.hostState.rowsStats)}
-				.workingTreeStats=${ifDefined(this.hostState.workingTreeStats)}
-				.paging=${ifDefined(this.hostState.paging)}
-				.setRef=${this.onSetRef}
-				.filter=${ifDefined(this.graphAppState.filter)}
-				@changecolumns=${this.onColumnsChanged}
-				@changegraphconfiguration=${this.onGraphConfigurationChanged}
-				@changerefsvisibility=${this.onRefsVisibilityChanged}
-				@changeselection=${this.onSelectionChanged}
-				@doubleclickref=${this.onDoubleClickRef}
-				@doubleclickrow=${this.onDoubleClickRow}
-				@missingavatars=${this.onGetMissingAvatars}
-				@missingrefsmetadata=${this.onGetMissingRefsMetadata}
-				@morerows=${this.onGetMoreRows}
-				@changevisibledays=${this.onChangeVisibleDays}
-				@graphrowhovered=${this.handleOnGraphRowHovered}
-				@graphrowunhovered=${this.handleOnGraphRowUnhovered}
-				@rowcontextmenu=${this.handleRowContextMenu}
-				@graphmouseleave=${(e: CustomEvent) =>
-					this.dispatchEvent(new CustomEvent('gl-graph-mouse-leave', { detail: e.detail }))}
-			></web-graph>`;
 	}
 }

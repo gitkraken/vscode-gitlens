@@ -135,9 +135,9 @@ export interface TelemetryEvents extends WebviewShowAbortedEvents, WebviewShownE
 	/** Sent when the user changes the current repository on the Commit Graph */
 	'graph/repository/changed': GraphRepositoryChangedEvent;
 
-	/** Sent when the user hovers over a row on the Commit Graph */
-	'graph/row/hovered': GraphContextEventData;
-	/** Sent when the user selects (clicks on) a row or rows on the Commit Graph */
+	/** Sent when the user hovers over a row on the Commit Graph (first time and every 100 times after) */
+	'graph/row/hovered': GraphRowHoveredEvent;
+	/** Sent when the user selects (clicks on) a row or rows on the Commit Graph (first time and every 100 times after) */
 	'graph/row/selected': GraphRowSelectedEvent;
 	/** Sent when rows are loaded into the Commit Graph */
 	'graph/rows/loaded': GraphRowsLoadedEvent;
@@ -545,8 +545,13 @@ interface GraphFiltersChangedEvent extends GraphContextEventData {
 
 interface GraphRepositoryChangedEvent extends RepositoryEventData, GraphContextEventData {}
 
+interface GraphRowHoveredEvent extends GraphContextEventData {
+	count: number;
+}
+
 interface GraphRowSelectedEvent extends GraphContextEventData {
 	rows: number;
+	count: number;
 }
 
 interface GraphRowsLoadedEvent extends GraphContextEventData {

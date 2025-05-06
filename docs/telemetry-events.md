@@ -909,25 +909,7 @@ or
 
 ### graph/row/hovered
 
-> Sent when the user hovers over a row on the Commit Graph
-
-```typescript
-{
-  'context.repository.closed': boolean,
-  'context.repository.folder.scheme': string,
-  'context.repository.id': string,
-  'context.repository.provider.id': string,
-  'context.repository.scheme': string,
-  'context.webview.host': 'editor' | 'view',
-  'context.webview.id': string,
-  'context.webview.instanceId': string,
-  'context.webview.type': string
-}
-```
-
-### graph/row/selected
-
-> Sent when the user selects (clicks on) a row or rows on the Commit Graph
+> Sent when the user hovers over a row on the Commit Graph (first time and every 100 times after)
 
 ```typescript
 {
@@ -940,6 +922,26 @@ or
   'context.webview.id': string,
   'context.webview.instanceId': string,
   'context.webview.type': string,
+  'count': number
+}
+```
+
+### graph/row/selected
+
+> Sent when the user selects (clicks on) a row or rows on the Commit Graph (first time and every 100 times after)
+
+```typescript
+{
+  'context.repository.closed': boolean,
+  'context.repository.folder.scheme': string,
+  'context.repository.id': string,
+  'context.repository.provider.id': string,
+  'context.repository.scheme': string,
+  'context.webview.host': 'editor' | 'view',
+  'context.webview.id': string,
+  'context.webview.instanceId': string,
+  'context.webview.type': string,
+  'count': number,
   'rows': number
 }
 ```
