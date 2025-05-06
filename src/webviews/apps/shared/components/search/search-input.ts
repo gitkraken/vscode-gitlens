@@ -234,7 +234,16 @@ export class GlSearchInput extends GlElement {
 		return `${this.label} commits (↑↓ for history), e.g. "Updates dependencies" author:eamodio`;
 	}
 
-	@property({ type: String }) value = '';
+	@state() _value!: string;
+	@property({ type: String })
+	get value() {
+		return this._value;
+	}
+	set value(value: string) {
+		if (this._value !== undefined) return;
+		this._value = value;
+	}
+
 	@property({ type: Boolean }) filter = false;
 	@property({ type: Boolean }) matchAll = false;
 	@property({ type: Boolean }) matchCase = false;
@@ -254,7 +263,7 @@ export class GlSearchInput extends GlElement {
 
 	private handleClear(_e: Event) {
 		this.focus();
-		this.value = '';
+		this._value = '';
 		this.debouncedOnSearchChanged();
 	}
 
@@ -294,7 +303,7 @@ export class GlSearchInput extends GlElement {
 
 	private handleInput(e: InputEvent) {
 		const value = (e.target as HTMLInputElement)?.value;
-		this.value = value;
+		this._value = value;
 		this.updateHelpText();
 		this.debouncedOnSearchChanged();
 	}
@@ -388,6 +397,10 @@ export class GlSearchInput extends GlElement {
 
 		this.searchHistory.push(query.query);
 		this.searchHistoryPos = this.searchHistory.length - 1;
+	}
+
+	setSearchQuery(query: string): void {
+		this._value = query;
 	}
 
 	override render(): unknown {
@@ -496,7 +509,7 @@ export class GlSearchInput extends GlElement {
 					type="text"
 					spellcheck="false"
 					placeholder="${this.placeholder}"
-					.value="${this.value}"
+					.value="${this._value ?? ''}"
 					aria-valid="${!this.errorMessage}"
 					aria-describedby="${this.errorMessage !== '' || this.helpType != null ? 'help-text' : ''}"
 					@input="${this.handleInput}"

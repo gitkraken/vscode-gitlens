@@ -1,6 +1,6 @@
 import type { TemplateResult } from 'lit';
 import { css, html } from 'lit';
-import { customElement, property, query } from 'lit/decorators.js';
+import { customElement, property, query, state } from 'lit/decorators.js';
 import type { Disposable } from 'vscode';
 import { isMac } from '@env/platform';
 import type { SearchQuery } from '../../../../../constants.search';
@@ -113,8 +113,15 @@ export class GlSearchBox extends GlElement {
 	@property({ type: String })
 	errorMessage = '';
 
+	@state() _value!: string;
 	@property({ type: String })
-	value = '';
+	get value() {
+		return this._value;
+	}
+	set value(value: string) {
+		if (this._value !== undefined) return;
+		this._value = value;
+	}
 
 	@property({ type: Boolean })
 	matchAll = false;
@@ -183,6 +190,10 @@ export class GlSearchBox extends GlElement {
 
 	logSearch(query: SearchQuery): void {
 		this.searchInput?.logSearch(query);
+	}
+
+	setSearchQuery(query: string): void {
+		this._value = query;
 	}
 
 	private handleShortcutKeys(e: KeyboardEvent) {
@@ -267,7 +278,7 @@ export class GlSearchBox extends GlElement {
 				.matchAll="${this.matchAll}"
 				.matchCase="${this.matchCase}"
 				.matchRegex="${this.matchRegex}"
-				.value="${this.value}"
+				.value="${this._value ?? ''}"
 				@gl-search-navigate="${(e: CustomEvent<SearchNavigationEventDetail>) => {
 					e.stopImmediatePropagation();
 					this.navigate(e.detail.direction);
@@ -309,6 +320,6 @@ export class GlSearchBox extends GlElement {
 					</button>
 				</gl-tooltip>
 			</div>
-			<progress-indicator active="${this.searching}"></progress-indicator>`;
+			<progress-indicator ?active="${this.searching}"></progress-indicator>`;
 	}
 }
