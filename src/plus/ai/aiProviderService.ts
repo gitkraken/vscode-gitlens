@@ -502,7 +502,7 @@ export class AIProviderService implements Disposable {
 				const commit = isCommit(commitOrRevision)
 					? commitOrRevision
 					: await this.container.git.commits(commitOrRevision.repoPath).getCommit(commitOrRevision.ref);
-				if (commit == null) throw new AINoRequestDataError('Unable to find commit');
+				if (commit == null) throw new AINoRequestDataError('No commit found to explain.');
 				if (cancellation.isCancellationRequested) throw new CancellationError();
 
 				if (!commit.hasFullDetails()) {
@@ -994,7 +994,7 @@ export class AIProviderService implements Disposable {
 
 				switch (ex.reason) {
 					case AIErrorReason.NoRequestData:
-						void window.showErrorMessage(ex.message);
+						void window.showInformationMessage(ex.message);
 						return undefined;
 
 					case AIErrorReason.NoEntitlement: {
