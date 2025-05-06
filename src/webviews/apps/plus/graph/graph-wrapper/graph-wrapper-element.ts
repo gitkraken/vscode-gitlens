@@ -1,9 +1,10 @@
 import type GraphContainer from '@gitkraken/gitkraken-components';
 import type { GraphRef, GraphRow, GraphZoneType } from '@gitkraken/gitkraken-components';
 import { html, LitElement } from 'lit';
-import { customElement, property, state } from 'lit/decorators.js';
+import { customElement, property } from 'lit/decorators.js';
 import { createElement } from 'react';
 import { createRoot } from 'react-dom/client';
+import { debounce } from '../../../../../system/function/debounce';
 import type {
 	GraphAvatars,
 	GraphColumnsConfig,
@@ -14,9 +15,6 @@ import type {
 } from '../../../../plus/graph/protocol';
 import type { GraphWrapperInitProps, GraphWrapperProps, GraphWrapperSubscriberProps } from './graph-wrapper.react';
 import { GraphWrapperReact } from './graph-wrapper.react';
-
-// @customElement('gl-graph-wrapper-element')
-// export class GraphWrapperElement extends LitElement {
 
 /**
  * A LitElement web component that encapsulates the GraphWrapperReact component.
@@ -31,16 +29,13 @@ export class WebGraph extends LitElement {
 	}
 
 	// React root for mounting the React component
-	@state()
 	private reactRoot: ReturnType<typeof createRoot> | null = null;
 
-	// Reference to the GraphContainer instance
-	@state()
-	private graphRef: GraphContainer | null = null;
-
 	// State updater function provided by the React component
-	// @state()
 	private stateUpdater: ((props: Partial<GraphWrapperSubscriberProps>) => void) | null = null;
+	private setStateUpdater = (updater: (props: Partial<GraphWrapperSubscriberProps>) => void) => {
+		this.stateUpdater = updater;
+	};
 
 	// Properties that match GraphWrapperProps
 	@property({ type: String })
@@ -109,11 +104,8 @@ export class WebGraph extends LitElement {
 	@property({ type: Object })
 	filter?: any;
 
-	// Mount the React component on first connection to DOM
-	override connectedCallback(): void {
-		super.connectedCallback();
-		this.mountReactComponent();
-	}
+	@property({ attribute: false })
+	setRef?: (ref: GraphContainer) => void;
 
 	// Clean up React component when disconnected
 	override disconnectedCallback(): void {
@@ -124,24 +116,35 @@ export class WebGraph extends LitElement {
 		super.disconnectedCallback();
 	}
 
-	// Update the React component's state when properties change
-	override updated(changedProperties: Map<string, unknown>): void {
-		if (this.stateUpdater) {
-			// Only update if we have a state updater and properties have changed
-			const props = this.getProps(changedProperties);
-			this.stateUpdater(props);
+	private changedProps: Map<string, unknown> = new Map();
+	private updateScheduled: boolean = false;
+
+	override shouldUpdate(changedProperties: Map<string, unknown>): boolean {
+		if (!this.stateUpdater) return this.reactRoot == null;
+
+		for (const key of changedProperties.keys() as Iterable<keyof GraphWrapperSubscriberProps>) {
+			this.changedProps.set(key, this[key]);
 		}
+
+		// Debounce updates to avoid rapid re-renders
+		if (this.updateScheduled) return this.reactRoot == null;
+		this.updateScheduled = true;
+
+		const { stateUpdater } = this;
+		requestAnimationFrame(() => {
+			this.updateScheduled = false;
+			if (this.changedProps.size > 0) {
+				const props = this.getProps(this.changedProps);
+				stateUpdater(props);
+				this.changedProps.clear();
+			}
+		});
+		return this.reactRoot == null;
 	}
 
-	// Mount the React component once
-	private mountReactComponent(): void {
-		// Create a container for the React component
-		const container = document.createElement('div');
-		container.classList.add('graph__graph-root');
-		this.appendChild(container);
-
+	override firstUpdated(): void {
 		// Create a React root
-		this.reactRoot = createRoot(container);
+		this.reactRoot = createRoot(this.querySelector('.graph__graph-root')!);
 
 		// Get the initial props
 		const props = this.getProps();
@@ -150,24 +153,26 @@ export class WebGraph extends LitElement {
 		this.reactRoot.render(
 			createElement(GraphWrapperReact, {
 				...props,
-				subscriber: (updater: (props: Partial<GraphWrapperSubscriberProps>) => void) => {
-					this.stateUpdater = updater;
-				},
-				onChangeColumns: this.handleChangeColumns.bind(this),
-				onGraphMouseLeave: this.handleGraphMouseLeave.bind(this),
-				onChangeRefsVisibility: this.handleChangeRefsVisibility.bind(this),
-				onChangeSelection: this.handleChangeSelection.bind(this),
-				onDoubleClickRef: this.handleDoubleClickRef.bind(this),
-				onDoubleClickRow: this.handleDoubleClickRow.bind(this),
-				onMissingAvatars: this.handleMissingAvatars.bind(this),
-				onMissingRefsMetadata: this.handleMissingRefsMetadata.bind(this),
-				onMoreRows: this.handleMoreRows.bind(this),
-				onChangeVisibleDays: this.handleChangeVisibleDays.bind(this),
-				onGraphRowHovered: this.handleGraphRowHovered.bind(this),
-				onGraphRowUnhovered: this.handleGraphRowUnhovered.bind(this),
-				onRowContextMenu: this.handleRowContextMenu.bind(this),
+				subscriber: this.setStateUpdater,
+				onChangeColumns: this.handleChangeColumns,
+				onGraphMouseLeave: this.handleGraphMouseLeave,
+				onChangeRefsVisibility: this.handleChangeRefsVisibility,
+				onChangeSelection: this.handleChangeSelection,
+				onDoubleClickRef: this.handleDoubleClickRef,
+				onDoubleClickRow: this.handleDoubleClickRow,
+				onMissingAvatars: this.handleMissingAvatars,
+				onMissingRefsMetadata: this.handleMissingRefsMetadata,
+				onMoreRows: this.handleMoreRows,
+				onChangeVisibleDays: this.handleChangeVisibleDays,
+				onGraphRowHovered: this.handleGraphRowHovered,
+				onGraphRowUnhovered: this.handleGraphRowUnhovered,
+				onRowContextMenu: this.handleRowContextMenu,
 			} as GraphWrapperInitProps),
 		);
+	}
+
+	override render() {
+		return html`<div class="graph__graph-root"></div>`;
 	}
 
 	// Collect all props to pass to the React component
@@ -204,81 +209,69 @@ export class WebGraph extends LitElement {
 		};
 	}
 
-	// Public method to access the GraphContainer reference
-	public getGraphRef(): GraphContainer | null {
-		return this.graphRef;
-	}
-
-	// Function property for setRef
-	@property({ attribute: false })
-	setRef?: (ref: GraphContainer) => void;
-
 	// Event handlers that dispatch custom events
-	private handleChangeColumns(settings: GraphColumnsConfig): void {
+	private handleChangeColumns = (settings: GraphColumnsConfig): void => {
 		this.dispatchEvent(new CustomEvent('changecolumns', { detail: { settings: settings } }));
-	}
+	};
 
-	private handleGraphMouseLeave(): void {
+	private handleGraphMouseLeave = (): void => {
 		this.dispatchEvent(new CustomEvent('graphmouseleave'));
-	}
+	};
 
-	private handleChangeRefsVisibility(args: { refs: GraphExcludedRef[]; visible: boolean }): void {
+	private handleChangeRefsVisibility = (args: { refs: GraphExcludedRef[]; visible: boolean }): void => {
 		this.dispatchEvent(new CustomEvent('changerefsvisibility', { detail: args }));
-	}
+	};
 
-	private handleChangeSelection(rows: GraphRow[]): void {
-		this.dispatchEvent(new CustomEvent('changeselection', { detail: rows }));
-	}
+	private handleChangeSelection = debounce(
+		(rows: GraphRow[]): void => void this.dispatchEvent(new CustomEvent('changeselection', { detail: rows })),
+		50,
+		{ edges: 'both' },
+	);
 
-	private handleDoubleClickRef(args: { ref: GraphRef; metadata?: GraphRefMetadataItem }): void {
+	private handleDoubleClickRef = (args: { ref: GraphRef; metadata?: GraphRefMetadataItem }): void => {
 		this.dispatchEvent(new CustomEvent('doubleclickref', { detail: args }));
-	}
+	};
 
-	private handleDoubleClickRow(args: { row: GraphRow; preserveFocus?: boolean }): void {
+	private handleDoubleClickRow = (args: { row: GraphRow; preserveFocus?: boolean }): void => {
 		this.dispatchEvent(new CustomEvent('doubleclickrow', { detail: args }));
-	}
+	};
 
-	private handleMissingAvatars(emails: Record<string, string>): void {
+	private handleMissingAvatars = (emails: Record<string, string>): void => {
 		this.dispatchEvent(new CustomEvent('missingavatars', { detail: emails }));
-	}
+	};
 
-	private handleMissingRefsMetadata(metadata: GraphMissingRefsMetadata): void {
+	private handleMissingRefsMetadata = (metadata: GraphMissingRefsMetadata): void => {
 		this.dispatchEvent(new CustomEvent('missingrefsmetadata', { detail: metadata }));
-	}
+	};
 
-	private handleMoreRows(id?: string): void {
+	private handleMoreRows = (id?: string): void => {
 		this.dispatchEvent(new CustomEvent('morerows', { detail: id }));
-	}
+	};
 
-	private handleChangeVisibleDays(args: any): void {
+	private handleChangeVisibleDays = (args: any): void => {
 		this.dispatchEvent(new CustomEvent('changevisibledays', { detail: args }));
-	}
+	};
 
-	private handleGraphRowHovered(args: {
+	private handleGraphRowHovered = (args: {
 		clientX: number;
 		currentTarget: HTMLElement;
 		graphZoneType: GraphZoneType;
 		graphRow: GraphRow;
-	}): void {
+	}): void => {
 		this.dispatchEvent(new CustomEvent('graphrowhovered', { detail: args }));
-	}
+	};
 
-	private handleGraphRowUnhovered(args: {
+	private handleGraphRowUnhovered = (args: {
 		relatedTarget: EventTarget | null;
 		graphZoneType: GraphZoneType;
 		graphRow: GraphRow;
-	}): void {
+	}): void => {
 		this.dispatchEvent(new CustomEvent('graphrowunhovered', { detail: args }));
-	}
+	};
 
-	private handleRowContextMenu(args: { graphZoneType: GraphZoneType; graphRow: GraphRow }): void {
+	private handleRowContextMenu = (args: { graphZoneType: GraphZoneType; graphRow: GraphRow }): void => {
 		this.dispatchEvent(new CustomEvent('rowcontextmenu', { detail: args }));
-	}
-
-	// Render method - the actual rendering is handled by React
-	override render() {
-		return html``;
-	}
+	};
 }
 
 // Define the element in the custom elements registry

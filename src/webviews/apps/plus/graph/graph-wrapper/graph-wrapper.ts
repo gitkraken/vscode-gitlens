@@ -199,34 +199,35 @@ export class GlGraphWrapper extends SignalWatcher(LitElement) {
 		this.graphHover.hide();
 	}
 
+	private onSetRef = (ref: GraphContainer) => {
+		this.ref = ref;
+	};
+
 	override render() {
 		return html`<gl-graph-hover id="commit-hover" distance=${0} skidding=${15}></gl-graph-hover
 			><web-graph
 				nonce=${ifDefined(this.hostState.nonce)}
-				activeRow=${ifDefined(this.graphAppState.activeRow)}
-				.avatars=${this.hostState.avatars ?? {}}
-				.columns=${this.hostState.columns ?? {}}
-				.context=${this.hostState.context ?? {}}
-				.theming=${this.graphAppState.theming ?? {}}
-				.config=${this.hostState.config ?? {}}
-				.downstreams=${this.hostState.downstreams ?? {}}
-				.excludeRefs=${this.hostState.excludeRefs ?? {}}
-				.excludeTypes=${this.hostState.excludeTypes ?? {}}
-				.rows=${this.hostState.rows ?? []}
-				.includeOnlyRefs=${this.hostState.includeOnlyRefs ?? {}}
+				.activeRow=${ifDefined(this.graphAppState.activeRow)}
+				.avatars=${ifDefined(this.hostState.avatars)}
+				.columns=${ifDefined(this.hostState.columns)}
+				.context=${ifDefined(this.hostState.context)}
+				.theming=${ifDefined(this.graphAppState.theming)}
+				.config=${ifDefined(this.hostState.config)}
+				.downstreams=${ifDefined(this.hostState.downstreams)}
+				.excludeRefs=${ifDefined(this.hostState.excludeRefs)}
+				.excludeTypes=${ifDefined(this.hostState.excludeTypes)}
+				.rows=${ifDefined(this.hostState.rows)}
+				.includeOnlyRefs=${ifDefined(this.hostState.includeOnlyRefs)}
 				?windowFocused=${this.hostState.windowFocused}
 				?loading=${this.graphAppState.loading}
-				.selectedRows=${this.graphAppState.selectedRows ?? {}}
-				.searchResults=${this.graphAppState.searchResults ?? {}}
-				.refsMetadata=${this.hostState.refsMetadata ?? {}}
-				.rowsStats=${this.hostState.rowsStats ?? {}}
-				.workingTreeStats=${this.hostState.workingTreeStats ?? {}}
-				.paging=${this.hostState.paging ?? {}}
-				.setRef=${(ref: GraphContainer) => {
-					// eslint-disable-next-line lit/no-this-assign-in-render
-					this.ref = ref;
-				}}
-				.filter=${this.graphAppState.filter}
+				.selectedRows=${ifDefined(this.graphAppState.selectedRows)}
+				.searchResults=${ifDefined(this.graphAppState.searchResults)}
+				.refsMetadata=${ifDefined(this.hostState.refsMetadata)}
+				.rowsStats=${ifDefined(this.hostState.rowsStats)}
+				.workingTreeStats=${ifDefined(this.hostState.workingTreeStats)}
+				.paging=${ifDefined(this.hostState.paging)}
+				.setRef=${this.onSetRef}
+				.filter=${ifDefined(this.graphAppState.filter)}
 				@changecolumns=${this.onColumnsChanged}
 				@changegraphconfiguration=${this.onGraphConfigurationChanged}
 				@changerefsvisibility=${this.onRefsVisibilityChanged}
