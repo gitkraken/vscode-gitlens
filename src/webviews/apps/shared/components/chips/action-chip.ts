@@ -51,6 +51,7 @@ export class ActionChip extends LitElement {
 			gap: 0.2rem;
 			vertical-align: middle;
 			color: inherit;
+			text-decoration: none;
 		}
 		a:focus {
 			outline: none;
@@ -79,17 +80,24 @@ export class ActionChip extends LitElement {
 	private defaultFocusEl!: HTMLAnchorElement;
 
 	override render(): unknown {
+		if (!this.label) {
+			return this.renderContent();
+		}
+
+		return html`<gl-tooltip hoist content="${this.label}">${this.renderContent()}</gl-tooltip>`;
+	}
+
+	private renderContent() {
 		return html`
-			<gl-tooltip hoist content="${this.label ?? nothing}">
-				<a
-					role="${!this.href ? 'button' : nothing}"
-					type="${!this.href ? 'button' : nothing}"
-					?disabled=${this.disabled}
-					href=${this.href ?? nothing}
-				>
-					<code-icon icon="${this.icon}"></code-icon><slot></slot>
-				</a>
-			</gl-tooltip>
+			<a
+				part="base"
+				role="${!this.href ? 'button' : nothing}"
+				type="${!this.href ? 'button' : nothing}"
+				?disabled=${this.disabled}
+				href=${this.href ?? nothing}
+			>
+				<code-icon part="icon" icon="${this.icon}"></code-icon><slot></slot>
+			</a>
 		`;
 	}
 
