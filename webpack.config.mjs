@@ -62,11 +62,75 @@ export default function (env, argv) {
 	};
 
 	return [
+		getCommonConfig(mode, env),
 		getExtensionConfig('node', mode, env),
 		getExtensionConfig('webworker', mode, env),
 		getWebviewsCommonConfig(mode, env),
 		...getWebviewsConfigs(mode, env),
 	];
+}
+
+/** @type WebpackConfig['stats'] */
+const stats = {
+	preset: 'errors-warnings',
+	assets: true,
+	assetsSort: 'name',
+	assetsSpace: 100,
+	colors: true,
+	env: true,
+	errorsCount: true,
+	excludeAssets: [/\.(ttf|webp)/],
+	warningsCount: true,
+	timings: true,
+};
+
+/**
+ * @param { 'production' | 'development' | 'none' } mode
+ * @param {{ analyzeBundle?: boolean; analyzeDeps?: boolean; esbuild?: boolean; skipLint?: boolean }} env
+ * @returns { WebpackConfig }
+ */
+function getCommonConfig(mode, env) {
+	// Ensure that the dist folder exists otherwise the FantasticonPlugin will fail
+	const dist = path.join(__dirname, 'dist');
+	if (!fs.existsSync(dist)) {
+		fs.mkdirSync(dist);
+	}
+
+	/**
+	 * @type WebpackConfig['plugins'] | any
+	 */
+	const plugins = [
+		new DocsPlugin(),
+		new LicensesPlugin(),
+		new FantasticonPlugin({
+			configPath: '.fantasticonrc.js',
+			onBefore:
+				mode !== 'production'
+					? undefined
+					: () =>
+							spawnSync(pkgMgr, ['run', 'icons:svgo'], {
+								cwd: __dirname,
+								encoding: 'utf8',
+								shell: true,
+							}),
+			onComplete: () =>
+				spawnSync(pkgMgr, ['run', 'icons:apply'], {
+					cwd: __dirname,
+					encoding: 'utf8',
+					shell: true,
+				}),
+		}),
+	];
+
+	return {
+		name: 'common',
+		context: __dirname,
+		entry: {},
+		mode: mode,
+		plugins: plugins,
+		infrastructureLogging: mode === 'production' ? undefined : { level: 'log' }, // enables logging required for problem matchers
+		stats: stats,
+	};
 }
 
 /**
@@ -112,36 +176,10 @@ function getExtensionConfig(target, mode, env) {
 	if (target === 'webworker') {
 		plugins.push(new optimize.LimitChunkCountPlugin({ maxChunks: 1 }));
 	} else {
-		// Ensure that the dist folder exists otherwise the FantasticonPlugin will fail
-		const dist = path.join(__dirname, 'dist');
-		if (!fs.existsSync(dist)) {
-			fs.mkdirSync(dist);
-		}
-
 		plugins.push(
 			new GenerateContributionsPlugin(),
 			new ExtractContributionsPlugin(),
 			new GenerateCommandTypesPlugin(),
-			new DocsPlugin(),
-			new LicensesPlugin(),
-			new FantasticonPlugin({
-				configPath: '.fantasticonrc.js',
-				onBefore:
-					mode !== 'production'
-						? undefined
-						: () =>
-								spawnSync(pkgMgr, ['run', 'icons:svgo'], {
-									cwd: __dirname,
-									encoding: 'utf8',
-									shell: true,
-								}),
-				onComplete: () =>
-					spawnSync(pkgMgr, ['run', 'icons:apply'], {
-						cwd: __dirname,
-						encoding: 'utf8',
-						shell: true,
-					}),
-			}),
 		);
 	}
 
@@ -278,23 +316,8 @@ function getExtensionConfig(target, mode, env) {
 			extensions: ['.ts', '.tsx', '.js', '.jsx', '.json'],
 		},
 		plugins: plugins,
-		infrastructureLogging:
-			mode === 'production'
-				? undefined
-				: {
-						level: 'log', // enables logging required for problem matchers
-				  },
-		stats: {
-			preset: 'errors-warnings',
-			assets: true,
-			assetsSort: 'name',
-			assetsSpace: 100,
-			colors: true,
-			env: true,
-			errorsCount: true,
-			warningsCount: true,
-			timings: true,
-		},
+		infrastructureLogging: mode === 'production' ? undefined : { level: 'log' }, // enables logging required for problem matchers
+		stats: stats,
 	};
 }
 
@@ -411,24 +434,8 @@ function getWebviewsCommonConfig(mode, env) {
 					: [],
 		},
 		plugins: plugins,
-		infrastructureLogging:
-			mode === 'production'
-				? undefined
-				: {
-						level: 'log', // enables logging required for problem matchers
-				  },
-		stats: {
-			preset: 'errors-warnings',
-			assets: true,
-			assetsSort: 'name',
-			assetsSpace: 100,
-			colors: true,
-			env: true,
-			errorsCount: true,
-			excludeAssets: [/\.(ttf|webp)/],
-			warningsCount: true,
-			timings: true,
-		},
+		infrastructureLogging: mode === 'production' ? undefined : { level: 'log' }, // enables logging required for problem matchers
+		stats: stats,
 	};
 }
 
@@ -638,24 +645,8 @@ function getWebviewConfig(webviews, overrides, mode, env) {
 			modules: [basePath, 'node_modules'],
 		},
 		plugins: plugins,
-		infrastructureLogging:
-			mode === 'production'
-				? undefined
-				: {
-						level: 'log', // enables logging required for problem matchers
-				  },
-		stats: {
-			preset: 'errors-warnings',
-			assets: true,
-			assetsSort: 'name',
-			assetsSpace: 100,
-			colors: true,
-			env: true,
-			errorsCount: true,
-			excludeAssets: [/\.(ttf|webp)/],
-			warningsCount: true,
-			timings: true,
-		},
+		infrastructureLogging: mode === 'production' ? undefined : { level: 'log' }, // enables logging required for problem matchers
+		stats: stats,
 	};
 }
 
