@@ -6,6 +6,7 @@ export const timelineChartStyles = css`
 		flex-direction: column;
 		width: 100%;
 		height: 100%;
+		position: relative;
 
 		--scroller-track-top: unset;
 		--scroller-track-left: 0;
@@ -357,12 +358,45 @@ export const timelineChartStyles = css`
 		cursor: pointer;
 	}
 
-	.empty {
-		padding: 0.4rem 2rem 1.3rem 2rem;
-		font-size: var(--font-size);
+	@keyframes fadeIn {
+		from {
+			opacity: 0;
+		}
+		to {
+			opacity: 1;
+		}
 	}
 
-	.empty p {
+	.notice {
+		position: absolute;
+		top: 0;
+		left: 0;
+		bottom: 0;
+		right: 0;
+		display: flex;
+		flex-direction: column;
+		align-items: center;
+		justify-content: center;
+		padding: 10% 2rem 30% 2rem;
+		font-size: var(--font-size);
+
+		z-index: 1;
+	}
+
+	.notice--blur {
+		backdrop-filter: blur(15px);
+		-webkit-backdrop-filter: blur(15px);
+
+		animation: fadeIn 0.3s ease-in;
+		animation-fill-mode: forwards;
+		opacity: 0;
+	}
+
+	:host-context(:host[placement='view']) .notice--blur {
+		animation-delay: 0.5s;
+	}
+
+	.notice p {
 		margin-top: 0;
 	}
 

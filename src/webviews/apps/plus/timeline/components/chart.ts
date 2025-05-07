@@ -8,7 +8,7 @@ import { log } from '../../../../../system/decorators/log';
 import { debounce } from '../../../../../system/function/debounce';
 import { defer } from '../../../../../system/promise';
 import { pluralize, truncateMiddle } from '../../../../../system/string';
-import type { Commit, State, TimelineSliceBy } from '../../../../plus/timeline/protocol';
+import type { State, TimelineDatum, TimelineSliceBy } from '../../../../plus/timeline/protocol';
 import { renderCommitSha } from '../../../shared/components/commit-sha';
 import { GlElement } from '../../../shared/components/element';
 import { createFromDateDelta, formatDate, fromNow } from '../../../shared/date';
@@ -17,6 +17,7 @@ import type { SliderChangeEventDetail } from './slider';
 import { GlChartSlider } from './slider';
 import '@shoelace-style/shoelace/dist/components/resize-observer/resize-observer.js';
 import './scroller';
+import '../../../shared/components/indicators/watermark-loader';
 
 export const tagName = 'gl-timeline-chart';
 
@@ -51,8 +52,9 @@ export class GlTimelineChart extends GlElement {
 		}
 	>();
 	private readonly _slicesByIndex = new Map<number, string>();
-	private readonly _commitsByTimestamp = new Map<number, Commit>();
+	private readonly _commitsByTimestamp = new Map<number, TimelineDatum>();
 
+	@state()
 	private _loading?: ReturnType<typeof defer<void>>;
 
 	private get compact(): boolean {
@@ -166,24 +168,29 @@ export class GlTimelineChart extends GlElement {
 	}
 
 	protected override render(): unknown {
-		// Don't render anything if the data is still loading
-		if (this.data === null) return nothing;
-		if (!this.data?.length) {
-			return html`<div class="empty"><p>No commits found for the specified time period.</p></div>`;
-		}
-
-		return html`<gl-chart-scroller
-			.range=${this._rangeScrollable}
-			.visibleRange=${this._zoomedRangeScrollable}
-			@gl-scroll=${this.onScroll}
-			@gl-scroll-start=${this.onScrollStart}
-			@gl-scroll-end=${this.onScrollEnd}
-		>
-			<sl-resize-observer @sl-resize=${this.onResize}>
-				<div id="chart" tabindex="-1"></div>
-			</sl-resize-observer>
-			${this.renderFooter()}
-		</gl-chart-scroller>`;
+		return html`${this._loading?.pending
+				? html`<div class="notice notice--blur">
+						<gl-watermark-loader pulse><p>Loading...</p></gl-watermark-loader>
+				  </div>`
+				: !this.data?.length
+				  ? html`<div class="notice">
+							<gl-watermark-loader
+								><p>No commits found for the specified time period</p></gl-watermark-loader
+							>
+				    </div>`
+				  : nothing}
+			<gl-chart-scroller
+				.range=${this._rangeScrollable}
+				.visibleRange=${this._zoomedRangeScrollable}
+				@gl-scroll=${this.onScroll}
+				@gl-scroll-start=${this.onScrollStart}
+				@gl-scroll-end=${this.onScrollEnd}
+			>
+				<sl-resize-observer @sl-resize=${this.onResize}>
+					<div id="chart" tabindex="-1"></div>
+				</sl-resize-observer>
+				${this.data?.length ? this.renderFooter() : nothing}
+			</gl-chart-scroller>`;
 	}
 
 	private renderFooter() {
@@ -442,7 +449,7 @@ export class GlTimelineChart extends GlElement {
 		return result;
 	}
 
-	private calculateChangeMetrics(dataset: Commit[]): { q1: number; q3: number; maxChanges: number } {
+	private calculateChangeMetrics(dataset: TimelineDatum[]): { q1: number; q3: number; maxChanges: number } {
 		const sortedChanges = dataset.map(c => (c.additions ?? 0) + (c.deletions ?? 0)).sort((a, b) => a - b);
 		return {
 			maxChanges: sortedChanges[sortedChanges.length - 1],
@@ -511,7 +518,7 @@ export class GlTimelineChart extends GlElement {
 
 	@log<GlTimelineChart['prepareChartData']>({ args: { 0: d => d?.length } })
 	private prepareChartData(
-		dataset: Commit[],
+		dataset: TimelineDatum[],
 		metrics: { minRadius: number; maxRadius: number; q1: number; q3: number; maxChanges: number },
 	): PreparedChartData {
 		const commits = dataset.length + 1;
@@ -601,21 +608,15 @@ export class GlTimelineChart extends GlElement {
 		const abortController = this._abortController;
 
 		const loading = defer<void>();
+		void loading.promise.finally(() => (this._loading = undefined));
+
 		this._loading = loading;
 		this.emit('gl-loading', loading.promise);
 
-		const data = await dataPromise;
+		const data = (await dataPromise) ?? [];
 
 		if (abortController?.signal.aborted) {
 			loading?.cancel();
-			return;
-		}
-
-		if (!data?.length) {
-			this._chart?.destroy();
-			this._chart = undefined;
-
-			loading?.fulfill();
 			return;
 		}
 
@@ -639,7 +640,9 @@ export class GlTimelineChart extends GlElement {
 			return;
 		}
 
-		this.range = [new Date(data[data.length - 1].date), new Date(data[0].date)];
+		this.range = data.length
+			? [new Date(data[data.length - 1].date), new Date(data[0].date)]
+			: [new Date(), new Date()];
 
 		// Initialize plugins
 		bar();
@@ -657,7 +660,7 @@ export class GlTimelineChart extends GlElement {
 
 					onafterinit: () => {
 						this.updateChartSize();
-						setTimeout(() => loading?.fulfill(), 250);
+						setTimeout(() => loading?.fulfill(), 0);
 					},
 					onrendered: this.getOnRenderedCallback(this),
 					// Restore the zoomed domain when the chart is resized, because it gets lost
@@ -830,9 +833,11 @@ export class GlTimelineChart extends GlElement {
 
 				const commit = data[0];
 				this._shaHovered = undefined;
-				this._shaSelected = commit.sha;
+				this._shaSelected = commit?.sha;
 
-				this.selectDataPoint(new Date(commit.date), { select: true });
+				if (commit != null) {
+					this.selectDataPoint(new Date(commit.date), { select: true });
+				}
 			} else {
 				this._chart.config('axis.y.tick.values', yTickValues, false);
 				this._chart.config('axis.y.min', minY, false);
@@ -849,11 +854,14 @@ export class GlTimelineChart extends GlElement {
 						if (commit == null) {
 							commit = data[0];
 							this._shaHovered = undefined;
-							this._shaSelected = commit.sha;
+							this._shaSelected = commit?.sha;
 						}
-						this.selectDataPoint(new Date(commit.date), { select: true });
 
-						setTimeout(() => loading?.fulfill(), 250);
+						if (commit != null) {
+							this.selectDataPoint(new Date(commit.date), { select: true });
+						}
+
+						setTimeout(() => loading?.fulfill(), 0);
 					},
 				});
 			}

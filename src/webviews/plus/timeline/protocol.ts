@@ -6,7 +6,7 @@ import { IpcCommand, IpcNotification, IpcRequest } from '../../protocol';
 export const scope: IpcScope = 'timeline';
 
 export interface State extends WebviewState {
-	dataset?: Promise<Commit[]>;
+	dataset?: Promise<TimelineDatum[]>;
 	config: {
 		base: GitReference | undefined;
 		showAllBranches: boolean;
@@ -20,7 +20,7 @@ export interface State extends WebviewState {
 
 	uri?: string;
 	item: {
-		type: 'folder' | 'file';
+		type: TimelineItemType;
 		path: string;
 	};
 	repository:
@@ -35,7 +35,7 @@ export interface State extends WebviewState {
 	access: FeatureAccess;
 }
 
-export interface Commit {
+export interface TimelineDatum {
 	sha: string;
 	author: string;
 	date: string;
@@ -61,6 +61,7 @@ export const ChooseRefRequest = new IpcRequest<void, DidChooseRefParams>(scope, 
 
 export interface SelectDataPointParams {
 	id: string | undefined;
+	itemType: TimelineItemType;
 	shift: boolean;
 }
 export const SelectDataPointCommand = new IpcCommand<SelectDataPointParams>(scope, 'point/open');

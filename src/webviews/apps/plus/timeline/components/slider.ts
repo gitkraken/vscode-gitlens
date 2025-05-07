@@ -3,7 +3,7 @@ import type { PropertyValues } from 'lit';
 import { css, html } from 'lit';
 import { customElement, property, query, state } from 'lit/decorators.js';
 import { isUncommitted, isUncommittedStaged, shortenRevision } from '../../../../../git/utils/revision.utils';
-import type { Commit } from '../../../../plus/timeline/protocol';
+import type { TimelineDatum } from '../../../../plus/timeline/protocol';
 import { GlElement } from '../../../shared/components/element';
 import '@shoelace-style/shoelace/dist/components/range/range.js';
 
@@ -40,12 +40,12 @@ export class GlChartSlider extends GlElement {
 	private _max: number = 0;
 	private _min: number = 0;
 
-	private _data: Commit[] | undefined;
+	private _data: TimelineDatum[] | undefined;
 	get data() {
 		return this._data;
 	}
 	@property({ type: Array })
-	set data(value: Commit[] | undefined) {
+	set data(value: TimelineDatum[] | undefined) {
 		if (this._data === value) return;
 
 		this._data = value;
