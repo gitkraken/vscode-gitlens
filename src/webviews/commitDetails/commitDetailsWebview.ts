@@ -8,7 +8,6 @@ import type { CopyMessageToClipboardCommandArgs } from '../../commands/copyMessa
 import type { CopyShaToClipboardCommandArgs } from '../../commands/copyShaToClipboard';
 import type { OpenPullRequestOnRemoteCommandArgs } from '../../commands/openPullRequestOnRemote';
 import type { ContextKeys } from '../../constants.context';
-import { IssueIntegrationId } from '../../constants.integrations';
 import type { InspectTelemetryContext, Sources } from '../../constants.telemetry';
 import type { Container } from '../../container';
 import type { CommitSelectedEvent } from '../../eventBus';
@@ -45,7 +44,6 @@ import { confirmDraftStorage } from '../../plus/drafts/utils/-webview/drafts.uti
 import type { Subscription } from '../../plus/gk/models/subscription';
 import type { SubscriptionChangeEvent } from '../../plus/gk/subscriptionService';
 import { ensureAccount } from '../../plus/gk/utils/-webview/acount.utils';
-import type { ConnectionStateChangeEvent } from '../../plus/integrations/integrationService';
 import { supportsCodeSuggest } from '../../plus/integrations/providers/models';
 import { getEntityIdentifierInput } from '../../plus/integrations/providers/utils';
 import {
@@ -95,7 +93,6 @@ import type {
 import {
 	ChangeReviewModeCommand,
 	CreatePatchFromWipCommand,
-	DidChangeConnectedJiraNotification,
 	DidChangeDraftStateNotification,
 	DidChangeHasAccountNotification,
 	DidChangeNotification,
@@ -163,7 +160,6 @@ interface Context {
 	inReview: boolean;
 	orgSettings: State['orgSettings'];
 	source?: Sources;
-	hasConnectedJira: boolean | undefined;
 	hasAccount: boolean | undefined;
 }
 
@@ -203,7 +199,6 @@ export class CommitDetailsWebviewProvider
 			pullRequest: undefined,
 			wip: undefined,
 			orgSettings: this.getOrgSettings(),
-			hasConnectedJira: undefined,
 			hasAccount: undefined,
 		};
 
@@ -211,7 +206,6 @@ export class CommitDetailsWebviewProvider
 			configuration.onDidChangeAny(this.onAnyConfigurationChanged, this),
 			onDidChangeContext(this.onContextChanged, this),
 			this.container.subscription.onDidChange(this.onSubscriptionChanged, this),
-			container.integrations.onDidChangeConnectionState(this.onIntegrationConnectionStateChanged, this),
 		);
 	}
 
@@ -903,31 +897,6 @@ export class CommitDetailsWebviewProvider
 		void this.host.notify(DidChangeHasAccountNotification, { hasAccount: hasAccount });
 	}
 
-	private onIntegrationConnectionStateChanged(e: ConnectionStateChangeEvent) {
-		if (e.key === 'jira') {
-			const hasConnectedJira = e.reason === 'connected';
-			if (this._context.hasConnectedJira === hasConnectedJira) return;
-
-			this._context.hasConnectedJira = hasConnectedJira;
-			void this.host.notify(DidChangeConnectedJiraNotification, {
-				hasConnectedJira: this._context.hasConnectedJira,
-			});
-		}
-	}
-
-	async getHasJiraConnection(force = false): Promise<boolean> {
-		if (this._context.hasConnectedJira != null && !force) return this._context.hasConnectedJira;
-
-		const jira = await this.container.integrations.get(IssueIntegrationId.Jira);
-		if (jira == null) {
-			this._context.hasConnectedJira = false;
-		} else {
-			this._context.hasConnectedJira = jira.maybeConnected ?? (await jira.isConnected());
-		}
-
-		return this._context.hasConnectedJira;
-	}
-
 	async getHasAccount(force = false): Promise<boolean> {
 		if (this._context.hasAccount != null && !force) return this._context.hasAccount;
 
@@ -938,7 +907,6 @@ export class CommitDetailsWebviewProvider
 
 	private getPreferences(): Preferences {
 		return {
-			autolinksExpanded: this.container.storage.getWorkspace('views:commitDetails:autolinksExpanded') ?? true,
 			pullRequestExpanded: this.container.storage.getWorkspace('views:commitDetails:pullRequestExpanded') ?? true,
 			avatars: configuration.get('views.commitDetails.avatars'),
 			dateFormat: configuration.get('defaultDateFormat') ?? 'MMMM Do, YYYY h:mma',
@@ -1224,10 +1192,6 @@ export class CommitDetailsWebviewProvider
 			}, 100);
 		}
 
-		if (current.hasConnectedJira == null) {
-			current.hasConnectedJira = await this.getHasJiraConnection();
-		}
-
 		if (current.hasAccount == null) {
 			current.hasAccount = await this.getHasAccount();
 		}
@@ -1246,7 +1210,6 @@ export class CommitDetailsWebviewProvider
 			wip: serializeWipContext(wip),
 			orgSettings: current.orgSettings,
 			inReview: current.inReview,
-			hasConnectedJira: current.hasConnectedJira,
 			hasAccount: current.hasAccount,
 		});
 		return state;
@@ -1604,7 +1567,6 @@ export class CommitDetailsWebviewProvider
 
 	private updatePreferences(preferences: UpdateablePreferences) {
 		if (
-			this._context.preferences?.autolinksExpanded === preferences.autolinksExpanded &&
 			this._context.preferences?.pullRequestExpanded === preferences.pullRequestExpanded &&
 			this._context.preferences?.files?.compact === preferences.files?.compact &&
 			this._context.preferences?.files?.icon === preferences.files?.icon &&
@@ -1618,17 +1580,6 @@ export class CommitDetailsWebviewProvider
 			...this._context.preferences,
 			...this._pendingContext?.preferences,
 		};
-
-		if (
-			preferences.autolinksExpanded != null &&
-			this._context.preferences?.autolinksExpanded !== preferences.autolinksExpanded
-		) {
-			void this.container.storage
-				.storeWorkspace('views:commitDetails:autolinksExpanded', preferences.autolinksExpanded)
-				.catch();
-
-			changes.autolinksExpanded = preferences.autolinksExpanded;
-		}
 
 		if (
 			preferences.pullRequestExpanded != null &&
