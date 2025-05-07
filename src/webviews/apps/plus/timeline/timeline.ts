@@ -393,10 +393,11 @@ export class GlTimelineApp extends GlApp<State> {
 
 	private _fireSelectDataPointDebounced: Deferrable<(e: CommitEventDetail) => void> | undefined;
 	private fireSelectDataPoint(e: CommitEventDetail) {
+		const { itemType } = this;
 		this._fireSelectDataPointDebounced ??= debounce(
-			(e: CommitEventDetail) => this._ipc.sendCommand(SelectDataPointCommand, e),
-			150,
-			{ maxWait: 250 },
+			(e: CommitEventDetail) => this._ipc.sendCommand(SelectDataPointCommand, { itemType: itemType, ...e }),
+			250,
+			{ maxWait: itemType === 'file' ? 500 : undefined },
 		);
 		this._fireSelectDataPointDebounced(e);
 	}
