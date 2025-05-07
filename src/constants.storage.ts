@@ -147,7 +147,6 @@ export type WorkspaceStorage = {
 	'remote:default': string;
 	'starred:branches': StoredStarred;
 	'starred:repositories': StoredStarred;
-	'views:commitDetails:autolinksExpanded': boolean;
 	'views:commitDetails:pullRequestExpanded': boolean;
 	'views:repositories:autoRefresh': boolean;
 	'views:searchAndCompare:pinned': StoredSearchAndCompareItems;

@@ -1,10 +1,11 @@
 import { css, html, nothing } from 'lit';
 import { customElement, property } from 'lit/decorators.js';
 import { when } from 'lit/directives/when.js';
+import { GlElement } from '../element';
+import { getAutolinkIcon } from './utils';
 import '../button';
 import '../code-icon';
 import '../formatted-date';
-import { GlElement } from '../element';
 
 declare global {
 	interface HTMLElementTagNameMap {
@@ -113,44 +114,17 @@ export class IssuePullRequest extends GlElement {
 	}
 
 	override render(): unknown {
-		let icon;
-		let status;
-		switch (this.type) {
-			case 'issue':
-				status = this.status === 'closed' ? 'merged' : 'opened';
-				icon = this.status === 'closed' ? 'pass' : 'issues';
-				break;
-			case 'pr':
-				status = this.status;
-				switch (this.status) {
-					case 'merged':
-						icon = 'git-merge';
-						break;
-					case 'closed':
-						icon = 'git-pull-request-closed';
-						break;
-					case 'opened':
-					default:
-						icon = 'git-pull-request';
-						break;
-				}
-				break;
-			case 'autolink':
-			default:
-				status = 'opened';
-				icon = 'link';
-				break;
-		}
+		const { icon, modifier } = getAutolinkIcon(this.type, this.status);
 
 		if (this.compact) {
 			return html`
-				<span class="icon icon--${status}"><code-icon icon=${icon}></code-icon></span>
+				<span class="icon icon--${modifier}"><code-icon icon=${icon}></code-icon></span>
 				<p class="title">${this.identifier}</p>
 			`;
 		}
 
 		return html`
-			<span class="icon icon--${status}"><code-icon icon=${icon}></code-icon></span>
+			<span class="icon icon--${modifier}"><code-icon icon=${icon}></code-icon></span>
 			<p class="title">
 				<a href="${this.url}">${this.name}</a>
 			</p>

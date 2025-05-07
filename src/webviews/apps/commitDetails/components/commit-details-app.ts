@@ -10,7 +10,6 @@ import type { DraftState, ExecuteCommitActionsParams, Mode, State } from '../../
 import {
 	ChangeReviewModeCommand,
 	CreatePatchFromWipCommand,
-	DidChangeConnectedJiraNotification,
 	DidChangeDraftStateNotification,
 	DidChangeHasAccountNotification,
 	DidChangeNotification,
@@ -215,11 +214,6 @@ export class GlCommitDetailsApp extends LitElement {
 			DOM.on<GlInspectNav, undefined>('gl-inspect-nav', 'gl-forward', () => this.onNavigate('forward')),
 			DOM.on('[data-action="create-patch"]', 'click', _e => this.onCreatePatchFromWip(true)),
 			DOM.on<WebviewPane, WebviewPaneExpandedChangeEventDetail>(
-				'[data-region="rich-pane"]',
-				'expanded-change',
-				e => this.onExpandedChange(e.detail, 'autolinks'),
-			),
-			DOM.on<WebviewPane, WebviewPaneExpandedChangeEventDetail>(
 				'[data-region="pullrequest-pane"]',
 				'expanded-change',
 				e => this.onExpandedChange(e.detail, 'pullrequest'),
@@ -338,10 +332,6 @@ export class GlCommitDetailsApp extends LitElement {
 				break;
 			case DidChangeDraftStateNotification.is(msg):
 				this.onDraftStateChanged(msg.params.inReview, true);
-				break;
-			case DidChangeConnectedJiraNotification.is(msg):
-				this.state = { ...this.state!, hasConnectedJira: msg.params.hasConnectedJira };
-				this.dispatchEvent(new CustomEvent('state-changed', { detail: this.state }));
 				break;
 			case DidChangeHasAccountNotification.is(msg):
 				this.state = { ...this.state!, hasAccount: msg.params.hasAccount };
@@ -654,9 +644,7 @@ export class GlCommitDetailsApp extends LitElement {
 
 	private onExpandedChange(e: WebviewPaneExpandedChangeEventDetail, pane: string) {
 		let preferenceChange;
-		if (pane === 'autolinks') {
-			preferenceChange = { autolinksExpanded: e.expanded };
-		} else if (pane === 'pullrequest') {
+		if (pane === 'pullrequest') {
 			preferenceChange = { pullRequestExpanded: e.expanded };
 		}
 		if (preferenceChange == null) return;

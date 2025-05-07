@@ -39,7 +39,6 @@ export interface CommitDetails extends CommitSummary {
 }
 
 export interface Preferences {
-	autolinksExpanded: boolean;
 	pullRequestExpanded: boolean;
 	avatars: boolean;
 	dateFormat: DateTimeFormat | string;
@@ -49,7 +48,7 @@ export interface Preferences {
 	indentGuides: 'none' | 'onHover' | 'always';
 	aiEnabled: boolean;
 }
-export type UpdateablePreferences = Partial<Pick<Preferences, 'autolinksExpanded' | 'pullRequestExpanded' | 'files'>>;
+export type UpdateablePreferences = Partial<Pick<Preferences, 'pullRequestExpanded' | 'files'>>;
 
 export interface WipChange {
 	branchName: string;
@@ -108,7 +107,6 @@ export interface State extends WebviewState {
 	pullRequest?: PullRequestShape;
 	wip?: Wip;
 	inReview?: boolean;
-	hasConnectedJira: boolean;
 	hasAccount: boolean;
 }
 
@@ -234,14 +232,6 @@ export type DidChangeOrgSettings = Pick<Serialized<State>, 'orgSettings'>;
 export const DidChangeOrgSettingsNotification = new IpcNotification<DidChangeOrgSettings>(
 	scope,
 	'org/settings/didChange',
-);
-
-export interface DidChangeConnectedJiraParams {
-	hasConnectedJira: boolean;
-}
-export const DidChangeConnectedJiraNotification = new IpcNotification<DidChangeConnectedJiraParams>(
-	scope,
-	'didChange/jira',
 );
 
 export interface DidChangeHasAccountParams {

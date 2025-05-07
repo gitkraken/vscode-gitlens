@@ -165,14 +165,36 @@ ul {
 		}
 	}
 }
-
-.message-block-actions {
-	background: var(--color-background--level-075);
+.message-block-row,
+.message-block-group {
 	display: flex;
 	flex-direction: row;
-	justify-content: flex-end;
-	gap: 0.5rem;
-	border-radius: 0 0 2px 2px;
+	gap: 0.6rem;
+}
+
+.message-block-row {
+	justify-content: space-between;
+}
+
+.message-block-row--actions {
+	font-size: 1.3rem;
+	color: var(--color-foreground--50);
+	background: var(--color-background--level-075);
+	border-radius: 0 0 0.2rem 0.2rem;
+	padding-inline-end: 0.2rem;
+
+	gl-action-chip::part(icon),
+	gl-autolink-chip::part(icon),
+	gl-commit-date {
+		--code-icon-size: 1.3rem;
+	}
+}
+
+.mq-hide-sm,
+gl-autolink-chip::part(label) {
+	@media (max-width: 300px) {
+		display: none !important;
+	}
 }
 
 .commit-detail-panel {
