@@ -346,7 +346,7 @@ export class GlSearchInput extends GlElement {
 				this.searchHistoryPos = nextPos;
 				const value = this.searchHistory[nextPos];
 				if (value !== this.value) {
-					this.value = value;
+					this._value = value;
 					this.updateHelpText();
 					this.debouncedOnSearchChanged();
 				}
@@ -357,7 +357,7 @@ export class GlSearchInput extends GlElement {
 	}
 
 	private handleInsertToken(token: string) {
-		this.value += `${this.value.length > 0 ? ' ' : ''}${token}`;
+		this._value += `${this.value.length > 0 ? ' ' : ''}${token}`;
 		window.requestAnimationFrame(() => {
 			this.updateHelpText();
 			// `@me` can be searched right away since it doesn't need additional text
