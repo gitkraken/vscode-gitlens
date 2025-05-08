@@ -53,35 +53,14 @@ export class ExplainWipCommand extends GlCommandBase {
 	async execute(editor?: TextEditor, uri?: Uri, args?: ExplainWipCommandArgs): Promise<void> {
 		args = { ...args };
 
-		let repository;
-		if (args?.repoPath != null) {
-			if (args.worktreePath) {
-				// TODO use await this.container.git.diff(args.worktreePath) instead, this will be more performant
-				repository = await this.container.git.getOrOpenRepository(args.worktreePath, { closeOnOpen: true });
-			} else {
-				repository = this.container.git.getRepository(args.repoPath);
-			}
-		} else {
-			uri = getCommandUri(uri, editor);
-			const gitUri = uri != null ? await GitUri.fromUri(uri) : undefined;
-			repository = await getBestRepositoryOrShowPicker(
-				gitUri,
-				editor,
-				'Explain Working Changes',
-				'Choose which repository to explain working changes from',
-			);
+		// Get the diff of working changes
+		const diffService = await this.getDiff(editor, uri, args);
+		if (diffService?.getDiff === undefined) {
+			void showGenericErrorMessage('Unable to get diff service');
+			return;
 		}
 
-		if (repository == null) return;
-
 		try {
-			// Get the diff of working changes
-			const diffService = repository.git.diff();
-			if (diffService?.getDiff === undefined) {
-				void showGenericErrorMessage('Unable to get diff service');
-				return;
-			}
-
 			// If args?.staged is undefined, should we get all changes (staged and unstaged)?
 			let stagedLabel;
 			let to;
@@ -105,7 +84,7 @@ export class ExplainWipCommand extends GlCommandBase {
 
 			if (args?.worktreePath) {
 				// Get the worktree name if available
-				const worktrees = await repository.git.worktrees()?.getWorktrees();
+				const worktrees = await this.container.git.worktrees(args.worktreePath)?.getWorktrees();
 				const worktree = worktrees?.find(w => w.path === args.worktreePath);
 
 				if (worktree) {
@@ -149,5 +128,27 @@ export class ExplainWipCommand extends GlCommandBase {
 			Logger.error(ex, 'ExplainWipCommand', 'execute');
 			void showGenericErrorMessage('Unable to explain working changes');
 		}
+	}
+
+	private async getDiff(editor?: TextEditor, uri?: Uri, args?: ExplainWipCommandArgs) {
+		let diffService;
+		if (args?.worktreePath) {
+			diffService = this.container.git.diff(args.worktreePath);
+		} else if (args?.repoPath) {
+			diffService = this.container.git.diff(args.repoPath);
+		} else {
+			uri = getCommandUri(uri, editor);
+			const gitUri = uri != null ? await GitUri.fromUri(uri) : undefined;
+			const repository = await getBestRepositoryOrShowPicker(
+				gitUri,
+				editor,
+				'Explain Working Changes',
+				'Choose which repository to explain working changes from',
+			);
+
+			diffService = repository?.git.diff();
+		}
+
+		return diffService;
 	}
 }
