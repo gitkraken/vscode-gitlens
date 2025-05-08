@@ -530,7 +530,7 @@ export class HomeWebviewProvider implements WebviewProvider<State, State, HomeWe
 		void executeCommand<ExplainWipCommandArgs>('gitlens.ai.explainWip', {
 			repoPath: repo.path,
 			worktreePath: worktree?.path,
-			source: { source: 'home', type: 'wip' },
+			source: { source: 'home', detail: 'wip' },
 		});
 	}
 
