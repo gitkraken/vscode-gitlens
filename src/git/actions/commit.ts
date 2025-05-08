@@ -11,8 +11,8 @@ import type { ShowQuickCommitCommandArgs } from '../../commands/showQuickCommit'
 import type { ShowQuickCommitFileCommandArgs } from '../../commands/showQuickCommitFile';
 import type { FileAnnotationType } from '../../config';
 import { GlyphChars } from '../../constants';
+import type { Source } from '../../constants.telemetry';
 import { Container } from '../../container';
-import type { AIExplainSource } from '../../plus/ai/aiProviderService';
 import { showRevisionFilesPicker } from '../../quickpicks/revisionFilesPicker';
 import { executeCommand, executeCoreGitCommand, executeEditorCommand } from '../../system/-webview/command';
 import { configuration } from '../../system/-webview/configuration';
@@ -755,7 +755,7 @@ export async function showInCommitGraph(
 
 export async function explainCommit(
 	commit: GitRevisionReference | GitCommit,
-	options?: { source?: AIExplainSource },
+	options?: { source?: Source },
 ): Promise<void> {
 	void (await executeCommand<ExplainCommitCommandArgs>('gitlens.ai.explainCommit', {
 		repoPath: commit.repoPath,
