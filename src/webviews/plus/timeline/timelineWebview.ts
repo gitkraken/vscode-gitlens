@@ -105,7 +105,7 @@ export class TimelineWebviewProvider implements WebviewProvider<State, State, Ti
 			etagSubscription: this.container.subscription.etag,
 		};
 
-		if (this.host.isHost('view')) {
+		if (this.host.is('view')) {
 			this.host.description = proBadge;
 		}
 	}
@@ -165,7 +165,7 @@ export class TimelineWebviewProvider implements WebviewProvider<State, State, Ti
 				uri = arg.uri;
 			} else if (isSerializedState<State>(arg)) {
 				this._context.config = { ...this._context.config, ...arg.state.config };
-				if (this.host.isHost('editor')) {
+				if (this.host.is('editor')) {
 					uri = arg.state.uri != null ? Uri.parse(arg.state.uri) : undefined;
 				}
 			}
@@ -173,7 +173,7 @@ export class TimelineWebviewProvider implements WebviewProvider<State, State, Ti
 
 		uri ??= await ensureWorkingUri(this.container, this.activeTabUri);
 		await this.updateUri(uri, true);
-		if (this.host.isHost('editor')) {
+		if (this.host.is('editor')) {
 			this.fireFileSelected();
 		}
 
@@ -193,7 +193,7 @@ export class TimelineWebviewProvider implements WebviewProvider<State, State, Ti
 	registerCommands(): Disposable[] {
 		const commands: Disposable[] = [];
 
-		if (this.host.isHost('view')) {
+		if (this.host.is('view')) {
 			commands.push(
 				registerCommand(`${this.host.id}.refresh`, () => this.host.refresh(true), this),
 				registerCommand(
@@ -213,7 +213,7 @@ export class TimelineWebviewProvider implements WebviewProvider<State, State, Ti
 	}
 
 	onActiveChanged(active: boolean): void {
-		if (active && this.host.isHost('editor')) {
+		if (active && this.host.is('editor')) {
 			this.fireFileSelected();
 		}
 	}
@@ -228,7 +228,7 @@ export class TimelineWebviewProvider implements WebviewProvider<State, State, Ti
 
 		this._repositorySubscription?.resume();
 
-		if (this.host.isHost('editor')) {
+		if (this.host.is('editor')) {
 			this._disposable = Disposable.from(
 				this.container.subscription.onDidChange(this.onSubscriptionChanged, this),
 			);
@@ -493,7 +493,7 @@ export class TimelineWebviewProvider implements WebviewProvider<State, State, Ti
 		const repository: State['repository'] =
 			repo != null ? { id: repo.id, uri: repo.uri.toString(), name: repo.name, ref: ref } : undefined;
 
-		if (this.host.isHost('editor')) {
+		if (this.host.is('editor')) {
 			this.host.title = `Visual ${itemType === 'folder' ? 'Folder' : 'File'} History${title ? `: ${title}` : ''}`;
 		} else {
 			this.host.description = title || proBadge;
@@ -653,7 +653,7 @@ export class TimelineWebviewProvider implements WebviewProvider<State, State, Ti
 							preview: true,
 							// Since the multi-diff editor doesn't support choosing the view column, we need to do it manually so passing in our view column
 							sourceViewColumn: this.host.viewColumn,
-							viewColumn: this.host.isHost('view') ? undefined : ViewColumn.Beside,
+							viewColumn: this.host.is('view') ? undefined : ViewColumn.Beside,
 							title: `Folder Changes in ${shortenRevision(commit.sha, {
 								strings: { working: 'Working Tree' },
 							})}`,
@@ -670,7 +670,7 @@ export class TimelineWebviewProvider implements WebviewProvider<State, State, Ti
 							preview: true,
 							// Since the multi-diff editor doesn't support choosing the view column, we need to do it manually so passing in our view column
 							sourceViewColumn: this.host.viewColumn,
-							viewColumn: this.host.isHost('view') ? undefined : ViewColumn.Beside,
+							viewColumn: this.host.is('view') ? undefined : ViewColumn.Beside,
 							title: `Folder Changes in ${shortenRevision(commit.sha, {
 								strings: { working: 'Working Tree' },
 							})}`,
@@ -690,7 +690,7 @@ export class TimelineWebviewProvider implements WebviewProvider<State, State, Ti
 					void openTextEditor(uri, {
 						preserveFocus: true,
 						preview: true,
-						viewColumn: this.host.isHost('view') ? undefined : ViewColumn.Beside,
+						viewColumn: this.host.is('view') ? undefined : ViewColumn.Beside,
 					});
 
 					break;
@@ -700,13 +700,13 @@ export class TimelineWebviewProvider implements WebviewProvider<State, State, Ti
 					await openChanges(uri, commit, {
 						preserveFocus: true,
 						preview: true,
-						viewColumn: this.host.isHost('view') ? undefined : ViewColumn.Beside,
+						viewColumn: this.host.is('view') ? undefined : ViewColumn.Beside,
 					});
 				} else {
 					await openChangesWithWorking(uri, commit, {
 						preserveFocus: true,
 						preview: true,
-						viewColumn: this.host.isHost('view') ? undefined : ViewColumn.Beside,
+						viewColumn: this.host.is('view') ? undefined : ViewColumn.Beside,
 					});
 				}
 

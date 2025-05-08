@@ -219,7 +219,7 @@ export class PatchDetailsWebviewProvider
 	registerCommands(): Disposable[] {
 		const commands: Disposable[] = [];
 
-		if (this.host.isHost('view')) {
+		if (this.host.is('view')) {
 			commands.push(
 				registerCommand(`${this.host.id}.refresh`, () => this.host.refresh(true)),
 				registerCommand(`${this.host.id}.close`, () => this.closeView()),

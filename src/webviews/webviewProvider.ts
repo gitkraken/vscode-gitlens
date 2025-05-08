@@ -82,8 +82,8 @@ export interface WebviewHost<ID extends WebviewIds | WebviewViewIds> {
 	sendPendingIpcNotifications(): void;
 
 	getTelemetryContext(): WebviewTelemetryContext;
-	isHost(type: 'editor'): this is WebviewHost<ID extends WebviewIds ? ID : never>;
-	isHost(type: 'view'): this is WebviewHost<ID extends WebviewViewIds ? ID : never>;
+	is(type: 'editor'): this is WebviewHost<ID extends WebviewIds ? ID : never>;
+	is(type: 'view'): this is WebviewHost<ID extends WebviewViewIds ? ID : never>;
 
 	notify<T extends IpcNotification<unknown>>(
 		notificationType: T,

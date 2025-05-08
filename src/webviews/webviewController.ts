@@ -249,17 +249,17 @@ export class WebviewController<
 			'context.webview.id': this.id,
 			'context.webview.type': this.descriptor.type,
 			'context.webview.instanceId': this.instanceId,
-			'context.webview.host': this.isHost('editor') ? 'editor' : 'view',
+			'context.webview.host': this.is('editor') ? 'editor' : 'view',
 		};
 	}
 
-	isHost(
+	is(
 		type: 'editor',
 	): this is WebviewPanelController<ID extends WebviewIds ? ID : never, State, SerializedState, ShowingArgs>;
-	isHost(
+	is(
 		type: 'view',
 	): this is WebviewViewController<ID extends WebviewViewIds ? ID : never, State, SerializedState, ShowingArgs>;
-	isHost(
+	is(
 		type: 'editor' | 'view',
 	): this is
 		| WebviewPanelController<ID extends WebviewIds ? ID : never, State, SerializedState, ShowingArgs>
@@ -319,14 +319,14 @@ export class WebviewController<
 		options?: WebviewShowOptions,
 		...args: WebviewShowingArgs<ShowingArgs, SerializedState>
 	): boolean | undefined {
-		if (!this.isHost('editor')) return undefined;
+		if (!this.is('editor')) return undefined;
 
 		if (options?.column != null && options.column !== this.parent.viewColumn) return false;
 		return this.provider.canReuseInstance?.(...args);
 	}
 
 	getSplitArgs(): WebviewShowingArgs<ShowingArgs, SerializedState> {
-		if (this.isHost('view')) return [];
+		if (this.is('view')) return [];
 
 		return this.provider.getSplitArgs?.() ?? [];
 	}
@@ -376,14 +376,14 @@ export class WebviewController<
 			}
 		}
 
-		if (this.isHost('editor')) {
+		if (this.is('editor')) {
 			if (!loading) {
 				this.parent.reveal(
 					options.column ?? this.parent.viewColumn ?? this.descriptor.column ?? ViewColumn.Beside,
 					options.preserveFocus ?? false,
 				);
 			}
-		} else if (this.isHost('view')) {
+		} else if (this.is('view')) {
 			await executeCoreCommand(`${this.id}.focus`, options);
 			if (loading) {
 				this.provider.onVisibilityChanged?.(true);
@@ -616,7 +616,7 @@ export class WebviewController<
 			this._cspNonce,
 			this.asWebviewUri(this.getRootUri()).toString(),
 			this.getWebRoot(),
-			this.isHost('editor') ? 'editor' : 'view',
+			this.is('editor') ? 'editor' : 'view',
 			bootstrap,
 			head,
 			body,
@@ -760,7 +760,7 @@ export class WebviewController<
 
 		let success;
 
-		if (this.isHost('view')) {
+		if (this.is('view')) {
 			// If we are in a view, show progress if we are waiting too long
 			const result = await pauseOnCancelOrTimeout(promise, undefined, 100);
 			if (result.paused) {
