@@ -42,10 +42,10 @@ export class GlGraphGate extends GlElement {
 			)}
 			appearance="alert"
 			featureWithArticleIfNeeded="the Commit Graph"
+			?hidden=${this.state.allowed !== false}
 			.source=${{ source: 'graph', detail: 'gate' } as const}
 			.state=${this.state.subscription?.state}
 			.webroot=${this.state.webroot}
-			?visible=${!this.state.allowed}
 		>
 			<p slot="feature">
 				<a href="https://help.gitkraken.com/gitlens/gitlens-features/#commit-graph-pro">Commit Graph</a>

@@ -207,11 +207,6 @@ export class GlFeatureGatePlusState extends LitElement {
 								...(this.source ?? { source: 'feature-gate' }),
 							})}"
 							>Upgrade to Pro</gl-button
-						><span
-							>or
-							<a href="${createCommandLink<Source>('gitlens.plus.login', this.source)}" title="Sign In"
-								>sign in</a
-							></span
 						>
 					</p>
 					<p>${this.renderPromo()}</p>`;
@@ -224,11 +219,6 @@ export class GlFeatureGatePlusState extends LitElement {
 							appearance="${ifDefined(appearance)}"
 							href="${createCommandLink<Source>('gitlens.plus.reactivateProTrial', this.source)}"
 							>Continue</gl-button
-						><span
-							>or
-							<a href="${createCommandLink<Source>('gitlens.plus.login', this.source)}" title="Sign In"
-								>sign in</a
-							></span
 						>
 					</p>
 					<p>

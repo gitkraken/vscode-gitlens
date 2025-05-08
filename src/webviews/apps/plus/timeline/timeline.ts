@@ -40,7 +40,7 @@ export class GlTimelineApp extends GlApp<State> {
 		delegatesFocus: true,
 	};
 
-	static override styles = [timelineBaseStyles, timelineStyles];
+	static override styles = [linkStyles, timelineBaseStyles, timelineStyles];
 
 	@query('#chart')
 	private _chart?: GlTimelineChart;
@@ -95,12 +95,19 @@ export class GlTimelineApp extends GlApp<State> {
 
 	override render(): unknown {
 		return html`
-			${this.allowed
-				? html`<gl-feature-gate
-						.source=${{ source: 'timeline' as const, detail: 'gate' }}
-						.state=${this.subscription?.state}
-				  ></gl-feature-gate>`
-				: nothing}
+			<gl-feature-gate
+				?hidden=${this.allowed !== false}
+				.source=${{ source: 'timeline' as const, detail: 'gate' }}
+				.state=${this.subscription?.state}
+				><p slot="feature">
+					<a href="https://help.gitkraken.com/gitlens/gitlens-features/#visual-file-history-pro"
+						>Visual File History</a
+					>
+					<gl-feature-badge></gl-feature-badge>
+					&mdash; visualize the evolution of a file and quickly identify when the most impactful changes were
+					made and by whom.
+				</p></gl-feature-gate
+			>
 			<div class="container">
 				<progress-indicator ?active=${this._loading}></progress-indicator>
 				<header class="header" ?hidden=${!this.uri}>
