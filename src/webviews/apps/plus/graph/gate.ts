@@ -5,19 +5,23 @@ import { ifDefined } from 'lit/directives/if-defined.js';
 import { createWebviewCommandLink } from '../../../../system/webview';
 import type { State } from '../../../plus/graph/protocol';
 import { GlElement } from '../../shared/components/element';
+import { linkStyles } from '../shared/components/vscode.css';
 import { stateContext } from './context';
 import '../../shared/components/feature-badge';
 import '../../shared/components/feature-gate';
 
 @customElement('gl-graph-gate')
 export class GlGraphGate extends GlElement {
-	static override styles = css`
-		gl-feature-gate gl-feature-badge {
-			vertical-align: super;
-			margin-left: 0.4rem;
-			margin-right: 0.4rem;
-		}
-	`;
+	static override styles = [
+		linkStyles,
+		css`
+			gl-feature-gate gl-feature-badge {
+				vertical-align: super;
+				margin-left: 0.4rem;
+				margin-right: 0.4rem;
+			}
+		`,
+	];
 
 	@consume({ context: stateContext, subscribe: true })
 	@state()
