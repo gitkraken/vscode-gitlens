@@ -299,7 +299,6 @@ export class CommitExplainCommandQuickPickItem extends CommandQuickPickItem {
 		return CommitActions.explainCommit(this.commit, {
 			source: {
 				source: 'commandPalette',
-				type: 'commit',
 			},
 		});
 	}
