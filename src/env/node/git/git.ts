@@ -1612,11 +1612,15 @@ export class Git {
 
 		if (ex != null) {
 			Logger.error(
-				'',
-				`${getLoggableScopeBlockOverride('GIT')} ${command} ${GlyphChars.Dot} ${(ex.message || String(ex) || '')
-					.trim()
-					.replace(/fatal: /g, '')
-					.replace(/\r?\n|\r/g, ` ${GlyphChars.Dot} `)} [${duration}ms]${status}`,
+				undefined,
+				`${getLoggableScopeBlockOverride('GIT')} ${command} ${GlyphChars.Dot} ${
+					isCancellationError(ex)
+						? 'cancelled'
+						: (ex.message || String(ex) || '')
+								.trim()
+								.replace(/fatal: /g, '')
+								.replace(/\r?\n|\r/g, ` ${GlyphChars.Dot} `)
+				} [${duration}ms]${status}`,
 			);
 		} else if (slow) {
 			Logger.warn(
