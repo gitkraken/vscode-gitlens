@@ -100,7 +100,9 @@ export class CommitsGitSubProvider implements GitCommitsSubProvider {
 				'--',
 			);
 			const commits = [...parser.parse(result.stdout)].sort(
-				(c1, c2) => Number(c1.committerDate) - Number(c2.committerDate),
+				(c1, c2) =>
+					Number(c1.committerDate) - Number(c2.committerDate) ||
+					Number(c1.authorDate) - Number(c2.authorDate),
 			);
 			revs = commits.map(c => c.sha);
 		}
