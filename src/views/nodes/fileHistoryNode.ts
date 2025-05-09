@@ -93,8 +93,13 @@ export class FileHistoryNode
 							original.with({
 								fileset: {
 									files: [...(original.fileset?.files ?? []), ...(c.fileset?.files ?? [])],
-									filtered: Boolean(original.fileset?.filtered || c.fileset?.filtered),
-									pathspec: relativePath,
+									filtered: {
+										files: [
+											...(original.fileset?.filtered?.files ?? []),
+											...(c.fileset?.filtered?.files ?? []),
+										],
+										pathspec: relativePath,
+									},
 								},
 							}),
 					),

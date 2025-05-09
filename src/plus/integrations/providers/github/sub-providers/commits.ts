@@ -94,24 +94,22 @@ export class CommitsGitSubProvider implements GitCommitsSubProvider {
 				commit.parents.nodes.map(p => p.oid),
 				commit.message,
 				{
-					files:
-						commit.files?.map(
-							f =>
-								new GitFileChange(
-									this.container,
-									repoPath,
-									f.filename ?? '',
-									fromCommitFileStatus(f.status) ?? GitFileIndexStatus.Modified,
-									f.previous_filename,
-									undefined,
-									{
-										additions: f.additions ?? 0,
-										deletions: f.deletions ?? 0,
-										changes: f.changes ?? 0,
-									},
-								),
-						) ?? [],
-					filtered: false,
+					files: commit.files?.map(
+						f =>
+							new GitFileChange(
+								this.container,
+								repoPath,
+								f.filename ?? '',
+								fromCommitFileStatus(f.status) ?? GitFileIndexStatus.Modified,
+								f.previous_filename,
+								undefined,
+								{
+									additions: f.additions ?? 0,
+									deletions: f.deletions ?? 0,
+									changes: f.changes ?? 0,
+								},
+							),
+					),
 				},
 				{
 					files: commit.changedFiles ?? 0,
@@ -210,24 +208,26 @@ export class CommitsGitSubProvider implements GitCommitsSubProvider {
 				commit.message,
 				commit.files != null
 					? {
-							files: commit.files?.map(
-								f =>
-									new GitFileChange(
-										this.container,
-										repoPath,
-										f.filename ?? '',
-										fromCommitFileStatus(f.status) ?? GitFileIndexStatus.Modified,
-										f.previous_filename,
-										undefined,
-										{
-											additions: f.additions ?? 0,
-											deletions: f.deletions ?? 0,
-											changes: f.changes ?? 0,
-										},
-									),
-							),
-							filtered: true,
-							pathspec: file,
+							files: undefined,
+							filtered: {
+								files: commit.files?.map(
+									f =>
+										new GitFileChange(
+											this.container,
+											repoPath,
+											f.filename ?? '',
+											fromCommitFileStatus(f.status) ?? GitFileIndexStatus.Modified,
+											f.previous_filename,
+											undefined,
+											{
+												additions: f.additions ?? 0,
+												deletions: f.deletions ?? 0,
+												changes: f.changes ?? 0,
+											},
+										),
+								),
+								pathspec: file,
+							},
 					  }
 					: undefined,
 				{
@@ -351,7 +351,6 @@ export class CommitsGitSubProvider implements GitCommitsSubProvider {
 												},
 											),
 									),
-									filtered: false,
 							  }
 							: undefined,
 						{
@@ -724,7 +723,7 @@ export class CommitsGitSubProvider implements GitCommitsSubProvider {
 					commit.message.split('\n', 1)[0],
 					commit.parents.nodes.map(p => p.oid),
 					commit.message,
-					files != null ? { files: files, filtered: true, pathspec: relativePath } : undefined,
+					{ files: undefined, filtered: { files: files, pathspec: relativePath } },
 					{
 						files: commit.changedFiles ?? 0,
 						additions: commit.additions ?? 0,
@@ -986,7 +985,6 @@ export class CommitsGitSubProvider implements GitCommitsSubProvider {
 												},
 											),
 									),
-									filtered: false,
 							  }
 							: undefined,
 						{

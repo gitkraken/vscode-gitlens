@@ -53,7 +53,9 @@ export class OpenFileAtRevisionFromCommand extends ActiveEditorCommand {
 					`${title}${gitUri.getFormattedFileName({ truncateTo: quickPickTitleMaxChars - title.length })}`,
 					'Choose a stash to compare with',
 					// Stashes should always come with files, so this should be fine (but protect it just in case)
-					{ filter: c => c.fileset?.files.some(f => f.path === path || f.originalPath === path) ?? true },
+					{
+						filter: c => c.anyFiles?.some(f => f.path === path || f.originalPath === path) ?? true,
+					},
 				);
 				if (pick == null) return;
 
