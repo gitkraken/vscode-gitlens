@@ -84,12 +84,16 @@ type InternalTimelineWebviewViewCommands = 'gitlens.views.timeline.openInTab';
 
 type InternalWalkthroughCommands =
 	| 'gitlens.walkthrough.connectIntegrations'
+	| 'gitlens.walkthrough.enableAiSetting'
 	| 'gitlens.walkthrough.gitlensInspect'
 	| 'gitlens.walkthrough.openAcceleratePrReviews'
+	| 'gitlens.walkthrough.openAiCustomInstructionsSettings'
+	| 'gitlens.walkthrough.openAiSettings'
 	| 'gitlens.walkthrough.openCommunityVsPro'
 	| 'gitlens.walkthrough.openHelpCenter'
 	| 'gitlens.walkthrough.openHomeViewVideo'
 	| 'gitlens.walkthrough.openInteractiveCodeHistory'
+	| 'gitlens.walkthrough.openLearnAboutAiFeatures'
 	| 'gitlens.walkthrough.openStartIntegrations'
 	| 'gitlens.walkthrough.openStreamlineCollaboration'
 	| 'gitlens.walkthrough.openWalkthrough'
@@ -101,6 +105,7 @@ type InternalWalkthroughCommands =
 	| 'gitlens.walkthrough.showGraph'
 	| 'gitlens.walkthrough.showHomeView'
 	| 'gitlens.walkthrough.showLaunchpad'
+	| 'gitlens.walkthrough.switchAIModel'
 	| 'gitlens.walkthrough.worktree.create'
 	| 'gitlens.walkthrough.openDevExPlatform';
 

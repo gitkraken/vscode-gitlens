@@ -21131,7 +21131,7 @@
 			},
 			{
 				"view": "gitlens.views.scm.grouped",
-				"contents": "In GitLens 16, we've grouped many related views—Commits, Branches, Stashes, etc—here for easier view management.\n\n[Continue](command:gitlens.views.scm.grouped.welcome.dismiss)\n\nPrefer them separate? [Restore views to previous locations](command:gitlens.views.scm.grouped.welcome.restore)\n\nUse the tabs above to navigate, or detach the views you want to keep separated. You can regroup them anytime using the 'x' in the view header.",
+				"contents": "GitLens groups many related views—Commits, Branches, Stashes, etc—here for easier view management.\n\n[Continue](command:gitlens.views.scm.grouped.welcome.dismiss)\n\nPrefer them separate? [Restore views to previous locations](command:gitlens.views.scm.grouped.welcome.restore)\n\nUse the tabs above to navigate, or detach the views you want to keep separated. You can regroup them anytime using the 'x' in the view header.",
 				"when": "gitlens:views:scm:grouped:welcome && !gitlens:install:new"
 			},
 			{
@@ -21626,7 +21626,7 @@
 					},
 					{
 						"id": "welcome-home-view",
-						"title": "(New) The Home View",
+						"title": "Home View",
 						"description": "Compact yet powerful, the Home View helps you quickly start work on issues, create PRs, and manage branches—all from a single intelligent view.\n\nImprove workflow visibility with clear paths to take action on:\n\n- What am I actively working on now?\n- What should I work on next?\n- What have I worked on recently?\n\nThe Home View is the perfect companion for developers looking to reduce tedious context switching and stay focused on their work in VS Code.\n\n\n[Open the Home View](command:gitlens.walkthrough.showHomeView)\n$(gitlens-play-button)  [Watch a video on the Home view](command:gitlens.walkthrough.openHomeViewVideo)",
 						"media": {
 							"markdown": "walkthroughs/welcome/home.md"
@@ -21677,6 +21677,17 @@
 						},
 						"completionEvents": [
 							"onContext:gitlens:walkthroughState:integrations == true"
+						]
+					},
+					{
+						"id": "ai-features",
+						"title": "Built-in AI",
+						"description": "GitLens AI features help you instantly generate commits, explain code, and much more to optimize your development processes.\n\n- **Generate Commit & Stash Messages**: Quickly create descriptive commit and stash messages.\n- **Explain Changes**: Instantly understand what changed in commits, branches, stashes, and WIP with concise, AI-generated explanations.\n- **Open Pull Requests**: Automatically generate clear PR titles and descriptions that explain your branch changes and speed up review cycles.\n- **Generate Changelogs**: Effortlessly summarize repository changes for release notes or documentation updates.\n\n[Configure GitLens AI](command:gitlens.walkthrough.switchAIModel)",
+						"media": {
+							"markdown": "walkthroughs/welcome/ai-features.md"
+						},
+						"completionEvents": [
+							"onContext:gitlens:walkthroughState:aiFeatures == true"
 						]
 					}
 				]
