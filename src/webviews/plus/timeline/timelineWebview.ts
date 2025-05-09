@@ -586,7 +586,9 @@ export class TimelineWebviewProvider implements WebviewProvider<State, State, Ti
 		}
 
 		const statusFiles = getSettledValue(statusFilesResult);
-		const pseudoCommits = await getPseudoCommitsWithStats(this.container, statusFiles, true, currentUser);
+		const relativePath = this.container.git.getRelativePath(uri, repo.uri);
+
+		const pseudoCommits = await getPseudoCommitsWithStats(this.container, statusFiles, relativePath, currentUser);
 		if (pseudoCommits?.length) {
 			dataset.splice(0, 0, ...map(pseudoCommits, c => createDatum(c, itemType, currentUserName)));
 		} else if (dataset.length) {
@@ -685,7 +687,7 @@ export class TimelineWebviewProvider implements WebviewProvider<State, State, Ti
 				if (
 					commit.isUncommitted &&
 					!commit.isUncommittedStaged &&
-					!commit.fileset?.files.some(f => f.uri.fsPath === uri.fsPath)
+					!commit.anyFiles?.some(f => f.uri.fsPath === uri.fsPath)
 				) {
 					void openTextEditor(uri, {
 						preserveFocus: true,

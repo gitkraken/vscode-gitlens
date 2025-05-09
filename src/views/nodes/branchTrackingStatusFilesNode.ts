@@ -71,10 +71,7 @@ export class BranchTrackingStatusFilesNode extends ViewNode<'tracking-status-fil
 		);
 
 		const files = [
-			...flatMap(
-				log.commits.values(),
-				c => c.fileset?.files.map<GitFileWithCommit>(f => ({ ...f, commit: c })) ?? [],
-			),
+			...flatMap(log.commits.values(), c => c.anyFiles?.map<GitFileWithCommit>(f => ({ ...f, commit: c })) ?? []),
 		];
 
 		files.sort((a, b) => b.commit.date.getTime() - a.commit.date.getTime());

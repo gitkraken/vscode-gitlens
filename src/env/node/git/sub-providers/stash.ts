@@ -24,6 +24,7 @@ import { getSettledValue } from '../../../../system/promise';
 import type { Git } from '../git';
 import { maxGitCliLength } from '../git';
 import { RunError } from '../shell.errors';
+import { createCommitFileset } from './commits';
 
 const stashSummaryRegex =
 	// eslint-disable-next-line no-control-regex
@@ -382,11 +383,11 @@ export function convertStashesToStdin(stashOrStashes: GitStash | Map<string, Git
 }
 
 function createStash(container: Container, s: ParsedStash, repoPath: string): GitStashCommit {
+	let message = s.summary.trim();
+
 	let onRef;
 	let summary;
-	let message;
-
-	const match = stashSummaryRegex.exec(s.summary);
+	const match = stashSummaryRegex.exec(message);
 	if (match?.groups != null) {
 		onRef = match.groups.onref;
 		summary = match.groups.summary.trim();
@@ -398,9 +399,9 @@ function createStash(container: Container, s: ParsedStash, repoPath: string): Gi
 		} else {
 			message = summary;
 		}
-	} else {
-		message = s.summary.trim();
 	}
+
+	const index = message.indexOf('\n');
 
 	return new GitCommit(
 		container,
@@ -408,25 +409,10 @@ function createStash(container: Container, s: ParsedStash, repoPath: string): Gi
 		s.sha,
 		new GitCommitIdentity('You', undefined, new Date((s.authorDate as unknown as number) * 1000)),
 		new GitCommitIdentity('You', undefined, new Date((s.committedDate as unknown as number) * 1000)),
-		message.split('\n', 1)[0] ?? '',
-		s.parents.split(' '),
+		index !== -1 ? message.substring(0, index) : message,
+		s.parents.split(' ') ?? [],
 		message,
-		{
-			files:
-				s.files?.map(
-					f =>
-						new GitFileChange(
-							container,
-							repoPath,
-							f.path,
-							f.status as GitFileStatus,
-							f.originalPath,
-							undefined,
-							{ additions: f.additions ?? 0, deletions: f.deletions ?? 0, changes: 0 },
-						),
-				) ?? [],
-			filtered: false,
-		},
+		createCommitFileset(container, s, repoPath, undefined),
 		s.stats,
 		undefined,
 		undefined,

@@ -2353,7 +2353,7 @@ export function* showCommitOrStashFilesStep<
 				hint: `Click to see ${isStash(state.reference) ? 'stash' : 'commit'} actions`,
 			}),
 			createQuickPickSeparator('Files'),
-			...(state.reference.fileset?.files.map(
+			...(state.reference.anyFiles?.map(
 				fs => new CommitFileQuickPickItem(state.reference, fs, options?.picked === fs.path),
 			) ?? []),
 		] as (CommitFilesQuickPickItem | CommitFileQuickPickItem)[],

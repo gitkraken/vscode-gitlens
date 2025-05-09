@@ -31,6 +31,7 @@ import type {
 	CommitsLogParser,
 	CommitsWithFilesLogParser,
 	ParsedCommit,
+	ParsedStash,
 } from '../../../../git/parsers/logParser';
 import {
 	getCommitsLogParser,
@@ -185,11 +186,7 @@ export class CommitsGitSubProvider implements GitCommitsSubProvider {
 					f.status as GitFileStatus,
 					f.originalPath,
 					undefined,
-					{
-						additions: f.additions,
-						deletions: f.deletions,
-						changes: 0,
-					},
+					{ additions: f.additions, deletions: f.deletions, changes: 0 },
 				),
 		);
 
@@ -1255,35 +1252,36 @@ function createCommit(
 	);
 }
 
-function createCommitFileset(
+export function createCommitFileset(
 	container: Container,
-	c: ParsedCommit,
+	c: ParsedCommit | ParsedStash,
 	repoPath: string,
 	pathspec: string | undefined,
 ): GitCommitFileset {
-	return {
-		files:
-			c.files?.map(
-				f =>
-					new GitFileChange(
-						container,
-						repoPath,
-						f.path,
-						f.status as GitFileStatus,
-						f.originalPath,
-						undefined,
-						{
-							additions: f.additions ?? 0,
-							deletions: f.deletions ?? 0,
-							changes: 0,
-						},
-						undefined,
-						f.range ? { startLine: f.range.startLine, endLine: f.range.endLine } : undefined,
-					),
-			) ?? [],
-		filtered: Boolean(pathspec),
-		pathspec: pathspec,
-	};
+	// If the files are missing or it's a merge commit without files or pathspec, then consider the files unloaded
+	if (c.files == null || (!c.files.length && pathspec == null && c.parents.includes(' '))) {
+		return {
+			files: undefined,
+			filtered: pathspec ? { files: undefined, pathspec: pathspec } : undefined,
+		};
+	}
+
+	const files = c.files.map(
+		f =>
+			new GitFileChange(
+				container,
+				repoPath,
+				f.path,
+				f.status as GitFileStatus,
+				f.originalPath,
+				undefined,
+				{ additions: f.additions ?? 0, deletions: f.deletions ?? 0, changes: 0 },
+				undefined,
+				f.range ? { startLine: f.range.startLine, endLine: f.range.endLine } : undefined,
+			),
+	);
+
+	return pathspec ? { files: undefined, filtered: { files: files, pathspec: pathspec } } : { files: files };
 }
 
 function getGitStartEnd(range: Range): [number, number] {
@@ -1326,15 +1324,19 @@ async function parseCommits(
 				if (stash != null) {
 					if (commits.has(stash.sha)) {
 						countStashChildCommits++;
-					} else {
+					} else if (allowFilteredFiles) {
 						commits.set(
 							stash.sha,
-							stash.with(
-								allowFilteredFiles
-									? { fileset: createCommitFileset(container, c, repoPath, pathspec) }
-									: {},
-							),
+							stash.with({
+								fileset: {
+									...createCommitFileset(container, c, repoPath, pathspec),
+									// Add the full stash files back into the fileset
+									files: stash.fileset?.files,
+								},
+							}),
 						);
+					} else {
+						commits.set(stash.sha, stash);
 					}
 					continue;
 				}
@@ -1366,15 +1368,19 @@ async function parseCommits(
 			if (stash != null) {
 				if (commits.has(stash.sha)) {
 					countStashChildCommits++;
-				} else {
+				} else if (allowFilteredFiles) {
 					commits.set(
 						stash.sha,
-						stash.with(
-							allowFilteredFiles
-								? { fileset: createCommitFileset(container, c, repoPath, pathspec) }
-								: {},
-						),
+						stash.with({
+							fileset: {
+								...createCommitFileset(container, c, repoPath, pathspec),
+								// Add the full stash files back into the fileset
+								files: stash.fileset?.files,
+							},
+						}),
 					);
+				} else {
+					commits.set(stash.sha, stash);
 				}
 				continue;
 			}

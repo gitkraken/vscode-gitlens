@@ -769,7 +769,7 @@ export async function openOnlyChangedFiles(container: Container, files: GitFile[
 export async function openOnlyChangedFiles(container: Container, commitOrFiles: GitCommit | GitFile[]): Promise<void> {
 	let files;
 	if (isCommit(commitOrFiles)) {
-		if (commitOrFiles.fileset?.files == null || commitOrFiles.fileset?.filtered) {
+		if (commitOrFiles.hasFullDetails()) {
 			await commitOrFiles.ensureFullDetails();
 		}
 

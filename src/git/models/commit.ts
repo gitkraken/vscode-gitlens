@@ -44,10 +44,14 @@ export function isStash(commit: unknown): commit is GitStashCommit {
 }
 
 export interface GitCommitFileset {
-	readonly files: readonly GitFileChange[];
-	/** Indicates if the fileset is filtered to the pathspec */
-	readonly filtered: boolean;
-	readonly pathspec?: string;
+	/** `undefined` if the full set of files hasn't been loaded */
+	readonly files: readonly GitFileChange[] | undefined;
+	readonly filtered?:
+		| {
+				readonly files: readonly GitFileChange[] | undefined;
+				readonly pathspec: string;
+		  }
+		| undefined;
 }
 
 export class GitCommit implements GitRevisionReference {
@@ -134,6 +138,11 @@ export class GitCommit implements GitRevisionReference {
 		return this._file?.value;
 	}
 
+	/** Gets a list of any files in the commit, filtered or otherwise */
+	get anyFiles(): readonly GitFileChange[] | undefined {
+		return this.fileset?.files ?? this.fileset?.filtered?.files;
+	}
+
 	private _fileset: GitCommitFileset | undefined;
 	get fileset(): GitCommitFileset | undefined {
 		return this._fileset;
@@ -146,19 +155,19 @@ export class GitCommit implements GitRevisionReference {
 		}
 
 		// Handle folder "globs" (e.g. `src/*`)
-		if (value.pathspec?.endsWith('*')) {
-			value = { ...value, pathspec: value.pathspec.slice(0, -1) };
+		if (value.filtered?.pathspec?.endsWith('*')) {
+			value = { ...value, filtered: { ...value.filtered, pathspec: value.filtered.pathspec.slice(0, -1) } };
 		}
 		this._fileset = value;
 
 		const current = this._file?.value;
 		this._file = new Lazy(() => {
 			let file;
-			if (value.pathspec) {
-				if (value.files.length === 1) {
-					[file] = value.files;
+			if (value.filtered?.pathspec) {
+				if (value.filtered.files?.length === 1) {
+					[file] = value.filtered.files;
 				} else {
-					let files = value.files.filter(f => f.path === value.pathspec!);
+					let files = value.filtered.files?.filter(f => f.path === value.filtered!.pathspec) ?? [];
 					// If we found multiple files with the same path and is uncommitted, then use the existing file if we have one, otherwise use the first
 					if (files.length > 1) {
 						if (this.isUncommitted) {
@@ -167,7 +176,7 @@ export class GitCommit implements GitRevisionReference {
 					} else if (files.length === 1) {
 						[file] = files;
 					} else {
-						files = value.files.filter(f => f.path.startsWith(value.pathspec!));
+						files = value.filtered.files?.filter(f => f.path.startsWith(value.filtered!.pathspec)) ?? [];
 						file = files.length === 1 ? files[0] : undefined;
 					}
 				}
@@ -252,11 +261,16 @@ export class GitCommit implements GitRevisionReference {
 		include?: { stats?: boolean; uncommittedFiles?: boolean };
 	}): this is GitCommitWithFullDetails {
 		if (this.message == null || this.fileset == null) return false;
-		if (this.fileset.filtered && !options?.allowFilteredFiles) return false;
+		if (
+			this.fileset.files == null &&
+			(!options?.allowFilteredFiles || (options?.allowFilteredFiles && this.fileset.filtered?.files == null))
+		) {
+			return false;
+		}
 		if (this.refType === 'stash' && !this._stashUntrackedFilesLoaded && !options?.allowFilteredFiles) {
 			return false;
 		}
-		if (options?.include?.stats && this.fileset.files.some(f => f.stats == null)) {
+		if (options?.include?.stats && this.anyFiles?.some(f => f.stats == null)) {
 			return false;
 		}
 		// If this is an uncommitted commit, check if we need to load the working files (if we don't have a matching etag -- only works if we are currently watching the file system for this repository)
@@ -293,7 +307,13 @@ export class GitCommit implements GitRevisionReference {
 						files = files.filter(f => !f.staged);
 					}
 
-					this.fileset = { files: files, filtered: false, pathspec: this.fileset?.pathspec };
+					const pathspec = this.fileset?.filtered?.pathspec;
+					if (pathspec) {
+						debugger;
+					}
+					this.fileset = pathspec
+						? { files: undefined, filtered: { files: files, pathspec: pathspec } }
+						: { files: files };
 				}
 				this._etagFileSystem = repo?.etagFileSystem;
 			}
@@ -317,7 +337,7 @@ export class GitCommit implements GitRevisionReference {
 
 			const stashFiles = getSettledValue(stashFilesResult);
 			if (stashFiles?.length) {
-				this.fileset = { files: stashFiles, filtered: false, pathspec: this.fileset?.pathspec };
+				this.fileset = { files: stashFiles, filtered: this.fileset?.filtered };
 			}
 			this._stashUntrackedFilesLoaded = true;
 		} else {
@@ -331,11 +351,7 @@ export class GitCommit implements GitRevisionReference {
 				this.parents.push(...(commit.parents ?? []));
 				this._summary = commit.summary;
 				this._message = commit.message;
-				this.fileset = {
-					files: commit.fileset?.files ?? [],
-					filtered: false,
-					pathspec: this.fileset?.pathspec,
-				};
+				this.fileset = { files: commit.fileset?.files ?? [], filtered: this.fileset?.filtered };
 			}
 		}
 
@@ -354,23 +370,27 @@ export class GitCommit implements GitRevisionReference {
 
 		let additions = 0;
 		let deletions = 0;
-		for (const file of this.fileset.files) {
-			if (file.stats != null) {
-				additions += file.stats.additions;
-				deletions += file.stats.deletions;
-			}
 
-			switch (file.status) {
-				case 'A':
-				case '?':
-					changedFiles.added++;
-					break;
-				case 'D':
-					changedFiles.deleted++;
-					break;
-				default:
-					changedFiles.changed++;
-					break;
+		const files = this.fileset.files ?? this.fileset.filtered?.files;
+		if (files?.length) {
+			for (const file of files) {
+				if (file.stats != null) {
+					additions += file.stats.additions;
+					deletions += file.stats.deletions;
+				}
+
+				switch (file.status) {
+					case 'A':
+					case '?':
+						changedFiles.added++;
+						break;
+					case 'D':
+						changedFiles.deleted++;
+						break;
+					default:
+						changedFiles.changed++;
+						break;
+				}
 			}
 		}
 
@@ -398,9 +418,9 @@ export class GitCommit implements GitRevisionReference {
 
 		const relativePath = this.container.git.getRelativePath(pathOrUri, this.repoPath);
 		if (this.isUncommitted && staged != null) {
-			return this.fileset?.files.find(f => f.path === relativePath && f.staged === staged);
+			return this.anyFiles?.find(f => f.path === relativePath && f.staged === staged);
 		}
-		return this.fileset?.files.find(f => f.path === relativePath);
+		return this.anyFiles?.find(f => f.path === relativePath);
 	}
 
 	formatDate(format?: string | null): string {
@@ -571,7 +591,7 @@ export class GitCommit implements GitRevisionReference {
 
 		const commit = this.with({
 			sha: foundFile.staged ? uncommittedStaged : this.sha,
-			fileset: { ...this.fileset!, pathspec: path },
+			fileset: { ...this.fileset!, filtered: { files: [foundFile], pathspec: path } },
 		});
 		return commit;
 	}
@@ -585,7 +605,12 @@ export class GitCommit implements GitRevisionReference {
 			if (this.fileset == null) return [];
 		}
 
-		const commits = this.fileset?.files.map(f => this.with({ fileset: { ...this.fileset!, pathspec: f.path } }));
+		// If we are "allowing" filtered files, prioritize them (allowing here really means "use" filtered files if they exist)
+		const commits = (
+			options?.allowFilteredFiles
+				? this.fileset?.filtered?.files ?? this.fileset?.files
+				: this.fileset?.files ?? this.fileset?.filtered?.files
+		)?.map(f => this.with({ fileset: { ...this.fileset!, filtered: { files: [f], pathspec: f.path } } }));
 		return commits ?? [];
 	}
 

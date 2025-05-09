@@ -128,7 +128,7 @@ export class ShowQuickCommitFileCommand extends ActiveEditorCachedCommand {
 
 			const path = args.commit?.file?.path ?? gitUri.fsPath;
 			if (isCommit(args.commit)) {
-				if (args.commit.fileset?.files == null || args.commit.fileset?.filtered) {
+				if (!args.commit.hasFullDetails({ allowFilteredFiles: true })) {
 					await args.commit.ensureFullDetails();
 				}
 			}

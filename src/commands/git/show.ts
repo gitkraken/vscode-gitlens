@@ -175,7 +175,7 @@ export class ShowGitCommand extends QuickCommand<State> {
 			assertsStateStepCommit(state);
 
 			if (state.counter < 3) {
-				if (state.reference.fileset?.files == null || state.reference.fileset?.filtered) {
+				if (!state.reference.hasFullDetails({ allowFilteredFiles: true })) {
 					await state.reference.ensureFullDetails();
 				}
 
