@@ -146,6 +146,29 @@ const walkthroughRequiredMapping: Readonly<Map<WalkthroughContextKeys, Walkthrou
 			],
 		},
 	],
+	[
+		'aiFeatures',
+		{
+			usage: [
+				`command:${'gitlens.walkthrough.openAiSettings' satisfies GlCommands}:executed`,
+				`command:${'gitlens.ai.explainBranch' satisfies GlCommands}:executed`,
+				`command:${'gitlens.ai.explainCommit' satisfies GlCommands}:executed`,
+				`command:${'gitlens.ai.explainStash' satisfies GlCommands}:executed`,
+				`command:${'gitlens.ai.explainWip' satisfies GlCommands}:executed`,
+				`command:${'gitlens.ai.generateChangelog' satisfies GlCommands}:executed`,
+				`command:${'gitlens.ai.generateCommitMessage' satisfies GlCommands}:executed`,
+				`command:${'gitlens.graph.ai.explainBranch' satisfies GlCommands}:executed`,
+				`command:${'gitlens.graph.ai.explainCommit' satisfies GlCommands}:executed`,
+				`command:${'gitlens.graph.ai.explainStash' satisfies GlCommands}:executed`,
+				`command:${'gitlens.graph.ai.explainWip' satisfies GlCommands}:executed`,
+				`command:${'gitlens.graph.ai.generateChangelogFrom' satisfies GlCommands}:executed`,
+				`command:${'gitlens.graph.ai.generateCommitMessage' satisfies GlCommands}:executed`,
+				`command:${'gitlens.scm.ai.generateCommitMessage' satisfies GlCommands}:executed`,
+				`command:${'gitlens.views.ai.generateChangelog' satisfies GlCommands}:executed`,
+				`command:${'gitlens.views.ai.generateChangelogFrom' satisfies GlCommands}:executed`,
+			],
+		},
+	],
 ]);
 
 export class WalkthroughStateProvider implements Disposable {

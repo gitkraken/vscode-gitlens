@@ -5,7 +5,7 @@ import type { Source, Sources } from '../constants.telemetry';
 import type { Container } from '../container';
 import type { SubscriptionUpgradeCommandArgs } from '../plus/gk/models/subscription';
 import type { LaunchpadCommandArgs } from '../plus/launchpad/launchpad';
-import { command, executeCommand } from '../system/-webview/command';
+import { command, executeCommand, executeCoreCommand } from '../system/-webview/command';
 import { openWalkthrough as openWalkthroughCore } from '../system/-webview/vscode';
 import { openUrl } from '../system/-webview/vscode/uris';
 import type { ConnectCloudIntegrationsCommandArgs } from './cloudIntegrations';
@@ -409,5 +409,101 @@ export class WalkthroughShowHomeViewCommand extends GlCommandBase {
 			command: command,
 		});
 		executeCommand(command);
+	}
+}
+
+// gitlens.switchAIModel
+@command()
+export class WalkthroughSwitchAIModelCommand extends GlCommandBase {
+	constructor(private readonly container: Container) {
+		super('gitlens.walkthrough.switchAIModel');
+	}
+
+	execute(): void {
+		const command: GlCommands = 'gitlens.switchAIModel';
+		this.container.telemetry.sendEvent('walkthrough/action', {
+			type: 'command',
+			name: 'switch/ai-model',
+			command: command,
+		});
+		executeCommand(command);
+	}
+}
+
+// command:workbench.action.openSettings?%22gitlens.ai%22
+@command()
+export class WalkthroughEnableAiSetting extends GlCommandBase {
+	constructor(private readonly container: Container) {
+		super('gitlens.walkthrough.enableAiSetting');
+	}
+
+	execute(): void {
+		// should open to the VS Code settings page to the GitLens AI settings
+
+		this.container.telemetry.sendEvent('walkthrough/action', {
+			type: 'command',
+			name: 'open/ai-enable-setting',
+			command: 'workbench.action.openSettings',
+			detail: '@id:gitlens.ai.enabled',
+		});
+		executeCoreCommand('workbench.action.openSettings', '@id:gitlens.ai.enabled');
+	}
+}
+
+// command:workbench.action.openSettings?%22gitlens.ai%22
+@command()
+export class WalkthroughOpenAiCustomInstructionsSettings extends GlCommandBase {
+	constructor(private readonly container: Container) {
+		super('gitlens.walkthrough.openAiCustomInstructionsSettings');
+	}
+
+	execute(): void {
+		// should open to the VS Code settings page to the GitLens AI settings
+
+		this.container.telemetry.sendEvent('walkthrough/action', {
+			type: 'command',
+			name: 'open/ai-custom-instructions-settings',
+			command: 'workbench.action.openSettings',
+			detail: '@ext:eamodio.gitlens gitlens.ai custom instructions',
+		});
+		executeCoreCommand('workbench.action.openSettings', '@ext:eamodio.gitlens gitlens.ai custom instructions');
+	}
+}
+
+// command:workbench.action.openSettings?%22gitlens.ai%22
+@command()
+export class WalkthroughOpenAiSettings extends GlCommandBase {
+	constructor(private readonly container: Container) {
+		super('gitlens.walkthrough.openAiSettings');
+	}
+
+	execute(): void {
+		// should open to the VS Code settings page to the GitLens AI settings
+
+		this.container.telemetry.sendEvent('walkthrough/action', {
+			type: 'command',
+			name: 'open/ai-settings',
+			command: 'workbench.action.openSettings',
+			detail: 'gitlens.ai',
+		});
+		executeCoreCommand('workbench.action.openSettings', 'gitlens.ai');
+	}
+}
+
+// https://help.gitkraken.com/gitlens/gitlens-ai
+@command()
+export class WalkthroughOpenLearnAboutAiFeatures extends GlCommandBase {
+	constructor(private readonly container: Container) {
+		super('gitlens.walkthrough.openLearnAboutAiFeatures');
+	}
+
+	execute(): void {
+		const url = urls.aiFeatures;
+		this.container.telemetry.sendEvent('walkthrough/action', {
+			type: 'url',
+			name: 'open/help-center/ai-features',
+			url: url,
+		});
+		void openUrl(url);
 	}
 }
