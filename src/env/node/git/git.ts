@@ -896,7 +896,7 @@ export class Git {
 			);
 			return result.stdout;
 		} catch (ex) {
-			if (ex instanceof RunError && ex.stdout) {
+			if (ex instanceof GitError && ex.stdout) {
 				return ex.stdout;
 			}
 
@@ -1475,9 +1475,9 @@ export class Git {
 			}
 		} catch (ex) {
 			if (
-				ex instanceof RunError &&
-				ex.stdout.includes('Saved working directory and index state') &&
-				ex.stderr.includes('Cannot remove worktree changes')
+				ex instanceof GitError &&
+				ex.stdout?.includes('Saved working directory and index state') &&
+				ex.stderr?.includes('Cannot remove worktree changes')
 			) {
 				throw new StashPushError(StashPushErrorReason.ConflictingStagedAndUnstagedLines);
 			}
