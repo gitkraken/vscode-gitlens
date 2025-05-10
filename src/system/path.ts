@@ -89,7 +89,3 @@ export function normalizePath(path: string): string {
 export function stripFolderGlob(path: string): string {
 	return isFolderGlob(path) ? path.slice(0, -2) : path;
 }
-
-export function stripFolderGlob(path: string): string {
-	return isFolderGlob(path) ? path.slice(0, -2) : path;
-}

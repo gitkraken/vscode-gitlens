@@ -39,7 +39,7 @@ import { getScheme, isAbsolute, maybeUri, normalizePath } from '../system/path';
 import type { Deferred } from '../system/promise';
 import { asSettled, defer, getDeferredPromiseIfPending, getSettledValue } from '../system/promise';
 import { VisitedPathsTrie } from '../system/trie';
-import { uriEquals } from '../system/uri';
+import { areUrisEqual } from '../system/uri';
 import type {
 	CachedGitTypes,
 	GitBranchesSubProvider,
@@ -1970,7 +1970,7 @@ export class GitProviderService implements Disposable {
 		if (typeof pathOrUri === 'string') {
 			return this.getRepository(pathOrUri)?.path === pathOrUri;
 		}
-		return uriEquals(pathOrUri, this.getRepository(pathOrUri)?.uri);
+		return areUrisEqual(pathOrUri, this.getRepository(pathOrUri)?.uri);
 	}
 
 	@log({ exit: true })
