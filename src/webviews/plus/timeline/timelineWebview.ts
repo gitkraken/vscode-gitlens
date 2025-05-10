@@ -43,7 +43,7 @@ import { flatten } from '../../../system/object';
 import { batch, getSettledValue } from '../../../system/promise';
 import { SubscriptionManager } from '../../../system/subscriptionManager';
 import { createDisposable } from '../../../system/unifiedDisposable';
-import { uriEquals } from '../../../system/uri';
+import { areUrisEqual } from '../../../system/uri';
 import { isViewFileOrFolderNode } from '../../../views/nodes/utils/-webview/node.utils';
 import type { IpcMessage } from '../../protocol';
 import type { WebviewHost, WebviewProvider, WebviewShowingArgs } from '../../webviewProvider';
@@ -724,7 +724,7 @@ export class TimelineWebviewProvider implements WebviewProvider<State, State, Ti
 			this._tabCloseDebounceTimer = undefined;
 		}
 
-		if (uriEquals(uri, this._context.uri)) return;
+		if (areUrisEqual(uri, this._context.uri)) return;
 
 		this._repositorySubscription?.dispose();
 		this._repositorySubscription = undefined;

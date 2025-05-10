@@ -7,7 +7,7 @@ import { command } from '../system/-webview/command';
 import { openTextEditors } from '../system/-webview/vscode/editors';
 import { filterMap } from '../system/array';
 import { Logger } from '../system/logger';
-import { uriEquals } from '../system/uri';
+import { areUrisEqual } from '../system/uri';
 import { GlCommandBase } from './commandBase';
 
 export interface OpenOnlyChangedFilesCommandArgs {
@@ -64,7 +64,7 @@ export class OpenOnlyChangedFilesCommand extends GlCommandBase {
 
 					if (inputUri == null) continue;
 					// eslint-disable-next-line no-loop-func
-					matchingUri = args.uris.find(uri => uriEquals(uri, inputUri));
+					matchingUri = args.uris.find(uri => areUrisEqual(uri, inputUri));
 					if (matchingUri != null) {
 						openUris.delete(matchingUri);
 					} else {

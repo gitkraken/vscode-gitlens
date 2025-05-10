@@ -16,7 +16,7 @@ import type { Deferrable } from '../../system/function/debounce';
 import { debounce } from '../../system/function/debounce';
 import { Logger } from '../../system/logger';
 import { getLogScope, setLogScopeExit } from '../../system/logger.scope';
-import { uriEquals } from '../../system/uri';
+import { areUrisEqual } from '../../system/uri';
 import type { FileHistoryView } from '../fileHistoryView';
 import { SubscribeableViewNode } from './abstract/subscribeableViewNode';
 import type { ViewNode } from './abstract/viewNode';
@@ -235,7 +235,7 @@ export class FileHistoryTrackerNode extends SubscribeableViewNode<'file-history-
 		// If we have a sha, normalize the history to the working file (so we get a full history all the time)
 		const uri = await ensureWorkingUri(this.view.container, gitUri);
 
-		if (this.hasUri && uriEquals(uri ?? gitUri, this.uri)) {
+		if (this.hasUri && areUrisEqual(uri ?? gitUri, this.uri)) {
 			return false;
 		}
 

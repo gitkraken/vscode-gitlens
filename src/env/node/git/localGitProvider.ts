@@ -68,7 +68,7 @@ import { first, join } from '../../../system/iterable';
 import { Logger } from '../../../system/logger';
 import type { LogScope } from '../../../system/logger.scope';
 import { getLogScope, setLogScopeExit } from '../../../system/logger.scope';
-import { commonBaseIndex, dirname, isAbsolute, maybeUri, normalizePath, pathEquals } from '../../../system/path';
+import { arePathsEqual, commonBaseIndex, dirname, isAbsolute, maybeUri, normalizePath } from '../../../system/path';
 import { any, asSettled, getSettledValue } from '../../../system/promise';
 import { equalsIgnoreCase, getDurationMilliseconds } from '../../../system/string';
 import { compare, fromString } from '../../../system/version';
@@ -1221,7 +1221,7 @@ export class LocalGitProvider implements GitProvider, Disposable {
 						if (networkPath != null) {
 							// If the repository is at the root of the mapped drive then we
 							// have to append `\` (ex: D:\) otherwise the path is not valid.
-							const isDriveRoot = pathEquals(repoUri.fsPath, networkPath);
+							const isDriveRoot = arePathsEqual(repoUri.fsPath, networkPath);
 
 							repoPath = normalizePath(
 								repoUri.fsPath.replace(
@@ -1250,7 +1250,7 @@ export class LocalGitProvider implements GitProvider, Disposable {
 							return;
 						}
 
-						if (pathEquals(uri.fsPath, resolvedPath)) {
+						if (arePathsEqual(uri.fsPath, resolvedPath)) {
 							Logger.debug(scope, `No symlink detected; repoPath=${repoPath}`);
 							resolve([repoPath!, undefined]);
 							return;

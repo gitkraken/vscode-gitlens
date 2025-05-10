@@ -8,7 +8,7 @@ import { command, executeCommand } from '../system/-webview/command';
 import { selectionToDiffRange } from '../system/-webview/vscode/editors';
 import { getTabUris, getVisibleTabs } from '../system/-webview/vscode/tabs';
 import { Logger } from '../system/logger';
-import { uriEquals } from '../system/uri';
+import { areUrisEqual } from '../system/uri';
 import { ActiveEditorCommand } from './commandBase';
 import { getCommandUri } from './commandBase.utils';
 import type { DiffWithCommandArgs } from './diffWith';
@@ -41,7 +41,7 @@ export class DiffWithNextCommand extends ActiveEditorCommand {
 			if (tab != null) {
 				const uris = getTabUris(tab);
 				// If there is an original, then we are in a diff editor -- modified is right, original is left
-				if (uris.original != null && uriEquals(uri, uris.original)) {
+				if (uris.original != null && areUrisEqual(uri, uris.original)) {
 					isInLeftSideOfDiffEditor = true;
 				}
 			}

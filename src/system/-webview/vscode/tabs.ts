@@ -1,6 +1,6 @@
 import type { Tab } from 'vscode';
 import { Uri, window } from 'vscode';
-import { uriEquals } from '../../uri';
+import { areUrisEqual } from '../../uri';
 
 export function getTabUri(tab: Tab | undefined): Uri | undefined {
 	const input = tab?.input;
@@ -51,7 +51,7 @@ export function tabContainsUri(tab: Tab | undefined, uri: Uri | undefined): bool
 	if (input == null || typeof input !== 'object') return false;
 
 	function equals(uri: Uri, inputUri: unknown): boolean {
-		return inputUri instanceof Uri && uriEquals(uri, inputUri);
+		return inputUri instanceof Uri && areUrisEqual(uri, inputUri);
 	}
 
 	return (

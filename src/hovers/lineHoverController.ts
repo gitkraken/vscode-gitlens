@@ -5,7 +5,7 @@ import { configuration } from '../system/-webview/configuration';
 import { debug } from '../system/decorators/log';
 import { once } from '../system/event';
 import { Logger } from '../system/logger';
-import { uriEquals } from '../system/uri';
+import { areUrisEqual } from '../system/uri';
 import type { LinesChangeEvent } from '../trackers/lineTracker';
 import { changesMessage, detailsMessage } from './hovers';
 
@@ -191,7 +191,7 @@ export class LineHoverController implements Disposable {
 	}
 
 	private isRegistered(uri: Uri | undefined) {
-		return this._hoverProviderDisposable != null && uriEquals(this._uri, uri);
+		return this._hoverProviderDisposable != null && areUrisEqual(this._uri, uri);
 	}
 
 	private register(editor: TextEditor | undefined) {

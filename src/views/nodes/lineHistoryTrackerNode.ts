@@ -13,7 +13,7 @@ import { weakEvent } from '../../system/event';
 import { debounce } from '../../system/function/debounce';
 import { Logger } from '../../system/logger';
 import { getLogScope, setLogScopeExit } from '../../system/logger.scope';
-import { uriEquals } from '../../system/uri';
+import { areUrisEqual } from '../../system/uri';
 import type { LinesChangeEvent } from '../../trackers/lineTracker';
 import type { FileHistoryView } from '../fileHistoryView';
 import type { LineHistoryView } from '../lineHistoryView';
@@ -245,7 +245,7 @@ export class LineHistoryTrackerNode extends SubscribeableViewNode<
 
 		if (
 			this.hasUri &&
-			uriEquals(gitUri, this.uri) &&
+			areUrisEqual(gitUri, this.uri) &&
 			this._selection != null &&
 			editor.selection.isEqual(this._selection)
 		) {
