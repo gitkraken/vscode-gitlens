@@ -39,9 +39,8 @@ import { normalizePath } from '../../../../system/path';
 import { getSettledValue } from '../../../../system/promise';
 import { maybeStopWatch } from '../../../../system/stopwatch';
 import type { Git } from '../git';
-import { GitErrors, gitLogDefaultConfigs } from '../git';
+import { GitError, GitErrors, gitLogDefaultConfigs } from '../git';
 import type { LocalGitProvider } from '../localGitProvider';
-import { RunError } from '../shell.errors';
 
 const emptyPagedResult: PagedResult<any> = Object.freeze({ values: [] });
 
@@ -612,7 +611,7 @@ export class BranchesGitSubProvider implements GitBranchesSubProvider {
 						scope,
 						`Unable to merge '${branch}' and '${targetBranch}' as they have no common ancestor`,
 					);
-				} else if (ex instanceof RunError) {
+				} else if (ex instanceof GitError) {
 					data = ex.stdout;
 				} else {
 					Logger.error(ex, scope);

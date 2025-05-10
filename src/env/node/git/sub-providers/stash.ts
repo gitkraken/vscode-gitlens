@@ -22,8 +22,7 @@ import { log } from '../../../../system/decorators/log';
 import { join, map, min, skip } from '../../../../system/iterable';
 import { getSettledValue } from '../../../../system/promise';
 import type { Git } from '../git';
-import { maxGitCliLength } from '../git';
-import { RunError } from '../shell.errors';
+import { GitError, maxGitCliLength } from '../git';
 import { createCommitFileset } from './commits';
 
 const stashSummaryRegex =
@@ -54,9 +53,9 @@ export class StashGitSubProvider implements GitStashSubProvider {
 
 				if (
 					(msg.includes('Auto-merging') && msg.includes('CONFLICT')) ||
-					(ex instanceof RunError &&
-						((ex.stdout.includes('Auto-merging') && ex.stdout.includes('CONFLICT')) ||
-							ex.stdout.includes('needs merge')))
+					(ex instanceof GitError &&
+						((ex.stdout?.includes('Auto-merging') && ex.stdout.includes('CONFLICT')) ||
+							ex.stdout?.includes('needs merge')))
 				) {
 					void window.showInformationMessage('Stash applied with conflicts');
 
