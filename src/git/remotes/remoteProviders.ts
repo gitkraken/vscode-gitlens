@@ -182,7 +182,7 @@ function getCustomProviderCreator(cfg: RemotesConfig) {
 				new GitHubRemote(container, domain, path, cfg.protocol, cfg.name, true);
 		case 'GitLab':
 			return (container: Container, domain: string, path: string) =>
-				new GitLabRemote(container, domain, path, cfg.protocol, cfg.name, true);
+				new GitLabRemote(container, domain, path, cfg.protocol, cfg.name, true, cfg.version);
 		default:
 			return undefined;
 	}
