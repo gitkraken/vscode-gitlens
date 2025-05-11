@@ -1,4 +1,3 @@
-import { LogInstanceNameFn } from './decorators/log';
 import type { LogLevel } from './logger.constants';
 import type { LogScope } from './logger.scope';
 import { padOrTruncateEnd } from './string';
@@ -317,28 +316,26 @@ function toOrderedLevel(logLevel: LogLevel): OrderedLevel {
 	}
 }
 
-// eslint-disable-next-line @typescript-eslint/no-unsafe-function-type
-export function getLoggableName(instance: Function | object): string {
+export const customLoggableNameFns = new WeakMap<object, (instance: any, name: string) => string>();
+
+export function getLoggableName(instance: object): string {
 	let ctor;
 	if (typeof instance === 'function') {
-		if (instance.prototype?.constructor == null) return instance.name;
-
-		ctor = instance.prototype.constructor;
+		ctor = instance.prototype?.constructor;
+		if (ctor == null) return instance.name;
 	} else {
 		ctor = instance.constructor;
 	}
 
 	let name: string = ctor?.name ?? '';
-
 	// Strip webpack module name (since I never name classes with an _)
 	const index = name.indexOf('_');
-	name = index === -1 ? name : name.substring(index + 1);
-
-	if (ctor?.[LogInstanceNameFn] != null) {
-		name = ctor[LogInstanceNameFn](instance, name);
+	if (index !== -1) {
+		name = name.substring(index + 1);
 	}
 
-	return name;
+	const customNameFn = customLoggableNameFns.get(ctor);
+	return customNameFn?.(instance, name) ?? name;
 }
 
 export interface LogProvider {

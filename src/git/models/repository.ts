@@ -151,7 +151,7 @@ export interface RepositoryFileSystemChangeEvent {
 
 const instanceCounter = getScopedCounter();
 
-@logName<Repository>((r, name) => `${name}(${r.id}|${r.instance})`)
+@logName<Repository>(r => `Repository(${r.id}|${r.instance})`)
 export class Repository implements Disposable {
 	private _onDidChange = new EventEmitter<RepositoryChangeEvent>();
 	get onDidChange(): Event<RepositoryChangeEvent> {
