@@ -604,6 +604,7 @@ export class TimelineWebviewProvider implements WebviewProvider<State, State, Ti
 		const dateFormat = configuration.get('defaultDateFormat') ?? 'MMMM Do, YYYY h:mma';
 		const shortDateFormat = configuration.get('defaultDateShortFormat') ?? 'short';
 
+		const { git } = this.container;
 		const { scope } = context;
 
 		const config: State['config'] = {
@@ -613,12 +614,15 @@ export class TimelineWebviewProvider implements WebviewProvider<State, State, Ti
 			shortDateFormat: shortDateFormat,
 		};
 
-		if (this.container.git.isDiscoveringRepositories) {
-			await this.container.git.isDiscoveringRepositories;
+		if (git.isDiscoveringRepositories) {
+			await git.isDiscoveringRepositories;
 		}
 
-		const repo = scope?.uri != null ? this.container.git.getRepository(scope?.uri) : undefined;
-		const access = await this.container.git.access('timeline', repo?.uri);
+		const repo =
+			scope?.uri != null
+				? git.getRepository(scope.uri) ?? (await git.getOrOpenRepository(scope.uri, { closeOnOpen: true }))
+				: undefined;
+		const access = await git.access('timeline', repo?.uri);
 
 		if (scope == null || repo == null) {
 			return {
@@ -632,7 +636,7 @@ export class TimelineWebviewProvider implements WebviewProvider<State, State, Ti
 		}
 
 		const { uri } = scope;
-		const relativePath = this.container.git.getRelativePath(uri, repo.uri);
+		const relativePath = git.getRelativePath(uri, repo.uri);
 		const ref = getReference(await repo.git.branches().getBranch());
 		const repository: State['repository'] =
 			repo != null
