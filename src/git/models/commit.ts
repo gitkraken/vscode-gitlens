@@ -291,10 +291,11 @@ export class GitCommit implements GitRevisionReference {
 	}): Promise<void> {
 		if (this.hasFullDetails(options)) return;
 
-		const repo = this.container.git.getRepository(this.repoPath);
+		const { git } = this.container;
 
 		// If the commit is "uncommitted", then have the files list be all uncommitted files
 		if (this.isUncommitted) {
+			const repo = this.container.git.getRepository(this.repoPath);
 			this._etagFileSystem = repo?.etagFileSystem;
 
 			if (this._etagFileSystem != null || options?.include?.uncommittedFiles) {
@@ -331,7 +332,7 @@ export class GitCommit implements GitRevisionReference {
 
 		if (this.refType === 'stash') {
 			const [stashFilesResult] = await Promise.allSettled([
-				repo?.git.stash()?.getStashCommitFiles(this.sha),
+				git.stash(this.repoPath)?.getStashCommitFiles(this.sha),
 				this.getPreviousSha(),
 			]);
 
@@ -342,7 +343,7 @@ export class GitCommit implements GitRevisionReference {
 			this._stashUntrackedFilesLoaded = true;
 		} else {
 			const [commitResult] = await Promise.allSettled([
-				repo?.git.commits().getCommit(this.sha),
+				git.commits(this.repoPath).getCommit(this.sha),
 				this.getPreviousSha(),
 			]);
 
