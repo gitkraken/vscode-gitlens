@@ -11,7 +11,7 @@ import type { Subscription, SubscriptionAccount } from './plus/gk/models/subscri
 import type { Flatten } from './system/object';
 import type { WalkthroughContextKeys } from './telemetry/walkthroughStateProvider';
 import type { GraphColumnConfig } from './webviews/plus/graph/protocol';
-import type { TimelineItemType, TimelinePeriod, TimelineSliceBy } from './webviews/plus/timeline/protocol';
+import type { TimelinePeriod, TimelineScopeType, TimelineSliceBy } from './webviews/plus/timeline/protocol';
 
 export declare type AttributeValue =
 	| string
@@ -265,6 +265,8 @@ export interface TelemetryEvents extends WebviewShowAbortedEvents, WebviewShownE
 	'timeline/commit/selected': TimelineContextEventData;
 	/** Sent when the user changes the configuration of the Visual History (e.g. period, show all branches, etc) */
 	'timeline/config/changed': TimelineConfigChangedEvent;
+	/** Sent when the scope (file/folder/repo) changes on the Visual History */
+	'timeline/scope/changed': TimelineContextEventData;
 
 	/** Sent when a "tracked feature" is interacted with, today that is only when webview/webviewView/custom editor is shown */
 	'usage/track': UsageTrackEvent;
@@ -874,8 +876,8 @@ export interface SubscriptionEventDataWithPrevious
 		Partial<SubscriptionPreviousEventData> {}
 
 type TimelineContextEventData = WebviewTelemetryContext & {
-	'context.itemType': TimelineItemType | undefined;
 	'context.period': TimelinePeriod | undefined;
+	'context.scope.type': TimelineScopeType | undefined;
 	'context.showAllBranches': boolean | undefined;
 	'context.sliceBy': TimelineSliceBy | undefined;
 };

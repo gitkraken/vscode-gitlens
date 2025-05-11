@@ -37,11 +37,17 @@ export class GlCopyContainer extends LitElement {
 	private _resetTimer: ReturnType<typeof setTimeout> | undefined;
 
 	@state()
-	private label: string = this.copyLabel;
+	private label!: string;
 
 	override disconnectedCallback() {
 		this.cancelResetTimer();
 		super.disconnectedCallback();
+	}
+
+	override connectedCallback() {
+		super.connectedCallback();
+
+		this.label = this.copyLabel;
 	}
 
 	override render() {

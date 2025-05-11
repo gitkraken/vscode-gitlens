@@ -387,7 +387,7 @@ export const timelineChartStyles = css`
 		backdrop-filter: blur(15px);
 		-webkit-backdrop-filter: blur(15px);
 
-		animation: fadeIn 0.3s ease-in;
+		animation: fadeIn 0.2s ease-in;
 		animation-fill-mode: forwards;
 		opacity: 0;
 	}
@@ -397,7 +397,7 @@ export const timelineChartStyles = css`
 	}
 
 	.notice p {
-		margin-top: 0;
+		margin: 0;
 	}
 
 	.bb-tooltip {
@@ -465,10 +465,10 @@ export const timelineChartStyles = css`
 	}
 
 	.bb-tooltip .message {
-		margin-left: 2rem;
+		margin-left: 0rem;
 		margin-top: 0.5rem;
 		margin-bottom: 0.5rem;
-		max-height: 12rem;
+		max-height: 50vh;
 		overflow-y: auto;
 		overflow-x: hidden;
 	}

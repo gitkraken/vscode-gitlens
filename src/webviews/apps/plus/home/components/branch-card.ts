@@ -23,6 +23,7 @@ import type {
 	CreatePullRequestCommandArgs,
 	GetOverviewBranch,
 	OpenInGraphParams,
+	OpenInTimelineParams,
 	State,
 } from '../../../../home/protocol';
 import { stateContext } from '../../../home/context';
@@ -1048,6 +1049,17 @@ export class GlBranchCard extends GlBranchCardBase {
 				label="Fetch"
 				icon="repo-fetch"
 				href=${this.createCommandLink('gitlens.home.fetch')}
+			></action-item>`,
+		);
+		actions.push(
+			html` <action-item
+				label="Visualize Branch History"
+				icon="graph-scatter"
+				href=${createCommandLink('gitlens.home.visualizeHistory.branch:home', {
+					type: 'branch',
+					repoPath: this.repo,
+					branchId: this.branch.id,
+				} satisfies OpenInTimelineParams)}
 			></action-item>`,
 		);
 		actions.push(

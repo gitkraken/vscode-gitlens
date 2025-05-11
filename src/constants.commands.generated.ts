@@ -144,7 +144,6 @@ export type ContributedCommands =
 	| 'gitlens.openPullRequestOnRemote'
 	| 'gitlens.plus.cloudIntegrations.connect'
 	| 'gitlens.scm.ai.generateCommitMessage'
-	| 'gitlens.showFolderInTimeline'
 	| 'gitlens.showInCommitGraph'
 	| 'gitlens.showInCommitGraphView'
 	| 'gitlens.showInDetailsView'
@@ -612,7 +611,13 @@ export type ContributedCommands =
 	| 'gitlens.views.worktrees.setShowBranchPullRequestOn'
 	| 'gitlens.views.worktrees.setShowStashesOff'
 	| 'gitlens.views.worktrees.setShowStashesOn'
-	| 'gitlens.views.worktrees.viewOptionsTitle';
+	| 'gitlens.views.worktrees.viewOptionsTitle'
+	| 'gitlens.visualizeHistory.file:editor'
+	| 'gitlens.visualizeHistory.file:explorer'
+	| 'gitlens.visualizeHistory.file:scm'
+	| 'gitlens.visualizeHistory.file:views'
+	| 'gitlens.visualizeHistory.folder:explorer'
+	| 'gitlens.visualizeHistory.folder:scm';
 
 export type ContributedPaletteCommands =
 	| 'gitlens.addAuthors'
@@ -758,7 +763,6 @@ export type ContributedPaletteCommands =
 	| 'gitlens.showContributorsView'
 	| 'gitlens.showDraftsView'
 	| 'gitlens.showFileHistoryView'
-	| 'gitlens.showFileInTimeline'
 	| 'gitlens.showGraph'
 	| 'gitlens.showGraphPage'
 	| 'gitlens.showGraphView'
@@ -802,7 +806,8 @@ export type ContributedPaletteCommands =
 	| 'gitlens.toggleMaximizedGraph'
 	| 'gitlens.toggleReviewMode'
 	| 'gitlens.toggleZenMode'
-	| 'gitlens.views.workspaces.create';
+	| 'gitlens.views.workspaces.create'
+	| 'gitlens.visualizeHistory.file';
 
 export type ContributedKeybindingCommands =
 	| 'gitlens.key.alt+,'

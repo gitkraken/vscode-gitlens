@@ -561,7 +561,7 @@ export async function openFileAtRevision(
 			return;
 		}
 
-		const pickedUri = await showRevisionFilesPicker(
+		const picked = await showRevisionFilesPicker(
 			Container.instance,
 			createReference(gitUri.sha!, gitUri.repoPath!),
 			{
@@ -577,9 +577,9 @@ export async function openFileAtRevision(
 				},
 			},
 		);
-		if (pickedUri == null) return;
+		if (picked == null) return;
 
-		editor = await getOrOpenTextEditor(pickedUri, opts);
+		editor = await getOrOpenTextEditor(picked?.uri, opts);
 	}
 
 	if (annotationType != null && editor != null) {

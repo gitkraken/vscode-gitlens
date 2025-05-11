@@ -66,6 +66,7 @@ export class GlRefButton extends LitElement {
 	override render(): unknown {
 		return html`<gl-button
 			appearance="toolbar"
+			density="compact"
 			?disabled=${this.disabled}
 			tooltip="${ifDefined(this.tooltip)}"
 			aria-label="${ifDefined(this.tooltip)}"

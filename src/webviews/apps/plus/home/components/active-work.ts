@@ -8,7 +8,13 @@ import { when } from 'lit/directives/when.js';
 import { isSubscriptionStatePaidOrTrial } from '../../../../../plus/gk/utils/subscription.utils';
 import { createCommandLink } from '../../../../../system/commands';
 import { createWebviewCommandLink } from '../../../../../system/webview';
-import type { GetActiveOverviewResponse, GetOverviewBranch, OpenInGraphParams, State } from '../../../../home/protocol';
+import type {
+	GetActiveOverviewResponse,
+	GetOverviewBranch,
+	OpenInGraphParams,
+	OpenInTimelineParams,
+	State,
+} from '../../../../home/protocol';
 import { stateContext } from '../../../home/context';
 import { linkStyles } from '../../shared/components/vscode.css';
 import { branchCardStyles, GlBranchCardBase } from './branch-card';
@@ -134,7 +140,27 @@ export class GlActiveWork extends SignalWatcher(LitElement) {
 						() => html`${repo.name}`,
 					)}
 				</span>
-				<span slot="heading-actions"
+				<span slot="heading-actions">
+					<gl-button
+						aria-busy="${ifDefined(isFetching)}"
+						?disabled=${isFetching}
+						class="section-heading-action"
+						appearance="toolbar"
+						tooltip="Fetch All"
+						href=${createCommandLink('gitlens.home.fetch', undefined)}
+						><code-icon icon="repo-fetch"></code-icon
+					></gl-button>
+					<gl-button
+						aria-busy="${ifDefined(isFetching)}"
+						?disabled=${isFetching}
+						class="section-heading-action"
+						appearance="toolbar"
+						tooltip="Visualize Repo History"
+						href=${createCommandLink('gitlens.home.visualizeHistory.repo:home', {
+							type: 'repo',
+							repoPath: this._activeOverviewState.state!.repository.path,
+						} satisfies OpenInTimelineParams)}
+						><code-icon icon="graph-scatter"></code-icon></gl-button
 					><gl-button
 						aria-busy="${ifDefined(isFetching)}"
 						?disabled=${isFetching}
@@ -146,15 +172,6 @@ export class GlActiveWork extends SignalWatcher(LitElement) {
 							repoPath: this._activeOverviewState.state!.repository.path,
 						} satisfies OpenInGraphParams)}
 						><code-icon icon="gl-graph"></code-icon
-					></gl-button>
-					<gl-button
-						aria-busy="${ifDefined(isFetching)}"
-						?disabled=${isFetching}
-						class="section-heading-action"
-						appearance="toolbar"
-						tooltip="Fetch All"
-						href=${createCommandLink('gitlens.home.fetch', undefined)}
-						><code-icon icon="repo-fetch"></code-icon
 					></gl-button>
 				</span>
 				${this.renderRepoBranchCard(activeBranch, repo.path, isFetching)}

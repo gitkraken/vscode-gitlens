@@ -1,9 +1,9 @@
 import { css, html, LitElement, nothing } from 'lit';
 import { customElement, property, state } from 'lit/decorators.js';
 import { classMap } from 'lit/directives/class-map.js';
+import { focusableBaseStyles } from './styles/lit/a11y.css';
 import './code-icon';
 import './overlays/tooltip';
-import { focusableBaseStyles } from './styles/lit/a11y.css';
 
 export type CollapsibleState = 'none' | 'collapsed' | 'expanded';
 
@@ -26,7 +26,7 @@ export class GlBreadcrumbs extends LitElement {
 			width: 100%;
 		}
 
-		::slotted(gl-breadcrumb-item:not(:last-child))::after {
+		::slotted(gl-breadcrumb-item:not(:last-of-type))::after {
 			content: '\\eab6'; /* chevron-right codicon */
 			font-family: codicon;
 			font-size: 12px;
@@ -45,9 +45,13 @@ export class GlBreadcrumbs extends LitElement {
 				margin-right 0.3s cubic-bezier(0.25, 1, 0.5, 1);
 		}
 
-		::slotted(gl-breadcrumb-item[collapsed]:not(:hover):not(:last-child))::after {
+		::slotted(gl-breadcrumb-item[collapsed]:not(:hover):not(:last-of-type))::after {
 			left: -1.2rem;
 			margin-right: -1.2rem;
+		}
+
+		::slotted(:last-child:not(gl-breadcrumb-item:last-of-type)) {
+			margin-left: 1rem;
 		}
 	`;
 
@@ -80,7 +84,8 @@ export class GlBreadcrumbItem extends LitElement {
 				min-width: calc(24px + 0.6rem);
 			}
 
-			:host(:hover) {
+			:host(:hover),
+			:host(:focus-within) {
 				flex-shrink: 0;
 			}
 
@@ -93,6 +98,7 @@ export class GlBreadcrumbItem extends LitElement {
 				overflow: hidden;
 				min-width: 0;
 				width: 100%;
+				cursor: default;
 			}
 
 			.breadcrumb-content {
@@ -136,8 +142,8 @@ export class GlBreadcrumbItem extends LitElement {
 				transition: max-width 0.3s cubic-bezier(0.25, 1, 0.5, 1);
 			}
 
-			:host([collapsed]) .breadcrumb-item:not(:hover) .breadcrumb-label,
-			:host([collapsed]) .breadcrumb-item:not(:hover) slot[name='children'] {
+			:host([collapsed]) .breadcrumb-item:not(:hover):not(:focus-within) .breadcrumb-label,
+			:host([collapsed]) .breadcrumb-item:not(:hover):not(:focus-within) slot[name='children'] {
 				max-width: 0;
 			}
 		`,
@@ -163,6 +169,9 @@ export class GlBreadcrumbItem extends LitElement {
 	@property()
 	icon?: string;
 
+	@property()
+	iconTooltip?: string;
+
 	private _shrink: number = 1;
 	get shrink(): number {
 		return this._shrink;
@@ -175,52 +184,46 @@ export class GlBreadcrumbItem extends LitElement {
 		this.requestUpdate('shrink', oldValue);
 	}
 
-	@property()
-	tooltip: string = '';
-
 	override render() {
 		const { collapsed, collapsible } = this;
 
-		return html`
-			<div class=${classMap({ 'breadcrumb-item': true, collapsible: collapsible })}>
-				${this.collapsible && this.icon
-					? html`<span class="breadcrumb-content">
-							<gl-tooltip
-								content="${collapsed ? 'Click to Expand' : 'Click to Collapse'}"
-								placement="bottom"
-							>
-								<code-icon
-									class="breadcrumb-icon"
-									icon="${this.icon}"
-									tabindex="0"
-									@click=${collapsible ? this.onToggleCollapse : undefined}
-								></code-icon>
-							</gl-tooltip>
-							<gl-tooltip class="breadcrumb-label" content="${this.tooltip}" placement="bottom">
-								<span><slot></slot></span>
-							</gl-tooltip>
-					  </span>`
-					: html`<gl-tooltip class="breadcrumb-tooltip" content="${this.tooltip}" placement="bottom">
-							<span class="breadcrumb-content">
-								${this.icon
-									? html`<code-icon
-											class="breadcrumb-icon"
-											icon="${this.icon}"
-											tabindex="0"
-											@click=${collapsible ? this.onToggleCollapse : undefined}
-									  ></code-icon>`
-									: nothing}
-								<slot class="breadcrumb-label"></slot
-							></span>
-					  </gl-tooltip>`}
-				<slot name="children"></slot>
-			</div>
-		`;
+		return html`<div class=${classMap({ 'breadcrumb-item': true, collapsible: collapsible })}>
+			<span class="breadcrumb-content">
+				${this.renderIcon(collapsible, collapsed)}
+				<slot class="breadcrumb-label"></slot>
+			</span>
+			<slot name="children"></slot>
+		</div>`;
 	}
 
-	private onToggleCollapse = (e: MouseEvent) => {
+	private renderIcon(collapsible: boolean, collapsed: boolean) {
+		if (!this.icon) return nothing;
+
+		if (!collapsible && !this.iconTooltip) {
+			return html`<code-icon class="breadcrumb-icon" icon="${this.icon}"></code-icon>`;
+		}
+
+		return html`<gl-tooltip
+			content="${collapsible ? (collapsed ? 'Click to Expand' : 'Click to Collapse') : this.iconTooltip}"
+			placement="bottom"
+		>
+			<code-icon
+				class="breadcrumb-icon"
+				icon="${this.icon}"
+				tabindex="0"
+				@click=${collapsible ? this.onToggleCollapse : undefined}
+				@keyup=${collapsible ? this.onToggleCollapse : undefined}
+			></code-icon>
+		</gl-tooltip>`;
+	}
+
+	private onToggleCollapse = (e: MouseEvent | KeyboardEvent) => {
 		e.preventDefault();
 		e.stopPropagation();
+
+		if (e instanceof KeyboardEvent && e.key !== 'Enter' && e.key !== ' ') {
+			return;
+		}
 
 		this.collapsed = !this.collapsed;
 	};
@@ -260,13 +263,8 @@ export class GlBreadcrumbItemChild extends LitElement {
 		}
 	`;
 
-	@property()
-	tooltip: string = '';
-
 	override render() {
-		return html`<gl-tooltip class="breadcrumb-label" content="${this.tooltip}" placement="bottom">
-			<span><slot></slot></span>
-		</gl-tooltip>`;
+		return html`<slot></slot>`;
 	}
 }
 

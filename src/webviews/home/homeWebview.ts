@@ -74,6 +74,7 @@ import type { UriTypes } from '../../uris/deepLinks/deepLink';
 import { DeepLinkServiceState, DeepLinkType } from '../../uris/deepLinks/deepLink';
 import type { ShowInCommitGraphCommandArgs } from '../plus/graph/registration';
 import type { Change } from '../plus/patchDetails/protocol';
+import type { TimelineCommandArgs } from '../plus/timeline/registration';
 import type { IpcMessage } from '../protocol';
 import type { WebviewHost, WebviewProvider, WebviewShowingArgs } from '../webviewProvider';
 import type { WebviewShowOptions } from '../webviewsController';
@@ -88,6 +89,7 @@ import type {
 	GetOverviewBranch,
 	IntegrationState,
 	OpenInGraphParams,
+	OpenInTimelineParams,
 	OverviewFilters,
 	OverviewRecentThreshold,
 	OverviewRepository,
@@ -344,6 +346,8 @@ export class HomeWebviewProvider implements WebviewProvider<State, State, HomeWe
 			registerCommand('gitlens.home.switchToBranch', this.switchToBranch, this),
 			registerCommand('gitlens.home.fetch', this.fetch, this),
 			registerCommand('gitlens.home.openInGraph', this.openInGraph, this),
+			registerCommand('gitlens.home.visualizeHistory.repo:home', this.openInTimeline, this),
+			registerCommand('gitlens.home.visualizeHistory.branch:home', this.openInTimeline, this),
 			registerCommand('gitlens.home.createBranch', this.createBranch, this),
 			registerCommand('gitlens.home.mergeIntoCurrent', this.mergeIntoCurrent, this),
 			registerCommand('gitlens.home.rebaseCurrentOnto', this.rebaseCurrentOnto, this),
@@ -474,6 +478,32 @@ export class HomeWebviewProvider implements WebviewProvider<State, State, HomeWe
 		}
 
 		void executeCommand('gitlens.showGraph', repoInfo.repo);
+	}
+
+	@log<HomeWebviewProvider['openInTimeline']>({
+		args: { 0: p => `${p?.type}, repoPath=${p?.repoPath}, branchId=${p?.branchId}` },
+	})
+	private openInTimeline(params: OpenInTimelineParams) {
+		const repo = params == null ? this.getSelectedRepository() : this.container.git.getRepository(params.repoPath);
+		if (repo == null) return;
+
+		if (params?.type === 'repo') {
+			void executeCommand<TimelineCommandArgs | Uri>('gitlens.visualizeHistory.repo:home', repo.uri);
+			return;
+		}
+
+		if (params?.type === 'branch') {
+			const repoInfo = this._repositoryBranches.get(repo.path);
+
+			const branch = repoInfo?.branches.find(b => b.id === params.branchId);
+			if (branch != null) {
+				void executeCommand<TimelineCommandArgs>('gitlens.visualizeHistory.branch:home', {
+					type: 'repo',
+					uri: repo.uri,
+					head: getReferenceFromBranch(branch),
+				});
+			}
+		}
 	}
 
 	@log()
