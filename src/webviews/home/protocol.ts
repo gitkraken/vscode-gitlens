@@ -261,6 +261,11 @@ export type OpenInGraphParams =
 	| undefined;
 export const OpenInGraphCommand = new IpcCommand<OpenInGraphParams>(scope, 'openInGraph');
 
+export type OpenInTimelineParams =
+	| { type: 'repo'; repoPath: string; branchId?: never }
+	| { type: 'branch'; repoPath: string; branchId: string }
+	| undefined;
+
 // NOTIFICATIONS
 
 export interface DidCompleteDiscoveringRepositoriesParams {

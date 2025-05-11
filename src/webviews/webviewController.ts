@@ -33,6 +33,7 @@ import {
 	DidChangeWebviewFocusNotification,
 	ExecuteCommand,
 	ipcPromiseSettled,
+	isIpcPromise,
 	TelemetrySendEventCommand,
 	WebviewFocusChangedCommand,
 	WebviewReadyCommand,
@@ -337,16 +338,11 @@ export class WebviewController<
 		options?: WebviewShowOptions,
 		...args: WebviewShowingArgs<ShowingArgs, SerializedState>
 	): Promise<void> {
-		if (options == null) {
-			options = {};
-		}
-
-		const eventBase = {
-			...this.getTelemetryContext(),
-			loading: loading,
-		};
+		options ??= {};
 
 		using sw = new Stopwatch(`WebviewController.show(${this.id})`);
+
+		const eventBase = { ...this.getTelemetryContext(), loading: loading };
 
 		let context;
 		const result = await this.provider.onShowing?.(loading, options, ...args);
@@ -473,7 +469,7 @@ export class WebviewController<
 			case WebviewReadyCommand.is(e):
 				this._ready = true;
 				this.sendPendingIpcNotifications();
-				this.provider.onReady?.();
+				void this.provider.onReady?.();
 
 				break;
 
@@ -678,14 +674,14 @@ export class WebviewController<
 	}
 
 	private replacePromisesWithIpcPromises(data: unknown) {
-		const pendingPromises: [Promise<unknown>, IpcPromise][] = [];
+		const pendingPromises: IpcPromise[] = [];
 		this.replacePromisesWithIpcPromisesCore(data, pendingPromises);
-		if (pendingPromises.length === 0) return;
+		if (!pendingPromises.length) return;
 
 		const cancellation = this.cancellation?.token;
 		queueMicrotask(() => {
-			for (const [promise, ipcPromise] of pendingPromises) {
-				promise.then(
+			for (const ipcPromise of pendingPromises) {
+				ipcPromise.__promise.then(
 					r => {
 						if (cancellation?.isCancellationRequested) {
 							debugger;
@@ -705,22 +701,28 @@ export class WebviewController<
 		});
 	}
 
-	private replacePromisesWithIpcPromisesCore(data: unknown, pendingPromises: [Promise<unknown>, IpcPromise][]) {
+	private replacePromisesWithIpcPromisesCore(data: unknown, pendingPromises: IpcPromise[]) {
 		if (data == null || typeof data !== 'object') return;
 
 		for (const key in data) {
+			if (key === '__promise') continue;
+
 			const value = (data as Record<string, unknown>)[key];
 			if (value instanceof Promise) {
 				const ipcPromise: IpcPromise = {
 					__ipc: 'promise',
+					__promise: value,
 					id: this.nextIpcId(),
 					method: ipcPromiseSettled.method,
 				};
 				(data as Record<string, unknown>)[key] = ipcPromise;
-				pendingPromises.push([value, ipcPromise]);
+				pendingPromises.push(ipcPromise);
+			} else if (isIpcPromise(value)) {
+				value.id = this.nextIpcId();
+				pendingPromises.push(value);
+			} else {
+				this.replacePromisesWithIpcPromisesCore(value, pendingPromises);
 			}
-
-			this.replacePromisesWithIpcPromisesCore(value, pendingPromises);
 		}
 	}
 

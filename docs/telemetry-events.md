@@ -2021,8 +2021,8 @@ or
 
 ```typescript
 {
-  'context.itemType': 'file' | 'folder',
   'context.period': 'all' | `${number}|D` | `${number}|M` | `${number}|Y`,
+  'context.scope.type': 'file' | 'folder' | 'repo',
   'context.showAllBranches': boolean,
   'context.sliceBy': 'branch' | 'author',
   'context.webview.host': 'editor' | 'view',
@@ -2038,8 +2038,8 @@ or
 
 ```typescript
 {
-  'context.itemType': 'file' | 'folder',
   'context.period': 'all' | `${number}|D` | `${number}|M` | `${number}|Y`,
+  'context.scope.type': 'file' | 'folder' | 'repo',
   'context.showAllBranches': boolean,
   'context.sliceBy': 'branch' | 'author',
   'context.webview.host': 'editor' | 'view',
@@ -2055,8 +2055,8 @@ or
 
 ```typescript
 {
-  'context.itemType': 'file' | 'folder',
   'context.period': 'all' | `${number}|D` | `${number}|M` | `${number}|Y`,
+  'context.scope.type': 'file' | 'folder' | 'repo',
   'context.showAllBranches': boolean,
   'context.sliceBy': 'branch' | 'author',
   'context.webview.host': 'editor' | 'view',
@@ -2075,8 +2075,25 @@ or
 
 ```typescript
 {
-  'context.itemType': 'file' | 'folder',
   'context.period': 'all' | `${number}|D` | `${number}|M` | `${number}|Y`,
+  'context.scope.type': 'file' | 'folder' | 'repo',
+  'context.showAllBranches': boolean,
+  'context.sliceBy': 'branch' | 'author',
+  'context.webview.host': 'editor' | 'view',
+  'context.webview.id': string,
+  'context.webview.instanceId': string,
+  'context.webview.type': string
+}
+```
+
+### timeline/scope/changed
+
+> Sent when the scope (file/folder/repo) changes on the Visual History
+
+```typescript
+{
+  'context.period': 'all' | `${number}|D` | `${number}|M` | `${number}|Y`,
+  'context.scope.type': 'file' | 'folder' | 'repo',
   'context.showAllBranches': boolean,
   'context.sliceBy': 'branch' | 'author',
   'context.webview.host': 'editor' | 'view',
@@ -2107,8 +2124,8 @@ or
 {
   'context.config.allowMultiple': boolean,
   'context.config.queryLimit': number,
-  'context.itemType': 'file' | 'folder',
   'context.period': 'all' | `${number}|D` | `${number}|M` | `${number}|Y`,
+  'context.scope.type': 'file' | 'folder' | 'repo',
   'context.showAllBranches': boolean,
   'context.sliceBy': 'branch' | 'author',
   'context.webview.host': 'editor' | 'view',

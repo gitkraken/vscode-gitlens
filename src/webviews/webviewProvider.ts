@@ -40,7 +40,7 @@ export interface WebviewProvider<State, SerializedState = State, ShowingArgs ext
 	includeBody?(): string | Promise<string>;
 	includeEndOfBody?(): string | Promise<string>;
 
-	onReady?(): void;
+	onReady?(): void | Promise<void>;
 	onRefresh?(force?: boolean): void;
 	onReloaded?(): void;
 	onMessageReceived?(e: IpcMessage): void;

@@ -7,17 +7,20 @@ import { setAbbreviatedShaLength } from '../../../../git/utils/revision.utils';
 import { isSubscriptionPaid } from '../../../../plus/gk/utils/subscription.utils';
 import type { Deferrable } from '../../../../system/function/debounce';
 import { debounce } from '../../../../system/function/debounce';
-import type { State } from '../../../plus/timeline/protocol';
+import { dirname } from '../../../../system/path';
+import type { State, TimelinePeriod, TimelineScopeType } from '../../../plus/timeline/protocol';
 import {
+	ChoosePathRequest,
 	ChooseRefRequest,
 	SelectDataPointCommand,
 	UpdateConfigCommand,
-	UpdateUriCommand,
+	UpdateScopeCommand,
 } from '../../../plus/timeline/protocol';
 import { GlApp } from '../../shared/app';
 import type { Checkbox } from '../../shared/components/checkbox/checkbox';
 import type { GlRefButton } from '../../shared/components/ref-button';
 import type { HostIpc } from '../../shared/ipc';
+import { linkStyles } from '../shared/components/vscode.css';
 import type { CommitEventDetail, GlTimelineChart } from './components/chart';
 import { TimelineStateProvider } from './stateProvider';
 import { timelineBaseStyles, timelineStyles } from './timeline.css';
@@ -26,6 +29,7 @@ import '../../shared/components/breadcrumbs';
 import '../../shared/components/button';
 import '../../shared/components/checkbox/checkbox';
 import '../../shared/components/code-icon';
+import '../../shared/components/copy-container';
 import '../../shared/components/feature-badge';
 import '../../shared/components/feature-gate';
 import '../../shared/components/menu/menu-label';
@@ -48,8 +52,9 @@ export class GlTimelineApp extends GlApp<State> {
 	protected override createStateProvider(state: State, ipc: HostIpc): TimelineStateProvider {
 		return new TimelineStateProvider(this, state, ipc);
 	}
+
 	protected override onPersistState(state: State): void {
-		this._ipc.setPersistedState({ config: state.config, uri: state.uri });
+		this._ipc.setPersistedState({ config: state.config, scope: state.scope });
 	}
 
 	override connectedCallback(): void {
@@ -66,31 +71,43 @@ export class GlTimelineApp extends GlApp<State> {
 	}
 
 	get base() {
-		return this.config.base ?? this.repository?.ref;
+		return this.scope?.base ?? this.repository?.ref;
 	}
 
 	get config() {
 		return this.state.config;
 	}
 
-	get itemType() {
-		return this.state.item.type;
-	}
-
-	get sliceBy() {
-		return this.config.showAllBranches ? this.config.sliceBy : 'author';
+	get head() {
+		return this.scope?.head ?? this.repository?.ref;
 	}
 
 	get repository() {
 		return this.state.repository;
 	}
 
-	get subscription() {
-		return this.state.access?.subscription?.current;
+	get scope() {
+		return this.state.scope;
 	}
 
-	get uri() {
-		return this.state.uri;
+	get isShowAllBranchesSupported() {
+		return !this.repository?.virtual;
+	}
+
+	get isSliceByAllowed() {
+		return this.config.showAllBranches && this.isSliceBySupported;
+	}
+
+	get isSliceBySupported() {
+		return !this.repository?.virtual && (this.scope?.type === 'file' || this.scope?.type === 'folder');
+	}
+
+	get sliceBy() {
+		return this.isSliceByAllowed ? this.config.sliceBy : 'author';
+	}
+
+	get subscription() {
+		return this.state.access?.subscription?.current;
 	}
 
 	override render(): unknown {
@@ -110,16 +127,8 @@ export class GlTimelineApp extends GlApp<State> {
 			>
 			<div class="container">
 				<progress-indicator ?active=${this._loading}></progress-indicator>
-				<header class="header" ?hidden=${!this.uri}>
-					<span class="details"
-						>${this.renderBreadcrumbs()}
-						<span class="details__ref" tabindex="0"
-							>${this.config.showAllBranches
-								? 'All Branches'
-								: html`<gl-ref-name icon .ref=${this.base}></gl-ref-name>`}</span
-						>
-						${this.renderTimeframe()}</span
-					>
+				<header class="header" ?hidden=${!this.scope}>
+					<span class="details">${this.renderBreadcrumbs()} ${this.renderTimeframe()}</span>
 					<span class="toolbox">
 						${this.renderConfigPopover()}
 						${this.placement === 'view'
@@ -148,40 +157,73 @@ export class GlTimelineApp extends GlApp<State> {
 	}
 
 	private renderBreadcrumbs() {
-		const repo = this.state.repository;
-
 		return html`<gl-breadcrumbs>
-			${repo != null
-				? html`<gl-breadcrumb-item
-						type="repo"
-						icon="repo"
-						collapsibleState="collapsed"
-						shrink="10000000"
-						tooltip="${repo.name}"
-						>${repo.name}</gl-breadcrumb-item
+			${this.renderRepositoryBreadcrumbItem()}
+			${this.renderBranchBreadcrumbItem()}${this.renderBreadcrumbPathItems()}
+			${this.placement === 'editor'
+				? html` <gl-button
+						appearance="toolbar"
+						density="compact"
+						@click=${this.onChoosePath}
+						tooltip="Choose File or Folder to Visualize..."
+						aria-label="Choose File or Folder to Visualize..."
+						><code-icon slot="prefix" icon="folder-opened"></code-icon>Choose File / Folder...</gl-button
 				  >`
 				: nothing}
-			<gl-breadcrumb-item
-				type="ref"
-				icon="${getRefIcon(this.base)}"
-				collapsibleState="collapsed"
-				shrink="100000"
-				tooltip="${this.base?.name || 'HEAD'}"
-				><gl-ref-button .ref=${this.base} @click=${this.onChooseRef}></gl-ref-button
-			></gl-breadcrumb-item>
-			${this.renderBreadcrumbPathItems()}</gl-breadcrumbs
-		>`;
+		</gl-breadcrumbs>`;
+	}
+
+	private renderRepositoryBreadcrumbItem() {
+		const repo = this.state.repository;
+		if (repo == null) return nothing;
+
+		return html`<gl-breadcrumb-item
+			collapsibleState="${this.state.scope?.relativePath ? 'collapsed' : 'expanded'}"
+			icon="repo"
+			shrink="10000000"
+			type="repo"
+		>
+			<gl-button
+				appearance="toolbar"
+				density="compact"
+				@click=${this.onUpdateScope}
+				tooltip="Visualize Repository History&#10;&#10;${repo.name}"
+				aria-label="Visualize Repository History&#10;&#10;${repo.name}"
+				>${repo.name}</gl-button
+			>
+		</gl-breadcrumb-item>`;
+	}
+
+	private renderBranchBreadcrumbItem() {
+		const {
+			head,
+			config: { showAllBranches },
+		} = this;
+
+		return html`<gl-breadcrumb-item
+			collapsibleState="expanded"
+			icon="${showAllBranches ? 'git-branch' : getRefIcon(head)}"
+			shrink="100000"
+			type="ref"
+		>
+			<gl-ref-button
+				.ref=${showAllBranches ? undefined : head}
+				tooltip="Choose Branch&#10;&#10;${showAllBranches ? 'Showing All Branches' : head?.name || 'HEAD'}"
+				aria-label="Choose Branch&#10;&#10;${showAllBranches ? 'Showing All Branches' : head?.name || 'HEAD'}"
+				@click=${this.onChooseHeadRef}
+				><span slot="empty">All Branches</span></gl-ref-button
+			>
+		</gl-breadcrumb-item>`;
 	}
 
 	private renderBreadcrumbPathItems() {
-		const path = this.state.item.path || '';
+		const path = this.state.scope?.relativePath;
 		if (!path) return nothing;
 
 		const breadcrumbs = [];
 
 		const parts = path.split('/');
 		const basePart = parts.pop() || '';
-		const valuePrefix = '../'.repeat(parts.length + (this.itemType === 'folder' ? 2 : 1));
 		const folders = parts.length;
 
 		// Add folder parts if any
@@ -191,31 +233,37 @@ export class GlTimelineApp extends GlApp<State> {
 
 			const folderItem = html`
 				<gl-breadcrumb-item
-					type="folder"
-					icon="folder"
-					tooltip="${rootPart}&#10;&#10;Click to Show Folder History"
 					collapsibleState="expanded"
+					icon="folder"
+					type="${'folder' satisfies TimelineScopeType}"
+					value="${rootPart}"
 				>
-					<span class="breadcrumb-folder" value="${valuePrefix}${rootPart}" @click=${this.onUpdateUri}
-						>${rootPart}</span
+					<gl-button
+						appearance="toolbar"
+						@click=${this.onUpdateScope}
+						tooltip="Visualize Folder History&#10;&#10;${rootPart}"
+						aria-label="Visualize Folder History &#10;&#10;${rootPart}"
+						>${rootPart}</gl-button
 					>
+
 					${parts.length
-						? html`
-								<span slot="children" class="breadcrumb-item-children">
-									${parts.map(part => {
-										fullPath = `${fullPath}/${part}`;
-										return html`<gl-breadcrumb-item-child
-											tooltip="${fullPath}&#10;&#10;Click to Show Folder History"
-											><span
-												class="breadcrumb-folder"
-												value="${valuePrefix}${fullPath}"
-												@click=${this.onUpdateUri}
-												>${part}</span
-											></gl-breadcrumb-item-child
-										>`;
-									})}
-								</span>
-						  `
+						? html`<span slot="children" class="breadcrumb-item-children">
+								${parts.map(part => {
+									fullPath = `${fullPath}/${part}`;
+									return html`<gl-breadcrumb-item-child
+										type="${'folder' satisfies TimelineScopeType}"
+										value="${fullPath}"
+									>
+										<gl-button
+											appearance="toolbar"
+											@click=${this.onUpdateScope}
+											tooltip="Visualize Folder History&#10;&#10;${fullPath}"
+											aria-label="Visualize Folder History&#10;&#10;${fullPath}"
+											>${part}</gl-button
+										>
+									</gl-breadcrumb-item-child>`;
+								})}
+						  </span>`
 						: nothing}
 				</gl-breadcrumb-item>
 			`;
@@ -226,13 +274,21 @@ export class GlTimelineApp extends GlApp<State> {
 		// Add base item
 		breadcrumbs.push(html`
 			<gl-breadcrumb-item
-				type="${this.itemType === 'folder' ? 'folder' : 'file'}"
-				icon="${ifDefined(this.itemType === 'folder' ? (folders ? undefined : 'folder') : 'file')}"
 				collapsibleState="none"
+				icon="${ifDefined(this.scope?.type === 'folder' ? (folders ? undefined : 'folder') : 'file')}"
 				shrink="0"
 				tooltip="${path}"
+				type="${(this.scope?.type === 'folder' ? 'folder' : 'file') satisfies TimelineScopeType}"
+				value="${path}"
 			>
-				<span value="${valuePrefix}${path}" @click=${this.onUpdateUri}>${basePart}</span>
+				<gl-copy-container
+					tabindex="0"
+					copyLabel="Copy Path&#10;&#10;${path}"
+					.content=${path}
+					placement="bottom"
+				>
+					<span>${basePart}</span>
+				</gl-copy-container>
 			</gl-breadcrumb-item>
 		`);
 
@@ -240,7 +296,7 @@ export class GlTimelineApp extends GlApp<State> {
 	}
 
 	private renderChart() {
-		if (!this.uri || !this.state.dataset) {
+		if (!this.scope && this.placement === 'view') {
 			return html`<div class="timeline__empty">
 				<p>There are no editors open that can provide file history information.</p>
 			</div>`;
@@ -250,22 +306,31 @@ export class GlTimelineApp extends GlApp<State> {
 			id="chart"
 			placement="${this.placement}"
 			dateFormat="${this.state.config.dateFormat}"
-			head="${this.base?.ref ?? 'HEAD'}"
+			.dataPromise=${this.state.dataset}
+			head="${this.head?.ref ?? 'HEAD'}"
+			.scope=${this.scope}
 			shortDateFormat="${this.state.config.shortDateFormat}"
 			sliceBy="${this.sliceBy}"
-			.dataPromise=${this.state.dataset}
 			@gl-commit-select=${this.onChartCommitSelected}
 			@gl-loading=${(e: CustomEvent<Promise<void>>) => {
 				this._loading = true;
 				void e.detail.finally(() => (this._loading = false));
 			}}
 		>
+			<div slot="empty">
+				${this.scope == null
+					? html`<p>Something went wrong</p>
+							<p>Please close this tab and try again</p>`
+					: html`<p>No commits found for the specified time period</p>
+							${this.renderPeriodSelect(this.state.config.period)}`}
+			</div>
 		</gl-timeline-chart>`;
 	}
 
 	private renderConfigPopover() {
-		const { period, showAllBranches } = this.config;
-		const sliceBy = this.sliceBy;
+		const {
+			config: { period },
+		} = this;
 
 		return html`<gl-popover class="config" placement="bottom" trigger="hover focus click" hoist>
 			<gl-button slot="anchor" appearance="toolbar">
@@ -273,107 +338,224 @@ export class GlTimelineApp extends GlApp<State> {
 			</gl-button>
 			<div slot="content" class="config__content">
 				<menu-label>View Options</menu-label>
-				<section>
-					<label for="base">Base</label>
-					<gl-ref-button
-						name="base"
-						tooltip="Change Base Reference"
-						icon
-						.ref=${this.base}
-						@click=${this.onChooseRef}
-					></gl-ref-button>
-				</section>
-				<section>
-					<gl-checkbox
-						value="all"
-						.checked=${showAllBranches}
-						@gl-change-value=${(e: CustomEvent<void>) => {
-							this._ipc.sendCommand(UpdateConfigCommand, {
-								showAllBranches: (e.target as Checkbox).checked,
-							});
-						}}
-						>View All Branches</gl-checkbox
-					>
-				</section>
-				<section>
-					<span class="select-container">
-						<label for="periods">Timeframe</label>
-						<select
-							class="select"
-							name="periods"
-							position="below"
-							.value=${period}
-							@change=${this.onPeriodChanged}
-						>
-							<option value="7|D" ?selected=${period === '7|D'}>1 week</option>
-							<option value="1|M" ?selected=${period === '1|M'}>1 month</option>
-							<option value="3|M" ?selected=${period === '3|M'}>3 months</option>
-							<option value="6|M" ?selected=${period === '6|M'}>6 months</option>
-							<option value="9|M" ?selected=${period === '9|M'}>9 months</option>
-							<option value="1|Y" ?selected=${period === '1|Y'}>1 year</option>
-							<option value="2|Y" ?selected=${period === '2|Y'}>2 years</option>
-							<option value="4|Y" ?selected=${period === '4|Y'}>4 years</option>
-							<option value="all" ?selected=${period === 'all'}>Full history</option>
-						</select>
-					</span>
-				</section>
-				<section>
-					<span class="select-container">
-						<label for="sliceBy" ?disabled=${!showAllBranches}>Slice By</label>
-						<select
-							class="select"
-							name="sliceBy"
-							position="below"
-							.value=${sliceBy}
-							?disabled=${!showAllBranches}
-							@change=${this.onSliceByChanged}
-						>
-							<option value="author" ?selected=${sliceBy === 'author'}>Author</option>
-							<option value="branch" ?selected=${sliceBy === 'branch'}>Branch</option>
-						</select>
-					</span>
-				</section>
+				${this.renderConfigHead()} ${this.renderConfigBase()} ${this.renderConfigShowAllBranches()}
+				${this.renderPeriodSelect(period)} ${this.renderConfigSliceBy()}
 			</div>
 		</gl-popover>`;
 	}
 
+	private renderConfigHead() {
+		const {
+			head,
+			config: { showAllBranches },
+		} = this;
+		return html`<section>
+			<label for="head" ?disabled=${showAllBranches}>Head</label>
+			<gl-ref-button
+				name="head"
+				?disabled=${showAllBranches}
+				icon
+				tooltip="Change Head Reference"
+				.ref=${head}
+				location="config"
+				@click=${this.onChooseHeadRef}
+			></gl-ref-button>
+		</section>`;
+	}
+
+	private renderConfigBase() {
+		if (this.repository?.virtual) return nothing;
+
+		const {
+			head,
+			base,
+			config: { showAllBranches },
+		} = this;
+		return html`<section>
+			<label for="base" ?disabled=${showAllBranches}>Base</label>
+			<gl-ref-button
+				name="base"
+				?disabled=${showAllBranches}
+				icon
+				tooltip="Change Base Reference"
+				.ref=${base?.ref === head?.ref ? undefined : base}
+				location="config"
+				@click=${this.onChooseBaseRef}
+				><span slot="empty">&lt;choose base&gt;</span></gl-ref-button
+			>
+		</section>`;
+	}
+
+	private renderConfigShowAllBranches() {
+		if (this.repository?.virtual) return nothing;
+		const {
+			config: { showAllBranches },
+		} = this;
+		return html`<section>
+			<gl-checkbox
+				value="all"
+				.checked=${showAllBranches}
+				@gl-change-value=${(e: CustomEvent<void>) => {
+					this._ipc.sendCommand(UpdateConfigCommand, {
+						changes: { showAllBranches: (e.target as Checkbox).checked },
+					});
+				}}
+				>View All Branches</gl-checkbox
+			>
+		</section>`;
+	}
+
+	private renderPeriodSelect(period: TimelinePeriod) {
+		return html`<section>
+			<span class="select-container">
+				<label for="periods">Timeframe</label>
+				<select class="select" name="periods" position="below" .value=${period} @change=${this.onPeriodChanged}>
+					<option value="7|D" ?selected=${period === '7|D'}>1 week</option>
+					<option value="1|M" ?selected=${period === '1|M'}>1 month</option>
+					<option value="3|M" ?selected=${period === '3|M'}>3 months</option>
+					<option value="6|M" ?selected=${period === '6|M'}>6 months</option>
+					<option value="9|M" ?selected=${period === '9|M'}>9 months</option>
+					<option value="1|Y" ?selected=${period === '1|Y'}>1 year</option>
+					<option value="2|Y" ?selected=${period === '2|Y'}>2 years</option>
+					<option value="4|Y" ?selected=${period === '4|Y'}>4 years</option>
+					<option value="all" ?selected=${period === 'all'}>Full history</option>
+				</select>
+			</span>
+		</section>`;
+	}
+
+	private renderConfigSliceBy() {
+		if (!this.isSliceBySupported) return nothing;
+
+		const { sliceBy, isSliceByAllowed } = this;
+
+		const template = html`<label for="sliceBy" ?disabled=${!isSliceByAllowed}>Slice By</label>
+			<select
+				class="select"
+				name="sliceBy"
+				position="below"
+				.value=${sliceBy}
+				?disabled=${!isSliceByAllowed}
+				@change=${this.onSliceByChanged}
+			>
+				<option value="author" ?selected=${sliceBy === 'author'}>Author</option>
+				<option value="branch" ?selected=${sliceBy === 'branch'}>Branch</option>
+			</select>`;
+
+		if (isSliceByAllowed) return html`<section><span class="select-container">${template}</span></section>`;
+
+		return html`<section>
+			<gl-tooltip style="width: 100%" content="Slicing by branches is only available when viewing all branches">
+				<span class="select-container">${template}</span>
+			</gl-tooltip>
+		</section>`;
+	}
+
 	private renderTimeframe() {
+		let label;
 		switch (this.config.period) {
 			case '7|D':
-				return html`<span class="details__timeframe">Up to 1wk ago</span>`;
+				label = 'Up to 1wk ago';
+				break;
 			case '1|M':
-				return html`<span class="details__timeframe">Up to 1mo ago</span>`;
+				label = 'Up to 1mo ago';
+				break;
 			case '3|M':
-				return html`<span class="details__timeframe">Up to 3mo ago</span>`;
+				label = 'Up to 3mo ago';
+				break;
 			case '6|M':
-				return html`<span class="details__timeframe">Up to 6mo ago</span>`;
+				label = 'Up to 6mo ago';
+				break;
 			case '9|M':
-				return html`<span class="details__timeframe">Up to 9mo ago</span>`;
+				label = 'Up to 9mo ago';
+				break;
 			case '1|Y':
-				return html`<span class="details__timeframe">Up to 1yr ago</span>`;
+				label = 'Up to 1yr ago';
+				break;
 			case '2|Y':
-				return html`<span class="details__timeframe">Up to 2yr ago</span>`;
+				label = 'Up to 2yr ago';
+				break;
 			case '4|Y':
-				return html`<span class="details__timeframe">Up to 4yr ago</span>`;
+				label = 'Up to 4yr ago';
+				break;
 			case 'all':
-				return html`<span class="details__timeframe">All time</span>`;
+				label = 'All time';
+				break;
 			default:
 				return nothing;
 		}
+
+		return html`<span class="details__timeframe" tabindex="0">${label}</span>`;
 	}
 
-	private onChooseRef = (e: Event) => {
+	private onChooseBaseRef = async (e: Event) => {
 		if ((e.target as GlRefButton).disabled) return;
 
-		void this._ipc.sendRequest(ChooseRefRequest, undefined);
+		const result = await this._ipc.sendRequest(ChooseRefRequest, { scope: this.scope!, type: 'base' });
+		if (result?.ref == null) return;
+
+		this._ipc.sendCommand(UpdateScopeCommand, { scope: this.scope!, changes: { base: result.ref } });
 	};
 
-	private onUpdateUri = (e: Event) => {
-		const element = e.target as HTMLSpanElement;
-		const value = element.getAttribute('value');
+	private onChooseHeadRef = async (e: Event) => {
+		if ((e.target as GlRefButton).disabled) return;
+
+		const location = (e.target as GlRefButton).getAttribute('location');
+
+		const result = await this._ipc.sendRequest(ChooseRefRequest, { scope: this.scope!, type: 'head' });
+		if (result?.ref === null) {
+			if (!this.config.showAllBranches) {
+				this._ipc.sendCommand(UpdateConfigCommand, { changes: { showAllBranches: true } });
+			}
+
+			return;
+		}
+		if (result?.ref == null) return;
+
+		this._ipc.sendCommand(UpdateScopeCommand, {
+			scope: this.scope!,
+			changes: { head: result.ref, base: location !== 'config' ? null : undefined },
+		});
+		if (this.config.showAllBranches) {
+			this._ipc.sendCommand(UpdateConfigCommand, { changes: { showAllBranches: false } });
+		}
+	};
+
+	private onChoosePath = async (e: Event) => {
+		e.stopImmediatePropagation();
+		if (this.repository == null || this.scope == null) return;
+
+		const result = await this._ipc.sendRequest(ChoosePathRequest, {
+			repoUri: this.repository.uri,
+			ref: this.head,
+			title: 'Select a File or Folder to Visualize',
+			initialPath: this.scope.type === 'file' ? dirname(this.scope.relativePath) : this.scope.relativePath,
+		});
+		if (result?.picked == null) return;
+
+		this._ipc.sendCommand(UpdateScopeCommand, {
+			scope: this.scope,
+			changes: { type: result.picked.type, relativePath: result.picked.relativePath },
+		});
+	};
+
+	private onUpdateScope = (e: Event) => {
+		const el =
+			(e.target as HTMLElement)?.closest('gl-breadcrumb-item-child') ??
+			(e.target as HTMLElement)?.closest('gl-breadcrumb-item');
+
+		const type = el?.getAttribute('type') as TimelineScopeType;
+		if (type == null) return;
+
+		if (type === 'repo') {
+			this._ipc.sendCommand(UpdateScopeCommand, { scope: this.scope!, changes: { type: 'repo' } });
+			return;
+		}
+
+		const value = el?.getAttribute('value');
 		if (value == null) return;
 
-		this._ipc.sendCommand(UpdateUriCommand, { path: value });
+		this._ipc.sendCommand(UpdateScopeCommand, { scope: this.scope!, changes: { type: type, relativePath: value } });
 	};
 
 	private onChartCommitSelected(e: CustomEvent<CommitEventDetail>) {
@@ -387,7 +569,7 @@ export class GlTimelineApp extends GlApp<State> {
 		const value = element.options[element.selectedIndex].value;
 		assertPeriod(value);
 
-		this._ipc.sendCommand(UpdateConfigCommand, { period: value });
+		this._ipc.sendCommand(UpdateConfigCommand, { changes: { period: value } });
 	}
 
 	private onSliceByChanged(e: Event) {
@@ -395,16 +577,18 @@ export class GlTimelineApp extends GlApp<State> {
 		const value = element.options[element.selectedIndex].value;
 		assertSliceBy(value);
 
-		this._ipc.sendCommand(UpdateConfigCommand, { sliceBy: value });
+		this._ipc.sendCommand(UpdateConfigCommand, { changes: { sliceBy: value } });
 	}
 
 	private _fireSelectDataPointDebounced: Deferrable<(e: CommitEventDetail) => void> | undefined;
 	private fireSelectDataPoint(e: CommitEventDetail) {
-		const { itemType } = this;
+		const { scope } = this;
+		if (scope == null) return;
+
 		this._fireSelectDataPointDebounced ??= debounce(
-			(e: CommitEventDetail) => this._ipc.sendCommand(SelectDataPointCommand, { itemType: itemType, ...e }),
+			(e: CommitEventDetail) => this._ipc.sendCommand(SelectDataPointCommand, { scope: scope, ...e }),
 			250,
-			{ maxWait: itemType === 'file' ? 500 : undefined },
+			{ maxWait: scope.type === 'file' ? 500 : undefined },
 		);
 		this._fireSelectDataPointDebounced(e);
 	}

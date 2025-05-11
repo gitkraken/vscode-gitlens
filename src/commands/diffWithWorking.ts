@@ -105,7 +105,7 @@ export class DiffWithWorkingCommand extends ActiveEditorCommand {
 
 		let workingUri = await this.container.git.getWorkingUri(gitUri.repoPath!, uri);
 		if (workingUri == null) {
-			const pickedUri = await showRevisionFilesPicker(this.container, createReference('HEAD', gitUri.repoPath!), {
+			const picked = await showRevisionFilesPicker(this.container, createReference('HEAD', gitUri.repoPath!), {
 				ignoreFocusOut: true,
 				initialPath: gitUri.relativePath,
 				title: `Open File \u2022 Unable to open '${gitUri.relativePath}'`,
@@ -117,9 +117,9 @@ export class DiffWithWorkingCommand extends ActiveEditorCommand {
 					},
 				},
 			});
-			if (pickedUri == null) return;
+			if (picked == null) return;
 
-			workingUri = pickedUri;
+			workingUri = picked?.uri;
 		}
 
 		void (await executeCommand<DiffWithCommandArgs>('gitlens.diffWith', {

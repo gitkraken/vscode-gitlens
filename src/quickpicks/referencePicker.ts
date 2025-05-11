@@ -15,7 +15,9 @@ import { isBranchReference, isRevisionReference, isTagReference } from '../git/u
 import type { KeyboardScope } from '../system/-webview/keyboard';
 import { getQuickPickIgnoreFocusOut } from '../system/-webview/vscode';
 import type { QuickPickResult } from './items/common';
-import { Directive } from './items/directive';
+import { createQuickPickSeparator } from './items/common';
+import type { DirectiveQuickPickItem } from './items/directive';
+import { createDirectiveQuickPickItem, Directive, isDirectiveQuickPickItem } from './items/directive';
 import type { BranchQuickPickItem, RefQuickPickItem, TagQuickPickItem } from './items/gitWizard';
 import { createRefQuickPickItem } from './items/gitWizard';
 
@@ -26,6 +28,8 @@ export const enum ReferencesQuickPickIncludes {
 	Tags = 1 << 1,
 	WorkingTree = 1 << 2,
 	HEAD = 1 << 3,
+
+	AllBranches = 1 << 4,
 
 	BranchesAndTags = Branches | Tags,
 	All = Branches | Tags | WorkingTree | HEAD,
@@ -66,7 +70,7 @@ export async function showReferencePicker2(
 	placeholder: string,
 	options?: ReferencesQuickPickOptions2,
 ): Promise<QuickPickResult<GitReference>> {
-	const quickpick = window.createQuickPick<ReferencesQuickPickItem>();
+	const quickpick = window.createQuickPick<ReferencesQuickPickItem | DirectiveQuickPickItem>();
 	quickpick.ignoreFocusOut = options?.ignoreFocusOut ?? getQuickPickIgnoreFocusOut();
 
 	quickpick.title = title;
@@ -92,7 +96,7 @@ export async function showReferencePicker2(
 						onDidPressKey: async key => {
 							if (quickpick.activeItems.length !== 0) {
 								const [item] = quickpick.activeItems;
-								if (item != null) {
+								if (item != null && !isDirectiveQuickPickItem(item)) {
 									const ignoreFocusOut = quickpick.ignoreFocusOut;
 									quickpick.ignoreFocusOut = true;
 
@@ -116,8 +120,9 @@ export async function showReferencePicker2(
 	let items = getItems(repoPath, options);
 	if (options?.autoPick) {
 		items = items.then(itms => {
-			if (itms.length <= 1) {
-				autopick = { value: itms[0]?.item };
+			const refItems = itms.filter((i): i is ReferencesQuickPickItem => !isDirectiveQuickPickItem(i));
+			if (refItems.length <= 1) {
+				autopick = { value: refItems[0]?.item };
 				cancellation.cancel();
 			}
 			return itms;
@@ -137,7 +142,7 @@ export async function showReferencePicker2(
 
 	quickpick.items = await items;
 	if (options?.picked != null) {
-		const picked = quickpick.items.find(i => i.ref === options.picked);
+		const picked = quickpick.items.find(i => !isDirectiveQuickPickItem(i) && i.ref === options.picked);
 		if (picked != null) {
 			quickpick.activeItems = [picked];
 		}
@@ -150,9 +155,14 @@ export async function showReferencePicker2(
 				cancellation.token.onCancellationRequested(() => quickpick.hide()),
 				quickpick.onDidHide(() => resolve({ value: undefined })),
 				quickpick.onDidAccept(() => {
-					if (quickpick.activeItems.length === 0) return;
+					if (!quickpick.activeItems.length) return;
 
-					resolve({ value: quickpick.activeItems[0]?.item });
+					const [item] = quickpick.activeItems;
+					if (isDirectiveQuickPickItem(item)) {
+						resolve({ directive: item.directive });
+					} else {
+						resolve({ value: item?.item });
+					}
 				}),
 				quickpick.onDidChangeValue(async e => {
 					if (scope != null) {
@@ -170,14 +180,16 @@ export async function showReferencePicker2(
 						}
 					}
 				}),
-				quickpick.onDidTriggerItemButton(({ button, item: { item } }) => {
+				quickpick.onDidTriggerItemButton(({ button, item }) => {
+					if (isDirectiveQuickPickItem(item)) return;
+
 					if (button === RevealInSideBarQuickInputButton) {
-						if (isBranchReference(item)) {
-							void revealBranch(item, { select: true, expand: true });
-						} else if (isTagReference(item)) {
-							void revealTag(item, { select: true, expand: true });
-						} else if (isRevisionReference(item)) {
-							void showDetailsView(item, {
+						if (isBranchReference(item.item)) {
+							void revealBranch(item.item, { select: true, expand: true });
+						} else if (isTagReference(item.item)) {
+							void revealTag(item.item, { select: true, expand: true });
+						} else if (isRevisionReference(item.item)) {
+							void showDetailsView(item.item, {
 								pin: false,
 								preserveFocus: true,
 							});
@@ -200,7 +212,10 @@ export async function showReferencePicker2(
 	}
 }
 
-async function getItems(repoPath: string, options?: ReferencesQuickPickOptions): Promise<ReferencesQuickPickItem[]> {
+async function getItems(
+	repoPath: string,
+	options?: ReferencesQuickPickOptions2,
+): Promise<(ReferencesQuickPickItem | DirectiveQuickPickItem)[]> {
 	const include = options?.include ?? ReferencesQuickPickIncludes.BranchesAndTags;
 
 	const includes: ('branches' | 'tags')[] = [];
@@ -211,7 +226,7 @@ async function getItems(repoPath: string, options?: ReferencesQuickPickOptions):
 		includes.push('tags');
 	}
 
-	const items: ReferencesQuickPickItem[] = await getBranchesAndOrTags(
+	const items: (ReferencesQuickPickItem | DirectiveQuickPickItem)[] = await getBranchesAndOrTags(
 		Container.instance.git.getRepository(repoPath),
 		includes,
 		{
@@ -225,7 +240,7 @@ async function getItems(repoPath: string, options?: ReferencesQuickPickOptions):
 	// Move the picked item to the top
 	const picked = options?.picked;
 	if (picked) {
-		const index = items.findIndex(i => i.ref === picked);
+		const index = items.findIndex(i => !isDirectiveQuickPickItem(i) && i.ref === picked);
 		if (index !== -1) {
 			items.unshift(...items.splice(index, 1));
 		}
@@ -239,5 +254,12 @@ async function getItems(repoPath: string, options?: ReferencesQuickPickOptions):
 		items.unshift(createRefQuickPickItem('', repoPath, undefined, { icon: true }));
 	}
 
-	return options?.exclude?.length ? items.filter(i => !options.exclude?.includes(i.ref)) : items;
+	if (include & ReferencesQuickPickIncludes.AllBranches) {
+		items.unshift(createQuickPickSeparator());
+		items.unshift(createDirectiveQuickPickItem(Directive.RefsAllBranches));
+	}
+
+	return options?.exclude?.length
+		? items.filter(i => (isDirectiveQuickPickItem(i) ? true : !options.exclude?.includes(i.ref)))
+		: items;
 }

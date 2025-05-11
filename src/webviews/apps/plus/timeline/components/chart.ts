@@ -41,7 +41,7 @@ export class GlTimelineChart extends GlElement {
 	@query(GlChartSlider.tagName)
 	private slider?: GlChartSlider;
 
-	private _abortController?: AbortController;
+	private _chartAborter?: AbortController;
 
 	private readonly _slices = new Map<
 		string,
@@ -70,6 +70,9 @@ export class GlTimelineChart extends GlElement {
 	@property({ type: String })
 	head?: string;
 
+	@property({ type: Object })
+	scope?: State['scope'];
+
 	@property()
 	shortDateFormat!: string;
 
@@ -83,12 +86,12 @@ export class GlTimelineChart extends GlElement {
 		return this._data;
 	}
 
-	private _dataPromise!: NonNullable<State['dataset']>;
+	private _dataPromise: State['dataset'];
 	@property({ type: Object })
-	get dataPromise(): NonNullable<State['dataset']> {
+	get dataPromise(): State['dataset'] {
 		return this._dataPromise;
 	}
-	set dataPromise(value: NonNullable<State['dataset']>) {
+	set dataPromise(value: State['dataset']) {
 		if (this._dataPromise === value) return;
 
 		this._dataPromise = value;
@@ -155,30 +158,37 @@ export class GlTimelineChart extends GlElement {
 		super.disconnectedCallback();
 	}
 
+	// override firstUpdated(changedProperties: PropertyValues): void {
+	// 	if (!changedProperties.has('dataPromise')) {
+	// 		this.updateChart();
+	// 	}
+	// 	super.firstUpdated(changedProperties);
+	// }
+
 	override update(changedProperties: PropertyValues): void {
-		if (changedProperties.has('dataPromise')) {
-			this._abortController?.abort();
-			this._abortController = new AbortController();
-			this._loading?.cancel();
-
-			void this.updateChart(this.dataPromise);
+		if (changedProperties.has('dataPromise') || this.dataPromise == null) {
+			this.updateChart();
 		}
-
 		super.update(changedProperties);
 	}
 
+	private updateChart() {
+		if (!this._loading?.pending) {
+			this._loading = defer<void>();
+			void this._loading.promise.finally(() => (this._loading = undefined));
+
+			this.emit('gl-loading', this._loading.promise);
+		}
+
+		if (this.dataPromise == null) return;
+
+		this._chartAborter?.abort();
+		this._chartAborter = new AbortController();
+		void this.renderChart(this.dataPromise, this._loading, this._chartAborter.signal);
+	}
+
 	protected override render(): unknown {
-		return html`${this._loading?.pending
-				? html`<div class="notice notice--blur">
-						<gl-watermark-loader pulse><p>Loading...</p></gl-watermark-loader>
-				  </div>`
-				: !this.data?.length
-				  ? html`<div class="notice">
-							<gl-watermark-loader
-								><p>No commits found for the specified time period</p></gl-watermark-loader
-							>
-				    </div>`
-				  : nothing}
+		return html`${this.renderNotice()}
 			<gl-chart-scroller
 				.range=${this._rangeScrollable}
 				.visibleRange=${this._zoomedRangeScrollable}
@@ -191,6 +201,22 @@ export class GlTimelineChart extends GlElement {
 				</sl-resize-observer>
 				${this.data?.length ? this.renderFooter() : nothing}
 			</gl-chart-scroller>`;
+	}
+
+	private renderNotice() {
+		if (this._loading?.pending || this.data == null) {
+			return html`<div class="notice notice--blur">
+				<gl-watermark-loader pulse><p>Loading...</p></gl-watermark-loader>
+			</div>`;
+		}
+
+		if (!this.data.length) {
+			return html`<div class="notice">
+				<gl-watermark-loader><slot name="empty"></slot></gl-watermark-loader>
+			</div>`;
+		}
+
+		return nothing;
 	}
 
 	private renderFooter() {
@@ -602,20 +628,14 @@ export class GlTimelineChart extends GlElement {
 	}
 
 	@log({ args: false })
-	private async updateChart(dataPromise: State['dataset']): Promise<void> {
-		if (this._loading?.pending) return;
+	private async renderChart(
+		dataPromise: NonNullable<State['dataset']>,
+		loading: ReturnType<typeof defer<void>>,
+		signal: AbortSignal,
+	): Promise<void> {
+		const data = await dataPromise;
 
-		const abortController = this._abortController;
-
-		const loading = defer<void>();
-		void loading.promise.finally(() => (this._loading = undefined));
-
-		this._loading = loading;
-		this.emit('gl-loading', loading.promise);
-
-		const data = (await dataPromise) ?? [];
-
-		if (abortController?.signal.aborted) {
+		if (signal.aborted) {
 			loading?.cancel();
 			return;
 		}
@@ -635,7 +655,7 @@ export class GlTimelineChart extends GlElement {
 		const { bb, bar, scatter, selection, zoom } = await import(
 			/* webpackChunkName: "lib-billboard" */ 'billboard.js'
 		);
-		if (abortController?.signal.aborted) {
+		if (signal.aborted) {
 			loading?.cancel();
 			return;
 		}
@@ -780,6 +800,13 @@ export class GlTimelineChart extends GlElement {
 							const commit = this._commitsByTimestamp.get(date.getTime());
 							if (commit == null) return '';
 
+							if (commit.sha === '') {
+								return /*html*/ `<div class="bb-tooltip">
+									<section class="author">Working Tree</section>
+									<section class="message"><span class="message__content">No uncommitted changes</span></section>
+								</div>`;
+							}
+
 							const additions = commit.additions;
 							const deletions = commit.deletions;
 							const additionsLabel =
@@ -895,11 +922,12 @@ export class GlTimelineChart extends GlElement {
 		const xAxis = this.shadowRoot?.querySelector('.bb-axis.bb-axis-x');
 		if (xAxis == null) return;
 
-		const rect = xAxis.getBoundingClientRect();
+		const xAxisRect = xAxis.getBoundingClientRect();
+		const containerRect = this.chartContainer.getBoundingClientRect();
 
-		this.style.setProperty('--scroller-track-top', `${rect.top}px`);
-		this.style.setProperty('--scroller-track-left', `${rect.left + 2}px`);
-		this.style.setProperty('--scroller-track-width', `${rect.width - 2}px`);
+		this.style.setProperty('--scroller-track-top', `${xAxisRect.top - (containerRect.top - 1)}px`);
+		this.style.setProperty('--scroller-track-left', `${xAxisRect.left + 2}px`);
+		this.style.setProperty('--scroller-track-width', `${xAxisRect.width - 2}px`);
 		// this.style.setProperty('--scroller-track-height', `${rect.height + 2}px`);
 	}
 }

@@ -120,6 +120,7 @@ export const TelemetrySendEventCommand = new IpcCommand<TelemetrySendEventParams
 
 export interface IpcPromise {
 	__ipc: 'promise';
+	__promise: Promise<unknown>;
 	id: string;
 	method: string;
 }

@@ -634,6 +634,7 @@ function getWebviewConfig(webviews, overrides, mode, env) {
 				},
 			],
 		},
+
 		resolve: {
 			alias: {
 				'@env': path.resolve(__dirname, 'src', 'env', 'browser'),
@@ -641,6 +642,7 @@ function getWebviewConfig(webviews, overrides, mode, env) {
 				'react-dom': path.resolve(__dirname, 'node_modules', 'react-dom'),
 				...overrides.alias,
 			},
+			fallback: { path: require.resolve('path-browserify') },
 			extensions: ['.ts', '.tsx', '.js', '.jsx', '.json'],
 			modules: [basePath, 'node_modules'],
 		},

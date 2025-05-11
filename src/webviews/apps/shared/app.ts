@@ -21,7 +21,6 @@ export type ReactiveElementHost = ReactiveControllerHost & HTMLElement;
 
 export interface StateProvider<State> extends Disposable {
 	readonly state: State;
-	// readonly signal?: ReturnType<typeof signal<State>>;
 }
 
 export abstract class GlApp<
@@ -74,6 +73,7 @@ export abstract class GlApp<
 		this._logger.log('connected');
 
 		this._ipc = new HostIpc(this.name);
+		this._ipc.sendCommand(WebviewReadyCommand, undefined);
 
 		const state = this.bootstrap;
 		this.bootstrap = undefined!;
@@ -100,7 +100,6 @@ export abstract class GlApp<
 			(this._promos = new PromosContext(this._ipc)),
 			(this._telemetry = new TelemetryContext(this._ipc)),
 		);
-		this._ipc.sendCommand(WebviewReadyCommand, undefined);
 
 		this._sendWebviewFocusChangedCommandDebounced = debounce((params: WebviewFocusChangedParams) => {
 			this._ipc.sendCommand(WebviewFocusChangedCommand, params);

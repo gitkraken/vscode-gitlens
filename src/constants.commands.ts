@@ -46,6 +46,8 @@ type InternalHomeWebviewCommands =
 	| 'gitlens.home.switchToBranch'
 	| 'gitlens.home.fetch'
 	| 'gitlens.home.openInGraph'
+	| 'gitlens.home.visualizeHistory.repo:home'
+	| 'gitlens.home.visualizeHistory.branch:home'
 	| 'gitlens.home.createBranch'
 	| 'gitlens.home.mergeIntoCurrent'
 	| 'gitlens.home.rebaseCurrentOnto'
@@ -116,6 +118,9 @@ type InternalGlCommands =
 	| 'gitlens.openOnRemote'
 	| 'gitlens.openWalkthrough'
 	| 'gitlens.refreshHover'
+	| 'gitlens.visualizeHistory'
+	| 'gitlens.visualizeHistory.repo:home'
+	| 'gitlens.visualizeHistory.branch:home'
 	| InternalGraphWebviewCommands
 	| InternalHomeWebviewCommands
 	| InternalHomeWebviewViewCommands

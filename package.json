@@ -7507,17 +7507,6 @@
 				"category": "GitLens"
 			},
 			{
-				"command": "gitlens.showFileInTimeline",
-				"title": "Open Visual File History",
-				"category": "GitLens",
-				"icon": "$(graph-scatter)"
-			},
-			{
-				"command": "gitlens.showFolderInTimeline",
-				"title": "Open Visual Folder History",
-				"icon": "$(graph-scatter)"
-			},
-			{
 				"command": "gitlens.showGraph",
 				"title": "Show Commit Graph",
 				"category": "GitLens",
@@ -7738,7 +7727,7 @@
 			},
 			{
 				"command": "gitlens.showTimelinePage",
-				"title": "Show Visual File History",
+				"title": "Show Visual History",
 				"category": "GitLens",
 				"icon": "$(graph-scatter)"
 			},
@@ -9974,6 +9963,42 @@
 				"command": "gitlens.views.worktrees.viewOptionsTitle",
 				"title": "Worktrees View Options",
 				"enablement": "false"
+			},
+			{
+				"command": "gitlens.visualizeHistory.file",
+				"title": "Open Visual File History",
+				"category": "GitLens",
+				"icon": "$(graph-scatter)"
+			},
+			{
+				"command": "gitlens.visualizeHistory.file:editor",
+				"title": "Open Visual File History",
+				"icon": "$(graph-scatter)"
+			},
+			{
+				"command": "gitlens.visualizeHistory.file:explorer",
+				"title": "Open Visual File History",
+				"icon": "$(graph-scatter)"
+			},
+			{
+				"command": "gitlens.visualizeHistory.file:scm",
+				"title": "Open Visual File History",
+				"icon": "$(graph-scatter)"
+			},
+			{
+				"command": "gitlens.visualizeHistory.file:views",
+				"title": "Open Visual File History",
+				"icon": "$(graph-scatter)"
+			},
+			{
+				"command": "gitlens.visualizeHistory.folder:explorer",
+				"title": "Open Visual Folder History",
+				"icon": "$(graph-scatter)"
+			},
+			{
+				"command": "gitlens.visualizeHistory.folder:scm",
+				"title": "Open Visual Folder History",
+				"icon": "$(graph-scatter)"
 			}
 		],
 		"icons": {
@@ -11517,14 +11542,6 @@
 				{
 					"command": "gitlens.showFileHistoryView",
 					"when": "gitlens:enabled"
-				},
-				{
-					"command": "gitlens.showFileInTimeline",
-					"when": "gitlens:enabled && resource in gitlens:tabs:tracked"
-				},
-				{
-					"command": "gitlens.showFolderInTimeline",
-					"when": "false"
 				},
 				{
 					"command": "gitlens.showGraph",
@@ -13557,6 +13574,34 @@
 				{
 					"command": "gitlens.views.worktrees.viewOptionsTitle",
 					"when": "false"
+				},
+				{
+					"command": "gitlens.visualizeHistory.file",
+					"when": "gitlens:enabled && resource in gitlens:tabs:tracked"
+				},
+				{
+					"command": "gitlens.visualizeHistory.file:editor",
+					"when": "false"
+				},
+				{
+					"command": "gitlens.visualizeHistory.file:explorer",
+					"when": "false"
+				},
+				{
+					"command": "gitlens.visualizeHistory.file:scm",
+					"when": "false"
+				},
+				{
+					"command": "gitlens.visualizeHistory.file:views",
+					"when": "false"
+				},
+				{
+					"command": "gitlens.visualizeHistory.folder:explorer",
+					"when": "false"
+				},
+				{
+					"command": "gitlens.visualizeHistory.folder:scm",
+					"when": "false"
 				}
 			],
 			"editor/context": [
@@ -14055,7 +14100,7 @@
 					"group": "1_gitlens@1"
 				},
 				{
-					"command": "gitlens.showFileInTimeline",
+					"command": "gitlens.visualizeHistory.file:views",
 					"group": "1_gitlens@2"
 				},
 				{
@@ -14249,7 +14294,7 @@
 					"group": "1_gitlens@1"
 				},
 				{
-					"command": "gitlens.showFileInTimeline",
+					"command": "gitlens.visualizeHistory.file:editor",
 					"group": "1_gitlens@2"
 				},
 				{
@@ -14364,7 +14409,7 @@
 					"group": "1_gitlens@1"
 				},
 				{
-					"command": "gitlens.showFileInTimeline",
+					"command": "gitlens.visualizeHistory.file:explorer",
 					"group": "1_gitlens@2"
 				},
 				{
@@ -14378,7 +14423,7 @@
 					"group": "1_gitlens@1"
 				},
 				{
-					"command": "gitlens.showFolderInTimeline",
+					"command": "gitlens.visualizeHistory.folder:explorer",
 					"group": "1_gitlens@2"
 				}
 			],
@@ -14511,7 +14556,7 @@
 					"group": "1_gitlens@2"
 				},
 				{
-					"command": "gitlens.showFolderInTimeline",
+					"command": "gitlens.visualizeHistory.folder:scm",
 					"group": "1_gitlens@2"
 				}
 			],
@@ -14555,7 +14600,7 @@
 					"group": "1_gitlens@1"
 				},
 				{
-					"command": "gitlens.showFileInTimeline",
+					"command": "gitlens.visualizeHistory.file:scm",
 					"group": "1_gitlens@2"
 				},
 				{
