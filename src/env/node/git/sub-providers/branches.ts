@@ -1,5 +1,4 @@
 import type { CancellationToken } from 'vscode';
-import type { GitConfigKeys } from '../../../../constants';
 import type { Container } from '../../../../container';
 import { CancellationError, isCancellationError } from '../../../../errors';
 import type { GitCache } from '../../../../git/cache';
@@ -256,18 +255,13 @@ export class BranchesGitSubProvider implements GitBranchesSubProvider {
 		const scope = getLogScope();
 
 		try {
-			let baseOrTargetBranch = await this.getBaseBranchName(repoPath, ref, cancellation);
-			// If the base looks like its remote branch, look for the target or default
-			if (baseOrTargetBranch == null || baseOrTargetBranch.endsWith(`/${ref}`)) {
-				baseOrTargetBranch = await this.getTargetBranchName(repoPath, ref);
-				baseOrTargetBranch ??= await this.getDefaultBranchName(repoPath, undefined, cancellation);
-				if (baseOrTargetBranch == null) return undefined;
-			}
+			const mergeTarget = await this.getBestMergeTargetBranchName(repoPath, ref);
+			if (mergeTarget == null) return undefined;
 
 			const mergeBase = await this.provider.refs.getMergeBase(
 				repoPath,
 				ref,
-				baseOrTargetBranch,
+				mergeTarget,
 				undefined,
 				cancellation,
 			);
@@ -314,7 +308,7 @@ export class BranchesGitSubProvider implements GitBranchesSubProvider {
 			return {
 				repoPath: repoPath,
 				branch: ref,
-				baseOrTargetBranch: baseOrTargetBranch,
+				mergeTarget: mergeTarget,
 				mergeBase: mergeBase,
 
 				commits: totalCommits,
@@ -669,7 +663,7 @@ export class BranchesGitSubProvider implements GitBranchesSubProvider {
 					const branch = await this.provider.refs.getSymbolicReferenceName(repoPath, mergeBase);
 					if (branch != null) {
 						if (update) {
-							void this.setBaseBranchName(repoPath, ref, branch);
+							void this.storeBaseBranchName(repoPath, ref, branch);
 						}
 						return branch;
 					}
@@ -679,46 +673,11 @@ export class BranchesGitSubProvider implements GitBranchesSubProvider {
 
 		const branch = await this.getBaseBranchFromReflog(repoPath, ref, { upstream: true }, cancellation);
 		if (branch != null) {
-			void this.setBaseBranchName(repoPath, ref, branch);
+			void this.storeBaseBranchName(repoPath, ref, branch);
 			return branch;
 		}
 
 		return undefined;
-	}
-
-	@log()
-	async setBaseBranchName(repoPath: string, ref: string, base: string): Promise<void> {
-		const mergeBaseConfigKey: GitConfigKeys = `branch.${ref}.gk-merge-base`;
-
-		await this.provider.config.setConfig(repoPath, mergeBaseConfigKey, base);
-	}
-
-	@log()
-	async getUserMergeTargetBranchName(repoPath: string, ref: string): Promise<string | undefined> {
-		const mergeTargetConfigKey: GitConfigKeys = `branch.${ref}.gk-user-merge-target`;
-		const target = await this.provider.config.getConfig(repoPath, mergeTargetConfigKey);
-		return target?.trim() || undefined;
-	}
-
-	@log()
-	async setUserMergeTargetBranchName(repoPath: string, ref: string, target: string | undefined): Promise<void> {
-		const mergeTargetConfigKey: GitConfigKeys = `branch.${ref}.gk-user-merge-target`;
-		await this.provider.config.setConfig(repoPath, mergeTargetConfigKey, target);
-	}
-
-	async getMergeTargetBranchName(repoPath: string, branch: GitBranch): Promise<string | undefined> {
-		const [baseResult, defaultResult, targetResult, userTargetResult] = await Promise.allSettled([
-			this.getBaseBranchName?.(repoPath, branch.name),
-			this.getDefaultBranchName(repoPath, branch.getRemoteName()),
-			this.getTargetBranchName?.(repoPath, branch.name),
-			this.getUserMergeTargetBranchName?.(repoPath, branch.name),
-		]);
-
-		const baseBranchName = getSettledValue(baseResult);
-		const defaultBranchName = getSettledValue(defaultResult);
-		const targetMaybeResult = getSettledValue(targetResult);
-		const userTargetBranchName = getSettledValue(userTargetResult);
-		return userTargetBranchName || targetMaybeResult || baseBranchName || defaultBranchName;
 	}
 
 	private async getBaseBranchFromReflog(
@@ -782,26 +741,75 @@ export class BranchesGitSubProvider implements GitBranchesSubProvider {
 		return undefined;
 	}
 
-	@log({ exit: true })
-	async getTargetBranchName(repoPath: string, ref: string): Promise<string | undefined> {
-		const targetBaseConfigKey: GitConfigKeys = `branch.${ref}.gk-target-base`;
+	@log()
+	async getBestMergeTargetBranchName(
+		repoPath: string,
+		ref: string,
+		remote?: string,
+		options?: { detectedOnly?: boolean },
+		cancellation?: CancellationToken,
+	): Promise<string | undefined> {
+		const [userTargetResult, targetResult] = await Promise.allSettled([
+			options?.detectedOnly ? undefined : this.getStoredUserMergeTargetBranchName?.(repoPath, ref),
+			this.getStoredDetectedMergeTargetBranchName?.(repoPath, ref),
+		]);
 
-		let target = await this.provider.config.getConfig(repoPath, targetBaseConfigKey);
-		if (target) {
-			target = await this.provider.refs.getSymbolicReferenceName(repoPath, target);
+		const targetBranchName = getSettledValue(userTargetResult) || getSettledValue(targetResult);
+		if (targetBranchName) {
+			const validated = await this.provider.refs.getSymbolicReferenceName(
+				repoPath,
+				targetBranchName,
+				cancellation,
+			);
+			return validated || targetBranchName;
 		}
+
+		const [baseResult, defaultResult] = await Promise.allSettled([
+			this.getBaseBranchName?.(repoPath, ref, cancellation),
+			this.getDefaultBranchName(repoPath, remote, cancellation),
+		]);
+		return getSettledValue(baseResult) || getSettledValue(defaultResult);
+	}
+
+	@log({ exit: true })
+	async getStoredMergeTargetBranchName(repoPath: string, ref: string): Promise<string | undefined> {
+		const target =
+			(await this.getStoredUserMergeTargetBranchName?.(repoPath, ref)) ??
+			(await this.getStoredDetectedMergeTargetBranchName?.(repoPath, ref));
+		return target?.trim() || undefined;
+	}
+
+	@log({ exit: true })
+	async getStoredDetectedMergeTargetBranchName(repoPath: string, ref: string): Promise<string | undefined> {
+		const target =
+			(await this.provider.config.getConfig(repoPath, `branch.${ref}.gk-merge-target`)) ??
+			(await this.provider.config.getConfig(repoPath, `branch.${ref}.gk-target-base`));
 		return target?.trim() || undefined;
 	}
 
 	@log()
-	async setTargetBranchName(repoPath: string, ref: string, target: string): Promise<void> {
-		const targetBaseConfigKey: GitConfigKeys = `branch.${ref}.gk-target-base`;
-
-		await this.provider.config.setConfig(repoPath, targetBaseConfigKey, target);
+	async getStoredUserMergeTargetBranchName(repoPath: string, ref: string): Promise<string | undefined> {
+		const target = await this.provider.config.getConfig(repoPath, `branch.${ref}.gk-merge-target-user`);
+		return target?.trim() || undefined;
 	}
 
 	@log()
 	async renameBranch(repoPath: string, oldName: string, newName: string): Promise<void> {
 		await this.git.exec({ cwd: repoPath }, 'branch', '-m', oldName, newName);
+	}
+
+	@log()
+	async storeBaseBranchName(repoPath: string, ref: string, base: string): Promise<void> {
+		await this.provider.config.setConfig(repoPath, `branch.${ref}.gk-merge-base`, base);
+	}
+
+	@log()
+	async storeMergeTargetBranchName(repoPath: string, ref: string, target: string): Promise<void> {
+		await this.provider.config.setConfig(repoPath, `branch.${ref}.gk-merge-target`, target);
+	}
+
+	@log()
+	async storeUserMergeTargetBranchName(repoPath: string, ref: string, target: string | undefined): Promise<void> {
+		await this.provider.config.setConfig(repoPath, `branch.${ref}.gk-merge-target-user`, target);
 	}
 }

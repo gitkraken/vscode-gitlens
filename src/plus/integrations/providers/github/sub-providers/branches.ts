@@ -211,18 +211,10 @@ export class BranchesGitSubProvider implements GitBranchesSubProvider {
 		const scope = getLogScope();
 
 		try {
-			// let baseOrTargetBranch = await this.getBaseBranchName(repoPath, ref);
-			// // If the base looks like its remote branch, look for the target or default
-			// if (baseOrTargetBranch == null || baseOrTargetBranch.endsWith(`/${ref}`)) {
-			// 	baseOrTargetBranch = await this.getTargetBranchName(repoPath, ref);
-			// 	baseOrTargetBranch ??= await this.getDefaultBranchName(repoPath);
-			// 	if (baseOrTargetBranch == null) return undefined;
-			// }
+			const mergeTarget = await this.getDefaultBranchName(repoPath);
+			if (mergeTarget == null) return undefined;
 
-			const baseOrTargetBranch = await this.getDefaultBranchName(repoPath);
-			if (baseOrTargetBranch == null) return undefined;
-
-			const mergeBase = await this.provider.refs.getMergeBase(repoPath, ref, baseOrTargetBranch);
+			const mergeBase = await this.provider.refs.getMergeBase(repoPath, ref, mergeTarget);
 			if (mergeBase == null) return undefined;
 
 			const result = await this.provider.contributors.getContributors(
@@ -265,7 +257,7 @@ export class BranchesGitSubProvider implements GitBranchesSubProvider {
 			return {
 				repoPath: repoPath,
 				branch: ref,
-				baseOrTargetBranch: baseOrTargetBranch,
+				mergeTarget: mergeTarget,
 				mergeBase: mergeBase,
 
 				commits: totalCommits,

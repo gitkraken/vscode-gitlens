@@ -136,7 +136,7 @@ export interface RepositoryVisibilityInfo {
 export interface BranchContributionsOverview extends GitCommitStats<number> {
 	readonly repoPath: string;
 	readonly branch: string;
-	readonly baseOrTargetBranch: string;
+	readonly mergeTarget: string;
 	readonly mergeBase: string;
 
 	readonly commits: number;
@@ -274,13 +274,27 @@ export interface GitBranchesSubProvider {
 		cancellation?: CancellationToken,
 	): Promise<MergeConflict | undefined>;
 	getBaseBranchName?(repoPath: string, ref: string, cancellation?: CancellationToken): Promise<string | undefined>;
-	setBaseBranchName?(repoPath: string, ref: string, base: string): Promise<void>;
-	getTargetBranchName?(repoPath: string, ref: string): Promise<string | undefined>;
-	setTargetBranchName?(repoPath: string, ref: string, target: string): Promise<void>;
-	getUserMergeTargetBranchName?(repoPath: string, ref: string): Promise<string | undefined>;
-	setUserMergeTargetBranchName?(repoPath: string, ref: string, target: string | undefined): Promise<void>;
-	getMergeTargetBranchName?(repoPath: string, branch: GitBranch): Promise<string | undefined>;
+	/** Gets the best merge target branch name */
+	getBestMergeTargetBranchName?(
+		repoPath: string,
+		ref: string,
+		remote?: string,
+		options?: {
+			/** Excludes the user chosen merge target */
+			detectedOnly?: boolean;
+		},
+		cancellation?: CancellationToken,
+	): Promise<string | undefined>;
+	/** Gets the stored merge target branch name, first checking the user target, then the detected target */
+	getStoredMergeTargetBranchName?(repoPath: string, ref: string): Promise<string | undefined>;
+	/** Gets the stored detected merge target branch name */
+	getStoredDetectedMergeTargetBranchName?(repoPath: string, ref: string): Promise<string | undefined>;
+	/** Gets the stored user merge target branch name */
+	getStoredUserMergeTargetBranchName?(repoPath: string, ref: string): Promise<string | undefined>;
 	renameBranch?(repoPath: string, oldName: string, newName: string): Promise<void>;
+	storeBaseBranchName?(repoPath: string, ref: string, base: string): Promise<void>;
+	storeMergeTargetBranchName?(repoPath: string, ref: string, target: string): Promise<void>;
+	storeUserMergeTargetBranchName?(repoPath: string, ref: string, target: string | undefined): Promise<void>;
 }
 
 interface GitLogOptionsBase {

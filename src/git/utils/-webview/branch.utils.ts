@@ -6,39 +6,34 @@ import { getSettledValue, pauseOnCancelOrTimeout } from '../../../system/promise
 import type { BranchTargetInfo, GitBranch } from '../../models/branch';
 import type { PullRequest } from '../../models/pullRequest';
 
-export async function getBranchTargetInfo(
+export async function getBranchMergeTargetInfo(
 	container: Container,
 	branch: GitBranch,
 	options?: {
 		associatedPullRequest?: Promise<PullRequest | undefined>;
 		cancellation?: CancellationToken;
+		detectedOnly?: boolean;
 		timeout?: number;
 	},
 ): Promise<BranchTargetInfo> {
-	const [baseResult, defaultResult, targetResult, userTargetResult] = await Promise.allSettled([
+	const [targetResult, baseResult, defaultResult] = await Promise.allSettled([
+		getMergeTargetBranchName(container, branch, {
+			cancellation: options?.cancellation,
+			detectedOnly: options?.detectedOnly,
+			timeout: options?.timeout,
+		}),
 		container.git.branches(branch.repoPath).getBaseBranchName?.(branch.name, options?.cancellation),
 		getDefaultBranchName(container, branch.repoPath, branch.getRemoteName(), {
 			cancellation: options?.cancellation,
 		}),
-		getTargetBranchName(container, branch, {
-			cancellation: options?.cancellation,
-			timeout: options?.timeout,
-		}),
-		container.git.branches(branch.repoPath).getUserMergeTargetBranchName?.(branch.name),
 	]);
 
 	if (options?.cancellation?.isCancellationRequested) throw new CancellationError();
 
-	const baseBranchName = getSettledValue(baseResult);
-	const defaultBranchName = getSettledValue(defaultResult);
-	const targetMaybeResult = getSettledValue(targetResult);
-	const userTargetBranchName = getSettledValue(userTargetResult);
-
 	return {
-		baseBranch: baseBranchName,
-		defaultBranch: defaultBranchName,
-		targetBranch: targetMaybeResult ?? { value: undefined, paused: false },
-		userTargetBranch: userTargetBranchName,
+		mergeTargetBranch: getSettledValue(targetResult) ?? { value: undefined, paused: false },
+		baseBranch: getSettledValue(baseResult),
+		defaultBranch: getSettledValue(defaultResult),
 	};
 }
 
@@ -49,8 +44,14 @@ export async function getDefaultBranchName(
 	options?: { cancellation?: CancellationToken },
 ): Promise<string | undefined> {
 	const name = await container.git.branches(repoPath).getDefaultBranchName(remoteName, options?.cancellation);
-	if (name != null) return name;
+	return name ?? getDefaultBranchNameFromIntegration(container, repoPath, options);
+}
 
+export async function getDefaultBranchNameFromIntegration(
+	container: Container,
+	repoPath: string,
+	options?: { cancellation?: CancellationToken },
+): Promise<string | undefined> {
 	const remote = await container.git.remotes(repoPath).getBestRemoteWithIntegration(undefined, options?.cancellation);
 	if (remote == null) return undefined;
 
@@ -59,17 +60,25 @@ export async function getDefaultBranchName(
 	return defaultBranch && `${remote.name}/${defaultBranch?.name}`;
 }
 
-export async function getTargetBranchName(
+export async function getMergeTargetBranchName(
 	container: Container,
 	branch: GitBranch,
 	options?: {
 		associatedPullRequest?: Promise<PullRequest | undefined>;
 		cancellation?: CancellationToken;
+		detectedOnly?: boolean;
 		timeout?: number;
 	},
 ): Promise<MaybePausedResult<string | undefined>> {
-	const targetBranch = await container.git.branches(branch.repoPath).getTargetBranchName?.(branch.name);
-	if (targetBranch != null) return { value: targetBranch, paused: false };
+	const targetBranch = options?.detectedOnly
+		? await container.git.branches(branch.repoPath).getStoredDetectedMergeTargetBranchName?.(branch.name)
+		: await container.git.branches(branch.repoPath).getStoredMergeTargetBranchName?.(branch.name);
+	if (targetBranch) {
+		const validated = await container.git
+			.refs(branch.repoPath)
+			.getSymbolicReferenceName?.(targetBranch, options?.cancellation);
+		return { value: validated || targetBranch, paused: false };
+	}
 
 	if (options?.cancellation?.isCancellationRequested) return { value: undefined, paused: false };
 
@@ -78,7 +87,7 @@ export async function getTargetBranchName(
 			if (pr?.refs?.base == null) return undefined;
 
 			const name = `${branch.getRemoteName()}/${pr.refs.base.branch}`;
-			void container.git.branches(branch.repoPath).setTargetBranchName?.(branch.name, name);
+			void container.git.branches(branch.repoPath).storeMergeTargetBranchName?.(branch.name, name);
 
 			return name;
 		}),
