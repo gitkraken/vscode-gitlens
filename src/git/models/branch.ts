@@ -225,8 +225,7 @@ export type GitBranchStatus =
 	| 'remote';
 
 export interface BranchTargetInfo {
+	mergeTargetBranch: MaybePausedResult<string | undefined>;
 	baseBranch: string | undefined;
 	defaultBranch: string | undefined;
-	targetBranch: MaybePausedResult<string | undefined>;
-	userTargetBranch: string | undefined;
 }

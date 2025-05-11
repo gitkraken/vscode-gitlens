@@ -795,15 +795,18 @@ export function* pickOrResetBranchStep<
 		picked,
 		placeholder,
 		title,
-		resetTitle,
-		resetDescription,
+		reset,
 	}: {
 		filter?: (b: GitBranch) => boolean;
 		picked?: string | string[];
 		placeholder: string;
 		title?: string;
-		resetTitle: string;
-		resetDescription: string;
+		reset: {
+			allowed: boolean;
+			label?: string;
+			description?: string;
+			detail?: string;
+		};
 	},
 ): StepResultGenerator<GitBranchReference | undefined> {
 	const items = getBranches(state.repo, {
@@ -814,25 +817,31 @@ export function* pickOrResetBranchStep<
 		branches.length === 0
 			? [createDirectiveQuickPickItem(Directive.Back, true), createDirectiveQuickPickItem(Directive.Cancel)]
 			: [
-					createDirectiveQuickPickItem(Directive.Reset, false, {
-						label: resetTitle,
-						description: resetDescription,
-					}),
+					...(reset.allowed
+						? [
+								createDirectiveQuickPickItem(Directive.Reset, false, {
+									label: reset.label,
+									description: reset.description,
+									detail: reset.detail,
+								}),
+						  ]
+						: []),
 					...branches,
 			  ],
 	);
 
 	const resetButton: QuickInputButton = {
-		iconPath: new ThemeIcon('notebook-revert'),
-		tooltip: resetDescription || resetTitle,
+		iconPath: new ThemeIcon('discard'),
+		tooltip: reset.label,
 	};
+
 	let resetButtonClicked = false;
 	const step = createPickStep<BranchQuickPickItem>({
 		title: appendReposToTitle(title ?? context.title, state, context),
 		placeholder: count => (!count ? `No branches found in ${state.repo.formattedName}` : placeholder),
 		matchOnDetail: true,
 		items: items,
-		additionalButtons: [resetButton],
+		additionalButtons: reset.allowed ? [resetButton] : [],
 		onDidClickButton: (_quickpick, button) => {
 			if (button === resetButton) {
 				resetButtonClicked = true;

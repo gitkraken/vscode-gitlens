@@ -48,11 +48,14 @@ export const enum CharCode {
 }
 
 export type GitConfigKeys =
-	| `branch.${string}.${'gk' | 'vscode'}-merge-base`
-	| `branch.${string}.gk-user-merge-target`
-	| `branch.${string}.gk-target-base`
+	| `branch.${string}.vscode-merge-base`
+	| `branch.${string}.gk-merge-base`
+	| `branch.${string}.gk-merge-target`
+	| `branch.${string}.gk-merge-target-user`
 	| `branch.${string}.gk-associated-issues`
 	| `branch.${string}.github-pr-owner-number`;
+
+export type DeprecatedGitConfigKeys = `branch.${string}.gk-target-base`;
 
 export const enum GlyphChars {
 	AngleBracketLeftHeavy = '\u2770',

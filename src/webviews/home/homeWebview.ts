@@ -35,7 +35,7 @@ import { uncommitted } from '../../git/models/revision';
 import type { GitStatus } from '../../git/models/status';
 import type { GitWorktree } from '../../git/models/worktree';
 import { getAssociatedIssuesForBranch } from '../../git/utils/-webview/branch.issue.utils';
-import { getBranchTargetInfo } from '../../git/utils/-webview/branch.utils';
+import { getBranchMergeTargetInfo } from '../../git/utils/-webview/branch.utils';
 import { getReferenceFromBranch } from '../../git/utils/-webview/reference.utils';
 import { sortBranches } from '../../git/utils/-webview/sorting';
 import { getOpenedWorktreesByBranch, groupWorktreesByBranch } from '../../git/utils/-webview/worktree.utils';
@@ -1640,12 +1640,7 @@ function enrichOverviewBranchesCore(
 			issues =>
 				issues?.map(
 					i =>
-						({
-							id: i.id,
-							title: i.title,
-							state: i.state,
-							url: i.url,
-						}) satisfies NonNullable<IssuesInfo>[0],
+						({ id: i.id, title: i.title, state: i.state, url: i.url }) satisfies NonNullable<IssuesInfo>[0],
 				) ?? [],
 		);
 
@@ -1669,12 +1664,7 @@ async function getAutolinkIssuesInfo(links: Map<string, EnrichedAutolink> | unde
 			const issue = await issueOrPullRequest;
 			if (issue == null) return undefined;
 
-			return {
-				id: issue.id,
-				title: issue.title,
-				url: issue.url,
-				state: issue.state,
-			};
+			return { id: issue.id, title: issue.title, url: issue.url, state: issue.state };
 		}),
 	);
 
@@ -1711,15 +1701,13 @@ async function getBranchMergeTargetStatusInfo(
 	container: Container,
 	branch: GitBranch,
 ): Promise<BranchMergeTargetStatusInfo> {
-	const info = await getBranchTargetInfo(container, branch, {
+	const info = await getBranchMergeTargetInfo(container, branch, {
 		associatedPullRequest: branch.getAssociatedPullRequest(),
 	});
 
 	let targetResult;
-	if (info.userTargetBranch) {
-		targetResult = info.userTargetBranch;
-	} else if (!info.targetBranch.paused && info.targetBranch.value) {
-		targetResult = info.targetBranch.value;
+	if (!info.mergeTargetBranch.paused && info.mergeTargetBranch.value) {
+		targetResult = info.mergeTargetBranch.value;
 	}
 
 	const target = targetResult ?? info.baseBranch ?? info.defaultBranch;

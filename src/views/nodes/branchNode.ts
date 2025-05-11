@@ -15,7 +15,7 @@ import type { GitBranchReference } from '../../git/models/reference';
 import type { Repository } from '../../git/models/repository';
 import type { GitUser } from '../../git/models/user';
 import type { GitWorktree } from '../../git/models/worktree';
-import { getTargetBranchName } from '../../git/utils/-webview/branch.utils';
+import { getMergeTargetBranchName } from '../../git/utils/-webview/branch.utils';
 import { getBranchIconPath, getRemoteIconPath, getWorktreeBranchIconPath } from '../../git/utils/-webview/icons';
 import { getLastFetchedUpdateInterval } from '../../git/utils/fetch.utils';
 import { getHighlanderProviders } from '../../git/utils/remote.utils';
@@ -252,7 +252,7 @@ export class BranchNode
 					? this.view.container.git.branches(this.branch.repoPath).getBaseBranchName?.(this.branch.name)
 					: undefined,
 				loadComparisonDefaultCompareWith
-					? getTargetBranchName(this.view.container, this.branch, {
+					? getMergeTargetBranchName(this.view.container, this.branch, {
 							associatedPullRequest: prPromise,
 							timeout: 100,
 					  })

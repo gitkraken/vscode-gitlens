@@ -76,7 +76,7 @@ import { uncommitted } from '../../../git/models/revision';
 import type { GitGraphSearch } from '../../../git/search';
 import { getSearchQueryComparisonKey, parseSearchQuery } from '../../../git/search';
 import { getAssociatedIssuesForBranch } from '../../../git/utils/-webview/branch.issue.utils';
-import { getDefaultBranchName, getTargetBranchName } from '../../../git/utils/-webview/branch.utils';
+import { getBranchMergeTargetInfo } from '../../../git/utils/-webview/branch.utils';
 import { getRemoteIconUri } from '../../../git/utils/-webview/icons';
 import { getReferenceFromBranch } from '../../../git/utils/-webview/reference.utils';
 import { getWorktreesByBranch } from '../../../git/utils/-webview/worktree.utils';
@@ -2199,41 +2199,31 @@ export class GraphWebviewProvider implements WebviewProvider<State, State, Graph
 
 				const cancellation = this.createCancellation('computeIncludedRefs');
 
-				const [baseResult, defaultResult, targetResult] = await Promise.allSettled([
-					this.container.git.branches(current.repoPath).getBaseBranchName?.(current.name, cancellation.token),
-					getDefaultBranchName(this.container, current.repoPath, current.getRemoteName(), {
-						cancellation: cancellation.token,
-					}),
-					getTargetBranchName(this.container, current, {
-						cancellation: cancellation.token,
-						timeout: options?.timeout,
-					}),
-				]);
+				const result = await getBranchMergeTargetInfo(this.container, current, {
+					cancellation: cancellation.token,
+					timeout: options?.timeout,
+				});
 
 				if (cancellation.token.isCancellationRequested) return { refs: {} };
 
-				const baseBranchName = getSettledValue(baseResult);
-				const defaultBranchName = getSettledValue(defaultResult);
-				const targetMaybeResult = getSettledValue(targetResult);
-
 				let targetBranchName: string | undefined;
-				if (targetMaybeResult?.paused) {
-					continuation = targetMaybeResult.value.then(async target => {
+				if (result.mergeTargetBranch?.paused) {
+					continuation = result.mergeTargetBranch.value.then(async target => {
 						if (target == null || cancellation?.token.isCancellationRequested) return undefined;
 
 						const refs = await this.getVisibleRefs(graph, current, {
 							baseOrTargetBranchName: target,
-							defaultBranchName: defaultBranchName,
+							defaultBranchName: result.defaultBranch,
 						});
 						return Object.fromEntries(refs);
 					});
 				} else {
-					targetBranchName = targetMaybeResult?.value;
+					targetBranchName = result.mergeTargetBranch?.value;
 				}
 
 				refs = await this.getVisibleRefs(graph, current, {
-					baseOrTargetBranchName: targetBranchName ?? baseBranchName,
-					defaultBranchName: defaultBranchName,
+					baseOrTargetBranchName: targetBranchName ?? result.baseBranch,
+					defaultBranchName: result.defaultBranch,
 				});
 
 				break;

@@ -1,6 +1,6 @@
 import type { Container } from '../container';
 import type { GitReference } from '../git/models/reference';
-import { getBranchTargetInfo } from '../git/utils/-webview/branch.utils';
+import { getBranchMergeTargetInfo } from '../git/utils/-webview/branch.utils';
 import { createReference, getReferenceLabel, isBranchReference } from '../git/utils/reference.utils';
 import { getRevisionRangeParts, isRevisionRange } from '../git/utils/revision.utils';
 import { Directive } from './items/directive';
@@ -80,12 +80,10 @@ export async function showComparisonPicker(
 				const repo = container.git.getRepository(repoPath);
 				const branch = await repo?.git.branches().getBranch(head.name);
 				if (branch != null) {
-					const info = await getBranchTargetInfo(container, branch);
+					const info = await getBranchMergeTargetInfo(container, branch);
 					let target;
-					if (info.userTargetBranch) {
-						target = info.userTargetBranch;
-					} else if (!info.targetBranch.paused && info.targetBranch.value) {
-						target = info.targetBranch.value;
+					if (!info.mergeTargetBranch.paused && info.mergeTargetBranch.value) {
+						target = info.mergeTargetBranch.value;
 					} else {
 						target = info.baseBranch ?? info.defaultBranch;
 					}

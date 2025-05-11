@@ -147,10 +147,11 @@ async function getMergeTarget(
 	branch: GitBranch,
 	options?: { cancellation?: CancellationToken },
 ): Promise<string | undefined> {
-	const localValue = await container.git.branches(branch.repoPath).getMergeTargetBranchName?.(branch);
-	if (localValue) {
-		return localValue;
-	}
+	const localValue = await container.git
+		.branches(branch.repoPath)
+		.getBestMergeTargetBranchName?.(branch.name, branch.getRemoteName());
+	if (localValue) return localValue;
+
 	return getIntegrationDefaultBranchName(container, branch.repoPath, options);
 }
 
