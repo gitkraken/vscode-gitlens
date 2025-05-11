@@ -56,13 +56,14 @@ export class BrowseRepoAtRevisionCommand extends ActiveEditorCommand {
 			}
 
 			let gitUri = await GitUri.fromUri(uri);
-			if (gitUri.sha == null) throw new Error('No SHA for Uri');
+			if (gitUri.repoPath == null || gitUri.sha == null) throw new Error('No repo or SHA for Uri');
 
-			const repo = this.container.git.getRepository(gitUri.repoPath!);
-			if (repo == null) throw new Error('No repository for Uri');
+			const { git } = this.container;
 
-			const sha = args?.before ? (await repo.git.revision().resolveRevision(`${gitUri.sha}^`)).sha : gitUri.sha;
-			uri = repo.git.getRevisionUri(sha, gitUri.repoPath!);
+			const sha = args?.before
+				? (await git.revision(gitUri.repoPath).resolveRevision(`${gitUri.sha}^`)).sha
+				: gitUri.sha;
+			uri = git.getRevisionUri(gitUri.repoPath, sha, gitUri.repoPath);
 			gitUri = GitUri.fromRevisionUri(uri);
 
 			openWorkspace(uri, {
