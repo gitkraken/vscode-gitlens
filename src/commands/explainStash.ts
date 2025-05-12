@@ -24,7 +24,7 @@ export interface ExplainStashCommandArgs {
 @command()
 export class ExplainStashCommand extends GlCommandBase {
 	constructor(private readonly container: Container) {
-		super('gitlens.ai.explainStash');
+		super(['gitlens.ai.explainStash', 'gitlens.ai.explainStash:views']);
 	}
 
 	protected override preExecute(context: CommandContext, args?: ExplainStashCommandArgs): Promise<void> {
