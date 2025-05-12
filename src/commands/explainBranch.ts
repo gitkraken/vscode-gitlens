@@ -4,6 +4,7 @@ import type { Source } from '../constants.telemetry';
 import type { Container } from '../container';
 import { GitUri } from '../git/gitUri';
 import type { GitBranch } from '../git/models/branch';
+import type { GitBranchReference } from '../git/models/reference';
 import { showGenericErrorMessage } from '../messages';
 import { prepareCompareDataForAIRequest } from '../plus/ai/aiProviderService';
 import { ReferencesQuickPickIncludes, showReferencePicker } from '../quickpicks/referencePicker';
@@ -26,7 +27,7 @@ export interface ExplainBranchCommandArgs {
 @command()
 export class ExplainBranchCommand extends GlCommandBase {
 	constructor(private readonly container: Container) {
-		super('gitlens.ai.explainBranch');
+		super(['gitlens.ai.explainBranch', 'gitlens.ai.explainBranch:views']);
 	}
 
 	protected override preExecute(context: CommandContext, args?: ExplainBranchCommandArgs): Promise<void> {
@@ -63,7 +64,7 @@ export class ExplainBranchCommand extends GlCommandBase {
 			// Clarifying the head branch
 			if (args.ref == null) {
 				// If no ref is provided, show a picker to select a branch
-				const pick = await showReferencePicker(
+				const pick = (await showReferencePicker(
 					repository.path,
 					'Explain Branch',
 					'Choose a branch to explain',
@@ -71,7 +72,7 @@ export class ExplainBranchCommand extends GlCommandBase {
 						include: ReferencesQuickPickIncludes.Branches,
 						sort: { branches: { current: true } },
 					},
-				);
+				)) as GitBranchReference | undefined;
 				if (pick?.ref == null) return;
 				args.ref = pick.ref;
 			}

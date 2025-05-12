@@ -25,7 +25,7 @@ export interface ExplainCommitCommandArgs {
 @command()
 export class ExplainCommitCommand extends GlCommandBase {
 	constructor(private readonly container: Container) {
-		super('gitlens.ai.explainCommit');
+		super(['gitlens.ai.explainCommit', 'gitlens.ai.explainCommit:views']);
 	}
 
 	protected override preExecute(context: CommandContext, args?: ExplainCommitCommandArgs): Promise<void> {

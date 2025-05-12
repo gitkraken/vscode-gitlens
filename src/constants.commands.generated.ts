@@ -5,9 +5,13 @@ export type ContributedCommands =
 	| ContributedKeybindingCommands
 	| ContributedPaletteCommands
 	| 'gitlens.ai.explainBranch:graph'
+	| 'gitlens.ai.explainBranch:views'
 	| 'gitlens.ai.explainCommit:graph'
+	| 'gitlens.ai.explainCommit:views'
 	| 'gitlens.ai.explainStash:graph'
+	| 'gitlens.ai.explainStash:views'
 	| 'gitlens.ai.explainWip:graph'
+	| 'gitlens.ai.explainWip:views'
 	| 'gitlens.ai.generateChangelog:views'
 	| 'gitlens.ai.generateChangelogFrom:graph'
 	| 'gitlens.ai.generateChangelogFrom:views'

@@ -6081,7 +6081,13 @@
 			},
 			{
 				"command": "gitlens.ai.explainBranch:graph",
-				"title": "Explain Branch (Preview)"
+				"title": "Explain Branch (Preview)",
+				"icon": "$(sparkle)"
+			},
+			{
+				"command": "gitlens.ai.explainBranch:views",
+				"title": "Explain Branch (Preview)",
+				"icon": "$(sparkle)"
 			},
 			{
 				"command": "gitlens.ai.explainCommit",
@@ -6090,7 +6096,13 @@
 			},
 			{
 				"command": "gitlens.ai.explainCommit:graph",
-				"title": "Explain Commit"
+				"title": "Explain Commit",
+				"icon": "$(sparkle)"
+			},
+			{
+				"command": "gitlens.ai.explainCommit:views",
+				"title": "Explain Commit",
+				"icon": "$(sparkle)"
 			},
 			{
 				"command": "gitlens.ai.explainStash",
@@ -6099,7 +6111,13 @@
 			},
 			{
 				"command": "gitlens.ai.explainStash:graph",
-				"title": "Explain Stash (Preview)"
+				"title": "Explain Stash (Preview)",
+				"icon": "$(sparkle)"
+			},
+			{
+				"command": "gitlens.ai.explainStash:views",
+				"title": "Explain Stash (Preview)",
+				"icon": "$(sparkle)"
 			},
 			{
 				"command": "gitlens.ai.explainWip",
@@ -6108,7 +6126,13 @@
 			},
 			{
 				"command": "gitlens.ai.explainWip:graph",
-				"title": "Explain Working Changes (Preview)"
+				"title": "Explain Working Changes (Preview)",
+				"icon": "$(sparkle)"
+			},
+			{
+				"command": "gitlens.ai.explainWip:views",
+				"title": "Explain Working Changes (Preview)",
+				"icon": "$(sparkle)"
 			},
 			{
 				"command": "gitlens.ai.generateChangelog",
@@ -10452,11 +10476,19 @@
 					"when": "false"
 				},
 				{
+					"command": "gitlens.ai.explainBranch:views",
+					"when": "false"
+				},
+				{
 					"command": "gitlens.ai.explainCommit",
 					"when": "gitlens:enabled && !gitlens:readonly && !gitlens:untrusted && gitlens:gk:organization:ai:enabled && config.gitlens.ai.enabled"
 				},
 				{
 					"command": "gitlens.ai.explainCommit:graph",
+					"when": "false"
+				},
+				{
+					"command": "gitlens.ai.explainCommit:views",
 					"when": "false"
 				},
 				{
@@ -10468,11 +10500,19 @@
 					"when": "false"
 				},
 				{
+					"command": "gitlens.ai.explainStash:views",
+					"when": "false"
+				},
+				{
 					"command": "gitlens.ai.explainWip",
 					"when": "gitlens:enabled && !gitlens:readonly && !gitlens:untrusted && gitlens:gk:organization:ai:enabled"
 				},
 				{
 					"command": "gitlens.ai.explainWip:graph",
+					"when": "false"
+				},
+				{
+					"command": "gitlens.ai.explainWip:views",
 					"when": "false"
 				},
 				{
@@ -16451,7 +16491,7 @@
 					"group": "2_gitlens_quickopen@1"
 				},
 				{
-					"command": "gitlens.ai.explainBranch",
+					"command": "gitlens.ai.explainBranch:views",
 					"when": "viewItem =~ /gitlens:branch\\b/ && !listMultiSelection && !gitlens:readonly && !gitlens:untrusted && gitlens:gk:organization:ai:enabled && config.gitlens.ai.enabled",
 					"group": "3_gitlens_ai@1"
 				},
@@ -16717,7 +16757,7 @@
 					"group": "2_gitlens_quickopen@1"
 				},
 				{
-					"command": "gitlens.ai.explainCommit",
+					"command": "gitlens.ai.explainCommit:views",
 					"when": "viewItem =~ /gitlens:commit\\b/ && !listMultiSelection && !gitlens:readonly && !gitlens:untrusted && gitlens:gk:organization:ai:enabled && config.gitlens.ai.enabled",
 					"group": "3_gitlens_ai@1"
 				},
@@ -17778,7 +17818,7 @@
 					"group": "1_gitlens_actions@3"
 				},
 				{
-					"command": "gitlens.ai.explainStash",
+					"command": "gitlens.ai.explainStash:views",
 					"when": "viewItem =~ /gitlens:stash\\b/ && !listMultiSelection && !gitlens:readonly && !gitlens:untrusted && gitlens:gk:organization:ai:enabled && config.gitlens.ai.enabled",
 					"group": "3_gitlens_ai@1"
 				},
@@ -17935,6 +17975,16 @@
 					"group": "1_gitlens_actions@1"
 				},
 				{
+					"command": "gitlens.ai.explainWip:graph",
+					"when": "viewItem =~ /gitlens:(worktree|uncommitted)\\b/ && !listMultiSelection && !gitlens:readonly && !gitlens:untrusted && gitlens:gk:organization:ai:enabled",
+					"group": "3_gitlens_ai@1"
+				},
+				{
+					"command": "gitlens.ai.explainWip:views",
+					"when": "viewItem =~ /gitlens:(worktree|uncommitted)\\b/ && !listMultiSelection && !gitlens:readonly && !gitlens:untrusted && gitlens:gk:organization:ai:enabled",
+					"group": "3_gitlens_ai@1"
+				},
+				{
 					"command": "gitlens.views.workspaces.addRepos",
 					"when": "viewItem =~ /gitlens:workspace\\b(?=.*?\\b\\+cloud\\b)/",
 					"group": "inline@1"
@@ -18041,11 +18091,6 @@
 					"command": "gitlens.views.revealWorktreeInExplorer",
 					"when": "viewItem =~ /gitlens:worktree\\b/ && !listMultiSelection",
 					"group": "3_gitlens@1"
-				},
-				{
-					"command": "gitlens.ai.explainWip",
-					"when": "viewItem =~ /gitlens:worktree\\b/ && !listMultiSelection && !gitlens:readonly && !gitlens:untrusted && gitlens:gk:organization:ai:enabled",
-					"group": "3_gitlens_ai@1"
 				},
 				{
 					"command": "gitlens.views.deleteWorktree",
@@ -20486,11 +20531,6 @@
 					"command": "gitlens.graph.copyWorkingChangesToWorktree",
 					"when": "webviewItem == gitlens:wip && !listMultiSelection && !gitlens:readonly && !gitlens:untrusted && !gitlens:hasVirtualFolders",
 					"group": "1_gitlens_actions@4"
-				},
-				{
-					"command": "gitlens.ai.explainWip:graph",
-					"when": "webviewItem =~ /gitlens:wip\\b/ && !listMultiSelection && !gitlens:readonly && !gitlens:untrusted && gitlens:gk:organization:ai:enabled && config.gitlens.ai.enabled",
-					"group": "1_gitlens_actions_3@1"
 				},
 				{
 					"command": "gitlens.graph.hideRefGroup",

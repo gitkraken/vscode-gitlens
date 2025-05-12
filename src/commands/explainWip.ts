@@ -28,7 +28,7 @@ export interface ExplainWipCommandArgs {
 @command()
 export class ExplainWipCommand extends GlCommandBase {
 	constructor(private readonly container: Container) {
-		super('gitlens.ai.explainWip');
+		super(['gitlens.ai.explainWip', 'gitlens.ai.explainWip:views']);
 	}
 
 	protected override preExecute(context: CommandContext, args?: ExplainWipCommandArgs): Promise<void> {
