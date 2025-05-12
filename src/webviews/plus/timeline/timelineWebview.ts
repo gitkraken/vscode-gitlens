@@ -479,14 +479,11 @@ export class TimelineWebviewProvider implements WebviewProvider<State, State, Ti
 
 		let changed = false;
 		if (type != null && type !== scope.type) {
-			// If we are changing the type, and in the view, open it in the editor
-			if (this.host.is('view')) {
-				void executeCommand<TimelineScope>('gitlens.visualizeHistory', scope);
-				return;
-			}
-
 			changed = true;
 			scope.type = type;
+			if (type === 'repo') {
+				scope.uri = repo.uri;
+			}
 		}
 
 		if (head !== undefined) {
@@ -501,7 +498,13 @@ export class TimelineWebviewProvider implements WebviewProvider<State, State, Ti
 
 		if (relativePath != null) {
 			changed = true;
-			scope.uri = scope.type === 'repo' ? repo.uri : this.container.git.getAbsoluteUri(relativePath, repo.uri);
+			scope.uri = this.container.git.getAbsoluteUri(relativePath, repo.uri);
+		}
+
+		// If we are changing the type, and in the view, open it in the editor
+		if (this.host.is('view') || e.params.altOrShift) {
+			void executeCommand<TimelineScope>('gitlens.visualizeHistory', scope);
+			return;
 		}
 
 		if (!changed) return;
@@ -896,7 +899,7 @@ export class TimelineWebviewProvider implements WebviewProvider<State, State, Ti
 			repositoryWip: undefined,
 			subscription: this.container.subscription.etag,
 		};
-		let title;
+		let title = '';
 
 		if (scope != null) {
 			if (this.container.git.isDiscoveringRepositories) {
@@ -917,14 +920,21 @@ export class TimelineWebviewProvider implements WebviewProvider<State, State, Ti
 
 				this._repositorySubscription ??= new SubscriptionManager(repo, r => this.subscribeToRepository(r));
 
-				switch (scope.type) {
-					case 'repo':
-						title = repo.name;
-						break;
-					case 'folder':
-					case 'file':
-						title = basename(this.container.git.getRelativePath(scope.uri, repo.uri));
-						break;
+				if (scope.type === 'file' || scope.type === 'folder') {
+					title = basename(this.container.git.getRelativePath(scope.uri, repo.uri));
+					if (scope.head) {
+						title += ` (${scope.head.ref})`;
+					}
+					if (this.container.git.repositoryCount > 1) {
+						title += ` \u2022 ${repo.name}`;
+					}
+				} else if (scope.head) {
+					title += scope.head.name;
+					if (this.container.git.repositoryCount > 1) {
+						title += ` \u2022 ${repo.name}`;
+					}
+				} else {
+					title = repo.name;
 				}
 			}
 
@@ -951,7 +961,7 @@ export class TimelineWebviewProvider implements WebviewProvider<State, State, Ti
 		this._context.etags = etags;
 
 		if (this.host.is('editor')) {
-			this.host.title = title ? `${title} \u2022 Visual History` : 'Visual History';
+			this.host.title = title || 'Visual History';
 		} else {
 			this.host.description = title || proBadge;
 		}
