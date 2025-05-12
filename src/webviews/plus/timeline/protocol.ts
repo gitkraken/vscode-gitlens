@@ -99,6 +99,7 @@ export interface UpdateScopeParams {
 				base?: GitReference | null;
 				relativePath?: never;
 		  };
+	altOrShift?: boolean;
 }
 export const UpdateScopeCommand = new IpcCommand<UpdateScopeParams>(scope, 'scope/update');
 

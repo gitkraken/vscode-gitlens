@@ -186,7 +186,7 @@ export class GlTimelineApp extends GlApp<State> {
 			<gl-button
 				appearance="toolbar"
 				density="compact"
-				@click=${this.onUpdateScope}
+				@click=${this.onChangeScope}
 				tooltip="Visualize Repository History&#10;&#10;${repo.name}"
 				aria-label="Visualize Repository History&#10;&#10;${repo.name}"
 				>${repo.name}</gl-button
@@ -240,7 +240,7 @@ export class GlTimelineApp extends GlApp<State> {
 				>
 					<gl-button
 						appearance="toolbar"
-						@click=${this.onUpdateScope}
+						@click=${this.onChangeScope}
 						tooltip="Visualize Folder History&#10;&#10;${rootPart}"
 						aria-label="Visualize Folder History &#10;&#10;${rootPart}"
 						>${rootPart}</gl-button
@@ -256,7 +256,7 @@ export class GlTimelineApp extends GlApp<State> {
 									>
 										<gl-button
 											appearance="toolbar"
-											@click=${this.onUpdateScope}
+											@click=${this.onChangeScope}
 											tooltip="Visualize Folder History&#10;&#10;${fullPath}"
 											aria-label="Visualize Folder History&#10;&#10;${fullPath}"
 											>${part}</gl-button
@@ -350,40 +350,61 @@ export class GlTimelineApp extends GlApp<State> {
 			config: { showAllBranches },
 		} = this;
 		return html`<section>
-			<label for="head" ?disabled=${showAllBranches}>Head</label>
+			<label for="head" ?disabled=${showAllBranches}>Branch</label>
 			<gl-ref-button
 				name="head"
 				?disabled=${showAllBranches}
 				icon
-				tooltip="Change Head Reference"
+				tooltip="Change Reference"
 				.ref=${head}
 				location="config"
 				@click=${this.onChooseHeadRef}
 			></gl-ref-button>
 		</section>`;
+
+		// Commenting out for now, until base is ready
+
+		// const {
+		// 	head,
+		// 	config: { showAllBranches },
+		// } = this;
+		// return html`<section>
+		// 	<label for="head" ?disabled=${showAllBranches}>Head</label>
+		// 	<gl-ref-button
+		// 		name="head"
+		// 		?disabled=${showAllBranches}
+		// 		icon
+		// 		tooltip="Change Head Reference"
+		// 		.ref=${head}
+		// 		location="config"
+		// 		@click=${this.onChooseHeadRef}
+		// 	></gl-ref-button>
+		// </section>`;
 	}
 
 	private renderConfigBase() {
-		if (this.repository?.virtual) return nothing;
+		// Commenting out for now, as its not yet ready
+		return nothing;
+		// if (this.repository?.virtual) return nothing;
 
-		const {
-			head,
-			base,
-			config: { showAllBranches },
-		} = this;
-		return html`<section>
-			<label for="base" ?disabled=${showAllBranches}>Base</label>
-			<gl-ref-button
-				name="base"
-				?disabled=${showAllBranches}
-				icon
-				tooltip="Change Base Reference"
-				.ref=${base?.ref === head?.ref ? undefined : base}
-				location="config"
-				@click=${this.onChooseBaseRef}
-				><span slot="empty">&lt;choose base&gt;</span></gl-ref-button
-			>
-		</section>`;
+		// const {
+		// 	head,
+		// 	base,
+		// 	config: { showAllBranches },
+		// } = this;
+		// return html`<section>
+		// 	<label for="base" ?disabled=${showAllBranches}>Base</label>
+		// 	<gl-ref-button
+		// 		name="base"
+		// 		?disabled=${showAllBranches}
+		// 		icon
+		// 		tooltip="Change Base Reference"
+		// 		.ref=${base?.ref === head?.ref ? undefined : base}
+		// 		location="config"
+		// 		@click=${this.onChooseBaseRef}
+		// 		><span slot="empty">&lt;choose base&gt;</span></gl-ref-button
+		// 	>
+		// </section>`;
 	}
 
 	private renderConfigShowAllBranches() {
@@ -488,7 +509,7 @@ export class GlTimelineApp extends GlApp<State> {
 		return html`<span class="details__timeframe" tabindex="0">${label}</span>`;
 	}
 
-	private onChooseBaseRef = async (e: Event) => {
+	private onChooseBaseRef = async (e: MouseEvent) => {
 		if ((e.target as GlRefButton).disabled) return;
 
 		const result = await this._ipc.sendRequest(ChooseRefRequest, { scope: this.scope!, type: 'base' });
@@ -497,7 +518,7 @@ export class GlTimelineApp extends GlApp<State> {
 		this._ipc.sendCommand(UpdateScopeCommand, { scope: this.scope!, changes: { base: result.ref } });
 	};
 
-	private onChooseHeadRef = async (e: Event) => {
+	private onChooseHeadRef = async (e: MouseEvent) => {
 		if ((e.target as GlRefButton).disabled) return;
 
 		const location = (e.target as GlRefButton).getAttribute('location');
@@ -521,7 +542,7 @@ export class GlTimelineApp extends GlApp<State> {
 		}
 	};
 
-	private onChoosePath = async (e: Event) => {
+	private onChoosePath = async (e: MouseEvent) => {
 		e.stopImmediatePropagation();
 		if (this.repository == null || this.scope == null) return;
 
@@ -536,10 +557,11 @@ export class GlTimelineApp extends GlApp<State> {
 		this._ipc.sendCommand(UpdateScopeCommand, {
 			scope: this.scope,
 			changes: { type: result.picked.type, relativePath: result.picked.relativePath },
+			altOrShift: e.altKey || e.shiftKey,
 		});
 	};
 
-	private onUpdateScope = (e: Event) => {
+	private onChangeScope = (e: MouseEvent) => {
 		const el =
 			(e.target as HTMLElement)?.closest('gl-breadcrumb-item-child') ??
 			(e.target as HTMLElement)?.closest('gl-breadcrumb-item');
@@ -548,14 +570,22 @@ export class GlTimelineApp extends GlApp<State> {
 		if (type == null) return;
 
 		if (type === 'repo') {
-			this._ipc.sendCommand(UpdateScopeCommand, { scope: this.scope!, changes: { type: 'repo' } });
+			this._ipc.sendCommand(UpdateScopeCommand, {
+				scope: this.scope!,
+				changes: { type: 'repo' },
+				altOrShift: e.altKey || e.shiftKey,
+			});
 			return;
 		}
 
 		const value = el?.getAttribute('value');
 		if (value == null) return;
 
-		this._ipc.sendCommand(UpdateScopeCommand, { scope: this.scope!, changes: { type: type, relativePath: value } });
+		this._ipc.sendCommand(UpdateScopeCommand, {
+			scope: this.scope!,
+			changes: { type: type, relativePath: value },
+			altOrShift: e.altKey || e.shiftKey,
+		});
 	};
 
 	private onChartCommitSelected(e: CustomEvent<CommitEventDetail>) {
