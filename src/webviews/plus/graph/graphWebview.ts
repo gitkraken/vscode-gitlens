@@ -1514,7 +1514,6 @@ export class GraphWebviewProvider implements WebviewProvider<State, State, Graph
 
 		try {
 			results = await this.getSearchResults(msg.params);
-
 			void this.host.respond(requestType, msg, results);
 		} catch (ex) {
 			exception = ex;
@@ -1548,24 +1547,15 @@ export class GraphWebviewProvider implements WebviewProvider<State, State, Graph
 
 		let search: GitGraphSearch | undefined = this._search;
 
+		const graph = this._graph!;
+
 		if (e.more && search?.more != null && search.comparisonKey === getSearchQueryComparisonKey(e.search)) {
 			search = await search.more(e.limit ?? configuration.get('graph.searchItemLimit') ?? 100);
 			if (search != null) {
 				this._search = search;
-				void (await this.ensureSearchStartsInRange(this._graph!, search));
+				void (await this.ensureSearchStartsInRange(graph, search));
 
-				return {
-					results:
-						search.results.size > 0
-							? {
-									ids: Object.fromEntries(
-										map(search.results, ([k, v]) => [this._graph?.remappedIds?.get(k) ?? k, v]),
-									),
-									count: search.results.size,
-									paging: { hasMore: search.paging?.hasMore ?? false },
-							  }
-							: undefined,
-				};
+				return { results: this.getRemappedSearchResults(graph, search) };
 			}
 
 			return { results: undefined };
@@ -1601,7 +1591,7 @@ export class GraphWebviewProvider implements WebviewProvider<State, State, Graph
 			search = this._search!;
 		}
 
-		const firstResult = await this.ensureSearchStartsInRange(this._graph!, search);
+		const firstResult = await this.ensureSearchStartsInRange(graph, search);
 
 		let sendSelectedRows = false;
 		if (firstResult != null) {
@@ -1610,16 +1600,23 @@ export class GraphWebviewProvider implements WebviewProvider<State, State, Graph
 		}
 
 		return {
-			results: !search.results.size
-				? { count: 0 }
-				: {
-						ids: Object.fromEntries(
-							map(search.results, ([k, v]) => [this._graph?.remappedIds?.get(k) ?? k, v]),
-						),
-						count: search.results.size,
-						paging: { hasMore: search.paging?.hasMore ?? false },
-				  },
+			results: !search.results.size ? { count: 0 } : this.getRemappedSearchResults(graph, search),
 			selectedRows: sendSelectedRows ? this._selectedRows : undefined,
+		};
+	}
+
+	/** Remaps search results SHA for stashes to the root stash SHA */
+	private getRemappedSearchResults(graph: GitGraph, search: GitGraphSearch) {
+		if (!search.results.size) return undefined;
+
+		return {
+			ids: Object.fromEntries(
+				graph.remappedIds?.size
+					? map(search.results, ([k, v]) => [graph.remappedIds!.get(k) ?? k, v])
+					: search.results,
+			),
+			count: search.results.size,
+			paging: { hasMore: search.paging?.hasMore ?? false },
 		};
 	}
 
@@ -1926,6 +1923,13 @@ export class GraphWebviewProvider implements WebviewProvider<State, State, Graph
 		if (this._graph == null) return;
 
 		const graph = this._graph;
+		const search = this._search;
+
+		let searchResults: GraphSearchResults | undefined;
+		if (search?.results.size && graph.remappedIds?.size) {
+			searchResults = this.getRemappedSearchResults(graph, search);
+		}
+
 		return this.host.notify(
 			DidChangeRowsNotification,
 			{
@@ -1936,6 +1940,8 @@ export class GraphWebviewProvider implements WebviewProvider<State, State, Graph
 				rowsStats: graph.rowsStats?.size ? Object.fromEntries(graph.rowsStats) : undefined,
 				rowsStatsLoading:
 					graph.rowsStatsDeferred?.isLoaded != null ? !graph.rowsStatsDeferred.isLoaded() : false,
+
+				searchResults: searchResults,
 				selectedRows: sendSelectedRows ? this._selectedRows : undefined,
 				paging: {
 					startingCursor: graph.paging?.startingCursor,
@@ -3110,8 +3116,6 @@ export class GraphWebviewProvider implements WebviewProvider<State, State, Graph
 		search?: GitGraphSearch,
 		cancellation?: CancellationToken,
 	) {
-		console.warn('##### updateGraphWithMoreRows', id, search);
-
 		const { defaultItemLimit, pageItemLimit } = configuration.get('graph');
 		const updatedGraph = await graph.more?.(pageItemLimit ?? defaultItemLimit, id ?? undefined, cancellation);
 		if (updatedGraph != null) {

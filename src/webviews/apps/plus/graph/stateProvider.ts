@@ -282,6 +282,9 @@ export class GraphStateProvider implements StateProvider<State> {
 						updates.rowsStats = { ...this._state.rowsStats, ...msg.params.rowsStats };
 					}
 					updates.rowsStatsLoading = msg.params.rowsStatsLoading;
+					if (msg.params.searchResults != null) {
+						updates.searchResults = msg.params.searchResults;
+					}
 					if (msg.params.selectedRows != null) {
 						updates.selectedRows = msg.params.selectedRows;
 					}

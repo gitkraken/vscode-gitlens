@@ -438,7 +438,9 @@ export class GraphGitSubProvider implements GitGraphSubProvider {
 						// Remap the "index commit" (e.g. contains staged files) of the stash
 						remappedIds.set(parents[1], commit.sha);
 						// Remap the "untracked commit" (e.g. contains untracked files) of the stash
-						remappedIds.set(parents[2], commit.sha);
+						if (parents.length > 2) {
+							remappedIds.set(parents[2], commit.sha);
+						}
 						parents.splice(1, 2);
 					}
 

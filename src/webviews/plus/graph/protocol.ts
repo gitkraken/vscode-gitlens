@@ -473,6 +473,7 @@ export interface DidChangeRowsParams {
 	refsMetadata?: GraphRefsMetadata | null;
 	rowsStats?: Record<string, GraphRowStats>;
 	rowsStatsLoading: boolean;
+	searchResults?: GraphSearchResults;
 	selectedRows?: GraphSelectedRows;
 }
 export const DidChangeRowsNotification = new IpcNotification<DidChangeRowsParams>(
