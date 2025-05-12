@@ -14,8 +14,12 @@ export const actionCommandPrefix = 'gitlens.action.';
 export type GlCommandsDeprecated =
 	/** @deprecated use `gitlens.ai.generateCommitMessage` */
 	| 'gitlens.generateCommitMessage'
-	/** @deprecated use `gitlens.scm.ai.generateCommitMessage` */
+	/** @deprecated use `gitlens.ai.generateCommitMessage:scm` */
 	| 'gitlens.scm.generateCommitMessage'
+	/** @deprecated use `gitlens.ai.generateCommitMessage:scm` */
+	| 'gitlens.scm.ai.generateCommitMessage'
+	/** @deprecated use `gitlens.ai.switchProvider` */
+	| 'gitlens.switchAIModel'
 	| 'gitlens.diffHeadWith'
 	| 'gitlens.diffWorkingWith'
 	| 'gitlens.openBranchesInRemote'
@@ -56,8 +60,8 @@ type InternalHomeWebviewCommands =
 	| 'gitlens.home.skipPausedOperation'
 	| 'gitlens.home.continuePausedOperation'
 	| 'gitlens.home.abortPausedOperation'
-	| 'gitlens.home.explainWip'
-	| 'gitlens.home.ai.explainBranch'
+	| 'gitlens.ai.explainWip:home'
+	| 'gitlens.ai.explainBranch:home'
 	| 'gitlens.home.openRebaseEditor';
 
 type InternalHomeWebviewViewCommands =
@@ -107,7 +111,7 @@ type InternalWalkthroughCommands =
 	| 'gitlens.walkthrough.showGraph'
 	| 'gitlens.walkthrough.showHomeView'
 	| 'gitlens.walkthrough.showLaunchpad'
-	| 'gitlens.walkthrough.switchAIModel'
+	| 'gitlens.walkthrough.switchAIProvider'
 	| 'gitlens.walkthrough.worktree.create'
 	| 'gitlens.walkthrough.openDevExPlatform';
 
@@ -188,9 +192,15 @@ export type CoreGitCommands =
 	| 'git.undoCommit';
 
 type ExtractSuffix<Prefix extends string, U> = U extends `${Prefix}${infer V}` ? V : never;
-type FilterCommands<Prefix extends string, U> = U extends `${Prefix}${infer V}` ? `${Prefix}${V}` : never;
+type FilterCommands<Prefix extends string, U, Suffix extends string = ''> = U extends `${Prefix}${infer V}${Suffix}`
+	? U extends `${Prefix}${V}${Suffix}`
+		? U
+		: never
+	: never;
 
-export type TreeViewCommands = FilterCommands<`gitlens.views.${TreeViewTypes}`, GlCommands>;
+export type TreeViewCommands =
+	| FilterCommands<`gitlens.views.${TreeViewTypes}`, GlCommands>
+	| FilterCommands<`gitlens.`, GlCommands, ':views'>;
 
 export type TreeViewCommandsByViewId<T extends TreeViewIds> = FilterCommands<T, GlCommands>;
 export type TreeViewCommandsByViewType<T extends TreeViewTypes> = FilterCommands<`gitlens.views.${T}.`, GlCommands>;
@@ -199,5 +209,9 @@ export type TreeViewCommandSuffixesByViewType<T extends TreeViewTypes> = Extract
 	TreeViewCommandsByViewType<T>
 >;
 
-export type WebviewCommands = FilterCommands<`gitlens.${WebviewTypes}`, GlCommands>;
-export type WebviewViewCommands = FilterCommands<`gitlens.views.${WebviewViewTypes}`, GlCommands>;
+export type WebviewCommands =
+	| FilterCommands<`gitlens.${WebviewTypes}`, GlCommands>
+	| FilterCommands<'gitlens.', GlCommands, `:${WebviewTypes}`>;
+export type WebviewViewCommands =
+	| FilterCommands<`gitlens.views.${WebviewViewTypes}`, GlCommands>
+	| FilterCommands<'gitlens.views.', GlCommands, `:${WebviewViewTypes}`>;

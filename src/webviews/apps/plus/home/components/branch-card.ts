@@ -1014,7 +1014,7 @@ export class GlBranchCard extends GlBranchCardBase {
 					html`<action-item
 						label="Explain Working Changes (Preview)"
 						icon="sparkle"
-						href=${this.createCommandLink('gitlens.home.explainWip')}
+						href=${this.createCommandLink('gitlens.ai.explainWip:home')}
 					></action-item>`,
 				);
 			} else {
@@ -1022,7 +1022,7 @@ export class GlBranchCard extends GlBranchCardBase {
 					html`<action-item
 						label="Explain Branch (Preview)"
 						icon="sparkle"
-						href=${this.createCommandLink('gitlens.home.ai.explainBranch')}
+						href=${this.createCommandLink('gitlens.ai.explainBranch:home')}
 					></action-item>`,
 				);
 			}
@@ -1038,7 +1038,7 @@ export class GlBranchCard extends GlBranchCardBase {
 				html`<action-item
 					label="Explain Branch (Preview)"
 					icon="sparkle"
-					href=${this.createCommandLink('gitlens.home.ai.explainBranch')}
+					href=${this.createCommandLink('gitlens.ai.explainBranch:home')}
 				></action-item>`,
 			);
 		}
