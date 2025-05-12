@@ -1,10 +1,10 @@
-import type { CancellationToken, TextEditor, Uri } from 'vscode';
+import type { TextEditor, Uri } from 'vscode';
 import { ProgressLocation } from 'vscode';
 import type { Source } from '../constants.telemetry';
 import type { Container } from '../container';
 import { GitUri } from '../git/gitUri';
-import type { GitBranch } from '../git/models/branch';
 import type { GitBranchReference } from '../git/models/reference';
+import { getBranchMergeTargetName } from '../git/utils/-webview/branch.utils';
 import { showGenericErrorMessage } from '../messages';
 import { prepareCompareDataForAIRequest } from '../plus/ai/aiProviderService';
 import { ReferencesQuickPickIncludes, showReferencePicker } from '../quickpicks/referencePicker';
@@ -85,8 +85,12 @@ export class ExplainBranchCommand extends GlCommandBase {
 			}
 
 			// Clarifying the base branch
-			const baseBranchName = await getMergeTarget(this.container, branch);
-			const baseBranch = await repository.git.branches().getBranch(baseBranchName);
+			const baseBranchNameResult = await getBranchMergeTargetName(this.container, branch);
+			let baseBranch;
+			if (!baseBranchNameResult.paused) {
+				baseBranch = await repository.git.branches().getBranch(baseBranchNameResult.value);
+			}
+
 			if (!baseBranch) {
 				void showGenericErrorMessage(`Unable to find the base branch for branch ${branch.name}.`);
 				return;
@@ -141,32 +145,4 @@ export class ExplainBranchCommand extends GlCommandBase {
 			void showGenericErrorMessage('Unable to explain branch');
 		}
 	}
-}
-
-async function getMergeTarget(
-	container: Container,
-	branch: GitBranch,
-	options?: { cancellation?: CancellationToken },
-): Promise<string | undefined> {
-	const localValue = await container.git
-		.branches(branch.repoPath)
-		.getBestMergeTargetBranchName?.(branch.name, branch.getRemoteName());
-	if (localValue) return localValue;
-
-	return getIntegrationDefaultBranchName(container, branch.repoPath, options);
-}
-
-// This is similar to what we have in changeBranchMergeTarget.ts
-// what is a proper utils files to put it to?
-async function getIntegrationDefaultBranchName(
-	container: Container,
-	repoPath: string,
-	options?: { cancellation?: CancellationToken },
-): Promise<string | undefined> {
-	const remote = await container.git.remotes(repoPath).getBestRemoteWithIntegration();
-	if (remote == null) return undefined;
-
-	const integration = await remote.getIntegration();
-	const defaultBranch = await integration?.getDefaultBranch?.(remote.provider.repoDesc, options);
-	return defaultBranch && `${remote.name}/${defaultBranch?.name}`;
 }

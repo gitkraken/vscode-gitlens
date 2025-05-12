@@ -274,17 +274,6 @@ export interface GitBranchesSubProvider {
 		cancellation?: CancellationToken,
 	): Promise<MergeConflict | undefined>;
 	getBaseBranchName?(repoPath: string, ref: string, cancellation?: CancellationToken): Promise<string | undefined>;
-	/** Gets the best merge target branch name */
-	getBestMergeTargetBranchName?(
-		repoPath: string,
-		ref: string,
-		remote?: string,
-		options?: {
-			/** Excludes the user chosen merge target */
-			detectedOnly?: boolean;
-		},
-		cancellation?: CancellationToken,
-	): Promise<string | undefined>;
 	/** Gets the stored merge target branch name, first checking the user target, then the detected target */
 	getStoredMergeTargetBranchName?(repoPath: string, ref: string): Promise<string | undefined>;
 	/** Gets the stored detected merge target branch name */

@@ -15,6 +15,7 @@ import type { MergeConflict } from '../../../../git/models/mergeConflict';
 import type { GitBranchReference } from '../../../../git/models/reference';
 import { parseMergeTreeConflict } from '../../../../git/parsers/mergeTreeParser';
 import { getBranchParser } from '../../../../git/parsers/refParser';
+import { getBranchMergeTargetName } from '../../../../git/utils/-webview/branch.utils';
 import { getReferenceFromBranch } from '../../../../git/utils/-webview/reference.utils';
 import type { BranchSortOptions } from '../../../../git/utils/-webview/sorting';
 import { sortBranches, sortContributors } from '../../../../git/utils/-webview/sorting';
@@ -255,7 +256,15 @@ export class BranchesGitSubProvider implements GitBranchesSubProvider {
 		const scope = getLogScope();
 
 		try {
-			const mergeTarget = await this.getBestMergeTargetBranchName(repoPath, ref);
+			const branch = await this.getBranch(repoPath, ref, cancellation);
+			if (branch == null) return undefined;
+
+			const mergeTargetResult = await getBranchMergeTargetName(this.container, branch, {
+				cancellation: cancellation,
+			});
+			if (mergeTargetResult.paused) return undefined;
+
+			const mergeTarget = mergeTargetResult.value;
 			if (mergeTarget == null) return undefined;
 
 			const mergeBase = await this.provider.refs.getMergeBase(
@@ -739,36 +748,6 @@ export class BranchesGitSubProvider implements GitBranchesSubProvider {
 		}
 
 		return undefined;
-	}
-
-	@log()
-	async getBestMergeTargetBranchName(
-		repoPath: string,
-		ref: string,
-		remote?: string,
-		options?: { detectedOnly?: boolean },
-		cancellation?: CancellationToken,
-	): Promise<string | undefined> {
-		const [userTargetResult, targetResult] = await Promise.allSettled([
-			options?.detectedOnly ? undefined : this.getStoredUserMergeTargetBranchName?.(repoPath, ref),
-			this.getStoredDetectedMergeTargetBranchName?.(repoPath, ref),
-		]);
-
-		const targetBranchName = getSettledValue(userTargetResult) || getSettledValue(targetResult);
-		if (targetBranchName) {
-			const validated = await this.provider.refs.getSymbolicReferenceName(
-				repoPath,
-				targetBranchName,
-				cancellation,
-			);
-			return validated || targetBranchName;
-		}
-
-		const [baseResult, defaultResult] = await Promise.allSettled([
-			this.getBaseBranchName?.(repoPath, ref, cancellation),
-			this.getDefaultBranchName(repoPath, remote, cancellation),
-		]);
-		return getSettledValue(baseResult) || getSettledValue(defaultResult);
 	}
 
 	@log({ exit: true })
