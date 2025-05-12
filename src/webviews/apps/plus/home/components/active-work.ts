@@ -295,6 +295,19 @@ export class GlActiveBranchCard extends GlBranchCardBase {
 			`);
 		}
 
+		if (this._homeState.orgSettings.ai && this._homeState.aiEnabled) {
+			actions.push(html`
+				<gl-button
+					aria-busy=${ifDefined(isFetching)}
+					?disabled=${isFetching}
+					href=${this.createCommandLink('gitlens.ai.explainBranch:home')}
+					appearance="secondary"
+					tooltip="Explain Branch (Preview)"
+					><code-icon icon="sparkle" slot="prefix"></code-icon>Branch
+				</gl-button>
+			`);
+		}
+
 		if (this.wip?.pausedOpStatus != null) {
 			return wrappedActions();
 		}

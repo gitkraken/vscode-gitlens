@@ -5,6 +5,7 @@ import type { CreatePullRequestActionContext } from '../../api/gitlens';
 import type { EnrichedAutolink } from '../../autolinks/models/autolinks';
 import { getAvatarUriFromGravatarEmail } from '../../avatars';
 import type { ChangeBranchMergeTargetCommandArgs } from '../../commands/changeBranchMergeTarget';
+import type { ExplainBranchCommandArgs } from '../../commands/explainBranch';
 import type { ExplainWipCommandArgs } from '../../commands/explainWip';
 import type { BranchGitCommandArgs } from '../../commands/git/branch';
 import type { OpenPullRequestOnRemoteCommandArgs } from '../../commands/openPullRequestOnRemote';
@@ -358,7 +359,7 @@ export class HomeWebviewProvider implements WebviewProvider<State, State, HomeWe
 			registerCommand('gitlens.home.abortPausedOperation', this.abortPausedOperation, this),
 			registerCommand('gitlens.home.openRebaseEditor', this.openRebaseEditor, this),
 			registerCommand('gitlens.ai.explainWip:home', this.explainWip, this),
-			registerCommand('gitlens.ai.explainBranch:home', this.explainWip, this),
+			registerCommand('gitlens.ai.explainBranch:home', this.explainBranch, this),
 		];
 	}
 
@@ -548,6 +549,18 @@ export class HomeWebviewProvider implements WebviewProvider<State, State, HomeWe
 		if (branch == null) return;
 
 		void RepoActions.rebase(repo, getReferenceFromBranch(branch));
+	}
+
+	@log<HomeWebviewProvider['explainBranch']>({ args: { 0: r => r.branchId } })
+	private async explainBranch(ref: BranchRef) {
+		const { repo, branch } = await this.getRepoInfoFromRef(ref);
+		if (repo == null) return;
+
+		void executeCommand<ExplainBranchCommandArgs>('gitlens.ai.explainBranch', {
+			repoPath: repo.path,
+			ref: branch?.ref,
+			source: { source: 'home', detail: 'branch' },
+		});
 	}
 
 	@log<HomeWebviewProvider['explainWip']>({ args: { 0: r => r.branchId } })
