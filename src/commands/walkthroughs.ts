@@ -412,15 +412,15 @@ export class WalkthroughShowHomeViewCommand extends GlCommandBase {
 	}
 }
 
-// gitlens.switchAIModel
+// gitlens.ai.switchProvider
 @command()
 export class WalkthroughSwitchAIModelCommand extends GlCommandBase {
 	constructor(private readonly container: Container) {
-		super('gitlens.walkthrough.switchAIModel');
+		super('gitlens.walkthrough.switchAIProvider');
 	}
 
 	execute(): void {
-		const command: GlCommands = 'gitlens.switchAIModel';
+		const command: GlCommands = 'gitlens.ai.switchProvider';
 		this.container.telemetry.sendEvent('walkthrough/action', {
 			type: 'command',
 			name: 'switch/ai-model',

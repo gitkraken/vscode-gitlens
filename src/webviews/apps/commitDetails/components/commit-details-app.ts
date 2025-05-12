@@ -582,7 +582,7 @@ export class GlCommitDetailsApp extends LitElement {
 	}
 
 	private onSwitchAiModel(_e: MouseEvent) {
-		this.onCommandClickedCore('gitlens.switchAIModel');
+		this.onCommandClickedCore('gitlens.ai.switchProvider');
 	}
 
 	private async onExplainCommit(_e: MouseEvent) {

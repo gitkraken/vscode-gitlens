@@ -1739,7 +1739,7 @@ export class ViewCommands implements Disposable {
 		});
 	}
 
-	@command('gitlens.views.ai.generateChangelog')
+	@command('gitlens.ai.generateChangelog:views')
 	@log()
 	private async generateChangelog(node: ResultsCommitsNode) {
 		if (!node.is('results-commits')) return;
@@ -1752,7 +1752,7 @@ export class ViewCommands implements Disposable {
 		);
 	}
 
-	@command('gitlens.views.ai.generateChangelogFrom')
+	@command('gitlens.ai.generateChangelogFrom:views')
 	@log()
 	private async generateChangelogFrom(node: BranchNode | TagNode) {
 		if (!node.is('branch') && !node.is('tag')) return;

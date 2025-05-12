@@ -20,8 +20,12 @@ export interface GenerateCommitMessageCommandArgs {
 export class GenerateCommitMessageCommand extends ActiveEditorCommand {
 	constructor(private readonly container: Container) {
 		super(
-			['gitlens.ai.generateCommitMessage', 'gitlens.scm.ai.generateCommitMessage'],
-			['gitlens.generateCommitMessage', 'gitlens.scm.generateCommitMessage'],
+			['gitlens.ai.generateCommitMessage', 'gitlens.ai.generateCommitMessage:scm'],
+			[
+				'gitlens.generateCommitMessage',
+				'gitlens.scm.generateCommitMessage',
+				'gitlens.scm.ai.generateCommitMessage',
+			],
 		);
 	}
 
@@ -29,7 +33,8 @@ export class GenerateCommitMessageCommand extends ActiveEditorCommand {
 		let source: Sources | undefined = args?.source;
 		if (
 			source == null &&
-			(context.command === 'gitlens.scm.ai.generateCommitMessage' ||
+			(context.command === 'gitlens.ai.generateCommitMessage:scm' ||
+				context.command === /** @deprecated */ 'gitlens.scm.ai.generateCommitMessage' ||
 				context.command === /** @deprecated */ 'gitlens.scm.generateCommitMessage')
 		) {
 			source = 'scm-input';

@@ -4,7 +4,7 @@ GitLens AI features use GitHub Copilot, if available, or GitKraken AI, which is 
 
 GitLens also supports many "bring your own key" (BYOK) AI providers and models, including OpenAI, Anthropic, Gemini, etc, and local models via Ollama.
 
-You can change the selected AI provider and model from the Integrations menu in the Home view or from the [Command Palette](command:gitlens.walkthrough.switchAIModel).
+You can change the selected AI provider and model from the Integrations menu in the Home view or from the [Command Palette](command:gitlens.walkthrough.switchAIProvider).
 
 Community users can generate commit messages for free using GitHub Copilot or a BYOK provider with a free GitKraken account.
 

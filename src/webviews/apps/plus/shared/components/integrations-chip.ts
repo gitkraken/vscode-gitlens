@@ -374,7 +374,7 @@ export class GlIntegrationsChip extends LitElement {
 						<span class="integration__actions">
 							<gl-button
 								appearance="toolbar"
-								href="${createCommandLink<Source>('gitlens.switchAIModel', {
+								href="${createCommandLink<Source>('gitlens.ai.switchProvider', {
 									source: 'home',
 									detail: 'integrations',
 								})}"

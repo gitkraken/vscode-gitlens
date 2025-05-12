@@ -684,11 +684,11 @@ export class GraphWebviewProvider implements WebviewProvider<State, State, Graph
 				'gitlens.graph.copyWorkingChangesToWorktree',
 				this.copyWorkingChangesToWorktree,
 			),
-			this.host.registerWebviewCommand('gitlens.graph.ai.generateCommitMessage', this.generateCommitMessage),
-			this.host.registerWebviewCommand('gitlens.graph.ai.explainBranch', this.explainBranch),
-			this.host.registerWebviewCommand('gitlens.graph.ai.explainCommit', this.explainCommit),
-			this.host.registerWebviewCommand('gitlens.graph.ai.explainStash', this.explainStash),
-			this.host.registerWebviewCommand('gitlens.graph.ai.explainWip', this.explainWip),
+			this.host.registerWebviewCommand('gitlens.ai.generateCommitMessage:graph', this.generateCommitMessage),
+			this.host.registerWebviewCommand('gitlens.ai.explainBranch:graph', this.explainBranch),
+			this.host.registerWebviewCommand('gitlens.ai.explainCommit:graph', this.explainCommit),
+			this.host.registerWebviewCommand('gitlens.ai.explainStash:graph', this.explainStash),
+			this.host.registerWebviewCommand('gitlens.ai.explainWip:graph', this.explainWip),
 
 			this.host.registerWebviewCommand('gitlens.graph.compareSelectedCommits.multi', this.compareSelectedCommits),
 			this.host.registerWebviewCommand('gitlens.graph.abortPausedOperation', this.abortPausedOperation),
@@ -696,7 +696,7 @@ export class GraphWebviewProvider implements WebviewProvider<State, State, Graph
 			this.host.registerWebviewCommand('gitlens.graph.openRebaseEditor', this.openRebaseEditor),
 			this.host.registerWebviewCommand('gitlens.graph.skipPausedOperation', this.skipPausedOperation),
 
-			this.host.registerWebviewCommand('gitlens.graph.ai.generateChangelogFrom', this.generateChangelogFrom),
+			this.host.registerWebviewCommand('gitlens.ai.generateChangelogFrom:graph', this.generateChangelogFrom),
 		);
 
 		return commands;
@@ -3870,7 +3870,7 @@ export class GraphWebviewProvider implements WebviewProvider<State, State, Graph
 		const ref = this.getGraphItemRef(item);
 		if (ref == null) return Promise.resolve();
 
-		return executeCommand<GenerateCommitMessageCommandArgs>('gitlens.graph.ai.generateCommitMessage', {
+		return executeCommand<GenerateCommitMessageCommandArgs>('gitlens.ai.generateCommitMessage', {
 			repoPath: ref.repoPath,
 			source: 'graph',
 		});
