@@ -12,6 +12,7 @@ import {
 	CreatePatchFromWipCommand,
 	DidChangeDraftStateNotification,
 	DidChangeHasAccountNotification,
+	DidChangeIntegrationsNotification,
 	DidChangeNotification,
 	DidChangeWipStateNotification,
 	ExecuteCommitActionCommand,
@@ -335,6 +336,10 @@ export class GlCommitDetailsApp extends LitElement {
 				break;
 			case DidChangeHasAccountNotification.is(msg):
 				this.state = { ...this.state!, hasAccount: msg.params.hasAccount };
+				this.dispatchEvent(new CustomEvent('state-changed', { detail: this.state }));
+				break;
+			case DidChangeIntegrationsNotification.is(msg):
+				this.state = { ...this.state!, hasIntegrationsConnected: msg.params.hasIntegrationsConnected };
 				this.dispatchEvent(new CustomEvent('state-changed', { detail: this.state }));
 				break;
 		}

@@ -1,6 +1,9 @@
 import { css, html, LitElement, nothing } from 'lit';
 import { customElement, property, query } from 'lit/decorators.js';
+import { linkStyles } from '../../../plus/shared/components/vscode.css';
+import { handleUnsafeOverlayContent } from '../overlays/overlays.utils';
 import { focusOutline } from '../styles/lit/a11y.css';
+import '../overlays/popover';
 import '../overlays/tooltip';
 import '../code-icon';
 
@@ -11,64 +14,75 @@ export class ActionChip extends LitElement {
 		delegatesFocus: true,
 	};
 
-	static override styles = css`
-		:host {
-			box-sizing: border-box;
-			display: inline-flex;
-			justify-content: center;
-			align-items: center;
-			min-width: 2rem;
-			height: 2rem;
-			border-radius: 0.5rem;
-			color: inherit;
-			padding: 0.2rem;
-			vertical-align: text-bottom;
-			text-decoration: none;
-			cursor: pointer;
-		}
+	static override styles = [
+		linkStyles,
+		css`
+			:host {
+				display: inline-flex;
+				justify-content: center;
+				align-items: center;
+				vertical-align: text-bottom;
+				border-radius: 0.5rem;
+			}
 
-		:host(:focus-within) {
-			${focusOutline}
-		}
+			* {
+				box-sizing: border-box;
+			}
 
-		:host(:hover) {
-			background-color: var(--vscode-toolbar-hoverBackground);
-		}
+			:host(:focus-within) {
+				${focusOutline}
+			}
 
-		:host(:active) {
-			background-color: var(--vscode-toolbar-activeBackground);
-		}
+			:host(:hover) {
+				background-color: var(--vscode-toolbar-hoverBackground);
+			}
 
-		:host([disabled]) {
-			pointer-events: none;
-			opacity: 0.5;
-		}
+			:host(:active) {
+				background-color: var(--vscode-toolbar-activeBackground);
+			}
 
-		a {
-			display: inline-flex;
-			justify-content: center;
-			align-items: center;
-			gap: 0.2rem;
-			vertical-align: middle;
-			color: inherit;
-			text-decoration: none;
-		}
-		a:focus {
-			outline: none;
-		}
+			:host([disabled]) {
+				pointer-events: none;
+				opacity: 0.5;
+			}
 
-		::slotted(*) {
-			padding-inline-end: 0.2rem;
-			vertical-align: middle;
-			text-transform: capitalize;
-		}
-	`;
+			.chip {
+				display: inline-flex;
+				justify-content: center;
+				align-items: center;
+				gap: 0.2rem;
+				vertical-align: middle;
+				color: inherit;
+				min-width: 2rem;
+				height: 2rem;
+				color: inherit;
+				padding: 0.2rem;
+				text-decoration: none;
+				cursor: pointer;
+			}
+			.chip:hover {
+				text-decoration: none;
+			}
+			.chip:focus {
+				outline: none;
+			}
+
+			::slotted(*) {
+				padding-inline-end: 0.2rem;
+				vertical-align: middle;
+				text-transform: capitalize;
+			}
+		`,
+	];
 
 	@property()
 	href?: string;
 
 	@property()
 	label?: string;
+
+	@property()
+	overlay: 'tooltip' | 'popover' = 'tooltip';
 
 	@property()
 	icon = '';
@@ -84,17 +98,26 @@ export class ActionChip extends LitElement {
 			return this.renderContent();
 		}
 
+		if (this.overlay === 'popover') {
+			return html`<gl-popover hoist
+				>${this.renderContent()}
+				<div slot="content">${handleUnsafeOverlayContent(this.label)}</div></gl-popover
+			>`;
+		}
+
 		return html`<gl-tooltip hoist content="${this.label}">${this.renderContent()}</gl-tooltip>`;
 	}
 
 	private renderContent() {
 		return html`
 			<a
+				class="chip"
 				part="base"
 				role="${!this.href ? 'button' : nothing}"
 				type="${!this.href ? 'button' : nothing}"
 				?disabled=${this.disabled}
 				href=${this.href ?? nothing}
+				slot=${this.overlay === 'popover' ? 'anchor' : nothing}
 			>
 				<code-icon part="icon" icon="${this.icon}"></code-icon><slot></slot>
 			</a>

@@ -257,6 +257,31 @@ export class GlCommitDetails extends GlDetailsBase {
 		};
 	}
 
+	private renderLearnAboutAutolinks(compact = false) {
+		const chipLabel = compact ? nothing : html`<span class="mq-hide-sm">Learn about autolinks</span>`;
+
+		const hasIntegrationsConnected = this.state?.hasIntegrationsConnected ?? false;
+		let label = 'Learn about autolinks';
+		if (!hasIntegrationsConnected) {
+			label = `<a href="command:gitlens.showSettingsPage!autolinks">${label}</a>\n\n<a href="command:gitlens.plus.cloudIntegrations.connect">Connect an Integration</a> &mdash;`;
+
+			if (!this.state?.hasAccount) {
+				label += ' sign up and';
+			}
+
+			label += ' to get access to automatic rich autolinks for services like Jira, GitHub, and more.';
+		}
+
+		return html`<gl-action-chip
+			href="command:gitlens.showSettingsPage!autolinks"
+			data-action="autolink-settings"
+			icon="info"
+			.label=${label}
+			overlay=${hasIntegrationsConnected ? 'tooltip' : 'popover'}
+			>${chipLabel}</gl-action-chip
+		>`;
+	}
+
 	private renderAutoLinksChips() {
 		const autolinkState = this.autolinkState;
 		if (autolinkState == null) return html`<span></span>`;
@@ -264,16 +289,11 @@ export class GlCommitDetails extends GlDetailsBase {
 		const { autolinks, issues, prs, size } = autolinkState;
 
 		if (size === 0) {
-			return html`<gl-action-chip
-				href="command:gitlens.showSettingsPage!autolinks"
-				data-action="autolink-settings"
-				icon="info"
-				label="Learn about autolinks"
-				><span class="mq-hide-sm">Learn about autolinks</span></gl-action-chip
-			>`;
+			return this.renderLearnAboutAutolinks();
 		}
 
 		return html`<div class="message-block-group">
+			${this.renderLearnAboutAutolinks(true)}
 			${when(autolinks.length, () =>
 				autolinks.map(autolink => {
 					let name = autolink.description ?? autolink.title;
