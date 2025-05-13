@@ -1,5 +1,6 @@
 import { Uri } from 'vscode';
 import { loggingJsonReplacer } from '@env/json';
+import { getCancellationTokenId, isCancellationToken } from '../../-webview/cancellation';
 import { isContainer } from '../../../container';
 import { isBranch } from '../../../git/models/branch';
 import { isCommit } from '../../../git/models/commit';
@@ -47,6 +48,7 @@ export function defaultResolver(...args: unknown[]): string {
 				return arg.toString();
 			}
 			if (isContainer(arg)) return '<container>';
+			if (isCancellationToken(arg)) return getCancellationTokenId(arg);
 
 			return JSON.stringify(arg, loggingJsonReplacer);
 	}
