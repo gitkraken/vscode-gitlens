@@ -326,10 +326,19 @@ export class Git {
 			};
 		} catch (ex) {
 			if (errorHandling === GitErrorHandling.Ignore) {
+				if (ex instanceof RunError) {
+					return {
+						stdout: ex.stdout as T,
+						stderr: ex.stderr as T | undefined,
+						exitCode: ex.code != null ? (typeof ex.code === 'number' ? ex.code : parseInt(ex.code, 10)) : 0,
+						cancelled: ex instanceof CancelledRunError,
+					};
+				}
+
 				return {
 					stdout: '' as T,
-					stderr: result?.stderr as T | undefined,
-					exitCode: result?.exitCode ?? 0,
+					stderr: undefined,
+					exitCode: 0,
 					cancelled: ex instanceof CancelledRunError,
 				};
 			}
