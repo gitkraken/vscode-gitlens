@@ -37,6 +37,7 @@ import {
 	getBranchNameWithoutRemote,
 	getRemoteNameFromBranchName,
 } from '../../../../git/utils/branch.utils';
+import { getChangedFilesCount } from '../../../../git/utils/commit.utils';
 import { createReference } from '../../../../git/utils/reference.utils';
 import { isUncommittedStaged } from '../../../../git/utils/revision.utils';
 import { getTagId } from '../../../../git/utils/tag.utils';
@@ -135,14 +136,13 @@ export class GraphGitSubProvider implements GitGraphSubProvider {
 
 		// TODO@eamodio this is insanity -- there *HAS* to be a better way to get git log to return stashes
 		const gitStash = getSettledValue(stashResult);
-		const { stdin, stashes } = convertStashesToStdin(gitStash?.stashes);
+		const { stdin, stashes, remappedIds } = convertStashesToStdin(gitStash?.stashes);
 
 		const useAvatars = configuration.get('graph.avatars', undefined, true);
 
 		const avatars = new Map<string, string>();
 		const ids = new Set<string>();
 		const reachableFromHEAD = new Set<string>();
-		const remappedIds = new Map<string, string>();
 		const rowStats: GitGraphRowsStats = new Map<string, GitGraphRowStats>();
 		let pendingRowsStatsCount = 0;
 		let iterations = 0;
@@ -208,6 +208,7 @@ export class GraphGitSubProvider implements GitGraphSubProvider {
 				let remote: GitRemote | undefined;
 				let remoteBranchId: string;
 				let remoteName: string;
+				let shaOrRemapped: string | undefined;
 				let stash: GitStashCommit | undefined;
 				let tagId: string;
 				let tagName: string;
@@ -233,9 +234,11 @@ export class GraphGitSubProvider implements GitGraphSubProvider {
 					if (ids.has(commit.sha)) continue;
 
 					total++;
-					if (remappedIds.has(commit.sha)) continue;
+					shaOrRemapped = remappedIds.get(commit.sha);
+					if (shaOrRemapped && ids.has(shaOrRemapped)) continue;
+					shaOrRemapped ??= commit.sha;
 
-					ids.add(commit.sha);
+					ids.add(shaOrRemapped);
 
 					refHeads = [];
 					refRemoteHeads = [];
@@ -279,7 +282,7 @@ export class GraphGitSubProvider implements GitGraphSubProvider {
 
 							if (tip.startsWith('HEAD')) {
 								head = true;
-								reachableFromHEAD.add(commit.sha);
+								reachableFromHEAD.add(shaOrRemapped);
 
 								if (tip !== 'HEAD') {
 									tip = tip.substring(8);
@@ -424,41 +427,20 @@ export class GraphGitSubProvider implements GitGraphSubProvider {
 						}
 					}
 
-					stash = gitStash?.stashes.get(commit.sha);
-
 					parents = commit.parents ? commit.parents.split(' ') : [];
-					if (reachableFromHEAD.has(commit.sha)) {
+					if (reachableFromHEAD.has(shaOrRemapped)) {
 						for (parent of parents) {
 							reachableFromHEAD.add(parent);
 						}
 					}
 
-					// Remove the second & third parent, if exists, from each stash commit as it is a Git implementation for the index and untracked files
-					if (stash != null && parents.length > 1) {
-						// Remap the "index commit" (e.g. contains staged files) of the stash
-						remappedIds.set(parents[1], commit.sha);
-						// Remap the "untracked commit" (e.g. contains untracked files) of the stash
-						if (parents.length > 2) {
-							remappedIds.set(parents[2], commit.sha);
-						}
-						parents.splice(1, 2);
-					}
-
-					if (stash == null && !avatars.has(commit.authorEmail)) {
-						avatarUri = getCachedAvatarUri(commit.authorEmail);
-						if (avatarUri != null) {
-							avatars.set(commit.authorEmail, avatarUri.toString(true));
-						}
-					}
-
-					isCurrentUser = isUserMatch(currentUser, commit.author, commit.authorEmail);
-
+					stash = gitStash?.stashes.get(shaOrRemapped);
 					if (stash != null) {
 						contexts.row = serializeWebviewItemContext<GraphItemRefContext>({
 							webviewItem: 'gitlens:stash',
 							webviewItemValue: {
 								type: 'stash',
-								ref: createReference(commit.sha, repoPath, {
+								ref: createReference(shaOrRemapped, repoPath, {
 									refType: 'stash',
 									name: stash.name,
 									message: stash.message,
@@ -466,14 +448,46 @@ export class GraphGitSubProvider implements GitGraphSubProvider {
 								}),
 							},
 						});
+
+						rows.push({
+							sha: shaOrRemapped,
+							// Always only return the first parent for stashes, as it is a Git implementation for the index and untracked files
+							parents: parents.slice(0, 1),
+							author: 'You',
+							email: commit.authorEmail,
+							date: Number(ordering === 'author-date' ? commit.authorDate : commit.committerDate) * 1000,
+							message: emojify(stash.message ?? commit.message.trim()),
+							type: 'stash-node',
+							heads: refHeads,
+							remotes: refRemoteHeads,
+							tags: refTags,
+							contexts: contexts,
+						});
+
+						if (stash.stats != null) {
+							rowStats.set(shaOrRemapped, {
+								files: getChangedFilesCount(stash.stats.files),
+								additions: stash.stats.additions,
+								deletions: stash.stats.deletions,
+							});
+						}
 					} else {
+						isCurrentUser = isUserMatch(currentUser, commit.author, commit.authorEmail);
+
+						if (!avatars.has(commit.authorEmail)) {
+							avatarUri = getCachedAvatarUri(commit.authorEmail);
+							if (avatarUri != null) {
+								avatars.set(commit.authorEmail, avatarUri.toString(true));
+							}
+						}
+
 						contexts.row = serializeWebviewItemContext<GraphItemRefContext>({
 							webviewItem: `gitlens:commit${head ? '+HEAD' : ''}${
-								reachableFromHEAD.has(commit.sha) ? '+current' : ''
+								reachableFromHEAD.has(shaOrRemapped) ? '+current' : ''
 							}`,
 							webviewItemValue: {
 								type: 'commit',
-								ref: createReference(commit.sha, repoPath, {
+								ref: createReference(shaOrRemapped, repoPath, {
 									refType: 'revision',
 									message: commit.message,
 								}),
@@ -490,25 +504,24 @@ export class GraphGitSubProvider implements GitGraphSubProvider {
 								current: isCurrentUser,
 							},
 						});
-					}
 
-					rows.push({
-						sha: commit.sha,
-						parents: onlyFollowFirstParent ? [parents[0]] : parents,
-						author: isCurrentUser ? 'You' : commit.author,
-						email: commit.authorEmail,
-						date: Number(ordering === 'author-date' ? commit.authorDate : commit.committerDate) * 1000,
-						message: emojify(commit.message.trim()),
-						// TODO: review logic for stash, wip, etc
-						type: stash != null ? 'stash-node' : parents.length > 1 ? 'merge-node' : 'commit-node',
-						heads: refHeads,
-						remotes: refRemoteHeads,
-						tags: refTags,
-						contexts: contexts,
-					});
+						rows.push({
+							sha: shaOrRemapped,
+							parents: onlyFollowFirstParent ? parents.slice(0, 1) : parents,
+							author: isCurrentUser ? 'You' : commit.author,
+							email: commit.authorEmail,
+							date: Number(ordering === 'author-date' ? commit.authorDate : commit.committerDate) * 1000,
+							message: emojify(commit.message.trim()),
+							type: parents.length > 1 ? 'merge-node' : 'commit-node',
+							heads: refHeads,
+							remotes: refRemoteHeads,
+							tags: refTags,
+							contexts: contexts,
+						});
 
-					if (commit.stats != null) {
-						rowStats.set(commit.sha, commit.stats);
+						if (commit.stats != null) {
+							rowStats.set(shaOrRemapped, commit.stats);
+						}
 					}
 				}
 
@@ -541,9 +554,14 @@ export class GraphGitSubProvider implements GitGraphSubProvider {
 							);
 
 							if (statsResult.stdout) {
-								const commitStats = statsParser.parse(statsResult.stdout);
-								for (const stat of commitStats) {
-									rowStats.set(stat.sha, stat.stats);
+								let statShaOrRemapped;
+								for (const stat of statsParser.parse(statsResult.stdout)) {
+									statShaOrRemapped = remappedIds.get(stat.sha) ?? stat.sha;
+
+									// If we already have the stats for this sha, skip it (e.g. stashes)
+									if (rowStats.has(statShaOrRemapped)) continue;
+
+									rowStats.set(statShaOrRemapped, stat.stats);
 								}
 							}
 						} finally {
@@ -563,7 +581,6 @@ export class GraphGitSubProvider implements GitGraphSubProvider {
 					avatars: avatars,
 					ids: ids,
 					includes: options?.include,
-					remappedIds: remappedIds,
 					branches: branchMap,
 					remotes: remoteMap,
 					downstreams: downstreamMap,
@@ -635,13 +652,16 @@ export class GraphGitSubProvider implements GitGraphSubProvider {
 
 			let stashes: Map<string, GitStashCommit> | undefined;
 			let stdin: string | undefined;
+			let remappedIds: Map<string, string>;
 
 			if (shas?.size) {
 				stdin = join(shas, '\n');
 				args.push('--no-walk');
+
+				remappedIds = new Map();
 			} else {
 				// TODO@eamodio this is insanity -- there *HAS* to be a better way to get git log to return stashes
-				({ stdin, stashes } = convertStashesToStdin(
+				({ stdin, stashes, remappedIds } = convertStashesToStdin(
 					await this.provider.stash?.getStash(repoPath, undefined, cancellation),
 				));
 			}
@@ -696,6 +716,7 @@ export class GraphGitSubProvider implements GitGraphSubProvider {
 
 					let count = 0;
 					let hasMore = false;
+					let sha;
 					const stashesOnly = filters.type === 'stash';
 
 					for await (const r of parser.parseAsync(stream)) {
@@ -707,11 +728,12 @@ export class GraphGitSubProvider implements GitGraphSubProvider {
 						}
 
 						count++;
-						if (results.has(r.sha) || (stashesOnly && !stashes?.has(r.sha))) {
+						sha = remappedIds.get(r.sha) ?? r.sha;
+						if (results.has(sha) || (stashesOnly && !stashes?.has(sha))) {
 							continue;
 						}
 
-						results.set(r.sha, {
+						results.set(sha, {
 							i: results.size,
 							date: Number(options?.ordering === 'author-date' ? r.authorDate : r.committerDate) * 1000,
 						});
