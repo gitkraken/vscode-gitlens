@@ -1227,6 +1227,14 @@ void
 void
 ```
 
+### home/enableAi
+
+> Sent when the user chooses to enable AI from the integrations menu
+
+```typescript
+void
+```
+
 ### home/preview/toggled
 
 > Sent when the new Home view preview is toggled on/off

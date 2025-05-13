@@ -62,7 +62,8 @@ type InternalHomeWebviewCommands =
 	| 'gitlens.home.abortPausedOperation'
 	| 'gitlens.ai.explainWip:home'
 	| 'gitlens.ai.explainBranch:home'
-	| 'gitlens.home.openRebaseEditor';
+	| 'gitlens.home.openRebaseEditor'
+	| 'gitlens.home.enableAi';
 
 type InternalHomeWebviewViewCommands =
 	| 'gitlens.views.home.account.resync'

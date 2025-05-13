@@ -358,6 +358,7 @@ export class HomeWebviewProvider implements WebviewProvider<State, State, HomeWe
 			registerCommand('gitlens.home.continuePausedOperation', this.continuePausedOperation, this),
 			registerCommand('gitlens.home.abortPausedOperation', this.abortPausedOperation, this),
 			registerCommand('gitlens.home.openRebaseEditor', this.openRebaseEditor, this),
+			registerCommand('gitlens.home.enableAi', this.enableAi, this),
 			registerCommand('gitlens.ai.explainWip:home', this.explainWip, this),
 			registerCommand('gitlens.ai.explainBranch:home', this.explainBranch, this),
 		];
@@ -575,6 +576,12 @@ export class HomeWebviewProvider implements WebviewProvider<State, State, HomeWe
 			worktreePath: worktree?.path,
 			source: { source: 'home', type: 'wip' },
 		});
+	}
+
+	@log()
+	private enableAi() {
+		this.container.telemetry.sendEvent('home/enableAi');
+		configuration.updateEffective('ai.enabled', true);
 	}
 
 	@log()
