@@ -1,11 +1,11 @@
 import type { TextEditor, Uri } from 'vscode';
 import { ProgressLocation } from 'vscode';
-import type { Source } from '../constants.telemetry';
 import type { Container } from '../container';
 import { GitUri } from '../git/gitUri';
 import type { GitBranchReference } from '../git/models/reference';
 import { getBranchMergeTargetName } from '../git/utils/-webview/branch.utils';
 import { showGenericErrorMessage } from '../messages';
+import type { AIExplainSource } from '../plus/ai/aiProviderService';
 import { prepareCompareDataForAIRequest } from '../plus/ai/aiProviderService';
 import { ReferencesQuickPickIncludes, showReferencePicker } from '../quickpicks/referencePicker';
 import { getBestRepositoryOrShowPicker } from '../quickpicks/repositoryPicker';
@@ -21,7 +21,7 @@ import { isCommandContextViewNodeHasBranch } from './commandContext.utils';
 export interface ExplainBranchCommandArgs {
 	repoPath?: string | Uri;
 	ref?: string;
-	source?: Source;
+	source?: AIExplainSource;
 }
 
 @command()
@@ -35,7 +35,7 @@ export class ExplainBranchCommand extends GlCommandBase {
 			args = { ...args };
 			args.repoPath = args.repoPath ?? getNodeRepoPath(context.node);
 			args.ref = args.ref ?? context.node.branch.ref;
-			args.source = args.source ?? { source: 'view' };
+			args.source = args.source ?? { source: 'view', type: 'branch' };
 		}
 
 		return this.execute(context.editor, context.uri, args);

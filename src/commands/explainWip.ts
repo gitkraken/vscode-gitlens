@@ -1,10 +1,10 @@
 import type { TextEditor, Uri } from 'vscode';
 import { ProgressLocation } from 'vscode';
-import type { Source } from '../constants.telemetry';
 import type { Container } from '../container';
 import { GitUri } from '../git/gitUri';
 import { uncommitted, uncommittedStaged } from '../git/models/revision';
 import { showGenericErrorMessage } from '../messages';
+import type { AIExplainSource } from '../plus/ai/aiProviderService';
 import { getBestRepositoryOrShowPicker } from '../quickpicks/repositoryPicker';
 import { command } from '../system/-webview/command';
 import { showMarkdownPreview } from '../system/-webview/markdown';
@@ -21,7 +21,7 @@ import {
 export interface ExplainWipCommandArgs {
 	repoPath?: string | Uri;
 	staged?: boolean;
-	source?: Source;
+	source?: AIExplainSource;
 	worktreePath?: string;
 }
 
@@ -36,15 +36,15 @@ export class ExplainWipCommand extends GlCommandBase {
 			args = { ...args };
 			args.repoPath = context.node.worktree.repoPath;
 			args.worktreePath = context.node.worktree.path;
-			args.source = args.source ?? { source: 'view' };
+			args.source = args.source ?? { source: 'view', type: 'wip' };
 		} else if (isCommandContextViewNodeHasRepository(context)) {
 			args = { ...args };
 			args.repoPath = context.node.repo.path;
-			args.source = args.source ?? { source: 'view' };
+			args.source = args.source ?? { source: 'view', type: 'wip' };
 		} else if (isCommandContextViewNodeHasRepoPath(context)) {
 			args = { ...args };
 			args.repoPath = context.node.repoPath;
-			args.source = args.source ?? { source: 'view' };
+			args.source = args.source ?? { source: 'view', type: 'wip' };
 		}
 
 		return this.execute(context.editor, context.uri, args);

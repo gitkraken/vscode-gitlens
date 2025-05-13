@@ -1,10 +1,11 @@
 import type { TextEditor, Uri } from 'vscode';
 import { ProgressLocation } from 'vscode';
-import type { Source } from '../constants.telemetry';
 import type { Container } from '../container';
 import { GitUri } from '../git/gitUri';
 import type { GitCommit } from '../git/models/commit';
+import { isStash } from '../git/models/commit';
 import { showGenericErrorMessage } from '../messages';
+import type { AIExplainSource } from '../plus/ai/aiProviderService';
 import { showCommitPicker } from '../quickpicks/commitPicker';
 import { getBestRepositoryOrShowPicker } from '../quickpicks/repositoryPicker';
 import { command } from '../system/-webview/command';
@@ -18,8 +19,8 @@ import { isCommandContextViewNodeHasCommit } from './commandContext.utils';
 
 export interface ExplainCommitCommandArgs {
 	repoPath?: string | Uri;
-	ref?: string;
-	source?: Source;
+	rev?: string;
+	source?: AIExplainSource;
 }
 
 @command()
@@ -33,8 +34,11 @@ export class ExplainCommitCommand extends GlCommandBase {
 		if (isCommandContextViewNodeHasCommit(context)) {
 			args = { ...args };
 			args.repoPath = args.repoPath ?? getNodeRepoPath(context.node);
-			args.ref = args.ref ?? context.node.commit.sha;
-			args.source = args.source ?? { source: 'view' };
+			args.rev = args.rev ?? context.node.commit.sha;
+			args.source = args.source ?? {
+				source: 'view',
+				type: isStash(context.node.commit) ? 'stash' : 'commit',
+			};
 		}
 
 		return this.execute(context.editor, context.uri, args);
@@ -63,16 +67,16 @@ export class ExplainCommitCommand extends GlCommandBase {
 
 		try {
 			let commit: GitCommit | undefined;
-			if (args.ref == null) {
+			if (args.rev == null) {
 				const commitsProvider = repository.git.commits();
 				const log = await commitsProvider.getLog();
 				const pick = await showCommitPicker(log, 'Explain Commit', 'Choose a commit to explain');
 				if (pick?.sha == null) return;
-				args.ref = pick.sha;
+				args.rev = pick.sha;
 				commit = pick;
 			} else {
 				// Get the commit
-				commit = await repository.git.commits().getCommit(args.ref);
+				commit = await repository.git.commits().getCommit(args.rev);
 				if (commit == null) {
 					void showGenericErrorMessage('Unable to find the specified commit');
 					return;
