@@ -26,8 +26,9 @@ import './hover/graphHover';
 import './minimap/minimap-container';
 import './sidebar/sidebar';
 
-@customElement('gl-graph-app-wc')
-export class GraphAppWC extends SignalWatcher(LitElement) {
+@customElement('gl-graph-app')
+export class GraphApp extends SignalWatcher(LitElement) {
+	// use Light DOM
 	protected override createRenderRoot(): HTMLElement | DocumentFragment {
 		return this;
 	}

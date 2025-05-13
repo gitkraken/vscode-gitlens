@@ -9,7 +9,7 @@ import {
 	DidChangeWalkthroughProgress,
 	DidCompleteDiscoveringRepositories,
 } from '../../home/protocol';
-import type { ReactiveElementHost, StateProvider } from '../shared/app';
+import type { ReactiveElementHost, StateProvider } from '../shared/appHost';
 import type { Disposable } from '../shared/events';
 import type { HostIpc } from '../shared/ipc';
 import { stateContext } from './context';

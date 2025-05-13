@@ -23,7 +23,7 @@ export interface StateProvider<State> extends Disposable {
 	readonly state: State;
 }
 
-export abstract class GlApp<
+export abstract class GlAppHost<
 	State extends { webviewId: CustomEditorIds | WebviewIds | WebviewViewIds; timestamp: number } = {
 		webviewId: CustomEditorIds | WebviewIds | WebviewViewIds;
 		timestamp: number;

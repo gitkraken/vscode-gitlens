@@ -13,7 +13,7 @@ import {
 	inactiveOverviewStateContext,
 } from '../plus/home/components/overviewState';
 import type { GlHomeHeader } from '../plus/shared/components/home-header';
-import { GlApp } from '../shared/app';
+import { GlAppHost } from '../shared/appHost';
 import { scrollableBase } from '../shared/components/styles/lit/base.css';
 import type { HostIpc } from '../shared/ipc';
 import { homeBaseStyles, homeStyles } from './home.css';
@@ -30,7 +30,7 @@ import './components/promo-banner';
 import './components/repo-alerts';
 
 @customElement('gl-home-app')
-export class GlHomeApp extends GlApp<State> {
+export class GlHomeApp extends GlAppHost<State> {
 	static override styles = [homeBaseStyles, scrollableBase, homeStyles];
 
 	@provide({ context: activeOverviewStateContext })

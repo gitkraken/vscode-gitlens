@@ -29,7 +29,7 @@ import {
 	DidStartFeaturePreviewNotification,
 } from '../../../plus/graph/protocol';
 import { DidChangeHostWindowFocusNotification } from '../../../protocol';
-import type { StateProvider } from '../../shared/app';
+import type { StateProvider } from '../../shared/appHost';
 import { signalObjectState, signalState } from '../../shared/components/signal-utils';
 import type { LoggerContext } from '../../shared/contexts/logger';
 import type { Disposable } from '../../shared/events';

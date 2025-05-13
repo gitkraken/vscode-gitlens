@@ -1,7 +1,7 @@
 import { ContextProvider } from '@lit/context';
 import type { State } from '../../../plus/timeline/protocol';
 import { DidChangeNotification } from '../../../plus/timeline/protocol';
-import type { ReactiveElementHost, StateProvider } from '../../shared/app';
+import type { ReactiveElementHost, StateProvider } from '../../shared/appHost';
 import type { Disposable } from '../../shared/events';
 import type { HostIpc } from '../../shared/ipc';
 import { stateContext } from './context';

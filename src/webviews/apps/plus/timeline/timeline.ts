@@ -16,7 +16,7 @@ import {
 	UpdateConfigCommand,
 	UpdateScopeCommand,
 } from '../../../plus/timeline/protocol';
-import { GlApp } from '../../shared/app';
+import { GlAppHost } from '../../shared/appHost';
 import type { Checkbox } from '../../shared/components/checkbox/checkbox';
 import type { GlRefButton } from '../../shared/components/ref-button';
 import type { HostIpc } from '../../shared/ipc';
@@ -38,7 +38,7 @@ import '../../shared/components/progress';
 import '../../shared/components/overlays/popover';
 
 @customElement('gl-timeline-app')
-export class GlTimelineApp extends GlApp<State> {
+export class GlTimelineApp extends GlAppHost<State> {
 	static override shadowRootOptions: ShadowRootInit = {
 		...LitElement.shadowRootOptions,
 		delegatesFocus: true,
