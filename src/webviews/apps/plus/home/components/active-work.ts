@@ -280,6 +280,14 @@ export class GlActiveBranchCard extends GlBranchCardBase {
 						tooltip="Generate Message &amp; Commit..."
 						><code-icon icon="sparkle" slot="prefix"></code-icon>Commit
 					</gl-button>
+					<gl-button
+						aria-busy=${ifDefined(isFetching)}
+						?disabled=${isFetching}
+						href=${this.createCommandLink('gitlens.ai.explainWip:home')}
+						appearance="secondary"
+						tooltip="Explain Working Changes (Preview)"
+						><code-icon icon="sparkle" slot="prefix"></code-icon>WIP
+					</gl-button>
 				`);
 			}
 
