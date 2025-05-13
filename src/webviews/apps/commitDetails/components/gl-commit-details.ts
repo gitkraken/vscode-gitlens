@@ -3,7 +3,7 @@ import { customElement, property, state } from 'lit/decorators.js';
 import { unsafeHTML } from 'lit/directives/unsafe-html.js';
 import { when } from 'lit/directives/when.js';
 import type { Autolink } from '../../../../autolinks/models/autolinks';
-import type { ExplainWipCommandArgs } from '../../../../commands/explainWip';
+import type { ConnectCloudIntegrationsCommandArgs } from '../../../../commands/cloudIntegrations';
 import type { IssueOrPullRequest } from '../../../../git/models/issueOrPullRequest';
 import type { PullRequestShape } from '../../../../git/models/pullRequest';
 import { createCommandLink } from '../../../../system/commands';
@@ -123,7 +123,7 @@ export class GlCommitDetails extends GlDetailsBase {
 	}
 
 	private renderExplainChanges() {
-		if (this.state?.orgSettings.ai === false || this.state?.preferences.aiEnabled === false) return undefined;
+		if (this.state?.orgSettings.ai === false) return undefined;
 
 		if (this.isUncommitted) {
 			return html`
@@ -279,10 +279,26 @@ export class GlCommitDetails extends GlDetailsBase {
 	private renderLearnAboutAutolinks(compact = false) {
 		const chipLabel = compact ? nothing : html`<span class="mq-hide-sm">Learn about autolinks</span>`;
 
+		const autolinkSettingsLink = createCommandLink('gitlens.showSettingsPage!autolinks', {
+			showOptions: { preserveFocus: true },
+		});
+
 		const hasIntegrationsConnected = this.state?.hasIntegrationsConnected ?? false;
-		let label = 'Learn about autolinks';
+		let label =
+			'Configure autolinks to linkify external references, like Jira or Zendesk tickets, in commit messages.';
 		if (!hasIntegrationsConnected) {
-			label = `<a href="command:gitlens.showSettingsPage!autolinks">${label}</a>\n\n<a href="command:gitlens.plus.cloudIntegrations.connect">Connect an Integration</a> &mdash;`;
+			label = `<a href="${autolinkSettingsLink}">Configure autolinks</a> to linkify external references, like Jira or Zendesk tickets, in commit messages.`;
+			label += `\n\n<a href="${createCommandLink<ConnectCloudIntegrationsCommandArgs>(
+				'gitlens.plus.cloudIntegrations.connect',
+				{
+					source: {
+						source: 'inspect',
+						detail: {
+							action: 'connect',
+						},
+					},
+				},
+			)}">Connect an Integration</a> &mdash;`;
 
 			if (!this.state?.hasAccount) {
 				label += ' sign up and';
@@ -292,7 +308,7 @@ export class GlCommitDetails extends GlDetailsBase {
 		}
 
 		return html`<gl-action-chip
-			href="command:gitlens.showSettingsPage!autolinks"
+			href=${autolinkSettingsLink}
 			data-action="autolink-settings"
 			icon="info"
 			.label=${label}
