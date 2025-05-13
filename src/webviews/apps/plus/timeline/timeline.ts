@@ -345,15 +345,14 @@ export class GlTimelineApp extends GlAppHost<State> {
 	}
 
 	private renderConfigHead() {
-		const {
-			head,
-			config: { showAllBranches },
-		} = this;
+		const { head } = this;
+		const disabled = this.config.showAllBranches && this.sliceBy !== 'branch';
+
 		return html`<section>
-			<label for="head" ?disabled=${showAllBranches}>Branch</label>
+			<label for="head" ?disabled=${disabled}>Branch</label>
 			<gl-ref-button
 				name="head"
-				?disabled=${showAllBranches}
+				?disabled=${disabled}
 				icon
 				tooltip="Change Reference"
 				.ref=${head}
@@ -533,9 +532,18 @@ export class GlTimelineApp extends GlAppHost<State> {
 		}
 		if (result?.ref == null) return;
 
+		if (location === 'config') {
+			this._ipc.sendCommand(UpdateScopeCommand, {
+				scope: this.scope!,
+				changes: { head: result.ref, base: this.config.showAllBranches ? null : undefined },
+			});
+
+			return;
+		}
+
 		this._ipc.sendCommand(UpdateScopeCommand, {
 			scope: this.scope!,
-			changes: { head: result.ref, base: location !== 'config' ? null : undefined },
+			changes: { head: result.ref, base: null },
 		});
 		if (this.config.showAllBranches) {
 			this._ipc.sendCommand(UpdateConfigCommand, { changes: { showAllBranches: false } });
