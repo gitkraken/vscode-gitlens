@@ -7,7 +7,6 @@ import { customElement, query } from 'lit/decorators.js';
 import { ifDefined } from 'lit/directives/if-defined.js';
 import type { GitGraphRowType } from '../../../../../git/models/graph';
 import { filterMap } from '../../../../../system/array';
-import { getScopedCounter } from '../../../../../system/counter';
 import {
 	DoubleClickedCommandType,
 	GetMissingAvatarsCommand,
@@ -177,8 +176,6 @@ export class GlGraphWrapper extends SignalWatcher(LitElement) {
 		this.dispatchEvent(new CustomEvent('gl-graph-row-unhover', { detail: detail }));
 	}
 
-	private _selectionCounter = getScopedCounter();
-
 	private onSelectionChanged({ detail: rows }: CustomEventType<'graph-changeselection'>) {
 		const selection = filterMap(rows, r =>
 			r != null ? { id: r.sha, type: r.type as GitGraphRowType } : undefined,
@@ -191,16 +188,6 @@ export class GlGraphWrapper extends SignalWatcher(LitElement) {
 
 		this.dispatchEvent(new CustomEvent('gl-graph-change-selection', { detail: { selection: selection } }));
 		this._ipc.sendCommand(UpdateSelectionCommand, { selection: selection });
-
-		const count = this._selectionCounter.next();
-		if (count === 1 || count % 100 === 0) {
-			queueMicrotask(() =>
-				this._telemetry.sendEvent({
-					name: 'graph/row/selected',
-					data: { rows: selection.length, count: count },
-				}),
-			);
-		}
 	}
 
 	private onVisibleDaysChanged({ detail }: CustomEventType<'graph-changevisibledays'>) {

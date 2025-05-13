@@ -156,6 +156,14 @@ export const DidChangeWebviewFocusNotification = new IpcCommand<DidChangeWebview
 	'webview/focus/didChange',
 );
 
+export interface DidChangeWebviewVisibilityParams {
+	visible: boolean;
+}
+export const DidChangeWebviewVisibilityNotification = new IpcNotification<DidChangeWebviewVisibilityParams>(
+	'core',
+	'webview/visibility/didChange',
+);
+
 export interface DidChangeConfigurationParams {
 	config: Config;
 	customSettings: Record<string, boolean>;

@@ -6,7 +6,12 @@ import type { CustomEditorIds, WebviewIds, WebviewViewIds } from '../../../const
 import type { Deferrable } from '../../../system/function/debounce';
 import { debounce } from '../../../system/function/debounce';
 import type { WebviewFocusChangedParams } from '../../protocol';
-import { DidChangeWebviewFocusNotification, WebviewFocusChangedCommand, WebviewReadyCommand } from '../../protocol';
+import {
+	DidChangeWebviewFocusNotification,
+	DidChangeWebviewVisibilityNotification,
+	WebviewFocusChangedCommand,
+	WebviewReadyCommand,
+} from '../../protocol';
 import { GlElement } from './components/element';
 import { ipcContext } from './contexts/ipc';
 import { loggerContext, LoggerContext } from './contexts/logger';
@@ -64,7 +69,9 @@ export abstract class GlAppHost<
 	private _stateProvider!: StateProvider<State>;
 
 	protected abstract createStateProvider(state: State, ipc: HostIpc): StateProvider<State>;
-	protected onPersistState(_state: State): void {}
+	protected onPersistState?(state: State): void;
+	protected onWebviewFocusChanged?(focused: boolean): void;
+	protected onWebviewVisibilityChanged?(visible: boolean): void;
 
 	override connectedCallback(): void {
 		super.connectedCallback();
@@ -78,7 +85,7 @@ export abstract class GlAppHost<
 		const state = this.bootstrap;
 		this.bootstrap = undefined!;
 		this._ipc.replaceIpcPromisesWithPromises(state);
-		this.onPersistState(state);
+		this.onPersistState?.(state);
 
 		const themeEvent = computeThemeColors();
 		if (this.onThemeUpdated != null) {
@@ -92,7 +99,14 @@ export abstract class GlAppHost<
 			this._ipc.onReceiveMessage(msg => {
 				switch (true) {
 					case DidChangeWebviewFocusNotification.is(msg):
+						this.onWebviewFocusChanged?.(msg.params.focused);
 						window.dispatchEvent(new CustomEvent(msg.params.focused ? 'webview-focus' : 'webview-blur'));
+						break;
+					case DidChangeWebviewVisibilityNotification.is(msg):
+						this.onWebviewVisibilityChanged?.(msg.params.visible);
+						window.dispatchEvent(
+							new CustomEvent(msg.params.visible ? 'webview-visible' : 'webview-hidden'),
+						);
 						break;
 				}
 			}),

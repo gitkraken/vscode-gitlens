@@ -11,7 +11,12 @@ import type {
 	IpcRequest,
 	WebviewFocusChangedParams,
 } from '../../protocol';
-import { DidChangeWebviewFocusNotification, WebviewFocusChangedCommand, WebviewReadyCommand } from '../../protocol';
+import {
+	DidChangeWebviewFocusNotification,
+	DidChangeWebviewVisibilityNotification,
+	WebviewFocusChangedCommand,
+	WebviewReadyCommand,
+} from '../../protocol';
 import { ipcContext } from './contexts/ipc';
 import { loggerContext, LoggerContext } from './contexts/logger';
 import { PromosContext, promosContext } from './contexts/promos';
@@ -105,6 +110,12 @@ export abstract class App<
 								case DidChangeWebviewFocusNotification.is(msg):
 									window.dispatchEvent(
 										new CustomEvent(msg.params.focused ? 'webview-focus' : 'webview-blur'),
+									);
+									break;
+
+								case DidChangeWebviewVisibilityNotification.is(msg):
+									window.dispatchEvent(
+										new CustomEvent(msg.params.visible ? 'webview-visible' : 'webview-hidden'),
 									);
 									break;
 

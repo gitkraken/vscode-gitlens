@@ -31,6 +31,7 @@ import {
 	ApplicablePromoRequest,
 	DidChangeHostWindowFocusNotification,
 	DidChangeWebviewFocusNotification,
+	DidChangeWebviewVisibilityNotification,
 	ExecuteCommand,
 	ipcPromiseSettled,
 	isIpcPromise,
@@ -555,6 +556,7 @@ export class WebviewController<
 			this.handleFocusChanged(false);
 		}
 
+		void this.notify(DidChangeWebviewVisibilityNotification, { visible: visible });
 		this.provider.onVisibilityChanged?.(visible);
 	}
 
