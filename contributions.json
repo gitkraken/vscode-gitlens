@@ -25,7 +25,7 @@
 		},
 		"gitlens.ai.explainBranch": {
 			"label": "Explain Branch (Preview)...",
-			"commandPalette": "gitlens:enabled && !gitlens:readonly && !gitlens:untrusted && gitlens:gk:organization:ai:enabled"
+			"commandPalette": "gitlens:enabled && !gitlens:readonly && !gitlens:untrusted && gitlens:gk:organization:ai:enabled && config.gitlens.ai.enabled"
 		},
 		"gitlens.ai.explainBranch:graph": {
 			"label": "Explain Branch (Preview)",
@@ -115,7 +115,7 @@
 		},
 		"gitlens.ai.explainWip": {
 			"label": "Explain Working Changes (Preview)...",
-			"commandPalette": "gitlens:enabled && !gitlens:readonly && !gitlens:untrusted && gitlens:gk:organization:ai:enabled"
+			"commandPalette": "gitlens:enabled && !gitlens:readonly && !gitlens:untrusted && gitlens:gk:organization:ai:enabled && config.gitlens.ai.enabled"
 		},
 		"gitlens.ai.explainWip:graph": {
 			"label": "Explain Working Changes (Preview)",
@@ -136,7 +136,7 @@
 			"menus": {
 				"view/item/context": [
 					{
-						"when": "viewItem =~ /gitlens:(worktree|uncommitted)\\b/ && !listMultiSelection && !gitlens:readonly && !gitlens:untrusted && gitlens:gk:organization:ai:enabled",
+						"when": "viewItem =~ /gitlens:(worktree|uncommitted)\\b/ && !listMultiSelection && !gitlens:readonly && !gitlens:untrusted && gitlens:gk:organization:ai:enabled && config.gitlens.ai.enabled",
 						"group": "3_gitlens_ai",
 						"order": 1
 					}

@@ -993,6 +993,8 @@ export class GlBranchCard extends GlBranchCardBase {
 	protected getBranchActions(): TemplateResult[] {
 		const actions = [];
 
+		const aiEnabled = this._homeState.orgSettings.ai && this._homeState.aiEnabled;
+
 		if (this.branch.worktree) {
 			actions.push(
 				html`<action-item
@@ -1002,29 +1004,31 @@ export class GlBranchCard extends GlBranchCardBase {
 				></action-item>`,
 			);
 
-			const hasWip =
-				this.wip?.workingTreeState != null
-					? this.wip.workingTreeState.added +
-							this.wip.workingTreeState.changed +
-							this.wip.workingTreeState.deleted >
-					  0
-					: false;
-			if (hasWip) {
-				actions.push(
-					html`<action-item
-						label="Explain Working Changes (Preview)"
-						icon="sparkle"
-						href=${this.createCommandLink('gitlens.ai.explainWip:home')}
-					></action-item>`,
-				);
-			} else {
-				actions.push(
-					html`<action-item
-						label="Explain Branch (Preview)"
-						icon="sparkle"
-						href=${this.createCommandLink('gitlens.ai.explainBranch:home')}
-					></action-item>`,
-				);
+			if (aiEnabled) {
+				const hasWip =
+					this.wip?.workingTreeState != null
+						? this.wip.workingTreeState.added +
+								this.wip.workingTreeState.changed +
+								this.wip.workingTreeState.deleted >
+						  0
+						: false;
+				if (hasWip) {
+					actions.push(
+						html`<action-item
+							label="Explain Working Changes (Preview)"
+							icon="sparkle"
+							href=${this.createCommandLink('gitlens.ai.explainWip:home')}
+						></action-item>`,
+					);
+				} else {
+					actions.push(
+						html`<action-item
+							label="Explain Branch (Preview)"
+							icon="sparkle"
+							href=${this.createCommandLink('gitlens.ai.explainBranch:home')}
+						></action-item>`,
+					);
+				}
 			}
 		} else {
 			actions.push(
@@ -1034,13 +1038,16 @@ export class GlBranchCard extends GlBranchCardBase {
 					href=${this.createCommandLink('gitlens.home.switchToBranch')}
 				></action-item>`,
 			);
-			actions.push(
-				html`<action-item
-					label="Explain Branch (Preview)"
-					icon="sparkle"
-					href=${this.createCommandLink('gitlens.ai.explainBranch:home')}
-				></action-item>`,
-			);
+
+			if (aiEnabled) {
+				actions.push(
+					html`<action-item
+						label="Explain Branch (Preview)"
+						icon="sparkle"
+						href=${this.createCommandLink('gitlens.ai.explainBranch:home')}
+					></action-item>`,
+				);
+			}
 		}
 
 		// branch actions
