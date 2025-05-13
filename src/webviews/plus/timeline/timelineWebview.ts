@@ -166,6 +166,8 @@ export class TimelineWebviewProvider implements WebviewProvider<State, State, Ti
 		return {
 			...this.host.getTelemetryContext(),
 			'context.period': this._context.config.period,
+			'context.scope.hasHead': this._context.scope?.head != null,
+			'context.scope.hasBase': this._context.scope?.base != null,
 			'context.scope.type': this._context.scope?.type,
 			'context.showAllBranches': this._context.config.showAllBranches,
 			'context.sliceBy': this._context.config.sliceBy,
@@ -236,7 +238,12 @@ export class TimelineWebviewProvider implements WebviewProvider<State, State, Ti
 						if (this._context.scope?.type !== 'file') return;
 
 						void executeCommand<TimelineScope>('gitlens.visualizeHistory', this._context.scope);
-						this.container.telemetry.sendEvent('timeline/action/openInEditor', this.getTelemetryContext());
+						this.container.telemetry.sendEvent('timeline/action/openInEditor', {
+							...this.getTelemetryContext(),
+							'scope.type': this._context.scope.type,
+							'scope.hasHead': this._context.scope.head != null,
+							'scope.hasBase': this._context.scope.base != null,
+						});
 					},
 					this,
 				),
@@ -504,6 +511,12 @@ export class TimelineWebviewProvider implements WebviewProvider<State, State, Ti
 		// If we are changing the type, and in the view, open it in the editor
 		if (this.host.is('view') || e.params.altOrShift) {
 			void executeCommand<TimelineScope>('gitlens.visualizeHistory', scope);
+			this.container.telemetry.sendEvent('timeline/action/openInEditor', {
+				...this.getTelemetryContext(),
+				'scope.type': scope.type,
+				'scope.hasHead': scope.head != null,
+				'scope.hasBase': scope.base != null,
+			});
 			return;
 		}
 
