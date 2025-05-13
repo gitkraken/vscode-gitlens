@@ -755,12 +755,12 @@ export async function showInCommitGraph(
 
 export async function explainCommit(
 	commit: GitRevisionReference | GitCommit,
-	options?: { source?: Source },
+	options: { source: Source },
 ): Promise<void> {
 	void (await executeCommand<ExplainCommitCommandArgs>('gitlens.ai.explainCommit', {
 		repoPath: commit.repoPath,
-		ref: commit.ref,
-		source: options?.source,
+		rev: commit.ref,
+		source: { ...options?.source, type: 'commit' },
 	}));
 }
 
