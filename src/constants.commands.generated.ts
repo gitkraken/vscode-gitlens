@@ -752,7 +752,6 @@ export type ContributedPaletteCommands =
 	| 'gitlens.pushRepositories'
 	| 'gitlens.quickOpenFileHistory'
 	| 'gitlens.reset'
-	| 'gitlens.resetAIKey'
 	| 'gitlens.resetViewsLayout'
 	| 'gitlens.revealCommitInView'
 	| 'gitlens.shareAsCloudPatch'
