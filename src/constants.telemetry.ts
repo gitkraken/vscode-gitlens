@@ -980,6 +980,7 @@ export type Sources =
 	| 'cloud-patches'
 	| 'commandPalette'
 	| 'deeplink'
+	| 'editor:hover'
 	| 'feature-badge'
 	| 'feature-gate'
 	| 'graph'

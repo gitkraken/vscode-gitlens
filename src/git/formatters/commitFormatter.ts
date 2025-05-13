@@ -7,7 +7,10 @@ import type {
 } from '../../api/gitlens';
 import type { MaybeEnrichedAutolink } from '../../autolinks/models/autolinks';
 import { getPresenceDataUri } from '../../avatars';
+import { CopyShaToClipboardCommand } from '../../commands/copyShaToClipboard';
 import { DiffWithCommand } from '../../commands/diffWith';
+import { ExplainCommitCommand } from '../../commands/explainCommit';
+import { ExplainWipCommand } from '../../commands/explainWip';
 import { InspectCommand } from '../../commands/inspect';
 import { OpenCommitOnRemoteCommand } from '../../commands/openCommitOnRemote';
 import { OpenFileAtRevisionCommand } from '../../commands/openFileAtRevision';
@@ -46,6 +49,7 @@ import type { FormatOptions, RequiredTokenOptions } from './formatter';
 import { Formatter } from './formatter';
 
 export interface CommitFormatOptions extends FormatOptions {
+	aiEnabled?: boolean;
 	avatarSize?: number;
 	dateStyle?: DateStyle;
 	editor?: { line: number; uri: Uri };
@@ -410,6 +414,8 @@ export class CommitFormatter extends Formatter<GitCommit, CommitFormatOptions> {
 			return this._padOrTruncate('', this._options.tokenOptions.commands);
 		}
 
+		const separator = ' &nbsp;&nbsp;|&nbsp;&nbsp; ';
+
 		let commands;
 		if (this._item.isUncommitted) {
 			const { previousLineComparisonUris: diffUris } = this._options;
@@ -422,7 +428,7 @@ export class CommitFormatter extends Formatter<GitCommit, CommitFormatOptions> {
 					this._item.repoPath,
 				)} "Inspect Commit Details")`;
 
-				commands += ` &nbsp;[$(chevron-left)$(compare-changes)](${DiffWithCommand.createMarkdownCommandLink({
+				commands += ` &nbsp;[$(compare-changes)](${DiffWithCommand.createMarkdownCommandLink({
 					lhs: { sha: diffUris.previous.sha ?? '', uri: diffUris.previous.documentUri() },
 					rhs: { sha: diffUris.current.sha ?? '', uri: diffUris.current.documentUri() },
 					repoPath: this._item.repoPath,
@@ -444,17 +450,27 @@ export class CommitFormatter extends Formatter<GitCommit, CommitFormatOptions> {
 				)} "Inspect Commit Details")`;
 			}
 
+			if (this._options.aiEnabled) {
+				commands += `${separator}[$(sparkle) Explain](${ExplainWipCommand.createMarkdownCommandLink({
+					repoPath: this._item.repoPath,
+					staged: undefined,
+					source: { source: 'editor:hover', type: 'wip' },
+				})} "Explain Changes")`;
+			}
+
 			return commands;
 		}
-
-		const separator = ' &nbsp;&nbsp;|&nbsp;&nbsp; ';
 
 		commands = `---\n\n[\`$(git-commit) ${this.id}\`](${InspectCommand.createMarkdownCommandLink(
 			this._item.sha,
 			this._item.repoPath,
 		)} "Inspect Commit Details")`;
 
-		commands += ` &nbsp;[$(chevron-left)$(compare-changes)](${DiffWithCommand.createMarkdownCommandLink(
+		commands += ` &nbsp;[$(copy)](${CopyShaToClipboardCommand.createMarkdownCommandLink(
+			this._item.sha,
+		)} "Copy SHA")`;
+
+		commands += ` &nbsp;[$(compare-changes)](${DiffWithCommand.createMarkdownCommandLink(
 			this._item,
 			editorLineToDiffRange(this._options.editor?.line),
 		)} "Open Changes with Previous Revision")`;
@@ -472,7 +488,7 @@ export class CommitFormatter extends Formatter<GitCommit, CommitFormatOptions> {
 			)} "Open Blame Prior to this Change")`;
 		}
 
-		commands += ` &nbsp;[$(search)](${createMarkdownCommandLink<ShowQuickCommitCommandArgs>(
+		commands += `${separator}[$(search)](${createMarkdownCommandLink<ShowQuickCommitCommandArgs>(
 			'gitlens.revealCommitInView',
 			{ repoPath: this._item.repoPath, sha: this._item.sha, revealInView: true },
 		)} "Reveal in Side Bar")`;
@@ -493,6 +509,14 @@ export class CommitFormatter extends Formatter<GitCommit, CommitFormatOptions> {
 			commands += ` &nbsp;[$(globe)](${OpenCommitOnRemoteCommand.createMarkdownCommandLink(
 				this._item.sha,
 			)} "Open Commit on ${providers?.length ? providers[0].name : 'Remote'}")`;
+		}
+
+		if (this._options.aiEnabled) {
+			commands += `${separator}[$(sparkle) Explain](${ExplainCommitCommand.createMarkdownCommandLink({
+				repoPath: this._item.repoPath,
+				rev: this._item.sha,
+				source: { source: 'editor:hover', type: isStash(this._item) ? 'stash' : 'commit' },
+			})} "Explain Changes")`;
 		}
 
 		if (pr != null) {
@@ -532,19 +556,20 @@ export class CommitFormatter extends Formatter<GitCommit, CommitFormatOptions> {
 		if (Container.instance.actionRunners.count('hover.commands') > 0) {
 			const { name, email } = this._item.author;
 
-			commands += `${separator}[$(organization) Team${GlyphChars.SpaceThinnest}${
-				GlyphChars.Ellipsis
-			}](${createMarkdownActionCommandLink<HoverCommandsActionContext>('hover.commands', {
-				repoPath: this._item.repoPath,
-				commit: {
-					sha: this._item.sha,
-					author: { name: name, email: email, presence: this._options.presence },
+			commands += `${separator}[$(organization)](${createMarkdownActionCommandLink<HoverCommandsActionContext>(
+				'hover.commands',
+				{
+					repoPath: this._item.repoPath,
+					commit: {
+						sha: this._item.sha,
+						author: { name: name, email: email, presence: this._options.presence },
+					},
+					file:
+						this._options.editor != null
+							? { uri: this._options.editor?.uri.toString(), line: this._options.editor?.line }
+							: undefined,
 				},
-				file:
-					this._options.editor != null
-						? { uri: this._options.editor?.uri.toString(), line: this._options.editor?.line }
-						: undefined,
-			})} "Show Team Actions")`;
+			)} "Show Team Actions")`;
 		}
 
 		const gitUri = this._item.getGitUri();

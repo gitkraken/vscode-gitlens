@@ -8,6 +8,7 @@ import type { AIExplainSource } from '../plus/ai/aiProviderService';
 import { getBestRepositoryOrShowPicker } from '../quickpicks/repositoryPicker';
 import { command } from '../system/-webview/command';
 import { showMarkdownPreview } from '../system/-webview/markdown';
+import { createMarkdownCommandLink } from '../system/commands';
 import { Logger } from '../system/logger';
 import { GlCommandBase } from './commandBase';
 import { getCommandUri } from './commandBase.utils';
@@ -27,8 +28,12 @@ export interface ExplainWipCommandArgs {
 
 @command()
 export class ExplainWipCommand extends GlCommandBase {
+	static createMarkdownCommandLink(args: ExplainWipCommandArgs): string {
+		return createMarkdownCommandLink<ExplainWipCommandArgs>('gitlens.ai.explainWip:editor', args);
+	}
+
 	constructor(private readonly container: Container) {
-		super(['gitlens.ai.explainWip', 'gitlens.ai.explainWip:views']);
+		super(['gitlens.ai.explainWip', 'gitlens.ai.explainWip:editor', 'gitlens.ai.explainWip:views']);
 	}
 
 	protected override preExecute(context: CommandContext, args?: ExplainWipCommandArgs): Promise<void> {
@@ -61,15 +66,18 @@ export class ExplainWipCommand extends GlCommandBase {
 		}
 
 		try {
-			// If args?.staged is undefined, should we get all changes (staged and unstaged)?
+			// If args?.staged is undefined, get all changes (staged and unstaged)?
 			let stagedLabel;
 			let to;
 			if (args?.staged === true) {
 				stagedLabel = 'Staged';
 				to = uncommittedStaged;
-			} else {
+			} else if (args?.staged === false) {
 				stagedLabel = 'Unstaged';
 				to = uncommitted;
+			} else {
+				stagedLabel = 'Uncommitted';
+				to = '';
 			}
 
 			const diff = await diffService.getDiff(to, undefined);

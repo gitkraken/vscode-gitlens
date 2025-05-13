@@ -10,6 +10,7 @@ import { showCommitPicker } from '../quickpicks/commitPicker';
 import { getBestRepositoryOrShowPicker } from '../quickpicks/repositoryPicker';
 import { command } from '../system/-webview/command';
 import { showMarkdownPreview } from '../system/-webview/markdown';
+import { createMarkdownCommandLink } from '../system/commands';
 import { Logger } from '../system/logger';
 import { getNodeRepoPath } from '../views/nodes/abstract/viewNode';
 import { GlCommandBase } from './commandBase';
@@ -25,8 +26,12 @@ export interface ExplainCommitCommandArgs {
 
 @command()
 export class ExplainCommitCommand extends GlCommandBase {
+	static createMarkdownCommandLink(args: ExplainCommitCommandArgs): string {
+		return createMarkdownCommandLink<ExplainCommitCommandArgs>('gitlens.ai.explainCommit:editor', args);
+	}
+
 	constructor(private readonly container: Container) {
-		super(['gitlens.ai.explainCommit', 'gitlens.ai.explainCommit:views']);
+		super(['gitlens.ai.explainCommit', 'gitlens.ai.explainCommit:editor', 'gitlens.ai.explainCommit:views']);
 	}
 
 	protected override preExecute(context: CommandContext, args?: ExplainCommitCommandArgs): Promise<void> {
