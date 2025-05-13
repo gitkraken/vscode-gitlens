@@ -121,11 +121,11 @@
 			"label": "Explain Working Changes (Preview)",
 			"icon": "$(sparkle)",
 			"menus": {
-				"view/item/context": [
+				"webview/context": [
 					{
-						"when": "!listMultiSelection && !gitlens:readonly && !gitlens:untrusted && gitlens:gk:organization:ai:enabled && config.gitlens.ai.enabled && webviewItem =~ /gitlens:wip\\b/",
-						"group": "1_gitlens_actions_3",
-						"order": 1
+						"when": "webviewItem == gitlens:wip && !listMultiSelection && !gitlens:readonly && !gitlens:untrusted && gitlens:gk:organization:ai:enabled && config.gitlens.ai.enabled",
+						"group": "1_gitlens",
+						"order": 2
 					}
 				]
 			}
