@@ -119,6 +119,8 @@ type InternalGlCommands =
 	| `gitlens.action.${string}`
 	| 'gitlens.changeBranchMergeTarget'
 	| 'gitlens.diffWith'
+	| 'gitlens.ai.explainCommit:editor'
+	| 'gitlens.ai.explainWip:editor'
 	| 'gitlens.openOnRemote'
 	| 'gitlens.openWalkthrough'
 	| 'gitlens.refreshHover'

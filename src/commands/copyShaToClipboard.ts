@@ -6,6 +6,7 @@ import { shortenRevision } from '../git/utils/revision.utils';
 import { showGenericErrorMessage } from '../messages';
 import { command } from '../system/-webview/command';
 import { configuration } from '../system/-webview/configuration';
+import { createMarkdownCommandLink } from '../system/commands';
 import { first } from '../system/iterable';
 import { Logger } from '../system/logger';
 import { ActiveEditorCommand } from './commandBase';
@@ -23,6 +24,13 @@ export interface CopyShaToClipboardCommandArgs {
 
 @command()
 export class CopyShaToClipboardCommand extends ActiveEditorCommand {
+	static createMarkdownCommandLink(sha: string): string;
+	static createMarkdownCommandLink(args: CopyShaToClipboardCommandArgs): string;
+	static createMarkdownCommandLink(argsOrSha: CopyShaToClipboardCommandArgs | string): string {
+		const args = typeof argsOrSha === 'string' ? { sha: argsOrSha } : argsOrSha;
+		return createMarkdownCommandLink<CopyShaToClipboardCommandArgs>('gitlens.copyShaToClipboard', args);
+	}
+
 	constructor(private readonly container: Container) {
 		super('gitlens.copyShaToClipboard');
 	}

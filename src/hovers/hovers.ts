@@ -270,6 +270,7 @@ export async function detailsMessage(
 	const previousLineComparisonUris = getSettledValue(previousLineComparisonUrisResult);
 
 	const details = await CommitFormatter.fromTemplateAsync(options.format, commit, {
+		aiEnabled: configuration.get('ai.enabled'),
 		enrichedAutolinks: enrichedResult?.value != null && !enrichedResult.paused ? enrichedResult.value : undefined,
 		dateFormat: options.dateFormat === null ? 'MMMM Do, YYYY h:mma' : options.dateFormat,
 		editor: { line: editorLine, uri: uri },
