@@ -3,8 +3,10 @@ import { customElement, property, state } from 'lit/decorators.js';
 import { unsafeHTML } from 'lit/directives/unsafe-html.js';
 import { when } from 'lit/directives/when.js';
 import type { Autolink } from '../../../../autolinks/models/autolinks';
+import type { ExplainWipCommandArgs } from '../../../../commands/explainWip';
 import type { IssueOrPullRequest } from '../../../../git/models/issueOrPullRequest';
 import type { PullRequestShape } from '../../../../git/models/pullRequest';
+import { createCommandLink } from '../../../../system/commands';
 import type { Serialized } from '../../../../system/serialize';
 import type { State } from '../../../commitDetails/protocol';
 import { messageHeadlineSplitterToken } from '../../../commitDetails/protocol';
@@ -120,6 +122,37 @@ export class GlCommitDetails extends GlDetailsBase {
 		`;
 	}
 
+	private renderExplainChanges() {
+		if (this.state?.orgSettings.ai === false || this.state?.preferences.aiEnabled === false) return undefined;
+
+		if (this.isUncommitted) {
+			return html`
+				<gl-action-chip
+					label="Explain Working Changes"
+					icon="sparkle"
+					data-action="explain-commit"
+					aria-busy="${this.explainBusy ? 'true' : nothing}"
+					?disabled="${this.explainBusy ? true : nothing}"
+					@click=${this.onExplainChanges}
+					@keydown=${this.onExplainChanges}
+					><span>explain</span></gl-action-chip
+				>
+			`;
+		}
+		return html`
+			<gl-action-chip
+				label="Explain this ${this.isStash ? 'Stash' : 'Commit'}"
+				icon="sparkle"
+				data-action="explain-commit"
+				aria-busy="${this.explainBusy ? 'true' : nothing}"
+				?disabled="${this.explainBusy ? true : nothing}"
+				@click=${this.onExplainChanges}
+				@keydown=${this.onExplainChanges}
+				><span>explain</span></gl-action-chip
+			>
+		`;
+	}
+
 	private renderCommitMessage() {
 		const details = this.state?.commit;
 		if (details == null) return undefined;
@@ -140,21 +173,7 @@ export class GlCommitDetails extends GlDetailsBase {
 							></gl-commit-author>
 						`,
 					)}
-					${when(
-						this.state?.orgSettings.ai !== false && this.state?.preferences.aiEnabled !== false,
-						() => html`
-							<gl-action-chip
-								label="Explain this ${this.isStash ? 'Stash' : 'Commit'}"
-								icon="sparkle"
-								data-action="explain-commit"
-								aria-busy="${this.explainBusy ? 'true' : nothing}"
-								?disabled="${this.explainBusy ? true : nothing}"
-								@click=${this.onExplainChanges}
-								@keydown=${this.onExplainChanges}
-								><span>explain</span></gl-action-chip
-							>
-						`,
-					)}
+					${this.renderExplainChanges()}
 				</div>
 				<div>
 					<div class="message-block">
@@ -284,7 +303,7 @@ export class GlCommitDetails extends GlDetailsBase {
 
 	private renderAutoLinksChips() {
 		const autolinkState = this.autolinkState;
-		if (autolinkState == null) return html`<span></span>`;
+		if (autolinkState == null) return this.renderLearnAboutAutolinks();
 
 		const { autolinks, issues, prs, size } = autolinkState;
 
