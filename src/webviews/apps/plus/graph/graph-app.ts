@@ -28,6 +28,9 @@ import './sidebar/sidebar';
 
 @customElement('gl-graph-app')
 export class GraphApp extends SignalWatcher(LitElement) {
+	private _hoverTrackingCounter = getScopedCounter();
+	private _selectionTrackingCounter = getScopedCounter();
+
 	// use Light DOM
 	protected override createRenderRoot(): HTMLElement | DocumentFragment {
 		return this;
@@ -53,6 +56,63 @@ export class GraphApp extends SignalWatcher(LitElement) {
 
 	@query('gl-graph-minimap-container')
 	minimapEl: GlGraphMinimapContainer | undefined;
+
+	onWebviewVisibilityChanged(visible: boolean): void {
+		if (!visible) return;
+
+		this._hoverTrackingCounter.reset();
+		this._selectionTrackingCounter.reset();
+	}
+
+	resetHover() {
+		this.graphHover.reset();
+	}
+
+	override render() {
+		return html`
+			<div class="graph">
+				<gl-graph-header
+					class="graph__header"
+					@gl-select-commits=${this.handleHeaderSearchNavigation}
+				></gl-graph-header>
+				<div class="graph__workspace">
+					${when(!this.state.allowed, () => html`<gl-graph-gate class="graph__gate"></gl-graph-gate>`)}
+					<main id="main" class="graph__panes">
+						<div class="graph__graph-pane">
+							${when(
+								this.state.config?.minimap !== false,
+								() => html`
+									<gl-graph-minimap-container
+										.activeDay=${this.graphApp.activeDay}
+										.disabled=${!this.state.config?.minimap}
+										.rows=${this.state.rows ?? []}
+										.rowsStats=${this.state.rowsStats}
+										.dataType=${this.state.config?.minimapDataType ?? 'commits'}
+										.markerTypes=${this.state.config?.minimapMarkerTypes ?? []}
+										.refMetadata=${this.state.refsMetadata}
+										.searchResults=${this.graphApp.searchResults}
+										.visibleDays=${this.graphApp.visibleDays}
+										@gl-graph-minimap-selected=${this.handleMinimapDaySelected}
+									></gl-graph-minimap-container>
+								`,
+							)}
+							${when(this.state.config?.sidebar, () => html`<gl-graph-sidebar></gl-graph-sidebar>`)}
+							<gl-graph-hover id="commit-hover" distance=${0} skidding=${15}></gl-graph-hover>
+							<gl-graph-wrapper
+								@gl-graph-change-selection=${this.handleGraphSelectionChanged}
+								@gl-graph-change-visible-days=${this.handleGraphVisibleDaysChanged}
+								@gl-graph-mouse-leave=${this.handleGraphMouseLeave}
+								@gl-graph-row-context-menu=${this.handleGraphRowContextMenu}
+								@gl-graph-row-hover=${this.handleGraphRowHover}
+								@gl-graph-row-unhover=${this.handleGraphRowUnhover}
+							></gl-graph-wrapper>
+						</div>
+						<!-- future: commit details -->
+					</main>
+				</div>
+			</div>
+		`;
+	}
 
 	private handleHeaderSearchNavigation(e: CustomEventType<'gl-select-commits'>) {
 		this.graph.selectCommits([e.detail], false, true);
@@ -86,8 +146,18 @@ export class GraphApp extends SignalWatcher(LitElement) {
 		}
 	}
 
-	private handleGraphSelectionChanged(_e: CustomEventType<'gl-graph-change-selection'>) {
+	private handleGraphSelectionChanged(e: CustomEventType<'gl-graph-change-selection'>) {
 		this.graphHover.hide();
+
+		const count = this._selectionTrackingCounter.next();
+		if (count === 1 || count % 100 === 0) {
+			queueMicrotask(() =>
+				this._telemetry.sendEvent({
+					name: 'graph/row/selected',
+					data: { rows: e.detail.selection.length, count: count },
+				}),
+			);
+		}
 	}
 
 	private handleGraphVisibleDaysChanged({ detail }: CustomEventType<'gl-graph-change-visible-days'>) {
@@ -140,8 +210,6 @@ export class GraphApp extends SignalWatcher(LitElement) {
 		this.graphHover.onRowUnhovered(graphRow, relatedTarget);
 	}
 
-	private _hoverCounter = getScopedCounter();
-
 	private async getRowHoverPromise(row: GraphRow) {
 		try {
 			const request = await this._ipc.sendRequest(GetRowHoverRequest, {
@@ -149,7 +217,7 @@ export class GraphApp extends SignalWatcher(LitElement) {
 				id: row.sha,
 			});
 
-			const count = this._hoverCounter.next();
+			const count = this._hoverTrackingCounter.next();
 			if (count === 1 || count % 100 === 0) {
 				queueMicrotask(() => this._telemetry.sendEvent({ name: 'graph/row/hovered', data: { count: count } }));
 			}
@@ -162,55 +230,5 @@ export class GraphApp extends SignalWatcher(LitElement) {
 
 	private handleGraphMouseLeave() {
 		this.minimapEl?.unselect(undefined, true);
-	}
-
-	resetHover() {
-		this.graphHover.reset();
-	}
-
-	override render() {
-		return html`
-			<div class="graph">
-				<gl-graph-header
-					class="graph__header"
-					@gl-select-commits=${this.handleHeaderSearchNavigation}
-				></gl-graph-header>
-				<div class="graph__workspace">
-					${when(!this.state.allowed, () => html`<gl-graph-gate class="graph__gate"></gl-graph-gate>`)}
-					<main id="main" class="graph__panes">
-						<div class="graph__graph-pane">
-							${when(
-								this.state.config?.minimap !== false,
-								() => html`
-									<gl-graph-minimap-container
-										.activeDay=${this.graphApp.activeDay}
-										.disabled=${!this.state.config?.minimap}
-										.rows=${this.state.rows ?? []}
-										.rowsStats=${this.state.rowsStats}
-										.dataType=${this.state.config?.minimapDataType ?? 'commits'}
-										.markerTypes=${this.state.config?.minimapMarkerTypes ?? []}
-										.refMetadata=${this.state.refsMetadata}
-										.searchResults=${this.graphApp.searchResults}
-										.visibleDays=${this.graphApp.visibleDays}
-										@gl-graph-minimap-selected=${this.handleMinimapDaySelected}
-									></gl-graph-minimap-container>
-								`,
-							)}
-							${when(this.state.config?.sidebar, () => html`<gl-graph-sidebar></gl-graph-sidebar>`)}
-							<gl-graph-hover id="commit-hover" distance=${0} skidding=${15}></gl-graph-hover>
-							<gl-graph-wrapper
-								@gl-graph-change-selection=${this.handleGraphSelectionChanged}
-								@gl-graph-change-visible-days=${this.handleGraphVisibleDaysChanged}
-								@gl-graph-mouse-leave=${this.handleGraphMouseLeave}
-								@gl-graph-row-context-menu=${this.handleGraphRowContextMenu}
-								@gl-graph-row-hover=${this.handleGraphRowHover}
-								@gl-graph-row-unhover=${this.handleGraphRowUnhover}
-							></gl-graph-wrapper>
-						</div>
-						<!-- future: commit details -->
-					</main>
-				</div>
-			</div>
-		`;
 	}
 }
