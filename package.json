@@ -17980,11 +17980,6 @@
 					"group": "3_gitlens_ai@1"
 				},
 				{
-					"command": "gitlens.ai.explainWip:graph",
-					"when": "!listMultiSelection && !gitlens:readonly && !gitlens:untrusted && gitlens:gk:organization:ai:enabled && config.gitlens.ai.enabled && webviewItem =~ /gitlens:wip\\b/",
-					"group": "1_gitlens_actions_3@1"
-				},
-				{
 					"command": "gitlens.views.workspaces.addRepos",
 					"when": "viewItem =~ /gitlens:workspace\\b(?=.*?\\b\\+cloud\\b)/",
 					"group": "inline@1"
@@ -20516,6 +20511,11 @@
 					"command": "gitlens.graph.commitViaSCM",
 					"when": "webviewItem == gitlens:wip && !listMultiSelection",
 					"group": "1_gitlens@1"
+				},
+				{
+					"command": "gitlens.ai.explainWip:graph",
+					"when": "webviewItem == gitlens:wip && !listMultiSelection && !gitlens:readonly && !gitlens:untrusted && gitlens:gk:organization:ai:enabled && config.gitlens.ai.enabled",
+					"group": "1_gitlens@2"
 				},
 				{
 					"command": "gitlens.ai.generateCommitMessage:graph",
