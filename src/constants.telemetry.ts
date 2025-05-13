@@ -258,7 +258,7 @@ export interface TelemetryEvents extends WebviewShowAbortedEvents, WebviewShownE
 	/** Sent when the Visual History is shown */
 	'timeline/shown': TimelineShownEvent;
 	/** Sent when the user clicks on the "Open in Editor" button on the Visual History */
-	'timeline/action/openInEditor': TimelineContextEventData;
+	'timeline/action/openInEditor': TimelineActionOpenInEditorEvent;
 	/** Sent when the editor changes on the Visual History */
 	'timeline/editor/changed': TimelineContextEventData;
 	/** Sent when the user selects (clicks on) a commit on the Visual History */
@@ -877,6 +877,8 @@ export interface SubscriptionEventDataWithPrevious
 
 type TimelineContextEventData = WebviewTelemetryContext & {
 	'context.period': TimelinePeriod | undefined;
+	'context.scope.hasHead': boolean | undefined;
+	'context.scope.hasBase': boolean | undefined;
 	'context.scope.type': TimelineScopeType | undefined;
 	'context.showAllBranches': boolean | undefined;
 	'context.sliceBy': TimelineSliceBy | undefined;
@@ -892,6 +894,12 @@ interface TimelineConfigChangedEvent extends TimelineContextEventData {
 	period: TimelinePeriod;
 	showAllBranches: boolean;
 	sliceBy: TimelineSliceBy;
+}
+
+interface TimelineActionOpenInEditorEvent extends TimelineContextEventData {
+	'scope.type': TimelineScopeType;
+	'scope.hasHead': boolean;
+	'scope.hasBase': boolean;
 }
 
 interface UsageTrackEvent {
