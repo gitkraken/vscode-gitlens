@@ -1,6 +1,6 @@
 import { css, html, LitElement, nothing } from 'lit';
 import { customElement, property, query } from 'lit/decorators.js';
-import { linkStyles } from '../../../plus/shared/components/vscode.css';
+import { linkStyles, ruleStyles } from '../../../plus/shared/components/vscode.css';
 import { handleUnsafeOverlayContent } from '../overlays/overlays.utils';
 import { focusOutline } from '../styles/lit/a11y.css';
 import '../overlays/popover';
@@ -16,6 +16,7 @@ export class ActionChip extends LitElement {
 
 	static override styles = [
 		linkStyles,
+		ruleStyles,
 		css`
 			:host {
 				display: inline-flex;
@@ -65,6 +66,10 @@ export class ActionChip extends LitElement {
 			}
 			.chip:focus {
 				outline: none;
+			}
+
+			a:not(.chip) {
+				text-decoration: underline;
 			}
 
 			::slotted(*) {
