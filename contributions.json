@@ -123,8 +123,8 @@
 			"menus": {
 				"view/item/context": [
 					{
-						"when": "viewItem =~ /gitlens:(worktree|uncommitted)\\b/ && !listMultiSelection && !gitlens:readonly && !gitlens:untrusted && gitlens:gk:organization:ai:enabled",
-						"group": "3_gitlens_ai",
+						"when": "!listMultiSelection && !gitlens:readonly && !gitlens:untrusted && gitlens:gk:organization:ai:enabled && config.gitlens.ai.enabled && webviewItem =~ /gitlens:wip\\b/",
+						"group": "1_gitlens_actions_3",
 						"order": 1
 					}
 				]
