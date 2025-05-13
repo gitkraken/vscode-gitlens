@@ -46,6 +46,7 @@ import { confirmDraftStorage } from '../../plus/drafts/utils/-webview/drafts.uti
 import type { Subscription } from '../../plus/gk/models/subscription';
 import type { SubscriptionChangeEvent } from '../../plus/gk/subscriptionService';
 import { ensureAccount } from '../../plus/gk/utils/-webview/acount.utils';
+import type { ConnectionStateChangeEvent } from '../../plus/integrations/integrationService';
 import { supportsCodeSuggest } from '../../plus/integrations/providers/models';
 import { getEntityIdentifierInput } from '../../plus/integrations/providers/utils';
 import {
@@ -97,6 +98,7 @@ import {
 	CreatePatchFromWipCommand,
 	DidChangeDraftStateNotification,
 	DidChangeHasAccountNotification,
+	DidChangeIntegrationsNotification,
 	DidChangeNotification,
 	DidChangeWipStateNotification,
 	ExecuteCommitActionCommand,
@@ -163,6 +165,7 @@ interface Context {
 	orgSettings: State['orgSettings'];
 	source?: Sources;
 	hasAccount: boolean | undefined;
+	hasIntegrationsConnected: boolean;
 }
 
 export class CommitDetailsWebviewProvider
@@ -202,12 +205,14 @@ export class CommitDetailsWebviewProvider
 			wip: undefined,
 			orgSettings: this.getOrgSettings(),
 			hasAccount: undefined,
+			hasIntegrationsConnected: false,
 		};
 
 		this._disposable = Disposable.from(
 			configuration.onDidChangeAny(this.onAnyConfigurationChanged, this),
 			onDidChangeContext(this.onContextChanged, this),
 			this.container.subscription.onDidChange(this.onSubscriptionChanged, this),
+			container.integrations.onDidChangeConnectionState(this.onIntegrationConnectionStateChanged, this),
 		);
 	}
 
@@ -907,6 +912,24 @@ export class CommitDetailsWebviewProvider
 		return this._context.hasAccount;
 	}
 
+	private async onIntegrationConnectionStateChanged(e: ConnectionStateChangeEvent) {
+		const isConnected = e.reason === 'connected';
+		if (this._context.hasIntegrationsConnected === isConnected) return;
+
+		void this.host.notify(DidChangeIntegrationsNotification, {
+			hasIntegrationsConnected: await this.getHasIntegrationsConnected(true),
+		});
+	}
+
+	async getHasIntegrationsConnected(force = false): Promise<boolean> {
+		if (this._context.hasIntegrationsConnected != null && !force) return this._context.hasIntegrationsConnected;
+
+		const hasAny = (await this.container.integrations.getConfigured()).length > 0;
+		this._context.hasIntegrationsConnected = hasAny;
+
+		return this._context.hasIntegrationsConnected;
+	}
+
 	private getPreferences(): Preferences {
 		return {
 			pullRequestExpanded: this.container.storage.getWorkspace('views:commitDetails:pullRequestExpanded') ?? true,
@@ -1201,6 +1224,10 @@ export class CommitDetailsWebviewProvider
 			current.hasAccount = await this.getHasAccount();
 		}
 
+		if (current.hasIntegrationsConnected == null) {
+			current.hasIntegrationsConnected = await this.getHasIntegrationsConnected();
+		}
+
 		const state = serialize<State>({
 			...this.host.baseWebviewState,
 			mode: current.mode,
@@ -1216,6 +1243,7 @@ export class CommitDetailsWebviewProvider
 			orgSettings: current.orgSettings,
 			inReview: current.inReview,
 			hasAccount: current.hasAccount,
+			hasIntegrationsConnected: current.hasIntegrationsConnected,
 		});
 		return state;
 	}
