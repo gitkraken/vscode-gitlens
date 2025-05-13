@@ -7,6 +7,7 @@ import type { CancellationToken, Disposable, OutputChannel } from 'vscode';
 import { env, Uri, window, workspace } from 'vscode';
 import { hrtime } from '@env/hrtime';
 import { GlyphChars } from '../../../constants';
+import type { Container } from '../../../container';
 import { CancellationError, isCancellationError } from '../../../errors';
 import type { FilteredGitFeatures, GitFeatureOrPrefix, GitFeatures } from '../../../features';
 import { gitFeaturesByVersion } from '../../../features';
@@ -232,9 +233,23 @@ export type GitResult<T extends string | Buffer | unknown> = {
 	readonly cancelled?: boolean;
 };
 
-export class Git {
+export class Git implements Disposable {
+	private readonly _disposable: Disposable;
 	/** Map of running git commands -- avoids running duplicate overlaping commands */
 	private readonly pendingCommands = new Map<string, Promise<RunResult<string | Buffer>>>();
+
+	constructor(container: Container) {
+		this._disposable = container.events.on('git:cache:reset', e => {
+			// Ignore provider resets (e.g. it needs to be git specific)
+			if (e.data.types?.every(t => t === 'providers')) return;
+
+			this.pendingCommands.clear();
+		});
+	}
+
+	dispose(): void {
+		this._disposable.dispose();
+	}
 
 	async exec(
 		options: ExitCodeOnlyGitCommandOptions,

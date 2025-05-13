@@ -9,7 +9,11 @@ import type { SharedGkStorageLocationProvider } from '../../plus/repos/sharedGkS
 import type { GkWorkspacesSharedStorageProvider } from '../../plus/workspaces/workspacesSharedStorageProvider';
 import type { GitResult } from '../node/git/git';
 
-export function git(_options: GitCommandOptions, ..._args: any[]): Promise<GitResult<string | Buffer>> {
+export function git(
+	_container: Container,
+	_options: GitCommandOptions,
+	..._args: any[]
+): Promise<GitResult<string | Buffer>> {
 	return Promise.resolve({ stdout: '', exitCode: 0 });
 }
 
