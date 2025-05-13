@@ -736,7 +736,7 @@ export class HomeWebviewProvider implements WebviewProvider<State, State, HomeWe
 	}
 
 	private onContextChanged(key: keyof ContextKeys) {
-		if (key === 'gitlens:gk:organization:drafts:enabled') {
+		if (['gitlens:gk:organization:ai:enabled', 'gitlens:gk:organization:drafts:enabled'].includes(key)) {
 			this.notifyDidChangeOrgSettings();
 		}
 	}
