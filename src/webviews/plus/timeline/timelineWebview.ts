@@ -692,17 +692,21 @@ export class TimelineWebviewProvider implements WebviewProvider<State, State, Ti
 			return generateRandomTimelineDataset(scope.type);
 		}
 
-		let ref = scope.head?.ref;
-		if (ref) {
-			if (scope.base?.ref != null && scope.base?.ref !== ref) {
-				ref = createRevisionRange(ref, scope.base?.ref, '..');
+		let ref;
+		if (!config.showAllBranches) {
+			ref = scope.head?.ref;
+			if (ref) {
+				if (scope.base?.ref != null && scope.base?.ref !== ref) {
+					ref = createRevisionRange(ref, scope.base?.ref, '..');
+				}
+			} else {
+				ref = scope.base?.ref;
 			}
-		} else {
-			ref = scope.base?.ref;
 		}
 
 		const [contributorsResult, statusFilesResult, currentUserResult] = await Promise.allSettled([
 			repo.git.contributors().getContributors(ref, {
+				all: config.showAllBranches,
 				pathspec: scope.type === 'repo' ? undefined : scope.uri.fsPath,
 				since: getPeriodDate(config.period)?.toISOString(),
 				stats: true,
@@ -745,7 +749,7 @@ export class TimelineWebviewProvider implements WebviewProvider<State, State, Ti
 			}
 		}
 
-		if (config.showAllBranches && config.sliceBy === 'branch' && scope.type !== 'repo') {
+		if (config.showAllBranches && config.sliceBy === 'branch' && scope.type !== 'repo' && !repo.virtual) {
 			const shas = new Set<string>(
 				await repo.git.commits().getLogShas?.('^HEAD', { all: true, pathOrUri: scope.uri, limit: 0 }),
 			);
