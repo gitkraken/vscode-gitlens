@@ -8,6 +8,7 @@ import type { CopyMessageToClipboardCommandArgs } from '../../commands/copyMessa
 import type { CopyShaToClipboardCommandArgs } from '../../commands/copyShaToClipboard';
 import type { ExplainCommitCommandArgs } from '../../commands/explainCommit';
 import type { ExplainStashCommandArgs } from '../../commands/explainStash';
+import type { ExplainWipCommandArgs } from '../../commands/explainWip';
 import type { OpenPullRequestOnRemoteCommandArgs } from '../../commands/openPullRequestOnRemote';
 import type { ContextKeys } from '../../constants.context';
 import type { InspectTelemetryContext, Sources } from '../../constants.telemetry';
@@ -1121,15 +1122,26 @@ export class CommitDetailsWebviewProvider
 	private async explainRequest<T extends typeof ExplainRequest>(requestType: T, msg: IpcCallMessageType<T>) {
 		let params: DidExplainParams;
 		try {
-			const isStashCommit = isStash(this._context.commit);
-			await executeCommand<ExplainCommitCommandArgs | ExplainStashCommandArgs>(
-				isStashCommit ? 'gitlens.ai.explainStash' : 'gitlens.ai.explainCommit',
-				{
-					repoPath: this._context.commit!.repoPath,
-					rev: this._context.commit!.sha,
-					source: { source: 'inspect', type: isStashCommit ? 'stash' : 'commit' },
-				},
-			);
+			// check for uncommitted changes
+			if (
+				this._context.commit != null &&
+				(this._context.commit.isUncommitted || this._context.commit.isUncommittedStaged)
+			) {
+				await executeCommand<ExplainWipCommandArgs>('gitlens.ai.explainWip', {
+					repoPath: this._context.commit.repoPath,
+					source: { source: 'inspect', type: 'wip' },
+				});
+			} else {
+				const isStashCommit = isStash(this._context.commit);
+				await executeCommand<ExplainCommitCommandArgs | ExplainStashCommandArgs>(
+					isStashCommit ? 'gitlens.ai.explainStash' : 'gitlens.ai.explainCommit',
+					{
+						repoPath: this._context.commit!.repoPath,
+						rev: this._context.commit!.sha,
+						source: { source: 'inspect', type: isStashCommit ? 'stash' : 'commit' },
+					},
+				);
+			}
 
 			params = { result: { summary: '', body: '' } };
 		} catch (ex) {
