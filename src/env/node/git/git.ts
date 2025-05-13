@@ -33,9 +33,11 @@ import type { GitDir } from '../../../git/gitProvider';
 import type { GitDiffFilter } from '../../../git/models/diff';
 import { parseGitRemoteUrl } from '../../../git/parsers/remoteParser';
 import { isUncommitted, isUncommittedStaged, shortenRevision } from '../../../git/utils/revision.utils';
+import { getCancellationTokenId } from '../../../system/-webview/cancellation';
 import { configuration } from '../../../system/-webview/configuration';
 import { splitPath } from '../../../system/-webview/path';
 import { getHostEditorCommand } from '../../../system/-webview/vscode';
+import { getScopedCounter } from '../../../system/counter';
 import { log } from '../../../system/decorators/log';
 import { Logger } from '../../../system/logger';
 import { slowCallWarningThreshold } from '../../../system/logger.constants';
@@ -165,13 +167,7 @@ function defaultExceptionHandler(ex: Error, cwd: string | undefined, start?: [nu
 	throw ex;
 }
 
-let _uniqueCounterForStdin = 0;
-function getStdinUniqueKey(): number {
-	if (_uniqueCounterForStdin === Number.MAX_SAFE_INTEGER) {
-		_uniqueCounterForStdin = 0;
-	}
-	return _uniqueCounterForStdin++;
-}
+const uniqueCounterForStdin = getScopedCounter();
 
 type ExitCodeOnlyGitCommandOptions = GitCommandOptions & { exitCodeOnly: true };
 export type PushForceOptions = { withLease: true; ifIncludes?: boolean } | { withLease: false; ifIncludes?: never };
@@ -277,12 +273,12 @@ export class Git {
 
 		const gitCommand = `[${runOpts.cwd}] git ${runArgs.join(' ')}`;
 
-		const command = `${correlationKey !== undefined ? `${correlationKey}:` : ''}${
-			options?.stdin != null ? `${getStdinUniqueKey()}:` : ''
-		}${gitCommand}`;
+		const cacheKey = `${correlationKey !== undefined ? `${correlationKey}:` : ''}${
+			options?.stdin != null ? `${uniqueCounterForStdin.next()}:` : ''
+		}${cancellation != null ? `${getCancellationTokenId(cancellation)}:` : ''}${gitCommand}`;
 
 		let waiting;
-		let promise = this.pendingCommands.get(command);
+		let promise = this.pendingCommands.get(cacheKey);
 		if (promise == null) {
 			waiting = false;
 
@@ -309,11 +305,11 @@ export class Git {
 			}
 
 			promise = runSpawn<T>(await this.path(), runArgs, encoding ?? 'utf8', runOpts).finally(() => {
-				this.pendingCommands.delete(command);
+				this.pendingCommands.delete(cacheKey);
 				void disposeCancellation?.dispose();
 			});
 
-			this.pendingCommands.set(command, promise);
+			this.pendingCommands.set(cacheKey, promise);
 		} else {
 			waiting = true;
 			Logger.debug(`${getLoggableScopeBlockOverride('GIT')} ${gitCommand} ${GlyphChars.Dot} waiting...`);

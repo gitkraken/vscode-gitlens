@@ -1082,7 +1082,7 @@ export class SubscriptionService implements Disposable {
 		return result.value;
 	}
 
-	@gate<SubscriptionService['checkInAndValidateCore']>(s => s.account.id)
+	@gate<SubscriptionService['checkInAndValidateCore']>((s, _, orgId) => `${s.account.id}:${orgId}`)
 	@debug<SubscriptionService['checkInAndValidateCore']>({ args: { 0: s => s?.account?.label } })
 	private async checkInAndValidateCore(
 		session: AuthenticationSession,

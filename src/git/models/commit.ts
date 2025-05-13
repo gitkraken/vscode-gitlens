@@ -309,9 +309,6 @@ export class GitCommit implements GitRevisionReference {
 					}
 
 					const pathspec = this.fileset?.filtered?.pathspec;
-					if (pathspec) {
-						debugger;
-					}
 					this.fileset = pathspec
 						? { files: undefined, filtered: { files: files, pathspec: pathspec } }
 						: { files: files };
