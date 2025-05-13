@@ -170,10 +170,6 @@ export class GraphAppHost extends GlAppHost<State> {
 		this.applyTheme(th);
 	}
 
-	protected override onWebviewVisibilityChanged(visible: boolean): void {
-		this.appElement?.onWebviewVisibilityChanged(visible);
-	}
-
 	private applyTheme(theme: { cssVariables: CssVariables; themeOpacityFactor: number }) {
 		this._graphState.theming = theme;
 	}
