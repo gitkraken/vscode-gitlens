@@ -19,15 +19,11 @@ import { splitPath } from '../../../../system/-webview/path';
 import { countStringLength } from '../../../../system/array';
 import { gate } from '../../../../system/decorators/-webview/gate';
 import { log } from '../../../../system/decorators/log';
-import { join, map, min, skip } from '../../../../system/iterable';
+import { min, skip } from '../../../../system/iterable';
 import { getSettledValue } from '../../../../system/promise';
 import type { Git } from '../git';
 import { GitError, maxGitCliLength } from '../git';
 import { createCommitFileset } from './commits';
-
-const stashSummaryRegex =
-	// eslint-disable-next-line no-control-regex
-	/(?:(?:(?<wip>WIP) on|On) (?<onref>[^/](?!.*\/\.)(?!.*\.\.)(?!.*\/\/)(?!.*@\{)[^\x00-\x1F\x7F ~^:?*[\\]+[^./]):\s*)?(?<summary>.*)$/s;
 
 export class StashGitSubProvider implements GitStashSubProvider {
 	constructor(
@@ -349,10 +345,12 @@ export class StashGitSubProvider implements GitStashSubProvider {
 }
 
 export function convertStashesToStdin(stashOrStashes: GitStash | Map<string, GitStashCommit> | undefined): {
-	stdin: string | undefined;
-	stashes: Map<string, GitStashCommit>;
+	readonly stdin: string | undefined;
+	readonly stashes: Map<string, GitStashCommit>;
+	readonly remappedIds: Map<string, string>;
 } {
-	if (stashOrStashes == null) return { stdin: undefined, stashes: new Map() };
+	const remappedIds = new Map<string, string>();
+	if (stashOrStashes == null) return { stdin: undefined, stashes: new Map(), remappedIds: remappedIds };
 
 	let stdin: string | undefined;
 	let stashes: Map<string, GitStashCommit>;
@@ -365,21 +363,38 @@ export function convertStashesToStdin(stashOrStashes: GitStash | Map<string, Git
 				stdin += `${stash.sha.substring(0, 9)}\n`;
 				// Include the stash's 2nd (index files) and 3rd (untracked files) parents
 				for (const p of skip(stash.parents, 1)) {
+					remappedIds.set(p, stash.sha);
+
 					stashes.set(p, stash);
 					stdin += `${p.substring(0, 9)}\n`;
 				}
 			}
 		}
 	} else {
-		stdin = join(
-			map(stashOrStashes.values(), c => c.sha.substring(0, 9)),
-			'\n',
-		);
+		if (stashOrStashes.size) {
+			stdin = '';
+			for (const stash of stashOrStashes.values()) {
+				stdin += `${stash.sha.substring(0, 9)}\n`;
+				// Include the stash's 2nd (index files) and 3rd (untracked files) parents (if they aren't already in the map)
+				for (const p of skip(stash.parents, 1)) {
+					remappedIds.set(p, stash.sha);
+
+					if (!stashOrStashes.has(p)) {
+						stashOrStashes.set(p, stash);
+						stdin += `${p.substring(0, 9)}\n`;
+					}
+				}
+			}
+		}
 		stashes = stashOrStashes;
 	}
 
-	return { stdin: stdin || undefined, stashes: stashes };
+	return { stdin: stdin || undefined, stashes: stashes, remappedIds: remappedIds };
 }
+
+const stashSummaryRegex =
+	// eslint-disable-next-line no-control-regex
+	/(?:(?:(?<wip>WIP) on|On) (?<onref>[^/](?!.*\/\.)(?!.*\.\.)(?!.*\/\/)(?!.*@\{)[^\x00-\x1F\x7F ~^:?*[\\]+[^./]):\s*)?(?<summary>.*)$/s;
 
 function createStash(container: Container, s: ParsedStash, repoPath: string): GitStashCommit {
 	let message = s.summary.trim();

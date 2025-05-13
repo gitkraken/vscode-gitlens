@@ -340,7 +340,6 @@ export interface EnsureRowParams {
 }
 export interface DidEnsureRowParams {
 	id?: string; // `undefined` if the row was not found
-	remapped?: string;
 }
 export const EnsureRowRequest = new IpcRequest<EnsureRowParams, DidEnsureRowParams>(scope, 'rows/ensure');
 
