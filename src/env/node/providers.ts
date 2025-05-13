@@ -16,23 +16,25 @@ import { LocalSharedGkStorageLocationProvider } from './gk/localSharedGkStorageL
 import { LocalGkWorkspacesSharedStorageProvider } from './gk/localWorkspacesSharedStorageProvider';
 
 let gitInstance: Git | undefined;
-function ensureGit() {
-	if (gitInstance == null) {
-		gitInstance = new Git();
-	}
+function ensureGit(container: Container) {
+	gitInstance ??= new Git(container);
 	return gitInstance;
 }
 
-export function git(options: GitCommandOptions, ...args: any[]): Promise<GitResult<string | Buffer>> {
-	return ensureGit().exec(options, ...args);
+export function git(
+	container: Container,
+	options: GitCommandOptions,
+	...args: any[]
+): Promise<GitResult<string | Buffer>> {
+	return ensureGit(container).exec(options, ...args);
 }
 
 export async function getSupportedGitProviders(container: Container): Promise<GitProvider[]> {
-	const git = ensureGit();
+	const git = ensureGit(container);
 
 	const providers: GitProvider[] = [
 		new LocalGitProvider(container, git),
-		new VslsGitProvider(container, new VslsGit(git)),
+		new VslsGitProvider(container, new VslsGit(container, git)),
 	];
 
 	if (configuration.get('virtualRepositories.enabled')) {

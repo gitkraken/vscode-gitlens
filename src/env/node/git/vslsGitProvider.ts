@@ -13,8 +13,11 @@ import { Git } from './git';
 import { LocalGitProvider } from './localGitProvider';
 
 export class VslsGit extends Git {
-	constructor(private readonly localGit: Git) {
-		super();
+	constructor(
+		container: Container,
+		private readonly localGit: Git,
+	) {
+		super(container);
 	}
 
 	override async exec<T extends string | Buffer>(options: GitCommandOptions, ...args: any[]): Promise<GitResult<T>> {
