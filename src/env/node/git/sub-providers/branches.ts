@@ -534,14 +534,21 @@ export class BranchesGitSubProvider implements GitBranchesSubProvider {
 				const { env } = disposableIndex;
 
 				result = await this.git.exec(
-					{ cwd: repoPath, cancellation: cancellation, env: env, stdin: result.stdout },
+					{
+						cwd: repoPath,
+						cancellation: cancellation,
+						env: env,
+						errors: GitErrorHandling.Ignore,
+						stdin: result.stdout,
+					},
 					'apply',
 					'--cached',
 					'--reverse',
 					'--check',
 					'-',
 				);
-				if (!result.stdout.trim()) {
+
+				if (result.exitCode === 0 && !result.stdout.trim() && !result.stderr?.trim()) {
 					return { merged: true, confidence: 'medium' };
 				}
 			}
