@@ -17975,14 +17975,14 @@
 					"group": "1_gitlens_actions@1"
 				},
 				{
-					"command": "gitlens.ai.explainWip:graph",
+					"command": "gitlens.ai.explainWip:views",
 					"when": "viewItem =~ /gitlens:(worktree|uncommitted)\\b/ && !listMultiSelection && !gitlens:readonly && !gitlens:untrusted && gitlens:gk:organization:ai:enabled",
 					"group": "3_gitlens_ai@1"
 				},
 				{
-					"command": "gitlens.ai.explainWip:views",
-					"when": "viewItem =~ /gitlens:(worktree|uncommitted)\\b/ && !listMultiSelection && !gitlens:readonly && !gitlens:untrusted && gitlens:gk:organization:ai:enabled",
-					"group": "3_gitlens_ai@1"
+					"command": "gitlens.ai.explainWip:graph",
+					"when": "!listMultiSelection && !gitlens:readonly && !gitlens:untrusted && gitlens:gk:organization:ai:enabled && config.gitlens.ai.enabled && webviewItem =~ /gitlens:wip\\b/",
+					"group": "1_gitlens_actions_3@1"
 				},
 				{
 					"command": "gitlens.views.workspaces.addRepos",
