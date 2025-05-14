@@ -53,7 +53,7 @@ export class ExplainBranchCommand extends GlCommandBase {
 			repository = await getBestRepositoryOrShowPicker(
 				gitUri,
 				editor,
-				'Explain Branch',
+				'Explain Branch Changes',
 				'Choose which repository to explain a branch from',
 			);
 		}
@@ -66,7 +66,7 @@ export class ExplainBranchCommand extends GlCommandBase {
 				// If no ref is provided, show a picker to select a branch
 				const pick = (await showReferencePicker(
 					repository.path,
-					'Explain Branch',
+					'Explain Branch Changes',
 					'Choose a branch to explain',
 					{
 						include: ReferencesQuickPickIncludes.Branches,

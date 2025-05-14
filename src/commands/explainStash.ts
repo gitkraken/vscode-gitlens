@@ -53,7 +53,7 @@ export class ExplainStashCommand extends GlCommandBase {
 			repository = await getBestRepositoryOrShowPicker(
 				gitUri,
 				editor,
-				'Explain Stash',
+				'Explain Stash Changes',
 				'Choose which repository to explain a stash from',
 			);
 		}
@@ -63,7 +63,7 @@ export class ExplainStashCommand extends GlCommandBase {
 		try {
 			let commit: GitCommit | undefined;
 			if (args.rev == null) {
-				const pick = await showStashPicker('Explain Stash', 'Choose a stash to explain', repository);
+				const pick = await showStashPicker('Explain Stash Changes', 'Choose a stash to explain', repository);
 				if (pick?.ref == null) return;
 				args.rev = pick.ref;
 				commit = pick;

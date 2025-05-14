@@ -24,11 +24,11 @@
 			}
 		},
 		"gitlens.ai.explainBranch": {
-			"label": "Explain Branch (Preview)...",
+			"label": "Explain Branch Changes (Preview)...",
 			"commandPalette": "gitlens:enabled && !gitlens:readonly && !gitlens:untrusted && gitlens:gk:organization:ai:enabled"
 		},
 		"gitlens.ai.explainBranch:graph": {
-			"label": "Explain Branch (Preview)",
+			"label": "Explain Branch Changes (Preview)",
 			"icon": "$(sparkle)",
 			"menus": {
 				"webview/context": [
@@ -41,7 +41,7 @@
 			}
 		},
 		"gitlens.ai.explainBranch:views": {
-			"label": "Explain Branch (Preview)",
+			"label": "Explain Branch Changes (Preview)",
 			"icon": "$(sparkle)",
 			"menus": {
 				"view/item/context": [
@@ -54,11 +54,11 @@
 			}
 		},
 		"gitlens.ai.explainCommit": {
-			"label": "Explain Commit...",
+			"label": "Explain Commit Changes (Preview)...",
 			"commandPalette": "gitlens:enabled && !gitlens:readonly && !gitlens:untrusted && gitlens:gk:organization:ai:enabled"
 		},
 		"gitlens.ai.explainCommit:graph": {
-			"label": "Explain Commit",
+			"label": "Explain Changes (Preview)",
 			"icon": "$(sparkle)",
 			"menus": {
 				"webview/context": [
@@ -71,24 +71,24 @@
 			}
 		},
 		"gitlens.ai.explainCommit:views": {
-			"label": "Explain Commit",
+			"label": "Explain Changes (Preview)",
 			"icon": "$(sparkle)",
 			"menus": {
 				"view/item/context": [
 					{
 						"when": "viewItem =~ /gitlens:commit\\b/ && !listMultiSelection && !gitlens:readonly && !gitlens:untrusted && gitlens:gk:organization:ai:enabled",
-						"group": "3_gitlens_ai",
+						"group": "3_gitlens_explore",
 						"order": 1
 					}
 				]
 			}
 		},
 		"gitlens.ai.explainStash": {
-			"label": "Explain Stash (Preview)...",
+			"label": "Explain Stash Changes (Preview)...",
 			"commandPalette": "gitlens:enabled && !gitlens:readonly && !gitlens:untrusted && gitlens:gk:organization:ai:enabled"
 		},
 		"gitlens.ai.explainStash:graph": {
-			"label": "Explain Stash (Preview)",
+			"label": "Explain Changes (Preview)",
 			"icon": "$(sparkle)",
 			"menus": {
 				"webview/context": [
@@ -101,13 +101,13 @@
 			}
 		},
 		"gitlens.ai.explainStash:views": {
-			"label": "Explain Stash (Preview)",
+			"label": "Explain Changes (Preview)",
 			"icon": "$(sparkle)",
 			"menus": {
 				"view/item/context": [
 					{
 						"when": "viewItem =~ /gitlens:stash\\b/ && !listMultiSelection && !gitlens:readonly && !gitlens:untrusted && gitlens:gk:organization:ai:enabled",
-						"group": "3_gitlens_ai",
+						"group": "3_gitlens_explore",
 						"order": 1
 					}
 				]

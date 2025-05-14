@@ -6076,47 +6076,47 @@
 			},
 			{
 				"command": "gitlens.ai.explainBranch",
-				"title": "Explain Branch (Preview)...",
+				"title": "Explain Branch Changes (Preview)...",
 				"category": "GitLens"
 			},
 			{
 				"command": "gitlens.ai.explainBranch:graph",
-				"title": "Explain Branch (Preview)",
+				"title": "Explain Branch Changes (Preview)",
 				"icon": "$(sparkle)"
 			},
 			{
 				"command": "gitlens.ai.explainBranch:views",
-				"title": "Explain Branch (Preview)",
+				"title": "Explain Branch Changes (Preview)",
 				"icon": "$(sparkle)"
 			},
 			{
 				"command": "gitlens.ai.explainCommit",
-				"title": "Explain Commit...",
+				"title": "Explain Commit Changes (Preview)...",
 				"category": "GitLens"
 			},
 			{
 				"command": "gitlens.ai.explainCommit:graph",
-				"title": "Explain Commit",
+				"title": "Explain Changes (Preview)",
 				"icon": "$(sparkle)"
 			},
 			{
 				"command": "gitlens.ai.explainCommit:views",
-				"title": "Explain Commit",
+				"title": "Explain Changes (Preview)",
 				"icon": "$(sparkle)"
 			},
 			{
 				"command": "gitlens.ai.explainStash",
-				"title": "Explain Stash (Preview)...",
+				"title": "Explain Stash Changes (Preview)...",
 				"category": "GitLens"
 			},
 			{
 				"command": "gitlens.ai.explainStash:graph",
-				"title": "Explain Stash (Preview)",
+				"title": "Explain Changes (Preview)",
 				"icon": "$(sparkle)"
 			},
 			{
 				"command": "gitlens.ai.explainStash:views",
-				"title": "Explain Stash (Preview)",
+				"title": "Explain Changes (Preview)",
 				"icon": "$(sparkle)"
 			},
 			{
@@ -16748,14 +16748,14 @@
 					"group": "2_gitlens_quickopen@1"
 				},
 				{
-					"command": "gitlens.ai.explainCommit:views",
-					"when": "viewItem =~ /gitlens:commit\\b/ && !listMultiSelection && !gitlens:readonly && !gitlens:untrusted && gitlens:gk:organization:ai:enabled",
-					"group": "3_gitlens_ai@1"
-				},
-				{
 					"command": "gitlens.showInDetailsView",
 					"when": "viewItem =~ /gitlens:(commit|stash)\\b/ && !listMultiSelection",
 					"group": "3_gitlens_explore@0"
+				},
+				{
+					"command": "gitlens.ai.explainCommit:views",
+					"when": "viewItem =~ /gitlens:commit\\b/ && !listMultiSelection && !gitlens:readonly && !gitlens:untrusted && gitlens:gk:organization:ai:enabled",
+					"group": "3_gitlens_explore@1"
 				},
 				{
 					"command": "gitlens.showInCommitGraph",
@@ -17811,7 +17811,7 @@
 				{
 					"command": "gitlens.ai.explainStash:views",
 					"when": "viewItem =~ /gitlens:stash\\b/ && !listMultiSelection && !gitlens:readonly && !gitlens:untrusted && gitlens:gk:organization:ai:enabled",
-					"group": "3_gitlens_ai@1"
+					"group": "3_gitlens_explore@1"
 				},
 				{
 					"command": "gitlens.stashSave",
