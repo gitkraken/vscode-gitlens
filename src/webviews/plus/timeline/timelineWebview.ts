@@ -333,7 +333,6 @@ export class TimelineWebviewProvider implements WebviewProvider<State, State, Ti
 
 		const picked = await showRevisionFilesPicker(this.container, createReference(ref?.ref ?? 'HEAD', repo.path), {
 			allowFolders: true,
-			ignoreFocusOut: true,
 			initialPath: initialPath,
 			title: title,
 		});
