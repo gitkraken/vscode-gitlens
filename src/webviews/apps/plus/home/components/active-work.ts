@@ -26,6 +26,7 @@ import '../../../shared/components/skeleton-loader';
 import '../../../shared/components/card/card';
 import '../../../shared/components/commit/commit-stats';
 import '../../../shared/components/menu/menu-item';
+import '../../../shared/components/menu/menu-label';
 import '../../../shared/components/overlays/popover';
 import '../../../shared/components/overlays/tooltip';
 import '../../../shared/components/pills/tracking';
@@ -61,6 +62,10 @@ export class GlActiveWork extends SignalWatcher(LitElement) {
 			}
 			.uppercase {
 				text-transform: uppercase;
+			}
+
+			menu-item {
+				margin-inline: 0.5rem;
 			}
 		`,
 	];
@@ -250,14 +255,67 @@ export class GlActiveBranchCard extends GlBranchCardBase {
 		`;
 	}
 
+	private renderActionsMenu() {
+		const aiEnabled = this._homeState.orgSettings.ai && this._homeState.aiEnabled;
+		const isFetching = this.busy;
+		const workingTreeState = this.wip?.workingTreeState;
+		const hasWip =
+			workingTreeState != null &&
+			workingTreeState.added + workingTreeState.changed + workingTreeState.deleted > 0;
+
+		const actions = [];
+
+		if (hasWip && aiEnabled) {
+			actions.push(
+				html`<menu-item ?disabled=${isFetching} href=${this.createCommandLink('gitlens.ai.explainWip:home')}
+					>Explain Working Changes (Preview)</menu-item
+				>`,
+			);
+		}
+
+		if (aiEnabled) {
+			actions.push(
+				html`<menu-item ?disabled=${isFetching} href=${this.createCommandLink('gitlens.ai.explainBranch:home')}
+					>Explain Branch (Preview)</menu-item
+				>`,
+			);
+		}
+
+		if (hasWip) {
+			actions.push(
+				html`<menu-item ?disabled=${isFetching} href=${this.createCommandLink('gitlens.home.createCloudPatch')}
+					>Share as Cloud Patch</menu-item
+				>`,
+			);
+		}
+
+		if (actions.length === 0) return undefined;
+
+		return html`<gl-popover
+			appearance="menu"
+			trigger="click focus"
+			placement="bottom-end"
+			.arrow=${false}
+			distance="0"
+		>
+			<gl-button slot="anchor" appearance="toolbar" tooltipPlacement="top" tooltip="Additional Actions">
+				<code-icon icon="ellipsis"></code-icon>
+			</gl-button>
+			<div slot="content">
+				<menu-label>Actions</menu-label>
+				${actions}
+			</div>
+		</gl-popover>`;
+	}
+
 	private renderBranchStateActions() {
 		const { name, upstream } = this.branch;
 
 		const actions: TemplateResult[] = [];
 
 		const wrappedActions = () => {
-			if (actions.length === 0) return undefined;
-			return html`<div><button-container>${actions}</button-container></div>`;
+			if (actions.length === 0) return this.renderActionsMenu();
+			return html`<div><button-container>${actions}${this.renderActionsMenu()}</button-container></div>`;
 		};
 
 		const isFetching = this.busy;
@@ -280,40 +338,8 @@ export class GlActiveBranchCard extends GlBranchCardBase {
 						tooltip="Generate Message &amp; Commit..."
 						><code-icon icon="sparkle" slot="prefix"></code-icon>Commit
 					</gl-button>
-					<gl-button
-						aria-busy=${ifDefined(isFetching)}
-						?disabled=${isFetching}
-						href=${this.createCommandLink('gitlens.ai.explainWip:home')}
-						appearance="secondary"
-						tooltip="Explain Working Changes (Preview)"
-						><code-icon icon="sparkle" slot="prefix"></code-icon>WIP
-					</gl-button>
 				`);
 			}
-
-			actions.push(html`
-				<gl-button
-					aria-busy=${ifDefined(isFetching)}
-					?disabled=${isFetching}
-					href=${this.createCommandLink('gitlens.home.createCloudPatch')}
-					appearance="secondary"
-					tooltip="Share as Cloud Patch"
-					><code-icon icon="gl-cloud-patch-share"></code-icon>
-				</gl-button>
-			`);
-		}
-
-		if (this._homeState.orgSettings.ai && this._homeState.aiEnabled) {
-			actions.push(html`
-				<gl-button
-					aria-busy=${ifDefined(isFetching)}
-					?disabled=${isFetching}
-					href=${this.createCommandLink('gitlens.ai.explainBranch:home')}
-					appearance="secondary"
-					tooltip="Explain Branch (Preview)"
-					><code-icon icon="sparkle" slot="prefix"></code-icon>Branch
-				</gl-button>
-			`);
 		}
 
 		if (this.wip?.pausedOpStatus != null) {
