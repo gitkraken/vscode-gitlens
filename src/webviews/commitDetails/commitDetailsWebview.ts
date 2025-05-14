@@ -11,6 +11,7 @@ import type { ExplainStashCommandArgs } from '../../commands/explainStash';
 import type { ExplainWipCommandArgs } from '../../commands/explainWip';
 import type { OpenPullRequestOnRemoteCommandArgs } from '../../commands/openPullRequestOnRemote';
 import type { ContextKeys } from '../../constants.context';
+import { isSupportedCloudIntegrationId } from '../../constants.integrations';
 import type { InspectTelemetryContext, Sources } from '../../constants.telemetry';
 import type { Container } from '../../container';
 import type { CommitSelectedEvent } from '../../eventBus';
@@ -47,7 +48,7 @@ import { confirmDraftStorage } from '../../plus/drafts/utils/-webview/drafts.uti
 import type { Subscription } from '../../plus/gk/models/subscription';
 import type { SubscriptionChangeEvent } from '../../plus/gk/subscriptionService';
 import { ensureAccount } from '../../plus/gk/utils/-webview/acount.utils';
-import type { ConnectionStateChangeEvent } from '../../plus/integrations/integrationService';
+import type { ConfiguredIntegrationsChangeEvent } from '../../plus/integrations/authentication/configuredIntegrationService';
 import { supportsCodeSuggest } from '../../plus/integrations/providers/models';
 import { getEntityIdentifierInput } from '../../plus/integrations/providers/utils';
 import {
@@ -213,7 +214,7 @@ export class CommitDetailsWebviewProvider
 			configuration.onDidChangeAny(this.onAnyConfigurationChanged, this),
 			onDidChangeContext(this.onContextChanged, this),
 			this.container.subscription.onDidChange(this.onSubscriptionChanged, this),
-			container.integrations.onDidChangeConnectionState(this.onIntegrationConnectionStateChanged, this),
+			container.integrations.onDidChangeConfiguredIntegrations(this.onIntegrationsChanged, this),
 		);
 	}
 
@@ -913,20 +914,27 @@ export class CommitDetailsWebviewProvider
 		return this._context.hasAccount;
 	}
 
-	private async onIntegrationConnectionStateChanged(e: ConnectionStateChangeEvent) {
-		const isConnected = e.reason === 'connected';
-		if (this._context.hasIntegrationsConnected === isConnected) return;
+	private async onIntegrationsChanged(_e: ConfiguredIntegrationsChangeEvent) {
+		const previous = this._context.hasIntegrationsConnected;
+		const current = await this.getHasIntegrationsConnected(true);
+		if (previous === current) return;
 
 		void this.host.notify(DidChangeIntegrationsNotification, {
-			hasIntegrationsConnected: await this.getHasIntegrationsConnected(true),
+			hasIntegrationsConnected: current,
 		});
 	}
 
 	async getHasIntegrationsConnected(force = false): Promise<boolean> {
-		if (this._context.hasIntegrationsConnected != null && !force) return this._context.hasIntegrationsConnected;
-
-		const hasAny = (await this.container.integrations.getConfigured()).length > 0;
-		this._context.hasIntegrationsConnected = hasAny;
+		if (force || this._context.hasIntegrationsConnected == null) {
+			const configured = await this.container.integrations.getConfigured();
+			if (configured.length > 0) {
+				this._context.hasIntegrationsConnected = configured.some(i =>
+					isSupportedCloudIntegrationId(i.integrationId),
+				);
+			} else {
+				this._context.hasIntegrationsConnected = false;
+			}
+		}
 
 		return this._context.hasIntegrationsConnected;
 	}
