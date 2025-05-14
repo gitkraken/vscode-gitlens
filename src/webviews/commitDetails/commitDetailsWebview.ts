@@ -166,7 +166,7 @@ interface Context {
 	orgSettings: State['orgSettings'];
 	source?: Sources;
 	hasAccount: boolean | undefined;
-	hasIntegrationsConnected: boolean;
+	hasIntegrationsConnected: boolean | undefined;
 }
 
 export class CommitDetailsWebviewProvider
@@ -206,7 +206,7 @@ export class CommitDetailsWebviewProvider
 			wip: undefined,
 			orgSettings: this.getOrgSettings(),
 			hasAccount: undefined,
-			hasIntegrationsConnected: false,
+			hasIntegrationsConnected: undefined,
 		};
 
 		this._disposable = Disposable.from(
