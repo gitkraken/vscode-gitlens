@@ -46,6 +46,10 @@ import '../../../shared/components/branch-icon';
 import './merge-target-status';
 
 export const branchCardStyles = css`
+	* {
+		box-sizing: border-box;
+	}
+
 	gl-avatar-list {
 		--gl-avatar-size: 2.4rem;
 		margin-block: -0.4rem;
