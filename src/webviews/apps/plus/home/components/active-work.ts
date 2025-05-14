@@ -63,10 +63,6 @@ export class GlActiveWork extends SignalWatcher(LitElement) {
 			.uppercase {
 				text-transform: uppercase;
 			}
-
-			menu-item {
-				margin-inline: 0.5rem;
-			}
 		`,
 	];
 
@@ -264,29 +260,41 @@ export class GlActiveBranchCard extends GlBranchCardBase {
 			workingTreeState.added + workingTreeState.changed + workingTreeState.deleted > 0;
 
 		const actions = [];
-
-		if (hasWip && aiEnabled) {
-			actions.push(
-				html`<menu-item ?disabled=${isFetching} href=${this.createCommandLink('gitlens.ai.explainWip:home')}
-					>Explain Working Changes (Preview)</menu-item
-				>`,
-			);
-		}
-
 		if (aiEnabled) {
+			if (hasWip) {
+				actions.push(
+					html`<menu-item ?disabled=${isFetching} href=${this.createCommandLink('gitlens.ai.explainWip:home')}
+						>Explain Working Changes (Preview)</menu-item
+					>`,
+				);
+			}
+
 			actions.push(
 				html`<menu-item ?disabled=${isFetching} href=${this.createCommandLink('gitlens.ai.explainBranch:home')}
 					>Explain Branch (Preview)</menu-item
 				>`,
 			);
-		}
 
-		if (hasWip) {
-			actions.push(
-				html`<menu-item ?disabled=${isFetching} href=${this.createCommandLink('gitlens.home.createCloudPatch')}
-					>Share as Cloud Patch</menu-item
-				>`,
-			);
+			if (hasWip) {
+				actions.push(
+					html`<menu-item
+						?disabled=${isFetching}
+						href=${this.createCommandLink('gitlens.home.createCloudPatch')}
+						>Share as Cloud Patch</menu-item
+					>`,
+				);
+			}
+		} else if (hasWip) {
+			return html`
+				<gl-button
+					aria-busy=${ifDefined(isFetching)}
+					?disabled=${isFetching}
+					href=${this.createCommandLink('gitlens.home.createCloudPatch')}
+					appearance="secondary"
+					tooltip="Share as Cloud Patch"
+					><code-icon icon="gl-cloud-patch-share"></code-icon>
+				</gl-button>
+			`;
 		}
 
 		if (actions.length === 0) return undefined;
@@ -298,7 +306,7 @@ export class GlActiveBranchCard extends GlBranchCardBase {
 			.arrow=${false}
 			distance="0"
 		>
-			<gl-button slot="anchor" appearance="toolbar" tooltipPlacement="top" tooltip="Additional Actions">
+			<gl-button slot="anchor" appearance="toolbar" tooltipPlacement="top" aria-label="Additional Actions">
 				<code-icon icon="ellipsis"></code-icon>
 			</gl-button>
 			<div slot="content">
@@ -335,8 +343,19 @@ export class GlActiveBranchCard extends GlBranchCardBase {
 							source: 'home',
 						})}
 						appearance="secondary"
-						tooltip="Generate Message &amp; Commit..."
+						tooltip="Generate Message &amp; Commit via SCM..."
 						><code-icon icon="sparkle" slot="prefix"></code-icon>Commit
+					</gl-button>
+				`);
+			} else {
+				actions.push(html`
+					<gl-button
+						aria-busy=${ifDefined(isFetching)}
+						?disabled=${isFetching}
+						href="command:workbench.view.scm"
+						appearance="secondary"
+						tooltip="Commit via SCM"
+						><code-icon rotate="45" icon="arrow-up" slot="suffix"></code-icon>Commit
 					</gl-button>
 				`);
 			}
