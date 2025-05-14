@@ -63,7 +63,7 @@ export class ExplainCommitCommand extends GlCommandBase {
 			repository = await getBestRepositoryOrShowPicker(
 				gitUri,
 				editor,
-				'Explain Commit',
+				'Explain Commit Changes',
 				'Choose which repository to explain a commit from',
 			);
 		}
@@ -75,7 +75,7 @@ export class ExplainCommitCommand extends GlCommandBase {
 			if (args.rev == null) {
 				const commitsProvider = repository.git.commits();
 				const log = await commitsProvider.getLog();
-				const pick = await showCommitPicker(log, 'Explain Commit', 'Choose a commit to explain');
+				const pick = await showCommitPicker(log, 'Explain Commit Changes', 'Choose a commit to explain');
 				if (pick?.sha == null) return;
 				args.rev = pick.sha;
 				commit = pick;

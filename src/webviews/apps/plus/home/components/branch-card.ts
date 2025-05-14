@@ -1027,7 +1027,7 @@ export class GlBranchCard extends GlBranchCardBase {
 				} else {
 					actions.push(
 						html`<action-item
-							label="Explain Branch (Preview)"
+							label="Explain Branch Changes (Preview)"
 							icon="sparkle"
 							href=${this.createCommandLink('gitlens.ai.explainBranch:home')}
 						></action-item>`,
@@ -1046,7 +1046,7 @@ export class GlBranchCard extends GlBranchCardBase {
 			if (aiEnabled) {
 				actions.push(
 					html`<action-item
-						label="Explain Branch (Preview)"
+						label="Explain Branch Changes (Preview)"
 						icon="sparkle"
 						href=${this.createCommandLink('gitlens.ai.explainBranch:home')}
 					></action-item>`,

@@ -271,7 +271,7 @@ export class GlActiveBranchCard extends GlBranchCardBase {
 
 			actions.push(
 				html`<menu-item ?disabled=${isFetching} href=${this.createCommandLink('gitlens.ai.explainBranch:home')}
-					>Explain Branch (Preview)</menu-item
+					>Explain Branch Changes (Preview)</menu-item
 				>`,
 			);
 

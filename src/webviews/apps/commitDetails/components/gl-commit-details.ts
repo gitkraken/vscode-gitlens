@@ -125,23 +125,11 @@ export class GlCommitDetails extends GlDetailsBase {
 	private renderExplainChanges() {
 		if (this.state?.orgSettings.ai === false) return undefined;
 
-		if (this.isUncommitted) {
-			return html`
-				<gl-action-chip
-					label="Explain Working Changes"
-					icon="sparkle"
-					data-action="explain-commit"
-					aria-busy="${this.explainBusy ? 'true' : nothing}"
-					?disabled="${this.explainBusy ? true : nothing}"
-					@click=${this.onExplainChanges}
-					@keydown=${this.onExplainChanges}
-					><span>explain</span></gl-action-chip
-				>
-			`;
-		}
 		return html`
 			<gl-action-chip
-				label="Explain this ${this.isStash ? 'Stash' : 'Commit'}"
+				label=${this.isUncommitted
+					? 'Explain Working Changes'
+					: `Explain Changes in this ${this.isStash ? 'Stash' : 'Commit'}`}
 				icon="sparkle"
 				data-action="explain-commit"
 				aria-busy="${this.explainBusy ? 'true' : nothing}"
