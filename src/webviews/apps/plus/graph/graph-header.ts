@@ -843,6 +843,29 @@ export class GlGraphHeader extends SignalWatcher(LitElement) {
 						</gl-tooltip>
 						<gl-tooltip placement="bottom">
 							<a
+								href=${createWebviewCommandLink(
+									'gitlens.visualizeHistory.repo:graph',
+									this.hostState.webviewId,
+									this.hostState.webviewInstanceId,
+								)}
+								class="action-button"
+								aria-label=${`Open Visual History`}
+							>
+								<span>
+									<code-icon
+										class="action-button__icon"
+										icon=${'graph-scatter'}
+										aria-hidden="true"
+									></code-icon>
+								</span>
+							</a>
+							<span slot="content">
+								<strong>Visual History</strong> — visualize the evolution of a repository, branch,
+								folder, or file and identify when the most impactful changes were made and by whom
+							</span>
+						</gl-tooltip>
+						<gl-tooltip placement="bottom">
+							<a
 								href=${'command:gitlens.views.home.focus'}
 								class="action-button"
 								aria-label=${`Open GitLens Home View`}

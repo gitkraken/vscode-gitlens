@@ -103,19 +103,6 @@ export function registerTimelineWebviewCommands<T>(
 			return show(uri ? { type: 'folder', uri: uri } : undefined);
 		}),
 
-		registerCommand('gitlens.visualizeHistory.repo:home', (...args: unknown[]) => {
-			return show(
-				args[0] instanceof Uri
-					? { type: 'repo', uri: args[0] }
-					: isTimelineScope(args[0])
-					  ? args[0]
-					  : undefined,
-			);
-		}),
-		registerCommand('gitlens.visualizeHistory.branch:home', (...args: unknown[]) => {
-			return show(isTimelineScope(args[0]) ? args[0] : undefined);
-		}),
-
 		registerCommand(`${panels.id}.refresh`, () => void panels.getActiveInstance()?.refresh(true)),
 		registerCommand(
 			`${panels.id}.split`,
