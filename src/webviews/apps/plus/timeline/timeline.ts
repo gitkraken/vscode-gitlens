@@ -110,21 +110,40 @@ export class GlTimelineApp extends GlAppHost<State> {
 		return this.state.access?.subscription?.current;
 	}
 
-	override render(): unknown {
-		return html`
-			<gl-feature-gate
+	private renderGate() {
+		if (this.placement === 'editor') {
+			return html`<gl-feature-gate
 				?hidden=${this.allowed !== false}
 				.source=${{ source: 'timeline' as const, detail: 'gate' }}
 				.state=${this.subscription?.state}
 				><p slot="feature">
 					<a href="https://help.gitkraken.com/gitlens/gitlens-features/#visual-file-history-pro"
-						>Visual File History</a
+						>Visual History</a
 					>
 					<gl-feature-badge></gl-feature-badge>
-					&mdash; visualize the evolution of a file and quickly identify when the most impactful changes were
-					made and by whom.
+					&mdash; visualize the evolution of a repository, branch, folder, or file and identify when the most
+					impactful changes were made and by whom. Quickly see unmerged changes in files or folders, when
+					slicing by branch.
 				</p></gl-feature-gate
-			>
+			>`;
+		}
+
+		return html`<gl-feature-gate
+			?hidden=${this.allowed !== false}
+			.source=${{ source: 'timeline' as const, detail: 'gate' }}
+			.state=${this.subscription?.state}
+			><p slot="feature">
+				<a href="https://help.gitkraken.com/gitlens/gitlens-features/#visual-file-history-pro"
+					>Visual File History</a
+				>
+				<gl-feature-badge></gl-feature-badge>
+				&mdash; visualize the evolution of a file and quickly identify when the most impactful changes were made
+				and by whom. Quickly see unmerged changes in files or folders, when slicing by branch.
+			</p></gl-feature-gate
+		>`;
+	}
+	override render(): unknown {
+		return html`${this.renderGate()}
 			<div class="container">
 				<progress-indicator ?active=${this._loading}></progress-indicator>
 				<header class="header" ?hidden=${!this.scope}>
@@ -152,8 +171,7 @@ export class GlTimelineApp extends GlAppHost<State> {
 				</header>
 
 				<main class="timeline">${this.renderChart()}</main>
-			</div>
-		`;
+			</div> `;
 	}
 
 	private renderBreadcrumbs() {
