@@ -71,7 +71,15 @@ export class RepositoriesView extends ViewBase<'repositories', RepositoriesNode,
 			registerViewCommand(
 				this.getQualifiedCommand('refresh'),
 				() => {
-					this.container.git.resetCaches('branches', 'contributors', 'remotes', 'stashes', 'status', 'tags');
+					this.container.git.resetCaches(
+						'branches',
+						'contributors',
+						'remotes',
+						'stashes',
+						'status',
+						'tags',
+						'worktrees',
+					);
 					return this.refresh(true);
 				},
 				this,

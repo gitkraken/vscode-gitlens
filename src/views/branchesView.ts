@@ -147,7 +147,7 @@ export class BranchesView extends ViewBase<'branches', BranchesViewNode, Branche
 			registerViewCommand(
 				this.getQualifiedCommand('refresh'),
 				() => {
-					this.container.git.resetCaches('branches');
+					this.container.git.resetCaches('branches', 'worktrees');
 					return this.refresh(true);
 				},
 				this,
