@@ -8,6 +8,7 @@ import type { GitLog } from '../../git/models/log';
 import type { PullRequest, PullRequestState } from '../../git/models/pullRequest';
 import type { GitStatus } from '../../git/models/status';
 import type { GitWorktree } from '../../git/models/worktree';
+import { getBranchAheadRange } from '../../git/utils/-webview/branch.utils';
 import { getBranchIconPath } from '../../git/utils/-webview/icons';
 import { getHighlanderProviderName } from '../../git/utils/remote.utils';
 import { shortenRevision } from '../../git/utils/revision.utils';
@@ -139,15 +140,11 @@ export class WorktreeNode extends CacheableChildrenViewNode<'worktree', ViewsWit
 				this.getLog(),
 				this.view.container.git.getBranchesAndTagsTipsLookup(this.uri.repoPath),
 				branch != null && !branch.remote
-					? this.view.container.git
-							.getBranchAheadRange(branch)
-							.then(range =>
-								range
-									? this.view.container.git
-											.commits(this.uri.repoPath!)
-											.getLogShas(range, { limit: 0 })
-									: undefined,
-							)
+					? getBranchAheadRange(this.view.container, branch).then(range =>
+							range
+								? this.view.container.git.commits(this.uri.repoPath!).getLogShas(range, { limit: 0 })
+								: undefined,
+					  )
 					: undefined,
 			]);
 			const log = getSettledValue(logResult);

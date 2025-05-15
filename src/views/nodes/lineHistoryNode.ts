@@ -8,6 +8,7 @@ import type { GitLog } from '../../git/models/log';
 import type { RepositoryChangeEvent, RepositoryFileSystemChangeEvent } from '../../git/models/repository';
 import { RepositoryChange, RepositoryChangeComparisonMode } from '../../git/models/repository';
 import { deletedOrMissing } from '../../git/models/revision';
+import { getBranchAheadRange } from '../../git/utils/-webview/branch.utils';
 import { isUncommitted } from '../../git/utils/revision.utils';
 import { gate } from '../../system/decorators/-webview/gate';
 import { memoize } from '../../system/decorators/-webview/memoize';
@@ -76,7 +77,7 @@ export class LineHistoryNode
 		const { sha } = this.uri;
 		const selection = this.selection;
 
-		const range = this.branch != null ? await this.view.container.git.getBranchAheadRange(this.branch) : undefined;
+		const range = this.branch != null ? await getBranchAheadRange(this.view.container, this.branch) : undefined;
 		const [logResult, blameResult, getBranchAndTagTipsResult, unpublishedCommitsResult] = await Promise.allSettled([
 			this.getLog(selection),
 			sha == null || isUncommitted(sha)

@@ -15,7 +15,7 @@ import type { GitBranchReference } from '../../git/models/reference';
 import type { Repository } from '../../git/models/repository';
 import type { GitUser } from '../../git/models/user';
 import type { GitWorktree } from '../../git/models/worktree';
-import { getBranchMergeTargetName } from '../../git/utils/-webview/branch.utils';
+import { getBranchAheadRange, getBranchMergeTargetName } from '../../git/utils/-webview/branch.utils';
 import { getBranchIconPath, getRemoteIconPath, getWorktreeBranchIconPath } from '../../git/utils/-webview/icons';
 import { getLastFetchedUpdateInterval } from '../../git/utils/fetch.utils';
 import { getHighlanderProviders } from '../../git/utils/remote.utils';
@@ -238,15 +238,13 @@ export class BranchNode
 					? this.view.container.git.status(this.uri.repoPath!).getPausedOperationStatus?.()
 					: undefined,
 				!branch.remote
-					? this.view.container.git
-							.getBranchAheadRange(branch)
-							.then(range =>
-								range
-									? this.view.container.git
-											.commits(this.uri.repoPath!)
-											.getLogShas(range, { limit: 0, merges: this.options.showMergeCommits })
-									: undefined,
-							)
+					? getBranchAheadRange(this.view.container, branch).then(range =>
+							range
+								? this.view.container.git
+										.commits(this.uri.repoPath!)
+										.getLogShas(range, { limit: 0, merges: this.options.showMergeCommits })
+								: undefined,
+					  )
 					: undefined,
 				loadComparisonDefaultCompareWith
 					? this.view.container.git.branches(this.branch.repoPath).getBaseBranchName?.(this.branch.name)
