@@ -129,7 +129,7 @@ export class RemotesView extends ViewBase<'remotes', RemotesViewNode, RemotesVie
 			registerViewCommand(
 				this.getQualifiedCommand('refresh'),
 				() => {
-					this.container.git.resetCaches('branches', 'remotes');
+					this.container.git.resetCaches('branches', 'remotes', 'worktrees');
 					return this.refresh(true);
 				},
 				this,
