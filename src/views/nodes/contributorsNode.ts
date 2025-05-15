@@ -51,10 +51,12 @@ export class ContributorsNode extends CacheableChildrenViewNode<
 			let rev = this.options?.ref;
 			const all = rev == null && (this.options?.all ?? configuration.get('views.contributors.showAllBranches'));
 
+			const svc = this.view.container.git.getRepositoryService(this.uri.repoPath!);
+
 			// If there is no ref and we aren't getting all branches, get the upstream of the current branch if there is one
 			if (rev == null && !all) {
 				try {
-					const branch = await this.view.container.git.branches(this.uri.repoPath!).getBranch();
+					const branch = await svc.branches.getBranch();
 					if (branch?.upstream?.name != null && !branch.upstream.missing) {
 						rev = '@{u}';
 					}
@@ -72,14 +74,12 @@ export class ContributorsNode extends CacheableChildrenViewNode<
 				timeout = configuration.get('views.contributors.maxWait') * 1000;
 			}
 
-			const result = await this.repo.git
-				.contributors()
-				.getContributors(
-					rev,
-					{ all: all, merges: this.options?.showMergeCommits, stats: stats },
-					undefined,
-					timeout || undefined,
-				);
+			const result = await svc.contributors.getContributors(
+				rev,
+				{ all: all, merges: this.options?.showMergeCommits, stats: stats },
+				undefined,
+				timeout || undefined,
+			);
 			if (!result.contributors.length) {
 				return [new MessageNode(this.view, this, 'No contributors could be found.')];
 			}

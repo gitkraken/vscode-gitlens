@@ -85,7 +85,9 @@ export class BranchTrackingStatusNode
 			const ref = this.options?.unpublishedCommits != null ? last(this.options.unpublishedCommits) : undefined;
 			if (ref == null) return undefined;
 
-			const resolved = await this.view.container.git.revision(this.repoPath).resolveRevision(`${ref}^`);
+			const resolved = await this.view.container.git
+				.getRepositoryService(this.repoPath)
+				.revision.resolveRevision(`${ref}^`);
 			return {
 				...comparison,
 				ref1: resolved.sha,
@@ -120,8 +122,8 @@ export class BranchTrackingStatusNode
 			const previousSha = await commit.getPreviousSha();
 			if (previousSha == null) {
 				const previousLog = await this.view.container.git
-					.commits(this.uri.repoPath!)
-					.getLog(commit.sha, { limit: 1 });
+					.getRepositoryService(this.uri.repoPath!)
+					.commits.getLog(commit.sha, { limit: 1 });
 				if (previousLog != null) {
 					commits[commits.length - 1] = first(previousLog.commits.values())!;
 				}
@@ -291,7 +293,9 @@ export class BranchTrackingStatusNode
 				break;
 			}
 			case 'none': {
-				const remotes = await this.view.container.git.remotes(this.branch.repoPath).getRemotesWithProviders();
+				const remotes = await this.view.container.git
+					.getRepositoryService(this.branch.repoPath)
+					.remotes.getRemotesWithProviders();
 				const providers = getHighlanderProviders(remotes);
 				const providerName = providers?.length ? providers[0].name : undefined;
 
@@ -345,8 +349,8 @@ export class BranchTrackingStatusNode
 					: createRevisionRange(this.status.ref, this.status.upstream?.name, '..');
 
 			this._log = await this.view.container.git
-				.commits(this.uri.repoPath!)
-				.getLog(range, { limit: this.limit ?? this.view.config.defaultItemLimit });
+				.getRepositoryService(this.uri.repoPath!)
+				.commits.getLog(range, { limit: this.limit ?? this.view.config.defaultItemLimit });
 		}
 
 		return this._log;

@@ -78,7 +78,7 @@ export class ExplainBranchCommand extends GlCommandBase {
 			}
 
 			// Get the branch
-			const branch = await repository.git.branches().getBranch(args.ref);
+			const branch = await repository.git.branches.getBranch(args.ref);
 			if (branch == null) {
 				void showGenericErrorMessage('Unable to find the specified branch');
 				return;
@@ -88,7 +88,7 @@ export class ExplainBranchCommand extends GlCommandBase {
 			const baseBranchNameResult = await getBranchMergeTargetName(this.container, branch);
 			let baseBranch;
 			if (!baseBranchNameResult.paused) {
-				baseBranch = await repository.git.branches().getBranch(baseBranchNameResult.value);
+				baseBranch = await repository.git.branches.getBranch(baseBranchNameResult.value);
 			}
 
 			if (!baseBranch) {

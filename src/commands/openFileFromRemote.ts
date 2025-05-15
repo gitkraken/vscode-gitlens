@@ -51,7 +51,10 @@ async function openFileOreRevisionFromRemote(container: Container, type: 'file' 
 
 	let { uri } = local;
 	if (type === 'revision' && uri.scheme === Schemes.File && local.rev) {
-		uri = (await container.git.getBestRevisionUri(local.repoPath, local.uri.fsPath, local.rev)) ?? uri;
+		uri =
+			(await container.git
+				.getRepositoryService(local.repoPath)
+				.getBestRevisionUri(local.uri.fsPath, local.rev)) ?? uri;
 	}
 
 	let selection;

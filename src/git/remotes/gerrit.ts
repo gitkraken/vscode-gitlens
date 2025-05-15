@@ -134,7 +134,7 @@ export class GerritRemote extends RemoteProvider {
 			} while (index > 0);
 
 			if (possibleBranches.size) {
-				const { values: branches } = await repo.git.branches().getBranches({
+				const { values: branches } = await repo.git.branches.getBranches({
 					filter: b => b.remote && possibleBranches.has(b.getNameWithoutRemote()),
 				});
 				for (const branch of branches) {
@@ -165,7 +165,7 @@ export class GerritRemote extends RemoteProvider {
 			} while (index > 0);
 
 			if (possibleTags.size) {
-				const { values: tags } = await repo.git.tags().getTags({
+				const { values: tags } = await repo.git.tags.getTags({
 					filter: t => possibleTags.has(t.name),
 				});
 				for (const tag of tags) {

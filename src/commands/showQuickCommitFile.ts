@@ -111,7 +111,9 @@ export class ShowQuickCommitFileCommand extends ActiveEditorCachedCommand {
 
 				if (args.fileLog == null) {
 					const repoPath = args.commit?.repoPath ?? gitUri.repoPath;
-					args.commit = await this.container.git.commits(repoPath!).getCommitForFile(gitUri, args.sha);
+					args.commit = await this.container.git
+						.getRepositoryService(repoPath!)
+						.commits.getCommitForFile(gitUri, args.sha);
 					if (args.commit == null) {
 						void showCommitNotFoundWarningMessage('Unable to show commit file details');
 

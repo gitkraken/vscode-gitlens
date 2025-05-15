@@ -42,7 +42,7 @@ export class StatusFilesNode extends ViewNode<'status-files', ViewsWithWorkingTr
 
 		let log: GitLog | undefined;
 		if (this.range != null) {
-			log = await this.view.container.git.commits(repoPath).getLog(this.range, { limit: 0 });
+			log = await this.view.container.git.getRepositoryService(repoPath).commits.getLog(this.range, { limit: 0 });
 			if (log != null) {
 				await Promise.allSettled(
 					map(
@@ -101,8 +101,8 @@ export class StatusFilesNode extends ViewNode<'status-files', ViewsWithWorkingTr
 			if (this.status.upstream?.state.ahead) {
 				if (files > 0) {
 					const aheadFiles = await this.view.container.git
-						.diff(this.repoPath)
-						.getDiffStatus(`${this.status.upstream?.name}...`);
+						.getRepositoryService(this.repoPath)
+						.diff.getDiffStatus(`${this.status.upstream?.name}...`);
 
 					if (aheadFiles != null) {
 						const uniques = new Set();
@@ -117,8 +117,8 @@ export class StatusFilesNode extends ViewNode<'status-files', ViewsWithWorkingTr
 					}
 				} else {
 					const stats = await this.view.container.git
-						.diff(this.repoPath)
-						.getChangedFilesCount(`${this.status.upstream?.name}...`);
+						.getRepositoryService(this.repoPath)
+						.diff.getChangedFilesCount(`${this.status.upstream?.name}...`);
 					if (stats != null) {
 						files += stats.files;
 					} else {

@@ -28,12 +28,12 @@ export async function getAheadBehindFilesQuery(
 	comparison: string,
 	compareWithWorkingTree: boolean,
 ): Promise<FilesQueryResults> {
-	const diffProvider = container.git.diff(repoPath);
+	const diffSvc = container.git.getRepositoryService(repoPath).diff;
 	const [filesResult, workingFilesResult, statsResult, workingStatsResult] = await Promise.allSettled([
-		diffProvider.getDiffStatus(comparison),
-		compareWithWorkingTree ? diffProvider.getDiffStatus('HEAD') : undefined,
-		diffProvider.getChangedFilesCount(comparison),
-		compareWithWorkingTree ? diffProvider.getChangedFilesCount('HEAD') : undefined,
+		diffSvc.getDiffStatus(comparison),
+		compareWithWorkingTree ? diffSvc.getDiffStatus('HEAD') : undefined,
+		diffSvc.getChangedFilesCount(comparison),
+		compareWithWorkingTree ? diffSvc.getChangedFilesCount('HEAD') : undefined,
 	]);
 
 	let files = getSettledValue(filesResult) ?? [];
@@ -85,7 +85,9 @@ export function getCommitsQuery(
 	filterByAuthors?: GitUser[] | undefined,
 ): (limit: number | undefined) => Promise<CommitsQueryResults> {
 	return async (limit: number | undefined) => {
-		const log = await container.git.commits(repoPath).getLog(range, { limit: limit, authors: filterByAuthors });
+		const log = await container.git
+			.getRepositoryService(repoPath)
+			.commits.getLog(range, { limit: limit, authors: filterByAuthors });
 
 		const results: Mutable<CommitsQueryResults> = {
 			log: log,
@@ -118,10 +120,10 @@ export async function getFilesQuery(
 		comparison = `${ref2}..${ref1}`;
 	}
 
-	const diffProvider = container.git.diff(repoPath);
+	const diffSvc = container.git.getRepositoryService(repoPath).diff;
 	const [filesResult, statsResult] = await Promise.allSettled([
-		diffProvider.getDiffStatus(comparison),
-		diffProvider.getChangedFilesCount(comparison),
+		diffSvc.getDiffStatus(comparison),
+		diffSvc.getChangedFilesCount(comparison),
 	]);
 
 	const files = getSettledValue(filesResult) ?? [];

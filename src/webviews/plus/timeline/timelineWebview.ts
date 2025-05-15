@@ -396,10 +396,10 @@ export class TimelineWebviewProvider implements WebviewProvider<State, State, Ti
 		if (pick.value.ref === 'HEAD') {
 			ref = getReference(pick.value);
 
-			// const branch = await repo.git.branches().getBranch();
+			// const branch = await repo.git2.branches.getBranch();
 			// ref = getReference(branch ?? pick.value);
 
-			// const resolved = await repo.git.revision().resolveRevision('HEAD');
+			// const resolved = await repo.git2.revision.resolveRevision('HEAD');
 			// ref = resolved != null ? createReference(resolved.sha, repo.path) : ref;
 		} else {
 			ref = getReference(pick.value);
@@ -652,7 +652,7 @@ export class TimelineWebviewProvider implements WebviewProvider<State, State, Ti
 
 		const { uri } = scope;
 		const relativePath = git.getRelativePath(uri, repo.uri);
-		const ref = getReference(await repo.git.branches().getBranch());
+		const ref = getReference(await repo.git.branches.getBranch());
 		const repository: State['repository'] =
 			repo != null
 				? { id: repo.id, name: repo.name, ref: ref, uri: repo.uri.toString(), virtual: repo.virtual }
@@ -660,9 +660,9 @@ export class TimelineWebviewProvider implements WebviewProvider<State, State, Ti
 
 		scope.head ??= ref;
 		if (scope.base == null) {
-			// const mergeTarget = await repo.git.branches().getBestMergeTargetBranchName?.(scope.head!.ref);
+			// const mergeTarget = await repo.git2.branches.getBestMergeTargetBranchName?.(scope.head!.ref);
 			// if (mergeTarget != null) {
-			// 	const mergeBase = await repo.git.refs().getMergeBase?.(scope.head!.ref, mergeTarget);
+			// 	const mergeBase = await repo.git2.refs.getMergeBase?.(scope.head!.ref, mergeTarget);
 			// 	if (mergeBase != null) {
 			// 		scope.base = createReference(mergeBase, repo.path, { refType: 'revision' });
 			// 	}
@@ -704,7 +704,7 @@ export class TimelineWebviewProvider implements WebviewProvider<State, State, Ti
 		}
 
 		const [contributorsResult, statusFilesResult, currentUserResult] = await Promise.allSettled([
-			repo.git.contributors().getContributors(ref, {
+			repo.git.contributors.getContributors(ref, {
 				all: config.showAllBranches,
 				pathspec: scope.type === 'repo' ? undefined : scope.uri.fsPath,
 				since: getPeriodDate(config.period)?.toISOString(),
@@ -713,12 +713,9 @@ export class TimelineWebviewProvider implements WebviewProvider<State, State, Ti
 			repo.virtual
 				? undefined
 				: scope.type !== 'repo'
-				  ? repo.git.status().getStatusForPath?.(scope.uri, { renames: scope.type === 'file' })
-				  : repo.git
-							.status()
-							.getStatus()
-							.then(s => s?.files),
-			repo.git.config().getCurrentUser(),
+				  ? repo.git.status.getStatusForPath?.(scope.uri, { renames: scope.type === 'file' })
+				  : repo.git.status.getStatus().then(s => s?.files),
+			repo.git.config.getCurrentUser(),
 		]);
 
 		const currentUser = getSettledValue(currentUserResult);
@@ -750,7 +747,7 @@ export class TimelineWebviewProvider implements WebviewProvider<State, State, Ti
 
 		if (config.showAllBranches && config.sliceBy === 'branch' && scope.type !== 'repo' && !repo.virtual) {
 			const shas = new Set<string>(
-				await repo.git.commits().getLogShas?.(`^${scope.head?.ref ?? 'HEAD'}`, {
+				await repo.git.commits.getLogShas?.(`^${scope.head?.ref ?? 'HEAD'}`, {
 					all: true,
 					pathOrUri: scope.uri,
 					limit: 0,
@@ -762,9 +759,10 @@ export class TimelineWebviewProvider implements WebviewProvider<State, State, Ti
 				commitsUnreachableFromHEAD,
 				10, // Process 10 commits at a time
 				async datum => {
-					datum.branches = await repo.git
-						.branches()
-						.getBranchesWithCommits([datum.sha], undefined, { all: true, mode: 'contains' });
+					datum.branches = await repo.git.branches.getBranchesWithCommits([datum.sha], undefined, {
+						all: true,
+						mode: 'contains',
+					});
 				},
 			);
 		}
@@ -801,7 +799,7 @@ export class TimelineWebviewProvider implements WebviewProvider<State, State, Ti
 
 		this.container.telemetry.sendEvent('timeline/commit/selected', this.getTelemetryContext());
 
-		const commit = await repo.git.commits().getCommit(params.id || uncommitted);
+		const commit = await repo.git.commits.getCommit(params.id || uncommitted);
 		if (commit == null) return;
 
 		if (!commit.hasFullDetails()) {
@@ -940,7 +938,7 @@ export class TimelineWebviewProvider implements WebviewProvider<State, State, Ti
 			if (repo != null) {
 				if (areUrisEqual(scope.uri, repo.uri)) {
 					scope.type = 'repo';
-					scope.head ??= getReference(await repo.git.branches().getBranch());
+					scope.head ??= getReference(await repo.git.branches.getBranch());
 				}
 
 				this._repositorySubscription ??= new SubscriptionManager(repo, r => this.subscribeToRepository(r));

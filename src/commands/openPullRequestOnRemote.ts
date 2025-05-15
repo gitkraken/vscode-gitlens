@@ -35,7 +35,9 @@ export class OpenPullRequestOnRemoteCommand extends GlCommandBase {
 		if (args?.pr == null) {
 			if (args?.repoPath == null || args?.ref == null) return;
 
-			const remote = await this.container.git.remotes(args.repoPath).getBestRemoteWithIntegration();
+			const remote = await this.container.git
+				.getRepositoryService(args.repoPath)
+				.remotes.getBestRemoteWithIntegration();
 			if (remote == null) return;
 
 			const provider = await this.container.integrations.getByRemote(remote);

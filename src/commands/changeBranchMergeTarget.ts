@@ -80,18 +80,13 @@ export class ChangeBranchMergeTargetCommand extends QuickCommand {
 				state.branch = branches.name;
 			}
 
+			const svc = this.container.git.getRepositoryService(state.repo.uri);
 			if (!state.mergeBranch) {
-				state.mergeBranch = await this.container.git
-					.branches(state.repo.path)
-					.getBaseBranchName?.(state.branch);
+				state.mergeBranch = await svc.branches.getBaseBranchName?.(state.branch);
 			}
 
-			const detectedMergeTarget = await this.container.git
-				.branches(state.repo.path)
-				.getStoredDetectedMergeTargetBranchName?.(state.branch);
-			const userMergeTarget = await this.container.git
-				.branches(state.repo.path)
-				.getStoredUserMergeTargetBranchName?.(state.branch);
+			const detectedMergeTarget = await svc.branches.getStoredDetectedMergeTargetBranchName?.(state.branch);
+			const userMergeTarget = await svc.branches.getStoredUserMergeTargetBranchName?.(state.branch);
 
 			const result = yield* pickOrResetBranchStep(state, context, {
 				picked: state.mergeBranch,
@@ -106,9 +101,7 @@ export class ChangeBranchMergeTargetCommand extends QuickCommand {
 			if (result === StepResultBreak) continue;
 
 			if (state.branch) {
-				await this.container.git
-					.branches(state.repo.path)
-					.storeUserMergeTargetBranchName?.(state.branch, result?.name);
+				await svc.branches.storeUserMergeTargetBranchName?.(state.branch, result?.name);
 			}
 
 			endSteps(state);

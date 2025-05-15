@@ -87,13 +87,15 @@ export class DiffWithPreviousCommand extends ActiveEditorCommand {
 		}
 
 		try {
-			const diffUris = await this.container.git.diff(gitUri.repoPath!).getPreviousComparisonUris(
-				gitUri,
-				gitUri.sha,
-				// If we are in the right-side of the diff editor, we need to skip back 1 more revision
-				isInRightSideOfDiffEditor ? 1 : 0,
-				isDirty,
-			);
+			const diffUris = await this.container.git
+				.getRepositoryService(gitUri.repoPath!)
+				.diff.getPreviousComparisonUris(
+					gitUri,
+					gitUri.sha,
+					// If we are in the right-side of the diff editor, we need to skip back 1 more revision
+					isInRightSideOfDiffEditor ? 1 : 0,
+					isDirty,
+				);
 
 			if (diffUris?.previous == null) {
 				if (diffUris == null) {

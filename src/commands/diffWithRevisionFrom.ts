@@ -43,14 +43,15 @@ export class DiffWithRevisionFromCommand extends ActiveEditorCommand {
 		args = { ...args };
 		args.range ??= selectionToDiffRange(editor?.selection);
 
-		const path = this.container.git.getRelativePath(gitUri, gitUri.repoPath);
+		const svc = this.container.git.getRepositoryService(gitUri.repoPath);
+		const path = svc.getRelativePath(gitUri, gitUri.repoPath);
 
 		let ref;
 		let sha;
 		if (args?.stash) {
 			const title = `Open Changes with Stash${pad(GlyphChars.Dot, 2, 2)}`;
 			const pick = await showStashPicker(
-				this.container.git.stash(gitUri.repoPath)?.getStash(),
+				svc.stash?.getStash(),
 				`${title}${gitUri.getFormattedFileName({ truncateTo: quickPickTitleMaxChars - title.length })}`,
 				'Choose a stash to compare with',
 				{
@@ -85,13 +86,11 @@ export class DiffWithRevisionFromCommand extends ActiveEditorCommand {
 		let renamedTitle: string | undefined;
 
 		// Check to see if this file has been renamed
-		const files = await this.container.git
-			.diff(gitUri.repoPath)
-			.getDiffStatus('HEAD', ref, { filters: ['R', 'C'] });
+		const files = await svc.diff.getDiffStatus('HEAD', ref, { filters: ['R', 'C'] });
 		if (files != null) {
 			const rename = files.find(s => s.path === path);
 			if (rename?.originalPath != null) {
-				renamedUri = this.container.git.getAbsoluteUri(rename.originalPath, gitUri.repoPath);
+				renamedUri = svc.getAbsoluteUri(rename.originalPath, gitUri.repoPath);
 				renamedTitle = `${basename(rename.originalPath)} (${shortenRevision(ref)})`;
 			}
 		}

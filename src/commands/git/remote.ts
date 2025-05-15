@@ -289,7 +289,7 @@ export class RemoteGitCommand extends QuickCommand<State> {
 		}
 
 		let alreadyExists =
-			(await state.repo.git.remotes().getRemotes({ filter: r => r.name === state.name })).length !== 0;
+			(await state.repo.git.remotes.getRemotes({ filter: r => r.name === state.name })).length !== 0;
 
 		while (this.canStepsContinue(state)) {
 			if (state.counter < 3 || state.name == null || alreadyExists) {
@@ -300,7 +300,7 @@ export class RemoteGitCommand extends QuickCommand<State> {
 				if (result === StepResultBreak) continue;
 
 				alreadyExists =
-					(await state.repo.git.remotes().getRemotes({ filter: r => r.name === result })).length !== 0;
+					(await state.repo.git.remotes.getRemotes({ filter: r => r.name === result })).length !== 0;
 				if (alreadyExists) {
 					state.counter--;
 					continue;
@@ -328,9 +328,11 @@ export class RemoteGitCommand extends QuickCommand<State> {
 
 			endSteps(state);
 
-			const remote = await state.repo.git
-				.remotes()
-				.addRemoteWithResult?.(state.name, state.url, state.flags.includes('-f') ? { fetch: true } : undefined);
+			const remote = await state.repo.git.remotes.addRemoteWithResult?.(
+				state.name,
+				state.url,
+				state.flags.includes('-f') ? { fetch: true } : undefined,
+			);
 			if (state.reveal !== false) {
 				void reveal(remote, {
 					focus: true,
@@ -364,9 +366,7 @@ export class RemoteGitCommand extends QuickCommand<State> {
 		while (this.canStepsContinue(state)) {
 			if (state.remote != null) {
 				if (typeof state.remote === 'string') {
-					const [remote] = await state.repo.git
-						.remotes()
-						.getRemotes({ filter: r => r.name === state.remote });
+					const [remote] = await state.repo.git.remotes.getRemotes({ filter: r => r.name === state.remote });
 					if (remote != null) {
 						state.remote = remote;
 					} else {
@@ -392,7 +392,7 @@ export class RemoteGitCommand extends QuickCommand<State> {
 
 			endSteps(state);
 			try {
-				await state.repo.git.remotes().removeRemote?.(state.remote.name);
+				await state.repo.git.remotes.removeRemote?.(state.remote.name);
 			} catch (ex) {
 				Logger.error(ex);
 				void showGenericErrorMessage('Unable to remove remote');
@@ -422,9 +422,7 @@ export class RemoteGitCommand extends QuickCommand<State> {
 		while (this.canStepsContinue(state)) {
 			if (state.remote != null) {
 				if (typeof state.remote === 'string') {
-					const [remote] = await state.repo.git
-						.remotes()
-						.getRemotes({ filter: r => r.name === state.remote });
+					const [remote] = await state.repo.git.remotes.getRemotes({ filter: r => r.name === state.remote });
 					if (remote != null) {
 						state.remote = remote;
 					} else {
@@ -449,7 +447,7 @@ export class RemoteGitCommand extends QuickCommand<State> {
 			if (result === StepResultBreak) continue;
 
 			endSteps(state);
-			void state.repo.git.remotes().pruneRemote?.(state.remote.name);
+			void state.repo.git.remotes.pruneRemote?.(state.remote.name);
 		}
 	}
 

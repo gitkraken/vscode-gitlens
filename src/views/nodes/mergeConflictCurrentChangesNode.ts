@@ -31,7 +31,7 @@ export class MergeConflictCurrentChangesNode extends ViewNode<
 
 	private _commit: Promise<GitCommit | undefined> | undefined;
 	private async getCommit(): Promise<GitCommit | undefined> {
-		this._commit ??= this.view.container.git.commits(this.status.repoPath).getCommit('HEAD');
+		this._commit ??= this.view.container.git.getRepositoryService(this.status.repoPath).commits.getCommit('HEAD');
 		return this._commit;
 	}
 
@@ -61,7 +61,9 @@ export class MergeConflictCurrentChangesNode extends ViewNode<
 			return createCoreCommand(
 				'vscode.open',
 				'Open Revision',
-				this.view.container.git.getRevisionUri(this.status.repoPath, 'HEAD', this.file.path),
+				this.view.container.git
+					.getRepositoryService(this.status.repoPath)
+					.getRevisionUri('HEAD', this.file.path),
 			);
 		}
 

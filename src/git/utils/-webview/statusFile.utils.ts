@@ -111,14 +111,14 @@ export async function getPseudoCommitsWithStats(
 	const pseudoCommits = getPseudoCommits(container, files, filteredPath, user);
 	if (!pseudoCommits.length) return pseudoCommits;
 
-	const diffProvider = container.git.diff(pseudoCommits[0].repoPath);
+	const diffSvc = container.git.getRepositoryService(pseudoCommits[0].repoPath).diff;
 
 	const commits: GitCommit[] = [];
 
 	for (const commit of pseudoCommits) {
 		commits.push(
 			commit.with({
-				stats: await diffProvider.getChangedFilesCount(commit.sha, 'HEAD', {
+				stats: await diffSvc.getChangedFilesCount(commit.sha, 'HEAD', {
 					uris: commit.anyFiles?.map(f => f.uri),
 				}),
 			}),

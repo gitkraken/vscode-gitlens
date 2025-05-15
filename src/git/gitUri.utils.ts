@@ -9,7 +9,7 @@ export async function ensureWorkingUri(container: Container, uri: Uri | undefine
 	const gitUri = !isGitUri(uri) ? await GitUri.fromUri(uri) : uri;
 	if (gitUri.sha) {
 		// If we have a sha, normalize the history to the working file (so we get a full history all the time)
-		const workingUri = await container.git.getWorkingUri(gitUri.repoPath!, gitUri);
+		const workingUri = await container.git.getRepositoryService(gitUri.repoPath!).getWorkingUri(gitUri);
 		if (workingUri != null) {
 			uri = workingUri;
 		}

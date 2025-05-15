@@ -378,7 +378,7 @@ export async function createRepositoryQuickPickItem(
 ): Promise<RepositoryQuickPickItem> {
 	let repoStatus;
 	if (options?.branch || options?.status) {
-		repoStatus = await repository.git.status().getStatus();
+		repoStatus = await repository.git.status.getStatus();
 	}
 
 	let description = '';

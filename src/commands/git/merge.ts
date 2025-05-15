@@ -125,7 +125,7 @@ export class MergeGitCommand extends QuickCommand<State> {
 			}
 
 			if (context.destination == null) {
-				const branch = await state.repo.git.branches().getBranch();
+				const branch = await state.repo.git.branches.getBranch();
 				if (branch == null) break;
 
 				context.destination = branch;
@@ -175,7 +175,7 @@ export class MergeGitCommand extends QuickCommand<State> {
 
 				let log = context.cache.get(rev);
 				if (log == null) {
-					log = state.repo.git.commits().getLog(rev, { merges: 'first-parent' });
+					log = state.repo.git.commits.getLog(rev, { merges: 'first-parent' });
 					context.cache.set(rev, log);
 				}
 
@@ -211,9 +211,9 @@ export class MergeGitCommand extends QuickCommand<State> {
 	}
 
 	private async *confirmStep(state: MergeStepState, context: Context): AsyncStepResultGenerator<Flags[]> {
-		const counts = await state.repo.git
-			.commits()
-			.getLeftRightCommitCount(createRevisionRange(context.destination.ref, state.reference.ref, '...'));
+		const counts = await state.repo.git.commits.getLeftRightCommitCount(
+			createRevisionRange(context.destination.ref, state.reference.ref, '...'),
+		);
 
 		const title = `Merge ${getReferenceLabel(state.reference, {
 			icon: false,
@@ -289,9 +289,10 @@ export class MergeGitCommand extends QuickCommand<State> {
 		let potentialConflict;
 		const subscription = await this.container.subscription.getSubscription();
 		if (isSubscriptionStatePaidOrTrial(subscription?.state)) {
-			potentialConflict = state.repo.git
-				.branches()
-				.getPotentialMergeOrRebaseConflict?.(context.destination.name, state.reference.ref);
+			potentialConflict = state.repo.git.branches.getPotentialMergeOrRebaseConflict?.(
+				context.destination.name,
+				state.reference.ref,
+			);
 		}
 
 		let step: QuickPickStep<DirectiveQuickPickItem | FlagsQuickPickItem<Flags>>;

@@ -116,7 +116,7 @@ export class RevertGitCommand extends QuickCommand<State> {
 			}
 
 			if (context.destination == null) {
-				const branch = await state.repo.git.branches().getBranch();
+				const branch = await state.repo.git.branches.getBranch();
 				if (branch == null) break;
 
 				context.destination = branch;
@@ -127,7 +127,7 @@ export class RevertGitCommand extends QuickCommand<State> {
 
 				let log = context.cache.get(rev);
 				if (log == null) {
-					log = state.repo.git.commits().getLog(rev, { merges: 'first-parent' });
+					log = state.repo.git.commits.getLog(rev, { merges: 'first-parent' });
 					context.cache.set(rev, log);
 				}
 

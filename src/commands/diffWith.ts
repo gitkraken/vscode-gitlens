@@ -79,7 +79,7 @@ export class DiffWithCommand extends GlCommandBase {
 			return;
 		}
 
-		const { git } = this.container;
+		const svc = this.container.git.getRepositoryService(args.repoPath);
 
 		try {
 			let {
@@ -89,8 +89,8 @@ export class DiffWithCommand extends GlCommandBase {
 			const showOptions = { viewColumn: ViewColumn.Active, ...args.showOptions };
 
 			let [lhsResolvedResult, rhsResolvedResult] = await Promise.allSettled([
-				git.revision(args.repoPath).resolveRevision(lhsSha, lhsUri),
-				git.revision(args.repoPath).resolveRevision(rhsSha, rhsUri),
+				svc.revision.resolveRevision(lhsSha, lhsUri),
+				svc.revision.resolveRevision(rhsSha, rhsUri),
 			]);
 
 			let lhsResolved = getSettledValue(lhsResolvedResult)!;
@@ -99,8 +99,8 @@ export class DiffWithCommand extends GlCommandBase {
 			// If both are missing, check for renames by swapping the paths
 			if (lhsResolved.sha === deletedOrMissing && rhsResolved.sha === deletedOrMissing) {
 				[lhsResolvedResult, rhsResolvedResult] = await Promise.allSettled([
-					git.revision(args.repoPath).resolveRevision(lhsSha, rhsUri),
-					git.revision(args.repoPath).resolveRevision(rhsSha, lhsUri),
+					svc.revision.resolveRevision(lhsSha, rhsUri),
+					svc.revision.resolveRevision(rhsSha, lhsUri),
 				]);
 
 				lhsResolved = getSettledValue(lhsResolvedResult)!;
@@ -115,14 +115,14 @@ export class DiffWithCommand extends GlCommandBase {
 			if (rhsResolved.status === 'D') {
 				rhsResolved.sha = deletedOrMissing;
 			} else if (rhsResolved.status === 'R' || rhsResolved.status === 'C') {
-				rhsUri = this.container.git.getAbsoluteUri(rhsResolved.path!, args.repoPath);
+				rhsUri = svc.getAbsoluteUri(rhsResolved.path!, args.repoPath);
 			} else if (rhsResolved.status === 'A' && isShaWithParentSuffix(lhsResolved.sha)) {
 				lhsResolved.sha = deletedOrMissing;
 			}
 
 			const [lhsResult, rhsResult] = await Promise.allSettled([
-				git.getBestRevisionUri(args.repoPath, lhsUri.fsPath, lhsResolved.sha),
-				git.getBestRevisionUri(args.repoPath, rhsUri.fsPath, rhsResolved.sha),
+				svc.getBestRevisionUri(lhsUri.fsPath, lhsResolved.sha),
+				svc.getBestRevisionUri(rhsUri.fsPath, rhsResolved.sha),
 			]);
 
 			const lhs = getSettledValue(lhsResult);
@@ -171,8 +171,8 @@ export class DiffWithCommand extends GlCommandBase {
 			}
 
 			await openDiffEditor(
-				lhs ?? git.getRevisionUri(args.repoPath, deletedOrMissing, args.lhs.uri.fsPath),
-				rhs ?? git.getRevisionUri(args.repoPath, deletedOrMissing, args.rhs.uri.fsPath),
+				lhs ?? svc.getRevisionUri(deletedOrMissing, args.lhs.uri.fsPath),
+				rhs ?? svc.getRevisionUri(deletedOrMissing, args.rhs.uri.fsPath),
 				title,
 				showOptions,
 			);

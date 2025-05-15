@@ -78,7 +78,7 @@ export class RemotesViewNode extends RepositoriesSubscribeableNode<RemotesView, 
 		if (this.children.length === 1) {
 			const [child] = this.children;
 
-			const remotes = await child.repo.git.remotes().getRemotes();
+			const remotes = await child.repo.git.remotes.getRemotes();
 			if (remotes.length === 0) {
 				this.view.message = 'No remotes could be found.';
 				void child.ensureSubscription();
@@ -221,8 +221,8 @@ export class RemotesView extends ViewBase<'remotes', RemotesViewNode, RemotesVie
 
 		// Get all the remote branches the commit is on
 		const branches = await this.container.git
-			.branches(commit.repoPath)
-			.getBranchesWithCommits(
+			.getRepositoryService(commit.repoPath)
+			.branches.getBranchesWithCommits(
 				[commit.ref],
 				undefined,
 				isCommit(commit) ? { commitDate: commit.committer.date, remotes: true } : { remotes: true },

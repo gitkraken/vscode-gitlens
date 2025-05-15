@@ -88,7 +88,7 @@ export class ExternalDiffCommand extends GlCommandBase {
 				const repository = await getRepositoryOrShowPicker('Open All Changes (difftool)');
 				if (repository == null) return;
 
-				const status = await this.container.git.status(repository.uri).getStatus();
+				const status = await this.container.git.getRepositoryService(repository.uri).status.getStatus();
 				if (status == null) {
 					return void window.showInformationMessage("The repository doesn't have any changes");
 				}
@@ -121,16 +121,16 @@ export class ExternalDiffCommand extends GlCommandBase {
 		args = { ...args };
 
 		try {
-			let repoPath;
+			let repo;
 			if (args.files == null) {
 				const editor = window.activeTextEditor;
 				if (editor == null) return;
 
-				repoPath = this.container.git.getBestRepository(editor)?.path;
-				if (!repoPath) return;
+				repo = this.container.git.getBestRepository(editor);
+				if (repo == null) return;
 
 				const uri = editor.document.uri;
-				const status = await this.container.git.status(repoPath).getStatusForFile?.(uri);
+				const status = await repo.git.status.getStatusForFile?.(uri);
 				if (status == null) {
 					void window.showInformationMessage("The current file doesn't have any changes");
 
@@ -146,13 +146,11 @@ export class ExternalDiffCommand extends GlCommandBase {
 					args.files.push({ uri: status.uri, staged: false });
 				}
 			} else {
-				repoPath = (await this.container.git.getOrOpenRepository(args.files[0].uri))?.path;
-				if (!repoPath) return;
+				repo = await this.container.git.getOrOpenRepository(args.files[0].uri);
+				if (repo == null) return;
 			}
 
-			const tool =
-				configuration.get('advanced.externalDiffTool') ||
-				(await this.container.git.diff(repoPath).getDiffTool?.());
+			const tool = configuration.get('advanced.externalDiffTool') || (await repo.git.diff.getDiffTool?.());
 			if (!tool) {
 				const viewDocs = 'View Git Docs';
 				const result = await window.showWarningMessage(
@@ -169,7 +167,7 @@ export class ExternalDiffCommand extends GlCommandBase {
 			}
 
 			for (const file of args.files) {
-				void this.container.git.diff(repoPath).openDiffTool?.(file.uri, {
+				void repo.git.diff.openDiffTool?.(file.uri, {
 					ref1: file.ref1,
 					ref2: file.ref2,
 					staged: file.staged,

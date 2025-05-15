@@ -67,7 +67,7 @@ export class PullGitCommand extends QuickCommand<State> {
 		if (isBranchReference(state.reference)) {
 			// Only resort to a branch fetch if the branch isn't the current one
 			if (!isBranch(state.reference) || !state.reference.current) {
-				const currentBranch = await state.repos[0].git.branches().getBranch();
+				const currentBranch = await state.repos[0].git.branches.getBranch();
 				if (currentBranch?.name !== state.reference.name) {
 					return state.repos[0].fetch({ branch: state.reference, pull: true });
 				}
@@ -167,7 +167,7 @@ export class PullGitCommand extends QuickCommand<State> {
 				);
 			} else {
 				const [repo] = state.repos;
-				const branch = await repo.git.branches().getBranch(state.reference.name);
+				const branch = await repo.git.branches.getBranch(state.reference.name);
 
 				if (branch?.upstream == null) {
 					step = this.createConfirmStep(
@@ -195,7 +195,7 @@ export class PullGitCommand extends QuickCommand<State> {
 			}
 		} else {
 			const [repo] = state.repos;
-			const [status, lastFetched] = await Promise.all([repo.git.status().getStatus(), repo.getLastFetched()]);
+			const [status, lastFetched] = await Promise.all([repo.git.status.getStatus(), repo.getLastFetched()]);
 
 			let lastFetchedOn = '';
 			if (lastFetched !== 0) {

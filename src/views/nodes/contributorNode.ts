@@ -66,7 +66,9 @@ export class ContributorNode extends ViewNode<'contributor', ViewsWithContributo
 		const log = await this.getLog();
 		if (log == null) return [new MessageNode(this.view, this, 'No commits could be found.')];
 
-		const getBranchAndTagTips = await this.view.container.git.getBranchesAndTagsTipsLookup(this.uri.repoPath);
+		const getBranchAndTagTips = await this.view.container.git
+			.getRepositoryService(this.uri.repoPath!)
+			.getBranchesAndTagsTipsLookup();
 		const children = [
 			...insertDateMarkers(
 				map(
@@ -181,19 +183,21 @@ export class ContributorNode extends ViewNode<'contributor', ViewsWithContributo
 
 	private _log: GitLog | undefined;
 	private async getLog() {
-		this._log ??= await this.view.container.git.commits(this.uri.repoPath!).getLog(this.options?.ref, {
-			all: this.options?.all,
-			limit: this.limit ?? this.view.config.defaultItemLimit,
-			merges: this.options?.showMergeCommits,
-			authors: [
-				{
-					name: this.contributor.name,
-					email: this.contributor.email,
-					username: this.contributor.username,
-					id: this.contributor.id,
-				},
-			],
-		});
+		this._log ??= await this.view.container.git
+			.getRepositoryService(this.uri.repoPath!)
+			.commits.getLog(this.options?.ref, {
+				all: this.options?.all,
+				limit: this.limit ?? this.view.config.defaultItemLimit,
+				merges: this.options?.showMergeCommits,
+				authors: [
+					{
+						name: this.contributor.name,
+						email: this.contributor.email,
+						username: this.contributor.username,
+						id: this.contributor.id,
+					},
+				],
+			});
 		return this._log;
 	}
 

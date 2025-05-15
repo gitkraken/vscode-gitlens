@@ -74,11 +74,12 @@ export class ResetGitCommand extends QuickCommand<State> {
 	private async execute(state: ResetStepState) {
 		try {
 			await state.repo.git.reset(
-				{
-					hard: state.flags.includes('--hard'),
-					soft: state.flags.includes('--soft'),
-				},
 				state.reference.ref,
+				state.flags.includes('--hard')
+					? { hard: true }
+					: state.flags.includes('--soft')
+					  ? { soft: true }
+					  : undefined,
 			);
 		} catch (ex) {
 			Logger.error(ex, this.title);
@@ -123,7 +124,7 @@ export class ResetGitCommand extends QuickCommand<State> {
 			}
 
 			if (context.destination == null) {
-				const branch = await state.repo.git.branches().getBranch();
+				const branch = await state.repo.git.branches.getBranch();
 				if (branch == null) break;
 
 				context.destination = branch;
@@ -136,7 +137,7 @@ export class ResetGitCommand extends QuickCommand<State> {
 
 				let log = context.cache.get(rev);
 				if (log == null) {
-					log = state.repo.git.commits().getLog(rev, { merges: 'first-parent' });
+					log = state.repo.git.commits.getLog(rev, { merges: 'first-parent' });
 					context.cache.set(rev, log);
 				}
 

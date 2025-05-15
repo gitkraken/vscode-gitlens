@@ -267,7 +267,7 @@ export class DeepLinkService implements Disposable {
 			}
 
 			if (remoteDomain != null && remotePath != null) {
-				const matchingRemotes = await repo.git.remotes().getRemotes({
+				const matchingRemotes = await repo.git.remotes.getRemotes({
 					filter: r => r.matches(remoteDomain, remotePath),
 				});
 				if (matchingRemotes.length > 0) {
@@ -280,7 +280,7 @@ export class DeepLinkService implements Disposable {
 			if (repoId != null && repoId !== missingRepositoryId) {
 				// Repo ID can be any valid SHA in the repo, though standard practice is to use the
 				// first commit SHA.
-				if (await repo.git.refs().isValidReference(repoId)) {
+				if (await repo.git.refs.isValidReference(repoId)) {
 					this._context.repo = repo;
 					return;
 				}
@@ -331,7 +331,7 @@ export class DeepLinkService implements Disposable {
 			branchName = `${secondaryRemote.name}/${branchName}`;
 		}
 
-		let branch = await repo.git.branches().getBranch(branchName);
+		let branch = await repo.git.branches.getBranch(branchName);
 		if (branch != null) {
 			return branch;
 		}
@@ -342,11 +342,11 @@ export class DeepLinkService implements Disposable {
 			if (providerRepoInfo != null && branchName != null) {
 				const [owner, repoName] = providerRepoInfo.split('/');
 				if (owner != null && repoName != null) {
-					const remotes = await repo.git.remotes().getRemotes();
+					const remotes = await repo.git.remotes.getRemotes();
 					for (const remote of remotes) {
 						if (remote.provider?.owner === owner) {
 							branchName = `${remote.name}/${branchBaseName}`;
-							branch = await repo.git.branches().getBranch(branchName);
+							branch = await repo.git.branches.getBranch(branchName);
 							if (branch != null) {
 								return branch;
 							}
@@ -357,15 +357,15 @@ export class DeepLinkService implements Disposable {
 		}
 
 		// If the above don't work, it may still exist locally.
-		return repo.git.branches().getBranch(targetId);
+		return repo.git.branches.getBranch(targetId);
 	}
 
 	private async getCommit(targetId: string): Promise<GitCommit | undefined> {
 		const { repo } = this._context;
 		if (!repo) return undefined;
 
-		if (await repo.git.refs().isValidReference(targetId)) {
-			return repo.git.commits().getCommit(targetId);
+		if (await repo.git.refs.isValidReference(targetId)) {
+			return repo.git.commits.getCommit(targetId);
 		}
 
 		return undefined;
@@ -373,7 +373,7 @@ export class DeepLinkService implements Disposable {
 
 	private async getTag(targetId: string): Promise<GitTag | undefined> {
 		const { repo } = this._context;
-		return repo?.git.tags().getTag(targetId);
+		return repo?.git.tags.getTag(targetId);
 	}
 
 	private async getShaForBranch(targetId: string): Promise<string | undefined> {
@@ -387,7 +387,7 @@ export class DeepLinkService implements Disposable {
 	private async getShaForCommit(targetId: string): Promise<string | undefined> {
 		const { repo } = this._context;
 		if (!repo) return undefined;
-		if (await repo.git.refs().isValidReference(targetId)) {
+		if (await repo.git.refs.isValidReference(targetId)) {
 			return targetId;
 		}
 
@@ -917,16 +917,14 @@ export class DeepLinkService implements Disposable {
 					}
 
 					if (remoteUrl && !remote) {
-						const matchingRemotes = await repo.git
-							.remotes()
-							.getRemotes({ filter: r => r.url === remoteUrl });
+						const matchingRemotes = await repo.git.remotes.getRemotes({ filter: r => r.url === remoteUrl });
 						if (matchingRemotes.length > 0) {
 							this._context.remote = matchingRemotes[0];
 						}
 					}
 
 					if (secondaryRemoteUrl && !secondaryRemote) {
-						const matchingRemotes = await repo.git.remotes().getRemotes({
+						const matchingRemotes = await repo.git.remotes.getRemotes({
 							filter: r => r.url === secondaryRemoteUrl,
 						});
 						if (matchingRemotes.length > 0) {
@@ -963,14 +961,16 @@ export class DeepLinkService implements Disposable {
 					if (remoteUrl && !remote) {
 						remoteName = await this.showAddRemotePrompt(
 							remoteUrl,
-							(await repo.git.remotes().getRemotes()).map(r => r.name),
+							(await repo.git.remotes.getRemotes()).map(r => r.name),
 						);
 
 						if (remoteName) {
 							try {
-								this._context.remote = await repo.git
-									.remotes()
-									.addRemoteWithResult?.(remoteName, remoteUrl, { fetch: true });
+								this._context.remote = await repo.git.remotes.addRemoteWithResult?.(
+									remoteName,
+									remoteUrl,
+									{ fetch: true },
+								);
 								if (!this._context.remote) {
 									action = DeepLinkServiceAction.DeepLinkErrored;
 									message = 'Failed to add remote.';
@@ -990,14 +990,16 @@ export class DeepLinkService implements Disposable {
 					if (secondaryRemoteUrl && !secondaryRemote) {
 						secondaryRemoteName = await this.showAddRemotePrompt(
 							secondaryRemoteUrl,
-							(await repo.git.remotes().getRemotes()).map(r => r.name),
+							(await repo.git.remotes.getRemotes()).map(r => r.name),
 						);
 
 						if (secondaryRemoteName) {
 							try {
-								this._context.secondaryRemote = await repo.git
-									.remotes()
-									.addRemoteWithResult?.(secondaryRemoteName, secondaryRemoteUrl, { fetch: true });
+								this._context.secondaryRemote = await repo.git.remotes.addRemoteWithResult?.(
+									secondaryRemoteName,
+									secondaryRemoteUrl,
+									{ fetch: true },
+								);
 								if (!this._context.secondaryRemote) {
 									action = DeepLinkServiceAction.DeepLinkErrored;
 									message = 'Failed to add remote.';
@@ -1308,11 +1310,9 @@ export class DeepLinkService implements Disposable {
 
 					let revisionUri: Uri | undefined;
 					try {
-						revisionUri = this.container.git.getRevisionUri(
-							repoPath ?? repo.uri.fsPath,
-							targetSha,
-							filePath,
-						);
+						revisionUri = this.container.git
+							.getRepositoryService(repoPath ?? repo.uri.fsPath)
+							.getRevisionUri(targetSha, filePath);
 					} catch {}
 					if (revisionUri == null) {
 						action = DeepLinkServiceAction.DeepLinkErrored;
@@ -1343,7 +1343,7 @@ export class DeepLinkService implements Disposable {
 					let skipSwitch = false;
 					if (targetType === DeepLinkType.Branch) {
 						// Check if the branch is already checked out. If so, we are done.
-						const currentBranch = await repo.git.branches().getBranch();
+						const currentBranch = await repo.git.branches.getBranch();
 						this._context.currentBranch = currentBranch?.name;
 						const targetBranch = await this.getBranch(targetId);
 						if (
@@ -1417,8 +1417,7 @@ export class DeepLinkService implements Disposable {
 								once(repo.onDidChange)(async (e: RepositoryChangeEvent) => {
 									if (e.changed(RepositoryChange.Head, RepositoryChangeComparisonMode.Any)) {
 										if (
-											(await repo.git.branches().getBranch())?.name !==
-											this._context.currentBranch
+											(await repo.git.branches.getBranch())?.name !== this._context.currentBranch
 										) {
 											resolve(true);
 										} else {
@@ -1536,7 +1535,7 @@ export class DeepLinkService implements Disposable {
 						break;
 					}
 
-					const branch = await repository.git.branches().getBranch(targetId);
+					const branch = await repository.git.branches.getBranch(targetId);
 					if (!branch) {
 						action = DeepLinkServiceAction.DeepLinkErrored;
 						message = 'No matching branch found.';
@@ -1631,7 +1630,8 @@ export class DeepLinkService implements Disposable {
 		}
 
 		const repoPath = typeof refOrIdOrRepoPath !== 'string' ? refOrIdOrRepoPath.repoPath : refOrIdOrRepoPath;
-		const repoId = (await this.container.git.getUniqueRepositoryId(repoPath)) ?? missingRepositoryId;
+		const repoId =
+			(await this.container.git.getRepositoryService(repoPath).getUniqueRepositoryId()) ?? missingRepositoryId;
 
 		if (typeof refOrIdOrRepoPath !== 'string') {
 			switch (refOrIdOrRepoPath.refType) {
@@ -1707,7 +1707,8 @@ export class DeepLinkService implements Disposable {
 			modePrefixString = 'staging.';
 		}
 
-		const repoId = (await this.container.git.getUniqueRepositoryId(repoPath)) ?? missingRepositoryId;
+		const repoId =
+			(await this.container.git.getRepositoryService(repoPath).getUniqueRepositoryId()) ?? missingRepositoryId;
 		let linesString = '';
 		if (lines != null) {
 			if (lines.length === 1) {

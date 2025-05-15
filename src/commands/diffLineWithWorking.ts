@@ -63,13 +63,11 @@ export class DiffLineWithWorkingCommand extends ActiveEditorCommand {
 
 				// If the line is uncommitted, use previous commit (or index if the file is staged)
 				if (args.commit.isUncommitted) {
-					const status = await this.container.git.status(gitUri.repoPath!).getStatusForFile?.(gitUri);
+					const svc = this.container.git.getRepositoryService(gitUri.repoPath!);
+					const status = await svc.status.getStatusForFile?.(gitUri);
 					if (status?.indexStatus != null) {
 						lhsSha = uncommittedStaged;
-						lhsUri = this.container.git.getAbsoluteUri(
-							status.originalPath || status.path,
-							args.commit.repoPath,
-						);
+						lhsUri = svc.getAbsoluteUri(status.originalPath || status.path, args.commit.repoPath);
 					} else {
 						// Don't need to worry about verifying the previous sha, as the DiffWith command will
 						lhsSha = args.commit.unresolvedPreviousSha;

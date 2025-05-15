@@ -55,7 +55,7 @@ export class ConnectRemoteProviderCommand extends GlCommandBase {
 			const repos = new Map<Repository, GitRemote<RemoteProvider>>();
 
 			for (const repo of this.container.git.openRepositories) {
-				const remote = await repo.git.remotes().getBestRemoteWithIntegration({ includeDisconnected: true });
+				const remote = await repo.git.remotes.getBestRemoteWithIntegration({ includeDisconnected: true });
 				if (remote?.provider != null) {
 					repos.set(repo, remote);
 				}
@@ -81,13 +81,13 @@ export class ConnectRemoteProviderCommand extends GlCommandBase {
 			repoPath = args.repoPath;
 
 			remote = await this.container.git
-				.remotes(repoPath)
-				.getBestRemoteWithIntegration({ includeDisconnected: true });
+				.getRepositoryService(repoPath)
+				.remotes.getBestRemoteWithIntegration({ includeDisconnected: true });
 			if (remote == null) return false;
 		} else {
 			repoPath = args.repoPath;
 
-			remotes = await this.container.git.remotes(repoPath).getRemotesWithProviders();
+			remotes = await this.container.git.getRepositoryService(repoPath).remotes.getRemotesWithProviders();
 			remote = remotes.find(r => r.name === args.remote) as GitRemote<RemoteProvider> | undefined;
 			if (!remote?.hasIntegration()) return false;
 		}
@@ -99,7 +99,9 @@ export class ConnectRemoteProviderCommand extends GlCommandBase {
 
 		if (
 			connected &&
-			!(remotes ?? (await this.container.git.remotes(repoPath).getRemotesWithProviders())).some(r => r.default)
+			!(
+				remotes ?? (await this.container.git.getRepositoryService(repoPath).remotes.getRemotesWithProviders())
+			).some(r => r.default)
 		) {
 			await remote.setAsDefault(true);
 		}
@@ -149,7 +151,7 @@ export class DisconnectRemoteProviderCommand extends GlCommandBase {
 			const repos = new Map<Repository, GitRemote<RemoteProvider>>();
 
 			for (const repo of this.container.git.openRepositories) {
-				const remote = await repo.git.remotes().getBestRemoteWithIntegration({ includeDisconnected: false });
+				const remote = await repo.git.remotes.getBestRemoteWithIntegration({ includeDisconnected: false });
 				if (remote != null) {
 					repos.set(repo, remote);
 				}
@@ -175,13 +177,13 @@ export class DisconnectRemoteProviderCommand extends GlCommandBase {
 			repoPath = args.repoPath;
 
 			remote = await this.container.git
-				.remotes(repoPath)
-				.getBestRemoteWithIntegration({ includeDisconnected: false });
+				.getRepositoryService(repoPath)
+				.remotes.getBestRemoteWithIntegration({ includeDisconnected: false });
 			if (remote == null) return;
 		} else {
 			repoPath = args.repoPath;
 
-			remote = (await this.container.git.remotes(repoPath).getRemotesWithProviders()).find(
+			remote = (await this.container.git.getRepositoryService(repoPath).remotes.getRemotesWithProviders()).find(
 				r => r.name === args.remote,
 			);
 			if (!remote?.hasIntegration()) return;
