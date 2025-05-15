@@ -750,7 +750,11 @@ export class TimelineWebviewProvider implements WebviewProvider<State, State, Ti
 
 		if (config.showAllBranches && config.sliceBy === 'branch' && scope.type !== 'repo' && !repo.virtual) {
 			const shas = new Set<string>(
-				await repo.git.commits().getLogShas?.('^HEAD', { all: true, pathOrUri: scope.uri, limit: 0 }),
+				await repo.git.commits().getLogShas?.(`^${scope.head?.ref ?? 'HEAD'}`, {
+					all: true,
+					pathOrUri: scope.uri,
+					limit: 0,
+				}),
 			);
 
 			const commitsUnreachableFromHEAD = dataset.filter(d => shas.has(d.sha));
