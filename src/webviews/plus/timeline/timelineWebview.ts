@@ -82,6 +82,7 @@ import {
 import type { TimelineWebviewShowingArgs } from './registration';
 import {
 	areTimelineScopesEqual,
+	areTimelineScopesEquivalent,
 	deserializeTimelineScope,
 	isTimelineScope,
 	serializeTimelineScope,
@@ -155,7 +156,7 @@ export class TimelineWebviewProvider implements WebviewProvider<State, State, Ti
 			}
 		}
 
-		return areTimelineScopesEqual(scope, this._context.scope);
+		return areTimelineScopesEquivalent(scope, this._context.scope);
 	}
 
 	getSplitArgs(): WebviewShowingArgs<TimelineWebviewShowingArgs, State> {
@@ -210,9 +211,8 @@ export class TimelineWebviewProvider implements WebviewProvider<State, State, Ti
 			}
 		}
 
-		await this.updateScope(scope, true);
-
-		if (!loading) {
+		const changed = await this.updateScope(scope, true, true);
+		if (!loading && (changed || !this.host.visible)) {
 			this.updateState();
 		}
 
@@ -903,7 +903,11 @@ export class TimelineWebviewProvider implements WebviewProvider<State, State, Ti
 
 	private _repositorySubscription: SubscriptionManager<Repository> | undefined;
 
-	private async updateScope(scope: TimelineScope | undefined, silent?: boolean): Promise<boolean> {
+	private async updateScope(
+		scope: TimelineScope | undefined,
+		silent?: boolean,
+		allowEquivalent?: boolean,
+	): Promise<boolean> {
 		if (this._tabCloseDebounceTimer != null) {
 			clearTimeout(this._tabCloseDebounceTimer);
 			this._tabCloseDebounceTimer = undefined;
@@ -932,6 +936,7 @@ export class TimelineWebviewProvider implements WebviewProvider<State, State, Ti
 			if (repo != null) {
 				if (areUrisEqual(scope.uri, repo.uri)) {
 					scope.type = 'repo';
+					scope.head ??= getReference(await repo.git.branches().getBranch());
 				}
 
 				this._repositorySubscription ??= new SubscriptionManager(repo, r => this.subscribeToRepository(r));
@@ -968,7 +973,12 @@ export class TimelineWebviewProvider implements WebviewProvider<State, State, Ti
 			this._repositorySubscription?.start();
 		}
 
-		if (areTimelineScopesEqual(scope, this._context.scope) && areEtagsEqual(this._context.etags, etags)) {
+		if (
+			areEtagsEqual(this._context.etags, etags) &&
+			(allowEquivalent
+				? areTimelineScopesEquivalent(scope, this._context.scope)
+				: areTimelineScopesEqual(scope, this._context.scope))
+		) {
 			return false;
 		}
 
