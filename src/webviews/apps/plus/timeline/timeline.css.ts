@@ -220,6 +220,10 @@ export const timelineStyles = css`
 		margin-top: 0;
 	}
 
+	:host-context(body[data-placement='view']) gl-feature-gate {
+		background-color: var(--vscode-sideBar-background);
+	}
+
 	gl-feature-gate gl-feature-badge {
 		vertical-align: super;
 		margin-left: 0.4rem;
