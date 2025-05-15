@@ -1,5 +1,5 @@
 // eslint-disable-next-line @typescript-eslint/no-restricted-imports
-import { isAbsolute as _isAbsolute, basename, dirname } from 'path';
+import { basename, dirname } from 'path';
 import { FileType, Uri, workspace } from 'vscode';
 import { Schemes } from '../../constants';
 import { commonBaseIndex, isFolderGlob, normalizePath } from '../path';
