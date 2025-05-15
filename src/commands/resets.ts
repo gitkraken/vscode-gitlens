@@ -224,14 +224,3 @@ export class ResetCommand extends GlCommandBase {
 		}
 	}
 }
-
-@command()
-export class ResetAIKeyCommand extends GlCommandBase {
-	constructor(private readonly container: Container) {
-		super('gitlens.resetAIKey');
-	}
-
-	async execute(): Promise<void> {
-		await this.container.ai.reset();
-	}
-}

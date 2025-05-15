@@ -16,6 +16,25 @@ export function areTimelineScopesEqual(
 	);
 }
 
+/** Check if two timeline scopes are equivalent -- allows the incoming to not specify head/base */
+export function areTimelineScopesEquivalent(
+	incoming: TimelineScope | TimelineScopeSerialized | undefined,
+	current: TimelineScope | TimelineScopeSerialized | undefined,
+): boolean {
+	if (incoming === current || (incoming == null && current == null)) return true;
+	if (incoming == null || current == null) return false;
+	if (incoming.type !== current.type || incoming.uri.toString() !== current.uri.toString()) {
+		return false;
+	}
+
+	return (
+		incoming.type === current.type &&
+		incoming.uri.toString() === current.uri.toString() &&
+		(incoming.head == null || incoming.head?.ref === current.head?.ref) &&
+		(incoming.base == null || incoming.base?.ref === current.base?.ref)
+	);
+}
+
 export function isTimelineScope(o: unknown): o is TimelineScope {
 	return o != null && typeof o === 'object' && 'type' in o && 'uri' in o;
 }

@@ -26,6 +26,7 @@ import {
 	getRepositoryIdentityForPullRequest,
 	isMaybeNonSpecificPullRequestSearchUrl,
 } from '../../git/utils/pullRequest.utils';
+import { getCancellationTokenId } from '../../system/-webview/cancellation';
 import { executeCommand, registerCommand } from '../../system/-webview/command';
 import { configuration } from '../../system/-webview/configuration';
 import { setContext } from '../../system/-webview/context';
@@ -648,10 +649,10 @@ export class LaunchpadProvider implements Disposable {
 	}
 
 	@gate<LaunchpadProvider['getCategorizedItems']>(
-		o =>
+		(o, c) =>
 			`${o?.force ?? false}|${
 				o?.search != null && typeof o.search !== 'string' ? o.search.map(pr => pr.url).join(',') : o?.search
-			}`,
+			}${getCancellationTokenId(c)}`,
 	)
 	@log<LaunchpadProvider['getCategorizedItems']>({ args: { 0: o => `force=${o?.force}`, 1: false } })
 	async getCategorizedItems(

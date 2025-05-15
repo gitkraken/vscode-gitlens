@@ -19,3 +19,10 @@ export const linkStyles = css`
 		text-decoration: underline;
 	}
 `;
+
+export const ruleStyles = css`
+	hr {
+		border: none;
+		border-top: 1px solid var(--color-foreground--25);
+	}
+`;

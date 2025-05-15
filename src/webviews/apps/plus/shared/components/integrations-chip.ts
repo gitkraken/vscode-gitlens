@@ -384,11 +384,22 @@ export class GlIntegrationsChip extends LitElement {
 							></gl-button>
 						</span>`
 				: html`<span class="integration__content">
-						<span class="integration_details"
-							>GitLens AI features have been
-							disabled${!this.aiSettingEnabled ? ' via settings' : ' by your GitKraken admin'}</span
-						>
-				  </span>`}
+							<span class="integration_details"
+								>GitLens AI features have been
+								disabled${!this.aiSettingEnabled ? ' via settings' : ' by your GitKraken admin'}</span
+							>
+						</span>
+						${!this.aiSettingEnabled
+							? html` <span class="integration__actions">
+									<gl-button
+										appearance="toolbar"
+										href="${createCommandLink<Source>('gitlens.home.enableAi', undefined)}"
+										tooltip="Re-enable AI Features"
+										aria-label="Re-enable AI Features"
+										><code-icon icon="unlock"></code-icon
+									></gl-button>
+							  </span>`
+							: nothing}`}
 		</div>`;
 	}
 }

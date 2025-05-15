@@ -108,6 +108,7 @@ export interface State extends WebviewState {
 	wip?: Wip;
 	inReview?: boolean;
 	hasAccount: boolean;
+	hasIntegrationsConnected: boolean;
 }
 
 export type ShowCommitDetailsViewCommandArgs = string[];
@@ -246,3 +247,11 @@ export interface DidChangeDraftStateParams {
 	inReview: boolean;
 }
 export const DidChangeDraftStateNotification = new IpcNotification<DidChangeDraftStateParams>(scope, 'didChange/patch');
+
+export interface DidChangeIntegrationsParams {
+	hasIntegrationsConnected: boolean;
+}
+export const DidChangeIntegrationsNotification = new IpcNotification<DidChangeIntegrationsParams>(
+	scope,
+	'didChange/integrations',
+);

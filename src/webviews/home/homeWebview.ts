@@ -347,8 +347,8 @@ export class HomeWebviewProvider implements WebviewProvider<State, State, HomeWe
 			registerCommand('gitlens.home.switchToBranch', this.switchToBranch, this),
 			registerCommand('gitlens.home.fetch', this.fetch, this),
 			registerCommand('gitlens.home.openInGraph', this.openInGraph, this),
-			registerCommand('gitlens.home.visualizeHistory.repo:home', this.openInTimeline, this),
-			registerCommand('gitlens.home.visualizeHistory.branch:home', this.openInTimeline, this),
+			registerCommand('gitlens.visualizeHistory.repo:home', this.openInTimeline, this),
+			registerCommand('gitlens.visualizeHistory.branch:home', this.openInTimeline, this),
 			registerCommand('gitlens.home.createBranch', this.createBranch, this),
 			registerCommand('gitlens.home.mergeIntoCurrent', this.mergeIntoCurrent, this),
 			registerCommand('gitlens.home.rebaseCurrentOnto', this.rebaseCurrentOnto, this),
@@ -358,6 +358,7 @@ export class HomeWebviewProvider implements WebviewProvider<State, State, HomeWe
 			registerCommand('gitlens.home.continuePausedOperation', this.continuePausedOperation, this),
 			registerCommand('gitlens.home.abortPausedOperation', this.abortPausedOperation, this),
 			registerCommand('gitlens.home.openRebaseEditor', this.openRebaseEditor, this),
+			registerCommand('gitlens.home.enableAi', this.enableAi, this),
 			registerCommand('gitlens.ai.explainWip:home', this.explainWip, this),
 			registerCommand('gitlens.ai.explainBranch:home', this.explainBranch, this),
 		];
@@ -489,7 +490,7 @@ export class HomeWebviewProvider implements WebviewProvider<State, State, HomeWe
 		if (repo == null) return;
 
 		if (params?.type === 'repo') {
-			void executeCommand<TimelineCommandArgs | Uri>('gitlens.visualizeHistory.repo:home', repo.uri);
+			void executeCommand<TimelineCommandArgs>('gitlens.visualizeHistory', { type: 'repo', uri: repo.uri });
 			return;
 		}
 
@@ -498,7 +499,7 @@ export class HomeWebviewProvider implements WebviewProvider<State, State, HomeWe
 
 			const branch = repoInfo?.branches.find(b => b.id === params.branchId);
 			if (branch != null) {
-				void executeCommand<TimelineCommandArgs>('gitlens.visualizeHistory.branch:home', {
+				void executeCommand<TimelineCommandArgs>('gitlens.visualizeHistory', {
 					type: 'repo',
 					uri: repo.uri,
 					head: getReferenceFromBranch(branch),
@@ -559,7 +560,7 @@ export class HomeWebviewProvider implements WebviewProvider<State, State, HomeWe
 		void executeCommand<ExplainBranchCommandArgs>('gitlens.ai.explainBranch', {
 			repoPath: repo.path,
 			ref: branch?.ref,
-			source: { source: 'home', detail: 'branch' },
+			source: { source: 'home', type: 'branch' },
 		});
 	}
 
@@ -573,8 +574,14 @@ export class HomeWebviewProvider implements WebviewProvider<State, State, HomeWe
 		void executeCommand<ExplainWipCommandArgs>('gitlens.ai.explainWip', {
 			repoPath: repo.path,
 			worktreePath: worktree?.path,
-			source: { source: 'home', detail: 'wip' },
+			source: { source: 'home', type: 'wip' },
 		});
+	}
+
+	@log()
+	private enableAi() {
+		this.container.telemetry.sendEvent('home/enableAi');
+		configuration.updateEffective('ai.enabled', true);
 	}
 
 	@log()
@@ -736,7 +743,7 @@ export class HomeWebviewProvider implements WebviewProvider<State, State, HomeWe
 	}
 
 	private onContextChanged(key: keyof ContextKeys) {
-		if (key === 'gitlens:gk:organization:drafts:enabled') {
+		if (['gitlens:gk:organization:ai:enabled', 'gitlens:gk:organization:drafts:enabled'].includes(key)) {
 			this.notifyDidChangeOrgSettings();
 		}
 	}

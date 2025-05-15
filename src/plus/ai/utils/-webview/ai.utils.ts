@@ -201,6 +201,7 @@ export async function ensureAccess(options?: { showPicker?: boolean }): Promise<
 			const enable = { title: 'Re-enable AI Features' };
 			const result = await window.showErrorMessage(
 				`AI features have been disabled via GitLens settings.`,
+				{ modal: true },
 				enable,
 			);
 			if (result === enable) {

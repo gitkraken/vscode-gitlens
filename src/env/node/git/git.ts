@@ -7,6 +7,7 @@ import type { CancellationToken, Disposable, OutputChannel } from 'vscode';
 import { env, Uri, window, workspace } from 'vscode';
 import { hrtime } from '@env/hrtime';
 import { GlyphChars } from '../../../constants';
+import type { Container } from '../../../container';
 import { CancellationError, isCancellationError } from '../../../errors';
 import type { FilteredGitFeatures, GitFeatureOrPrefix, GitFeatures } from '../../../features';
 import { gitFeaturesByVersion } from '../../../features';
@@ -33,9 +34,11 @@ import type { GitDir } from '../../../git/gitProvider';
 import type { GitDiffFilter } from '../../../git/models/diff';
 import { parseGitRemoteUrl } from '../../../git/parsers/remoteParser';
 import { isUncommitted, isUncommittedStaged, shortenRevision } from '../../../git/utils/revision.utils';
+import { getCancellationTokenId } from '../../../system/-webview/cancellation';
 import { configuration } from '../../../system/-webview/configuration';
 import { splitPath } from '../../../system/-webview/path';
 import { getHostEditorCommand } from '../../../system/-webview/vscode';
+import { getScopedCounter } from '../../../system/counter';
 import { log } from '../../../system/decorators/log';
 import { Logger } from '../../../system/logger';
 import { slowCallWarningThreshold } from '../../../system/logger.constants';
@@ -165,13 +168,7 @@ function defaultExceptionHandler(ex: Error, cwd: string | undefined, start?: [nu
 	throw ex;
 }
 
-let _uniqueCounterForStdin = 0;
-function getStdinUniqueKey(): number {
-	if (_uniqueCounterForStdin === Number.MAX_SAFE_INTEGER) {
-		_uniqueCounterForStdin = 0;
-	}
-	return _uniqueCounterForStdin++;
-}
+const uniqueCounterForStdin = getScopedCounter();
 
 type ExitCodeOnlyGitCommandOptions = GitCommandOptions & { exitCodeOnly: true };
 export type PushForceOptions = { withLease: true; ifIncludes?: boolean } | { withLease: false; ifIncludes?: never };
@@ -236,9 +233,23 @@ export type GitResult<T extends string | Buffer | unknown> = {
 	readonly cancelled?: boolean;
 };
 
-export class Git {
+export class Git implements Disposable {
+	private readonly _disposable: Disposable;
 	/** Map of running git commands -- avoids running duplicate overlaping commands */
 	private readonly pendingCommands = new Map<string, Promise<RunResult<string | Buffer>>>();
+
+	constructor(container: Container) {
+		this._disposable = container.events.on('git:cache:reset', e => {
+			// Ignore provider resets (e.g. it needs to be git specific)
+			if (e.data.types?.every(t => t === 'providers')) return;
+
+			this.pendingCommands.clear();
+		});
+	}
+
+	dispose(): void {
+		this._disposable.dispose();
+	}
 
 	async exec(
 		options: ExitCodeOnlyGitCommandOptions,
@@ -277,12 +288,12 @@ export class Git {
 
 		const gitCommand = `[${runOpts.cwd}] git ${runArgs.join(' ')}`;
 
-		const command = `${correlationKey !== undefined ? `${correlationKey}:` : ''}${
-			options?.stdin != null ? `${getStdinUniqueKey()}:` : ''
-		}${gitCommand}`;
+		const cacheKey = `${correlationKey !== undefined ? `${correlationKey}:` : ''}${
+			options?.stdin != null ? `${uniqueCounterForStdin.next()}:` : ''
+		}${cancellation != null ? `${getCancellationTokenId(cancellation)}:` : ''}${gitCommand}`;
 
 		let waiting;
-		let promise = this.pendingCommands.get(command);
+		let promise = this.pendingCommands.get(cacheKey);
 		if (promise == null) {
 			waiting = false;
 
@@ -309,11 +320,11 @@ export class Git {
 			}
 
 			promise = runSpawn<T>(await this.path(), runArgs, encoding ?? 'utf8', runOpts).finally(() => {
-				this.pendingCommands.delete(command);
+				this.pendingCommands.delete(cacheKey);
 				void disposeCancellation?.dispose();
 			});
 
-			this.pendingCommands.set(command, promise);
+			this.pendingCommands.set(cacheKey, promise);
 		} else {
 			waiting = true;
 			Logger.debug(`${getLoggableScopeBlockOverride('GIT')} ${gitCommand} ${GlyphChars.Dot} waiting...`);
@@ -330,10 +341,19 @@ export class Git {
 			};
 		} catch (ex) {
 			if (errorHandling === GitErrorHandling.Ignore) {
+				if (ex instanceof RunError) {
+					return {
+						stdout: ex.stdout as T,
+						stderr: ex.stderr as T | undefined,
+						exitCode: ex.code != null ? (typeof ex.code === 'number' ? ex.code : parseInt(ex.code, 10)) : 0,
+						cancelled: ex instanceof CancelledRunError,
+					};
+				}
+
 				return {
 					stdout: '' as T,
-					stderr: result?.stderr as T | undefined,
-					exitCode: result?.exitCode ?? 0,
+					stderr: undefined,
+					exitCode: 0,
 					cancelled: ex instanceof CancelledRunError,
 				};
 			}

@@ -4,8 +4,7 @@ import { css, html, LitElement, nothing } from 'lit';
 import { customElement, property, state } from 'lit/decorators.js';
 import { classMap } from 'lit/directives/class-map.js';
 import { when } from 'lit/directives/when.js';
-import type { GlCommands } from '../../../../../constants.commands';
-import type { WebviewIds, WebviewViewIds } from '../../../../../constants.views';
+import type { GlCommands, PlusCommands, WebviewCommands, WebviewViewCommands } from '../../../../../constants.commands';
 import type { LaunchpadCommandArgs } from '../../../../../plus/launchpad/launchpad';
 import {
 	actionGroupMap,
@@ -46,6 +45,10 @@ import '../../../shared/components/branch-icon';
 import './merge-target-status';
 
 export const branchCardStyles = css`
+	* {
+		box-sizing: border-box;
+	}
+
 	gl-avatar-list {
 		--gl-avatar-size: 2.4rem;
 		margin-block: -0.4rem;
@@ -698,7 +701,7 @@ export abstract class GlBranchCardBase extends GlElement {
 	}
 
 	protected createWebviewCommandLink<T>(
-		command: `${WebviewIds | WebviewViewIds}.${string}` | `gitlens.plus.${string}`,
+		command: WebviewCommands | WebviewViewCommands | PlusCommands,
 		args?: T | any,
 	): string {
 		return createWebviewCommandLink<T>(
@@ -993,6 +996,8 @@ export class GlBranchCard extends GlBranchCardBase {
 	protected getBranchActions(): TemplateResult[] {
 		const actions = [];
 
+		const aiEnabled = this._homeState.orgSettings.ai && this._homeState.aiEnabled;
+
 		if (this.branch.worktree) {
 			actions.push(
 				html`<action-item
@@ -1002,29 +1007,31 @@ export class GlBranchCard extends GlBranchCardBase {
 				></action-item>`,
 			);
 
-			const hasWip =
-				this.wip?.workingTreeState != null
-					? this.wip.workingTreeState.added +
-							this.wip.workingTreeState.changed +
-							this.wip.workingTreeState.deleted >
-					  0
-					: false;
-			if (hasWip) {
-				actions.push(
-					html`<action-item
-						label="Explain Working Changes (Preview)"
-						icon="sparkle"
-						href=${this.createCommandLink('gitlens.ai.explainWip:home')}
-					></action-item>`,
-				);
-			} else {
-				actions.push(
-					html`<action-item
-						label="Explain Branch (Preview)"
-						icon="sparkle"
-						href=${this.createCommandLink('gitlens.ai.explainBranch:home')}
-					></action-item>`,
-				);
+			if (aiEnabled) {
+				const hasWip =
+					this.wip?.workingTreeState != null
+						? this.wip.workingTreeState.added +
+								this.wip.workingTreeState.changed +
+								this.wip.workingTreeState.deleted >
+						  0
+						: false;
+				if (hasWip) {
+					actions.push(
+						html`<action-item
+							label="Explain Working Changes (Preview)"
+							icon="sparkle"
+							href=${this.createCommandLink('gitlens.ai.explainWip:home')}
+						></action-item>`,
+					);
+				} else {
+					actions.push(
+						html`<action-item
+							label="Explain Branch Changes (Preview)"
+							icon="sparkle"
+							href=${this.createCommandLink('gitlens.ai.explainBranch:home')}
+						></action-item>`,
+					);
+				}
 			}
 		} else {
 			actions.push(
@@ -1034,13 +1041,16 @@ export class GlBranchCard extends GlBranchCardBase {
 					href=${this.createCommandLink('gitlens.home.switchToBranch')}
 				></action-item>`,
 			);
-			actions.push(
-				html`<action-item
-					label="Explain Branch (Preview)"
-					icon="sparkle"
-					href=${this.createCommandLink('gitlens.ai.explainBranch:home')}
-				></action-item>`,
-			);
+
+			if (aiEnabled) {
+				actions.push(
+					html`<action-item
+						label="Explain Branch Changes (Preview)"
+						icon="sparkle"
+						href=${this.createCommandLink('gitlens.ai.explainBranch:home')}
+					></action-item>`,
+				);
+			}
 		}
 
 		// branch actions
@@ -1055,7 +1065,7 @@ export class GlBranchCard extends GlBranchCardBase {
 			html` <action-item
 				label="Visualize Branch History"
 				icon="graph-scatter"
-				href=${createCommandLink('gitlens.home.visualizeHistory.branch:home', {
+				href=${createCommandLink('gitlens.visualizeHistory.branch:home', {
 					type: 'branch',
 					repoPath: this.repo,
 					branchId: this.branch.id,

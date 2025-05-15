@@ -2,8 +2,8 @@ import type SlTooltip from '@shoelace-style/shoelace/dist/components/tooltip/too
 import { setDefaultAnimation } from '@shoelace-style/shoelace/dist/utilities/animation-registry.js';
 import { css, html, LitElement, nothing } from 'lit';
 import { customElement, property } from 'lit/decorators.js';
+import { handleUnsafeOverlayContent } from './overlays.utils';
 import '@shoelace-style/shoelace/dist/components/tooltip/tooltip.js';
-import { unsafeHTML } from 'lit/directives/unsafe-html.js';
 
 setDefaultAnimation('tooltip.show', null);
 setDefaultAnimation('tooltip.hide', null);
@@ -112,11 +112,7 @@ export class GlTooltip extends LitElement {
 		>
 			<slot></slot>
 			<div slot="content">
-				<slot name="content"
-					>${this.content?.includes('\n')
-						? unsafeHTML(this.content?.replace(/\n\n/g, '<hr>').replace(/\n/g, '<br>'))
-						: this.content}</slot
-				>
+				<slot name="content">${handleUnsafeOverlayContent(this.content)}</slot>
 			</div>
 		</sl-tooltip>`;
 	}

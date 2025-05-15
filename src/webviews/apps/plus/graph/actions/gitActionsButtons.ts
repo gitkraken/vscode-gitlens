@@ -243,13 +243,11 @@ export class PushPullButton extends LitElement {
 						</span>
 					</span>
 				</a>
-				<div slot="content" style="white-space: break-spaces">
+				<div slot="content">
 					${this.renderTooltipContent(action)}
 					${this.fetchedText
-						? html`
-								<hr />
-								Last fetched ${this.fetchedText}
-						  `
+						? html`<hr />
+								Last fetched ${this.fetchedText}`
 						: ''}
 				</div>
 			</gl-tooltip>

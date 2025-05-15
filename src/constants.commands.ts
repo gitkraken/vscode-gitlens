@@ -34,9 +34,12 @@ type InternalGraphWebviewCommands =
 	| 'gitlens.graph.abortPausedOperation'
 	| 'gitlens.graph.continuePausedOperation'
 	| 'gitlens.graph.openRebaseEditor'
-	| 'gitlens.graph.skipPausedOperation';
+	| 'gitlens.graph.skipPausedOperation'
+	| 'gitlens.visualizeHistory.repo:graph';
 
 type InternalHomeWebviewCommands =
+	| 'gitlens.ai.explainWip:home'
+	| 'gitlens.ai.explainBranch:home'
 	| 'gitlens.home.changeBranchMergeTarget'
 	| 'gitlens.home.deleteBranchOrWorktree'
 	| 'gitlens.home.pushBranch'
@@ -50,8 +53,6 @@ type InternalHomeWebviewCommands =
 	| 'gitlens.home.switchToBranch'
 	| 'gitlens.home.fetch'
 	| 'gitlens.home.openInGraph'
-	| 'gitlens.home.visualizeHistory.repo:home'
-	| 'gitlens.home.visualizeHistory.branch:home'
 	| 'gitlens.home.createBranch'
 	| 'gitlens.home.mergeIntoCurrent'
 	| 'gitlens.home.rebaseCurrentOnto'
@@ -60,9 +61,10 @@ type InternalHomeWebviewCommands =
 	| 'gitlens.home.skipPausedOperation'
 	| 'gitlens.home.continuePausedOperation'
 	| 'gitlens.home.abortPausedOperation'
-	| 'gitlens.ai.explainWip:home'
-	| 'gitlens.ai.explainBranch:home'
-	| 'gitlens.home.openRebaseEditor';
+	| 'gitlens.home.openRebaseEditor'
+	| 'gitlens.home.enableAi'
+	| 'gitlens.visualizeHistory.repo:home'
+	| 'gitlens.visualizeHistory.branch:home';
 
 type InternalHomeWebviewViewCommands =
 	| 'gitlens.views.home.account.resync'
@@ -119,12 +121,12 @@ type InternalGlCommands =
 	| `gitlens.action.${string}`
 	| 'gitlens.changeBranchMergeTarget'
 	| 'gitlens.diffWith'
+	| 'gitlens.ai.explainCommit:editor'
+	| 'gitlens.ai.explainWip:editor'
 	| 'gitlens.openOnRemote'
 	| 'gitlens.openWalkthrough'
 	| 'gitlens.refreshHover'
 	| 'gitlens.visualizeHistory'
-	| 'gitlens.visualizeHistory.repo:home'
-	| 'gitlens.visualizeHistory.branch:home'
 	| InternalGraphWebviewCommands
 	| InternalHomeWebviewCommands
 	| InternalHomeWebviewViewCommands
@@ -197,6 +199,8 @@ type FilterCommands<Prefix extends string, U, Suffix extends string = ''> = U ex
 		? U
 		: never
 	: never;
+
+export type PlusCommands = FilterCommands<'gitlens.plus.', GlCommands>;
 
 export type TreeViewCommands =
 	| FilterCommands<`gitlens.views.${TreeViewTypes}`, GlCommands>

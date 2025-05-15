@@ -37,10 +37,9 @@ export class GlFeatureGatePlusState extends LitElement {
 		css`
 			:host {
 				--gk-action-radius: 0.3rem;
-				container-type: inline-size;
 			}
 
-			:host([appearance='welcome']) gl-button {
+			:host([appearance='welcome']) gl-button:only-child {
 				width: 100%;
 				max-width: 300px;
 			}

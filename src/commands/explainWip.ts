@@ -1,13 +1,14 @@
 import type { TextEditor, Uri } from 'vscode';
 import { ProgressLocation } from 'vscode';
-import type { Source } from '../constants.telemetry';
 import type { Container } from '../container';
 import { GitUri } from '../git/gitUri';
 import { uncommitted, uncommittedStaged } from '../git/models/revision';
 import { showGenericErrorMessage } from '../messages';
+import type { AIExplainSource } from '../plus/ai/aiProviderService';
 import { getBestRepositoryOrShowPicker } from '../quickpicks/repositoryPicker';
 import { command } from '../system/-webview/command';
 import { showMarkdownPreview } from '../system/-webview/markdown';
+import { createMarkdownCommandLink } from '../system/commands';
 import { Logger } from '../system/logger';
 import { GlCommandBase } from './commandBase';
 import { getCommandUri } from './commandBase.utils';
@@ -21,14 +22,18 @@ import {
 export interface ExplainWipCommandArgs {
 	repoPath?: string | Uri;
 	staged?: boolean;
-	source?: Source;
+	source?: AIExplainSource;
 	worktreePath?: string;
 }
 
 @command()
 export class ExplainWipCommand extends GlCommandBase {
+	static createMarkdownCommandLink(args: ExplainWipCommandArgs): string {
+		return createMarkdownCommandLink<ExplainWipCommandArgs>('gitlens.ai.explainWip:editor', args);
+	}
+
 	constructor(private readonly container: Container) {
-		super(['gitlens.ai.explainWip', 'gitlens.ai.explainWip:views']);
+		super(['gitlens.ai.explainWip', 'gitlens.ai.explainWip:editor', 'gitlens.ai.explainWip:views']);
 	}
 
 	protected override preExecute(context: CommandContext, args?: ExplainWipCommandArgs): Promise<void> {
@@ -36,15 +41,15 @@ export class ExplainWipCommand extends GlCommandBase {
 			args = { ...args };
 			args.repoPath = context.node.worktree.repoPath;
 			args.worktreePath = context.node.worktree.path;
-			args.source = args.source ?? { source: 'view' };
+			args.source = args.source ?? { source: 'view', type: 'wip' };
 		} else if (isCommandContextViewNodeHasRepository(context)) {
 			args = { ...args };
 			args.repoPath = context.node.repo.path;
-			args.source = args.source ?? { source: 'view' };
+			args.source = args.source ?? { source: 'view', type: 'wip' };
 		} else if (isCommandContextViewNodeHasRepoPath(context)) {
 			args = { ...args };
 			args.repoPath = context.node.repoPath;
-			args.source = args.source ?? { source: 'view' };
+			args.source = args.source ?? { source: 'view', type: 'wip' };
 		}
 
 		return this.execute(context.editor, context.uri, args);
@@ -61,15 +66,18 @@ export class ExplainWipCommand extends GlCommandBase {
 		}
 
 		try {
-			// If args?.staged is undefined, should we get all changes (staged and unstaged)?
+			// If args?.staged is undefined, get all changes (staged and unstaged)?
 			let stagedLabel;
 			let to;
 			if (args?.staged === true) {
 				stagedLabel = 'Staged';
 				to = uncommittedStaged;
-			} else {
+			} else if (args?.staged === false) {
 				stagedLabel = 'Unstaged';
 				to = uncommitted;
+			} else {
+				stagedLabel = 'Uncommitted';
+				to = '';
 			}
 
 			const diff = await diffService.getDiff(to, undefined);

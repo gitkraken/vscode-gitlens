@@ -11,7 +11,7 @@ import type { GitCommit } from '../git/models/commit';
 import type { GitLineDiff, ParsedGitDiffHunk } from '../git/models/diff';
 import type { PullRequest } from '../git/models/pullRequest';
 import type { GitRemote } from '../git/models/remote';
-import { uncommittedStaged } from '../git/models/revision';
+import { deletedOrMissing, uncommittedStaged } from '../git/models/revision';
 import type { RemoteProvider } from '../git/remotes/remoteProvider';
 import { isUncommittedStaged, shortenRevision } from '../git/utils/revision.utils';
 import { configuration } from '../system/-webview/configuration';
@@ -111,7 +111,7 @@ export async function changesMessage(
 		message = `[$(compare-changes)](${DiffWithCommand.createMarkdownCommandLink(commit, range)} "Open Changes")`;
 
 		previousSha ??= await commit.getPreviousSha();
-		if (previousSha) {
+		if (previousSha && previousSha !== deletedOrMissing) {
 			previous = `  &nbsp;[$(git-commit) ${shortenRevision(
 				previousSha,
 			)}](${ShowQuickCommitCommand.createMarkdownCommandLink(previousSha)} "Show Commit") &nbsp;${
@@ -270,6 +270,7 @@ export async function detailsMessage(
 	const previousLineComparisonUris = getSettledValue(previousLineComparisonUrisResult);
 
 	const details = await CommitFormatter.fromTemplateAsync(options.format, commit, {
+		aiEnabled: configuration.get('ai.enabled'),
 		enrichedAutolinks: enrichedResult?.value != null && !enrichedResult.paused ? enrichedResult.value : undefined,
 		dateFormat: options.dateFormat === null ? 'MMMM Do, YYYY h:mma' : options.dateFormat,
 		editor: { line: editorLine, uri: uri },

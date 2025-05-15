@@ -1,10 +1,10 @@
 import type { TextEditor, Uri } from 'vscode';
 import { ProgressLocation } from 'vscode';
-import type { Source } from '../constants.telemetry';
 import type { Container } from '../container';
 import { GitUri } from '../git/gitUri';
 import type { GitCommit, GitStashCommit } from '../git/models/commit';
 import { showGenericErrorMessage } from '../messages';
+import type { AIExplainSource } from '../plus/ai/aiProviderService';
 import { getBestRepositoryOrShowPicker } from '../quickpicks/repositoryPicker';
 import { showStashPicker } from '../quickpicks/stashPicker';
 import { command } from '../system/-webview/command';
@@ -17,8 +17,8 @@ import { isCommandContextViewNodeHasCommit } from './commandContext.utils';
 
 export interface ExplainStashCommandArgs {
 	repoPath?: string | Uri;
-	ref?: string;
-	source?: Source;
+	rev?: string;
+	source?: AIExplainSource;
 }
 
 @command()
@@ -32,8 +32,8 @@ export class ExplainStashCommand extends GlCommandBase {
 		if (isCommandContextViewNodeHasCommit<GitStashCommit>(context)) {
 			args = { ...args };
 			args.repoPath = args.repoPath ?? context.node.commit.repoPath;
-			args.ref = args.ref ?? context.node.commit.sha;
-			args.source = args.source ?? { source: 'view' };
+			args.rev = args.rev ?? context.node.commit.sha;
+			args.source = args.source ?? { source: 'view', type: 'stash' };
 		}
 
 		return this.execute(context.editor, context.uri, args);
@@ -53,7 +53,7 @@ export class ExplainStashCommand extends GlCommandBase {
 			repository = await getBestRepositoryOrShowPicker(
 				gitUri,
 				editor,
-				'Explain Stash',
+				'Explain Stash Changes',
 				'Choose which repository to explain a stash from',
 			);
 		}
@@ -62,13 +62,13 @@ export class ExplainStashCommand extends GlCommandBase {
 
 		try {
 			let commit: GitCommit | undefined;
-			if (args.ref == null) {
-				const pick = await showStashPicker('Explain Stash', 'Choose a stash to explain', repository);
+			if (args.rev == null) {
+				const pick = await showStashPicker('Explain Stash Changes', 'Choose a stash to explain', repository);
 				if (pick?.ref == null) return;
-				args.ref = pick.ref;
+				args.rev = pick.ref;
 				commit = pick;
 			} else {
-				commit = await repository.git.commits().getCommit(args.ref);
+				commit = await repository.git.commits().getCommit(args.rev);
 				if (commit == null) {
 					void showGenericErrorMessage('Unable to find the specified stash commit');
 					return;

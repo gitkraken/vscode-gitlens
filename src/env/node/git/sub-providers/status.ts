@@ -26,7 +26,6 @@ import { createReference } from '../../../../git/utils/reference.utils';
 import { configuration } from '../../../../system/-webview/configuration';
 import { splitPath } from '../../../../system/-webview/path';
 import { gate } from '../../../../system/decorators/-webview/gate';
-import { defaultResolver } from '../../../../system/decorators/-webview/resolver';
 import { log } from '../../../../system/decorators/log';
 import { Logger } from '../../../../system/logger';
 import { getLogScope, setLogScopeExit } from '../../../../system/logger.scope';
@@ -565,7 +564,7 @@ export class StatusGitSubProvider implements GitStatusSubProvider {
 		}
 	}
 
-	@gate<StatusGitSubProvider['getStatus']>(rp => rp ?? '')
+	@gate()
 	@log()
 	async getStatus(repoPath: string | undefined, cancellation?: CancellationToken): Promise<GitStatus | undefined> {
 		if (repoPath == null) return undefined;
@@ -618,7 +617,7 @@ export class StatusGitSubProvider implements GitStatusSubProvider {
 		return this.getStatusForPathCore(repoPath, pathOrUri, { ...options, exact: false }, cancellation);
 	}
 
-	@gate<StatusGitSubProvider['getStatusForPathCore']>((...args) => defaultResolver(...args.slice(0, 3)))
+	@gate()
 	private async getStatusForPathCore(
 		repoPath: string,
 		pathOrUri: string | Uri,

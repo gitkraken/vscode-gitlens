@@ -3,8 +3,10 @@ import { customElement, property, state } from 'lit/decorators.js';
 import { unsafeHTML } from 'lit/directives/unsafe-html.js';
 import { when } from 'lit/directives/when.js';
 import type { Autolink } from '../../../../autolinks/models/autolinks';
+import type { ConnectCloudIntegrationsCommandArgs } from '../../../../commands/cloudIntegrations';
 import type { IssueOrPullRequest } from '../../../../git/models/issueOrPullRequest';
 import type { PullRequestShape } from '../../../../git/models/pullRequest';
+import { createCommandLink } from '../../../../system/commands';
 import type { Serialized } from '../../../../system/serialize';
 import type { State } from '../../../commitDetails/protocol';
 import { messageHeadlineSplitterToken } from '../../../commitDetails/protocol';
@@ -120,6 +122,25 @@ export class GlCommitDetails extends GlDetailsBase {
 		`;
 	}
 
+	private renderExplainChanges() {
+		if (this.state?.orgSettings.ai === false) return undefined;
+
+		return html`
+			<gl-action-chip
+				label=${this.isUncommitted
+					? 'Explain Working Changes'
+					: `Explain Changes in this ${this.isStash ? 'Stash' : 'Commit'}`}
+				icon="sparkle"
+				data-action="explain-commit"
+				aria-busy="${this.explainBusy ? 'true' : nothing}"
+				?disabled="${this.explainBusy ? true : nothing}"
+				@click=${this.onExplainChanges}
+				@keydown=${this.onExplainChanges}
+				><span>explain</span></gl-action-chip
+			>
+		`;
+	}
+
 	private renderCommitMessage() {
 		const details = this.state?.commit;
 		if (details == null) return undefined;
@@ -140,21 +161,7 @@ export class GlCommitDetails extends GlDetailsBase {
 							></gl-commit-author>
 						`,
 					)}
-					${when(
-						this.state?.orgSettings.ai !== false && this.state?.preferences.aiEnabled !== false,
-						() => html`
-							<gl-action-chip
-								label="Explain this ${this.isStash ? 'Stash' : 'Commit'}"
-								icon="sparkle"
-								data-action="explain-commit"
-								aria-busy="${this.explainBusy ? 'true' : nothing}"
-								?disabled="${this.explainBusy ? true : nothing}"
-								@click=${this.onExplainChanges}
-								@keydown=${this.onExplainChanges}
-								><span>explain</span></gl-action-chip
-							>
-						`,
-					)}
+					${this.renderExplainChanges()}
 				</div>
 				<div>
 					<div class="message-block">
@@ -257,23 +264,59 @@ export class GlCommitDetails extends GlDetailsBase {
 		};
 	}
 
+	private renderLearnAboutAutolinks(compact = false) {
+		const chipLabel = compact ? nothing : html`<span class="mq-hide-sm">Learn about autolinks</span>`;
+
+		const autolinkSettingsLink = createCommandLink('gitlens.showSettingsPage!autolinks', {
+			showOptions: { preserveFocus: true },
+		});
+
+		const hasIntegrationsConnected = this.state?.hasIntegrationsConnected ?? false;
+		let label =
+			'Configure autolinks to linkify external references, like Jira or Zendesk tickets, in commit messages.';
+		if (!hasIntegrationsConnected) {
+			label = `<a href="${autolinkSettingsLink}">Configure autolinks</a> to linkify external references, like Jira or Zendesk tickets, in commit messages.`;
+			label += `\n\n<a href="${createCommandLink<ConnectCloudIntegrationsCommandArgs>(
+				'gitlens.plus.cloudIntegrations.connect',
+				{
+					source: {
+						source: 'inspect',
+						detail: {
+							action: 'connect',
+						},
+					},
+				},
+			)}">Connect an Integration</a> &mdash;`;
+
+			if (!this.state?.hasAccount) {
+				label += ' sign up and';
+			}
+
+			label += ' to get access to automatic rich autolinks for services like Jira, GitHub, and more.';
+		}
+
+		return html`<gl-action-chip
+			href=${autolinkSettingsLink}
+			data-action="autolink-settings"
+			icon="info"
+			.label=${label}
+			overlay=${hasIntegrationsConnected ? 'tooltip' : 'popover'}
+			>${chipLabel}</gl-action-chip
+		>`;
+	}
+
 	private renderAutoLinksChips() {
 		const autolinkState = this.autolinkState;
-		if (autolinkState == null) return html`<span></span>`;
+		if (autolinkState == null) return this.renderLearnAboutAutolinks();
 
 		const { autolinks, issues, prs, size } = autolinkState;
 
 		if (size === 0) {
-			return html`<gl-action-chip
-				href="command:gitlens.showSettingsPage!autolinks"
-				data-action="autolink-settings"
-				icon="info"
-				label="Learn about autolinks"
-				><span class="mq-hide-sm">Learn about autolinks</span></gl-action-chip
-			>`;
+			return this.renderLearnAboutAutolinks();
 		}
 
 		return html`<div class="message-block-group">
+			${this.renderLearnAboutAutolinks(true)}
 			${when(autolinks.length, () =>
 				autolinks.map(autolink => {
 					let name = autolink.description ?? autolink.title;

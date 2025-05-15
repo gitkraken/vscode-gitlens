@@ -1199,6 +1199,14 @@ void
 void
 ```
 
+### home/enableAi
+
+> Sent when the user chooses to enable AI from the integrations menu
+
+```typescript
+void
+```
+
 ### home/preview/toggled
 
 > Sent when the new Home view preview is toggled on/off
@@ -1593,7 +1601,7 @@ void
   'repoPrivacy': 'private' | 'public' | 'local',
   'repository.visibility': 'private' | 'public' | 'local',
   // Provided for compatibility with other GK surfaces
-  'source': 'account' | 'subscription' | 'graph' | 'patchDetails' | 'settings' | 'timeline' | 'home' | 'view' | 'code-suggest' | 'ai' | 'ai:picker' | 'associateIssueWithBranch' | 'cloud-patches' | 'commandPalette' | 'deeplink' | 'feature-badge' | 'feature-gate' | 'inspect' | 'inspect-overview' | 'integrations' | 'launchpad' | 'launchpad-indicator' | 'launchpad-view' | 'merge-target' | 'notification' | 'prompt' | 'quick-wizard' | 'remoteProvider' | 'startWork' | 'trial-indicator' | 'scm-input' | 'walkthrough' | 'whatsnew' | 'worktrees'
+  'source': 'account' | 'subscription' | 'graph' | 'patchDetails' | 'settings' | 'timeline' | 'home' | 'view' | 'code-suggest' | 'ai' | 'ai:picker' | 'associateIssueWithBranch' | 'cloud-patches' | 'commandPalette' | 'deeplink' | 'editor:hover' | 'feature-badge' | 'feature-gate' | 'inspect' | 'inspect-overview' | 'integrations' | 'launchpad' | 'launchpad-indicator' | 'launchpad-view' | 'merge-target' | 'notification' | 'prompt' | 'quick-wizard' | 'remoteProvider' | 'startWork' | 'trial-indicator' | 'scm-input' | 'walkthrough' | 'whatsnew' | 'worktrees'
 }
 ```
 
@@ -2022,13 +2030,18 @@ or
 ```typescript
 {
   'context.period': 'all' | `${number}|D` | `${number}|M` | `${number}|Y`,
+  'context.scope.hasBase': boolean,
+  'context.scope.hasHead': boolean,
   'context.scope.type': 'file' | 'folder' | 'repo',
   'context.showAllBranches': boolean,
   'context.sliceBy': 'branch' | 'author',
   'context.webview.host': 'editor' | 'view',
   'context.webview.id': string,
   'context.webview.instanceId': string,
-  'context.webview.type': string
+  'context.webview.type': string,
+  'scope.hasBase': boolean,
+  'scope.hasHead': boolean,
+  'scope.type': 'file' | 'folder' | 'repo'
 }
 ```
 
@@ -2039,6 +2052,8 @@ or
 ```typescript
 {
   'context.period': 'all' | `${number}|D` | `${number}|M` | `${number}|Y`,
+  'context.scope.hasBase': boolean,
+  'context.scope.hasHead': boolean,
   'context.scope.type': 'file' | 'folder' | 'repo',
   'context.showAllBranches': boolean,
   'context.sliceBy': 'branch' | 'author',
@@ -2056,6 +2071,8 @@ or
 ```typescript
 {
   'context.period': 'all' | `${number}|D` | `${number}|M` | `${number}|Y`,
+  'context.scope.hasBase': boolean,
+  'context.scope.hasHead': boolean,
   'context.scope.type': 'file' | 'folder' | 'repo',
   'context.showAllBranches': boolean,
   'context.sliceBy': 'branch' | 'author',
@@ -2076,6 +2093,8 @@ or
 ```typescript
 {
   'context.period': 'all' | `${number}|D` | `${number}|M` | `${number}|Y`,
+  'context.scope.hasBase': boolean,
+  'context.scope.hasHead': boolean,
   'context.scope.type': 'file' | 'folder' | 'repo',
   'context.showAllBranches': boolean,
   'context.sliceBy': 'branch' | 'author',
@@ -2093,6 +2112,8 @@ or
 ```typescript
 {
   'context.period': 'all' | `${number}|D` | `${number}|M` | `${number}|Y`,
+  'context.scope.hasBase': boolean,
+  'context.scope.hasHead': boolean,
   'context.scope.type': 'file' | 'folder' | 'repo',
   'context.showAllBranches': boolean,
   'context.sliceBy': 'branch' | 'author',
@@ -2125,6 +2146,8 @@ or
   'context.config.allowMultiple': boolean,
   'context.config.queryLimit': number,
   'context.period': 'all' | `${number}|D` | `${number}|M` | `${number}|Y`,
+  'context.scope.hasBase': boolean,
+  'context.scope.hasHead': boolean,
   'context.scope.type': 'file' | 'folder' | 'repo',
   'context.showAllBranches': boolean,
   'context.sliceBy': 'branch' | 'author',

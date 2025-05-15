@@ -26,6 +26,7 @@ import '../../../shared/components/skeleton-loader';
 import '../../../shared/components/card/card';
 import '../../../shared/components/commit/commit-stats';
 import '../../../shared/components/menu/menu-item';
+import '../../../shared/components/menu/menu-label';
 import '../../../shared/components/overlays/popover';
 import '../../../shared/components/overlays/tooltip';
 import '../../../shared/components/pills/tracking';
@@ -156,7 +157,7 @@ export class GlActiveWork extends SignalWatcher(LitElement) {
 						class="section-heading-action"
 						appearance="toolbar"
 						tooltip="Visualize Repo History"
-						href=${createCommandLink('gitlens.home.visualizeHistory.repo:home', {
+						href=${createCommandLink('gitlens.visualizeHistory.repo:home', {
 							type: 'repo',
 							repoPath: this._activeOverviewState.state!.repository.path,
 						} satisfies OpenInTimelineParams)}
@@ -250,14 +251,79 @@ export class GlActiveBranchCard extends GlBranchCardBase {
 		`;
 	}
 
+	private renderActionsMenu() {
+		const aiEnabled = this._homeState.orgSettings.ai && this._homeState.aiEnabled;
+		const isFetching = this.busy;
+		const workingTreeState = this.wip?.workingTreeState;
+		const hasWip =
+			workingTreeState != null &&
+			workingTreeState.added + workingTreeState.changed + workingTreeState.deleted > 0;
+
+		const actions = [];
+		if (aiEnabled) {
+			if (hasWip) {
+				actions.push(
+					html`<menu-item ?disabled=${isFetching} href=${this.createCommandLink('gitlens.ai.explainWip:home')}
+						>Explain Working Changes (Preview)</menu-item
+					>`,
+				);
+			}
+
+			actions.push(
+				html`<menu-item ?disabled=${isFetching} href=${this.createCommandLink('gitlens.ai.explainBranch:home')}
+					>Explain Branch Changes (Preview)</menu-item
+				>`,
+			);
+
+			if (hasWip) {
+				actions.push(
+					html`<menu-item
+						?disabled=${isFetching}
+						href=${this.createCommandLink('gitlens.home.createCloudPatch')}
+						>Share as Cloud Patch</menu-item
+					>`,
+				);
+			}
+		} else if (hasWip) {
+			return html`
+				<gl-button
+					aria-busy=${ifDefined(isFetching)}
+					?disabled=${isFetching}
+					href=${this.createCommandLink('gitlens.home.createCloudPatch')}
+					appearance="secondary"
+					tooltip="Share as Cloud Patch"
+					><code-icon icon="gl-cloud-patch-share"></code-icon>
+				</gl-button>
+			`;
+		}
+
+		if (actions.length === 0) return undefined;
+
+		return html`<gl-popover
+			appearance="menu"
+			trigger="click focus"
+			placement="bottom-end"
+			.arrow=${false}
+			distance="0"
+		>
+			<gl-button slot="anchor" appearance="toolbar" tooltipPlacement="top" aria-label="Additional Actions">
+				<code-icon icon="ellipsis"></code-icon>
+			</gl-button>
+			<div slot="content">
+				<menu-label>Actions</menu-label>
+				${actions}
+			</div>
+		</gl-popover>`;
+	}
+
 	private renderBranchStateActions() {
 		const { name, upstream } = this.branch;
 
 		const actions: TemplateResult[] = [];
 
 		const wrappedActions = () => {
-			if (actions.length === 0) return undefined;
-			return html`<div><button-container>${actions}</button-container></div>`;
+			if (actions.length === 0) return this.renderActionsMenu();
+			return html`<div><button-container>${actions}${this.renderActionsMenu()}</button-container></div>`;
 		};
 
 		const isFetching = this.busy;
@@ -277,35 +343,22 @@ export class GlActiveBranchCard extends GlBranchCardBase {
 							source: 'home',
 						})}
 						appearance="secondary"
-						tooltip="Generate Message &amp; Commit..."
+						tooltip="Generate Message &amp; Commit via SCM..."
 						><code-icon icon="sparkle" slot="prefix"></code-icon>Commit
 					</gl-button>
 				`);
+			} else {
+				actions.push(html`
+					<gl-button
+						aria-busy=${ifDefined(isFetching)}
+						?disabled=${isFetching}
+						href="command:workbench.view.scm"
+						appearance="secondary"
+						tooltip="Commit via SCM"
+						><code-icon rotate="45" icon="arrow-up" slot="suffix"></code-icon>Commit
+					</gl-button>
+				`);
 			}
-
-			actions.push(html`
-				<gl-button
-					aria-busy=${ifDefined(isFetching)}
-					?disabled=${isFetching}
-					href=${this.createCommandLink('gitlens.home.createCloudPatch')}
-					appearance="secondary"
-					tooltip="Share as Cloud Patch"
-					><code-icon icon="gl-cloud-patch-share"></code-icon>
-				</gl-button>
-			`);
-		}
-
-		if (this._homeState.orgSettings.ai && this._homeState.aiEnabled) {
-			actions.push(html`
-				<gl-button
-					aria-busy=${ifDefined(isFetching)}
-					?disabled=${isFetching}
-					href=${this.createCommandLink('gitlens.ai.explainBranch:home')}
-					appearance="secondary"
-					tooltip="Explain Branch (Preview)"
-					><code-icon icon="sparkle" slot="prefix"></code-icon>Branch
-				</gl-button>
-			`);
 		}
 
 		if (this.wip?.pausedOpStatus != null) {

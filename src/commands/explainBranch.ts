@@ -1,11 +1,11 @@
 import type { TextEditor, Uri } from 'vscode';
 import { ProgressLocation } from 'vscode';
-import type { Source } from '../constants.telemetry';
 import type { Container } from '../container';
 import { GitUri } from '../git/gitUri';
 import type { GitBranchReference } from '../git/models/reference';
 import { getBranchMergeTargetName } from '../git/utils/-webview/branch.utils';
 import { showGenericErrorMessage } from '../messages';
+import type { AIExplainSource } from '../plus/ai/aiProviderService';
 import { prepareCompareDataForAIRequest } from '../plus/ai/aiProviderService';
 import { ReferencesQuickPickIncludes, showReferencePicker } from '../quickpicks/referencePicker';
 import { getBestRepositoryOrShowPicker } from '../quickpicks/repositoryPicker';
@@ -21,7 +21,7 @@ import { isCommandContextViewNodeHasBranch } from './commandContext.utils';
 export interface ExplainBranchCommandArgs {
 	repoPath?: string | Uri;
 	ref?: string;
-	source?: Source;
+	source?: AIExplainSource;
 }
 
 @command()
@@ -35,7 +35,7 @@ export class ExplainBranchCommand extends GlCommandBase {
 			args = { ...args };
 			args.repoPath = args.repoPath ?? getNodeRepoPath(context.node);
 			args.ref = args.ref ?? context.node.branch.ref;
-			args.source = args.source ?? { source: 'view' };
+			args.source = args.source ?? { source: 'view', type: 'branch' };
 		}
 
 		return this.execute(context.editor, context.uri, args);
@@ -53,7 +53,7 @@ export class ExplainBranchCommand extends GlCommandBase {
 			repository = await getBestRepositoryOrShowPicker(
 				gitUri,
 				editor,
-				'Explain Branch',
+				'Explain Branch Changes',
 				'Choose which repository to explain a branch from',
 			);
 		}
@@ -66,7 +66,7 @@ export class ExplainBranchCommand extends GlCommandBase {
 				// If no ref is provided, show a picker to select a branch
 				const pick = (await showReferencePicker(
 					repository.path,
-					'Explain Branch',
+					'Explain Branch Changes',
 					'Choose a branch to explain',
 					{
 						include: ReferencesQuickPickIncludes.Branches,

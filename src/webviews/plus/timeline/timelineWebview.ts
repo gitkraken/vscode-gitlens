@@ -82,6 +82,7 @@ import {
 import type { TimelineWebviewShowingArgs } from './registration';
 import {
 	areTimelineScopesEqual,
+	areTimelineScopesEquivalent,
 	deserializeTimelineScope,
 	isTimelineScope,
 	serializeTimelineScope,
@@ -155,7 +156,7 @@ export class TimelineWebviewProvider implements WebviewProvider<State, State, Ti
 			}
 		}
 
-		return areTimelineScopesEqual(scope, this._context.scope);
+		return areTimelineScopesEquivalent(scope, this._context.scope);
 	}
 
 	getSplitArgs(): WebviewShowingArgs<TimelineWebviewShowingArgs, State> {
@@ -166,6 +167,8 @@ export class TimelineWebviewProvider implements WebviewProvider<State, State, Ti
 		return {
 			...this.host.getTelemetryContext(),
 			'context.period': this._context.config.period,
+			'context.scope.hasHead': this._context.scope?.head != null,
+			'context.scope.hasBase': this._context.scope?.base != null,
 			'context.scope.type': this._context.scope?.type,
 			'context.showAllBranches': this._context.config.showAllBranches,
 			'context.sliceBy': this._context.config.sliceBy,
@@ -208,9 +211,8 @@ export class TimelineWebviewProvider implements WebviewProvider<State, State, Ti
 			}
 		}
 
-		await this.updateScope(scope, true);
-
-		if (!loading) {
+		const changed = await this.updateScope(scope, true, true);
+		if (!loading && (changed || !this.host.visible)) {
 			this.updateState();
 		}
 
@@ -236,7 +238,12 @@ export class TimelineWebviewProvider implements WebviewProvider<State, State, Ti
 						if (this._context.scope?.type !== 'file') return;
 
 						void executeCommand<TimelineScope>('gitlens.visualizeHistory', this._context.scope);
-						this.container.telemetry.sendEvent('timeline/action/openInEditor', this.getTelemetryContext());
+						this.container.telemetry.sendEvent('timeline/action/openInEditor', {
+							...this.getTelemetryContext(),
+							'scope.type': this._context.scope.type,
+							'scope.hasHead': this._context.scope.head != null,
+							'scope.hasBase': this._context.scope.base != null,
+						});
 					},
 					this,
 				),
@@ -326,7 +333,6 @@ export class TimelineWebviewProvider implements WebviewProvider<State, State, Ti
 
 		const picked = await showRevisionFilesPicker(this.container, createReference(ref?.ref ?? 'HEAD', repo.path), {
 			allowFolders: true,
-			ignoreFocusOut: true,
 			initialPath: initialPath,
 			title: title,
 		});
@@ -504,6 +510,12 @@ export class TimelineWebviewProvider implements WebviewProvider<State, State, Ti
 		// If we are changing the type, and in the view, open it in the editor
 		if (this.host.is('view') || e.params.altOrShift) {
 			void executeCommand<TimelineScope>('gitlens.visualizeHistory', scope);
+			this.container.telemetry.sendEvent('timeline/action/openInEditor', {
+				...this.getTelemetryContext(),
+				'scope.type': scope.type,
+				'scope.hasHead': scope.head != null,
+				'scope.hasBase': scope.base != null,
+			});
 			return;
 		}
 
@@ -679,17 +691,21 @@ export class TimelineWebviewProvider implements WebviewProvider<State, State, Ti
 			return generateRandomTimelineDataset(scope.type);
 		}
 
-		let ref = scope.head?.ref;
-		if (ref) {
-			if (scope.base?.ref != null && scope.base?.ref !== ref) {
-				ref = createRevisionRange(ref, scope.base?.ref, '..');
+		let ref;
+		if (!config.showAllBranches) {
+			ref = scope.head?.ref;
+			if (ref) {
+				if (scope.base?.ref != null && scope.base?.ref !== ref) {
+					ref = createRevisionRange(ref, scope.base?.ref, '..');
+				}
+			} else {
+				ref = scope.base?.ref;
 			}
-		} else {
-			ref = scope.base?.ref;
 		}
 
 		const [contributorsResult, statusFilesResult, currentUserResult] = await Promise.allSettled([
 			repo.git.contributors().getContributors(ref, {
+				all: config.showAllBranches,
 				pathspec: scope.type === 'repo' ? undefined : scope.uri.fsPath,
 				since: getPeriodDate(config.period)?.toISOString(),
 				stats: true,
@@ -732,7 +748,7 @@ export class TimelineWebviewProvider implements WebviewProvider<State, State, Ti
 			}
 		}
 
-		if (config.showAllBranches && config.sliceBy === 'branch' && scope.type !== 'repo') {
+		if (config.showAllBranches && config.sliceBy === 'branch' && scope.type !== 'repo' && !repo.virtual) {
 			const shas = new Set<string>(
 				await repo.git.commits().getLogShas?.('^HEAD', { all: true, pathOrUri: scope.uri, limit: 0 }),
 			);
@@ -887,7 +903,11 @@ export class TimelineWebviewProvider implements WebviewProvider<State, State, Ti
 
 	private _repositorySubscription: SubscriptionManager<Repository> | undefined;
 
-	private async updateScope(scope: TimelineScope | undefined, silent?: boolean): Promise<boolean> {
+	private async updateScope(
+		scope: TimelineScope | undefined,
+		silent?: boolean,
+		allowEquivalent?: boolean,
+	): Promise<boolean> {
 		if (this._tabCloseDebounceTimer != null) {
 			clearTimeout(this._tabCloseDebounceTimer);
 			this._tabCloseDebounceTimer = undefined;
@@ -916,6 +936,7 @@ export class TimelineWebviewProvider implements WebviewProvider<State, State, Ti
 			if (repo != null) {
 				if (areUrisEqual(scope.uri, repo.uri)) {
 					scope.type = 'repo';
+					scope.head ??= getReference(await repo.git.branches().getBranch());
 				}
 
 				this._repositorySubscription ??= new SubscriptionManager(repo, r => this.subscribeToRepository(r));
@@ -952,7 +973,12 @@ export class TimelineWebviewProvider implements WebviewProvider<State, State, Ti
 			this._repositorySubscription?.start();
 		}
 
-		if (areTimelineScopesEqual(scope, this._context.scope) && areEtagsEqual(this._context.etags, etags)) {
+		if (
+			areEtagsEqual(this._context.etags, etags) &&
+			(allowEquivalent
+				? areTimelineScopesEquivalent(scope, this._context.scope)
+				: areTimelineScopesEqual(scope, this._context.scope))
+		) {
 			return false;
 		}
 

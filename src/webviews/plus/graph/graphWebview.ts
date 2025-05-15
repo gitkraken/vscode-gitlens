@@ -6,6 +6,10 @@ import { parseCommandContext } from '../../../commands/commandContext.utils';
 import type { CopyDeepLinkCommandArgs } from '../../../commands/copyDeepLink';
 import type { CopyMessageToClipboardCommandArgs } from '../../../commands/copyMessageToClipboard';
 import type { CopyShaToClipboardCommandArgs } from '../../../commands/copyShaToClipboard';
+import type { ExplainBranchCommandArgs } from '../../../commands/explainBranch';
+import type { ExplainCommitCommandArgs } from '../../../commands/explainCommit';
+import type { ExplainStashCommandArgs } from '../../../commands/explainStash';
+import type { ExplainWipCommandArgs } from '../../../commands/explainWip';
 import type { GenerateChangelogCommandArgs } from '../../../commands/generateChangelog';
 import type { GenerateCommitMessageCommandArgs } from '../../../commands/generateCommitMessage';
 import type { InspectCommandArgs } from '../../../commands/inspect';
@@ -132,6 +136,7 @@ import type { IpcCallMessageType, IpcMessage, IpcNotification } from '../../prot
 import type { WebviewHost, WebviewProvider, WebviewShowingArgs } from '../../webviewProvider';
 import type { WebviewPanelShowCommandArgs, WebviewShowOptions } from '../../webviewsController';
 import { isSerializedState } from '../../webviewsController';
+import type { TimelineCommandArgs } from '../timeline/registration';
 import {
 	formatRepositories,
 	hasGitReference,
@@ -697,6 +702,7 @@ export class GraphWebviewProvider implements WebviewProvider<State, State, Graph
 			this.host.registerWebviewCommand('gitlens.graph.skipPausedOperation', this.skipPausedOperation),
 
 			this.host.registerWebviewCommand('gitlens.ai.generateChangelogFrom:graph', this.generateChangelogFrom),
+			this.host.registerWebviewCommand('gitlens.visualizeHistory.repo:graph', this.visualizeHistoryRepo),
 		);
 
 		return commands;
@@ -3870,7 +3876,7 @@ export class GraphWebviewProvider implements WebviewProvider<State, State, Graph
 		const ref = this.getGraphItemRef(item, 'branch');
 		if (ref == null) return Promise.resolve();
 
-		return executeCommand('gitlens.ai.explainBranch', {
+		return executeCommand<ExplainBranchCommandArgs>('gitlens.ai.explainBranch', {
 			repoPath: ref.repoPath,
 			ref: ref.ref,
 			source: { source: 'graph', type: 'branch' },
@@ -3881,9 +3887,9 @@ export class GraphWebviewProvider implements WebviewProvider<State, State, Graph
 		const ref = this.getGraphItemRef(item, 'revision');
 		if (ref == null) return Promise.resolve();
 
-		return executeCommand('gitlens.ai.explainCommit', {
+		return executeCommand<ExplainCommitCommandArgs>('gitlens.ai.explainCommit', {
 			repoPath: ref.repoPath,
-			ref: ref.ref,
+			rev: ref.ref,
 			source: { source: 'graph', type: 'commit' },
 		});
 	}
@@ -3893,9 +3899,9 @@ export class GraphWebviewProvider implements WebviewProvider<State, State, Graph
 		const ref = this.getGraphItemRef(item, 'stash');
 		if (ref == null) return Promise.resolve();
 
-		return executeCommand('gitlens.ai.explainStash', {
+		return executeCommand<ExplainStashCommandArgs>('gitlens.ai.explainStash', {
 			repoPath: ref.repoPath,
-			ref: ref.ref,
+			rev: ref.ref,
 			source: { source: 'graph', type: 'stash' },
 		});
 	}
@@ -3905,7 +3911,7 @@ export class GraphWebviewProvider implements WebviewProvider<State, State, Graph
 		const ref = this.getGraphItemRef(item, 'revision');
 		if (ref == null) return Promise.resolve();
 
-		return executeCommand('gitlens.ai.explainWip', {
+		return executeCommand<ExplainWipCommandArgs>('gitlens.ai.explainWip', {
 			repoPath: ref.repoPath,
 			source: { source: 'graph', type: 'wip' },
 		});
@@ -4087,6 +4093,14 @@ export class GraphWebviewProvider implements WebviewProvider<State, State, Graph
 		}
 
 		return Promise.resolve();
+	}
+
+	@log()
+	private visualizeHistoryRepo() {
+		void executeCommand<TimelineCommandArgs | undefined>(
+			'gitlens.visualizeHistory',
+			this.repository != null ? { type: 'repo', uri: this.repository.uri } : undefined,
+		);
 	}
 
 	private getCommitFromGraphItemRef(item?: GraphItemContext): Promise<GitCommit | undefined> {

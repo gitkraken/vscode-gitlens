@@ -151,6 +151,7 @@ export class VslsHostService implements Disposable {
 		const [cwd, isRootWorkspace] = this.convertGitCommandCwd(options.cwd);
 
 		const result = await git(
+			this.container,
 			{ ...options, cwd: cwd, cancellation: cancellation },
 			...this.convertGitCommandArgs(args, isRootWorkspace),
 		);
