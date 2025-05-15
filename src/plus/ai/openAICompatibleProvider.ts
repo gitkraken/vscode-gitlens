@@ -27,13 +27,16 @@ export class OpenAICompatibleProvider extends OpenAICompatibleProviderBase<typeo
 		return configuration.get('ai.openaicompatible.url') ?? undefined;
 	}
 
-	private async getOrPromptBaseUrl(silent: boolean): Promise<string | undefined> {
+	private async getOrPromptBaseUrl(silent: boolean, hasApiKey: boolean): Promise<string | undefined> {
 		let url: string | undefined = this.getUrl();
 
-		if (silent || url != null) return url;
+		if (silent || (url != null && hasApiKey)) return url;
 
 		const input = window.createInputBox();
 		input.ignoreFocusOut = true;
+		if (url) {
+			input.value = url;
+		}
 
 		const disposables: Disposable[] = [];
 
@@ -94,9 +97,11 @@ export class OpenAICompatibleProvider extends OpenAICompatibleProviderBase<typeo
 	}
 
 	override async configured(silent: boolean): Promise<boolean> {
-		const url = await this.getOrPromptBaseUrl(silent);
-		if (url == null || isAzureUrl(url)) return false;
+		const hasApiKey = await super.configured(true);
 
-		return super.configured(silent);
+		const url = await this.getOrPromptBaseUrl(silent, hasApiKey);
+		if (!url || isAzureUrl(url)) return false;
+
+		return silent ? hasApiKey : super.configured(silent);
 	}
 }

@@ -27,13 +27,16 @@ export class AzureProvider extends OpenAICompatibleProviderBase<typeof provider.
 		return configuration.get('ai.azure.url') ?? undefined;
 	}
 
-	private async getOrPromptBaseUrl(silent: boolean): Promise<string | undefined> {
+	private async getOrPromptBaseUrl(silent: boolean, hasApiKey: boolean): Promise<string | undefined> {
 		let url: string | undefined = this.getUrl();
 
-		if (silent || url != null) return url;
+		if (silent || (url != null && hasApiKey)) return url;
 
 		const input = window.createInputBox();
 		input.ignoreFocusOut = true;
+		if (url) {
+			input.value = url;
+		}
 
 		const disposables: Disposable[] = [];
 
@@ -94,10 +97,12 @@ export class AzureProvider extends OpenAICompatibleProviderBase<typeof provider.
 	}
 
 	override async configured(silent: boolean): Promise<boolean> {
-		const url = await this.getOrPromptBaseUrl(silent);
-		if (url == null) return false;
+		const hasApiKey = await super.configured(true);
 
-		return super.configured(silent);
+		const url = await this.getOrPromptBaseUrl(silent, hasApiKey);
+		if (!url) return false;
+
+		return silent ? hasApiKey : super.configured(silent);
 	}
 
 	protected override getHeaders<TAction extends AIActionType>(
