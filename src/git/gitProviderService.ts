@@ -83,19 +83,9 @@ import type { LocalInfoFromRemoteUriResult } from './remotes/remoteProvider';
 import { sortRepositories } from './utils/-webview/sorting';
 import { calculateDistribution } from './utils/contributor.utils';
 import { getRemoteThemeIconString, getVisibilityCacheKey } from './utils/remote.utils';
-import { createRevisionRange } from './utils/revision.utils';
 
 const emptyArray: readonly any[] = Object.freeze([]);
 const emptyDisposable: Disposable = Object.freeze({ dispose: () => {} });
-
-const maxDefaultBranchWeight = 100;
-const weightedDefaultBranches = new Map<string, number>([
-	['master', maxDefaultBranchWeight],
-	['main', 15],
-	['default', 10],
-	['develop', 5],
-	['development', 1],
-]);
 
 export type GitProvidersChangeEvent = {
 	readonly added: readonly GitProvider[];
@@ -1539,38 +1529,6 @@ export class GitProviderService implements Disposable {
 	getBlameRange(blame: GitBlame, uri: GitUri, range: Range): GitBlame | undefined {
 		const { provider } = this.getProvider(uri);
 		return provider.getBlameRange(blame, uri, range);
-	}
-
-	@log<GitProviderService['getBranchAheadRange']>({ args: { 0: b => b.name } })
-	async getBranchAheadRange(branch: GitBranch): Promise<string | undefined> {
-		if (branch.upstream?.state.ahead) {
-			return createRevisionRange(branch.upstream?.name, branch.ref, '..');
-		}
-
-		if (branch.upstream == null) {
-			// If we have no upstream branch, try to find a best guess branch to use as the "base"
-			const { values: branches } = await this.branches(branch.repoPath).getBranches({
-				filter: b => weightedDefaultBranches.has(b.name),
-			});
-			if (branches.length > 0) {
-				let weightedBranch: { weight: number; branch: GitBranch } | undefined;
-				for (const branch of branches) {
-					const weight = weightedDefaultBranches.get(branch.name)!;
-					if (weightedBranch == null || weightedBranch.weight < weight) {
-						weightedBranch = { weight: weight, branch: branch };
-					}
-
-					if (weightedBranch.weight === maxDefaultBranchWeight) break;
-				}
-
-				const possibleBranch = weightedBranch!.branch.upstream?.name ?? weightedBranch!.branch.ref;
-				if (possibleBranch !== branch.ref) {
-					return createRevisionRange(possibleBranch, branch.ref, '..');
-				}
-			}
-		}
-
-		return undefined;
 	}
 
 	@log()

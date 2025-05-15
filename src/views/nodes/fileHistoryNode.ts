@@ -5,6 +5,7 @@ import type { GitLog } from '../../git/models/log';
 import type { RepositoryChangeEvent, RepositoryFileSystemChangeEvent } from '../../git/models/repository';
 import { RepositoryChange, RepositoryChangeComparisonMode } from '../../git/models/repository';
 import { deletedOrMissing } from '../../git/models/revision';
+import { getBranchAheadRange } from '../../git/utils/-webview/branch.utils';
 import { configuration } from '../../system/-webview/configuration';
 import { getFolderGlobUri } from '../../system/-webview/path';
 import { gate } from '../../system/decorators/-webview/gate';
@@ -66,7 +67,7 @@ export class FileHistoryNode
 		const children: ViewNode[] = [];
 		if (this.uri.repoPath == null) return children;
 
-		const range = this.branch != null ? await this.view.container.git.getBranchAheadRange(this.branch) : undefined;
+		const range = this.branch != null ? await getBranchAheadRange(this.view.container, this.branch) : undefined;
 		const [logResult, fileStatusesResult, currentUserResult, getBranchAndTagTipsResult, unpublishedCommitsResult] =
 			await Promise.allSettled([
 				this.getLog(),

@@ -5,6 +5,47 @@ import type { MaybePausedResult } from '../../../system/promise';
 import { getSettledValue, pauseOnCancelOrTimeout } from '../../../system/promise';
 import type { BranchTargetInfo, GitBranch } from '../../models/branch';
 import type { PullRequest } from '../../models/pullRequest';
+import { createRevisionRange } from '../revision.utils';
+
+const maxDefaultBranchWeight = 100;
+const weightedDefaultBranches = new Map<string, number>([
+	['master', maxDefaultBranchWeight],
+	['main', 15],
+	['default', 10],
+	['develop', 5],
+	['development', 1],
+]);
+
+export async function getBranchAheadRange(container: Container, branch: GitBranch): Promise<string | undefined> {
+	if (branch.upstream?.state.ahead) {
+		return createRevisionRange(branch.upstream?.name, branch.ref, '..');
+	}
+
+	if (branch.upstream == null) {
+		// If we have no upstream branch, try to find a best guess branch to use as the "base"
+		const { values: branches } = await container.git.branches(branch.repoPath).getBranches({
+			filter: b => weightedDefaultBranches.has(b.name),
+		});
+		if (branches.length > 0) {
+			let weightedBranch: { weight: number; branch: GitBranch } | undefined;
+			for (const branch of branches) {
+				const weight = weightedDefaultBranches.get(branch.name)!;
+				if (weightedBranch == null || weightedBranch.weight < weight) {
+					weightedBranch = { weight: weight, branch: branch };
+				}
+
+				if (weightedBranch.weight === maxDefaultBranchWeight) break;
+			}
+
+			const possibleBranch = weightedBranch!.branch.upstream?.name ?? weightedBranch!.branch.ref;
+			if (possibleBranch !== branch.ref) {
+				return createRevisionRange(possibleBranch, branch.ref, '..');
+			}
+		}
+	}
+
+	return undefined;
+}
 
 export async function getBranchMergeTargetInfo(
 	container: Container,
