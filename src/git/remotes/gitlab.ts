@@ -44,6 +44,7 @@ export class GitLabRemote extends RemoteProvider<GitLabRepositoryDescriptor> {
 		protocol?: string,
 		name?: string,
 		custom: boolean = false,
+		public readonly version?: string,
 	) {
 		super(domain, path, protocol, name, custom);
 	}
@@ -52,8 +53,16 @@ export class GitLabRemote extends RemoteProvider<GitLabRepositoryDescriptor> {
 		return this.custom ? `${this.protocol}://${this.domain}/api` : `https://${this.domain}/api`;
 	}
 
+	get urlPrefix(): string {
+		// before gitlab 12, the /-/ URL syntax did not exist, see
+		// - https://gitlab.com/gitlab-org/gitlab/-/issues/29572
+		// - https://github.com/gitkraken/vscode-gitlens/pull/2022
+		const legacyUrlFormat = this.version && !Number.isNaN(Number(this.version)) && Number(this.version) < 12;
+		return legacyUrlFormat ? '' : '/-';
+	}
+
 	protected override get issueLinkPattern(): string {
-		return `${this.baseUrl}/-/issues/<num>`;
+		return `${this.baseUrl}${this.urlPrefix}/issues/<num>`;
 	}
 
 	private _autolinks: (AutolinkReference | DynamicAutolinkReference)[] | undefined;
@@ -73,7 +82,7 @@ export class GitLabRemote extends RemoteProvider<GitLabRepositoryDescriptor> {
 				},
 				{
 					prefix: '!',
-					url: `${this.baseUrl}/-/merge_requests/<num>`,
+					url: `${this.baseUrl}${this.urlPrefix}/merge_requests/<num>`,
 					alphanumeric: false,
 					ignoreCase: false,
 					title: `Open Merge Request !<num> on ${this.name}`,
@@ -94,7 +103,9 @@ export class GitLabRemote extends RemoteProvider<GitLabRepositoryDescriptor> {
 							? text
 							: text.replace(autolinkFullIssuesRegex, (linkText: string, repo: string, num: string) => {
 									const url = encodeUrl(
-										`${this.protocol}://${this.domain}/${unescapeMarkdown(repo)}/-/issues/${num}`,
+										`${this.protocol}://${this.domain}/${unescapeMarkdown(repo)}${
+											this.urlPrefix
+										}/issues/${num}`,
 									);
 									const title = ` "Open Issue #${num} from ${repo} on ${this.name}"`;
 
@@ -161,7 +172,7 @@ export class GitLabRemote extends RemoteProvider<GitLabRepositoryDescriptor> {
 								provider: this,
 								id: num,
 								prefix: `${ownerAndRepo}#`,
-								url: `${this.protocol}://${this.domain}/${ownerAndRepo}/-/issues/${num}`,
+								url: `${this.protocol}://${this.domain}/${ownerAndRepo}${this.urlPrefix}/issues/${num}`,
 								alphanumeric: false,
 								ignoreCase: true,
 								title: `Open Issue #<num> from ${ownerAndRepo} on ${this.name}`,
@@ -192,7 +203,7 @@ export class GitLabRemote extends RemoteProvider<GitLabRepositoryDescriptor> {
 									autolinkFullMergeRequestsRegex,
 									(linkText: string, repo: string, num: string) => {
 										const url = encodeUrl(
-											`${this.protocol}://${this.domain}/${repo}/-/merge_requests/${num}`,
+											`${this.protocol}://${this.domain}/${repo}${this.urlPrefix}/merge_requests/${num}`,
 										);
 										const title = ` "Open Merge Request !${num} from ${repo} on ${this.name}"`;
 
@@ -263,7 +274,7 @@ export class GitLabRemote extends RemoteProvider<GitLabRepositoryDescriptor> {
 								provider: this,
 								id: num,
 								prefix: `${ownerAndRepo}!`,
-								url: `${this.protocol}://${this.domain}/${ownerAndRepo}/-/merge_requests/${num}`,
+								url: `${this.protocol}://${this.domain}/${ownerAndRepo}${this.urlPrefix}/merge_requests/${num}`,
 								alphanumeric: false,
 								ignoreCase: true,
 								title: `Open Merge Request !<num> from ${ownerAndRepo} on ${this.name}`,
@@ -395,19 +406,19 @@ export class GitLabRemote extends RemoteProvider<GitLabRepositoryDescriptor> {
 	}
 
 	protected getUrlForBranches(): string {
-		return this.encodeUrl(`${this.baseUrl}/-/branches`);
+		return this.encodeUrl(`${this.baseUrl}${this.urlPrefix}/branches`);
 	}
 
 	protected getUrlForBranch(branch: string): string {
-		return this.encodeUrl(`${this.baseUrl}/-/tree/${branch}`);
+		return this.encodeUrl(`${this.baseUrl}${this.urlPrefix}/tree/${branch}`);
 	}
 
 	protected getUrlForCommit(sha: string): string {
-		return this.encodeUrl(`${this.baseUrl}/-/commit/${sha}`);
+		return this.encodeUrl(`${this.baseUrl}${this.urlPrefix}/commit/${sha}`);
 	}
 
 	protected override getUrlForComparison(base: string, head: string, notation: GitRevisionRangeNotation): string {
-		return this.encodeUrl(`${this.baseUrl}/-/compare/${base}${notation}${head}`);
+		return this.encodeUrl(`${this.baseUrl}${this.urlPrefix}/compare/${base}${notation}${head}`);
 	}
 
 	override async isReadyForForCrossForkPullRequestUrls(): Promise<boolean> {
@@ -461,7 +472,9 @@ export class GitLabRemote extends RemoteProvider<GitLabRepositoryDescriptor> {
 			query.set('merge_request[description]', details.description);
 		}
 
-		return `${this.encodeUrl(`${this.getRepoBaseUrl(head.remote.path)}/-/merge_requests/new`)}?${query.toString()}`;
+		return `${this.encodeUrl(
+			`${this.getRepoBaseUrl(head.remote.path)}${this.urlPrefix}/merge_requests/new`,
+		)}?${query.toString()}`;
 	}
 
 	protected getUrlForFile(fileName: string, branch?: string, sha?: string, range?: Range): string {
@@ -476,8 +489,8 @@ export class GitLabRemote extends RemoteProvider<GitLabRepositoryDescriptor> {
 			line = '';
 		}
 
-		if (sha) return `${this.encodeUrl(`${this.baseUrl}/-/blob/${sha}/${fileName}`)}${line}`;
-		if (branch) return `${this.encodeUrl(`${this.baseUrl}/-/blob/${branch}/${fileName}`)}${line}`;
+		if (sha) return `${this.encodeUrl(`${this.baseUrl}${this.urlPrefix}/blob/${sha}/${fileName}`)}${line}`;
+		if (branch) return `${this.encodeUrl(`${this.baseUrl}${this.urlPrefix}/blob/${branch}/${fileName}`)}${line}`;
 		return `${this.encodeUrl(`${this.baseUrl}?path=${fileName}`)}${line}`;
 	}
 }
