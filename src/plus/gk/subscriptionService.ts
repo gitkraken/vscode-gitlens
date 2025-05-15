@@ -114,8 +114,8 @@ export class SubscriptionService implements Disposable {
 		return this._onDidChangeFeaturePreview.event;
 	}
 
-	private _onDidCheckIn = new EventEmitter<void>();
-	get onDidCheckIn(): Event<void> {
+	private _onDidCheckIn = new EventEmitter<{ force?: boolean } | void>();
+	get onDidCheckIn(): Event<{ force?: boolean } | void> {
 		return this._onDidCheckIn.event;
 	}
 
@@ -1067,7 +1067,7 @@ export class SubscriptionService implements Disposable {
 			return;
 		}
 
-		const validating = this.checkInAndValidateCore(session, source, options?.organizationId);
+		const validating = this.checkInAndValidateCore(session, source, options?.organizationId, options?.force);
 		if (!options?.showSlowProgress) return validating;
 
 		// Show progress if we are waiting too long
@@ -1088,6 +1088,7 @@ export class SubscriptionService implements Disposable {
 		session: AuthenticationSession,
 		source: Source | undefined,
 		organizationId?: string,
+		force?: boolean,
 	): Promise<GKCheckInResponse | undefined> {
 		const scope = getLogScope();
 		this._lastValidatedDate = undefined;
@@ -1120,7 +1121,7 @@ export class SubscriptionService implements Disposable {
 				throw new AccountValidationError('Unable to validate account', undefined, rsp.status, rsp.statusText);
 			}
 
-			this._onDidCheckIn.fire();
+			this._onDidCheckIn.fire({ force: force });
 
 			const data: GKCheckInResponse = await rsp.json();
 			this._getCheckInData = () => Promise.resolve(data);
