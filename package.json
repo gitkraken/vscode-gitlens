@@ -7818,7 +7818,7 @@
 			},
 			{
 				"command": "gitlens.timeline.split",
-				"title": "Split Visual File History",
+				"title": "Split Visual History",
 				"category": "GitLens",
 				"icon": "$(split-horizontal)"
 			},

@@ -4531,7 +4531,7 @@
 			}
 		},
 		"gitlens.timeline.split": {
-			"label": "Split Visual File History",
+			"label": "Split Visual History",
 			"icon": "$(split-horizontal)",
 			"commandPalette": "gitlens:enabled && config.gitlens.visualHistory.allowMultiple",
 			"menus": {
