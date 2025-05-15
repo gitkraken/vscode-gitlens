@@ -1,6 +1,7 @@
 import type { TextEditor, Uri } from 'vscode';
 import { ProgressLocation } from 'vscode';
 import type { Container } from '../container';
+import type { GitRepositoryService } from '../git/gitRepositoryService';
 import { GitUri } from '../git/gitUri';
 import { uncommitted, uncommittedStaged } from '../git/models/revision';
 import { showGenericErrorMessage } from '../messages';
@@ -59,8 +60,8 @@ export class ExplainWipCommand extends GlCommandBase {
 		args = { ...args };
 
 		// Get the diff of working changes
-		const diffService = await this.getDiff(editor, uri, args);
-		if (diffService?.getDiff === undefined) {
+		const svc = await this.getRepositoryService(editor, uri, args);
+		if (svc?.diff?.getDiff == null) {
 			void showGenericErrorMessage('Unable to get diff service');
 			return;
 		}
@@ -80,7 +81,7 @@ export class ExplainWipCommand extends GlCommandBase {
 				to = '';
 			}
 
-			const diff = await diffService.getDiff(to, undefined);
+			const diff = await svc.diff.getDiff(to, undefined);
 			if (!diff?.contents) {
 				void showGenericErrorMessage('No working changes found to explain');
 				return;
@@ -92,7 +93,7 @@ export class ExplainWipCommand extends GlCommandBase {
 
 			if (args?.worktreePath) {
 				// Get the worktree name if available
-				const worktrees = await this.container.git.worktrees(args.worktreePath)?.getWorktrees();
+				const worktrees = await svc.worktrees?.getWorktrees();
 				const worktree = worktrees?.find(w => w.path === args.worktreePath);
 
 				if (worktree) {
@@ -138,12 +139,16 @@ export class ExplainWipCommand extends GlCommandBase {
 		}
 	}
 
-	private async getDiff(editor?: TextEditor, uri?: Uri, args?: ExplainWipCommandArgs) {
-		let diffService;
+	private async getRepositoryService(
+		editor?: TextEditor,
+		uri?: Uri,
+		args?: ExplainWipCommandArgs,
+	): Promise<GitRepositoryService | undefined> {
+		let svc;
 		if (args?.worktreePath) {
-			diffService = this.container.git.diff(args.worktreePath);
+			svc = this.container.git.getRepositoryService(args.worktreePath);
 		} else if (args?.repoPath) {
-			diffService = this.container.git.diff(args.repoPath);
+			svc = this.container.git.getRepositoryService(args.repoPath);
 		} else {
 			uri = getCommandUri(uri, editor);
 			const gitUri = uri != null ? await GitUri.fromUri(uri) : undefined;
@@ -154,9 +159,9 @@ export class ExplainWipCommand extends GlCommandBase {
 				'Choose which repository to explain working changes from',
 			);
 
-			diffService = repository?.git.diff();
+			svc = repository?.git;
 		}
 
-		return diffService;
+		return svc;
 	}
 }

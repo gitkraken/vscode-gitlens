@@ -53,11 +53,11 @@ export class DiffWithWorkingCommand extends ActiveEditorCommand {
 			}
 		}
 
+		const svc = this.container.git.getRepositoryService(gitUri.repoPath!);
+
 		if (isInRightSideOfDiffEditor) {
 			try {
-				const diffUris = await this.container.git
-					.diff(gitUri.repoPath!)
-					.getPreviousComparisonUris(gitUri, gitUri.sha);
+				const diffUris = await svc.diff.getPreviousComparisonUris(gitUri, gitUri.sha);
 				gitUri = diffUris?.previous ?? gitUri;
 			} catch (ex) {
 				Logger.error(
@@ -85,9 +85,7 @@ export class DiffWithWorkingCommand extends ActiveEditorCommand {
 
 		// If we are a fake "staged" sha, check the status
 		if (gitUri.isUncommittedStaged) {
-			const status = await this.container.git
-				.status(gitUri.repoPath!)
-				.getStatusForFile?.(gitUri, { renames: false });
+			const status = await svc.status.getStatusForFile?.(gitUri, { renames: false });
 			if (status?.indexStatus != null) {
 				void (await executeCommand<DiffWithCommandArgs>('gitlens.diffWith', {
 					repoPath: gitUri.repoPath,
@@ -103,7 +101,7 @@ export class DiffWithWorkingCommand extends ActiveEditorCommand {
 
 		uri = gitUri.toFileUri();
 
-		let workingUri = await this.container.git.getWorkingUri(gitUri.repoPath!, uri);
+		let workingUri = await svc.getWorkingUri(uri);
 		if (workingUri == null) {
 			const picked = await showRevisionFilesPicker(this.container, createReference('HEAD', gitUri.repoPath!), {
 				ignoreFocusOut: true,

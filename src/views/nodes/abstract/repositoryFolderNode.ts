@@ -20,17 +20,22 @@ export abstract class RepositoryFolderNode<
 	TView extends View = View,
 	TChild extends ViewNode = ViewNode,
 > extends SubscribeableViewNode<'repo-folder', TView> {
+	protected override splatted = true;
+
 	constructor(
 		uri: GitUri,
 		view: TView,
 		protected override readonly parent: ViewNode,
 		public readonly repo: Repository,
+		splatted: boolean,
 		private readonly options?: { showBranchAndLastFetched?: boolean },
 	) {
 		super('repo-folder', uri, view, parent);
 
 		this.updateContext({ repository: this.repo });
 		this._uniqueId = getViewNodeId(this.type, this.context);
+
+		this.splatted = splatted;
 	}
 
 	private _child: TChild | undefined;
@@ -62,13 +67,15 @@ export abstract class RepositoryFolderNode<
 	}
 
 	async getTreeItem(): Promise<TreeItem> {
+		this.splatted = false;
+
 		const branch = await this.repo.git.branches.getBranch();
 		const ahead = Boolean(branch?.upstream?.state.ahead);
 		const behind = Boolean(branch?.upstream?.state.behind);
 
 		const expand = ahead || behind || this.repo.starred || this.view.container.git.isRepositoryForEditor(this.repo);
 
-		let label = this.repo.name ?? this.uri.repoPath ?? '';
+		let label = this.repo.formattedName ?? this.uri.repoPath ?? '';
 		if (this.options?.showBranchAndLastFetched && branch != null) {
 			const remove = `: ${basename(branch.name)}`;
 			const suffix = `: ${branch.name}`;
@@ -122,11 +129,13 @@ export abstract class RepositoryFolderNode<
 			}
 
 			item.tooltip = new MarkdownString(
-				`${this.repo.name ?? this.uri.repoPath ?? ''}${
+				`${this.repo.formattedName ?? this.uri.repoPath ?? ''}${
 					lastFetched
 						? `${pad(GlyphChars.Dash, 2, 2)}Last fetched ${formatLastFetched(lastFetched, false)}`
 						: ''
-				}${this.repo.name ? `\n${this.uri.repoPath}` : ''}\n\nCurrent branch $(git-branch) ${branch.name}${
+				}${this.repo.formattedName ? `\n${this.uri.repoPath}` : ''}\n\nCurrent branch $(git-branch) ${
+					branch.name
+				}${
 					branch.upstream != null
 						? ` is ${branch.getTrackingStatus({
 								empty: branch.upstream.missing
@@ -146,7 +155,9 @@ export abstract class RepositoryFolderNode<
 				true,
 			);
 		} else {
-			item.tooltip = this.repo.name ? `${this.repo.name}\n${this.uri.repoPath}` : this.uri.repoPath ?? '';
+			item.tooltip = this.repo.formattedName
+				? `${this.repo.formattedName}\n${this.uri.repoPath}`
+				: this.uri.repoPath ?? '';
 		}
 
 		return item;

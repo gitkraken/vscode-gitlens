@@ -3,6 +3,7 @@ import type { Container } from '../../../container';
 import { CancellationError } from '../../../errors';
 import type { MaybePausedResult } from '../../../system/promise';
 import { getSettledValue, pauseOnCancelOrTimeout } from '../../../system/promise';
+import type { GitRepositoryService } from '../../gitRepositoryService';
 import type { BranchTargetInfo, GitBranch } from '../../models/branch';
 import type { PullRequest } from '../../models/pullRequest';
 import { createRevisionRange } from '../revision.utils';
@@ -16,14 +17,14 @@ const weightedDefaultBranches = new Map<string, number>([
 	['development', 1],
 ]);
 
-export async function getBranchAheadRange(container: Container, branch: GitBranch): Promise<string | undefined> {
+export async function getBranchAheadRange(svc: GitRepositoryService, branch: GitBranch): Promise<string | undefined> {
 	if (branch.upstream?.state.ahead) {
 		return createRevisionRange(branch.upstream?.name, branch.ref, '..');
 	}
 
 	if (branch.upstream == null) {
 		// If we have no upstream branch, try to find a best guess branch to use as the "base"
-		const { values: branches } = await container.git.branches(branch.repoPath).getBranches({
+		const { values: branches } = await svc.branches.getBranches({
 			filter: b => weightedDefaultBranches.has(b.name),
 		});
 		if (branches.length > 0) {
@@ -59,7 +60,9 @@ export async function getBranchMergeTargetInfo(
 ): Promise<BranchTargetInfo> {
 	const [targetResult, baseResult, defaultResult] = await Promise.allSettled([
 		getBranchMergeTargetNameWithoutFallback(container, branch, options),
-		container.git.branches(branch.repoPath).getBaseBranchName?.(branch.name, options?.cancellation),
+		container.git
+			.getRepositoryService(branch.repoPath)
+			.branches.getBaseBranchName?.(branch.name, options?.cancellation),
 		getDefaultBranchName(container, branch.repoPath, branch.getRemoteName(), {
 			cancellation: options?.cancellation,
 		}),
@@ -86,7 +89,9 @@ export async function getBranchMergeTargetName(
 ): Promise<MaybePausedResult<string | undefined>> {
 	async function getMergeTargetFallback() {
 		const [baseResult, defaultResult] = await Promise.allSettled([
-			container.git.branches(branch.repoPath).getBaseBranchName?.(branch.name, options?.cancellation),
+			container.git
+				.getRepositoryService(branch.repoPath)
+				.branches.getBaseBranchName?.(branch.name, options?.cancellation),
 			getDefaultBranchName(container, branch.repoPath, branch.getRemoteName(), {
 				cancellation: options?.cancellation,
 			}),
@@ -132,13 +137,12 @@ async function getBranchMergeTargetNameWithoutFallback(
 		timeout?: number;
 	},
 ): Promise<MaybePausedResult<string | undefined>> {
+	const svc = container.git.getRepositoryService(branch.repoPath);
 	const targetBranch = options?.detectedOnly
-		? await container.git.branches(branch.repoPath).getStoredDetectedMergeTargetBranchName?.(branch.name)
-		: await container.git.branches(branch.repoPath).getStoredMergeTargetBranchName?.(branch.name);
+		? await svc.branches.getStoredDetectedMergeTargetBranchName?.(branch.name)
+		: await svc.branches.getStoredMergeTargetBranchName?.(branch.name);
 	if (targetBranch) {
-		const validated = await container.git
-			.refs(branch.repoPath)
-			.getSymbolicReferenceName?.(targetBranch, options?.cancellation);
+		const validated = await svc.refs.getSymbolicReferenceName?.(targetBranch, options?.cancellation);
 		return { value: validated || targetBranch, paused: false };
 	}
 
@@ -149,7 +153,7 @@ async function getBranchMergeTargetNameWithoutFallback(
 			if (pr?.refs?.base == null) return undefined;
 
 			const name = `${branch.getRemoteName()}/${pr.refs.base.branch}`;
-			void container.git.branches(branch.repoPath).storeMergeTargetBranchName?.(branch.name, name);
+			void svc.branches.storeMergeTargetBranchName?.(branch.name, name);
 
 			return name;
 		}),
@@ -164,7 +168,9 @@ export async function getDefaultBranchName(
 	remoteName?: string,
 	options?: { cancellation?: CancellationToken },
 ): Promise<string | undefined> {
-	const name = await container.git.branches(repoPath).getDefaultBranchName(remoteName, options?.cancellation);
+	const name = await container.git
+		.getRepositoryService(repoPath)
+		.branches.getDefaultBranchName(remoteName, options?.cancellation);
 	return name ?? getDefaultBranchNameFromIntegration(container, repoPath, options);
 }
 
@@ -173,7 +179,9 @@ export async function getDefaultBranchNameFromIntegration(
 	repoPath: string,
 	options?: { cancellation?: CancellationToken },
 ): Promise<string | undefined> {
-	const remote = await container.git.remotes(repoPath).getBestRemoteWithIntegration(undefined, options?.cancellation);
+	const remote = await container.git
+		.getRepositoryService(repoPath)
+		.remotes.getBestRemoteWithIntegration(undefined, options?.cancellation);
 	if (remote == null) return undefined;
 
 	const integration = await remote.getIntegration();

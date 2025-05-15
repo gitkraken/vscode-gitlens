@@ -58,8 +58,8 @@ export class DiffLineWithPreviousCommand extends ActiveEditorCommand {
 
 		try {
 			const diffUris = await this.container.git
-				.diff(gitUri.repoPath!)
-				.getPreviousComparisonUrisForRange(gitUri, gitUri.sha, args.range, {
+				.getRepositoryService(gitUri.repoPath!)
+				.diff.getPreviousComparisonUrisForRange(gitUri, gitUri.sha, args.range, {
 					skipFirstRev: skipFirstRev,
 				});
 

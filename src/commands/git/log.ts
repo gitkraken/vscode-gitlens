@@ -118,7 +118,7 @@ export class LogGitCommand extends QuickCommand<State> {
 			assertStateStepRepository(state);
 
 			if (state.reference === 'HEAD') {
-				const branch = await state.repo.git.branches().getBranch();
+				const branch = await state.repo.git.branches.getBranch();
 				state.reference = branch;
 			}
 
@@ -164,8 +164,8 @@ export class LogGitCommand extends QuickCommand<State> {
 				if (log == null) {
 					log =
 						state.fileName != null
-							? state.repo.git.commits().getLogForPath(state.fileName, rev, { isFolder: false })
-							: state.repo.git.commits().getLog(rev);
+							? state.repo.git.commits.getLogForPath(state.fileName, rev, { isFolder: false })
+							: state.repo.git.commits.getLog(rev);
 					context.cache.set(rev, log);
 				}
 
@@ -187,7 +187,7 @@ export class LogGitCommand extends QuickCommand<State> {
 			}
 
 			if (!(state.reference instanceof GitCommit) || state.reference.file != null) {
-				state.reference = await state.repo.git.commits().getCommit(state.reference.ref);
+				state.reference = await state.repo.git.commits.getCommit(state.reference.ref);
 			}
 
 			let result: StepResult<ReturnType<typeof getSteps>>;

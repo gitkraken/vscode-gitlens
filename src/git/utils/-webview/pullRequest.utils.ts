@@ -57,10 +57,11 @@ export async function ensurePullRequestRefs(
 	refs ??= getComparisonRefsForPullRequest(repo.path, pr.refs);
 	const range = createRevisionRange(refs.base.ref, refs.head.ref, '...');
 
-	let counts = await repo.git.commits.getLeftRightCommitCount(range);
+	const commitsProvider = repo.git.commits;
+	let counts = await commitsProvider.getLeftRightCommitCount(range);
 	if (counts == null) {
 		if (await ensurePullRequestRemote(pr, repo, options)) {
-			counts = await repo.git.commits.getLeftRightCommitCount(range);
+			counts = await commitsProvider.getLeftRightCommitCount(range);
 		}
 	}
 

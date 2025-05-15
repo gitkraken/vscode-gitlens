@@ -220,6 +220,7 @@ export class BranchNode
 				}
 			}
 
+			const svc = this.view.container.git.getRepositoryService(this.uri.repoPath!);
 			const [
 				logResult,
 				getBranchAndTagTipsResult,
@@ -230,25 +231,17 @@ export class BranchNode
 				targetResult,
 			] = await Promise.allSettled([
 				this.getLog(),
-				this.view.container.git.getBranchesAndTagsTipsLookup(this.uri.repoPath, branch.name),
-				this.options.showStatus && branch.current
-					? this.view.container.git.status(this.uri.repoPath!).getStatus()
-					: undefined,
-				this.options.showStatus && branch.current
-					? this.view.container.git.status(this.uri.repoPath!).getPausedOperationStatus?.()
-					: undefined,
+				svc.getBranchesAndTagsTipsLookup(branch.name),
+				this.options.showStatus && branch.current ? svc.status.getStatus() : undefined,
+				this.options.showStatus && branch.current ? svc.status.getPausedOperationStatus?.() : undefined,
 				!branch.remote
-					? getBranchAheadRange(this.view.container, branch).then(range =>
+					? getBranchAheadRange(svc, branch).then(range =>
 							range
-								? this.view.container.git
-										.commits(this.uri.repoPath!)
-										.getLogShas(range, { limit: 0, merges: this.options.showMergeCommits })
+								? svc.commits.getLogShas(range, { limit: 0, merges: this.options.showMergeCommits })
 								: undefined,
 					  )
 					: undefined,
-				loadComparisonDefaultCompareWith
-					? this.view.container.git.branches(this.branch.repoPath).getBaseBranchName?.(this.branch.name)
-					: undefined,
+				loadComparisonDefaultCompareWith ? svc.branches.getBaseBranchName?.(this.branch.name) : undefined,
 				loadComparisonDefaultCompareWith
 					? getBranchMergeTargetName(this.view.container, this.branch, {
 							associatedPullRequest: prPromise,
@@ -276,7 +269,8 @@ export class BranchNode
 						this,
 						branch,
 						pausedOpsStatus,
-						status ?? (await this.view.container.git.status(this.uri.repoPath!).getStatus()),
+						status ??
+							(await this.view.container.git.getRepositoryService(this.uri.repoPath!).status.getStatus()),
 						this.root,
 					),
 				);
@@ -387,7 +381,10 @@ export class BranchNode
 			if (log.hasMore) {
 				children.push(
 					new LoadMoreNode(this.view, this, children[children.length - 1], {
-						getCount: () => this.view.container.git.commits(branch.repoPath).getCommitCount(branch.name),
+						getCount: () =>
+							this.view.container.git
+								.getRepositoryService(branch.repoPath)
+								.commits.getCommitCount(branch.name),
 					}),
 				);
 			}
@@ -490,12 +487,14 @@ export class BranchNode
 				limit = Math.min(ahead + 1, limit * 2);
 			}
 
-			this._log = await this.view.container.git.commits(this.uri.repoPath!).getLog(this.ref.ref, {
-				limit: limit,
-				authors: this.options?.authors,
-				merges: this.options?.showMergeCommits,
-				stashes: this.options?.showStashes,
-			});
+			this._log = await this.view.container.git
+				.getRepositoryService(this.uri.repoPath!)
+				.commits.getLog(this.ref.ref, {
+					limit: limit,
+					authors: this.options?.authors,
+					merges: this.options?.showMergeCommits,
+					stashes: this.options?.showStashes,
+				});
 		}
 
 		return this._log;
@@ -677,7 +676,7 @@ export async function getBranchNodeParts(
 			}
 		} else {
 			const providers = getHighlanderProviders(
-				await container.git.remotes(branch.repoPath).getRemotesWithProviders(),
+				await container.git.getRepositoryService(branch.repoPath).remotes.getRemotesWithProviders(),
 			);
 			const providerName = providers?.length ? providers[0].name : undefined;
 
@@ -718,7 +717,7 @@ export async function getBranchNodeParts(
 	let localUnpublished = false;
 	if (status === 'local') {
 		// If there are any remotes then say this is unpublished, otherwise local
-		const remotes = await container.git.remotes(branch.repoPath).getRemotes();
+		const remotes = await container.git.getRepositoryService(branch.repoPath).remotes.getRemotes();
 		if (remotes.length) {
 			localUnpublished = true;
 		}

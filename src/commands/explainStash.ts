@@ -68,7 +68,7 @@ export class ExplainStashCommand extends GlCommandBase {
 				args.rev = pick.ref;
 				commit = pick;
 			} else {
-				commit = await repository.git.commits().getCommit(args.rev);
+				commit = await repository.git.commits.getCommit(args.rev);
 				if (commit == null) {
 					void showGenericErrorMessage('Unable to find the specified stash commit');
 					return;

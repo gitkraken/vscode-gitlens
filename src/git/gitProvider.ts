@@ -780,13 +780,10 @@ export type GitSubProvider =
 	| GitTagsSubProvider
 	| GitWorktreesSubProvider;
 
-export type GitSubProviderProps = keyof {
+type GitSubProviders = {
 	[P in keyof GitProvider as NonNullable<GitProvider[P]> extends GitSubProvider ? P : never]: GitProvider[P];
 };
-
-export type NonNullableGitSubProviderProps = keyof {
-	[P in keyof GitProvider as GitProvider[P] extends GitSubProvider ? P : never]: GitProvider[P];
-};
+export type GitSubProvidersProps = keyof GitSubProviders;
 
 export type GitSubProviderForRepo<T extends GitSubProvider> = {
 	[K in keyof T]: RemoveFirstArg<T[K]>;

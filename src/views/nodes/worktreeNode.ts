@@ -136,14 +136,14 @@ export class WorktreeNode extends CacheableChildrenViewNode<'worktree', ViewsWit
 				}
 			}
 
+			const svc = this.view.container.git.getRepositoryService(this.uri.repoPath!);
+
 			const [logResult, getBranchAndTagTipsResult, unpublishedCommitsResult] = await Promise.allSettled([
 				this.getLog(),
-				this.view.container.git.getBranchesAndTagsTipsLookup(this.uri.repoPath),
+				svc.getBranchesAndTagsTipsLookup(),
 				branch != null && !branch.remote
-					? getBranchAheadRange(this.view.container, branch).then(range =>
-							range
-								? this.view.container.git.commits(this.uri.repoPath!).getLogShas(range, { limit: 0 })
-								: undefined,
+					? getBranchAheadRange(svc, branch).then(range =>
+							range ? svc.commits.getLogShas(range, { limit: 0 }) : undefined,
 					  )
 					: undefined,
 			]);
@@ -317,7 +317,9 @@ export class WorktreeNode extends CacheableChildrenViewNode<'worktree', ViewsWit
 							);
 						} else {
 							const providerName = getHighlanderProviderName(
-								await this.view.container.git.remotes(branch.repoPath).getRemotesWithProviders(),
+								await this.view.container.git
+									.getRepositoryService(branch.repoPath)
+									.remotes.getRemotesWithProviders(),
 							);
 
 							tooltip.appendMarkdown(
@@ -445,10 +447,12 @@ export class WorktreeNode extends CacheableChildrenViewNode<'worktree', ViewsWit
 	private _log: GitLog | undefined;
 	private async getLog() {
 		if (this._log == null) {
-			this._log = await this.view.container.git.commits(this.uri.repoPath!).getLog(this.worktree.sha, {
-				limit: this.limit ?? this.view.config.defaultItemLimit,
-				stashes: this.view.config.showStashes,
-			});
+			this._log = await this.view.container.git
+				.getRepositoryService(this.uri.repoPath!)
+				.commits.getLog(this.worktree.sha, {
+					limit: this.limit ?? this.view.config.defaultItemLimit,
+					stashes: this.view.config.showStashes,
+				});
 		}
 
 		return this._log;

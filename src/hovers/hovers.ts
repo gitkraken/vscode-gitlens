@@ -198,7 +198,7 @@ export async function detailsMessage(
 	}>,
 ): Promise<MarkdownString | undefined> {
 	const remotesResult = await pauseOnCancelOrTimeout(
-		options?.remotes ?? container.git.remotes(commit.repoPath).getBestRemotesWithProviders(),
+		options?.remotes ?? container.git.getRepositoryService(commit.repoPath).remotes.getBestRemotesWithProviders(),
 		options?.cancellation,
 		options?.timeout,
 	);

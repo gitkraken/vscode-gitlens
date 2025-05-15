@@ -229,7 +229,7 @@ export class BitbucketIntegration extends HostingIntegration<
 			return undefined;
 		}
 
-		const remotes = await flatSettled(this.container.git.openRepositories.map(r => r.git.remotes().getRemotes()));
+		const remotes = await flatSettled(this.container.git.openRepositories.map(r => r.git.remotes.getRemotes()));
 		const workspaceRepos = await nonnullSettled(
 			remotes.map(async r => {
 				const integration = await r.getIntegration();

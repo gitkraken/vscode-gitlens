@@ -127,7 +127,7 @@ export class GitBranch implements GitBranchReference {
 
 	@memoize()
 	async getEnrichedAutolinks(): Promise<Map<string, EnrichedAutolink> | undefined> {
-		const remote = await this.container.git.remotes(this.repoPath).getBestRemoteWithProvider();
+		const remote = await this.container.git.getRepositoryService(this.repoPath).remotes.getBestRemoteWithProvider();
 		const branchAutolinks = await this.container.autolinks.getBranchAutolinks(this.name, remote);
 		return this.container.autolinks.getEnrichedAutolinks(branchAutolinks, remote);
 	}
@@ -154,7 +154,7 @@ export class GitBranch implements GitBranchReference {
 		const remoteName = this.getRemoteName();
 		if (remoteName == null) return undefined;
 
-		return this.container.git.remotes(this.repoPath).getRemote(remoteName);
+		return this.container.git.getRepositoryService(this.repoPath).remotes.getRemote(remoteName);
 	}
 
 	@memoize()
@@ -182,11 +182,15 @@ export class GitBranch implements GitBranchReference {
 		if (this.worktree === false) return undefined;
 		if (this.worktree == null) {
 			const { id } = this;
-			return this.container.git.worktrees(this.repoPath)?.getWorktree(wt => wt.branch?.id === id, cancellation);
+			return this.container.git
+				.getRepositoryService(this.repoPath)
+				.worktrees?.getWorktree(wt => wt.branch?.id === id, cancellation);
 		}
 
 		const { path } = this.worktree;
-		return this.container.git.worktrees(this.repoPath)?.getWorktree(wt => wt.path === path, cancellation);
+		return this.container.git
+			.getRepositoryService(this.repoPath)
+			.worktrees?.getWorktree(wt => wt.path === path, cancellation);
 	}
 
 	get starred(): boolean {

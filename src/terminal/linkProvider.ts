@@ -99,11 +99,9 @@ export class GitTerminalLinkProvider implements Disposable, TerminalLinkProvider
 				continue;
 			}
 
+			const svc = this.container.git.getRepositoryService(repoPath);
 			// TODO@eamodio handle paging
-			branchResults ??= await this.container.git
-				.branches(repoPath)
-				.getBranches(undefined, token)
-				.catch(() => undefined);
+			branchResults ??= await svc.branches.getBranches(undefined, token).catch(() => undefined);
 			if (token.isCancellationRequested) break;
 
 			let branch = branchResults?.values.find(r => r.name === ref);
@@ -124,10 +122,7 @@ export class GitTerminalLinkProvider implements Disposable, TerminalLinkProvider
 			}
 
 			// TODO@eamodio handle paging
-			tagResults ??= await this.container.git
-				.tags(repoPath)
-				.getTags(undefined, token)
-				.catch(() => undefined);
+			tagResults ??= await svc.tags.getTags(undefined, token).catch(() => undefined);
 			if (token.isCancellationRequested) break;
 
 			const tag = tagResults?.values.find(r => r.name === ref);
@@ -166,12 +161,7 @@ export class GitTerminalLinkProvider implements Disposable, TerminalLinkProvider
 				continue;
 			}
 
-			if (
-				await this.container.git
-					.refs(repoPath)
-					.isValidReference(ref, undefined, token)
-					.catch(() => false)
-			) {
+			if (await svc.refs.isValidReference(ref, undefined, token).catch(() => false)) {
 				const link: GitTerminalLink<ShowQuickCommitCommandArgs | InspectCommandArgs> = {
 					startIndex: match.index,
 					length: ref.length,

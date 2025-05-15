@@ -43,13 +43,15 @@ export class OpenFileAtRevisionFromCommand extends ActiveEditorCommand {
 			args.line = editor?.selection.active.line ?? 0;
 		}
 
+		const svc = this.container.git.getRepositoryService(gitUri.repoPath);
+
 		if (args.reference == null) {
 			if (args?.stash) {
-				const path = this.container.git.getRelativePath(gitUri, gitUri.repoPath);
+				const path = svc.getRelativePath(gitUri, gitUri.repoPath);
 
 				const title = `Open Changes with Stash${pad(GlyphChars.Dot, 2, 2)}`;
 				const pick = await showStashPicker(
-					this.container.git.stash(gitUri.repoPath)?.getStash(),
+					svc.stash?.getStash(),
 					`${title}${gitUri.getFormattedFileName({ truncateTo: quickPickTitleMaxChars - title.length })}`,
 					'Choose a stash to compare with',
 					// Stashes should always come with files, so this should be fine (but protect it just in case)
@@ -71,15 +73,12 @@ export class OpenFileAtRevisionFromCommand extends ActiveEditorCommand {
 						keyboard: {
 							keys: ['right', 'alt+right', 'ctrl+right'],
 							onDidPressKey: async (_key, item) => {
-								await openFileAtRevision(
-									this.container.git.getRevisionUri(gitUri.repoPath!, item.ref, gitUri.fsPath),
-									{
-										annotationType: args.annotationType,
-										line: args.line,
-										preserveFocus: true,
-										preview: true,
-									},
-								);
+								await openFileAtRevision(svc.getRevisionUri(item.ref, gitUri.fsPath), {
+									annotationType: args.annotationType,
+									line: args.line,
+									preserveFocus: true,
+									preview: true,
+								});
 							},
 						},
 					},
@@ -90,13 +89,10 @@ export class OpenFileAtRevisionFromCommand extends ActiveEditorCommand {
 			}
 		}
 
-		await openFileAtRevision(
-			this.container.git.getRevisionUri(gitUri.repoPath, args.reference.ref, gitUri.fsPath),
-			{
-				annotationType: args.annotationType,
-				line: args.line,
-				...args.showOptions,
-			},
-		);
+		await openFileAtRevision(svc.getRevisionUri(args.reference.ref, gitUri.fsPath), {
+			annotationType: args.annotationType,
+			line: args.line,
+			...args.showOptions,
+		});
 	}
 }

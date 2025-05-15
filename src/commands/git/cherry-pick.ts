@@ -90,7 +90,7 @@ export class CherryPickGitCommand extends QuickCommand<State> {
 
 	private async execute(state: CherryPickStepState<State<GitReference[]>>) {
 		try {
-			await state.repo.git.commits().cherryPick?.(
+			await state.repo.git.commits.cherryPick?.(
 				state.references.map(c => c.ref),
 				{
 					edit: state.flags.includes('--edit'),
@@ -102,10 +102,10 @@ export class CherryPickGitCommand extends QuickCommand<State> {
 			if (ex instanceof CherryPickError && ex.reason === CherryPickErrorReason.EmptyCommit) {
 				let pausedOperation: GitPausedOperationStatus | undefined;
 				try {
-					pausedOperation = await state.repo.git.status().getPausedOperationStatus?.();
+					pausedOperation = await state.repo.git.status.getPausedOperationStatus?.();
 					pausedOperation ??= await state.repo
 						.waitForRepoChange(500)
-						.then(() => state.repo.git.status().getPausedOperationStatus?.());
+						.then(() => state.repo.git.status.getPausedOperationStatus?.());
 				} catch {}
 
 				const pausedAt = pausedOperation
@@ -123,7 +123,7 @@ export class CherryPickGitCommand extends QuickCommand<State> {
 					cancel,
 				);
 				if (result === skip) {
-					return void skipPausedOperation(state.repo);
+					return void skipPausedOperation(state.repo.git);
 				}
 
 				void executeCommand('gitlens.showCommitsView');
@@ -181,7 +181,7 @@ export class CherryPickGitCommand extends QuickCommand<State> {
 			}
 
 			if (context.destination == null) {
-				const branch = await state.repo.git.branches().getBranch();
+				const branch = await state.repo.git.branches.getBranch();
 				if (branch == null) break;
 
 				context.destination = branch;
@@ -222,13 +222,13 @@ export class CherryPickGitCommand extends QuickCommand<State> {
 			}
 
 			if (context.selectedBranchOrTag == null && state.references?.length) {
-				const branches = await state.repo.git.branches().getBranchesWithCommits(
+				const branches = await state.repo.git.branches.getBranchesWithCommits(
 					state.references.map(r => r.ref),
 					undefined,
 					{ mode: 'contains' },
 				);
 				if (branches.length) {
-					const branch = await state.repo.git.branches().getBranch(branches[0]);
+					const branch = await state.repo.git.branches.getBranch(branches[0]);
 					if (branch != null) {
 						context.selectedBranchOrTag = branch;
 					}
@@ -240,7 +240,7 @@ export class CherryPickGitCommand extends QuickCommand<State> {
 
 				let log = context.cache.get(rev);
 				if (log == null) {
-					log = state.repo.git.commits().getLog(rev, { merges: 'first-parent' });
+					log = state.repo.git.commits.getLog(rev, { merges: 'first-parent' });
 					context.cache.set(rev, log);
 				}
 

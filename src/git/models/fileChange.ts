@@ -61,7 +61,7 @@ export class GitFileChange implements GitFileChangeShape {
 
 	@memoize()
 	getWorkingUri(): Promise<Uri | undefined> {
-		return this.container.git.getWorkingUri(this.repoPath, this.uri);
+		return this.container.git.getRepositoryService(this.repoPath).getWorkingUri(this.uri);
 	}
 
 	formatStats(

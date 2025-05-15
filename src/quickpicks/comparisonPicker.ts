@@ -77,7 +77,7 @@ export async function showComparisonPicker(
 
 			if (isBranchReference(head)) {
 				// get the merge target for the branch
-				const branch = await container.git.branches(repoPath).getBranch(head.name);
+				const branch = await container.git.getRepositoryService(repoPath).branches.getBranch(head.name);
 				if (branch != null) {
 					const info = await getBranchMergeTargetInfo(container, branch);
 					let target;

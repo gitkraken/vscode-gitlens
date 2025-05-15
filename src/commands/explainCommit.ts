@@ -73,7 +73,7 @@ export class ExplainCommitCommand extends GlCommandBase {
 		try {
 			let commit: GitCommit | undefined;
 			if (args.rev == null) {
-				const commitsProvider = repository.git.commits();
+				const commitsProvider = repository.git.commits;
 				const log = await commitsProvider.getLog();
 				const pick = await showCommitPicker(log, 'Explain Commit Changes', 'Choose a commit to explain');
 				if (pick?.sha == null) return;
@@ -81,7 +81,7 @@ export class ExplainCommitCommand extends GlCommandBase {
 				commit = pick;
 			} else {
 				// Get the commit
-				commit = await repository.git.commits().getCommit(args.rev);
+				commit = await repository.git.commits.getCommit(args.rev);
 				if (commit == null) {
 					void showGenericErrorMessage('Unable to find the specified commit');
 					return;

@@ -3,7 +3,7 @@ import { EntityIdentifierUtils } from '@gitkraken/provider-apis/entity-identifie
 import type { Disposable } from 'vscode';
 import type { HeadersInit } from '@env/fetch';
 import { getAvatarUri } from '../../avatars';
-import type { IntegrationIds } from '../../constants.integrations';
+import type { IntegrationId } from '../../constants.integrations';
 import type { Container } from '../../container';
 import type { GitCommit } from '../../git/models/commit';
 import type { PullRequest } from '../../git/models/pullRequest';
@@ -52,7 +52,7 @@ import type {
 } from './models/drafts';
 
 export interface ProviderAuth {
-	provider: IntegrationIds;
+	provider: IntegrationId;
 	token: string;
 }
 
@@ -744,14 +744,14 @@ export class DraftService implements Disposable {
 	}
 
 	async getProviderAuthFromRepoOrIntegrationId(
-		repoOrIntegrationId: Repository | IntegrationIds,
+		repoOrIntegrationId: Repository | IntegrationId,
 	): Promise<ProviderAuth | undefined> {
 		let integration;
 		if (isRepository(repoOrIntegrationId)) {
-			const remote = await repoOrIntegrationId.git.remotes.getBestRemoteWithIntegration();
-			if (remote == null) return undefined;
+			const remoteProvider = await repoOrIntegrationId.git.remotes.getBestRemoteWithIntegration();
+			if (remoteProvider == null) return undefined;
 
-			integration = await remote.getIntegration();
+			integration = await remoteProvider.getIntegration();
 		} else {
 			const metadata = providersMetadata[repoOrIntegrationId];
 			if (metadata == null) return undefined;
@@ -815,13 +815,13 @@ export class DraftService implements Disposable {
 	): Promise<Draft[]>;
 	async getCodeSuggestions(
 		launchpadItem: LaunchpadItem,
-		integrationId: IntegrationIds,
+		integrationId: IntegrationId,
 		options?: { includeArchived?: boolean },
 	): Promise<Draft[]>;
 	@log<DraftService['getCodeSuggestions']>({ args: { 0: i => i.id, 1: r => (isRepository(r) ? r.id : r) } })
 	async getCodeSuggestions(
 		item: PullRequest | LaunchpadItem,
-		repositoryOrIntegrationId: Repository | IntegrationIds,
+		repositoryOrIntegrationId: Repository | IntegrationId,
 		options?: { includeArchived?: boolean },
 	): Promise<Draft[]> {
 		if (!supportsCodeSuggest(item.provider)) return [];

@@ -238,16 +238,16 @@ export class ResultsFilesNode extends ViewNode<'results-files', ViewsWithCommits
 
 		const ref = this.filter === FilesQueryFilter.Left ? this.ref2 : this.ref1;
 
-		const mergeBase = await this.view.container.git
-			.refs(this.repoPath)
-			.getMergeBase(this.ref1 || 'HEAD', this.ref2 || 'HEAD');
+		const svc = this.view.container.git.getRepositoryService(this.repoPath);
+
+		const mergeBase = await svc.refs.getMergeBase(this.ref1 || 'HEAD', this.ref2 || 'HEAD');
 		if (mergeBase != null) {
-			const files = await this.view.container.git.diff(this.uri.repoPath!).getDiffStatus(`${mergeBase}..${ref}`);
+			const files = await svc.diff.getDiffStatus(`${mergeBase}..${ref}`);
 			if (files != null) {
 				filterTo = new Set<string>(files.map(f => f.path));
 			}
 		} else {
-			const commit = await this.view.container.git.commits(this.uri.repoPath!).getCommit(ref || 'HEAD');
+			const commit = await svc.commits.getCommit(ref || 'HEAD');
 			if (commit?.fileset?.files != null) {
 				filterTo = new Set<string>(commit.fileset?.files.map(f => f.path));
 			}

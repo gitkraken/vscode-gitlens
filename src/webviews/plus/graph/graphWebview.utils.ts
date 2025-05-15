@@ -1,22 +1,15 @@
-import {
-	GitCloudHostIntegrationId,
-	GitSelfManagedHostIntegrationId,
-	IssuesCloudHostIntegrationId,
-} from '../../../constants.integrations';
+import { HostingIntegrationId, IssueIntegrationId } from '../../../constants.integrations';
 import type { GitReference } from '../../../git/models/reference';
+import { RemoteResourceType } from '../../../git/models/remoteResource';
 import type { Repository } from '../../../git/models/repository';
-import type { GkProviderId } from '../../../git/models/repositoryIdentities';
-import type { RemoteProviderId } from '../../../git/remotes/remoteProvider';
-import { toRepositoryShapeWithProvider } from '../../../git/utils/-webview/repository.utils';
 import { isGitReference } from '../../../git/utils/reference.utils';
-import type { Unbrand } from '../../../system/brand';
+import { remoteProviderIdToIntegrationId } from '../../../plus/integrations/integrationService';
 import { getSettledValue } from '../../../system/promise';
 import { isWebviewItemContext, isWebviewItemGroupContext } from '../../../system/webview';
 import type {
 	GraphBranchContextValue,
 	GraphCommitContextValue,
 	GraphContributorContextValue,
-	GraphHostingServiceType,
 	GraphIssueContextValue,
 	GraphIssueTrackerType,
 	GraphItemContext,
@@ -33,14 +26,33 @@ import type {
 } from './protocol';
 
 export async function formatRepositories(repositories: Repository[]): Promise<GraphRepository[]> {
-	if (!repositories.length) return [];
+	if (repositories.length === 0) return Promise.resolve([]);
 
 	const result = await Promise.allSettled(
 		repositories.map<Promise<GraphRepository>>(async repo => {
 			const remotes = await repo.git.remotes.getBestRemotesWithProviders();
-			const remote = remotes.find(r => r.supportsIntegration()) ?? remotes[0];
+			const remote = remotes.find(r => r.hasIntegration()) ?? remotes[0];
 
-			return toRepositoryShapeWithProvider(repo, remote);
+			return {
+				formattedName: repo.formattedName,
+				id: repo.id,
+				name: repo.name,
+				path: repo.path,
+				provider: remote?.provider
+					? {
+							name: remote.provider.name,
+							integration: remote.hasIntegration()
+								? {
+										id: remoteProviderIdToIntegrationId(remote.provider.id)!,
+										connected: remote.maybeIntegrationConnected ?? false,
+								  }
+								: undefined,
+							icon: remote.provider.icon === 'remote' ? 'cloud' : remote.provider.icon,
+							url: await remote.provider.url({ type: RemoteResourceType.Repo }),
+					  }
+					: undefined,
+				isVirtual: repo.provider.virtual,
+			};
 		}),
 	);
 	return result.map(r => getSettledValue(r)).filter(r => r != null);
@@ -127,93 +139,22 @@ export function hasGitReference(o: unknown): o is { ref: GitReference } {
 	return isGitReference(o.ref);
 }
 
-export function toGraphHostingServiceType(id: string): GraphHostingServiceType | undefined {
-	switch (id) {
-		case 'github' satisfies RemoteProviderId:
-		case 'github' satisfies Unbrand<GkProviderId>:
-		case GitCloudHostIntegrationId.GitHub:
-			return 'github';
-
-		case 'cloud-github-enterprise' satisfies RemoteProviderId:
-		case 'githubEnterprise' satisfies Unbrand<GkProviderId>:
-		case GitSelfManagedHostIntegrationId.CloudGitHubEnterprise:
-			return 'githubEnterprise';
-
-		case 'gitlab' satisfies RemoteProviderId:
-		case 'gitlab' satisfies Unbrand<GkProviderId>:
-		case GitCloudHostIntegrationId.GitLab:
-			return 'gitlab';
-
-		case 'cloud-gitlab-self-hosted' satisfies RemoteProviderId:
-		case 'gitlabSelfHosted' satisfies Unbrand<GkProviderId>:
-		case GitSelfManagedHostIntegrationId.CloudGitLabSelfHosted:
-			return 'gitlabSelfHosted';
-
-		case 'azure-devops' satisfies RemoteProviderId:
-		case 'azureDevops' satisfies Unbrand<GkProviderId>:
-		case 'azure':
-		case GitCloudHostIntegrationId.AzureDevOps:
-			return 'azureDevops';
-
-		case 'bitbucket' satisfies RemoteProviderId:
-		case 'bitbucket' satisfies Unbrand<GkProviderId>:
-		case GitCloudHostIntegrationId.Bitbucket:
-			return 'bitbucket';
-
-		case 'bitbucket-server' satisfies RemoteProviderId:
-		case 'bitbucketServer' satisfies Unbrand<GkProviderId>:
-		case GitSelfManagedHostIntegrationId.BitbucketServer:
-			return 'bitbucketServer';
-
-		default:
-			return undefined;
-	}
-}
-
 export function toGraphIssueTrackerType(id: string): GraphIssueTrackerType | undefined {
 	switch (id) {
-		case 'github' satisfies RemoteProviderId:
-		case 'github' satisfies Unbrand<GkProviderId>:
-		case GitCloudHostIntegrationId.GitHub:
+		case HostingIntegrationId.GitHub:
 			return 'github';
-
-		case 'cloud-github-enterprise' satisfies RemoteProviderId:
-		case 'githubEnterprise' satisfies Unbrand<GkProviderId>:
-		case GitSelfManagedHostIntegrationId.CloudGitHubEnterprise:
-			return 'githubEnterprise';
-
-		case 'gitlab' satisfies RemoteProviderId:
-		case 'gitlab' satisfies Unbrand<GkProviderId>:
-		case GitCloudHostIntegrationId.GitLab:
+		case HostingIntegrationId.GitLab:
 			return 'gitlab';
-
-		case 'cloud-gitlab-self-hosted' satisfies RemoteProviderId:
-		case 'gitlabSelfHosted' satisfies Unbrand<GkProviderId>:
-		case GitSelfManagedHostIntegrationId.CloudGitLabSelfHosted:
-			return 'gitlabSelfHosted';
-
-		case 'azure-devops' satisfies RemoteProviderId:
-		case 'azureDevops' satisfies Unbrand<GkProviderId>:
-		case 'azure':
-		case GitCloudHostIntegrationId.AzureDevOps:
-			return 'azureDevops';
-
-		case 'bitbucket' satisfies RemoteProviderId:
-		case 'bitbucket' satisfies Unbrand<GkProviderId>:
-		case GitCloudHostIntegrationId.Bitbucket:
-			return 'bitbucket';
-
-		// case 'bitbucket-server' satisfies RemoteProviderId:
-		// case 'bitbucketServer' satisfies Unbrand<GkProviderId>:
-		// case SelfHostedIntegrationId.BitbucketServer:
-		// 	return 'bitbucketServer';
-
-		case IssuesCloudHostIntegrationId.Jira:
+		case IssueIntegrationId.Jira:
 			return 'jiraCloud';
-
-		// case IssueIntegrationId.JiraServer:
-		// 	return 'jiraServer';
-
+		case HostingIntegrationId.AzureDevOps:
+		case 'azure':
+		case 'azure-devops':
+			// TODO: Remove the casting once this is officially recognized by the component
+			return 'azureDevops' as GraphIssueTrackerType;
+		case 'bitbucket':
+			// TODO: Remove the casting once this is officially recognized by the component
+			return HostingIntegrationId.Bitbucket as GraphIssueTrackerType;
 		default:
 			return undefined;
 	}

@@ -498,15 +498,16 @@ export class AIProviderService implements Disposable {
 		sourceContext: AIExplainSource,
 		options?: { cancellation?: CancellationToken; progress?: ProgressOptions },
 	): Promise<AISummarizeResult | undefined> {
+		const svc = this.container.git.getRepositoryService(commitOrRevision.repoPath);
 		return this.explainChanges(
 			async cancellation => {
-				const diff = await this.container.git.diff(commitOrRevision.repoPath).getDiff?.(commitOrRevision.ref);
+				const diff = await svc.diff.getDiff?.(commitOrRevision.ref);
 				if (!diff?.contents) throw new AINoRequestDataError('No changes found to explain.');
 				if (cancellation.isCancellationRequested) throw new CancellationError();
 
 				const commit = isCommit(commitOrRevision)
 					? commitOrRevision
-					: await this.container.git.commits(commitOrRevision.repoPath).getCommit(commitOrRevision.ref);
+					: await svc.commits.getCommit(commitOrRevision.ref);
 				if (commit == null) throw new AINoRequestDataError('No commit found to explain.');
 				if (cancellation.isCancellationRequested) throw new CancellationError();
 
@@ -516,10 +517,7 @@ export class AIProviderService implements Disposable {
 					if (cancellation.isCancellationRequested) throw new CancellationError();
 				}
 
-				return {
-					diff: diff.contents,
-					message: commit.message,
-				};
+				return { diff: diff.contents, message: commit.message };
 			},
 			sourceContext,
 			options,
@@ -1252,9 +1250,9 @@ export class AIProviderService implements Disposable {
 		} else if (Array.isArray(changesOrRepo)) {
 			changes = changesOrRepo.join('\n');
 		} else {
-			let diff = await changesOrRepo.git.diff().getDiff?.(uncommittedStaged);
+			let diff = await changesOrRepo.git.diff.getDiff?.(uncommittedStaged);
 			if (!diff?.contents) {
-				diff = await changesOrRepo.git.diff().getDiff?.(uncommitted);
+				diff = await changesOrRepo.git.diff.getDiff?.(uncommitted);
 				if (!diff?.contents) throw new Error('No changes to generate a commit message from.');
 			}
 			if (options?.cancellation?.isCancellationRequested) return undefined;
@@ -1523,7 +1521,7 @@ export async function prepareCompareDataForAIRequest(
 	},
 ): Promise<{ diff: string; logMessages: string } | undefined> {
 	const { cancellation, reportNoDiffService, reportNoCommitsService, reportNoChanges } = options ?? {};
-	const diffService = repo.git.diff();
+	const diffService = repo.git.diff;
 	if (diffService?.getDiff === undefined) {
 		if (reportNoDiffService) {
 			reportNoDiffService();
@@ -1531,7 +1529,7 @@ export async function prepareCompareDataForAIRequest(
 		}
 	}
 
-	const commitsService = repo.git.commits();
+	const commitsService = repo.git.commits;
 	if (commitsService?.getLog === undefined) {
 		if (reportNoCommitsService) {
 			reportNoCommitsService();

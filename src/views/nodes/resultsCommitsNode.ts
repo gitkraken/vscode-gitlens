@@ -92,9 +92,9 @@ export class ResultsCommitsNode<View extends ViewsWithCommits = ViewsWithCommits
 			return [new MessageNode(this.view, this, 'No results found')];
 		}
 
-		const [getBranchAndTagTips] = await Promise.all([
-			this.view.container.git.getBranchesAndTagsTipsLookup(this.uri.repoPath),
-		]);
+		const getBranchAndTagTips = await this.view.container.git
+			.getRepositoryService(this.uri.repoPath!)
+			.getBranchesAndTagsTipsLookup();
 
 		const children: ViewNode[] = [];
 		if (this._options.autolinks) {

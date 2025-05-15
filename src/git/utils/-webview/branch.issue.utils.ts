@@ -34,7 +34,9 @@ export async function addAssociatedIssueToBranch(
 			return;
 		}
 		associatedIssues.push(encodeIssueOrPullRequestForGitConfig(issue, owner));
-		await container.git.config(branch.repoPath).setConfig?.(key, JSON.stringify(associatedIssues));
+		await container.git
+			.getRepositoryService(branch.repoPath)
+			.config.setConfig?.(key, JSON.stringify(associatedIssues));
 	} catch (ex) {
 		Logger.error(ex, 'addAssociatedIssueToBranch');
 	}
@@ -96,9 +98,11 @@ export async function removeAssociatedIssueFromBranch(
 			: [];
 		associatedIssues = associatedIssues.filter(i => i.entityId !== id);
 		if (associatedIssues.length === 0) {
-			await container.git.config(branch.repoPath).setConfig?.(key, undefined);
+			await container.git.getRepositoryService(branch.repoPath).config.setConfig?.(key, undefined);
 		} else {
-			await container.git.config(branch.repoPath).setConfig?.(key, JSON.stringify(associatedIssues));
+			await container.git
+				.getRepositoryService(branch.repoPath)
+				.config.setConfig?.(key, JSON.stringify(associatedIssues));
 		}
 	} catch (ex) {
 		Logger.error(ex, 'removeAssociatedIssueFromBranch');
@@ -110,6 +114,6 @@ async function getConfigKeyAndEncodedAssociatedIssuesForBranch(
 	branch: GitBranchReference,
 ): Promise<{ key: GitConfigKeys; encoded: string | undefined }> {
 	const key = `branch.${branch.name}.gk-associated-issues` satisfies GitConfigKeys;
-	const encoded = await container.git.config(branch.repoPath).getConfig?.(key);
+	const encoded = await container.git.getRepositoryService(branch.repoPath).config.getConfig?.(key);
 	return { key: key, encoded: encoded };
 }

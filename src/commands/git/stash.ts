@@ -324,7 +324,7 @@ export class StashGitCommand extends QuickCommand<State> {
 		while (this.canStepsContinue(state)) {
 			if (state.counter < 3 || state.reference == null) {
 				const result: StepResult<GitStashReference> = yield* pickStashStep(state, context, {
-					gitStash: await state.repo.git.stash()?.getStash(),
+					gitStash: await state.repo.git.stash?.getStash(),
 					placeholder: (_context, stash) =>
 						stash == null
 							? `No stashes found in ${state.repo.formattedName}`
@@ -347,16 +347,16 @@ export class StashGitCommand extends QuickCommand<State> {
 			endSteps(state);
 
 			try {
-				await state.repo.git.stash()?.applyStash(
+				await state.repo.git.stash?.applyStash(
 					// pop can only take a stash index, e.g. `stash@{1}`
 					state.subcommand === 'pop' ? `stash@{${state.reference.stashNumber}}` : state.reference.ref,
 					{ deleteAfter: state.subcommand === 'pop' },
 				);
 
 				if (state.reference.message) {
-					const scmRepository = await this.container.git.getScmRepository(state.repo.path);
-					if (scmRepository != null && !scmRepository.inputBox.value) {
-						scmRepository.inputBox.value = state.reference.message;
+					const scmRepo = await state.repo.git.getScmRepository();
+					if (scmRepo != null && !scmRepo.inputBox.value) {
+						scmRepo.inputBox.value = state.reference.message;
 					}
 				}
 			} catch (ex) {
@@ -429,7 +429,7 @@ export class StashGitCommand extends QuickCommand<State> {
 		while (this.canStepsContinue(state)) {
 			if (state.counter < 3 || !state.references?.length) {
 				const result: StepResult<GitStashReference[]> = yield* pickStashesStep(state, context, {
-					gitStash: await state.repo.git.stash()?.getStash(),
+					gitStash: await state.repo.git.stash?.getStash(),
 					placeholder: (_context, stash) =>
 						stash == null ? `No stashes found in ${state.repo.formattedName}` : 'Choose stashes to delete',
 					picked: state.references?.map(r => r.ref),
@@ -454,7 +454,7 @@ export class StashGitCommand extends QuickCommand<State> {
 			for (const ref of state.references) {
 				try {
 					// drop can only take a stash index, e.g. `stash@{1}`
-					await state.repo.git.stash()?.deleteStash(`stash@{${ref.stashNumber}}`, ref.ref);
+					await state.repo.git.stash?.deleteStash(`stash@{${ref.stashNumber}}`, ref.ref);
 				} catch (ex) {
 					Logger.error(ex, context.title);
 
@@ -488,7 +488,7 @@ export class StashGitCommand extends QuickCommand<State> {
 		while (this.canStepsContinue(state)) {
 			if (state.counter < 3 || state.reference == null) {
 				const result: StepResult<GitStashCommit> = yield* pickStashStep(state, context, {
-					gitStash: await state.repo.git.stash()?.getStash(),
+					gitStash: await state.repo.git.stash?.getStash(),
 					placeholder: (_context, stash) =>
 						stash == null ? `No stashes found in ${state.repo.formattedName}` : 'Choose a stash',
 					picked: state.reference?.ref,
@@ -527,8 +527,8 @@ export class StashGitCommand extends QuickCommand<State> {
 		while (this.canStepsContinue(state)) {
 			if (state.counter < 3 || state.message == null) {
 				if (state.message == null) {
-					const scmRepository = await this.container.git.getScmRepository(state.repo.path);
-					state.message = scmRepository?.inputBox.value;
+					const scmRepo = await state.repo.git.getScmRepository();
+					state.message = scmRepo?.inputBox.value;
 				}
 
 				const result = yield* this.pushCommandInputMessageStep(state, context);
@@ -547,9 +547,9 @@ export class StashGitCommand extends QuickCommand<State> {
 
 			try {
 				if (state.flags.includes('--snapshot')) {
-					await state.repo.git.stash()?.saveSnapshot(state.message);
+					await state.repo.git.stash?.saveSnapshot(state.message);
 				} else {
-					await state.repo.git.stash()?.saveStash(state.message, state.uris, {
+					await state.repo.git.stash?.saveStash(state.message, state.uris, {
 						includeUntracked: state.flags.includes('--include-untracked'),
 						keepIndex: state.flags.includes('--keep-index'),
 						onlyStaged: state.flags.includes('--staged'),
@@ -650,13 +650,11 @@ export class StashGitCommand extends QuickCommand<State> {
 					using resume = step.freeze?.();
 
 					try {
-						const diff = await state.repo.git
-							.diff()
-							.getDiff?.(
-								state.flags.includes('--staged') ? uncommittedStaged : uncommitted,
-								undefined,
-								state.uris?.length ? { uris: state.uris } : undefined,
-							);
+						const diff = await state.repo.git.diff.getDiff?.(
+							state.flags.includes('--staged') ? uncommittedStaged : uncommitted,
+							undefined,
+							state.uris?.length ? { uris: state.uris } : undefined,
+						);
 						if (!diff?.contents) {
 							void window.showInformationMessage('No changes to generate a stash message from.');
 							return;
@@ -792,7 +790,7 @@ export class StashGitCommand extends QuickCommand<State> {
 		while (this.canStepsContinue(state)) {
 			if (state.counter < 3 || state.reference == null) {
 				const result: StepResult<GitStashReference> = yield* pickStashStep(state, context, {
-					gitStash: await state.repo.git.stash()?.getStash(),
+					gitStash: await state.repo.git.stash?.getStash(),
 					placeholder: (_context, stash) =>
 						stash == null ? `No stashes found in ${state.repo.formattedName}` : 'Choose a stash to rename',
 					picked: state.reference?.ref,
@@ -818,9 +816,12 @@ export class StashGitCommand extends QuickCommand<State> {
 			endSteps(state);
 
 			try {
-				await state.repo.git
-					.stash()
-					?.renameStash(state.reference.name, state.reference.ref, state.message, state.reference.stashOnRef);
+				await state.repo.git.stash?.renameStash(
+					state.reference.name,
+					state.reference.ref,
+					state.message,
+					state.reference.stashOnRef,
+				);
 			} catch (ex) {
 				Logger.error(ex, context.title);
 				void showGenericErrorMessage(ex.message);
