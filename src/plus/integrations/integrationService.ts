@@ -173,8 +173,8 @@ export class IntegrationService implements Disposable {
 		}
 	}
 
-	private onUserCheckedIn() {
-		void this.syncCloudIntegrations(false);
+	private onUserCheckedIn(options?: { force?: boolean } | void) {
+		void this.syncCloudIntegrations(Boolean(options?.force));
 	}
 
 	private onDidChangeSubscription(e: SubscriptionChangeEvent) {
