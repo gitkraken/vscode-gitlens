@@ -157,7 +157,7 @@ export class GlActiveWork extends SignalWatcher(LitElement) {
 						class="section-heading-action"
 						appearance="toolbar"
 						tooltip="Visualize Repo History"
-						href=${createCommandLink('gitlens.home.visualizeHistory.repo:home', {
+						href=${createCommandLink('gitlens.visualizeHistory.repo:home', {
 							type: 'repo',
 							repoPath: this._activeOverviewState.state!.repository.path,
 						} satisfies OpenInTimelineParams)}

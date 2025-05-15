@@ -136,6 +136,7 @@ import type { IpcCallMessageType, IpcMessage, IpcNotification } from '../../prot
 import type { WebviewHost, WebviewProvider, WebviewShowingArgs } from '../../webviewProvider';
 import type { WebviewPanelShowCommandArgs, WebviewShowOptions } from '../../webviewsController';
 import { isSerializedState } from '../../webviewsController';
+import type { TimelineCommandArgs } from '../timeline/registration';
 import {
 	formatRepositories,
 	hasGitReference,
@@ -701,6 +702,7 @@ export class GraphWebviewProvider implements WebviewProvider<State, State, Graph
 			this.host.registerWebviewCommand('gitlens.graph.skipPausedOperation', this.skipPausedOperation),
 
 			this.host.registerWebviewCommand('gitlens.ai.generateChangelogFrom:graph', this.generateChangelogFrom),
+			this.host.registerWebviewCommand('gitlens.visualizeHistory.repo:graph', this.visualizeHistoryRepo),
 		);
 
 		return commands;
@@ -4091,6 +4093,14 @@ export class GraphWebviewProvider implements WebviewProvider<State, State, Graph
 		}
 
 		return Promise.resolve();
+	}
+
+	@log()
+	private visualizeHistoryRepo() {
+		void executeCommand<TimelineCommandArgs | undefined>(
+			'gitlens.visualizeHistory',
+			this.repository != null ? { type: 'repo', uri: this.repository.uri } : undefined,
+		);
 	}
 
 	private getCommitFromGraphItemRef(item?: GraphItemContext): Promise<GitCommit | undefined> {
