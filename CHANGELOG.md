@@ -6,6 +6,8 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/) and this p
 
 ## [Unreleased]
 
+## [17.1.0] - 2025-05-15
+
 ### Added
 
 - Adds AI-powered "Explain" commands for work-in-progress (WIP) changes, commits, stashes, and branches
@@ -6179,7 +6181,8 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/) and this p
 
 - Initial release but still heavily a work in progress.
 
-[unreleased]: https://github.com/gitkraken/vscode-gitlens/compare/v17.0.3...HEAD
+[unreleased]: https://github.com/gitkraken/vscode-gitlens/compare/v17.1.0...HEAD
+[17.1.0]: https://github.com/gitkraken/vscode-gitlens/compare/v17.0.3...gitkraken:v17.1.0
 [17.0.3]: https://github.com/gitkraken/vscode-gitlens/compare/v17.0.2...gitkraken:v17.0.3
 [17.0.2]: https://github.com/gitkraken/vscode-gitlens/compare/v17.0.1...gitkraken:v17.0.2
 [17.0.1]: https://github.com/gitkraken/vscode-gitlens/compare/v17.0.0...gitkraken:v17.0.1
