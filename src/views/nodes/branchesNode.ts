@@ -39,10 +39,10 @@ export class BranchesNode extends CacheableChildrenViewNode<'branches', ViewsWit
 		if (this.children == null) {
 			const showRemoteBranches = this.view.type === 'branches' && this.view.config.showRemoteBranches;
 			const defaultRemote = showRemoteBranches
-				? (await this.repo.git.remotes().getDefaultRemote())?.name
+				? (await this.repo.git.remotes.getDefaultRemote())?.name
 				: undefined;
 
-			const options: Parameters<ReturnType<typeof this.repo.git.branches>['getBranches']>['0'] = {
+			const options: Parameters<(typeof this.repo.git.branches)['getBranches']>['0'] = {
 				// only show local branches or remote branches for the default remote
 				filter: b =>
 					!b.remote || (showRemoteBranches && defaultRemote != null && b.getRemoteName() === defaultRemote),
@@ -56,7 +56,7 @@ export class BranchesNode extends CacheableChildrenViewNode<'branches', ViewsWit
 			};
 
 			const branches = new PageableResult<GitBranch>(p =>
-				this.repo.git.branches().getBranches({ ...options, paging: p }),
+				this.repo.git.branches.getBranches({ ...options, paging: p }),
 			);
 
 			let localUpstreamNames: Set<string> | undefined;
@@ -117,7 +117,7 @@ export class BranchesNode extends CacheableChildrenViewNode<'branches', ViewsWit
 		const item = new TreeItem('Branches', TreeItemCollapsibleState.Collapsed);
 		item.id = this.id;
 		item.contextValue = ContextValues.Branches;
-		if ((await this.repo.git.remotes().getRemotes()).length) {
+		if ((await this.repo.git.remotes.getRemotes()).length) {
 			item.contextValue += '+remotes';
 		}
 		// TODO@axosoft-ramint Temporary workaround, remove when our git commands work on closed repos.

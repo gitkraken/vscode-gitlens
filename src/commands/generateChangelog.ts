@@ -49,9 +49,9 @@ export class GenerateChangelogCommand extends GlCommandBase {
 			});
 			if (result == null) return;
 
-			const mergeBase = await this.container.git
-				.refs(result.repoPath)
-				.getMergeBase(result.head.ref, result.base.ref);
+			const svc = this.container.git.getRepositoryService(result.repoPath);
+
+			const mergeBase = await svc.refs.getMergeBase(result.head.ref, result.base.ref);
 
 			await generateChangelogAndOpenMarkdownDocument(
 				this.container,
@@ -69,9 +69,9 @@ export class GenerateChangelogCommand extends GlCommandBase {
 						head: { ref: result.head.ref, label: `\`${result.head.ref}\`` },
 					};
 
-					const log = await this.container.git
-						.commits(result.repoPath)
-						.getLog(createRevisionRange(mergeBase ?? result.base.ref, result.head.ref, '..'));
+					const log = await svc.commits.getLog(
+						createRevisionRange(mergeBase ?? result.base.ref, result.head.ref, '..'),
+					);
 					if (!log?.commits?.size) return { changes: [], range: range };
 
 					const changes = getChangesForChangelog(this.container, range, log);

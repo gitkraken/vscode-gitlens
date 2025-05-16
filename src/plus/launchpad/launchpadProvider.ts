@@ -572,7 +572,7 @@ export class LaunchpadProvider implements Disposable {
 		const [repo, remote] = match;
 
 		const remoteBranchName = `${remote.name}/${pr.refs?.head.branch ?? pr.headRef?.name}`;
-		const matchingLocalBranch = await repo.git.branches().getLocalBranchByUpstream?.(remoteBranchName);
+		const matchingLocalBranch = await repo.git.branches.getLocalBranchByUpstream?.(remoteBranchName);
 
 		return { repo: repo, remote: remote, localBranch: matchingLocalBranch };
 	}
@@ -591,7 +591,7 @@ export class LaunchpadProvider implements Disposable {
 		async function matchRemotes(repo: Repository) {
 			if (uniqueRemoteUrls.size === 0) return;
 
-			const remotes = await repo.git.remotes().getRemotes();
+			const remotes = await repo.git.remotes.getRemotes();
 
 			for (const remote of remotes) {
 				if (uniqueRemoteUrls.size === 0) return;

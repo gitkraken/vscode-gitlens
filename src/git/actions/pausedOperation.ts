@@ -1,62 +1,29 @@
 import { window } from 'vscode';
-import type { Container } from '../../container';
 import { executeCommand } from '../../system/-webview/command';
 import { PausedOperationContinueError, PausedOperationContinueErrorReason } from '../errors';
+import type { GitRepositoryService } from '../gitRepositoryService';
 import type { GitPausedOperationStatus } from '../models/pausedOperationStatus';
-import { Repository } from '../models/repository';
 import { getReferenceLabel } from '../utils/reference.utils';
 
-export async function abortPausedOperation(repo: Repository, options?: { quit?: boolean }): Promise<void>;
-export async function abortPausedOperation(
-	container: Container,
-	repoPath: string,
-	options?: { quit?: boolean },
-): Promise<void>;
-export async function abortPausedOperation(
-	repoOrContainer: Repository | Container,
-	repoPathOrOptions?: string | { quit?: boolean },
-	options?: { quit?: boolean },
-): Promise<void> {
+export async function abortPausedOperation(svc: GitRepositoryService, options?: { quit?: boolean }): Promise<void> {
 	try {
-		if (repoOrContainer instanceof Repository) {
-			return await repoOrContainer.git.status().abortPausedOperation?.(repoPathOrOptions as { quit?: boolean });
-		}
-
-		return await repoOrContainer.git.status(repoPathOrOptions as string).abortPausedOperation?.(options);
+		return await svc.status.abortPausedOperation?.(options);
 	} catch (ex) {
 		void window.showErrorMessage(ex.message);
 	}
 }
 
-export async function continuePausedOperation(repo: Repository): Promise<void>;
-
-export async function continuePausedOperation(container: Container, repoPath: string): Promise<void>;
-
-export async function continuePausedOperation(
-	repoOrContainer: Repository | Container,
-	repoPath?: string,
-): Promise<void> {
-	return continuePausedOperationCore(repoOrContainer, repoPath);
+export async function continuePausedOperation(svc: GitRepositoryService): Promise<void> {
+	return continuePausedOperationCore(svc);
 }
 
-export async function skipPausedOperation(repo: Repository): Promise<void>;
-
-export async function skipPausedOperation(container: Container, repoPath: string): Promise<void>;
-
-export async function skipPausedOperation(repoOrContainer: Repository | Container, repoPath?: string): Promise<void> {
-	return continuePausedOperationCore(repoOrContainer, repoPath, true);
+export async function skipPausedOperation(svc: GitRepositoryService): Promise<void> {
+	return continuePausedOperationCore(svc, true);
 }
 
-async function continuePausedOperationCore(
-	repoOrContainer: Repository | Container,
-	repoPath?: string,
-	skip: boolean = false,
-): Promise<void> {
+async function continuePausedOperationCore(svc: GitRepositoryService, skip: boolean = false): Promise<void> {
 	try {
-		if (repoOrContainer instanceof Repository) {
-			return await repoOrContainer.git.status().continuePausedOperation?.(skip ? { skip: true } : undefined);
-		}
-		return await repoOrContainer.git.status(repoPath!).continuePausedOperation?.(skip ? { skip: true } : undefined);
+		return await svc.status.continuePausedOperation?.(skip ? { skip: true } : undefined);
 	} catch (ex) {
 		if (
 			ex instanceof PausedOperationContinueError &&
@@ -64,14 +31,13 @@ async function continuePausedOperationCore(
 		) {
 			let operation: GitPausedOperationStatus | undefined;
 			try {
-				const repo =
-					repoOrContainer instanceof Repository
-						? repoOrContainer
-						: repoOrContainer.git.getRepository(repoPath!);
-				operation = await repo?.git.status().getPausedOperationStatus?.();
-				operation ??= await repo
-					?.waitForRepoChange(500)
-					.then(() => repo?.git.status().getPausedOperationStatus?.());
+				const repo = svc.getRepository();
+				if (repo != null) {
+					operation = await repo.git.status.getPausedOperationStatus?.();
+					operation ??= await repo
+						.waitForRepoChange(500)
+						.then(() => repo.git.status.getPausedOperationStatus?.());
+				}
 			} catch {}
 			operation ??= ex.operation;
 
@@ -89,7 +55,7 @@ async function continuePausedOperationCore(
 				cancel,
 			);
 			if (result === skip) {
-				return void continuePausedOperationCore(repoOrContainer, repoPath, true);
+				return void continuePausedOperationCore(svc, true);
 			}
 
 			void executeCommand('gitlens.showCommitsView');

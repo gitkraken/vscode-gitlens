@@ -34,7 +34,7 @@ export async function showRevisionFilesPicker(
 	const ref = revision.ref;
 
 	function getRevisionUri(item: RevisionQuickPickItem) {
-		return container.git.getRevisionUri(repoPath, ref, `${repoPath}/${item.item.path}`);
+		return container.git.getRepositoryService(repoPath).getRevisionUri(ref, `${repoPath}/${item.item.path}`);
 	}
 
 	try {
@@ -86,7 +86,7 @@ export async function showRevisionFilesPicker(
 		const allowFolders = options?.allowFolders ?? false;
 		const pickFolder: QuickInputButton = { iconPath: new ThemeIcon('folder-opened'), tooltip: 'Choose Folder' };
 
-		const tree = await container.git.revision(repoPath).getTreeForRevision(ref);
+		const tree = await container.git.getRepositoryService(repoPath).revision.getTreeForRevision(ref);
 		const items: RevisionQuickPickItem[] = [
 			{ label: `..`, alwaysShow: true, item: undefined! } satisfies RevisionQuickPickItem,
 			...filterMap(tree, file => {

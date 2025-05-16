@@ -24,26 +24,12 @@ import { getLoggableName, Logger } from '../../system/logger';
 import { getLogScope, startLogScope } from '../../system/logger.scope';
 import { updateRecordValue } from '../../system/object';
 import { basename, normalizePath } from '../../system/path';
-import type { GitProviderDescriptor, GitRepositoryProvider } from '../gitProvider';
-import type { GitProviderService } from '../gitProviderService';
+import type { GitProviderDescriptor } from '../gitProvider';
+import type { GitRepositoryService } from '../gitRepositoryService';
 import { getBranchNameWithoutRemote, getRemoteNameFromBranchName } from '../utils/branch.utils';
 import { getReferenceNameWithoutRemote, isBranchReference } from '../utils/reference.utils';
 import type { GitBranch } from './branch';
 import type { GitBranchReference, GitReference } from './reference';
-
-type GitProviderRepoKeys =
-	| keyof GitRepositoryProvider
-	| 'getBestRevisionUri'
-	| 'getRevisionUri'
-	| 'getWorkingUri'
-	| 'supports';
-
-export type GitProviderServiceForRepo = Pick<
-	{
-		[K in keyof GitProviderService]: RemoveFirstArg<GitProviderService[K]>;
-	},
-	GitProviderRepoKeys
->;
 
 const dotGitWatcherGlobFiles = 'index,HEAD,*_HEAD,MERGE_*,rebase-apply/**,rebase-merge/**,sequencer/**';
 const dotGitWatcherGlobWorktreeFiles =
@@ -228,23 +214,20 @@ export class Repository implements Disposable {
 		}
 
 		// Update the name if it is a worktree
-		void this.git
-			.config()
-			.getGitDir?.()
-			.then(gd => {
-				if (gd?.commonUri == null) return;
+		void this.git.config.getGitDir?.().then(gd => {
+			if (gd?.commonUri == null) return;
 
-				let path = gd.commonUri.path;
-				if (path.endsWith('/.git')) {
-					path = path.substring(0, path.length - 5);
-				}
+			let path = gd.commonUri.path;
+			if (path.endsWith('/.git')) {
+				path = path.substring(0, path.length - 5);
+			}
 
-				this._commonRepositoryName = basename(path);
-				const prefix = `${this._commonRepositoryName}: `;
-				if (!this._name.startsWith(prefix)) {
-					this._name = `${prefix}${this._name}`;
-				}
-			});
+			this._commonRepositoryName = basename(path);
+			const prefix = `${this._commonRepositoryName}: `;
+			if (!this._name.startsWith(prefix)) {
+				this._name = `${prefix}${this._name}`;
+			}
+		});
 
 		this.index = folder?.index ?? container.git.repositoryCount;
 
@@ -332,7 +315,7 @@ export class Repository implements Disposable {
 			return watcher;
 		}
 
-		const gitDir = await this.git.config().getGitDir?.();
+		const gitDir = await this.git.config.getGitDir?.();
 		if (gitDir != null) {
 			if (gitDir?.commonUri == null) {
 				watch.call(this, gitDir.uri, dotGitWatcherGlobCombined);
@@ -374,24 +357,8 @@ export class Repository implements Disposable {
 	}
 
 	@memoize()
-	get git(): GitProviderServiceForRepo {
-		const uri = this.uri;
-		return new Proxy(this.container.git, {
-			get: (target, prop: GitProviderRepoKeys): unknown => {
-				const value = target[prop];
-				if (typeof value === 'function') {
-					return (...args: unknown[]) =>
-						// The extra `satisfies` here is to catch type errors, but we still need the `as` to satisfy TypeScript
-						(
-							value satisfies (repoPath: string | Uri, ...args: any[]) => unknown as (
-								repoPath: string | Uri,
-								...args: any[]
-							) => unknown
-						).call(target, uri, ...args);
-				}
-				return value;
-			},
-		}) as unknown as GitProviderServiceForRepo;
+	get git(): GitRepositoryService {
+		return this.container.git.getRepositoryService(this.uri);
 	}
 
 	get path(): string {
@@ -638,7 +605,7 @@ export class Repository implements Disposable {
 
 	@log({ exit: true })
 	async getCommonRepositoryUri(): Promise<Uri | undefined> {
-		const gitDir = await this.git.config().getGitDir?.();
+		const gitDir = await this.git.config.getGitDir?.();
 		if (gitDir?.commonUri?.path.endsWith('/.git')) {
 			return gitDir.commonUri.with({
 				path: gitDir.commonUri.path.substring(0, gitDir.commonUri.path.length - 5),
@@ -704,7 +671,7 @@ export class Repository implements Disposable {
 		if (!this.container.actionRunners.count('createPullRequest')) return;
 		if (!(await showCreatePullRequestPrompt(branch.name))) return;
 
-		const remote = await this.git.remotes().getRemote(remoteName);
+		const remote = await this.git.remotes.getRemote(remoteName);
 
 		void executeActionCommand<CreatePullRequestActionContext>('createPullRequest', {
 			repoPath: this.path,
@@ -838,7 +805,7 @@ export class Repository implements Disposable {
 	}
 
 	async getAbsoluteOrBestRevisionUri(path: string, rev: string | undefined): Promise<Uri | undefined> {
-		const uri = this.container.git.getAbsoluteUri(path, this.uri);
+		const uri = this.git.getAbsoluteUri(path, this.uri);
 		if (uri != null && this.containsUri(uri) && (await exists(uri))) return uri;
 
 		return rev != null ? this.git.getBestRevisionUri(path, rev) : undefined;

@@ -87,11 +87,13 @@ export class FileHistoryTrackerNode extends SubscribeableViewNode<'file-history-
 				this.view.title = folder ? 'Folder History' : 'File History';
 			}
 
+			const svc = this.view.container.git.getRepositoryService(commitish.repoPath);
+
 			let branch;
 			if (!commitish.sha || commitish.sha === 'HEAD') {
-				branch = await this.view.container.git.branches(commitish.repoPath).getBranch();
+				branch = await svc.branches.getBranch();
 			} else if (!isSha(commitish.sha)) {
-				branch = await this.view.container.git.branches(commitish.repoPath).getBranch(commitish.sha);
+				branch = await svc.branches.getBranch(commitish.sha);
 			}
 			this.child = new FileHistoryNode(fileUri, this.view, this, folder, branch);
 		}
@@ -170,7 +172,7 @@ export class FileHistoryTrackerNode extends SubscribeableViewNode<'file-history-
 		if (pick == null) return;
 
 		if (isBranchReference(pick)) {
-			const branch = await this.view.container.git.branches(this.uri.repoPath!).getBranch();
+			const branch = await this.view.container.git.getRepositoryService(this.uri.repoPath!).branches.getBranch();
 			this._base = branch?.name === pick.name ? undefined : pick.ref;
 		} else {
 			this._base = pick.ref;

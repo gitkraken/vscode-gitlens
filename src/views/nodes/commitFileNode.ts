@@ -70,8 +70,8 @@ export abstract class CommitFileNodeBase<
 			const commit = await this.commit.getCommitForFile(this.file);
 			if (commit == null) {
 				const log = await this.view.container.git
-					.commits(this.repoPath)
-					.getLogForPath(this.file.path, this.commit.sha, { isFolder: false, limit: 1 });
+					.getRepositoryService(this.repoPath)
+					.commits.getLogForPath(this.file.path, this.commit.sha, { isFolder: false, limit: 1 });
 				if (log != null) {
 					this.commit = log.commits.get(this.commit.sha) ?? this.commit;
 				}

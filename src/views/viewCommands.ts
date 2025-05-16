@@ -292,7 +292,7 @@ export class ViewCommands implements Disposable {
 		const identity = getRepositoryIdentityForPullRequest(pr);
 		if (identity.remote?.url == null) return;
 
-		await repo.git.remotes().addRemote?.(identity.provider.repoDomain, identity.remote.url, { fetch: true });
+		await repo.git.remotes.addRemote?.(identity.provider.repoDomain, identity.remote.url, { fetch: true });
 		return node.triggerChange(true);
 	}
 
@@ -397,7 +397,7 @@ export class ViewCommands implements Disposable {
 				: this.container.git.getBestRepository();
 			if (repo == null) return;
 
-			const branch = await repo.git.branches().getBranch();
+			const branch = await repo.git.branches.getBranch();
 			from = branch;
 		}
 		return BranchActions.create(node?.repoPath, from);
@@ -451,7 +451,7 @@ export class ViewCommands implements Disposable {
 				: this.container.git.getBestRepository();
 			if (repo == null) return;
 
-			const branch = await repo.git.branches().getBranch();
+			const branch = await repo.git.branches.getBranch();
 			from = branch;
 		}
 		return TagActions.create(node?.repoPath, from);
@@ -596,7 +596,7 @@ export class ViewCommands implements Disposable {
 	private async abortPausedOperation(node: PausedOperationStatusNode) {
 		if (!node.is('paused-operation-status')) return;
 
-		await abortPausedOperation(this.container, node.pausedOpStatus.repoPath);
+		await abortPausedOperation(this.container.git.getRepositoryService(node.pausedOpStatus.repoPath));
 	}
 
 	@command('gitlens.views.continuePausedOperation')
@@ -604,7 +604,7 @@ export class ViewCommands implements Disposable {
 	private async continuePausedOperation(node: PausedOperationStatusNode) {
 		if (!node.is('paused-operation-status')) return;
 
-		await continuePausedOperation(this.container, node.pausedOpStatus.repoPath);
+		await continuePausedOperation(this.container.git.getRepositoryService(node.pausedOpStatus.repoPath));
 	}
 
 	@command('gitlens.views.skipPausedOperation')
@@ -612,7 +612,7 @@ export class ViewCommands implements Disposable {
 	private async skipPausedOperation(node: PausedOperationStatusNode) {
 		if (!node.is('paused-operation-status')) return;
 
-		await skipPausedOperation(this.container, node.pausedOpStatus.repoPath);
+		await skipPausedOperation(this.container.git.getRepositoryService(node.pausedOpStatus.repoPath));
 	}
 
 	@command('gitlens.views.openPausedOperationInRebaseEditor')
@@ -620,7 +620,7 @@ export class ViewCommands implements Disposable {
 	private async openPausedOperationInRebaseEditor(node: PausedOperationStatusNode) {
 		if (!node.is('paused-operation-status') || node.pausedOpStatus.type !== 'rebase') return;
 
-		const gitDir = await this.container.git.config(node.repoPath).getGitDir?.();
+		const gitDir = await this.container.git.getRepositoryService(node.repoPath).config.getGitDir?.();
 		if (gitDir == null) return;
 
 		const rebaseTodoUri = Uri.joinPath(gitDir.uri, 'rebase-merge', 'git-rebase-todo');
@@ -1042,7 +1042,7 @@ export class ViewCommands implements Disposable {
 			return;
 		}
 
-		await this.container.git.staging(node.repoPath)?.stageFile(node.file.path);
+		await this.container.git.getRepositoryService(node.repoPath).staging?.stageFile(node.file.path);
 		void node.triggerChange();
 	}
 
@@ -1051,7 +1051,7 @@ export class ViewCommands implements Disposable {
 	private async stageDirectory(node: FolderNode) {
 		if (!node.is('folder') || !node.relativePath) return;
 
-		await this.container.git.staging(node.repoPath)?.stageDirectory(node.relativePath);
+		await this.container.git.getRepositoryService(node.repoPath).staging?.stageDirectory(node.relativePath);
 		void node.triggerChange();
 	}
 
@@ -1105,7 +1105,7 @@ export class ViewCommands implements Disposable {
 	private async unstageFile(node: CommitFileNode | FileRevisionAsCommitNode | StatusFileNode) {
 		if (!node.isAny('commit-file', 'file-commit', 'status-file')) return;
 
-		await this.container.git.staging(node.repoPath)?.unstageFile(node.file.path);
+		await this.container.git.getRepositoryService(node.repoPath).staging?.unstageFile(node.file.path);
 		void node.triggerChange();
 	}
 
@@ -1114,7 +1114,7 @@ export class ViewCommands implements Disposable {
 	private async unstageDirectory(node: FolderNode) {
 		if (!node.is('folder') || !node.relativePath) return;
 
-		await this.container.git.staging(node.repoPath)?.unstageDirectory(node.relativePath);
+		await this.container.git.getRepositoryService(node.repoPath).staging?.unstageDirectory(node.relativePath);
 		void node.triggerChange();
 	}
 
@@ -1158,10 +1158,12 @@ export class ViewCommands implements Disposable {
 	private async compareWithMergeBase(node: BranchNode) {
 		if (!node.is('branch')) return Promise.resolve();
 
-		const branch = await this.container.git.branches(node.repoPath).getBranch();
+		const branch = await this.container.git.getRepositoryService(node.repoPath).branches.getBranch();
 		if (branch == null) return undefined;
 
-		const commonAncestor = await this.container.git.refs(node.repoPath).getMergeBase(branch.ref, node.ref.ref);
+		const commonAncestor = await this.container.git
+			.getRepositoryService(node.repoPath)
+			.refs.getMergeBase(branch.ref, node.ref.ref);
 		if (commonAncestor == null) return undefined;
 
 		return this.container.views.searchAndCompare.compare(node.repoPath, node.ref.ref, {
@@ -1175,10 +1177,12 @@ export class ViewCommands implements Disposable {
 	private async openChangedFileDiffsWithMergeBase(node: BranchNode) {
 		if (!node.is('branch')) return Promise.resolve();
 
-		const branch = await this.container.git.branches(node.repoPath).getBranch();
+		const branch = await this.container.git.getRepositoryService(node.repoPath).branches.getBranch();
 		if (branch == null) return undefined;
 
-		const commonAncestor = await this.container.git.refs(node.repoPath).getMergeBase(branch.ref, node.ref.ref);
+		const commonAncestor = await this.container.git
+			.getRepositoryService(node.repoPath)
+			.refs.getMergeBase(branch.ref, node.ref.ref);
 		if (commonAncestor == null) return undefined;
 
 		return CommitActions.openComparisonChanges(
@@ -1217,10 +1221,12 @@ export class ViewCommands implements Disposable {
 	private async compareAncestryWithWorking(node: BranchNode) {
 		if (!node.is('branch')) return undefined;
 
-		const branch = await this.container.git.branches(node.repoPath).getBranch();
+		const branch = await this.container.git.getRepositoryService(node.repoPath).branches.getBranch();
 		if (branch == null) return undefined;
 
-		const commonAncestor = await this.container.git.refs(node.repoPath).getMergeBase(branch.ref, node.ref.ref);
+		const commonAncestor = await this.container.git
+			.getRepositoryService(node.repoPath)
+			.refs.getMergeBase(branch.ref, node.ref.ref);
 		if (commonAncestor == null) return undefined;
 
 		return this.container.views.searchAndCompare.compare(node.repoPath, '', {
@@ -1253,7 +1259,7 @@ export class ViewCommands implements Disposable {
 		rhsRef: string,
 	) {
 		if (rhsUri == null) {
-			rhsUri = await this.container.git.getWorkingUri(repoPath, lhsUri);
+			rhsUri = await this.container.git.getRepositoryService(repoPath).getWorkingUri(lhsUri);
 		}
 
 		return executeCommand<DiffWithCommandArgs, void>('gitlens.diffWith', {
@@ -1430,7 +1436,7 @@ export class ViewCommands implements Disposable {
 		const repo = this.container.git.getRepository(node.repoPath);
 		if (repo == null) return Promise.resolve();
 
-		const nodeUri = await this.container.git.getBestRevisionUri(node.repoPath, node.file.path, node.ref.ref);
+		const nodeUri = await repo.git.getBestRevisionUri(node.file.path, node.ref.ref);
 		if (nodeUri == null) return Promise.resolve();
 
 		const input1: MergeEditorInputs['input1'] = {
@@ -1440,8 +1446,8 @@ export class ViewCommands implements Disposable {
 		};
 
 		const [mergeBaseResult, workingUriResult] = await Promise.allSettled([
-			repo.git.refs().getMergeBase(node.ref.ref, 'HEAD'),
-			this.container.git.getWorkingUri(node.repoPath, node.uri),
+			repo.git.refs.getMergeBase(node.ref.ref, 'HEAD'),
+			repo.git.getWorkingUri(node.uri),
 		]);
 
 		const workingUri = getSettledValue(workingUriResult);
@@ -1456,19 +1462,16 @@ export class ViewCommands implements Disposable {
 			detail: ' Working Tree',
 		};
 
-		const headUri = await this.container.git.getBestRevisionUri(node.repoPath, node.file.path, 'HEAD');
+		const headUri = await repo.git.getBestRevisionUri(node.file.path, 'HEAD');
 		if (headUri != null) {
-			const branch = await repo.git.branches().getBranch?.();
+			const branch = await repo.git.branches.getBranch?.();
 
 			input2.uri = headUri;
 			input2.detail = ` ${branch?.name || 'HEAD'}`;
 		}
 
 		const mergeBase = getSettledValue(mergeBaseResult);
-		const baseUri =
-			mergeBase != null
-				? await this.container.git.getBestRevisionUri(node.repoPath, node.file.path, mergeBase)
-				: undefined;
+		const baseUri = mergeBase != null ? await repo.git.getBestRevisionUri(node.file.path, mergeBase) : undefined;
 
 		const inputs: MergeEditorInputs = {
 			base: baseUri ?? nodeUri,
@@ -1485,7 +1488,9 @@ export class ViewCommands implements Disposable {
 	private async openChangesWithMergeBase(node: ResultsFileNode) {
 		if (!node.is('results-file')) return Promise.resolve();
 
-		const mergeBase = await this.container.git.refs(node.repoPath).getMergeBase(node.ref1, node.ref2 || 'HEAD');
+		const mergeBase = await this.container.git
+			.getRepositoryService(node.repoPath)
+			.refs.getMergeBase(node.ref1, node.ref2 || 'HEAD');
 		if (mergeBase == null) return Promise.resolve();
 
 		return CommitActions.openChanges(
@@ -1639,11 +1644,12 @@ export class ViewCommands implements Disposable {
 			} else {
 				uri =
 					node.commit.file?.status === 'D'
-						? this.container.git.getRevisionUri(
-								node.commit.repoPath,
-								(await node.commit.getPreviousSha()) ?? deletedOrMissing,
-								node.commit.file.path,
-						  )
+						? this.container.git
+								.getRepositoryService(node.commit.repoPath)
+								.getRevisionUri(
+									(await node.commit.getPreviousSha()) ?? deletedOrMissing,
+									node.commit.file.path,
+								)
 						: this.container.git.getRevisionUriFromGitUri(node.uri);
 			}
 		}
@@ -1684,7 +1690,7 @@ export class ViewCommands implements Disposable {
 		if (filter) {
 			let authors = node.getState('filterCommits');
 			if (authors == null) {
-				const current = await repo.git.config().getCurrentUser();
+				const current = await repo.git.config.getCurrentUser();
 				authors = current != null ? [current] : undefined;
 			}
 

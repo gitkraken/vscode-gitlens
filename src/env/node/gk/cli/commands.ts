@@ -58,14 +58,14 @@ export class CliCommandHandlers implements Disposable {
 		}
 
 		if (ref1) {
-			if (!(await repo.git.refs().isValidReference(ref1))) {
+			if (!(await repo.git.refs.isValidReference(ref1))) {
 				void executeCommand('gitlens.compareWith');
 				return { stderr: `'${ref1}' is an invalid reference` };
 			}
 		}
 
 		if (ref2) {
-			if (!(await repo.git.refs().isValidReference(ref2))) {
+			if (!(await repo.git.refs.isValidReference(ref2))) {
 				void executeCommand<CompareWithCommandArgs>('gitlens.compareWith', { ref1: ref1 });
 				return { stderr: `'${ref2}' is an invalid reference` };
 			}
@@ -82,7 +82,7 @@ export class CliCommandHandlers implements Disposable {
 		}
 
 		const [ref] = request.args;
-		const reference = await repo.git.refs().getReference(ref);
+		const reference = await repo.git.refs.getReference(ref);
 		if (ref && !reference) {
 			void executeCommand('gitlens.showInCommitGraph', repo);
 			return { stderr: `'${ref}' is an invalid reference` };
@@ -96,7 +96,7 @@ export class CliCommandHandlers implements Disposable {
 		if (!repo || !request.args?.length) return merge(repo);
 
 		const [ref] = request.args;
-		const reference = await repo.git.refs().getReference(ref);
+		const reference = await repo.git.refs.getReference(ref);
 
 		void merge(repo, reference);
 
@@ -110,7 +110,7 @@ export class CliCommandHandlers implements Disposable {
 		if (!repo || !request.args?.length) return rebase(repo);
 
 		const [ref] = request.args;
-		const reference = await repo.git.refs().getReference(ref);
+		const reference = await repo.git.refs.getReference(ref);
 
 		void rebase(repo, reference);
 

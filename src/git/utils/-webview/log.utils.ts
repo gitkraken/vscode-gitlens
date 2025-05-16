@@ -20,7 +20,7 @@ export async function getChangesForChangelog(
 
 	const allLinks: Map<string, Autolink> = new Map();
 
-	const remote = await container.git.remotes(log.repoPath).getBestRemoteWithIntegration();
+	const remote = await container.git.getRepositoryService(log.repoPath).remotes.getBestRemoteWithIntegration();
 	for (const commit of log.commits.values()) {
 		const message = commit.message ?? commit.summary;
 		const links = await container.autolinks.getAutolinks(message, remote);

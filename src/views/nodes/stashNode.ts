@@ -93,7 +93,9 @@ export class StashNode extends ViewRefNode<'stash', ViewsWithStashes, GitStashRe
 
 	private async getTooltip(cancellation: CancellationToken) {
 		const [remotesResult, _] = await Promise.allSettled([
-			this.view.container.git.remotes(this.commit.repoPath).getBestRemotesWithProviders(cancellation),
+			this.view.container.git
+				.getRepositoryService(this.commit.repoPath)
+				.remotes.getBestRemotesWithProviders(cancellation),
 			this.commit.ensureFullDetails({
 				allowFilteredFiles: this._options?.allowFilteredFiles,
 				include: { stats: true },

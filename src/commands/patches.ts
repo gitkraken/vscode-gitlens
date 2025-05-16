@@ -167,7 +167,7 @@ abstract class CreatePatchCommandBase extends GlCommandBase {
 		repo ??= await getRepositoryOrShowPicker(title);
 		if (repo == null) return;
 
-		return repo.git.diff().getDiff?.(args?.to ?? uncommitted, args?.from ?? 'HEAD', {
+		return repo.git.diff.getDiff?.(args?.to ?? uncommitted, args?.from ?? 'HEAD', {
 			includeUntracked: args?.includeUntracked ?? (args?.to != null || args?.to === uncommitted),
 			uris: args?.uris,
 		});
@@ -227,10 +227,8 @@ export class ApplyPatchFromClipboardCommand extends GlCommandBase {
 		const patch = await env.clipboard.readText();
 		let repo = this.container.git.highlander;
 
-		const patchProvider = repo?.uri != null ? this.container.git.patch(repo.uri) : undefined;
-
 		// Make sure it looks like a valid patch
-		const valid = patch.length ? await patchProvider?.validatePatch(patch) : false;
+		const valid = patch.length ? await repo?.git.patch?.validatePatch(patch) : false;
 		if (!valid) {
 			void window.showWarningMessage('No valid patch found in the clipboard');
 			return;
@@ -240,10 +238,10 @@ export class ApplyPatchFromClipboardCommand extends GlCommandBase {
 		if (repo == null) return;
 
 		try {
-			const commit = await patchProvider?.createUnreachableCommitForPatch('HEAD', 'Pasted Patch', patch);
+			const commit = await repo.git.patch?.createUnreachableCommitForPatch('HEAD', 'Pasted Patch', patch);
 			if (commit == null) return;
 
-			await patchProvider?.applyUnreachableCommitForPatch(commit.sha, { stash: false });
+			await repo.git.patch?.applyUnreachableCommitForPatch(commit.sha, { stash: false });
 			void window.showInformationMessage(`Patch applied successfully`);
 		} catch (ex) {
 			if (ex instanceof CancellationError) return;
@@ -415,7 +413,7 @@ async function createDraft(repository: Repository, args: CreatePatchCommandArgs)
 
 	const create: CreateDraft = { changes: [change], title: args.title, description: args.description };
 
-	const commitsProvider = repository.git.commits();
+	const commitsProvider = repository.git.commits;
 
 	const commit = await commitsProvider.getCommit(to);
 	if (commit == null) return undefined;
@@ -425,10 +423,10 @@ async function createDraft(repository: Repository, args: CreatePatchCommandArgs)
 
 		change.files = [...commit.fileset.files];
 	} else {
-		const diff = await repository.git.diff().getDiff?.(to, args.from);
+		const diff = await repository.git.diff.getDiff?.(to, args.from);
 		if (diff == null) return;
 
-		const result = await repository.git.diff().getDiffFiles?.(diff.contents);
+		const result = await repository.git.diff.getDiffFiles?.(diff.contents);
 		if (result?.files == null) return;
 
 		change.files = result.files;

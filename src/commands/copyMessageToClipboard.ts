@@ -68,14 +68,12 @@ export class CopyMessageToClipboardCommand extends ActiveEditorCommand {
 					return;
 				}
 
-				let repoPath;
-
 				// If we don't have an editor then get the message of the last commit to the branch
 				if (uri == null) {
-					repoPath = this.container.git.getBestRepository(editor)?.path;
-					if (!repoPath) return;
+					const repo = this.container.git.getBestRepository(editor);
+					if (repo == null) return;
 
-					const log = await this.container.git.commits(repoPath).getLog(undefined, { limit: 1 });
+					const log = await repo.git.commits.getLog(undefined, { limit: 1 });
 					if (log == null) return;
 
 					const commit = first(log.commits.values());
@@ -84,7 +82,7 @@ export class CopyMessageToClipboardCommand extends ActiveEditorCommand {
 					args.message = commit.message;
 				} else if (args.message == null) {
 					const gitUri = await GitUri.fromUri(uri);
-					repoPath = gitUri.repoPath;
+					const repoPath = gitUri.repoPath;
 					if (!repoPath) return;
 
 					if (args.sha == null) {

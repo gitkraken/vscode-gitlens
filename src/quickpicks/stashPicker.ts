@@ -26,7 +26,7 @@ export async function showStashPicker(
 
 	let stashes: GitStashCommit[] = [];
 	for (const repo of repository) {
-		const stash = await repo.git.stash()?.getStash();
+		const stash = await repo.git.stash?.getStash();
 		if (stash == null || stash.stashes.size === 0) {
 			continue;
 		}

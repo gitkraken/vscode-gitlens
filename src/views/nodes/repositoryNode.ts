@@ -52,7 +52,7 @@ export class RepositoryNode extends SubscribeableViewNode<'repository', ViewsWit
 		this.updateContext({ ...context, repository: this.repo });
 		this._uniqueId = getViewNodeId(this.type, this.context);
 
-		this._status = this.repo.git.status().getStatus();
+		this._status = this.repo.git.status.getStatus();
 	}
 
 	override get id(): string {
@@ -81,7 +81,7 @@ export class RepositoryNode extends SubscribeableViewNode<'repository', ViewsWit
 
 			const status = await this._status;
 			if (status != null) {
-				const defaultWorktreePath = await this.repo.git.config().getDefaultWorktreePath?.();
+				const defaultWorktreePath = await this.repo.git.config.getDefaultWorktreePath?.();
 
 				const branch = new GitBranch(
 					this.view.container,
@@ -96,7 +96,7 @@ export class RepositoryNode extends SubscribeableViewNode<'repository', ViewsWit
 					status.rebasing,
 				);
 
-				const pausedOpStatus = await this.repo.git.status().getPausedOperationStatus?.();
+				const pausedOpStatus = await this.repo.git.status.getPausedOperationStatus?.();
 				if (pausedOpStatus != null) {
 					children.push(new PausedOperationStatusNode(this.view, this, branch, pausedOpStatus, status, true));
 				} else if (this.view.config.showUpstreamStatus) {
@@ -248,7 +248,7 @@ export class RepositoryNode extends SubscribeableViewNode<'repository', ViewsWit
 
 			let providerName;
 			if (status.upstream != null) {
-				const providers = getHighlanderProviders(await this.repo.git.remotes().getRemotesWithProviders());
+				const providers = getHighlanderProviders(await this.repo.git.remotes.getRemotesWithProviders());
 				providerName = providers?.length ? providers[0].name : undefined;
 			} else {
 				const remote = await status.getRemote();
@@ -334,7 +334,7 @@ export class RepositoryNode extends SubscribeableViewNode<'repository', ViewsWit
 		await super.refresh(reset);
 
 		if (reset) {
-			this._status = this.repo.git.status().getStatus();
+			this._status = this.repo.git.status.getStatus();
 		}
 
 		await this.ensureSubscription();
@@ -401,7 +401,7 @@ export class RepositoryNode extends SubscribeableViewNode<'repository', ViewsWit
 		},
 	})
 	private async onFileSystemChanged(_e: RepositoryFileSystemChangeEvent) {
-		this._status = this.repo.git.status().getStatus();
+		this._status = this.repo.git.status.getStatus();
 
 		if (this.children !== undefined) {
 			const status = await this._status;

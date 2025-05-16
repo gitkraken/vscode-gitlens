@@ -25,10 +25,10 @@ export class OpenOnlyChangedFilesCommand extends GlCommandBase {
 
 		try {
 			if (args.uris == null) {
-				const repository = await getRepositoryOrShowPicker('Open Changed & Close Unchanged Files');
-				if (repository == null) return;
+				const repo = await getRepositoryOrShowPicker('Open Changed & Close Unchanged Files');
+				if (repo == null) return;
 
-				const status = await this.container.git.status(repository.uri).getStatus();
+				const status = await repo.git.status.getStatus();
 				if (status == null) {
 					void window.showWarningMessage('Unable to open changed & close unchanged files');
 

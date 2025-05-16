@@ -291,15 +291,13 @@ export class GitCommit implements GitRevisionReference {
 	}): Promise<void> {
 		if (this.hasFullDetails(options)) return;
 
-		const { git } = this.container;
-
 		// If the commit is "uncommitted", then have the files list be all uncommitted files
 		if (this.isUncommitted) {
 			const repo = this.container.git.getRepository(this.repoPath);
 			this._etagFileSystem = repo?.etagFileSystem;
 
 			if (this._etagFileSystem != null || options?.include?.uncommittedFiles) {
-				const status = await repo?.git.status().getStatus();
+				const status = await repo?.git.status.getStatus();
 				if (status != null) {
 					let files = status.files.flatMap(f => f.getPseudoFileChanges());
 					if (isUncommittedStaged(this.sha)) {
@@ -317,7 +315,7 @@ export class GitCommit implements GitRevisionReference {
 			}
 
 			if (options?.include?.stats) {
-				const stats = await repo?.git.diff().getChangedFilesCount(this.sha);
+				const stats = await repo?.git.diff.getChangedFilesCount(this.sha);
 				this._stats = stats;
 				this._recomputeStats = false;
 			} else {
@@ -327,9 +325,10 @@ export class GitCommit implements GitRevisionReference {
 			return;
 		}
 
+		const svc = this.container.git.getRepositoryService(this.repoPath);
 		if (this.refType === 'stash') {
 			const [stashFilesResult] = await Promise.allSettled([
-				git.stash(this.repoPath)?.getStashCommitFiles(this.sha),
+				svc.stash?.getStashCommitFiles(this.sha),
 				this.getPreviousSha(),
 			]);
 
@@ -339,10 +338,7 @@ export class GitCommit implements GitRevisionReference {
 			}
 			this._stashUntrackedFilesLoaded = true;
 		} else {
-			const [commitResult] = await Promise.allSettled([
-				git.commits(this.repoPath).getCommit(this.sha),
-				this.getPreviousSha(),
-			]);
+			const [commitResult] = await Promise.allSettled([svc.commits.getCommit(this.sha), this.getPreviousSha()]);
 
 			const commit = getSettledValue(commitResult);
 			if (commit != null) {
@@ -543,7 +539,7 @@ export class GitCommit implements GitRevisionReference {
 	): Promise<PullRequest | undefined> {
 		if (this.isUncommitted) return undefined;
 
-		remote ??= await this.container.git.remotes(this.repoPath).getBestRemoteWithIntegration();
+		remote ??= await this.container.git.getRepositoryService(this.repoPath).remotes.getBestRemoteWithIntegration();
 		if (!remote?.hasIntegration()) return undefined;
 
 		return (await this.container.integrations.getByRemote(remote))?.getPullRequestForCommit(
@@ -556,7 +552,7 @@ export class GitCommit implements GitRevisionReference {
 	async getEnrichedAutolinks(remote?: GitRemote<RemoteProvider>): Promise<Map<string, EnrichedAutolink> | undefined> {
 		if (this.isUncommitted) return undefined;
 
-		remote ??= await this.container.git.remotes(this.repoPath).getBestRemoteWithIntegration();
+		remote ??= await this.container.git.getRepositoryService(this.repoPath).remotes.getBestRemoteWithIntegration();
 		if (remote?.provider == null) return undefined;
 
 		// TODO@eamodio should we cache these? Seems like we would use more memory than it's worth
@@ -630,8 +626,8 @@ export class GitCommit implements GitRevisionReference {
 	): Promise<PreviousRangeComparisonUrisResult | undefined> {
 		return this.file != null
 			? this.container.git
-					.diff(this.repoPath)
-					.getPreviousComparisonUrisForRange(
+					.getRepositoryService(this.repoPath)
+					.diff.getPreviousComparisonUrisForRange(
 						this.file.uri,
 						rev ?? (this.sha === uncommitted ? undefined : this.sha),
 						range,
@@ -643,18 +639,18 @@ export class GitCommit implements GitRevisionReference {
 	async getPreviousSha(): Promise<string | undefined> {
 		if (this._previousShaPromise == null) {
 			async function getCore(this: GitCommit) {
+				const svc = this.container.git.getRepositoryService(this.repoPath);
+
 				if (this.file != null) {
 					if (this.file.previousSha != null && isSha(this.file.previousSha)) {
 						return this.file.previousSha;
 					}
 
 					const sha = (
-						await this.container.git
-							.revision(this.repoPath)
-							.resolveRevision(
-								isUncommitted(this.sha, true) ? 'HEAD' : `${this.sha}^`,
-								this.file.originalPath ?? this.file.path,
-							)
+						await svc.revision.resolveRevision(
+							isUncommitted(this.sha, true) ? 'HEAD' : `${this.sha}^`,
+							this.file.originalPath ?? this.file.path,
+						)
 					).sha;
 
 					this._resolvedPreviousSha = sha;
@@ -668,9 +664,7 @@ export class GitCommit implements GitRevisionReference {
 				}
 
 				const sha = (
-					await this.container.git
-						.revision(this.repoPath)
-						.resolveRevision(isUncommitted(this.sha, true) ? 'HEAD' : `${this.sha}^`)
+					await svc.revision.resolveRevision(isUncommitted(this.sha, true) ? 'HEAD' : `${this.sha}^`)
 				).sha;
 
 				this._resolvedPreviousSha = sha;
@@ -689,7 +683,7 @@ export class GitCommit implements GitRevisionReference {
 
 	@gate()
 	async isPushed(): Promise<boolean> {
-		return this.container.git.commits(this.repoPath).hasCommitBeenPushed(this.ref);
+		return this.container.git.getRepositoryService(this.repoPath).commits.hasCommitBeenPushed(this.ref);
 	}
 
 	with<T extends GitCommit>(changes: {

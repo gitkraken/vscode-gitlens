@@ -97,13 +97,12 @@ export class CopyOrOpenRemoteCommandQuickPickItem extends CommandQuickPickItem {
 					// Since Bitbucket can't support branch names in the url (other than with the default branch),
 					// turn this into a `Revision` request
 					const { branchOrTag } = resource;
+					const svc = Container.instance.git.getRepositoryService(this.remote.repoPath);
 					const [branches, tags] = await Promise.allSettled([
-						Container.instance.git.branches(this.remote.repoPath).getBranches({
+						svc.branches.getBranches({
 							filter: b => b.name === branchOrTag || b.getNameWithoutRemote() === branchOrTag,
 						}),
-						Container.instance.git
-							.tags(this.remote.repoPath)
-							.getTags({ filter: t => t.name === branchOrTag }),
+						svc.tags.getTags({ filter: t => t.name === branchOrTag }),
 					]);
 
 					const sha = getSettledValue(branches)?.values[0]?.sha ?? getSettledValue(tags)?.values[0]?.sha;

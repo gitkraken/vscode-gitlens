@@ -113,16 +113,16 @@ export class OpenFileAtRevisionCommand extends ActiveEditorCommand {
 		args = { ...args };
 		args.range ??= selectionToDiffRange(editor?.selection);
 
+		const svc = this.container.git.getRepositoryService(gitUri.repoPath!);
 		try {
 			if (args.revisionUri == null) {
-				const commitsProvider = this.container.git.commits(gitUri.repoPath!);
-				const log = commitsProvider
+				const log = svc.commits
 					.getLogForPath(gitUri.fsPath, undefined, { isFolder: false })
 					.then(
 						log =>
 							log ??
 							(gitUri.sha
-								? commitsProvider.getLogForPath(gitUri.fsPath, gitUri.sha, { isFolder: false })
+								? svc.commits.getLogForPath(gitUri.fsPath, gitUri.sha, { isFolder: false })
 								: undefined),
 					);
 
@@ -145,7 +145,7 @@ export class OpenFileAtRevisionCommand extends ActiveEditorCommand {
 									getState: async () => {
 										const items: (CommandQuickPickItem | DirectiveQuickPickItem)[] = [];
 
-										const status = await this.container.git.status(gitUri.repoPath!).getStatus();
+										const status = await svc.status.getStatus();
 										if (status != null) {
 											for (const f of status.files) {
 												if (f.workingTreeStatus === '?' || f.workingTreeStatus === '!') {
@@ -162,7 +162,7 @@ export class OpenFileAtRevisionCommand extends ActiveEditorCommand {
 														},
 														undefined,
 														'gitlens.openFileRevision',
-														[this.container.git.getAbsoluteUri(f.path, gitUri.repoPath)],
+														[svc.getAbsoluteUri(f.path, gitUri.repoPath)],
 													),
 												);
 											}

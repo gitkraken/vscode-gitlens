@@ -228,8 +228,8 @@ async function getAvatarUriFromRemoteProvider(
 		// } else {
 		if (typeof repoPathOrCommit !== 'string') {
 			const remote = await Container.instance.git
-				.remotes(repoPathOrCommit.repoPath)
-				.getBestRemoteWithIntegration();
+				.getRepositoryService(repoPathOrCommit.repoPath)
+				.remotes.getBestRemoteWithIntegration();
 			if (remote?.hasIntegration()) {
 				account = await (
 					await remote.getIntegration()

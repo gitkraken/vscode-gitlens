@@ -339,13 +339,14 @@ export class StatusBarController implements Disposable {
 			label: `${this._statusBarBlame.text}\n${actionTooltip}`,
 		};
 
-		const remotes = await this.container.git.remotes(commit.repoPath).getBestRemotesWithProviders();
+		const svc = this.container.git.getRepositoryService(commit.repoPath);
+		const remotes = await svc.remotes.getBestRemotesWithProviders();
 		const [remote] = remotes;
 
 		const defaultDateFormat = configuration.get('defaultDateFormat');
 		const getBranchAndTagTipsPromise =
 			CommitFormatter.has(cfg.format, 'tips') || CommitFormatter.has(cfg.tooltipFormat, 'tips')
-				? this.container.git.getBranchesAndTagsTipsLookup(commit.repoPath)
+				? svc.getBranchesAndTagsTipsLookup()
 				: undefined;
 
 		const showPullRequests =

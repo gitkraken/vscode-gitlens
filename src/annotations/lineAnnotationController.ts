@@ -157,7 +157,7 @@ export class LineAnnotationController implements Disposable {
 		const prs = new Map<string, Promise<PullRequest | undefined>>();
 		if (lines.size === 0) return prs;
 
-		const remotePromise = this.container.git.remotes(repoPath).getBestRemoteWithIntegration();
+		const remotePromise = this.container.git.getRepositoryService(repoPath).remotes.getBestRemoteWithIntegration();
 
 		for (const [, state] of lines) {
 			if (state.commit.isUncommitted) continue;
@@ -288,9 +288,10 @@ export class LineAnnotationController implements Disposable {
 		this._cancellation = new CancellationTokenSource();
 		const cancellation = this._cancellation.token;
 
-		const getBranchAndTagTipsPromise = CommitFormatter.has(cfg.format, 'tips')
-			? this.container.git.getBranchesAndTagsTipsLookup(repoPath)
-			: undefined;
+		const getBranchAndTagTipsPromise =
+			repoPath && CommitFormatter.has(cfg.format, 'tips')
+				? this.container.git.getRepositoryService(repoPath).getBranchesAndTagsTipsLookup()
+				: undefined;
 
 		async function updateDecorations(
 			container: Container,

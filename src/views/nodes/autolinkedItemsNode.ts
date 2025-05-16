@@ -40,7 +40,9 @@ export class AutolinkedItemsNode extends CacheableChildrenViewNode<'autolinks', 
 
 			let children: ViewNode[] | undefined;
 			if (commits.length) {
-				const remote = await this.view.container.git.remotes(this.repoPath).getBestRemoteWithProvider();
+				const remote = await this.view.container.git
+					.getRepositoryService(this.repoPath)
+					.remotes.getBestRemoteWithProvider();
 				const combineMessages = commits.map(c => c.message).join('\n');
 
 				const [enrichedAutolinksResult /*, ...prsResults*/] = await Promise.allSettled([

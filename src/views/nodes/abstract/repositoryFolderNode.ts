@@ -69,7 +69,7 @@ export abstract class RepositoryFolderNode<
 	async getTreeItem(): Promise<TreeItem> {
 		this.splatted = false;
 
-		const branch = await this.repo.git.branches().getBranch();
+		const branch = await this.repo.git.branches.getBranch();
 		const ahead = Boolean(branch?.upstream?.state.ahead);
 		const behind = Boolean(branch?.upstream?.state.behind);
 
@@ -118,7 +118,9 @@ export abstract class RepositoryFolderNode<
 			let providerName;
 			if (branch.upstream != null) {
 				const providers = getHighlanderProviders(
-					await this.view.container.git.remotes(branch.repoPath).getRemotesWithProviders(),
+					await this.view.container.git
+						.getRepositoryService(branch.repoPath)
+						.remotes.getRemotesWithProviders(),
 				);
 				providerName = providers?.length ? providers[0].name : undefined;
 			} else {

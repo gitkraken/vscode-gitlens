@@ -30,7 +30,7 @@ export async function formatRepositories(repositories: Repository[]): Promise<Gr
 
 	const result = await Promise.allSettled(
 		repositories.map<Promise<GraphRepository>>(async repo => {
-			const remotes = await repo.git.remotes().getBestRemotesWithProviders();
+			const remotes = await repo.git.remotes.getBestRemotesWithProviders();
 			const remote = remotes.find(r => r.hasIntegration()) ?? remotes[0];
 
 			return {

@@ -142,8 +142,8 @@ export class ShowGitCommand extends QuickCommand<State> {
 			) {
 				if (state.reference != null && !isCommit(state.reference)) {
 					state.reference = await this.container.git
-						.commits(state.reference.repoPath)
-						.getCommit(state.reference.ref);
+						.getRepositoryService(state.reference.repoPath)
+						.commits.getCommit(state.reference.ref);
 				}
 
 				if (state.counter < 2 || state.reference == null) {

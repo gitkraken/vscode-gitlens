@@ -176,7 +176,7 @@ export class DraftService implements Disposable {
 					throw new Error(`No contents found for ${patch.baseCommitSha}`);
 				}
 
-				const diffFiles = await repository.git.diff().getDiffFiles?.(contents);
+				const diffFiles = await repository.git.diff.getDiffFiles?.(contents);
 				const files = diffFiles?.files.map(f => ({ ...f, gkRepositoryId: patch.gitRepositoryId })) ?? [];
 
 				// Upload patch to returned S3 url
@@ -253,17 +253,14 @@ export class DraftService implements Disposable {
 
 		const [branchNamesResult, diffResult, firstShaResult, remoteResult, userResult] = await Promise.allSettled([
 			isWIP
-				? change.repository.git
-						.branches()
-						.getBranch()
-						.then(b => (b != null ? [b.name] : undefined))
-				: change.repository.git.branches().getBranchesWithCommits([change.revision.to, change.revision.from]),
+				? change.repository.git.branches.getBranch().then(b => (b != null ? [b.name] : undefined))
+				: change.repository.git.branches.getBranchesWithCommits([change.revision.to, change.revision.from]),
 			change.contents == null
-				? change.repository.git.diff().getDiff?.(change.revision.to, change.revision.from)
+				? change.repository.git.diff.getDiff?.(change.revision.to, change.revision.from)
 				: undefined,
-			change.repository.git.commits().getInitialCommitSha?.(),
-			change.repository.git.remotes().getBestRemoteWithProvider(),
-			change.repository.git.config().getCurrentUser(),
+			change.repository.git.commits.getInitialCommitSha?.(),
+			change.repository.git.remotes.getBestRemoteWithProvider(),
+			change.repository.git.config.getCurrentUser(),
 		]);
 
 		const firstSha = getSettledValue(firstShaResult);
@@ -301,7 +298,9 @@ export class DraftService implements Disposable {
 
 		let baseSha = change.revision.from;
 		if (!isSha(baseSha)) {
-			const commit = await this.container.git.commits(change.repository.uri).getCommit(baseSha);
+			const commit = await this.container.git
+				.getRepositoryService(change.repository.uri)
+				.commits.getCommit(baseSha);
 			if (commit != null) {
 				baseSha = commit.sha;
 			} else {
@@ -570,7 +569,7 @@ export class DraftService implements Disposable {
 			repoPath = repositoryOrIdentity.path;
 		}
 
-		const diffFiles = await this.container.git.diff(repoPath).getDiffFiles?.(contents);
+		const diffFiles = await this.container.git.getRepositoryService(repoPath).diff.getDiffFiles?.(contents);
 		const files = diffFiles?.files.map(f => ({ ...f, gkRepositoryId: patch.gkRepositoryId })) ?? [];
 
 		return {
@@ -749,7 +748,7 @@ export class DraftService implements Disposable {
 	): Promise<ProviderAuth | undefined> {
 		let integration;
 		if (isRepository(repoOrIntegrationId)) {
-			const remoteProvider = await repoOrIntegrationId.git.remotes().getBestRemoteWithIntegration();
+			const remoteProvider = await repoOrIntegrationId.git.remotes.getBestRemoteWithIntegration();
 			if (remoteProvider == null) return undefined;
 
 			integration = await remoteProvider.getIntegration();

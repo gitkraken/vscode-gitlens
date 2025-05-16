@@ -39,7 +39,9 @@ export class OpenWorkingFileCommand extends ActiveEditorCommand {
 
 			args.uri = await GitUri.fromUri(uri);
 			if (isGitUri(args.uri) && args.uri.sha) {
-				const workingUri = await this.container.git.getWorkingUri(args.uri.repoPath!, args.uri);
+				const workingUri = await this.container.git
+					.getRepositoryService(args.uri.repoPath!)
+					.getWorkingUri(args.uri);
 				if (workingUri === undefined) {
 					void window.showWarningMessage(
 						'Unable to open working file. File could not be found in the working tree',

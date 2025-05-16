@@ -254,7 +254,7 @@ export class RebaseEditorProvider implements CustomTextEditorProvider, Disposabl
 
 	private async parseState(context: RebaseEditorContext): Promise<State> {
 		if (context.branchName === undefined) {
-			const branch = await this.container.git.branches(context.repoPath).getBranch();
+			const branch = await this.container.git.getRepositoryService(context.repoPath).branches.getBranch();
 			context.branchName = branch?.name ?? null;
 		}
 		const state = await parseRebaseTodo(this.container, context, this.ascending);
@@ -594,7 +594,7 @@ async function loadRichCommitData(
 	context.commits = [];
 	context.authors = new Map<string, Author>();
 
-	const log = await container.git.commits(context.repoPath).searchCommits(
+	const log = await container.git.getRepositoryService(context.repoPath).commits.searchCommits(
 		{
 			query: `${onto ? `#:${onto} ` : ''}${join(
 				map(entries, e => `#:${e.sha}`),

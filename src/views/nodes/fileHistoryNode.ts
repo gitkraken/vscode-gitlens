@@ -5,6 +5,7 @@ import type { GitLog } from '../../git/models/log';
 import type { RepositoryChangeEvent, RepositoryFileSystemChangeEvent } from '../../git/models/repository';
 import { RepositoryChange, RepositoryChangeComparisonMode } from '../../git/models/repository';
 import { deletedOrMissing } from '../../git/models/revision';
+import { getBranchAheadRange } from '../../git/utils/-webview/branch.utils';
 import { configuration } from '../../system/-webview/configuration';
 import { getFolderGlobUri } from '../../system/-webview/path';
 import { gate } from '../../system/decorators/-webview/gate';
@@ -66,16 +67,15 @@ export class FileHistoryNode
 		const children: ViewNode[] = [];
 		if (this.uri.repoPath == null) return children;
 
-		const range = this.branch != null ? await this.view.container.git.getBranchAheadRange(this.branch) : undefined;
+		const svc = this.view.container.git.getRepositoryService(this.uri.repoPath);
+		const range = this.branch != null ? await getBranchAheadRange(svc, this.branch) : undefined;
 		const [logResult, fileStatusesResult, currentUserResult, getBranchAndTagTipsResult, unpublishedCommitsResult] =
 			await Promise.allSettled([
 				this.getLog(),
-				this.uri.sha == null
-					? this.view.container.git.status(this.uri.repoPath).getStatusForPath?.(this.uri)
-					: undefined,
-				this.uri.sha == null ? this.view.container.git.config(this.uri.repoPath).getCurrentUser() : undefined,
-				this.view.container.git.getBranchesAndTagsTipsLookup(this.uri.repoPath, this.branch?.name),
-				range ? this.view.container.git.commits(this.uri.repoPath).getLogShas(range, { limit: 0 }) : undefined,
+				this.uri.sha == null ? svc.status.getStatusForPath?.(this.uri) : undefined,
+				this.uri.sha == null ? svc.config.getCurrentUser() : undefined,
+				svc.getBranchesAndTagsTipsLookup(this.branch?.name),
+				range ? svc.commits.getLogShas(range, { limit: 0 }) : undefined,
 			]);
 
 		const currentUser = getSettledValue(currentUserResult);
@@ -83,7 +83,7 @@ export class FileHistoryNode
 
 		if (fileStatuses?.length) {
 			if (this.folder) {
-				const relativePath = this.view.container.git.getRelativePath(this.getPathOrGlob(), this.uri.repoPath);
+				const relativePath = svc.getRelativePath(this.getPathOrGlob(), this.uri.repoPath);
 				// Combine all the working/staged changes into single pseudo commits
 				const commits = map(
 					uniqueBy(
@@ -262,10 +262,12 @@ export class FileHistoryNode
 
 	private _log: GitLog | undefined;
 	private async getLog() {
-		this._log ??= await this.view.container.git.commits(this.uri.repoPath!).getLogForPath(this.uri, this.uri.sha, {
-			limit: this.limit ?? this.view.config.pageItemLimit,
-			isFolder: this.folder,
-		});
+		this._log ??= await this.view.container.git
+			.getRepositoryService(this.uri.repoPath!)
+			.commits.getLogForPath(this.uri, this.uri.sha, {
+				limit: this.limit ?? this.view.config.pageItemLimit,
+				isFolder: this.folder,
+			});
 		return this._log;
 	}
 

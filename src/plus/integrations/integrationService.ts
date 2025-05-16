@@ -774,7 +774,7 @@ export class IntegrationService implements Disposable {
 		const openRemotesByIntegrationId = new Map<IntegrationId, ResourceDescriptor[]>();
 		let hasOpenAzureRepository = false;
 		for (const repository of this.container.git.openRepositories) {
-			const remotes = await repository.git.remotes().getRemotes();
+			const remotes = await repository.git.remotes.getRemotes();
 			for (const remote of remotes) {
 				const remoteIntegration = await remote.getIntegration();
 				if (remoteIntegration == null) continue;

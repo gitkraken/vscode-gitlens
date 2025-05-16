@@ -36,11 +36,11 @@ export class OpenAssociatedPullRequestOnRemoteCommand extends ActiveEditorComman
 		} else {
 			try {
 				const repo = await getRepositoryOrShowPicker('Open Associated Pull Request', undefined, undefined, {
-					filter: async r => (await this.container.git.remotes(r.uri).getBestRemoteWithIntegration()) != null,
+					filter: async r => (await r.git.remotes.getBestRemoteWithIntegration()) != null,
 				});
 				if (repo == null) return;
 
-				const branch = await repo?.git.branches().getBranch();
+				const branch = await repo?.git.branches.getBranch();
 				const pr = await branch?.getAssociatedPullRequest({ expiryOverride: true });
 
 				args =

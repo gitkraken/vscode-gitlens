@@ -490,10 +490,12 @@ export class PatchDetailsWebviewProvider
 					};
 				}
 
-				await this.container.git.patch(commit.repoPath)?.applyUnreachableCommitForPatch(commit.ref, {
-					stash: 'prompt',
-					...options,
-				});
+				await this.container.git
+					.getRepositoryService(commit.repoPath)
+					.patch?.applyUnreachableCommitForPatch(commit.ref, {
+						stash: 'prompt',
+						...options,
+					});
 				void window.showInformationMessage(`Patch applied successfully`);
 			} catch (ex) {
 				if (ex instanceof CancellationError) return;
@@ -1201,7 +1203,7 @@ export class PatchDetailsWebviewProvider
 		// if (draft.draftType === 'local') {
 		// 	const { patch } = draft;
 		// 	if (patch.repository == null) {
-		// 		const repo = this.container.git.getBestRepository();
+		// 		const repo = this.container.git2.getBestRepository;
 		// 		if (repo != null) {
 		// 			patch.repository = repo;
 		// 		}
@@ -1411,7 +1413,9 @@ export class PatchDetailsWebviewProvider
 		if (change == null) return [undefined];
 
 		if (change.type === 'revision') {
-			const commit = await this.container.git.commits(file.repoPath).getCommit(change.revision.to ?? uncommitted);
+			const commit = await this.container.git
+				.getRepositoryService(file.repoPath)
+				.commits.getCommit(change.revision.to ?? uncommitted);
 			if (
 				change.revision.to === change.revision.from ||
 				(change.revision.from.length === change.revision.to.length + 1 &&
@@ -1423,7 +1427,11 @@ export class PatchDetailsWebviewProvider
 
 			return [commit, change.revision];
 		} else if (change.type === 'wip') {
-			return [await this.container.git.commits(file.repoPath).getCommit(change.revision.to ?? uncommitted)];
+			return [
+				await this.container.git
+					.getRepositoryService(file.repoPath)
+					.commits.getCommit(change.revision.to ?? uncommitted),
+			];
 		}
 
 		return [undefined];
@@ -1444,9 +1452,11 @@ export class PatchDetailsWebviewProvider
 
 			do {
 				try {
-					const commit = await repo.git
-						.patch()
-						?.createUnreachableCommitForPatch(baseRef, draft.title, patch.contents!);
+					const commit = await repo.git.patch?.createUnreachableCommitForPatch(
+						baseRef,
+						draft.title,
+						patch.contents!,
+					);
 					patch.commit = commit;
 				} catch (ex) {
 					if (baseRef != null) {

@@ -144,12 +144,12 @@ export class CompareBranchNode extends SubscribeableViewNode<
 			const behind = { ...this.behind, range: createRevisionRange(this.behind.ref1, this.behind.ref2, '..') };
 
 			const counts = await this.view.container.git
-				.commits(this.repoPath)
-				.getLeftRightCommitCount(createRevisionRange(behind.ref1, behind.ref2, '...'), {
+				.getRepositoryService(this.repoPath)
+				.commits.getLeftRightCommitCount(createRevisionRange(behind.ref1, behind.ref2, '...'), {
 					authors: this.filterByAuthors,
 				});
 
-			const refsProvider = this.view.container.git.refs(this.repoPath);
+			const refsProvider = this.view.container.git.getRepositoryService(this.repoPath).refs;
 			const mergeBase =
 				(await refsProvider.getMergeBase(behind.ref1, behind.ref2, {
 					forkPoint: true,
@@ -340,7 +340,7 @@ export class CompareBranchNode extends SubscribeableViewNode<
 	private async getAheadFilesQuery(): Promise<FilesQueryResults> {
 		const comparison = createRevisionRange(this._compareWith?.ref || 'HEAD', this.branch.ref || 'HEAD', '...');
 
-		const diffProvider = this.view.container.git.diff(this.repoPath);
+		const diffProvider = this.view.container.git.getRepositoryService(this.repoPath).diff;
 		const [filesResult, workingFilesResult, statsResult, workingStatsResult] = await Promise.allSettled([
 			diffProvider.getDiffStatus(comparison),
 			this.compareWithWorkingTree ? diffProvider.getDiffStatus('HEAD') : undefined,
@@ -393,7 +393,7 @@ export class CompareBranchNode extends SubscribeableViewNode<
 	private async getBehindFilesQuery(): Promise<FilesQueryResults> {
 		const comparison = createRevisionRange(this.branch.ref, this._compareWith?.ref || 'HEAD', '...');
 
-		const diffProvider = this.view.container.git.diff(this.repoPath);
+		const diffProvider = this.view.container.git.getRepositoryService(this.repoPath).diff;
 		const [filesResult, statsResult] = await Promise.allSettled([
 			diffProvider.getDiffStatus(comparison),
 			diffProvider.getChangedFilesCount(comparison),

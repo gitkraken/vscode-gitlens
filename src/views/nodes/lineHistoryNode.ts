@@ -8,6 +8,7 @@ import type { GitLog } from '../../git/models/log';
 import type { RepositoryChangeEvent, RepositoryFileSystemChangeEvent } from '../../git/models/repository';
 import { RepositoryChange, RepositoryChangeComparisonMode } from '../../git/models/repository';
 import { deletedOrMissing } from '../../git/models/revision';
+import { getBranchAheadRange } from '../../git/utils/-webview/branch.utils';
 import { isUncommitted } from '../../git/utils/revision.utils';
 import { gate } from '../../system/decorators/-webview/gate';
 import { memoize } from '../../system/decorators/-webview/memoize';
@@ -76,7 +77,8 @@ export class LineHistoryNode
 		const { sha } = this.uri;
 		const selection = this.selection;
 
-		const range = this.branch != null ? await this.view.container.git.getBranchAheadRange(this.branch) : undefined;
+		const svc = this.view.container.git.getRepositoryService(this.uri.repoPath);
+		const range = this.branch != null ? await getBranchAheadRange(svc, this.branch) : undefined;
 		const [logResult, blameResult, getBranchAndTagTipsResult, unpublishedCommitsResult] = await Promise.allSettled([
 			this.getLog(selection),
 			sha == null || isUncommitted(sha)
@@ -84,8 +86,8 @@ export class LineHistoryNode
 					? await this.view.container.git.getBlameForRangeContents(this.uri, selection, this.editorContents)
 					: await this.view.container.git.getBlameForRange(this.uri, selection)
 				: undefined,
-			this.view.container.git.getBranchesAndTagsTipsLookup(this.uri.repoPath, this.branch?.name),
-			range ? this.view.container.git.commits(this.uri.repoPath).getLogShas(range, { limit: 0 }) : undefined,
+			svc.getBranchesAndTagsTipsLookup(this.branch?.name),
+			range ? svc.commits.getLogShas(range, { limit: 0 }) : undefined,
 		]);
 
 		// Check for any uncommitted changes in the range
@@ -93,9 +95,9 @@ export class LineHistoryNode
 		if (blame?.lines.length) {
 			const uncommittedCommit = find(blame.commits.values(), c => c.isUncommitted);
 			if (uncommittedCommit != null) {
-				const relativePath = this.view.container.git.getRelativePath(this.uri, this.uri.repoPath);
+				const relativePath = svc.getRelativePath(this.uri, this.uri.repoPath);
 
-				const status = await this.view.container.git.status(this.uri.repoPath).getStatusForFile?.(this.uri);
+				const status = await svc.status.getStatusForFile?.(this.uri);
 				if (status != null) {
 					const file: GitFile = {
 						conflictStatus: status?.conflictStatus,
@@ -107,7 +109,7 @@ export class LineHistoryNode
 						workingTreeStatus: status?.workingTreeStatus,
 					};
 
-					const currentUser = await this.view.container.git.config(this.uri.repoPath).getCurrentUser();
+					const currentUser = await svc.config.getCurrentUser();
 					const pseudoCommits = status?.getPseudoCommits(this.view.container, currentUser);
 					if (pseudoCommits != null) {
 						for (const commit of pseudoCommits.reverse()) {
@@ -243,13 +245,15 @@ export class LineHistoryNode
 
 	private _log: GitLog | undefined;
 	private async getLog(selection?: Selection): Promise<GitLog | undefined> {
-		this._log ??= await this.view.container.git.commits(this.uri.repoPath!).getLogForPath(this.uri, this.uri.sha, {
-			all: false,
-			isFolder: false,
-			limit: this.limit ?? this.view.config.pageItemLimit,
-			range: selection ?? this.selection,
-			renames: false,
-		});
+		this._log ??= await this.view.container.git
+			.getRepositoryService(this.uri.repoPath!)
+			.commits.getLogForPath(this.uri, this.uri.sha, {
+				all: false,
+				isFolder: false,
+				limit: this.limit ?? this.view.config.pageItemLimit,
+				range: selection ?? this.selection,
+				renames: false,
+			});
 
 		return this._log;
 	}

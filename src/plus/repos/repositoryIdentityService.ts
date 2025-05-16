@@ -35,8 +35,8 @@ export class RepositoryIdentityService implements Disposable {
 		repository: Repository,
 	): Promise<RepositoryIdentityDescriptor<T>> {
 		const [bestRemotePromise, initialCommitShaPromise] = await Promise.allSettled([
-			repository.git.remotes().getBestRemoteWithProvider(),
-			repository.git.commits().getInitialCommitSha?.(),
+			repository.git.remotes.getBestRemoteWithProvider(),
+			repository.git.commits.getInitialCommitSha?.(),
 		]);
 		const bestRemote = getSettledValue(bestRemotePromise);
 
@@ -100,7 +100,7 @@ export class RepositoryIdentityService implements Disposable {
 			// As a fallback, try to match using the repo id.
 			for (const repo of this.container.git.repositories) {
 				if (remoteDomain != null && remotePath != null) {
-					const matchingRemotes = await repo.git.remotes().getRemotes({
+					const matchingRemotes = await repo.git.remotes.getRemotes({
 						filter: r => r.matches(remoteDomain, remotePath),
 					});
 					if (matchingRemotes.length > 0) {
@@ -112,7 +112,7 @@ export class RepositoryIdentityService implements Disposable {
 				if (!options?.skipRefValidation && hasInitialCommitSha) {
 					// Repo ID can be any valid SHA in the repo, though standard practice is to use the
 					// first commit SHA.
-					if (await repo.git.refs().isValidReference(identity.initialCommitSha)) {
+					if (await repo.git.refs.isValidReference(identity.initialCommitSha)) {
 						foundRepo = repo;
 						break;
 					}
@@ -151,7 +151,7 @@ export class RepositoryIdentityService implements Disposable {
 			if (locatedRepo == null) return undefined;
 			if (
 				identity.initialCommitSha == null ||
-				(await locatedRepo.git.refs().isValidReference(identity.initialCommitSha))
+				(await locatedRepo.git.refs.isValidReference(identity.initialCommitSha))
 			) {
 				foundRepo = locatedRepo;
 				await this.storeRepositoryLocation(foundRepo, identity);
@@ -170,7 +170,7 @@ export class RepositoryIdentityService implements Disposable {
 
 		const [identityResult, remotesResult] = await Promise.allSettled([
 			identity == null ? this.getRepositoryIdentity<T>(repo) : undefined,
-			repo.git.remotes().getRemotes(),
+			repo.git.remotes.getRemotes(),
 		]);
 
 		identity ??= getSettledValue(identityResult);

@@ -145,7 +145,7 @@ export class WorktreesView extends ViewBase<'worktrees', WorktreesViewNode, Work
 			registerViewCommand(
 				this.getQualifiedCommand('refresh'),
 				async () => {
-					this.container.git.resetCaches('worktrees');
+					this.container.git.resetCaches('branches', 'status', 'worktrees');
 					return this.refresh(true);
 				},
 				this,

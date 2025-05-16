@@ -54,10 +54,9 @@ export class TagNode extends ViewRefNode<'tag', ViewsWithTags, GitTagReference> 
 		const log = await this.getLog();
 		if (log == null) return [new MessageNode(this.view, this, 'No commits could be found.')];
 
-		const getBranchAndTagTips = await this.view.container.git.getBranchesAndTagsTipsLookup(
-			this.uri.repoPath,
-			this.tag.name,
-		);
+		const getBranchAndTagTips = await this.view.container.git
+			.getRepositoryService(this.uri.repoPath!)
+			.getBranchesAndTagsTipsLookup(this.tag.name);
 		const children = [
 			...insertDateMarkers(
 				map(
@@ -71,7 +70,10 @@ export class TagNode extends ViewRefNode<'tag', ViewsWithTags, GitTagReference> 
 		if (log.hasMore) {
 			children.push(
 				new LoadMoreNode(this.view, this, children[children.length - 1], {
-					getCount: () => this.view.container.git.commits(this.tag.repoPath).getCommitCount(this.tag.name),
+					getCount: () =>
+						this.view.container.git
+							.getRepositoryService(this.tag.repoPath)
+							.commits.getCommitCount(this.tag.name),
 				}),
 			);
 		}
@@ -111,8 +113,10 @@ export class TagNode extends ViewRefNode<'tag', ViewsWithTags, GitTagReference> 
 	private async getLog() {
 		if (this._log == null) {
 			this._log = await this.view.container.git
-				.commits(this.uri.repoPath!)
-				.getLog(this.tag.name, { limit: this.limit ?? this.view.config.defaultItemLimit });
+				.getRepositoryService(this.uri.repoPath!)
+				.commits.getLog(this.tag.name, {
+					limit: this.limit ?? this.view.config.defaultItemLimit,
+				});
 		}
 
 		return this._log;

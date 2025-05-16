@@ -57,10 +57,10 @@ export class CoAuthorsGitCommand extends QuickCommand<State> {
 	}
 
 	private async execute(state: CoAuthorStepState) {
-		const repo = await this.container.git.getOrOpenScmRepository(state.repo.path);
-		if (repo == null) return;
+		const scmRepo = await state.repo.git.getOrOpenScmRepository();
+		if (scmRepo == null) return;
 
-		let message = repo.inputBox.value;
+		let message = scmRepo.inputBox.value;
 
 		const index = message.indexOf('Co-authored-by: ');
 		if (index !== -1) {
@@ -84,7 +84,7 @@ export class CoAuthorsGitCommand extends QuickCommand<State> {
 			message += `${newlines}Co-authored-by: ${c.getCoauthor()}`;
 		}
 
-		repo.inputBox.value = message;
+		scmRepo.inputBox.value = message;
 		void (await executeCoreCommand('workbench.view.scm'));
 	}
 
