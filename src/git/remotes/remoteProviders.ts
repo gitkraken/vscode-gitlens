@@ -42,7 +42,12 @@ const builtInProviders: RemoteProviders = [
 	{
 		custom: false,
 		matcher: /\bdev\.azure\.com$/i,
-		creator: (container: Container, domain: string, path: string) => new AzureDevOpsRemote(container, domain, path),
+		creator: (container: Container, domain: string, path: string) => {
+			Logger.warn(
+				`issue-4303: Creating AzureDevOpsRemote as a builtinprovider matching to its domain dev.azure.com. protocol=undefined`,
+			);
+			return new AzureDevOpsRemote(container, domain, path);
+		},
 	},
 	{
 		custom: true,
@@ -58,8 +63,12 @@ const builtInProviders: RemoteProviders = [
 	{
 		custom: false,
 		matcher: /\bvisualstudio\.com$/i,
-		creator: (container: Container, domain: string, path: string) =>
-			new AzureDevOpsRemote(container, domain, path, undefined, undefined, true),
+		creator: (container: Container, domain: string, path: string) => {
+			Logger.warn(
+				`issue-4303: Creating AzureDevOpsRemote as a builtinprovider matching to its domain visualstudio.com. protocol=undefined`,
+			);
+			return new AzureDevOpsRemote(container, domain, path, undefined, undefined, true);
+		},
 	},
 	{
 		custom: false,
@@ -157,8 +166,12 @@ export function loadRemoteProviders(
 function getCustomProviderCreator(cfg: RemotesConfig) {
 	switch (cfg.type) {
 		case 'AzureDevOps':
-			return (container: Container, domain: string, path: string) =>
-				new AzureDevOpsRemote(container, domain, path, cfg.protocol, cfg.name, true);
+			return (container: Container, domain: string, path: string) => {
+				Logger.warn(
+					`issue-4303: Creating AzureDevOpsRemote with custom provider. protocol:${typeof cfg?.protocol} = ${cfg?.protocol}`,
+				);
+				return new AzureDevOpsRemote(container, domain, path, cfg.protocol, cfg.name, true);
+			};
 		case 'Bitbucket':
 			return (_container: Container, domain: string, path: string) =>
 				new BitbucketRemote(domain, path, cfg.protocol, cfg.name, true);

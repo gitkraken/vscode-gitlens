@@ -6,6 +6,7 @@ import { HostingIntegration } from '../../plus/integrations/integration';
 import { remoteProviderIdToIntegrationId } from '../../plus/integrations/integrationService';
 import { isVsts, parseAzureHttpsUrl } from '../../plus/integrations/providers/azure/models';
 import type { Brand, Unbrand } from '../../system/brand';
+import { Logger } from '../../system/logger';
 import type { CreatePullRequestRemoteResource } from '../models/remoteResource';
 import type { Repository } from '../models/repository';
 import type { GkProviderId } from '../models/repositoryIdentities';
@@ -195,19 +196,47 @@ export class AzureDevOpsRemote extends RemoteProvider {
 	}
 
 	protected getUrlForBranches(): string {
-		return this.encodeUrl(`${this.baseUrl}/branches`);
+		Logger.warn(`issue-4303: AzureDevOpsRemote.getUrlForBranches:enter`);
+		const value = this.encodeUrl(`${this.baseUrl}/branches`);
+		Logger.warn(
+			`issue-4303: AzureDevOpsRemote.getUrlForBranches -> ${value} (protocol:${typeof this.protocol}=${
+				this.protocol
+			})`,
+		);
+		return value;
 	}
 
 	protected getUrlForBranch(branch: string): string {
-		return this.encodeUrl(`${this.baseUrl}/?version=GB${branch}&_a=history`);
+		Logger.warn(`issue-4303: AzureDevOpsRemote.getUrlForBranch:enter`);
+		const value = this.encodeUrl(`${this.baseUrl}/?version=GB${branch}&_a=history`);
+		Logger.warn(
+			`issue-4303: AzureDevOpsRemote.getUrlForBranch -> ${value} (protocol:${typeof this.protocol}=${
+				this.protocol
+			})`,
+		);
+		return value;
 	}
 
 	protected getUrlForCommit(sha: string): string {
-		return this.encodeUrl(`${this.baseUrl}/commit/${sha}`);
+		Logger.warn(`issue-4303: AzureDevOpsRemote.getUrlForCommit:enter`);
+		const value = this.encodeUrl(`${this.baseUrl}/commit/${sha}`);
+		Logger.warn(
+			`issue-4303: AzureDevOpsRemote.getUrlForCommit -> ${value} (protocol:${typeof this.protocol}=${
+				this.protocol
+			})`,
+		);
+		return value;
 	}
 
 	protected override getUrlForComparison(base: string, head: string, _notation: GitRevisionRangeNotation): string {
-		return this.encodeUrl(`${this.baseUrl}/branchCompare?baseVersion=GB${base}&targetVersion=GB${head}`);
+		Logger.warn(`issue-4303: AzureDevOpsRemote.getUrlForComparison:enter`);
+		const value = this.encodeUrl(`${this.baseUrl}/branchCompare?baseVersion=GB${base}&targetVersion=GB${head}`);
+		Logger.warn(
+			`issue-4303: AzureDevOpsRemote.getUrlForComparison -> ${value} (protocol:${typeof this.protocol}=${
+				this.protocol
+			})`,
+		);
+		return value;
 	}
 
 	override async isReadyForForCrossForkPullRequestUrls(): Promise<boolean> {
