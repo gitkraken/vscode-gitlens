@@ -147,7 +147,9 @@ interface OpenState {
 interface CopyChangesState {
 	subcommand: 'copy-changes';
 	repo: string | Repository;
-	worktree: GitWorktree;
+	/** Optional source worktree, defaults to the current worktree if not provided */
+	source?: GitWorktree;
+	target: GitWorktree;
 	changes:
 		| { baseSha?: string; contents?: string; type: 'index' | 'working-tree' }
 		| { baseSha: string; contents: string; type?: 'index' | 'working-tree' };
@@ -228,7 +230,7 @@ export class WorktreeGitCommand extends QuickCommand<State> {
 
 					break;
 				case 'copy-changes':
-					if (args.state.worktree != null) {
+					if (args.state.target != null) {
 						counter++;
 					}
 
@@ -1153,39 +1155,46 @@ export class WorktreeGitCommand extends QuickCommand<State> {
 		while (this.canStepsContinue(state)) {
 			context.title = state?.overrides?.title ?? getTitle(state.subcommand);
 
-			if (state.counter < 3 || state.worktree == null) {
+			if (state.counter < 3 || state.target == null) {
 				context.worktrees ??= (await state.repo.git.worktrees?.getWorktrees()) ?? [];
 
 				let placeholder;
 				switch (state.changes.type) {
 					case 'index':
-						context.title = state?.overrides?.title ?? 'Copy Staged Changes to Worktree';
-						placeholder = 'Choose a worktree to copy your staged changes to';
+						context.title =
+							state?.overrides?.title ??
+							`Copy Staged${state.source?.name ? ' Worktree' : ''} Changes to Worktree`;
+						placeholder = `Choose a worktree to copy your staged${
+							state.source?.name ? ' Worktree' : ''
+						} changes to`;
 						break;
 					case 'working-tree':
-						context.title = state?.overrides?.title ?? 'Copy Working Changes to Worktree';
-						placeholder = 'Choose a worktree to copy your working changes to';
-						break;
 					default:
-						context.title = state?.overrides?.title ?? 'Copy Changes to Worktree';
-						placeholder = 'Choose a worktree to copy changes to';
+						context.title =
+							state?.overrides?.title ??
+							`Copy Working${state.source?.name ? ' Worktree' : ''} Changes to Worktree`;
+						placeholder = `Choose a worktree to copy your working${
+							state.source?.name ? ' worktree' : ''
+						} changes to`;
 						break;
 				}
 
 				const result = yield* pickWorktreeStep(state, context, {
 					excludeOpened: true,
 					includeStatus: true,
-					picked: state.worktree?.uri?.toString(),
+					picked: state.target?.uri?.toString(),
 					placeholder: placeholder,
 				});
 				// Always break on the first step (so we will go back)
 				if (result === StepResultBreak) break;
 
-				state.worktree = result;
+				state.target = result;
 			}
 
+			const sourceSvc = this.container.git.getRepositoryService(state.source?.uri ?? state.repo.uri);
+
 			if (!state.changes.contents || !state.changes.baseSha) {
-				const diff = await state.repo.git.diff.getDiff?.(
+				const diff = await sourceSvc.diff.getDiff?.(
 					state.changes.type === 'index' ? uncommittedStaged : uncommitted,
 					'HEAD',
 					{
@@ -1204,7 +1213,7 @@ export class WorktreeGitCommand extends QuickCommand<State> {
 			}
 
 			if (!isSha(state.changes.baseSha)) {
-				const sha = (await state.repo.git.revision.resolveRevision(state.changes.baseSha)).sha;
+				const sha = (await sourceSvc.revision.resolveRevision(state.changes.baseSha)).sha;
 				if (sha != null) {
 					state.changes.baseSha = sha;
 				}
@@ -1218,15 +1227,15 @@ export class WorktreeGitCommand extends QuickCommand<State> {
 			endSteps(state);
 
 			try {
-				const svc = this.container.git.getRepositoryService(state.worktree.uri);
-				const commit = await svc.patch?.createUnreachableCommitForPatch(
+				const commit = await sourceSvc.patch?.createUnreachableCommitForPatch(
 					state.changes.baseSha,
 					'Copied Changes',
 					state.changes.contents,
 				);
 				if (commit == null) return;
 
-				await svc.patch?.applyUnreachableCommitForPatch(commit.sha, { stash: false });
+				const targetSvc = this.container.git.getRepositoryService(state.target.uri);
+				await targetSvc.patch?.applyUnreachableCommitForPatch(commit.sha, { stash: false });
 				void window.showInformationMessage(`Changes copied successfully`);
 			} catch (ex) {
 				if (ex instanceof CancellationError) return;
@@ -1253,7 +1262,7 @@ export class WorktreeGitCommand extends QuickCommand<State> {
 				{
 					subcommand: 'open',
 					repo: state.repo,
-					worktree: state.worktree,
+					worktree: state.target,
 					flags: [],
 					counter: 3,
 					confirm: true,
@@ -1277,37 +1286,23 @@ export class WorktreeGitCommand extends QuickCommand<State> {
 			case 'index':
 				confirmations.push({
 					label: 'Copy Staged Changes to Worktree',
-					detail: `Will copy the staged changes${
-						count > 0 ? ` (${pluralize('file', count)})` : ''
-					} to worktree '${state.worktree.name}'`,
+					detail: `Will copy the staged changes${count > 0 ? ` (${pluralize('file', count)})` : ''}${
+						state.source ? ` from worktree '${state.source.name}'` : ''
+					} to worktree '${state.target.name}'`,
 				});
 				break;
 			case 'working-tree':
+			default:
 				confirmations.push({
 					label: 'Copy Working Changes to Worktree',
-					detail: `Will copy the working changes${
-						count > 0 ? ` (${pluralize('file', count)})` : ''
-					} to worktree '${state.worktree.name}'`,
+					detail: `Will copy the working changes${count > 0 ? ` (${pluralize('file', count)})` : ''}${
+						state.source ? ` from worktree '${state.source.name}'` : ''
+					} to worktree '${state.target.name}'`,
 				});
-				break;
-
-			default:
-				confirmations.push(
-					createFlagsQuickPickItem([], [], {
-						label: 'Copy Changes to Worktree',
-						detail: `Will copy the changes${
-							count > 0 ? ` (${pluralize('file', count)})` : ''
-						} to worktree '${state.worktree.name}'`,
-					}),
-				);
 				break;
 		}
 
-		const step = createConfirmStep(
-			`Confirm ${context.title} \u2022 ${state.worktree.name}`,
-			confirmations,
-			context,
-		);
+		const step = createConfirmStep(`Confirm ${context.title} \u2022 ${state.target.name}`, confirmations, context);
 
 		const selection: StepSelection<typeof step> = yield step;
 		return canPickStepContinue(step, state, selection) ? undefined : StepResultBreak;

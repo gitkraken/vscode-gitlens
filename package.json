@@ -6395,6 +6395,10 @@
 				"category": "GitLens"
 			},
 			{
+				"command": "gitlens.copyWorkingChangesToWorktree:views",
+				"title": "Copy Working Changes to Worktree..."
+			},
+			{
 				"command": "gitlens.createCloudPatch",
 				"title": "Create Patch...",
 				"category": "GitLens"
@@ -10701,6 +10705,10 @@
 				{
 					"command": "gitlens.copyWorkingChangesToWorktree",
 					"when": "gitlens:enabled && !gitlens:untrusted && !gitlens:hasVirtualFolders"
+				},
+				{
+					"command": "gitlens.copyWorkingChangesToWorktree:views",
+					"when": "false"
 				},
 				{
 					"command": "gitlens.createCloudPatch",
@@ -17966,8 +17974,13 @@
 					"group": "1_gitlens_actions@1"
 				},
 				{
+					"command": "gitlens.copyWorkingChangesToWorktree:views",
+					"when": "viewItem =~ /gitlens:(worktree\\b(?=.*?\\b\\+working\\b)|uncommitted)\\b/ && !listMultiSelection && !gitlens:readonly && !gitlens:untrusted && !gitlens:hasVirtualFolders",
+					"group": "3_gitlens@99"
+				},
+				{
 					"command": "gitlens.ai.explainWip:views",
-					"when": "viewItem =~ /gitlens:(worktree|uncommitted)\\b/ && !listMultiSelection && !gitlens:readonly && !gitlens:untrusted && gitlens:gk:organization:ai:enabled",
+					"when": "viewItem =~ /gitlens:(worktree\\b(?=.*?\\b\\+working\\b)|uncommitted)\\b/ && !listMultiSelection && !gitlens:readonly && !gitlens:untrusted && gitlens:gk:organization:ai:enabled",
 					"group": "3_gitlens_ai@1"
 				},
 				{
