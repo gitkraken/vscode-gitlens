@@ -27,6 +27,7 @@ import type { StashNode } from '../../stashNode';
 import type { StatusFileNode } from '../../statusFileNode';
 import type { TagNode } from '../../tagNode';
 import type { UncommittedFileNode } from '../../UncommittedFileNode';
+import type { WorktreeNode } from '../../worktreeNode';
 
 // prettier-ignore
 export type TreeViewNodesByType = {
@@ -78,6 +79,8 @@ export type TreeViewNodesByType = {
 		? BranchTrackingStatusFilesNode
 		: T extends 'uncommitted-file'
 		? UncommittedFileNode
+		: T extends 'worktree'
+		? WorktreeNode
 		: ViewNode<T>;
 };
 

@@ -42,17 +42,17 @@ export async function create(
 export function copyChangesToWorktree(
 	type: 'working-tree' | 'index',
 	repo?: string | Repository,
-	worktree?: GitWorktree,
+	target?: GitWorktree,
+	source?: GitWorktree,
 ): Promise<void> {
 	return executeGitCommand({
 		command: 'worktree',
 		state: {
 			subcommand: 'copy-changes',
 			repo: repo,
-			worktree: worktree,
-			changes: {
-				type: type,
-			},
+			source: source,
+			target: target,
+			changes: { type: type },
 		},
 	});
 }

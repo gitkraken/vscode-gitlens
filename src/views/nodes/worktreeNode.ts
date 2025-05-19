@@ -400,7 +400,7 @@ export class WorktreeNode extends CacheableChildrenViewNode<'worktree', ViewsWit
 		item.description = description;
 		item.contextValue = `${ContextValues.Worktree}${this.worktree.isDefault ? '+default' : ''}${
 			this.worktree.opened ? '+active' : ''
-		}`;
+		}${hasChanges ? '+working' : ''}`;
 		item.iconPath =
 			pendingPullRequest != null
 				? new ThemeIcon('loading~spin')

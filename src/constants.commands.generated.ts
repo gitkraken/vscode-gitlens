@@ -34,6 +34,7 @@ export type ContributedCommands =
 	| 'gitlens.copyRemoteFileUrlWithoutRange'
 	| 'gitlens.copyRemotePullRequestUrl'
 	| 'gitlens.copyRemoteRepositoryUrl'
+	| 'gitlens.copyWorkingChangesToWorktree:views'
 	| 'gitlens.ghpr.views.openOrCreateWorktree'
 	| 'gitlens.graph.addAuthor'
 	| 'gitlens.graph.associateIssueWithBranch'

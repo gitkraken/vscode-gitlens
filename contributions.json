@@ -136,7 +136,7 @@
 			"menus": {
 				"view/item/context": [
 					{
-						"when": "viewItem =~ /gitlens:(worktree|uncommitted)\\b/ && !listMultiSelection && !gitlens:readonly && !gitlens:untrusted && gitlens:gk:organization:ai:enabled",
+						"when": "viewItem =~ /gitlens:(worktree\\b(?=.*?\\b\\+working\\b)|uncommitted)\\b/ && !listMultiSelection && !gitlens:readonly && !gitlens:untrusted && gitlens:gk:organization:ai:enabled",
 						"group": "3_gitlens_ai",
 						"order": 1
 					}
@@ -894,6 +894,18 @@
 		"gitlens.copyWorkingChangesToWorktree": {
 			"label": "Copy Working Changes to Worktree...",
 			"commandPalette": "gitlens:enabled && !gitlens:untrusted && !gitlens:hasVirtualFolders"
+		},
+		"gitlens.copyWorkingChangesToWorktree:views": {
+			"label": "Copy Working Changes to Worktree...",
+			"menus": {
+				"view/item/context": [
+					{
+						"when": "viewItem =~ /gitlens:(worktree\\b(?=.*?\\b\\+working\\b)|uncommitted)\\b/ && !listMultiSelection && !gitlens:readonly && !gitlens:untrusted && !gitlens:hasVirtualFolders",
+						"group": "3_gitlens",
+						"order": 99
+					}
+				]
+			}
 		},
 		"gitlens.createCloudPatch": {
 			"label": "Create Patch...",

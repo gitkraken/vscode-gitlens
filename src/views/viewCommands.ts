@@ -105,6 +105,7 @@ import type { StashNode } from './nodes/stashNode';
 import type { StatusFileNode } from './nodes/statusFileNode';
 import type { TagNode } from './nodes/tagNode';
 import type { TagsNode } from './nodes/tagsNode';
+import type { UncommittedFilesNode } from './nodes/UncommittedFilesNode';
 import type { WorktreeNode } from './nodes/worktreeNode';
 import type { WorktreesNode } from './nodes/worktreesNode';
 
@@ -1768,6 +1769,20 @@ export class ViewCommands implements Disposable {
 			head: node.ref,
 			source: { source: 'view', detail: node.is('branch') ? 'branch' : 'tag' },
 		});
+	}
+
+	@command('gitlens.copyWorkingChangesToWorktree:views')
+	@log()
+	private async copyWorkingChangesToWorktree(node: WorktreeNode | UncommittedFilesNode) {
+		if (node.is('uncommitted-files')) {
+			const parent = node.getParent()!;
+			if (parent?.is('worktree')) {
+				node = parent;
+			}
+		}
+		if (!node.is('worktree')) return;
+
+		return WorktreeActions.copyChangesToWorktree('working-tree', node.worktree.repoPath, undefined, node.worktree);
 	}
 }
 
