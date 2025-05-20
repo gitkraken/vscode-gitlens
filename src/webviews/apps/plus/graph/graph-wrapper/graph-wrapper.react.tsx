@@ -1,6 +1,7 @@
 import type {
 	CommitType,
 	ExcludeRefsById,
+	ExternalIconKeys,
 	GetExternalIcon,
 	GraphColumnMode,
 	GraphColumnSetting,
@@ -90,9 +91,10 @@ const getGraphDateFormatter = (config: GraphComponentConfig): OnFormatCommitDate
 		formatCommitDateTime(commitDateTime, config.dateStyle, config.dateFormat, source);
 };
 
-const createIconElements = () => {
+const createIconElements = (): Record<ExternalIconKeys | 'undefined-icon', ReactElement> => {
 	const iconList = [
 		'head',
+		'filter',
 		'remote',
 		'remote-github',
 		'remote-githubEnterprise',
@@ -153,7 +155,7 @@ const createIconElements = () => {
 
 const iconElementLibrary = createIconElements();
 
-const getIconElementLibrary: GetExternalIcon = (iconKey: string) => {
+const getIconElementLibrary: GetExternalIcon = (iconKey: ExternalIconKeys) => {
 	const icon = iconKey in iconElementLibrary ? iconKey : 'undefined-icon';
 	return iconElementLibrary[icon];
 };
