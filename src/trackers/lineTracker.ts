@@ -169,7 +169,7 @@ export class LineTracker {
 			return isIncluded(lineOrSelections, this._selections);
 		}
 
-		if (this._selections == null || this._selections.length === 0) return false;
+		if (!this._selections?.length) return false;
 
 		const line = lineOrSelections;
 		const activeOnly = options?.activeOnly ?? true;
