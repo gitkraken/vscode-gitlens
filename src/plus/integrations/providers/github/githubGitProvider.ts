@@ -245,7 +245,7 @@ export class GitHubGitProvider implements GitProvider, Disposable {
 	async supports(feature: Features): Promise<boolean> {
 		let supported;
 		switch (feature) {
-			case 'timeline' satisfies Features:
+			case 'timeline':
 				supported = true;
 				break;
 			default:

@@ -1,7 +1,7 @@
 import type { Config, GraphBranchesVisibility, GraphConfig } from './config';
 import type { WalkthroughSteps } from './constants';
 import type { AIProviders } from './constants.ai';
-import type { GlCommands } from './constants.commands';
+import type { GlCommands, GlCommandsDeprecated } from './constants.commands';
 import type { IntegrationId, SupportedCloudIntegrationIds } from './constants.integrations';
 import type { SubscriptionState, SubscriptionStateString } from './constants.subscription';
 import type { CustomEditorTypes, TreeViewTypes, WebviewTypes, WebviewViewTypes } from './constants.views';
@@ -1048,4 +1048,7 @@ export type TrackedUsageFeatures =
 	| `${TreeViewTypes | WebviewViewTypes}View`
 	| `${CustomEditorTypes}Editor`;
 export type WalkthroughUsageKeys = 'home:walkthrough:dismissed';
-export type TrackedUsageKeys = `${TrackedUsageFeatures}:shown` | `command:${string}:executed` | WalkthroughUsageKeys;
+export type TrackedUsageKeys =
+	| `${TrackedUsageFeatures}:shown`
+	| `command:${GlCommands | GlCommandsDeprecated}:executed`
+	| WalkthroughUsageKeys;

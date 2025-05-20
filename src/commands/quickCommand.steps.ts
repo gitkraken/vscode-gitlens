@@ -2760,9 +2760,9 @@ export async function* ensureAccessStep<
 		const detail = promo?.content?.quickpick.detail;
 
 		switch (feature) {
-			case 'graph' satisfies PlusFeatures:
-			case 'timeline' satisfies PlusFeatures:
-			case 'worktrees' satisfies PlusFeatures:
+			case 'graph':
+			case 'timeline':
+			case 'worktrees':
 				placeholder =
 					isSubscriptionPaidPlan(access.subscription.required) && access.subscription.current.account != null
 						? 'Pro feature — requires GitLens Pro for use on privately-hosted repos'
@@ -2802,7 +2802,7 @@ export async function* ensureAccessStep<
 	}
 
 	switch (feature) {
-		case 'launchpad' satisfies PlusFeatures:
+		case 'launchpad':
 			directives.splice(
 				0,
 				0,
@@ -2819,7 +2819,7 @@ export async function* ensureAccessStep<
 				createQuickPickSeparator(),
 			);
 			break;
-		case 'startWork' satisfies PlusFeatures:
+		case 'startWork':
 			directives.splice(
 				0,
 				0,
@@ -2830,7 +2830,7 @@ export async function* ensureAccessStep<
 				createQuickPickSeparator(),
 			);
 			break;
-		case 'associateIssueWithBranch' satisfies PlusFeatures:
+		case 'associateIssueWithBranch':
 			directives.splice(
 				0,
 				0,
@@ -2841,7 +2841,7 @@ export async function* ensureAccessStep<
 				createQuickPickSeparator(),
 			);
 			break;
-		case 'worktrees' satisfies PlusFeatures:
+		case 'worktrees':
 			directives.splice(
 				0,
 				0,

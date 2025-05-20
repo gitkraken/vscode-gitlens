@@ -1,7 +1,6 @@
 import type { ConfigurationChangeEvent, StatusBarItem, TextEditor, Uri } from 'vscode';
 import { CancellationTokenSource, Disposable, MarkdownString, StatusBarAlignment, window } from 'vscode';
 import type { ToggleFileChangesAnnotationCommandArgs } from '../commands/toggleFileAnnotations';
-import type { StatusBarCommands } from '../config';
 import { GlyphChars } from '../constants';
 import type { GlCommands } from '../constants.commands';
 import type { Container } from '../container';
@@ -254,52 +253,52 @@ export class StatusBarController implements Disposable {
 
 		let actionTooltip: string;
 		switch (cfg.command) {
-			case 'gitlens.copyRemoteCommitUrl' satisfies StatusBarCommands:
+			case 'gitlens.copyRemoteCommitUrl':
 				actionTooltip = 'Click to Copy Remote Commit URL';
 				break;
-			case 'gitlens.copyRemoteFileUrl' satisfies StatusBarCommands:
+			case 'gitlens.copyRemoteFileUrl':
 				this._statusBarBlame.command = 'gitlens.copyRemoteFileUrlToClipboard' satisfies GlCommands;
 				actionTooltip = 'Click to Copy Remote File Revision URL';
 				break;
-			case 'gitlens.diffWithPrevious' satisfies StatusBarCommands:
+			case 'gitlens.diffWithPrevious':
 				this._statusBarBlame.command = 'gitlens.diffLineWithPrevious' satisfies GlCommands;
 				actionTooltip = 'Click to Open Line Changes with Previous Revision';
 				break;
-			case 'gitlens.diffWithWorking' satisfies StatusBarCommands:
+			case 'gitlens.diffWithWorking':
 				this._statusBarBlame.command = 'gitlens.diffLineWithWorking' satisfies GlCommands;
 				actionTooltip = 'Click to Open Line Changes with Working File';
 				break;
-			case 'gitlens.openCommitOnRemote' satisfies StatusBarCommands:
+			case 'gitlens.openCommitOnRemote':
 				actionTooltip = 'Click to Open Commit on Remote';
 				break;
-			case 'gitlens.openFileOnRemote' satisfies StatusBarCommands:
+			case 'gitlens.openFileOnRemote':
 				actionTooltip = 'Click to Open Revision on Remote';
 				break;
-			case 'gitlens.revealCommitInView' satisfies StatusBarCommands:
+			case 'gitlens.revealCommitInView':
 				actionTooltip = 'Click to Reveal Commit in the Side Bar';
 				break;
-			case 'gitlens.showCommitsInView' satisfies StatusBarCommands:
+			case 'gitlens.showCommitsInView':
 				actionTooltip = 'Click to Search for Commit';
 				break;
-			case 'gitlens.showQuickCommitDetails' satisfies StatusBarCommands:
+			case 'gitlens.showQuickCommitDetails':
 				actionTooltip = 'Click to Show Commit';
 				break;
-			case 'gitlens.showQuickCommitFileDetails' satisfies StatusBarCommands:
+			case 'gitlens.showQuickCommitFileDetails':
 				actionTooltip = 'Click to Show Commit (file)';
 				break;
-			case 'gitlens.showQuickRepoHistory' satisfies StatusBarCommands:
+			case 'gitlens.showQuickRepoHistory':
 				actionTooltip = 'Click to Show Branch History';
 				break;
-			case 'gitlens.showQuickFileHistory' satisfies StatusBarCommands:
+			case 'gitlens.showQuickFileHistory':
 				actionTooltip = 'Click to Show File History';
 				break;
-			case 'gitlens.toggleCodeLens' satisfies StatusBarCommands:
+			case 'gitlens.toggleCodeLens':
 				actionTooltip = 'Click to Toggle Git CodeLens';
 				break;
-			case 'gitlens.toggleFileBlame' satisfies StatusBarCommands:
+			case 'gitlens.toggleFileBlame':
 				actionTooltip = 'Click to Toggle File Blame';
 				break;
-			case 'gitlens.toggleFileChanges' satisfies StatusBarCommands: {
+			case 'gitlens.toggleFileChanges': {
 				if (commit.file != null) {
 					this._statusBarBlame.command = createCommand<[Uri, ToggleFileChangesAnnotationCommandArgs]>(
 						'gitlens.toggleFileChanges',
@@ -314,7 +313,7 @@ export class StatusBarController implements Disposable {
 				actionTooltip = 'Click to Toggle File Changes';
 				break;
 			}
-			case 'gitlens.toggleFileChangesOnly' satisfies StatusBarCommands: {
+			case 'gitlens.toggleFileChangesOnly': {
 				if (commit.file != null) {
 					this._statusBarBlame.command = createCommand<[Uri, ToggleFileChangesAnnotationCommandArgs]>(
 						'gitlens.toggleFileChanges',
@@ -329,7 +328,7 @@ export class StatusBarController implements Disposable {
 				actionTooltip = 'Click to Toggle File Changes';
 				break;
 			}
-			case 'gitlens.toggleFileHeatmap' satisfies StatusBarCommands:
+			case 'gitlens.toggleFileHeatmap':
 				actionTooltip = 'Click to Toggle File Heatmap';
 				break;
 		}

@@ -467,8 +467,8 @@ export class LocalGitProvider implements GitProvider, Disposable {
 		if (supported != null) return supported;
 
 		switch (feature) {
-			case 'stashes' satisfies Features:
-			case 'timeline' satisfies Features:
+			case 'stashes':
+			case 'timeline':
 				supported = true;
 				break;
 			default:
