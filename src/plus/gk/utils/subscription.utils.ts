@@ -1,60 +1,29 @@
 import type { SubscriptionStateString } from '../../../constants.subscription';
 import { SubscriptionPlanId, SubscriptionState } from '../../../constants.subscription';
-import { getDateDifference } from '../../../system/date';
+import { getTimeRemaining } from '../../../system/date';
 import type { PaidSubscriptionPlans, Subscription, SubscriptionPlan } from '../models/subscription';
 
+const orderedPlans = [
+	SubscriptionPlanId.Community,
+	SubscriptionPlanId.CommunityWithAccount,
+	SubscriptionPlanId.Pro,
+	SubscriptionPlanId.Advanced,
+	SubscriptionPlanId.Business,
+	SubscriptionPlanId.Enterprise,
+];
+const orderedPaidPlans = [
+	SubscriptionPlanId.Pro,
+	SubscriptionPlanId.Advanced,
+	SubscriptionPlanId.Business,
+	SubscriptionPlanId.Enterprise,
+];
 export const SubscriptionUpdatedUriPathPrefix = 'did-update-subscription';
 
 export function compareSubscriptionPlans(
 	planA: SubscriptionPlanId | undefined,
 	planB: SubscriptionPlanId | undefined,
 ): number {
-	return getSubscriptionPlanPriority(planA) - getSubscriptionPlanPriority(planB);
-}
-
-export function getSubscriptionStateName(
-	state: SubscriptionState,
-	planId?: SubscriptionPlanId,
-	_effectivePlanId?: SubscriptionPlanId,
-): string {
-	switch (state) {
-		case SubscriptionState.Community:
-		case SubscriptionState.ProTrial:
-			return `${getSubscriptionPlanName(SubscriptionPlanId.Pro)} Trial`;
-		// return `${getSubscriptionPlanName(
-		// 	_effectivePlanId != null &&
-		// 		compareSubscriptionPlans(_effectivePlanId, planId ?? SubscriptionPlanId.Pro) > 0
-		// 		? _effectivePlanId
-		// 		: planId ?? SubscriptionPlanId.Pro,
-		// )} Trial`;
-		case SubscriptionState.ProTrialExpired:
-			return getSubscriptionPlanName(SubscriptionPlanId.CommunityWithAccount);
-		case SubscriptionState.ProTrialReactivationEligible:
-			return getSubscriptionPlanName(SubscriptionPlanId.CommunityWithAccount);
-		case SubscriptionState.VerificationRequired:
-			return `${getSubscriptionPlanName(planId ?? SubscriptionPlanId.Pro)} (Unverified)`;
-		default:
-			return getSubscriptionPlanName(planId ?? SubscriptionPlanId.Pro);
-	}
-}
-
-export function getSubscriptionStateString(state: SubscriptionState | undefined): SubscriptionStateString {
-	switch (state) {
-		case SubscriptionState.VerificationRequired:
-			return 'verification';
-		case SubscriptionState.Community:
-			return 'free';
-		case SubscriptionState.ProTrial:
-			return 'trial';
-		case SubscriptionState.ProTrialExpired:
-			return 'trial-expired';
-		case SubscriptionState.ProTrialReactivationEligible:
-			return 'trial-reactivation-eligible';
-		case SubscriptionState.Paid:
-			return 'paid';
-		default:
-			return 'unknown';
-	}
+	return getSubscriptionPlanOrder(planA) - getSubscriptionPlanOrder(planB);
 }
 
 export function computeSubscriptionState(subscription: Optional<Subscription, 'state'>): SubscriptionState {
@@ -72,10 +41,10 @@ export function computeSubscriptionState(subscription: Optional<Subscription, 's
 
 			case SubscriptionPlanId.CommunityWithAccount: {
 				if (effective.nextTrialOptInDate != null && new Date(effective.nextTrialOptInDate) < new Date()) {
-					return SubscriptionState.ProTrialReactivationEligible;
+					return SubscriptionState.TrialReactivationEligible;
 				}
 
-				return SubscriptionState.ProTrialExpired;
+				return SubscriptionState.TrialExpired;
 			}
 
 			case SubscriptionPlanId.Pro:
@@ -96,17 +65,17 @@ export function computeSubscriptionState(subscription: Optional<Subscription, 's
 
 		case SubscriptionPlanId.CommunityWithAccount: {
 			if (effective.nextTrialOptInDate != null && new Date(effective.nextTrialOptInDate) < new Date()) {
-				return SubscriptionState.ProTrialReactivationEligible;
+				return SubscriptionState.TrialReactivationEligible;
 			}
 
-			return SubscriptionState.ProTrialExpired;
+			return SubscriptionState.TrialExpired;
 		}
 
 		case SubscriptionPlanId.Pro:
 		case SubscriptionPlanId.Advanced:
 		case SubscriptionPlanId.Business:
 		case SubscriptionPlanId.Enterprise:
-			return SubscriptionState.ProTrial;
+			return SubscriptionState.Trial;
 	}
 }
 
@@ -122,7 +91,7 @@ export function getSubscriptionPlan(
 ): SubscriptionPlan {
 	return {
 		id: id,
-		name: getSubscriptionPlanName(id),
+		name: getSubscriptionProductPlanName(id),
 		bundle: bundle,
 		cancelled: cancelled,
 		organizationId: organizationId,
@@ -133,11 +102,8 @@ export function getSubscriptionPlan(
 	};
 }
 
-export function getSubscriptionPlanName(id: SubscriptionPlanId): string {
-	return `GitLens ${getSubscriptionPlanTier(id)}`;
-}
-
-export function getSubscriptionPlanTier(
+/** Gets the plan name for the given plan id */
+export function getSubscriptionPlanName(
 	id: SubscriptionPlanId,
 ): 'Community' | 'Pro' | 'Advanced' | 'Business' | 'Enterprise' {
 	switch (id) {
@@ -154,7 +120,12 @@ export function getSubscriptionPlanTier(
 	}
 }
 
-export function getSubscriptionPlanTierType(id: SubscriptionPlanId): 'PRO' | 'ADVANCED' | 'BUSINESS' | 'ENTERPRISE' {
+export function getSubscriptionPlanOrder(id: SubscriptionPlanId | undefined): number {
+	return id != null ? orderedPlans.indexOf(id) : -1;
+}
+
+/** Only for gk.dev `planType` query param */
+export function getSubscriptionPlanType(id: SubscriptionPlanId): 'PRO' | 'ADVANCED' | 'BUSINESS' | 'ENTERPRISE' {
 	switch (id) {
 		case SubscriptionPlanId.Advanced:
 			return 'ADVANCED';
@@ -167,18 +138,55 @@ export function getSubscriptionPlanTierType(id: SubscriptionPlanId): 'PRO' | 'AD
 	}
 }
 
-const plansPriority = new Map<SubscriptionPlanId | undefined, number>([
-	[undefined, -1],
-	[SubscriptionPlanId.Community, 0],
-	[SubscriptionPlanId.CommunityWithAccount, 1],
-	[SubscriptionPlanId.Pro, 2],
-	[SubscriptionPlanId.Advanced, 3],
-	[SubscriptionPlanId.Business, 4],
-	[SubscriptionPlanId.Enterprise, 5],
-]);
+/** Gets the "product" (fully qualified) plan name for the given plan id */
+export function getSubscriptionProductPlanName(id: SubscriptionPlanId): string {
+	return `GitLens ${getSubscriptionPlanName(id)}`;
+}
 
-export function getSubscriptionPlanPriority(id: SubscriptionPlanId | undefined): number {
-	return plansPriority.get(id) ?? -1;
+/** Gets the "product" (fully qualified) plan name for the given subscription state */
+export function getSubscriptionProductPlanNameFromState(
+	state: SubscriptionState,
+	planId?: SubscriptionPlanId,
+	_effectivePlanId?: SubscriptionPlanId,
+): string {
+	switch (state) {
+		case SubscriptionState.Community:
+		case SubscriptionState.Trial:
+			return `${getSubscriptionProductPlanName(SubscriptionPlanId.Pro)} Trial`;
+		// return `${getSubscriptionProductPlanName(
+		// 	_effectivePlanId != null &&
+		// 		compareSubscriptionPlans(_effectivePlanId, planId ?? SubscriptionPlanId.Pro) > 0
+		// 		? _effectivePlanId
+		// 		: planId ?? SubscriptionPlanId.Pro,
+		// )} Trial`;
+		case SubscriptionState.TrialExpired:
+			return getSubscriptionProductPlanName(SubscriptionPlanId.CommunityWithAccount);
+		case SubscriptionState.TrialReactivationEligible:
+			return getSubscriptionProductPlanName(SubscriptionPlanId.CommunityWithAccount);
+		case SubscriptionState.VerificationRequired:
+			return `${getSubscriptionProductPlanName(planId ?? SubscriptionPlanId.Pro)} (Unverified)`;
+		default:
+			return getSubscriptionProductPlanName(planId ?? SubscriptionPlanId.Pro);
+	}
+}
+
+export function getSubscriptionStateString(state: SubscriptionState | undefined): SubscriptionStateString {
+	switch (state) {
+		case SubscriptionState.VerificationRequired:
+			return 'verification';
+		case SubscriptionState.Community:
+			return 'free';
+		case SubscriptionState.Trial:
+			return 'trial';
+		case SubscriptionState.TrialExpired:
+			return 'trial-expired';
+		case SubscriptionState.TrialReactivationEligible:
+			return 'trial-reactivation-eligible';
+		case SubscriptionState.Paid:
+			return 'paid';
+		default:
+			return 'unknown';
+	}
 }
 
 export function getSubscriptionTimeRemaining(
@@ -188,19 +196,12 @@ export function getSubscriptionTimeRemaining(
 	return getTimeRemaining(subscription.plan.effective.expiresOn, unit);
 }
 
-export function getTimeRemaining(
-	expiresOn: string | undefined,
-	unit?: 'days' | 'hours' | 'minutes' | 'seconds',
-): number | undefined {
-	return expiresOn != null ? getDateDifference(Date.now(), new Date(expiresOn), unit, Math.round) : undefined;
-}
-
 export function isSubscriptionPaid(subscription: Optional<Subscription, 'state'>): boolean {
 	return isSubscriptionPaidPlan(subscription.plan.actual.id);
 }
 
 export function isSubscriptionPaidPlan(id: SubscriptionPlanId): id is PaidSubscriptionPlans {
-	return id !== SubscriptionPlanId.Community && id !== SubscriptionPlanId.CommunityWithAccount;
+	return orderedPaidPlans.includes(id);
 }
 
 export function isSubscriptionExpired(subscription: Optional<Subscription, 'state'>): boolean {
@@ -209,30 +210,15 @@ export function isSubscriptionExpired(subscription: Optional<Subscription, 'stat
 }
 
 export function isSubscriptionTrial(subscription: Optional<Subscription, 'state'>): boolean {
+	if (subscription.state != null) {
+		return subscription.state === SubscriptionState.Trial;
+	}
+
 	return subscription.plan.actual.id !== subscription.plan.effective.id;
 }
 
-export function isSubscriptionInProTrial(subscription: Optional<Subscription, 'state'>): boolean {
-	if (subscription.account == null || !isSubscriptionTrial(subscription)) {
-		return false;
-	}
-
-	const remaining = getSubscriptionTimeRemaining(subscription);
-	return remaining != null ? remaining <= 0 : true;
-}
-
-export function isSubscriptionStatePaidOrTrial(state: SubscriptionState | undefined): boolean {
-	if (state == null) return false;
-	return state === SubscriptionState.Paid || state === SubscriptionState.ProTrial;
-}
-
-export function isSubscriptionStateTrial(state: SubscriptionState | undefined): boolean {
-	return state === SubscriptionState.ProTrial;
-}
-
-export function hasAccountFromSubscriptionState(state: SubscriptionState | undefined): boolean {
-	if (state == null) return false;
-	return state !== SubscriptionState.Community;
+export function isSubscriptionTrialOrPaidFromState(state: SubscriptionState | undefined): boolean {
+	return state != null ? state === SubscriptionState.Trial || state === SubscriptionState.Paid : false;
 }
 
 export function assertSubscriptionState(

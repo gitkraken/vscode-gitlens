@@ -5,7 +5,7 @@ import { css, html, LitElement, nothing } from 'lit';
 import { customElement, state } from 'lit/decorators.js';
 import { ifDefined } from 'lit/directives/if-defined.js';
 import { when } from 'lit/directives/when.js';
-import { isSubscriptionStatePaidOrTrial } from '../../../../../plus/gk/utils/subscription.utils';
+import { isSubscriptionTrialOrPaidFromState } from '../../../../../plus/gk/utils/subscription.utils';
 import { createCommandLink } from '../../../../../system/commands';
 import { createWebviewCommandLink } from '../../../../../system/webview';
 import type {
@@ -74,7 +74,7 @@ export class GlActiveWork extends SignalWatcher(LitElement) {
 	private _activeOverviewState!: ActiveOverviewState;
 
 	get isPro() {
-		return isSubscriptionStatePaidOrTrial(this._homeState.subscription.state);
+		return isSubscriptionTrialOrPaidFromState(this._homeState.subscription.state);
 	}
 
 	override connectedCallback(): void {

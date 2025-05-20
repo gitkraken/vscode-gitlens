@@ -19,16 +19,16 @@ export const enum SubscriptionState {
 	/** Indicates an account-less Community (free) user */
 	Community = 0,
 	/** @deprecated DO NOT USE */
-	ProPreview = 1,
+	DeprecatedPreview = 1,
 	/** @deprecated DO NOT USE */
-	ProPreviewExpired = 2,
-	/** Indicates a Pro user who is in a Pro trial */
-	ProTrial = 3,
-	/** Indicates a Pro user who's Pro trial has expired, has an account, and is not yet eligible for reactivation */
-	ProTrialExpired = 4,
-	/** Indicated a Pro user who's Pro trial has expired, has an account, and is eligible for reactivation */
-	ProTrialReactivationEligible = 5,
-	/** Indicates a Pro/Teams/Enterprise paid user */
+	DeprecatedPreviewExpired = 2,
+	/** Indicates a user who is in a trial */
+	Trial = 3,
+	/** Indicates a user who's trial has expired, has an account, and is not yet eligible for reactivation */
+	TrialExpired = 4,
+	/** Indicated a user who's trial has expired, has an account, and is eligible for reactivation */
+	TrialReactivationEligible = 5,
+	/** Indicates a paid user */
 	Paid = 6,
 }
 

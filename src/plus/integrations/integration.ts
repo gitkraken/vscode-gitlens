@@ -27,7 +27,7 @@ import { first } from '../../system/iterable';
 import { Logger } from '../../system/logger';
 import type { LogScope } from '../../system/logger.scope';
 import { getLogScope } from '../../system/logger.scope';
-import { isSubscriptionStatePaidOrTrial } from '../gk/utils/subscription.utils';
+import { isSubscriptionTrialOrPaidFromState } from '../gk/utils/subscription.utils';
 import type {
 	IntegrationAuthenticationProviderDescriptor,
 	IntegrationAuthenticationSessionDescriptor,
@@ -151,7 +151,7 @@ export abstract class IntegrationBase<
 
 	async access(): Promise<boolean> {
 		const subscription = await this.container.subscription.getSubscription();
-		return isSubscriptionStatePaidOrTrial(subscription.state);
+		return isSubscriptionTrialOrPaidFromState(subscription.state);
 	}
 
 	autolinks():
