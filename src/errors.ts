@@ -2,14 +2,14 @@ import type { Uri } from 'vscode';
 // eslint-disable-next-line @typescript-eslint/no-restricted-imports
 import { CancellationError as _CancellationError } from 'vscode';
 import type { Response } from '@env/fetch';
-import type { RequiredSubscriptionPlans, Subscription } from './plus/gk/models/subscription';
+import type { RequiredSubscriptionPlanIds, Subscription } from './plus/gk/models/subscription';
 import { isSubscriptionPaidPlan } from './plus/gk/utils/subscription.utils';
 
 export class AccessDeniedError extends Error {
 	public readonly subscription: Subscription;
-	public readonly required: RequiredSubscriptionPlans | undefined;
+	public readonly required: RequiredSubscriptionPlanIds | undefined;
 
-	constructor(subscription: Subscription, required: RequiredSubscriptionPlans | undefined) {
+	constructor(subscription: Subscription, required: RequiredSubscriptionPlanIds | undefined) {
 		let message;
 		if (subscription.account?.verified === false) {
 			message = 'Email verification required';

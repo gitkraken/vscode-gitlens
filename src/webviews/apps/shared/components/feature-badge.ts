@@ -2,7 +2,7 @@ import { consume } from '@lit/context';
 import type { TemplateResult } from 'lit';
 import { css, html, LitElement, nothing, unsafeCSS } from 'lit';
 import { customElement, property } from 'lit/decorators.js';
-import { proTrialLengthInDays, SubscriptionPlanId, SubscriptionState } from '../../../../constants.subscription';
+import { proTrialLengthInDays, SubscriptionState } from '../../../../constants.subscription';
 import type { Source } from '../../../../constants.telemetry';
 import type { Subscription, SubscriptionUpgradeCommandArgs } from '../../../../plus/gk/models/subscription';
 import {
@@ -225,9 +225,7 @@ export class GlFeatureBadge extends LitElement {
 					Your
 					<gl-tooltip hoist content="Show Account view">
 						<a href="${createCommandLink('gitlens.showAccountView')}"
-							>${getSubscriptionProductPlanName(
-								this.subscription?.plan.actual.id ?? SubscriptionPlanId.Pro,
-							)}</a
+							>${getSubscriptionProductPlanName(this.subscription?.plan.actual.id ?? 'pro')}</a
 						>
 					</gl-tooltip>
 					plan provides access to all Pro features.
@@ -320,7 +318,7 @@ export class GlFeatureBadge extends LitElement {
 			<gl-button
 				density="tight"
 				href="${createCommandLink<SubscriptionUpgradeCommandArgs>('gitlens.plus.upgrade', {
-					plan: SubscriptionPlanId.Pro,
+					plan: 'pro',
 					...(this.source ?? { source: 'feature-badge' }),
 				})}"
 				>Upgrade to Pro</gl-button

@@ -1,7 +1,6 @@
 import type { Disposable, InputBox, QuickInputButton, QuickPick, QuickPickItem } from 'vscode';
 import { InputBoxValidationSeverity, QuickInputButtons, window } from 'vscode';
 import type { GlCommands } from '../constants.commands';
-import { SubscriptionPlanId } from '../constants.subscription';
 import { Container } from '../container';
 import { Directive, isDirective, isDirectiveQuickPickItem } from '../quickpicks/items/directive';
 import { configuration } from '../system/-webview/configuration';
@@ -736,7 +735,7 @@ export abstract class QuickWizardCommandBase extends GlCommandBase {
 									}
 
 									case Directive.RequiresPaidSubscription:
-										void Container.instance.subscription.upgrade(SubscriptionPlanId.Pro, {
+										void Container.instance.subscription.upgrade('pro', {
 											source: 'quick-wizard',
 											detail: {
 												action: rootStep.command?.key,

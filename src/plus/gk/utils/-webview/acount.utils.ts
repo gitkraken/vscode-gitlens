@@ -1,6 +1,6 @@
 import type { Uri } from 'vscode';
 import { window } from 'vscode';
-import { proTrialLengthInDays, SubscriptionPlanId } from '../../../../constants.subscription';
+import { proTrialLengthInDays } from '../../../../constants.subscription';
 import type { Source } from '../../../../constants.telemetry';
 import type { Container } from '../../../../container';
 import type { PlusFeatures } from '../../../../features';
@@ -143,7 +143,7 @@ export async function ensureFeatureAccess(
 		);
 
 		if (result === upgrade) {
-			if (await container.subscription.upgrade(SubscriptionPlanId.Pro, source)) {
+			if (await container.subscription.upgrade('pro', source)) {
 				continue;
 			}
 		}

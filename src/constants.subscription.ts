@@ -2,15 +2,6 @@ export const proFeaturePreviewUsages = 3;
 export const proFeaturePreviewUsageDurationInDays = 1;
 export const proTrialLengthInDays = 14;
 
-export const enum SubscriptionPlanId {
-	Community = 'community',
-	CommunityWithAccount = 'community-with-account',
-	Pro = 'pro',
-	Advanced = 'advanced',
-	Business = 'teams', // teams is the old name for Business; do not change
-	Enterprise = 'enterprise',
-}
-
 // NOTE: Pay attention to gitlens:plus:state in the `package.json` when modifying this enum
 // NOTE: This is reported in telemetry so we should NOT change the values
 export const enum SubscriptionState {
@@ -31,12 +22,3 @@ export const enum SubscriptionState {
 	/** Indicates a paid user */
 	Paid = 6,
 }
-
-export type SubscriptionStateString =
-	| 'verification'
-	| 'free'
-	| 'trial'
-	| 'trial-expired'
-	| 'trial-reactivation-eligible'
-	| 'paid'
-	| 'unknown';

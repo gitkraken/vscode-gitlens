@@ -3,7 +3,7 @@ import { css, html, LitElement, nothing } from 'lit';
 import { customElement, property, query, state } from 'lit/decorators.js';
 import { when } from 'lit/directives/when.js';
 import { urls } from '../../../../../constants';
-import { proTrialLengthInDays, SubscriptionPlanId, SubscriptionState } from '../../../../../constants.subscription';
+import { proTrialLengthInDays, SubscriptionState } from '../../../../../constants.subscription';
 import type { Source } from '../../../../../constants.telemetry';
 import type { SubscriptionUpgradeCommandArgs } from '../../../../../plus/gk/models/subscription';
 import {
@@ -277,10 +277,10 @@ export class GlAccountChip extends LitElement {
 		);
 	}
 	private get planId() {
-		return this._state.subscription?.plan.actual.id ?? SubscriptionPlanId.Pro;
+		return this._state.subscription?.plan.actual.id ?? 'pro';
 	}
 	private get effectivePlanId() {
-		return this._state.subscription?.plan.effective.id ?? SubscriptionPlanId.Pro;
+		return this._state.subscription?.plan.effective.id ?? 'pro';
 	}
 
 	private get planName() {
@@ -429,20 +429,19 @@ export class GlAccountChip extends LitElement {
 									: html`${getSubscriptionPlanName(this.planId)} plan`}
 							</p></span
 						>
-						${isSubscriptionPaid(this.subscription) &&
-						compareSubscriptionPlans(this.planId, SubscriptionPlanId.Advanced) < 0
+						${isSubscriptionPaid(this.subscription) && compareSubscriptionPlans(this.planId, 'advanced') < 0
 							? html`<div class="details__button">
 									<gl-button
 										appearance="secondary"
 										href="${createCommandLink<SubscriptionUpgradeCommandArgs>(
 											'gitlens.plus.upgrade',
 											{
-												plan: SubscriptionPlanId.Advanced,
+												plan: 'advanced',
 												source: 'account',
 												detail: {
 													location: 'plan-section:upgrade-button',
 													organization: this._state.subscription?.activeOrganization?.id,
-													plan: SubscriptionPlanId.Advanced,
+													plan: 'advanced',
 												},
 											},
 										)}"
@@ -510,12 +509,12 @@ export class GlAccountChip extends LitElement {
 						<gl-button
 							full
 							href="${createCommandLink<SubscriptionUpgradeCommandArgs>('gitlens.plus.upgrade', {
-								plan: SubscriptionPlanId.Pro,
+								plan: 'pro',
 								source: 'account',
 								detail: {
 									location: 'upgrade-button',
 									organization: this._state.subscription?.activeOrganization?.id,
-									plan: SubscriptionPlanId.Pro,
+									plan: 'pro',
 								},
 							})}"
 							>Upgrade to Pro</gl-button
@@ -533,12 +532,12 @@ export class GlAccountChip extends LitElement {
 						<gl-button
 							full
 							href="${createCommandLink<SubscriptionUpgradeCommandArgs>('gitlens.plus.upgrade', {
-								plan: SubscriptionPlanId.Pro,
+								plan: 'pro',
 								source: 'account',
 								detail: {
 									location: 'upgrade-button',
 									organization: this._state.subscription?.activeOrganization?.id,
-									plan: SubscriptionPlanId.Pro,
+									plan: 'pro',
 								},
 							})}"
 							>Upgrade to Pro</gl-button
@@ -635,12 +634,12 @@ export class GlAccountChip extends LitElement {
 						<gl-button
 							full
 							href="${createCommandLink<SubscriptionUpgradeCommandArgs>('gitlens.plus.upgrade', {
-								plan: SubscriptionPlanId.Pro,
+								plan: 'pro',
 								source: 'account',
 								detail: {
 									location: 'upgrade-chip:upgrade-button',
 									organization: this._state.subscription?.activeOrganization?.id,
-									plan: SubscriptionPlanId.Pro,
+									plan: 'pro',
 								},
 							})}"
 							>Upgrade to Pro</gl-button
@@ -662,12 +661,12 @@ export class GlAccountChip extends LitElement {
 						<gl-button
 							full
 							href="${createCommandLink<SubscriptionUpgradeCommandArgs>('gitlens.plus.upgrade', {
-								plan: SubscriptionPlanId.Advanced,
+								plan: 'advanced',
 								source: 'account',
 								detail: {
 									location: 'upgrade-chip:upgrade-button',
 									organization: this._state.subscription?.activeOrganization?.id,
-									plan: SubscriptionPlanId.Advanced,
+									plan: 'advanced',
 								},
 							})}"
 							>Upgrade to Advanced</gl-button

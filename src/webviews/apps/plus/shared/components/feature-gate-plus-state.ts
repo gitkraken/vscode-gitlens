@@ -6,7 +6,6 @@ import { urls } from '../../../../../constants';
 import {
 	proFeaturePreviewUsages,
 	proTrialLengthInDays,
-	SubscriptionPlanId,
 	SubscriptionState,
 } from '../../../../../constants.subscription';
 import type { Source } from '../../../../../constants.telemetry';
@@ -182,7 +181,7 @@ export class GlFeatureGatePlusState extends LitElement {
 							class="inline"
 							appearance="${ifDefined(appearance)}"
 							href="${createCommandLink<SubscriptionUpgradeCommandArgs>('gitlens.plus.upgrade', {
-								plan: SubscriptionPlanId.Pro,
+								plan: 'pro',
 								...(this.source ?? { source: 'feature-gate' }),
 							})}"
 							>Upgrade to Pro</gl-button
