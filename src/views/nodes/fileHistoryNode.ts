@@ -33,8 +33,6 @@ export class FileHistoryNode
 {
 	limit: number | undefined;
 
-	protected override splatted = true;
-
 	constructor(
 		uri: GitUri,
 		view: FileHistoryView,
@@ -42,7 +40,7 @@ export class FileHistoryNode
 		private readonly folder: boolean,
 		private readonly branch: GitBranch | undefined,
 	) {
-		super('file-history', uri, view, parent);
+		super('file-history', uri, view, parent, true);
 
 		if (branch != null) {
 			this.updateContext({ branch: branch });
@@ -157,8 +155,6 @@ export class FileHistoryNode
 	}
 
 	getTreeItem(): TreeItem {
-		this.splatted = false;
-
 		const label = this.label;
 		const item = new TreeItem(label, TreeItemCollapsibleState.Expanded);
 		item.contextValue = ContextValues.FileHistory;

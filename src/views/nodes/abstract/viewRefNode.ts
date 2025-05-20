@@ -17,8 +17,9 @@ export abstract class ViewRefNode<
 		uri: GitUri,
 		view: TView,
 		protected override readonly parent: ViewNode,
+		splatted?: boolean,
 	) {
-		super(type, uri, view, parent);
+		super(type, uri, view, parent, splatted);
 	}
 
 	abstract get ref(): TReference;

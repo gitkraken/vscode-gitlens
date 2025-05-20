@@ -111,6 +111,7 @@ export const enum ContextValues {
 }
 
 export interface AmbientContext {
+	readonly autolinksId?: string;
 	readonly branch?: GitBranch;
 	readonly branchStatus?: BranchTrackingStatus;
 	readonly branchStatusUpstreamType?: 'ahead' | 'behind' | 'same' | 'missing' | 'none';
@@ -156,7 +157,7 @@ export function getViewNodeId(type: string, context: AmbientContext): string {
 		uniqueness += `/worktree/${context.worktree.uri.path}`;
 	}
 	if (context.remote != null) {
-		uniqueness += `/remote/${context.remote.id}`;
+		uniqueness += `/remote/${context.remote.name}`;
 	}
 	if (context.tag != null) {
 		uniqueness += `/tag/${context.tag.id}`;
@@ -197,6 +198,9 @@ export function getViewNodeId(type: string, context: AmbientContext): string {
 			`${context.contributor.username}+${context.contributor.email}+${context.contributor.name}`
 		}`;
 	}
+	if (context.autolinksId != null) {
+		uniqueness += `/autolinks/${context.autolinksId}`;
+	}
 	if (context.comparisonId != null) {
 		uniqueness += `/comparison/${context.comparisonId}`;
 	}
@@ -233,12 +237,10 @@ export abstract class ViewNode<
 		return types.includes(this.type as unknown as T[number]);
 	}
 
-	splatted: boolean | undefined;
-
+	protected _uniqueId!: string;
+	splatted = false;
 	// NOTE: @eamodio uncomment to track node leaks
 	// readonly uuid = uuid();
-
-	protected _uniqueId!: string;
 
 	constructor(
 		public readonly type: Type,
@@ -246,22 +248,14 @@ export abstract class ViewNode<
 		uri: GitUri,
 		public readonly view: TView,
 		protected parent?: ViewNode | undefined,
+		//** Indicates if this node is only shown as its children, not itself */
+		splatted?: boolean,
 	) {
+		this.splatted = splatted ?? false;
+
 		// NOTE: @eamodio uncomment to track node leaks
 		// queueMicrotask(() => this.view.registerNode(this));
 		this._uri = uri;
-
-		const originalGetChildren = this.getChildren;
-		this.getChildren = function (this: ViewNode) {
-			this.splatted ??= true;
-			return originalGetChildren.call(this);
-		};
-
-		const originalGetTreeItem = this.getTreeItem;
-		this.getTreeItem = function (this: ViewNode) {
-			this.splatted = false;
-			return originalGetTreeItem.call(this);
-		};
 	}
 
 	protected _disposed = false;

@@ -130,22 +130,22 @@ export class CommitsViewNode extends RepositoriesSubscribeableNode<CommitsView, 
 		this.view.message = undefined;
 
 		if (this.children == null) {
-			this.view.message = 'Loading commits...';
-
 			if (this.view.container.git.isDiscoveringRepositories) {
+				this.view.message = 'Loading commits...';
 				await this.view.container.git.isDiscoveringRepositories;
 			}
 
 			const repositories = this.view.container.git.openRepositories;
-			if (!repositories.length) {
+			if (repositories.length === 0) {
 				this.view.message = 'No commits could be found.';
 
 				return [];
 			}
 
+			const splat = repositories.length === 1;
 			this.children = repositories.map(
 				r =>
-					new CommitsRepositoryNode(GitUri.fromRepoPath(r.path), this.view, this, r, {
+					new CommitsRepositoryNode(GitUri.fromRepoPath(r.path), this.view, this, splat, r, {
 						showBranchAndLastFetched: true,
 					}),
 			);
@@ -200,7 +200,6 @@ export class CommitsViewNode extends RepositoriesSubscribeableNode<CommitsView, 
 			children.push(...this.children);
 		}
 
-		queueMicrotask(() => (this.view.message = undefined));
 		return children;
 	}
 
@@ -419,7 +418,7 @@ export class CommitsView extends ViewBase<'commits', CommitsViewNode, CommitsVie
 				const node = await this.findCommit(commit, token);
 				if (node == null) return undefined;
 
-				await this.revealDeep(node, options);
+				await this.ensureRevealNode(node, options);
 
 				return node;
 			},

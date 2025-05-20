@@ -31,7 +31,7 @@ export class SearchAndCompareViewNode extends ViewNode<'search-compare', SearchA
 	private comparePicker: ComparePickerNode | undefined;
 
 	constructor(view: SearchAndCompareView) {
-		super('search-compare', unknownGitUri, view);
+		super('search-compare', unknownGitUri, view, undefined, true);
 	}
 
 	override dispose(): void {

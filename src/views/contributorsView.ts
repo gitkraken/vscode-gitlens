@@ -58,14 +58,13 @@ export class ContributorsViewNode extends RepositoriesSubscribeableNode<Contribu
 		this.view.message = undefined;
 
 		if (this.children == null) {
-			this.view.message = 'Loading contributors...';
-
 			if (this.view.container.git.isDiscoveringRepositories) {
+				this.view.message = 'Loading contributors...';
 				await this.view.container.git.isDiscoveringRepositories;
 			}
 
 			let repositories = this.view.container.git.openRepositories;
-			if (!repositories.length) {
+			if (repositories.length === 0) {
 				this.view.message = 'No contributors could be found.';
 				return [];
 			}
@@ -78,8 +77,9 @@ export class ContributorsViewNode extends RepositoriesSubscribeableNode<Contribu
 				repositories = [...grouped.keys()];
 			}
 
+			const splat = repositories.length === 1;
 			this.children = repositories.map(
-				r => new ContributorsRepositoryNode(GitUri.fromRepoPath(r.path), this.view, this, r),
+				r => new ContributorsRepositoryNode(GitUri.fromRepoPath(r.path), this.view, this, splat, r),
 			);
 		}
 
@@ -102,20 +102,18 @@ export class ContributorsViewNode extends RepositoriesSubscribeableNode<Contribu
 			// }
 
 			// const contributors = await child.repo.getContributors({ all: all, ref: ref });
-			if (!children.length) {
+			if (children.length === 0) {
 				this.view.message = 'No contributors could be found.';
 				void child.ensureSubscription();
 
 				return [];
 			}
 
-			queueMicrotask(() => (this.view.message = undefined));
 			this.view.description = this.view.getViewDescription(children.length);
 
 			return children;
 		}
 
-		queueMicrotask(() => (this.view.message = undefined));
 		return this.children;
 	}
 
@@ -306,7 +304,7 @@ export class ContributorsView extends ViewBase<'contributors', ContributorsViewN
 				const node = await this.findContributor(contributor, token);
 				if (node == null) return undefined;
 
-				await this.revealDeep(node, options);
+				await this.ensureRevealNode(node, options);
 
 				return node;
 			},

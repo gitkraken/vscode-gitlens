@@ -57,14 +57,13 @@ export class BranchesViewNode extends RepositoriesSubscribeableNode<BranchesView
 		this.view.message = undefined;
 
 		if (this.children == null) {
-			this.view.message = 'Loading branches...';
-
 			if (this.view.container.git.isDiscoveringRepositories) {
+				this.view.message = 'Loading branches...';
 				await this.view.container.git.isDiscoveringRepositories;
 			}
 
 			let repositories = this.view.container.git.openRepositories;
-			if (!repositories.length) {
+			if (repositories.length === 0) {
 				this.view.message = 'No branches could be found.';
 				return [];
 			}
@@ -80,8 +79,9 @@ export class BranchesViewNode extends RepositoriesSubscribeableNode<BranchesView
 				worktreesByBranch: worktreesByBranch?.size ? worktreesByBranch : undefined,
 			});
 
+			const splat = repositories.length === 1;
 			this.children = repositories.map(
-				r => new BranchesRepositoryNode(GitUri.fromRepoPath(r.path), this.view, this, r),
+				r => new BranchesRepositoryNode(GitUri.fromRepoPath(r.path), this.view, this, splat, r),
 			);
 		}
 
@@ -97,20 +97,18 @@ export class BranchesViewNode extends RepositoriesSubscribeableNode<BranchesView
 				filter: b =>
 					!b.remote || (showRemoteBranches && defaultRemote != null && b.getRemoteName() === defaultRemote),
 			});
-			if (!branches.values.length) {
+			if (branches.values.length === 0) {
 				this.view.message = 'No branches could be found.';
 				void child.ensureSubscription();
 
 				return [];
 			}
 
-			queueMicrotask(() => (this.view.message = undefined));
 			this.view.description = this.view.getViewDescription(branches.values.length);
 
 			return child.getChildren();
 		}
 
-		queueMicrotask(() => (this.view.message = undefined));
 		return this.children;
 	}
 
@@ -308,7 +306,7 @@ export class BranchesView extends ViewBase<'branches', BranchesViewNode, Branche
 				const node = await this.findBranch(branch, token);
 				if (node == null) return undefined;
 
-				await this.revealDeep(node, options);
+				await this.ensureRevealNode(node, options);
 
 				return node;
 			},
@@ -337,7 +335,7 @@ export class BranchesView extends ViewBase<'branches', BranchesViewNode, Branche
 				const node = await this.findCommit(commit, token);
 				if (node == null) return undefined;
 
-				await this.revealDeep(node, options);
+				await this.ensureRevealNode(node, options);
 
 				return node;
 			},
