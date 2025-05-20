@@ -521,6 +521,19 @@ or
 }
 ```
 
+### cloudIntegrations/refreshConnection/skippedUnusualToken
+
+> Sent when a connection session has a missing expiry date
+or when connection refresh is skipped due to being a non-cloud session
+
+```typescript
+{
+  'cloud': boolean,
+  'integration.id': string,
+  'reason': 'skip-non-cloud' | 'missing-expiry'
+}
+```
+
 ### cloudIntegrations/settingsOpened
 
 > Sent when a user chooses to manage the cloud integrations
