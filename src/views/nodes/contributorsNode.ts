@@ -1,4 +1,5 @@
-import { ThemeIcon, TreeItem, TreeItemCollapsibleState } from 'vscode';
+import { ThemeColor, ThemeIcon, TreeItem, TreeItemCollapsibleState } from 'vscode';
+import type { CoreColors } from '../../constants.colors';
 import type { GitUri } from '../../git/gitUri';
 import type { GitContributor } from '../../git/models/contributor';
 import type { Repository } from '../../git/models/repository';
@@ -101,6 +102,7 @@ export class ContributorsNode extends CacheableChildrenViewNode<
 						stats ? 'Showing incomplete contributors and statistics' : 'Showing incomplete contributors',
 						result.cancelled.reason === 'timedout' ? `timed out after ${timeout / 1000}s` : 'cancelled',
 						'Click to retry and wait longer for contributors',
+						new ThemeIcon('warning', new ThemeColor('list.warningForeground' satisfies CoreColors)),
 					) as unknown as ContributorNode,
 				);
 			}
