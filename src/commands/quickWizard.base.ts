@@ -711,17 +711,6 @@ export abstract class QuickWizardCommandBase extends GlCommandBase {
 										return;
 									}
 
-									case Directive.StartPreview:
-										await Container.instance.subscription.startPreviewTrial({
-											source: 'quick-wizard',
-											detail: {
-												action: rootStep.command?.key,
-												'step.title': step.title,
-											},
-										});
-										resolve(await rootStep.command?.retry());
-										return;
-
 									case Directive.RequiresVerification: {
 										const result = await Container.instance.subscription.resendVerification({
 											source: 'quick-wizard',

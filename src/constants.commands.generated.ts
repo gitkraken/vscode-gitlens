@@ -747,7 +747,6 @@ export type ContributedPaletteCommands =
 	| 'gitlens.plus.restore'
 	| 'gitlens.plus.signUp'
 	| 'gitlens.plus.simulateSubscription'
-	| 'gitlens.plus.startPreviewTrial'
 	| 'gitlens.plus.upgrade'
 	| 'gitlens.pullRepositories'
 	| 'gitlens.pushRepositories'

@@ -43,7 +43,7 @@ import {
 } from '../git/utils/reference.utils';
 import { getHighlanderProviderName } from '../git/utils/remote.utils';
 import { createRevisionRange, isRevisionRange } from '../git/utils/revision.utils';
-import { isSubscriptionPaidPlan, isSubscriptionPreviewTrialExpired } from '../plus/gk/utils/subscription.utils';
+import { isSubscriptionPaidPlan } from '../plus/gk/utils/subscription.utils';
 import type { LaunchpadCommandArgs } from '../plus/launchpad/launchpad';
 import {
 	CommitApplyFileChangesCommandQuickPickItem,
@@ -2779,15 +2779,6 @@ export async function* ensureAccessStep<
 		if (isSubscriptionPaidPlan(access.subscription.required) && access.subscription.current.account != null) {
 			directives.push(
 				createDirectiveQuickPickItem(Directive.RequiresPaidSubscription, true, { detail: detail }),
-				createQuickPickSeparator(),
-				createDirectiveQuickPickItem(Directive.Cancel),
-			);
-		} else if (
-			access.subscription.current.account == null &&
-			!isSubscriptionPreviewTrialExpired(access.subscription.current)
-		) {
-			directives.push(
-				createDirectiveQuickPickItem(Directive.StartPreview, true),
 				createQuickPickSeparator(),
 				createDirectiveQuickPickItem(Directive.Cancel),
 			);

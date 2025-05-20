@@ -834,7 +834,6 @@ export interface SubscriptionCurrentEventData
 			Flatten<Subscription['plan'], 'subscription', true>,
 			'subscription.actual.name' | 'subscription.effective.name'
 		>,
-		Partial<Flatten<NonNullable<Subscription['previewTrial']>, 'subscription.previewTrial', true>>,
 		SubscriptionFeaturePreviewsEventData {}
 
 export interface SubscriptionPreviousEventData
@@ -842,8 +841,7 @@ export interface SubscriptionPreviousEventData
 		Omit<
 			Flatten<Subscription['plan'], 'previous.subscription', true>,
 			'previous.subscription.actual.name' | 'previous.subscription.effective.name'
-		>,
-		Partial<Flatten<NonNullable<Subscription['previewTrial']>, 'previous.subscription.previewTrial', true>> {}
+		> {}
 
 export interface SubscriptionEventData extends Partial<SubscriptionCurrentEventData> {
 	/** Promo key (identifier) associated with the upgrade */

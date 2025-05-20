@@ -89,8 +89,6 @@ export class ProductConfigProvider {
 						key: 'pro50',
 						states: [
 							SubscriptionState.Community,
-							SubscriptionState.ProPreview,
-							SubscriptionState.ProPreviewExpired,
 							SubscriptionState.ProTrial,
 							SubscriptionState.ProTrialExpired,
 							SubscriptionState.ProTrialReactivationEligible,
@@ -137,7 +135,9 @@ function createConfigValidator(): Validator<ConfigJson> {
 	const isState = Is.Enum<SubscriptionState>(
 		SubscriptionState.VerificationRequired,
 		SubscriptionState.Community,
+		// eslint-disable-next-line @typescript-eslint/no-deprecated -- allow deprecated states since we will just ignore them
 		SubscriptionState.ProPreview,
+		// eslint-disable-next-line @typescript-eslint/no-deprecated -- allow deprecated states since we will just ignore them
 		SubscriptionState.ProPreviewExpired,
 		SubscriptionState.ProTrial,
 		SubscriptionState.ProTrialExpired,

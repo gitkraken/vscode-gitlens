@@ -1,6 +1,6 @@
 import type { SubscriptionStateString } from '../../../constants.subscription';
 import { SubscriptionPlanId, SubscriptionState } from '../../../constants.subscription';
-import { createFromDateDelta, getDateDifference } from '../../../system/date';
+import { getDateDifference } from '../../../system/date';
 import type { PaidSubscriptionPlans, Subscription, SubscriptionPlan } from '../models/subscription';
 
 export const SubscriptionUpdatedUriPathPrefix = 'did-update-subscription';
@@ -19,10 +19,6 @@ export function getSubscriptionStateName(
 ): string {
 	switch (state) {
 		case SubscriptionState.Community:
-		case SubscriptionState.ProPreviewExpired:
-			return getSubscriptionPlanName(SubscriptionPlanId.Community);
-		case SubscriptionState.ProPreview:
-			return `${getSubscriptionPlanName(SubscriptionPlanId.Pro)} Preview`;
 		case SubscriptionState.ProTrial:
 			return `${getSubscriptionPlanName(SubscriptionPlanId.Pro)} Trial`;
 		// return `${getSubscriptionPlanName(
@@ -48,10 +44,6 @@ export function getSubscriptionStateString(state: SubscriptionState | undefined)
 			return 'verification';
 		case SubscriptionState.Community:
 			return 'free';
-		case SubscriptionState.ProPreview:
-			return 'preview';
-		case SubscriptionState.ProPreviewExpired:
-			return 'preview-expired';
 		case SubscriptionState.ProTrial:
 			return 'trial';
 		case SubscriptionState.ProTrialExpired:
@@ -69,7 +61,6 @@ export function computeSubscriptionState(subscription: Optional<Subscription, 's
 	const {
 		account,
 		plan: { actual, effective },
-		previewTrial: preview,
 	} = subscription;
 
 	if (account?.verified === false) return SubscriptionState.VerificationRequired;
@@ -77,7 +68,7 @@ export function computeSubscriptionState(subscription: Optional<Subscription, 's
 	if (actual.id === effective.id || compareSubscriptionPlans(actual.id, effective.id) > 0) {
 		switch (actual.id === effective.id ? effective.id : actual.id) {
 			case SubscriptionPlanId.Community:
-				return preview == null ? SubscriptionState.Community : SubscriptionState.ProPreviewExpired;
+				return SubscriptionState.Community;
 
 			case SubscriptionPlanId.CommunityWithAccount: {
 				if (effective.nextTrialOptInDate != null && new Date(effective.nextTrialOptInDate) < new Date()) {
@@ -101,7 +92,7 @@ export function computeSubscriptionState(subscription: Optional<Subscription, 's
 	}
 	switch (effective.id) {
 		case SubscriptionPlanId.Community:
-			return preview == null ? SubscriptionState.Community : SubscriptionState.ProPreview;
+			return SubscriptionState.Community;
 
 		case SubscriptionPlanId.CommunityWithAccount: {
 			if (effective.nextTrialOptInDate != null && new Date(effective.nextTrialOptInDate) < new Date()) {
@@ -115,9 +106,7 @@ export function computeSubscriptionState(subscription: Optional<Subscription, 's
 		case SubscriptionPlanId.Advanced:
 		case SubscriptionPlanId.Business:
 		case SubscriptionPlanId.Enterprise:
-			return actual.id === SubscriptionPlanId.Community
-				? SubscriptionState.ProPreview
-				: SubscriptionState.ProTrial;
+			return SubscriptionState.ProTrial;
 	}
 }
 
@@ -224,11 +213,7 @@ export function isSubscriptionTrial(subscription: Optional<Subscription, 'state'
 }
 
 export function isSubscriptionInProTrial(subscription: Optional<Subscription, 'state'>): boolean {
-	if (
-		subscription.account == null ||
-		!isSubscriptionTrial(subscription) ||
-		isSubscriptionPreviewTrialExpired(subscription) === false
-	) {
+	if (subscription.account == null || !isSubscriptionTrial(subscription)) {
 		return false;
 	}
 
@@ -236,32 +221,18 @@ export function isSubscriptionInProTrial(subscription: Optional<Subscription, 's
 	return remaining != null ? remaining <= 0 : true;
 }
 
-export function isSubscriptionPreviewTrialExpired(subscription: Optional<Subscription, 'state'>): boolean | undefined {
-	const remaining = getTimeRemaining(subscription.previewTrial?.expiresOn);
-	return remaining != null ? remaining <= 0 : undefined;
-}
-
 export function isSubscriptionStatePaidOrTrial(state: SubscriptionState | undefined): boolean {
 	if (state == null) return false;
-	return (
-		state === SubscriptionState.Paid ||
-		state === SubscriptionState.ProPreview ||
-		state === SubscriptionState.ProTrial
-	);
+	return state === SubscriptionState.Paid || state === SubscriptionState.ProTrial;
 }
 
 export function isSubscriptionStateTrial(state: SubscriptionState | undefined): boolean {
-	if (state == null) return false;
-	return state === SubscriptionState.ProPreview || state === SubscriptionState.ProTrial;
+	return state === SubscriptionState.ProTrial;
 }
 
 export function hasAccountFromSubscriptionState(state: SubscriptionState | undefined): boolean {
 	if (state == null) return false;
-	return (
-		state !== SubscriptionState.Community &&
-		state !== SubscriptionState.ProPreviewExpired &&
-		state !== SubscriptionState.ProPreview
-	);
+	return state !== SubscriptionState.Community;
 }
 
 export function assertSubscriptionState(
@@ -294,29 +265,5 @@ export function getCommunitySubscription(subscription?: Subscription): Subscript
 		account: undefined,
 		activeOrganization: undefined,
 		state: SubscriptionState.Community,
-	};
-}
-
-export function getPreviewSubscription(days: number, subscription?: Subscription): Subscription {
-	const startedOn = new Date();
-
-	let expiresOn = new Date(startedOn);
-	if (days !== 0) {
-		// Normalize the date to just before midnight on the same day
-		expiresOn.setHours(23, 59, 59, 999);
-		expiresOn = createFromDateDelta(expiresOn, { days: days });
-	}
-
-	subscription ??= getCommunitySubscription();
-	return {
-		...subscription,
-		plan: {
-			...subscription.plan,
-			effective: getSubscriptionPlan(SubscriptionPlanId.Pro, false, 0, undefined, startedOn, expiresOn),
-		},
-		previewTrial: {
-			startedOn: startedOn.toISOString(),
-			expiresOn: expiresOn.toISOString(),
-		},
 	};
 }

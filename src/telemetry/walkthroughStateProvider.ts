@@ -30,10 +30,7 @@ const triedProStates: Readonly<SubscriptionState[]> = [
 	SubscriptionState.Paid,
 ];
 
-const tryProCommands: Readonly<TrackedUsageKeys[]> = [
-	'command:gitlens.plus.startPreviewTrial:executed',
-	'command:gitlens.plus.reactivateProTrial:executed',
-];
+const tryProCommands: Readonly<TrackedUsageKeys[]> = ['command:gitlens.plus.reactivateProTrial:executed'];
 
 const walkthroughRequiredMapping: Readonly<Map<WalkthroughContextKeys, WalkthroughUsage>> = new Map<
 	WalkthroughContextKeys,

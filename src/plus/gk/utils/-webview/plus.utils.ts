@@ -5,7 +5,7 @@ import type { Source } from '../../../../constants.telemetry';
 import type { Container } from '../../../../container';
 import { configuration } from '../../../../system/-webview/configuration';
 import { getContext } from '../../../../system/-webview/context';
-import { isSubscriptionPaidPlan, isSubscriptionPreviewTrialExpired } from '../subscription.utils';
+import { isSubscriptionPaidPlan } from '../subscription.utils';
 
 export function arePlusFeaturesEnabled(): boolean {
 	const enabled = configuration.get('plusFeatures.enabled', undefined, true);
@@ -30,12 +30,7 @@ export async function ensurePlusFeaturesEnabled(): Promise<boolean> {
 	return true;
 }
 
-export async function ensurePaidPlan(
-	container: Container,
-	title: string,
-	source: Source,
-	options?: { allowPreview?: boolean },
-): Promise<boolean> {
+export async function ensurePaidPlan(container: Container, title: string, source: Source): Promise<boolean> {
 	while (true) {
 		const subscription = await container.subscription.getSubscription();
 		if (subscription.account?.verified === false) {
@@ -60,21 +55,7 @@ export async function ensurePaidPlan(
 		const plan = subscription.plan.effective.id;
 		if (isSubscriptionPaidPlan(plan)) break;
 
-		if (options?.allowPreview && subscription.account == null && !isSubscriptionPreviewTrialExpired(subscription)) {
-			const startTrial = { title: 'Continue' };
-			const cancel = { title: 'Cancel', isCloseAffordance: true };
-			const result = await window.showWarningMessage(
-				`${title}\n\nDo you want to continue to get immediate access to preview local Pro features for 3 days?`,
-				{ modal: true },
-				startTrial,
-				cancel,
-			);
-
-			if (result !== startTrial) return false;
-
-			void container.subscription.startPreviewTrial(source);
-			break;
-		} else if (subscription.account == null) {
+		if (subscription.account == null) {
 			const signUp = { title: 'Try GitLens Pro' };
 			const signIn = { title: 'Sign In' };
 			const cancel = { title: 'Cancel', isCloseAffordance: true };

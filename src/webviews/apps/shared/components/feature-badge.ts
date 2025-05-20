@@ -287,22 +287,6 @@ export class GlFeatureBadge extends LitElement {
 				break;
 
 			default:
-				if (!this.cloud && this.state === SubscriptionState.ProPreview) {
-					const days = this.daysRemaining;
-
-					content = html`<p>
-							You have
-							<strong>${days < 1 ? '<1 day' : pluralize('day', days, { infix: ' more ' })} left</strong>
-							to preview
-							<gl-tooltip hoist content="Pro features that do not require an account"
-								><span class="hint">local</span></gl-tooltip
-							>
-							Pro features.
-						</p>
-						${this.renderStartTrialActions()}`;
-					break;
-				}
-
 				content = html`<p>
 						You only have access to
 						<gl-tooltip hoist content="Pro features that do not require an account"

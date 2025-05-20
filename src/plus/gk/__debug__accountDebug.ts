@@ -14,7 +14,6 @@ import type { GKCheckInResponse, GKLicenses, GKLicenseType, GKUser } from './mod
 import type { SubscriptionService } from './subscriptionService';
 import { getConfiguredActiveOrganizationId } from './utils/-webview/subscription.utils';
 import { getSubscriptionFromCheckIn } from './utils/checkin.utils';
-import { getPreviewSubscription } from './utils/subscription.utils';
 
 type SubscriptionServiceFacade = {
 	getSubscription: () => SubscriptionService['_subscription'];
@@ -299,8 +298,6 @@ class AccountDebug {
 
 		switch (state) {
 			case SubscriptionState.Community:
-			case SubscriptionState.ProPreview:
-			case SubscriptionState.ProPreviewExpired:
 				this.service.overrideSession(null);
 				if (featurePreviews != null) {
 					this.service.overrideFeaturePreviews(featurePreviews);
@@ -308,13 +305,7 @@ class AccountDebug {
 					this.service.restoreFeaturePreviews();
 				}
 
-				this.service.changeSubscription(
-					state === SubscriptionState.Community
-						? undefined
-						: getPreviewSubscription(state === SubscriptionState.ProPreviewExpired ? 0 : 3),
-					undefined,
-					{ store: false },
-				);
+				this.service.changeSubscription(undefined, undefined, { store: false });
 
 				return false;
 		}

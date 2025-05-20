@@ -146,27 +146,7 @@ export class GlFeatureGatePlusState extends LitElement {
 					<p>You must verify your email before you can continue.</p>
 				`;
 
-			// case SubscriptionState.Community:
-			// 	return html`
-			// 		<gl-button
-			// 			appearance="${appearance}"
-			// 			href="${createCommandLink<Source>('gitlens.plus.startPreviewTrial', this.source)}"
-			// 			>Continue</gl-button
-			// 		>
-			// 		<p>
-			// 			Continuing gives you 3 days to preview
-			// 			${this.featureWithArticleIfNeeded ? `${this.featureWithArticleIfNeeded}  and other ` : ''}local
-			// 			Pro features.<br />
-			// 			${appearance !== 'alert' ? html`<br />` : ''} For full access to Pro features
-			// 			<a href="${createCommandLink<Source>('gitlens.plus.signUp', this.source)}"
-			// 				>start your free ${proTrialLengthInDays}-day Pro trial</a
-			// 			>
-			// 			or
-			// 			<a href="${createCommandLink<Source>('gitlens.plus.login', this.source)}" title="Sign In">sign in</a>.
-			// 		</p>
-			// 	`;
 			case SubscriptionState.Community:
-			case SubscriptionState.ProPreviewExpired:
 				if (this.featurePreview && getFeaturePreviewStatus(this.featurePreview) !== 'expired') {
 					return html`${this.renderFeaturePreview(this.featurePreview)}`;
 				}

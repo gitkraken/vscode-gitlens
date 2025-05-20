@@ -28,7 +28,6 @@ import type { StoredFeaturePreviewUsagePeriod } from '../../constants.storage';
 import {
 	proFeaturePreviewUsageDurationInDays,
 	proFeaturePreviewUsages,
-	proPreviewLengthInDays,
 	proTrialLengthInDays,
 	SubscriptionPlanId,
 	SubscriptionState,
@@ -51,7 +50,6 @@ import { executeCommand, registerCommand } from '../../system/-webview/command';
 import { configuration } from '../../system/-webview/configuration';
 import { setContext } from '../../system/-webview/context';
 import { openUrl } from '../../system/-webview/vscode/uris';
-import { createCommandLink } from '../../system/commands';
 import { createFromDateDelta, fromNow } from '../../system/date';
 import { gate } from '../../system/decorators/-webview/gate';
 import { debug, log } from '../../system/decorators/log';
@@ -65,7 +63,6 @@ import { flatten } from '../../system/object';
 import { pauseOnCancelOrTimeout } from '../../system/promise';
 import { pluralize } from '../../system/string';
 import { createDisposable } from '../../system/unifiedDisposable';
-import { satisfies } from '../../system/version';
 import { LoginUriPathPrefix } from './authenticationConnection';
 import { authenticationProviderScopes } from './authenticationProvider';
 import type { GKCheckInResponse } from './models/checkin';
@@ -81,15 +78,12 @@ import {
 	compareSubscriptionPlans,
 	computeSubscriptionState,
 	getCommunitySubscription,
-	getPreviewSubscription,
 	getSubscriptionPlan,
 	getSubscriptionPlanName,
 	getSubscriptionPlanTierType,
 	getSubscriptionStateString,
 	getSubscriptionTimeRemaining,
-	getTimeRemaining,
 	isSubscriptionExpired,
-	isSubscriptionInProTrial,
 	isSubscriptionPaid,
 	isSubscriptionTrial,
 	SubscriptionUpdatedUriPathPrefix,
@@ -128,7 +122,7 @@ export class SubscriptionService implements Disposable {
 	constructor(
 		private readonly container: Container,
 		private readonly connection: ServerConnection,
-		previousVersion: string | undefined,
+		_previousVersion: string | undefined,
 	) {
 		this._disposable = Disposable.from(
 			this._onDidChange,
@@ -150,15 +144,8 @@ export class SubscriptionService implements Disposable {
 
 		const subscription = this.getStoredSubscription();
 		this._getCheckInData = () => Promise.resolve(undefined);
-		// Resets the preview trial state on the upgrade to 14.0
-		if (subscription != null) {
-			if (satisfies(previousVersion, '< 14.0')) {
-				subscription.previewTrial = undefined;
-			}
-
-			if (subscription.account?.id != null) {
-				this._getCheckInData = () => this.loadStoredCheckInData(subscription.account!.id);
-			}
+		if (subscription?.account?.id != null) {
+			this._getCheckInData = () => this.loadStoredCheckInData(subscription.account!.id);
 		}
 
 		this.changeSubscription(subscription, undefined, { silent: true });
@@ -355,7 +342,6 @@ export class SubscriptionService implements Disposable {
 
 			registerCommand('gitlens.plus.manage', (src?: Source) => this.manageAccount(src)),
 			registerCommand('gitlens.plus.showPlans', (src?: Source) => this.showPlans(src)),
-			registerCommand('gitlens.plus.startPreviewTrial', (src?: Source) => this.startPreviewTrial(src)),
 			registerCommand('gitlens.plus.reactivateProTrial', (src?: Source) => this.reactivateProTrial(src)),
 			registerCommand('gitlens.plus.resendVerification', (src?: Source) => this.resendVerification(src)),
 			registerCommand('gitlens.plus.upgrade', (args?: SubscriptionUpgradeCommandArgs) =>
@@ -453,7 +439,6 @@ export class SubscriptionService implements Disposable {
 				});
 				break;
 			case SubscriptionState.ProTrial:
-			case SubscriptionState.ProPreview:
 				void executeCommand<OpenWalkthroughCommandArgs>('gitlens.openWalkthrough', {
 					step: 'welcome-in-trial',
 					source: source,
@@ -461,7 +446,6 @@ export class SubscriptionService implements Disposable {
 				break;
 			case SubscriptionState.ProTrialReactivationEligible:
 			case SubscriptionState.ProTrialExpired:
-			case SubscriptionState.ProPreviewExpired:
 				void executeCommand<OpenWalkthroughCommandArgs>('gitlens.openWalkthrough', {
 					step: 'welcome-in-trial-expired',
 					source: source,
@@ -840,66 +824,6 @@ export class SubscriptionService implements Disposable {
 		void openUrl(urls.pricing);
 	}
 
-	@gate(() => '')
-	@log()
-	async startPreviewTrial(source: Source | undefined): Promise<void> {
-		if (!(await ensurePlusFeaturesEnabled())) return;
-
-		if (this.container.telemetry.enabled) {
-			this.container.telemetry.sendEvent('subscription/action', { action: 'start-preview-trial' }, source);
-		}
-
-		const { plan, previewTrial } = this._subscription;
-		if (previewTrial != null) {
-			void this.showAccountView();
-
-			if (plan.effective.id === SubscriptionPlanId.Community) {
-				const signUp: MessageItem = { title: 'Try GitLens Pro' };
-				const signIn: MessageItem = { title: 'Sign In' };
-				const cancel: MessageItem = { title: 'Cancel', isCloseAffordance: true };
-				const result = await window.showInformationMessage(
-					`Do you want to start your free ${proTrialLengthInDays}-day Pro trial for full access to all GitLens Pro features?`,
-					{ modal: true },
-					signUp,
-					signIn,
-					cancel,
-				);
-
-				if (result === signUp || result === signIn) {
-					void this.loginOrSignUp(result === signUp, source);
-				}
-			}
-
-			return;
-		}
-
-		// Don't overwrite a trial that is already in progress
-		if (isSubscriptionInProTrial(this._subscription)) return;
-
-		const days = proPreviewLengthInDays;
-		const subscription = getPreviewSubscription(days, this._subscription);
-		this.changeSubscription(subscription, source);
-
-		setTimeout(async () => {
-			const confirm: MessageItem = { title: 'Continue' };
-			const learn: MessageItem = { title: 'Learn More' };
-			const result = await window.showInformationMessage(
-				`You can now preview local Pro features for ${
-					days < 1 ? '1 day' : pluralize('day', days)
-				}, or for full access to all GitLens Pro features, [start your free ${proTrialLengthInDays}-day Pro trial](${createCommandLink<Source>(
-					'gitlens.plus.signUp',
-					source,
-				)} "Try GitLens Pro") — no credit card required.`,
-				confirm,
-				learn,
-			);
-
-			if (result === learn) {
-				void this.learnAboutPro({ source: 'notification', detail: { action: 'preview-started' } }, source);
-			}
-		}, 1);
-	}
-
 	@log()
 	async upgrade(plan: SubscriptionPlanId | undefined, source: Source | undefined): Promise<boolean> {
 		const scope = getLogScope();
@@ -1103,8 +1027,6 @@ export class SubscriptionService implements Disposable {
 				vscodeEdition: env.appName,
 				vscodeHost: env.appHost,
 				vscodeVersion: codeVersion,
-				previewStartedOn: this._subscription.previewTrial?.startedOn,
-				previewExpiresOn: this._subscription.previewTrial?.expiresOn,
 			};
 
 			const rsp = await this.connection.fetchGkApi(
@@ -1416,28 +1338,6 @@ export class SubscriptionService implements Disposable {
 			};
 		}
 
-		// If we don't have a paid plan (or a non-preview trial), check if the preview trial has expired, if not apply it
-		if (
-			!isSubscriptionPaid(subscription) &&
-			subscription.previewTrial != null &&
-			(getTimeRemaining(subscription.previewTrial.expiresOn) ?? 0) > 0
-		) {
-			subscription = {
-				...subscription,
-				plan: {
-					...subscription.plan,
-					effective: getSubscriptionPlan(
-						SubscriptionPlanId.Pro,
-						false,
-						0,
-						undefined,
-						new Date(subscription.previewTrial.startedOn),
-						new Date(subscription.previewTrial.expiresOn),
-					),
-				},
-			};
-		}
-
 		subscription.state = computeSubscriptionState(subscription);
 		assertSubscriptionState(subscription);
 
@@ -1509,17 +1409,6 @@ export class SubscriptionService implements Disposable {
 			(subscription.plan.effective as Mutable<Subscription['plan']['effective']>).name = getSubscriptionPlanName(
 				subscription.plan.effective.id,
 			);
-			// Deprecate (expire) the preview trial
-			if (
-				subscription.previewTrial?.expiresOn == null ||
-				new Date(subscription.previewTrial.expiresOn) >= new Date()
-			) {
-				subscription.previewTrial = {
-					startedOn: subscription.previewTrial?.startedOn ?? new Date(0).toISOString(),
-					...subscription.previewTrial,
-					expiresOn: new Date(0).toISOString(),
-				};
-			}
 		}
 
 		return subscription;
@@ -1803,12 +1692,6 @@ function flattenSubscription(
 ): SubscriptionEventDataWithPrevious {
 	if (subscription == null) return {};
 
-	let state = subscription.state;
-	// Normalize preview states to community since we deprecated the preview
-	if (state === SubscriptionState.ProPreview || state === SubscriptionState.ProPreviewExpired) {
-		state = SubscriptionState.Community;
-	}
-
 	const flattenedFeaturePreviews = featurePreviews != null ? flattenSubscriptionFeaturePreviews(featurePreviews) : {};
 
 	return {
@@ -1819,13 +1702,10 @@ function flattenSubscription(
 		...flatten(subscription.plan, `${prefix ? `${prefix}.` : ''}subscription`, {
 			skipPaths: ['actual.name', 'effective.name'],
 		}),
-		...flatten(subscription.previewTrial, `${prefix ? `${prefix}.` : ''}subscription.previewTrial`, {
-			skipPaths: ['actual.name', 'effective.name'],
-		}),
 		'subscription.promo.key': promo?.key,
 		'subscription.promo.code': promo?.code,
-		'subscription.state': state,
-		'subscription.stateString': getSubscriptionStateString(state),
+		'subscription.state': subscription.state,
+		'subscription.stateString': getSubscriptionStateString(subscription.state),
 		...flattenedFeaturePreviews,
 	};
 }

@@ -18,7 +18,6 @@ export interface Subscription {
 		readonly effective: SubscriptionPlan;
 	};
 	account: SubscriptionAccount | undefined;
-	previewTrial?: SubscriptionPreviewTrial;
 
 	state: SubscriptionState;
 
@@ -45,11 +44,6 @@ export interface SubscriptionAccount {
 	readonly email: string | undefined;
 	readonly verified: boolean;
 	readonly createdOn: string;
-}
-
-export interface SubscriptionPreviewTrial {
-	readonly startedOn: string;
-	readonly expiresOn: string;
 }
 
 export interface SubscriptionUpgradeCommandArgs extends Source {
