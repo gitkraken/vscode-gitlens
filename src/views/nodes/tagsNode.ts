@@ -46,7 +46,7 @@ export class TagsNode extends CacheableChildrenViewNode<'tags', ViewsWithTagsNod
 				tagNodes,
 				n => n.tag.name.split('/'),
 				(...paths) => paths.join('/'),
-				this.view.config.files.compact,
+				this.view.config.branches.compact,
 			);
 
 			const root = new BranchOrTagFolderNode(this.view, this, 'tag', hierarchy, this.repo.path, '', undefined);

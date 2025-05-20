@@ -2,15 +2,23 @@ import { ThemeIcon, TreeItem, TreeItemCollapsibleState } from 'vscode';
 import { GitUri } from '../../git/gitUri';
 import type { HierarchicalItem } from '../../system/array';
 import { first } from '../../system/iterable';
-import type { View } from '../viewBase';
+import type {
+	ViewsWithBranchesNode,
+	ViewsWithRemotesNode,
+	ViewsWithTagsNode,
+	ViewsWithWorktreesNode,
+} from '../viewBase';
 import { ContextValues, getViewNodeId, ViewNode } from './abstract/viewNode';
 import type { BranchNode } from './branchNode';
 import type { TagNode } from './tagNode';
 import type { WorktreeNode } from './worktreeNode';
 
-export class BranchOrTagFolderNode extends ViewNode<'branch-tag-folder'> {
+export class BranchOrTagFolderNode extends ViewNode<
+	'branch-tag-folder',
+	ViewsWithBranchesNode | ViewsWithRemotesNode | ViewsWithTagsNode | ViewsWithWorktreesNode
+> {
 	constructor(
-		view: View,
+		view: ViewsWithBranchesNode | ViewsWithRemotesNode | ViewsWithTagsNode | ViewsWithWorktreesNode,
 		protected override readonly parent: ViewNode,
 		public readonly folderType: 'branch' | 'remote-branch' | 'tag' | 'worktree',
 		public readonly root: HierarchicalItem<BranchNode | TagNode | WorktreeNode>,
@@ -33,9 +41,10 @@ export class BranchOrTagFolderNode extends ViewNode<'branch-tag-folder'> {
 	}
 
 	getChildren(): ViewNode[] {
-		if (this.root.descendants == null || this.root.children == null) return [];
+		if (!this.root.descendants?.length || !this.root.children?.size) return [];
 
 		const children: (BranchOrTagFolderNode | BranchNode | TagNode | WorktreeNode)[] = [];
+		const { compact } = this.view.config.branches;
 
 		for (const folder of this.root.children.values()) {
 			if (folder.value != null) {
@@ -45,7 +54,7 @@ export class BranchOrTagFolderNode extends ViewNode<'branch-tag-folder'> {
 			}
 
 			if (!folder.children?.size) continue;
-			if (folder.children.size === 1) {
+			if (folder.children.size === 1 && compact) {
 				const child = first(folder.children.values());
 				if (child?.value != null) {
 					// Make sure to set the parent

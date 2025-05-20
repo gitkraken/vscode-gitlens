@@ -2263,12 +2263,19 @@
 							"tree"
 						],
 						"enumDescriptions": [
-							"Displays branches as a list",
-							"Displays branches as a tree when branch names contain slashes `/`"
+							"Displays branches and tags as a list",
+							"Displays branches and tags as a tree when names contain slashes `/`"
 						],
-						"markdownDescription": "Specifies how the _Repositories_ view will display branches",
+						"markdownDescription": "Specifies how the _Repositories_ view will display branches and tags",
 						"scope": "window",
 						"order": 70
+					},
+					"gitlens.views.repositories.branches.compact": {
+						"type": "boolean",
+						"default": true,
+						"markdownDescription": "Specifies whether to compact (flatten) unnecessary branch and tag nesting in the _Repositories_ view. Only applies when `#gitlens.views.repositories.branches.layout#` is set to `tree`",
+						"scope": "window",
+						"order": 71
 					},
 					"gitlens.views.repositories.files.layout": {
 						"type": "string",
@@ -2572,11 +2579,18 @@
 						],
 						"enumDescriptions": [
 							"Displays branches as a list",
-							"Displays branches as a tree when branch names contain slashes `/`"
+							"Displays branches as a tree when names contain slashes `/`"
 						],
 						"markdownDescription": "Specifies how the _Branches_ view will display branches",
 						"scope": "window",
 						"order": 30
+					},
+					"gitlens.views.branches.branches.compact": {
+						"type": "boolean",
+						"default": true,
+						"markdownDescription": "Specifies whether to compact (flatten) unnecessary branch nesting in the _Branches_ view. Only applies when `#gitlens.views.branches.branches.layout#` is set to `tree`",
+						"scope": "window",
+						"order": 31
 					},
 					"gitlens.views.branches.files.layout": {
 						"type": "string",
@@ -2675,11 +2689,18 @@
 						],
 						"enumDescriptions": [
 							"Displays branches as a list",
-							"Displays branches as a tree when branch names contain slashes `/`"
+							"Displays branches as a tree when names contain slashes `/`"
 						],
 						"markdownDescription": "Specifies how the _Remotes_ view will display branches",
 						"scope": "window",
 						"order": 20
+					},
+					"gitlens.views.remotes.branches.compact": {
+						"type": "boolean",
+						"default": true,
+						"markdownDescription": "Specifies whether to compact (flatten) unnecessary branch nesting in the _Remotes_ view. Only applies when `#gitlens.views.remotes.branches.layout#` is set to `tree`",
+						"scope": "window",
+						"order": 21
 					},
 					"gitlens.views.remotes.files.layout": {
 						"type": "string",
@@ -2817,11 +2838,18 @@
 						],
 						"enumDescriptions": [
 							"Displays tags as a list",
-							"Displays tags as a tree when tags names contain slashes `/`"
+							"Displays tags as a tree when names contain slashes `/`"
 						],
 						"markdownDescription": "Specifies how the _Tags_ view will display tags",
 						"scope": "window",
 						"order": 10
+					},
+					"gitlens.views.tags.branches.compact": {
+						"type": "boolean",
+						"default": true,
+						"markdownDescription": "Specifies whether to compact (flatten) unnecessary tag nesting in the _Tags_ view. Only applies when `#gitlens.views.tags.branches.layout#` is set to `tree`",
+						"scope": "window",
+						"order": 11
 					},
 					"gitlens.views.tags.files.layout": {
 						"type": "string",
@@ -2997,11 +3025,18 @@
 						],
 						"enumDescriptions": [
 							"Displays worktree branches as a list",
-							"Displays worktree branches as a tree when branch names contain slashes `/`"
+							"Displays worktree branches as a tree when names contain slashes `/`"
 						],
 						"markdownDescription": "Specifies how the _Worktrees_ view will display worktree branches",
 						"scope": "window",
 						"order": 35
+					},
+					"gitlens.views.worktrees.branches.compact": {
+						"type": "boolean",
+						"default": true,
+						"markdownDescription": "Specifies whether to compact (flatten) unnecessary branch nesting in the _Worktrees_ view. Only applies when `#gitlens.views.worktrees.branches.layout#` is set to `tree`",
+						"scope": "window",
+						"order": 36
 					},
 					"gitlens.views.worktrees.files.layout": {
 						"type": "string",
@@ -3492,12 +3527,19 @@
 							"tree"
 						],
 						"enumDescriptions": [
-							"Displays branches as a list",
-							"Displays branches as a tree when branch names contain slashes `/`"
+							"Displays branches and tags as a list",
+							"Displays branches and tags as a tree when names contain slashes `/`"
 						],
-						"markdownDescription": "Specifies how the _Cloud Workspaces_ view will display branches",
+						"markdownDescription": "Specifies how the _Cloud Workspaces_ view will display branches and tags",
 						"scope": "window",
 						"order": 70
+					},
+					"gitlens.views.workspaces.branches.compact": {
+						"type": "boolean",
+						"default": true,
+						"markdownDescription": "Specifies whether to compact (flatten) unnecessary branch and tag nesting in the _Cloud Workspaces_ view. Only applies when `#gitlens.views.workspaces.branches.layout#` is set to `tree`",
+						"scope": "window",
+						"order": 71
 					},
 					"gitlens.views.workspaces.worktrees.viewAs": {
 						"type": "string",

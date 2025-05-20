@@ -62,7 +62,7 @@ export class RemoteNode extends ViewNode<'remote', ViewsWithRemotes> {
 			branchNodes,
 			n => n.treeHierarchy,
 			(...paths) => paths.join('/'),
-			this.view.config.files.compact,
+			this.view.config.branches.compact,
 			b => {
 				b.compacted = true;
 				return true;

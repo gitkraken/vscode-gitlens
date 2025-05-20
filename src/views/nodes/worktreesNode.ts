@@ -69,7 +69,7 @@ export class WorktreesNode extends CacheableChildrenViewNode<'worktrees', ViewsW
 				worktreeNodes,
 				n => n.treeHierarchy,
 				(...paths) => paths.join('/'),
-				this.view.config.files.compact,
+				this.view.config.branches.compact,
 				w => {
 					w.compacted = true;
 					return true;

@@ -99,7 +99,7 @@ export class BranchesNode extends CacheableChildrenViewNode<'branches', ViewsWit
 				branchNodes,
 				n => n.treeHierarchy,
 				(...paths) => paths.join('/'),
-				this.view.config.files.compact,
+				this.view.config.branches.compact,
 				b => {
 					b.compacted = true;
 					return true;
