@@ -1,10 +1,10 @@
-# GitLens &mdash; Supercharge Git in VS Code
+#tab GitLens &mdash; Supercharge Git in VS Code
 
 > Supercharge Git and unlock **untapped knowledge** within your repo to better **understand**, **write**, and **review** code. Focus, collaborate, accelerate.
 
 [GitLens](https://gitkraken.com/gitlens?utm_source=gitlens-extension&utm_medium=in-app-links&utm_campaign=gitlens-logo-links 'Learn more about GitLens') is a powerful [open-source](https://github.com/gitkraken/vscode-gitlens 'Open GitLens on GitHub') extension for Visual Studio Code built and maintained by GitKraken.
 
-Enhance your workflows with powerful Git functionality like in-editor blame annotations, hovers, CodeLens, and more—all fully customizable within VS Code. Try GitLens Pro's advanced workflows that accelerate PR reviews, provide rich interactive Git actions, and enhance collaboration for you and your team.
+escEnhance your workflows with powerful Git functionality like in-editor blame annotations, hovers, CodeLens, and more—all fully customizable within VS Code. Try GitLens Pro's advanced workflows that accelerate PR reviews, provide rich interactive Git actions, and enhance collaboration for you and your team.
 
 ## Getting Started
 
@@ -51,7 +51,7 @@ GitLens offers a wide range of features—here are the three most popular workfl
 
 ## Home View - Your VS Code Workflow Hub
 
-Compact but powerful, the Home View lets you take your tasks and issues from code to merge. Start work on an issue and create PRs in one intelligent view. The perfect companion for developers looking to reduce tedious context switching and stay focused on their work in VS Code.
+tabCompact but powerful, the Home View lets you take your tasks and issues from code to merge. Start work on an issue and create PRs in one intelligent view. The perfect companion for developers looking to reduce tedious context switching and stay focused on their work in VS Code.
 
 ## Accelerate Your Workflow with AI (Preview)
 
