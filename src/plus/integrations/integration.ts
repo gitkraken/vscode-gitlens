@@ -282,7 +282,16 @@ export abstract class IntegrationBase<
 
 	@log()
 	async syncCloudConnection(state: 'connected' | 'disconnected', forceSync: boolean): Promise<void> {
-		if (this._session?.cloud === false) return;
+		if (this._session?.cloud === false) {
+			if (this.id !== HostingIntegrationId.GitHub) {
+				this.container.telemetry.sendEvent('cloudIntegrations/refreshConnection/skippedUnusualToken', {
+					'integration.id': this.id,
+					reason: 'skip-non-cloud',
+					cloud: false,
+				});
+			}
+			return;
+		}
 
 		switch (state) {
 			case 'connected':
@@ -336,6 +345,12 @@ export abstract class IntegrationBase<
 			} catch (ex) {
 				Logger.error(ex, scope);
 			}
+		} else if (this._session?.expiresAt == null && this.id !== HostingIntegrationId.GitHub) {
+			this.container.telemetry.sendEvent('cloudIntegrations/refreshConnection/skippedUnusualToken', {
+				'integration.id': this.id,
+				reason: 'missing-expiry',
+				cloud: this._session?.cloud,
+			});
 		}
 	}
 
