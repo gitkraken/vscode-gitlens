@@ -24,13 +24,16 @@ type WalkthroughUsage = {
 };
 
 const triedProStates: Readonly<SubscriptionState[]> = [
-	SubscriptionState.Trial,
-	SubscriptionState.TrialExpired,
-	SubscriptionState.TrialReactivationEligible,
+	SubscriptionState.ProTrial,
+	SubscriptionState.ProTrialExpired,
+	SubscriptionState.ProTrialReactivationEligible,
 	SubscriptionState.Paid,
 ];
 
-const tryProCommands: Readonly<TrackedUsageKeys[]> = ['command:gitlens.plus.reactivateProTrial:executed'];
+const tryProCommands: Readonly<TrackedUsageKeys[]> = [
+	'command:gitlens.plus.startPreviewTrial:executed',
+	'command:gitlens.plus.reactivateProTrial:executed',
+];
 
 const walkthroughRequiredMapping: Readonly<Map<WalkthroughContextKeys, WalkthroughUsage>> = new Map<
 	WalkthroughContextKeys,
@@ -138,38 +141,6 @@ const walkthroughRequiredMapping: Readonly<Map<WalkthroughContextKeys, Walkthrou
 				'command:gitlens.ai.generateCommitMessage:graph:executed',
 				'command:gitlens.ai.generateCommitMessage:scm:executed',
 				'command:gitlens.ai.generateChangelog:views:executed',
-				'command:gitlens.ai.generateCommits:executed',
-				'command:gitlens.ai.generateCommits:graph:executed',
-				'command:gitlens.ai.generateCommits:views:executed',
-				'command:gitlens.ai.generateRebase:executed',
-				'command:gitlens.ai.rebaseOntoCommit:views:executed',
-			],
-		},
-	],
-	[
-		'aiFeatures',
-		{
-			usage: [
-				`command:${'gitlens.walkthrough.openAiSettings' satisfies GlCommands}:executed`,
-				`command:${'gitlens.ai.explainBranch' satisfies GlCommands}:executed`,
-				`command:${'gitlens.ai.explainCommit' satisfies GlCommands}:executed`,
-				`command:${'gitlens.ai.explainStash' satisfies GlCommands}:executed`,
-				`command:${'gitlens.ai.explainWip' satisfies GlCommands}:executed`,
-				`command:${'gitlens.ai.generateChangelog' satisfies GlCommands}:executed`,
-				`command:${'gitlens.ai.generateCommitMessage' satisfies GlCommands}:executed`,
-				`command:${'gitlens.ai.explainBranch:graph' satisfies GlCommands}:executed`,
-				`command:${'gitlens.ai.explainBranch:views' satisfies GlCommands}:executed`,
-				`command:${'gitlens.ai.explainCommit:graph' satisfies GlCommands}:executed`,
-				`command:${'gitlens.ai.explainCommit:views' satisfies GlCommands}:executed`,
-				`command:${'gitlens.ai.explainStash:graph' satisfies GlCommands}:executed`,
-				`command:${'gitlens.ai.explainStash:views' satisfies GlCommands}:executed`,
-				`command:${'gitlens.ai.explainWip:graph' satisfies GlCommands}:executed`,
-				`command:${'gitlens.ai.explainWip:views' satisfies GlCommands}:executed`,
-				`command:${'gitlens.ai.generateChangelogFrom:graph' satisfies GlCommands}:executed`,
-				`command:${'gitlens.ai.generateChangelogFrom:views' satisfies GlCommands}:executed`,
-				`command:${'gitlens.ai.generateCommitMessage:graph' satisfies GlCommands}:executed`,
-				`command:${'gitlens.ai.generateCommitMessage:scm' satisfies GlCommands}:executed`,
-				`command:${'gitlens.ai.generateChangelog:views' satisfies GlCommands}:executed`,
 			],
 		},
 	],
