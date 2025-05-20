@@ -13,7 +13,7 @@ This project incorporates components from the projects listed below.
 8. @octokit/request version 9.2.3 (https://github.com/octokit/request.js)
 9. @octokit/types version 14.0.0 (https://github.com/octokit/types.ts)
 10. @opentelemetry/api version 1.9.0 (https://github.com/open-telemetry/opentelemetry-js)
-11. @opentelemetry/exporter-trace-otlp-http version 0.201.0 (https://github.com/open-telemetry/opentelemetry-js)
+11. @opentelemetry/exporter-trace-otlp-http version 0.201.1 (https://github.com/open-telemetry/opentelemetry-js)
 12. @opentelemetry/resources version 2.0.1 (https://github.com/open-telemetry/opentelemetry-js)
 13. @opentelemetry/sdk-trace-base version 2.0.1 (https://github.com/open-telemetry/opentelemetry-js)
 14. @opentelemetry/semantic-conventions version 1.33.0 (https://github.com/open-telemetry/opentelemetry-js)
