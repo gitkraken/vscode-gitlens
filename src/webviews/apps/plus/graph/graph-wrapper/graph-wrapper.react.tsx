@@ -124,8 +124,14 @@ const createIconElements = () => {
 		'files',
 		'worktree',
 		'issue-github',
+		'issue-githubEnterprise',
 		'issue-gitlab',
+		'issue-gitlabSelfHosted',
 		'issue-jiraCloud',
+		'issue-jiraServer',
+		'issue-azureDevops',
+		'issue-bitbucket',
+		'undefined-icon',
 	];
 
 	const miniIconList = ['upstream-ahead', 'upstream-behind'];
@@ -148,7 +154,8 @@ const createIconElements = () => {
 const iconElementLibrary = createIconElements();
 
 const getIconElementLibrary: GetExternalIcon = (iconKey: string) => {
-	return iconElementLibrary[iconKey];
+	const icon = iconKey in iconElementLibrary ? iconKey : 'undefined-icon';
+	return iconElementLibrary[icon];
 };
 
 const getClientPlatform = (): GraphPlatform => {
