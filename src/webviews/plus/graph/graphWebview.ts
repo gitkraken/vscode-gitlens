@@ -143,8 +143,9 @@ import {
 	isGraphItemRefContext,
 	isGraphItemRefGroupContext,
 	isGraphItemTypedContext,
+	toGraphHostingServiceType,
 	toGraphIssueTrackerType,
-} from './graphWebviewUtils';
+} from './graphWebview.utils';
 import type {
 	BranchState,
 	DidChangeRefsVisibilityParams,
@@ -163,20 +164,17 @@ import type {
 	GraphExcludedRef,
 	GraphExcludeRefs,
 	GraphExcludeTypes,
-	GraphHostingServiceType,
 	GraphIncludeOnlyRef,
 	GraphIncludeOnlyRefs,
 	GraphItemContext,
 	GraphMinimapMarkerTypes,
 	GraphMissingRefsMetadataType,
-	GraphPullRequestMetadata,
 	GraphRefMetadata,
 	GraphRefMetadataType,
 	GraphRepository,
 	GraphScrollMarkerTypes,
 	GraphSearchResults,
 	GraphSelectedRows,
-	GraphUpstreamMetadata,
 	GraphWorkingTreeStats,
 	OpenPullRequestDetailsParams,
 	SearchOpenInViewParams,
@@ -1331,9 +1329,14 @@ export class GraphWebviewProvider implements WebviewProvider<State, State, Graph
 						continue;
 					}
 
-					const prMetadata: GraphPullRequestMetadata = {
-						// TODO@eamodio: This is iffy, but works right now since `github` and `gitlab` are the only values possible currently
-						hostingServiceType: pr.provider.id as GraphHostingServiceType,
+					const hostingService = toGraphHostingServiceType(pr.provider.id);
+					if (hostingService == null) {
+						debugger;
+						continue;
+					}
+
+					const prMetadata: NonNullable<NonNullable<GraphRefMetadata>['pullRequest']>[number] = {
+						hostingServiceType: hostingService,
 						id: Number.parseInt(pr.id) || 0,
 						title: pr.title,
 						author: pr.author.name,
@@ -1376,7 +1379,7 @@ export class GraphWebviewProvider implements WebviewProvider<State, State, Graph
 						continue;
 					}
 
-					const upstreamMetadata: GraphUpstreamMetadata = {
+					const upstreamMetadata: NonNullable<GraphRefMetadata>['upstream'] = {
 						name: getBranchNameWithoutRemote(upstream.name),
 						owner: getRemoteNameFromBranchName(upstream.name),
 						ahead: branch.upstream?.state.ahead ?? 0,
@@ -1405,9 +1408,10 @@ export class GraphWebviewProvider implements WebviewProvider<State, State, Graph
 						this.container,
 						branch,
 					).then(issues => issues.value);
-					if (issues == null || issues.length === 0) {
+					if (!issues?.length) {
 						issues = await branch.getEnrichedAutolinks().then(async enrichedAutolinks => {
 							if (enrichedAutolinks == null) return undefined;
+
 							return (
 								await Promise.all(
 									[...enrichedAutolinks.values()].map(async ([issueOrPullRequestPromise]) =>
@@ -1421,27 +1425,30 @@ export class GraphWebviewProvider implements WebviewProvider<State, State, Graph
 							);
 						});
 
-						if (issues == null || issues.length === 0) {
+						if (!issues?.length) {
 							metadata.issue = null;
 							this._refsMetadata.set(id, metadata);
 							continue;
 						}
 					}
 
-					const issuesMetadata = [];
+					const issuesMetadata: NonNullable<NonNullable<GraphRefMetadata>['issue']>[number][] = [];
 					for (const issue of issues) {
 						const issueTracker = toGraphIssueTrackerType(issue.provider.id);
-						if (issueTracker == null) continue;
+						if (issueTracker == null) {
+							debugger;
+							continue;
+						}
+
 						issuesMetadata.push({
+							issueTrackerType: issueTracker,
 							displayId: issue.id,
 							id: issue.nodeId ?? issue.id,
 							// TODO: This is a hack/workaround because the graph component doesn't support this in the tooltip.
 							// Update this once that is fixed.
 							title: `${issue.title}\nDouble-click to open issue on ${issue.provider.name}`,
-							issueTrackerType: issueTracker,
-							url: issue.url,
 							context: serializeWebviewItemContext<GraphItemContext>({
-								webviewItem: `gitlens:issue`,
+								webviewItem: 'gitlens:issue',
 								webviewItemValue: {
 									type: 'issue',
 									id: issue.id,
