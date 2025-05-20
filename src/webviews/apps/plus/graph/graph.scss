@@ -850,21 +850,24 @@ button:not([disabled]),
 		}
 	}
 
-	&--issue-github {
+	&--issue-github,
+	&--issue-githubEnterprise {
 		&::before {
 			font-family: codicon;
 			@include iconUtils.codicon('issues');
 		}
 	}
 
-	&--issue-gitlab {
+	&--issue-gitlab,
+	&--issue-gitlabSelfHosted {
 		&::before {
 			font-family: codicon;
 			@include iconUtils.codicon('issues');
 		}
 	}
 
-	&--issue-jiraCloud {
+	&--issue-jiraCloud,
+	&--issue-jiraServer {
 		&::before {
 			font-family: 'glicons';
 			@include iconUtils.glicon('provider-jira');
@@ -882,6 +885,13 @@ button:not([disabled]),
 		&::before {
 			font-family: codicon;
 			@include iconUtils.codicon('issues');
+		}
+	}
+
+	&--undefined-icon {
+		&::before {
+			font-family: codicon;
+			@include iconUtils.codicon('blank');
 		}
 	}
 }
