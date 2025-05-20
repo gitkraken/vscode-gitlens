@@ -6,7 +6,7 @@ import type {
 	ManageCloudIntegrationsCommandArgs,
 } from '../../../../../commands/cloudIntegrations';
 import type { IntegrationFeatures } from '../../../../../constants.integrations';
-import { SubscriptionPlanId, SubscriptionState } from '../../../../../constants.subscription';
+import { SubscriptionState } from '../../../../../constants.subscription';
 import type { Source } from '../../../../../constants.telemetry';
 import type { SubscriptionUpgradeCommandArgs } from '../../../../../plus/gk/models/subscription';
 import { isSubscriptionTrialOrPaidFromState } from '../../../../../plus/gk/utils/subscription.utils';
@@ -299,7 +299,7 @@ export class GlIntegrationsChip extends LitElement {
 					? html`<gl-button
 							appearance="toolbar"
 							href="${createCommandLink<SubscriptionUpgradeCommandArgs>('gitlens.plus.upgrade', {
-								plan: SubscriptionPlanId.Pro,
+								plan: 'pro',
 								source: 'home',
 								detail: 'integrations',
 							})}"

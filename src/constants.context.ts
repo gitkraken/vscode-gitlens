@@ -1,9 +1,10 @@
 import type { Uri } from 'vscode';
 import type { AnnotationStatus, Keys } from './constants';
-import type { SubscriptionPlanId, SubscriptionState } from './constants.subscription';
+import type { SubscriptionState } from './constants.subscription';
 import type { CustomEditorTypes, GroupableTreeViewTypes, WebviewTypes, WebviewViewTypes } from './constants.views';
 import type { Features } from './features';
 import type { PromoKeys } from './plus/gk/models/promo';
+import type { SubscriptionPlanIds } from './plus/gk/models/subscription';
 import type { WalkthroughContextKeys } from './telemetry/walkthroughStateProvider';
 
 export type ContextKeys = {
@@ -21,7 +22,7 @@ export type ContextKeys = {
 	'gitlens:install:new': boolean;
 	/** Indicates that this is the first run after an upgrade of GitLens */
 	'gitlens:install:upgradedFrom': string;
-	'gitlens:plus': Exclude<SubscriptionPlanId, SubscriptionPlanId.Community>;
+	'gitlens:plus': Exclude<SubscriptionPlanIds, 'community'>;
 	'gitlens:plus:disabled': boolean;
 	'gitlens:plus:disallowedRepos': string[];
 	'gitlens:plus:required': boolean;

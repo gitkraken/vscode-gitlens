@@ -1,27 +1,27 @@
-import type { SubscriptionStateString } from '../../../constants.subscription';
-import { SubscriptionPlanId, SubscriptionState } from '../../../constants.subscription';
+import { SubscriptionState } from '../../../constants.subscription';
 import { getTimeRemaining } from '../../../system/date';
-import type { PaidSubscriptionPlans, Subscription, SubscriptionPlan } from '../models/subscription';
+import type {
+	PaidSubscriptionPlanIds,
+	Subscription,
+	SubscriptionPlan,
+	SubscriptionPlanIds,
+	SubscriptionStateString,
+} from '../models/subscription';
 
-const orderedPlans = [
-	SubscriptionPlanId.Community,
-	SubscriptionPlanId.CommunityWithAccount,
-	SubscriptionPlanId.Pro,
-	SubscriptionPlanId.Advanced,
-	SubscriptionPlanId.Business,
-	SubscriptionPlanId.Enterprise,
+const orderedPlans: SubscriptionPlanIds[] = [
+	'community',
+	'community-with-account',
+	'pro',
+	'advanced',
+	'teams',
+	'enterprise',
 ];
-const orderedPaidPlans = [
-	SubscriptionPlanId.Pro,
-	SubscriptionPlanId.Advanced,
-	SubscriptionPlanId.Business,
-	SubscriptionPlanId.Enterprise,
-];
+const orderedPaidPlans: PaidSubscriptionPlanIds[] = ['pro', 'advanced', 'teams', 'enterprise'];
 export const SubscriptionUpdatedUriPathPrefix = 'did-update-subscription';
 
 export function compareSubscriptionPlans(
-	planA: SubscriptionPlanId | undefined,
-	planB: SubscriptionPlanId | undefined,
+	planA: SubscriptionPlanIds | undefined,
+	planB: SubscriptionPlanIds | undefined,
 ): number {
 	return getSubscriptionPlanOrder(planA) - getSubscriptionPlanOrder(planB);
 }
@@ -36,10 +36,10 @@ export function computeSubscriptionState(subscription: Optional<Subscription, 's
 
 	if (actual.id === effective.id || compareSubscriptionPlans(actual.id, effective.id) > 0) {
 		switch (actual.id === effective.id ? effective.id : actual.id) {
-			case SubscriptionPlanId.Community:
+			case 'community':
 				return SubscriptionState.Community;
 
-			case SubscriptionPlanId.CommunityWithAccount: {
+			case 'community-with-account': {
 				if (effective.nextTrialOptInDate != null && new Date(effective.nextTrialOptInDate) < new Date()) {
 					return SubscriptionState.TrialReactivationEligible;
 				}
@@ -47,23 +47,23 @@ export function computeSubscriptionState(subscription: Optional<Subscription, 's
 				return SubscriptionState.TrialExpired;
 			}
 
-			case SubscriptionPlanId.Pro:
-			case SubscriptionPlanId.Advanced:
-			case SubscriptionPlanId.Business:
-			case SubscriptionPlanId.Enterprise:
+			case 'pro':
+			case 'advanced':
+			case 'teams':
+			case 'enterprise':
 				return SubscriptionState.Paid;
 		}
 	}
 
 	// If you have a paid license, any trial license higher tier than your paid license is considered paid
-	if (compareSubscriptionPlans(actual.id, SubscriptionPlanId.CommunityWithAccount) > 0) {
+	if (compareSubscriptionPlans(actual.id, 'community-with-account') > 0) {
 		return SubscriptionState.Paid;
 	}
 	switch (effective.id) {
-		case SubscriptionPlanId.Community:
+		case 'community':
 			return SubscriptionState.Community;
 
-		case SubscriptionPlanId.CommunityWithAccount: {
+		case 'community-with-account': {
 			if (effective.nextTrialOptInDate != null && new Date(effective.nextTrialOptInDate) < new Date()) {
 				return SubscriptionState.TrialReactivationEligible;
 			}
@@ -71,16 +71,16 @@ export function computeSubscriptionState(subscription: Optional<Subscription, 's
 			return SubscriptionState.TrialExpired;
 		}
 
-		case SubscriptionPlanId.Pro:
-		case SubscriptionPlanId.Advanced:
-		case SubscriptionPlanId.Business:
-		case SubscriptionPlanId.Enterprise:
+		case 'pro':
+		case 'advanced':
+		case 'teams':
+		case 'enterprise':
 			return SubscriptionState.Trial;
 	}
 }
 
 export function getSubscriptionPlan(
-	id: SubscriptionPlanId,
+	id: SubscriptionPlanIds,
 	bundle: boolean,
 	trialReactivationCount: number,
 	organizationId: string | undefined,
@@ -104,34 +104,34 @@ export function getSubscriptionPlan(
 
 /** Gets the plan name for the given plan id */
 export function getSubscriptionPlanName(
-	id: SubscriptionPlanId,
+	id: SubscriptionPlanIds,
 ): 'Community' | 'Pro' | 'Advanced' | 'Business' | 'Enterprise' {
 	switch (id) {
-		case SubscriptionPlanId.Pro:
+		case 'pro':
 			return 'Pro';
-		case SubscriptionPlanId.Advanced:
+		case 'advanced':
 			return 'Advanced';
-		case SubscriptionPlanId.Business:
+		case 'teams':
 			return 'Business';
-		case SubscriptionPlanId.Enterprise:
+		case 'enterprise':
 			return 'Enterprise';
 		default:
 			return 'Community';
 	}
 }
 
-export function getSubscriptionPlanOrder(id: SubscriptionPlanId | undefined): number {
+export function getSubscriptionPlanOrder(id: SubscriptionPlanIds | undefined): number {
 	return id != null ? orderedPlans.indexOf(id) : -1;
 }
 
 /** Only for gk.dev `planType` query param */
-export function getSubscriptionPlanType(id: SubscriptionPlanId): 'PRO' | 'ADVANCED' | 'BUSINESS' | 'ENTERPRISE' {
+export function getSubscriptionPlanType(id: SubscriptionPlanIds): 'PRO' | 'ADVANCED' | 'BUSINESS' | 'ENTERPRISE' {
 	switch (id) {
-		case SubscriptionPlanId.Advanced:
+		case 'advanced':
 			return 'ADVANCED';
-		case SubscriptionPlanId.Business:
+		case 'teams':
 			return 'BUSINESS';
-		case SubscriptionPlanId.Enterprise:
+		case 'enterprise':
 			return 'ENTERPRISE';
 		default:
 			return 'PRO';
@@ -139,34 +139,34 @@ export function getSubscriptionPlanType(id: SubscriptionPlanId): 'PRO' | 'ADVANC
 }
 
 /** Gets the "product" (fully qualified) plan name for the given plan id */
-export function getSubscriptionProductPlanName(id: SubscriptionPlanId): string {
+export function getSubscriptionProductPlanName(id: SubscriptionPlanIds): string {
 	return `GitLens ${getSubscriptionPlanName(id)}`;
 }
 
 /** Gets the "product" (fully qualified) plan name for the given subscription state */
 export function getSubscriptionProductPlanNameFromState(
 	state: SubscriptionState,
-	planId?: SubscriptionPlanId,
-	_effectivePlanId?: SubscriptionPlanId,
+	planId?: SubscriptionPlanIds,
+	_effectivePlanId?: SubscriptionPlanIds,
 ): string {
 	switch (state) {
 		case SubscriptionState.Community:
 		case SubscriptionState.Trial:
-			return `${getSubscriptionProductPlanName(SubscriptionPlanId.Pro)} Trial`;
+			return `${getSubscriptionProductPlanName('pro')} Trial`;
 		// return `${getSubscriptionProductPlanName(
 		// 	_effectivePlanId != null &&
-		// 		compareSubscriptionPlans(_effectivePlanId, planId ?? SubscriptionPlanId.Pro) > 0
+		// 		compareSubscriptionPlans(_effectivePlanId, planId ?? 'pro') > 0
 		// 		? _effectivePlanId
-		// 		: planId ?? SubscriptionPlanId.Pro,
+		// 		: planId ?? 'pro',
 		// )} Trial`;
 		case SubscriptionState.TrialExpired:
-			return getSubscriptionProductPlanName(SubscriptionPlanId.CommunityWithAccount);
+			return getSubscriptionProductPlanName('community-with-account');
 		case SubscriptionState.TrialReactivationEligible:
-			return getSubscriptionProductPlanName(SubscriptionPlanId.CommunityWithAccount);
+			return getSubscriptionProductPlanName('community-with-account');
 		case SubscriptionState.VerificationRequired:
-			return `${getSubscriptionProductPlanName(planId ?? SubscriptionPlanId.Pro)} (Unverified)`;
+			return `${getSubscriptionProductPlanName(planId ?? 'pro')} (Unverified)`;
 		default:
-			return getSubscriptionProductPlanName(planId ?? SubscriptionPlanId.Pro);
+			return getSubscriptionProductPlanName(planId ?? 'pro');
 	}
 }
 
@@ -200,8 +200,8 @@ export function isSubscriptionPaid(subscription: Optional<Subscription, 'state'>
 	return isSubscriptionPaidPlan(subscription.plan.actual.id);
 }
 
-export function isSubscriptionPaidPlan(id: SubscriptionPlanId): id is PaidSubscriptionPlans {
-	return orderedPaidPlans.includes(id);
+export function isSubscriptionPaidPlan(id: SubscriptionPlanIds): id is PaidSubscriptionPlanIds {
+	return orderedPaidPlans.includes(id as PaidSubscriptionPlanIds);
 }
 
 export function isSubscriptionExpired(subscription: Optional<Subscription, 'state'>): boolean {
@@ -230,7 +230,7 @@ export function getCommunitySubscription(subscription?: Subscription): Subscript
 		...subscription,
 		plan: {
 			actual: getSubscriptionPlan(
-				SubscriptionPlanId.Community,
+				'community',
 				false,
 				0,
 				undefined,
@@ -239,7 +239,7 @@ export function getCommunitySubscription(subscription?: Subscription): Subscript
 					: undefined,
 			),
 			effective: getSubscriptionPlan(
-				SubscriptionPlanId.Community,
+				'community',
 				false,
 				0,
 				undefined,

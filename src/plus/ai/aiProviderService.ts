@@ -16,7 +16,6 @@ import {
 	vscodeProviderDescriptor,
 	xAIProviderDescriptor,
 } from '../../constants.ai';
-import { SubscriptionPlanId } from '../../constants.subscription';
 import type { AIGenerateDraftEventData, Source, TelemetryEvents } from '../../constants.telemetry';
 import type { Container } from '../../container';
 import {
@@ -1105,9 +1104,7 @@ export class AIProviderService implements Disposable {
 
 						if (isSubscriptionPaid(sub)) {
 							const plan =
-								compareSubscriptionPlans(sub.plan.actual.id, SubscriptionPlanId.Advanced) <= 0
-									? SubscriptionPlanId.Business
-									: SubscriptionPlanId.Advanced;
+								compareSubscriptionPlans(sub.plan.actual.id, 'advanced') <= 0 ? 'teams' : 'advanced';
 
 							const upgrade = { title: `Upgrade to ${getSubscriptionPlanName(plan)}` };
 							const result = await window.showErrorMessage(
@@ -1127,7 +1124,7 @@ export class AIProviderService implements Disposable {
 							);
 
 							if (result === upgrade) {
-								void this.container.subscription.upgrade(SubscriptionPlanId.Pro, source);
+								void this.container.subscription.upgrade('pro', source);
 							}
 						}
 

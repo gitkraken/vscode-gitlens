@@ -1,16 +1,12 @@
 import type { Disposable } from 'vscode';
 import { ThemeIcon, window } from 'vscode';
-import {
-	proFeaturePreviewUsages,
-	proTrialLengthInDays,
-	SubscriptionPlanId,
-	SubscriptionState,
-} from '../../constants.subscription';
+import { proFeaturePreviewUsages, proTrialLengthInDays, SubscriptionState } from '../../constants.subscription';
 import type { Container } from '../../container';
 import type { QuickPickItemOfT } from '../../quickpicks/items/common';
 import { createQuickPickSeparator } from '../../quickpicks/items/common';
 import { registerCommand } from '../../system/-webview/command';
 import type { GKCheckInResponse, GKLicenses, GKLicenseType, GKUser } from './models/checkin';
+import type { PaidSubscriptionPlanIds, SubscriptionPlanIds } from './models/subscription';
 import type { SubscriptionService } from './subscriptionService';
 import { getConfiguredActiveOrganizationId } from './utils/-webview/subscription.utils';
 import { getSubscriptionFromCheckIn } from './utils/checkin.utils';
@@ -55,18 +51,14 @@ type SimulateQuickPickItem = QuickPickItemOfT<
 			state: SubscriptionState.Trial;
 			reactivatedTrial?: boolean;
 			expiredPaid?: never;
-			planId?: SubscriptionPlanId.Advanced;
+			planId?: Extract<'advanced', SubscriptionPlanIds>;
 			featurePreviews?: never;
 	  }
 	| {
 			state: SubscriptionState.Paid;
 			reactivatedTrial?: never;
 			expiredPaid?: boolean;
-			planId?:
-				| SubscriptionPlanId.Pro
-				| SubscriptionPlanId.Advanced
-				| SubscriptionPlanId.Business
-				| SubscriptionPlanId.Enterprise;
+			planId?: PaidSubscriptionPlanIds;
 			featurePreviews?: never;
 	  }
 >;
@@ -156,7 +148,7 @@ class AccountDebug {
 					label: 'Pro Trial (Advanced)',
 					description: 'Pro trial (advanced plan), account',
 					iconPath: new ThemeIcon('blank'),
-					item: { state: SubscriptionState.Trial, planId: SubscriptionPlanId.Advanced },
+					item: { state: SubscriptionState.Trial, planId: 'advanced' },
 				},
 				{
 					label: 'Pro Trial (Advanced, Reactivated)',
@@ -164,7 +156,7 @@ class AccountDebug {
 					iconPath: new ThemeIcon('blank'),
 					item: {
 						state: SubscriptionState.Trial,
-						planId: SubscriptionPlanId.Advanced,
+						planId: 'advanced',
 						reactivatedTrial: true,
 					},
 				},
@@ -185,25 +177,25 @@ class AccountDebug {
 					label: 'Pro',
 					description: 'Pro, account',
 					iconPath: new ThemeIcon('blank'),
-					item: { state: SubscriptionState.Paid, planId: SubscriptionPlanId.Pro },
+					item: { state: SubscriptionState.Paid, planId: 'pro' },
 				},
 				{
 					label: 'Advanced',
 					description: 'Advanced plan, account',
 					iconPath: new ThemeIcon('blank'),
-					item: { state: SubscriptionState.Paid, planId: SubscriptionPlanId.Advanced },
+					item: { state: SubscriptionState.Paid, planId: 'advanced' },
 				},
 				{
 					label: 'Business',
 					description: 'Business plan, account',
 					iconPath: new ThemeIcon('blank'),
-					item: { state: SubscriptionState.Paid, planId: SubscriptionPlanId.Business },
+					item: { state: SubscriptionState.Paid, planId: 'teams' },
 				},
 				{
 					label: 'Enterprise',
 					description: 'Enterprise plan, account',
 					iconPath: new ThemeIcon('blank'),
-					item: { state: SubscriptionState.Paid, planId: SubscriptionPlanId.Enterprise },
+					item: { state: SubscriptionState.Paid, planId: 'enterprise' },
 				},
 				// TODO: Update this subscription state once we have a "paid expired" state availale
 				{

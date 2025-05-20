@@ -1,7 +1,7 @@
 import type { StoredFeaturePreviewUsagePeriod } from './constants.storage';
 import { proFeaturePreviewUsageDurationInDays, proFeaturePreviewUsages } from './constants.subscription';
 import type { RepositoryVisibility } from './git/gitProvider';
-import type { RequiredSubscriptionPlans, Subscription } from './plus/gk/models/subscription';
+import type { RequiredSubscriptionPlanIds, Subscription } from './plus/gk/models/subscription';
 import { capitalize } from './system/string';
 
 // GitFeature's must start with `git:` to be recognized in all usages
@@ -53,7 +53,7 @@ export type FeatureAccess =
 	  }
 	| {
 			allowed: false | 'mixed';
-			subscription: { current: Subscription; required?: RequiredSubscriptionPlans };
+			subscription: { current: Subscription; required?: RequiredSubscriptionPlanIds };
 			visibility?: RepositoryVisibility;
 	  };
 
@@ -65,7 +65,7 @@ export type RepoFeatureAccess =
 	  }
 	| {
 			allowed: false;
-			subscription: { current: Subscription; required?: RequiredSubscriptionPlans };
+			subscription: { current: Subscription; required?: RequiredSubscriptionPlanIds };
 			visibility?: RepositoryVisibility;
 	  };
 

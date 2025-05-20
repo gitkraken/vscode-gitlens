@@ -13,7 +13,6 @@ import { Disposable, EventEmitter, FileType, ProgressLocation, Uri, window, work
 import { isWeb } from '@env/platform';
 import { resetAvatarCache } from '../avatars';
 import { GlyphChars, Schemes } from '../constants';
-import { SubscriptionPlanId } from '../constants.subscription';
 import type { Container } from '../container';
 import { AccessDeniedError, ProviderNotFoundError, ProviderNotSupportedError } from '../errors';
 import type { FeatureAccess, PlusFeatures, RepoFeatureAccess } from '../features';
@@ -738,7 +737,7 @@ export class GitProviderService implements Disposable {
 		}
 
 		if (feature != null && (isProFeatureOnAllRepos(feature) || isAdvancedFeature(feature))) {
-			return { allowed: false, subscription: { current: subscription, required: SubscriptionPlanId.Pro } };
+			return { allowed: false, subscription: { current: subscription, required: 'pro' } };
 		}
 
 		function getRepoAccess(
@@ -755,7 +754,7 @@ export class GitProviderService implements Disposable {
 						if (visibility === 'private') {
 							return {
 								allowed: false,
-								subscription: { current: subscription, required: SubscriptionPlanId.Pro },
+								subscription: { current: subscription, required: 'pro' },
 								visibility: visibility,
 							};
 						}
@@ -791,13 +790,13 @@ export class GitProviderService implements Disposable {
 				case 'private':
 					return {
 						allowed: false,
-						subscription: { current: subscription, required: SubscriptionPlanId.Pro },
+						subscription: { current: subscription, required: 'pro' },
 						visibility: 'private',
 					};
 				case 'mixed':
 					return {
 						allowed: 'mixed',
-						subscription: { current: subscription, required: SubscriptionPlanId.Pro },
+						subscription: { current: subscription, required: 'pro' },
 					};
 				default:
 					return {

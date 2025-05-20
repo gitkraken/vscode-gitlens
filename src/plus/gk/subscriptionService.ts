@@ -29,7 +29,6 @@ import {
 	proFeaturePreviewUsageDurationInDays,
 	proFeaturePreviewUsages,
 	proTrialLengthInDays,
-	SubscriptionPlanId,
 	SubscriptionState,
 } from '../../constants.subscription';
 import type {
@@ -68,7 +67,7 @@ import { authenticationProviderScopes } from './authenticationProvider';
 import type { GKCheckInResponse } from './models/checkin';
 import type { Organization } from './models/organization';
 import type { Promo } from './models/promo';
-import type { Subscription, SubscriptionUpgradeCommandArgs } from './models/subscription';
+import type { Subscription, SubscriptionPlanIds, SubscriptionUpgradeCommandArgs } from './models/subscription';
 import type { ServerConnection } from './serverConnection';
 import { ensurePlusFeaturesEnabled } from './utils/-webview/plus.utils';
 import { getConfiguredActiveOrganizationId, updateActiveOrganizationId } from './utils/-webview/subscription.utils';
@@ -530,7 +529,7 @@ export class SubscriptionService implements Disposable {
 			);
 
 			if (result === upgrade) {
-				void this.upgrade(SubscriptionPlanId.Pro, source);
+				void this.upgrade('pro', source);
 			} else if (result === learn) {
 				void this.learnAboutPro({ source: 'prompt', detail: { action: 'trial-ended' } }, source);
 			}
@@ -825,12 +824,12 @@ export class SubscriptionService implements Disposable {
 	}
 
 	@log()
-	async upgrade(plan: SubscriptionPlanId | undefined, source: Source | undefined): Promise<boolean> {
+	async upgrade(plan: SubscriptionPlanIds | undefined, source: Source | undefined): Promise<boolean> {
 		const scope = getLogScope();
 
 		if (!(await ensurePlusFeaturesEnabled())) return false;
 
-		plan ??= SubscriptionPlanId.Pro;
+		plan ??= 'pro';
 
 		let aborted = false;
 		const promo = await this.container.productConfig.getApplicablePromo(this._subscription.state);
@@ -1319,8 +1318,8 @@ export class SubscriptionService implements Disposable {
 		if (subscription == null) {
 			subscription = {
 				plan: {
-					actual: getSubscriptionPlan(SubscriptionPlanId.Community, false, 0, undefined),
-					effective: getSubscriptionPlan(SubscriptionPlanId.Community, false, 0, undefined),
+					actual: getSubscriptionPlan('community', false, 0, undefined),
+					effective: getSubscriptionPlan('community', false, 0, undefined),
 				},
 				account: undefined,
 				state: SubscriptionState.Community,
@@ -1453,7 +1452,7 @@ export class SubscriptionService implements Disposable {
 			state,
 		} = this._subscription;
 
-		void setContext('gitlens:plus', actual.id !== SubscriptionPlanId.Community ? actual.id : undefined);
+		void setContext('gitlens:plus', actual.id !== 'community' ? actual.id : undefined);
 		void setContext('gitlens:plus:state', state);
 	}
 
@@ -1494,7 +1493,7 @@ export class SubscriptionService implements Disposable {
 			plan: { effective },
 		} = this._subscription;
 
-		if (effective.id === SubscriptionPlanId.Community) {
+		if (effective.id === 'community') {
 			this._statusBarSubscription?.dispose();
 			this._statusBarSubscription = undefined;
 			return;

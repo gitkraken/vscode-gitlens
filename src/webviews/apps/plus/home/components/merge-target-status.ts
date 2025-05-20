@@ -1,7 +1,6 @@
 import { css, html, LitElement, nothing } from 'lit';
 import { customElement, property, state } from 'lit/decorators.js';
 import { ifDefined } from 'lit/directives/if-defined.js';
-import { SubscriptionPlanId } from '../../../../../constants.subscription';
 import type { SubscriptionUpgradeCommandArgs } from '../../../../../plus/gk/models/subscription';
 import { createCommandLink } from '../../../../../system/commands';
 import { pluralize } from '../../../../../system/string';
@@ -582,7 +581,7 @@ export class GlMergeTargetUpgrade extends LitElement {
 						<gl-button
 							full
 							href="${createCommandLink<SubscriptionUpgradeCommandArgs>('gitlens.plus.upgrade', {
-								plan: SubscriptionPlanId.Pro,
+								plan: 'pro',
 								source: 'merge-target',
 							})}"
 							>Upgrade to Pro</gl-button
