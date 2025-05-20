@@ -238,7 +238,7 @@ export abstract class ViewNode<
 	}
 
 	protected _uniqueId!: string;
-	protected splatted = false;
+	splatted = false;
 	// NOTE: @eamodio uncomment to track node leaks
 	// readonly uuid = uuid();
 
@@ -247,8 +247,12 @@ export abstract class ViewNode<
 		// public readonly id: string | undefined,
 		uri: GitUri,
 		public readonly view: TView,
-		protected parent?: ViewNode,
+		protected parent?: ViewNode | undefined,
+		//** Indicates if this node is only shown as its children, not itself */
+		splatted?: boolean,
 	) {
+		this.splatted = splatted ?? false;
+
 		// NOTE: @eamodio uncomment to track node leaks
 		// queueMicrotask(() => this.view.registerNode(this));
 		this._uri = uri;

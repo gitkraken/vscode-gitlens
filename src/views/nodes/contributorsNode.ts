@@ -17,8 +17,6 @@ export class ContributorsNode extends CacheableChildrenViewNode<
 	ViewsWithContributorsNode,
 	ContributorNode
 > {
-	protected override splatted = true;
-
 	constructor(
 		uri: GitUri,
 		view: ViewsWithContributorsNode,
@@ -32,7 +30,7 @@ export class ContributorsNode extends CacheableChildrenViewNode<
 			stats?: boolean;
 		},
 	) {
-		super('contributors', uri, view, parent);
+		super('contributors', uri, view, parent, true);
 
 		this.updateContext({ repository: repo });
 		this._uniqueId = getViewNodeId(this.type, this.context);
@@ -129,8 +127,6 @@ export class ContributorsNode extends CacheableChildrenViewNode<
 	}
 
 	getTreeItem(): TreeItem {
-		this.splatted = false;
-
 		const item = new TreeItem('Contributors', TreeItemCollapsibleState.Collapsed);
 		item.id = this.id;
 		item.contextValue = ContextValues.Contributors;

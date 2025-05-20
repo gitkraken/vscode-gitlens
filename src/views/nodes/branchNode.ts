@@ -71,7 +71,6 @@ export class BranchNode
 	limit: number | undefined;
 
 	private readonly options: Options;
-	protected override splatted = true;
 
 	constructor(
 		uri: GitUri,
@@ -83,7 +82,7 @@ export class BranchNode
 		public readonly root: boolean,
 		options?: Partial<Options>,
 	) {
-		super('branch', uri, view, parent);
+		super('branch', uri, view, parent, root);
 
 		this.updateContext({ repository: repo, branch: branch, root: root });
 		this._uniqueId = getViewNodeId(this.type, this.context);
@@ -397,8 +396,6 @@ export class BranchNode
 	}
 
 	async getTreeItem(): Promise<TreeItem> {
-		this.splatted = false;
-
 		const parts = await getBranchNodeParts(this.view.container, this.branch, this.current, {
 			avatars: this.view.config.avatars,
 			pendingPullRequest: this.getState('pendingPullRequest'),

@@ -28,11 +28,10 @@ import type { CopyNodeCommandArgs } from './viewCommands';
 import { registerViewCommand } from './viewCommands';
 
 export class SearchAndCompareViewNode extends ViewNode<'search-compare', SearchAndCompareView> {
-	protected override splatted = true;
 	private comparePicker: ComparePickerNode | undefined;
 
 	constructor(view: SearchAndCompareView) {
-		super('search-compare', unknownGitUri, view);
+		super('search-compare', unknownGitUri, view, undefined, true);
 	}
 
 	override dispose(): void {
@@ -72,8 +71,6 @@ export class SearchAndCompareViewNode extends ViewNode<'search-compare', SearchA
 	}
 
 	getTreeItem(): TreeItem {
-		this.splatted = false;
-
 		const item = new TreeItem('SearchAndCompare', TreeItemCollapsibleState.Expanded);
 		item.contextValue = ContextValues.SearchAndCompare;
 		return item;

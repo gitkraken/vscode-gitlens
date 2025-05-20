@@ -20,22 +20,18 @@ export abstract class RepositoryFolderNode<
 	TView extends View = View,
 	TChild extends ViewNode = ViewNode,
 > extends SubscribeableViewNode<'repo-folder', TView> {
-	protected override splatted = true;
-
 	constructor(
 		uri: GitUri,
 		view: TView,
 		protected override readonly parent: ViewNode,
-		public readonly repo: Repository,
 		splatted: boolean,
+		public readonly repo: Repository,
 		private readonly options?: { showBranchAndLastFetched?: boolean },
 	) {
-		super('repo-folder', uri, view, parent);
+		super('repo-folder', uri, view, parent, splatted);
 
 		this.updateContext({ repository: this.repo });
 		this._uniqueId = getViewNodeId(this.type, this.context);
-
-		this.splatted = splatted;
 	}
 
 	private _child: TChild | undefined;
@@ -67,8 +63,6 @@ export abstract class RepositoryFolderNode<
 	}
 
 	async getTreeItem(): Promise<TreeItem> {
-		this.splatted = false;
-
 		const branch = await this.repo.git.branches.getBranch();
 		const ahead = Boolean(branch?.upstream?.state.ahead);
 		const behind = Boolean(branch?.upstream?.state.behind);

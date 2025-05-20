@@ -253,14 +253,14 @@ export abstract class ViewBase<
 				}
 
 				if (typeof item.tooltip === 'string') {
-					item.tooltip = `${item.tooltip}\n\n---\ncontext: ${item.contextValue}\nnode: ${node.toString()}${
-						parent != null ? `\nparent: ${parent.toString()}` : ''
-					}`;
+					item.tooltip = `${item.tooltip}\n\n---\ncontext: ${
+						item.contextValue
+					}\nnode: ${node.toString()}\nparent: ${parent?.toString()}`;
 				} else {
 					item.tooltip.appendMarkdown(
-						`\n\n---\n\ncontext: \`${item.contextValue}\`\\\nnode: \`${node.toString()}\`${
-							parent != null ? `\\\nparent: \`${parent.toString()}\`` : ''
-						}`,
+						`\n\n---\n\ncontext: \`${
+							item.contextValue
+						}\`\\\nnode: \`${node.toString()}\` \\\nparent: \`${parent?.toString()}\``,
 					);
 				}
 			}
@@ -486,6 +486,8 @@ export abstract class ViewBase<
 	}
 
 	getTreeItem(node: ViewNode): TreeItem | Promise<TreeItem> {
+		// If this node gets requested, ensure the splatted flag is cleared
+		node.splatted = false;
 		return node.getTreeItem();
 	}
 
