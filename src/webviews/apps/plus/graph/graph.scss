@@ -888,6 +888,7 @@ button:not([disabled]),
 		}
 	}
 
+	&--filter,
 	&--undefined-icon {
 		&::before {
 			font-family: codicon;
