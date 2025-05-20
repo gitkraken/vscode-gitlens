@@ -89,9 +89,9 @@ export class ProductConfigProvider {
 						key: 'pro50',
 						states: [
 							SubscriptionState.Community,
-							SubscriptionState.Trial,
-							SubscriptionState.TrialExpired,
-							SubscriptionState.TrialReactivationEligible,
+							SubscriptionState.ProTrial,
+							SubscriptionState.ProTrialExpired,
+							SubscriptionState.ProTrialReactivationEligible,
 						],
 						locations: ['home', 'account', 'badge', 'gate'],
 						content: {
@@ -136,12 +136,12 @@ function createConfigValidator(): Validator<ConfigJson> {
 		SubscriptionState.VerificationRequired,
 		SubscriptionState.Community,
 		// eslint-disable-next-line @typescript-eslint/no-deprecated -- allow deprecated states since we will just ignore them
-		SubscriptionState.DeprecatedPreview,
+		SubscriptionState.ProPreview,
 		// eslint-disable-next-line @typescript-eslint/no-deprecated -- allow deprecated states since we will just ignore them
-		SubscriptionState.DeprecatedPreviewExpired,
-		SubscriptionState.Trial,
-		SubscriptionState.TrialExpired,
-		SubscriptionState.TrialReactivationEligible,
+		SubscriptionState.ProPreviewExpired,
+		SubscriptionState.ProTrial,
+		SubscriptionState.ProTrialExpired,
+		SubscriptionState.ProTrialReactivationEligible,
 		SubscriptionState.Paid,
 	);
 

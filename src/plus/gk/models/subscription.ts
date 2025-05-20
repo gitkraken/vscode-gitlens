@@ -1,18 +1,16 @@
-import type { SubscriptionState } from '../../../constants.subscription';
+import type { SubscriptionPlanId, SubscriptionState } from '../../../constants.subscription';
 import type { Source } from '../../../constants.telemetry';
 import type { Organization } from './organization';
 
-export type SubscriptionPlanIds =
-	| 'community'
-	| 'community-with-account'
-	| 'pro'
-	| 'advanced'
-	| 'teams' /* the old name for Business; do not change */
-	| 'enterprise';
-
-export type FreeSubscriptionPlanIds = Extract<SubscriptionPlanIds, 'community' | 'community-with-account'>;
-export type PaidSubscriptionPlanIds = Exclude<SubscriptionPlanIds, FreeSubscriptionPlanIds>;
-export type RequiredSubscriptionPlanIds = Exclude<SubscriptionPlanIds, 'community'>;
+export type FreeSubscriptionPlans = Extract<
+	SubscriptionPlanId,
+	SubscriptionPlanId.Community | SubscriptionPlanId.CommunityWithAccount
+>;
+export type PaidSubscriptionPlans = Exclude<
+	SubscriptionPlanId,
+	SubscriptionPlanId.Community | SubscriptionPlanId.CommunityWithAccount
+>;
+export type RequiredSubscriptionPlans = Exclude<SubscriptionPlanId, SubscriptionPlanId.Community>;
 
 export interface Subscription {
 	readonly plan: {
@@ -29,7 +27,7 @@ export interface Subscription {
 }
 
 export interface SubscriptionPlan {
-	readonly id: SubscriptionPlanIds;
+	readonly id: SubscriptionPlanId;
 	readonly name: string;
 	readonly bundle: boolean;
 	readonly trialReactivationCount: number;
@@ -49,14 +47,5 @@ export interface SubscriptionAccount {
 }
 
 export interface SubscriptionUpgradeCommandArgs extends Source {
-	plan?: SubscriptionPlanIds;
+	plan?: SubscriptionPlanId;
 }
-
-export type SubscriptionStateString =
-	| 'verification'
-	| 'free'
-	| 'trial'
-	| 'trial-expired'
-	| 'trial-reactivation-eligible'
-	| 'paid'
-	| 'unknown';

@@ -1,6 +1,5 @@
 export const proFeaturePreviewUsages = 3;
 export const proFeaturePreviewUsageDurationInDays = 1;
-export const proPreviewLengthInDays = 0;
 export const proTrialLengthInDays = 14;
 
 export const enum SubscriptionPlanId {
@@ -17,11 +16,11 @@ export const enum SubscriptionPlanId {
 export const enum SubscriptionState {
 	/** Indicates a user who hasn't verified their email address yet */
 	VerificationRequired = -1,
-	/** Indicates an account-less Community (free) user who hasn't started a Pro preview */
+	/** Indicates an account-less Community (free) user */
 	Community = 0,
-	/** Indicates an account-less Community (free) user who is in a Pro preview */
+	/** @deprecated DO NOT USE */
 	ProPreview = 1,
-	/** Indicates an account-less Community (free) user who's Pro preview has expired */
+	/** @deprecated DO NOT USE */
 	ProPreviewExpired = 2,
 	/** Indicates a Pro user who is in a Pro trial */
 	ProTrial = 3,
@@ -36,8 +35,6 @@ export const enum SubscriptionState {
 export type SubscriptionStateString =
 	| 'verification'
 	| 'free'
-	| 'preview'
-	| 'preview-expired'
 	| 'trial'
 	| 'trial-expired'
 	| 'trial-reactivation-eligible'

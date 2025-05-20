@@ -7486,11 +7486,6 @@
 				"category": "GitLens"
 			},
 			{
-				"command": "gitlens.plus.startPreviewTrial",
-				"title": "Preview Pro",
-				"category": "GitLens"
-			},
-			{
 				"command": "gitlens.plus.upgrade",
 				"title": "Upgrade to Pro...",
 				"category": "GitLens"
@@ -11575,10 +11570,6 @@
 				{
 					"command": "gitlens.plus.simulateSubscription",
 					"when": "gitlens:enabled && gitlens:debugging"
-				},
-				{
-					"command": "gitlens.plus.startPreviewTrial",
-					"when": "false && !gitlens:plus"
 				},
 				{
 					"command": "gitlens.pullRepositories",
@@ -21222,13 +21213,8 @@
 			},
 			{
 				"view": "gitlens.views.launchpad",
-				"contents": "[Continue](command:gitlens.plus.startPreviewTrial?%7B%22source%22%3A%22launchpad-view%22%7D)\n\nContinuing gives you 3 days to preview Launchpad and other local Pro features for 3 days. [Start 14-day Pro trial](command:gitlens.plus.signUp?%7B%22source%22%3A%22launchpad-view%22%7D) or [sign in](command:gitlens.plus.login?%7B%22source%22%3A%22launchpad-view%22%7D) for full access to Pro features.",
-				"when": "false && gitlens:launchpad:connected && gitlens:plus:state == 0"
-			},
-			{
-				"view": "gitlens.views.launchpad",
 				"contents": "[Try GitLens Pro](command:gitlens.plus.signUp?%7B%22source%22%3A%22launchpad-view%22%7D)\n\nGet 14 days of GitLens Pro for free — no credit card required. Or [sign in](command:gitlens.plus.login?%7B%22source%22%3A%22launchpad-view%22%7D).",
-				"when": "gitlens:launchpad:connected && (gitlens:plus:state == 0 || gitlens:plus:state == 2)"
+				"when": "gitlens:launchpad:connected && gitlens:plus:state == 0"
 			},
 			{
 				"view": "gitlens.views.launchpad",
@@ -21282,13 +21268,8 @@
 			},
 			{
 				"view": "gitlens.views.scm.grouped",
-				"contents": "[Continue](command:gitlens.plus.startPreviewTrial?%7B%22source%22%3A%22launchpad-view%22%7D)\n\nContinuing gives you 3 days to preview Launchpad and other local Pro features for 3 days. [Start 14-day Pro trial](command:gitlens.plus.signUp?%7B%22source%22%3A%22launchpad-view%22%7D) or [sign in](command:gitlens.plus.login?%7B%22source%22%3A%22launchpad-view%22%7D) for full access to Pro features.",
-				"when": "gitlens:views:scm:grouped:view == launchpad && false && gitlens:launchpad:connected && gitlens:plus:state == 0"
-			},
-			{
-				"view": "gitlens.views.scm.grouped",
 				"contents": "[Try GitLens Pro](command:gitlens.plus.signUp?%7B%22source%22%3A%22launchpad-view%22%7D)\n\nGet 14 days of GitLens Pro for free — no credit card required. Or [sign in](command:gitlens.plus.login?%7B%22source%22%3A%22launchpad-view%22%7D).",
-				"when": "gitlens:views:scm:grouped:view == launchpad && gitlens:launchpad:connected && (gitlens:plus:state == 0 || gitlens:plus:state == 2)"
+				"when": "gitlens:views:scm:grouped:view == launchpad && gitlens:launchpad:connected && gitlens:plus:state == 0"
 			},
 			{
 				"view": "gitlens.views.scm.grouped",
@@ -21347,13 +21328,8 @@
 			},
 			{
 				"view": "gitlens.views.scm.grouped",
-				"contents": "[Continue](command:gitlens.plus.startPreviewTrial?%7B%22source%22%3A%22worktrees%22%7D)\n\nContinuing gives you 3 days to preview Worktrees and other local Pro features for 3 days. [Start 14-day Pro trial](command:gitlens.plus.signUp?%7B%22source%22%3A%22worktrees%22%7D) or [sign in](command:gitlens.plus.login?%7B%22source%22%3A%22worktrees%22%7D) for full access to Pro features.",
-				"when": "false && gitlens:views:scm:grouped:view == worktrees && gitlens:plus:required && gitlens:plus:state == 0"
-			},
-			{
-				"view": "gitlens.views.scm.grouped",
 				"contents": "[Try GitLens Pro](command:gitlens.plus.signUp?%7B%22source%22%3A%22worktrees%22%7D)\n\nGet 14 days of GitLens Pro for free — no credit card required. Or [sign in](command:gitlens.plus.login?%7B%22source%22%3A%22worktrees%22%7D).",
-				"when": "gitlens:views:scm:grouped:view == worktrees && gitlens:plus:required && (gitlens:plus:state == 0 || gitlens:plus:state == 2)"
+				"when": "gitlens:views:scm:grouped:view == worktrees && gitlens:plus:required && gitlens:plus:state == 0"
 			},
 			{
 				"view": "gitlens.views.scm.grouped",
@@ -21440,13 +21416,8 @@
 			},
 			{
 				"view": "gitlens.views.worktrees",
-				"contents": "[Continue](command:gitlens.plus.startPreviewTrial?%7B%22source%22%3A%22worktrees%22%7D)\n\nContinuing gives you 3 days to preview Worktrees and other local Pro features for 3 days. [Start 14-day Pro trial](command:gitlens.plus.signUp?%7B%22source%22%3A%22worktrees%22%7D) or [sign in](command:gitlens.plus.login?%7B%22source%22%3A%22worktrees%22%7D) for full access to Pro features.",
-				"when": "false && gitlens:plus:required && gitlens:plus:state == 0"
-			},
-			{
-				"view": "gitlens.views.worktrees",
 				"contents": "[Try GitLens Pro](command:gitlens.plus.signUp?%7B%22source%22%3A%22worktrees%22%7D)\n\nGet 14 days of GitLens Pro for free — no credit card required. Or [sign in](command:gitlens.plus.login?%7B%22source%22%3A%22worktrees%22%7D).",
-				"when": "gitlens:plus:required && (gitlens:plus:state == 0 || gitlens:plus:state == 2)"
+				"when": "gitlens:plus:required && gitlens:plus:state == 0"
 			},
 			{
 				"view": "gitlens.views.worktrees",

@@ -1,5 +1,5 @@
 import type { QuickPickItem, ThemeIcon, Uri } from 'vscode';
-import { proPreviewLengthInDays, proTrialLengthInDays } from '../../constants.subscription';
+import { proTrialLengthInDays } from '../../constants.subscription';
 import { pluralize } from '../../system/string';
 
 export enum Directive {
@@ -11,7 +11,6 @@ export enum Directive {
 	Reload,
 
 	SignIn,
-	StartPreview,
 	StartProTrial,
 
 	RequiresVerification,
@@ -67,10 +66,6 @@ export function createDirectiveQuickPickItem(
 
 			case Directive.SignIn:
 				label = 'Sign In';
-				break;
-			case Directive.StartPreview:
-				label = 'Continue';
-				detail = `Continuing gives you ${proPreviewLengthInDays} days to preview this and other local Pro features`;
 				break;
 			case Directive.StartProTrial:
 				label = 'Try GitLens Pro';
