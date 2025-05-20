@@ -9,10 +9,7 @@ import type { IntegrationFeatures } from '../../../../../constants.integrations'
 import { SubscriptionPlanId, SubscriptionState } from '../../../../../constants.subscription';
 import type { Source } from '../../../../../constants.telemetry';
 import type { SubscriptionUpgradeCommandArgs } from '../../../../../plus/gk/models/subscription';
-import {
-	hasAccountFromSubscriptionState,
-	isSubscriptionStatePaidOrTrial,
-} from '../../../../../plus/gk/utils/subscription.utils';
+import { isSubscriptionTrialOrPaidFromState } from '../../../../../plus/gk/utils/subscription.utils';
 import { createCommandLink } from '../../../../../system/commands';
 import type { IntegrationState, State } from '../../../../home/protocol';
 import { stateContext } from '../../../home/context';
@@ -160,7 +157,7 @@ export class GlIntegrationsChip extends LitElement {
 	private _state!: State;
 
 	private get hasAccount() {
-		return hasAccountFromSubscriptionState(this._state.subscription?.state);
+		return this._state.subscription?.account != null;
 	}
 
 	private get isPaidAccount() {
@@ -168,7 +165,7 @@ export class GlIntegrationsChip extends LitElement {
 	}
 
 	private get isProAccount() {
-		return isSubscriptionStatePaidOrTrial(this._state.subscription?.state);
+		return isSubscriptionTrialOrPaidFromState(this._state.subscription?.state);
 	}
 
 	private get hasConnectedIntegrations() {

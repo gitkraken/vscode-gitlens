@@ -47,7 +47,7 @@ import type { AIModelChangeEvent } from '../../plus/ai/aiProviderService';
 import { showPatchesView } from '../../plus/drafts/actions';
 import type { Subscription } from '../../plus/gk/models/subscription';
 import type { SubscriptionChangeEvent } from '../../plus/gk/subscriptionService';
-import { isSubscriptionStatePaidOrTrial } from '../../plus/gk/utils/subscription.utils';
+import { isSubscriptionTrialOrPaidFromState } from '../../plus/gk/utils/subscription.utils';
 import type { ConfiguredIntegrationsChangeEvent } from '../../plus/integrations/authentication/configuredIntegrationService';
 import { providersMetadata } from '../../plus/integrations/providers/models';
 import type { LaunchpadCategorizedResult } from '../../plus/launchpad/launchpadProvider';
@@ -755,7 +755,9 @@ export class HomeWebviewProvider implements WebviewProvider<State, State, HomeWe
 
 		await this.notifyDidChangeSubscription(e.current);
 
-		if (isSubscriptionStatePaidOrTrial(e.current.state) !== isSubscriptionStatePaidOrTrial(e.previous.state)) {
+		if (
+			isSubscriptionTrialOrPaidFromState(e.current.state) !== isSubscriptionTrialOrPaidFromState(e.previous.state)
+		) {
 			this.onOverviewRepoChanged();
 		}
 	}
@@ -1152,7 +1154,7 @@ export class HomeWebviewProvider implements WebviewProvider<State, State, HomeWe
 		const subscription = await this.getSubscription();
 		if (subscription == null) return false;
 
-		return isSubscriptionStatePaidOrTrial(subscription.state);
+		return isSubscriptionTrialOrPaidFromState(subscription.state);
 	}
 
 	private async getSubscriptionState(subscription?: Subscription) {

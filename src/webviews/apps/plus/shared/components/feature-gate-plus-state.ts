@@ -174,7 +174,7 @@ export class GlFeatureGatePlusState extends LitElement {
 						<a href="${urls.communityVsPro}">GitLens Pro</a> for free — no credit card required.
 					</p>`;
 
-			case SubscriptionState.ProTrialExpired:
+			case SubscriptionState.TrialExpired:
 				return html`<slot name="feature"></slot>
 					<p>Use on privately-hosted repos requires <a href="${urls.communityVsPro}">GitLens Pro</a>.</p>
 					<p class="actions-row">
@@ -190,7 +190,7 @@ export class GlFeatureGatePlusState extends LitElement {
 					</p>
 					<p>${this.renderPromo()}</p>`;
 
-			case SubscriptionState.ProTrialReactivationEligible:
+			case SubscriptionState.TrialReactivationEligible:
 				return html`<slot name="feature"></slot>
 					<p class="actions-row">
 						<gl-button

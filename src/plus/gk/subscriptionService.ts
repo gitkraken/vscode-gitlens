@@ -79,8 +79,8 @@ import {
 	computeSubscriptionState,
 	getCommunitySubscription,
 	getSubscriptionPlan,
-	getSubscriptionPlanName,
-	getSubscriptionPlanTierType,
+	getSubscriptionPlanType,
+	getSubscriptionProductPlanName,
 	getSubscriptionStateString,
 	getSubscriptionTimeRemaining,
 	isSubscriptionExpired,
@@ -438,14 +438,14 @@ export class SubscriptionService implements Disposable {
 					source: source,
 				});
 				break;
-			case SubscriptionState.ProTrial:
+			case SubscriptionState.Trial:
 				void executeCommand<OpenWalkthroughCommandArgs>('gitlens.openWalkthrough', {
 					step: 'welcome-in-trial',
 					source: source,
 				});
 				break;
-			case SubscriptionState.ProTrialReactivationEligible:
-			case SubscriptionState.ProTrialExpired:
+			case SubscriptionState.TrialReactivationEligible:
+			case SubscriptionState.TrialExpired:
 				void executeCommand<OpenWalkthroughCommandArgs>('gitlens.openWalkthrough', {
 					step: 'welcome-in-trial-expired',
 					source: source,
@@ -872,7 +872,7 @@ export class SubscriptionService implements Disposable {
 		const query = new URLSearchParams();
 		query.set('source', 'gitlens');
 		query.set('product', 'gitlens');
-		query.set('planType', getSubscriptionPlanTierType(plan));
+		query.set('planType', getSubscriptionPlanType(plan));
 
 		if (promo?.code != null) {
 			query.set('promoCode', promo.code);
@@ -1403,12 +1403,11 @@ export class SubscriptionService implements Disposable {
 
 		if (subscription != null) {
 			// Migrate the plan names to the latest names
-			(subscription.plan.actual as Mutable<Subscription['plan']['actual']>).name = getSubscriptionPlanName(
+			(subscription.plan.actual as Mutable<Subscription['plan']['actual']>).name = getSubscriptionProductPlanName(
 				subscription.plan.actual.id,
 			);
-			(subscription.plan.effective as Mutable<Subscription['plan']['effective']>).name = getSubscriptionPlanName(
-				subscription.plan.effective.id,
-			);
+			(subscription.plan.effective as Mutable<Subscription['plan']['effective']>).name =
+				getSubscriptionProductPlanName(subscription.plan.effective.id);
 		}
 
 		return subscription;
@@ -1502,7 +1501,7 @@ export class SubscriptionService implements Disposable {
 		}
 
 		const trial = isSubscriptionTrial(this._subscription);
-		const trialEligible = this._subscription.state === SubscriptionState.ProTrialReactivationEligible;
+		const trialEligible = this._subscription.state === SubscriptionState.TrialReactivationEligible;
 
 		if (!(trial || trialEligible) && account?.verified !== false) {
 			this._statusBarSubscription?.dispose();

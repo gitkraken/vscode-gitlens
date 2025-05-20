@@ -2,7 +2,7 @@ import { SubscriptionPlanId } from '../../../constants.subscription';
 import type { GKCheckInResponse, GKLicense, GKLicenseType } from '../models/checkin';
 import type { Organization } from '../models/organization';
 import type { Subscription } from '../models/subscription';
-import { compareSubscriptionPlans, getSubscriptionPlan, getSubscriptionPlanPriority } from './subscription.utils';
+import { compareSubscriptionPlans, getSubscriptionPlan, getSubscriptionPlanOrder } from './subscription.utils';
 
 export function getSubscriptionFromCheckIn(
 	data: GKCheckInResponse,
@@ -25,19 +25,17 @@ export function getSubscriptionFromCheckIn(
 	if (paidLicenses.length > 1) {
 		paidLicenses.sort(
 			(a, b) =>
-				getSubscriptionPlanPriority(convertLicenseTypeToPlanId(b[0])) +
+				getSubscriptionPlanOrder(convertLicenseTypeToPlanId(b[0])) +
 				licenseStatusPriority(b[1].latestStatus) -
-				(getSubscriptionPlanPriority(convertLicenseTypeToPlanId(a[0])) +
-					licenseStatusPriority(a[1].latestStatus)),
+				(getSubscriptionPlanOrder(convertLicenseTypeToPlanId(a[0])) + licenseStatusPriority(a[1].latestStatus)),
 		);
 	}
 	if (effectiveLicenses.length > 1) {
 		effectiveLicenses.sort(
 			(a, b) =>
-				getSubscriptionPlanPriority(convertLicenseTypeToPlanId(b[0])) +
+				getSubscriptionPlanOrder(convertLicenseTypeToPlanId(b[0])) +
 				licenseStatusPriority(b[1].latestStatus) -
-				(getSubscriptionPlanPriority(convertLicenseTypeToPlanId(a[0])) +
-					licenseStatusPriority(a[1].latestStatus)),
+				(getSubscriptionPlanOrder(convertLicenseTypeToPlanId(a[0])) + licenseStatusPriority(a[1].latestStatus)),
 		);
 	}
 

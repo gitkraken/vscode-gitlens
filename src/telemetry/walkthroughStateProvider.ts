@@ -24,9 +24,9 @@ type WalkthroughUsage = {
 };
 
 const triedProStates: Readonly<SubscriptionState[]> = [
-	SubscriptionState.ProTrial,
-	SubscriptionState.ProTrialExpired,
-	SubscriptionState.ProTrialReactivationEligible,
+	SubscriptionState.Trial,
+	SubscriptionState.TrialExpired,
+	SubscriptionState.TrialReactivationEligible,
 	SubscriptionState.Paid,
 ];
 

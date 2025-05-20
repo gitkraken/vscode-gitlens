@@ -12,7 +12,7 @@ import { log } from '../../system/decorators/log';
 import { normalizePath } from '../../system/path';
 import { getSettledValue } from '../../system/promise';
 import type { SubscriptionChangeEvent } from '../gk/subscriptionService';
-import { isSubscriptionStatePaidOrTrial } from '../gk/utils/subscription.utils';
+import { isSubscriptionTrialOrPaidFromState } from '../gk/utils/subscription.utils';
 import type { CloudWorkspaceData, CloudWorkspaceRepositoryDescriptor } from './models/cloudWorkspace';
 import {
 	CloudWorkspace,
@@ -113,7 +113,7 @@ export class WorkspacesService implements Disposable {
 		}
 
 		let filteredSharedWorkspaceCount = 0;
-		const isPlusEnabled = isSubscriptionStatePaidOrTrial(subscription.state);
+		const isPlusEnabled = isSubscriptionTrialOrPaidFromState(subscription.state);
 		if (workspaces?.length) {
 			for (const workspace of workspaces) {
 				const localPath = await this._sharedStorage?.getCloudWorkspaceCodeWorkspaceFileLocation(workspace.id);

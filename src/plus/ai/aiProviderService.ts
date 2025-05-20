@@ -49,7 +49,7 @@ import { getSettledValue, getSettledValues } from '../../system/promise';
 import { PromiseCache } from '../../system/promiseCache';
 import type { ServerConnection } from '../gk/serverConnection';
 import { ensureFeatureAccess } from '../gk/utils/-webview/acount.utils';
-import { compareSubscriptionPlans, getSubscriptionPlanTier, isSubscriptionPaid } from '../gk/utils/subscription.utils';
+import { compareSubscriptionPlans, getSubscriptionPlanName, isSubscriptionPaid } from '../gk/utils/subscription.utils';
 import type {
 	AIActionType,
 	AIModel,
@@ -994,7 +994,7 @@ export class AIProviderService implements Disposable {
 									? SubscriptionPlanId.Business
 									: SubscriptionPlanId.Advanced;
 
-							const upgrade = { title: `Upgrade to ${getSubscriptionPlanTier(plan)}` };
+							const upgrade = { title: `Upgrade to ${getSubscriptionPlanName(plan)}` };
 							const result = await window.showErrorMessage(
 								"This AI feature isn't included in your current plan. Please upgrade and try again.",
 								upgrade,

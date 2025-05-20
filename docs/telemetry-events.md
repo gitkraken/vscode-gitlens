@@ -71,7 +71,7 @@
   'global.subscription.promo.code': string,
   // Promo key (identifier) associated with the upgrade
   'global.subscription.promo.key': string,
-  'global.subscription.state': -1 | 0 | 3 | 4 | 5 | 6,
+  'global.subscription.state': -1 | 0 | 1 | 2 | 3 | 4 | 5 | 6,
   'global.subscription.stateString': 'verification' | 'free' | 'trial' | 'trial-expired' | 'trial-reactivation-eligible' | 'paid' | 'unknown',
   'global.upgrade': boolean,
   'global.upgradedFrom': string,
@@ -1920,7 +1920,7 @@ void
   'subscription.promo.code': string,
   // Promo key (identifier) associated with the upgrade
   'subscription.promo.key': string,
-  'subscription.state': -1 | 0 | 3 | 4 | 5 | 6,
+  'subscription.state': -1 | 0 | 1 | 2 | 3 | 4 | 5 | 6,
   'subscription.stateString': 'verification' | 'free' | 'trial' | 'trial-expired' | 'trial-reactivation-eligible' | 'paid' | 'unknown'
 }
 ```
@@ -2023,7 +2023,7 @@ or
   'subscription.promo.code': string,
   // Promo key (identifier) associated with the upgrade
   'subscription.promo.key': string,
-  'subscription.state': -1 | 0 | 3 | 4 | 5 | 6,
+  'subscription.state': -1 | 0 | 1 | 2 | 3 | 4 | 5 | 6,
   'subscription.stateString': 'verification' | 'free' | 'trial' | 'trial-expired' | 'trial-reactivation-eligible' | 'paid' | 'unknown'
 }
 ```

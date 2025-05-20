@@ -347,6 +347,13 @@ function getDateTimeFormatOptionsFromFormatString(
 	return options;
 }
 
+export function getTimeRemaining(
+	expiresOn: string | undefined,
+	unit?: 'days' | 'hours' | 'minutes' | 'seconds',
+): number | undefined {
+	return expiresOn != null ? getDateDifference(Date.now(), new Date(expiresOn), unit, Math.round) : undefined;
+}
+
 const ordinals = ['th', 'st', 'nd', 'rd'];
 function formatWithOrdinal(n: number): string {
 	const v = n % 100;

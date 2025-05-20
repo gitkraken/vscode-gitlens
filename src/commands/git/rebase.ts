@@ -6,7 +6,7 @@ import type { GitReference } from '../../git/models/reference';
 import type { Repository } from '../../git/models/repository';
 import { getReferenceLabel, isRevisionReference } from '../../git/utils/reference.utils';
 import { createRevisionRange } from '../../git/utils/revision.utils';
-import { isSubscriptionStatePaidOrTrial } from '../../plus/gk/utils/subscription.utils';
+import { isSubscriptionTrialOrPaidFromState } from '../../plus/gk/utils/subscription.utils';
 import { createQuickPickSeparator } from '../../quickpicks/items/common';
 import type { DirectiveQuickPickItem } from '../../quickpicks/items/directive';
 import { createDirectiveQuickPickItem, Directive } from '../../quickpicks/items/directive';
@@ -282,7 +282,7 @@ export class RebaseGitCommand extends QuickCommand<State> {
 
 		let potentialConflict;
 		const subscription = await this.container.subscription.getSubscription();
-		if (isSubscriptionStatePaidOrTrial(subscription?.state)) {
+		if (isSubscriptionTrialOrPaidFromState(subscription?.state)) {
 			potentialConflict = state.repo.git.branches.getPotentialMergeOrRebaseConflict?.(
 				context.branch.name,
 				state.destination.ref,
