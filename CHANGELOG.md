@@ -6,6 +6,8 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/) and this p
 
 ## [Unreleased]
 
+## [17.1.1] - 2025-05-21
+
 ### Fixed
 
 - Fixes Commit Graph not visualizing for some git providers ([#4305](https://github.com/gitkraken/vscode-gitlens/issues/4305))
@@ -6186,7 +6188,8 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/) and this p
 
 - Initial release but still heavily a work in progress.
 
-[unreleased]: https://github.com/gitkraken/vscode-gitlens/compare/v17.1.0...HEAD
+[unreleased]: https://github.com/gitkraken/vscode-gitlens/compare/v17.1.1...HEAD
+[17.1.1]: https://github.com/gitkraken/vscode-gitlens/compare/v17.1.0...gitkraken:v17.1.1
 [17.1.0]: https://github.com/gitkraken/vscode-gitlens/compare/v17.0.3...gitkraken:v17.1.0
 [17.0.3]: https://github.com/gitkraken/vscode-gitlens/compare/v17.0.2...gitkraken:v17.0.3
 [17.0.2]: https://github.com/gitkraken/vscode-gitlens/compare/v17.0.1...gitkraken:v17.0.2
