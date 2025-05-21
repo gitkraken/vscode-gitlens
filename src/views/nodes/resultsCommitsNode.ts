@@ -8,7 +8,8 @@ import type { AIGenerateChangelogChanges } from '../../plus/ai/aiProviderService
 import { configuration } from '../../system/-webview/configuration';
 import { debug } from '../../system/decorators/log';
 import { map } from '../../system/iterable';
-import { pauseOnCancelOrTimeout } from '../../system/promise';
+import type { Deferred } from '../../system/promise';
+import { defer, pauseOnCancelOrTimeout } from '../../system/promise';
 import type { ViewsWithCommits } from '../viewBase';
 import type { PageableViewNode } from './abstract/viewNode';
 import { ContextValues, getViewNodeId, ViewNode } from './abstract/viewNode';
@@ -76,16 +77,15 @@ export class ResultsCommitsNode<View extends ViewsWithCommits = ViewsWithCommits
 		return this.context.comparisonFiltered;
 	}
 
-	// Stop trying to update the label, because VS Code can't handle it and throws id conflict errors
-	// private _onChildrenCompleted: Deferred<void> | undefined;
+	private _onChildrenCompleted: Deferred<void> | undefined;
 
 	async getChildren(): Promise<ViewNode[]> {
-		// this._onChildrenCompleted?.cancel();
-		// this._onChildrenCompleted = defer<void>();
+		this._onChildrenCompleted?.cancel();
+		this._onChildrenCompleted = defer<void>();
 
 		const { log } = await this.getCommitsQueryResults();
 		if (!log?.commits.size) {
-			// this._onChildrenCompleted?.fulfill();
+			this._onChildrenCompleted?.fulfill();
 			return [new MessageNode(this.view, this, 'No results found')];
 		}
 
@@ -154,7 +154,7 @@ export class ResultsCommitsNode<View extends ViewsWithCommits = ViewsWithCommits
 			children.push(new LoadMoreNode(this.view, this, children[children.length - 1]));
 		}
 
-		// this._onChildrenCompleted?.fulfill();
+		this._onChildrenCompleted?.fulfill();
 		return children;
 	}
 
@@ -166,28 +166,27 @@ export class ResultsCommitsNode<View extends ViewsWithCommits = ViewsWithCommits
 			label = this._label;
 			state = TreeItemCollapsibleState.Collapsed;
 		} else {
-			// let log;
+			let log;
 
 			const result = await pauseOnCancelOrTimeout(this.getCommitsQueryResults(), undefined, 100);
 			if (!result.paused) {
 				state = this._options.expand ? TreeItemCollapsibleState.Expanded : TreeItemCollapsibleState.Collapsed;
 
-				// ({ label, log } = result.value);
-				//
-				// state = !log?.commits.size
-				// 	? TreeItemCollapsibleState.None
-				// 	: this._options.expand //|| log.count === 1
-				// 	  ? TreeItemCollapsibleState.Expanded
-				// 	  : TreeItemCollapsibleState.Collapsed;
+				({ label, log } = result.value);
+
+				state = !log?.commits.size
+					? TreeItemCollapsibleState.None
+					: this._options.expand //|| log.count === 1
+					  ? TreeItemCollapsibleState.Expanded
+					  : TreeItemCollapsibleState.Collapsed;
 			} else {
-				// Stop trying to update the label, because VS Code can't handle it and throws id conflict errors
-				// queueMicrotask(async () => {
-				// 	try {
-				// 		await this._onChildrenCompleted?.promise;
-				// 		void (await result.value);
-				// 		this.view.triggerNodeChange(this.parent);
-				// 	} catch {}
-				// });
+				queueMicrotask(async () => {
+					try {
+						await this._onChildrenCompleted?.promise;
+						void (await result.value);
+						this.view.triggerNodeChange(this.parent);
+					} catch {}
+				});
 
 				// Need to use Collapsed before we have results or the item won't show up in the view until the children are awaited
 				// https://github.com/microsoft/vscode/issues/54806 & https://github.com/microsoft/vscode/issues/62214
@@ -225,8 +224,7 @@ export class ResultsCommitsNode<View extends ViewsWithCommits = ViewsWithCommits
 			if (this._results.deferred) {
 				this._results.deferred = false;
 
-				// Stop trying to update the label, because VS Code can't handle it and throws id conflict errors
-				// void this.parent.triggerChange(false);
+				void this.parent.triggerChange(false);
 			}
 		}
 
