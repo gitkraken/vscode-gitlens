@@ -6,6 +6,11 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/) and this p
 
 ## [Unreleased]
 
+### Fixed
+
+- Fixes Commit Graph not visualizing for some git providers ([#4305](https://github.com/gitkraken/vscode-gitlens/issues/4305))
+- Fixes issue when slicing by branch in Visual History where the selected branch was not used properly
+
 ## [17.1.0] - 2025-05-15
 
 ### Added
