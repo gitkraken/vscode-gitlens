@@ -3,9 +3,7 @@ import { GlyphChars } from '../../constants';
 import type { GitUri } from '../../git/gitUri';
 import type { Repository } from '../../git/models/repository';
 import { sortWorktrees } from '../../git/utils/-webview/sorting';
-import { filterMap, makeHierarchical } from '../../system/array';
-import { map } from '../../system/iterable';
-import { Logger } from '../../system/logger';
+import { makeHierarchical } from '../../system/array';
 import type { ViewsWithWorktreesNode } from '../viewBase';
 import { CacheableChildrenViewNode } from './abstract/cacheableChildrenViewNode';
 import type { ViewNode } from './abstract/viewNode';
@@ -43,30 +41,15 @@ export class WorktreesNode extends CacheableChildrenViewNode<'worktrees', ViewsW
 			const worktrees = await this.repo.git.worktrees?.getWorktrees();
 			if (!worktrees?.length) return [new MessageNode(this.view, this, 'No worktrees could be found.')];
 
-			const worktreeNodes = filterMap(
-				await Promise.allSettled(
-					map(sortWorktrees(worktrees), async w => {
-						let status;
-						let missing = false;
-						try {
-							status = await w.getStatus();
-						} catch (ex) {
-							Logger.error(ex, `Worktree status failed: ${w.uri.toString(true)}`);
-							missing = true;
-						}
-						return new WorktreeNode(this.uri, this.view, this, w, { status: status, missing: missing });
-					}),
-				),
-				r => (r.status === 'fulfilled' ? r.value : undefined),
-			);
+			const children = sortWorktrees(worktrees).map(w => new WorktreeNode(this.uri, this.view, this, w));
 
 			if (this.view.config.branches.layout === 'list' || this.view.config.worktrees.viewAs !== 'name') {
-				this.children = worktreeNodes;
-				return worktreeNodes;
+				this.children = children;
+				return children;
 			}
 
 			const hierarchy = makeHierarchical(
-				worktreeNodes,
+				children,
 				n => n.treeHierarchy,
 				(...paths) => paths.join('/'),
 				this.view.config.branches.compact,
