@@ -39,7 +39,7 @@ import { normalizePath } from '../../../../system/path';
 import { getSettledValue } from '../../../../system/promise';
 import { maybeStopWatch } from '../../../../system/stopwatch';
 import type { Git } from '../git';
-import { GitError, GitErrors, gitLogDefaultConfigs } from '../git';
+import { gitConfigsLog, GitError, GitErrors } from '../git';
 import type { LocalGitProvider } from '../localGitProvider';
 
 const emptyPagedResult: PagedResult<any> = Object.freeze({ values: [] });
@@ -92,7 +92,7 @@ export class BranchesGitSubProvider implements GitBranchesSubProvider {
 					{
 						cwd: repoPath,
 						cancellation: cancellation,
-						configs: gitLogDefaultConfigs,
+						configs: gitConfigsLog,
 						errors: GitErrorHandling.Ignore,
 					},
 					'log',

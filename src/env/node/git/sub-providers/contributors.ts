@@ -17,7 +17,7 @@ import { normalizePath } from '../../../../system/path';
 import type { Cancellable } from '../../../../system/promiseCache';
 import { PromiseCache } from '../../../../system/promiseCache';
 import type { Git } from '../git';
-import { gitLogDefaultConfigs } from '../git';
+import { gitConfigsLog } from '../git';
 import type { LocalGitProvider } from '../localGitProvider';
 
 export class ContributorsGitSubProvider implements GitContributorsSubProvider {
@@ -87,7 +87,7 @@ export class ContributorsGitSubProvider implements GitContributorsSubProvider {
 				const signal = timeout ? AbortSignal.timeout(timeout) : undefined;
 
 				const stream = this.git.stream(
-					{ cwd: repoPath, cancellation: cancellation, configs: gitLogDefaultConfigs, signal: signal },
+					{ cwd: repoPath, cancellation: cancellation, configs: gitConfigsLog, signal: signal },
 					'log',
 					...args,
 				);

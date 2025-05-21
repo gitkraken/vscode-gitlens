@@ -55,7 +55,7 @@ import { isFolderGlob, stripFolderGlob } from '../../../../system/path';
 import type { CachedLog, TrackedGitDocument } from '../../../../trackers/trackedDocument';
 import { GitDocumentState } from '../../../../trackers/trackedDocument';
 import type { Git, GitResult } from '../git';
-import { GitErrors, gitLogDefaultConfigs, gitLogDefaultConfigsWithFiles } from '../git';
+import { gitConfigsLog, gitConfigsLogWithFiles, GitErrors } from '../git';
 import type { LocalGitProviderInternal } from '../localGitProvider';
 import { convertStashesToStdin } from './stash';
 
@@ -171,7 +171,7 @@ export class CommitsGitSubProvider implements GitCommitsSubProvider {
 	async getCommitFiles(repoPath: string, rev: string, cancellation?: CancellationToken): Promise<GitFileChange[]> {
 		const parser = getShaAndFilesAndStatsLogParser();
 		const result = await this.git.exec(
-			{ cwd: repoPath, cancellation: cancellation, configs: gitLogDefaultConfigs },
+			{ cwd: repoPath, cancellation: cancellation, configs: gitConfigsLog },
 			'log',
 			...parser.arguments,
 			'-n1',
@@ -260,7 +260,7 @@ export class CommitsGitSubProvider implements GitCommitsSubProvider {
 
 		try {
 			const result = await this.git.exec(
-				{ cwd: repoPath, cancellation: cancellation, configs: gitLogDefaultConfigs },
+				{ cwd: repoPath, cancellation: cancellation, configs: gitConfigsLog },
 				'log',
 				...args,
 			);
@@ -513,7 +513,7 @@ export class CommitsGitSubProvider implements GitCommitsSubProvider {
 			const cmdOpts: GitCommandOptions = {
 				cwd: repoPath,
 				cancellation: cancellation,
-				configs: gitLogDefaultConfigsWithFiles,
+				configs: gitConfigsLogWithFiles,
 				stdin: stdin,
 			};
 			let { commits, count, countStashChildCommits } = await parseCommits(
@@ -983,7 +983,7 @@ export class CommitsGitSubProvider implements GitCommitsSubProvider {
 			}
 
 			const result = await this.git.exec(
-				{ cwd: repoPath, cancellation: cancellation, configs: gitLogDefaultConfigs },
+				{ cwd: repoPath, cancellation: cancellation, configs: gitConfigsLog },
 				'log',
 				...args,
 			);
@@ -1017,7 +1017,7 @@ export class CommitsGitSubProvider implements GitCommitsSubProvider {
 			}
 
 			const result = await this.git.exec(
-				{ cwd: repoPath, cancellation: cancellation, configs: gitLogDefaultConfigs },
+				{ cwd: repoPath, cancellation: cancellation, configs: gitConfigsLog },
 				'log',
 				...parser.arguments,
 				'--follow',
@@ -1143,7 +1143,7 @@ export class CommitsGitSubProvider implements GitCommitsSubProvider {
 					{
 						cwd: repoPath,
 						cancellation: cancellation,
-						configs: ['-C', repoPath, ...gitLogDefaultConfigs],
+						configs: ['-C', repoPath, ...gitConfigsLog],
 						stdin: stdin,
 					},
 					...args,

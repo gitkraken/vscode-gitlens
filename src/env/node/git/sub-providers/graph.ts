@@ -59,7 +59,7 @@ import type {
 	GraphTagContextValue,
 } from '../../../../webviews/plus/graph/protocol';
 import type { Git } from '../git';
-import { gitLogDefaultConfigs } from '../git';
+import { gitConfigsLog } from '../git';
 import type { LocalGitProvider } from '../localGitProvider';
 import { convertStashesToStdin } from './stash';
 
@@ -94,7 +94,7 @@ export class GraphGitSubProvider implements GitGraphSubProvider {
 		const [shaResult, stashResult, branchesResult, remotesResult, currentUserResult, worktreesResult] =
 			await Promise.allSettled([
 				this.git.exec(
-					{ cwd: repoPath, configs: gitLogDefaultConfigs },
+					{ cwd: repoPath, configs: gitConfigsLog },
 					'log',
 					...shaParser.arguments,
 					'-n1',
@@ -171,7 +171,7 @@ export class GraphGitSubProvider implements GitGraphSubProvider {
 				using _disposable = mixinDisposable(cancellation?.onCancellationRequested(() => aborter.abort()));
 
 				const stream = this.git.stream(
-					{ cwd: repoPath, configs: gitLogDefaultConfigs, signal: aborter.signal, stdin: stdin },
+					{ cwd: repoPath, configs: gitConfigsLog, signal: aborter.signal, stdin: stdin },
 					...args,
 					cursor?.skip ? `--skip=${cursor.skip}` : undefined,
 					'--',
@@ -546,7 +546,7 @@ export class GraphGitSubProvider implements GitGraphSubProvider {
 							args.push(`--${ordering}-order`, '--all');
 
 							const statsResult = await this.git.exec(
-								{ cwd: repoPath, configs: gitLogDefaultConfigs, stdin: stdin },
+								{ cwd: repoPath, configs: gitConfigsLog, stdin: stdin },
 								'log',
 								stdin ? '--stdin' : undefined,
 								...args,
@@ -704,7 +704,7 @@ export class GraphGitSubProvider implements GitGraphSubProvider {
 						{
 							cwd: repoPath,
 							cancellation: cancellation,
-							configs: ['-C', repoPath, ...gitLogDefaultConfigs],
+							configs: ['-C', repoPath, ...gitConfigsLog],
 							signal: aborter.signal,
 							stdin: stdin,
 						},
