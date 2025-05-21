@@ -801,10 +801,12 @@ export abstract class ViewBase<
 	): Promise<void> {
 		if (this.tree == null) return;
 
+		const scope = getLogScope();
+
 		try {
 			await this.tree.reveal(node, options);
 		} catch (ex) {
-			Logger.error(ex);
+			Logger.error(ex, scope);
 			debugger;
 		}
 	}
